@@ -29,8 +29,11 @@
   与 ``agent_loop_v2`` 生产路径同一实现(AGENT_COMPACTION_MODE=ratio 档),直接 Python
   调用,非模拟、非 TS 复现层。
 - ``--live`` 的 LLM 回答走 OpenAI 兼容 HTTP 直连:显式配置(env EVAL_LLM_API_BASE /
-  EVAL_LLM_API_KEY / EVAL_LLM_MODEL)优先,否则免费 keyless 通道(pollinations),
+  EVAL_LLM_API_KEY / EVAL_LLM_MODEL)优先,否则回落 keyless 通道(pollinations),
   不落库、不连生产(8810/8811),符合测试隔离铁律。
+  **实测更正(2026-10-02)**:那把 keyless 通道今天回 ``402 Payment Required``,已不是"免费可跑";
+  所以真跑数字目前必须显式配 EVAL_LLM_*。通道整轮一个回答都没拿到时脚本**退出码 2**(未判定),
+  不得把"跑完了而完成率全空"读成出数了。
 - dry-run 不调 LLM:回答判定列为「判不出(待真跑)」;事实保持率是**压缩后上下文的
   确定性可见性**(管线保住了什么,即模型答题的信息上限),不是模型答题正确率,
   后者只有 --live 才能量到。两种数字在报告中分开列示,不混用。
@@ -46,6 +49,7 @@ import json
 import logging
 import os
 import re
+import subprocess
 import sys
 from dataclasses import dataclass, field
 from datetime import date
@@ -63,8 +67,14 @@ from app.core.context_compaction import (  # noqa: E402
 logger = logging.getLogger("eval_compaction")
 
 EVAL_ROOT = Path(__file__).resolve().parent / "compaction_eval"
+REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_TASKS_PATH = EVAL_ROOT / "tasks.json"
 DEFAULT_OUTPUT_DIR = EVAL_ROOT / "outputs"
+
+# Windows 下派生控制台程序必须禁窗(AGENTS §5b)。Python 的 subprocess **没有** windowsHide
+# 这个参数(那是 Node child_process 的写法;照抄会 TypeError 而不是静默无效,实测炸过一次),
+# 等价开关是 creationflags=CREATE_NO_WINDOW;非 Windows 该平台常量不存在,取 0 即无操作。
+_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 # --live LLM 通道:显式配置(env)优先,其次免费 keyless 通道;均不落库、不连生产。
 ENV_LLM_API_BASE = "EVAL_LLM_API_BASE"
@@ -804,26 +814,88 @@ def build_report(
 
 
 def _inject_watermark(path: Path) -> None:
-    """报告是 git 跟踪的 .md,重生成会洗掉溯源水印 —— 生成器自带注入(§5c),失败即终止。"""
-    import subprocess
+    """报告是 git 跟踪的 .md,重生成会洗掉溯源水印 —— 生成器自带注入(§5c),失败即终止。
 
-    watermark = path.resolve().parents[5] / "scripts" / "watermark.mjs"
+    根目录由**本脚本自身位置**推导,不得由输出路径反推:`--output-dir` 指到别处时,
+    按输出路径取 parents[5] 会指向不存在的目录(实测踩过),而水印器永远在仓库根。
+    """
+    watermark = REPO_ROOT / "scripts" / "watermark.mjs"
     result = subprocess.run(
         ["node", str(watermark), "inject", str(path)],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=60,
+        creationflags=_NO_WINDOW,
     )
     if result.returncode != 0:
         raise RuntimeError(
             f"基线报告水印注入失败(rc={result.returncode}): {result.stderr or result.stdout}"
         )
 
+
+def _format_report(path: Path) -> None:
+    """用提交链同一把格式化器(prettier)排版报告。
+
+    不排版的后果:lint-staged 对 ``*.md`` 跑 ``prettier --write``,于是每次提交都被重排,
+    而生成器下一次重跑又写回未排版形态 —— 报告永远挂 `` M``,读起来像"别人在飞的改动"。
+
+    两种"这一趟不必排版"的情形都必须**打印**,不得静默(静默的跳过与"已排版"在账面上同形):
+    ① 输出在仓外(``--output-dir`` 指到临时目录),提交链根本不看它;
+    ② 输出落在被 ``.prettierignore`` 命中的路径(仓内临时区 ``.ihui-agent/tmp`` 就是这种)——
+      既然提交链也不会重排它,两边同形,没有可对齐的对象。
+    判"是否被忽略"只能问 ``--file-info``:被忽略的输入 ``--write/--check`` 都回 0
+    (本仓登记过的失效型),所以入库那一份的排版由常驻测试 ``test_compaction_eval_determinism``
+    反过来钉(``--file-info`` 必须是未忽略 + ``--check`` 必须回 0)。
+    """
+    try:
+        path.resolve().relative_to(REPO_ROOT)
+    except ValueError:
+        print(f"[eval_compaction] 输出在仓外,跳过排版对齐(提交链不看它): {path}")
+        return
+    prettier = REPO_ROOT / "node_modules" / ".bin" / "prettier.CMD"
+    if not prettier.exists():
+        raise RuntimeError(f"缺少格式化器 {prettier};仓内报告无法与提交链对齐")
+    # 显式指配置:向上查找可能拿到"无配置"的默认档,与提交链(lint-staged 在仓内跑)不同形。
+    rc_file = REPO_ROOT / ".prettierrc"
+    config_args = ["--config", str(rc_file)] if rc_file.exists() else []
+    info = subprocess.run(
+        [str(prettier), *config_args, "--file-info", str(path)],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+        creationflags=_NO_WINDOW,
+    )
+    if info.returncode != 0:
+        raise RuntimeError(
+            f"prettier --file-info 失败(rc={info.returncode}):{info.stderr or info.stdout} —— "
+            "拿不到「是否被忽略」就分不清该排与不该排,不猜"
+        )
+    if '"ignored": true' in (info.stdout or ""):
+        print(f"[eval_compaction] 输出被 .prettierignore 命中,跳过排版对齐(提交链也不会重排): {path}")
+        return
+
+    result = subprocess.run(
+        [str(prettier), "--write", str(path)],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+        creationflags=_NO_WINDOW,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"报告排版失败(rc={result.returncode}): {result.stderr or result.stdout}"
+        )
+
+
 def write_report(output_dir: Path, content: str) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     path = output_dir / f"compaction-eval-baseline-{date.today().isoformat()}.md"
     path.write_text(content, encoding="utf-8")
     _inject_watermark(path)
+    _format_report(path)
     return path
 
 
@@ -882,7 +954,7 @@ def main(argv: list[str] | None = None) -> int:
         mode = "--live"
         llm_desc = f"{cfg.provider} / {cfg.model}"
         checks = [
-            "评测集结构校验: 通过(12 任务,事实 3-5 条/任务,配对闭合,golden 可过判分器)",
+            f"评测集结构校验: 通过({len(tasks)} 任务,事实 3-5 条/任务,配对闭合,golden 可过判分器)",
             f"考早期细节任务数: {sum(1 for t in tasks if t.recalls_early_turns)}"
             f"(要求 ≥{MIN_EARLY_RECALL_TASKS})",
             "判分器三态自检(通过/失败/判不出): 通过",
@@ -931,6 +1003,16 @@ def main(argv: list[str] | None = None) -> int:
         f"[eval_compaction] 汇总: 压缩率 {_pct(total_comp, total_orig)}, "
         f"事实保持 {sum(r.facts_retained_context for r in results)}/{sum(r.facts_total for r in results)}"
     )
+    if args.live and answered == 0:
+        # "跑完了而一个回答都没有"不是通过:退出码必须与"跑过且有结论"区分开,
+        # 否则调用方会把一次通道全灭的运行登记成"当期数字已出"。
+        print(
+            "[eval_compaction] 未判定:--live 要求真跑,但 0 个任务拿到回答"
+            f"(通道 provider={cfg.provider} 不可用)。报告已写,完成率列无效,"
+            f"不得读成跑过;设 {ENV_LLM_API_BASE}/{ENV_LLM_API_KEY}/{ENV_LLM_MODEL} 换显式通道后重跑。",
+            file=sys.stderr,
+        )
+        return 2
     return 0
 
 

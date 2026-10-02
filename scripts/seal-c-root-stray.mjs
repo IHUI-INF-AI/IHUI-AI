@@ -30,16 +30,18 @@ import {
   lstatSync,
   mkdirSync,
   readFileSync,
-  readdirSync,
   readlinkSync,
   rmSync,
-  statSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
 import { basename, dirname, join, parse, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { countScratchSegments } from './lib/scratch-dir.mjs'
+// 搬完再删源的对账 = 与 §26 改道修复器共用**同一份**内容校验链(守门/台账 G-1018197):
+// 此前本工具自己只比"路径清单在不在",配上 cpSync 的 force:false,目标已有同名文件时
+// 保留的是目标侧旧字节,而源紧接着就被 rmSync 删掉了。
+import { fingerprintTree, diffFingerprint, firstContentMismatch } from './lib/mirror-verify.mjs'
 /**
  * pwsh 的唯一取径。§27/§5b 实测:本机 `pwsh` 常只在绝对路径(C:/Program Files/PowerShell/7),
  * 不在会话 PATH —— 裸 `pwsh.exe` 会 ENOENT,而 setLinkHidden 的 catch 把它与"PowerShell 报错"
@@ -169,9 +171,9 @@ export function pathsFor(entry, root, devEnv) {
 function setLinkHidden(link, wantHidden) {
   const dir = dirname(link)
   const name = basename(link)
-  const expr = wantHidden ?
-    `$i.Attributes = $i.Attributes -bor [System.IO.FileAttributes]::Hidden` :
-    `$i.Attributes = $i.Attributes -band (-bnot [System.IO.FileAttributes]::Hidden)`
+  const expr = wantHidden
+    ? `$i.Attributes = $i.Attributes -bor [System.IO.FileAttributes]::Hidden`
+    : `$i.Attributes = $i.Attributes -band (-bnot [System.IO.FileAttributes]::Hidden)`
   try {
     execFileSync(
       pwshBin(),
@@ -245,45 +247,21 @@ export function classifyEntry({ exists, isLink, linkTarget, expectedTarget, isDi
   return 'REAL-FILE'
 }
 
-/** 目录指纹(文件数 + 总字节 + 相对路径集),用于"搬完再删源"的对账。 */
+/**
+ * 目录指纹(文件数 + 总字节 + 相对路径集)。**枚举本身已收进共用层** —— 这里只是
+ * `fingerprintTree` 的投影,留 `{count,bytes,files}` 这个形状是因为巡检报告
+ * (`check-c-drive-pollution` 与 `sealedFootprint`)按它消费。
+ * 刻意**不**用它做删源前的对账:那个判据要逐文件字节与内容,走的是
+ * `diffFingerprint` + `firstContentMismatch`(见 sealOne)。
+ * 此前这里是一份自己走树的第二实现,而同样的树在 re-home-junctions 里还有第三份 —— 两份
+ * 对"什么算一致"的答案不同,正是这一型让内容差异在账面上完全隐身。
+ */
 function fingerprint(dir) {
-  const files = []
+  const tree = fingerprintTree(dir)
+  const files = [...tree.keys()].sort()
   let bytes = 0
-  const stack = [[dir, '']]
-  while (stack.length) {
-    const [cur, rel] = stack.pop()
-    let entries
-    try {
-      entries = readdirSync(cur, { withFileTypes: true })
-    } catch {
-      continue
-    }
-    for (const e of entries) {
-      const full = join(cur, e.name)
-      const r = rel ? `${rel}/${e.name}` : e.name
-      // 源侧遇到 reparse point 一律不跟随:宁可算少,也绝不把别人的链接目标当成我们的内容。
-      try {
-        if (lstatSync(full).isSymbolicLink()) continue
-      } catch {
-        continue
-      }
-      if (e.isDirectory()) stack.push([full, r])
-      else {
-        files.push(r)
-        try {
-          bytes += statSync(full).size
-        } catch {
-          /* 竞态:体积按 0 计,数量对账仍会拦下不一致 */
-        }
-      }
-    }
-  }
-  files.sort()
+  for (const size of tree.values()) bytes += size
   return { count: files.length, bytes, files }
-}
-
-function sameFingerprint(a, b) {
-  return a.count === b.count && a.bytes === b.bytes && a.files.join('|') === b.files.join('|')
 }
 
 /**
@@ -318,10 +296,20 @@ function sealOne(entry, root, devEnv, dryRun) {
   if (state === 'SEALED') {
     // 已是链接也要确保隐藏属性在位:封口被人重建过(新链接不带 H)就会重新露出来
     const kept = entry.hide === false || dryRun || ensureHidden(link, dryRun)
-    return { action: 'skip', ok: kept, note: kept ? '已封口' : '已封口,但隐藏属性设置失败(不影响改道)', state }
+    return {
+      action: 'skip',
+      ok: kept,
+      note: kept ? '已封口' : '已封口,但隐藏属性设置失败(不影响改道)',
+      state,
+    }
   }
   if (state === 'FOREIGN-LINK' || state === 'UNREADABLE-LINK')
-    return { action: 'touch-nothing', ok: false, note: `该名字已是指向别处的链接(${linkTarget ?? '读不到'})`, state }
+    return {
+      action: 'touch-nothing',
+      ok: false,
+      note: `该名字已是指向别处的链接(${linkTarget ?? '读不到'})`,
+      state,
+    }
   if (state === 'REAL-FILE')
     return { action: 'touch-nothing', ok: false, note: '盘根是个文件而非目录,不猜测意图', state }
 
@@ -344,29 +332,62 @@ function sealOne(entry, root, devEnv, dryRun) {
   mkdirSync(target, { recursive: true })
 
   if (state === 'REAL-DIR') {
-    const before = fingerprint(link)
     try {
       cpSync(link, target, { recursive: true, errorOnExist: false, force: false })
     } catch (e) {
       if (e.code !== 'EEXIST' && e.code !== 'EPERM')
         return { action: 'move', ok: false, note: `复制失败:${e.code || e.message}`, state }
-      // EEXIST = 目标里已有同名文件。本工具的语义是"改道",不是"覆盖":保留目标侧现有内容,
-      // 源侧那份留在那里不删,由下面的对账把差异暴露出来交人判。
+      // EEXIST = 目标里已有同名文件。本工具的语义是"改道",不是"覆盖":保留目标侧现有内容。
+      // 但"保留目标侧字节"意味着**源的内容根本没搬过去** —— 所以差异必须被下面的内容闸
+      // 拦下来,而不是留给"看一眼路径清单"的对账放过去(那正是 G-1018197 的病灶三段)。
     }
-    const after = fingerprint(target)
-    const missing = before.files.filter((f) => !after.files.includes(f))
-    if (missing.length) {
+    // 快照取复制**之后**的源:边写边搬的目录里,"复制前的源"与"复制后的目标"可能永远对不上,
+    // 而对上又不等于安全 —— 判据必须问"此刻要删掉的那份东西,目标里是否逐字节存在"。
+    const srcFp = fingerprintTree(link)
+    const dstFp = fingerprintTree(target)
+    const d = diffFingerprint(srcFp, dstFp)
+    // diffFingerprint(a=src, b=dst) 的方向必须是**现在读一遍实现**而不是凭印象:
+    // onlyA = 源有而目标没有(= 真没复制上,绝不能删源);onlyB = 目标多出源没有的东西
+    // (= 合法合并形态,目标里可能是上次搬进来的内容或别人的文件,这不构成拒绝理由)。
+    if (d.onlyA.length) {
       return {
         action: 'move',
         ok: false,
-        note: `复制后目标仍缺 ${missing.length} 个文件(例 ${missing.slice(0, 3).join(', ')})⇒ 拒绝删源`,
+        note: `复制后目标仍缺 ${d.onlyA.length} 个文件(例 ${d.onlyA.slice(0, 3).join(', ')})⇒ 拒绝删源`,
+        state,
+      }
+    }
+    if (d.differ.length) {
+      return {
+        action: 'move',
+        ok: false,
+        note:
+          `同路径但字节数不同 ${d.differ.length} 个(例 ${d.differ.slice(0, 3).join(', ')})` +
+          ' ⇒ 不建 junction、不删源;多半是目标侧已有同名旧文件而 cpSync(force:false) 按定义不覆盖',
+        state,
+      }
+    }
+    // 最终内容闸:尺寸全等而内容不同 —— 上一版的对账看不见这一格,而它的下一步就是 rmSync 删源。
+    const mismatch = firstContentMismatch(link, target, srcFp, dstFp)
+    if (mismatch !== null) {
+      return {
+        action: 'move',
+        ok: false,
+        note:
+          `尺寸全等而内容不同(首个:${mismatch})⇒ 不建 junction、不删源;` +
+          '目标侧那份是别人的字节,源侧这份只存在于源,删掉就是销毁数据',
         state,
       }
     }
     try {
       rmSync(link, { recursive: true, force: true })
     } catch (e) {
-      return { action: 'unlink-source', ok: false, note: `源删除失败:${e.code || e.message}(目标内容完好)`, state }
+      return {
+        action: 'unlink-source',
+        ok: false,
+        note: `源删除失败:${e.code || e.message}(目标内容完好)`,
+        state,
+      }
     }
   }
 
@@ -449,7 +470,18 @@ function selfTest() {
   }
 
   t('classifyEntry:不存在 → MISSING', () =>
-    eq(classifyEntry({ exists: false, isLink: false, linkTarget: null, expectedTarget: 'x', isDir: false }), 'MISSING', '形态'))
+    eq(
+      classifyEntry({
+        exists: false,
+        isLink: false,
+        linkTarget: null,
+        expectedTarget: 'x',
+        isDir: false,
+      }),
+      'MISSING',
+      '形态',
+    ),
+  )
   t('classifyEntry:指向期望目标 → SEALED', () =>
     eq(
       classifyEntry({
@@ -461,7 +493,8 @@ function selfTest() {
       }),
       'SEALED',
       '形态',
-    ))
+    ),
+  )
   t('classifyEntry:指向别处 → FOREIGN-LINK(不得当成已封口)', () =>
     eq(
       classifyEntry({
@@ -473,13 +506,21 @@ function selfTest() {
       }),
       'FOREIGN-LINK',
       '形态',
-    ))
+    ),
+  )
   t('classifyEntry:真目录 → REAL-DIR(会被搬)', () =>
     eq(
-      classifyEntry({ exists: true, isLink: false, linkTarget: null, expectedTarget: 'x', isDir: true }),
+      classifyEntry({
+        exists: true,
+        isLink: false,
+        linkTarget: null,
+        expectedTarget: 'x',
+        isDir: true,
+      }),
       'REAL-DIR',
       '形态',
-    ))
+    ),
+  )
   t('封口名字表必须是相对名(防止把整盘路径写进 join 而逃逸)', () => {
     for (const e of SEALED_DIRS) {
       if (/[\\/:]/.test(e.name)) throw new Error(`name 必须是单段目录名:${e.name}`)
@@ -512,16 +553,77 @@ function selfTest() {
     if (!r.needsAction) throw new Error('check 报「无需处理」⇒ 本工具会永远绿灯')
   })
   t('apply 把真目录改道:路径仍可达 + 内容逐文件一致 + 源已变 junction', () => {
+    // 把"源侧此刻有什么"先量下来,才配在 apply 之后说"逐文件一致"。
+    // 旧写法只读回一个 marker,而 marker 恰好是同名同内容的那种文件 —— cpSync 保留
+    // 目标侧旧字节时它同样读得出 'must-survive'(G-1018197 病灶⑤:自检标题承诺内容对账,
+    // 实际只验了单个路径)。
+    const srcMap = new Map()
+    for (const rel of fingerprintTree(stray).keys()) srcMap.set(rel, readFileSync(join(stray, rel)))
     const r = runFake('apply')
     const ent = r.sealed[SEALED_DIRS.findIndex((x) => x.name === 'persistent_data')]
     if (!ent || !ent.ok) throw new Error(`封口失败:${ent && ent.note}`)
     if (!lstatSync(stray).isSymbolicLink()) throw new Error('源没变成 junction')
     if (readFileSync(marker, 'utf8') !== 'must-survive') throw new Error('经路径读不回原内容')
+    const dstTree = fingerprintTree(join(fakeDev, 'cache/c-root-stray/persistent_data'))
+    if (srcMap.size !== dstTree.size)
+      throw new Error(`逐文件对账不闭合:源 ${srcMap.size} 个 / 目标 ${dstTree.size} 个`)
+    for (const [rel, buf] of srcMap) {
+      const got = readFileSync(join(fakeDev, 'cache/c-root-stray/persistent_data', rel))
+      if (!got.equals(buf)) throw new Error(`目标侧 ${rel} 的字节与源不同 ⇒ 改道丢了内容`)
+    }
+  })
+
+  // —— 内容闸的端到端夹具(G-1018197 三段病灶里最贵的那一段) ——
+  // 场景:目标里**已有同名同尺寸、内容不同**的文件。cpSync(force:false) 按定义不覆盖 ⇒
+  // 源的内容根本没搬过去;旧对账只看"路径清单",于是下一步 rmSync 会把只存在于源的那份字节删掉。
+  const clash = join(scratch, `seal-clash-${Date.now()}`)
+  const clashRoot = join(clash, 'root')
+  const clashDev = join(clash, 'devenv')
+  const clashEntry = SEALED_DIRS.find((e) => e.name === 'common_attachment')
+  const clashStray = join(clashRoot, clashEntry.name)
+  const clashTarget = pathsFor(clashEntry, clashRoot, clashDev).target
+  const mkClash = (dstBytes, srcBytes) => {
+    rmSync(clash, { recursive: true, force: true })
+    mkdirSync(join(clashStray, 'sub'), { recursive: true })
+    mkdirSync(join(clashTarget, 'sub'), { recursive: true })
+    writeFileSync(join(clashStray, 'sub', 'dup.bin'), srcBytes)
+    writeFileSync(join(clashTarget, 'sub', 'dup.bin'), dstBytes)
+  }
+  // run().sealed 的条目**没有 name 字段**(sealOne 只返回 {action,ok,note,state}),
+  // 按名字 find 会恒得 undefined ⇒ 用例读起来像"闸没生效"而实际是夹具取错了行(与既有的
+  // persistent_data 用例同一取法:按 SEALED_DIRS 的下标取)。
+  const clashIdx = SEALED_DIRS.indexOf(clashEntry)
+  const clashEnt = () => run({ root: clashRoot, devEnv: clashDev, mode: 'apply' }).sealed[clashIdx]
+  t('目标已有同名同尺寸而内容不同的文件 ⇒ 拒绝删源,源仍是真目录且字节完好', () => {
+    mkClash('BBBBBBBB', 'AAAAAAAA')
+    const ent = clashEnt()
+    if (!ent || ent.ok || ent.action !== 'move')
+      throw new Error(`内容闸没拦住:${ent ? `${ent.action}/${ent.note}` : '该条目不在结果里'}`)
+    if (lstatSync(clashStray).isSymbolicLink()) throw new Error('拒绝删源却还是建了 junction')
+    const kept = readFileSync(join(clashStray, 'sub', 'dup.bin'), 'utf8')
+    if (kept !== 'AAAAAAAA') throw new Error(`源侧内容被改/被删:${JSON.stringify(kept)}`)
+  })
+  t('目标同名而尺寸不同 ⇒ 同样拒绝(这一格旧对账连"清单齐不齐"都判得出是绿的)', () => {
+    mkClash('BBB', 'AAAAAAAA')
+    const ent = clashEnt()
+    if (!ent || ent.ok) throw new Error(`尺寸闸没生效:${ent && ent.note}`)
+    if (readFileSync(join(clashStray, 'sub', 'dup.bin'), 'utf8') !== 'AAAAAAAA')
+      throw new Error('源被删了')
+  })
+  t('合法合并形态不得被闸死:目标多出源没有的文件,只要源的东西都在且逐字节相同,照旧封口', () => {
+    mkClash('AAAAAAAA', 'AAAAAAAA')
+    writeFileSync(join(clashTarget, 'sub', 'other.bin'), 'belongs-to-target')
+    const ent = clashEnt()
+    if (!ent || !ent.ok) throw new Error(`正当的合并式改道被拦:${ent && ent.note}`)
+    if (!lstatSync(clashStray).isSymbolicLink()) throw new Error('没封口')
+    if (readFileSync(join(clashTarget, 'sub', 'other.bin'), 'utf8') !== 'belongs-to-target')
+      throw new Error('目标侧原有内容被动了')
   })
   t('幂等:再跑一次 apply 必须只 skip,且不得把链接当目录再搬', () => {
     const r = runFake('apply')
     const bad = r.sealed.filter((s) => s.action !== 'skip')
-    if (bad.length) throw new Error(`二次运行仍在动:${bad.map((b) => `${b.action}/${b.note}`).join(' , ')}`)
+    if (bad.length)
+      throw new Error(`二次运行仍在动:${bad.map((b) => `${b.action}/${b.note}`).join(' , ')}`)
   })
   t('check 在已封口后必须报「无需处理」', () => {
     if (runFake('check').needsAction) throw new Error('已封口仍报待处置 ⇒ 每日巡检会天天红')
@@ -544,7 +646,8 @@ function selfTest() {
     if (isHiddenInParentListing(parentListing(dirname(target)), basename(target)))
       throw new Error('Hidden 落在目标上 ⇒ 藏掉的是 D 盘数据目录,C 盘那个名字照旧可见')
     // 隐藏只该影响浏览,不该影响穿透 —— 这才是"设隐藏会不会弄坏改道"的真正答案
-    if (readFileSync(join(stray, 'keep.txt'), 'utf8') !== 'through') throw new Error('隐藏后读不回原内容')
+    if (readFileSync(join(stray, 'keep.txt'), 'utf8') !== 'through')
+      throw new Error('隐藏后读不回原内容')
     writeFileSync(join(stray, 'w2.txt'), 'ok')
     if (!existsSync(join(target, 'w2.txt'))) throw new Error('隐藏后写入没落到目标 ⇒ 穿透被破坏')
     rmSync(b, { recursive: true, force: true })
@@ -573,6 +676,7 @@ function selfTest() {
     }
   }
   rmSync(fake, { recursive: true, force: true })
+  rmSync(clash, { recursive: true, force: true })
   console.log(`\nseal-c-root-stray 自检:${cases.length - failed}/${cases.length} 通过`)
   return failed ? 1 : 0
 }
@@ -589,7 +693,9 @@ function main(argv) {
   console.log(`盘根写歪项封口 —— 模式 ${mode}(盘根 ${root} → 外置根 ${r.devEnv})`)
   // run() 按 SEALED_DIRS 顺序 map,故下标即身份;不靠 note 文案反查名字。
   r.sealed.forEach((s, i) => {
-    console.log(`  ${s.ok ? '✔' : '✖'} ${SEALED_DIRS[i].name.padEnd(18)} [${s.state ?? '-'}→${s.action}] ${s.note}`)
+    console.log(
+      `  ${s.ok ? '✔' : '✖'} ${SEALED_DIRS[i].name.padEnd(18)} [${s.state ?? '-'}→${s.action}] ${s.note}`,
+    )
   })
   for (const o of r.orphans) {
     const full = join(root, o.name)
@@ -602,13 +708,26 @@ function main(argv) {
   if (mode === 'apply') {
     const fp = sealedFootprint(root, r.devEnv)
     const mb = fp.reduce((s, i) => s + i.bytes, 0) / 1048576
-    console.log(`\n封口目标实际占用(已在 D 盘,不占 C):${mb.toFixed(2)} MB / ${fp.reduce((s, i) => s + i.count, 0)} 个文件`)
+    console.log(
+      `\n封口目标实际占用(已在 D 盘,不占 C):${mb.toFixed(2)} MB / ${fp.reduce((s, i) => s + i.count, 0)} 个文件`,
+    )
   }
   if (mode === 'check') return r.needsAction ? 1 : 0
   return r.sealed.every((s) => s.ok) && r.orphans.every((o) => o.ok) ? 0 : 1
 }
 
-export const __test__ = { classifyEntry, fingerprint, sameFingerprint, devEnvRoot, pathsFor, SEALED_DIRS, ORPHAN_FILES }
+// `sameFingerprint` 此前在本文件里是**死码**(定义了、除了 __test__ 没人调用),且它比的是
+// {count,bytes,files} 这种"路径清单"形状 —— 与共用层那份比 Map<rel,size> 的同名函数**同词不同义**。
+// 把两个不同契约挤在同一个名字下正是本仓记过的那一型,所以这里直接摘掉本文件那一份,
+// 判据一律走 `./lib/mirror-verify.mjs`。
+export const __test__ = {
+  classifyEntry,
+  fingerprint,
+  devEnvRoot,
+  pathsFor,
+  SEALED_DIRS,
+  ORPHAN_FILES,
+}
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {

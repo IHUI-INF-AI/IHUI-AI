@@ -4,6 +4,7 @@
 
 import type { NextRequest } from 'next/server'
 import { base64UrlDecode } from '@ihui/shared/utils/jwt-utils'
+import { isSameOriginRelativePath } from '@ihui/shared/auth/sso-core'
 
 // 纯函数下沉到共享层(2026-08-01,AGENTS.md §3 共享层优先)
 // decodeUserFromToken / isAdmin / isAuthenticated / AuthTokenUser 现由 @ihui/shared/auth 提供,
@@ -21,11 +22,17 @@ export {
 
 /**
  * 获取 redirect 查询参数。
- * 仅允许站内相对路径(以单个 / 开头),防止开放重定向攻击。
+ * 仅允许站内相对路径,防止开放重定向攻击。
+ *
+ * 判据不自写:与 @/lib/sso-redirect-guard、服务端 `apps/api/src/routes/auth-sso.ts`
+ * 的 isSafeRedirectUri 问的是同一件事,两处各写一遍必漂移(G-1018194 实测本文件旧写法只挡
+ * `//`,而 `/\evil.com` 在 WHATWG 下与 `//evil.com` 同分支 ⇒ 跨站)。现读:本函数**没有生产
+ * 调用方**(只有自身用例),所以这一改是 prophylactic 而非补漏 —— 但"没人用"不等于"可以留一份
+ * 弱判据等人接"。
  */
 export function getRedirectPath(request: NextRequest): string {
   const redirect = request.nextUrl.searchParams.get('redirect')
-  if (redirect && redirect.startsWith('/') && !redirect.startsWith('//')) {
+  if (redirect && isSameOriginRelativePath(redirect)) {
     return redirect
   }
   return '/'

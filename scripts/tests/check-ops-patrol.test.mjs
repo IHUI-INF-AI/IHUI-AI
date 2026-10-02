@@ -576,4 +576,152 @@ test('P5 备份产出:逐库出头,一库齐备不得替另一库作证(注入�
     rmSync(base, { recursive: true, force: true })
   }
 })
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * P9 邮件通道活性 / P10 未送达欠账(2026-10-01 补)。
+ * 同样一律 import 源文件的尺子(§22c):镜像里重写"什么算未判定",就等于没在测它。
+ * ───────────────────────────────────────────────────────────────────────────── */
+const { parseProbeOutput, mailProbeDue, mailProbeRow, loadDebtAcks, ackCoversDebt, debtAnchor, checkUndeliveredAlertDebt } = mod.__test__
+
+// 逐字取自 2026-10-01 本机真跑 `--probe` 的输出(§22c:判据的对象是"某个真实文件的形态"时,
+// 输入必须取自那个文件 —— 自造夹具只会复读实现自己的形状)。
+const REAL_PROBE_OUT = [
+  '[probe] smtp=ok 握手与认证通过(smtp.qq.com:587)',
+  '[probe] resend=undetermined 该通道没有零投递的核验出口 —— 要确证需 --probe-deliver 真发一封',
+  '[probe] 结论:至少一条通道确证可用;零投递,未占用收件人',
+].join('\n')
+
+test('TP1 P9 结论解析:真形态必须被看见,垃圾输入不得被读成结论', () => {
+  const got = parseProbeOutput(REAL_PROBE_OUT)
+  assert.ok(got, '真派发器的输出解不出来 ⇒ 整维失明')
+  assert.equal(got.channels.smtp.verdict, 'ok')
+  assert.equal(got.channels.resend.verdict, 'undetermined')
+  // 恒 0 / 恒真是同一枚硬币的两面:解不出必须返回 null,绝不能给一个空结论
+  assert.equal(parseProbeOutput('node: internal error'), null)
+  assert.equal(parseProbeOutput(''), null)
+  assert.equal(parseProbeOutput('[probe] smtp=ok x'), null, '只有通道行没有结论行 ⇒ 不得当作已判')
+})
+
+test('TP2 P9 三态不并桶:可用绿 / 失败红 / 一条没确证未判定,且措辞不含逐轮变动的量', () => {
+  const at = Date.parse('2026-10-01T12:00:00.000Z')
+  const row = (rc, smtp) => mailProbeRow({ rc, channels: { smtp, resend: { verdict: 'undetermined', why: 'x' } } }, { atMs: at })
+  assert.equal(row(0, { verdict: 'ok', why: 'ok' }).state, 'ok')
+  assert.equal(row(1, { verdict: 'fail', why: '535' }).state, 'finding')
+  const und = row(2, { verdict: 'unconfigured', why: '缺 SMTP_HOST' })
+  assert.equal(und.state, 'undetermined', '一条都没确证却被并成通过或失败')
+  assert.match(und.detail, /不得读成/)
+  for (const r of [row(0, { verdict: 'ok', why: 'ok' }), row(1, { verdict: 'fail', why: '535' }), und])
+    assert.doesNotMatch(r.detail, /距今|已挂\s*\d+\s*分钟/, `发信指纹吃 detail,含逐轮变动的量 = 每轮一封新信:${r.detail}`)
+})
+
+test('TP3 P9 节流单位:24 小时不是 24 分钟,tick 取不到一律视为该重探', () => {
+  const now = Date.parse('2026-10-01T12:00:00.000Z')
+  const H = 3600_000
+  assert.equal(mailProbeDue(now + 24 * H - 1, now), false, '差 1ms 到班次就重探 ⇒ 间隔被读小了')
+  assert.equal(mailProbeDue(now + 24 * H, now), true, '满 24h 仍不重探 ⇒ 节流变成了永久静音')
+  assert.equal(mailProbeDue(now, NaN), true, '取不到 tick 必须"该跑了",否则首次/被清理后永不探')
+})
+
+test('TP4 P9/P10 必须真住在 patrol 的装配里,而 P10 的裁决台账必须被喂进判据', () => {
+  const s = src('scripts/check-ops-patrol.mjs')
+  const body = s.slice(s.indexOf('export async function patrol'), s.indexOf('export function loadAdjudications'))
+  assert.match(body, /await checkMailChannelLiveness\(/, 'P9 写了没接线 = 没有这台尺子')
+  assert.match(body, /checkUndeliveredAlertDebt\(/, 'P10 写了没接线 = 没有这台尺子')
+  assert.match(body, /loadDebtAcks\(\)/, '裁决台账没人读 ⇒ 这条队列没有死亡机制,会一路红到有人删判据')
+  assert.match(body, /acks: debtAcks\.entries/, '读了台账却不喂给判据 ⇒ "已裁"在账面上永远不生效')
+  // 构造面反向对照:上面那条正则必须真会因摘线而不匹配(否则它是个恒真断言)
+  const unwired = body.replace('acks: debtAcks.entries })', '})')
+  assert.doesNotMatch(unwired, /acks: debtAcks\.entries/, '这条锁自己无牙:摘掉喂线它仍然匹配')
+})
+
+test('TP5 P10 逐条裁决:免掉必须当场对上一次真投递,缺字段/到期/指纹或时刻不符都不放行', () => {
+  const now = Date.parse('2026-10-01T12:00:00.000Z')
+  const FP = 'a'.repeat(40)
+  const TS = now - 6 * 3600_000
+  const good = {
+    alert: '备份失败',
+    fp: FP,
+    atTs: new Date(TS).toISOString(),
+    reason: '机主已确认无需补发',
+    owner: '机主',
+    reviewBy: '2099-01-01',
+  }
+  assert.equal(ackCoversDebt({ ack: good, name: '备份失败', fp: FP, ts: TS, now }), true)
+  assert.equal(ackCoversDebt({ ack: { ...good, fp: 'b'.repeat(40) }, name: '备份失败', fp: FP, ts: TS, now }), false, '指纹不同 = 另一个故障,一条裁决不得替它背书')
+  // 时刻档:同名同指纹的**另一笔**未送达必须是新账。少了它,一次裁决就变成一个告警名的永久静音,
+  // 而"同一件故障复发"时 detail 只有绝对时刻 ⇒ 指纹常常就是同一个,单靠 fp 分不开两次。
+  assert.equal(ackCoversDebt({ ack: { ...good, atTs: new Date(TS - 86_400_000).toISOString() }, name: '备份失败', fp: FP, ts: TS, now }), false, '时刻不符仍免账 = 复发无声')
+  assert.equal(ackCoversDebt({ ack: { ...good, atTs: undefined }, name: '备份失败', fp: FP, ts: TS, now }), false, '不带 atTs 的裁决生效 = 五件套退化成四件套')
+  assert.equal(ackCoversDebt({ ack: { ...good, atTs: '不是日期' }, name: '备份失败', fp: FP, ts: TS, now }), false, 'atTs 写坏了必须不放行,而不是被 Date.parse 静默当成 NaN 比较通过')
+  assert.equal(ackCoversDebt({ ack: { ...good, reason: '  ' }, name: '备份失败', fp: FP, ts: TS, now }), false, '缺字段仍生效')
+  assert.equal(ackCoversDebt({ ack: { ...good, reviewBy: '2020-01-01' }, name: '备份失败', fp: FP, ts: TS, now }), false, '已到期的裁决仍在免账 = 抑制没有终态')
+  assert.equal(ackCoversDebt({ ack: { ...good, reviewBy: '不是日期' }, name: '备份失败', fp: FP, ts: TS, now }), false, 'reviewBy 写坏了等于永久静音')
+  // 键只有一份实现:台账侧的 ms 数与裁决侧的 ISO 串必须归一到同一个键
+  // (两侧各拼一遍必然漂开,而漂开的表现是"失效裁决"那一档静默不报名)。
+  assert.equal(debtAnchor('备份失败', FP, TS), debtAnchor(' 备份失败 ', FP, new Date(TS).toISOString()), 'ms 与 ISO 必须归一(否则裁决永远对不上台账)')
+  assert.notEqual(debtAnchor('备份失败', FP, TS), debtAnchor('备份失败', FP, TS + 1), '时刻没进键 = 一次裁决替所有复发背书')
+})
+
+test('TP6 P10 三态与出口:挂账红 / 逐条裁过绿且报名 / 台账坏 JSON 未判定 / 空台账不读成零欠账', () => {
+  const base = mkdtempSync(join(scratchRoot(), 'ops-p10-mirror-'))
+  try {
+    const now = Date.parse('2026-10-01T12:00:00.000Z')
+    const repo = join(base, 'repo')
+    const wb = join(repo, '.workbuddy')
+    mkdirSync(wb, { recursive: true })
+    const st = join(wb, 'git-guardian-notify-state.json')
+    const FP = 'a'.repeat(40)
+    writeFileSync(st, JSON.stringify({ 备份失败: { fp: FP, ts: now - 6 * 3600_000, delivered: false } }), 'utf8')
+    const red = checkUndeliveredAlertDebt({ repoRoot: repo, now })
+    assert.equal(red.state, 'finding')
+    assert.match(red.detail, /从未到人/)
+    const acked = checkUndeliveredAlertDebt({
+      repoRoot: repo,
+      now,
+      acks: [
+        {
+          alert: '备份失败',
+          fp: FP,
+          atTs: new Date(now - 6 * 3600_000).toISOString(),
+          reason: '机主已确认无需补发',
+          owner: '机主',
+          reviewBy: '2099-01-01',
+        },
+      ],
+    })
+    assert.equal(acked.state, 'ok', acked.detail)
+    // 反向臂:台账同一笔,裁决指向**另一笔**的时刻 ⇒ 必须照旧红(端到端证"时刻进键"真的生效,
+    // 而不只是纯函数那一层)
+    const wrongOccurrence = checkUndeliveredAlertDebt({
+      repoRoot: repo,
+      now,
+      acks: [
+        {
+          alert: '备份失败',
+          fp: FP,
+          atTs: new Date(now - 90 * 24 * 3600_000).toISOString(),
+          reason: '裁的是另一笔',
+          owner: '机主',
+          reviewBy: '2099-01-01',
+        },
+      ],
+    })
+    assert.equal(wrongOccurrence.state, 'finding', '另一笔时刻的裁决免掉了这一笔 ⇒ 键里的时刻没起作用')
+    // 免掉 ≠ 通过:必须留下"被谁免的、几条"的痕迹,否则下一次读报告的人会以为通道正常
+    assert.match(acked.detail, /已逐条裁过 1 条/)
+    writeFileSync(st, '{坏', 'utf8')
+    const broken = checkUndeliveredAlertDebt({ repoRoot: repo, now })
+    assert.equal(broken.state, 'undetermined', '台账坏了却报"无欠账" = 把没判写成判过了')
+    assert.match(broken.detail, /git-guardian-notify-state\.json/)
+    rmSync(st)
+    const empty = checkUndeliveredAlertDebt({ repoRoot: repo, now })
+    assert.equal(empty.state, 'ok')
+    assert.match(empty.detail, /不是"欠账为零"/, '没有台账这一维必须说清它不等于零欠账')
+    assert.equal(loadDebtAcks(join(base, 'no-such.json')).readError, null, '文件不在位应是"零裁决"而非错误')
+    writeFileSync(join(base, 'bad.json'), '{', 'utf8')
+    assert.match(String(loadDebtAcks(join(base, 'bad.json')).readError), /解析失败|Cannot|JSON/, '坏台账必须带回原因')
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
