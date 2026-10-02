@@ -48,9 +48,9 @@ describe('SendFunnelTelemetry 三事件漏斗', () => {
     expect(event.properties.total_cost_ms).toBe(1235)
     expect(event.properties.ack_cost_ms).toBe(210)
     // 相减即"回流 + 渲染"段:1235 - 210
-    expect((event.properties.total_cost_ms as number) - (event.properties.ack_cost_ms as number)).toBe(
-      1025,
-    )
+    expect(
+      (event.properties.total_cost_ms as number) - (event.properties.ack_cost_ms as number),
+    ).toBe(1025)
     expect(event.properties.queue_confirmed).toBe(true)
     expect(event.properties.session_id).toBe('s-1')
     expect(event.properties.command_id).toBe('cmd-1')
