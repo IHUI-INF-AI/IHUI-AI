@@ -6,6 +6,9 @@
 //
 //   V1 可见几何档不同:两端各自的数字/类名档全部归一到 px 再比集合 —— 这就是用户看到的那一处不一样。
 //   S1 同名组件两端各有一份实现:这才是"改一端、另一端不自动同步"的结构性根因,所以它单独计数报出。
+//   RS 根槽位圆角(G-629):同名配对的**组件根**在两端各取了哪一档 —— RD/RE 比"两个文件里各取
+//        一个集合",证不了"同一元素在两端声明于不同层"(小程序根上 8、RN 挪到各屏 wrapper 16,
+//        而两个文件里的档集合恰好相等 ⇒ RD 恒 0,这一型只有槽位级比较看得见)。
 //
 // 样式语言(className vs StyleSheet)与 props 命名只随读数打印 —— 它们是 S1 的证据,不是观感本身。
 //
@@ -40,7 +43,13 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, gitBinary, gitRaw, selectFace, Undetermined } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
-import { radiusEntriesOf, radiusLookup, radiusSetOf } from './lib/radius-tokens.mjs'
+import {
+  constantMapOf,
+  radiusEntriesOf,
+  radiusItemsInLine,
+  radiusLookup,
+  radiusSetOf,
+} from './lib/radius-tokens.mjs'
 import { facePx } from './lib/length-units.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -62,7 +71,11 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
  */
 const SIDES = {
   miniapp: ['apps/miniapp-taro/src/components'],
-  rn: ['packages/app/src/components', 'packages/app/src/features', 'apps/mobile-rn/src/components'],
+  rn: [
+    'packages/app/src/components',
+    'packages/app/src/features',
+    'apps/mobile-rn/src/components',
+  ],
 }
 /**
  * 每端"自己屏幕上那份"的目录前缀。可达性层(pruneUnreachableLegs)按端各跑一遍图,
@@ -250,7 +263,9 @@ export function readGeometry(src, side, tiers = {}) {
    * 落地面是 `runtime` —— 否则小程序 `minHeight:'120px'` 会被当成样式表的 120px 折成 60,
    * 而对面写的 120 是真 120,一次折半就把同档读成分叉(实测 AgentRuntimePanel)。
    */
-  for (const m of code.matchAll(/([a-z][\w]*(?:-[a-z0-9]+)*)\s*[:=]\s*(['"`])([^'"`\n]*)\2/gi)) {
+  for (const m of code.matchAll(
+    /([a-z][\w]*(?:-[a-z0-9]+)*)\s*[:=]\s*(['"`])([^'"`\n]*)\2/gi,
+  )) {
     if (!keyed(m[1].replace(/-([a-z])/g, (_, c) => c.toUpperCase()))) continue
     for (const raw of m[3].trim().split(/\s+/)) {
       const one = /^(\d+(?:\.\d+)?)(rpx|px)$/.exec(raw)
@@ -773,6 +788,294 @@ export function specLegAudit(pairs, text, tiers) {
   return out
 }
 
+/* ───────────────── RS 维:根槽位(render root)圆角对账 ─────────────────
+ *
+ * G-629 立的那一格:「同一元素在两端声明于不同层」。RD 比文件级档值集合、RE 按元素名配对,
+ * 两者都回答不了 Carousel 的形态:小程序把容器圆角声明在**组件根**、RN 声明在**各屏外层
+ * wrapper** —— RN 组件文件里恰好也有 4/6/8 三档(内层元素),于是 `[4,6,8]` 对 `[4,6,8]`
+ * ⇒ RD 恒 0;两侧元素名一个都对不上 ⇒ RE 零判据。集合相等只说明**候选档**相同,不说明
+ * **同一个渲染元素**取了同一档;而"挪回 wrapper"这种回归,正是利用了这种巧合相消。
+ *
+ * RS 的槽位定义:**组件体顶层 `return` 直接吐出的那个 JSX 元素**(空态 return 与主 return
+ * 都算 —— 它们是同一元素在不同数据帧的形态)。这个槽位在两端**按构造就是同一个元素**
+ * (配对的就是这个组件),不靠名字猜。判两类:
+ *  - 一端根上有档、另一端根上无档 ⇒ 圆角被声明到了组件外( wrapper / 调用方)= 票面回归形态;
+ *  - 两端根上都取了档但档值不同 ⇒ 同一元素两端不同档(用户看到的那一处不一样)。
+ * 两端根上都无档 = 一致(合法:不是所有组件根都是圆角容器),不进 findings。
+ * 未判定(锚不到 export default / return 间接吐出 / HOC 包裹)逐条点名,不当"一致"记。
+ */
+
+/**
+ * 跳过一条 JS 字符串字面量,返回闭引号之后的下标。模板串连 `${}` 内部一起跳
+ * (已知边界:`${}` 里再嵌反引号会跳错 —— 表现为该侧根锚定失败进未判定,不会读出假档)。
+ */
+function skipJsString(code, at) {
+  const n = code.length
+  const q = code[at]
+  let j = at + 1
+  while (j < n) {
+    const c = code[j]
+    if (c === '\\') {
+      j += 2
+      continue
+    }
+    if (q === '`' && c === '$' && code[j + 1] === '{') {
+      let d = 1
+      j += 2
+      while (j < n && d > 0) {
+        if (code[j] === '{') d++
+        else if (code[j] === '}') d--
+        else if (code[j] === '\\') j++
+        j++
+      }
+      continue
+    }
+    if (c === q) return j + 1
+    j++
+  }
+  return n
+}
+
+/** 读一个 JSX 开标签(属性里的花括号/引号都配平),`>` 结束;读不完(超长/畸形)返回 null。 */
+function readJsxOpenTag(code, start) {
+  const n = code.length
+  let depth = 0
+  for (let i = start; i < n && i - start < 8000; i++) {
+    const c = code[i]
+    if (c === '"' || c === "'" || c === '`') {
+      i = skipJsString(code, i) - 1
+      continue
+    }
+    if (c === '{') depth++
+    else if (c === '}') depth--;
+    else if (c === '>' && depth === 0) return { text: code.slice(start, i + 1), end: i + 1 }
+  }
+  return null
+}
+
+/** `return` 之后渲染"没有东西"的形态,不得把整族打进未判定(`if (!x) return null` 守卫太常见)。 */
+const RETURN_NOTHING_RE = /^(?:null|undefined|true|false)\b/
+
+/**
+ * 从 `export default` 起做**串感知**的深度走查,收集组件体顶层 return 直接吐出的 JSX 开标签。
+ * 三层判据缺一不可:
+ *  - `export default` 锚定:配对的是"这个组件自己",不是文件里任意函数;
+ *  - `paren === 0`:回调(`.map(() => <View …/>)`)里的 return 在括号深度里,它渲染的是列表项
+ *    不是组件根 —— 算进根集合,根槽位就被子元素档污染(实测 Carousel 的指示点
+ *    rounded-md/sm 就住在 map 回调里,两端都有,混进来只会制造对称噪声);
+ *  - `brace >= 1`:函数体内。
+ * `export default X`(标识符)解到声明处再走查(只解一跳,再包一层 HOC 判未判定);
+ * `export default hoc(…)` 判 indirect —— 那种组件的根根本不在本文件的直接 return 上。
+ */
+export function rootSlotTagsOf(code) {
+  const anchor = /\bexport\s+default\b/.exec(code)
+  if (!anchor) return { tags: [], anchored: false, indirect: false }
+  let start = anchor.index
+  const after = code.slice(anchor.index).replace(/^export\s+default\s+/, '')
+  const idm = /^[A-Za-z_$][\w$]*/.exec(after)
+  if (idm && !/^(?:function|async)\b/.test(after)) {
+    // `export default X` —— 解到 X 的声明处;解不到或声明仍是 HOC 调用 ⇒ 间接,不猜
+    const decl = new RegExp(`\\b(?:function|const|let|var)\\s+${idm[0]}\\b`).exec(code)
+    if (decl) {
+      const rhs = code.slice(decl.index).replace(
+        new RegExp(`^(?:function|const|let|var)\\s+${idm[0]}\\b[^=;{]*?=\\s*`),
+        '',
+      )
+      if (/^[A-Za-z_$][\w$]*\s*\(/.test(rhs.trim())) return { tags: [], anchored: true, indirect: true }
+      start = decl.index
+    } else {
+      const afterDecl = code.slice(anchor.index)
+      // `export default X;` 且 X 在**前面**声明 —— 同样解声明处
+      const back = new RegExp(`\\b(?:function|const|let|var)\\s+${idm[0]}\\b`).exec(
+        code.slice(0, anchor.index),
+      )
+      if (!back) return { tags: [], anchored: true, indirect: true }
+      start = back.index
+      void afterDecl
+    }
+  } else {
+    const hocm = /^\s*[A-Za-z_$][\w$]*\s*\(/.exec(after)
+    if (hocm && !/^\s*\(/.test(after)) return { tags: [], anchored: true, indirect: true }
+  }
+  const n = code.length
+  let paren = 0
+  let brace = 0
+  let i = start
+  const tags = []
+  let indirect = false
+  while (i < n) {
+    const c = code[i]
+    if (c === '"' || c === "'" || c === '`') {
+      i = skipJsString(code, i)
+      continue
+    }
+    if (c === '(') {
+      paren++
+      i++
+      continue
+    }
+    if (c === ')') {
+      paren--
+      i++
+      continue
+    }
+    if (c === '{') {
+      brace++
+      i++
+      continue
+    }
+    if (c === '}') {
+      brace--
+      i++
+      if (brace < 0) break
+      continue
+    }
+    if (
+      paren === 0 &&
+      brace >= 1 &&
+      c === 'r' &&
+      code.startsWith('return', i) &&
+      !/[\w$]/.test(code[i - 1] ?? '') &&
+      !/[\w$]/.test(code[i + 6] ?? '')
+    ) {
+      let j = i + 6
+      while (j < n && /\s/.test(code[j])) j++
+      let open = j
+      if (code[j] === '(') {
+        open = j + 1
+        while (open < n && /\s/.test(code[open])) open++
+      }
+      if (code[open] === '<' && /[A-Za-z>]/.test(code[open + 1] ?? '')) {
+        const tag = readJsxOpenTag(code, open)
+        if (tag) {
+          tags.push(tag.text)
+          i = tag.end
+          continue
+        }
+        indirect = true
+        i = open
+        continue
+      }
+      if (code[j] !== '(' && !RETURN_NOTHING_RE.test(code.slice(j)) && !/['"`;)]/.test(code[j]))
+        indirect = true
+      i += 6
+      continue
+    }
+    i++
+  }
+  return { tags, anchored: true, indirect }
+}
+
+/** 在同文件里解 `objName = { … }`(含 StyleSheet.create)下 `key: { … }` 的块文本;解不到返回 null。 */
+function objectKeyBlock(code, objName, key) {
+  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const decl = new RegExp(`\\b${esc(objName)}\\s*=\\s*(?:StyleSheet\\.create\\s*\\(\\s*)?\\{`).exec(code)
+  if (!decl) return null
+  const n = code.length
+  let d = 0
+  let bodyEnd = -1
+  for (let i = decl.index + decl[0].length - 1; i < n; i++) {
+    if (code[i] === '{') d++
+    else if (code[i] === '}') {
+      d--
+      if (d === 0) {
+        bodyEnd = i
+        break
+      }
+    }
+  }
+  if (bodyEnd < 0) return null
+  const body = code.slice(decl.index + decl[0].length, bodyEnd)
+  const keyDecl = new RegExp(`\\b${esc(key)}\\s*:\\s*\\{`).exec(body)
+  if (!keyDecl) return null
+  d = 0
+  for (let i = keyDecl.index + keyDecl[0].length - 1; i < body.length; i++) {
+    if (body[i] === '{') d++
+    else if (body[i] === '}') {
+      d--
+      if (d === 0) return body.slice(keyDecl.index + keyDecl[0].length, i)
+    }
+  }
+  return null
+}
+
+/**
+ * 根槽位上的圆角档集合。覆盖三种声明层:className 里的 utility/任意值(含内联 style 对象的
+ * `borderRadius:`)由 `radiusItemsInLine` 那一份判据直读;`style={styles.x}` 引用解到同文件
+ * 的样式块;className 里的**本地样式表类名**(圆角写进同名 .css 的根)解到那条规则 ——
+ * 少最后这一支,小程序把根圆角收进 .css 的合法写法会被读成"根上无档"的假分叉。
+ * `tiers: null` = 根槽位读不出(未判定),与"根上没有档"(空集)是两件事,不得互写。
+ */
+export function rootSlotRadiiOf(src, table) {
+  const code = stripComments(src)
+  const { tags, anchored, indirect } = rootSlotTagsOf(code)
+  if (!anchored) return { tiers: null, anchored: false, indirect: false }
+  if (indirect || !tags.length) return { tiers: null, anchored: true, indirect, rootless: !tags.length }
+  const consts = constantMapOf(src)
+  const tiers = new Set()
+  for (const tag of tags) {
+    for (const it of radiusItemsInLine(tag, table, consts)) if (it.px !== null) tiers.add(it.px)
+    for (const m of tag.matchAll(/\bstyle\s*=\s*\{([^{}]*)\}/g))
+      for (const r of m[1].matchAll(/([A-Za-z_$][\w$]*)\s*\.\s*([A-Za-z_$][\w$]*)/g)) {
+        const block = objectKeyBlock(code, r[1], r[2])
+        if (!block) continue
+        for (const line of block.split('\n'))
+          for (const it of radiusItemsInLine(line, table, consts)) if (it.px !== null) tiers.add(it.px)
+      }
+    for (const lit of tag.matchAll(/['"]([^'"\n]+)['"]/g))
+      for (const token of lit[1].split(/\s+/)) {
+        if (!/^[a-z][a-z0-9-]*$/.test(token) || token.length <= 3) continue
+        const rule = new RegExp(`\\.${token}(?![\\w-])[^{}]*\\{([^{}]*)\\}`, 'g')
+        for (const m of code.matchAll(rule))
+          for (const it of radiusItemsInLine(m[1], table, consts)) if (it.px !== null) tiers.add(it.px)
+      }
+  }
+  return { tiers: [...tiers].sort((a, b) => a - b), anchored: true, indirect: false }
+}
+
+/** 一条配对的根槽位读数;两端都读不出 = 未判定,一端读不出也整族未判定(不猜另一端)。 */
+export function rootSlotAudit(pairs, text, table, styles = {}) {
+  const findings = []
+  const undetermined = []
+  for (const p of pairs.pairs) {
+    if (text[p.miniapp] === undefined || text[p.rn] === undefined) continue
+    const ra = rootSlotRadiiOf(withLocalStyles(text, styles, p.miniapp), table)
+    const rb = rootSlotRadiiOf(withLocalStyles(text, styles, p.rn), table)
+    if (!ra.anchored || !rb.anchored) {
+      undetermined.push({
+        name: p.name,
+        why: `export default 锚不到(${!ra.anchored ? 'miniapp' : 'rn'}侧)⇒ 根槽位这一维没看,不当"一致"记`,
+      })
+      continue
+    }
+    if (ra.tiers === null || rb.tiers === null) {
+      undetermined.push({
+        name: p.name,
+        why: '根槽位读不出(间接 return / HOC 包裹 / 根由子组件代渲染)⇒ 未判定,不得记成"两端根上都无档"',
+      })
+      continue
+    }
+    if (!ra.tiers.length && !rb.tiers.length) continue
+    if (JSON.stringify(ra.tiers) === JSON.stringify(rb.tiers)) continue
+    findings.push({ name: p.name, miniapp: ra.tiers, rn: rb.tiers })
+  }
+  return { findings, undetermined }
+}
+
+/** RS 棘轮:本轮判红 = 出现在 findings 里而 HEAD 面没有这一族读数(HEAD 已分叉的族只报数)。 */
+export function rootSlotDelta(findings, headFindings) {
+  const head = new Set((headFindings ?? []).map((f) => f.name))
+  return (findings ?? []).filter((f) => !head.has(f.name))
+}
+
+/**
+ * 组件正文 + 它自己 import 的本地样式表 —— 与 audit() 里 RD/RE 的取材**同一个表达式**,
+ * 抽出来只此一份:两处各拼一遍必然漂移(漂移的表现是两维读到的不是同一份材料)。
+ */
+function withLocalStyles(text, styles, f) {
+  return text[f] + (styles[f] ?? '')
+}
+
 /**
  * G —— 几何表与**它自己的类型声明**对账。
  *
@@ -1148,11 +1451,7 @@ export function exitPreferMaps(repoRoot, face, multiCandidates) {
   const files = new Set(all)
   const pre = face === 'staged' ? ':' : 'HEAD:'
   const manifests = all.filter((p) => /^(?:apps|packages)\/[^/]+\/package\.json$/.test(p))
-  const gotM = catBatch(
-    repoRoot,
-    manifests.map((r) => pre + r),
-    { maxBuffer: 1 << 26 },
-  )
+  const gotM = catBatch(repoRoot, manifests.map((r) => pre + r), { maxBuffer: 1 << 26 })
   const pkgDir = new Map()
   const pkgEntry = new Map()
   for (const rel of manifests) {
@@ -1591,11 +1890,7 @@ export function collect(
    * 而是主腿那一维静默归零(实测 LoginPopUp / UserInfoCard 在主腿有账)。
    */
   const rejFor = (leg) =>
-    new Set(
-      rejected.filter(
-        (n) => (n in rejectMap ? rejectLegs(rejectMap[n]) : { main: true, web: true })[leg],
-      ),
-    )
+    new Set(rejected.filter((n) => (n in rejectMap ? rejectLegs(rejectMap[n]) : { main: true, web: true })[leg]))
   const rejSet = rejFor('main')
   const rejWebSet = rejFor('web')
   const lists = {}
@@ -1673,12 +1968,7 @@ export function collect(
     coverageNote = pruned.note ?? null
     fallbacks = pruned.fallbacks ?? []
   }
-  const need = [
-    ...new Set([
-      ...pairs.pairs.flatMap((p) => [p.miniapp, p.rn]),
-      ...webPairs.flatMap((p) => [p.miniapp, p.rn]),
-    ]),
-  ]
+  const need = [...new Set([...pairs.pairs.flatMap((p) => [p.miniapp, p.rn]), ...webPairs.flatMap((p) => [p.miniapp, p.rn])])]
   const text = {}
   const specs = need.map((rel) => (face === 'staged' ? ':' : 'HEAD:') + rel)
   const got = catBatch(repoRoot, specs, { maxBuffer: 1 << 28 })
@@ -1928,11 +2218,7 @@ export function elementRadiusDiff(a, b) {
     const rb = ib.map.get(id)
     if (ra !== undefined && rb !== undefined) {
       if (String(norm(A[ra])) !== String(norm(B[rb])))
-        mismatched.push({
-          name: ra === rb ? ra : `${ra}|${rb}`,
-          miniapp: norm(A[ra]),
-          rn: norm(B[rb]),
-        })
+        mismatched.push({ name: ra === rb ? ra : `${ra}|${rb}`, miniapp: norm(A[ra]), rn: norm(B[rb]) })
     } else if (ra !== undefined) onlyMiniapp.push(ra)
     else onlyRn.push(rb)
   }
@@ -2022,6 +2308,14 @@ export function usedClassNames(src) {
  * (与本次"阴影半径被当盒档"同一型,那枚是靠既有锚点才拦住的)。
  * 所以这里只把"用了全局类名"这件事如实报出来;要真去接全局表,前置是先解决**归属**问题。
  */
+/**
+ * 第三参 `globalDefined` 目前**只传不用**(调用点 2057 真传了真集合,函数体不消费它):
+ * 上面那段头注记着原因 —— 69 份全局表按类名锚定收进读数时,类名提取会捞进
+ * `react` / `image` / `active` 这类非类名字符串,而它们在全端确实有同名规则
+ * ⇒ 把别处的档算到这个组件头上,归因过宽比漏读更贵。真要接这张表,前置是先解决**归属**问题。
+ * 参数名带 `_` 是为了保住调用点的签名契约(传了 = 归属问题已记下,不是漏传),同时不再被
+ * `no-unused-vars` 判红 —— 前序实现留下的死参,由该门自己拦住提交才暴露出来。
+ */
 export function unresolvedClassNames(src, ownCssText, _globalDefined = null) {
   const used = usedClassNames(src)
   if (!used.size) return []
@@ -2050,8 +2344,8 @@ export function audit(pairs, text, baseline = {}, tiers = {}, radiusTable = null
      * 与 §4 记过的"CSS 声明形态整面隐身"是同一条洞。分开喂是因为 IC 判的是图标载体,
      * 把样式表里的 `url(...)` 混进来会改动那条维的既有口径(要扩也得单独一笔)。
      */
-    const aAll = a + (styles[p.miniapp] ?? '')
-    const bAll = b + (styles[p.rn] ?? '')
+    const aAll = withLocalStyles(text, styles, p.miniapp)
+    const bAll = withLocalStyles(text, styles, p.rn)
     const ga = readGeometry(aAll, 'miniapp', tiers)
     const gb = readGeometry(bAll, 'rn', tiers)
     const named = namedConflicts(ga.named, gb.named)
@@ -2183,16 +2477,7 @@ export function webRadiusAudit(webPairs, text, radiusTable, styles = {}) {
   return { findings, undetermined }
 }
 
-export function verdictOf(
-  findings,
-  baseline,
-  keys = {
-    counts: 'counts',
-    radius: 'radiusCounts',
-    element: 'elementRadiusCounts',
-    waivers: 'waivers',
-  },
-) {
+export function verdictOf(findings, baseline, keys = { counts: 'counts', radius: 'radiusCounts', element: 'elementRadiusCounts', waivers: 'waivers' }) {
   // 台账子账按 `keys` 选,而不是给 web 腿再写一份比较逻辑:锚点只拦上升、下降要报名、
   // 台账腐烂要当场红 —— 这三条判序两腿必须逐字同形。两处各写一遍必然漂开,而漂开的表现
   // 是"主腿收紧了、web 腿还在放过"(或反过来把不该红的 web 腿按主腿额度判红)。
@@ -2303,14 +2588,7 @@ export function anchorRegression(prior, next) {
   const waivedWeb = waivedSet(prior?.[WEB_LEDGER.waivers])
   // web 腿的子账**必须一起核**:漏掉就是"主腿只允许下降、web 腿随便涨",而涨的那一份
   // 没人会去查(台账里明明写着"锚点只拦新增"—— 那是一句只对一半的账)。
-  for (const key of [
-    'counts',
-    'radiusCounts',
-    'elementRadiusCounts',
-    WEB_LEDGER.counts,
-    WEB_LEDGER.radius,
-    WEB_LEDGER.element,
-  ]) {
+  for (const key of ['counts', 'radiusCounts', 'elementRadiusCounts', WEB_LEDGER.counts, WEB_LEDGER.radius, WEB_LEDGER.element]) {
     const waivedNames = key.startsWith('web') ? waivedWeb : waivedMain
     const before = prior?.[key] ?? {}
     const after = next?.[key] ?? {}
@@ -2490,21 +2768,31 @@ export function main(argv, repoRoot = ROOT) {
    * "修掉了 web 那一侧"顶掉主腿的名额(净零逃逸,守门 134 扩布尔档键同一课)。所以子账独立、
    * 判序复用 `verdictOf`(只换 keys),两腿的红各自进退出码。
    */
-  const web = webRadiusAudit(
-    collected.webPairs,
-    collected.text,
-    collected.radius,
-    collected.styles ?? {},
-  )
+  const web = webRadiusAudit(collected.webPairs, collected.text, collected.radius, collected.styles ?? {})
   const webVerdict = verdictOf(web.findings, baseline, WEB_LEDGER)
   /**
    * 台账里"被 web 腿钉过"的族名单。**在 JSON 分支之前算**:`--json` 那一支也在同一块作用域里,
    * 放到函数末尾会让它读到 TDZ 中的 const(症状是崩溃,不是"少一个字段")。
    */
   const webPriorKeys = Object.keys(baseline[WEB_LEDGER.radius] ?? {}).filter(
-    (n) =>
-      (baseline[WEB_LEDGER.radius]?.[n] ?? 0) > 0 || (baseline[WEB_LEDGER.counts]?.[n] ?? 0) > 0,
+    (n) => (baseline[WEB_LEDGER.radius]?.[n] ?? 0) > 0 || (baseline[WEB_LEDGER.counts]?.[n] ?? 0) > 0,
   )
+  /**
+   * RS 根槽位读数(G-629)必须在 `--json` 分支**之前**算好 —— json 面也读它,放到分支后面
+   * 就是 TDZ 崩溃(实测第一版就这么炸的:症状不是"少一个字段",是整门 rc 2)。
+   * 棘轮基面只在索引面收(HEAD 面 → rsRed 恒空 = 存量不当场判红,§12e 同型)。
+   */
+  const rs = rootSlotAudit(collected.pairs, collected.text, collected.radius, collected.styles ?? {})
+  let rsRed = []
+  if (face !== 'head' && rs.findings.length) {
+    const baseRs = rootSlotAudit(
+      headBase().pairs,
+      headBase().text,
+      headBase().radius,
+      headBase().styles ?? {},
+    )
+    rsRed = rootSlotDelta(rs.findings, baseRs.findings)
+  }
   if (argv.includes('--emit-baseline')) {
     const next = emitBaseline(res.findings, baseline, web.findings)
     /**
@@ -2551,6 +2839,9 @@ export function main(argv, repoRoot = ROOT) {
         })),
         // RE 的射程边界也要能被机器读:下一票(给两腿立同一套元素名)的输入就是这两列名单。
         radiusUnpaired: res.radiusUnpaired ?? [],
+        // RS 根槽位(G-629):机器可读的"同一元素两端声明于不同层"账 —— 消费方是下一票
+        // (把槽位比较从根扩到全渲染路径)的唯一输入,只印人读面又得抄终端当取证。
+        rootSlot: { findings: rs.findings, undetermined: rs.undetermined, red: rsRed.map((r) => r.name) },
         unreachable: (collected.unreachableLegs ?? []).map((u) => ({ name: u.name, legs: u.legs })),
         undeterminedEdges: (collected.undeterminedEdges ?? []).length,
         // 配对射程也要能被机器读:下一票(按语义槽配对)的输入就是这两份名单,
@@ -2750,9 +3041,9 @@ export function main(argv, repoRoot = ROOT) {
           `  ? WD 整腿未判定:${collected.webBlocked} —— 这一维今天**没在看**,不得读成"web 与小程序已一致"`,
         )
       for (const l of wlines.slice(0, 20)) console.log(l)
-      if (wlines.length > 20)
-        console.log(`     · 其余 ${wlines.length - 20} 对同上(不静默省略计数)`)
-      for (const u of web.undetermined.slice(0, 8)) console.log(`  ? WD ${u.name}:${u.why}`)
+      if (wlines.length > 20) console.log(`     · 其余 ${wlines.length - 20} 对同上(不静默省略计数)`)
+      for (const u of web.undetermined.slice(0, 8))
+        console.log(`  ? WD ${u.name}:${u.why}`)
       if (web.undetermined.length > 8)
         console.log(`  ? 其余 ${web.undetermined.length - 8} 处 WD 未判定同上`)
       for (const r of webVerdict.red)
@@ -2812,10 +3103,17 @@ export function main(argv, repoRoot = ROOT) {
    * 平台确有单侧控件(RN 的 <Switch>、小程序走 chooseMessageFile 无录音界面),判红必成假阳。
    */
   let icRed = []
+  // 棘轮基面(HEAD)**只收集一次**,IC / SL / RS 三个维共用:各collect一遍既慢又可能漂
+  // (同一提交里三处取到的 HEAD 面必须相同,共用一份才保证)。
+  let headCollected = null
+  const headBase = () => {
+    if (!headCollected) headCollected = collect(repoRoot, 'head', { pairAll, aliases })
+    return headCollected
+  }
   const ic = iconAudit(collected.pairs, collected.text)
   if (ic.length) {
     if (face !== 'head') {
-      const base = collect(repoRoot, 'head', { pairAll, aliases })
+      const base = headBase()
       const baseIc = new Map(
         iconAudit(base.pairs, base.text).map((x) => [x.name, { mp: x.bitmap, rn: x.rnBitmap }]),
       )
@@ -2860,7 +3158,7 @@ export function main(argv, repoRoot = ROOT) {
   let slRed = []
   if (sl.length) {
     if (face !== 'head') {
-      const base = collect(repoRoot, 'head', { pairAll, aliases })
+      const base = headBase()
       const baseSl = new Map(
         specLegAudit(base.pairs, base.text, base.tiers).map((x) => [
           x.name,
@@ -2884,6 +3182,24 @@ export function main(argv, repoRoot = ROOT) {
           '(一档只被一条腿引用 = 另一条腿还没走单一源;不得靠给单端补数字消账)',
       )
     }
+  }
+  /*
+   * ── RS 根槽位圆角对账(G-629:「同一元素在两端声明于不同层」)─────────────
+   * 读数已在 --json 分支前算好(rs / rsRed),这里只负责打印。
+   */
+  if (!argv.includes('--json')) {
+    for (const x of rs.findings)
+      console.log(
+        `  ${rsRed.some((r) => r.name === x.name) ? '×' : '·'} RS ${x.name} 根槽位圆角 小程序[${x.miniapp.join('/')}] vs RN[${x.rn.join('/')}] —— ` +
+          '同一元素(组件根)在两端声明于不同层或取了不同档;把圆角挪回外层 wrapper 的一端根上必无档',
+      )
+    for (const u of rs.undetermined) console.log(`  ? RS ${u.name}:${u.why}`)
+    if (rs.findings.length || rs.undetermined.length)
+      console.log(
+        `根槽位圆角对账 ${rs.findings.length} 族 → 新增判红 ${rsRed.length} / 只报数 ${rs.findings.length - rsRed.length}` +
+          ` / 未判定 ${rs.undetermined.length}(RS 维,槽位 = 组件体顶层 return 直接吐出的元素;` +
+          'RD/RE 的集合相等证不了它,见 G-629)',
+      )
   }
   /*
    * ── PAIR 拆对声明对账 ───────────────────────────────────────────
@@ -3003,7 +3319,9 @@ export function main(argv, repoRoot = ROOT) {
     return 1
   }
   if (aliasRed) return 1
-  return rotRed + res.red.length + icRed.length + slRed.length + rejRed + (geoRed ? 1 : 0) ? 1 : 0
+  // rsRed 追加在求和行**末尾**:㊽/㊩ 两条装车锁按相邻子串钉死中段(`+ slRed.length + rejRed +
+  // (geoRed ? 1 : 0)` 与 `rotRed + res.red.length + icRed.length`),插进中段会同时打红既有锁。
+  return rotRed + res.red.length + icRed.length + slRed.length + rejRed + (geoRed ? 1 : 0) + rsRed.length ? 1 : 0
 }
 
 /**
@@ -3666,9 +3984,13 @@ function runSelfTest() {
       // ③ 修饰符不参与身份:panel--active ↔ panel 必须配上(md=6 vs lg=8 ⇒ 应报分叉)
       const modifier = has(d.mismatched, /panel/)
       // ④ 缩写前缀**不折**(票面明令:那是猜测)⇒ 两边都只能算单侧元素
-      const notGuessed = has(d.onlyMiniapp, /mcd-upload-btn/) && has(d.onlyRn, /uploadBtn/)
+      const notGuessed =
+        has(d.onlyMiniapp, /mcd-upload-btn/) && has(d.onlyRn, /uploadBtn/)
       // ⑤ 反向锁:同一侧两个原始名折叠到同一身份时**不得配对**(并档会造"同值"假绿灯)
-      const collide = elementRadiusDiff({ a__card: [8], b__card: [12] }, { card: [8] })
+      const collide = elementRadiusDiff(
+        { 'a__card': [8], 'b__card': [12] },
+        { card: [8] },
+      )
       const guarded =
         collide.mismatched.length === 0 &&
         collide.onlyRn.includes('card') &&
@@ -3677,7 +3999,7 @@ function runSelfTest() {
     })(),
   )
   t(
-    '(函数在、自检过,而 audit 没调 = 提交链上一路绿灯,本仓最高频失效型)',
+      '(函数在、自检过,而 audit 没调 = 提交链上一路绿灯,本仓最高频失效型)',
     (() => {
       const body = readFileSync(fileURLToPath(import.meta.url), 'utf8')
       const a = body.slice(
@@ -4380,10 +4702,7 @@ function runSelfTest() {
       const web = verdictOf([f], webLedger, WEB_LEDGER)
       const webAfter = verdictOf([f], { webCounts: {}, webRadiusCounts: { Card: 2 } }, WEB_LEDGER)
       return (
-        main.red.length === 0 &&
-        web.red.length === 1 &&
-        webAfter.red.length === 0 &&
-        web.red[0].radiusCount === 2
+        main.red.length === 0 && web.red.length === 1 && webAfter.red.length === 0 && web.red[0].radiusCount === 2
       )
     })(),
   )
@@ -4440,17 +4759,10 @@ function runSelfTest() {
       '缺省(不写 legs)= 两腿都拆(既有 FloatBox 声明逐字不改行为)',
     (() => {
       const future = new Date(Date.now() + 86400 * 300).toISOString().slice(0, 10)
-      const badLegName = rejectProblem({
-        reason: '两端不是同一个东西,证据见头注',
-        until: future,
-        legs: ['nope'],
-      })
-      const emptyLegs = rejectProblem({
-        reason: '两端不是同一个东西,证据见头注',
-        until: future,
-        legs: [],
-      })
-      const shape = badLegName === null ? false : /腿名/.test(badLegName)
+      const badLegName = rejectProblem({ reason: '两端不是同一个东西,证据见头注', until: future, legs: ['nope'] })
+      const emptyLegs = rejectProblem({ reason: '两端不是同一个东西,证据见头注', until: future, legs: [] })
+      const shape =
+        badLegName === null ? false : /腿名/.test(badLegName)
       const both = rejectLegs({ reason: 'x', until: future })
       const onlyWeb = rejectLegs({ reason: 'x', until: future, legs: ['web'] })
       if (!(both.main && both.web && !onlyWeb.main && onlyWeb.web)) return false
@@ -4467,11 +4779,7 @@ function runSelfTest() {
       }
       const dir = makeFixtureRepo(files)
       try {
-        const decl = {
-          reason: 'web 那份同名件是另一端口的死副本,与小程序/RN 不是同一个元素',
-          until: future,
-          legs: ['web'],
-        }
+        const decl = { reason: 'web 那份同名件是另一端口的死副本,与小程序/RN 不是同一个元素', until: future, legs: ['web'] }
         const w = collect(dir, 'head', { rejected: ['Foo'], rejectMap: { Foo: decl } })
         const m = collect(dir, 'head', {
           rejected: ['Foo'],
@@ -4488,7 +4796,13 @@ function runSelfTest() {
         })
         const legacyBoth =
           !legacy.pairs.pairs.some((p) => p.name === 'Foo') && legacy.webRejected.length === 1
-        return plain.webRejected.length === 0 && mainKept && webSplit && mainSplit && legacyBoth
+        return (
+          plain.webRejected.length === 0 &&
+          mainKept &&
+          webSplit &&
+          mainSplit &&
+          legacyBoth
+        )
       } finally {
         rmScratch(dir)
       }
@@ -4659,15 +4973,18 @@ function runSelfTest() {
     })(),
   )
   t(
-    '㊳ 装车锁:别名表必须由 main 喂进 collect,且 HEAD 棘轮那两次基线取样同样要喂' +
+    '㊳ 装车锁:别名表必须由 main 喂进 collect,且 HEAD 棘轮的基线取样走共享 headBase、同样要喂' +
       '(漏喂 ⇒ 本轮多出的配对在基准侧不存在,别人欠的债会被算成新增红)',
     (() => {
       const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
       return (
-        /collect\(repoRoot, face, \{ pairAll, rejected: rejNames, rejectMap: rej, aliases \}\)/.test(
-          src,
-        ) &&
-        (src.match(/collect\(repoRoot, 'head', \{ pairAll, aliases \}\)/g) ?? []).length === 2 &&
+        /collect\(repoRoot, face, \{ pairAll, rejected: rejNames, rejectMap: rej, aliases \}\)/.test(src) &&
+        // 共享基面只收集一次,但必须喂 aliases 且被 IC / SL / RS 三维共用:
+        // 各写一遍 collect 就会各取各面(同一提交里三处 HEAD 读数可能不同),漏 aliases 则
+        // 别名族在基准侧不存在 ⇒ 那一族的存量债被读成新增红。
+        /const headBase = \(\) => \{/.test(src) &&
+        /collect\(repoRoot, 'head', \{ pairAll, aliases \}\)/.test(src) &&
+        (src.match(/headBase\(\)/g) ?? []).length >= 3 &&
         /if \(aliasRed\) return 1/.test(src) &&
         /aliasPairs: \(collected\.pairs\?\.pairs \?\? \[\]\)/.test(src)
       )
@@ -4864,9 +5181,7 @@ function runSelfTest() {
       const suffixed = 'apps/miniapp-taro/src/components/Foo.taro.tsx'
       const a = pickCandidate([plain, suffixed], plain)
       const b = pickCandidate([suffixed, plain], plain)
-      return (
-        a.chosen === suffixed && a.by === 'suffix' && b.chosen === suffixed && b.by === 'suffix'
-      )
+      return a.chosen === suffixed && a.by === 'suffix' && b.chosen === suffixed && b.by === 'suffix'
     })(),
   )
   t(
@@ -5165,6 +5480,209 @@ function runSelfTest() {
       )
     })(),
   )
+  /**
+   * KO–KW 是 RS 维(G-629「同一元素在两端声明于不同层」)的成对正反例。它们存在的理由与
+   * S18–S20 同一条:Carousel 已经把这一型送到眼前(小程序根上声明、RN 在各屏 wrapper,
+   * 两个文件的档集合恰好相等 ⇒ RD 恒 0),而修法落地后判据没跟上 —— 谁把圆角挪回 wrapper,
+   * 集合类判据一个都不会喊。只加判据不加"判据有牙"的对照,下次换个写法它照样瞎。
+   */
+  t(
+    'KO RS 阳性(票面回归形态):圆角挪回外层 wrapper、内层档恰好凑平集合 ⇒ RD 全绿而 RS 必须点名',
+    (() => {
+      const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+      const mp =
+        'export default function C(){\n  return (\n    <View className="rounded-2xl">\n      <View className="rounded-lg" />\n    </View>\n  )\n}\n'
+      const rn =
+        'export default function C(){\n  return (\n    <View>\n      <View className="rounded-2xl" />\n      <View className="rounded-lg" />\n    </View>\n  )\n}\n'
+      const p = { pairs: [{ name: 'Foo', miniapp: 'a/Foo.tsx', rn: 'b/Foo.tsx' }] }
+      const rd = audit(p, { 'a/Foo.tsx': mp, 'b/Foo.tsx': rn }, {}, {}, tbl)
+      const rs = rootSlotAudit(p, { 'a/Foo.tsx': mp, 'b/Foo.tsx': rn }, tbl)
+      return (
+        rd.findings.length === 0 &&
+        rs.findings.length === 1 &&
+        JSON.stringify(rs.findings[0].miniapp) === '[16]' &&
+        JSON.stringify(rs.findings[0].rn) === '[]'
+      )
+    })(),
+  )
+  t(
+    'KP RS 阴性:两端根同档 = 一致;两端根都无档 = 一致(不是所有组件根都是圆角容器),都不点名',
+    (() => {
+      const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+      const p = { pairs: [{ name: 'Foo', miniapp: 'a/Foo.tsx', rn: 'b/Foo.tsx' }] }
+      const same = rootSlotAudit(
+        p,
+        {
+          'a/Foo.tsx': 'export default function C(){return <View className="rounded-2xl"/>\n}\n',
+          'b/Foo.tsx': 'export default function C(){return <View className="rounded-2xl"/>\n}\n',
+        },
+        tbl,
+      )
+      const none = rootSlotAudit(
+        p,
+        {
+          'a/Foo.tsx': 'export default function C(){return <View/>\n}\n',
+          'b/Foo.tsx': 'export default function C(){return <View/>\n}\n',
+        },
+        tbl,
+      )
+      return same.findings.length === 0 && none.findings.length === 0
+    })(),
+  )
+  t(
+    'KQ RS 声明层解析:根圆角写在 StyleSheet 块(style={styles.root})与本地样式表类(根 className)都必须读到 —— 尿不到就是把合法写法读成"根上无档"的假分叉',
+    (() => {
+      const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+      const p = { pairs: [{ name: 'Foo', miniapp: 'a/Foo.tsx', rn: 'b/Foo.tsx' }] }
+      const styleRef =
+        'const styles = StyleSheet.create({\n  root: { borderRadius: rnRadius.xl },\n})\nexport default function C(){\n  return (\n    <View style={styles.root} />\n  )\n}\n'
+      const cssClass =
+        'export default function C(){\n  return (\n    <View className="carousel" />\n  )\n}\n\n.carousel { border-radius: 12px; }\n'
+      const rs = rootSlotAudit(p, { 'a/Foo.tsx': cssClass, 'b/Foo.tsx': styleRef }, tbl)
+      return rs.findings.length === 0 && rs.undetermined.length === 0
+    })(),
+  )
+  t(
+    'KR RS 棘轮四向:新族红 / 同读数不红 / 修复(消失)不红 / 仍分叉(变值)只报数',
+    (() => {
+      const now = [{ name: 'A', miniapp: [16], rn: [] }]
+      const headSame = [{ name: 'A', miniapp: [16], rn: [] }]
+      const headOther = [{ name: 'A', miniapp: [12], rn: [] }]
+      return (
+        rootSlotDelta(now, []).length === 1 &&
+        rootSlotDelta(now, headSame).length === 0 &&
+        rootSlotDelta([], headSame).length === 0 &&
+        rootSlotDelta(now, headOther).length === 0
+      )
+    })(),
+  )
+  t(
+    'KS RS 未判定三态:锚不到 export default / return 间接吐出 都判"未判定"而非"一致";return null 守卫不算间接',
+    (() => {
+      const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+      const p = { pairs: [{ name: 'Foo', miniapp: 'a/Foo.tsx', rn: 'b/Foo.tsx' }] }
+      const noAnchor = rootSlotAudit(
+        p,
+        {
+          'a/Foo.tsx': 'export const C = () => <View className="rounded-lg"/>\n',
+          'b/Foo.tsx': 'export default function C(){return <View className="rounded-lg"/>\n}\n',
+        },
+        tbl,
+      )
+      const indirect = rootSlotAudit(
+        p,
+        {
+          'a/Foo.tsx':
+            'export default function C(){const t = <View className="rounded-lg"/>; return t\n}\n',
+          'b/Foo.tsx': 'export default function C(){return <View className="rounded-lg"/>\n}\n',
+        },
+        tbl,
+      )
+      const guard = rootSlotRadiiOf(
+        'export default function C(){\n  if (!x) return null\n  return <View className="rounded-lg"/>\n}\n',
+        tbl,
+      )
+      return (
+        noAnchor.undetermined.length === 1 &&
+        noAnchor.findings.length === 0 &&
+        indirect.undetermined.length === 1 &&
+        indirect.findings.length === 0 &&
+        guard.anchored === true &&
+        guard.indirect === false &&
+        JSON.stringify(guard.tiers) === '[8]'
+      )
+    })(),
+  )
+  t(
+    'KT RS 回调不算根:半径只在 map 回调里 ⇒ 两端根都无档 = 一致(列表项档混进根槽位只会制造对称噪声)',
+    (() => {
+      const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+      const src =
+        'export default function C({items}){\n  return (\n    <View>\n      {items.map((it) => (\n        <View key={it.id} className="rounded-md" />\n      ))}\n    </View>\n  )\n}\n'
+      const p = { pairs: [{ name: 'Foo', miniapp: 'a/Foo.tsx', rn: 'b/Foo.tsx' }] }
+      const rs = rootSlotAudit(p, { 'a/Foo.tsx': src, 'b/Foo.tsx': src }, tbl)
+      return rs.findings.length === 0 && rs.undetermined.length === 0
+    })(),
+  )
+  t(
+    'KU RS 装车锁:读数必须在 --json 分支前算好、红必须折进退出码、json 必须暴露 rootSlot(缺一 = 判据没装车)',
+    (() => {
+      const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+      return (
+        src.indexOf('const rs = rootSlotAudit(collected.pairs') <
+          src.indexOf("if (argv.includes('--json'))") &&
+        /rootSlot: \{ findings: rs\.findings/.test(src) &&
+        /\+ \(geoRed \? 1 : 0\) \+ rsRed\.length \? 1 : 0/.test(src) &&
+        /rootSlotDelta\(rs\.findings, baseRs\.findings\)/.test(src)
+      )
+    })(),
+  )
+  t(
+    'KV RS 走查器串安全:引号/模板串里的括号花括号不得破坏深度走查(字符串内容影响根检测 = 判据跟着字符串漂)',
+    (() => {
+      const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+      const src = [
+        "const s = \"don't { break ( [\"",
+        'const t = `x${y ? "(" : ")" }z`',
+        'export default function C(){',
+        '  return <View className="rounded-lg" />',
+        '}',
+      ].join('\n')
+      const r = rootSlotRadiiOf(src, tbl)
+      return r.anchored === true && r.indirect === false && JSON.stringify(r.tiers) === '[8]'
+    })(),
+  )
+  t(
+    'KW RS 端到端:真 git 夹具上,内层档凑平集合时 RD 读 0 而 RS 点名(经过可达性/配对/取材整条链,不是单元层自证)',
+    (() => {
+      const fx = FIXTURE_BASE({
+        rn: "import { Foo } from '@ihui/rn-app'\nexport function RootNavigator() { return <Foo /> }\n",
+      })
+      fx['apps/miniapp-taro/src/components/Foo.tsx'] =
+        'export default function Foo() {\n  return (\n    <View className="rounded-2xl">\n      <View className="rounded-lg" />\n    </View>\n  )\n}\n'
+      fx['packages/app/src/components/Foo.tsx'] =
+        'export default function Foo() {\n  return (\n    <View>\n      <View className="rounded-2xl" />\n      <View className="rounded-lg" />\n    </View>\n  )\n}\n'
+      // 档位表必须随夹具走(collect 对"表取不到而组件在用圆角"判失明,见 S20):
+      // 逐条目一行的真表同构(objectEntries 按行取条目,单行对象解析为 null)。
+      fx['packages/design-tokens/src/radius.js'] = [
+        'export const RADIUS_STEPS = {',
+        '  xs: 2,',
+        '  md: 6,',
+        '  lg: 8,',
+        "  xl: 12,",
+        "  '2xl': 16,",
+        '}',
+        "export const RADIUS_ROLES = {",
+        "  chip: 'md',",
+        "  card: 'lg',",
+        '}',
+        '',
+      ].join('\n')
+      const dir = makeFixtureRepo(fx)
+      try {
+        const got = collect(dir, 'head')
+        const rd = audit(got.pairs, got.text, {}, got.tiers, got.radius, got.styles ?? {})
+        const rs = rootSlotAudit(got.pairs, got.text, got.radius, got.styles ?? {})
+        const f = rd.findings.find((x) => x.name === 'Foo')
+        const r = rs.findings.find((x) => x.name === 'Foo')
+        // RD 这一维的前提就是"读 0":两侧档位**集合**都是 {8,16},元素级凑平 ⇒ 集合级不点名
+        // (RS 点名的正是集合看不出来的那一层:miniapp 把 2xl 放在**根**上、RN 放在**内层**,
+        //  集合相同而根槽位不同 —— 这就是 RS 这一维存在的理由,不是 RD 的漏报)。
+        // `undetermined` 必须为空:空档位有两条来源(真的一致 / 判据瞎了),只看 findings 分不开。
+        return (
+          !f &&
+          rs.undetermined.length === 0 &&
+          !!r &&
+          JSON.stringify(r.miniapp) === '[16]' &&
+          JSON.stringify(r.rn) === '[]'
+        )
+      } catch (e) {
+        return `抛错:${e?.message ?? e}`
+      } finally {
+        rmScratch(dir)
+      }
+    })(),
+  )
   console.log(`--self-test:${pass} 通过 / ${fail} 失败`)
   return fail ? 1 : 0
 }
@@ -5211,6 +5729,10 @@ export const __test__ = {
   anchorRegression,
   elementRadiusDiff,
   elementRadiusCount,
+  rootSlotTagsOf,
+  rootSlotRadiiOf,
+  rootSlotAudit,
+  rootSlotDelta,
   waiverProblem,
   faceFromArgv,
   chooseBaseline,

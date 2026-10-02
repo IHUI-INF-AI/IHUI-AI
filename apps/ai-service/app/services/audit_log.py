@@ -10,6 +10,7 @@
 - 上限:仅保留最近 AUDIT_LIMIT 条,超出丢最旧(环形截断)
 - 单条 detail 长度截断(DETAIL_LIMIT),防超大载荷撑爆文件
 - 并发:threading.Lock 保护读写原子性
+- 保留期(2026-10-03 数据出域合规整改):按 _RETENTION_DAYS 到期清理,加载时顺带清理存量
 
 与既有 app/middleware/audit.py(HTTP 访问审计中间件)互补:本模块面向
 **业务操作级**审计(谁在何时对什么做了什么),供 router 端点显式埋点。
@@ -26,6 +27,12 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .ttl_json_store import (
+    load_ttl_records,
+    resolve_retention_days,
+    write_json_atomic,
+)
+
 logger = logging.getLogger(__name__)
 
 # 保留的审计条目上限(环形截断)
@@ -38,6 +45,19 @@ FIELD_LIMIT = 200
 # JSON 持久化文件(ai-service 根下的 data/audit_logs.json)
 _DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 _AUDIT_FILE = _DATA_DIR / "audit_logs.json"
+
+# ---------------------------------------------------------------------------
+# 保留期(2026-10-03 数据出域合规整改)
+# ---------------------------------------------------------------------------
+# 为什么是 90 天:审计回答的是"谁在何时对什么做了什么",属**行为记录**而非内容偏好。
+# 与 apps/api 侧 data-archive-service.ts 的 audit_logs(90 天,注释写明"已有审计快照
+# 在 ELK/OTel")对齐 —— 那侧把 90 天视为审计的合规底线,本侧是它的 JSON 对应物,
+# 没理由比它更宽松。
+# 也不按 14~30 天那档压:审计与"操作轨迹"不同,它的价值恰恰在于事后回溯,
+# 过早删除等于让"三个月前谁动过这个"永远查无对证。
+_RETENTION_ENV = "AUDIT_LOG_RETENTION_DAYS"
+_DEFAULT_RETENTION_DAYS = 90
+_RETENTION_DAYS = resolve_retention_days(_RETENTION_ENV, _DEFAULT_RETENTION_DAYS)
 
 
 def _now_iso() -> str:
@@ -73,39 +93,39 @@ class AuditLogStore:
     # ---------------- 内部 ----------------
 
     def _load(self) -> None:
-        """懒加载(仅首次;缺失/损坏静默降级为空)。调用方须持锁。"""
+        """懒加载(仅首次;缺失/损坏静默降级为空)。调用方须持锁。
+
+        2026-10-03 合规整改:加载时顺带按保留期做**存量清理**(见 ``_RETENTION_DAYS``)。
+        """
         if self._loaded:
             return
         try:
-            if self._file.exists():
-                raw = json.loads(self._file.read_text(encoding="utf-8"))
-                if isinstance(raw, list):
-                    fields = set(AuditEntry.__dataclass_fields__)
-                    for item in raw:
-                        if not isinstance(item, dict) or not item.get("id"):
-                            continue
-                        clean = {k: v for k, v in item.items() if k in fields}
-                        if not isinstance(clean.get("detail"), dict):
-                            clean["detail"] = {}
-                        self._entries.append(AuditEntry(**clean))
-                    # 超限截断(丢弃文件里最旧的)
-                    if len(self._entries) > self._limit:
-                        self._entries = self._entries[-self._limit :]
+            raw, dropped = load_ttl_records(
+                self._file,
+                retention_days=_RETENTION_DAYS,
+                shape="sequence",
+                max_items=self._limit,
+                validate=lambda item: isinstance(item, dict) and bool(item.get("id")),
+            )
+            if dropped:
+                logger.info("audit_log 加载:清理过期/超限条目 %d 条", dropped)
+            fields = set(AuditEntry.__dataclass_fields__)
+            for item in raw:
+                clean = {k: v for k, v in item.items() if k in fields}
+                if not isinstance(clean.get("detail"), dict):
+                    clean["detail"] = {}
+                self._entries.append(AuditEntry(**clean))
         except Exception as e:
+            # load_ttl_records 内部已各自 fail-closed;到这里是意料之外的异常
             logger.warning("audit_log 读取失败(降级为空): %s", e)
+            self._entries = []
         finally:
             self._loaded = True
 
     def _persist(self) -> None:
         """全量写回 JSON(尽力,失败降级内存保留)。调用方须持锁。"""
-        try:
-            self._file.parent.mkdir(parents=True, exist_ok=True)
-            data = [e.to_dict() for e in self._entries]
-            self._file.write_text(
-                json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
-            )
-        except Exception as e:
-            logger.warning("audit_log 写盘失败(内存保留): %s", e)
+        # 原子写(临时文件 + os.replace),避免半截 JSON 留在盘上
+        write_json_atomic(self._file, [e.to_dict() for e in self._entries], indent=2)
 
     # ---------------- 写入 ----------------
 

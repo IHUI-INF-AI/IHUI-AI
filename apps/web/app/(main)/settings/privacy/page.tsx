@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Eye, Target, Sparkles, Loader2 } from 'lucide-react'
+import { Eye, Target, Sparkles, ShieldOff, Code2, Brain, Loader2 } from 'lucide-react'
 
 import { Card, CardHeader, CardTitle, CardContent, Switch } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
@@ -17,6 +17,24 @@ interface PrivacyPrefs {
   dataVisible: boolean
   adTracking: boolean
   personalizedRecommendation: boolean
+  /**
+   * 2026-10-03 数据出域合规整改新增的三个开关。
+   *
+   * 这三个与上面三个是**不同性质**的东西:上面三个管的是"资料可见性 / 广告 /
+   * 推荐",与数据是否离开本机无关;这三个管的正是"内容会不会发出去、会不会留存"。
+   * 整改前本页只有前者,于是"隐私设置"这个标题下没有任何一个开关能真正阻止
+   * 数据出域 —— 用户找不到出口,只能选择相信平台(参照 2026-09 智谱 ZCode 事件:
+   * 道歉之后紧急上线的正是这种开关)。
+   *
+   * 默认值全部为"保留/开启"(false = 不阻止),与后端现状一致 —— 这样开关上线
+   * 不会让任何人的行为突然改变;但三项都摆在明面上,用户可以逐项关掉。
+   */
+  /** 不落 LLM 调用原文(提问与回答正文不写入数据库)。后端已就绪,写入即不留。 */
+  llmRawRetentionOptOut: boolean
+  /** 不建代码语义索引(代码切片不外发做向量化)。后端已就绪,未授权时懒索引也不触发。 */
+  codeIndexEgressOptOut: boolean
+  /** 不自动写入长期记忆(不把对话提炼成跨会话偏好/约定)。 */
+  autoMemoryOptOut: boolean
 }
 
 export default function PrivacyPage() {
@@ -26,6 +44,9 @@ export default function PrivacyPage() {
     dataVisible: true,
     adTracking: false,
     personalizedRecommendation: true,
+    llmRawRetentionOptOut: false,
+    codeIndexEgressOptOut: false,
+    autoMemoryOptOut: false,
   })
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState('')
@@ -42,6 +63,12 @@ export default function PrivacyPage() {
             dataVisible: s.dataVisible !== 'false',
             adTracking: s.adTracking === 'true',
             personalizedRecommendation: s.personalizedRecommendation !== 'false',
+            // 三个新开关:键缺失(= 用户从未改过)一律按 false「未阻止」,
+            // 与后端默认行为一致。不给「没设置」编第三种默认语义 ——
+            // 那种三态在 UI 上无法呈现,只会让开关的当前状态不可预期。
+            llmRawRetentionOptOut: s.llmRawRetentionOptOut === 'true',
+            codeIndexEgressOptOut: s.codeIndexEgressOptOut === 'true',
+            autoMemoryOptOut: s.autoMemoryOptOut === 'true',
           })
         } else {
           setError(t('privacyLoadFailed'))
@@ -100,6 +127,27 @@ export default function PrivacyPage() {
       title: t('personalizedRecommendation'),
       desc: t('personalizedRecommendationDesc'),
       key: 'personalizedRecommendation' as const,
+    },
+    // ── 以下三项:数据出域与留存(2026-10-03 数据出域合规整改)──────────────
+    // 放在最后并各自带一句"会发生什么"的白话描述,而不是只给开关名:
+    // 用户要能据此判断"关掉它我会失去什么",否则这只是一排没有语义的 toggle。
+    {
+      icon: ShieldOff,
+      title: t('llmRawRetentionOptOut'),
+      desc: t('llmRawRetentionOptOutDesc'),
+      key: 'llmRawRetentionOptOut' as const,
+    },
+    {
+      icon: Code2,
+      title: t('codeIndexEgressOptOut'),
+      desc: t('codeIndexEgressOptOutDesc'),
+      key: 'codeIndexEgressOptOut' as const,
+    },
+    {
+      icon: Brain,
+      title: t('autoMemoryOptOut'),
+      desc: t('autoMemoryOptOutDesc'),
+      key: 'autoMemoryOptOut' as const,
     },
   ]
 

@@ -17,12 +17,22 @@
 
 import { and, lt, eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { auditLogs, messages, notifications } from '@ihui/database'
+import { auditLogs, messages, notifications, relayMessages } from '@ihui/database'
 
 export interface ArchiveResult {
   auditLogsArchived: number
   messagesArchived: number
   notificationsArchived: number
+  /**
+   * relay_messages 归档行数(2026-10-03 数据出域合规整改新增)。
+   *
+   * 为什么它归到 180 天这一档而不是 llm_call_logs 的 30 天:
+   * relay_messages 是**用户可见的会话历史**(web 端会话列表读的就是它),
+   * 与 llm_call_logs 里"只为排障存在的原文副本"性质不同 —— 后者按 30 天清原文
+   * 不影响任何用户可见功能,前者按 30 天删等于砸掉聊天记录。
+   * 所以它与 IM messages 同档(180 天),而不是被塞进原文档那一档。
+   */
+  relayMessagesArchived: number
   errors: string[]
 }
 
@@ -43,6 +53,7 @@ export async function archiveDailyData(): Promise<ArchiveResult> {
   let auditLogsArchived = 0
   let messagesArchived = 0
   let notificationsArchived = 0
+  let relayMessagesArchived = 0
 
   try {
     // 归档 audit_logs（90 天前）
@@ -56,7 +67,12 @@ export async function archiveDailyData(): Promise<ArchiveResult> {
   }
 
   try {
-    // 归档 chat messages（180 天前）
+    // 归档 IM 消息（180 天前）。
+    //
+    // 注释订正(2026-10-03):原文写的是"归档 chat messages",但这里删的是
+    // `messages`(IM 表),**不是** chat_messages(AI 对话表)。这个错名有实际
+    // 代价:读代码的人会以为"AI 对话记录已有 180 天清理",而它其实一张都没清 ——
+    // 于是 chat_messages 成了全仓留存面里最容易被误判为"已治理"的那张表。
     const msgResult = await db
       .delete(messages)
       .where(lt(messages.createdAt, messageThreshold))
@@ -64,6 +80,24 @@ export async function archiveDailyData(): Promise<ArchiveResult> {
     messagesArchived = msgResult.length
   } catch (err) {
     errors.push(`messages archive failed: ${err instanceof Error ? err.message : String(err)}`)
+  }
+
+  try {
+    // relay_messages:用户可见的 LLM 会话历史(180 天前,同 IM messages 档)。
+    //
+    // 2026-10-03 新增。此前这张表**没有任何清理路径** —— 而它存的是完整对话
+    // 正文(`content` NOT NULL),且 logId 外键是 onDelete:'set null',意味着
+    // llm_call_logs 那边把原文purge 掉之后,**同一份原文在这里依然完整存在**,
+    // 30 天原文档治理等于被这个外键绕开。堵上这个口是本次整改的一部分。
+    const relayResult = await db
+      .delete(relayMessages)
+      .where(lt(relayMessages.createdAt, messageThreshold))
+      .returning({ id: relayMessages.id })
+    relayMessagesArchived = relayResult.length
+  } catch (err) {
+    errors.push(
+      `relay_messages archive failed: ${err instanceof Error ? err.message : String(err)}`,
+    )
   }
 
   try {
@@ -81,6 +115,7 @@ export async function archiveDailyData(): Promise<ArchiveResult> {
     auditLogsArchived,
     messagesArchived,
     notificationsArchived,
+    relayMessagesArchived,
     errors,
   }
 }

@@ -452,6 +452,8 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/figma-import', labelKey: 'figmaImport', icon: Palette },
       // 声纹库管理(2026-09-09 F4):token6688 克隆音色列表/详情/删除/上传
       { href: '/voices', labelKey: 'voices', icon: Mic },
+      // 签到助手(2026-10-03 立):账号服务端化管理(ai-service /api/checkin)
+      { href: '/checkin', labelKey: 'checkin', icon: CalendarCheck },
       { href: '/workspace', labelKey: 'workspace', icon: FolderOpen },
       // 知识库三合一(2026-08-30):原平铺的知识库/RAG/图谱收进可展开子菜单
       {
