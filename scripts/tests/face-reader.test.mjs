@@ -21,12 +21,11 @@ import {
   readdirSync,
   writeFileSync,
   mkdirSync,
-  mkdtempSync,
-  rmSync,
 } from 'node:fs'
 import { join, dirname } from 'node:path'
-import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
+// §26/G-284 最后一格:临时夹具唯一落点是 scratch-dir,不走活进程 TEMP(它可能仍钉 C 盘)。
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -555,7 +554,7 @@ export function headDerivationScan(root) {
 }
 
 test('取材面必须是 HEAD:未跟踪文件不得进分母(工作树面会把别人的在飞改动算成我的债)', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ratchet-face-'))
+  const dir = mkScratch('ratchet-face-')
   try {
     const g = (...a) =>
       spawnSync(GIT, ['-c', 'safe.directory=*', ...a], {
@@ -600,7 +599,7 @@ test('取材面必须是 HEAD:未跟踪文件不得进分母(工作树面会把�
       '磁盘面应数到 2 枚(含未跟踪那枚);数不到说明本例的两枚写法不同形,对照失效',
     )
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -950,7 +949,7 @@ test('batchExecFileSync:EBUSY 分流真实存在(短路判据 + fd 通道调用�
  * 判 half-wired。本组两条:真仓字节保真 + 纯函数面同构;阳性对照证明 utf8 出口确实有损。 */
 
 test('catBatchBinary:字节保真(真 git 对象)—— 非法 UTF-8 序列原样返回,utf8 出口同对象产 U+FFFD(对照)', () => {
-  const root = mkdtempSync(join(tmpdir(), 'face-reader-bin-'))
+  const root = mkScratch('face-reader-bin-')
   try {
     const init = gitRaw(['init', '--quiet'], root)
     assert.ok(typeof init === 'string', 'git init 失败(gitRaw 抛即红)')
@@ -969,7 +968,7 @@ test('catBatchBinary:字节保真(真 git 对象)—— 非法 UTF-8 序列原�
     const utf = catBatch(root, [oid]).get(oid)
     assert.ok(utf.includes('\uFFFD'), 'utf8 出口居然无损 —— 对照失效,字节保真证明不成立')
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root)
   }
 })
 
