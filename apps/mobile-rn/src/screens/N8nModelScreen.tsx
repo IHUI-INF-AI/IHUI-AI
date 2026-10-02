@@ -1,8 +1,8 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 
+import { useTheme } from '../context/ThemeContext'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ActivityIndicator,
@@ -32,10 +32,11 @@ import { Zap, PauseCircle } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
 import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
 import { useI18n } from '../i18n'
-import { useTheme } from '../context/ThemeContext'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
+
+import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -82,8 +83,8 @@ function buildModelGroup(items: N8nWorkflow[]): ModelListGroup[] {
 }
 
 export default function N8nModelScreen() {
-  const { t } = useI18n()
   const { resolvedTheme } = useTheme()
+  const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
   const [viewMode, setViewMode] = useState<ViewMode>('shared')
   const [tab, setTab] = useState<N8nModelTab>('all')
@@ -242,7 +243,6 @@ export default function N8nModelScreen() {
         {viewMode === 'shared' ? (
           <SharedN8nModelScreen
             t={t}
-            colorScheme={resolvedTheme}
             items={items}
             tab={tab}
             keyword={keyword}
@@ -257,6 +257,7 @@ export default function N8nModelScreen() {
             onEdit={handleEdit}
             onCreate={handleCreate}
             onBack={() => navigation.goBack()}
+            colorScheme={resolvedTheme}
           />
         ) : (
           <ModelList
@@ -359,7 +360,7 @@ function WorkflowFormModal({
               activeOpacity={0.8}
             >
               {submitting ? (
-                <ActivityIndicator size="small" color={tokens.brand.foreground} />
+                <ActivityIndicator size="small" color={tokens.brand.ctaForeground} />
               ) : (
                 <Text style={styles.modalBtnTextConfirm}>{t('common.confirm')}</Text>
               )}
@@ -391,7 +392,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
   },
   tabActive: {
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
   },
   tabText: {
     fontSize: 13,
@@ -399,7 +400,7 @@ const styles = StyleSheet.create({
   },
   tabTextActive: {
     fontSize: 13,
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
     fontWeight: '600',
   },
   viewport: {
@@ -459,7 +460,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
   },
   modalBtnConfirm: {
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
   },
   modalBtnDisabled: {
     opacity: 0.6,
@@ -470,7 +471,7 @@ const styles = StyleSheet.create({
   },
   modalBtnTextConfirm: {
     fontSize: 15,
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
     fontWeight: '600',
   },
 })
