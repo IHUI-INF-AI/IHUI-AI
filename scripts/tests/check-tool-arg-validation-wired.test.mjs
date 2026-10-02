@@ -47,12 +47,31 @@ function registrationOf(text, scriptName) {
 }
 
 const runGuard = (extra = []) =>
-  spawnSync(process.execPath, [GUARD, ...extra], { encoding: 'utf8', windowsHide: true, timeout: 240000, maxBuffer: 64 << 20 })
+  spawnSync(process.execPath, [GUARD, ...extra], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 240000,
+    maxBuffer: 64 << 20,
+  })
 
 test('1 §22c:源模块导出判据所需的纯函数', () => {
-  for (const k of ['maskNoise', 'findCallLines', 'isDeclarationLine', 'classifyPath', 'isTestSurface', 'auditModeSource', 'decide', 'analyze', 'listCandidates'])
+  for (const k of [
+    'maskNoise',
+    'findCallLines',
+    'isDeclarationLine',
+    'classifyPath',
+    'isTestSurface',
+    'auditModeSource',
+    'decide',
+    'analyze',
+    'listCandidates',
+  ])
     assert.equal(typeof __test__[k], 'function', `__test__.${k} 缺失`)
-  assert.equal(__test__.SKIP_ENV_NAME, 'HUSKY_SKIP_TOOL_ARG_VALIDATION_WIRED', '紧急跳过 env 名不得漂移')
+  assert.equal(
+    __test__.SKIP_ENV_NAME,
+    'HUSKY_SKIP_TOOL_ARG_VALIDATION_WIRED',
+    '紧急跳过 env 名不得漂移',
+  )
   assert.equal(__test__.GUARDIAN_ID_EXPECTED, '115', '本票申报的编号')
 })
 
@@ -60,7 +79,9 @@ test('2+3 装车前置:未注册则如实点名待接线;注册了必须 blockin
   const text = readFileSync(RUNNER, 'utf8')
   const hits = registrationOf(text, SCRIPT_NAME)
   if (hits.length === 0) {
-    console.log('  ℹ️  本门按任务书未由实现票接线 guardian-runner(注册表由主会话单写)⇒ 此处如实点名,不冒充已装')
+    console.log(
+      '  ℹ️  本门按任务书未由实现票接线 guardian-runner(注册表由主会话单写)⇒ 此处如实点名,不冒充已装',
+    )
   } else {
     assert.equal(hits.length, 1, `注册块出现 ${hits.length} 次(script: 行重复即撞号)`)
     assert.equal(hits[0].mode, 'blocking', '本门必须是 blocking(warn 级等于没有)')
@@ -81,7 +102,11 @@ test('2+3 装车前置:未注册则如实点名待接线;注册了必须 blockin
   const mutated = registrationOf(fabricated, SCRIPT_NAME)
   assert.equal(mutated.length, 1)
   assert.notEqual(mutated[0].mode, 'blocking', '变异注入未被识破 ⇒ 装车断言无牙')
-  assert.notEqual(mutated[0].skipEnv, __test__.SKIP_ENV_NAME, '变异注入的 skipEnv 未被识破 ⇒ 装车断言无牙')
+  assert.notEqual(
+    mutated[0].skipEnv,
+    __test__.SKIP_ENV_NAME,
+    '变异注入的 skipEnv 未被识破 ⇒ 装车断言无牙',
+  )
 })
 
 test('4 真仓取材可用:三面各自枚举得到、内容各自读得到', () => {
@@ -98,21 +123,34 @@ test('4 真仓取材可用:三面各自枚举得到、内容各自读得到', ()
   // **不钉仓库瞬时状态**:模式源在不在 HEAD 面上,随本票是否已提交而变。
   // 只钉它必须与结论互斥对应 —— 缺席就当且只当一条 V2 红,不得既缺席又判绿。
   const hasV2Absent = res.violations.some((v) => v.includes('影子档缺席'))
-  assert.equal(hasV2Absent, !res.modeSourceAvailable, `模式源缺席与 V2 判红必须一一对应,实得 available=${res.modeSourceAvailable} violations=${res.violations}`)
+  assert.equal(
+    hasV2Absent,
+    !res.modeSourceAvailable,
+    `模式源缺席与 V2 判红必须一一对应,实得 available=${res.modeSourceAvailable} violations=${res.violations}`,
+  )
   // 结论方向由纯函数决定,测试不钉仓库瞬时状态:violations 里有 V1 当且仅当 callerFound=false
   const hasV1 = res.violations.some((v) => v.startsWith('V1'))
-  assert.equal(hasV1, !res.callerFound, `V1 与 callerFound 必须互斥对应,实得 callerFound=${res.callerFound} violations=${res.violations}`)
+  assert.equal(
+    hasV1,
+    !res.callerFound,
+    `V1 与 callerFound 必须互斥对应,实得 callerFound=${res.callerFound} violations=${res.violations}`,
+  )
   // V2 的两条结构判据由**构造面**证明(self-test A6/A7/A8),这里刻意不再从磁盘读模式源 ——
   // 头 face 的结论混进磁盘内容,正是"自洽但基准错位的假绿尺子"(§取材面教训)。
   assert.ok(
-    __test__.auditModeSource("export const TOOL_ARG_VALIDATION_MODES = ['off','shadow'] as const\nexport const DEFAULT_TOOL_ARG_VALIDATION_MODE = 'off'\n").issues.length === 0,
+    __test__.auditModeSource(
+      "export const TOOL_ARG_VALIDATION_MODES = ['off','shadow'] as const\nexport const DEFAULT_TOOL_ARG_VALIDATION_MODE = 'off'\n",
+    ).issues.length === 0,
     '构造的正例必须判无问题(否则 A6/A7 的红是假的)',
   )
 })
 
 test('5 定义文件自身不算调用方(头注里的解释文字不得骗绿)', () => {
   const src = readFileSync(join(REPO, __test__.DEFINITION_FILE), 'utf8')
-  assert.ok(src.includes(`${__test__.CALL_PATTERN}`), '夹具前提:定义文件文本里确实出现该串(声明 + 头注示例)')
+  assert.ok(
+    src.includes(`${__test__.CALL_PATTERN}`),
+    '夹具前提:定义文件文本里确实出现该串(声明 + 头注示例)',
+  )
   const calls = __test__.findCallLines(src)
   assert.equal(calls.length, 0, `定义文件不应贡献调用方,实得 ${JSON.stringify(calls)}`)
   assert.equal(__test__.classifyPath(__test__.DEFINITION_FILE), 'definition')
@@ -127,10 +165,20 @@ test('6 判据失效不得记绿:空仓 ⇒ exit 2;两面旗同给 ⇒ exit 2;--
   try {
     writeFileSync(join(dir, 'README.md'), 'no validator here\n')
     gitRaw(['init', '-q'], dir)
+    // 夹具自带提交身份:仓外的临时 repo 读不到本仓 local config,而本机 global user.email 未设,
+    // git 的自动兜底要拼 `user@host` —— 主机名含中文时它在 GBK 代码页下拼出乱码并**拒绝**
+    // (`fatal: unable to auto-detect email address`),于是这条用例在任何干净检出上都恒红,
+    // 而红的不是判据。仓里其余建仓夹具一律自带身份,本文件是唯一漏掉的一处。
+    gitRaw(['config', 'user.email', 'gate-fixture@invalid'], dir)
+    gitRaw(['config', 'user.name', 'gate-fixture'], dir)
     gitRaw(['add', '-A'], dir)
     gitRaw(['commit', '-q', '-m', 'blank fixture'], dir)
     const blank = runGuard(['--root', dir])
-    assert.equal(blank.status, 2, `扫不到候选必须 exit 2(无法判定),实得 ${blank.status}:${blank.stdout}${blank.stderr}`)
+    assert.equal(
+      blank.status,
+      2,
+      `扫不到候选必须 exit 2(无法判定),实得 ${blank.status}:${blank.stdout}${blank.stderr}`,
+    )
     assert.match(`${blank.stdout}${blank.stderr}`, /无法判定/)
   } finally {
     rmScratch(dir)
