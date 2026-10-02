@@ -8398,6 +8398,10 @@
           "title": "현재 모델이 이 요청을 거부했습니다",
           "action": "모델 변경"
         },
+        "MODEL_STREAM_IDLE": {
+          "title": "응답 시간이 초과되었습니다",
+          "action": "재시도"
+        },
         "MULTIPLE_MATCHES": {
           "title": "파라미터가 불완전하거나 잘못되었습니다",
           "action": "수정 후 재시도"
