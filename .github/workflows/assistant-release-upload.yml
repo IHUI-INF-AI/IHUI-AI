@@ -32,10 +32,7 @@ jobs:
           mkdir -p out .chunks
           REPO="${{ github.repository }}"
           fetch() {
-            curl -sf -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/$REPO/git/blobs/$1" \
-              | python3 -c "import sys,json,base64; sys.stdout.buffer.write(base64.b64decode(json.load(sys.stdin)['content']))" \
-              > "$2"
+            gh api "repos/$REPO/git/blobs/$1" --jq '.content' | base64 -d > "$2"
             echo "fetched $2 ($(stat -c%s "$2") bytes)"
           }
           fetch c571c9b635f5cc64cf80d7cb384d2e7d50854946 .chunks/msi-01
