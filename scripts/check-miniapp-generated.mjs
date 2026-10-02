@@ -30,10 +30,14 @@
  *        而恒红门的唯一结局是逼人 --no-verify、连带废掉全部守门(§12e)。
  *   G4 动态路径:模板字符串拼出来的资源路径结构上判不了,**如实计数**(unreproducible 之外再报 undetermined),
  *        绝不静默成「看起来全绿」。
+ *   I2 (G-415/A8, 2026-10-02) LineIcon 调用点「值→键」:组件取不到素材时静默 return null,
+ *        调用点写错键 = 界面空白零报错,而 G3 只对账注册表↔svg 两面。两档:
+ *        · name 值位上的字符串字面量不在 icons.ts 注册表(整体/三元两支/|| ?? 右侧;比较位不算)
+ *          ⇒ 判红,各面同权(现读 HEAD 面为 0,不是恒红);
+ *        · 逃逸写法(`as IconName / as never / as '字面联合'`、尾部 `!`)—— 类型系统被绕过,
+ *          存量按该文件 HEAD 自身数量锚定、只在 --staged 面拦新增(SV3 同型:HEAD 面锚点是它自己,
+ *          全量判红即恒红门);HEAD/worktree 面只报数。
  *   G5 (G-680) 生成物自述钉:离线包头部带一段由**输入字节**算出的 sha256 钉(lib/generated-input-pin.mjs)。
- *   G6 (G-415 A8) LineIcon 调用点「值 → 键」:字面量 name 必须在 icons.ts 键集里 —— 组件取不到素材时
- *        return null(界面空白且不报错),而 L1/G3 只看 svg↔注册表两面,这一格过去零看守。动态拼接与标签
- *        配不平静默算**未判定**并逐条点名(不计通过,也不判红:真仓 HEAD 现读动态 35 处,当场判红就是恒红门)。
  *        钉 ≠ 现算哈希 ⇒ 判「陈旧」并点名是哪几份输入变了(blocking);
  *        钉 absent / malformed ⇒ 判「未判定」,只报数点名,既不记绿也不冒红 ——
  *        HEAD 面上现存那份产物还没有钉,当场 blocking 就是恒红门(§12e);
@@ -62,7 +66,6 @@
  * 镜像测试:node --test scripts/tests/check-miniapp-generated.test.mjs
  */
 
-import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 import { gunzipSync, gzipSync } from 'node:zlib'
 import { dirname, join, resolve } from 'node:path'
@@ -87,7 +90,6 @@ import {
   PIN_BEGIN,
   PIN_END,
 } from './lib/generated-input-pin.mjs'
-import { maskComments } from './lib/code-mask.mjs'
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -426,42 +428,251 @@ function registryKeys(text) {
   return out
 }
 
-/**
- * G6(G-415 A8)的取点:调用点 `<LineIcon … name=…>` 里写死的图标名必须落在注册表键集。
- * 组件取不到素材时 `return null`(界面只是空白、不报错),而 L1/G3 只看 svg↔注册表两面,
- * "调用点引用了一个不存在的键"这一格过去零看守。
- * 只认字面量;模板串 / 三元 / 标识符一律算未判定(把"看不见"写成"确信没有"是本仓最高频失效型)。
- * 输入必须是**已遮注释**的代码面 —— 注释里逐字写出的 `<LineIcon name="…">` 不是调用点。
- */
-function lineIconCallSites(code) {
-  const sites = []
-  let i = 0
-  for (;;) {
-    const at = code.indexOf('<LineIcon', i)
-    if (at < 0) break
-    const gt = code.indexOf('>', at)
-    // 闭不上就整段算判不了(不猜、也不静默丢弃):交给调用方计未判定
-    if (gt < 0) {
-      sites.push({ kind: 'undetermined', snippet: code.slice(at, at + 60).replace(/\s+/g, ' ') })
-      break
-    }
-    const tag = code.slice(at, gt)
-    const m = /\bname\s*=\s*(?:"([^"]*)"|'([^']*)'|\{\s*"([^"]*)"\s*\}|\{([\s\S]+)\})/.exec(tag)
-    if (m) {
-      if (m[1] || m[2] || m[3]) sites.push({ kind: 'literal', key: m[1] ?? m[2] ?? m[3] })
-      else sites.push({ kind: 'dynamic', snippet: `${m[4].replace(/\s+/g, ' ').slice(0, 48)}` })
-    }
-    i = gt + 1
-  }
-  return sites
-}
-
-/** gen-tabbar-icons.mjs 自己声明的输出表(键名即 tab-<name>),用于「生成器说有、产物没有」 */function generatorTabbarNames(text) {
+/** gen-tabbar-icons.mjs 自己声明的输出表(键名即 tab-<name>),用于「生成器说有、产物没有」 */
+function generatorTabbarNames(text) {
   const block = /const ICONS\s*=\s*\{([\s\S]*?)\n\}/m.exec(text)
   if (!block) throw new Undetermined(`${TABBAR_GENERATOR} 里解析不到 ICONS 表,无法判定生成器输出清单`)
   const names = [...block[1].matchAll(/^\s*([A-Za-z0-9_-]+)\s*:/gm)].map((m) => m[1])
   if (names.length === 0) throw new Undetermined(`${TABBAR_GENERATOR} 的 ICONS 表为空,无法判定`)
   return names
+}
+
+/* ── I2(G-415/A8)LineIcon 调用点「值→键」──
+ * 立因:LineIcon 取不到素材时静默 return null(调用点写错键 = 界面空白,零报错),
+ * 而本门 G3 只对账「icons.ts ↔ svg 目录」两面,调用点把什么值喂给 name= 这一格零看守。
+ * 两档判据:
+ *   I2 字面量不在注册表(判红,各面同权):name 值位上的字符串字面量(整体/三元两支/
+ *      || ?? 右侧)在 icons.ts 查无此键 —— 运行时必空白。比较位(=== 'x')不算值位。
+ *   逃逸写法(棘轮,只在 --staged 生效):`X as IconName / as never / as '字面联合'`、
+ *      尾部非空断言 `X!` —— 类型系统被绕过,值→键无静态证明。存量按该文件 HEAD 自身
+ *      数量锚定,只拦新增(同守门 77/83/102 口径);HEAD/worktree 面只报数,不新增恒红面。
+ */
+
+/** 引号感知的注释剥离:字符串字面量里的 `//`(URL)不得被当成注释吞掉。 */
+function stripJsComments(text) {
+  let out = ''
+  let i = 0
+  let quote = null
+  while (i < text.length) {
+    const ch = text[i]
+    if (quote) {
+      out += ch
+      if (ch === '\\') {
+        if (i + 1 < text.length) {
+          out += text[i + 1]
+          i += 2
+          continue
+        }
+      } else if (ch === quote) {
+        quote = null
+      }
+      i += 1
+      continue
+    }
+    if (ch === '"' || ch === "'" || ch === '`') {
+      quote = ch
+      out += ch
+      i += 1
+      continue
+    }
+    if (ch === '/' && text[i + 1] === '/') {
+      while (i < text.length && text[i] !== '\n') i += 1
+      continue
+    }
+    if (ch === '/' && text[i + 1] === '*') {
+      i += 2
+      while (i < text.length && !(text[i] === '*' && text[i + 1] === '/')) i += 1
+      i += 2
+      continue
+    }
+    out += ch
+    i += 1
+  }
+  return out
+}
+
+/** depth=0 且不在字符串里的位置扫描共用:返回每个字符的"深度是否为零"游标。 */
+function topLevelCursor(e) {
+  const depth = []
+  let d = 0
+  let quote = null
+  for (let k = 0; k < e.length; k += 1) {
+    const ch = e[k]
+    depth[k] = d === 0 && !quote
+    if (quote) {
+      if (ch === '\\') k += 1
+      else if (ch === quote) quote = null
+      continue
+    }
+    if (ch === '"' || ch === "'" || ch === '`') quote = ch
+    else if (ch === '(' || ch === '{' || ch === '[') d += 1
+    else if (ch === ')' || ch === '}' || ch === ']') d -= 1
+  }
+  return depth
+}
+
+/** name 表达式值位上的字符串字面量(比较位不算值位 —— 三元条件里的 === 'x' 不是 name 值)。 */
+function lineIconValueLiterals(raw) {
+  const out = []
+  const walk = (input) => {
+    let e = String(input).trim()
+    while (e.endsWith('!')) e = e.slice(0, -1).trim() // 非空断言剥掉(逃逸性由 hatch 判)
+    if (!e) return
+    const lit = /^'([^']*)'$/.exec(e) || /^"([^"]*)"$/.exec(e)
+    if (lit) {
+      out.push(lit[1])
+      return
+    }
+    // 顶层 ` as ` 断言 → 只取左侧被断言的值
+    const depth = topLevelCursor(e)
+    for (let k = 0; k + 4 <= e.length; k += 1) {
+      // ' as ' 首字符是空格 ⇒ 'as' 天然独立成词,无需再查词边界(查了反而把 `x as never` 全拒掉)
+      if (!depth[k] || e.slice(k, k + 4) !== ' as ') continue
+      walk(e.slice(0, k))
+      return
+    }
+    // 剥一层配平括号
+    if (e.startsWith('(') && e.endsWith(')')) {
+      let d = 0
+      let balanced = true
+      for (let k = 0; k < e.length; k += 1) {
+        if (e[k] === '(') d += 1
+        else if (e[k] === ')') {
+          d -= 1
+          if (d === 0 && k !== e.length - 1) {
+            balanced = false
+            break
+          }
+        }
+      }
+      if (balanced) {
+        walk(e.slice(1, -1))
+        return
+      }
+    }
+    // 顶层 || / ?? → 两侧都是值位
+    const seps = []
+    for (let k = 0; k < e.length - 1; k += 1) {
+      if (!depth[k]) continue
+      if (e[k] === '|' && e[k + 1] === '|') seps.push(k)
+      if (e[k] === '?' && e[k + 1] === '?') seps.push(k)
+    }
+    if (seps.length) {
+      let prev = 0
+      for (const k of seps) {
+        walk(e.slice(prev, k))
+        prev = k + 2
+      }
+      walk(e.slice(prev))
+      return
+    }
+    // 顶层三元 ?: → 只取两支(条件位不进 —— 'x === 'voice'' 的 'voice' 不是 name 值)
+    let q = -1
+    for (let k = 0; k < e.length; k += 1) {
+      if (!depth[k]) continue
+      if (e[k] === '?' && e[k + 1] !== '?' && e[k + 1] !== '.' && e[k - 1] !== '?') {
+        q = k
+        break
+      }
+    }
+    if (q >= 0) {
+      let d = 0
+      let colon = -1
+      for (let k = q + 1; k < e.length; k += 1) {
+        if (e[k] === '(' || e[k] === '{' || e[k] === '[') d += 1
+        else if (e[k] === ')' || e[k] === '}' || e[k] === ']') d -= 1
+        else if (e[k] === ':' && d === 0) {
+          colon = k
+          break
+        }
+      }
+      if (colon > q) {
+        walk(e.slice(q + 1, colon))
+        walk(e.slice(colon + 1))
+        return
+      }
+    }
+    // 标识符/成员/调用:无字面量(类型面是 IconName 时由 tsc 看守,不属本档)
+  }
+  walk(raw)
+  return out
+}
+
+/** 逃逸写法:顶层 ` as ` 断言(as const 除外)或尾部非空断言 `!` —— 类型系统被绕过。 */
+function isLineIconEscapeHatch(raw) {
+  const e = String(raw).trim()
+  if (/!$/.test(e) && !/!==/.test(e.slice(-4))) return true
+  const depth = topLevelCursor(e)
+  for (let k = 0; k + 4 <= e.length; k += 1) {
+    // ' as ' 首字符是空格 ⇒ 'as' 天然独立成词,无需再查词边界
+    if (!depth[k] || e.slice(k, k + 4) !== ' as ') continue
+    const rest = e.slice(k + 4).trim()
+    if (/^const\b/.test(rest)) continue
+    return true
+  }
+  return false
+}
+
+/** 从(已剥注释的)源码提取全部 <LineIcon name=…> 调用点。 */
+function extractLineIconNameExprs(text) {
+  const sites = []
+  const lineAt = (idx) => text.slice(0, idx).split('\n').length
+  const re = /<LineIcon\b/g
+  let m
+  while ((m = re.exec(text))) {
+    // 捕获开标签:括号/花括号配平后才认 '>',防 props 里的箭头函数 `=>` 提前截断
+    let i = re.lastIndex
+    let paren = 0
+    let brace = 0
+    let quote = null
+    let end = -1
+    for (; i < text.length; i += 1) {
+      const ch = text[i]
+      if (quote) {
+        if (ch === '\\') i += 1
+        else if (ch === quote) quote = null
+        continue
+      }
+      if (ch === '"' || ch === "'" || ch === '`') quote = ch
+      else if (ch === '(') paren += 1
+      else if (ch === ')') paren -= 1
+      else if (ch === '{') brace += 1
+      else if (ch === '}') brace -= 1
+      else if (ch === '>' && paren === 0 && brace === 0 && text[i - 1] !== '=') {
+        end = i
+        break
+      }
+    }
+    if (end < 0) break // 标签未闭合(文件截断),防御性停
+    re.lastIndex = end + 1
+    const tag = text.slice(m.index, end)
+    const nm = /(^|[\s{])name\s*=\s*/.exec(tag)
+    if (!nm) continue
+    const j = nm.index + nm[0].length
+    if (tag[j] === '{') {
+      let d = 0
+      let k = j
+      for (; k < tag.length; k += 1) {
+        if (tag[k] === '{') d += 1
+        else if (tag[k] === '}') {
+          d -= 1
+          if (d === 0) break
+        }
+      }
+      if (d !== 0) continue // 括号不配平(截断),防御性放过
+      sites.push({ line: lineAt(m.index), expr: tag.slice(j + 1, k) })
+    } else if (tag[j] === '"' || tag[j] === "'") {
+      const q = tag[j]
+      const close = tag.indexOf(q, j + 1)
+      if (close > j) sites.push({ line: lineAt(m.index), expr: tag.slice(j, close + 1) })
+    }
+  }
+  return sites
+}
+
+/** 一份(已剥注释)源码里的逃逸写法调用点数(棘轮锚点的计算单元)。 */
+function countLineIconEscapeHatches(strippedText) {
+  return extractLineIconNameExprs(strippedText).filter((s) => isLineIconEscapeHatch(s.expr)).length
 }
 
 /* ─────────────────────────── 主判定 ─────────────────────────── */
@@ -477,16 +688,14 @@ function runCheck({ face, root, strict, group }) {
   const undetermined = {
     dynamicAssetPaths: 0,
     unreadableSourceFiles: 0,
+    // I2(G-415/A8)逃逸写法调用点存量(as 断言 / 尾部 !)—— 只报数,棘轮只在 --staged 拦新增
+    lineIconEscapeHatchSites: 0,
     // G-680 钉的四态:absent(没有钉)/ malformed(有钉读不出)/ matched(与现算同)/ stale(不等 ⇒ 已判红)。
     // 前两态是「未判定」,不得被读成"内容是新的";后两态由 report/JSON 原样带出。
     pinState: 'not-run',
     pinDetail: '',
-    // G6:动态 / 闭不上标签的调用点结构上判不了 ⇒ 只计数并逐条点名,绝不静默算通过
-    lineIconDynamic: 0,
-    lineIconUnparsable: 0,
-    lineIconUndeterminedList: [],
   }
-  const counts = { bundleLocales: 0, sourceFilesScanned: 0, artifactFiles: 0, registryKeys: 0, lineIconLiteral: 0 }
+  const counts = { bundleLocales: 0, sourceFilesScanned: 0, artifactFiles: 0, registryKeys: 0, lineIconCallSites: 0 }
 
   const push = (code, dir, blocking, file, detail) => findings.push({ code, dir, blocking, file, detail })
 
@@ -599,43 +808,58 @@ function runCheck({ face, root, strict, group }) {
           `gen-line-icons.mjs 的 50% 拒绝闸即为此而写。**永不判红**(判红=恒红=逼人 --no-verify)`,
       )
     }
-  }
 
-  /* —— G6(G-415 A8)LineIcon 调用点「值 → 键」—— */
-  if (!group || group === 'icons') {
-    // 键集在本块内自取:上面那个 icons 块的 keys 是块级作用域,跨块引用会在 import 期就炸
-    // (blocking 门崩溃比判红更糟 —— 它让整条 pre-commit 中止,只留一截堆栈)
-    if (!reader.has(ICON_REGISTRY)) throw new Undetermined(`${reader.label} 取不到 ${ICON_REGISTRY},G6 无从判定`)
-    const keys = registryKeys(reader.read(ICON_REGISTRY))
-    const callFiles = allFiles
-      .filter((p) => p.startsWith(`${APP}/src/`) && /\.(tsx|jsx)$/.test(p))
-      .filter((p) => !p.includes('/__tests__/') && !p.includes('/tests/') && !/\.test\.[tx]sx?$/.test(p))
-    for (const rel of callFiles) {
-      if (!reader.has(rel)) {
-        undetermined.unreadableSourceFiles += 1
-        continue
-      }
-      const judged = maskComments(reader.read(rel))
-      for (const s of lineIconCallSites(judged)) {
-        if (s.kind === 'literal') {
-          counts.lineIconLiteral += 1
-          if (!keys.has(s.key)) {
+    /* —— I2 调用点「值→键」(G-415/A8) —— */
+    let callSites = 0
+    let escapeTotal = 0
+    /** @type {Map<string, number>} rel -> 该文件逃逸写法调用点数(当前面) */
+    const escapeByFile = new Map()
+    for (const rel of sourceFiles) {
+      const src = reader.read(rel)
+      if (src === null) continue
+      const stripped = stripJsComments(src)
+      const sites = extractLineIconNameExprs(stripped)
+      callSites += sites.length
+      let escapes = 0
+      for (const { line, expr } of sites) {
+        if (isLineIconEscapeHatch(expr)) escapes += 1
+        for (const lit of lineIconValueLiterals(expr)) {
+          if (!keys.has(lit)) {
             push(
-              'K1',
+              'I2',
               'missing',
               true,
               rel,
-              `<LineIcon name="${s.key}"> 不在 ${ICON_REGISTRY} 的键集里 —— 组件取不到素材时 return null,` +
-                `界面只是空白且不报错(过去这一格零看守:L1/G3 只看 svg↔注册表两面)`,
+              `L${line} 调用点写死的图标名 "${lit}" 不在 ${ICON_REGISTRY} 注册表 —— LineIcon 取不到素材时静默 return null(界面空白,零报错)`,
             )
           }
-        } else if (s.kind === 'dynamic') {
-          undetermined.lineIconDynamic += 1
-        } else {
-          undetermined.lineIconUnparsable += 1
         }
-        if (s.kind !== 'literal' && undetermined.lineIconUndeterminedList.length < 12) {
-          undetermined.lineIconUndeterminedList.push(`${rel}: ${s.snippet}`)
+      }
+      if (escapes > 0) escapeByFile.set(rel, escapes)
+      escapeTotal += escapes
+    }
+    counts.lineIconCallSites = callSites
+    undetermined.lineIconEscapeHatchSites = escapeTotal
+    // 棘轮:锚点 = 该文件 HEAD 版本自身的逃逸数。只在 --staged 生效(SV3 同型:
+    // HEAD 面锚点是它自己 ⇒ 存量恒 0 新增,判红即恒红;worktree 是 dev 链逃生舱,只报数)。
+    if (face === 'staged') {
+      for (const [rel, cnt] of escapeByFile) {
+        let headText = null
+        try {
+          headText = gitRaw(['show', `HEAD:${rel}`], root)
+        } catch {
+          headText = null // HEAD 里没有该文件(新文件)⇒ 锚点 0,任何逃逸都算新增
+        }
+        const headCount = headText ? countLineIconEscapeHatches(stripJsComments(headText)) : 0
+        if (cnt > headCount) {
+          push(
+            'I2',
+            'missing',
+            true,
+            rel,
+            `调用点逃逸写法(as 断言 / 尾部非空断言)从 HEAD 的 ${headCount} 处涨到 ${cnt} 处 —— ` +
+              `值→键无静态证明;新增一律用注册表字面量或 IconName 类型的值,不得用断言绕过`,
+          )
         }
       }
     }
@@ -663,7 +887,7 @@ function formatReport(result, face, opts) {
   const red = result.findings.filter((f) => f.blocking)
   const reported = result.findings.filter((f) => !f.blocking)
   const lines = []
-  lines.push(`[miniapp-generated] 面=${face}(${FACE_LABEL[face]}) 扫描源文件 ${result.counts.sourceFilesScanned} 个 / 产物文件 ${result.counts.artifactFiles} 个 / 注册表键 ${result.counts.registryKeys} 个 / 语言 ${result.counts.bundleLocales} 种`)
+  lines.push(`[miniapp-generated] 面=${face}(${FACE_LABEL[face]}) 扫描源文件 ${result.counts.sourceFilesScanned} 个 / 产物文件 ${result.counts.artifactFiles} 个 / 注册表键 ${result.counts.registryKeys} 个 / LineIcon 调用点 ${result.counts.lineIconCallSites} 个 / 语言 ${result.counts.bundleLocales} 种`)
   if (red.length) {
     lines.push(`  ❌ 漏生成/缺资源 ${red.length} 处:`)
     for (const f of red) lines.push(`     [${f.code}] ${f.file} —— ${f.detail}`)
@@ -679,11 +903,9 @@ function formatReport(result, face, opts) {
       (result.undetermined.unreadableSourceFiles ? ` / 读不到的源文件 ${result.undetermined.unreadableSourceFiles} 个` : ''),
   )
   lines.push(
-    `  🔎 G6 LineIcon 调用点「值→键」:字面量站点 ${result.counts.lineIconLiteral} 处(不在注册表键集即判红)` +
-      ` / 动态拼接 ${result.undetermined.lineIconDynamic} 处 / 标签配不平 ${result.undetermined.lineIconUnparsable} 处` +
-      ' —— 后两档是**未判定**,不计通过;逐条点名见下',
+    `  ◽ LineIcon 调用点逃逸写法(as 断言/尾部 !)存量 ${result.undetermined.lineIconEscapeHatchSites} 处 —— ` +
+      `只报数;--staged 面按该文件 HEAD 自身数量锚定,只拦新增(I2)`,
   )
-  for (const d of result.undetermined.lineIconUndeterminedList) lines.push(`     ◽ ${d}`)
   if (result.undetermined.pinState === 'absent' || result.undetermined.pinState === 'malformed') {
     lines.push(
       `  📌 离线包自述钉(G-680):${result.undetermined.pinState} —— ${result.undetermined.pinDetail}`,
@@ -872,6 +1094,45 @@ function selfTest() {
     eq(threw instanceof Undetermined, true)
   })
 
+  /* ── I2(G-415/A8)调用点「值→键」成对正反例 ── */
+  t('stripJsComments:剥注释但字符串里的 // (URL) 必须活着', () => {
+    eq(stripJsComments('const a = 1 // 注释\nconst b = 2'), 'const a = 1 \nconst b = 2', '行注释剥掉')
+    eq(stripJsComments('/* 块注释 */ x'), ' x', '块注释剥掉')
+    eq(stripJsComments("const u = 'https://cdn.example.com/a.png'"), "const u = 'https://cdn.example.com/a.png'", '字符串内 // 不得当注释')
+  })
+  t('extractLineIconNameExprs:多行标签 + name 前置箭头函数 prop,都能取到 name', () => {
+    const sites = extractLineIconNameExprs(
+      `<LineIcon\n  onClick={() => go('a>b')}\n  name={cond ? 'mic' : 'keyboard'}\n  size={40}\n/>`,
+    )
+    eq(sites.length, 1, '恰好一个调用点')
+    eq(sites[0].expr.trim(), "cond ? 'mic' : 'keyboard'", 'name 表达式取全')
+  })
+  t('lineIconValueLiterals:值位字面量全收,比较位必须排除(阳性+阴性同例)', () => {
+    eq(lineIconValueLiterals("'heart'").join(','), 'heart', '整体字面量')
+    eq(lineIconValueLiterals("cond ? 'mic' : 'keyboard'").join(','), 'mic,keyboard', '三元两支')
+    eq(lineIconValueLiterals("mode === 'voice' ? 'keyboard' : 'mic'").join(','), 'keyboard,mic', '比较位不算值位 —— 漏这条会把每个条件字面量误报成坏键')
+    eq(lineIconValueLiterals("(X[p] || 'bot') as IconName").join(','), 'bot', '剥断言与括号后取兜底字面量')
+    eq(lineIconValueLiterals('MEDALS[idx]!').length, 0, '非字面量 ⇒ 空,不虚报')
+  })
+  t('isLineIconEscapeHatch:四种兜法全认得,正常写法一个不冤枉', () => {
+    eq(isLineIconEscapeHatch("icon as never"), true, 'as never')
+    eq(isLineIconEscapeHatch('th.icon as IconName'), true, 'as IconName')
+    eq(isLineIconEscapeHatch("TYPE_ICON[t] as 'heart' | 'star'"), true, "as 字面联合")
+    eq(isLineIconEscapeHatch('MEDALS[idx]!'), true, '尾部非空断言')
+    eq(isLineIconEscapeHatch("'bot'"), false, '字面量不是逃逸')
+    eq(isLineIconEscapeHatch("cond ? 'a' : 'b'"), false, '字面三元不是逃逸')
+    eq(isLineIconEscapeHatch('btn.icon'), false, 'IconName 类型的标识符交给 tsc,不冤枉')
+  })
+  t('countLineIconEscapeHatches:同一份源码的锚点计算单元,与逐点判定同数', () => {
+    const src = [
+      '<LineIcon name={a as never} />',
+      '<LineIcon name={b!} />',
+      '<LineIcon name="bot" />',
+      '<LineIcon name={c} />',
+    ].join('\n')
+    eq(countLineIconEscapeHatches(src), 2, '两个逃逸点,字面量与普通标识符不计')
+  })
+
   /* —— 端到端:磁盘面夹具(锁住 list() 的归一化,以及"引用↔存在"两个方向) —— */
   const withScratch = (fn) => {
     const dir = mkScratch('check-miniapp-generated')
@@ -926,6 +1187,28 @@ function selfTest() {
       const r = runCheck({ face: 'worktree', root: dir, strict: true, group: 'assets' })
       eq(r.findings.filter((f) => f.code === 'R1').length, 0, `齐全时不该有缺资源,实际 ${JSON.stringify(r.findings)}`)
       eq(r.findings.filter((f) => f.code === 'R2').length, 0, `齐全时不该有孤儿,实际 ${JSON.stringify(r.findings)}`)
+    })
+  })
+
+  t('端到端(磁盘面):写死的坏图标名判红;合法名与逃逸存量不红(成对)', () => {
+    withScratch((dir) => {
+      put(dir, ICON_REGISTRY, `export const ICONS = {\n  "bot": "<svg/>",\n  "heart": "<svg/>",\n} as const`)
+      put(
+        dir,
+        `${APP}/src/pages/x.tsx`,
+        [
+          `export const A = () => <LineIcon name="ghost-key" size={40} />`, // 坏键 ⇒ I2 判红
+          `export const B = () => <LineIcon name="bot" size={40} />`, // 合法
+          `export const C = () => <LineIcon name={icon as IconName} size={40} />`, // 逃逸 ⇒ 只报数
+        ].join('\n'),
+      )
+      const r = runCheck({ face: 'worktree', root: dir, strict: false, group: 'icons' })
+      const i2 = r.findings.filter((f) => f.code === 'I2')
+      eq(i2.length, 1, `只有坏字面量判红,实际 ${JSON.stringify(r.findings.map((f) => f.code))}`)
+      eq(i2[0].blocking, true, 'I2 字面量档必须 blocking')
+      if (!i2[0].detail.includes('ghost-key')) throw new Error(`必须点名坏键,实际:${i2[0].detail}`)
+      eq(r.counts.lineIconCallSites, 3, '三个调用点都数到')
+      eq(r.undetermined.lineIconEscapeHatchSites, 1, '逃逸点计入存量报数')
     })
   })
 
@@ -1042,6 +1325,11 @@ export const __test__ = {
   collectAssetRefs,
   registryKeys,
   generatorTabbarNames,
+  stripJsComments,
+  extractLineIconNameExprs,
+  lineIconValueLiterals,
+  isLineIconEscapeHatch,
+  countLineIconEscapeHatches,
   runCheck,
   parseArgv,
   main,

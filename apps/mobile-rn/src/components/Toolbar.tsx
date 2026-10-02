@@ -435,11 +435,14 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     paddingTop: 10,
   },
-  // 面层撑满外框内容盒;bannerFloat / bannerCard 都是绝对定位,其定位基准随children 一起
-  // 落到这一层 —— 外框没有 paddingTop/paddingLeft,两层原点重合,像素位置逐字不变。
+  // 面层撑满外框内容盒并承载横排布局(机器人列 + 卡片并排、底对齐,与正常流收口时的
+  // bannerWrap 排布同形 —— View 默认 column,面层不显式声明 row 两者会竖排,
+  // 机器人独占一行游离在卡片上方);外框 paddingTop 10 为浮动基线余量,上浮 -10 不出容器。
   bannerFace: {
     width: '100%',
     height: '100%',
+    flexDirection: 'row',
+    alignItems: 'flex-end',
   } as ViewStyle,
   bannerFloat: {
     width: 90,
