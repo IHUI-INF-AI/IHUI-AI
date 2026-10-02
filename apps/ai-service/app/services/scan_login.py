@@ -635,7 +635,9 @@ class ScanTask:
     _net_captured: dict[str, str] = field(default_factory=dict, repr=False)
     # 2026-09-30 任务交互通道:扫码后的多步验证(短信验证码等)由 API 端点投递动作,
     # 任务线程在等待循环里消费执行 —— sync Playwright 非线程安全,只许任务线程摸 page
-    _interact_q: queue.Queue | None = field(default=None, repr=False)
+    _interact_q: queue.Queue[tuple[str, str, str | None, str | None]] | None = field(
+        default=None, repr=False
+    )
     _interact_results: dict[str, dict[str, Any]] = field(default_factory=dict, repr=False)
 
     def is_terminal(self) -> bool:
@@ -2467,13 +2469,6 @@ def _qr_ready_selectors(config: Mapping[str, Any]) -> tuple[str, ...]:
 # 登录入口的"可点"判据见 `_sel_clickable_now`:必须走 Playwright 自己的可见性语义,
 # 自写 `querySelector` + `elementFromPoint` 会被 SSR 骨架里的同名隐藏兄弟节点骗到
 # (头条/掘金实测初版就这么恒判 false,一次都点不中)。
-
-
-def _browser_safe(selectors: Sequence[str]) -> list[str]:
-    """只留浏览器 DOM 能直接吃的选择器(text= / :has-text() 是 Playwright 专有语法,
-    丢进 querySelectorAll 只会白跑一次往返去 reject 它)。
-    """
-    return [s for s in selectors if s and not _PW_ONLY_SELECTOR_RE.search(str(s))]
 
 
 def _sel_clickable_now(pg: Any, selector: str) -> bool:
