@@ -18,15 +18,18 @@
  * 一律经 `plugins/git-runner.ts::resolveGitSpawnOptions` 唯一出口解析:
  *   - 旧形态的 bare 命令名派生(直接 spawnSync "git" 字面量)、所有子命令共用一档 30s、
  *     maxBuffer 1MiB、无字节帽后 kill、无超时诊断,是同一纪律的两份实现里漂移的那一半;
- *   - 超时/超输出被杀时结果带 `killed` 诊断(elapsed/killAt/forceKill/orphaned);
- *   - stderr 进结果面前先过 `redactForPrint` 脱敏 —— push/fetch 失败时 git 会把
- *     `https://user:<token>@host` 原样打进 stderr,一旦进 transcript 就是守门 67 的对象。
+ *   - 超时/超输出被杀时结果带 `killed` 诊断(elapsed/killAt/forceKill/orphaned 四字段名是
+ *     验收契约不得改名),且诊断文本同时落 stderr —— 封顶失败无退出码,旧形态 error 为
+ *     undefined 会把一次失败读成"无错误说明"(G-998107 契约,b76 wave-2 W4 搬家时曾丢,已恢复);
+ *   - stderr 进结果面前先过共享层 `sanitizeEvidenceText` 脱敏(唯一脱敏出口,禁止第二份)——
+ *     push/fetch 失败时 git 会把 `https://user:<token>@host` 原样打进 stderr,一旦进
+ *     transcript 就是守门 67 的对象。
  */
 import { spawnSync } from 'node:child_process';
+import { sanitizeEvidenceText } from '@ihui/shared/utils/redact';
 import {
   GIT_NETWORK_TIMEOUT_MS,
   gitVerbOf,
-  redactForPrint,
   resolveGitSpawnOptions,
 } from '../plugins/git-runner.js';
 import type { ToolResult } from './index.js';
@@ -98,58 +101,72 @@ export function execGit(args: string[], cwd: string, opts: GitExecOptions | numb
   const rawError = result.error as (NodeJS.ErrnoException | undefined) | undefined;
   const errCode = rawError && typeof rawError === 'object' ? String(rawError.code ?? '') : '';
   if (errCode === 'ETIMEDOUT') {
+    const killed: GitCappedDiagnostics = {
+      elapsed: Date.now() - startedAt,
+      killAt: resolved.timeoutMs,
+      forceKill: false,
+      orphaned: false,
+      reason: 'timeout',
+    };
+    // 诊断行同时是 stderr 与 formatGitResult 的 error 底稿:封顶失败无退出码,
+    // error 必须带上这行而不是 undefined(G-998107 契约,四字段名不得改名)
     return {
-      stdout: (result.stdout as string) ?? '',
-      stderr: redactForPrint((result.stderr as string) ?? ''),
+      stdout: '',
+      stderr: cappedDiagnosticLine(verb, killed),
       exitCode: null,
-      killed: {
-        elapsed: Date.now() - startedAt,
-        killAt: resolved.timeoutMs,
-        forceKill: false,
-        orphaned: false,
-        reason: 'timeout',
-      },
+      killed,
     };
   }
   if (errCode === 'ENOBUFS') {
+    const killed: GitCappedDiagnostics = {
+      elapsed: Date.now() - startedAt,
+      killAt: resolved.maxBufferBytes,
+      forceKill: false,
+      orphaned: false,
+      reason: 'output-too-large',
+    };
     return {
-      stdout: (result.stdout as string) ?? '',
-      stderr: redactForPrint((result.stderr as string) ?? ''),
+      stdout: '',
+      stderr: cappedDiagnosticLine(verb, killed),
       exitCode: null,
-      killed: {
-        elapsed: Date.now() - startedAt,
-        killAt: resolved.maxBufferBytes,
-        forceKill: false,
-        orphaned: false,
-        reason: 'output-too-large',
-      },
+      killed,
     };
   }
   return {
     stdout: (result.stdout as string) ?? '',
     // stderr 先脱敏再进结果面:git 会把内嵌口令的远端 URL 原样打进 stderr
-    stderr: redactForPrint((result.stderr as string) ?? ''),
+    stderr: sanitizeEvidenceText((result.stderr as string) ?? ''),
     exitCode: result.status,
   };
 }
 
+/** 封顶诊断行(机器四词配中文胶水,formatGitResult 的 error 直接复用) */
+function cappedDiagnosticLine(verb: string, k: GitCappedDiagnostics): string {
+  const unit = k.reason === 'timeout' ? 'ms' : 'B';
+  return (
+    `git ${verb} 超帽已作废(${k.reason}): ` +
+    `elapsed=${k.elapsed}ms killAt=${k.killAt}${unit} forceKill=${k.forceKill} orphaned=${k.orphaned}`
+  );
+}
+
 export function formatGitResult(r: GitExecResult, successOnZero = true): ToolResult {
+  // 边界脱敏(共享层唯一出口):合成/直传结果都从这里再过一道 —— execGit 已脱敏,这里幂等兜底,
+  // 保证任何路径(stderr 直塞、缓存回放)进 transcript 前都被盖住
+  const cleanStderr = sanitizeEvidenceText(r.stderr);
   const parts: string[] = [];
   if (r.stdout.trim()) parts.push(r.stdout.trimEnd());
-  if (r.stderr.trim()) parts.push(`[stderr] ${r.stderr.trimEnd()}`);
+  if (cleanStderr.trim()) parts.push(`[stderr] ${cleanStderr.trimEnd()}`);
   if (r.killed) {
     parts.push(
       `[git-capped] ${r.killed.reason}: ${JSON.stringify(r.killed)} (预算表见 plugins/git-runner.ts)`,
     );
   }
-  let error: string | undefined;
-  if (r.killed) {
-    error = `git ${r.killed.reason} 已被预算封顶(${r.killed.elapsed}ms)`;
-  } else if (r.exitCode !== null && r.exitCode !== 0) {
-    error = `git 退出码 ${r.exitCode}`;
-  }
+  // 封顶失败(超时/超输出帽)无退出码:旧形态 error 为 undefined 会把一次失败读成
+  // "无错误说明",故 error 直接用诊断行(其中含机器四词,G-998107 验收契约)
+  const failed = r.killed !== undefined || (r.exitCode !== null && r.exitCode !== 0);
+  const error = r.killed !== undefined ? cleanStderr.trim() : failed ? `git 退出码 ${r.exitCode}` : undefined;
   return {
-    success: r.killed ? false : successOnZero ? r.exitCode === 0 : true,
+    success: !failed && (successOnZero ? r.exitCode === 0 : true),
     output: parts.join('\n') || '(无输出)',
     error,
   };
