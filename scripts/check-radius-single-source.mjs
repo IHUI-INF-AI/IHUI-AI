@@ -237,6 +237,17 @@ export const OUT_OF_SCOPE = [
     why: '内容渲染分支:发布到第三方平台的文章 HTML 属内容产物(同 §4「文档/营销正文」豁免口径),不是应用界面',
   },
   { re: /^docs\//, why: '文档产物 HTML,非应用界面' },
+  {
+    // 第 9 端(2026-10-02 并入 HEAD 的 Tauri 桌面壳 `@ihui/assistant`)。这条声明写的是**当下事实**,
+    // 不是待办遮羞布:该端 package.json 的依赖里没有任何 `@ihui/*`(实测 keys = @tauri-apps/*、
+    // clsx、lucide-react、react、recharts、zustand),也不在 pnpm-workspace 内,自己带一份 tailwind
+    // 配置与硬调色板(#18181b/#3f3f46…)。所以"只把圆角拉进档位表"不会让它与其余八端同源,
+    // 只会造出一处半接入。
+    // 移除本行的条件(必须同笔成立,缺一即不该移除):该端 import `@ihui/design-tokens` 并把
+    // tailwind-preset 接进自己的配置 —— 那一刻它自动落进 SCAN_DIRS 的语义,由 B 判据问责。
+    re: /^apps\/assistant\//,
+    why: '第 9 端 @ihui/assistant 整体未接入共享层(零 @ihui/* 依赖、自带 tailwind 与调色板),单维收编只会造出半接入;接入 design-tokens 时同笔移除本声明',
+  },
   { re: /(^|\/)scripts\/gen_[^/]*\.(py|mjs)$/, why: '开发期报告生成器产物模板,非应用界面' },
 ]
 
@@ -666,7 +677,7 @@ export async function checkTableConsistency() {
     try {
       const b = catBatch(ROOT, ['HEAD:packages/design-tokens/src/radius.d.ts'])
       return b.get('packages/design-tokens/src/radius.d.ts') ?? b.get('HEAD:packages/design-tokens/src/radius.d.ts') ?? ''
-    } catch (e) {
+    } catch {
       return null
     }
   })()
