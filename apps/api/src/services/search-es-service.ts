@@ -118,8 +118,14 @@ export class SearchEsService {
       const mod = await import('@elastic/elasticsearch')
       const Client = mod.Client ?? mod.default?.Client
       if (!Client) throw new Error('@elastic/elasticsearch Client not found')
+      // Basic Auth 可选:两个键都填才生效(留空则按无认证连接,或由 URL 内嵌凭据)
+      const esUsername = process.env.ELASTICSEARCH_USERNAME
+      const esPassword = process.env.ELASTICSEARCH_PASSWORD
       this.esClient = new Client({
         node: process.env.ELASTICSEARCH_URL,
+        ...(esUsername && esPassword
+          ? { auth: { username: esUsername, password: esPassword } }
+          : {}),
         requestTimeout: 5000,
         maxRetries: 3,
       })
