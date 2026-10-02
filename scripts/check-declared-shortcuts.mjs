@@ -60,8 +60,21 @@ const MOD_TOKENS = {
 const CHORD_SRC =
   String.raw`(?:Ctrl|Cmd|Mod)(?:\+(?:Shift|Alt|Ctrl|Cmd|Meta))?\+(?:[A-Za-z0-9]|[,./;\`'=\-\[\]\\])`
 const DECL_RE = new RegExp(CHORD_SRC, 'g')
+// 键位断言的三种书写形态(第 ③ 档是 2026-10-02 补,理由写在下面):
+//   ① `e.key === 'q'` / `e.code === 'KeyQ'` / `k === 'q'`
+//   ② `case 'q':`
+//   ③ **本仓唯一那份共享键匹配实现**(`apps/web/src/lib/keyboard-shortcut-match.ts` 的三个导出)
+//      的调用形态 `matchesShortcutKeyCode(e, 'q')`。
+// 立 ③ 的因由:L5782 那次修复把 Ctrl+Q 的键匹配**收进了共享出口**(该文件注释原话
+// "key 匹配复用 keyboard-shortcut-match 那一份实现…不得在本文件再抄一份判据"),于是门对
+// 自己项目**明令的写法**失明 —— 声明侧 `<kbd>Ctrl+Q</kbd>` 被判"源码中不存在该组合键的处理器",
+// 而处理器确实在(`use-native-shortcuts.ts:70`)。AGENTS §12f:真因是"被审代码换了写法"就必须
+// **同一枚提交里同时改审它的正则**,而不是让红留着逼人删掉一句真实的键位声明。
+// 刻意**只认「首参是一个标识符」的那一形**(`(e, 'q')`):夹具里 `matchesPrimaryShortcut(keyEvent({…}), 'b', MAC)`
+// 与 `matchesShortcutKeyCode({ key: '∫' }, 'b')` 这类**把字面量对象当首参**的调用不认 ——
+// 那是测试夹具的构造调用,把它算成处理器会给无关键位发合格证(假阳比漏报贵)。
 const KEY_TEST_RE =
-  /(?:\b(?:[A-Za-z_$][\w$.]*\.)?(?:key|code)\b|\bk\b)\s*===\s*'([^']{1,12})'|\bcase\s+'([^']{1,12})'\s*:/g
+  /(?:\b(?:[A-Za-z_$][\w$.]*\.)?(?:key|code)\b|\bk\b)\s*===\s*'([^']{1,12})'|\bcase\s+'([^']{1,12})'\s*:|\b(?:matchesShortcutKeyCode|matchesPrimaryShortcut|matchesCtrlShortcut)\s*\(\s*[A-Za-z_$][\w$]*\s*,\s*'([^']{1,12})'/g
 const GUARD_RE = /^\s*(?:if|else if)\s*\((.{3,120}?)\)\s*(?:\{\s*)?(?:return|e\.preventDefault)/
 // 具名功能键(e.key 的多字符值),长度上限 3 会把它们全部漏掉,必须显式放行
 const NAMED_KEYS = /^(enter|tab|escape|esc|backspace|delete|spacebar|space|arrowup|arrowdown|arrowleft|arrowright|pageup|pagedown|home|end)$/i
@@ -235,7 +248,7 @@ function parseHandlers(file, text) {
   KEY_TEST_RE.lastIndex = 0
   let m
   while ((m = KEY_TEST_RE.exec(text))) {
-    const raw = String(m[1] ?? m[2] ?? '').trim()
+    const raw = String(m[1] ?? m[2] ?? m[3] ?? '').trim()
     if (!raw || raw.length > 12) continue
     const key = /^Key[A-Z]$/.test(raw) ? raw.slice(3).toLowerCase() : raw.toLowerCase()
     if (!key || (key.length > 3 && !NAMED_KEYS.test(raw))) continue
@@ -640,8 +653,32 @@ const handler = (e: KeyboardEvent) => {
 `
 const FIX_FILE = '/abs/apps/web/src/hooks/__fixture__.ts'
 
+/**
+ * ③ 档(共享键匹配出口)的**成对**夹具。
+ *
+ * 三条各自要证的东西:
+ *  · `matchesShortcutKeyCode(e, 'q')` —— 生产写法,必须被算成 q 的处理器(否则门对项目明令的
+ *    那份出口失明,L5782 那条真实修复就会被读成"没人绑 Ctrl+Q");
+ *  · `matchesPrimaryShortcut(keyEvent({ key: 'b' }), 'b', MAC)` 与 `matchesShortcutKeyCode({ key: 'z' }, 'z')`
+ *    —— **首参不是裸标识符**的两形(测试夹具的构造调用 / 字面量事件对象)一律不认:把它们算成
+ *    处理器等于给无关键位发合格证,而"门说得越具体,铰链越松"那一型在归因层已经记过账。
+ */
+const FIXTURE_SHARED = `
+const onKey = (e: KeyboardEvent) => {
+  const ctrl = e.ctrlKey || e.metaKey
+  const shift = e.shiftKey
+  const alt = e.altKey
+  if (ctrl && !shift && !alt && matchesShortcutKeyCode(e, 'q')) { fire('file.quit') }
+  if (matchesPrimaryShortcut(keyEvent({ key: 'b' }), 'b', MAC)) { fire() }
+  if (ctrl && !shift && !alt && matchesShortcutKeyCode({ key: 'z' }, 'z')) { fire() }
+}
+`
+
 function fixtureHandlers() {
   return parseHandlers(FIX_FILE, FIXTURE)
+}
+function fixtureSharedHandlers() {
+  return parseHandlers(FIX_FILE, FIXTURE_SHARED)
 }
 function d(raw, kind = 'field') {
   return { ...normalizeChord(raw), kind, file: 'fixture' }
@@ -669,6 +706,16 @@ function runSelfTest() {
   check('正例:注册表事件有消费者 → 已绑', consumer.bound.length === 1)
   const undeclared = reconcile([d('Ctrl+Shift+U')], handlers, '{}')
   check('信息:绑了未声明被列出(Ctrl+Q 在声明侧缺席)', undeclared.undeclared.some((x) => x.canonical === 'mod+q'))
+
+  // ---- ③ 档:共享键匹配出口(`matchesShortcutKeyCode(e, 'x')`)的成对证明 ------------
+  const shared = fixtureSharedHandlers()
+  check('③ 档正例:生产写法 matchesShortcutKeyCode(e, \'q\') 被算成 q 的处理器', shared.length === 1 && shared[0].key === 'q')
+  check('③ 档 mod 槽位仍来自外层条件(ctrl / !shift / !alt ⇒ 完全确定)', shared.length === 1 && shared[0].determined === true && [...shared[0].required].join() === 'mod' && [...shared[0].forbidden].sort().join() === 'alt,shift')
+  check('③ 档反向锁:首参是构造调用/对象字面量的两形不得算处理器(夹具形给无关键位发合格证)', !shared.some((h) => h.key === 'b' || h.key === 'z'))
+  const sharedBound = reconcile([d('Ctrl+Q')], shared, '{}')
+  check('③ 档有牙:声明 Ctrl+Q 经共享出口处理器判为已绑(严格)', sharedBound.bound.length === 1 && sharedBound.bound[0].mode === '严格' && sharedBound.unbound.length === 0)
+  const sharedUnbound = reconcile([d('Ctrl+B')], shared, '{}')
+  check('③ 档变异:同一夹具下声明 Ctrl+B 仍判未绑(摘掉 ③ 档或改错捕获位都必须红)', sharedUnbound.unbound.length === 1 && sharedUnbound.bound.length === 0)
 
   check('归一化:Cmd 与 Ctrl 同槽位', normalizeChord('Cmd+Shift+P').canonical === normalizeChord('Ctrl+Shift+P').canonical)
   check('归一化:未知修饰键返回 null', normalizeChord('Ctrl+Hyper+P') === null)
@@ -742,6 +789,8 @@ export const __test__ = {
   reconcile,
   scanSources,
   FIXTURE,
+  FIXTURE_SHARED,
+  fixtureSharedHandlers,
   FIX_FILE,
   runSelfTest,
 }

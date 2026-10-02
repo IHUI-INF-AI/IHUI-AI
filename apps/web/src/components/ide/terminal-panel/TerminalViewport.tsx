@@ -22,7 +22,7 @@ import {
   FONT_SIZE_MIN,
   FONT_SIZE_MAX,
   resolveTerminalTheme,
-  type TerminalThemeMode,
+  type TerminalThemeName,
 } from './constants'
 import type { TerminalInstance, ContextMenuState } from './types'
 import { useTerminalSearch } from './useTerminalSearch'
@@ -70,18 +70,6 @@ export function TerminalViewport({
   onFocusPane,
 }: TerminalViewportProps) {
   const { resolvedTheme } = useTheme()
-  // D199(2026-09-30 立,对标竞品 misc terminalPanel.switchToDark|switchToLight):
-  // 终端面板自有深浅色档。真实载体 = 本 state 驱动 xterm theme(见下方初始化与
-  // 「主题切换 → 更新 xterm theme」effect),缺省跟随应用主题 resolvedTheme;
-  // 刻意不写 ThemeProvider 全局态(竞品切换对象是终端,不是整站)。
-  const [terminalThemeOverride, setTerminalThemeOverride] =
-    React.useState<TerminalThemeMode | null>(null)
-  const terminalTheme = resolveTerminalTheme(terminalThemeOverride, resolvedTheme)
-  const handleToggleTerminalTheme = React.useCallback(() => {
-    setTerminalThemeOverride(
-      resolveTerminalTheme(terminalThemeOverride, resolvedTheme) === 'dark' ? 'light' : 'dark',
-    )
-  }, [terminalThemeOverride, resolvedTheme])
   const t = useTranslations('ide')
   const containerRef = React.useRef<HTMLDivElement>(null)
   const {
@@ -127,6 +115,11 @@ export function TerminalViewport({
   const [historyIndex, setHistoryIndex] = React.useState(0)
   const historyInputRef = React.useRef<HTMLInputElement>(null)
 
+  // D199(2026-09-30):终端深浅档 —— null = 未显式选择,跟随应用主题;
+  // 用户点工具条切换钮后记显式档,后续不再随应用主题翻转。
+  const [terminalThemePref, setTerminalThemePref] = React.useState<TerminalThemeName | null>(null)
+  const effectiveTerminalTheme = resolveTerminalTheme(terminalThemePref, resolvedTheme)
+
   // 右键菜单状态
   const [contextMenu, setContextMenu] = React.useState<ContextMenuState | null>(null)
 
@@ -171,8 +164,7 @@ export function TerminalViewport({
       .then(([{ Terminal: XTerm }, { FitAddon }, { WebLinksAddon }]) => {
         if (disposed || !container) return
 
-        // D199:初始主题按「显式档 ?? 应用主题」解析(见 constants.resolveTerminalTheme)
-        const theme = terminalTheme === 'dark' ? DARK_THEME : LIGHT_THEME
+        const theme = effectiveTerminalTheme === 'dark' ? DARK_THEME : LIGHT_THEME
         const term = new XTerm({
           fontSize,
           fontFamily: FONT_FAMILY,
@@ -462,19 +454,17 @@ export function TerminalViewport({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅 sessionId/paneId 变化时重建,fontSize/theme 通过独立 effect 更新
   }, [sessionId, paneId])
 
-  // 主题切换 → 更新 xterm theme
-  // D199:判据从 resolvedTheme 换成 terminalTheme(= 终端显式档 ?? 应用主题),
-  // 切换钮与全局主题任一方变化都会重设 xterm 配色,不产生"只换图标"的假开关。
+  // 主题切换 → 更新 xterm theme(D199:effectiveTerminalTheme 含终端显式档,非仅应用主题)
   React.useEffect(() => {
     const term = termRef.current
     if (!term) return
-    const theme = terminalTheme === 'dark' ? DARK_THEME : LIGHT_THEME
+    const theme = effectiveTerminalTheme === 'dark' ? DARK_THEME : LIGHT_THEME
     try {
       term.options = { ...term.options, theme }
     } catch {
       /* 旧版 xterm 不支持 options setter,忽略 */
     }
-  }, [terminalTheme])
+  }, [effectiveTerminalTheme])
 
   // 字号变化 → 更新 xterm fontSize + refresh + fit
   React.useEffect(() => {
@@ -647,7 +637,7 @@ export function TerminalViewport({
       onContextMenu={handleContextMenu}
       onMouseDown={onFocusPane}
     >
-      {/* pane 工具条(右上角:AI + 深浅色(D199)+ 分屏 + 关闭) */}
+      {/* pane 工具条(右上角:深浅切换 + AI + 分屏 + 关闭) */}
       <TerminalPaneToolbar
         isActive={isActive}
         aiSuggestOpen={aiSuggestOpen}
@@ -655,8 +645,10 @@ export function TerminalViewport({
         onSplitRequest={onSplitRequest}
         onClosePane={onClosePane}
         canClosePane={canClosePane}
-        terminalDark={terminalTheme === 'dark'}
-        onToggleTheme={handleToggleTerminalTheme}
+        terminalDark={effectiveTerminalTheme === 'dark'}
+        onToggleTheme={() =>
+          setTerminalThemePref(effectiveTerminalTheme === 'dark' ? 'light' : 'dark')
+        }
       />
 
       {/* 搜索条(Ctrl+F 触发,深化:正则 + 全字 + 大小写三开关) */}

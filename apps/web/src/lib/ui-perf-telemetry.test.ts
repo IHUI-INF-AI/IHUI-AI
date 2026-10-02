@@ -48,7 +48,11 @@ describe('启动分段全有或全无哨兵', () => {
   it('正常分段:total + 6 段全部上报,且 sum(6 段) == total 恒等', () => {
     const { events, reporter } = collect()
     const perf = new UiPerfTelemetry({ reporter })
-    perf.reportStartupStages({ sessionId: SESSION, startedAt: 1000, stageEnds: stageEndsAt(1000, durations) })
+    perf.reportStartupStages({
+      sessionId: SESSION,
+      startedAt: 1000,
+      stageEnds: stageEndsAt(1000, durations),
+    })
 
     expect(events).toHaveLength(1 + STARTUP_STAGES.length)
     expect(events[0]?.name).toBe('startup_total')
@@ -139,15 +143,48 @@ describe('流式停顿', () => {
 
 describe('输入卡顿', () => {
   it.each([
-    { lagMs: 800, isProgrammatic: false, isComposing: true, want: false, why: 'IME 组合中 800ms 不报' },
+    {
+      lagMs: 800,
+      isProgrammatic: false,
+      isComposing: true,
+      want: false,
+      why: 'IME 组合中 800ms 不报',
+    },
     { lagMs: 800, isProgrammatic: true, isComposing: false, want: false, why: '程序化改写不报' },
-    { lagMs: INPUT_LAG_THRESHOLD_MS, isProgrammatic: false, isComposing: false, want: false, why: '恰好阈值不报(严格大于)' },
-    { lagMs: INPUT_LAG_THRESHOLD_MS + 1, isProgrammatic: false, isComposing: false, want: true, why: '阈值 +1 上报' },
-    { lagMs: INPUT_LAG_MAX_SANE_MS, isProgrammatic: false, isComposing: false, want: true, why: '恰好 5s 仍上报(含端点)' },
-    { lagMs: INPUT_LAG_MAX_SANE_MS + 1, isProgrammatic: false, isComposing: false, want: false, why: '>5s 挂起/休眠哨兵不报' },
-  ])('lagMs=$lagMs programmatic=$isProgrammatic composing=$isComposing → $why', ({ lagMs, isProgrammatic, isComposing, want }) => {
-    expect(shouldReportInputLag({ lagMs, isProgrammatic, isComposing })).toBe(want)
-  })
+    {
+      lagMs: INPUT_LAG_THRESHOLD_MS,
+      isProgrammatic: false,
+      isComposing: false,
+      want: false,
+      why: '恰好阈值不报(严格大于)',
+    },
+    {
+      lagMs: INPUT_LAG_THRESHOLD_MS + 1,
+      isProgrammatic: false,
+      isComposing: false,
+      want: true,
+      why: '阈值 +1 上报',
+    },
+    {
+      lagMs: INPUT_LAG_MAX_SANE_MS,
+      isProgrammatic: false,
+      isComposing: false,
+      want: true,
+      why: '恰好 5s 仍上报(含端点)',
+    },
+    {
+      lagMs: INPUT_LAG_MAX_SANE_MS + 1,
+      isProgrammatic: false,
+      isComposing: false,
+      want: false,
+      why: '>5s 挂起/休眠哨兵不报',
+    },
+  ])(
+    'lagMs=$lagMs programmatic=$isProgrammatic composing=$isComposing → $why',
+    ({ lagMs, isProgrammatic, isComposing, want }) => {
+      expect(shouldReportInputLag({ lagMs, isProgrammatic, isComposing })).toBe(want)
+    },
+  )
 
   it('recordInputLag 按判定上报,IME 组合中 800ms 不报', () => {
     const { events, reporter } = collect()
@@ -157,7 +194,13 @@ describe('输入卡顿', () => {
     perf.recordInputLag({ lagMs: 800, textLength: 42, isProgrammatic: true, isComposing: false })
     expect(events).toHaveLength(0)
 
-    perf.recordInputLag({ lagMs: 800.4, textLength: 42, isProgrammatic: false, isComposing: false, taskId: 't1' })
+    perf.recordInputLag({
+      lagMs: 800.4,
+      textLength: 42,
+      isProgrammatic: false,
+      isComposing: false,
+      taskId: 't1',
+    })
     expect(events).toHaveLength(1)
     expect(events[0]?.name).toBe('input_lag')
     expect(events[0]?.value).toBe(800)
@@ -185,7 +228,11 @@ describe('唯一 emit 出口', () => {
   it('reporter 缺失时整组静默', () => {
     const perf = new UiPerfTelemetry()
     expect(() =>
-      perf.reportStartupStages({ sessionId: SESSION, startedAt: 0, stageEnds: stageEndsAt(0, durations0) }),
+      perf.reportStartupStages({
+        sessionId: SESSION,
+        startedAt: 0,
+        stageEnds: stageEndsAt(0, durations0),
+      }),
     ).not.toThrow()
     expect(() => perf.recordContentChunk('t1', { now: 0 })).not.toThrow()
     expect(() =>
@@ -204,7 +251,12 @@ describe('唯一 emit 出口', () => {
     expect(() => syncThrow.recordContentChunk('t1', { now: 0 })).not.toThrow() // 首个:只记基线,未触发 emit
     expect(() => syncThrow.recordContentChunk('t1', { now: 5000 })).not.toThrow() // 停顿事件:同步抛错被吞
     expect(() =>
-      syncThrow.recordInputLag({ lagMs: 800, textLength: 1, isProgrammatic: false, isComposing: false }),
+      syncThrow.recordInputLag({
+        lagMs: 800,
+        textLength: 1,
+        isProgrammatic: false,
+        isComposing: false,
+      }),
     ).not.toThrow() // 卡顿事件:同步抛错被吞
 
     const asyncReject = new UiPerfTelemetry({

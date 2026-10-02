@@ -52,7 +52,10 @@ import { markUpdateInstalled, setAvailableUpdateSession } from '@/lib/tauri-brid
 const flushMicrotasks = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
 
 /** 取回第 N 次检查的可控 deferred(noUncheckedIndexedAccess 下比裸下标安全)。 */
-function checkAt(index: number): { resolve: (value: unknown) => void; reject: (reason?: unknown) => void } {
+function checkAt(index: number): {
+  resolve: (value: unknown) => void
+  reject: (reason?: unknown) => void
+} {
   const call = checkCalls[index]
   if (!call) throw new Error(`checkCalls[${index}] 不存在(检查尚未发起?)`)
   return call
