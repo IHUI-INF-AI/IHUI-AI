@@ -34,7 +34,12 @@ function makeTelemetry(
     config: ActionTraceConfig
     sendBatch: (batch: ActionTraceBatch) => Promise<unknown> | unknown
     random: () => number
-    limits: Partial<{ maxQueueSpans: number; maxBatchSpans: number; maxBatchBytes: number; flushDelayMs: number }>
+    limits: Partial<{
+      maxQueueSpans: number
+      maxBatchSpans: number
+      maxBatchBytes: number
+      flushDelayMs: number
+    }>
   }>,
 ) {
   // 统一包一层 vi.fn:自定义实现走透传,默认实现可被断言 .mock 调用明细
@@ -93,7 +98,11 @@ describe('catalog allowlist', () => {
 describe('三重门未命中返回 NOOP 零开销', () => {
   it('非 catalog 动作返回共享 NOOP,不进队列也不发批', async () => {
     const { telemetry, sendBatch } = makeTelemetry()
-    const handle = telemetry.start({ featureId: 'unknown.feature', action: 'x', trigger: 'pointer' })
+    const handle = telemetry.start({
+      featureId: 'unknown.feature',
+      action: 'x',
+      trigger: 'pointer',
+    })
     expect(handle).toBe(ACTION_HANDLE_NOOP)
 
     // NOOP 句柄任何收口都是空操作
@@ -108,15 +117,19 @@ describe('三重门未命中返回 NOOP 零开销', () => {
 
   it('总开关关/分组未开/采样未中均返回 NOOP', async () => {
     const disabled = makeTelemetry({ config: { ...FULL_CONFIG, enabled: false } })
-    expect(disabled.telemetry.start({ featureId: 'chat.composer', action: 'send', trigger: 'pointer' })).toBe(
-      ACTION_HANDLE_NOOP,
-    )
+    expect(
+      disabled.telemetry.start({ featureId: 'chat.composer', action: 'send', trigger: 'pointer' }),
+    ).toBe(ACTION_HANDLE_NOOP)
 
     const coreOnly = makeTelemetry({
       config: { ...FULL_CONFIG, enabledGroups: ['core'] },
     })
     expect(
-      coreOnly.telemetry.start({ featureId: 'settings.model', action: 'change_default_model', trigger: 'pointer' }),
+      coreOnly.telemetry.start({
+        featureId: 'settings.model',
+        action: 'change_default_model',
+        trigger: 'pointer',
+      }),
     ).toBe(ACTION_HANDLE_NOOP)
 
     // random() >= sampleRatio → 丢弃;random() < sampleRatio → 采中
@@ -124,21 +137,29 @@ describe('三重门未命中返回 NOOP 零开销', () => {
       config: { ...FULL_CONFIG, sampleRatio: 0.5 },
       random: () => 0.5,
     })
-    expect(sampledOut.telemetry.start({ featureId: 'chat.composer', action: 'send', trigger: 'pointer' })).toBe(
-      ACTION_HANDLE_NOOP,
-    )
+    expect(
+      sampledOut.telemetry.start({
+        featureId: 'chat.composer',
+        action: 'send',
+        trigger: 'pointer',
+      }),
+    ).toBe(ACTION_HANDLE_NOOP)
     const sampledIn = makeTelemetry({
       config: { ...FULL_CONFIG, sampleRatio: 0.5 },
       random: () => 0.4,
     })
-    expect(sampledIn.telemetry.start({ featureId: 'chat.composer', action: 'send', trigger: 'pointer' })).not.toBe(
-      ACTION_HANDLE_NOOP,
-    )
+    expect(
+      sampledIn.telemetry.start({ featureId: 'chat.composer', action: 'send', trigger: 'pointer' }),
+    ).not.toBe(ACTION_HANDLE_NOOP)
   })
 
   it('采中的动作完整走完生命周期并入队', async () => {
     const { telemetry, sendBatch } = makeTelemetry()
-    const handle = telemetry.start({ featureId: 'chat.composer', action: 'send', trigger: 'keyboard' })
+    const handle = telemetry.start({
+      featureId: 'chat.composer',
+      action: 'send',
+      trigger: 'keyboard',
+    })
     now += 120
     handle.complete({ resultSource: 'cli' })
 
@@ -301,7 +322,11 @@ describe('flush 与 shutdown', () => {
 
   it('shutdown 把 active 全记 abandoned 再 flush;之后句柄收口无效', async () => {
     const { telemetry, sendBatch } = makeTelemetry()
-    const handle1 = telemetry.start({ featureId: 'chat.composer', action: 'send', trigger: 'pointer' })
+    const handle1 = telemetry.start({
+      featureId: 'chat.composer',
+      action: 'send',
+      trigger: 'pointer',
+    })
     const handle2 = telemetry.start({ featureId: 'chat.turn', action: 'retry', trigger: 'pointer' })
     sendAndComplete(telemetry, 'workbench.file', 'open') // 已完成的一条也在队列里
 

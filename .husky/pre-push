@@ -1,4 +1,6 @@
 #!/bin/sh
+# ─── GIT_DIR 去污(2026-10-01,同 .husky/pre-commit 同款病理根治)───
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_QUARANTINE_PATH
 command -v git-lfs >/dev/null 2>&1 || { printf >&2 "\n%s\n\n" "This repository is configured for Git LFS but 'git-lfs' was not found on your path. If you no longer wish to use Git LFS, remove this hook by deleting the 'pre-push' file in the hooks directory (set by 'core.hookspath'; usually '.git/hooks')."; exit 2; }
 # 缓冲 git 传入的推送 ref 列表(stdin),再回喂给 git-lfs —— lfs 会消费 stdin,
 # 必须先缓冲,否则后续无法据此计算「本次推送的改动文件范围」(2026-09-03 push-scope 修复)
@@ -82,6 +84,22 @@ else
     fi
   fi
   export PUSH_SCOPE_FILES
+
+  # ─── tag-only 推送不跑代码质量门(2026-09-24 立,lost-commit 备份被拦死多天)─────
+  # 判据:git 传入的每一行 local_ref 都在 refs/tags/ 下 ⇒ 本次推送**不新增也不推进任何分支**,
+  #       被推的代码内容一个字节都没变(全在远端已有的 HEAD 及祖先里),推的只是 §22 要求的
+  #       "丢失 commit 备份引用"。而本门跑的是**工作区**全量 tsc —— 别人一条未提交的半编辑
+  #       就能把它钉红:实测 2026-09-24 另一会话把 packages/ui-react/src/components/Upload.tsx
+  #       的 `export interface UploadLabels` 删掉未提交 ⇒ src/index.ts 报 TS2614 ⇒ 第 13 块
+  #       tag 推送被拦,206 枚 lost-commit tag 因此没有远端备份(正是 §22 立备份要防的状态)。
+  # 只在**纯 tag 推送**上豁免:混合推送(同时推分支)照跑全部门;PUSH_REFS 为空(无 ref 可推、
+  # 或 git 未传清单)按原行为跑门 —— 宁多跑一次,绝不把"拿不到清单"当成"只推了 tag"。
+  _ref_n="$(printf '%s\n' "$PUSH_REFS" | awk 'NF>=3' | wc -l | tr -d '[:space:]')"
+  _tag_n="$(printf '%s\n' "$PUSH_REFS" | awk 'NF>=3 && $1 ~ /^refs\/tags\//' | wc -l | tr -d '[:space:]')"
+  if [ "$_ref_n" -gt 0 ] && [ "$_ref_n" -eq "$_tag_n" ]; then
+    printf '%s\n' "ℹ️ 本次只推 tag(${_tag_n} 个引用,无分支推进)⇒ 不跑代码质量门(§22 tag 备份通道)" >&2
+    exit 0
+  fi
 
   # ─── 弹窗根治(2026-09-22,详见 scripts/hook-run-hidden.vbs 头注释) ────
   # 原 3 处裸 node 在无 console 上下文(GUI git 面板/WMI 链/IDE 隐藏 shell)触发

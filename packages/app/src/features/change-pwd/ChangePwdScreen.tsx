@@ -110,7 +110,17 @@ interface PwdInputProps {
   colorScheme: 'light' | 'dark'
 }
 
-function PwdInput({ label, value, onChange, show, onToggle, tokens, styles, t, colorScheme }: PwdInputProps) {
+function PwdInput({
+  label,
+  value,
+  onChange,
+  show,
+  onToggle,
+  tokens,
+  styles,
+  t,
+  colorScheme,
+}: PwdInputProps) {
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>

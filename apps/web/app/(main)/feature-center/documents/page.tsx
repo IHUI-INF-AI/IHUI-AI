@@ -620,7 +620,7 @@ export default function DocumentsPage() {
                   className="prose prose-sm dark:prose-invert max-w-none flex-1 overflow-y-auto pr-2"
                 >
                   <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
+                    remarkPlugins={[[remarkGfm, { singleTilde: false }]]}
                     components={{
                       pre: CodeBlock,
                       h2: ({ children, ...props }: React.ComponentProps<'h2'>) => {
