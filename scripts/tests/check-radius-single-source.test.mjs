@@ -89,8 +89,37 @@ const GUARD_REL = 'scripts/check-radius-single-source.mjs'
  * 2026-09-26 取材收口:门本体 import 了共用取材层 —— 夹具只复制门一个文件会当场
  * ERR_MODULE_NOT_FOUND(第一版四条端到端全被这一条咬红)。**门依赖层**这件事因此
  * 由夹具形态本身证明:缺依赖链就跑不起来,而不是"引了层却没用它"。
+ *
+ * 2026-10-02 改派生:清单**由门→lib 的传递 import 闭包现算**,不再手抄。理由就是这条
+ * 注释原本写的那件事 —— 手抄清单每给 lib 加一次依赖就要重演一遍"七条端到端同时红,
+ * 表现完全不像少复制文件"(票㉞ 实录;本次实测 `gitdir.mjs` 新增了 `seal-c-root-stray.mjs`
+ * 的 `devEnvRoot` 依赖,清单没跟上,8 条红)。清单与闭包由**同一份**遍历产出,漂移在结构上
+ * 不可能发生;而"遍历本身坏了"这一型由 T-DEPS 的新断言兜(闭包必须至少含门自己点名 import 的
+ * 每一个 lib 文件 —— 少一个就是尺子坏了,不是仓库坏了)。
  */
-const GUARD_DEPS = ['scripts/lib/face-reader.mjs', 'scripts/lib/gitdir.mjs', 'scripts/lib/scratch-dir.mjs', 'scripts/lib/box-geometry.mjs', 'scripts/lib/length-units.mjs', 'scripts/lib/radius-exempt-marker.mjs']
+function guardClosure(startRel = GUARD_REL) {
+  const closure = new Set()
+  const queue = [startRel]
+  const dangling = []
+  while (queue.length) {
+    const rel = queue.shift()
+    if (closure.has(rel)) continue
+    closure.add(rel)
+    let src
+    try {
+      src = readFileSync(join(ROOT, ...rel.split('/')), 'utf8')
+    } catch {
+      dangling.push(rel)
+      continue
+    }
+    for (const m of src.matchAll(/from\s+['"](\.[^'"]+)['"]/g)) {
+      queue.push(join(dirname(rel), m[1]).split('\\').join('/'))
+    }
+  }
+  return { deps: [...closure].filter((p) => p !== startRel).sort(), dangling }
+}
+const GUARD_DEPS_STATE = guardClosure()
+const GUARD_DEPS = GUARD_DEPS_STATE.deps
 function copyGuardWithDeps(base) {
   const g = writeAt(base, GUARD_REL, readFileSync(GUARD, 'utf8'))
   for (const d of GUARD_DEPS) writeAt(base, d, readFileSync(join(ROOT, ...d.split('/')), 'utf8'))
@@ -373,33 +402,20 @@ test('T-B7c 装车形状锁:B7 挂在类名属性取材上、档位名单现取�
  * 而像判据坏了。清单手写、无对账,就注定每次给 lib 加依赖都要重演一次"七条红各自解释"。
  * 这条锁把它压成一句人话:哪个文件在被审链上、却不在 GUARD_DEPS 里。
  */
-test('T-DEPS 夹具清单必须覆盖门→lib 的传递 import 闭包(少一个文件 = 7 条端到端红)', () => {
-  const closure = new Set()
-  const queue = [GUARD_REL]
-  const dangling = []
-  while (queue.length) {
-    const rel = queue.shift()
-    if (closure.has(rel)) continue
-    closure.add(rel)
-    let src
-    try {
-      src = readFileSync(join(ROOT, ...rel.split('/')), 'utf8')
-    } catch {
-      dangling.push(rel)
-      continue
-    }
-    for (const m of src.matchAll(/from\s+['"](\.[^'"]+)['"]/g)) {
-      const dep = join(dirname(rel), m[1]).split('\\').join('/')
-      queue.push(dep)
-    }
-  }
-  const need = [...closure].filter(p => p !== GUARD_REL).sort()
-  const have = new Set(GUARD_DEPS)
+test('T-DEPS 夹具清单由传递闭包派生,且派生本身不得漏门自己点名的 import', () => {
+  // 清单已经和闭包同源(不可能漂移),所以这一条改守**尺子本身坏了**那一型:
+  // 遍历若认不出门顶层的相对 import,夹具就会少复制文件,而症状是"7 条端到端各自解释"。
+  const { deps, dangling } = GUARD_DEPS_STATE
   assert.deepEqual(dangling, [], `闭包里有文件读不到(说明 import 指向不存在的路径):${dangling.join(', ')}`)
-  const missing = need.filter(p => !have.has(p))
-  assert.deepEqual(missing, [], `在依赖闭包里、却不在 GUARD_DEPS 的清单上:${missing.join(', ')} ⇒ 夹具跑不起来`)
-  const extra = [...have].filter(p => !closure.has(p))
-  assert.deepEqual(extra, [], `GUARD_DEPS 里多出不存在的依赖(清单腐烂):${extra.join(', ')}`)
+  assert.ok(deps.length > 0, '闭包为空 ⇒ 派生根本没跑,不得当作"没有依赖"')
+  const src = readFileSync(GUARD, 'utf8')
+  const direct = [...src.matchAll(/^import[^'"]*from\s+['"](\.[^'"]+)['"]/gm)].map(
+    (m) => join(dirname(GUARD_REL), m[1]).split('\\').join('/'),
+  )
+  assert.ok(direct.length > 0, '门顶层一条相对 import 都读不到 ⇒ 本锁失去对象(先修尺子)')
+  const missed = direct.filter((p) => !deps.includes(p))
+  assert.deepEqual(missed, [], `闭包漏了门自己 import 的文件:${missed.join(', ')}`)
+  for (const d of deps) assert.ok(!dangling.includes(d), `依赖清单里有取不到的文件:${d}`)
 })
 
 /**
