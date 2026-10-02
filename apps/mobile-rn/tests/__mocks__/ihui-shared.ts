@@ -11,18 +11,30 @@
 import type React from 'react'
 import { useState, useCallback } from 'react'
 
-export const FALLBACK_MODELS = [] as const
-export type ChatMessage = Record<string, unknown>
-
 export function formatRelativeTime(_date: string | Date): string {
   return 'just now'
 }
 
-export const LOCALE_STORAGE_KEY = 'ihui-locale'
-export const SSO_CLIENT_IDS = {} as Record<string, string>
-export const DEFAULT_AVATAR_URL = 'https://file.aizhs.top/sys-mini/daixaodiming.png'
-export const TOKEN_STORAGE_KEY = 'ihui_token'
-export const REFRESH_TOKEN_STORAGE_KEY = 'ihui_refresh_token'
+// ─── @ihui/shared/constants 的名字:只许转发,不得自述 ──────────────────────────
+// 票 G-815404① / 与 G-364(auth)、api-client 两格同族。本替身此前把真实常量表的两个成员
+// **刻意清空**(`FALLBACK_MODELS = []`、`SSO_CLIENT_IDS = {}`),另外四个手抄了字面量。
+// 后果是"测替身"伪装成"测实现":`src/screens/ChatScreen.tsx:489` 读 `FALLBACK_MODELS[0]!.id`、
+// `src/lib/config.ts:47` 读 `SSO_CLIENT_IDS.MOBILE_RN`,在 vitest 下前者是 undefined、后者恒是
+// undefined,凡是走这条路又没有自带 `vi.mock` 的用例,断言的是虚构空表而不是真实降级模型。
+// 出路只有转发(同 `ihui-shared-auth.ts` / `ihui-api-client.ts` 的处置):**禁止**为了走通
+// barrel 把真实常量再抄一份进替身 —— 那只是把"第二份真相"从空表换成抄来的表,一样会漂。
+// 逐个模块指名转发而不用 `export * from '.../constants'`:barrel 还带出 THEME_STORAGE_KEY 等
+// 本端未从 '@ihui/shared' 根入口取的名字,通配转发会让替身凭空长出一批导出面。
+export { FALLBACK_MODELS } from '../../../../packages/shared/src/constants/fallback-models'
+export { SSO_CLIENT_IDS } from '../../../../packages/shared/src/constants/sso-client-ids'
+export {
+  LOCALE_STORAGE_KEY,
+  TOKEN_STORAGE_KEY,
+  REFRESH_TOKEN_STORAGE_KEY,
+} from '../../../../packages/shared/src/constants/storage-keys'
+export { DEFAULT_AVATAR_URL } from '../../../../packages/shared/src/constants/external-urls'
+
+export type ChatMessage = Record<string, unknown>
 
 // ─── @ihui/shared/stores ──────────────────────────────────────────────────────
 // Re-exported from a dynamic import when needed for ThemeContext/auth-store tests.
@@ -137,7 +149,7 @@ export function formatTimeOnly(_date: string | Date): string {
 }
 
 // ─── @ihui/shared/constants ───────────────────────────────────────────────────
-// Already exported above (LOCALE_STORAGE_KEY, SSO_CLIENT_IDS, DEFAULT_AVATAR_URL)
+// 这些名字已在文件头按模块逐个转发(见「只许转发,不得自述」段),此处不再重复声明。
 
 // ─── @ihui/shared/stores (dynamic) ────────────────────────────────────────────
 // Lazily loads and caches to avoid circular requires at module evaluation time.
