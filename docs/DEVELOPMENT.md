@@ -59,7 +59,7 @@ cd apps/ai-service && uv sync && cd ../..   # AI 服务 Python 依赖
 | `AGNES_API_KEY` / `AGNES_API_BASE` | Agnes AI LLM(备用) | - / `https://apihub.agnes-ai.com/v1` | 否 |
 | `GROQ_API_KEY` / `GEMINI_API_KEY` / `OPENROUTER_API_KEY` | 免费 provider 备选 | 空 | 否 |
 | `FEISHU_APP_ID` / `FEISHU_APP_SECRET` | 飞书 OAuth | 空 | 否 |
-| `COZE_CLIENT_ID` / `COZE_CLIENT_SECRET` | Coze OAuth | 空 | 否 |
+| `COZE_OAUTH_APP_ID` / `COZE_PUBLIC_KEY_ID` / `COZE_PRIVATE_KEY` | Coze OAuth(JWT 模式) | 空 | 否 |
 | `WECHAT_PAY_*` | 微信支付(商户号/密钥/证书) | 空 | 否 |
 | `OSS_*` | 对象存储 | 空 | 否 |
 | `SMS_PROVIDER` / `SMS_*` | 短信(aliyun) | `aliyun` / 空 | 否 |
