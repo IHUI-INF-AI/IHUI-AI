@@ -11,8 +11,8 @@ name: assistant-release-upload
 on:
   workflow_dispatch:
     inputs:
-      release_id:
-        description: "GitHub Release ID"
+      release_tag:
+        description: "Release tag"
         required: true
         type: string
 
