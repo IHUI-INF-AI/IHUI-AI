@@ -39,10 +39,10 @@ body {
 
 @layer components {
   .card {
-    @apply rounded-2xl border border-slate-200/70 bg-white shadow-soft transition-[box-shadow,transform] duration-200 dark:border-zinc-800 dark:bg-zinc-900/80;
+    @apply rounded-lg border border-slate-200/70 bg-white shadow-soft transition-[box-shadow,transform] duration-200 dark:border-zinc-800 dark:bg-zinc-900/80;
   }
   .btn {
-    @apply inline-flex select-none items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100;
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-sm px-3 py-2 text-sm font-medium transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100;
   }
   .btn-primary {
     @apply btn bg-zinc-900 text-white shadow-soft hover:bg-zinc-800 active:bg-black dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 dark:active:bg-white;
@@ -57,7 +57,7 @@ body {
     @apply btn bg-rose-600 text-white hover:bg-rose-500 active:bg-rose-700;
   }
   .input {
-    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-zinc-500 focus:ring-2 focus:ring-zinc-500/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100;
+    @apply w-full rounded-sm border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-zinc-500 focus:ring-2 focus:ring-zinc-500/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100;
   }
   .label {
     @apply mb-1 block text-xs font-medium text-slate-500 dark:text-zinc-400;
