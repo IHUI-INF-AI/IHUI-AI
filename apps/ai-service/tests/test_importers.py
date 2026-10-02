@@ -612,7 +612,7 @@ def test_to_iso_rejects_garbage(raw: Any) -> None:
 
 
 def test_entry_rejects_unknown_source() -> None:
-    assert set(SOURCES) == {"claude_code", "codex", "cursor", "aider"}
+    assert set(SOURCES) == {"claude_code", "codex", "cursor", "aider", "wechat"}
     with pytest.raises(ValueError, match="不支持的数据源"):
         parse_conversation_file("warp", "x.jsonl", b"{}")
 
