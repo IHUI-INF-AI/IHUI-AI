@@ -46,6 +46,7 @@ import json
 import logging
 import os
 import re
+import subprocess
 import sys
 from dataclasses import dataclass, field
 from datetime import date
@@ -63,8 +64,14 @@ from app.core.context_compaction import (  # noqa: E402
 logger = logging.getLogger("eval_compaction")
 
 EVAL_ROOT = Path(__file__).resolve().parent / "compaction_eval"
+REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_TASKS_PATH = EVAL_ROOT / "tasks.json"
 DEFAULT_OUTPUT_DIR = EVAL_ROOT / "outputs"
+
+# Windows 下派生控制台程序必须禁窗(AGENTS §5b)。Python 的 subprocess **没有** windowsHide
+# 这个参数(那是 Node child_process 的写法;照抄会 TypeError 而不是静默无效,实测炸过一次),
+# 等价开关是 creationflags=CREATE_NO_WINDOW;非 Windows 该平台常量不存在,取 0 即无操作。
+_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 # --live LLM 通道:显式配置(env)优先,其次免费 keyless 通道;均不落库、不连生产。
 ENV_LLM_API_BASE = "EVAL_LLM_API_BASE"
@@ -804,26 +811,85 @@ def build_report(
 
 
 def _inject_watermark(path: Path) -> None:
-    """报告是 git 跟踪的 .md,重生成会洗掉溯源水印 —— 生成器自带注入(§5c),失败即终止。"""
-    import subprocess
+    """报告是 git 跟踪的 .md,重生成会洗掉溯源水印 —— 生成器自带注入(§5c),失败即终止。
 
-    watermark = path.resolve().parents[5] / "scripts" / "watermark.mjs"
+    根目录由**本脚本自身位置**推导,不得由输出路径反推:`--output-dir` 指到别处时,
+    按输出路径取 parents[5] 会指向不存在的目录(实测踩过),而水印器永远在仓库根。
+    """
+    watermark = REPO_ROOT / "scripts" / "watermark.mjs"
     result = subprocess.run(
         ["node", str(watermark), "inject", str(path)],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=60,
+        creationflags=_NO_WINDOW,
     )
     if result.returncode != 0:
         raise RuntimeError(
             f"基线报告水印注入失败(rc={result.returncode}): {result.stderr or result.stdout}"
         )
 
+
+def _format_report(path: Path) -> None:
+    """用提交链同一把格式化器(prettier)排版报告。
+
+    不排版的后果:lint-staged 对 ``*.md`` 跑 ``prettier --write``,于是每次提交都被重排,
+    而生成器下一次重跑又写回未排版形态 —— 报告永远挂 `` M``,读起来像"别人在飞的改动"。
+    判"是否被 .prettierignore 命中"必须问 ``--file-info``:被忽略的输入 ``--write/--check``
+    都回 0(本仓登记过的失效型),那样排版会静默失效而账面一切正常。
+
+    只对**仓内**路径强制排版:仓外的临时目录(评测自检跑在 pytest tmp_path)不在提交链射程,
+    没有"与提交链同形"这件事可言,跳过并打印一行 —— 跳过必须是吵的,不能静默。
+    """
+    try:
+        path.resolve().relative_to(REPO_ROOT)
+    except ValueError:
+        print(f"[eval_compaction] 输出在仓外,跳过与提交链对齐的排版(仓内路径必排): {path}")
+        return
+    prettier = REPO_ROOT / "node_modules" / ".bin" / "prettier.CMD"
+    if not prettier.exists():
+        raise RuntimeError(f"缺少格式化器 {prettier};报告排版无法与提交链对齐")
+    # 显式指配置:向上查找在 `--output-dir` 落到仓外时会拿到"无配置"的默认档,
+    # 与提交链(lint-staged 在仓内跑)不同形 —— 那会让"重跑不漂移"这件事只在默认目录成立。
+    rc_file = REPO_ROOT / ".prettierrc"
+    config_args = ["--config", str(rc_file)] if rc_file.exists() else []
+    info = subprocess.run(
+        [str(prettier), *config_args, "--file-info", str(path)],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+        creationflags=_NO_WINDOW,
+    )
+    if info.returncode != 0:
+        raise RuntimeError(
+            f"prettier --file-info 失败(rc={info.returncode}):{info.stderr or info.stdout} —— "
+            "拿不到「是否被忽略」就无法判断排版会不会静默失效,不猜"
+        )
+    if '"ignored": true' in (info.stdout or ""):
+        raise RuntimeError(f"报告被 .prettierignore 命中({path});生成器无法产出与提交链同形的排版")
+
+    result = subprocess.run(
+        [str(prettier), "--write", str(path)],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+        creationflags=_NO_WINDOW,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"报告排版失败(rc={result.returncode}): {result.stderr or result.stdout}"
+        )
+
+
 def write_report(output_dir: Path, content: str) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     path = output_dir / f"compaction-eval-baseline-{date.today().isoformat()}.md"
     path.write_text(content, encoding="utf-8")
     _inject_watermark(path)
+    _format_report(path)
     return path
 
 
