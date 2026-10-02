@@ -3,8 +3,9 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * G-998107:git-shared 封顶 + 脱敏回归 — execGit 复用 execGitCapped 唯一出口,
+ * G-998107:git-shared 封顶 + 脱敏回归 — 工具面 execGit 预算委托 resolveGitSpawnOptions,
  * stderr 进结果面前过 sanitizeEvidenceText 既有出口(禁止第二份脱敏)。
+ * G-1018202:唯一派生出口 execGitCapped 已搬家 git-runner.ts(wave-2),形状锁改钉新落点。
  */
 import { describe, expect, it, afterEach } from 'vitest';
 import * as fs from 'node:fs';
@@ -15,11 +16,21 @@ import { execGit, formatGitResult } from '../src/tools/git-shared.js';
 
 const PROBE = 'IHUI-SECRET-PROBE';
 
+/**
+ * 本文件所有 git 子进程调用的 stdio:这些调用一律不消费 stdin(不给 input、不走 --stdin/--batch),
+ * 而 Windows 交互会话下 Node 给子进程**创建 stdin 管道**确定性 EBUSY(`spawnSync git EBUSY`,
+ * status=null + error.errno=-4082),失败形态是"命令根本没跑"—— 仓库建不起来时 git status 返回
+ * 128 `not a git repository`,用例红在业务断言上,根因却在夹具层,极难归因。
+ * `['ignore','pipe','pipe']` 绕开 stdin 管道(铁律,同 scripts/ 下收敛器族);实测 `windowsHide:true`
+ * 单独不足以治(仍 EBUSY),stdin 管道才是病根。
+ */
+const GIT_STDIO = ['ignore', 'pipe', 'pipe'] as const;
+
 function gitInit(repoDir: string): void {
-  spawnSync('git', ['init'], { cwd: repoDir, encoding: 'utf-8' });
-  spawnSync('git', ['config', 'user.email', 'test@ihui.local'], { cwd: repoDir, encoding: 'utf-8' });
-  spawnSync('git', ['config', 'user.name', 'Test'], { cwd: repoDir, encoding: 'utf-8' });
-  spawnSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: repoDir, encoding: 'utf-8' });
+  spawnSync('git', ['init'], { cwd: repoDir, encoding: 'utf-8', stdio: GIT_STDIO });
+  spawnSync('git', ['config', 'user.email', 'test@ihui.local'], { cwd: repoDir, encoding: 'utf-8', stdio: GIT_STDIO });
+  spawnSync('git', ['config', 'user.name', 'Test'], { cwd: repoDir, encoding: 'utf-8', stdio: GIT_STDIO });
+  spawnSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: repoDir, encoding: 'utf-8', stdio: GIT_STDIO });
 }
 
 const tmpDirs: string[] = [];
@@ -78,8 +89,8 @@ describe('git-shared 封顶出口(G-998107)', () => {
       `${headMarker}\n${'x'.repeat(11 * 1024 * 1024)}\n${tailMarker}\n`,
       'utf-8',
     );
-    spawnSync('git', ['add', 'big.txt'], { cwd, encoding: 'utf-8' });
-    spawnSync('git', ['commit', '-m', 'big'], { cwd, encoding: 'utf-8' });
+    spawnSync('git', ['add', 'big.txt'], { cwd, encoding: 'utf-8', stdio: GIT_STDIO });
+    spawnSync('git', ['commit', '-m', 'big'], { cwd, encoding: 'utf-8', stdio: GIT_STDIO });
     const r = execGit(['show', 'HEAD:big.txt'], cwd);
     expect(r.exitCode).toBeNull();
     expect(r.stdout).toBe('');
@@ -94,11 +105,12 @@ describe('git-shared 封顶出口(G-998107)', () => {
   it('stderr 含远端 URL 内嵌口令形状时 output 与 error 都不泄漏', () => {
     const cwd = makeRepo();
     fs.writeFileSync(path.join(cwd, 'a.txt'), 'a', 'utf-8');
-    spawnSync('git', ['add', 'a.txt'], { cwd, encoding: 'utf-8' });
-    spawnSync('git', ['commit', '-m', 'init'], { cwd, encoding: 'utf-8' });
+    spawnSync('git', ['add', 'a.txt'], { cwd, encoding: 'utf-8', stdio: GIT_STDIO });
+    spawnSync('git', ['commit', '-m', 'init'], { cwd, encoding: 'utf-8', stdio: GIT_STDIO });
     spawnSync('git', ['remote', 'add', 'origin', `https://u:${PROBE}@127.0.0.1:1/x.git`], {
       cwd,
       encoding: 'utf-8',
+      stdio: GIT_STDIO,
     });
     const proxyKeys = ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy'];
     const saved = new Map<string, string | undefined>();
@@ -140,13 +152,18 @@ describe('git-shared 封顶出口(G-998107)', () => {
     expect(out.output).toContain(sha);
   });
 
-  it('源码形状锁:复用唯一出口 + 既有脱敏,无第二张预算表', () => {
+  it('源码形状锁:预算与派生唯一出口在 git-runner,git-shared 委托不立第二份', () => {
+    // G-1018202:b76 wave-2 把插件面唯一派生出口 execGitCapped 搬到 git-runner.ts,
+    // 工具面 execGit 预算经 resolveGitSpawnOptions 委托 —— 锁改钉新落点,唯一性不许破。
+    const runnerSrc = fs.readFileSync(new URL('../src/plugins/git-runner.ts', import.meta.url), 'utf-8');
+    expect(runnerSrc.match(/export function execGitCapped\(/g)?.length ?? 0).toBe(1);
+    expect(runnerSrc).toContain('export function resolveGitSpawnOptions(');
     const src = fs.readFileSync(new URL('../src/tools/git-shared.ts', import.meta.url), 'utf-8');
-    expect(src).toContain('execGitCapped');
-    expect(src).toContain('sanitizeEvidenceText');
+    expect(src).not.toContain('export function execGitCapped(');
+    expect(src).toContain('resolveGitSpawnOptions'); // 预算委托唯一出口,不立第二张预算表
+    expect(src).toContain('sanitizeEvidenceText'); // 证据面脱敏走 @ihui/shared 既有出口
     expect(src).not.toContain("spawnSync('git'");
     expect(src).not.toContain('spawnSync("git"');
-    expect(src).not.toContain('node:child_process');
     expect(src).not.toContain('30_000');
     expect(src).not.toContain('1024 * 1024');
   });
