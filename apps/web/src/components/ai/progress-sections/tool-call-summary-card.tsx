@@ -8,7 +8,6 @@ import * as React from 'react'
 import { FileSearch, Globe, FilePen, Plus, Minus, Wrench, Clock } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
-import { calculateAddedLines, calculateDeletedLines } from '@/lib/py-line-count'
 import { Tooltip } from '@/components/feedback'
 import { FoldableSection, formatDuration } from './foldable-section'
 import { ShowMoreList } from './show-more-list'
@@ -69,13 +68,58 @@ const FILE_MODIFY_TOOLS = new Set([
 ])
 
 // ─── 本地聚合降级实现(后端未发 tool-summary 时使用) ──
-//
-// 行统计口径自 G-415 A9 起不再抄在本文件里:唯一实现是 `@/lib/py-line-count`
-// (`pySplitLines` / `pyLineCount` / `calculateAddedLines` / `calculateDeletedLines`),
-// 它复刻的是后端 `ai-service/app/routers/llm.py` 的 `calculate_added_lines` /
-// `calculate_deleted_lines`。此前这段就住在下面这几行,注释自称"复刻 llm.py 口径"而
-// 无任何东西校验 —— 现由 `scripts/check-line-split-parity.mjs` 逐例真求值两侧复核。
-// 改口径请改 `@/lib/py-line-count` 并同步 llm.py,**不得在本文件里再写一份**。
+
+/**
+ * 按 Python str.splitlines() 口径切分行(W11 修复:对齐后端 llm.py 的算法,
+ * 覆盖 \r\n / \r / \n / \v / \f / \u001c / \u001d / \u001e / \u0085 / \u2028 / \u2029,
+ * 并去除末尾空行)。
+ * G-415/A9 修复(2026-10-02):补 \u001c\u001d\u001e 三个行边界码位 —— Python 把
+ * FS/GS/RS 当行边界而旧正则不认,实测 venv py 对 'a\x1cb' 得 2 行、本函数得 1 行。
+ * 快照表钉在 __tests__/tool-call-summary-line-stats.test.tsx(Python 侧同表:
+ * apps/ai-service/tests/test_splitlines_parity.py),一侧改动另一侧必红。
+ */
+export function pySplitLines(s: string): string[] {
+  const parts = s.split(/\r\n|\r|\n|\u000B|\u000C|\u001C|\u001D|\u001E|\u0085|\u2028|\u2029/)
+  if (parts.length > 0 && parts[parts.length - 1] === '') parts.pop()
+  return parts
+}
+
+/**
+ * 从单个 tool_call 的 args 提取新增行数(W11 修复:原降级路径恒写 0,
+ * 现复刻后端 ai-service/app/routers/llm.py calculate_added_lines 的口径):
+ * - diff 字符串:统计以 + 开头但非 +++ 的行(unified diff added 行)
+ * - content 字符串:整体写入,全部算 added(write_file)
+ * - new_string 字符串:统计行数(file_edit)
+ */
+export function calculateAddedLines(args: Record<string, unknown> | undefined): number {
+  if (!args) return 0
+  const diff = args['diff']
+  if (typeof diff === 'string' && diff) {
+    return pySplitLines(diff).filter((l) => l.startsWith('+') && !l.startsWith('+++')).length
+  }
+  const content = args['content']
+  if (typeof content === 'string' && content) return pySplitLines(content).length
+  const newString = args['new_string']
+  if (typeof newString === 'string' && newString) return pySplitLines(newString).length
+  return 0
+}
+
+/**
+ * 从单个 tool_call 的 args 提取删除行数(复刻后端 calculate_deleted_lines 口径):
+ * - diff 字符串:统计以 - 开头但非 --- 的行(unified diff deleted 行)
+ * - old_string 字符串:统计行数(file_edit)
+ * - content 整体写入无删除 → 0
+ */
+export function calculateDeletedLines(args: Record<string, unknown> | undefined): number {
+  if (!args) return 0
+  const diff = args['diff']
+  if (typeof diff === 'string' && diff) {
+    return pySplitLines(diff).filter((l) => l.startsWith('-') && !l.startsWith('---')).length
+  }
+  const oldString = args['old_string']
+  if (typeof oldString === 'string' && oldString) return pySplitLines(oldString).length
+  return 0
+}
 
 function deriveToolSummary(
   toolCalls: Array<{

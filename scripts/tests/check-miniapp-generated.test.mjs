@@ -370,4 +370,80 @@ test('T16 幂等:同一批输入两次 renderPin,屏蔽时刻行后逐字节全�
   assert.equal(PIN.maskGeneratedAt(a), PIN.maskGeneratedAt(b), '屏蔽时刻后必须全等')
   assert.match(a, /inputsSha256: [0-9a-f]{64}/, '聚合哈希必须是 64 位十六进制')
 })
+
+/* ───────────── I2(G-415/A8)LineIcon 调用点「值→键」 ───────────── */
+
+/** 带注册表与一个 LineIcon 调用页的最小仓(page 内容由调用方写入) */
+function makeIconRepo(dir, pageLines) {
+  git(dir, ['init', '-q', '-b', 'main'])
+  put(dir, `${APP}/src/components/LineIcon/icons.ts`, `export const ICONS = {\n  "bot": "<svg/>",\n  "heart": "<svg/>",\n} as const`)
+  put(dir, `${APP}/src/pages/x.tsx`, pageLines.join('\n'))
+  git(dir, ['add', '-A'])
+  git(dir, ['commit', '-q', '-m', 'init'])
+  return dir
+}
+
+test('T17 I2:写死的坏图标名在 HEAD 与 worktree 两面都判红并点名坏键(阳性)', () => {
+  const dir = makeIconRepo(mkScratch('cmg-i2-lit'), ['export const A = () => <LineIcon name="ghost-key" />'])
+  try {
+    for (const extra of [[], ['--worktree']]) {
+      const r = runGuard(['--root', dir, '--group', 'icons', ...extra])
+      assert.equal(r.code, 1, `坏键必须判红(${extra.join(' ') || 'head'}),实际 ${r.code}:${r.out}`)
+      assert.match(r.out, /ghost-key/, '必须点名坏键本身')
+      assert.match(r.out, /\[I2\]/, '必须以 I2 码报出')
+    }
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T18 I2:合法名 + 逃逸存量 ⇒ HEAD 面绿(反向对照,防本门恒红)', () => {
+  const dir = makeIconRepo(mkScratch('cmg-i2-ok'), [
+    'export const A = () => <LineIcon name="bot" />',
+    'export const B = () => <LineIcon name={icon as IconName} />',
+  ])
+  try {
+    const r = runGuard(['--root', dir, '--group', 'icons'])
+    assert.equal(r.code, 0, `HEAD 面逃逸存量只报数不判红,实际 ${r.code}:${r.out}${r.err}`)
+    assert.match(r.out, /逃逸写法[\s\S]*?1 处/, '存量必须如实报数(1 处),不得静默当零')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T19 I2 棘轮:--staged 面逃逸数超 HEAD ⇒ 红;不超 ⇒ 绿;worktree 面 ⇒ 绿(只报数)', () => {
+  const dir = makeIconRepo(mkScratch('cmg-i2-ratchet'), ['export const A = () => <LineIcon name={a as never} />'])
+  try {
+    // 存量不变 ⇒ --staged 绿
+    git(dir, ['add', '-A'])
+    let r = runGuard(['--root', dir, '--staged', '--group', 'icons'])
+    assert.equal(r.code, 0, `存量未增时 --staged 必须绿,实际 ${r.code}:${r.out}${r.err}`)
+    // 新增一处逃逸 ⇒ --staged 红(棘轮咬合)
+    put(dir, `${APP}/src/pages/x.tsx`, [
+      'export const A = () => <LineIcon name={a as never} />',
+      'export const B = () => <LineIcon name={b as IconName} />',
+    ].join('\n'))
+    git(dir, ['add', '-A'])
+    r = runGuard(['--root', dir, '--staged', '--group', 'icons'])
+    assert.equal(r.code, 1, `逃逸 1→2 必须判红,实际 ${r.code}:${r.out}`)
+    assert.match(r.out, /从 HEAD 的 1 处涨到 2 处/, '必须报出锚点与现值')
+    // 同一工作树,HEAD 面锚点是它自己 ⇒ 绿(存量棘轮不新增恒红面)
+    r = runGuard(['--root', dir, '--group', 'icons'])
+    assert.equal(r.code, 0, `HEAD 面必须绿(锚点=自身),实际 ${r.code}:${r.out}${r.err}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T20 I2 装车锁:判据必须真挂在 runCheck 的 icons 组上(函数在而无人调 = 提交链上一路绿灯)', () => {
+  const src = readFileSync(GUARD, 'utf8')
+  const runCheckIdx = src.indexOf('function runCheck(')
+  assert.ok(runCheckIdx > 0, 'runCheck 必须存在')
+  const body = src.slice(runCheckIdx, src.indexOf('function formatReport('))
+  for (const needle of ["'I2'", 'extractLineIconNameExprs(', 'isLineIconEscapeHatch(', 'lineIconValueLiterals(']) {
+    assert.ok(body.includes(needle), `runCheck 必须真调用 ${needle}(只在别处定义 = 判据没装车)`)
+  }
+  // 注释剥离必须先于调用点扫描:注释里提 <LineIcon 不得被当成调用点(假用量,守门 R6 同型教训)
+  assert.ok(body.includes('stripJsComments('), '调用点扫描必须吃剥过注释的源码')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
