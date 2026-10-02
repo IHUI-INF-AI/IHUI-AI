@@ -36,8 +36,8 @@
 "promotion 与 user message 同事务"的跨服务现实约束:user message 落库在
 apps/api 侧(chat_messages),与 ai-service 内存队列不共享任何事务边界,真同
 事务不可达。处置即账本的 promoted_pending 桥:ACK 时先落 promoted_pending,
-回调确认后补 promoted(接线点在 llm.py `_fire_callback` 成功返回处,留给主
-会话);重启对账时 promoted_pending 无确认即判孤儿 → discarded(原始行保留,
+回调确认后补 promoted(接线点已补线:agent_engine.py `_handle_thread_prompt`
+成功分支调 record_confirmed,与 turn 成功同刻);重启对账时 promoted_pending 无确认即判孤儿 → discarded(原始行保留,
 证据不改写)。
 
 **逐字守票面**:recover() 不得把 failed 改写成 discarded —— failed 是"轮跑
