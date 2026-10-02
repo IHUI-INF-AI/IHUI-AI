@@ -17,13 +17,18 @@
  *   供 src/lib/ui-action-registry.ts 校验 navigate 动作的跳转目标。
  */
 
-import { existsSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
+import { renderPin } from '../../../scripts/lib/generated-input-pin.mjs'
+
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const repoRoot = path.resolve(webRoot, '..', '..')
 const appDir = path.join(webRoot, 'app')
 const outFile = path.join(webRoot, 'src', 'lib', 'ui-routes.generated.ts')
+const consumerFile = path.join(webRoot, 'src', 'lib', 'ui-action-registry.ts')
 
 /** 排除的顶级段：SSO 回调、H5 分享页、API 代理路由不开放给 AI 导航 */
 const EXCLUDED_TOP_SEGMENTS = new Set(['sso', 'h5', 'api'])
@@ -73,16 +78,70 @@ if (!existsSync(appDir)) {
   process.exit(1)
 }
 
-// 收集并按 path 去重（同一 URL 出现多个 page 属于 Next 不允许的配置，保留先扫描到的）
+/**
+ * FIG_VERSION 同型断言(G-816040):生成前先验「消费方契约」在位。
+ * 产物存在的唯一理由是被 ui-action-registry 引用;消费方不在/不再引用时生成出来的是孤儿,
+ * 上游参照(zcode-cli generate-bash-command-registry.mjs:50-58)在依赖版本不符时 throw,同型。
+ */
+function assertConsumerContract() {
+  if (!existsSync(consumerFile)) {
+    throw new Error(`消费方不在位:${consumerFile} —— 拒绝生成无人消费的产物`)
+  }
+  if (!readFileSync(consumerFile, 'utf8').includes('ui-routes.generated')) {
+    throw new Error(`消费方 ${consumerFile} 已不引用本产物(ui-routes.generated)—— 契约漂移,拒绝生成`)
+  }
+}
+
+/** 生成时 HEAD 的 sha(取不到写 unknown,钉里的字段不因此缺位) */
+function sourceCommit() {
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim()
+  } catch {
+    return 'unknown'
+  }
+}
+
+assertConsumerContract()
+
+// 收集并按 path 去重(同一 URL 出现多个 page 属于 Next 不允许的配置,保留先扫描到的)。
+// 排除与重复计数进钉的 skipped 自述行:「哪些没搬进来」由产物自述,不靠人记。
+const pageFiles = collectPageFiles(appDir)
+const inputs = pageFiles.map((abs) => ({
+  rel: path.relative(repoRoot, abs).split(path.sep).join('/'),
+  text: readFileSync(abs, 'utf8'),
+}))
+let excludedTop = 0
+let duplicatePaths = 0
 const routeMap = new Map()
-for (const file of collectPageFiles(appDir)) {
+for (const file of pageFiles) {
   const route = toRoute(path.relative(appDir, file))
-  if (route && !routeMap.has(route.path)) routeMap.set(route.path, route)
+  if (!route) {
+    excludedTop += 1
+    continue
+  }
+  if (routeMap.has(route.path)) {
+    duplicatePaths += 1
+    continue
+  }
+  routeMap.set(route.path, route)
 }
 
 const routes = [...routeMap.values()].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
 
 const routeLines = routes.map((r) => `  { path: '${r.path}', param: ${r.param}, group: '${r.group}' },`)
+
+// 自述钉:由输入字节算出的 inputsSha256 烘进产物头(单一实现 lib/generated-input-pin.mjs)。
+// 门侧同面重算同集输入即可判「产物是否按当前输入生成」;skipped 计数与输入清单同块自述。
+const pinLines = renderPin({
+  generator: 'apps/web/scripts/generate-ui-routes.mjs',
+  sourceCommit: sourceCommit(),
+  inputs,
+  generatedAt: new Date().toISOString(),
+  extraLines: [
+    `skipped: excludedTopSegments(sso|h5|api)=${excludedTop} pages; duplicatePaths(保留先扫描到的)=${duplicatePaths}`,
+  ],
+})
+const pinBlock = pinLines.join('\n')
 
 const content = `// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
@@ -95,6 +154,7 @@ const content = `// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li
  * 运行： node scripts/generate-ui-routes.mjs
  * 供 src/lib/ui-action-registry.ts 校验 navigate 动作的跳转目标。
  */
+${pinBlock}
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
 ${routeLines.join('\n')}

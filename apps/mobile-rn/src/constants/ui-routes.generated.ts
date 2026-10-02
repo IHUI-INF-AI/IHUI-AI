@@ -6,6 +6,16 @@
 // 数据源:RootNavigator.tsx 已登录分支的 <RootStack.Screen name/> + <MainTabs.Screen name/>
 //        + RootStackParamList 必填参数键 + navigation/linking.ts 的 :param 模式。
 // 改路由请改 RootNavigator.tsx 后重新生成。
+// IHUI-GEN-PIN-BEGIN
+// generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
+// sourceCommit: 6738f14922b323848c9e84abe4e3961851689875
+// inputsSha256: 6f039a2621d81e28ff8c9251319b90c3e19dec813099fe54e507fb75c6de3c95
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx f8bced793ab36dee27ffe281eb6351e162756a038f446a6b35d78b1b5736e483
+// input: apps/mobile-rn/src/navigation/linking.ts a837df56feae352828f449fb73b6635acf01e7a0601272c04c70ab9d8dc8c108
+// skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
+// generatedAt: 2026-10-02T09:20:31.250Z
+// IHUI-GEN-PIN-END
+
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
 export interface RnUiRouteEntry {
@@ -19,9 +29,10 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 199 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 200 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Home', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Chat', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'OrderRefund', tab: false, requiresParams: false, requiredParams: [] },
