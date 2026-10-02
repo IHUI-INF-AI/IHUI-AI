@@ -2085,7 +2085,7 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 - **门脚本取材面纪律对账**〔scripts/check-gate-face-discipline.mjs · blocking · HUSKY_SKIP_GATE_FACE_DISCIPLINE〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L187–L187
 - **子代理权限继承对账**〔scripts/check-subagent-permission-inherited.mjs · blocking · HUSKY_SKIP_SUBAGENT_PERMISSION_INHERITED〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L188–L188
 - **名单类判据正向证明对账**〔scripts/check-list-predicate-has-positive-proof.mjs · blocking · HUSKY_SKIP_LIST_POSITIVE_PROOF〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L189–L189
-- **错误码文本判分支对账**〔scripts/guardian-runner.mjs · scripts/check-error-code-not-text-matching.mjs · scripts/lib/code-mask.mjs · blocking · HUSKY_SKIP_ERROR_CODE_TEXT_MATCHING〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L190–L190
+- **错误码文本判分支对账**〔门体 scripts/check-error-code-not-text-matching.mjs · 遮罩 lib/code-mask.mjs · **尚未挂上提交链**(本行旧副本原先写有调度器文件名、blocking 级标记与一个应急跳过变量,那是 2026-09-30 一度注册、复跑整轮后已撤下的那条声称;撤下后三者均不成立,而 89 的 R2 会因这句谎对**每一次**提交判红 ⇒ 恒红门,§12e/§12f。按现状改写、不删行,现行条目见本节标着「尚未接提交链」的那几条;要不要重新挂上由台账"解阻前置"管)〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L190–L190
 - **声明策略消费者对账**〔scripts/check-declared-policy-has-consumer.mjs · blocking · HUSKY_SKIP_DECLARED_POLICY_CONSUMER〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L191–L191
 - **文件写盘安全对账**〔scripts/check-file-write-safety.mjs · blocking · HUSKY_SKIP_FILE_WRITE_SAFETY〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L192–L192
 - **工具族注册对账**〔scripts/check-tool-family-registered.mjs · blocking · HUSKY_SKIP_TOOL_FAMILY_REGISTERED〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L193–L193
