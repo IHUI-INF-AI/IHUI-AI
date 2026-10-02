@@ -17,7 +17,7 @@ import { generateCompactId } from '../../utils/crypto-random.js'
 // 故以它为主名、N8N_DOMAIN 只作别名兜底(主名优先 ⇒ 主名在位时现网指向不变,详见
 // utils/n8n-env.ts 顶部三条不可漂的写法)。
 // 禁止在本文件再直接写 process.env.N8N_DOMAIN / N8N_BASE_URL。
-import { readN8nBaseUrl, readN8nCredentials, n8nBaseHint } from '../../utils/n8n-env.js'
+import { readN8nBaseUrl, n8nBaseHint } from '../../utils/n8n-env.js'
 import { db } from '../../db/index.js'
 import {
   createVideoTask,
@@ -113,17 +113,8 @@ const bailianChatBody = z.object({
   bizParams: z.record(z.string(), z.unknown()).optional(),
 })
 
-// N8N 官方 GET /workflows 查询参数:active/limit/cursor/tags
 /** 本子路由的 n8n 基址主名(历史名,保持其优先权;另一名字只作别名,见 utils/n8n-env.ts)。 */
 const N8N_ENV_PRIMARY = 'N8N_BASE_URL' as const
-const n8nWorkflowsBody = z.object({
-  n8nDomain: z.string().optional(),
-  apiKey: z.string().optional(),
-  active: z.boolean().optional(),
-  limit: z.number().int().min(1).max(250).optional(),
-  cursor: z.string().optional(),
-  tags: z.array(z.string()).optional(),
-})
 
 const n8nWorkflowRunBody = z.object({
   workflowId: z.string().optional(),
@@ -822,50 +813,8 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
   )
 
   // ==========================================================================
-  // 10. N8N(工作流平台)— 3 端点
+  // 10. N8N(工作流平台)— 2 端点(workflows 列表/创建已迁 n8n-proxy,2026-10-02)
   // ==========================================================================
-
-  // POST /n8n/workflows — 查询N8N工作流列表(凭据从请求体传入)
-  server.post(
-    '/n8n/workflows',
-    {
-      schema: buildSchema({
-        summary: 'N8N 工作流列表(凭据透传)',
-        description: '按请求体传入的 n8nDomain 和 apiKey 查询 N8N 活跃工作流列表',
-        tags: ['AI', 'N8N'],
-        body: n8nWorkflowsBody,
-      }),
-    },
-    async (request, reply) => {
-      const body = n8nWorkflowsBody.parse(request.body)
-      if (!body.n8nDomain || !body.apiKey)
-        return reply.status(400).send(error(400, 'n8nDomain 和 apiKey 为必填'))
-      const qs = new URLSearchParams()
-      if (body.active !== undefined) qs.set('active', String(body.active))
-      if (body.limit !== undefined) qs.set('limit', String(body.limit))
-      if (body.cursor) qs.set('cursor', body.cursor)
-      if (body.tags?.length) for (const tag of body.tags) qs.append('tags', tag)
-      try {
-        const resp = await fetchWithTimeout(
-          `https://${body.n8nDomain}/api/v1/workflows${qs.size > 0 ? `?${qs}` : ''}`,
-          { method: 'GET', headers: { 'X-N8N-API-KEY': body.apiKey } },
-          30_000,
-        )
-        const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
-        if (!resp.ok) return reply.status(502).send(error(502, `N8N 调用失败: ${resp.status}`))
-        const items = Array.isArray(data.data) ? (data.data as Record<string, unknown>[]) : []
-        const formatted = items.map((item) => ({
-          id: item.id,
-          name: item.name,
-          createdAt: item.createdAt ?? null,
-          updatedAt: item.updatedAt ?? null,
-        }))
-        return reply.send(success(formatted))
-      } catch (e) {
-        return reply.status(502).send(error(502, `N8N 调用异常: ${(e as Error).message}`))
-      }
-    },
-  )
 
   // POST /n8n/workflow/run — 运行N8N工作流
   server.post(
@@ -1237,45 +1186,8 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
   )
 
   // ==========================================================================
-  // 13. N8N 增强(服务端配置凭据 + 数据库双表插入)
+  // 13. N8N 增强(数据库双表插入;list 已迁 n8n-proxy,2026-10-02)
   // ==========================================================================
-
-  // GET /n8n/workflows(服务端配置凭据)
-  server.get(
-    '/n8n/workflows',
-    {
-      schema: buildSchema({
-        summary: 'N8N 工作流列表(服务端凭据)',
-        description: '使用服务端配置的 N8N_BASE_URL 与 N8N_API_KEY 查询活跃工作流列表',
-        tags: ['AI', 'N8N'],
-      }),
-    },
-    async (_request, reply) => {
-      // issue #71:基址经唯一出口读两个名字(N8N_BASE_URL 主名 / N8N_DOMAIN 别名);
-      // "基址 + N8N_API_KEY 都在位才算已配置"的与条件与改动前同形。
-      const cred = readN8nCredentials(N8N_ENV_PRIMARY)
-      if (!cred) return reply.status(503).send(error(503, 'N8N 服务未配置'))
-      try {
-        const resp = await fetchWithTimeout(
-          `${cred.origin}/api/v1/workflows?active=true`,
-          { method: 'GET', headers: { 'X-N8N-API-KEY': cred.apiKey } },
-          30_000,
-        )
-        const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
-        if (!resp.ok) return reply.status(502).send(error(502, `N8N 调用失败: ${resp.status}`))
-        const items = Array.isArray(data.data) ? (data.data as Record<string, unknown>[]) : []
-        const formatted = items.map((item) => ({
-          id: item.id,
-          name: item.name,
-          createdAt: item.createdAt ?? null,
-          updatedAt: item.updatedAt ?? null,
-        }))
-        return reply.send(success(formatted))
-      } catch (e) {
-        return reply.status(502).send(error(502, `N8N 调用异常: ${(e as Error).message}`))
-      }
-    },
-  )
 
   // POST /n8n/addAgent/db(agents + zhs_agent_examine 双表插入)
   server.post(

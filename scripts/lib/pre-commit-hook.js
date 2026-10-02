@@ -42,6 +42,23 @@ if (require.main !== module) {
   return
 }
 
+// ─── GIT_DIR 去污(2026-10-01,5 道守门链内崩实证根治)─────────────
+// IDE(Trae)git 扩展向会话注入 GIT_DIR=D:/IHUI-AI-git-repo(worktree 之外的
+// gitdir 指针)。子 git 进程以 scratch 物化目录为 cwd 跑 git init/add、或对
+// gitdir 跑 work-tree 型命令时全部报 "fatal: this operation must be run in a
+// work tree"([152]/[164]/[167]/[168]/[172] 链内全灭、单跑全绿的根因)。
+// delete 后 git 从 cwd(worktree 根)经 ./.git 指针文件发现同一仓库,语义不变。
+for (const k of [
+  'GIT_DIR',
+  'GIT_WORK_TREE',
+  'GIT_INDEX_FILE',
+  'GIT_OBJECT_DIRECTORY',
+  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+  'GIT_QUARANTINE_PATH',
+]) {
+  delete process.env[k]
+}
+
 // 0. stale 锁清理(2026-09-19 立,根治 index.lock 卡死多 agent)
 // 在任何 git 操作前清理可能残留的 index.lock(崩溃 git 进程)+ ihui-git-write.lock(死 PID)。
 // 活进程持有的锁不会被误删(clean 内判据:index.lock>60s 或无 git 进程;ihui 锁需 PID 死亡)。
@@ -100,7 +117,6 @@ const ROUND = {
   ts: new Date().toISOString(),
   headBefore: '',
   stagedFiles: [],
-  declaredFiles: [],
   gatesRan: false,
   gatesPassed: null,
 }
@@ -342,16 +358,6 @@ try {
     .filter(Boolean)
 } catch {
   /* 取不到就留空 ⇒ 这条记录对统计器等于"无从证",不会被误用 */
-}
-try {
-  // G-978004 ②:safe-commit 派生时经 env 传入的声明集(整链继承)。普通直 git commit
-  // 没有这个 env ⇒ 留空,统计器对该枚维持 ⊆ 弱证,两档分开计数。
-  ROUND.declaredFiles = String(process.env.IHUI_DECLARED_FILES ?? '')
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean)
-} catch {
-  /* 同上:留空不冒充实证 */
 }
 const gatesOk = run('🛡️ 运行守门脚本批量检查...', 'node scripts/guardian-runner.mjs --staged')
 ROUND.gatesRan = true

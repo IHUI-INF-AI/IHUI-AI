@@ -13,14 +13,18 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 
-sys.path.insert(0, r"G:\IHUI-AI\apps\ai-service")
+# 以脚本自身位置定位 ai-service 根(不硬编码盘符,任意检出路径均可跑)
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.services.scan_login import PLATFORM_SCAN_CONFIG  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-OUT = r"G:\caches\Temp"
+import tempfile
+
+OUT = str(Path(tempfile.gettempdir()) / "ihui-probe-wechat")
 
 # 平台 → (登录页覆盖, 微信入口 selector 列表, 前置点击)
 CANDIDATES: dict[str, tuple[str | None, tuple[str, ...], tuple[str, ...]]] = {
