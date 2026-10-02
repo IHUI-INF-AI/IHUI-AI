@@ -337,6 +337,39 @@ test('T12 R2 判据收紧**双向**:同块他句不算声称 / 同句声称必�
   assert.ok(G.AGENTS_SENTENCE_SPLIT_RE.test('a。b'), '句界常量必须认 。')
 })
 
+test('T12b R2 与 R1 必须同一条否定词判据(如实陈述不得被读成撒谎 / 肯定式声称不得被遮蔽)', () => {
+  // 负向:同一扇门、同一句**如实**声明"尚未接线" ⇒ 不得算声称。
+  // 立据:AGENTS_CLAIM_RE 含「守门」「blocking」,在 AGENTS.md 里描述一道门几乎必然撞上,
+  // 没有这一条 ⇒ 未接线的门在文档里没有合法写法,89 对每次提交恒红(§12f 同型)。
+  assert.deepEqual(
+    G.findAgentsClaims(
+      ['- **某门对账**(`scripts/check-manual-thing.mjs`,**尚未接提交链**,判据与出口表见正文)。'],
+      'check-manual-thing.mjs',
+    ),
+    [],
+  )
+  // 正向(遮蔽反向):同一条款里**既有**如实声明**又有**一句肯定式声称 ⇒ 后者必须仍判红。
+  // 只做上一条而不做这一条,等于"条款里出现一个『尚未』就整块免检"——那是放松,不是对称。
+  assert.equal(
+    G.findAgentsClaims(
+      [
+        '- 初版**尚未接提交链**。后来接入:`scripts/check-manual-thing.mjs`(blocking,pre-commit 必跑)。',
+      ],
+      'check-manual-thing.mjs',
+    ).length,
+    1,
+  )
+  // 命中「守门」但同句声明"按需手动跑(未接线)" ⇒ 不算声称(词表只有一份,与 R1 共用)
+  assert.equal(
+    G.findAgentsClaims(['- `scripts/x.mjs` 属**守门**,按需手动跑(未接线)。'], 'x.mjs').length,
+    0,
+  )
+  assert.ok(
+    /CLAIM_NEGATION_RE\.test\(sent\)/.test(G.findAgentsClaims.toString()),
+    'R2 必须复用 CLAIM_NEGATION_RE 那一份实现(不得另抄否定词正则)',
+  )
+})
+
 test('T13 装车证明:本门自己必须真在 runner 里 blocking,且 R4 真参与 reds(本门自豁免 ⇒ 无人替它兜底)', () => {
   // 89 号门对自身是 SELF_EXEMPT 的(创建当期 HEAD 里还没有它,设计如此),
   // 所以"它自己被摘掉接线"这件事 R1/R2/R4 都看不见 —— 只能由本用例钉死。
