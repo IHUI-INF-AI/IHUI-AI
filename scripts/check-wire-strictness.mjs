@@ -68,6 +68,7 @@ function listScanFiles() {
     encoding: 'utf8',
     // 本会话环境已知病:spawnSync 默认建 stdin 管道会 EBUSY —— stdin 走 ignore 规避
     stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
   })
   return out
     .split('\n')
