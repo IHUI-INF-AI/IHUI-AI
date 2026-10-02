@@ -4,10 +4,10 @@
 
 import { useI18n } from '@/i18n'
 import { View, Text, Button, ScrollView } from '@tarojs/components'
+import { FocusTextarea } from '@/components/FocusField'
 import { permissionDecisionWord, useAgentRuntime } from '@ihui/shared'
 import type { AgentRuntimePanelProps } from '@ihui/types'
 import LineIcon from '@/components/LineIcon'
-import { FocusTextarea } from '@/components/FocusField'
 
 export default function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimePanelProps) {
   const { t } = useI18n()
