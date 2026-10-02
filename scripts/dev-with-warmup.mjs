@@ -38,6 +38,10 @@ import { spawn } from 'node:child_process'
 import { mkdirSync, openSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { randomBytes } from 'node:crypto'
+// dev 锁的归属判据只有一份,住在 deploy-lock.mjs:这里 import 它,不在启动器里再拼一遍
+// "锁目录在不在 / meta 怎么读"(两处算同一件事必漂移,本仓记过多次)。
+import { acquire, release, lockOwnedBy } from './deploy-lock.mjs'
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const WEB_DIR = path.join(REPO_ROOT, 'apps', 'web')
@@ -45,6 +49,10 @@ const PORT = 8801
 const BASE = `http://localhost:${PORT}`
 const WARM_LOG_DIR = path.join(REPO_ROOT, '.ihui-agent', 'tmp', 'dev-logs')
 const WARM_LOG = path.join(WARM_LOG_DIR, 'web-warmup.log')
+const DEPLOY_LOCK_SCRIPT = path.join(REPO_ROOT, 'scripts', 'deploy-lock.mjs')
+// 本进程自己的凭据:acquire 时给定 ⇒ 心跳与释放都凭同一枚,不需要从 stdout 里把别人打印的
+// token 抠回来(那是一条会被改文案打断的隐式契约)。
+const LOCK_TOKEN = randomBytes(16).toString('hex')
 // 2026-09-12 二次修正:不再传 `--top N`。warm-dev-routes.mjs 的默认行为已是
 // PRIORITY_ROUTES 全量(36 条,显式有序清单,含 /news、/vip、/points、/orders、
 // /member、/personas、/about、/plugins 等用户高频页)。
@@ -54,6 +62,77 @@ const WARM_LOG = path.join(WARM_LOG_DIR, 'web-warmup.log')
 
 const log = (...m) => console.log(`[dev-warmup ${new Date().toISOString().slice(11, 19)}]`, ...m)
 
+// 0) 拿到 dev 锁 **再** 起 next dev。
+//    为什么由本进程持有,而不是继续留在 apps/web 的 predev:
+//    predev 是一条**与 dev server 分离**的 npm 生命周期脚本 —— 它自己的 shell 在 predev
+//    跑完就退了,而 deploy-lock 判活问的是"这段锁的 owner 还活着吗"。所以旧形态下锁从
+//    `dev` 第一步(unlock-dev-prefetch / clean-turbopack-cache)起就已经是**悬挂锁**
+//    ("持有者已退出的悬挂锁不限锁龄立即抢占" ⇒ 任何一次构建落地即抢),它谁也没挡住 ——
+//    这正是 AGENTS §12 登记的"dev 侧靠 30min 硬上限兜底"那格空白的成因。
+//    本进程 spawn `next dev` 并等它退出,是唯一"看得见 dev server 生死"的常驻方
+//    ⇒ 锁归它、心跳盯它、退出时它自己交还。
+//    仍未覆盖的一格,如实登记:`clean-turbopack-cache` 跑在本脚本之前,那一段在锁外
+//    (与改动前同样是锁外 —— 旧锁此刻已是悬挂态;要收进锁里得把清缓存也搬进本脚本,另计)。
+let ownsDevLock = false
+try {
+  await acquire({
+    mode: 'dev',
+    timeoutMs: 600_000,
+    staleMs: 600_000,
+    ownerPid: process.pid,
+    token: LOCK_TOKEN,
+  })
+  // acquire 在"dev+dev 共存"那一档也返回 true 而**没有写 meta** ⇒ 返回 true 不等于"锁是我的"。
+  // 只有真是本凭据写下的那把,才派心跳、才负责释放 —— 否则就是替别人的锁永久续期。
+  ownsDevLock = lockOwnedBy(LOCK_TOKEN)
+} catch (e) {
+  // 拿不到锁就是"有生产构建正在写 .next",起 dev 会把两边都写坏(8-09 那次 8801 502 的同型)。
+  // 这里不降级、不"先起了再说":等锁是既有语义,只是现在它有真凭据了。
+  console.error(`[dev-warmup] 未能取得 dev 锁,已停止启动 next dev:${e?.message ?? e}`)
+  process.exit(1)
+}
+if (ownsDevLock) {
+  // 常驻心跳:独立进程,detached,盯**本进程**的 pid。
+  // 它买到两件事 —— 续 ts(锁龄不再被误读成"pid 复用")与主人一退出就交还锁。
+  // windowsHide + stdio ignore:§5b —— detached 起控制台程序不带 windowsHide 必弹黑窗。
+  try {
+    const hb = spawn(
+      process.execPath,
+      [
+        DEPLOY_LOCK_SCRIPT,
+        'heartbeat',
+        '--mode',
+        'dev',
+        '--token',
+        LOCK_TOKEN,
+        '--watch-pid',
+        String(process.pid),
+      ],
+      { cwd: REPO_ROOT, detached: true, windowsHide: true, stdio: 'ignore' },
+    )
+    hb.unref()
+    log('dev 锁心跳已派出(盯本进程 pid,退出即交还锁)')
+  } catch (e) {
+    // 心跳起不来 ⇒ 锁退化成"按年龄判"的既有形态。必须喊出来,但不能因此不起 dev:
+    // 硬上限/stale 那两条线仍然在兜底,而"因为加固失败就不干活"是把改进变成事故。
+    log(`⚠️ 心跳派生失败,本轮回到既有"按年龄/stale"兜底判据(不是已续期):${e?.message ?? e}`)
+  }
+} else {
+  log('已并入另一台在跑的 dev server 的锁(共存档)⇒ 本进程不持锁、不派心跳、也不负责释放')
+}
+const quit = (code) => {
+  if (ownsDevLock) {
+    try {
+      release({ mode: 'dev', token: LOCK_TOKEN })
+    } catch (e) {
+      log(`⚠️ 释放 dev 锁失败(交给下一位按 stale/硬上限收口):${e?.message ?? e}`)
+    }
+  }
+  process.exit(code)
+}
+process.on('SIGINT', () => quit(130))
+process.on('SIGTERM', () => quit(143))
+
 // 1) 前台 dev server。经 shell 执行,与原来的 `next dev --turbopack -p 8801` 完全等价
 //    (由 npm/pnpm 注入的 PATH 解析 apps/web/node_modules/.bin/next,跨平台通吃)。
 const dev = spawn(`next dev --turbopack -p ${PORT}`, {
@@ -62,10 +141,12 @@ const dev = spawn(`next dev --turbopack -p ${PORT}`, {
   shell: true,  windowsHide: true, // 防 Windows 弹可见 cmd 窗口
 })
 dev.on('error', (e) => {
-  console.error(`[dev-warmup] 启动 next dev 失败: ${e.message}`)
-  process.exit(1)
+  console.error(`[dev-warmup] 启动 next dev 失败:${e.message}`)
+  quit(1)
 })
-dev.on('exit', (code) => process.exit(code ?? 0))
+// 退出必须走 quit():直接 process.exit 会把锁留在原地"按年龄等着被抢",
+// 而这正是心跳要消掉的那段无人保护窗口。
+dev.on('exit', (code) => quit(code ?? 0))
 
 // 2) 等 dev server 就绪(180s 上限;dev 已在前台跑,这里只是等待,不阻塞它)
 async function waitReady() {
