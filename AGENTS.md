@@ -718,6 +718,27 @@ pnpm dev                                       # 启动所有服务(web + api + 
 - **锁机制**:`node scripts/deploy-lock.mjs acquire|release|check`(锁 = 项目根 `.deploy.lock` 目录,mkdir 原子性)。build 与 build/dev 全部互斥;dev+dev 共存;stale(10min)+ 超时(10min)自动兜底。
 - **判活问的是"哪个 pid"——这一格在 2026-09-25 冻结过生产 11h50m**(登记 G-193):`acquire` 是一次性 CLI,打印"锁已获取"就退出,所以 meta 里那个 `pid` **不是持锁者**,拿它判活等于没有判据 —— 要么恒"已退出"(别人构建中途被抢),要么该号被系统复用给别的过程(实测:`meta.ts=11:16:32 pid=888`,而当时占着 888 的是 `C:\Windows\System32\nssm.exe`,**StartTime 11:19:13,比锁晚 160 秒**,一个进程不可能在它存在之前写锁)⇒ `alive=true` 永远成立 ⇒ 每轮白等 600s 后 exit=1,部署环从 11:16 起没产出新构建,而 `git status`、typecheck、154 道门全都看不出来。两条修法同时落地:**① `--owner-pid`**(调用方自己的 `$PID`,这才是这段锁真正的主人;`build-next-prod.ps1` 已传)**② 硬上限 30min**——"名义存活"与"锁龄超上限"同时成立只可能是复用 ⇒ 归档现场后抢占(与 §12 `git-lock` 的 1800s 复用兜底是同一条设计)。**判据矛盾时的失效方向**:宁可抢一把明显超时的锁(现场先归档,可复核),不可无限 wait(那等于把"没人能说清"变成"生产一直不更新")。`release` 在这一格**仍不代删别人的锁**,但必须点名"pid 疑似被复用"并指出出路是下一次 `acquire`。
   - **如实登记未完成的部分**:`apps/web/package.json` 的 `predev` / `dev:clean` / `dev:stable` / `prebuild` 四处**没法声明 owner**(npm 生命周期进程在 dev server 起来之前就退了),它们的互斥仍靠"CLI pid 多半已死 ⇒ 秒抢"这条弱机制;真正的解是心跳续期(照 `git-lock` 每 5s 写 `meta.ts`),而那需要一个能看见 dev server 生死的常驻方 —— 现在没有。所以这一段的事实是:**build 侧已收口,dev 侧靠硬上限兜底(最长 30min 让位),不是已有心跳**。
+  - **那一格已补上(2026-10-02 落地;读数一律现跑,别照本行派单)**:上面"四处没法声明 owner"这件事的事实改了 ——
+    ① 正常 `pnpm dev`:锁的持有者改成 `scripts/dev-with-warmup.mjs` **自己**(它先 `acquire({ownerPid: process.pid, token})`
+    再起 next dev),并派一个 detached 的 `deploy-lock.mjs heartbeat --watch-pid <启动器 pid>` 每 30s 续 `ts`;
+    退出走 `quit()` 带凭据交还。**共存档**(别的 dev 已持锁)时既不派心跳也不释放 —— 归属由 `lockOwnedBy(token)`
+    现读,不靠"我调过 acquire 就算我的"(那一档会让心跳替别人的锁永久续期)。
+    ② `dev:clean` / `dev:stable`:它们的 shell 与 next dev 同生死,是有效持有者,现带 `--with-heartbeat`。
+    ③ `pnpm --filter @ihui/web build`:改走 `deploy-lock.mjs run --mode build -- <原命令一字不改>`。
+    **实测的旧形态**是"prebuild 里 acquire,而 prebuild 是另一条生命周期脚本、它的 shell 在 build 开始前就退了"
+    ⇒ 整个 `next build` 期间那把锁的主人是个死进程,按现行"悬挂锁不限锁龄立即抢占"这条谁都能秒抢:
+    **账面有锁,实际没保护**(8-09 那两个构建同时写 `.next` ⇒ 8801 短暂 502 的那一型在这条入口上仍可发生)。
+    `run` 把"拿锁 + 跑命令 + 交还"收进同一个进程:命令退出码原样传播(被信号终止按 128+N 记失败,
+    不许 npm/CI 把"没构建出来"读成"构建成功"),命令根本起不来(rc=127)也必须把锁收口。
+    **再入守卫** = 环境变量 `IHUI_DEPLOY_LOCK_HELD`(由 `run` 注入子进程):上层已持这把锁时子层**不再 acquire**
+    —— 同 mode 互斥会让它等自己直到超时,那是一台纯粹自造的部署冻结(与根 `IHUI_TYPECHECK_FULL_CHILD` 那条
+    fork 风暴守卫同一条设计)。`--with-heartbeat` 缺省关闭,且关闭时**一次额外读盘、一次派生都不做**
+    —— 现存调用方(build-next-prod.ps1 等)行为逐字不变,由自检 AH5 + 镜像钉住。
+    **仍开着的一格(如实登记,不得读成已全覆盖)**:`dev` 链里 `clean-turbopack-cache.mjs` 跑在启动器拿锁**之前**,
+    那一段清缓存与并发构建的重叠窗口与本票改动前同样存在(改前那把 predev 锁也覆盖不到它);
+    而部署环走的是 `deploy/win/.deploy.lock` —— 与项目根 `.deploy.lock` 是**两把不同的锁**(别混),
+    它自带的判活/心跳不受本票影响。取证:`node scripts/deploy-lock.mjs --self-test`(HB/AH/RU 三族,条数以末行为准)
+    + `node --test scripts/tests/deploy-lock.test.mjs`(HB-M1…M9,含"摘掉再入守卫就会白等超时"的端到端臂)。
 - **已自动生效**:`build-next-prod.ps1` [0/6] 阶段自动 acquire、[7/6] release;web 包 `prebuild`/`predev` 已接入。**agent 无需额外操作,直接跑构建脚本即可**。
 - **手动构建必须遵守**:触发 web 构建前先 `node scripts/deploy-lock.mjs check`(exit 0=可构建;exit 1=有其他构建/部署进行中,等待后重试)。**禁止**绕过锁直接 `next build` 或并发触发 `build-next-prod.ps1`。
 - **锁异常处理**:超时自动报错;持有者已退出的悬挂锁**不限锁龄**立即抢占(2026-08-27 判据);"名义存活但锁龄超 30min 硬上限"= pid 复用,同样归档后抢占(见上节 G-193);紧急可删项目根 `.deploy.lock`(先确认无构建进程)。`.deploy.lock/` 已 gitignore。
