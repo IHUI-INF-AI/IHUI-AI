@@ -155,6 +155,39 @@ groups:
           summary: 'Redis 实例不可用'
           description: 'Redis exporter {{ $labels.instance }} 无指标或 redis_up==0,Redis 疑似宕机'
 
+      # Redis 持久化失败(2026-10-02 补:"落盘无人看守"这一格)。
+      # 指标源 = redis_exporter(9121)自报,2026-10-02 实测在位:
+      #   redis_rdb_last_bgsave_status / redis_aof_last_bgrewrite_status / redis_aof_last_write_status(1=成功 0=失败)。
+      # 口径:三条只在"引擎自己答出来"时生效 —— 采集断(exporter/进程挂)由 RedisDown 管,不在这里重复判。
+      # 阈值依据(RedisRdbStale):本机 save 策略为 900/1 · 300/10 · 60/10000(redis-ihui.conf 实测),
+      # 取 2h = 最大窗口的 8 倍,且要求 changes>0 —— 空转(无写入)时 last_save 陈旧属正常,不得报警。
+      - alert: RedisPersistenceFailing
+        expr: redis_rdb_last_bgsave_status == 0 or redis_aof_last_bgrewrite_status == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Redis 持久化失败(RDB bgsave / AOF rewrite 报错)'
+          description: 'RDB bgsave 或 AOF rewrite 最后一次状态为失败(instance {{ $labels.instance }}),重启/崩溃随时可能丢数据'
+
+      - alert: RedisAofWriteFailing
+        expr: redis_aof_last_write_status == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Redis AOF 写盘失败'
+          description: 'AOF(everysec)落盘连续报错(instance {{ $labels.instance }}):写命令已无法持久化,常见于磁盘满/权限变化'
+
+      - alert: RedisRdbStale
+        expr: redis_rdb_changes_since_last_save > 0 and (time() - redis_rdb_last_save_timestamp_seconds) > 7200
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Redis RDB 超过 2 小时未成功保存(且有未落盘变更)'
+          description: '存在未落盘变更且最后成功保存距今超过 2 小时(instance {{ $labels.instance }}),检查磁盘与日志'
+
       # ⚠ 原 DiskSpaceLow / MemoryLow 两条已判"结构上永不响",2026-09-27 实测后收口 ——
       #   它们取的是 node_exporter 的 `node_filesystem_*` / `node_memory_*`,而本机 prometheus.yml
       #   第 189 行的 `node` job 是**注释掉的**(这台机跑 windows_exporter,没有 node_exporter):
