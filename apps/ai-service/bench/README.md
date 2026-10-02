@@ -107,4 +107,36 @@ stub 执行器使用确定性简化 LLM:首次调用探查工作目录(`list_fil
 结束,**不会实际修改代码**。因此 stub 模式下检查通常全 fail,但其价值在于验证
 **完整链路(工具调用 → 结果回填 → 评分)在离线环境跑通**。真实能力评估请用
 `--executor loop_v2` 并配置可用 LLM key。
+
+## D127 对话黄金任务集(题目集与判分标准,不是第二套执行器)
+
+`tasks_convo_golden.json` 是**产品级**对话回归的题目集:30 个任务,五类各 6
+(`convo-qa` 纯问答 / `convo-tools` 工具编排 / `convo-longtask` 长任务 /
+`convo-multimodal` 多模态 / `convo-review` 审查)。执行器仍是本文件的
+`run_bench.py` / `run_golden_e2e.py`(0-2 固化那条),通过 `--tasks-file` 指名题集 ——
+D127 明令禁两套执行器,故这里只加题集与判分标准,不加新链。
+
+```bash
+cd apps/ai-service
+# 判分链路自检(参考答案直评,应 30/30)
+python -m bench.run_bench --executor golden --tasks-file tasks_convo_golden.json --min-pass-rate 1.0
+# 黄金 E2E(golden + review + checkpoint 三层,点名题集即跑全量 30)
+python -m bench.run_golden_e2e --tasks-file tasks_convo_golden.json --min-pass-rate 1.0 --report bench/reports/convo-golden-e2e.json
+# 真实跑分(对话主干改动用它,数字入 PR 描述)
+python -m bench.run_bench --executor loop_v2 --tasks-file tasks_convo_golden.json --min-pass-rate <当期基线>
+```
+
+- **判分标准 = 结构化断言**(既有四种检查器:`file_contains` / `file_not_contains` /
+  `pytest_pass` / `pytest_file_exists`),不用 LLM 主观分;每任务另有一条
+  `file_not_contains` 兜"半成品冒充完成"(如超标清单里不得出现未超标项)。
+- **两态 fixture 同源**:`fixtures/fixture_convo-*/` 是初始态(只有输入、无任何产物),
+  `fixtures_golden/fixture_convo-*/` 是参考答案态(输入 + 产物)。两套由同一个生成器
+  一次写出,且断言"初始态非空 + 初始态不含任何待检产物" —— 缺这条时题目可以"答案
+  已经躺在初始目录里"而通过率一路报 100%(常驻尺子:`tests/test_convo_golden_bench.py`)。
+- **基线**:`bench/reports/convo-golden-baseline-2026-10-02.md`(30/30)与
+  `bench/reports/convo-golden-e2e-2026-10-02.json`(golden/review/checkpoint 各 30/30)。
+  报告由执行器自己产出,不手抄数字。
+- **门禁口径**:改动对话主干(`agent_loop_v2` / 工具执行 / 压缩策略)时,必须用
+  `--executor loop_v2` 跑本集并把通过率写进 PR 描述;golden 那一档只证明题目与判据自洽。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
