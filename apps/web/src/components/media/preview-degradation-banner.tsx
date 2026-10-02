@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { FileQuestion, History, RefreshCw, X } from 'lucide-react'
+import { Clock, ExternalLink, FileQuestion, FileWarning, History, RefreshCw, X } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import { Tooltip, TooltipProvider } from '@/components/feedback'
 import { cn } from '@/lib/utils'
@@ -33,6 +33,8 @@ interface PreviewSnapshotNoticeProps {
   readonly notice: PreviewNoticeKind
   readonly readAt: number | null
   readonly copy: PreviewCopy
+  /** D163:loadFailed(L2"无法读取当前文件")给"重试"出口;不传则不出按钮(向后兼容) */
+  readonly onRetry?: () => void
 }
 
 /** 可见内容属于历史快照时的标识条:`isRecord` 为真才渲染,当前内容不打扰用户。 */
@@ -41,6 +43,7 @@ export function PreviewSnapshotNotice({
   notice,
   readAt,
   copy,
+  onRetry,
 }: PreviewSnapshotNoticeProps): React.ReactElement | null {
   if (!isRecord && notice === null) return null
   const noticeText =
@@ -63,6 +66,12 @@ export function PreviewSnapshotNotice({
         <span className="text-[10px] leading-none text-muted-foreground tabular-nums">
           {copy('previewSnapshotReadAt', { time: formatPreviewReadTime(readAt) })}
         </span>
+      )}
+      {notice === 'cannot-read' && onRetry && (
+        <Button size="xs" variant="outline" onClick={onRetry}>
+          <RefreshCw className="h-3 w-3" />
+          <span>{copy('previewRetryAction')}</span>
+        </Button>
       )}
       {noticeText && (
         <p role="status" className="w-full text-xs leading-none text-muted-foreground">
@@ -100,6 +109,76 @@ export function PreviewNoContentState({
         <RefreshCw className="h-3 w-3" />
         <span>{refreshLabel}</span>
       </Button>
+    </div>
+  )
+}
+
+interface PreviewExpiredStateProps {
+  readonly copy: PreviewCopy
+  readonly onRetry: () => void
+  readonly onOpenSource?: () => void
+  readonly className?: string
+}
+
+/** D163 五态·expired:快照/记录已失效 —— 给"重试"与"打开原文"两个出口。 */
+export function PreviewExpiredState({
+  copy,
+  onRetry,
+  onOpenSource,
+  className,
+}: PreviewExpiredStateProps): React.ReactElement {
+  return (
+    <div
+      data-preview-state="expired"
+      className={cn('flex flex-col items-center gap-2 p-3 text-muted-foreground', className)}
+    >
+      <Clock className="h-8 w-8" />
+      <p role="status" className="text-sm">
+        {copy('previewExpired')}
+      </p>
+      <span className="flex items-center gap-2">
+        <Button size="xs" variant="outline" onClick={onRetry}>
+          <RefreshCw className="h-3 w-3" />
+          <span>{copy('previewRetryAction')}</span>
+        </Button>
+        {onOpenSource && (
+          <Button size="xs" variant="ghost" onClick={onOpenSource}>
+            <ExternalLink className="h-3 w-3" />
+            <span>{copy('previewOpenSourceAction')}</span>
+          </Button>
+        )}
+      </span>
+    </div>
+  )
+}
+
+interface PreviewTooLargeStateProps {
+  readonly copy: PreviewCopy
+  readonly onOpenSource?: () => void
+  readonly className?: string
+}
+
+/** D163 五态·tooLarge:内容超出 PREVIEW_MAX_BYTES —— 重试无意义,只给"打开原文"。 */
+export function PreviewTooLargeState({
+  copy,
+  onOpenSource,
+  className,
+}: PreviewTooLargeStateProps): React.ReactElement {
+  return (
+    <div
+      data-preview-state="too-large"
+      className={cn('flex flex-col items-center gap-2 p-3 text-muted-foreground', className)}
+    >
+      <FileWarning className="h-8 w-8" />
+      <p role="status" className="text-sm">
+        {copy('previewTooLarge')}
+      </p>
+      {onOpenSource && (
+        <Button size="xs" variant="outline" onClick={onOpenSource}>
+          <ExternalLink className="h-3 w-3" />
+          <span>{copy('previewOpenSourceAction')}</span>
+        </Button>
+      )}
     </div>
   )
 }
