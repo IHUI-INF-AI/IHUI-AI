@@ -143,10 +143,26 @@ import { atomicWriteFileSync } from './lib/atomic-write.mjs'
 // ⇒ 部署环每轮白等 600s,冻结 11h50m(登记 G-193)。
 import { processStartEpoch, verifyHolder } from './lib/proc-identity.mjs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+// 2026-10-02(补齐部署锁机制票):acquire --with-heartbeat 与 run 子命令都要**派生进程**
+// (常驻心跳 + 被包装的真命令)。§5b/守门 52:凡派生控制台程序必带 windowsHide,否则用户桌面反复弹黑窗。
+import { spawn } from 'node:child_process'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(__dirname, '..')
 const POLL_MS = 500
+/**
+ * 本脚本自己的路径 —— 心跳必须以**独立进程**起(它是一个常驻循环,不能跑在调用方进程里),
+ * 派生时只能引用"我自己",不得写死 `scripts/deploy-lock.mjs` 再靠 cwd 拼(那正是守门 70 记过的
+ * "扫哪棵树由调用者站哪决定"那一型)。
+ */
+const SELF_SCRIPT = fileURLToPath(import.meta.url)
+/**
+ * 被信号终止时的退出码口径(2026-10-02 run 子命令)。`shell.get('close')` 在信号终止时给
+ * `code === null` —— 若把它当成 0,一次被 SIGKILL 的构建会在账面报"成功",而 run 的调用方
+ * (npm 生命周期 / CI)正是靠这个码判断构建是否落地。取 128+N 与 sh/cmd 的惯例一致
+ * (与 scripts/dev-with-warmup.mjs 的 quit(130)/quit(143) 同一条口径)。
+ */
+const SIGNAL_EXIT_CODE = { SIGHUP: 1, SIGINT: 2, SIGKILL: 9, SIGTERM: 15 }
 /**
  * "持有者名义存活"却把锁握过这个时长 ⇒ 只有一种解释:**pid 被复用了**。
  * 取 30 分钟:一次「构建 + 部署」单元实测约 4-10 分钟,30 分钟已是 3 倍余量;
@@ -1241,6 +1257,490 @@ function release({ mode, token, dir = lockDir() } = {}) {
   return { released: true, why: self ? '持有者自释' : '悬挂锁代为收口' }
 }
 
+/**
+ * ── 心跳续期(2026-10-01 立,补 AGENTS §12「部署锁」登记着的那格空白)────────────────
+ *
+ * 登记的空白原文:「真正的解是心跳续期(照 git-lock 每 5s 写 meta.ts),而那需要一个能看见
+ * dev server 生死的常驻方 —— 现在没有」。本函数就是那个常驻方的**判据部分**:由真正长命的
+ * 启动器(`scripts/dev-with-warmup.mjs`,它 spawn 并等待 `next dev`)派生,盯它的 pid。
+ *
+ * 心跳买到两件事,都不是新功能,而是把既有判据从"猜"变成"量":
+ *   ① 续 `ts` —— 锁龄不再被误读成"pid 已被复用"(2026-09-25 冻结生产 11h50m 正是这一格:
+ *      名义存活 + 锁龄超硬上限 ⇒ 谁都不敢动,谁也没在动);
+ *   ② 主人一退出就**交还锁**,而不是等下一位按 stale/硬上限来抢(中间那段是无人保护窗口)。
+ *
+ * 三条不可漂的写法,每条各由自检的一档钉住:
+ *   A. **没有凭据就不续**。心跳写的是别人那把锁上的 `ts`,所以归属核验比 release 更要紧:
+ *      凭据缺失/不符、mode 或 ownerPid 漂了 ⇒ 立即停手且**不删锁**。防的是"心跳替别人
+ *      把一把本该让位的锁永久续下去"。
+ *   B. **到寿命只停手,不删锁**。12h 上限防的是泄漏的常驻进程,不是"dev 到点该让位";
+ *      dev 还活着时删锁 = 自己撤掉保护,比不续期更坏。停手后锁按既有年龄线让位。
+ *   C. 判活用裸 pid(`process.kill(pid,0)`,零派生),**身份三元组只定期现测**。
+ *      把 PowerShell 派生放进每 30s 的轮询,正是 acquire 那侧明令禁止的"把派生搬到不该在的地方"。
+ */
+export const HEARTBEAT_DEFAULTS = {
+  intervalMs: Number(process.env.IHUI_DEPLOY_LOCK_HEARTBEAT_MS || 30_000),
+  maxLifetimeMs: Number(process.env.IHUI_DEPLOY_LOCK_HEARTBEAT_MAX_MS || 12 * 3600_000),
+  identityEveryTicks: 10,
+}
+
+/**
+ * 单轮心跳的处置判据 —— 纯函数,不碰文件系统也不派生进程,自检直接喂构造面。
+ * @returns {{action:'renew'|'stop'|'release', why:string}}
+ */
+export function heartbeatAction({
+  state,
+  mode,
+  token,
+  watchPid,
+  watchAlive,
+  identityKind = null,
+  ageMs = 0,
+  maxLifetimeMs = HEARTBEAT_DEFAULTS.maxLifetimeMs,
+} = {}) {
+  if (!state || state.kind !== 'ok')
+    return { action: 'stop', why: `锁已不在或元数据读不懂(${state?.kind ?? 'no-state'}:${state?.reason ?? ''})⇒ 不重建、不猜` }
+  const meta = state.meta
+  if (meta.mode !== mode)
+    return { action: 'stop', why: `mode 漂了(锁=${meta.mode} 我=${mode})⇒ 已易主,不替别人续期` }
+  if (!meta.token)
+    return { action: 'stop', why: '旧格式锁没有凭据 ⇒ 归属无从核验,停手(也不删别人的锁)' }
+  if (!token)
+    return { action: 'stop', why: '调用方没带凭据 ⇒ 无从证明这把锁归我,停手' }
+  if (meta.token !== token)
+    return { action: 'stop', why: `凭据不符(锁=${maskToken(meta.token)} 我=${maskToken(token)})⇒ 不是我这把锁` }
+  if (Number(meta.ownerPid) !== Number(watchPid))
+    return { action: 'stop', why: `ownerPid 已漂(锁=${meta.ownerPid} 我盯的=${watchPid})⇒ 已被别人接管` }
+  if (watchAlive !== true) return { action: 'release', why: `主人 pid=${watchPid} 已退出 ⇒ 交还锁` }
+  if (identityKind === 'mismatch')
+    return { action: 'release', why: `pid=${watchPid} 的启动时刻与锁里记的不符 ⇒ 该 pid 已被复用,交还锁` }
+  if (ageMs > maxLifetimeMs)
+    return {
+      action: 'stop',
+      why: `心跳已跑满 ${Math.round(ageMs / 3600_000)}h 上限 ⇒ 停止续期(锁按既有年龄线让位;不删 —— 删等于在 dev 仍活着时自己撤保护)`,
+    }
+  return { action: 'renew', why: `主人 pid=${watchPid} 存活、凭据与归属逐条对上` }
+}
+
+/**
+ * 心跳主循环。`once: true` 只走一轮(自检与人工排障用),生产档才常驻。
+ * 依赖全部可注入(alive / identityOf / sleep / log / dir),所以自检能在临时锁目录上
+ * 把五个现场都造出来,而不必真起一个 dev server。
+ */
+async function heartbeat({
+  mode = 'dev',
+  token,
+  watchPid,
+  dir = lockDir(),
+  intervalMs = HEARTBEAT_DEFAULTS.intervalMs,
+  maxLifetimeMs = HEARTBEAT_DEFAULTS.maxLifetimeMs,
+  identityEveryTicks = HEARTBEAT_DEFAULTS.identityEveryTicks,
+  once = false,
+  now = () => Date.now(),
+  alive = isProcessAlive,
+  identityOf = null,
+  sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
+  log = (...a) => console.log(...a),
+} = {}) {
+  const startedAt = now()
+  let ticks = 0
+  for (;;) {
+    ticks += 1
+    const state = readMeta(dir)
+    const meta = state.kind === 'ok' ? state.meta : null
+    // 只在"归属已对上、正要继续等"的那一格现测身份(identityOf 没注入 ⇒ null ⇒ 维持原判据,
+    // 绝不凭"量不到"就多删一把锁)。
+    const needIdentity =
+      typeof identityOf === 'function' &&
+      meta !== null &&
+      Number(meta.ownerPid) === Number(watchPid) &&
+      (ticks - 1) % Math.max(1, identityEveryTicks) === 0
+    const decision = heartbeatAction({
+      state,
+      mode,
+      token,
+      watchPid,
+      watchAlive: alive(Number(watchPid)),
+      identityKind: needIdentity ? identityOf(Number(watchPid)) ?? null : null,
+      ageMs: now() - startedAt,
+      maxLifetimeMs,
+    })
+    if (decision.action === 'renew') {
+      // 只刷 ts 与身份锚点;ownerPid 与 token 必须原样带回 —— writeMeta 拿不到凭据会现生成
+      // 一枚新的,那等于把归属凭据换掉,下一轮自己就不认自己了。
+      writeMeta(dir, mode, { ownerPid: Number(watchPid), token })
+      log(`[deploy-lock] 心跳已续(${mode} 锁,owner pid=${watchPid},第 ${ticks} 轮):${decision.why}`)
+    } else if (decision.action === 'release') {
+      const r = release({ mode, token, dir })
+      log(
+        `[deploy-lock] 心跳收口:${decision.why} ⇒ ${r.released ? '锁已释放' : `没释放(${r.why}),交既有年龄线让位`}`,
+      )
+      return { action: 'release', why: decision.why, released: r.released }
+    } else {
+      log(`[deploy-lock] 心跳停止:${decision.why}`)
+      return { action: 'stop', why: decision.why }
+    }
+    if (once) return { action: 'renew', why: decision.why }
+    await sleep(intervalMs)
+  }
+}
+
+/**
+ * 只读:这把锁现在是不是这个凭据写下的。
+ * 给**生产调用方**用(dev-with-warmup 据此决定要不要派心跳 / 要不要负责释放)——
+ * `acquire()` 在"dev+dev 共存"那一档也返回 true 而**没有写 meta**,所以拿到 true
+ * 不等于"这把锁是我的"。把归属判据留在锁这一侧,不让调用方去 parse 自己的输出。
+ */
+export function lockOwnedBy(token, dir = lockDir()) {
+  if (typeof token !== 'string' || !token.trim()) return false
+  const st = readMeta(dir)
+  return st.kind === 'ok' && st.meta.token === token.trim()
+}
+
+/**
+ * ── 心跳派生的唯一出口(2026-10-02 立,补齐部署锁机制票)──────────────────────────────
+ *
+ * 2026-10-01 那一轮把"自己持锁 → 派心跳 → 退出交还"整套落在了 `scripts/dev-with-warmup.mjs`
+ * (它是 `pnpm dev` 的入口)。本票把**同一套**补到剩下两个入口:`apps/web` 的 `build`(生产构建的
+ * npm 入口)与 `dev:clean` / `dev:stable`(手工 dev 逃生档)。派生逻辑只许有这一份 ——
+ * 在两个入口各写一遍 spawn 就是本仓记过最多次的"两处算同一件事必漂移"(§22c),而漂移的形态
+ * 不是报错,是**其中一个入口的心跳静默没起来、账面却写着"已加心跳"**。
+ *
+ * 三条不可漂的判读,每条各由自检的一档钉住:
+ *  ① **`--watch-pid` 取落盘 meta 里的 ownerPid(现读)**,不是 CLI 自己的 pid、也不是猜的。
+ *     `heartbeatAction` 的判序里"`ownerPid` 已漂 ⇒ 已被别人接管 → stop"排在存活判定**之前**,
+ *     主体给错就等于心跳每轮都落在 stop:进程真起来了、也真在跑,却一秒都没续过(HB13/HB-M2
+ *     的夹具曾以另一种写法踩过这一格,注释留案)。
+ *  ② **共存档不派、不释放**:`acquire()` 在 dev+dev 那一档同样返回 true 而**不写 meta**,
+ *     所以"拿到 true"不等于"这把锁是我写的"。归属只认 `ownerTokenMemo`(本次进程为这个目录
+ *     写下的那份)∧ `lockOwnedBy` 两者同时成立 —— 缺这一层就是替别人的锁永久续期,而那把锁
+ *     本来该按年龄线让位。
+ *  ③ **legacy 无凭据的锁不派**:meta 里没有 token 时心跳第一轮就因无从核验归属而 stop(HB3),
+ *     派它等于白起一个常驻进程,而账面读起来像"这一端已有心跳"。
+ *
+ * 派生失败**不得**让 acquire / run 本身失败:没有心跳时锁退回既有的"stale + 30min 硬上限"兜底,
+ * 那仍然是受保护的,只是保护得粗 —— 把加固的失败变成"不干活"才是把改进做成事故
+ * (与 dev-with-warmup 里"心跳起不来照样起 dev"同一条取舍)。但**必须点名**"心跳未起来:<原因>",
+ * 不得静默,也不得写成"已续期"(本仓铁律:不能把"没做成"记成"做好了")。
+ */
+
+/**
+ * 纯判据:这一轮 acquire 之后**该不该**派心跳、派的话 argv 是什么。
+ * 不碰文件系统也不派生进程 ⇒ 自检能把"共存档 / legacy / ownerPid 取不出"三个现场都构造出来,
+ * 而不必真起一个常驻进程(镜像测试也直接 import 这一份,禁止在测试里重写"什么算该派")。
+ */
+export function heartbeatSpawnPlan({ mode, dir, token, meta, owned } = {}) {
+  const dirResolved = resolve(dir ?? lockDir())
+  if (!owned)
+    return {
+      spawn: false,
+      kind: 'not-owned',
+      why: '本次没有真的写下这把锁(共存档 / 抢占未成)⇒ 不替别人的锁续期、也不负责释放',
+    }
+  if (typeof token !== 'string' || !token.trim())
+    return {
+      spawn: false,
+      kind: 'no-credential',
+      why: '这把锁没有归属凭据(旧格式)⇒ 心跳第一轮就无从核验归属而停手,不派白跑的进程',
+    }
+  const watchPid = Number(meta?.ownerPid)
+  if (!(watchPid > 0))
+    return {
+      spawn: false,
+      kind: 'no-watch-pid',
+      why: `落盘 meta 里取不出有效 ownerPid(${meta?.ownerPid ?? '(缺)'}),判活主体不明 ⇒ 派了也只会每一轮判错`,
+    }
+  return {
+    spawn: true,
+    kind: 'spawn',
+    watchPid,
+    dir: dirResolved,
+    file: process.execPath,
+    args: [
+      SELF_SCRIPT,
+      'heartbeat',
+      '--mode',
+      String(mode ?? ''),
+      '--lock-dir',
+      dirResolved,
+      '--token',
+      token.trim(),
+      '--watch-pid',
+      String(watchPid),
+    ],
+  }
+}
+
+/** 按 plan 真派生(detached + windowsHide + stdio ignore + unref);失败只喊不抛。 */
+function spawnHeartbeat({
+  mode,
+  dir,
+  token,
+  meta,
+  owned,
+  spawnFn = spawn,
+  log = (...a) => console.log(...a),
+  warn = (...a) => console.warn(...a),
+} = {}) {
+  const plan = heartbeatSpawnPlan({ mode, dir, token, meta, owned })
+  if (!plan.spawn) {
+    // 共存档那一格是**设计如此**(不是故障)⇒ 中性一行;其余两档是真没起来,必须喊出来。
+    if (plan.kind === 'not-owned') log(`[deploy-lock] 未派心跳:${plan.why}`)
+    else warn(`[deploy-lock] ⚠️ 心跳未起来:${plan.why}`)
+    return { ...plan, spawned: false }
+  }
+  try {
+    const child = spawnFn(plan.file, plan.args, {
+      cwd: repoRoot,
+      detached: true,
+      windowsHide: true,
+      stdio: 'ignore',
+    })
+    child?.unref?.()
+    log(
+      `[deploy-lock] ${mode} 锁心跳已派出(盯 owner pid=${plan.watchPid},主人退出即交还锁;量不到时由硬上限兜底)`,
+    )
+    return { ...plan, spawned: true, childPid: child?.pid }
+  } catch (e) {
+    warn(
+      `[deploy-lock] ⚠️ 心跳未起来:派生失败(${e?.code ?? e?.message ?? e})⇒ 本轮回到既有"stale + 硬上限"兜底判据(不是已续期)`,
+    )
+    return { ...plan, spawned: false, error: e }
+  }
+}
+
+/**
+ * CLI 档的 acquire:先按**既有判据**拿锁,然后在"确实是自己写下的那把"时补一个常驻心跳。
+ *
+ * `withHeartbeat` 为假时**一次额外的读盘、一次派生都不做** —— 这是向后兼容的硬要求:
+ * 不带旗的调用方(含 build-next-prod.ps1 与一切历史脚本)必须拿到与改动前逐字同形的落盘 meta
+ * 和零派生行为,由自检 AH2/AH3 两档钉住。`dev-with-warmup.mjs` 直接 import `acquire`,
+ * 根本不走这个出口,所以它那份心跳不受本票影响。
+ */
+export async function acquireWithHeartbeatOption(
+  {
+    mode = 'build',
+    timeoutMs = 600_000,
+    staleMs = 600_000,
+    ownerPid,
+    token,
+    dir,
+    identityRun,
+  } = {},
+  {
+    withHeartbeat = false,
+    spawnFn = spawn,
+    log = (...a) => console.log(...a),
+    warn = (...a) => console.warn(...a),
+  } = {},
+) {
+  await acquire({
+    mode,
+    timeoutMs,
+    staleMs,
+    ownerPid,
+    token,
+    ...(dir ? { dir } : {}),
+    ...(identityRun ? { identityRun } : {}),
+  })
+  if (!withHeartbeat) return { withHeartbeat: false, spawned: false, kind: 'flag-off' }
+  const dirResolved = resolve(dir ?? lockDir())
+  // 凭据只能来自"本次进程为这个目录写下的那份"(memo),或调用方**显式声明**的那份。
+  // 刻意不写"把盘上的 token 读回来再 lockOwnedBy" —— 那把盘上有什么就当什么归我,
+  // 归属判据当场归零(共存档那档就会替别人的锁永久续期)。
+  const myToken =
+    ownerTokenMemo.get(dirResolved) ??
+    (typeof token === 'string' && token.trim() ? token.trim() : undefined)
+  const st = readMeta(dirResolved)
+  const owned = !!myToken && lockOwnedBy(myToken, dirResolved)
+  return spawnHeartbeat({
+    mode,
+    dir: dirResolved,
+    token: myToken,
+    meta: st.kind === 'ok' ? st.meta : null,
+    owned,
+    spawnFn,
+    log,
+    warn,
+  })
+}
+
+/**
+ * 被包装命令的派生与退出码收口(纯 IO,不做任何锁判据)。
+ *
+ * 三条收口路径必须**共用同一个 settled 闸**,否则会出现"子进程起不来而锁留在原地"
+ * 或"close 与 error 各释放一次":
+ *   - `spawnFn` 同步抛(参数/路径不可能成立)⇒ 127;
+ *   - 子进程 `error` 事件(ENOENT / EACCES,Node 对 spawn 不抛而是发事件)⇒ 不另造码,
+ *     等它的 `close`(拿不到 close 时由 signal 分支兜)。**只发 error 不 close** 的极端形态
+ *     由这里的 `finish` 兜底:error 里若子进程从没 start 成功,close 仍会跟着来
+ *     (Node 文档行为),所以这里只把 error 当"喊出来",不当结论 —— 结论只从 close 取,
+ *     避免同一件事被记成两个不同的退出码;
+ *   - `close(code, signal)`:code 为 null ⇒ **128+N**,绝不当 0(被 SIGKILL 的构建在账面上
+ *     必须是失败,否则 npm 生命周期与 CI 会把"没构建出来"读成"构建成功")。
+ * 自己收到 SIGINT/SIGTERM 时把信号转给子进程并走**同一条 finish**(同一次 release)。
+ */
+function spawnAndCollectRc({ command, env, spawnFn = spawn, warn = () => {} }) {
+  return new Promise((res) => {
+    let settled = false
+    let child = null
+    const finish = (rc) => {
+      if (settled) return
+      settled = true
+      for (const sig of Object.keys(handlers)) process.off(sig, handlers[sig])
+      res(rc)
+    }
+    const handlers = {
+      SIGINT: () => {
+        try {
+          child?.kill('SIGINT')
+        } catch {
+          /* 子进程可能已退:没关系,收口照常走 */
+        }
+        finish(128 + SIGNAL_EXIT_CODE.SIGINT)
+      },
+      SIGTERM: () => {
+        try {
+          child?.kill('SIGTERM')
+        } catch {
+          /* 同上 */
+        }
+        finish(128 + SIGNAL_EXIT_CODE.SIGTERM)
+      },
+    }
+    try {
+      // 不带 shell:命令与参数逐字传给 spawn,免得 `--` 后面那些本是要给真命令的引号/竖线
+      // 被 shell 二次解释(而 run 的语义恰恰是"我要跑的就是这几个 argv")。
+      child = spawnFn(command[0], command.slice(1), { stdio: 'inherit', windowsHide: true, env })
+    } catch (e) {
+      warn(
+        `[deploy-lock] run:命令派生失败(${e?.code ?? e?.message ?? e})⇒ 不跑命令,直接把锁收口`,
+      )
+      finish(127)
+      return
+    }
+    child.on?.('error', (e) => {
+      warn(`[deploy-lock] run:子进程异常(${e?.code ?? e?.message ?? e})——退出码取自它的 close`)
+    })
+    child.on?.('close', (code, signal) => {
+      if (typeof code === 'number') return finish(code)
+      finish(128 + (SIGNAL_EXIT_CODE[signal] ?? 1))
+    })
+    for (const [sig, h] of Object.entries(handlers)) process.on(sig, h)
+  })
+}
+
+/**
+ * `run` 子命令的内核:**自己持锁 → 派心跳 → 跑命令 → 命令一退出就带凭据交还**。
+ *
+ * 补的是 `pnpm --filter @ihui/web build` 那条入口上的实测缺陷(2026-10-02 核实现形):
+ * 它原先在 `prebuild` 里 acquire,而 prebuild 是**另一条**npm 生命周期脚本 —— 它的 shell
+ * 在 `build` 开始之前就退了,于是整个 `next build` 期间那把锁的 owner 是个已死进程,
+ * 按"持有者已退出的悬挂锁不限锁龄立即抢占"这条**现行**规则,任何后来者都能秒抢 ——
+ * 即这条入口上的构建**实际上没有被保护**(8-09 那两个构建同时写 `.next` ⇒ 8801 短暂 502
+ * 的那一型今天在这条入口上仍可发生),而账面看起来有锁。
+ * 把锁与命令放进同一个进程,才让"锁活着"与"构建活着"变成同一件事。
+ *
+ * 再入守卫(`IHUI_DEPLOY_LOCK_HELD`,由本函数注入子进程环境,值 = `mode:token`):
+ * 上层已经持这把锁时,子层**绝不再 acquire 第二次** —— 同 mode 互斥 ⇒ 它会等自己,
+ * 600s 后超时抛错,即一次纯粹的自锁。与根 `package.json` 的 typecheck 再入守卫
+ * (`IHUI_TYPECHECK_FULL_CHILD`,§5b 记的 24.6 万 cmd/2min fork 风暴)是同一条设计。
+ *
+ * Linux/CI 兼容:身份探针(PowerShell)拿不到时 writeMeta 整键不写 ⇒ 读侧落
+ * `unverifiable` = **维持改动前判据**,不因此判失败(自检/镜像都不为此开绿灯也不开红灯)。
+ */
+export async function runUnderLock({
+  mode = 'build',
+  timeoutMs = 600_000,
+  staleMs = 600_000,
+  dir,
+  command,
+  env = process.env,
+  spawnFn = spawn,
+  heartbeatSpawnFn = spawnFn,
+  pid = process.pid,
+  log = (...a) => console.log(...a),
+  warn = (...a) => console.warn(...a),
+} = {}) {
+  if (
+    !Array.isArray(command) ||
+    command.length === 0 ||
+    command.some((x) => typeof x !== 'string' || x === '')
+  ) {
+    throw new Error(
+      '[deploy-lock] run:`--` 之后必须给出要执行的命令与参数(至少一个非空项)。本次未拿锁。',
+    )
+  }
+  const dirResolved = resolve(dir ?? lockDir())
+  const held = typeof env.IHUI_DEPLOY_LOCK_HELD === 'string' && env.IHUI_DEPLOY_LOCK_HELD.trim() !== ''
+  if (held) {
+    log(
+      `[deploy-lock] run:检测到 IHUI_DEPLOY_LOCK_HELD=${env.IHUI_DEPLOY_LOCK_HELD.trim()} ⇒ 上层已持这把锁,本次不再 acquire、也不负责释放`,
+    )
+    return {
+      rc: await spawnAndCollectRc({ command, env: { ...env }, spawnFn, warn }),
+      owned: false,
+      reentrant: true,
+    }
+  }
+  const myToken = randomBytes(16).toString('hex')
+  await acquire({
+    mode,
+    timeoutMs,
+    staleMs,
+    ownerPid: pid,
+    token: myToken,
+    ...(dir ? { dir } : {}),
+  })
+  const st = readMeta(dirResolved)
+  const owned = lockOwnedBy(myToken, dirResolved)
+  const heartbeat = spawnHeartbeat({
+    mode,
+    dir: dirResolved,
+    token: myToken,
+    meta: st.kind === 'ok' ? st.meta : null,
+    owned,
+    spawnFn: heartbeatSpawnFn,
+    log,
+    warn,
+  })
+  let released = false
+  const releaseOnce = () => {
+    if (released) return
+    released = true
+    try {
+      const r = release({ mode, token: myToken, ...(dir ? { dir } : {}) })
+      if (!r.released)
+        warn(
+          `[deploy-lock] run:锁没有释放(${r.why})⇒ 交既有年龄线 / break-stale 收口,本命令不把它读成已收口`,
+        )
+      else log(`[deploy-lock] run:锁已交还(${mode})`)
+    } catch (e) {
+      warn(
+        `[deploy-lock] run:释放抛异常(${e?.code ?? e?.message ?? e})——锁留在原地等下一位按 stale 收口`,
+      )
+    }
+  }
+  // 最后一道网:任何一条**绕过**上面 try/finally 的退出路径(process.exit、未捕获异常)
+  // 也不能把锁留在原地。release 是同步的 ⇒ 'exit' 阶段跑得动;released 闸保证不重复。
+  process.on('exit', releaseOnce)
+  try {
+    const rc = await spawnAndCollectRc({
+      command,
+      env: { ...env, IHUI_DEPLOY_LOCK_HELD: `${mode}:${myToken}` },
+      spawnFn,
+      warn,
+    })
+    releaseOnce()
+    process.off('exit', releaseOnce)
+    return { rc, owned, heartbeat, reentrant: false }
+  } catch (e) {
+    releaseOnce()
+    process.off('exit', releaseOnce)
+    throw e
+  }
+}
+
 /** 只读检查:exit 0=无锁,1=有锁(不可判定态必须如实喊出"无法判定",禁止打印成空字段) */
 function check({
   dir = lockDir(),
@@ -2327,6 +2827,260 @@ async function runSelfTest() {
     rmScratch(base)
   }
 
+  // ── 2026-10-01 心跳(补 §12 登记的那格空白:dev 侧此前"没有活着的 owner")──────────
+  // 判据是纯函数 heartbeatAction ⇒ 九档构造面各有正反例;端到端三档在真锁目录上真写真删。
+  // 只用 **t()** 登记断言 —— 直接 results.push([...]) 会绕过 harness(打不出名字、
+  // r.ok 恒 undefined),这一族断言就会以"通过"的名义从未被求值过。
+  {
+    const TOKEN = 'T'.repeat(32)
+    const meta = (over = {}) => ({ kind: 'ok', meta: { mode: 'dev', pid: process.pid, ownerPid: process.pid, ts: 1, token: TOKEN, ...over } })
+    const A = (x = {}) => heartbeatAction({ state: meta(), mode: 'dev', token: TOKEN, watchPid: process.pid, watchAlive: true, ...x })
+    t('HB1 归属与凭据全对 ⇒ 续期', A().action === 'renew', JSON.stringify(A()))
+    t('HB2 凭据不符 ⇒ 只停手,绝不删(摘掉归属核验就是替别人的锁永久续期)', A({ state: meta({ token: 'O'.repeat(32) }) }).action === 'stop')
+    t('HB3 旧格式锁(无凭据)⇒ 停手,不猜归属', A({ state: meta({ token: '' }) }).action === 'stop')
+    t('HB4 调用方没带凭据 ⇒ 停手', A({ token: undefined }).action === 'stop')
+    t('HB5 ownerPid 已漂(别人接管了这把锁)⇒ 停手', A({ watchPid: process.pid + 1 }).action === 'stop')
+    t('HB6 主人退出 ⇒ release(不等下一位按 stale 来抢)', A({ watchAlive: false }).action === 'release')
+    t('HB7 身份三元组确证复用 ⇒ release(裸 pid 活着不算活着)', A({ identityKind: 'mismatch' }).action === 'release')
+    t('HB8 身份量不到 ⇒ 维持原判据继续续,不得多删一把锁', A({ identityKind: 'unverifiable' }).action === 'renew')
+    t(
+      'HB9 到寿命上限 ⇒ 停止续期但**不删**(dev 还活着时删锁等于自己撤保护)',
+      A({ ageMs: HEARTBEAT_DEFAULTS.maxLifetimeMs + 1000 }).action === 'stop',
+    )
+    t('HB10 mode 漂了(build 锁不被 dev 心跳接管)', A({ state: meta({ mode: 'build' }) }).action === 'stop')
+    t('HB11 锁不存在 ⇒ 停手且说不清就报名,不重建', heartbeatAction({ state: { kind: 'absent', reason: 'x' }, mode: 'dev', token: TOKEN, watchPid: process.pid, watchAlive: true }).action === 'stop')
+
+    // 端到端:真写、真刷、真交还(锁目录用夹具,绝不碰项目根的 .deploy.lock)
+    const d1 = join(base, 'hb-renew')
+    mkdirSync(d1, { recursive: true })
+    const wrote = writeMeta(d1, 'dev', { ownerPid: process.pid, token: TOKEN })
+    const before = readMeta(d1).meta.ts
+    const r1 = await heartbeat({ mode: 'dev', token: TOKEN, watchPid: process.pid, dir: d1, once: true, alive: () => true, log: () => {} })
+    const after = readMeta(d1).meta
+    t(
+      'HB12 端到端一轮:ts 真被刷新,而凭据/mode/owner 逐字不变(换凭据=下一轮自己都不认自己)',
+      r1.action === 'renew' && after.ts >= before && after.token === wrote.token && after.mode === 'dev' && Number(after.ownerPid) === process.pid,
+      JSON.stringify({ before, after: { ts: after.ts, token: after.token, mode: after.mode, ownerPid: after.ownerPid } }),
+    )
+    // 主人判死那一档必须让**锁的 owner 就是那个死掉的 pid** —— heartbeatAction 的判序是
+    // "ownerPid 漂了 ⇒ 已被别人接管,停手"排在"主人退出 ⇒ 交还"之前,拿活着的 process.pid
+    // 当 watchPid 去配一个死 pid 只会走到 stop 那一档(这一格第一版就是这么错的)。
+    const dDead = join(base, 'hb-dead')
+    mkdirSync(dDead, { recursive: true })
+    writeMeta(dDead, 'dev', { ownerPid: DEAD_PID, token: TOKEN })
+    const r2 = await heartbeat({ mode: 'dev', token: TOKEN, watchPid: DEAD_PID, dir: dDead, once: true, alive: () => false, log: () => {} })
+    t('HB13 端到端:主人判死 ⇒ 锁真被交还(目录消失)', r2.action === 'release' && r2.released === true && !existsSync(dDead), JSON.stringify({ a: r2.action, released: r2.released }))
+
+    const d2 = join(base, 'hb-other')
+    mkdirSync(d2, { recursive: true })
+    writeMeta(d2, 'dev', { ownerPid: process.pid, token: 'o'.repeat(32) })
+    const r3 = await heartbeat({ mode: 'dev', token: 'm'.repeat(32), watchPid: process.pid, dir: d2, once: true, alive: () => true, log: () => {} })
+    t(
+      'HB14 拿别人的凭据来续 ⇒ 停手且锁原样在(不续、不删)',
+      r3.action === 'stop' && existsSync(d2) && readMeta(d2).meta.token === 'o'.repeat(32),
+      JSON.stringify({ a: r3.action, why: r3.why }),
+    )
+
+    // 接线锁:启动器必须真持锁、真派心跳、退出真交还 —— 判据在而无人调 = 本仓最高频失效型。
+    const warm = readFileSync(join(repoRoot, 'scripts', 'dev-with-warmup.mjs'), 'utf8')
+    t('HB15 接线锁:dev 启动器必须 acquire(带自己的凭据)后才起 next dev', /await acquire\(\{[\s\S]{0,200}mode: 'dev'[\s\S]{0,200}token: LOCK_TOKEN/.test(warm))
+    t('HB15b 接线锁:心跳必须被真的派出去,且盯的是启动器自己的 pid', /'heartbeat'[\s\S]{0,400}--watch-pid[\s\S]{0,80}String\(process\.pid\)/.test(warm))
+    t('HB15c 接线锁:退出路径必须走 quit() 交锁,不许裸 process.exit(dev 退出后锁还挂着)', /dev\.on\('exit',\s*\(code\)\s*=>\s*quit\(/.test(warm) && /const quit = \(code\)/.test(warm))
+    t(
+      'HB15d 接线锁:共存档(别的 dev 已持锁)时不得派心跳也不得释放 —— 归属判据现读,不靠猜',
+      /lockOwnedBy\(LOCK_TOKEN\)/.test(warm) && /if \(ownsDevLock\)/.test(warm),
+    )
+  }
+
+  // ── 2026-10-02 补锁票:`acquire --with-heartbeat` 与 `run` 子命令 ──────────────────
+  // 立票理由是实测:`pnpm --filter @ihui/web build` 原先在 **prebuild** 里 acquire,而
+  // prebuild 是另一条 npm 生命周期脚本 —— 它的 shell 在 `build` 开始之前就退了 ⇒ 整个
+  // `next build` 期间那把锁的主人是个已死进程,按现行"持有者已退出的悬挂锁不限锁龄立即
+  // 抢占"这条,任何后来者都能秒抢:**账面有锁,实际没保护**(8-09 那两个构建同时写 .next
+  // ⇒ 8801 短暂 502 的那一型在这条入口上今天仍可发生)。把锁与命令放进同一个进程,
+  // "锁活着"与"构建活着"才真的是同一件事。
+  // 判档分工:heartbeatSpawnPlan 是纯判据(构造面,不起任何进程);另两档跑端到端,
+  // 派生一律换成假 spawnFn 只记 argv —— 自检里绝不派真常驻心跳进程。
+  {
+    const TK = 'A'.repeat(32)
+    const metaOk = { mode: 'dev', pid: process.pid, ownerPid: process.pid, ts: 1, token: TK }
+    const planDir = join(base, 'ah-plan-only')
+    const P = (x = {}) =>
+      heartbeatSpawnPlan({ mode: 'dev', dir: planDir, token: TK, meta: metaOk, owned: true, ...x })
+    const argvOf = P()
+    t(
+      'AH1 派生 argv 逐字钉死:必须带 --lock-dir 且指向**这把锁自己的**目录(漏了它心跳会去刷项目根的真锁)',
+      argvOf.args.includes('--lock-dir') &&
+        argvOf.args[argvOf.args.indexOf('--lock-dir') + 1] === resolve(planDir) &&
+        argvOf.file === process.execPath,
+      argvOf.args.join(' '),
+    )
+    t('AH2 共存档(本次没写下这把锁)⇒ 一次派生都不做 —— 否则就是替别人的锁永久续期', P({ owned: false }).spawn === false)
+    t('AH3 无归属凭据 ⇒ 不派(第一轮就因无从核验而 stop,派一个白跑的进程装作"已有心跳")', P({ token: '  ' }).spawn === false)
+    const noPid = P({ meta: { ...metaOk, ownerPid: 0 } })
+    t('AH4 落盘 meta 取不出 ownerPid ⇒ 不派并点名"判活主体不明"', noPid.spawn === false && noPid.kind === 'no-watch-pid')
+
+    const mkFake = () => {
+      const calls = []
+      const fn = (file, args) => {
+        calls.push({ file, args })
+        return { pid: 4242, unref() {}, on() {} }
+      }
+      return { calls, fn }
+    }
+    // 自检里所有 acquire 一律带**短超时**:判据前提写错时,必须当场失败并点名,
+    // 而不是等 600s —— 一台会挂住的自检会把这台机上每一次提交都堵住。
+    const FAST = { timeoutMs: 3000, staleMs: 3000 }
+    const dOff = join(base, 'ah-flag-off')
+    const fOff = mkFake()
+    const rOff = await acquireWithHeartbeatOption(
+      { mode: 'dev', dir: dOff, ownerPid: process.pid, token: TK, ...FAST },
+      { withHeartbeat: false, spawnFn: fOff.fn, log: () => {}, warn: () => {} },
+    )
+    t(
+      'AH5 不带 --with-heartbeat ⇒ 零派生(向后兼容硬要求:现存调用方一律不受本票影响)',
+      rOff.kind === 'flag-off' && fOff.calls.length === 0 && existsSync(dOff),
+    )
+    const dOn = join(base, 'ah-flag-on')
+    const fOn = mkFake()
+    const rOn = await acquireWithHeartbeatOption(
+      { mode: 'dev', dir: dOn, ownerPid: process.pid, token: TK, ...FAST },
+      { withHeartbeat: true, spawnFn: fOn.fn, log: () => {}, warn: () => {} },
+    )
+    const onArgs = fOn.calls[0]?.args ?? []
+    t(
+      'AH6 带旗且确实是自己写下的锁 ⇒ 真派出心跳,盯的是落盘 ownerPid、带的是自己的凭据',
+      rOn.spawned === true &&
+        fOn.calls.length === 1 &&
+        onArgs.includes('heartbeat') &&
+        String(onArgs[onArgs.indexOf('--watch-pid') + 1]) === String(process.pid) &&
+        onArgs[onArgs.indexOf('--token') + 1] === TK,
+      onArgs.join(' '),
+    )
+    const dCo = join(base, 'ah-coexist')
+    mkdirSync(dCo, { recursive: true })
+    writeMeta(dCo, 'dev', { ownerPid: process.pid, token: 'B'.repeat(32) })
+    const fCo = mkFake()
+    const rCo = await acquireWithHeartbeatOption(
+      { mode: 'dev', dir: dCo, ownerPid: process.pid, token: TK, ...FAST },
+      { withHeartbeat: true, spawnFn: fCo.fn, log: () => {}, warn: () => {} },
+    )
+    t(
+      'AH7 共存档端到端:不派心跳,而且**别人那把锁的凭据一字未动**(把盘上有什么当什么归我 = 归属判据归零)',
+      rCo.spawned === false && fCo.calls.length === 0 && readMeta(dCo).meta.token === 'B'.repeat(32),
+      JSON.stringify({ kind: rCo.kind, head: readMeta(dCo).meta.token?.slice(0, 1) }),
+    )
+    const dBoom = join(base, 'ah-spawn-throws')
+    const warns = []
+    const rBoom = await acquireWithHeartbeatOption(
+      { mode: 'dev', dir: dBoom, ownerPid: process.pid, token: TK, ...FAST },
+      {
+        withHeartbeat: true,
+        spawnFn: () => {
+          throw Object.assign(new Error('夹具:派生不了'), { code: 'EMOCK' })
+        },
+        log: () => {},
+        warn: (...a) => warns.push(a.join(' ')),
+      },
+    )
+    t(
+      'AH8 心跳起不来 ⇒ 拿锁照样成功(退回既有 stale + 硬上限),但必须喊出"心跳未起来",不得静默',
+      rBoom.spawned === false && existsSync(dBoom) && warns.some((w) => /心跳未起来/.test(w)),
+      warns.join(' | ') || '(一条 warn 都没打)',
+    )
+    for (const d of [dOff, dOn, dCo, dBoom]) rmSync(d, { recursive: true, force: true })
+  }
+
+  // ── `run` 子命令:把"拿锁 + 跑命令 + 交还"收进同一个进程 ──────────────────────────
+  // 四条收口路径各有正反例:退出码透传 / 结束即交还 / 再入守卫(不套第二把锁 = 不自锁) /
+  // 命令根本起不来也必须把锁收掉。锁判据仍只住在 heartbeatSpawnPlan,这里只做 IO。
+  {
+    const fakeChild = () => ({ pid: 4243, unref() {}, on() {} })
+    const dRu = join(base, 'ru-ok')
+    const rRu = await runUnderLock({
+      mode: 'build',
+      dir: dRu,
+      timeoutMs: 3000,
+      staleMs: 3000,
+      command: [process.execPath, '-e', 'process.exit(3)'],
+      heartbeatSpawnFn: fakeChild,
+      log: () => {},
+      warn: () => {},
+    })
+    t(
+      'RU1 被包装命令的退出码原样传播(3 就是 3 —— 把失败读成成功等于 npm/CI 认为构建过了)',
+      rRu.rc === 3 && rRu.owned === true,
+      JSON.stringify({ rc: rRu.rc, owned: rRu.owned }),
+    )
+    t('RU2 命令一结束锁就交还(锁活着与构建活着是同一件事,不留尸体给下一位秒抢)', !existsSync(dRu))
+    const dRe = join(base, 'ru-reentrant')
+    const rRe = await runUnderLock({
+      mode: 'build',
+      dir: dRe,
+      timeoutMs: 3000,
+      staleMs: 3000,
+      env: { ...process.env, IHUI_DEPLOY_LOCK_HELD: 'build:上层已持' },
+      command: [process.execPath, '-e', 'process.exit(0)'],
+      heartbeatSpawnFn: fakeChild,
+      log: () => {},
+      warn: () => {},
+    })
+    t(
+      'RU3 再入守卫:上层持着这把锁时子层绝不再 acquire(同 mode 互斥 ⇒ 它会等自己,600s 后自锁)',
+      rRe.reentrant === true && rRe.rc === 0 && !existsSync(dRe),
+      JSON.stringify({ reentrant: rRe.reentrant, rc: rRe.rc }),
+    )
+    const dTh = join(base, 'ru-spawn-throw')
+    const rTh = await runUnderLock({
+      mode: 'build',
+      dir: dTh,
+      timeoutMs: 3000,
+      staleMs: 3000,
+      command: ['__这条命令在夹具里派生不出来__'],
+      spawnFn: () => {
+        throw Object.assign(new Error('夹具'), { code: 'EMOCK' })
+      },
+      heartbeatSpawnFn: fakeChild,
+      log: () => {},
+      warn: () => {},
+    })
+    t(
+      'RU4 命令根本起不来 ⇒ rc=127 且锁照样收口("子进程起不来而锁留在原地"是最坏的一格)',
+      rTh.rc === 127 && !existsSync(dTh),
+      JSON.stringify({ rc: rTh.rc, left: existsSync(dTh) }),
+    )
+    const dBad = join(base, 'ru-empty-cmd')
+    let threw = null
+    try {
+      await runUnderLock({ mode: 'build', dir: dBad, command: [] })
+    } catch (e) {
+      threw = e
+    }
+    t(
+      'RU5 `--` 之后没给命令 ⇒ 当场报错且**未拿锁**(空 argv 会被 npm 生命周期读成"这一步过了")',
+      !!threw && !existsSync(dBad),
+    )
+    // 接线锁:判据改了而没人把它接上 = 本仓最高频失效型(守门 70/76/81 同族)。
+    const pkg = JSON.parse(readFileSync(join(repoRoot, 'apps', 'web', 'package.json'), 'utf8'))
+    const sBuild = String(pkg.scripts?.build ?? '')
+    const sPre = String(pkg.scripts?.prebuild ?? '')
+    t(
+      'RU6 接线锁:apps/web 的 build 必须走 run(锁与命令同进程),prebuild 不再 acquire',
+      /deploy-lock\.mjs run --mode build/.test(sBuild) && !/deploy-lock\.mjs acquire/.test(sPre),
+      JSON.stringify({ build: sBuild.slice(0, 64), prebuild: sPre.slice(0, 64) }),
+    )
+    t(
+      'RU6b 接线锁:dev:clean / dev:stable 的 acquire 必须带 --with-heartbeat(它们的 shell 与 next dev 同生死,是有效持有者)',
+      /--with-heartbeat/.test(String(pkg.scripts?.['dev:clean'] ?? '')) &&
+        /--with-heartbeat/.test(String(pkg.scripts?.['dev:stable'] ?? '')),
+    )
+    // 反向对照:上面两条必须有牙 —— 把 build 换回裸命令,断言就该读不出来。
+    t(
+      'RU6c 反向对照:build 退回"裸 next build"时 RU6 必须读得出(否则那条接线锁是恒真断言)',
+      !/deploy-lock\.mjs run/.test(sBuild.replace('deploy-lock.mjs run', 'node')),
+    )
+  }
+
   const failed = results.filter((r) => !r.ok)
   console.log(
     `自检 ${results.length} 条:pass ${results.length - failed.length} / fail ${failed.length}`,
@@ -2354,16 +3108,40 @@ async function main() {
         process.exit(2)
       }
     } else if (cmd === 'acquire') {
-      await acquire({
+      // --with-heartbeat:拿到锁后补一个常驻心跳(2026-10-02 补锁票)。不带这面旗时走的是
+      // acquireWithHeartbeatOption 里 `flag-off` 那一档 ⇒ 与改动前**逐字同形**(不多读一次盘、
+      // 不派任何进程),所以任何现存调用方都不会因为本票而换行为。
+      const r = await acquireWithHeartbeatOption(
+        {
+          mode: getOpt('--mode') ?? 'build',
+          timeoutMs: Number(getOpt('--timeout') ?? 600_000),
+          staleMs: Number(getOpt('--stale') ?? 600_000),
+          // 调用方(构建脚本)自己的 pid 才是这段锁的主人;CLI 自己会立刻退出。
+          ownerPid: getOpt('--owner-pid') ? Number(getOpt('--owner-pid')) : undefined,
+          // G-696:调用方预先约定的凭据(缺省由 writeMeta 现生成并打印,release 侧须凭同一凭据)。
+          token: getOpt('--token'),
+          ...(dir ? { dir } : {}),
+        },
+        { withHeartbeat: args.includes('--with-heartbeat') },
+      )
+      // 派生失败不改变 acquire 的退出码(锁已拿到,心跳没起来只是退回既有兜底判据)——
+      // 但它**必须**出现在输出里,见 spawnHeartbeat 的两条 warn。
+      if (r.spawned === false && (r.kind === 'no-credential' || r.kind === 'no-watch-pid')) {
+        console.warn(`[deploy-lock] 已拿到锁,但本轮没有心跳:${r.why}`)
+      }
+    } else if (cmd === 'run') {
+      // 把"拿锁 + 跑命令 + 交还"放进同一个进程:见 runUnderLock 头注(prebuild 那条入口
+      // 的锁在整个 next build 期间是悬挂锁 —— 账面有锁、实际没被挡住,那一型的根治)。
+      const sep = args.indexOf('--')
+      const command = sep >= 0 ? args.slice(sep + 1) : []
+      const r = await runUnderLock({
         mode: getOpt('--mode') ?? 'build',
         timeoutMs: Number(getOpt('--timeout') ?? 600_000),
         staleMs: Number(getOpt('--stale') ?? 600_000),
-        // 调用方(构建脚本)自己的 pid 才是这段锁的主人;CLI 自己会立刻退出。
-        ownerPid: getOpt('--owner-pid') ? Number(getOpt('--owner-pid')) : undefined,
-        // G-696:调用方预先约定的凭据(缺省由 writeMeta 现生成并打印,release 侧须凭同一凭据)。
-        token: getOpt('--token'),
         ...(dir ? { dir } : {}),
+        command,
       })
+      process.exit(r.rc)
     } else if (cmd === 'release') {
       release({
         mode: getOpt('--mode') ?? 'build',
@@ -2371,6 +3149,20 @@ async function main() {
         token: getOpt('--token'),
         ...(dir ? { dir } : {}),
       })
+    } else if (cmd === 'heartbeat') {
+      // 常驻心跳:由**真正长命的那个进程**的启动器派生(见 heartbeat 头注)。
+      // --watch-pid 不给就盯派生我的父进程 —— 与 writeMeta 的 owner 推断同一口径:
+      // 判活问的必须是"这段锁真正的主人",问错了每一次对账都必然 mismatch。
+      const r = await heartbeat({
+        mode: getOpt('--mode') ?? 'dev',
+        token: getOpt('--token'),
+        watchPid: getOpt('--watch-pid') ? Number(getOpt('--watch-pid')) : process.ppid,
+        intervalMs: Number(getOpt('--interval') ?? '') || HEARTBEAT_DEFAULTS.intervalMs,
+        maxLifetimeMs: Number(getOpt('--max-lifetime') ?? '') || HEARTBEAT_DEFAULTS.maxLifetimeMs,
+        once: args.includes('--once'),
+        ...(dir ? { dir } : {}),
+      })
+      process.exit(r.action === 'release' && r.released === false ? 1 : 0)
     } else if (cmd === 'break-stale') {
       // G-412 人工出口:显式断锁必须带理由;判据见 breakStale 头注(空理由不碰任何状态)。
       const r = breakStale({ ...(dir ? { dir } : {}), reason: getOpt('--reason') })
@@ -2385,6 +3177,9 @@ async function main() {
         '用法: deploy-lock.mjs acquire|release|check [--mode <build|dev>] [--timeout <ms>] [--stale <ms>] [--lock-dir <path>]\n' +
           '      acquire/release 另可带 --token <t>(G-696:锁的归属凭据;acquire 缺省会现生成并打印,\n' +
           '      release 必须凭同一凭据才许释放,也可用环境变量 IHUI_DEPLOY_LOCK_TOKEN 传递)\n' +
+          '      deploy-lock.mjs heartbeat --mode dev --token <t> [--watch-pid <pid>] [--interval <ms>]\n' +
+          '             [--max-lifetime <ms>] [--once]  —— 常驻续期:见 heartbeat 头注(A 无凭据不续 /\n' +
+          '             B 到寿命只停手不删锁 / C 身份只定期现测);--once 是自检与人工排障档\n' +
           '      deploy-lock.mjs break-stale --reason "<人工确认的理由>" [--lock-dir <path>]\n' +
           '      deploy-lock.mjs --self-test',
       )
@@ -2406,6 +3201,13 @@ if (isDirectRun) {
 }
 
 // §22c:暴露给镜像测试,禁止在测试里复制第二份判据实现
+/**
+ * 生产调用方的稳定出口(不是测试专用面):真正长命的启动器要**自己持锁**,
+ * 而不是从 stdout 里把别人打印的凭据抠回来。见 scripts/dev-with-warmup.mjs 的第 0 步。
+ * `heartbeat` 不在此列 —— 它是要 detached 常驻的循环,只能作为独立进程起(CLI 子命令)。
+ */
+export { acquire, release }
+
 export const __test__ = {
   lockDir,
   metaFile,
@@ -2434,5 +3236,17 @@ export const __test__ = {
   // G-412 第二判据(单调量"绝对存活时刻上限")与人工出口:镜像测试直接判这两件,不得抄第二份。
   monotonicAgeVerdict,
   breakStale,
+  // 2026-10-01 心跳:判据是纯函数,镜像测试必须引这一份(在测试里重写"什么算停手"= 两份真相)。
+  heartbeat,
+  heartbeatAction,
+  // 2026-10-02 补锁票:派生判据与两条新出口(镜像测试必须引这一份,不得在测试里重写
+  // "什么算该派心跳 / 命令退出码怎么收口" —— 两处实现必漂移,§22c 同一条理由)。
+  heartbeatSpawnPlan,
+  acquireWithHeartbeatOption,
+  runUnderLock,
+  HEARTBEAT_DEFAULTS,
+  lockOwnedBy,
+  readMeta,
+  writeMeta,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
