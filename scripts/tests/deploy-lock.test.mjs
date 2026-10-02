@@ -1183,9 +1183,20 @@ test('HB-M4 反向锁:裸 process.exit 与"predev 再拿一次锁"都必须被�
   // 而 warmup 会去抢它 ⇒ 每次起 dev 都刷一条"抢占悬挂锁"的假事故。
   const pkg = JSON.parse(readFileSync(resolve(HERE, '..', '..', 'apps', 'web', 'package.json'), 'utf8'))
   assert.doesNotMatch(String(pkg.scripts?.predev ?? ''), /deploy-lock\.mjs acquire/, 'predev 又拿了一次锁(与启动器的锁互抢)')
-  // 但另两条不经启动器的入口必须自己拿 —— 它们的 shell 与 next dev 同生死,是有效持有者
-  assert.match(String(pkg.scripts?.['dev:clean'] ?? ''), /deploy-lock\.mjs acquire --mode dev/, 'dev:clean 丢了锁')
-  assert.match(String(pkg.scripts?.['dev:stable'] ?? ''), /deploy-lock\.mjs acquire --mode dev/, 'dev:stable 丢了锁')
+  // 2026-10-02 改:dev:clean / dev:stable 不再自己 acquire —— 它们改走启动器,而启动器自己
+  // 持锁(它是那条唯一活着的命令,owner = 它自己)。这一档现在守的是**反向**那一型:
+  // 入口再自己 acquire 一次 = 与启动器的同 mode 锁互相等(600s 后自锁),同时把破坏性步骤
+  // 带回锁外。"锁必须在位"这件事现在由 HB-M8 的"只调启动器"承担,两条各有牙、不得互删。
+  assert.doesNotMatch(
+    String(pkg.scripts?.['dev:clean'] ?? ''),
+    /deploy-lock\.mjs acquire/,
+    'dev:clean 又自己拿了一把与启动器互抢的同 mode 锁',
+  )
+  assert.doesNotMatch(
+    String(pkg.scripts?.['dev:stable'] ?? ''),
+    /deploy-lock\.mjs acquire/,
+    'dev:stable 又自己拿了一把与启动器互抢的同 mode 锁',
+  )
 })
 
 test('HB-M5 装车证明:deploy-lock --self-test 必须真跑得过(镜像绿而自检没接=没验过)', async () => {
@@ -1261,11 +1272,63 @@ test('HB-M8 接线锁:apps/web 的 build 走 run、prebuild 不再 acquire、dev
   assert.match(s('build'), /-- node --max-old-space-size=8192 node_modules\/next\/dist\/bin\/next build$/, '搬进 run 的必须是原来那条命令,一字不改(堆参数丢了会 OOM)')
   assert.doesNotMatch(s('prebuild'), /deploy-lock\.mjs acquire/, 'prebuild 还留着 acquire = 每次构建都去拿一把它带不走的锁')
   assert.match(s('prebuild'), /pnpm --filter @ihui\/extension build/, 'prebuild 的正事不能被动到')
-  assert.match(s('dev:clean'), /acquire --mode dev --with-heartbeat/)
-  assert.match(s('dev:stable'), /acquire --mode dev --with-heartbeat/)
+  // 2026-10-02 收口:三条 dev 入口统一走启动器(它是"活着的主人"那一档:自己持锁、自己派心跳、
+  // 退出经 quit() 交还)。旧形态把 `rimraf .next` 与缓存清理用 `&&` 串在 acquire **之前**,
+  // 那段窗口结构上没有锁 —— 而 rimraf 删的正是并发构建在写的目录(8-09 那型 8801 短暂 502)。
+  // 合格形状 = 唯一一条命令是启动器(再串任何一步都落在"锁还不存在"的时候)。
+  const devEntryOk = (s) =>
+    /node \.\.\/\.\.\/scripts\/dev-with-warmup\.mjs/.test(s) &&
+    !s.includes('&&') &&
+    !/deploy-lock\.mjs acquire/.test(s) &&
+    !/rimraf \.next/.test(s)
+  for (const k of ['dev', 'dev:clean', 'dev:stable']) assert.ok(devEntryOk(s(k)), `${k} 不再是"只调启动器"(${s(k)})⇒ 又回到"锁外做破坏性动作"或"一次性 CLI 拿一把它带不走的锁"`)
+  assert.doesNotMatch(s('dev'), /--purge/, '默认档不得整清(那是 dev:clean 的语义,顺手加会把热缓存打回冷编译)')
+  assert.match(s('dev:clean'), /--purge(?!.*--no-turbopack)/, 'dev:clean = 整清 + turbopack(与改动前同义)')
+  assert.match(s('dev:stable'), /--purge --no-turbopack/, 'dev:stable = 整清 + 普通 dev')
   // 反向对照:上面这些正则必须是**有牙的** —— 把形态改回旧样,断言就该不成立
   assert.doesNotMatch(s('build').replace('deploy-lock.mjs run', 'node'), /deploy-lock\.mjs run/)
-  assert.doesNotMatch(s('dev:clean').replace(' --with-heartbeat', ''), /--with-heartbeat/)
+  assert.ok(
+    !devEntryOk('node ../../scripts/unlock-dev-prefetch.mjs && rimraf .next .dev.lock && node ../../scripts/deploy-lock.mjs acquire --mode dev --with-heartbeat && next dev --turbopack -p 8801'),
+    '旧形态回来了却仍被判"合格" ⇒ devEntryOk 是一条恒真断言',
+  )
+})
+
+// ── HB-M10 顺序形状锁:破坏性步骤必须"在 acquire 之后、next dev 之前" ────────────────
+// 为什么住在测试而不是运行时判据:这一型没有运行时症状(它是一段"锁还不存在"的窗口),
+// 只有源码顺序能表达。每条判据各配一个变异面 —— 只判正向的断言会在下一次重构里静默失效。
+test('HB-M10 启动器顺序锁:dev 前置(打补丁/清缓存/整清)在 acquire 之后、next dev 之前,且未知参数拒跑', () => {
+  const src = readFileSync(resolve(HERE, '..', '..', 'scripts', 'dev-with-warmup.mjs'), 'utf8')
+  // 锚点一律取**调用点**的独有写法,不取脚本名 —— 脚本名在文件头说明里也出现,
+  // 拿名字当锚点会把"文档提到它"读成"代码调用了它"(与本仓"注释里的提及不算装车"同一条禁令)。
+  const MARK = {
+    acquire: /await acquire\(\{/,
+    prefetch: /file:\s*PREFETCH_SCRIPT/,
+    hygiene: /file:\s*CACHE_HYGIENE_SCRIPT/,
+    purge: /rmSync\(p,\s*\{\s*recursive:\s*true/,
+    spawn: /spawn\(`next dev/,
+  }
+  const at = (re) => {
+    const m = src.match(re)
+    return m ? m.index : -1
+  }
+  const idx = Object.fromEntries(Object.entries(MARK).map(([k, re]) => [k, at(re)]))
+  for (const [k, v] of Object.entries(idx)) assert.ok(v >= 0, `锚点 ${k} 在启动器里找不到(形状变了或那段被摘线)⇒ 本锁要跟着改,而不是删掉`)
+  assert.ok(idx.acquire < idx.spawn, 'acquire 不在 next dev 之前 ⇒ 服务是在无锁状态下起来的')
+  for (const k of ['prefetch', 'hygiene', 'purge']) {
+    assert.ok(idx[k] > idx.acquire, `${k} 不在 acquire 之后(${idx[k]} vs ${idx.acquire})⇒ 又回到"锁外做破坏性动作"`)
+    assert.ok(idx[k] < idx.spawn, `${k} 不在 next dev 之前(${idx[k]} vs ${idx.spawn})⇒ 违反"严禁运行中清缓存"铁律`)
+  }
+  assert.ok(/process\.exit\(2\)/.test(src), '未知参数不再 exit 2 ⇒ 参数被静默吞掉')
+  // 反向对照:把"锁内前置"整块搬到 acquire **之前**,同一套锚点判据必须读得出违例。
+  const preStart = src.indexOf('const steps = [')
+  const preEnd = src.indexOf('\n}\n', preStart)
+  const acqStart = src.indexOf('let ownsDevLock = false')
+  assert.ok(preStart > 0 && preEnd > preStart && acqStart > 0, '变异构造找不到"锁内前置"块或 acquire 段起点 ⇒ 这一档是恒真断言')
+  const block = src.slice(preStart, preEnd + 3)
+  const permuted = src.slice(0, acqStart) + block + src.slice(acqStart, preStart) + src.slice(preEnd + 3)
+  const pAt = (re) => permuted.search(re)
+  assert.ok(pAt(MARK.prefetch) < pAt(MARK.acquire), '搬到了 acquire 之前却仍判"合规"⇒ 上面那条正向断言无牙')
+  assert.ok(pAt(MARK.prefetch) < pAt(MARK.spawn), '变异面自己失真了(前置块没被搬到 next dev 之前)')
 })
 
 test('HB-M9 装车证明:--self-test 里 AH/RU 两族真被跑到并全绿(判据写了没人登记=没验过)', async () => {
