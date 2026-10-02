@@ -91,7 +91,11 @@ export function parseListeningPorts(
   stdout: string,
 ): LocalServiceEntry[] {
   const raw =
-    format === 'netstat' ? parseNetstat(stdout) : format === 'lsof' ? parseLsof(stdout) : parseSs(stdout)
+    format === 'netstat'
+      ? parseNetstat(stdout)
+      : format === 'lsof'
+        ? parseLsof(stdout)
+        : parseSs(stdout)
   const seen = new Set<string>()
   const out: LocalServiceEntry[] = []
   for (const entry of raw) {

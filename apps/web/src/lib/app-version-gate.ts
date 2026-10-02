@@ -26,12 +26,7 @@ import { checkAppVersion, type VersionCheckResult } from '@ihui/api-client/endpo
 
 /** 六终态(照抄上游 ForceAutoUpdateState:autoUpdater.ts:99-105)。 */
 export type AppVersionGateKind =
-  | 'checking'
-  | 'downloading'
-  | 'ready'
-  | 'installing'
-  | 'error'
-  | 'dev-skipped'
+  'checking' | 'downloading' | 'ready' | 'installing' | 'error' | 'dev-skipped'
 
 /** UI 态 = 六终态 + confirm-close(上游 forceUpdatePrompt.ts:390)+ idle(闸门未接管)。 */
 export type AppVersionGateUiState = AppVersionGateKind | 'confirm-close' | 'idle'
@@ -250,7 +245,9 @@ export async function appVersionGateCheck(
     )
   }
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent<AppVersionGateDecision>(APP_VERSION_GATE_EVENT, { detail: decision }))
+    window.dispatchEvent(
+      new CustomEvent<AppVersionGateDecision>(APP_VERSION_GATE_EVENT, { detail: decision }),
+    )
   }
   return decision
 }

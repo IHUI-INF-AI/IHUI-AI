@@ -194,7 +194,7 @@ export function MarkdownResultDialog({ result, onClose }: Props) {
         <div className="min-h-[200px] overflow-y-auto rounded-md border bg-muted/20 p-3 text-sm">
           <ReactMarkdown
             // anydoc 输出为 GFM:表格/删除线/任务列表需 remark-gfm 才能渲染成真实元素
-            remarkPlugins={[remarkGfm]}
+            remarkPlugins={[[remarkGfm, { singleTilde: false }]]}
             components={{
               // Markdown 内长表/长代码块横向滚动,不撑破弹窗
               table: (props) => (
