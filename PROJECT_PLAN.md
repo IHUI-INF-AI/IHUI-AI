@@ -22160,3 +22160,23 @@ services 归档/分享/HTTP 层)判"值得抄"的 **26 条**逐条立项(每条�
 - [x] ✅(2026-10-02)G-1018200 接 `G-1018192` 那条:同一批里还留着 7 枚**重复副本** —— 顶层 `accounts.chromeImport*/scanLoginReuse*` 与在用的 `publish.accounts.<同名>` 逐字同值,而面上没有任何命名空间解析得到顶层那一份(HEAD 面 `git grep` 无 `useTranslations('accounts')`/`getTranslations('accounts')`/`namespace="accounts"`;唯一动态前缀 `t(`accounts.loadingStage.${…}`)` 所在的 `ScanLoginDialog.tsx:921` 其 namespace 是 `publish`)。删除不改变任何一行屏幕文字;构建器删前逐条断言"两份值必须相同才当重复副本删(不同即抛)、在用的那份不得被动、删后顶层不得残留",并按 KR 的唯一合法出口在 `scripts/data/i18n-key-removals.json` **逐文件**声明 7 键 × 5 文件(reason + until 2026-12-31,到期复裁而不是永久惯例)。落地枚 `abf53f8be`(6 路径)。**刻意只删这 7 枚而不是整块顶层 `accounts`(还剩 28 枚)**:其余 28 枚是不是孤儿属另一票的射程,而"顺手多删一片"正是本仓记过的"把清理当收尾"那一型。取证另含一把**效果面**尺子(`.ihui-agent/tmp/ih-effect.mjs`,gitignore 面,不构成常驻出口 —— 常驻出口仍是 `check-i18n-keys`):按消费点实际的取词方式解析(多级 namespace + `REASON_KEY` 计算键 + `t('checkpoint.restoring')` 这类"namespace 与键各带点"必须**继续下钻**),两臂对照:HEAD 面 125/125 取到,回归当夜那面(`17f4720372`)0/125 —— 全部取不到 ⇒ 那个 0 不是尺子空转。**本轮我自己错过的一次**:第一版这把尺把 `t('checkpoint.restoring')` 当平键取,于是把"我的比对器读不出"报成"仓库又丢了 4 枚键",差点据此再补一轮 —— 否定结论必须先怀疑尺子(AGENTS 多处同课),这次是被"HEAD 明明有"那句现读拉回来的。
 - [x] ✅(2026-10-02) **D122 压缩质量回归评测集(G-236)**:压缩机制已领先(见已领先矩阵④),缺质量度量——"压缩省了 token 但坏了质量"目前不可见。落点:固定任务评测集(≥10 个长会话任务,含跨轮引用早期细节的用例)× 压缩前/后各跑一遍,产出完成率/关键事实保持率对比报告脚本(挂 ai-service scripts/,结果入 outputs/);压缩策略改动(含 AGENT_COMPACTION_MODE 灰度)必须附当期评测数字。**验收**:评测脚本可重复运行 + 首份基线报告入库。—— 已收口:评测集 10 任务(tasks.json v3,20 消息/任务,L=5200 实测触发真压缩),dry-run 基线全绿(压缩率 40.9%,事实保持 32/32,早期 21/21),报告落 scripts/compaction_eval/outputs/,README 与 gitignore 例外同批入库;--live 真跑属后续。—— --live 现况更正(2026-10-02):回落的 keyless 通道实测回 402(已不免费可用),真跑数字须显式配 EVAL_LLM_API_BASE/KEY/MODEL;整轮零回答时脚本回退出码 2(未判定)并点名原因,常驻用例用本机拒连端口证这条分流(零外呼)。
 - [x] ✅(2026-10-02) G-1018201 **`.ihui-agent/tmp/**` 里他人留下的 HEAD 整仓副本会被 vitest 的 include glob 收进当次运行(2026-10-02 实测)** —— 在 `apps/web` 按文件过滤跑两条用例时,一次实测匹配到 **38 个测试文件**(含 `.ihui-agent/tmp/api-head-wt`、`b60`、`cleanh`、`porthead`、`verify` 等整仓副本路径),其中 **19 个 Failed Suites 全部**是副本内 `@testing-library/react` 解析不到 ⇒ 症状是"真身用例 7 passed / 18 passed 而整轮 rc=1",极易被误读成被测代码坏了(本会话复核 G-415 A9 时就差点把这一格登记成缺陷,靠单文件隔离跑才看清)。**等条件**:把 `.ihui-agent/**` 加进各端 vitest/vitest workspace 的 exclude 属**端测试配置持有人**裁决 —— 改 config 会动别人正在用的采集面,且守门 114(测试收集存续性)判的正是同一份 glob,两处必须同批想清楚;裁决前复核类会话只许用"单文件隔离跑"取证,**不得顺手改 exclude,也不得把副本失败登记成端内缺陷**。〔更正落账 2026-10-02:本行原判错的成因在别处 —— vitest 的 root 取 process.cwd(),按包目录跑时 glob 根就是 apps/web,`.ihui-agent/tmp/**` 的整仓副本在射程外(实测 --cwd=G:/IHUI-AI/apps/web 跑同一文件过滤 ⇒ Test Files 1 passed / Tests 4 passed / RC=0);真因是取证包装器 scripts/run-evidence.mjs 的 opt() 只认 `--k=v`,我传的 `--cwd <值>`(空格形式)被静默忽略、运行落在仓根 ⇒ 把仓根的采集面当成了端配置的采集面。故"给各端 vitest 加 exclude"这一诉求撤销(端配置并不收集副本,为一个不存在的采集面去动别人正在用的 glob 才是新增风险;守门 114 判的正是同一份 glob);已修的是包装器本身:枚 cbb1d0464 在打开任何证据句柄之前拒绝空格形式的带值开关/未知开关/多余位置参数(exit 2 且证据一个字节都不写),自检 40/40 + §22c 镜像 23/23。通用教训:"取证跑在哪个面"必须是显式判据而不是默认值 —— 一次静默回落能让整块结论错位,而账面只表现为"数字比预期大"。〕
+
+- [x] ✅(2026-10-02) O93 运维三格代码缺口收口(邮件通道活性 / 未送达欠账问责 / 部署锁要有一个活着的主人)
+  - 三格都是"账面绿而实际没人知道"那一型,不是功能缺失:① §5e 的邮件通道只能回答"有没有人记下过投递失败",
+    而失败标记会被下一次任意成功投递清掉 ⇒ "某条告警从来没寄出去"结构上无人判;② 未送达告警**没有问责出口**,
+    队列只会增不会死;③ 部署锁 `apps/web` 的 `build` 走 prebuild acquire,那个 shell 在 build 开始前就退了
+    ⇒ 整个构建期间锁的主人已死,按现行悬挂锁规则可被秒抢 = **账面有锁、实际没保护**。
+  - 落地:`notify-deploy-failure.ts` 加 `--probe` / `--probe-deliver`(退出码 0/1/2 = 可用/确证失败/未判定,
+    配置解析收口成 `resolveChannels` 一份实现,外发错误文本先过 `redactSecrets`);`check-ops-patrol.mjs`
+    新增 **P9 通道活性**(24h 一档,节流文件与结论文件互不遮蔽)与 **P10 未送达欠账**(逐条点名 +
+    `scripts/data/undelivered-debt-acks.json` 五件套出口,**时刻进键** ⇒ 一次裁决不替复发背书);
+    `deploy-lock.mjs` 新增 `heartbeat` / `acquire --with-heartbeat` / `run`(带 `IHUI_DEPLOY_LOCK_HELD`
+    再入守卫),`dev-with-warmup.mjs` 自己持锁 + 派心跳 + 退出经 `quit()` 交还,`dev:clean`/`dev:stable`
+    带心跳旗,`predev` 不再拿一把它带不走的锁。
+  - 现读证据(数字以命令末行为准,勿照本行派单):`node scripts/check-ops-patrol.mjs` 末行 红 0 / 未判定 0 /
+    绿 19 / 已裁;`deploy-lock --self-test` 与 `check-ops-patrol --self-test` 及各镜像测试末行;
+    九档变异自证(M1…M9)各自把对应断言打红后 `cmp` 逐字还原。首跑抓到 2 条从未到人的告警
+    (本地恢复源刷新失败 / 孤儿删除引用巡检命中),均已复验为**故障已消除**(`git-backup-refresh --check` rc=0、
+    `check-orphan-deletion-refs.mjs` 命中 0),故不回补投递、按出口逐条落裁决账(owner 写值守会话而非机主)。
+  - 归属与边界:AGENTS §12 部署锁那格已就地补注,§5e 新增"P9/P10 两维";README 未同步 —— 按 §21 豁免
+    (工程治理/守门与运维机制,不新增对外能力)。仍开的一格:`dev` 链里清缓存跑在拿锁之前,窗口与改前同样存在。
