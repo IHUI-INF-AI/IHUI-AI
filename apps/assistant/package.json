@@ -1,0 +1,43 @@
+{
+  "name": "@ihui/assistant",
+  "version": "0.1.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "release:prepare": "python scripts/prepare-release.py",
+    "icons:regen": "node scripts/make-rounded-icon.mjs && tauri icon src-tauri/icons/source-rounded.png",
+    "clean": "rimraf dist node_modules .turbo src-tauri/target resources release"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.1.1",
+    "@tauri-apps/plugin-dialog": "^2.0.1",
+    "@tauri-apps/plugin-notification": "^2.0.0",
+    "@tauri-apps/plugin-shell": "^2.0.2",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.456.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "recharts": "^2.15.4",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "rimraf": "catalog:",
+    "sharp": "^0.35.5",
+    "tailwindcss": "^3.4.15",
+    "typescript": "catalog:",
+    "vite": "^6.4.3"
+  },
+  "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
+  "homepage": "https://aizhs.top"
+}
