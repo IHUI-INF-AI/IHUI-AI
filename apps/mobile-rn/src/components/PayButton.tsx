@@ -1,7 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadiusFor } from '@ihui/design-tokens'
 
 /**
  * PayButton 购买/支付按钮 (mobile-rn 端)
@@ -25,6 +24,8 @@ import {
 } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
+
+import { rnRadiusFor } from '@ihui/design-tokens'
 
 /** 购买图标形态(对齐 Uniapp pay_btn itemData.type) */
 export type PayButtonType = 'freeuse' | 'freetime' | 'hasbuy' | 'monthly'
@@ -53,7 +54,7 @@ export interface PayButtonProps {
 const TYPE_META: Record<PayButtonType, { textKey: string; color: string }> = {
   freeuse: { textKey: 'payment.payType.freeuse', color: tokens.success.DEFAULT },
   freetime: { textKey: 'payment.payType.freetime', color: tokens.danger.DEFAULT },
-  hasbuy: { textKey: 'payment.payType.hasbuy', color: tokens.brand.DEFAULT },
+  hasbuy: { textKey: 'payment.payType.hasbuy', color: tokens.brand.cta },
   monthly: { textKey: 'payment.payType.monthly', color: tokens.warning.DEFAULT },
 }
 
@@ -120,7 +121,7 @@ export function PayButton({
           ]}
         >
           {loading ? (
-            <ActivityIndicator color={tokens.brand.foreground} />
+            <ActivityIndicator color={tokens.brand.ctaForeground} />
           ) : (
             <Text style={styles.text}>{buttonText}</Text>
           )}
@@ -135,13 +136,15 @@ const styles = StyleSheet.create({
   face: { width: '100%' } as ViewStyle,
   button: {
     height: 50,
+    // 角色档 control(按钮)→ sm(4),与 web @ihui/ui-react Button 基座同档
     borderRadius: rnRadiusFor.control,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.cta,
     alignItems: 'center',
     justifyContent: 'center',
   } as ViewStyle,
   typeButton: {
     height: 50,
+    // 角色档 control(购买形态按钮)→ sm(4)
     borderRadius: rnRadiusFor.control,
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
@@ -154,7 +157,7 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 16,
     fontWeight: '600',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaForeground,
   } as TextStyle,
   typeText: {
     fontSize: 14,
