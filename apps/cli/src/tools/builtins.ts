@@ -42,6 +42,11 @@ import {
   isCachedReadFresh,
 } from './read-file-state.js';
 import {
+  backfillFromCatCommand,
+  getBashReadStateHint,
+  markStalePreviouslyRead,
+} from './bash-read-file-state.js';
+import {
   EMPTY_FILE_REMINDER,
   READ_MAX_OUTPUT_TOKENS,
   buildOffsetBeyondEofReminder,
@@ -913,15 +918,21 @@ export function getGhRateLimitHint(command: string, output: string, ctx: object)
 
 /**
  * 前台结算出口,两条前台路径(收编 race 输了 / 纯同步)共用的**唯一**收口:
- * 终态映射(G-937951)在 settleForegroundResult 里,这里再叠 gh 限流提示(G-937954)
- * —— 输出(stdout+stderr 都进匹配面,gh 的限流文案经常走 stderr)命中且不在
- * 冷却窗 ⇒ 把 system-reminder 提示附加到模型面输出尾部。
+ * 终态映射(G-937951)在 settleForegroundResult 里,这里再叠两件 ——
+ * ① gh 限流提示(G-937954):输出(stdout+stderr 都进匹配面,gh 的限流文案经常走 stderr)
+ *    命中且不在冷却窗 ⇒ system-reminder 附加到模型面输出尾部;
+ * ② Bash 副作用回写 readFileState(G-937952 [A4]):stale 条目摘除 + 提示(cat 整文件回填也在
+ *    此出口;blocked 的命令没跑过 ⇒ 不扫不回填)。
  * `export` 只为让回归测试引用同一份实现,不在测试里抄第二处拼装。
  */
 export function settleForegroundCommand(result: SandboxResult, command: string, ctx: ToolContext): ToolResult {
   const settled = settleForegroundResult(result);
+  const stalePaths = result.blocked ? [] : markStalePreviouslyRead(ctx);
+  const staleHint = stalePaths.length > 0 ? getBashReadStateHint(stalePaths) : undefined;
+  backfillFromCatCommand(result, command, ctx);
   const hint = getGhRateLimitHint(command, `${result.stdout}\n${result.stderr}`, ctx);
-  return hint ? { ...settled, output: `${settled.output}\n${hint}` } : settled;
+  const combined = [staleHint, hint].filter((v): v is string => v !== undefined).join('\n');
+  return combined ? { ...settled, output: `${settled.output}\n${combined}` } : settled;
 }
 
 export const run_command: Tool = {

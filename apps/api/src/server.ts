@@ -208,6 +208,13 @@ export async function buildServer(): Promise<FastifyInstance> {
     // 2026-09-18 生产 8802 实测(日志 AVV_ERR × 3,进程启动后零 listening,web 反代 500
     // 持续数小时);本地冷启动 8821 亦复现一次。本仓测试对同一插件早已统一 120_000。
     pluginTimeout: 120_000,
+    // G-586(2026-10-02):启动期 2,348 行 "strict mode: use allowUnionTypes" 告警刷满
+    // stderr,日志运行手册教的按级别过滤整个废掉。Fastify 默认 ajv 未开 allowUnionTypes,
+    // 而本仓 schema 大量使用联合类型 —— 本项只关闭该类编译期告警,数据校验语义不变;
+    // 其余 strict 告警类保持默认(再出现按类修,不开 catch-all 放行)。
+    ajv: {
+      customOptions: { allowUnionTypes: true },
+    },
   })
 
   server.setErrorHandler(errorHandler)
