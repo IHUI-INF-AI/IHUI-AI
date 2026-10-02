@@ -21,6 +21,7 @@
  * 平台属性:依赖浏览器 fetch 与同源重定向语义,不下沉 packages/shared。
  */
 import { refreshAccessTokenOnce } from '@ihui/api-client'
+import { isSameOriginRelativePath } from '@ihui/shared/auth/sso-core'
 
 /**
  * 目标是否为"同源相对路径"跳转(受本站登录守卫约束)。跨源绝对地址与自定义协议深链(ihui://…)不受约束。
@@ -32,11 +33,13 @@ import { refreshAccessTokenOnce } from '@ihui/api-client'
  *   new URL('/\\evil.com', 'https://aizhs.top').href === 'https://evil.com'
  * ⇒ 只挡 `//` 的旧判据会把反斜杠形态**放行成跨站跳转**,而这条链的落点带着刚签发的 sso_code /
  * 会话 Cookie —— 所以这不是"跳转偏好"而是 code 泄露。判据仍然只做形状归一,不引入第二份 origin 表。
+ *
+ * 2026-10-02(G-1018194):判据本体下沉到 `@ihui/shared/auth/sso-core` 的
+ * `isSameOriginRelativePath` —— 本文件与 `apps/web/src/lib/auth-utils.ts` 的 getRedirectPath
+ * 问的是同一件事,两处各写一遍必漂移(而漂移的表现是"其中一处天天放行跨站值")。
  */
 export function isSameOriginRelative(target: string): boolean {
-  if (!target.startsWith('/')) return false
-  const second = target.charAt(1)
-  return second !== '/' && second !== '\\'
+  return isSameOriginRelativePath(target)
 }
 
 /** 可作为导航目标的协议(普通调用点只认这两档)。 */

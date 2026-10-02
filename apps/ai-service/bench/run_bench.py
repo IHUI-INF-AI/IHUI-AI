@@ -132,6 +132,22 @@ _DEFAULT_TOOLS = [
 # 任务加载
 # ---------------------------------------------------------------------------
 
+def resolve_tasks_path(raw: str | None) -> Path:
+    """把 ``--tasks-file`` 解析成绝对路径(相对 bench/ 目录);缺省 = TASKS_FILE。
+
+    两个入口(run_bench 与 run_golden_e2e)共用这一份:"相对谁解析、缺省是哪份"
+    各写一遍必然漂开,而漂开的表现是同一道题集在两条链上取到不同文件。
+    指不到实体文件时直接点名抛错 —— 静默退回缺省集会让调用方以为跑的是新题集。
+    """
+    if not raw:
+        return TASKS_FILE
+    p = Path(raw)
+    path = p if p.is_absolute() else BENCH_ROOT / p
+    if not path.is_file():
+        raise FileNotFoundError(f"--tasks-file 指向的文件不存在: {path}")
+    return path
+
+
 def _load_tasks(path: Path = TASKS_FILE) -> list[dict[str, Any]]:
     """加载任务定义 JSON,兼容顶层 list 或 ``{"tasks": [...]}`` 两种形态。"""
     with path.open(encoding="utf-8") as f:
@@ -769,11 +785,12 @@ def main(argv: list[str] | None = None) -> int:
         default=300,
         help="--compare-compaction 的 on 轮压缩窗口(tokens,默认 300:压低窗口确保压缩真实触发)",
     )
+    parser.add_argument("--tasks-file", type=str, default=None, help="任务集 JSON 路径(相对 bench/ 或绝对;默认 tasks_v1.json;D127 对话黄金集:tasks_convo_golden.json)")
     parser.add_argument("--report", type=str, default="bench_report.md", help="markdown 报告输出路径(JSON 汇总同名 .json)")
     parser.add_argument("--workdir", type=str, default=None, help="临时目录根,默认系统临时目录")
     args = parser.parse_args(argv)
 
-    tasks = _load_tasks()
+    tasks = _load_tasks(resolve_tasks_path(args.tasks_file))
     if args.category:
         tasks = [t for t in tasks if t.get("category") == args.category]
     if args.limit is not None:
