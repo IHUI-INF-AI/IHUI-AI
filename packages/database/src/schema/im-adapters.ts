@@ -90,6 +90,18 @@ export const imMessages = pgTable(
     userPlatformIdx: index('im_messages_user_platform_idx').on(t.userId, t.platform),
     directionIdx: index('im_messages_direction_idx').on(t.direction),
     createdAtIdx: index('im_messages_created_at_idx').on(t.createdAt),
+    // G-815927:去重键必须有**库级**兜底。G-815415 的运行时档是内存 + Redis TTL 2min,
+    // 进程重启即清空,而落库是永久事实 —— 只在那一层判重等于"重启后同一平台消息可再落一行"。
+    // 键里必须带 user_id 与 direction:同一 platform_message_id 在不同用户绑定的同一租户下
+    // 是两条合法行,而一条消息的出站回执与入站镜像也各有 id(平台 id 空间共用),
+    // 只按 (platform, platform_message_id) 建唯一索引会把这两种合法行一起拒掉。
+    // platform_message_id 可为 NULL(旧行/平台没给 id),PG 默认 NULL 互不相等 ⇒ 不拦多行 NULL。
+    platformMsgUniq: uniqueIndex('im_messages_user_platform_direction_msg_key').on(
+      t.userId,
+      t.platform,
+      t.direction,
+      t.platformMessageId,
+    ),
   }),
 )
 
