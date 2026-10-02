@@ -8394,6 +8394,10 @@
           "title": "目前模型拒絕了本次請求",
           "action": "更換模型"
         },
+        "MODEL_STREAM_IDLE": {
+          "title": "連線逾時,回應已中斷",
+          "action": "重試"
+        },
         "MULTIPLE_MATCHES": {
           "title": "參數不完整或無效",
           "action": "修改後重試"
