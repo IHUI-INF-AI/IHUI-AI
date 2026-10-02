@@ -41,7 +41,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from bench.run_bench import GOLDEN_FIXTURES_ROOT, _load_tasks, score_task
+from bench.run_bench import GOLDEN_FIXTURES_ROOT, _load_tasks, resolve_tasks_path, score_task
 
 # 默认回归子集规模(PROJECT_PLAN 0-2:复用 20 任务)
 DEFAULT_SUBSET_SIZE = 20
@@ -51,8 +51,18 @@ DEFAULT_SUBSET_SIZE = 20
 # 任务选择
 # ---------------------------------------------------------------------------
 
-def _select_tasks(all_tasks: list[dict[str, Any]], args: argparse.Namespace) -> list[dict[str, Any]]:
-    """按 CLI 参数选取任务子集:--tasks 显式 id 列表 > --all 全量 > 默认前 20。"""
+def _select_tasks(
+    all_tasks: list[dict[str, Any]],
+    args: argparse.Namespace,
+    *,
+    whole_set_by_default: bool = False,
+) -> list[dict[str, Any]]:
+    """按 CLI 参数选取任务子集:--tasks 显式 id 列表 > --all 全量 > 默认前 20。
+
+    ``whole_set_by_default``:调用方**显式点名了题集文件**(--tasks-file)时为真 ——
+    此时"前 20"这个为 tasks_v1 定的默认档会把一套 30 题的集子静默跑成 20 题,
+    而账面只写着通过率。点名题集 = 要跑这套题,故跑全量;--tasks/--all 仍可覆盖。
+    """
     if args.tasks:
         wanted = [t.strip() for t in args.tasks.split(",") if t.strip()]
         by_id = {t["id"]: t for t in all_tasks}
@@ -60,7 +70,7 @@ def _select_tasks(all_tasks: list[dict[str, Any]], args: argparse.Namespace) -> 
         if unknown:
             raise SystemExit(f"未知任务 id: {', '.join(unknown)}(共 {len(all_tasks)} 个任务可用)")
         return [by_id[tid] for tid in wanted]
-    if args.all:
+    if args.all or whole_set_by_default:
         return list(all_tasks)
     return all_tasks[:DEFAULT_SUBSET_SIZE]
 
@@ -315,6 +325,12 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="逗号分隔的任务 id 列表(如 fix-calc-divzero,fix-cli-import);默认取前 20 个任务",
     )
+    parser.add_argument(
+        "--tasks-file",
+        type=str,
+        default=None,
+        help="题集 JSON 路径(相对 bench/ 或绝对;默认 tasks_v1.json;D127 对话黄金集:tasks_convo_golden.json —— 点名题集即跑该集全量)",
+    )
     parser.add_argument("--all", action="store_true", help="运行全部任务(而非默认 20 任务子集)")
     parser.add_argument(
         "--min-pass-rate",
@@ -331,7 +347,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--workdir", type=str, default=None, help="临时目录根,默认系统临时目录")
     args = parser.parse_args(argv)
 
-    tasks = _select_tasks(_load_tasks(), args)
+    tasks_path = resolve_tasks_path(args.tasks_file)
+    tasks = _select_tasks(
+        _load_tasks(tasks_path),
+        args,
+        whole_set_by_default=args.tasks_file is not None,
+    )
     if not tasks:
         print("没有匹配的任务,退出。", flush=True)
         return 0
