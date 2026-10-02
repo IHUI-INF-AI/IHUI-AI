@@ -66,6 +66,11 @@ const IMPORT_SOURCES: ReadonlyArray<{
     labelKey: 'conversationImport.sourceAider',
     hintKey: 'conversationImport.sourceAiderHint',
   },
+  {
+    value: 'wechat',
+    labelKey: 'conversationImport.sourceWechat',
+    hintKey: 'conversationImport.sourceWechatHint',
+  },
 ]
 
 /**
@@ -77,6 +82,8 @@ const ALLOWED_EXTENSIONS: Record<ConversationImportSource, readonly string[]> = 
   codex: ['.jsonl', '.json'],
   cursor: ['.json', '.jsonl', '.vscdb', '.db', '.sqlite'],
   aider: ['.md', '.json', '.jsonl'],
+  // 微信导出物是归档包/纯文本,与其余四源的 jsonl/sqlite 家族完全不同
+  wechat: ['.zip', '.txt'],
 }
 
 function hasAllowedName(name: string | undefined, source: ConversationImportSource): boolean {
@@ -92,6 +99,7 @@ function toImportSource(value: string): ConversationImportSource | undefined {
     case 'codex':
     case 'cursor':
     case 'aider':
+    case 'wechat':
       return value
     default:
       return undefined
