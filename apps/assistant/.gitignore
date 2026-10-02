@@ -1,8 +1,0 @@
-node_modules/
-dist/
-resources/
-src-tauri/target/
-.vite/
-.DS_Store
-*.log
-release/
