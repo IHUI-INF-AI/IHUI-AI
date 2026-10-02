@@ -22,7 +22,7 @@ export const conversationImports = pgTable(
     id: varchar('id', { length: 64 }).primaryKey(),
     /** 用户 id(关联 users.id) */
     ownerUuid: varchar('owner_uuid', { length: 64 }).notNull(),
-    /** 导入来源: claude_code | codex | cursor | aider */
+    /** 导入来源: claude_code | codex | cursor | aider | wechat */
     source: varchar('source', { length: 32 }).notNull(),
     /** 导入生成的 chat_conversations.id(审计回溯,无外键) */
     conversationId: uuid('conversation_id'),

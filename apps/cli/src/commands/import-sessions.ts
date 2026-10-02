@@ -80,7 +80,32 @@ const SESSION_SOURCE_CONFIG: Record<ConversationImportSource, SessionSourceConfi
     extensions: ['.md', '.json', '.jsonl'],
     roots: () => [process.cwd()],
   },
+  wechat: {
+    label: 'WeChat',
+    description: t('cliImportSessions.sourceWechat'),
+    // 微信导出物后缀与其余四源完全不同(归档包 + 纯文本),不是 jsonl/sqlite 家族
+    extensions: ['.zip', '.txt'],
+    // 微信没有固定的本地导出目录:官方客户端不提供聊天记录导出,产物一律来自
+    // 第三方工具(留痕/WeChatMsg 等)或用户手工另存,落盘位置完全由用户当时的选择决定,
+    // 没有任何可预测的默认路径可扫。这里刻意返回空数组而不是猜「下载/文件接收」目录 ——
+    // 那两个目录里绝大多数是图片、安装包,与聊天导出同后缀(.txt)但内容无关,
+    // 猜错会把无关文件当候选塞进 discover 清单,比「扫不到」更有害。
+    // 代价:省略 <file> 时自动发现对微信必然为空,必须显式传 --path <文件路径>(或直接传文件)。
+    roots: () => [],
+  },
 };
+
+/**
+ * 扫描路径的终端展示串。
+ *
+ * roots 为空(微信这类无固定导出目录的来源)时不能打空的「已扫描:」——
+ * 那读起来像命令没跑。改显式告诉用户这个来源必须手动给路径。
+ */
+function formatScanPaths(cfg: SessionSourceConfig, inputPath: string | undefined): string {
+  if (inputPath) return path.resolve(expandTilde(inputPath));
+  const roots = cfg.roots();
+  return roots.length > 0 ? roots.join(', ') : t('cliImportSessions.noFixedRoots');
+}
 
 const SESSION_SOURCE_VALUES = Object.keys(SESSION_SOURCE_CONFIG) as ConversationImportSource[];
 
@@ -237,9 +262,9 @@ export async function resolveExportFile(
   const candidates = await discoverSessionFiles(source, inputPath, DEFAULT_DISCOVER_LIMIT);
   if (candidates.length === 0) {
     const cfg = SESSION_SOURCE_CONFIG[source];
-    const scanned = inputPath ? [path.resolve(expandTilde(inputPath))] : cfg.roots();
+    const scanned = formatScanPaths(cfg, inputPath);
     console.error(chalk.red(t('cliImportSessions.noImportableFile')));
-    console.error(chalk.dim(t('cliImportSessions.scannedPaths', { scanned: scanned.join(', ') })));
+    console.error(chalk.dim(t('cliImportSessions.scannedPaths', { scanned })));
     console.error(chalk.dim(t('cliImportSessions.acceptedExtensions', { extensions: cfg.extensions.join(', ') })));
     console.error(chalk.dim(t('cliImportSessions.alsoSpecifyPath', { source: source })));
     return null;
@@ -460,7 +485,7 @@ export async function runSessionsSources(): Promise<boolean> {
     const cfg = SESSION_SOURCE_CONFIG[source];
     console.info(`  ${chalk.bold(source)} ${chalk.dim(`- ${cfg.label}:${cfg.description}`)}`);
     console.info(chalk.dim(t('cliImportSessions.sourceExtensions', { extensions: cfg.extensions.join(', ') })));
-    console.info(chalk.dim(t('cliImportSessions.sourceDirs', { dirs: cfg.roots().join(', ') })));
+    console.info(chalk.dim(t('cliImportSessions.sourceDirs', { dirs: formatScanPaths(cfg, undefined) })));
   }
   console.info(chalk.dim(t('cliImportSessions.backendDoesParsing')));
   console.info('');
@@ -486,8 +511,7 @@ export async function runSessionsDiscover(
     const candidates = await discoverSessionCandidates(source, opts.path, limit);
     console.info(chalk.cyan(`\n${source} ${chalk.dim(`(${cfg.label})`)}`));
     if (candidates.length === 0) {
-      const scanned = opts.path ? [path.resolve(expandTilde(opts.path))] : cfg.roots();
-      console.info(chalk.dim(t('cliImportSessions.noneDiscovered', { scanned: scanned.join(', ') })));
+      console.info(chalk.dim(t('cliImportSessions.noneDiscovered', { scanned: formatScanPaths(cfg, opts.path) })));
       continue;
     }
     totalFound += candidates.length;
