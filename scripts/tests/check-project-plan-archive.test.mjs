@@ -7,9 +7,11 @@ import assert from 'node:assert/strict'
 import { spawnSync, execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync, readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+// 形状锁的"不得再出现"那一半一律判剥注释后的代码面(遮罩唯一实现,不得在测试里另抄一份)。
+import { maskComments } from '../lib/code-mask.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -445,6 +447,9 @@ test('A4 真实标题形态:占位与同一条目并存 ⇒ 判本次引入的�
 
 // ─── 2026-09-26 粒度对齐 + T3 元判据(归档粒度扩到 ##/###;提取实现收进 lib;T3 守"判据看见现实") ───
 import { __test__ as archiveGate } from '../check-project-plan-archive.mjs'
+// A1 的三条分流要按**构造台账**喂:生产台账已随存量清偿清空,那两臂在真仓上不再触发,
+// 只有构造面能证明它们还在 ⇒ 直接取判据函数,不在测试里重抄一份判定。
+import { anchorVerdict } from '../check-project-plan-archive.mjs'
 import { shapeCoverageVerdict as libShapeCoverageVerdict } from '../lib/plan-task-headings.mjs'
 
 test('真实 HEAD 面逐字样本:现行提取式无失明;提取式收窄回"只认 ###"必红(§22c 有牙证明)', () => {
@@ -541,4 +546,250 @@ test('T3 端到端:工作树出现未登记的已完成形态(h5+✅)⇒ exit 1 
   } finally {
     rmScratch(dir)
   }
+})
+
+// ─── 本票追加(守门 13c A1 换射程的取证)───
+// A1 换射程后要用到的三件:存量台账(证它只报数且已随清偿清空)、盘上枚举(证射程是
+// 目录意图而不是名字形状,含子目录/护栏报名)、审面出口(证"是否入库"只由 git 面回答)。
+const { listArchiveDiskFiles, archiveFaceEntries, UNTRACKED_ARCHIVE_LEDGER } = archiveGate
+
+/** 在夹具里造一份"盘上有、面上没有"的归档件(不 commit ⇒ 保持未跟踪)。 */
+function writeArchiveFileUntracked(repoDir, rel, content = '# 本机副本\n') {
+  const abs = join(repoDir, '.ihui-agent', 'archive', ...rel.split('/'))
+  mkdirSync(dirname(abs), { recursive: true })
+  writeFileSync(abs, content)
+}
+
+test('A1 端到端·反向:AGENTS 前缀的归档件在盘上而未入库 ⇒ exit 1 并逐字点名该文件', () => {
+  const dir = createTempGitRepo()
+  try {
+    commitPlan(dir, '# plan\n\n### 任务A\n内容\n')
+    writeArchiveFileUntracked(dir, 'AGENTS_dead-entries-2099-01-01.md')
+    const r = runScript(dir)
+    assert.equal(
+      r.status,
+      1,
+      `非 PROJECT_PLAN 命名的未入库归档件必须被看见,实得 ${r.status}\n${r.out}${r.err}`,
+    )
+    assert.ok(
+      r.err.includes(
+        'A1 归档锚点只在本机、未进版本控制:.ihui-agent/archive/AGENTS_dead-entries-2099-01-01.md',
+      ),
+      `必须点名 AGENTS 那一族(旧判据在这一族上整族隐身),实得:\n${r.err.slice(0, 500)}`,
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('A1 端到端·正向对照:同一份文件提交进仓库 ⇒ exit 0(不是"凡 AGENTS 开头即红")', () => {
+  const dir = createTempGitRepo()
+  try {
+    commitPlan(dir, '# plan\n\n### 任务A\n内容\n')
+    commitAnchor(dir, 'AGENTS_dead-entries-2099-01-01.md')
+    const r = runScript(dir)
+    assert.equal(
+      r.status,
+      0,
+      `按规矩入库就不该红 —— 把合法形态判红的唯一结局是逼人 --no-verify(§12e),实得 ${r.status}\n${r.err.slice(0, 500)}`,
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('A1 端到端:射程含子目录,且顶层同名那份不得替子目录里未入库的那份背书', () => {
+  const dir = createTempGitRepo()
+  try {
+    commitPlan(dir, '# plan\n\n### 任务A\n内容\n')
+    commitAnchor(dir, 'leaked.md') // 顶层同名那份**已入库**
+    writeArchiveFileUntracked(dir, 'audit-probe-2099/leaked.md') // 子目录里同名的没有
+    const r = runScript(dir)
+    assert.equal(r.status, 1, `子目录那份必须被单独判,实得 ${r.status}\n${r.out}${r.err}`)
+    assert.ok(
+      r.err.includes('.ihui-agent/archive/audit-probe-2099/leaked.md'),
+      `必须点名**整条相对路径**(只比 basename 就成了一假绿),实得:\n${r.err.slice(0, 500)}`,
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('A1 端到端(台账已清空这一现实):那条未入库的归档件如今必须直接拦 —— 台账不是永久出口', () => {
+  const dir = createTempGitRepo()
+  try {
+    commitPlan(dir, '# plan\n\n### 任务A\n内容\n')
+    // 逐字取当初进过台账的那一条真实文件名(§22c:判据输入取自真实文件,不要自造形状)。
+    // 2026-10-02:该件已由并发提交真入库 ⇒ 台账行按规矩删除,所以这里再造出"盘上有而面上没有"
+    // 的同名形态时,**没有任何东西可以再替它兜底** —— 必须 exit 1 并点名 A1。
+    writeArchiveFileUntracked(dir, 'AGENTS_dead-entries-2026-09-30.md')
+    const r = runScript(dir)
+    assert.equal(
+      r.status,
+      1,
+      `台账清空后未入库的归档件必须拦,实得 ${r.status}\n${r.out}${r.err.slice(0, 500)}`,
+    )
+    assert.ok(
+      /A1 归档\S*只在本机/.test(r.out + r.err),
+      `必须点名 A1(只报数那一档只在台账里成立):\n${(r.out + r.err).slice(0, 600)}`,
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('A1 三条分流仍是三条(纯函数注入台账):已登记⇒只报数 / 未登记⇒红 / 修好仍挂⇒腐烂红', () => {
+  const rel = 'AGENTS_dead-entries-2026-09-30.md'
+  // 臂 1:登记过 ⇒ 只报数不判红(这条臂在生产台账清空后**不再由真仓触发**,
+  // 所以只能由构造面证明"它还在",否则下一次真长出积压时无人知道出口在不在)。
+  const a = anchorVerdict({
+    diskAnchors: [rel],
+    faceFiles: [],
+    faceRelPaths: [],
+    planText: '',
+    ledger: [],
+    archiveLedger: [rel],
+  })
+  assert.equal(a.red.length, 0, `已登记的存量不得拦,实得 ${JSON.stringify(a.red)}`)
+  assert.equal(a.baseline.length, 1, `但必须报出来,不得静默: ${JSON.stringify(a.baseline)}`)
+  // 臂 2:同一件、台账不登记 ⇒ 红
+  const b = anchorVerdict({
+    diskAnchors: [rel],
+    faceFiles: [],
+    faceRelPaths: [],
+    planText: '',
+    ledger: [],
+    archiveLedger: [],
+  })
+  assert.equal(b.red.length, 1, `未登记必须红,实得 ${JSON.stringify(b.red)}`)
+  // 臂 3:该件已回到审面而台账仍挂着同一行 ⇒ 清单腐烂红(出路是删行,不是继续挂着)
+  const c = anchorVerdict({
+    diskAnchors: [rel],
+    faceFiles: [rel],
+    faceRelPaths: [rel],
+    planText: '',
+    ledger: [],
+    archiveLedger: [rel],
+  })
+  assert.equal(c.red.length, 1, `修好仍挂台账必须红,实得 ${JSON.stringify(c.red)}`)
+  assert.ok(c.red[0].startsWith('A1 台账腐烂'), `腐烂要单独点名(与"缺失"出路不同): ${c.red[0]}`)
+})
+
+test('形状锁:A1 的候选不得再按 ANCHOR_RE 筛,而 ANCHOR_RE 全门只能剩一个使用点(A3 取材集)', async () => {
+  const src = await readFile(new URL('../check-project-plan-archive.mjs', import.meta.url), 'utf8')
+  /**
+   * "不得再出现 X"这一类**反向**锁一律判剥注释后的代码面。本门的头注与判据注释里逐字写着
+   * `readFileSync`、`ANCHOR_RE.test(` 这些**被修掉的旧形态**(它们是在解释 bug),按原文面判
+   * 就是把门对自己的说明判成违规 —— 守门 131 的门第一次自跑正是被这样一句注释咬到的(§22c 同族)。
+   * "必须出现 X"那一类仍判原文面:注释里的字符串锚点(`',完整内容在'`)是判据本体,剥掉会失明。
+   */
+  const code = maskComments(src)
+  const uses = [...code.matchAll(/ANCHOR_RE\.test\(/g)].length
+  assert.equal(
+    uses,
+    1,
+    `ANCHOR_RE.test( 在代码面必须只剩 A3 取材那一个使用点,实得 ${uses} —— 每多一个就是"按名字筛候选"回潮一格`,
+  )
+  const av = code.match(/export function anchorVerdict\([\s\S]*?\n\}/)
+  assert.ok(av, '找不到 anchorVerdict —— 判据被改名或拆走时这条锁必须红,提醒同步')
+  assert.ok(!/ANCHOR_RE/.test(av[0]), 'anchorVerdict 体内不得再出现名字形状筛(那正是本票要关的洞)')
+  // A3 的取材集**刻意没跟着扩**:把 AGENTS/README/子目录的正文也灌进 archiveText,会让 A2/A3 的
+  // 计数口径在这次扩面里被悄悄搅混(约束④)。它若要扩,必须是单独一票并同批重锚台账。
+  assert.match(
+    code,
+    /facePaths\.filter\(\s*\(p\) => ANCHOR_RE\.test/,
+    'A3 取材集必须仍是 ANCHOR_RE 那一族',
+  )
+  assert.match(code, /ls-tree/, '"在不在版本控制里"必须由 git 面回答')
+  assert.match(code, /ls-files/, '--staged 档必须走索引面')
+  assert.ok(
+    !/readFileSync/.test(code),
+    '本门不得用磁盘读法判"是否入库"(取材面纪律:内容只走 face-reader)',
+  )
+})
+
+test('形状锁:占位点名的两处提取式一字不得改(A2/A3 的计数口径不能被扩面搅混)', async () => {
+  const src = await readFile(new URL('../check-project-plan-archive.mjs', import.meta.url), 'utf8')
+  // 标题切分锚点:归档器写占位用 "(日期:标题,完整内容在 …",而标题里本来就带中文逗号,
+  // 所以必须按"最后一个 `,完整内容在`"切;换成正则会在第一个逗号处断掉(2026-09-28 实测翻红过)。
+  assert.match(
+    src,
+    /lastIndexOf\(',完整内容在'\)/,
+    'placeholderTitles 的"最后一个逗号段"切分必须原样在位',
+  )
+  // 指针 harvest 只能有一处:出现第二处 matchAll 就等于给 A2/A3 另开了一把不同的尺子。
+  const harvests = (src.match(/matchAll\(/g) || []).length
+  assert.equal(harvests, 1, `A2/A3 的指针 harvest 只能有一份实现,实得 ${harvests} 处`)
+  // A2/A3 的归属仍按 basename 全集判(不是按 PROJECT_PLAN_ 形状筛)—— G-192 那条假红教训。
+  assert.match(src, /onFace\.has\(f\)/, 'A2/A3 必须继续用 faceFiles(basename 全集)判归属')
+})
+
+test('形状锁:git 面取不到 ⇒ 未判定分支必须真接在 main() 上(判据在而没挂上 = 没有)', async () => {
+  const src = await readFile(new URL('../check-project-plan-archive.mjs', import.meta.url), 'utf8')
+  assert.match(
+    src,
+    /if \(inputs\.faceReadFailed && inputs\.diskAnchors\.length > 0\) \{/,
+    '扩面后"面读空"会把整目录误判成未入库,这条护栏必须挂在 main() 上,不能只在 archiveFaceEntries 里记账',
+  )
+})
+
+test('listArchiveDiskFiles:递归进子目录并返回相对路径;目录缺失时报「未判定」而不是"空扫 = 没有"', () => {
+  const dir = mkScratch('ihui-archive-scan-')
+  try {
+    const missing = listArchiveDiskFiles(dir)
+    assert.equal(missing.relPaths.length, 0, '目录不存在时不得凭空造候选')
+    assert.ok(
+      missing.undetermined.length > 0,
+      '「取不到」与「确实没有」必须不同形 —— 静默空扫就是本仓记过最多次的假绿型',
+    )
+    writeArchiveFileUntracked(dir, 'top-plain.md')
+    writeArchiveFileUntracked(dir, 'nested/deep.md')
+    writeArchiveFileUntracked(dir, 'nested/deeper/deepest.md')
+    assert.deepEqual(listArchiveDiskFiles(dir).relPaths.sort(), [
+      'nested/deep.md',
+      'nested/deeper/deepest.md',
+      'top-plain.md',
+    ])
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('archiveFaceEntries:非 git 目录下必须报 faceReadFailed(旧写法折成"面是空的",扩面后会集体误判红)', () => {
+  const dir = mkScratch('ihui-archive-face-')
+  try {
+    const r = archiveFaceEntries(dir, 'head')
+    assert.ok(r.faceReadFailed, 'git 面取不到必须点名,不得静默给空面')
+    assert.deepEqual(
+      r.faceRelPaths,
+      [],
+      '面读不到 ⇒ 面集为空是对的,但调用方必须能看到"这是因为读不到"',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('A1 台账必须已随债务清偿清空,且清偿是"真入库"而不是"删行装干净"', () => {
+  assert.deepEqual(
+    UNTRACKED_ARCHIVE_LEDGER,
+    [],
+    '2026-10-02 现读:AGENTS_dead-entries-2026-09-30.md 已入库 ⇒ 台账行必须删。' +
+      '若这里又长出一条,说明有人用"加台账行"而不是"补入库"去消红 —— 台账是待偿清单不是豁免清单。',
+  )
+  // 光断言"空"是恒真的(删一行就满足),所以必须另取一把**独立**的尺子证明债真还了:
+  // 该归档件在 HEAD 面与索引面都真的存在。摘掉那次入库提交 ⇒ 这里翻红。
+  const root = join(__dirname, '..', '..')
+  const p = '.ihui-agent/archive/AGENTS_dead-entries-2026-09-30.md'
+  const inHead = execFileSync('git', ['-c', 'safe.directory=*', 'cat-file', '-e', `HEAD:${p}`], {
+    cwd: root,
+    windowsHide: true,
+  })
+  void inHead
+  const inIndex = execFileSync('git', ['-c', 'safe.directory=*', 'ls-files', '--error-unmatch', p], {
+    cwd: root,
+    encoding: 'utf8',
+    windowsHide: true,
+  }).trim()
+  assert.equal(inIndex, p, `索引面上应能问到你(${p}),实得「${inIndex}」`)
 })
