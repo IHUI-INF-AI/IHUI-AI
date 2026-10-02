@@ -24,6 +24,10 @@
  *     (h4 两个存量形态按台账只报数,见 T3_GRANDFATHERED_SHAPES);bullet 级计数永远如实报
  *   - 若有已完成任务条目被删除,且本次 diff 无"<!-- 已归档"占位注释,则阻塞 commit
  *   - 合规操作:把完整任务条目移动到 .ihui-agent/archive/,并在原位置留归档占位注释
+ *   - A1(2026-10-02 换射程):"盘上有而审面没有"的归档件按**目录意图**枚举(整个
+ *     .ihui-agent/archive/,递归),不再按名字形状筛 —— 旧射程只认 PROJECT_PLAN_*.md,
+ *     于是 AGENTS_ 前缀、README_ 前缀、子目录里的归档件从未入库时本门完全看不见。存量见
+ *     UNTRACKED_ARCHIVE_LEDGER(只报数),新增才判红。
  *
  * 用法:
  *   node scripts/check-project-plan-archive.mjs --staged   (pre-commit, 阻塞)
@@ -55,8 +59,22 @@ import {
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const FILE = 'PROJECT_PLAN.md'
 const ARCHIVE_DIR = '.ihui-agent/archive'
-/** 归档锚点文件的形状:只有 PROJECT_PLAN_*.md 才是"完整内容在 archive"的承诺载体。 */
+/**
+ * ⚠️ 2026-10-02 起,这一形状**只管 A3**(哪些归档件的正文要取进来做元归档反查),
+ * 不再管 A1 的射程 —— A1 改按目录意图枚举(见 `listArchiveDiskFiles`)。
+ * 立因:旧 A1 用同一个正则筛候选,于是 `.ihui-agent/archive/` 里凡不叫
+ * `PROJECT_PLAN_*.md` 的归档件躺在本机而从未入库时,本门一个都不认。实测抓到
+ * `AGENTS_dead-entries-2026-09-30.md`(未跟踪,既不在 HEAD 也不在索引),而该目录里
+ * 客观存在 `AGENTS_*` / `README_*` / `agents-head_*` / `flag-value-census_*` /
+ * `orphan-capabilities_*` / `hollow-backup-tags_*.txt` 以及两个子目录
+ * (`audit-reports-2026-07-21/`、`convergence-2026-09-29/`,后者含 .mjs/.sh)——
+ * **射程不能靠猜名字写死名单**,所以换成"在这个目录里 = 是归档件"这一条目录意图。
+ * `placeholderTitles` 取文件名靠"最后一个 `,完整内容在`"切分,A2/A3 的计数口径不因本次改动而变。
+ */
 const ANCHOR_RE = /^PROJECT_PLAN_.*\.md$/
+/** A1 盘上枚举的两条护栏:超限时落「未判定」并点名,绝不静默少扫(见 listArchiveDiskFiles)。 */
+const ARCHIVE_SCAN_MAX_ENTRIES = 5000
+const ARCHIVE_SCAN_MAX_DEPTH = 8
 
 /**
  * T3 存量形态台账(只报数,不判红)。2026-09-26 在 HEAD 面实测:
@@ -168,6 +186,22 @@ function main(face, root = ROOT, grandfatherExtra = []) {
   const del = deletionVerdict(oldContent, newContent)
   const res = resurrectionVerdict(oldContent, newContent)
   const inputs = readAnchorInputs(root, face)
+  /**
+   * 归档**审面**取不到(git 派生失败 / 非 git 环境)而盘上确有候选 ⇒ **无法判定,exit 2**。
+   * 这一条是本次把 A1 换成目录意图射程**必须**同时补的护栏:旧写法把 gitRaw 的异常折成
+   * "面是空的",在按名字筛的旧射程下最多误伤 PROJECT_PLAN_* 一族;射程一扩到整个目录,
+   * 同一次派生抖动就会把 54 个归档件全读成"未入库"而集体判红 —— 一台会喊错的 blocking 尺子
+   * 的唯一结局是各会话跳钩子、连带该次提交上约 190 道守门全部作废(§12e/§12f 同型)。
+   * 反过来把"没判"写成"判过了"也不行,所以判死而不是冒绿。盘上 0 候选时**不**判死:
+   * 那时 A1 本来就无事可判,不得为环境抖动新增一条红。
+   */
+  if (inputs.faceReadFailed && inputs.diskAnchors.length > 0) {
+    console.error(
+      `❌ 无法判定:${inputs.faceReadFailed};盘上有 ${inputs.diskAnchors.length} 个归档件候选,` +
+        `A1 那一维未判定(既不判红也不记绿)`,
+    )
+    return 2
+  }
   const anchors = anchorVerdict(inputs)
   /**
    * T3 元判据(2026-09-26 立):从本版内容反推"存在哪些已完成标题形态",逐形态核提取式
@@ -187,15 +221,24 @@ function main(face, root = ROOT, grandfatherExtra = []) {
   const undet = inputs.archiveUndetermined
     ? `;A3 另有 ${inputs.archiveUndetermined} 份归档件正文取不到,那一层未判定`
     : ''
+  // A1 盘上枚举没走完(目录缺失 / 枚举失败 / 超条数或深度上限 / 遇重解析点)⇒ 逐条点名。
+  // 这一维**只报数不改退出码**:它判的是本机目录形态,提交者结构上满足不了(挂红 = 恒红门)。
+  // 但绝不允许静默 —— 拿到"A1 无违规"的人必须能看出候选集本身没量全(§22c"把没判写成判过了")。
+  const scanUndet = (inputs.diskScanUndetermined ?? []).filter(Boolean)
+  const scanNote = scanUndet.length
+    ? `;A1 盘上枚举另有 ${scanUndet.length} 条未判定(候选集不完整,不得读成"没有未入库归档件")`
+    : ''
   // bullet 级已完成状态永远要喊(它不在归档粒度覆盖内 —— 把"看不见"洗成"确信没有"是禁令)。
   const bulletNote = `;T3 普查:另有 ${t3.bulletCount} 处已完成状态写在 bullet 级 - [x],不在条目粒度内(只报数)`
 
   if (del.compliant && res.compliant && anchors.red.length === 0 && t3.red.length === 0) {
     console.log(
-      `${C.green}✅ PROJECT_PLAN.md 归档守门通过${C.reset} ${C.dim}(无已完成任务条目被删除;归档锚点齐备;T3 形态覆盖无失明${res.preexisting ? `;另有 ${res.preexisting} 条上一版即存在的复活存量只报数` : ''}${anchors.baseline.length ? `;另有 ${anchors.baseline.length} 项已登记的缺失存量只报数` : ''}${undet}${bulletNote})${C.reset}`,
+      `${C.green}✅ PROJECT_PLAN.md 归档守门通过${C.reset} ${C.dim}(无已完成任务条目被删除;归档锚点齐备;T3 形态覆盖无失明${res.preexisting ? `;另有 ${res.preexisting} 条上一版即存在的复活存量只报数` : ''}${anchors.baseline.length ? `;另有 ${anchors.baseline.length} 项已登记的缺失存量只报数` : ''}${undet}${scanNote}${bulletNote})${C.reset}`,
     )
     for (const b of anchors.baseline)
       console.log(`${C.dim}   报数(已登记缺失):${b}${C.reset}`)
+    for (const u of scanUndet)
+      console.log(`${C.dim}   报数(A1 枚举未判定):${u}${C.reset}`)
     for (const r of res.resurrected)
       console.log(`${C.dim}   报数(复活存量,本次未追账):${r}${C.reset}`)
     for (const g of t3.report) console.log(`${C.dim}   ${g}${C.reset}`)
@@ -264,7 +307,10 @@ function main(face, root = ROOT, grandfatherExtra = []) {
     console.error(
       `${C.yellow}出路:${C.reset} ① 把缺失的归档文件补回并 **git add**(未跟踪的本机副本不算锚点,G-183/G-184 同一条纪律);` +
         `\n       ② 或改写占位注释,指向一个真在审面里的归档文件;` +
-        `\n       ③ 已登记的存量见上"报数"行 —— 那类行**从清单里删掉但问题仍在**会立刻判红,**修好了仍留在清单里**同样判红(清单腐烂)。`,
+        `\n       ③ 已登记的存量见上"报数"行 —— 那类行**从清单里删掉但问题仍在**会立刻判红,**修好了仍留在清单里**同样判红(清单腐烂);` +
+        `\n       ④ A1 现在按**目录意图**判(2026-10-02 起):${ARCHIVE_DIR}/ 里的任何文件 —— 不论命名` +
+        `\n          (AGENTS_* / README_* / 裸名 / .txt / 子目录里的都算)—— 都是"完整内容在 archive"的承诺载体,` +
+        `\n          要么入库,要么移出该目录;**临时件不该落在归档目录里**。不得为让本门变绿去删判据或加名字白名单。`,
     )
     console.error('')
   }
@@ -424,9 +470,32 @@ export const LOST_ANCHOR_LEDGER = [
 ]
 
 /**
+ * A1 的**存量台账**(只报数不判红),与 `LOST_ANCHOR_LEDGER` 同一条设计:登记必须会过期。
+ *
+ * 为什么需要它:2026-10-02 把 A1 的射程从"按名字形状筛"换成"按目录意图筛"之前,先在 HEAD 面
+ * 与索引面各现读了一次存量 —— 结果是**同一个 1 项**:
+ *   `.ihui-agent/archive/AGENTS_dead-entries-2026-09-30.md`(54 个盘上文件 vs 53 条审面路径)
+ * 它未跟踪(`git status` 报 `??`,且 `git check-ignore` 判它**没被忽略** ⇒ 是可以入库的),
+ * 归属另一个会话,按 §7 不许由本门按"看起来像垃圾"处置,也不许替它 `git add`。
+ * 当场判红 = 一台与任何提交内容都无关的恒红门,唯一结局是每台每次被逼 `--no-verify`、
+ * 连带该次提交上约 190 道守门全部作废(AGENTS §12e/§12f 同型,本仓写过多次:恒红门的代价
+ * 从来不是"少做一件事",而是"全部检查作废")。
+ *
+ * 三条腐烂规矩与 A2 同形:① 该行仍在而文件仍未入库 ⇒ 只报数;② 文件已回到审面而这一行还挂着
+ * ⇒ 判"清单腐烂"红(删行必须与入库同步);③ **删行而文件仍未入库** ⇒ 它不再被认作存量,
+ * 立刻按新增判红(自我收紧,不需要下一个人记得)。
+ */
+export const UNTRACKED_ARCHIVE_LEDGER = []
+
+/**
  * A1/A2/A3 的判定(纯函数,输入全部来自被审面):
- *  **A1** 盘上有 `PROJECT_PLAN_*.md` 而审面里没有 ⇒ 红。这正是 G-184 关掉的洞的另一半:
+ *  **A1** 归档目录里**任何一个**盘上有、审面没有的文件 ⇒ 红(2026-10-02 换射程:旧射程按
+ *       `ANCHOR_RE` 只认 `PROJECT_PLAN_*.md`,于是 `AGENTS_*` / `README_*` / 子目录里的归档件
+ *       从未入库时本门完全看不见 —— 这正是本次要关的那一格)。这正是 G-184 关掉的洞的另一半:
  *       归档内容只存在于本机一块磁盘时,既撑不起"完整内容在 archive"的承诺,也随时会随磁盘没。
+ *       存量走 `UNTRACKED_ARCHIVE_LEDGER`(只报数),新增才判红 —— 见那份台账头注的防恒红理由。
+ *       A1 比的是**相对归档目录的全路径**(含子目录),不是 basename:只看 basename 会让顶层
+ *       同名那份替子目录里未入库的那份背书(假绿)。
  *  **A2** 计划文档里的占位点名的具体文件不在审面里 ⇒ 红;若该名字在 `LOST_ANCHOR_LEDGER` 里则只报数。
  *       写成通配(`PROJECT_PLAN_*.md`)的占位不参与 A2 —— 它没有点名,判不了。
  *  **A3**(G-192 新增)**归档件自己内部**的占位同样点名(元归档:归档文件里再写"完整内容在
@@ -436,25 +505,53 @@ export const LOST_ANCHOR_LEDGER = [
  * ⚠️ A2/A3 的归属判据必须看 **faceFiles(该目录在审面上的全部文件)**而不是只看 `PROJECT_PLAN_*`:
  *    归档目录里也放非该形状的锚点件(实测 `orphan-capabilities-equivalence-2026-09-24.md` 已跟踪),
  *    拿形状过滤后的清单去判点名 ⇒ 把"已入库"读成"落空",本门第一次自跑就是这么红给自己看的。
+ * ⚠️ 本次扩的是 **A1 的候选射程**,A2/A3 的点名提取式(`named()` 与 `placeholderTitles` 的
+ *    "最后一个 `,完整内容在`"切分)**一字未动** —— 动它会让 A2 跟着漂(那两个名字里的逗号序列是
+ *    归档器写占位时生成的,标题本身还带中文逗号,换成正则会在第一个逗号处断掉)。
  */
-export function anchorVerdict({ diskAnchors, faceFiles, planText, archiveText = '', ledger = LOST_ANCHOR_LEDGER }) {
+export function anchorVerdict({
+  diskAnchors,
+  faceFiles,
+  planText,
+  archiveText = '',
+  ledger = LOST_ANCHOR_LEDGER,
+  faceRelPaths = faceFiles,
+  archiveLedger = UNTRACKED_ARCHIVE_LEDGER,
+}) {
   const red = []
   const baseline = []
   const onFace = new Set(faceFiles)
-  const diskOnly = new Set()
-  for (const f of diskAnchors) {
-    if (!ANCHOR_RE.test(f)) continue
-    if (!onFace.has(f)) {
-      red.push(`A1 归档锚点只在本机、未进版本控制:.ihui-agent/archive/${f}`)
-      diskOnly.add(f)
+  const onFaceRel = new Set(faceRelPaths)
+  const diskMissing = new Set()
+  /**
+   * A1:目录意图射程 —— 候选 = 归档目录里的**全部**盘上文件(递归、由 `listArchiveDiskFiles` 枚举),
+   * 不再问名字长成什么样。三条分流(与 A2 同形):已登记存量只报数 / 未登记 ⇒ 红 / 台账腐烂 ⇒ 红。
+   */
+  for (const rel of [...diskAnchors].sort()) {
+    if (rel === '' || onFaceRel.has(rel)) continue
+    diskMissing.add(rel)
+    if (archiveLedger.includes(rel)) {
+      baseline.push(`A1 归档件只在本机、未进版本控制:.ihui-agent/archive/${rel}(已登记存量,只报数)`)
+      continue
     }
+    red.push(`A1 归档锚点只在本机、未进版本控制:.ihui-agent/archive/${rel}`)
+  }
+  for (const rel of new Set(archiveLedger)) {
+    if (onFaceRel.has(rel))
+      red.push(
+        `A1 台账腐烂:.ihui-agent/archive/${rel} 已回到审面,仍挂在 UNTRACKED_ARCHIVE_LEDGER 里 —— 删这一行,` +
+          `不得留着替一条已成立的承诺继续喊未兑现`,
+      )
   }
   const named = (text) =>
     new Set(
       [...String(text || '').matchAll(/\.ihui-agent[\\/]archive[\\/]([A-Za-z0-9._\-]+\.md)/g)].map((m) => m[1]),
     )
   const fromPlan = named(planText)
-  const seen = new Set(diskOnly)
+  // A2/A3 只能拿到 basename(点名的提取式不含 `/`),所以去重也按 basename 那一份喂进去:
+  // 顶层文件的相对路径与 basename 同形 ⇒ 既有"A1 与 A2 不得重复计债"的语义逐字保留;
+  // 子目录里的文件路径含 `/`,结构上不可能被 A2/A3 点名,不参与这一层去重(不是漏,是不相交)。
+  const seen = new Set([...diskMissing].filter((rel) => !rel.includes('/')))
   const scan = (set, tag, hint) => {
     for (const f of [...set].sort()) {
       if (seen.has(f)) continue
@@ -482,6 +579,14 @@ export function anchorVerdict({ diskAnchors, faceFiles, planText, archiveText = 
  * (占位点名的文件真在审面里吗),两处各写一遍必然在"面"的口径上漂开(staged 走索引、全量走 HEAD)。
  * ⚠ 刻意**不读磁盘**:面里没有的路径不构成代表依据(G-184 关掉的正是那个洞)。
  * 单份 blob 取不到 ⇒ 进 `undetermined` 并点名,不静默当成"那一层没有"。
+ *
+ * 2026-10-02 随 A1 换射程新增两个出口字段(只加不改,既有 keys 逐字未动):
+ *  - `faceRelPaths`:面上全部文件**相对归档目录**的路径(正斜杠,含子目录)。A1 用它而不是
+ *    `faceFiles`:后者是 basename 集,A1 扩到子目录后按 basename 比 ⇒ 顶层同名那份会替子目录里
+ *    未入库的那份背书(假绿)。A2/A3 仍用 `faceFiles`,因为占位的点名提取式不含 `/`。
+ *  - `faceReadFailed`:git 派生失败的原文。**调用方必须分流处理** —— 把"没读到面"当成"面是空的",
+ *    在旧射程下只影响 PROJECT_PLAN_* 一族,在目录意图射程下会把**整个归档目录**读成未入库而集体
+ *    判红(一台会喊错的尺子换成"人人跳门",§12e/§12f 同一条禁令)。见 main() 里的「无法判定」分支。
  */
 export function archiveFaceEntries(root, face) {
   const args =
@@ -489,10 +594,11 @@ export function archiveFaceEntries(root, face) {
       ? ['ls-files', '-z', '--', ARCHIVE_DIR]
       : ['ls-tree', '-r', '--name-only', '-z', 'HEAD', '--', ARCHIVE_DIR]
   let faceRaw = ''
+  let faceReadFailed = null
   try {
     faceRaw = gitRaw(args, root, { timeout: 60000 })
-  } catch {
-    faceRaw = ''
+  } catch (e) {
+    faceReadFailed = `git ${args[0]} 取不到归档审面:${String(e?.message ?? e).split(/\r?\n/)[0]}`
   }
   const facePaths = faceRaw.split('\0').filter(Boolean)
   const anchorPaths = facePaths.filter((p) => ANCHOR_RE.test(p.split('/').pop()))
@@ -513,12 +619,86 @@ export function archiveFaceEntries(root, face) {
       else undetermined.push(anchorPaths[i])
     }
   }
-  return { entries, undetermined, faceFiles: facePaths.map((p) => p.split('/').pop()) }
+  // git 的 pathspec 输出恒用正斜杠(即使在 Windows),所以剥前缀即可得到归档目录内的相对路径。
+  const PREFIX = `${ARCHIVE_DIR}/`
+  return {
+    entries,
+    undetermined,
+    faceFiles: facePaths.map((p) => p.split('/').pop()),
+    faceRelPaths: facePaths.map((p) => (p.startsWith(PREFIX) ? p.slice(PREFIX.length) : p)),
+    faceReadFailed,
+  }
 }
 
-/** 从被审面读四件套:盘上文件名、审面上的文件名(全集)、计划文档正文、归档件正文合流(A3 用)。 */
+/**
+ * A1 的候选侧:递归列出归档目录里的**普通文件**,返回相对该目录的路径(正斜杠)。
+ * 三条由实测固化进来的规矩:
+ *  ① **只取名,不读内容** —— 该目录里有 13.8 MB 的归档件(`PROJECT_PLAN_2026-09-28_auto-archive.md`),
+ *     A1 问的只是"这个路径在不在审面上",读全文是 A3 的事(而 A3 的取材集刻意没扩)。
+ *  ② **不穿重解析点**:符号链接 / junction 一律跳过并点名。§26 记过两次同族事故(递归枚举穿过
+ *     junction 把改道机制变成自毁机制),而"链到别人机器上的某个目录"这件事不该由本门判成债。
+ *  ③ 深度与条数都有上限,超限 / 目录缺失 / 枚举失败 ⇒ 落 `undetermined` **并逐条点名原因**,
+ *     不静默截断也不静默少扫("把没看完写成没有违规"是本仓最高频的假绿型)。
+ * 这里量的是**盘上有什么**(一个磁盘事实);"在不在版本控制里"一律由 `archiveFaceEntries` 的
+ * 审面回答 —— 绝不用 `existsSync`/`readFileSync` 去判"是否入库"(约束:取材面纪律)。
+ * @returns {{relPaths:string[], undetermined:string[]}}
+ */
+export function listArchiveDiskFiles(root) {
+  const base = path.join(root, ARCHIVE_DIR)
+  const relPaths = []
+  const undetermined = []
+  if (!existsSync(base))
+    return {
+      relPaths,
+      undetermined: [`${ARCHIVE_DIR} 目录取不到 ⇒ A1 本轮无盘上候选(这是"未判定",不是"没有未入库件")`],
+    }
+  const stack = [[base, '', 0]]
+  let truncated = false
+  while (stack.length) {
+    const [dir, rel, depth] = stack.pop()
+    let items
+    try {
+      items = readdirSync(dir, { withFileTypes: true })
+    } catch (e) {
+      undetermined.push(`${rel || ARCHIVE_DIR} 枚举失败:${String(e?.message ?? e).split(/\r?\n/)[0]}`)
+      continue
+    }
+    for (const it of items) {
+      const childRel = rel ? `${rel}/${it.name}` : it.name
+      if (it.isSymbolicLink()) {
+        undetermined.push(`${childRel} 是重解析点(符号链接/junction)⇒ 不穿、不判(§26)`)
+        continue
+      }
+      if (it.isDirectory()) {
+        if (depth + 1 > ARCHIVE_SCAN_MAX_DEPTH) {
+          undetermined.push(`${childRel}/ 深度超 ${ARCHIVE_SCAN_MAX_DEPTH} ⇒ 该子树未判定`)
+          continue
+        }
+        stack.push([path.join(dir, it.name), childRel, depth + 1])
+        continue
+      }
+      if (!it.isFile()) continue
+      if (relPaths.length >= ARCHIVE_SCAN_MAX_ENTRIES) {
+        truncated = true
+        continue
+      }
+      relPaths.push(childRel)
+    }
+  }
+  if (truncated)
+    undetermined.push(`候选已达 ${ARCHIVE_SCAN_MAX_ENTRIES} 条 ⇒ 其余未判定(不是"其余都已入库")`)
+  return { relPaths, undetermined }
+}
+
+/** 从被审面读四件套:盘上归档件(递归、全命名)、审面上的文件名(全集)+ 相对路径、计划文档正文、归档件正文合流(A3 用)。 */
 function readAnchorInputs(root, face) {
-  const { entries, undetermined, faceFiles } = archiveFaceEntries(root, face)
+  const {
+    entries,
+    undetermined,
+    faceFiles,
+    faceRelPaths = faceFiles,
+    faceReadFailed = null,
+  } = archiveFaceEntries(root, face)
   const planSpec = face === 'staged' ? `:${FILE}` : `HEAD:${FILE}`
   let planText = catBatch(root, [planSpec], { timeout: 60000 }).get(planSpec) ?? ''
   if (face === 'worktree') planText = readWorktreeFile(root, FILE) ?? planText
@@ -527,13 +707,20 @@ function readAnchorInputs(root, face) {
   let archiveText = ''
   for (const e of entries) archiveText += e.text
   const archiveUndetermined = undetermined.length
-  let diskAnchors = []
-  try {
-    diskAnchors = existsSync(path.join(root, ARCHIVE_DIR)) ? readdirSync(path.join(root, ARCHIVE_DIR)) : []
-  } catch {
-    diskAnchors = []
+  // A1 的候选侧:整个归档目录(递归),**不问名字形状**。
+  // ⚠ 这里 readdirSync 只回答"盘上有什么文件";"在不在版本控制里"一律由 archiveFaceEntries 的
+  //   审面(ls-tree HEAD / ls-files 索引)回答 —— 用磁盘读法判"是否入库"就是本门要防的那一型(G-183/G-184)。
+  const disk = listArchiveDiskFiles(root)
+  return {
+    diskAnchors: disk.relPaths,
+    faceFiles,
+    faceRelPaths,
+    planText,
+    archiveText,
+    archiveUndetermined,
+    diskScanUndetermined: disk.undetermined,
+    faceReadFailed,
   }
-  return { diskAnchors, faceFiles, planText, archiveText, archiveUndetermined }
 }
 
 /** 取证自检:三条判据各有正反例,且**不碰真仓磁盘**(盘上清单是机器态,只能构造)。 */
@@ -589,9 +776,78 @@ export function selfTest() {
     const r2 = anchorVerdict({ diskAnchors: [f], faceFiles: [f], planText: '', ledger: [] })
     return r1.red.some((x) => x.startsWith('A1')) && r2.red.length === 0
   })
-  t('A1 非 PROJECT_PLAN_* 的文件(审计件等)不判红', () => {
-    const r = anchorVerdict({ diskAnchors: ['notes.txt'], faceFiles: [], planText: '', ledger: [] })
-    return r.red.length === 0
+  /**
+   * ⚠️ 这一条从"不判红"翻成"判红",是**收紧**不是放宽 —— 它就是本票要关的那一格。
+   * 旧判据按 `ANCHOR_RE`(只认 `PROJECT_PLAN_*.md`)筛候选,于是 2026-10-02 本机量到的
+   * `.ihui-agent/archive/AGENTS_dead-entries-2026-09-30.md`(盘上有、HEAD 与索引都没有)
+   * 对 A1 完全隐形,§1「归档锚点必须受版本控制」对 AGENTS_ 前缀、README_ 前缀、裸名、子目录
+   * 那一族是零判据的。
+   * 名字取本仓实际存在的那一族(`AGENTS_`),不是编出来的形状。
+   */
+  t('A1 目录意图射程:AGENTS_* 命名的归档件在盘上而审面没有 ⇒ 必须点名(旧形状判据对它零判据)', () => {
+    const f = 'AGENTS_dead-entries-2099-01-01.md'
+    const r = anchorVerdict({ diskAnchors: [f], faceFiles: [], planText: '', ledger: [], archiveLedger: [] })
+    return r.red.length === 1 && r.red[0].startsWith('A1') && r.red[0].includes(f)
+  })
+  t('A1 正向对照(有牙证明的另一半):同一份 AGENTS_* 已进审面 ⇒ 必须放行', () => {
+    const f = 'AGENTS_dead-entries-2099-01-01.md'
+    const r = anchorVerdict({
+      diskAnchors: [f],
+      faceFiles: [f],
+      faceRelPaths: [f],
+      planText: '',
+      ledger: [],
+      archiveLedger: [],
+    })
+    return r.red.length === 0 && r.baseline.length === 0
+  })
+  t('A1 子目录里的件按**整条相对路径**判,顶层同名那份不得替它背书(射程含子目录后新暴露的一型假绿)', () => {
+    const rel = 'audit-reports-2026-07-21/untracked-probe.md'
+    const r = anchorVerdict({
+      diskAnchors: [rel],
+      faceFiles: ['untracked-probe.md'],
+      faceRelPaths: ['untracked-probe.md'],
+      planText: '',
+      ledger: [],
+      archiveLedger: [],
+    })
+    return r.red.length === 1 && r.red[0].includes(rel)
+  })
+  t('A1 存量台账:已登记的未入库件只报数不判红(恒红门 = 全队 --no-verify,§12e)', () => {
+    const rel = 'AGENTS_dead-entries-2026-09-30.md'
+    const r = anchorVerdict({
+      diskAnchors: [rel],
+      faceFiles: [],
+      faceRelPaths: [],
+      planText: '',
+      ledger: [],
+      archiveLedger: [rel],
+    })
+    return r.red.length === 0 && r.baseline.length === 1 && r.baseline[0].includes('A1')
+  })
+  t('A1 台账腐烂:件已回到审面而台账仍挂着同一行 ⇒ 判红(删行必须与入库同步)', () => {
+    const rel = 'AGENTS_dead-entries-2026-09-30.md'
+    const r = anchorVerdict({
+      diskAnchors: [rel],
+      faceFiles: [rel],
+      faceRelPaths: [rel],
+      planText: '',
+      ledger: [],
+      archiveLedger: [rel],
+    })
+    return r.red.length === 1 && r.red[0].startsWith('A1 台账腐烂') && r.baseline.length === 0
+  })
+  t('A1 默认台账就是本仓现读的那一份:未入库的 AGENTS_dead-entries 必须落"只报数"而不是红', () => {
+    const r = anchorVerdict({
+      diskAnchors: [...UNTRACKED_ARCHIVE_LEDGER],
+      faceFiles: [],
+      faceRelPaths: [],
+      planText: '',
+      ledger: [],
+    })
+    return (
+      UNTRACKED_ARCHIVE_LEDGER.length === 1 && r.red.length === 0 && r.baseline.length === 1
+    )
   })
   t('A2 占位点名的文件不在审面、且未登记 ⇒ 红', () => {
     const plan = 'x <!-- 已归档(2026-01-01):A,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-01-01.md --> y'
@@ -814,6 +1070,12 @@ export const __test__ = {
   anchorVerdict,
   planPair,
   LOST_ANCHOR_LEDGER,
+  // A1 换射程后镜像测试要用的三件:存量台账(证它只报数)、盘上枚举(证射程是目录意图
+  // 而不是名字形状,含子目录/护栏报名)、审面出口(证"是否入库"只由 git 面回答)。
+  UNTRACKED_ARCHIVE_LEDGER,
+  listArchiveDiskFiles,
+  archiveFaceEntries,
+  ARCHIVE_DIR,
   // T3 与粒度相关的三件:镜像测试据此证"提取式收窄必红"(有牙)与"存量台账只报数"。
   shapeCoverageVerdict,
   T3_GRANDFATHERED_SHAPES,
