@@ -2842,3 +2842,45 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
   第 ① 条的由来:宽窗口`elementWindow`从开标签向下取 6 行,会把子节点的`h-4 w-4` 算进父盒
   (`w-40` 下拉被量成 160×10、`h-9 px-4`按钮被量成 16×36)⇒ 现由`boxDimsOwn` 单独承担,判不出闭合即**只报名不判红**。
   - **落点(2026-09-30 改,用户拍板"项目产物不外流"):`git worktree add --detach .worktrees/wt-<任务名>`**(项目内 `.worktrees/`,已 gitignore;旧落点 `../IHUI-AI-wt-<任务名>` 即盘根散落目录,2026-09-30 已清理 13 个残留并立盘根卫生巡检档 `check-disk-root-hygiene.mjs`(warn,刻意不接提交链)防回潮)。detached HEAD,不占分支名,不违反 §9b
+- **通道"可用"必须被量到,不能靠"没人记下失败"(2026-10-02 立,补 §5e 唯一无人答的那一维)**:
+  告警寄不出去最坏的形态不是响亮地报错,而是**安静地少一封**。旧判据链只能回答"有没有生产者写下过投递失败标记",
+  而 `check-credential-health` 那份 UNDELIVERED 标记**会被下一次任意成功投递清掉** ⇒ "某条告警从来没寄出去过"
+  在标记被清的那一刻起彻底隐形(2026-10-01 实测:`孤儿删除引用巡检命中` 台账里记着 `delivered:false`,
+  而巡检 P8 同一轮打印"无未送达标记")。现补两维,都在 `scripts/check-ops-patrol.mjs`(告警档,刻意不进提交链 ——
+  它判的是机器状态,挂 blocking 就是每台每次被逼 `--no-verify` 连带废掉全部守门,§12e):
+  ① **P9 邮件通道活性**:每 24h 真探一次 `node apps/api/scripts/notify-deploy-failure.ts --probe` =
+  SMTP 连接 + EHLO + 认证后立即关闭(nodemailer `transporter.verify()`,**零投递**);Resend 没有零投递的
+  核验出口 ⇒ 如实落 `undetermined`,要确证得显式 `--probe-deliver` 真发一封。退出码三档 **0=至少一条通道
+  确证可用 / 1=确证失败 / 2=未判定**,而 2 既不得读成"通道坏了"也不得读成"通道好了"。
+  ② **P10 未送达欠账**:扫 `.workbuddy/*notify-state*.json`(生产者侧投递台账,巡检**只读不改**),凡
+  `delivered:false` 且过了 30 分钟宽限期 ⇒ 逐条点名"身份 + 完整 40 位指纹 + 那一笔的绝对时刻"。
+  这条队列的出口是 `scripts/data/undelivered-debt-acks.json` 的**五件套** `alert + fp + atTs + reason + owner + reviewBy`:
+  缺字段 / 到期 / 时刻不符都不放行。**`atTs` 这一维是必须的** —— 判据明令点名串只写绝对时刻(发信指纹吃 detail,
+  写"已挂 N 分钟"会逐轮生成新指纹 = 同一件故障每轮一封新信),所以同一件故障**复发时指纹往往就是同一个**,
+  少了时刻这一档就等于一次裁决变成一个告警名的永久静音(机主明令「抑制告警必须有终态」同一条禁令)。
+  两条纪律一并写下:**(a) 不回补投递旧告警** —— 对一件已复验消除的故障补发一封旧告警,按机主明令
+  「重复告警就是缺陷」是新噪声而不是清偿;要补发的只有"故障仍在"的那种,而判据只负责把它摆到人前。
+  **(b) 裁决账的 owner 必须写真实裁决人**:值守会话能复验、能落证据,但"这件事我不需要补发"是机主的决定,
+  代理不得替他签这个字(本机首跑的 2 条欠账因此把 owner 写成值守会话并附复验命令,到期自动回红)。
+  - **那一格已补上(2026-10-02 落地;读数一律现跑,别照本行派单)**:上面"四处没法声明 owner"这件事的事实改了 ——
+    ① 正常 `pnpm dev`:锁的持有者改成 `scripts/dev-with-warmup.mjs` **自己**(它先 `acquire({ownerPid: process.pid, token})`
+    再起 next dev),并派一个 detached 的 `deploy-lock.mjs heartbeat --watch-pid <启动器 pid>` 每 30s 续 `ts`;
+    退出走 `quit()` 带凭据交还。**共存档**(别的 dev 已持锁)时既不派心跳也不释放 —— 归属由 `lockOwnedBy(token)`
+    现读,不靠"我调过 acquire 就算我的"(那一档会让心跳替别人的锁永久续期)。
+    ② `dev:clean` / `dev:stable`:它们的 shell 与 next dev 同生死,是有效持有者,现带 `--with-heartbeat`。
+    ③ `pnpm --filter @ihui/web build`:改走 `deploy-lock.mjs run --mode build -- <原命令一字不改>`。
+    **实测的旧形态**是"prebuild 里 acquire,而 prebuild 是另一条生命周期脚本、它的 shell 在 build 开始前就退了"
+    ⇒ 整个 `next build` 期间那把锁的主人是个死进程,按现行"悬挂锁不限锁龄立即抢占"这条谁都能秒抢:
+    **账面有锁,实际没保护**(8-09 那两个构建同时写 `.next` ⇒ 8801 短暂 502 的那一型在这条入口上仍可发生)。
+    `run` 把"拿锁 + 跑命令 + 交还"收进同一个进程:命令退出码原样传播(被信号终止按 128+N 记失败,
+    不许 npm/CI 把"没构建出来"读成"构建成功"),命令根本起不来(rc=127)也必须把锁收口。
+    **再入守卫** = 环境变量 `IHUI_DEPLOY_LOCK_HELD`(由 `run` 注入子进程):上层已持这把锁时子层**不再 acquire**
+    —— 同 mode 互斥会让它等自己直到超时,那是一台纯粹自造的部署冻结(与根 `IHUI_TYPECHECK_FULL_CHILD` 那条
+    fork 风暴守卫同一条设计)。`--with-heartbeat` 缺省关闭,且关闭时**一次额外读盘、一次派生都不做**
+    —— 现存调用方(build-next-prod.ps1 等)行为逐字不变,由自检 AH5 + 镜像钉住。
+    **仍开着的一格(如实登记,不得读成已全覆盖)**:`dev` 链里 `clean-turbopack-cache.mjs` 跑在启动器拿锁**之前**,
+    那一段清缓存与并发构建的重叠窗口与本票改动前同样存在(改前那把 predev 锁也覆盖不到它);
+    而部署环走的是 `deploy/win/.deploy.lock` —— 与项目根 `.deploy.lock` 是**两把不同的锁**(别混),
+    它自带的判活/心跳不受本票影响。取证:`node scripts/deploy-lock.mjs --self-test`(HB/AH/RU 三族,条数以末行为准)
+    + `node --test scripts/tests/deploy-lock.test.mjs`(HB-M1…M9,含"摘掉再入守卫就会白等超时"的端到端臂)。
+- **错误码文本判分支对账**〔scripts/guardian-runner.mjs · scripts/check-error-code-not-text-matching.mjs · scripts/lib/code-mask.mjs · blocking · HUSKY_SKIP_ERROR_CODE_TEXT_MATCHING〕……完整原文: .ihui-agent/archive/AGENTS_slimmed-sliceA-2026-09-30.md L190–L190
