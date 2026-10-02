@@ -122,10 +122,32 @@ export const LIMITS = {
   devenvArchivesBytes: 20 * 1024 ** 3,
   /** 时钟:计划轮询 2048s,连续 3 次失败就该喊。 */
   ntpMaxAgeHours: 8,
+  /**
+   * P9 邮件通道活性探针的班次:24 小时真握手一次。
+   * 为什么不是每轮(15 分钟):SMTP 认证是对外部邮件服务商的凭据请求,高频重复会被风控
+   * (QQ 邮箱对短连高频 AUTH 会临时拒),那会把"通道本来是好的"读成"通道坏了"——
+   * 一个自己制造故障的尺子比没有尺子更坏。26 = 24 + 2 小时余量,与 pgDumpMaxAgeHours 同型。
+   */
+  mailProbeIntervalHours: 24,
+  /**
+   * 缓存的"还能用"上限,不是重探间隔(那会被 mailProbeDue 读成 0 窗口 ⇒ 每轮派生一次)。
+   * 30 = 24h 班次 + 6h 容忍(守护可能被停过、机器可能睡过)。超过它而 tick 仍说"未到窗口",
+   * 只可能是两份文件不一致 ⇒ 落未判定并点名,绝不沿用一份过期读数出合格证。
+   */
+  mailProbeStaleWarnHours: 30,
 }
 
 const PROM_SYNC_SCRIPT = join(SELF_DIR, 'sync-prometheus-live-config.mjs')
 const RENDER_SCRIPT = join(SELF_DIR, 'render-alertmanager-config.mjs')
+// P9 的活性探针**不 import 派发器**(它是 .ts,且判的是机器状态不是被审内容),只按既有调用
+// 形态派生它 —— 通道配置的解析住在派发器里,本文件再读一遍 .env 就是第二个真相
+// (在检查里自拼 SMTP/Resend 同样被 §5e 与守门 81 禁止)。两条路径由 repoRoot 在函数内推导,
+// 因为自检要在临时仓里造现场;模块级常量会让那一档永远走真仓。
+const MAIL_PROBE_TICK = join(REPO, '.workbuddy', 'mail-probe-tick.ts')
+const MAIL_PROBE_LAST = join(REPO, '.workbuddy', 'mail-probe-last.json')
+const MAIL_PROBE_TIMEOUT_MS = Number(process.env.IHUI_MAIL_PROBE_TIMEOUT_MS || 45_000)
+/** 告警身份"确证没送到"的宽限期 = 守护派发层的失败退避(30min)。超过它仍是 false ⇒ 欠账。 */
+const UNDELIVERED_GRACE_MS = 30 * 60 * 1000
 
 function sha(buf) {
   return createHash('sha256').update(buf).digest('hex').slice(0, 16)
@@ -368,6 +390,335 @@ export function checkUndeliveredAlertMarkers({ repoRoot = REPO } = {}) {
   const parts = [`${items.length} 枚未送达标记 —— 有故障从未被人看见:${items.join(' ;; ')}`]
   if (broken.length) parts.push(`另有 ${broken.length} 枚解析不出(未判定,不算已判):${broken.join(' ; ')}`)
   return { id, state: 'finding', detail: parts.join(' | ') }
+}
+
+/**
+ * P9 邮件通道**活性**(2026-10-01 立)。P8 只在"某个生产者自己记过投递失败"时才响,
+ * 而 P8 绿的那句原文就是"无未送达标记…**不证明邮件通道可用**"——这半句从今天起有了配套尺子。
+ *
+ * 为什么不复用 --dry-run 那种"配置齐不齐"的判法:齐备的授权码过期、端口被封、发信域被拒,
+ * 三者在配置面上都长得一模一样,而唯一会暴露它们的时刻恰好是一次真故障正需要那封信的时候
+ * —— 也就是最需要告警、最不能失败的那一格。
+ *
+ * 三条不许多做的事:
+ *   ① **零投递**:探针只做连接 + 认证握手后立即断开,不发一封信、不占收件人(机主的信箱
+ *      不是这道门的耗材)。要确证 Resend 那一腿只能真发,故它单列"未判定"而不是被顺手算过。
+ *   ② **班次节流 24h**:高频 AUTH 会被邮件服务商风控,那会把"本来是好的"读成"坏了"——
+ *      一把自己制造故障的尺子比没有尺子更坏。未到窗口就读上次结论,读不到则"未判定"。
+ *   ③ 三态不并桶:握手失败 = finding;取不到派发器 / 派生失败 / 输出解不出 = **未判定**
+ *      并点名原因,绝不冒绿也绝不把"没看清"判成"通道坏了"。
+ * 结论串里的时刻只取**上次真探测**那一刻(24h 才变一次),不写"几分钟前" —— 守护按
+ * "身份 + 内容指纹"去重,每轮变动的措辞会每轮生成一封新信(重复告警本身就是缺陷)。
+ */
+export function parseProbeOutput(text) {
+  const lines = String(text ?? '').split(/\r?\n/)
+  const channels = {}
+  let verdict = null
+  for (const raw of lines) {
+    const line = raw.trim()
+    const m = /^\[probe\]\s+(smtp|resend)=(\w+)\b\s*(.*)$/.exec(line)
+    if (m) {
+      channels[m[1]] = { verdict: m[2], why: m[3] || '' }
+      continue
+    }
+    const v = /^\[probe\]\s+结论[:：](.*)$/.exec(line)
+    if (v) verdict = v[1].trim()
+  }
+  if (Object.keys(channels).length === 0 || verdict === null) return null
+  return { channels, verdict }
+}
+
+/** 节流判定(纯函数):取不到 tick ⇒ 视为"该跑了"(与 publicProbeDue 同一条底线)。 */
+export function mailProbeDue(nowMs, tickMs, intervalMs = LIMITS.mailProbeIntervalHours * 3600_000) {
+  if (!Number.isFinite(tickMs)) return true
+  return nowMs - tickMs >= intervalMs
+}
+
+/** 把一份探针结论投成巡检行(纯函数 —— 镜像测试直接喂构造面,不必真联网)。 */
+export function mailProbeRow(probe, { atMs }) {
+  const id = 'P9·邮件通道活性'
+  // 措辞里**只有绝对时刻**:守护按"身份 + 内容指纹"去重,而指纹吃整条 detail
+  // (git-guardian 的 alertFingerprint),所以"距今 X 小时"这种逐轮变动的数字会让
+  // 每一次巡检都生成一封新信 —— 重复告警本身就是缺陷(与 P8 头注同一条理由)。
+  const at = new Date(atMs).toISOString()
+  const parts = Object.entries(probe.channels)
+    .map(([k, v]) => `${k}=${v.verdict}${v.why ? `(${v.why.slice(0, 80)})` : ''}`)
+    .join(' ')
+  const stamp = `上次探测 ${at}(班次 ${LIMITS.mailProbeIntervalHours}h)`
+  if (probe.rc === 0) return { id, state: 'ok', detail: `至少一条通道确证可用;${parts} | ${stamp}` }
+  if (probe.rc === 1)
+    return { id, state: 'finding', detail: `通道确证不可用 —— 告警此刻寄不出去:${parts} | ${stamp}` }
+  return {
+    id,
+    state: 'undetermined',
+    detail: `探针没确证任何一条通道(配置缺失或该通道无零投递出口),**不得读成"通道坏了"**:${parts} | ${stamp}`,
+  }
+}
+
+export async function checkMailChannelLiveness({
+  now = Date.now(),
+  repoRoot = REPO,
+  runner = null,
+  tickFile = MAIL_PROBE_TICK,
+  lastFile = MAIL_PROBE_LAST,
+} = {}) {
+  const id = 'P9·邮件通道活性'
+  const readTick = () => {
+    try {
+      const t = String(readFileSync(tickFile, 'utf8')).trim()
+      const n = Number(t)
+      return Number.isFinite(n) && String(n) === t ? n : Date.parse(t)
+    } catch {
+      return NaN
+    }
+  }
+  const readLast = () => {
+    try {
+      const o = JSON.parse(readFileSync(lastFile, 'utf8'))
+      if (!o || typeof o !== 'object' || !Number.isFinite(Number(o.atMs)) || !o.probe) return null
+      return o
+    } catch {
+      return null
+    }
+  }
+  const tick = readTick()
+  if (!mailProbeDue(now, tick)) {
+    const last = readLast()
+    if (!last)
+      return {
+        id,
+        state: 'undetermined',
+        detail: `未到 ${LIMITS.mailProbeIntervalHours}h 班次窗口,而上一轮结论文件取不到 ⇒ 没判,不读成"已验过"`,
+      }
+    // tick 与结论都在而结论本身已经老过一档 ⇒ 两把内部时钟不一致,只能报矛盾,
+    // 不得沿用一份过期结论出合格证。措辞同样只带绝对时刻(指纹吃 detail)。
+    if (now - Number(last.atMs) > LIMITS.mailProbeStaleWarnHours * 3600_000)
+      return {
+        id,
+        state: 'undetermined',
+        detail: `节流与结论文件不一致:未到班次窗口而缓存已老于 ${LIMITS.mailProbeStaleWarnHours}h(上次探测 ${new Date(Number(last.atMs)).toISOString()})⇒ 未判定,不沿用过期读数`,
+      }
+    return mailProbeRow(last.probe, { atMs: Number(last.atMs) })
+  }
+
+  const sender = join(repoRoot, 'apps', 'api', 'scripts', 'notify-deploy-failure.ts')
+  const tsx = join(repoRoot, 'apps', 'api', 'node_modules', 'tsx', 'dist', 'cli.mjs')
+  if (!existsSync(tsx) || !existsSync(sender)) {
+    return {
+      id,
+      state: 'undetermined',
+      detail: `派发器或其 tsx 入口不在位(tsx=${existsSync(tsx)} sender=${existsSync(sender)})⇒ 没判`,
+    }
+  }
+  const call =
+    runner ||
+    (() => {
+      try {
+        const stdout = execFileSync(process.execPath, [tsx, sender, '--probe'], {
+          cwd: repoRoot,
+          windowsHide: true, // §5b:漏此参数在守护/计划任务下必弹控制台窗
+          timeout: MAIL_PROBE_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
+          maxBuffer: 1 << 20,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          encoding: 'utf8',
+        })
+        return { status: 0, stdout: String(stdout || ''), stderr: '' }
+      } catch (e) {
+        return {
+          status: typeof e?.status === 'number' ? e.status : 2,
+          stdout: String(e?.stdout || ''),
+          stderr: String(e?.stderr || e?.message || ''),
+        }
+      }
+    })
+  let r
+  try {
+    r = await call()
+  } catch (e) {
+    return { id, state: 'undetermined', detail: `派生探针失败(未判定,不是"通道坏了"):${e?.message || e}` }
+  }
+  const parsed = parseProbeOutput(r.stdout)
+  if (!parsed) {
+    return {
+      id,
+      state: 'undetermined',
+      detail: `探针输出解不出三态结论(rc=${r.status}):${(r.stderr || r.stdout || '(无输出)').split(/\r?\n/).slice(0, 2).join(' | ')}`,
+    }
+  }
+  // rc 的权威口径住在派发器自己的退出码里(它才知道"有没有一条被确证过")。这里只在
+  // **拿不到退出码**时(被杀 / 派生异常)才按结论行兜底推断 —— 两处各推一遍必然漂开,
+  // 而漂开的表现是把"未判定"洗成"可用"。
+  const rc =
+    r.status === 0 || r.status === 1 || r.status === 2
+      ? r.status
+      : parsed.channels.smtp?.verdict === 'ok' || parsed.channels.resend?.verdict === 'ok'
+        ? 0
+        : parsed.channels.smtp?.verdict === 'fail' || parsed.channels.resend?.verdict === 'fail'
+          ? 1
+          : 2
+  const row = mailProbeRow({ ...parsed, rc }, { atMs: now })
+  // 结论先落盘再返回:写不进去也必须给出本轮结论(否则一次盘错就永久失明 —— 与 P5 tick 同规矩)。
+  try {
+    mkdirSync(dirname(lastFile), { recursive: true })
+    writeFileSync(lastFile, JSON.stringify({ atMs: now, atISO: new Date(now).toISOString(), probe: { ...parsed, rc } }, null, 1), 'utf8')
+    writeFileSync(tickFile, String(now), 'utf8')
+  } catch (e) {
+    row.detail += ` | ⚠️ 结论落盘失败(${e?.code || e?.message}),下一轮会重探`
+  }
+  return row
+}
+
+/**
+ * 欠账的**逐条**裁决台账。为什么不用巡检那张行级裁决账(ops-patrol-adjudications.json):
+ * 它的 anchor 是行 id,一条裁决会把"今天这两条"与"下个月新出现的那条"一起盖住 ——
+ * 那等于用一次静音永久关掉这一维(守门 134 把锚点下沉到「文件 × 判据 × ack 键」同一课)。
+ * 这里 anchor 是 `身份 + 内容指纹 + 那一笔的时刻`:换一个新故障 = 新指纹 = 照旧红;
+ * 同名同指纹的**复发**是新的一笔(时刻不同)⇒ 上一次裁决不替它免。
+ */
+export function loadDebtAcks(file = join(REPO, 'scripts/data/undelivered-debt-acks.json')) {
+  try {
+    const parsed = JSON.parse(readFileSync(file, 'utf8'))
+    return { entries: Array.isArray(parsed?.entries) ? parsed.entries : [], readError: null }
+  } catch (e) {
+    if (e?.code === 'ENOENT') return { entries: [], readError: null }
+    return { entries: [], readError: `欠账裁决台账取不到/解析失败:${e?.message || e}` }
+  }
+}
+
+/**
+ * 欠账与裁决的**配对键**只有一份实现:身份 + 内容指纹 + 这一次的时刻。
+ * 键里没有时刻 ⇒ 同名同指纹的下一次未送达会被上一次裁决顺手免掉。
+ */
+function anchorTs(v) {
+  if (typeof v === 'number' && Number.isFinite(v)) return String(v)
+  const p = Date.parse(String(v ?? '').trim())
+  return Number.isFinite(p) ? String(p) : ''
+}
+
+export function debtAnchor(name, fp, ts) {
+  return [String(name ?? '').trim(), String(fp ?? '').trim(), anchorTs(ts)].join('|')
+}
+
+/** 一条裁决是否真免掉这笔欠账:身份 + 指纹 + 这一次的时刻逐字对上,四件套齐,且未到期。 */
+export function ackCoversDebt({ ack, name, fp, ts, now }) {
+  if (String(ack?.alert ?? '').trim() !== String(name ?? '')) return false
+  if (String(ack?.fp ?? '').trim() !== String(fp ?? '').trim()) return false
+  // 一次裁决裁的是**这一次未送达**,不是这个告警名的永久静音:必须逐字对上台账里那一笔的时刻。
+  // 少了这一段,"上次那条我裁过了"会自动免掉下一次同名同指纹的新欠账 —— 而同一件故障复发时
+  // 指纹往往是**同一个**(detail 只写绝对时刻,而我刻意要求只写绝对时刻)。
+  // 用户明令「抑制告警必须有终态」与守门 134「锚点粒度不够细 ⇒ 换个写法就净零逃逸」同一条课。
+  const at = Date.parse(String(ack?.atTs ?? '').trim())
+  if (!Number.isFinite(at) || at !== Number(ts)) return false
+  if (['reason', 'owner', 'reviewBy'].some((k) => !String(ack?.[k] ?? '').trim())) return false
+  const until = Date.parse(`${String(ack.reviewBy).trim()}T23:59:59Z`)
+  return Number.isFinite(until) && now <= until
+}
+
+/**
+ * P10 未送达欠账(2026-10-01 立)。它问的不是"现在有没有挂账标记",而是
+ * **"那些被记下过'没寄出去'的告警身份,后来到底有没有到人"** —— 两问不同:
+ * P8 的标记文件会被**下一次任意成功投递**清掉,于是"某件事从来没送到人"可以在
+ * 标记被清的那一刻起彻底隐形(2026-10-01 实测:`孤儿删除引用巡检命中` 记着
+ * delivered:false,而 P8 同一轮报"无未送达标记")。
+ *
+ * 判读四条,缺一都会让它变成一台瞎尺子:
+ *   ① 认的是**状态台账**里 `delivered === false` 且已超过宽限期的条目(逐条点名 + 时刻);
+ *   ② 没有 `delivered` 键的条目属旧形态,**只报数不判红**(否则上线当天即恒红);
+ *   ③ 目录/文件/JSON 任一层取不到 ⇒ **未判定**并点名,绝不被"没有欠账"的措辞顺带洗成通过;
+ *   ④ 有**逐条**出口(loadDebtAcks):免掉的条数照旧报名,到期或复发自动回红 ——
+ *      一条永远修不动、又没有出处的红,结局和恒红门一样是"大家学会不看它"。
+ * 措辞里只有绝对时刻,不写"已挂 N 分钟":指纹吃 detail,逐轮变动的数字 = 每轮一封新信。
+ * 生产者不写死清单:扫 `.workbuddy/*notify-state*.json`,谁的台账带 delivered 这一维就查谁 ——
+ * 新增生产者自动进射程,而"手工登记一份生产者名单"必然腐烂(§4 对 RN_ONLY_BRAND_KEYS 同课)。
+ */
+export function checkUndeliveredAlertDebt({
+  repoRoot = REPO,
+  now = Date.now(),
+  graceMs = UNDELIVERED_GRACE_MS,
+  acks = [],
+} = {}) {
+  const id = 'P10·未送达欠账'
+  const dir = join(repoRoot, '.workbuddy')
+  if (!existsSync(dir))
+    return { id, state: 'undetermined', detail: `取不到台账目录:${dir}(非本机 / 尚无派发者 ⇒ 未判定,不读成"无欠账")` }
+  let files
+  try {
+    files = readdirSync(dir).filter((n) => /notify-state.*\.json$/i.test(n))
+  } catch (e) {
+    return { id, state: 'undetermined', detail: `台账目录读不到:${e?.code || e?.message || '未知'}` }
+  }
+  if (files.length === 0)
+    return { id, state: 'ok', detail: '没有任何派发状态台账(这台机还没有守护发过信)——不是"欠账为零"' }
+  const debts = []
+  const legacy = []
+  const broken = []
+  const usedAnchors = new Set()
+  let acked = 0
+  let entriesSeen = 0
+  for (const f of files) {
+    let parsed
+    try {
+      parsed = JSON.parse(readFileSync(join(dir, f), 'utf8'))
+    } catch (e) {
+      broken.push(`${f}:${e?.code || e?.message || '解析失败'}`)
+      continue
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      broken.push(`${f}:顶层不是对象`)
+      continue
+    }
+    for (const [name, v] of Object.entries(parsed)) {
+      entriesSeen += 1
+      const ts = Number(v?.ts)
+      if (typeof v?.delivered !== 'boolean') {
+        legacy.push(`${f}#${name}`)
+        continue
+      }
+      if (v.delivered === true) continue
+      if (!Number.isFinite(ts)) {
+        broken.push(`${f}#${name}:ts 不是数字`)
+        continue
+      }
+      const waitMin = Math.round((now - ts) / 60000)
+      if (waitMin < graceMs / 60000) continue
+      if (acks.some((a) => ackCoversDebt({ ack: a, name, fp: v.fp, ts, now }))) {
+        acked += 1
+        usedAnchors.add(debtAnchor(name, v.fp, ts))
+        continue
+      }
+      // 只写**绝对时刻**:守护的发信指纹吃 detail,任何"距今/已挂 N 分钟"都会逐轮变动,
+      // 于是同一件故障每轮生成一封新信(AGENTS §5e 与用户明令「一直在报警你干啥吃的」)。
+      debts.push(
+        `${f} | 身份=${String(name).slice(0, 64)} | 指纹=${String(v.fp ?? '').slice(0, 12)} | 记于=${new Date(ts).toISOString()}`,
+      )
+    }
+  }
+  if (entriesSeen === 0 && !broken.length)
+    return { id, state: 'ok', detail: '台账存在但没有任何告警身份条目(首次发信前)' }
+  const tail = []
+  if (acked) tail.push(`已逐条裁过 ${acked} 条(裁的是那一笔,到期或复发即回红)`)
+  // 免掉的每一条都必须**当场对得上一次真投递** —— 否则那条裁决只是在替一个
+  // 并没有发生过的清偿背书(实测:台账写 alert 而指纹留空,曾被读成"这一格已裁")。
+  const proven = acks.filter((a) => usedAnchors.has(debtAnchor(a?.alert, a?.fp, a?.atTs)))
+  if (acked && proven.length !== acked)
+    tail.push(`⚠️ 裁决命中 ${acked} 条而可复核 ${proven.length} 条 —— 以可复核数为准`)
+  const unmatchedAcks = acks.filter((a) => !usedAnchors.has(debtAnchor(a?.alert, a?.fp, a?.atTs)))
+  if (unmatchedAcks.length)
+    tail.push(`另有 ${unmatchedAcks.length} 条裁决本轮找不到对应欠账(报名不判红:账可能已被真投递清偿,但清单不能悄悄胖起来)`)
+  if (legacy.length) tail.push(`旧形态条目 ${legacy.length} 条(无 delivered 键,只报数不判红)`)
+  if (broken.length) tail.push(`解析不出 ${broken.length} 处:${broken.join(' ; ')}`)
+  if (debts.length) {
+    const parts = [`${debts.length} 条告警被记为"没寄出去"且此后再没有被成功投递覆盖 —— 这件事从未到人:${debts.join(' ;; ')}`]
+    if (tail.length) parts.push(tail.join(' | '))
+    return { id, state: 'finding', detail: parts.join(' | ') }
+  }
+  return {
+    id,
+    // 只有"坏掉的条目"而无任何可判项时,答案是**未判定**,不是 ok 加一句附注 ——
+    // 把没判写成判过了是本仓最高频的失效型。
+    state: broken.length && !legacy.length && !acked ? 'undetermined' : 'ok',
+    detail: `无未清偿欠账(${files.length} 本台账、${entriesSeen} 条身份逐条判过)${tail.length ? ' | ' + tail.join(' | ') : ''}`,
+  }
 }
 
 /**
@@ -1304,6 +1655,21 @@ export async function patrol({ now = Date.now(), apply = false, strict = false, 
   // P8:投递失败标记。放在 P7 之后是刻意的 —— P7 量"副本在不在",P8 量"上一轮故障有没有人知道",
   // 两问不同,不得合并成一条(合并后任一侧变绿都会替另一侧作证)。
   add(checkUndeliveredAlertMarkers())
+  // P9:通道**活性**(零投递握手)。放在 P8 之后是因为这两问的方向相反 ——
+  // P8 是"有没有人记下过失败"(被动、只有失败过才有账),P9 是"通道现在到底能不能用"
+  // (主动、没事也要验一次)。只留 P8 的那一格,正是 P8 自己末句写着的"不证明通道可用"。
+  add(await checkMailChannelLiveness({ now, repoRoot: REPO }))
+  // P10:未送达欠账。P8 的标记会被下一次任意成功投递清掉,而"那件事到底有没有到人"
+  // 是另一条账 —— 同一条债不得在两个判据各计一次,但**不得把两条合成一条**。
+  // 裁决台账在这里读、判据在下面判:读不到/坏 JSON 一律按"零裁决"继续问责,
+  // 并把这一格落未判定 —— 静默当空台账等于让坏掉的裁决文件反而放宽判据。
+  const debtAcks = loadDebtAcks()
+  const debtRow = checkUndeliveredAlertDebt({ repoRoot: REPO, now, acks: debtAcks.entries })
+  if (debtAcks.readError) {
+    debtRow.detail = `${debtRow.detail} | ⚠️ ${debtAcks.readError} ⇒ 本轮按零裁决判,不静默当空台账`
+    if (debtRow.state === 'ok') debtRow.state = 'undetermined'
+  }
+  add(debtRow)
 
   /**
    * 裁决台账:把"机主已裁、且只有他能解除"的那条红挪出红档(照旧逐轮打印,只是不再触发发信),
@@ -1472,6 +1838,166 @@ function undeliveredMarkerFixture() {
     const absent = checkUndeliveredAlertMarkers({ repoRoot: join(base, 'no-such-repo') })
     if (absent.state !== 'undetermined') return { ok: false, why: '目录取不到应判未判定' }
     return { ok: true, why: '' }
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+}
+
+/**
+ * P9 通道活性夹具(2026-10-01)。全部走**注入的 runner**,自检零网络 —— 真握手只由巡检轮
+ * 自己去做,自检要证的是"三种结论各归各位、取不到时不冒绿、结论串逐轮不漂移"。
+ * 四对成对:可用→绿 / 认证失败→红 / 双未配置→未判定 / 输出解不出→未判定,
+ * 外加"未到窗口时复述上次结论"与"未到窗口而没有上次结论 ⇒ 未判定(不得读成已验过)"。
+ */
+async function mailProbeFixture() {
+  const root = scratchRoot()
+  mkdirSync(root, { recursive: true })
+  const base = mkdtempSync(join(root, 'ops-p9-'))
+  const now = Date.parse('2026-10-01T12:00:00.000Z')
+  try {
+  const mk = async (stdout, status = 0) => {
+    const repo = join(base, 'repo')
+    // 探针入口必须在位才会真派生:造两份空文件占位(runner 已注入,内容无人读)
+    mkdirSync(join(repo, 'apps', 'api', 'node_modules', 'tsx', 'dist'), { recursive: true })
+    mkdirSync(join(repo, 'apps', 'api', 'scripts'), { recursive: true })
+    writeFileSync(join(repo, 'apps', 'api', 'node_modules', 'tsx', 'dist', 'cli.mjs'), '', 'utf8')
+    writeFileSync(join(repo, 'apps', 'api', 'scripts', 'notify-deploy-failure.ts'), '', 'utf8')
+    const row = await checkMailChannelLiveness({
+      now,
+      repoRoot: repo,
+      tickFile: join(base, `tick-${Math.random().toString(36).slice(2)}`),
+      lastFile: join(base, `last-${Math.random().toString(36).slice(2)}`),
+      runner: () => ({ status, stdout, stderr: '' }),
+    })
+    return row
+  }
+  const okRow = await mk('[probe] smtp=ok 握手与认证通过(smtp.qq.com:587)\n[probe] resend=undetermined 无零投递出口\n[probe] 结论:至少一条通道确证可用;零投递,未占用收件人', 0)
+  if (okRow.state !== 'ok' || !okRow.detail.includes('smtp=ok')) return { ok: false, why: '可用档没判绿或未复述握手结论' }
+  const failRow = await mk('[probe] smtp=fail 535 Login fail\n[probe] resend=undetermined x\n[probe] 结论:有通道确证不可用', 1)
+  if (failRow.state !== 'finding' || !failRow.detail.includes('smtp=fail')) return { ok: false, why: '认证失败档没判红或未点名' }
+  const unRow = await mk('[probe] smtp=unconfigured 缺 SMTP_HOST\n[probe] resend=unconfigured 缺 RESEND_API_KEY\n[probe] 结论:无法判定', 2)
+  if (unRow.state !== 'undetermined' || !unRow.detail.includes('不得读成')) return { ok: false, why: '双未配置档被并成了红或绿(三态并桶)' }
+  const junkRow = await mk('node: internal error', 2)
+  if (junkRow.state !== 'undetermined') return { ok: false, why: '输出解不出却给出了确定结论' }
+  // 未到窗口 + 有上次结论 ⇒ 复述,不得再派生
+  const repo = join(base, 'repo2')
+  mkdirSync(join(repo, '.workbuddy'), { recursive: true })
+  const tick = join(base, 'tick2')
+  const last = join(base, 'last2')
+  writeFileSync(tick, String(now - 3600_000), 'utf8')
+  writeFileSync(last, JSON.stringify({ atMs: now - 3600_000, probe: { rc: 1, channels: { smtp: { verdict: 'fail', why: 'x' } }, verdict: 'y' } }), 'utf8')
+  let spawned = 0
+  const cached = await checkMailChannelLiveness({ now, repoRoot: repo, tickFile: tick, lastFile: last, runner: () => { spawned += 1; return { status: 0, stdout: '', stderr: '' } } })
+  if (spawned !== 0) return { ok: false, why: '未到窗口仍派生了探针(节流失效)' }
+  if (cached.state !== 'finding' || !cached.detail.includes('上次探测')) return { ok: false, why: '未到窗口没复述上次结论' }
+  // 措辞稳定性(守护的发信指纹吃整条 detail ⇒ 逐轮变动的数字 = 每轮一封新信)。
+  // 两条都要:**形状锁**盯"距今/已挂 N 分钟"这类字样(它抓得住用 Date.now() 现拼的漂移,
+  // 那种漂移两次同墙钟调用是等值的,只比对会被绕过 —— 本条断言的第一版就是这样无牙的,
+  // 由变异自证 p9-drift / p10-drift 各 0 条红当场暴露);**等值锁**盯"随注入的 now 变化"。
+  if (/距今|已挂\s*\d+\s*分钟/.test(cached.detail))
+    return { ok: false, why: `结论串里还有逐轮变动的量 ⇒ 每轮一封新告警:${cached.detail}` }
+  const later = await checkMailChannelLiveness({ now: now + 10 * 60_000, repoRoot: repo, tickFile: tick, lastFile: last, runner: () => { spawned += 1; return { status: 0, stdout: '', stderr: '' } } })
+  if (later.detail !== cached.detail)
+    return { ok: false, why: `结论串随读数时刻漂移 ⇒ 每轮生成一封新告警\n  A:${cached.detail}\n  B:${later.detail}` }
+  // 节流单位:24 小时**不是** 24 分钟。写成 hours*60000 时差一秒到班次的这一臂会被判成
+  // "未到窗口"(变异自证:把 mailProbeDue 的 *3600_000 改成 *60000,本条即红)。
+  if (mailProbeDue(now + 86399999, now) !== false) return { ok: false, why: '差一秒到班次却被判该重探 ⇒ 节流单位不对' }
+  if (mailProbeDue(now + 86400001, now) !== true) return { ok: false, why: '满 24 小时仍不重探' }
+  // tick 取不到 ⇒ 一律视为"该跑了"(首次/被清理都得能自愈,否则永远不探)
+  if (mailProbeDue(now, NaN) !== true) return { ok: false, why: '取不到 tick 被读成"未到窗口"' }
+  rmSync(last, { force: true })
+  const noCache = await checkMailChannelLiveness({ now, repoRoot: repo, tickFile: tick, lastFile: last, runner: () => ({ status: 0, stdout: '', stderr: '' }) })
+  if (noCache.state !== 'undetermined') return { ok: false, why: '未到窗口而无上次结论被读成"已验过"' }
+  // 稳定性:同一份 last 连判两次必须逐字同形(否则每轮生成一封新告警)
+  const again = await checkMailChannelLiveness({ now: now + 1000, repoRoot: repo, tickFile: tick, lastFile: join(base, 'last-missing'), runner: () => ({ status: 0, stdout: '', stderr: '' }) })
+  if (again.state !== 'undetermined' || !again.detail.includes('取不到')) return { ok: false, why: '结论文件缺失档未点名原因' }
+  return { ok: true, why: '' }
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+}
+
+/**
+ * P10 未送达欠账夹具:同一份台账,只换"delivered 键有没有 / 是否超过宽限期",
+ * 结论必须逐档翻 —— 四态各有正反例,并含"解析不出不得被没有欠账的措辞洗成通过"。
+ */
+function undeliveredDebtFixture() {
+  const root = scratchRoot()
+  mkdirSync(root, { recursive: true })
+  const base = mkdtempSync(join(root, 'ops-p10-'))
+  const now = Date.parse('2026-10-01T12:00:00.000Z')
+  const repo = join(base, 'repo')
+  try {
+  const wb = join(repo, '.workbuddy')
+  mkdirSync(wb, { recursive: true })
+  const st = join(wb, 'git-guardian-notify-state.json')
+  const write = (obj) => writeFileSync(st, JSON.stringify(obj), 'utf8')
+  write({ 备份失败: { fp: 'a'.repeat(40), ts: now - 6 * 3600_000, delivered: false }, 已送达的: { fp: 'b'.repeat(40), ts: now - 6 * 3600_000, delivered: true } })
+  const red = checkUndeliveredAlertDebt({ repoRoot: repo, now })
+  if (red.state !== 'finding' || !red.detail.includes('备份失败')) return { ok: false, why: '挂账未判红或未点名身份' }
+  if (red.detail.includes('已送达的')) return { ok: false, why: '把已送达的条目也算进欠账' }
+  // 形状锁(不是等值锁):点名串里**不许出现任何随读数时刻变化的量**。
+  // 等值比较对"同一时刻调两次"天然同串,抓不住这类漂移 —— 本条断言的第一版就是这样无牙的,
+  // 由变异自证(把 `已挂 N 分钟` 放回点名串)当场 0 条红暴露。守护的发信指纹吃整条 detail,
+  // 逐轮变动的数字 = 同一件故障每轮一封新信(AGENTS §5e;重复告警本身就是缺陷)。
+  if (/已挂\s*\d+\s*分钟|距今/.test(red.detail))
+    return { ok: false, why: `红档点名串含逐轮变动的量:${red.detail}` }
+  const again = checkUndeliveredAlertDebt({ repoRoot: repo, now })
+  if (again.detail !== red.detail) return { ok: false, why: '同一本台账两次结论不同形 ⇒ 逐轮新告警' }
+  write({ 备份失败: { fp: 'a'.repeat(40), ts: now - 5 * 60_000, delivered: false } })
+  if (checkUndeliveredAlertDebt({ repoRoot: repo, now }).state !== 'ok') return { ok: false, why: '宽限期内的重发窗口被判成欠账' }
+  write({ 旧形态条目: { fp: 'c'.repeat(40), ts: now - 9 * 3600_000 } })
+  const legacy = checkUndeliveredAlertDebt({ repoRoot: repo, now })
+  if (legacy.state !== 'ok' || !legacy.detail.includes('旧形态条目 1 条')) return { ok: false, why: '无 delivered 键的存量被当成红(上线即恒红型)' }
+  write({ 备份失败: { fp: 'a'.repeat(40), ts: now - 6 * 3600_000, delivered: true } })
+  if (checkUndeliveredAlertDebt({ repoRoot: repo, now }).state !== 'ok') return { ok: false, why: '已清偿的账没回到绿' }
+  writeFileSync(st, '{坏了', 'utf8')
+  const broken = checkUndeliveredAlertDebt({ repoRoot: repo, now })
+  if (broken.state !== 'undetermined' || !broken.detail.includes('git-guardian-notify-state.json')) return { ok: false, why: '坏台账未落未判定或未点名文件' }
+  rmSync(st, { force: true })
+  const none = checkUndeliveredAlertDebt({ repoRoot: join(base, 'nope'), now })
+  if (none.state !== 'undetermined') return { ok: false, why: '目录取不到应判未判定' }
+  // ── 逐条裁决:这条队列的死亡机制(没有它,一条永远修不动的红会把整维读成噪声)──────
+  const FP_A = 'a'.repeat(40)
+  write({ 备份失败: { fp: FP_A, ts: now - 6 * 3600_000, delivered: false } })
+  const ackGood = {
+    alert: '备份失败',
+    fp: FP_A,
+    atTs: new Date(now - 6 * 3600_000).toISOString(),
+    reason: '机主已人工确认这条故障当时不影响数据,无需补发',
+    owner: '机主',
+    reviewBy: '2099-01-01',
+  }
+  const ackedRow = checkUndeliveredAlertDebt({ repoRoot: repo, now, acks: [ackGood] })
+  if (ackedRow.state !== 'ok' || !ackedRow.detail.includes('已逐条裁过 1 条'))
+    return { ok: false, why: `有效裁决没免掉欠账:${ackedRow.detail}` }
+  if (ackedRow.detail.includes('从未到人')) return { ok: false, why: '已裁条目仍按"从未到人"判红' }
+  if (checkUndeliveredAlertDebt({ repoRoot: repo, now, acks: [{ ...ackGood, fp: 'b'.repeat(40) }] }).state !== 'finding')
+    return { ok: false, why: '指纹不匹配的裁决把欠账免了(= 一条静音挡掉未来所有同类)' }
+  // 时刻档:同名同指纹的**另一笔**未送达必须照旧红。缺这一档,"上次我裁过"就自动免掉下一次复发
+  // (同一件故障复发时 detail 只有绝对时刻 ⇒ 指纹常常就是同一个,单靠 fp 分不开两次)。
+  if (
+    checkUndeliveredAlertDebt({
+      repoRoot: repo,
+      now,
+      acks: [{ ...ackGood, atTs: new Date(now - 30 * 24 * 3600_000).toISOString() }],
+    }).state !== 'finding'
+  )
+    return { ok: false, why: '时刻不符的裁决免掉了这一笔 ⇒ 一次裁决变成一个告警名的永久静音' }
+  if (checkUndeliveredAlertDebt({ repoRoot: repo, now, acks: [{ ...ackGood, atTs: undefined }] }).state !== 'finding')
+    return { ok: false, why: '不带 atTs 的裁决仍生效(五件套退化成四件套 = 复发无声)' }
+  if (checkUndeliveredAlertDebt({ repoRoot: repo, now, acks: [{ ...ackGood, owner: '  ' }] }).state !== 'finding')
+    return { ok: false, why: '缺 owner 的四件套不全也生效了' }
+  if (checkUndeliveredAlertDebt({ repoRoot: repo, now, acks: [{ ...ackGood, reviewBy: '2020-01-01' }] }).state !== 'finding')
+    return { ok: false, why: '已到期的裁决仍在免账 —— 抑制必须有终态' }
+  const unmatched = checkUndeliveredAlertDebt({
+    repoRoot: repo,
+    now,
+    acks: [ackGood, { ...ackGood, alert: '一件早被真投递清偿了的事', fp: 'c'.repeat(40) }],
+  })
+  if (unmatched.state !== 'ok' || !unmatched.detail.includes('本轮找不到对应欠账'))
+    return { ok: false, why: '失效裁决未被点名(清单悄悄胖起来 = 替人做出"已想过"的判断)' }
+  return { ok: true, why: '' }
   } finally {
     rmSync(base, { recursive: true, force: true })
   }
@@ -1752,6 +2278,27 @@ export async function selfTest() {
   // 各自的旧形态都在同一份夹具上现算对照 —— 只测新规则那一臂,等于把实现复读一遍。
   const p8fix = undeliveredMarkerFixture()
   t(`P8 未送达标记四态成对(有标记红 / 空档不吹"通道可用" / 坏 JSON 未判定 / 结论串逐字稳定)${p8fix.ok ? '' : ` —— ${p8fix.why}`}`, p8fix.ok === true)
+  // P9 / P10(2026-10-01 补):P8 只能证明"没人记下过失败",这两格才回答
+  // "通道现在能不能用"与"那些记下没寄出的事,后来到底到人没有"。
+  const p9fix = await mailProbeFixture()
+  t(`P9 通道活性四态成对(可用绿 / 失败红 / 双未配置未判定 / 输出解不出未判定)+ 节流派生与缓存复述${p9fix.ok ? '' : ` —— ${p9fix.why}`}`, p9fix.ok === true)
+  const p10fix = undeliveredDebtFixture()
+  t(`P10 未送达欠账五态成对(挂账红 / 宽限内绿 / 旧形态只报数 / 已清偿回绿 / 坏台账未判定)${p10fix.ok ? '' : ` —— ${p10fix.why}`}`, p10fix.ok === true)
+  // 装车锁(与本文件其它判据同一条理由):判据写出来而 patrol() 没接上 = 本仓最高频失效型。
+  // 摘掉任意一行 add(...) 调用,这一条必须翻红 —— 所以它判的是**调用点**,不是函数存在性。
+  t('装车锁:patrol 必须真把 P9/P10 两格接进巡检', (() => {
+    const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+    const body = src.slice(src.indexOf('export async function patrol'), src.indexOf('export function loadAdjudications'))
+    return (
+      /checkUndeliveredAlertMarkers\(\)/.test(body) &&
+      /await checkMailChannelLiveness\(/.test(body) &&
+      /checkUndeliveredAlertDebt\(/.test(body) &&
+      // P10 的裁决台账必须在**装配处**读、并把结果喂进判据 —— 只在函数签名里写
+      // `acks = []` 而装配处不传,等于这条队列没有死亡机制(它会一路红到有人删判据为止)。
+      /loadDebtAcks\(\)/.test(body) &&
+      /acks: debtAcks\.entries/.test(body)
+    )
+  })())
   const p5fix = backupPerDbFixture()
   t(`P5 备份产出逐库且只认本链(旧规则同夹具判绿做对照)${p5fix.ok ? '' : ` —— ${p5fix.why}`}`, p5fix.ok === true)
   // ── P6(2026-09-29 补):规则引用的指标序列在不在。以下**全部是构造面** —— 自己造 YAML 文本、
@@ -1991,5 +2538,15 @@ export const __test__ = {
   // P5 备份产出(逐库)与 P8 未送达标记同此规矩:镜像测试用这里的实现判,不得在测试里重写一遍。
   heartbeatRows,
   checkUndeliveredAlertMarkers,
+  // P9 / P10 同一条规矩:镜像测试引这里的实现判,不得在测试里再抄一份"什么算未判定"
+  // —— 两处各写一遍必然漂开,而漂开的表现是把"没判"读成"可用"(§22c / 守门 118 同族)。
+  parseProbeOutput,
+  mailProbeDue,
+  mailProbeRow,
+  checkMailChannelLiveness,
+  loadDebtAcks,
+  ackCoversDebt,
+  debtAnchor,
+  checkUndeliveredAlertDebt,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
