@@ -111,7 +111,6 @@ vi.mock('../src/routes/ai-vendors/_shared.js', async (importOriginal) => {
 })
 
 import { n8nProxyRoutes } from '../src/routes/n8n-proxy.js'
-import { toolsVendorRoutes } from '../src/routes/ai-vendors/proxy-tools.js'
 import {
   readN8nBaseUrl,
   readN8nCredentials,
@@ -139,7 +138,6 @@ function stubUpstreamOk(payload: Record<string, unknown> = { id: 'wf-1', name: '
 
 const urlsOfGlobalFetch = () =>
   globalFetchMock.mock.calls.map((c) => String((c as unknown[])[0]) as string)
-const urlsOfFetchWithTimeout = () => fetchWithTimeoutMock.mock.calls.map((c) => String(c[0]))
 
 describe('A. n8n 基址唯一出口的判据(纯函数)', () => {
   it('别名清单就是这两个名字,且顺序不影响"主名优先"', () => {
@@ -306,7 +304,7 @@ describe('B. /ai/n8n 面(n8n-proxy.ts,主名 N8N_DOMAIN)', () => {
   })
 })
 
-describe('C. /api/ai/n8n/workflows 列表面(ai-vendors/proxy-tools.ts,主名 N8N_BASE_URL)', () => {
+describe('C. /api/ai/n8n/workflows 列表面(n8n-proxy.ts;2026-10-02 自 proxy-tools 合并迁入)', () => {
   let app: FastifyInstance
 
   beforeEach(async () => {
@@ -314,72 +312,79 @@ describe('C. /api/ai/n8n/workflows 列表面(ai-vendors/proxy-tools.ts,主名 N8
     globalFetchMock.mockReset()
     fetchWithTimeoutMock.mockReset()
     stubUpstreamOk()
+    vi.stubGlobal('fetch', globalFetchMock)
     app = Fastify()
-    await app.register(toolsVendorRoutes, { prefix: '/api/ai' })
+    await app.register(n8nProxyRoutes, { prefix: '/api' })
     await app.ready()
   })
   afterEach(async () => {
     await app.close()
+    vi.unstubAllGlobals()
     clearN8nEnv()
   })
 
-  it('只配别名 N8N_DOMAIN ⇒ GET 列表不再 503,且 URL 补好了 scheme(裸主机不会拼成无协议 URL)', async () => {
-    process.env.N8N_DOMAIN = 'alias-domain-only.example'
+  it('只配别名 N8N_BASE_URL ⇒ GET 列表可用,且 URL 补好了 scheme(裸主机不会拼成无协议 URL)', async () => {
+    process.env.N8N_BASE_URL = 'alias-only.example'
     process.env.N8N_API_KEY = 'alias-key'
     const res = await app.inject({ method: 'GET', url: '/api/ai/n8n/workflows' })
     expect(res.statusCode).toBe(200)
-    // 这一条同时是本票"别名必须补 scheme"的锁:少补一次就得到
-    // `alias-domain-only.example/api/v1/...` 这种 fetch 必抛的 URL。
-    expect(urlsOfFetchWithTimeout()).toEqual([
-      'https://alias-domain-only.example/api/v1/workflows?active=true',
-    ])
+    // 这一条同时是"别名必须补 scheme"的锁:少补一次就得到
+    // `alias-only.example/api/v1/...` 这种 fetch 必抛的 URL。
+    expect(urlsOfGlobalFetch()).toEqual(['https://alias-only.example/api/v1/workflows?active=true'])
   })
 
-  it('主名 N8N_BASE_URL 在位时 URL 逐字与改动前一致(含其自带协议与尾斜杠归一)', async () => {
-    process.env.N8N_BASE_URL = 'https://primary-base.example/'
+  it('主名 N8N_DOMAIN 在位时 URL 逐字如约定(自带协议与尾斜杠都归一)', async () => {
+    process.env.N8N_DOMAIN = 'https://primary-base.example/'
     process.env.N8N_API_KEY = 'primary-key'
     const res = await app.inject({ method: 'GET', url: '/api/ai/n8n/workflows' })
     expect(res.statusCode).toBe(200)
-    expect(urlsOfFetchWithTimeout()).toEqual([
+    expect(urlsOfGlobalFetch()).toEqual([
       'https://primary-base.example/api/v1/workflows?active=true',
     ])
   })
 
-  it('两名字同时在位 ⇒ 列表面仍发往主名 N8N_BASE_URL(与 B 面同规则、反向取值)', async () => {
-    process.env.N8N_DOMAIN = 'other-host.example'
-    process.env.N8N_BASE_URL = 'https://primary-base.example'
+  it('两名字同时在位 ⇒ 列表面发往主名 N8N_DOMAIN(与 B 面同取值,别名不得翻盘)', async () => {
+    process.env.N8N_DOMAIN = 'primary-host.example'
+    process.env.N8N_BASE_URL = 'other-host.example'
     process.env.N8N_API_KEY = 'both-key'
     const res = await app.inject({ method: 'GET', url: '/api/ai/n8n/workflows' })
     expect(res.statusCode).toBe(200)
-    expect(urlsOfFetchWithTimeout()).toEqual([
-      'https://primary-base.example/api/v1/workflows?active=true',
-    ])
-    expect(urlsOfFetchWithTimeout().join(' ')).not.toContain('other-host.example')
+    expect(urlsOfGlobalFetch()[0]).toBe('https://primary-host.example/api/v1/workflows?active=true')
+    expect(urlsOfGlobalFetch().join(' ')).not.toContain('other-host.example')
   })
 
-  it('两名字都不在位 ⇒ 503 且未发起任何上游请求;失败体带可读 message', async () => {
+  it('两名字都不在位 ⇒ 200 空态 + notAvailable 且零上游请求(读操作空态可表达,不 503)', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/ai/n8n/workflows' })
-    expect(res.statusCode).toBe(503)
-    expect(fetchWithTimeoutMock).not.toHaveBeenCalled()
-    const body = res.json() as { code?: number; message?: string }
-    expect(body.code).toBe(503)
-    expect(typeof body.message).toBe('string')
-    expect((body.message ?? '').length).toBeGreaterThan(0)
+    expect(res.statusCode).toBe(200)
+    expect(globalFetchMock).not.toHaveBeenCalled()
+    const body = res.json() as {
+      code?: number
+      data?: { list?: unknown[]; total?: number; notAvailable?: boolean; reason?: string }
+    }
+    expect(body.code).toBe(0)
+    expect(body.data?.list?.length).toBe(0)
+    expect(body.data?.total).toBe(0)
+    expect(body.data?.notAvailable).toBe(true)
+    expect(typeof body.data?.reason).toBe('string')
+    expect((body.data?.reason ?? '').length).toBeGreaterThan(0)
   })
 
-  it('POST 同名路由仍是"凭据从请求体传入的查询",本票未改动其对外语义(现状登记,非合格证)', async () => {
-    // 客户端 createN8nWorkflow 发的是 {name,description},而这条路由要 n8nDomain+apiKey,
-    // 于是必落 400。这里钉的是"本票没有偷偷改变这条行为"——它仍然是 issue #71 的
-    // 待裁半件(统一成创建属对外契约决策,归该面持有者),不得被读成已经修好。
-    process.env.N8N_DOMAIN = 'alias-domain-only.example'
-    process.env.N8N_API_KEY = 'alias-key'
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/ai/n8n/workflows',
-      payload: { name: 'x', description: 'y' },
+  it('列表载荷 = PageData {list,total}(客户端读 data.list;裸数组在配置成功时也渲染空列表)', async () => {
+    process.env.N8N_DOMAIN = 'primary-host.example'
+    process.env.N8N_API_KEY = 'k'
+    globalFetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: [{ id: 'wf-1', name: 'x', active: true, createdAt: null, updatedAt: null, tags: [] }],
+      }),
     })
-    expect(res.statusCode).toBe(400)
-    expect(fetchWithTimeoutMock).not.toHaveBeenCalled()
+    const res = await app.inject({ method: 'GET', url: '/api/ai/n8n/workflows' })
+    expect(res.statusCode).toBe(200)
+    const body = res.json() as { data?: { list?: unknown[]; total?: number } }
+    expect(Array.isArray(body.data?.list)).toBe(true)
+    expect(body.data?.list?.length).toBe(1)
+    expect(body.data?.total).toBe(1)
   })
 })
 
