@@ -62,11 +62,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
  */
 const SIDES = {
   miniapp: ['apps/miniapp-taro/src/components'],
-  rn: [
-    'packages/app/src/components',
-    'packages/app/src/features',
-    'apps/mobile-rn/src/components',
-  ],
+  rn: ['packages/app/src/components', 'packages/app/src/features', 'apps/mobile-rn/src/components'],
 }
 /**
  * 每端"自己屏幕上那份"的目录前缀。可达性层(pruneUnreachableLegs)按端各跑一遍图,
@@ -254,9 +250,7 @@ export function readGeometry(src, side, tiers = {}) {
    * 落地面是 `runtime` —— 否则小程序 `minHeight:'120px'` 会被当成样式表的 120px 折成 60,
    * 而对面写的 120 是真 120,一次折半就把同档读成分叉(实测 AgentRuntimePanel)。
    */
-  for (const m of code.matchAll(
-    /([a-z][\w]*(?:-[a-z0-9]+)*)\s*[:=]\s*(['"`])([^'"`\n]*)\2/gi,
-  )) {
+  for (const m of code.matchAll(/([a-z][\w]*(?:-[a-z0-9]+)*)\s*[:=]\s*(['"`])([^'"`\n]*)\2/gi)) {
     if (!keyed(m[1].replace(/-([a-z])/g, (_, c) => c.toUpperCase()))) continue
     for (const raw of m[3].trim().split(/\s+/)) {
       const one = /^(\d+(?:\.\d+)?)(rpx|px)$/.exec(raw)
@@ -1154,7 +1148,11 @@ export function exitPreferMaps(repoRoot, face, multiCandidates) {
   const files = new Set(all)
   const pre = face === 'staged' ? ':' : 'HEAD:'
   const manifests = all.filter((p) => /^(?:apps|packages)\/[^/]+\/package\.json$/.test(p))
-  const gotM = catBatch(repoRoot, manifests.map((r) => pre + r), { maxBuffer: 1 << 26 })
+  const gotM = catBatch(
+    repoRoot,
+    manifests.map((r) => pre + r),
+    { maxBuffer: 1 << 26 },
+  )
   const pkgDir = new Map()
   const pkgEntry = new Map()
   for (const rel of manifests) {
@@ -1593,7 +1591,11 @@ export function collect(
    * 而是主腿那一维静默归零(实测 LoginPopUp / UserInfoCard 在主腿有账)。
    */
   const rejFor = (leg) =>
-    new Set(rejected.filter((n) => (n in rejectMap ? rejectLegs(rejectMap[n]) : { main: true, web: true })[leg]))
+    new Set(
+      rejected.filter(
+        (n) => (n in rejectMap ? rejectLegs(rejectMap[n]) : { main: true, web: true })[leg],
+      ),
+    )
   const rejSet = rejFor('main')
   const rejWebSet = rejFor('web')
   const lists = {}
@@ -1671,7 +1673,12 @@ export function collect(
     coverageNote = pruned.note ?? null
     fallbacks = pruned.fallbacks ?? []
   }
-  const need = [...new Set([...pairs.pairs.flatMap((p) => [p.miniapp, p.rn]), ...webPairs.flatMap((p) => [p.miniapp, p.rn])])]
+  const need = [
+    ...new Set([
+      ...pairs.pairs.flatMap((p) => [p.miniapp, p.rn]),
+      ...webPairs.flatMap((p) => [p.miniapp, p.rn]),
+    ]),
+  ]
   const text = {}
   const specs = need.map((rel) => (face === 'staged' ? ':' : 'HEAD:') + rel)
   const got = catBatch(repoRoot, specs, { maxBuffer: 1 << 28 })
@@ -1921,7 +1928,11 @@ export function elementRadiusDiff(a, b) {
     const rb = ib.map.get(id)
     if (ra !== undefined && rb !== undefined) {
       if (String(norm(A[ra])) !== String(norm(B[rb])))
-        mismatched.push({ name: ra === rb ? ra : `${ra}|${rb}`, miniapp: norm(A[ra]), rn: norm(B[rb]) })
+        mismatched.push({
+          name: ra === rb ? ra : `${ra}|${rb}`,
+          miniapp: norm(A[ra]),
+          rn: norm(B[rb]),
+        })
     } else if (ra !== undefined) onlyMiniapp.push(ra)
     else onlyRn.push(rb)
   }
@@ -2011,7 +2022,7 @@ export function usedClassNames(src) {
  * (与本次"阴影半径被当盒档"同一型,那枚是靠既有锚点才拦住的)。
  * 所以这里只把"用了全局类名"这件事如实报出来;要真去接全局表,前置是先解决**归属**问题。
  */
-export function unresolvedClassNames(src, ownCssText, globalDefined = null) {
+export function unresolvedClassNames(src, ownCssText, _globalDefined = null) {
   const used = usedClassNames(src)
   if (!used.size) return []
   const defined = new Set()
@@ -2172,7 +2183,16 @@ export function webRadiusAudit(webPairs, text, radiusTable, styles = {}) {
   return { findings, undetermined }
 }
 
-export function verdictOf(findings, baseline, keys = { counts: 'counts', radius: 'radiusCounts', element: 'elementRadiusCounts', waivers: 'waivers' }) {
+export function verdictOf(
+  findings,
+  baseline,
+  keys = {
+    counts: 'counts',
+    radius: 'radiusCounts',
+    element: 'elementRadiusCounts',
+    waivers: 'waivers',
+  },
+) {
   // 台账子账按 `keys` 选,而不是给 web 腿再写一份比较逻辑:锚点只拦上升、下降要报名、
   // 台账腐烂要当场红 —— 这三条判序两腿必须逐字同形。两处各写一遍必然漂开,而漂开的表现
   // 是"主腿收紧了、web 腿还在放过"(或反过来把不该红的 web 腿按主腿额度判红)。
@@ -2283,7 +2303,14 @@ export function anchorRegression(prior, next) {
   const waivedWeb = waivedSet(prior?.[WEB_LEDGER.waivers])
   // web 腿的子账**必须一起核**:漏掉就是"主腿只允许下降、web 腿随便涨",而涨的那一份
   // 没人会去查(台账里明明写着"锚点只拦新增"—— 那是一句只对一半的账)。
-  for (const key of ['counts', 'radiusCounts', 'elementRadiusCounts', WEB_LEDGER.counts, WEB_LEDGER.radius, WEB_LEDGER.element]) {
+  for (const key of [
+    'counts',
+    'radiusCounts',
+    'elementRadiusCounts',
+    WEB_LEDGER.counts,
+    WEB_LEDGER.radius,
+    WEB_LEDGER.element,
+  ]) {
     const waivedNames = key.startsWith('web') ? waivedWeb : waivedMain
     const before = prior?.[key] ?? {}
     const after = next?.[key] ?? {}
@@ -2463,14 +2490,20 @@ export function main(argv, repoRoot = ROOT) {
    * "修掉了 web 那一侧"顶掉主腿的名额(净零逃逸,守门 134 扩布尔档键同一课)。所以子账独立、
    * 判序复用 `verdictOf`(只换 keys),两腿的红各自进退出码。
    */
-  const web = webRadiusAudit(collected.webPairs, collected.text, collected.radius, collected.styles ?? {})
+  const web = webRadiusAudit(
+    collected.webPairs,
+    collected.text,
+    collected.radius,
+    collected.styles ?? {},
+  )
   const webVerdict = verdictOf(web.findings, baseline, WEB_LEDGER)
   /**
    * 台账里"被 web 腿钉过"的族名单。**在 JSON 分支之前算**:`--json` 那一支也在同一块作用域里,
    * 放到函数末尾会让它读到 TDZ 中的 const(症状是崩溃,不是"少一个字段")。
    */
   const webPriorKeys = Object.keys(baseline[WEB_LEDGER.radius] ?? {}).filter(
-    (n) => (baseline[WEB_LEDGER.radius]?.[n] ?? 0) > 0 || (baseline[WEB_LEDGER.counts]?.[n] ?? 0) > 0,
+    (n) =>
+      (baseline[WEB_LEDGER.radius]?.[n] ?? 0) > 0 || (baseline[WEB_LEDGER.counts]?.[n] ?? 0) > 0,
   )
   if (argv.includes('--emit-baseline')) {
     const next = emitBaseline(res.findings, baseline, web.findings)
@@ -2717,9 +2750,9 @@ export function main(argv, repoRoot = ROOT) {
           `  ? WD 整腿未判定:${collected.webBlocked} —— 这一维今天**没在看**,不得读成"web 与小程序已一致"`,
         )
       for (const l of wlines.slice(0, 20)) console.log(l)
-      if (wlines.length > 20) console.log(`     · 其余 ${wlines.length - 20} 对同上(不静默省略计数)`)
-      for (const u of web.undetermined.slice(0, 8))
-        console.log(`  ? WD ${u.name}:${u.why}`)
+      if (wlines.length > 20)
+        console.log(`     · 其余 ${wlines.length - 20} 对同上(不静默省略计数)`)
+      for (const u of web.undetermined.slice(0, 8)) console.log(`  ? WD ${u.name}:${u.why}`)
       if (web.undetermined.length > 8)
         console.log(`  ? 其余 ${web.undetermined.length - 8} 处 WD 未判定同上`)
       for (const r of webVerdict.red)
@@ -3633,13 +3666,9 @@ function runSelfTest() {
       // ③ 修饰符不参与身份:panel--active ↔ panel 必须配上(md=6 vs lg=8 ⇒ 应报分叉)
       const modifier = has(d.mismatched, /panel/)
       // ④ 缩写前缀**不折**(票面明令:那是猜测)⇒ 两边都只能算单侧元素
-      const notGuessed =
-        has(d.onlyMiniapp, /mcd-upload-btn/) && has(d.onlyRn, /uploadBtn/)
+      const notGuessed = has(d.onlyMiniapp, /mcd-upload-btn/) && has(d.onlyRn, /uploadBtn/)
       // ⑤ 反向锁:同一侧两个原始名折叠到同一身份时**不得配对**(并档会造"同值"假绿灯)
-      const collide = elementRadiusDiff(
-        { 'a__card': [8], 'b__card': [12] },
-        { card: [8] },
-      )
+      const collide = elementRadiusDiff({ a__card: [8], b__card: [12] }, { card: [8] })
       const guarded =
         collide.mismatched.length === 0 &&
         collide.onlyRn.includes('card') &&
@@ -3648,7 +3677,7 @@ function runSelfTest() {
     })(),
   )
   t(
-      '(函数在、自检过,而 audit 没调 = 提交链上一路绿灯,本仓最高频失效型)',
+    '(函数在、自检过,而 audit 没调 = 提交链上一路绿灯,本仓最高频失效型)',
     (() => {
       const body = readFileSync(fileURLToPath(import.meta.url), 'utf8')
       const a = body.slice(
@@ -4351,7 +4380,10 @@ function runSelfTest() {
       const web = verdictOf([f], webLedger, WEB_LEDGER)
       const webAfter = verdictOf([f], { webCounts: {}, webRadiusCounts: { Card: 2 } }, WEB_LEDGER)
       return (
-        main.red.length === 0 && web.red.length === 1 && webAfter.red.length === 0 && web.red[0].radiusCount === 2
+        main.red.length === 0 &&
+        web.red.length === 1 &&
+        webAfter.red.length === 0 &&
+        web.red[0].radiusCount === 2
       )
     })(),
   )
@@ -4408,10 +4440,17 @@ function runSelfTest() {
       '缺省(不写 legs)= 两腿都拆(既有 FloatBox 声明逐字不改行为)',
     (() => {
       const future = new Date(Date.now() + 86400 * 300).toISOString().slice(0, 10)
-      const badLegName = rejectProblem({ reason: '两端不是同一个东西,证据见头注', until: future, legs: ['nope'] })
-      const emptyLegs = rejectProblem({ reason: '两端不是同一个东西,证据见头注', until: future, legs: [] })
-      const shape =
-        badLegName === null ? false : /腿名/.test(badLegName)
+      const badLegName = rejectProblem({
+        reason: '两端不是同一个东西,证据见头注',
+        until: future,
+        legs: ['nope'],
+      })
+      const emptyLegs = rejectProblem({
+        reason: '两端不是同一个东西,证据见头注',
+        until: future,
+        legs: [],
+      })
+      const shape = badLegName === null ? false : /腿名/.test(badLegName)
       const both = rejectLegs({ reason: 'x', until: future })
       const onlyWeb = rejectLegs({ reason: 'x', until: future, legs: ['web'] })
       if (!(both.main && both.web && !onlyWeb.main && onlyWeb.web)) return false
@@ -4428,7 +4467,11 @@ function runSelfTest() {
       }
       const dir = makeFixtureRepo(files)
       try {
-        const decl = { reason: 'web 那份同名件是另一端口的死副本,与小程序/RN 不是同一个元素', until: future, legs: ['web'] }
+        const decl = {
+          reason: 'web 那份同名件是另一端口的死副本,与小程序/RN 不是同一个元素',
+          until: future,
+          legs: ['web'],
+        }
         const w = collect(dir, 'head', { rejected: ['Foo'], rejectMap: { Foo: decl } })
         const m = collect(dir, 'head', {
           rejected: ['Foo'],
@@ -4445,13 +4488,7 @@ function runSelfTest() {
         })
         const legacyBoth =
           !legacy.pairs.pairs.some((p) => p.name === 'Foo') && legacy.webRejected.length === 1
-        return (
-          plain.webRejected.length === 0 &&
-          mainKept &&
-          webSplit &&
-          mainSplit &&
-          legacyBoth
-        )
+        return plain.webRejected.length === 0 && mainKept && webSplit && mainSplit && legacyBoth
       } finally {
         rmScratch(dir)
       }
@@ -4627,7 +4664,9 @@ function runSelfTest() {
     (() => {
       const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
       return (
-        /collect\(repoRoot, face, \{ pairAll, rejected: rejNames, rejectMap: rej, aliases \}\)/.test(src) &&
+        /collect\(repoRoot, face, \{ pairAll, rejected: rejNames, rejectMap: rej, aliases \}\)/.test(
+          src,
+        ) &&
         (src.match(/collect\(repoRoot, 'head', \{ pairAll, aliases \}\)/g) ?? []).length === 2 &&
         /if \(aliasRed\) return 1/.test(src) &&
         /aliasPairs: \(collected\.pairs\?\.pairs \?\? \[\]\)/.test(src)
@@ -4825,7 +4864,9 @@ function runSelfTest() {
       const suffixed = 'apps/miniapp-taro/src/components/Foo.taro.tsx'
       const a = pickCandidate([plain, suffixed], plain)
       const b = pickCandidate([suffixed, plain], plain)
-      return a.chosen === suffixed && a.by === 'suffix' && b.chosen === suffixed && b.by === 'suffix'
+      return (
+        a.chosen === suffixed && a.by === 'suffix' && b.chosen === suffixed && b.by === 'suffix'
+      )
     })(),
   )
   t(
