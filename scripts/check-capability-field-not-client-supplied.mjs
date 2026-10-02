@@ -110,7 +110,13 @@ function listRepoFiles() {
     ['ls-files', 'packages/*/src/**/*.ts', 'packages/*/src/**/*.tsx', 'apps/*/src/**/*.py'],
     // 本机交互会话下 node 给子进程建 stdin 管道会 EBUSY(根治记录见技能
     // ihui-spawn-ebusy-fix):本调用不消费 stdin,一律 ignore 掉。
-    { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] },
+    {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    },
   )
   return out
     .split('\n')
