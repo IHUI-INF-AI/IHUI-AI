@@ -18,6 +18,15 @@ from app.services import mcp_server
 from app.services.codebase_indexer import CodebaseIndexer
 
 
+# 2026-10-03 数据出域合规整改:懒索引与 index_codebase 现在受"代码出域同意闸"
+# 约束(未授权 ⇒ skipped-not-consented,见 test_code_index_consent_gate.py)。
+# 本文件验的是工具接线/内部鉴权头/触发路径,不是同意闸,故统一放行以保持
+# 各用例原本要验的那条线;同意闸自身的判定由专项用例负责,不重复。
+@pytest.fixture(autouse=True)
+def _granted_code_index_egress(monkeypatch):
+    monkeypatch.setattr(mcp_server, "_code_index_egress_allowed", lambda *_a, **_kw: True)
+
+
 def _make_indexer() -> CodebaseIndexer:
     idx = CodebaseIndexer.__new__(CodebaseIndexer)
     idx._tree_sitter_available = False
