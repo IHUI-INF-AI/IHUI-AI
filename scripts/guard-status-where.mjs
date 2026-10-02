@@ -40,6 +40,7 @@ function gitGrep(cached) {
     cwd: ROOT,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'], // stdin EBUSY 规避:不消费 stdin,禁默认全管道
+    windowsHide: true,
   })
   if (res.status === 1) return [] // grep 无命中
   if (res.error || (res.status !== 0 && res.status !== 1)) {
