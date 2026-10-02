@@ -480,6 +480,35 @@ export class SubagentWorkerPool {
     });
   }
 
+  /**
+   * G-713:改并发上界的**唯一**入口 —— 抬档位必须同时给出唤醒,不得只改字段。
+   *
+   * 为什么这不是一层语法糖:`drainQueue()` 的重扫时机只有三个(入队时、worker 结算时、
+   * 取消/关闭时)。把 `maxWorkers` 从 1 抬到 2 而不调它,队列里那条等待项**没有任何事件**
+   * 会再去问一次 `activeCount < maxWorkers` —— 于是"上界抬高了"这件事在盘面上是真的、
+   * 在行为上是假的,表现为"任务卡在队列里永远不启动"。上游同一条结论写在
+   * `engine/scheduler.ts:384-403,425-428`(「抬高上界后必须显式 `pumpAll()` ——
+   * 除结算外没有任何事件会触发重扫」)。
+   *
+   * 钳制一律走并发档唯一出口 `resolveMaxConcurrency`(见 concurrency-budget.ts 头注:
+   * 本文件不得再出现并发字面量),所以传进来的数**不会**越过硬上限,也不会被降到 0
+   * (0 会让 `activeCount < maxWorkers` 永不成立 ⇒ 整池饿死)。
+   *
+   * 非抢占式(与 `maxWorkers 限制并发(排队),非抢占式` 那条设计一致):调低只拦**后续**启动,
+   * 已在跑的 worker 一个都不动 —— 这里没有任何 kill/abort 逻辑,不得加进来。
+   *
+   * @param requested 期望的并发数(越界即钳制,不抛错)
+   * @returns 钳制后真正生效的那一档
+   */
+  setMaxWorkers(requested: number): number {
+    const next = resolveMaxConcurrency(requested);
+    this.config.maxWorkers = next;
+    // 唤醒必须紧跟赋值,且顺序不可颠倒:drainQueue 读的就是 this.config.maxWorkers,
+    // 先唤醒后赋值会白醒一次(赋值还在后面 ⇒ 重扫时读到的仍是旧档)。
+    void this.drainQueue();
+    return next;
+  }
+
   /** 并行 spawn 多个子进程(限 maxWorkers 并发,超出排队) */
   async spawnParallel(reqs: SubagentSpawnRequest[]): Promise<SubagentSpawnResponse[]> {
     return Promise.all(reqs.map((r) => this.spawn(r)));

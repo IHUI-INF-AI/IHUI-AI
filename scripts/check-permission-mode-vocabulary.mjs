@@ -16,11 +16,15 @@
 //   R1 跨语言镜像一致 —— TS 注册表与 Python 注册表的成员集、别名映射必须逐字相同;
 //   R2 别名值域闭合   —— 每个别名目标必须是成员;
 //   R3 消费侧禁漂移   —— 已知比较点/枚举点的字面量必须落在 成员∪别名键 内,
-//                        且 AgentLoopV2 不得再写 `== "auto"` / 自造白名单元组。
+//                        且 AgentLoopV2 不得再写 `== "auto"` / 自造白名单元组;
+//   R7 决策值禁手写集合 —— 参与权限判定的集合必须从注册表常量投影,不得写字面量
+//                        (G-816041);登记面之外判不出的消费面计"未判定"只报不红,
+//                        --strict 档拒绝出合格证。
 //
 // 判据有效性靠 --self-test 注入违规自证(不读脚本自己的注释),全量模式宁漏不误报:
 // 只扫 KNOWN_CONSUMERS 清单内的显式模式,不做全仓模糊匹配。
 
+import { spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -470,6 +474,95 @@ export function checkAxisMirror(ts, py, permissionMembers) {
 }
 
 // ---------------------------------------------------------------------------
+// R7:参与权限判定的值必须从注册表映射读出,不得手写档位集合(G-816041)。
+//
+// 上游的三段式封闭集判法(`as const satisfies Record<State, …>` + 运行时 .superRefine)
+// 靠"表驱动"保证新增一档漏映射 = 编译不过。我方等价的失效形状是**决策位手写集合**:
+// `['default','plan'].includes(mode)`、`mode not in ('default','plan')` —— 注册表新增
+// 档位时它静默漏接,编译器不看表(permission-mode.ts 的注释只承诺了投影单源,
+// 没承诺消费点真的用)。判据只咬**决策表达式里的集合**(≥2 个注册表已知值):
+//   · in (…) / in […] / not in(含 Python 跨行元组)与 […].includes(…);
+//   · 单字面量比较留在 R3 管辖,不在此扩面(MoA 误报那一课);
+//   · 行内引用注册表标识符(PERMISSION_MODES / PERMISSION_MODE_WIRE_VALUES /
+//     normalize_permission_mode / 双轴各表)⇒ 从表投影,放行 —— 这条必须存在,
+//     否则门会对自家要求的写法失明(守门 77/83 那一课);
+//   · 集合成员混入未知词 ⇒ 判不出,不硬猜(与 R3 白名单同规,宁漏不误报)。
+// ---------------------------------------------------------------------------
+
+const DERIVED_IDENTIFIERS =
+  /(?:PERMISSION_MODES|PERMISSION_MODE_WIRE_VALUES|PERMISSION_MODE_ALIASES|normalizePermissionMode|normalize_permission_mode|PERMISSION_MODE_TO_AXIS|SANDBOX_MODES|APPROVAL_POLICIES|SANDBOX_MODE_ALIASES|APPROVAL_POLICY_ALIASES|APPROVAL_PRESETS|GRANULAR_APPROVAL_KEYS)/
+
+const R7_SET_SHAPES = [
+  /(?:\bnot\s+in|\bin)\s*\(([^()]*)\)/g,
+  /(?:\bnot\s+in|\bin)\s*\[([^\][]*)\]/g,
+  /\[([^\][]*)\]\s*\.\s*includes\s*\(/g,
+]
+
+export function checkDerivedDecisions(files, registry, wireValues = []) {
+  const known = new Set([...registry.members, ...Object.keys(registry.aliases), ...wireValues])
+  const problems = []
+  for (const { relPath, src } of files) {
+    if (REGISTRY_FILES.has(relPath)) continue
+    for (const shape of R7_SET_SHAPES) {
+      shape.lastIndex = 0
+      for (const m of src.matchAll(shape)) {
+        const line = src.slice(0, m.index).split('\n').length
+        // 从表投影豁免:命中文本或其所在行引用了注册表标识符 ⇒ 值是从表里投影出来的
+        const lineStart = src.lastIndexOf('\n', m.index) + 1
+        const lineEnd = src.indexOf('\n', m.index)
+        const contextLine = src.slice(lineStart, lineEnd === -1 ? undefined : lineEnd)
+        if (DERIVED_IDENTIFIERS.test(m[0]) || DERIVED_IDENTIFIERS.test(contextLine)) continue
+        const lits = [...new Set([...m[1].matchAll(/['"]([^'"]+)['"]/g)].map((x) => x[1]))]
+        if (lits.length < 2) continue // 单字面量是 R3 的管辖;集合才谈"漏接一档"
+        if (!lits.every((v) => known.has(v))) continue // 混入未知词:判不出,不硬猜
+        problems.push(
+          `R7 ${relPath}:${line} 决策位手写档位集合 (${lits.map((v) => `'${v}'`).join(', ')}) —— ` +
+            '参与权限判定的值必须从注册表映射读出(import PERMISSION_MODES / ' +
+            'PERMISSION_MODE_WIRE_VALUES 投影),手写集合在注册表新增档位时必然漏接',
+        )
+      }
+    }
+  }
+  return problems
+}
+
+// 未判定普查(验收③):登记消费面之外还有含权限档信号的文件,本门判不出 ——
+// 跨包再跳一跳就超出显式档案的能力。默认档只计数报名不红;--strict 档拒绝出
+// 合格证(fail-closed)。信号面用 git grep 现量,不做自维护清单(清单必腐烂)。
+const GATE_SELF = 'scripts/check-permission-mode-vocabulary.mjs'
+const UNJUDGED_EXEMPT = new Set([
+  ...KNOWN_CONSUMERS,
+  ...REGISTRY_FILES,
+  ...WIRE_MIRROR_FILES,
+  PY_REGISTRY,
+  TS_AXIS_REGISTRY,
+  PY_AXIS_REGISTRY,
+  GATE_SELF,
+  'scripts/tests/check-permission-mode-vocabulary.test.mjs',
+])
+
+export function collectUnjudged(signaledRelPaths, exempt = UNJUDGED_EXEMPT) {
+  return signaledRelPaths.filter((p) => !exempt.has(p))
+}
+
+export function strictVerdict(problems, unjudged) {
+  if (problems.length > 0) return { ok: false, why: `违规 ${problems.length} 处` }
+  if (unjudged.length > 0) return { ok: false, why: `未判定 ${unjudged.length} 处` }
+  return { ok: true, why: '' }
+}
+
+function censusSignaled(root) {
+  const res = spawnSync(
+    'git',
+    ['-C', root, 'grep', '-I', '-l', '-i', '-E', 'permission[-_]?mode', '--', ':/', ':!.ihui-agent'],
+    { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
+  )
+  if (res.status === 0) return res.stdout.split('\n').map((s) => s.trim()).filter(Boolean)
+  if (res.status === 1) return [] // git grep 无命中
+  throw new Error(`git grep exit ${res.status}: ${String(res.stderr).slice(0, 200)}`)
+}
+
+// ---------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------
 
@@ -489,9 +582,19 @@ export function runChecks({ root = ROOT } = {}) {
     ...checkNoSecondList(files, ts, wireValues),
     ...checkWireMirrors(read, wireValues),
     ...checkAxisMirror(tsAxis, pyAxis, ts.members),
+    ...checkDerivedDecisions(files, ts, wireValues),
   ]
+  // 未判定普查(G-816041 验收③):默认档只报不红;--strict 档拒绝出合格证。
+  // 普查失败按 fail-closed 计 —— 判不出面有多大都不写,等于没有尺子。
+  let unjudged
+  try {
+    unjudged = collectUnjudged(censusSignaled(root))
+  } catch (err) {
+    unjudged = [`<未判定普查失败:${err.message}>`]
+  }
   return {
     problems,
+    unjudged,
     members: ts.members,
     aliasCount: Object.keys(ts.aliases).length,
     wireCount: wireValues.length,
@@ -747,6 +850,82 @@ function selfTest() {
     'R6 两侧一致时放过(不是恒红判据)',
     checkAxisMirror(baseTsAxis, basePyAxis, baseTs.members).length === 0,
   )
+  // R7 自证(G-816041 三条验收:红/绿/未判定,正反成对)
+  t(
+    'R7 咬住决策位手写旧集合(注册表新增档后它必然漏接)',
+    checkDerivedDecisions(
+      [
+        {
+          relPath: 'apps/cli/src/tools/permissions.ts',
+          src: "if (!['default', 'plan'].includes(permissionMode)) throw new Error()\n",
+        },
+      ],
+      baseTs,
+      wireValues,
+    ).some((p) => p.startsWith('R7')),
+  )
+  t(
+    'R7 咬住 not in 手写元组(Python 决策位,可跨行)',
+    checkDerivedDecisions(
+      [
+        {
+          relPath: AGENT_LOOP,
+          src: 'if self._mode not in (\n    "default",\n    "plan",\n):\n    pass\n',
+        },
+      ],
+      baseTs,
+      wireValues,
+    ).some((p) => p.startsWith('R7')),
+  )
+  t(
+    'R7 放过从表投影的决策(读常量/映射 —— 这条必须有,否则门会对自家要求的写法失明)',
+    checkDerivedDecisions(
+      [
+        {
+          relPath: 'apps/cli/src/tools/permissions.ts',
+          src: 'if (!PERMISSION_MODES.includes(permissionMode)) throw new Error()\n',
+        },
+        { relPath: AGENT_LOOP, src: 'if permission_mode not in PERMISSION_MODES:\n    raise ValueError()\n' },
+        {
+          relPath: 'apps/api/src/routes/workspace.ts',
+          src: 'if (!PERMISSION_MODE_WIRE_VALUES.includes(mode)) return\n',
+        },
+        { relPath: 'apps/ai-service/app/services/agent_loop_v2.py', src: 'if (mode in (PERMISSION_MODES)) apply(mode)\n' },
+        { relPath: 'apps/ai-service/app/services/agent_loop_v2.py', src: 'clean = normalize_permission_mode(raw)\n' },
+      ],
+      baseTs,
+      wireValues,
+    ).length === 0,
+  )
+  t(
+    'R7 不吃无关集合(非档位词)/单元素集合(留给 R3)',
+    checkDerivedDecisions(
+      [
+        {
+          relPath: 'apps/cli/src/tools/permissions.ts',
+          src: 'if raw not in ("on", "1", "true", "yes"):\n    pass\n',
+        },
+        {
+          relPath: 'apps/cli/src/tools/permissions.ts',
+          src: "if (['default'].includes(permissionMode)) return\n",
+        },
+      ],
+      baseTs,
+      wireValues,
+    ).length === 0,
+  )
+  t(
+    'R7 未判定档:登记面外的信号文件计未判定(只报不红)',
+    collectUnjudged(['apps/other/pkg/x.ts', 'packages/types/src/permission-mode.ts', KNOWN_CONSUMERS[0]]).join(',') ===
+      'apps/other/pkg/x.ts',
+  )
+  t(
+    'R7 --strict:未判定非空 ⇒ 拒绝出合格证;零未判定且零违规 ⇒ 出合格证',
+    strictVerdict([], ['apps/other/x.ts']).ok === false &&
+      strictVerdict([], []).ok === true &&
+      strictVerdict(['x'], []).ok === false,
+  )
+
   // 现状必须干净:否则本门一上去就红,等于给并发会话添堵
   const live = runChecks()
   if (live.problems.length > 0) {
@@ -760,14 +939,25 @@ function selfTest() {
 
 function main() {
   const argv = process.argv.slice(2)
+  const strict = argv.includes('--strict')
   if (argv.includes('--self-test')) process.exit(selfTest())
-  const { problems, members, aliasCount, axis } = runChecks()
+  const { problems, members, aliasCount, axis, unjudged } = runChecks()
   if (problems.length === 0) {
     console.log(
       `✅ 权限模式词汇对账通过:${members.length} 个规范档 / ${aliasCount} 个别名,` +
         `TS↔Python 一致,消费侧无注册表外取值,无第二份清单(含 wire),wire 跨语言镜像已对账;` +
-        `双轴(sandbox×approval)注册表已对账:${axis.sandboxModes}×${axis.approvalPolicies} / ${axis.presets} 预设`,
+        `双轴(sandbox×approval)注册表已对账:${axis.sandboxModes}×${axis.approvalPolicies} / ${axis.presets} 预设;` +
+        `决策位无手写档位集合(R7);未判定消费面 ${unjudged.length} 处(默认档只报不红,--strict 档拒绝出合格证)`,
     )
+    if (strict) {
+      const verdict = strictVerdict(problems, unjudged)
+      if (!verdict.ok) {
+        console.error(`❌ --strict 档拒绝出合格证:${verdict.why}:`)
+        for (const u of unjudged) console.error(`   · ${u}`)
+        process.exit(1)
+      }
+      console.log('✅ --strict 合格证:零违规且零未判定')
+    }
     return
   }
   console.error(`❌ 权限模式词汇对账发现 ${problems.length} 处问题:`)
@@ -802,6 +992,10 @@ export const __test__ = {
   KNOWN_CONSUMERS,
   TS_REGISTRY,
   PY_REGISTRY,
+  checkDerivedDecisions,
+  collectUnjudged,
+  strictVerdict,
+  UNJUDGED_EXEMPT,
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
