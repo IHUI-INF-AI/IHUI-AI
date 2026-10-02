@@ -19,6 +19,7 @@ import {
   getConversationImportHistory,
   parseConversationImport,
   type ConversationImportCommitPayload,
+  type ConversationImportSource,
 } from '../src/endpoints/conversation-import.js'
 
 /** 构造成功(2xx + {code:0,data})的 transport mock */
@@ -119,6 +120,82 @@ describe('conversation-import 端点', () => {
     expect(typeof init.body).toBe('string')
     expect(JSON.parse(init.body as string)).toEqual(payload)
     expect(init.headers?.['Content-Type']).toBe('application/json')
+  })
+
+  it('wechat(第 5 个来源):类型可赋值,parse/commit/history 三处均原样透传', async () => {
+    // 类型层:共享源枚举新增 'wechat',三端(web/cli/mobile-rn)由此一处扩散
+    const sources: ConversationImportSource[] = [
+      'claude_code',
+      'codex',
+      'cursor',
+      'aider',
+      'wechat',
+    ]
+    expect(sources).toContain('wechat')
+
+    // parse:source 字段进 FormData,文件名后缀(.zip)不被端点层过滤
+    const parseTransport = okTransport({
+      code: 0,
+      message: 'ok',
+      data: { conversations: [], truncated: false, warnings: [] },
+    })
+    setTransport(parseTransport)
+    const parsed = await parseConversationImport(
+      new File(['zip-bytes'], 'wechat-export.zip'),
+      'wechat',
+    )
+    expect(parsed.success).toBe(true)
+    const parseFd = firstCall(parseTransport)[1].body as FormData
+    expect(parseFd.get('source')).toBe('wechat')
+    expect((parseFd.get('file') as File).name).toBe('wechat-export.zip')
+
+    // commit:payload 序列化后 source 仍是 wechat
+    const payload: ConversationImportCommitPayload = {
+      source: 'wechat',
+      fileName: 'wechat-export.zip',
+      title: '微信群聊记录',
+      messages: [{ role: 'user', content: '在吗' }],
+    }
+    const commitTransport = okTransport({
+      code: 0,
+      message: 'ok',
+      data: { importId: 'imp-wx', conversationId: 'conv-wx', importedMessages: 1 },
+    })
+    setTransport(commitTransport)
+    const committed = await commitConversationImport(payload)
+    expect(committed.success).toBe(true)
+    expect(JSON.parse(firstCall(commitTransport)[1].body as string).source).toBe('wechat')
+
+    // history:source 原样返回,不被端点层窄化
+    const historyTransport = okTransport({
+      code: 0,
+      message: 'ok',
+      data: {
+        list: [
+          {
+            id: 'imp-wx',
+            source: 'wechat',
+            conversationId: 'conv-wx',
+            fileName: 'wechat-export.zip',
+            parsedCount: 1,
+            importedCount: 1,
+            failedCount: 0,
+            status: 'success',
+            errorMessage: null,
+            importedAt: '2026-10-01T00:00:00.000Z',
+          },
+        ],
+        total: 1,
+      },
+    })
+    setTransport(historyTransport)
+    const history = await getConversationImportHistory()
+    expect(history.success).toBe(true)
+    if (history.success) {
+      const item = history.data.list[0]!
+      const typed: ConversationImportSource = item.source
+      expect(typed).toBe('wechat')
+    }
   })
 
   it('history:GET 请求且无 body、无 Content-Type', async () => {
