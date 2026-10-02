@@ -8,7 +8,15 @@ import * as React from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import Image from 'next/image'
-import { ChevronDown, ChevronLeft, ChevronRight, Lightbulb, Pause, Play, Volume2 } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Lightbulb,
+  Pause,
+  Play,
+  Volume2,
+} from 'lucide-react'
 import { CloseButton } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -37,7 +45,9 @@ export function AnswerArea({ answer }: { answer: ShareContent['answer'] }) {
       {/* 文本内容（支持 markdown 渲染） */}
       {answer.text && (
         <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap break-words text-sm leading-7 text-foreground">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{answer.text}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[[remarkGfm, { singleTilde: false }]]}>
+            {answer.text}
+          </ReactMarkdown>
         </div>
       )}
 
