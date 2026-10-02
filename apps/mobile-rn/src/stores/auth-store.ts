@@ -46,10 +46,11 @@
  *
  * 安全说明:
  * - token / refreshToken / expiresIn 一律不持久化,只走 SecureStore(tokenStore 内部)
- * - user 资料持久化到 AsyncStorage;登录态不入库(G-456:由「有没有 token」派生)
+ * - user 持久化到 AsyncStorage(非敏感 UI 状态,可跨会话恢复)
+ * - isAuthenticated 不持久化:登录态只由 token 派生(2026-09-28 收口,共享工厂唯一实现)
  * - 遵循 web 端 2026-07-21 安全审计结论
  */
-import { createAuthStore } from '@ihui/shared/stores'
+import { createAuthStore, selectIsAuthenticated } from '@ihui/shared/stores'
 import type { AuthUser } from '@ihui/api-client'
 import { tokenStore } from '../lib/token'
 import { createAsyncStorageTransport } from './storage-adapter'
@@ -59,7 +60,7 @@ import { createAsyncStorageTransport } from './storage-adapter'
  *
  * 注入:
  * - tokenStore:复用 ../lib/token 实现的 TokenStore 契约(SecureStore 优先 + AsyncStorage fallback)
- * - userTransport:本端 AsyncStorage transport(只持久化 user 资料)
+ * - userTransport:本端 AsyncStorage transport(只持久化 user;isAuthenticated 由 token 派生,不落盘)
  * - userPersistKey:与 web 端同名 'ihui-auth-user',便于调试 + 未来跨端数据共享
  */
 export const rnAuthStore = createAuthStore({
@@ -74,21 +75,25 @@ export const rnAuthStore = createAuthStore({
  * @example
  * ```tsx
  * const user = useAuthStore((s) => s.user)
- * const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+ * const isAuthenticated = useAuthStore(selectIsAuthenticated) // 登录态的唯一判据式
  * const ready = useAuthStore((s) => s.ready)
  * ```
  */
 export const { useAuthStore } = rnAuthStore
 
+/** 登录态唯一判据选择器(token !== null),re-export 自共享工厂,端内订阅不得另算一份 */
+export { selectIsAuthenticated }
+
 /**
  * 启动时从 tokenStore 同步镜像到 store
  *
  * 应在 AuthProvider 初始化(initApi)之后调用,确保 cachedToken 已就绪。
- * 若用户已登录,本函数会同步 token/refreshToken/isAuthenticated 到 store,
- * 让 zustand 订阅者(非 AuthContext 消费者)能立刻拿到认证态。
+ * 若用户已登录,本函数会同步 token/refreshToken 到 store(isAuthenticated 跟着 token 派生,
+ * 不再是独立开关),让 zustand 订阅者(非 AuthContext 消费者)能立刻拿到认证态。
  *
- * user 信息由 zustand persist 中间件自动从 AsyncStorage 恢复,
- * 无需在此处手动加载。
+ * user 信息由 zustand persist 中间件自动从 AsyncStorage 恢复,无需在此处手动加载;
+ * 旧 storage 块里残留的 isAuthenticated 键读回即被工厂剥除(登录态只认 token),
+ * 不会出现"盘上还写着已登录、实际没有凭据"的组合。
  */
 export function hydrateAuth(): void {
   rnAuthStore.hydrate()

@@ -47,7 +47,12 @@ export function AiAssistantScreen({
 
   return (
     <View style={styles.container}>
-      <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} style={styles.backBtn} />
+      <BackChevron
+        onPress={onBack}
+        label={t('common.back')}
+        colorScheme={colorScheme}
+        style={styles.backBtn}
+      />
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{t('aiAssistant.title')}</Text>
         <Text style={styles.headerSub}>{t('aiAssistant.subtitle')}</Text>
