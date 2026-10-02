@@ -398,6 +398,11 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'MODEL_REFUSED.action',
     category: 'runtimeException',
   },
+  MODEL_STREAM_IDLE: {
+    titleKey: 'MODEL_STREAM_IDLE.title',
+    actionKey: 'MODEL_STREAM_IDLE.action',
+    category: 'backendTimeout',
+  },
   MULTIPLE_MATCHES: {
     titleKey: 'MULTIPLE_MATCHES.title',
     actionKey: 'MULTIPLE_MATCHES.action',

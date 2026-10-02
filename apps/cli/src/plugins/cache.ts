@@ -390,6 +390,76 @@ export class DirectorySwapError extends Error {
   }
 }
 
+/**
+ * G-733:提交点逐阶段**故障注入**的专用错误。
+ *
+ * 立票理由(票面原文):「恢复代码写了却从没被逐阶段证明可用 = 本仓"判据失效的表现永远是
+ * 安静"那一型」。本文件的 `recoverStaleSwapArtifacts` 处置表号称对每一类现场都能做零破坏回位,
+ * 但在注入之前,它只被"人工摆出现场"的少数用例覆盖过 —— 没有一个开关能让提交序列在
+ * **每一个**checkpoint 当场死一次,再断言"任何一步死都零半成品"。
+ *
+ * 三条设计约束:
+ *  - **默认关**:`faultAt` 缺席(不传 / `undefined`)⇒ 三个注入点一条都不执行,行为与改动前逐字一致。
+ *    这不是可选装饰:提交序列是安装链的承重件,给默认值就是给生产路径加随机抛点。
+ *  - 它**不是** `DirectorySwapError`:注入死的每一次都必须能被调用方一眼认出,
+ *    否则测试里"期望抛错"会被真实的换失败顶掉(两种红在 `toThrow(Error)` 下同形)。
+ *  - 错误里带"此刻两代各自在哪里"(`targetHasContent` / `archiveHasContent`),
+ *    让"死在哪一步"与"现场是什么"同时可读 —— 缺后一半就得让人重新去盘上猜。
+ */
+export const SWAP_FAULT_STAGES = [
+  'afterStaging',
+  'afterOwnership',
+  'afterMarker',
+  'afterLand',
+  'beforeFinalize',
+] as const;
+
+/** 提交序列可注入的阶段(封闭集;新增一档必须同时在测试里循环到它,否则那一步没有证明)。 */
+export type SwapFaultStage = (typeof SWAP_FAULT_STAGES)[number];
+
+export class InjectedSwapFaultError extends Error {
+  readonly code = 'injected_swap_fault';
+  readonly stage: SwapFaultStage;
+  readonly target: string;
+  /** 抛出那一刻目标槽位是否仍有内容(半成品判据的现场读数,不是事后重新推断) */
+  readonly targetHasContent: boolean;
+  /** 抛出那一刻归档槽位是否仍有内容(与上一条同时为 false = "两代都没了" = 本票要抓的形态) */
+  readonly archiveHasContent: boolean;
+  constructor(
+    stage: SwapFaultStage,
+    target: string,
+    site: { targetHasContent: boolean; archiveHasContent: boolean },
+  ) {
+    super(
+      `故障注入(未真实提交):阶段=${stage} target=${target} ` +
+        `现场:目标槽位${site.targetHasContent ? '有内容' : '空'} / 归档${site.archiveHasContent ? '有内容' : '空'}`,
+    );
+    this.name = 'InjectedSwapFaultError';
+    this.stage = stage;
+    this.target = target;
+    this.targetHasContent = site.targetHasContent;
+    this.archiveHasContent = site.archiveHasContent;
+  }
+}
+
+/**
+ * 注入点唯一实现:命中当前阶段才抛,否则**什么都不做**(含 `requested` 为 undefined 的常态)。
+ * 现场读数只走已有的 `isUsableDirectoryCopy`(测试与生产共用一份"算不算有内容"的判据,
+ * 不在这里内联第二份)。
+ */
+function raiseSwapFaultIfMatched(
+  requested: SwapFaultStage | undefined,
+  stage: SwapFaultStage,
+  target: string,
+  superseded: string | null,
+): void {
+  if (requested !== stage) return;
+  throw new InjectedSwapFaultError(stage, target, {
+    targetHasContent: isUsableDirectoryCopy(target),
+    archiveHasContent: superseded !== null && isUsableDirectoryCopy(superseded),
+  });
+}
+
 /** 一次目录交换的句柄:事务号跟着句柄走,落盘与处置用的是同一个凭据。 */
 export interface StagedSwap {
   readonly target: string;
@@ -738,7 +808,7 @@ async function classifySwapOwner(
 export function takeOwnershipOfTarget(
   target: string,
   staging: string,
-  opts?: { authority?: SwapAuthority | null },
+  opts?: { authority?: SwapAuthority | null; faultAt?: SwapFaultStage },
 ): StagedSwap {
   const transactionId = crypto.randomUUID();
   // 未显式给(undefined / 没这个键)⇒ 由路径推导(安装目录 ⇒ registry 那条记录;其余 ⇒ standalone);
@@ -771,6 +841,9 @@ export function takeOwnershipOfTarget(
     );
   }
   const swap: StagedSwap = { ...swapBase, superseded, hadPrevious: true };
+  // G-733 注入点②:旧副本已改名挪走、事务标记**还没写**。
+  // 这是恢复判据最难的一格 —— 盘上没有凭据能证明这笔事务归属谁。
+  raiseSwapFaultIfMatched(opts?.faultAt, 'afterOwnership', target, superseded);
   // 事务标记写不进去 ⇒ 这次交换没有凭据,绝不能继续往下走;先把旧副本放回原位
   try {
     writeSwapMarker(swap);
@@ -783,6 +856,8 @@ export function takeOwnershipOfTarget(
       preserved,
     );
   }
+  // G-733 注入点③:标记已落 ⇒ 归档此刻带得上自己的事务号,恢复侧凭它认账。
+  raiseSwapFaultIfMatched(opts?.faultAt, 'afterMarker', target, superseded);
   return swap;
 }
 
@@ -883,7 +958,7 @@ export function finalizeStagedSwap(swap: StagedSwap): SwapFinalizeOutcome {
 export function commitStagedSwap(
   target: string,
   staging: string,
-  opts?: { signal?: AbortSignal; authority?: SwapAuthority | null },
+  opts?: { signal?: AbortSignal; authority?: SwapAuthority | null; faultAt?: SwapFaultStage },
 ): { swap: StagedSwap; finalized: SwapFinalizeOutcome } {
   if (opts?.signal?.aborted) {
     discardStagingDirectory(staging);
@@ -896,9 +971,14 @@ export function commitStagedSwap(
       null,
     );
   }
+  // G-733 注入点①:暂存已校验在位、尚未取得槽位所有权 ⇒ 此刻目标一定还是旧副本。
+  raiseSwapFaultIfMatched(opts?.faultAt, 'afterStaging', target, null);
   let swap: StagedSwap;
   try {
-    swap = takeOwnershipOfTarget(target, staging, { authority: opts?.authority });
+    swap = takeOwnershipOfTarget(target, staging, {
+      authority: opts?.authority,
+      faultAt: opts?.faultAt,
+    });
   } catch (e) {
     // 没拿到所有权 ⇒ 目标一步没动,临时物自己清掉
     discardStagingDirectory(staging);
@@ -907,6 +987,12 @@ export function commitStagedSwap(
   try {
     landStagedSwap(swap);
     // ——— 提交点已越过:此后绝不回退,也绝不响应取消 ———
+    // G-733 注入点④:新副本已落位。死在这里的后果是"两代都在(一代在槽位、一代在归档)",
+    // 所以断言看的不是"目标未动",而是"目标恰为新副本 ∧ 归档仍可回位"。
+    raiseSwapFaultIfMatched(opts?.faultAt, 'afterLand', swap.target, swap.superseded);
+    // G-733 注入点⑤:归档处置之前。与④的区别正是要防"finalize 被跳过而没人发现"。
+    // G-733 注入点⑤:归档处置之前。与④的区别正是要防"finalize 被跳过而没人发现"。
+    raiseSwapFaultIfMatched(opts?.faultAt, 'beforeFinalize', swap.target, swap.superseded);
     return { swap, finalized: finalizeStagedSwap(swap) };
   } finally {
     activeSwapScratch.delete(staging);

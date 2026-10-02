@@ -20,6 +20,8 @@
 
 import { randomUUID } from 'node:crypto';
 import type { TraceContext, TraceEvent } from '@ihui/types';
+// 上报面前 URL 凭据段剥离唯一出口(G-855 立,G-816023 接进 CLI 遥测漏斗;不得在端内再写 split('?')[0])
+import { stripUrlCredentialSegments } from '@ihui/shared/utils/sanitize-url';
 
 /** Telemetry 事件类型(枚举已知事件) */
 export type TelemetryEventType =
@@ -85,6 +87,10 @@ function isSensitiveKey(key: string): boolean {
  * 递归 redact 对象中的敏感字段(返回新对象,不修改入参)。
  *
  * - 字符串/数字/布尔值:若 key 敏感则替换为 '[REDACTED]'
+ * - 字符串值(G-816023):一律过 `stripUrlCredentialSegments`(shared 唯一出口)——
+ *   带 scheme 的 URL 剥 userinfo/query/hash,非 URL 字符串逐字不变。
+ *   票面点名的"上报面送 URL 形态字段"在现读载荷里已不存在(历史重构抹掉),
+ *   但 track() 接受任意 props,漏斗处兜住才不让下一处调用方重开这个洞。
  * - 嵌套对象/数组:递归处理
  * - 循环引用:通过 WeakSet 检测,遇到循环引用返回 '[Circular]'
  * - 最大深度 10 层(防止深度嵌套导致栈溢出)
@@ -95,7 +101,10 @@ export function redactSensitive(
   seen = new WeakMap<object, true>(),
 ): unknown {
   if (depth > 10) return '[MaxDepth]';
-  if (value === null || typeof value !== 'object') return value;
+  if (value === null || typeof value !== 'object') {
+    if (typeof value === 'string') return stripUrlCredentialSegments(value);
+    return value;
+  }
   // 循环引用检测
   if (seen.has(value as object)) return '[Circular]';
 
