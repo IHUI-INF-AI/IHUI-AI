@@ -371,7 +371,7 @@ function Show-Status {
   Write-Host "  日志目录:   $LogDir" -ForegroundColor DarkGray
 
   # 2026-08-27:web Turbopack 缓存卫生提示(预防缓存膨胀 → dev 高内存/CPU)。
-  # 缓存由 apps/web dev 脚本前置的 clean-turbopack-cache.mjs 自动治理,超 8GB 启动时自动清;
+  # 缓存由 apps/web 的 dev 启动器(scripts/dev-with-warmup.mjs,拿到 dev 锁之后)自动治理,超 8GB 启动时清;
   # 此处仅作诊断辅助,一眼看出当前缓存是否已逼近阈值。
   $nextCache = Join-Path $RepoRoot 'apps\web\.next\dev\cache\turbopack'
   if (Test-Path $nextCache) {
@@ -737,9 +737,11 @@ foreach ($t in $healthTargets) {
 # 用户首次点击即命中已编译路由(~130ms,非冷编译 2.5~4s)。
 #
 # 2026-09-12 迁移:预热不再由本启动器派生,已并入 dev 入口本身 ——
-#   apps/web/package.json 的 `dev` = clean-turbopack-cache.mjs && dev-with-warmup.mjs,
-#   由 scripts/dev-with-warmup.mjs 在 next dev 就绪后以 detached 后台进程跑
-#   `warm-dev-routes.mjs --top 18`(高频 12 + 18 ≈ 30 条,
+#   apps/web/package.json 的 `dev` = scripts/dev-with-warmup.mjs(2026-10-02 起:改 next dist 的
+#   dev 预取守卫与缓存治理都在这支启动器【之内】、拿到 dev 锁之后跑,不再由 npm 脚本用 && 前置),
+#   由它在 next dev 就绪后以 detached 后台进程跑
+#   `warm-dev-routes.mjs`(PRIORITY_ROUTES 全量 36 条,默认档才预热;`--purge` / `--no-turbopack`
+#   那两档不预热 —— 它们是拿来对照观感与排查编译的逃生档,
 #   日志 .ihui-agent/tmp/dev-logs/web-warmup.log)。
 #   本注册表里 web 走 `pnpm --filter @ihui/web dev`,desktop 的 beforeDevCommand 亦然,
 #   故此处【不得】再派生一次 —— 双份预热互抢 Turbopack 编译队列,反而拖慢首次点击。
