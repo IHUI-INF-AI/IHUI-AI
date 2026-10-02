@@ -191,7 +191,7 @@ export function VisionAnalysis() {
             <Label>{t('result')}</Label>
             <div className="prose prose-sm max-w-none rounded-md border p-3 dark:prose-invert">
               <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
+                remarkPlugins={[[remarkGfm, { singleTilde: false }]]}
                 components={{
                   code({ className: cls, children, ...props }: React.ComponentProps<'code'>) {
                     const match = /language-(\w+)/.exec(cls || '')
