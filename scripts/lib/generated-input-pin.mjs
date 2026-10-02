@@ -65,9 +65,11 @@ export function digestInputs(inputs) {
 
 /**
  * 渲染钉块(返回不含行尾符的行数组,调用方自己拼)。
- * @param {{generator:string, sourceCommit?:string, inputs:Array<{rel:string,text:string|null}>, generatedAt:string}} opts
+ * @param {{generator:string, sourceCommit?:string, inputs:Array<{rel:string,text:string|null}>, generatedAt:string, extraLines?:string[]}} opts
+ *   extraLines(G-816040):非判据的自述行(skipped 计数等),逐条渲染成 `// <内容>`。
+ *   parsePin 按字段名取值,多出的行不参与判据;放钉块内 = 「哪些没搬进来」与输入清单同块自述。
  */
-export function renderPin({ generator, sourceCommit, inputs, generatedAt }) {
+export function renderPin({ generator, sourceCommit, inputs, generatedAt, extraLines = [] }) {
   const { perInput, digest } = digestInputs(inputs)
   const lines = [
     `// ${PIN_BEGIN}`,
@@ -76,6 +78,7 @@ export function renderPin({ generator, sourceCommit, inputs, generatedAt }) {
     `// ${DIGEST_FIELD}: ${digest}`,
   ]
   for (const i of perInput) lines.push(`// input: ${i.rel} ${i.sha}`)
+  for (const extra of extraLines) lines.push(`// ${extra}`)
   lines.push(`// ${GENERATED_AT_FIELD}: ${generatedAt}`)
   lines.push(`// ${PIN_END}`)
   return lines
