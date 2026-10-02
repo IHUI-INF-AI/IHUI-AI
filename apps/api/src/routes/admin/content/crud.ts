@@ -60,7 +60,18 @@ const TYPE_KEYS = [
 type ContentType = (typeof TYPE_KEYS)[number]
 
 const typeParamSchema = z.object({ type: z.enum(TYPE_KEYS) })
-const idParamSchema = z.object({ type: z.enum(TYPE_KEYS), id: z.string().min(1) })
+/**
+ * `:id` 一律是 uuid 主键(announcements / help_articles / help_categories / docs /
+ * news_articles / carousels / system_configs 七张表逐张现读,7/7 为 `id: uuid()`),
+ * 所以这里必须收成 `z.uuid()` —— 否则任意字符串会一路打到 PG 的 uuid 列,报 22P02,
+ * 用户看到 500 而不是 400,并落进错误告警面。
+ *
+ * 为什么不改 `admin/_shared.ts` 那条共享 `idParamSchema`:它同时服务 serial/bigserial
+ * 主键的在跑路由(见 G-624 否证),径改会把合法整型 id 判成 400。本表是**逐站点**收口。
+ * 写法照仓内 zod 4 主流形态(`z.uuid()`),与 `_shared.ts` 的 `crudIdParamSchema` 同代不混用。
+ * 失败出口复用本文件既有的 `validate()` ⇒ AppError(400, 'VALIDATION_FAILED')。
+ */
+const idParamSchema = z.object({ type: z.enum(TYPE_KEYS), id: z.uuid({ error: '无效的 ID' }) })
 const pageSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
