@@ -114,6 +114,25 @@ export function buildSsoLoginUrl(webBase: string, redirectUri: string, clientId:
 }
 
 /**
+ * 站内相对跳转路径的唯一判据 —— **安全**问题的答案,不是"怎么解析"的答案。
+ *
+ * 第二个字符既不能是 `/` 也不能是 `\`:WHATWG 在 special scheme 的
+ * "special authority ignore slashes" 状态里把 `\` 与 `/` 等值处理,实测
+ * `new URL('/\\evil.com', 'https://aizhs.top').href === 'https://evil.com/'`
+ * (取证 `.ihui-agent/tmp/g1018194/probe-url.mjs`)。只挡 `//` 会把反斜杠形态
+ * 放行成跨站跳转,而这条链上跟着的是刚签发的 sso_code 与会话 Cookie。
+ *
+ * `buildSsoRedirectUrl` 里的 `isRelative` **刻意不调用它**:那个变量回答的是
+ * "要不要借占位 origin 去解析",把安全判据塞进去会让 `/\evil.com` 落进绝对分支、
+ * 再经 fallback 把 code 拼到一个协议相对串上 —— 那是回归不是收紧。
+ */
+export function isSameOriginRelativePath(target: string): boolean {
+  if (!target.startsWith('/')) return false
+  const second = target.charAt(1)
+  return second !== '/' && second !== '\\'
+}
+
+/**
  * 把一次性 sso_code 附加到 redirectUri 上,生成 SSO 回调 URL。
  *
  * 2026-09-22 立(修复 SSO 授权死循环留下的脏参数膨胀):
