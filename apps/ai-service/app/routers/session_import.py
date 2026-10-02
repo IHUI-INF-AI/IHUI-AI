@@ -4,8 +4,8 @@
 
 """会话文件导入解析路由(api-service 转发入口)。
 
-- POST /api/session-import/parse  multipart 上传 Claude Code / Codex / Cursor / Aider
-  的会话导出文件,调用 app.services.importers.parse_conversation_file 解析为统一 IR。
+- POST /api/session-import/parse  multipart 上传 Claude Code / Codex / Cursor / Aider /
+  微信 的会话导出文件,调用 app.services.importers.parse_conversation_file 解析为统一 IR。
 
 错误映射(与 image_edit/publish 等上传路由惯例一致):
 - 扩展名不在白名单 / source 非法(ValueError)→ 400
@@ -27,16 +27,24 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# 允许的会话导出文件后缀(jsonl/json 导出、md 纯文本、sqlite/db/vscdb 会话库)
-_ALLOWED_EXTENSIONS = {".jsonl", ".json", ".md", ".sqlite", ".db", ".vscdb"}
+# 允许的会话导出文件后缀(jsonl/json 导出、md 纯文本、sqlite/db/vscdb 会话库、
+# zip 微信「合并转发」导出包、txt 微信「聊天记录.txt」纯文本)
+#
+# .txt 是 2026-10-03 补的:wechat 解析器本身支持 txt 直读(微信导出的 ZIP 内就是
+# 聊天记录.txt,用户也可单独把该文件拖上来),而 CLI(RN)三端早已把 .txt 写进
+# 宣称支持的后缀。缺了它,用户在 UI 选中 .txt 必然吃路由层 400 —— 前后端口径
+# 不一致,属于本管道自己的漏洞,不是外部兼容负担。
+_ALLOWED_EXTENSIONS = {
+    ".jsonl", ".json", ".md", ".sqlite", ".db", ".vscdb", ".zip", ".txt",
+}
 # 上传体积上限 20MiB
 _MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 
 
 @router.post("/session-import/parse")
 async def parse_session_import(
-    file: UploadFile = File(..., description="会话导出文件(jsonl/json/md/sqlite/db/vscdb)"),
-    source: str = Form(..., description="数据源: claude_code/codex/cursor/aider"),
+    file: UploadFile = File(..., description="会话导出文件(jsonl/json/md/txt/sqlite/db/vscdb/zip)"),
+    source: str = Form(..., description="数据源: claude_code/codex/cursor/aider/wechat"),
 ) -> dict[str, Any]:
     """解析会话导出文件为统一 IR(路径钉死 /api/session-import/parse)。"""
     filename = file.filename or ""

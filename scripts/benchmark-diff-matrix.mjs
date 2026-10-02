@@ -336,11 +336,6 @@ export function buildPerClass(inputs = {}) {
   }
 }
 
-function selfWatermark() {
-  const self = fs.readFileSync(fileURLToPath(import.meta.url), 'utf8')
-  const end = self.indexOf('-->')
-  return self.slice(0, end + 3)
-}
 function headStamp() {
   try {
     return execFileSync('git', ['rev-parse', '--short=10', 'HEAD'], { encoding: 'utf8', windowsHide: true }).trim()
@@ -349,10 +344,23 @@ function headStamp() {
   }
 }
 
+/**
+ * 溯源水印注入唯一出口(§5c 生成器契约):产物是 git 跟踪文件,受 check-watermark-coverage 约束。
+ * 失败一律向上抛 —— 不抛就是"产出一个让门禁必红的文件"而账面报成功。
+ */
+export function injectWatermark(outFile) {
+  const watermarkScript = path.join(HERE, 'watermark.mjs') // HERE 就是 <root>/scripts
+  execFileSync(process.execPath, [watermarkScript, 'inject', outFile], {
+    stdio: 'inherit',
+    windowsHide: true,
+  })
+}
+
 /** 机器产物全文。格式纪律同 frame-by-end-matrix:头注声明"任何一格不得手工改"+ 复现命令。 */
 export function renderPerClassMarkdown(m, stamp = {}) {
   const L = []
-  L.push(selfWatermark(), '')
+  // 横幅不在这里手抄:.md 的合法注释是 <!-- -->,而本脚本自身是 // 式 → 抄过来必被守门 95 判"未注释包裹";
+  // 唯一出口 = runPerClass 写盘后调 scripts/watermark.mjs inject(§5c 生成器契约)。
   L.push('# 逐类目对账矩阵:我方 4 清单 ∪ 帧面 × Qoder/Trae/Codex(机器生成,D207)', '')
   L.push('> 由 `scripts/benchmark-diff-matrix.mjs --per-class` 生成,D160 拆票(D207)的收口产物。')
   L.push('> **本文件任何一格不得手工改** —— 读数变了,说明清单或代码变了:去改清单/代码,然后重新生成,不改这张表。')
@@ -411,6 +419,7 @@ export function runPerClass(outFile = PER_CLASS_DEFAULT_OUT) {
   const md = renderPerClassMarkdown(m, { when: new Date().toISOString(), head: headStamp() })
   fs.mkdirSync(path.dirname(outFile), { recursive: true })
   fs.writeFileSync(outFile, md, 'utf8')
+  injectWatermark(outFile)
   const mine = m.rows.filter((r) => r.verdict.startsWith('我方单侧')).map((r) => r.c)
   const theirs = m.rows.filter((r) => r.verdict.startsWith('竞品单侧')).map((r) => r.c)
   console.log(`# 逐类目档已生成: ${outFile}`)
@@ -654,6 +663,28 @@ function runSelfTest() {
       eq('两侧都零块', md.includes('两侧都零(覆盖洞'), true)
       eq('meta 留痕块(节标题+计数,条目原文不入产物)', md.includes('meta 节条目留痕') && md.includes('「0 取证物与读数」'), true)
     })
+    ok('产物头不得是脚本自身源码(旧 selfWatermark 用 indexOf(\'-->\') 自切,把整份源码写进 .md)', () => {
+      const m = buildPerClass({
+        oursFiles: [1, 2, 3, 4].map((n) => path.join(d2, `ours/g${n}.md`)),
+        frameFile: path.join(d2, 'frames.md'),
+        rivalFiles: { qoder: path.join(d2, 'rivals/qoder.md'), trae: path.join(d2, 'rivals/trae.md'), codex: path.join(d2, 'rivals/codex.md') },
+      })
+      const md = renderPerClassMarkdown(m, { when: 'test', head: 'test' })
+      // 反向对照:这三条都是本脚本自身才有的形态,出现在产物里就是旧 bug 回来了
+      for (const marker of ['#!/usr/bin/env node', 'export function renderPerClassMarkdown', "import fs from 'node:fs'"]) {
+        eq('产物不得含脚本源码片段 ' + marker, md.includes(marker), false)
+      }
+      eq('渲染阶段不产出横幅(横幅只由 inject 写)', md.startsWith('# 逐类目对账矩阵'), true)
+    })
+    ok('写盘后 inject 出的是 .md 合法注释横幅(守门 95 的判据形态)', () => {
+      const outFile = path.join(d2, 'product-head-check.md')
+      fs.writeFileSync(outFile, ['# 逐类目对账矩阵:测试', '', '| 类 | 判读 |', '| --- | --- |', '| 1 | 两侧都有 |', ''].join('\n'), 'utf8')
+      injectWatermark(outFile)
+      const after = fs.readFileSync(outFile, 'utf8')
+      eq('首行是 HTML 注释 opener', after.split('\n')[0].trim(), '<!--')
+      eq('横幅块以 --> 闭合', after.includes('-->'), true)
+      eq('标题未被挤掉', after.includes('# 逐类目对账矩阵:测试'), true)
+    })
     ok('验收①:输入缺件即抛,拒绝出矩阵', () => {
       let threw = false
       try {
@@ -772,5 +803,6 @@ export const __test__ = {
   buildPerClass,
   renderPerClassMarkdown,
   runPerClass,
+  injectWatermark,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
