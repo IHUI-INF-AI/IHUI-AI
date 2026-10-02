@@ -152,15 +152,17 @@ export default defineConfig({
         __dirname,
         'tests/__mocks__/ihui-shared-tasks-dispatch.ts',
       ),
-      // 票 #27:storage key 的唯一真相。barrel 那一条别名是端内替身(它手抄了一个子集,
-      // 还把 FALLBACK_MODELS / SSO_CLIENT_IDS 刻意清空),把 barrel 改指真实源码会改动别人用例
-      // 的输入 ⇒ 属 #32 同族另一格,不在本票射程。这里只把这一份纯常量模块指到真实源码,
-      // 且必须排在 '@ihui/shared/constants' 之前(父别名按 startsWith 吞子路径)。
+      // 票 #27:storage key 的唯一真相。barrel 那一条别名此前指到端内替身(它手抄了一个子集,
+      // 还把 FALLBACK_MODELS / SSO_CLIENT_IDS 刻意清空)——那正是 #32 同族的一格,本条已收口:
+      // 真实 `packages/shared/src/constants/index.ts` 只做常量再导出(唯一的外部引用是
+      // model-catalog 的 `import type`,编译期擦除),平台无关 ⇒ 别名直指真实源码,
+      // 与同文件 auth / chat / ui / api-client 各条同一条规矩(纯逻辑/纯常量给它写 mock,测的就是 mock)。
+      // 子路径别名仍排在前面(最长匹配优先,父别名按 startsWith 会吞子路径)。
       '@ihui/shared/constants/storage-keys': resolve(
         __dirname,
         '../../packages/shared/src/constants/storage-keys.ts',
       ),
-      '@ihui/shared/constants': resolve(__dirname, 'tests/__mocks__/ihui-shared.ts'),
+      '@ihui/shared/constants': resolve(__dirname, '../../packages/shared/src/constants/index.ts'),
       // D111:权限档展示为纯逻辑模块(chat barrel 无 DOM/RN 依赖),指向真实源码而非 mock ——
       // 档位取词的价值就是"三端同源",给它写 mock 测的就是 mock。子路径 alias 必须在根 alias 前。
       // 子路径别名必须排在父路径之前(最长匹配优先,同 @ihui/shared/utils 的注释)。

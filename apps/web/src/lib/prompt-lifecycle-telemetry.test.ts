@@ -70,9 +70,7 @@ describe('queue → activate 队列模型', () => {
   })
 
   it('无激活 prompt 时事件全部吞掉', () => {
-    expect(
-      send({ type: 'chunk', taskId: TASK, stream: 'content' }),
-    ).toEqual([])
+    expect(send({ type: 'chunk', taskId: TASK, stream: 'content' })).toEqual([])
   })
 })
 
@@ -340,7 +338,12 @@ describe('终态与 completion 统计', () => {
     send({ type: 'tool_start', taskId: TASK, toolId: 'b' })
     send({ type: 'tool_end', taskId: TASK, toolId: 'b', status: 'failed', error: 'boom' })
 
-    const facts = send({ type: 'terminal', taskId: TASK, result: 'fail', error: { type: 'E', msg: 'x' } })
+    const facts = send({
+      type: 'terminal',
+      taskId: TASK,
+      result: 'fail',
+      error: { type: 'E', msg: 'x' },
+    })
     const completion = facts.find((f) => f.kind === 'completion')
     expect(completion).toBeTruthy()
     if (!completion || completion.kind !== 'completion') return
