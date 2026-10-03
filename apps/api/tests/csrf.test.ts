@@ -6,6 +6,7 @@ import { describe, it, expect, afterAll, beforeAll, vi } from 'vitest'
 import Fastify from 'fastify'
 import cookie from '@fastify/cookie'
 import { SignJWT } from 'jose'
+import type * as JoseModule from 'jose'
 
 /**
  * 2026-10-04(G-373):本文件原先用**签名伪造**的 `JWT_SHAPED_TOKEN` 与**库里不存在**的
@@ -30,7 +31,7 @@ const REGISTERED_API_KEY = 'ihui_0123456789abcdef01234567'
 // ⚠️ 只覆盖 decodeJwt,其余(含 compactVerify)取真实 jose —— CSRF 豁免判据要用 compactVerify
 // 验签,整包 mock 掉它会让"真签名也验不过",把正向用例变成假红。
 vi.mock('jose', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('jose')>()),
+  ...(await importOriginal<typeof JoseModule>()),
   decodeJwt: () => ({}),
 }))
 vi.mock('../src/config/index.js', () => ({
