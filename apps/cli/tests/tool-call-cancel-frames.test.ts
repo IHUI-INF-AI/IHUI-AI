@@ -167,7 +167,7 @@ describe('G-639 ACP 取消出口逐卡发帧(两个 in-flight ⇒ 两帧)', () =
     expect(calls).toHaveLength(2)
     expect(updates).toHaveLength(2)
     expect(updates.map((u) => u.toolCallId)).toEqual(calls.map((c) => c.toolCallId))
-    expect(updates.every((u) => u.rawOutput != null && (u.rawOutput as Record<string, unknown>).cancelled === true)).toBe(true)
+    expect(updates.every((u) => u.rawOutput !== null && u.rawOutput !== undefined && (u.rawOutput as Record<string, unknown>).cancelled === true)).toBe(true)
   })
 
   it('正常完成(end_turn)不触发取消帧:既有行为零回归', async () => {

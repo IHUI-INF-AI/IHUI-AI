@@ -77,7 +77,7 @@ export function matchesShortcutKeyCode(
     return true;
   }
   const expectedCode = getExpectedShortcutCode(key.toLowerCase());
-  return expectedCode != null && event.code === expectedCode;
+  return expectedCode !== null && expectedCode !== undefined && event.code === expectedCode;
 }
 
 function getExpectedShortcutCode(key: string): string | null {
