@@ -11794,7 +11794,8 @@
     "reasoningEffortMedium": "標準",
     "reasoningEffortHigh": "熟考",
     "reasoningEffortUnsupported": "このモデルでは推論の深さを選択できません",
-    "reasoningEffortFallback": "推論の深さはサーバー側で調整されました: {requested} → {effective}"
+    "reasoningEffortFallback": "推論の深さはサーバー側で調整されました: {requested} → {effective}",
+    "analysisOpen": "シナリオ分析を見る"
   },
   "chatHistory": {
     "moveToGroup": "グループへ移動",
@@ -12033,7 +12034,8 @@
     "toKnowledgeFailed": "ナレッジベースへの追加に失敗：{error}",
     "toKnowledgeAlready": "登録済み",
     "sourceWechat": "WeChat",
-    "sourceWechatHint": "WeChat「まとめて転送」書き出しの チャット記録.txt またはその .zip"
+    "sourceWechatHint": "WeChat「まとめて転送」書き出しの チャット記録.txt またはその .zip",
+    "noValidContent": "インポート可能な有効な内容がありません"
   },
   "commandPalette": {
     "groups": {
@@ -22066,7 +22068,13 @@
     "agentSecuritySaveSuccess": "セキュリティ設定を保存しました",
     "agentSecuritySaveFailed": "セキュリティ設定の保存に失敗しました",
     "analyticsEnabled": "利用状況の分析",
-    "analyticsEnabledDesc": "オンにすると、クリック・ページ訪問・所要時間などの匿名の利用イベントを記録し、プロダクト改善に用います。入力された本文・コード・ファイルパスは記録しません。オフにすると送信を直ちに停止し、機能への影響はありません。"
+    "analyticsEnabledDesc": "オンにすると、クリック・ページ訪問・所要時間などの匿名の利用イベントを記録し、プロダクト改善に用います。入力された本文・コード・ファイルパスは記録しません。オフにすると送信を直ちに停止し、機能への影響はありません。",
+    "llmRawRetentionOptOut": "LLM送受信本文を保持しない",
+    "llmRawRetentionOptOutDesc": "質問とAI回答の本文はデータベースに保存されません",
+    "codeIndexEgressOptOut": "コード意味インデックスを作成しない",
+    "codeIndexEgressOptOutDesc": "コード断片はベクトル化インデックスのために外部へ送信されません",
+    "autoMemoryOptOut": "自動長期メモリを無効化",
+    "autoMemoryOptOutDesc": "会話をセッション横断の嗜好や規約に自動抽出しません"
   },
   "shareContentPage": {
     "aiGenerated": "Zhihui AI 生成",
