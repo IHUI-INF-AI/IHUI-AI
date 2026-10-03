@@ -201,6 +201,10 @@ function git(args, opts = {}) {
     timeout: 60_000,
     ...opts,
     windowsHide: true,
+    // EBUSY 根治(errno -4082):本机会话里 Node 建子进程 stdin 管道确定性失败。
+    // 调用点全是只读 git,不喂 stdin。stdio 写在 ...opts 之后:gitPathList 自己传的也是
+    // stdio[0]='ignore'(取 buffer 用),覆盖后形态一致;若将来有调用方要喂 stdin,须先改两态。
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 

@@ -16,9 +16,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { resolveGitBin } from '../lib/gitdir.mjs'
@@ -247,5 +247,105 @@ test('T10 豁免族必须进守门 108 的存活期表并取 30 天(一条没有
     expiry.DEFAULT_LIFETIME_DAYS,
     '靠默认值兜底不算登记 —— 那正是 E4 要判的形态',
   )
+})
+
+test('T11 R-EXIST 成对:宿主内本地自造登记器 ⇒ 点名并给出唯一出路;共用出口与注释 ⇒ 不得点名', () => {
+  // 正例:宿主内本地自造(判绿的那一档同样要点名 —— R-EXIST 与 R-REG 正交)
+  const made = [
+    'export function selfTest() {',
+    '  const cases = []',
+    '  const t = (name, cond) => cases.push({ name, cond })',
+    '  let pass = 0',
+    '  for (const c of cases) if (c.cond === true) pass++',
+    '  return pass',
+    '}',
+    '',
+  ].join('\n')
+  const r = gate.analyzeSource({ rel: 'scripts/fixture-selfmade.mjs', raw: made })
+  assert.equal(r.selfMade.length, 1, '本地自造登记器未被点名')
+  assert.equal(r.selfMade[0].name, 't')
+  assert.match(r.selfMade[0].why, /scripts\/lib\/selftest-registrant\.mjs/, '未给出唯一出路')
+
+  // 反向对照 A:走共用出口 —— 登记器不在宿主内声明 ⇒ 一处也不许点名(否则本判据是恒报)
+  const viaExit = [
+    "import { makeRegistrar } from './lib/selftest-registrant.mjs'",
+    'export function selfTest() {',
+    '  const { t, report } = makeRegistrar()',
+    "  t('remote 清单要能判', () => true)",
+    '  return report().fail',
+    '}',
+    '',
+  ].join('\n')
+  const ok = gate.analyzeSource({ rel: 'scripts/fixture-viaexit.mjs', raw: viaExit })
+  assert.deepEqual(ok.selfMade, [], '共用出口用法被误点名 ⇒ R-EXIST 是恒报,没有判别力')
+
+  // 反向对照 B:同形状只在注释里 ⇒ 遮罩必须把它吃掉(证明 A 不是"因为读不出才没报")
+  const commentOnly = [
+    'export function selfTest() {',
+    '  // 早先这里写 const t = (name, cond) => cases.push({ name, cond })',
+    '  return 0',
+    '}',
+    '',
+  ].join('\n')
+  const c = gate.analyzeSource({ rel: 'scripts/fixture-comment.mjs', raw: commentOnly })
+  assert.deepEqual(c.selfMade, [], '注释里的形状被点名 ⇒ 遮罩没生效')
+})
+
+test('T12 R-EXIST 只报数:不得改变 exit 口径(配对红=1 / 未判定+strict=2 / 其余=0)', () => {
+  const base = {
+    file: 'x',
+    registrars: 2,
+    latent: [{ name: 't' }],
+    evaluates: 1,
+    strictCompare: [],
+    undetermined: [],
+    exempted: [],
+    red: [],
+    selfMade: [{ name: 't', line: 3, why: 'w' }],
+    unreadable: null,
+  }
+  // 自造 1 处、其它干净 ⇒ 必须 0(本判据刻意不参与 exit)
+  const clean = gate.decide({ verdicts: [base], enumerated: 10 })
+  assert.equal(clean.exit, 0, 'R-EXIST 改变了 exit ⇒ 它已不是"只报数"档')
+  assert.equal(clean.counts.selfMade, 1)
+  // 红与未判定两档的口径未被这一格挪动
+  const red = gate.decide({
+    verdicts: [{ ...base, selfMade: [], red: [{ file: 'x', registrar: 't', caseLines: [3] }] }],
+    enumerated: 10,
+  })
+  assert.equal(red.exit, 1)
+  const und = gate.decide({
+    verdicts: [{ ...base, selfMade: [], undetermined: [{ name: 't', line: 2, why: 'y' }] }],
+    enumerated: 10,
+    strict: true,
+  })
+  assert.equal(und.exit, 2)
+})
+
+test('T13 出口模块在真仓里存在、导出 makeRegistrant 且真判(判据指的出路不许是空头支票)', async () => {
+  const p = join(ROOT, gate.SELF_ROUTE)
+  assert.ok(existsSync(p), `${gate.SELF_ROUTE} 不存在 ⇒ R-EXIST 点名的出路是空头支票`)
+  const mod = await import(pathToFileURL(p).href)
+  assert.equal(typeof mod.makeRegistrar, 'function', '出口没导出 makeRegistrar')
+  // 出口必须真判:一条真、一条假 —— 不是恒绿,也不是恒红
+  const { t, report } = mod.makeRegistrar()
+  t('正例', () => true)
+  t('反例(不得恒绿)', () => 1 === 2)
+  const r = report()
+  assert.equal(r.pass, 1)
+  assert.equal(r.fail, 1)
+  assert.equal(r.cases.length, 2)
+})
+
+test('T14 样板消费方已接共用出口:该文件本地自造 0 处且潜伏 0(R-EXIST 的实证,不是设计意图)', () => {
+  // 这一条锁的是"出口真的被用上了":若有人把 check-baseline-freshness.mjs 改回本地自造,
+  // T11 仍会绿(它只验判据),而这一条会红(它验真仓事实)。
+  const r = gate.analyzeSource({
+    rel: 'scripts/check-baseline-freshness.mjs',
+    raw: readFileSync(join(ROOT, 'scripts', 'check-baseline-freshness.mjs'), 'utf8'),
+  })
+  assert.equal(r.selfMade.length, 0, '样板门仍在本地自造登记器 ⇒ 共用出口没被真正接上')
+  assert.equal(r.latent.length, 0, '样板门又回到裸存簇')
+  assert.equal(r.red.length, 0, '样板门被判红')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
