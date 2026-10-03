@@ -61,12 +61,15 @@ test('T2 厂商域名表来源全部在位,且真能推出域名(不硬编码第
 test('T3 唯一包装函数在位且真的挂出口事实(否则本门判的是不存在的东西)', async () => {
   const wrapper = readFileSync(resolve(ROOT, 'apps/api/src/routes/ai-vendors/_shared.ts'), 'utf8')
   assert.match(wrapper, /export async function fetchWithTimeout/, '包装函数必须还在(摘掉=门对整个厂商出站面失明)')
-  assert.match(wrapper, /collectEgressFacts\(/, '包装函数必须计算出口事实')
-  assert.match(wrapper, /attachEgressFacts\(/, '包装函数必须把事实挂到响应上')
-  assert.equal((wrapper.match(/attachEgressFacts\(/g) ?? []).length >= 2, true, '代理与直连两条分支都要挂')
+  assert.match(wrapper, /collectEgressFacts\(/, '包装函数必须计算出口事实(路由决策用)')
+  // G-750(2026-10-03)挂载点下移:事实挂载收进 proxiedFetch / directEgressFetch(代理与直连
+  // 两个分支的同一份实现),_shared 只留路由决策 —— 两条分支的调用必须在位,否则挂载够不着。
+  assert.match(wrapper, /proxiedFetch\(/, '代理分支必须走 proxiedFetch(它负责挂事实)')
+  assert.match(wrapper, /directEgressFetch\(/, '直连分支必须走 directEgressFetch(它负责挂事实)')
 
   const dispatcher = readFileSync(resolve(ROOT, 'apps/api/src/utils/proxy-dispatcher.ts'), 'utf8')
   assert.match(dispatcher, /export function isProxiedUrl\(url: string\): boolean \{\n\s*return collectEgressFacts\(url\)\.proxied\n\s*\}/, '路由判定必须是事实的投影(判据只有一份)')
+  assert.equal((dispatcher.match(/attachEgressFacts\(res, enrichedEgressFacts\(/g) ?? []).length >= 2, true, '代理与直连两个出口都要经同一份合成器挂事实(挂载不得散抄)')
 })
 
 test('T4 基线 JSON 可用:坏 JSON 显式报错,不当成空清单', async () => {
