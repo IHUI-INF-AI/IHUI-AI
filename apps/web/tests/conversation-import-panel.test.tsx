@@ -472,9 +472,7 @@ describe('ConversationImportPanel — 外部会话导入四步流', () => {
     parseMock.mockResolvedValue({
       success: true,
       data: {
-        conversations: [
-          { title: '群聊记录', messages: [{ role: 'user', content: '在吗' }] },
-        ],
+        conversations: [{ title: '群聊记录', messages: [{ role: 'user', content: '在吗' }] }],
         truncated: false,
         warnings: [],
       },
