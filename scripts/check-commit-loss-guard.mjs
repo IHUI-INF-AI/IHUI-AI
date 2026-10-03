@@ -45,6 +45,9 @@
  *   0 — 通过(warn 告警可被忽略,但 stdout 仍打印提示)
  *   1 — blocking/strict 模式下有阻塞项(reflog reset / 未备份悬空 commit /
  *        远端 tag 缺失需 fetch / tag 对象不可达)
+ *   2 — **无法判定**:判据面取不到(典型:fsck 派生不出来 / 超时 / 仓不可达)。
+ *       与 1 分开是本仓既有约定(§12e):1 = "判完了,判红",2 = "没判完"。
+ *       绝不允许把"没判完"折成 0 —— 那正是本门 2026-10-03 之前恒绿的成因。
  *
  * 豁免:
  *   - HUSKY_SKIP_COMMIT_LOSS_CHECK=1: 跳过本检查(紧急场景,不推荐)
@@ -59,7 +62,7 @@
  *   - scripts/guardian-runner.mjs 第 30 项(warn-only → 后续 blocking)
  *   - 手动验证: git 异常操作后跑一次确认无丢失
  */
-import { catBatch, gitRaw } from './lib/face-reader.mjs'
+import { batchExecFileSync, catBatch, gitBinary, gitErrText, gitRaw, Undetermined } from './lib/face-reader.mjs'
 
 /**
  * 判定对象 = **当前工作目录所在的仓库**,不是脚本自己所在的那个仓库。
@@ -125,6 +128,10 @@ const SPAWN_DEFAULT_TIMEOUT_MS = 120_000
  * (与旧的 `run()` / `runGit()` 逐字一致)。
  * 旧写法有两条通道:`run(shell 字符串)` 与 `runGit(spawnSync argv)`,同一道判据两套引号语义
  * (cmd 会展开 `%(objectname)` 那类形态,已留过事故);现统一为层的 argv 形态。
+ *
+ * ⚠️ `allowFail` 是**降级**开关,不是"判据的合法出口"。凡是"取不到就等于没有"的判据
+ * (即取不到时会把结论往绿的方向折),不得使用它 —— 那是把"没判"写成"判过了"。
+ * 需要区分"取不到"与"真的是空"的判据,走 `listUnreachableHashes` 的三态返回。
  */
 function gitText(args, opts = {}) {
   const { allowFail = false, ...rest } = opts
@@ -258,11 +265,20 @@ function isStashSubject(subject) {
   // / "index on <branch>: <hash> <msg>" / "untracked files on <branch>: <hash> <msg>"
   // 2026-08-17 修复:原正则只匹配 "index on main:"/"On main:",漏掉其他分支(如
   // fix/* 分支)产生的 stash 索引快照,导致误报"未备份悬空 commit"阻塞 commit。
-  // 改为匹配任意分支名(冒号前为非空非空白串),与 HASH_EXTRACT_REGEX 保持一致。
+  // 改为匹配任意分支名(冒号前为非空非空白串),与下方 `extractOriginalHashFromStash`
+  // 的提取正则保持一致(两处同改,否则会出现"认得出是 stash 却取不出原 hash"的新格)。
+  // 2026-10-03 补:`<branch>` 不能用 `\S+` —— **detached HEAD 下 git 写的是
+  // `index on (no branch): <hash> <msg>`,分支名含空格** ⇒ `\S+: ` 失配 ⇒ stash 索引快照
+  // 漏进 unbacked,把它的单亲提交顶成"未备份"持续阻塞 commit(实测枚 88baec2bff:
+  // 单亲 7174e48a1205、零文件、正是 stash 三元组里的 index commit)。
+  // 判据改为「冒号前允许含空格但不得为空」:`On \S.*?: ` / `index on \S.*?: `。
+  // 收紧方向说明:非贪婪 `\S.*?` 只吃到**第一个**冒号,所以 "On feature/x: abc msg"
+  // 仍匹配;而 "On some words: abc" 这类非 stash subject 仍会因缺 ` abc <hex>` 后缀
+  // 在 `extractOriginalHashFromStash` 那侧被拒 —— 两道判据互补,不是单靠这一条。
   return (
     /^WIP on /.test(subject) ||
-    /^On \S+: /.test(subject) ||
-    /^index on \S+: /.test(subject) ||
+    /^On \S.*?: /.test(subject) ||
+    /^index on \S.*?: /.test(subject) ||
     /^untracked files on /.test(subject)
   )
 }
@@ -274,11 +290,48 @@ function extractOriginalHashFromStash(subject) {
   //   "index on main: 5ef36e59d <msg>"
   //   "untracked files on main: 5ef36e59d <msg>"
   // 提取第二个冒号后的原 commit hash
+  //
+  // 2026-10-03:`\S+` 与 `isStashSubject` 同步放宽为 `\S.*?` —— detached HEAD 下分支名是
+  // `(no branch)`(含空格),旧式在**识别**侧失配就算了,若只改识别侧不改这里,就会留下
+  // "认得出是 stash、却取不出原 hash"的新格:那条提交在备份核对里仍进 unbacked。
+  // 两处必须同改(判据同源,别只改一半)。
   if (!subject) return ''
-  const m = subject.match(/^[A-Za-z ]+on\s+\S+:\s+([0-9a-f]{7,40})\b/)
+  const m = subject.match(/^[A-Za-z ]+on\s+\S.*?:\s+([0-9a-f]{7,40})\b/)
   return m ? m[1] : ''
 }
 
+/**
+ * fsck 读数 —— **本门唯一一处不走 `gitText` 的判据**,因为它必须区分
+ * 「取不到」与「取到了但是零」,而 `allowFail` 只能表达后者。
+ *
+ * ## 假绿事故(2026-10-03 实测取证,真值 788 枚 unreachable commit 却恒绿)
+ *   本仓 `git fsck --connectivity-only --unreachable --no-reflogs` 的**真实退出码是 2**
+ *   (不是 0)。而 `gitRaw` 对任何非 0 都抛 `Undetermined`,`allowFail` 再把它折成 `''`,
+ *   `if (!out) return []` 于是把 788 读成 0 —— 三次连跑全 RC=0「✅ 未检测到悬空 commit」。
+ *   代价 410 KB / 7035 行 stdout 里有 788 枚 `unreachable commit`,判据却只看 `=== ''`。
+ *
+ * ## fsck 退出码语义(2026-10-03 bash 直跑实测,判据的根据)
+ *   | 场景                                   | RC   | stdout                    | 含义 |
+ *   |----------------------------------------|------|---------------------------|------|
+ *   | 干净仓 / 只有悬空对象(无损坏)           | 0    | 悬空清单(**可为空**)       | 正常读数 |
+ *   | 本仓(40 条 `broken link`,partial 对象)  | 2    | 悬空清单 + broken link 行 | **正常读数** |
+ *   | 非仓库目录                             | 128  | 空,stderr `fatal: …`      | 取不到 |
+ *   ⇒ **RC≠0 不等于"取不到"**:悬空对象本身不产生非 0(夹具实测),非 0 来自 fsck 顺带报出的
+ *     其它问题(`broken link`),而那份 unreachable 清单此时**是完整可信的**。
+ *     把 RC 非 0 一律当失败,会把本仓永久钉红(那 40 条 broken link 与本门判据无关);
+ *     这正是本函数存在的理由:RC 单独不作判据,只认「stdout 读没读到」。
+ *
+ * ## 为什么用 `batchExecFileSync` 而不是 `gitRaw`(两者的关键差别)
+ *   `gitRaw` 的 catch 用 `gitErrText` **新造**一个 `Undetermined`,只带 message 与 `status`,
+ *   原异常的 `stdout` 被丢弃(实测:同一个 fsck,走 `gitRaw` 后 `e.stdout === undefined`)——
+ *   也就是说经它手就永远拿不回 RC≠0 时 stdout 里那份清单,只能红或绿二选一。
+ *   `batchExecFileSync` 是同层导出、同样带 EBUSY 兜底重试,但把原异常原样抛出,
+ *   `e.stdout` 与 `e.status` 都在(实测 410082 字节 / 788 行齐在)。这是本门能同时做到
+ *   「不把 RC≠0 当失败」与「取不到就 fail-closed」的唯一出口。
+ *
+ * @returns {string[]} unreachable commit 哈希(**空数组是合法读数**:fsck 跑完并报告零悬空)
+ * @throws  {Undetermined} 判据面取不到 —— 调用方必须 fail-closed,不得折成空数组
+ */
 function listUnreachableHashes() {
   // --no-reflogs: 不遍历 reflog(只检查悬空 commit 对象)
   // --connectivity-only: 只走对象图连通性,不校验 tree/blob 内容 —— 本函数的判据
@@ -288,14 +341,50 @@ function listUnreachableHashes() {
   // missing)**逐条相同** ⇒ 快 42.6 倍且判据零损失。
   // 为什么值得为此改一行:完整 fsck 的 130 秒窗口横跨并发会话的 reset/tag 手术,
   // 期间读到的正是一份**移动中的现场**;窗口越短,pre-commit 被并发态误判成红的概率越低。
-  // 旧写法在这里挂 `2>&1`(只有 shell 通道才需要)。层的 gitRaw 分别捕获 stdout/stderr,
+  // 旧写法在这里挂 `2>&1`(只有 shell 通道才需要)。这里分别捕获 stdout/stderr,
   // 而本判据只取 stdout 上的 `unreachable commit` 行(git 的不可达对象清单本来就打在 stdout,
   // 诊断与警告才走 stderr)⇒ 去掉合并不会少一行,少了的行也不是判据输入。
-  const out = gitText(['fsck', '--connectivity-only', '--unreachable', '--no-reflogs'], {
-    allowFail: true,
-  })
-  if (!out) return []
-  return out
+  const ARGS = ['fsck', '--connectivity-only', '--unreachable', '--no-reflogs']
+  // 与 gitRaw 同形的派生选项,逐字对齐(绝对路径 git 由 gitBinary() 给足):
+  // safe.directory=* 是本仓共享工作区的硬需求,quotepath=false 防中文路径被转义。
+  const argv = ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', '-C', ROOT, ...ARGS]
+  const opts = {
+    cwd: ROOT,
+    encoding: 'utf8',
+    windowsHide: true,
+    // 显式数字 timeout:不让 fsck 无界挂起把 pre-commit 钉死(与旧 gitRaw 默认同值)。
+    timeout: 60_000,
+    maxBuffer: 64 << 20,
+    // stdio[0]='ignore':本环境 pipe-stdin spawn git 确定性 EBUSY(见 lib/gitdir.mjs 同款注),
+    // 而 fsck 不读 stdin ⇒ ignore 无副作用,换来的是躲开那扇病窗。
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }
+  let stdout = null
+  try {
+    stdout = String(batchExecFileSync(gitBinary() || 'git', argv, opts) ?? '')
+  } catch (e) {
+    /**
+     * 读数成立的**充分必要条件**:git 真的跑完了(有数字 status,排除 EBUSY/ENOENT/超时/信号),
+     * 且 stdout 非空,且 stderr 没有 `fatal:`。
+     * - 无 status ⇒ 派生层没跑成(EBUSY 兜底也失败 / ENOENT / 超时 / 被信号杀)⇒ 取不到。
+     * - `fatal:` ⇒ git 自己拒绝执行(典型:不是仓库)⇒ 取不到。这条独立于 status:
+     *   非仓库是 RC=128 + 空 stdout,不写它就会掉进下面的 status 判据里。
+     * - status 有值但 stdout 空 ⇒ 拿到了退出码却没拿到清单,仍属取不到。
+     */
+    const ranOk = typeof e?.status === 'number'
+    const out = typeof e?.stdout === 'string' ? e.stdout : ''
+    const fatal = /(?:^|\n)fatal:/m.test(String(e?.stderr ?? ''))
+    if (!ranOk || !out || fatal) {
+      throw new Undetermined(
+        `fsck 判定面取不到(${ROOT}):${gitErrText(e)}` +
+          (ranOk ? ` [status=${e.status}]` : ' [派生层未取得退出码]') +
+          (fatal ? ' [git fatal]' : '') +
+          ' —— 不可判定,不得读成"零悬空"',
+      )
+    }
+    stdout = out
+  }
+  return stdout
     .split('\n')
     .map((l) => l.trim())
     .filter((l) => l.startsWith('unreachable commit'))
@@ -925,9 +1014,40 @@ function main() {
   process.exit(0)
 }
 
-main().catch((e) => {
+/**
+ * 致命分支的**唯一**出口。原先这里写的是 `main().catch(…)`,而 `main()` 是**同步**函数
+ * (返回 undefined,不是 promise)—— `main()` 在求值过程中就把异常抛了出来,`.catch` 那个属性
+ * 访问压根没机会执行 ⇒ 这道兜底是**死代码**,任何"取材失败"都会以 Node 默认的未捕获异常
+ * 形态落地(exit 1 + 裸栈)。实测 2026-10-03:fsck 取不到时门报 exit 1 而非约定的 2。
+ * 同步函数只能用 try/catch 接。
+ */
+function onFatal(e) {
+  /**
+   * `Undetermined` = **没判完**,不是"判完判红"。这两种都必须 exit 2 而不是 1(§12e):
+   * 1 会被调用方读成"本门检出了违规",而真实结论是"没看到";混同二者等于把不可判定
+   * 伪装成已生效的守卫。理由与 `check-api-routes.mjs` 的 uncaughtException 兜底同源。
+   *
+   * 本门必须接住它:否则 `listUnreachableHashes` 抛出的 `Undetermined` 会冒到最底,
+   * 打印成「❌ 脚本执行异常」—— 那行文案只说"脚本炸了",不说"守门没判成",
+   * 下一个会话会照着"脚本 bug"去查,而不是照着"取不到"去查。
+   * 且默认(非 blocking)模式下**根本不会红**,一次判据失效就静悄悄放行 = 本票要治的病。
+   */
+  if (e instanceof Undetermined) {
+    console.error(`${C.red}❌ 无法判定(不是"没有丢失风险",是"没判成")${C.reset}`)
+    console.error(`   ${e.message}`)
+    console.error(
+      `   ${C.dim}这不允许记绿:不可判定 ≠ 通过。恢复 git 后重跑,或用 HUSKY_SKIP_COMMIT_LOSS_CHECK=1 紧急跳过(不推荐)${C.reset}`,
+    )
+    process.exit(2)
+  }
   console.error(`${C.red}❌ 脚本执行异常:${C.reset}`, e?.message ?? e)
   console.error(e?.stack ?? '(no stack)')
   process.exit(2)
-})
+}
+
+try {
+  main()
+} catch (e) {
+  onFatal(e)
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
