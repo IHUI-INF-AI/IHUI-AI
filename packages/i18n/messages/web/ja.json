@@ -7957,6 +7957,8 @@
       "toolSummaryWebSearched": "ウェブ検索",
       "tools": {
         "args": "引数",
+        "categoryAwaiting": "コマンド待ち",
+        "categoryExplore": "探索",
         "categoryExec": "実行",
         "categoryOther": "その他",
         "categoryRead": "読み取り",

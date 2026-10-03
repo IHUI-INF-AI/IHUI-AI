@@ -23,10 +23,10 @@
  *      解压用系统 tar(Windows 10 1803+ 自带 System32\tar.exe;macOS/Linux 自带)。
  */
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, renameSync, rmSync, readdirSync } from 'node:fs'
+import { mkdirSync, renameSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { tmpdir } from 'node:os'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const TARGET_DIR = join(__dirname, '..', 'apps', 'api', 'data')
@@ -67,8 +67,9 @@ if (tarCheck.status !== 0) {
 
 mkdirSync(TARGET_DIR, { recursive: true })
 
-// 临时文件:下载 tar.gz 到 os.tmpdir
-const tmpDir = join(tmpdir(), `geolite2-${Date.now()}`)
+// 临时文件:下载 tar.gz —— 落 scratch 根(§26 唯一夹具落点),不再走 os.tmpdir()。
+// 本机 %TEMP% 实测钉在 C 盘,而这个脚本每次跑都要落一个几十 MB 的 tar.gz。
+const tmpDir = mkScratch(`geolite2-${Date.now()}-`)
 mkdirSync(tmpDir, { recursive: true })
 const tarGzPath = join(tmpDir, 'GeoLite2-City.tar.gz')
 
@@ -91,7 +92,7 @@ try {
   log(C.green, `✓ 下载完成(${(buffer.length / 1024 / 1024).toFixed(2)} MB)`)
 } catch (e) {
   log(C.red, `✗ 下载失败: ${e.message}`)
-  rmSync(tmpDir, { recursive: true, force: true })
+  rmScratch(tmpDir)
   process.exit(1)
 }
 
@@ -102,7 +103,7 @@ const extractResult = spawnSync('tar', ['-xzf', tarGzPath, '-C', tmpDir], {
 })
 if (extractResult.status !== 0) {
   log(C.red, `✗ 解压失败: ${extractResult.stderr?.toString().trim() || '未知错误'}`)
-  rmSync(tmpDir, { recursive: true, force: true })
+  rmScratch(tmpDir)
   process.exit(1)
 }
 
@@ -123,13 +124,13 @@ function findMmdb(dir) {
 mmdbPath = findMmdb(tmpDir)
 if (!mmdbPath) {
   log(C.red, '✗ 解压后未找到 .mmdb 文件')
-  rmSync(tmpDir, { recursive: true, force: true })
+  rmScratch(tmpDir)
   process.exit(1)
 }
 
 // 移到目标路径
 renameSync(mmdbPath, TARGET_PATH)
-rmSync(tmpDir, { recursive: true, force: true })
+rmScratch(tmpDir)
 
 log(C.green, `✓ GeoLite2-City.mmdb 已就位: ${TARGET_PATH}`)
 log(C.dim, '  geoip 服务下次启动时自动加载;无需重启,首次查询时 lazy 加载。')

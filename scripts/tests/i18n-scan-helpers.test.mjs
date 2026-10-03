@@ -23,7 +23,7 @@ import { test, describe, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
-import os from 'node:os'
+import { mkScratch, rmScratch, scratchRoot } from '../lib/scratch-dir.mjs'
 
 import {
   STATIC_T_RE,
@@ -531,7 +531,7 @@ describe('scanCode — 黑盒集成测试(通过临时 fixture 文件)', () => {
   let arrayFormFile
 
   before(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'i18n-scan-test-'))
+    const tmp = mkScratch("i18n-scan-test-")
     clientFile = path.join(tmpDir, 'page.tsx')
     serverFile = path.join(tmpDir, 'server-page.tsx')
     propKeyFile = path.join(tmpDir, 'devices.ts')
@@ -819,12 +819,12 @@ describe('scanCode — 黑盒集成测试(通过临时 fixture 文件)', () => {
 
 describe('loadJson / walkDir — 文件系统辅助函数', () => {
   test('loadJson 不存在的文件 → 抛错(含路径信息)', () => {
-    const nonexistent = path.join(os.tmpdir(), `i18n-scan-nonexist-${Date.now()}.json`)
+    const nonexistent = path.join(scratchRoot(), `i18n-scan-nonexist-${Date.now()}.json`)
     assert.throws(() => loadJson(nonexistent), /文件不存在/)
   })
 
   test('loadJson 解析失败 → 抛错(含 JSON 解析失败信息)', () => {
-    const tmp = path.join(os.tmpdir(), `i18n-scan-bad-${Date.now()}.json`)
+    const tmp = path.join(scratchRoot(), `i18n-scan-bad-${Date.now()}.json`)
     fs.writeFileSync(tmp, '{ not valid json', 'utf8')
     try {
       assert.throws(() => loadJson(tmp), /JSON 解析失败/)
@@ -834,7 +834,7 @@ describe('loadJson / walkDir — 文件系统辅助函数', () => {
   })
 
   test('loadJson 合法 JSON → 返回解析后的对象', () => {
-    const tmp = path.join(os.tmpdir(), `i18n-scan-ok-${Date.now()}.json`)
+    const tmp = path.join(scratchRoot(), `i18n-scan-ok-${Date.now()}.json`)
     fs.writeFileSync(tmp, '{"a":{"b":"c"}}', 'utf8')
     try {
       const result = loadJson(tmp)
@@ -845,12 +845,12 @@ describe('loadJson / walkDir — 文件系统辅助函数', () => {
   })
 
   test('walkDir 不存在的目录 → 返回空数组', () => {
-    const result = walkDir(path.join(os.tmpdir(), `i18n-scan-noexist-${Date.now()}`))
+    const result = walkDir(path.join(scratchRoot(), `i18n-scan-noexist-${Date.now()}`))
     assert.deepEqual(result, [])
   })
 
   test('walkDir 扫描 .ts/.tsx,跳过 EXCLUDE_DIRS(node_modules)与测试文件', () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'i18n-scan-walk-'))
+    const tmp = mkScratch("i18n-scan-walk-")
     try {
       fs.writeFileSync(path.join(tmp, 'a.ts'), 'export const x = 1', 'utf8')
       fs.writeFileSync(path.join(tmp, 'b.tsx'), 'export const y = 2', 'utf8')
@@ -1083,7 +1083,7 @@ describe('scanCode — mobile-rn/extension 引用模式集成测试(2026-07-26 �
   let extensionChatPageFile
 
   before(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'i18n-scan-v3-'))
+    const tmpDir = mkScratch("i18n-scan-v3-")
     liveScreenFile = path.join(tmpDir, 'LiveScreen.tsx')
     orderScreenFile = path.join(tmpDir, 'OrderScreen.tsx')
     paymentScreenFile = path.join(tmpDir, 'PaymentScreen.tsx')
