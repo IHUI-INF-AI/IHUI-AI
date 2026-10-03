@@ -10,6 +10,7 @@
  * 点击跳 web 详情。
  */
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { fetchApi, deleteConversation, type PageData } from '@ihui/api-client'
 import { Card, CardContent } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
@@ -27,6 +28,7 @@ interface ConversationSummary {
 
 export default function ChatHistoryPage() {
   const { t } = useI18n()
+  const navigate = useNavigate()
   const [items, setItems] = useState<ConversationSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -87,7 +89,17 @@ export default function ChatHistoryPage() {
     <div className="p-3 md:p-4 flex flex-col gap-2.5">
       <div className="flex items-center justify-between pb-2 border-b border-border">
         <h3 className="m-0 text-sm font-semibold">{t('chat.history')}</h3>
-        <span className="text-xs text-muted-foreground tabular-nums">{items.length}</span>
+        <div className="flex items-center gap-1.5">
+          {/* D28 会话导入入口:与「历史对话」同页,导入完成后回到本页即为刷新后的列表 */}
+          <button
+            type="button"
+            onClick={() => navigate('/chat/import')}
+            className="px-2 py-1 text-[11px] rounded-sm border border-border bg-card text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
+          >
+            {t('conversationImport.entry')}
+          </button>
+          <span className="text-xs text-muted-foreground tabular-nums">{items.length}</span>
+        </div>
       </div>
       {items.length === 0 ? (
         <div className="text-center text-muted-foreground py-8 px-4 text-sm">

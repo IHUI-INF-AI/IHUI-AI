@@ -26,8 +26,9 @@ import {
   Columns2,
   Loader2,
   GitPullRequest,
+  Sparkles,
 } from 'lucide-react'
-import { CloseButton, IconButton } from '@ihui/ui-react'
+import { Button, CloseButton, IconButton } from '@ihui/ui-react'
 import { rnRadius } from '@ihui/design-tokens'
 import { toast } from '@/components/common'
 
@@ -44,6 +45,15 @@ import {
 import { MessageList } from '@/components/chat/message-list'
 import { MessageInput } from '@/components/chat/message-input'
 import { SessionUsageBadge } from '@/components/chat/session-usage-badge'
+// D28 补齐层(2026-10-03):导入会话的来源标识 + 「用场景分析」入口。
+// 两者都只在 importProvenance 非 null(导入会话)时渲染;目录大的分析弹窗走 dynamic,
+// 避免 210 条模板正文(≈493KB)进 AI 面板主 chunk。
+import { ImportSourceBanner } from '@/components/ai/import-source-banner'
+import { readImportProvenance, type ImportProvenance } from '@/lib/import-analysis'
+const ImportAnalysisDialog = dynamic(
+  () => import('@/components/ai/import-analysis-dialog').then((m) => m.ImportAnalysisDialog),
+  { ssr: false },
+)
 import { WorkspaceSelector } from '@/components/ai/workspace-selector'
 import { Tooltip, TooltipProvider } from '@/components/feedback'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
@@ -451,6 +461,14 @@ export function AISidePanel() {
   }, [isMobileSmall, floatMode, setFloatMode, setFloatCollapsed])
   const [loadingHistory, setLoadingHistory] = React.useState(false)
   const [conversationTitle, setConversationTitle] = React.useState<string | null>(null)
+  // D28 补齐层(2026-10-03):当前会话的**导入来源**。
+  // importedFrom/importedVia 落库时写入 metadata 但此前全仓只写不读 —— 导入的会话
+  // 与用户自建的 AI 对话在消息区同形,用户点开一条"像自己聊过"的会话实际读到的是
+  // 外部记录(微信群聊 / Claude Code …),这是幻觉级误导,必须在消息区显式交代来源。
+  // null = 非导入会话(自建)⇒ 什么都不渲染,不用"未知来源"占位。
+  const [importProvenance, setImportProvenance] = React.useState<ImportProvenance | null>(null)
+  // 「用场景分析」弹窗开合(仅导入会话可见入口;弹窗本体按需 dynamic 加载)
+  const [analysisOpen, setAnalysisOpen] = React.useState(false)
   const [workspaceName, setWorkspaceName] = React.useState<string | null>(null)
   // 分页状态(2026-07-25 立,#8 滚动到顶部加载更多历史)
   // - hasMoreHistory:当前会话是否还有更早的消息可加载
@@ -680,6 +698,10 @@ export function AISidePanel() {
               ) {
                 useChatStore.setState({ messages: hydrated, error: null })
                 setConversationTitle(convRes.data.conversation.title || null)
+                // D28 补齐层:来源标识要在消息**已就位**之后才算 —— 发言人清单/时间跨度
+                // 是从 hydrated 上的消息现算的,用 msgRes 原始行算会和 store 实际内容脱节
+                const prov = readImportProvenance(convRes.data.conversation.metadata, hydrated)
+                setImportProvenance(prov.kind === 'imported' ? prov.provenance : null)
                 oldestCursorRef.current = msgRes.data.nextCursor
                 setHasMoreHistory(msgRes.data.hasMore)
               }
@@ -729,6 +751,9 @@ export function AISidePanel() {
             useChatStore.setState({ messages: hydrated, error: null })
           }
           setConversationTitle(convRes.data.conversation.title || null)
+          // D28 补齐层:导入来源(与缓存命中路径同一判据/同一算法,见上)
+          const prov = readImportProvenance(convRes.data.conversation.metadata, hydrated)
+          setImportProvenance(prov.kind === 'imported' ? prov.provenance : null)
           // 记录分页游标:oldestCursor = 当前最旧一条 id,hasMoreHistory = 是否还有更早历史
           oldestCursorRef.current = msgRes.data.nextCursor
           setHasMoreHistory(msgRes.data.hasMore)
@@ -768,6 +793,8 @@ export function AISidePanel() {
           setConversationId(null)
           useChatStore.setState({ messages: [], error: null })
           setConversationTitle(null)
+          // D28 补齐层:会话被清空 ⇒ 来源标识一并撤下,不得留在下一个会话上
+          setImportProvenance(null)
           useChatStore.getState().clearPendingQuestion()
         }
       } catch {
@@ -776,6 +803,8 @@ export function AISidePanel() {
           setConversationId(null)
           useChatStore.setState({ messages: [], error: null })
           setConversationTitle(null)
+          // D28 补齐层:会话被清空 ⇒ 来源标识一并撤下,不得留在下一个会话上
+          setImportProvenance(null)
           useChatStore.getState().clearPendingQuestion()
         }
       } finally {
@@ -827,6 +856,7 @@ export function AISidePanel() {
       pendingResumeRef.current = null
       useChatStore.setState({ messages: [], error: null })
       setConversationTitle(null)
+      setImportProvenance(null)
       oldestCursorRef.current = null
       setHasMoreHistory(false)
     }
@@ -923,6 +953,7 @@ export function AISidePanel() {
     clearMessages()
     setConversationId(null)
     setConversationTitle(null)
+    setImportProvenance(null)
     oldestCursorRef.current = null
     setHasMoreHistory(false)
   }, [clearMessages, setConversationId])
@@ -1284,6 +1315,28 @@ export function AISidePanel() {
     >
       {/* 消息区(v6.3:加 relative 让 popover 可定位到本容器右上角) */}
       <div className="relative min-h-0 flex-1">
+        {/* D28 补齐层:导入会话的来源交代 + 分析入口。
+            刻意贴在消息列表**上方**而不是 header —— header 只有 56px 高且塞满按钮,
+            「这不是你自己跟 AI 聊的会话」这句话需要一整行的宽度才说得清。
+            自建会话(importProvenance === null)整块不渲染,不留占位。 */}
+        {importProvenance && (
+          <div className="px-3 pt-2" data-testid="import-provenance-slot">
+            <ImportSourceBanner provenance={importProvenance} />
+            <div className="mt-1.5 flex justify-end">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 text-[11px]"
+                data-testid="import-analysis-open"
+                onClick={() => setAnalysisOpen(true)}
+              >
+                <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                <span>{t('analysisOpen')}</span>
+              </Button>
+            </div>
+          </div>
+        )}
         <MessageList
           messages={messages}
           isStreaming={isStreaming}
@@ -1360,6 +1413,15 @@ export function AISidePanel() {
 
       {/* AI 主动提问弹窗:挂起对话,等用户回答后续流 */}
       <QuestionDialog question={pendingQuestion} onSubmit={sendAnswer} onSkip={skipQuestion} />
+      {/* D28 补齐层:「用场景分析」弹窗。自建会话永不挂载(没有可选的来源族,
+          场景推荐也无从判断),避免挂一个点开就是"无推荐"的空壳。 */}
+      {importProvenance && (
+        <ImportAnalysisDialog
+          open={analysisOpen}
+          onOpenChange={setAnalysisOpen}
+          source={importProvenance.source}
+        />
+      )}
       {/* 工作区权限确认弹窗(2026-07-25 立,深度对标 Codex):
             用户绑定新工作区但 perm=null 时,WorkspaceSelector 写入 pendingPermissionSetup,
             这里弹 Dialog 让用户主动选择权限模式(完全访问/请求批准/替我审批),
