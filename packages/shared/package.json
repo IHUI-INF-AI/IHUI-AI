@@ -60,6 +60,10 @@
       "types": "./src/import-analysis/scenarios.ts",
       "import": "./src/import-analysis/scenarios.ts"
     },
+    "./import-analysis/scenarios-slim": {
+      "types": "./src/import-analysis/scenarios.slim.ts",
+      "import": "./src/import-analysis/scenarios.slim.ts"
+    },
     "./import-analysis/*": {
       "types": "./src/import-analysis/*.ts",
       "import": "./src/import-analysis/*.ts"
