@@ -361,12 +361,6 @@ jobs:
                   await conn.close()
           asyncio.run(main())
           "
-      - name: Create checkin tables (raw conn + self-verify)
-        working-directory: apps/ai-service
-        # 签到三表为 ai-service 运行时懒建表,不在 drizzle 迁移内。
-        # 共享池跨 loop 回收在 CI 多连 asyncio.run 下出现过步骤退出 0 但表未落库的
-        # 静默失配(run 37090730137 实测),故改裸连接建表并当步自验,缺表即红。
-        run: |
           python -c "
           import asyncio, asyncpg
           from app.core.config import settings
