@@ -27,7 +27,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import threading
 import time
@@ -36,13 +35,37 @@ from pathlib import Path
 from typing import Any
 
 from ._load_lifecycle import (
-    decide_attempt as _decide_attempt,
-    monotonic as _lifecycle_monotonic,
-    state_after_failure as _state_after_failure,
-    state_after_success as _state_after_success,
     DECISION_BACKOFF as _DECISION_BACKOFF,
+)
+from ._load_lifecycle import (
     DECISION_GAVE_UP as _DECISION_GAVE_UP,
 )
+from ._load_lifecycle import (
+    decide_attempt as _decide_attempt,
+)
+from ._load_lifecycle import (
+    monotonic as _lifecycle_monotonic,
+)
+from ._load_lifecycle import (
+    state_after_failure as _state_after_failure,
+)
+from ._load_lifecycle import (
+    state_after_success as _state_after_success,
+)
+from .ttl_json_store import (
+    load_ttl_records,
+    resolve_retention_days,
+    write_json_atomic,
+)
+
+_RETENTION_ENV = "AGENT_LONGTERM_MEMORY_RETENTION_DAYS"
+
+_DEFAULT_RETENTION_DAYS = 180
+_RETENTION_DAYS = resolve_retention_days(_RETENTION_ENV, _DEFAULT_RETENTION_DAYS)
+
+_MAX_ENTRIES = 5_000
+
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -241,14 +264,18 @@ class AgentLongTermMemory:
         if decision == _DECISION_BACKOFF:
             return  # 退避窗口内:本次调用不打 IO
         try:
-            if self._file.exists():
-                raw = json.loads(self._file.read_text(encoding="utf-8"))
-                if isinstance(raw, dict):
-                    self._data = {
-                        mid: e
-                        for mid, e in raw.items()
-                        if isinstance(e, dict) and e.get("memory_id")
-                    }
+            # 2026-10-03 数据出域合规整改:读取走 ttl_json_store(带保留期 + 存量
+            # 过期清理),不再裸 json.loads。原逻辑保留在 base 里,两侧改动在此归并。
+            data, dropped = load_ttl_records(
+                self._file,
+                retention_days=_RETENTION_DAYS,
+                shape="mapping",
+                max_items=_MAX_ENTRIES,
+                validate=lambda e: isinstance(e, dict) and bool(e.get("memory_id")),
+            )
+            if dropped:
+                logger.info("agent_longterm_memory 加载:清理过期/超限条目 %d 条", dropped)
+            self._data = data
             self._loaded, self._load_failures, self._load_next_attempt_s = _state_after_success()
         except Exception as e:
             self._load_failures, self._load_next_attempt_s = _state_after_failure(
@@ -259,11 +286,9 @@ class AgentLongTermMemory:
     def _persist(self) -> None:
         """把内存全量记录写回 JSON 文件(尽力,失败降级内存保留)。"""
         try:
-            self._file.parent.mkdir(parents=True, exist_ok=True)
-            self._file.write_text(
-                json.dumps(self._data, ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
+            # 2026-10-03 数据出域合规整改:原子写(临时文件 + os.replace),
+            # 避免崩在半截时盘上留一个坏 JSON(读侧会 fail-closed 成空 ⇒ 静默丢数据)。
+            write_json_atomic(self._file, self._data, indent=2)
         except Exception as e:
             logger.warning("agent_longterm_memory 写盘失败(内存保留): %s", e)
 

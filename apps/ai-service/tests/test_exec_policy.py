@@ -331,9 +331,53 @@ def test_evaluate_prompt_beats_allow(policy):
     assert d.decision is Decision.PROMPT
 
 
-def test_evaluate_plain_git_push_allowed(policy):
+def test_evaluate_plain_git_push_requires_prompt(policy):
+    """普通 `git push` 必须走确认(2026-10-03 数据出域合规整改)。
+
+    原断言是 `assert d.decision is Decision.ALLOW` —— 当时 PROMPT 名单只覆盖
+    --force/-f/--force-with-lease 三个改写远端历史的变体,普通推送因命中
+    command_policy.json 的 `git` 白名单被直接放行,agent 可无确认把代码推到
+    任意 remote(与"未经知情上传用户仓库"同型)。故翻转为 PROMPT。
+    """
     d = policy.evaluate("git push origin main", "bash")
-    assert d.decision is Decision.ALLOW
+    assert d.decision is Decision.PROMPT
+    assert d.winning_match is not None
+    assert "出域" in d.winning_match.rule.reason or "推送" in d.winning_match.rule.reason
+
+
+def test_evaluate_plain_git_push_forms_all_prompt(policy):
+    """裸 git push 的各种形态(带 remote/--tags/--set-upstream/省略参数)一律 PROMPT。
+
+    判据是前缀匹配 + 尾部 token 不影响,故这一组必须全中 —— 防止"换个参数就绕开"。
+    """
+    for cmd in (
+        "git push",
+        "git push origin main",
+        "git push --tags",
+        "git push --set-upstream origin feature/x",
+        "git push origin main --force-with-lease",
+    ):
+        d = policy.evaluate(cmd, "bash")
+        assert d.decision is Decision.PROMPT, f"{cmd!r} 应需确认,实际 {d.decision}"
+
+
+def test_evaluate_git_push_force_still_reports_force_reason(policy):
+    """--force 变体仍取自己那条规则(最长前缀胜出),不被新加的裸 push 规则抢走。"""
+    d = policy.evaluate("git push --force origin main", "bash")
+    assert d.decision is Decision.PROMPT
+    assert d.winning_match is not None
+    assert "强制推送" in d.winning_match.rule.reason
+
+
+def test_evaluate_git_readonly_still_allowed(policy):
+    """整改只收紧**出域**动作:git status/log/diff 这类只读命令不得被误伤。
+
+    这是本次改动的反向护栏 —— 把裸 push 提进 PROMPT 时,极易顺手把整个 git
+    子命令都提级(用 ("git",) 兜),那样审批弹窗会变成噪声,用户最终只会全点同意。
+    """
+    for cmd in ("git status", "git log --oneline -5", "git diff HEAD~1", "git branch"):
+        d = policy.evaluate(cmd, "bash")
+        assert d.decision is Decision.ALLOW, f"{cmd!r} 是只读命令,应保持放行,实际 {d.decision}"
 
 
 def test_evaluate_curl_pipe_sh_deny(policy):
