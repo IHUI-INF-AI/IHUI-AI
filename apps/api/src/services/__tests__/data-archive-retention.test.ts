@@ -45,6 +45,32 @@ vi.mock('../../db/index.js', () => ({
   db: {
     delete: (table: unknown) => makeDeleteChain(tableName(table)),
     select: (_cols?: unknown) => makeSelectChain(),
+    // 2026-10-03:agent_user_profile 的到期回收走 execute(ctid 子查询),
+    // 因为该表主键是 user_id 而非 id,进不了 makeSelectChain/makeDeleteChain 那条
+    // "按 id 取批再删"的路。mock 必须覆盖它,否则该分支会因
+    // "db.execute is not a function" 记一条假 error —— 那会让
+    // 「单分支异常」用例误以为有第二个分支炸了。
+    //
+    // 语义与真 SQL 对齐:DELETE ... WHERE ctid IN (SELECT ... WHERE expires_at
+    // IS NOT NULL AND expires_at <= NOW() LIMIT n) —— 即按 expires_at 判到期、
+    // NULL(显式长期保留)不删、分批。drizzle 的 sql`` 模板无法拆 AST,
+    // 故这里直接扫 store 里的 expires_at(与实现同一判据)。
+    execute: (q: unknown) => {
+      const text = String(q)
+      const table = Object.keys(store).find((t) => text.includes(t))
+      if (!table) return Promise.resolve([])
+      if (failOn.has(table)) return Promise.reject(new Error(`${table} 注入异常`))
+      const rows = store[table] ?? []
+      const now = Date.now()
+      const hit = rows.filter((r) => {
+        const e = r.expires_at
+        if (e === null || e === undefined) return false // NULL = 显式长期保留
+        return (e instanceof Date ? e.getTime() : new Date(e as string).getTime()) <= now
+      })
+      dbCalls.push({ op: 'execute', table })
+      store[table] = rows.filter((r) => !hit.includes(r))
+      return Promise.resolve(hit)
+    },
   },
 }))
 

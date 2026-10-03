@@ -53,7 +53,6 @@
     "analysisTitle": "用場景分析",
     "analysisClose": "關閉",
     "analysisDesc": "選一個場景、填寫變數，分析指令會以一則訊息送進本對話——本對話的匯入記錄就是它的上下文。",
-    "analysisLoading": "正在載入場景庫…",
     "analysisLoadFailed": "場景庫載入失敗：{error}",
     "analysisScenarioLabel": "① 選擇分析場景",
     "analysisRecommended": "推薦（依匯入來源）",
