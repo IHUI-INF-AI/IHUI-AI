@@ -20,6 +20,8 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { sessionStatusFromInstance, type AgentInstanceState } from '@ihui/types';
+// G-719(2026-10-03):会话水合读侧唯一入口 —— 落库工具结果元数据的版本分账/剥后校验收敛在这一份。
+import { hydrateToolStateMap } from '../sessions/tool-part-hydration.js';
 import { isRecord } from '../util/json.js';
 import type { SubagentLifecycleStatus } from './types.js';
 import { SUBAGENT_LIFECYCLE_STATUSES, isSubagentTerminalStatus } from './types.js';
@@ -429,6 +431,16 @@ function decodeStateRow(raw: string): DecodedStateRow {
   ) {
     return { ok: false, detail: `status 不在唯一清单内:${String(parsed.status ?? '(缺席)')}` };
   }
+  // G-719:水合落库工具结果元数据(唯一入口)。降级条目剥 display 保外层,
+  // 绝不因元数据不合法让整行读不出来(resume 依赖 toolState 完整)。
+  const { toolState, report } = hydrateToolStateMap(parsed['toolState'] as Record<string, unknown> | undefined);
+  if (report.degraded > 0) {
+    defaultWarn(
+      `[subagent-state] ${parsed.id as string} toolState 水合降级 ${report.degraded} 条:` +
+        report.degradedEntries.map((d) => `${d.key}(${d.reason})`).join(', '),
+    );
+  }
+  if (parsed['toolState'] !== undefined) parsed['toolState'] = toolState;
   return { ok: true, state: parsed as unknown as SubagentState };
 }
 
