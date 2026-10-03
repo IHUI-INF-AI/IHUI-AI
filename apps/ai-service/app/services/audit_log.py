@@ -26,6 +26,14 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from ._load_lifecycle import (
+    decide_attempt as _decide_attempt,
+    monotonic as _lifecycle_monotonic,
+    state_after_failure as _state_after_failure,
+    state_after_success as _state_after_success,
+    DECISION_BACKOFF as _DECISION_BACKOFF,
+    DECISION_GAVE_UP as _DECISION_GAVE_UP,
+)
 logger = logging.getLogger(__name__)
 
 # 保留的审计条目上限(环形截断)
@@ -69,6 +77,11 @@ class AuditLogStore:
         self._limit = limit
         self._lock = threading.Lock()
         self._loaded = False
+        # G-758(2026-10-03):加载生命周期标量(判定住在 _load_lifecycle,唯一一份)。
+        # _loaded=False ∧ _load_failures>0 ⇒ "读不到"(待重试/已放弃自动重试),绝不等于空。
+        self._load_failures: int = 0
+        self._load_next_attempt_s: float = 0.0
+        self._load_give_up_logged: bool = False
 
     # ---------------- 内部 ----------------
 
@@ -76,6 +89,23 @@ class AuditLogStore:
         """懒加载(仅首次;缺失/损坏静默降级为空)。调用方须持锁。"""
         if self._loaded:
             return
+        now = _lifecycle_monotonic()
+        decision = _decide_attempt(
+            loaded=self._loaded,
+            failures=self._load_failures,
+            next_attempt_s=self._load_next_attempt_s,
+            now=now,
+        )
+        if decision == _DECISION_GAVE_UP:
+            if not self._load_give_up_logged:
+                self._load_give_up_logged = True
+                logger.warning(
+                    "[audit_log] _load 连续 %d 次读取失败,停止自动重试(状态=读不到,非空表)",
+                    self._load_failures,
+                )
+            return
+        if decision == _DECISION_BACKOFF:
+            return  # 退避窗口内:本次调用不打 IO
         try:
             if self._file.exists():
                 raw = json.loads(self._file.read_text(encoding="utf-8"))
@@ -91,10 +121,12 @@ class AuditLogStore:
                     # 超限截断(丢弃文件里最旧的)
                     if len(self._entries) > self._limit:
                         self._entries = self._entries[-self._limit :]
+            self._loaded, self._load_failures, self._load_next_attempt_s = _state_after_success()
         except Exception as e:
-            logger.warning("audit_log 读取失败(降级为空): %s", e)
-        finally:
-            self._loaded = True
+            self._load_failures, self._load_next_attempt_s = _state_after_failure(
+                self._load_failures, now
+            )
+            logger.warning("audit_log 读取失败(降级为空)(本次降级为空,退避后自动重试;连续失败到上限停自动重试): %s", e)
 
     def _persist(self) -> None:
         """全量写回 JSON(尽力,失败降级内存保留)。调用方须持锁。"""
