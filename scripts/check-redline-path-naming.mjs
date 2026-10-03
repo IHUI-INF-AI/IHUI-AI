@@ -40,6 +40,17 @@
  * 门读到注入面;复跑该门,拿它**自己的真红输出**过铰链出口,核对静态档准确率。
  * 跑不通(缺 node_modules / spawn pnpm 型门)⇒ 如实报"未抽到",不计入准确率、不伪装。
  *
+ * 残留处置(2026-10-03 立,根因在**造探针的脚本**里,不在守门 30a 的判据里):
+ *   `worktree remove` 之后,detached HEAD 的尖端 commit 立即失去唯一引用 ⇒ unreachable
+ *   ⇒ 丢 commit 防护门(30a)判红。2026-09-28 那轮实测已积 5 枚(6ea132914b/491ad420a8/
+ *   cc26e872e0/fa1ecadfa0/e06d7af406,author 皆 redline-probe <probe@invalid>)。
+ *   探针**必须仍真造提交**(否则这把尺子就废了),所以处置面在 commit 上、不在判据上:
+ *   `worktree remove` **之前**给本次造出的那些 commit 打带注释 `lost-commit/probe-*` 标签
+ *   ⇒ 它变可达、gc 不丢、命名与注释可审计(哪道门的探针 / 注入了什么 / 非业务内容)。
+ *   认领"本次造的"只认 `rev-list <base>..HEAD` 的差集(base = 探针起始 headSha),
+ *   **不扫全仓找 probe@invalid author**(会误伤历史残留且慢)。处置失败 ⇒ `--probe` 退出码 1
+ *   (尺子失效,不许报"跑完了"),理由同 §12e:取不到 ≠ 没有。
+ *
  * 用法:
  *   node scripts/check-redline-path-naming.mjs                 静态全量筛(head 面,人类可读)
  *   node scripts/check-redline-path-naming.mjs --json          同上,JSON(供台账/工具消费)
@@ -830,6 +841,16 @@ export const PROBES = [
   },
 ]
 
+/**
+ * 本门唯一的 git 出口。
+ *
+ * `stdio[0]='ignore'` 不是可选项(同仓 lib/face-reader.mjs 与 lib/gitdir.mjs 的同款注):
+ * 本机交互会话进程树下,Node 给子进程**创建 stdin 管道**必 EBUSY(managed/system 两个 node
+ * 双双复现、与父 stdin 形态无关、进程数回落后仍复现 ⇒ 只杀"建管道"这一步)。
+ * 本模块的三类派生(worktree add / commit / 复跑门)**都不读 stdin** ⇒ ignore 无副作用,
+ * 换来的是躲开那扇病窗。`cat-file --batch` 那一族相反:必须真管道,由 face-reader 的
+ * `catBatch` 承担(带 EBUSY 兜底重试),本模块不自己拼。
+ */
 function gitIn(wtDir, args, root) {
   return spawnSync(
     gitBinary(),
@@ -850,8 +871,77 @@ function gitIn(wtDir, args, root) {
       windowsHide: true,
       timeout: 120000,
       maxBuffer: 32 << 20,
+      stdio: ['ignore', 'pipe', 'pipe'],
     },
   )
+}
+
+/**
+ * 探针 commit 的命名(可审计、可预测、同门重跑不撞名):短 sha 进名字 ⇒ 天然唯一。
+ * 命名空间沿用 `lost-commit/probe-*`:与 2026-10-03 已补的 5 枚历史残留同族,守门 30a 的
+ * `lost-commit/*` 备份核对天然覆盖它(不需要为本工具单开一个白名单前缀)。
+ */
+export function probeTagName(gateId, sha) {
+  return `lost-commit/probe-g263-gate${gateId}-${String(sha).slice(0, 7)}`
+}
+
+/**
+ * 残留保活:给**本次探针造出来的** commit 打带注释标签,使它在 `worktree remove` 之后仍可达。
+ *
+ * ## 「本次造的」怎么认 —— 不扫全仓 author
+ * 隔离面是从 `baseSha`(`git worktree add --detach <wt> <headSha>`)长出来的,而这段面里
+ * 只有本工具会 commit ⇒ `git rev-list <baseSha>..HEAD` 的差集**恰好**是本次运行创建的
+ * commit 集合。取法只依赖"起点 ref + 隔离面自己的 HEAD",不依赖 author/时间窗/前缀,
+ * 因此:① 不会误伤历史残留(那 5 枚 2026-09-28 的不在这个差集里);② 不受并发会话影响;
+ * ③ 即使"commit 成功但进程立刻死了、来不及记下 sha"也照样能认领(差集是事后从 ref 算的)。
+ *
+ * ## 为什么标签打在主仓而不是隔离面
+ * tag 是共享 ref(所有 worktree 共用 `refs/tags/`),与隔离面磁盘无关 ⇒ 打在主仓最稳,
+ * 且不依赖隔离面在被删之后还能不能派生命令。tagger 沿用 `redline-probe <probe@invalid>`:
+ * 标签本身就是"此 tag 由探针机器打的"的自证,不让它冒充人。
+ *
+ * ## 幂等
+ * 标签名带 sha ⇒ 重跑同一条探针(不同 sha)不撞名;真撞上(逐字节同一 commit)时
+ * `already exists` 归入 `alreadyTagged`,不当作失败。`cleanup()` 会被 finally 与
+ * process.on('exit') 各调一次,第二次因隔离面已删而空转 —— 天然幂等。
+ *
+ * @returns {{tagged:{name:string,sha:string}[], alreadyTagged:{name:string,sha:string}[], failures:string[]}}
+ */
+export function retainProbeCommits(root, wt, baseSha, probe) {
+  const res = { tagged: [], alreadyTagged: [], failures: [] }
+  if (!existsSync(wt)) return res
+  if (!/^[0-9a-f]{40}$/.test(String(baseSha || ''))) {
+    res.failures.push(`探针起点 sha 不可用(${String(baseSha).slice(0, 12)})⇒ 未取到本次造的 commit`)
+    return res
+  }
+  const rev = gitIn(wt, ['rev-list', `${baseSha}..HEAD`], root)
+  if (rev.status !== 0) {
+    res.failures.push(
+      `取本次探针造的 commit 失败:${(rev.stderr || rev.error?.message || '').slice(0, 160)}`,
+    )
+    return res
+  }
+  const shas = String(rev.stdout || '')
+    .split('\n')
+    .map((s) => s.trim())
+    .filter((s) => /^[0-9a-f]{40}$/.test(s))
+  if (shas.length === 0) return res
+  for (const sha of shas) {
+    const name = probeTagName(probe.gateId, sha)
+    const msg =
+      `G-263 红线尺子动态档探针(门 ${probe.gateId}:向 ${probe.rel} 注入违规),` +
+      `造于 detached 隔离 worktree;由本脚本在 worktree remove 之前自动打标保活` +
+      `(否则 worktree 一删即成悬空 commit,触发丢 commit 防护门);非业务内容`
+    const t = gitIn(root, ['tag', '-a', name, sha, '-m', msg], root)
+    if (t.status === 0) res.tagged.push({ name, sha })
+    else if (/already exists/i.test(String(t.stderr || '')))
+      res.alreadyTagged.push({ name, sha })
+    else
+      res.failures.push(
+        `打标签 ${name} 失败:${(t.stderr || t.error?.message || '').slice(0, 160)}`,
+      )
+  }
+  return res
 }
 
 /**
@@ -859,11 +949,23 @@ function gitIn(wtDir, args, root) {
  * commit**(detached HEAD,不触共享 ref)⇒ 默认 head 取材的门读到注入面。
  * 复跑姿势与 safe-commit runGateBaseline 同源(cwd=隔离面、剥 GIT_INDEX_FILE、windowsHide、
  * 数字 timeout、maxBuffer)。
+ *
+ * ## 残留处置(G-263 探针不再产悬空 commit)
+ * `cleanup()` 里 **`worktree remove` 之前**先 `retainProbeCommits()`:detached HEAD 的尖端
+ * commit 一旦失去 worktree 这唯一引用就 unreachable,而丢 commit 防护门(30a)正是查这个。
+ * 处置面在 commit 上(打标签让它可达),**不在守门判据上** —— 探针的真实性一分不减:
+ * 注入照旧、隔离面照旧、门照旧真红。
+ * 探针提前退出(unavailable / no-red)的路径也走同一个 finally ⇒ 一样不留悬空。
  */
 export function runProbe(root, headSha, probe, staticVerdict, opts = {}) {
   const scratch = opts.scratch || mkScratch('redline-probe-')
   const wt = join(scratch, 'wt')
+  // 本次造出的 commit 的处置账(返回体里带出去,报告要打印 —— 处置失败不许静默)
+  const residue = { tagged: [], alreadyTagged: [], failures: [] }
   const cleanup = () => {
+    // ⚠ 顺序是硬约束:保活必须在 worktree remove 之前。removed 之后 diff 基点没了,
+    // 且 commit 已不可达 —— 那时再补 tag 只是把症状按住,不是修根因。
+    Object.assign(residue, retainProbeCommits(root, wt, headSha, probe))
     gitIn(wt, ['worktree', 'remove', '--force', wt], root)
     gitIn(wt, ['worktree', 'prune'], root)
     try {
@@ -881,12 +983,14 @@ export function runProbe(root, headSha, probe, staticVerdict, opts = {}) {
       cwd: root,
       windowsHide: true,
       timeout: 600000,
+      stdio: ['ignore', 'pipe', 'pipe'],
     },
   )
   if (add.error || add.status !== 0) {
     if (!opts.keepScratch) rmScratch(scratch)
     return {
       gateId: probe.gateId,
+      residue,
       outcome: 'unavailable',
       why: `建隔离工作树失败:${(add.stderr || add.error?.message || '').slice(0, 160)}`,
     }
@@ -896,6 +1000,7 @@ export function runProbe(root, headSha, probe, staticVerdict, opts = {}) {
     if (!existsSync(gatePath))
       return {
         gateId: probe.gateId,
+        residue,
         outcome: 'unavailable',
         why: `隔离面没有该门脚本:${probe.script}`,
       }
@@ -904,6 +1009,7 @@ export function runProbe(root, headSha, probe, staticVerdict, opts = {}) {
     if (!preExists && !probe.createNew)
       return {
         gateId: probe.gateId,
+        residue,
         outcome: 'unavailable',
         why: `隔离面没有注入目标:${probe.rel}`,
       }
@@ -912,6 +1018,7 @@ export function runProbe(root, headSha, probe, staticVerdict, opts = {}) {
     if (injected === null || injected === orig)
       return {
         gateId: probe.gateId,
+        residue,
         outcome: 'unavailable',
         why: '注入锚点未命中(门输入结构变更?)—— 不硬造红',
       }
@@ -934,11 +1041,15 @@ export function runProbe(root, headSha, probe, staticVerdict, opts = {}) {
     if (a1.status !== 0 || a2.status !== 0)
       return {
         gateId: probe.gateId,
+        residue,
         outcome: 'unavailable',
         why: `隔离面提交失败:${(a2.stderr || a1.stderr || '').slice(0, 160)}`,
       }
     const env = { ...process.env }
     delete env.GIT_INDEX_FILE
+    // stdio[0]='ignore':门脚本不读 stdin(与 gitIn 同款理由,见该函数头注),
+    // 不设则本机病窗下这一步确定性 EBUSY(status=null)⇒ 每条探针都读成"复跑被中断",
+    // 尺子被环境故障伪装成"抽不到",比不跑更坏(假绿方向)。
     const g = spawnSync(process.execPath, [gatePath, ...(probe.args || [])], {
       encoding: 'utf8',
       cwd: wt,
@@ -946,23 +1057,27 @@ export function runProbe(root, headSha, probe, staticVerdict, opts = {}) {
       windowsHide: true,
       timeout: 300000,
       maxBuffer: 32 << 20,
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     const output = `${g.stdout || ''}${g.stderr || ''}`
     if (g.error || g.status === null)
       return {
         gateId: probe.gateId,
+        residue,
         outcome: 'unavailable',
         why: `复跑被中断/超时:${g.error?.message || 'null status'}`,
       }
     if (g.status === 2 || /Cannot find module|MODULE_NOT_FOUND|ENOENT/.test(output))
       return {
         gateId: probe.gateId,
+        residue,
         outcome: 'unavailable',
         why: `隔离面跑不出去(exit ${g.status} / 缺依赖)⇒ 未抽到,不计入准确率`,
       }
     if (g.status === 0)
       return {
         gateId: probe.gateId,
+        residue,
         outcome: 'no-red',
         why: '注入后该门仍绿(注入未触发判据)⇒ 未抽到,不硬算准确率',
       }
@@ -976,6 +1091,7 @@ export function runProbe(root, headSha, probe, staticVerdict, opts = {}) {
           : 'DISAGREE'
     return {
       gateId: probe.gateId,
+      residue,
       outcome: 'red',
       named,
       staticVerdict,
@@ -1009,6 +1125,7 @@ export function runProbes(root, argv) {
     cwd: root,
     windowsHide: true,
     timeout: 60000,
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   if (head.status !== 0 || !/^[0-9a-f]{40}$/.test((head.stdout || '').trim()))
     return {
@@ -1022,21 +1139,40 @@ export function runProbes(root, argv) {
   const results = probes.map((p) => runProbe(root, headSha, p, verdictOf(p.gateId)))
   const red = results.filter((r) => r.outcome === 'red')
   const counted = red.filter((r) => r.agree === 'agree' || r.agree === 'DISAGREE')
+  // 残留处置总账:处置失败 ⇒ 本次运行**造出了没人认领的悬空 commit**,
+  // 那正是本函数存在的理由被自己破坏 ⇒ fail-closed(ok=false ⇒ CLI exit 1),
+  // 绝不让"造了残留"读成"跑完了"(§12e:取不到 ≠ 没有)。
+  const residue = results.reduce(
+    (acc, r) => {
+      const q = r.residue || { tagged: [], alreadyTagged: [], failures: [] }
+      acc.tagged.push(...q.tagged)
+      acc.alreadyTagged.push(...q.alreadyTagged)
+      acc.failures.push(...q.failures.map((f) => `[${r.gateId}] ${f}`))
+      return acc
+    },
+    { tagged: [], alreadyTagged: [], failures: [] },
+  )
   return {
-    ok: true,
+    ok: residue.failures.length === 0,
     headSha,
     results,
+    residue,
     accuracy: counted.length
       ? `${counted.filter((r) => r.agree === 'agree').length}/${counted.length}`
       : '0/0(无一条可计准确率的抽跑)',
+    why:
+      residue.failures.length === 0
+        ? undefined
+        : `探针 commit 残留处置失败 ${residue.failures.length} 处(本次运行会留下悬空 commit):${residue.failures[0]}`,
   }
 }
 
 export function renderProbeReport(p) {
-  if (!p.ok) return [`[G-263 动态档] ❌ ${p.why}`]
-  const L = [
+  const L = []
+  if (!p.ok && p.why && !p.headSha) return [`[G-263 动态档] ❌ ${p.why}`]
+  L.push(
     `[G-263 动态档] 隔离面(worktree@${p.headSha.slice(0, 9)})抽跑 ${p.results.length} 道,准确率(仅静态可判档计)${p.accuracy}`,
-  ]
+  )
   for (const r of p.results) {
     if (r.outcome === 'red')
       L.push(
@@ -1046,6 +1182,24 @@ export function renderProbeReport(p) {
     if (r.sample) L.push(`      样例结论行: ${r.sample}`)
     if (r.note) L.push(`      ${r.note}`)
   }
+  // 残留处置账:探针造过的 commit 去了哪(可审计)。这一段不是装饰 ——
+  // 它是"探针跑完不留悬空 commit"这条纪律的**唯一可观测面**,删掉它下次回归无人能发现。
+  const q = p.residue || { tagged: [], alreadyTagged: [], failures: [] }
+  const nTag = q.tagged.length
+  const nSkip = q.alreadyTagged.length
+  if (nTag || nSkip || q.failures.length) {
+    L.push(
+      `  残留处置:本次造出的探针 commit 已打标保活 ${nTag} 枚` +
+        (nSkip ? `(另有 ${nSkip} 枚同名已存在,幂等跳过)` : '') +
+        ` ⇒ 命名 lost-commit/probe-g263-gate<id>-<sha7>,worktree remove 后仍可达,不留悬空`,
+    )
+    for (const t of q.tagged) L.push(`      ✓ ${t.name} → ${t.sha.slice(0, 12)}`)
+    for (const t of q.alreadyTagged) L.push(`      = ${t.name} → ${t.sha.slice(0, 12)}(已存在)`)
+  } else {
+    L.push('  残留处置:本次未造出任何探针 commit(全部探针在 commit 之前退出)⇒ 无残留')
+  }
+  for (const f of q.failures) L.push(`      ❌ ${f}`)
+  if (!p.ok) L.push(`  ❌ ${p.why}`)
   return L
 }
 
@@ -1153,6 +1307,37 @@ export function selfTest() {
     p55.inject('X = 1\n_TOOLS: list[MCPTool] = [\n]\n').includes('probe_zz_missing_tool'),
   )
   ok('P3 门 55 注入器锚点缺失时返回 null(不硬造红)', p55.inject('nothing here') === null)
+  // 残留处置(2026-10-03):命名与"认领本次所造"的判据形状。
+  // 这几条是**纯函数**断言(不 spawn git)—— 它们钉的是"标签名可审计 + 不撞名"这条性质,
+  // 端到端那半(真打标、真不留悬空)由验收跑 `--probe` + fsck 前后对比证。
+  const tn1 = probeTagName('55', 'a'.repeat(40))
+  ok(
+    'P4 标签名落在 lost-commit/probe-* 命名空间且带门号与短 sha',
+    tn1 === 'lost-commit/probe-g263-gate55-aaaaaaa',
+    tn1,
+  )
+  ok(
+    'P5 标签名同门不同 sha 不撞名(重跑探针各得一枚)',
+    probeTagName('55', 'a'.repeat(40)) !== probeTagName('55', 'b'.repeat(40)),
+  )
+  ok(
+    'P6 标签名跨门不撞名',
+    probeTagName('1', 'a'.repeat(40)) !== probeTagName('55', 'a'.repeat(40)),
+  )
+  // 认领判据的形状:`rev-list <base>..HEAD` 差集。纯函数部分只能是"起点 sha 不合规就
+  // fail-closed 报 failures,而不是静默返回空账"—— 空账会被上层读成"没有残留"。
+  const badBase = retainProbeCommits('g:/IHUI-AI', 'g:/tmp-probe', 'not-a-sha', PROBES[0])
+  ok(
+    'P7 起点 sha 不合规 ⇒ 处置账记 failures(不静默返空 ⇒ 上层不会读成"无残留")',
+    badBase.tagged.length === 0 && badBase.failures.length === 1,
+    JSON.stringify(badBase),
+  )
+  const noWt = retainProbeCommits('g:/IHUI-AI', 'g:/tmp-probe/__no_such_wt__', 'a'.repeat(40), PROBES[0])
+  ok(
+    'P8 隔离面已不存在 ⇒ 空账(cleanup 二次调用幂等,不重复打标)',
+    noWt.tagged.length === 0 && noWt.failures.length === 0,
+    JSON.stringify(noWt),
+  )
   return { fails, total }
 }
 
