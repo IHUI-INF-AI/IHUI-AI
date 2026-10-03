@@ -58,14 +58,26 @@ export function normalizeCiCheckState(raw: string | null | undefined): CiCheckSt
   return isCiCheckState(key) ? key : 'unknown'
 }
 
-/** 按六态计数(缺失态记 0,便于断言与埋点) */
+/**
+ * 按六态计数(缺失态记 0,便于断言与埋点)
+ *
+ * **完备 Record(G-815966)**:零值表用显式类型标注,不用 `as Record<…>`。
+ * 旧写法 `= {...} as Record<CiCheckState, number>` 把断言放在**初始化表达式**上,
+ * TS 只校验断言两侧类型兼容、不校验字面量是否列全 —— 新增一档 `CI_CHECK_STATES` 时
+ * 这张表悄悄少一档,`counts[check.state] += 1` 落到 `undefined += 1` 得 `NaN`,
+ * 编译期零报错。改成完备字面量后,少一档即 `tsc` 报 "Property 'newState' is missing"。
+ */
 export function countChecksByState(
   checks: readonly CiCheck[] | null | undefined,
 ): Record<CiCheckState, number> {
-  const counts = { failed: 0, passed: 0, pending: 0, skipped: 0, neutral: 0, unknown: 0 } as Record<
-    CiCheckState,
-    number
-  >
+  const counts: Record<CiCheckState, number> = {
+    failed: 0,
+    passed: 0,
+    pending: 0,
+    skipped: 0,
+    neutral: 0,
+    unknown: 0,
+  }
   for (const check of checks ?? []) counts[check.state] += 1
   return counts
 }
