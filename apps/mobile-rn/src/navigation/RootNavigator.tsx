@@ -257,6 +257,14 @@ export type RootStackParamList = {
     modelName?: string
     modelId?: string
     remark?: string
+    /**
+     * D28 补齐层(2026-10-03):进入后自动把这段文字作为**本会话的下一条用户消息**发出。
+     *
+     * 唯一用途是导入页「用场景分析」—— 分析指令必须落在**那个导入会话**里,
+     * 历史里的导入记录才是本轮上下文(与 web 端 draftInput + draftAutoSend 同一判据)。
+     * 走既有 `send(overrideText)` 出口(登录/VIP/流式校验齐全),不新造 LLM 调用链。
+     */
+    autoSendPrompt?: string
   }
   CourseDetail: { id: string }
   VideoPlayer: { courseId: string; lessonId: string; title?: string }

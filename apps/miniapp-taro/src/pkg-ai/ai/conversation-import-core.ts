@@ -175,11 +175,27 @@ export function buildCommitPayload(
   }
 }
 
+/**
+ * D28 补齐层(2026-10-03):一条成功落库的会话 —— 结果区两个出口的载荷。
+ *
+ * `source` 取**本次提交实际用的那一份**:用户导完可能顺手点了别的来源卡,
+ * 若分析弹窗去读页面当前 source,一个微信导入的会话会拿到 codex 的推荐场景 ——
+ * 恰好毁掉"wechat 默认推荐聊天记录类"这条判据(web / RN 端同款注)。
+ */
+export interface CommittedImportConversation {
+  readonly conversationId: string
+  readonly title: string
+  readonly messageCount: number
+  readonly source: ConversationImportSource
+}
+
 /** commit 编排结果:失败原因**原样带回**(去重),让页面能诚实交代而不是只报一个数字 */
 export interface ImportCommitOutcome {
   imported: number
   failed: number
   failureReasons: string[]
+  /** 成功落库的会话清单(结果区「打开会话」/「用场景分析」两个出口的载荷) */
+  committed: CommittedImportConversation[]
 }
 
 export const COMMIT_FAILURE_REASON_LIMIT = 3
@@ -190,6 +206,24 @@ function judgeCommit(res: ApiResult<unknown> | unknown, isError: unknown): { ok:
   const r = res as { success?: boolean; error?: string; errorCode?: string; status?: number }
   if (r?.success === true) return { ok: true, reason: '' }
   return { ok: false, reason: r?.error || `HTTP ${r?.status ?? '?'}` }
+}
+
+/**
+ * commit 成功响应里取回会话主键。
+ *
+ * 逐条守卫而非 cast:commit 的响应体在 api-client 里是 `ConversationImportCommitResult`,
+ * 但本页面的 `commit` 注入签名被宽化成 `ApiResult<unknown>`(为了让判序层不依赖具体端点),
+ * 于是这里必须自己收窄。读不到就返回 null —— 结果区那一条就没有"打开会话"出口,
+ * **不造一个点不动的按钮**,也不拿行号/下标冒充会话 id。
+ */
+function readCommittedId(res: ApiResult<unknown> | unknown): string | null {
+  if (!res || typeof res !== 'object') return null
+  const r = res as { success?: boolean; data?: unknown }
+  if (r.success !== true || !r.data || typeof r.data !== 'object') return null
+  const data = r.data as { conversationId?: unknown }
+  return typeof data.conversationId === 'string' && data.conversationId !== ''
+    ? data.conversationId
+    : null
 }
 
 /**
@@ -213,6 +247,9 @@ export async function runImportCommit(deps: {
   let imported = 0
   let failed = 0
   const failureReasons: string[] = []
+  // D28 补齐层:成功落库的会话清单。conversationId 读不出的条目**不进清单**
+  // (见 readCommittedId),宁可少给一个出口,也不给一个指向不明会话的按钮。
+  const committed: CommittedImportConversation[] = []
   deps.onProgress?.({ done, total })
 
   for (const id of deps.rowIds) {
@@ -226,9 +263,20 @@ export async function runImportCommit(deps: {
       continue
     }
     try {
-      const outcome = judgeCommit(await deps.commit(payload), undefined)
-      if (outcome.ok) imported += 1
-      else {
+      const res = await deps.commit(payload)
+      const outcome = judgeCommit(res, undefined)
+      if (outcome.ok) {
+        imported += 1
+        const conversationId = readCommittedId(res)
+        if (conversationId !== null) {
+          committed.push({
+            conversationId,
+            title: payload.title ?? '',
+            messageCount: payload.messages.length,
+            source: deps.source,
+          })
+        }
+      } else {
         failed += 1
         failureReasons.push(outcome.reason)
       }
@@ -239,7 +287,7 @@ export async function runImportCommit(deps: {
     done += 1
     deps.onProgress?.({ done, total })
   }
-  return { imported, failed, failureReasons }
+  return { imported, failed, failureReasons, committed }
 }
 
 /** 失败原因去重并截断(避免一屏刷满同一条);真实总数仍在 failed 计数里 */
