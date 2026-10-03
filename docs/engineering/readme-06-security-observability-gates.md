@@ -313,6 +313,12 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-gua
 
 ---
 
+### 对标交付核验尺子②(`check:benchmark-delivery`,check:all 尾列第 27 步)(2026-10-01 接线,票 D140 / 欠口 G-816103)
+
+`node scripts/audit-benchmark-delivery.mjs --strict` 回答"一条被写进对标文档的差距,今天还成立吗?"。三态口径**绝不并桶**:已交付 / 仍存在 / 判不出(条目没挂机器可判的锚点);`--strict` 下存在判不出或登记表与文档脱节(docAnchor 失配、同 id 重复登记)即 `exit 2` 拒绝出合格证 —— "整票已交付"的假结论正是它点名的最大风险。它判的是"文档与代码是否一致",与单次提交内容无关,故刻意**不做 blocking 守门**(挂上就是恒红门),但已同枚接进 `check:all` 尾列与 AGENTS §6 验证命令:每次全量对账都会看到它的三态读数与"未建档 N 条"覆盖面行。**明令禁止 `--update` 式把读数冻成基线** —— 读数每天会变,冻起来等于给"文档与代码脱节"发通行证。
+
+---
+
 ### 新增守门示例:第 75 / 76 项「mobile-rn 深色前景容器对账」与「反回退对账」(2026-09-23)
 
 **第 83 项 `check-brand-foreground.mjs`(blocking)**(原登记为第 75 项) —— RN 深色档案里 `tokens.brand.DEFAULT`
