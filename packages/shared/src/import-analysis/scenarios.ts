@@ -3,27 +3,31 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 导入会话「用场景分析」的**目录访问层**(D28 补齐层,2026-10-03)
+ * 导入会话「用场景分析」的**目录访问层**(D28 补齐层,2026-10-03;同日自 apps/web/src/lib 下沉)
  *
- * 与 `import-analysis.ts` 的分工:那边是纯判据(读 provenance / 推荐 id / 填模板),
+ * 与同目录 `provenance.ts` 的分工:那边是纯判据(读 provenance / 推荐 id / 填模板),
  * 不碰 210 条模板正文;这边是唯一 import 投影的模块,只在「用场景分析」弹窗
  * `await import()` 时被拉入 —— 会话消息区显示"来自微信导入"不该为 493KB 目录买单。
  *
  * 投影文件 = `products/ai-prompt-library/`(付费数字商品)的机器投影,20 分类 / 210 条。
  * 这里的函数全部是它的**只读视图**,不做任何内容改写。
+ *
+ * ⚠️ 端内必须**动态 import** 本模块(禁止静态 import):本模块连带 492KB 投影正文。
+ * 小程序端尤其致命 —— 主包余量仅 63,454 B(2026-10-03 实测 2,033,698 / 2,097,152),
+ * 静态引入会超微信 2 MB 硬上限;动态 import 落进分包或异步 chunk,用户点开才付。
  */
 import {
   IMPORT_ANALYSIS_CATEGORIES,
   IMPORT_ANALYSIS_SCENARIOS,
   type ImportAnalysisCategory,
   type ImportAnalysisScenario,
-} from './import-analysis-catalog.generated'
+} from './catalog.generated'
 import {
   CODE_RECOMMENDED_SCENARIO_IDS,
   FALLBACK_RECOMMENDED_SCENARIO_IDS,
   WECHAT_RECOMMENDED_SCENARIO_IDS,
   type ImportSource,
-} from './import-analysis'
+} from './provenance'
 
 export type { ImportAnalysisCategory, ImportAnalysisScenario }
 
