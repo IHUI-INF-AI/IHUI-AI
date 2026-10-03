@@ -255,6 +255,8 @@ import { userLlmConfigV2Routes } from './user-llm-configs-v2.js'
 import { cliImportRoutes } from './cli-import.js'
 // 外部会话导入(D28:Claude Code/Codex/Cursor/Aider 会话迁入即用,2026-09-20 新增)
 import { conversationImportRoutes } from './conversation-import.js'
+// 导入会话 → 知识库(2026-10-03 新增:让导入的会话可被 RAG 检索到)
+import { conversationKnowledgeRoutes } from './conversation-knowledge.js'
 // 自媒体 skill(公众号文章 + 口播稿,2026-07-20 新增)
 import { selfMediaRoutes } from './self-media-routes.js'
 // 多平台发布代理(账号/任务/历史/统计,代理到 ai-service,2026-07-20 新增)
@@ -993,6 +995,9 @@ export function registerRoutes(server: FastifyInstance) {
   // 外部会话导入(D28:Claude Code/Codex/Cursor/Aider 会话迁入即用)
   // 端点:/api/user/conversation-import/{parse,commit,history}
   server.register(conversationImportRoutes, { prefix: '/api/user' })
+  // 导入会话 → 知识库(2026-10-03:补"导入的会话进知识库、可被 RAG 检索"这一层)
+  // 端点:/api/user/conversation-import/{to-knowledge,knowledge-status}
+  server.register(conversationKnowledgeRoutes, { prefix: '/api/user' })
   // 自媒体 skill(公众号文章 + 口播稿,代理到 ai-service,2026-07-20 新增)
   server.register(selfMediaRoutes, { prefix: '/api' })
   // 多平台发布代理(账号/任务/历史/统计,代理到 ai-service,2026-07-20 新增)

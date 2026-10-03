@@ -234,8 +234,9 @@ describe('② 影子台账 SchemaMissing 计一档,绝不计进通过', () => {
     expect(bucket?.shadowRuns).toBe(1);
   });
 
-  it('SchemaMissing 默认档(off):缺席工具也一次都不进校验分支,所有计数为 0', async () => {
-    // 本票不改今天的默认行为:off 档下这段代码等价于不存在。
+  it('SchemaMissing off 档(显式关闭):缺席工具也一次都不进校验分支,所有计数为 0', async () => {
+    // 默认档自 L22150 装车起是 shadow;off 是显式退出档,语义不变:off 下这段代码等价于不存在。
+    process.env[TOOL_ARG_VALIDATION_ENV] = 'off';
     registerTools([toolWithoutParameters()]);
     const r = await executeToolCall(call('g712_no_params', { path: 'a.txt' }), ctx);
     expect(r).toEqual({ success: true, output: 'ran' });
