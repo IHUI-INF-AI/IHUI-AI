@@ -11,6 +11,7 @@ import { error } from '../../utils/response.js'
 import {
   attachEgressFacts,
   collectEgressFacts,
+  directEgressFetch,
   proxiedFetch,
 } from '../../utils/proxy-dispatcher.js'
 import { z } from 'zod'
@@ -316,17 +317,20 @@ export async function fetchWithTimeout(
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   // 一趟只算一次事实,决策与事实同源
   const egress = collectEgressFacts(url)
+  // G-749(2026-10-03):头与正文的归一提到两侧共用 —— 直连侧此前是裸 fetch 直发
+  // (redirect:'follow' 默认 20 跳、无跨 origin 剥头、无字节上限),与代理侧同一型;
+  // 现在两侧都调 boundedEgressFetch 同一个函数,只换 transport(直连侧不传 dispatcher)。
+  const headersRec: Record<string, string> = {}
+  if (options.headers) Object.assign(headersRec, options.headers as Record<string, string>)
+  const bodyStr =
+    options.body === null || options.body === undefined
+      ? undefined
+      : typeof options.body === 'string'
+        ? options.body
+        : String(options.body)
   try {
     // 命中代理白名单的被墙域名(OpenAI/Gemini/Groq 等)走 HTTP 代理,其余直连
     if (egress.proxied) {
-      const headersRec: Record<string, string> = {}
-      if (options.headers) Object.assign(headersRec, options.headers as Record<string, string>)
-      const bodyStr =
-        options.body === null || options.body === undefined
-          ? undefined
-          : typeof options.body === 'string'
-            ? options.body
-            : String(options.body)
       const proxied = await proxiedFetch(url, {
         method: options.method,
         headers: headersRec,
@@ -335,7 +339,12 @@ export async function fetchWithTimeout(
       })
       return attachEgressFacts(proxied, egress)
     }
-    const direct = await fetch(url, { ...options, signal: controller.signal })
+    const direct = await directEgressFetch(url, {
+      method: options.method,
+      headers: headersRec,
+      body: bodyStr,
+      signal: controller.signal,
+    })
     return attachEgressFacts(direct, egress)
   } finally {
     clearTimeout(timer)
