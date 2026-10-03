@@ -342,7 +342,7 @@ function stagedPaths() {
   return execFileSync(
     gitBinary(),
     ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', 'diff', '--cached', '--name-only', '--diff-filter=ACMR'],
-    { cwd: ROOT, encoding: 'utf8', timeout: GIT_TIMEOUT_MS, maxBuffer: 1 << 26, windowsHide: true },
+    { cwd: ROOT, encoding: 'utf8', timeout: GIT_TIMEOUT_MS, maxBuffer: 1 << 26, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] },
   )
     .split(/\r?\n/)
     .filter(Boolean)
@@ -359,6 +359,9 @@ function listFiles(face) {
     timeout: GIT_TIMEOUT_MS,
     maxBuffer: 1 << 26,
     windowsHide: true,
+    // EBUSY 根治(errno -4082):本机会话里 Node 建子进程 stdin 管道确定性失败。
+    // 调用点全为只读 git(ls-files / diff --cached),不喂 stdin。
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
     .split(/\r?\n/)
     .filter((p) => p && (SCAN_EXTS.test(p) || p === 'apps/api/src/server.ts') && !TESTISH.test(p))
