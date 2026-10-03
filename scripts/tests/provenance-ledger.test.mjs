@@ -34,6 +34,10 @@ const git = (args, enc = 'utf8') =>
     timeout: 60000,
     maxBuffer: 64 * 1024 * 1024,
     windowsHide: true,
+    // EBUSY 根治(errno -4082):本机会话里 Node 建子进程 stdin 管道确定性失败。
+    // 2026-10-03:本夹具没写 stdio ⇒ 4 条用例红在 'spawnSync git EBUSY' 上,
+    // 看起来像"取材面空了/门判红",实则是**命令根本没跑成**(空扫即绿那一格最怕这个)。
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 
 test('§22c 阶段 B/C:源文件必须 export __test__ 且测试必须真 import 它(不许复制判据)', () => {

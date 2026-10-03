@@ -73,6 +73,9 @@ export function getStagedFiles() {
       encoding: 'utf8',
       cwd: process.cwd(),
       windowsHide: true,
+      // EBUSY 根治(errno -4082):本机会话里 Node 建子进程 stdin 管道确定性失败。
+      // `git diff` 不吃 stdin ⇒ stdio[0]='ignore'。
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     return output.split('\n').filter(Boolean)
   } catch {
@@ -91,6 +94,8 @@ export function getStagedFilesFiltered(filter = 'ACMR') {
       encoding: 'utf8',
       cwd: process.cwd(),
       windowsHide: true,
+      // 同上:`git diff` 不吃 stdin ⇒ stdio[0]='ignore'。
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     return output.split('\n').filter(Boolean)
   } catch {
