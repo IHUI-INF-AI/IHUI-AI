@@ -493,6 +493,18 @@
     "captchaRefresh": "認証コードを更新"
   },
   "chat": {
+    "markdownTable": {
+      "copy": "表をコピー",
+      "copied": "コピーしました",
+      "copyFailed": "コピーに失敗しました",
+      "downloadCsv": "CSV をダウンロード",
+      "csvFailed": "CSV のダウンロードに失敗しました",
+      "fullscreen": "全画面表示",
+      "fullscreenTitle": "表（全画面）",
+      "close": "閉じる",
+      "unsupported": "この環境ではサポートされていません",
+      "empty": "空の表"
+    },
     "mcp": {
       "state": {
         "connecting": "{server} に接続中…",

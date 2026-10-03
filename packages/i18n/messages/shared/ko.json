@@ -493,6 +493,18 @@
     "captchaRefresh": "인증 코드 새로고침"
   },
   "chat": {
+    "markdownTable": {
+      "copy": "표 복사",
+      "copied": "복사됨",
+      "copyFailed": "복사 실패",
+      "downloadCsv": "CSV 다운로드",
+      "csvFailed": "CSV 다운로드 실패",
+      "fullscreen": "전체 화면",
+      "fullscreenTitle": "표(전체 화면)",
+      "close": "닫기",
+      "unsupported": "이 환경에서는 지원되지 않습니다",
+      "empty": "빈 표"
+    },
     "mcp": {
       "state": {
         "connecting": "{server} 연결 중…",

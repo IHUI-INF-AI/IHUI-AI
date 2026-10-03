@@ -493,6 +493,18 @@
     "captchaRefresh": "Refresh captcha"
   },
   "chat": {
+    "markdownTable": {
+      "copy": "Copy table",
+      "copied": "Copied",
+      "copyFailed": "Copy failed",
+      "downloadCsv": "Download CSV",
+      "csvFailed": "CSV download failed",
+      "fullscreen": "Fullscreen",
+      "fullscreenTitle": "Table (fullscreen)",
+      "close": "Close",
+      "unsupported": "Not supported in this environment",
+      "empty": "Empty table"
+    },
     "mcp": {
       "state": {
         "connecting": "Connecting to {server}…",
