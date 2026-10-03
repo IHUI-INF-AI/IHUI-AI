@@ -46,6 +46,14 @@ from typing import Any, cast
 
 from app.core.config import settings
 
+from ._load_lifecycle import (
+    decide_attempt as _decide_attempt,
+    monotonic as _lifecycle_monotonic,
+    state_after_failure as _state_after_failure,
+    state_after_success as _state_after_success,
+    DECISION_BACKOFF as _DECISION_BACKOFF,
+    DECISION_GAVE_UP as _DECISION_GAVE_UP,
+)
 logger = logging.getLogger(__name__)
 
 # ====================== 常量 ======================
@@ -415,6 +423,11 @@ class HookEngine:
         self._redis_probed = redis_client is not None
         # 是否已从 Redis 加载配置(惰性,首次 emit 时触发)
         self._loaded = False
+        # G-758(2026-10-03):加载生命周期标量(判定住在 _load_lifecycle,唯一一份)。
+        # _loaded=False ∧ _load_failures>0 ⇒ "读不到"(待重试/已放弃自动重试),绝不等于空。
+        self._load_failures: int = 0
+        self._load_next_attempt_s: float = 0.0
+        self._load_give_up_logged: bool = False
         # L5-9(2026-08-12):SSE 实时订阅器(单进程内存实现,event → [Queue])
         self._subscribers: dict[str, list[asyncio.Queue[Any]]] = {}
 
@@ -497,12 +510,37 @@ class HookEngine:
         return self._redis
 
     async def _load_hooks(self) -> None:
-        """从 Redis 加载 Hook 配置(启动后首次 emit 时调用,失败降级内存)。"""
+        """从 Redis 加载 Hook 配置(启动后首次 emit 时调用,失败降级内存)。
+
+        G-758(2026-10-03,取代旧口径"未读先置真"):旧写法在尝试**前**就把 _loaded
+        置真,Redis 读失败 ⇒ "试过了但没读到"被记成"已加载"且余生不再重试 ——
+        与 G-748 收口的"finally 置真"是同一型的变体。判定收进 _load_lifecycle
+        (唯一一份):读到成功(含空键 = 权威空)或确认内存模式(Redis 不可用是
+        **权威语义**,不是"没读到")才固化;读失败不置 loaded,指数退避,到上限停。
+        """
         if self._loaded:
             return
-        self._loaded = True
+        now = _lifecycle_monotonic()
+        decision = _decide_attempt(
+            loaded=self._loaded,
+            failures=self._load_failures,
+            next_attempt_s=self._load_next_attempt_s,
+            now=now,
+        )
+        if decision == _DECISION_GAVE_UP:
+            if not self._load_give_up_logged:
+                self._load_give_up_logged = True
+                logger.warning(
+                    "[hook_engine] _load_hooks 连续 %d 次读取失败,停止自动重试(状态=读不到,非空表)",
+                    self._load_failures,
+                )
+            return
+        if decision == _DECISION_BACKOFF:
+            return  # 退避窗口内:本次调用不打 IO
         redis = await self._ensure_redis()
         if redis is None:
+            # 内存模式是权威语义(持久化确认不可用 ≠ 没读到)⇒ 固化为已加载
+            self._loaded, self._load_failures, self._load_next_attempt_s = _state_after_success()
             return
         try:
             raw = await redis.get(REDIS_HOOKS_KEY)
@@ -511,8 +549,14 @@ class HookEngine:
                 if isinstance(data, dict):
                     self._hooks.update(data)
                     logger.info("[hook_engine] 从 Redis 加载 %d 个 Hook 配置", len(data))
+            self._loaded, self._load_failures, self._load_next_attempt_s = _state_after_success()
         except Exception as e:
-            logger.warning("[hook_engine] 从 Redis 加载 Hook 配置失败: %s", e)
+            self._load_failures, self._load_next_attempt_s = _state_after_failure(
+                self._load_failures, now
+            )
+            logger.warning(
+                "[hook_engine] 从 Redis 加载 Hook 配置失败(本次降级内存,退避后自动重试): %s", e
+            )
 
     async def _persist_hooks(self) -> None:
         """配置变更时异步写入 Redis(fire-and-forget 调用)。"""
