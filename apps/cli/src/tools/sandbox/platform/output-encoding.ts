@@ -266,7 +266,7 @@ export function createStreamDecoder(
 ): ExecutionOutputStreamDecoder {
   let mode: 'unknown' | 'utf8' | 'legacy' = 'unknown';
   let pending: Buffer = Buffer.alloc(0);
-  let utf8Decoder = new TextDecoder('utf-8');
+  const utf8Decoder = new TextDecoder('utf-8');
   let legacyDecoder: TextDecoder | null = null;
 
   const legacyForStream = (): TextDecoder | null => {

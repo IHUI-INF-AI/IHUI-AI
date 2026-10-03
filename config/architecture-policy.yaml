@@ -491,6 +491,14 @@ modules:
       - './workflows/*'
       - './skills/*'
       - './tasks/*'
+      # 2026-10-03 补登(门 103 D3):conversation-import 两条消费面(apps/miniapp-taro 的
+      # conversation-import-analysis.tsx 与 packages/app 的 ImportAnalysisSheet.tsx)真的 import 了
+      # `@ihui/shared/import-analysis` 与 `@ihui/shared/import-analysis/scenarios-slim`,
+      # 而本表未登记 ⇒ D3「穿透公开入口的深导入」当场判红。四个入口在 packages/shared 的
+      # package.json#exports 里均真实存在(不是凭空登记);按本表既有惯例成对登记
+      # (精确名 + 通配),`scenarios` 由 `./import-analysis/*` 覆盖。
+      - './import-analysis'
+      - './import-analysis/*'
       - './design/*'
       - './seo'
       - './seo/*'

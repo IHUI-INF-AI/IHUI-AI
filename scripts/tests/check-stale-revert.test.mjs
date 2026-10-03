@@ -24,6 +24,7 @@ import { dirname, join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { maskCommentsAndStrings } from '../lib/code-mask.mjs'
 import { __test__ as G } from '../check-stale-revert.mjs'
+import { resurrectKey, resurrectAnalysis } from '../lib/stale-content-analysis.mjs'
 
 const GIT = 'C:/Program Files/Git/cmd/git.exe'
 
@@ -160,6 +161,40 @@ test('端到端:暂存集顶过上限时,乘数级回写仍必须判红(护栏�
   } finally {
     rmScratch(dir)
   }
+})
+
+test('输入指纹注释行:同一输入的不同 hash 不算「复活旧内容」(门 84 R1r,2026-10-03)', () => {
+  // 这一族全部走**纯函数**(不建真仓、不 spawn git):本机 spawnSync git 恒 EBUSY,
+  // 端到端那几例在本地判不出,而这里要钉的判据本身就是纯的(resurrectKey / resurrectAnalysis)。
+  const OLD = '1'.repeat(64)
+  const NEW = '2'.repeat(64)
+  const oldLine = '// input: packages/i18n/messages/shared/en.json ' + OLD
+  const newLine = '// input: packages/i18n/messages/shared/en.json ' + NEW
+
+  // ① 不同 hash 归一为同一行
+  assert.equal(resurrectKey(oldLine), resurrectKey(newLine), '同一输入的不同 hash 必须归一')
+  // ② 归一后输入路径仍在(信息不丢)
+  assert.ok(resurrectKey(newLine).includes('packages/i18n/messages/shared/en.json'), '归一须保留输入路径')
+  // ③ 不同输入路径不得归一(否则两个文件的指纹被混成一行 = 真的放宽了牙)
+  assert.notEqual(
+    resurrectKey('// input: a/en.json ' + OLD),
+    resurrectKey('// input: b/ja.json ' + OLD),
+    '不同输入路径不得归一',
+  )
+  // ④ 内容行不受影响(不带 // input: 前缀 ⇒ 原样)
+  assert.ok(resurrectKey('  "agreement": { "staticContent1": "x", },').includes('agreement'), '内容行不受影响')
+  // ⑤ 端到端:只改指纹 hash ⇒ 不判复活
+  const base = ['// input: x.json ' + OLD, '"k": "v"'].join('\n')
+  const r = resurrectAnalysis({
+    baseText: base,
+    newText: ['// input: x.json ' + NEW, '"k": "v"'].join('\n'),
+    ancestors: [{ commit: 'deadbee', text: base }],
+  })
+  assert.equal(r.count, 0, `只改指纹 hash 不得判复活(实测 ${r.count})`)
+  // ⑥ 牙仍在:真把旧内容搬回来照样判红
+  const rolled = ['// input: x.json ' + OLD, '"k": "v"', '"staleKey": "old"'].join('\n')
+  const r2 = resurrectAnalysis({ baseText: base, newText: rolled, ancestors: [{ commit: 'deadbee', text: rolled }] })
+  assert.ok(r2.count > 0, `搬回旧内容必须仍判红(实测 ${r2.count})`)
 })
 
 test('反向对照:真新编辑(既不等于 HEAD 也不等于任何祖先版本)不得判红', () => {
