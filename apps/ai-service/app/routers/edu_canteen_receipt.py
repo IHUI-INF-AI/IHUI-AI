@@ -527,7 +527,16 @@ async def _vision_receipt(
             parsed = _extract_json(content)
         except (json.JSONDecodeError, ValueError) as e:
             last_err = f"JSON 解析失败: {e}"
-            logger.warning("edu_canteen_receipt JSON 解析失败: %s; content=%s", e, content[:200])
+            # 2026-10-03 数据出域合规整改:此处原样打印模型输出正文(最多 200~500 字),
+            # 模型输出常含用户提交内容的原样回显 ⇒ 日志成了无期限、无权限隔离的留存面。
+            # 改为只记长度 + 首部短预览:足以判断是「格式错」还是「被截断」,
+            # 又无法据此还原正文。要看内容请查带留存期与归属治理的 DB 记录。
+            logger.warning(
+                "edu_canteen_receipt JSON 解析失败: %s; content_len=%d content_head=%r",
+                e,
+                len(content),
+                content[:80],
+            )
             continue
         if isinstance(parsed, dict):
             return parsed, None, model
@@ -558,7 +567,14 @@ async def _text_json(system: str, user_text: str) -> tuple[dict[str, Any] | None
     try:
         parsed = _extract_json(content)
     except (json.JSONDecodeError, ValueError) as e:
-        logger.warning("edu_canteen_receipt 文本比对 JSON 解析失败: %s; content=%s", e, content[:200])
+        # 2026-10-03 数据出域合规整改(与本文件另一处同批):原样打印 content 正文。
+        # 该分支是「文本比对」路径,同样会把模型输出(= 用户提交内容的回显)落进日志。
+        logger.warning(
+            "edu_canteen_receipt 文本比对 JSON 解析失败: %s; content_len=%d content_head=%r",
+            e,
+            len(content),
+            content[:80],
+        )
         return None, f"JSON 解析失败: {e}"
     if not isinstance(parsed, dict):
         return None, "LLM 输出非 JSON 对象"

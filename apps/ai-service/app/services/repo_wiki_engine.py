@@ -5,13 +5,21 @@
 """D9(2026-09-19 立):Repo Wiki 自动 wiki 化 + 增量同步 + 常驻注入 引擎。
 
 设计目标(对标 Cursor/Qoder 的项目理解层):
-- 自动 wiki 化:扫描工作区根 README.md/AGENTS.md/CLAUDE.md/docs/*.md(≤30 文件),
+- 自动 wiki 化:扫描工作区根 README.md/根级 *.md/docs/*.md(≤30 文件),
   对每个文件用 LLM 生成一段「项目百科」摘要,汇总成整份 wiki 文本注入 system prompt。
 - 增量同步:对每个文件算 sha256,与缓存(内存 dict + 磁盘 .ihui-agent/wiki-cache/<ns>.json)
   比对,仅对新增/变更文件调 LLM 重新摘要;未变更文件复用旧摘要,零重复开销。
-- 常驻注入:ensure_wiki 被 routers/llm.py 在每次主聊天系统消息组装时调用,
-  workspace_path 存在即注入 [repo-wiki] 项目百科(自动生成,增量同步)。
+- 常驻注入:ensure_wiki 被 routers/llm.py 在主聊天系统消息组装时调用,
+  **但需调用方显式传 wikiContext=true**(2026-10-03 起默认不注入),workspace_path
+  存在才注入 [repo-wiki] 项目百科(自动生成,增量同步)。
 - 全链路静默降级:任何异常/LLM 失败/无文件一律返回 None 或降级文本,绝不阻塞主聊天。
+
+数据出域纪律(2026-10-03 合规整改,勿绕过):
+- 本引擎会把**工作区文件正文切前 4000 字送外部 LLM**,属出域路径。
+- 两道闸:(1) 调用方显式 opt-in(routers/llm.py 已改为 `is True` 硬判);
+  (2) 本模块 _is_sensitive_path 永久排除 agent 内部指令文件(AGENTS.md/CLAUDE.md 等)
+  —— 后者不可通过改 _ROOT_FIXED 绕过,根级 *.md 通配扫描同样被拦。
+- 新增扫描目标前请先确认该文件不含密钥位置/内部拓扑/人员信息。
 
 纪律:
 - 不新增 pip 依赖,复用 llm_gateway 现有 LLM 调用链路(stub 模式自动降级)。
@@ -40,7 +48,33 @@ _FALLBACK_CHARS = 600             # LLM 失败降级取文件首 N 字符
 _LLM_MAX_INPUT_CHARS = 4000       # 传给 LLM 摘要的文件内容上限
 
 # 扫描模式:根级固定文件 + 根级 *.md + docs/*.md(非递归)
-_ROOT_FIXED = ("README.md", "AGENTS.md", "CLAUDE.md")
+#
+# 2026-10-03 数据出域合规整改:AGENTS.md / CLAUDE.md 从扫描集**永久移除**。
+# 原因为何:这两个文件在业界惯例里承载的是「给 agent 的内部指令」,典型内容含内部
+# 架构拓扑、密钥位置、部署方式、内部人员信息。把它们切前 4000 字发给外部模型
+# 服务商,是本仓风险最高的一条出域路径(与 2026-09 智谱 ZCode「未经知情上传用户
+# 仓库数据」同型)。此处移除后即使 wiki 注入被显式开启,这两个文件也不会外发。
+_ROOT_FIXED = ("README.md",)
+
+# 敏感文件黑名单(大小写不敏感,匹配根级固定名与 *.md 扫描结果)。
+# 同样出于 2026-10-03 合规整改:即便未来有人把 AGENTS.md/CLAUDE.md 加回
+# _ROOT_FIXED,黑名单也会在 _discover_files 出口处拦一道 —— 判据只此一份,
+# 避免"改一处漏一处"。
+_SENSITIVE_FILENAMES = frozenset(
+    {
+        "agents.md",
+        "claude.md",
+        ".cursorrules",
+        ".windsurfrules",
+        ".clinerules",
+        "gemini.md",
+        ".aiderrules",
+        "copilot-instructions.md",
+    }
+)
+
+# 目录黑名单:命中则整目录跳过(仅对当前扫描层级生效,docs/ 下同理)。
+_SENSITIVE_DIRNAMES = frozenset({".git", ".github", ".ihui-agent", ".env", "secrets"})
 
 # 模块级时钟函数(便于测试 monkeypatch)
 _now = time.monotonic
@@ -57,19 +91,53 @@ def clear_wiki_cache() -> None:
 # ---------------------------------------------------------------------------
 # 文件扫描与哈希
 # ---------------------------------------------------------------------------
+def _is_sensitive_path(path: str, workspace_path: str) -> bool:
+    """该路径是否命中敏感文件/目录黑名单(大小写不敏感)。
+
+    2026-10-03 合规整改:这是本仓**唯一**一份「哪些文件不许外发」的判据,
+    在 _discover_files 的三个收集点与最终出口各拦一道。之所以要设最终出口兜底,
+    是因为根级 `*.md` 通配扫描会绕过 _ROOT_FIXED 常量直接把 AGENTS.md 捞进来 ——
+    只改常量不够(这正是本条判据不复用 _ROOT_FIXED 的原因)。
+
+    fail-closed:路径为 None / 类型异常 / 越界时一律判为敏感(宁可漏扫不可出域)。
+    注意整个函数体都在 try 内 —— os.path.basename 对 None 会直接抛 TypeError,
+    若把它放在 try 外面,"fail-closed"就只在部分分支成立(2026-10-03 自测实测到
+    该漏洞:单测传 None 时抛错而非返回 True,等于异常向上冒到主链路热路径)。
+    """
+    try:
+        name = os.path.basename(path)
+        if name.lower() in _SENSITIVE_FILENAMES:
+            return True
+        root = os.path.abspath(workspace_path)
+        rel_parts = os.path.abspath(path)[len(root) :].strip(os.sep).split(os.sep)
+    except (TypeError, ValueError, AttributeError, OSError):
+        return True  # 路径异常 ⇒ 宁可漏扫不出域(fail-closed)
+    return any(part.lower() in _SENSITIVE_DIRNAMES for part in rel_parts[:-1] if part)
+
+
 def _discover_files(workspace_path: str) -> list[str]:
-    """返回工作区待 wiki 化的 markdown 文件绝对路径(≤_MAX_WIKI_FILES,去重排序)。"""
+    """返回工作区待 wiki 化的 markdown 文件绝对路径(≤_MAX_WIKI_FILES,去重排序)。
+
+    2026-10-03 合规整改:所有候选在收集口与最终出口都过 _is_sensitive_path,
+    命中敏感黑名单(AGENTS.md / CLAUDE.md 等 agent 内部指令文件)的**一律排除**,
+    不会作为 wiki 摘要的输入送 LLM。
+    """
     candidates: set[str] = set()
     root = workspace_path
     for name in _ROOT_FIXED:
         p = os.path.join(root, name)
-        if os.path.isfile(p):
+        if os.path.isfile(p) and not _is_sensitive_path(p, root):
             candidates.add(os.path.abspath(p))
     # 根级 *.md
     try:
         for entry in os.listdir(root):
             full = os.path.join(root, entry)
-            if os.path.isfile(full) and entry.lower().endswith(".md") and not entry.startswith("."):
+            if (
+                os.path.isfile(full)
+                and entry.lower().endswith(".md")
+                and not entry.startswith(".")
+                and not _is_sensitive_path(full, root)
+            ):
                 candidates.add(os.path.abspath(full))
     except OSError:
         pass
@@ -79,11 +147,16 @@ def _discover_files(workspace_path: str) -> list[str]:
         try:
             for entry in os.listdir(docs_dir):
                 full = os.path.join(docs_dir, entry)
-                if os.path.isfile(full) and entry.lower().endswith(".md"):
+                if (
+                    os.path.isfile(full)
+                    and entry.lower().endswith(".md")
+                    and not _is_sensitive_path(full, docs_dir)
+                ):
                     candidates.add(os.path.abspath(full))
         except OSError:
             pass
-    ordered = sorted(candidates)
+    # 最终出口兜底:再过一次判据,任何漏网的敏感文件在此被拦下
+    ordered = sorted(p for p in candidates if not _is_sensitive_path(p, root))
     return ordered[:_MAX_WIKI_FILES]
 
 
