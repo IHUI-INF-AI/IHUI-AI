@@ -16,14 +16,26 @@
  */
 
 /** 值 ∈ 全集时原样返回(收窄为字面量联合);不在全集 ⇒ 返回显式声明的安全档。 */
-export function coerceKnownOr<T extends string>(
-  value: unknown,
-  known: readonly T[],
-  safe: T,
-): T {
+export function coerceKnownOr<T extends string>(value: unknown, known: readonly T[], safe: T): T {
   return typeof value === 'string' && (known as readonly string[]).includes(value)
     ? (value as T)
     : safe
+}
+
+/**
+ * 与 `coerceKnownOr` 同一把值域尺子的**第二种落点**:纯呈现域。
+ *
+ * 为什么不是"再抄一份 includes":这两条判据问的是同一件事(值在不在登记的值域里),
+ * 两处各写一遍必然漂开(§"两处算同一件事必漂移"同族)。区别只在**未知值的落点由调用方给**:
+ *   - `coerceKnownOr` —— 未知值必须兜到某个已知档(决策/写侧:兜底档要显式声明成终态/只读/禁用);
+ *   - `narrowKnown` —— 未知值返回 null,由调用方走一条**独立呈现档**(涉及资金/身份的纯展示域:
+ *     把未知猜成任何已知档都是对用户谎报,而 null 分支结构上不可能冒充已知档)。
+ * 两者共享同一份 `includes` 判定,所以"什么算已知"只有一处定义。
+ */
+export function narrowKnown<T extends string>(value: unknown, known: readonly T[]): T | null {
+  return typeof value === 'string' && (known as readonly string[]).includes(value)
+    ? (value as T)
+    : null
 }
 
 /** `as const` 元组 → 其成员联合的便捷别名(全集声明处用,避免重复抄联合)。 */
