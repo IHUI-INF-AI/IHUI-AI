@@ -350,6 +350,11 @@ try {
       windowsHide: true,
       encoding: 'utf8',
       timeout: 30_000,
+      // EBUSY 根治(errno -4082):本机会话里 Node 建子进程 stdin 管道确定性失败。
+      // 调用点只有 `rev-parse HEAD` 与 `diff --cached --name-only`,都不吃 stdin。
+      // ⚠️ 形态锁:pre-commit-hook.test.mjs 对本行的timeout 断言按字面读,
+      //    改这四行属性前先看那个用例(2026-10-03 加固时已复核过,一致)。
+      stdio: ['ignore', 'pipe', 'pipe'],
     }).trim()
   ROUND.headBefore = gitOut('git rev-parse HEAD')
   ROUND.stagedFiles = gitOut('git diff --cached --name-only')

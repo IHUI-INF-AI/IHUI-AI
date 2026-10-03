@@ -101,6 +101,10 @@ function git(args, opts = {}) {
     maxBuffer: 1 << 28,
     ...opts,
     windowsHide: true,
+    // EBUSY 根治(errno -4082):调用点全为只读 git(ls-files / show),不喂 stdin。
+    // stdio 写在 ...opts **之后**:本门两个多参数调用点自己传的也是 stdio[0]='ignore'
+    // (取 buffer 用),覆盖后形态一致;若哪天有调用方要喂 stdin,必须先在这里加两态判据。
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 

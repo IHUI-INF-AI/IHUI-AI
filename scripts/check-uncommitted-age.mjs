@@ -113,6 +113,8 @@ function runGit(args) {
       maxBuffer: 64 * 1024 * 1024,
       timeout: 30_000,
       windowsHide: true,
+      // EBUSY 根治(errno -4082):调用点全为只读 git,不喂 stdin。
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
   } catch {
     return ''

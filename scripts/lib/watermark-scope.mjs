@@ -41,6 +41,11 @@ function lsFiles(args, root) {
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,
       windowsHide: true,
+      // 本机交互会话里 Node 给子进程**建 stdin 管道**确定性 EBUSY(errno -4082),而
+      // `ls-files` 不吃 stdin ⇒ stdio[0] 必须 'ignore'。默认(不写 stdio)是全管道,必中招。
+      // 注意与 `cat-file --batch` 那一族相反:那些**要**喂 rev 清单,设 'ignore' 会把清单
+      // 静默丢弃而 git 不报错,只回一句 "missing"。本函数无 input 参数,所以是安全的 ignore 侧。
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     return { lines: out.split('\0').map((s) => s.trim()).filter(Boolean), error: null }
   } catch (e) {
