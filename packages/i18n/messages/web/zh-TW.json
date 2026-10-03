@@ -17060,6 +17060,7 @@
         "name": "配置名稱",
         "namePlaceholder": "我的 OpenAI",
         "nameRequired": "請填寫服務商名稱",
+        "invalidFieldsToast": "請修正以下欄位後重試",
         "newTitle": "新增服務商",
         "optional": "可選",
         "pasteEmpty": "剪貼板為空",
