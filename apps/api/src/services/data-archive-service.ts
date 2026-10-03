@@ -27,7 +27,7 @@
  * 任何真实删除逻辑。教训：**注释里出现的表名，必须能对上下面某一段 try 里的 delete 调用**。
  */
 
-import { and, lt, eq, inArray } from 'drizzle-orm'
+import { and, lt, lte, eq, inArray, isNotNull, sql } from 'drizzle-orm'
 import type { AnyPgTable, AnyPgColumn } from 'drizzle-orm/pg-core'
 import { db } from '../db/index.js'
 import {
@@ -37,7 +37,16 @@ import {
   relayMessages,
   chatMessages,
   conversationMessageArchives,
+  // 2026-10-03 数据出域合规整改:agent/team 记忆 6 张表(此前无任何清理路径)
+  agentMultimodalMemory,
+  // agentUserProfile 不在此导入:它的主键是 user_id 而非 id,走
+  // purgeUserProfileExpired 里的 ctid 批量删除(见该函数注释)。
+  agentSessionSummary,
+  agentMetaLessons,
+  teamMemories,
+  agentFederatedLessons,
 } from '@ihui/database'
+import { logger } from '../utils/logger.js'
 
 export interface ArchiveResult {
   auditLogsArchived: number
@@ -69,8 +78,65 @@ export interface ArchiveResult {
    * 热表里的原文被清掉、压缩档里的原文却留着,等于清理只做了一半,留存面反而更宽。
    */
   conversationMessageArchivesArchived: number
+  /**
+   * agent/team 记忆 6 张表到期回收行数(2026-10-03 数据出域合规整改新增)。
+   *
+   * 6 张表合计计在一处而非拆成 6 个字段:它们是同一票整改的产物,而监控要看的
+   * 恰恰是"这票一共清了多少行"——拆开只会让调度日志更难读。
+   */
+  agentMemoriesPurged: number
   errors: string[]
 }
+
+/**
+ * agent/team 记忆表的**过期判据**(2026-10-03 数据出域合规整改)。
+ *
+ * 抽成导出纯函数而不是把条件内联进 SQL,是为了能**直接测**它 —— 早先版本把
+ * 判据写死在 drizzle 查询链里,测它就得 mock 整条 db 链,而 mock 链的保真度
+ * 是个无底洞(表名认不出、循环轮次算错,都能造出"测试绿但线上删 0 行"的假象)。
+ * 判据本身只有一行,值得一个能独立钉死的函数。
+ *
+ * 语义(**NULL 是"用户显式选择长期保留",不是"还没算过期"**):
+ *   · expires_at 为 NULL      ⇒ 永不到期,不删
+ *   · expires_at <= now       ⇒ 到期,可删
+ * 用 `<=` 而非 `<`:到期那一刻即失效。留这条注释是防止将来有人改成 `<` 之后
+ * "永远差一秒清不掉",而那种错在低频任务里几个月都看不出来。
+ */
+export function isAgentMemoryRowExpired(
+  expiresAt: Date | string | null | undefined,
+  now: Date = new Date(),
+): boolean {
+  if (expiresAt === null || expiresAt === undefined) return false
+  const t = expiresAt instanceof Date ? expiresAt.getTime() : new Date(expiresAt).getTime()
+  if (Number.isNaN(t)) return false // 解析不了 ⇒ 当作"未到期",不误删用户数据
+  return t <= now.getTime()
+}
+
+/**
+ * 走"按 id 批删"那条路的 5 张 agent/team 记忆表(2026-10-03)。
+ *
+ * 导出是为了让测试能钉死"清单就是这 5 张 + user_profile 那 1 张,一张不落、
+ * 一张不多" —— 这类"清单漏了一张"的错只有测试能发现,而漏掉的那张表会静默
+ * 永不过期(正是本票要消除的东西)。
+ *
+ * 档位 90/180/365 三档按内容敏感度分(非一刀切),理由在迁移
+ * 20261003180000 的列注释里。label 带档位,是为了让调度日志一眼能看出清的是哪档。
+ * agent_user_profile 不在此列(主键是 user_id 而非 id,走 purgeUserProfileExpired)。
+ */
+export const AGENT_MEMORY_TABLES: ReadonlyArray<{
+  table: AnyPgTable & { id: AnyPgColumn }
+  label: string
+  retentionDays: number
+}> = [
+  { table: agentMultimodalMemory, label: 'agent_multimodal_memory(90d)', retentionDays: 90 },
+  { table: agentSessionSummary, label: 'agent_session_summary(180d)', retentionDays: 180 },
+  { table: agentMetaLessons, label: 'agent_meta_lessons(180d)', retentionDays: 180 },
+  { table: teamMemories, label: 'team_memories(365d)', retentionDays: 365 },
+  { table: agentFederatedLessons, label: 'agent_federated_lessons(365d)', retentionDays: 365 },
+]
+
+/** 走 ctid 批删的那张(主键非 id),与其余 5 张分开处理。 */
+export const AGENT_MEMORY_PROFILE_LABEL = 'agent_user_profile(180d)'
 
 /**
  * 分批删除的单批上限。
@@ -120,6 +186,71 @@ async function purgeExpiredBatched(
 }
 
 /**
+ * agent_user_profile 的到期回收(2026-10-03)。
+ *
+ * 为什么单独一个函数:本表主键是 **user_id**(不是 id),而
+ * purgeExpiredAtColumn 走的是「先按条件取 id 批、再按 id 删」——
+ * 那条路要求表有 id 列。硬套会得到一个永远删 0 行的假绿(最坏的一类:
+ * 监控显示"已清理"、实际一条没清)。
+ *
+ * 改用 ctid(物理行号):DELETE ... WHERE ctid IN (SELECT ctid ... LIMIT n)。
+ * ctid 只能在单个 SQL 语句内使用,不能跨查询持有 —— 这里恰好是单条语句,
+ * 语义安全。批大小同样受 PURGE_BATCH_LIMIT 约束,循环直到不满批。
+ */
+async function purgeUserProfileExpired(): Promise<number> {
+  const rows = (await db.execute(sql`
+    DELETE FROM "agent_user_profile"
+    WHERE ctid IN (
+      SELECT ctid FROM "agent_user_profile"
+      WHERE "expires_at" IS NOT NULL AND "expires_at" <= NOW()
+      LIMIT ${PURGE_BATCH_LIMIT}
+    )
+    RETURNING "user_id"
+  `)) as unknown as Array<{ user_id: string }>
+  const deleted = Array.isArray(rows) ? rows.length : 0
+  // 满批 ⇒ 可能还有,继续下一轮(不设上限:延迟一天无害,留着到期行才是敞口)
+  if (deleted >= PURGE_BATCH_LIMIT) return deleted + (await purgeUserProfileExpired())
+  return deleted
+}
+
+/**
+ * 按表自身的 `expires_at` 列回收到期行(2026-10-03 数据出域合规整改新增)。
+ *
+ * 与 `purgeExpiredBatched(table, tsCol, threshold)` 的区别:那个按"传入的阈值列
+ * + 外部算好的时间"删(用于 created_at 类流水),而这个**用行内自己写的过期时刻**。
+ * 两者不是一回事:
+ *   · 流水表(chat_messages / relay_messages):过期 = created_at + 固定档期,
+ *     阈值由清理器算,行为对所有行一致;
+ *   · 记忆表(agent_* / team_*):过期时刻**写在行上**(可能是用户显式选的"永不过期"
+ *     ⇒ NULL),不同行不同档。外部算阈值会把这个语义抹平 —— 尤其会把
+ *     expires_at IS NULL 的行(用户明确要长期保留)一起清掉,那是直接违背用户意愿。
+ *
+ * 所以这里必须用 `isNotNull(expiresAt) AND expiresAt <= NOW()` 的行内判据。
+ * 循环终止性与批大小语义同 purgeExpiredBatched(匹配集严格收缩 + 末批不满即收工)。
+ */
+async function purgeExpiredAtColumn(table: AnyPgTable & { id: AnyPgColumn }): Promise<number> {
+  const expiresCol = (table as unknown as { expiresAt?: AnyPgColumn }).expiresAt
+  if (!expiresCol) {
+    // 表没有 expires_at 列 ⇒ 交给调用方的 errors[] 记,不在这里静默返回 0
+    // (静默 0 会让"忘了加列"看起来像"没有到期行",是最难查的一类假绿)。
+    throw new Error('该表未定义 expiresAt 列,无法按到期回收')
+  }
+  let deleted = 0
+  for (;;) {
+    const rows = (await db
+      .select({ id: table.id })
+      .from(table)
+      .where(and(isNotNull(expiresCol), lte(expiresCol, new Date())))
+      .limit(PURGE_BATCH_LIMIT)) as Array<{ id: string }>
+    if (rows.length === 0) break
+    await db.delete(table).where(inArray(table.id, rows.map((r) => r.id)))
+    deleted += rows.length
+    if (rows.length < PURGE_BATCH_LIMIT) break
+  }
+  return deleted
+}
+
+/**
  * 执行每日数据归档。
  * 使用 DELETE ... WHERE created_at < threshold 语义清理过期热数据。
  * 归档前数据已被 OTel/ELK/Grafana 消费，无需单独归档表。
@@ -143,6 +274,7 @@ export async function archiveDailyData(): Promise<ArchiveResult> {
   let relayMessagesArchived = 0
   let chatMessagesArchived = 0
   let conversationMessageArchivesArchived = 0
+  let agentMemoriesPurged = 0
 
   try {
     // 归档 audit_logs（90 天前）
@@ -235,6 +367,45 @@ export async function archiveDailyData(): Promise<ArchiveResult> {
     )
   }
 
+  // 2026-10-03 数据出域合规整改:agent/team 记忆 6 张表的到期回收。
+  // 此前这 6 张表**完全没有**清理路径(不是"有机制没开",是机制根本不存在),
+  // 而它们存的是用户画像 / 经验教训 / 会话摘要 / 多模态 caption。
+  // 档位 90/180/365 三档按内容敏感度分(非一刀切),理由写在迁移
+  // 20261003180000 的列注释里。
+  //
+  // 判据:expires_at IS NOT NULL AND expires_at <= NOW()
+  //   NULL = 用户显式选择长期保留 ⇒ 永不被清(与 codebase_chunks / relay_messages
+  //   同一语义:NULL 表示"显式永不过期",不是"还没算过期时间")。
+  //
+  // 单表失败只记 error、不中断其余表:与本文件既有的"逐表 try"结构一致 ——
+  // 记忆表清不掉,不该导致审计日志也清不掉。
+  // 注意 agent_user_profile 的主键是 **user_id**(不是 id)⇒ 不能走
+  // purgeExpiredAtColumn 那条"按 id 批删"的路,单独用 ctid 子查询删(见下)。
+  for (const { table, label } of AGENT_MEMORY_TABLES) {
+    try {
+      const purged = await purgeExpiredAtColumn(table)
+      agentMemoriesPurged += purged
+      if (purged > 0) {
+        // 本仓 logger 是 (msg, meta) 顺序 —— 反了会静默把对象当消息体丢掉 meta
+        logger.info('agent/team 记忆到期回收', { table: label, purged })
+      }
+    } catch (err) {
+      errors.push(`${label} purge failed: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+  // agent_user_profile:主键是 user_id,按 ctid 删(见 purgeUserProfileExpired 注释)
+  try {
+    const purged = await purgeUserProfileExpired()
+    agentMemoriesPurged += purged
+    if (purged > 0) {
+      logger.info('agent/team 记忆到期回收', { table: 'agent_user_profile(180d)', purged })
+    }
+  } catch (err) {
+    errors.push(
+      `agent_user_profile(180d) purge failed: ${err instanceof Error ? err.message : String(err)}`,
+    )
+  }
+
   return {
     auditLogsArchived,
     messagesArchived,
@@ -242,6 +413,7 @@ export async function archiveDailyData(): Promise<ArchiveResult> {
     relayMessagesArchived,
     chatMessagesArchived,
     conversationMessageArchivesArchived,
+    agentMemoriesPurged,
     errors,
   }
 }
