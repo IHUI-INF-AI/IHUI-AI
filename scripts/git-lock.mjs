@@ -51,6 +51,7 @@
  *   - scripts/safe-gc.mjs:手动 gc 前必须 acquire(杜绝 gc 与写操作并发)
  */
 import { execSync } from 'node:child_process'
+import { runWithRelease, throwTwoCauseChain } from './lib/two-cause-chain.mjs'
 import {
   appendFileSync,
   existsSync,
@@ -73,7 +74,10 @@ import { claimStaleLockCore } from './lib/stale-lock-claim.mjs'
 // 锁目录「写全再原子可见」初始化的唯一实现(2026-09-29 立,G-814425)—— 本脚本与
 // deploy-lock.mjs 共用同一份,禁止各写一遍"mkdir 正式路径 + 补写 meta"(那两步之间,
 // 一把还没初始化完的空锁目录就对外可见,竞争者按 absent/残留判死就能把它抢走)。
-import { createLockDirectoryAtomically, acquireLockDirectoryOrThrow } from './lib/lock-atomic-init.mjs'
+import {
+  createLockDirectoryAtomically,
+  acquireLockDirectoryOrThrow,
+} from './lib/lock-atomic-init.mjs'
 // meta.json 的**原子替换**唯一出口(2026-09-29 立,G-653)。裸 `writeFileSync` 覆盖写已存在的文件是
 // "truncate → 再写"两步,而 `check` / `clean` 的判活、计划任务 `git-guardian` 每 2 分钟一轮、
 // 以及**本文件自己的心跳**(每 5s 重写 meta.json)随时可能落在那两步之间 ⇒ 读到半截 JSON。
@@ -680,7 +684,8 @@ async function acquire({
       // 镜像测试 ⑤ 逐字钉着;搬动它等于改判据形状)。判读一律从 readMeta 现取,不读这个错误。
       acquireLockDirectoryOrThrow({
         dir,
-        writePayload: (staged) => writeMeta(staged, unitId, identityRun ? { run: identityRun } : {}),
+        writePayload: (staged) =>
+          writeMeta(staged, unitId, identityRun ? { run: identityRun } : {}),
       })
       recordWait('acquired')
       return true
@@ -688,9 +693,15 @@ async function acquire({
       // 「没做成」与「别人持着」必须长得不一样(把没判写成判过了是本仓最高频的失效型):
       // contended 是正常竞争,走下面的既有判读;error(建不出 pending / 写不进 meta / rename
       // 失败而正式路径不在)同样落进既有判读以保持改动前行为,但必须当场喊出一次原因。
-      if (e?.name === 'LockNotAcquiredError' && e?.detail?.kind === 'error' && e.detail.code !== initErrorNoted) {
+      if (
+        e?.name === 'LockNotAcquiredError' &&
+        e?.detail?.kind === 'error' &&
+        e.detail.code !== initErrorNoted
+      ) {
         initErrorNoted = e.detail.code
-        log(`[git-lock] 锁初始化未落地(${e.detail.code}:${e.detail.message ?? '无原因'})⇒ 按已有锁对待,继续判读`)
+        log(
+          `[git-lock] 锁初始化未落地(${e.detail.code}:${e.detail.message ?? '无原因'})⇒ 按已有锁对待,继续判读`,
+        )
       }
       polls++
       // 锁已存在:检查可重入 / stale
@@ -1129,3 +1140,8 @@ export const __test__ = {
   scanCommand,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// G-697(2026-10-03):双因果链合成器同出口 —— 实现唯一在 scripts/lib/two-cause-chain.mjs,
+// 这里顶层 re-export 供本锁消费方(git-backup-refresh 等自己写 finally { release } 的脚本)
+// 取用;各消费方自己的 finally 接线归 F5 改造,不得由本票顺手改。
+export { runWithRelease, throwTwoCauseChain } from './lib/two-cause-chain.mjs'
