@@ -144,7 +144,21 @@ export type {
   ImportParseResult,
   ImportCommitResult,
   PickedImportFile,
+  CommittedImportConversation,
 } from './features/conversation-import/ConversationImportScreen'
+/**
+ * D28 补齐层(2026-10-03):导入会话「用场景分析」弹层。
+ *
+ * 导出它是因为**动态 import 的那一次仍需解析真实路径**(Metro/RN 的
+ * `import('@ihui/rn-app')` 拿不到具名导出),故端内从本 barrel 取组件;
+ * 弹层内部的场景目录则走 `@ihui/shared/import-analysis/scenarios` 动态加载,
+ * 不经本 barrel —— 根 barrel 一旦挂上 492KB 投影,RN 每个 bundle 都得背着它。
+ */
+export { ImportAnalysisSheet } from './features/conversation-import/ImportAnalysisSheet'
+export type {
+  ImportAnalysisSheetProps,
+  ImportAnalysisTFunction,
+} from './features/conversation-import/ImportAnalysisSheet'
 /** 批次 23(2026-07-29):Agent 系深屏(统计/设置/创建/聊天)+ 课程系深屏(列表/详情/筛选/评论) */
 export { AgentStatScreen } from './features/agent-stat/AgentStatScreen'
 export { AgentSettingScreen } from './features/agent-setting/AgentSettingScreen'
