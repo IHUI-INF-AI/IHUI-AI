@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​‌​​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * G-978004 遗留清偿:unknown 逐枚读钩子日志 → 三格分拣(**只读量算仪**,不是判据,不进提交链)。
@@ -42,7 +42,7 @@
  *         2 = 脚本自身异常(取数层抛出,不是业务结论)。
  */
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { git } from './lib/bypass-git.mjs'
@@ -65,6 +65,7 @@ const HOOK_LOG_REL = '.workbuddy/hook-logs'
 const DEFAULT_SINCE = '2026-09-29'
 const DEFAULT_WINDOW_MIN = 30
 const LOG_LIMIT_DEFAULT = 20_000
+const DAY_MS = 86_400_000
 
 const MARKER_RE = /^==== (.+?) :: (.*?) ====$/
 const ECHO_RE = /staged 文件清单\((\d+) 个\)[:：]\s*$/
@@ -85,14 +86,7 @@ export function parseVbsTimestamp(s) {
   if (!m) return null
   const t = /^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2}):(\d{2})/.exec(m[1])
   if (!t) return null
-  return new Date(
-    Number(t[1]),
-    Number(t[2]) - 1,
-    Number(t[3]),
-    Number(t[4]),
-    Number(t[5]),
-    Number(t[6]),
-  )
+  return new Date(Number(t[1]), Number(t[2]) - 1, Number(t[3]), Number(t[4]), Number(t[5]), Number(t[6]))
 }
 
 /** 轮转副本排序:`.log` 最新在最后,`.N` 数字越大越旧(本仓现只有 .1,写成通用形态)。 */
@@ -169,12 +163,7 @@ export function parseHookSegmentsFromText(text) {
       continue
     }
     const c = CMD_RE.exec(l)
-    if (
-      c &&
-      rnd &&
-      rnd.failedGates.length > 0 &&
-      rnd.failedGates[rnd.failedGates.length - 1].cmd === null
-    ) {
+    if (c && rnd && rnd.failedGates.length > 0 && rnd.failedGates[rnd.failedGates.length - 1].cmd === null) {
       rnd.failedGates[rnd.failedGates.length - 1].cmd = c[1].trim()
       continue
     }
@@ -194,49 +183,26 @@ export function readHookSegments(path) {
   try {
     text = readFileSync(path, 'utf8')
   } catch (e) {
-    return {
-      ok: false,
-      state: e?.code === 'ENOENT' ? 'missing' : 'unreadable',
-      why: String(e?.message ?? e).slice(0, 120),
-      segments: [],
-    }
+    return { ok: false, state: e?.code === 'ENOENT' ? 'missing' : 'unreadable', why: String(e?.message ?? e).slice(0, 120), segments: [] }
   }
-  return {
-    ok: true,
-    state: 'read',
-    segments: parseHookSegmentsFromText(text),
-    size: Buffer.byteLength(text, 'utf8'),
-  }
+  return { ok: true, state: 'read', segments: parseHookSegmentsFromText(text), size: Buffer.byteLength(text, 'utf8') }
 }
 
 /** 轮转族全量读取:段拼接 + 覆盖面自证(首末 marker 时刻)。 */
 export function readAllHookSegments(root) {
   const fam = hookLogFiles(root)
-  if (!fam.ok)
-    return { ok: false, state: fam.state, why: fam.why, segments: [], coverage: null, files: [] }
+  if (!fam.ok) return { ok: false, state: fam.state, why: fam.why, segments: [], coverage: null, files: [] }
   const segments = []
   const files = []
   for (const p of fam.files) {
     const r = readHookSegments(p)
-    if (!r.ok)
-      return {
-        ok: false,
-        state: r.state,
-        why: `${p}: ${r.why}`,
-        segments: [],
-        coverage: null,
-        files,
-      }
+    if (!r.ok) return { ok: false, state: r.state, why: `${p}: ${r.why}`, segments: [], coverage: null, files }
     files.push({ file: p, segments: r.segments.length, size: r.size })
     segments.push(...r.segments)
   }
   const tsed = segments.filter((s) => s.ts instanceof Date && !Number.isNaN(s.ts.getTime()))
   const coverage = tsed.length
-    ? {
-        first: tsed[0].ts,
-        last: tsed[tsed.length - 1].ts,
-        unparsedMarkers: segments.length - tsed.length,
-      }
+    ? { first: tsed[0].ts, last: tsed[tsed.length - 1].ts, unparsedMarkers: segments.length - tsed.length }
     : null
   return { ok: true, state: 'read', segments, coverage, files }
 }
@@ -246,32 +212,15 @@ export function readAllHookSegments(root) {
  * 钩子在提交落地前一刻跑,归属窗口必须锚在 committer 时刻上(author 时刻会被 rebase/amend 挪走)。
  * 覆盖面三态语义照抄统计器(covered / not-covered / cap-hit)。
  */
-export function collectCommitsFull({
-  root,
-  limit = LOG_LIMIT_DEFAULT,
-  sinceDay = '0000-00-00',
-  untilDay = '9999-99-99',
-} = {}) {
+export function collectCommitsFull({ root, limit = LOG_LIMIT_DEFAULT, sinceDay = '0000-00-00', untilDay = '9999-99-99' } = {}) {
   let out
   try {
     out = git(
-      [
-        'log',
-        '-n',
-        String(limit),
-        '--no-merges',
-        '--no-renames',
-        '--format=@%H%x09%P%x09%aI%x09%cI',
-        '--name-only',
-      ],
+      ['log', '-n', String(limit), '--no-merges', '--no-renames', '--format=@%H%x09%P%x09%aI%x09%cI', '--name-only'],
       { root, timeout: 60_000 },
     )
   } catch (e) {
-    return {
-      ok: false,
-      why: `git log 取不到:${String(e?.message ?? e).slice(0, 160)}`,
-      commits: [],
-    }
+    return { ok: false, why: `git log 取不到:${String(e?.message ?? e).slice(0, 160)}`, commits: [] }
   }
   const commits = []
   let cur = null
@@ -308,15 +257,7 @@ export function collectCommitsFull({
       : capHit
         ? 'covered-cap'
         : 'covered'
-  return {
-    ok: true,
-    why: null,
-    commits: inWin,
-    truncated: capHit,
-    total: commits.length,
-    reachedBackTo,
-    coverage,
-  }
+  return { ok: true, why: null, commits: inWin, truncated: capHit, total: commits.length, reachedBackTo, coverage }
 }
 
 /**
@@ -344,24 +285,12 @@ export function classifyReflog(root) {
     }
   }
   try {
-    feed(
-      git(['reflog', 'HEAD', '--format=%H%x09%gD%x09%gs%x09%cI'], { root, timeout: 60_000 }),
-      'HEAD',
-    )
+    feed(git(['reflog', 'HEAD', '--format=%H%x09%gD%x09%gs%x09%cI'], { root, timeout: 60_000 }), 'HEAD')
   } catch (e) {
-    return {
-      ok: false,
-      state: 'unavailable',
-      why: `HEAD reflog 取不到:${String(e?.message ?? e).slice(0, 120)}`,
-      bySha,
-      badLines,
-    }
+    return { ok: false, state: 'unavailable', why: `HEAD reflog 取不到:${String(e?.message ?? e).slice(0, 120)}`, bySha, badLines }
   }
   try {
-    feed(
-      git(['reflog', '--all', '--format=%H%x09%gD%x09%gs%x09%cI'], { root, timeout: 60_000 }),
-      'all',
-    )
+    feed(git(['reflog', '--all', '--format=%H%x09%gD%x09%gs%x09%cI'], { root, timeout: 60_000 }), 'all')
   } catch {
     /* --all 失败不致命:HEAD reflog 仍在,报告里注明这一维打折 */
   }
@@ -373,9 +302,7 @@ export function classifyReflog(root) {
     if (entries.some(isCommit)) cls = 'commit-local'
     else if (entries.some(isEmpty)) {
       cls = 'plumbing-empty'
-      for (const e of entries)
-        if (isEmpty(e) && e.iso && (emptyIso === null || Date.parse(e.iso) < Date.parse(emptyIso)))
-          emptyIso = e.iso
+      for (const e of entries) if (isEmpty(e) && e.iso && (emptyIso === null || Date.parse(e.iso) < Date.parse(emptyIso))) emptyIso = e.iso
     }
     // integration 只报语境用:留一条代表选择器,让证据行说得出"经什么进入"。
     const sampleSel = cls === 'integration' ? (entries.find((e) => e.sel)?.sel ?? '') : null
@@ -410,17 +337,11 @@ export function triageUnknown({
   const F = commit.files
   const cMs = commit.cMs
   if (!logCovered) {
-    if (reflog && reflog.cls === 'commit-local')
-      ev.push('reflog:本机 commit 创建(但钩子日志未覆盖该时刻,2026-09-22 前无日志)')
+    if (reflog && reflog.cls === 'commit-local') ev.push('reflog:本机 commit 创建(但钩子日志未覆盖该时刻,2026-09-22 前无日志)')
     if (witnessed) ev.push('见证:sha 在引用事务见证文件里')
-    return {
-      cell: 'B',
-      sub: 'log-gap',
-      evidence: ev.length ? ev : ['钩子日志未覆盖该时刻(首条 marker 之前)'],
-    }
+    return { cell: 'B', sub: 'log-gap', evidence: ev.length ? ev : ['钩子日志未覆盖该时刻(首条 marker 之前)'] }
   }
-  if (F.length === 0)
-    return { cell: 'B', sub: 'empty-files', evidence: ['提交文件面为空,回显/暂存集归属无从谈起'] }
+  if (F.length === 0) return { cell: 'B', sub: 'empty-files', evidence: ['提交文件面为空,回显/暂存集归属无从谈起'] }
 
   // reflog 语境:每格证据都带上(正面证词与反证词都要可见,不许只挑有利的一边)。
   const reflogNote = reflog
@@ -448,8 +369,7 @@ export function triageUnknown({
   if (reflog && reflog.cls === 'commit-local') localBits.push('reflog=本机 commit 创建')
   if (reflog && reflog.cls === 'plumbing-empty' && reflog.emptyIso) {
     const d = Math.abs(cMs - Date.parse(reflog.emptyIso))
-    if (d <= 10 * 60_000)
-      localBits.push(`reflog=空选择器(落 ref 无消息,距落地 ${Math.round(d / 60_000)} 分钟)`)
+    if (d <= 10 * 60_000) localBits.push(`reflog=空选择器(落 ref 无消息,距落地 ${Math.round(d / 60_000)} 分钟)`)
   }
   const localEvidence = localBits.length > 0
 
@@ -457,17 +377,11 @@ export function triageUnknown({
   // readFirstPartyRounds 里 ts 保持 JSON 字符串形态 ⇒ 这里统一 parse 成 ms 再比,不得拿字符串与数字比较。
   const fp = (firstPartyForParent ?? [])
     .map((r) => ({ ...r, tsMs: r.ts ? Date.parse(r.ts) : null }))
-    .filter(
-      (r) => cMs === null || r.tsMs === null || Number.isNaN(r.tsMs) || r.tsMs <= cMs + 5 * 60_000,
-    )
+    .filter((r) => cMs === null || r.tsMs === null || Number.isNaN(r.tsMs) || r.tsMs <= cMs + 5 * 60_000)
   const fpCovers = (r) => covers(F, r.files)
-  const fpGreenFull = fp.filter(
-    (r) => r.gatesRan && r.gatesPassed === true && r.exitCode === 0 && fpCovers(r),
-  )
+  const fpGreenFull = fp.filter((r) => r.gatesRan && r.gatesPassed === true && r.exitCode === 0 && fpCovers(r))
   const fpRedFull = fp.filter((r) => r.gatesRan && r.gatesPassed === false && fpCovers(r))
-  const fpLateBlock = fp.filter(
-    (r) => r.gatesRan && r.gatesPassed === true && r.exitCode !== 0 && fpCovers(r),
-  )
+  const fpLateBlock = fp.filter((r) => r.gatesRan && r.gatesPassed === true && r.exitCode !== 0 && fpCovers(r))
   const fpNoRun = fp.filter((r) => !r.gatesRan && fpCovers(r) && r.exitCode !== 0)
 
   // 回显轮(窗口内;marker 时刻锚定;无汇总行 = 无结局轮,单独判)
@@ -477,51 +391,35 @@ export function triageUnknown({
 
   if (fpGreenFull.length > 0) {
     const r = fpGreenFull[0]
-    ev.push(
-      `一方记录 ${r.ts ?? '?'} headBefore=父 门跑过且绿 exit=0,本轮所见 ${r.files.size} 文件 ⊇ 本次 ${F.length}`,
-    )
-    if (fp.length > 1)
-      ev.push(
-        `同父一方记录共 ${fp.length} 条(并发/重试;一条记录只证"门看过这些文件",不证落地的正是它)`,
-      )
+    ev.push(`一方记录 ${r.ts ?? '?'} headBefore=父 门跑过且绿 exit=0,本轮所见 ${r.files.size} 文件 ⊇ 本次 ${F.length}`)
+    if (fp.length > 1) ev.push(`同父一方记录共 ${fp.length} 条(并发/重试;一条记录只证"门看过这些文件",不证落地的正是它)`)
     return { cell: 'A', sub: 'fp-full', evidence: ev }
   }
   if (lastCover && lastCover.failed === 0) {
     const delta = lastCover.set.size - F.length
-    ev.push(
-      `回显轮 ${fmtTs(lastCover.ts)} 失败:0,回显 ${lastCover.set.size} 文件 ⊇ 本次 ${F.length}(超集差 ${delta})`,
-    )
+    ev.push(`回显轮 ${fmtTs(lastCover.ts)} 失败:0,回显 ${lastCover.set.size} 文件 ⊇ 本次 ${F.length}(超集差 ${delta})`)
     // 关键绑定条件:该轮必须**在落地前完成**。并发会话同时写同一份日志 + vbs 偶发吞 marker,
     // 会让"回显↔汇总"的配对漂到别的调用上;若轮次批量(总耗时)算到落地之后才结束,
     // 它就不可能是本次提交的服务轮 —— 正证不成立,降格 B(不可用带病正证发合格证)。
     const endMs = lastCover.endMs
     if (endMs !== null && endMs > cMs + 60_000) {
-      ev.push(
-        `但该轮批量至 ${fmtTs2(endMs)} 才结束,晚于落地(${fmtTs2(cMs)})超过 1 分钟 ⇒ 不可能是本次提交的服务轮(并发交错/丢 marker)`,
-      )
+      ev.push(`但该轮批量至 ${fmtTs2(endMs)} 才结束,晚于落地(${fmtTs2(cMs)})超过 1 分钟 ⇒ 不可能是本次提交的服务轮(并发交错/丢 marker)`)
       ev.push(reflogNote)
       return { cell: 'B', sub: 'green-round-not-mine', evidence: ev }
     }
-    ev.push(
-      `轮末 ${endMs !== null ? fmtTs2(endMs) : '(总耗时未解析,按 marker 计)'} ≤ 落地 ${fmtTs2(cMs)} ⇒ 可为本次提交的服务轮`,
-    )
+    ev.push(`轮末 ${endMs !== null ? fmtTs2(endMs) : '(总耗时未解析,按 marker 计)'} ≤ 落地 ${fmtTs2(cMs)} ⇒ 可为本次提交的服务轮`)
     ev.push(`窗口距落地 ${Math.round((cMs - lastCover.ts.getTime()) / 60_000)} 分钟`)
-    if (delta === 0)
-      ev.push('注:回显与提交文件面逐字等值 ⇒ 统计器判 unknown 说明该轮已被同父兄弟提交消费')
+    if (delta === 0) ev.push('注:回显与提交文件面逐字等值 ⇒ 统计器判 unknown 说明该轮已被同父兄弟提交消费')
     return { cell: 'A', sub: 'echo-green', evidence: ev }
   }
   if (fpRedFull.length > 0) {
     const r = fpRedFull[fpRedFull.length - 1]
-    ev.push(
-      `一方记录 ${r.ts ?? '?'} headBefore=父 门跑过且红 exit=${r.exitCode},本轮所见 ${r.files.size} 文件 ⊇ 本次 ${F.length}`,
-    )
+    ev.push(`一方记录 ${r.ts ?? '?'} headBefore=父 门跑过且红 exit=${r.exitCode},本轮所见 ${r.files.size} 文件 ⊇ 本次 ${F.length}`)
     return { cell: 'C', sub: 'fp-red', evidence: ev }
   }
   if (fpLateBlock.length > 0) {
     const r = fpLateBlock[fpLateBlock.length - 1]
-    ev.push(
-      `一方记录 ${r.ts ?? '?'} 批量门绿但后续 blocking 步骤使 exit=${r.exitCode},提交仍落地 ⇒ 链未走完`,
-    )
+    ev.push(`一方记录 ${r.ts ?? '?'} 批量门绿但后续 blocking 步骤使 exit=${r.exitCode},提交仍落地 ⇒ 链未走完`)
     return { cell: 'C', sub: 'fp-late-block', evidence: ev }
   }
   if (fpNoRun.length > 0) {
@@ -530,47 +428,28 @@ export function triageUnknown({
     return { cell: 'C', sub: 'fp-noran', evidence: ev }
   }
   if (lastCover && lastCover.failed > 0) {
-    const names =
-      lastCover.failedGates
-        .slice(0, 4)
-        .map((g) => `[${g.id}] ${g.name}`)
-        .join(' / ') || '(失败门名未解析出)'
-    ev.push(
-      `回显轮 ${fmtTs(lastCover.ts)} 失败:${lastCover.failed},回显 ${lastCover.set.size} 文件 ⊇ 本次 ${F.length}`,
-    )
+    const names = lastCover.failedGates.slice(0, 4).map((g) => `[${g.id}] ${g.name}`).join(' / ') || '(失败门名未解析出)'
+    ev.push(`回显轮 ${fmtTs(lastCover.ts)} 失败:${lastCover.failed},回显 ${lastCover.set.size} 文件 ⊇ 本次 ${F.length}`)
     ev.push(`失败门:${names}`)
     // 同 A 的绑定条件:红轮必须先于落地结束,才谈得上"被它拦下后绕行落地"。
     const endMs = lastCover.endMs
     if (endMs !== null && endMs > cMs + 60_000) {
-      ev.push(
-        `但该轮批量至 ${fmtTs2(endMs)} 才结束,晚于落地(${fmtTs2(cMs)})超过 1 分钟 ⇒ 该红轮不构成对本次落地的拦截(并发交错)`,
-      )
+      ev.push(`但该轮批量至 ${fmtTs2(endMs)} 才结束,晚于落地(${fmtTs2(cMs)})超过 1 分钟 ⇒ 该红轮不构成对本次落地的拦截(并发交错)`)
       return { cell: 'B', sub: 'red-context', evidence: ev }
     }
-    ev.push(
-      `其红轮于 ${endMs !== null ? fmtTs2(endMs) : '(总耗时未解析)'}结束 ≤ 落地 ${fmtTs2(cMs)},其后无覆盖绿轮 ⇒ 落地未经绿轮放行`,
-    )
-    if (!localEvidence)
-      ev.push(
-        `无本机落地正证(${localBits.join('、') || '见证未命中 / reflog 无 commit 选择器'})⇒ 降格 B`,
-      )
-    return localEvidence
-      ? { cell: 'C', sub: 'echo-red', evidence: ev }
-      : { cell: 'B', sub: 'red-context', evidence: ev }
+    ev.push(`其红轮于 ${endMs !== null ? fmtTs2(endMs) : '(总耗时未解析)'}结束 ≤ 落地 ${fmtTs2(cMs)},其后无覆盖绿轮 ⇒ 落地未经绿轮放行`)
+    if (!localEvidence) ev.push(`无本机落地正证(${localBits.join('、') || '见证未命中 / reflog 无 commit 选择器'})⇒ 降格 B`)
+    return localEvidence ? { cell: 'C', sub: 'echo-red', evidence: ev } : { cell: 'B', sub: 'red-context', evidence: ev }
   }
   if (incompleteCovering.length > 0) {
-    ev.push(
-      `窗口内有 ${incompleteCovering.length} 轮覆盖本次文件面但无结局(无汇总行 = 中断/截断),绿红均不可证`,
-    )
+    ev.push(`窗口内有 ${incompleteCovering.length} 轮覆盖本次文件面但无结局(无汇总行 = 中断/截断),绿红均不可证`)
     return { cell: 'B', sub: 'incomplete-round', evidence: ev }
   }
   const invocations = windowInvocations
   if (localEvidence) {
     ev.push(`本机落地正证:${localBits.join(' + ')}`)
     ev.push(reflogNote)
-    ev.push(
-      `窗口(${windowMinMs / 60_000} 分钟)内钩子调用 ${invocations} 次,无任何一轮的暂存集覆盖本次 ${F.length} 个文件`,
-    )
+    ev.push(`窗口(${windowMinMs / 60_000} 分钟)内钩子调用 ${invocations} 次,无任何一轮的暂存集覆盖本次 ${F.length} 个文件`)
     ev.push('⇒ 本机落地当刻,钩子从未见过本次文件面(未调用或未覆盖)⇒ 门禁未看过本次内容')
     return { cell: 'C', sub: 'no-hook-trace', evidence: ev }
   }
@@ -581,8 +460,7 @@ export function triageUnknown({
 }
 
 const fmtTs = (d) => (d instanceof Date ? d.toLocaleString('sv-SE', { hour12: false }) : String(d))
-const fmtTs2 = (ms) =>
-  Number.isFinite(ms) ? new Date(ms).toLocaleString('sv-SE', { hour12: false }) : '?'
+const fmtTs2 = (ms) => (Number.isFinite(ms) ? new Date(ms).toLocaleString('sv-SE', { hour12: false }) : '?')
 
 /** 本机本地日(与统计器 resolveWindow 的 localDay 同一量纲;dayKey(iso) 切的是作者本地日,勿混用 UTC)。 */
 function localDay(ms) {
@@ -609,11 +487,7 @@ async function run({ argv }) {
     console.error(`❌ --since 不是 YYYY-MM-DD:${since}`)
     return 2
   }
-  const untilDay = until
-    ? DAY_RE.test(until)
-      ? until
-      : (console.error(`❌ --until 不是 YYYY-MM-DD:${until}`), null)
-    : today
+  const untilDay = until ? (DAY_RE.test(until) ? until : (console.error(`❌ --until 不是 YYYY-MM-DD:${until}`), null)) : today
   if (!untilDay || untilDay < since) {
     console.error(`❌ 窗口非法:since=${since} until=${untilDay}`)
     return 2
@@ -642,14 +516,7 @@ async function run({ argv }) {
           })),
       )
     : []
-  const echoRoundsFresh = allRounds
-    .filter((r) => r.failed !== null)
-    .map((r) => ({
-      files: [...r.files],
-      declared: r.files.length,
-      failed: r.failed,
-      consumed: false,
-    }))
+  const echoRoundsFresh = allRounds.filter((r) => r.failed !== null).map((r) => ({ files: [...r.files], declared: r.files.length, failed: r.failed, consumed: false }))
   const crossCheck = hook.ok ? parseHookRounds(readAllRawText(root)).length : -1
   const completeRounds = echoRoundsFresh.length
   const roundsMismatch = crossCheck >= 0 && crossCheck !== completeRounds
@@ -670,15 +537,7 @@ async function run({ argv }) {
     roundsAvailable: hook.ok,
     witness,
     firstParty: firstParty.ok
-      ? {
-          ok: true,
-          state: firstParty.state,
-          rounds: firstParty.rounds.map((r) => ({
-            ...r,
-            files: new Set(r.files),
-            consumed: false,
-          })),
-        }
+      ? { ok: true, state: firstParty.state, rounds: firstParty.rounds.map((r) => ({ ...r, files: new Set(r.files), consumed: false })) }
       : firstParty,
   })
   const unknowns = classification.detail.filter((d) => d.state === 'unknown')
@@ -691,27 +550,16 @@ async function run({ argv }) {
   const logStartMs = hook.ok && hook.coverage ? hook.coverage.first.getTime() : null
   const logEndMs = hook.ok && hook.coverage ? hook.coverage.last.getTime() : null
   const fpByParent = new Map()
-  if (firstParty.ok)
-    for (const r of firstParty.rounds)
-      fpByParent.set(r.headBefore, [...(fpByParent.get(r.headBefore) ?? []), r])
+  if (firstParty.ok) for (const r of firstParty.rounds) fpByParent.set(r.headBefore, [...(fpByParent.get(r.headBefore) ?? []), r])
 
   const logCovered = (c) =>
-    logStartMs !== null &&
-    c.cMs !== null &&
-    c.cMs >= logStartMs - 60_000 &&
-    c.cMs <= logEndMs + 60_000
+    logStartMs !== null && c.cMs !== null && c.cMs >= logStartMs - 60_000 && c.cMs <= logEndMs + 60_000
 
   const results = []
   for (const u of unknowns) {
     const c = byShortSha.get(u.sha)
     if (!c) {
-      results.push({
-        sha: u.sha,
-        day: u.day,
-        cell: 'B',
-        sub: 'internal-miss',
-        evidence: ['internal:unknown 的短 sha 在提交面里找不到(不应发生)'],
-      })
+      results.push({ sha: u.sha, day: u.day, cell: 'B', sub: 'internal-miss', evidence: ['internal:unknown 的短 sha 在提交面里找不到(不应发生)'] })
       continue
     }
     const start = c.cMs === null ? null : c.cMs - windowMinMs
@@ -721,20 +569,12 @@ async function run({ argv }) {
       hook.ok && start !== null
         ? allRounds
             .filter((r) => inWin(r.ts ? r.ts.getTime() : null))
-            .map((r) => ({
-              ts: r.ts,
-              set: new Set(r.files),
-              failed: r.failed,
-              failedGates: r.failedGates,
-              endMs: r.endMs,
-            }))
+            .map((r) => ({ ts: r.ts, set: new Set(r.files), failed: r.failed, failedGates: r.failedGates, endMs: r.endMs }))
         : []
     const windowInvocations =
-      hook.ok && start !== null
-        ? hook.segments.filter((s) => inWin(s.ts ? s.ts.getTime() : null)).length
-        : 0
+      hook.ok && start !== null ? hook.segments.filter((s) => inWin(s.ts ? s.ts.getTime() : null)).length : 0
     const witnessed = witness.ok ? witness.shas.has(c.sha) : false
-    const reflogInfo = reflog.ok ? (reflog.bySha.get(c.sha) ?? null) : null
+    const reflogInfo = reflog.ok ? reflog.bySha.get(c.sha) ?? null : null
     const t = triageUnknown({
       commit: c,
       logCovered: logCovered(c),
@@ -745,13 +585,7 @@ async function run({ argv }) {
       reflog: reflogInfo,
       windowMinMs,
     })
-    results.push({
-      sha: c.sha.slice(0, 11),
-      day: c.day,
-      cell: t.cell,
-      sub: t.sub,
-      evidence: t.evidence,
-    })
+    results.push({ sha: c.sha.slice(0, 11), day: c.day, cell: t.cell, sub: t.sub, evidence: t.evidence })
   }
 
   // ── 汇总 ──────────────────────────────────────────────────────────
@@ -770,24 +604,14 @@ async function run({ argv }) {
   const pick = (cell, n) => byCell[cell].slice(0, n)
   const undetermined = [
     !hook.ok ? `钩子日志取不到(${hook.state}:${hook.why ?? ''})` : null,
-    hook.ok && hook.coverage && hook.coverage.unparsedMarkers > 0
-      ? `${hook.coverage.unparsedMarkers} 条 marker 时刻解析不出(那些调用段不参与窗口归属)`
-      : null,
-    roundsMismatch
-      ? `轮次计数对不上:分段尺 ${completeRounds} vs 统计器尺 ${crossCheck}(两把尺漂了 ⇒ 覆盖轮判定存疑)`
-      : null,
-    mergedSegments > 0
-      ? `${mergedSegments} 个调用段疑似丢 marker(vbs 吞写)并合并了多次调用:段内各轮共享偏晚的 marker 时刻 ⇒ 窗口归属可能有分钟级偏移(轮次的回显↔汇总配对不受影响)`
-      : null,
-    !witness.ok
-      ? `见证文件取不到(${witness.state}:${witness.why ?? ''})⇒ "本机落地正证"这一维打折`
-      : null,
+    hook.ok && hook.coverage && hook.coverage.unparsedMarkers > 0 ? `${hook.coverage.unparsedMarkers} 条 marker 时刻解析不出(那些调用段不参与窗口归属)` : null,
+    roundsMismatch ? `轮次计数对不上:分段尺 ${completeRounds} vs 统计器尺 ${crossCheck}(两把尺漂了 ⇒ 覆盖轮判定存疑)` : null,
+    mergedSegments > 0 ? `${mergedSegments} 个调用段疑似丢 marker(vbs 吞写)并合并了多次调用:段内各轮共享偏晚的 marker 时刻 ⇒ 窗口归属可能有分钟级偏移(轮次的回显↔汇总配对不受影响)` : null,
+    !witness.ok ? `见证文件取不到(${witness.state}:${witness.why ?? ''})⇒ "本机落地正证"这一维打折` : null,
     !firstParty.ok ? `一方记录取不到(${firstParty.state}:${firstParty.why ?? ''})` : null,
     !reflog.ok ? `reflog 取不到(${reflog.state}:${reflog.why ?? ''})⇒ 本机创建正证缺失` : null,
     reflog.ok && reflog.badLines > 0 ? `reflog 坏行 ${reflog.badLines}` : null,
-    got.coverage !== 'covered'
-      ? `提交清单覆盖面=${got.coverage}(取数深至 ${got.reachedBackTo})`
-      : null,
+    got.coverage !== 'covered' ? `提交清单覆盖面=${got.coverage}(取数深至 ${got.reachedBackTo})` : null,
   ].filter(Boolean)
 
   const summary = {
@@ -800,30 +624,12 @@ async function run({ argv }) {
       bypassLanding: sumOf(classification.rows, 'bypassLanding'),
       unknown: sumOf(classification.rows, 'unknown'),
     },
-    commits: {
-      counted: classification.detail.length,
-      unknown: results.length,
-      coverage: got.coverage,
-      reachedBackTo: got.reachedBackTo,
-    },
+    commits: { counted: classification.detail.length, unknown: results.length, coverage: got.coverage, reachedBackTo: got.reachedBackTo },
     sources: {
-      hookLogs: hook.ok
-        ? {
-            files: hook.files,
-            segments: hook.segments.length,
-            rounds: completeRounds,
-            roundsByStatisticiansRuler: crossCheck,
-            coverage: hook.coverage,
-            mergedSegments,
-          }
-        : { state: hook.state, why: hook.why },
-      firstParty: firstParty.ok
-        ? { records: firstParty.records, badLines: firstParty.badLines }
-        : { state: firstParty.state },
+      hookLogs: hook.ok ? { files: hook.files, segments: hook.segments.length, rounds: completeRounds, roundsByStatisticiansRuler: crossCheck, coverage: hook.coverage, mergedSegments } : { state: hook.state, why: hook.why },
+      firstParty: firstParty.ok ? { records: firstParty.records, badLines: firstParty.badLines } : { state: firstParty.state },
       witness: { ok: witness.ok, state: witness.state, records: witness.records ?? null },
-      reflog: reflog.ok
-        ? { state: 'read', shas: reflog.bySha.size, badLines: reflog.badLines }
-        : { state: reflog.state, why: reflog.why },
+      reflog: reflog.ok ? { state: 'read', shas: reflog.bySha.size, badLines: reflog.badLines } : { state: reflog.state, why: reflog.why },
       ledger: { ok: ledger.ok, records: ledger.records.length },
       roundsMismatch,
     },
@@ -841,19 +647,11 @@ async function run({ argv }) {
   if (asJson) {
     console.log(JSON.stringify(summary, null, 2))
   } else {
-    console.log(
-      `📊 unknown 逐枚钩子日志分拣 —— ${since}..${untilDay}(窗口 ${windowMin} 分钟,root=${root})`,
-    )
-    console.log(
-      `  提交面 ${classification.detail.length} 枚,unknown ${results.length} 枚(统计器四态:normal ${sumOf(classification.rows, 'normal')} / skipped ${sumOf(classification.rows, 'skipped')} / bypass ${sumOf(classification.rows, 'bypassLanding')} / unknown ${sumOf(classification.rows, 'unknown')})`,
-    )
+    console.log(`📊 unknown 逐枚钩子日志分拣 —— ${since}..${untilDay}(窗口 ${windowMin} 分钟,root=${root})`)
+    console.log(`  提交面 ${classification.detail.length} 枚,unknown ${results.length} 枚(统计器四态:normal ${sumOf(classification.rows, 'normal')} / skipped ${sumOf(classification.rows, 'skipped')} / bypass ${sumOf(classification.rows, 'bypassLanding')} / unknown ${sumOf(classification.rows, 'unknown')})`)
     if (hook.ok && hook.coverage)
-      console.log(
-        `  日志覆盖:${fmtTs(hook.coverage.first)} .. ${fmtTs(hook.coverage.last)}(${hook.files.map((f) => `${f.file.split(/[\\/]/).pop()}:${f.segments} 段`).join(' + ')})`,
-      )
-    console.log(
-      `  三格:A 有门痕迹且无红 ${byCell.A.length} / B 痕迹不足 ${byCell.B.length} / C 明确跳门 ${byCell.C.length}`,
-    )
+      console.log(`  日志覆盖:${fmtTs(hook.coverage.first)} .. ${fmtTs(hook.coverage.last)}(${hook.files.map((f) => `${f.file.split(/[\\/]/).pop()}:${f.segments} 段`).join(' + ')})`)
+    console.log(`  三格:A 有门痕迹且无红 ${byCell.A.length} / B 痕迹不足 ${byCell.B.length} / C 明确跳门 ${byCell.C.length}`)
     for (const [k, n] of Object.entries(bySub)) console.log(`    ${k}: ${n}`)
     console.log(`  未判定维度:${undetermined.length ? undetermined.join(';') : '无'}`)
     for (const cell of ['A', 'C', 'B']) {
@@ -881,28 +679,13 @@ function readAllRawText(root) {
 }
 
 function writeReport(path, { summary, CELL_NAME, sampleN }) {
-  const {
-    window: winLabel,
-    windowMin,
-    statSums,
-    commits,
-    sources,
-    cells,
-    undetermined,
-    detail,
-  } = summary
+  const { window: winLabel, windowMin, statSums, commits, sources, cells, undetermined, detail } = summary
   const L = []
   L.push(`# G-978004 unknown 清偿 —— 逐枚钩子日志分拣报告`)
   L.push('')
-  L.push(
-    `- 生成:${new Date().toLocaleString('sv-SE', { hour12: false })};窗口 \`${winLabel}\`;归属窗口 ${windowMin} 分钟(committer 时刻锚定)`,
-  )
-  L.push(
-    `- 统计器四态现读:normal ${statSums.normal} / skipped ${statSums.skipped} / bypass-landing ${statSums.bypassLanding} / unknown ${statSums.unknown}(提交面 ${commits.counted} 枚,覆盖=${commits.coverage},取数深至 ${commits.reachedBackTo});本次只分拣其中 unknown ${commits.unknown} 枚`,
-  )
-  L.push(
-    `- 证据源:一方记录 ${sources.firstParty.records ?? '取不到'} 条;钩子日志 ${sources.hookLogs?.rounds ?? '?'} 完整轮 / ${sources.hookLogs?.segments ?? '?'} 调用段(轮转族 ${sources.hookLogs?.files?.map((f) => f.file.split(/[\\/]/).pop()).join(' + ') ?? '?'});见证 ${sources.witness.records ?? '取不到'} 枚;reflog ${sources.reflog.shas ?? '取不到'} sha;台账 ${sources.ledger.records} 条`,
-  )
+  L.push(`- 生成:${new Date().toLocaleString('sv-SE', { hour12: false })};窗口 \`${winLabel}\`;归属窗口 ${windowMin} 分钟(committer 时刻锚定)`)
+  L.push(`- 统计器四态现读:normal ${statSums.normal} / skipped ${statSums.skipped} / bypass-landing ${statSums.bypassLanding} / unknown ${statSums.unknown}(提交面 ${commits.counted} 枚,覆盖=${commits.coverage},取数深至 ${commits.reachedBackTo});本次只分拣其中 unknown ${commits.unknown} 枚`)
+  L.push(`- 证据源:一方记录 ${sources.firstParty.records ?? '取不到'} 条;钩子日志 ${sources.hookLogs?.rounds ?? '?'} 完整轮 / ${sources.hookLogs?.segments ?? '?'} 调用段(轮转族 ${sources.hookLogs?.files?.map((f) => f.file.split(/[\\/]/).pop()).join(' + ') ?? '?'});见证 ${sources.witness.records ?? '取不到'} 枚;reflog ${sources.reflog.shas ?? '取不到'} sha;台账 ${sources.ledger.records} 条`)
   L.push('')
   L.push(`## 三格分布`)
   L.push('')
@@ -942,14 +725,10 @@ function writeReport(path, { summary, CELL_NAME, sampleN }) {
   L.push(`## 复跑`)
   L.push('')
   L.push('```bash')
-  L.push(
-    `node scripts/analyze-hook-log-unknown.mjs --since ${winLabel.split('..')[0]} --report .ihui-agent/tmp/g-978004-unknown-drain.md`,
-  )
+  L.push(`node scripts/analyze-hook-log-unknown.mjs --since ${winLabel.split('..')[0]} --report .ihui-agent/tmp/g-978004-unknown-drain.md`)
   L.push('```')
   L.push('')
-  L.push(
-    `口径提醒:三格是**量算**不是判决 —— A 仍可能被并发同窗轮次顶替(它证的是"门看过这些文件且没红"),C 的措辞是"落地未经绿轮放行";指控要人逐枚复核证据行。`,
-  )
+  L.push(`口径提醒:三格是**量算**不是判决 —— A 仍可能被并发同窗轮次顶替(它证的是"门看过这些文件且没红"),C 的措辞是"落地未经绿轮放行";指控要人逐枚复核证据行。`)
   writeFileSync(path, L.join('\n'), 'utf8')
 }
 
@@ -958,36 +737,10 @@ function selfTest() {
   const T = 1_760_000_000_000
   const P = 'f'.repeat(40)
   const sha = 'a'.repeat(40)
-  const C = (over) => ({
-    sha,
-    parent: P,
-    parents: [P],
-    iso: new Date(T).toISOString(),
-    ms: T,
-    cIso: new Date(T).toISOString(),
-    cMs: T,
-    day: dayKey(new Date(T).toISOString()),
-    files: ['x.ts', 'y.ts'],
-    ...over,
-  })
-  const round = (over) => ({
-    ts: new Date(T - 5 * 60_000),
-    set: new Set(['x.ts', 'y.ts']),
-    failed: 0,
-    failedGates: [],
-    endMs: T - 3 * 60_000,
-    ...over,
-  })
-  const fpRec = (over) => ({
-    headBefore: P,
-    files: new Set(['x.ts', 'y.ts']),
-    gatesRan: true,
-    gatesPassed: true,
-    exitCode: 0,
-    ts: new Date(T - 5 * 60_000),
-    consumed: false,
-    ...over,
-  })
+  const C = (over) => ({ sha, parent: P, parents: [P], iso: new Date(T).toISOString(), ms: T, cIso: new Date(T).toISOString(), cMs: T, day: dayKey(new Date(T).toISOString()), files: ['x.ts', 'y.ts'], ...over })
+  const seg = (over) => ({ ts: new Date(T - 5 * 60_000), target: 'scripts/lib/pre-commit-hook.js', echoFiles: null, failed: null, failedGates: [], lintStagedFailed: false, ...over })
+  const round = (over) => ({ ts: new Date(T - 5 * 60_000), set: new Set(['x.ts', 'y.ts']), failed: 0, failedGates: [], endMs: T - 3 * 60_000, ...over })
+  const fpRec = (over) => ({ headBefore: P, files: new Set(['x.ts', 'y.ts']), gatesRan: true, gatesPassed: true, exitCode: 0, ts: new Date(T - 5 * 60_000), consumed: false, ...over })
   const base = (over) => ({
     commit: C(),
     logCovered: true,
@@ -1006,130 +759,42 @@ function selfTest() {
     console.log(`${cond ? '✅' : '❌'} ${name}${cond ? '' : ` —— ${extra}`}`)
   }
 
-  let r = triageUnknown(
-    base({ windowRounds: [round({ failed: 0, set: new Set(['x.ts', 'y.ts', 'z.ts']) })] }),
-  )
-  ok(
-    '①超集绿轮 ⇒ A/echo-green(等值不是必要条件)',
-    r.cell === 'A' && r.sub === 'echo-green',
-    JSON.stringify(r),
-  )
-  ok(
-    '①证据带超集差',
-    r.evidence.some((e) => e.includes('超集差 1')),
-    JSON.stringify(r.evidence),
-  )
+  let r = triageUnknown(base({ windowRounds: [round({ failed: 0, set: new Set(['x.ts', 'y.ts', 'z.ts']) })] }))
+  ok('①超集绿轮 ⇒ A/echo-green(等值不是必要条件)', r.cell === 'A' && r.sub === 'echo-green', JSON.stringify(r))
+  ok('①证据带超集差', r.evidence.some((e) => e.includes('超集差 1')), JSON.stringify(r.evidence))
   r = triageUnknown(base({ windowRounds: [round({ failed: 0 })] }))
-  ok(
-    '②逐字等值绿轮 ⇒ A 并注明兄弟消费',
-    r.cell === 'A' && r.evidence.some((e) => e.includes('兄弟提交消费')),
-  )
+  ok('②逐字等值绿轮 ⇒ A 并注明兄弟消费', r.cell === 'A' && r.evidence.some((e) => e.includes('兄弟提交消费')))
   r = triageUnknown(base({ windowRounds: [round({ failed: 0, endMs: T + 5 * 60_000 })] }))
-  ok(
-    '②b绿轮在落地后才结束 ⇒ B/green-round-not-mine(带病正证不得发合格证)',
-    r.cell === 'B' && r.sub === 'green-round-not-mine',
-    JSON.stringify(r),
-  )
+  ok('②b绿轮在落地后才结束 ⇒ B/green-round-not-mine(带病正证不得发合格证)', r.cell === 'B' && r.sub === 'green-round-not-mine', JSON.stringify(r))
   r = triageUnknown(base({ windowRounds: [round({ failed: 0, endMs: T + 30_000 })] }))
-  ok(
-    '②c绿轮在落地 1 分钟容差内结束 ⇒ 仍 A(轮末与落地的正常间距)',
-    r.cell === 'A',
-    JSON.stringify(r),
-  )
-  r = triageUnknown(
-    base({
-      windowRounds: [
-        round({ failed: 3, failedGates: [{ id: '2', name: 'i18n 键完整性', cmd: 'node x' }] }),
-      ],
-      witnessed: true,
-    }),
-  )
-  ok(
-    '③最后覆盖轮红 + 见证 ⇒ C/echo-red 且点名失败门',
-    r.cell === 'C' &&
-      r.sub === 'echo-red' &&
-      r.evidence.some((e) => e.includes('[2] i18n 键完整性')),
-    JSON.stringify(r),
-  )
-  r = triageUnknown(
-    base({ windowRounds: [round({ failed: 3, endMs: T + 5 * 60_000 })], witnessed: true }),
-  )
-  ok(
-    '③b红轮在落地后才结束 ⇒ B/red-context(红轮拦不住晚于它的落地)',
-    r.cell === 'B' && r.sub === 'red-context',
-    JSON.stringify(r),
-  )
+  ok('②c绿轮在落地 1 分钟容差内结束 ⇒ 仍 A(轮末与落地的正常间距)', r.cell === 'A', JSON.stringify(r))
+  r = triageUnknown(base({ windowRounds: [round({ failed: 3, failedGates: [{ id: '2', name: 'i18n 键完整性', cmd: 'node x' }] })], witnessed: true }))
+  ok('③最后覆盖轮红 + 见证 ⇒ C/echo-red 且点名失败门', r.cell === 'C' && r.sub === 'echo-red' && r.evidence.some((e) => e.includes('[2] i18n 键完整性')), JSON.stringify(r))
+  r = triageUnknown(base({ windowRounds: [round({ failed: 3, endMs: T + 5 * 60_000 })], witnessed: true }))
+  ok('③b红轮在落地后才结束 ⇒ B/red-context(红轮拦不住晚于它的落地)', r.cell === 'B' && r.sub === 'red-context', JSON.stringify(r))
   r = triageUnknown(base({ windowRounds: [round({ failed: 3 })] }))
-  ok(
-    '④红轮但无本机落地正证 ⇒ 降格 B/red-context(不指控)',
-    r.cell === 'B' && r.sub === 'red-context',
-    JSON.stringify(r),
-  )
+  ok('④红轮但无本机落地正证 ⇒ 降格 B/red-context(不指控)', r.cell === 'B' && r.sub === 'red-context', JSON.stringify(r))
   r = triageUnknown(base({ firstPartyForParent: [fpRec({})] }))
   ok('⑤一方记录完全正证 ⇒ A/fp-full', r.cell === 'A' && r.sub === 'fp-full', JSON.stringify(r))
   r = triageUnknown(base({ firstPartyForParent: [fpRec({ gatesPassed: false, exitCode: 1 })] }))
   ok('⑥一方红轮 ⇒ C/fp-red', r.cell === 'C' && r.sub === 'fp-red', JSON.stringify(r))
   r = triageUnknown(base({ firstPartyForParent: [fpRec({ exitCode: 1 })] }))
-  ok(
-    '⑦批门绿但后续步骤红 exit=1 ⇒ C/fp-late-block',
-    r.cell === 'C' && r.sub === 'fp-late-block',
-    JSON.stringify(r),
-  )
+  ok('⑦批门绿但后续步骤红 exit=1 ⇒ C/fp-late-block', r.cell === 'C' && r.sub === 'fp-late-block', JSON.stringify(r))
   r = triageUnknown(base({ firstPartyForParent: [fpRec({ gatesRan: false, exitCode: 1 })] }))
   ok('⑧门未及跑即退 ⇒ C/fp-noran', r.cell === 'C' && r.sub === 'fp-noran', JSON.stringify(r))
-  r = triageUnknown(
-    base({
-      windowRounds: [round({ set: new Set(['x.ts', 'y.ts']), failed: null })],
-      windowInvocations: 1,
-    }),
-  )
-  ok(
-    '⑨覆盖轮无结局 ⇒ B/incomplete-round(绿红均不可证)',
-    r.cell === 'B' && r.sub === 'incomplete-round',
-    JSON.stringify(r),
-  )
-  r = triageUnknown(
-    base({
-      witnessed: true,
-      windowRounds: [round({ set: new Set(['other.ts']), failed: 0 })],
-      windowInvocations: 1,
-    }),
-  )
-  ok(
-    '⑩见证 + 窗口调用但无覆盖轮 ⇒ C/no-hook-trace',
-    r.cell === 'C' && r.sub === 'no-hook-trace',
-    JSON.stringify(r),
-  )
-  r = triageUnknown(
-    base({
-      windowRounds: [round({ set: new Set(['other.ts']), failed: 0 })],
-      windowInvocations: 1,
-    }),
-  )
-  ok(
-    '⑪无覆盖轮 + 无本机正证 ⇒ B/no-evidence(不指控)',
-    r.cell === 'B' && r.sub === 'no-evidence',
-    JSON.stringify(r),
-  )
+  r = triageUnknown(base({ windowRounds: [round({ set: new Set(['x.ts', 'y.ts']), failed: null })], windowInvocations: 1 }) )
+  ok('⑨覆盖轮无结局 ⇒ B/incomplete-round(绿红均不可证)', r.cell === 'B' && r.sub === 'incomplete-round', JSON.stringify(r))
+  r = triageUnknown(base({ witnessed: true, windowRounds: [round({ set: new Set(['other.ts']), failed: 0 })], windowInvocations: 1 }) )
+  ok('⑩见证 + 窗口调用但无覆盖轮 ⇒ C/no-hook-trace', r.cell === 'C' && r.sub === 'no-hook-trace', JSON.stringify(r))
+  r = triageUnknown(base({ windowRounds: [round({ set: new Set(['other.ts']), failed: 0 })], windowInvocations: 1 }) )
+  ok('⑪无覆盖轮 + 无本机正证 ⇒ B/no-evidence(不指控)', r.cell === 'B' && r.sub === 'no-evidence', JSON.stringify(r))
   r = triageUnknown(base({ logCovered: false }))
   ok('⑫日志未覆盖 ⇒ B/log-gap', r.cell === 'B' && r.sub === 'log-gap', JSON.stringify(r))
   r = triageUnknown(base({ commit: C({ files: [] }) }))
-  ok(
-    '⑬空文件面 ⇒ B/empty-files(不冒充覆盖)',
-    r.cell === 'B' && r.sub === 'empty-files',
-    JSON.stringify(r),
-  )
+  ok('⑬空文件面 ⇒ B/empty-files(不冒充覆盖)', r.cell === 'B' && r.sub === 'empty-files', JSON.stringify(r))
   const ts = parseVbsTimestamp('==== 2026/9/28 20:33:03 :: scripts/lib/pre-commit-hook.js ====')
-  ok(
-    '⑭vbs 本地时刻解析',
-    ts instanceof Date &&
-      ts.getFullYear() === 2026 &&
-      ts.getMonth() === 8 &&
-      ts.getDate() === 28 &&
-      ts.getHours() === 20,
-    String(ts),
-  )
-  ok('⑮坏时刻 ⇒ null(进未判定维度,不冒充)', parseVbsTimestamp('==== x ====') === null)
+  ok('⑭vbs 本地时刻解析', ts instanceof Date && ts.getFullYear() === 2026 && ts.getMonth() === 8 && ts.getDate() === 28 && ts.getHours() === 20, String(ts))
+  ok('⑮坏时刻 ⇒ null(进未判定维度,不冒充)', parseVbsTimestamp('==== x ====' ) === null)
   const segs = readHookSegmentsTest()
   ok('⑯分段尺与统计器尺对同一份日志轮数一致', segs === 2, `实得 ${segs}`)
   console.log(`\n自检:${fails.length === 0 ? '全部通过' : `${fails.length} 条失败`}`)
@@ -1155,13 +820,7 @@ function readHookSegmentsTest() {
   const segments = parseHookSegmentsFromText(text)
   const complete = segments.flatMap((s) => s.rounds.filter((r) => r.echoFiles && r.failed !== null))
   const g = complete[1]?.failedGates?.[0]
-  if (
-    complete.length !== 2 ||
-    segments[0].ts === null ||
-    !g ||
-    g.cmd !== 'node scripts/check-i18n-keys.mjs --staged'
-  )
-    return -1
+  if (complete.length !== 2 || segments[0].ts === null || !g || g.cmd !== 'node scripts/check-i18n-keys.mjs --staged') return -1
   return complete.length
 }
 
@@ -1189,14 +848,5 @@ if (isDirectRun) {
     })
 }
 
-export const __test__ = {
-  parseVbsTimestamp,
-  hookLogFiles,
-  readHookSegments,
-  readAllHookSegments,
-  collectCommitsFull,
-  classifyReflog,
-  covers,
-  triageUnknown,
-}
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+export const __test__ = { parseVbsTimestamp, hookLogFiles, readHookSegments, readAllHookSegments, collectCommitsFull, classifyReflog, covers, triageUnknown }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​‌​​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
