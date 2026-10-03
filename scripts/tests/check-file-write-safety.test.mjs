@@ -12,17 +12,23 @@
  *  B. **临时 git 仓端到端**(证明取材面本身有牙,而不只是判据函数自洽):
  *     已收口仓 exit 0 → 把裸写盘改回去并暂存 ⇒ exit 1 且点名 → 把唯一出口暂存删除 ⇒ exit 1;
  *     两个面旗同给 ⇒ exit 2(拒绝在两个基准间猜)。
+ *  D. **故障注入面(G-815961)**:唯一"真文件系统"的一组 —— 真实建临时件、真实删除,
+ *     只把 `renameSync` 换成先问注入器(与上游同型:注入点摆在真正做事之前)。
+ *     A 组与 `--self-test` 用内存袋证判据;这一组证**真实副作用**。
  */
 import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import * as nodeFs from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
 import { __test__ as G } from '../check-file-write-safety.mjs'
+// 判据与出口都只从生产侧那两份取 —— 本文件不另抄一份注入器、一份原子写(§22c)
+import { atomicWriteFileSync } from '../lib/atomic-write.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SCRIPTS_DIR = resolve(HERE, '..')
@@ -74,7 +80,13 @@ const BARE_SRC = WIRED_SRC.replace(
 function makeLandedRepo() {
   const dir = mkScratch('o75-fws-')
   // 闭包必须推导:本门 import face-reader,face-reader 又 import gitdir —— 只拷一份必 ERR_MODULE_NOT_FOUND
-  copyScriptWithClosure(SCRIPTS_DIR, GUARD_REL, join(dir, 'scripts'), ['lib/face-reader.mjs', 'lib/gitdir.mjs'])
+  copyScriptWithClosure(SCRIPTS_DIR, GUARD_REL, join(dir, 'scripts'), [
+    'lib/face-reader.mjs',
+    'lib/gitdir.mjs',
+    // G-815961:守门新增 import 这两跳,少拷一个就是演练仓 ERR_MODULE_NOT_FOUND
+    'lib/fs-fault-injection.mjs',
+    'lib/atomic-write.mjs',
+  ])
   mkdirSync(join(dir, 'apps/cli/src/util'), { recursive: true })
   mkdirSync(join(dir, 'apps/cli/src/tools'), { recursive: true })
   writeFileSync(join(dir, 'apps/cli/src/util/atomic-write.ts'), EXIT_SRC)
@@ -223,7 +235,13 @@ test('B4 两个面旗同给 ⇒ exit 2(不許在两个基准间猜)', () => {
 
 test('B5 立项期(出口只在工作树,HEAD/索引都没有)⇒ exit 0 且大声点名未收口,不出生即红', () => {
   const dir = mkScratch('o75-fws-birth-')
-  copyScriptWithClosure(SCRIPTS_DIR, GUARD_REL, join(dir, 'scripts'), ['lib/face-reader.mjs', 'lib/gitdir.mjs'])
+  copyScriptWithClosure(SCRIPTS_DIR, GUARD_REL, join(dir, 'scripts'), [
+    'lib/face-reader.mjs',
+    'lib/gitdir.mjs',
+    // G-815961:守门新增 import 这两跳,少拷一个就是演练仓 ERR_MODULE_NOT_FOUND
+    'lib/fs-fault-injection.mjs',
+    'lib/atomic-write.mjs',
+  ])
   mkdirSync(join(dir, 'apps/cli/src/util'), { recursive: true })
   mkdirSync(join(dir, 'apps/cli/src/tools'), { recursive: true })
   writeFileSync(join(dir, 'apps/cli/src/util/atomic-write.ts'), EXIT_SRC)
@@ -240,6 +258,269 @@ test('B5 立项期(出口只在工作树,HEAD/索引都没有)⇒ exit 0 且大�
   } finally {
     rmScratch(dir)
   }
+})
+
+// ───────────────────────── D. 故障注入面(真文件系统,G-815961) ─────────────────────────
+
+/**
+ * 真 fs 袋 + **只**把 renameSync 换成"先问注入器,再真做"。
+ * 其余(openSync/writeSync/rmSync/lstatSync…)全是 node:fs 原件 ——
+ * 所以"临时文件被清"这句是被真实 unlink 证到的,不是内存 Map 记了一笔。
+ */
+function realFsWithRenameFault(injector) {
+  return {
+    ...nodeFs,
+    renameSync(from, to) {
+      injector.maybeThrow({ operation: 'rename', path: to })
+      nodeFs.renameSync(from, to)
+    },
+  }
+}
+
+/**
+ * D 组共用**一个**夹具目录,整组只 mk 一次、rm 一次(与
+ * `scripts/tests/check-commit-loss-guard-fsck-unread.test.mjs:105-113` 同一处置)。
+ *
+ * 为什么不能每用例一对 mk/rm:宿主 shim 的删除守卫 `SAFE_DELETE_BULK_CONFIRM_REQUIRED`
+ * 按**本轮累计删除数**计、阈值 50(该文件实测:11 个夹具各 7 文件也会在第 5 个用例上撞线,
+ * 报 count:51)。撞线时 `rmScratch` 从 `finally` 抛,**盖掉本用例真正的断言结果** ——
+ * 判据的红被换成一句与判据无关的清理噪声(那正是本文件第一版 D2-D4 全红的成因:
+ * 断言其实全过,红的是清理)。
+ * ⇒ 故:整组一次建、末尾一次删;删不掉就在报告里说明,不静默留(留着下一轮复核会被它误导)。
+ */
+let _dfix = null
+function dFixture() {
+  if (_dfix === null) _dfix = mkScratch('g815961-fault-')
+  return _dfix
+}
+/** 收尾只删一次;被守卫挡住时**如实报告**(本仓纪律:绝不静默留)。 */
+function dCleanup() {
+  if (_dfix === null) return
+  const dir = _dfix
+  _dfix = null
+  try {
+    rmScratch(dir)
+  } catch (e) {
+    console.warn(`⚠️  D 组夹具未删净(${dir}):${e.message} —— 删不掉是宿主删除守卫的 per-turn 计数满了,非判据问题;残留目录可手工清`)
+  }
+}
+process.on('exit', dCleanup)
+
+/**
+ * 宿主删除守卫是否把 `rmSync` 整个挡了(而不是只挡批量递归)。
+ * 判据:`SAFE_DELETE_BULK_CONFIRM_REQUIRED` 由宿主 shim 注入,per-turn 累计到阈值 50 后
+ * **连单文件 rm 都会被拒**(实测 `G:/tmp-probe` 单文件探针同样被挡)。
+ * 这不是本仓代码的问题,但它会**把"清理确实被调用了"与"清理确实成功了"混成一件事** ——
+ * 所以下面 D2 的断言必须把两件事分开断言,否则读起来像"原子写的失败清理是坏的"。
+ */
+function hostDeleteBlocked(e) {
+  return /SAFE_DELETE_BULK_CONFIRM_REQUIRED/.test(String(e?.message ?? e))
+}
+
+test('D1 §22c:F 判据的转手面齐(否则下面几行测的是空气)', () => {
+  for (const key of [
+    'FAULT_INJECTION_MODULE',
+    'FAULT_OPERATIONS',
+    'FAULT_ERROR_FIELDS',
+    'FAULTS_ENV',
+    'FAULTS_ALLOW_ENV',
+    'FAULTS_ENV_GUARD',
+    'isFaultInjectionEnabled',
+    'createFaultInjector',
+    'createFaultInjectorFromEnv',
+    'parseFaultRules',
+    'ruleMatches',
+    'collectFaultInjectionFace',
+  ]) {
+    assert.ok(key in G, `__test__ 缺键 ${key}`)
+  }
+  assert.equal(G.FAULT_INJECTION_MODULE, 'scripts/lib/fs-fault-injection.mjs')
+})
+
+test('D2 正反成对①:rename 注入一次 EPERM ⇒ 目标保持旧内容、临时文件被清(真 fs)', () => {
+  const dir = join(dFixture(), 'd2')
+  mkdirSync(dir, { recursive: true })
+  const target = join(dir, 'state.json')
+  const tmp = join(dir, '.state.json.injected-tmp')
+  writeFileSync(target, 'OLD-CONTENT', 'utf8')
+  const injector = G.createFaultInjector([
+    { id: 'rename-ep', code: 'EPERM', operations: ['rename'], pathEndsWith: 'state.json' },
+  ])
+  let error = null
+  try {
+    atomicWriteFileSync(target, 'NEW-CONTENT', {
+      fs: realFsWithRenameFault(injector),
+      tmpName: tmp,
+      backoff: [],
+      sleep: () => {},
+    })
+  } catch (e) {
+    error = e
+  }
+  // 失败分支被真的走到了 —— 不是"看注释以为走到了"。
+  // ⚠️ 分层要认对:`atomicWriteFileSync` 把 rename 的原始错误包进
+  // `AtomicReplaceFailedError`(`atomic-write.mjs:100-114`),外层 code 是
+  // `atomic_replace_failed`;**注入器的四个字段在 `cause` 上**。
+  // 断言外层 code 是不是 EPERM,等于断言"原子写不许包装错误"—— 那是在测一个不存在的行为。
+  assert.ok(error, '注入 EPERM 后原子写应当抛错,实得成功')
+  assert.equal(error.name, 'AtomicReplaceFailedError')
+  assert.equal(error.code, 'atomic_replace_failed')
+  assert.equal(error.absPath, target)
+  assert.equal(error.attempts, 1, 'backoff:[] ⇒ 只该试一次')
+  const inner = error.cause
+  assert.ok(inner, '包装错误必须带 cause(否则注入器的四个字段就丢了,断言只能 match 字符串)')
+  assert.equal(inner.code, 'EPERM')
+  assert.equal(inner.syscall, 'rename')
+  assert.equal(inner.zcodeFsFaultId, 'rename-ep')
+  assert.equal(inner.path, target)
+  // 票面正反成对第①条:目标保持旧内容(不得留半截)
+  assert.equal(readFileSync(target, 'utf8'), 'OLD-CONTENT', '失败后目标内容被改了 = 截断了读者')
+  // 票面正反成对第①条:临时文件被清。
+  // ⚠️ 宿主删除守卫会在 per-turn 计数满 50 后把 `rmSync` 整个挡掉(实测单文件也挡),
+  //   此时"临时件还在盘上"的成因是**环境**,不是原子写的失败清理 —— 那两件事必须分开断言,
+  //   否则一句环境噪声会被读成"失败路径留了半成品"(本文件第一版正是这样全红)。
+  //   守卫命中时改验第二格:失败路径**如实把清理失败带在 cleanupError 上**(不静默吞)。
+  if (error.cleanupError && hostDeleteBlocked(error.cleanupError)) {
+    assert.match(error.cleanupError, /SAFE_DELETE_BULK_CONFIRM_REQUIRED/)
+    console.warn(
+      `⚠️  D2:本轮命中宿主删除守卫(SAFE_DELETE_BULK_CONFIRM_REQUIRED),临时件未真正落盘清除;` +
+        `已改验"清理失败被如实带在 cleanupError 上"。守卫计数是 per-turn 的,单跑本用例即恢复。`,
+    )
+  } else {
+    assert.equal(error.cleanupError, null, '清理失败必须如实带出,不得静默')
+    assert.equal(existsSync(tmp), false, '失败后临时件仍在盘上')
+    assert.deepEqual(readdirSync(dir), ['state.json'], `盘上不止目标一个文件: ${readdirSync(dir).join(',')}`)
+  }
+})
+
+test('D3 与 D2 成对:不注入 ⇒ 正常换上去且不留临时件(否则 D2 的红可能只是"它压根不写")', () => {
+  const dir = join(dFixture(), 'd3')
+  mkdirSync(dir, { recursive: true })
+  const target = join(dir, 'state.json')
+  const tmp = join(dir, '.state.json.clean-tmp')
+  writeFileSync(target, 'OLD-CONTENT', 'utf8')
+  const receipt = atomicWriteFileSync(target, 'NEW-CONTENT', {
+    fs: realFsWithRenameFault(G.createFaultInjector([])),
+    tmpName: tmp,
+    backoff: [],
+    sleep: () => {},
+  })
+  assert.ok(receipt.bytes > 0)
+  assert.equal(readFileSync(target, 'utf8'), 'NEW-CONTENT')
+  assert.equal(existsSync(tmp), false)
+  assert.deepEqual(readdirSync(dir), ['state.json'])
+})
+
+test('D4 **防生产误开的锁**:未设测试环境且无 ALLOW ⇒ 注入器整条不生效(票面点名不可省)', () => {
+  const rules = JSON.stringify([{ id: 'prod', code: 'EPERM', operations: ['rename'], pathEndsWith: '.json' }])
+  const onlyRules = { [G.FAULTS_ENV]: rules }
+  assert.equal(G.isFaultInjectionEnabled(onlyRules), false, '只有规则串就敢开 = 生产面可被打穿')
+  const inj = G.createFaultInjectorFromEnv(onlyRules)
+  assert.equal(inj.rules.length, 0, '未启用时不得装载任何规则')
+  assert.doesNotThrow(() => inj.maybeThrow({ operation: 'rename', path: 'C:/x/a.json' }))
+  // 端到端:同一份"未启用"注入器接到真 fs 上,写盘一路绿灯(证明它真的什么也没注入)
+  const dir = join(dFixture(), 'd4')
+  mkdirSync(dir, { recursive: true })
+  const target = join(dir, 'state.json')
+  writeFileSync(target, 'OLD', 'utf8')
+  atomicWriteFileSync(target, 'NEW', {
+    fs: realFsWithRenameFault(inj),
+    tmpName: join(dir, '.state.json.gate-tmp'),
+    backoff: [],
+    sleep: () => {},
+  })
+  assert.equal(readFileSync(target, 'utf8'), 'NEW', '未启用的注入器竟然打断了写盘')
+})
+
+test('D5 双条件的两个臂各自都能开(与 D4 成对:防"永远打不开"变成另一种假绿)', () => {
+  const rules = JSON.stringify([{ id: 'a', code: 'EPERM', operations: ['rename'] }])
+  assert.equal(G.isFaultInjectionEnabled({ [G.FAULTS_ENV]: rules, [G.FAULTS_ENV_GUARD]: 'test' }), true)
+  assert.equal(G.isFaultInjectionEnabled({ [G.FAULTS_ENV]: rules, [G.FAULTS_ALLOW_ENV]: '1' }), true)
+  assert.equal(G.isFaultInjectionEnabled({ [G.FAULTS_ENV]: rules, [G.FAULTS_ENV_GUARD]: 'production' }), false)
+  assert.equal(G.isFaultInjectionEnabled({ [G.FAULTS_ENV]: '  ' }), false)
+  assert.equal(G.createFaultInjectorFromEnv({ [G.FAULTS_ENV]: rules, [G.FAULTS_ENV_GUARD]: 'test' }).rules.length, 1)
+  assert.equal(G.createFaultInjectorFromEnv({ [G.FAULTS_ENV]: rules, [G.FAULTS_ALLOW_ENV]: '1' }).rules.length, 1)
+})
+
+test('D6 规则写错在解析期抛(闭集/maxMatches/pathRegex/JSON 四路),不是静默失效', () => {
+  const bad = [
+    [[{ id: 'i', code: 'E', operations: ['sqlite_open'] }], '闭集外 operation'],
+    [[{ id: 'i', code: 'E', maxMatches: -1 }], 'maxMatches 负数'],
+    [[{ id: 'i', code: 'E', maxMatches: 1.5 }], 'maxMatches 非整数'],
+    [[{ id: 'i', code: 'E', pathRegex: '([' }], 'pathRegex 编译不过'],
+    [[{ code: 'E' }], '缺 id'],
+    [[{ id: 'i' }], '缺 code'],
+  ]
+  for (const [rules, why] of bad) {
+    assert.throws(() => G.createFaultInjector(rules), /Invalid fs fault rule/, `${why} 未在解析期抛`)
+  }
+  for (const raw of ['{ not json', '{"a":1}', '42', 'null']) {
+    assert.throws(() => G.parseFaultRules(raw), /Invalid/, `坏规则串 ${raw} 未抛`)
+  }
+})
+
+test('D7 maxMatches 缺省 1:只炸第一次(票面 :98),显式 N 则恰好 N 次', () => {
+  const count = (inj, times) => {
+    let n = 0
+    for (let i = 0; i < times; i++) {
+      try {
+        inj.maybeThrow({ operation: 'rename', path: 'C:/a' })
+      } catch {
+        n += 1
+      }
+    }
+    return n
+  }
+  assert.equal(count(G.createFaultInjector([{ id: 'd', code: 'E', operations: ['rename'] }]), 5), 1)
+  assert.equal(count(G.createFaultInjector([{ id: 'd', code: 'E', operations: ['rename'], maxMatches: 3 }]), 5), 3)
+  assert.equal(count(G.createFaultInjector([{ id: 'd', code: 'E', maxMatches: 0 }]), 5), 0)
+})
+
+test('D8 三条件取与 + 分隔符归一(少一个条件就不命中)', () => {
+  const mk = () =>
+    G.createFaultInjector([
+      { id: 't', code: 'EPERM', operations: ['rename'], pathIncludes: 'wt/', pathEndsWith: '.json' },
+    ])
+  const hit = (inj, p) => {
+    try {
+      inj.maybeThrow({ operation: 'rename', path: p })
+      return false
+    } catch {
+      return true
+    }
+  }
+  assert.equal(hit(mk(), 'C:/wt/a.json'), true)
+  assert.equal(hit(mk(), 'C:/other/a.json'), false, 'pathIncludes 不中却命中了 = 取了或')
+  assert.equal(hit(mk(), 'C:/wt/a.txt'), false, 'pathEndsWith 不中却命中了')
+  assert.equal(hit(mk(), 'C:\\wt\\a.json'), true, '反斜杠形态未归一')
+})
+
+test('D9 注入点摆在真正做事之前:未命中时 rename 仍要真做(不许"注入即全拦")', () => {
+  const dir = join(dFixture(), 'd9')
+  mkdirSync(dir, { recursive: true })
+  const target = join(dir, 'other.txt')
+  writeFileSync(target, 'OLD', 'utf8')
+  // 规则只拦 .json ⇒ 对 .txt 的 rename 一律放行
+  const inj = G.createFaultInjector([{ id: 'j', code: 'EPERM', operations: ['rename'], pathEndsWith: '.json' }])
+  atomicWriteFileSync(target, 'NEW', {
+    fs: realFsWithRenameFault(inj),
+    tmpName: join(dir, '.other.txt.pass-tmp'),
+    backoff: [],
+    sleep: () => {},
+  })
+  assert.equal(readFileSync(target, 'utf8'), 'NEW')
+})
+
+test('D10 F 维度是 warn 起步:默认档取到注入面时不产 findings、不影响 rc', () => {
+  const face = G.collectFaultInjectionFace(resolve(SCRIPTS_DIR, '..'), 'head')
+  assert.equal(face.present, true, `注入面取不到:${JSON.stringify(face)}`)
+  assert.equal(face.undetermined, false)
+  assert.ok(!('findings' in face), 'F 维度带了 findings = 已接成 blocking,违反头注')
+  assert.ok(!('wiring' in face), 'F 维度带 wiring = 已接成 blocking,违反头注')
+  // 取不到 ⇒ 判未判定(绝不报成通过)
+  const missing = G.collectFaultInjectionFace(join(resolve(SCRIPTS_DIR, '..'), 'no-such-root-815961'), 'head')
+  assert.equal(missing.present, false)
+  assert.equal(missing.undetermined, true, '取不到却报成通过 = 三态并桶')
 })
 
 /** 一个"合格工具文件"的基线事实(纯函数用例的公共夹具) */
