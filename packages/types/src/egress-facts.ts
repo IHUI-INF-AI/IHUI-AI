@@ -106,6 +106,12 @@ export interface EgressFacts {
   readonly customCa: EgressCaState
   /** 未走代理时,策略判掉它的原因;走了代理为 null。*/
   readonly policyDeclined: EgressPolicyDeclineReason | null
+  /** 重定向链**末跳**的 hostname(小写,不含端口/路径/userinfo);响应未经有界链(boundedEgressFetch)
+   *  时缺省(undefined,JSON 序列化自然不出现,旧形状保持)。判据出处 G-750(ZCode 吸收第二十五批):
+   *  事实面必须能回答"这趟凭据没出境,但字节是从哪个 host 拿回来的" —— 起始 URL 不等于字节来源。*/
+  readonly finalHostname?: string | null
+  /** 实际发生的重定向跳数(0 = 一跳未跟);响应未经有界链时缺省。*/
+  readonly redirectCount?: number
 }
 
 /** `EgressFacts` 的全部字段名 —— 唯一出口按它逐字段拷贝,白名单外一律丢弃。*/
@@ -122,6 +128,8 @@ export const EGRESS_FACT_FIELDS = [
   'noProxyVar',
   'customCa',
   'policyDeclined',
+  'finalHostname',
+  'redirectCount',
 ] as const satisfies readonly (keyof EgressFacts)[]
 
 /**
