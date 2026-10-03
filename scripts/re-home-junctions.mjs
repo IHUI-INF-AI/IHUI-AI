@@ -119,6 +119,30 @@ export function repairOne(srcPath, dstPath, { dry = false, resetDst = false } = 
   //   两边各自都不算错,合起来却是"恒红 + 永不自愈"。同一判据在两处必须同形。
   //   第一版我把成因说成 isLink 分支早退,那是个假根因:补完那个分支后自检仍红,才暴露拦在前面的是这一行。
   if (isLink(srcPath)) {
+    // **判序补一条(2026-10-03,102 封同因告警根治)**:比"指向"必须排在 `existsSync(dstPath)`
+    //   早退**之前**。G:\DevEnv → G:\IHUI-AI\.DevEnv 搬迁漏了 3 个 APPDATA 项,它们的 junction
+    //   仍指旧根(旧根只剩空壳 Temp)⇒ 门 96 判 `DANGLING`(statSync 跟随重解析点,目标不存在)
+    //   判红零误判,而新根下 3 个目标**确实都在且有数据** ⇒ 旧序第 122 行直接早退成
+    //   「已是指针且目标在位 / ok:true」,下面那条 `link-moved` 分支变成**死代码**。
+    //   后果是三重的:① ok:true 不进冷却表(邮件详情恒为「冷却项 0 个」);② 不打 `[failed]`
+    //   标签 ⇒ git-guardian 的 why 拼装拿到空串,恒为「修复器未给出失败标签」;
+    //   ③ 收信人按正文给的 `手动:re-home-junctions.mjs --check` 跑,得到 exit 0 假绿
+    //   ⇒ **102 封信换不来一次整改**,不是收信人懒,是出口把它引到"没问题"的结论上。
+    //   与本函数 114-120 行记的 2026-09-24 同型事故同源(门与修复器口径分叉 ⇒ 恒红 + 永不自愈),
+    //   只是上次是"源判 absent"、这次是"dst 判在位"。**教训没有被机制化成断言,所以换了形状复发。**
+    let pointedEarly = null
+    try {
+      pointedEarly = resolve(readlinkSync(srcPath))
+    } catch {
+      pointedEarly = null
+    }
+    if (pointedEarly && resolve(pointedEarly) !== resolve(dstPath))
+      return {
+        src: srcPath,
+        action: 'link-moved',
+        ok: false,
+        note: `指针指向别处(${pointedEarly})而非登记表算出的 ${dstPath} ⇒ 不擅自改指向,交人工判断`,
+      }
     if (existsSync(dstPath))
       return { src: srcPath, action: 'link', ok: true, note: '已是指针且目标在位' }
     // **悬空指针必须能修** —— 这是 §26 最可能的失败形态:改道树被外部清掉,链接留在原地。
