@@ -4651,6 +4651,48 @@ const checks = [
       '',
     ].join('\n'),
   },
+
+  // 编号 188:注册前已核最大在用 id 为 187(见 187 上方注释),188 未被占用。
+  {
+    id: '188',
+    label:
+      '🔐 授权判据列隔离(blocking,拦「归属判据所在的 SELECT 顺带取了展示列」—— 展示字段损坏会把授权查询拖成 500 而不是 403/404;判据本体单份住在 check-authorization-column-isolation.mjs,门内零自行判定)',
+    script: 'check-authorization-column-isolation.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_AUTHZ_COLUMN_ISOLATION',
+    stagedTriggers: [
+      'apps/ai-service/app/services/',
+      'apps/ai-service/app/routers/',
+      'apps/ai-service/app/api/',
+      'apps/api/src/routes/',
+      'apps/api/src/plugins/',
+      'scripts/check-authorization-column-isolation.mjs',
+    ],
+    onFailHint: [
+      '',
+      '  💡 本门守的是「认证≠授权」的姊妹型:不是没校验身份,是**校验身份的那条查询被展示面',
+      '     的数据质量绑架了** —— 归属判据 SELECT 里带了 content/title/display_name 这类展示列,',
+      '     展示列一坏(脏数据/超长/编码坏)整条查询失败 ⇒ 请求返 500 而不是 403/404。',
+      '  判据 = 归属轴谓词(必要) ∧ 下游存在存在性判决分支(充分)。**WHERE 里有 user_id 不等于',
+      '     这条查询在做授权判决** —— 列表/检索/导出端点的 user_id 过滤只是范围过滤,',
+      '     后面没有 `if not row: 404` 就不是判据(首版据此误报 11 处,实测教训已写进头注)。',
+      '  SELECT * 不判红只报数:星号含不含展示列取决于表结构(DDL 不在Python 源里),',
+      '     一刀切判红已被实测证伪(sweep_logs 整表 5 列零展示列)。',
+      '  ⚠️ 真修复**必须放行**:存量命中因"展示列被摘掉"而消失时只报数、不判红 —— 首版护栏',
+      '     把自己修的那四处判成了"删查询消红"并拦下,护栏挡正确修复比没护门更坏。',
+      '  修复出口(二选一,不得为消红削判据):① 为归属判据单开一条窄查询,只 SELECT 判据所需列',
+      '     (owner_user_id / user_id / 主键),展示列一概不取,展示路径另走自己那条查询',
+      '     (参考 sso_identity_store.py 的 SELECT id, user_uuid + 独立 UPDATE email/name、',
+      '     approval_persistence.py 的 SELECT 1);② 确属载荷列(业务键/缓存镜像,已在白名单)',
+      '     ⇒ 在脚本 LOAD_BEARING_COLUMNS 逐条登记证据,禁止按目录整片放行。',
+      '  ① 现读:node scripts/check-authorization-column-isolation.mjs [--json|--staged|--worktree|--strict]',
+      '  ② 自检:node scripts/check-authorization-column-isolation.mjs --self-test(39 例,正反成对)',
+      '  ③ 镜像:node --test scripts/tests/check-authorization-column-isolation.test.mjs(13 例)',
+      '  紧急跳过(不推荐):HUSKY_SKIP_AUTHZ_COLUMN_ISOLATION=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
