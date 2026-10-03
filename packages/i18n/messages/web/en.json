@@ -12030,6 +12030,12 @@
     "resultTitle": "{count} conversations imported",
     "resultOpen": "Open conversation",
     "resultDismiss": "Dismiss",
+    "toKnowledge": "Add to knowledge base",
+    "toKnowledgeHint": "Chunks this conversation into the knowledge base so it can be retrieved and cited in chat. Consumes embedding quota, and chit-chat in group logs is indexed too.",
+    "toKnowledgeDone": "Added to knowledge base: {chunks} chunks",
+    "toKnowledgeDeduped": "Already in the knowledge base, nothing duplicated ({chunks} chunks)",
+    "toKnowledgeFailed": "Failed to add to knowledge base: {error}",
+    "toKnowledgeAlready": "In knowledge base",
     "sourceWechat": "WeChat",
     "sourceWechatHint": "Chat transcript exported from WeChat \"Merge & Forward\" (聊天记录.txt or its .zip)"
   },
@@ -22058,7 +22064,9 @@
     "agentSecurityPipelineRecordDesc": "Record security pipeline steps for audit replay",
     "agentSecurityLoadFailed": "Failed to load security config",
     "agentSecuritySaveSuccess": "Security config saved",
-    "agentSecuritySaveFailed": "Failed to save security config"
+    "agentSecuritySaveFailed": "Failed to save security config",
+    "analyticsEnabled": "Usage analytics",
+    "analyticsEnabledDesc": "When on, the platform records anonymous feature-usage events (clicks, page visits, timings) to improve the product. It never records the content, code, or file paths you enter. Turning this off stops reporting immediately and affects no feature."
   },
   "shareContentPage": {
     "aiGenerated": "Zhihui AI Generated",

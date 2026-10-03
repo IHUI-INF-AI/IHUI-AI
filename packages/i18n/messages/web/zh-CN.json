@@ -12030,6 +12030,12 @@
     "resultTitle": "已导入 {count} 个会话",
     "resultOpen": "打开会话",
     "resultDismiss": "收起",
+    "toKnowledge": "加入知识库",
+    "toKnowledgeHint": "把这条会话切块存进知识库，之后聊天时能被自动检索引用。会消耗 embedding 额度，且群聊里的寒暄也会一并入库。",
+    "toKnowledgeDone": "已加入知识库：{chunks} 个知识块",
+    "toKnowledgeDeduped": "这条会话此前已入库，未重复添加（{chunks} 个知识块）",
+    "toKnowledgeFailed": "加入知识库失败：{error}",
+    "toKnowledgeAlready": "已在知识库中",
     "sourceWechat": "微信",
     "sourceWechatHint": "微信「合并转发」导出的 聊天记录.txt 或其 zip 压缩包"
   },
@@ -22062,7 +22068,9 @@
     "agentSecurityPipelineRecordDesc": "记录安全管线的执行步骤,供审计回放",
     "agentSecurityLoadFailed": "加载安全配置失败",
     "agentSecuritySaveSuccess": "安全配置已保存",
-    "agentSecuritySaveFailed": "保存安全配置失败"
+    "agentSecuritySaveFailed": "保存安全配置失败",
+    "analyticsEnabled": "使用情况分析",
+    "analyticsEnabledDesc": "开启后,平台会记录功能使用统计(点击、页面访问、耗时等匿名事件),用于改进产品;不记录您输入的内容、代码或文件路径。关闭后立即停止上报,不影响任何功能。"
   },
   "shareContentPage": {
     "aiGenerated": "智汇 AI 生成",

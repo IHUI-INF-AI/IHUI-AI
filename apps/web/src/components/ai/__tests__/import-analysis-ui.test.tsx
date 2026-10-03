@@ -46,7 +46,7 @@ vi.mock('@/stores/chat', () => ({
 
 import { ImportSourceBanner } from '../import-source-banner'
 import { ImportAnalysisDialog } from '../import-analysis-dialog'
-import type { ImportProvenance } from '@/lib/import-analysis'
+import type { ImportProvenance } from '@ihui/shared/import-analysis'
 
 afterEach(() => {
   cleanup()

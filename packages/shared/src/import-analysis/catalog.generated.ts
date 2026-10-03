@@ -11,7 +11,13 @@
 //
 // 投影刻意不含 example_input / example_output(合计 ~250KB,只用于文档展示);
 // chatTask 之类的"来源 → 场景"推荐映射也不在本文件:那是消费侧判据,不是库的内容,
-// 放 apps/web/src/lib/import-analysis.ts,与本投影分离以免改推荐就要重新生成。
+// 放同目录 provenance.ts,与本投影分离以免改推荐就要重新生成。
+//
+// ⚠️ 引用纪律:端内**只能**经子路径 @ihui/shared/import-analysis/scenarios 消费本文件,
+// 且该消费点必须**动态 import**(await import / React.lazy)—— 判据层 provenance.ts
+// 刻意不静态引本文件,故"读来源标识"那条路径永不为 492KB 目录买单。
+// 根 barrel(@ihui/shared)严禁 re-export 本文件:小程序主包余量仅 63,454 B(2026-10-03 实测),
+// 挂上去必超微信 2 MB 硬上限。
 
 export interface ImportAnalysisCategory {
   /** 分类 id(与库文件名 `NN-<category>.json` 的 NN 一致) */
