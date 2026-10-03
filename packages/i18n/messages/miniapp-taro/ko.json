@@ -53,7 +53,6 @@
     "analysisTitle": "시나리오로 분석",
     "analysisClose": "닫기",
     "analysisDesc": "시나리오를 고르고 변수를 입력하면 분석 지시가 이 대화의 메시지로 전송됩니다 — 가져온 기록이 곧 컨텍스트입니다.",
-    "analysisLoading": "시나리오 라이브러리 불러오는 중…",
     "analysisLoadFailed": "시나리오 라이브러리를 불러오지 못했습니다: {error}",
     "analysisScenarioLabel": "① 분석 시나리오 선택",
     "analysisRecommended": "추천 (가져오기 출처 기준)",
