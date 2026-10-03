@@ -24,6 +24,8 @@ import { setBaseUrl, setTokenProvider } from '@ihui/api-client';
 import { setupAgentTools, runToolLoop } from '../commands/agent.js';
 import type { Tool, ToolResult } from './index.js';
 import { createAuditedDangerGate } from './danger-gate-audit.js';
+// G-816029:子代理被停/异常结束时,级联结算它自己派生的在飞后台任务(孤儿任务的唯一出口)
+import { settleTasksOwnedByAgent, type BackgroundCascadeReason } from './background-registry.js';
 import { listTools, clearTools, registerTools } from './index.js';
 import { runHook } from '../hooks/index.js';
 import {
@@ -163,11 +165,47 @@ export const CAPABILITY_WHITELISTS: Record<Exclude<CapabilityMode, 'all'>, strin
 export function applyCapabilityMode(tools: Tool[], mode: CapabilityMode | undefined): Tool[] {
   if (!mode || mode === 'all') return tools;
   const whitelist = CAPABILITY_WHITELISTS[mode];
-  if (!whitelist) return tools;
+  // G-816027 fail-closed:mode 是"给了值但不在声明集合内"的未声明枚举 ⇒ 收口到**最窄**档
+  // (read-only),不再原样返回未过滤的 tools。旧写法 `if (!whitelist) return tools` 的
+  // 实际后果是"没人认识的 capabilityMode 拿到了 'all'"—— 档位名读起来最窄、给到的权限
+  // 最宽,而 typecheck / lint / 其余门全都不会红(能力档只在这一处生效)。
+  // 刻意不抛:抛会把整枚 dispatch 打成异常结果,而"降档 + 大声一行"既守住最小权限,
+  // 又让模型这一轮仍能只读地干活(诊断出口必须响,不许静默降档)。
+  if (!whitelist) {
+    try {
+      process.stderr.write(
+        `[subagent] 未声明的 capabilityMode "${String(mode).slice(0, 80)}" ⇒ 按最窄档 read-only 收口(不再默认给全集工具)\n`,
+      );
+    } catch {
+      /* 诊断出口自身抛错不得把收口带崩 */
+    }
+    return tools.filter((t) => READ_ONLY_TOOLS.includes(t.name));
+  }
   return tools.filter((t) => {
     if (mode === 'execute' && t.name.startsWith('git_')) return true;
     return whitelist.includes(t.name);
   });
+}
+
+/**
+ * 子代理结束时要不要级联结算它的后台任务(G-816029)—— 判据唯一出口。
+ *
+ * 单独成函数的理由不是整洁:走完整条 `dispatch_subagent` 才能验这一格,那种测试会断在
+ * 第一处无关依赖上(API / 工具注册 / hooks),证不了判据本身。
+ *
+ * 三档结论:
+ *  - `subagent_cancelled`:父级取消信号已落(`aborted`)或子代理落 `cancelled` 终态。
+ *  - `subagent_terminal` :子代理**没正常完成**就结束了(failed)—— task_id 只在它自己的
+ *    context 里,父级拿不到,不清就是孤儿。
+ *  - `undefined`:正常完成 ⇒ **不动**在飞任务(长跑任务是用户的,不是孤儿)。
+ */
+export function resolveSubagentCascadeReason(input: {
+  stopReason: 'completed' | 'failed' | 'cancelled';
+  aborted?: boolean;
+}): BackgroundCascadeReason | undefined {
+  if (input.aborted === true || input.stopReason === 'cancelled') return 'subagent_cancelled';
+  if (input.stopReason === 'completed') return undefined;
+  return 'subagent_terminal';
 }
 
 export interface SubagentParentOptions {
@@ -524,6 +562,34 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
           reason: stopReason,
           error: stopError,
         });
+
+        // G-816029:子代理**没有正常完成**时,它自己派生的在飞后台任务由宿主级联结算。
+        // 为什么必须在这里做:子代理与父级 context 隔离,`run_command background` 拿到的
+        // task_id 只写在子代理自己的 transcript 里 ⇒ 父级既不知道有这些任务、也没有别的
+        // 入口去停它们;不结算就是注册表里没人认领的孤儿(上游同族机制是
+        // `cancelRunningRuntimeBackgroundTasks`)。正常完成一律不动 —— 把级联写成无条件
+        // 清账,等于杀掉用户让子代理起的长跑构建/服务(反向用例见
+        // `apps/cli/tests/subagent-cascade-background.test.ts`)。
+        const cascadeReason = resolveSubagentCascadeReason({
+          stopReason,
+          aborted: outerCtx.signal?.aborted === true,
+        });
+        if (cascadeReason) {
+          try {
+            const report = await settleTasksOwnedByAgent(subagentId, cascadeReason);
+            // "发了信号但没等到终态"必须喊出来:未确认不等于已结束(与 killTask 三态同口径)
+            if (report.unknown.length > 0) {
+              process.stderr.write(
+                `[subagent] 级联结算(${cascadeReason})有 ${report.unknown.length}/${report.inFlightAtEntry} 枚未确认终态: ${report.unknown.join(', ')} —— 未确认不等于已结束\n`,
+              );
+            }
+          } catch (err) {
+            // 结算失败不得把子代理的收尾整块带崩(worktree 清理与状态落库还在后面),但必须响
+            process.stderr.write(
+              `[subagent] 级联结算其后台任务失败(${cascadeReason}): ${err instanceof Error ? err.message : String(err)}\n`,
+            );
+          }
+        }
 
         if (worktreeCreated && isolation === 'worktree') {
           if (stopReason === 'completed' && !keepWorktree) {

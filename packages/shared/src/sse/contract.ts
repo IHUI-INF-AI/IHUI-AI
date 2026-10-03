@@ -592,17 +592,36 @@ export type SSEEventPayload =
        *  (要读成本请调查询接口,不要从 usage 帧取)。 */
       costUsd: number | null
     }>
-  // 文件写类工具的流中 diff 预览增量帧(D113 于 2026-09-27 立;2026-09-28 由 D132 补入联合)。
-  // 字段清单同样以 `sse_contract.py` 的 `SSEEventContract("tool-delta", …)` 为准;
+  // 文件写类工具的流中 diff 预览帧(D113 于 2026-09-27 立;2026-09-28 由 D132 补入联合)。
+  // 字段清单以 `sse_contract.py` 的 `SSEEventContract("tool-delta", …)` 为准;
   // 消费方 `packages/api-client/src/client.ts` 的 `tryParseToolDelta` 与
   // `packages/shared/src/utils/sse-parse.ts` 都按这四个键取值。
+  //
+  // **载荷语义 = 累积式,整帧替换(G-816035 收口;这段此前写的是"每帧只带本次新增的那一截",与生产端和
+  // 六个消费端全部相反 —— 覆盖式写入只在累积语义下安全,照旧注释改成增量会让每个端静默丢正文而不报错)**:
+  // 生产端 `apps/ai-service/app/routers/llm.py` 的 `_file_edit_preview_frames()` 每帧发的是
+  // **从正文开头到当前的整段预览**,消费端一律按 `toolCallId` 整帧覆盖(web
+  // `hooks/use-chat/stream-handlers.ts::createToolDeltaHandler`、extension
+  // `lib/tool-call-frames.ts::applyToolDelta`、miniapp `pkg-ai/ai/cards/types.ts`、RN
+  // `utils/chat-render-model.ts::applyToolDelta`,加 api-client 与 shared 两条解析腿)。
+  // 因此 `seq` **当前不参与任何判定**:覆盖写本身已让同帧重放与乱序天然幂等。若将来真要改成增量,
+  // 消费端必须先引入按 seq 排序的缓冲 —— 那是六个端各写一份的活(本仓"两处算同一件事必漂移"同型),
+  // 不是顺手改一行注释的量级。
+  // ⚠️ 跨语言 parity 门 `scripts/check-agent-event-parity.mjs` 只比**字段名集合**,对"键在而语义反"
+  // 这一型**判不出来**(本票刻意不扩那道门:它的射程属守门持有人裁决)。这一维唯一的看守是
+  // `src/sse/__tests__/contract.test.ts` 的 G-816035 三条锁(契约注释在位 / 生产端构造形态 /
+  // 消费端反向),不得把 parity 绿读成语义一致。
   | SSEEventWithMeta<{
       type: 'tool-delta'
       /** 对应的 tool-call-start 的 toolCallId */
       toolCallId: string
-      /** 同一 toolCallId 内的递增序号(乱序/重传由消费端按 seq 收敛) */
+      /**
+       * 同一 toolCallId 内的序号(生产端 `enumerate(_file_edit_preview_frames(...), start=1)`)。
+       * **当前不参与消费端判定** —— 整帧覆盖已使重放/乱序幂等;保留它是为"若将来改增量"预留
+       * 排序凭据,不构成"已按 seq 收敛"的承诺(G-816035)。
+       */
       seq: number
-      /** 本次增量的正文(不是全量) */
+      /** 截至当前的整段预览正文(累积式,整帧替换渲染) */
       partialText: string
       /** 超长截断标记;缺席表示未截断 */
       truncated?: boolean
