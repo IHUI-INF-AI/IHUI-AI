@@ -82,6 +82,72 @@ test('shouldAlert:未送达按失败退避(窗口内 false / 超退避 true),与
   assert.equal(N.shouldAlert(state, 'k', 'f', now + FAIL_CD + 1, { windowMs: WINDOW, failCooldownMs: FAIL_CD }), true)
 })
 
+// ── ①' 稳定去重身份(2026-10-03 立)────────────────────────────────────────────
+// 立因:盘根卫生告警的 detail 是 worktree/盘根条目的**清单**,而多会话并行建删
+// worktree 是本仓常态 —— 清单一动指纹就变,shouldAlert 判"新故障"立即重报,
+// 4 小时窗口被绕成虚设(实测 09-30 至 10-03 同一原因寄出 27 封)。
+// 修法是给 notifyGuardRed 传 dedupKey(稳定语义身份),但**不能走 alertFingerprint**:
+// 那条路把 \d+ 一律打成 #,会把"外流 2 项 → 5 项"这种真实恶化也压成同一指纹。
+
+test('stableAlertFingerprint:数字不归一 —— 计数变化必须算新故障(不得复用 alertFingerprint)', () => {
+  const a = N.stableAlertFingerprint('盘根外流', 'stray=2;wtOutside=4')
+  const b = N.stableAlertFingerprint('盘根外流', 'stray=5;wtOutside=4')
+  assert.notEqual(a, b, '外流 2→5 是恶化,必须立即重报;走数字归一会把它静默')
+  // 反向证明:同一身份字符串在 alertFingerprint 下确实会被归一成同一指纹
+  assert.equal(
+    N.alertFingerprint('盘根外流', 'stray=2;wtOutside=4'),
+    N.alertFingerprint('盘根外流', 'stray=5;wtOutside=4'),
+    '若这条日后不成立了,说明 alertFingerprint 的归一行为变了,本用例的前提需重审',
+  )
+})
+
+test('stableAlertFingerprint:身份相同则同指纹;name 仍是身份的一半', () => {
+  const k = 'stray=2;wtOutside=4'
+  assert.equal(N.stableAlertFingerprint('盘根外流', k), N.stableAlertFingerprint('盘根外流', k))
+  assert.notEqual(N.stableAlertFingerprint('盘根外流', k), N.stableAlertFingerprint('别的告警', k))
+  // 空白归一的**确切契约**:连续空白折叠成单空格 + 首尾裁掉。
+  // 不做分号两侧空白的消除 —— 那是调用方拼装身份时的义务,不是本函数的语义。
+  assert.equal(N.stableAlertFingerprint('盘根外流', ' stray=2;wtOutside=4  '), N.stableAlertFingerprint('盘根外流', k))
+  assert.equal(N.stableAlertFingerprint('盘根外流', 'stray=2;  wtOutside=4'), N.stableAlertFingerprint('盘根外流', 'stray=2; wtOutside=4'))
+})
+
+test('notifyGuardRed:传 dedupKey 时,明细清单变化被压住(窗口内不重发)但正文仍带最新明细', () => {
+  const h = harness()
+  const opts = { ...h.opts, windowMs: WINDOW, failCooldownMs: FAIL_CD, dedupKey: 'stray=2;wtOutside=4' }
+  const r1 = N.notifyGuardRed('盘根外流', 'worktree 落点外: A\nworktree 落点外: B', { ...opts, now: 1000 })
+  // 第二轮:违规计数没变,只是清单里换了一个 worktree 路径
+  const r2 = N.notifyGuardRed('盘根外流', 'worktree 落点外: A\nworktree 落点外: C', { ...opts, now: 2000 })
+  assert.equal(r1.sent, true)
+  assert.equal(r2.sent, false, '同计数下的清单抖动不得绕过窗口(这正是 27 封同因告警的成因)')
+  assert.equal(r2.suppressed, true)
+  assert.equal(h.calls.length, 1)
+  rmScratch(h.dir)
+})
+
+test('notifyGuardRed:dedupKey 计数变化 = 故障演化,立即重报不等窗口(压抖动不得压事实)', () => {
+  const h = harness()
+  N.notifyGuardRed('盘根外流', '盘根外流: X', { ...h.opts, now: 0, dedupKey: 'stray=2;wtOutside=4' })
+  const worse = N.notifyGuardRed('盘根外流', '盘根外流: X\n盘根外流: Y\n盘根外流: Z', {
+    ...h.opts,
+    now: 60_000,
+    dedupKey: 'stray=5;wtOutside=4',
+  })
+  assert.equal(worse.sent, true, '违规计数恶化必须立即到人')
+  assert.equal(h.calls.length, 2)
+  rmScratch(h.dir)
+})
+
+test('notifyGuardRed:不传 dedupKey 时行为与旧口径一致(回归护栏,防止改动波及另外 12 个判红点)', () => {
+  const h = harness()
+  const r1 = N.notifyGuardRed('合并吞并对账判红', '丢失 38 个路径', { ...h.opts, now: 0, windowMs: WINDOW, failCooldownMs: FAIL_CD })
+  const r2 = N.notifyGuardRed('合并吞并对账判红', '丢失 39 个路径', { ...h.opts, now: 1, windowMs: WINDOW, failCooldownMs: FAIL_CD })
+  assert.equal(r1.sent, true)
+  // 无 dedupKey ⇒ 仍走 alertFingerprint 的数字归一 ⇒ 计数抖动算同一故障(既有契约不动)
+  assert.equal(r2.sent, false, '未传 dedupKey 的调用点必须保持原语义')
+  assert.equal(h.calls.length, 1)
+  rmScratch(h.dir)
+})
+
 test('withAlertMark 返回新对象,不改入参(状态表读写不得有共享可变引用)', () => {
   const before = { k: { fp: 'a', ts: 1, delivered: true } }
   const after = N.withAlertMark(before, 'k', 'b', 2, false)
@@ -356,6 +422,11 @@ test('V6 真探针端到面:把现读那把 rc=1 的 stdout 喂给判读器,必�
       cwd: fileURLToPath(new URL('../../', import.meta.url)),
       windowsHide: true,
       timeout: 240000,
+      // stdio 必须三态(2026-10-03 补):默认继承管道在交互会话下 spawnSync 报 EBUSY,
+      // 表现为 status=null + stdout 空 + stderr 空,判读器只看到"探针没产出结论"。
+      // 本仓铁律:子进程不吃 stdin 时一律 stdin:'ignore'(check-disk-root-hygiene /
+      // currentWorktreePorcelain 同型调用已带同参);本条是全仓首处**测试侧**漏带。
+      stdio: ['ignore', 'pipe', 'pipe'],
     },
   )
   const r = N.readProbeVerdict({ status: out.status, stdout: out.stdout, stderr: out.stderr })

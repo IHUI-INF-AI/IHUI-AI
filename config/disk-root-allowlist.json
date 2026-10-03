@@ -6,6 +6,8 @@
       "allow": [
         "IHUI-AI",
         "DevEnv",
+        ".pytest_tmp",
+        ".pytest_tmp_runs",
         "tmp-probe",
         "tmp",
         "workbuddy",
@@ -24,9 +26,10 @@
         "支付宝小程序开发工具",
         "WeixinGameData"
       ],
-      "note": "IHUI-AI=项目主仓;workbuddy=WorkBuddy 应用本体;tmp=WorkBuddy mcp/ext 运行日志活跃写入点(2026-09-30 实证 mcp.log 一小时内持续写,292K);其余=第三方 IDE/工具(盘根物理上不可能只剩项目,现实目标是'项目产物不外流',第三方安装目录按声明放行)"
+      "note": "IHUI-AI=项目主仓;workbuddy=WorkBuddy 应用本体;tmp=WorkBuddy mcp/ext 运行日志活跃写入点(2026-09-30 实证 mcp.log 一小时内持续写,292K);.pytest_tmp/.pytest_tmp_runs=pytest basetemp 落点(2026-10-03 补,见 _pytestBasetempNote);其余=第三方 IDE/工具(盘根物理上不可能只剩项目,现实目标是'项目产物不外流',第三方安装目录按声明放行)"
     }
   },
+  "_pytestBasetempNote": "2026-10-03 补:.pytest_tmp(pyproject addopts 的 --basetemp=../../../.pytest_tmp)与 .pytest_tmp_runs(conftest.py pytest_configure 的 per-run 隔离树)进白名单,理由不是'看起来无害',而是这两条是 pytest 基础设施的**设计落点且落在仓外**:① 落仓内会让'仓库外'场景用例(find_project_root 向上找 .git / git baseline / 文档根越界)撞上真实 .git 全翻车(RUN5 实证,已写进 apps/ai-service/pyproject.toml 与 tests/conftest.py 注释);② 落系统 TEMP 会让全量 20 worker 的每用例 tmp SQLite 在 7200rpm HDD 上 fsync 饱和,实测 25 个跨文件用例各被拖到 ~84s(py-spy 抓栈),迁同盘 NVMe 是 09-20 性能立的直接产出;③ 两者都由 pytest 自己在每场运行 rm_rf + 重建(conftest 只回收 mtime>24h 的 run-*),不是人工堆放,也就不存在'产物外流'。不申报的后果是结构性的:每次跑 pytest 必然重建 ⇒ 盘根卫生永远判红 ⇒ 每 4 小时到人一次,而实测它催生不出任何整改动作(2026-09-30 立尺至 10-03 三天里 27 封同因告警,违规条目集合逐字不变)。真正的外流(临时 worktree 落点、探针残留)仍由 H1/H2 两维照常点名。",
   "worktreePolicy": {
     "sanctionedPrefixes": ["G:\\IHUI-AI\\.worktrees\\", "G:/IHUI-AI/.worktrees/"],
     "exemptPaths": ["G:\\IHUI-AI", "G:/IHUI-AI"],
