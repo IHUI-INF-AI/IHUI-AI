@@ -97,6 +97,10 @@ function runGate(args, cwd) {
       windowsHide: true,
       timeout: 180_000,
       maxBuffer: 1 << 26,
+      // 不消费 stdin 的子进程一律走这一档(本仓唯一正解,见 EBUSY 那条):
+      // 省略 stdio / 写 'pipe' 都会让 Node 给子进程建 stdin 管道 ⇒ 本机交互会话下必 EBUSY。
+      // 这四处都不喂 stdin(无 input / 无 --stdin),所以设 ignore 不会静默丢数据。
+      stdio: ['ignore', 'pipe', 'pipe'],
     },
   )
 }
@@ -235,6 +239,7 @@ test('面纪律端到端:HEAD 干净 / 索引脏 ⇒ --staged 报出而全量报
       encoding: 'utf8',
       windowsHide: true,
       timeout: 120_000,
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
   const gc = (...a) => g('-c', 'user.email=t@t', '-c', 'user.name=t', ...a)
   try {
@@ -308,6 +313,7 @@ test('两面旗同给 ⇒ exit 2 —— 拿真仓再验一次(不依赖夹具)',
       encoding: 'utf8',
       windowsHide: true,
       timeout: 120_000,
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
   } catch (e) {
     code = e.status
@@ -572,6 +578,7 @@ function runGateReal(args) {
     windowsHide: true,
     timeout: 180_000,
     maxBuffer: 1 << 26,
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
