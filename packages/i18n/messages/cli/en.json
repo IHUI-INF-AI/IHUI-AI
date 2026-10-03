@@ -312,7 +312,9 @@
     "onlyDesc": "Import only the given indexes, e.g. 1,3,5-8",
     "historyDesc": "Query session import history (latest 50 rows)",
     "conversationMeta": "· {count} messages · model {model} · started {started}",
-    "historyCappedSuffix": ", server cap of 50 reached"
+    "historyCappedSuffix": ", server cap of 50 reached",
+    "noFixedRoots": "No fixed export directory (specify with --path)",
+    "sourceWechat": "WeChat chat exports (zip/txt from third-party tools or manual save)"
   },
   "cliEntry": {
     "tagline": "IHUI AI Coding Agent — a coding agent benchmarked against Claude Code / Codex",
