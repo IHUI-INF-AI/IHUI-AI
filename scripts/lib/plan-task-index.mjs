@@ -497,6 +497,147 @@ export function findVerbatimDupOpenRows(content) {
   return { groups, copies }
 }
 
+/**
+ * G-814403 F4c:**同题"前缀套叠"副本** —— 一方的**整行正文**是另一方的**精确前缀**。
+ *
+ * ── 这一族为什么对 F1/F4/F4b 同时隐身(2026-09-29 现读量化,不是推理)────────────
+ * 头号症状不是"账面多几行",而是**已闭环的票在派单口径里仍是活账**。三把尺子各有一道
+ * 漏口,而这一族恰好同时踩满三道。**每条都按现读数字写,不看票据怎么猜**(第一版这里把 ②
+ * 写成"F4 结构上量不到本族",实测是**错的**,已按真读数改;下一个人若要改这段,先重跑那把尺子):
+ *  ① **F1**(`findForks`)只判 `open.length>0 && done.length>0` 的组。并发重放把同一件事的
+ *     不同增长阶段各带回一份时,被截断的那份与完整那份**通常同态**(实测 223 组里
+ *     **0 组**两态并存、197 组全 open / 26 组全 done)⇒ F1 结构上不可能命中,连"报数"都不产生。
+ *  ② **F4**(`findDupOpenCopies`)第一道闸就把带 `【归并】重复登记副本` 指针的行剔掉,第二道
+ *     要求 `live.length >= 2`。而本族的**长行几乎都已被标过指针**(实测 1054 对里长行带指针
+ *     **981 对**、短行带指针 **0 对**)⇒ 每组剥完指针只剩 1 行 ⇒ `live.length < 2` ⇒
+ *     直接 `continue`(实测 223 组里 **200 组**走这条分支)。组数在 F4 里飘着
+ *     (`dupOpenGroups` 现读 253),**"副本行"那一维却读 0** —— 这就是"报数在、判据瞎"。
+ *     ⚠ 校准一句以免下一个人被自己的夹具骗:对一个**全 open 且无指针**的小夹具,F4 是
+ *     **看得见的**(会数出 2 个副本)。本族之所以对它隐身,靠的是"长行已被标过指针"这个
+ *     **现场状态**,不是判据的形式限制。
+ *  ③ **F4b**(`findVerbatimDupOpenRows`)只认**逐字等值**且显式 `if (compositeKeyOf(r.raw)) continue`
+ *     —— 本族有主键 ⇒ 逐字等值那一族也不收。
+ * 三条各看自己的盲区,合起来的结果是:**这一族在所有判据的"债"那一栏里读 0,而它真实存在。**
+ * 门 71 只防丢行不防重行,同样看不见。
+ *
+ * ── 一个必须知道的自指事实:出口清零的成因是"前缀关系被破坏",不是"被过滤"────────
+ * 副本指针追加在**行尾**,而行尾正是长行比短行多出来的那一段 ⇒ 一旦给短行加了指针,
+ * `long.startsWith(short)` 立刻为假,这一对从本判据面前消失。**本判据内部没有任何一行
+ * `DUP_POINTER_RE` 过滤**(那道在 F4 里)。所以"人工指定 holder 后该族清零"是**结构上**成立的,
+ * 而不是靠一条会被人误读成"过滤"的隐式规则。镜像 C7 逐字钉住了这一条。
+ *
+ * ── 判据(唯一一条,不得靠相似度)────────────────────────────────────────
+ * **同主键**(逐字复用 `compositeKeyOf`,它内部已含 `titleOf` 归一 —— 本族因此自动继承
+ * `titleOf` 的每一处修正,不在此处另抄一份"什么算同一件事")**且**一方的 `raw` 是另一方
+ * `raw` 的**精确前缀**(`b.startsWith(a) && a.length < b.length`,逐字、无空白归一、无相似度)。
+ * 为什么必须是精确前缀而不是相似度:前缀关系是**可证伪的**——只要短行不是长行的开头就立刻不成立,
+ * 而 Jaccard 分数对本仓记过的那 25 条低分互含一样会响(见本文件头注:相似度只配报数不配判红)。
+ *
+ * 抄近路会被本族自己顶出来:**按"长度"判正本是错的**,票面实测 754 ⊂ 1372 ⊂ 1767 逐层包含,
+ * 机器若按长度猜正本,一次 append 就会把指针挂到被截断的那份上,而被截断的那份恰是**没有**
+ * 最新证据的那一份。本判据因此**只报数 + 逐条点名**,正本由人工经 `--match-prefix-holder` 指定。
+ *
+ * ── 定级(照仓内教训:新维度起步不得接 blocking)──────────────────────────
+ * 存量现读 223 组,把它接成 blocking 等于造一道**与任何提交都无关的恒红门**(§12e 同型),
+ * 每台每次提交都被逼跳门、连带其余全部守门对每次提交作废(§12f)。故**只报数并逐条点名**,
+ * **不进 `probe`(差值棘轮)、不判红**;升 blocking 的前置 = 存量归零(票面明写)。
+ * 与 F9 同型的处置:存量只报数,红路留空。
+ */
+export function findPrefixNestedCopies(content) {
+  const groups = new Map()
+  for (const r of parseTaskRows(content)) {
+    const k = compositeKeyOf(r.raw)
+    if (!k) continue
+    if (!groups.has(k)) groups.set(k, { key: k, rows: [] })
+    groups.get(k).rows.push(r)
+  }
+  const nested = []
+  for (const g of groups.values()) {
+    // 同一组内两两判"A 是 B 的精确前缀"。组内行数极小(实测中位数 2),全对比不是复杂度问题。
+    for (const a of g.rows) {
+      for (const b of g.rows) {
+        if (a === b) continue
+        if (a.raw.length >= b.raw.length) continue
+        if (!b.raw.startsWith(a.raw)) continue
+        nested.push({
+          key: g.key,
+          short: a, // 被截断的旧阶段副本
+          long: b, // 完整的那一份
+          lenShort: a.raw.length,
+          lenLong: b.raw.length,
+          state: g.rows.some((r) => r.state === 'open') ? 'open' : 'done',
+        })
+      }
+    }
+  }
+  // 同一对 (short,long) 只算一次:三层套叠 754 ⊂ 1372 ⊂ 1767 会产出 3 对(逐层),这是**正确的**
+  // ——每一层都是一次独立的"截断回放",少报一层就等于放过一次重放。逐条点名按行号定序,保证可复现。
+  nested.sort((x, y) => x.short.line - y.short.line || x.long.line - y.long.line || x.lenShort - y.lenShort)
+  const groupsTouched = new Set(nested.map((n) => n.key))
+  return { pairs: nested, groupKeys: [...groupsTouched].sort() }
+}
+
+/**
+ * F4c 的**唯一出口**:`--match-prefix-holder "<持有行原文片段>"` —— 人工指定正本后,
+ * 其余同组副本只加"重复登记副本"指针(F4 口径)、**不动勾选**(F4 口径)。
+ *
+ * 为什么不自动挑正本:见 `findPrefixNestedCopies` 头注 —— 按长度猜在"逐层前缀包含"上必然挑错,
+ * 而挑错的代价是**把指针写到缺证据的那一份上**,之后所有派单口径都指着它。
+ *
+ * 契约(三条里最要紧的一条是"大声失败"):
+ *  - `holderFragment` **必须逐字命中被审面上的某一行**,否则**抛错**而不是静默返回空动作。
+ *    静默退化是本仓最高频的失效型:调用方拿到"改了 0 行"会读成"这一族已经清零"。
+ *  - 片段必须**唯一定位**:命中 ≥2 行 ⇒ 抛错(机器不许替人挑是哪一行)。
+ *  - 只在 F4c 点名的族内动;带指针的行不再改(重复加指针会把行尾堆成两段同文)。
+ *  - **绝不动 checkbox** —— 翻勾是 `--heal` 那一维的职责(见 F4 头注与 §1 一行不删)。
+ *
+ * @returns {{ok:true, holderLine:number, pointered:Array<{line:number,key:string}>}|{ok:false, reason:string}}
+ */
+export function planPrefixNestedPointer(content, holderFragment) {
+  const frag = String(holderFragment ?? '')
+  if (!frag.trim()) return { ok: false, reason: 'holder 片段为空 ⇒ 拒绝执行(机器不许猜正本)' }
+  const rows = parseTaskRows(content)
+  const hits = rows.filter((r) => r.raw.includes(frag))
+  if (hits.length === 0) {
+    return {
+      ok: false,
+      // 逐字带上片段(截断到 60 字防日志被一行原文撑爆),并点名"这不是'这一族没配上'"
+      reason: `holder 片段在本次被审面上 0 命中:「${frag.slice(0, 60)}」—— 拒绝执行(不等于"这一族没配上";换面或改片段)`,
+    }
+  }
+  if (hits.length > 1) {
+    return {
+      ok: false,
+      reason: `holder 片段在本次被审面上命中 ${hits.length} 行(L${hits.map((r) => r.line).join(',L')}):「${frag.slice(0, 60)}」—— 拒绝执行(片段必须唯一定位,机器不替你挑正本)`,
+    }
+  }
+  const holder = hits[0]
+  if (DUP_POINTER_RE.test(holder.raw)) {
+    return { ok: false, reason: `holder 行 L${holder.line} 已带副本指针 ⇒ 拒绝执行(它已是副本,不能当正本)` }
+  }
+  const holderKey = compositeKeyOf(holder.raw)
+  if (!holderKey) {
+    return { ok: false, reason: `holder 行 L${holder.line} 没有复合主键 ⇒ 不属 F4c 族,拒绝执行` }
+  }
+  const { pairs } = findPrefixNestedCopies(content)
+  // 只处理"holder 是那一对的长行"或"holder 是短行"两种关系里 holder 在场的那一侧:
+  // 两种都要处理 —— 人工可能指定任一端为正本(票面实测三层的中间那份也是合法正本选择)。
+  const targets = []
+  for (const p of pairs) {
+    if (p.key !== holderKey) continue
+    if (p.long.line === holder.line) {
+      if (!DUP_POINTER_RE.test(p.short.raw)) targets.push(p.short)
+    } else if (p.short.line === holder.line) {
+      if (!DUP_POINTER_RE.test(p.long.raw)) targets.push(p.long)
+    }
+  }
+  return {
+    ok: true,
+    holderLine: holder.line,
+    pointered: targets.map((r) => ({ line: r.line, key: holderKey })),
+  }
+}
+
 /** F2:正文自带的"闭合/作废声明"字面。窄集合,宁漏不误伤 —— 见门 120 的"名单要有正向证明"。 */
 export const VOID_MARK_RE =
   /\[[A-Za-z]{1,3}\d+[a-z]*\s*判[:：][^\]]*(?:已完成|已闭环|已收口|已清偿|读数过期|裸副本)|勿照本行派单/
@@ -1272,6 +1413,9 @@ export function auditPlan(content, { archivedKeys = null } = {}) {
   const unclaimedRows = openRows.filter((r) => !r.claim)
   const dupCopies = findDupOpenCopies(dupOpen)
   const verbatimDups = findVerbatimDupOpenRows(content)
+  // F4c(G-814403):同题"前缀套叠"副本。**只报数并逐条点名**,不进 probe 差值棘轮、不判红
+  // (存量现读 223 组,接 blocking = 与任何提交无关的恒红门,§12e/§12f 同型;升 blocking 前置 = 存量归零)。
+  const prefixNested = findPrefixNestedCopies(content)
   const dupBlocks = findDupBlocks(content)
   // F9 三档一次扫完(G-460):`f9.collisions` 是判据唯一输入(只由声明行分组),`f9.wide` 是诊断读数,
   // `f9.references` / `f9.malformed` 是两档**只报数并报名**的名单 —— 把误判挪到报数档时必须同时报名,
@@ -1322,6 +1466,8 @@ export function auditPlan(content, { archivedKeys = null } = {}) {
     rotated,
     dupCopies,
     verbatimDups,
+    /** F4c 名单(逐条点名,不给计数就下一个人得重新发现一遍 —— 见 F9 三档头注同一条理由)。 */
+    prefixNested,
     dupBlocks,
     collisions,
     // F9 三档(G-460):判据输入 / 只报数的引用图 / 单独点名的畸形号
@@ -1369,6 +1515,12 @@ export function auditPlan(content, { archivedKeys = null } = {}) {
       // 在账面上等于"不存在"。见 findVerbatimDupOpenRows 头注(2026-09-27 实测 4 对全部隐身)。
       verbatimDupGroups: verbatimDups.groups.length,
       verbatimDupCopies: verbatimDups.copies.length,
+      // F4c(G-814403):同题"前缀套叠"副本 —— **只报数**。
+      // 为什么这两个数必须与 F4 的 `dupOpenCopies`(=0)分列:那一维结构上量不到本族
+      // (见 findPrefixNestedCopies 头注的 199/223 组 `continue`)。把它们并进同一栏
+      // 会让"副本 0 行"继续骗人 —— 那正是本票立项的起因。
+      prefixNestedGroups: prefixNested.groupKeys.length,
+      prefixNestedPairs: prefixNested.pairs.length,
       // 已写明"重复登记副本"的未勾选行:它们与 dupOpenCopies 是两件事 —— 副本是**当次**算出来的,
       // 标过指针的是历史上已归并过的。派单口径两条都扣,所以报告里必须分列,否则读者对不上账。
       dupPointerRows: openRows.filter((r) => DUP_POINTER_RE.test(r.raw)).length,
