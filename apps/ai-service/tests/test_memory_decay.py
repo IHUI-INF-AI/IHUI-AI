@@ -1119,4 +1119,289 @@ class TestSingleton:
         assert hasattr(memory_decay_manager, "_states")
         assert isinstance(memory_decay_manager._states, dict)
 
+
+# =============================================================================
+# G-759(2026-10-03):get_status 的 loadState 对外投影 —— per-key 四档逐档可读出
+# =============================================================================
+#
+# G-748 把"读失败也固化"收回同一份判据(_load_lifecycle.state_label),但
+# memory_decay **没有 get_status()**(0 命中)——:113 那条 give_up warning 只有
+# 日志,运维读不到"谁在放弃"。本段把四档钉在**对外可读的返回体**上。
+#
+# 形态差异(与前两步的单例标量不同):本模块载体是 per-key 的
+# `_load_records: dict[str, LoadRecord]`(:75/:104),所以投影给
+# **全库聚合 + 最坏档 + per-key 明细**,并刻意**不用** 单例族的
+# `loaded`/`loadFailures` 键名(同名不同义会让下游按"我这一次"读全库聚合值)。
+#
+# 注入机制逐字照抄 tests/test_loader_failure_not_frozen.py:
+#   _FakeConn(预设异常序列,耗尽即抛) + _FakeClock(替换 _monotonic,不真 sleep)
+#   + _inject_md(替换 _get_pool / _monotonic)。全程零 DB 句柄。
+
+import inspect  # noqa: E402
+import sys  # noqa: E402
+from uuid import uuid4  # noqa: E402
+
+from app.services._load_lifecycle import LOAD_BACKOFF_MAX_S as _MAX_S  # noqa: E402
+from app.services._load_lifecycle import (  # noqa: E402
+    LOAD_MAX_CONSECUTIVE_FAILURES as _MAX_CONSECUTIVE_FAILURES,
+)
+
+
+class _FakeConn:
+    """fetch 按 outcomes 序列给出;Exception 项抛错;序列耗尽 ⇒ AssertionError。
+
+    "耗尽即抛"是判据的一部分:固化之后任何多余的 DB 调用都必须炸出来,
+    而不是静默返回空 —— 后者正好复刻本票要防的"把没读到当读到空"。
+    """
+
+    def __init__(self, outcomes: list) -> None:
+        self._outcomes = list(outcomes)
+        self.calls = 0
+
+    def _pop(self, kind: str):
+        self.calls += 1
+        if not self._outcomes:
+            raise AssertionError(
+                f"{kind} 在已无预设结果时被再次调用(不应再打 DB)"
+            )
+        out = self._outcomes.pop(0)
+        if isinstance(out, BaseException):
+            raise out
+        return out
+
+    async def fetch(self, *args):
+        return self._pop("fetch")
+
+    async def fetchrow(self, *args):
+        return self._pop("fetchrow")
+
+    async def execute(self, *args) -> None:
+        """DDL / 自愈建表通道:不消耗预设、不计入 calls。"""
+        return None
+
+
+class _AcquireCtx:
+    def __init__(self, conn: _FakeConn) -> None:
+        self._conn = conn
+
+    async def __aenter__(self) -> _FakeConn:
+        return self._conn
+
+    async def __aexit__(self, *exc: object) -> bool:
+        return False
+
+
+class _FakePool:
+    def __init__(self, conn: _FakeConn) -> None:
+        self._conn = conn
+
+    def acquire(self) -> _AcquireCtx:
+        return _AcquireCtx(self._conn)
+
+
+class _FakeClock:
+    """替换 _monotonic:模拟退避时间流逝,不真 sleep。"""
+
+    def __init__(self) -> None:
+        self.t = 1000.0
+
+    def __call__(self) -> float:
+        return self.t
+
+    def advance(self, seconds: float) -> None:
+        self.t += seconds
+
+
+def _inject_md(monkeypatch, conn: _FakeConn) -> _FakeClock:
+    """把 memory_decay 的 _get_pool / _monotonic 换成假件(注入点=本模块)。"""
+    clock = _FakeClock()
+    monkeypatch.setattr("app.services.memory_decay._monotonic", clock)
+
+    async def _get_pool() -> _FakePool:
+        return _FakePool(conn)
+
+    monkeypatch.setattr("app.services.memory_decay._get_pool", _get_pool)
+    return clock
+
+
+async def test_md_load_state_never_tried_before_any_key(monkeypatch):
+    """空 per-key 字典 ⇒ never_tried(不是"全部已加载")。
+
+    这一档必须显式落定:空库若被读成 loaded,运维会以为"所有用户的衰减状态都读到了"。
+    """
+    _inject_md(monkeypatch, _FakeConn([]))
+    md = MemoryDecayManager()
+
+    status = md.get_status()
+    assert status["loadState"] == "never_tried"
+    assert status["trackedKeys"] == 0
+    assert status["loadedKeys"] == 0
+    # 全称口径:没有任何 key ⇒ 不是"全部已加载"
+    assert status["allKeysLoaded"] is False
+    assert status["maxLoadFailures"] == 0
+    assert status["loadStateByUser"] == {}
+    assert status["gaveUpKeys"] == []
+
+
+async def test_md_load_state_per_key_four_states(monkeypatch):
+    """同一进程内四个 key 分别落在四档,最坏档 = gave_up。
+
+    覆盖 never_tried(未访问的 key 不进字典,靠"另一个 key 加载完"制造的混合态)
+    / retry_backoff / loaded / gave_up 四档逐档可读出。
+    """
+    uid_backoff = str(uuid4())
+    uid_gave_up = str(uuid4())
+    uid_loaded = str(uuid4())
+    uid_untouched = str(uuid4())
+    # 前 5 次给 backoff 那个 key,后 5 次给 gave_up 那个 key,最后 1 次给 loaded。
+    outcomes: list = [ConnectionError(f"backoff #{i}") for i in range(1)]
+    outcomes += [ConnectionError(f"gaveup #{i}") for i in range(_MAX_CONSECUTIVE_FAILURES)]
+    outcomes += [[]]
+    conn = _FakeConn(outcomes)
+    clock = _inject_md(monkeypatch, conn)
+    md = MemoryDecayManager()
+
+    # 档① 退避中:读失败不置该 key 的 loaded
+    await md._ensure_loaded(uid_backoff)
+    assert conn.calls == 1
+    rec = md._load_records[uid_backoff]
+    assert rec.loaded is False  # 旧实现在这里已 add 进 _loaded_users,余生不再重试
+    assert rec.failures == 1
+    assert md.get_status()["loadStateByUser"][uid_backoff] == "retry_backoff"
+
+    # 档③ 放弃:失败到上限 ⇒ 停止自动重试,但 loaded 仍 False
+    for _ in range(_MAX_CONSECUTIVE_FAILURES):
+        clock.advance(_MAX_S + 1.0)  # 每次都跨过退避窗口
+        await md._ensure_loaded(uid_gave_up)
+    assert md._load_records[uid_gave_up].failures == _MAX_CONSECUTIVE_FAILURES
+    assert md._load_records[uid_gave_up].loaded is False
+    # 放弃后不再打 DB(有界);耗尽即抛的 _FakeConn 会把多余调用炸出来
+    calls_before = conn.calls
+    clock.advance(_MAX_S + 1.0)
+    await md._ensure_loaded(uid_gave_up)
+    assert conn.calls == calls_before
+
+    # 档④ 已固化:读到空表(成功)允许固化,且此后不再打 DB
+    await md._ensure_loaded(uid_loaded)
+    assert md._load_records[uid_loaded].loaded is True
+    assert md._load_records[uid_loaded].failures == 0
+
+    status = md.get_status()
+    # 最坏档 = gave_up(severity 最高),压过同库里的 loaded 与 retry_backoff
+    assert status["loadState"] == "gave_up"
+    # per-key 明细:四档各自的 key 都可定位(untouched 的 key 根本没进字典)
+    assert status["loadStateByUser"][uid_backoff] == "retry_backoff"
+    assert status["loadStateByUser"][uid_gave_up] == "gave_up"
+    assert status["loadStateByUser"][uid_loaded] == "loaded"
+    assert uid_untouched not in status["loadStateByUser"]
+    # gaveUpKeys 只收真正放弃的那批(不得把退避中的也算进去)
+    assert status["gaveUpKeys"] == [uid_gave_up]
+    # 聚合口径:loaded 只有 1/3 ⇒ 全称 False;失败次数取最坏值
+    assert status["trackedKeys"] == 3
+    assert status["loadedKeys"] == 1
+    assert status["allKeysLoaded"] is False
+    assert status["maxLoadFailures"] == _MAX_CONSECUTIVE_FAILURES
+
+
+async def test_md_load_state_worst_case_ordering(monkeypatch):
+    """最坏档选取:混合档位下 severity 最高的那档胜出。
+
+    逐个"喂"进不同档位的 key,验证 gave_up > retry_backoff > loaded 的次序,
+    且一旦有 key 退避,全库 loadState 就不是 loaded(部分读不到 ≠ 读到)。
+    """
+    conn = _FakeConn([[], ConnectionError("transient")])
+    clock = _inject_md(monkeypatch, conn)
+    md = MemoryDecayManager()
+
+    uid_ok = str(uuid4())
+    uid_bad = str(uuid4())
+
+    await md._ensure_loaded(uid_ok)
+    # 只有 loaded 与 never_tried 混合时,最坏档是 loaded(空字典分支不适用)
+    status = md.get_status()
+    assert status["loadState"] == "loaded"
+    assert status["loadStateByUser"] == {uid_ok: "loaded"}
+    assert status["allKeysLoaded"] is True  # 全部(唯一)key 都已固化
+
+    await md._ensure_loaded(uid_bad)
+    # 掺进一个退避中的 key ⇒ 最坏档降级为 retry_backoff,全称不再成立
+    status = md.get_status()
+    assert status["loadState"] == "retry_backoff"
+    assert status["allKeysLoaded"] is False
+    assert status["loadedKeys"] == 1
+    assert status["trackedKeys"] == 2
+    assert status["maxLoadFailures"] == 1
+    assert status["gaveUpKeys"] == []
+    assert clock is not None
+
+
+def test_md_get_status_load_state_has_no_fifth_state():
+    """形状锁:投影词汇只许来自 _load_lifecycle 四档,不得新增第五档。
+
+    同 tests/test_crash_budget_b76.py 的口径 —— crash-loop-stopped 是崩溃预算
+    的终态,与"读不到"的四档不同义,不得混进 loadState 的取值域。
+    """
+    from app.services import _load_lifecycle as ll
+
+    allowed = {
+        ll.STATE_LOADED,
+        ll.STATE_NEVER_TRIED,
+        ll.STATE_RETRY_BACKOFF,
+        ll.STATE_GAVE_UP,
+    }
+    seen = set()
+    for failures, loaded in (
+        (0, False),
+        (1, False),
+        (ll.LOAD_MAX_CONSECUTIVE_FAILURES - 1, False),
+        (ll.LOAD_MAX_CONSECUTIVE_FAILURES, False),
+        (ll.LOAD_MAX_CONSECUTIVE_FAILURES, True),
+        (0, True),
+    ):
+        seen.add(ll.state_label(loaded=loaded, failures=failures))
+    assert seen == allowed
+    assert "crash-loop-stopped" not in seen
+
+    # 本模块源码不得写死四档字面量(词汇表唯一来源 = _load_lifecycle)
+    src = inspect.getsource(sys.modules[MemoryDecayManager.__module__])
+    for literal in ('"never_tried"', '"retry_backoff"', '"gave_up"'):
+        assert literal not in src, f"memory_decay 又抄了一份词汇:{literal}"
+
+
+def test_md_get_status_does_not_reuse_singleton_scalar_keys(monkeypatch):
+    """形状锁:不得复用单例族的 `loaded` / `loadFailures` 键名。
+
+    依据:本模块载体是 per-key 字典,同名两键在"该值随哪个主体变化"上与单例族
+    根本不同(单例=自己那一次;这里=全库聚合)。同名不同义会让下游读错,所以
+    聚合值一律用 allKeysLoaded / maxLoadFailures,并在此钉死。
+    """
+    from app.services._load_lifecycle import LoadRecord
+
+    md = MemoryDecayManager()
+    rec = LoadRecord()
+    rec.loaded = True
+    md._load_records["u1"] = rec
+
+    status = md.get_status()
+    assert "loaded" not in status
+    assert "loadFailures" not in status
+    # 聚合口径的两个键在,且语义是全称/最坏
+    assert status["allKeysLoaded"] is True
+    assert status["maxLoadFailures"] == 0
+
+
+def test_md_get_status_is_unrelated_to_load_state_helper():
+    """`_load_state()`(单条记忆加载,另一义)与本投影互不影响。
+
+    依据:memory_decay.py:499 `async def _load_state(self, entry_id)` 按
+    entry_id 查**单条**衰减状态,与加载生命周期是另一义。本投影既不改它,
+    也不从它派生字段 —— 用例钉住:调过它之后 loadState 不受其返回值影响。
+    """
+    md = MemoryDecayManager()
+    # 该方法存在且是 async(另一义的既有契约,本票不动它)
+    assert inspect.iscoroutinefunction(MemoryDecayManager._load_state)
+    # 投影不依赖单条加载:一个 key 都没加载时恒为 never_tried
+    assert md.get_status()["loadState"] == "never_tried"
+    assert "loadState" not in inspect.getsource(MemoryDecayManager._load_state)
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
