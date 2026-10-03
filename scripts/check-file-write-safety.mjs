@@ -44,7 +44,7 @@
 //
 // 紧急跳过 HUSKY_SKIP_FILE_WRITE_SAFETY=1(接线 id 由主会话统一登记,本票不自取编号)。
 
-import path, { join } from 'node:path'
+import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import {
@@ -437,6 +437,31 @@ function pickFace(a) {
 }
 
 /**
+ * F 维度的三态判定,**纯函数**(判据单份的所在地就在这一层)。
+ *
+ * 为什么要单独抽出来:取材那层 `readAnchorWithFallback` **HEAD→索引→工作树逐级降级**,
+ * 所以"面取不到"这一档在真仓上几乎不可达(工作树总有文件)。第一版把 F23b 写成
+ * "传一个不存在的仓根进去" —— 提交后实测该项转红:降级链在工作树那一档照样把文件取到了,
+ * `present:true`。**那不是判据坏了,是我的用例取不到它要的那一档。**
+ * ⇒ 三态判定必须是能单独构造的纯函数,取材的可达性归取材,判定归判定(§22c 同一条纪律)。
+ *
+ * @param {string|null} text 取材结果(null = 取不到)
+ * @param {{usedFace?:string, downgraded?:boolean, reason?:string, probe?:()=>object}} [meta]
+ * @returns {{present:boolean, undetermined:boolean}}
+ */
+export function classifyFaultInjectionFace(text, meta = {}) {
+  if (text === null || text === undefined) {
+    return { present: false, undetermined: true }
+  }
+  try {
+    meta.probe?.()
+  } catch (e) {
+    return { present: true, undetermined: true, reason: e?.message ?? String(e) }
+  }
+  return { present: true, undetermined: false }
+}
+
+/**
  * F 维度(故障注入面)在判定面上的**取材 + 报数**,不产 findings。
  *
  * 三态与 R1/R2/R3 同纪律且**不并桶**(头注「新维度 F」):
@@ -446,38 +471,43 @@ function pickFace(a) {
  */
 export function collectFaultInjectionFace(root, face) {
   const anchor = readAnchorWithFallback(root, face, FAULT_INJECTION_MODULE)
-  if (!anchor.text) {
-    return { rel: FAULT_INJECTION_MODULE, present: false, usedFace: anchor.usedFace, undetermined: true, rules: 0 }
-  }
-  try {
-    // 判据的"能不能用"用**构造面**证明(闭集非空 + 坏规则必抛),不读被审面的任何文本 ——
-    // 这个门要判的是"注入面在位且有牙",不是"注入面里写了什么字"。
-    const probe = createFaultInjector([{ id: 'probe', code: 'EPERM' }])
+  const usedFace = anchor.usedFace
+  // 判据的"能不能用"用**构造面**证明(闭集非空 + 坏规则必抛),不读被审面的任何文本 ——
+  // 这个门要判的是"注入面在位且有牙",不是"注入面里写了什么字"。
+  const probe = () => {
+    createFaultInjector([{ id: 'probe', code: 'EPERM' }])
     let throwsOnBadRule = false
     try {
       createFaultInjector([{ id: 'probe', code: 'EPERM', operations: ['notAnOperation'] }])
     } catch {
       throwsOnBadRule = true
     }
+    return throwsOnBadRule
+  }
+  const state = classifyFaultInjectionFace(anchor.text, { usedFace, downgraded: anchor.downgraded, probe })
+  if (!state.present) {
+    return { rel: FAULT_INJECTION_MODULE, usedFace, undetermined: true, rules: 0 }
+  }
+  if (state.undetermined) {
     return {
       rel: FAULT_INJECTION_MODULE,
       present: true,
-      usedFace: anchor.usedFace,
+      usedFace,
       downgraded: anchor.downgraded,
-      undetermined: false,
-      ruleCount: probe.rules.length,
-      throwsOnBadRule,
-      operations: FAULT_OPERATIONS.length,
-    }
-  } catch (e) {
-    return {
-      rel: FAULT_INJECTION_MODULE,
-      present: true,
-      usedFace: anchor.usedFace,
       undetermined: true,
-      reason: e?.message ?? String(e),
+      reason: state.reason,
       rules: 0,
     }
+  }
+  return {
+    rel: FAULT_INJECTION_MODULE,
+    present: true,
+    usedFace,
+    downgraded: anchor.downgraded,
+    undetermined: false,
+    ruleCount: createFaultInjector([{ id: 'probe', code: 'EPERM' }]).rules.length,
+    throwsOnBadRule: probe(),
+    operations: FAULT_OPERATIONS.length,
   }
 }
 
@@ -1083,11 +1113,19 @@ function selfTest() {
     JSON.stringify(ff),
   )
   check(
-    'F23b 取不到时判未判定(绝不报成通过)—— 用一个不存在的仓根逼出取不到那一档',
-    (() => {
-      const missing = collectFaultInjectionFace(join(ROOT, 'no-such-repo-dir-815961'), 'head')
-      return missing.present === false && missing.undetermined === true
-    })(),
+    'F23b 取不到 ⇒ 判未判定、绝不报成通过(在**纯判定层**构造,不靠取材层撞出那一档)',
+    // ⚠️ 不可用"传一个不存在的仓根"来撞:取材的降级链会退到工作树照样取到(提交后实测转红)。
+    //   三态判定抽成纯函数 `classifyFaultInjectionFace` 后,这一档才能被稳定构造。
+    classifyFaultInjectionFace(null).undetermined === true &&
+      classifyFaultInjectionFace(null).present === false &&
+      // 判据自身抛 ⇒ 也是未判定,不是"取到了就算过"
+      classifyFaultInjectionFace('x', {
+        probe: () => {
+          throw new Error('probe boom')
+        },
+      }).undetermined === true &&
+      // 取到且判据可用 ⇒ 三态里的"已判定"那一档
+      classifyFaultInjectionFace('x', { probe: () => 1 }).undetermined === false,
   )
 
   console.log(`文件写盘安全对账 --self-test:${pass} 通过 / ${fail} 失败(共 ${pass + fail} 条)`)
@@ -1123,6 +1161,7 @@ export const __test__ = {
   inScope,
   listToolFiles,
   collectFaultInjectionFace,
+  classifyFaultInjectionFace,
   runAudit,
   // ↓ F 维度判据的**转手面**:镜像测试直接 import 生产侧那一份(`scripts/lib/fs-fault-injection.mjs`),
   // 这里只做再导出,免得镜像测试为了拿判据而在本仓里长出第二份注入器实现(§22c)。
