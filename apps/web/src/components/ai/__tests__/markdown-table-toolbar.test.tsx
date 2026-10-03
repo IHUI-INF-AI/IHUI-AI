@@ -179,7 +179,7 @@ describe('G-824 工具栏 —— 回读→复制/下载/全屏', () => {
 
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
     // 逐字断言:与上面 TABLE_MD 源表逐字一致(含分隔行)
-    expect(writeText.mock.calls[0][0]).toBe(TABLE_MD)
+    expect(writeText.mock.calls[0]![0]).toBe(TABLE_MD)
   })
 
   it('表格被中途改过 ⇒ 复制的是改后的 DOM 内容,不是 markdown 源码', async () => {
@@ -204,7 +204,7 @@ describe('G-824 工具栏 —— 回读→复制/下载/全屏', () => {
     fireEvent.click(container.querySelector('[data-testid="markdown-table-copy"]') as HTMLElement)
 
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
-    const copied = writeText.mock.calls[0][0] as string
+    const copied = writeText.mock.calls[0]![0] as string
     expect(copied).toBe('| 姓名 |\n| --- |\n| 李四 |')
     // 反向对照:旧值不得残留,否则说明它是从源码/初始 props 复制的
     expect(copied).not.toContain('张三')
