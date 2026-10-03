@@ -64,6 +64,9 @@ from ._load_lifecycle import (
 from ._load_lifecycle import (
     state_after_success as _state_after_success,
 )
+from ._load_lifecycle import (
+    state_label as _load_state_label,
+)
 from .differential_privacy import differential_privacy
 
 logger = logging.getLogger(__name__)
@@ -794,7 +797,13 @@ class FederatedLearner:
     # ==================================================================
 
     def get_status(self) -> dict[str, Any]:
-        """返回当前联邦学习器状态(供 API / 前端查看)。"""
+        """返回当前联邦学习器状态(供 API / 前端查看)。
+
+        G-759:`loaded`/`loadFailures`/`loadState` 三键把"读不到"与"读到但为空"
+        分开报(G-748 已把判定收到 _load_lifecycle,G-759 只补这层对外投影,
+        形状逐字对齐 ab_test_tracker.get_status 与 meta_learner.get_status)。
+        四态词汇只有一份实现,不许本模块写死字面量。
+        """
         lessons = list(self._cache)
         by_type: dict[str, int] = {
             "failure_pattern": 0,
@@ -814,7 +823,25 @@ class FederatedLearner:
             "totalLessons": len(lessons),
             "byType": by_type,
             "avgConfidence": round(avg_confidence, 2),
+            # ⚠️ cacheLoaded **不是** loadState,也不是加载状态位:它的判据是
+            # `len(self._cache) > 0`,即**缓存规模**(内存里有没有 lesson),与
+            # `self._loaded`(是否成功完成过一次读取)**结构上无关**。
+            # 后果:读到权威空表(读成功、库里确实没有 federated lesson)时它为
+            # False,与"从未尝试加载"返回值完全相同 —— 下游**无法**据此区分
+            # "确实没有数据"与"读不到"。这正是 G-748 之前的静默口径。
+            # 本票**不改**它的语义(既有 tests/test_federated_learner.py 的
+            # `cacheLoaded is False` / `is True` 两处断言已把它钉成规格),
+            # 只用**新键** loadState 承载加载状态;要判"读没读到"请读 loadState。
             "cacheLoaded": len(self._cache) > 0,
+            # G-759(2026-10-03):把"读不到"与"读到但为空"分开报给运维 ——
+            # loaded=False ∧ loadFailures>0 是"读不到"(瞬时故障/已放弃自动重试),
+            # **不得被读成**"确实没有 federated lessons";loadState 给单一判读字段。
+            # 词汇表唯一来源 = _load_lifecycle.state_label(四态互不冒充;见该模块头注)
+            "loaded": self._loaded,
+            "loadFailures": self._load_failures,
+            "loadState": _load_state_label(
+                loaded=self._loaded, failures=self._load_failures
+            ),
         }
 
 
