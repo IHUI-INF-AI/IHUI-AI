@@ -15,13 +15,24 @@
  * runtimeChunk,保留 Taro 默认打包策略"),实测动态 import 会让构建在
  * "Module not found: ./import-analysis/scenarios"(exports 字段解析)处直接失败。
  *
- * 静态 import 会不会把 492KB 投影压进主包?**不会**,本轮已实测**:
+ * 静态 import 会不会把投影压进主包?**不会**,本轮已实测**:
  *   - 本页在 pkg-ai 分包(20 MB 上限,实测基线 570,982 B);
  *   - config/index.ts 的 `mini.optimizeMainPackage: { enable: true }` 会把**仅被分包引用**
  *     的公共代码自动下沉到分包(该开关正是为"主包 2 MB 硬上限"而设,见其文件头注);
  *   - 没有任何主包页引用本模块 ⇒ 投影落 pkg-ai,主包零增长(见交付报告的实测前后对比)。
  * 这也是"判据层 provenance.ts 刻意不静态引投影、只有本面板引"的原因:
  * 投影的**唯一**引用点在本分区内,下沉规则因此可判定。
+ *
+ * ## 本端吃的是 slim 投影(2026-10-03)
+ *
+ * 实测本页产物 736,316 B,其中目录投影 707,113 B = **96.03%**,而投影内 `template`
+ * 一个字段就占 89.4% —— 它是分析指令正文,不可裁。故 slim 只裁**纯展示**字段
+ * (`description` / `tags` / 分类的 category / categoryEn),实测省 33,778 B。
+ * 本面板因此经 `@ihui/shared/import-analysis/scenarios-slim` 消费(判据与拼装逻辑
+ * 仍与 web / RN 共用同一份 `provenance.ts`,三端推荐场景与拼出的指令逐字一致)。
+ * ⚠️ 下面所有场景展示都只读 slim 里**存在**的字段:原 `s.useCase || s.description`
+ * 已改为 `s.useCase` —— useCase 在本库 210/210 非空,两者本就是同一个值,
+ * 改后 UI 显示逐字不变,且不会露出 undefined。
  *
  * 发起不新造 LLM 调用链:onSubmit 抛出一条**普通用户消息**,页面侧跳聊天页
  * 由其既有 sendMessage(→ api/index 的 chatStream)发出,历史里的导入记录即本轮上下文。
@@ -37,7 +48,7 @@ import {
   recommendedScenarios,
   type ImportAnalysisCategory,
   type ImportAnalysisScenario,
-} from '@ihui/shared/import-analysis/scenarios'
+} from '@ihui/shared/import-analysis/scenarios-slim'
 import type { TtFn } from '@/i18n'
 
 export interface ImportAnalysisPanelProps {
@@ -165,7 +176,7 @@ export function ImportAnalysisPanel({
                     <ScenarioRow
                       key={s.id}
                       title={s.title}
-                      subtitle={s.useCase || s.description}
+                      subtitle={s.useCase}
                       active={selectedId === s.id}
                       onClick={() => {
                         setSelectedId(s.id)
