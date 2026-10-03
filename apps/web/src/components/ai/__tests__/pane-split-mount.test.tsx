@@ -59,9 +59,9 @@ function d73RenderPaneContent() {
       </div>
     )
   }
-  return (conversationId: string | null, paneId: string) => (
-    <D73PaneContent conversationId={conversationId} paneId={paneId} />
-  )
+  return function D73RenderPaneContent(conversationId: string | null, paneId: string) {
+    return <D73PaneContent conversationId={conversationId} paneId={paneId} />
+  }
 }
 
 /** 用判定层纯函数搭树(显式窗格 id,不依赖 store 计数器),再整树注入 store */
