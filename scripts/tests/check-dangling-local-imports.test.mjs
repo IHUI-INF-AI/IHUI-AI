@@ -29,6 +29,7 @@ import {
   buildAliasIndex,
   KNOWN_ALIAS_LEDGER,
   auditShadowJs,
+  d4ChannelBlind,
   probeTypeScriptSyntax,
   literalSpecTarget,
   mergeShadow,
@@ -49,6 +50,7 @@ test('源模块导出可单测的纯函数(§22c 前置条件;D3/D4 那几个必
     resolveAliasSpec,
     buildAliasIndex,
     auditShadowJs,
+    d4ChannelBlind,
     probeTypeScriptSyntax,
     literalSpecTarget,
     mergeShadow,
@@ -114,16 +116,21 @@ function runGuard() {
     try {
       GUARD_RUN = {
         rc: 0,
+        // stdio 三元组**不是可选的**:缺它时本机 spawn 恒 `EBUSY`(errno -4082,status=null,
+        // stdout 空),而本文件下面两条 catch 只取 e.stdout ⇒ 报成"报告缺 D4 计数行"/"rc=1 但
+        // 0 处未登记",即**尺子被环境故障伪装成判红**。门体自检里的 run() 早就写了这三行,
+        // 同一个仓库两处 spawn 一处写一处不写,漂移出来的就是这一族假红(2026-10-03 实测 7 例)。
         out: execFileSync(process.execPath, [GUARD], {
           cwd: ROOT,
           encoding: 'utf8',
           windowsHide: true,
           maxBuffer: 128 << 20,
           timeout: 420000,
+          stdio: ['ignore', 'pipe', 'pipe'],
         }),
       }
     } catch (e) {
-      GUARD_RUN = { rc: e.status ?? 1, out: String(e.stdout || '') }
+      GUARD_RUN = { rc: e.status ?? 1, out: String(e.stdout || '') + String(e.stderr || '') }
     }
   }
   return GUARD_RUN
@@ -245,16 +252,63 @@ test('D4 真仓历史 blob 阳性对照:6bf657df86^ 那枚影子 .js 必须被�
   assert.equal(after.targeted, 0, '那个 .js 已不在库 ⇒ 连"字面命中"都不该成立(有向存在性判据)')
 })
 
-test('D4 端到端计数行:字面命中必须 > 0 而判红候选 = 0(把"没扫到"与"扫过且干净"分开)', () => {
+test('D4 端到端计数行:落点必须 > 0 而判红候选 = 0(把"没扫到"与"扫过且干净"分开)', () => {
   const { out } = runGuard()
+  // 三数各钉一格,少一格都不行:
+  //  · 落点(scanned)= 采集口径 —— 0 ⇒ 门自己 exit 2,这一行压根不会被读到;
+  //  · 指向入库 .js(targeted) —— **允许 > 0**(本仓 8 个合规 .js 被字面命中),它不是判据;
+  //  · 判红候选 —— HEAD 上必须为 0。
   const m =
-    /D4 影子 \.js:被 '\.js' 说明符字面命中的入库 \.js (\d+) 个 \| 判红候选 (\d+) 个 \| 只报数\(同名对无人指向\)(\d+) 个/.exec(
+    /D4 影子 \.js:扫到的 '\.js' 说明符落点 (\d+) 个 \| 其中指向入库 \.js (\d+) 个 \| 判红候选 (\d+) 个 \| 只报数\(同名对无人指向\)(\d+) 个/.exec(
       out,
     )
   assert.ok(m, `报告缺 D4 计数行 ⇒ 这一维没上岗:${out.slice(0, 400)}`)
-  assert.ok(Number(m[1]) > 0, `字面命中 0 个 ⇒ 采集通道没吃到真数据,那句"候选 0"不作数:${out}`)
-  assert.equal(Number(m[2]), 0, `HEAD 上出现 ${m[2]} 个影子 .js ⇒ 有人把 .ts 的实现写进了同名 .js`)
+  assert.ok(Number(m[1]) > 0, `落点 0 个 ⇒ 采集通道没吃到真数据,那句"候选 0"不作数:${out}`)
+  assert.ok(Number(m[2]) > 0, `指向入库 .js 为 0 ⇒ 这一维在真仓上没碰到任何真实面(本仓应有 8 个):${out}`)
+  assert.equal(Number(m[3]), 0, `HEAD 上出现 ${m[3]} 个影子 .js ⇒ 有人把 .ts 的实现写进了同名 .js`)
   assert.ok(!/D4 未判定/.test(out), `D4 未判定必须清零后只在个别场合点名,不能常态挂着:${out}`)
+})
+
+/**
+ * 票面 G-815915 反假绿①「扫到 0 个候选判死不记绿」的**成对**证明。
+ *
+ * 为什么端到端那条不够:全量档的 exit 2 要么触发要么不触发,证明不了"判据本身挑对了口径"。
+ * 而这一格的口径正是本票最容易做错的一处 ———
+ *   正例:采集通道扫到 **0 个落点** ⇒ 必须判死(`d4ChannelBlind` 为真);
+ *   反例:落点扫到 N 个、但其中指向入库 `.js` 的为 **0** ⇒ **不得**判死。
+ * 反例这一侧是票面自己写下的状态(「现读覆盖面为 0」),真仓 HEAD 今天就是它(落点 1768 /
+ * 指向入库 8,但门必须容忍 `targeted` 为 0 这一格)。把判死挂到 `targeted` 上,尺子会在
+ * 票面描述的那个状态下恒红(§12e:唯一结局是各会话绕过钩子、连带废掉链上其余门)。
+ */
+test('D4 反假绿①:扫到 0 个落点判死,但"落点>0 而入库命中=0"必须放行(成对,防恒红)', () => {
+  // 正例:一条 `.js` 说明符都没有 ⇒ 采集通道什么也没递出来
+  const blind = auditShadowJs(
+    (p) => (p === 'a/i.ts' ? "export const x = 1" : 'export const A = 1'),
+    [],
+    new Set(['a/i.ts', 'a/b.ts']),
+  )
+  assert.equal(blind.scanned, 0, '构造面:没有 `.js` 说明符 ⇒ 落点必须真的是 0')
+  assert.equal(blind.targeted, 0)
+  assert.equal(d4ChannelBlind(blind), true, '扫到 0 个落点 ⇒ 必须判死不记绿')
+
+  // 反例:落点存在(指向未入库的 `.js`,这是本仓 1768 个落点的绝大多数形态)⇒ 尺子看过东西,不得判死
+  const seenNotTracked = auditShadowJs(
+    (p) => (p === 'a/i.ts' ? "export const x = 1" : null),
+    [{ target: 'a/ghost.js', by: 'a/i.ts', line: 1, spec: './ghost.js' }],
+    new Set(['a/i.ts']),
+  )
+  assert.equal(seenNotTracked.scanned, 1, '落点计数在"是否入库"过滤之前 —— 这一格必须被计入')
+  assert.equal(seenNotTracked.targeted, 0, '指向未入库 .js ⇒ targeted 仍是 0(这正是票面写的那一格)')
+  assert.equal(
+    d4ChannelBlind(seenNotTracked),
+    false,
+    '落点>0 而 targeted=0 ⇒ 不得判死(否则本仓常态被判红,门成恒红门)',
+  )
+
+  // 反向对照:门体真跑时这条判死必须真的拦下来(派生一次门体,--files 收窄到没有 .js 说明符的夹具)
+  const guardSrc = readFileSync(GUARD, 'utf8')
+  assert.match(guardSrc, /d4ChannelBlind\(shadowPending\)/, '判死必须挂在 D4 结果上,不能只定义不用')
+  assert.match(guardSrc, /采集通道断链/, '判死那一档必须自报"无法判定",不得静默放过')
 })
 
 /**
@@ -309,6 +363,9 @@ function runRev(args, env) {
       maxBuffer: 128 << 20,
       timeout: 420000,
       env: env ?? process.env,
+      // 与 runGuard 同一口径(见该处注释):缺 stdio ⇒ 本机 spawn 恒 EBUSY,而下面 catch
+      // 只取 stdout ⇒ 报成"应 exit 0"之类的假红。两处各写一遍必漂移,故同形。
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     return { rc: 0, out: String(out) }
   } catch (e) {

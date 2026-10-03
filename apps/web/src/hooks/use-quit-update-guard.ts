@@ -27,6 +27,16 @@ export interface QuitUpdateGuardState {
   total: number
 }
 
+export interface QuitUpdateGuard extends QuitUpdateGuardState {
+  /**
+   * 主动取消在飞的更新链(L5765 UI 侧取消入口;浏览器端为 no-op)。
+   * 语义对齐桥面:取消 = 「调用方不再等这个结论」,在飞的 downloadAndInstall
+   * 立刻以 `update_download_cancelled` 交出终态,退出链随后走"正常退出"兜底;
+   * 不谎称能中断字节流。
+   */
+  cancel: () => void
+}
+
 const INITIAL_STATE: QuitUpdateGuardState = {
   visible: false,
   status: null,
@@ -45,29 +55,37 @@ const INITIAL_STATE: QuitUpdateGuardState = {
  *
  * 浏览器端 isTauri()=false,此 hook 不执行任何副作用。
  */
-export function useQuitUpdateGuard() {
+export function useQuitUpdateGuard(): QuitUpdateGuard {
   const [state, setState] = React.useState<QuitUpdateGuardState>(INITIAL_STATE)
   // 用 ref 而非 `state.visible` 做重入判据:闭包读到的是 effect 建立那一刻的快照,
   // 而 effect 又依赖 [state.visible] —— 两者互相绕的结果是"链一断,再点退出被静默
   // 吞掉",用户只剩一个无按钮、无超时的全屏 alertdialog。ref 让 handler 与渲染解耦。
   const inFlightRef = React.useRef(false)
+  // L5765 UI 侧取消入口:每条更新链一个 controller,第二次退出请求 / cancel() 时中止。
+  const abortRef = React.useRef<AbortController | null>(null)
 
   React.useEffect(() => {
     if (!isTauri()) return
 
     const abortToIdle = () => {
       inFlightRef.current = false
+      abortRef.current = null
       setState({ ...INITIAL_STATE })
     }
 
     const handleQuitRequest = () => {
       if (inFlightRef.current) {
-        // 第二次及以后:用户已明确表达"现在就要退出",不再走更新链,
-        // 直接请 Rust 侧 quit_app(它自带到点强杀的兜底)。
+        // 第二次及以后:用户已明确表达"现在就要退出"。先中止在飞的更新链 ——
+        // 桥按 update_download_cancelled 交出终态(退出链 catch 后自行走"正常退出"),
+        // 再请 Rust 侧 quit_app(它自带到点强杀的兜底)。没有这一步,JS 链会一直挂到
+        // 退出链 90s 预算才收口。
+        abortRef.current?.abort()
         void quitApp().catch(abortToIdle)
         return
       }
       inFlightRef.current = true
+      const controller = new AbortController()
+      abortRef.current = controller
       setState({ ...INITIAL_STATE, visible: true, status: 'checking' })
 
       void quitAndUpdateIfNeeded(
@@ -83,6 +101,7 @@ export function useQuitUpdateGuard() {
         (status: QuitUpdateStatus) => {
           setState((prev) => ({ ...prev, status }))
         },
+        controller.signal,
       ).catch((e: unknown) => {
         // quitAndUpdateIfNeeded 内部已 catch 过一次并再调 quitApp;走到这里说明
         // 连那次 invoke 也失败了(Rust 侧没接住)。遮罩必须收起,否则界面没有任何出口。
@@ -95,6 +114,11 @@ export function useQuitUpdateGuard() {
     return () => window.removeEventListener('desktop-quit-request', handleQuitRequest)
   }, [])
 
-  return state
+  return {
+    ...state,
+    cancel: React.useCallback(() => {
+      abortRef.current?.abort()
+    }, []),
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
