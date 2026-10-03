@@ -783,6 +783,17 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
         "doc_ref": "app/services/agent_checkpoint.py:180",
         "reason_if_off": "",
     },
+    # 2026-10-03 补登记:该默认关 env 由并发会话引入但漏了台账(门 check-capability-matrix 判红,
+    # 报「J2 台账逃逸:生产能力状态再度不可知」)。按实际读取点登记,不凭记忆。
+    {
+        "key": "checkin_cron_enabled",
+        "env": "CHECKIN_CRON_ENABLED",
+        "default": "false",
+        "category": "开关类",
+        "owner_module": "app.services.checkin_scheduler",
+        "doc_ref": "app/services/checkin_scheduler.py:80",
+        "reason_if_off": "每日 08:05 签到定时任务默认关闭:属会真实写库的副作用,须显式开启",
+    },
 ]
 
 # 合法类别集合(测试与对账门共同引用的语义域)
