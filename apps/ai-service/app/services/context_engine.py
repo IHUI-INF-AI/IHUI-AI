@@ -259,6 +259,7 @@ class ContextEngine:
         query: str,
         top_k: int = 5,
         include_codebase: bool = True,
+        user_id: str | None = None,
     ) -> list[RetrievedContext]:
         """RAG 检索:基于 query 从历史消息 + 代码库检索相关上下文。
 
@@ -315,14 +316,16 @@ class ContextEngine:
         # 跨会话 RAG:检索代码库 chunk
         if include_codebase:
             try:
-                codebase_results = await self._search_codebase(query, top_k=3)
+                codebase_results = await self._search_codebase(query, top_k=3, user_id=user_id)
                 history_results.extend(codebase_results)
             except Exception as e:
                 logger.warning("retrieve_and_enrich codebase search failed (degrade): %s", e)
 
         return history_results
 
-    async def _search_codebase(self, query: str, top_k: int = 3) -> list[RetrievedContext]:
+    async def _search_codebase(
+        self, query: str, top_k: int = 3, user_id: str | None = None
+    ) -> list[RetrievedContext]:
         """跨会话 RAG:从 codebase_indexer 检索代码 chunk。
 
         降级:codebase_indexer 不可用 / API 调用失败 → 返回空列表(不影响主流程)。
@@ -330,12 +333,17 @@ class ContextEngine:
         Args:
             query: 自然语言查询。
             top_k: 返回 top-K 代码 chunk。
+            user_id: 调用者身份(2026-10-03 新增)。codebase_chunks 存用户代码
+                明文且已按归属隔离,api 侧据此过滤;不传则该源降级为空
+                (只丢代码上下文,不影响消息历史那一路)。
         """
         try:
             # 延迟导入避免循环依赖
             from .codebase_indexer import codebase_indexer
 
-            chunks = await codebase_indexer.search(query, top_k=top_k)
+            chunks = await codebase_indexer.search(
+                query, top_k=top_k, internal_user_id=user_id
+            )
             results: list[RetrievedContext] = []
             for chunk in chunks:
                 content = str(chunk.get("content", ""))
@@ -605,6 +613,7 @@ class ContextEngine:
                     query,
                     top_k=5,
                     include_codebase=True,
+                    user_id=user_id,
                 )
                 for r in rag_results:
                     source_str = r.source or "unknown"

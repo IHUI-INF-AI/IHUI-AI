@@ -27,13 +27,35 @@ from pathlib import Path
 from typing import Any
 
 from ._load_lifecycle import (
-    decide_attempt as _decide_attempt,
-    monotonic as _lifecycle_monotonic,
-    state_after_failure as _state_after_failure,
-    state_after_success as _state_after_success,
     DECISION_BACKOFF as _DECISION_BACKOFF,
+)
+from ._load_lifecycle import (
     DECISION_GAVE_UP as _DECISION_GAVE_UP,
 )
+from ._load_lifecycle import (
+    decide_attempt as _decide_attempt,
+)
+from ._load_lifecycle import (
+    monotonic as _lifecycle_monotonic,
+)
+from ._load_lifecycle import (
+    state_after_failure as _state_after_failure,
+)
+from ._load_lifecycle import (
+    state_after_success as _state_after_success,
+)
+from .ttl_json_store import (
+    load_ttl_records,
+    resolve_retention_days,
+    write_json_atomic,
+)
+
+_RETENTION_ENV = "AUDIT_LOG_RETENTION_DAYS"
+
+_DEFAULT_RETENTION_DAYS = 90
+_RETENTION_DAYS = resolve_retention_days(_RETENTION_ENV, _DEFAULT_RETENTION_DAYS)
+
+
 logger = logging.getLogger(__name__)
 
 # 保留的审计条目上限(环形截断)
@@ -107,20 +129,27 @@ class AuditLogStore:
         if decision == _DECISION_BACKOFF:
             return  # 退避窗口内:本次调用不打 IO
         try:
-            if self._file.exists():
-                raw = json.loads(self._file.read_text(encoding="utf-8"))
-                if isinstance(raw, list):
-                    fields = set(AuditEntry.__dataclass_fields__)
-                    for item in raw:
-                        if not isinstance(item, dict) or not item.get("id"):
-                            continue
-                        clean = {k: v for k, v in item.items() if k in fields}
-                        if not isinstance(clean.get("detail"), dict):
-                            clean["detail"] = {}
-                        self._entries.append(AuditEntry(**clean))
-                    # 超限截断(丢弃文件里最旧的)
-                    if len(self._entries) > self._limit:
-                        self._entries = self._entries[-self._limit :]
+            # 2026-10-03 数据出域合规整改:读取走 ttl_json_store(带保留期 + 存量
+            # 过期清理),不再裸 json.loads。外层的退避状态机是基线侧 G-758 的改动,
+            # 两侧在此归并:退避判定管"该不该试",TTL 管"读回来的算不算数"。
+            raw, dropped = load_ttl_records(
+                self._file,
+                retention_days=_RETENTION_DAYS,
+                shape="sequence",
+                max_items=self._limit,
+                validate=lambda item: isinstance(item, dict) and bool(item.get("id")),
+            )
+            if dropped:
+                logger.info("audit_log 加载:清理过期/超限条目 %d 条", dropped)
+            # ⚠ 本类在内存里存的是 **AuditEntry 对象**(self._entries),不是 dict ——
+            # 归并时曾误写成 `self._data = data`,那会把 list 塞进一个 dict 字段,
+            # 表现为 query() 恒返回 0 条(静默丢审计)。这里按 dataclass 重建。
+            fields = set(AuditEntry.__dataclass_fields__)
+            for item in raw:
+                clean = {k: v for k, v in item.items() if k in fields}
+                if not isinstance(clean.get("detail"), dict):
+                    clean["detail"] = {}
+                self._entries.append(AuditEntry(**clean))
             self._loaded, self._load_failures, self._load_next_attempt_s = _state_after_success()
         except Exception as e:
             self._load_failures, self._load_next_attempt_s = _state_after_failure(
@@ -131,11 +160,9 @@ class AuditLogStore:
     def _persist(self) -> None:
         """全量写回 JSON(尽力,失败降级内存保留)。调用方须持锁。"""
         try:
-            self._file.parent.mkdir(parents=True, exist_ok=True)
-            data = [e.to_dict() for e in self._entries]
-            self._file.write_text(
-                json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
-            )
+            # 2026-10-03 数据出域合规整改:原子写(临时文件 + os.replace),
+            # 避免崩在半截时盘上留一个坏 JSON(读侧会 fail-closed 成空 ⇒ 静默丢审计)。
+            write_json_atomic(self._file, [e.to_dict() for e in self._entries], indent=2)
         except Exception as e:
             logger.warning("audit_log 写盘失败(内存保留): %s", e)
 

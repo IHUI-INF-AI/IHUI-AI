@@ -880,6 +880,11 @@ LazyIndexStatus = Literal[
     "skipped-cooldown",
     "skipped-no-code-files",
     "skipped-over-limit",
+    # 2026-10-03 数据出域合规整改:用户尚未同意"代码内容发往外部 embedding 服务",
+    # 故不建索引(建索引会把源码切片送 llm_gateway.embed → 外部服务出域)。
+    # 状态单列一格而不是并进 over-limit:两者给出的用户动作完全不同 ——
+    # over-limit 是"仓库太大,建议缩小范围",not-consented 是"请先在设置里授权"。
+    "skipped-not-consented",
     "failed",
 ]
 
@@ -1039,6 +1044,21 @@ async def _lazy_index_and_research(
                 reason=f"传入的 path 不是可读目录({path}),未尝试建索引",
             )
         now = time.monotonic()
+        # ── 2026-10-03 数据出域合规整改:同意闸在建索引**之前** ──
+        # 懒索引会把源码切片送外部 embedding 服务(codebase_indexer →
+        # llm_gateway.embed → litellm.aembedding),属代码出域。用户未就此明确
+        # 同意时不得建索引,本轮直接给"未授权"这一格结论,让主搜索回落到正则
+        # 通道(功能降级但零出域)。放在探测之前是刻意的:探测本身只数文件个数
+        # 不读内容,放行它无害,但**建索引这一步必须卡死**,故此处即返回。
+        if not _code_index_egress_allowed(internal_user_id):
+            return LazyIndexOutcome(
+                results=[],
+                status="skipped-not-consented",
+                reason=(
+                    "尚未同意将代码内容用于外部语义索引(该操作会把源码发往外部 "
+                    "embedding 服务)。如需开启,请在设置中授权;本轮已回落到关键词检索。"
+                ),
+            )
         # 2026-09-10 修复:缺省哨兵不得用 0.0 —— monotonic() 从进程/系统启动起计,
         # 新启动机器上可能小于冷却窗口,0.0 哨兵会误判为"冷却中"而跳过索引。
         # 改为显式区分"从未运行"(None)与"运行过"(时间戳)。
@@ -1070,7 +1090,11 @@ async def _lazy_index_and_research(
         if not guard.allow:
             return LazyIndexOutcome(results=[], status=guard.status, reason=guard.reason, guard=guard)
         await indexer.index_repository(str(root), incremental=True, internal_user_id=internal_user_id)
-        results = cast(list[dict[str, Any]], await indexer.search(query, top_k=max_results))
+        # 2026-10-03:检索同样带归属(api 侧按 owner_uuid 隔离检索面)
+        results = cast(
+            list[dict[str, Any]],
+            await indexer.search(query, top_k=max_results, internal_user_id=internal_user_id),
+        )
         if results:
             return LazyIndexOutcome(results=results, status="searched", reason=None, guard=guard)
         # 建完索引仍然零命中:这是唯一"空但没有理由"合法的一格 —— 仍然给一句
@@ -1092,8 +1116,30 @@ async def _lazy_index_and_research(
         )
 
 
+def _code_index_egress_allowed(internal_user_id: str | None) -> bool:
+    """该用户是否已同意"源码发往外部 embedding 服务"(2026-10-03 出域闸)。
+
+    判据全部委托 `code_index_consent.has_consent`,本函数只做**归属**保障:
+    同意是 per-user 的,而工具入参里的 `__user_id` 由服务端注入(G6,LLM 不可控),
+    因此不需要也不接受"调用方自称已获授权"这类入参 —— 那样任何 agent 都能
+    给自己造授权。未登录态(internal_user_id 为空)在全局默认未开时按未同意处理。
+    """
+    try:
+        from .code_index_consent import has_consent
+
+        return has_consent(internal_user_id)
+    except Exception:  # noqa: BLE001
+        # 同意存储异常时必须倒向"不出域"(fail-closed),绝不能因读不到就放行。
+        logger.error("读取代码索引出域同意失败,本轮按『未授权』处理(不建索引)", exc_info=True)
+        return False
+
+
 async def _tool_index_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     """index_codebase: 对本地代码库建立/刷新语义索引(Merkle 增量)。
+
+    ⚠ 该操作会把源码切片发往外部 embedding 服务计算向量(代码出域)。
+    2026-10-03 起须用户已明确授权(见 code_index_consent);未授权时本工具
+    不做任何索引,原样返回带 reason 的结论,不做静默降级。
 
     search_codebase 的语义/混合通道(pgvector + BM25 RRF)依赖本索引;
     首次语义搜索前建议显式调用,或依赖 search_codebase 的懒索引自动触发。
@@ -1105,6 +1151,20 @@ async def _tool_index_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     internal_user_id = arguments.get("__user_id") or None
     if not path:
         return {"tool": "index_codebase", "ok": False, "error": "path 不能为空"}
+    # 2026-10-03 数据出域合规整改:同意闸。建索引会把源码切片发往外部 embedding
+    # 服务,未获授权时**在读任何文件之前**就返回 —— 连文件都不碰,更谈不上出域。
+    # 这里刻意不接受"调用方传入已授权"之类的入参:同意必须来自服务端侧的
+    # per-user 记录,否则任何 agent 都能给自己造授权(与 wiki 闸同一纪律)。
+    if not _code_index_egress_allowed(internal_user_id):
+        return {
+            "tool": "index_codebase",
+            "ok": False,
+            "skipped": "not-consented",
+            "error": (
+                "尚未同意将代码内容用于外部语义索引:该操作会把源码切片发往外部 "
+                "embedding 服务。请在设置中授权后重试。"
+            ),
+        }
     try:
         from .codebase_indexer import codebase_indexer
         result = await codebase_indexer.index_repository(
@@ -1156,6 +1216,10 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     # V3 #75 后半:语义通道这一轮**为什么**没给结果,必须随响应回去。
     # None = 没走到懒索引那一步;非 None 时 status/reason 一定可读。
     semantic_index_field: dict[str, Any] | None = None
+    # 2026-10-03 数据出域合规整改:调用者身份(服务端注入,LLM 不可伪造)。
+    # 语义检索与懒索引都按归属隔离,不传则 api 侧 401 → 本轮降级为纯 regex 检索
+    # (功能降级但不泄露,且正则路径不碰数据库)。
+    _caller_user_id = arguments.get("__user_id") or None
 
     # 默认代码文件扩展名(若未指定 pattern)
     _CODE_EXTS = {
@@ -1198,7 +1262,10 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     if use_semantic:
         try:
             from .codebase_indexer import codebase_indexer
-            semantic_results = await codebase_indexer.search(query, top_k=max_results)
+            # 2026-10-03:检索按归属隔离(见 _caller_user_id 处注释)
+            semantic_results = await codebase_indexer.search(
+                query, top_k=max_results, internal_user_id=_caller_user_id
+            )
             # 2026-09-07 立:懒索引——空结果且 path 为本地目录时,增量索引后重搜一次
             # (根治:此前 index_repository 无调用方,语义/混合检索在生产运行时永远空表)
             if not semantic_results:
@@ -1207,7 +1274,7 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
                     query,
                     path,
                     max_results,
-                    internal_user_id=arguments.get("__user_id") or None,
+                    internal_user_id=_caller_user_id,
                 )
                 semantic_results = lazy.results
                 semantic_index_field = lazy.as_response_field()
@@ -2412,6 +2479,46 @@ def _consume_exec_approval(command: str) -> bool:
 _EXEC_ALLOWED_PREFIXES_MAX = 256
 _exec_allowed_prefixes: set[tuple[str, ...]] = set()
 
+# ---------------------------------------------------------------------------
+# 2026-10-03 数据出域合规整改:不可固化的前缀(excluded from prefix-grant)
+#
+# 问题:前缀规则是「永久放行」机制(双写持久层,重启后仍生效)。若允许对
+# 出域类命令登记前缀,则 PROMPT 确认门可被一次性绕过 —— 而且绕得比看上去更宽:
+#   1. tokens=2 的默认语义下,用户为 `git push --force origin main` 点一次
+#      「以后都允许」,登记的是 ("git","push"),于是**所有** git push 永久放行;
+#   2. tokens=1 更极端:登记 ("git",) 就等于给 **git 全部子命令**开了万能钥匙,
+#      连 DENY 红线之外的任意推送/删除都一并放行。
+# 这与 2026-09 智谱 ZCode 事件同源:代码在用户未逐次确认的情况下流到了外部。
+#
+# 对策:下列前缀**不允许**被登记为永久放行规则。用户在审批弹窗里仍可选择
+# 「仅本次放行」(走一次性放行通道,不入本表),逐次决策权保留;但「以后都允许」
+# 对它们永久不可用。
+#
+# 判据只此一份(新形态必须加到这里,不要在别处另抄):
+#   - 判在**前缀首 token 与次 token** 上,故 ("git",) 这类单 token 登记因覆盖
+#     ("git","push") 而同样被拒(见 _is_non_persistable_prefix)。
+# ---------------------------------------------------------------------------
+_NON_PERSISTABLE_PREFIXES: frozenset[tuple[str, ...]] = frozenset(
+    {
+        ("git", "push"),  # 推送=代码出域,必须逐次确认
+    }
+)
+
+
+def _is_non_persistable_prefix(prefix: tuple[str, ...]) -> bool:
+    """该前缀是否覆盖了出域类不可固化命令(⇒ 禁止登记为永久放行)。
+
+    两种覆盖形态都要拒:
+      - prefix 本身就是被禁项或其更长前缀(如 ("git",)、("git","push","--force"));
+      - prefix 是被禁项的前缀(如 ("git",) 是 ("git","push") 的前缀)。
+    前者防止"精确登记",后者防止"用更短的万能钥匙一次放行一大片"。
+    """
+    for banned in _NON_PERSISTABLE_PREFIXES:
+        n = min(len(prefix), len(banned))
+        if n > 0 and prefix[:n] == banned[:n]:
+            return True
+    return False
+
 
 def _command_tokens(command: str) -> list[str]:
     """命令切词(Windows 用非 posix 模式,保留引号以贴合 cmd 语义)。"""
@@ -2450,6 +2557,12 @@ def approve_exec_prefix(command: str, tokens: int = 2) -> tuple[str, ...] | None
     except Exception:  # noqa: BLE001 - 失败回退原切词
         pass
     prefix = tuple(parts[: max(1, tokens)])
+    # 2026-10-03 数据出域合规整改:出域类命令禁止"以后都允许"(永久放行)。
+    # 拒绝登记 ⇒ 该命令此后每次都重新走审批弹窗。逐次决策权不可被一次性授权
+    # 代替 —— 这是 ZCode 事件的直接教训(代码在用户未逐次确认下流到外部)。
+    # 注意这**不**拒绝对应的执行本身:用户在弹窗里选"仅本次放行"仍可执行。
+    if _is_non_persistable_prefix(prefix):
+        return None
     if len(_exec_allowed_prefixes) >= _EXEC_ALLOWED_PREFIXES_MAX:
         _exec_allowed_prefixes.clear()  # 容量上限:整体清空而非逐条淘汰(与一次性放行同策略)
     _exec_allowed_prefixes.add(prefix)
@@ -2517,13 +2630,32 @@ def _matches_exec_prefix(command: str) -> bool:
         parts = _command_tokens(command)
     if not parts:
         return False
+    # 内存表命中同样要过不可固化判据(2026-10-03)。三处都要堵,缺一即失效:
+    #   登记侧 —— 阻止新增"以后都允许";
+    #   内存表 —— 挡住本次进程内已登记的条目(含热更/其他调用点写入);
+    #   持久层 —— 挡住上线前已落盘的存量授权(重启后恢复的那批)。
+    # 只堵登记侧是最常见的疏漏:规则在进程内被写入内存表后,匹配侧不看判据
+    # 就等于闸门不存在(本条即 2026-10-03 自测时实测到的真缺陷,不是假想)。
+    #
+    # 判据取 **本次命令** 的形态而非登记的 prefix:存量 ("git",) 这把万能钥匙对
+    # `git status` 应继续有效(只读,收紧了就是过度整改,审批会变噪声、用户最终
+    # 全点同意),只对 `git push ...` 这类出域形态失效。
+    command_is_egress = _is_non_persistable_prefix(tuple(parts))
     for prefix in _exec_allowed_prefixes:
-        if parts[: len(prefix)] == list(prefix):
+        if parts[: len(prefix)] == list(prefix) and not command_is_egress:
             return True
     # 批 51b:内存未命中 → 查持久层(重启恢复;fail-closed——查询异常视为未命中)。
+    #
+    # 2026-10-03 数据出域合规整改:持久层命中前**先过不可固化判据**。
+    # 原因:本代码上线前用户可能已对 `git push` 登记过前缀规则(登记口当时没有
+    # 这道闸),那些规则连同 SCOPE_ALWAYS 授权已落盘。若只在登记侧加闸而不在
+    # 匹配侧加闸,历史存量规则会继续永久放行出域命令 —— 等于整改没生效。
+    # 这一层用命中到的 prefix 直接判,存量与新登记一视同仁。
     try:
         from . import approval_persistence as _ap
 
+        if command_is_egress:
+            return False  # 出域命令:持久层(存量授权)一律不得放行
         persisted = _ap.check(
             _ap.normalize_exec_key(parts), _ap.KIND_EXEC_PREFIX
         )

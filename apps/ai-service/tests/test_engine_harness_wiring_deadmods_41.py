@@ -66,20 +66,41 @@ def test_canonical_complex_scripts_not_cross_matched():
 
 
 def test_prefix_rule_via_canonical():
-    """前缀规则:包装形态登记,直接形态命中(键空间一致)。"""
+    """前缀规则:包装形态登记,直接形态命中(键空间一致)。
+
+    2026-10-03 数据出域合规整改:命令由 `git push` 换成 `pnpm install`。
+    原用例登记 `bash -lc 'git push origin main'` 并期望命中裸形态 —— 该命令
+    现已列入 _NON_PERSISTABLE_PREFIXES,登记口按设计拒绝(规范化后仍是 push,
+    这正是"包装形态绕不过判据"的体现,由 test_exec_egress_no_persist_prefix.py
+    的 test_explicit_false 类用例与本文件的后续专项覆盖)。本用例保留原意图:
+    验证 `bash -lc` 包装形态与直接形态落在同一键空间,该机制对非出域命令不变。
+    """
     from app.services.mcp_server import (
         _matches_exec_prefix,
         approve_exec_prefix,
         revoke_exec_prefix,
     )
 
-    prefix = approve_exec_prefix("bash -lc 'git push origin main'")
+    prefix = approve_exec_prefix("bash -lc 'pnpm install --frozen-lockfile'")
     assert prefix is not None
     try:
-        assert _matches_exec_prefix("git push origin main") is True
-        assert _matches_exec_prefix("git status") is False
+        assert _matches_exec_prefix("pnpm install --prod") is True
+        assert _matches_exec_prefix("pnpm build") is False
     finally:
         assert revoke_exec_prefix(list(prefix)) is True
+
+
+def test_wrapped_egress_command_refused_at_registration():
+    """包装形态(`bash -lc 'git push ...'`)不得绕过出域禁令。
+
+    2026-10-03 新增:登记前有 canonicalize 归一,包装形态会被剥成 (git,push),
+    故第一道闸(登记口拒绝)就足以拦住 —— 本用例把这条性质钉死,防止将来有人
+    把 canonicalize 挪到闸门之后,导致 `bash -lc` 成为绕过前缀禁令的后门。
+    """
+    from app.services.mcp_server import approve_exec_prefix
+
+    assert approve_exec_prefix("bash -lc 'git push origin main'") is None
+    assert approve_exec_prefix("sh -c 'git push origin main'") is None
 
 
 def test_empty_and_degenerate_inputs():
