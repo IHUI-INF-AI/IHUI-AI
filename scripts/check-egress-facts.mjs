@@ -395,7 +395,7 @@ const PARITY_URLS = [
   'https://api.openai.com/v1/models',
   'not a url',
 ]
-/** 与 packages/types/src/egress-facts.ts 的 EGRESS_FACT_FIELDS 同名同序(唯一上游在那边)。 */
+/** 与 packages/types/src/egress-facts.ts 的 EGRESS_FACT_FIELDS 同名同序(唯一上游在那边;G-750 起含末跳两字段)。 */
 const PARITY_FACT_FIELDS = [
   'targetHostname',
   'urlParseable',
@@ -409,6 +409,8 @@ const PARITY_FACT_FIELDS = [
   'noProxyVar',
   'customCa',
   'policyDeclined',
+  'finalHostname',
+  'redirectCount',
 ]
 /** 本语料涉及的变量在宿主 env 里都可能已存在 ⇒ 先逐条剥掉再灌语料,不得盲留。 */
 const PARITY_MANAGED_VARS = [
@@ -426,7 +428,7 @@ const PARITY_MANAGED_VARS = [
   'NODE_TLS_CA_CERTS',
 ]
 
-/** 等值判据:12 字段逐字段比(数组按 JSON 序列化比 —— 顺序本身是事实的一部分)。 */
+/** 等值判据:14 字段逐字段比(数组按 JSON 序列化比 —— 顺序本身是事实的一部分)。 */
 function egressFactsEqual(a, b) {
   for (const field of PARITY_FACT_FIELDS) {
     if (JSON.stringify(a[field]) !== JSON.stringify(b[field])) return false
