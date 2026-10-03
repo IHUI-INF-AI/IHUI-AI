@@ -683,7 +683,8 @@ export type {
   ChatRoomItem,
   ChatRoomScreenProps,
 } from './features/chat-room/ChatRoomScreen'
-/** 批次 29(2026-07-29):开发者入口(原 2 屏迁移自 mobile-rn;AI 主聊天屏 ChatScreen 为零消费方,已按 D137 决议于 2026-10-01 删除,类型契约 ChatScreen* 在 @ihui/types 保留) */
+/** 批次 29(2026-07-29):开发者入口(原 2 屏迁移自 mobile-rn)。D137 纠偏(2026-10-01):其"ChatScreen 零消费方"前提被证伪 —— apps/mobile-rn/src/screens/ChatScreen.tsx:128 自 @ihui/rn-app import 并于 :2515 整屏渲染;文件已被后续提交恢复回盘,本行补回配套导出。类型契约 ChatScreen* 仍在 @ihui/types。 */
+export { ChatScreen } from './features/chat/ChatScreen'
 export { DeveloperScreen } from './features/developer/DeveloperScreen'
 /**
  * D78 连接器授权卡(G-107):对话流内渲染件。五态/四动词与
