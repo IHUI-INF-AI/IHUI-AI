@@ -339,6 +339,11 @@ jobs:
           )
           asyncio.run(_ensure_metrics_table())
           asyncio.run(_ensure_style_check_table())
+          # 2026-10-03 补:签到助手三表(checkin_accounts/records/error_counts)同为
+          # ai-service 启动时幂等自建(ensure_tables),不在 drizzle 迁移内;
+          # 不加则 schema_check 恒报"checkin_* 表不存在 — 数据孤岛"。
+          from app.services.checkin_store import ensure_tables as _ensure_checkin_tables
+          asyncio.run(_ensure_checkin_tables())
           "
 
       - name: Run ai-service schema_check against test DB
