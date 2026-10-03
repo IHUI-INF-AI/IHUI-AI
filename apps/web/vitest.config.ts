@@ -24,7 +24,22 @@ export default defineConfig({
     environment: 'happy-dom',
     // tests/visual/*.spec.ts 由 Playwright 跑(playwright.config.ts),不归 vitest 管
     // 加上 tests/visual/** 排除,避免 vitest 把 `test.describe` 当作未知 API
-    exclude: ['**/node_modules/**', '**/e2e/**', '**/tests/visual/**'],
+    //
+    // 2026-10-03(G-1018201)'**/.ihui-agent/**':本仓 .ihui-agent/tmp/ 里存着他人留下的
+    // HEAD 整仓副本(实测单份 200+ 份 *.test.ts),而 vitest 4.1.10 的收集面用 tinyglobby
+    // 且显式 `dot: true`(见 vitest dist cli-api*.js 的 globFiles)⇒ 点目录被**主动穿透**,
+    // 副本里的 .test.ts 与本包真测试同形,会被一并收进当次运行(实测 apps/web 收集面
+    // 484 → 687 份,虚增 42%,且副本是 HEAD 快照 ⇒ 报的是已修/已删用例的错,
+    // 栈帧还被 sourcemap 映回本包源码,看起来像本包测试坏了)。
+    // `.gitignore` 的 `.ihui-agent/*` 拦不住这件事:那只管 git,收集面走的是文件系统 glob。
+    // 必须带 `**/` 前缀:实测 picomatch.isMatch 下 `.ihui-agent/**` 只匹配顶层那一份,
+    // 放过 `src/x/.ihui-agent/**` 这类任意嵌套落点(工位/工作树常直接落在包目录下)。
+    exclude: [
+      '**/node_modules/**',
+      '**/e2e/**',
+      '**/tests/visual/**',
+      '**/.ihui-agent/**',
+    ],
     // 2026-08-06 根治 .vite-temp 缓存污染:vite 的 loadConfigFromBundledFile 把转译后的
     // TS 配置文件写入 node_modules/.vite-temp/,多 vitest 进程/worker 并发写同一目录时
     // 互相覆盖 → 残留损坏 mjs → 全量跑偶发"49 失败"/空输出。

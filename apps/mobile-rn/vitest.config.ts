@@ -206,7 +206,17 @@ export default defineConfig({
       'src/**/tests/**/*.test.{ts,tsx}',
       'tests/**/*.test.{ts,tsx}',
     ],
-    exclude: ['**/node_modules/**', '**/.git/**', 'dist/**', 'tests/*-debug*.test.tsx'],
+    // 2026-10-03(G-1018201)'**/.ihui-agent/**':.ihui-agent/tmp/ 里存着他人留下的 HEAD
+    // 整仓副本,而 vitest 4.1.10 收集面显式 `dot: true` ⇒ 点目录被主动穿透,副本里与本包
+    // 同形的 *.test.ts(x) 会被收进当次运行。`.gitignore` 只管 git,拦不住文件系统 glob。
+    // 带 `**/` 前缀才覆盖任意嵌套落点(实测 picomatch 下 `.ihui-agent/**` 放过 `src/x/.ihui-agent/**`)。
+    exclude: [
+      '**/node_modules/**',
+      '**/.git/**',
+      'dist/**',
+      'tests/*-debug*.test.tsx',
+      '**/.ihui-agent/**',
+    ],
     environment: 'jsdom',
     // 固定测试环境变量:Vitest 会自动加载 .env 注入 process.env,
     // 若开发者本地 .env 指向生产域名(如 EXPO_PUBLIC_API_BASE_URL),会导致
