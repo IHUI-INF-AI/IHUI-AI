@@ -13,8 +13,16 @@ import { StreamRow, type StreamStatus } from '@/components/chat/stream/stream-ui
 import type { ToolCall } from '@ihui/types'
 import { advancePlayback, initialPlayback, traceStepDuration } from '@/lib/trace-replay'
 
-/** 回放步骤状态 → 活动行统一状态词汇 */
-const TRACE_STATUS: Partial<Record<ToolCall['status'], StreamStatus>> = {
+/**
+ * 回放步骤状态 → 活动行统一状态词汇。
+ *
+ * **完备 Record(G-815966)**:不用 `Partial`、不用 `as`。`ToolCall['status']` 是封闭集
+ * (`'running' | 'success' | 'error' | 'cancelled'`,packages/types/src/ai.ts:151),
+ * 该表必须列全四档 —— 新增一档状态而忘配展示时,`tsc` 直接报
+ * "Property 'newStatus' is missing",而不是运行时悄悄落到 `?? 'pending'`。
+ * 反向用例见 `__tests__/trace-status-exhaustive.test.ts`。
+ */
+export const TRACE_STATUS: Record<ToolCall['status'], StreamStatus> = {
   running: 'running',
   success: 'success',
   error: 'error',
@@ -150,7 +158,7 @@ export function TraceReplay({ toolCalls }: { toolCalls: ToolCall[] }) {
               {/* 回放步骤并入消息流活动行模板:同一字号/行高/状态图标,禁止再自配 9/10/11px 档,
                   也不得把 read_file 这类英文码名摆在界面上 */}
               <StreamRow
-                status={TRACE_STATUS[call.status] ?? 'pending'}
+                status={TRACE_STATUS[call.status]}
                 title={title}
                 subject={view.subject}
                 subjectKind={view.subjectKind}
