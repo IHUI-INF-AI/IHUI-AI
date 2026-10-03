@@ -337,6 +337,10 @@ jobs:
               _ensure_metrics_table,
               _ensure_style_check_table,
           )
+          # 2026-10-03 修复:此前只 import 未调用,publish_metrics/publish_style_check
+          # 两表从未落库,schema_check 恒报 exists=False。幂等建表,缺一即红。
+          asyncio.run(_ensure_metrics_table())
+          asyncio.run(_ensure_style_check_table())
           "
       - name: Create checkin tables (raw conn + self-verify)
         working-directory: apps/ai-service
@@ -345,22 +349,6 @@ jobs:
         # 静默失配(run 37090730137 实测),故改裸连接建表并当步自验,缺表即红。
         # 注意:本块 python/SQL 内禁用美元符(bash 双引号会吞 $param,run 37092664754 教训)。
         run: |
-          python -c "
-          import asyncio, asyncpg
-          from app.core.config import settings
-          from app.services.checkin_store import ensure_tables_conn
-          async def main():
-              conn = await asyncpg.connect(dsn=settings.database_url)
-              try:
-                  await ensure_tables_conn(conn)
-                  q = 'SELECT count(*) FROM information_schema.tables WHERE table_name LIKE ' + chr(39) + 'checkin%' + chr(39)
-                  n = await conn.fetchval(q)
-                  print('[ci] checkin tables visible:', n)
-                  assert n == 3, 'checkin tables missing: %s' % n
-              finally:
-                  await conn.close()
-          asyncio.run(main())
-          "
           python -c "
           import asyncio, asyncpg
           from app.core.config import settings
