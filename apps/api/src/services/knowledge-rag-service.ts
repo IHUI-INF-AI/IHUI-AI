@@ -69,6 +69,40 @@ async function getEmbedding(text: string): Promise<number[] | null> {
   }
 }
 
+/**
+ * 导入会话的 knowledge_doc.source_type 取值(2026-10-03 立)。
+ *
+ * 为什么不复用 'text':会话不是纯文本,是带发言人/时间轴/来源归属的结构化记录。
+ * 全仓 grep 坐实 knowledge_doc.source_type 无任何消费点按值分支(其余 sourceType
+ * 命中全属 registry 域),该列是 varchar(20) 且无 CHECK 枚举约束 ⇒ 新增取值零迁移。
+ * 写成 'text' 的话,将来无法把"用户导入的群聊"与"用户手打的纯文本"区分开。
+ */
+export const CONVERSATION_IMPORT_SOURCE_TYPE = 'conversation_import'
+
+/**
+ * 把会话消息拼成一份可入库的转录文本。
+ *
+ * 逐条 `[时间] 发言人：正文`,微信来源的发言人已由解析器写进正文前缀
+ * (`昵称：正文`,wechat.py 定稿不改),这里原样保留,不去二次解析 ——
+ * 二次解析等于把"发言人是谁"这件事在两个正则实现之间再漂一次。
+ *
+ * 时间戳缺失时省略该前缀(而不是塞 Import 时刻 —— 那等于往知识库里写假时间)。
+ */
+export function buildConversationTranscript(
+  messages: Array<{ role: string; content: string; createdAt?: Date | null }>,
+): string {
+  const lines: string[] = []
+  for (const m of messages) {
+    const content = m.content?.trim()
+    if (!content) continue
+    const ts = m.createdAt instanceof Date && !Number.isNaN(m.createdAt.getTime())
+      ? m.createdAt.toISOString()
+      : ''
+    lines.push(ts ? `[${ts}] ${content}` : content)
+  }
+  return lines.join('\n')
+}
+
 const WORD_RE = /[\w\u4e00-\u9fff]+/g
 function keywordScore(query: string, content: string): number {
   const qSet = new Set(query.toLowerCase().match(WORD_RE) ?? [])
@@ -101,17 +135,39 @@ export interface DocDetail extends DocSummary {
 }
 
 class KnowledgeRagService {
-  /** 文本入库, 返回切片数量 */
-  async ingestText(opts: {
+  /**
+   * 文本入库的**唯一实现**(切片 + embedding + 写 knowledge_doc + knowledge_chunk)。
+   *
+   * 2026-10-03:原先这段逻辑直接写在 `ingestText` 里,现下沉为 `_ingestChunks` 私有出口,
+   * `ingestText` / `ingestConversation` 两个公开入口都走它 —— 新增来源(导入会话)
+   * 复用同一条分块/向量化/入库路径,而不是另写一套再漂移。
+   *
+   * @param opts.sourceType 落到 knowledge_doc.source_type 的取值
+   * @param opts.sourcePath 可选来源路径(溯源用,如 `conversation:<id>`)
+   * @param opts.metadataJson 可选元数据(JSON 字符串,存 conversationId 等回溯信息)
+   * @returns 新建的 docId 与切片数
+   */
+  private async _ingestChunks(opts: {
     ownerUuid: string
     title: string
     text: string
+    sourceType: string
     collectionName?: string
-  }): Promise<number> {
-    const { ownerUuid, title, text, collectionName = 'default' } = opts
-    if (!text || !text.trim()) return 0
+    sourcePath?: string | null
+    metadataJson?: string | null
+  }): Promise<{ docId: number; chunkCount: number }> {
+    const {
+      ownerUuid,
+      title,
+      text,
+      sourceType,
+      collectionName = 'default',
+      sourcePath = null,
+      metadataJson = null,
+    } = opts
+    if (!text || !text.trim()) return { docId: 0, chunkCount: 0 }
     const chunks = splitText(text)
-    if (chunks.length === 0) return 0
+    if (chunks.length === 0) return { docId: 0, chunkCount: 0 }
 
     const contentHash = createHash('md5').update(text, 'utf8').digest('hex')
     const [doc] = await db
@@ -120,10 +176,12 @@ class KnowledgeRagService {
         ownerUuid,
         collectionName,
         title,
-        sourceType: 'text',
+        sourceType,
+        sourcePath,
         contentHash,
         chunkCount: chunks.length,
         status: 'active',
+        metadataJson,
       })
       .returning({ id: knowledgeDoc.id })
     if (!doc) throw new Error('Failed to insert knowledge doc')
@@ -143,7 +201,97 @@ class KnowledgeRagService {
       }),
     )
     await db.insert(knowledgeChunk).values(chunkRows)
-    return chunks.length
+    return { docId: doc.id, chunkCount: chunks.length }
+  }
+
+  /** 文本入库, 返回切片数量 */
+  async ingestText(opts: {
+    ownerUuid: string
+    title: string
+    text: string
+    collectionName?: string
+  }): Promise<number> {
+    const { ownerUuid, title, text, collectionName = 'default' } = opts
+    const { chunkCount } = await this._ingestChunks({
+      ownerUuid,
+      title,
+      text,
+      sourceType: 'text',
+      collectionName,
+    })
+    return chunkCount
+  }
+
+  /**
+   * 外部导入会话入库(2026-10-03 立,"导入的会话进知识库、可被 RAG 检索"那一层)。
+   *
+   * 背景:导入管道只把会话落进 chat_conversations + chat_messages,知识库入库路径
+   * (ingestText / ingestFile)只认文件与纯文本 ⇒ 用户导一堆微信群聊记录进来,内容躺在
+   * 会话表里,`knowledgeRagService.search` 永远召不回,等于死文字。本方法补这条缺口。
+   *
+   * 设计要点:
+   * - **复用 `_ingestChunks`**(与文件/纯文本入库同一条分块 + embedding + 写库路径),
+   *   不另写一套入库。
+   * - **sourceType 用 `conversation_import`** 而非 `text`:会话不是纯文本,是带
+   *   发言人/时间轴/来源归属的结构化记录。全仓 grep 坐实 knowledge_doc.source_type
+   *   没有任何消费点按值分支(其余 sourceType 命中全属 registry 域),且该列是
+   *   varchar(20) 无 CHECK 枚举约束 ⇒ 新增取值零迁移、零破坏。将来要按来源过滤/展示
+   *   时这个值就是唯一抓手;若图省事写 `text`,事后无法与"用户手打的纯文本"区分。
+   * - **幂等靠 contentHash**:`content_hash` 列早就在(ingestText 一直在写),但**没有**
+   *   唯一索引,重复入库不会被 DB 挡住 ⇒ 这里显式"先查后写"。查的是
+   *   (ownerUuid, contentHash, sourceType, status='active') 四元组:同会话重复点
+   *   「加入知识库」直接命中已有 doc 返回,不产生第二批重复 chunk;会话内容变了
+   *   (hash 变)则视为新知识追加一篇,符合"重新导入更新知识"的直觉。
+   * - **失败向上抛**,由路由层写 conversation_imports 留痕(见 conversation-knowledge.ts),
+   *   绝不在此静默吞掉。
+   */
+  async ingestConversation(opts: {
+    ownerUuid: string
+    conversationId: string
+    title: string
+    source: string
+    /** 按时间升序的会话消息 */
+    messages: Array<{ role: string; content: string; createdAt?: Date | null }>
+    collectionName?: string
+  }): Promise<{ docId: number; chunkCount: number; deduped: boolean }> {
+    const { ownerUuid, conversationId, title, source, messages, collectionName = 'default' } = opts
+    const text = buildConversationTranscript(messages)
+    if (!text) return { docId: 0, chunkCount: 0, deduped: false }
+
+    // 幂等:同 owner + 同内容指纹 + 同来源类型已入库 → 直接复用,不重复切 chunk
+    const contentHash = createHash('md5').update(text, 'utf8').digest('hex')
+    const existing = await db
+      .select({ id: knowledgeDoc.id, chunkCount: knowledgeDoc.chunkCount })
+      .from(knowledgeDoc)
+      .where(
+        and(
+          eq(knowledgeDoc.ownerUuid, ownerUuid),
+          eq(knowledgeDoc.contentHash, contentHash),
+          eq(knowledgeDoc.sourceType, CONVERSATION_IMPORT_SOURCE_TYPE),
+          eq(knowledgeDoc.status, 'active'),
+        ),
+      )
+      .limit(1)
+    if (existing[0]) {
+      return { docId: existing[0].id, chunkCount: existing[0].chunkCount, deduped: true }
+    }
+
+    const { docId, chunkCount } = await this._ingestChunks({
+      ownerUuid,
+      title,
+      text,
+      sourceType: CONVERSATION_IMPORT_SOURCE_TYPE,
+      collectionName,
+      // 溯源:一眼看出这篇知识来自哪个会话(与 source_type 配合,便于回溯与人工清理)
+      sourcePath: `conversation:${conversationId}`,
+      metadataJson: JSON.stringify({
+        conversationId,
+        importedFrom: source,
+        messageCount: messages.length,
+        ingestedVia: 'conversation-import',
+      }),
+    })
+    return { docId, chunkCount, deduped: false }
   }
 
   /** 文件入库:解析多格式文件 → 走 ingestText 切片 + embedding
