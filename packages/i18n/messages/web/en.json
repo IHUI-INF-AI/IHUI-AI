@@ -11794,7 +11794,8 @@
     "reasoningEffortMedium": "Balanced",
     "reasoningEffortHigh": "Deep",
     "reasoningEffortUnsupported": "This model does not allow choosing a reasoning depth",
-    "reasoningEffortFallback": "Reasoning depth adjusted by the server: {requested} → {effective}"
+    "reasoningEffortFallback": "Reasoning depth adjusted by the server: {requested} → {effective}",
+    "analysisOpen": "View Scenario Analysis"
   },
   "chatHistory": {
     "moveToGroup": "Move to group",
@@ -12033,7 +12034,8 @@
     "toKnowledgeFailed": "Failed to add to knowledge base: {error}",
     "toKnowledgeAlready": "In knowledge base",
     "sourceWechat": "WeChat",
-    "sourceWechatHint": "Chat transcript exported from WeChat \"Merge & Forward\" (聊天记录.txt or its .zip)"
+    "sourceWechatHint": "Chat transcript exported from WeChat \"Merge & Forward\" (聊天记录.txt or its .zip)",
+    "noValidContent": "No importable content found"
   },
   "commandPalette": {
     "groups": {
@@ -22063,7 +22065,13 @@
     "agentSecuritySaveSuccess": "Security config saved",
     "agentSecuritySaveFailed": "Failed to save security config",
     "analyticsEnabled": "Usage analytics",
-    "analyticsEnabledDesc": "When on, the platform records anonymous feature-usage events (clicks, page visits, timings) to improve the product. It never records the content, code, or file paths you enter. Turning this off stops reporting immediately and affects no feature."
+    "analyticsEnabledDesc": "When on, the platform records anonymous feature-usage events (clicks, page visits, timings) to improve the product. It never records the content, code, or file paths you enter. Turning this off stops reporting immediately and affects no feature.",
+    "llmRawRetentionOptOut": "Don't Retain LLM Conversation Text",
+    "llmRawRetentionOptOutDesc": "Your prompts and AI replies are never written to the database",
+    "codeIndexEgressOptOut": "Don't Build Code Semantic Index",
+    "codeIndexEgressOptOutDesc": "Code snippets are never sent out for vector indexing",
+    "autoMemoryOptOut": "Turn Off Auto Long-term Memory",
+    "autoMemoryOptOutDesc": "Conversations won't be distilled into cross-session preferences"
   },
   "shareContentPage": {
     "aiGenerated": "Zhihui AI Generated",
