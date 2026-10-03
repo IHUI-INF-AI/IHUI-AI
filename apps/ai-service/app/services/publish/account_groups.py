@@ -416,7 +416,10 @@ async def publish_to_group(group_id: str, body: GroupPublish, request: Request) 
         for m in members:
             aid = m["account_id"]
             row = await conn.fetchrow(
-                "SELECT platform, credentials_enc, display_name FROM publish_accounts WHERE id=$1 AND user_id=$2",
+                # 归属判据查询只取授权与业务必需列(platform/credentials_enc):
+                # display_name 在本函数体内从未被引用(G-998102),多取它只会让
+                # 一列用户可控的展示文本有机会把这条 404 判据查询拖成 500。
+                "SELECT platform, credentials_enc FROM publish_accounts WHERE id=$1 AND user_id=$2",
                 aid, user_id,
             )
             if not row:
@@ -560,7 +563,8 @@ async def batch_verify(request: Request) -> dict[str, Any]:
     try:
         await _ensure_tables(conn)
         rows = await conn.fetch(
-            "SELECT id, platform, credentials_enc, display_name FROM publish_accounts WHERE user_id=$1 AND status='active'",
+            # 同上(G-998102):批量校验只用 id/platform/credentials_enc,display_name 是死列。
+            "SELECT id, platform, credentials_enc FROM publish_accounts WHERE user_id=$1 AND status='active'",
             user_id,
         )
         results: list[dict[str, Any]] = []
@@ -619,7 +623,8 @@ async def get_cookie_health(account_id: int, request: Request) -> dict[str, Any]
     try:
         await _ensure_tables(conn)
         row = await conn.fetchrow(
-            "SELECT platform, display_name, status, last_verified_at, last_verify_msg, updated_at FROM publish_accounts WHERE id=$1 AND user_id=$2",
+            # 404 判据查询只取 payload 真正消费的 5 列;updated_at 同为死列(G-998102)。
+            "SELECT platform, status, last_verified_at, last_verify_msg FROM publish_accounts WHERE id=$1 AND user_id=$2",
             account_id, user_id,
         )
         if not row:
@@ -647,7 +652,8 @@ async def refresh_cookie(account_id: int, request: Request) -> dict[str, Any]:
     try:
         await _ensure_tables(conn)
         row = await conn.fetchrow(
-            "SELECT platform, display_name FROM publish_accounts WHERE id=$1 AND user_id=$2",
+            # 404 判据查询只取 platform(G-998102):display_name 在本函数体内从未被引用。
+            "SELECT platform FROM publish_accounts WHERE id=$1 AND user_id=$2",
             account_id, user_id,
         )
         if not row:
