@@ -81,7 +81,7 @@ async def _ensure_style_check_table() -> None:
             """
         )
     finally:
-        conn.close()
+        await conn.close()  # 2026-10-03 修复:原句漏 await,close 协程从未执行(连接泄漏)
 
 
 async def collect_metrics(
