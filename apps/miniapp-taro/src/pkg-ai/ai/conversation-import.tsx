@@ -255,16 +255,19 @@ export default function ConversationImportPage() {
    * prompt 走 url query:小程序页面间只有这一条既有数据通道,且 import-analysis 的
    * 拼装结果通常 1~3KB,远在 navigateTo 的 query 长度上限内。
    */
-  const onAnalyzeSubmit = useCallback((prompt: string) => {
-    const target = analysisTarget
-    setAnalysisTarget(null)
-    if (!target) return
-    Taro.navigateTo({
-      url:
-        `/pkg-ai/ai/chat?sessionId=${encodeURIComponent(target.conversationId)}` +
-        `&prompt=${encodeURIComponent(prompt)}`,
-    })
-  }, [analysisTarget])
+  const onAnalyzeSubmit = useCallback(
+    (prompt: string) => {
+      const target = analysisTarget
+      setAnalysisTarget(null)
+      if (!target) return
+      Taro.navigateTo({
+        url:
+          `/pkg-ai/ai/chat?sessionId=${encodeURIComponent(target.conversationId)}` +
+          `&prompt=${encodeURIComponent(prompt)}`,
+      })
+    },
+    [analysisTarget],
+  )
 
   return (
     <View className="flex flex-col h-screen bg-background">
@@ -331,7 +334,7 @@ export default function ConversationImportPage() {
           {source ? (
             <View className="mb-[32rpx]">
               <Button
-                className="h-[88rpx] leading-[88rpx] bg-card text-foreground rounded-md text-[length:28rpx]"
+                className="h-[88rpx] leading-[88rpx] bg-card text-foreground rounded-sm text-[length:28rpx]"
                 onClick={() => void onPick()}
               >
                 {tt('conversationImport.pickFile', '从微信会话中选择导出文件')}
@@ -348,7 +351,7 @@ export default function ConversationImportPage() {
                 </Text>
               ) : null}
               <Button
-                className="mt-[20rpx] h-[88rpx] leading-[88rpx] bg-primary text-[length:28rpx] rounded-md"
+                className="mt-[20rpx] h-[88rpx] leading-[88rpx] bg-primary text-[length:28rpx] rounded-sm"
                 disabled={!file || parsing}
                 onClick={() => void onParse()}
               >
