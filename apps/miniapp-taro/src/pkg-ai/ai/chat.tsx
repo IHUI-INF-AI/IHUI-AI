@@ -116,6 +116,14 @@ export default function ChatPage() {
   const routeAgentId = router.params.agentId || ''
   // 支持从历史页(/pkg-ai/ai/history?sessionId=)与首页抽屉(/pkg-ai/ai/chat?id=)跳转恢复会话
   const routeSessionId = router.params.sessionId || router.params.id || ''
+  /**
+   * D28 补齐层(2026-10-03):导入页「用场景分析」跳进来时带 prompt。
+   *
+   * 语义 = 进入并**恢复该会话**后,把这段文字作为下一条用户消息自动发出。
+   * 走既有 sendMessage(→ api/index 的 chatStream),不新造 LLM 调用链;
+   * 历史里的导入记录即本轮上下文(另起会话会让"基于这份记录分析"失去依据)。
+   */
+  const routeAutoSendPrompt = router.params.prompt || ''
   const [currentAgentId, setCurrentAgentId] = useState(routeAgentId)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [thinking, setThinking] = useState(false)
@@ -437,6 +445,17 @@ export default function ChatPage() {
    *   改为弹窗点名原因 + 给「重试」出口 —— 与历史页兜底条同一条 fail-closed 规矩。
    */
   const replayedSessionRef = useRef('')
+  /**
+   * D28 补齐层(2026-10-03):两个 ref 把"回放 → 自动发出"这条边接起来。
+   *
+   * `autoSendDoneRef` 保证同一段分析指令只发一次(本页每次 didShow 都会走回放那段);
+   * `sendMessageRef` 解决声明顺序 —— sendMessage 定义在下方,runServerReplay 在上方,
+   * 直接引用会撞 TDZ。用 ref 间接调用,与本文件既有的 captureScreenHandlerRef 同款。
+   */
+  const autoSendDoneRef = useRef(false)
+  const sendMessageRef = useRef<(overrideText?: string, baseHistory?: readonly ChatMessage[]) => Promise<void>>(
+    async () => {},
+  )
   const runServerReplay = useCallback(() => {
     if (!routeSessionId || replayedSessionRef.current === routeSessionId) return
     replayedSessionRef.current = routeSessionId
@@ -454,6 +473,18 @@ export default function ChatPage() {
         setInputValue('')
         setSelectedMaterial(null)
         scrollToBottom()
+        // D28 补齐层(2026-10-03):导入页「用场景分析」带来的分析指令,在**回放落定后**发出。
+        // 门必须落在回放成功分支内(而不是 didShow 末尾):sendMessage 用的是闭包里的
+        // messages,历史未回填就发 ⇒ 本轮上下文里没有导入记录,提示词里那句
+        // "以上是本次导入的会话记录全文"会指向不存在的上文,分析退化成凭空生成。
+        // setTimeout(0) 让 setMessages 先落一轮渲染,sendMessage 闭包才拿到回放后的 messages。
+        // autoSendDoneRef 保证只发一次(页面每次 didShow 都会走到这段)。
+        if (routeAutoSendPrompt && !autoSendDoneRef.current) {
+          autoSendDoneRef.current = true
+          setTimeout(() => {
+            void sendMessageRef.current(routeAutoSendPrompt)
+          }, 0)
+        }
         return
       }
       // 半个租约都比没有更危险 —— 允许下一次 didShow 重新尝试前先清掉"已试"标记
@@ -468,7 +499,7 @@ export default function ChatPage() {
         },
       })
     })
-  }, [routeSessionId, scrollToBottom, t, resetEarlierPaging])
+  }, [routeSessionId, routeAutoSendPrompt, scrollToBottom, t, resetEarlierPaging])
 
   /**
    * D20 留尾2:加载更早一页(向前翻)。
@@ -992,6 +1023,12 @@ export default function ChatPage() {
       upsertCard,
     ],
   )
+
+  // D28 补齐层(2026-10-03):把 sendMessage 挂到 ref,供上方 runServerReplay 的
+  // 「回放落定后自动发出分析指令」调用(声明顺序在那条边之上,直接引用会撞 TDZ)。
+  useEffect(() => {
+    sendMessageRef.current = sendMessage
+  })
 
   const stopGeneration = useCallback(() => {
     abortRef.current?.abort()

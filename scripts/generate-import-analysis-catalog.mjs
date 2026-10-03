@@ -5,15 +5,14 @@
 
 /**
  * generate-import-analysis-catalog.mjs — 把 `products/ai-prompt-library/` 的提示词库
- * 投影成 web 端可类型安全消费的 TS 常量(D28 补「导入 → 拿来分析」那一层)。
+ * 投影成各端可类型安全消费的 TS 常量(D28 补「导入 → 拿来分析」那一层)。
  *
  * 为什么要生成物而不是运行时读 JSON:
- *   - 浏览器端读不到 `products/**` 的磁盘文件;走后端新增端点会把 api 运行时
+ *   - 浏览器端/小程序端读不到 `products/**` 的磁盘文件;走后端新增端点会把 api 运行时
  *     绑到仓库路径上(容器里未必带 `products/`),是比生成物更脆的耦合。
  *   - 库本体是**付费数字商品**(`index.json.product.price` / `license`),单一权威源
  *     就是那 20 个 `prompts/NN-*.json`;生成物是它的**投影**,不是第二份真相。
- *     库更新后重跑本脚本即可,投影与库的一致性由 `check-import-analysis-catalog.mjs`
- *     之外的人工 diff 兜(本脚本 `--check` 做逐字节对账)。
+ *     库更新后重跑本脚本即可,投影与库的一致性由本脚本 `--check` 逐字节对账兜底。
  *
  * 投影字段(只投影"选中场景 → 填 variables → 拼 prompt"这条链真正要用的):
  *   id / categoryId / title / description / useCase / variables / tags /
@@ -33,9 +32,15 @@ import { fileURLToPath } from 'node:url'
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const LIBRARY_DIR = join(ROOT, 'products', 'ai-prompt-library')
 const INDEX = join(LIBRARY_DIR, 'index.json')
-const OUT = join(ROOT, 'apps/web/src/lib/import-analysis-catalog.generated.ts')
+// 2026-10-03 下沉到 packages/shared:投影改由 web / mobile-rn / miniapp-taro 三端共用,
+// 单一权威源 + 单一投影 = 改判据不必三端各生成一份(避免三份漂移)。
+// ⚠️ 刻意**不在** packages/shared/src/index.ts 根 barrel 里 re-export:
+// 实测小程序主包 2,033,698 / 2,097,152 B(余量仅 63,454 B),而 22 个端内文件经根 barrel
+// 引 @ihui/shared 且含主包页 —— 根 barrel 一挂这 492KB 投影,主包必然超微信硬上限。
+// 端内一律走子路径 @ihui/shared/import-analysis/scenarios(即本文件的 OUT 所在目录)。
+const OUT = join(ROOT, 'packages/shared/src/import-analysis/catalog.generated.ts')
 /** 溯源水印取材文件(与 OUT 同目录):首 3 行横幅 + 末行载荷,按字节复制,绝不手打零宽字符 */
-const WATERMARK_SOURCE = join(ROOT, 'apps/web/src/lib/ai-skill-variables.ts')
+const WATERMARK_SOURCE = join(ROOT, 'packages/shared/src/import-analysis/provenance.ts')
 
 const DRY_RUN = process.argv.includes('--dry-run')
 const CHECK = process.argv.includes('--check')
@@ -144,7 +149,13 @@ function build(categories, prompts) {
 //
 // 投影刻意不含 example_input / example_output(合计 ~250KB,只用于文档展示);
 // chatTask 之类的"来源 → 场景"推荐映射也不在本文件:那是消费侧判据,不是库的内容,
-// 放 apps/web/src/lib/import-analysis.ts,与本投影分离以免改推荐就要重新生成。
+// 放同目录 provenance.ts,与本投影分离以免改推荐就要重新生成。
+//
+// ⚠️ 引用纪律:端内**只能**经子路径 @ihui/shared/import-analysis/scenarios 消费本文件,
+// 且该消费点必须**动态 import**(await import / React.lazy)—— 判据层 provenance.ts
+// 刻意不静态引本文件,故"读来源标识"那条路径永不为 492KB 目录买单。
+// 根 barrel(@ihui/shared)严禁 re-export 本文件:小程序主包余量仅 63,454 B(2026-10-03 实测),
+// 挂上去必超微信 2 MB 硬上限。
 
 export interface ImportAnalysisCategory {
   /** 分类 id(与库文件名 \`NN-<category>.json\` 的 NN 一致) */
