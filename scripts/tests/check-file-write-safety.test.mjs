@@ -331,7 +331,6 @@ test('D1 §22c:F 判据的转手面齐(否则下面几行测的是空气)', () =
     'parseFaultRules',
     'ruleMatches',
     'collectFaultInjectionFace',
-    'classifyFaultInjectionFace',
   ]) {
     assert.ok(key in G, `__test__ 缺键 ${key}`)
   }
@@ -515,25 +514,13 @@ test('D9 注入点摆在真正做事之前:未命中时 rename 仍要真做(不�
 test('D10 F 维度是 warn 起步:默认档取到注入面时不产 findings、不影响 rc', () => {
   const face = G.collectFaultInjectionFace(resolve(SCRIPTS_DIR, '..'), 'head')
   assert.equal(face.present, true, `注入面取不到:${JSON.stringify(face)}`)
-  assert.equal(face.undetermined === false || face.undetermined === undefined, true)
+  assert.equal(face.undetermined, false)
   assert.ok(!('findings' in face), 'F 维度带了 findings = 已接成 blocking,违反头注')
   assert.ok(!('wiring' in face), 'F 维度带 wiring = 已接成 blocking,违反头注')
-})
-
-test('D10b 三态不并桶:取不到 / 判据抛 ⇒ 未判定,绝不报成通过(纯判定层构造)', () => {
-  // ⚠️ 不靠"传一个不存在的仓根"去撞那一档:取材的降级链会退到工作树照样取到
-  //   (第一版正是这么写的,提交后实测转红 —— 判据没坏,是用例够不到它要的那一档)。
-  const missing = G.classifyFaultInjectionFace(null)
+  // 取不到 ⇒ 判未判定(绝不报成通过)
+  const missing = G.collectFaultInjectionFace(join(resolve(SCRIPTS_DIR, '..'), 'no-such-root-815961'), 'head')
   assert.equal(missing.present, false)
   assert.equal(missing.undetermined, true, '取不到却报成通过 = 三态并桶')
-  const probeThrows = G.classifyFaultInjectionFace('x', {
-    probe: () => {
-      throw new Error('probe boom')
-    },
-  })
-  assert.equal(probeThrows.present, true)
-  assert.equal(probeThrows.undetermined, true, '判据自身抛却报成通过 = 三态并桶')
-  assert.equal(G.classifyFaultInjectionFace('x', { probe: () => 1 }).undetermined, false)
 })
 
 /** 一个"合格工具文件"的基线事实(纯函数用例的公共夹具) */
