@@ -44,8 +44,16 @@ export interface WebInputCoreProps {
   t: (key: string) => string
   /** 原生 change 事件(用于触发 slash/mention 面板) */
   onChange?: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
-  /** 原生 keydown 事件(用于 Shift+Tab 切换权限模式) */
-  onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void
+  /** 原生 keydown 事件(用于 Shift+Tab 切换权限模式)。
+   *  第二参是 G-844 的 IME 本地腿(compositionstart 已到、compositionend 未到),由组件内
+   *  compositionstart/end 驱动 —— 该 state 住在本组件里,外部 handler 结构上取不到,
+   *  这是它唯一可传的通道(上层要判组合期必须用它,不得单腿读 nativeEvent.isComposing)。 */
+  onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>, localComposing: boolean) => void
+  /** G-845:空输入框上按 Backspace 时删掉最后一个附件。返回 true = 确实消费了这一下(附件被摘掉);
+   *  返回 false = 这一刻没有附件可摘,键原样交还。返回值语义与同族 contextSelector.handleKeyDown
+   *  一致(消费方才短路),这样"没有附件"不会被 preventDefault 白白吃掉浏览器默认行为。
+   *  附件清单与 remove 出口由上层持有(生产是 use-message-references),本组件只判前提。 */
+  onRemoveLastAttachment?: () => boolean
   /** 原生 paste 事件(用于图片粘贴) */
   onPaste?: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void
   /** 发送按钮 tooltip(主组件传入对齐 aria-label) */
@@ -68,6 +76,7 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
       error,
       onChange,
       onKeyDown,
+      onRemoveLastAttachment,
       onPaste,
       isStreaming,
       // 2026-07-29 简化:sendLabel/stopLabel 在 web 端不再使用(发送/停止按钮已挪到外层 toolbar),
@@ -114,7 +123,10 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
             // 判序(G-843):先透传外部,外部握有否决权 —— 该顺序本身是被测契约,见
             // __tests__/web-input-core-enter-key-ordering.test.tsx。"该不该吃这一下 Enter"
             // 的全部判据住在 shouldSubmitOnEnter(G-844 IME 双腿并在其中),组件只做装配。
-            onKeyDown?.(e)
+            //
+            // 第二参把 IME 本地腿交给外部(G-862):上层要在 contextSelector 之前判组合期,
+            // 而该 state 住在这里,外部结构上取不到 —— 只透传事件腿会让上层单腿。
+            onKeyDown?.(e, isComposing)
             if (
               shouldSubmitOnEnter({
                 key: e.key,
@@ -126,6 +138,23 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
             ) {
               e.preventDefault()
               onSend()
+              return
+            }
+            // G-845:空输入框上按 Backspace 删最后一个附件(上游 prompt-input-textarea.tsx:65-71;
+            // 同族先例 slash-command-palette.tsx:267「空 query + Backspace 退回上一模式」)。
+            // 三条前提缺一不可,否则一律交还浏览器/文本编辑的默认语义:
+            //  - 文本为空(非空时 Backspace 属于删字符,绝不能顺手删附件)
+            //  - IME 两条腿都清(组合期的 Backspace 归输入法,部分引擎用它取消候选窗)
+            //  - 外部未 preventDefault(外部握有否决权,与 Enter 同一判序)
+            // 回调返回 false(这一刻没有附件可摘)⇒ 不消费,键原样交还。
+            if (
+              e.key === 'Backspace' &&
+              text.length === 0 &&
+              !(isComposing || e.nativeEvent.isComposing) &&
+              !e.defaultPrevented &&
+              onRemoveLastAttachment?.()
+            ) {
+              e.preventDefault()
             }
           }}
           onCompositionStart={() => setIsComposing(true)}
