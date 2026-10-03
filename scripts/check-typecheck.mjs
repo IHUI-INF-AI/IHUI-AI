@@ -27,6 +27,11 @@
  *   若此刻他人也没 staged 文件,降级直接失效 → 他人并行会话的半编辑态报错会硬拦本次 push。
  *   暂存区保留为兜底判据。
  *
+ * G-406 ②(2026-10-04):降级判据的 scope 沿**反向依赖闭包**加宽(见 widenScopeOverDependents)。
+ *   改一份被下游 import 的契约时,importer 自身不在路径清单里 → 它的类型报错被当噪音
+ *   降级放行 ⇒ 改契约不红 importer。闭包把「直接或间接 import 了本次改动」的文件纳入判据。
+ *   加宽只作用于**降级判据**,定向快通道仍只看原始改动清单(见该函数边界 1)。
+ *
  * 用法:
  *   node scripts/check-typecheck.mjs             # 完整运行(数分钟,实时透传输出)
  *   node scripts/check-typecheck.mjs --dry-run   # 干跑:只打印暂存区快照与降级判定计划,不跑 typecheck
@@ -54,6 +59,9 @@ import {
   installSignalExit,
   TEMPFAIL_EXIT_CODE,
 } from './lib/signal-exit.mjs'
+// G-406 ②:反向依赖闭包的门 103 已有那份文件级图(边解析只有这一份实现),
+// 本门只**消费** widenOverDependents,不自己再实现一遍边判定。
+import { buildFileGraph, widenOverDependents } from './lib/import-graph.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -125,6 +133,64 @@ function getHeadDiffFiles() {
       .filter(Boolean)
   } catch {
     return null
+  }
+}
+
+// ─── G-406 ②:scope 沿反向依赖闭包加宽(改契约要红 importer)───────────────────
+// 病根(票面原话):scope 判据是**路径前缀/路径清单**,所以「改一份被下游 import 的契约」
+// 时,那些 importer 自身不在 scope 里 → 它们的类型报错被当成本次改动范围外的噪音
+// 降级放行(见下方 shouldDegrade)⇒ 改契约不红 importer,净零逃逸。
+// 修法:scope 取到之后,沿 scripts/lib/import-graph.mjs 的反向边做传递闭包,把
+// 「直接或间接 import 了本次改动」的消费者一并纳入。边解析只有那一份实现(门 103),
+// 本门不重复实现 —— 两处实现必漂移。
+//
+// 三条边界(都是踩过的坑,不是风格选择):
+//  1. **只加宽降级判据,绝不加宽定向快通道的输入**。resolveFastScopeApp 要求 scope
+//     全部落在同一个 apps/<app>/,闭包一跨端/一碰 packages/** 就会把快通道关掉,
+//     一次单文件 push 从定向几分钟变成全量 25 分钟 —— 那是拿另一类恒红换本票的绿。
+//     快通道仍只看**原始**改动清单(它判的是"该跑哪个包的 tsc",与"谁该为报错负责"无关)。
+//  2. **取材面 = worktree**,与 tsc 实际读盘的面一致。门 103 的头注写过"取哪个面判错是
+//     本仓最高频的假绿源";本门判据面必须与被 typecheck 的面同面,否则闭包按磁盘建图却
+//     按索引判责,两套面互相对不上。
+//  3. **建图失败不静默、也不崩**:退回未加宽的 scope(= 改前的逐字行为)并打一行
+//     ⚠️ 可见告警。既不假装加宽成功(那会静默关掉一道判据),也不把环境故障升级成
+//     push 硬拦(§22b 的"按失败处理"是针对类型结论,不是针对判据增强失败)。
+//  4. `buildGraph` 是**唯一的测试缝**(默认就是 import-graph 的 buildFileGraph):
+//     建图要 4~25 秒且只认真仓,不许单元测试里真建一次图。生产调用不传该参,
+//     走默认值 —— 缝只开在"怎么建图"这一层,判据本身(闭包/退回/可见理由)无可绕。
+function widenScopeOverDependents(files, { buildGraph = buildFileGraph } = {}) {
+  if (!Array.isArray(files) || files.length === 0) {
+    return { files, added: [], widened: false, reason: 'scope 为空,无需加宽' }
+  }
+  let graph
+  try {
+    graph = buildGraph({ face: 'worktree', root: ROOT })
+  } catch (e) {
+    return {
+      files,
+      added: [],
+      widened: false,
+      reason: `建图失败(${(e && e.message) || e})——退回未加宽 scope(=改前行为)`,
+    }
+  }
+  try {
+    const w = widenOverDependents(files, graph)
+    return {
+      files: w.closure,
+      added: w.added,
+      widened: w.added.length > 0,
+      reason:
+        w.added.length > 0
+          ? `闭包 seed=${w.seedCount} → ${w.closure.length}(新增消费者 ${w.added.length})`
+          : '闭包为空(本次改动无人 import),scope 逐字不变',
+    }
+  } catch (e) {
+    return {
+      files,
+      added: [],
+      widened: false,
+      reason: `闭包计算失败(${(e && e.message) || e})——退回未加宽 scope(=改前行为)`,
+    }
   }
 }
 
@@ -273,6 +339,79 @@ if (SELF_TEST) {
     '样例13e 超时优先于族码判定(2026-09-20 语义逐字保留:重试=两次挂死)',
   )
 
+  // 样例14-17(2026-10-04 G-406 ②):scope 沿反向依赖闭包加宽 —— 改契约要红 importer。
+  // 用**构造的图**做纯函数臂(真仓臂见 scripts/tests/typecheck-scope.test.mjs,
+  // 那里面对真仓 spawn 验;这里不建图,故 --self-test 仍是秒级)。
+  // 夹具:A(被 B 导入)、B(被 C 导入)、C(叶子)、SOLO(无人导入)。
+  // 路径按真仓形态给全(apps/<app>/src/...):isPathInStaged 是**双向后缀**匹配,
+  // tsc 报的是 package 相对路径(src/b.ts)而 scope 是 repo 相对路径(apps/x/src/b.ts),
+  // 少写一层 src 的话这对夹具就测不到"命中"那一格(第一版就这样假绿过一次)。
+  const fakeGraph = {
+    reverse: new Map([
+      ['apps/x/src/a.ts', new Set(['apps/x/src/b.ts'])],
+      ['apps/x/src/b.ts', new Set(['apps/x/src/c.ts'])],
+    ]),
+  }
+  // 测试缝:不真建图(那要 4~25 秒且只认真仓),闭包语义由这张构造图承担。
+  const viaFake = (files) => widenScopeOverDependents(files, { buildGraph: () => fakeGraph })
+  // 正例:改 A(有下游)⇒ scope 必须含 B 与 C(传递闭包,不是只含直接下游)。
+  const wA = viaFake(['apps/x/src/a.ts'])
+  assert(wA.widened, '样例14 改有下游的 A ⇒ 应加宽')
+  assert(
+    wA.files.includes('apps/x/src/b.ts') && wA.files.includes('apps/x/src/c.ts'),
+    '样例14 加宽后 scope 必须含下游 B 与传递下游 C',
+  )
+  assert(
+    wA.files.includes('apps/x/src/a.ts'),
+    '样例14 闭包必须含种子自身(不变量:闭包 ⊇ 改动集,否则判据退化成按清单判)',
+  )
+  // 反例①:改 SOLO(无下游)⇒ scope 逐字不变,**不得**把全仓塞进来。
+  const wSolo = viaFake(['apps/x/src/solo.ts'])
+  assert(!wSolo.widened, '样例15 改无下游的 SOLO ⇒ 不应加宽')
+  assert(
+    wSolo.files.length === 1 && wSolo.files[0] === 'apps/x/src/solo.ts',
+    '样例15 无下游时 scope 必须逐字不变(只有那一个文件,不得夹带任何多余项)',
+  )
+  // 反例②:空 scope / null scope ⇒ 不崩、不静默扩大。
+  const wEmpty = viaFake([])
+  assert(
+    !wEmpty.widened && wEmpty.files.length === 0,
+    '样例16 空 scope ⇒ 不加宽且不崩(不得回退去取全仓)',
+  )
+  const wNull = viaFake(null)
+  assert(
+    !wNull.widened && wNull.files === null,
+    '样例16b scope=null(git 不可用)⇒ 仍为 null,降级路径不可用状态不得被加宽改写',
+  )
+  // 样例17:建图抛错 ⇒ 退回未加宽 scope 并给出可见理由,不得崩、不得静默假装成功。
+  const wNoGraph = widenScopeOverDependents(['apps/x/src/a.ts'], {
+    buildGraph: () => {
+      throw new Error('模拟 git 故障')
+    },
+  })
+  assert(
+    !wNoGraph.widened && wNoGraph.files.length === 1 && wNoGraph.files[0] === 'apps/x/src/a.ts',
+    '样例17 建图失败 ⇒ 退回未加宽 scope(=改前逐字行为),不崩',
+  )
+  assert(
+    /建图失败/.test(wNoGraph.reason),
+    '样例17 建图失败必须给出可见失败理由(禁止静默跳过一道判据)',
+  )
+  // 样例18:加宽后的 scope 必须真的改变降级判定 —— 这才是本票的病根那一格。
+  // 改契约 A、importer B 自身报错:改前 B 不在 scope ⇒ 降级放行(净零逃逸);
+  // 加宽后 B 在 scope ⇒ 维持阻塞。
+  const errOnImporter = extractErrorFiles(
+    'apps/x: src/b.ts(3,1): error TS2322: Type X is not assignable.',
+  )
+  assert(
+    shouldDegrade(errOnImporter, ['apps/x/src/a.ts']),
+    '样例18a 改前语义基准:只改 A 时 B 的报错不在 scope ⇒ 降级放行(这正是票面说的逃逸)',
+  )
+  assert(
+    !shouldDegrade(errOnImporter, wA.files),
+    '样例18b 加宽后:B 的报错命中 scope ⇒ 不降级(改契约会红 importer,病根闭合)',
+  )
+
   process.env.PUSH_SCOPE_FILES = prevEnv
 
   if (failedCount > 0) {
@@ -285,7 +424,11 @@ if (SELF_TEST) {
 
 // ─── 主流程 ───
 const scope = getScopeFiles()
-const scopeFiles = scope.files
+const scopeFilesRaw = scope.files
+// G-406 ②:降级判据用**加宽后**的 scope(改契约要红 importer);
+// 定向快通道仍用 scopeFilesRaw(见 widenScopeOverDependents 边界 1)。
+const _widen = widenScopeOverDependents(scopeFilesRaw)
+const scopeFiles = _widen.files
 const scopeEnabled = scopeFiles !== null && scopeFiles.length > 0
 const scopeLabel =
   scope.source === 'push-scope'
@@ -306,10 +449,20 @@ if (DRY_RUN) {
     for (const f of scopeFiles.slice(0, 50)) console.log(`  - ${f}`)
     if (scopeFiles.length > 50) console.log(`  ... 共 ${scopeFiles.length} 个`)
   }
+  // G-406 ②:加宽结果必须可见 —— 判据面被扩大是"报数"级别的变化,不能只靠推断。
+  console.log(
+    `[check-typecheck] 反向依赖加宽(G-406 ②): ${_widen.widened ? '已加宽' : '未加宽'} —— ${_widen.reason}`,
+  )
+  if (_widen.added.length > 0) {
+    for (const f of _widen.added.slice(0, 20)) console.log(`  + ${f}(经反向依赖闭包纳入)`)
+    if (_widen.added.length > 20) console.log(`  ... 共 ${_widen.added.length} 个新增消费者`)
+  }
   console.log(
     `[check-typecheck] scope 降级: ${scopeEnabled ? '启用(全部报错文件均不在本次改动范围时 → 降级为警告 exit 0)' : '不启用(改动范围为空或 git 不可用)——报错将维持原失败行为'}`,
   )
-  const _dryFast = scopeEnabled ? resolveFastScopeApp(scopeFiles) : null
+  // 快通道只看**原始**改动清单(边界 1):闭包跨端会把快通道关掉,单文件 push 从定向
+  // 几分钟变成全量 25 分钟 —— 那是拿另一类恒红换本票的绿。
+  const _dryFast = scopeEnabled ? resolveFastScopeApp(scopeFilesRaw) : null
   console.log(`[check-typecheck] 将运行命令: ${_dryFast ? `pnpm --filter ${_dryFast.name} run typecheck(定向快速通道:改动全部位于 apps/${_dryFast.app})` : 'node scripts/typecheck-full.mjs (等价 pnpm typecheck:full)'}`)
   process.exit(0)
 }
@@ -384,7 +537,7 @@ function resolveFastScopeApp(files) {
   return { app, name: pkg.name || app }
 }
 
-const _fast = scopeEnabled ? resolveFastScopeApp(scopeFiles) : null
+const _fast = scopeEnabled ? resolveFastScopeApp(scopeFilesRaw) : null
 if (_fast) {
   console.log(
     `[check-typecheck] 🚀 定向快速通道:改动全部位于 apps/${_fast.app} → 仅对该 app 全量 tsc(其余包不参与)`,
@@ -442,8 +595,13 @@ if (_fast) {
 }
 
 console.log(
-  `[check-typecheck] 运行全量 typecheck(node scripts/typecheck-full.mjs,实时透传输出)${scopeEnabled ? ` [${scopeLabel} 降级启用,${scopeFiles.length} 文件]` : ' [无可判定改动范围,无降级]'}...`,
+  `[check-typecheck] 运行全量 typecheck(node scripts/typecheck-full.mjs,实时透传输出)${scopeEnabled ? ` [${scopeLabel} 降级启用,${scopeFiles.length} 文件(原始 ${scopeFilesRaw.length} + 反向依赖新增 ${_widen.added.length})]` : ' [无可判定改动范围,无降级]'}...`,
 )
+if (_widen.widened) {
+  console.log(
+    `[check-typecheck] ℹ️ G-406 ②:改动的下游 importer 已纳入降级判据(${_widen.added.length} 个)——改契约时 importer 自身的类型报错不再被当噪音放行`,
+  )
+}
 
 let out = ''
 let err = ''
