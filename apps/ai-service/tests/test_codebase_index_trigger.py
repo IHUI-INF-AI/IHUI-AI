@@ -18,6 +18,15 @@ from app.services import mcp_server
 from app.services.codebase_indexer import CodebaseIndexer
 
 
+# 2026-10-03 数据出域合规整改:懒索引与 index_codebase 现在受"代码出域同意闸"
+# 约束(未授权 ⇒ skipped-not-consented,见 test_code_index_consent_gate.py)。
+# 本文件验的是工具接线/内部鉴权头/触发路径,不是同意闸,故统一放行以保持
+# 各用例原本要验的那条线;同意闸自身的判定由专项用例负责,不重复。
+@pytest.fixture(autouse=True)
+def _granted_code_index_egress(monkeypatch):
+    monkeypatch.setattr(mcp_server, "_code_index_egress_allowed", lambda *_a, **_kw: True)
+
+
 def _make_indexer() -> CodebaseIndexer:
     idx = CodebaseIndexer.__new__(CodebaseIndexer)
     idx._tree_sitter_available = False
@@ -125,7 +134,11 @@ class TestLazyIndexAndResearch:
     async def test_nonexistent_dir_returns_empty(self):
         idx = _make_indexer()
         out = await mcp_server._lazy_index_and_research(idx, "q", "Z:/no/such/dir", 5)
-        assert out == []
+        # 2026-10-03:断言随实现收紧为 LazyIndexOutcome(旧断言 `out == []` 是
+        # 存量红 —— 实现早已改返回 Outcome,测试没跟上,等于"这一格什么都验不到")。
+        assert out.results == []
+        assert out.status == "skipped-not-a-dir"
+        assert out.reason, "非语义命中格必须带可读理由"
 
     @pytest.mark.asyncio
     async def test_indexes_then_researches(self, tmp_path, monkeypatch):
@@ -136,7 +149,8 @@ class TestLazyIndexAndResearch:
         idx.search = AsyncMock(return_value=[{"filePath": "a.py", "score": 0.9}])
         monkeypatch.setattr(mcp_server, "_LAZY_INDEX_LAST_RUN", {})
         out = await mcp_server._lazy_index_and_research(idx, "query", str(tmp_path), 5)
-        assert out == [{"filePath": "a.py", "score": 0.9}]
+        assert out.results == [{"filePath": "a.py", "score": 0.9}]
+        assert out.status == "searched"
         idx.index_repository.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -154,13 +168,40 @@ class TestLazyIndexAndResearch:
 
     @pytest.mark.asyncio
     async def test_oversized_repo_skipped(self, tmp_path, monkeypatch):
-        (tmp_path / "a.py").write_text("pass\n")
+        # 2026-10-03 修正(存量红):原实现造 mcp_server._LAZY_INDEX_MAX_FILES + 1
+        # 个文件来撞"超限"。但 2026-09-27 护栏已改档(实测成本重定档,新阈值比旧
+        # 2000 更小,且 binding 的是 embedding 批量轴),那个常量早已不是实际闸门 ——
+        # 于是测试造出的"超限"其实没超,实得 empty-after-index 而非 skipped-over-limit。
+        # 改为按 test_lazy_index_guardrail_v75 的既有正确写法:注入 limits 构造超限,
+        # 不依赖仓库规模/常量同步(这类"靠常量造规模"的测试,常量一改档就悄悄测了个
+        # 别的东西 —— 正是本次存量红的成因)。
+        for i in range(6):
+            (tmp_path / f"f{i}.py").write_text("pass\n", encoding="utf-8")
         idx = _make_indexer()
-        idx._collect_code_files = lambda root: [(f"f{i}.py", "python") for i in range(mcp_server._LAZY_INDEX_MAX_FILES + 1)]
+        idx._collect_code_files = lambda root: [(f"f{i}.py", "python") for i in range(6)]
         idx.index_repository = AsyncMock()
         monkeypatch.setattr(mcp_server, "_LAZY_INDEX_LAST_RUN", {})
+
+        real_limits = mcp_server.lazy_index_file_limits
+
+        def _tiny(**kw):
+            lim = real_limits(**kw)
+            return lim.__class__(
+                by_local_wall=lim.by_local_wall,
+                by_embedding_batches=lim.by_embedding_batches,
+                by_index_hard_cap=3,  # 硬上限 3 ⇒ 探测上限 4 ⇒ 真实 6 个文件必撞下界
+                per_file_ms=lim.per_file_ms,
+                embedding_batches_per_file=lim.embedding_batches_per_file,
+                local_budget_seconds=lim.local_budget_seconds,
+                embed_batch_budget=lim.embed_batch_budget,
+            )
+
+        monkeypatch.setattr(mcp_server, "lazy_index_file_limits", _tiny)
+
         out = await mcp_server._lazy_index_and_research(idx, "q", str(tmp_path), 5)
-        assert out == []
+        assert out.results == []
+        assert out.status == "skipped-over-limit"
+        assert out.reason, "超限格必须带理由(告诉用户该缩范围)"
         idx.index_repository.assert_not_awaited()
 
     @pytest.mark.asyncio
@@ -171,7 +212,11 @@ class TestLazyIndexAndResearch:
         idx.index_repository = AsyncMock(side_effect=RuntimeError("embed down"))
         monkeypatch.setattr(mcp_server, "_LAZY_INDEX_LAST_RUN", {})
         out = await mcp_server._lazy_index_and_research(idx, "q", str(tmp_path), 5)
-        assert out == []
+        # 失败不得伪装成"没有结果"(旧实现 except: return [] 就是这么干的):
+        # 必须落到 failed 且带原因,调用方才能把它与"仓库里真没有答案"分开。
+        assert out.results == []
+        assert out.status == "failed"
+        assert "embed down" in (out.reason or "")
 
 
 class TestRegistryConsistency:
