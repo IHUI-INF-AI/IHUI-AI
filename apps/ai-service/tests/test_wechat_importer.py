@@ -19,6 +19,7 @@ import pytest
 
 from app.services.importers import SOURCES, parse_conversation_file
 from app.services.importers.ir import MAX_MESSAGES_PER_CONVERSATION
+from app.services.importers.wechat import _MAX_ATTACHMENT_ENTRIES
 
 # 真实导出片段:多发言人 + 多行正文 + 系统消息(无 · 头,按参照实现并入上一条正文)
 CHAT_TXT = "\n".join(
@@ -372,4 +373,242 @@ async def test_route_accepts_zip_and_wechat_source(client) -> None:
     assert body["truncated"] is False
     assert body["conversations"][0]["title"] == "微信聊天记录"
     assert [m["content"] for m in body["conversations"][0]["messages"]] == ["甲：在的"]
+
+
+# ---------------------------------------------------------------------------
+# 附件保留(2026-10-03):ZIP 内非 txt 条目不再被静默丢弃
+# ---------------------------------------------------------------------------
+
+
+def test_zip_attachments_listed_with_kind_and_size() -> None:
+    """图片/视频/文档条目全部进清单:带 name/path/size/kind,且不丢任何一类。"""
+    blob = _zip(
+        [
+            ("聊天记录.txt", CHAT_TXT.encode("utf-8")),
+            ("images/photo.png", b"\x89PNG\r\n\x1a\n" + b"x" * 100),
+            ("video/clip.mp4", b"\x00" * 50),
+            ("docs/方案.docx", b"PK\x03\x04" + b"y" * 20),
+            ("images/表情.gif", b"GIF89a" + b"z" * 10),
+        ]
+    )
+    parsed, warnings, _t = _wechat(blob, "微信聊天记录.zip")
+    attachments = parsed["conversations"][0]["attachments"]
+    assert {a["name"] for a in attachments} == {"photo.png", "clip.mp4", "方案.docx", "表情.gif"}
+    kinds = {a["name"]: a["kind"] for a in attachments}
+    assert kinds == {
+        "photo.png": "image",
+        "clip.mp4": "video",
+        "方案.docx": "document",
+        "表情.gif": "image",
+    }
+    # 保留目录层级,用户能回原包核对
+    paths = {a["path"] for a in attachments}
+    assert "images/photo.png" in paths and "video/clip.mp4" in paths
+    # size 是中央目录的声明解压大小
+    assert next(a for a in attachments if a["name"] == "photo.png")["size"] == 108
+    assert any("4 个附件" in w for w in warnings)
+
+
+def test_zip_attachment_warning_never_leaks_filenames() -> None:
+    """附件文件名本身敏感(身份证/私密照),告警串只报条数与类别,绝不插文件名。
+
+    告警串会原样回前端并落日志(ir.finalize 既定约束),文件名进日志即等于外泄。
+    """
+    secret = "IMG_20260105_身份证.jpg"
+    blob = _zip(
+        [
+            ("聊天记录.txt", CHAT_TXT.encode("utf-8")),
+            (f"images/{secret}", b"\xff\xd8\xff" + b"q" * 30),
+        ]
+    )
+    _parsed, warnings, _t = _wechat(blob, "群聊.zip")
+    assert warnings, "有附件必须出告警(不能静默丢弃)"
+    joined = " ".join(warnings)
+    assert secret not in joined
+    assert "身份证" not in joined
+    assert "images/" not in joined
+    assert "1 个附件" in joined
+
+
+def test_attachment_referenced_by_message_body_is_located() -> None:
+    """正文里原样写出媒体文件名的消息,附件清单能定位到该消息下标。
+
+    真实样本形态:微信把媒体文件名单独占一行写进正文。
+    """
+    blob = _zip(
+        [
+            (
+                "聊天记录.txt",
+                _txt(
+                    [
+                        "·甲",
+                        "2026年9月5日 08:05",
+                        "看这个",
+                        "images/photo.png",
+                        "·乙",
+                        "2026年9月5日 08:06",
+                        "收到",
+                    ]
+                ),
+            ),
+            ("images/photo.png", b"\x89PNG\r\n\x1a\n"),
+            ("images/other.png", b"\x89PNG\r\n\x1a\n"),
+        ]
+    )
+    parsed, _w, _t = _wechat(blob, "群聊.zip")
+    attachments = {a["name"]: a for a in parsed["conversations"][0]["attachments"]}
+    assert attachments["photo.png"]["messageIndexes"] == (0,)
+    # 正文没引用的附件不谎报关联
+    assert attachments["other.png"]["messageIndexes"] == ()
+
+
+def test_attachment_matching_is_line_exact_not_substring() -> None:
+    """子串不算引用:正文里 photo.png 出现在别的行内不得误报。
+
+    防的是把 photo.png 误配到 my photo.png.txt 这类同名不同物的条目,
+    给出错误的「这条消息带图」暗示。宁可漏配不错配。
+    """
+    blob = _zip(
+        [
+            (
+                "聊天记录.txt",
+                _txt(["·甲", "2026年9月5日 08:05", "文件名是 photo.png 这样的"]),
+            ),
+            ("images/photo.png", b"\x89PNG\r\n\x1a\n"),
+        ]
+    )
+    parsed, _w, _t = _wechat(blob, "群聊.zip")
+    assert parsed["conversations"][0]["attachments"][0]["messageIndexes"] == ()
+
+
+def test_attachments_absent_key_for_txt_and_attachmentless_zip() -> None:
+    """TXT 直读 / 无附件的 ZIP:响应体里**不出现** attachments 键(不留空壳)。"""
+    parsed, warnings, _t = _wechat(CHAT_TXT.encode("utf-8"), "聊天记录.txt")
+    assert "attachments" not in parsed["conversations"][0]
+    assert warnings == []
+
+    blob = _zip([("聊天记录.txt", CHAT_TXT.encode("utf-8"))])
+    parsed2, warnings2, _t2 = _wechat(blob, "微信聊天记录.zip")
+    assert "attachments" not in parsed2["conversations"][0]
+    assert warnings2 == []
+
+
+def test_chosen_transcript_not_listed_as_attachment() -> None:
+    """被选中的聊天记录文本本身不算附件;落选的其它 txt 算(它也在包里)。"""
+    blob = _zip(
+        [
+            ("聊天记录.txt", _txt(["·甲", "2026年9月5日 08:05", "一"])),
+            ("其他.txt", _txt(["·乙", "2026年9月5日 08:06", "二"])),
+        ]
+    )
+    parsed, _w, _t = _wechat(blob, "微信聊天记录.zip")
+    names = {a["name"] for a in parsed["conversations"][0]["attachments"]}
+    assert names == {"其他.txt"}
+
+
+def test_attachment_listing_does_not_weaken_entry_limits(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """**安全边界未被削弱**:附件条目同样计入三个上限,且路径穿越照样拒绝。"""
+    # 条目数上限对附件生效(附件不是防护豁免区)
+    monkeypatch.setattr("app.services.importers.wechat._MAX_ZIP_ENTRIES", 3)
+    blob = _zip(
+        [
+            ("聊天记录.txt", CHAT_TXT.encode("utf-8")),
+            ("a.png", b"a"),
+            ("b.png", b"b"),
+            ("c.png", b"c"),
+        ]
+    )
+    with pytest.raises(ValueError, match="条目数"):
+        _wechat(blob, "many.zip")
+
+    # 声明总量上限对附件生效
+    monkeypatch.undo()
+    monkeypatch.setattr("app.services.importers.wechat._MAX_ZIP_TOTAL_BYTES", 64)
+    blob2 = _zip(
+        [
+            ("聊天记录.txt", CHAT_TXT.encode("utf-8")),
+            ("big.mp4", b"q" * 4096),
+        ]
+    )
+    with pytest.raises(ValueError, match="超过上限"):
+        _wechat(blob2, "bomb.zip")
+
+    # 附件条目里的路径穿越照样拒绝
+    monkeypatch.undo()
+    with pytest.raises(ValueError, match="路径穿越"):
+        _wechat(_zip([("../../evil.png", b"x")]), "evil.zip")
+
+
+def test_attachment_bytes_never_reach_the_response() -> None:
+    """清单只带元信息,不带字节:响应体里不得出现附件二进制内容。"""
+    marker = b"SECRETBINARYMARKER" * 4
+    blob = _zip(
+        [
+            ("聊天记录.txt", CHAT_TXT.encode("utf-8")),
+            ("images/photo.png", marker),
+        ]
+    )
+    parsed, _w, _t = _wechat(blob, "群聊.zip")
+    attachment = parsed["conversations"][0]["attachments"][0]
+    # 每项只应有这五个元信息键,没有任何字节字段
+    assert set(attachment) == {"name", "path", "size", "kind", "messageIndexes"}
+    assert all(not isinstance(v, (bytes, bytearray)) for v in attachment.values()), (
+        "附件字节绝不能进 /parse 响应体"
+    )
+
+
+# ---------------------------------------------------------------------------
+# 群名兜底(2026-10-03):确认 TXT 内无群名,改为按参与人数改善兜底
+# ---------------------------------------------------------------------------
+
+
+def test_title_noise_zip_name_yields_to_participants() -> None:
+    """`聊天记录.zip` 这种无信息名不再压过发言人 —— 这正是群名丢失的现场。"""
+    blob = _zip([("聊天记录.txt", CHAT_TXT.encode("utf-8"))])
+    parsed, _w, _t = _wechat(blob, "聊天记录.zip")
+    # 旧行为:title == "聊天记录"(完全无信息);新行为:落到发言人兜底
+    assert parsed["conversations"][0]["title"] != "聊天记录"
+    assert parsed["conversations"][0]["title"] == "甲的聊天"
+
+
+def test_group_title_carries_participant_count() -> None:
+    """群聊(3+ 人)兜底带人数:`X等N人的聊天`,比旧兜底「X的聊天」信息量高。"""
+    lines: list[str] = []
+    for speaker in ("张三", "李四", "王五", "赵六"):
+        lines += [f"·{speaker}", "2026年9月5日 08:05", "在"]
+    parsed, _w, _t = _wechat(_txt(lines), "聊天记录.txt")
+    assert parsed["conversations"][0]["title"] == "张三等4人的聊天"
+
+
+def test_participant_count_deduplicates_repeat_speakers() -> None:
+    """人数按**去重后的发言人**算,不是按消息条数(否则一人自聊会算成群)。"""
+    lines: list[str] = []
+    for _ in range(5):
+        lines += ["·独白", "2026年9月5日 08:05", "记"]
+    parsed, _w, _t = _wechat(_txt(lines), "聊天记录.txt")
+    assert parsed["conversations"][0]["title"] == "独白的聊天"
+
+
+def test_meaningful_zip_name_still_wins_over_participants() -> None:
+    """有效 ZIP 文件名仍是最高优先级(不能为了改兜底把好标题降级)。"""
+    blob = _zip([("聊天记录.txt", CHAT_TXT.encode("utf-8"))])
+    parsed, _w, _t = _wechat(blob, "产品发布群.zip")
+    assert parsed["conversations"][0]["title"] == "产品发布群"
+
+
+def test_attachment_manifest_truncation_reports_true_total() -> None:
+    """清单被 _MAX_ATTACHMENT_ENTRIES 截断时,告警必须报**真实总数**而非清单长度。
+
+    防的是「又少报一次」:600 个附件被说成 500 个,用户以为包底干净了。
+    """
+    entries = [("聊天记录.txt", CHAT_TXT.encode("utf-8"))]
+    entries += [(f"i{index}.png", b"x") for index in range(_MAX_ATTACHMENT_ENTRIES + 100)]
+    parsed, warnings, _t = _wechat(_zip(entries), "群聊.zip")
+    listed = parsed["conversations"][0]["attachments"]
+    assert len(listed) == _MAX_ATTACHMENT_ENTRIES  # 清单确实被截断
+    joined = " ".join(warnings)
+    assert f"{_MAX_ATTACHMENT_ENTRIES + 100} 个附件" in joined  # 报真实总数
+    assert f"清单只列前 {_MAX_ATTACHMENT_ENTRIES} 个" in joined  # 并说明截断
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
