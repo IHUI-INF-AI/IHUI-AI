@@ -285,8 +285,8 @@ describe('ext_ui navigate', () => {
     expect(sessionSet).toHaveBeenCalledWith({ [PENDING_ROUTE_STORAGE_KEY]: '/chat/history' })
   })
 
-  it('白名单 = SidepanelApp 路由表清点(50 条,含 5 条兼容重定向)', () => {
-    expect(EXT_UI_ROUTES).toHaveLength(50)
+  it('白名单 = SidepanelApp 路由表清点(51 条,含 5 条兼容重定向)', () => {
+    expect(EXT_UI_ROUTES).toHaveLength(51)
     expect(EXT_UI_ROUTES).toContain('/chat')
     expect(EXT_UI_ROUTES).toContain('/ai/agents/:id')
     expect(EXT_UI_ROUTES).not.toContain('*')
