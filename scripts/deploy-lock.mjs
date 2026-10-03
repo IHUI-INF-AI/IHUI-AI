@@ -138,6 +138,7 @@ import { createLockDirectoryAtomically } from './lib/lock-atomic-init.mjs'
 // 于是**一个活着的持锁者会被读成"已退出"并抢走锁**(§5b/§12d 记过:判活判错 ⇒ 并发写坏 .git)。
 // ⚠️ 只换"怎么写",meta 的**内容与后写覆盖前写**的语义一字未动(那套出口若带读后写校验就会改语义)。
 import { atomicWriteFileSync } from './lib/atomic-write.mjs'
+import { throwTwoCauseChain } from './lib/two-cause-chain.mjs'
 // 进程身份三元组(pid + pidStart + host)。裸 pid 判活是无效的:
 // 2026-09-25 实测 meta.pid=888 当时被 nssm.exe 占着(StartTime 比锁晚 160s)⇒ "活着"恒真
 // ⇒ 部署环每轮白等 600s,冻结 11h50m(登记 G-193)。
@@ -346,7 +347,8 @@ function writeMeta(dir, mode, opts = {}) {
   const declaredToken =
     typeof opts.token === 'string' && opts.token.trim() ? opts.token.trim() : undefined
   const envToken =
-    typeof process.env.IHUI_DEPLOY_LOCK_TOKEN === 'string' && process.env.IHUI_DEPLOY_LOCK_TOKEN.trim()
+    typeof process.env.IHUI_DEPLOY_LOCK_TOKEN === 'string' &&
+    process.env.IHUI_DEPLOY_LOCK_TOKEN.trim()
       ? process.env.IHUI_DEPLOY_LOCK_TOKEN.trim()
       : undefined
   const token = declaredToken ?? envToken ?? randomBytes(16).toString('hex')
@@ -446,7 +448,11 @@ function claimStaleLock(dir, judged, why, { suffix, archiveRoot = sceneArchiveRo
         rawMeta: ctx.rawMeta,
       }
       try {
-        writeFileSync(join(stagedPath, 'stale-claim-note.json'), JSON.stringify(note, null, 2), 'utf8')
+        writeFileSync(
+          join(stagedPath, 'stale-claim-note.json'),
+          JSON.stringify(note, null, 2),
+          'utf8',
+        )
       } catch (e) {
         console.error(
           `[deploy-lock] ❌ 抢占现场说明写入失败(${e?.code ?? e?.message})——原始 meta 逐字如下,不得静默:\n${ctx.rawMeta ?? '(不可得)'}`,
@@ -480,7 +486,7 @@ function claimStaleLock(dir, judged, why, { suffix, archiveRoot = sceneArchiveRo
       return {
         ok: false,
         phase: 'rename',
-        code: r.localErr?.code ?? (r.archiveErr?.code ?? 'unknown'),
+        code: r.localErr?.code ?? r.archiveErr?.code ?? 'unknown',
         stagedPath: null,
         archived: null,
         log: `[deploy-lock] 抢占未成功(改名 ${r.localErr?.code ?? r.localErr?.message})⇒ 原路径 ${dir} 未被触碰,继续等待`,
@@ -513,7 +519,6 @@ function summarise(state) {
   if (!m) return `无有效元数据(${state?.kind ?? 'null'})`
   return `mode=${m.mode} cliPid=${m.pid} ownerPid=${m.ownerPid || '(未声明)'} ts=${m.ts ? new Date(m.ts).toISOString() : '(无)'}`
 }
-
 
 /**
  * 进程是否存活(跨平台)。
@@ -641,7 +646,7 @@ function monotonicAgeVerdict({ meta, now, uptimeMs, localHost }) {
       curBootMs: curBoot,
       why:
         `这把锁的绝对存活时刻已过:meta 记录写入时开机=${new Date(bootMs).toISOString()},` +
-        `而现推开机=${new Date(curBoot).toISOString()} 晚 ${(Math.round((curBoot - bootMs) / 1000))}s(容差 ${FUTURE_TS_TOLERANCE_MS / 1000}s)` +
+        `而现推开机=${new Date(curBoot).toISOString()} 晚 ${Math.round((curBoot - bootMs) / 1000)}s(容差 ${FUTURE_TS_TOLERANCE_MS / 1000}s)` +
         ' ⇒ 自写入后本机重启过或墙钟被大幅前移,记录的持有者不可能在本次开机里活着',
     }
   }
@@ -1065,8 +1070,18 @@ async function acquire({
      * 搬到不该在的地方(语义硬要求 2)。传完 identity 后 `decision` 会被重算一遍 ——
      * 除"身份确证复用"这一条外不会产生新结论(见 decideSteal 头注与镜像测试的反向锁)。
      */
-    if (decision.action === 'wait' && decision.holderAlive === true && decision.state.kind === 'ok') {
-      decision = decideSteal({ dir, mode, staleMs, hardCapMs, identity: askIdentity(decision.state.meta) })
+    if (
+      decision.action === 'wait' &&
+      decision.holderAlive === true &&
+      decision.state.kind === 'ok'
+    ) {
+      decision = decideSteal({
+        dir,
+        mode,
+        staleMs,
+        hardCapMs,
+        identity: askIdentity(decision.state.meta),
+      })
     }
     if (decision.action === 'coexist') {
       console.log(`[deploy-lock] dev+dev 共存,继续 (持有者 ${decision.why})`)
@@ -1119,7 +1134,9 @@ async function acquire({
           // 仍受 deadline 约束:不能因为"这轮没成功"就无限等下去。
           await new Promise((r) => setTimeout(r, POLL_MS))
           if (Date.now() > deadline)
-            throw new Error(lockTimeoutMessage({ timeoutMs, decision: again, staleMs, dir, mkdirErr }))
+            throw new Error(
+              lockTimeoutMessage({ timeoutMs, decision: again, staleMs, dir, mkdirErr }),
+            )
           continue
         }
         // 2026-08-14 那道的替代版:抢占成功后原路径若又出现目录,那是**新持有者**的锁,
@@ -1130,7 +1147,6 @@ async function acquire({
           )
         }
         continue
-
       }
     }
     if (Date.now() > deadline) {
@@ -1248,7 +1264,10 @@ function release({ mode, token, dir = lockDir() } = {}) {
     if (claim.ok) ownerTokenMemo.delete(resolve(dir))
     return claim.ok
       ? { released: true, why: '悬挂锁代为收口(原子改名,现场已留档)' }
-      : { released: false, why: `抢占未成功:${claim.phase}${claim.ok ? '' : `(${claim.code ?? claim.stagedPath ?? '身份已变'})`}` }
+      : {
+          released: false,
+          why: `抢占未成功:${claim.phase}${claim.ok ? '' : `(${claim.code ?? claim.stagedPath ?? '身份已变'})`}`,
+        }
   }
   // 走到这里 = self(本进程就是持有者,内容凭据已验明这把是我的)⇒ 按原语义直接删
   removeLock(dir)
@@ -1299,21 +1318,32 @@ export function heartbeatAction({
   maxLifetimeMs = HEARTBEAT_DEFAULTS.maxLifetimeMs,
 } = {}) {
   if (!state || state.kind !== 'ok')
-    return { action: 'stop', why: `锁已不在或元数据读不懂(${state?.kind ?? 'no-state'}:${state?.reason ?? ''})⇒ 不重建、不猜` }
+    return {
+      action: 'stop',
+      why: `锁已不在或元数据读不懂(${state?.kind ?? 'no-state'}:${state?.reason ?? ''})⇒ 不重建、不猜`,
+    }
   const meta = state.meta
   if (meta.mode !== mode)
     return { action: 'stop', why: `mode 漂了(锁=${meta.mode} 我=${mode})⇒ 已易主,不替别人续期` }
   if (!meta.token)
     return { action: 'stop', why: '旧格式锁没有凭据 ⇒ 归属无从核验,停手(也不删别人的锁)' }
-  if (!token)
-    return { action: 'stop', why: '调用方没带凭据 ⇒ 无从证明这把锁归我,停手' }
+  if (!token) return { action: 'stop', why: '调用方没带凭据 ⇒ 无从证明这把锁归我,停手' }
   if (meta.token !== token)
-    return { action: 'stop', why: `凭据不符(锁=${maskToken(meta.token)} 我=${maskToken(token)})⇒ 不是我这把锁` }
+    return {
+      action: 'stop',
+      why: `凭据不符(锁=${maskToken(meta.token)} 我=${maskToken(token)})⇒ 不是我这把锁`,
+    }
   if (Number(meta.ownerPid) !== Number(watchPid))
-    return { action: 'stop', why: `ownerPid 已漂(锁=${meta.ownerPid} 我盯的=${watchPid})⇒ 已被别人接管` }
+    return {
+      action: 'stop',
+      why: `ownerPid 已漂(锁=${meta.ownerPid} 我盯的=${watchPid})⇒ 已被别人接管`,
+    }
   if (watchAlive !== true) return { action: 'release', why: `主人 pid=${watchPid} 已退出 ⇒ 交还锁` }
   if (identityKind === 'mismatch')
-    return { action: 'release', why: `pid=${watchPid} 的启动时刻与锁里记的不符 ⇒ 该 pid 已被复用,交还锁` }
+    return {
+      action: 'release',
+      why: `pid=${watchPid} 的启动时刻与锁里记的不符 ⇒ 该 pid 已被复用,交还锁`,
+    }
   if (ageMs > maxLifetimeMs)
     return {
       action: 'stop',
@@ -1361,7 +1391,7 @@ async function heartbeat({
       token,
       watchPid,
       watchAlive: alive(Number(watchPid)),
-      identityKind: needIdentity ? identityOf(Number(watchPid)) ?? null : null,
+      identityKind: needIdentity ? (identityOf(Number(watchPid)) ?? null) : null,
       ageMs: now() - startedAt,
       maxLifetimeMs,
     })
@@ -1616,9 +1646,7 @@ function spawnAndCollectRc({ command, env, spawnFn = spawn, warn = () => {} }) {
       // 被 shell 二次解释(而 run 的语义恰恰是"我要跑的就是这几个 argv")。
       child = spawnFn(command[0], command.slice(1), { stdio: 'inherit', windowsHide: true, env })
     } catch (e) {
-      warn(
-        `[deploy-lock] run:命令派生失败(${e?.code ?? e?.message ?? e})⇒ 不跑命令,直接把锁收口`,
-      )
+      warn(`[deploy-lock] run:命令派生失败(${e?.code ?? e?.message ?? e})⇒ 不跑命令,直接把锁收口`)
       finish(127)
       return
     }
@@ -1675,7 +1703,8 @@ export async function runUnderLock({
     )
   }
   const dirResolved = resolve(dir ?? lockDir())
-  const held = typeof env.IHUI_DEPLOY_LOCK_HELD === 'string' && env.IHUI_DEPLOY_LOCK_HELD.trim() !== ''
+  const held =
+    typeof env.IHUI_DEPLOY_LOCK_HELD === 'string' && env.IHUI_DEPLOY_LOCK_HELD.trim() !== ''
   if (held) {
     log(
       `[deploy-lock] run:检测到 IHUI_DEPLOY_LOCK_HELD=${env.IHUI_DEPLOY_LOCK_HELD.trim()} ⇒ 上层已持这把锁,本次不再 acquire、也不负责释放`,
@@ -1708,20 +1737,27 @@ export async function runUnderLock({
     warn,
   })
   let released = false
+  // G-697(2026-10-03):releaseOnce 返回 outcome —— 释放抛错只 warn 不抛的旧形态
+  // 会把释放失败这条因果链整条丢掉;现在把错误带回给调用点,双失败时经
+  // throwTwoCauseChain 合成 AggregateError(errors[0]=主体、errors[1]=释放)。
   const releaseOnce = () => {
-    if (released) return
+    if (released) return { ok: true, idempotent: true }
     released = true
     try {
       const r = release({ mode, token: myToken, ...(dir ? { dir } : {}) })
-      if (!r.released)
+      if (!r.released) {
         warn(
           `[deploy-lock] run:锁没有释放(${r.why})⇒ 交既有年龄线 / break-stale 收口,本命令不把它读成已收口`,
         )
-      else log(`[deploy-lock] run:锁已交还(${mode})`)
+        return { ok: true, skipped: r.why }
+      }
+      log(`[deploy-lock] run:锁已交还(${mode})`)
+      return { ok: true }
     } catch (e) {
       warn(
         `[deploy-lock] run:释放抛异常(${e?.code ?? e?.message ?? e})——锁留在原地等下一位按 stale 收口`,
       )
+      return { ok: false, error: e }
     }
   }
   // 最后一道网:任何一条**绕过**上面 try/finally 的退出路径(process.exit、未捕获异常)
@@ -1737,10 +1773,19 @@ export async function runUnderLock({
     releaseOnce()
     process.off('exit', releaseOnce)
     return { rc, owned, heartbeat, reentrant: false }
-  } catch (e) {
-    releaseOnce()
+  } catch (mainErr) {
+    // G-697:释放失败不得顶掉主体失败 —— 双失败经 throwTwoCauseChain 合成,
+    // AggregateError.errors[0]=主体、errors[1]=释放,message 点名两条因果链。
+    const relOutcome = releaseOnce()
     process.off('exit', releaseOnce)
-    throw e
+    if (relOutcome && relOutcome.error) {
+      throwTwoCauseChain({
+        mainError: mainErr,
+        releaseError: relOutcome.error,
+        label: 'deploy-lock run',
+      })
+    }
+    throw mainErr
   }
 }
 
@@ -1814,14 +1859,18 @@ function breakStale({ dir = lockDir(), reason, log = (...a) => console.log(...a)
       ok: false,
       why: '拒绝:断锁是破坏性动作,必须给 --reason "<人读得懂的理由>"(空理由不改任何状态)',
     }
-  if (!existsSync(dir))
-    return { ok: true, why: `无锁可断:${dir} 不存在,未创建、未删除任何东西` }
+  if (!existsSync(dir)) return { ok: true, why: `无锁可断:${dir} 不存在,未创建、未删除任何东西` }
   const state = readMeta(dir)
   const age = lockAgeMs(dir, state)
   // 现场说明里带上此刻的单调对账结论 —— 人工断的往往正是"判不出"的锁,现场档必须说清当时看到了什么。
   const mono =
     state.kind === 'ok'
-      ? monotonicAgeVerdict({ meta: state.meta, now: Date.now(), uptimeMs: uptime() * 1000, localHost: hostname() })
+      ? monotonicAgeVerdict({
+          meta: state.meta,
+          now: Date.now(),
+          uptimeMs: uptime() * 1000,
+          localHost: hostname(),
+        })
       : { kind: 'unverifiable', reason: `元数据不可判定(${state.kind})⇒ 单调对账无从下手` }
   const archived = archiveScene(
     dir,
@@ -1829,7 +1878,10 @@ function breakStale({ dir = lockDir(), reason, log = (...a) => console.log(...a)
     `人工 break-stale(理由:${why};单调对账=${mono.kind}${mono.reason ? `:${mono.reason}` : mono.why ? `:${mono.why}` : ''})`,
   )
   if (archived === null)
-    return { ok: false, why: `拒绝:归档现场失败,不得静默覆盖(原始 meta 已逐字打到 stderr),锁 ${dir} 未被触碰` }
+    return {
+      ok: false,
+      why: `拒绝:归档现场失败,不得静默覆盖(原始 meta 已逐字打到 stderr),锁 ${dir} 未被触碰`,
+    }
   const claim = claimStaleLock(
     dir,
     state,
@@ -2089,10 +2141,7 @@ async function runSelfTest() {
     // pid 被复用都是现成入口)。带 token 的锁,凭据对不上(**含根本没带**)就必须拒绝且不删锁。
     const TOKEN_OK = 'selftest-token-ok-696'
     const d12b = freshDir()
-    putMeta(
-      d12b,
-      JSON.stringify({ mode: 'build', pid: DEAD_PID, ts: Date.now(), token: TOKEN_OK }),
-    )
+    putMeta(d12b, JSON.stringify({ mode: 'build', pid: DEAD_PID, ts: Date.now(), token: TOKEN_OK }))
     const rel12b = release({ mode: 'build', dir: d12b, token: 'selftest-token-wrong' })
     t(
       'S32b release:token 不匹配 ⇒ 拒绝且锁仍在(不得静默成功)',
@@ -2106,10 +2155,7 @@ async function runSelfTest() {
       JSON.stringify(rel12c),
     )
     const d12d = freshDir()
-    putMeta(
-      d12d,
-      JSON.stringify({ mode: 'build', pid: DEAD_PID, ts: Date.now(), token: TOKEN_OK }),
-    )
+    putMeta(d12d, JSON.stringify({ mode: 'build', pid: DEAD_PID, ts: Date.now(), token: TOKEN_OK }))
     const rel12d = release({ mode: 'build', dir: d12d })
     t(
       'S32d release:锁带 token 而调用方未带 ⇒ 同样视为不匹配,拒绝且锁仍在',
@@ -2159,7 +2205,11 @@ async function runSelfTest() {
     const d36 = freshDir()
     putMeta(d36, JSON.stringify({ mode: 'build', pid: process.pid, ts: Date.now() - 60_000 }))
     const dec36 = decideSteal({ dir: d36, mode: 'build', staleMs: 600_000, hardCapMs: HARD_CAP_MS })
-    t('S36 锁龄在上限内且持有者存活 ⇒ wait(硬上限不得变成新的秒抢判据)', dec36.action === 'wait', dec36.why)
+    t(
+      'S36 锁龄在上限内且持有者存活 ⇒ wait(硬上限不得变成新的秒抢判据)',
+      dec36.action === 'wait',
+      dec36.why,
+    )
     // —— 37) ownerPid 才是判活对象:CLI pid 已退而 owner 仍活 ⇒ 不得抢占
     const d37 = freshDir()
     putMeta(
@@ -2177,8 +2227,15 @@ async function runSelfTest() {
     mkdirSync(d38, { recursive: true })
     writeMeta(d38, 'build', { ownerPid: 4242 })
     const m38 = JSON.parse(readFileSync(metaFile(d38), 'utf8'))
-    t('S38 writeMeta 记录 ownerPid', m38.ownerPid === 4242 && Number(m38.pid) === process.pid, JSON.stringify(m38))
-    t('S39 holderPid:有 owner 用 owner,没有退回 CLI pid', holderPid({ pid: 7, ownerPid: 4242 }) === 4242 && holderPid({ pid: 7, ownerPid: 0 }) === 7)
+    t(
+      'S38 writeMeta 记录 ownerPid',
+      m38.ownerPid === 4242 && Number(m38.pid) === process.pid,
+      JSON.stringify(m38),
+    )
+    t(
+      'S39 holderPid:有 owner 用 owner,没有退回 CLI pid',
+      holderPid({ pid: 7, ownerPid: 4242 }) === 4242 && holderPid({ pid: 7, ownerPid: 0 }) === 7,
+    )
 
     // —— 39a..39c) 未声明 owner 时**不得**再拿"本次 CLI 自己"当判活主体(2026-09-28 实测
     // `ownerPid=0` 的锁一落地就是"持有者已退出",而悬挂死锁不限锁龄立即抢占 ⇒ 别人正在跑的构建被秒抢,
@@ -2207,13 +2264,18 @@ async function runSelfTest() {
     const m39c = JSON.parse(readFileSync(metaFile(d39c), 'utf8'))
     t(
       'S39c 父进程也量不到 ⇒ 退回改动前形态(ownerPid=0 / 无 source 键 / 判活问 CLI pid),不得凭空造主体',
-      m39c.ownerPid === 0 && m39c.ownerPidSource === undefined && holderPid(m39c) === Number(m39c.pid),
+      m39c.ownerPid === 0 &&
+        m39c.ownerPidSource === undefined &&
+        holderPid(m39c) === Number(m39c.pid),
       JSON.stringify(m39c),
     )
 
     // —— 40..45) 进程身份三元组的接线(2026-09-27;全部用注入的假 run,绝不为取证真派生 PowerShell)
     const SELF_START = 1_780_000_000
-    const fakeRun = (offsetSec = 0) => () => String(SELF_START + offsetSec)
+    const fakeRun =
+      (offsetSec = 0) =>
+      () =>
+        String(SELF_START + offsetSec)
     // 40 写侧:self 主体 ⇒ pidStart 落盘且等于注入值;host 落盘
     const d40 = freshDir()
     mkdirSync(d40, { recursive: true })
@@ -2241,7 +2303,9 @@ async function runSelfTest() {
       JSON.stringify(m41),
     )
     // 42 读侧:classifyMeta 必须把 host/pidStart 归一带出,否则判据拿不到凭据
-    const m42 = classifyMeta(JSON.stringify({ mode: 'build', pid: 4321, ts: 1, host: 'H', pidStart: 99 }))
+    const m42 = classifyMeta(
+      JSON.stringify({ mode: 'build', pid: 4321, ts: 1, host: 'H', pidStart: 99 }),
+    )
     t(
       'S42 classifyMeta 带出 host/pidStart(旧 meta 则归零 = 无从对账)',
       m42.kind === 'ok' && m42.meta.host === 'H' && m42.meta.pidStart === 99,
@@ -2277,7 +2341,10 @@ async function runSelfTest() {
       dec43.action === 'steal' && /身份三元组确证/.test(dec43.why),
       `${dec43.action} / ${dec43.why}`,
     )
-    t('S43b 这一档必须先归档现场(immediate:false),不走"持有者已退出"的秒抢通道', dec43.immediate === false)
+    t(
+      'S43b 这一档必须先归档现场(immediate:false),不走"持有者已退出"的秒抢通道',
+      dec43.immediate === false,
+    )
     // 44 反向对照:同一个夹具,把 mismatch 换成 match ⇒ 必须回到 wait(证明红的是身份,不是夹具)
     const dec44 = decideSteal({
       dir: d43,
@@ -2287,7 +2354,12 @@ async function runSelfTest() {
       identity: { kind: 'match', delta: 0 },
     })
     t('S44 同面 identity=match ⇒ wait(身份不得变成秒抢判据)', dec44.action === 'wait', dec44.why)
-    const dec44b = decideSteal({ dir: d43, mode: 'build', staleMs: 600_000, hardCapMs: HARD_CAP_MS })
+    const dec44b = decideSteal({
+      dir: d43,
+      mode: 'build',
+      staleMs: 600_000,
+      hardCapMs: HARD_CAP_MS,
+    })
     t(
       'S44b 不传 identity ⇒ 与改动前逐字同结论(wait),新接线不得自己长出授权',
       dec44b.action === 'wait' && /身份对账=未做/.test(dec44b.why),
@@ -2407,7 +2479,12 @@ async function runSelfTest() {
     const d50 = freshDir()
     putMeta(
       d50,
-      JSON.stringify({ mode: 'build', pid: process.pid, ownerPid: process.pid, ts: NOW_FIX + 10 * MIN }),
+      JSON.stringify({
+        mode: 'build',
+        pid: process.pid,
+        ownerPid: process.pid,
+        ts: NOW_FIX + 10 * MIN,
+      }),
     )
     const age50 = lockAgeMs(d50, readMeta(d50), NOW_FIX)
     t(
@@ -2442,7 +2519,12 @@ async function runSelfTest() {
     const d51 = freshDir()
     putMeta(
       d51,
-      JSON.stringify({ mode: 'build', pid: process.pid, ownerPid: process.pid, ts: NOW_FIX - 60_000 }),
+      JSON.stringify({
+        mode: 'build',
+        pid: process.pid,
+        ownerPid: process.pid,
+        ts: NOW_FIX - 60_000,
+      }),
     )
     const age51 = lockAgeMs(d51, readMeta(d51), NOW_FIX)
     t(
@@ -2465,12 +2547,20 @@ async function runSelfTest() {
 
     // —— 52) 单调判据纯函数:三态成对(contradiction / consistent / unverifiable 各带正反)
     const mv = (meta, over = {}) =>
-      monotonicAgeVerdict({ meta: { ts: 0, host: HOST_L, bootMs: 0, ...meta }, now: NOW_FIX, uptimeMs: UP_1H, localHost: HOST_L, ...over })
+      monotonicAgeVerdict({
+        meta: { ts: 0, host: HOST_L, bootMs: 0, ...meta },
+        now: NOW_FIX,
+        uptimeMs: UP_1H,
+        localHost: HOST_L,
+        ...over,
+      })
     t(
       'S52a 同机 + 未来 ts ⇒ contradiction/future-ts,why 给出"未来 N 秒"与墙钟回拨这一解释',
       (() => {
         const v = mv({ ts: NOW_FIX + 10 * MIN })
-        return v.kind === 'contradiction' && v.mode === 'future-ts' && /ts 不可信\(未来 600s/.test(v.why)
+        return (
+          v.kind === 'contradiction' && v.mode === 'future-ts' && /ts 不可信\(未来 600s/.test(v.why)
+        )
       })(),
     )
     t(
@@ -2500,7 +2590,9 @@ async function runSelfTest() {
       'S52f 墙钟完全正常,但开机锚点前移超容差 ⇒ contradiction/session-ended(第二判据独立生效,点名"绝对存活时刻")',
       (() => {
         const v = mv({ ts: NOW_FIX - 1000, bootMs: CUR_BOOT - 10 * MIN })
-        return v.kind === 'contradiction' && v.mode === 'session-ended' && /绝对存活时刻/.test(v.why)
+        return (
+          v.kind === 'contradiction' && v.mode === 'session-ended' && /绝对存活时刻/.test(v.why)
+        )
       })(),
     )
     t(
@@ -2560,11 +2652,20 @@ async function runSelfTest() {
       uptimeMs: UP_1H,
       localHost: HOST_L,
     })
-    t('S54 反向对照:bootMs 与现推开机一致 ⇒ wait(第二判据不得变成秒抢判据)', dec54.action === 'wait', dec54.why)
+    t(
+      'S54 反向对照:bootMs 与现推开机一致 ⇒ wait(第二判据不得变成秒抢判据)',
+      dec54.action === 'wait',
+      dec54.why,
+    )
 
     // —— 55) 记录侧:writeMeta 落 bootMs;量不到 ⇒ 整键不写(读侧落 unverifiable,不造假锚点)
     const d55 = freshDir()
-    writeMeta(d55, 'build', { ownerPid: process.pid, now: NOW_FIX, uptimeMs: UP_1H, run: () => null })
+    writeMeta(d55, 'build', {
+      ownerPid: process.pid,
+      now: NOW_FIX,
+      uptimeMs: UP_1H,
+      run: () => null,
+    })
     const m55 = JSON.parse(readFileSync(metaFile(d55), 'utf8'))
     t(
       'S55a writeMeta 落单调锚点 bootMs = now - uptime(可注入,自检不依赖真时钟)',
@@ -2579,7 +2680,9 @@ async function runSelfTest() {
       m56.bootMs === undefined,
       JSON.stringify(m56),
     )
-    const c56 = classifyMeta(JSON.stringify({ mode: 'build', pid: 4321, ts: 1, host: HOST_L, bootMs: CUR_BOOT }))
+    const c56 = classifyMeta(
+      JSON.stringify({ mode: 'build', pid: 4321, ts: 1, host: HOST_L, bootMs: CUR_BOOT }),
+    )
     t(
       'S55c classifyMeta 归一 bootMs;缺省 ⇒ 0(被读成"没有锚点",不是"锚点是 0 时刻")',
       c56.meta.bootMs === CUR_BOOT && classifyMeta('{"pid":7,"ts":1}').meta.bootMs === 0,
@@ -2594,13 +2697,17 @@ async function runSelfTest() {
     const br57a = breakStale({ dir: d57, reason: '   ', log: () => {} })
     t(
       'S57a 空/纯空白 reason ⇒ 拒绝,锁的字节与目录一字未动(破坏性动作没有理由就不许发生)',
-      br57a.ok === false && existsSync(metaFile(d57)) && readFileSync(metaFile(d57), 'utf8') === raw57,
+      br57a.ok === false &&
+        existsSync(metaFile(d57)) &&
+        readFileSync(metaFile(d57), 'utf8') === raw57,
       JSON.stringify(br57a),
     )
     const br57b = breakStale({ dir: d57, reason: '自检夹具:人工断锁出路对照', log: () => {} })
     const sceneHasBreak = (() => {
       try {
-        return readdirSync(process.env.IHUI_DEPLOY_LOCK_ARCHIVE_DIR).some((n) => n.includes('break-stale'))
+        return readdirSync(process.env.IHUI_DEPLOY_LOCK_ARCHIVE_DIR).some((n) =>
+          n.includes('break-stale'),
+        )
       } catch {
         return false
       }
@@ -2610,7 +2717,11 @@ async function runSelfTest() {
       br57b.ok === true && !existsSync(d57) && sceneHasBreak,
       JSON.stringify(br57b),
     )
-    const br57c = breakStale({ dir: join(base, 'no-such-lock-57c'), reason: '自检:无锁面', log: () => {} })
+    const br57c = breakStale({
+      dir: join(base, 'no-such-lock-57c'),
+      reason: '自检:无锁面',
+      log: () => {},
+    })
     t(
       'S57c 无锁可断 ⇒ ok 且**未创建任何东西**(出路不是"造一把锁再删")',
       br57c.ok === true && !existsSync(join(base, 'no-such-lock-57c')),
@@ -2651,9 +2762,11 @@ async function runSelfTest() {
     writeFileSync(badPending, 'not a dir', 'utf8')
     let err59 = null
     process.env.IHUI_DEPLOY_LOCK_PENDING_DIR = join(badPending, 'sub')
-    await acquire({ mode: 'build', timeoutMs: 1500, dir: d59, ownerPid: process.pid }).catch((e) => {
-      err59 = e
-    })
+    await acquire({ mode: 'build', timeoutMs: 1500, dir: d59, ownerPid: process.pid }).catch(
+      (e) => {
+        err59 = e
+      },
+    )
     delete process.env.IHUI_DEPLOY_LOCK_PENDING_DIR
     t(
       'S59 pending 落点不可用 ⇒ 当场报错并点名错误码,正式锁目录**根本没被创建**(不留下半成品锁)',
@@ -2662,9 +2775,11 @@ async function runSelfTest() {
     )
     // S60: 锁目录的父目录不存在 ⇒ 与改动前同一条出路(立刻报错,不进死等)。
     let err60 = null
-    await acquire({ mode: 'build', timeoutMs: 1500, dir: join(base, 'no-such-parent-60', 'lock') }).catch(
-      (e) => (err60 = e),
-    )
+    await acquire({
+      mode: 'build',
+      timeoutMs: 1500,
+      dir: join(base, 'no-such-parent-60', 'lock'),
+    }).catch((e) => (err60 = e))
     t(
       'S60 父目录不存在 ⇒ 立刻报错(ENOENT)而不是死等一把自己建不出来的锁(既有 S34 那一条的形状)',
       !!err60 && /创建\/写入锁/.test(err60.message) && /ENOENT/.test(err60.message),
@@ -2674,7 +2789,9 @@ async function runSelfTest() {
     // (POSIX 的 rename 会直接替换空目录,那就等于把"别人的在建锁"抹掉),仍按 absent 态等 stale。
     const d61 = freshDir()
     let err61 = null
-    await acquire({ mode: 'build', timeoutMs: 900, staleMs: 600_000, dir: d61 }).catch((e) => (err61 = e))
+    await acquire({ mode: 'build', timeoutMs: 900, staleMs: 600_000, dir: d61 }).catch(
+      (e) => (err61 = e),
+    )
     t(
       'S61 已存在的空锁目录(absent 态)未被 rename 替换、未被删 ⇒ 仍走既有"等 stale"判据',
       !!err61 && existsSync(d61) && readdirSync(d61).length === 0,
@@ -2756,7 +2873,10 @@ async function runSelfTest() {
       `${dec63s.action} / ${dec63s.why}`,
     )
     const dec63t = decideSteal({
-      dir: mkUndeterminedWithMtime('{"mode":"build","pid":', Math.floor(FUTURE_TS_TOLERANCE_MS / 2)),
+      dir: mkUndeterminedWithMtime(
+        '{"mode":"build","pid":',
+        Math.floor(FUTURE_TS_TOLERANCE_MS / 2),
+      ),
       mode: 'build',
       staleMs: 600_000,
       hardCapMs: HARD_CAP_MS,
@@ -2798,7 +2918,12 @@ async function runSelfTest() {
       try {
         return readdirSync(process.env.IHUI_DEPLOY_LOCK_ARCHIVE_DIR).some((n) => {
           try {
-            return readFileSync(join(process.env.IHUI_DEPLOY_LOCK_ARCHIVE_DIR, n, 'meta.json'), 'utf8') === raw65
+            return (
+              readFileSync(
+                join(process.env.IHUI_DEPLOY_LOCK_ARCHIVE_DIR, n, 'meta.json'),
+                'utf8',
+              ) === raw65
+            )
           } catch {
             return false
           }
@@ -2807,15 +2932,16 @@ async function runSelfTest() {
         return false
       }
     })()
-    t(
-      'S65b 端到端现场按**原字节**归档(immediate:false 的"先归档"契约没有被顺手削掉)',
-      scene65,
-    )
+    t('S65b 端到端现场按**原字节**归档(immediate:false 的"先归档"契约没有被顺手削掉)', scene65)
     // —— 66) check 文案:异常面点名"时钟倒挂档"+人工出口;正常不可判定面**不得**出现这句
     let out66a = ''
     check({ dir: d62, log: (s) => (out66a += s), now: NOW_FIX })
     let out66b = ''
-    check({ dir: mkUndeterminedWithMtime('{"mode":"build","pid":', -1000), log: (s) => (out66b += s), now: NOW_FIX })
+    check({
+      dir: mkUndeterminedWithMtime('{"mode":"build","pid":', -1000),
+      log: (s) => (out66b += s),
+      now: NOW_FIX,
+    })
     t(
       'S66a check:不可判定 + 未来 mtime ⇒ 喊"时钟倒挂档"并给自动+人工两条出路',
       /时钟倒挂档/.test(out66a) && /break-stale/.test(out66a),
@@ -2836,34 +2962,87 @@ async function runSelfTest() {
   // r.ok 恒 undefined),这一族断言就会以"通过"的名义从未被求值过。
   {
     const TOKEN = 'T'.repeat(32)
-    const meta = (over = {}) => ({ kind: 'ok', meta: { mode: 'dev', pid: process.pid, ownerPid: process.pid, ts: 1, token: TOKEN, ...over } })
-    const A = (x = {}) => heartbeatAction({ state: meta(), mode: 'dev', token: TOKEN, watchPid: process.pid, watchAlive: true, ...x })
+    const meta = (over = {}) => ({
+      kind: 'ok',
+      meta: { mode: 'dev', pid: process.pid, ownerPid: process.pid, ts: 1, token: TOKEN, ...over },
+    })
+    const A = (x = {}) =>
+      heartbeatAction({
+        state: meta(),
+        mode: 'dev',
+        token: TOKEN,
+        watchPid: process.pid,
+        watchAlive: true,
+        ...x,
+      })
     t('HB1 归属与凭据全对 ⇒ 续期', A().action === 'renew', JSON.stringify(A()))
-    t('HB2 凭据不符 ⇒ 只停手,绝不删(摘掉归属核验就是替别人的锁永久续期)', A({ state: meta({ token: 'O'.repeat(32) }) }).action === 'stop')
+    t(
+      'HB2 凭据不符 ⇒ 只停手,绝不删(摘掉归属核验就是替别人的锁永久续期)',
+      A({ state: meta({ token: 'O'.repeat(32) }) }).action === 'stop',
+    )
     t('HB3 旧格式锁(无凭据)⇒ 停手,不猜归属', A({ state: meta({ token: '' }) }).action === 'stop')
     t('HB4 调用方没带凭据 ⇒ 停手', A({ token: undefined }).action === 'stop')
-    t('HB5 ownerPid 已漂(别人接管了这把锁)⇒ 停手', A({ watchPid: process.pid + 1 }).action === 'stop')
-    t('HB6 主人退出 ⇒ release(不等下一位按 stale 来抢)', A({ watchAlive: false }).action === 'release')
-    t('HB7 身份三元组确证复用 ⇒ release(裸 pid 活着不算活着)', A({ identityKind: 'mismatch' }).action === 'release')
-    t('HB8 身份量不到 ⇒ 维持原判据继续续,不得多删一把锁', A({ identityKind: 'unverifiable' }).action === 'renew')
+    t(
+      'HB5 ownerPid 已漂(别人接管了这把锁)⇒ 停手',
+      A({ watchPid: process.pid + 1 }).action === 'stop',
+    )
+    t(
+      'HB6 主人退出 ⇒ release(不等下一位按 stale 来抢)',
+      A({ watchAlive: false }).action === 'release',
+    )
+    t(
+      'HB7 身份三元组确证复用 ⇒ release(裸 pid 活着不算活着)',
+      A({ identityKind: 'mismatch' }).action === 'release',
+    )
+    t(
+      'HB8 身份量不到 ⇒ 维持原判据继续续,不得多删一把锁',
+      A({ identityKind: 'unverifiable' }).action === 'renew',
+    )
     t(
       'HB9 到寿命上限 ⇒ 停止续期但**不删**(dev 还活着时删锁等于自己撤保护)',
       A({ ageMs: HEARTBEAT_DEFAULTS.maxLifetimeMs + 1000 }).action === 'stop',
     )
-    t('HB10 mode 漂了(build 锁不被 dev 心跳接管)', A({ state: meta({ mode: 'build' }) }).action === 'stop')
-    t('HB11 锁不存在 ⇒ 停手且说不清就报名,不重建', heartbeatAction({ state: { kind: 'absent', reason: 'x' }, mode: 'dev', token: TOKEN, watchPid: process.pid, watchAlive: true }).action === 'stop')
+    t(
+      'HB10 mode 漂了(build 锁不被 dev 心跳接管)',
+      A({ state: meta({ mode: 'build' }) }).action === 'stop',
+    )
+    t(
+      'HB11 锁不存在 ⇒ 停手且说不清就报名,不重建',
+      heartbeatAction({
+        state: { kind: 'absent', reason: 'x' },
+        mode: 'dev',
+        token: TOKEN,
+        watchPid: process.pid,
+        watchAlive: true,
+      }).action === 'stop',
+    )
 
     // 端到端:真写、真刷、真交还(锁目录用夹具,绝不碰项目根的 .deploy.lock)
     const d1 = join(base, 'hb-renew')
     mkdirSync(d1, { recursive: true })
     const wrote = writeMeta(d1, 'dev', { ownerPid: process.pid, token: TOKEN })
     const before = readMeta(d1).meta.ts
-    const r1 = await heartbeat({ mode: 'dev', token: TOKEN, watchPid: process.pid, dir: d1, once: true, alive: () => true, log: () => {} })
+    const r1 = await heartbeat({
+      mode: 'dev',
+      token: TOKEN,
+      watchPid: process.pid,
+      dir: d1,
+      once: true,
+      alive: () => true,
+      log: () => {},
+    })
     const after = readMeta(d1).meta
     t(
       'HB12 端到端一轮:ts 真被刷新,而凭据/mode/owner 逐字不变(换凭据=下一轮自己都不认自己)',
-      r1.action === 'renew' && after.ts >= before && after.token === wrote.token && after.mode === 'dev' && Number(after.ownerPid) === process.pid,
-      JSON.stringify({ before, after: { ts: after.ts, token: after.token, mode: after.mode, ownerPid: after.ownerPid } }),
+      r1.action === 'renew' &&
+        after.ts >= before &&
+        after.token === wrote.token &&
+        after.mode === 'dev' &&
+        Number(after.ownerPid) === process.pid,
+      JSON.stringify({
+        before,
+        after: { ts: after.ts, token: after.token, mode: after.mode, ownerPid: after.ownerPid },
+      }),
     )
     // 主人判死那一档必须让**锁的 owner 就是那个死掉的 pid** —— heartbeatAction 的判序是
     // "ownerPid 漂了 ⇒ 已被别人接管,停手"排在"主人退出 ⇒ 交还"之前,拿活着的 process.pid
@@ -2871,13 +3050,33 @@ async function runSelfTest() {
     const dDead = join(base, 'hb-dead')
     mkdirSync(dDead, { recursive: true })
     writeMeta(dDead, 'dev', { ownerPid: DEAD_PID, token: TOKEN })
-    const r2 = await heartbeat({ mode: 'dev', token: TOKEN, watchPid: DEAD_PID, dir: dDead, once: true, alive: () => false, log: () => {} })
-    t('HB13 端到端:主人判死 ⇒ 锁真被交还(目录消失)', r2.action === 'release' && r2.released === true && !existsSync(dDead), JSON.stringify({ a: r2.action, released: r2.released }))
+    const r2 = await heartbeat({
+      mode: 'dev',
+      token: TOKEN,
+      watchPid: DEAD_PID,
+      dir: dDead,
+      once: true,
+      alive: () => false,
+      log: () => {},
+    })
+    t(
+      'HB13 端到端:主人判死 ⇒ 锁真被交还(目录消失)',
+      r2.action === 'release' && r2.released === true && !existsSync(dDead),
+      JSON.stringify({ a: r2.action, released: r2.released }),
+    )
 
     const d2 = join(base, 'hb-other')
     mkdirSync(d2, { recursive: true })
     writeMeta(d2, 'dev', { ownerPid: process.pid, token: 'o'.repeat(32) })
-    const r3 = await heartbeat({ mode: 'dev', token: 'm'.repeat(32), watchPid: process.pid, dir: d2, once: true, alive: () => true, log: () => {} })
+    const r3 = await heartbeat({
+      mode: 'dev',
+      token: 'm'.repeat(32),
+      watchPid: process.pid,
+      dir: d2,
+      once: true,
+      alive: () => true,
+      log: () => {},
+    })
     t(
       'HB14 拿别人的凭据来续 ⇒ 停手且锁原样在(不续、不删)',
       r3.action === 'stop' && existsSync(d2) && readMeta(d2).meta.token === 'o'.repeat(32),
@@ -2886,9 +3085,18 @@ async function runSelfTest() {
 
     // 接线锁:启动器必须真持锁、真派心跳、退出真交还 —— 判据在而无人调 = 本仓最高频失效型。
     const warm = readFileSync(join(repoRoot, 'scripts', 'dev-with-warmup.mjs'), 'utf8')
-    t('HB15 接线锁:dev 启动器必须 acquire(带自己的凭据)后才起 next dev', /await acquire\(\{[\s\S]{0,200}mode: 'dev'[\s\S]{0,200}token: LOCK_TOKEN/.test(warm))
-    t('HB15b 接线锁:心跳必须被真的派出去,且盯的是启动器自己的 pid', /'heartbeat'[\s\S]{0,400}--watch-pid[\s\S]{0,80}String\(process\.pid\)/.test(warm))
-    t('HB15c 接线锁:退出路径必须走 quit() 交锁,不许裸 process.exit(dev 退出后锁还挂着)', /dev\.on\('exit',\s*\(code\)\s*=>\s*quit\(/.test(warm) && /const quit = \(code\)/.test(warm))
+    t(
+      'HB15 接线锁:dev 启动器必须 acquire(带自己的凭据)后才起 next dev',
+      /await acquire\(\{[\s\S]{0,200}mode: 'dev'[\s\S]{0,200}token: LOCK_TOKEN/.test(warm),
+    )
+    t(
+      'HB15b 接线锁:心跳必须被真的派出去,且盯的是启动器自己的 pid',
+      /'heartbeat'[\s\S]{0,400}--watch-pid[\s\S]{0,80}String\(process\.pid\)/.test(warm),
+    )
+    t(
+      'HB15c 接线锁:退出路径必须走 quit() 交锁,不许裸 process.exit(dev 退出后锁还挂着)',
+      /dev\.on\('exit',\s*\(code\)\s*=>\s*quit\(/.test(warm) && /const quit = \(code\)/.test(warm),
+    )
     t(
       'HB15d 接线锁:共存档(别的 dev 已持锁)时不得派心跳也不得释放 —— 归属判据现读,不靠猜',
       /lockOwnedBy\(LOCK_TOKEN\)/.test(warm) && /if \(ownsDevLock\)/.test(warm),
@@ -2918,10 +3126,19 @@ async function runSelfTest() {
         argvOf.file === process.execPath,
       argvOf.args.join(' '),
     )
-    t('AH2 共存档(本次没写下这把锁)⇒ 一次派生都不做 —— 否则就是替别人的锁永久续期', P({ owned: false }).spawn === false)
-    t('AH3 无归属凭据 ⇒ 不派(第一轮就因无从核验而 stop,派一个白跑的进程装作"已有心跳")', P({ token: '  ' }).spawn === false)
+    t(
+      'AH2 共存档(本次没写下这把锁)⇒ 一次派生都不做 —— 否则就是替别人的锁永久续期',
+      P({ owned: false }).spawn === false,
+    )
+    t(
+      'AH3 无归属凭据 ⇒ 不派(第一轮就因无从核验而 stop,派一个白跑的进程装作"已有心跳")',
+      P({ token: '  ' }).spawn === false,
+    )
     const noPid = P({ meta: { ...metaOk, ownerPid: 0 } })
-    t('AH4 落盘 meta 取不出 ownerPid ⇒ 不派并点名"判活主体不明"', noPid.spawn === false && noPid.kind === 'no-watch-pid')
+    t(
+      'AH4 落盘 meta 取不出 ownerPid ⇒ 不派并点名"判活主体不明"',
+      noPid.spawn === false && noPid.kind === 'no-watch-pid',
+    )
 
     const mkFake = () => {
       const calls = []
@@ -2970,7 +3187,9 @@ async function runSelfTest() {
     )
     t(
       'AH7 共存档端到端:不派心跳,而且**别人那把锁的凭据一字未动**(把盘上有什么当什么归我 = 归属判据归零)',
-      rCo.spawned === false && fCo.calls.length === 0 && readMeta(dCo).meta.token === 'B'.repeat(32),
+      rCo.spawned === false &&
+        fCo.calls.length === 0 &&
+        readMeta(dCo).meta.token === 'B'.repeat(32),
       JSON.stringify({ kind: rCo.kind, head: readMeta(dCo).meta.token?.slice(0, 1) }),
     )
     const dBoom = join(base, 'ah-spawn-throws')
@@ -3081,9 +3300,7 @@ async function runSelfTest() {
       !/rimraf \.next/.test(s)
     t(
       'RU6b 接线锁:三条 dev 入口必须只经启动器(它是"活着的主人"那一档),且不得在锁外 rimraf .next',
-      ['dev', 'dev:clean', 'dev:stable'].every((k) =>
-        devEntryOk(String(pkg.scripts?.[k] ?? '')),
-      ),
+      ['dev', 'dev:clean', 'dev:stable'].every((k) => devEntryOk(String(pkg.scripts?.[k] ?? ''))),
       JSON.stringify({
         dev: String(pkg.scripts?.dev ?? '').slice(0, 56),
         clean: String(pkg.scripts?.['dev:clean'] ?? '').slice(0, 56),
