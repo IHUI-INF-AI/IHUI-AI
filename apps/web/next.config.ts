@@ -602,6 +602,12 @@ const nextConfig: NextConfig = {
           source: '/api/research/:path*',
           destination: `${IHUI_AI_PROXY_TARGET}/api/research/:path*`,
         },
+        // 2026-10-03 新增:签到助手(checkin router 注册在 ai-service prefix="/api" 下,
+        // 必须直连 8803;放在 /api/:path* 通配符(→8802)之前,否则被 api server 吞掉 404)。
+        {
+          source: '/api/checkin/:path*',
+          destination: `${IHUI_AI_PROXY_TARGET}/api/checkin/:path*`,
+        },
         {
           source: '/api/checkpoints/:path*',
           destination: `${IHUI_AI_PROXY_TARGET}/api/checkpoints/:path*`,
