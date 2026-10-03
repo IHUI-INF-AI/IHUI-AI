@@ -24,6 +24,15 @@ import { execSync } from 'node:child_process'
 
 const isStaged = process.argv.includes('--staged')
 
+// 应急放行(2026-10-03 立,与 scripts/guardian-runner.mjs 的 id 17 注册项同名):
+// 本门在批量守门里属"读 HEAD 面"的一族,而批量耗时 24–30 分钟、期间并发会话会推进 main,
+// 于是拿到过期基线而报红(逐门单独复跑是绿的)。逃生舱此前不存在,设了变量也只能改用
+// --no-verify 连带废掉全部 210+ 道门 —— 那是最后手段,不该是唯一手段。
+if (process.env.HUSKY_SKIP_INPUT_BORDER_VAR === '1') {
+  console.log('[check-input-border-var] HUSKY_SKIP_INPUT_BORDER_VAR=1 ⇒ 跳过(应急放行,提交信息须写明责任归属)')
+  process.exit(0)
+}
+
 // 匹配 hsl(var(--xxx)) / rgb(var(--xxx)) 嵌套形式
 // 必须包含 var(--xxx) 才算嵌套,纯 hsl(120 50% 50%) 不算
 const NESTED_RE = /\b(hsl|rgb|hsla|rgba|hwb|lab|lch|oklab|oklch|color)\(\s*var\(\s*--/g

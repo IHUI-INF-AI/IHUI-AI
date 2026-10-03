@@ -198,6 +198,33 @@ test('T6 classifyGate 优先级:弱接线不判红 / 声称优先于台账 / 无
   )
 })
 
+test('T6b 逃生舱不得是假的:门体承诺的 HUSKY_SKIP_* 必须在 runner 真声明(2026-10-03)', () => {
+  // 背景:门 44 / 30a 的**脚本里一直读** HUSKY_SKIP_ROOT_DIR_GUARD / HUSKY_SKIP_COMMIT_LOSS_CHECK,
+  // 而 guardian-runner 从未声明 ⇒ 那些变量设了毫无效果(= 假逃生舱),逼人改用 --no-verify
+  // 连带废掉全部 210+ 道门。本仓 TAGSVIEW_GUARD 早就踩过同一型并留下修法注释。
+  // 这条断言钉住"脚本读了 ⇒ runner 必须声明"这个配对,防止将来又被删成假舱。
+  const root = join(fileURLToPath(new URL('.', import.meta.url)), '..')
+  const runner = readFileSync(join(root, 'guardian-runner.mjs'), 'utf8')
+  const pairs = [
+    ['check-root-dir-clean.mjs', 'HUSKY_SKIP_ROOT_DIR_GUARD'],
+    ['check-commit-loss-guard.mjs', 'HUSKY_SKIP_COMMIT_LOSS_CHECK'],
+    ['check-input-border-var.mjs', 'HUSKY_SKIP_INPUT_BORDER_VAR'],
+  ]
+  for (const [script, env] of pairs) {
+    // ① 门体脚本必须真读这个变量(否则声明了也没人消费)
+    const body = readFileSync(join(root, script), 'utf8')
+    assert.ok(body.includes(env), `${script} 必须自己读 ${env}(否则 runner 声明了也是空舱)`)
+    // ② runner 的注册项必须声明它 —— 取 script 行往后 1200 字符的注册块
+    const i = runner.indexOf(`script: '${script}'`)
+    assert.ok(i > 0, `guardian-runner.mjs 里找不到 ${script} 的注册项`)
+    const block = runner.slice(i, i + 1200)
+    assert.ok(
+      block.includes(`skipEnv: '${env}'`),
+      `${script} 的注册项缺 skipEnv: '${env}' ⇒ 假逃生舱(设了变量也没效果,只剩 --no-verify 一条路)`,
+    )
+  }
+})
+
 test('T7 R2:AGENTS.md 必须「点名 + 同一条款含接线表述」两条件齐', () => {
   const clauses = G.splitAgentClauses(
     '# 标题\n\n- 守门:`scripts/check-real.mjs`(blocking,2026-09-24 立)\n\n- 只是历史记录,提到 scripts/check-hist.mjs 曾存在。\n\n另一段\n\n- `scripts/check-plain.mjs` 是可选手动跑的脚本\n',
@@ -243,6 +270,47 @@ test('T8 台账卫生:可撤销豁免 + 僵尸条目 + 格式校验', () => {
       ],
     }).problems.length,
     0,
+  )
+})
+
+test('T8b R5 判据面:注释里提及 id 不构成登记(2026-10-03 RED-R5 假撞号实证),真同号仍判红', () => {
+  const findDuplicateIds = G.findDuplicateIds
+  const stripJsComments = G.stripJsComments
+  const Q = String.fromCharCode(39) // 单引号,绕开模板串里的转义
+  // ① 本仓真实成因:核号命令的字面量写在注释里,全文正则把它读成第二次注册
+  const commentOnly = [
+    '// 编号 186:注册前已核 `grep -n "id: ' + Q + '186' + Q + '"` 为空(未被占用)',
+    "  { id: '186', script: 'a.mjs' },",
+  ].join('\n')
+  assert.deepEqual(
+    findDuplicateIds(commentOnly),
+    [],
+    '注释里出现 id 字面量不得被读成登记(本仓 186/187 两枚新门当天就是这样被误判成撞号的)',
+  )
+  // ② 反向:真撞号必须照旧判红(判据没有被顺手削掉)
+  assert.deepEqual(
+    findDuplicateIds(["  { id: '9' },", "  { id: '9' },"].join('\n')),
+    ['9'],
+    '两道真门用同一 id 必须判红',
+  )
+  // ③ 块注释同样不算登记
+  assert.deepEqual(
+    findDuplicateIds(['/* id: ' + Q + '5' + Q + ' */', "  { id: '5' },"].join('\n')),
+    [],
+    '块注释里的 id 也不构成登记',
+  )
+  // ④ 剥注释不得吃掉字符串里的真代码(URL 里的 // 不是注释起点)
+  assert.deepEqual(
+    findDuplicateIds(["const u = 'https://a/b';", "  { id: '7' },", "  { id: '7' },"].join('\n')),
+    ['7'],
+    "字符串字面量里的 '//' 不得被当成行注释起点(否则其后的真登记被整段吃掉,门会漏红)",
+  )
+  // ⑤ 剥注释保留行数(错误信息仍能按行定位)
+  const raw = ['a', '// x', 'b', '/* y', ' z */', 'c'].join('\n')
+  assert.equal(
+    stripJsComments(raw).split('\n').length,
+    raw.split('\n').length,
+    '剥注释不得改变行数',
   )
 })
 
