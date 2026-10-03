@@ -41,6 +41,14 @@ from typing import Any
 
 from app.core.tunables import MAX_STEPS_PER_RUN
 
+from ._load_lifecycle import (
+    decide_attempt as _decide_attempt,
+    monotonic as _lifecycle_monotonic,
+    state_after_failure as _state_after_failure,
+    state_after_success as _state_after_success,
+    DECISION_BACKOFF as _DECISION_BACKOFF,
+    DECISION_GAVE_UP as _DECISION_GAVE_UP,
+)
 logger = logging.getLogger(__name__)
 
 # 单 run 保留步数上限(唯一真源见 app/core/tunables.py)
@@ -238,6 +246,11 @@ class AgentStepRecorder:
         self._data: dict[str, dict[str, Any]] = {}  # run_id -> {"steps": [...], ...}
         self._lock = threading.Lock()
         self._loaded = False
+        # G-758(2026-10-03):加载生命周期标量(判定住在 _load_lifecycle,唯一一份)。
+        # _loaded=False ∧ _load_failures>0 ⇒ "读不到"(待重试/已放弃自动重试),绝不等于空。
+        self._load_failures: int = 0
+        self._load_next_attempt_s: float = 0.0
+        self._load_give_up_logged: bool = False
         self._max_steps = max(1, int(max_steps))
         self._summary_limit = max(1, int(summary_limit))
 
@@ -247,6 +260,23 @@ class AgentStepRecorder:
         """从 JSON 懒加载到内存(仅首次;损坏/缺失降级为空)。"""
         if self._loaded:
             return
+        now = _lifecycle_monotonic()
+        decision = _decide_attempt(
+            loaded=self._loaded,
+            failures=self._load_failures,
+            next_attempt_s=self._load_next_attempt_s,
+            now=now,
+        )
+        if decision == _DECISION_GAVE_UP:
+            if not self._load_give_up_logged:
+                self._load_give_up_logged = True
+                logger.warning(
+                    "[agent_step_recorder] _load 连续 %d 次读取失败,停止自动重试(状态=读不到,非空表)",
+                    self._load_failures,
+                )
+            return
+        if decision == _DECISION_BACKOFF:
+            return  # 退避窗口内:本次调用不打 IO
         try:
             if self._file.exists():
                 raw = json.loads(self._file.read_text(encoding="utf-8"))
@@ -256,10 +286,12 @@ class AgentStepRecorder:
                         for rid, record in raw.items()
                         if isinstance(record, dict) and isinstance(record.get("steps"), list)
                     }
+            self._loaded, self._load_failures, self._load_next_attempt_s = _state_after_success()
         except Exception as e:
-            logger.warning("agent_step_recorder 读取失败(降级为空): %s", e)
-        finally:
-            self._loaded = True
+            self._load_failures, self._load_next_attempt_s = _state_after_failure(
+                self._load_failures, now
+            )
+            logger.warning("agent_step_recorder 读取失败(降级为空)(本次降级为空,退避后自动重试;连续失败到上限停自动重试): %s", e)
 
     def _persist(self) -> None:
         """把内存全量记录写回 JSON 文件(尽力,失败降级内存保留)。"""
