@@ -18,6 +18,9 @@ const git = (args) =>
     windowsHide: true,
     timeout: 300000,
     maxBuffer: 1 << 26,
+    // EBUSY 根治(errno -4082):本机会话里 Node 建子进程 stdin 管道确定性失败。
+    // 调用点全是只读 git,不喂 stdin ⇒ stdio[0]='ignore'。
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 
 const ENDS = [
