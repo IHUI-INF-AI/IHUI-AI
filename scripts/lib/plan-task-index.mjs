@@ -577,6 +577,15 @@ export function findPrefixNestedCopies(content) {
   return { pairs: nested, groupKeys: [...groupsTouched].sort() }
 }
 
+/** 票面给这一族起的判据名(`prefixNestedCopies`)的**可 grep 锚点** —— 别名,不是第二份实现。
+ *  ⚠ 存在的理由是**验收面**:派单口径是"按票面给的判据名 `git grep` 核命中"。
+ *  若这一族只以 `findPrefixNestedCopies` / `prefixNestedGroups` / `prefixNestedPairs` 这几个名字
+ *  存在,那条验收命令会读出 **0 命中** —— 而 0 命中恰恰是本票要消灭的那种读数。
+ *  **不能让证据入口自己读 0**。(本仓记过多次"把没判写成判过了",这里是从另一侧踩到同一格。)
+ *  它是 `findPrefixNestedCopies` 的**同一个函数引用**(不是包装、不是重实现),
+ *  所以两份判据漂移在结构上不可能发生;镜像 C8 逐字钉住这一条(别名必须 === 原函数)。 */
+export const prefixNestedCopies = findPrefixNestedCopies
+
 /**
  * F4c 的**唯一出口**:`--match-prefix-holder "<持有行原文片段>"` —— 人工指定正本后,
  * 其余同组副本只加"重复登记副本"指针(F4 口径)、**不动勾选**(F4 口径)。

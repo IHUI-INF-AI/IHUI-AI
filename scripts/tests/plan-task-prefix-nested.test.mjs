@@ -36,6 +36,7 @@ import {
   compositeKeyOf,
   findPrefixNestedCopies,
   planPrefixNestedPointer,
+  prefixNestedCopies,
 } from '../lib/plan-task-index.mjs'
 import { gitRaw } from '../lib/face-reader.mjs'
 
@@ -272,4 +273,11 @@ test('C8 真仓面性质复核 + 源码反向锁(性质判据不判数量 ⇒ �
   // 复用锁:判据必须吃 compositeKeyOf(不得在本格自造第二份"什么算同一件事")
   if (!/compositeKeyOf\(r\.raw\)/.test(bodyFull))
     throw new Error('判据没有走 compositeKeyOf ⇒ 本格自造了第二份"什么算同一件事"(票面明令禁止)')
+  // 证据入口锁:票面给的判据名必须可 grep,且别名必须**就是同一个函数引用**而不是第二份实现。
+  // 这一格防的是"验收命令读 0 命中"——0 命中在这一仓里正是本票要消灭的那种读数,
+  // 判据族自己的名字读 0 就等于把证据入口变瞎。
+  if (prefixNestedCopies !== findPrefixNestedCopies)
+    throw new Error('prefixNestedCopies 不是 findPrefixNestedCopies 的同一个引用 ⇒ 别名变成了第二份实现,两份判据必然漂移')
+  if (!/export const prefixNestedCopies = findPrefixNestedCopies/.test(lib))
+    throw new Error('票面判据名 prefixNestedCopies 在源码里不存在 ⇒ 按票面名 git grep 会读 0 命中(证据入口失明)')
 })
