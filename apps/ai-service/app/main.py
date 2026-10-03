@@ -57,6 +57,7 @@ from app.routers import (
     agents,
     ai_skills,
     artifacts,
+    code_index_consent_api,
     connectors,
     cost_estimate,
     fim,
@@ -308,6 +309,19 @@ async def lifespan(app: FastAPI) -> Any:
         logger.info("[media_tasks] media_tasks 表确认/创建完成")
     except Exception as e:
         logger.warning("[media_tasks] 建表异常(忽略,落库降级为不持久化): %s", e)
+
+    # 代码索引出域同意表启动自愈(2026-10-03 数据出域合规整改)。
+    # 同意表在 .data/code_index_consent.json(本进程内),容器重建即丢 ⇒ 已 opt-out
+    # 的用户被静默重置成"未表态",在 IHUI_CODE_INDEX_EGRESS=1 的部署上会**恢复代码
+    # 出域**。这里直读 user_preferences 把它们补回来(不放进下面的 scheduler:
+    # 闸门状态不是周期任务,是启动期一次性重建;且读库失败时保留现状 = 偏拒绝)。
+    # fail-open 于"服务能起来",fail-closed 于"闸门状态":失败只记 error。
+    try:
+        from app.services.code_index_consent import preload_opt_outs_from_db
+
+        await preload_opt_outs_from_db()
+    except Exception as e:
+        logger.warning("[code_index_consent] 同意表启动自愈异常(忽略,不阻断启动): %s", e)
 
     # 启动自媒体定时任务调度器(由 SELF_MEDIA_CRON_ENABLED 环境变量控制开关,
     # 默认 false,显式开启后才挂载 asyncio task)
@@ -1036,6 +1050,16 @@ def create_app() -> FastAPI:
     # D31 设计稿转码(2026-09-26 立,Figma 节点树→React/Tailwind 代码,令牌缺失 fail-closed)
     from app.api.figma import router as figma_router
     app.include_router(figma_router, prefix="/api", tags=["figma"])
+    # 2026-10-03 数据出域合规整改:代码索引出域同意的**跨进程同步**入口。
+    # api 侧改完 `codeIndexEgressOptOut` 后推这里(**透传该用户 JWT + 端点级
+    # require_request_user_id**,不是 AI_CALLBACK_SECRET:共享密钥方案实测被
+    # JWTAuthMiddleware 挡在路由之前,且挂全局白名单等于允许任何人替任意用户授权,
+    # 详见 code_index_consent_api.py 文件头),
+    # 本进程的同意表随之更新 —— 两处 MCP 闸门(懒索引 / index_codebase)只读
+    # `code_index_consent.has_consent`,不感知设置从哪来。设计取舍见该路由文件头。
+    app.include_router(
+        code_index_consent_api.router, prefix="/api", tags=["code-index-consent"]
+    )
     # P3 Wave 11:Rules 引擎(文件存储 .ihui-agent/rules/*.md + 热加载 + 4 种匹配)
     app.include_router(rules.router, prefix="/api", tags=["rules"])
     # P3 Wave 11:Hook 服务(事件总线 + JSONLogic 条件 + 4 执行器)

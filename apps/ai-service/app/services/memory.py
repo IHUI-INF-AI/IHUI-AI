@@ -253,9 +253,11 @@ class MemorySystem:
         1. 写入会话消息到 MemoryStore(persist_messages=False 时跳过——消息已
            由调用方在对话过程中持久化,避免 memory_save 读回历史后重复写回,
            导致数据膨胀甚至边遍历边 append 死循环)
-        2. 从对话中自动提取记忆(MemoryExtractor)
-        3. 每条提取的记忆:生成 embedding → 写入 VectorMemoryStore + UnifiedMemoryClient
-        4. 增量更新用户画像(UserProfileBuilder)
+        2. 隐私闸门:用户已关闭"自动长期记忆" → 零 LLM 调用直接返回
+           (2026-10-03 合规整改;判定见 auto_memory_optout 模块)
+        3. 从对话中自动提取记忆(MemoryExtractor)
+        4. 每条提取的记忆:生成 embedding → 写入 VectorMemoryStore + UnifiedMemoryClient
+        5. 增量更新用户画像(UserProfileBuilder)
 
         Args:
             user_id:   用户 ID
@@ -280,7 +282,30 @@ class MemorySystem:
                 if content:
                     await self._store.add(sid, role, content)
 
-        # 2. 获取已有记忆(用于去重)
+        # 2. 隐私闸门(2026-10-03 数据出域合规整改)
+        # 本方法是**第三个**记忆提取入口(MemoryExtractor → LLM → 向量库 + API +
+        # 画像),此前无任何闸门。闸门位置在第 1 步之后、第 2 步之前:
+        #  - 必须在 LLM 提取**之前**:要求是"LLM 调用本身也要省掉",放到落库前
+        #    就是"照常提取但不入库"的假开关;
+        #  - 不拦第 1 步:那一步写的是**原始会话消息**(working/session 层),
+        #    由 vector_memory 那条保留期链路管,不属于"自动提炼长期记忆"。
+        #    把它一起拦掉会连带改掉对话回放行为,那是另一个开关的职责。
+        # user_id 是本方法必填位置参数 ⇒ 这条路径上属主一定拿得到,无降级分支。
+        from .auto_memory_optout import is_auto_memory_enabled
+
+        if not await is_auto_memory_enabled(user_id):
+            logger.info(
+                "add_with_extraction 跳过自动提取(用户已关闭自动长期记忆,user=%s)",
+                user_id,
+            )
+            return {
+                "extracted": [],
+                "count": 0,
+                "durationMs": int((time.time() - start) * 1000),
+                "skipped": "user_disabled",
+            }
+
+        # 3. 获取已有记忆(用于去重)
         existing = await self._client.get_entries(user_id, scope="user")
 
         # 3. 自动提取记忆
