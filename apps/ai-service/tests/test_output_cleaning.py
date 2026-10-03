@@ -107,6 +107,94 @@ def test_realistic_dotenv_block():
     assert "total_tokens = 12345678" in out
     assert "password_policy=strict1234" in out
 
+
+# =============================================================================
+# 第四次整改:裸敏感键名 / 复数形态 / 单字母(2026-10-03)
+#
+# 三条各有独立根因,都是上一轮之后实测仍漏的形态:
+#   1. 复数:`GOOGLE_APPLICATION_CREDENTIALS=` —— 词表只有单数 credential,
+#      而它后接 `_` 不接分隔符 ⇒ 整条规则失配(Google 官方 SDK 的标准命名)。
+#   2. 单字母 K:`K=` / `API_K=` —— .env 与 systemd EnvironmentFile 里真实存在。
+#   3. 裸敏感键名 + 纯小写值:`KEY=abcdefgh` —— 闸 2 的 E4「短标识符路径」
+#      把它判成变量名放过了。这是本轮最微妙的一条,判据与顺序都关键:
+#      · 判据用"取值含不含引用标记"(点号/括号/下标/插值/占位符);
+#        `self.service_api_key` 有点号 ⇒ 引用 ⇒ 放过;`abcdefgh` 没有 ⇒ 凭据 ⇒ 盖。
+#      · 闸 3 必须排在闸 2 **之前**,否则 E4 先 return,闸 3 永远执行不到
+#        (第一版就排错了,现象是"改了没效果")。
+#      · 闸 3 还必须排除占位符(`<your-secret-here>` / `${VAR}` / `%s` / `None`),
+#        否则打破既有 test_placeholders_are_kept —— 排障日志里全是
+#        [REDACTED_SECRET] 就失去了意义,而排障正是这条规则存在的原因。
+# =============================================================================
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "GOOGLE_APPLICATION_CREDENTIALS=abc1234567def",
+        "CREDENTIALS=abc123456789012",
+        "A_CREDENTIALS=abc123456789012",
+        "K=abcdefgh",
+        "API_K=abcdefgh",
+        "KEY=abcdefgh",
+        "KEY=abcdefghijkl",
+        "PRIVATE=abcdefghij",
+        "SECRET=abcdefghij",
+    ],
+)
+def test_bare_secret_key_with_literal_value_is_redacted(line):
+    """裸敏感键名 + 裸字面量取值必须脱敏(第四轮的 3 条根因都在这里)。"""
+    assert "[REDACTED_SECRET]" in redact_secrets(line), f"仍漏:{line}"
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "api_key = self.service_api_key",
+        "api_key = config.api_key",
+        "api_key = process.env.API_KEY",
+        "api_key = settings.secret_key",
+        "MY_CREDENTIAL = db.credential",
+        "cache_key = self.cache_key",
+        'api_key=os.getenv("X")',
+    ],
+)
+def test_bare_secret_key_with_reference_value_is_kept(line):
+    """键名敏感但取值是**代码引用**时必须放过(盖掉会让日志失去排障价值)。"""
+    assert redact_secrets(line) == line, line
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "secret = <your-secret-here>",
+        "api_key: ${ENV_VAR}",
+        "api_key=$API_KEY",
+        "token = %s",
+        "secret = None",
+    ],
+)
+def test_placeholders_still_kept_after_fourth_round(line):
+    """占位符仍须放过 —— 第四轮的闸 3 不得破坏既有占位符语义。"""
+    assert redact_secrets(line) == line, line
+
+
+def test_key_name_preserved_when_redacting_bare_key():
+    """键名必须完整保留(截断成 KEY= 就丢了"这是谁的凭据"这条线索)。"""
+    out = redact_secrets("GOOGLE_APPLICATION_CREDENTIALS=abc1234567def")
+    assert out.startswith("GOOGLE_APPLICATION_CREDENTIALS=")
+    assert "abc1234567def" not in out
+
+
+def test_looks_like_bare_literal_rejects_placeholders():
+    """判据本身:占位符不算裸字面量(这是闸 3 不误伤的关键前提)。"""
+    from app.core.output_cleaning import _looks_like_bare_literal
+
+    assert _looks_like_bare_literal("abcdefgh") is True
+    assert _looks_like_bare_literal("abc12345") is True
+    for ph in ("<your-secret-here>", "${VAR}", "$API_KEY", "%s", "None", "self.api_key",
+               "os.getenv('X')", "env['X']", ""):
+        assert _looks_like_bare_literal(ph) is False, f"占位/引用不该算裸字面量:{ph!r}"
+
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 """出站脱敏漏网形态整改单测(2026-10-03 数据出域合规整改审计)。

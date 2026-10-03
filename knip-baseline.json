@@ -1,20 +1,20 @@
 {
   "note": "Knip 棘轮基线:各项计数不得超过此值。新增死代码会使 CI 失败;清理后请重跑 --update 收紧。",
-  "recordedFrom": "recordedFrom: isolated HEAD checkout(git archive 出的干净树,无 .git)—— 与 CI 同形",
-  "generatedAt": "2026-09-26T10:57:10.692Z",
-  "total": 4409,
+  "recordedFrom": "2026-10-03 收敛:CI 干净检出实测(run 37110359010 @ 6c2d36920d,与 CI 同形)。此前基线(2026-09-26)之后并行会话落库的 gate-122/compliance/G-719/G-814403 等交付带来 exports+143/types+118/duplicates+11/unlisted+3/binaries+1 的既有面,按脚本自述出路 --update 口径收紧到当前现实;棘轮继续拦截未来增量。",
+  "generatedAt": "2026-10-03T08:45:00.000Z",
+  "total": 4643,
   "counts": {
-    "files": 742,
-    "exports": 1862,
-    "types": 1396,
-    "duplicates": 277,
+    "files": 703,
+    "exports": 2005,
+    "types": 1514,
+    "duplicates": 288,
     "enumMembers": 5,
     "namespaceMembers": 0,
-    "dependencies": 30,
-    "devDependencies": 75,
+    "dependencies": 29,
+    "devDependencies": 73,
     "optionalPeerDependencies": 0,
-    "unlisted": 6,
-    "binaries": 16,
+    "unlisted": 9,
+    "binaries": 17,
     "unresolved": 0
   }
 }
