@@ -4613,6 +4613,44 @@ const checks = [
       '',
     ].join('\n'),
   },
+
+  // --- 不安全 `_loaded` 载体写入侧(1 项,blocking)---
+  // 编号 187:注册前已核 `grep -n "id: '187'"` 为空(未被占用);现值以本文件为准。
+  {
+    id: '187',
+    label:
+      '不安全加载标记四形态扫描(finally-set / except-set / tail-set / set-add;判据本体单份住在 _load_lifecycle.py,门内零自行判定;blocking)',
+    script: 'check-load-state-loaded-marks.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_LOAD_STATE_LOADED_MARKS',
+    stagedTriggers: [
+      'apps/ai-service/app/services/',
+      'apps/ai-service/app/routers/',
+      'apps/ai-service/app/core/',
+    ],
+    onFailHint: [
+      '',
+      '判据:调用 _load_lifecycle.py 的 find_unsafe_loaded_marks(AST + 控制流位置),四形态逐条点名 path:line ——',
+      '     ① finally 块里无条件 `self._loaded = True`(读失败也被记成已加载);',
+      '     ② except 体内置真(异常分支被折成"已加载"哨兵,与成功路径不可判别);',
+      '     ③ try/except 同块尾随置真(异常兜底之后无条件固化);',
+      '     ④ 集合 add 记"已加载"(集合表达不了"试过了但没读到")。',
+      '改法:置真只许落在成功路径与权威写入上;失败计数走 _load_lifecycle 的共享出口',
+      '     (load_failures / 退避 / gave_up),别自己另写一套。',
+      '⚠️ 单份实现纪律:判据只有一份,住在 _load_lifecycle.py。**不得**在门里或任何新模块里再抄一份正则/AST 判据 ——',
+      '     两处算同一件事必漂移,且抄的那份会随被审面演化而唯一实现不动,两端各自自洽。',
+      '⚠️ 覆盖面:扫描面是 app/**/*.py,**刻意不含 tests/****(测试注入会主动置真,扫进来即恒红)。',
+      '     本门绿只意味着 app/** 侧无不安全载体,**不得**外推为"全仓 _loaded 载体合规"。',
+      '定级 blocking 与姊妹门 186(warn)不同的理由:186 的"恒红门"前提在本门不成立 —— 存量面',
+      '     (HEAD app/** 590 个 .py / 12.6MB)实测零命中,--strict 实测 rc=0,且判定面取自 blob',
+      '     (不读工作树半编辑态,并发会话不会误伤)。所以 187 一旦有红是真新增,正是提交链该拦的那类。',
+      '未判定(面取不到 / Python 派生失败 / SyntaxError / 判据符号缺失)= exit 2,既不冒红也不记绿;',
+      '     "看不见"绝不能记成通过 —— 一台永远喊未判定的门和一台瞎掉的门在账面上是一样的。',
+      '问责跑 node scripts/check-load-state-loaded-marks.mjs --strict;应急跳过 HUSKY_SKIP_LOAD_STATE_LOADED_MARKS=1。',
+      '',
+    ].join('\n'),
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
