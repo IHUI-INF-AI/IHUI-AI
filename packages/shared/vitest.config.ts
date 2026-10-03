@@ -56,12 +56,22 @@ export default defineConfig({
     // 被测模块,如 `../input-sources.ts`),编译产物旁边根本没有 .ts 可读 ⇒ 必然 ENOENT,
     // 且栈帧被 sourcemap 映射回 src,报错看起来像 src 的测试坏了。2026-09-24 就是这么红了一次。
     // 显式 exclude 会**替换**默认值,故把默认项一并写全。
+    //
+    // 2026-10-03(G-1018201)'**/.ihui-agent/**':上面那行 `**/.{idea,git,cache,output,temp}/**`
+    // 看着已经"点了名的点目录都排掉了",但 `.ihui-agent` 不在那份花括号枚举里 —— 枚举是
+    // 白名单,不是通配。.ihui-agent/tmp/ 里存着他人留下的 HEAD 整仓副本,而 vitest 4.1.10
+    // 收集面显式 `dot: true` ⇒ 点目录被主动穿透,副本里与本包同形的 *.test.ts 会被收进当次运行。
+    // `.gitignore` 的 `.ihui-agent/*` 只管 git,拦不住文件系统 glob。带 `**/` 前缀才覆盖任意
+    // 嵌套落点(实测 picomatch 下 `.ihui-agent/**` 放过 `src/x/.ihui-agent/**`)。
+    // 本包另有一把尺子会因此变红:tests/chat/waiting-keys-collection.test.ts 拿 `vitest list`
+    // 的真实收集结果与磁盘全集对账,副本一旦混进面内就对不上。
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
       '**/cypress/**',
       '**/.{idea,git,cache,output,temp}/**',
       '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,postcss,css}.config.*',
+      '**/.ihui-agent/**',
     ],
   },
 })

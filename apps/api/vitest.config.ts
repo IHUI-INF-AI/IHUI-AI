@@ -18,11 +18,16 @@ export default defineConfig({
       'src/plugins/__tests__/**/*.test.ts',
     ],
     // 排除真实 DB 集成测试(用 vitest.real.config.ts 单独跑)
+    // 2026-10-03(G-1018201)'**/.ihui-agent/**':.ihui-agent/tmp/ 里存着他人留下的 HEAD
+    // 整仓副本,而 vitest 4.1.10 收集面显式 `dot: true` ⇒ 点目录被主动穿透,副本里与本包
+    // 同形的 *.test.ts 会被收进当次运行。`.gitignore` 只管 git,拦不住文件系统 glob。
+    // 带 `**/` 前缀才覆盖任意嵌套落点(实测 picomatch 下 `.ihui-agent/**` 放过 `src/x/.ihui-agent/**`)。
     exclude: [
       'dist/**',
       'node_modules/**',
       'tests/**/*.real.test.ts',
       'src/routes/__tests__/**/*.real.test.ts',
+      '**/.ihui-agent/**',
     ],
     testTimeout: 15_000,
     hookTimeout: 15_000,
