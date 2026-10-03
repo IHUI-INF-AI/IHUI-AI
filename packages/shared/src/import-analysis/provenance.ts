@@ -26,15 +26,16 @@
  *   3. `buildAnalysisPrompt` — 用用户填的 variables 替换模板 `{var}` 占位符,
  *      拼成一条**普通用户消息**,由既有聊天通道发出(不新造 LLM 调用链)。
  *
- * **本模块刻意不 import 投影文件**(只 import 其 `type`):投影含 210 条模板正文
- * ≈493KB,静态 import 会把它拖进每一个引用本模块的 chunk。会话消息区为了显示
- * "来自微信导入"要读 provenance,那条路径**不该**为场景目录付 493KB 的解析与下载代价。
- * 取场景/列分类的出口在同目录 `scenarios.ts`,由"用场景分析"弹窗动态 import 拉入 ——
- * 只有用户真要点分析时才付这个成本。
+ * **本模块刻意不 import 投影文件**(2026-10-03 起连 `type` 也不 import 了):投影含
+ * 210 条模板正文 ≈707KB,任何形式的 import 都会把它拖进引用本模块的 chunk。会话消息区
+ * 为了显示"来自微信导入"要读 provenance,那条路径**不该**为场景目录付这份解析与下载代价。
+ * 取场景/列分类的出口在同目录 `scenarios.ts`(full 投影)与 `scenarios.slim.ts`(slim 投影),
+ * 由"用场景分析"面板拉入 —— 只有用户真要点分析时才付这个成本。
+ * 代价:本模块声明自己的最小入参类型 `ImportAnalysisScenarioPromptInput`,而不是引用
+ * 投影的类型 —— 那让本模块对"目录长什么样"保持无知,两份投影都能直接传进来。
  *
  * 本模块零运行时依赖(不 import react / react-native / 任何端 SDK),故三端可安全共用。
  */
-import type { ImportAnalysisScenario } from './catalog.generated'
 
 // =============================================================================
 // 类型
@@ -229,6 +230,23 @@ export function readImportProvenance(
 // =============================================================================
 
 /**
+ * `buildAnalysisPrompt` 真正读到的场景字段(最小集)。
+ *
+ * 为什么不是 `ImportAnalysisScenario`:本函数是三端共用的判据,而三端拿到的场景
+ * 来自**两份投影**(full 给 web/RN、slim 给小程序)。只声明这里真正读的字段,
+ * 两份投影的实例都满足,不必让 slim 伪造 full 的展示字段,也不必把 full 的
+ * `tags` 之类字段列进函数签名 —— 类型即文档,多写一个字段就是一处可以骗过编译器的耦合。
+ */
+export interface ImportAnalysisScenarioPromptInput {
+  readonly title: string
+  /** slim 投影里 description 不存在,故可选;`useCase || description` 兜底口径不变 */
+  readonly description?: string
+  readonly useCase: string
+  readonly variables: readonly string[]
+  readonly template: string
+}
+
+/**
  * 用用户填的 variables 替换模板里的 `{var}` 占位符。
  *
  * 规则:
@@ -261,12 +279,17 @@ const ANALYSIS_TRANSCRIPT_HINT =
  * 走既有聊天通道(与 AI 面板的输入框同一出口),因此历史里的导入消息就是本轮上下文 ——
  * 不另建 LLM 调用链,也不把正文重贴一遍(重贴会让长会话双倍计费/超上下文)。
  *
- * @param scenario 选中的库场景
+ * @param scenario 选中的库场景。**刻意只要求 slim 投影的最小字段集**
+ *   (title / useCase / description / variables / template)—— 这样 full 投影
+ *   (`ImportAnalysisScenario`)与 slim 投影 (`@ihui/shared/import-analysis/scenarios-slim`
+ *   的 `ImportAnalysisScenario`)都能传进来,三端拼出的指令**逐字相同**。
+ *   `description` 在 slim 里不存在,故为可选;`useCase || description` 的兜底口径不变
+ *   (本库 useCase 210/210 非空,两投影下都恒取 useCase)。
  * @param variables 用户填的变量值(键为库的 variables 条目)
  * @param pendingPlaceholder 未填变量的占位提示(由调用方给 i18n 文案)
  */
 export function buildAnalysisPrompt(
-  scenario: ImportAnalysisScenario,
+  scenario: ImportAnalysisScenarioPromptInput,
   variables: Readonly<Record<string, string>>,
   pendingPlaceholder: (varName: string) => string,
 ): string {
