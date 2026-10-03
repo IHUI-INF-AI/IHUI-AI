@@ -7,7 +7,15 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import Image from 'next/image'
-import { ChevronLeft, ChevronRight, Copy, Download, ZoomIn, ZoomOut } from 'lucide-react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  Download,
+  ExternalLink,
+  ZoomIn,
+  ZoomOut,
+} from 'lucide-react'
 import {
   imageCounterView,
   imageTransferView,
@@ -262,6 +270,12 @@ function ImagePreview({
     }
   }, [current.url, current.name, active])
 
+  // G-816000:failed 不是死路 —— 把链接本身交出去(新标签直接取),失败仍如实报失败。
+  // 复用 D163 的 openSource 与既有 a11y.download 键,不新增任何文案。
+  const handleSaveFallback = React.useCallback(() => {
+    openSource()
+  }, [openSource])
+
   const handleCopy = React.useCallback(async () => {
     try {
       const res = await fetch(current.url)
@@ -406,6 +420,19 @@ function ImagePreview({
           >
             <Download className="h-3.5 w-3.5" aria-hidden />
           </button>
+          {/* G-816000:仅「保存失败」态给兜底出口(成功态不渲染,否则每次成功都多一个按钮)。
+              出口只交链接、不改 transfer,故不会把失败洗成 success。 */}
+          {transfer?.kind === 'save' && transfer.result === 'failed' ? (
+            <button
+              type="button"
+              className={toolBtn}
+              onClick={handleSaveFallback}
+              aria-label={t('download')}
+              data-image-transfer-btn="save-fallback"
+            >
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+            </button>
+          ) : null}
           <button
             type="button"
             className={toolBtn}
