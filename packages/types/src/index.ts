@@ -15,6 +15,8 @@ export * from './cli-config.js'
 export * from './notification.js'
 export * from './notification-channels.js'
 export * from './message-repair.js'
+// 落库工具结果元数据的版本化契约(G-719:schemaVersion + 内层 strict + 外层 passthrough + 唯一剥离卡点)
+export * from './tool-result-metadata.js'
 export * from './agent-runtime.js'
 export * from './workspace.js'
 // 插件市场跨端类型契约(2026-07-22 立,复用 user_preferences 表)
