@@ -240,6 +240,122 @@ class CrashBudget:
         }
 
 
+
+# ======================================================================
+# 不安全加载标记判据(G-758,2026-10-03 立;第五道防线的唯一判定实现)
+# ======================================================================
+# 背景:G-748 收口了 6 个模块的"读失败也固化 loaded",但那把尺子
+# (`git grep -cE "_loaded = True"`)对本族**结构上不完整** —— 集合 add、
+# 未读先置真等形态它看不见,报"归零"会把漏读洗成已清。本函数用 AST 把
+# 三种"读失败/未读到被记成已加载"的写法钉成**唯一一份**判定实现;
+# 守门如需接线必须调用本函数(单向投影),不得再抄第二份正则。
+#
+# 覆盖的三形态(逐一有现实出处):
+#   ① finally 置真      —— G-748 前 ab_test_tracker / G-758 前 audit_log 等
+#                          六个文件库的真形:`finally: self._loaded = True`;
+#   ② try/except 同块尾随(或 except 体内)置真 —— anti_risk 四件的真形:
+#                          异常分支被折成"已加载"哨兵,与成功路径不可判别;
+#   ③ 集合 add 记"已加载" —— G-748 落地前 federated_learner / meta_learner 的
+#                          真形(`_loaded_users.add(user_id)`),集合表达不了
+#                          "试过了但没读到"。
+# 刻意不判的(防误报,逐一有现实出处):
+#   - 成功路径/权威写入上的置真:reset() 清账后置真(cost_ledger.reset)、
+#     测试注入权威数据后置真(routers/cost_ledger._scratch)、元组形态的
+#     state_after_success() 固化 —— 都不在"异常兜底块之后无条件置真"的形状里;
+#   - 局部变量(非属性):llm_gateway 的 `equivalents_loaded` 是请求内惰性加载
+#     游标,另一义;
+#   - 名字不含 loaded 的集合 add。
+
+import ast as _ast
+import re as _re
+
+_LOADED_NAME_RE = _re.compile(r"loaded")
+_LOADED_ATTR_RE = _re.compile(r"_loaded$")
+
+
+def _assign_mark(node: "_ast.stmt") -> str | None:
+    """`<obj>.<x>_loaded = True`(字面 True 常量)⇒ 返回属性名;否则 None。"""
+    if not isinstance(node, _ast.Assign):
+        return None
+    if not (isinstance(node.value, _ast.Constant) and node.value.value is True):
+        return None
+    names = []
+    for t in node.targets:
+        if isinstance(t, _ast.Attribute) and _LOADED_NAME_RE.search(t.attr):
+            names.append(t.attr)
+    return names[0] if names else None
+
+
+def find_unsafe_loaded_marks(source: str) -> list[dict[str, object]]:
+    """扫一段 Python 源码,点名三种"没读到被记成已加载"的写法(行号从 1 起)。
+
+    返回元素形状:{"kind": "finally-set" | "except-set" | "tail-set" | "set-add",
+    "line": int, "name": str}。判定是纯函数,零 IO,可直接喂构造面验证。
+    """
+    findings: list[dict[str, object]] = []
+    tree = _ast.parse(source)
+
+    def blocks(node: "_ast.AST") -> list[list[_ast.stmt]]:
+        out: list[list[_ast.stmt]] = []
+        for field in ("body", "orelse", "finalbody"):
+            v = getattr(node, field, None)
+            if isinstance(v, list) and all(isinstance(x, _ast.stmt) for x in v):
+                out.append(v)
+        if isinstance(node, _ast.Try):
+            for h in node.handlers:
+                out.append(h.body)
+        return out
+
+    for stmt in _ast.walk(tree):
+        for blk in blocks(stmt):
+            seen_try_with_handler = False
+            for child in blk:
+                if isinstance(child, _ast.Try) and child.handlers:
+                    seen_try_with_handler = True
+                    # ① finally 置真
+                    for n in child.finalbody:
+                        name = _assign_mark(n)
+                        if name:
+                            findings.append(
+                                {"kind": "finally-set", "line": n.lineno, "name": name}
+                            )
+                    # ② except 体内置真(异常分支折成"已加载"哨兵)
+                    for h in child.handlers:
+                        for n in h.body:
+                            name = _assign_mark(n)
+                            if name:
+                                findings.append(
+                                    {"kind": "except-set", "line": n.lineno, "name": name}
+                                )
+                # ②b try/except 同块**尾随**置真(anti_risk 旧形):异常兜底块之后
+                #    无条件 `self._loaded = True`,与成功路径不可判别
+                name = _assign_mark(child)
+                if name and seen_try_with_handler:
+                    findings.append(
+                        {"kind": "tail-set", "line": child.lineno, "name": name}
+                    )
+                # ③ 集合 add 记"已加载":`X.add(...)` 且 X 名字含 loaded
+                if isinstance(child, _ast.Expr) and isinstance(child.value, _ast.Call):
+                    fn = child.value.func
+                    if isinstance(fn, _ast.Attribute) and fn.attr == "add":
+                        base = fn.value
+                        base_name = (
+                            base.id
+                            if isinstance(base, _ast.Name)
+                            else base.attr
+                            if isinstance(base, _ast.Attribute)
+                            else ""
+                        )
+                        if base_name and _LOADED_NAME_RE.search(base_name):
+                            findings.append(
+                                {
+                                    "kind": "set-add",
+                                    "line": child.lineno,
+                                    "name": base_name,
+                                }
+                            )
+    return findings
+
 def raise_if_crash_loop_stopped(snapshot: dict[str, object]) -> None:
     """前台/调用方出口:读到 `crash-loop-stopped` 终态立刻抛错上抛,不等满超时。"""
     if snapshot.get("state") == STATE_CRASH_LOOP_STOPPED:
