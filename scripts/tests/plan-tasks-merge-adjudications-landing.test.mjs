@@ -31,7 +31,7 @@ import {
   buildMerge,
   healStopReasons,
   verifyMerge,
-} from '../tmp-r32-merge.mjs'
+} from '../plan-tasks-merge.mjs'
 import { auditPlan } from '../lib/plan-task-index.mjs'
 
 /** 造一张"同一道题两态并存"的面:一条已勾正主 + 一条未勾副本(正文逐字相同 ⇒ F1)。 */
