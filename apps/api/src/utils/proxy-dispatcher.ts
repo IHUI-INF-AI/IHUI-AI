@@ -187,6 +187,35 @@ export function isProxiedUrl(url: string): boolean {
 /** `egress` 挂成**不可枚举**属性:不进 `Object.keys` / JSON,免得被顺带序列化出去。*/
 const EGRESS_PROP = 'egress'
 
+/** 有界链的末跳事实(G-750):同样不可枚举,挂在**最终**响应对象上。*/
+const EGRESS_HOPS_PROP = 'egressHops'
+
+/** 一趟有界链走完后的末跳事实(`readEgressHops` 的读面)。*/
+export interface EgressHops {
+  /** 末跳 hostname(小写,不含端口/路径/userinfo);末跳 URL 解析失败为 null。*/
+  readonly finalHostname: string | null
+  /** 实际发生的重定向跳数(0 = 一跳未跟)。*/
+  readonly redirectCount: number
+}
+
+/** 把末跳事实挂到响应上(G-750):有界主循环的**唯一**两个落点都经这里,不散抄。*/
+function attachEgressHops<T extends object>(response: T, hops: EgressHops): T {
+  Object.defineProperty(response, EGRESS_HOPS_PROP, {
+    value: Object.freeze({ ...hops }),
+    enumerable: false,
+    configurable: true,
+    writable: false,
+  })
+  return response
+}
+
+/** 读回一趟响应的末跳事实;没经历过有界链 → null(调用方不得把 null 读成 0 跳)。*/
+export function readEgressHops(response: unknown): EgressHops | null {
+  if (typeof response !== 'object' || response === null) return null
+  const value = (response as Record<string, unknown>)[EGRESS_HOPS_PROP]
+  return typeof value === 'object' && value !== null ? (value as EgressHops) : null
+}
+
 /**
  * 把出口事实挂到响应对象上(吸收来的形状:事实挂在响应上,不是挂在日志里)。
  *
@@ -501,14 +530,20 @@ export async function boundedEgressFetch(url: string, options: BoundedEgressOpti
       if (location === null || location === '') {
         // 不是重定向,或 3xx 却给不出 Location:后者**不猜**(不自己拼、不当成已跟随),
         // 原样把这一跳交给调用方,由它按状态码判失败。
-        return enforceResponseByteCap(res, maxResponseBytes, currentUrl)
+        return attachEgressHops(enforceResponseByteCap(res, maxResponseBytes, currentUrl), {
+          finalHostname: hostnameOf(currentUrl),
+          redirectCount: hops,
+        })
       }
 
       let nextUrl: string
       try {
         nextUrl = new URL(location, currentUrl).toString()
       } catch {
-        return enforceResponseByteCap(res, maxResponseBytes, currentUrl)
+        return attachEgressHops(enforceResponseByteCap(res, maxResponseBytes, currentUrl), {
+          finalHostname: hostnameOf(currentUrl),
+          redirectCount: hops,
+        })
       }
 
       await discardBody(res)
@@ -605,9 +640,8 @@ export const directEgressTransport: EgressTransport = (targetUrl, init) =>
  * (直连侧不传 dispatcher)。此前直连侧是裸 `fetch(url)`(`redirect:'follow'` 默认 20 跳、
  * 无跨 origin 剥头纪律、无响应字节上限)—— 代理白名单外的域被 302 到第三方域时,
  * 自定义头里的凭据是出口主动送出去的,与 G-736 修掉的代理侧是同一型。
- * 出口事实刻意**不**在这里挂载:`_shared.fetchWithTimeout` 一趟只算一次事实
- * (collectEgressFacts 决策与事实同源),由它自己 `attachEgressFacts`;
- * 其余站点经 fetch-deadline 的受管视图包装,挂了也会被剥掉,它们本来也不读事实。
+ * G-750(2026-10-03)起事实挂载收进本函数(与 proxiedFetch 同形):起始配置事实 + 末跳事实
+ * 合成完整事实面;`_shared.fetchWithTimeout` 只用 `collectEgressFacts` 做路由决策,不再自行挂载。
  */
 export async function directEgressFetch(
   url: string,
@@ -623,7 +657,25 @@ export async function directEgressFetch(
     transport?: EgressTransport
   } = {},
 ): Promise<Response> {
-  return boundedEgressFetch(url, { ...options, transport: options.transport ?? directEgressTransport })
+  const res = await boundedEgressFetch(url, {
+    ...options,
+    transport: options.transport ?? directEgressTransport,
+  })
+  return attachEgressFacts(res, enrichedEgressFacts(url, res))
+}
+
+/** 起始配置事实 + 末跳事实(G-750)合成一趟的完整事实面:
+ * 经历过有界链 ⇒ finalHostname/redirectCount 取链上真值;未经历(hops = null)⇒ 两字段
+ * 保持缺省(undefined)—— "缺省不进 JSON 以保持旧形状"是本票对类型面的承诺,不用 null 冒充。
+ * 事实的装配走 `createEgressFacts` 唯一出口,白名单外照样进不来。*/
+function enrichedEgressFacts(url: string, res: Response): EgressFacts {
+  const hops = readEgressHops(res)
+  return createEgressFacts({
+    ...collectEgressFacts(url),
+    ...(hops
+      ? { finalHostname: hops.finalHostname, redirectCount: hops.redirectCount }
+      : {}),
+  })
 }
 
 /** fetch-deadline 注入形态(`FetchDeadlineImpl`)的有界实现(G-749):
@@ -684,6 +736,6 @@ export async function proxiedFetch(
     timeoutMs: options.timeoutMs,
     transport,
   })
-  return attachEgressFacts(res, collectEgressFacts(url))
+  return attachEgressFacts(res, enrichedEgressFacts(url, res))
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
