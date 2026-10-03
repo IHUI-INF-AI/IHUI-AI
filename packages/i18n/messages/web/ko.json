@@ -17053,6 +17053,7 @@
         "name": "프로바이더 이름",
         "namePlaceholder": "내 OpenAI",
         "nameRequired": "프로바이더 이름은 필수입니다",
+        "invalidFieldsToast": "다음 필드를 수정한 후 다시 시도해 주세요",
         "newTitle": "새 프로바이더",
         "optional": "선택사항",
         "pasteEmpty": "클립보드가 비어 있습니다",
