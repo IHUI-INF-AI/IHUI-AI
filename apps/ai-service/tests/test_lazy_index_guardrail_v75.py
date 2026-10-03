@@ -31,10 +31,10 @@ import pytest
 
 from app.services import mcp_server
 from app.services.codebase_indexer import (
-    EMBEDDING_BATCH_SIZE,
-    MAX_FILES_PER_INDEX,
     _EXT_TO_LANG,
     _IGNORED_DIRS,
+    EMBEDDING_BATCH_SIZE,
+    MAX_FILES_PER_INDEX,
 )
 from app.services.rg_fallback_parity import (
     ENGINE_PYTHON_WALK,
@@ -44,6 +44,7 @@ from app.services.rg_fallback_parity import (
     probe_code_file_count,
 )
 
+
 #: 一次懒索引在该档下允许的**最大**文件数(batch 轴):ceil(n * 6.86/20) ≤ batch_budget。
 #: 用它而不是手算常数,免得换算系数一改这里就悄悄测了个别的东西。
 def _max_files_within_batch_budget(batch_budget: int, chunks_per_file: float = 6.86) -> int:
@@ -51,6 +52,15 @@ def _max_files_within_batch_budget(batch_budget: int, chunks_per_file: float = 6
     while math.ceil((n + 1) * chunks_per_file / EMBEDDING_BATCH_SIZE) <= batch_budget:
         n += 1
     return n
+
+
+# 2026-10-03 数据出域合规整改:懒索引现在受"代码出域同意闸"约束(未授权 ⇒
+# skipped-not-consented,见 test_code_index_consent_gate.py)。本文件验的是**规模护栏**
+# 本身(阈值/探测/各分支结论),不是同意闸,故统一在此替身下放行,让各用例仍走
+# 它们本该走的那条护栏分支。同意闸自身的判定另有专项用例,不重复验一遍。
+@pytest.fixture(autouse=True)
+def _granted_code_index_egress(monkeypatch):
+    monkeypatch.setattr(mcp_server, "_code_index_egress_allowed", lambda *_a, **_kw: True)
 
 
 def _probe(count: int, *, lower_bound: bool = False, limit: int = 1_000) -> SizeProbe:
@@ -132,9 +142,9 @@ class TestThresholdIsDerived:
 
     def test_budget_is_a_share_of_the_handler_timeout(self) -> None:
         """墙钟预算锚在 `MCP_GLOBAL_TIMEOUT` 上,不是另一个孤立数字。"""
-        assert mcp_server._LAZY_INDEX_LOCAL_BUDGET_SECONDS == pytest.approx(
+        assert pytest.approx(
             mcp_server.MCP_GLOBAL_TIMEOUT * mcp_server._LAZY_INDEX_HANDLER_BUDGET_SHARE
-        )
+        ) == mcp_server._LAZY_INDEX_LOCAL_BUDGET_SECONDS
 
     def test_every_cost_constant_is_a_positive_number(self) -> None:
         """四个换算系数必须都是正数。

@@ -151,9 +151,16 @@ async def knowledge_lookup(
     # 构造并发任务(仅查询 priority 中包含的源;long_term_memory 还需 user_id)
     tasks: dict[str, asyncio.Task[list[KnowledgeHit]]] = {}
     if "codebase" in priority:
+        # 2026-10-03 数据出域合规整改:codebase 源必须带 user_id ——
+        # api 侧按 owner_uuid 隔离检索面,不带的请求会拿到 401 → 本源降级为空。
+        # 传 user_id 是唯一能取回结果的方式(与写入口同一条归属纪律)。
         tasks["codebase"] = asyncio.create_task(
             _query_codebase(
-                query, repo_id=repo_id, top_k=top_k_per_source, api_token=api_token
+                query,
+                repo_id=repo_id,
+                top_k=top_k_per_source,
+                api_token=api_token,
+                internal_user_id=user_id,
             )
         )
     if "knowledge_cards" in priority:
@@ -233,13 +240,20 @@ async def _query_codebase(
     repo_id: str | None,
     top_k: int,
     api_token: str | None,
+    internal_user_id: str | None = None,
 ) -> list[KnowledgeHit]:
     """查 codebase_indexer,返回 list[KnowledgeHit]。
 
     codebase_indexer.search() 已自带 try/except 降级返回 [],此处不再包裹。
+    internal_user_id(2026-10-03 新增):检索面按归属隔离,api 侧据此取
+    req.userId;缺失时该源拿不到结果(降级为空,不报错不阻塞)。
     """
     chunks = await codebase_indexer.search(
-        query, repo_id=repo_id, top_k=top_k, api_token=api_token
+        query,
+        repo_id=repo_id,
+        top_k=top_k,
+        api_token=api_token,
+        internal_user_id=internal_user_id,
     )
     return [
         KnowledgeHit(
