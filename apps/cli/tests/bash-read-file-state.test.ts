@@ -52,7 +52,7 @@ function sandboxResult(over: Partial<Parameters<typeof settleForegroundCommand>[
   } as Parameters<typeof settleForegroundCommand>[0]
 }
 
-function seedReadState(ctx: object, abs: string, content: string): void {
+function seedReadState(ctx: object, abs: string, _content: string): void {
   const stat = fs.statSync(abs)
   const entry: ReadFileStateEntry = {
     path: abs,
