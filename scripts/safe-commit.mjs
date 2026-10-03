@@ -54,7 +54,7 @@ import {
 // D171(2026-09-30):取路径一律走 lib/git-paths 的 -z 出口 —— git 默认按 core.quotePath
 // 把非 ASCII 路径八进制转写并加引号,按换行 split 的旧写法把 5 个中文名文件判成
 // 「暂存区出现非预期文件 ⇒ 中止提交」(Step 3)与污染事故(Step 5)。
-import { gitCommitPaths, gitStagedPaths, gitUntrackedPaths } from './lib/git-paths.mjs'
+import { gitCommitPaths, gitStagedPaths, gitUntrackedPaths, gitWorktreePaths } from './lib/git-paths.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 // 本脚本所在仓的根(AGENTS §15:由自身位置推导,不得写死盘符)
@@ -597,15 +597,36 @@ if (hookFailed && commitResult.status !== 0) {
    * ⚠ 未跟踪清单**必须**排除 .gitignore 命中的项(`--exclude-standard`):否则 node_modules、
    *   构建产物、别人刻意留在忽略路径里的东西会被当成"现场",把这一档撑成常态 —— 那等于
    *   给"任何未跟踪文件引发的红"开了免责通道,是与"多放一次跳门"同罪的放宽。
+   *
+   * ── 第三路:工作树面(2026-10-03,票 G-1018220)────────────────────────────────
+   * 改前只有上面两路,而门 47(`check-watermark-coverage.mjs`)判红的恰是**第三路**:
+   * 它的分母 = `git ls-files`(跟踪面全集)∩ 工作树**磁盘字节**(横幅在不在文件里),
+   * **它不读 `git diff --cached`** —— 暂存与否对它判红毫无影响。
+   * 于是"别人已跟踪、已改、**还没 staged**"(并发会话最常见的中途态)两路都看不见,
+   * 态①c 的"他人现场"永不触发 ⇒ 落进差分档 ⇒ 基线面读 HEAD 旧字节必然绿
+   * ⇒ 差分把别人那半截判成本枚引入 ⇒ `mine` ⇒ 拒绝 `--no-verify`。
+   * 实测死锁:私有索引下只提交一个零风险常量探针,门 47 却因
+   * `packages/types/src/agent-control.ts`(别人的未暂存重写冲掉了水印)exit 1,
+   * 归因层判 `mine` 且措辞写"差分证明这枚提交引入了红"。本仓提交带 pathspec,
+   * 那个路径进不了本次内容 —— 出口只剩"去改别人的文件",那是 §12 事故。
+   * ⚠ 这一路**不是**把门 47 的判据放宽成"只看本次声明的文件":门 47 照旧按整张
+   *   跟踪面判红、照旧自愈并 `git add`(它的价值就在那儿)。这里补的是**归因层
+   *   自己那份"这一格归谁"清单的取材面**,让两者的判据面终于对得上。
    */
-  // D171:两份清单同样走 -z 出口(索引/未跟踪面上的中文路径不得被 quotePath 转写变形)。
+  // D171:三份清单同样走 -z 出口(各面上的中文路径不得被 quotePath 转写变形)。
   const stagedNow = gitStagedPaths({ root: repoRoot })
   const untrackedNow = gitUntrackedPaths({ root: repoRoot })
-  const foreignStaged = [...stagedNow, ...untrackedNow].filter((p) => !expectedFiles.includes(p))
+  // 索引已含本票声明的文件,而工作树面是"索引 vs 盘上",故这一路天然可能含本票自己的路径
+  // (门 47 自愈会往盘上写横幅再 git add,时序上工作树面可能先于索引面被读到)——
+  // 扣减一律按 expectedFiles,与另两路同一条判据。
+  const worktreeNow = gitWorktreePaths({ root: repoRoot })
+  const foreignStaged = [...new Set([...stagedNow, ...untrackedNow, ...worktreeNow])].filter(
+    (p) => !expectedFiles.includes(p),
+  )
   if (foreignStaged.length > 0)
     log(
       'info',
-      `索引/工作树里另有 ${foreignStaged.length} 个非本票项(其中索引 ${stagedNow.filter((p) => !expectedFiles.includes(p)).length}、未跟踪 ${untrackedNow.filter((p) => !expectedFiles.includes(p)).length};例:${foreignStaged.slice(0, 6).join(', ')}${foreignStaged.length > 6 ? ' …' : ''}) —— 不随本枚提交走:commit 带 pathspec,只交上面声明的清单,故不中止(第一版在此中止反而自锁:并发会话随时可能 staged 东西,而它本来也进不来)`,
+      `索引/工作树里另有 ${foreignStaged.length} 个非本票项(其中索引 ${stagedNow.filter((p) => !expectedFiles.includes(p)).length}、未跟踪 ${untrackedNow.filter((p) => !expectedFiles.includes(p)).length}、已跟踪未暂存 ${worktreeNow.filter((p) => !expectedFiles.includes(p)).length};例:${foreignStaged.slice(0, 6).join(', ')}${foreignStaged.length > 6 ? ' …' : ''}) —— 不随本枚提交走:commit 带 pathspec,只交上面声明的清单,故不中止(第一版在此中止反而自锁:并发会话随时可能 staged 东西,而它本来也进不来)`,
     )
   const verdict0 = classifyHookFailure({
     text: hookOutput,
