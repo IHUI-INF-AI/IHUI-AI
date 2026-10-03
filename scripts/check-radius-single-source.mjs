@@ -666,7 +666,7 @@ export async function checkTableConsistency() {
     try {
       const b = catBatch(ROOT, ['HEAD:packages/design-tokens/src/radius.d.ts'])
       return b.get('packages/design-tokens/src/radius.d.ts') ?? b.get('HEAD:packages/design-tokens/src/radius.d.ts') ?? ''
-    } catch (e) {
+    } catch {
       return null
     }
   })()
