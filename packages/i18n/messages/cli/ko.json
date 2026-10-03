@@ -312,7 +312,9 @@
     "onlyDesc": "지정한 번호만 가져오기(예: 1,3,5-8)",
     "historyDesc": "세션 가져오기 이력 조회(최근 50건)",
     "conversationMeta": "· 메시지 {count}개 · 모델 {model} · 시작 {started}",
-    "historyCappedSuffix": ", 서버 상한 50건에 도달"
+    "historyCappedSuffix": ", 서버 상한 50건에 도달",
+    "noFixedRoots": "고정 내보내기 디렉터리 없음(--path로 지정)",
+    "sourceWechat": "WeChat 채팅 기록 내보내기(서드파티 도구 또는 수동 저장한 zip/txt)"
   },
   "cliEntry": {
     "tagline": "IHUI AI Coding Agent — Claude Code / Codex를 지향하는 코딩 에이전트",

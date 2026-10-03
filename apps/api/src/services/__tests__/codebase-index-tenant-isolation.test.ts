@@ -83,7 +83,7 @@ import {
  * toQuery 走 PgDialect 的公开渲染路径,升版只要 dialect 不换就稳定。
  */
 function renderSql(frag: unknown): string {
-  if (frag == null) return ''
+  if (frag === null || frag === undefined) return ''
   const anyFrag = frag as {
     toQuery?: (cfg: unknown) => { sql: string; params: unknown[] }
   }
