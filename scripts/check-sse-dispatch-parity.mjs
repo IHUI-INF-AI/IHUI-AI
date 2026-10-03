@@ -86,6 +86,10 @@ function git(args, opts = {}) {
     maxBuffer: 64 * 1024 * 1024,
     timeout: 120000,
     ...opts,
+    // EBUSY 根治(errno -4082):本机会话里 Node 建子进程 stdin 管道确定性失败。
+    // 调用点全为只读 git,不喂 stdin ⇒ stdio[0]='ignore'。
+    // 写在 ...opts 之后:若将来某调用方要喂 stdin,必须先在这里改成 input 两态判据。
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 

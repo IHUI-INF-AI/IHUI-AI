@@ -61,6 +61,10 @@ const git = (args, opts = {}) =>
     windowsHide: true,
     maxBuffer: GIT_MAX,
     ...opts,
+    // EBUSY 根治(errno -4082):本机会话里 Node 建子进程 stdin 管道确定性失败。
+    // 自检夹具确实写对象库,但走的是 `hash-object -w <文件>` **文件通道**(零 input),
+    // 所以 stdio[0]='ignore' 安全 —— 与"stdin 喂数据静默产空 blob"那次事故是两件事。
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 
 const occ = (t) => (t == null ? null : t.split(REPL).length - 1)

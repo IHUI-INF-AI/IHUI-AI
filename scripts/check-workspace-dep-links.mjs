@@ -60,6 +60,9 @@ function git(args) {
     encoding: 'utf8',
     windowsHide: true,
     timeout: 60_000,
+    // EBUSY 根治(errno -4082):本机会话里 Node 建子进程 stdin 管道确定性失败。
+    // 调用点全是只读 git(ls-files/ls-tree),不喂 stdin。
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
