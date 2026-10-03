@@ -11794,7 +11794,8 @@
     "reasoningEffortMedium": "균형",
     "reasoningEffortHigh": "심층",
     "reasoningEffortUnsupported": "이 모델은 추론 강도를 선택할 수 없습니다",
-    "reasoningEffortFallback": "추론 강도가 서버에서 조정되었습니다: {requested} → {effective}"
+    "reasoningEffortFallback": "추론 강도가 서버에서 조정되었습니다: {requested} → {effective}",
+    "analysisOpen": "시나리오 분석 보기"
   },
   "chatHistory": {
     "moveToGroup": "그룹으로 이동",
@@ -12033,7 +12034,8 @@
     "toKnowledgeFailed": "지식 베이스 추가 실패: {error}",
     "toKnowledgeAlready": "지식 베이스에 있음",
     "sourceWechat": "WeChat",
-    "sourceWechatHint": "WeChat '모아서 보내기'로 내보낸 채팅 기록.txt 또는 그 .zip"
+    "sourceWechatHint": "WeChat '모아서 보내기'로 내보낸 채팅 기록.txt 또는 그 .zip",
+    "noValidContent": "가져올 수 있는 유효한 내용이 없습니다"
   },
   "commandPalette": {
     "groups": {
@@ -22066,7 +22068,13 @@
     "agentSecuritySaveSuccess": "보안 설정이 저장되었습니다",
     "agentSecuritySaveFailed": "보안 설정 저장에 실패했습니다",
     "analyticsEnabled": "이용 통계",
-    "analyticsEnabledDesc": "켜면 클릭·페이지 방문·소요 시간 등 익명 기능 사용 이벤트를 기록해 제품을 개선합니다. 입력한 내용·코드·파일 경로는 기록하지 않습니다. 끄면 즉시 전송을 중단하며 기능에는 영향이 없습니다."
+    "analyticsEnabledDesc": "켜면 클릭·페이지 방문·소요 시간 등 익명 기능 사용 이벤트를 기록해 제품을 개선합니다. 입력한 내용·코드·파일 경로는 기록하지 않습니다. 끄면 즉시 전송을 중단하며 기능에는 영향이 없습니다.",
+    "llmRawRetentionOptOut": "LLM 원문 보관 안 함",
+    "llmRawRetentionOptOutDesc": "질문과 AI 답변 본문은 데이터베이스에 저장되지 않습니다",
+    "codeIndexEgressOptOut": "코드 의미 인덱스 생성 안 함",
+    "codeIndexEgressOptOutDesc": "코드 조각은 벡터화 인덱싱을 위해 외부로 전송되지 않습니다",
+    "autoMemoryOptOut": "자동 장기 기억 끄기",
+    "autoMemoryOptOutDesc": "대화를 세션 간 선호나 규칙으로 자동 추출하지 않습니다"
   },
   "shareContentPage": {
     "aiGenerated": "Zhihui AI 생성",
