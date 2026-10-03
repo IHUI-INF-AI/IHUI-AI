@@ -164,6 +164,32 @@ test('T9 自检必须端到端有牙:注释/字符串形态不得被计入,代�
 })
 
 /**
+ * T12 方向锁(G-1038449):`request.query` 这一面必须看得见,且**形态/类型判断不算验真**。
+ * 这条锁的由来是一次变异取证:把 REF_RE 的 query 形态去掉后,门 157 立刻退回 findings 2
+ * (csrf.ts:250 重新隐形),而当时 `--self-test` 24 例与本镜像其余各条**全绿** ——
+ * 也就是说新识别面当时**没有任何测试锁着**,删掉它没人会发现。这里把三条方向钉死:
+ *  ① query 面的裸属性与单跳变量形态必须命中(引用面加宽的证据);
+ *  ② `typeof (…)?.k === 'string'`(csrf.ts:250 的形状)必须命中 —— 裸类型比较不是值验证,
+ *     旧 VERIFIED_RE 的裸 `===` 正是在这里放过它;
+ *  ③ #23 的正确形态 `await isVerifiedInternalMachineCall(request)` 仍**不得**判红 ——
+ *     收窄判据若把它判红,就是判据写歪(宁可门失灵也不逼人 --no-verify,设计约束 1)。
+ * 另带三条反向对照:query 面的非凭据参数不得判红、真值比较(有比较对象)不得判红、
+ * query 面走 secretsEqual 验真不得判红。
+ */
+test('T12 query 面必须看得见 + 裸类型比较不算验真 + #23 形态仍放过', () => {
+  const ENF = `\n  if (!verifyCsrfToken(a, b)) return reply.status(403).send(1)\n}`
+  assert.equal(gate.scanSource('a.ts', `async function h(request, reply){\n  if (request.query.key) return${ENF}`).findings.length, 1, 'query 裸属性必须命中')
+  assert.equal(gate.scanSource('a.ts', `async function h(request, reply){\n  const k = request.query?.key\n  if (k) return${ENF}`).findings.length, 1, 'query 单跳变量必须命中')
+  // 类型守卫包裹的 query 存在性(csrf.ts:250 的形状;只抄形状,不含任何真实凭据取值)
+  const guarded = `async function h(request, reply){\n  if (typeof (request.query as { key?: unknown } | undefined)?.key === 'string') return${ENF}`
+  assert.equal(gate.scanSource('a.ts', guarded).findings.length, 1, 'typeof 包裹的 query 存在性必须命中(裸 === 不是验真)')
+  assert.equal(gate.scanSource('a.ts', `async function h(request, reply){\n  if (await isVerifiedInternalMachineCall(request)) return${ENF}`).findings.length, 0, '#23 的值验真形态必须放过,判据不许写歪')
+  assert.equal(gate.scanSource('a.ts', `async function h(request, reply){\n  if (request.query.page) return${ENF}`).findings.length, 0, 'query 的非凭据参数不得判红')
+  assert.equal(gate.scanSource('a.ts', `async function h(request, reply){\n  if (request.headers['x-tenant-signature'] === process.env.SIGNATURE) return${ENF}`).findings.length, 0, '有比较对象的值比较不得判红')
+  assert.equal(gate.scanSource('a.ts', `async function h(request, reply){\n  if (secretsEqual(request.query.key, process.env.GEMINI_KEY)) return${ENF}`).findings.length, 0, 'secretsEqual 验真不得判红')
+})
+
+/**
  * T10 跨文件锁:本门的行内豁免族必须进守门 108 的 `FAMILY_LIFETIME_DAYS`,且**族名由门体自己给出**
  * (不在此处手抄 —— 手抄的那份会在改名时既匹配不上门体、也匹配不上表,变成一把空锁)。
  * 两侧一律读 **HEAD 面**:读磁盘会把"门体已落地而 108 那张表还没落地"读成一致(两面不同形 =
