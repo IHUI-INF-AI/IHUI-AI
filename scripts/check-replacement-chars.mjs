@@ -40,7 +40,7 @@
  *   等于替别人落地,AGENTS §12)。
  */
 import { execFileSync } from 'node:child_process'
-import { readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { assertRepoRoot, catBatch, gitBinary, gitErrText, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
@@ -61,6 +61,10 @@ const git = (args, opts = {}) =>
     windowsHide: true,
     maxBuffer: GIT_MAX,
     ...opts,
+    // EBUSY 根治(errno -4082):本机会话里 Node 建子进程 stdin 管道确定性失败。
+    // 自检夹具确实写对象库,但走的是 `hash-object -w <文件>` **文件通道**(零 input),
+    // 所以 stdio[0]='ignore' 安全 —— 与"stdin 喂数据静默产空 blob"那次事故是两件事。
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 
 const occ = (t) => (t == null ? null : t.split(REPL).length - 1)
@@ -274,8 +278,9 @@ function recover(rel, emitName) {
   if (!codeFaceOk) return 1
   const name = emitName || `${rel.replace(/[^\w.]+/g, '_')}.recovered`
   const dir = join(ROOT, '.ihui-agent', 'tmp', 'replacement-chars')
-  writeFileSync(dir + '.keep', '')
-  const file = join(ROOT, '.ihui-agent', 'tmp', `${name}`)
+  // 落点固定在专门子目录里:旧写法往 tmp 根写一个 `.keep` 空文件当占位,每跑一次就留一件垃圾
+  mkdirSync(dir, { recursive: true })
+  const file = join(dir, name)
   writeFileSync(file, out, 'utf8')
   const blob = git(['hash-object', '-w', file]).trim()
   console.log(`  产出:${file}`)
