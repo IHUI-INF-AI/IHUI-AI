@@ -545,7 +545,7 @@ describe('MarkdownStream — G-824 内联表格工具栏', () => {
     fireEvent.click(container.querySelector('[data-testid="markdown-table-copy"]') as HTMLElement)
 
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
-    const copied = writeText.mock.calls[0][0] as string
+    const copied = writeText.mock.calls[0]![0] as string
     expect(copied).toBe(source)
     // 显式钉住分隔行(票面验收原话)
     expect(copied.split('\n')[1]).toBe('| --- | --- |')
@@ -559,7 +559,7 @@ describe('MarkdownStream — G-824 内联表格工具栏', () => {
     fireEvent.click(container.querySelector('[data-testid="markdown-table-copy"]') as HTMLElement)
 
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
-    const copied = writeText.mock.calls[0][0] as string
+    const copied = writeText.mock.calls[0]![0] as string
     expect(copied).toBe('| a |\n| --- |\n| 999 |')
     expect(copied).not.toContain('| 1 |')
   })
