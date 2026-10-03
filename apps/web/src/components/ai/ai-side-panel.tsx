@@ -49,7 +49,7 @@ import { SessionUsageBadge } from '@/components/chat/session-usage-badge'
 // 两者都只在 importProvenance 非 null(导入会话)时渲染;目录大的分析弹窗走 dynamic,
 // 避免 210 条模板正文(≈493KB)进 AI 面板主 chunk。
 import { ImportSourceBanner } from '@/components/ai/import-source-banner'
-import { readImportProvenance, type ImportProvenance } from '@/lib/import-analysis'
+import { readImportProvenance, type ImportProvenance } from '@ihui/shared/import-analysis'
 const ImportAnalysisDialog = dynamic(
   () => import('@/components/ai/import-analysis-dialog').then((m) => m.ImportAnalysisDialog),
   { ssr: false },
@@ -1653,140 +1653,139 @@ export function AISidePanel() {
                 className="flex items-center gap-2"
                 data-testid="ai-panel-header-actions-group"
               >
-              {/* 浮窗模式切换按钮(2026-07-30):
+                {/* 浮窗模式切换按钮(2026-07-30):
                 - docked 模式:显示 Pin 图标,点击切换到浮窗折叠态(只显示输入框)
                 - float 模式:显示 PanelRightRounded(停靠) + Minus(最小化)两个按钮 */}
-              {floatMode ? (
-                <>
-                  <Tooltip content={tc('dockPanel')}>
+                {floatMode ? (
+                  <>
+                    <Tooltip content={tc('dockPanel')}>
+                      <IconButton
+                        onClick={() => {
+                          setFloatMode(false)
+                          setFloatMinimized(false)
+                        }}
+                        aria-label={tc('dockPanel')}
+                      >
+                        <PanelRightRounded left />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip content={tc('minimize')}>
+                      <IconButton
+                        onClick={() => setFloatMinimized(true)}
+                        aria-label={tc('minimize')}
+                      >
+                        <Minus />
+                      </IconButton>
+                    </Tooltip>
+                  </>
+                ) : (
+                  <Tooltip content={tc('floatMode')}>
                     <IconButton
                       onClick={() => {
-                        setFloatMode(false)
+                        setFloatMode(true)
                         setFloatMinimized(false)
+                        setFloatCollapsed(true)
+                        openPanel()
                       }}
-                      aria-label={tc('dockPanel')}
+                      aria-label={tc('floatMode')}
                     >
-                      <PanelRightRounded left />
+                      <PictureInPicture2 />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip content={tc('minimize')}>
-                    <IconButton onClick={() => setFloatMinimized(true)} aria-label={tc('minimize')}>
-                      <Minus />
-                    </IconButton>
-                  </Tooltip>
-                </>
-              ) : (
-                <Tooltip content={tc('floatMode')}>
-                  <IconButton
-                    onClick={() => {
-                      setFloatMode(true)
-                      setFloatMinimized(false)
-                      setFloatCollapsed(true)
-                      openPanel()
-                    }}
-                    aria-label={tc('floatMode')}
-                  >
-                    <PictureInPicture2 />
-                  </IconButton>
-                </Tooltip>
-              )}
-              {/* D176 任务回顾/「移交到新任务」入口(对标竞品 chatSession.highlights.recap.*):
+                )}
+                {/* D176 任务回顾/「移交到新任务」入口(对标竞品 chatSession.highlights.recap.*):
                   会话级回顾动作,挂头部按钮组;对话框内生成交接内容并创建新任务(组件自带 Dialog) */}
-              <TaskRecapEntry />
-              {/* 2026-08-17 三按钮组(用户需求,对标 Cursor 右上角):
+                <TaskRecapEntry />
+                {/* 2026-08-17 三按钮组(用户需求,对标 Cursor 右上角):
                 ① 环境信息(齿轮+横线 → env info popover)
                 ② 终端(打开底部 PowerShell 终端停靠面板 → AiTerminalDock)
                 ③ 工作展示区(折叠/展开整个右侧工作展示区,AI 面板占满) */}
-              <Tooltip content={tc('envInfoButton')}>
-                <IconButton
-                  onClick={toggleEnvInfo}
-                  aria-label={tc('envInfoButton')}
-                  className={cn(envInfoOpen && 'bg-accent text-accent-foreground')}
-                >
-                  <EnvInfoRounded checked={envInfoOpen} />
-                </IconButton>
-              </Tooltip>
-              <Tooltip content={tc('openTerminal')}>
-                <IconButton
-                  onClick={toggleTerminalDock}
-                  aria-label={tc('openTerminal')}
-                  className={cn(terminalDockOpen && 'bg-accent text-accent-foreground')}
-                >
-                  <SquareTerminal />
-                </IconButton>
-              </Tooltip>
-              <Tooltip content={workAreaCollapsed ? tc('openWorkPanel') : tc('closeWorkPanel')}>
-                <IconButton
-                  onClick={toggleWorkPanel}
-                  aria-label={workAreaCollapsed ? tc('openWorkPanel') : tc('closeWorkPanel')}
-                  className={cn(workAreaCollapsed && 'bg-accent text-accent-foreground')}
-                >
-                  <PanelRightRounded left={workAreaCollapsed} />
-                </IconButton>
-              </Tooltip>
-              {/* D183 一键创建 Draft PR 写动作(仅 docked 显图标钮;与头部其余动作同簇):
+                <Tooltip content={tc('envInfoButton')}>
+                  <IconButton
+                    onClick={toggleEnvInfo}
+                    aria-label={tc('envInfoButton')}
+                    className={cn(envInfoOpen && 'bg-accent text-accent-foreground')}
+                  >
+                    <EnvInfoRounded checked={envInfoOpen} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip content={tc('openTerminal')}>
+                  <IconButton
+                    onClick={toggleTerminalDock}
+                    aria-label={tc('openTerminal')}
+                    className={cn(terminalDockOpen && 'bg-accent text-accent-foreground')}
+                  >
+                    <SquareTerminal />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip content={workAreaCollapsed ? tc('openWorkPanel') : tc('closeWorkPanel')}>
+                  <IconButton
+                    onClick={toggleWorkPanel}
+                    aria-label={workAreaCollapsed ? tc('openWorkPanel') : tc('closeWorkPanel')}
+                    className={cn(workAreaCollapsed && 'bg-accent text-accent-foreground')}
+                  >
+                    <PanelRightRounded left={workAreaCollapsed} />
+                  </IconButton>
+                </Tooltip>
+                {/* D183 一键创建 Draft PR 写动作(仅 docked 显图标钮;与头部其余动作同簇):
                   与环境信息 popover 的只读 PR 状态互补;创建中转 Loader2,无活动会话时门槛禁用 */}
-              {!floatMode && (
-                <Tooltip
-                  content={
-                    workspaceUnavailable
-                      ? tc('headerActions.workspaceUnavailable')
-                      : tc('headerActions.createDraftPullRequest')
-                  }
-                >
-                  <IconButton
-                    onClick={() => void handleCreateDraftPR()}
-                    disabled={workspaceUnavailable || creatingDraftPR}
-                    aria-label={tc('headerActions.createDraftPullRequest')}
-                    aria-disabled={workspaceUnavailable || undefined}
-                    data-testid="ai-panel-create-draft-pr"
-                  >
-                    {creatingDraftPR ? (
-                      <Loader2 className="animate-spin" />
-                    ) : (
-                      <GitPullRequest />
-                    )}
-                  </IconButton>
-                </Tooltip>
-              )}
-              {/* D182 工作面全屏切换(仅 docked;浮窗本身已是独立小窗,再全屏工作面无意义):
-                  门槛态 = 无活动会话(任务未开始)时 disabled,Tooltip 改示 workspaceUnavailable 文案 */}
-              {!floatMode && (
-                <Tooltip
-                  content={
-                    workspaceUnavailable
-                      ? tc('headerActions.workspaceUnavailable')
-                      : workAreaFullscreen
-                        ? tc('headerActions.exitWorkspaceFullscreen')
-                        : tc('headerActions.enterWorkspaceFullscreen')
-                  }
-                >
-                  <IconButton
-                    onClick={() => setWorkAreaFullscreen(!workAreaFullscreen)}
-                    disabled={workspaceUnavailable}
-                    aria-label={
-                      workAreaFullscreen
-                        ? tc('headerActions.exitWorkspaceFullscreen')
-                        : tc('headerActions.enterWorkspaceFullscreen')
+                {!floatMode && (
+                  <Tooltip
+                    content={
+                      workspaceUnavailable
+                        ? tc('headerActions.workspaceUnavailable')
+                        : tc('headerActions.createDraftPullRequest')
                     }
-                    aria-disabled={workspaceUnavailable || undefined}
-                    data-testid="ai-panel-workspace-fullscreen"
-                    className={cn(workAreaFullscreen && 'bg-accent text-accent-foreground')}
                   >
-                    {workAreaFullscreen ? <Minimize2 /> : <Maximize2 />}
-                  </IconButton>
+                    <IconButton
+                      onClick={() => void handleCreateDraftPR()}
+                      disabled={workspaceUnavailable || creatingDraftPR}
+                      aria-label={tc('headerActions.createDraftPullRequest')}
+                      aria-disabled={workspaceUnavailable || undefined}
+                      data-testid="ai-panel-create-draft-pr"
+                    >
+                      {creatingDraftPR ? <Loader2 className="animate-spin" /> : <GitPullRequest />}
+                    </IconButton>
+                  </Tooltip>
+                )}
+                {/* D182 工作面全屏切换(仅 docked;浮窗本身已是独立小窗,再全屏工作面无意义):
+                  门槛态 = 无活动会话(任务未开始)时 disabled,Tooltip 改示 workspaceUnavailable 文案 */}
+                {!floatMode && (
+                  <Tooltip
+                    content={
+                      workspaceUnavailable
+                        ? tc('headerActions.workspaceUnavailable')
+                        : workAreaFullscreen
+                          ? tc('headerActions.exitWorkspaceFullscreen')
+                          : tc('headerActions.enterWorkspaceFullscreen')
+                    }
+                  >
+                    <IconButton
+                      onClick={() => setWorkAreaFullscreen(!workAreaFullscreen)}
+                      disabled={workspaceUnavailable}
+                      aria-label={
+                        workAreaFullscreen
+                          ? tc('headerActions.exitWorkspaceFullscreen')
+                          : tc('headerActions.enterWorkspaceFullscreen')
+                      }
+                      aria-disabled={workspaceUnavailable || undefined}
+                      data-testid="ai-panel-workspace-fullscreen"
+                      className={cn(workAreaFullscreen && 'bg-accent text-accent-foreground')}
+                    >
+                      {workAreaFullscreen ? <Minimize2 /> : <Maximize2 />}
+                    </IconButton>
+                  </Tooltip>
+                )}
+                {!d73Expanded && (
+                  <Tooltip content={tp('splitRight')}>
+                    <IconButton onClick={d73HandleSplit} aria-label={tp('splitRight')}>
+                      <Columns2 />
+                    </IconButton>
+                  </Tooltip>
+                )}
+                <Tooltip content={tcommon('close')}>
+                  <CloseButton aria-label={tcommon('close')} onClick={closePanel} />
                 </Tooltip>
-              )}
-              {!d73Expanded && (
-                <Tooltip content={tp('splitRight')}>
-                  <IconButton onClick={d73HandleSplit} aria-label={tp('splitRight')}>
-                    <Columns2 />
-                  </IconButton>
-                </Tooltip>
-              )}
-              <Tooltip content={tcommon('close')}>
-                <CloseButton aria-label={tcommon('close')} onClick={closePanel} />
-              </Tooltip>
               </div>
             </header>
 
