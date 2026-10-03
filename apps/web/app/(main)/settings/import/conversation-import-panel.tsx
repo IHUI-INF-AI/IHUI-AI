@@ -5,23 +5,41 @@
 'use client'
 
 /**
- * 外部会话导入面板(D28,2026-09-20 立)
+ * 外部会话导入面板(D28,2026-09-20 立;2026-10-03 补「导入 → 拿来分析」层)
  *
  * 四步流:选来源 → 上传文件(20MB 客户端预校验) → 解析预览(多选,默认全选) → 逐会话串行 commit。
  * commit 逐会话调用 api-client 的 commitConversationImport,单个失败不中断其余导入;
- * 全部完成后失效会话列表 query(['chat','conversations']),侧栏立即可见新会话,
- * 并跳到首个成功落库的会话(见 jumpToConversation)。
+ * 全部完成后失效会话列表 query(['chat','conversations']),侧栏立即可见新会话。
+ *
+ * **2026-10-03 的行为变更**:commit 成功后**不再自动跳到首个会话**,改为停在设置页
+ * 渲染「导入结果区」,由用户选「打开会话」或「用场景分析」。原因:导一批群聊记录后
+ * 用户的头一个诉求是"看看导进来什么、然后分析",自动跳走等于把结果与分析入口一起
+ * 藏起来(用户连导了几条都不知道)。
+ *
+ * 本面板承接的三件事(D28 补齐层):
+ *   1. 结果区:每个成功落库的会话 → 「打开会话」/「用场景分析」两个出口
+ *   2. 微信预览期就把"这是群聊记录、谁在说、跨了多久"说清(发言人从正文前缀现算)
+ *   3. 导入历史:补来源标签与「打开会话」入口(此前只有文件名/状态/条数,五源长得一样)
  *
  * 覆盖全部 5 个来源(2026-10-03 补齐微信):claude_code / codex / cursor / aider / wechat。
  * 错误一律诚实上屏:解析失败带服务端原文、truncated 与 warnings 在预览区逐条列出、
  * 逐会话 commit 失败原因去重后展示 —— 不做静默吞掉。
  */
 import * as React from 'react'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { AlertTriangle, CheckCircle2, FileUp, History, Loader2, Upload } from 'lucide-react'
+import {
+  AlertTriangle,
+  CheckCircle2,
+  FileUp,
+  History,
+  Loader2,
+  Sparkles,
+  Upload,
+} from 'lucide-react'
 
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import {
@@ -31,6 +49,7 @@ import {
   type ConversationImportCommitPayload,
   type ConversationImportParseResult,
   type ConversationImportSource,
+  type ParsedImportConversation,
 } from '@ihui/api-client'
 
 import { Alert } from '@/components/feedback'
@@ -38,7 +57,20 @@ import { AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useChatStore } from '@/stores/chat'
+import { formatSpeakerList, readImportProvenance } from '@/lib/import-analysis'
 import { formatSize } from './helpers'
+
+/**
+ * 「用场景分析」弹窗按需加载(D28 补齐层)。
+ *
+ * 走 next/dynamic 而非静态 import:弹窗内的场景目录带 210 条模板正文 ≈493KB,
+ * 静态 import 会把这体量拖进导入面板的 chunk —— 而设置页的导入面板是低频页面,
+ * 用户为"也许会用一次"的分析入口预付 493KB 不划算。
+ */
+const ImportAnalysisDialogLazy = dynamic(
+  () => import('@/components/ai/import-analysis-dialog').then((m) => m.ImportAnalysisDialog),
+  { ssr: false },
+)
 
 /** 会话导入来源卡片配置(accept 供文件选择器按来源过滤,hint 为典型导出文件路径) */
 const IMPORT_SOURCES: Array<{
@@ -92,6 +124,64 @@ const HISTORY_STATUS_KEY: Record<string, string> = {
   failed: 'statusFailed',
 }
 
+/** 历史记录来源 → i18n key(复用导入来源那批标签;未知来源不显示标签而非显示原文) */
+const HISTORY_SOURCE_LABEL_KEY: Record<string, string> = {
+  claude_code: 'sourceClaudeCode',
+  codex: 'sourceCodex',
+  cursor: 'sourceCursor',
+  aider: 'sourceAider',
+  wechat: 'sourceWechat',
+}
+
+/** D28 补齐层:一条成功落库的会话(结果区渲染 + 跳转/分析入口的载荷) */
+interface CommittedConversation {
+  conversationId: string
+  title: string
+  messageCount: number
+  /**
+   * 落库时那一份来源(不读当前 source 状态)。
+   * 用户导完可能顺手点了别的来源卡;若分析弹窗去读当前 source,一个微信导入的会话
+   * 会拿到 codex 的推荐场景 —— 恰好毁掉"wechat 默认推荐聊天记录类"这条判据。
+   */
+  source: ConversationImportSource
+}
+
+/** 预览期展示用的日期格式(短日期) */
+const PREVIEW_DATE_FORMAT: Intl.DateTimeFormatOptions = {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+}
+
+/**
+ * 微信预览:从 /parse 结果现算发言人清单与时间跨度。
+ *
+ * 复用 `readImportProvenance`(wechat 识别发言人/时间跨度的**唯一**实现),不另写一份 ——
+ * 预览期与会话消息区对同一份记录必须给出同一个答案,两处各写一套正则迟早会漂。
+ * 这里把 metadata 侧的信息(来源/via/文件名)按 /parse 的形态补齐后走同一个出口。
+ */
+function summarizeWechatPreview(
+  conv: ParsedImportConversation,
+): { speakers: readonly string[]; speakerCount: number; range: string | null } | null {
+  const messages = (conv.messages ?? []).map((m) => ({
+    content: typeof m.content === 'string' ? m.content : '',
+    createdAt: m.createdAt,
+  }))
+  const result = readImportProvenance(
+    { importedFrom: 'wechat', importedVia: 'conversation-import', fileName: null },
+    messages,
+  )
+  if (result.kind !== 'imported') return null
+  const { speakers, startedAt, endedAt } = result.provenance
+  const range =
+    startedAt !== null && endedAt !== null
+      ? `${new Date(startedAt).toLocaleDateString(undefined, PREVIEW_DATE_FORMAT)} – ${new Date(
+          endedAt,
+        ).toLocaleDateString(undefined, PREVIEW_DATE_FORMAT)}`
+      : null
+  return { speakers, speakerCount: speakers.length, range }
+}
+
 export function ConversationImportPanel() {
   const t = useTranslations('conversationImport')
   const qc = useQueryClient()
@@ -102,6 +192,13 @@ export function ConversationImportPanel() {
   const [preview, setPreview] = React.useState<ConversationImportParseResult | null>(null)
   const [selected, setSelected] = React.useState<Set<number>>(new Set())
   const [progress, setProgress] = React.useState({ done: 0, total: 0 })
+  // D28 补齐层(2026-10-03):导入**结果区**。
+  // 此前 commit 完只有一条 toast + 直接跳到首个会话,用户看不到"到底导进来几个、
+  // 哪个失败了、接下来能干什么";导完最想要的下一步(用场景分析)没有落点。
+  // 这里保留每个成功落库的会话 id/标题/条数,作为「打开会话」与「用场景分析」的入口。
+  const [committed, setCommitted] = React.useState<CommittedConversation[]>([])
+  // 「用场景分析」弹窗的目标会话(null = 关闭)
+  const [analysisTarget, setAnalysisTarget] = React.useState<CommittedConversation | null>(null)
 
   // 2026-09-30 登录态门:未登录不发注定 401 的请求
   const { allow } = useAuthGate()
@@ -141,8 +238,8 @@ export function ConversationImportPanel() {
       let done = 0
       let imported = 0
       let failed = 0
-      // 首个成功落库的会话:导入完成后据此跳到该会话(串行下即用户勾选顺序的第一个)
-      let firstConversationId: string | null = null
+      // 成功落库的会话清单(D28 补齐层:结果区的「打开会话」/「用场景分析」入口载荷)
+      const committedList: CommittedConversation[] = []
       // 失败原因不吞:单条失败只计数不中断其余,但原因要带回 UI 展示,
       // 否则用户只看到一个 failed 数字,无法判断是自己的文件问题还是服务端故障
       const failureReasons: string[] = []
@@ -173,7 +270,12 @@ export function ConversationImportPanel() {
           const r = await commitConversationImport(payload)
           if (r.success) {
             imported += 1
-            if (!firstConversationId) firstConversationId = r.data.conversationId
+            committedList.push({
+              conversationId: r.data.conversationId,
+              title: payload.title ?? t('conversationUntitled'),
+              messageCount: messages.length,
+              source: source as ConversationImportSource,
+            })
           } else {
             failed += 1
             failureReasons.push(r.error)
@@ -185,7 +287,7 @@ export function ConversationImportPanel() {
         done += 1
         setProgress({ done, total: convs.length })
       }
-      return { imported, failed, firstConversationId, failureReasons }
+      return { imported, failed, committedList, failureReasons }
     },
     onSuccess: (res) => {
       if (res.failed > 0) {
@@ -200,15 +302,17 @@ export function ConversationImportPanel() {
       }
       setPreview(null)
       setFile(null)
-      setSource('')
       setSelected(new Set())
+      // D28 补齐层(2026-10-03):结果区取代"导入完立刻自动跳转"。
+      // 原行为是 commit 完直接 router.push('/') 把用户丢到首个会话 —— 但导入一批
+      // 群聊记录后用户的第一诉求是"看看导进来什么、然后分析",自动跳走等于把
+      // 结果区和分析入口一起藏起来(用户连导了几条都不知道)。现在停在设置页,
+      // 由结果区给出「打开会话」/「用场景分析」两个明确出口。
+      setCommitted(res.committedList)
+      // source 不清空:用户看完结果区若想再导一份同来源的文件,不必从头再选一次来源。
+      // (分析弹窗的 source 取结果区条目自带的 source,不依赖这里的状态。)
       qc.invalidateQueries({ queryKey: ['chat', 'conversations'] })
       qc.invalidateQueries({ queryKey: ['conversation-import-history'] })
-      // 至少一条落库成功才跳转:全失败时留在本页,让用户对着历史/错误处理,
-      // 不把用户丢到一个并不存在的会话上
-      if (res.imported > 0 && res.firstConversationId) {
-        jumpToConversation(res.firstConversationId)
-      }
     },
     onError: (e: Error) => toast.error(t('commitFailed', { error: e.message })),
   })
@@ -386,6 +490,11 @@ export function ConversationImportPanel() {
                 <div className="space-y-2" data-testid="import-preview-list">
                   {preview.conversations.map((c, i) => {
                     const checked = selected.has(i)
+                    // D28 补齐层:微信来源在预览期就把"这是群聊记录、谁在说、跨了多久"说清。
+                    // 解析器(wechat.py,已定稿不改)把发言人写进正文 `昵称：正文` 前缀、
+                    // 时间归一到 UTC+8 的 ISO 串,所以这里纯前端从 /parse 结果现算即可 ——
+                    // 用户在点"导入所选"之前就该知道自己导进来的是什么。
+                    const wechatInfo = source === 'wechat' ? summarizeWechatPreview(c) : null
                     return (
                       <div
                         key={i}
@@ -412,6 +521,20 @@ export function ConversationImportPanel() {
                           <span className="block text-muted-foreground">
                             {t('messagesCount', { count: c.messages.length })}
                           </span>
+                          {wechatInfo && (
+                            <span
+                              className="block text-[11px] text-muted-foreground"
+                              data-testid="import-preview-wechat-info"
+                            >
+                              {t('previewSpeakers', {
+                                count: wechatInfo.speakerCount,
+                                names: formatSpeakerList(wechatInfo.speakers),
+                              })}
+                              {wechatInfo.range && (
+                                <span> · {wechatInfo.range}</span>
+                              )}
+                            </span>
+                          )}
                         </label>
                       </div>
                     )
@@ -441,6 +564,61 @@ export function ConversationImportPanel() {
         </Card>
       )}
 
+      {/* D28 补齐层:导入结果区(取代"导入完立刻跳走")。
+          每个成功落库的会话给两个出口:打开会话看原始记录 / 直接用场景分析。
+          这是"导入 → 拿来分析"这一层在设置页的落点。 */}
+      {committed.length > 0 && (
+        <Card data-testid="import-result-card">
+          <CardContent className="space-y-3 p-3 min-[640px]:p-3">
+            <p className="flex items-center gap-2 text-sm font-medium">
+              <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+              {t('resultTitle', { count: committed.length })}
+            </p>
+            <div className="space-y-2" data-testid="import-result-list">
+              {committed.map((c) => (
+                <div
+                  key={c.conversationId}
+                  className="flex items-center justify-between gap-3 rounded-md border border-border p-2.5 text-xs"
+                >
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <p className="truncate font-medium">{c.title}</p>
+                    <p className="text-muted-foreground">
+                      {t('messagesCount', { count: c.messageCount })}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      data-testid="import-result-open"
+                      onClick={() => jumpToConversation(c.conversationId)}
+                    >
+                      {t('resultOpen')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      data-testid="import-result-analyze"
+                      onClick={() => {
+                        // 先跳到该会话(打开 AI 面板),再开分析弹窗 —— 弹窗里的"发起"
+                        // 是往**当前会话**追加一条用户消息,会话不对就发错地方了
+                        jumpToConversation(c.conversationId)
+                        setAnalysisTarget(c)
+                      }}
+                    >
+                      <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                      <span>{t('analysisOpen')}</span>
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => setCommitted([])}>
+              {t('resultDismiss')}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Step 4: 导入历史 */}
       <Card>
         <CardContent className="space-y-3 p-3 min-[640px]:p-3">
@@ -459,14 +637,23 @@ export function ConversationImportPanel() {
             <div className="space-y-2" data-testid="import-history-list">
               {history.map((h) => {
                 const statusKey = HISTORY_STATUS_KEY[h.status]
+                // D28 补齐层:历史行补来源标签(此前只有文件名与状态,五条来源在列表里
+                // 长得一模一样)与"打开会话"入口(有 conversationId 才给按钮,失败批次
+                // 的 conversationId 是 null,给个点不动的按钮比不给更糟)。
+                const sourceLabelKey = HISTORY_SOURCE_LABEL_KEY[h.source]
                 return (
                   <div
                     key={h.id}
                     className="flex items-center justify-between gap-3 rounded-md border border-border p-3 text-xs"
                   >
                     <div className="min-w-0 flex-1 space-y-0.5">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium">{h.fileName || '—'}</span>
+                        {sourceLabelKey && (
+                          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                            {t(sourceLabelKey)}
+                          </span>
+                        )}
                         <span
                           className={`rounded px-1.5 py-0.5 text-[10px] ${
                             h.status === 'success'
@@ -485,9 +672,21 @@ export function ConversationImportPanel() {
                         {h.errorMessage ? ` · ${h.errorMessage}` : ''}
                       </p>
                     </div>
-                    <span className="shrink-0 text-[11px] text-muted-foreground">
-                      {new Date(h.importedAt).toLocaleString()}
-                    </span>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {h.conversationId && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          data-testid="import-history-open"
+                          onClick={() => jumpToConversation(h.conversationId)}
+                        >
+                          {t('resultOpen')}
+                        </Button>
+                      )}
+                      <span className="text-[11px] text-muted-foreground">
+                        {new Date(h.importedAt).toLocaleString()}
+                      </span>
+                    </div>
                   </div>
                 )
               })}
@@ -495,6 +694,21 @@ export function ConversationImportPanel() {
           )}
         </CardContent>
       </Card>
+
+      {/* 「用场景分析」弹窗:按需挂载(analysisTarget 为 null 时整块不渲染),场景目录 chunk
+          由 next/dynamic 在首次打开时才拉。关闭时清 target —— 留着一个已关闭的目标会让
+          下次开弹窗显示上一个会话的标题。
+          source 取**该条目落库时那一份**(见 CommittedConversation.source 注),不读当前
+          来源选择状态。 */}
+      {analysisTarget && (
+        <ImportAnalysisDialogLazy
+          open
+          onOpenChange={(next) => {
+            if (!next) setAnalysisTarget(null)
+          }}
+          source={analysisTarget.source}
+        />
+      )}
     </div>
   )
 }

@@ -407,7 +407,17 @@ describe('ConversationImportPanel — 外部会话导入四步流', () => {
     expect(invalidatedKeys).toContainEqual(['chat', 'conversations'])
     expect(invalidatedKeys).toContainEqual(['conversation-import-history'])
 
-    // 导入成功后跳到首个落库会话:store 写入 → 打开面板 → 回首页
+    // D28 补齐层(2026-10-03):导入完成**不再自动跳转** —— 自动跳走会把结果区与
+    // 「用场景分析」入口一起藏起来。现在断言"停在结果区 + 出口按钮存在",
+    // 跳转改由用户显式点击「打开会话」触发(下一条用例钉住)。
+    await waitFor(() => expect(screen.queryByTestId('import-result-list')).not.toBeNull())
+    expect(setConversationIdMock).not.toHaveBeenCalled()
+    expect(pushMock).not.toHaveBeenCalled()
+    expect(screen.getAllByTestId('import-result-open').length).toBeGreaterThan(0)
+    expect(screen.getAllByTestId('import-result-analyze').length).toBeGreaterThan(0)
+
+    // 点「打开会话」才走 store → 打开面板 → 回首页
+    fireEvent.click(screen.getAllByTestId('import-result-open')[0]!)
     await waitFor(() => expect(setConversationIdMock).toHaveBeenCalledWith('conv-1'))
     expect(openPanelMock).toHaveBeenCalled()
     expect(pushMock).toHaveBeenCalledWith('/')
@@ -489,12 +499,15 @@ describe('ConversationImportPanel — 外部会话导入四步流', () => {
     expect(payload.source).toBe('wechat')
     expect(payload.fileName).toBe('聊天记录.zip')
     expect(payload.messages).toEqual([{ role: 'user', content: '在吗' }])
-    await waitFor(() => expect(setConversationIdMock).toHaveBeenCalledWith('conv-wx'))
+    // 微信来源同样停在结果区(不自动跳转),出口按钮就绪
+    await waitFor(() => expect(screen.queryByTestId('import-result-list')).not.toBeNull())
+    expect(setConversationIdMock).not.toHaveBeenCalled()
+    expect(screen.getAllByTestId('import-result-open').length).toBeGreaterThan(0)
   })
 
   it('场景8: 解析失败(服务端 400)如实上报,不渲染空预览', async () => {
-    // .txt 当前不在 ai-service _ALLOWED_EXTENSIONS 内,服务端会 400;
-    // UI 必须把服务端原文带出来,而不是静默失败或假装解析成功
+    // .txt 已于 2026-10-03 入 ai-service _ALLOWED_EXTENSIONS(微信聊天记录直读);
+    // 这里仍构造一次服务端 400,验证 UI 把服务端原文带出来而不是静默失败
     parseMock.mockResolvedValue({
       success: false,
       error: '不支持的文件类型: .txt(允许: .db, .json, .jsonl, .md, .sqlite, .vscdb, .zip)',
@@ -562,8 +575,10 @@ describe('ConversationImportPanel — 外部会话导入四步流', () => {
     await waitFor(() => expect(toastError).toHaveBeenCalledWith('导入失败:标题超过 255 字符'))
     // 第一条成功:成功计数也要报,不因为有失败就整体静默
     expect(toastSuccess).toHaveBeenCalledWith('导入完成:成功 1,失败 1')
-    // 仍跳到唯一成功的会话
-    await waitFor(() => expect(setConversationIdMock).toHaveBeenCalledWith('conv-ok'))
+    // 部分失败时也停在结果区,唯一成功的会话在结果区里给出出口
+    await waitFor(() => expect(screen.queryByTestId('import-result-list')).not.toBeNull())
+    expect(setConversationIdMock).not.toHaveBeenCalled()
+    expect(screen.getAllByTestId('import-result-open').length).toBe(1)
     expect(commitMock).toHaveBeenCalledTimes(2)
   })
 
