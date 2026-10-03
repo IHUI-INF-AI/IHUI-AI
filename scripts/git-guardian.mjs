@@ -1551,7 +1551,17 @@ function auditDiskRootHygiene() {
         `${lines}\n\n白名单:config/disk-root-allowlist.json(封闭集合,新增合法条目必须显式改配置并随 commit 提交)\n` +
           `worktree 合法落点:G:\\IHUI-AI\\.worktrees\\(AGENTS §12d);回收:git worktree remove + prune\n` +
           `手动问责:node scripts/check-disk-root-hygiene.mjs --strict`,
-        { severity: 'warning' },
+        {
+          severity: 'warning',
+          // 去重身份只取"违规类别 + 计数",明细行不进指纹(2026-10-03 立)。
+          // 原先指纹吃 detail 全文,而 detail 是 worktree/盘根条目的**清单** ——
+          // 多会话并行建删 worktree 是本仓常态(2026-10-03 实测 4 个落点外 worktree
+          // 全是探针残留),清单一动指纹就变,shouldAlert 判"新故障"立即重报,
+          // 4 小时窗口被绕成虚设:实测 09-30 至 10-03 同一原因寄出 27 封(约每轮巡检一封)。
+          // 判据本身不动(§12e):违规照旧点名、照旧 exit 1,只把"什么算同一故障"钉成
+          // 稳定语义 —— 违规类别变或计数变(真恶化/真缓解)仍立即重报。
+          dedupKey: `stray=${parsed.counts.diskRootStray};wtOutside=${parsed.counts.worktreeOutside}`,
+        },
       )
       logger(`⚠️ 盘根卫生判红:外流 ${parsed.counts.diskRootStray} / worktree 落点外 ${parsed.counts.worktreeOutside}`)
       return
@@ -1663,6 +1673,22 @@ export function alertFingerprint(name, detail) {
     .replace(/\s+/g, ' ')
     .trim()
   return createHash('sha1').update(`${name}\u0000${norm}`, 'utf8').digest('hex')
+}
+
+/**
+ * 稳定身份指纹(2026-10-03 立):调用方显式给定"什么算同一故障",**不做数字归一**。
+ *
+ * 为什么不能直接复用 alertFingerprint:那条路把 `\d+` 一律打成 `#`,本意是压掉
+ * "38 个路径"↔"39 个路径"这类实时计数抖动;但盘根卫生的 dedupKey 恰恰**要靠计数
+ * 区分故障演化**(外流 2 项 → 5 项是恶化,必须立即重报)。走归一后 `stray=2;wt=4` 与
+ * `stray=5;wt=4` 撞同一指纹,恶化被静默 —— 那是把"压抖动"改成"压事实"。
+ *
+ * 因此这里刻意**不归一**:调用方给什么身份就是什么身份,身份怎么构造是调用方的义务
+ * (盘根这一格给的是"违规类别 + 计数",明细清单不进身份)。
+ */
+export function stableAlertFingerprint(name, identity) {
+  const id = String(identity ?? '').replace(/\s+/g, ' ').trim()
+  return createHash('sha1').update(`${name}\u0000${id}`, 'utf8').digest('hex')
 }
 
 /**
@@ -1849,6 +1875,7 @@ export function notifyGuardRed(name, detail, opts = {}) {
     undelFile = NOTIFY_UNDEL,
     windowMs = notifyWindowMs(),
     failCooldownMs = notifyFailCooldownMs(),
+    dedupKey = '',
     force = false,
     logger = log,
   } = opts
@@ -1858,7 +1885,7 @@ export function notifyGuardRed(name, detail, opts = {}) {
       if (process.env.GIT_GUARDIAN_NOTIFY_DISABLED === '1') return { sent: false, why: 'GIT_GUARDIAN_NOTIFY_DISABLED=1,已关闭' }
       if (CHECK_ONLY) return { sent: false, why: '--check 模式零副作用,不发' }
     }
-    const fp = alertFingerprint(name, detail)
+    const fp = dedupKey ? stableAlertFingerprint(name, dedupKey) : alertFingerprint(name, detail)
     const state = parseNotifyState(readNotifyText(stateFile))
     if (!force && !shouldAlert(state, name, fp, now, { windowMs, failCooldownMs })) {
       return { sent: false, suppressed: true, why: '同一原因窗口内已通报,本轮压住' }
@@ -1869,6 +1896,10 @@ export function notifyGuardRed(name, detail, opts = {}) {
       `来源:git-guardian 周期守护(计划任务 "${TASK_NAME}",每 2 分钟一趟)@ ${hostname()}。\n` +
       `去重:同指纹 ${Math.round(windowMs / 60000)} 分钟窗口内只寄一封(按身份去重、无总量封顶);` +
       `内容变化视为新故障立即重报。投递失败按 ${Math.round(failCooldownMs / 60000)} 分钟退避重试并留 UNDELIVERED 标记。\n` +
+      (dedupKey
+        ? `本告警按稳定身份去重(判据:违规类别与计数),明细行不进指纹 —— 清单里多一个条目/路径变化不算新故障,` +
+          `否则多会话并发建删 worktree 会把窗口绕成虚设。真变化(违规类别或计数变了)仍立即重报。\n`
+        : '') +
       `本层只是旁路通知,不改变守护的自愈行为;紧急静音:GIT_GUARDIAN_NOTIFY_DISABLED=1。`
     const callDispatch = () => {
       // 派发器抛异常 = 投递失败(写 UNDELIVERED、按退避重试),不是"通知层炸了就走人" ——
@@ -3375,6 +3406,7 @@ if (isDirectRun) {
 // 必须能在零副作用、零网络、零真收件人的前提下取证。
 export const __test__ = {
   alertFingerprint,
+  stableAlertFingerprint,
   parseNotifyState,
   shouldAlert,
   withAlertMark,
