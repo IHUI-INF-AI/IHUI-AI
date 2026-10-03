@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { describe, expect, it } from 'vitest'
-import { coerceKnownOr } from '../src/enum-coerce.js'
+import { coerceKnownOr, narrowKnown } from '../src/enum-coerce.js'
 
 /**
  * G-815963(2026-10-01):未知枚举兜底的唯一出口 —— 正反成对。
@@ -46,6 +46,37 @@ describe('coerceKnownOr(G-815963 未知枚举兜底唯一出口)', () => {
     for (const probe of ['x', 'RUNNING', 'completed ', '']) {
       const v = coerceKnownOr(probe, DEMO_STATUSES, 'failed')
       expect(DEMO_STATUSES).toContain(v)
+    }
+  })
+})
+
+/**
+ * narrowKnown 与 coerceKnownOr 共用同一把值域尺子,但未知值的落点不同:
+ * 纯呈现域(涉及资金/身份的徽章文案)把未知猜成任何一个已知档都是谎报,所以返回 null。
+ */
+describe('narrowKnown(G-815963 纯呈现域的同一把尺子)', () => {
+  it('合法值逐字不变(出口不得改写已合法的值)', () => {
+    for (const s of DEMO_STATUSES) {
+      expect(narrowKnown(s, DEMO_STATUSES)).toBe(s)
+    }
+  })
+
+  it('未知值 ⇒ null,不得被猜成任何已知档', () => {
+    expect(narrowKnown('aborted', DEMO_STATUSES)).toBeNull()
+    expect(narrowKnown('completed ', DEMO_STATUSES)).toBeNull()
+    expect(narrowKnown(undefined, DEMO_STATUSES)).toBeNull()
+    expect(narrowKnown(null, DEMO_STATUSES)).toBeNull()
+    expect(narrowKnown(2, DEMO_STATUSES)).toBeNull()
+  })
+
+  it('两条出口对"什么算已知"必须同判(共用一把尺子,不得两处各写一遍 includes)', () => {
+    const probes = ['completed', 'aborted', 'RUNNING', '', undefined, 7]
+    for (const p of probes) {
+      // coerceKnownOr 在已知时原样返回、未知时兜 safe;narrowKnown 在已知时原样返回、未知时 null
+      // ⇒ "已知"这个判定对两者必须一致,否则呈现与决策会对同一行给出相反结论
+      const coerced = coerceKnownOr(p, DEMO_STATUSES, 'cancelled')
+      const hit = narrowKnown(p, DEMO_STATUSES)
+      expect(hit === null).toBe(coerced !== p)
     }
   })
 })
