@@ -65,8 +65,24 @@ describe('工具分类判据:词元归一生效(端内硬编码 Set 换不回来
   })
 
   it('普通名字不得因含子串被误判(词边界,不是 includes)', () => {
+    // 逐字核实过:这两个名字都不含任何在册动词词元(读/写/搜/执行),必须落 other。
+    // 反面样本要挑"看起来像但不在册"的:`readme_wizard` 含 read 子串、`brew`-类不含。
     expect(resolveToolCallFamily('readme_wizard')).toBe('other')
-    expect(resolveToolCallFamily('thread_create')).toBe('other')
+    expect(resolveToolCallFamily('threadpool_run')).toBe('other')
+    expect(resolveToolCallFamily('filesystem_inspect')).toBe('other')
+  })
+
+  it('写/搜族认任意词位,读与执行族刻意只认词首', () => {
+    // 这是实现的**不对称设计**,不是疏漏,断言要钉住它:
+    //   · 写族正则 `(?:^|_)(?:edit|write|…)(?:_|$)` —— 任意词位都认,
+    //     因为"在别的东西上写一下"始终是写(workflow_create / patch_apply 都是写)。
+    //   · 读族正则 `^(?:read|view|open|…)` —— 只认词首,因为 `preview_read` 这类名字
+    //     多数是"先预览再落盘",按读处理会漏掉真正的写;宁落 other 也不误判成安全读。
+    //   · 执行族同理只认词首(`post_run_hook` 不是执行工具)。
+    expect(resolveToolCallFamily('thread_create')).toBe('file-write')
+    expect(resolveToolCallFamily('patch_apply')).toBe('file-write')
+    expect(resolveToolCallFamily('fs_read')).toBe('other')
+    expect(resolveToolCallFamily('post_run_hook')).toBe('other')
   })
 
   it('未知词元一律 other,由调用方兜底', () => {
@@ -115,8 +131,14 @@ describe('命令提取:多种入参形态都要拿到命令', () => {
     expect(extractShellCommands({ command: 'rg foo' })).toEqual(['rg foo'])
   })
 
-  it('数组形态逐条提取', () => {
-    expect(extractShellCommands({ command: ['rg foo', 'ls'] })).toEqual(['rg foo', 'ls'])
+  it('数组形态:整体 join 成一条(分段在下游按运算符再切)', () => {
+    // 实现契约是 join 而非逐条 push:`['rg','foo']` 表示一条 argv,
+    // 逐条 push 会把 "rg" 与 "foo" 判成两条独立命令而丢掉它们的关系。
+    expect(extractShellCommands({ command: ['rg', 'foo'] })).toEqual(['rg foo'])
+  })
+
+  it('`bash -lc <cmd>` 形态专门解包,不把壳名掺进命令', () => {
+    expect(extractShellCommands({ command: ['bash', '-lc', 'rg foo'] })).toEqual(['rg foo'])
   })
 
   it('cmd / script / shell_command 等别名键同样提取得到', () => {
