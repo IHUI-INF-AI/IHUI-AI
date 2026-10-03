@@ -2150,13 +2150,6 @@
       "when": 1790964000000,
       "tag": "20261003020000_codebase_chunks_tenant_ttl",
       "breakpoints": true
-    },
-    {
-      "version": "7",
-      "idx": 308,
-      "when": 1790994600000,
-      "tag": "20261003103000_chat_messages_created_at_idx_CONCURRENTLY",
-      "breakpoints": true
     }
   ]
 }
