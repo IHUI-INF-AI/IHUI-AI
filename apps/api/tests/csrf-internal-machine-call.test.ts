@@ -32,12 +32,34 @@ import Fastify, { type FastifyInstance } from 'fastify'
 import cookie from '@fastify/cookie'
 
 // vi.mock 工厂被提升到文件顶部,工厂内引用的常量必须在 vi.hoisted 里(否则 TDZ)。
-const { CTRL_SECRET, AI_CALLBACK_SECRET_TEST } = vi.hoisted(() => ({
+const { CTRL_SECRET, AI_CALLBACK_SECRET_TEST, TEST_JWT_SECRET } = vi.hoisted(() => ({
   CTRL_SECRET: 'ctrl-raw-secret-not-jwt-shaped-9f3a',
   AI_CALLBACK_SECRET_TEST: 'internal-secret-value-for-csrf-test-0123456789',
+  TEST_JWT_SECRET: 'csrf-g373-machine-call-secret-at-least-32-chars-0123456789',
 }))
-/** 形态合法的假 JWT:CSRF 形态豁免只看形态,真伪由路由侧鉴权判定。 */
+/**
+ * 形态合法但**签名伪造**的 JWT（反向对照用：必须不被 CSRF 豁免）。
+ * 2026-10-04(G-373)起,判据是凭据自证而非形态,故本常量只出现在"必须 403"的断言里。
+ */
 const JWT_SHAPED_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1LTEifQ.ZmFrZXNpZw'
+
+/** 内存形态的 developer_api_keys 表:替代真库(不连生产 PG,§5 测试隔离铁律)。 */
+const { apiKeyTable } = vi.hoisted(() => ({
+  apiKeyTable: new Map<string, { status: string; expiresAt: Date | null }>(),
+}))
+
+/** 用**本服务端密钥**现签一枚真 JWT（正向豁免用）。 */
+async function signRealJwt(): Promise<string> {
+  const { SignJWT } = await import('jose')
+  return await new SignJWT({ phone: '', familyId: 'f1', roleId: 0 })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setSubject('user-1')
+    .setIssuer('ihui-ai')
+    .setAudience('ihui-ai-users')
+    .setIssuedAt()
+    .setExpirationTime('15m')
+    .sign(new TextEncoder().encode(TEST_JWT_SECRET))
+}
 
 const { mockAuthenticate, mockCheckAuth, mockCheckAuthOrInternal } = vi.hoisted(() => ({
   mockAuthenticate: vi.fn<(request: unknown) => Promise<unknown>>(),
@@ -57,10 +79,42 @@ vi.mock('@ihui/shared', () => ({
 
 // internal-service-token.ts(密钥比较唯一实现的家)静态 import db;本测试全程不查库,
 // 桩掉以杜绝任何真实池被拉进加载图。
-vi.mock('../src/db/index.js', () => ({
-  db: { select: vi.fn() },
-  dbReader: { select: vi.fn() },
-}))
+// 该桩同时供 csrf 钩子经动态 import 加载的 utils/api-key-presence.ts 使用
+// (Bearer `ihui_` 族的豁免判据要查库;不桩则会真去连库,表现为用例耗时数秒
+// 且结果取决于环境可达性)。eq(col, v) 的字面量裹在 SQL 对象的 queryChunks 里
+// 一个 Param 形状的 chunk 上,故按下面 literalOf 取值。
+vi.mock('../src/db/index.js', () => {
+  const literalOf = (cond: unknown): string | undefined => {
+    const chunks = (cond as { queryChunks?: unknown[] })?.queryChunks
+    if (!Array.isArray(chunks)) return undefined
+    for (const chunk of chunks) {
+      if (typeof chunk === 'string') return chunk
+      if (chunk && typeof chunk === 'object') {
+        const v = (chunk as { value?: unknown }).value
+        if (typeof v === 'string') return v
+      }
+    }
+    return undefined
+  }
+  const db = {
+    select: (_cols?: unknown) => {
+      const self = {
+        _key: '',
+        from: () => self,
+        where: (cond: unknown) => {
+          self._key = literalOf(cond) ?? ''
+          return self
+        },
+        limit: async () => {
+          const row = apiKeyTable.get(self._key)
+          return row ? [{ status: row.status, expiresAt: row.expiresAt }] : []
+        },
+      }
+      return self
+    },
+  }
+  return { db, dbRead: db, dbReader: db }
+})
 
 vi.mock('../src/config/index.js', () => ({
   config: {
@@ -109,6 +163,10 @@ function asRequest(headers: Record<string, string>) {
 beforeAll(async () => {
   savedCtrlSecret = process.env.AGENT_CONTROL_INTERNAL_SECRET
   process.env.AGENT_CONTROL_INTERNAL_SECRET = CTRL_SECRET
+  // @ihui/auth 的 getJwtSecret() 读 process.env.JWT_SECRET(不是 mock 的 config),
+  // 与本文件 signRealJwt() 用的必须是同一把,否则"真签名"也验不过。
+  process.env.JWT_SECRET = TEST_JWT_SECRET
+  apiKeyTable.clear()
 
   app = Fastify({ logger: false })
   await app.register(cookie)
@@ -237,17 +295,36 @@ describe('C. 回归对照:真浏览器场景 CSRF 仍然生效,形态豁免未�
     expect(res.json().message).toContain('CSRF')
   })
 
-  it('JWT 形态 Bearer 的既有豁免不变(CSRF 放行,真伪仍由路由判定)', async () => {
+  it('真签名 JWT 的既有豁免不变(CSRF 放行,真伪仍由路由判定)', async () => {
+    // 2026-10-04(G-373):本条原先用**签名伪造**的 JWT_SHAPED_TOKEN 断言"CSRF 放行"。
+    // 那是"按形态豁免"那一型本身 —— 判据成立后请求整块跳过 CSRF,而该 token 谁都能拼。
+    // 现在判据是**凭据自证**,故正向臂改用本服务端密钥现签的真 JWT;反向臂(同形态、
+    // 签名伪造 ⇒ 必须仍被 CSRF 拦)紧跟其后,两条合起来才钉住"验签而非形态"这一维。
     mockAuthenticate.mockRejectedValue(new Error('invalid token'))
+    const realJwt = await signRealJwt()
+    const res = await app.inject({
+      method: 'POST',
+      url: `${PREFIX}/execute`,
+      payload: EXECUTE_BODY,
+      headers: { authorization: `Bearer ${realJwt}` },
+    })
+    // 200/401 都说明 CSRF 层没拦(凭据自证通过);这里路由 JWT 支被 mock 拒 ⇒ 401。
+    expect(res.statusCode).toBe(401)
+    expect(mockAuthenticate).toHaveBeenCalledTimes(1)
+  })
+
+  it('同形态但签名伪造的 JWT → CSRF 不再放行(G-373 反向对照:形态≠凭据有效)', async () => {
+    mockAuthenticate.mockRejectedValue(new Error('不应走到路由鉴权'))
     const res = await app.inject({
       method: 'POST',
       url: `${PREFIX}/execute`,
       payload: EXECUTE_BODY,
       headers: { authorization: `Bearer ${JWT_SHAPED_TOKEN}` },
     })
-    // 200/401 都说明 CSRF 层没拦(形态豁免);这里路由 JWT 支被 mock 拒 ⇒ 401。
-    expect(res.statusCode).toBe(401)
-    expect(mockAuthenticate).toHaveBeenCalledTimes(1)
+    expect(res.statusCode).toBe(403)
+    expect(res.json().message).toContain('CSRF')
+    // 关键:拦在 CSRF 层 ⇒ 路由鉴权根本没被调用(否则就成了"路由替 CSRF 兜底")
+    expect(mockAuthenticate).not.toHaveBeenCalled()
   })
 
   it('乱码 Bearer 不得换取豁免(O17 回归,判据未被放宽)', async () => {
