@@ -196,6 +196,11 @@ export { PaymentScreen } from './features/payment/PaymentScreen'
 export { VipTraderScreen } from './features/vip-trader/VipTraderScreen'
 /** 2026-09-14:IM 聊天室(迁移自 mobile-rn AssistantScreen,历史 Uniapp pagesA/assistant) */
 export { ChatRoomScreen, detectChatRoomMediaType } from './features/chat-room/ChatRoomScreen'
+/** 2026-10-03 恢复:D137 判「ChatScreen 零消费方」已过时 —— apps/mobile-rn/src/screens/ChatScreen.tsx
+ * 是壳消费方(透传本文件 features/chat/ChatScreen 的 SharedChatScreen),导出缺席使其解析为
+ * error-any,连锁 TS2724 + TS7006 共 4 错(CI 实测 run 37105480849);文件本身从未删除,
+ * 恢复 value 导出即根治。类型契约 ChatScreen* 仍自 ./types 导出。 */
+export { ChatScreen } from './features/chat/ChatScreen'
 /** 批次 35(2026-08-15):账号注销/充值/分类详情/课程星球/开发者入口/分销订单/知识星球/学习中心/更多课程/需求广场(10 屏迁移自 mobile-rn) */
 export { AccountCancelScreen } from './features/account-cancel/AccountCancelScreen'
 export { AppTopupScreen } from './features/app-topup/AppTopupScreen'
@@ -697,7 +702,9 @@ export type {
   ChatRoomItem,
   ChatRoomScreenProps,
 } from './features/chat-room/ChatRoomScreen'
-/** 批次 29(2026-07-29):开发者入口(原 2 屏迁移自 mobile-rn;AI 主聊天屏 ChatScreen 为零消费方,已按 D137 决议于 2026-10-01 删除,类型契约 ChatScreen* 在 @ihui/types 保留) */
+/** 批次 29(2026-07-29):开发者入口(原 2 屏迁移自 mobile-rn;AI 主聊天屏 ChatScreen 的导出于
+ * 2026-10-03 按 D137 的过时前提恢复,见上方 ChatRoomScreen 导出后的恢复注 —— mobile-rn 壳屏
+ * 是真实消费方;类型契约 ChatScreen* 在 @ihui/types 保留) */
 export { DeveloperScreen } from './features/developer/DeveloperScreen'
 /**
  * D78 连接器授权卡(G-107):对话流内渲染件。五态/四动词与
