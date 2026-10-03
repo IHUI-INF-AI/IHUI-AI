@@ -354,7 +354,8 @@ jobs:
               conn = await asyncpg.connect(dsn=settings.database_url)
               try:
                   await ensure_tables_conn(conn)
-                  n = await conn.fetchval('SELECT count(*) FROM information_schema.tables WHERE table_schema = current_schema() AND table_name LIKE $1', 'checkin%')
+                  q = 'SELECT count(*) FROM information_schema.tables WHERE table_name LIKE ' + chr(39) + 'checkin%' + chr(39)
+                  n = await conn.fetchval(q)
                   print('[ci] checkin tables visible:', n)
                   assert n == 3, 'checkin tables missing: %s' % n
               finally:
