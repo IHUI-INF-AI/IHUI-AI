@@ -515,7 +515,10 @@ class CodebaseIndexer:
                 for c in chunks
             ],
         }
-        headers = self._internal_auth_headers(api_token)
+        # 2026-10-03 数据出域合规整改:**必须**把 internal_user_id 传进鉴权头,
+        # 否则 X-User-Id 不会发出,api 侧取不到 req.userId → 拒绝写入无归属的索引
+        # (codebase_chunks 存用户代码明文,无主行是该整改要消除的东西)。
+        headers = self._internal_auth_headers(api_token, internal_user_id)
 
         async with httpx.AsyncClient(timeout=120.0) as client:
             resp = await client.post(url, json=payload, headers=headers)
@@ -542,7 +545,8 @@ class CodebaseIndexer:
         import httpx
 
         url = f"{self._api_base_url}/api/v1/codebase/repo/{repo_id}/files"
-        headers = self._internal_auth_headers(api_token)
+        # 2026-10-03:同写入路径,删除面也必须带归属(否则能删别人的索引)
+        headers = self._internal_auth_headers(api_token, internal_user_id)
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
                 resp = await client.request(
@@ -874,15 +878,20 @@ class CodebaseIndexer:
         language: str | None = None,
         top_k: int = 10,
         api_token: str | None = None,
+        internal_user_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """语义搜索代码片段(委托给 API 端点)。
 
         Args:
             query: 自然语言查询(如"用户认证逻辑")。
-            repo_id: 限定仓库(为空则全局搜索)。
+            repo_id: 限定仓库(为空则在调用者自己的全部索引内搜索)。
             language: 限定语言(如 typescript/python)。
             top_k: 返回 top-K 结果。
             api_token: API JWT token。
+            internal_user_id: 内部通道用户身份(2026-10-03 新增,**检索面同样
+                按归属隔离**)。api 侧从 X-User-Id 头取 req.userId 决定可见范围;
+                不传则检索被拒(401)。这与写入面是同一条纪律 —— 只隔离写不隔离读,
+                等于数据换个方向就又漏出去了。
 
         Returns:
             切片列表,每个含 file_path/line_start/line_end/content/symbol_name/symbol_type/score。
@@ -900,7 +909,8 @@ class CodebaseIndexer:
             payload["repoId"] = repo_id
         if language:
             payload["language"] = language
-        headers = self._internal_auth_headers(api_token)
+        # 2026-10-03:检索面按归属隔离,身份必须带上(与写入面同一纪律)
+        headers = self._internal_auth_headers(api_token, internal_user_id)
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:

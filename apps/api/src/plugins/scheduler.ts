@@ -46,6 +46,9 @@ export type ScheduledJobName =
   | 'edu-arrear-remind-daily'
   | 'llm-call-log-purge-daily'
   | 'upload-session-reap-hourly'
+  // 代码索引到期回收(2026-10-03 数据出域合规整改):codebase_chunks 存用户代码
+  // 明文 + 向量,写入即带 expires_at(默认 90 天),本任务负责物理删除过期行。
+  | 'codebase-index-purge-daily'
   | 'outbox-drain-every-30s'
 
 export interface ScheduledJobDef {
@@ -181,6 +184,16 @@ export const SCHEDULED_JOBS: ScheduledJobDef[] = [
     name: 'upload-session-reap-hourly',
     pattern: '45 * * * *',
     description: '过期分片上传会话回收（每小时45分）',
+  },
+  // 代码索引到期回收(2026-10-03 数据出域合规整改):codebase_chunks 存的是用户
+  // 代码明文 + 向量,2026-10-03 起写入即带 expires_at(默认 90 天)。读面已按
+  // expires_at 过滤,本任务是**物理删除**那一环 —— 留存面的终点是删除而非不可见。
+  // 每天 04:45:错开 llm-call-log-purge-daily(04:15)与 data-archive-daily(04:30),
+  // 让三个留存清理任务互不抢锁,也好在出问题时按时间点定位是谁在跑。
+  {
+    name: 'codebase-index-purge-daily',
+    pattern: '45 4 * * *',
+    description: '过期代码索引切片回收（每日04:45）',
   },
   // b76-12e(G-998160)outbox 排空:pending 事件的"补报"通道。挂既有 BullMQ
   // repeatable 轮询(scheduler-worker 按 name 分发到 runOutboxDrain),**不新增
