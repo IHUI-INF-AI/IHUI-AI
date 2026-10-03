@@ -17053,6 +17053,7 @@
         "name": "プロバイダー名",
         "namePlaceholder": "私の OpenAI",
         "nameRequired": "プロバイダー名は必須です",
+        "invalidFieldsToast": "以下の項目を修正してから再試行してください",
         "newTitle": "新規プロバイダー",
         "optional": "オプション",
         "pasteEmpty": "クリップボードが空です",
