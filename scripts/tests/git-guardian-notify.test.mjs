@@ -298,6 +298,26 @@ test('force(人工 --notify-test 面):绕过当轮去重,且不污染/不抢占�
   rmScratch(h.dir)
 })
 
+test('force 自测**成功时清 UNDELIVERED 标记**(2026-10-03 补:否则唯一能自证清白的路被堵死)', () => {
+  // 立因:P8「投递失败标记」判的是"有故障从未被人看见"。原先只有真实告警那条路径清标记,
+  // `--notify-test` 走 force 分支不清 ⇒ 人刚亲眼验过"通道是通的",P8 仍红。
+  // 判据失效的方向是"永远红",收信人于是学会忽略它 —— 与 §5e-1 立的规则同型。
+  const h = harness()
+  // 先造一枚失败标记(模拟上一次投递失败)
+  N.notifyGuardRed('恢复源刷新失败', 'exit 1', { ...h.opts, now: 0, dispatch: () => { throw new Error('SMTP down') } })
+  assert.ok(existsSync(h.undelFile), '投递失败必须留标记(否则 P8 是瞎尺子)')
+  // 自测成功 ⇒ 标记必须清掉
+  const r = N.notifyGuardRed('通知链路自测', '通道核验', { ...h.opts, now: 100, force: true })
+  assert.equal(r.sent, true)
+  assert.equal(existsSync(h.undelFile), false, '自测成功后标记必须清 —— 它只是"最近一次失败"的瞬时标记')
+  // 失败侧对照:自测失败仍要写标记
+  const h2 = harness()
+  N.notifyGuardRed('通知链路自测', '通道核验', { ...h2.opts, now: 0, force: true, dispatch: () => { throw new Error('SMTP down') } })
+  assert.ok(existsSync(h2.undelFile), '自测失败必须留标记(否则"测了也不知道坏")')
+  rmScratch(h.dir)
+  rmScratch(h2.dir)
+})
+
 // ── ⑤ 装车证明:判红点真的接线(防"判据存在但永不被调用",守门 70/76 教训) ────
 
 /** 取函数体(按大括号配平,与 git-guardian-drift-align.test.mjs 同一手法) */
