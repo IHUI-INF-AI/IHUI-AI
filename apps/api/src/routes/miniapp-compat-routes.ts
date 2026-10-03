@@ -2096,7 +2096,9 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     const userId = request.userId!
     const body = z
       .object({
-        agentId: z.string().min(1).max(64),
+        // zhs_agent_buy.agent_id 是 uuid NOT NULL 列：非 uuid 串会触发 DB 类型转换错误(500)。
+        // 原为 z.string().min(1).max(64)，只约束长度不约束格式。
+        agentId: z.uuid(),
         agentName: z.string().max(128).optional(),
         price: z.number().min(0),
         duration: z.number().int().min(1).default(30),
