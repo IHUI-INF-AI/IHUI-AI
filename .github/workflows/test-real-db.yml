@@ -39,7 +39,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ihui_test
       # 鉴权相关路由(如 certificates)在无 JWT_SECRET 时会抛 500 而非 401(2026-09-10)
-      JWT_SECRET: test-jwt-secret-for-real-db-0123456789abcdef
+      JWT_SECRET: realdb-jwt-9f2c7a41e8b34d6f8a1c5e70b3d92f64
       CREDENTIALS_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
 
     steps:
@@ -97,7 +97,7 @@ jobs:
         # 真实 DB 集成测试断言依赖引用/基线数据(ai_world 8 分类、gamification levels、
         # 证书模板、news/point 渠道配置等),空库下这些测试必挂(2026-09-10)
         env:
-          JWT_SECRET: test-jwt-secret-for-real-db-0123456789abcdef
+          JWT_SECRET: realdb-jwt-9f2c7a41e8b34d6f8a1c5e70b3d92f64
           CREDENTIALS_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
         # ①先用 api 侧脚本建默认用户(argon2 在 api 依赖里);②再跑全量基线 seed。
         # users.ts 检测到 argon2 不可用且库中已有用户时会自动跳过,不再 critical 失败
