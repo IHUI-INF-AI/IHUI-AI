@@ -493,6 +493,18 @@
     "captchaRefresh": "重新整理驗證碼"
   },
   "chat": {
+    "markdownTable": {
+      "copy": "複製表格",
+      "copied": "已複製",
+      "copyFailed": "複製失敗",
+      "downloadCsv": "下載 CSV",
+      "csvFailed": "CSV 下載失敗",
+      "fullscreen": "全螢幕檢視",
+      "fullscreenTitle": "表格全螢幕",
+      "close": "關閉",
+      "unsupported": "目前環境不支援此操作",
+      "empty": "空表格"
+    },
     "mcp": {
       "state": {
         "connecting": "正在連線 {server}…",
