@@ -219,7 +219,8 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
     // 2026-08-01 P1 修复:原直接 as 类型断言,补齐 Zod 校验防 NaN/超长字段。
     const body = z
       .object({
-        userUuid: z.string().min(1).max(100),
+        // user_auth_info.user_uuid 是 uuid 列：非 uuid 串会触发 DB 类型转换错误(500)。
+        userUuid: z.uuid(),
         title: z.string().max(100).nullable().optional(),
         card: z.string().max(50).nullable().optional(),
         belong: z.string().max(100).nullable().optional(),
@@ -359,7 +360,8 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
     // 2026-08-01 P1 修复:原直接 as 类型断言,tokenQuantity 传 "abc" 会写入 NaN。
     const body = z
       .object({
-        userUuid: z.string().min(1).max(100),
+        // user_margins.user_id 是 uuid 列（且是主键）：非 uuid 串会触发 DB 类型转换错误(500)。
+        userUuid: z.uuid(),
         tokenQuantity: z.coerce.number().int().min(0).default(0),
         tokenFree: z.coerce.number().int().min(0).default(0),
       })
@@ -880,7 +882,8 @@ export const adminAuthEduRoutes: FastifyPluginAsync = async (server) => {
     // 2026-08-01 P1 修复:原直接 as 类型断言,补齐 Zod 校验防 NaN/超长字段。
     const body = z
       .object({
-        classId: z.string().min(1).max(100),
+        // lesson_chapters.lesson_id 是 uuid 列：非 uuid 串会触发 DB 类型转换错误(500)。
+        classId: z.uuid(),
         title: z.string().min(1).max(200),
       })
       .safeParse(request.body)
