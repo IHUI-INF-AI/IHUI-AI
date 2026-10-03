@@ -22,7 +22,8 @@ import * as path from 'node:path'
 import { afterEach, beforeEach, describe, it } from 'vitest'
 import { hydratePersistedToolPart, hydrateToolStateMap } from '../src/sessions/tool-part-hydration.js'
 import { readSubagentState } from '../src/subagents/state-store.js'
-import { load as loadSession } from '../src/sessions/state-store.js'
+import { loadSession } from '../src/sessions/state-store.js'
+import type { SessionState } from '@ihui/types'
 
 const V1_PAYLOAD = {
   schemaVersion: 1,
@@ -92,13 +93,18 @@ describe('hydrateToolStateMap —— 整表水合', () => {
 
 describe('双读侧接线端到端(真夹具)', () => {
   let tmpDir = ''
+  let sessionDir = ''
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'g719-state-'))
+    sessionDir = fs.mkdtempSync(path.join(os.tmpdir(), 'g719-session-'))
     process.env.IHUI_SUBAGENT_STATE_DIR = tmpDir
+    process.env.IHUI_SESSION_STATE_DIR = sessionDir
   })
   afterEach(() => {
     delete process.env.IHUI_SUBAGENT_STATE_DIR
+    delete process.env.IHUI_SESSION_STATE_DIR
     fs.rmSync(tmpDir, { recursive: true, force: true })
+    fs.rmSync(sessionDir, { recursive: true, force: true })
   })
 
   it('decodeStateRow:toolState 带非法 display 的元数据 ⇒ 行照常读出,display 被剥', () => {
@@ -139,6 +145,37 @@ describe('双读侧接线端到端(真夹具)', () => {
     const r = readSubagentState('sa-2')
     assert.equal(r.stateKnown, true)
     const toolState = (r.state as { toolState?: Record<string, unknown> }).toolState
+    assert.deepEqual(toolState?.['good'], V1_PAYLOAD)
+  })
+
+  // ↓ 读侧二：sessions/state-store.loadSession。与上面 subagents 侧成对 ——
+  //   同一份降级/透传判据在两个读侧各钉一遍(只钉一侧时另一侧漂移不会被发现)。
+  function writeSession(id: string, toolState: Record<string, unknown>): void {
+    const state = {
+      id,
+      sessionId: id,
+      createdAt: '2026-10-03T00:00:00Z',
+      updatedAt: '2026-10-03T00:00:00Z',
+      messages: [],
+      status: 'completed',
+      toolState,
+    } as unknown as SessionState
+    fs.writeFileSync(path.join(sessionDir, `${id}.json`), JSON.stringify(state))
+  }
+
+  it('loadSession:toolState 带非法 display 的元数据 ⇒ 会话照常读出,display 被剥', () => {
+    writeSession('sess-1', { bad: { ...V1_PAYLOAD, display: { kind: 'text', text: 'x', ghost: 2 } } })
+    const s = loadSession('sess-1')
+    assert.ok(s, '降级不得让整份会话读不出来')
+    const toolState = s?.toolState as Record<string, Record<string, unknown>> | undefined
+    assert.equal('display' in (toolState?.['bad'] ?? {}), false)
+  })
+
+  it('loadSession:合法 v1 元数据 ⇒ 原样透传(会话读出且字段都在)', () => {
+    writeSession('sess-2', { good: V1_PAYLOAD })
+    const s = loadSession('sess-2')
+    assert.ok(s)
+    const toolState = s?.toolState as Record<string, unknown> | undefined
     assert.deepEqual(toolState?.['good'], V1_PAYLOAD)
   })
 })
