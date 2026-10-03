@@ -600,9 +600,19 @@ export function findStaleExemptions(entries, gateSet) {
  * 成因是结构性的:并发会话都在数组同一位置各加一道门,不查占用必撞号(本仓先例 75/76、79→80,
  * 2026-09-24 实测又撞一次 91 —— 由本维度在撞号当天拦下并改号为 92)。同 id 的两道 blocking 门
  * 会串 skipEnv 与失败归属:跳一次关两道,汇总里也只认第一个匹配项。
+ *
+ * 判据精确化(2026-10-03,RED-R5 假撞号实证):本仓的注册习惯会在**注释**里写下核号命令的字面量,
+ *   `// 编号 186:注册前已核 \`grep -n "id: '186'"\` 为空(未被占用);现值以本文件为准。`
+ * 这一行本身没有任何登记含义,但被上方的全文正则读成第二次注册 ⇒ 186/187 两枚新门当天就被判成撞号。
+ * 判"登记"必须看**代码面**:先剥行注释(`//…`)与块注释(`/* … *\/`),再匹配。
+ * 这不是为消红放宽判据 —— 两道真门若用同一 id,它们的 `id:` 都在代码面,照样双计数照旧判红;
+ * 唯一被排除的是"注释里提到某个 id"这一类不构成登记的文本(§12e:修红不得顺手削判据,
+ * 这里的削有正向对照:变异取证见 scripts/tests/check-gate-wiring.test.mjs 的 R5 两条用例)。
  */
 export function findDuplicateIds(runnerText) {
-  const ids = [...String(runnerText || '').matchAll(/\bid:\s*'([^']+)'/g)].map((m) => m[1])
+  const ids = [...stripJsComments(String(runnerText || '')).matchAll(/\bid:\s*'([^']+)'/g)].map(
+    (m) => m[1],
+  )
   const seen = new Set()
   const dup = new Set()
   for (const id of ids) {
@@ -610,6 +620,57 @@ export function findDuplicateIds(runnerText) {
     else seen.add(id)
   }
   return [...dup].sort()
+}
+
+/**
+ * 剥掉 JS 的行注释与块注释,只留代码面(字符串字面量里的内容不动 ——
+ * 那属于代码,注释剥离对它无副作用,而本仓的注册 `id: '186'` 正是字面量形态)。
+ * 逐字符扫描而非正则:正则无法正确跳过字符串里的 `//`(如 'https://…'),那会把真代码整段吃掉。
+ */
+export function stripJsComments(src) {
+  const s = String(src || '')
+  let out = ''
+  let i = 0
+  while (i < s.length) {
+    const c = s[i]
+    const d = s[i + 1]
+    if (c === '/' && d === '/') {
+      while (i < s.length && s[i] !== '\n') i++
+      continue
+    }
+    if (c === '/' && d === '*') {
+      i += 2
+      while (i < s.length && !(s[i] === '*' && s[i + 1] === '/')) {
+        // 保留换行:剥注释不改变行数,便于错误信息仍能按行定位。
+        if (s[i] === '\n') out += '\n'
+        i++
+      }
+      i += 2
+      continue
+    }
+    if (c === "'" || c === '"' || c === '`') {
+      const q = c
+      out += c
+      i++
+      while (i < s.length) {
+        if (s[i] === '\\') {
+          out += s[i] + (s[i + 1] ?? '')
+          i += 2
+          continue
+        }
+        out += s[i]
+        if (s[i] === q) {
+          i++
+          break
+        }
+        i++
+      }
+      continue
+    }
+    out += c
+    i++
+  }
+  return out
 }
 
 /** 读一个单/双引号字面量;不配平则返回 null(交给上层判"判不出",绝不猜)。 */
@@ -2875,6 +2936,8 @@ export const __test__ = {
   AGENTS_CLAIM_RE,
   AGENTS_SENTENCE_SPLIT_RE,
   SELF_EXEMPT_SCRIPT,
+  stripJsComments,
+  findDuplicateIds,
   filterGatePaths,
   extractHeaderRegion,
   extractHeaderClaims,

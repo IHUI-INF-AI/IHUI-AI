@@ -30,7 +30,7 @@ vi.mock('../src/services/wechat-subscribe-message.js', () => ({
 import { __test__ } from '../src/routes/edu-ai-management.js'
 import { EDU_REMINDER_CHANNELS } from '../src/services/edu-ledger.js'
 
-const { createPaymentRecordSchema, createFeeReminderSchema, feeReminderStatsSchema } = __test__
+const { createPaymentRecordSchema, createFeeReminderSchema } = __test__
 
 const UUID_A = '2f7a6e64-3b21-4a11-9a2f-6d1c0d9e4b21'
 const UUID_B = '9c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f'
