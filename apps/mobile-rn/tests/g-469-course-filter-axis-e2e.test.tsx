@@ -27,6 +27,10 @@
 
 import React from 'react'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+
+// 五个端到端用例是整屏渲染 + waitFor 异步收束,CI 高负载下超 10s 默认上限(实测全部超时)。
+// 本文件统一放宽到 60s。
+vi.setConfig({ testTimeout: 60_000 })
 import { fireEvent, render, waitFor } from '@testing-library/react'
 
 /** 每一次真实出站请求的完整 URL(由 transport 注入点记录) */
