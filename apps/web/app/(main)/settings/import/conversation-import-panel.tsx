@@ -33,6 +33,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import {
   AlertTriangle,
+  BookOpen,
   CheckCircle2,
   FileUp,
   History,
@@ -43,6 +44,7 @@ import {
 
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import {
+  addConversationToKnowledge,
   commitConversationImport,
   getConversationImportHistory,
   parseConversationImport,
@@ -57,7 +59,7 @@ import { AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useChatStore } from '@/stores/chat'
-import { formatSpeakerList, readImportProvenance } from '@/lib/import-analysis'
+import { formatSpeakerList, readImportProvenance } from '@ihui/shared/import-analysis'
 import { formatSize } from './helpers'
 
 /**
@@ -144,6 +146,21 @@ interface CommittedConversation {
    * 会拿到 codex 的推荐场景 —— 恰好毁掉"wechat 默认推荐聊天记录类"这条判据。
    */
   source: ConversationImportSource
+  /**
+   * 知识库入库状态(2026-10-03「导入的会话进知识库」层)。
+   * - undefined = 还没点过(未知的初始态,不能当成"已入库"渲染)
+   * - 'ingesting' = 请求在途
+   * - 'done' / 'deduped' = 成功(后者是幂等命中:此前已入库,未重复写 chunk)
+   * - 'failed' = 失败,reason 带服务端原文
+   *
+   * 存在 CommittedConversation 上而非另开 map:结果区每个会话一个按钮,
+   * 状态跟着条目走,收起结果区再展开也不会丢。
+   */
+  knowledge?:
+    | { state: 'ingesting' }
+    | { state: 'done'; chunks: number }
+    | { state: 'deduped'; chunks: number }
+    | { state: 'failed'; reason: string }
 }
 
 /** 预览期展示用的日期格式(短日期) */
@@ -328,6 +345,65 @@ export function ConversationImportPanel() {
     useChatStore.getState().setConversationId(conversationId)
     useAiPanelStore.getState().openPanel()
     router.push('/')
+  }
+
+  /**
+   * 把某条会话加入知识库(2026-10-03)。
+   *
+   * 形态刻意是**显式按钮**而非导入完成自动入库:知识库入库要走 embedding,
+   * 每条 chunk 都是真金白银的调用与向量存储成本;群聊记录里又大量是寒暄与表情,
+   * 用户并不一定想让整批都进知识库。让用户逐条选,是对成本与检索噪声都诚实的做法。
+   *
+   * 幂等:重复点由服务端 content_hash 去重(deduped=true),不会重复消耗 embedding,
+   * 所以这里不做按钮禁用之外的花样 —— 失败后允许直接重试。
+   */
+  function addToKnowledge(conversationId: string) {
+    setCommitted((prev) =>
+      prev.map((c) =>
+        c.conversationId === conversationId ? { ...c, knowledge: { state: 'ingesting' } } : c,
+      ),
+    )
+    void (async () => {
+      try {
+        const r = await addConversationToKnowledge(conversationId)
+        if (r.success) {
+          setCommitted((prev) =>
+            prev.map((c) =>
+              c.conversationId === conversationId
+                ? {
+                    ...c,
+                    knowledge: r.data.deduped
+                      ? { state: 'deduped', chunks: r.data.chunkCount }
+                      : { state: 'done', chunks: r.data.chunkCount },
+                  }
+                : c,
+            ),
+          )
+          toast.success(
+            r.data.deduped
+              ? t('toKnowledgeDeduped', { chunks: r.data.chunkCount })
+              : t('toKnowledgeDone', { chunks: r.data.chunkCount }),
+          )
+        } else {
+          setCommitted((prev) =>
+            prev.map((c) =>
+              c.conversationId === conversationId
+                ? { ...c, knowledge: { state: 'failed', reason: r.error } }
+                : c,
+            ),
+          )
+          toast.error(t('toKnowledgeFailed', { error: r.error }))
+        }
+      } catch (e) {
+        const reason = e instanceof Error ? e.message : String(e)
+        setCommitted((prev) =>
+          prev.map((c) =>
+            c.conversationId === conversationId ? { ...c, knowledge: { state: 'failed', reason } } : c,
+          ),
+        )
+        toast.error(t('toKnowledgeFailed', { error: reason }))
+      }
+    })()
   }
 
   function handleFileChange(f: File | null) {
@@ -574,6 +650,11 @@ export function ConversationImportPanel() {
               <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
               {t('resultTitle', { count: committed.length })}
             </p>
+            {/* 知识库这一层的成本/噪声权衡要**明示**给用户,而不是藏进 tooltip:
+                「加入知识库」不自动执行正是这个理由,让用户知道自己在权衡什么。 */}
+            <p className="text-[11px] leading-tight text-muted-foreground">
+              {t('toKnowledgeHint')}
+            </p>
             <div className="space-y-2" data-testid="import-result-list">
               {committed.map((c) => (
                 <div
@@ -608,8 +689,43 @@ export function ConversationImportPanel() {
                       <Sparkles className="mr-1.5 h-3.5 w-3.5" />
                       <span>{t('analysisOpen')}</span>
                     </Button>
-                  </div>
-                </div>
+                    {/* 「加入知识库」出口(2026-10-03):让导入的会话能被 RAG 检索到。
+                        刻意不做成导入完成自动入库 —— embedding 有真实成本,
+                        且群聊寒暄进知识库会污染检索结果,选择权交给用户。
+                        幂等:重复点由服务端 content_hash 去重,失败可直接重试。 */}
+                    {c.knowledge?.state === 'ingesting' ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled
+                        data-testid="import-result-knowledge"
+                      >
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                        <span>{t('toKnowledge')}</span>
+                      </Button>
+                    ) : c.knowledge?.state === 'done' ||
+                      c.knowledge?.state === 'deduped' ? (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-sm border border-border px-2 py-1 text-[11px] text-muted-foreground"
+                        data-testid="import-result-knowledge-done"
+                      >
+                        <BookOpen className="h-3 w-3" />
+                        {t('toKnowledgeAlready')}
+                        {c.knowledge.chunks > 0 ? ` · ${c.knowledge.chunks}` : ''}
+                      </span>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        data-testid="import-result-knowledge"
+                        title={t('toKnowledgeHint')}
+                        onClick={() => addToKnowledge(c.conversationId)}
+                      >
+                        <BookOpen className="mr-1.5 h-3.5 w-3.5" />
+                        <span>{t('toKnowledge')}</span>
+                      </Button>
+                    )}
+                  </div>                </div>
               ))}
             </div>
             <Button size="sm" variant="ghost" onClick={() => setCommitted([])}>
