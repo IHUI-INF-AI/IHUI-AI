@@ -602,6 +602,37 @@ test('边界: 真完成宣称 + 归并样板同节 + 后续工作类 → 仍判�
   }
 })
 
+// ─── 账本形块豁免(2026-10-03,G-417 盘点票 ①):任务登记行 ≥3 条的节是多会话账本块,
+// ─── 跨行的"已闭环 + 未实现"是不同任务的并置,不是同一份报告的自相矛盾。
+test('豁免: 节含 ≥3 条任务登记行(账本形块)→ 跨行并置不判红', () => {
+  const root = createTempProject()
+  try {
+    writeProjectPlan(
+      root,
+      '# Project Plan\n\n## 账本节 (2026-09-28)\n\n- [x] ✅ 任务甲已闭环(2026-09-28)\n- [x] ✅ 任务乙(2026-09-28)\n- [ ] 任务丙:该出口从未实现,待认领\n- [ ] 任务丁:另一件事\n',
+    )
+    const r = runScript(root)
+    assertPass(r)
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('边界: 账本形豁免不得吞掉纯散文报告 —— 无任务行的散文节仍判红', () => {
+  const root = createTempProject()
+  try {
+    writeProjectPlan(
+      root,
+      '# Project Plan\n\n## 交付报告 (2026-08-01)\n\n本报告已闭环。\n\n未实现:功能 Z。\n\n- 备注 1\n- 备注 2\n',
+    )
+    const r = runScript(root)
+    assertFail(r, /已闭环/)
+    assert.match(r.stdout, /未实现/)
+  } finally {
+    rmScratch(root)
+  }
+})
+
 // ─── 26. 全量模式扫描 PROJECT_PLAN.md(单文件) ────────────
 test('全量模式: 扫描 PROJECT_PLAN.md 单文件(脚本仅 visit 该文件)', () => {
   const root = createTempProject()
