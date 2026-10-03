@@ -1621,10 +1621,29 @@ async def _maybe_inject_auto_repo_wiki(
 ) -> list[dict[str, Any]]:
     """D9 自动项目百科注入挂载点(并行作业热路径)。
 
-    仅当 wikiContext 未显式关闭 且 workspace_path 存在时,调用 ensure_wiki 生成/增量同步
-    项目百科并注入 system prompt。全 try/except 静默降级:任何异常/禁用/无文本一律原样返回。
+    ── 2026-10-03 数据出域合规整改:门槛由 opt-out 翻转为 **显式 opt-in** ──
+    旧判据是 `if req.wikiContext is not False and req.workspace_path`,即
+    「字段缺省 / null / undefined 一律走注入,必须显式传 false 才关」。这意味着
+    客户端只要不主动关,工作区 markdown(含 AGENTS.md / CLAUDE.md 这类承载内部
+    架构、密钥位置、部署拓扑的 agent 指令文件)就会在**每次普通对话**里被切前
+    4000 字拼进 user message 发往外部模型服务商 —— 与 2026-09 智谱 ZCode
+    「未经知情把用户仓库数据传上 MaaS」同型,且隐蔽得多(用户没有任何上传动作)。
+    故改为:仅当调用方**显式传 wikiContext=true**(并已就此取得用户同意)才注入。
+    缺省一律不注入。
+
+    另保留 IHUI_WIKI_ENABLE=1 全局开关:部署方若确实需要「全站默认开启」
+    (如已通过隐私政策与同意流程披露),可置该 env 恢复旧行为,无需回滚代码。
+    优先级:**显式 false > env=1 > 显式 true > 缺省**。即"逐次拒绝"永远压过任何
+    全局默认开启 —— 否则用户即便在单次请求里明确关闭,仍会被 env 覆盖回去,
+    关闭权形同虚设。
+
+    全 try/except 静默降级:任何异常/禁用/无文本一律原样返回。
     """
-    if req.wikiContext is not False and req.workspace_path:
+    if req.wikiContext is False:
+        enabled = False  # 显式关闭:最强信号,压过 env 默认开启
+    else:
+        enabled = req.wikiContext is True or os.environ.get("IHUI_WIKI_ENABLE") == "1"
+    if enabled and req.workspace_path:
         try:
             from ..services.repo_wiki_engine import ensure_wiki as _wiki_ensure
             _wiki_text = await _wiki_ensure(req.workspace_path, req.workspace_path)
@@ -2029,10 +2048,20 @@ class LLMCompleteRequest(BaseModel):
         None, description="项目百科对应仓库名(用于去重 marker 与 <repo_wiki repo> 标签标注)"
     )
     # D9(2026-09-19 立):Repo Wiki 自动 wiki 化 + 增量同步 + 常驻注入 开关。
-    # 默认 None(视为开启)。显式 false 关闭后端自动扫描工作区 markdown 生成的[repo-wiki]项目百科。
-    # 环境变量 IHUI_WIKI_DISABLE=1 为全局硬开关(在 repo_wiki_engine 内生效)。
+    # 2026-10-03 数据出域合规整改:默认由 None(视为开启)改为 **None=不开启**。
+    # 理由:本开关一旦默认开启,工作区 markdown(含 AGENTS.md / CLAUDE.md 这类承载
+    # 内部架构、密钥位置、部署拓扑的 agent 指令文件)会在每次普通对话中被自动切前
+    # 4000 字发往外部模型服务商,而用户从未做过任何上传动作 —— 与智谱 ZCode 事件
+    # 同型。改为显式 true 才注入,使"用户已就本次外传取得同意"成为可验证的前置条件。
+    # 部署方如需全站默认开启(如已通过隐私政策披露),可置 env IHUI_WIKI_ENABLE=1。
+    # 反向硬开关 IHUI_WIKI_DISABLE=1 仍在 repo_wiki_engine 内生效,优先级最高。
     wikiContext: bool | None = Field(
-        None, description="Repo Wiki 自动项目百科注入开关:true/false,默认开启(None 视为开启)"
+        None,
+        description=(
+            "Repo Wiki 自动项目百科注入开关(会读取工作区 .md 并发给模型服务商):"
+            "**必须显式 true 才开启**,缺省/null/false 一律不注入;"
+            "调用方须确保用户已就本次外传明确同意"
+        ),
     )
     # 模型上下文窗口大小(tokens),达 88% 阈值自动压缩(跨端统一,Python 端兜底)
     context_limit: int | None = Field(
@@ -6938,9 +6967,10 @@ async def list_approval_grants(request: Request) -> dict[str, Any]:
     """D158/D159:列出放行规则(前缀规则 + 网络目标规则,**同一个出口、同一张面板**)。
 
     未过期判定复用 approval_persistence.list_keys 的权威集(单一实现,不复制第二份
-    过期过滤逻辑);created_at / expires_at 明细是 list_keys 没有的投影,经同一把
-    连接锁做只读 SELECT —— 本票约束不改 approval_persistence 的表,也不新建存储层,
-    借用其私有连接出口是刻意为之(单一 DB 路径,不抄第二份 _DB_PATH 解析)。
+    过期过滤逻辑);created_at / expires_at 明细是 list_keys 没有的投影,走
+    approval_persistence.list_grant_rows(2026-10-03 从本文件收编进持久层 —— 裸 SQL
+    留在非 sqlite3 文件里会被 schema_check 的驱动判据当成 Postgres 表报数据孤岛;
+    SQL 只住持久层才是"单一 DB 路径"的完整含义)。
 
     D159 把网络目标并进**这两条既有路由**而不是新开一套:票面第 3 条不可漂"与 D158
     已有的 exec_prefix 规则共面板共 API,不得新建第二套规则存储或第二个面板组件"。
@@ -6955,13 +6985,7 @@ async def list_approval_grants(request: Request) -> dict[str, Any]:
         for _kind in _kinds:
             unexpired.update(_ap.list_keys(_kind))
         uid = _resolve_owner_uuid(request)  # D158 owner-binding:只看自己主体的规则
-        conn = _ap._get_conn()
-        with _ap._lock:
-            rows = conn.execute(
-                "SELECT kind, cache_key, scope, created_at, expires_at FROM approval_grants "
-                f"WHERE kind IN ({','.join('?' for _ in _kinds)})",
-                tuple(_kinds),
-            ).fetchall()
+        rows = _ap.list_grant_rows(_kinds)
     except HTTPException:
         raise
     except Exception as e:  # noqa: BLE001 - 持久层异常不炸路由,显式失败标记回给面板
