@@ -1386,6 +1386,11 @@ function healHomeJunctions() {
     notifyGuardRed(
       '家目录改道修复后仍判红',
       `re-home-junctions --apply 之后 check-home-junctions 仍 exit ${after.code} ⇒ 实测原因:${why || '修复器未给出失败标签'};冷却项 ${cool < 0 ? '读不到' : cool} 个${applied.timedOut ? ';本轮被超时掐断' : ''}。手动:node scripts/re-home-junctions.mjs --check`,
+      // dedupKey(§5e-1 配套,102 封同因):detail 里 `冷却项 N 个` 与 `N×…` 都是**实时计数**,
+      // 逐轮变动 ⇒ 指纹变 ⇒ shouldAlert 判"新故障"立即重发,4 小时窗口只剩名字
+      // (实测 09-30/10-01 两天寄出 94 封,`冷却项 0/1/11 个`各被当成一种身份)。
+      // 身份只取"失败原因类别",冷却项个数仍进正文(它是诊断信息,不是身份)。
+      { dedupKey: `home-heal-exit=${after.code};why=${why || 'no-tag'}` },
     )
   } finally {
     try {
@@ -1650,7 +1655,11 @@ function refreshRecoverySource() {
   notifyGuardRed(
     '本地恢复源刷新失败',
     `git-backup-refresh.mjs 刷新 exit ${applied.code} ⇒ 本地恢复源正在落后于 main,宿主清除 .git 后从它恢复等价回滚。手动:node scripts/git-backup-refresh.mjs`,
-    { severity: 'critical' },
+    // 21 封全部落在 4h 窗口之外一点(实测间隔 4.00~4.62h,均值 4.05h)⇒ 指纹其实**稳定**
+    // (exit 码已被数字归一),这一格是"稳定指纹 × 零有效出口":出口那条命令本身不含
+    // 任何创建备份的代码,重跑 = 同一段代码重跑同一个失败(2026-10-03 审计)。
+    // 身份带上出口形态,便于将来判据换出口时能分辨"还是那个故障"vs "换了个出口"。
+    { severity: 'critical', dedupKey: `backup-refresh-fail;exit=${applied.code}` },
   )
 }
 
@@ -2061,8 +2070,17 @@ export function checkConvergeAlignStall(opts = {}) {
       `已 ${Math.round((d.ageMs ?? 0) / 60000)} 分钟未恢复。长期失败意味着工作区持续落后 HEAD(§12d 静默回滚温床)。\n` +
       `最后失败时间: ${new Date(state.lastFailAt).toISOString()}\n` +
       `rc/真因(收敛器 alignFailureNote 原文): ${String(state.lastNote ?? '(无)').slice(0, 200)}\n` +
-      `状态文件: ${statePath}`
-    notify('converge-align-stall', detail)
+      `状态文件: ${statePath}\n` +
+      // 出口 1(§5e-1):此前这一格**连尺子命令都没给**,只给一个状态文件路径 ——
+      // 比"手动:xxx"还退一档,收信人拿到信完全无从下手。补两条真能用的:
+      // ① 只读复现对齐器这一格;② 真跑收敛(它自身幂等,失败会留 note)。
+      `出路:node scripts/git-sync-converge.mjs --status(只读看对齐状态) / node scripts/git-sync-converge.mjs(跑一轮收敛,幂等)`
+    notify('converge-align-stall', detail, {
+      // dedupKey(§5e-1 配套,6 封):正文含 `已 N 分钟未恢复` 与失败时刻,逐轮变。
+      // 身份取"失败次数分档 + 真因类别"—— 次数**分档**而非原值:1→9 是同一故障持续,
+      // 归一后的稳定指纹把它压成同一身份(这是对的),但要保证"档位跃升"能重报。
+      dedupKey: `align-stall;fails=${Math.min(Number(d.fails) || 0, 9)}`,
+    })
     return d
   } catch (e) {
     log(
@@ -2547,9 +2565,17 @@ export function auditOpsPatrol(opts = {}) {
     if (findings.length) {
       const body = findings.map((x) => `· ${x.id} ${x.detail}`).join('\n')
       logger(`❌ 元运维巡检判红 ${findings.length} 格:\n${body}`)
-      notify(`元运维巡检红(${findings.length} 格)`, `${body}\n\n手动复现:node scripts/check-ops-patrol.mjs(只读) / --apply(顺手修可修的)`, {
-        severity: 'warning',
-      })
+      notify(
+        `元运维巡检红(${findings.length} 格)`,
+        `${body}\n\n手动复现:node scripts/check-ops-patrol.mjs(只读) / --apply(顺手修可修的)`,
+        {
+          severity: 'warning',
+          // dedupKey(§5e-1 配套,24 封):聚合告警的正文是**逐格 detail 清单**,而每格 detail
+          // 都含实时读数(条目数 67595、时钟距今 N 小时)⇒ 指纹逐轮变 ⇒ 窗口失效。
+          // 身份只取"哪几格红了"(集合,有序无关),实时读数仍进正文。
+          dedupKey: `cells=${findings.map((x) => x.id).sort().join('+')}`,
+        },
+      )
     } else {
       logger(`✅ 元运维巡检:${parsed.counts.ok} 格绿,无红(${undet.length} 格未判定)`)
     }
@@ -2586,21 +2612,34 @@ export function auditPublicPathProbe(opts = {}) {
   try {
     mkdirSync(dirname(tickFile), { recursive: true })
     writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
-    const call = runner || (() => {
-      try {
-        const out = execFileSync(process.execPath, [script, '--burst', '--sequence', 'both', '--json'], {
-          cwd: WORKTREE,
-          encoding: 'utf8',
-          windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
-          timeout: PUBLIC_PROBE_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
-          maxBuffer: 1 << 22,
-          stdio: ['ignore', 'pipe', 'pipe'],
-        })
-        return { status: 0, stdout: String(out || ''), stderr: '' }
-      } catch (e) {
-        return { status: typeof e.status === 'number' ? e.status : 2, stdout: String(e.stdout || ''), stderr: String(e.stderr || e.message || '') }
-      }
-    })()
+    // 判序(2026-10-03 补修,此前是本仓**唯一没修**的一处同型):`runner || (iife())` 在
+    // 传入函数时会让 `call` **等于那个函数本身**(短路掉调用),而不是它的返回值 ——
+    // 于是 `readProbeVerdict(call)` 读到 `status=undefined`,恒报「探针未产出 stdout」。
+    // 本函数 2751 行的注释早就写明了这个坑并点名「auditPublicPathProbe 此刻就是这一型」,
+    // 但只修了同族的 checkBaselineFreshness,这一处漏了;它此前无镜像测试 ⇒ 一直没暴露。
+    // 镜像测试补上后立刻撞红(2026-10-03),按同族正确写法改成"显式注入优先调用"。
+    const call =
+      typeof runner === 'function'
+        ? runner()
+        : (() => {
+            try {
+              const out = execFileSync(process.execPath, [script, '--burst', '--sequence', 'both', '--json'], {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+                timeout: PUBLIC_PROBE_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
+                maxBuffer: 1 << 22,
+                stdio: ['ignore', 'pipe', 'pipe'],
+              })
+              return { status: 0, stdout: String(out || ''), stderr: '' }
+            } catch (e) {
+              return {
+                status: typeof e.status === 'number' ? e.status : 2,
+                stdout: String(e.stdout || ''),
+                stderr: String(e.stderr || e.message || ''),
+              }
+            }
+          })()
     const v = readProbeVerdict(call)
     if (!v.parsed) {
       // 只写日志不发信:没量到 ≠ 出事了(§5e 的"失败必须响"针对的是**投递失败**,不是"没跑")
@@ -2623,7 +2662,37 @@ export function auditPublicPathProbe(opts = {}) {
         breaches += 1
         // alert 身份**按序列+目标分开**:A(换流窗口)与 B(常态公网)是两个不同的故障,
         // 合并成一个身份会让先响的那条把后响的那条压掉 —— 正是票面禁止的"互相掩盖"。
-        notify(`公网路径探测越阈值:${key}`, `${String(r?.numbers || '(无读数控)')}\n${reasons.join('\n')}\n\n尺子:scripts/check-public-path-probe.mjs 序列 ${key}(A=换流窗口 / B=常态公网)。取证回读:node scripts/check-public-path-probe.mjs --report .ihui-agent/tmp/probers/public-path-burst.jsonl`, { severity: 'warning' })
+        //
+        // **B/本地 这一格不得用「公网路径探测」的名义到人(2026-10-03 立,28 封审计)**。
+        // 尺子头注(:769)自己写明「公网是被测对象,本地是对照组」;对照组失真 = 本机服务
+        // 没起(实测那 16 封报的是 `127.0.0.1:8801` connRefused,而 8801 = Web/IHUI-WEB,
+        // 由 `heal-unresponsive-services.mjs` 那层负责),**与公网可用性无关**。
+        // 收信人读着"公网探测越阈值"去查公网永远查不到 ⇒ 这一格是"告的不是信里说的那件事",
+        // 属 §5e-1 答不上来就不许挂。正解:本地组只进日志(它是对照组的自检面,不是故障面),
+        // 真故障(本机服务没起)归服务自愈层 —— 那层若自己坏了(`check-service-binary-paths`
+        // rc=2 派生失败)该修的是它,不是让公网判据替它喊人。
+        if (key.includes('本地')) {
+          logger(
+            `⚠️ 公网探测对照组失真(${key}):${String(r?.numbers || '').slice(0, 160)} —— 本地服务未起,不按公网故障到人(§5e-1);真故障归服务自愈层`,
+          )
+          continue
+        }
+        notify(
+          `公网路径探测越阈值:${key}`,
+          `${String(r?.numbers || '(无读数控)')}\n${reasons.join('\n')}\n` +
+            `尺子:scripts/check-public-path-probe.mjs 序列 ${key}。取证回读:node scripts/check-public-path-probe.mjs --report .ihui-agent/tmp/probers/public-path-burst.jsonl\n` +
+            // 出口 1(§5e-1):必须给可执行下一步,只给"取证回读"是把同一条结论再念一遍。
+            `出路:先用 --report 确认是**目标端**慢/失败(而非探针机抖动);目标真不可用时查该服务自身健康` +
+            `(本机 web/api/ai-service 由 heal-unresponsive-services 自愈;外部目标查其服务端与链路)。`,
+          {
+            severity: 'warning',
+            // dedupKey(§5e-1 配套):numbers 里 `最长连续不可用 13.5s` 这类**带小数点**的值,
+            // 数字归一 `\d+ → #` 吃不掉小数点 ⇒ 13s 与 13.5s 撞成两个身份,4 小时窗口被绕成虚设
+            // (实测 B/公网 12 封里 7 个间隔短于 4h,最短 0.53h = 两倍 30 分钟节流 = 刚跑完又寄)。
+            // 身份只取"序列 + 结论",实时读数仍进正文。
+            dedupKey: `seq=${key};verdict=${verdict}`,
+          },
+        )
       } else if (verdict === 'unjudged') {
         unjudged += 1
         logger(`ℹ️ 公网路径探测 ${key}:未判定 —— ${reasons.join(' | ') || '(无原因)'}`)
@@ -3407,6 +3476,7 @@ if (isDirectRun) {
 export const __test__ = {
   alertFingerprint,
   stableAlertFingerprint,
+  auditPublicPathProbe,
   parseNotifyState,
   shouldAlert,
   withAlertMark,

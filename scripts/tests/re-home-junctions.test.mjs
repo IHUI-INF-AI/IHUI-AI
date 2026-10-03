@@ -18,8 +18,10 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  rmdirSync,
   rmSync,
   statSync,
+  symlinkSync,
   utimesSync,
   writeFileSync,
 } from 'node:fs'
@@ -340,6 +342,66 @@ test('repairOne 的判序:isLink 必须在 existsSync(src) 之前(悬空 junctio
   const iExists = body.indexOf('if (!existsSync(srcPath))')
   assert.ok(iLink >= 0, '必须先判 isLink')
   assert.ok(iExists > iLink, `existsSync(absent) 早退必须排在 isLink 之后,实际 isLink@${iLink} exists@${iExists}`)
+})
+
+/**
+ * 2026-10-03 立(102 封同因告警根治):`G:\DevEnv` → `G:\IHUI-AI\.DevEnv` 搬迁漏了 3 个 APPDATA
+ * 项,它们的 junction 仍指旧根(旧根只剩空壳 Temp)⇒ 门 96 判 `DANGLING` 判红零误判,
+ * 而新根下 3 个目标**确实都在且有数据**。旧序先问 `existsSync(dstPath)` 就早退成
+ * 「已是指针且目标在位 / ok:true」,把 `link-moved` 变成**死代码** ⇒ 修复器报绿、门报红、
+ * 收信人拿到 exit 0 假绿,102 封信换不来一次整改。
+ *
+ * **为什么已有用例没抓到**:上面那条"悬空"用例走的是 `rmSync(dst)`(目标消失),
+ * "目标缺失"型;而本型是 **junction 在、目标也在、只是指错了地方** —— 三者都成立,
+ * 只有把 junction 指向别处才构造得出来。缺这一格,判据分叉就能一直藏着。
+ */
+test('判序:比「指向」必须排在 existsSync(dst) 早退之前(目标在位但指错 ⇒ link-moved 而非 link)', () => {
+  const { root, src, dst } = fixture()
+  try {
+    assert.equal(R.repairOne(src, dst).action, 'moved', '前置:先造出已改道的正常态')
+    // 造出"指错"形态:另建一个真实目录,把 junction 指向它,而登记表算出的 dst 依然在位
+    const elsewhere = join(root, 'elsewhere', '.demo')
+    mkdirSync(elsewhere, { recursive: true })
+    writeFileSync(join(elsewhere, 'decoy.txt'), 'not the registered target', 'utf8')
+    rmdirSync(src) // 删 junction 目录链接用 rmdir(unlink 对目录链接 EPERM;rmSync 会跟随到目标报 EISDIR)
+    symlinkSync(elsewhere, src, 'junction')
+
+    // 核心断言:dst 存在(旧序会在这里早退成 ok:true),但指向不对 ⇒ 必须报 link-moved
+    assert.ok(existsSync(dst), '前置:登记表算出的目标必须在位 —— 这正是旧序早退的那一步')
+    const res = R.repairOne(src, dst)
+    assert.equal(res.action, 'link-moved', `指错必须报 link-moved,实际:${res.action} / ${res.note}`)
+    assert.equal(res.ok, false, 'link-moved 必须 ok:false ⇒ 进冷却表,否则 2 分钟一撞永无宁日')
+    assert.match(res.note, /指针指向别处/, `note 必须说清真实原因,实际:${res.note}`)
+    // 不得擅自改指向:解引用到的内容必须还是 decoy,不能被"顺手修好"
+    assert.equal(readFileSync(join(src, 'decoy.txt'), 'utf8'), 'not the registered target', '不得擅自改指向')
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('门与修复器在同一样例上必须同判:门红时修复器不得报"已改道/无需管"', () => {
+  // 同型事故已复发两次(2026-09-24 源判 absent / 2026-10-03 dst 判在位),
+  // 两次的特征完全一样:**门判红、修复器报绿**,两边各自都不算错,合起来恒红且永不自愈。
+  // 断言方向只能是这一向 —— 「门红 ⇒ 修复器必须报要人管」;
+  // 反向(「门绿 ⇒ 修复器必须报绿」)不成立:修好后门绿、而修复器仍可能因残留差异要求人工核对。
+  const { root, src, dst } = fixture()
+  const fakeRegistry = [{ p: src, why: '夹具:模拟 §26 改道项' }]
+  try {
+    assert.equal(R.repairOne(src, dst).action, 'moved', '前置:先造出已改道的正常态')
+    assert.equal(audit(fakeRegistry).violations.length, 0, '前置:改道完成时门必须是绿的')
+
+    // 制造「门红」:把改道树整体搬走,junction 悬空 ⇒ 门必判 DANGLING
+    rmSync(dst, { recursive: true, force: true })
+    const red = audit(fakeRegistry).violations
+    assert.equal(red.length, 1, '前置:门必须真的判红,否则本例在验证一个不会发生的分叉')
+    assert.equal(red[0].kind, 'DANGLING', `要验的是悬空这一型,实际:${red[0].kind}`)
+
+    // 核心:门红的同一时刻,修复器不许报"无需管"
+    const res = R.repairOne(src, dst)
+    assert.notEqual(res.action, 'link', `门判 DANGLING 而修复器报"已是指针且目标在位"⇒ 判据分叉,实得:${res.note}`)
+  } finally {
+    rmScratch(root)
+  }
 })
 
 /**
