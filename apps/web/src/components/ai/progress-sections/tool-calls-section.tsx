@@ -23,6 +23,12 @@ import { SearchInput } from '@ihui/ui-react'
 // 淘汰的条数必须渲染成「N more」露出,不许静默截断(判据见 scripts/check-list-cap-honesty.mjs)。
 import { tailWithOmittedCount } from '@ihui/api-client/client'
 import { cn } from '@/lib/utils'
+import {
+  isExecuteToolCall,
+  isExploreToolCall,
+  isShellToolCallAwaitingCommand,
+  resolveToolCallFamily,
+} from '@/lib/explore-tool-call'
 import { Tooltip } from '@/components/feedback'
 import { FoldableSection } from './foldable-section'
 import { describeToolActivityByStatus } from '@ihui/shared/chat'
@@ -38,17 +44,25 @@ interface ToolCallsSectionProps {
 
 type ToolCategory = 'read' | 'search' | 'write' | 'exec' | 'other'
 
-const READ_TOOLS = new Set(['read_file', 'Read', 'list_dir', 'glob', 'ls'])
-const SEARCH_TOOLS = new Set(['grep', 'search', 'search_codebase'])
-const WRITE_TOOLS = new Set(['edit_file', 'write_file', 'Edit', 'Write', 'apply_patch'])
-const EXEC_TOOLS = new Set(['run_command', 'execute', 'bash', 'shell'])
-
+// 分类判据单一来源(G-977965 装车,2026-10-03):判据收在 @/lib/explore-tool-call,
+// 端内不再另立第二套名单。原实现是四张硬编码 Set 的 `Set.has` 全等比较,
+// 既不读 args 也不做词元归一 —— 于是 `run_command` 里的 `rg foo`(只读)与
+// `rm -rf`(写)被染成同一个 exec 徽章,而 `execute` 这类不在册名字直接掉进 other 灰。
+// 注意与 tool-call-card.tsx 的 FILE_WRITE_TOOLS 区别:那套判的是"这次调用有没有改工作区文件"
+// (连接器读写方向),本套判的是"这个工具属不属于副作用族",两者语义不同,故不合并。
 function categorize(toolName: string): ToolCategory {
-  if (READ_TOOLS.has(toolName)) return 'read'
-  if (SEARCH_TOOLS.has(toolName)) return 'search'
-  if (WRITE_TOOLS.has(toolName)) return 'write'
-  if (EXEC_TOOLS.has(toolName)) return 'exec'
-  return 'other'
+  switch (resolveToolCallFamily(toolName)) {
+    case 'file-read':
+      return 'read'
+    case 'search':
+      return 'search'
+    case 'file-write':
+      return 'write'
+    case 'shell':
+      return 'exec'
+    default:
+      return 'other'
+  }
 }
 
 const CATEGORY_ICON: Record<ToolCategory, React.ComponentType<{ className?: string }>> = {
@@ -80,6 +94,17 @@ const CATEGORY_TKEY: Record<ToolCategory, string> = {
   exec: 'tools.categoryExec',
   other: 'tools.categoryOther',
 }
+
+/**
+ * shell 族入参级细分的两个附加词条(G-977965 装车,2026-10-03)。
+ * 只读探查不另设第五类 ToolCategory —— 那会让 CATEGORY_* 四张查表与
+ * 分类计数摘要(`:459` 遍历五值)一起扩面,牵连 i18n 快照与 data-testid 契约;
+ * 故 explore 走「执行 · 探查」的行内后缀,awaiting 直接替换执行档文案。
+ */
+const SHELL_REFINE_TKEY = {
+  explore: 'tools.categoryExplore',
+  awaiting: 'tools.categoryAwaiting',
+} as const
 
 const TOOL_STATUS_ICON: Record<
   AgentToolCall['status'],
@@ -173,7 +198,21 @@ export const ToolCallItem = React.memo(function ToolCallItem({
     [tool.toolName, tool.status, tStatus],
   )
   const [expanded, setExpanded] = React.useState(false)
+  // 入参级细分(G-977965 装车,2026-10-03):只按工具名分类会把 shell 整族压成一档,
+  // 于是 `rg foo` 与 `rm -rf` 同色。这里按 args 把 shell 族再劈成三档,
+  // 就地适配字段名(渲染层 toolName/args → 判据层 kind/input),不改判据接口去迁就渲染层。
+  const shellShape = { kind: tool.toolName, input: tool.args }
   const cat = categorize(tool.toolName)
+  const shellRefinement: 'awaiting' | 'explore' | 'execute' | null =
+    cat === 'exec'
+      ? isShellToolCallAwaitingCommand(shellShape)
+        ? 'awaiting'
+        : isExploreToolCall(shellShape)
+          ? 'explore'
+          : isExecuteToolCall(shellShape)
+            ? 'execute'
+            : null
+      : null
   const CatIcon = CATEGORY_ICON[cat]
   const StatusIcon = TOOL_STATUS_ICON[tool.status]
   const argPreview = extractArgPreview(tool.args)
@@ -225,8 +264,10 @@ export const ToolCallItem = React.memo(function ToolCallItem({
             CATEGORY_BADGE_CLS[cat],
           )}
           data-testid={`tool-cat-${tool.id}`}
+          data-shell-refinement={shellRefinement ?? undefined}
         >
-          {t(CATEGORY_TKEY[cat])}
+          {t(shellRefinement === 'awaiting' ? SHELL_REFINE_TKEY.awaiting : CATEGORY_TKEY[cat])}
+          {shellRefinement === 'explore' ? ` · ${t(SHELL_REFINE_TKEY.explore)}` : ''}
         </span>
         <code
           className="shrink-0 font-mono text-[11px] text-muted-foreground"
