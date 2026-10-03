@@ -22,6 +22,20 @@
 //   R3 落盘方 `apps/cli/src/tools/file-edit.ts` 必须真用它(防"造好没装车",守门 64/97 同型):
 //      已入库的接线不得回退;import 了却不调用(半个接线)同判红。
 //
+// **新维度 F(故障注入面,起步 warn —— 刻意不接 blocking)**:R1/R2/R3 全是静态形态判据,它们能证明
+// "接线在位",证明不了**失败时会不会留半个文件**。而失败路径恰是这台机器上最易坏的一格:
+// `scripts/lib/atomic-write.mjs:16-18` 记着实测 rename 撞"目标已被别的句柄打开"在 Windows 回
+// **EPERM**(不是 EEXIST),同族 EBUSY/EACCES/ENOENT。那份实现的失败语义("重试用尽 ⇒ 清自己的
+// 临时文件并抛,磁盘上仍是完整旧内容")目前**只是一段注释,不是一次证明** —— 而本仓反复记过的
+// 失效型正是"把没做成写成做过了"。
+// ⇒ G-815961 立 `scripts/lib/fs-fault-injection.mjs`(判据单份的所在地),把它挂进本门 `--self-test`
+//   的 F 组(正反成对),并在默认档**只报数**:F 维度不入 `total`、不影响 rc,取不到 loudly 报"未判定"。
+//   **为什么不接 blocking**:故障注入面是**给测试用的生产面**,它"在位"与否与"这枚提交是否安全"
+//   无关;接成 blocking 立刻产生恒红门(端内 `apps/cli/src` 目前一个注入点都没有),而恒红门逼人
+//   `--no-verify`、连带废掉全部守门 —— 与 R1 棘轮同一条理由,故新维度一律 warn 起步。
+//   F 维度的**牙在自检臂**:F20(双条件兜底被拆 ⇒ 注入器在非 test 环境也生效 ⇒ 生产面可被打穿)与
+//   F21(rename 注入一次 EPERM ⇒ 目标保持旧内容、临时文件被清)都在 `--self-test` 里,红即 rc=1。
+//
 // 口径同守门 70/77/83/98/101/103:全量判 **HEAD blob**、--staged 判**索引 blob**、
 // --worktree 仅人工逃生舱;两个面旗同给 ⇒ exit 2;取不到 ⇒ exit 2「无法判定」,不冒红也不记绿。
 // **例外(R2/R3 的固定锚点文件)**:按 HEAD→索引→工作树**降级**取,退到下一档会在输出里大声点名 ——
@@ -30,7 +44,7 @@
 //
 // 紧急跳过 HUSKY_SKIP_FILE_WRITE_SAFETY=1(接线 id 由主会话统一登记,本票不自取编号)。
 
-import path from 'node:path'
+import path, { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import {
@@ -42,6 +56,22 @@ import {
   readWorktreeFile,
   selectFace,
 } from './lib/face-reader.mjs'
+// ↓ F 维度(G-815961)的判据**只从这一份取** —— 门里不得另抄一份注入器实现(§22c)。
+// 原子写出口也只从它取:自检臂要真跑一次失败分支,拿一个注释里写着"失败会清临时文件"的
+// 承诺当证据,就是本仓最会骗自己的那种写法。
+import {
+  FAULT_ERROR_FIELDS,
+  FAULT_OPERATIONS,
+  FAULTS_ALLOW_ENV,
+  FAULTS_ENV,
+  FAULTS_ENV_GUARD,
+  createFaultInjector,
+  createFaultInjectorFromEnv,
+  isFaultInjectionEnabled,
+  parseFaultRules,
+  ruleMatches,
+} from './lib/fs-fault-injection.mjs'
+import { atomicWriteFileSync } from './lib/atomic-write.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const SKIP_ENV = 'HUSKY_SKIP_FILE_WRITE_SAFETY'
@@ -60,6 +90,12 @@ export const BARE_WRITE_APIS = ['writeFileSync', 'appendFileSync']
 export const WORKSPACE_GATE_SYMBOL = 'checkPathWritePermission'
 /** 名单:出口必须导出的三件(捕获 / 提交 / 冲突类型),缺任一即"半个出口" */
 export const REQUIRED_EXIT_EXPORTS = ['captureWriteBaseline', 'commitAtomicWrite', 'WriteConflictError']
+
+/**
+ * F 维度(G-815961):故障注入面本体。与 R1/R2/R3 的锚点不同,它**不参与 default 档的 findings**
+ * (见头注「为什么不接 blocking」),只在默认档报一行数、并在 `--self-test` 里承重。
+ */
+export const FAULT_INJECTION_MODULE = 'scripts/lib/fs-fault-injection.mjs'
 
 const SELF_EXEMPT_PREFIX = 'scripts/check-file-write-safety'
 
@@ -387,6 +423,8 @@ export function runAudit(root, face) {
     bare,
     wiring,
     undetermined,
+    // F 维度独立成字段:**不进 findings、不进 total**(warn 起步,理由见头注)
+    faultInjection: collectFaultInjectionFace(root, face),
     anchorNotes: [
       { rel: EXIT_MODULE, ...pickFace(exitAnchor) },
       { rel: TOOL_MODULE, ...pickFace(toolAnchor) },
@@ -396,6 +434,51 @@ export function runAudit(root, face) {
 
 function pickFace(a) {
   return { usedFace: a.usedFace, downgraded: a.downgraded }
+}
+
+/**
+ * F 维度(故障注入面)在判定面上的**取材 + 报数**,不产 findings。
+ *
+ * 三态与 R1/R2/R3 同纪律且**不并桶**(头注「新维度 F」):
+ *   - 面取不到 / 判据自身抛 ⇒ `undetermined`,默认档大声报"无法判定",**绝不报成通过**;
+ *   - 取到 ⇒ 报一行"闭集 N 个 / 规则解析可用",但**不改 rc**。
+ * 之所以不并进 `total`:它是 warn 起步的新维度(理由见头注),并进去就等于接成 blocking。
+ */
+export function collectFaultInjectionFace(root, face) {
+  const anchor = readAnchorWithFallback(root, face, FAULT_INJECTION_MODULE)
+  if (!anchor.text) {
+    return { rel: FAULT_INJECTION_MODULE, present: false, usedFace: anchor.usedFace, undetermined: true, rules: 0 }
+  }
+  try {
+    // 判据的"能不能用"用**构造面**证明(闭集非空 + 坏规则必抛),不读被审面的任何文本 ——
+    // 这个门要判的是"注入面在位且有牙",不是"注入面里写了什么字"。
+    const probe = createFaultInjector([{ id: 'probe', code: 'EPERM' }])
+    let throwsOnBadRule = false
+    try {
+      createFaultInjector([{ id: 'probe', code: 'EPERM', operations: ['notAnOperation'] }])
+    } catch {
+      throwsOnBadRule = true
+    }
+    return {
+      rel: FAULT_INJECTION_MODULE,
+      present: true,
+      usedFace: anchor.usedFace,
+      downgraded: anchor.downgraded,
+      undetermined: false,
+      ruleCount: probe.rules.length,
+      throwsOnBadRule,
+      operations: FAULT_OPERATIONS.length,
+    }
+  } catch (e) {
+    return {
+      rel: FAULT_INJECTION_MODULE,
+      present: true,
+      usedFace: anchor.usedFace,
+      undetermined: true,
+      reason: e?.message ?? String(e),
+      rules: 0,
+    }
+  }
 }
 
 function report(res) {
@@ -409,6 +492,19 @@ function report(res) {
     }
   }
   for (const n of res.wiring.notices) console.log(`   · ${n}`)
+  // F 维度只报数(warn 起步):**不进 total、不改 rc**。取不到 ⇒ 大声报"无法判定",不报成通过。
+  const f = res.faultInjection
+  if (f) {
+    if (f.undetermined) {
+      console.error(
+        `⚠️  F 维度无法判定(不计通过,也不判红 —— 该维度为 warn 级):${f.rel} ${f.present ? `判据自身抛错 ${f.reason ?? ''}` : `在判定面${f.usedFace}取不到`}`,
+      )
+    } else {
+      console.log(
+        `   · F 故障注入面在位(${f.rel} @${f.usedFace}):规则闭集 ${f.operations} 个 / 探针规则 ${f.ruleCount} 条 / 坏规则解析期抛=${f.throwsOnBadRule} · warn 级,不影响本门 rc`,
+      )
+    }
+  }
   for (const r of res.bare.ratcheted) {
     console.log(`   · 存量(HEAD 自身计数内,只报数不判红):${r.rel} ${r.n} 处(额度 ${r.allowed})`)
   }
@@ -622,6 +718,378 @@ function selfTest() {
   check('R0b 非空枚举不误杀', passed)
   check('R0c 面外文件被排除', inScope('apps/cli/src/index.ts') === false && inScope(`${SCAN_DIR}/x.ts`) === true)
 
+  // ═══════════════ F 维度(G-815961):文件系统故障注入是一等测试面 ═══════════════
+  //
+  // 这一组要回答的是 R1/R2/R3 回答不了的那一问:**失败时磁盘上剩什么**。
+  // 全部走构造面(规则/env/fs 袋都显式给出),不读仓库瞬时状态 —— 真文件系统那一版在
+  // `scripts/tests/check-file-write-safety.test.mjs` 的 D 组(同一份判据,不许抄第二遍)。
+
+  /** 一个内存 fs 袋:只实现 atomicWriteFileSync 真正用到的那几个面,其余显式抛"未实现"。 */
+  const memFs = () => {
+    const files = new Map()
+    const fds = new Map() // fd → 路径(writeSync 只知道 fd;不许靠"值是空串"去猜落在哪个文件上)
+    let fdSeq = 0
+    const enoent = (p) => Object.assign(new Error(`ENOENT: ${p}`), { code: 'ENOENT' })
+    return {
+      files,
+      openSync(p, flags) {
+        if (flags === 'wx' && files.has(p)) throw Object.assign(new Error(`EEXIST: ${p}`), { code: 'EEXIST' })
+        files.set(p, '')
+        const fd = ++fdSeq
+        fds.set(fd, p)
+        return fd
+      },
+      writeSync(fd, payload, offset, encoding) {
+        const p = fds.get(fd)
+        if (p === undefined) throw new Error(`writeSync: 未打开的 fd ${fd}`)
+        const n = Buffer.byteLength(payload, encoding)
+        files.set(p, files.get(p) + payload)
+        return n
+      },
+      fsyncSync() {},
+      closeSync(fd) {
+        fds.delete(fd)
+      },
+      chmodSync() {},
+      statSync(p) {
+        if (!files.has(p)) throw enoent(p)
+        return { mode: 0o100644 }
+      },
+      lstatSync(p) {
+        if (!files.has(p)) throw enoent(p)
+        return { isSymbolicLink: () => false, isDirectory: () => false }
+      },
+      readlinkSync() {
+        throw new Error('未实现')
+      },
+      rmSync(p) {
+        files.delete(p)
+      },
+      renameSync() {
+        throw new Error('未实现:由用例覆盖')
+      },
+    }
+  }
+
+  /** 跑一次"注入一次 rename EPERM"的原子替换,返回袋快照与抛出的错误 */
+  const runRenameFault = (rules, target, tmp) => {
+    const F = memFs()
+    F.files.set(target, 'OLD')
+    const injector = createFaultInjector(rules)
+    // 注入点摆在**真正做事之前**:rename 真被调之前先问一次(与上游 paths.ts:13 同型)
+    F.renameSync = (from, to) => {
+      injector.maybeThrow({ operation: 'rename', path: to })
+      F.files.set(to, F.files.get(from))
+      F.files.delete(from)
+    }
+    let error = null
+    try {
+      atomicWriteFileSync(target, 'NEW', { fs: F, tmpName: tmp, backoff: [], sleep: () => {} })
+    } catch (e) {
+      error = e
+    }
+    return { error, files: F.files, tmpPresent: F.files.has(tmp) }
+  }
+
+  // —— 规则闭集:逐个正向(守门 120 的要求:名单成员逐个能命中自己的判据)——
+  for (const op of FAULT_OPERATIONS) {
+    const inj = createFaultInjector([{ id: `p-${op}`, code: 'EPERM', operations: [op] }])
+    let hit = null
+    try {
+      inj.maybeThrow({ operation: op, path: 'C:/x/a.txt' })
+    } catch (e) {
+      hit = e
+    }
+    check(`F1 闭集成员 ${op} 能被自己的判据命中(逐名正向)`, hit !== null && hit.syscall === op)
+  }
+  check(
+    'F2 闭集外 operation ⇒ 解析期抛(不是静默失效成"什么都没注入但一路绿")',
+    (() => {
+      try {
+        createFaultInjector([{ id: 'x', code: 'EPERM', operations: ['sqlite_open'] }])
+        return false
+      } catch {
+        return true
+      }
+    })(),
+  )
+  check(
+    'F3 坏 JSON / 非数组 ⇒ 解析期抛',
+    (() => {
+      for (const bad of ['{ not json', '{"a":1}', '42']) {
+        try {
+          parseFaultRules(bad)
+          return false
+        } catch {
+          /* 抛对了,继续下一条 */
+        }
+      }
+      return true
+    })(),
+  )
+  check(
+    'F4 规则必填字段(id/code)缺失或非串 ⇒ 解析期抛',
+    (() => {
+      for (const bad of [{ code: 'E' }, { id: 'i' }, { id: '', code: 'E' }, { id: 'i', code: '  ' }]) {
+        try {
+          createFaultInjector([bad])
+          return false
+        } catch {
+          /* 抛对了 */
+        }
+      }
+      return true
+    })(),
+  )
+  check(
+    'F5 maxMatches 非非负整数 ⇒ 解析期抛(不许静默当 1)',
+    (() => {
+      for (const bad of [-1, 1.5, '2', null]) {
+        try {
+          createFaultInjector([{ id: 'i', code: 'E', maxMatches: bad }])
+          return false
+        } catch {
+          /* 抛对了 */
+        }
+      }
+      return true
+    })(),
+  )
+  check(
+    'F6 pathRegex 编译不过 ⇒ 构造期抛(不留到匹配期才炸)',
+    (() => {
+      try {
+        createFaultInjector([{ id: 'i', code: 'E', pathRegex: '([' }])
+        return false
+      } catch {
+        return true
+      }
+    })(),
+  )
+
+  // —— 三条件取与 ——
+  const threeCond = createFaultInjector([
+    {
+      id: 'and3',
+      code: 'EPERM',
+      operations: ['rename'],
+      pathIncludes: 'wt/',
+      pathEndsWith: '.json',
+      pathRegex: '\\.tmp\\.json$',
+    },
+  ])
+  const allThree = (p) => {
+    try {
+      threeCond.maybeThrow({ operation: 'rename', path: p })
+      return false
+    } catch {
+      return true
+    }
+  }
+  check('F7 三条件全中 ⇒ 命中', allThree('C:/wt/.a.tmp.json'))
+  check('F8 三条件缺一即不命中(取与,不是取或)', !allThree('C:/other/.a.tmp.json') && !allThree('C:/wt/.a.txt'))
+  check(
+    'F9 路径分隔符归一(Windows 反斜杠形态也能命中同一条 pathEndsWith)',
+    (() => {
+      const inj = createFaultInjector([{ id: 's', code: 'EPERM', pathEndsWith: 'wt/x.json' }])
+      try {
+        inj.maybeThrow({ operation: 'writeFile', path: 'C:\\a\\wt\\x.json' })
+        return false // 抛了才算命中(归一后 endsWith 成立)
+      } catch {
+        return true
+      }
+    })(),
+  )
+
+  // —— maxMatches 语义(默认 1)——
+  const once = createFaultInjector([{ id: 'one', code: 'EPERM', operations: ['rename'] }])
+  let firstThrew = false
+  try {
+    once.maybeThrow({ operation: 'rename', path: 'C:/a' })
+  } catch {
+    firstThrew = true
+  }
+  let secondThrew = false
+  try {
+    once.maybeThrow({ operation: 'rename', path: 'C:/a' })
+  } catch {
+    secondThrew = true
+  }
+  check('F10 maxMatches 缺省 = 1:第一次炸、第二次放行(与票面 :98 同值)', firstThrew && !secondThrew)
+  const three = createFaultInjector([{ id: 'three', code: 'EPERM', operations: ['rename'], maxMatches: 3 }])
+  let n = 0
+  for (let i = 0; i < 5; i++) {
+    try {
+      three.maybeThrow({ operation: 'rename', path: 'C:/a' })
+    } catch {
+      n += 1
+    }
+  }
+  check('F11 maxMatches 显式 N ⇒ 恰好炸 N 次', n === 3, `实得 ${n}`)
+  check(
+    'F12 maxMatches:0 ⇒ 永不炸(登记而不生效是一个合法形态)',
+    (() => {
+      const zero = createFaultInjector([{ id: 'z', code: 'E', operations: ['any'], maxMatches: 0 }])
+      try {
+        zero.maybeThrow({ operation: 'writeFile', path: 'C:/a' })
+        return true
+      } catch {
+        return false
+      }
+    })(),
+  )
+  check(
+    'F13 reset() 把额度归零(可复用同一个注入器跑多轮)',
+    (() => {
+      const r = createFaultInjector([{ id: 'r', code: 'EPERM', operations: ['rename'] }])
+      const hit = () => {
+        try {
+          r.maybeThrow({ operation: 'rename', path: 'C:/a' })
+          return false
+        } catch {
+          return true
+        }
+      }
+      const a = hit()
+      r.reset()
+      return a && hit()
+    })(),
+  )
+
+  // —— 合成错误的四个可断言字段 ——
+  const shape = (() => {
+    try {
+      createFaultInjector([{ id: 'shape', code: 'EPERM', operations: ['rename'] }]).maybeThrow({
+        operation: 'rename',
+        path: 'C:/x/a.json',
+      })
+      return null
+    } catch (e) {
+      return e
+    }
+  })()
+  check(
+    `F14 合成错误带 ${FAULT_ERROR_FIELDS.join('/')} 四个字段(缺一个,断言就退化成 match 字符串)`,
+    shape !== null && FAULT_ERROR_FIELDS.every((f) => shape[f] !== undefined) && shape.code === 'EPERM',
+  )
+  check(
+    'F15 ruleMatches 与注入器同一条判据(构造面与实际行为不得漂移)',
+    ruleMatches(createFaultInjector([{ id: 'm', code: 'E', operations: ['rename'] }]).rules[0], {
+      operation: 'rename',
+      path: 'C:/a',
+    }) === true,
+  )
+
+  // ═══ F20 组:双条件兜底(票面点名"不可省"的那条牙 —— 防生产误开)═══
+  const RULES_JSON = JSON.stringify([{ id: 'prod', code: 'EPERM', operations: ['rename'], pathEndsWith: '.json' }])
+  const onlyRules = { [FAULTS_ENV]: RULES_JSON }
+  check(
+    'F20 **未设测试环境且无 ALLOW ⇒ 整条不生效**(只有规则串 ⇒ 零规则;这条是防生产误开的锁)',
+    isFaultInjectionEnabled(onlyRules) === false &&
+      createFaultInjectorFromEnv(onlyRules).rules.length === 0 &&
+      (() => {
+        try {
+          createFaultInjectorFromEnv(onlyRules).maybeThrow({ operation: 'rename', path: 'C:/x/a.json' })
+          return true // 不生效 = 不抛 = 正确
+        } catch {
+          return false
+        }
+      })(),
+  )
+  check(
+    'F20b 空规则串 ⇒ 不生效(连规则都没有时不得有任何动作)',
+    isFaultInjectionEnabled({}) === false && isFaultInjectionEnabled({ [FAULTS_ENV]: '   ' }) === false,
+  )
+  check(
+    `F20c 首个条件(${FAULTS_ENV_GUARD}=test)单独成立 ⇒ 生效(与 F20 成对,防"永远打不开")`,
+    isFaultInjectionEnabled({ ...onlyRules, [FAULTS_ENV_GUARD]: 'test' }) === true &&
+      createFaultInjectorFromEnv({ ...onlyRules, [FAULTS_ENV_GUARD]: 'test' }).rules.length === 1,
+  )
+  check(
+    `F20d 第二个条件(${FAULTS_ALLOW_ENV}=1)单独成立 ⇒ 生效(逃生阀本身也要能开)`,
+    isFaultInjectionEnabled({ ...onlyRules, [FAULTS_ALLOW_ENV]: '1' }) === true &&
+      createFaultInjectorFromEnv({ ...onlyRules, [FAULTS_ALLOW_ENV]: '1' }).rules.length === 1,
+  )
+  check(
+    'F20e 非 test 的 ZCODE_ENV 值(如 production)⇒ 仍不生效(条件比的是精确值)',
+    isFaultInjectionEnabled({ ...onlyRules, [FAULTS_ENV_GUARD]: 'production' }) === false,
+  )
+  check(
+    'F20f 变体对照:把兜底拆掉(只剩规则串、不问环境)⇒ 本组必红 —— 变异取证用',
+    // 这条断言"当前实现确实在问环境";拆掉兜底后 createFaultInjectorFromEnv 会直接武装 ⇒ F20 转红
+    isFaultInjectionEnabled(onlyRules) === false,
+  )
+
+  // ═══ F21 组:正反成对 —— rename 注入一次 EPERM 的真实失败语义 ═══
+  const renameRule = [{ id: 'rename-ep', code: 'EPERM', operations: ['rename'], pathEndsWith: 'target.json' }]
+  const faulted = runRenameFault(renameRule, 'C:/d/target.json', 'C:/d/.target.json.tmp')
+  check(
+    'F21 rename 注入一次 EPERM ⇒ 抛错(证明失败分支被真的走到,不是"看注释以为走到了")',
+    faulted.error !== null && faulted.error.code !== undefined,
+  )
+  check(
+    'F21b **目标保持旧内容**(失败不得截目标、不得留半截 —— 票面正反成对第①条的前半)',
+    faulted.files.get('C:/d/target.json') === 'OLD',
+    `实得 ${JSON.stringify(faulted.files.get('C:/d/target.json'))}`,
+  )
+  check(
+    'F21c **临时文件被清**(失败路径不留半成品 —— 票面正反成对第①条的后半)',
+    faulted.tmpPresent === false,
+    `实得 tmp 仍在袋里: ${[...faulted.files.keys()].join(',')}`,
+  )
+  const clean = runRenameFault([], 'C:/d/target.json', 'C:/d/.target.json.tmp')
+  check(
+    'F21d 与 F21 成对:不注入 ⇒ 正常换上去且不留临时件(否则 F21 的红可能只是"它压根不写")',
+    clean.error === null && clean.files.get('C:/d/target.json') === 'NEW' && clean.tmpPresent === false,
+  )
+  check(
+    'F21e maxMatches 默认 1 ⇒ 只炸第一次;第二遍同名注入已放行(证明额度语义接进了真实调用)',
+    (() => {
+      const F = memFs()
+      F.files.set('C:/d/t.json', 'OLD')
+      const inj = createFaultInjector(renameRule.map((r) => ({ ...r, pathEndsWith: 't.json' })))
+      F.renameSync = (from, to) => {
+        inj.maybeThrow({ operation: 'rename', path: to })
+        F.files.set(to, F.files.get(from))
+        F.files.delete(from)
+      }
+      let e1 = null
+      try {
+        atomicWriteFileSync('C:/d/t.json', 'NEW', { fs: F, tmpName: 'C:/d/.t.tmp', backoff: [], sleep: () => {} })
+      } catch (e) {
+        e1 = e
+      }
+      let e2 = null
+      try {
+        atomicWriteFileSync('C:/d/t.json', 'NEW2', { fs: F, tmpName: 'C:/d/.t.tmp', backoff: [], sleep: () => {} })
+      } catch (e) {
+        e2 = e
+      }
+      return e1 !== null && e2 === null && F.files.get('C:/d/t.json') === 'NEW2'
+    })(),
+  )
+
+  // —— F 维度自身的接线:warn 起步,不得接成 blocking ——
+  check(
+    'F22 F 维度在默认档不产 findings(起步 warn;接成 blocking 就是恒红门)',
+    typeof collectFaultInjectionFace === 'function' &&
+      !('findings' in collectFaultInjectionFace(ROOT, 'head')) &&
+      !('wiring' in collectFaultInjectionFace(ROOT, 'head')),
+  )
+  const ff = collectFaultInjectionFace(ROOT, 'head')
+  check(
+    'F23 判定面取到注入面 ⇒ present 且不判未判定(取不到才叫未判定,不许并桶成通过)',
+    ff.present === true && ff.undetermined === false,
+    JSON.stringify(ff),
+  )
+  check(
+    'F23b 取不到时判未判定(绝不报成通过)—— 用一个不存在的仓根逼出取不到那一档',
+    (() => {
+      const missing = collectFaultInjectionFace(join(ROOT, 'no-such-repo-dir-815961'), 'head')
+      return missing.present === false && missing.undetermined === true
+    })(),
+  )
+
   console.log(`文件写盘安全对账 --self-test:${pass} 通过 / ${fail} 失败(共 ${pass + fail} 条)`)
   return fail ? 1 : 0
 }
@@ -644,6 +1112,7 @@ export const __test__ = {
   BARE_WRITE_APIS,
   WORKSPACE_GATE_SYMBOL,
   REQUIRED_EXIT_EXPORTS,
+  FAULT_INJECTION_MODULE,
   EXIT_IMPORT_RE,
   maskComments,
   maskCommentsAndStrings,
@@ -653,6 +1122,19 @@ export const __test__ = {
   assertNonEmptyScan,
   inScope,
   listToolFiles,
+  collectFaultInjectionFace,
   runAudit,
+  // ↓ F 维度判据的**转手面**:镜像测试直接 import 生产侧那一份(`scripts/lib/fs-fault-injection.mjs`),
+  // 这里只做再导出,免得镜像测试为了拿判据而在本仓里长出第二份注入器实现(§22c)。
+  FAULT_OPERATIONS,
+  FAULT_ERROR_FIELDS,
+  FAULTS_ENV,
+  FAULTS_ALLOW_ENV,
+  FAULTS_ENV_GUARD,
+  isFaultInjectionEnabled,
+  createFaultInjector,
+  createFaultInjectorFromEnv,
+  parseFaultRules,
+  ruleMatches,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
