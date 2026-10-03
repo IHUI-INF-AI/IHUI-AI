@@ -188,6 +188,14 @@ const MERGE_NOTE_REFERENCE_PHRASES = [
 /** 在一个章节文本里扫描互斥违规 */
 function checkSection(section) {
   if (isExemptSection(section)) return []
+  // 账本形块档(2026-10-03,G-417 盘点票 ① 的判定面修正):PROJECT_PLAN.md 这类多会话活账的
+  // 章节会"边界塌陷"——单节 31~1092 行、数十条互不相关的任务登记(2026-09-28 收尾轮实测:
+  // `### G-270` 一节 1092 行 / 610 条 bullet,台账 L15088/L18604 已裁它为假阳且明令不得改
+  // 别人的章节结论)。在这种粒度上,"某行写了已闭环 + 另一行写了未实现"不构成同一份报告的
+  // 自相矛盾。判别式:正文含 ≥3 条复选框任务行(`- [ ]`/`- [x]`)⇒ 账本形块;交付报告是
+  // 散文+清单,不含任务登记行,不受影响(镜像测试双向钉住)。命中只报数点名,不判红。
+  const taskRowCount = section.body.filter((l) => /^\s*- \[[ x]\]/.test(l)).length
+  if (section.body.length > 200 || taskRowCount >= 3) return []
   const text = section.body.join('\n')
   // 完成宣称匹配前剥除归并注记的引用短语(后续工作类匹配仍用全文 —— 引用短语不是后续工作)
   let claimsText = text
