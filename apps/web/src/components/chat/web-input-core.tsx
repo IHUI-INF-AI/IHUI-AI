@@ -11,6 +11,12 @@ import { cn } from '@/lib/utils'
 import { useTextareaAutoHeight } from '@/hooks/use-textarea-auto-height'
 import { Tooltip } from '@/components/feedback'
 import { shouldSubmitOnEnter } from './enter-submit-policy'
+import {
+  INITIAL_COMPOSITION_LATCH,
+  noteCompositionEnd,
+  noteCompositionStart,
+  noteKeyDown,
+} from '@ihui/shared/chat/enter-submit'
 
 export const MAX_LENGTH = 10000
 const MAX_HEIGHT_PX = 320 // 最大约 16 行,超出后滚动
@@ -88,11 +94,18 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
     ref,
   ) {
     const innerRef = React.useRef<HTMLTextAreaElement>(null)
-    // G-844 输入法组合态的本地一条腿(上游 prompt-input-textarea.tsx:31/:103-104/:122-123 同此双保险)。
-    // 只靠 e.nativeEvent.isComposing 是单腿:组合收尾那一次 keydown 在部分引擎里 isComposing 已经是
-    // false(它先于 compositionend 落地),于是"用拼音/假名打字时按 Enter"会把半成品发出去。
-    // 两条腿取或 —— 本地标志由 compositionstart/end 驱动,与事件上的标志互补。
-    const [isComposing, setIsComposing] = React.useState(false)
+    // G-844/G-815941 输入法组合态 —— 判据本体已上移到共享层 @ihui/shared/chat/enter-submit,
+    // 这里只做装配:把 DOM 事件翻译成原语,再把裁决结果翻译回"吃/不吃这一下 Enter"。
+    //
+    // 为什么不能只靠 e.nativeEvent.isComposing(单腿):部分引擎的合成事件不带该标志。
+    // 为什么本地腿还不够(腿三才是本票的漏点):部分引擎里"确认候选词"的那一次 Enter 排在
+    // compositionend **之后**,此刻本地腿已被置回 false、事件腿也是 false,两腿并集放行
+    // ⇒ 用拼音/假名打字时按 Enter 会把半成品发出去。闩锁由 compositionend 置起、
+    // 被任意一次 keydown 消费一次即失效(故只挡那一次,不会把后续真提交也吃掉)。
+    const [latch, setLatch] = React.useState(INITIAL_COMPOSITION_LATCH)
+    // 装配期取的是本次 keydown 之前的闩锁快照;消费(清闩锁)发生在判据之后,
+    // 顺序与共享层用例「收尾闩锁消费过一次之后 ⇒ 恢复提交」一致。
+    const isComposing = latch.active
     const { resize } = useTextareaAutoHeight<HTMLTextAreaElement>(text, {
       threeLinePx: MIN_HEIGHT_PX,
       maxHeightPx: MAX_HEIGHT_PX,
@@ -122,20 +135,28 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
           onKeyDown={(e) => {
             // 判序(G-843):先透传外部,外部握有否决权 —— 该顺序本身是被测契约,见
             // __tests__/web-input-core-enter-key-ordering.test.tsx。"该不该吃这一下 Enter"
-            // 的全部判据住在 shouldSubmitOnEnter(G-844 IME 双腿并在其中),组件只做装配。
+            // 的全部判据住在 shouldSubmitOnEnter(共享层,G-844 三条 IME 腿 + 空内容并在其中),
+            // 组件只做装配。
             //
             // 第二参把 IME 本地腿交给外部(G-862):上层要在 contextSelector 之前判组合期,
             // 而该 state 住在这里,外部结构上取不到 —— 只透传事件腿会让上层单腿。
             onKeyDown?.(e, isComposing)
-            if (
-              shouldSubmitOnEnter({
-                key: e.key,
-                shiftKey: e.shiftKey,
-                defaultPrevented: e.defaultPrevented,
-                localComposing: isComposing,
-                nativeComposing: e.nativeEvent.isComposing,
-              })
-            ) {
+            const submit = shouldSubmitOnEnter({
+              key: e.key,
+              shiftKey: e.shiftKey,
+              defaultPrevented: e.defaultPrevented,
+              localComposing: latch.active,
+              nativeComposing: e.nativeEvent.isComposing,
+              justEndedComposing: latch.justEnded,
+              // 空命令 + 无输入不提交(落回 awaiting/空态)。web 的 awaiting 队列在
+              // use-message-send 内,这里只保证不发出空消息。
+              hasContent: text.trim().length > 0,
+            })
+            // 闩锁消费:任意一次 keydown 都消费(不限 Enter),否则合成收尾后先按了别的键时
+            // 闩锁会一直挂着,挡住下一次本该生效的提交。放在判据之后 —— 这一次 keydown
+            // 要先按"闩锁仍在"裁决,消费只影响下一次。
+            setLatch(noteKeyDown(latch))
+            if (submit) {
               e.preventDefault()
               onSend()
               return
@@ -144,21 +165,22 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
             // 同族先例 slash-command-palette.tsx:267「空 query + Backspace 退回上一模式」)。
             // 三条前提缺一不可,否则一律交还浏览器/文本编辑的默认语义:
             //  - 文本为空(非空时 Backspace 属于删字符,绝不能顺手删附件)
-            //  - IME 两条腿都清(组合期的 Backspace 归输入法,部分引擎用它取消候选窗)
+            //  - IME 三条腿都清(组合期的 Backspace 归输入法,部分引擎用它取消候选窗;
+            //    收尾闩锁也一并算上 —— 那一次 keydown 同样属于输入法)
             //  - 外部未 preventDefault(外部握有否决权,与 Enter 同一判序)
             // 回调返回 false(这一刻没有附件可摘)⇒ 不消费,键原样交还。
             if (
               e.key === 'Backspace' &&
               text.length === 0 &&
-              !(isComposing || e.nativeEvent.isComposing) &&
+              !(latch.active || latch.justEnded || e.nativeEvent.isComposing) &&
               !e.defaultPrevented &&
               onRemoveLastAttachment?.()
             ) {
               e.preventDefault()
             }
           }}
-          onCompositionStart={() => setIsComposing(true)}
-          onCompositionEnd={() => setIsComposing(false)}
+          onCompositionStart={() => setLatch(noteCompositionStart())}
+          onCompositionEnd={() => setLatch(noteCompositionEnd())}
           onPaste={onPaste}
           placeholder={placeholder}
           rows={3}
