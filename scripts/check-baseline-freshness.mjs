@@ -63,6 +63,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { analyze, ancestorCommits, worktreeDirtyPaths } from './check-stale-revert.mjs'
 import { gitBinary, gitRaw, Undetermined } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..')
@@ -532,8 +533,14 @@ async function run(argv) {
 
 /** 临时仓 + 构造输入取证:每条判据都必须有正反对照(不拿真仓瞬时状态当尺子)。 */
 function selfTestRun() {
-  const results = []
-  const check = (name, ok) => results.push({ name, ok })
+  // 登记侧走**全仓唯一共用出口** `scripts/lib/selftest-registrant.mjs`(G-1038420 第一阶段)。
+  // 为什么不再本地抄一份 `const check = (name, ok) => results.push({ name, ok })`:
+  //   那一族把实参裸存进 `{ ok }` 而全文无人调用 `.ok()` —— 收到 `() => {...}` 时求的是
+  //   "函数对象是否为真值"(恒真),打印的 N/N 通过数与真实判定脱钩。今天这一门的用例传的
+  //   都是即算即得的表达式,所以它没掩盖过任何缺陷;它掩盖的是下一个用 `() =>` 写用例的人。
+  //   根因是"没有共用出口、各门各抄一份",出路是**改登记侧**(thunk 族 + 消费循环求值),
+  //   不是把用例改成布尔去过门。守门 156 的 R-EXIST 判据盯着的就是"出口之外的自造登记器"。
+  const { t: check, report } = makeRegistrar()
   let fx = null
   try {
     // ── decide() 构造面:三轴各自的红 / 不红 ──
@@ -543,10 +550,10 @@ function selfTestRun() {
       drift: { total: 0, source: 0, judged: 0, skippedJudge: 0, stale: [], analysis: 'on' },
     }
     const B = (behind) => decide({ ...base, upstream: { ...base.upstream, behind } })
-    check('①落后 1 枚 ⇒ exit 1', B(1).code === 1)
-    check('①不落后 ⇒ exit 0(同一条判据的反例)', B(0).code === 0)
+    check('①落后 1 枚 ⇒ exit 1',() =>  B(1).code === 1)
+    check('①不落后 ⇒ exit 0(同一条判据的反例)',() =>  B(0).code === 0)
     check(
-      '① 无 upstream ⇒ skipped 且不贡献红',
+      '① 无 upstream ⇒ skipped 且不贡献红',() => 
       B(9).code === 1 &&
         decide({
           ...base,
@@ -555,19 +562,19 @@ function selfTestRun() {
         }).code === 1,
     )
     const M = (behind, own) => decide({ ...base, main: { ...base.main, behind, own } })
-    check('②落后 5 且独有提交 0 ⇒ 纯过期判红', M(5, 0).code === 1)
-    check('②落后 5 但独有提交 3 ⇒ 只报数不判红(分叉正常)', M(5, 3).code === 0)
-    check('② 未超阈值不判红', M(0, 0).code === 0)
+    check('②落后 5 且独有提交 0 ⇒ 纯过期判红',() =>  M(5, 0).code === 1)
+    check('②落后 5 但独有提交 3 ⇒ 只报数不判红(分叉正常)',() =>  M(5, 3).code === 0)
+    check('② 未超阈值不判红',() =>  M(0, 0).code === 0)
     check(
-      '②fetch 失败 ⇒ undetermined,既不红也不绿',
+      '②fetch 失败 ⇒ undetermined,既不红也不绿',() => 
       decide({ ...base, main: { state: 'undetermined', reason: 'fetch 未成功' } }).code === 2,
     )
     check(
-      '①ref 解析不到 ⇒ undetermined',
+      '①ref 解析不到 ⇒ undetermined',() => 
       decide({ ...base, upstream: { state: 'undetermined', reason: 'ref 抖动未排除' } }).code === 2,
     )
     check(
-      'red 与 undetermined 同时存在 ⇒ exit 2 优先',
+      'red 与 undetermined 同时存在 ⇒ exit 2 优先',() => 
       decide({
         ...base,
         upstream: { state: 'ok', ref: 'o/m', behind: 3 },
@@ -582,7 +589,7 @@ function selfTestRun() {
     ]
     const fxMergeA = mergeAttestedWitnesses(FIXTURE)
     check(
-      'b76-12a 夹具A:1 issued + 1 幽灵,先筛后判 ⇒ 通过',
+      'b76-12a 夹具A:1 issued + 1 幽灵,先筛后判 ⇒ 通过',() => 
       fxMergeA.verdict === 'pass' && fxMergeA.ghosts === 1,
     )
     // 反面稻草人(先判后筛):同一份数据,幽灵票留在账上一并算数 ⇒ 必须红或降级未判定。
@@ -592,38 +599,38 @@ function selfTestRun() {
         : 'undetermined'
     const fxMergeB = judgeFirstThenFilter(FIXTURE)
     check(
-      'b76-12a 夹具B:同一份数据先判后筛 ⇒ 降级未判定(只有 B 红才算判据有牙)',
+      'b76-12a 夹具B:同一份数据先判后筛 ⇒ 降级未判定(只有 B 红才算判据有牙)',() => 
       fxMergeB === 'undetermined',
     )
     check(
-      'b76-12a A/B 不同形:两序结论必分叉(同形 ⇒ 判据根本没跑)',
+      'b76-12a A/B 不同形:两序结论必分叉(同形 ⇒ 判据根本没跑)',() => 
       fxMergeA.verdict !== fxMergeB,
     )
     check(
-      'b76-12a 全幽灵账 ⇒ 未判定,不冒红也不记绿',
+      'b76-12a 全幽灵账 ⇒ 未判定,不冒红也不记绿',() => 
       mergeAttestedWitnesses([{ admission: undefined, verdict: 'red' }]).verdict === 'undetermined',
     )
     check(
-      'b76-12a 仅 repetition(单例 exact)⇒ 永不确定落定,降级未判定',
+      'b76-12a 仅 repetition(单例 exact)⇒ 永不确定落定,降级未判定',() => 
       mergeAttestedWitnesses([{ admission: 'repetition', verdict: 'pass' }]).verdict ===
         'undetermined',
     )
     check(
-      'b76-12a issued 与 repetition 同账 ⇒ issued 定档,不被 repetition 传染降级',
+      'b76-12a issued 与 repetition 同账 ⇒ issued 定档,不被 repetition 传染降级',() => 
       mergeAttestedWitnesses([
         { admission: 'issued', verdict: 'pass' },
         { admission: 'repetition', verdict: 'red' },
       ]).verdict === 'pass',
     )
     check(
-      'b76-12a decide() 级:主线见证为 repetition ⇒ 轴②降级未判定(exit 2)',
+      'b76-12a decide() 级:主线见证为 repetition ⇒ 轴②降级未判定(exit 2)',() => 
       decide({
         ...base,
         main: { state: 'ok', behind: 0, own: 0, source: '本地 refs(未刷新)', admission: 'repetition' },
       }).code === 2,
     )
     check(
-      'b76-12a decide() 级:同值 issued ⇒ 确定绿(exit 0,准入方式真的在参与定档)',
+      'b76-12a decide() 级:同值 issued ⇒ 确定绿(exit 0,准入方式真的在参与定档)',() => 
       decide({
         ...base,
         main: { state: 'ok', behind: 0, own: 0, source: 'test', admission: 'issued' },
@@ -644,53 +651,53 @@ function selfTestRun() {
     }
     const notStrict = decide(drifted, { strictDrift: false })
     const strict = decide(drifted, { strictDrift: true, maxStale: 0 })
-    check('③旧基线超阈值**未开 strict ⇒ exit 0**(提交链形态拿不到红)', notStrict.code === 0)
-    check('③同一份数据开 strict ⇒ exit 1(判据有牙,只是不吃提交链)', strict.code === 1)
+    check('③旧基线超阈值**未开 strict ⇒ exit 0**(提交链形态拿不到红)',() =>  notStrict.code === 0)
+    check('③同一份数据开 strict ⇒ exit 1(判据有牙,只是不吃提交链)',() =>  strict.code === 1)
     check(
-      '③报数不静默:两种档都如实印出漂移面与路径数',
+      '③报数不静默:两种档都如实印出漂移面与路径数',() => 
       notStrict.lines.join('\n').includes('漂移面 400') &&
         strict.lines.join('\n').includes('漂移面 400'),
     )
     check(
-      '③点名最旧 commit 与跨度',
+      '③点名最旧 commit 与跨度',() => 
       strict.lines.join('\n').includes('deadbeef0') &&
         strict.lines.join('\n').includes('落后 7 次改动'),
     )
     check(
-      '③ axes.drift.status 在未开 strict 时必须是 report',
+      '③ axes.drift.status 在未开 strict 时必须是 report',() => 
       notStrict.axes.drift.status === 'report' && strict.axes.drift.status === 'red',
     )
     check(
-      '③ strict 档下 maxStale 抬高即免债(阈值真的在读)',
+      '③ strict 档下 maxStale 抬高即免债(阈值真的在读)',() => 
       decide(drifted, { strictDrift: true, maxStale: 5 }).code === 0,
     )
 
     // ── 命令行白名单与阈值校验 ──
-    check('未知开关 ⇒ error(不得静默落进默认档)', !!parseArgs(['--push']).error)
-    check('--max-behind 非整数 ⇒ error', !!parseArgs(['--max-behind', 'x']).error)
-    check('--max-behind 负数 ⇒ error', !!parseArgs(['--max-behind', '-1']).error)
+    check('未知开关 ⇒ error(不得静默落进默认档)',() =>  !!parseArgs(['--push']).error)
+    check('--max-behind 非整数 ⇒ error',() =>  !!parseArgs(['--max-behind', 'x']).error)
+    check('--max-behind 负数 ⇒ error',() =>  !!parseArgs(['--max-behind', '-1']).error)
     check(
-      '--max-behind 合法整数 ⇒ 解析成功',
+      '--max-behind 合法整数 ⇒ 解析成功',() => 
       parseArgs(['--max-behind', '5']).opts?.maxBehind === 5,
     )
-    check('--preflight 隐含 strict-drift', parseArgs(['--preflight']).opts?.strictDrift === true)
+    check('--preflight 隐含 strict-drift',() =>  parseArgs(['--preflight']).opts?.strictDrift === true)
     check(
-      '--check 不得带上 strictDrift(③轴边界的第一道锁)',
+      '--check 不得带上 strictDrift(③轴边界的第一道锁)',() => 
       parseArgs(['--check']).opts?.strictDrift === false,
     )
     check(
-      '--staged(runner 统一追加的提交链档)必须被认得,不得判成未知开关',
+      '--staged(runner 统一追加的提交链档)必须被认得,不得判成未知开关',() => 
       !parseArgs(['--staged']).error,
     )
     check(
-      '--staged 强制 strictDrift=false(提交链档拿不到③轴的红)',
+      '--staged 强制 strictDrift=false(提交链档拿不到③轴的红)',() => 
       parseArgs(['--staged']).opts?.strictDrift === false,
     )
     check(
-      '--staged 与 --preflight 互斥 ⇒ 拒绝,不猜优先级',
+      '--staged 与 --preflight 互斥 ⇒ 拒绝,不猜优先级',() => 
       !!parseArgs(['--staged', '--preflight']).error,
     )
-    check('--staged 与 --strict-drift 同样互斥', !!parseArgs(['--strict-drift', '--staged']).error)
+    check('--staged 与 --strict-drift 同样互斥',() =>  !!parseArgs(['--strict-drift', '--staged']).error)
 
     // ── 真仓夹具端到端:③轴点名最旧 commit 的正反例(不拿真仓瞬时状态当尺子) ──
     fx = makeGitRepo()
@@ -700,51 +707,54 @@ function selfTestRun() {
     fx.put('a.ts', 'v2\n')
     fx.commit('B')
     const off = { noFetch: true, flapProbe: () => ({ flapping: false, reason: 'stub' }) }
+    // ⚠️ 下面几行读夹具仓的 `collect(...)` 必须**留在求值点之外、先算好**:thunk 族的求值点
+    // 在 `report()` 里,而 `fx.cleanup()` 与夹具的逐步改写都发生在它之前 —— 迟到的求值读到的是
+    // 下一格的状态,账面却记着上一格的绿。这不是"风格问题",是求值时机被悄悄挪走。
+    const d0 = collect(fx.dir, off)
     check(
       '③反例:工作树等于 HEAD ⇒ 漂移面 0 / 旧基线 0',
-      collect(fx.dir, off).drift.total === 0 && collect(fx.dir, off).drift.stale.length === 0,
+      () => d0.drift.total === 0 && d0.drift.stale.length === 0,
     )
     fx.put('a.ts', 'v1\n')
     const d1 = collect(fx.dir, off)
     check(
-      '③正例:写回祖先版本被挑出并给出跨度',
+      '③正例:写回祖先版本被挑出并给出跨度',() => 
       d1.drift.stale.length === 1 &&
         d1.drift.stale[0].path === 'a.ts' &&
         d1.drift.stale[0].span === 1,
     )
     check(
-      '③判定复用门 84 的 source=worktree 面(源码类计数与被判数一致)',
+      '③判定复用门 84 的 source=worktree 面(源码类计数与被判数一致)',() => 
       d1.drift.source === 1 && d1.drift.judged === d1.drift.source,
     )
     fx.put('b.ts', 'b-brand-new-never-committed\n')
     const d2 = collect(fx.dir, off)
     check(
-      '③反例:真新编辑不算旧基线(否则每次开工都红)',
+      '③反例:真新编辑不算旧基线(否则每次开工都红)',() => 
       d2.drift.stale.length === 1 && d2.drift.total === 2 && d2.drift.source === 2,
     )
+    const dSkip = collect(fx.dir, { ...off, skipDriftAnalysis: true })
     check(
       '③ skipDriftAnalysis 档:只报漂移数、不做比对(守护便宜账)',
-      collect(fx.dir, { ...off, skipDriftAnalysis: true }).drift.analysis === 'off',
+      () => dSkip.drift.analysis === 'off',
     )
-    check(
-      '②ref 取不到且探针说无抖动 ⇒ undetermined(不冒红)',
-      collect(fx.dir, off).main.state === 'undetermined',
-    )
-    check('①无 upstream ⇒ absent(skipped)', collect(fx.dir, off).upstream.state === 'absent')
+    const dMain = collect(fx.dir, off)
+    check('②ref 取不到且探针说无抖动 ⇒ undetermined(不冒红)', () => dMain.main.state === 'undetermined')
+    check('①无 upstream ⇒ absent(skipped)', () => dMain.upstream.state === 'absent')
   } catch (e) {
-    check(`self-test 抛异常: ${e?.message ?? e}`, false)
+    check(`self-test 抛异常: ${e?.message ?? e}`, () => false)
   } finally {
     if (fx) fx.cleanup()
   }
-  let fail = 0
-  for (const r of results) {
-    console.log(`${r.ok ? '✅' : '❌'} ${r.name}`)
-    if (!r.ok) fail++
-  }
+  // 消费点:求值只发生在这里(共用出口的报告函数)。`fail` 由它算,不再由本门自己数 ——
+  // 自己数的那一版正是"账面记绿、断言没跑"的那一族的温床。
+  const { pass, fail, cases } = report()
+  for (const c of cases)
+    console.log(`${c.pass ? '✅' : '❌'} ${c.name}${c.pass ? '' : ` —— 实得:${c.got}`}`)
   console.log(
     fail
-      ? `self-test FAILED ${fail}/${results.length}`
-      : `✅ check-baseline-freshness self-test 全部通过(${results.length} 例)`,
+      ? `self-test FAILED ${fail}/${cases.length}`
+      : `✅ check-baseline-freshness self-test 全部通过(${cases.length} 例,pass=${pass})`,
   )
   return fail ? 1 : 0
 }
