@@ -19,6 +19,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   boundedEgressFetch,
   crossesEgressOrigin,
+  directEgressFetch,
   EGRESS_MAX_REDIRECTS,
   EgressLimitError,
   proxiedFetch,
@@ -459,6 +460,65 @@ describe('超时上限(整条重定向链共用一份预算)', () => {
     )
     expect(error).toBeInstanceOf(EgressLimitError)
     expect((error as EgressLimitError).kind).toBe('timeout')
+  })
+})
+
+describe('directEgressFetch —— 直连侧走同一个有界主循环(G-749)', () => {
+  it('直连侧经同一判据剥头:跨 origin 第二跳不含 Authorization 与任何自定义头,与代理侧同一份判据', async () => {
+    const { transport, calls } = makeTransport(
+      routeBy({
+        [VENDOR]: redirect(CROSS_ORIGIN_NEXT),
+        [CROSS_ORIGIN_NEXT]: new Response('from-cdn-direct', { status: 200 }),
+      }),
+    )
+
+    // 生产形态:directEgressFetch 不传 transport = 直连;这里注入假传输以逐跳断言,
+    // 主循环判据与 boundedEgressFetch 是同一份代码,不是测试自己复刻的规则。
+    const res = await directEgressFetch(VENDOR, { headers: CUSTOM_HEADERS, transport })
+
+    expect(calls).toHaveLength(2)
+    expect(calls[0]?.init.headers).toEqual(CUSTOM_HEADERS)
+    expect(calls[1]?.init.headers).toBeUndefined()
+    const forwarded = JSON.stringify(calls[1]?.init ?? {})
+    expect(forwarded).not.toContain('sk-secret-vendor-key')
+    expect(forwarded).not.toContain('Authorization')
+    expect(await res.text()).toBe('from-cdn-direct')
+  })
+
+  it('同 origin 第二跳保留自定义头 + redirect 恒 manual(直连侧不回退成 undici 默认跟随)', async () => {
+    const { transport, calls } = makeTransport(
+      routeBy({
+        [VENDOR]: redirect(SAME_ORIGIN_NEXT),
+        [SAME_ORIGIN_NEXT]: new Response('ok-direct', { status: 200 }),
+      }),
+    )
+
+    const res = await directEgressFetch(VENDOR, { headers: CUSTOM_HEADERS, transport })
+
+    expect(calls[1]?.init.headers).toEqual(CUSTOM_HEADERS)
+    expect(calls[1]?.init.redirect).toBe('manual')
+    expect(await res.text()).toBe('ok-direct')
+  })
+
+  it('默认传输缝:不传 transport 时走直连传输(Node 内置 fetch、redirect manual)—— 形状钉,防两份默认漂移', async () => {
+    // 不发真实请求:借 undefined 的 fetch 抛错来证明"默认缝存在且被调用"(测试隔离铁律)。
+    const savedFetch = globalThis.fetch
+    try {
+      const seen: Array<RequestInit | undefined> = []
+      globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {
+        seen.push(init)
+        throw new TypeError('fixture: default transport reached')
+      }) as typeof fetch
+
+      await expect(directEgressFetch(VENDOR, { headers: CUSTOM_HEADERS })).rejects.toThrow(
+        'fixture: default transport reached',
+      )
+      expect(seen).toHaveLength(1)
+      expect(seen[0]?.redirect).toBe('manual')
+      expect(seen[0]?.headers).toEqual(CUSTOM_HEADERS)
+    } finally {
+      globalThis.fetch = savedFetch
+    }
   })
 })
 

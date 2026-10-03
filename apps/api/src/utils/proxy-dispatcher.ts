@@ -25,6 +25,7 @@ import {
   EGRESS_ENV_PROXY_VAR_NAMES,
   EGRESS_NO_PROXY_VAR_NAMES,
 } from '@ihui/types'
+import type { FetchDeadlineImpl } from './fetch-deadline.js'
 
 /** 内置默认白名单:被墙的 AI 厂商官方域名(可经 PROXY_DOMAINS 覆盖) */
 const DEFAULT_PROXY_DOMAINS = [
@@ -546,7 +547,13 @@ export async function boundedEgressFetch(url: string, options: BoundedEgressOpti
     throw e
   } finally {
     clearTimeout(timer)
-    callerSignal?.removeEventListener('abort', forwardCallerAbort)
+    // G-749(2026-10-03):caller abort 的转发**刻意不**随 promise settle 摘除。
+    // 本函数的 promise 在"末跳响应头到达"即 settle,而 fetch-deadline(G-814420)的
+    // deadline 罩到**响应体消费结束** —— 它的 abort 发生在 headers 之后;若在此摘除,
+    // 传输层 body 流与 caller signal 断链,deadline abort 传不进 undici,body 停滞
+    // 路径会永久挂起(fetch-deadline-covers-body ①④ 端到端实测抓出)。监听器为
+    // { once:true },且现有全部调用方的 signal 都是每请求新建的 controller,不构成
+    // 跨请求悬挂;caller abort 本就是单向且无害的动作(取消就该取消)。
   }
 }
 
@@ -555,6 +562,78 @@ function isAbortLike(e: unknown): boolean {
   if (typeof e !== 'object' || e === null) return false
   const err = e as { name?: string; code?: string }
   return err.name === 'AbortError' || err.code === 'ABORT_ERR'
+}
+
+/** RequestInit → 有界出口入参的唯一适配(G-749)。body 只支持字符串形态:
+ * 本仓四处出站站点(ai-vendors/_shared、ai-image-edit、ai-world-sync、ai-audio)的 body
+ * 全部是 `JSON.stringify` 产物或空;非字符串 BodyInit 会按 `String()` 归一 —— 与
+ * `_shared.fetchWithTimeout` 代理分支的既有语义逐字相同,不新增第三种归一。 */
+export function boundedOptionsFromRequestInit(init: RequestInit): {
+  method?: string
+  headers?: Record<string, string>
+  body?: string
+  signal?: AbortSignal
+} {
+  let headers: Record<string, string> | undefined
+  const h = init.headers
+  if (h !== null && h !== undefined) {
+    if (h instanceof Headers) headers = Object.fromEntries(h.entries())
+    else if (Array.isArray(h)) headers = Object.fromEntries(h as [string, string][])
+    else headers = { ...(h as Record<string, string>) }
+  }
+  return {
+    method: init.method,
+    headers,
+    body: init.body === null || init.body === undefined ? undefined : String(init.body),
+    signal: (init.signal as AbortSignal | null | undefined) ?? undefined,
+  }
+}
+
+/** 直连传输(G-749):与 `proxiedFetch` 的代理传输同一条 `EgressRequestInit` 契约,
+ * 差异只有两处 —— 不带 dispatcher,`redirect:'manual'`(跟随由主循环做,不由 undici 做)。*/
+export const directEgressTransport: EgressTransport = (targetUrl, init) =>
+  fetch(targetUrl, {
+    method: init.method,
+    headers: init.headers,
+    body: init.body,
+    redirect: 'manual',
+    signal: init.signal,
+  })
+
+/**
+ * 直连出站出口(G-749,2026-10-03):调 `boundedEgressFetch` **同一个函数**、只换 transport
+ * (直连侧不传 dispatcher)。此前直连侧是裸 `fetch(url)`(`redirect:'follow'` 默认 20 跳、
+ * 无跨 origin 剥头纪律、无响应字节上限)—— 代理白名单外的域被 302 到第三方域时,
+ * 自定义头里的凭据是出口主动送出去的,与 G-736 修掉的代理侧是同一型。
+ * 出口事实刻意**不**在这里挂载:`_shared.fetchWithTimeout` 一趟只算一次事实
+ * (collectEgressFacts 决策与事实同源),由它自己 `attachEgressFacts`;
+ * 其余站点经 fetch-deadline 的受管视图包装,挂了也会被剥掉,它们本来也不读事实。
+ */
+export async function directEgressFetch(
+  url: string,
+  options: {
+    method?: string
+    headers?: Record<string, string>
+    body?: string
+    signal?: AbortSignal
+    maxRedirects?: number
+    maxResponseBytes?: number
+    timeoutMs?: number
+    /** 测试缝;生产不传 = Node 内置 fetch 直连(无 dispatcher)。 */
+    transport?: EgressTransport
+  } = {},
+): Promise<Response> {
+  return boundedEgressFetch(url, { ...options, transport: options.transport ?? directEgressTransport })
+}
+
+/** fetch-deadline 注入形态(`FetchDeadlineImpl`)的有界实现(G-749):
+ * ai-audio / ai-world-sync 经 `fetchWithinDeadline` 的 fetchImpl 缝走**同一个**有界主循环。
+ * 传 transport 即换传输(代理 dispatcher 那一侧用),不传 = 直连。 */
+export function boundedDeadlineFetchImpl(transport?: EgressTransport): FetchDeadlineImpl {
+  return (input, init) => {
+    const target = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+    return directEgressFetch(target, { ...boundedOptionsFromRequestInit(init), ...(transport ? { transport } : {}) })
+  }
 }
 
 /**
