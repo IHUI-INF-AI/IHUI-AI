@@ -7957,6 +7957,8 @@
       "toolSummaryWebSearched": "搜尋網頁",
       "tools": {
         "args": "參數",
+        "categoryAwaiting": "待命令",
+        "categoryExplore": "探查",
         "categoryExec": "執行",
         "categoryOther": "其他",
         "categoryRead": "讀取",
