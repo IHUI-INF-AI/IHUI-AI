@@ -22,7 +22,7 @@ import * as path from 'node:path'
 import { afterEach, beforeEach, describe, it } from 'vitest'
 import { hydratePersistedToolPart, hydrateToolStateMap } from '../src/sessions/tool-part-hydration.js'
 import { readSubagentState } from '../src/subagents/state-store.js'
-import { load as loadSession } from '../src/sessions/state-store.js'
+import { load as _loadSession } from '../src/sessions/state-store.js'
 
 const V1_PAYLOAD = {
   schemaVersion: 1,
