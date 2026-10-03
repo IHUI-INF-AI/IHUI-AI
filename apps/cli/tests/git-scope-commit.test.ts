@@ -4,7 +4,7 @@
 
 import { describe, it, expect, afterAll } from 'vitest'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, readFileSync, statSync, rmSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, statSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ToolResult } from '../src/index.js'
