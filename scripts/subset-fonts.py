@@ -36,7 +36,6 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Set
 
 ROOT = Path(__file__).resolve().parent.parent
 FONTS_DIR = ROOT / "apps" / "web" / "public" / "fonts"
@@ -63,9 +62,9 @@ GB2312_COMMON_HINT = (
 GB2312_COMMON = set(GB2312_COMMON_HINT)
 
 
-def collect_used_chars() -> Set[str]:
+def collect_used_chars() -> set[str]:
     """扫描 web + i18n 源代码,收集所有用到的字符。"""
-    chars: Set[str] = set()
+    chars: set[str] = set()
     # 扫描目录
     scan_dirs = [
         ROOT / "apps" / "web" / "app",
@@ -105,7 +104,7 @@ def collect_used_chars() -> Set[str]:
     return chars
 
 
-def build_final_charset(used: Set[str]) -> Set[str]:
+def build_final_charset(used: set[str]) -> set[str]:
     """合并:源代码字符 + GB2312 常用字(150 字示意) + ASCII + 标点。
 
     生产建议: 用真实的 GB2312 一级字库 3755 字文件(可从
@@ -124,7 +123,7 @@ def build_final_charset(used: Set[str]) -> Set[str]:
     return final
 
 
-def compute_unicode_ranges(chars: Set[str]) -> str:
+def compute_unicode_ranges(chars: set[str]) -> str:
     """计算 unicode-range CSS 描述。"""
     codepoints = sorted(ord(c) for c in chars if 0x20 <= ord(c) <= 0xFFFF)
     if not codepoints:
@@ -144,7 +143,7 @@ def compute_unicode_ranges(chars: Set[str]) -> str:
     )
 
 
-def subset_one_weight(weight_name: str, weight_value: int, charset: Set[str], dry_run: bool) -> dict:
+def subset_one_weight(weight_name: str, weight_value: int, charset: set[str], dry_run: bool) -> dict:
     """对单个字重的 TTF 做子集化 + WOFF2 转换。"""
     src = FONTS_DIR / f"HarmonyOS_SansSC_{weight_name}.ttf"
     dst = FONTS_DIR / f"HarmonyOS_SansSC_{weight_name}.subset.woff2"

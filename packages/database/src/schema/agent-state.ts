@@ -64,6 +64,17 @@ export const agentMetaLessons = pgTable(
     systemPromptSnippet: text('system_prompt_snippet'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+
+/**
+ * 过期时间(2026-10-03 数据出域合规整改加列)。
+ *
+ * 本表此前**没有任何清理路径** —— 不是"有机制但没开",是机制根本不存在,
+ * 而它存的是用户内容。对标智谱 ZCode 事件里的"未经知情长期留存"。
+ *
+ * 档位 180 天:元经验教训:与 relay_messages 同档(对话提炼物,信息已压缩)
+ * NULL = 永不过期,仅限显式选择长期保留;清理任务按本列分批回收。
+ */
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
   },
   (t) => ({
     typeIdx: index('agent_meta_lessons_type_idx').on(t.lessonType),
@@ -120,6 +131,17 @@ export const agentMultimodalMemory = pgTable(
     accessCount: integer('access_count').default(0).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     lastAccessedAt: timestamp('last_accessed_at', { withTimezone: true }),
+
+/**
+ * 过期时间(2026-10-03 数据出域合规整改加列)。
+ *
+ * 本表此前**没有任何清理路径** —— 不是"有机制但没开",是机制根本不存在,
+ * 而它存的是用户内容。对标智谱 ZCode 事件里的"未经知情长期留存"。
+ *
+ * 档位 90 天:多模态记忆:本组最短档 —— caption/source_uri 可能带本地文件路径,最敏感
+ * NULL = 永不过期,仅限显式选择长期保留;清理任务按本列分批回收。
+ */
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
   },
   (t) => ({
     userModalityIdx: index('agent_multimodal_memory_user_modality_idx').on(t.userId, t.modality),
@@ -146,6 +168,17 @@ export const agentFederatedLessons = pgTable(
     anonymized: boolean('anonymized').default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+
+/**
+ * 过期时间(2026-10-03 数据出域合规整改加列)。
+ *
+ * 本表此前**没有任何清理路径** —— 不是"有机制但没开",是机制根本不存在,
+ * 而它存的是用户内容。对标智谱 ZCode 事件里的"未经知情长期留存"。
+ *
+ * 档位 365 天:跨用户聚合经验(已匿名化+DP 噪声),生命周期比个人记忆长
+ * NULL = 永不过期,仅限显式选择长期保留;清理任务按本列分批回收。
+ */
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
   },
   (t) => ({
     typeIdx: index('agent_federated_lessons_type_idx').on(t.lessonType),
@@ -173,6 +206,17 @@ export const agentSessionSummary = pgTable(
     importanceScore: real('importance_score').default(0.5),
     embedding: jsonb('embedding'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+
+/**
+ * 过期时间(2026-10-03 数据出域合规整改加列)。
+ *
+ * 本表此前**没有任何清理路径** —— 不是"有机制但没开",是机制根本不存在,
+ * 而它存的是用户内容。对标智谱 ZCode 事件里的"未经知情长期留存"。
+ *
+ * 档位 180 天:会话摘要:与 relay_messages 同档,单独留一份没有意义
+ * NULL = 永不过期,仅限显式选择长期保留;清理任务按本列分批回收。
+ */
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
   },
   (t) => ({
     userIdx: index('agent_session_summary_user_idx').on(t.userId),
@@ -239,6 +283,17 @@ export const agentUserProfile = pgTable(
     systemPromptSnippet: text('system_prompt_snippet'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+
+/**
+ * 过期时间(2026-10-03 数据出域合规整改加列)。
+ *
+ * 本表此前**没有任何清理路径** —— 不是"有机制但没开",是机制根本不存在,
+ * 而它存的是用户内容。对标智谱 ZCode 事件里的"未经知情长期留存"。
+ *
+ * 档位 180 天:用户画像:本表只有 updated_at 无 created_at(是"最近一次提炼结果"非流水),按 updated_at 判过期
+ * NULL = 永不过期,仅限显式选择长期保留;清理任务按本列分批回收。
+ */
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
   },
   (t) => ({
     completenessIdx: index('agent_user_profile_completeness_idx').on(t.completeness),
