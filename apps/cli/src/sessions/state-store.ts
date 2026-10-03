@@ -17,6 +17,8 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { randomUUID } from 'node:crypto';
 import type { SessionState, SessionSummary } from './types.js';
+// G-719(2026-10-03):会话水合读侧唯一入口(落库工具结果元数据的版本分账/剥后校验)。
+import { hydrateToolStateMap } from './tool-part-hydration.js';
 
 const STATE_DIR_ENV = 'IHUI_SESSION_STATE_DIR';
 const DEFAULT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -81,6 +83,16 @@ export function loadSession(id: string): SessionState | null {
     const raw = fs.readFileSync(p, 'utf-8');
     const parsed = JSON.parse(raw) as SessionState;
     if (!parsed || typeof parsed !== 'object' || typeof parsed.id !== 'string') return null;
+    // G-719:会话水合读侧唯一入口 —— toolState 里的落库工具结果元数据经
+    // 版本分账/剥后校验;降级条目剥 display 保外层,整份会话照常读出。
+    const { toolState, report } = hydrateToolStateMap(parsed.toolState);
+    if (report.degraded > 0) {
+      console.warn(
+        `[session-state] ${parsed.id} toolState 水合降级 ${report.degraded} 条:` +
+          report.degradedEntries.map((d) => `${d.key}(${d.reason})`).join(', '),
+      );
+    }
+    if (parsed.toolState !== undefined) parsed.toolState = toolState;
     return parsed;
   } catch {
     return null;
