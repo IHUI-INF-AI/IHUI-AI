@@ -77,14 +77,44 @@ const CREDENTIAL_TOKENS = new Set([
   'signature',
 ])
 
-/** 引用形态:request.headers['x-a'] / request.headers.xFOO / req.cookies?.auth_token / getHeader('x-a') */
+/**
+ * 引用形态:request.headers['x-a'] / request.headers.xFOO / req.cookies?.auth_token / getHeader('x-a')
+ * **以及 `request.query` 这一面**(G-1038449 补):query 与 headers/cookies 同为"客户端可控的凭据入口",
+ * Gemini SDK 的 `?key=` 就落在这里。原先只认 headers/cookies/getHeader ⇒ `csrf.ts:250` 那处对门完全隐形。
+ * query 分支留了一格**类型断言位**(`as { … } | undefined`),与下面 IDENT 那条(`request as FastifyRequest & {…}`)
+ * 同课:断言会把形态打断,不留这格就得为某一行的具体类型写法开特例。
+ */
 const REF_RE =
-  /(?:request|req)\s*\.\s*headers\s*(?:\[[^\]]+\]|\.\s*[A-Za-z_$][\w$]*)|(?:request|req)\s*\.\s*cookies\s*(?:\?\.|\.)\s*[A-Za-z_$][\w$]*|\bgetHeader\s*\(\s*['"][^'"]+['"]/g
+  /(?:request|req)\s*\.\s*headers\s*(?:\[[^\]]+\]|\.\s*[A-Za-z_$][\w$]*)|(?:request|req)\s*\.\s*cookies\s*(?:\?\.|\.)\s*[A-Za-z_$][\w$]*|(?:request|req)\s*\.\s*query(?:\s+as\s+[^)]*\))?\s*(?:\?\.|\.)\s*[A-Za-z_$][\w$]*|\bgetHeader\s*\(\s*['"][^'"]+['"]/g
 const NAME_PIECES_RE = /['"]([^'"]+)['"]|\.\s*([A-Za-z_$][\w$]*)/g
 
-/** 条件里出现这些 ⇒ 已做值判定/验真,不属"存在性豁免"(设计约束 1) */
+/**
+ * 条件里出现这些 ⇒ 已做值判定/验真,不属"存在性豁免"(设计约束 1)。
+ *
+ * **G-1038449 收窄**:`===`/`!==`/`==`/`!=` 本身**不再**算验真 —— 只有"值比较**有比较对象**"
+ * 才算(右端不是裸字面量/`undefined`/`null`)。原因:`typeof (request.query as {…}|undefined)?.key === 'string'`
+ * 这种**裸类型比较**一个值都没比,却被旧口径当成"已验真"放过 ⇒ `csrf.ts:250` 那处存在性豁免
+ * 对门隐形(成因②)。收窄方向只有一条:形态/类型判断**不是**验真;`x === process.env.SECRET`
+ * 这类真值比较仍放过(见 --self-test CB4)。
+ *
+ * ⚠ 这一支有两条退路,窄化 `===` 时各踩过一次,都记在这里:
+ *  ① 写成 `===\s*(?!…)`,`\s*` 会**零宽回溯**(吃 0 个空白后前瞻看的是空格 ⇒ 前瞻通过)
+ *     ⇒ 否定前瞻必须自带 `\s*`。
+ *  ② 没有**左侧前瞻**时,`===` 会被退化成 `==` 只吃前两个 `=`,第三个 `=` 成了"比较对象"
+ *     ⇒ 前缀失守。必须同时写 `(?<![=!<>])`(不从半个运算符中间起跳)与 `(?!=)`(不吃短的)。
+ *  少了任一条,`=== 'string'` 都会重新被当成"有比较对象的值比较",250 原样漏过(已实测)。
+ */
 const VERIFIED_RE =
-  /(===|!==|==|!=|secretsEqual|timingSafeEqual|isVerified|verifyCsrfToken|isPlausibleBearerCredential|startsWith\s*\(|\bhas\s*\()/
+  /(?<![=!<>])(?:===|!==|==|!=)(?!=)(?!\s*'[^']*')(?!\s*"[^"]*")(?!\s*undefined\b)(?!\s*null\b)|secretsEqual|timingSafeEqual|isVerified|verifyCsrfToken|isPlausibleBearerCredential|startsWith\s*\(|\bhas\s*\(/
+
+/**
+ * **类型守卫**:`typeof (…)?.k === 'string'` / `typeof x === 'number'`。
+ * 它是"引用在场且是这一型"的**修饰**,不是"条件里还有别的判定" —— 所以算残余文本时必须整块剥掉,
+ * 否则 `csrf.ts:250` 会先被"条件里还有别的东西 ⇒ 已判定"提前放过,永远走不到名字与 enforcement 那一格。
+ * 剥掉之后是否仍算豁免,由 `VERIFIED_RE` 判(它已被收窄成"类型比较不算验真")。
+ */
+const TYPE_GUARD_RE =
+  /\btypeof\s*\(\s*[\s\S]{0,200}?\)\s*(?:\?\.|\.)\s*[A-Za-z_$][\w$]*\s*(?:===|!==|==|!=)\s*(?:'[^']*'|"[^"]*"|undefined\b|null\b)|\btypeof\s+[A-Za-z_$][\w$.[\]]*\s*(?:===|!==|==|!=)\s*(?:'[^']*'|"[^"]*"|undefined\b|null\b)/g
 
 const EXEMPT_RE = /credential-presence-exempt:\s*(\S.*)$/
 
@@ -103,7 +133,9 @@ export function namesOfRef(ref) {
   const out = []
   for (const m of ref.matchAll(NAME_PIECES_RE)) {
     const v = m[1] ?? m[2]
-    if (v && !['headers', 'cookies', 'request', 'req'].includes(v)) out.push(v)
+    // `query` 与 headers/cookies 同级(都是传输面),不是凭据名 —— 不排掉它,
+    // `request.query.page` 会被当成"取出了凭据名 page",把非凭据族判成豁免。
+    if (v && !['headers', 'cookies', 'query', 'request', 'req'].includes(v)) out.push(v)
   }
   return out
 }
@@ -198,16 +230,16 @@ export function scanSource(rel, src) {
     if (refs.length === 1) return refs[0]
     // 真仓 csrf.ts 的 cookie 豁免写成 `= (request as FastifyRequest & {…}).cookies` 换行 `?.auth_token`
     // —— 类型断言把 REF_RE 打断。跨行拼回这个名字,否则本门对"最像本型的那一处"直接失明。
-    const hop = scope.match(/\b(headers|cookies)\s*(?:\?\.|\.)\s*([A-Za-z_$][\w$]*)/)
+    const hop = scope.match(/\b(headers|cookies|query)\s*(?:\?\.|\.)\s*([A-Za-z_$][\w$]*)/)
     if (hop) return `request.${hop[1]}.${hop[2]}`
     return null
   }
-  /** 声明窗口里到底有没有出现过 headers/cookies —— 没有就不是本型(别把 DB 变量报成未判定) */
+  /** 声明窗口里到底有没有出现过 headers/cookies/query —— 没有就不是本型(别把 DB 变量报成未判定) */
   const mentionsTransport = (idx, name) => {
     const from = Math.max(0, idx - 12)
     const window = lines.slice(from, idx + 1).join('\n')
     const m = window.match(new RegExp(`\\b${name.replace(/\$/g, '\\$')}\\s*=([\\s\\S]{0,300})`))
-    return m ? /\b(headers|cookies)\b/.test(m[1]) : false
+    return m ? /\b(headers|cookies|query)\b/.test(m[1]) : false
   }
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
@@ -242,7 +274,11 @@ export function scanSource(rel, src) {
         }
       }
       if (refs.length !== 1) continue // 多引用/无引用不属本型
-      if (condForRest.replace(REF_RE, '').trim() !== '') continue // 条件里还有别的东西 ⇒ 已判定
+      // 残余文本判定:`typeof (…)?.k === 'string'` 这类**类型守卫**是"引用在场且是这一型"的修饰,
+      // 不是"条件里还有别的判定" ⇒ 先整块剥掉,否则 250 会在这里被提前放过(判据写歪的修法:
+      // 若改剥 REF_RE 之外的任何东西,`csrf.ts:222` 的 isPlausibleBearerCredential 形态也会跟着漂)。
+      const residual = condForRest.replace(TYPE_GUARD_RE, '').replace(REF_RE, '').trim()
+      if (residual !== '') continue // 条件里还有别的东西 ⇒ 已判定
       if (VERIFIED_RE.test(cond)) continue
       const names = namesOfRef(refs[0])
       if (names.length === 0) {
