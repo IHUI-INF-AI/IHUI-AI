@@ -25,14 +25,6 @@
  *      落在 sanctionedPrefixes 之外的登记 worktree 逐条点名待回收(prunable 的顺带点名)。
  *      2026-09-30 起 worktree 落点 = G:\IHUI-AI\.worktrees\(AGENTS §12d)。
  *
- * 2026-10-03 补记(为什么"永久红"必须从配置侧解):告警到人的出口是 git-guardian 的
- * 盘根巡检格,而它 30 分钟一趟、4 小时去重窗口 —— 一条**永远判红且没人整改**的判据等于
- * 每 4 小时到人一次。本尺子立起三周实测 27 封同因告警,违规集合逐字不变:两个盘根条目
- * (.pytest_tmp / .pytest_tmp_runs)每次跑 pytest 必然重建,申报它们不是"放水",是承认
- * 它们本就是 pytest 基础设施的设计落点(理由见 config 的 _pytestBasetempNote)。
- * 一般教训:**新增这一格判据时先问"它红了能整改吗"** —— 不能整改的判据要么进白名单
- * (写明理由,随 commit 审批),要么就别挂在到人通道上;挂上去只会训练人忽略这封信。
- *
  * 用法:
  *   node scripts/check-disk-root-hygiene.mjs              # 报告档(违规仍 exit 0)
  *   node scripts/check-disk-root-hygiene.mjs --strict     # 问责档(违规 exit 1)
@@ -222,11 +214,7 @@ async function main() {
   const porcelain = argv['wt-file'] ? readFileSync(argv['wt-file'], 'utf8') : currentWorktreePorcelain()
   // 输出顺序铁律:盘根维度先出结果,porcelain 取不到只降级它自己那一维 ——
   // 不许让一维"无法判定"把另一维已量到的违规整个吞掉(那等于把"没看清"写成"没问题")。
-  // `=== null || === undefined` 而非原来的 `== null`:后者靠 eqeqeq 的 smart 模式才合规,
-  // 而本仓 eslint 走 always 模式(既存债,2026-10-03 提交时暴露)。两者语义逐字等价 ——
-  // currentWorktreePorcelain() 只 return null 或字符串,readFileSync 失败即抛,
-  // 但保留 undefined 分支是为了不把"以后有人改成 return undefined"变成静默行为变更。
-  const wtUndetermined = porcelain === null || porcelain === undefined
+  let wtUndetermined = porcelain == null
   const wtViolations = wtUndetermined ? [] : auditWorktreeRegistry(porcelain, policy)
   const verdict = wtUndetermined ? 'undetermined' : all.length || wtViolations.length ? 'red' : 'green'
 
