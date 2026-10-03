@@ -322,6 +322,17 @@ export function MessageInput({
     },
     [removeReference],
   )
+  // G-845:空输入框上按 Backspace 删最后一个附件(判据与消费在 WebInputCore 内部,
+  // 这里是附件清单与 remove 出口的接线;removeReference 由 use-message-references 提供,只调用不改)。
+  // 取 references(用户添加的附件)而非 allReferences:后者还并了自动加载的 agent 规则块,
+  // 那是工作区上下文、不是附件,Backspace 不该删它。
+  const handleRemoveLastAttachment = React.useCallback(() => {
+    const last = references[references.length - 1]
+    if (!last) return false
+    removeReference(last.id)
+    return true
+  }, [references, removeReference])
+
   const allReferences = React.useMemo(() => {
     const visibleAgentRefs = agentMdRefs.filter((r) => !dismissedAgentIds.has(r.id))
     return [...visibleAgentRefs, ...references]
@@ -895,7 +906,17 @@ export function MessageInput({
     }
   }, [compacting, isStreaming, t])
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>, localComposing = false) => {
+    // G-862 IME 组合守卫**必须在 contextSelector 之前**。原先它落在
+    // `contextSelector.handleKeyDown(e)` 之后(只在 ↑↓ 历史那档的条件下被读到),
+    // 于是中文输入法候选窗开着时按 Enter、且 # 面板有匹配项:第一行先被
+    // contextSelector 消费成"选中",守卫根本没机会跑 ⇒ 行为变成"选中"而非
+    // "发送/保留候选"。两条腿取或(事件腿 nativeEvent.isComposing ‖ 本地腿
+    // localComposing —— 后者由 WebInputCore 的 compositionstart/end 经 onKeyDown
+    // 第二参透传,住在子组件 state 里,外部单腿读事件腿会在"候选窗已关、
+    // compositionend 未落"那一次 keydown 上漏判)。
+    // 放在最前面 = 组合期整段键盘交还输入法,面板与提交都不得消费。
+    if (e.nativeEvent.isComposing || localComposing) return
     // W20 九类 # 上下文选择器:键盘导航(↑/↓/Enter/Tab/Esc)前置拦截,消费则短路
     if (contextSelector.handleKeyDown(e)) return
     // G-816019:此处刻意**没有**外部 Enter 提交支 —— 本地 composition 腿住在 WebInputCore
@@ -1177,6 +1198,7 @@ export function MessageInput({
               stopLabel={stopLabel}
               onChange={handleChange}
               onKeyDown={handleKeyDown}
+              onRemoveLastAttachment={handleRemoveLastAttachment}
               onPaste={handlePasteWithReferencePreview}
             />
             {/* 底部工具栏(2026-09-30 底栏单行化,深度对标 Trae/Qoder/Codex 输入卡):
