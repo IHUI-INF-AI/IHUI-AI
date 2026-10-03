@@ -54,6 +54,16 @@
 //   调用括号配不平、实参形态解不出 ⇒ 同样计**未判定**并逐条报名 + 打原因;`--strict` 下有未判定即
 //   **rc=2**(拒绝出具合格证,既不冒红也不记绿)。
 //
+//   R-EXIST(G-1038420 第一阶段新增,**只报数、不参与 exit 判定**):
+//     宿主内的用例登记函数**一律**是"本地自造",出路只有 `scripts/lib/selftest-registrant.mjs`
+//     一条。它与 R-REG/R-CASE 正交:R-REG 答"这一型登记侧求不求值",R-EXIST 答"该登记器该不该
+//     还在本地自造" —— **一个判对了的本地登记器同样该搬**,所以它不按 latent/evaluates 分档。
+//     起步挂 warn 是算术结论而非"先松后紧":现读数十位,判红即恒红门(§12f 那型)。清零后才谈升档。
+//     ⚠️ 出口模块住在 `scripts/lib/**`,而本门射程是根一级 `scripts/*.mjs`(见下"射程边界"①)
+//     ⇒ 出口自己不会被自己的门扫到。这是刻意的:R-EXIST 要的是"出口之外每处自造都被点名",
+//     出口自己被扫到只会在文件里读出自己的函数名。出口的合规性由**消费方**证明 ——
+//     `scripts/check-baseline-freshness.mjs` 是第一处样板,它的读数(潜伏 1 → 0)是本判据的实证。
+//
 // 定级:**warn 起步**,不是"先松后紧"的托辞 —— 现读潜伏 36 处 + 未判定 4 处会在接线瞬间把
 //   每台每次提交钉红(§12f 那型)。问责出口 = 直接跑本脚本的 `--strict` 档
 //   (`node scripts/check-selftest-registrant-evaluates.mjs --strict`);**刻意不写 `pnpm check:*`
@@ -112,6 +122,11 @@ const ROOT = resolve(HERE, '..')
 
 export const SELF_SKIP = 'HUSKY_SKIP_SELFTEST_REGISTRANT'
 export const EXEMPT_MARK = 'selftest-registrant-exempt'
+/**
+ * R-EXIST 的**唯一出路**:自检用例登记器的共用出口模块。
+ * 逐字给出是为了让本门与它的镜像测试都指着同一个字符串(§22c:两处实现必漂移是本仓记过最多次的失败型)。
+ */
+export const SELF_ROUTE = 'scripts/lib/selftest-registrant.mjs'
 /** 射程:仓库根一级 `scripts/*.mjs`。见头注"射程边界"①。 */
 export const SCOPE_RE = /^scripts\/[^/]+\.mjs$/
 const GIT_TIMEOUT = 120000
@@ -481,9 +496,10 @@ export function findCaseCalls(code, name, rawLines, from = 0, to = code.length) 
 
 /**
  * 单文件定性(纯函数,零副作用)。
- * { file, decls, hosts, registrars, latent[], evaluates, strictCompare[], undetermined[], exempted[], red[], unreadable }
+ * { file, decls, hosts, registrars, latent[], evaluates, strictCompare[], undetermined[], exempted[], red[], selfMade[], unreadable }
  *   decls      = 全文两参数函数声明候选数(含宿主之外的数据收集器,只当覆盖面看)
  *   registrars = 落在自检宿主内、且被成功定性的**用例登记函数**数
+ *   selfMade   = 上述登记函数逐条点名(R-EXIST:出路归属,不是覆盖面)
  */
 export function analyzeSource({ rel, raw }) {
   const res = {
@@ -497,6 +513,7 @@ export function analyzeSource({ rel, raw }) {
     undetermined: [],
     exempted: [],
     red: [],
+    selfMade: [],
     unreadable: typeof raw === 'string' ? null : `${rel}: 内容取不到`,
   }
   if (typeof raw !== 'string') return res
@@ -518,6 +535,19 @@ export function analyzeSource({ rel, raw }) {
     })
     if (c === null) continue
     res.registrars += 1
+    // R-EXIST(只报数,见 decide):宿主内的用例登记函数**一律**是"本地自造",出路只有
+    // `scripts/lib/selftest-registrant.mjs` 一条。它与 `registrars` 数值同源但答的不是
+    // 同一个问题:`registrars` 答"本门尺子有没有覆盖面",`selfMade` 答"这些登记器该不该
+    // 还在本地自造" —— 后者才是"没有共用出口、靠抄邻居"那 41 处投影的债口。
+    // 判据不设豁免:真要声明"我故意自己造一个",该做的是把它挪进 lib 里的共用出口。
+    res.selfMade.push({
+      name: r.name,
+      line: r.declLine,
+      param: r.valueParam,
+      kind: c.kind,
+      host: host.name,
+      why: `${r.name}(name, ${r.valueParam}) 在自检宿主 ${host.name} 内本地自造;出口只有 ${SELF_ROUTE}`,
+    })
     if (c.kind === 'evaluates') res.evaluates += 1
     else if (c.kind === 'strict-compare') res.strictCompare.push({ name: r.name, line: r.declLine, why: c.why })
     else if (c.kind === 'undetermined') res.undetermined.push({ name: r.name, line: r.declLine, why: c.why })
@@ -570,6 +600,7 @@ export function decide({ verdicts, enumerated, strict = false }) {
   const red = []
   const undetermined = []
   const latent = []
+  const selfMade = []
   const counts = {
     files: enumerated,
     hosts: 0,
@@ -580,6 +611,7 @@ export function decide({ verdicts, enumerated, strict = false }) {
     strictCompare: 0,
     exempted: 0,
     unreadable: 0,
+    selfMade: 0,
   }
   for (const v of verdicts) {
     counts.hosts += v.hosts || 0
@@ -593,7 +625,9 @@ export function decide({ verdicts, enumerated, strict = false }) {
     for (const u of v.undetermined) undetermined.push({ file: v.file, ...u })
     for (const l of v.latent) latent.push({ file: v.file, name: l.name, line: l.declLine, why: l.why })
     for (const r of v.red) red.push(r)
+    for (const s of v.selfMade || []) selfMade.push({ file: v.file, ...s })
   }
+  counts.selfMade = selfMade.length
   let exit = 0
   let why = ''
   if (counts.unreadable > 0) {
@@ -612,7 +646,7 @@ export function decide({ verdicts, enumerated, strict = false }) {
     exit = 2
     why = '--strict:整仓一处登记函数都没看见 ⇒ 尺子可能失明,拒绝出具合格证'
   }
-  return { exit, why, red, undetermined, latent, counts }
+  return { exit, why, red, undetermined, latent, selfMade, counts }
 }
 
 /** 在射程文件清单:全量走 HEAD 树,`--staged`/`--worktree` 走索引。 */
@@ -735,6 +769,12 @@ function main(argv) {
     `在射程文件 ${c.files} / 自检宿主 ${c.hosts} / 宿主内登记函数 ${c.registrars}(全文两参数候选 ${c.decls})/ ` +
       `已求值 ${c.evaluates} / 潜伏 ${c.latent} / 值比较族(不计潜伏)${c.strictCompare} / 已豁免 ${c.exempted} / ` +
       `未判定 ${out.undetermined.length} / 配对红 ${out.red.length} / 取不到 ${c.unreadable}`,
+  )
+  // R-EXIST(只报数档,**刻意不参与 exit 判定**):现读数十位,接线成 blocking 就是一台与任何
+  // 提交都无关的恒红门(§12f 同型)。它是债口不是判决 —— 降级是设计内口径,不是缺陷。
+  console.log(
+    `本地自造登记器 ${c.selfMade} 处(R-EXIST,只报数):出路只有 ${SELF_ROUTE} —— ` +
+      '宿主内的用例登记器一律点名,与"已求值/潜伏"那一格无关(一个判对了的本地登记器同样该搬)。',
   )
   if (c.latent > 0)
     console.log(
@@ -1150,6 +1190,80 @@ function selfTest() {
   })
 
 
+  // R-EXIST 的构造面自测(成对):本地自造 ⇒ 点名;共用出口的用法 ⇒ 不点名(证明它不是恒报)。
+  t('R-EXIST) 本地自造登记器 ⇒ 逐条点名且给出唯一出路(判绿的那一档同样要点名)', () => {
+    const src = [
+      'function selfTest() {',
+      '  const cases = []',
+      '  const t = (name, cond) => cases.push({ name, cond })',
+      '  t(PROPER, x === y)',
+      '  for (const c of cases) if (c.cond === true) pass++',
+      '  return 0',
+      '}',
+    ].join('\n')
+    const r = analyzeSource({ rel: 'scripts/check-rex-a.mjs', raw: src })
+    if (r.selfMade.length !== 1) return `selfMade=${r.selfMade.length}(应 1)`
+    if (r.selfMade[0].name !== 't') return `name=${r.selfMade[0].name}`
+    if (!r.selfMade[0].why.includes(SELF_ROUTE)) return `未给出唯一出路:${r.selfMade[0].why}`
+    return true
+  })
+
+  t('R-EXIST) 反向对照:走共用出口(登记器不在宿主内声明)⇒ 不得点名', () => {
+    const src = [
+      "import { makeRegistrar } from './lib/selftest-registrant.mjs'",
+      'function selfTest() {',
+      '  const { t, report } = makeRegistrar()',
+      "  t('PROPER', () => x === y)",
+      '  return report().fail',
+      '}',
+    ].join('\n')
+    const r = analyzeSource({ rel: 'scripts/check-rex-b.mjs', raw: src })
+    if (r.selfMade.length) return `共用出口被误点名:${JSON.stringify(r.selfMade)}`
+    return true
+  })
+
+  t('R-EXIST) 遮罩反向锁:同形状写在注释里不得被点名(证明它不是恒绿)', () => {
+    const src = [
+      'function selfTest() {',
+      '  // 早先这里写 const t = (name, cond) => cases.push({ name, cond })',
+      '  return 0',
+      '}',
+    ].join('\n')
+    const r = analyzeSource({ rel: 'scripts/check-rex-c.mjs', raw: src })
+    if (r.selfMade.length) return `注释里的形状被点名:${JSON.stringify(r.selfMade)}`
+    return true
+  })
+
+  t('R-EXIST) 只报数:自造处再多也不改 exit(红/未判定各归其位,0/1/2 不因本判据并桶)', () => {
+    const base = {
+      file: 'x',
+      registrars: 2,
+      latent: [{ name: 't' }],
+      evaluates: 1,
+      strictCompare: [],
+      undetermined: [],
+      exempted: [],
+      red: [],
+      selfMade: [{ name: 't', line: 3, why: 'w' }],
+      unreadable: null,
+    }
+    const got = decide({ verdicts: [base], enumerated: 10 })
+    if (got.exit !== 0) return `自造 1 处却改了 exit:${got.exit}`
+    if (got.counts.selfMade !== 1) return `selfMade=${got.counts.selfMade}`
+    const red = decide({
+      verdicts: [{ ...base, selfMade: [], red: [{ file: 'x', registrar: 't', caseLines: [3] }] }],
+      enumerated: 10,
+    })
+    if (red.exit !== 1) return `配对红档 exit=${red.exit}`
+    const und = decide({
+      verdicts: [{ ...base, selfMade: [], undetermined: [{ name: 't', line: 2, why: 'y' }] }],
+      enumerated: 10,
+      strict: true,
+    })
+    if (und.exit !== 2) return `未判定档 exit=${und.exit}`
+    return true
+  })
+
   let failed = 0
   for (const c of cases) {
     try {
@@ -1203,5 +1317,6 @@ export const __test__ = {
   HOST_NAME_RE,
   EXEMPT_MARK,
   SELF_SKIP,
+  SELF_ROUTE,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
