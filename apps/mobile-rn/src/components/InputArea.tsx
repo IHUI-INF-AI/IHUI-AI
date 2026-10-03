@@ -49,10 +49,10 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native'
+import type { TextInput } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import { tokens , currentRnTheme} from '../theme/active-tokens'
