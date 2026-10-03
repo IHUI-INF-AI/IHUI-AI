@@ -6,11 +6,12 @@
 // 判闸是否真的生效,靠**注入一次整树删除**看它变红 —— 不读它自己的注册声明。
 // 注入用私有 GIT_INDEX_FILE(从空树 read-tree),全程不碰真实索引。
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
+
+import { scratchRoot } from '../lib/scratch-dir.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const GIT = 'C:\\Program Files\\Git\\cmd\\git.exe'
@@ -66,7 +67,9 @@ test('runner 执行循环真的会跑到它(注册了不等于会执行)', () =>
 })
 
 test('注入实测:把索引换成空树(= 整树删除形态)→ 守门必须 exit 1', () => {
-  const idx = join(tmpdir(), `ihui-massdel-inject-${process.pid}.idx`)
+  const idxDir = scratchRoot()
+  mkdirSync(idxDir, { recursive: true })
+  const idx = join(idxDir, `ihui-massdel-inject-${process.pid}.idx`)
   rmSync(idx, { force: true })
   try {
     git(['read-tree', EMPTY_TREE], { GIT_INDEX_FILE: idx })
@@ -79,7 +82,9 @@ test('注入实测:把索引换成空树(= 整树删除形态)→ 守门必须 e
 })
 
 test('注入实测:应急开关能放行同一形态(证明开关接的是真判据)', () => {
-  const idx = join(tmpdir(), `ihui-massdel-allow-${process.pid}.idx`)
+  const idxDir = scratchRoot()
+  mkdirSync(idxDir, { recursive: true })
+  const idx = join(idxDir, `ihui-massdel-allow-${process.pid}.idx`)
   rmSync(idx, { force: true })
   try {
     git(['read-tree', EMPTY_TREE], { GIT_INDEX_FILE: idx })
@@ -105,6 +110,6 @@ test('判据自测 9 例全绿(阈值边界 + 空仓不判定)', () => {
 })
 
 test('测试不留残余:私有索引文件都已清掉', () => {
-  if (existsSync(join(tmpdir(), 'ihui-massdel-inject-0.idx'))) throw new Error('临时索引未清理')
+  if (existsSync(join(scratchRoot(), 'ihui-massdel-inject-0.idx'))) throw new Error('临时索引未清理')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -29,6 +29,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const ORIGINAL_CWD = process.cwd()
 
@@ -44,7 +45,7 @@ let tmpDir
 let runScan // dynamic import 后填充
 
 before(async () => {
-  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'i18n-web-scan-'))
+  tmpDir = mkScratch("i18n-web-scan-")
   process.chdir(tmpDir)
   // 关键:chdir 后再 dynamic import,使模块顶层 const ROOT = process.cwd() 锁定为 tmpDir
   const mod = await import('../_i18n-scan-helpers.mjs')

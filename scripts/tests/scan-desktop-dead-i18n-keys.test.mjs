@@ -31,6 +31,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const ORIGINAL_CWD = process.cwd()
 
@@ -56,7 +57,7 @@ let tmpDir
 let runScan
 
 before(async () => {
-  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'i18n-desktop-scan-'))
+  tmpDir = mkScratch("i18n-desktop-scan-")
   process.chdir(tmpDir)
   // 关键:chdir 后再 dynamic import,使模块顶层 const ROOT = process.cwd() 锁定为 tmpDir
   const mod = await import('../_i18n-scan-helpers.mjs')
