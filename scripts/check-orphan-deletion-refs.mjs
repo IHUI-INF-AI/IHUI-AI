@@ -183,6 +183,9 @@ function selfTest() {
         cwd: tmp,
         encoding: 'utf8',
         windowsHide: true,
+        // EBUSY 根治(errno -4082):夹具建仓走的是 init/config/add/commit,**零 input**,
+        //所以 stdio[0]='ignore' 安全(正文一律 writeFileSync 落盘,不用 stdin 喂)。
+        stdio: ['ignore', 'pipe', 'pipe'],
       })
     g(['init', '-q'])
     g(['config', 'user.email', 't@t'])

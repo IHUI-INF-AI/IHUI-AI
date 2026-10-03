@@ -58,6 +58,9 @@ const git = (args) =>
     windowsHide: true,
     timeout: GIT_TIMEOUT,
     maxBuffer: 1 << 26,
+    // EBUSY 根治(errno -4082):本机交互会话里 Node 建子进程 stdin 管道确定性失败。
+    // 本helper 调用点全是只读 git(ls-tree/ls-files/show/rev-list),不喂 stdin。
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 
 const isTestLine = (l) => /(^|\/)(tests?|__tests__|e2e)(\/|$)/.test(l) || /\.(test|spec)\./.test(l)
