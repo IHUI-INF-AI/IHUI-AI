@@ -54,13 +54,27 @@ test('真实 HEAD 面:##+✅ 形态必须逐字被保护集与搬运集认出(�
   assert.ok(extractCompletedTaskHeadings(headPlan).includes(realLine))
 })
 
-test('真实 HEAD 面:量级对账 —— ##✅≥71、###✅=0、bullet≥1100,禁止把看不见写成没有', () => {
+test('真实 HEAD 面:量级对账 —— 搬运集/###✅/bullet 三维重校基线(G-1018204 出路①),禁止把看不见写成没有', () => {
   assert.ok(headPlan.length > 1000)
   const archivable = headPlan
     .split(/\r?\n/)
     .filter(isArchivableTaskHeading).length
-  assert.ok(archivable >= 71, `HEAD 面搬运集应 ≥71(实测 71 个 ## ✅),实得 ${archivable}`)
-  assert.ok(countBulletCompleted(headPlan) >= 1100, 'bullet 级必须报出真实量级(≥1100)')
+  // G-1018204 量级重校(2026-10-03,票面出路①:合法归档,非吞级):
+  // 旧基线 ≥71 立于 bullet 级归档(2026-09-28)之前。漂移的 22 个 ## ✅ 条目已逐条
+  // 取证 —— 标题全部可溯到 .ihui-agent/archive/PROJECT_PLAN_*.md 归档件,且
+  // PROJECT_PLAN.md 内留有 `<!-- 已归档(2026-09-28:…) -->` 占位(归档锚点在位,
+  // 13c 反查可闭合)⇒ 这是"完成即归档"的合法减量,不是 union/自愈吞级。
+  // 现量(lib 判据现读):搬运集 52(## 38 + ### 14)、bullet 完成 6480。
+  // ### ✅ 从 0 → 14 是同期新完成的 h3 级条目按同一判据被认出,不是降级吞并
+  // (22 个消失的 ## 标题在归档件里逐字可查,若被降级则会在 HEAD 面出现,
+  // 实测不在)。下限留并发归档的减量容差;大幅偏离时按同一条规矩重新取证
+  // 再重校,不得静默改数。
+  assert.ok(archivable >= 30, `HEAD 面搬运集应 ≥30(重校基线 52,容并发归档减量),实得 ${archivable}`)
+  const h3Archivable = headPlan
+    .split(/\r?\n/)
+    .filter((l) => isArchivableTaskHeading(l) && /^### /.test(l)).length
+  assert.ok(h3Archivable >= 8, `HEAD 面 ### ✅ 应 ≥8(重校基线 14),实得 ${h3Archivable}`)
+  assert.ok(countBulletCompleted(headPlan) >= 5000, 'bullet 级必须报出真实量级(重校基线 6480)')
 })
 
 test('子集不变量(构造面):含"已完成"无"✅"被保护但永不可搬', () => {
