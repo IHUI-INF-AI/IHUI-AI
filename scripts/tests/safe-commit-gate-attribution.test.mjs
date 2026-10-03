@@ -145,7 +145,10 @@ test('态①c:结论行点名"他人挂在索引里的路径" ⇒ 不判 mine,�
   assert.equal(v1.kind, 'undetermined-red', '他人 staged 的路径不得定责给本枚提交者')
   assert.equal(v1.delta.foreignFace, 1, '这一态必须可机读计数')
   const l1 = verdictLine(v1)
-  assert.match(l1, /他人挂在共享索引里/, '措辞要说出真正原因,不得写成笼统的"归属未知"')
+  // (2026-10-03 G-1018220)措辞锚点由「他人挂在共享索引里」改为「共享索引/工作树里」:
+  // 取材面补了第三路(别人**已跟踪未暂存**的在飞改动),只写"共享索引"对这批红是错的解释。
+  // 判据的松紧未动 —— 仍落 undetermined-red、仍非零、仍点名。
+  assert.match(l1, /他人挂在共享索引\/工作树里/, '措辞要说出真正原因,不得写成笼统的"归属未知"')
   assert.ok(!/不在本次提交内容里/.test(l1), '它同样没证明"与本次无关" —— 不得顺手给出结论')
   assert.ok(!/^✅/.test(l1), '未判定档不得用通过色')
 
@@ -189,10 +192,114 @@ test('态①c 的取材面:未跟踪清单必须排除忽略项,且两路都要�
     /'diff', '--cached', '--name-only', '--no-renames', '-z'/,
     '索引面清单必须现读,不得用流程早期那份快照',
   )
-  const m = safeCommitSource.match(/const foreignStaged = ([^\n]+)/)
+  // G-1018220:第三路(工作树面)。它与上面两路不是同一种现场,少它 ⇒ 门 47 那类
+  // "按工作树字节判红"的门点名的路径本层看不见 ⇒ 差分错记成本枚引入 ⇒ 零风险改动被死锁。
+  assert.match(
+    gitPathsSource,
+    /export function gitWorktreePaths/,
+    '工作树面出口不见了 ⇒ 归因层的"他人现场"少了一路(门 47 按工作树判红,正是这一路)',
+  )
+  assert.match(
+    gitPathsSource,
+    /gitPaths\(\['diff', '--name-only', '--no-renames', '-z'\], opts\)/,
+    '工作树面必须走 `git diff`(不带 --cached)—— 带了 --cached 就退化成索引面,这一路等于没加',
+  )
+  // 取材面:三路都要接上,且都扣掉本票声明。
+  // (2026-10-03)这处断言改的是**锁的位置**:改前 foreignStaged 是单行表达式,现为多行
+  // —— 行为(两路 + 扣减)逐字未动,新增的是第三路。断言跟着实现形态走,判据松紧不变。
+  const m = safeCommitSource.match(
+    /const foreignStaged = \[[\s\S]{0,300}?!expectedFiles\.includes\(p\)/,
+  )
   assert.ok(m, '找不到 foreignStaged 的计算 ⇒ 归因层拿不到这份输入,态①c 就是死档')
-  assert.match(m[1], /!expectedFiles\.includes\(p\)/, '两路清单都必须扣掉本票声明的文件(我自己的在飞文件仍要算我的红)')
+  for (const outlet of ['stagedNow', 'untrackedNow', 'worktreeNow'])
+    assert.match(
+      m[0],
+      new RegExp(outlet),
+      `他人现场清单缺了 ${outlet} 这一路 —— 那一路引发的红会被差分错记成本枚提交者引入`,
+    )
+  assert.match(m[0], /!expectedFiles\.includes\(p\)/, '三路清单都必须扣掉本票声明的文件(我自己的在飞文件仍要算我的红)')
+  assert.match(
+    safeCommitSource,
+    /gitStagedPaths,\s*gitUntrackedPaths,\s*gitWorktreePaths/,
+    'gitWorktreePaths 没有 import ⇒ 那一路恒为空数组,态①c 对工作树面仍是死档',
+  )
 })
+
+// ── 态①d:门按**工作树字节**判红,而红落在别人"已跟踪未暂存"的在飞文件上(2026-10-03) ──
+// 票 G-1018220 的实测死锁(私有索引复现,提交内容 = 一个零风险常量探针):
+//   ① 门 47 判红并点名 `packages/types/src/agent-control.ts` —— 该文件**既不在**本次声明集,
+//      **也不在** `git diff --cached` 里(并发会话改了但还没 staged,是中途态最常见的一档);
+//   ② 归因层改前只拿 staged + untracked 两路当"他人现场" ⇒ 该路径两路都看不见
+//      ⇒ 态①c 不触发 ⇒ 落进差分档;
+//   ③ 差分拿基线面(HEAD 隔离检出)当对照,那里是**旧字节**、水印完好 ⇒ 必然绿
+//      ⇒ 差分结论"这枚提交引入了红" ⇒ `mine` ⇒ 拒绝 --no-verify。
+// 而本仓提交一律带 pathspec,那个路径结构上进不了本次内容 —— 出口只剩"去改别人的文件",
+// 那是 §12 明令的事故。**零风险改动就这样被死锁。**
+// 本测试钉的是"补上第三路之后,这一格必须落未判定",以及三条不得越界的反向锁。
+test('态①d:门点名"他人已跟踪未暂存的在飞路径" ⇒ 落未判定档(补第三路前它落 mine ⇒ 死锁)', () => {
+  const { classifyHookFailure, verdictLine, SUMMARY, FAIL_29 } = __test__
+  // 门 47 的真实红行(逐字取自 2026-10-03 私有索引实测 --no-fix 输出)
+  const GATE47_REAL = `[watermark-coverage] ❌ 1 个已跟踪文件缺失/损坏溯源水印(会导致 CI 红):
+  - packages/types/src/agent-control.ts
+
+  手动修复: node scripts/watermark.mjs inject <file>`
+  const MINE = ['apps/cli/tests/zz-tmp-g1018220-probe.ts']
+  // 别人"已跟踪、已改、未 staged"的在飞路径(第三路的典型样本)
+  const INFLIGHT = 'packages/types/src/agent-control.ts'
+  const base = {
+    text: SUMMARY + FAIL_29,
+    stagedFiles: MINE,
+    runGate: () => ({ status: 1, output: GATE47_REAL }),
+    // 基线面读 HEAD 旧字节 ⇒ 绿 ⇒ 差分必然喊"本枚引入" ⇒ 这一格的死锁结构在此闭合
+    runGateBaseline: () => ({ ran: true, status: 0, output: 'HEAD 面绿', why: null }),
+  }
+
+  // 臂 1:第三路接上 ⇒ 落未判定,且措辞必须说出真正原因(不是笼统的"归属未知")
+  const v1 = classifyHookFailure({ ...base, foreignStaged: [INFLIGHT] })
+  assert.equal(v1.kind, 'undetermined-red', '在飞路径已在他人现场清单里时不得再判 mine(那会死锁零风险改动)')
+  assert.equal(v1.delta.foreignFace, 1, '这一态必须可机读计数')
+  const l1 = verdictLine(v1)
+  assert.match(l1, /他人挂在共享索引\/工作树里/, '措辞要说出真正原因,不得写成笼统的"归属未知"')
+  assert.match(l1, /共享索引\/工作树/, '措辞必须覆盖工作树面 —— 只写"共享索引"对这批红是错的解释')
+  assert.ok(!/不在本次提交内容里/.test(l1), '它同样没证明"与本次无关" —— 不得顺手给出结论')
+  assert.ok(!/^✅/.test(l1), '未判定档不得用通过色')
+  assert.ok(!/引入/.test(l1), '本枚只提交了一个常量探针,措辞不得写"你引入了红"(那是本票的死锁面)')
+
+  // 臂 2(死锁的**反向对照**):第三路缺席 ⇒ 复现改前行为 mine。
+  // 这条是本测试的**证明**部分:若它也落 undetermined-red,则臂 1 是夹具碰巧,不证明修复。
+  const v2 = classifyHookFailure({
+    ...base,
+    // 只给前两路(别人的暂存 + 别人的未跟踪新文件),在飞路径不在其中 —— 改前的取材面
+    foreignStaged: ['PROJECT_PLAN.md', 'README.md'],
+  })
+  assert.equal(v2.kind, 'mine', '在飞路径缺席时必须复现改前的 mine(否则臂 1 证明不了什么)')
+  assert.match(verdictLine(v2), /禁止 --no-verify/, '死锁那一档的出口是"拒绝跳门",不得被改成可跳')
+
+  // 臂 3(方向锁):门点名的**就是**本次声明的文件 ⇒ 任何取材面都救不了,仍须 mine。
+  // 这是防"补第三路补过头变成永不归责"的那条锁。
+  const v3 = classifyHookFailure({
+    ...base,
+    runGate: () => ({
+      status: 1,
+      output: `[watermark-coverage] ❌ 1 个已跟踪文件缺失/损坏溯源水印(会导致 CI 红):\n  - ${MINE[0]}`,
+    }),
+    foreignStaged: [INFLIGHT, 'PROJECT_PLAN.md'],
+  })
+  assert.equal(v3.kind, 'mine', '点名本次文件时更强,态①d 不许截走它')
+
+  // 臂 4(方向锁):在飞路径只出现在**清单/回显行**(不在结论行)⇒ 不降档。
+  // 与既有 findingLines 口径同形:回显不是点名,不得为这一路单独放宽。
+  const v4 = classifyHookFailure({
+    ...base,
+    runGate: () => ({
+      status: 1,
+      output: `📋 staged 文件清单: ${INFLIGHT}\n另一道题的红与该路径无关`,
+    }),
+    foreignStaged: [INFLIGHT],
+  })
+  assert.equal(v4.kind, 'mine', '回显行不算点名 —— 这条与既有 findingLines 口径同形,不得单独放宽')
+})
+
 
 test('装车证明:safe-commit 必须真的 import 并调用本判据', () => {
   assert.match(
