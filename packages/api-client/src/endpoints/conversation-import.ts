@@ -93,6 +93,34 @@ export interface ConversationImportHistoryResult {
   total: number
 }
 
+/**
+ * 导入会话 → 知识库:把某个已落库的会话切 chunk 写进知识库,使 RAG 能检索到(2026-10-03 立)
+ *
+ * 对应 api 侧 /api/user/conversation-import/* 另两个端点:
+ *   4. POST /to-knowledge      单会话入库(幂等;deduped=true 表示命中已有知识未重复写)
+ *   5. GET  /knowledge-status  查该会话的入库状态(可查/可重试的凭据)
+ *
+ * 设计取向:这是**显式按钮**能力,不在导入完成时自动入库 —— 知识库 embedding 有真实
+ * 成本,且群聊记录里大量寒暄表情并不值得进知识库。由用户逐条选择。
+ */
+export interface ConversationToKnowledgeResult {
+  conversationId: string
+  docId: number
+  chunkCount: number
+  /** true = 该会话内容此前已入库,本次命中幂等未重复写 chunk */
+  deduped: boolean
+}
+
+/** GET /knowledge-status 响应 data(status: none 表示从未尝试过入库) */
+export interface ConversationKnowledgeStatusResult {
+  conversationId: string
+  ingested: boolean
+  status: string
+  chunkCount: number
+  errorMessage: string | null
+  importedAt: string | null
+}
+
 // =============================================================================
 // Endpoints
 // =============================================================================
@@ -128,5 +156,36 @@ export async function getConversationImportHistory(): Promise<
   return fetchApi<ConversationImportHistoryResult>('/api/user/conversation-import/history', {
     method: 'GET',
   })
+}
+
+/**
+ * 把某个已导入的会话加入知识库,使 RAG 可检索(2026-10-03)
+ *
+ * 幂等:同一会话重复调用命中 content_hash 去重,返回既有 docId 且 deduped=true,
+ * 不会产生第二批重复 chunk(故用户可安全重试)。
+ * 失败返回非 200 并写 conversation_imports 留痕,不会静默成功。
+ */
+export async function addConversationToKnowledge(
+  conversationId: string,
+  collectionName?: string,
+): Promise<ApiResult<ConversationToKnowledgeResult>> {
+  return fetchApi<ConversationToKnowledgeResult>('/api/user/conversation-import/to-knowledge', {
+    method: 'POST',
+    body: JSON.stringify({
+      conversationId,
+      ...(collectionName ? { collectionName } : {}),
+    }),
+  })
+}
+
+/** 查某会话的知识库入库状态(用于结果区回显已入库/可重试) */
+export async function getConversationKnowledgeStatus(
+  conversationId: string,
+): Promise<ApiResult<ConversationKnowledgeStatusResult>> {
+  const qs = `?conversationId=${encodeURIComponent(conversationId)}`
+  return fetchApi<ConversationKnowledgeStatusResult>(
+    `/api/user/conversation-import/knowledge-status${qs}`,
+    { method: 'GET' },
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
