@@ -7,6 +7,7 @@
 import * as React from 'react'
 import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { clampPercent } from '@ihui/shared'
 
 /**
  * Phase 16: 进度环组件(2026-07-28 立,对标 AI 工作台)
@@ -52,7 +53,7 @@ export const ProgressRing = React.memo(function ProgressRing({
   className,
   'aria-label': ariaLabel,
 }: ProgressRingProps) {
-  const pct = Math.max(0, Math.min(100, value))
+  const pct = clampPercent(value)
   const radius = (size - strokeWidth) / 2
   const circumference = 2 * Math.PI * radius
   const offset = circumference * (1 - pct / 100)
