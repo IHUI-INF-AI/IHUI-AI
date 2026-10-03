@@ -27150,7 +27150,7 @@
       }
     },
     "/api/admin/meta-learner/agent-failures": {
-      "post": {
+      "get": {
         "responses": {
           "200": {
             "description": "Default Response"
@@ -31547,6 +31547,15 @@
           }
         }
       },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/alert-silences/batch-delete": {
       "post": {
         "responses": {
           "200": {
@@ -44791,6 +44800,15 @@
         }
       }
     },
+    "/api/ai-marking/grade": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/ai-model-info": {
       "get": {
         "responses": {
@@ -44895,6 +44913,15 @@
     },
     "/api/ai-tutor/hint": {
       "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/ai-tutor/history": {
+      "get": {
         "responses": {
           "200": {
             "description": "Default Response"
@@ -53820,7 +53847,44 @@
         }
       }
     },
+    "/api/ai/chat/conversations/{id}/directories": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/ai/chat/decisions/pending": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/ai/chat/questions": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/ai/chat/recap/handoff": {
       "post": {
         "responses": {
           "200": {
@@ -82670,298 +82734,18 @@
     },
     "/api/ai/n8n/workflows": {
       "get": {
-        "description": "使用服务端配置的 N8N_BASE_URL 与 N8N_API_KEY 查询活跃工作流列表",
         "responses": {
           "200": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "number",
-                      "example": 0
-                    },
-                    "message": {
-                      "type": "string",
-                      "example": "ok"
-                    },
-                    "data": {
-                      "type": "object",
-                      "additionalProperties": true
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "number",
-                      "example": 1
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "number",
-                      "example": 1
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "number",
-                      "example": 1
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "number",
-                      "example": 1
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "number",
-                      "example": 1
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Default Response"
           }
-        },
-        "summary": "N8N 工作流列表(服务端凭据)",
-        "tags": [
-          "AI",
-          "N8N"
-        ]
+        }
       },
       "post": {
-        "description": "按请求体传入的 n8nDomain 和 apiKey 查询 N8N 活跃工作流列表",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "n8nDomain": {
-                    "type": "string"
-                  },
-                  "apiKey": {
-                    "type": "string"
-                  },
-                  "active": {
-                    "type": "boolean"
-                  },
-                  "limit": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 250
-                  },
-                  "cursor": {
-                    "type": "string"
-                  },
-                  "tags": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  }
-                },
-                "additionalProperties": false
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "number",
-                      "example": 0
-                    },
-                    "message": {
-                      "type": "string",
-                      "example": "ok"
-                    },
-                    "data": {
-                      "type": "object",
-                      "additionalProperties": true
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "number",
-                      "example": 1
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "number",
-                      "example": 1
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "number",
-                      "example": 1
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "number",
-                      "example": 1
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "number",
-                      "example": 1
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Default Response"
           }
-        },
-        "summary": "N8N 工作流列表(凭据透传)",
-        "tags": [
-          "AI",
-          "N8N"
-        ]
+        }
       }
     },
     "/api/ai/n8n/workflows/{id}": {
@@ -111146,6 +110930,37 @@
                         },
                         "props": {
                           "type": "object",
+                          "properties": {
+                            "path": {},
+                            "ts": {},
+                            "category": {},
+                            "label": {},
+                            "value": {},
+                            "ref": {},
+                            "durationMs": {},
+                            "count": {},
+                            "from": {},
+                            "to": {},
+                            "result": {},
+                            "errorCode": {},
+                            "feature": {},
+                            "itemType": {},
+                            "itemId": {},
+                            "sessionId": {},
+                            "url": {},
+                            "tag": {},
+                            "location": {},
+                            "target": {},
+                            "method": {},
+                            "cardType": {},
+                            "group_key": {},
+                            "children_count": {},
+                            "toolName": {},
+                            "success": {},
+                            "modelId": {},
+                            "hasSession": {},
+                            "totalTokens": {}
+                          },
                           "additionalProperties": true
                         }
                       }
@@ -111156,6 +110971,37 @@
                   },
                   "properties": {
                     "type": "object",
+                    "properties": {
+                      "path": {},
+                      "ts": {},
+                      "category": {},
+                      "label": {},
+                      "value": {},
+                      "ref": {},
+                      "durationMs": {},
+                      "count": {},
+                      "from": {},
+                      "to": {},
+                      "result": {},
+                      "errorCode": {},
+                      "feature": {},
+                      "itemType": {},
+                      "itemId": {},
+                      "sessionId": {},
+                      "url": {},
+                      "tag": {},
+                      "location": {},
+                      "target": {},
+                      "method": {},
+                      "cardType": {},
+                      "group_key": {},
+                      "children_count": {},
+                      "toolName": {},
+                      "success": {},
+                      "modelId": {},
+                      "hasSession": {},
+                      "totalTokens": {}
+                    },
                     "additionalProperties": true
                   }
                 }
@@ -117527,6 +117373,459 @@
         }
       }
     },
+    "/api/chat/conversations/groups": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "分组清单",
+        "tags": [
+          "chat"
+        ]
+      },
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "新建分组",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/api/chat/conversations/groups/assignments": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "分组归属表",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/api/chat/conversations/groups/move": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "conversationIds",
+                  "groupId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "移动会话到分组 / 移出分组",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/api/chat/conversations/groups/{id}": {
+      "delete": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "删除分组(只清归类,不删会话)",
+        "tags": [
+          "chat"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "改名 / 分组置顶",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
     "/api/chat/conversations/share/{token}": {
       "get": {
         "parameters": [
@@ -117974,6 +118273,42 @@
         ]
       }
     },
+    "/api/chat/conversations/{id}/issue": {
+      "delete": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/chat/conversations/{id}/messages": {
       "get": {
         "description": "获取指定对话的消息列表(分页/游标,按时间正序)",
@@ -118408,6 +118743,15 @@
         }
       }
     },
+    "/api/chat/issues/search": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/chat/kling/image/generate": {
       "post": {
         "responses": {
@@ -118627,6 +118971,24 @@
       }
     },
     "/api/chat/zhipu/health": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/checkin": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/checkin/today": {
       "get": {
         "responses": {
           "200": {
@@ -125993,6 +126355,33 @@
         }
       }
     },
+    "/api/edu-ai-management/fee-reminder/stats": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/edu-ai-management/fee-schedule": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/edu-ai-management/fee-schedule/generate": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/edu-ai-management/homework-submission": {
       "get": {
         "responses": {
@@ -126621,6 +127010,25 @@
         }
       }
     },
+    "/api/edu-ai-management/parent/children/{childId}/bills": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "childId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/edu-ai-management/parent/children/{childId}/courses": {
       "get": {
         "parameters": [
@@ -126722,6 +127130,15 @@
         }
       }
     },
+    "/api/edu-ai-management/payment-record/unattributed": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/edu-ai-management/payment-record/{id}": {
       "delete": {
         "parameters": [
@@ -126778,6 +127195,13 @@
       }
     },
     "/api/edu-ai-management/refund": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
       "post": {
         "responses": {
           "200": {
@@ -127532,6 +127956,13 @@
       }
     },
     "/api/edu-ai-management/tuition-standard": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
       "post": {
         "responses": {
           "200": {
@@ -130287,6 +130718,25 @@
         }
       }
     },
+    "/api/exam/wrong-questions/{questionId}/explain": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "questionId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/exam/wrong-questions/{questionId}/resolve": {
       "put": {
         "parameters": [
@@ -130336,6 +130786,44 @@
     },
     "/api/exam/{id}/enroll": {
       "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/exam/{id}/result": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/exam/{id}/review": {
+      "get": {
         "parameters": [
           {
             "schema": {
@@ -135097,6 +135585,15 @@
             "required": true
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/internal/user-broadcast/mcp-status": {
+      "post": {
         "responses": {
           "200": {
             "description": "Default Response"
@@ -154080,6 +154577,34 @@
         }
       }
     },
+    "/api/points/mall/redeem": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/points/mall/redeem/{id}": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/points/redeem": {
       "get": {
         "responses": {
@@ -154866,6 +155391,50 @@
             "description": "Default Response"
           }
         }
+      }
+    },
+    "/api/publish/browser/import-chrome": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "OAuth2": [
+              "publish:operate"
+            ]
+          }
+        ]
+      }
+    },
+    "/api/publish/browser/launch-chrome": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "OAuth2": [
+              "publish:operate"
+            ]
+          }
+        ]
       }
     },
     "/api/publish/cookie-refresh/stats": {
@@ -159793,6 +160362,15 @@
         }
       }
     },
+    "/api/settings/runtime-flags": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/settings/security-logs": {
       "get": {
         "responses": {
@@ -161807,9 +162385,25 @@
             "description": "Default Response"
           }
         }
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
       }
     },
     "/api/study/plans": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/study/posts": {
       "get": {
         "responses": {
           "200": {
@@ -161836,6 +162430,15 @@
     },
     "/api/study/progress/all": {
       "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/study/publish": {
+      "post": {
         "responses": {
           "200": {
             "description": "Default Response"
@@ -164307,6 +164910,15 @@
         }
       }
     },
+    "/api/url-preview/preview": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/use": {
       "post": {
         "responses": {
@@ -164434,7 +165046,25 @@
         }
       }
     },
+    "/api/user/conversation-import/knowledge-status": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/user/conversation-import/parse": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/user/conversation-import/to-knowledge": {
       "post": {
         "responses": {
           "200": {
