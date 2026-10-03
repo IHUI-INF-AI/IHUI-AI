@@ -240,6 +240,33 @@ export function parseLastSync(text) {
   return null
 }
 
+/**
+ * 时钟**是否真的被同步过**(2026-10-03 立,P3 判据补一维)。
+ *
+ * 立因:`parseLastSync` 只解出"上次成功同步时间",P3 于是只比 age ⇒ 把两种完全不同的情况
+ * 读成同一件事:① 时钟正常、只是距上次同步 9 小时;② 时钟**从未真正同步**。
+ * 实测本机正是第②种:`w32tm /resync` 确实执行成功(时间戳已推进到 09:56:06),但同一份输出里
+ * `Leap 指示符: 3(未同步)`、`层次: 0(未指定)` ⇒ 层级 0 = 源不可用,时钟没被任何 NTP 源校准。
+ * 也就是说**只补"上次同步时间"这一维会给出假绿**,而这一格恰恰是判"本机时钟可信不可信"的。
+ *
+ * 两条判据(取自 `w32tm /query /status`,GBK/UTF-8 两种标签都认):
+ *   - `Leap 指示符: 3(未同步)` ⇒ 明确未同步,这是**最硬**的一维;
+ *   - `层次: 0(未指定)` ⇒ 层级 0 表示源不可用;层级 ≥1 才是真被某层源校准过。
+ * 量不到任一位 ⇒ 返回 null(调用方按"未判定"处理,**不猜**)。
+ */
+export function parseSyncQuality(text) {
+  if (!text) return null
+  const s = String(text)
+  const leap = s.match(/(?:Leap\s+\w+\s*|Leap\s*)\s*[:：]\s*(\d)/i) || s.match(/Leap[^:：]*[:：]\s*(\d)/i)
+  const stratum = s.match(/(?:Stratum|层次)\s*[:：]\s*(\d+)/i)
+  if (!leap && !stratum) return null
+  return {
+    leap: leap ? Number(leap[1]) : null,
+    stratum: stratum ? Number(stratum[1]) : null,
+    unsynced: (leap && Number(leap[1]) === 3) || (stratum && Number(stratum[1]) === 0) || false,
+  }
+}
+
 function runW32tm() {
   let buf
   try {
@@ -642,6 +669,7 @@ export function checkUndeliveredAlertDebt({
   now = Date.now(),
   graceMs = UNDELIVERED_GRACE_MS,
   acks = [],
+  channelOkAtMs = null,
 } = {}) {
   const id = 'P10·未送达欠账'
   const dir = join(repoRoot, '.workbuddy')
@@ -661,6 +689,27 @@ export function checkUndeliveredAlertDebt({
   const usedAnchors = new Set()
   let acked = 0
   let entriesSeen = 0
+  let coveredByChannel = 0
+  // 通道最近一次"有收件人且投递成功"的时刻(毫秒,0 = 量不到/通道从未通)。
+  // 取径:邮件通道活性探针的落盘件(`.workbuddy/mail-probe-last.json`,P9 同一个生产者写的),
+  // **只认 verdict==='ok' 且确实有收件人的那次** —— 探针说 ok 而台账一条都没寄出去,
+  // 那是"探针只验了握手、不代表真寄到人",此时 channelOkSinceMs 保持 0(不豁免任何欠账)。
+  // **必须可注入**(channelOkAtMs):夹具仓库里没有探针件,若让它回落去读**真机**的
+  // MAIL_PROBE_LAST,夹具造的台账(ts 更早)会被真机的探针时刻全数豁免 ⇒ 五态自检恒红,
+  // 而红的原因与被测逻辑无关。2026-10-03 实测踩过,判据自身没错是**取材没隔离**。
+  let channelOkSinceMs = Number.isFinite(channelOkAtMs) ? Number(channelOkAtMs) : 0
+  if (!Number.isFinite(channelOkAtMs)) {
+    try {
+      const probe = JSON.parse(readFileSync(MAIL_PROBE_LAST, 'utf8'))
+      const at = Number(probe?.atMs)
+      const smtp = probe?.probe?.channels?.smtp
+      const resend = probe?.probe?.channels?.resend
+      const anyOk = smtp?.verdict === 'ok' || resend?.verdict === 'ok'
+      if (anyOk && Number.isFinite(at) && at > 0) channelOkSinceMs = at
+    } catch {
+      /* 探针件取不到 ⇒ 视为"量不到通道何时好的" ⇒ 不豁免(方向:宁可多报,不得凭空洗掉欠账) */
+    }
+  }
   for (const f of files) {
     let parsed
     try {
@@ -685,6 +734,22 @@ export function checkUndeliveredAlertDebt({
         broken.push(`${f}#${name}:ts 不是数字`)
         continue
       }
+      // **通道故障期漏网 ⇒ 已被事实性覆盖,不计欠账(2026-10-03 立,P10 自我循环根治)**
+      // 立因:2026-09-26~09-30 `apps/api/.env` 缺 `ALERT_EMAIL_TO`,notifyGuardRed 在**派发前**
+      // 就失败 ⇒ 4 条被记 `delivered:false`;09-30T01:01 通道修好后这 4 个身份对应的底层故障
+      // (.env 漂移 / 合并吞并对账)**再未复发** ⇒ 没有任何同名告警去覆盖它们 ⇒ 欠账永久挂账。
+      // 后果是死循环:P10 红 → 寄信(P10 自己那封**寄成功了**,躺在"元运维巡检红 delivered:true"
+      // 里)→ 但成功投递只覆盖**同名**条目,覆盖不到这 4 个身份 → 下一轮 P10 仍红。
+      // 实测 115 轮判红、详情逐字去重仅 1 种(sha256 c1b33f15a1e1)、寄出 24 封。
+      // 判据:欠账 ts **早于**通道最近一次"有收件人且投递成功"的时刻 ⇒ 那次成功证明通道已通,
+      // 收件人当时正在收信,这几封漏网属通道故障期,不该永久追责。
+      // 口径说明:这是**事实性覆盖**(通道已恢复),不是"假定已读" —— 与下面人工裁决那条
+      // (`undelivered-debt-acks.json`,需 alert+fp+atTs 毫秒级逐字对上,实测 2 条裁决零命中、
+      // 形同虚设)不是一回事;后者留着,给"通道一直好、但某条确实没寄出去"那种真欠账用。
+      if (channelOkSinceMs > 0 && ts < channelOkSinceMs) {
+        coveredByChannel += 1
+        continue
+      }
       const waitMin = Math.round((now - ts) / 60000)
       if (waitMin < graceMs / 60000) continue
       if (acks.some((a) => ackCoversDebt({ ack: a, name, fp: v.fp, ts, now }))) {
@@ -703,6 +768,12 @@ export function checkUndeliveredAlertDebt({
     return { id, state: 'ok', detail: '台账存在但没有任何告警身份条目(首次发信前)' }
   const tail = []
   if (acked) tail.push(`已逐条裁过 ${acked} 条(裁的是那一笔,到期或复发即回红)`)
+  // 通道故障期漏网被事实性覆盖的条数也要报名 —— 免掉的东西必须可见,否则"欠账清零"会
+  // 变成一句没人能复核的话(本仓最高频失效型:把没判/没查写成判过了)。
+  if (coveredByChannel)
+    tail.push(
+      `另有 ${coveredByChannel} 条记于通道修复前(通道已实测恢复,那次成功投递证明收件人当时在收信 ⇒ 不计欠账)`,
+    )
   // 免掉的每一条都必须**当场对得上一次真投递** —— 否则那条裁决只是在替一个
   // 并没有发生过的清偿背书(实测:台账写 alert 而指纹留空,曾被读成"这一格已裁")。
   const proven = acks.filter((a) => usedAnchors.has(debtAnchor(a?.alert, a?.fp, a?.atTs)))
@@ -956,10 +1027,40 @@ export function checkClock({ now }) {
   const at = parseLastSync(text)
   if (at === null) return { id: 'P3', state: 'undetermined', detail: '两种标签都没解出"上次成功同步"—— 不猜' }
   const ageH = (now - at) / 3600000
+  const q = parseSyncQuality(text)
+  // 判红时必须带**可执行出口**(AGENTS §5e-1 出口 1):只报"上次同步 9 小时前"而不给
+  // 怎么修,收信人无从下手,这一格就退化成"每 4 小时提醒一次没人会动的机器态"。
+  // 另:detail 只写**绝对时刻**,不写"距今 N 小时" —— 本文件 P10 头注(:696)自己立过这条禁令
+  // (守护的发信指纹吃 detail,逐轮变动的数字 = 每轮一封新信,实测该格 28 次判红里
+  // 8.2→8.5→8.7 逐轮递增,每次都算"新故障")。此前 P3 违反了自己的禁令。
+  const quality = q ? ` | 同步状态:${q.unsynced ? '未同步' : '已同步'}(leap=${q.leap} 层次=${q.stratum})` : ' | 同步状态:未判定'
+  if (q?.unsynced)
+    return {
+      id: 'P3',
+      // **层次 0 降级为 undetermined,不是 finding**(2026-10-03 改判,此前 28 次判红全无效)。
+      // 立因:实测本机 `w32tm /resync` **执行成功**但时钟仍是 `Leap 3 / 层次 0` ——
+      // 根因是 **UDP/123 出站被宿主网络策略整体阻断**(实测 8.8.8.8:53 / 114.114.114.114:53 /
+      // 223.5.5.5:53 全可连,唯独 time.windows.com:123 与四个内网网关全超时)⇒
+      // 「w32tm /resync」这条出口在**能执行**的前提下依然无效,给了也修不好。
+      // §5e-1 出口 3:出口坏 + 事实为真但不可整改 ⇒ 报"未判定"并**报名**,
+      // 不再用 finding 每 4 小时教人忽略这封信。真出现"能 resync 却没同步"时
+      // (层次 ≥1 但 age 超阈),下面那条仍判红 —— 那一型是能靠 resync 修的。
+      state: 'undetermined',
+      detail: `上次成功同步 ${ISO(at)}${quality} —— **UDP/123 出站不可达 ⇒ 时钟无法被 NTP 校准(层次 0)**;` +
+        `此格降级为未判定登记(不是"忘了同步"):resync 已实测无效,不作为出口。` +
+        `若换到可达 NTP 源(内网源/放行 UDP 123),本格会自动回到正常判读。`,
+    }
+  if (ageH > LIMITS.ntpMaxAgeHours) {
+    return {
+      id: 'P3',
+      state: 'finding',
+      detail: `上次成功同步 ${ISO(at)}(已超阈 ${LIMITS.ntpMaxAgeHours} 小时)${quality} | 出路:w32tm /resync(需管理员;同步后本格自动转绿)`,
+    }
+  }
   return {
     id: 'P3',
-    state: ageH > LIMITS.ntpMaxAgeHours ? 'finding' : 'ok',
-    detail: `上次成功同步 ${ISO(at)}(${ageH.toFixed(1)} 小时前),阈 ${LIMITS.ntpMaxAgeHours} 小时`,
+    state: 'ok',
+    detail: `上次成功同步 ${ISO(at)} | 阈 ${LIMITS.ntpMaxAgeHours} 小时${quality}`,
   }
 }
 
@@ -1072,11 +1173,26 @@ export function checkGrowth({ devEnv }) {
   const one = (id, path, bytesLimit, entriesLimit) => {
     const m = measureDir(path)
     if (!m) return void out.push({ id, state: 'undetermined', detail: `量不到:${path}` })
-    const over = m.bytes > bytesLimit || (entriesLimit ? m.entries > entriesLimit : false)
+    const overBytes = m.bytes > bytesLimit
+    const overEntries = entriesLimit ? m.entries > entriesLimit : false
+    const over = overBytes || overEntries
+    // **越阈必须点名是哪一维 + 给出路**(AGENTS §5e-1 出口 1)。此前两个阈并排印出、
+    // 不说越的是哪一个,收信人只会盯着体积看(实测 P4a 3.72 GB **未**超 4 GB,越的是条目数
+    // 67595 > 60000),于是"清到 4 GB 以下"这件做不到的事成了唯一可见的下一步 ⇒ 129 次判红
+    // 零整改。出路要给能真跑的那条:Temp 下是探针/夹具残留,robocopy 镜像空目录即可
+    // (与 AGENTS §5e-2 的批量删除正解同一条)。
+    const which = [overBytes && `体积 ${(m.bytes / 1024 ** 3).toFixed(2)}>${(bytesLimit / 1024 ** 3).toFixed(0)}GB`, overEntries && `条目数 ${m.entries}>${entriesLimit}`]
+      .filter(Boolean)
+      .join(' 且 ')
+    const how = id.startsWith('P4a')
+      ? ' | 出路:robocopy 镜像空目录清该目录(AGENTS §5e-2;先确认无活跃句柄)'
+      : ''
     out.push({
       id,
       state: m.truncated ? 'undetermined' : over ? 'finding' : 'ok',
-      detail: `${(m.bytes / 1024 ** 3).toFixed(2)} GB / ${m.entries} 项${m.truncated ? '(达预算截断,不计结论)' : ''} | 阈 ${(bytesLimit / 1024 ** 3).toFixed(0)} GB${entriesLimit ? ` / ${entriesLimit} 项` : ''}`,
+      detail: over
+        ? `${(m.bytes / 1024 ** 3).toFixed(2)} GB / ${m.entries} 项 | 越阈:${which}${how}`
+        : `${(m.bytes / 1024 ** 3).toFixed(2)} GB / ${m.entries} 项 | 阈 ${(bytesLimit / 1024 ** 3).toFixed(0)} GB${entriesLimit ? ` / ${entriesLimit} 项` : ''}`,
     })
   }
   one('P4a', join(devEnv, 'Temp'), LIMITS.devenvTempBytes, LIMITS.devenvTempEntries)
@@ -2046,7 +2162,7 @@ function undeliveredDebtFixture() {
   const st = join(wb, 'git-guardian-notify-state.json')
   const write = (obj) => writeFileSync(st, JSON.stringify(obj), 'utf8')
   write({ 备份失败: { fp: 'a'.repeat(40), ts: now - 6 * 3600_000, delivered: false }, 已送达的: { fp: 'b'.repeat(40), ts: now - 6 * 3600_000, delivered: true } })
-  const red = checkUndeliveredAlertDebt({ repoRoot: repo, now })
+  const red = checkUndeliveredAlertDebt({ channelOkAtMs: 0, repoRoot: repo, now })
   if (red.state !== 'finding' || !red.detail.includes('备份失败')) return { ok: false, why: '挂账未判红或未点名身份' }
   if (red.detail.includes('已送达的')) return { ok: false, why: '把已送达的条目也算进欠账' }
   // 形状锁(不是等值锁):点名串里**不许出现任何随读数时刻变化的量**。
@@ -2055,17 +2171,17 @@ function undeliveredDebtFixture() {
   // 逐轮变动的数字 = 同一件故障每轮一封新信(AGENTS §5e;重复告警本身就是缺陷)。
   if (/已挂\s*\d+\s*分钟|距今/.test(red.detail))
     return { ok: false, why: `红档点名串含逐轮变动的量:${red.detail}` }
-  const again = checkUndeliveredAlertDebt({ repoRoot: repo, now })
+  const again = checkUndeliveredAlertDebt({ channelOkAtMs: 0, repoRoot: repo, now })
   if (again.detail !== red.detail) return { ok: false, why: '同一本台账两次结论不同形 ⇒ 逐轮新告警' }
   write({ 备份失败: { fp: 'a'.repeat(40), ts: now - 5 * 60_000, delivered: false } })
-  if (checkUndeliveredAlertDebt({ repoRoot: repo, now }).state !== 'ok') return { ok: false, why: '宽限期内的重发窗口被判成欠账' }
+  if (checkUndeliveredAlertDebt({ channelOkAtMs: 0, repoRoot: repo, now }).state !== 'ok') return { ok: false, why: '宽限期内的重发窗口被判成欠账' }
   write({ 旧形态条目: { fp: 'c'.repeat(40), ts: now - 9 * 3600_000 } })
-  const legacy = checkUndeliveredAlertDebt({ repoRoot: repo, now })
+  const legacy = checkUndeliveredAlertDebt({ channelOkAtMs: 0, repoRoot: repo, now })
   if (legacy.state !== 'ok' || !legacy.detail.includes('旧形态条目 1 条')) return { ok: false, why: '无 delivered 键的存量被当成红(上线即恒红型)' }
   write({ 备份失败: { fp: 'a'.repeat(40), ts: now - 6 * 3600_000, delivered: true } })
-  if (checkUndeliveredAlertDebt({ repoRoot: repo, now }).state !== 'ok') return { ok: false, why: '已清偿的账没回到绿' }
+  if (checkUndeliveredAlertDebt({ channelOkAtMs: 0, repoRoot: repo, now }).state !== 'ok') return { ok: false, why: '已清偿的账没回到绿' }
   writeFileSync(st, '{坏了', 'utf8')
-  const broken = checkUndeliveredAlertDebt({ repoRoot: repo, now })
+  const broken = checkUndeliveredAlertDebt({ channelOkAtMs: 0, repoRoot: repo, now })
   if (broken.state !== 'undetermined' || !broken.detail.includes('git-guardian-notify-state.json')) return { ok: false, why: '坏台账未落未判定或未点名文件' }
   rmSync(st, { force: true })
   const none = checkUndeliveredAlertDebt({ repoRoot: join(base, 'nope'), now })
@@ -2081,29 +2197,31 @@ function undeliveredDebtFixture() {
     owner: '机主',
     reviewBy: '2099-01-01',
   }
-  const ackedRow = checkUndeliveredAlertDebt({ repoRoot: repo, now, acks: [ackGood] })
+  const ackedRow = checkUndeliveredAlertDebt({ channelOkAtMs: 0, repoRoot: repo, now, acks: [ackGood] })
   if (ackedRow.state !== 'ok' || !ackedRow.detail.includes('已逐条裁过 1 条'))
     return { ok: false, why: `有效裁决没免掉欠账:${ackedRow.detail}` }
   if (ackedRow.detail.includes('从未到人')) return { ok: false, why: '已裁条目仍按"从未到人"判红' }
-  if (checkUndeliveredAlertDebt({ repoRoot: repo, now, acks: [{ ...ackGood, fp: 'b'.repeat(40) }] }).state !== 'finding')
+  if (checkUndeliveredAlertDebt({ channelOkAtMs: 0, repoRoot: repo, now, acks: [{ ...ackGood, fp: 'b'.repeat(40) }] }).state !== 'finding')
     return { ok: false, why: '指纹不匹配的裁决把欠账免了(= 一条静音挡掉未来所有同类)' }
   // 时刻档:同名同指纹的**另一笔**未送达必须照旧红。缺这一档,"上次我裁过"就自动免掉下一次复发
   // (同一件故障复发时 detail 只有绝对时刻 ⇒ 指纹常常就是同一个,单靠 fp 分不开两次)。
   if (
     checkUndeliveredAlertDebt({
+      channelOkAtMs: 0,
       repoRoot: repo,
       now,
       acks: [{ ...ackGood, atTs: new Date(now - 30 * 24 * 3600_000).toISOString() }],
     }).state !== 'finding'
   )
     return { ok: false, why: '时刻不符的裁决免掉了这一笔 ⇒ 一次裁决变成一个告警名的永久静音' }
-  if (checkUndeliveredAlertDebt({ repoRoot: repo, now, acks: [{ ...ackGood, atTs: undefined }] }).state !== 'finding')
+  if (checkUndeliveredAlertDebt({ channelOkAtMs: 0, repoRoot: repo, now, acks: [{ ...ackGood, atTs: undefined }] }).state !== 'finding')
     return { ok: false, why: '不带 atTs 的裁决仍生效(五件套退化成四件套 = 复发无声)' }
-  if (checkUndeliveredAlertDebt({ repoRoot: repo, now, acks: [{ ...ackGood, owner: '  ' }] }).state !== 'finding')
+  if (checkUndeliveredAlertDebt({ channelOkAtMs: 0, repoRoot: repo, now, acks: [{ ...ackGood, owner: '  ' }] }).state !== 'finding')
     return { ok: false, why: '缺 owner 的四件套不全也生效了' }
-  if (checkUndeliveredAlertDebt({ repoRoot: repo, now, acks: [{ ...ackGood, reviewBy: '2020-01-01' }] }).state !== 'finding')
+  if (checkUndeliveredAlertDebt({ channelOkAtMs: 0, repoRoot: repo, now, acks: [{ ...ackGood, reviewBy: '2020-01-01' }] }).state !== 'finding')
     return { ok: false, why: '已到期的裁决仍在免账 —— 抑制必须有终态' }
   const unmatched = checkUndeliveredAlertDebt({
+    channelOkAtMs: 0,
     repoRoot: repo,
     now,
     acks: [ackGood, { ...ackGood, alert: '一件早被真投递清偿了的事', fp: 'c'.repeat(40) }],
@@ -2420,6 +2538,12 @@ export async function selfTest() {
   t('英文标签 + 斜杠 + 单位数小时能解出时刻', parseLastSync(EN) === Date.parse('2026-09-29T03:37:00'))
   t('缺标签不得编造时刻', parseLastSync('没有这一行\nStratum :5') === null)
   t('有标签但日期形态认不出 ⇒ 未判定而非猜', parseLastSync('上次成功同步时间: 未知') === null)
+  // 同步状态位(2026-10-03 立,P3 补维):夹具逐字取自本机 GBK 输出实测三行。
+  const SYNC_BAD = 'Leap 指示符: 3(未同步)\r\n层次: 0 (未指定)\r\n上次成功同步时间: 2026/10/3 9:56:06'
+  const SYNC_GOOD = 'Leap 指示符: 0 (未指定)\r\n层次: 3 (secondary - synchronized)\r\n上次成功同步时间: 2026/10/3 9:56:06'
+  t('层次 0 / leap 3 ⇒ 判未同步(本机真实现:resync 成功但时钟没被校准)', (() => { const q = parseSyncQuality(SYNC_BAD); return !!q && q.unsynced === true && q.stratum === 0 })())
+  t('层次 ≥1 且 leap≠3 ⇒ 判已同步(不得把正常时钟误报)', (() => { const q = parseSyncQuality(SYNC_GOOD); return !!q && q.unsynced === false })())
+  t('同步状态位量不到 ⇒ null(调用方按未判定,**不猜**)', parseSyncQuality('只有一行无关文本') === null)
   const dir = join(REPO, 'scripts')
   const m = measureDir(dir)
   t('能量到真实目录且非空', !!m && m.entries > 0 && m.bytes > 0)
