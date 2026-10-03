@@ -26,6 +26,17 @@ import { vector1536 } from './knowledge-rag.js'
  * - language: 编程语言(ts/tsx/py/js/go/rs 等)
  * - symbolName: 符号名(函数名/类名,固定行数切片时为 null)
  * - symbolType: 符号类型(function/class/method/interface/type/module/fixed)
+ * - ownerUuid: **索引归属用户**(2026-10-03 数据出域合规整改新增)。
+ *   加这列的起因:本表存用户代码明文 + 向量,而原先**没有任何归属列** ——
+ *   repo_id 只是路径 hash(不是用户身份),读面 search()/hybridSearch() 的
+ *   repoId 又是可选参数,不传即跨全部仓库检索。等于"甲的代码可被乙检索到"。
+ *   归属隔离由应用层强制(v1-codebase-search.ts 每端点用 req.userId 过滤 +
+ *   codebase-index-service 每个方法把 ownerUuid 列入 WHERE 谓词);
+ *   **未**套 RLS 的原因见迁移 20261003020000 文件头(写入通道无 app.user_id
+ *   会话变量,套 RLS 会静默 0 行 = 功能坏而不报错)。判据留档在那里。
+ *   NULL = 存量无主行,已被迁移标记过期待清理。
+ * - expiresAt: 过期时间(2026-10-03 新增)。NULL = 永不过期,仅限明确选择
+ *   长期保留的索引;所有新写入都带默认 TTL,不再产生 NULL 行。
  */
 export const codebaseChunks = pgTable(
   'codebase_chunks',
@@ -41,11 +52,20 @@ export const codebaseChunks = pgTable(
     language: text('language'),
     symbolName: text('symbol_name'),
     symbolType: text('symbol_type'),
+    /** 索引归属用户;NULL = 存量无主行(见上)。ON DELETE SET NULL,见迁移。 */
+    ownerUuid: uuid('owner_uuid'),
+    /** 过期时间;清理任务按此列回收。NULL = 永不过期(仅显式长期保留)。 */
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
     repoFileIdx: index('ix_codebase_chunks_repo_file').on(t.repoId, t.filePath),
     repoIdx: index('ix_codebase_chunks_repo').on(t.repoId),
+    // 归属 + 仓库复合索引:应用层过滤恒为 (owner_uuid, repo_id[, expires_at]),
+    // 单列索引会让每次检索退化成"扫该用户全部切片再过滤过期"。
+    ownerRepoIdx: index('ix_codebase_chunks_owner_repo').on(t.ownerUuid, t.repoId),
+    // 清理任务驱动索引:只扫已到期那一小撮,不扫全表。
+    expiresAtIdx: index('ix_codebase_chunks_expires_at').on(t.expiresAt),
   }),
 )
 

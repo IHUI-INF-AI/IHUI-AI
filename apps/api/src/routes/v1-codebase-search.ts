@@ -80,6 +80,20 @@ export const codebaseSearchRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const b = parsed.data
+    // 2026-10-03 数据出域合规整改:本表存用户代码明文,归属过滤是无条件的。
+    //
+    // 身份一律取 preHandler 已认证的 req.userId —— **不从请求体取**(那样任何人都能
+    // 冒充别人的 userId 读别人的代码)。三条认证通道已在 auth.ts 内收敛到同一字段:
+    //   · 用户 JWT      → request.userId
+    //   · API Key       → request.apiKey.userId 合并进 request.userId(auth.ts:84)
+    //   · 内部服务 token → X-User-Id 头(已校验用户存在且活跃)→ request.userId
+    // 故这里无需再写一套解析器;取不到即视为未认证,拒绝(fail-closed)。
+    const ownerUuid = req.userId
+    if (!ownerUuid) {
+      return reply
+        .status(401)
+        .send(error(401, '无法确定调用者身份:代码索引按归属隔离,已拒绝查询'))
+    }
     try {
       const searchOpts = {
         query: b.query,
@@ -87,6 +101,7 @@ export const codebaseSearchRoutes: FastifyPluginAsync = async (server) => {
         language: b.language,
         topK: b.topK,
         scoreThreshold: b.scoreThreshold,
+        ownerUuid,
       }
       const chunks =
         b.mode === 'keyword'
@@ -104,8 +119,12 @@ export const codebaseSearchRoutes: FastifyPluginAsync = async (server) => {
   // GET /stats - 索引统计
   server.get('/stats', async (req, reply) => {
     const q = (req.query as { repoId?: string }) ?? {}
+    // 2026-10-03:统计数字同样按归属隔离(见 codebase-index-service.getStats 注释)
+    if (!req.userId) {
+      return reply.status(401).send(error(401, '无法确定调用者身份:代码索引按归属隔离'))
+    }
     try {
-      const stats = await codebaseIndexService.getStats(q.repoId)
+      const stats = await codebaseIndexService.getStats(q.repoId, req.userId)
       return reply.send(success(stats))
     } catch (e) {
       req.log.error(e)
@@ -120,8 +139,18 @@ export const codebaseSearchRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const b = parsed.data
+    // 2026-10-03:写入必须带归属。ownerUuid 取自已认证的 req.userId,调用方
+    // (ai-service codebase_indexer)经 X-User-Id 内部服务头注入该身份;
+    // 取不到就拒绝 —— 本表存用户代码明文,无主行是不该被创造出来的东西。
+    if (!req.userId) {
+      return reply.status(401).send(error(401, '无法确定调用者身份:拒绝写入无归属的代码索引'))
+    }
     try {
-      const result = await codebaseIndexService.indexChunks(b.repoId, b.chunks as ChunkInput[])
+      const result = await codebaseIndexService.indexChunks(
+        b.repoId,
+        b.chunks as ChunkInput[],
+        req.userId,
+      )
       return reply.send(success(result))
     } catch (e) {
       req.log.error(e)
@@ -140,6 +169,10 @@ export const codebaseSearchRoutes: FastifyPluginAsync = async (server) => {
     if (!repoId) {
       return reply.status(400).send(error(400, 'repoId 不能为空'))
     }
+    // 2026-10-03:删除面同样隔离(否则能删别人的索引 = 破坏性跨用户操作)
+    if (!req.userId) {
+      return reply.status(401).send(error(401, '无法确定调用者身份:代码索引按归属隔离'))
+    }
     const parsed = deleteFilesSchema.safeParse(req.body)
     if (!parsed.success) {
       return reply
@@ -147,7 +180,11 @@ export const codebaseSearchRoutes: FastifyPluginAsync = async (server) => {
         .send(error(400, parsed.error.issues[0]?.message ?? 'filePaths 不能为空'))
     }
     try {
-      const deleted = await codebaseIndexService.deleteByFiles(repoId, parsed.data.filePaths)
+      const deleted = await codebaseIndexService.deleteByFiles(
+        repoId,
+        parsed.data.filePaths,
+        req.userId,
+      )
       return reply.send(success({ deleted }))
     } catch (e) {
       req.log.error(e)
@@ -161,8 +198,11 @@ export const codebaseSearchRoutes: FastifyPluginAsync = async (server) => {
     if (!repoId) {
       return reply.status(400).send(error(400, 'repoId 不能为空'))
     }
+    if (!req.userId) {
+      return reply.status(401).send(error(401, '无法确定调用者身份:代码索引按归属隔离'))
+    }
     try {
-      const deleted = await codebaseIndexService.deleteByRepo(repoId)
+      const deleted = await codebaseIndexService.deleteByRepo(repoId, req.userId)
       return reply.send(success({ deleted }))
     } catch (e) {
       req.log.error(e)

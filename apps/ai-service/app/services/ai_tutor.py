@@ -211,7 +211,13 @@ async def _llm_json(
     try:
         parsed = _extract_json(content)
     except (json.JSONDecodeError, ValueError) as e:
-        logger.warning("ai_tutor JSON 解析失败: %s; content=%s", e, content[:200])
+        # 2026-10-03 数据出域合规整改:此处原样打印模型输出正文(最多 200~500 字),
+        # 模型输出常含用户提交内容的原样回显 ⇒ 日志成了无期限、无权限隔离的留存面。
+        # 改为只记长度 + 首部短预览:足以判断是「格式错」还是「被截断」,
+        # 又无法据此还原正文。要看内容请查带留存期与归属治理的 DB 记录。
+        logger.warning(
+            "ai_tutor JSON 解析失败: %s; content_len=%d content_head=%r", e, len(content), content[:80]
+        )
         return {**result, "parsed": None, "parse_error": str(e)}
     return {**result, "parsed": parsed}
 
