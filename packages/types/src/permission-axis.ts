@@ -24,6 +24,11 @@
 // 不得互相顶账;与单轴 PERMISSION_MODES 也不得互相替代 —— 单轴是对外 wire 契约,
 // 双轴是语义分解,二者经 PERMISSION_MODE_TO_AXIS 显式映射。
 
+// 2026-10-03:内联 `import('./permission-mode.js')` 类型注解违反
+// @typescript-eslint/consistent-type-imports(lint CI run 37112485297 实测),
+// 提为顶层 type-only import。
+import type { PermissionModeId } from './permission-mode.js'
+
 /** 沙箱轴(codex SandboxMode,kebab)。默认 read-only:只能读,写文件/联网被 OS 级沙箱拦。 */
 export const SANDBOX_MODES = [
   'read-only',
@@ -125,7 +130,7 @@ export function normalizeApprovalPolicy(raw: unknown): ApprovalPolicyId | null {
  * 消费方拿到 null 必须显式处理,不得回退到任一预设(同一类静默失效正是 G-161 要根治的)。
  */
 export const PERMISSION_MODE_TO_AXIS: Readonly<
-  Record<import('./permission-mode.js').PermissionModeId, AxisPair | null>
+  Record<PermissionModeId, AxisPair | null>
 > = {
   default: { sandboxMode: 'workspace-write', approvalPolicy: 'on-request' },
   plan: { sandboxMode: 'read-only', approvalPolicy: 'on-request' },
