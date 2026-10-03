@@ -126,6 +126,46 @@ const FRONTEND_ENDS = [
 /** 容得下各端真实扩展名(RN/extension 有 .js/.jsx 形态) */
 const FRONTEND_EXTS = ['.ts', '.tsx', '.js', '.jsx']
 
+/**
+ * ===== 探针端(2026-10-04 新增):只报数档,默认**不进扫描面** =====
+ *
+ * 票面说"只扫 apps/web、其余零判据"——**现读已不成立**(FRONTEND_ENDS 早已 7 端,
+ * 见上)。本轮实测真正**没有任何判据**、且面里确有真实(非注释)路径字面量的只有两处:
+ *   · `packages/shared/src/auth/sso-core.ts` —— `SSO_ENDPOINTS` 对象里 4 条 `/api/auth/sso/*`,
+ *     真由 `fetch(\`${apiBase}${SSO_ENDPOINTS.x}\`)` 发出(base 由宿主注入)。
+ *   · `packages/sdk/src/agent-engine.ts:292` —— `const RPC_PATH = '/api/engine/rpc'`。
+ * 其余含 `/api/` 的位置全在**注释**里(遮罩已判掉,见 use-agents/use-articles/use-login-form)。
+ *
+ * 为什么这一档**默认关**:票面要求"默认档读数一字不变"。新端一旦默认入面,输出会多出
+ * 6 行统计、staged 档的"暂存区无前端文件"提前退出条件也会变窄 —— 那都是既有调用者看得见的
+ * 变化。所以做成显式 opt-in:--probe-ends 才入面。
+ *
+ * 为什么这一档**永不判红**(与 `ratchet:true` 有本质区别,别混):
+ * `ratchet:true` = 存量走基线锚点、**新增仍判红**;探针端 = 连新增也不判红,
+ * 死调用只进统计桶。原因见 §12e:判据刚上就对新端判红 = 一台与任何提交都无关的恒红门,
+ * 唯一结局是逼人 `--no-verify`、连带废掉全部守门。先把真实存量量出来,再谈起点定在哪。
+ */
+const PROBE_ENDS = [
+  { name: 'shared-pkg', dir: 'packages/shared', probe: true },
+  { name: 'sdk', dir: 'packages/sdk', probe: true },
+  { name: 'auth-pkg', dir: 'packages/auth', probe: true },
+  { name: 'types-pkg', dir: 'packages/types', probe: true },
+  { name: 'mobile-cap', dir: 'apps/mobile-cap', probe: true },
+]
+/**
+ * 刻意**不**纳入的目录,以及为什么(纳了就是噪声,不是判据):
+ *  · `apps/desktop` —— `git ls-files` 实测 `.ts/.tsx/.js/.jsx` **0 个**(Tauri 壳 + `.mjs` 脚本,
+ *    而 `.mjs` 不在 FRONTEND_EXTS)。入面只会在每次跑都恒报"枚举到 0 个受管源文件",
+ *    那是一条永远红的假警报,不是判据。
+ *  · `packages/database` / `ui-react` / `ui-native` / `browser-platform` / `dom-actions` /
+ *    `context-compaction` / `design-tokens` —— 实测含 `/api/` 或 `/cozeZhsApi/` 字面量 **0 个**,
+ *    也没有自建传输口(`fetch(`/`axios`)命中;它们经 `@ihui/api-client` 调后端,
+ *    而那个包**已经在面里**(api-client)⇒ 同一批路径已在对账,再列一份是重复计数。
+ */
+const PROBE_MODE = process.argv.includes('--probe-ends')
+const ACTIVE_ENDS = PROBE_MODE ? [...FRONTEND_ENDS, ...PROBE_ENDS] : FRONTEND_ENDS
+const PROBE_END_NAMES = new Set(PROBE_ENDS.map((e) => e.name))
+
 const C = {
   red: '\x1b[31m',
   green: '\x1b[32m',
@@ -2754,7 +2794,7 @@ console.log(
 /** 前端调用面(四端)+ 后端基准面的路径清单,一次枚举、一次 prefetch ⇒ 清单与内容同面同轮 */
 const frontendRelsAll = []
 const endByFile = new Map()
-for (const end of FRONTEND_ENDS) {
+for (const end of ACTIVE_ENDS) {
   for (const rel of listFace(end.dir, FRONTEND_EXTS)) {
     endByFile.set(rel, end.name)
     frontendRelsAll.push(rel)
@@ -2970,7 +3010,7 @@ console.log(
 const allCalls = []
 /** 每端读数:扫了几个文件、抽出几处调用、几处取不到内容、几处"有传输口却抽不出路径"(未判定) */
 const endStats = new Map(
-  FRONTEND_ENDS.map((e) => [e.name, { files: 0, calls: 0, unreadable: 0, shapeUnknown: 0 }]),
+  ACTIVE_ENDS.map((e) => [e.name, { files: 0, calls: 0, unreadable: 0, shapeUnknown: 0 }]),
 )
 /**
  * 各端调用出口形态不同(RN/小程序经 @ihui/api-client、Taro 可能 Taro.request、扩展走 fetch),
@@ -3023,7 +3063,7 @@ if (frontendRels.length > 0) {
    * 表现永远是安静)。刻意**不改退出码**:这些端在多数提交里本就没有调用点,为此判红就是一台
    * 与改动无关的恒红门,唯一结局是逼人 `--no-verify`(§12e 同型)⇒ 只在结论行喊。
    */
-  const silentEnds = FRONTEND_ENDS.filter((e) => endStats.get(e.name).calls === 0)
+  const silentEnds = ACTIVE_ENDS.filter((e) => endStats.get(e.name).calls === 0)
   if (silentEnds.length > 0) {
     console.log(
       `${C.yellow}[API 路由比对] ⚠️ 本轮 0 个调用点的端:${silentEnds
@@ -3032,7 +3072,7 @@ if (frontendRels.length > 0) {
     )
   }
 }
-const faceEmptyEnds = FRONTEND_ENDS.filter((e) => endStats.get(e.name).files === 0)
+const faceEmptyEnds = ACTIVE_ENDS.filter((e) => endStats.get(e.name).files === 0)
 if (faceEmptyEnds.length > 0) {
   // 面里**一个受管源文件都没枚举到** ≠ 这一端干净:要么是目录搬走了,要么是枚举失效。
   // 判红会把"与本次提交无关的目录形态"算到提交者头上(恒红门,§12e),所以走 exit 0 + 大声点名,
@@ -3041,10 +3081,10 @@ if (faceEmptyEnds.length > 0) {
     `${C.yellow}[API 路由比对] ⚠️ 未判定:${faceEmptyEnds.map((e) => e.name).join(' / ')} 在 ${FACE} 面枚举到 0 个受管源文件(枚举失效或目录搬家,本轮对这一格没有判据)${C.reset}`,
   )
 }
-for (const e of FRONTEND_ENDS) {
+for (const e of ACTIVE_ENDS) {
   const s = endStats.get(e.name)
   console.log(
-    `${C.dim}  · ${e.name}:文件 ${s.files} / 调用 ${s.calls} / 取不到内容 ${s.unreadable} / 未判定(有传输口却抽不出路径)${s.shapeUnknown}${e.ratchet ? '(存量走棘轮)' : '(零容忍)'}${C.reset}`,
+    `${C.dim}  · ${e.name}:文件 ${s.files} / 调用 ${s.calls} / 取不到内容 ${s.unreadable} / 未判定(有传输口却抽不出路径)${s.shapeUnknown}${e.probe ? '(探针档·只报数·永不判红)' : e.ratchet ? '(存量走棘轮)' : '(零容忍)'}${C.reset}`,
   )
 }
 
@@ -3407,10 +3447,19 @@ if (baselineSrc === null || baselineSrc === undefined) {
   }
 }
 
+/**
+ * 判红集合。**探针端必须在这里被显式排除**(`PROBE_END_NAMES`)——
+ * 探针端既不在 `RATCHET_ENDS` 里,若只靠上面那行 `!RATCHET_ENDS.has(end)` 兜底,
+ * 它们会**掉进 webViolations 兜底桶**(零容忍那档)⇒ 探针档立刻变成 blocking,
+ * 正是本档要防的那件事(§12e 恒红门)。所以单列一条判据,不依赖"名单里没有"这种隐式兜底。
+ */
 const webViolations = realMissing.filter((c) => {
   const end = endByFile.get(c.file)
+  if (end && PROBE_END_NAMES.has(end)) return false
   return !end || !RATCHET_ENDS.has(end)
 })
+/** 探针端死调用:只进这个统计桶,不进 webViolations / ratchetNew / countsByFile(基线也不写它) */
+const probeMissing = PROBE_MODE ? realMissing.filter((c) => PROBE_END_NAMES.has(endByFile.get(c.file))) : []
 const ratchetStock = []
 const ratchetNew = []
 const ratchetNoAnchor = []
@@ -3442,6 +3491,38 @@ for (const e of FRONTEND_ENDS.filter((x) => x.ratchet)) {
   const totalStock = stock.reduce((a, s) => a + s.count, 0)
   console.log(
     `${C.dim}  · ${e.name}:死调用 ${totalStock + fresh.reduce((a, s) => a + s.count, 0)} 处 = 存量(基线内,只报数)${totalStock} + 新增(判红)${fresh.reduce((a, s) => a + s.count, 0)};基线已失效的登记行 ${staleLedger.filter((f) => endByFile.get(f) === e.name).length}${C.reset}`,
+  )
+}
+
+/**
+ * 探针档统计(2026-10-04):逐端报"扫了多少调用点 / 其中多少条疑似调了不存在的接口",
+ * 并**逐条列名**。这一段只写 stdout,**不进 webViolations / ratchetNew / 基线 / 退出码**
+ * —— 判据、豁免、退出码一字不动(§12e:先把存量量出来,再谈起点定在哪)。
+ * 人工裁决要靠这份名单,只给个数字没法判"是真问题还是形态没认出来"。
+ */
+if (PROBE_MODE) {
+  console.log(
+    `${C.cyan}[API 路由比对] 探针档(--probe-ends,只报数·永不判红):以下 ${PROBE_ENDS.length} 端本轮不参与任何判红${C.reset}`,
+  )
+  for (const e of PROBE_ENDS) {
+    const st = endStats.get(e.name)
+    const dead = probeMissing.filter((c) => endByFile.get(c.file) === e.name)
+    const ignoredN = ignored.filter(
+      (c) => endByFile.get(c.file) === e.name,
+    ).length
+    console.log(
+      `${C.dim}  · ${e.name}:文件 ${st.files} / 调用点 ${st.calls} / 疑似不存在 ${dead.length} / 已豁免 ${ignoredN} / 未判定(有传输口却抽不出路径)${st.shapeUnknown}${C.reset}`,
+    )
+    for (const c of dead.slice(0, 20)) {
+      console.log(`${C.yellow}      ⚠︎ ${c.method} ${c.path} @ ${c.file}:${c.line}${C.reset}`)
+    }
+    if (dead.length > 20) console.log(`${C.dim}      ... 还有 ${dead.length - 20} 条${C.reset}`)
+  }
+  const probeTotal = probeMissing.length
+  console.log(
+    probeTotal === 0
+      ? `${C.green}[API 路由比对] 探针档合计:${probeTotal} 条疑似不存在(5 端存量 0 ⇒ 这几端目前可原样接进正式面)${C.reset}`
+      : `${C.yellow}[API 路由比对] 探针档合计:${probeTotal} 条疑似不存在 —— **本档不判红**;请逐条人工裁决(真问题 / 形态未识别=误报)后再决定起点,不要直接 --no-verify 绕过${C.reset}`,
   )
 }
 
