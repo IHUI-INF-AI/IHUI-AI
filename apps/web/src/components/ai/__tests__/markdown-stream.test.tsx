@@ -511,4 +511,62 @@ describe('MarkdownStream — G-842 代码块 header 显示语言名/文件名', 
     expect(c3.querySelector('[data-testid="syntax-highlighter"]')).toBeNull()
   })
 })
+// ─────────────── G-824(2026-10-03):内联表格工具栏(DOM 回读→复制 GFM) ───────────────
+//
+// 票面验收点名本文件。本组只钉"接进了 table() 且回读的是渲染后的真实 DOM":
+// 逐字比对剪贴板内容与 markdown 源表 —— 分隔行在、且与用户看到的表一致。
+// 纯函数层(readRowsFromTable/buildMarkdownTableText)的分支覆盖在
+// markdown-table-toolbar.test.tsx,两组不重复计账。
+
+describe('MarkdownStream — G-824 内联表格工具栏', () => {
+  const writeText = vi.fn()
+
+  beforeEach(() => {
+    writeText.mockReset()
+    writeText.mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    })
+  })
+
+  it('markdown 表格挂上工具栏', () => {
+    const { container } = render(<MarkdownStream content={'| a | b |\n| --- | --- |\n| 1 | 2 |'} />)
+    expect(container.querySelector('[data-testid="markdown-table-toolbar"]')).toBeTruthy()
+    expect(container.querySelector('table')).toBeTruthy()
+    // 横向滚动容器仍在(爆炸半径不许挪走既有布局)
+    expect(container.querySelector('table')?.parentElement?.className).toContain('overflow-x-auto')
+  })
+
+  it('点复制 ⇒ 得到含分隔行的 GFM 表,且与源表逐字一致', async () => {
+    const source = '| 姓名 | 角色 |\n| --- | --- |\n| 张三 | 前端 |'
+    const { container } = render(<MarkdownStream content={source} />)
+
+    fireEvent.click(container.querySelector('[data-testid="markdown-table-copy"]') as HTMLElement)
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
+    const copied = writeText.mock.calls[0][0] as string
+    expect(copied).toBe(source)
+    // 显式钉住分隔行(票面验收原话)
+    expect(copied.split('\n')[1]).toBe('| --- | --- |')
+  })
+
+  it('反例:表格被中途改过 ⇒ 复制的是改后的 DOM,不是 markdown 源码', async () => {
+    const { container } = render(<MarkdownStream content={'| a |\n| --- |\n| 1 |'} />)
+    const cell = container.querySelector('tbody td') as HTMLTableCellElement
+    cell.textContent = '999'
+
+    fireEvent.click(container.querySelector('[data-testid="markdown-table-copy"]') as HTMLElement)
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
+    const copied = writeText.mock.calls[0][0] as string
+    expect(copied).toBe('| a |\n| --- |\n| 999 |')
+    expect(copied).not.toContain('| 1 |')
+  })
+
+  it('反例:无表格的 markdown 不出现工具栏(不凭空长一个)', () => {
+    const { container } = render(<MarkdownStream content={'普通段落，无表格。'} />)
+    expect(container.querySelector('[data-testid="markdown-table-toolbar"]')).toBeNull()
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

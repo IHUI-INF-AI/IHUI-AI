@@ -28,6 +28,7 @@ import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 import { useDebounce } from '@/hooks/use-debounce'
 import { cn } from '@/lib/utils'
+import { MarkdownTableBlock } from './markdown-table-toolbar'
 import { IconButton } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { useWorkPanelStore } from '@/stores/work-panel'
@@ -1018,14 +1019,10 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
           </MarkdownLink>
         )
       },
-      // 表格:外层包 overflow-x-auto 容器,移动端可横向滚动
-      // 2026-08-02:表格字号同步放大 14px → 15px
+      // 表格:G-824 抽出 MarkdownTableBlock(工具栏 + 横向滚动容器 + 真实 <table> ref)。
+      // 表格节点之外一字未动,流式切分与 memo deps 不碰。
       table({ children }) {
-        return (
-          <div className="my-0 overflow-x-auto">
-            <table className="my-0 w-full border-collapse text-[15px]">{children}</table>
-          </div>
-        )
+        return <MarkdownTableBlock>{children}</MarkdownTableBlock>
       },
       thead({ children }) {
         return <thead className="bg-muted/50">{children}</thead>
