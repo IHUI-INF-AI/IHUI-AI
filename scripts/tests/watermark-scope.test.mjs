@@ -28,7 +28,15 @@ import { watermarkPreflight } from '../object-space-land.mjs'
 
 const REPO = join(import.meta.dirname, '..', '..')
 const GIT = (cwd, args) =>
-  execFileSync('git', ['-c', 'safe.directory=*', ...args], { cwd, encoding: 'utf8', windowsHide: true })
+  // EBUSY 根治(errno -4082):本机会话里 Node 建子进程 stdin 管道确定性失败。
+  // 2026-10-03:本夹具没写 stdio ⇒ S1/S2/S3/S9 四条红在 'spawnSync git EBUSY' 上,
+  // 而 S3恰恰是"空跟踪清单必须报 error"那一格 —— 命令没跑成时它测不到任何东西。
+  execFileSync('git', ['-c', 'safe.directory=*', ...args], {
+    cwd,
+    encoding: 'utf8',
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
 
 /** 造一个最小 git 仓:1 个已跟踪、1 个未跟踪未忽略、1 个被 .gitignore 忽略。 */
 function fixtureRepo(t) {
