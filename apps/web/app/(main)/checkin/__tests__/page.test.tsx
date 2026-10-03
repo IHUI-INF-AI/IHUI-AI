@@ -54,18 +54,15 @@ vi.mock('lucide-react', () => {
 vi.mock('@ihui/ui-react', () => {
   const Passthrough =
     (tag: string, testId?: string) =>
-    ({ children, ...rest }: React.PropsWithChildren<Record<string, unknown>>) => (
-      <div data-testid={testId ?? tag} {...rest}>
-        {children}
-      </div>
-    )
+    function Passthrough({ children, ...rest }: React.PropsWithChildren<Record<string, unknown>>) {
+      return (
+        <div data-testid={testId ?? tag} {...rest}>
+          {children}
+        </div>
+      )
+    }
   return {
-    Button: ({
-      children,
-      variant,
-      size,
-      ...rest
-    }: React.PropsWithChildren<{ variant?: string; size?: string } & Record<string, unknown>>) => (
+    Button: ({ children, ...rest }: React.PropsWithChildren<Record<string, unknown>>) => (
       <button {...rest}>{children}</button>
     ),
     Input: (props: React.InputHTMLAttributes<HTMLInputElement>) => <input {...props} />,
