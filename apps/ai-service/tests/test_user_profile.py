@@ -27,10 +27,19 @@
 
 from __future__ import annotations
 
+import ast
+import inspect
+import sys
+import textwrap
 from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
 import pytest
 
+from app.services._load_lifecycle import LOAD_BACKOFF_MAX_S as _MAX_S
+from app.services._load_lifecycle import (
+    LOAD_MAX_CONSECUTIVE_FAILURES as _MAX_CONSECUTIVE_FAILURES,
+)
 from app.services.user_profile import (
     _DIMENSIONS,
     _TYPE_TO_DIMENSION,
@@ -1220,4 +1229,287 @@ class TestIntegration:
         assert updated["totalMemories"] == 2
         # content 追加
         assert "新偏好" in pref["content"]
+
+
+# =============================================================================
+# G-759(2026-10-03):user_profile.get_status() 的 loadState 对外投影
+# —— 形状与 memory_decay(G-759 第3 步)同族一致:per-key 字典 ⇒ 六键聚合形状。
+# 注入机制照抄 tests/test_loader_failure_not_frozen.py 的 _FakeConn / _FakeClock。
+# 本模块走 fetchrow(不是 fetch):_try_load_profile 用 `if not row` 判"权威的空",
+# 所以"读到空"= None,"读到画像"= {"profile": "<json>"}。
+# =============================================================================
+
+
+class _FakeConn:
+    """fetchrow 按 outcomes 序列给出;Exception 项抛错;序列耗尽 ⇒ AssertionError。
+
+    "耗尽即抛"是判据的一部分:固化之后任何多余的 DB 调用都必须炸出来,
+    而不是静默返回空 —— 后者正好复刻本票要防的"把没读到当读到空"。
+    """
+
+    def __init__(self, outcomes: list) -> None:
+        self._outcomes = list(outcomes)
+        self.calls = 0
+
+    def _pop(self, kind: str):
+        self.calls += 1
+        if not self._outcomes:
+            raise AssertionError(
+                f"{kind} 在已无预设结果时被再次调用(不应再打 DB)"
+            )
+        out = self._outcomes.pop(0)
+        if isinstance(out, BaseException):
+            raise out
+        return out
+
+    async def fetch(self, *args):
+        return self._pop("fetch")
+
+    async def fetchrow(self, *args):
+        return self._pop("fetchrow")
+
+    async def execute(self, *args) -> None:
+        """DDL / 自愈建表通道:不消耗预设、不计入 calls。"""
+        return None
+
+
+class _AcquireCtx:
+    def __init__(self, conn: _FakeConn) -> None:
+        self._conn = conn
+
+    async def __aenter__(self) -> _FakeConn:
+        return self._conn
+
+    async def __aexit__(self, *exc: object) -> bool:
+        return False
+
+
+class _FakePool:
+    def __init__(self, conn: _FakeConn) -> None:
+        self._conn = conn
+
+    def acquire(self) -> _AcquireCtx:
+        return _AcquireCtx(self._conn)
+
+
+class _FakeClock:
+    """替换 user_profile._monotonic:模拟退避时间流逝,不真 sleep。"""
+
+    def __init__(self) -> None:
+        self.t = 1000.0
+
+    def __call__(self) -> float:
+        return self.t
+
+    def advance(self, seconds: float) -> None:
+        self.t += seconds
+
+
+def _inject_up(monkeypatch, conn: _FakeConn) -> _FakeClock:
+    """把 user_profile 的 _get_pool / _monotonic 换成假件(注入点=本模块)。"""
+    clock = _FakeClock()
+    monkeypatch.setattr("app.services.user_profile._monotonic", clock)
+
+    async def _get_pool() -> _FakePool:
+        return _FakePool(conn)
+
+    monkeypatch.setattr("app.services.user_profile._get_pool", _get_pool)
+    return clock
+
+
+async def test_up_load_state_never_tried_before_any_key(monkeypatch):
+    """空 per-key 字典 ⇒ never_tried(不是"全部已加载")。
+
+    这一档必须显式落定:空库若被读成 loaded,运维会以为"所有用户的画像都读到了"。
+    """
+    _inject_up(monkeypatch, _FakeConn([]))
+    up = UserProfileBuilder()
+
+    status = up.get_status()
+    assert status["loadState"] == "never_tried"
+    assert status["trackedKeys"] == 0
+    assert status["loadedKeys"] == 0
+    # 全称口径:没有任何 key ⇒ 不是"全部已加载"
+    assert status["allKeysLoaded"] is False
+    assert status["maxLoadFailures"] == 0
+    assert status["loadStateByUser"] == {}
+    assert status["gaveUpKeys"] == []
+
+
+async def test_up_load_state_per_key_four_states(monkeypatch):
+    """同一进程内多个 key 分别落在四档,最坏档 = gave_up。
+
+    覆盖 never_tried(未访问的 key 不进字典,靠"另一个 key 加载完"制造的混合态)
+    / retry_backoff / loaded / gave_up 四档逐档可读出。
+    """
+    uid_backoff = str(uuid4())
+    uid_gave_up = str(uuid4())
+    uid_loaded = str(uuid4())
+    uid_untouched = str(uuid4())
+    # 前 1 次给 backoff 那个 key,后 5 次给 gave_up 那个 key,最后 1 次给 loaded。
+    # 本模块走 fetchrow:None = "该用户无画像行"= 权威的空,允许固化。
+    outcomes: list = [ConnectionError("backoff #1")]
+    outcomes += [ConnectionError(f"gaveup #{i}") for i in range(_MAX_CONSECUTIVE_FAILURES)]
+    outcomes += [None]
+    conn = _FakeConn(outcomes)
+    clock = _inject_up(monkeypatch, conn)
+    up = UserProfileBuilder()
+
+    # 档② 退避中:读失败不置该 key 的 loaded
+    await up._ensure_loaded(uid_backoff)
+    assert conn.calls == 1
+    rec = up._load_records[uid_backoff]
+    assert rec.loaded is False
+    assert rec.failures == 1
+    assert up.get_status()["loadStateByUser"][uid_backoff] == "retry_backoff"
+
+    # 档③ 放弃:失败到上限 ⇒ 停止自动重试,但 loaded 仍 False
+    for _ in range(_MAX_CONSECUTIVE_FAILURES):
+        clock.advance(_MAX_S + 1.0)  # 每次都跨过退避窗口
+        await up._ensure_loaded(uid_gave_up)
+    assert up._load_records[uid_gave_up].failures == _MAX_CONSECUTIVE_FAILURES
+    assert up._load_records[uid_gave_up].loaded is False
+    # 放弃后不再打 DB(有界);耗尽即抛的 _FakeConn 会把多余调用炸出来
+    calls_before = conn.calls
+    clock.advance(_MAX_S + 1.0)
+    await up._ensure_loaded(uid_gave_up)
+    assert conn.calls == calls_before
+
+    # 档④ 已固化:读到"无画像行"(成功)允许固化,且此后不再打 DB
+    await up._ensure_loaded(uid_loaded)
+    assert up._load_records[uid_loaded].loaded is True
+    assert up._load_records[uid_loaded].failures == 0
+
+    status = up.get_status()
+    # 最坏档 = gave_up(severity 最高),压过同库里的 loaded 与 retry_backoff
+    assert status["loadState"] == "gave_up"
+    # per-key 明细:各档的 key 都可定位(untouched 的 key 根本没进字典)
+    assert status["loadStateByUser"][uid_backoff] == "retry_backoff"
+    assert status["loadStateByUser"][uid_gave_up] == "gave_up"
+    assert status["loadStateByUser"][uid_loaded] == "loaded"
+    assert uid_untouched not in status["loadStateByUser"]
+    # gaveUpKeys 只收真正放弃的那批(不得把退避中的也算进去)
+    assert status["gaveUpKeys"] == [uid_gave_up]
+    # 聚合口径:loaded 只有 1/3 ⇒ 全称 False;失败次数取最坏值
+    assert status["trackedKeys"] == 3
+    assert status["loadedKeys"] == 1
+    assert status["allKeysLoaded"] is False
+    assert status["maxLoadFailures"] == _MAX_CONSECUTIVE_FAILURES
+
+
+async def test_up_load_state_worst_case_ordering(monkeypatch):
+    """最坏档选取:混合档位下 severity 最高的那档胜出。
+
+    逐个"喂"进不同档位的 key,验证 loaded < retry_backoff < gave_up 的次序,
+    且一旦有 key 退避,全库 loadState 就不是 loaded(部分读不到 ≠ 读到)。
+    """
+    conn = _FakeConn([None, ConnectionError("transient")])
+    clock = _inject_up(monkeypatch, conn)
+    up = UserProfileBuilder()
+
+    uid_ok = str(uuid4())
+    uid_bad = str(uuid4())
+
+    await up._ensure_loaded(uid_ok)
+    # 只有 loaded 与 never_tried 混合时,最坏档是 loaded(空字典分支不适用)
+    status = up.get_status()
+    assert status["loadState"] == "loaded"
+    assert status["loadStateByUser"] == {uid_ok: "loaded"}
+    assert status["allKeysLoaded"] is True  # 全部(唯一)key 都已固化
+
+    await up._ensure_loaded(uid_bad)
+    # 掺进一个退避中的 key ⇒ 最坏档降级为 retry_backoff,全称不再成立
+    status = up.get_status()
+    assert status["loadState"] == "retry_backoff"
+    assert status["allKeysLoaded"] is False
+    assert status["loadedKeys"] == 1
+    assert status["trackedKeys"] == 2
+    assert status["maxLoadFailures"] == 1
+    assert status["gaveUpKeys"] == []
+    assert clock is not None
+
+
+def test_up_get_status_load_state_has_no_fifth_state():
+    """形状锁:投影词汇只许来自 _load_lifecycle 四档,不得新增第五档。
+
+    同 tests/test_crash_budget_b76.py 的口径 —— crash-loop-stopped 是崩溃预算
+    的终态,与"读不到"的四档不同义,不得混进 loadState 的取值域。
+    """
+    from app.services import _load_lifecycle as ll
+
+    allowed = {
+        ll.STATE_LOADED,
+        ll.STATE_NEVER_TRIED,
+        ll.STATE_RETRY_BACKOFF,
+        ll.STATE_GAVE_UP,
+    }
+    seen = set()
+    for failures, loaded in (
+        (0, False),
+        (1, False),
+        (ll.LOAD_MAX_CONSECUTIVE_FAILURES - 1, False),
+        (ll.LOAD_MAX_CONSECUTIVE_FAILURES, False),
+        (ll.LOAD_MAX_CONSECUTIVE_FAILURES, True),
+        (0, True),
+    ):
+        seen.add(ll.state_label(loaded=loaded, failures=failures))
+    assert seen == allowed
+    assert "crash-loop-stopped" not in seen
+
+    # 本模块源码不得写死四档字面量(词汇表唯一来源 = _load_lifecycle)
+    src = inspect.getsource(sys.modules[UserProfileBuilder.__module__])
+    for literal in ('"never_tried"', '"retry_backoff"', '"gave_up"'):
+        assert literal not in src, f"user_profile 又抄了一份词汇:{literal}"
+
+
+def test_up_get_status_does_not_reuse_singleton_scalar_keys(monkeypatch):
+    """形状锁:不得复用单例族的 `loaded` / `loadFailures` 键名。
+
+    依据:本模块载体是 per-key 字典,同名两键在"该值随哪个主体变化"上与单例族
+    根本不同(单例=自己那一次;这里=全库聚合)。同名不同义会让下游读错,所以
+    聚合值一律用 allKeysLoaded / maxLoadFailures,并在此钉死。
+    """
+    from app.services._load_lifecycle import LoadRecord
+
+    up = UserProfileBuilder()
+    rec = LoadRecord()
+    rec.loaded = True
+    up._load_records["u1"] = rec
+
+    status = up.get_status()
+    assert "loaded" not in status
+    assert "loadFailures" not in status
+    # 聚合口径的两个键在,且语义是全称/最坏
+    assert status["allKeysLoaded"] is True
+    assert status["maxLoadFailures"] == 0
+    assert monkeypatch is not None
+
+
+def test_up_get_status_is_unrelated_to_load_profile_helper():
+    """`load_profile()`(取画像内容,另一义)与本投影互不影响。
+
+    依据:user_profile.py:500 `async def load_profile(self, user_id)` 按 user_id
+    返回**画像内容**(`dict | None`),其 docstring 已写明"返回 None 分不出'无画像'
+    与'读不到'"。它讲"画像是什么",本投影讲"画像读到了没有"。本投影既不改它,
+    也不从它派生字段 —— 用例钉住:调过它之后 loadState 不受其返回值影响。
+    """
+    up = UserProfileBuilder()
+    # 该方法存在且是 async(另一义的既有契约,本票不动它)
+    assert inspect.iscoroutinefunction(UserProfileBuilder.load_profile)
+    # 本族**没有** memory_decay:499 那类 _load_state() 同形方法(不得凭空断言有)
+    assert not hasattr(UserProfileBuilder, "_load_state")
+    # 投影不依赖取画像内容的出口:一个 key 都没加载时恒为 never_tried
+    assert up.get_status()["loadState"] == "never_tried"
+    assert "loadState" not in inspect.getsource(UserProfileBuilder.load_profile)
+    # get_status 的**代码**不引用 load_profile(逐个 Name/Attribute 节点查)。
+    # 用 AST 而不是整段源码:docstring 里必须点名声明它是另一义(那是本票要求的),
+    # 所以只能判"代码引用",不能判"文本出现"。getsource 取回的是带缩进的片段,
+    # 必须先 dedent 才能喂给 ast.parse。
+    _fn = ast.parse(textwrap.dedent(inspect.getsource(UserProfileBuilder.get_status))).body[0]
+    _refs = {
+        n.id for n in ast.walk(_fn) if isinstance(n, ast.Name)
+    } | {
+        n.attr for n in ast.walk(_fn) if isinstance(n, ast.Attribute)
+    }
+    assert "load_profile" not in _refs
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

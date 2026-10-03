@@ -40,10 +40,25 @@ from ._load_lifecycle import (
     DECISION_LOADED as _DECISION_LOADED,
 )
 from ._load_lifecycle import (
+    STATE_GAVE_UP as _STATE_GAVE_UP,
+)
+from ._load_lifecycle import (
+    STATE_LOADED as _STATE_LOADED,
+)
+from ._load_lifecycle import (
+    STATE_NEVER_TRIED as _STATE_NEVER_TRIED,
+)
+from ._load_lifecycle import (
+    STATE_RETRY_BACKOFF as _STATE_RETRY_BACKOFF,
+)
+from ._load_lifecycle import (
     LoadRecord,
 )
 from ._load_lifecycle import (
     monotonic as _monotonic,
+)
+from ._load_lifecycle import (
+    state_label as _load_state_label,
 )
 
 logger = logging.getLogger(__name__)
@@ -151,6 +166,94 @@ class UserProfileBuilder:
                 rec.apply_success()
             else:
                 rec.apply_failure(now)
+
+    # ==================================================================
+    # 状态查询(G-759:loadState 对外投影)
+    # ==================================================================
+
+    def get_status(self) -> dict[str, Any]:
+        """返回用户画像的加载生命周期投影(供运维/状态出口读)。
+
+        G-759(2026-10-03):G-748 把"读失败也固化"收回了同一份判据
+        (_load_lifecycle.state_label),但本模块**没有对外出口** ——
+        上面 :141 那条 give_up warning 只有日志,运维读不到"有哪些用户的画像读不到、
+        哪些已经放弃自动重试"。本方法补这一层。
+
+        ① **形态差异:per-key 字典,不是单例标量。**
+        meta_learner / federated_learner / ab_test_tracker 是**单例标量**
+        (`_loaded: bool` / `_load_failures: int`);本模块的载体是
+        `self._load_records: dict[str, LoadRecord]`(per user_id,见 :103 与 :132),
+        "有没有人在放弃"这件事**只对 per-key 才有意义** —— 单例只有一个状态,
+        不存在"最坏档"。所以本投影按"全库聚合"给,而不是逐 user_id 展开
+        (展开等于把 user_id 全量吐进状态面,既读不出严重度、又放大响应体)。
+
+        ② **投影形状与依据。**
+        - `loadState` = **最坏档**(severity 取最高:never_tried < loaded <
+          retry_backoff < gave_up)。依据:运维的问题是"有没有人在放弃",不是
+          "平均处于什么档";取最坏档让 give_up 永远压过 retry_backoff 与
+          loaded,一眼可判。**取值域仍是 _load_lifecycle 的四档**,不新增第五档
+          (crash-loop-stopped 属崩溃预算,是另一域,见 tests/test_crash_budget_b76.py)。
+        - `allKeysLoaded` / `maxLoadFailures`:⚠️ **刻意不用 `loaded` /
+          `loadFailures` 这两个单例族键名**。同名不同义是最坏的下游陷阱:单例族的
+          `loaded` 是"**我这一次**读到没有",本模块若也用 `loaded` 却表达
+          "**所有 user_id** 都读到没有",两者在"该值随哪个主体变化"上根本不同
+          —— 部分 key 读不到时单例读法会以为"读到了"。故改名并把口径写进键名:
+          - `allKeysLoaded` = **全称**:全部 key 都已固化。空字典时为 False
+            (见下面那条显式分支);部分 key 读不到时为 False。
+          - `maxLoadFailures` = 各 key 失败次数的**最大值**(与 loadState 的
+            取最坏口径同向;不用 sum —— sum 会让"一个 key 挂 5 次"与
+            "五个 key 各挂 1 次"不可比,而这两种严重度完全不同)。
+          逐 key 精确值走 `loadStateByUser`,这里不假装只有一个标量。
+        - `loadStateByUser`:per-key 明细(user_id → 那一档),供定位到人。
+        - `gaveUpKeys`:已放弃自动重试的 user_id 清单(最需要人工介入的那批)。
+        - `trackedKeys` / `loadedKeys`:分母与分子,让 `allKeysLoaded` 的全称可核对。
+          **刻意不报 `_profiles` 规模**:`_profiles` 是全用户混在一起的画像缓存,报它会
+          诱导下游把"某用户读不到"读成"全库没有画像"—— 正是本票要修的歧义。
+
+        ③ **本族无 `_load_state()`,但有另一义的 `load_profile()`。**
+        已逐行核过:本文件**没有** `_load_state()`(memory_decay:499 那类同形方法在此
+        不存在),故无同形伪命中。真正需要声明的是 :500 `async def load_profile(
+        self, user_id)`:它是**另一义** —— 按 user_id 取**画像内容**的出口,返回
+        `dict | None`,且其 docstring 已写明"返回 None **分不出**'无画像'与'读不到'"。
+        它讲的是"画像是什么",本投影讲的是"画像读到了没有";本方法**不改它、不从它
+        派生任何字段**。`grep loadState` 会在它附近伪命中(`load_profile` 字面近),
+        那是另一义,不要按本投影读它。
+
+        四态词汇只有一份实现,本模块**不写死任何四档字面量**;最坏档的比较用
+        共享常量,单档判定转发 LoadRecord.state_label()。
+        """
+        by_user: dict[str, str] = {
+            user_id: rec.state_label() for user_id, rec in self._load_records.items()
+        }
+        # 最坏档:用共享常量定 severity,不给四档字面量(见上)。
+        _severity = {
+            _STATE_NEVER_TRIED: 0,
+            _STATE_LOADED: 1,
+            _STATE_RETRY_BACKOFF: 2,
+            _STATE_GAVE_UP: 3,
+        }
+        # 没有任何 key 时:_load_records 为空 ⇒ 从未尝试过(不是"全部已加载")。
+        # 这一分支必须显式落定,否则空库会被下面的 all() 读成 loaded。
+        if not by_user:
+            worst = _load_state_label(loaded=False, failures=0)
+        else:
+            worst = max(by_user.values(), key=lambda label: _severity[label])
+        loaded_keys = [uid for uid, label in by_user.items() if label == _STATE_LOADED]
+        return {
+            "loadState": worst,
+            # ⚠️ 聚合口径(非单例族的"我这一次"):全称 / 最坏值。见 docstring ②。
+            "allKeysLoaded": len(loaded_keys) == len(by_user) and bool(by_user),
+            "maxLoadFailures": max(
+                (rec.failures for rec in self._load_records.values()),
+                default=0,
+            ),
+            "loadStateByUser": dict(sorted(by_user.items())),
+            "gaveUpKeys": sorted(
+                uid for uid, label in by_user.items() if label == _STATE_GAVE_UP
+            ),
+            "trackedKeys": len(by_user),
+            "loadedKeys": len(loaded_keys),
+        }
 
     # ==================================================================
     # 全量画像构建
