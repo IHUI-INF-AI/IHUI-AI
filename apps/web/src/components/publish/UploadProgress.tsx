@@ -17,6 +17,7 @@ import * as React from 'react'
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { clampPercent } from '@ihui/shared'
 
 export type UploadStatus = 'uploading' | 'success' | 'error'
 
@@ -60,7 +61,7 @@ const STATUS_BAR_CLASS: Record<UploadStatus, string> = {
 export function UploadProgress({ progress, fileName, status, fileSize }: UploadProgressProps) {
   const t = useTranslations('publish')
   const Icon = STATUS_ICON[status]
-  const clamped = Math.max(0, Math.min(100, progress))
+  const clamped = clampPercent(progress)
   const labelKey =
     status === 'uploading'
       ? 'uploadProgress'
