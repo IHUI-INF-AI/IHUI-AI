@@ -216,6 +216,9 @@ const EXEMPT_PORTS = new Set([
   9222, // Chrome/Edge CDP --remote-debugging-port(browser 工具)
   9919, // MCP OAuth loopback 回调口(mcp_oauth_realnet_e2e.py,同 1738 SSO loopback 类)
   8901, // deploy-online.ps1 文档中本机参考验证端口(注释文本,非运行时配置)
+  // 2026-10-03 立:收敛 --all 全量扫描慢性红(均为测试 fixture / 注释示例,非 dev/宿主映射端口)
+  59999, // egress-retry-safety.ts 头注引用的 Node 原生错误消息示例(connect ECONNREFUSED),注释文本
+  7800, // check-service-binary-paths.mjs 探针自检 fixture(模拟对端 192.168.1.37:7800 观测端点)
 ])
 
 // 豁免文件路径模式(不扫描)
@@ -238,6 +241,9 @@ const EXEMPT_PATH_PATTERNS = [
   /\.github\/workflows\//, // CI workflows(豁免)
   /apps\/api\/tests\//, // API 测试默认值(豁免)
   /apps\/ai-service\/tests\//, // AI-Service 测试默认值(豁免)
+  /apps\/cli\/tests\//, // CLI 测试默认值(豁免,2026-10-03 补:plugin git-guard/url-shape/min-version fixtures)
+  /apps\/web\/src\/lib\/__tests__\//, // web lib 测试 netstat/lsof/ss fixture(豁免)
+  /scripts\/tests\//, // 守门脚本镜像测试 fixtures(豁免)
   /apps\/api\/scripts\//, // API 运维脚本(豁免)
   /apps\/cli\/src\/lib\/sso\.ts$/, // CLI SSO loopback 回调(设计端口 1738)
   /\.env\.example$/, // 环境变量模板(包含第三方工具端口示例)
