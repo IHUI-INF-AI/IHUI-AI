@@ -26,6 +26,7 @@ import { readFileSync, existsSync, mkdtempSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..')
@@ -118,7 +119,7 @@ function checkRealRepo() {
 
 /** 内置红/绿对照:证明这把尺子有牙(缺出口的 fixture 必红,在位的必绿)。 */
 function selfTest() {
-  const dir = mkdtempSync(join(tmpdir(), 'sse-watermark-selftest-'))
+  const dir = mkScratch("sse-watermark-selftest-")
   try {
     const good = join(dir, 'good.ts')
     writeFileSync(

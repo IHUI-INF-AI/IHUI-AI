@@ -64,6 +64,7 @@ import {
   selectFace,
 } from './lib/face-reader.mjs'
 import { COLORS as C } from './lib/logger.mjs'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const ROOT = process.cwd()
 const argv = process.argv.slice(2)
@@ -366,7 +367,7 @@ function isCandidateExitModule(source) {
 async function materializeAndImport(libSources, candidatePaths) {
   const nsByPath = new Map()
   const undetermined = []
-  const tmpRoot = mkdtempSync(join(tmpdir(), 'g663-probe-'))
+  const tmpRoot = mkScratch("g663-probe-")
   const tmpByPath = new Map()
   for (const [relPath, source] of libSources) {
     const tmpFile = join(tmpRoot, relPath.split('/').pop())
@@ -411,7 +412,7 @@ function loadBaseline(root, face) {
 
 /** 构造面自检:正反例必须成对;T6(注入即红)是票面验收①,T14(真模块绿)是票面验收②的探针面。 */
 async function selfTest() {
-  const tmpRoot = mkdtempSync(join(tmpdir(), 'g663-selftest-'))
+  const root = mkScratch("g663-selftest-")
   const probeEnv = { IHUI_SECRETS_ROOT: tmpRoot }
   let bad = 0
   const check = (label, cond) => {
@@ -427,7 +428,7 @@ async function selfTest() {
   }
   const judge = (relPath, ns, baselineMap = {}) => {
     // 每用例独立临时根:探针"态二"会建出子目录,共用根会把"态一"污染成存在态(T1 之后全炸)。
-    const root = mkdtempSync(join(tmpdir(), 'g663-selftest-'))
+    tmpRoot = mkScratch("g663-selftest-")
     try {
       return judgeModuleExports({
         relPath,
