@@ -225,6 +225,8 @@ export * from './endpoints/agent-usage.js'
 export * from './endpoints/ai-pricing.js'
 // Deep Research 深度研究(2026-09-07 工作线 B)
 export * from './endpoints/research.js'
+// 签到助手(2026-10-03 立,ai-service /api/checkin)
+export * from './endpoints/checkin.js'
 export * from './endpoints/ai.js'
 export * from './endpoints/ai-media.js'
 export * from './endpoints/auth.js'
