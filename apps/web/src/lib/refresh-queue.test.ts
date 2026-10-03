@@ -16,7 +16,7 @@ describe('refresh-queue(b75-1#3)', () => {
           resolvers.push(r)
         }),
     )
-    let key = 'ws-1'
+    const key = 'ws-1'
     const q = createRefreshQueue({
       fetcher,
       getKey: () => key,
@@ -97,4 +97,3 @@ describe('refresh-queue(b75-1#3)', () => {
     expect(q.isInFlight()).toBe(false)
   })
 })
-

@@ -197,7 +197,7 @@ describe('D64 ② 图片预览器装车', () => {
     vi.stubGlobal('URL', { createObjectURL: () => 'blob:x', revokeObjectURL: () => {} })
     // 组件把 revoke 推迟 1s(真浏览器里同 tick revoke 会掐掉下载)。这里**只截 1s 那一档**、
     // 其余原样转发 —— waitFor 自己靠 setTimeout 轮询,整个换掉它就是把测试挂死(第一版就撞在这)。
-    let revokeLater: Array<() => void> = []
+    const revokeLater: Array<() => void> = []
     const realSetTimeout = window.setTimeout.bind(window)
     window.setTimeout = ((fn: TimerHandler, ms?: number, ...args: unknown[]) => {
       if (ms === 1000 && typeof fn === 'function') {
