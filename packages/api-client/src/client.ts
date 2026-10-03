@@ -2755,10 +2755,12 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   // "手上状态属于哪个代际/纪元/位点" —— 没有它,会话重建/fork/rewind 后
   // id 仍能对上而内容属于另一个纪元,消费端会静默拼接两个纪元的状态。
   const frameWatermarkRef = { current: null as FrameWatermarkCursor | null }
-  let frameGapDropped = 0
+  // 2026-10-03 lint-strict:两枚计数器为刻意只写的丢帧留痕(b76-13 票2),
+  // 尚无读取方 —— 按守门允许口径加 `_` 前缀登记"故意未读",接入诊断面时摘帽。
+  let _frameGapDropped = 0
   // b76-13 票2:字段级结构不变量的 typed fault 计数(读环侧;shared 侧同表
   // 判据见 SSE_FRAME_SCHEMAS —— 丢帧必须留痕,不冒充解析成功)
-  let sseFrameSchemaFaults = 0
+  let _sseFrameSchemaFaults = 0
   // 水位闸:帧带**完整**水位字段时才判(读不出 ⇒ undetermined 原样放行,生产端
   // 未下发水位的旧帧零行为变化);gap/死帧 ⇒ 丢弃且计数 —— 不进渲染、不推进游标,
   // 重连后从服务端快照重建,绝不把残帧算成"已应用"。
@@ -2775,7 +2777,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     const read = readFrameWatermark(parsed)
     if (read.verdict === 'undetermined') return false
     if (read.verdict === 'invalid') {
-      frameGapDropped++
+      _frameGapDropped++
       return true
     }
     const cursor = frameWatermarkRef.current
@@ -2790,7 +2792,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     }
     const gap = isFrameGap(cursor, read.watermark)
     if (gap !== null) {
-      frameGapDropped++
+      _frameGapDropped++
       return true
     }
     frameWatermarkRef.current = { ...cursor, seq: read.watermark.toSeq }
@@ -3468,7 +3470,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
             // 缺席/坏型是"截断了却不知道截掉多少"的假话帧 ⇒ typed fault 丢弃且计数
             // (不冒充解析成功,也不放行);对照:装饰字段(output,见下)坏了只降级。
             if (json.truncated === true && typeof json.totalChars !== 'number') {
-              sseFrameSchemaFaults++
+              _sseFrameSchemaFaults++
               return
             }
             const evt: TerminalEndEvent = {

@@ -39,6 +39,17 @@ export const teamMemories = pgTable(
     sourceUserId: uuid('source_user_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+
+/**
+ * 过期时间(2026-10-03 数据出域合规整改加列)。
+ *
+ * 本表此前**没有任何清理路径** —— 不是"有机制但没开",是机制根本不存在,
+ * 而它存的是用户内容。对标智谱 ZCode 事件里的"未经知情长期留存"。
+ *
+ * 档位 365 天:团队级资产(多人共用),过早清理会让团队知识断层
+ * NULL = 永不过期,仅限显式选择长期保留;清理任务按本列分批回收。
+ */
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
   },
   (t) => ({
     scopeIdx: index('ix_team_memories_scope').on(t.scopeId),
