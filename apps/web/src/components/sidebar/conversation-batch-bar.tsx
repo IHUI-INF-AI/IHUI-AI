@@ -6,7 +6,7 @@
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Archive, ArchiveRestore, Trash2 } from 'lucide-react'
+import { Archive, ArchiveRestore, FolderOpen, Trash2 } from 'lucide-react'
 import type { BatchConversationAction } from '@ihui/api-client'
 import { Button, Checkbox } from '@ihui/ui-react'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
@@ -40,6 +40,8 @@ export interface ConversationBatchBarProps {
   onInvert: () => void
   /** 发起批量动作(delete 会先走二次确认,由本组件内部拦下) */
   onBatch: (action: BatchConversationAction) => void
+  /** D165:移动所选到分组(打开目标分组对话框,单选/批量共用同一提交面) */
+  onMoveToGroup: () => void
   /**
    * 「取消选择」= 清空选中,但**留在**多选态。
    * 退出多选态的开关是标题行那枚 aria-pressed 的切换按钮,不重复一个出口:
@@ -58,6 +60,7 @@ export function ConversationBatchBar({
   onToggleAll,
   onInvert,
   onBatch,
+  onMoveToGroup,
   onCancel,
 }: ConversationBatchBarProps) {
   const t = useTranslations('chatHistory')
@@ -93,6 +96,16 @@ export function ConversationBatchBar({
           data-testid="batch-invert"
         >
           <span>{t('invertSelection')}</span>
+        </Button>
+        <Button
+          variant="ghost"
+          size="xs"
+          onClick={onMoveToGroup}
+          disabled={disabled}
+          data-testid="batch-move-to-group"
+        >
+          <FolderOpen className="mr-1 h-3.5 w-3.5" />
+          <span>{t('moveSelectedToGroup')}</span>
         </Button>
         <Button
           variant="ghost"
