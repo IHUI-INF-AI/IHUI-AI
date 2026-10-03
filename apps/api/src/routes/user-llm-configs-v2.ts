@@ -529,7 +529,12 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
   server.post('/llm-providers', async (request, reply) => {
     const parsed = createProviderSchema.safeParse(request.body)
     if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      // G-718:具名透传 zod issues 的字段 path(不再只回第一条 message),
+      // 客户端 toast 能点名是哪个字段不合法
+      const detail = parsed.error.issues
+        .map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`)
+        .join('; ')
+      return reply.status(400).send(error(400, detail || '参数错误'))
     }
     const data = parsed.data
     if (!ALLOWED_PROVIDER_CODES.has(data.providerCode)) {
@@ -576,7 +581,11 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
     if (!p.success) return reply.status(400).send(error(400, '无效的 ID'))
     const body = updateProviderSchema.safeParse(request.body)
     if (!body.success) {
-      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+      // G-718:同上,具名透传 issues path
+      const detail = body.error.issues
+        .map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`)
+        .join('; ')
+      return reply.status(400).send(error(400, detail || '参数错误'))
     }
     const id = p.data.id
     const userId = request.userId!

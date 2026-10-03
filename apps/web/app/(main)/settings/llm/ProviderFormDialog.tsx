@@ -123,23 +123,33 @@ export function ProviderFormDialog({
     onError: (e: Error) => toast.error(t('saveFailed'), { description: e.message }),
   })
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!form.name.trim()) {
-      toast.error(t('nameRequired'))
-      return
-    }
+  /** G-718(2026-10-03):具名 invalid field —— 收集**全部**非法字段(不再第一条早退),
+   * 逐条带字段定位,一次性报给用户并聚焦第一个;field 值与下方 JSX 的 htmlFor/id
+   * 一一对应,聚焦不会落空。 */
+  function collectInvalidFields(): Array<{ field: string; labelKey: string }> {
+    const invalid: Array<{ field: string; labelKey: string }> = []
+    if (!form.name.trim()) invalid.push({ field: 'name', labelKey: 'name' })
     if (!isEdit && !form.providerCode.trim()) {
       // templates 未加载好时(触发器变成 muted 显示,用户无法选择)→ 直接拦截,提示重试
-      toast.error(t('templatesNotReady'))
-      return
+      invalid.push({ field: 'providerCode', labelKey: 'platform' })
     }
-    if (!form.id && !form.apiKey.trim()) {
-      toast.error(t('keyRequired'))
-      return
-    }
+    if (!form.id && !form.apiKey.trim()) invalid.push({ field: 'apiKey', labelKey: 'apiKey' })
     if (form.providerCode === 'custom' && !form.baseUrlOverride.trim()) {
-      toast.error(t('baseUrlRequired'))
+      invalid.push({ field: 'baseUrlOverride', labelKey: 'baseUrl' })
+    }
+    return invalid
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const invalid = collectInvalidFields()
+    if (invalid.length > 0) {
+      // 具名报错:点名列出全部非法字段(标签走既有 i18n 键,五语齐),聚焦第一个
+      toast.error(t('invalidFieldsToast'), {
+        description: invalid.map((f) => t(f.labelKey)).join(', '),
+      })
+      const first = invalid[0]
+      if (first) document.getElementById(first.field)?.focus()
       return
     }
     saveMut.mutate(form)
