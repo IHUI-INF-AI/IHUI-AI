@@ -39,6 +39,9 @@ const git = (args) =>
     encoding: 'utf8',
     windowsHide: true,
     maxBuffer: 1 << 28,
+    // EBUSY 根治(errno -4082):本机会话里 Node 建子进程 stdin 管道确定性失败。
+    // 本helper 全部调用点都是**只读** git(ls-files/ls-tree/diff/rev-parse/show),一律不吃 stdin。
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 
 /** 纯判据(供自测直接调用):返回 null = 放行,返回字符串 = 拦截理由 */
