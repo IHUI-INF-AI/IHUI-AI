@@ -523,38 +523,6 @@ tail -20 .workbuddy/git-guardian.log        # 自愈审计流水(健康时不写
 
 - **告警/运维到人只有邮件一条通道**。此前并行的第三方推送腿(免费额度 5 条/天的推送网关 + 其凭据环境变量/密钥文件/状态文件)已**整体摘除**:代码、环境变量读取、状态文件读写、文档段落均不留残余;摘除原因与演进记录只存在于 PROJECT_PLAN/归档。第三方凭据文件按策略不删(删凭据不是本仓动作),只是不再被任何代码读取。
 - **配额模型 = 只按身份去重、无总量封顶**:同一条告警(alertname+instance 指纹)在去重窗口(默认 4h)内只寄一封,不同告警一律照寄。"每日 N 封"计数闸全部禁止 —— 第三方额度是**他人配额**,撞顶即静默丢投递,自保才有意义;SMTP 是我们自己的,自设总量上限等于把"告警静默"再复制一遍。显式开关(`BRIDGE_MAIL_ENABLED` 这类)只允许关"要不要发",不得关"发几封"。
-
-### 5e-1. 告警的"可整改性"准入(强制,2026-10-03 立,27 封同因告警根治)
-
-**一条判据挂到到人通道之前,必须先回答:它红了,收到信的人能做什么?** 答不上来 ⇒ 不许挂。
-
-- **反例(本条的立因)**:盘根卫生(`scripts/check-disk-root-hygiene.mjs`)判 `G:\` 一级条目是否在 `config/disk-root-allowlist.json` 的封闭集合内。其中 `G:\.pytest_tmp` 与 `G:\.pytest_tmp_runs` 是 **pytest 基础设施的设计落点**(`apps/ai-service/pyproject.toml` 的 `--basetemp=../../../.pytest_tmp` + `tests/conftest.py` 的 `pytest_configure` per-run 隔离树),每跑一次测试必然 `rm_rf` + 重建 —— 收信人**无论怎么做都消不掉**。于是 2026-09-30 立尺至 10-03 三周里同一原因寄出 **27 封**(约每轮巡检一封),而违规条目集合**逐字未变**。这不是"提醒得不够勤",是训练收信人忽略这封信。
-- **三个出口,按序选**:
-  1. **能整改** ⇒ 保留告警,但必须同时给出**可执行的下一步**(具体命令/路径/回收方式)。只报"违规存在"而不给出路,等同于制造噪声。
-  2. **不能整改但合法**(如 pytest basetemp 落点:落仓内会让"仓库外"场景用例撞真实 `.git` 全翻车,RUN5 实证;落系统 TEMP 会让全量 20 worker 的每用例 tmp SQLite 在 7200rpm HDD 上 fsync 饱和,25 个用例各被拖到 ~84s)⇒ **进白名单并写明理由**。白名单是声明式封闭集合,新增条目必须显式改配置并随 commit 提交(= 显式审批),理由不许只写"看起来无害"。
-  3. **不能整改且不合法,判据本身有问题** ⇒ 拆判据或撤掉这格到人通道,改挂日志。
-- **配套:到人通知的"同一故障"必须按稳定语义身份判,不得吃明细清单**。`notifyGuardRed` 的去重指纹若取自告警正文全文,而正文是**会自然抖动的清单**(worktree 列表、待清文件列表),则多会话并发增删条目时清单一动指纹就变,`shouldAlert` 判"新故障"立即重发,去重窗口形同虚设。⇒ 调 `notifyGuardRed` 时传 `dedupKey`,身份只取**违规类别 + 计数**,明细仍进正文(不丢诊断价值)。注意配套的 `stableAlertFingerprint` **刻意不做数字归一** —— `alertFingerprint` 把 `\d+` 一律打成 `#`(为压"38→39 个路径"这类实时计数抖动),若复用它,`stray=2` 与 `stray=5` 会撞同一指纹,**真实恶化被静默**。压抖动不得压事实。
-- **验收口径**:判据在**"内容逐字不变"**的状态下连续观察 ≥3 个去重窗口,寄出封数必须等于故障真实发生次数,而不是巡检轮数。`node scripts/check-disk-root-hygiene.mjs --strict` 与 `.workbuddy/git-guardian.log` 的 `判红通报已寄出` 计数是现读入口。
-
-### 5e-2. 删除类运维动作不得推回用户(强制,2026-10-03 立)
-
-- **推回用户 = 违规**。"需要你手动跑 X / 你在界面上点 Y 才生效"这类话**禁止对用户说**。删除残留、清缓存、回收 worktree、重启服务、拉起进程都是 agent 自己的活:自己查端口/进程/占用,自己清,清完自己健康验证,然后只汇报结果。判据同 `~/.workbuddy/MEMORY.md` 的"运维动作不许推回用户"。
-- **唯一例外是"需要用户职权"的动作**(付费授权、对外发消息、删别人工具的凭据),判据是**权限/授权在用户手里**,不是"我做不到"。**"我被某道门挡住了"不是例外理由** —— 那是"还没找到正确路径"。
-- **大批量删除的正解是 `robocopy /MIR` 镜像空目录,不是逐文件删**(2026-10-03 实证,1.5G / 9.9 万文件 3.5 分钟清零):
-
-  ```powershell
-  New-Item -ItemType Directory -Force -Path "G:\t-empty" | Out-Null
-  robocopy "G:\t-empty" "G:\t-x" /MIR /NFL /NDL /NJH /NJS /NP /R:1 /W:1
-  Remove-Item "G:\t-x","G:\t-empty" -Force -Recurse   # robocopy 只清空内容,空壳要另删
-  ```
-
-  - **为什么不用 node `fs.rmSync` 逐文件/分批**:宿主 safe-delete bulk guard 阈值 50 文件/**turn**,分批只在**多次进程调用**间重置计数,单进程内分批无效 ⇒ 9.9 万文件要 2000 次进程调用(约 2 小时)。**探针结论:计数按 turn,不按调用**。
-  - **为什么 `robocopy` 有效**:它是独立进程,不经 node 的 fs 层 ⇒ 不触发该守卫。exit code **2 = 额外文件已删除(成功)**,≥8 才是真失败。
-  - **删大目录前先 `rename` 到短路径**:`G:\IHUI-AI\.worktrees\x` 这类深路径下 `git worktree remove` 会报 `Filename too long` 留下残壳(失败时**不会**自动 deregister,须补 `git worktree prune`),而残壳目录体积不减、又撞守卫。`renameSync` 到 `G:\t-x` 形态可一次解掉两个问题 —— **rename 不删文件,不受删除守卫管**。
-  - **Git Bash 传参会吞 robocopy 的 `/MIR`**(报用法帮助),必须走 PowerShell 工具调。
-
-- **递归删除前必须先核验三件事**:① 已从 `git worktree list` 等登记面摘除;② 无进程持有(`tasklist` 实测);③ 无未入库工作(未提交改动逐条看过、唯一提交已被 ref 兜底)。三项缺一不许删,要在提交正文里写明核验结果。本机实例(`api-head-wt`):三件均过 —— 已 deregister、无进程持有、唯一提交 `c0bdc7b448` 在对象库可恢复,且其 1.4G 内容全是 `pnpm install` 可重建的 `.pnpm` 依赖 + 与主仓重复的源码副本,零独有内容。
-
 - **失败必须响**:第三方推送时代"邮件只是兜底、失败可以忍"的前提已不存在。邮件寄不出去必须留可诊断痕迹(日志吼 + UNDELIVERED 标记文件,参照 `scripts/check-credential-health.mjs` 的 `UNDELIVERED` 机制与 bridge `alert-bridge-mail-UNDELIVERED.json`),下一次成功投递自动清除;不得静默。
 - **发信一律经 `apps/api/scripts/notify-deploy-failure.ts`,不得在任何脚本里自拼 SMTP/Resend**(版式唯一真相源 `apps/api/src/services/email-templates.ts`,由守门 81 `check-brand-email-channel.mjs` 硬拦)。**通道与 From 的硬事实**:① 优先 SMTP,且经 `smtp.qq.com` 中继时 **From 的邮箱段必须等于登录账号**,否则被 550 拒 —— 旧规则"发件人统一 `智汇AI官方 <IHUI-AI@aizhs.top>`"配 QQ 账号正是本条成因(SMTP 恒被拒 → 恒回落纯文本 Resend → 用户收到的邮件永远没样式);② `aizhs.top` 只在 **Resend(已验证域)** 通道作 From,回落链 SMTP → Resend 且 payload 必带 `html`;③ 多行中文正文必须走 `--message-file`(无 BOM UTF-8),命令行参数会过一层控制台代码页(GBK);④ 调用方**一律不得传 `--env-file`**(tsx v4 会劫持它转发给 node,路径不存在时 node 直接 `exit 9`)。运维告警收件人由 `apps/api/.env` 的 `ALERT_EMAIL_TO` 控制(缺该键 ⇒ `alert-notification-service` 的 email 通道被整条排除,含数据库备份缺失 / 24h 错误超阈 / AI 资讯源失败 / 转发配额四类告警,且只在全通道皆空时才 warn)。
 - **凭据残留的两类处置边界(2026-09-24 实测划定)**:① **服务环境块**里已无人读取的推送键要**事务式**摘除 —— `nssm set … AppEnvironmentExtra` 是**整块覆盖**语义,同块往往还挂着别的关键值(本机 `IHUI-DEPLOYLOOP` 块内就有 `IHUI_ADMIN_PASSWORD`),写坏等于把部署环打回"凭据过期"那次两天冻结。正确姿势 = 先 `reg` 读整块 → 备份到 `D:\DevEnv\backups\env\` → 只滤掉目标前缀 → **逐条逐字节比对剩余项全等**才 `SetValue` → 写回后**再读再比**,不等即从备份整块还原(本机实测:`IHUI_ADMIN_PASSWORD` 摘前/摘后 SHA 同为 `43CA897ACBFC`,条数 2→1)。② **HKCU 用户级同名键不得摘**:它不是本仓遗留,`~/.workbuddy/skills/serverchan` 与 `~/.agents/skills/serverchan` 的 `SKILL.md` 声明 `env_vars: SERVERCHAN_SENDKEY`、`scripts/send.sh` 直接读它 —— 删了是**删别人工具的凭据**,§5e 说的"本仓代码不再读"从不等于"全机无人读"。同理,孤儿运行态文件(如 `deploy/win/.sct-notify-state.json`,实测 mtime 停在生成方被移除的那一刻、全仓唯一引用是一道**断言它不得存在**的反向测试)可删,而"名字像垃圾"不构成删除依据。
@@ -797,8 +765,6 @@ pnpm dev                                       # 启动所有服务(web + api + 
   - worktree 内正常开发 + commit(本地 sha 可引用;worktree 无 node_modules,hook 必败,可 `--no-verify`)
   - 完成后回主 worktree `git cherry-pick <sha>` 收编,随主 worktree push
   - 收编后立即 `git worktree remove .worktrees/wt-<任务名>` + `git worktree prune`
-  - **临时探针 worktree 收编后必须立即回收,不许"等会儿再清"(2026-10-03 立,4.7GB 实证)**:盘根卫生守门 H2 维会把落点外的登记 worktree 逐条点名,而这一格是**真能整改**的(回收即可)⇒ 守门点名是有效提醒,**收到就必须当场清,不许留到下一轮**。2026-10-03 现读 4 个落点外 worktree 全部是探针残留(`g1018220-headwt` / `redline-probe-*` / `wt-probe2` / `api-head-wt`,合计 4.7GB),且 `wt-probe2` 里躺着 `ZZPROBE` 这种纯探针改动 —— 逐个核验无未入库工作后回收,盘根读数从「外流 2 / 落点外 4」归零。**探针 worktree 应当建在 `.worktrees/` 下**,建成 `DevEnv/Temp/ihui-scratch/` 或 `.ihui-agent/tmp/` 形态就是自造违规。
-  - **`git worktree remove` 失败不会自动 deregister,残壳目录留在盘内(2026-10-03 实证)**:深路径形态(`G:\IHUI-AI\.ihui-agent\tmp\api-head-wt`,1.5G / 9.9 万文件)下 `remove` 报 `error: failed to delete '...': Filename too long` 而**中途放弃**,此时 `git worktree list` 里该项已消失(看着像清了)但**磁盘目录完好无损、体积不减**。三步收口:① `git worktree prune` 清登记面;② `renameSync(<深路径>, 'G:/t-x')` 换短路径(rename **不删文件** ⇒ 不受宿主 safe-delete 守卫管,同时解掉 MAX_PATH);③ `robocopy G:/t-empty G:/t-x /MIR` 镜像空目录清空(见 §5e-2 的完整命令与 exit code 读法)。**只看到 `git worktree list` 干净就收工 = 假绿**。
 - **worktree 内约束**:venv/node_modules 各自安装;端口不得冲突(docs/port-management.md 注册表);共享 DB/Redis 时 schema 迁移互斥。
 - **守门兜底(2026-08-31 已落地)**:即使未用 worktree,守门已支持 staged-scope 降级防误伤——① `check-api-routes.mjs`(pre-commit 第 8 项)仅收集暂存区前端文件调用点,暂存区无前端文件→跳过,暂存区为空(手动跑)→保持全量;② 新增 `scripts/check-typecheck.mjs` 包装 push 门全量 typecheck(**判据 = 本次改动范围**:优先 `PUSH_SCOPE_FILES`(pre-push 依 git 传入的 remote_sha..local_sha 计算),暂存区仅兜底;报错文件均不在改动范围内→降级警告放行;解析不到报错文件=tsc 未真正运行→按失败,宁误拦不放过);③ `.husky/pre-push` 第 2 段接入 `node scripts/guardian-runner.mjs --push-gate` 编排。自检:`node scripts/check-typecheck.mjs --self-test`(新增样例 8-12 覆盖 refspec push 与 Next.js 路由组括号路径)。
   - **2026-09-03 push-scope 修复(必读,曾致 push 反复被硬拦)**:原判据只用暂存区,而 `git push <sha>:<ref>` 这类 refspec 推送**不产生暂存区**,若此刻他人也没 staged 文件,降级直接失效 → 他人并行会话的半编辑态报错(实测 miniapp-taro TS1005、web TS2345,单独复验均 0 错误)会硬拦本次 push。故 pre-push 先缓冲 stdin(`PUSH_REFS="$(cat)"`)再回喂 git-lfs,并据 `remote_sha..local_sha` 计算改动文件导出 `PUSH_SCOPE_FILES`;改动文件 >300 时清空该变量退回暂存区兜底(env 有长度上限,截断会漏判→宁可不降级)。同修一处不安全缺陷:tsc 报错正则原排除括号,把 `app/(main)/xxx.tsx` 截断成 `/xxx.tsx`,导致范围内文件匹配不上而**误放行**,现改为「扩展名 + `(\d+,\d+):`」双锚定。
@@ -2774,6 +2740,8 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
 - **守门脚本速查补登(2026-10-01,守门 89 `check-gate-wiring.mjs` 接线层对账 R4 收口:以下 52 枚在五处权威接线点(scripts/guardian-runner.mjs / scripts/lib/pre-commit-hook.js / .husky/ / package.json / CI)已接线,而本速查此前通篇未点名 —— "文档看不见的门会被重复造或绕过",现按主题归堆补齐;mode 与跳过变量一律以 runner 注册条目与 pre-commit-hook 现值为准,编号勿照抄本节)**
   - **API key 泄露**〔scripts/check-api-key-leak.mjs · blocking〕—— 扫描面硬编码密钥/令牌(基础面 id 1)。
   - **schema drift**〔scripts/check-db-schema-drift.mjs · blocking〕—— 数据库 schema 漂移对账(基础面 id 3)。
+  - **loadState 四档投影防漂移**〔scripts/check-load-state-projection-parity.mjs · warn · `HUSKY_SKIP_LOAD_STATE_PROJECTION_PARITY`〕—— LV1 `never_tried`/`retry_backoff`/`gave_up` 三档字面量只许住在 `_load_lifecycle.py` 一个文件(第二个服务文件逐字写出即红);LV2 五族(ab_test_tracker / meta_learner / federated_learner / memory_decay / user_profile)的 `get_status` 必须含 loadState 键且值来自共享出口。**per-key 族(memory_decay / user_profile)刻意不用** `loaded`/`loadFailures` 键名,不得为"看起来一致"补上。定级 warn 是设计前提(照守门 156 教训):接 blocking 就是逼每台每次提交 `--no-verify`,一次绕过等于全部守门对该提交作废(§12e/§12f)。问责跑 `--strict`。
+  - **不安全 `_loaded` 载体写入侧四形态**〔scripts/check-load-state-loaded-marks.mjs · blocking · `HUSKY_SKIP_LOAD_STATE_LOADED_MARKS`〕—— 判据本体单份住在 `_load_lifecycle.py` 的 `find_unsafe_loaded_marks`(AST + 控制流位置),门内零自行判定;扫四形态:① finally 块里无条件 `self._loaded = True`(读失败也被记成已加载);② except 体内置真(异常分支被折成"已加载"哨兵,与成功路径不可判别);③ 尾部分支置真;④ set.add 累积置真。
   - **packages 陈旧 dist**〔scripts/check-stale-dist.mjs · blocking〕—— 源码改动后 dist 未重建(基础面 id 4)。
   - **dist UTF-8 BOM**〔scripts/check-dist-encoding.mjs · blocking〕—— 产物编码完整性(基础面 id 4b)。
   - **api-client UTF-8 完整性**〔scripts/check-api-client-utf8.mjs · blocking〕—— 跨端 API 客户端编码对账(基础面 id 4c)。
@@ -2979,4 +2947,5 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
   (被 `scripts/lib/gitdir.mjs` 的 `resolvePortableGitCandidates()` 当 git 二进制首选解析)不得搬,其 `logs`/`traces` 约 2GB 属该 IDE
   `scripts/release-desktop-local.mjs` 需要 `%USERPROFILE%\.tauri\ihui-updater.key`,而**旧句"本机无 `.tauri` ⇒ 桌面发布在此机必 `exit 1`"已于 2026-10-01 实测作废**:`.tauri\ihui-updater.key` 348 B、`ihui-updater-password.txt` 33 B **都在位**,mtime 2026-09-07(早于该句登记日 09-23 三周)⇒ 登记当时就不成立;那句还写着 `:67,74` 的行号指针,而 §1 明令证据指针禁写行号(任何一次 append 后都会挪位)。桌面端能否发布在本机的真判据是"跑一次取签名密钥的那条路径并看它报什么",不是这条散文
   - `node --test scripts/tests/deploy-lock.test.mjs`(HB-M1…M9,含"摘掉再入守卫就会白等超时"的端到端臂)。
+  * `node --test scripts/tests/deploy-lock.test.mjs`(HB-M1…M9,含"摘掉再入守卫就会白等超时"的端到端臂)。
 - **加载彩点族收为方点(强制,2026-09-30 用户定档)**:用户复看了两处疑点的复现图后拍板「不允许出现任何胶囊型」,同批改了两处 —— ① web 聊天输入卡浮窗折叠态的 `h-1 w-10 rounded-full` 拖拽手柄(40×4 宽扁盒,全仓最后一处判红胶囊,由在途改动删除);② 小程序 ColorfulLoader 彩点 `borderRadius: '50%'` 改为**方点**(不写任何 borderRadius)。**为什么彩点不能写最小档**:默认档点径 4px,档位表最小档 xs=2px 恰为半边 ⇒ 写档位半径就是全圆,方角是这一族唯一非圆形态;`COLORFUL_LOADER_MAX_DOT_PX` 上限保留,但半径语义(等效半径=2xl)退位,仅剩点径上界一义。同批摘除端内零 import 死副本 `apps/miniapp-taro/src/components/ColorfulLoader.tsx`(规格注释两次声称"已摘除"而文件仍在 HEAD,假陈述当场做成事实)。**注意边界**:本条只收"非正方盒的胶囊 + 装饰彩点"这两族,**正方真圆**(头像/Switch 拇指/几何 `size/2` 正圆点)不在此列 —— 上方"真圆/胶囊"条仍按几何判,勿把头像方档化。守门 11 C7 对彩点这型的"量不到"报数随方点化自然消失;若未来再出现同型动态尺寸全圆写法,仍按"测不到的尺寸"条走共享源封顶,不得回退成 `50%`。
