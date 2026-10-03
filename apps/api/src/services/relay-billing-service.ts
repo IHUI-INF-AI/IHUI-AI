@@ -1146,10 +1146,13 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
   // O5 原文留存(2026-09-21):全局默认 30 天到期清除;按 key 关闭留存时**本行不落原文**
   // (prompt 落空串/ response 落 NULL),而不是等清除器迟到抹掉 —— 对承诺不留正文的 key,
   // 写入即不留,窗口为零。归因/计费列(token 数、成本、apiKeyId)不受影响。
+  // 2026-10-03:补 userId —— 用户在「设置 - 隐私设置」里选"不落原文"时同样写入即不留
+  // (此前该开关只存在于运维 env,终端用户无入口;见 raw-retention-optout.ts)。
   const rawCols = buildRawTextColumns({
     apiKeyId: input.apiKeyId ?? null,
     prompt: truncatedPrompt,
     response: truncatedResponse,
+    userId: input.userId ?? null,
   })
 
   const metadata: Record<string, unknown> = {

@@ -9,21 +9,114 @@
  * 每日 04:30 将超过保留期的历史数据从热表迁移到归档表，
  * 减小热表体积，保持查询性能。
  *
- * 归档策略：
+ * 归档策略（阈值一律 `created_at < now - N天`，即恰好满 N 天的记录**仍保留**）：
  * 1. audit_logs: 保留 90 天，超期记录删除（已有审计快照在 ELK/OTel）
- * 2. chat_messages: 保留 180 天，超期记录删除
- * 3. 通知消息: 保留 30 天，超期已读消息删除
+ * 2. messages（IM）: 保留 180 天，超期记录删除
+ * 3. relay_messages（LLM 会话历史）: 保留 180 天，超期记录删除
+ * 4. notifications: 保留 30 天，超期**已读**消息删除
+ * 5. chat_messages（AI 对话正文 + reasoning）: 保留 365 天，超期记录删除
+ * 6. conversation_message_archives（压缩前完整消息数组 jsonb）: 保留 365 天，超期记录删除
+ *
+ * 关于第 5/6 条 —— 这条注释本身就是一次教训的产物，记录下来别再犯：
+ * 本文件的头注释从很早就写着"chat_messages: 保留 180 天，超期记录删除"，
+ * 但**代码里从来没有 chat_messages 的删除分支**。一个从未兑现的承诺比没有承诺更糟：
+ * 下一个读代码的人（人或 agent）看到注释就会把 chat_messages 记成"已治理"，
+ * 于是全仓留存面里最大的两处敞口被长期标记为绿色。
+ * 2026-10-03 实装第 5/6 条时发现，同名的第 2 条实际删的是 IM `messages` 表而非
+ * `chat_messages`（见该分支内的订正说明）—— 也就是说注释里的"chat_messages"从未指向过
+ * 任何真实删除逻辑。教训：**注释里出现的表名，必须能对上下面某一段 try 里的 delete 调用**。
  */
 
-import { and, lt, eq } from 'drizzle-orm'
+import { and, lt, eq, inArray } from 'drizzle-orm'
+import type { AnyPgTable, AnyPgColumn } from 'drizzle-orm/pg-core'
 import { db } from '../db/index.js'
-import { auditLogs, messages, notifications } from '@ihui/database'
+import {
+  auditLogs,
+  messages,
+  notifications,
+  relayMessages,
+  chatMessages,
+  conversationMessageArchives,
+} from '@ihui/database'
 
 export interface ArchiveResult {
   auditLogsArchived: number
   messagesArchived: number
   notificationsArchived: number
+  /**
+   * relay_messages 归档行数(2026-10-03 数据出域合规整改新增)。
+   *
+   * 为什么它归到 180 天这一档而不是 llm_call_logs 的 30 天:
+   * relay_messages 是**用户可见的会话历史**(web 端会话列表读的就是它),
+   * 与 llm_call_logs 里"只为排障存在的原文副本"性质不同 —— 后者按 30 天清原文
+   * 不影响任何用户可见功能,前者按 30 天删等于砸掉聊天记录。
+   * 所以它与 IM messages 同档(180 天),而不是被塞进原文档那一档。
+   */
+  relayMessagesArchived: number
+  /**
+   * chat_messages 归档行数(2026-10-03 数据出域合规整改新增)。
+   *
+   * 365 天而非 180/90:它存的是**用户主动开启的 AI 长对话正文**(`content` NOT NULL
+   * 外加 `reasoning` 思维链),属于用户对自己历史会话资产的连续性预期,不是日志。
+   * 砍到 90 天等于替用户决定"你的会话记忆只值得留三个月"。
+   */
+  chatMessagesArchived: number
+  /**
+   * conversation_message_archives 归档行数(2026-10-03 新增)。
+   *
+   * 与 chat_messages 同 365 天档,且是**必须**一起清的一张:它的 `messages` jsonb
+   * 存的是压缩前的**完整**消息数组(可回看),而压缩的目的正是把长会话搬出热表 ——
+   * 热表里的原文被清掉、压缩档里的原文却留着,等于清理只做了一半,留存面反而更宽。
+   */
+  conversationMessageArchivesArchived: number
   errors: string[]
+}
+
+/**
+ * 分批删除的单批上限。
+ *
+ * 取值与 `apps/api/src/jobs/pii-retention-cleanup.ts` 的 `BATCH_LIMIT` 同档(1000):
+ * 一次 DELETE 删几十万行会长时间持锁并把 WAL 撑爆,批次之间让出锁给autovacuum/查询。
+ */
+const PURGE_BATCH_LIMIT = 1000
+
+/**
+ * 从单表按时间戳字段**分批**删除过期记录,返回删除总行数。
+ *
+ * 为什么这两张表走分批、而上面四段仍是单条 DELETE:
+ * - `PgDeleteBase` 只有 `where` / `returning`,**没有 `.limit()`**(drizzle-orm 0.45.2 实测),
+ *   所以"DELETE ... LIMIT n"这条最直白的路在类型层就不存在,只能先查主键再按主键删;
+ * - `chat_messages` 是全仓写入量最大的表(每轮 AI 对话每条消息一行,还带 reasoning 全文),
+ *   首次开闸时超期存量是"上线至今的全部对话",单条 DELETE 的持锁时长不可接受;
+ * - 形状与 `pii-retention-cleanup.ts` 的 `purgeExpired` 一致,不发明第二套批处理写法。
+ *
+ * 循环终止性:每批先按 `lt` 取主键,删完这批后再取 —— 匹配集严格收缩,
+ * 且不依赖事务,单批失败由外层 try/catch 记入 errors[]。
+ */
+async function purgeExpiredBatched(
+  table: AnyPgTable & { id: AnyPgColumn },
+  timestampCol: AnyPgColumn,
+  threshold: Date,
+): Promise<number> {
+  let deleted = 0
+  for (;;) {
+    const rows = (await db
+      .select({ id: table.id })
+      .from(table)
+      .where(lt(timestampCol, threshold))
+      .limit(PURGE_BATCH_LIMIT)) as Array<{ id: string }>
+    if (rows.length === 0) break
+    await db.delete(table).where(
+      inArray(
+        table.id,
+        rows.map((r) => r.id),
+      ),
+    )
+    deleted += rows.length
+    // 末批不足上限 ⇒ 已是全部匹配行,不必再多查一次空批
+    if (rows.length < PURGE_BATCH_LIMIT) break
+  }
+  return deleted
 }
 
 /**
@@ -39,10 +132,17 @@ export async function archiveDailyData(): Promise<ArchiveResult> {
   const auditThreshold = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000) // 90 天前
   const messageThreshold = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000) // 180 天前
   const notifThreshold = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) // 30 天前
+  // 365 天(机主定档):AI 对话正文与其压缩档。恰满 365 天的记录**不删**(`lt` 严格小于),
+  // 即保留期是"至少 365 天",与上面四段同一语义;这样边界值(恰好整 365 天)落在保留侧,
+  // 宁可多留一条也不误删用户仍可能回看的会话。留存量由次日同一阈值继续收,不存在漏网。
+  const chatThreshold = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000) // 365 天前
 
   let auditLogsArchived = 0
   let messagesArchived = 0
   let notificationsArchived = 0
+  let relayMessagesArchived = 0
+  let chatMessagesArchived = 0
+  let conversationMessageArchivesArchived = 0
 
   try {
     // 归档 audit_logs（90 天前）
@@ -56,7 +156,12 @@ export async function archiveDailyData(): Promise<ArchiveResult> {
   }
 
   try {
-    // 归档 chat messages（180 天前）
+    // 归档 IM 消息（180 天前）。
+    //
+    // 注释订正(2026-10-03):原文写的是"归档 chat messages",但这里删的是
+    // `messages`(IM 表),**不是** chat_messages(AI 对话表)。这个错名有实际
+    // 代价:读代码的人会以为"AI 对话记录已有 180 天清理",而它其实一张都没清 ——
+    // 于是 chat_messages 成了全仓留存面里最容易被误判为"已治理"的那张表。
     const msgResult = await db
       .delete(messages)
       .where(lt(messages.createdAt, messageThreshold))
@@ -64,6 +169,24 @@ export async function archiveDailyData(): Promise<ArchiveResult> {
     messagesArchived = msgResult.length
   } catch (err) {
     errors.push(`messages archive failed: ${err instanceof Error ? err.message : String(err)}`)
+  }
+
+  try {
+    // relay_messages:用户可见的 LLM 会话历史(180 天前,同 IM messages 档)。
+    //
+    // 2026-10-03 新增。此前这张表**没有任何清理路径** —— 而它存的是完整对话
+    // 正文(`content` NOT NULL),且 logId 外键是 onDelete:'set null',意味着
+    // llm_call_logs 那边把原文purge 掉之后,**同一份原文在这里依然完整存在**,
+    // 30 天原文档治理等于被这个外键绕开。堵上这个口是本次整改的一部分。
+    const relayResult = await db
+      .delete(relayMessages)
+      .where(lt(relayMessages.createdAt, messageThreshold))
+      .returning({ id: relayMessages.id })
+    relayMessagesArchived = relayResult.length
+  } catch (err) {
+    errors.push(
+      `relay_messages archive failed: ${err instanceof Error ? err.message : String(err)}`,
+    )
   }
 
   try {
@@ -77,10 +200,48 @@ export async function archiveDailyData(): Promise<ArchiveResult> {
     errors.push(`notifications archive failed: ${err instanceof Error ? err.message : String(err)}`)
   }
 
+  try {
+    // chat_messages:AI 对话正文(365 天前)。
+    //
+    // 2026-10-03 新增,本段是本文件头注释"第 2 条 chat_messages: 保留 180 天"兑现的地方
+    // —— 在此之前该承诺从未实现,详见文件头注释里的教训记录。
+    // 分批删除:这张表是全仓写入量最大的留存面(每轮 AI 对话每条消息一行 + reasoning 全文),
+    // 首次开闸的待删量是"上线至今全部对话",单条大 DELETE 会长时间持锁。
+    chatMessagesArchived = await purgeExpiredBatched(
+      chatMessages,
+      chatMessages.createdAt,
+      chatThreshold,
+    )
+  } catch (err) {
+    errors.push(
+      `chat_messages archive failed: ${err instanceof Error ? err.message : String(err)}`,
+    )
+  }
+
+  try {
+    // conversation_message_archives:压缩前的完整消息数组(365 天前,同 chat_messages 档)。
+    //
+    // 2026-10-03 新增,此前同样**无任何清理路径**。与 chat_messages 成对处理的原因:
+    // 压缩档(`messages` jsonb,可回看压缩前原文)是热表原文的**副本**,只清热表不清它
+    // 等于把同一份对话正文又完整存了一份在"归档"表里,留存面不降反升。
+    conversationMessageArchivesArchived = await purgeExpiredBatched(
+      conversationMessageArchives,
+      conversationMessageArchives.createdAt,
+      chatThreshold,
+    )
+  } catch (err) {
+    errors.push(
+      `conversation_message_archives archive failed: ${err instanceof Error ? err.message : String(err)}`,
+    )
+  }
+
   return {
     auditLogsArchived,
     messagesArchived,
     notificationsArchived,
+    relayMessagesArchived,
+    chatMessagesArchived,
+    conversationMessageArchivesArchived,
     errors,
   }
 }

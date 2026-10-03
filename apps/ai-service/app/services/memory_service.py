@@ -1013,8 +1013,23 @@ class MemoryService:
         2. 对每条提取的记忆,POST /api/memory 保存(scope=user,source=ai-service)
 
         失败时 logger.warning 后继续(不阻塞对话)。
+
+        2026-10-03 数据出域合规整改:本方法是**第二个**记忆提取入口(第一个是
+        `consolidate`),此前**完全没有**隐私闸门 —— 用户在隐私页关掉"不自动写入
+        长期记忆"后,consolidate 会停,但本方法仍会照常调 LLM 提炼并 POST 落库。
+        闸门放在拼对话文本**之前**:要求是"LLM 调用本身也要省掉",放在落库前
+        就成了"照常提取但不入库"的假开关。
         """
         if not user_id or not messages:
+            return
+
+        # 隐私闸门:user_id 是本方法已有的必填位置参数,这条路径上一定拿得到
+        # (与下方"拿不到属主"的路径不同),故不存在降级分支。
+        if not await self._is_auto_memory_enabled(user_id):
+            logger.info(
+                "save_insights_from_conversation 跳过(用户已关闭自动长期记忆,user=%s)",
+                user_id,
+            )
             return
 
         try:
@@ -1133,31 +1148,19 @@ class MemoryService:
     # ------------------------------------------------------------------
 
     async def _is_auto_memory_enabled(self, user_id: str) -> bool:
-        """读取用户"自动记忆"隐私开关(user_preferences group='privacy' key='autoMemory')。
+        """读取用户"自动记忆"隐私开关。
 
-        默认开启:未设置或查询失败(API/DB 异常)均视为 True,不阻塞主流程;
-        仅当显式存储为 'false'(字符串小写比较)时才返回 False。
-        该表由 web 端 /settings/privacy 写,JWT 鉴权;ai-service 走同库直查,
-        避免对 settings 路由做 internal-token 访问(该路由仅 JWT 鉴权)。
+        2026-10-03 数据出域合规整改:本方法原先只读 ``autoMemory`` 一个键,而隐私页
+        写的是 ``autoMemoryOptOut``(opt-out 语义)—— 键名不同且极性相反,导致用户在
+        隐私页打开开关后后端仍读到"未设置"⇒ 照常提炼,是**假开关**。现统一委派给
+        `auto_memory_optout`(键优先级 / 三态 / 降级方向 / 为何不缓存,全在那一份里)。
+
+        保留本方法而不让调用方直接 import 新模块:`routers/llm.py:1371` 已在调它,
+        删掉会连带改动那个文件(有在途改动)。
         """
-        try:
-            pool = await _get_pool()
-            async with pool.acquire() as conn:
-                row = await conn.fetchrow(
-                    """SELECT value FROM user_preferences
-                       WHERE user_id = $1::uuid AND "group" = 'privacy'
-                         AND key = 'autoMemory'""",
-                    user_id,
-                )
-            if row is not None and row["value"] is not None:
-                return str(row["value"]).lower() != "false"
-            return True
-        except Exception as e:
-            # 用户偏好表可能未就绪/用户 id 非 uuid 等,降级为开启(不阻塞记忆提炼)
-            logger.warning(
-                "读取用户 autoMemory 偏好失败(user=%s, 降级为开启): %s", user_id, e
-            )
-            return True
+        from .auto_memory_optout import is_auto_memory_enabled
+
+        return await is_auto_memory_enabled(user_id)
 
     async def consolidate(
         self,
@@ -1172,7 +1175,8 @@ class MemoryService:
 
         流程:
         1. stub 模式(未配置 LLM key)→ 直接 skipped(stub_mode),零成本
-        2. 用户隐私开关 autoMemory=false → skipped(user_disabled)
+        2. 用户隐私开关关闭(privacy.autoMemoryOptOut=true,或旧键 autoMemory=false)
+           → skipped(user_disabled)。闸门在 LLM 调用**之前**,故关闭时零 LLM 成本。
         3. LLM 生成简短摘要 → add_semantic 写入(失败降级 error,不阻塞主流程)
 
         Args:
@@ -1193,7 +1197,7 @@ class MemoryService:
         if LLMGateway._is_stub_mode():
             return {"status": "skipped", "reason": "stub_mode"}
 
-        # 用户隐私开关:autoMemory=false 时跳过
+        # 用户隐私开关:已关闭自动长期记忆时跳过(判定见 auto_memory_optout 模块)
         if not await self._is_auto_memory_enabled(user_id):
             return {"status": "skipped", "reason": "user_disabled"}
 

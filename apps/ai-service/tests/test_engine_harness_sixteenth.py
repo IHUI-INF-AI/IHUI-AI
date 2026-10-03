@@ -42,19 +42,33 @@ def _clean_prefix_rules(tmp_path):
 
 
 def test_prefix_rule_matches_same_prefix_only():
-    assert approve_exec_prefix("git push --force origin main") == ("git", "push")
-    assert _matches_exec_prefix("git push --force") is True
-    assert _matches_exec_prefix("git push origin HEAD~1") is True
+    # 2026-10-03 数据出域合规整改:登记命令由 `git push --force` 换成
+    # `pnpm install` —— 前缀放行机制本身的行为不变(仍是"同前缀才放行、
+    # 不越权到其它子命令、非词边界不匹配"),但 `git push` 已列入
+    # _NON_PERSISTABLE_PREFIXES,不允许登记为永久放行(见本文件末尾专项用例)。
+    # 本用例保留原意图:验证前缀匹配语义本身没被整改改坏。
+    assert approve_exec_prefix("pnpm install --frozen-lockfile") == ("pnpm", "install")
+    assert _matches_exec_prefix("pnpm install") is True
+    assert _matches_exec_prefix("pnpm install --prod") is True
     # 不越权:同命令族其它子命令、以及非词边界前缀都不放行
-    assert _matches_exec_prefix("git status") is False
-    assert _matches_exec_prefix("gitpus x") is False
+    assert _matches_exec_prefix("pnpm build") is False
+    assert _matches_exec_prefix("pnpminstall x") is False
 
 
 def test_prefix_rule_token_count_controls_breadth():
-    """tokens=1 → 放行整个 git 命令族;默认 2 → 只放行该子命令。"""
-    approve_exec_prefix("git status --short", tokens=1)
-    assert _matches_exec_prefix("git status") is True
-    assert _matches_exec_prefix("git log") is True
+    """tokens=1 → 放行整个命令族;默认 2 → 只放行该子命令。
+
+    2026-10-03 数据出域合规整改:命令族由 `git` 换成 `pnpm`。原先这里登记
+    ("git",) 并期望放行整个 git 族 —— 而 ("git",) 正是覆盖 ("git","push") 的
+    万能钥匙,现已列入 _NON_PERSISTABLE_PREFIXES(登记口直接拒)。本用例验的是
+    tokens 参数控制放行宽度的机制,该机制对非出域族不变,故换 pnpm 验证。
+    出域族的拒绝行为由 test_exec_egress_no_persist_prefix.py 专项覆盖。
+    """
+    approve_exec_prefix("pnpm run --version", tokens=1)
+    assert _matches_exec_prefix("pnpm build") is True
+    assert _matches_exec_prefix("pnpm test") is True
+    # 不越权:其它命令族不受影响
+    assert _matches_exec_prefix("cargo build") is False
 
 
 def test_prefix_rule_revoke_and_list():
