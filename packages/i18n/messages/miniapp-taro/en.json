@@ -53,7 +53,6 @@
     "analysisTitle": "Analyze with a scenario",
     "analysisClose": "Close",
     "analysisDesc": "Pick a scenario and fill in the variables; the instruction is sent as a message in this conversation — the imported transcript is its context.",
-    "analysisLoading": "Loading scenario library…",
     "analysisLoadFailed": "Could not load the scenario library: {error}",
     "analysisScenarioLabel": "① Choose a scenario",
     "analysisRecommended": "Recommended (by import source)",
