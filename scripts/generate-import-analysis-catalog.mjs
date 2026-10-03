@@ -17,12 +17,27 @@
  * 投影字段(只投影"选中场景 → 填 variables → 拼 prompt"这条链真正要用的):
  *   id / categoryId / title / description / useCase / variables / tags /
  *   difficulty / estimatedTokens / template
- * **不投影** example_input / example_output —— 二者合计 ~250KB 且只用于文档展示,
- *   带进来只增包体不增能力(2026-10-03 实测:全量 template ≈366KB,example_* ≈250KB)。
+ * **不投影** example_input / example_output —— 二者合计 ~74KB 且只用于文档展示,
+ *   带进来只增包体不增能力(2026-10-03 实测)。
+ *
+ * ## 两份投影:full(给 web / RN)与 slim(给小程序)
+ *
+ * 2026-10-03 实测 `pkg-ai/ai/conversation-import.js` = 736,316 B,其中本投影
+ * **707,113 B = 96.03%**;而投影内 `template` 一个字段就占 632,331 B(89.4%)。
+ * `template` 是 `buildAnalysisPrompt` 的**输入正文**,裁掉它功能就不存在了,
+ * 所以"瘦身投影"能动的只有 template 之外的展示性字段:
+ *   description / tags / useCase(三者合计 ~31.8KB)+ 分类的 category/categoryEn/icon。
+ * 实测省 33,778 B(投影的 4.4%)—— 是个**诚实但有限**的量,不假装能减半。
+ * 三端 UI 都已改吃 slim 字段集(见下"UI 口径"),web / RN 仍吃 full,行为零变化。
+ *
+ * ⚠️ slim 省的是"展示冗余",不是"能力"。`useCase` 在 slim 里保留(它是
+ * `buildAnalysisPrompt` 场景行的正文之一,不是纯展示),被裁的 `description`
+ * 三端 UI 都写成 `s.useCase || s.description` —— useCase 全库 210/210 非空,
+ * 故 slim 下该表达式恒等于 useCase,UI 显示逐字不变。
  *
  * 用法:
- *   node scripts/generate-import-analysis-catalog.mjs            # 写入投影文件
- *   node scripts/generate-import-analysis-catalog.mjs --check    # 只校验不写(逐字节)
+ *   node scripts/generate-import-analysis-catalog.mjs            # 写入两份投影
+ *   node scripts/generate-import-analysis-catalog.mjs --check    # 只校验不写(两份都逐字节对账)
  *   node scripts/generate-import-analysis-catalog.mjs --dry-run  # 只报将写入的体量
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
@@ -39,6 +54,12 @@ const INDEX = join(LIBRARY_DIR, 'index.json')
 // 引 @ihui/shared 且含主包页 —— 根 barrel 一挂这 492KB 投影,主包必然超微信硬上限。
 // 端内一律走子路径 @ihui/shared/import-analysis/scenarios(即本文件的 OUT 所在目录)。
 const OUT = join(ROOT, 'packages/shared/src/import-analysis/catalog.generated.ts')
+/**
+ * slim 投影(2026-10-03):小程序端专用,字段集见文件头注。
+ * 刻意与 OUT 同目录 —— 两者是同一份权威源的**两个投影**,放一起便于 `--check` 一起对账,
+ * 也保证 slim 不会被漏出门禁(野生文件是投影漂移的头号来源)。
+ */
+const OUT_SLIM = join(ROOT, 'packages/shared/src/import-analysis/catalog.slim.generated.ts')
 /** 溯源水印取材文件(与 OUT 同目录):首 3 行横幅 + 末行载荷,按字节复制,绝不手打零宽字符 */
 const WATERMARK_SOURCE = join(ROOT, 'packages/shared/src/import-analysis/provenance.ts')
 
@@ -136,10 +157,116 @@ function readWatermark() {
   return { banner, tailLine }
 }
 
-function build(categories, prompts) {
+/**
+ * 投影模式定义。
+ *
+ * `full`  = 原字段集,web / mobile-rn 消费(行为不得变化)。
+ * `slim`  = 小程序端消费:裁掉**纯展示**字段。逐条裁剪依据(2026-10-03 实测三端
+ *           UI 读点 + 产物字节分布,不是"看起来用不上"):
+ *             - `description`:三端 UI 都写 `s.useCase || s.description`,而 useCase
+ *               全库 210/210 非空 ⇒ slim 下该式恒等于 useCase,显示逐字不变。
+ *               且 `buildAnalysisPrompt` 同样只取 `useCase || description`。
+ *             - `tags`:全仓**零**读点(web/RN/小程序/shared 都不读),纯冗余。
+ *             - 分类的 `category` / `categoryEn`:全仓零读点(只有 `icon` 被 web 读,
+ *               但 web 吃 full,不受影响)。
+ *           保留的每个字段都有**功能**读点:title(场景行/指令头)、useCase(同上)、
+ *           variables(填表 + 拼 prompt)、difficulty/estimatedTokens(底部估算行)、
+ *           template(分析指令正文)、categoryId(分类筛选)、categoryZh/count(分类胶囊)。
+ */
+const MODES = {
+  full: {
+    out: OUT,
+    label: 'full(web / mobile-rn)',
+    categoryFields: ['id', 'category', 'categoryZh', 'categoryEn', 'icon', 'count'],
+    scenarioFields: [
+      'id',
+      'categoryId',
+      'title',
+      'description',
+      'useCase',
+      'variables',
+      'tags',
+      'difficulty',
+      'estimatedTokens',
+      'template',
+    ],
+  },
+  slim: {
+    out: OUT_SLIM,
+    label: 'slim(miniapp-taro)',
+    categoryFields: ['id', 'categoryZh', 'count'],
+    scenarioFields: [
+      'id',
+      'categoryId',
+      'title',
+      'useCase',
+      'variables',
+      'difficulty',
+      'estimatedTokens',
+      'template',
+    ],
+  },
+}
+
+/** 按 mode 的字段清单投影;字段顺序即输出顺序,故两份产物都稳定可对账 */
+function project(rows, fields) {
+  return rows.map((row) => {
+    const out = {}
+    for (const f of fields) {
+      if (!(f in row)) {
+        throw new Error(`[import-analysis-catalog] 投影字段 ${f} 不在源数据中(库结构变了?)`)
+      }
+      out[f] = row[f]
+    }
+    return out
+  })
+}
+
+/** 场景接口的字段级注释(两份投影共用;被裁字段不出现) */
+const SCENARIO_FIELD_DOC = {
+  id: '',
+  categoryId: '/** 所属分类 id(ImportAnalysisCategory.id) */',
+  title: '',
+  description: '',
+  useCase: '',
+  variables: '/** 模板占位符变量名(库自带清单,已去重保序) */',
+  tags: '',
+  difficulty: '',
+  estimatedTokens: '',
+  template: '/** 原始 prompt_template,含 `{var}` 占位符 —— 填充后作为分析指令正文 */',
+}
+
+function renderInterface(name, fields, docMap) {
+  const lines = fields.map((f) => {
+    const doc = docMap?.[f]
+    const body = `  readonly ${f}: ${f === 'estimatedTokens' || f === 'count' ? 'number' : f === 'variables' || f === 'tags' ? 'readonly string[]' : 'string'}`
+    return doc ? `${doc}\n${body}` : body
+  })
+  return `export interface ${name} {\n${lines.join('\n')}\n}`
+}
+
+const CATEGORY_FIELD_DOC = {
+  id: '/** 分类 id(与库文件名 `NN-<category>.json` 的 NN 一致) */',
+  category: '',
+  categoryZh: '',
+  categoryEn: '',
+  icon: '',
+  count: '',
+}
+
+/**
+ * 构建一份投影文件内容。
+ * @param {'full'|'slim'} mode
+ */
+function build(mode, categories, prompts) {
   const { banner, tailLine } = readWatermark()
+  const spec = MODES[mode]
   const total = indexTotal()
+  const cats = project(categories, spec.categoryFields)
+  const scens = project(prompts, spec.scenarioFields)
+  const slim = mode === 'slim'
   const body = `// @generated by scripts/generate-import-analysis-catalog.mjs — DO NOT EDIT BY HAND。
+// 投影模式:${spec.label}(本文件是 \`${spec.out.split('/').pop()}\`)。
 // 单一权威源 = products/ai-prompt-library/(付费数字商品,20 分类 / ${total} 条)。
 // 库更新后重跑 \`node scripts/generate-import-analysis-catalog.mjs\` 重新生成本文件。
 //
@@ -147,45 +274,34 @@ function build(categories, prompts) {
 // 场景从本目录选取、variables 由用户填写、prompt_template 填充后作为**普通用户消息**
 // 注入导入会话 —— 复用既有聊天通道,不新造 LLM 调用链。
 //
-// 投影刻意不含 example_input / example_output(合计 ~250KB,只用于文档展示);
+// 投影刻意不含 example_input / example_output(合计 ~74KB,只用于文档展示);
 // chatTask 之类的"来源 → 场景"推荐映射也不在本文件:那是消费侧判据,不是库的内容,
 // 放同目录 provenance.ts,与本投影分离以免改推荐就要重新生成。
-//
-// ⚠️ 引用纪律:端内**只能**经子路径 @ihui/shared/import-analysis/scenarios 消费本文件,
-// 且该消费点必须**动态 import**(await import / React.lazy)—— 判据层 provenance.ts
-// 刻意不静态引本文件,故"读来源标识"那条路径永不为 492KB 目录买单。
-// 根 barrel(@ihui/shared)严禁 re-export 本文件:小程序主包余量仅 63,454 B(2026-10-03 实测),
+${
+  slim
+    ? `//
+// 【slim 投影】本文件比同目录 catalog.generated.ts 少 3 个字段(description / tags /
+// 分类的 category / categoryEn),省下的字节全部来自**纯展示**字段(实测三端 UI 读点
+// 见生成器 MODES 注释);template 一个字段仍占投影 89%,它是分析指令正文,不可裁。
+// 仅小程序端消费 —— 本端静态 import(动态 import() 在 Taro 小程序不可用)且必须把
+// 投影压进 pkg-ai 分包,故给它一份瘦的。web / mobile-rn 继续吃 full,行为不变。
+`
+    : `//
+// 【full 投影】web / mobile-rn 消费本份。若只想给小程序瘦身,改的是同目录的
+// catalog.slim.generated.ts,不要动本文件 —— 三端展示文案一致是刻意维护的契约。
+`
+}//
+// ⚠️ 引用纪律:端内**只能**经子路径 @ihui/shared/import-analysis/ 下的访问层消费本文件。
+// 根 barrel(@ihui/shared)严禁 re-export:小程序主包余量仅 93,697 B(2026-10-03 实测),
 // 挂上去必超微信 2 MB 硬上限。
 
-export interface ImportAnalysisCategory {
-  /** 分类 id(与库文件名 \`NN-<category>.json\` 的 NN 一致) */
-  readonly id: string
-  readonly category: string
-  readonly categoryZh: string
-  readonly categoryEn: string
-  readonly icon: string
-  readonly count: number
-}
+${renderInterface('ImportAnalysisCategory', spec.categoryFields, CATEGORY_FIELD_DOC)}
 
-export interface ImportAnalysisScenario {
-  readonly id: string
-  /** 所属分类 id(ImportAnalysisCategory.id) */
-  readonly categoryId: string
-  readonly title: string
-  readonly description: string
-  readonly useCase: string
-  /** 模板占位符变量名(库自带清单,已去重保序) */
-  readonly variables: readonly string[]
-  readonly tags: readonly string[]
-  readonly difficulty: string
-  readonly estimatedTokens: number
-  /** 原始 prompt_template,含 \`{var}\` 占位符 —— 填充后作为分析指令正文 */
-  readonly template: string
-}
+${renderInterface('ImportAnalysisScenario', spec.scenarioFields, SCENARIO_FIELD_DOC)}
 
-export const IMPORT_ANALYSIS_CATEGORIES: readonly ImportAnalysisCategory[] = ${JSON.stringify(categories, null, 2)}
+export const IMPORT_ANALYSIS_CATEGORIES: readonly ImportAnalysisCategory[] = ${JSON.stringify(cats, null, 2)}
 
-export const IMPORT_ANALYSIS_SCENARIOS: readonly ImportAnalysisScenario[] = ${JSON.stringify(prompts, null, 2)}
+export const IMPORT_ANALYSIS_SCENARIOS: readonly ImportAnalysisScenario[] = ${JSON.stringify(scens, null, 2)}
 `
   return `${banner}\n${body}${tailLine}\n`
 }
@@ -205,28 +321,50 @@ if (indexTotal() !== prompts.length) {
   )
 }
 
-const ts = build(categories, prompts)
+/** 两份产物都构建出来 —— --check 必须同时覆盖,否则 slim 会变成无门禁的野生文件 */
+const BUILT = Object.keys(MODES).map((mode) => ({
+  mode,
+  out: MODES[mode].out,
+  label: MODES[mode].label,
+  content: build(mode, categories, prompts),
+}))
 
 if (DRY_RUN) {
-  console.log(`[dry-run] 将写入 ${OUT}(${ts.length} chars,${prompts.length} 条场景 / ${categories.length} 个分类)`)
+  for (const b of BUILT) {
+    console.log(
+      `[dry-run] 将写入 ${b.out}(${b.content.length} chars,${prompts.length} 条场景 / ${categories.length} 个分类,${b.label})`,
+    )
+  }
   process.exit(0)
 }
 
 if (CHECK) {
-  if (!existsSync(OUT)) {
-    console.error(`[check] 投影文件不存在:${OUT}(跑 node scripts/generate-import-analysis-catalog.mjs)`)
-    process.exit(1)
+  const drifted = []
+  for (const b of BUILT) {
+    if (!existsSync(b.out)) {
+      drifted.push(`  投影文件不存在:${b.out}(跑 node scripts/generate-import-analysis-catalog.mjs)`)
+      continue
+    }
+    if (readFileSync(b.out, 'utf-8') !== b.content) {
+      drifted.push(`  与 products/ai-prompt-library/ 不同步(逐字节不一致):${b.out}`)
+    }
   }
-  const current = readFileSync(OUT, 'utf-8')
-  if (current !== ts) {
-    console.error('[check] ❌ 投影文件与 products/ai-prompt-library/ 不同步(逐字节不一致)')
+  if (drifted.length > 0) {
+    console.error(`[check] ❌ ${drifted.length}/${BUILT.length} 份投影与库不同步:`)
+    for (const d of drifted) console.error(d)
     console.error('       修复:node scripts/generate-import-analysis-catalog.mjs')
     process.exit(1)
   }
-  console.log(`[check] ✅ 投影与库同步(${prompts.length} 条场景 / ${categories.length} 个分类)`)
+  console.log(
+    `[check] ✅ 投影与库同步(${prompts.length} 条场景 / ${categories.length} 个分类;已逐字节校验 ${BUILT.length} 份:full + slim)`,
+  )
   process.exit(0)
 }
 
-writeFileSync(OUT, ts, 'utf-8')
-console.log(`已生成 ${OUT}(${prompts.length} 条场景 / ${categories.length} 个分类,${ts.length} chars)`)
+for (const b of BUILT) {
+  writeFileSync(b.out, b.content, 'utf-8')
+  console.log(
+    `已生成 ${b.out}(${prompts.length} 条场景 / ${categories.length} 个分类,${b.content.length} chars,${b.label})`,
+  )
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
