@@ -23,7 +23,11 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+// scanRepo 是全仓 12k+ 文件扫描,仓库增长后 CI 上超 20s,默认 5s 必超时。
+// 本文件用例统一放宽到 60s(vi.setConfig 作用于整个文件,不逐个 it 传第三参)。
+vi.setConfig({ testTimeout: 60_000 })
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
 

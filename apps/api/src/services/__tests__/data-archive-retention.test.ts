@@ -17,6 +17,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import type * as DataArchiveServiceModule from '../data-archive-service.js'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
@@ -208,7 +209,7 @@ const DAY = 24 * 60 * 60 * 1000
 /** 相对 now 偏移 n 天 */
 const daysAgo = (n: number) => new Date(NOW.getTime() - n * DAY)
 
-let archiveDailyData: typeof import('../data-archive-service.js').archiveDailyData
+let archiveDailyData: typeof DataArchiveServiceModule.archiveDailyData
 
 /** 给某表塞 n 行，行 created_at = offsetDays 天前 */
 function seed(table: string, n: number, offsetDays: number, extra: Record<string, unknown> = {}) {

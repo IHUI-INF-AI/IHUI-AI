@@ -312,7 +312,9 @@
     "onlyDesc": "指定した番号のみインポート(例 1,3,5-8)",
     "historyDesc": "セッションインポート履歴を照会(直近 50 件)",
     "conversationMeta": "· メッセージ {count} 件 · モデル {model} · 開始 {started}",
-    "historyCappedSuffix": "、サーバー上限の 50 件に到達"
+    "historyCappedSuffix": "、サーバー上限の 50 件に到達",
+    "noFixedRoots": "固定エクスポートディレクトリなし(--path で指定)",
+    "sourceWechat": "WeChat チャット履歴のエクスポート(サードパーティ製ツールや手動保存の zip/txt)"
   },
   "cliEntry": {
     "tagline": "IHUI AI Coding Agent — Claude Code / Codex を目指すコーディングエージェント",

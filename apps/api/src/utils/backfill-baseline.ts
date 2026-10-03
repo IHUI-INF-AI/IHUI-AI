@@ -22,7 +22,7 @@ export type BackfillTimeColumn = AnyPgColumn
 
 /** 校验基线时刻:必须是有限时间。给不出 ⇒ 宁可不跑,绝不无界回填。 */
 export function assertBaselineTime(baselineTime: Date | string | null | undefined): Date {
-  const d = baselineTime instanceof Date ? baselineTime : baselineTime != null ? new Date(baselineTime) : null
+  const d = baselineTime instanceof Date ? baselineTime : baselineTime !== null && baselineTime !== undefined ? new Date(baselineTime) : null
   if (!d || Number.isNaN(d.getTime())) {
     throw new Error(
       '回填基线时刻缺失或非法:拒绝执行无上界的回填(会把迁移之间用户写入的值当旧格式覆盖)。' +
