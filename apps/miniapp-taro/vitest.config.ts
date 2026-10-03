@@ -17,6 +17,24 @@ export default defineConfig({
       // RegExp ^react$ 精确匹配包名 'react',不匹配 'react-dom' / 'react/jsx-runtime'。
       { find: /^react$/, replacement: path.resolve(__dirname, 'node_modules/react') },
       { find: /^react-dom$/, replacement: path.resolve(__dirname, 'node_modules/react-dom') },
+      // D28 补齐层(2026-10-03):「用场景分析」的判据与场景目录已从 web 下沉到
+      // @ihui/shared/import-analysis{,/scenarios}。指真实源码而非 mock:判据与目录
+      // 都是纯数据/纯函数(无 DOM/Taro 依赖),给它写 mock 测的就是 mock。
+      // 两条按最长匹配在前(scenarios 在前),与 shared 其余子路径同一规矩。
+      {
+        find: '@ihui/shared/import-analysis/scenarios',
+        replacement: path.resolve(
+          __dirname,
+          '../../packages/shared/src/import-analysis/scenarios.ts',
+        ),
+      },
+      {
+        find: '@ihui/shared/import-analysis',
+        replacement: path.resolve(
+          __dirname,
+          '../../packages/shared/src/import-analysis/provenance.ts',
+        ),
+      },
     ],
   },
   test: {

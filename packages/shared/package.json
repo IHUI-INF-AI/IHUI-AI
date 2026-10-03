@@ -52,6 +52,22 @@
       "types": "./src/plan/*.ts",
       "import": "./src/plan/*.ts"
     },
+    "./import-analysis": {
+      "types": "./src/import-analysis/provenance.ts",
+      "import": "./src/import-analysis/provenance.ts"
+    },
+    "./import-analysis/scenarios": {
+      "types": "./src/import-analysis/scenarios.ts",
+      "import": "./src/import-analysis/scenarios.ts"
+    },
+    "./import-analysis/scenarios-slim": {
+      "types": "./src/import-analysis/scenarios.slim.ts",
+      "import": "./src/import-analysis/scenarios.slim.ts"
+    },
+    "./import-analysis/*": {
+      "types": "./src/import-analysis/*.ts",
+      "import": "./src/import-analysis/*.ts"
+    },
     "./chat": {
       "types": "./src/chat/index.ts",
       "import": "./src/chat/index.ts"

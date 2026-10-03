@@ -2343,6 +2343,28 @@ export function ChatScreen() {
     if (conversationId) void loadConversationMessages(conversationId)
   }, [route.params?.conversationId, loadConversationMessages])
 
+  /**
+   * D28 补齐层(2026-10-03):导入页「用场景分析」跳进来时带 autoSendPrompt,
+   * 历史加载完成后把它作为本会话的下一条用户消息自动发出。
+   *
+   * 为什么必须等 conversationId 就位:分析指令要落在**这个导入会话**里,
+   * 而 send() 用的是渲染闭包里的 messages —— 历史未回填就发,本轮上下文里没有导入记录,
+   * 分析就退化成"凭空分析"(提示词里那句"以上是本次导入的会话记录全文"会指向不存在的上文)。
+   * 本屏 loadConversationMessages 成功后才置 conversationId,故以其为"历史已就位"信号。
+   *
+   * 经 sendRef 调 send(与 retryLastTurn 同一约定):send 未包 useCallback、每轮重建,
+   * 直接把它列进本 effect 依赖会让 effect 每轮重跑、依赖数组每轮换引用。
+   * autoSendDoneRef 保证"这段提示只发一次"(StrictMode 双跑 / params 换引用都不会重发)。
+   */
+  const autoSendDoneRef = useRef(false)
+  useEffect(() => {
+    const promptText = route.params?.autoSendPrompt
+    if (!promptText || autoSendDoneRef.current) return
+    if (!conversationId || isStreaming) return
+    autoSendDoneRef.current = true
+    void sendRef.current(promptText)
+  }, [route.params?.autoSendPrompt, conversationId, isStreaming])
+
   // ── 手动压缩上下文(2026-09-02 立,对齐 web 端 message-input.tsx compactButton):
   // POST /api/chat/compact → compressed=true → 成功 toast + getMessages 刷新消息列表
   //   (压缩摘要已替换旧消息,本地列表需同步;仅刷新消息,不重置输入框/素材卡);
