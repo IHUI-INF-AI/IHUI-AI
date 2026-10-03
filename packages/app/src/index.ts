@@ -144,21 +144,7 @@ export type {
   ImportParseResult,
   ImportCommitResult,
   PickedImportFile,
-  CommittedImportConversation,
 } from './features/conversation-import/ConversationImportScreen'
-/**
- * D28 补齐层(2026-10-03):导入会话「用场景分析」弹层。
- *
- * 导出它是因为**动态 import 的那一次仍需解析真实路径**(Metro/RN 的
- * `import('@ihui/rn-app')` 拿不到具名导出),故端内从本 barrel 取组件;
- * 弹层内部的场景目录则走 `@ihui/shared/import-analysis/scenarios` 动态加载,
- * 不经本 barrel —— 根 barrel 一旦挂上 492KB 投影,RN 每个 bundle 都得背着它。
- */
-export { ImportAnalysisSheet } from './features/conversation-import/ImportAnalysisSheet'
-export type {
-  ImportAnalysisSheetProps,
-  ImportAnalysisTFunction,
-} from './features/conversation-import/ImportAnalysisSheet'
 /** 批次 23(2026-07-29):Agent 系深屏(统计/设置/创建/聊天)+ 课程系深屏(列表/详情/筛选/评论) */
 export { AgentStatScreen } from './features/agent-stat/AgentStatScreen'
 export { AgentSettingScreen } from './features/agent-setting/AgentSettingScreen'
@@ -697,7 +683,8 @@ export type {
   ChatRoomItem,
   ChatRoomScreenProps,
 } from './features/chat-room/ChatRoomScreen'
-/** 批次 29(2026-07-29):开发者入口(原 2 屏迁移自 mobile-rn;AI 主聊天屏 ChatScreen 为零消费方,已按 D137 决议于 2026-10-01 删除,类型契约 ChatScreen* 在 @ihui/types 保留) */
+/** 批次 29(2026-07-29):开发者入口(原 2 屏迁移自 mobile-rn)。D137 纠偏(2026-10-01):其"ChatScreen 零消费方"前提被证伪 —— apps/mobile-rn/src/screens/ChatScreen.tsx:128 自 @ihui/rn-app import 并于 :2515 整屏渲染;文件已被后续提交恢复回盘,本行补回配套导出。类型契约 ChatScreen* 仍在 @ihui/types。 */
+export { ChatScreen } from './features/chat/ChatScreen'
 export { DeveloperScreen } from './features/developer/DeveloperScreen'
 /**
  * D78 连接器授权卡(G-107):对话流内渲染件。五态/四动词与
