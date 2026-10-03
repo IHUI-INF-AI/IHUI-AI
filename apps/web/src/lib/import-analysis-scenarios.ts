@@ -2,72 +2,81 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// GENERATED FILE — DO NOT EDIT. 由 apps/extension/scripts/generate-ext-ui-routes.mjs 生成(pnpm gen:ui-routes)
-// 数据源:entrypoints/sidepanel/SidepanelApp.tsx 的 <Route path="…"> 清单(MemoryRouter 路由表,
-//        含末尾兼容重定向路由,不含 `*` 通配)。改路由请改 SidepanelApp.tsx 后重新生成。
+/**
+ * 导入会话「用场景分析」的**目录访问层**(D28 补齐层,2026-10-03)
+ *
+ * 与 `import-analysis.ts` 的分工:那边是纯判据(读 provenance / 推荐 id / 填模板),
+ * 不碰 210 条模板正文;这边是唯一 import 投影的模块,只在「用场景分析」弹窗
+ * `await import()` 时被拉入 —— 会话消息区显示"来自微信导入"不该为 493KB 目录买单。
+ *
+ * 投影文件 = `products/ai-prompt-library/`(付费数字商品)的机器投影,20 分类 / 210 条。
+ * 这里的函数全部是它的**只读视图**,不做任何内容改写。
+ */
+import {
+  IMPORT_ANALYSIS_CATEGORIES,
+  IMPORT_ANALYSIS_SCENARIOS,
+  type ImportAnalysisCategory,
+  type ImportAnalysisScenario,
+} from './import-analysis-catalog.generated'
+import {
+  CODE_RECOMMENDED_SCENARIO_IDS,
+  FALLBACK_RECOMMENDED_SCENARIO_IDS,
+  WECHAT_RECOMMENDED_SCENARIO_IDS,
+  type ImportSource,
+} from './import-analysis'
 
-// IHUI-GEN-PIN-BEGIN
-// generator: apps/extension/scripts/generate-ext-ui-routes.mjs
-// sourceCommit: 43d17af723bdc50ea30036cad4c4553b981d0ca6
-// inputsSha256: 7f62b00cd308b5e311451f847d0a237534aaca4679fb47fb9cabb9d0912c7db5
-// input: apps/extension/entrypoints/sidepanel/SidepanelApp.tsx 9ceb3d791dd95239e04387f479a734e742d0f7b2320d6c40b3f627cb88a88889
-// skipped: wildcardRoutes=1(`*` 通配,万物兜底不导航); dynamicPaths=0(path 为动态表达式)
-// generatedAt: 2026-10-02T22:40:58.873Z
-// IHUI-GEN-PIN-END
+export type { ImportAnalysisCategory, ImportAnalysisScenario }
 
-/** ext_ui navigate 路由白名单(生成常量,非手写维护):与 web 端 ui-route-index.ts 的站内白名单语义对齐 */
-export const EXT_UI_ROUTES: readonly string[] = [
-  '/',
-  '/chat',
-  '/chat/history',
-  '/chat/favorites',
-  '/chat/templates',
-  '/chat/import',
-  '/vocabulary',
-  '/courses',
-  '/ai',
-  '/ai/agents',
-  '/ai/agents/:id',
-  '/ai/skills',
-  '/ai/image-gen',
-  '/ai/memory',
-  '/ai/news',
-  '/ai/models',
-  '/content',
-  '/content/articles',
-  '/content/news',
-  '/content/announcements',
-  '/content/search',
-  '/content/plaza',
-  '/content/circles',
-  '/content/topics',
-  '/content/asks',
-  '/me',
-  '/me/dashboard',
-  '/me/notifications',
-  '/me/messages',
-  '/me/favorites',
-  '/me/following',
-  '/me/fans',
-  '/me/points',
-  '/me/vip',
-  '/me/member',
-  '/me/distribution',
-  '/me/invitations',
-  '/me/profile',
-  '/me/wallet',
-  '/me/orders',
-  '/settings',
-  '/settings/about',
-  '/settings/contact',
-  '/settings/help',
-  '/settings/agreement',
-  '/settings/pricing',
-  '/agents',
-  '/agents/:id',
-  '/profile',
-  '/wallet',
-  '/orders',
-]
+/** 全部分类(投影内已按 id 升序) */
+export function listCategories(): readonly ImportAnalysisCategory[] {
+  return IMPORT_ANALYSIS_CATEGORIES
+}
 
+/** 全库场景(投影内已按 id 升序) */
+export function listScenarios(): readonly ImportAnalysisScenario[] {
+  return IMPORT_ANALYSIS_SCENARIOS
+}
+
+/** id → 场景索引(模块级常量,只建一次) */
+const SCENARIO_BY_ID: ReadonlyMap<string, ImportAnalysisScenario> = new Map(
+  IMPORT_ANALYSIS_SCENARIOS.map((s) => [s.id, s]),
+)
+
+/**
+ * 按 id 取场景。
+ *
+ * 未命中返回 `null` —— 库更新删掉某个 id 时 UI 诚实显示"该场景已不可用",
+ * **不静默换一条**:静默替换会让用户填的 variables 与实际模板对不上,
+ * 产出一份"看着对其实跑的是别的场景"的分析,这比报错糟得多。
+ */
+export function findScenario(id: string): ImportAnalysisScenario | null {
+  return SCENARIO_BY_ID.get(id) ?? null
+}
+
+/** 某分类下的场景 */
+export function listScenariosByCategory(categoryId: string): ImportAnalysisScenario[] {
+  return IMPORT_ANALYSIS_SCENARIOS.filter((s) => s.categoryId === categoryId)
+}
+
+/**
+ * 该导入来源的推荐场景(已剔除库里已不存在的 id)。
+ *
+ * wechat → 聊天记录类(纪要 / 待办 / 复盘 / 客诉 / 沟通),其余四源 → 编程会话类
+ * (审查 / 重构 / 调试)。这是 `wechat` 区别于 codex/claude_code 导入的关键:
+ * 同一个"用场景分析"入口,默认落到的是对**这份记录本身**有用的场景上。
+ */
+export function recommendedScenarios(source: ImportSource | null | undefined): ImportAnalysisScenario[] {
+  const raw =
+    source === 'wechat'
+      ? WECHAT_RECOMMENDED_SCENARIO_IDS
+      : source === 'claude_code' || source === 'codex' || source === 'cursor' || source === 'aider'
+        ? CODE_RECOMMENDED_SCENARIO_IDS
+        : FALLBACK_RECOMMENDED_SCENARIO_IDS
+  const out: ImportAnalysisScenario[] = []
+  for (const id of raw) {
+    const s = SCENARIO_BY_ID.get(id)
+    if (s) out.push(s)
+  }
+  return out
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
