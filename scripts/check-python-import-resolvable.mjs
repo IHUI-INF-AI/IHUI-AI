@@ -41,6 +41,11 @@ const git = (args, opts = {}) =>
     timeout: GIT_TIMEOUT,
     maxBuffer: 1 << 28,
     ...opts,
+    // EBUSY 根治(errno -4082):本机交互会话里 Node 建子进程 stdin 管道确定性失败。
+    // 调用点只有 ls-files / ls-tree,不吃 stdin ⇒ stdio[0]='ignore'。
+    // (文件头注释提到的 `cat-file --batch` 是设计意图,当前实现尚未接那条通道;
+    //  真接上时必须改成 input===undefined ? ignore : pipe 两态,否则清单会被静默丢弃。)
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 
 /** 清单与内容同面同轮:先取被审面的 .py 清单,再一次性 cat-file --batch 读正文。 */
