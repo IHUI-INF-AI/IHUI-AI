@@ -78,13 +78,20 @@ class Message:
 
 @dataclass(slots=True)
 class Conversation:
-    """IR 单会话;字段全部可缺省,由来源导出携带时才有值。"""
+    """IR 单会话;字段全部可缺省,由来源导出携带时才有值。
+
+    `attachments` 是**来源侧附件元信息清单**(仅微信 ZIP 导出携带,其余来源恒空):
+    每项形如 `{name, path, size, kind, messageIndexes}`。它只承载**元信息**,
+    不含任何文件字节 —— 见 `importers/wechat.py` docstring「附件」的隐私条款。
+    刻意做成**可选且默认空**:不带附件的四个来源与既有前端消费方零感知。
+    """
 
     messages: list[Message] = field(default_factory=list)
     title: str | None = None
     model: str | None = None
     created_at: str | None = None
     updated_at: str | None = None
+    attachments: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -269,6 +276,10 @@ def finalize(
             conv_item["sourceCreatedAt"] = created
         if updated:
             conv_item["sourceUpdatedAt"] = updated
+        # 附件清单:仅微信 ZIP 携带。**只带元信息,不含文件字节**(wechat.py docstring
+        # 「附件」隐私条款)。空清单不输出该键 —— 保持其余四个来源的响应体逐字不变。
+        if conv.attachments:
+            conv_item["attachments"] = conv.attachments
         items.append(conv_item)
 
     if dropped_roles:
