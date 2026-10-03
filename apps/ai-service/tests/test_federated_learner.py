@@ -16,10 +16,16 @@
 from __future__ import annotations
 
 import random
+import sys
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from app.services._load_lifecycle import LOAD_BACKOFF_BASE_S as _BASE_S
+from app.services._load_lifecycle import LOAD_BACKOFF_MAX_S as _MAX_S
+from app.services._load_lifecycle import (
+    LOAD_MAX_CONSECUTIVE_FAILURES as _MAX_CONSECUTIVE_FAILURES,
+)
 from app.services.differential_privacy import (
     DifferentialPrivacy,
     differential_privacy,
@@ -959,4 +965,233 @@ class TestFederatedBigintIdWrite:
         assert "WHERE id = $7" in sql
         assert args[6] == 456
         assert isinstance(args[6], int)  # UUID 不是 int,此断言即排除 UUID 对象
+
+# =============================================================================
+# G-759(2026-10-03):get_status 的 loadState 对外投影 —— 四档逐档可读出
+# =============================================================================
+#
+# G-748 把"读失败也固化"收回同一份判据(_load_lifecycle.state_label),
+# 但 federated_learner.get_status() 没有对外投影这一层 —— 且它已有的
+# `cacheLoaded` 判据是 `len(self._cache) > 0`(缓存规模),与 `self._loaded`
+# 结构上无关:读到权威空表时它也是 False,与"从未加载"返回值完全相同。
+# 本段把四档钉在**对外可读的返回体**上(形状逐字对齐 meta_learner.get_status),
+# 注入机制逐字照抄同轮 8f8d013fdb 加在 tests/test_meta_learner.py 上的形态:
+#   _FakeConn(预设异常序列,耗尽即抛) + _FakeClock(替换 _monotonic,不真 sleep)
+#   + _inject(替换 _get_pool / _monotonic)。全程零 DB 句柄。
+
+
+class _FakeConn:
+    """fetch 按 outcomes 序列给出;Exception 项抛错;序列耗尽 ⇒ AssertionError。
+
+    "耗尽即抛"是判据的一部分:loaded 之后任何多余的 DB 调用都必须炸出来,
+    而不是静默返回空 —— 后者正好复刻本票要防的"把没读到当读到空"。
+    """
+
+    def __init__(self, outcomes: list) -> None:
+        self._outcomes = list(outcomes)
+        self.calls = 0
+
+    def _pop(self, kind: str):
+        self.calls += 1
+        if not self._outcomes:
+            raise AssertionError(
+                f"{kind} 在已无预设结果时被再次调用(不应再打 DB)"
+            )
+        out = self._outcomes.pop(0)
+        if isinstance(out, BaseException):
+            raise out
+        return out
+
+    async def fetch(self, *args):
+        return self._pop("fetch")
+
+    async def fetchrow(self, *args):
+        return self._pop("fetchrow")
+
+    async def execute(self, *args) -> None:
+        """DDL / 自愈建表通道:不消耗预设、不计入 calls。
+
+        用例断言的是"读了几次数据",建表这类写操作不得混进计数里。
+        """
+        return None
+
+
+class _AcquireCtx:
+    def __init__(self, conn: _FakeConn) -> None:
+        self._conn = conn
+
+    async def __aenter__(self) -> _FakeConn:
+        return self._conn
+
+    async def __aexit__(self, *exc: object) -> bool:
+        return False
+
+
+class _FakePool:
+    def __init__(self, conn: _FakeConn) -> None:
+        self._conn = conn
+
+    def acquire(self) -> _AcquireCtx:
+        return _AcquireCtx(self._conn)
+
+
+class _FakeClock:
+    """替换 _monotonic:模拟退避时间流逝,不真 sleep。"""
+
+    def __init__(self) -> None:
+        self.t = 1000.0
+
+    def __call__(self) -> float:
+        return self.t
+
+    def advance(self, seconds: float) -> None:
+        self.t += seconds
+
+
+def _inject_fed(monkeypatch, conn: _FakeConn) -> _FakeClock:
+    """把 federated_learner 的 _get_pool / _monotonic 换成假件(注入点=本模块)。"""
+    clock = _FakeClock()
+    monkeypatch.setattr("app.services.federated_learner._monotonic", clock)
+
+    async def _get_pool() -> _FakePool:
+        return _FakePool(conn)
+
+    monkeypatch.setattr("app.services.federated_learner._get_pool", _get_pool)
+    return clock
+
+
+@pytest.mark.asyncio
+async def test_fed_load_state_never_tried_then_retry_backoff_then_loaded(monkeypatch):
+    """四档前三档逐档可读出:never_tried → retry_backoff → loaded。
+
+    与 meta_learner 的同形用例逐字对齐:一次读失败**不得**置 loaded,
+    退避窗口内不打 DB,窗口过后真重试并固化(读到空表 = 权威的空,可固化)。
+    """
+    conn = _FakeConn([ConnectionError("transient db down"), []])
+    clock = _inject_fed(monkeypatch, conn)
+    fed = FederatedLearner()
+
+    # 档① 从未尝试:全新实例,还没碰过 DB
+    status = fed.get_status()
+    assert status["loaded"] is False
+    assert status["loadFailures"] == 0
+    assert status["loadState"] == "never_tried"
+
+    await fed._ensure_loaded()
+    assert conn.calls == 1
+    # 档② 退避中:读失败不置 loaded
+    assert fed._loaded is False
+    assert fed._load_failures == 1
+    status = fed.get_status()
+    assert status["loaded"] is False
+    assert status["loadFailures"] == 1
+    assert status["loadState"] == "retry_backoff"
+
+    # 有界退避:窗口内反复调用也不得打爆 IO
+    await fed._ensure_loaded()
+    await fed._ensure_loaded()
+    assert conn.calls == 1
+
+    # 档④ 已固化:窗口过后真重试,这次读到空表(成功)可以固化
+    clock.advance(_BASE_S + 0.01)
+    await fed._ensure_loaded()
+    assert conn.calls == 2
+    assert fed._loaded is True
+    assert fed._load_failures == 0
+    status = fed.get_status()
+    assert status["loaded"] is True
+    assert status["loadFailures"] == 0
+    assert status["loadState"] == "loaded"
+
+
+@pytest.mark.asyncio
+async def test_fed_load_state_gave_up_still_not_loaded(monkeypatch):
+    """档③ gave_up:失败计数到上限 ⇒ 停止自动重试,但 loaded 仍 False。
+
+    "试了 N 次都失败"≠"没有数据" —— 投影必须让运维一眼看出这是读不到。
+    """
+    max_failures = _MAX_CONSECUTIVE_FAILURES
+    conn = _FakeConn([ConnectionError(f"db down #{i}") for i in range(max_failures)])
+    clock = _inject_fed(monkeypatch, conn)
+    fed = FederatedLearner()
+
+    for _ in range(max_failures):
+        clock.advance(_MAX_S + 1.0)  # 每次都跨过退避窗口
+        await fed._ensure_loaded()
+    assert conn.calls == max_failures
+    assert fed._loaded is False
+    assert fed._load_failures == max_failures
+
+    # 放弃后:不再打 DB(有界),但 loaded 仍 False
+    clock.advance(_MAX_S + 1.0)
+    await fed._ensure_loaded()
+    assert conn.calls == max_failures
+    status = fed.get_status()
+    assert status["loaded"] is False
+    assert status["loadFailures"] == max_failures
+    assert status["loadState"] == "gave_up"
+
+
+@pytest.mark.asyncio
+async def test_fed_get_status_cache_loaded_is_not_load_state(monkeypatch):
+    """cacheLoaded(缓存规模)与 loadState(加载状态)必须结构上可区分。
+
+    本票的核心断言:读到**权威空表**(读成功、库里确实没有 federated lesson)
+    时 cacheLoaded 为 False,而 loadState 为 "loaded" —— 两个字段讲两件事。
+    若有人把 cacheLoaded 改成读 self._loaded 让它"看起来对",本用例立即翻红
+    (那时"读到权威空表"与"从未加载"又被混同回静默)。
+    """
+    conn = _FakeConn([[]])  # 读成功,零行 = 权威的空
+    _inject_fed(monkeypatch, conn)
+    fed = FederatedLearner()
+    await fed._ensure_loaded()
+
+    status = fed.get_status()
+    # 权威的空:缓存规模为 0,但加载**成功**过
+    assert status["cacheLoaded"] is False
+    assert status["totalLessons"] == 0
+    assert status["loaded"] is True
+    assert status["loadState"] == "loaded"
+
+    # 从未加载:同样是 cacheLoaded=False,但 loadState 不同 ⇒ 两者可区分
+    fresh = FederatedLearner()
+    fresh_status = fresh.get_status()
+    assert fresh_status["cacheLoaded"] is False
+    assert fresh_status["loadState"] == "never_tried"
+    assert fresh_status["loadState"] != status["loadState"]
+
+
+def test_fed_get_status_load_state_has_no_fifth_state():
+    """形状锁:投影词汇只许来自 _load_lifecycle 四档,不得新增第五档。
+
+    同 tests/test_crash_budget_b76.py 的口径 —— crash-loop-stopped 是崩溃预算
+    的终态,与"读不到"的四档不同义,不得混进 loadState 的取值域。
+    """
+    import inspect
+
+    from app.services import _load_lifecycle as ll
+
+    allowed = {
+        ll.STATE_LOADED,
+        ll.STATE_NEVER_TRIED,
+        ll.STATE_RETRY_BACKOFF,
+        ll.STATE_GAVE_UP,
+    }
+    seen = set()
+    for failures, loaded in (
+        (0, False),
+        (1, False),
+        (ll.LOAD_MAX_CONSECUTIVE_FAILURES - 1, False),
+        (ll.LOAD_MAX_CONSECUTIVE_FAILURES, False),
+        (ll.LOAD_MAX_CONSECUTIVE_FAILURES, True),
+        (0, True),
+    ):
+        seen.add(ll.state_label(loaded=loaded, failures=failures))
+    assert seen == allowed
+    assert "crash-loop-stopped" not in seen
+
+    # 本模块源码不得写死四档字面量(词汇表唯一来源 = _load_lifecycle)
+    src = inspect.getsource(sys.modules[FederatedLearner.__module__])
+    for literal in ('"never_tried"', '"retry_backoff"', '"gave_up"'):
+        assert literal not in src, f"federated_learner 又抄了一份词汇:{literal}"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
