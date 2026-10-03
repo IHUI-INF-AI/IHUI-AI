@@ -763,7 +763,37 @@ export function auditShadowJs(readFile, sites, trackedSrc) {
   // "只报数"也必须报名(本仓的口径:计数可以不当判据,但不能替人做出"这一格没人看"的判断) ——
   //  targets 是"被 '.js' 说明符字面命中的入库 .js"全集,含合规的那些。
   const targets = [...byTarget.keys()].sort()
-  return { byShadow, deadPairs, undetermined, targets, targeted: byTarget.size }
+  /**
+   * `scanned` = 这一维**真正看过**的 `.js` 说明符字面落点数(去重,在"是否入库"那道过滤**之前**)。
+   *
+   * 为什么必须与 `targeted` 分成两个数(票面 G-815915 反假绿①"扫到 0 个候选判死不记绿"的落点):
+   * `targeted` 只数**入库**的 `.js`,而本仓 ESM 约定是"源文件写 `.ts`、说明符写 `.js` ⇒ 绝大多数
+   * `.js` 落点指向的根本不是入库 `.js`,而是同 stem 的 `.ts`"。2026-10-03 现读 HEAD:落点 1768 个,
+   * 其中指向入库 `.js` 的只有 8 个。**所以 `targeted === 0` 是本仓的常态而不是尺子失效** ——
+   * 票面自己写下的"现读覆盖面为 0"说的正是这一格。把判死挂在 `targeted` 上,会把"扫过且干净"
+   * 判成"没看",即在票面描述的那个状态下直接造成恒红门(§12e:唯一结局是人人跳钩子)。
+   * 挂在 `scanned` 上才是票面要的那一格:**一个 `.js` 说明符落点都没扫到** ⇒ 采集通道本身断了
+   * (解析器退化成不认 `.js`、或取材面取空),此时"判红候选 0 个"是空话,必须判死不记绿。
+   */
+  const scanned = new Set(
+    (sites || [])
+      .filter((s) => JS_SPEC_RE.test(s.target) && !SKIP_DIR.test(s.target) && !FIXTURE_ROOT.test(s.target))
+      .map((s) => s.target),
+  ).size
+  return { byShadow, deadPairs, undetermined, targets, targeted: byTarget.size, scanned }
+}
+
+/**
+ * D4 的采集通道是否**失明**:扫到 0 个 `.js` 说明符字面落点 ⇒ 这一维没看过任何东西,
+ * 此时报告里那句"判红候选 0 个"不成立(与"扫过且干净"逐字同形 —— 本门头注与别名表那段
+ * 记的就是这一型:判据失效的样子和"没有问题"完全一样)。故这一格必须判死不记绿。
+ *
+ * 方向刻意是**只认采集口径、不认 `targeted`**:见 auditShadowJs 里 `scanned` 那段注释 ——
+ * `targeted === 0` 在本仓是常态(1768 个落点里 8 个指向入库 `.js`),拿它判死就是恒红门。
+ * 单独抽成导出函数,是为了让 CLI 与镜像测试共用**同一份**判据(§22c:两处各写一遍必漂移)。
+ */
+export function d4ChannelBlind(shadow) {
+  return !shadow || !(Number(shadow.scanned) > 0)
 }
 
 /** 把 D4 的按文件违规并进取违规表(与 D1/D2/D3 同表 ⇒ 棘轮锚点、打印、退出码三条只有一套语义)。 */
@@ -1059,11 +1089,31 @@ async function main() {
   /** D4 的三个计数与上面那行同屏:"影子 0 处"和"这一遍根本没扫到任何 `.js` 说明符"在只印总
    *  行数的报告里长得一模一样 —— 上面别名表那段注释记的就是这条教训,新维度不得重犯。 */
   console.log(
-    `[dangling-imports] D4 影子 .js:被 '.js' 说明符字面命中的入库 .js ${shadowPending.targeted} 个` +
+    `[dangling-imports] D4 影子 .js:扫到的 '.js' 说明符落点 ${shadowPending.scanned} 个` +
+      ` | 其中指向入库 .js ${shadowPending.targeted} 个` +
       ` | 判红候选 ${shadowPending.byShadow.size} 个` +
       ` | 只报数(同名对无人指向)${shadowPending.deadPairs.length} 个` +
       (shadowPending.undetermined.length ? ` | 未判定 ${shadowPending.undetermined.length} 个` : ''),
   )
+  /**
+   * 票面 G-815915 反假绿①「扫到 0 个候选判死不记绿」。
+   *
+   * 为什么这一格必须 exit 2 而不是打个警告继续:本门头注与别名表那段注释记的都是同一型 ——
+   * **判据失效的样子和"没有问题"完全一样**。若采集通道断了(解析器某天不再递出 `.js` 落点),
+   * 报告照样会写"判红候选 0 个",读起来就是一把干净的尺子,而它其实一眼都没看。
+   * 判据挂在 `scanned`(**采集口径**)而不是 `targeted`:见 auditShadowJs 里 `scanned` 的注释,
+   * 本仓 1768 个 `.js` 落点里只有 8 个指向入库 `.js` ⇒ `targeted === 0` 是常态而非失效。
+   *
+   * 口径与既有的"枚举到 0 个跟踪源文件 ⇒ exit 2"逐字同型(那一行在 main() 开头),两处并存:
+   * 那一条兜住"源文件清单取空",这一条兜住"D4 落点采集断链"。`--rev` 面不适用(任意历史树
+   * 本来就可能一个 `.js` 说明符都没有),故只在默认全量档与 --staged/--files 档生效。
+   */
+  if (d4ChannelBlind(shadowPending)) {
+    console.log(
+      '❌ 无法判定:D4 扫到 0 个 ".js" 说明符字面落点(采集通道断链)—— 这一维没看过任何东西,"判红候选 0 个"不作数',
+    )
+    process.exit(2)
+  }
   for (const u of shadowPending.undetermined) console.log(`   ⚠️ D4 未判定 ${u.file}:${u.why}`)
   if (SHOW_ALL && shadowPending.targets.length)
     console.log(
@@ -1480,15 +1530,23 @@ function selfTest() {
     const d4 = shadow.byShadow.size
     const dead = shadow.deadPairs.length
     const undet = shadow.undetermined.length
+    // 票面 G-815915 反假绿①:每一条自带 `scanned` 期望(不写 = 不参与这一维的判定)。
+    // 写这一列的理由与写 `red`/`d4` 同形 —— 判死口径挑错(挂到 `targeted` 上)时,只有
+    // 逐例点名才看得出来,否则"门在真仓上恰好没触发"会把它洗成通过。
+    const blind = d4ChannelBlind(shadow)
+    const okScan = c.scanned === undefined || shadow.scanned === c.scanned
+    const okBlind = c.blind === undefined || blind === c.blind
     const ok =
       n === c.red &&
       d4 === (c.d4 ?? 0) &&
       dead === (c.dead ?? 0) &&
       undet === (c.undet ?? 0) &&
+      okScan &&
+      okBlind &&
       [...shadow.byShadow.values()].flat().every((v) => v.rule === 'D4')
     if (!ok) fail++
     console.log(
-      `${ok ? '✅' : '❌'} ${c.name} (悬空 ${n} 处/期望 ${c.red};影子 ${d4} 处/期望 ${c.d4 ?? 0};只报数 ${dead}/期望 ${c.dead ?? 0};未判定 ${undet}/期望 ${c.undet ?? 0})`,
+      `${ok ? '✅' : '❌'} ${c.name} (悬空 ${n} 处/期望 ${c.red};影子 ${d4} 处/期望 ${c.d4 ?? 0};只报数 ${dead}/期望 ${c.dead ?? 0};未判定 ${undet}/期望 ${c.undet ?? 0};落点 ${shadow.scanned}/期望 ${c.scanned ?? '不限'};判死 ${blind}/期望 ${c.blind ?? '不限'})`,
     )
   }
   {
