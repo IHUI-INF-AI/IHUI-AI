@@ -19,6 +19,7 @@ import {
 } from '@ihui/api-client'
 import { ConversationImportScreen as SharedConversationImportScreen } from '@ihui/rn-app'
 import type {
+  CommittedImportConversation,
   ConversationImportHistoryRow,
   ConversationImportHistoryStatus,
   ConversationImportSourceOption,
@@ -28,6 +29,7 @@ import type {
   PickedImportFile,
 } from '@ihui/rn-app'
 import { apiFailureToText } from '@ihui/shared/utils'
+import type { ImportSource } from '@ihui/shared/import-analysis'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -238,6 +240,10 @@ export function ConversationImportScreen() {
       let done = 0
       let imported = 0
       let failed = 0
+      // D28 补齐层:成功落库的会话清单 —— 结果区两个出口的载荷。
+      // source 取**本次提交实际用的那一份**(不是 UI 当前选中态):用户导完可能顺手
+      // 切了来源卡,若下游按当前态取,微信导入的会话会拿到 codex 的推荐场景。
+      const committed: CommittedImportConversation[] = []
       reportProgress({ done, total })
 
       for (const id of rowIds) {
@@ -262,11 +268,20 @@ export function ConversationImportScreen() {
           messages,
         }
         const res = await commitConversationImport(payload)
-        if (res.success) imported += 1
-        else failed += 1
+        if (res.success) {
+          imported += 1
+          committed.push({
+            conversationId: res.data.conversationId,
+            title: payload.title ?? t('conversationImport.conversationUntitled'),
+            messageCount: messages.length,
+            source: toImportSource(source) as ImportSource,
+          })
+        } else {
+          failed += 1
+        }
         reportProgress({ done: ++done, total })
       }
-      return { imported, failed }
+      return { imported, failed, committed }
     },
     [t],
   )
@@ -300,6 +315,32 @@ export function ConversationImportScreen() {
     })
   }, [t])
 
+  /**
+   * D28 补齐层:「打开会话」—— 跳 Chat 路由并按 conversationId 回填历史。
+   * 既有唯一出口(RootNavigator 的 Chat 路由 + ChatScreen 的 loadConversationMessages),
+   * 不新造深链。
+   */
+  const onOpenConversation = useCallback((conversationId: string) => {
+    navigation.navigate('Chat', { conversationId })
+  }, [navigation])
+
+  /**
+   * D28 补齐层:「用场景分析」发起 —— 跳 Chat 路由,带 autoSendPrompt。
+   *
+   * 分析指令作为**该导入会话的下一条用户消息**发出(ChatScreen 内走既有 send()
+   * → streamChat,与 P1.4 网页链接同一出口),历史里的导入记录即本轮上下文。
+   * 不新建会话:另起一个会话会让"基于这份记录分析"失去依据。
+   */
+  const onAnalyze = useCallback(
+    (params: { conversationId: string; source: ImportSource; prompt: string }) => {
+      navigation.navigate('Chat', {
+        conversationId: params.conversationId,
+        autoSendPrompt: params.prompt,
+      })
+    },
+    [navigation],
+  )
+
   return (
     <View style={{ flex: 1 }}>
       <NavBar title={t('conversationImport.pageTitle')} onBack={() => navigation.goBack()} />
@@ -311,6 +352,8 @@ export function ConversationImportScreen() {
         onParse={onParse}
         onCommit={onCommit}
         onLoadHistory={onLoadHistory}
+        onOpenConversation={onOpenConversation}
+        onAnalyze={onAnalyze}
       />
     </View>
   )

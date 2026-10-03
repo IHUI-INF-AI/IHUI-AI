@@ -38,8 +38,8 @@ import {
 } from '@ihui/ui-react'
 
 import { useChatStore } from '@/stores/chat'
-import { buildAnalysisPrompt, type ImportSource } from '@/lib/import-analysis'
-import type { ImportAnalysisCategory, ImportAnalysisScenario } from '@/lib/import-analysis-scenarios'
+import { buildAnalysisPrompt, type ImportSource } from '@ihui/shared/import-analysis'
+import type { ImportAnalysisCategory, ImportAnalysisScenario } from '@ihui/shared/import-analysis/scenarios'
 
 export interface ImportAnalysisDialogProps {
   readonly open: boolean
@@ -80,7 +80,7 @@ export function ImportAnalysisDialog({
     if (!open || catalog.phase === 'ready') return
     let cancelled = false
     setCatalog({ phase: 'loading' })
-    void import('@/lib/import-analysis-scenarios')
+    void import('@ihui/shared/import-analysis/scenarios')
       .then((m) => {
         if (cancelled) return
         setCatalog({
