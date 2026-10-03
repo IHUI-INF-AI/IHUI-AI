@@ -65,6 +65,8 @@ import ModelsPage from './pages/ModelsPage'
 import ChatHistoryPage from './pages/ChatHistoryPage'
 import ChatFavoritesPage from './pages/ChatFavoritesPage'
 import ChatTemplatesPage from './pages/ChatTemplatesPage'
+// D28 外部会话导入(2026-10-03):侧栏选来源/选文件/预览/逐会话落库
+import ConversationImportPage from './pages/ConversationImportPage'
 import PlazaPage from './pages/PlazaPage'
 import CirclesPage from './pages/CirclesPage'
 import TopicsPage from './pages/TopicsPage'
@@ -327,6 +329,7 @@ export default function SidepanelApp() {
           <Route path="/chat/history" element={<ChatHistoryPage />} />
           <Route path="/chat/favorites" element={<ChatFavoritesPage />} />
           <Route path="/chat/templates" element={<ChatTemplatesPage />} />
+          <Route path="/chat/import" element={<ConversationImportPage />} />
           {/* 词汇(独立功能,保留) */}
           <Route path="/vocabulary" element={<VocabularyPage />} />
           {/* 课程(独立功能,保留) */}
