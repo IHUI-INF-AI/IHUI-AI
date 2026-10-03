@@ -15,6 +15,8 @@
 #   POST /api/memory/entries/{memory_id}/important    bump importance (+1, capped 5)
 #   GET  /api/memory/recall                           preview recall context block + hits
 #   POST /api/memory/extract                          auto-extract candidates and import
+#                                                    (skipped:user_disabled when the user
+#                                                     turned off auto long-term memory)
 #
 # Storage: reuses AgentLongTermMemory (in-process dict + data JSON persistence).
 # Auth: reuse get_current_user_id; every entry is isolated/filtered by user_id.
@@ -289,9 +291,37 @@ async def extract_import(
     req: ExtractMemoryRequest,
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
-    """从会话消息抽取候选记忆并批量导入。"""
+    """从会话消息抽取候选记忆并批量导入。
+
+    2026-10-03 数据出域合规整改:本端点是 `agent_longterm_memory` 那五类条目
+    (user_preference / project_convention / lesson_learned / resolved_issue / goal,
+    见 agent_longterm_memory.py:45-51)进入存储的**唯一**自动入口 —— 前端
+    「记忆管理」页的"归纳本会话"按钮打到这里。此前无隐私闸门,用户在隐私页关掉
+    "不自动写入长期记忆"后,点一次这个按钮仍会把整段对话提炼成跨会话偏好落盘。
+
+    闸门在 `extract_candidates_from_session` **之前**:该函数虽规则驱动、不调 LLM,
+    但它产出的候选会被 `bulk_import_from_extract` 写进 data/agent_longterm_memory.json
+    并长期留存 ⇒ 拦晚了就等于没拦。
+    手工新增单条(`POST /entries`)不受此闸门约束:那是用户主动录入,不是"自动提炼"。
+    """
     if not req.messages:
         raise HTTPException(status_code=400, detail="messages 不能为空")
+
+    from ..services.auto_memory_optout import is_auto_memory_enabled
+
+    if not await is_auto_memory_enabled(user_id):
+        logger.info("longterm-memory/extract 跳过(用户已关闭自动长期记忆,user=%s)", user_id)
+        return {
+            "code": 0,
+            "message": "ok",
+            "data": {
+                "imported": 0,
+                "candidates": [],
+                "stats": {"total": 0, "added": 0, "merged": 0, "skipped": 0},
+                "skipped": "user_disabled",
+            },
+        }
+
     candidates = extract_candidates_from_session(
         req.messages, session_id=req.source_session_id or "", user_id=user_id
     )

@@ -225,10 +225,29 @@ def _builtin_rules() -> tuple[PrefixRule, ...]:
         (("su",), "切换特权用户"),
         (("passwd",), "修改用户口令"),
         (("dd",), "磁盘读写工具,存在覆盖数据风险"),
+        # 2026-10-03 数据出域合规整改:裸 `git push` 纳入确认级。
+        # 原先 PROMPT 名单只覆盖 --force/-f/--force-with-lease 三个**改写远端历史**
+        # 的变体,普通推送(把本地提交发布到远端 = 代码出域)落在 command_policy.json
+        # 的 `git` 白名单里被直接判 ALLOW,且 tests/test_exec_policy.py 曾把这个行为
+        # 钉成期望值(`assert d.decision is Decision.ALLOW`)。agent 可在无任何用户
+        # 确认的情况下把代码推到任意 remote/URL —— 这与"上传用户仓库到外部"同型。
+        #
+        # 匹配语义:pattern 命中即**前缀**匹配(尾部多余 token 不影响),故下面这条
+        # 覆盖 `git push` / `git push origin main` / `git push --tags` 等全部形态。
+        #
+        # ⚠ 加载顺序有语义,勿随手前移:detect_shadows 把「A 命中必命中 B 且 A 不比 B
+        # 宽松」判为遮蔽,并在同级别 i<j 时报「本规则冗余」。裸 push 是三个 force
+        # 变体的**前缀**(covers 反向成立),若排在 force 之前,那三条就会被判冗余而
+        # 触发 test_builtin_no_self_shadow 红灯。故必须排在三个 force 变体之后 ——
+        # 靠"长规则先加载"让 force 各自保留自己的 reason(evaluate 的裁决键是
+        # severity→pattern 长度→加载序,最长胜出,与此处一致)。
         (("git", "push", "--force"), "强制推送覆盖远端历史"),
         (("git", "push", "-f"), "强制推送覆盖远端历史"),
         (("git", "push", "...", "--force"), "强制推送覆盖远端历史"),
         (("git", "push", "--force-with-lease"), "强制推送(带租约)改写远端历史"),
+        # 裸 push 必须排在上面三个 force 变体**之后**(见上方注释:顺序有语义,
+        # 前移会触发 detect_shadows 的"同级别冗余"红灯)。
+        (("git", "push"), "推送本地提交到远端(代码出域,需确认)"),
         (("git", "reset", "--hard"), "硬重置丢弃本地改动"),
         (("git", "clean", "-f"), "强制删除未跟踪文件"),
         (("sh", "-c"), "间接执行任意 shell 片段"),
