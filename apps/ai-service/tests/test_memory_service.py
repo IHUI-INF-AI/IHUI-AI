@@ -844,25 +844,50 @@ class TestConsolidate:
 
 
 class TestAutoMemoryPref:
-    """_is_auto_memory_enabled:user_preferences privacy.autoMemory 读取。"""
+    """_is_auto_memory_enabled:user_preferences privacy 读取。
+
+    2026-10-03 合规整改后本方法委派 `auto_memory_optout`,一次判定要读**两个**键
+    (新键 ``autoMemoryOptOut`` opt-out 语义 / 旧键 ``autoMemory`` opt-in 语义),
+    故 mock 必须按 key 分派 —— 原先的 `fetchrow.return_value = ...` 会把同一个值
+    同时喂给两个键,在极性相反的两键上得出与本用例意图相反的结论。
+    完整的判定链(优先级 / 全局 env / userId 缺失降级)见 tests/test_auto_memory_optout.py。
+    """
+
+    @staticmethod
+    def _per_key(mock_conn, *, opt_out=None, legacy=None) -> None:
+        """让 fetchrow 按被查的 key 返回对应值(未给的键 = 无记录)。"""
+
+        async def _fetchrow(_sql, _uid, _group, key, *args):
+            if key == "autoMemoryOptOut":
+                return FakeRecord({"value": opt_out}) if opt_out is not None else None
+            if key == "autoMemory":
+                return FakeRecord({"value": legacy}) if legacy is not None else None
+            raise AssertionError(f"意外查询的 key: {key}")
+
+        mock_conn.fetchrow.side_effect = _fetchrow
 
     async def test_pref_default_true(self, service, mock_conn):
-        """无记录 → 默认开启。"""
-        mock_conn.fetchrow.return_value = None
+        """无记录 → 默认开启(= 改动前行为)。"""
+        self._per_key(mock_conn)
         assert await service._is_auto_memory_enabled("u1") is True
 
     async def test_pref_false_when_explicit(self, service, mock_conn):
-        """显式 'false' → 关闭。"""
-        mock_conn.fetchrow.return_value = FakeRecord({"value": "false"})
+        """旧键显式 'false'(记忆页关过)→ 关闭。"""
+        self._per_key(mock_conn, legacy="false")
         assert await service._is_auto_memory_enabled("u1") is False
 
     async def test_pref_true_on_other_values(self, service, mock_conn):
-        """'true' / 其他非 false 值 → 开启。"""
-        mock_conn.fetchrow.return_value = FakeRecord({"value": "1"})
+        """旧键 'true' / 其他非 false 值 → 开启。"""
+        self._per_key(mock_conn, legacy="1")
         assert await service._is_auto_memory_enabled("u1") is True
 
-    async def test_pref_exception_degrades_open(self, service, mock_conn):
-        """查询异常 → 降级为开启(不阻塞)。"""
+    async def test_new_key_opt_out_true_disables(self, service, mock_conn):
+        """新键 'true'(隐私页关闭)→ 关闭。这正是整改前接错的那条线。"""
+        self._per_key(mock_conn, opt_out="true")
+        assert await service._is_auto_memory_enabled("u1") is False
+
+    async def test_exception_degrades_open(self, service, mock_conn):
+        """查询异常 → 降级为开启(不阻塞)。降级方向的理由见 auto_memory_optout。"""
         mock_conn.fetchrow.side_effect = RuntimeError("db down")
         assert await service._is_auto_memory_enabled("u1") is True
 
