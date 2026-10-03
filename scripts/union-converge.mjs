@@ -85,6 +85,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { auditOne } from './check-merge-addition-loss.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { resolveRemoteHead, catBatch } from './lib/face-reader.mjs'
+import { resolveGitBin } from './lib/gitdir.mjs'
 import { postMergeLedgerSync } from './lib/post-merge-ledger-sync.mjs'
 import { recordBypassLanding } from './lib/commit-attestation.mjs'
 import {
@@ -106,7 +107,13 @@ import {
 } from './lib/ledger-move-aware.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const GIT = 'C:/Program Files/Git/cmd/git.exe'
+// git 可执行一律经 §5b 唯一出口解析(候选链 + 探活;§5b 明写"脚本一律不得依赖环境取 git")。
+// 旧写法写死 `C:/Program Files/Git/cmd/git.exe`,另一台机(G 盘 checkout)实测 git 落点不同 ⇒ 换机即 ENOENT。
+const GIT = resolveGitBin()
+if (!GIT) {
+  console.error('❌ union-converge:resolveGitBin() 解析不到可用 git(候选链见 scripts/lib/gitdir.mjs)')
+  process.exit(2)
+}
 /** 多会话共写的活文档:行级 union(其余文件按路径整体取某一侧) */
 export const LIVE_DOCS = ['PROJECT_PLAN.md', 'AGENTS.md', 'README.md']
 const GIT_TIMEOUT = 300000

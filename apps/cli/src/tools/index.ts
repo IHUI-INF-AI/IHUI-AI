@@ -858,8 +858,8 @@ export async function executeToolCall(
   if (!tool) {
     return { success: false, output: '', error: `未知工具: ${call.name}`, errorType: 'not_found' };
   }
-  // A31 第①步「影子校验」/ A36 第③步「enforce」。默认 off ⇒ 整个分支等价于不存在
-  // (行为与改前逐字相同,由 argument-validation-shadow 单测①钉住"默认零副作用")。
+  // A31 第①步「影子校验」/ A36 第③步「enforce」。默认 shadow(L22150 装车):校验器
+  // 真跑、只记账;显式 off ⇒ 整个分支等价于不存在(行为与改前逐字相同)。
   //   shadow:跑校验、只进遥测计数器,不改 call.arguments、不改返回值、不拦调用;
   //   enforce:先过 schema-aware 容错解析(原值即过则一次都不 re-parse),违规即拒 ——
   //     错误里带**单行**违规清单供模型修复;拒绝发生在权限/批准弹窗与限流**之前**
