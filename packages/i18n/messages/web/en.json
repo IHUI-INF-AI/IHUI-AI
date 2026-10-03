@@ -17050,6 +17050,7 @@
         "name": "Provider name",
         "namePlaceholder": "My OpenAI",
         "nameRequired": "Provider name is required",
+        "invalidFieldsToast": "Please fix the following fields and retry",
         "newTitle": "New Provider",
         "optional": "optional",
         "pasteEmpty": "Clipboard is empty",
