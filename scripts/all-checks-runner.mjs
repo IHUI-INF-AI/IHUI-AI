@@ -36,7 +36,10 @@ import { pathToFileURL } from 'node:url'
 /** 直接执行时的入口(为空则说明本文件被当作断言目标跑,不进 CLI 主流程)。 */
 const entryArg = process.argv[1] || ''
 
-/** 子步骤清单:逐字取自改前 `check:all` 的 `&&` 串链(26 条),顺序与集合都不得增删。 */
+/** 子步骤清单:逐字取自改前 `check:all` 的 `&&` 串链(26 条),顺序与集合都不得增删。
+ *  2026-10-01 增补:第 27 步 `check:benchmark-delivery`(尺子②对标交付核验,票 D140/欠口 G-816103)。
+ *  原 26 条的迁移不变量仍成立(改前 && 链里的每一条都原样在列);增补步是判"文档与代码是否一致"的
+ *  三态尺子,--strict 下判不出/台账腐烂即 exit 2(拒绝出合格证),仍满足本器"失败不短路后续步骤"。 */
 export const CHECK_ALL_STEPS = Object.freeze([
   'pnpm check:conflict-markers',
   'pnpm check:api-key-leak',
@@ -64,6 +67,7 @@ export const CHECK_ALL_STEPS = Object.freeze([
   'node scripts/check-prod-bundle-shadow.mjs',
   'pnpm check:sdk-publish',
   'pnpm check:artifact-budget',
+  'pnpm check:benchmark-delivery',
 ])
 
 /** 单步子上限:默认 25 分钟(全量档里最慢的是逐 blob 取材的那几道门)。 */
