@@ -22,9 +22,7 @@
  *   node scripts/check-delivery-report-consistency.mjs --staged   (pre-commit, 矛盾阻塞 commit)
  *   node scripts/check-delivery-report-consistency.mjs             (全量扫描报告, exit 0/1)
  */
-import { execSync } from 'node:child_process'
-import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
 
 const ROOT = process.cwd()
 const isStaged = process.argv.includes('--staged')
@@ -175,13 +173,30 @@ function containsRemainingKeyword(text, kw) {
   return re.test(text)
 }
 
+/**
+ * 归并注记的引用短语 — 台账 §1 规矩 2 的归并样板(全账数百处)。
+ * 它们陈述的是"另一条持有行的状态"(程序性引用),不是本报告宣称自身完整收尾;
+ * 按子串匹配会把整节归并注记误当完成宣称,与同节其他历史行的"未实现"字样
+ * 拼成假矛盾(2026-10-03 实测:待办剥离区 30+ 处归并样板挡住一切触碰该节的提交)。
+ * 判红面必须覆盖门自己产出的形态 —— 这批样板正是归并器(门 130 生态)自己写出来的。
+ */
+const MERGE_NOTE_REFERENCE_PHRASES = [
+  '存在已闭环持有行',
+  '与一条已闭环登记同复合主键',
+]
+
 /** 在一个章节文本里扫描互斥违规 */
 function checkSection(section) {
   if (isExemptSection(section)) return []
   const text = section.body.join('\n')
+  // 完成宣称匹配前剥除归并注记的引用短语(后续工作类匹配仍用全文 —— 引用短语不是后续工作)
+  let claimsText = text
+  for (const refPhrase of MERGE_NOTE_REFERENCE_PHRASES) {
+    claimsText = claimsText.split(refPhrase).join('')
+  }
   const hits = { complete: [], remaining: [] }
   for (const phrase of COMPLETE_PHRASES) {
-    if (text.includes(phrase)) hits.complete.push(phrase)
+    if (claimsText.includes(phrase)) hits.complete.push(phrase)
   }
   for (const kw of REMAINING_KEYWORDS) {
     if (containsRemainingKeyword(text, kw)) hits.remaining.push(kw)
@@ -192,20 +207,21 @@ function checkSection(section) {
   return []
 }
 
-function getStagedFiles() {
+/**
+ * staged 面的枚举与内容都经 face-reader(守门 118 取材面纪律):枚举走 `gitRaw`
+ * (路径清单不是 blob 正文),内容走 `catBatch` 读**索引 blob**(`:<path>` 规格)——
+ * 旧实现 `readFileSync(join(ROOT, f))` 按磁盘判,共享工作树滞后 HEAD 时判的是
+ * 别人的在飞现场;索引 blob 才是"本次提交会带走的那一份"。
+ * @returns {string[]} staged 的 .md 相对路径
+ */
+function getStagedMdPaths() {
   try {
-    const output = execSync('git diff --cached --name-only --diff-filter=ACM', {
-      encoding: 'utf8',
-      cwd: ROOT,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      windowsHide: true,
-    })
+    const output = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACM'], ROOT)
     return output
       .split('\n')
+      .map((f) => f.trim())
       .filter(Boolean)
       .filter((f) => f.endsWith('.md'))
-      .map((f) => join(ROOT, f))
-      .filter((f) => existsSync(f))
   } catch {
     return []
   }
@@ -215,15 +231,9 @@ function getStagedFiles() {
  * 获取 staged 文件中新增行(+)的行号集合(1-based)。
  * 只检查新增行所在章节,避免历史违规阻塞新 commit。
  */
-function getAddedLineNumbers(filePath) {
+function getAddedLineNumbers(rel) {
   try {
-    const rel = relative(ROOT, filePath).replace(/\\/g, '/')
-    const output = execSync(`git diff --cached --unified=0 -- "${rel}"`, {
-      encoding: 'utf8',
-      cwd: ROOT,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      windowsHide: true,
-    })
+    const output = gitRaw(['diff', '--cached', '--unified=0', '--', rel], ROOT)
     const addedLines = new Set()
     for (const line of output.split('\n')) {
       // @@ -oldStart,oldCount +newStart,newCount @@
@@ -240,22 +250,12 @@ function getAddedLineNumbers(filePath) {
   }
 }
 
+/**
+ * 全量档的扫描集:本门只审 PROJECT_PLAN.md 一份。工作树读取经 face-reader 的
+ * `readWorktreeFile` 唯一出口(不存在的 ⇒ null,由调用方报"少扫一个"而不是假装通过)。
+ */
 function getAllMdFiles() {
-  const out = []
-  const visit = (dir) => {
-    if (!existsSync(dir)) return
-    const st = statSync(dir)
-    if (st.isFile()) {
-      if (dir.endsWith('.md')) out.push(dir)
-      return
-    }
-    for (const entry of readdirSync(dir)) {
-      if (['node_modules', '.git', '.next', '.turbo', 'dist', 'build', '.worktrees', 'public'].includes(entry)) continue
-      visit(join(dir, entry))
-    }
-  }
-  visit(join(ROOT, 'PROJECT_PLAN.md'))
-  return [...new Set(out.filter((f) => existsSync(f)))]
+  return ['PROJECT_PLAN.md']
 }
 
 console.log(
@@ -269,25 +269,51 @@ console.log(
 )
 console.log('')
 
-let files = []
+const entries = [] // {rel, md}
 if (isStaged) {
-  files = getStagedFiles()
-  if (files.length === 0) {
+  const paths = getStagedMdPaths()
+  if (paths.length === 0) {
     console.log(`${C.green}✅ 暂存区无 .md 变更,跳过${C.reset}`)
     process.exit(0)
   }
+  // 内容取自**索引 blob**(`:<path>` 规格)——不是磁盘:磁盘副本是别人的在飞现场
+  const blobs = catBatch(ROOT, paths.map((p) => `:${p}`))
+  const missing = []
+  for (const p of paths) {
+    const md = blobs.get(`:${p}`)
+    if (md === null || md === undefined) {
+      missing.push(p)
+      continue
+    }
+    entries.push({ rel: p, md })
+  }
+  if (missing.length > 0) {
+    console.log(
+      `${C.yellow}⚠️ ${missing.length} 个 staged .md 的索引 blob 取不到(未判定,不冒充通过):${missing.join(', ')}${C.reset}`,
+    )
+  }
+  if (entries.length === 0) {
+    console.log(`${C.yellow}⚠️ staged .md 全部取不到索引 blob ⇒ 无法判定${C.reset}`)
+    process.exit(2)
+  }
 } else {
-  files = getAllMdFiles()
+  for (const rel of getAllMdFiles()) {
+    const md = readWorktreeFile(ROOT, rel)
+    if (md === null || md === undefined) {
+      console.log(`${C.yellow}⚠️ ${rel} 在工作树不存在,本轮少扫一份(未判定 ≠ 通过)${C.reset}`)
+      continue
+    }
+    entries.push({ rel, md })
+  }
 }
 
 let totalViolations = 0
 const fileReports = []
 
-for (const file of files) {
-  const md = readFileSync(file, 'utf8')
+for (const { rel, md } of entries) {
   const sections = splitSections(md)
   // staged 模式下只检查含新增行的章节,避免历史违规阻塞新 commit
-  const addedLines = isStaged ? getAddedLineNumbers(file) : null
+  const addedLines = isStaged ? getAddedLineNumbers(rel) : null
   const findings = []
   for (const section of sections) {
     // staged 模式:跳过不含任何新增行的章节(历史章节)
@@ -304,12 +330,12 @@ for (const file of files) {
   }
   if (findings.length > 0) {
     totalViolations += findings.length
-    fileReports.push({ file: relative(ROOT, file), findings })
+    fileReports.push({ file: rel, findings })
   }
 }
 
 console.log(`${C.bold}扫描结果:${C.reset}`)
-console.log(`  扫描文件: ${files.length} 个`)
+console.log(`  扫描文件: ${entries.length} 个`)
 console.log(`  违规数:   ${totalViolations} 处`)
 console.log('')
 
