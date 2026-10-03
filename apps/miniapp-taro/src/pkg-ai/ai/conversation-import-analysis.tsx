@@ -254,7 +254,7 @@ export function ImportAnalysisPanel({
                           {name}
                         </Text>
                         <Input
-                          className="h-[72rpx] px-[20rpx] text-[length:26rpx] text-foreground bg-card rounded-md border border-border"
+                          className="h-[72rpx] px-[20rpx] text-[length:26rpx] text-foreground bg-card rounded-sm border border-border"
                           value={variables[name] ?? ''}
                           placeholder={tt(
                             'conversationImport.analysisVarPlaceholder',
@@ -325,9 +325,11 @@ function ScenarioRow({
   onClick: () => void
 }) {
   return (
-    <ThemeRoot className={`p-[20rpx] mb-[12rpx] rounded-md border bg-card ${
-      active ? 'border-primary' : 'border-border'
-    }`}>
+    <ThemeRoot
+      className={`p-[20rpx] mb-[12rpx] rounded-md border bg-card ${
+        active ? 'border-[var(--color-border-medium)]' : 'border-border'
+      }`}
+    >
       <View onClick={onClick} hoverClass="opacity-80">
         <Text className="block text-[length:26rpx] text-foreground font-semibold">{title}</Text>
         {subtitle !== '' && (
@@ -355,7 +357,7 @@ function CategoryChip({
       onClick={onClick}
       hoverClass="opacity-80"
       className={`px-[20rpx] py-[10rpx] rounded-md border ${
-        active ? 'bg-primary border-primary' : 'bg-card border-border'
+        active ? 'bg-primary border-[var(--color-border-medium)]' : 'bg-card border-border'
       }`}
     >
       <Text className="text-[length:22rpx] text-foreground">{label}</Text>
