@@ -91,16 +91,27 @@ CREATE INDEX IF NOT EXISTS idx_checkin_records_cooldown
 _ensure_failed = False
 
 
+async def ensure_tables_conn(conn) -> None:
+    """在给定连接上幂等建表(三张表 + 查询索引)。
+
+    与 ensure_tables 的区别:不经过共享连接池。CI 的 ensure 步骤在同一进程里
+    连续多次 asyncio.run(前者各自持有已关闭 loop 的残留池),共享池的跨 loop
+    回收路径在 CI 环境下出现过"步骤退出 0 但表未落库"的静默失配(2026-10-03
+    实测,run 37090730137);裸连接路径无此耦合,并允许调用方自验。
+    """
+    global _ensure_failed
+    await conn.execute(_CREATE_ACCOUNTS_SQL)
+    await conn.execute(_CREATE_RECORDS_SQL)
+    await conn.execute(_CREATE_ERROR_COUNTS_SQL)
+    await conn.execute(_CREATE_INDEXES_SQL)
+    _ensure_failed = False
+
+
 async def ensure_tables() -> None:
     """幂等建表(三张表 + 查询索引)。失败抛出,由调用方决定 fail-open/fail-closed。"""
-    global _ensure_failed
     pool = await get_shared_pool()
     async with pool.acquire() as conn:
-        await conn.execute(_CREATE_ACCOUNTS_SQL)
-        await conn.execute(_CREATE_RECORDS_SQL)
-        await conn.execute(_CREATE_ERROR_COUNTS_SQL)
-        await conn.execute(_CREATE_INDEXES_SQL)
-    _ensure_failed = False
+        await ensure_tables_conn(conn)
 
 
 # ---------------------------------------------------------------------------
