@@ -74,7 +74,8 @@ describe('splitUserMessageParts:判不出/不安全一律不摘(绝不静默消�
     expect(r.videos).toEqual([])
     // 两条都必须**原样留在屏幕上**——这是本用例真正的判据,rejected 只是附属计数。
     expect(r.text).toContain(evilImg)
-    expect(r.text).toContain(evilVid)
+    // D129 起:确凿命中但不安全的行走 rejectedLines 字面渲染通道(不再混在 text 里)
+    expect(r.rejectedLines).toEqual([evilVid])
     // `![a](javascript:alert(1))` 的 URL 里带未转义的 `)`,按 markdown 语法本身就是歧义形态;
     // 发送侧产出的 URL 不会长成这样 ⇒ 这里**刻意不猜**它是图片,当普通文本处理(所以 rejected=1,
     // 只统计那条确凿命中却不安全的 video 行)。放宽正则去吞歧义形态,等于替用户改稿。
@@ -85,14 +86,14 @@ describe('splitUserMessageParts:判不出/不安全一律不摘(绝不静默消�
     const r = splitUserMessageParts('```\n没有收尾的粘贴')
     expect(r.codeBlocks).toEqual([])
     expect(r.rejected).toBe(1)
-    expect(r.text).toContain('```')
+    expect(r.rejectedLines).toEqual(['```'])
   })
 
   it('空标签的 `> 📎` 行不摘(没有可显示的名字,宁可原样可见)', () => {
     const r = splitUserMessageParts('> 📎   ')
     expect(r.fileRefs).toEqual([])
     expect(r.rejected).toBe(1)
-    expect(r.text).toContain('📎')
+    expect(r.rejectedLines).toEqual(['> 📎   '])
   })
 
   it('用户正文里"讨论这些写法"的散文一律不动(只认整行的确切形态)', () => {
