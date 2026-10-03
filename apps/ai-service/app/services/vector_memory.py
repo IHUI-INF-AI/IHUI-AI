@@ -8,6 +8,8 @@
 - embedding 优先调 llm_gateway.embed;失败降级为确定性 hash 伪向量(sha256 分段,128 维)。
 - cosine similarity 纯 Python 实现:dot / (norm_a * norm_b),不引入 numpy。
 - 持久化:JSON 文件快照(.data/vector_memory.json),add/update/delete 后异步写盘,启动时 hydrate 加载。
+- 保留期(2026-10-03 数据出域合规整改):快照里躺着**会话消息原文 + 向量**,属用户
+  内容,必须有期限。见 ``_RETENTION_DAYS`` 的理由与 ``VECTOR_MEMORY_RETENTION_DAYS``。
 """
 
 import asyncio
@@ -16,8 +18,18 @@ import json
 import logging
 import math
 import os
+import time
 from collections import OrderedDict
 from typing import Any, cast
+
+from .ttl_json_store import (
+    file_mtime,
+    is_expired,
+    iso_now,
+    read_json_file,
+    resolve_retention_days,
+    write_json_atomic,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +91,33 @@ _PERSIST_DIR = os.path.join(
     ".data",
 )
 _PERSIST_PATH = os.path.join(_PERSIST_DIR, "vector_memory.json")
+
+# ---------------------------------------------------------------------------
+# 保留期(2026-10-03 数据出域合规整改)
+# ---------------------------------------------------------------------------
+# 为什么是 180 天:快照里的 entry 存的是**会话消息原文**(content/role)加向量,
+# 与 apps/api 侧 relay_messages / IM messages 同档 —— 那些是"用户可见的会话历史",
+# data-archive-service.ts 已按 180 天归档。这里与之对齐,而不是塞进 llm_call_logs
+# 那一档:向量记忆是用户能感知的"它记得我",按 30 天删等于让跨会话记忆失忆。
+#
+# 为什么不用 mtime 判过期(见 ttl_json_store 模块 docstring):mtime 是整份文件的,
+# 每写一次就刷新 —— 只要还有新记忆在写,存量旧记忆就永远不过期。所以:
+#   · 新写入的 entry 盖 sidecar 时间戳(``_stored_at``),按**逐条**时间戳判过期;
+#   · 存量没有时间戳的 entry 回落文件 mtime,拿到一个有限的期限。
+# 为什么时间戳不进 entry 本身:entry 的字段形状是对外契约(``_filter_by_user`` 读
+# ``metadata.user_id``、``clear`` 读 ``session_id``、测试断言 entry 逐字相等),
+# 往里塞内部字段会污染它;平行 sidecar 也不动 entry 语义。
+_RETENTION_ENV = "VECTOR_MEMORY_RETENTION_DAYS"
+_DEFAULT_RETENTION_DAYS = 180
+_RETENTION_DAYS = resolve_retention_days(_RETENTION_ENV, _DEFAULT_RETENTION_DAYS)
+
+# 条数上限(环形,丢最旧)。此前 vector_memory **没有任何条数上限** —— 一份无期限、
+# 无上限的会话原文快照既能撑爆磁盘,也是"平台侧长期留存"最直接的载体。
+# 20000 条远大于任何单用户合理记忆量,正常用户不会碰到;碰到了说明有写放大问题。
+_MAX_ENTRIES = 20_000
+
+# 时间戳 sidecar 的字段名(只增不改:老快照没有这个键,读时按 mtime 兜底)
+_STORED_AT_KEY = "stored_at"
 
 
 def _cosine_similarity(a: list[float], b: list[float]) -> float:
@@ -214,6 +253,9 @@ class VectorMemoryStore:
     def __init__(self, persist_path: str | None = None) -> None:
         self._entries: dict[str, dict[str, Any]] = {}  # entry_id -> entry
         self._vectors: dict[str, list[float]] = {}     # entry_id -> embedding
+        # entry_id -> 写入时刻(ISO8601)。**与 _entries 平行**,不进 entry 本身。
+        # 老快照没有这一项,hydrate 时按文件 mtime 兜底(见 _RETENTION_DAYS 注释)。
+        self._stored_at: dict[str, str] = {}
         self._persist_path = persist_path or _PERSIST_PATH
         self._dirty = False
         self._hydrated = False
@@ -230,16 +272,12 @@ class VectorMemoryStore:
                 避免本线程序列化期间主线程并发增删导致
                 "dictionary changed size during iteration"。
         """
-        try:
-            os.makedirs(os.path.dirname(self._persist_path), exist_ok=True)
-            # 原子写:先写临时文件再 rename(避免写一半崩溃)
-            tmp_path = self._persist_path + ".tmp"
-            with open(tmp_path, "w", encoding="utf-8") as f:
-                json.dump(snapshot, f, ensure_ascii=False)
-            os.replace(tmp_path, self._persist_path)
+        # 原子写 + 目录创建交给共享工具(与 code_index_consent 同一范式:
+        # 临时文件 + os.replace,避免写一半崩溃留下半截 JSON)
+        if write_json_atomic(self._persist_path, snapshot):
             self._dirty = False
-        except Exception as e:
-            logger.warning("向量记忆持久化失败: %s", e)
+        else:
+            logger.warning("向量记忆持久化失败(内存保留)")
 
     async def _persist_async(self) -> None:
         """异步写盘(通过 run_in_executor 避免阻塞事件循环)。
@@ -255,32 +293,94 @@ class VectorMemoryStore:
         snapshot = {
             "entries": dict(self._entries),
             "vectors": dict(self._vectors),
+            _STORED_AT_KEY: dict(self._stored_at),
         }
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, self._persist_sync, snapshot)
 
+    def _expire_entries(self, mtime: float | None) -> list[str]:
+        """丢掉已超过保留期的条目(逐条判过期 + 环形上限),返回被丢弃的 entry_id。
+
+        三个索引必须**同步**删:_entries / _vectors / _stored_at。只删一边会让向量与
+        原文错位(hydrate 的 ∩ 过滤会把落单的那半边悄悄丢掉,表现为"记忆随机消失")。
+        """
+        if _RETENTION_DAYS <= 0:
+            return []
+        now = time.time()
+        dropped: list[str] = []
+        for entry_id in list(self._entries.keys()):
+            # 优先逐条 sidecar 时间戳,没有则回落文件 mtime;两者都判不出 ⇒ 判过期
+            if is_expired(
+                {"updated_at": self._stored_at.get(entry_id)},
+                retention_days=_RETENTION_DAYS,
+                mtime=mtime,
+                now=now,
+                fields=("updated_at",),
+            ):
+                dropped.append(entry_id)
+        # 环形上限:超限丢最旧(插入序 = 写入序,末尾最新)
+        overflow = len(self._entries) - _MAX_ENTRIES
+        if overflow > 0:
+            dropped.extend(list(self._entries.keys())[:overflow])
+        for entry_id in dropped:
+            self._entries.pop(entry_id, None)
+            self._vectors.pop(entry_id, None)
+            self._stored_at.pop(entry_id, None)
+        return dropped
+
     async def hydrate(self) -> int:
-        """启动时从 JSON 文件加载历史向量记忆。返回加载条数。"""
+        """启动时从 JSON 文件加载历史向量记忆。返回加载条数。
+
+        2026-10-03 合规整改:加载时顺带做**存量清理** —— TTL 代码上线前磁盘上的
+        旧文件是无期限的,这些数据没有机会自己过期。走一遍 hydrate 就把过期项
+        同时从内存与磁盘清掉(不需要额外迁移脚本)。清理后落盘一次。
+        """
         if self._hydrated:
             return len(self._entries)
         self._hydrated = True
         if not os.path.isfile(self._persist_path):
             return 0
-        try:
-            with open(self._persist_path, encoding="utf-8") as f:
-                data = json.load(f)
-            entries = data.get("entries", {})
-            vectors = data.get("vectors", {})
-            if isinstance(entries, dict) and isinstance(vectors, dict):
-                # 只加载 entry_id 在两边都存在的条目(数据一致性)
-                common_ids = set(entries.keys()) & set(vectors.keys())
-                self._entries = {k: entries[k] for k in common_ids}
-                self._vectors = {k: [float(x) for x in vectors[k]] for k in common_ids}
-                logger.info("向量记忆 hydrate 完成: %d 条", len(self._entries))
-                return len(self._entries)
-        except Exception as e:
-            logger.warning("向量记忆 hydrate 失败: %s", e)
-        return 0
+        # fail-closed:读盘失败/JSON 损坏 ⇒ 按空处理。存档坏了不该让服务起不来,
+        # 但也绝不能把半截数据当有效记忆继续用(它可能缺 entries/vectors 的一半)。
+        data = read_json_file(self._persist_path)
+        if not isinstance(data, dict):
+            if data is not None:
+                logger.warning("向量记忆 hydrate 失败:快照格式异常(非对象),按空处理")
+            return 0
+        entries = data.get("entries", {})
+        vectors = data.get("vectors", {})
+        if not isinstance(entries, dict) or not isinstance(vectors, dict):
+            logger.warning("向量记忆 hydrate 失败:entries/vectors 结构异常,按空处理")
+            return 0
+        # 只加载 entry_id 在两边都存在的条目(数据一致性)
+        common_ids = set(entries.keys()) & set(vectors.keys())
+        self._entries = {k: entries[k] for k in common_ids}
+        self._vectors = {k: [float(x) for x in vectors[k]] for k in common_ids}
+        stored_at = data.get(_STORED_AT_KEY)
+        if isinstance(stored_at, dict):
+            self._stored_at = {
+                k: v for k, v in stored_at.items() if isinstance(v, str) and k in common_ids
+            }
+        # 存量清理:按保留期淘汰(无 sidecar 时间戳的条目回落文件 mtime)
+        dropped_ids = self._expire_entries(mtime=file_mtime(self._persist_path))
+        if dropped_ids:
+            logger.info("向量记忆 hydrate:按保留期清理过期条目 %d 条", len(dropped_ids))
+            # 清理结果落盘 —— 否则每次启动都要重算一遍,且磁盘上仍留着过期原文
+            self._dirty = True
+            await self._persist_async()
+            # pgvector 镜像同样要删:search() 优先走 PG,只清 JSON 的话过期原文
+            # 仍会被检索出来 —— 那等于 TTL 白设(删除的是本地索引,PG 里那份还在)。
+            for entry_id in dropped_ids:
+                try:
+                    from .pgvector_store import delete_chunk
+
+                    await asyncio.wait_for(
+                        delete_chunk("vector_memory", "entries", entry_id), timeout=5
+                    )
+                except Exception as e:  # noqa: BLE001 - 降级路径,绝不阻塞启动
+                    logger.debug("pgvector 过期条目镜像删除失败(忽略): %s", e)
+        logger.info("向量记忆 hydrate 完成: %d 条", len(self._entries))
+        return len(self._entries)
 
     # ==================================================================
     # 基本操作
@@ -332,6 +432,9 @@ class VectorMemoryStore:
             entry = {**entry, "user_id": user_id}
         self._entries[entry_id] = entry
         self._vectors[entry_id] = embedding
+        # 盖 sidecar 时间戳:逐条判过期靠它(不进 entry,见 _STORED_AT_KEY 注释)。
+        # 覆盖写也要刷新 —— 否则一次 update 会让这条的"年龄"永远停在首次写入那天。
+        self._stored_at[entry_id] = iso_now()
         self._dirty = True
         await self._persist_async()
         # D8(2026-09-19 立):pgvector 一级镜像(失败静默,内存索引仍为事实源兜底)
@@ -407,6 +510,8 @@ class VectorMemoryStore:
         """更新向量(entry 必须已存在),并触发异步持久化。"""
         if entry_id in self._entries:
             self._vectors[entry_id] = embedding
+            # 同 id 覆盖写:刷新年龄,否则这条会在首次写入后的保留期到点时被清掉
+            self._stored_at[entry_id] = iso_now()
             self._dirty = True
             await self._persist_async()
             # D8: 同步 pgvector 镜像
@@ -416,6 +521,7 @@ class VectorMemoryStore:
         """删除记忆 + 向量,并触发异步持久化。"""
         self._entries.pop(entry_id, None)
         self._vectors.pop(entry_id, None)
+        self._stored_at.pop(entry_id, None)
         self._dirty = True
         await self._persist_async()
         # D8: pgvector 镜像删除(失败静默)
@@ -436,6 +542,7 @@ class VectorMemoryStore:
         if session_id is None and user_id is None:
             self._entries.clear()
             self._vectors.clear()
+            self._stored_at.clear()
         else:
             removed_ids = [
                 eid for eid, entry in self._entries.items()
@@ -445,6 +552,7 @@ class VectorMemoryStore:
             for eid in removed_ids:
                 self._entries.pop(eid, None)
                 self._vectors.pop(eid, None)
+                self._stored_at.pop(eid, None)
         self._dirty = True
         await self._persist_async()
         # D8: pgvector 镜像清空(失败静默)

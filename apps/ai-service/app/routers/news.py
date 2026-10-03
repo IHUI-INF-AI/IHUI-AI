@@ -240,7 +240,16 @@ async def refresh_daily(count: int = 6) -> dict[str, Any]:
     try:
         items = _extract_json_array(raw_text)
     except ValueError as e:
-        logger.error("[news-refresh] LLM 输出无法解析: %s", raw_text[:500])
+        # 2026-10-03 数据出域合规整改:此处原样打印模型输出正文(最多 200~500 字),
+        # 模型输出常含用户提交内容的原样回显 ⇒ 日志成了无期限、无权限隔离的留存面。
+        # 改为只记长度 + 首部短预览:足以判断是「格式错」还是「被截断」,
+        # 又无法据此还原正文。要看内容请查带留存期与归属治理的 DB 记录。
+        logger.error(
+            "[news-refresh] LLM 输出无法解析: %s; out_len=%d out_head=%r",
+            e,
+            len(raw_text),
+            raw_text[:80],
+        )
         raise HTTPException(status_code=502, detail=f"LLM 输出解析失败: {e!s}") from e
 
     # 3) 校验 + 写库

@@ -119,6 +119,11 @@ export const chatMessages = pgTable(
     convIdx: index('ix_chat_messages_conversation').on(t.conversationId),
     // D35:turn 分片拉取热路径(对标 Codex idx_thread_items_by_turn_updated_page)
     turnIdx: index('idx_chat_messages_by_turn').on(t.conversationId, t.turnOrdinal),
+    // 2026-10-03(机主决策:不生成迁移,等机主另行拍板):留存期清理按 created_at 单列扫描
+    // (`DELETE FROM chat_messages WHERE created_at < 阈值`)。原有两索引首列都是
+    // conversation_id,时间范围谓词拿它们无法定位,只能全表扫 —— 清理任务会与在线读争 IO。
+    // 单列即可:清理只按时间切片,不带其他列。
+    createdAtIdx: index('ix_chat_messages_created_at').on(t.createdAt),
   }),
 )
 
@@ -142,6 +147,9 @@ export const conversationMessageArchives = pgTable(
   },
   (t) => ({
     idx: index('ix_conversation_message_archives_conversation').on(t.conversationId),
+    // 2026-10-03(机主决策:不生成迁移,等机主另行拍板):留存期清理按 created_at 单列扫描。
+    // 原有索引首列是 conversation_id,时间范围谓词用不上,清理会退化成全表扫。
+    createdAtIdx: index('ix_conversation_message_archives_created_at').on(t.createdAt),
   }),
 )
 

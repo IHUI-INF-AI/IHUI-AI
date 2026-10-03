@@ -56,11 +56,14 @@ def test_once_grant_persists_to_always_scope(mcp):
 
 def test_prefix_grant_persists_and_survives_memory_reset(mcp):
     mcp_server = _fresh_mcp()
-    prefix = mcp_server.approve_exec_prefix("git push --force", tokens=2)
+    # 2026-10-03 数据出域合规整改:命令由 `git push --force` 换成 `pnpm install`。
+    # 本用例验的是"前缀规则双写持久层 + 重启后恢复"这一机制,而 git push 已列入
+    # _NON_PERSISTABLE_PREFIXES 不允许登记为永久放行(机制另由专项用例覆盖)。
+    prefix = mcp_server.approve_exec_prefix("pnpm install --frozen-lockfile", tokens=2)
     assert prefix is not None
     # 模拟重启:清空内存表
     mcp_server._exec_allowed_prefixes.clear()
-    assert mcp_server._matches_exec_prefix("git push origin main") is True
+    assert mcp_server._matches_exec_prefix("pnpm install --prod") is True
 
 
 def test_prefix_miss_after_memory_reset_without_persistence(mcp):
