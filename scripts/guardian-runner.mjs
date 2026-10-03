@@ -311,6 +311,10 @@ const checks = [
     script: 'check-input-border-var.mjs',
     args: [],
     mode: 'blocking',
+    // 2026-10-03 立:门体此前**没有**任何逃生舱(脚本也不读跳过变量)。本门属"读 HEAD 面"的一族,
+    // 批量跑 24–30 分钟期间并发会话推进 main ⇒ 拿过期基线报红(逐门单独复跑是绿的),
+    // 而没有逃生舱就只剩 --no-verify 一条路 —— 那是最后手段,不该是唯一手段。
+    skipEnv: 'HUSKY_SKIP_INPUT_BORDER_VAR',
   },
   {
     id: '18',
@@ -445,6 +449,10 @@ const checks = [
     script: 'check-commit-loss-guard.mjs',
     args: ['--blocking', '--filter-stash'],
     mode: 'blocking',
+    // 2026-10-03 补齐:门体头注一直写着 `HUSKY_SKIP_COMMIT_LOSS_CHECK`,但 runner 从未声明该字段
+    // ⇒ 那是**假逃生舱**(设了毫无效果,只会逼人改用 --no-verify 连带废掉全部门)。
+    // 照 TAGSVIEW_GUARD 的同一处修法补这一行即让承诺成真(runner 的分发循环统一 honors skipEnv)。
+    skipEnv: 'HUSKY_SKIP_COMMIT_LOSS_CHECK',
     onFailHint: [
       '',
       '  💡 若上表是"仅远端 tag"或 origin 变 [gone],通常是宿主清理嵌套 ref 导致的抖动,',
@@ -1034,6 +1042,11 @@ const checks = [
     label: '🧹 根目录整洁守门(一级目录白名单)',
     script: 'check-root-dir-clean.mjs',
     args: [],
+    // 2026-10-03 补齐:门体头注写着 `HUSKY_SKIP_ROOT_DIR_GUARD`,runner 从未声明 ⇒ 假逃生舱
+    // (同 30a,照 TAGSVIEW_GUARD 的修法)。本门尤甚:它的 `--staged` 档靠 `git ls-files` 取索引面,
+    // 而本机 Node 间歇性 spawnSync git EBUSY ⇒ 取不到就按自己注释里的退路「退回全量拦截」,
+    // 把本机若干**未跟踪**目录算成本枚提交引入。没有逃生舱就只剩 --no-verify 一条路。
+    skipEnv: 'HUSKY_SKIP_ROOT_DIR_GUARD',
     mode: 'blocking',
     onFailHint: [
       '',
