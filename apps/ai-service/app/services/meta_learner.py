@@ -61,6 +61,9 @@ from ._load_lifecycle import (
 from ._load_lifecycle import (
     state_after_success as _state_after_success,
 )
+from ._load_lifecycle import (
+    state_label as _load_state_label,
+)
 from .failure_clusterer import failure_clusterer
 from .self_evaluator import self_evaluator
 
@@ -920,7 +923,14 @@ class MetaLearner:
     # ==================================================================
 
     def get_status(self) -> dict[str, Any]:
-        """返回当前元学习器状态(供 API / 前端查看)。"""
+        """返回当前元学习器状态(供 API / 前端查看)。
+
+        G-759:`loaded`/`loadFailures`/`loadState` 三键把"读不到"与"读到但为空"
+        分开报(G-748 已把判定收到 _load_lifecycle,G-759 只补这层对外投影,
+        形状逐字对齐 ab_test_tracker.get_status —— 见 routers/meta_learning.py
+        的 `GET /api/admin/meta-learner/status`)。四态词汇只有一份实现,不许本模块
+        写死字面量。
+        """
         lessons = list(self._lessons.values())
         by_type: dict[str, int] = {
             "failure_pattern": 0,
@@ -939,6 +949,15 @@ class MetaLearner:
             "totalLessons": len(lessons),
             "byType": by_type,
             "avgConfidence": round(avg_confidence, 2),
+            # G-759(2026-10-03):把"读不到"与"读到但为空"分开报给运维 ——
+            # loaded=False ∧ loadFailures>0 是"读不到"(瞬时故障/已放弃自动重试),
+            # **不得被读成**"确实没有 lessons";loadState 给单一判读字段。
+            # 词汇表唯一来源 = _load_lifecycle.state_label(四态互不冒充;见该模块头注)
+            "loaded": self._loaded,
+            "loadFailures": self._load_failures,
+            "loadState": _load_state_label(
+                loaded=self._loaded, failures=self._load_failures
+            ),
         }
 
 
