@@ -1,7 +1,0 @@
-{
-  "$note": "G-663 首锚(2026-09-29 立):A19 出处三键门(scripts/check-config-source-shape.mjs)的存量登记。键 = <模块相对路径>|<具名出口>,只登记「读 env 的候选序具名出口、但不满足出处三键/Detailed 配对/委托覆盖」的既有存量 —— 门只拦新增(不在账 ⇒ 红);存量清零后条目失效会报 warn 请人工复锚。账只锚存量不发豁免:新出口不得登记进来仿效,仿效照红(红格先判,台账只在终判兜底查)。",
-  "legacyExitsWithoutSources": {
-    "scripts/lib/key-dir.mjs|resolveSecretsRoot": "根选择器本体(2026-09-24 立,先于 A19):出处经 SECRETS_ROOT_CANDIDATES 导出与 secret-path.mjs 错误路径打印候选清单 discharge;存量报数,不构成新出口仿效的先例",
-    "scripts/lib/gitdir.mjs|resolvePortableGitCandidates": "PortableGit 候选序解析器(先于 A19 立):探 GIT_CANDIDATES 选 git 二进制,非配置/凭据来源出处口径的主射程;存量报数,新增同类解析器须按 A19 配对 Detailed 出处出口"
-  }
-}
