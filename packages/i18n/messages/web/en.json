@@ -7197,9 +7197,9 @@
   },
   "agreement": {
     "effectiveDate": "Effective Date",
-    "staticContent1": "Welcome to our platform. By using our services, you agree to all terms of this agreement.",
-    "staticContent2": "We strictly protect your personal privacy and will not disclose it to third parties without your permission.",
-    "staticContent3": "If you have any questions about this agreement, please contact customer service.",
+    "staticContent1": "This is the fallback text for the agreement page: the agreement service is temporarily unavailable, so the officially filed terms could not be loaded. To avoid misleading you, the platform's actual data-handling practices are stated below (the official terms prevail).",
+    "staticContent2": "To provide AI chat and code-assistance features, the messages you send, the code snippets you paste, and related context are transmitted to the third-party model providers we have configured (including large-language-model inference and text-embedding services). Model call records (including the full text of your prompts and responses) are stored in our own database and purged automatically after 30 days by default; code semantic index entries carry a 90-day validity period and are reclaimed by a scheduled task when it expires. You may turn off code indexing and automatic memory writes at any time under Settings → Privacy, or delete your account to have your data removed.",
+    "staticContent3": "If you have questions about this agreement or our data handling, or wish to exercise your rights of access, correction, or deletion, please contact us through customer support.",
     "title": "Agreements & Policies",
     "subtitle": "Please read carefully and agree to the terms below before continuing",
     "privacyPolicy": "Privacy Policy",
@@ -12051,273 +12051,151 @@
       "slashDiff": {
         "label": "Session changes",
         "description": "Review files the AI changed in this conversation",
-        "keywords": [
-          "diff",
-          "changes",
-          "review"
-        ]
+        "keywords": ["diff", "changes", "review"]
       },
       "slashStatus": {
         "label": "Session status",
         "description": "Show model, context usage, permission mode and spend",
-        "keywords": [
-          "status",
-          "context",
-          "usage"
-        ]
+        "keywords": ["status", "context", "usage"]
       },
       "slashModel": {
         "label": "Switch model",
         "description": "Open the model selector",
-        "keywords": [
-          "model",
-          "switch"
-        ]
+        "keywords": ["model", "switch"]
       },
       "slashMcp": {
         "label": "MCP marketplace",
         "description": "Open the MCP server marketplace",
-        "keywords": [
-          "mcp",
-          "marketplace"
-        ]
+        "keywords": ["mcp", "marketplace"]
       },
       "slashCompact": {
         "label": "Compact context",
         "description": "Compact this conversation's history to free context window",
-        "keywords": [
-          "compact",
-          "context"
-        ]
+        "keywords": ["compact", "context"]
       },
       "steerPrompt": {
         "label": "Steer prompt",
         "description": "Inject the current input as guidance into the running answer",
-        "keywords": [
-          "steer",
-          "guide",
-          "redirect"
-        ]
+        "keywords": ["steer", "guide", "redirect"]
       },
       "queuePrompt": {
         "label": "Queue prompt",
         "description": "Queue the current input; it sends automatically after the current answer finishes",
-        "keywords": [
-          "queue",
-          "pending",
-          "send later"
-        ]
+        "keywords": ["queue", "pending", "send later"]
       },
       "agent": {
         "description": "Manage and dispatch AI agents",
-        "keywords": [
-          "agent",
-          "bot",
-          "dispatch"
-        ],
+        "keywords": ["agent", "bot", "dispatch"],
         "label": "AI Agents"
       },
       "browser": {
         "description": "Browse the web inside the workspace",
-        "keywords": [
-          "browser",
-          "web",
-          "preview"
-        ],
+        "keywords": ["browser", "web", "preview"],
         "label": "Built-in Browser"
       },
       "capabilityMarket": {
         "description": "Discover and install capability packs",
-        "keywords": [
-          "capability",
-          "market",
-          "pack",
-          "install"
-        ],
+        "keywords": ["capability", "market", "pack", "install"],
         "label": "Capability Market"
       },
       "codeChanges": {
         "description": "Review workspace code changes",
-        "keywords": [
-          "changes",
-          "diff",
-          "git",
-          "code"
-        ],
+        "keywords": ["changes", "diff", "git", "code"],
         "label": "Code Changes"
       },
       "connectors": {
         "description": "Manage external service connections",
-        "keywords": [
-          "connector",
-          "integration",
-          "service"
-        ],
+        "keywords": ["connector", "integration", "service"],
         "label": "Connectors"
       },
       "document": {
         "description": "Edit workspace documents",
-        "keywords": [
-          "document",
-          "docs",
-          "edit"
-        ],
+        "keywords": ["document", "docs", "edit"],
         "label": "Documents"
       },
       "editor": {
         "description": "Open the code editor",
-        "keywords": [
-          "editor",
-          "code",
-          "monaco"
-        ],
+        "keywords": ["editor", "code", "monaco"],
         "label": "Editor"
       },
       "mcp": {
         "description": "Manage MCP servers and tools",
-        "keywords": [
-          "mcp",
-          "server",
-          "tools"
-        ],
+        "keywords": ["mcp", "server", "tools"],
         "label": "MCP Manager"
       },
       "mcpStore": {
         "description": "Browse and install MCP services",
-        "keywords": [
-          "mcp",
-          "store",
-          "market",
-          "install"
-        ],
+        "keywords": ["mcp", "store", "market", "install"],
         "label": "MCP Store"
       },
       "modeAsk": {
         "description": "Switch to Ask mode with tools disabled",
-        "keywords": [
-          "ask",
-          "question",
-          "mode"
-        ],
+        "keywords": ["ask", "question", "mode"],
         "label": "Ask mode"
       },
       "modeBuild": {
         "description": "Let the AI build and modify directly",
-        "keywords": [
-          "build",
-          "mode",
-          "generate"
-        ],
+        "keywords": ["build", "mode", "generate"],
         "label": "Build Mode"
       },
       "modePlan": {
         "description": "Plan first, then execute",
-        "keywords": [
-          "plan",
-          "mode",
-          "todo"
-        ],
+        "keywords": ["plan", "mode", "todo"],
         "label": "Plan Mode"
       },
       "modeReview": {
         "description": "Review and assess existing code",
-        "keywords": [
-          "review",
-          "mode",
-          "audit"
-        ],
+        "keywords": ["review", "mode", "audit"],
         "label": "Review Mode"
       },
       "modeSpec": {
         "description": "Generate implementations from specs",
-        "keywords": [
-          "spec",
-          "mode",
-          "generate"
-        ],
+        "keywords": ["spec", "mode", "generate"],
         "label": "Spec Mode"
       },
       "skill": {
         "description": "Manage and invoke AI skills",
-        "keywords": [
-          "skill",
-          "ability",
-          "plugin"
-        ],
+        "keywords": ["skill", "ability", "plugin"],
         "label": "Skills"
       },
       "terminal": {
         "description": "Open the integrated terminal",
-        "keywords": [
-          "terminal",
-          "shell",
-          "console"
-        ],
+        "keywords": ["terminal", "shell", "console"],
         "label": "Terminal"
       },
       "ai-world": {
         "description": "Explore the world of AI applications",
-        "keywords": [
-          "AI",
-          "world",
-          "apps"
-        ],
+        "keywords": ["AI", "world", "apps"],
         "label": "AI World"
       },
       "chat": {
         "description": "Start a conversation with AI assistant",
-        "keywords": [
-          "chat",
-          "talk",
-          "AI",
-          "conversation"
-        ],
+        "keywords": ["chat", "talk", "AI", "conversation"],
         "label": "AI Chat"
       },
       "drama": {
         "description": "AI-generated short dramas",
-        "keywords": [
-          "drama",
-          "video",
-          "AI",
-          "show"
-        ],
+        "keywords": ["drama", "video", "AI", "show"],
         "label": "AI Drama"
       },
       "profile": {
         "description": "Manage your profile and settings",
-        "keywords": [
-          "profile",
-          "user",
-          "settings"
-        ],
+        "keywords": ["profile", "user", "settings"],
         "label": "Profile"
       },
       "search": {
         "description": "Global content search",
-        "keywords": [
-          "search",
-          "find",
-          "query"
-        ],
+        "keywords": ["search", "find", "query"],
         "label": "Search"
       },
       "settings": {
         "description": "System preferences and configuration",
-        "keywords": [
-          "settings",
-          "preferences",
-          "config"
-        ],
+        "keywords": ["settings", "preferences", "config"],
         "label": "Settings"
       },
       "skillsMarket": {
         "description": "Browse and install self-evolving skills",
-        "keywords": [
-          "skill",
-          "market",
-          "plugin"
-        ],
+        "keywords": ["skill", "market", "plugin"],
         "label": "Skill Market"
       }
     },
@@ -14780,37 +14658,25 @@
       "quadrants": [
         {
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": [
-            "Knowledge Q&A",
-            "Process automation"
-          ],
+          "examples": ["Knowledge Q&A", "Process automation"],
           "tag": "Q1",
           "title": "Efficient Assistant"
         },
         {
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": [
-            "Data analysis",
-            "Decision support"
-          ],
+          "examples": ["Data analysis", "Decision support"],
           "tag": "Q2",
           "title": "Smart Advisor"
         },
         {
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": [
-            "Meeting scheduling",
-            "Approval workflows"
-          ],
+          "examples": ["Meeting scheduling", "Approval workflows"],
           "tag": "Q3",
           "title": "Execution Expert"
         },
         {
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": [
-            "Marketing automation",
-            "Multi-agent collaboration"
-          ],
+          "examples": ["Marketing automation", "Multi-agent collaboration"],
           "tag": "Q4",
           "title": "All-round Expert"
         }
@@ -14944,31 +14810,19 @@
       "items": [
         {
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": [
-            "Systematic courses",
-            "Hands-on exploration",
-            "Community mutual aid"
-          ],
+          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"],
           "tag": "MODULE 01",
           "title": "Local Community"
         },
         {
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": [
-            "Communication platform",
-            "Experience sharing",
-            "Resource matching"
-          ],
+          "features": ["Communication platform", "Experience sharing", "Resource matching"],
           "tag": "MODULE 02",
           "title": "Online Community"
         },
         {
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": [
-            "Professional LLMs",
-            "Agent services",
-            "Consulting services"
-          ],
+          "features": ["Professional LLMs", "Agent services", "Consulting services"],
           "tag": "MODULE 03",
           "title": "AI Professional Services"
         }
@@ -17050,7 +16904,6 @@
         "name": "Provider name",
         "namePlaceholder": "My OpenAI",
         "nameRequired": "Provider name is required",
-        "invalidFieldsToast": "Please fix the following fields and retry",
         "newTitle": "New Provider",
         "optional": "optional",
         "pasteEmpty": "Clipboard is empty",
@@ -17068,7 +16921,8 @@
         "templatesEmpty": "No platform templates available",
         "templatesLoadError": "Failed to load platform templates",
         "templatesLoading": "Loading platform templates...",
-        "templatesNotReady": "Platform templates not ready, please retry later"
+        "templatesNotReady": "Platform templates not ready, please retry later",
+        "invalidFieldsToast": "Please fix the following fields and retry"
       },
       "quickStartTitle": "Popular platforms (click to start):",
       "sidebar": {
@@ -17874,15 +17728,7 @@
       "title": "Top 5 Pages",
       "visitsHeader": "Visits"
     },
-    "weekdays": [
-      "Mon",
-      "Tue",
-      "Wed",
-      "Thu",
-      "Fri",
-      "Sat",
-      "Sun"
-    ]
+    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
   },
   "models": {
     "relay": {

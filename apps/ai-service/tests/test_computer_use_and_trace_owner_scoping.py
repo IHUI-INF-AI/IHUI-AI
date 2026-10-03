@@ -28,6 +28,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import json
+import time
 from pathlib import Path
 from typing import Any
 
@@ -492,11 +493,18 @@ def test_legacy_ownerless_json_is_invisible_but_not_destroyed(tmp_path: Path) ->
     """磁盘上**改前就存在**的记录没有 owner 字段 ⇒ 对已登录用户不可见,但文件不删。
 
     这是工单点名的那一格处置:不得把"没有 owner"读成"人人可见"。
+
+    2026-10-03(TTL 整改):started_at 改成**相对当前时间**算的。本条断言的是
+    "无 owner ⇒ 不可见且不被销毁",与保留期正交 —— 原先硬编码 "2026-01-01",
+    在 browser_trace 的 14 天保留期下会被 TTL 当成过期项清掉,于是这条用例从
+    "验证属主三态"悄悄变成"验证 TTL",属主那一格反而没了覆盖。写成相对值后
+    两条判据互不干扰(另见 test_retention_ttl_store.py 里的过期清理用例)。
     """
+    recent = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 3600))
     f = tmp_path / "legacy.json"
     f.write_text(
         json.dumps({"bt-old": {"steps": [{"step_index": 0, "action": "click"}],
-                               "started_at": "2026-01-01T00:00:00Z"}}),
+                               "started_at": recent}}),
         encoding="utf-8",
     )
     store = bt.BrowserTraceStore(file_path=f, screenshot_dir=tmp_path / "s")
