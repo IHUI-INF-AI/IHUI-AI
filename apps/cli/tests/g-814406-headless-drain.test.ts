@@ -136,7 +136,7 @@ describe('G-814406 headless exit drain', () => {
   it('预算耗尽 ⇒ timed-out 且逐名报名未结算清单(不静默、不无限)', async () => {
     const clock = makeFakeClock();
     const names = ['bg-1', 'bg-2'];
-    let rounds = 0;
+    const _rounds = 0;
     const report = await drainHeadlessBeforeExit({
       isHeadless: true,
       hasInFlightWork: () => true, // 永不收敛

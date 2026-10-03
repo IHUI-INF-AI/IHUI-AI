@@ -71,7 +71,7 @@ describe('resolveMaxConcurrency — 并发预算单一出口', () => {
  */
 describe('ProviderAimdGovernor — 纯 AIMD 状态机', () => {
   it('a) 旧 epoch 的 429 只清 streak 不动 cap', () => {
-    let t = 0
+    const t = 0
     const g = new ProviderAimdGovernor(() => t)
     const K = 'p1'
     g.release(K, { outcome: 'success' })
@@ -88,7 +88,7 @@ describe('ProviderAimdGovernor — 纯 AIMD 状态机', () => {
   })
 
   it('b) cap > lastGood 时限流退回 lastGood,不按系数减', () => {
-    let t = 0
+    const t = 0
     const g = new ProviderAimdGovernor(() => t)
     const K = 'p1'
     // 第一步 429:cap=MAX,lastGood=MAX ⇒ 系数减分支,cap=12,lastGood 清 0
@@ -111,7 +111,7 @@ describe('ProviderAimdGovernor — 纯 AIMD 状态机', () => {
   })
 
   it('c) cap ≤ lastGood 时按系数减并清空 lastGood', () => {
-    let t = 0
+    const t = 0
     const g = new ProviderAimdGovernor(() => t)
     const K = 'p1'
     const before = g.snapshot(K)
@@ -128,7 +128,7 @@ describe('ProviderAimdGovernor — 纯 AIMD 状态机', () => {
   })
 
   it('d) cap 已在地板:无 Retry-After ⇒ 0 条 change;带 ⇒ 仍发 1 条', () => {
-    let t = 0
+    const t = 0
     const g = new ProviderAimdGovernor(() => t)
     const K = 'p1'
     g.applyRunCapCommand('run-1', K, MIN_CONCURRENCY)
@@ -173,7 +173,7 @@ describe('ProviderAimdGovernor — 纯 AIMD 状态机', () => {
   })
 
   it('f) streak 达标无等待者 ⇒ 设 lastGood 但 cap 不变', () => {
-    let t = 0
+    const t = 0
     const g = new ProviderAimdGovernor(() => t)
     const K = 'p1'
     let pumped = 0
@@ -189,7 +189,7 @@ describe('ProviderAimdGovernor — 纯 AIMD 状态机', () => {
   })
 
   it('epoch 批次阻尼:有等待者时翻代抬一步,recovery 发 change 且 pump 一次', () => {
-    let t = 0
+    const t = 0
     const g = new ProviderAimdGovernor(() => t)
     const K = 'p1'
     let pumped = 0
@@ -226,7 +226,7 @@ describe('ProviderAimdGovernor — 纯 AIMD 状态机', () => {
   })
 
   it('run 级命令:同 runId 同值幂等;在飞不丢;调低不 pump、抬高 pump', () => {
-    let t = 0
+    const t = 0
     const g = new ProviderAimdGovernor(() => t)
     const K = 'p1'
     let pumped = 0
@@ -254,7 +254,7 @@ describe('ProviderAimdGovernor — 纯 AIMD 状态机', () => {
   })
 
   it('两条界刻意不混:onConcurrencyChanged 是纯观察,不影响 cap/pump', () => {
-    let t = 0
+    const t = 0
     const g = new ProviderAimdGovernor(() => t)
     const K = 'p1'
     const seen: number[] = []
