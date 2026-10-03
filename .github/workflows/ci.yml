@@ -339,11 +339,27 @@ jobs:
           )
           asyncio.run(_ensure_metrics_table())
           asyncio.run(_ensure_style_check_table())
-          # 2026-10-03 补:签到助手三表(checkin_accounts/records/error_counts)同为
-          # ai-service 启动时幂等自建(ensure_tables),不在 drizzle 迁移内;
-          # 不加则 schema_check 恒报"checkin_* 表不存在 — 数据孤岛"。
-          from app.services.checkin_store import ensure_tables as _ensure_checkin_tables
-          asyncio.run(_ensure_checkin_tables())
+          "
+      - name: Create checkin tables (raw conn + self-verify)
+        working-directory: apps/ai-service
+        # 签到三表为 ai-service 运行时懒建表,不在 drizzle 迁移内。
+        # 共享池跨 loop 回收在 CI 多连 asyncio.run 下出现过步骤退出 0 但表未落库的
+        # 静默失配(run 37090730137 实测),故改裸连接建表并当步自验,缺表即红。
+        run: |
+          python -c "
+          import asyncio, asyncpg
+          from app.core.config import settings
+          from app.services.checkin_store import ensure_tables_conn
+          async def main():
+              conn = await asyncpg.connect(dsn=settings.database_url)
+              try:
+                  await ensure_tables_conn(conn)
+                  n = await conn.fetchval('SELECT count(*) FROM information_schema.tables WHERE table_schema = current_schema() AND table_name LIKE $1', 'checkin%')
+                  print('[ci] checkin tables visible:', n)
+                  assert n == 3, 'checkin tables missing: %s' % n
+              finally:
+                  await conn.close()
+          asyncio.run(main())
           "
 
       - name: Run ai-service schema_check against test DB
