@@ -27,7 +27,9 @@ const listQuerySchema = z.object({
 })
 
 const createBodySchema = z.object({
-  userId: z.string().min(1),
+  // edu_invoice_titles.user_id 是 uuid 列：非 uuid 串会在 DB 层抛类型转换错误(500)。
+  // 同 schema 其余字段均已校验，此处曾只校验 min(1) 而漏掉格式。
+  userId: z.uuid(),
   titleType: z.enum(['personal', 'company']).default('personal'),
   title: z.string().min(1).max(200),
   taxNo: z.string().max(50).optional(),
