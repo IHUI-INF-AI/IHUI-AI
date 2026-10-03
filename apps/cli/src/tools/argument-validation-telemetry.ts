@@ -12,8 +12,8 @@
  *   ③ enforce 档(本文件,须显式设 env 才生效)。
  *
  * env `IHUI_TOOL_ARG_VALIDATION` 三档:
- *   off      默认。校验器一次都不被调用,两条计数器恒为 0 —— 由单测钉住"默认零副作用"。
- *   shadow   调用校验器,只累加计数。返回值与不加这段代码时逐字相同。
+ *   off      显式关闭。校验器一次都不被调用,两条计数器恒为 0。
+ *   shadow   默认档(L22150 装车)。调用校验器,只累加计数。返回值与不加这段代码时逐字相同。
  *   enforce  schema-aware 容错解析(`normalizeToolArguments`)后判定:
  *            违规调用被拒,错误里带回**单行**违规清单供模型修复;修复回喂按工具名计
  *            连续窗、上限 `TOOL_ARG_REPAIR_MAX_ATTEMPTS` 次,超限即硬失败并保留最后一次
@@ -48,10 +48,12 @@ export type ToolArgValidationMode = (typeof TOOL_ARG_VALIDATION_MODES)[number];
 
 /**
  * 默认档位。守门 `check-tool-arg-validation-wired.mjs` 直接读**这一行**判"默认不是 enforce" ——
- * 改默认值等于改行为契约:那些 `parameters` 描述至今只有影子/离线台账的读数背书,
- * 翻默认档会让所有调用方一夜之间开始收到拒绝,与"运行时版恒红"是同一种事故。不得顺手翻。
+ * enforce 是第②③步的活:那些 `parameters` 描述至今只有影子/离线台账的读数背书,
+ * 默认翻成 enforce 会让所有调用方一夜之间开始收到拒绝,与"运行时版恒红"是同一种事故。
+ * 默认 shadow(L22150 装车):校验器在生产链**每个**工具调用上真实执行、只记账不拒 ——
+ * 返回值与 off 逐字相同(由 argument-validation-shadow 单测钉住)。显式 off 才是关闭档。
  */
-export const DEFAULT_TOOL_ARG_VALIDATION_MODE: ToolArgValidationMode = 'off';
+export const DEFAULT_TOOL_ARG_VALIDATION_MODE: ToolArgValidationMode = 'shadow';
 
 /**
  * enforce 档修复回喂的连续上限(按工具名的连续拒绝窗,出现一次判定通过即清零)。
@@ -175,7 +177,7 @@ export function shadowValidateToolArguments(
   args: Record<string, unknown>,
 ): void {
   const mode = resolveToolArgValidationMode();
-  // off 是缺省:一次都不调用校验器,也不动任何计数器。
+  // off 是显式关闭档:一次都不调用校验器,也不动任何计数器。
   if (mode === 'off') return;
   if (mode === 'enforce') {
     enforceRequested += 1;
