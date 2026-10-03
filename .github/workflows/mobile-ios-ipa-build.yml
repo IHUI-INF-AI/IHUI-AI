@@ -60,6 +60,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # 构建 mobile-rn 的**全部 workspace 依赖闭包**(拓扑序,不含本包)。
+      # 为什么必须有这一步:多个共享包的 package.json 把 exports 指向 dist(产物不入库),
+      # 而 metro / tailwind 是**按运行时 require 去解析**的 —— 这一步缺失时,xcodebuild 的
+      # Bundle React Native 阶段报:
+      #   Error: Cannot find module '.../@ihui/design-tokens/dist/tailwind-preset...'
+      # (安卓侧同型已修:mobile-apk-build.yml 同名步骤;iOS 漏抄,2026-10-03 实测 BUILD FAILED)
+      - name: Build mobile-rn's workspace deps (topological closure — their exports point at dist)
+        run: pnpm --filter "@ihui/mobile-rn^..." run build
+
       - name: Generate iOS project (expo prebuild)
         working-directory: apps/mobile-rn
         env:
