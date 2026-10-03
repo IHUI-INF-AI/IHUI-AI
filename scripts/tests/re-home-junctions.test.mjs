@@ -27,8 +27,7 @@ import {
 } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { tmpdir } from 'node:os'
-import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { mkScratch, rmScratch, scratchRoot } from '../lib/scratch-dir.mjs'
 import { __test__ as R } from '../re-home-junctions.mjs'
 import { __test__ as GATE96 } from '../check-home-junctions.mjs'
 import { __test__ as GUARD } from '../git-guardian.mjs'
@@ -195,7 +194,7 @@ test('真机 cmd 可用(mklink 走的是绝对路径 cmd.exe,不依赖 PATH)', (
 })
 
 test('冷却表:文件缺失/坏 JSON 一律退回空表,不得抛(守护链上抛错等于整轮不修)', () => {
-  assert.deepEqual(R.readCooldown(join(tmpdir(), 'ihui-no-such-cooldown-file.json')), {})
+  assert.deepEqual(R.readCooldown(join(scratchRoot(), 'ihui-no-such-cooldown-file.json')), {})
   const root = mkScratch('ihui-rehome-cool-')
   try {
     const bad = join(root, 'cool.json')
