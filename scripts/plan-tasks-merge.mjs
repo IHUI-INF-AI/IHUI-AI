@@ -46,7 +46,7 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -517,13 +517,13 @@ function rewriteDup(line, key, today) {
 
 /**
  * @returns {{ text:string, changed:Array<{line:number,kind:string,before:string,after:string}>,
- *             refused:string[], adjudicationNeeded:Array<{line:number,key:string,reason:string}>, dupTwins:string[], before:object }}
+ *             refused:string[], dupTwins:string[], before:object }}
  */
 export function buildMerge(content, today) {
   const a = audit(content)
   const lines = content.split('\n')
   const dupTwins = []
-  const adjudicationNeeded = []
+  // 2026-10-03 已拆:adjudicationNeeded(裁决账挂起清单)随账本与 AJ 三型一并删除,理由见下面 else 分支头注
   const plan = new Map()
   const note = (ln, kind, key) => {
     if (!plan.has(ln)) plan.set(ln, { kinds: [], key })
@@ -597,27 +597,29 @@ export function buildMerge(content, today) {
         // 整批停。正解 = **完成那次被打断的翻勾**:只落复选框与状态装饰、摘租约、正文(含既有注记)
         // 逐字保留,不再追加第二句注记 —— 注记文本自己写着"只落状态、正文逐字保留于前",这正是兑现它。
         const completed = '- [x] ✅(' + today + ') ' + rawForFlip.replace(LEASE_RE, '')
-        if (forkPreserved(after, completed)) after = completed
-        else
-          adjudicationNeeded.push({
-            line: ln,
-            key: v.key,
-            reason: '翻勾注记已在而复选框丢失,但补翻勾仍会改到正文 ⇒ 谁作数须由人裁',
-          })
+        after = completed
       } else {
+        /**
+         * 2026-10-03 已拆(李总拍板「接受删除,连带处置孤儿文件」):此处原有一道
+         * `forkPreserved(after, flipped)` 前置自检 —— 翻勾会改正文就不猜哪份正文作数,
+         * 跳过翻勾并把该键记入 `adjudicationNeeded`,交具名的人在 `scripts/data/plan-merge-adjudications.json`
+         * 限期复裁(那本账与其 AJ1/AJ2/AJ3 三型红已随本次一并删除)。
+         *
+         * 拆除依据是**实测**:对「两行同题而正文写法不同」跑 buildMerge + verifyMerge,产出是
+         * **只落复选框与归并说明、正文逐字保留**(那句"谁作数须由人裁"原样留在原地),
+         * `verifyMerge.problems` 为空 ⇒ 落地闸五道护栏(行数不等 / 未参与改写却被改动 / 行丢失 /
+         * F1 未归零 / F2 未归零)全部照旧,`forkPreserved` 逐字相等守卫在 verifyMerge 内一字未松。
+         * 即真丢的不是"账被改坏",而是"哪条卡着等人裁"这份记忆 —— 分叉被自动打勾后台账看着全清,
+         * 那条待裁的话被埋进正文,不再被任何门点名。属 AGENTS「判据失效的表现永远是安静」那一型;
+         * 风险等级为丢线索,不涉及网站与用户面。
+         *
+         * 后人要恢复,落点三处且**必须成套**:① 本守卫(生产侧不产出它要拦的形态);
+         * ② `verifyMerge` 的第四参 `adj` + AJ1/AJ2/AJ3 三型 + 「判不出 ⇒ exit 2(不冒红也不记绿)」;
+         * ③ 裁决账 JSON 与 `scripts/tests/plan-tasks-merge-adjudications.test.mjs`(6 用例镜像)。
+         * **别只补 ① 不补 ②** —— 那样会造出"永远进不了交付"的死格式。
+         */
         const flipped = rewriteFork(after, v.key, today)
-        // 翻勾前自检,与落地闸(verifyMerge 的 forkPreserved)同一把尺:翻勾会改正文 ⇒ 不猜哪份正文
-        // 作数,行保持原样,该键交裁决账(scripts/data/plan-merge-adjudications.json)由具名的人限期复裁。
-        // 旧版在这里无条件下翻勾,靠 verifyMerge 的事后闸拦下 ⇒ 一条不可机械归并的行卡死整批交付
-        // (F1 永远差一组归不了零,其余几十组可归并的行陪着一起落不了地 —— 2026-09-30 真仓实测)。
-        // 刻意**不**在这里放宽 verifyMerge:守卫一字不动,生产侧只是不再产出它要拦的形态。
-        if (forkPreserved(after, flipped)) after = flipped
-        else
-          adjudicationNeeded.push({
-            line: ln,
-            key: v.key,
-            reason: 'F1/F2 翻勾会改正文(剥掉复选框与本工具注记后两侧不等)⇒ 两条正文谁作数须由人裁',
-          })
+        after = flipped
       }
     }
     // F4 放最后:一行只可能被标一次;F4 与 F1 结构上互斥(dupCopies 只收"全未勾选"的组)
@@ -633,7 +635,7 @@ export function buildMerge(content, today) {
     text: lines.join('\n'),
     changed,
     refused,
-    adjudicationNeeded,
+    // 2026-10-03 已拆:adjudicationNeeded 不再返回(同上)
     dupTwins,
     before: a.counts,
   }
@@ -2544,6 +2546,13 @@ function gitIn(idx, args) {
     windowsHide: true,
     timeout: 60000,
     maxBuffer: 1 << 28,
+    /**
+     * stdio 必须显式接管(2026-10-03 立):本宿主上派生 `cmd.exe` 100% EBUSY,
+     * 走默认 stdio 继承的派生稳定 `spawnSync git EBUSY` —— 同一时刻 bash 里 git 正常,
+     * 绝对路径同样复现 ⇒ 排除 git 被锁与并发。三元一并写死是为了不给"顺手删掉"留空间。
+     * 缺它时的表现极具欺骗性:**自检 136/0 全绿**(自检不派生 git),只有真落地那条臂炸。
+     */
+    stdio: ['ignore', 'pipe', 'pipe'],
   }).trim()
 }
 
@@ -2589,22 +2598,11 @@ export function healAndLand() {
    * 翻勾永远归 F1/F2;`[...r.changed, ...折叠]` 一起交给零损失对账,所以"多改一行"瞒不住。
    */
   const f = applyTwinFolds(r.text, today)
-  let landAdj = null
-  try {
-    landAdj = loadAdjudications(ROOT, today)
-  } catch (e) {
-    if (e?.adjUndetermined) {
-      console.log(`❌ ${e.message}`)
-      return 2
-    }
-    throw e
-  }
   const bad = healStopReasons(
     src,
     f.text,
     [...r.changed, ...f.edits.map((e) => ({ ...e, kind: 'F10折叠' }))],
     r.refused.length + f.refused.length,
-    landAdj,
   )
   bad.push(...verifyTwinFold(r.text, f.text, f.edits, f.refused).problems)
   if (bad.length) {
@@ -2673,10 +2671,14 @@ export function healAndLand() {
     console.log(
       `✅ 自愈落地 ${commit.slice(0, 11)}:归并 ${r.changed.length} 行 + 折叠 ${f.edits.length} 行 → 落地面现读 F1 ${after.forks} / F2 ${after.voidRows} / F3(可自动收口) ${after.rotatedAuto} / F3(无出口) ${after.rotatedNoExit} / F4 ${after.dupOpenCopies} / F4b ${after.verbatimDupCopies}(副本指针行合计 ${after.dupPointerRows})/ F10 可折残留 ${twinLeft}`,
     )
-    const postUnmerged =
-      adjudicationProblems({ forks: audit(landedText).forks }, landAdj).problems.length +
-      after.voidRows + after.rotatedAuto + after.dupOpenCopies + after.verbatimDupCopies
-    if (postUnmerged > 0) {
+    if (
+      after.forks +
+        after.voidRows +
+        after.rotatedAuto +
+        after.dupOpenCopies +
+        after.verbatimDupCopies >
+      0
+    ) {
       console.log('   ⚠️ 落地面仍有未归并项 —— 上面就是现读数字,不得当"已清零"引用。')
       return 1
     }
@@ -2817,7 +2819,7 @@ export function pointerVisibilityRegression(srcText, merged) {
 }
 
 /** 自愈的"该不该停手"判据 —— 抽成纯函数,否则这一层最要紧的安全断言只能在真仓上验一次。 */
-export function healStopReasons(srcText, merged, changed, refusedCount, adj = null) {
+export function healStopReasons(srcText, merged, changed, refusedCount) {
   // 与 verifyMerge 同一处理:F1+F3 那一型里 F3 的锚点替换是本工具授权的改写,先折回 before,
   // 再交给下面那条一字未动的逐字判据(否则归并对这一型永久停手,那条 F1 再也修不掉)。
   changed = normalizeForkedBefore(changed)
@@ -2846,10 +2848,9 @@ export function healStopReasons(srcText, merged, changed, refusedCount, adj = nu
     a0.some((l, i) => !touched.has(i + 1) && l !== a1[i]) ? '有未登记行被改动' : null,
     bodyBroken ? '有翻勾行未逐字保留正文(剥注记后必须相等)' : null,
     twinLeft ? `折叠维未闭合:折完仍有 ${twinLeft} 行"同题不同编号"可折` : null,
-    ...(adjudicationProblems({ forks: audit(merged).forks }, adj).problems.length ||
-      after.voidRows || after.rotatedAuto || after.dupOpenCopies
-      ? ['归并后未归零']
-      : []),
+    after.forks || after.voidRows || after.rotatedAuto || after.dupOpenCopies
+      ? '归并后未归零'
+      : null,
     pointerVisibilityRegression(srcText, merged),
   ].filter(Boolean)
 }
@@ -2888,117 +2889,9 @@ function normalizeForkedBefore(changed) {
 
 /** 零损失对账:行数相等 ∧ 未被改写的行逐字不变(多重集),外加"三条判据必须归零"。
  *
- * 第四参 `adj`(裁决账档,2026-09-30)= `{ file, today, items:[{key,reason,owner,reviewBy}] }` | `null`:
- *  - `null`(缺省,既有调用方与自检都不传)⇒ 旧口径逐字不变:任何剩余 F1 分叉都判"未归零"。
- *  - 传入 ⇒ F1 归零判据升级为"剩余分叉组必须逐组被裁决账覆盖"——覆盖 = 有条目且 key 相等且字段
- *    齐全且未到期。三型纪律(与守门 150 的裁决账同构):**AJ1** 字段不全 ⇒ 不构成覆盖;
- *    **AJ2** 到期未复裁 ⇒ 回队列(不构成覆盖);**AJ3** 合并后台账里已无此分叉 ⇒ 清单腐烂,条目必须
- *    了结(删掉或归并),判红 —— 只能变长不能变短的队列等于没有判据。
- *  - key 是复合主键(编号+标题原文前缀,逐字):锚点刻意不用行号(§1 第 3 条,行号一 append 就挪)。
+ * 2026-10-03 已拆:第四参 `adj`(裁决账档)与 AJ1/AJ2/AJ3 三型红、以及 key 的复合主键口径,
  */
-/**
- * 裁决账三型判红 + 覆盖判定 —— **报告档与落地档共用的唯一实现**(G-1038502)。
- *
- * 立因(2026-10-03 轮 28 实测):`verifyMerge` 收裁决账、`healStopReasons` 不收 ⇒ 一旦存在
- * "不可机械归并"的分叉键(翻勾会改正文 ⇒ 工具拒绝机械归并),报告档判它"有交代、已覆盖",
- * 而 `--heal --commit` 的落地闸因 `after.forks` 非零**整批 return 1** —— 于是
- * `plan-tasks-merge.mjs --heal --commit` 结构上永远落不了地,而账面上 F2/F4 那些本可
- * 机械归并的行跟着一起卡住(G-998073 立因里那个"940 行陪着落不了地"的同型复发,
- * 只是这次挡路的是 fork 维而非 refused 维)。
- *
- * **本函数是那一段判据的逐字搬运,不是新写的口径**:逻辑与形状逐字来自原 `verifyMerge`
- * 的 AJ 段,只把"push 进 problems"改成"return 数组",让两个调用点各自决定怎么报。
- * 两处调用点共用一个实现 ⇒ AJ3(清单腐烂)结构上不可能只在报告档判、漏掉落地档。
- *
- * @param after  audit(merged) 的返回(含 .counts 与 .forks)
- * @param adj    `{file, today, items}`;**null = 未提供裁决面** ⇒ 一律按"零覆盖"从严
- * @returns {{problems: string[], covered: string[], uncovered: string[]}}
- */
-export function adjudicationProblems(after, adj) {
-  const problems = []
-  const forkKeys = (after?.forks ?? []).map((f) => f.key)
-  if (adj === null || adj === undefined) {
-    // 从严:没给裁决面就等于零覆盖(照旧口径,不许"没传就算过")
-    if (forkKeys.length) problems.push(`F1 未归零:${forkKeys.length} 组`)
-    return { problems, covered: [], uncovered: forkKeys }
-  }
-  const items = Array.isArray(adj.items) ? adj.items : []
-  for (const it of items) {
-    const complete =
-      it &&
-      typeof it.key === 'string' &&
-      it.key !== '' &&
-      typeof it.reason === 'string' &&
-      it.reason !== '' &&
-      typeof it.owner === 'string' &&
-      it.owner !== '' &&
-      typeof it.reviewBy === 'string' &&
-      it.reviewBy !== ''
-    if (!complete) {
-      problems.push(
-        `AJ1 裁决账条目字段不全(key/reason/owner/reviewBy):${JSON.stringify(it?.key ?? it ?? null)}`,
-      )
-      continue
-    }
-    if (!forkKeys.includes(it.key)) {
-      problems.push(`AJ3 裁决账有条目而合并后台账已无此分叉 ⇒ 条目必须了结:${it.key}`)
-      continue
-    }
-    if (!(String(it.reviewBy) >= String(adj.today))) {
-      problems.push(`AJ2 裁决账条目到期未复裁(${it.reviewBy} < ${adj.today})⇒ 回队列:${it.key}`)
-    }
-  }
-  const covered = new Set(
-    items
-      .filter(
-        (it) =>
-          it &&
-          typeof it.key === 'string' &&
-          forkKeys.includes(it.key) &&
-          it.reason &&
-          it.owner &&
-          it.reviewBy &&
-          String(it.reviewBy) >= String(adj.today),
-      )
-      .map((it) => it.key),
-  )
-  const uncovered = forkKeys.filter((k) => !covered.has(k))
-  if (uncovered.length)
-    problems.push(
-      `F1 未归零:${uncovered.length} 组(未被裁决账覆盖:${uncovered.slice(0, 5).join(',')}${uncovered.length > 5 ? ' …' : ''};裁决账 = ${adj.file},一条四件套:key/reason/owner/reviewBy)`,
-    )
-  return { problems, covered: [...covered], uncovered }
-}
-
-/**
- * 裁决账加载(唯一一份,入库受版本控制):不可机械归并的分叉键由具名的人限期复裁。
- * 缺文件 = 零覆盖(口径照旧从严);**文件在而判不出 ⇒ 抛**(未判定不冒红也不记绿,
- * 静默当成空表就是假绿)。
- *
- * ⚠ 本函数**从工作树读文件**(与改前 CLI 那段同一口径,刻意不变):裁决账是入库受版本控制的
- * 数据文件,落地档与报告档读的是同一个当前值;若哪天真要"按 HEAD blob 读",那是另一条
- * 需要独立裁决的改动,不在本票范围。
- */
-export function loadAdjudications(root, today) {
-  const ADJ_REL = 'scripts/data/plan-merge-adjudications.json'
-  const adj = { file: ADJ_REL, today, items: [] }
-  const adjPath = path.join(root, ADJ_REL)
-  if (existsSync(adjPath)) {
-    try {
-      const parsed = JSON.parse(readFileSync(adjPath, 'utf8'))
-      if (!Array.isArray(parsed.items)) throw new Error('items 不是数组')
-      adj.items = parsed.items
-    } catch (e) {
-      const err = new Error(
-        `裁决账 ${ADJ_REL} 判不出:${e?.message ?? e} ⇒ exit 2(不冒红也不记绿)`,
-      )
-      err.adjUndetermined = true
-      throw err
-    }
-  }
-  return adj
-}
-export function verifyMerge(original, merged, changed, adj = null) {
+export function verifyMerge(original, merged, changed) {
   changed = normalizeForkedBefore(changed)
   const problems = []
   const o = original.split('\n')
@@ -3028,7 +2921,8 @@ export function verifyMerge(original, merged, changed, adj = null) {
       )
   }
   const after = audit(merged)
-  problems.push(...adjudicationProblems(after, adj).problems)
+  // 2026-10-03 已拆:原 if (adj !== null) { … } 整块(AJ1 字段不全 / AJ2 到期 / AJ3 清单腐烂三型红 +
+  // 「有覆盖就不判红」的裁决账覆盖语义)随第四参 adj 与账本一并删除;恢复落点见 buildMerge else 分支头注 ②。
   if (after.counts.voidRows) problems.push(`F2 未归零:${after.counts.voidRows} 行`)
   if (after.counts.rotatedAuto) problems.push(`F3(可自动收口)未归零:${after.counts.rotatedAuto} 处`)
   if (after.counts.dupOpenCopies)
@@ -4574,20 +4468,10 @@ function main() {
   const today =
     argv.find((a) => /^\d{4}-\d{2}-\d{2}$/.test(a)) ?? new Date().toISOString().slice(0, 10)
   const r = buildMerge(src, today)
-  // 裁决账(唯一一份,入库受版本控制):走**共用加载块**(G-1038502 把这段从 CLI 提为模块级
-  // `loadAdjudications`,落地档 `healAndLand` 调的是同一个 —— 两处曾各写一份,于是
-  // "落地档不认裁决账"这个洞能从报告档一侧完全看不见)。
-  let adj
-  try {
-    adj = loadAdjudications(ROOT, today)
-  } catch (e) {
-    if (e?.adjUndetermined) {
-      console.log(`❌ ${e.message}`)
-      return 2
-    }
-    throw e
-  }
-  const v = verifyMerge(src, r.text, r.changed, adj)
+  // 2026-10-03 已拆:裁决账(唯一一份,入库受版本控制)与其「文件在而判不出 ⇒ exit 2(未判定不冒红
+  // 也不记绿,静默当成空表就是假绿)」防假绿纪律,随 AJ 三型一并删除。删除后不可机械归并的分叉由
+  // buildMerge 无条件翻勾处理(正文逐字保留,只落复选框与归并说明),风险等级为「丢线索」不涉及损坏。
+  const v = verifyMerge(src, r.text, r.changed)
   const baseBlob = gitRaw(
     ['rev-parse', sel.face === 'staged' ? `:${PLAN_REL}` : `HEAD:${PLAN_REL}`],
     ROOT,
@@ -4627,24 +4511,14 @@ function main() {
     for (const x of r.refused.slice(0, 10)) console.log('   ' + x)
     return 1
   }
-  if (r.adjudicationNeeded.length) {
-    console.log(
-      `\n⚠️ 不可机械归并、交裁决账接管 ${r.adjudicationNeeded.length} 行(翻勾会改正文 ⇒ 不猜哪份作数;` +
-        `四件套登记进 ${ADJ_REL},未覆盖的组会让交付闸继续红):`,
-    )
-    for (const x of r.adjudicationNeeded.slice(0, 10))
-      console.log(`   L${x.line} 键 ${x.key} —— ${x.reason}`)
-  }
+  // 2026-10-03 已拆:原「不可机械归并、交裁决账接管 N 行」那段报告随账本与 adjudicationNeeded 一并删除。
   if (v.problems.length) {
     console.log('\n❌ 交付校验不通过:')
     for (const p of v.problems) console.log('   ' + p)
     return 1
   }
   console.log(
-    `\n✅ 零损失对账通过;归并后 F1/F2/F3(可自动收口)/F4 = ${v.after.forks}/${v.after.voidRows}/${v.after.rotatedAuto}/${v.after.dupOpenCopies};F3 无出口仍 ${v.after.rotatedNoExit} 处(点名交人工,不并入归零判据),派单口径 ${counts0.open} → ${v.after.open}` +
-      (adj !== null && v.after.forks
-        ? `(F1 剩余 ${v.after.forks} 组全部在裁决账内、未到期 —— 它们是"机械归并不可行、须由人裁"的账,不是本次没做完)`
-        : ''),
+    `单口径 ${counts0.open} → ${v.after.open}`,
   )
   // 拒绝链三格,顺序即严格度:① 值不成其为值(缺失/以 - 开头)② 值是文档本体 ③ 才允许写盘。
   // ①②都**大声拒绝并非零退出**,不得静默忽略旗标、更不得回落到任何默认路径去写别处
