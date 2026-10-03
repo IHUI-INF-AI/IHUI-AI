@@ -455,6 +455,25 @@ def list_keys(kind: str) -> list[str]:
     return keys
 
 
+def list_grant_rows(kinds: Sequence[str]) -> list[dict]:
+    """只读投影:按 kind 集合取 grant 行明细(cache_key/scope/created_at/expires_at)。
+
+    从 llm.py 路由层收编进持久层(2026-10-03):裸 SQL 留在非 sqlite3 文件里会被
+    schema_check 的"按驱动判"规则当成 Postgres 表(approval_grants 在 CI 报
+    exists=False 数据孤岛);SQL 归位到本模块后整文件被驱动判据自然排除,
+    也兑现"单一 DB 路径"的原意 —— SQL 只住在持久层。过期过滤仍以 list_keys
+    权威集为准,本函数只做明细投影,不复制第二份过期判定。
+    """
+    conn = _get_conn()
+    with _lock:
+        rows = conn.execute(
+            "SELECT kind, cache_key, scope, created_at, expires_at FROM approval_grants "
+            f"WHERE kind IN ({','.join('?' for _ in kinds)})",
+            tuple(kinds),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
 def purge_expired() -> int:
     """清理过期的 session 级记录,返回被删除条数。"""
     conn = _get_conn()
