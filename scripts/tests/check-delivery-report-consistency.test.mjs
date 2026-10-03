@@ -558,6 +558,81 @@ test('违规: 同一章节含"100% 完成" + "未实现" → 检测到矛盾', (
   }
 })
 
+// ─── 豁免: 归并注记的引用短语不是本报告的完成宣称(2026-10-03 G-740 批次实测逼出) ──
+test('豁免: 章节只含归并样板"存在已闭环持有行" + 历史行"未实现" → 通过(引用短语非完成宣称)', () => {
+  const root = createTempProject()
+  try {
+    writeProjectPlan(
+      root,
+      '# Project Plan\n\n## 待办剥离区 (2026-09-28)\n\n- [x] ✅(2026-09-29) **[归并]** 本行自述为重复登记副本,且同主键 `X1` 存在已闭环持有行 ⇒ 只落状态、写明归并到谁,不删行、正文一字未改。\n\n- [ ] O88. 台账孪生副本的其余三型无人覆盖:该出口从未实现,不得当成已有能力引用。\n',
+    )
+    const r = runScript(root)
+    assertPass(r)
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('豁免: 章节只含归并样板"与一条已闭环登记同复合主键" + "待跟进" → 通过(引用短语非完成宣称)', () => {
+  const root = createTempProject()
+  try {
+    writeProjectPlan(
+      root,
+      '# Project Plan\n\n## 待办剥离区 (2026-09-28)\n\n- [x] ✅(2026-09-29) **[归并·F1]** 本行与一条已闭环登记同复合主键 `G-299`(§1 规矩 2)。\n\n- [ ] G-326. F6 漂移块的逐块裁决已做完,执行(摘短份)另计一票,待跟进。\n',
+    )
+    const r = runScript(root)
+    assertPass(r)
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('边界: 真完成宣称 + 归并样板同节 + 后续工作类 → 仍判红(豁免不得吞掉真宣称)', () => {
+  const root = createTempProject()
+  try {
+    writeProjectPlan(
+      root,
+      '# Project Plan\n\n## 任务 P (2026-08-01)\n\n本任务已闭环。另:同主键 `X1` 存在已闭环持有行。\n\n未实现:功能 Y。\n',
+    )
+    const r = runScript(root)
+    assertFail(r, /已闭环/)
+    assert.match(r.stdout, /未实现/)
+  } finally {
+    rmScratch(root)
+  }
+})
+
+// ─── 账本形块豁免(2026-10-03,G-417 盘点票 ①):任务登记行 ≥3 条的节是多会话账本块,
+// ─── 跨行的"已闭环 + 未实现"是不同任务的并置,不是同一份报告的自相矛盾。
+test('豁免: 节含 ≥3 条任务登记行(账本形块)→ 跨行并置不判红', () => {
+  const root = createTempProject()
+  try {
+    writeProjectPlan(
+      root,
+      '# Project Plan\n\n## 账本节 (2026-09-28)\n\n- [x] ✅ 任务甲已闭环(2026-09-28)\n- [x] ✅ 任务乙(2026-09-28)\n- [ ] 任务丙:该出口从未实现,待认领\n- [ ] 任务丁:另一件事\n',
+    )
+    const r = runScript(root)
+    assertPass(r)
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('边界: 账本形豁免不得吞掉纯散文报告 —— 无任务行的散文节仍判红', () => {
+  const root = createTempProject()
+  try {
+    writeProjectPlan(
+      root,
+      '# Project Plan\n\n## 交付报告 (2026-08-01)\n\n本报告已闭环。\n\n未实现:功能 Z。\n\n- 备注 1\n- 备注 2\n',
+    )
+    const r = runScript(root)
+    assertFail(r, /已闭环/)
+    assert.match(r.stdout, /未实现/)
+  } finally {
+    rmScratch(root)
+  }
+})
+
 // ─── 26. 全量模式扫描 PROJECT_PLAN.md(单文件) ────────────
 test('全量模式: 扫描 PROJECT_PLAN.md 单文件(脚本仅 visit 该文件)', () => {
   const root = createTempProject()

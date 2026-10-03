@@ -26,7 +26,7 @@ import { useTranslations } from 'next-intl'
 import { Download, MessagesSquare, Users } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { formatSpeakerList, type ImportProvenance } from '@/lib/import-analysis'
+import { formatSpeakerList, type ImportProvenance } from '@ihui/shared/import-analysis'
 
 /** i18n key → 来源枚举(wechat 之外的四源标签在 conversationImport 命名空间里已有,复用不重复造) */
 const SOURCE_LABEL_KEY: Record<ImportProvenance['source'], string> = {
