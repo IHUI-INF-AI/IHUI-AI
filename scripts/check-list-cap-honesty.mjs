@@ -28,6 +28,7 @@ import { readFileSync, existsSync, readdirSync, mkdtempSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..')
@@ -102,7 +103,7 @@ function main() {
 
 /** 内置成对用例:红(集合裁尾无计数)/ 绿(有 omitted)/ 字符串豁免 / 动态未判定。 */
 function selfTest() {
-  const dir = mkdtempSync(join(tmpdir(), 'list-cap-selftest-'))
+  const dir = mkScratch("list-cap-selftest-")
   try {
     const cases = [
       // 红:集合 slice(-10),函数体内无 omitted 计数

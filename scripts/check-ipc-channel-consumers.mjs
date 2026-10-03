@@ -49,6 +49,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = path.resolve(__dirname, '..')
@@ -263,7 +264,7 @@ function runSelfTest() {
     results.push({ name, pass: cond })
     console.log((cond ? 'PASS' : 'FAIL') + ' — ' + name)
   }
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'g678-selftest-'))
+  const tmp = mkScratch("g678-selftest-")
   try {
     // 夹具 A(红):注册面有 alpha/beta/lonely,取用面 invoke alpha + ghost(漏挂 lonely、悬空 import ghostFn)
     const dirA = path.join(tmp, 'red')
