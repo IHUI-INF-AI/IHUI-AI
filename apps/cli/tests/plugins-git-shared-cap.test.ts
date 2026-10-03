@@ -3,24 +3,34 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * G-998107:git-shared 封顶 + 脱敏回归 — execGit 复用 execGitCapped 唯一出口,
+ * G-998107:git-shared 封顶 + 脱敏回归 — 工具面 execGit 预算委托 resolveGitSpawnOptions,
  * stderr 进结果面前过 sanitizeEvidenceText 既有出口(禁止第二份脱敏)。
+ * G-1018202:唯一派生出口 execGitCapped 已搬家 git-runner.ts(wave-2),形状锁改钉新落点。
  */
 import { describe, expect, it, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 import { execGit, formatGitResult } from '../src/tools/git-shared.js';
 
 const PROBE = 'IHUI-SECRET-PROBE';
 
+/**
+ * 本文件所有 git 子进程调用的 stdio:这些调用一律不消费 stdin(不给 input、不走 --stdin/--batch),
+ * 而 Windows 交互会话下 Node 给子进程**创建 stdin 管道**确定性 EBUSY(`spawnSync git EBUSY`,
+ * status=null + error.errno=-4082),失败形态是"命令根本没跑"—— 仓库建不起来时 git status 返回
+ * 128 `not a git repository`,用例红在业务断言上,根因却在夹具层,极难归因。
+ * `['ignore','pipe','pipe']` 绕开 stdin 管道(铁律,同 scripts/ 下收敛器族);实测 `windowsHide:true`
+ * 单独不足以治(仍 EBUSY),stdin 管道才是病根。
+ */
+const GIT_STDIO = ['ignore', 'pipe', 'pipe'] as const;
+
 function gitInit(repoDir: string): void {
-  spawnSync('git', ['init'], { cwd: repoDir, encoding: 'utf-8' });
-  spawnSync('git', ['config', 'user.email', 'test@ihui.local'], { cwd: repoDir, encoding: 'utf-8' });
-  spawnSync('git', ['config', 'user.name', 'Test'], { cwd: repoDir, encoding: 'utf-8' });
-  spawnSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: repoDir, encoding: 'utf-8' });
+  spawnSync('git', ['init'], { cwd: repoDir, encoding: 'utf-8', stdio: GIT_STDIO });
+  spawnSync('git', ['config', 'user.email', 'test@ihui.local'], { cwd: repoDir, encoding: 'utf-8', stdio: GIT_STDIO });
+  spawnSync('git', ['config', 'user.name', 'Test'], { cwd: repoDir, encoding: 'utf-8', stdio: GIT_STDIO });
+  spawnSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: repoDir, encoding: 'utf-8', stdio: GIT_STDIO });
 }
 
 const tmpDirs: string[] = [];
@@ -79,8 +89,8 @@ describe('git-shared 封顶出口(G-998107)', () => {
       `${headMarker}\n${'x'.repeat(11 * 1024 * 1024)}\n${tailMarker}\n`,
       'utf-8',
     );
-    spawnSync('git', ['add', 'big.txt'], { cwd, encoding: 'utf-8' });
-    spawnSync('git', ['commit', '-m', 'big'], { cwd, encoding: 'utf-8' });
+    spawnSync('git', ['add', 'big.txt'], { cwd, encoding: 'utf-8', stdio: GIT_STDIO });
+    spawnSync('git', ['commit', '-m', 'big'], { cwd, encoding: 'utf-8', stdio: GIT_STDIO });
     const r = execGit(['show', 'HEAD:big.txt'], cwd);
     expect(r.exitCode).toBeNull();
     expect(r.stdout).toBe('');
@@ -95,11 +105,12 @@ describe('git-shared 封顶出口(G-998107)', () => {
   it('stderr 含远端 URL 内嵌口令形状时 output 与 error 都不泄漏', () => {
     const cwd = makeRepo();
     fs.writeFileSync(path.join(cwd, 'a.txt'), 'a', 'utf-8');
-    spawnSync('git', ['add', 'a.txt'], { cwd, encoding: 'utf-8' });
-    spawnSync('git', ['commit', '-m', 'init'], { cwd, encoding: 'utf-8' });
+    spawnSync('git', ['add', 'a.txt'], { cwd, encoding: 'utf-8', stdio: GIT_STDIO });
+    spawnSync('git', ['commit', '-m', 'init'], { cwd, encoding: 'utf-8', stdio: GIT_STDIO });
     spawnSync('git', ['remote', 'add', 'origin', `https://u:${PROBE}@127.0.0.1:1/x.git`], {
       cwd,
       encoding: 'utf-8',
+      stdio: GIT_STDIO,
     });
     const proxyKeys = ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy'];
     const saved = new Map<string, string | undefined>();
@@ -141,36 +152,20 @@ describe('git-shared 封顶出口(G-998107)', () => {
     expect(out.output).toContain(sha);
   });
 
-  it('源码形状锁:预算/封顶唯一出口在 git-runner,git-shared 复用、不自立第二份', () => {
-    const shared = fs.readFileSync(new URL('../src/tools/git-shared.ts', import.meta.url), 'utf-8');
-    const runner = fs.readFileSync(new URL('../src/plugins/git-runner.ts', import.meta.url), 'utf-8');
-    // 唯一封顶出口的定义只在 git-runner(b76 wave-2 W4 搬家后的新落点)
-    expect(runner).toContain('export function execGitCapped');
-    // git-shared 复用唯一出口解析 + 共享层既有脱敏,不自立预算表/第二份脱敏
-    expect(shared).toContain('resolveGitSpawnOptions');
-    expect(shared).toContain('sanitizeEvidenceText');
-    expect(shared).not.toContain("spawnSync('git'");
-    expect(shared).not.toContain('spawnSync("git"');
-    // 预算字面量不得回流本文件(档位表住在 git-runner)
-    expect(shared).not.toContain('30_000');
-    expect(shared).not.toContain('90_000');
-    expect(shared).not.toContain('120_000');
-    expect(shared).not.toContain('1024 * 1024');
-    // 全仓唯一性:execGitCapped 的定义恰好 1 处(票面验收判据)
-    const cliSrcRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src');
-    const definers: string[] = [];
-    const walk = (dir: string): void => {
-      for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
-        const p = path.join(dir, ent.name);
-        if (ent.isDirectory()) walk(p);
-        else if (/\.(ts|tsx|mts|mjs|js)$/.test(ent.name)) {
-          if (fs.readFileSync(p, 'utf-8').includes('export function execGitCapped')) definers.push(p);
-        }
-      }
-    };
-    walk(cliSrcRoot);
-    expect(definers).toHaveLength(1);
-    expect(definers[0] ?? '').toContain('git-runner.ts');
+  it('源码形状锁:预算与派生唯一出口在 git-runner,git-shared 委托不立第二份', () => {
+    // G-1018202:b76 wave-2 把插件面唯一派生出口 execGitCapped 搬到 git-runner.ts,
+    // 工具面 execGit 预算经 resolveGitSpawnOptions 委托 —— 锁改钉新落点,唯一性不许破。
+    const runnerSrc = fs.readFileSync(new URL('../src/plugins/git-runner.ts', import.meta.url), 'utf-8');
+    expect(runnerSrc.match(/export function execGitCapped\(/g)?.length ?? 0).toBe(1);
+    expect(runnerSrc).toContain('export function resolveGitSpawnOptions(');
+    const src = fs.readFileSync(new URL('../src/tools/git-shared.ts', import.meta.url), 'utf-8');
+    expect(src).not.toContain('export function execGitCapped(');
+    expect(src).toContain('resolveGitSpawnOptions'); // 预算委托唯一出口,不立第二张预算表
+    expect(src).toContain('sanitizeEvidenceText'); // 证据面脱敏走 @ihui/shared 既有出口
+    expect(src).not.toContain("spawnSync('git'");
+    expect(src).not.toContain('spawnSync("git"');
+    expect(src).not.toContain('30_000');
+    expect(src).not.toContain('1024 * 1024');
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

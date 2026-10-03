@@ -28,6 +28,7 @@ import { REMOTE_ICONS } from '@/constants/remote-icons'
 import ThemeRoot from '@/components/ThemeRoot'
 import SearchBar from '@/components/SearchBar'
 import ConversationHistoryItem from '@/components/ConversationHistoryItem'
+import LineIcon from '@/components/LineIcon'
 
 /**
  * 远程图标静态注册表:noUncheckedIndexedAccess 下 Record 点号访问返回 string | undefined,
@@ -553,6 +554,11 @@ export default function HistoryPage() {
     Taro.navigateTo({ url: `/pkg-ai/ai/chat${h ? `?sessionId=${h.id}` : ''}` })
   }, [])
 
+  /** 打开会话导入页;导入成功后新会话落在本页列表里,故返回时由 useDidShow 重新拉取 */
+  const goConversationImport = useCallback(() => {
+    Taro.navigateTo({ url: '/pkg-ai/ai/conversation-import' })
+  }, [])
+
   /**
    * 置顶/取消置顶(D20 端内接线,与 mobile-rn MessageCenterScreen 同形):
    * 网络出口唯一 = @ihui/api-client setConversationPinned;重排唯一 = 共享 togglePinnedItem
@@ -744,6 +750,24 @@ export default function HistoryPage() {
             {tt('ai.historyPage.clearAll', '清空全部')}
           </Text>
         ) : null}
+      </View>
+
+      {/* 会话导入入口(D28):导入的会话落库后就在本页列表里出现,故入口与列表同页。
+          命中块用 View(hoverClass 只在 View 上受支持)、文案用 Text,与端内既有胶囊同形。 */}
+      <View
+        className="flex items-center gap-[12rpx] py-[16rpx] px-[32rpx] bg-card"
+        onClick={goConversationImport}
+        hoverClass="opacity-60"
+      >
+        <View className="flex-shrink-0">
+          <LineIcon name="file-text" size={28} color="var(--color-muted-foreground)" />
+        </View>
+        <Text className="flex-1 text-[length:24rpx] text-muted-foreground">
+          {tt('conversationImport.pageTitle', '外部会话导入')}
+        </Text>
+        <View className="flex-shrink-0">
+          <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
+        </View>
       </View>
 
       {/* 兜底提示:服务端没取到才出现。可见、不谎报,给「重试」出口 */}
