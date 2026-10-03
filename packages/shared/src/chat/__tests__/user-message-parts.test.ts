@@ -35,7 +35,9 @@ describe('splitUserMessageParts:四类形态', () => {
   })
 
   it('② 视频行摘成 URL', () => {
-    const r = splitUserMessageParts(`我录了一段\n\n${VIDEO_LINE('/uploads/clip.mp4')}\n\n后面还有话`)
+    const r = splitUserMessageParts(
+      `我录了一段\n\n${VIDEO_LINE('/uploads/clip.mp4')}\n\n后面还有话`,
+    )
     expect(r.videos).toEqual(['/uploads/clip.mp4'])
     expect(r.text).toContain('我录了一段')
     expect(r.text).toContain('后面还有话')
@@ -66,33 +68,39 @@ describe('splitUserMessageParts:四类形态', () => {
 })
 
 describe('splitUserMessageParts:判不出/不安全一律不摘(绝不静默消失)', () => {
-  it('不安全的视频行 ⇒ 不摘、可见,计 rejected;含裸括号的不安全"图片样式"行**连形态都不算命中**(不猜)', () => {
+  it('不安全的视频行 ⇒ 摘进 rejectedLines 待字面渲染;含裸括号的不安全"图片样式"行**连形态都不算命中**(不猜)', () => {
     const evilImg = IMAGE_LINE('x.png', 'javascript:alert(1)')
     const evilVid = VIDEO_LINE('data:video/mp4;base64,AAAA')
     const r = splitUserMessageParts(`正文\n\n${evilImg}\n${evilVid}`)
     expect(r.images).toEqual([])
     expect(r.videos).toEqual([])
-    // 两条都必须**原样留在屏幕上**——这是本用例真正的判据,rejected 只是附属计数。
-    expect(r.text).toContain(evilImg)
-    expect(r.text).toContain(evilVid)
+    // video 行确凿命中形态但不安全:2026-10-01 起摘进 rejectedLines(调用方按字面渲染),
+    // **不再留在 text** —— text 要交给 MarkdownStream,裸 HTML 留在里面会被 react-markdown 静默丢弃。
+    expect(r.rejectedLines).toEqual([evilVid])
+    expect(r.text).not.toContain(evilVid)
+    expect(r.text).toContain('正文')
     // `![a](javascript:alert(1))` 的 URL 里带未转义的 `)`,按 markdown 语法本身就是歧义形态;
     // 发送侧产出的 URL 不会长成这样 ⇒ 这里**刻意不猜**它是图片,当普通文本处理(所以 rejected=1,
     // 只统计那条确凿命中却不安全的 video 行)。放宽正则去吞歧义形态,等于替用户改稿。
     expect(r.rejected).toBe(1)
+    expect(r.text).toContain(evilImg)
   })
 
-  it('不配对的围栏不猜结尾:原样保留 + rejected 记一笔', () => {
+  it('不配对的围栏不猜结尾:摘进 rejectedLines + rejected 记一笔(不留在 text,免得 MarkdownStream 把后文吞进代码块)', () => {
     const r = splitUserMessageParts('```\n没有收尾的粘贴')
     expect(r.codeBlocks).toEqual([])
     expect(r.rejected).toBe(1)
-    expect(r.text).toContain('```')
+    expect(r.rejectedLines).toEqual(['```'])
+    expect(r.text).toBe('没有收尾的粘贴')
   })
 
-  it('空标签的 `> 📎` 行不摘(没有可显示的名字,宁可原样可见)', () => {
+  it('空标签的 `> 📎` 行不摘(没有可显示的名字,进 rejectedLines 字面可见)', () => {
     const r = splitUserMessageParts('> 📎   ')
     expect(r.fileRefs).toEqual([])
     expect(r.rejected).toBe(1)
-    expect(r.text).toContain('📎')
+    expect(r.rejectedLines).toHaveLength(1)
+    expect(r.rejectedLines[0]).toContain('📎')
+    expect(r.text).toBe('')
   })
 
   it('用户正文里"讨论这些写法"的散文一律不动(只认整行的确切形态)', () => {
@@ -113,6 +121,10 @@ describe('splitUserMessageParts:判不出/不安全一律不摘(绝不静默消�
     const r = splitUserMessageParts(VIDEO_LINE('/v.mp4'))
     expect(r.text.trim()).toBe('')
     expect(r.videos).toEqual(['/v.mp4'])
+  })
+
+  it('没有拒绝时 rejectedLines 为空数组(不是 undefined,消费方可以直接 map)', () => {
+    expect(splitUserMessageParts('普通正文').rejectedLines).toEqual([])
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
