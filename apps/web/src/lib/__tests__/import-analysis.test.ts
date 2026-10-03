@@ -10,8 +10,8 @@ import {
   formatSpeakerList,
   readImportProvenance,
   type ImportProvenanceMessage,
-} from '../import-analysis'
-import type { ImportAnalysisScenario } from '../import-analysis-catalog.generated'
+} from '@ihui/shared/import-analysis'
+import type { ImportAnalysisScenario } from '@ihui/shared/import-analysis/scenarios'
 
 /** 微信导入后的典型消息形态(发言人写在正文前缀,时间已归一到 UTC ISO) */
 const WECHAT_MESSAGES: ImportProvenanceMessage[] = [
