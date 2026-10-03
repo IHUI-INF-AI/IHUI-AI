@@ -44,6 +44,14 @@ from app.core.logging import get_logger
 
 from .state_paths import resolve_state_path
 
+from ..._load_lifecycle import (
+    decide_attempt as _decide_attempt,
+    monotonic as _lifecycle_monotonic,
+    state_after_failure as _state_after_failure,
+    state_after_success as _state_after_success,
+    DECISION_BACKOFF as _DECISION_BACKOFF,
+    DECISION_GAVE_UP as _DECISION_GAVE_UP,
+)
 logger = get_logger(__name__)
 
 
@@ -163,6 +171,11 @@ class RiskScorer:
         self._score_cache: dict[tuple[str, str], RiskScore] = {}
         self._cache_ttl = 30.0  # 缓存 30s
         self._loaded = False
+        # G-758(2026-10-03):加载生命周期标量(判定住在 _load_lifecycle,唯一一份)。
+        # _loaded=False ∧ _load_failures>0 ⇒ "读不到"(待重试/已放弃自动重试),绝不等于空。
+        self._load_failures: int = 0
+        self._load_next_attempt_s: float = 0.0
+        self._load_give_up_logged: bool = False
 
     def _ensure_loaded(self) -> None:
         """惰性加载持久化的事件文件(进程重启后恢复)。"""
@@ -171,6 +184,23 @@ class RiskScorer:
         with self._lock:
             if self._loaded:
                 return
+            now = _lifecycle_monotonic()
+            decision = _decide_attempt(
+                loaded=self._loaded,
+                failures=self._load_failures,
+                next_attempt_s=self._load_next_attempt_s,
+                now=now,
+            )
+            if decision == _DECISION_GAVE_UP:
+                if not self._load_give_up_logged:
+                    self._load_give_up_logged = True
+                    logger.warning(
+                        "[risk_scoring] _ensure_loaded 连续 %d 次读取失败,停止自动重试(状态=读不到,非空表)",
+                        self._load_failures,
+                    )
+                return
+            if decision == _DECISION_BACKOFF:
+                return  # 退避窗口内:本次调用不打 IO
             try:
                 if _EVENTS_FILE.is_file():
                     with _EVENTS_FILE.open("r", encoding="utf-8") as f:
@@ -194,9 +224,12 @@ class RiskScorer:
                         "[risk_scoring] 加载历史风险事件: %d 个账号",
                         len(self._events),
                     )
+                self._loaded, self._load_failures, self._load_next_attempt_s = _state_after_success()
             except OSError as e:
-                logger.warning("[risk_scoring] 加载事件文件失败: %s", e)
-            self._loaded = True
+                self._load_failures, self._load_next_attempt_s = _state_after_failure(
+                    self._load_failures, now
+                )
+                logger.warning("[risk_scoring] 加载事件文件失败(本次降级为空,退避后自动重试;连续失败到上限停自动重试): %s", e)
 
     def _persist_event(self, account_id: str, platform: str,
                        event_type: str, details: dict[str, Any],
