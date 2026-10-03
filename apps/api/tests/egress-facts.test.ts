@@ -13,11 +13,17 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   attachEgressFacts,
   collectEgressFacts,
+  directEgressFetch,
   isProxiedUrl,
   readEgressFacts,
+  readEgressHops,
 } from '../src/utils/proxy-dispatcher.js'
 import { fetchWithTimeout } from '../src/routes/ai-vendors/_shared.js'
-import { EGRESS_FACT_FIELDS, type EgressFacts } from '@ihui/types'
+import {
+  createEgressFacts,
+  EGRESS_FACT_FIELDS,
+  type EgressFacts,
+} from '@ihui/types'
 
 /** 本测试涉及的变量在 .env.test / 宿主 shell 里都可能已存在 ⇒ 逐条存取,不得盲删。*/
 const MANAGED_VARS = [
@@ -216,6 +222,66 @@ describe('真实出口:fetchWithTimeout 必须把 egress 填在响应上', () =>
     process.env.PROXY_DOMAINS = 'api.stepfun.com'
     await expect(fetchWithTimeout('https://api.stepfun.com/step_plan/v1/models')).rejects.toThrow()
     expect(globalFetchCalls).toBe(0)
+  })
+})
+
+describe('G-750:事实面必须能回答"字节是从哪个 host 拿回来的"', () => {
+  const originalFetch = globalThis.fetch
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+  })
+
+  /** 直连侧假传输:按 URL 路由的重定向链(凭据判据已在 o5 套件,这里只看事实面)。*/
+  function redirectingFetch(): typeof fetch {
+    return (async (input: string | URL | Request) => {
+      const url = String(input)
+      if (url === 'https://api.deepseek.com/v1/thing') {
+        return new Response(null, { status: 302, headers: { location: 'https://cdn.third-party-cdn.test/pull' } })
+      }
+      if (url === 'https://cdn.third-party-cdn.test/pull') {
+        return new Response('bytes-from-cdn', { status: 200 })
+      }
+      throw new Error(`夹具未编排该 URL:${url}`)
+    }) as unknown as typeof fetch
+  }
+
+  it('跨 origin 跳转后事实面报的是**末跳** hostname 而非起始 hostname,跳数如实为 1', async () => {
+    globalThis.fetch = redirectingFetch()
+
+    const res = await directEgressFetch('https://api.deepseek.com/v1/thing')
+    const facts = readEgressFacts(res) as EgressFacts
+    expect(facts).not.toBe(null)
+    expect(facts.targetHostname).toBe('api.deepseek.com') // 起始 URL 的配置事实不变
+    expect(facts.finalHostname).toBe('cdn.third-party-cdn.test') // 字节的实际来源
+    expect(facts.redirectCount).toBe(1)
+    expect(readEgressHops(res)).toEqual({
+      finalHostname: 'cdn.third-party-cdn.test',
+      redirectCount: 1,
+    })
+    expect(await res.text()).toBe('bytes-from-cdn')
+  })
+
+  it('零跳(无重定向)时 finalHostname = 起始 hostname、redirectCount = 0 —— 不缺省、不冒充未知', async () => {
+    globalThis.fetch = redirectingFetch()
+
+    const res = await directEgressFetch('https://cdn.third-party-cdn.test/pull')
+    const facts = readEgressFacts(res) as EgressFacts
+    expect(facts.finalHostname).toBe('cdn.third-party-cdn.test')
+    expect(facts.redirectCount).toBe(0)
+  })
+
+  it('新字段进 createEgressFacts 白名单:缺省值经 JSON 往返后**不出现**(旧形状保持)', () => {
+    const facts = collectEgressFacts('https://api.deepseek.com/v1/models')
+    // collectEgressFacts 不经过有界链,两字段为 undefined ⇒ JSON 往返后键不出现
+    const roundTripped = JSON.parse(JSON.stringify(facts)) as Record<string, unknown>
+    expect('finalHostname' in roundTripped).toBe(false)
+    expect('redirectCount' in roundTripped).toBe(false)
+    // 但白名单认得它们:显式给了值,createEgressFacts 唯一出口就必须抄进来(结构上仍带不进凭据类内容)
+    const enriched = JSON.parse(
+      JSON.stringify(createEgressFacts({ ...facts, finalHostname: 'cdn.example.test', redirectCount: 2 })),
+    ) as Record<string, unknown>
+    expect(enriched.finalHostname).toBe('cdn.example.test')
+    expect(enriched.redirectCount).toBe(2)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

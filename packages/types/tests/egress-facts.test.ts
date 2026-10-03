@@ -32,6 +32,9 @@ const BASE: EgressFacts = {
   noProxyVar: null,
   customCa: 'none',
   policyDeclined: null,
+  // G-750(2026-10-03)新增两档(可选):加字段必须同批改白名单 + 本清单,两处缺一即红
+  finalHostname: 'api.openai.com',
+  redirectCount: 0,
 }
 
 describe('egress facts 闭集形状', () => {
