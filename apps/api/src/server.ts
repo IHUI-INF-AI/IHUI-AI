@@ -49,6 +49,8 @@ import { redis } from './plugins/redis.js'
 import { sseRegistry } from './plugins/sse-registry.js'
 import { queue } from './plugins/queue.js'
 import { scheduler } from './plugins/scheduler.js'
+import { preloadRawRetentionOptOuts } from './services/raw-retention-optout.js'
+import { preloadCodeIndexEgressOptOuts } from './services/code-index-egress-consent.js'
 import { distributedRateLimit } from './plugins/distributed-rate-limit.js'
 import { paymentIdempotency } from './plugins/payment-idempotency.js'
 // O10 开放面通用幂等重放保护(Idempotency-Key + Redis SETNX)。与上面支付域那套是两套
@@ -497,6 +499,24 @@ async function registerPlugins(server: FastifyInstance) {
 
   // 定时任务调度器：BullMQ repeatable jobs（cron），由 scheduler-worker 消费
   await server.register(scheduler)
+
+  // 「不落 LLM 调用原文」用户选择的内存缓存预热（2026-10-03 数据出域合规整改）。
+  // 必须在 scheduler/计费相关注册**之前**:计费热路径的 buildRawTextColumns 读的是
+  // 这份缓存,预热未完成时一律按"默认留存"处理(方向选择见 raw-retention-optout.ts
+  // 文件头 —— 这个方向与本仓其它 fail-closed 闸门相反,是刻意的)。
+  // preload 内部已吞异常:预热失败只记 error,不让服务起不来。
+  await preloadRawRetentionOptOuts()
+
+  // 「不建代码语义索引出域」排障视图的预热（2026-10-03 数据出域合规整改）。
+  // 与上面那个 preload 的**性质不同**，别照抄它的理由：那个缓存的读入口在本进程
+  // （计费热路径），预热是为了"启动期别按错方向跑"；**闸门的读入口在 ai-service**，
+  // 本进程这份缓存对它没有性能意义，所以这里**不重推** ai-service。
+  // 闸门状态的启动自愈在 **ai-service 自己的 lifespan**（直读 user_preferences，
+  // 见 code_index_consent.preload_opt_outs_from_db）——启动期没有"某个用户"的
+  // JWT 可用，让 api 猜该重推给谁不如让 ai-service 自己读库可靠。
+  // 本 preload 只保证 getConsentSyncStats/isCodeIndexEgressOptedOut 这类
+  // **排障视图**在进程刚起来时就是对的，否则会把"没预热"误读成"用户没选阻止"。
+  await preloadCodeIndexEgressOptOuts()
 
   // 分布式限流：Redis 滑动窗口 + 公平权重 + 自适应负载（多实例生效）
   await server.register(distributedRateLimit)

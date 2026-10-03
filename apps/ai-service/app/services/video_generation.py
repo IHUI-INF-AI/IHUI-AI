@@ -188,7 +188,17 @@ async def _process_one() -> bool:
     prompt = (row["message"] or "").strip()
     # "90 秒"等长提示词按分镜拆段(每段默认 5s);多数接口上限 10~15s
     duration = 5
-    logger.info("[video] worker 处理任务 id=%s prompt=%r", task_id, prompt[:120])
+    # 2026-10-03 数据出域合规整改:原为 `prompt=%r", task_id, prompt[:120]`,
+    # 在**正常处理路径**上以 info 级把用户 prompt 前 120 字打进日志(stdout 落盘)。
+    # 日志是典型的"留存面却无期限无权限隔离"的地方,把用户内容写进去等于绕过
+    # 整套留存治理。改为只记长度与首部 40 字(够定位是哪种 prompt,不足以还原内容);
+    # 真要看内容请查该任务的 DB 记录,那是有留存期与归属治理的地方。
+    logger.info(
+        "[video] worker 处理任务 id=%s prompt_len=%d prompt_head=%r",
+        task_id,
+        len(prompt),
+        prompt[:40],
+    )
     try:
         if not prompt:
             raise ProviderError("任务缺少 prompt(message 为空)")

@@ -33,7 +33,17 @@ export interface PasswordLoginFormProps {
   apiClient: LoginApiClient
   /** 登录成功回调 */
   onSuccess?: (result: LoginResult) => void | Promise<void>
-  /** 协议状态 */
+  /**
+   * 协议状态(受控**当前值**,不是内部 state)。
+   *
+   * 2026-10-03 数据出域合规整改:解构缺省由 `true` 改为 `false`。
+   * 本组件不持有协议 state —— `AgreementCheckbox` 的 `checked` 直接吃这个 prop,
+   * 所以这里的解构缺省**就是**"调用方不传 agreed 时初始渲染成什么样"的唯一开关。
+   * 缺省 true 等于替每一个直接使用本导出子组件的调用方宣称"用户已同意隐私政策",
+   * 且与内层 `login-form.tsx` 的 `defaultAgreed = false` 方向相反。
+   * 缺省必须落在"未同意":不合规的方向是"误认为已同意"。
+   * 显式传 `agreed={true}` 仍可勾上(受控用法的通道不受影响)。
+   */
   agreed?: boolean
   onAgreedChange?: (v: boolean) => void
   /** 未勾选协议时调用(父组件决定 inline 提示还是弹窗) */
@@ -92,7 +102,7 @@ export function PasswordLoginForm({
   t,
   apiClient,
   onSuccess,
-  agreed = true,
+  agreed = false,
   onAgreedChange,
   onRequireAgree,
   showAgreeErr,

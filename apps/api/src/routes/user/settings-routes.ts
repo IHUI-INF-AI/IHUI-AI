@@ -13,6 +13,8 @@ import { db } from '../../db/index.js'
 import { users, exportTasks } from '@ihui/database'
 import { isSystemAdminUser, findUserById } from '../../db/queries.js'
 import { purgeUserPii } from '../../services/purge-user-pii.js'
+import { setRawRetentionOptOut } from '../../services/raw-retention-optout.js'
+import { setCodeIndexEgressOptOut } from '../../services/code-index-egress-consent.js'
 import {
   findUserPreferences,
   upsertUserPreference,
@@ -44,6 +46,37 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
     const { list } = await findUserPreferences(request.userId!, 'privacy')
     const settings = Object.fromEntries(list.map((r) => [r.key, r.value]))
     return reply.send(success({ settings }))
+  })
+
+  /**
+   * 部署方全局开关的**只读镜像**(2026-10-03 数据出域合规整改)。
+   *
+   * 为什么需要它:`IHUI_AUTO_MEMORY` 不是 `NEXT_PUBLIC_` 前缀,不会下发到浏览器,
+   * 所以部署方设了 `IHUI_AUTO_MEMORY=0` 之后,隐私页与记忆页仍显示"自动记忆 开启",
+   * 而后端**实际不提取** —— 界面与事实相反,比没有这个开关更坏。
+   * 本端点把这个布尔补上前端缺的那一半,让界面显示"全局 + 用户"的合取。
+   *
+   * 极性(两处,别搞反):
+   * - env 侧:`IHUI_AUTO_MEMORY` 是"是否**全局开启**",**只有明确的否定字面量
+   *   才算关闭**,缺省 = 开启(= 整改前行为)。判定口径与
+   *   `apps/ai-service/app/services/auto_memory_optout.py` 的 `_env_global_default()`
+   *   逐条对齐 —— 两边必须一致,否则界面显示"开"而后端按"关"跑。
+   * - 界面侧:开关是"自动记忆 开/关"(**opt-in**)。合取 `全局 && 用户` 之后
+   *   仍然是 opt-in 显示。前端**不要**把这个值当成 opt-out 用。
+   *
+   * ⚠ 只返回这一个布尔,**不返回任何其它 env 值**。本端点只需回答"全局是否强制关闭
+   * 自动记忆",多返回一个键就多泄露一处部署配置(密钥/DSN 之类经手的风险)。
+   * 因此这里刻意不写成"把 config 挑几个字段发出去",而是显式列出唯一那个布尔。
+   *
+   * 无需 body、无副作用,因此是 GET;登录即可见(它只反映部署方的开关,不含用户数据)。
+   */
+  server.get('/settings/runtime-flags', async (_request, reply) => {
+    const raw = (process.env.IHUI_AUTO_MEMORY ?? '').trim().toLowerCase()
+    // 只有明确的否定字面量视为关闭;其余(含未设置/空串)一律开启。
+    // 与 auto_memory_optout._env_global_default 同一口径 —— 两边若分叉,
+    // 界面就会显示与后端相反的状态,那正是本次要消除的缺陷。
+    const autoMemoryGloballyEnabled = !(raw === '0' || raw === 'false' || raw === 'off')
+    return reply.send(success({ autoMemoryGloballyEnabled }))
   })
 
   server.get('/settings/preferences', async (request, reply) => {
@@ -87,6 +120,28 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
         ),
       ),
     )
+    // 2026-10-03 数据出域合规整改:「不落 LLM 调用原文」这个键不只是存进偏好表,
+    // 还要同步进计费热路径读的那份内存缓存(setRawRetentionOptOut 内部会再落库,
+    // 所以上面那次 upsert 对这个键其实是重复的 —— 保留它是为了让本路由的
+    // "通用 KV"语义对所有键一致,不因某一个键有副作用就让调用方区别对待)。
+    // 不同步的后果:用户点了"不留存",库里有记录,但计费路径读的是另一个缓存,
+    // 于是**开关看起来生效了、实际仍在留存** —— 这类"装饰性开关"比没有更糟。
+    if ('llmRawRetentionOptOut' in body) {
+      await setRawRetentionOptOut(userId, String(body.llmRawRetentionOptOut) === 'true')
+    }
+    // 2026-10-03 数据出域合规整改:「不建代码语义索引」与上面那个键是**同一类**问题,
+    // 但坏得更彻底 —— 它之前连一次 setXxxOptOut 都没有,纯粹只写进偏好表,
+    // 而闸门在另一个进程(ai-service)读它自己那份 .data,于是**全仓零引用**。
+    // 现在 setCodeIndexEgressOptOut 内部会 (a) 落库 (b) 经内部服务通道推给 ai-service,
+    // 推完闸门才真的读得到。不同步的后果与上面那条注释同型:开关看起来生效了、
+    // 实际仍在出域。
+    //
+    // 极性:这个键是 **opt-out**(`'true'` = 阻止),与 `llmRawRetentionOptOut` 同向。
+    // 注意它与 ai-service 同意表的 `granted`(opt-in)极性相反,转换在
+    // setCodeIndexEgressOptOut 内部单点收口,这里只按 opt-out 语义传值。
+    if ('codeIndexEgressOptOut' in body) {
+      await setCodeIndexEgressOptOut(request, userId, String(body.codeIndexEgressOptOut) === 'true')
+    }
     return reply.send(success({ success: true }))
   })
 
