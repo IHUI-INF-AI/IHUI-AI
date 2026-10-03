@@ -60,8 +60,7 @@ import { DiffCommentsBar } from './diff-comments-bar'
 import { ContextBudgetBar } from './context-budget-bar'
 
 /** 优先级从高到低(数组序即展示优先序) */
-const STATUS_KINDS = ['connection', 'alerts', 'mcp', 'polish', 'diff', 'budget'] as const
-type StatusKind = (typeof STATUS_KINDS)[number]
+type StatusKind = 'connection' | 'alerts' | 'mcp' | 'polish' | 'diff' | 'budget'
 
 /** 每源固定 lucide 图标(禁止 emoji;弹层行用) */
 const STATUS_KIND_ICON: Record<StatusKind, React.ComponentType<{ className?: string }>> = {
@@ -133,7 +132,7 @@ export function InputStatusSlot({
     ? deriveConnectionState(
         isStreaming,
         connSignal.attempt,
-        connSignal.state === 'disconnected' || connSignal.error != null,
+        connSignal.state === 'disconnected' || (connSignal.error !== null && connSignal.error !== undefined),
         threadId,
       )
     : null
