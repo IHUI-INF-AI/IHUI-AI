@@ -63,6 +63,12 @@ jobs:
         id: install
         run: pnpm install --frozen-lockfile
 
+      # capabilities-manifest 的 TS 目录图 import 到 @ihui/types(exports 指向 dist),
+      # 而本文件原顺序里 build-deps 排在它后面 ⇒ 首个消费 dist 的步骤撞 ERR_MODULE_NOT_FOUND
+      # (2026-10-03 实测)。这里先行构建同一闭包;后方 build-deps 走 turbo 缓存,零成本。
+      - name: Build workspace deps before capability manifest
+        run: pnpm --filter "@ihui/api^..." run build
+
       - name: Capability manifest matches catalog source (O8b)
         id: capabilities-manifest
         # TS 目录(capability-catalog.ts)与生成产物(capabilities.json)不一致即红:
