@@ -27,6 +27,7 @@ import {
   rnRadius,
   type ChartTemplatePayload,
 } from '@ihui/design-tokens'
+import { clampPercent } from '@ihui/shared'
 
 const W = 560
 const H = 280
@@ -232,7 +233,7 @@ function Radar({ rows, isDark }: { rows: readonly Item[]; isDark: boolean }) {
         )
       })}
       <polygon
-        points={poly((i) => (R * Math.max(0, Math.min(100, pts[i]?.v ?? 0))) / 100)}
+        points={poly((i) => (R * clampPercent(pts[i]?.v ?? 0)) / 100)}
         fill={color(0)}
         fillOpacity={0.28}
         stroke={color(0)}
