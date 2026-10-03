@@ -23,6 +23,9 @@ export * from './waiting-pool'
 export * from './step-decision'
 // D36 会话内输入历史栈(纯逻辑:push/去重/50 上限/游标导航;平台无关,web 接线在 use-prompt-history)
 export * from './prompt-history'
+// G-815941 IME 合成期 Enter 不得提交:三条腿(本地标志 ∪ 事件标志 ∪ 收尾闩锁)取或 + 空内容不提交;
+//纯函数 + 闩锁 reducer,任何有物理键盘的端共用同一出口
+export * from './enter-submit'
 // D105 PR 检查状态与动作卡(六态 + 聚合三态/空态的唯一判定层;不取数,数据面复用既有 PR 通道)
 export * from './pr-checks'
 // D103 流内多智能体批量动作卡的动作矩阵(六动作 × 三态;相位与实例状态两个正交维度各只有一个定义处)

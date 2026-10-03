@@ -111,8 +111,11 @@ describe('组 A — WebInputCore 的 Enter 键序:外部处理器握有否决权
 })
 
 describe('组 A2 — 输入法组合态双保险(G-844)', () => {
-  function Core({ onSend }: { onSend: () => void }) {
-    const [text, setText] = React.useState('')
+  // initialText 默认给**有内容**的草稿:本组要验的是 IME 三条腿,不是空内容那一档。
+  // G-815941 起"空内容不提交"也是判据的一档,初值若为空,三条腿的用例会被那一档盖住
+  // (Enter 无论组合与否都不发送,IME 腿拆掉也照样绿)。空内容那一档由下一条用例单独验。
+  function Core({ onSend, initialText = '草稿' }: { onSend: () => void; initialText?: string }) {
+    const [text, setText] = React.useState(initialText)
     return (
       <WebInputCore
         text={text}
@@ -136,10 +139,25 @@ describe('组 A2 — 输入法组合态双保险(G-844)', () => {
     fireEvent.keyDown(ta(), { key: 'Enter', shiftKey: false, isComposing: false })
     expect(onSend).toHaveBeenCalledTimes(0)
 
-    // 收尾后恢复正常
+    // G-815941 腿三:compositionend 之后**第一次** Enter 仍不得提交 —— 部分引擎里"确认候选词"
+    // 的那一次 Enter 排在 compositionend 之后,此刻本地腿已翻回 false、事件腿也是 false,
+    // 两腿并集放行 ⇒ 半截中文被当正文发出去。这是本票的关键漏点。
     fireEvent.compositionEnd(ta())
     fireEvent.keyDown(ta(), { key: 'Enter', shiftKey: false, isComposing: false })
+    expect(onSend).toHaveBeenCalledTimes(0)
+
+    // 闩锁只消费一次:再按一次 Enter(用户真正想发)⇒ 恢复正常
+    fireEvent.keyDown(ta(), { key: 'Enter', shiftKey: false, isComposing: false })
     expect(onSend).toHaveBeenCalledTimes(1)
+  })
+
+  it('G-815941:空内容 + 无 IME 腿 ⇒ 不提交(空命令应落回 awaiting/空态,不发明塞消息)', () => {
+    const onSend = vi.fn()
+    render(<Core onSend={onSend} initialText="" />)
+    expect(ta().value).toBe('')
+
+    fireEvent.keyDown(ta(), { key: 'Enter', shiftKey: false, isComposing: false })
+    expect(onSend).toHaveBeenCalledTimes(0)
   })
 
   it('事件腿:nativeEvent.isComposing 为 true 时 Enter 不发送(未触发 compositionstart 也拦得住)', () => {
@@ -291,8 +309,11 @@ describe('组 C — message-input 接线形态下的 IME 单腿对(G-816019)', (
     fireEvent.compositionStart(ta())
     fireEvent.keyDown(ta(), { key: 'Enter', shiftKey: false, isComposing: false })
     expect(Number(screen.getByTestId('sends').textContent)).toBe(0)
-    // compositionEnd 之后同一形状的 Enter 恢复发送(证明拦截是腿在起作用,不是键序坏了)
+    // G-815941 腿三:compositionEnd 之后第一次 Enter 也不发送(确认候选词那一次),
+    // 第二次才恢复 —— 证明拦截是腿在起作用,不是键序坏了。
     fireEvent.compositionEnd(ta())
+    fireEvent.keyDown(ta(), { key: 'Enter', shiftKey: false, isComposing: false })
+    expect(Number(screen.getByTestId('sends').textContent)).toBe(0)
     fireEvent.keyDown(ta(), { key: 'Enter', shiftKey: false, isComposing: false })
     expect(Number(screen.getByTestId('sends').textContent)).toBe(1)
   })
