@@ -98,7 +98,10 @@ export function UserMessageBody({ content, testId }: UserMessageBodyProps) {
           src={url}
           controls
           className="max-h-64 w-full rounded-lg bg-muted"
-        />
+        >
+          {/* 用户上传视频无字幕源:空 captions track 仅为 a11y 合规,不改变播放行为 */}
+          <track kind="captions" />
+        </video>
       ))}
 
       {parts.codeBlocks.map((code, i) => (
