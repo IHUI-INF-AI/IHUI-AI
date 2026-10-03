@@ -49,8 +49,8 @@ function d73ForkIntoPane(
 
 /** 与宿主逐字同构的委托(v2):主体唯一、固定渲染在根窗格;其余窗格 = 承载标记(诚实降级) */
 function d73RenderPaneContent() {
-  return (conversationId: string | null, paneId: string) =>
-    paneId === ROOT_PANE_ID ? (
+  function D73PaneContent({ conversationId, paneId }: { conversationId: string | null; paneId: string }) {
+    return paneId === ROOT_PANE_ID ? (
       <div data-testid="pane-body" data-body-pane={paneId} />
     ) : (
       <div data-pane-marker={paneId}>
@@ -58,6 +58,10 @@ function d73RenderPaneContent() {
         <span>{conversationId}</span>
       </div>
     )
+  }
+  return (conversationId: string | null, paneId: string) => (
+    <D73PaneContent conversationId={conversationId} paneId={paneId} />
+  )
 }
 
 /** 用判定层纯函数搭树(显式窗格 id,不依赖 store 计数器),再整树注入 store */
