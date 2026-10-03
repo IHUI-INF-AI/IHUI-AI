@@ -23,6 +23,7 @@ import { archiveDailyData } from '../services/data-archive-service.js'
 import { startExpirationMonitor } from '../services/expiration-monitor-service.js'
 import { runFileCleanup } from '../services/cleanup-service.js'
 import { cleanupExpiredUploadSessions } from '../services/upload-integrity.js'
+import { codebaseIndexService } from '../services/codebase-index-service.js'
 import { expireVipMembers } from '../services/vip-expire-service.js'
 import { autoCloseExpiredActivities } from '../services/activity-status-service.js'
 import { calibrateCommissionSettlement } from '../services/commission-settle-service.js'
@@ -893,6 +894,30 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
               /* 指标采集失败不影响业务 */
             }
             return result
+          }
+          case 'codebase-index-purge-daily': {
+            // 代码索引到期回收(2026-10-03):删 codebase_chunks 中 expires_at 已过期的行。
+            // 这张表存用户代码明文 + 向量,读面已按 expires_at 过滤(不可见),
+            // 本任务是物理删除那一环。失败必须记 failed 而不是 success ——
+            // 清理失败若被记成成功,监控上就再也看不出"代码在库里躺着"了。
+            try {
+              const purged = await codebaseIndexService.purgeExpired()
+              server.log.info({ purged }, 'expired codebase index chunks purged')
+              try {
+                server.recordJobExecution(name, 'success')
+              } catch {
+                /* 指标采集失败不影响业务 */
+              }
+              return { purged }
+            } catch (e) {
+              server.log.error({ err: e as Error }, 'codebase index purge failed')
+              try {
+                server.recordJobExecution(name, 'failed')
+              } catch {
+                /* 指标采集失败不影响业务 */
+              }
+              throw e
+            }
           }
           case 'outbox-drain-every-30s': {
             // b76-12e 票3(G-998160):outbox 排空接进既有 BullMQ 轮询,不新增计时器。
