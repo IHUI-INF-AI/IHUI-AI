@@ -312,7 +312,9 @@
     "onlyDesc": "僅導入指定序號,如 1,3,5-8",
     "historyDesc": "查詢會話導入歷史(最近 50 條)",
     "conversationMeta": "· {count} 條消息 · 模型 {model} · 起始 {started}",
-    "historyCappedSuffix": ",已達服務端 50 條上限"
+    "historyCappedSuffix": ",已達服務端 50 條上限",
+    "noFixedRoots": "無固定匯出目錄(請用 --path 指定)",
+    "sourceWechat": "微信聊天記錄匯出物(第三方工具或手動另存的 zip/txt)"
   },
   "cliEntry": {
     "tagline": "IHUI AI Coding Agent — 對標 Claude Code / Codex",
