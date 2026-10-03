@@ -31,7 +31,8 @@ import { useTt } from '@/i18n'
 import NavBar from '@/components/NavBar'
 import LineIcon from '@/components/LineIcon'
 import ThemeRoot from '@/components/ThemeRoot'
-import { ImportHistoryList, ImportPreviewList } from './conversation-import-parts'
+import { ImportHistoryList, ImportPreviewList, ImportResultList } from './conversation-import-parts'
+import { ImportAnalysisPanel } from './conversation-import-analysis'
 import {
   IMPORT_SOURCES,
   MAX_IMPORT_FILE_SIZE,
@@ -40,6 +41,7 @@ import {
   runImportCommit,
   summarizeFailureReasons,
   toImportSource,
+  type CommittedImportConversation,
   type ImportPreviewRow,
 } from './conversation-import-core'
 import {
@@ -70,6 +72,10 @@ export default function ConversationImportPage() {
   const [history, setHistory] = useState<ConversationImportHistoryItem[]>([])
   // 解析结果正文只留在 state 里:预览行只是元信息,提交时按 id 取回
   const [conversations, setConversations] = useState<ParsedImportConversation[]>([])
+  // D28 补齐层(2026-10-03):导入结果区 + 「用场景分析」面板目标。
+  // 此前 commit 完只有一句 toast,用户看不到"导进来几个、哪个成功了、接下来能干什么"。
+  const [committed, setCommitted] = useState<CommittedImportConversation[]>([])
+  const [analysisTarget, setAnalysisTarget] = useState<CommittedImportConversation | null>(null)
 
   const loadHistory = useCallback(async () => {
     try {
@@ -197,6 +203,7 @@ export default function ConversationImportPage() {
       emptyContentReason: tt('conversationImport.noValidContent', '会话内没有有效内容'),
       onProgress: setProgress,
     })
+    setCommitted(outcome.committed)
     setCommitting(false)
 
     if (outcome.failed > 0) {
@@ -230,6 +237,34 @@ export default function ConversationImportPage() {
   const toggleAll = useCallback(() => {
     setSelected((prev) => (prev.length === rows.length ? [] : rows.map((r) => r.id)))
   }, [rows])
+
+  /**
+   * D28 补齐层:「打开会话」—— 跳聊天页并按 sessionId 恢复该导入会话。
+   * 既有唯一出口(historical 页点会话同款:url 传 sessionId,见 chat.tsx 的
+   * routeSessionId),不新造深链。
+   */
+  const onOpenConversation = useCallback((conversationId: string) => {
+    Taro.navigateTo({ url: `/pkg-ai/ai/chat?sessionId=${encodeURIComponent(conversationId)}` })
+  }, [])
+
+  /**
+   * D28 补齐层:「用场景分析」发起 —— 跳聊天页,带 prompt。
+   *
+   * 分析指令由聊天页在**回放该会话落定后**作为下一条用户消息自动发出
+   * (那边走既有 sendMessage → api/index 的 chatStream),历史里的导入记录即本轮上下文。
+   * prompt 走 url query:小程序页面间只有这一条既有数据通道,且 import-analysis 的
+   * 拼装结果通常 1~3KB,远在 navigateTo 的 query 长度上限内。
+   */
+  const onAnalyzeSubmit = useCallback((prompt: string) => {
+    const target = analysisTarget
+    setAnalysisTarget(null)
+    if (!target) return
+    Taro.navigateTo({
+      url:
+        `/pkg-ai/ai/chat?sessionId=${encodeURIComponent(target.conversationId)}` +
+        `&prompt=${encodeURIComponent(prompt)}`,
+    })
+  }, [analysisTarget])
 
   return (
     <View className="flex flex-col h-screen bg-background">
@@ -338,10 +373,30 @@ export default function ConversationImportPage() {
             onCommit={() => void onCommit()}
           />
 
+          {/* D28 补齐层:导入结果区(取代"导完就没下文")。
+              每个成功落库的会话给两个出口:打开会话看原始记录 / 直接用场景分析。 */}
+          <ImportResultList
+            items={committed}
+            tt={tt}
+            onOpen={onOpenConversation}
+            onAnalyze={setAnalysisTarget}
+          />
+
           {/* Step 4 导入历史 */}
           <ImportHistoryList items={history} tt={tt} />
         </View>
       </ScrollView>
+
+      {/* 「用场景分析」面板:按需挂载。场景目录(492KB)由面板内部**异步 import** 拉取,
+          静态引入会超小程序主包 2MB 硬上限(实测余量仅 63,454 B)。
+          source 取该条目落库时那一份,不读页面当前来源选择状态。 */}
+      <ImportAnalysisPanel
+        visible={analysisTarget !== null}
+        onClose={() => setAnalysisTarget(null)}
+        source={analysisTarget?.source ?? null}
+        tt={tt}
+        onSubmit={onAnalyzeSubmit}
+      />
     </View>
   )
 }

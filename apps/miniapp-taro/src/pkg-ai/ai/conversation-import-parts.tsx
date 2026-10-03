@@ -13,7 +13,7 @@
 import { View, Text, Button } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 import ThemeRoot from '@/components/ThemeRoot'
-import { toHistoryStatus, type ImportHistoryStatus, type ImportPreviewRow } from './conversation-import-core'
+import { toHistoryStatus, type CommittedImportConversation, type ImportHistoryStatus, type ImportPreviewRow } from './conversation-import-core'
 import type { ConversationImportHistoryItem } from '@ihui/api-client'
 import type { TtFn } from '@/i18n'
 
@@ -139,6 +139,63 @@ export function ImportPreviewList({
             })
           : tt('conversationImport.commit', '导入所选')}
       </Button>
+    </View>
+  )
+}
+
+/** D28 补齐层:导入结果区(取代"导完就没下文")。 */
+export function ImportResultList({
+  items,
+  tt,
+  onOpen,
+  onAnalyze,
+}: {
+  items: readonly CommittedImportConversation[]
+  tt: TtFn
+  /** 打开会话:跳聊天页恢复该会话 */
+  onOpen: (conversationId: string) => void
+  /** 用场景分析:打开分析面板,目标为该会话 */
+  onAnalyze: (target: CommittedImportConversation) => void
+}) {
+  if (items.length === 0) return null
+  return (
+    <View className="mb-[32rpx]">
+      <Text className="block text-[length:28rpx] text-foreground font-semibold mb-[16rpx]">
+        {tt('conversationImport.resultTitle', '已导入 {count} 个会话', { count: items.length })}
+      </Text>
+      {items.map((c) => (
+        <ThemeRoot key={c.conversationId} className="p-[20rpx] mb-[12rpx] bg-card rounded-md">
+          <Text className="block text-[length:26rpx] text-foreground font-semibold truncate">
+            {c.title || tt('conversationImport.conversationUntitled', '未命名会话')}
+          </Text>
+          <Text className="block text-[length:22rpx] text-muted-foreground mt-[6rpx] mb-[16rpx]">
+            {tt('conversationImport.messagesCount', '{count} 条消息', {
+              count: c.messageCount,
+            })}
+          </Text>
+          <View className="flex gap-[12rpx]">
+            <View
+              onClick={() => onOpen(c.conversationId)}
+              hoverClass="opacity-80"
+              className="flex-1 h-[76rpx] flex items-center justify-center rounded-md border border-border"
+            >
+              <Text className="text-[length:26rpx] text-foreground">
+                {tt('conversationImport.resultOpen', '打开会话')}
+              </Text>
+            </View>
+            <View
+              onClick={() => onAnalyze(c)}
+              hoverClass="opacity-80"
+              className="flex-1 h-[76rpx] flex items-center justify-center gap-[8rpx] rounded-md bg-primary"
+            >
+              <LineIcon name="sparkles" size={26} color="var(--color-foreground)" />
+              <Text className="text-[length:26rpx] text-foreground font-semibold">
+                {tt('conversationImport.analysisOpen', '用场景分析')}
+              </Text>
+            </View>
+          </View>
+        </ThemeRoot>
+      ))}
     </View>
   )
 }
