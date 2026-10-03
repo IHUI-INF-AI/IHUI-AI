@@ -247,6 +247,44 @@ def _redact_auth_header(match: re.Match[str]) -> str:
     return f"{match.group(1)}{match.group(2)}{_REDACTED_SECRET}"
 
 
+def _looks_like_bare_literal(value: str) -> bool:
+    """取值是否是"裸字面量"(而非代码里的变量名/属性路径/占位符)。
+
+    用途:裸敏感键名(`KEY=` / `X_KEY=` / `MY_CREDENTIAL=`)这一类,取值**不含
+    任何引用或占位标记**,长得像人手敲进去的一个值。
+    与 `self.service_api_key` / `os.getenv('X')` 这类引用的区别就在这里。
+
+    存在的意义:闸 2 的 E4 把"短标识符路径"当引用放过,是为了不误伤
+    `api_key = self.service_api_key`;但同一个判据也让 `KEY=abcdefgh`
+    这条**真凭据**溜过去了(纯小写、无数字、无特殊字符,长得极像标识符)。
+    单靠"像不像标识符"分不开两者 —— 分得开的判据是"有没有引用/占位标记"。
+
+    ⚠ 占位符必须一并排除(第一版漏了这条,直接打破既有测试 test_placeholders_are_kept):
+    `secret = <your-secret-here>` / `api_key: ${ENV_VAR}` / `token = %s` /
+    `secret = None` 都是**模板占位**,不是真凭据,盖掉它们会让日志全是
+    `[REDACTED_SECRET]`、彻底失去排障价值(而排障恰是这条规则存在的原因)。
+    """
+    v = value.strip().strip("\"'")
+    if not v:
+        return False
+    # 占位符形态(与 _looks_like_reference 的 E1 同一组判据)
+    if v in {"None", "null", "nil", "true", "false", "True", "False"}:
+        return False
+    if v.startswith("<") and v.endswith(">"):
+        return False
+    if v.startswith("${") or v.startswith("$"):
+        return False
+    if v in {"%s", "%d", "%r", "{}", "{0}"}:
+        return False
+    if v.startswith("%(") and v.endswith(")s"):
+        return False
+    # 任何引用标记出现 ⇒ 不是裸字面量
+    if any(ch in v for ch in "()[]${}."):
+        return False
+    # 纯空白分隔的多词(命令/句子)也不是单个凭据值
+    return len(v.split()) == 1
+
+
 def _redact_compound_key(match: re.Match[str]) -> str:
     """复合键名规则(.env 风格)的替换:两道闸任一命中就整段放过。
 
@@ -269,6 +307,19 @@ def _redact_compound_key(match: re.Match[str]) -> str:
         return match.group(0)
     if _COMPOUND_KEY_NON_SECRET_PREFIX.match(key_part):
         return match.group(0)
+    # 闸 3(2026-10-03 第四次整改):**裸敏感键名 + 裸字面量取值**直接盖,
+    # 且**必须在闸 2 之前判**。
+    #
+    # 顺序是这版的关键,踩过一次:闸 3 若排在闸 2 之后,则永远执行不到 ——
+    # 因为闸 2 的 E4「短标识符路径」会把 `abcdefgh` 这类纯小写值判成引用
+    # (它确实长得像变量名),于是 `KEY=abcdefgh` 在闸 2 就 return 了。
+    # 而"是否含引用标记"这个判据(_looks_like_bare_literal)与 E4 不冲突:
+    #   self.service_api_key → 含点号 ⇒ 非裸字面量 ⇒ 交给闸 2 判引用放过
+    #   os.getenv('X')       → 含括号 ⇒ 非裸字面量 ⇒ 同上
+    #   abcdefgh            → 无任何引用标记 ⇒ 裸字面量 ⇒ 盖掉
+    # 所以闸 3 提前不会误伤引用式赋值,反而是把 E4 的漏网从**它内部**堵住。
+    if _BARE_SECRET_KEY.match(key_part) and _looks_like_bare_literal(match.group("val")):
+        return f"{key_part}{match.group(1)}{match.group('q')}{_REDACTED_SECRET}"
     if _looks_like_reference(match.group("val")):
         return match.group(0)
     return (
@@ -284,6 +335,18 @@ _COMPOUND_KEY_NON_SECRET_SUFFIX = re.compile(
     r"enabled|disabled|prefix|suffix|format|field|id|algorithm|version|"
     r"material|path|url|dir|file|dir|src|source)$"
 )
+
+# 闸 3:"裸敏感键名"形态(见 _redact_compound_key 说明)。
+# 整串(去掉尾段下划线段后)就是敏感词本身,或敏感词 + 一段前缀/后缀 ——
+# KEY / X_KEY / MY_CREDENTIAL / AWS_SECRET_ACCESS_KEY 这类。
+# 判据用"去掉尾缀后再看是否恰好是敏感词或其前缀+敏感词",避免把
+# key_type / sort_key 这类已被闸 1/2 放行的形态拉回来(它们先被前两道闸拦掉)。
+_BARE_SECRET_KEY = re.compile(
+    r"(?i)^(?:[A-Za-z0-9]+_)?"
+    r"(?:secret|token|password|passwd|credential|credentials|key|private|privates|k)"
+    r"(?:_[A-Za-z0-9]+)?$"
+)
+
 
 # 闸 1 的对称面:"非凭据首段"词表。`sort_key` / `primary_key` / `cache_key` /
 # `row_key` 这类是数据结构的**描述字段**而不是凭据名(ORM 输出、SQL explain、
@@ -408,7 +471,15 @@ _SECRET_PATTERNS: list[tuple[re.Pattern[str], str | Callable[[re.Match[str]], st
             # 能把 `MON` / `hot` / `sort_` 当成前缀而把 key 当成段内子串。
             # 改成段感知后,敏感词必须**独占一整段**才算命中,上述形态自然失配。
             r"(?:[A-Za-z0-9]+_)*"
-            r"(?:secret|token|password|passwd|credential|key|private)"
+            # 2026-10-03 第四次整改,三处扩容(都是实测漏网,各自有独立根因):
+            #  1) 复数形态 `credentialS` / `secretS` / `tokenS`:原词表只有单数,
+            #     而 `GOOGLE_APPLICATION_CREDENTIALS=`(Google 官方 SDK 的标准命名)
+            #     后接 `_` 不接分隔符 ⇒ 整条规则失配。列复数形态比把分隔符判据
+            #     放宽更安全(后者会吃掉 `credential_type=` 这类普通字段名)。
+            #  2) 单字母 `K`:`API_K=` / `K=` 在 .env 与 systemd EnvironmentFile 里
+            #     都真实存在。列进来只影响"整段就是 K"这一种形态,不会误伤含 k 的词。
+            #  3) `private` 的复数同理(private_keys)。
+            r"(?:secret|token|password|passwd|credential|credentials|key|private|privates|k)"
             r"(?:_[A-Za-z0-9]+)*"       # 尾段:一段或多段,或零段(第三次整改)
             r"(\s*[:=]\s*)"
             # 取值形态与通用规则对齐(call/sub/bare 三选),使 _looks_like_reference
