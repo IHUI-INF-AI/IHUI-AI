@@ -12030,6 +12030,12 @@
     "resultTitle": "대화 {count}개를 가져왔습니다",
     "resultOpen": "대화 열기",
     "resultDismiss": "닫기",
+    "toKnowledge": "지식 베이스에 추가",
+    "toKnowledgeHint": "이 대화를 청크로 나눠 지식 베이스에 저장하면 이후 채팅에서 검색·인용됩니다. embedding 크레딧을 소모하며, 그룹 채팅의 잡담도 함께 색인됩니다.",
+    "toKnowledgeDone": "지식 베이스에 추가했습니다: 청크 {chunks}개",
+    "toKnowledgeDeduped": "이 대화는 이미 등록되어 있습니다(중복 추가 없음, 청크 {chunks}개)",
+    "toKnowledgeFailed": "지식 베이스 추가 실패: {error}",
+    "toKnowledgeAlready": "지식 베이스에 있음",
     "sourceWechat": "WeChat",
     "sourceWechatHint": "WeChat '모아서 보내기'로 내보낸 채팅 기록.txt 또는 그 .zip"
   },
@@ -22061,7 +22067,9 @@
     "agentSecurityPipelineRecordDesc": "보안 파이프라인 실행 단계를 기록하여 감사 리플레이에 활용",
     "agentSecurityLoadFailed": "보안 설정을 불러오지 못했습니다",
     "agentSecuritySaveSuccess": "보안 설정이 저장되었습니다",
-    "agentSecuritySaveFailed": "보안 설정 저장에 실패했습니다"
+    "agentSecuritySaveFailed": "보안 설정 저장에 실패했습니다",
+    "analyticsEnabled": "이용 통계",
+    "analyticsEnabledDesc": "켜면 클릭·페이지 방문·소요 시간 등 익명 기능 사용 이벤트를 기록해 제품을 개선합니다. 입력한 내용·코드·파일 경로는 기록하지 않습니다. 끄면 즉시 전송을 중단하며 기능에는 영향이 없습니다."
   },
   "shareContentPage": {
     "aiGenerated": "Zhihui AI 생성",
