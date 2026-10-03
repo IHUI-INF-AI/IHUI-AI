@@ -13,7 +13,12 @@
 import { View, Text, Button } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 import ThemeRoot from '@/components/ThemeRoot'
-import { toHistoryStatus, type CommittedImportConversation, type ImportHistoryStatus, type ImportPreviewRow } from './conversation-import-core'
+import {
+  toHistoryStatus,
+  type CommittedImportConversation,
+  type ImportHistoryStatus,
+  type ImportPreviewRow,
+} from './conversation-import-core'
 import type { ConversationImportHistoryItem } from '@ihui/api-client'
 import type { TtFn } from '@/i18n'
 
@@ -102,7 +107,10 @@ export function ImportPreviewList({
       {rows.map((r) => {
         const checked = selected.includes(r.id)
         return (
-          <ThemeRoot key={r.id} className="flex items-center p-[20rpx] mb-[12rpx] bg-card rounded-md">
+          <ThemeRoot
+            key={r.id}
+            className="flex items-center p-[20rpx] mb-[12rpx] bg-card rounded-md"
+          >
             <View
               className={`w-[36rpx] h-[36rpx] rounded-sm flex items-center justify-center mr-[16rpx] flex-shrink-0 ${
                 checked ? 'bg-primary' : 'bg-background'
@@ -119,7 +127,9 @@ export function ImportPreviewList({
                 {r.title || tt('conversationImport.conversationUntitled', '未命名会话')}
               </Text>
               <Text className="block text-[length:22rpx] text-muted-foreground mt-[4rpx]">
-                {tt('conversationImport.messagesCount', '{count} 条消息', { count: r.messageCount })}
+                {tt('conversationImport.messagesCount', '{count} 条消息', {
+                  count: r.messageCount,
+                })}
                 {r.createdAt ? ` · ${r.createdAt}` : ''}
               </Text>
             </View>
@@ -128,7 +138,7 @@ export function ImportPreviewList({
       })}
 
       <Button
-        className="mt-[12rpx] h-[88rpx] leading-[88rpx] bg-primary text-[length:28rpx] rounded-md"
+        className="mt-[12rpx] h-[88rpx] leading-[88rpx] bg-primary text-[length:28rpx] rounded-sm"
         disabled={selected.length === 0 || committing}
         onClick={onCommit}
       >
