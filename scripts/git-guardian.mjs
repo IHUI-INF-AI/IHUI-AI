@@ -1925,8 +1925,20 @@ export function notifyGuardRed(name, detail, opts = {}) {
     if (force) {
       // 人工核验入口(--notify-test):不读写去重状态(一次手工测试不该污染或抢占窗口)
       const r = callDispatch()
-      if (r.ok) logger(`✅ 通知自测已送达: ${name} → ${maskEmail(resolveAlertTo())}`)
-      else {
+      if (r.ok) {
+        // **自测成功也清 UNDELIVERED 标记**(2026-10-03 补)。原先只有真实告警那条路径清,
+        // 于是「跑一次 --notify-test 证明通道是好的」之后,P8「投递失败标记」仍红 ——
+        // 那格判的是"有故障从未被人看见",而人刚亲眼验过通道通,标记却留着,
+        // 等于**唯一能自证清白的那条路被设计堵死**(实测:真投递成功后 P8 仍 findings=1)。
+        // 清它不等于承认某条真欠账已还:欠账的真值在 notify-state 的 `delivered` 维,
+        // 由 P10 读;这个文件只是"最近一次投递失败"的**瞬时标记**。
+        try {
+          rmSync(undelFile, { force: true })
+        } catch {
+          /* 标记清不掉不影响"通道已验通"这个事实,下一轮真实投递还会再清 */
+        }
+        logger(`✅ 通知自测已送达: ${name} → ${maskEmail(resolveAlertTo())}`)
+      } else {
         writeNotifyJson(undelFile, { ts: now, name, fp, why: r.why })
         logger(`⚠️ 通知自测失败: ${name} — ${r.why}`)
       }
