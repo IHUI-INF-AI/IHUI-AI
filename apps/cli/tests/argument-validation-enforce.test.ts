@@ -414,10 +414,11 @@ describe('② enforce 档 executor 边界', () => {
 // ==================== ③ 默认档与 shadow 档不被波及 ====================
 
 describe('③ 默认档/shadow 档行为与改前逐字一致', () => {
-  it('默认(未设 env)⇒ 违规参数照旧执行,enforce 与 shadow 两条账都是 0', async () => {
+  it('默认档(shadow)⇒ 违规参数照旧执行(只记影子账,不拒),enforce 两条账都是 0', async () => {
     const r = await executeToolCall(call({ notPayload: 1 }), ctx);
     expect(r).toEqual({ success: true, output: 'ran' });
-    expect(totalToolArgShadowRuns()).toBe(0);
+    // L22150 装车:默认档下校验器真的被调用了(影子账 1),只是记账不拒
+    expect(totalToolArgShadowRuns()).toBe(1);
     const snap = snapshotToolArgShadow();
     expect(snap.enforce.runs).toBe(0);
     expect(snap.enforceRequested).toBe(0);

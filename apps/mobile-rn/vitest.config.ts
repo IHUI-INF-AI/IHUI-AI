@@ -186,6 +186,20 @@ export default defineConfig({
       // 之前(最长匹配优先)。
       ...SHARED_UI_SPEC_ALIASES,
       '@ihui/shared/ui': resolve(__dirname, '../../packages/shared/src/ui/index.ts'),
+      // D28 补齐层(2026-10-03):「用场景分析」的判据与场景目录已从 web 下沉到
+      // @ihui/shared/import-analysis{,/scenarios}。两条都必须排在下面的
+      // '@ihui/shared' 兜底 mock 之前 —— 父别名按 startsWith(pattern+'/') 匹配,
+      // 会把子路径吞进 <mock ihui-shared.ts>/import-analysis 而解析失败
+      // (rn-app 的 ImportAnalysisSheet 收集期即炸,与 ui 那次同型)。
+      // 指真实源码而非 mock:判据是纯函数(无 DOM/RN 依赖),给它写 mock 测的就是 mock。
+      '@ihui/shared/import-analysis/scenarios': resolve(
+        __dirname,
+        '../../packages/shared/src/import-analysis/scenarios.ts',
+      ),
+      '@ihui/shared/import-analysis': resolve(
+        __dirname,
+        '../../packages/shared/src/import-analysis/provenance.ts',
+      ),
       '@ihui/types/permission-mode': resolve(
         __dirname,
         '../../packages/types/src/permission-mode.ts',
@@ -206,17 +220,7 @@ export default defineConfig({
       'src/**/tests/**/*.test.{ts,tsx}',
       'tests/**/*.test.{ts,tsx}',
     ],
-    // 2026-10-03(G-1018201)'**/.ihui-agent/**':.ihui-agent/tmp/ 里存着他人留下的 HEAD
-    // 整仓副本,而 vitest 4.1.10 收集面显式 `dot: true` ⇒ 点目录被主动穿透,副本里与本包
-    // 同形的 *.test.ts(x) 会被收进当次运行。`.gitignore` 只管 git,拦不住文件系统 glob。
-    // 带 `**/` 前缀才覆盖任意嵌套落点(实测 picomatch 下 `.ihui-agent/**` 放过 `src/x/.ihui-agent/**`)。
-    exclude: [
-      '**/node_modules/**',
-      '**/.git/**',
-      'dist/**',
-      'tests/*-debug*.test.tsx',
-      '**/.ihui-agent/**',
-    ],
+    exclude: ['**/node_modules/**', '**/.git/**', 'dist/**', 'tests/*-debug*.test.tsx'],
     environment: 'jsdom',
     // 固定测试环境变量:Vitest 会自动加载 .env 注入 process.env,
     // 若开发者本地 .env 指向生产域名(如 EXPO_PUBLIC_API_BASE_URL),会导致

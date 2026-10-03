@@ -4,7 +4,8 @@
 
 // A31 第①步「影子校验」+ A36 第③步「enforce」单测:影子只记账不拦截;enforce 须显式开启。
 //
-// ① 默认 off ⇒ 校验器一次都不被调用(用计数器恒为 0 证明,而不是用"看起来没红"证明);
+// ① off 档(显式关闭)⇒ 校验器一次都不被调用(用计数器恒为 0 证明,而不是用"看起来没红"证明);
+//    默认档自 L22150 装车起是 shadow(校验器默认真跑、只记账),off 改为显式退出档;
 // ② shadow 档 ⇒ 校验器被调用,但返回值与"根本没有这段代码"时逐字相同,且 args 引用未被改写;
 // ③ 校验器自身抛异常(坏描述)⇒ 绝不影响工具执行,只多一条可数的账;
 // ④ 遥测里不含任何入参值(把敏感串放进 args,snapshot 序列化后必须查不到它);
@@ -77,22 +78,23 @@ afterEach(() => {
 });
 
 describe('档位解析', () => {
-  it('默认档是 off,且档位清单含 off/shadow/enforce 三档', () => {
-    expect(DEFAULT_TOOL_ARG_VALIDATION_MODE).toBe('off');
+  it('默认档是 shadow(L22150 装车:校验器默认真跑、只记账),且档位清单含 off/shadow/enforce 三档', () => {
+    expect(DEFAULT_TOOL_ARG_VALIDATION_MODE).toBe('shadow');
     expect([...TOOL_ARG_VALIDATION_MODES]).toEqual(['off', 'shadow', 'enforce']);
-    expect(resolveToolArgValidationMode({})).toBe('off');
+    expect(resolveToolArgValidationMode({})).toBe('shadow');
   });
 
   it('非法取值不静默吞:报一行后退回默认档', () => {
-    expect(resolveToolArgValidationMode({ [TOOL_ARG_VALIDATION_ENV]: 'shdow' })).toBe('off');
+    expect(resolveToolArgValidationMode({ [TOOL_ARG_VALIDATION_ENV]: 'shdow' })).toBe('shadow');
     expect(warnSpy).toHaveBeenCalledTimes(1);
     expect(String(warnSpy.mock.calls[0]?.[0])).toMatch(/shdow/);
     expect(snapshotToolArgShadow().unknownModeValues).toEqual(['shdow']);
   });
 });
 
-describe('①默认 off ⇒ 校验器一次都不被调用', () => {
+describe('①off 档(显式关闭)⇒ 校验器一次都不被调用', () => {
   it('计数器为 0,且执行链路与从前一致', async () => {
+    process.env[TOOL_ARG_VALIDATION_ENV] = 'off';
     const r = await executeToolCall(call({ path: 'a.txt' }), ctx);
     expect(r).toEqual({ success: true, output: 'ok:a.txt' });
     expect(totalToolArgShadowRuns()).toBe(0);
@@ -101,6 +103,7 @@ describe('①默认 off ⇒ 校验器一次都不被调用', () => {
   });
 
   it('直接调影子入口同样零副作用(off 档)', () => {
+    process.env[TOOL_ARG_VALIDATION_ENV] = 'off';
     const tool = makeTool();
     shadowValidateToolArguments(tool, { nope: 1 });
     expect(totalToolArgShadowRuns()).toBe(0);
