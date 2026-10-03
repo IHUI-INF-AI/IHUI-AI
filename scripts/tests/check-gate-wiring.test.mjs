@@ -246,6 +246,47 @@ test('T8 台账卫生:可撤销豁免 + 僵尸条目 + 格式校验', () => {
   )
 })
 
+test('T8b R5 判据面:注释里提及 id 不构成登记(2026-10-03 RED-R5 假撞号实证),真同号仍判红', () => {
+  const findDuplicateIds = G.findDuplicateIds
+  const stripJsComments = G.stripJsComments
+  const Q = String.fromCharCode(39) // 单引号,绕开模板串里的转义
+  // ① 本仓真实成因:核号命令的字面量写在注释里,全文正则把它读成第二次注册
+  const commentOnly = [
+    '// 编号 186:注册前已核 `grep -n "id: ' + Q + '186' + Q + '"` 为空(未被占用)',
+    "  { id: '186', script: 'a.mjs' },",
+  ].join('\n')
+  assert.deepEqual(
+    findDuplicateIds(commentOnly),
+    [],
+    '注释里出现 id 字面量不得被读成登记(本仓 186/187 两枚新门当天就是这样被误判成撞号的)',
+  )
+  // ② 反向:真撞号必须照旧判红(判据没有被顺手削掉)
+  assert.deepEqual(
+    findDuplicateIds(["  { id: '9' },", "  { id: '9' },"].join('\n')),
+    ['9'],
+    '两道真门用同一 id 必须判红',
+  )
+  // ③ 块注释同样不算登记
+  assert.deepEqual(
+    findDuplicateIds(['/* id: ' + Q + '5' + Q + ' */', "  { id: '5' },"].join('\n')),
+    [],
+    '块注释里的 id 也不构成登记',
+  )
+  // ④ 剥注释不得吃掉字符串里的真代码(URL 里的 // 不是注释起点)
+  assert.deepEqual(
+    findDuplicateIds(["const u = 'https://a/b';", "  { id: '7' },", "  { id: '7' },"].join('\n')),
+    ['7'],
+    "字符串字面量里的 '//' 不得被当成行注释起点(否则其后的真登记被整段吃掉,门会漏红)",
+  )
+  // ⑤ 剥注释保留行数(错误信息仍能按行定位)
+  const raw = ['a', '// x', 'b', '/* y', ' z */', 'c'].join('\n')
+  assert.equal(
+    stripJsComments(raw).split('\n').length,
+    raw.split('\n').length,
+    '剥注释不得改变行数',
+  )
+})
+
 test('T9 git grep 输出解析:HEAD:<path>:<match>,且只认全集内的名字', () => {
   const byPath = G.parseGrepHits(
     'HEAD:scripts/guardian-runner.mjs:check-a.mjs\nHEAD:package.json:check-b.mjs\nHEAD:package.json:check-z.mjs\n噪音行',

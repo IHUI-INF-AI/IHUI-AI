@@ -18,7 +18,10 @@ import { getTokens, type AppThemeMode, type AppThemeTokens } from '../../theme/t
 
 import { rnRadius } from '@ihui/design-tokens'
 import { buildAnalysisPrompt, type ImportSource } from '@ihui/shared/import-analysis'
-import type { ImportAnalysisCategory, ImportAnalysisScenario } from '@ihui/shared/import-analysis/scenarios'
+import type {
+  ImportAnalysisCategory,
+  ImportAnalysisScenario,
+} from '@ihui/shared/import-analysis/scenarios'
 
 /**
  * 导入会话「用场景分析」弹层(RN 端,2026-10-03)
@@ -84,7 +87,10 @@ export function ImportAnalysisSheet({
   const [browseOpen, setBrowseOpen] = useState(false)
 
   // 未填变量的占位提示(i18n 一处,预览与发起共用同一个函数)
-  const pendingLabel = useCallback((name: string) => t('conversationImport.analysisPendingVar', { name }), [t])
+  const pendingLabel = useCallback(
+    (name: string) => t('conversationImport.analysisPendingVar', { name }),
+    [t],
+  )
 
   // 目录动态加载:仅在弹层打开时拉一次,关闭后保留已加载结果(重开不再等)
   useEffect(() => {
@@ -176,9 +182,7 @@ export function ImportAnalysisSheet({
               </Text>
               {catalog.recommended.length > 0 && (
                 <>
-                  <Text style={styles.hint}>
-                    {t('conversationImport.analysisRecommended')}
-                  </Text>
+                  <Text style={styles.hint}>{t('conversationImport.analysisRecommended')}</Text>
                   {catalog.recommended.map((s) => (
                     <ScenarioRow
                       key={s.id}
@@ -204,9 +208,7 @@ export function ImportAnalysisSheet({
 
               {browseOpen && (
                 <View style={styles.browseBox}>
-                  <Text style={styles.hint}>
-                    {t('conversationImport.analysisCategoryLabel')}
-                  </Text>
+                  <Text style={styles.hint}>{t('conversationImport.analysisCategoryLabel')}</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     <View style={styles.categoryRow}>
                       <CategoryChip
@@ -249,9 +251,7 @@ export function ImportAnalysisSheet({
                     {t('conversationImport.analysisVariablesLabel', { title: selected.title })}
                   </Text>
                   {selected.variables.length === 0 ? (
-                    <Text style={styles.hint}>
-                      {t('conversationImport.analysisNoVariables')}
-                    </Text>
+                    <Text style={styles.hint}>{t('conversationImport.analysisNoVariables')}</Text>
                   ) : (
                     selected.variables.map((name) => (
                       <View key={name} style={styles.field}>
@@ -266,9 +266,7 @@ export function ImportAnalysisSheet({
                       </View>
                     ))
                   )}
-                  <Text style={styles.hint}>
-                    {t('conversationImport.analysisOptionalHint')}
-                  </Text>
+                  <Text style={styles.hint}>{t('conversationImport.analysisOptionalHint')}</Text>
                 </View>
               )}
             </ScrollView>
@@ -292,9 +290,7 @@ export function ImportAnalysisSheet({
                 disabled={!selected || !preview}
               >
                 <Sparkles size={15} color={tk.brand.ctaForeground} />
-                <Text style={styles.submitText}>
-                  {t('conversationImport.analysisSubmit')}
-                </Text>
+                <Text style={styles.submitText}>{t('conversationImport.analysisSubmit')}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -356,7 +352,12 @@ function CategoryChip({
       style={[styles.chip, active ? styles.chipActive : null]}
       onPress={onPress}
     >
-      <Text style={[styles.chipText, { color: active ? tk.brand.ctaForeground : tk.text.medium }]}>
+      <Text
+        style={[
+          styles.chipText,
+          active ? styles.chipTextActive : { color: tk.text.medium },
+        ]}
+      >
         {label}
       </Text>
     </TouchableOpacity>
@@ -370,8 +371,8 @@ function createStyles(tk: AppThemeTokens) {
       maxHeight: '88%',
       padding: 16,
       gap: 8,
-      borderTopLeftRadius: 16,
-      borderTopRightRadius: 16,
+      borderTopLeftRadius: 12,
+      borderTopRightRadius: 12,
       backgroundColor: tk.surface.bg,
     },
     header: {
@@ -409,7 +410,13 @@ function createStyles(tk: AppThemeTokens) {
     scenarioTitle: { fontSize: 13, fontWeight: '600', color: tk.text.primary },
     scenarioSubtitle: { fontSize: 11, lineHeight: 15, color: tk.text.tertiary },
     browseToggle: { paddingVertical: 6 },
-    browseBox: { gap: 6, padding: 8, borderRadius: rnRadius.lg, borderWidth: 1, borderColor: tk.border.light },
+    browseBox: {
+      gap: 6,
+      padding: 8,
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+    },
     categoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingVertical: 4 },
     chip: {
       paddingHorizontal: 10,
@@ -420,6 +427,9 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     },
     chipActive: { backgroundColor: tk.brand.cta, borderColor: tk.brand.cta },
+    // 配对前景落进样式键(而不是行内 style):chipActive 是品牌实底,
+    // 门 83 R3 按「兄弟键成对」判是否与配对前景成文,行内色它看不见。
+    chipTextActive: { color: tk.brand.ctaForeground },
     chipText: { fontSize: 11 },
     linkText: { fontSize: 12, color: tk.brand.dark },
     field: { gap: 2, marginBottom: 6 },
