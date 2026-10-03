@@ -353,6 +353,12 @@ export function pickLastSummaryRun(logText, mustMention) {
  * @param runGateBaseline 可选:(script) => {ran:boolean, status:number|null, output:string, why:string|null}
  *        —— **基线面(HEAD)**的同一道门读数。缺这一个出口时,"仍红未点名"这一支只能落
  *        `undetermined-red`(态④),因为没有任何证据能区分"本枚引入"与"HEAD 早就红"。
+ * @param foreignStaged 可选:**不属于本次声明**的"他人现场"路径清单(态①c 取材面)。
+ *        ⚠ 必须**三路齐全**,由调用方现读:别人的暂存(`diff --cached`)/ 别人的未跟踪新文件
+ *        (`ls-files --others --exclude-standard`)/ 别人**已跟踪但未暂存**的工作树改动
+ *        (`diff`,不帶 `--cached`)。少第三路时,按工作树面判红的门(门 47 溯源水印)点名的
+ *        路径本分支看不见 ⇒ 落进差分档 ⇒ 差分把别人的在飞改动判成本枚引入 ⇒ 零风险改动被死锁。
+ *        票 G-1018220;缺这一项时本参数**不得**由调用方臆造为空数组来"求个绿"。
  * @returns kind ∈ 'mine'(点名本次文件 **或** 差分证明本枚引入 ⇒ 拒跳)
  *          | 'not-ours'(有证据表明红不在本次内容 ⇒ 可跳:复跑过关,或 HEAD 面亦红)
  *          | 'undetermined-red'(仍红且基线面跑不出去 ⇒ 可跳,但不得声称与本次无关,2026-09-27 新增)
@@ -493,6 +499,13 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
     // 所以这里只把结论从"你引入的红"改成"红在他人 staged 的 <path> 上,归属未判定",
     // **仍然非零、仍然留痕、仍然点名**;绝不改成"通过"。
     // 刻意放在点名之后:一道既点名我的文件、又提到别人 staged 路径的门,结论仍是我的。
+    //
+    // ⚠ `foreignStaged` 这一份清单必须**三路齐全**(票 G-1018220):别人的暂存 / 别人的未跟踪
+    //   新文件 / 别人**已跟踪但未暂存**的工作树改动。少第三路时,按工作树面判红的门
+    //   (门 47 溯源水印:分母 = `git ls-files` ∩ 工作树**磁盘字节**,压根不读 `--cached`)
+    //   点名的路径两路都看不见 ⇒ 本分支永不触发 ⇒ 落进差分档,而基线面读 HEAD 旧字节必然绿
+    //   ⇒ **差分把别人的在飞改动判成本枚引入** ⇒ `mine` ⇒ 零风险改动被死锁。
+    //   实测死锁见 scripts/lib/git-paths.mjs 的 gitWorktreePaths 头注。
     const foreignNamed = (Array.isArray(foreignStaged) ? foreignStaged : [])
       .filter((f) => f && !stagedFiles.includes(f))
       .filter((f) => lines.some((l) => lineNamesFile(l, f)))
@@ -500,7 +513,7 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
       foreignFace++
       deltaUnknown++
       detail.push(
-        `[${g.id}] ${g.label} —— 复跑仍红,且结论行点名的是**他人挂在共享索引里**的路径 ` +
+        `[${g.id}] ${g.label} —— 复跑仍红,且结论行点名的是**别人挂在共享索引/工作树里**的路径 ` +
           `(${foreignNamed.join(' , ')});本枚提交带 pathspec,这些路径进不了本次内容 ⇒ ` +
           `不得据此要求提交者修改他人暂存(§12),但也不得读成"这道红不存在"`,
       )
@@ -598,7 +611,7 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
           : '在隔离面跑不通(缺依赖 / 门按磁盘判 / exit 2)') +
         ` ⇒ 未能差分,归属未知` +
         (foreignFace > 0
-          ? `;其中 ${foreignFace} 道的结论行点名了**他人挂在共享索引里**的路径(本枚带 pathspec,进不了本次内容)`
+          ? `;其中 ${foreignFace} 道的结论行点名了**他人挂在共享索引/工作树里**的路径(本枚带 pathspec,进不了本次内容)`
           : '') +
         (stock > 0 ? `;另有 ${stock} 道已证 HEAD 面亦红` : ''),
     }
@@ -719,6 +732,9 @@ export function needsBatchSelfRun(verdict) {
  * @param runGateBaseline 与首轮同一个**基线面**出口 —— 缺了它,自跑那一轮的"仍红未点名"
  *        同样只能落 undetermined-red(差分没有第二条路可走)
  * @param hookText   首次 commit 的 stdout+stderr,用于点名"红在批之前的哪一步"
+ * @param foreignStaged 与首轮**同一个**他人现场清单(三路齐全,见 classifyHookFailure 的 @param)。
+ *        必须原样透传:自跑那一轮与钩子那一轮看到的是同一个工作树/索引,
+ *        换了这一份就等于给"自跑比钩子宽/窄"留了一个无声明的口子。
  */
 export function decideWithSelfRunBatch({
   verdict,
