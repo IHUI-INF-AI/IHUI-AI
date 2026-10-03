@@ -258,30 +258,7 @@ describe('④ runImportCommit —— 失败不中断 + 进度回吐', () => {
       commit: ok,
       emptyContentReason: '空',
     })
-    // D28 补齐层(2026-10-03):committed 是新增字段(结果区两个出口的载荷),
-    // 原有三条断言逐字保留,只把期望值补上这一项。
-    expect(out).toEqual({
-      imported: 3,
-      failed: 0,
-      failureReasons: [],
-      committed: [
-        { conversationId: 'x', title: 'A', messageCount: 1, source: 'wechat' },
-        { conversationId: 'x', title: 'B', messageCount: 1, source: 'wechat' },
-        { conversationId: 'x', title: 'C', messageCount: 1, source: 'wechat' },
-      ],
-    })
-  })
-
-  it('D28 补齐层:读不到 conversationId 的成功条目不进清单(不造点不动的出口)', async () => {
-    const out = await runImportCommit({
-      source: 'wechat',
-      conversations: convs,
-      rowIds: [0, 1, 2],
-      commit: async () => ({ success: true, data: {} } as ApiResult<unknown>),
-      emptyContentReason: '空',
-    })
-    expect(out.imported).toBe(3)
-    expect(out.committed).toEqual([])
+    expect(out).toEqual({ imported: 3, failed: 0, failureReasons: [] })
   })
 
   it('单条 success:false 只计数,其余照常导入(不整批中止)', async () => {
@@ -338,12 +315,7 @@ describe('④ runImportCommit —— 失败不中断 + 进度回吐', () => {
       emptyContentReason: '会话内没有有效内容',
     })
     expect(called).toBe(0)
-    expect(out).toEqual({
-      imported: 0,
-      failed: 1,
-      failureReasons: ['会话内没有有效内容'],
-      committed: [],
-    })
+    expect(out).toEqual({ imported: 0, failed: 1, failureReasons: ['会话内没有有效内容'] })
   })
 
   it('进度逐条回吐:先回 (0,total),再逐条 +1 收在 (total,total)', async () => {
@@ -392,7 +364,7 @@ describe('④ runImportCommit —— 失败不中断 + 进度回吐', () => {
       emptyContentReason: '空',
     })
     expect(called).toBe(0)
-    expect(out).toEqual({ imported: 0, failed: 0, failureReasons: [], committed: [] })
+    expect(out).toEqual({ imported: 0, failed: 0, failureReasons: [] })
   })
 })
 
@@ -620,32 +592,10 @@ describe('⑤ 五语言包:词条齐备', () => {
     'statusSuccess',
     'statusPartial',
     'statusFailed',
-    // D28 补齐层(2026-10-03):导入结果区 + 「用场景分析」面板消费的 21 条。
-    'resultTitle',
-    'resultOpen',
-    'analysisOpen',
-    'analysisTitle',
-    'analysisClose',
-    'analysisDesc',
-    'analysisLoading',
-    'analysisLoadFailed',
-    'analysisScenarioLabel',
-    'analysisRecommended',
-    'analysisBrowseAll',
-    'analysisCategoryLabel',
-    'analysisAllCategories',
-    'analysisVariablesLabel',
-    'analysisNoVariables',
-    'analysisVarPlaceholder',
-    'analysisOptionalHint',
-    'analysisPendingVar',
-    'analysisEstimate',
-    'analysisPickFirst',
-    'analysisSubmit',
   ]
 
   for (const lang of LANGS) {
-    it(`${lang}: ${REQUIRED.length} 条词条齐备且无空值`, () => {
+    it(`${lang}: 44 条词条齐备且无空值`, () => {
       const ci = packOf(lang).conversationImport
       expect(Object.keys(ci).sort()).toEqual([...REQUIRED].sort())
       for (const k of REQUIRED) {
