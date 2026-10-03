@@ -2150,6 +2150,13 @@
       "when": 1790964000000,
       "tag": "20261003020000_codebase_chunks_tenant_ttl",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 308,
+      "when": 1791021600000,
+      "tag": "20261003180000_agent_memory_tables_expiry",
+      "breakpoints": true
     }
   ]
 }
