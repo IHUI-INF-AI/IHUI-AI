@@ -4587,6 +4587,32 @@ const checks = [
       '     应急放行:HUSKY_SKIP_SKIP_ENV_PROMISE=1 git commit ...(commit message 写明责任归属)。',
     ].join('\n'),
   },
+
+  // --- loadState 四档投影防漂移对账(1 项,warn)---
+  // 编号 186:注册前已核 `grep -n "id: '186'"` 为空(未被占用);现值以本文件为准。
+  {
+    id: '186',
+    label:
+      'loadState 四档投影防漂移对账(LV1 四档字面量零散落 + LV2 五族 get_status 的 loadState 键与共享出口来源;warn 起步)',
+    script: 'check-load-state-projection-parity.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_LOAD_STATE_PROJECTION_PARITY',
+    stagedTriggers: ['apps/ai-service/app/services/'],
+    onFailHint: [
+      '',
+      'LV1:`"never_tried"` / `"retry_backoff"` / `"gave_up"` 三档字面量只许住在 _load_lifecycle.py 一个文件;',
+      '     第二个服务文件逐字写出即红(下一次改动只改一处 ⇒ 四档语义分叉而两端都自洽)。',
+      'LV2:五族(ab_test_tracker / meta_learner / federated_learner / memory_decay / user_profile)的',
+      '     get_status 必须含 loadState 键,且其值必须来自共享出口 state_label(...) / LoadRecord.state_label()。',
+      '  ⚠️ per-key 族(memory_decay / user_profile)**刻意不用** loaded / loadFailures 键名(同名不同义是最坏的',
+      '     下游陷阱)——**不得**为"看起来一致"给它们补上这两个键;要改语义得另开一票动下游。',
+      '定级 warn 是设计前提(照守门 156 的教训):接 blocking 就是让每台每次提交被逼 --no-verify,',
+      '     一次绕过等于全部守门对该提交作废(AGENTS §12e/§12f)。存量与新增在报告里同列,不靠棘轮遮盖。',
+      '问责跑 node scripts/check-load-state-projection-parity.mjs --strict;应急跳过 HUSKY_SKIP_LOAD_STATE_PROJECTION_PARITY=1。',
+      '',
+    ].join('\n'),
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
