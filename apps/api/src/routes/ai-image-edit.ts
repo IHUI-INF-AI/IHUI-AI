@@ -9,6 +9,7 @@ import { db } from '../db/index.js'
 import { zhsUserAgentImage } from '@ihui/database'
 import { success, error } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
+import { directEgressFetch, boundedOptionsFromRequestInit } from '../utils/proxy-dispatcher.js'
 
 const DASHSCOPE_BASE = process.env.DASHSCOPE_BASE ?? 'https://dashscope.aliyuncs.com/api/v1'
 
@@ -25,7 +26,12 @@ async function fetchWithTimeout(
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    return await fetch(url, { ...options, signal: controller.signal })
+    // G-749(2026-10-03):裸 `fetch`(redirect:'follow' 20 跳、无跨 origin 剥头、无字节上限)
+    // 换成 boundedEgressFetch 同一个有界主循环(直连侧不传 dispatcher);本仓 60s 超时
+    // 罩住整段,有界循环自己的 180s 兜底罩重定向链,先到的先触发,互不冒充归因。
+    return await directEgressFetch(url, {
+      ...boundedOptionsFromRequestInit({ ...options, signal: controller.signal }),
+    })
   } finally {
     clearTimeout(timer)
   }
