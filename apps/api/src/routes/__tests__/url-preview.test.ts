@@ -17,6 +17,7 @@
 import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import type * as DnsModule from 'node:dns'
 
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Fastify from 'fastify'
@@ -26,7 +27,7 @@ const API_ROOT = resolve(HERE, '..', '..', '..')
 
 // DNS 解析级复检在单测里mock成公网地址(不依赖真实网络)。
 vi.mock('node:dns', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:dns')>()
+  const actual = await importOriginal<typeof DnsModule>()
   return {
     ...actual,
     promises: {
