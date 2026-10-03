@@ -11794,7 +11794,8 @@
     "reasoningEffortMedium": "均衡",
     "reasoningEffortHigh": "深思",
     "reasoningEffortUnsupported": "該模型不支援選擇推理強度",
-    "reasoningEffortFallback": "推理強度已由後端調整為 {requested} → {effective}"
+    "reasoningEffortFallback": "推理強度已由後端調整為 {requested} → {effective}",
+    "analysisOpen": "檢視場景分析"
   },
   "chatHistory": {
     "moveToGroup": "移動到分組",
@@ -12033,7 +12034,8 @@
     "toKnowledgeFailed": "加入知識庫失敗：{error}",
     "toKnowledgeAlready": "已在知識庫中",
     "sourceWechat": "微信",
-    "sourceWechatHint": "微信「合併轉發」匯出的 聊天記錄.txt 或其 zip 壓縮包"
+    "sourceWechatHint": "微信「合併轉發」匯出的 聊天記錄.txt 或其 zip 壓縮包",
+    "noValidContent": "無可匯入的有效內容"
   },
   "commandPalette": {
     "groups": {
@@ -22067,7 +22069,13 @@
     "agentSecuritySaveSuccess": "安全設定已儲存",
     "agentSecuritySaveFailed": "儲存安全設定失敗",
     "analyticsEnabled": "使用情況分析",
-    "analyticsEnabledDesc": "開啟後,平台會記錄功能使用統計(點擊、頁面造訪、耗時等匿名事件),用於改進產品;不記錄您輸入的內容、程式碼或檔案路徑。關閉後立即停止回報,不影響任何功能。"
+    "analyticsEnabledDesc": "開啟後,平台會記錄功能使用統計(點擊、頁面造訪、耗時等匿名事件),用於改進產品;不記錄您輸入的內容、程式碼或檔案路徑。關閉後立即停止回報,不影響任何功能。",
+    "llmRawRetentionOptOut": "不保留 LLM 調用原文",
+    "llmRawRetentionOptOutDesc": "你的提問與 AI 回答正文不會寫入資料庫",
+    "codeIndexEgressOptOut": "不建程式碼語義索引",
+    "codeIndexEgressOptOutDesc": "程式碼片段不會外送用於向量化建索引",
+    "autoMemoryOptOut": "關閉自動長期記憶",
+    "autoMemoryOptOutDesc": "不會把對話提煉成跨會話的偏好或約定"
   },
   "shareContentPage": {
     "aiGenerated": "智匯 AI 生成",
