@@ -137,7 +137,8 @@ function getStagedAddedLines() {
       encoding: 'utf8',
       cwd: ROOT,
       maxBuffer: 50 * 1024 * 1024,
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     })
   } catch {
@@ -184,7 +185,8 @@ function getStagedFiles() {
     const output = execSync('git diff --cached --name-only --diff-filter=ACM', {
       encoding: 'utf8',
       cwd: ROOT,
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     })
     return output

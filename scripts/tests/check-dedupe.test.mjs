@@ -31,13 +31,13 @@ function createTempProject() {
 
 // ─── 辅助:初始化 git 仓库(含初始 commit) ──────────────────
 function initGitRepo(dir) {
-  execSync('git init -b main', { cwd: dir, stdio: 'pipe' })
-  execSync('git config user.email test@test.com', { cwd: dir, stdio: 'pipe' })
-  execSync('git config user.name test', { cwd: dir, stdio: 'pipe' })
-  execSync('git config commit.gpgsign false', { cwd: dir, stdio: 'pipe' })
+  execSync('git init -b main', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  execSync('git config user.email test@test.com', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  execSync('git config user.name test', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  execSync('git config commit.gpgsign false', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   writeFileSync(join(dir, 'README.md'), '# init\n')
-  execSync('git add README.md', { cwd: dir, stdio: 'pipe' })
-  execSync('git commit -m "init"', { cwd: dir, stdio: 'pipe' })
+  execSync('git add README.md', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  execSync('git commit -m "init"', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
 }
 
 // ─── 辅助:运行临时项目中的脚本副本 ────────────────────────
@@ -45,7 +45,8 @@ function runScript(dir, args = []) {
   return spawnSync('node', [join(dir, 'scripts', 'check-dedupe.mjs'), ...args], {
     cwd: dir,
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     timeout: 30000,
   })
 }
@@ -85,7 +86,7 @@ test('--staged: 暂存其他文件(非 pnpm-lock.yaml)→ exit 0(跳过)', () =>
   try {
     initGitRepo(dir)
     writeFileSync(join(dir, 'package.json'), '{}\n')
-    execSync('git add package.json', { cwd: dir, stdio: 'pipe' })
+    execSync('git add package.json', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const r = runScript(dir, ['--staged'])
     assert.equal(r.status, 0, `暂存非 lockfile 应 exit 0,实际 ${r.status}`)
     assert.match(r.stdout, /pnpm-lock\.yaml 未变更|跳过/)
@@ -100,7 +101,7 @@ test('--staged: pnpm-lock.yaml 已暂存但工作树删除 → exit 0(LOCKFILE �
   try {
     initGitRepo(dir)
     writeFileSync(join(dir, 'pnpm-lock.yaml'), 'lockfile content\n')
-    execSync('git add pnpm-lock.yaml', { cwd: dir, stdio: 'pipe' })
+    execSync('git add pnpm-lock.yaml', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     // 从工作树删除但保留 staged 状态
     rmSync(join(dir, 'pnpm-lock.yaml'))
     const r = runScript(dir, ['--staged'])
@@ -130,7 +131,7 @@ test('--staged: 暂存 pnpm-lock.yaml.bak(非精确匹配)→ exit 0(跳过)', (
   try {
     initGitRepo(dir)
     writeFileSync(join(dir, 'pnpm-lock.yaml.bak'), 'backup\n')
-    execSync('git add pnpm-lock.yaml.bak', { cwd: dir, stdio: 'pipe' })
+    execSync('git add pnpm-lock.yaml.bak', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const r = runScript(dir, ['--staged'])
     assert.equal(r.status, 0, `非精确匹配应 exit 0,实际 ${r.status}`)
     assert.match(r.stdout, /pnpm-lock\.yaml 未变更|跳过/)
@@ -146,7 +147,7 @@ test('--staged: 暂存 subdir/pnpm-lock.yaml(非根路径)→ exit 0(跳过)', (
     initGitRepo(dir)
     mkdirSync(join(dir, 'subdir'), { recursive: true })
     writeFileSync(join(dir, 'subdir', 'pnpm-lock.yaml'), 'lockfile\n')
-    execSync('git add subdir/pnpm-lock.yaml', { cwd: dir, stdio: 'pipe' })
+    execSync('git add subdir/pnpm-lock.yaml', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const r = runScript(dir, ['--staged'])
     assert.equal(r.status, 0, `非根路径应 exit 0,实际 ${r.status}`)
     assert.match(r.stdout, /pnpm-lock\.yaml 未变更|跳过/)
@@ -186,7 +187,7 @@ test('--staged: pnpm-lock.yaml 已暂存且存在 → 不跳过,进入 pnpm 检�
   try {
     initGitRepo(dir)
     writeFileSync(join(dir, 'pnpm-lock.yaml'), 'INVALID LOCKFILE\n')
-    execSync('git add pnpm-lock.yaml', { cwd: dir, stdio: 'pipe' })
+    execSync('git add pnpm-lock.yaml', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const r = runScript(dir, ['--staged'])
     // 不应输出"未变更,跳过"
     assert.ok(
@@ -245,7 +246,8 @@ test('--staged: 多文件暂存含 pnpm-lock.yaml → 不跳过,进入 pnpm 检�
     writeFileSync(join(dir, 'README.md'), '# updated\n')
     execSync('git add package.json pnpm-lock.yaml README.md', {
       cwd: dir,
-      stdio: 'pipe',
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     const r = runScript(dir, ['--staged'])
     // 不应输出"未变更,跳过"(pnpm-lock.yaml 在暂存列表中)

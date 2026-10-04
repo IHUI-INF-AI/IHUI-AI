@@ -31,29 +31,29 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-project-plan-archive.mjs')
 // 创建临时 git repo(check-project-plan-archive.mjs 调用 git show/diff,需 git 环境)
 function createTempGitRepo() {
   const dir = mkScratch('ihui-plan-archive-')
-  const opt = { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
-  spawnSync('git', ['init', '-q'], opt)
-  spawnSync('git', ['config', 'user.email', 'test@ihui.local'], opt)
-  spawnSync('git', ['config', 'user.name', 'Test'], opt)
-  spawnSync('git', ['config', 'commit.gpgsign', 'false'], opt)
+  const opt = { cwd: dir, encoding: 'utf8' }
+  spawnSync('git', ['init', '-q'], { ...opt, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  spawnSync('git', ['config', 'user.email', 'test@ihui.local'], { ...opt, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  spawnSync('git', ['config', 'user.name', 'Test'], { ...opt, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  spawnSync('git', ['config', 'commit.gpgsign', 'false'], { ...opt, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   return dir
 }
 
 // 在 git repo 中写入 PROJECT_PLAN.md + commit(作为 baseline)
 function commitPlan(repoDir, content, msg = 'init plan') {
   writeFileSync(join(repoDir, 'PROJECT_PLAN.md'), content)
-  const opt = { cwd: repoDir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
-  spawnSync('git', ['add', 'PROJECT_PLAN.md'], opt)
-  spawnSync('git', ['commit', '-q', '-m', msg], opt)
+  const opt = { cwd: repoDir, encoding: 'utf8' }
+  spawnSync('git', ['add', 'PROJECT_PLAN.md'], { ...opt, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  spawnSync('git', ['commit', '-q', '-m', msg], { ...opt, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
 }
 
 // 把归档锚点文件**提交进仓库**(A2 的"点名对象必须在审面里"只认已入库的那一份)
 function commitAnchor(repoDir, name, content = '# 归档正文\n') {
   mkdirSync(join(repoDir, '.ihui-agent', 'archive'), { recursive: true })
   writeFileSync(join(repoDir, '.ihui-agent', 'archive', name), content)
-  const opt = { cwd: repoDir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
-  spawnSync('git', ['add', '.'], opt)
-  spawnSync('git', ['commit', '-q', '-m', `archive anchor ${name}`], opt)
+  const opt = { cwd: repoDir, encoding: 'utf8' }
+  spawnSync('git', ['add', '.'], { ...opt, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  spawnSync('git', ['commit', '-q', '-m', `archive anchor ${name}`], { ...opt, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
 }
 
 // 修改 working tree(不 stage)
@@ -67,7 +67,8 @@ function runScript(cwd, extraArgs = []) {
   const r = spawnSync('node', [SCRIPT_PATH, ...args], {
     cwd,
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   r.out = r.stdout.replace(/\x1b\[[0-9;]*m/g, '')
   r.err = r.stderr.replace(/\x1b\[[0-9;]*m/g, '')

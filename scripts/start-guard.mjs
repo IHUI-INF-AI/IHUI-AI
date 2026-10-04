@@ -92,7 +92,9 @@ for (const svcName of services) {
   try {
     const isListening = execSync(
       `node -e "const net=require('net');const s=new net.Socket();s.connect(${port},'127.0.0.1',()=>{console.log('in-use');s.end();process.exit(0);});s.on('error',()=>{console.log('free');process.exit(0);});setTimeout(()=>{console.log('timeout');process.exit(0);},3000)"`,
-      { encoding: 'utf-8', stdio: 'pipe', windowsHide: true }
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      // 返回值被消费(.trim() 后与 'in-use' 比对)⇒ stdout 仍须 pipe,只把 stdin 切掉
+      { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true }
     ).trim()
     if (isListening === 'in-use') {
       warnings.push(`[${svcName}] 端口 ${port} 已被占用,确认是否为合法服务进程`)
