@@ -45,7 +45,11 @@ test('T2 默认档判 HEAD blob:索引与磁盘都被别人改脏也不得跟着
       'x = 1  # 别人把声明删了\n',
       'utf8',
     )
-    execFileSync(GIT_BIN, ['-C', dir, 'add', 'apps/ai-service/app/services/hub.py'], { windowsHide: true })
+    execFileSync(GIT_BIN, ['-C', dir, 'add', 'apps/ai-service/app/services/hub.py'], {
+      windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     writeFileSync(`${dir}/apps/ai-service/app/services/hub.py`, 'y = 2  # 盘上又是另一份\n', 'utf8')
     const head = runGate(dir, [])
     const staged = runGate(dir, ['--staged'])
@@ -176,7 +180,12 @@ test('T10 (d) 本次提交不涉及射程(没给 --files 而声明侧 0 条)⇒ 
     writeRepo(dir)
     // 把唯一的声明源从索引里摘掉(= 这一份面上结构上没有本门的输入)
     writeFileSync(`${dir}/${DECL_FILE}`, 'x = 1  # 本次提交不碰任何出站点\n', 'utf8')
-    execFileSync(GIT_BIN, ['-C', dir, 'add', DECL_FILE], { windowsHide: true, timeout: 120_000 })
+    execFileSync(GIT_BIN, ['-C', dir, 'add', DECL_FILE], {
+      windowsHide: true,
+      timeout: 120_000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     for (const extra of [[], ['--strict']]) {
       const r = runGate(dir, ['--staged', ...extra])
       if (r.code !== 0)

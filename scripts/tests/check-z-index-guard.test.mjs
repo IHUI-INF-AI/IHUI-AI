@@ -133,7 +133,8 @@ function runScript(cwd, args = []) {
   return spawnSync('node', [SCRIPT_PATH, ...args], {
     cwd,
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
@@ -151,9 +152,12 @@ function assertFail(r) {
 
 // ─── 辅助:在临时目录初始化 git 仓库 ───
 function initGitRepo(dir) {
-  execSync('git init', { cwd: dir, encoding: 'utf8', stdio: 'pipe' })
-  execSync('git config user.email "test@test.com"', { cwd: dir, encoding: 'utf8', stdio: 'pipe' })
-  execSync('git config user.name "test"', { cwd: dir, encoding: 'utf8', stdio: 'pipe' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git init', { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git config user.email "test@test.com"', { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git config user.name "test"', { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
 }
 
 // ============================================================
@@ -396,7 +400,8 @@ test('staged 模式: git 仓库无相关 staged 文件 → 跳过 exit 0', () =>
   try {
     initGitRepo(dir)
     writeFileSync(join(dir, 'README.md'), '# test')
-    execSync('git add README.md', { cwd: dir, encoding: 'utf8', stdio: 'pipe' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git add README.md', { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
     const r = runScript(dir, ['--staged'])
     assert.equal(r.status, 0, `无相关 staged 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
     assert.match(r.stdout, /跳过/, `stdout 应含跳过标记\nstdout: ${r.stdout}`)
@@ -410,7 +415,8 @@ test('staged 模式: git 仓库有相关 staged 文件(globals.css)→ 跑全量
   const dir = createTempProject()
   try {
     initGitRepo(dir)
-    execSync('git add apps/web/app/globals.css', { cwd: dir, encoding: 'utf8', stdio: 'pipe' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git add apps/web/app/globals.css', { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
     const r = runScript(dir, ['--staged'])
     assertPass(r)
   } finally {

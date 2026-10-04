@@ -25,7 +25,14 @@ const LANDING_REF = '7972c8f00c'
 const OLD_ROUTE = `${LANDING_REF}^:apps/api/src/routes/edu-ai-management.ts`
 
 function runNode(args) {
-  return spawnSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8', timeout: 180_000, windowsHide: true })
+  return spawnSync(process.execPath, args, {
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 180_000,
+    windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
 }
 
 test('T1 门体在位且能被 import(没有 isDirectRun 守卫时 import 会连带跑 CLI)', () => {
@@ -33,6 +40,8 @@ test('T1 门体在位且能被 import(没有 isDirectRun 守卫时 import 会连
     cwd: ROOT,
     encoding: 'utf8',
     maxBuffer: 1 << 26,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   assert.match(src, /isDirectRun/, '门体必须带 §22d 入口守卫:否则取证者 import 判据时拿到的是门的输出,不是自己的断言')
   assert.match(src, /pathToFileURL/)
@@ -46,6 +55,8 @@ test('T2 真仓阳性对照:重构前那份路由喂同一判据必须命中', a
       cwd: ROOT,
       encoding: 'utf8',
       maxBuffer: 1 << 28,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
   } catch (e) {
     // 取不到出处对象 ⇒ 这一维没有判过。不得静默通过,也不得把它当成"门没牙"
@@ -101,6 +112,8 @@ test('T7 判据面必须走 face-reader 的层读取,且不留第二份遮罩实
     cwd: ROOT,
     encoding: 'utf8',
     maxBuffer: 1 << 26,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   assert.match(src, /from '\.\/lib\/face-reader\.mjs'/, '取材必须走那一份层')
   assert.match(src, /catBatch\(/, '内容必须经层的读取入口,否则守门 118 会判本门半接线')

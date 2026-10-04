@@ -74,7 +74,13 @@ if (!settings.sandbox || !Array.isArray(settings.sandbox.allowedPaths)) {
 // 2. 验证 settings path 命令
 const expectedPath = path.join(tmpHome, '.ihui', 'settings.json');
 try {
-  const out = execSync(`node "${ihuiBin}" settings path`, { encoding: 'utf-8', env, windowsHide: true }).trim();
+  const out = execSync(`node "${ihuiBin}" settings path`, {
+    encoding: 'utf-8',
+    env,
+    windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
   if (out !== expectedPath) {
     console.error(`✗ settings path 输出不匹配: 期望 ${expectedPath}, 实际 ${out}`);
     cleanup();

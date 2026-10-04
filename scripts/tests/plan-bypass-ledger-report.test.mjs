@@ -157,7 +157,9 @@ function runGit(dir, args) {
   return execFileSync(
     GIT,
     ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e.local', '-c', 'user.name=e2e', '-c', 'core.autocrlf=false', '-C', dir, ...args],
-    { encoding: 'utf8', windowsHide: true, timeout: 120_000, maxBuffer: 32 << 20 },
+    { encoding: 'utf8', windowsHide: true, timeout: 120_000, maxBuffer: 32 << 20,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'] },
   )
 }
 
@@ -184,6 +186,8 @@ test('T4 装车证明:真跑一次旁路落地 ⇒ 留痕真的进了同一本�
       windowsHide: true,
       timeout: 180_000,
       maxBuffer: 64 << 20,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     assert.equal(run.status, 0, `落地器必须成功:\n${run.stdout}\n${run.stderr}`)
     assert.match(run.stdout, /跳门留痕 1 行已写入/, '落地器必须自己点名写了留痕')
@@ -280,7 +284,9 @@ test('T5b HEAD 面装车锁:两个落地器在**被审面**上都必须真的接
     const head = execFileSync(
       GIT,
       ['-c', 'safe.directory=*', '-C', repo, 'show', `HEAD:scripts/${rel}`],
-      { encoding: 'utf8', maxBuffer: 1 << 28, windowsHide: true },
+      { encoding: 'utf8', maxBuffer: 1 << 28, windowsHide: true,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'] },
     )
     assert.ok(
       head.includes("from './lib/commit-attestation.mjs'"),
@@ -387,7 +393,13 @@ test('T7 整档流式读必须与整串解析同结论(带色日志 + 跨块半�
 test('T8 覆盖面自证:窗口没走全时不得把枚数当全量(三态)', () => {
   const dir = mkScratch('bypass-cov')
   try {
-    const gitHere = (...args) => execFileSync('git', ['-c', 'safe.directory=*', ...args], { cwd: dir, encoding: 'utf8' })
+    const gitHere = (...args) =>
+      execFileSync('git', ['-c', 'safe.directory=*', ...args], {
+        cwd: dir,
+        encoding: 'utf8',
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
     gitHere('init', '-q', '-b', 'main', dir)
     gitHere('config', 'user.email', 't@example.invalid')
     gitHere('config', 'user.name', 'T')
@@ -419,7 +431,11 @@ test('T8 覆盖面自证:窗口没走全时不得把枚数当全量(三态)', ()
     // 与上面那一格**不同形**才是关键 —— "窗口里没有提交"与"问不到提交"不能共用一个答案。
     const bareDir = mkScratch('bypass-cov-bare')
     try {
-      execFileSync('git', ['-c', 'safe.directory=*', 'init', '-q', '-b', 'main', bareDir], { encoding: 'utf8' })
+      execFileSync('git', ['-c', 'safe.directory=*', 'init', '-q', '-b', 'main', bareDir], {
+        encoding: 'utf8',
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
       const bare = report.collectCommits({ root: bareDir, sinceDay: '2000-01-01', untilDay: today })
       assert.equal(bare.ok, false, '空仓必须报"取不到",不得报"窗口内 0 枚"')
       assert.ok(String(bare.why ?? '').length > 0, '取不到必须带原因')
