@@ -26,7 +26,7 @@ export function HistoryScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<HistoryItem[]>('/api/history')
+      const res = await fetchApi<HistoryItem[]>('/api/browse-history')
       if (!res.success) throw new Error()
       setItems(res.data ?? [])
     } catch {

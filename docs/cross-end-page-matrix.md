@@ -48,7 +48,7 @@
 | `pages/share/index` ↔ ShareScreen | ShareScreen | ✅ | ✅ | Tab「分享星球」 |
 | `pages/webview/index` ↔ WebViewScreen | WebViewScreen | ✅ | ✅ | 通用 WebView |
 | `pages/search/index` ↔ SearchScreen | SearchScreen | ✅ | ✅ | 全局搜索（第 6 轮补齐） |
-| — ↔ HistoryScreen | HistoryScreen | `pages/ai/history` | 🟡 | 已核销：同名不同义——RN 调 `/api/history` 为全站浏览历史，小程序该页读本地 `ai_chat_history` 为 AI 会话历史，各为本端合理实现 |
+| — ↔ HistoryScreen | HistoryScreen | `pages/ai/history` | 🟡 | 已核销：同名不同义——RN 调 `/api/browse-history` 为全站浏览历史，小程序该页读本地 `ai_chat_history` 为 AI 会话历史，各为本端合理实现 |
 | — ↔ LiveScreen | LiveScreen | — | 🟡 | 直播 Tab 聚合入口，小程序直播列表即入口，合理 |
 | — ↔ SubPackageIndexScreen | SubPackageIndexScreen | — | ⚪ | RN 分包占位页 |
 | — ↔ SharedDemoScreen | SharedDemoScreen | — | ⚪ | 演示页 |
@@ -377,7 +377,7 @@
 
 | # | 页面 | 结论 | 一句话依据（代码证据） |
 | --- | --- | --- | --- |
-| 1 | HistoryScreen ↔ `pages/ai/history` | 🟡 | RN 调 `/api/history` 按 targetType 跳课程/文章/帖子详情＝全站浏览历史；小程序读本地 `ai_chat_history`＝AI 会话历史，同名不同义，各为本端合理实现 |
+| 1 | HistoryScreen ↔ `pages/ai/history` | 🟡 | RN 调 `/api/browse-history` 按 targetType 跳课程/文章/帖子详情＝全站浏览历史；小程序读本地 `ai_chat_history`＝AI 会话历史，同名不同义，各为本端合理实现 |
 | 2 | IdentityVerifyScreen | 🟡 | 调 `/user/identity-verify`（unverified/pending 状态机），与 RealNameAuth（`/user/real-name`）API 不同，属认证细分页，小程序并入 realname 状态展示 |
 | 3 | ReferrerScreen | 🟡 | 调 `/user/referrer` 查询/绑定推荐码，与 `distribution/member-detail`（团队统计）无关；小程序可并入分销中心承接 |
 | 4 | `pages/ai/history` | 🟡 | 见第 1 项：AI 会话历史（本地存储 + chat/image/voice/agent 筛选），RN 无独立会话历史页，属合理平台差异 |
