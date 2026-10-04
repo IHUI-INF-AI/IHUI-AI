@@ -133,8 +133,15 @@ export default function BusinessCardEditPage() {
         const v = form[f.key].trim()
         body[f.key] = v || undefined
       }
-      const url = editId ? `/api/business-card/${editId}` : '/api/business-card'
-      return api(url, { method: editId ? 'PUT' : 'POST', body: JSON.stringify(body) })
+      // 2026-10-04:原先 `editId ? /api/business-card/${editId} : /api/business-card`
+      // 配 `editId ? 'PUT' : 'POST'` —— **两个分支后端都不存在**:
+      //   · PUT /business-card/:id 全仓零注册(只有 POST);
+      //   · POST /business-card(空路径)也没有,POST 只在 /business-card/:id 上。
+      // 后端 POST /business-card/:id 是 **upsert by request.userId**(:372),
+      // 路径里的 id 解析后被完全忽略 ⇒ 统一 POST 到 /business-card/me 即可,
+      // 'me' 过 idParamSchema 的 /^[a-zA-Z0-9_-]+$/,语义 = "当前登录用户的名片"。
+      // 与 GET /business-card/mine(列表)同域不同 method、不同路径,互不影响。
+      return api(`/api/business-card/${editId ?? 'me'}`, { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['business-card'] })
