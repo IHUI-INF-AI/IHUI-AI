@@ -35,7 +35,9 @@ function mergeStyle(
   focusStyle: CSSProperties | undefined,
 ): string | CSSProperties | undefined {
   if (!focusStyle) return style
-  if (typeof style === 'string') return `${style};border-color:var(--color-primary)`
+  // 这是输入框**聚焦态**描边,§4(2026-10-01 用户定档)的唯一例外位允许取墨档;本端把聚焦色拼在
+  // 内联串里,没有 `:focus` 选择器可让门 83 R8 按书写位认出例外 ⇒ 豁免标记必须落在命中同行。
+  if (typeof style === 'string') return `${style};border-color:var(--color-primary)` // border-ink-exempt: 输入框聚焦态描边(§4 唯一例外位),内联串形态无 :focus 可判;若本端改成 class/伪类书写即销账 until 2026-11-03
   return { ...style, ...focusStyle }
 }
 
