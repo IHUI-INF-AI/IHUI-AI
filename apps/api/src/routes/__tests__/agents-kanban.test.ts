@@ -257,6 +257,7 @@ import { agentsKanbanRoutes } from '../agents-kanban.js'
 import {
   mapStatus,
   isTransitionAllowed,
+  isTransitionAllowedFromRaw,
   STATUS_VARIANTS,
   terminationOf,
   TERMINATION_LABEL_KEYS,
@@ -519,6 +520,25 @@ describe('Agent Kanban 路由(2-2 工作区锁 + 团队任务板)', () => {
       expect(res.json().data.allowed).toBe(false)
       expect(store.updateSets).toHaveLength(0)
     })
+
+    /**
+     * G-463(2026-10-04):库里 status 落在六档之外时,旧写法
+     * `ALLOWED_TRANSITIONS[fromStatus].includes(toStatus)` 求值undefined 后抛
+     * TypeError ⇒ 本接口 500。修法是改走 `isTransitionAllowedFromRaw`。
+     * 本例钉的是**HTTP 状态码**:409(业务判定)而不是 500(未捕获异常)——
+     * 只测纯函数不足以证明接口不再崩,所以补这一条端到端。
+     */
+    it('库内状态未登记 → 409 allowed:false,不是 500(G-463)', async () => {
+      store.pushSelect([makeRow({ status: 'nonsense_status' })])
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/agents/kanban/tasks/${ID_A}/transition`,
+        payload: { taskId: ID_A, toStatus: 'todo' },
+      })
+      expect(res.statusCode).toBe(409)
+      expect(res.json().data.allowed).toBe(false)
+      expect(store.updateSets).toHaveLength(0)
+    })
   })
 
   // ───────────────────────────────────────────────────────────
@@ -614,6 +634,36 @@ describe('Agent Kanban 路由(2-2 工作区锁 + 团队任务板)', () => {
       expect(STATUS_VARIANTS.blocked).toEqual(
         expect.arrayContaining(['blocked', 'failed', 'cancelled', 'quota_exceeded', 'preempted']),
       )
+    })
+
+    /**
+     * G-463(2026-10-04):`mapStatus` 对未登记值是**原样透传**(带 `as AgentTaskStatus` 断言,
+     * 编译期静默),所以 `ALLOWED_TRANSITIONS[mapStatus(raw)]` 恒 `undefined`。
+     * 旧写法 `ALLOWED_TRANSITIONS[fromStatus].includes(to)` 没有 `?.` 兜底 ⇒ TypeError ⇒
+     * transition 接口 500。本组钉住"未知档判无合法流转,且正常档一档不少"。
+     */
+    it('isTransitionAllowedFromRaw:未知档判非法而非抛 TypeError(transition 不再 500)', () => {
+      expect(() =>
+        isTransitionAllowedFromRaw('nonsense_status', 'todo'),
+      ).not.toThrow()
+      expect(isTransitionAllowedFromRaw('nonsense_status', 'todo')).toBe(false)
+      // 空串与大小写变体同属未登记:不得因为"看起来像"就放行
+      expect(isTransitionAllowedFromRaw('', 'todo')).toBe(false)
+      expect(isTransitionAllowedFromRaw('TRIAGE', 'todo')).toBe(false)
+      // 正常档一档不少(legacy 别名须先归一再判,这是 mapStatus 的既有职责)
+      expect(isTransitionAllowedFromRaw('triage', 'todo')).toBe(true)
+      expect(isTransitionAllowedFromRaw('cancelled', 'todo')).toBe(true)
+      expect(isTransitionAllowedFromRaw('running', 'done')).toBe(true)
+      expect(isTransitionAllowedFromRaw('done', 'todo')).toBe(false)
+    })
+
+    it('isTransitionAllowedFromRaw 与 isTransitionAllowed 逐档同判(两个出口不得漂移)', () => {
+      const six = ['triage', 'todo', 'ready', 'in_progress', 'blocked', 'done'] as const
+      for (const from of six) {
+        for (const to of six) {
+          expect(isTransitionAllowedFromRaw(from, to)).toBe(isTransitionAllowed(from, to))
+        }
+      }
     })
 
     /**
