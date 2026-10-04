@@ -2171,6 +2171,13 @@
       "when": 1791084600000,
       "tag": "20261004120000_user_browse_history",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 311,
+      "when": 1791091800000,
+      "tag": "20261004150000_lesson_sign_ups_study_plan_id",
+      "breakpoints": true
     }
   ]
 }
