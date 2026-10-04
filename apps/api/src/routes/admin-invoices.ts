@@ -21,7 +21,10 @@ const idParamSchema = z.object({ id: z.string().min(1) })
 const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  userId: z.transform(emptyToUndefined).pipe(z.string().min(1).optional()),
+  // edu_invoice_titles.user_id 是 uuid 列：本 schema 的 userId 会进 eq(eduInvoiceTitles.userId, …)，
+  // 非 uuid 串让 Postgres 抛 22P02 ⇒ 500。与下面 createBodySchema.userId 同一列、同一判据
+  // (姊妹面：上一轮只收了写入侧的 create/update，此处是读侧筛选位)。
+  userId: z.transform(emptyToUndefined).pipe(z.uuid({ error: 'userId 格式不正确' }).optional()),
   titleType: z.transform(emptyToUndefined).pipe(z.enum(['personal', 'company']).optional()),
   keyword: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
 })

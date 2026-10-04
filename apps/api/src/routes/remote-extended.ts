@@ -17,7 +17,9 @@ import { users, userMargins, userVips, agents } from '@ihui/database'
 const agentIdParamSchema = z.object({ agentId: z.string().min(1) })
 
 const favoriteAgentSchema = z.object({
-  agentId: z.string().min(1, 'agentId 不能为空'),
+  // agents.agent_id 是 uuid 列：本 schema 下面 :208 会把它喂进 eq(agents.agentId, …)，
+  // 非 uuid 串让 Postgres 抛 22P02 ⇒ 500。只校验 min(1) 漏掉格式。
+  agentId: z.uuid({ error: 'agentId 格式不正确' }),
 })
 
 const feedbackSchema = z.object({

@@ -15,10 +15,27 @@ import { success, error } from '../../utils/response.js'
 import { db, dbRead } from '../../db/index.js'
 import { knowledgeBase, knowledgeBaseCategories, users } from '@ihui/database'
 import { parseIdParam } from './_shared.js'
+import { isUuidString } from '../../utils/uuid.js'
+
+/**
+ * 列表筛选用的 categoryId 闸：knowledge_base.category_id 是 uuid 列，
+ * 畸形筛选值会让 Postgres 抛 22P02 ⇒ 500。'all' 是本仓既有的"不筛选"哨兵值，
+ * 必须原样放行(它不是 uuid,但也不会进 SQL —— 见下面 conds 的 categoryId !== 'all' 判定)。
+ */
+const categoryFilterSchema = z.object({
+  categoryId: z.string().refine((v) => v === 'all' || isUuidString(v), {
+    message: 'categoryId 格式不正确',
+  }).optional(),
+})
 
 export const knowledgeBaseRoutes: FastifyPluginAsync = async (server) => {
   // GET /knowledge-base — 知识库列表(分页 + 分类/标题搜索, 前端 knowledge-base 页)
   server.get('/knowledge-base', async (request, reply) => {
+    // 形状闸必须在进 SQL 之前(见 categoryFilterSchema 注释)
+    const filterParsed = categoryFilterSchema.safeParse(request.query)
+    if (!filterParsed.success) {
+      return reply.status(400).send(error(400, filterParsed.error.issues[0]?.message ?? '参数错误'))
+    }
     const {
       page = 1,
       pageSize = 10,
