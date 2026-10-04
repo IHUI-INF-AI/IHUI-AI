@@ -20,6 +20,9 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs'
+// 新增取用另起一行、不并进上面的清单:本器自己的「陈旧落地守卫」按行判 HEAD 的行有没有留下,
+// 改写一行等于抹掉 HEAD 的那一行(它分不清"顺手扩清单"与"副本滞后")。
+import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -27,7 +30,9 @@ import { __test__ } from '../object-space-land.mjs'
 import { decideBanner } from '../object-space-land.mjs'
 import { maskCommentsAndStrings } from '../lib/code-mask.mjs'
 import { git, headBlobOf, indexBlobOf, writeBlob } from '../lib/bypass-git.mjs'
+import { landsLedger } from '../lib/bypass-git.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
 import { resolveGitBin } from '../lib/gitdir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -1336,6 +1341,156 @@ test('T-DG6 形状锁:触发面必须与门体 SRC_RE 同形,且门以子进程�
   assert.match(src, /windowsHide: true/, '派生控制台程序必须带 windowsHide(守门 52)')
   assert.match(src, /IHUI_LAND_SKIP_DANGLING_GATE === '1'/, '应急跳过通道必须真实存在')
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// G-816708(2026-10-05):台账自愈必须在**旁路落地那一刻**真的被跑到。
+// 三条各管一格,方向都是**行为**断言(把 `rerunLedgerHeal` 的调用摘掉,三条里至少一条立刻红):
+//  L1 正向:落地声明含 PROJECT_PLAN.md ⇒ 现场跑**真门**(不是桩)⇒ 它点名被滞后底稿写回吞掉的
+//     登记行,并当场建前向恢复提交(HEAD 的后继就是那枚,父是本次落地)。**有没有恢复提交是
+//     "跑没跑"最硬的回读证据**,所以这里断言的是仓库状态,不是某句输出文本。
+//  L2 反向对照:同样的现场、只是落地**不含**台账 ⇒ 那个进程一次都不许派生(用哨兵文件量派生,
+//     不读源码文本 —— "不触发"这件事在源码里永远读得出来,只有哨兵能证明它没跑)。
+//  L3 方向锁 + 失败臂:补跑**没跑成**时落地器退出码照旧 0(零丢失自证已通过的落地不该被替身判红),
+//     但必须把"未派生/跑而未成"喊出来,且**不得**冒出"无缺失"这类凭空结论。
+// 水印预检统一用 IHUI_LAND_SKIP_WATERMARK=1 跳过(夹具文件没有横幅,与上面几组同一处置,是有意的)。
+// ─────────────────────────────────────────────────────────────────────────────
+const REG_A = '  - **G-900001 甲行(夹具)**:三面都在的无关登记行,用来确认现场里只有乙行被写回吞掉。'
+const REG_B = '  - **G-900002 乙行(夹具)**:这一行已由别人的提交入库,本轮那份滞后底稿里没有它 ⇒ 必须被点名。'
+const REG_C = '  - **G-900003 丙行(夹具)**:本次落地要新加的登记行 —— 它让整 blob 不等于任何祖先(事故的真实形状)。'
+// 语料必须够"肥":规模安全闸按 missing/seen 判基线异常(默认 40%),只放 3 条登记行的夹具会被它
+// 正确地拒掉 ⇒ 本组要测的是"补跑有没有发生",不是那道闸(那道闸在门体自检里有成对用例)。
+const REG_FILL = [1, 2, 3, 4].map(
+  (i) => `  - **G-90010${i} 填充行(夹具)**:与本轮判定无关、三面都在的登记行,只为把基线垫过规模闸。`,
+)
+const PLAN_V1 = ['# 计划', '', REG_A, ...REG_FILL, '', REG_B, ''].join('\n')
+// 滞后的旧底稿 ⊕ 本票新行:逐字节不等于任何祖先版本 ⇒ 两道陈旧守卫结构上看不见它,
+// 而 HEAD 里那条 REG_B 会被写回吞掉 —— 正是票面那句"台账被滞后副本写回"的最小可复现形态。
+const PLAN_STALE = ['# 计划', '', REG_A, ...REG_FILL, '', REG_C, ''].join('\n')
+
+/** 台账落地夹具:`git init -b main` 是必需的 —— 恢复提交写 refs/heads/main(门 71 既有实现)。 */
+function makeLedgerRepo(t) {
+  const dir = mkScratch('osl-ledger-')
+  t.after(() => rmScratch(dir))
+  runGit(dir, ['init', '-q', '-b', 'main'])
+  // 提交身份要落在**夹具的 git config** 里:自愈那个子进程用裸 git 派生,不靠 -c 传参
+  runGit(dir, ['config', 'user.email', 'heal@e2e.local'])
+  runGit(dir, ['config', 'user.name', 'heal-e2e'])
+  runGit(dir, ['config', 'commit.gpgsign', 'false'])
+  writeFileSync(join(dir, 'README.md'), 'fixture\n')
+  runGit(dir, ['add', '--', 'README.md'])
+  runGit(dir, ['commit', '-q', '-m', 'init'])
+  writeFileSync(join(dir, 'PROJECT_PLAN.md'), PLAN_V1)
+  runGit(dir, ['add', '--', 'PROJECT_PLAN.md'])
+  runGit(dir, ['commit', '-q', '-m', 'plan: 甲+乙入库'])
+  return dir
+}
+
+/** 把真门(连同相对 import 闭包)装进夹具 —— 只搬入口就会 ERR_MODULE_NOT_FOUND(见该 helper 头注)。 */
+function installRealGate(dir) {
+  return copyScriptWithClosure(join(HERE, '..'), 'check-plan-line-loss.mjs', join(dir, 'scripts'), [
+    'lib/face-reader.mjs',
+  ])
+}
+
+/**
+ * 自愈派生的哨兵桩:只仿"有没有被派生 / 退出码 / stderr"这三格传输,不仿判据本身
+ * (与 LAND_DANGLING_GATE 那一族桩同规:判据的有牙由门体自检 + 门的镜像用例钉,不在这里重抄)。
+ * 哨兵文件把 argv 逐条记账 ⇒ "没派生"是可证的,不是"输出里没提到"那种弱断言。
+ */
+function installHealStub(dir, { rc = 0, stderr = '' } = {}) {
+  mkdirSync(join(dir, 'scripts'), { recursive: true })
+  writeFileSync(
+    join(dir, 'scripts', 'check-plan-line-loss.mjs'),
+    "import { writeFileSync } from 'node:fs'\n" +
+      // 哨兵落在**夹具根**(不是 scripts/ 里):路径由桩自己的位置推,免得调用方猜 cwd
+      "writeFileSync(new URL('../.heal-ran', import.meta.url), JSON.stringify(process.argv.slice(2)))\n" +
+      `process.stderr.write(${JSON.stringify(stderr)})\n` +
+      `process.exit(${rc})\n`,
+  )
+  // 恢复提交成功后门体会 detached 派生 git-push-guard;夹具里放一个空转桩,免得测试留下后台进程
+  writeFileSync(join(dir, 'scripts', 'git-push-guard.mjs'), 'process.exit(0)\n')
+}
+const healSentinel = (dir) => join(dir, '.heal-ran')
+
+test('L1 G-816708 正向(行为断言):落地含台账 ⇒ 就地补跑真门,点名被吞的登记行并当场建恢复提交', (t) => {
+  const dir = makeLedgerRepo(t)
+  installRealGate(dir)
+  // 工作树 = 滞后底稿 ⊕ 本票新行(不 git add:本器取的是盘上字节,索引停在上一枚提交才是常态)
+  writeFileSync(join(dir, 'PROJECT_PLAN.md'), PLAN_STALE)
+  const before = git(['rev-parse', 'HEAD'], { root: dir })
+  const r = runLandRaw(dir, 'PROJECT_PLAN.md', 'docs(plan): G-816708 落地夹具(带自愈补跑)')
+  const out = `${r.stdout}\n${r.stderr}`
+  assert.equal(r.status, 0, `落地应成功,实得 ${r.status}:\n${out}`)
+  // ① 补跑真的发生了(落地器自己报名的那一行)
+  assert.match(out, /\[G-816708\][\s\S]{0,120}就地补跑守门 71/, '必须报名"这一跑是 post-commit 的替身"')
+  // ② 真门的三档读数与点名必须穿过派生层回到本器 stdout(只写 stderr 的名字在落地那一刻等于没点)
+  assert.match(out, /\[分档\] 历史登记行 \d+ 条/, '补跑要的是真门,不是桩:它的读数必须可见')
+  assert.match(out, /\[点名\/HEAD\][^\n]*G-900002 乙行/, '被写回吞掉的那一行必须**点名**到行,不得只报数')
+  // ③ 最硬的一条是**仓库状态**:本次落地 + 就地恢复 = 恰好两枚提交,而恢复那一枚的父就是本次落地
+  const after = git(['rev-parse', 'HEAD'], { root: dir })
+  assert.equal(
+    Number(git(['rev-list', '--count', `${before}..HEAD`], { root: dir })),
+    2,
+    `应为"落地一枚 + 补跑恢复一枚"两枚提交,实得 HEAD=${after.slice(0, 9)} / before=${before.slice(0, 9)}:\n${out}`,
+  )
+  const landedCommit = git(['rev-parse', "HEAD^"], { root: dir })
+  const landedText = git(['show', `${landedCommit}:PROJECT_PLAN.md`], { root: dir, raw: true })
+  assert.match(landedText, /G-900003 丙行/, '本次落地那枚确实带进了新行(现场成立)')
+  assert.doesNotMatch(landedText, /G-900002 乙行/, '本次落地那枚确实把别人的行写回吞掉了(现场成立)')
+  assert.match(
+    git(['show', `HEAD:PROJECT_PLAN.md`], { root: dir, raw: true }),
+    /G-900002 乙行/,
+    '恢复后的 HEAD 必须重新含那一行 —— 这就是"当场收口"而不是"报给下一个人"',
+  )
+  // ④ 索引档(G-816708 的第二个比较目标)在本器里被同一顺序兜住:对齐发生在补跑**之后**,
+  //    所以主索引最终对齐到的是恢复后的 blob,而不是把缺行的那份写进暂存面。
+  assert.equal(
+    indexBlobOf('PROJECT_PLAN.md', { root: dir }),
+    headBlobOf('HEAD', 'PROJECT_PLAN.md', { root: dir }),
+    '主索引必须对齐到恢复后的 HEAD blob(顺序反了就会留下"HEAD 已补、索引仍缺"那一格)',
+  )
+})
+
+test('L2 G-816708 反向对照:同样的落地但不含台账 ⇒ 那个进程一次都不许多派生(哨兵可证)', (t) => {
+  const dir = makeLedgerRepo(t)
+  installHealStub(dir)
+  // 台账此刻在 HEAD 里确实缺一条历史登记行(先把滞后底稿落进去,索引跟着对齐)
+  writeFileSync(join(dir, 'PROJECT_PLAN.md'), PLAN_STALE)
+  const first = runLandRaw(dir, 'PROJECT_PLAN.md', 'docs(plan): 造"已入库行被写回"的现场')
+  assert.equal(first.status, 0, `造现场应成功:\n${first.stdout}\n${first.stderr}`)
+  assert.ok(existsSync(healSentinel(dir)), '正向臂:含台账的落地必须派生那次补跑(哨兵在位)')
+  rmSync(healSentinel(dir), { force: true })
+  // 同一台仓、同一次调用形态,只是声明的路径不含台账 ⇒ 不得再派生
+  writeFileSync(join(dir, 'notes.md'), '本轮只动这份\n')
+  const r = runLandRaw(dir, 'notes.md', 'docs: 只动 notes(反向对照)')
+  assert.equal(r.status, 0, `只落 notes.md 应成功:\n${r.stdout}\n${r.stderr}`)
+  assert.equal(existsSync(healSentinel(dir)), false, '不含台账的落地不得多派生那一个进程(哨兵被写了)')
+  assert.doesNotMatch(`${r.stdout}\n${r.stderr}`, /\[G-816708\]/, '没跑就不许喊"补跑过"(凭空声称一个没发生的动作)')
+})
+
+test('L3 G-816708 方向锁 + 失败臂:补跑没跑成 ⇒ 落地照旧 0,但必须喊出来,且不得冒出"无缺失"', (t) => {
+  const dir = makeLedgerRepo(t)
+  installHealStub(dir, { rc: 1, stderr: 'boom: 门体未能判定\n' })
+  writeFileSync(join(dir, 'PROJECT_PLAN.md'), PLAN_STALE)
+  const r = runLandRaw(dir, 'PROJECT_PLAN.md', 'docs(plan): G-816708 失败臂')
+  const out = `${r.stdout}\n${r.stderr}`
+  assert.ok(existsSync(healSentinel(dir)), '摘掉补跑调用 ⇒ 这一条先红(哨兵没人写)')
+  assert.equal(JSON.parse(readFileSync(healSentinel(dir), 'utf8')).join(' '), '--heal --commit', '补跑必须是**提交档**(与 post-commit 第 6 节同形),报告档等于把回补留给下一个人')
+  assert.equal(r.status, 0, `替身没跑成不该把零丢失自证已过的落地判红,实得 ${r.status}:\n${out}`)
+  assert.match(out, /跑而未成|未派生成功/, '失败必须点名是哪一档(跑而未成 / 根本没派生)')
+  assert.doesNotMatch(out, /无缺失,无需回捞/, '补跑没跑成时,"无缺失"这句话不得由任何人替它说')
+})
+
+test('L4 G-816708 触发条件的单位锁:只认声明的落地面,提交信息里提到台账不算', () => {
+  assert.equal(landsLedger(['PROJECT_PLAN.md']), true)
+  assert.equal(landsLedger(['./PROJECT_PLAN.md']), true, '仓库相对路径的 `./` 前缀要归一')
+  assert.equal(landsLedger(['src/a.ts', 'PROJECT_PLAN.md']), true, '多路径里只要含台账就成立')
+  assert.equal(landsLedger(['docs\\PROJECT_PLAN.md']), false, '子目录里那份不是台账')
+  assert.equal(landsLedger(['README.md', 'notes.md']), false, '不含台账 ⇒ 不得触发(反向对照的单位面)')
+  assert.equal(landsLedger([]), false)
+  assert.equal(landsLedger(undefined), false, '调用方漏传也不炸,且不触发')
+})
+
 
 
 
