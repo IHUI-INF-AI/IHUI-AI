@@ -289,11 +289,35 @@ function readSource(rel) {
  * 是本仓记过最多次的失败型,所以判据只留这一份,两个消费方各调它。
  * 2026-09-17 加固的原判据一字未改:`?` 只在**非可选链**时才算查询串构造器
  * (`${editing?.id}` 是值,退化成丢 :param 会造成误报)。
+ *
+ * ## 2026-10-04 加固:`params` 词条加否定前瞻(机制①,4 条误报)
+ * 原判据把 `params` 与 `qs`/`query`/`search` 一视同仁 ⇒ `looksLikeQueryStringBuilder('params.id')`
+ * 为真 ⇒ `` `/api/favorites/check/aiworld/${params.id}` `` 的**路径段被整段丢弃**,
+ * 段数从 5 缩到 4,落进 3 段/4 段通配条目射程 ⇒ 误报。
+ *
+ * ### 判据依据(现跑实测,不是拍脑袋;量表脚本 `.DevEnv/Temp/apiroutes-ticket/census-params.mjs`
+ * 与 `census-params-impact.mjs`,口径 = HEAD 面 8,906 个前端 ts/tsx/js/jsx)
+ * 全仓模板串里含 `params` 的插值共 **181 条点访问形态** + **156 条非点访问形态**;
+ * 但**判据真正起作用的只有** pathRe 命中且落在 `?` 之前的插值(尾部 `?.*` 已被
+ * normalizeCallPath 整段丢弃,词条判不判都一样)—— 那上面:
+ *  · **形态 B(`params.x` / `params?.[x]` / `params[k]`,取值=路径段):24 条,全部是 `${params.id}`**
+ *    (分布:`/api/ai-world/`、`/api/refunds/`、`/api/asks/`、`/api/circles/` 等 Next.js 动态段)
+ *    ⇒ 本仓 `params` 压倒多数是**路径段**,不是查询串;这 24 条现在全被整段丢弃。
+ *  · **形态 A(独立 `params`,即 `?params=` 形态):0 条** —— 本仓**没有一条**这种用法。
+ *  · 兜底核过:形态 A 那 25 条独立词条全是 `${qs}` / `${query}` / `${listQs}`
+ *    (`/api/hooks${qs}`、`/api/context/mentions${qs}` 等),由 `qs`/`query` 词条继续命中,
+ *    **不受本次改动影响**。
+ * ### 为什么"最低限度否定前瞻"就够
+ * 形态 A 影响面为 0 ⇒ 把 `params` 从"见词即查询串"改成"见词且**不**是属性/下标访问才算"
+ * 不会误伤任何一条真查询串;而形态 B 24 条全部回到 `:param`(真实段形状)。
+ * `searchParams` / `URLSearchParams` 词条**刻意不动** —— 它们的 `Params` 前面是字母,
+ * 本就不靠 `params` 词条命中(词条边界要求非字母数字),改它会牵动 `URLSearchParams(...)`
+ * 那类真查询串构造。
  */
 function looksLikeQueryStringBuilder(expr) {
   return (
     /\?(?!\.)/.test(expr) ||
-    /(^|[^a-zA-Z0-9_])(qs|query|search|params|filter|filters|sort|pagination|listQs|pageQuery|searchParams|queryString|searchQuery)([^a-zA-Z0-9_]|$)/i.test(
+    /(^|[^a-zA-Z0-9_])(qs|query|search|params(?!\s*(?:\?\.|\.|\[))|filter|filters|sort|pagination|listQs|pageQuery|searchParams|queryString|searchQuery)([^a-zA-Z0-9_]|$)/i.test(
       expr,
     )
   )
@@ -1489,13 +1513,42 @@ function extractFrontendCalls(src, file, opts) {
   //    附近调用),把「粘连插值 + 非查询串构造器」归入「未判定(有传输口却抽不出路径)」桶。
   //  · 改这一行会被 `scripts/tests/check-api-routes-template-interp.test.mjs` T5 拦下。
   const pathRe = /['"`](\/api\/(?:admin\/)?[a-zA-Z0-9/_\-${}:.?&=%,+~#@!;]+)['"`]/g
+  // 2026-10-04 机制⑤:`/api/` 字面量作为**字符串谓词的实参**出现 ⇒ 子串匹配,不是调用点。
+  // 现场(e2e 白名单/拦截器,它们只是在"看有没有调某个前缀",从不发请求):
+  //   `apps/web/e2e/responsive.spec.ts:43`  `!e.includes('/api/a2a/')`
+  //   `apps/web/e2e/publish-scan-login.spec.ts:41` `u.includes('/api/publish/scan-login')`
+  // 同一行里出现**任何传输口**(`fetch(` / `fetchApi(` / `request(`,泛型 `fetchApi<T>(` 也算)
+  // ⇒ 那是真调用,不许剔。
+  //
+  // ## 为什么判据是"字符串谓词 + 同行无传输口",而不是票面提的"该行不含传输口"
+  // 量表实测(改前调用集 2,771 条 / HEAD 面,`census-transport.mjs`):只用"无传输口"当判据,
+  // 会把 **2,623 条**判成非调用点 —— 本仓绝大多数真调用走**本地 wrapper**
+  // (`api<T>(...)` / `apiData<T>(...)`,那一行确实没有 `fetch(`),例如
+  // `packages/api-client/src/endpoints/admin-content.ts:52`
+  // `return fetchApi<DeleteResult>(`/api/admin/ai-gc/${id}`, …)`(连泛型传输口都需单独认)。
+  // 那不叫修误报,叫把门打瞎。收窄到"字面量是字符串谓词的实参"后落 **19 条,全在 web 端 e2e**,
+  // 逐条回源码核过,无一条是真请求 ⇒ 与票面点名的 2 条同族。
+  //
+  // ## 必须用遮罩后的行判定
+  // 直接看原文会栽在两处:① 注释里写 `// 见 fetch('/api/x')` 的行;② 字符串里嵌 `'/api/a2a/'` 字样。
+  // `maskComments` 保留字符串、整段删行注释、块注释等长换空白 ⇒ 行号/列位不漂,可安全按行取。
+  const maskedLines = maskComments(src).split('\n')
+  const STRING_PREDICATE_RE =
+    /\.\s*(?:includes|startsWith|endsWith|contains|match|replace|split|indexOf|search)\s*\(\s*['"`]\/api\//
+  const LINE_TRANSPORT_RE =
+    /\bfetchApi(?:<[^<>]*>)?\s*\(|\bfetch(?:<[^<>]*>)?\s*\(|Taro\.request|\bwx\.request|\bmy\.request|\btt\.request|XMLHttpRequest|axios\.|\brequest(?:<[^<>]*>)?\s*\(/
   lines.forEach((line, idx) => {
+    const maskedLine = maskedLines[idx] ?? ''
     let m
     pathRe.lastIndex = 0
     while ((m = pathRe.exec(line)) !== null) {
       const rawPath = m[1]
       // 跳过非 API 路径（如 /api/health 这种纯字面量但被误捕）
       if (!rawPath.startsWith('/api/')) continue
+      // 子串匹配不是调用点(机制⑤):遮罩行上是字符串谓词实参、且整行没有任何传输口。
+      // 归入既有的「未判定(有传输口却抽不出路径)」桶同口径由调用方按 calls.length===0 处理 ——
+      // 这里刻意**只是不进调用集**,不改任何桶的归属逻辑(判据归属与"抽不出路径"同口径)。
+      if (STRING_PREDICATE_RE.test(maskedLine) && !LINE_TRANSPORT_RE.test(maskedLine)) continue
       // 前缀常量声明行**不是调用点**:cli 端 `const API_PREFIX = '/api/chat'` 会被 pathRe 命中,
       // 而真路径要由 createApiRequest 工厂在第二个实参处拼出来(见 extractCliShapeCalls)。
       // 把片段当调用 = 凭空造一条谁都没发过的请求(实测 capabilities.ts 的 4 条真调用之上
@@ -1526,8 +1579,13 @@ function extractFrontendCalls(src, file, opts) {
       //  ② **纯路径常量声明行**:`export const FOO_PATH = '/api/x'` —— 它是片段不是调用点,
       //     真调用在别处(`client.post(FOO_PATH, …)`),在那里静态读不到 method。
       //     这类刻意用 ANY(= 任一拍即算注册),而不是猜一个 GET。
+      // 2026-10-04 加固(机制③):覆盖面从 cli 端**放开到全部端** —— 原判据被 `cliShapes &&`
+      //   限死在 cli 端,而"片段不是调用点"这件事**与端无关**:web 端
+      //   `apps/web/src/lib/api-registry.ts:20` 的 `const BASE = '/api/registry'` 就是同型,
+      //   被 inferMethodAtLine 猜成 GET `/api/registry`(3 段)⇒ 落进 3 段通配射程内/外随面而变,
+      //   是误报来源之一。判据本体(那行正则)**一字未改**,只去掉 `cliShapes &&`
+      //   ⇒ cli 端行为逐字不变(纯增益、零新增假阳)。
       const isPathConstDecl =
-        cliShapes &&
         /^\s*(?:export\s+)?(?:const|let|var)\s+[A-Za-z0-9_$]+\s*=\s*['"`]\/api\/[^'"`]+['"`];?\s*$/.test(
           line,
         )
@@ -1749,6 +1807,107 @@ function resolveGateKeys(text, loop, at) {
   return gates
 }
 
+/**
+ * 展开嵌套 `X.register(async (VAR) => { … }, { prefix: '/p' })` 里的注册(2026-10-04,机制④)。
+ *
+ * ## 缺陷本体
+ * `methodRe` 收 `sub.put('/cancel')` 时只拿到 localPath `/cancel`,**丢掉了同一 register 调用的
+ * options.prefix**(`/authUser`)。真实注册面是 `/authUser/cancel`,再经外层 `/api/admin` + `/role`
+ * 两级 prefix 拼成 `/api/admin/role/authUser/cancel` —— 而 `/cancel` 单独进面,拼出来的候选里
+ * 永远没有那条 ⇒ 前端 `packages/api-client/src/endpoints/admin-system.ts:393` 的
+ * `PUT /api/admin/role/authUser/cancel` 被判死调用(它现在靠 `.check-api-routes-ignore.json`
+ * 的一条豁免挂着,理由就是这个"两级相对前缀链盲区")。
+ *
+ * ## 面实测(HEAD 面 589 个 `apps/api/src/routes/**.ts`)
+ * 嵌套 register 形态 **10 处**,其中尾部带 `{ prefix }` 的 **4 处**,全部是本型:
+ *   `admin-sys/role-routes.ts:98` VAR=sub prefix=/authUser(5 个端点)
+ *   `admin-sys/alias-routes.ts:24` VAR=s prefix=/login-logs;`:46` prefix=/tasks/logs;`:67` prefix=/posts
+ * 另 6 处 `server.register(fn)` 无 prefix ⇒ 本函数对它们不产出任何条目(逐字保持原行为)。
+ *
+ * ## 判据边界(刻意保守,宁可漏也不臆造)
+ *  1. 只认 `register(` 后**紧跟** `async (VAR) =>` 的字面形态;中间夹别的参数一律不认;
+ *  2. prefix 取**同一 register 调用尾部**的 `{ prefix: '…' }` —— 括号配对扫到 `register(` 的
+ *     闭合括号为止,跨过闭合点就不认(避免把兄弟 register 的 prefix 串到本块上);
+ *  3. 块内只认 `VAR.method('…')`(**同一个变量名**),`VAR` 之外的注册不归本 prefix;
+ *  4. 块内若还有第二层 `register(`,本函数**不递归** —— 只展开一层,解析不出即不产出。
+ *  产出的是**额外**条目(原有 methodRe 那条 `/cancel` 仍原样进面),所以这是纯增益、零删除。
+ */
+function expandNestedRegisterRoutes(src, rel) {
+  const out = []
+  const openRe = /\.register\(\s*(?:async\s*)?\(\s*([A-Za-z0-9_$]+)\s*\)\s*=>/g
+  let m
+  while ((m = openRe.exec(src)) !== null) {
+    const varName = m[1]
+    // 从 register( 的开括号起做括号配对,找它的闭合位置(跳过引号/模板串/注释内的括号)
+    const openIdx = src.indexOf('(', m.index)
+    const closeIdx = matchBracket(src, openIdx)
+    if (closeIdx === -1) continue
+    const callArgs = src.slice(openIdx + 1, closeIdx)
+    // 尾部形如 `…},\n  { prefix: '/authUser' },\n` —— **options 后可以有 trailing comma**
+    // (role-routes.ts:196 实测就是 `},\n    { prefix: '/authUser' },\n  )`),故收尾允许 `,?\s*$`。
+    const pm = callArgs.match(/\}\s*,\s*\{\s*prefix\s*:\s*['"`]([^'"`]+)['"`]\s*\}\s*,?\s*$/)
+    if (!pm) continue // 无 prefix / prefix 不在尾部 ⇒ 不产出(保持原行为)
+    const prefix = pm[1]
+    // 块体 = 箭头函数体的大括号区间
+    const bodyOpen = callArgs.indexOf('{')
+    if (bodyOpen === -1) continue
+    const bodyClose = matchBracket(callArgs, bodyOpen)
+    if (bodyClose === -1) continue
+    const body = callArgs.slice(bodyOpen + 1, bodyClose)
+    // 第二层 register ⇒ 本函数不递归,整块跳过
+    if (/\.\s*register\s*\(/.test(body)) continue
+    const innerRe = new RegExp(
+      `\\b${varName}\\s*\\.\\s*(get|post|put|patch|delete|options|head)(?:<[^<>()]*>)?\\(\\s*['"\`]([^'"\`]*)['"\`]`,
+      'g',
+    )
+    let im
+    while ((im = innerRe.exec(body)) !== null) {
+      out.push({
+        method: im[1].toUpperCase(),
+        localPath: normalizePath(prefix, im[2]),
+        file: rel,
+      })
+    }
+  }
+  return out
+}
+
+/** 从 `text[i]`(必须是 `(` 或 `{`)起做括号配对,返回闭合括号下标;引号/模板串/行注释内的括号不计 */
+function matchBracket(text, i) {
+  const pairs = { '(': ')', '{': '}', '[': ']' }
+  const open = text[i]
+  const close = pairs[open]
+  if (!close) return -1
+  let depth = 0
+  for (let k = i; k < text.length; k++) {
+    const ch = text[k]
+    if (ch === '"' || ch === "'" || ch === '`') {
+      const e = skipQuotedLiteral(text, k)
+      if (e === -1) return -1
+      k = e
+      continue
+    }
+    if (ch === '/' && text[k + 1] === '/') {
+      const nl = text.indexOf('\n', k)
+      if (nl === -1) return -1
+      k = nl
+      continue
+    }
+    if (ch === '/' && text[k + 1] === '*') {
+      const e = text.indexOf('*/', k + 2)
+      if (e === -1) return -1
+      k = e + 1
+      continue
+    }
+    if (ch === open) depth++
+    else if (ch === close) {
+      depth--
+      if (depth === 0) return k
+    }
+  }
+  return -1
+}
+
 /** 展开单个源文件里"模板串注册"的真实路由(无法确定形态一律不产出) */
 function expandTemplatedRoutes(src, rel) {
   const matrices = extractMatrixArrays(src)
@@ -1840,6 +1999,8 @@ function extractBackendRoutes() {
     }
     // 2026-09-22 加固:展开"模板串 + for-of 厂商矩阵"注册(既有 methodRe 只能收原始文本)
     routes.push(...expandTemplatedRoutes(src, rel))
+    // 2026-10-04 加固(机制④):嵌套 `X.register(async (VAR) => {…}, { prefix })` 的 prefix 参与拼接
+    routes.push(...expandNestedRegisterRoutes(src, rel))
   }
   // plugins 目录中带完整 /api/ 前缀的动态注册
   // (如 token-balance-service.ts:267 注册 /api/admin/token-balance/metrics,
@@ -1919,12 +2080,19 @@ function extractBackendRoutes() {
       // 如果仍无 prefix，使用空字符串
       const prefixes2 = routerPrefixes.length > 0 ? routerPrefixes : ['']
       // 提取 @router.xxx("/path") 注册
+      // 2026-10-04 加固(机制②):路径组改 `([^'"`]+)?` —— 原式要求 ≥1 字符,
+      // 于是全仓 7 处 `@router.get("")`(model_pricing_api / cloud_runs / connectors / ai_skills /
+      // timeline / checkpoint_rewind / context_compaction)**整条抽不出**,
+      // 而它们经 normalizePath(prefix, '') 会得到 prefix 本身 ⇒ **端点在册却报"不在册"**。
+      // 空值直接交给已有的 normalizePath(它已有 `localPath === ''` → 返回 prefix 的分支,一字未改)。
       const fastApiMethodRe =
-        /@router\.(get|post|put|patch|delete|options)\(\s*['"`]([^'"`]+)['"`]/g
+        /@router\.(get|post|put|patch|delete|options)\(\s*['"`]([^'"`]+)?['"`]/g
       let fm
       while ((fm = fastApiMethodRe.exec(src)) !== null) {
         const method = fm[1].toUpperCase()
-        const localPath = fm[2]
+        // 路径组改成可空后,`@router.get("")` 拿到的是 undefined —— 归一成 '' ,
+        // 交给 normalizePath 已有的 `localPath === ''` → 返回 prefix 那条分支。
+        const localPath = fm[2] === undefined ? '' : fm[2]
         for (const p of prefixes2) {
           const fullPath = normalizePath(p, localPath)
           routes.push({ method, localPath: fullPath, file: rel })
