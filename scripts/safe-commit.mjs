@@ -255,7 +255,13 @@ const LOCK_RETRIES = Number(process.env.IHUI_SAFE_COMMIT_LOCK_RETRIES || 10)
 function gitStep(args, label) {
   let last = null
   for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
-    last = spawnSync('git', args, { encoding: 'utf8', cwd: repoRoot, windowsHide: true })
+    last = spawnSync('git', args, {
+      encoding: 'utf8',
+      cwd: repoRoot,
+      windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     if (last.status === 0) return last
     const out = `${last.stdout || ''}${last.stderr || ''}`
     if (isGitLockFailure(last.status, out) && attempt <= LOCK_RETRIES) {
@@ -438,7 +444,9 @@ if (liveDocsStaged.length && process.env.IHUI_SKIP_LIVE_DOC_CHECK !== '1') {
     const r = spawnSync(
       process.execPath,
       [join(ROOT, 'scripts', 'merge-live-doc.mjs'), '--file', f],
-      { cwd: ROOT, encoding: 'utf8', windowsHide: true, maxBuffer: 64 * 1024 * 1024 },
+      { cwd: ROOT, encoding: 'utf8', windowsHide: true, maxBuffer: 64 * 1024 * 1024,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'] },
     )
     if (r.status === 0) {
       log('info', `活文档对账通过:${C.cyan}${f}${C.reset} 工作树 ⊇ HEAD`)
@@ -522,6 +530,8 @@ for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
     // 普通直 git commit 不带此 env ⇒ 维持 ⊆ 弱证,失效方向是少发强证不是发假证。
     env: { ...process.env, IHUI_DECLARED_FILES: expectedFiles.join('\n') },
     windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   const out = pump(r)
   hookOutput += out
@@ -597,6 +607,8 @@ if (hookFailed && commitResult.status !== 0) {
       windowsHide: true,
       timeout: 300000,
       maxBuffer: 32 << 20,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     return { status: g.status ?? 1, output: `${g.stdout || ''}${g.stderr || ''}` }
   }
@@ -652,6 +664,8 @@ if (hookFailed && commitResult.status !== 0) {
       env: process.env,
       windowsHide: true,
       timeout: timeoutMs,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     if (a.error || a.status !== 0) {
       baselineWhy = `建基线工作树失败:${a.error?.code || a.error?.message || (a.stderr || a.stdout || '').slice(0, 200) || `exit ${a.status}`}`
@@ -687,6 +701,8 @@ if (hookFailed && commitResult.status !== 0) {
       windowsHide: true,
       timeout: timeoutMs,
       maxBuffer: 32 << 20,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     if (g.error)
       return {
@@ -775,6 +791,8 @@ if (hookFailed && commitResult.status !== 0) {
       windowsHide: true,
       timeout: timeoutMs,
       maxBuffer: 64 * 1024 * 1024,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     const out = `${b.stdout || ''}${b.stderr || ''}`
     if (b.error)
@@ -908,6 +926,8 @@ if (hookFailed && commitResult.status !== 0) {
     cwd: repoRoot,
     env: process.env,
     windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   pump(r)
   commitResult = r

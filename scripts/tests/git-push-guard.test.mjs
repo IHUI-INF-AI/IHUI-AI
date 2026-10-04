@@ -327,8 +327,18 @@ test('push 成功: ahead + 自动 push → exit 0 + local == remote', () => {
     assert.equal(r.status, 0, `ahead + push 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /push 成功|验证通过|local HEAD.*origin/)
     // 验证 local HEAD == origin/main
-    const localHead = execSync('git rev-parse HEAD', { cwd: work, encoding: 'utf8' }).trim()
-    const remoteHead = execSync('git rev-parse origin/main', { cwd: work, encoding: 'utf8' }).trim()
+    const localHead = execSync('git rev-parse HEAD', {
+      cwd: work,
+      encoding: 'utf8',
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
+    const remoteHead = execSync('git rev-parse origin/main', {
+      cwd: work,
+      encoding: 'utf8',
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
     assert.equal(localHead, remoteHead, 'push 后 local HEAD 应 == origin/main')
   } finally {
     rmScratch(work)
@@ -403,8 +413,18 @@ test('partial-clone 不误伤: 正常库(无 promisor/filter)+ ahead → 无预�
     const r = runScript([], { cwd: work })
     assert.doesNotMatch(r.stdout, /partial-clone/, '正常库不得命中 partial-clone 预检')
     assert.equal(r.status, 0, `正常 ahead 推送应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
-    const localHead = execSync('git rev-parse HEAD', { cwd: work, encoding: 'utf8' }).trim()
-    const remoteHead = execSync('git rev-parse origin/main', { cwd: work, encoding: 'utf8' }).trim()
+    const localHead = execSync('git rev-parse HEAD', {
+      cwd: work,
+      encoding: 'utf8',
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
+    const remoteHead = execSync('git rev-parse origin/main', {
+      cwd: work,
+      encoding: 'utf8',
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
     assert.equal(localHead, remoteHead, '同步推送后 local HEAD 应 == origin/main')
   } finally {
     forceRemove(work)
@@ -434,8 +454,18 @@ test('skipPush 语义: HUSKY_SKIP_PUSH=1 优先于异步分叉 → 不写 runnin
       )
     }
     // 且远端确实没被推动
-    const localHead = execSync('git rev-parse HEAD', { cwd: work, encoding: 'utf8' }).trim()
-    const remoteHead = execSync('git rev-parse origin/main', { cwd: work, encoding: 'utf8' }).trim()
+    const localHead = execSync('git rev-parse HEAD', {
+      cwd: work,
+      encoding: 'utf8',
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
+    const remoteHead = execSync('git rev-parse origin/main', {
+      cwd: work,
+      encoding: 'utf8',
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
     assert.notEqual(localHead, remoteHead, 'skipPush 生效时远端不应含本地 commit')
   } finally {
     forceRemove(work)
