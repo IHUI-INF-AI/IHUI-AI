@@ -84,6 +84,9 @@ function headList(relPath) {
     windowsHide: true,
     timeout: 20_000,
     maxBuffer: 16 * 1024 * 1024,
+    // 2026-10-04:与上面 `git show` 同一形态 —— 本机对 git.exe 的 spawn 会 EBUSY,
+    // 不显式 pipe 时四条通道对账用例(含两条变异对照)全部以 `spawnSync git.exe EBUSY` 假红。
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   return out.split(/\r?\n/).filter(Boolean)
 }
@@ -640,6 +643,8 @@ test('@ihui/api-client 摘掉 private 即必须当场过发布前置(workspace �
       maxBuffer: 64 * 1024 * 1024,
       timeout: 900000,
       windowsHide: true,
+      // 2026-10-04:同上。子闸门要读自己的 stdout 才判得了"实跑判据已装车"。
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
   } catch (err) {
     rc = typeof err.status === 'number' ? err.status : -1
