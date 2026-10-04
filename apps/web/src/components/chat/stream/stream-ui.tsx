@@ -504,15 +504,34 @@ export function useStreamStatusLabel(): (status: StreamStatus) => string {
   return React.useCallback((status: StreamStatus) => t(STATUS_LABEL_KEY[status]), [t])
 }
 
-/** plan_updated 步骤状态 → 活动行状态;error=true 与显式 failed 归一为 error */
+/**
+ * plan_updated 步骤状态 → 活动行状态;error=true 与显式 failed 归一为 error。
+ *
+ * **穷尽 switch + `never` 兜底(G-815966)**:旧写法是一条 if 链末尾 `return 'pending'`,
+ * 那是"运行时兜底"——`PlanStepStatus`(packages/types/src/ai.ts:257)新增一档时,
+ * 新档会被静默归一成 `pending`(看上去"还没开始"),`tsc` 一个字都不吭声。
+ * 现在 `pending` 档与五档一起**逐档显式列出**,`default` 分支把残值赋给 `never`:
+ * 联合类型一旦多出一档,`default` 里 `step.status` 就不再是 `never`,该行编译报错
+ * ⇒"新增状态忘配展示"从线上兜底变成 CI 判红。
+ */
 export function planStepStreamStatus(step: {
   status: PlanStepStatus
   error?: boolean
 }): StreamStatus {
   if (step.error === true || step.status === 'failed') return 'error'
-  if (step.status === 'in_progress') return 'running'
-  if (step.status === 'completed') return 'success'
-  if (step.status === 'skipped') return 'skipped'
-  return 'pending'
+  switch (step.status) {
+    case 'in_progress':
+      return 'running'
+    case 'completed':
+      return 'success'
+    case 'skipped':
+      return 'skipped'
+    case 'pending':
+      return 'pending'
+    default: {
+      const exhaustive: never = step.status
+      return exhaustive
+    }
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

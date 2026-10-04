@@ -18,6 +18,39 @@
  *   F2 代码面出现 `tmpdir(` 调用(含 `os.tmpdir()`)⇒ 选址交给进程 TEMP(§26 的第一条硬约束)
  *   F3(只报数,不计红)代码面 import 了 scratch-dir ⇒ 同一文件两种落点混用,迁移时的优先项
  *   N1(只报数)在仓库树内造夹具(`.ihui-agent/tmp`)—— 那是 §15 的另一型,不属本门红线
+ *   L1(只报数)**落点已合规**的 mkdtempSync( —— 见下面「认落点那一段」
+ *   M1(只报数)判据自身的镜像断言(唯一一条窄豁免,见 MIRROR_EXEMPT)
+ *
+ * ── 认落点,不只认关键字(2026-10-03 本票)─────────────────────────────
+ * 上一版只认关键字,于是把 14 处**落点本来就合规**的写法判红(实测 worktree 面 15 处,
+ * 逐条读码核实 14 处的落点已在 scratch 根或树内 `.ihui-agent/tmp` 内 —— 属 §15 的 N1 另一型)。
+ * 关键字认不出落点,是因为落点写在**实参**里,而实参里的路径片段是**字符串**,
+ * 在"注释与字符串都抹"的那一面已经被抹成空格。所以本门现在取**三面**:
+ *   面 A `maskCommentsAndStrings` —— 判 F1/F2 命中(假阳防线:注释与字符串里的字样不算调用)
+ *   面 B `maskComments`           —— **只**抹注释、留着字符串,用来读实参里的落点片段
+ *   面 C 面 A 去掉行注释         —— 判 import(说明符是字符串,抹了等于把它抹掉)
+ * 面 B 只在**面 A 已经判出真调用**之后才被读,且取实参用面 A 的括号配平(字符串里的
+ * 括号在面 A 已被抹掉 ⇒ 配平不会跑偏),再把**同一段下标**切到面 B 上读内容 ——
+ * 两面都等长,下标可互换是 code-mask 的硬约束。
+ *
+ * 落点合规的充要条件(三条都要,少一条都判红):
+ *   ① 实参里出现一个**被认出的合规根**:`mkScratch(` / `scratchRoot()` / `TMP_ROOT` /
+ *     `FIXTURE_BASE` / `tmpRoot` / 树内 `.ihui-agent/tmp` / `ihui-scratch`。
+ *     `mkScratch`/`scratchRoot` 是**调用**,还要求本文件引用了 `scratch-dir.mjs`
+ *     (认不出的调用不是落点);三个根**标识符**还要求在本文件里查得到 `const/let/var` 定义,
+ *     且那个定义自身 TEMP-free 且落在合规标记上 —— **名字叫得合规不算,定义合规才算**。
+ *   ② 实参里**没有任何进程 TEMP 来源**(`tmpdir(` / `TEMP` / `TMP` / `TMPDIR`)。
+ *     这一条是假阳防线的镜像:否则 `mkdtempSync(join(os.tmpdir(), 'TMP_ROOT'))` 那种
+ *     "字符串里写着合规根名字、真的落在 TEMP 上"的写法会被放过去。
+ *   ③ 判据面仍是面 A —— 落点分析**只**在真调用上跑,注释与字符串里的 `mkdtempSync(`
+ *     永远不会变成一次落点分析(那是 §「假阳防线」那条,本门第一次自跑就被自己的散文咬到)。
+ *
+ * 由此 **F2 永远违规这条一点没松**:面 A 里 `tmpdir(` 的实参就是"读 TEMP"这个动作本身,
+ * 条件 ② 对它恒不成立 ⇒ F2 在构造上就过不去落点判据(不是靠一句特判)。
+ * 唯一读 TEMP 而不判红的形态是 MIRROR_EXEMPT 那一条,而它是**判据自己的镜像断言**
+ * (断言的正是 `chooseScratchRoot` 内部那行 `join(tmpdir(), SCRATCH_DIR_NAME)`;
+ *  改断言侧就变成同一实现自证、恒真、什么也测不到)。它窄到**逐行**:命中那一行必须
+ * 与它所声称的镜像断言同处一行,否则不豁免 —— 换个地方新写一个 tmpdir() 照样判红。
  *
  * 三态不并桶:
  *   · 默认档:**只报数并逐条报名**(file:line),退出码 0 —— 存量 30+ 个测试文件在红,
@@ -44,7 +77,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { maskCommentsAndStrings } from './lib/code-mask.mjs'
+import { maskComments, maskCommentsAndStrings } from './lib/code-mask.mjs'
 import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 
 const GIT_TIMEOUT = 180_000
@@ -57,6 +90,50 @@ const ROOT = resolve(HERE, '..')
 // 而 --self-test 走 os.tmpdir() 的重灾区恰恰在 scripts/ 顶层的守门脚本里)。
 // scripts/lib/ 刻意排除:落点与 plumbing 住在 lib 是**对的**(scratch-dir 自己当然 mkdtempSync)。
 const SELF_EXEMPT = ['scripts/tests/check-fixture-tmpdir.test.mjs']
+// 判据自身的镜像断言豁免(全仓**唯一**一条,窄到逐行):scratch-dir.test.mjs 有一行断言的正是
+// scratch-dir.mjs 内部那行 `return normalize(join(tmpdir(), SCRATCH_DIR_NAME))` —— 断言的是
+// **本门判据的落点定义本身**。改断言侧就变成同一实现自证、恒真、什么也测不到;
+// 不改它就得让本门对自己的判据判红。所以给它一条豁免,但必须同时满足三条,少一条即失效:
+//   ① 文件精确匹配(不是目录、不是通配);
+//   ② `line` 精确匹配那一行(行号漂了 ⇒ 失效,逼着人来更新而不是让条目默默罩住整个文件);
+//   ③ `anchor` 那一行上必须真的出现所声称的镜像断言字样 —— 否则"这一行恰好有 tmpdir("就
+//      成了永久免罪符,那一行被改成读 TEMP 的真实动作时门会继续装看不见。
+// 形如"名字合规/看起来像豁免"的宽免一律不许进来:这三条是它的全部。
+const MIRROR_EXEMPT = [
+  {
+    file: 'scripts/tests/scratch-dir.test.mjs',
+    line: 377,
+    kind: 'F2',
+    anchor: 'SCRATCH_DIR_NAME',
+    reason:
+      '这一行断言的正是 scratch-dir.mjs:72 `return normalize(join(tmpdir(), SCRATCH_DIR_NAME))` —— 判据自身的落点定义。改断言侧即变成同一实现自证(恒真、什么也测不到),不改则本门对自己的判据判红。',
+  },
+]
+
+/**
+ * 纯函数:镜像断言豁免是否覆盖某一处命中。
+ * 四条都要对(文件 / 行号 / kind / **该行确有 anchor 字样**)才返回豁免条目,否则 null(= 不豁免,照计违规)。
+ * anchor 必须拿**真实那一行**来验:只凭"文件+行号"就放过,那一行被改成真的读 TEMP 之后
+ * 门会继续装看不见 —— 那是"名单代替判据"的最低形态。行号漂了同样失效(逼着人更新条目)。
+ * 刻意**不**复用台账:applyLedger 的语义是"该文件剩余违规整文件豁免",而这一条是**逐行**的 ——
+ * 同一个文件里新写的 tmpdir( 必须照样判红,整文件豁免会把它一起放过去。
+ *
+ * @param {{line:number,kind:string}} hit
+ * @param {string} path 被审文件路径
+ * @param {string} lineText 该命中的**真实源码行**(anchor 就验在这里)
+ * @param {Array} table 豁免表(默认 MIRROR_EXEMPT;自测传构造表)
+ */
+export function mirrorExemptFor(hit, path, lineText = '', table = MIRROR_EXEMPT) {
+  for (const e of table) {
+    if (e.file !== path) continue
+    if (e.line !== hit.line) continue
+    if (e.kind !== hit.kind) continue
+    if (!e.anchor || !lineText.includes(e.anchor)) continue
+    return e
+  }
+  return null
+}
+
 // B 堆台账(带理由 + 到期日,仿 auth-handler-registration-exemptions.json 的形态):
 // 唯一豁免通道。每条必须 {file, reason(非空), reviewBy(ISO 日期)};过期条目不再豁免;
 // 条目指向已无命中的文件 ⇒ 清单腐烂(rot)判红 —— 豁免清单腐烂比没有清单更糟。
@@ -69,7 +146,127 @@ const TMPDIR_RE = /\btmpdir\s*\(/g
 const WIRED_RE = /from\s+['"][^'"]*lib\/scratch-dir\.mjs['"]/
 // 仓库树内造夹具(§15 的另一型):这是字符串形态,只能在"只丢注释行"的面上判。
 // 两种书写都要认:拼路径 `'.ihui-agent/tmp'` 与分段 `'.ihui-agent', 'tmp'`(真仓实测以后者为主)。
-const IN_REPO_RE = /\.ihui-agent[\\/]tmp|['"]\.ihui-agent['"]\s*,\s*['"]tmp['"]/g
+const IN_REPO_SRC = `\\.ihui-agent[\\\\/]tmp|['"]\\.ihui-agent['"]\\s*,\\s*['"]tmp['"]`
+const IN_REPO_RE = new RegExp(IN_REPO_SRC, 'g')
+// ── 认落点用的判据(见头注「认落点,不只认关键字」那一段)──
+// ① 合规根标记。`mkScratch(` / `scratchRoot()` 是**调用**,另需本文件引用了 scratch-dir.mjs
+//    (check-ops-patrol.test.mjs 走的是 `await import(...)` 动态形态,不是 `from '...'`);
+//    `TMP_ROOT` / `FIXTURE_BASE` / `tmpRoot` 是**标识符**,另需在本文件里查得到定义且定义自身合规。
+const ROOT_CALL_RE = /\b(?:mkScratch|scratchRoot)\s*\(/
+const ROOT_NAME_RE = /\b(?:TMP_ROOT|FIXTURE_BASE|tmpRoot)\b/
+const SCRATCH_NAME_RE = /\bihui-scratch\b/
+// 本文件是否引用了 scratch-dir.mjs(长度不变的要求在这里不成立:只用来"问一句",不做下标换算)
+const REF_SCRATCH_RE = /scratch-dir\.mjs/
+// ② 进程 TEMP 来源。**任何**出现都判红 —— 这一条是"落点合规"的镜像防线:
+//    没有它,`mkdtempSync(join(os.tmpdir(), 'TMP_ROOT'))` 那种"字符串里写着合规根名字、
+//    真的落在 TEMP 上"的写法会被放过去(名字合规不等于落点合规)。
+//    `\bTMP\b` 认不出 `TMP_ROOT`(`_` 是词字符 ⇒ 无词边界)—— 这是有意的,见 ① 的标识符分支。
+// ⚠ 下面两条**刻意不带 `g`**:它们走的是 `RegExp.prototype.test`,而带 `g` 的 test/test 交替调用
+//   会因 `lastIndex` 残留而时真时假 —— 判据"看起来在跑"但结论随调用次数漂移,是最难归因的一型。
+//   要枚举全部命中时另建带 `g` 的副本(`gOf`),不在这两条上加旗标。
+const TEMP_SRC_RE = /\btmpdir\s*\(|\bTEMP\b|\bTMPDIR\b|\bTMP\b/
+/** 带 `g` 的副本,只在真要枚举全部命中时用(matchAll 对非全局正则会抛)。 */
+const gOf = (re) => new RegExp(re.source, re.flags + 'g')
+// 判"本文件里有没有 `const/let/var NAME =` 这个定义"。**必须**在面 A(字符串已抹)上找 ——
+// 否则一个字符串字面量 `'const TMP_ROOT = ...'` 就能冒充定义。
+const DEF_RE_CACHE = new Map()
+function defRe(name) {
+  let re = DEF_RE_CACHE.get(name)
+  if (!re) {
+    re = new RegExp(`(?:const|let|var)\\s+${name}\\s*=`, 'g')
+    DEF_RE_CACHE.set(name, re)
+  }
+  re.lastIndex = 0
+  return re
+}
+// 标识符解析的深度上限:防 `const A = join(B, …)` 互相引用成环。超过上限 ⇒ 不认 ⇒ 判红。
+const RESOLVE_MAX_DEPTH = 4
+
+/**
+ * 取 `code` 上 `from` 起的一段**表达式**文本的结束下标(不含)。
+ * 括号配平走面 A ⇒ 字符串/注释里的括号已被抹成空格,配平不会跑偏;深度回零或行尾(有内容时)即止。
+ * 找不到 ⇒ 返回 -1(调用方据此判"读不到实参" ⇒ 不认落点 ⇒ 判红,方向是保守的)。
+ */
+function exprEnd(code, from) {
+  let depth = 0
+  let seen = false
+  for (let i = from; i < code.length; i++) {
+    const c = code[i]
+    if (c === '(' || c === '[' || c === '{') {
+      depth += 1
+      seen = true
+      continue
+    }
+    if (c === ')' || c === ']' || c === '}') {
+      if (depth === 0) return seen ? i : -1
+      depth -= 1
+      if (depth === 0) return i + 1
+      continue
+    }
+    if (depth === 0) {
+      if (c === ';') return i
+      if (c === '\n') {
+        if (seen) return i
+        continue
+      }
+      if (!/\s/.test(c)) seen = true
+    }
+  }
+  return seen ? code.length : -1
+}
+
+/**
+ * 一段落点文本(实参或定义 initializer)是否合规。**纯函数**,三条判据都在这里:
+ *   ① 有合规根标记:调用型(`mkScratch(`/`scratchRoot()`)另需本文件引用 scratch-dir.mjs;
+ *      标识符型(TMP_ROOT/FIXTURE_BASE/tmpRoot)另需在本文件里解析到**自身也合规**的定义;
+ *      树内 `.ihui-agent/tmp` 与 `ihui-scratch` 是字面证据,直接认。
+ *   ② 全文没有任何进程 TEMP 来源。
+ *   读的是"抹注释、留字符串"的内容面 ⇒ 注释里的字样既不能造合规根、也不能造 TEMP 证据。
+ *
+ * @param src **本文件全文**(不是片段):解析根标识符的定义要在全文里找 `const NAME =`,
+ *   而那条定义的下标是从全文那一面算出来的。传片段会让递归拿全文下标去切片段 —— 错位,
+ *   而且错位方向恰好是"解析不出定义 ⇒ 判红",让本该绿的落点一直红着(本票第一版的真 bug:
+ *   5 处合规落点只绿了 2 处,根因就是这里)。
+ * @param from,to 待判段落在这份全文里的下标区间(半开)。
+ * @returns {{ok: boolean, why: string}} why 只用于报告/自测定位,判据本身只看 ok。
+ */
+export function landingVerdict({ src, code, from, to, refsScratch, depth = 0 }) {
+  const text = maskComments(src.slice(from, to))
+  if (TEMP_SRC_RE.test(text))
+    return {
+      ok: false,
+      why: `实参里含进程 TEMP 来源(${[...text.matchAll(gOf(TEMP_SRC_RE))].map((m) => m[0]).join(',')})`,
+    }
+  const hasCall = ROOT_CALL_RE.test(text)
+  const hasName = ROOT_NAME_RE.test(text)
+  const inRepo = new RegExp(IN_REPO_SRC).test(text)
+  const hasLit = inRepo || SCRATCH_NAME_RE.test(text)
+  if (!hasCall && !hasName && !hasLit)
+    return { ok: false, why: '实参里没有任何合规根标记(mkScratch/scratchRoot/TMP_ROOT/FIXTURE_BASE/tmpRoot/.ihui-agent/tmp/ihui-scratch)' }
+  if (hasCall && !refsScratch)
+    return { ok: false, why: '实参里的 mkScratch(/scratchRoot( 认不出出处:本文件没有引用 scratch-dir.mjs' }
+  if (hasName && depth < RESOLVE_MAX_DEPTH) {
+    // 名字合规**不算**合规 —— 必须在本文件里解析到定义,且那个定义自身合规。
+    // 解析不出来 / 解析到的定义不合规 ⇒ 判红(方向保守:宁可多报)。
+    const names = [...text.matchAll(gOf(ROOT_NAME_RE))].map((m) => m[0])
+    const resolved = []
+    for (const nm of names) {
+      const m = defRe(nm).exec(code)
+      if (!m) return { ok: false, why: `${nm} 在本文件里查不到定义 —— 名字合规不等于落点合规` }
+      const dFrom = m.index + m[0].length
+      const dTo = exprEnd(code, dFrom)
+      if (dTo < 0) return { ok: false, why: `${nm} 的定义读不出取值` }
+      const sub = landingVerdict({ src, code, from: dFrom, to: dTo, refsScratch, depth: depth + 1 })
+      if (!sub.ok) return { ok: false, why: `${nm} 的定义不合规:${sub.why}` }
+      resolved.push(nm)
+    }
+    return { ok: true, why: `合规根标识符 ${resolved.join('/')} 在本文件内的定义自身合规` }
+  }
+  if (hasCall) return { ok: true, why: '实参落在 mkScratch(/scratchRoot( 基座内(本文件已引用 scratch-dir.mjs)' }
+  if (inRepo) return { ok: true, why: '实参落在仓库树内 .ihui-agent/tmp(§15 的 N1 另一型)' }
+  return { ok: true, why: '实参落在 ihui-scratch 夹具根内' }
+}
+
 
 /** 按字符下标反查行号(遮罩是等长的,所以行号与原文一致 —— 这是用等长遮罩的全部理由)。 */
 function lineOf(text, index) {
@@ -90,7 +287,9 @@ function collect(text, re) {
   const hits = []
   let m
   while ((m = g.exec(text)) !== null) {
-    hits.push({ line: lineOf(text, m.index), match: m[0].trim() })
+    // index 必须带出来:落点判据要在**这一处**往后取实参边界(不能用行号回溯 ——
+    // 一次调用跨行时行号会指错地方,而跨行实参在本仓是实形态,见 heal-worktree-tracked)。
+    hits.push({ line: lineOf(text, m.index), index: m.index, match: m[0].trim() })
     if (m.index === g.lastIndex) g.lastIndex += 1
   }
   return hits
@@ -98,23 +297,55 @@ function collect(text, re) {
 
 /**
  * 纯函数:给定一份测试文件正文,产出本门的判据输入。
- * 拆出来是因为这两面必须**分别**取料:调用判"遮掉字符串之后",import 判"留着字符串"。
+ * 拆出来是因为这几面必须**分别**取料:调用判"遮掉字符串之后"、落点判"只遮掉注释之后"、
+ * import 判"只丢注释行"。混用 Either 会让锁恒真或恒假(守门 134 记过)。
+ *
+ * 落点判据(L1)对**每个 F1 命中**问一次"实参落在合规根上吗",落在合规根上 ⇒ 不计红线,
+ * 只报数。落点判据只在**面 A 已经判出真调用**之后才跑(注释/字符串里的字样永远走不到这里,
+ * 假阳防线因此不受影响),实参边界用面 A 的括号配平取,内容用同下标切到"抹注释留字符串"面上读
+ * —— 两面等长是 code-mask 的硬约束,下标可互换。
  */
-export function scanFixtureText(text) {
+export function scanFixtureText(text, path = '') {
   if (typeof text !== 'string')
     return { hits: [], notices: [], wired: false, undetermined: '输入不是文本' }
   const code = maskCommentsAndStrings(text)
-  const hits = []
-  for (const h of collect(code, CALLEE_RE)) hits.push({ ...h, kind: 'F1' })
-  for (const h of collect(code, TMPDIR_RE)) hits.push({ ...h, kind: 'F2' })
   const commentless = text
     .split('\n')
     .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l))
     .join('\n')
+  // 落点面:只抹注释、**留字符串**。读实参里的路径片段必须用它(`.ihui-agent` 那些字面量
+  // 在面 A 上已经被抹成空格了)。注意它对行注释是**整段删除**而不是等长抹除 ⇒ 不等长,
+  // 所以它只用于"问一句这段落点合不合规",绝不参与下标换算(要换算的只有面 A 的括号配平)。
+  const refsScratch = REF_SCRATCH_RE.test(maskComments(commentless))
+  const hits = []
   const notices = []
+  for (const h of collect(code, CALLEE_RE)) {
+    const open = code.indexOf('(', h.index)
+    const end = exprEnd(code, open + 1)
+    const v =
+      end < 0
+        ? { ok: false, why: '实参括号读不到边界' }
+        : landingVerdict({ src: text, code, from: open + 1, to: end, refsScratch })
+    if (v.ok) notices.push({ ...h, kind: 'L1', match: v.why })
+    else hits.push({ ...h, kind: 'F1' })
+  }
+  // F2 照旧**永远**计违规:面 A 里 `tmpdir(` 的实参就是"读 TEMP"这个动作本身,
+  // landingVerdict 的第 ② 条(TEMP 来源恒否决)对它恒不成立 ⇒ 不给 F2 开落点后门。
+  // 唯一例外是判据自身的镜像断言(逐行豁免,见 MIRROR_EXEMPT),且它必须**报出来**
+  // (M1 只报数)而不是静默消失 —— 静默豁免与漏判在输出里同形。
+  for (const h of collect(code, TMPDIR_RE)) {
+    // ⚠ kind 必须**在这里**补上再问豁免:`collect` 只产出 {line,index,match},kind 是判据
+    // 走到这一步才贴的 —— 漏了它 `e.kind !== hit.kind` 会恒真,于是镜像断言豁免永不生效
+    // (而它"永不生效"表现为照判红,所以第一眼看上去像判据在正常工作)。
+    const f2 = { ...h, kind: 'F2' }
+    const e = mirrorExemptFor(f2, path, text.split('\n')[f2.line - 1] ?? '')
+    if (e) notices.push({ ...f2, kind: 'M1', match: `镜像断言豁免:${e.reason}` })
+    else hits.push(f2)
+  }
   for (const h of collect(commentless, IN_REPO_RE)) notices.push({ ...h, kind: 'N1' })
   return { hits: hits.sort((a, b) => a.line - b.line), notices, wired: WIRED_RE.test(commentless) }
 }
+
 
 function inScope(p) {
   if (!/\.mjs$/.test(p)) return false
@@ -284,8 +515,14 @@ export function formatReport(perFile, verdict, opts = {}) {
     out.push(`  ❌ 清单腐烂:${f.path} 在台账挂着但被审面上已无 F1/F2 命中 ⇒ 删行(修好了就摘牌)`)
   }
   const notices = perFile.reduce((a, f) => a + f.notices.length, 0)
+  const byKind = (k) =>
+    perFile.reduce((a, f) => a + f.notices.filter((n) => n.kind === k).length, 0)
   if (notices > 0) {
-    out.push(`ℹ 只报数:${notices} 处在仓库树内造夹具(N1,属 §15 的另一型,不在本门红线内)。`)
+    const parts = []
+    if (byKind('N1')) parts.push(`N1 ${byKind('N1')} 处在仓库树内造夹具(§15 的另一型,不在本门红线内)`)
+    if (byKind('L1')) parts.push(`L1 ${byKind('L1')} 处落点已在合规根内(认落点判据放行,不是漏判)`)
+    if (byKind('M1')) parts.push(`M1 ${byKind('M1')} 处判据自身的镜像断言(MIRROR_EXEMPT 逐行豁免)`)
+    out.push(`ℹ 只报数:${notices} 处 —— ${parts.join(';')}。`)
     if (opts.all) {
       for (const f of perFile)
         for (const n of f.notices) out.push(`      ${f.path}:${n.line} ${n.kind} ${n.match}`)
@@ -466,6 +703,145 @@ function selfTest() {
     shouldRetreatToHead({ face: 'staged', scopeCount: 0, hasFilesArg: true }) === false,
   )
 
+  // ── 认落点判据(L1)的成对正反例 ──
+  // ① 落点已合规 ⇒ 只报数不计红线。这一组对应本票实测的 15 处里那 14 处:
+  //    树内 .ihui-agent/tmp(两种书写)、合规根标识符(名字与定义都要合规)、
+  //    mkScratch(/scratchRoot( 基座内。
+  const l1 = scanFixtureText(
+    [
+      "const a = mkdtempSync(join(ROOT, '.ihui-agent', 'tmp', 'x-'))",
+      "const b = mkdtempSync(join(ROOT, '.ihui-agent/tmp/y-'))",
+      "const TMP_ROOT = join(ROOT, '.ihui-agent', 'tmp')",
+      "const c = mkdtempSync(join(TMP_ROOT, 'c-'))",
+      "const FIXTURE_BASE = join(REPO, '.ihui-agent', 'tmp', 'sub')",
+      "const d = mkdtempSync(join(FIXTURE_BASE, 'd-'))",
+      "import { scratchRoot } from '../lib/scratch-dir.mjs'",
+      "const e = mkdtempSync(join(scratchRoot(), 'e-'))",
+    ].join('\n') + '\n',
+    'scripts/tests/l1-fixture.mjs',
+  )
+  check(
+    '落点已合规的 5 处 mkdtempSync ⇒ 全部只报数(L1)、零红线',
+    l1.hits.length === 0 && l1.notices.filter((n) => n.kind === 'L1').length === 5,
+  )
+  // ② 落点不合规的仍然是红线(判据放宽不得连真违规一起放过)
+  const l1neg = scanFixtureText(
+    [
+      "const q = mkdtempSync(join(os.tmpdir(), 'q-'))",
+      "const r = mkdtempSync(join(someUnknownRoot, 'r-'))",
+      'const scratchRoot = 1',
+      "const s = mkdtempSync(join(scratchRoot, 's-'))",
+    ].join('\n') + '\n',
+    'scripts/tests/l1-neg.mjs',
+  )
+  check(
+    '落点不合规(TEMP 源 / 认不出的根 / 假 scratchRoot)⇒ 仍计红线,一处都不许放过',
+    // 3 处 mkdtempSync(TEMP 源 / 认不出的根 / 只同名不调用的假 scratchRoot)全判红;
+    // 第 1 行那处另有一次真 tmpdir( 调用 ⇒ 额外一条 F2。
+    l1neg.hits.filter((h) => h.kind === 'F1').length === 3 &&
+      l1neg.hits.filter((h) => h.kind === 'F2').length === 1,
+  )
+  // ③ **名字合规不等于落点合规**(本判据最容易翻车的一处):
+  //    TMP_ROOT 名字对、但它的定义落在 os.tmpdir() 上 ⇒ 必须判红。
+  const l1name = scanFixtureText(
+    [
+      "const TMP_ROOT = join(os.tmpdir(), 'x')",
+      "const d = mkdtempSync(join(TMP_ROOT, 'd-'))",
+    ].join('\n') + '\n',
+    'scripts/tests/l1-name.mjs',
+  )
+  check(
+    '根标识符名字合规但定义读 TEMP ⇒ 判红(否则"起个合规名字就能过关")',
+    l1name.hits.some((h) => h.kind === 'F1'),
+  )
+  // ④ 假阳防线在落点判据这一侧同样成立:合规落点的字样只出现在注释/字符串里,
+  //    而真调用落在 TEMP 上 ⇒ 判红。
+  const l1fake = scanFixtureText(
+    [
+      "// 应当 mkdtempSync(join(TMP_ROOT, 'x-'))",
+      "const hint = 'mkdtempSync(join(scratchRoot(),'",
+      "const TMP_ROOT = join(os.tmpdir(), 'x')",
+      'const d = mkdtempSync(os.tmpdir())',
+    ].join('\n') + '\n',
+    'scripts/tests/l1-fake.mjs',
+  )
+  check(
+    '注释/字符串里的合规落点字样不得把真违规放绿(落点侧的假阳防线)',
+    // 第 3 行的 TMP_ROOT 定义自身写着 os.tmpdir( ⇒ 那条 F2 是**真的**;
+    // 第 4 行的真调用落在 TEMP 上 ⇒ F1+F2 都得判红(注释与字符串里的合规字样一律不认)。
+    l1fake.hits.filter((h) => h.kind === 'F1').length === 1 &&
+      l1fake.hits.filter((h) => h.kind === 'F2').length === 2,
+  )
+  // ⑤ 跨行实参:边界靠面 A 的括号配平取,不能按行回溯(本仓 heal-worktree-tracked 就是跨行形态)
+  const l1ml = scanFixtureText(
+    [
+      "const TMP_ROOT = join(ROOT, '.ihui-agent', 'tmp')",
+      'const e = mkdtempSync(',
+      "  join(TMP_ROOT, 'e-'),",
+      ')',
+    ].join('\n') + '\n',
+    'scripts/tests/l1-ml.mjs',
+  )
+  check('跨行实参的落点判据成立(括号配平取边界,不是按行回溯)', l1ml.hits.length === 0)
+  // ⑥ F2 永远违规这条一点没松:`tmpdir(` 的落点后门不存在
+  const l1f2 = scanFixtureText(
+    [
+      "const TMP_ROOT = join(ROOT, '.ihui-agent', 'tmp')",
+      'const p = join(TMP_ROOT, tmpdir())',
+    ].join('\n') + '\n',
+    'scripts/tests/l1-f2.mjs',
+  )
+  check(
+    'F2 仍永远违规:实参里出现 tmpdir( ⇒ 不给落点后门',
+    l1f2.hits.some((h) => h.kind === 'F2'),
+  )
+  // ⑦ 镜像断言豁免:文件 / 行号 / kind / anchor 四闸,任一不满足即不豁免
+  const MIRROR_TABLE = [
+    { file: 'scripts/tests/scratch-dir.test.mjs', line: 2, kind: 'F2', anchor: 'SCRATCH_DIR_NAME', reason: 'r' },
+  ]
+  const mHit = { line: 2, kind: 'F2' }
+  const mLine = 'const a = join(tmpdir(), SCRATCH_DIR_NAME)'
+  check('镜像断言豁免:四闸全对 ⇒ 覆盖', !!mirrorExemptFor(mHit, 'scripts/tests/scratch-dir.test.mjs', mLine, MIRROR_TABLE))
+  check(
+    '镜像断言豁免:行号不符 ⇒ 不覆盖(那一行新写的 tmpdir( 照样判红)',
+    mirrorExemptFor(mHit, 'scripts/tests/scratch-dir.test.mjs', mLine, [{ ...MIRROR_TABLE[0], line: 99 }]) === null,
+  )
+  check(
+    '镜像断言豁免:该行没有 anchor 字样 ⇒ 不覆盖(名单不得代替判据)',
+    mirrorExemptFor(mHit, 'scripts/tests/scratch-dir.test.mjs', 'const a = join(tmpdir(), TMP_DIR_NAME)', MIRROR_TABLE) === null,
+  )
+  check(
+    '镜像断言豁免:文件不符 ⇒ 不覆盖(不得跨文件生效)',
+    mirrorExemptFor(mHit, 'scripts/tests/other.test.mjs', mLine, MIRROR_TABLE) === null,
+  )
+  check(
+    '镜像断言豁免:kind 不符 ⇒ 不覆盖(F1 不得借用 F2 的豁免)',
+    mirrorExemptFor({ line: 2, kind: 'F1' }, 'scripts/tests/scratch-dir.test.mjs', mLine, MIRROR_TABLE) === null,
+  )
+  // M1 豁免命中要报出来(只报数),不得静默消失 —— 静默豁免与漏判在输出里同形。
+  // 这里刻意用**真实的 MIRROR_EXEMPT 表** + 垫到真实行号 377 的构造面:
+  // 用构造表验"报得出来"、用真实表验"锚得准",两件事分开才看得出是哪一件坏了。
+  const mirrorPad = `${'// pad\n'.repeat(MIRROR_EXEMPT[0].line - 1)}const linux = join(tmpdir(), SCRATCH_DIR_NAME)\n`
+  check(
+    'M1 豁免命中要报出来(只报数),不得静默消失 —— 静默豁免与漏判在输出里同形',
+    scanFixtureText(mirrorPad, MIRROR_EXEMPT[0].file).notices.some(
+      (n) => n.kind === 'M1' && n.line === MIRROR_EXEMPT[0].line,
+    ),
+  )
+  check(
+    'M1 真实表逐行锚定:同一段源码挪一行 ⇒ 豁免失效、判红(行号漂了不许默默继续罩)',
+    scanFixtureText(`const a = 1\nconst linux = join(tmpdir(), SCRATCH_DIR_NAME)\n`, MIRROR_EXEMPT[0].file)
+      .hits.some((h) => h.kind === 'F2'),
+  )
+  check(
+    'MIRROR_EXEMPT 真实条目:有且只有一条,锚在 scratch-dir.test.mjs:377 的镜像断言那一行',
+    MIRROR_EXEMPT.length === 1 &&
+      MIRROR_EXEMPT[0].file === 'scripts/tests/scratch-dir.test.mjs' &&
+      MIRROR_EXEMPT[0].line === 377 &&
+      MIRROR_EXEMPT[0].kind === 'F2' &&
+      !!MIRROR_EXEMPT[0].reason,
+  )
+
   // --self-test 只走构造面:它**不**碰仓库,所以跑完之后共享索引与磁盘都不该有变化
   check('自检不依赖仓库瞬时状态(上面全部用构造输入)', true)
   console.log(fails === 0 ? 'self-test 全绿' : `self-test 失败 ${fails} 条`)
@@ -521,7 +897,7 @@ function run({ strict, face, json, all, files }) {
       } catch (e) {
         throw new Undetermined(`${p} 读不出来:${e.message}`)
       }
-      perFile.push({ path: p, ...scanFixtureText(text) })
+      perFile.push({ path: p, ...scanFixtureText(text, p) })
     }
   } else {
     const contents = readFace(scope, usedFace)
@@ -532,7 +908,7 @@ function run({ strict, face, json, all, files }) {
         perFile.push({ path: p, hits: [], notices: [], wired: false, unreadable: true })
         continue
       }
-      perFile.push({ path: p, ...scanFixtureText(text) })
+      perFile.push({ path: p, ...scanFixtureText(text, p) })
     }
   }
   // 台账在这里真正生效:每一行的原始命中先过 applyLedger,得到"该判的违规 / 被正当豁免的 /
@@ -628,12 +1004,16 @@ if (isDirectRun) {
 
 export const __test__ = {
   SELF_EXEMPT,
+  MIRROR_EXEMPT,
   scanFixtureText,
+  landingVerdict,
+  mirrorExemptFor,
   decide,
   shouldRetreatToHead,
   formatReport,
   inScope,
   lineOf,
+  exprEnd,
   ROOT,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

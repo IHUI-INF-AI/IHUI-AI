@@ -1121,6 +1121,217 @@ function resolveWorkerEntryPath(): string {
  * 注意 `maxWorkers` 必须放在 `...overrides` **之后**:否则调用方(含模型自填的 999)
  * 会在最后一刻把钳制结果覆盖掉,钳制形同不存在。
  */
+/** kill 信号发出证据(G-998112):回答"kill 发出否"。 */
+export interface WorkerKillEvidence {
+  signal: NodeJS.Signals;
+  pid: number;
+  /** kill() 是否成功发出(返回 true 且未抛错)。 */
+  sent: boolean;
+  /** 发出失败时的错误信息(含返回 false 与抛错两型)。 */
+  error?: string;
+}
+
+/** 进程退出证据(G-998112):回答"进程真退否 + exit code/signal"。 */
+export interface WorkerExitEvidence {
+  pid: number;
+  /** OS 是否确认进程已退(exit 事件 code/signal 非空,或存活探针确认已不在)。 */
+  exited: boolean;
+  exitCode: number | null;
+  signal: NodeJS.Signals | null;
+  /** 存活探针结果(true=仍在,false=已不在,null=未探/未知)。 */
+  alive: boolean | null;
+  /** 发出过的 kill 证据(按序)。 */
+  kills: WorkerKillEvidence[];
+}
+
+/** 退出归因(G-998112):有 OS 证据才定终态,无证据记未判定并报名。 */
+export type WorkerExitAttribution =
+  | { kind: 'decided'; terminal: 'failed' | 'completed'; evidence: WorkerExitEvidence; reason: string }
+  | { kind: 'undetermined'; reason: string; evidence: WorkerExitEvidence };
+
+/** attemptKillSignal / probeWorkerLiveness 的最小 proc 面(ChildProcess 满足;单测用假对象)。 */
+export interface KillableProcLike {
+  pid?: number;
+  exitCode?: number | null;
+  signalCode?: NodeJS.Signals | null;
+  kill(signal: NodeJS.Signals | 0): boolean;
+}
+
+/**
+ * 发出 kill 信号并记录证据(G-998112)。
+ * 永不抛错、永不静默:发出否 + 抛错信息都在返回值里,调用方必须用
+ * formatKillEvidenceReport 报名。调用点不得再静默吞错。
+ * (exit 收口见各调用点下方的 once exit 等待;残留进程的退出证据由 exit 事件收口。)
+ */
+export function attemptKillSignal(
+  proc: KillableProcLike,
+  signal: NodeJS.Signals,
+  pidFallback = 0,
+): WorkerKillEvidence {
+  const pid = proc.pid ?? pidFallback;
+  try {
+    // exit 证据由调用点收口(residual 残留进程见 exit 事件);此处只记 kill 发出结果。
+    const sent = proc.kill(signal);
+    if (sent) return { signal, pid, sent: true };
+    return { signal, pid, sent: false, error: 'kill returned false (signal not delivered)' };
+  } catch (err) {
+    return { signal, pid, sent: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * 存活探针(G-998112):回答"进程还活着否",供退出归因当 OS 证据。
+ * 顺序:先读 exitCode / signalCode 快照(有值 ⇒ 已退,不发信号);
+ * 否则发 0 信号探针(ESRCH ⇒ 已不在;EPERM/EACCES ⇒ 仍在;其他/未知 ⇒ null 未判定)。
+ * 永不抛错;探针信号 0 无副作用。
+ * (残留判断见调用方的 exit 事件收口,本探针只回答当下是否仍在。)
+ */
+export function probeWorkerLiveness(proc: KillableProcLike): boolean | null {
+  try {
+    if (proc.exitCode !== null && proc.exitCode !== undefined) return false;
+    if (proc.signalCode !== null && proc.signalCode !== undefined) return false;
+    try {
+      const reachable = proc.kill(0);
+      return reachable ? true : false;
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException | null)?.code;
+      if (code === 'ESRCH') return false;
+      if (code === 'EPERM' || code === 'EACCES') return true;
+      return null;
+    }
+  } catch {
+    return null;
+  }
+}
+
+/** shouldMarkDeadAfterKill 的输入(OS 证据快照)。 */
+export interface DeadGateInput {
+  exitCode?: number | null;
+  signalCode?: NodeJS.Signals | null;
+  /** 存活探针结果(true=仍在,false=已不在,null=未探/未知)。 */
+  alive: boolean | null;
+}
+
+/**
+ * 记账门(G-998112,纯函数):有 OS 证据才记 dead,仍存活/未知时记未判定。
+ * - exit code/signal 非空 ⇒ 已退 ⇒ 可记 dead;
+ * - 探针确认已不在 ⇒ 可记 dead;
+ * - 探针确认仍在 ⇒ 不记 dead(未判定并报名,调用方必须报);
+ * - 未探/未知 ⇒ 不记 dead(宁可报名,不把"没判"写成"已判")。
+ * 调度语义不在这里,checkHeartbeat 用它做门;exit 事件收口不受此门影响。
+ */
+export function shouldMarkDeadAfterKill(input: DeadGateInput): { markDead: boolean; reason: string } {
+  const { exitCode = null, signalCode = null, alive } = input;
+  if (exitCode !== null || signalCode !== null) {
+    return { markDead: true, reason: `exit evidence: exitCode=${exitCode} signal=${signalCode}` };
+  }
+  if (alive === false) {
+    return { markDead: true, reason: 'liveness probe confirms process gone (exit snapshot / kill ESRCH)' };
+  }
+  if (alive === true) {
+    return { markDead: false, reason: 'undetermined: process still alive, no exit code/signal' };
+  }
+  return { markDead: false, reason: 'undetermined: no exit code/signal and liveness unknown' };
+}
+
+/** attributeWorkerExit 的输入(纯数据,单测直接喂)。 */
+export interface AttributeWorkerExitInput {
+  pid: number;
+  code: number | null;
+  signal: NodeJS.Signals | null;
+  timedOut: boolean;
+  kills: WorkerKillEvidence[];
+  /** 存活探针结果(true=仍在,false=已不在,null=未探/未知)。 */
+  alive: boolean | null;
+}
+
+/**
+ * 退出归因(G-998112,纯函数):有 OS 证据才定终态。
+ * - exit code/signal 非空 ⇒ OS 证据成立 ⇒ 按既有终态语义定 failed/completed
+ *   (timeout/OOM=3/CPU=4/signal ⇒ failed;其余非 0 ⇒ failed;0 ⇒ completed);
+ * - 无 code/signal 但探针确认已不在 ⇒ 视为已退,终态 failed(无 0 码不得记 completed);
+ * - 无 code/signal 且仍在 ⇒ 未判定(不记 dead/failed,调用方必须报名);
+ * - 无 code/signal 且未知 ⇒ 超时任务维持原终态 failed(超时本身是任务失败理由,
+ *   但如实记"无退出证据",不断言新证据);非超时 ⇒ 未判定。
+ * (残留进程的最终收口仍是 exit 事件,本函数只做归因判定。)
+ */
+export function attributeWorkerExit(input: AttributeWorkerExitInput): WorkerExitAttribution {
+  const { pid, code, signal, timedOut, kills, alive } = input;
+  const isOOM = code === 3;
+  const isCpuLimit = code === 4;
+  if (code !== null || signal !== null) {
+    const evidence: WorkerExitEvidence = { pid, exited: true, exitCode: code, signal, alive, kills };
+    const isError = code !== 0 && code !== null && !isOOM && !isCpuLimit;
+    const failed = timedOut || isError || isOOM || isCpuLimit || signal !== null;
+    const reason = `exit evidence: code=${code} signal=${signal} timedOut=${timedOut} kills=${kills.length}`;
+    return { kind: 'decided', terminal: failed ? 'failed' : 'completed', evidence, reason };
+  }
+  if (alive === true) {
+    const evidence: WorkerExitEvidence = { pid, exited: false, exitCode: code, signal, alive, kills };
+    return {
+      kind: 'undetermined',
+      reason: `undetermined: pid ${pid} still alive, no exit code/signal (kills=${kills.length})`,
+      evidence,
+    };
+  }
+  if (alive === false) {
+    const evidence: WorkerExitEvidence = { pid, exited: true, exitCode: code, signal, alive, kills };
+    return {
+      kind: 'decided',
+      terminal: 'failed',
+      evidence,
+      reason: `liveness confirms gone: pid ${pid} no exit code/signal timedOut=${timedOut} kills=${kills.length}`,
+    };
+  }
+  const evidence: WorkerExitEvidence = { pid, exited: false, exitCode: code, signal, alive, kills };
+  if (timedOut) {
+    return {
+      kind: 'decided',
+      terminal: 'failed',
+      evidence,
+      reason: `timeout without OS exit evidence: pid ${pid} kills=${kills.length} (task failed by timeout, no exit claim)`,
+    };
+  }
+  return {
+    kind: 'undetermined',
+    reason: `undetermined: pid ${pid} no exit code/signal, liveness unknown, not timed out (kills=${kills.length})`,
+    evidence,
+  };
+}
+
+/** kill 发出报名行(G-998112,纯函数;调用方负责写 stderr,不得静默)。 */
+export function formatKillEvidenceReport(subagentId: string, evidence: WorkerKillEvidence): string {
+  const outcome = evidence.sent ? 'sent' : `NOT sent${evidence.error ? `: ${evidence.error}` : ''}`;
+  return `[subagent ${subagentId}] kill ${evidence.signal} pid=${evidence.pid} ${outcome}\n`;
+}
+
+/** 未判定报名行(G-998112,纯函数;调用方负责写 stderr,不得静默)。 */
+export function formatUndeterminedReport(
+  subagentId: string,
+  detail: {
+    pid: number;
+    exitCode: number | null;
+    signal: NodeJS.Signals | null;
+    alive: boolean | null;
+    kills: WorkerKillEvidence[];
+  },
+): string {
+  const aliveText = detail.alive === true ? 'still alive' : detail.alive === false ? 'gone' : 'unknown liveness';
+  return (
+    `[subagent ${subagentId}] exit undetermined: pid=${detail.pid} ${aliveText} ` +
+    `exitCode=${detail.exitCode} signal=${detail.signal} kills=${detail.kills.length} ` +
+    `(no OS exit evidence, not marking dead)\n`
+  );
+}
+
+/** 退出证据摘要(G-998112,纯函数;拼进 failed 响应的 error,不改终态词汇)。 */
+export function formatExitEvidenceSuffix(evidence: WorkerExitEvidence): string {
+  const kills = evidence.kills.map((k) => `${k.signal}:${k.sent ? 'sent' : 'NOT sent'}`).join(',');
+  return `killEvidence=[${kills}] exitCode=${evidence.exitCode} signal=${evidence.signal} exited=${evidence.exited}`;
+}
+
+// ==================== 默认配置 ====================
+
 export function defaultWorkerPoolConfig(overrides?: Partial<WorkerPoolConfig>): WorkerPoolConfig {
   return {
     taskTimeoutSeconds: DEFAULT_TASK_TIMEOUT_SECONDS,
