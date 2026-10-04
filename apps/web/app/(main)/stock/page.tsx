@@ -24,6 +24,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@ihui/ui-react'
+import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import { Alert } from '@/components/feedback'
 import { BackButton, Empty, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
@@ -122,7 +123,7 @@ export default function StockAnalysePage() {
   const balanceUsed = balance?.used ?? 0
   const balanceRemaining = balance?.remaining ?? 0
   const usedPct =
-    balanceTotal > 0 ? Math.min(100, Math.max(0, (balanceUsed / balanceTotal) * 100)) : 0
+    balanceTotal > 0 ? clampPercent((balanceUsed / balanceTotal) * 100) : 0
 
   const canAnalyse = symbol.trim().length > 0 && question.trim().length > 0 && !analysing
   const isMock = Boolean(result?.mock || result?.error)
