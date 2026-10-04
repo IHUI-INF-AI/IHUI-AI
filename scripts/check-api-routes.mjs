@@ -95,12 +95,16 @@ const FRONTEND_ENDS = [
     //     不许"整文件一条红就完事"也不许把已注册那条连带判死(镜像 FG-2)。
     //  ③ `endpoints/agent.ts` 的 `fetchApi<AgentCategories>('/cozeZhsApi/cache/…')` ⇒ **看不见**:
     //     `pathRe` 要求引号紧邻 `/api/`,而这种字面量的前缀是 transport 的 `normalizeUrl` 才会补成
-    //     `/api/` —— 归一档只被 CE① 读、主对账从不应用,所以它**一条都不进调用集**,既不判死也不落
-    //     任何既有未判定桶(实测三个数一起报 0 = 静默绿)。这一格**结构上无法由静态门判**:
-    //     真路径取决于运行期宿主注入的 base URL 与是否命中 rewrite,静态读不到(与票面"任一后端在册
-    //     即算活"那条否证同源),把它判红就是存量恒红门(§12e),臆造路径就是造第二份真相。
-    //     ⇒ 现由 `collectAliasLiteralBlindSites` 登记成「未判定(改写前缀字面量)」并**逐条报名**,
-    //       输出无条件打印;读到这一面的人先看见"这几处没判",不得读成"已对账"。
+    //     `/api/` —— 归一档只被 CE① 读、主对账从不应用,所以它**一条都不进调用集**。
+    //     **这一格结构上无法由静态门判死**:真路径取决于运行期宿主注入的 base URL 与是否命中
+    //     rewrite,静态读不到(与票面"任一后端在册即算活"那条否证同源),把它判红就是存量恒红门
+    //     (§12e),臆造路径就是造第二份真相。**取材扩展已实测否证**(抽进来死调用 0→4,
+    //     4 条全是误报,误报率 100%,理由见 `collectAliasLiteralBlindSites` 上方注释)。
+    //     ⇒ 2026-10-04 起由 `collectAliasLiteralBlindSites` 登记成「未判定(改写前缀字面量)」,
+    //       **逐条带 `kind`(前缀常量声明/路径片段/真调用点)+ `adjudicable`(能不能判)+
+    //       可判者的"归一后路径在册与否"**,输出无条件打印。
+    //       即"没判"仍是"没判"(不判红,§12e),但**不再是无归属**:每一处都有判据和归属,
+    //       读到这一面的人不会把它读成"已对账"。
   },
   {
     name: 'cli',
@@ -729,13 +733,55 @@ function collectAliasSiteUndetermined({ frontendFiles, alias, hasRoute }) {
  * **一条都不进调用集** —— 既不判死、也不落任何既有未判定桶,账面表现成"这一族已经对过账"的
  * 静默绿(实测:临时根里放 `fetchApi<AgentCategories>('/cozeZhsApi/cache/agent-category-dict/categories')`
  * 且两种拼写都不在册 ⇒ exit 0、api-client 死调用 0 处、未判定 0 处,三个数一起撒谎)。
- * 本档**不判红**:真仓 HEAD 面这类站点是存量,当场 blocking 就是一台与任何提交都无关的恒红门,
- * 唯一结局是逼人 `--no-verify`、连带废掉全部守门(§12e 同型)。它只做一件事 —— **报名**,
- * 让读到这一面的人先看见"这几处静态对账看不见",再谈裁决(不得把"没判"写成"判过了")。
+ *
+ * ## 2026-10-04 本票:把这一格从"没有判据"改成"逐条有判据"(措辞随之重写)
+ *
+ * ### 先前的错在哪(不是"判红",是**连桶都没进**)
+ * 本档原先只把 8 处**列出来**,既不说它们各自属哪一型、也不说能不能判 ——
+ * 于是这一格在读数里"看得见名字、看不见归属",与既有的 `shapeUnknown` 桶并列却无人负责。
+ *
+ * ### 取材扩展:**实测否证**(量表见下,不是推理)
+ * 试过把这类字面量也抽进调用集(`/cozeZhsApi` → `/api` 归一后参与对账)。**死调用从 0 变 4**,
+ * 逐条裁决结果是 **4 条全是误报(误报率 100%)**:
+ *   · WS 四条(`use-ai-websocket.ts:15-18`)—— 后端 `ws-ai.ts:805-808` 用**裸 `/cozeZhsApi` 前缀**
+ *     注册(`server.get(path,…)` 的 `path` 是**变量实参**,后端取材同样抽不出),而前端
+ *     `buildWsUrl`(`apps/web/src/lib/ws-url.ts:51-63`)**原样拼接、不过 normalizeUrl**
+ *     ⇒ 归一成 `/api/ws/*` 就是凭空造一条谁都没发过的请求。**改写档对 WS 不成立。**
+ *   · `HomeScreen.tsx:569/577` —— 真调用点,但 `/api/agents/collect` 后端**确实没有**
+ *     (`agentsRoutes` 挂 `prefix:'/api'` + `server.post('/collect')` ⇒ 真路径是 `/api/collect`)。
+ *     这两条是**真错**,但**归因不同**(见下"为什么不修"),且当存量判红就是恒红门(§12e)。
+ *   · `agent.ts:97` —— 真调用点,`/api/cache/agent-category-dict/categories` 后端也没有
+ *     (真实端点是 `agent-categories-cache.ts` 的 `/api/agent-categories/cache*`)。**真错**。
+ * ⇒ 误报率 100% ⇒ **不扩展取材**(守门 skill §3b:形态可疑 ≠ 形态异常,先找反例;
+ *   找到反例就说明该形态是常态,扩展必误杀)。**只让这一格有归属。**
+ *
+ * ### 本票实际交付:逐条分类 + 报名(不新增任何判红路径)
+ * 每一处站点现在带三个字段,读者一眼能分清"这一处到底是什么":
+ *   · `kind` —— `prefixConstant`(整条就是前缀常量声明,**不是调用点**)/
+ *                `pathFragment`(路径字面量但**本行无传输口**,真调用在别处)/
+ *                `callSite`(本行有传输口,**是真调用点**)
+ *   · `adjudicable` —— 该形态**能不能**静态判(见下三条判据)
+ *   · `reason` —— 逐条依据
+ *
+ * 三类的可判性(这是本票新增的判据,不是措辞):
+ *   ① `prefixConstant`(`backend-paths.ts:10 const COZE = '/cozeZhsApi'`)
+ *      **不可判** —— 它是**前缀事实源的声明**,不是一次请求。归一后 `/api` 不是一条路径。
+ *      真正的调用点是它下游那 43 处 `` `${COZE}/…` `` 插值,而插值形态进不了 `pathRe`
+ *      (与 `:param` 假影同族);那个文件另有 35 条可抽取的 `/api/` 字面量 ⇒ `calls.length>0`
+ *      ⇒ **它也进不了 `shapeUnknown` 桶**(该桶判据是 `calls.length===0`)。
+ *      **这就是本格"无归属"的机械原因**,也是为什么不能简单并桶。
+ *   ② `pathFragment`(`use-ai-websocket.ts:15-18` 的 `PROVIDER_PATHS` 四条)
+ *      **不可判**,且**改写不成立** —— 消费方 `buildWsUrl` 原样拼 WS origin,不过 `normalizeUrl`;
+ *      后端也用裸 `/cozeZhsApi` 注册。归一后的 `/api/ws/*` 是谁都没发过的路径。
+ *   ③ `callSite`(`HomeScreen.tsx:569/577`、`agent.ts:97`)
+ *      **可判** —— 真调用点,归一后路径即运行期真实 URL。本门**不判红**(存量当场 blocking
+ *      = 恒红门,§12e),但把"归一后路径 + 在册与否"**逐条算出来报名**,让这三处的
+ *      真实状态(其中 3 条后端确实没有)不再读成"已对账"。
+ *
  * 前缀事实源仍是 transport 现读的改写档(门内不得有第二张前缀表:T-CE-7 的同一条禁令);
  * 识别式与 ③ 共用 `aliasLiteralRe`,判在**遮注释面**(注释里逐字引用 JSX/字面量的说明不算站点)。
  */
-function collectAliasLiteralBlindSites({ frontendFiles, alias }) {
+function collectAliasLiteralBlindSites({ frontendFiles, alias, hasRoute }) {
   const out = []
   if (!alias || !alias.parsed || alias.rules.length === 0) return out
   for (const { file, src } of frontendFiles) {
@@ -744,21 +790,86 @@ function collectAliasLiteralBlindSites({ frontendFiles, alias }) {
     // 把它当站点会让门把事实源读成消费者(与 findLiveAliasSites 同一条自指型假阳防护)
     if (file === CLIENT_TRANSPORT_FILE) continue
     const maskedLines = maskComments(src).split('\n')
+    const rawLines = src.split('\n')
     for (const rule of alias.rules) {
       const litRe = aliasLiteralRe(rule)
       maskedLines.forEach((line, idx) => {
         if (!litRe.test(line)) return
         const raw = (line.match(litRe)?.[0] || '').slice(1, -1) || rule.from
-        out.push({
+        const cls = classifyAliasLiteralSite(line, raw, rule)
+        const entry = {
           file,
           line: idx + 1,
           raw,
           rewritten: rule.to + raw.slice(rule.from.length),
-        })
+          ...cls,
+        }
+        // 只有**可判**型才问在册与否 —— 对不可判型问它就是拿一个"谁都没发过的路径"去查注册面,
+        // 查出来"不在册"会被读成"缺后端路由",而事实是那一族根本不经过改写(见 classify 的 ②)。
+        if (cls.adjudicable && typeof hasRoute === 'function') {
+          const method = inferMethodAtLine(rawLines, idx)
+          entry.method = method
+          entry.registered = aliasPathCandidates(normalizeCallPath(entry.rewritten)).some((c) =>
+            hasRoute(method, c),
+          )
+        }
+        out.push(entry)
       })
     }
   }
   return out
+}
+
+/**
+ * 站点分类(2026-10-04):把"这一处到底是什么"变成机器可读的三个字段。
+ * 刻意**只分类、不裁决生死** —— 判红与否是调用方的事,这里只回答"能不能静态判"。
+ *
+ * ## `kind` 的三型(判据:整行形态 + 同行有无传输口,判在**遮注释面**)
+ * ① `prefixConstant` —— 整行就是"前缀 = '<from>'"的常量声明。
+ *    识别式:`const|let|var NAME = '<from>'` 且后面**没有** `/` 续段(没有续段 ⇒ 它是前缀本身,
+ *    不是一条以它开头的路径)。**它不是调用点**:归一后是 `/api` 这样的前缀,不是一条路径。
+ * ② `pathFragment` —— 有续段(是条路径),但**本行无传输口** ⇒ 片段/表项,真调用在别处。
+ * ③ `callSite` —— 本行有传输口(`LINE_TRANSPORT_RE`,与机制⑤共用同一份实现)⇒ **真调用点**,
+ *    归一后路径即运行期真实 URL。
+ *
+ * ## `adjudicable` 的判据(为什么 WS 表项那一类"改写不成立")
+ * 归一(改写前缀)**只对经 `normalizeUrl` 的调用成立**。三型里只有 ③ 一定是那种调用;
+ * ② 要看消费方 —— WS 出口(`buildWsUrl`)原样拼 origin、**不过 normalizeUrl**,
+ *    后端也用裸前缀注册,所以那一类归一后的路径是**谁都没发过的**,判它等于造假影。
+ * 这里对 ② 一律记 `adjudicable:false` 并把"消费方未经改写"写进 reason(有据可查:
+ * `apps/web/src/lib/ws-url.ts:51-63` 与 `apps/api/src/plugins/ws-ai.ts:805-808`)。
+ *
+ * ## 为什么不judge ① 和 ② 能不能进 `shapeUnknown` 桶
+ * `shapeUnknown` 的判据是**文件级** `calls.length === 0`(见 extractFrontendCalls 调用方),
+ * 而 `backend-paths.ts` 另有 35 条可抽取的 `/api/` 字面量 ⇒ `calls.length>0` ⇒ 天然进不了那个桶。
+ * 这就是"并桶"这条路走不通的机械原因(不是取舍偏好),也是本票保留独立命名档的原因。
+ */
+function classifyAliasLiteralSite(maskedLine, raw, rule) {
+  const rest = raw.slice(rule.from.length)
+  if (rest === '') {
+    return {
+      kind: 'prefixConstant',
+      adjudicable: false,
+      reason:
+        '这一行是**前缀常量声明本身**,不是一次请求(归一后只是前缀,不是路径);' +
+        '它下游的 `${前缀}/…` 插值形态进不了 pathRe,那些调用点本门结构上看不见',
+    }
+  }
+  if (!LINE_TRANSPORT_RE.test(maskedLine)) {
+    return {
+      kind: 'pathFragment',
+      adjudicable: false,
+      reason:
+        '本行无传输口 ⇒ 是路径片段/表项,真调用在别处;且 WS 出口原样拼接不过 normalizeUrl' +
+        '(buildWsUrl apps/web/src/lib/ws-url.ts:51-63,后端 ws-ai.ts:805-808 亦用裸前缀注册)' +
+        '⇒ 归一后的路径谁都没发过,不可判',
+    }
+  }
+  return {
+    kind: 'callSite',
+    adjudicable: true,
+    reason: '本行有传输口 ⇒ 真调用点,归一后路径即运行期真实 URL(可判;本轮只报名不判红,§12e)',
+  }
 }
 
 
@@ -1545,6 +1656,18 @@ function inferMethodAtLine(lines, idx) {
  * 用于把"路径住在第二个实参"的形态拼回完整路径,并**不再把前缀常量声明行当调用点**
  * (它只是片段);其余端 opts 省略 ⇒ 行为与本笔改动前逐字相同。
  */
+/**
+ * 「这一行上有没有传输口」——**文件级唯一实现**,两处消费者共用(守门 70/131 同型:
+ * 同一条判据在两处各抄一遍必然漂移,而这里漂移的后果是"片段"与"调用点"给出不同答案)。
+ *
+ * ① `extractFrontendCalls` 的机制⑤(子串匹配不是调用点)判的是**遮罩行**;
+ * ② `classifyAliasLiteralSite` 判"改写前缀字面量是调用点还是片段"用的是同一个式子。
+ * 泛型传输口(`fetchApi<T>(`)必须单独认 —— 本仓绝大多数真调用走本地 wrapper,
+ * 少了泛型分支会把它们整族读成片段。
+ */
+const LINE_TRANSPORT_RE =
+  /\bfetchApi(?:<[^<>]*>)?\s*\(|\bfetch(?:<[^<>]*>)?\s*\(|Taro\.request|\bwx\.request|\bmy\.request|\btt\.request|XMLHttpRequest|axios\.|\brequest(?:<[^<>]*>)?\s*\(/
+
 function extractFrontendCalls(src, file, opts) {
   const cli = opts && opts.cli ? opts.cli : null
   const cliShapes = Boolean(opts && opts.cliShapes)
@@ -1590,8 +1713,6 @@ function extractFrontendCalls(src, file, opts) {
   const maskedLines = maskComments(src).split('\n')
   const STRING_PREDICATE_RE =
     /\.\s*(?:includes|startsWith|endsWith|contains|match|replace|split|indexOf|search)\s*\(\s*['"`]\/api\//
-  const LINE_TRANSPORT_RE =
-    /\bfetchApi(?:<[^<>]*>)?\s*\(|\bfetch(?:<[^<>]*>)?\s*\(|Taro\.request|\bwx\.request|\bmy\.request|\btt\.request|XMLHttpRequest|axios\.|\brequest(?:<[^<>]*>)?\s*\(/
   lines.forEach((line, idx) => {
     const maskedLine = maskedLines[idx] ?? ''
     let m
@@ -3713,7 +3834,11 @@ let channelVerdict = null
    * 分支里,等于"守卫没装 ⇒ 这一族的不可见性也不报名",而报名恰恰是它唯一的价值。
    * 同面同轮:复用上面已经 prefetch 满的 `frontendFiles` 与 `alias`,不另开一次取材。
    */
-  const aliasLiteralBlind = collectAliasLiteralBlindSites({ frontendFiles, alias })
+  const aliasLiteralBlind = collectAliasLiteralBlindSites({
+    frontendFiles,
+    alias,
+    hasRoute: backendHasRoute,
+  })
   /**
    * 首锚台账:缺档 ⇒ 该维**未判定**(不判红也不记绿,同本门 `BASELINE_FILE_REL` 缺档的手法)。
    * 键集与判据同面:`declared[]` 里每条必须带 file + path + reason,坏 JSON 不冒充空清单。
@@ -4111,18 +4236,51 @@ if (DUMP_MISSING) {
    * 挂在"有站点才喊"的分支里就等于没有:这一族的错恰恰是"一处都不进调用集",
    * 于是所有既有分支都走成安静(守门 70/76/81 同型)。0 也要说清是哪一种 0 ——
    * 「面上确实没有这类字面量」与「改写档本身读不出所以扫不了」是两件事。
+   *
+   * 2026-10-04:措辞按现状重写。原先写"这些调用点一条都不进调用集,既不判死也不落任何既有
+   * 未判定桶,但这一格没有判据" —— 后半句**已失效**:本票给每一处加了 `kind`/`adjudicable`
+   * (见 classifyAliasLiteralSite),这一格现在**逐条有判据**,且可判的那几处把"归一后路径
+   * 在册与否"一并算出来报名。仍不判红(§12e:存量当场 blocking = 恒红门)。
+   * 取材扩展已实测否证(误报率 100%,见该函数注释),所以"一条都不进调用集"这句**仍然成立**。
    */
   if (v.aliasLiteralBlind.length > 0) {
+    const adjudicable = v.aliasLiteralBlind.filter((b) => b.adjudicable)
+    const blind = v.aliasLiteralBlind.length - adjudicable.length
+    const unregistered = adjudicable.filter((b) => b.registered === false)
     console.log(
-      `${C.yellow}[API 路由比对] ⚠️ 未判定(改写前缀字面量,静态对账整条看不见)${v.aliasLiteralBlind.length} 处 —— pathRe 只认引号紧邻 \`/api/\` 的字面量,这些调用点**一条都不进调用集**,既不判死也不落任何既有未判定桶;本轮不判红(存量当场判红就是恒红门,§12e),但这一格**没有判据**,不得读成"已对账":${C.reset}`,
+      `${C.yellow}[API 路由比对] ⚠️ 未判定(改写前缀字面量,静态对账整条看不见)${v.aliasLiteralBlind.length} 处 —— ` +
+        `pathRe 只认引号紧邻 \`/api/\` 的字面量,这些站点**一条都不进调用集**(取材扩展已实测否证:` +
+        `把它们抽进来死调用 0→4,而那 4 条**全是误报**,误报率 100%,故不扩面)。` +
+        `本轮不判红(存量当场判红就是恒红门,§12e)。**这一格现已逐条有判据**:` +
+        `可判 ${adjudicable.length} 处 / 不可判 ${blind} 处(前缀常量声明与 WS 片段表项 —— ` +
+        `改写对它们不成立,归一后的路径谁都没发过);可判的 ${adjudicable.length} 处里` +
+        `后端在册 ${adjudicable.length - unregistered.length} 处 / 不在册 ${unregistered.length} 处:${C.reset}`,
     )
     for (const b of v.aliasLiteralBlind.slice(0, 25)) {
+      // 逐条把"哪一型 + 能不能判 + 判的依据"摊开 —— 不许只给路径不给归属
+      const kindLabel =
+        b.kind === 'prefixConstant'
+          ? '前缀常量声明·非调用点'
+          : b.kind === 'pathFragment'
+            ? '路径片段/表项·改写不成立'
+            : '真调用点·可判'
+      const verdict = b.adjudicable
+        ? b.registered
+          ? '后端在册'
+          : '后端**不在册**'
+        : '不可判'
       console.log(
-        `${C.dim}    ${b.file}:${b.line} ${b.raw} →归一后 ${b.rewritten}(两种拼写都未经本门对账)${C.reset}`,
+        `${C.dim}    ${b.file}:${b.line} ${b.raw} →归一后 ${b.rewritten} 〔${kindLabel} · ${verdict}〕${C.reset}`,
       )
     }
     if (v.aliasLiteralBlind.length > 25)
       console.log(`${C.dim}    ... 还有 ${v.aliasLiteralBlind.length - 25} 处${C.reset}`)
+    if (unregistered.length > 0) {
+      console.log(
+        `${C.dim}    上面标「后端**不在册**」的 ${unregistered.length} 处是真调用点且归一后路径确实没有后端路由` +
+          `(404 风险)—— 本轮按 §12e 不判红,登记在此等人裁决,不得读成"已对账":${C.reset}`,
+      )
+    }
   } else {
     console.log(
       v.alias.parsed && v.alias.rules.length > 0
