@@ -14,7 +14,12 @@ import { execSync } from 'node:child_process'
 
 let staged = []
 try {
-  const out = execSync('git diff --cached --name-only', { encoding: 'utf8', windowsHide: true })
+  const out = execSync('git diff --cached --name-only', {
+    encoding: 'utf8',
+    windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   staged = out.split('\n').filter(Boolean)
 } catch {
   // git 命令失败不阻塞 commit

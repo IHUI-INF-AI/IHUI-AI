@@ -438,6 +438,8 @@ function measurePagefilesMB() {
         encoding: 'utf8',
         windowsHide: true,
         timeout: 20000,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
       })
       const map = parsePagefileUsage(out)
       if (map.size) return map
@@ -453,7 +455,13 @@ function readPagingFiles() {
     const raw = execFileSync(
       'reg.exe',
       ['query', 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management', '/v', 'PagingFiles'],
-      { encoding: 'utf8', windowsHide: true, timeout: 8000 },
+      {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 8000,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
     )
     return parsePagingFiles(raw)
   } catch {
@@ -549,6 +557,8 @@ export function queryMaintainTask(options = {}) {
       windowsHide: true,
       timeout: options.timeout || 15000,
       maxBuffer: 1 << 24,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     return judgeTaskRegistration(out, options.needle)
   } catch (e) {

@@ -22,7 +22,14 @@ import { substrateVerdict, probeSubstrate } from '../lib/substrate-probe.mjs'
 
 const GIT = resolveGitBin()
 const git = (args, cwd) =>
-  execFileSync(GIT, args, { encoding: 'utf8', cwd, windowsHide: true, timeout: 60000 })
+  execFileSync(GIT, args, {
+    encoding: 'utf8',
+    cwd,
+    windowsHide: true,
+    timeout: 60000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
 
 const RUNNER = readFileSync(new URL('../guardian-runner.mjs', import.meta.url), 'utf8')
 

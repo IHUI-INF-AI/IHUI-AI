@@ -30,7 +30,14 @@ const SCRIPT = 'check-merge-addition-loss.mjs'
 function repo() {
   const dir = mkScratch('ihui-merge-loss-it-')
   const run = (...a) =>
-    execFileSync(GIT, ['-c', 'safe.directory=*', ...a], { cwd: dir, encoding: 'utf8', windowsHide: true, timeout: 60000 }).trim()
+    execFileSync(GIT, ['-c', 'safe.directory=*', ...a], {
+      cwd: dir,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 60000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
   run('init', '-q', '-b', 'main')
   run('config', 'user.email', 't@t')
   run('config', 'user.name', 't')
@@ -171,6 +178,8 @@ test('commitExists:真 HEAD ⇒ true;随机 40 位 sha ⇒ false(多机残值就
     encoding: 'utf8',
     windowsHide: true,
     timeout: 60000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   }).trim()
   assert.equal(G.commitExists(head), true)
   assert.equal(G.commitExists('dead'.repeat(10)), false)

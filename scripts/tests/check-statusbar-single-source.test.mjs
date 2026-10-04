@@ -109,7 +109,15 @@ test('--json 的 stdout 必须是**单份可 parse** 的文档(人话尾巴会�
   const script = join(ROOT, 'scripts/check-statusbar-single-source.mjs')
   let out = ''
   try {
-    out = execFileSync(process.execPath, [script, '--json'], { cwd: ROOT, encoding: 'utf8', windowsHide: true, timeout: 180000, maxBuffer: 64 * 1024 * 1024 })
+    out = execFileSync(process.execPath, [script, '--json'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 180000,
+      maxBuffer: 64 * 1024 * 1024,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
   } catch (e) {
     out = e?.stdout ?? '' // 红着退出也是合法输出，照样得能 parse
   }

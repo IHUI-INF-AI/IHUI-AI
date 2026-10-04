@@ -79,7 +79,12 @@ function listenersOfPort(port) {
       ),
     ]
   }
-  const r = spawnSync('lsof', ['-ti', `tcp:${port}`], { encoding: 'utf8', windowsHide: true })
+  const r = spawnSync('lsof', ['-ti', `tcp:${port}`], {
+    encoding: 'utf8',
+    windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   return r.status === 0 && r.stdout ? r.stdout.split('\n').filter(Boolean) : []
 }
 

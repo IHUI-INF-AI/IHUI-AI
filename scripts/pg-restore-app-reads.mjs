@@ -299,7 +299,14 @@ export function main(argv = process.argv, deps = {}) {
  * ERROR: 也算没跑通。(只看 rc 会把"报错但有输出"读成通过,那是本工具最不该犯的错。)
  */
 export function spawnPsql(exe, args, env) {
-  const r = spawnSync(exe, args, { encoding: 'utf8', timeout: 40_000, windowsHide: true, env })
+  const r = spawnSync(exe, args, {
+    encoding: 'utf8',
+    timeout: 40_000,
+    windowsHide: true,
+    env,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   const stderr = String(r.stderr || '')
   const ok = r.status === 0 && !/ERROR:/i.test(stderr)
   return { ok, stdout: String(r.stdout || ''), stderr, rc: r.status ?? -1 }
