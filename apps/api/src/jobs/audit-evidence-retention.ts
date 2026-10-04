@@ -443,7 +443,17 @@ function mapEvidenceRow(r: Record<string, unknown>): EvidenceChainRow {
   }
 }
 
-/** 原文仍留存的 SQL 谓词 —— 与 collectRawEvidenceKeys 逐字同集(两半各写一遍必漂移)。 */
+/**
+ * 原文仍留存的 SQL 谓词 —— 与 collectRawEvidenceKeys 逐字同集(两半各写一遍必漂移)。
+ *
+ * G-790 登记(**待迁移**,本票不建列):`audit_logs_chain` 只有 `metadata` 一份载体,
+ * 没有 `raw_retained` 那样的独立判别列(`llm_call_logs` 有,见
+ * `services/audit-log-service.ts` 里 `eq(llmCallLogs.rawRetained, true)` 那一处 —— 那里是
+ * "判别列进谓词"的正例)。所以本谓词目前只能按 JSON 内容判:今天写 `rawRetained` 键的
+ * 唯一去处是本任务的擦除器,新增别的写入者时这一条不会替我们拦住无关行。
+ * 收口 = 给 `audit_logs_chain` 加 boolean 判别列并回填,属迁移票(严格规程),不在本票范围。
+ * 清单见 `apps/api/src/routes/__tests__/README-g790-json-filter-inventory.md`。
+ */
 function rawHeldCond(): SQL {
   return sql`jsonb_typeof(metadata) = 'object'
     AND COALESCE(metadata->>'rawRetained', 'true') <> 'false'
