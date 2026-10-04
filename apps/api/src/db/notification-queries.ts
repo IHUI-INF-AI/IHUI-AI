@@ -117,6 +117,19 @@ export async function deleteNotification(
   return rows[0]
 }
 
+/**
+ * 清空当前用户的全部通知(DELETE /notifications)。
+ * 归属过滤是**唯一**的 where 条件 —— 漏掉 userId 就是把全表通知删光,
+ * 所以这里与 markAllAsRead/deleteNotification 保持同口径:必须带 userId。
+ */
+export async function deleteAllNotifications(userId: string): Promise<number> {
+  const rows = await db
+    .delete(notifications)
+    .where(eq(notifications.userId, userId))
+    .returning({ id: notifications.id })
+  return rows.length
+}
+
 // =============================================================================
 // Messages / Conversations
 // =============================================================================
