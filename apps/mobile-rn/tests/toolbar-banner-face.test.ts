@@ -58,6 +58,8 @@ function depthUnderFace(source: string, key: string): number {
   let m: RegExpExecArray | null
   while ((m = tag.exec(body))) {
     const [, closing, , attrs, selfClosed] = m
+    // 空串是合法形态(`</View>`、`<View>` 的属性区就是空),只有解析不到捕获组才是判据失明。
+    if (attrs === undefined) throw new Error('判据失明:标签解析不出属性区,不判为通过')
     if (closing) depth--
     if (attrs.includes(`styles.${key}`)) return depth
     if (!closing && !selfClosed) depth++
