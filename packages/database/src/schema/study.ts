@@ -5,11 +5,16 @@
 import { pgTable, uuid, varchar, text, integer, timestamp, jsonb, index } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
 import { examPapers } from './exam.js'
+import { lessons } from './learn.js'
 
 /**
  * 学生学习计划。
  * - target: 每日学习目标(分钟);进度不落库 —— 由 lesson_records 当日 watch_duration
  *   实时聚合得出(目标达成度 = 当日已学分钟 / target),避免"进度列与观看记录两处真相"。
+ * - lessonId: 计划关联的课程(2026-10-04 加列)。**可空且无默认值** —— 历史行没有可信
+ *   来源可回填(lesson_sign_ups 至今没有指向 study_plans 的列,报名与计划之间没有
+ *   可推导的关系),按标题/时间猜等于制造假数据,所以只允许"新数据显式写、老数据保持 NULL"。
+ *   FK 用 set null(同 lessons.categoryId):课程下架不该连带删掉用户的计划。
  */
 export const studyPlans = pgTable(
   'study_plans',
@@ -20,10 +25,11 @@ export const studyPlans = pgTable(
       .notNull(),
     title: varchar('title', { length: 100 }).notNull(),
     target: integer('target').default(30).notNull(),
+    lessonId: uuid('lesson_id').references(() => lessons.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [index('study_plans_user_idx').on(t.userId)],
+  (t) => [index('study_plans_user_idx').on(t.userId), index('study_plans_lesson_idx').on(t.lessonId)],
 )
 
 /**
