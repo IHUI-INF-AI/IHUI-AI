@@ -93,6 +93,8 @@ function runChild(fixture, args, { stub = true } = {}) {
     },
     windowsHide: true,
     timeout: 120_000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
@@ -309,7 +311,11 @@ test('T12 判据1变体+5:pid 已死但锁龄未超 staleMs ⇒ 跳过且不秒�
   const lockDir = join(f.backup, LOCK_SUB)
   try {
     // 起一个秒退的进程拿它的 pid(此刻已死)
-    const gone = spawnSync(process.execPath, ['-e', ''], { windowsHide: true })
+    const gone = spawnSync(process.execPath, ['-e', ''], {
+      windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     assert.ok(gone.pid > 0)
     plantMeta(lockDir, { unitId: LOCK_UNIT, pid: gone.pid, ts: Date.now() })
     const before = readMetaBytes(lockDir)
@@ -332,7 +338,11 @@ test('T13 单实例原语的三格分档(构造面 + 注入 identityRun,不派�
     // ① 死 + 超龄 ⇒ 回收并成功持锁,旧锁现场归档
     const d1 = join(dir, 'lock1')
     const arch = join(dir, 'arch')
-    const gone = spawnSync(process.execPath, ['-e', ''], { windowsHide: true })
+    const gone = spawnSync(process.execPath, ['-e', ''], {
+      windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     plantMeta(d1, { unitId: LOCK_UNIT, pid: gone.pid, ts: Date.now() - 10_000 })
     const a = tryAcquireSingleInstance({
       dir: d1,

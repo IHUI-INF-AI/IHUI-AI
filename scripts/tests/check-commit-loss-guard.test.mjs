@@ -317,7 +317,12 @@ test('自愈: 另一台机推来的 lost-commit tag → 本门自己 fetch 回�
   const other = join(base, 'other')
   const G = (cwd, args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
   try {
-    execFileSync('git', ['init', '--bare', origin], { encoding: 'utf8', windowsHide: true })
+    execFileSync('git', ['init', '--bare', origin], {
+      encoding: 'utf8',
+      windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     for (const [dir, name] of [
       [local, 'local'],
       [other, 'other'],
