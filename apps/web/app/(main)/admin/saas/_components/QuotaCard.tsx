@@ -14,6 +14,7 @@
 import { useTranslations } from 'next-intl'
 import { Activity, Database as DatabaseIcon, Gauge, Info } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 
 import { Skeleton } from '@/components/common'
 import { Tooltip } from '@/components/feedback'
@@ -135,7 +136,7 @@ function QuotaRow({
           className="h-full rounded bg-primary/60"
           style={{
             width:
-              limit && limit > 0 ? `${Math.min(100, Math.max(0, (used / limit) * 100))}%` : '0%',
+              limit && limit > 0 ? `${clampPercent((used / limit) * 100)}%` : '0%',
           }}
         />
       </div>
