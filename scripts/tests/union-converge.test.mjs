@@ -35,6 +35,8 @@ function fixture() {
   const dir = mkScratch('union-it-')
   const run = (...a) =>
     execFileSync(GIT, ['-c', 'safe.directory=*', ...a], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: dir,
       encoding: 'utf8',
       windowsHide: true,
@@ -448,6 +450,8 @@ function moveAwareFixture(theirsDoc, { putArchive = true } = {}) {
   const dir = mkScratch('union-move-aware-')
   const run = (...a) =>
     execFileSync(GIT, ['-c', 'safe.directory=*', ...a], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: dir,
       encoding: 'utf8',
       windowsHide: true,
@@ -619,6 +623,8 @@ test('同一形状的另一支:占位写的是通配归档件名 ⇒ 不指向�
   const dir = mkScratch('union-move-wild-')
   const run = (...a) =>
     execFileSync(GIT, ['-c', 'safe.directory=*', ...a], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: dir,
       encoding: 'utf8',
       windowsHide: true,
@@ -679,6 +685,8 @@ test('占位解析必须吃得下归档器真产出的那一行(含 60 字截断
     args.map((a) => call(...a)).join(',') +
     '])))'
   const r = spawnSync(process.execPath, ['-e', code], {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd: join(here, '..', '..'),
     encoding: 'utf8',
     windowsHide: true,
@@ -764,6 +772,8 @@ test('中文路径不得被 quotePath 转义成"丢失",且每个 git 派生点�
   const dir = mkScratch('union-quotepath-')
   const run = (...a) =>
     execFileSync(GIT, ['-c', 'safe.directory=*', ...a], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: dir,
       encoding: 'utf8',
       windowsHide: true,
@@ -962,6 +972,8 @@ test('R-E 端到端:同一判据在 CLI 上落成的退出码是 2 / 0,且 stder
     }
     const cli = (...args) =>
       spawnSync(process.execPath, ['scripts/union-converge.mjs', ...args], {
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
         cwd: dir,
         encoding: 'utf8',
         windowsHide: true, // §5b:漏此参数在钩子/守护派生下必弹控制台窗
@@ -1243,6 +1255,8 @@ test('R-P 行为锁(真临时仓):指针行只带回一份且必须点名,不带
   try {
     const g = (...a) =>
       execFileSync(GIT, ['-c', 'safe.directory=*', ...a], {
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
         cwd: dir,
         encoding: 'utf8',
         windowsHide: true,
@@ -1310,6 +1324,8 @@ test('R-Q 显式 --theirs 时"本地纯落后"不得当成无需合并;只有"�
   try {
     const run = (...a) =>
       execFileSync(GIT, ['-c', 'safe.directory=*', ...a], {
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
         cwd: dir,
         encoding: 'utf8',
         windowsHide: true,
@@ -1374,6 +1390,8 @@ test('R-R 折叠判据(真临时仓端到端):对侧改写主键 ∧ 本侧未�
   try {
     const g = (...a) =>
       execFileSync(GIT, ['-c', 'safe.directory=*', ...a], {
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
         cwd: dir,
         encoding: 'utf8',
         windowsHide: true,
@@ -1424,6 +1442,8 @@ test('R-S 反向锁(真临时仓):本侧对同一主键**也改过** ⇒ 两侧�
   try {
     const g = (...a) =>
       execFileSync(GIT, ['-c', 'safe.directory=*', ...a], {
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
         cwd: dir,
         encoding: 'utf8',
         windowsHide: true,

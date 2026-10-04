@@ -93,7 +93,9 @@ export function parseTap(stdout) {
 
 /** 跑一片(一个 `node --test` 子进程)。 */
 export function runChunk(files) {
+  // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
   const r = spawnSync(process.execPath, ['--test', '--test-reporter=tap', ...files], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd: ROOT,
     encoding: 'utf8',
     windowsHide: true,

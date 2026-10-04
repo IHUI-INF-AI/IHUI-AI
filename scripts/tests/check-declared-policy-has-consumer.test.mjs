@@ -178,6 +178,8 @@ test('T8 --self-test 真跑且**连跑两次**皆 rc=0(只能跑一次的取证�
       encoding: 'utf8',
       windowsHide: true,
       timeout: 120000,
+      stdio: ['ignore', 'pipe', 'pipe']
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     })
     assert.equal(
       r.status,
@@ -259,7 +261,8 @@ test('T10 端到端(--staged,临时仓):接线减账 ⇒ 绿;码表加无主键 
   const dir = mkScratch('g121-i18n-')
   try {
     const git = (args) =>
-      spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8', windowsHide: true, timeout: 60000 })
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8', windowsHide: true, timeout: 60000, stdio: ['ignore', 'pipe', 'pipe'] })
     assert.equal(git(['init', '-q']).status, 0)
     assert.equal(git(['config', 'user.email', 'gate@example.invalid']).status, 0)
     assert.equal(git(['config', 'user.name', 'gate']).status, 0)
@@ -281,6 +284,8 @@ test('T10 端到端(--staged,临时仓):接线减账 ⇒ 绿;码表加无主键 
         encoding: 'utf8',
         windowsHide: true,
         timeout: 120000,
+        stdio: ['ignore', 'pipe', 'pipe']
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
       })
     // 情形 A:staged 只接线 bye ⇒ staged 未接线 0 < HEAD 锚点 1 ⇒ 绿
     writeFileSync(

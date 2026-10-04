@@ -420,7 +420,8 @@ test('A4 真实标题形态:占位与同一条目并存 ⇒ 判本次引入的�
   const head = execFileSync(
     'git',
     ['-c', 'safe.directory=*', 'show', 'HEAD:PROJECT_PLAN.md'],
-    { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, windowsHide: true },
+    // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
+    { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, windowsHide: true },
   )
   const ph = head.split('\n').find((l) => /^<!-- 已归档/.test(l))
   assert.ok(ph, 'HEAD 版计划文档里应能找到至少一条归档占位(找不到说明本用例的尺子失效)')
@@ -454,6 +455,7 @@ import { shapeCoverageVerdict as libShapeCoverageVerdict } from '../lib/plan-tas
 
 test('真实 HEAD 面逐字样本:现行提取式无失明;提取式收窄回"只认 ###"必红(§22c 有牙证明)', () => {
   const head = execFileSync('git', ['-c', 'safe.directory=*', 'show', 'HEAD:PROJECT_PLAN.md'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
     windowsHide: true,
@@ -782,11 +784,13 @@ test('A1 台账必须已随债务清偿清空,且清偿是"真入库"而不是"�
   const root = join(__dirname, '..', '..')
   const p = '.ihui-agent/archive/AGENTS_dead-entries-2026-09-30.md'
   const inHead = execFileSync('git', ['-c', 'safe.directory=*', 'cat-file', '-e', `HEAD:${p}`], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd: root,
     windowsHide: true,
   })
   void inHead
   const inIndex = execFileSync('git', ['-c', 'safe.directory=*', 'ls-files', '--error-unmatch', p], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd: root,
     encoding: 'utf8',
     windowsHide: true,

@@ -472,6 +472,8 @@ function main() {
     // 超时后回退 staged 口径而不是静默 exit 0 —— 静默通过会让全量审计假绿。
     try {
       const output = execSync('git ls-files', {
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
         encoding: 'utf-8',
         windowsHide: true,
         timeout: 60_000,

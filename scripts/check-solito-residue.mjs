@@ -77,6 +77,8 @@ function getStagedFiles() {
       cwd: ROOT,
       encoding: 'utf8',
       windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe']
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     })
     return out.split('\n').filter(Boolean)
   } catch {

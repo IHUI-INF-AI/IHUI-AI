@@ -37,6 +37,8 @@ function gitAt(args, opts = {}) {
     windowsHide: true,
     timeout: 180000,
     maxBuffer: 1 << 28,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     ...opts,
   })
 }
@@ -56,6 +58,8 @@ function runGate(args, opts = {}) {
     maxBuffer: 1 << 28,
     windowsHide: true,
     timeout: 300000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     ...opts,
   })
 }

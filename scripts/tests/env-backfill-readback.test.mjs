@@ -114,7 +114,8 @@ function makeOfflineFixture(dir) {
 }
 
 function runCli(args) {
-  return spawnSync(process.execPath, [CLI, ...args], { encoding: 'utf8', windowsHide: true, timeout: 60000 })
+  // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
+  return spawnSync(process.execPath, [CLI, ...args], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true, timeout: 60000 })
 }
 
 test('CLI e2e(可写盘):回填成功 ⇒ 打"回填完成(读回比对一致)"+ 重启生效提示,盘上真值到位', () => {
