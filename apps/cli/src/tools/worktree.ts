@@ -38,10 +38,12 @@ interface GitResult {
 
 /** 执行 git 命令(spawnSync 直调,非 shell,Windows 兼容) */
 function runGit(args: string[], cwd: string): GitResult {
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   const r = spawnSync('git', args, {
     cwd,
     encoding: 'utf-8',
     windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
   });
   return {
     ok: r.status === 0,

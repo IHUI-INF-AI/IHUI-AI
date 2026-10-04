@@ -28,10 +28,12 @@ function loadLocale(dir, file) {
 }
 
 // 1. 收集源码中使用的 key: tt('k', | t('k' | tList('k'
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
 const files = execSync(`git ls-files "${path.relative(ROOT, SRC).replace(/\\/g, '/')}"`, {
   cwd: ROOT,
   encoding: 'utf-8',
   windowsHide: true, // 防 Windows 弹可见控制台窗口
+  stdio: ['ignore', 'pipe', 'pipe'],
 })
   .trim()
   .split('\n')

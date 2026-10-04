@@ -95,7 +95,8 @@ function assertConsumerContract() {
 /** 生成时 HEAD 的 sha(取不到写 unknown,钉里的字段不因此缺位) */
 function sourceCommit() {
   try {
-    return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8', windowsHide: true }).trim()
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }).trim()
   } catch {
     return 'unknown'
   }
