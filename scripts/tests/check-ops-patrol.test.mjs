@@ -20,7 +20,7 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
 const src = (p) => readFileSync(join(REPO, p), 'utf8')
 const mod = await import(pathToFileURL(join(REPO, 'scripts', 'check-ops-patrol.mjs')).href)
-const { scratchRoot } = await import(pathToFileURL(join(REPO, 'scripts', 'lib', 'scratch-dir.mjs')).href)
+const { scratchRoot, mkScratch, rmScratch } = await import(pathToFileURL(join(REPO, 'scripts', 'lib', 'scratch-dir.mjs')).href)
 const { measureDir, ageVerdict, parseLastSync, patrol } = mod.__test__
 const { parseAlertRules, metricRefsFromExpr, checkInertAlertRules } = mod.__test__
 // P7(2026-09-29 补,机主裁决"副本没出机就喊")—— 一律 import 源文件的尺子,不在此重抄判定(§22c)。
@@ -168,9 +168,7 @@ test('T11 机器态取不到 ⇒ 整条 P6 未判定且一条红都不产(判红
 })
 
 test('T12 台账取不到 ⇒ 站点按零条目判红(fail-closed)且必须再补一行"台账未判定"(fail-loud)', async () => {
-  const root = scratchRoot()
-  mkdirSync(root, { recursive: true })
-  const base = mkdtempSync(join(root, 'p6t-'))
+  const base = mkScratch('p6t-')
   try {
     const alertsFile = join(base, 'alerts.yml')
     writeFileSync(alertsFile, ['groups:', '  - name: t', '    rules:', '      - alert: GhostRule', '        expr: ghost_metric_total > 0'].join('\n'), 'utf8')
@@ -184,7 +182,7 @@ test('T12 台账取不到 ⇒ 站点按零条目判红(fail-closed)且必须再�
     assert.ok(r.rows.some((x) => x.id === 'P6·GhostRule' && x.state === 'finding'), '判红必须点名到规则')
     assert.ok(r.rows.some((x) => x.id === 'P6·台账' && x.state === 'undetermined'), '台账读不到这件事本身必须单独占一行,否则读者以为"没人登记"')
   } finally {
-    rmSync(base, { recursive: true, force: true })
+    rmScratch(base)
   }
 })
 
@@ -224,11 +222,7 @@ const p7mk = (base, dir, name, content, ageMs) => {
   const t = (P7_NOW - ageMs) / 1000
   utimesSync(p, t, t)
 }
-const p7tmp = () => {
-  const root = scratchRoot()
-  mkdirSync(root, { recursive: true })
-  return mkdtempSync(join(root, 'p7mir-'))
-}
+const p7tmp = () => mkScratch('p7mir-')
 const sha16 = (s) => createHash('sha256').update(s, 'utf8').digest('hex').slice(0, 16)
 const p7row = (rows, id) => rows.find((r) => r.id === id) || {}
 const p7reds = (rows) => rows.filter((r) => r.state === 'finding').length
@@ -408,9 +402,7 @@ test('T23 成对①:未到期 ⇒ 不进取红计数、行仍打印且带到期�
 })
 
 test('T24 成对②:台账坏 JSON 一律照旧红 + 一条未判定;文件不在位是"没有裁决"而不是故障', () => {
-  const root = scratchRoot()
-  mkdirSync(root, { recursive: true })
-  const base = mkdtempSync(join(root, 'ops-ledger-'))
+  const base = mkScratch('ops-ledger-')
   const now = Date.UTC(2026, 8, 29)
   try {
     const broken = join(base, 'broken.json')
@@ -424,7 +416,7 @@ test('T24 成对②:台账坏 JSON 一律照旧红 + 一条未判定;文件不�
     assert.equal(absent.entries.length, 0)
     assert.equal(absent.readError, null, '文件不在位 ≠ 故障:那是"零条裁决",站点照常红')
   } finally {
-    rmSync(base, { recursive: true, force: true })
+    rmScratch(base)
   }
 })
 
