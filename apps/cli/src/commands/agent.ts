@@ -73,6 +73,17 @@ import { CLIPBOARD_TOOLS } from '../tools/clipboard.js';
 import { checkPermission, type PermissionRules, type PermissionMode } from '../tools/permissions.js';
 import { createMarkdownRenderer } from './markdown-renderer.js';
 import { resolveProvider, streamOpenAiCompatible, type ChatCompletionMessage } from '../provider/local.js';
+// G-686:进程级、按 provider/model 分桶的 AIMD 准入闸门(默认关 —— 见该文件头注的翻转前置)。
+import {
+  admissionBucketKey,
+  getRequestAdmission,
+  isAdmissionAbortError,
+  isRequestAdmissionEnabled,
+  type AttemptSignalInput,
+  type AdmissionTicket,
+  type RequestAdmission,
+} from '../provider/request-admission.js';
+import { isModelStreamIdleError } from '@ihui/shared/utils/stream-idle';
 import { resolveSandboxOptions } from '../sandbox/index.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
 import type { HunkTracker } from '../checkpoints/hunk-tracker.js';
@@ -1091,6 +1102,16 @@ interface SampleWithRetryOptions {
   signal?: AbortSignal;
   onDelta: (delta: string) => void;
   sampler?: SamplerSettings;
+  /**
+   * G-686 准入闸门三件套(未启用时三个都是 undefined ⇒ 本函数路径与改动前逐字同行为)。
+   *
+   * 粒度是**每一次尝试**:退避 sleep 之前必须先结算(不持槽),所以下面每个 return 点
+   * 都要先 `settle`。run 身份由调用方给(同一进程里多条 run 要靠它做轮转防饿死),
+   * 桶键由 `${provider}/${model}` 决定(同 provider 不同模型是两个配额,不得并桶)。
+   */
+  admission?: RequestAdmission;
+  admissionRunId?: string;
+  admissionKey?: string;
   /** 推理过程增量回调(reasoning/thinking)— 透传 api-client 的 onReasoning */
   onReasoning?: (delta: string) => void;
   /** 原生 function calling:附加到请求体末尾的字段(如 { tools: [...] }) */
@@ -1202,7 +1223,25 @@ async function sampleWithRetry(
   onRetry?: RetryCallback,
 ): Promise<SampleWithRetryResult> {
   for (let attempt = 0; ; attempt++) {
+    // G-686:闸门粒度 = **每一次尝试**(含退避后的重发)。未启用时(三件套缺任一)ticket 恒
+    // undefined,下面每个 settle 都是可选链 no-op ⇒ 这条路径与改动前逐字同行为。
+    let ticket: AdmissionTicket | undefined;
+    if (opts.admission && opts.admissionRunId && opts.admissionKey) {
+      try {
+        ticket = await opts.admission.acquire(opts.admissionRunId, opts.admissionKey, {
+          signal: opts.signal,
+        });
+      } catch (e) {
+        // 排队期间被取消 ⇒ 不发起这一次尝试,也不喂任何 AIMD 信号;走既有 'aborted' 语义
+        if (isAdmissionAbortError(e)) return { error: 'aborted' };
+        throw e;
+      }
+    }
+    const settleAttempt = (input: AttemptSignalInput): void => {
+      ticket?.settleFromInput(input);
+    };
     let errMsg: string | undefined;
+    let streamIdleTimeout = false;
     // 吞错修复(2026-09-04):streamChat 对流内 error 事件耗尽内部重试后只走 onError 回调
     // 且正常 resolve(不抛出)。不传 onError 时错误被彻底丢弃,上层把失败当"成功的空补全"
     // (如 provider 402 配额耗尽 → completionTokens:0 + end_turn)。此处捕获回调错误并
@@ -1235,26 +1274,47 @@ async function sampleWithRetry(
       } as Parameters<typeof streamChat>[0]);
     } catch (e) {
       errMsg = e instanceof Error ? e.message : String(e);
+      // 流 idle 超时有结构化 code(MODEL_STREAM_IDLE_CODE),不是文案 —— 它是 timeout 档的
+      // 唯一非文案依据(本仓禁止"拿错误文本决定分支")
+      streamIdleTimeout = isModelStreamIdleError(e);
     }
     if (streamErr !== undefined) errMsg = streamErr;
-    if (errMsg === undefined) return {};
+    if (errMsg === undefined) {
+      settleAttempt({ ok: true });
+      return {};
+    }
     const formatted = formatSSEError(new Error(errMsg), streamErrInfo);
+    // 这一次尝试的失败画像(结构化字段构成,不做任何文案匹配)
+    const failureSignal: AttemptSignalInput = {
+      ok: false,
+      severity: formatted.severity,
+      isStreamIdleTimeout: streamIdleTimeout,
+      ...(formatted.code !== undefined ? { status: formatted.code } : {}),
+      ...(formatted.retryAfter !== undefined ? { retryAfterSeconds: formatted.retryAfter } : {}),
+      ...(formatted.retryable !== undefined ? { retryable: formatted.retryable } : {}),
+    };
     // 不可重试错误立即返回
     if (!SAMPLER_RETRYABLE_SEVERITIES.has(formatted.severity)) {
+      settleAttempt(failureSignal);
       return { error: errMsg };
     }
     // retryable === false:厂商账号额度已耗尽,全部候选通道都失败,退避重试必然再撞
     if (formatted.retryable === false) {
+      settleAttempt(failureSignal);
       return { error: errMsg };
     }
     // 达到最大重试次数,返回最后一次错误
     if (attempt >= SAMPLER_MAX_RETRIES) {
+      settleAttempt(failureSignal);
       return { error: errMsg };
     }
     // 指数退避:1s, 2s, 4s...(ratelimit 至少 5s)
     const base = formatted.severity === 'ratelimit' ? 5000 : 1000;
     const delayMs = base * Math.pow(2, attempt);
     onRetry?.(attempt + 1, errMsg, formatted.severity, delayMs);
+    // **退避期不持槽**:在排定 sleep 之前结算 —— 否则一次 ratelimit 退避(5s/10s/20s)会把
+    // 一个名额白占着,别的 run 明明有空位却进不来,闸门会被退避时钟放大成串行器。
+    settleAttempt(failureSignal);
     await new Promise<void>((resolve) => {
       const t = setTimeout(resolve, delayMs);
       opts.signal?.addEventListener('abort', () => {
@@ -1509,6 +1569,25 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   // resolveProvider 返回 kind 时,runToolLoop 用 streamOpenAiCompatible 替换默认 streamChat 远端路径;
   // 未配置本地 provider 时 kind 为 undefined,零回归。
   const localProvider = resolveProvider(settings);
+  /**
+   * G-686:本次 run 的 provider 请求准入句柄。
+   *
+   * **默认关**:`isRequestAdmissionEnabled()` 为 false 时 `requestAdmission` 与 `admissionKey`
+   * 都是 undefined(`admissionRunId` 退化成空串,不派生 uuid),
+   * 下面两处尝试点(`doSample` 的每一次尝试 / `sampleOnceLocal` 的每一次尝试)走的是
+   * 与改动前逐字相同的路径。翻默认开的前置条件写在该模块头注,不在这里重复。
+   *
+   * run 身份每次 runToolLoop 一个(`randomUUID`):同一进程里并发多条 run 必须能互相区分,
+   * 否则"按 run 轮转防饿死"会退化成"按 uuid 轮转"而永远只有一个桶。
+   * 桶键 `${provider}/${model}`:本地 provider 用它的 kind,远端用 'remote'。
+   */
+  const requestAdmission: RequestAdmission | undefined = isRequestAdmissionEnabled()
+    ? getRequestAdmission()
+    : undefined;
+  const admissionRunId = requestAdmission ? randomUUID() : '';
+  const admissionKey = requestAdmission
+    ? admissionBucketKey(localProvider.kind ?? 'remote', opts.modelId)
+    : undefined;
   /** tool 结果消息的 tool_call_id 队列(与 OpenAI 协议对齐,按流内 tool_calls 顺序消费) */
   const pendingToolCallIds: string[] = [];
 
@@ -1714,6 +1793,10 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         // D151 命令等待键盘输入透传(terminal_interaction):REPL 借此在终端交代"命令在等你敲一行"
         ...(opts.onTerminalInteraction ? { onTerminalInteraction: opts.onTerminalInteraction } : {}),
             sampler: opts.sampler,
+            // G-686 准入(未启用时整块展开为空 ⇒ 与改动前逐字同行为)
+            ...(requestAdmission && admissionKey
+              ? { admission: requestAdmission, admissionRunId, admissionKey }
+              : {}),
             ...(withTools && nativeExtraBody ? { extraBody: nativeExtraBody } : {}),
             ...(withTools
               ? {
@@ -1741,6 +1824,18 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
 
       // 本地 provider(Ollama/vLLM)单次采样:错误语义与 sampleWithRetry 对齐(不抛出,返回 { error })
       const sampleOnceLocal = async (withTools: boolean): Promise<{ error?: string }> => {
+        // G-686:本地直连也是"对 provider 的一次尝试",同一把闸门;未启用时 ticket 恒 undefined。
+        let localTicket: AdmissionTicket | undefined;
+        if (requestAdmission && admissionKey) {
+          try {
+            localTicket = await requestAdmission.acquire(admissionRunId, admissionKey, {
+              signal: opts.signal,
+            });
+          } catch (e) {
+            if (isAdmissionAbortError(e)) return { error: 'aborted' };
+            throw e;
+          }
+        }
         const result = await streamOpenAiCompatible({
           url: localProvider.chatCompletionsUrl!,
           model: localProvider.model || opts.modelId,
@@ -1790,6 +1885,16 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           // 但提前执行没有意义,所以不传 run。
           ledger.register({ toolCallId: tc.id, toolName: tc.name, args: tc.arguments });
         }
+        /**
+         * G-686 结算。
+         *
+         * `retryable: false` 是**如实登记而不是判据**:`provider/local.ts` 的失败面只有一个
+         * `error: string`(HTTP 状态被拼进文案 `请求失败（${resp.status}）`),没有结构化
+         * status/severity 可喂 —— 按本仓"不得拿错误文本决定分支"的禁令,这里不做文案解析,
+         * 于是本地 provider 的失败一律落 'ended'(只归还名额、不喂限流信号)。
+         * ⇒ **Ollama/vLLM 这一侧今天只有"限并发"生效,"减 cap"那一半不生效**,已登记为未覆盖格。
+         */
+        localTicket?.settleFromInput({ ok: !result.error, retryable: false });
         return result.error ? { error: result.error } : {};
       };
 
