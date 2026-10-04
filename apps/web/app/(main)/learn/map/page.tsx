@@ -20,6 +20,7 @@ import {
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import { cn } from '@/lib/utils'
 import { AuthGatePrompt, BackButton } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
@@ -88,7 +89,7 @@ export default function LearnMapPage() {
                   <div className="h-2 flex-1 overflow-hidden rounded-xs bg-muted">
                     <div
                       className="h-full rounded-md bg-primary transition-all"
-                      style={{ width: `${Math.min(100, Math.max(0, totalProgress))}%` }}
+                      style={{ width: `${clampPercent(totalProgress)}%` }}
                     />
                   </div>
                   <span className="text-sm font-medium">{Math.round(totalProgress)}%</span>
@@ -165,7 +166,7 @@ export default function LearnMapPage() {
                               'h-full rounded-md transition-all',
                               isCompleted ? 'bg-emerald-500' : 'bg-primary',
                             )}
-                            style={{ width: `${Math.min(100, Math.max(0, node.progress))}%` }}
+                            style={{ width: `${clampPercent(node.progress)}%` }}
                           />
                         </div>
                         <span className="text-xs text-muted-foreground">
