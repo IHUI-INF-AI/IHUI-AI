@@ -75,8 +75,14 @@
  * 登记行**(基线换成 `historyMarkers()`,与 `--heal` 共用同一把尺子 `missingFrom`) · `--worktree` = 人工。
  * 归档豁免(§1 归档 = 正当移除)**跟着被审面**判,不新开磁盘读法(G-183 那条纪律在新面上继续成立:
  * 只躺在本机磁盘、从未入库的归档副本不构成删行凭据)。
- * `--heal` 一层**刻意不收口**:自愈的职责就是看得见工作树,故它继续"工作区与 HEAD 分别判缺失",
- * 只在输出上把两档结论分开说清。
+ * `--heal` 一层**刻意不收口**:自愈的职责就是看得见工作树,故它继续"工作区与 HEAD 分别判缺失";
+ * G-816708(2026-10-05)又把**共享主索引**补成第三个目标面:旁路落地(`commit-tree` + `update-index`)
+ * 动的是 HEAD 与索引**两个面同时**,只判前两档时"下一次提交真要带走的那一份"从来不在射程内
+ * (那正是"自愈日志写着无缺失、全量档却点名已入库的红"的另一半成因)。三档结论仍**分开**说清
+ * —— 同一把尺子 `missingFrom` 喂三个目标面(实现收在 `healLegs`,调用方不得再抄第二份判据),
+ * 而"无缺失,无需回捞"这句只有**三档全绿**才准打印;索引面取不到时那一档写"未判定",绝不并进绿档。
+ * ⚠️ 本次补的是**比较目标**,不是判据宽严:纯文本搜索那一残余面(`resolveRegistrationLoss` 的 a) 族)
+ * 一字未动 —— 把判据放宽/收紧都不解决"判据没在真跑它的那一刻成立",而那属于"为消红削判据"。
  */
 import { execFileSync, spawn } from 'node:child_process'
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -839,6 +845,78 @@ export function missingFrom(seen, targetSrc, archived = archivedCopy) {
   // 与 lostMarkers / healContent 同一把尺子(名额判活),否则"检测判丢、回捞说还活着"
   const lost = resolveRegistrationLoss([...seen.values()], targetSrc)
   return lost.filter((v) => !(archived(v.marker) || (v.id && archived(v.id))))
+}
+
+/**
+ * 自愈的**比较目标**:同一把尺子 `missingFrom` 喂三个目标面(G-816708,2026-10-05 立)。
+ *
+ * 为什么必须有第三档(索引)而不是"调用方自己再判一次索引":
+ * 旁路落地器(`object-space-land` / `live-doc-edit` / `plan-tasks-merge` / 收敛器)走的是
+ * `commit-tree` + `update-index` —— 那一刻 HEAD 与共享主索引**同时**变成新内容,钩子结构性不跑。
+ * 只看工作树 + HEAD 两档时,下一次提交真正带走的那一份(索引 blob)没有任何人比过;
+ * 而判据一旦不在"真跑它的那一刻"覆盖那个面,就等于没有(§1 同一原则)。
+ * 把索引档塞进本函数而不是塞进调用方,是为了让"什么算缺一条登记行"只有一份实现(§22c)。
+ *
+ * 三态纪律:`index === null`(索引面取不到:该路径不在索引里 / unmerged / git 问不到)是**未判定**,
+ * 绝不折成"0 条缺失"—— 那正是本仓记过最高频的失效型(把没判写成判过了)。
+ *
+ * @param {Map} seen `historyMarkers()` 的基线
+ * @param {{disk:string, head:string, index:string|null}} faces 三个目标面的正文
+ * @returns {{disk:Array, head:Array, index:Array|null, indexUndetermined:boolean, allClean:boolean}}
+ */
+export function healLegs(seen, { disk, head, index }) {
+  const legs = {
+    disk: missingFrom(seen, disk),
+    head: missingFrom(seen, head),
+    index: index === null ? null : missingFrom(seen, index),
+    indexUndetermined: index === null,
+  }
+  legs.allClean =
+    legs.disk.length === 0 &&
+    legs.head.length === 0 &&
+    legs.index !== null &&
+    legs.index.length === 0
+  return legs
+}
+
+/**
+ * 三档读数 ⇒ 逐档点名(纯渲染,不再判一次;`healLegs` 是唯一判据出口)。
+ *
+ * 为什么点名必须上 **stdout**:G-816708 之后自愈被落地器就地补跑,而派生层
+ * (`scripts/lib/post-merge-ledger-sync.mjs`)只回读 stdout 里点名登记行的那些行 ——
+ * 名字只写在 stderr 的话,落地那一刻的账面就只剩"跑过了"而没有任何缺失证据
+ * (= "只报数不报名"那一型换个通道重演)。既有 stderr 那几行详情(回捞出处、处置、能力边界)
+ * 一字不动:人读的那一份与机器读的那一份各留各的,读报告的人仍能看到 sha 与出路。
+ *
+ * @param {number} seenSize 基线登记行条数(射程读数,必须与缺失一起报名)
+ * @param {object} legs `healLegs` 的返回值
+ * @returns {string[]} 第一行是三档总读数,其后每档非绿一行(未判定单列,不并进"缺 0 条")
+ */
+export function healLegRoster(seenSize, legs) {
+  const count = (list) => (list === null ? '未判定' : `${list.length} 条`)
+  const lines = [
+    `   [分档] 历史登记行 ${seenSize} 条 ⇒ 工作树副本缺 ${count(legs.disk)} / HEAD 提交树缺 ${count(legs.head)} / 索引副本缺 ${count(legs.index)}` +
+      `(三档含义不同:前者多为滞后的在飞副本,HEAD 才是已入库行被合掉,索引是下一次提交真要带走的那份)`,
+  ]
+  for (const [label, list] of [
+    ['工作树', legs.disk],
+    ['HEAD', legs.head],
+    ['索引', legs.index],
+  ]) {
+    if (!list || list.length === 0) continue
+    const shown = list
+      .slice(0, 10)
+      .map((m) => m.marker)
+      .join(' / ')
+    lines.push(
+      `   [点名/${label}] 缺 ${list.length} 条登记行:${shown}${
+        list.length > 10 ? ` …另有 ${list.length - 10} 条(逐条见本门 stderr 详情)` : ''
+      }`,
+    )
+  }
+  if (legs.indexUndetermined)
+    lines.push('   [点名/索引] 索引面取不到 ⇒ 该档**未判定**(未判定不是"缺 0 条",更不是"无缺失")')
+  return lines
 }
 
 /**
@@ -1700,6 +1778,57 @@ function selfTest() {
     const withLine = `${base}\n${line}`
     return missingFrom(seen, withLine).length === 0 && missingFrom(seen, base).length === 1
   })
+  /**
+   * G-816708(2026-10-05):自愈的比较目标从两面扩成三面。这里钉的是**纯函数**(一把尺子喂三个面
+   * 与三态分档);端到端那一格(索引带着旧版而 HEAD/工作树都在 ⇒ 真跑 `--heal` 时既点名又不宣布
+   * "无缺失")住在 `scripts/tests/check-plan-line-loss.test.mjs`,而"落地那一刻真的有人跑它"住在
+   * `scripts/tests/object-space-land.test.mjs` / `live-doc-edit.test.mjs`。三层各管一格,缺一格就是假绿。
+   */
+  t(
+    'healLegs 第三档:索引带旧版而工作树与 HEAD 都在 ⇒ allClean 必须 false(那句"无缺失"不得替索引喊)',
+    () => {
+      const line = '  - **G-778 收口(第 61 轮):一条足够长的登记行,用来验证三目标比对逻辑。**'
+      const seen = new Map([['G-778 收口', { marker: 'G-778 收口', line, prev: null }]])
+      const clean = `${base}\n${line}`
+      const legs = healLegs(seen, { disk: clean, head: clean, index: base })
+      return (
+        legs.disk.length === 0 &&
+        legs.head.length === 0 &&
+        legs.index.length === 1 &&
+        legs.allClean === false
+      )
+    },
+  )
+  t('healLegs 反向对照:三面都在 ⇒ allClean true;索引面取不到 ⇒ **未判定**而不是"缺 0 条"', () => {
+    const line = '  - **G-779 收口(第 62 轮):一条足够长的登记行,用来验证三目标比对的反向臂。**'
+    const seen = new Map([['G-779 收口', { marker: 'G-779 收口', line, prev: null }]])
+    const clean = `${base}\n${line}`
+    const green = healLegs(seen, { disk: clean, head: clean, index: clean })
+    const und = healLegs(seen, { disk: clean, head: clean, index: null })
+    return (
+      green.allClean === true &&
+      und.allClean === false &&
+      und.indexUndetermined === true &&
+      und.index === null
+    )
+  })
+  t('healLegRoster:每一档的缺失都必须逐条点名上 stdout(补跑的派生层只回读 stdout)', () => {
+    const line = '  - **G-780 收口(第 63 轮):一条足够长的登记行,用来验证点名渲染。**'
+    const seen = new Map([['G-780 收口', { marker: 'G-780 收口', line, prev: null }]])
+    const legs = healLegs(seen, { disk: `${base}\n${line}`, head: base, index: base })
+    const roster = healLegRoster(seen.size, legs)
+    const undRoster = healLegRoster(
+      seen.size,
+      healLegs(seen, { disk: `${base}\n${line}`, head: base, index: null }),
+    )
+    return (
+      roster[0].includes('[分档]') &&
+      roster.some((l) => l.includes('[点名/HEAD]') && l.includes('G-780 收口')) &&
+      roster.some((l) => l.includes('[点名/索引]') && l.includes('G-780 收口')) &&
+      !roster.some((l) => l.includes('无缺失')) &&
+      undRoster.some((l) => l.includes('[点名/索引]') && l.includes('未判定'))
+    )
+  })
   t('healContent:邻居还在 → 插到邻居之后,分组不散', () => {
     const target = [
       '### 段',
@@ -2071,33 +2200,47 @@ function heal(commit) {
   guardWiring(false)
   const head = git(['show', `HEAD:${PLAN}`])
   const disk = readFileSync(path.join(ROOT, PLAN), 'utf8')
+  /**
+   * 索引面(共享主索引里那份 blob)—— G-816708 补的第三个比较目标。取法走取材层那一份实现
+   * (`cat-file --batch` 的 `:PLAN` 规格),不在本函数里另派一次 git,也不退回磁盘副本:
+   * 取不到就是**未判定**(`null`),由 `healLegs` 单独成档,绝不折成"缺 0 条"。
+   */
+  const index = readSpecOrNull(`:${PLAN}`, ROOT)
   const seen = historyMarkers()
   /**
-   * 工作区与 HEAD **分别**判缺失。只看工作区会留一个洞:并发会话走 commit-tree 旁路
+   * 工作区、HEAD、索引**分别**判缺失。只看工作区会留一个洞:并发会话走 commit-tree 旁路
    * (git-sync-converge / 临时索引提交)时钩子根本不跑,它把某行从 HEAD 合掉后,
    * 共享工作区里那一行往往还在 → 单一目标会"无缺失"提前返回,HEAD 从此永远缺着。
+   * 只看 HEAD + 工作区又留第二个洞:旁路落地同时动 HEAD 与索引,索引那份旧 blob 是**下一次
+   * 提交真要带走**的内容,而它此前从不被比 —— 账面读起来像"每一轮都比过了、什么都没缺"。
    */
-  const diskMissing = missingFrom(seen, disk)
-  const headMissing = missingFrom(seen, head)
+  const legs = healLegs(seen, { disk, head, index })
+  const diskMissing = legs.disk
+  const headMissing = legs.head
+  const indexMissing = legs.index
   /**
-   * 两档结论**分开报**,不得合成一个数(2026-09-26):"工作树缺"通常是别人那份滞后的在飞副本,
-   * 处置是等它自己的持有者提交;"HEAD 缺"才是已入库的行被旁路提交合掉,处置是前向恢复提交。
+   * 三档结论**分开报**,不得合成一个数(2026-09-26):"工作树缺"通常是别人那份滞后的在飞副本,
+   * 处置是等它自己的持有者提交;"HEAD 缺"才是已入库的行被旁路提交合掉,处置是前向恢复提交;
+   * "索引缺"是下一次提交真要带走的那份,处置是把索引拉回 HEAD(只动暂存面,不动工作树)。
    * 混成一个结论会让人拿工作树去"修"HEAD(= §12 禁止的覆盖),或反之把该恢复的行当成噪音跳过。
    */
-  console.log(
-    `   [分档] 历史登记行 ${seen.size} 条 ⇒ 工作树副本缺 ${diskMissing.length} 条 / HEAD 提交树缺 ${headMissing.length} 条` +
-      `(两档含义不同:前者多为滞后的在飞副本,后者才是已入库行被合掉)`,
-  )
-  if (diskMissing.length === 0 && headMissing.length === 0) {
+  for (const line of healLegRoster(seen.size, legs)) console.log(line)
+  if (legs.allClean) {
     console.log(`✅ [plan-line-loss] 扫描 ${seen.size} 条登记行:无缺失,无需回捞`)
     return 0
   }
   // 规模安全闸:回捞量异常 ⇒ 判为基线错(活文档被并发重排/改写措辞),拒绝自动写盘。
+  // ⚠️ 刻意**只取工作树/HEAD 两档**(G-816708 没有改这一条):共享主索引在本仓常年滞后是常态,
+  // 把它算进 max 会让这道闸替别人的暂存面,把真需要回捞的 HEAD 档一起拒掉 —— 那是"该修的没人修",
+  // 比多一层保守更坏。索引档只点名、不参与任何写盘判据(见下面那一档的边界说明)。
   const scale = assessHealScale(Math.max(diskMissing.length, headMissing.length), seen.size)
   if (!scale.ok) {
     console.error(
       `❌ [plan-line-loss] 规模安全闸拦截 —— ${scale.reason}` +
-        `(取两档较大者判量:工作树缺 ${diskMissing.length} / HEAD 缺 ${headMissing.length})`,
+        `(取两档较大者判量:工作树缺 ${diskMissing.length} / HEAD 缺 ${headMissing.length};索引档只点名不参与判量)` +
+        (indexMissing && indexMissing.length
+          ? `(另有索引档缺 ${indexMissing.length} 条,仍需人工收口)`
+          : ''),
     )
     console.error(
       '   一次回捞四成以上登记行,几乎不可能是"真的全丢了",而是比对基线已变(并发会话重排了文档、\n' +
@@ -2127,6 +2270,33 @@ function heal(commit) {
     for (const m of headMissing) console.warn(`     · ${m.marker}(HEAD 侧,回捞自 ${src7(m)})`)
   }
   /**
+   * 索引档(G-816708 补的第三个比较目标):**只点名,不回写**。
+   * 为什么不回写:共享主索引里那一份可能属于别人尚未提交的暂存内容,替它写 blob = 代收别人的
+   * 暂存区(§12 红线),后果比"少一次自动修"重得多;而这一档的后果已经由提交链上的
+   * `--staged`(索引 vs HEAD)那一档拦住 —— 前提是它先被**点名**,否则下一次提交的人根本不知道
+   * 自己正带着一次写回旧版。所以本层的职责到"报名 + 给出口"为止。
+   */
+  if (indexMissing && indexMissing.length) {
+    console.warn(
+      `⚠️  [plan-line-loss] 共享主索引缺 ${indexMissing.length} 条登记行(旁路落地会同时推进 HEAD 与索引 ⇒ 这一档不是"盘上的旧副本"那么无害):`,
+    )
+    for (const m of indexMissing) console.warn(`     · ${m.marker}(索引侧,回捞自 ${src7(m)})`)
+    console.warn(
+      '   能力边界:本层**不回写共享主索引** —— 索引里那一份可能是别人尚未提交的暂存内容,\n' +
+        '   替它落 blob = 代收别人的暂存区(§12 红线)。先问一句:索引这份是谁的?\n' +
+        '   ① 是别人在飞的暂存 ⇒ 由持有者自己重归并,本层不动;\n' +
+        '   ② 是一次滞后写回的残留(没有人在飞的暂存)⇒ 只把索引拉回 HEAD、不动工作树:\n' +
+        '      ' +
+        '`git restore --source=HEAD --staged -- PROJECT_PLAN.md`' +
+        `\n   不处理的后果:任何人一枚不带 pathspec 的普通提交就把这 ${indexMissing.length} 行再次抹掉(而提交链上的 --staged 那档会当场判红)。`,
+    )
+  } else if (legs.indexUndetermined) {
+    console.warn(
+      '⚠️  [plan-line-loss] 索引面取不到(该路径不在索引里 / unmerged / git 问不到)⇒ **索引那一档未判定**,' +
+        '不得据此宣布"无缺失"(未判定与通过不并桶)。',
+    )
+  }
+  /**
    * 标题级丢失的**能力边界必须如实说明**:healContent 只逐行回捞,把 `## O42 …` 这一行插回
    * 邻居之后,但它不知道整节正文去了哪、也无从恢复从属关系(正文多为非登记行,本就不在回捞面)。
    * 所以这里只报"标题行已回插、层级需人工归并",绝不打"整节已恢复"这类做不到的结论。
@@ -2152,7 +2322,12 @@ function heal(commit) {
     return 0
   }
   if (headMissing.length === 0) {
-    console.log('   HEAD 已含全部登记行,无需建恢复提交')
+    console.log(
+      '   HEAD 已含全部登记行,无需建恢复提交' +
+        (indexMissing && indexMissing.length
+          ? `(但**索引档那 ${indexMissing.length} 行仍未收口** —— 本层不回写共享索引,处置见上面索引档)`
+          : ''),
+    )
     return 0
   }
   const msgFile = path.join(ROOT, '.ihui-agent/tmp', `plan.heal.${Date.now()}.msg`)
@@ -2208,7 +2383,12 @@ function heal(commit) {
       },
     ).trim()
     g2(['update-ref', 'refs/heads/main', newCommit, parent])
-    console.log(`   已建前向恢复提交 ${newCommit.slice(0, 11)}`)
+    console.log(
+      `   已建前向恢复提交 ${newCommit.slice(0, 11)}` +
+        (indexMissing && indexMissing.length
+          ? `(只修 HEAD;共享主索引仍缺那 ${indexMissing.length} 条登记行 ⇒ 索引档未收口,处置见上面)`
+          : ''),
+    )
     try {
       const child = spawn(process.execPath, [path.join(ROOT, 'scripts', 'git-push-guard.mjs')], {
         cwd: ROOT,
@@ -2441,6 +2621,9 @@ export const __test__ = {
   archiveExemptFor,
   headingLosses,
   missingFrom,
+  // G-816708:自愈的三目标面(同一把尺子多喂一面)与三档点名的渲染出口
+  healLegs,
+  healLegRoster,
   healContent,
   // 判活唯一实现与其取材(镜像测试据此证明"名额判活"只有一份,§22c 禁止再抄一份)
   registrationSlots,
