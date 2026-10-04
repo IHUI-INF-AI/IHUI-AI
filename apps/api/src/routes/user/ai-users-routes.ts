@@ -14,12 +14,15 @@ import { success, error } from '../../utils/response.js'
 import { db } from '../../db/index.js'
 import { users } from '@ihui/database'
 import { isSystemAdminUser } from '../../db/queries.js'
+import { isUuidString } from '../../utils/uuid.js'
 import { parsePagination } from './_shared.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
 
 const aiUserItemSchema = z.object({
-  id: z.string().min(1).max(64).optional(),
-  uuid: z.string().min(1).max(64).optional(),
+  // users.id 是 uuid 列：POST /ai/users 拿它 insert().values({ id })，PUT /ai/users 拿它
+  // eq(users.id, id)。非 uuid 串让 Postgres 抛 22P02 ⇒ 500。原只校验 min(1).max(64)，漏掉格式。
+  id: z.uuid({ error: 'id 格式不正确' }).optional(),
+  uuid: z.uuid({ error: 'uuid 格式不正确' }).optional(),
   nickname: z.string().min(1).max(64).optional(),
   username: z.string().min(1).max(64).optional(),
   email: z.email().optional().nullable(),
@@ -70,6 +73,8 @@ const aiUsersRoutes: FastifyPluginAsync = async (server) => {
 
   server.get<{ Params: { uuid: string } }>('/ai/users/:uuid', async (request, reply) => {
     const { uuid } = request.params
+    // users.id 是 uuid 列：畸形 :uuid 段让 Postgres 抛 22P02 ⇒ 500。
+    if (!isUuidString(uuid)) return reply.status(404).send(error(404, '用户不存在'))
     const [row] = await db
       .select({
         id: users.id,
@@ -128,6 +133,8 @@ const aiUsersRoutes: FastifyPluginAsync = async (server) => {
 
   server.delete<{ Params: { uuid: string } }>('/ai/users/:uuid', async (request, reply) => {
     const { uuid } = request.params
+    // 同 GET：闸必须排在 isSystemAdminUser 之前，否则畸形值先在 uuid 列上炸成 500。
+    if (!isUuidString(uuid)) return reply.status(404).send(error(404, '用户不存在'))
     if (await isSystemAdminUser(uuid)) {
       return reply.status(403).send(error(403, '系统内置用户不可删除'))
     }
