@@ -200,6 +200,8 @@ test('T10 端到端:真跑一次 --self-test 与 --json,且跑完数据文件字
     encoding: 'utf8',
     windowsHide: true,
     timeout: 60000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   assert.equal(st.status, 0, `--self-test 退出码 ${st.status}\n${st.stdout}\n${st.stderr}`)
   assert.match(st.stdout.trim(), /pass \d+ \/ fail 0$/)
@@ -207,6 +209,8 @@ test('T10 端到端:真跑一次 --self-test 与 --json,且跑完数据文件字
     encoding: 'utf8',
     windowsHide: true,
     timeout: 60000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   assert.ok([0, 2].includes(js.status), `--json 退出码异常:${js.status}`)
   const parsed = JSON.parse(js.stdout)

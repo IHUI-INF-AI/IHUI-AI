@@ -84,6 +84,8 @@ test('端到端:真跑一次,不得以未捕获异常收场(崩溃 ≠ 违规)',
     cwd: REPO,
     timeout: 180_000,
     windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   const out = `${r.stdout || ''}${r.stderr || ''}`
   assert.ok(
@@ -123,6 +125,8 @@ function runSelfTest(scriptPath) {
       encoding: 'utf8',
       windowsHide: true,
       env: { ...process.env, HUSKY_SKIP_NO_EMOJI: '' },
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     return { rc: 0, out }
   } catch (e) {

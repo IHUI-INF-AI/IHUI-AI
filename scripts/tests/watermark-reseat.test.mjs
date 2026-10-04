@@ -50,6 +50,8 @@ const inject = (absPath, extra = []) =>
   execFileSync(process.execPath, [WM, 'inject', ...extra, absPath], {
     encoding: 'utf8',
     windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 
 /** 跑 verify 并取回退出码(不能过管道,否则拿到的是管道末端的码) */
@@ -58,6 +60,8 @@ function verifyRun(absPath) {
     const out = execFileSync(process.execPath, [WM, 'verify', absPath], {
       encoding: 'utf8',
       windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     return { status: 0, out }
   } catch (e) {
@@ -202,6 +206,8 @@ test('T6 真仓阳性对照:HEAD 面上那种"无横幅而带隐写"的形态必
     encoding: 'utf8',
     maxBuffer: 1 << 28,
     windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   if (r.status !== 0) {
     t.skip(`${rel} 已不在 HEAD ⇒ 该存量已清偿,这一格改由 T4 的构造面负责(不冒充判定)`)

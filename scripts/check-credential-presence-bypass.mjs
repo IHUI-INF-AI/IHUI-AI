@@ -414,6 +414,8 @@ export function analyze({ face, root = ROOT }) {
           timeout: GIT_TIMEOUT_MS,
           maxBuffer: 1 << 26,
           windowsHide: true,
+          stdio: ['ignore', 'pipe', 'pipe']
+          // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
         })
           .split(/\r?\n/)
           .filter((p) => p && SCAN_EXTS.test(p) && !TESTISH.test(p))

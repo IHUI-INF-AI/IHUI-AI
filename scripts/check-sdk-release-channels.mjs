@@ -205,8 +205,10 @@ function binAvailable(cmd) {
   if (/^(https?:)?\/\//.test(cmd) || cmd.includes('/')) return 'undetermined' // 不是裸命令名(可能是内联 URL 等),不猜
   const probe =
     process.platform === 'win32'
-      ? spawnSync('where.exe', [cmd], { windowsHide: true, timeout: 10_000, encoding: 'utf8' })
-      : spawnSync('which', [cmd], { windowsHide: true, timeout: 10_000, encoding: 'utf8' })
+      ? // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        spawnSync('where.exe', [cmd], { windowsHide: true, timeout: 10_000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+      : // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        spawnSync('which', [cmd], { windowsHide: true, timeout: 10_000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
   if (probe.error) return 'undetermined'
   if (probe.status === 0) return true
   if (probe.status === 1) return false // where/which 的正常「查无」码

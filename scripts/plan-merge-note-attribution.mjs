@@ -98,6 +98,8 @@ function gitShow(rev, path) {
       maxBuffer: 512 * 1048576,
       timeout: 120000,
       windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe']
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     })
   } catch {
     return null
@@ -163,6 +165,8 @@ function gitMergeBase(ours, theirs) {
       encoding: 'utf8',
       timeout: 60000,
       windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe']
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     }).trim()
   } catch {
     return null

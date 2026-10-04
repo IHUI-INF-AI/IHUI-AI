@@ -35,7 +35,9 @@ function runAtRef(ref) {
   try {
     const rt = gitWithEnv(['read-tree', ref], { GIT_INDEX_FILE: idx })
     if (rt.status !== 0) return { ok: false, why: `read-tree ${ref} 失败:${String(rt.stderr).trim().slice(0, 120)}` }
+    // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
     const r = spawnSync(process.execPath, [SELF, '--staged', '--json'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: ROOT,
       encoding: 'utf8',
       env: { ...process.env, GIT_INDEX_FILE: idx },
@@ -62,6 +64,7 @@ function runAtRef(ref) {
 
 const gitWithEnv = (args, env) =>
   spawnSync('C:/Program Files/Git/bin/git.exe', ['-c', 'safe.directory=*', ...args], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd: ROOT,
     encoding: 'utf8',
     env: { ...process.env, ...env },
@@ -69,7 +72,7 @@ const gitWithEnv = (args, env) =>
   })
 
 const git = (args) =>
-  spawnSync('git', ['-c', 'safe.directory=*', ...args], { cwd: ROOT, encoding: 'utf8' })
+  spawnSync('git', ['-c', 'safe.directory=*', ...args], { stdio: ['ignore', 'pipe', 'pipe'], cwd: ROOT, encoding: 'utf8' })
 const headHasLedger = () => git(['cat-file', '-e', `HEAD:${LEDGER_REL}`]).status === 0
 
 /** runner 里定位本门注册块:label 与 script 之间会被 prettier 折行,所以不吃换行。 */
@@ -173,7 +176,7 @@ test('T5b 台账一旦进 HEAD,全量面必须认它(存量锚点永不生效 = 
   const ledgerDirty =
     git(['diff', '--cached', '--name-only', '--', LEDGER_REL]).stdout.trim().length > 0
   const args = ledgerDirty ? [SELF, '--staged'] : [SELF]
-  const r = spawnSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8', timeout: 180000 })
+  const r = spawnSync(process.execPath, args, { stdio: ['ignore', 'pipe', 'pipe'], cwd: ROOT, encoding: 'utf8', timeout: 180000 })
   assert.equal(
     r.status,
     0,
@@ -202,6 +205,7 @@ test('T7 工作树档必须被拒(按磁盘判会把错数写回棘轮台账)', 
 
 test('T8 真仓跑通:索引面 exit 0,且逐组件实测数与台账锚点逐条相等', () => {
   const r = spawnSync(process.execPath, [SELF, '--staged', '--json'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd: ROOT,
     encoding: 'utf8',
     timeout: 180000,
@@ -587,6 +591,7 @@ test('T23 扩面装车锁:features 必须在 rn 配对源里,出口指向必须�
 
 test('T24 三份同名:进审候选逐条点名 + 一份族只许一条腿(真仓阳性对照)', () => {
   const r = spawnSync(process.execPath, [SELF, '--staged', '--json'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd: ROOT,
     encoding: 'utf8',
     timeout: 180000,

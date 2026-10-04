@@ -860,6 +860,8 @@ function defaultSpawn(cmd, args, timeoutMs) {
       timeout: timeoutMs,
       maxBuffer: 32 * 1024 * 1024,
       encoding: 'buffer',
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     if (out.error) return { spawnError: out.error.code || out.error.name || 'spawn-error', stdoutBuf: Buffer.alloc(0), stderrBuf: Buffer.alloc(0) }
     return { code: out.status ?? -1, stdoutBuf: out.stdout ?? Buffer.alloc(0), stderrBuf: out.stderr ?? Buffer.alloc(0) }

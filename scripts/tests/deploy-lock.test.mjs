@@ -786,6 +786,8 @@ test('装车证明:`node scripts/deploy-lock.mjs --self-test` 必须 exit 0', ()
     encoding: 'utf8',
     windowsHide: true,
     timeout: 180_000,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   assert.equal(
     r.status,
@@ -1137,7 +1139,8 @@ test('HB-M2 端到端真 CLI:活着就续、死了就交还,且只动夹具里�
     const dir = join(base, 'lock')
     child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore', windowsHide: true })
     await new Promise((r) => setTimeout(r, 700))
-    const cli = (args) => spawnSync(process.execPath, [SCRIPT, ...args], { encoding: 'utf8', windowsHide: true, timeout: 30_000 })
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    const cli = (args) => spawnSync(process.execPath, [SCRIPT, ...args], { encoding: 'utf8', windowsHide: true, timeout: 30_000, stdio: ['ignore', 'pipe', 'pipe'] })
     const ac = cli(['acquire', '--mode', 'dev', '--lock-dir', dir, '--owner-pid', String(child.pid), '--token', HB.token])
     assert.equal(ac.status, 0, `acquire 失败:${ac.stderr}`)
     const before = JSON.parse(readFileSync(join(dir, 'meta.json'), 'utf8'))
@@ -1239,7 +1242,8 @@ test('HB-M7 run 端到端真 CLI:退出码透传 + 跑完交还;上层持锁时�
   const base = mkScratch('deploy-lock-run-mirror-')
   try {
     const cli = (args, env) =>
-      spawnSync(process.execPath, [SCRIPT, ...args], { encoding: 'utf8', windowsHide: true, timeout: 90_000, env })
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      spawnSync(process.execPath, [SCRIPT, ...args], { encoding: 'utf8', windowsHide: true, timeout: 90_000, env, stdio: ['ignore', 'pipe', 'pipe'] })
     const dir = join(base, 'lock')
     const r = cli([
       'run', '--mode', 'build', '--lock-dir', dir, '--timeout', '20000', '--stale', '20000', '--',

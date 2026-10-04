@@ -369,6 +369,8 @@ test('R5 词法边界:实底/透明档/前景档/变体前缀/注释/豁免各�
 test('R5 真内容阳性对照:HEAD 的 button.tsx 现值 0 处,但改名回退役档必 >0(证明"0"是判出来的)', () => {
   const rel = 'packages/ui-react/src/components/button.tsx'
   const head = execFileSync('git', ['-c', 'safe.directory=*', 'show', `HEAD:${rel}`], {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd: REPO,
     encoding: 'utf8',
     maxBuffer: 1 << 26,
@@ -414,7 +416,8 @@ test('R5 预筛完备性:每一条应计行所在文件都必须在预筛结果�
       '--',
       ...gate.R5_DIRS,
     ],
-    { cwd: REPO, encoding: 'utf8', maxBuffer: 1 << 26, windowsHide: true, timeout: 60000 },
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    { stdio: ['ignore', 'pipe', 'pipe'], cwd: REPO, encoding: 'utf8', maxBuffer: 1 << 26, windowsHide: true, timeout: 60000 },
   )
     .split('\n')
     .filter(Boolean)
@@ -433,6 +436,8 @@ test('R5 预筛完备性:每一条应计行所在文件都必须在预筛结果�
   let total = 0
   for (const rel of fgFiles) {
     const txt = execFileSync('git', ['-c', 'safe.directory=*', 'show', `HEAD:${rel}`], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: REPO,
       encoding: 'utf8',
       maxBuffer: 1 << 26,
@@ -502,6 +507,8 @@ test('R5 基线键独立且不得与 R2/R3/R4 复用;失败文案必须点名 ct
 test('R7 真内容 A/B:HEAD 实档必命中,把前景换成正配后必归 0(证明"0 是判出来的")', () => {
   const read = (rel) =>
     execFileSync('git', ['-c', 'safe.directory=*', 'show', `HEAD:${rel}`], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: REPO,
       encoding: 'utf8',
       maxBuffer: 1 << 26,
@@ -802,6 +809,8 @@ test('真仓端到端:全量审计 exit 0,且 R3 存量未跌回盲区态(盲区
     process.execPath,
     [join(REPO, 'scripts', 'check-brand-foreground.mjs')],
     {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
       windowsHide: true,
       timeout: 300_000,
@@ -848,6 +857,8 @@ test('自检入口可用:--self-test 退出码 0', () => {
     process.execPath,
     [join(REPO, 'scripts', 'check-brand-foreground.mjs'), '--self-test'],
     {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
       windowsHide: true,
       timeout: 60_000,
@@ -887,6 +898,8 @@ test('R8 变异对照:旧判据只认 borderColor: ⇒ borderBottomColor 夹具�
 test('R8 真仓 A/B:HEAD 现值必 0,把真文件的正配档改回墨档必 >0(证明"0 是判出来的")', () => {
   const rel = 'apps/mobile-rn/src/components/AiModelCard.tsx'
   const head = execFileSync('git', ['show', `HEAD:${rel}`], {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd: REPO,
     encoding: 'utf8',
     maxBuffer: 1 << 26,
@@ -938,7 +951,8 @@ test('R8 预筛完备性:真仓每一条应计行所在文件都必须在预筛�
       '--',
       ...gate.R5_DIRS,
     ],
-    { cwd: REPO, encoding: 'utf8', maxBuffer: 1 << 26, windowsHide: true, timeout: 60_000 },
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    { stdio: ['ignore', 'pipe', 'pipe'], cwd: REPO, encoding: 'utf8', maxBuffer: 1 << 26, windowsHide: true, timeout: 60_000 },
   )
     .split('\n')
     .filter(Boolean)
@@ -947,6 +961,8 @@ test('R8 预筛完备性:真仓每一条应计行所在文件都必须在预筛�
     if (!set.has(f) && gate.isR5Scope(f)) {
       // 允许:该文件的命中全在注释行(预筛是超集,判据更窄)—— 必须逐行证实,不得直接放过
       const src = execFileSync('git', ['show', `HEAD:${f}`], {
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
         cwd: REPO,
         encoding: 'utf8',
         maxBuffer: 1 << 26,

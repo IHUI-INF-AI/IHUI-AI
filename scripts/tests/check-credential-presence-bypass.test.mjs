@@ -30,6 +30,8 @@ const SELF = 'check-credential-presence-bypass.mjs'
 
 function runJson(args) {
   const out = spawnSync(process.execPath, [GATE, ...args], {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd: REPO,
     encoding: 'utf8',
     timeout: 300_000,
@@ -53,7 +55,8 @@ function faceShow(relPath) {
   return execFileSync(
     'C:/Program Files/Git/cmd/git.exe',
     ['-c', 'safe.directory=*', 'show', `HEAD:${relPath}`],
-    { cwd: REPO, encoding: 'utf8', timeout: 120_000, maxBuffer: 1 << 26, windowsHide: true },
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    { stdio: ['ignore', 'pipe', 'pipe'], cwd: REPO, encoding: 'utf8', timeout: 120_000, maxBuffer: 1 << 26, windowsHide: true },
   )
 }
 
@@ -104,7 +107,8 @@ test('T4 真仓阳性对照:HEAD 面必须看得见那两处已裁豁免(看不�
 test('T5 台账缺席 ⇒ 按零豁免判红并大声报出(缺席不等于通过)', () => {
   const s = mkScratch('cbleg')
   try {
-    execFileSync('C:/Program Files/Git/cmd/git.exe', ['-c', 'safe.directory=*', 'init', '-q', '.'], { cwd: s, windowsHide: true, timeout: 60_000 })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execFileSync('C:/Program Files/Git/cmd/git.exe', ['-c', 'safe.directory=*', 'init', '-q', '.'], { stdio: ['ignore', 'pipe', 'pipe'], cwd: s, windowsHide: true, timeout: 60_000 })
     const dir = join(s, 'apps', 'api', 'src', 'plugins')
     mkdirSync(dir, { recursive: true })
     writeFileSync(
@@ -116,13 +120,17 @@ test('T5 台账缺席 ⇒ 按零豁免判红并大声报出(缺席不等于通�
     for (const f of ['check-credential-presence-bypass.mjs', 'lib/face-reader.mjs', 'lib/code-mask.mjs', 'lib/scratch-dir.mjs', 'lib/gitdir.mjs']) {
       writeFileSync(join(s, 'scripts', f), readFileSync(join(REPO, 'scripts', f), 'utf8'), 'utf8')
     }
-    execFileSync('C:/Program Files/Git/cmd/git.exe', ['-c', 'safe.directory=*', 'add', '-A'], { cwd: s, windowsHide: true, timeout: 60_000 })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execFileSync('C:/Program Files/Git/cmd/git.exe', ['-c', 'safe.directory=*', 'add', '-A'], { stdio: ['ignore', 'pipe', 'pipe'], cwd: s, windowsHide: true, timeout: 60_000 })
     execFileSync(
       'C:/Program Files/Git/cmd/git.exe',
       ['-c', 'safe.directory=*', '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'fixture'],
-      { cwd: s, windowsHide: true, timeout: 60_000 },
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      { stdio: ['ignore', 'pipe', 'pipe'], cwd: s, windowsHide: true, timeout: 60_000 },
     )
     const out = spawnSync(process.execPath, [join(s, 'scripts', 'check-credential-presence-bypass.mjs')], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: s,
       encoding: 'utf8',
       timeout: 120_000,

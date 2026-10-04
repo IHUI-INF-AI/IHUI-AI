@@ -881,6 +881,8 @@ if (isStaged) {
       encoding: 'utf8',
       cwd: REPO_ROOT,
       windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     const staged = output.split('\n').filter(Boolean)
     messagesChanged = staged.some(
