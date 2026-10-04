@@ -7,6 +7,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getStudyRecords, getStudyInfo, type StudyRecord } from '@/api'
+import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import ThemeRoot from '@/components/ThemeRoot'
 
 type FilterTab = 'all' | 'learning' | 'completed' | 'abandoned'
@@ -240,7 +241,7 @@ export default function StudyRecord() {
                       <View className="h-[8rpx] bg-muted rounded-xs overflow-hidden">
                         <View
                           className="h-full bg-success rounded-xs"
-                          style={{ width: `${Math.min(100, Math.max(0, r.progress))}%` }}
+                          style={{ width: `${clampPercent(r.progress)}%` }}
                         />
                       </View>
                     </View>

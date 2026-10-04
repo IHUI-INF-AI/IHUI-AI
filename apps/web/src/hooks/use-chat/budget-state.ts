@@ -18,6 +18,7 @@ import {
   type ContextSamplePhase,
   type ContextTrustedZeroPhase,
 } from '@ihui/shared/utils/context-used-sample'
+import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 
 let currentBudgetEvent: BudgetEvent | null = null
 const budgetListeners = new Set<() => void>()
@@ -106,12 +107,12 @@ export function subscribeBudgetEvent(listener: () => void): () => void {
  */
 export function budgetBarPercent(event: BudgetEvent): number {
   if (typeof event.percent === 'number' && Number.isFinite(event.percent)) {
-    return Math.min(100, Math.max(0, event.percent))
+    return clampPercent(event.percent)
   }
   const used = event.usedTokens
   const limit = event.limitTokens
   if (typeof used === 'number' && typeof limit === 'number' && limit > 0) {
-    return Math.min(100, Math.max(0, Math.floor((used / limit) * 1000) / 10))
+    return clampPercent(Math.floor((used / limit) * 1000) / 10)
   }
   return 0
 }

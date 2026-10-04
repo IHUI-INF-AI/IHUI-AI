@@ -21,6 +21,7 @@ import {
   XCircle,
   Zap,
 } from 'lucide-react'
+import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
@@ -279,7 +280,7 @@ function ProgressBar({
   max: number
   className?: string
 }) {
-  const pct = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0
+  const pct = max > 0 ? clampPercent((value / max) * 100) : 0
   return (
     <div className="h-1.5 w-full overflow-hidden rounded-xs bg-muted">
       <div
