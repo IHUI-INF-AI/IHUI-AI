@@ -19,6 +19,7 @@
 
 import { readdirSync, statSync, rmSync, existsSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 // G-611 产出侧:本脚本正是 check-typecheck:454 那套"族码 ⇒ 临时失败"集合的**被派生方**。
@@ -186,7 +187,15 @@ import {
   writeFileSync as _wrLock,
   rmSync as _rmLock,
 } from 'node:fs'
-const _lockDir = resolve(ROOT, '.workbuddy/typecheck.lock')
+// 进程锁放系统临时目录(2026-10-04 迁出仓内):
+//   原锁目录在仓内(ROOT 下)⇒ 清 stale 锁的 rmSync(recursive,force)
+//   触发 WorkBuddy safe-delete shim 的批量守卫(SAFE_DELETE_BULK_GUARD_ERROR),
+//   tsc 根本没起来,守门报「退出码非 0 但未解析到任何报错文件路径」——
+//   属自锁式死锁:重试无用,只能靠 HUSKY_SKIP_TYPECHECK 绕过。
+//   shim 的 shouldBypassSafeDelete 对 os.tmpdir() 放行(见 node-safe-delete-shim.cjs
+//   的 OS_TMP_DIRS),且进程锁本就不该进仓库目录。_lockDir 是单一常量,
+//   下方建/读/清 stale/exit 清 五处使用全部由它派生,改这一处即全覆盖。
+const _lockDir = join(tmpdir(), 'ihui-typecheck-full.lock')
 const _lockMeta = join(_lockDir, 'meta.json')
 const _LOCK_STALE_MS = 20 * 60 * 1000
 
