@@ -38,6 +38,16 @@ LOAD_BACKOFF_MAX_S = 60.0
 LOAD_MAX_CONSECUTIVE_FAILURES = 5
 
 # 判读词汇(loadState 的取值域;消费方 = get_status / 单测 / 运维看状态)。
+#
+# G-759 依据 —— 为什么这四档没有登记进 i18n 五语言(票面要求"写明依据,不得默认省略"):
+# 这四档是**服务端运维诊断字段**,唯一出口是各模块 get_status() 里的 loadState 键,读它是
+# 运维看健康度与单测断言,端上没有一处取用。2026-10-04 实测两点:① packages/i18n 五语言包
+# 里搜不到任何一档词汇;② web 面命中的 4 个 loadState 标识符(`context-reference-panel`、
+# `use-message-references`、`use-react-table`、附件上传用例)是附件/表格自己的加载态,
+# 与本模块的取值域同名不同义、数据不贯通。AGENTS §30 那条"新增状态必须同枚补齐五语言词表"
+# 约束的是**会渲染进界面**的状态词汇(子智能体六态/后台进程六态那一族),这一族今天不进文案面,
+# 所以按票面给的出口写明依据而不是登记空词表。将来任何端要把 loadState 显示给用户,前置是
+# 先走 §19 五语言流水线再落地,不得只补一条中文。
 STATE_LOADED = "loaded"  # 含"读到空表"——权威的空
 STATE_NEVER_TRIED = "never_tried"
 STATE_RETRY_BACKOFF = "retry_backoff"  # 读不到,退避中
