@@ -40,7 +40,10 @@
  *     照旧前提去"新增一个等价实现"就是造第三份)。
  *
  * 产物(票面"先落模板再谈自检"的落点):`--out <path>` 把本轮读数与逐条判定写成**结构化 JSON**
- * (ticket / head / scope / probes[] / verdict / rot 计数),默认写 `<root>/.dispatch-premise-report.json`。
+ * (ticket / head / scope / probes[] / verdict / rot 计数),默认写 **scratch 目录**(本仓 `.ihui-agent/`
+ 下(mkdtemp 层下,已被 `.gitignore` 覆盖)里的 `dispatch-premise-report.json` —— **不落仓根**:仓根落点会在
+ * `git status` 里留一条没人收的 `??`,而门是每轮派单都跑的。(2026-10-04 补票实测:仓根落点确实
+ * 产生了 `?? .dispatch-premise-report.json`;改落 scratch 后 `git status` 零残留。)
  * 只往 stdout 打印不算交付 —— 派单那一刻的读数必须**留下来可追责**。
  *
  * 模式:
@@ -58,6 +61,7 @@
 
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { scratchRoot } from './lib/scratch-dir.mjs'
 import { dirname, isAbsolute, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -454,7 +458,7 @@ async function main() {
     ? isAbsolute(outArg)
       ? outArg
       : resolve(root, outArg)
-    : resolve(root, '.dispatch-premise-report.json')
+    : resolve(scratchRoot(), 'dispatch-premise-report.json')
   process.exit(
     report(loaded.ticket, head, effectiveScope(loaded.premises[0].scope), judged, outFile, true),
   )
