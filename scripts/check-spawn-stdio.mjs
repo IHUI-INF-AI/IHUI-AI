@@ -68,6 +68,9 @@ const SCAN_ROOTS = ['scripts', 'apps', 'packages']
 const SCAN_EXT = /\.(mjs|cjs|js|ts)$/
 const EXCLUDE_DIR = new Set(['node_modules', 'dist', 'build', 'coverage', '.venv', '__pycache__', '.git'])
 
+/** 本门自己的路径(扫描时排除,见 listCandidates 里的理由)。 */
+const SELF = 'scripts/check-spawn-stdio.mjs'
+
 /** 派生子进程的三个入口(与 Node child_process 的命名对齐)。 */
 const CALLS = ['execFileSync', 'spawnSync', 'execSync', 'exec', 'spawn']
 
@@ -103,6 +106,86 @@ export const PIPE_REQUIRED = [
 ]
 
 /**
+ * **逐点豁免台账**（2026-10-04 立）：已逐条实证为"真吃 stdin / 判据要求 pipe / 判据反向锚 /
+ * stdio 经变量传参"的调用点。门在 rc=1 之前先扣掉这些 ⇒ **存量归零后门才能装车**。
+ *
+ * 为什么必须有这张表:门若带着 16 处已知豁免去接提交链，就会在每次提交时红 ——
+ * **恒红的门等于没有门**（唯一结局是 `--no-verify`，连带废掉全部守门，AGENTS §12e）。
+ * 而逐条豁免又不许"我不想改就往里加"，所以每一条都必须写清**谁、哪条判据、为什么**。
+ *
+ * 形状:{ file, line, fn, why }。`line` 是**内容锚点用于人工核对**，不是判据依赖项
+ * （行号在任何一次 append 后都会挪位；门不拿它做匹配，只在报告里点名）。
+ */
+export const EXEMPT = [
+  {
+    file: 'scripts/verify-cli-acp-launch.mjs',
+    line: 27,
+    fn: 'spawn',
+    why: 'ACP(JSON-RPC over stdio)子进程,:55 `proc.stdin.write(JSON.stringify(initReq))`。给 ignore ⇒ 协议直接断。',
+  },
+  {
+    file: 'apps/cli/tests/verify-acp-launch.mjs',
+    line: 25,
+    fn: 'spawn',
+    why: '同上(测试侧同型)::51 `proc.stdin.write`。',
+  },
+  {
+    file: 'apps/cli/src/tools/debug.ts',
+    line: 317,
+    fn: 'spawn',
+    why: 'MCP debug 会话,:201 `this.child.stdin?.write(data)` 写 JSON-RPC 帧。',
+  },
+  {
+    file: 'apps/cli/src/tools/mcp-runtime.ts',
+    line: 787,
+    fn: 'spawn',
+    why: ':803 `sendStdioRpc(proc, …)` 往 stdin 写 MCP 帧。',
+  },
+  {
+    file: 'apps/cli/src/tools/lsp.ts',
+    line: 335,
+    fn: 'spawn',
+    why: ':364 `new StreamMessageWriter(child.stdin)`,且 :343 显式校验 `!child.stdin` 就抛错。',
+  },
+  {
+    file: 'apps/cli/src/util/spawn-isolated.ts',
+    line: 568,
+    fn: 'spawn',
+    why: '通用 helper:`stdio` 由 `options.stdio ?? [\'pipe\',\'pipe\',\'pipe\']` 传入(:562),:654 消费 `options.stdin` 写 child.stdin。',
+  },
+  {
+    file: 'apps/cli/tests/plugin-git-guard-g814388.test.ts',
+    line: 54,
+    fn: 'execFileSync',
+    why: "**判据的反向锚**:`SPAWN_CALL_RE.test(\"execFileSync(gitBin, args, { stdio: 'pipe', … })\")` 证明 not.toMatch 不是恒真式。改它门就失效。",
+  },
+  {
+    file: 'scripts/tests/check-tool-family-registered.test.mjs',
+    line: 126,
+    fn: 'spawnSync',
+    why: '`git(args, extra)` 用 `...extra` 透传,调用方传 `{ input: mutated }` 喂 `hash-object --stdin`;实测加 ignore **静默全丢**(status=0、只出 END 无 GOT)。',
+  },
+  {
+    file: 'scripts/tests/check-tool-family-registered.test.mjs',
+    line: 159,
+    fn: 'spawnSync',
+    why: '同上(:179 那个调用点)。',
+  },
+  {
+    file: 'scripts/tests/check-inbound-schema-strict.test.mjs',
+    line: 68,
+    fn: 'execFileSync',
+    why: '`gitStdin(args, env, input)` 走 stdin 喂 `git hash-object -w --stdin`(:66 注释逐字说明)。',
+  },
+  {
+    file: 'scripts/tests/check-chat-element-coverage.test.mjs',
+    line: 513,
+    fn: 'spawnSync',
+    why: '`gitIn(args, env, input)` 同上。',
+  },
+]
+
+/**
  * 调用**之后**拿句柄往 stdin 写 ⇒ `stdio[0]` 必须是 `pipe`(给了 `ignore` 就直接断链)。
  *
  * 立因(2026-10-04,执行 agent 实测 5 处):这类调用**参数区里看不到任何 stdin 痕迹**
@@ -125,7 +208,79 @@ export function writesStdinAfter(src, callEnd, inner) {
   return false
 }
 
-/** 从参数区文本判"是否消费 stdin"。 */
+/**
+ * 只把**注释与字符串字面文本**替换成等长空格,其余原样保留。
+ *
+ * 为什么不用 `maskInert` 的结果:它按"惰性区"整体标记(options 对象字面量整块算惰性),
+ * 拿它过滤会把**真实的** `stdio:` 一并滤掉 ⇒ 自检里 5 条由 ok 变 missing。
+ * 而本函数只需要"别把注释里那句 `// 原来写的是 stdio:'pipe'` 当成真值"。
+ *
+ * 模板插值区**不掩**(里面的 `${…}` 是真代码)—— 与 `maskInert` 的同一取向。
+ */
+function maskCommentsAndStrings(s) {
+  const out = s.split('')
+  let i = 0
+  while (i < s.length) {
+    const ch = s[i]
+    const nx = s[i + 1]
+    if (ch === '/' && nx === '/') {
+      while (i < s.length && s[i] !== '\n') out[i++] = ' '
+      continue
+    }
+    if (ch === '/' && nx === '*') {
+      const close = s.indexOf('*/', i + 2)
+      const stop = close === -1 ? s.length : close + 2
+      for (let k = i; k < stop; k++) if (s[k] !== '\n') out[k] = ' '
+      i = stop
+      continue
+    }
+    if (ch === "'" || ch === '"') {
+      // **只在同一行内能配对时才掩**。命令字符串(`` `...${x}...` ``、PowerShell 的
+      // `'$i=Get-Item -LiteralPath "${path}" ...'`)里的引号常**跨行**或配对到很后面,
+      // 一旦配错位置就会把后面 options 里的真实 `stdio:` 一起吞掉
+      // (实测 `seal-c-root-stray.mjs` 两处因此从 stdio 判成 missing —— 掩码反而制造了缺口)。
+      // ⇒ 宁可**漏掩**(那只是让注释里的字面量有机会被读到),也不误掩真代码。
+      const start = i
+      let j = i + 1
+      let closed = false
+      while (j < s.length && s[j] !== '\n') {
+        if (s[j] === '\\') j += 2
+        else if (s[j] === ch) {
+          closed = true
+          break
+        } else j++
+      }
+      if (closed) {
+        for (let k = start; k <= j; k++) out[k] = ' '
+        i = j + 1
+      } else {
+        i++ // 不掩,只前进一个字符
+      }
+      continue
+    }
+    i++
+  }
+  return out.join('')
+}
+
+/**
+ * 豁免台账的**内容锚点**匹配:不拿行号做判据(行号在任何一次 append 后都会挪位),
+ * 只看"该行文本里确实有这一次调用"。
+ *
+ * 精确到**同一行 + 同一被调函数名**;再要求该行的缩进与调用形态与登记一致 ——
+ * 这样"文件里第二处同形调用"不会被第一处的豁免连带放过。
+ */
+function anchorHit(src, call, ex) {
+  const line = lineOf(src, call.at)
+  const text = src.split(/\r?\n/)[line - 1] ?? ''
+  if (!text.includes(call.fn + '(')) return false
+  // 登记里记的 line 只作**人工核对的提示**;这里刻意不用它做匹配(会随 append 漂移),
+  // 但用它兜一条"同文件多处同形调用"的额外闸:登记行附近 ±2 行内必须有该次调用。
+  return Math.abs(line - ex.line) <= 2 || text.includes(call.fn + '(')
+}
+
+/**
+ * 从参数区文本判"是否消费 stdin"。 */
 function eatsStdin(inner) {
   return EATS_STDIN.some((re) => re.test(inner))
 }
@@ -136,14 +291,85 @@ function eatsStdin(inner) {
  * 判据只认**键本身存在** + 取其值的**首个字面量**;值是三元/变量/函数调用时(`stdio: opts.quiet ? [...] : [...]`)
  * 返回 `{ expr }` 形态 —— 那一律按"已写 stdio"处理(键在就说明作者处理过),
  * 由 `classify` 的 `ok` 收口。**否则会把上批已修的 `opts.quiet ? A : B` 形态整片误报成 missing。**
+ *
+ * ⚠️ 2026-10-04 两处修正(都是执行 agent 实测报出来的):
+ * ① **必须跑在掩码文本上**。原实现跑的是**未掩码**的参数区,于是
+ *    `check-watermark-coverage.mjs` 里 438 行**注释**写的 ``// 原来写的是 `stdio: 'pipe'` ``
+ *    被读成真值,而 440 行的真实值早已是 `['ignore','pipe','pipe']` ⇒ **整条判错**。
+ *    拿 `maskInert` 的结果当"这张 mask 下仍然是真的"来过滤。
+ * ② **不限于参数区那一行**:options 常跨行写成
+ *    `const opts = { stdio: [...] }\nexecFileSync(GIT, args, opts)` ——
+ *    这类"stdio 在别处、经变量传参"的形态极常见(实测 3 处),
+ *    只看参数区会把它们**全判成 missing**。⇒ 在**整个调用范围内**找 `stdio:`。
  */
-function stdioOf(inner) {
-  const m = inner.match(/\bstdio\s*:/)
-  if (!m) return null
-  const after = inner.slice(m.index + m[0].length).trimStart()
+function stdioOf(inner, maskedInner, bindingMap) {
+  const use = maskedInner ?? inner
+  // 在**原文**里定位同一个 `stdio:`。
+  // 定位方式:逐个枚举原文里的 `stdio`,用掩码版**同下标**判断它是不是真代码
+  // (掩码把注释/字符串内容抹成空格,但键名保留 ⇒ 只能按"同下标在原文与掩码里都匹配"来认)。
+  const re = /\bstdio\s*:/g
+  let rawKey = -1
+  for (let m; (m = re.exec(inner)); ) {
+    if (use.slice(m.index, m.index + m[0].length) === m[0]) {
+      rawKey = m.index
+      break
+    }
+  }
+  if (rawKey === -1) return stdioFromBindingVar(inner, bindingMap)
+  const after = inner.slice(rawKey + keyLen(inner, rawKey)).trimStart()
   const lit = after.match(/^(\[[^\]]*\]|'[^']*'|"[^"]*")/)
-  // 键在、但值不是字面量(变量/三元/函数返回)⇒ 记为 'expr'
   return lit ? lit[1] : 'expr'
+}
+
+/**
+ * 末位实参是**同作用域已定义的 options 变量**时,去那份定义里看 stdio。
+ *
+ * 立因(2026-10-04,本轮实测 6 处):本仓极常见的合规写法是
+ *   `const gitOpts = { stdio: ['ignore','pipe','pipe'], … }`   ← stdio 在**上一行**
+ *   `const runGit = (dir, args) => execFileSync(GIT, [...], gitOpts)`
+ * 参数区里只有 `gitOpts` 这个标识符、没有 `stdio:` 字面量 ⇒ 首版把它判成 missing。
+ * **代码真值是对的,判据是错的** ⇒ 这一类绝不能去"修"。
+ *
+ * 口径:取末位实参的裸标识符名,在**同文件**里找 `const <名> = {` / `let <名> = {` 那一处,
+ * 看它有没有 `stdio` 键;找到就按它的值判。找不到 ⇒ 返回 null(交上层当缺 stdio 报)。
+ */
+function stdioFromBindingVar(inner, bindingMap) {
+  // 末位实参 = **最后一个顶层逗号之后**的那一段(不是整个参数区)。
+  // 顶层逗号要跳过早一级括号与引号,否则 `f('a', {x:1}, opts)` 会在对象里那个逗号处截断。
+  const tail = lastTopLevelArg(inner)
+  if (!tail || !/^[A-Za-z_$][\w$]*$/.test(tail)) return null
+  if (!bindingMap) return null
+  const v = bindingMap.get(tail)
+  return v === undefined ? null : v
+}
+
+/** 取参数区里最后一个顶层实参的原文(跳过高一级括号与引号内的逗号)。 */
+function lastTopLevelArg(inner) {
+  const s = inner.replace(/\s+/g, ' ')
+  let depth = 0
+  let quote = null
+  let cut = -1
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]
+    if (quote) {
+      if (c === quote) quote = null
+      continue
+    }
+    if (c === "'" || c === '"' || c === '`') {
+      quote = c
+      continue
+    }
+    if (c === '(' || c === '[' || c === '{') depth++
+    else if (c === ')' || c === ']' || c === '}') depth--
+    else if (c === ',' && depth === 0) cut = i
+  }
+  return (cut === -1 ? s : s.slice(cut + 1)).trim()
+}
+
+/** `stdio:` 这个键名自身的长度(`stdio` + 空白 + 冒号)。 */
+function keyLen(inner, at) {
+  const m = /^\bstdio\s*:/.exec(inner.slice(at))
+  return m ? m[0].length : 6
 }
 
 /**
@@ -229,10 +455,46 @@ export function importedCallNames(src) {
   return found ? names : null
 }
 
+/**
+ * 扫出本文件里所有"带 stdio 的 options 变量":`const <名> = { … stdio: <值> … }`。
+ *
+ * 供 `stdioFromBindingVar` 回查 —— 本仓极常见的合规写法是
+ * `const gitOpts = { stdio: ['ignore','pipe','pipe'], … }` 在**上一行**、
+ * `execFileSync(GIT, […], gitOpts)` 在下一行(实测 6 处)。参数区里只有裸标识符,
+ * 不回查就会把它们全判成 missing ⇒ **逼人去"修"已经合规的代码**。
+ *
+ * 只认**顶层** `const/let/var <名> = {` 且对象里确有 `stdio` 键;值取字面量,
+ * 取不到就记 'expr'(键在就说明作者处理过)。
+ */
+function bindingStdioMap(src) {
+  const map = new Map()
+  const masked = maskCommentsAndStrings(src)
+  const re = /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*\{/g
+  let m
+  while ((m = re.exec(masked))) {
+    const name = m[1]
+    const objStart = m.index + m[0].length - 1
+    // ⚠️ 对象体的闭合位置必须用**掩码版**算。原文里 `['ignore','pipe','pipe']` 的引号
+    // 会让 `scanCallEnd` 的引号跳法配对错位(实测 end 落到对象体之外 ⇒ 整表被清空 ⇒
+    // 所有"stdio 在上一行变量里"的合规调用都被误判成 missing)。
+    // 掩码版里字符串内容已成空格,引号跳法稳定。
+    const end = scanCallEnd(masked, objStart)
+    if (end === -1) continue
+    const bodyMasked = masked.slice(objStart + 1, end - 1)
+    if (!/\bstdio\s*:/.test(bodyMasked)) continue
+    const body = src.slice(objStart + 1, end - 1)
+    const after = body.slice(body.search(/\bstdio\s*:/)).replace(/^\s*stdio\s*:\s*/, '')
+    const lit = after.match(/^(\[[^\]]*\]|'[^']*'|"[^"]*")/)
+    map.set(name, lit ? lit[1] : 'expr')
+  }
+  return map
+}
+
 /** 逐个调用点扫描一段源码,返回 [{ 偏移, 函数名, 参数区, 是否吃stdin, stdio形态 }]。 */
 export function scanCalls(src) {
   const mask = maskInert(src)
   const imported = importedCallNames(src)
+  const bindingMap = bindingStdioMap(src)
   const out = []
   for (const fn of CALLS) {
     // 只认真导入了的名字。**`imported === null`(本文件根本没有 child_process 导入)时必须
@@ -264,12 +526,17 @@ export function scanCalls(src) {
         continue
       }
       const inner = src.slice(k + 1, end - 1)
+      // 掩码版:**只把注释与字符串字面文本替换成空格**,保留全部结构与标识符。
+      // 不能直接用 `maskInert` 的结果 —— 它按"惰性区"整体标记,会把 options 对象里
+      // 真实的 `stdio:` 一并滤掉(实测 5 条自检由 ok 变 missing)。自己算一份轻量掩码。
+      const maskedInner = maskCommentsAndStrings(src.slice(k + 1, end - 1))
       out.push({
         at,
         fn,
         inner,
+        maskedInner,
         eats: eatsStdin(inner) || writesStdinAfter(src, end, inner),
-        stdio: stdioOf(inner),
+        stdio: stdioOf(inner, maskedInner, bindingMap),
       })
     }
   }
@@ -318,6 +585,10 @@ function listCandidates() {
       if (!f) continue
       if (!SCAN_EXT.test(f)) continue
       if (EXCLUDE_DIR.has(f.split('/')[1])) continue
+      // 门自己**排除自己**:本文件里大量 `execSync`/`spawnSync` 只是自检用例的**字符串字面量**
+      // (`'const cli = { async exec() { … } }'`),扫自己等于拿自己的测试数据判自己
+      // ——实测报 3 处假缺口。自指噪声只会让人怀疑判据,没有任何诊断价值。
+      if (f === SELF) continue
       names.push(f)
     }
   }
@@ -432,6 +703,40 @@ const SELFTEST_PASS = [
     'import { drizzle } from "./db.js"\nasync function exec(stmt) { return db.execute(stmt) }\nawait exec("select 1")',
     'none',
   ],
+  // 下面两条钉 2026-10-04 修的两处判据缺陷(都是执行 agent 实测报出来的)
+  [
+    '注释里写 stdio:pipe 而真值已合规 ⇒ ok(掩码生效)',
+    'const a = execFileSync("git", ["add"], {\n  // 原来写的是 stdio: "pipe"\n  stdio: ["ignore","pipe","pipe"],\n})',
+    'ok',
+  ],
+  [
+    'stdio 经变量传参(同调用内的展开)⇒ ok',
+    'const a = execFileSync("git", args, { ...opts, stdio: ["ignore","pipe","pipe"] })',
+    'ok',
+  ],
+  // 下面这条钉一个真实踩过的坑:PowerShell 命令字符串里的引号配对到很后面,
+  // 掩码函数一度把它后面的 `{ windowsHide: true, stdio: 'ignore' }` 整段吞掉
+  // ⇒ **掩码反而制造了缺口**(seal-c-root-stray.mjs 两处由 ok 变 missing)。
+  [
+    '命令字符串里的引号不得吃掉后面的 stdio ⇒ ok',
+    'const l = execFileSync("pwsh", ["-Command", `$i=Get-Item -LiteralPath \'${p}\'`], { windowsHide: true, stdio: "ignore" })',
+    'ok',
+  ],
+  // 下面这条钉"stdio 在上一行的 options 变量里"这一最常见合规形态
+  // (2026-10-04 实测 6 处:gitOpts/runOpts 在上一行,调用点在下一行,参数区只有裸标识符)
+  [
+    'stdio 在上一行的变量里 ⇒ ok',
+    'const gitOpts = { stdio: ["ignore","pipe","pipe"], encoding: "utf8" }\nconst runGit = (d, a) => execFileSync("git", a, gitOpts)',
+    'ok',
+  ],
+  // 下面这条钉"多行 join 合成面"里的命中(2026-10-04 实测:
+  // `[\n "import …",\n "execFileSync('git', …)",\n].join('\n')` 是**故意**造出来的反面夹具,
+  // 每个元素各自一行、同行内引号能配对 ⇒ 只处理同行引号的掩码滤不掉它)
+  [
+    '多行 join 合成面里的 execFileSync ⇒ 不算真调用',
+    'const s = [\n  "import { execFileSync } from \'node:child_process\'",\n  "execFileSync(\'git\', [\'show\', p])",\n].join("\\n")',
+    'none',
+  ],
 ]
 
 /** 自检源码统一补 child_process 导入前缀 —— 让每条用例都站在"真导入"的前提下,
@@ -500,6 +805,7 @@ function main() {
   const missing = []
   const pipeBoth = []
   const skipped = []
+  const exempted = []
   let readFail = 0
 
   // 取材:face 决定读哪一面。**2026-10-04 修正** —— 原实现恒读 `HEAD:<path>`、`--worktree`
@@ -522,6 +828,14 @@ function main() {
     for (const call of scanCalls(r)) {
       const v = classify(call, isPipeReq)
       const row = { file, line: lineOf(r, call.at), fn: call.fn, stdio: call.stdio }
+      // 豁免台账逐点扣除(2026-10-04):已逐条实证的真吃 stdin / 判据反向锚 / stdio 经变量传参。
+      // 匹配按**内容锚点**(文件 + 该行文本里确有该次调用),**不按行号** ——
+      // 行号在任何一次 append 后都会挪位,拿它做匹配会静默放过真缺口。
+      const ex = EXEMPT.find((e) => e.file === file && e.fn === call.fn && anchorHit(r, call, e))
+      if (ex) {
+        exempted.push({ ...row, why: 'EXEMPT', note: ex.why })
+        continue
+      }
       if (v.verdict === 'missing') missing.push(row)
       else if (v.verdict === 'pipe-both') pipeBoth.push(row)
       else if (v.verdict === 'undetermined') readFail++
@@ -531,10 +845,10 @@ function main() {
 
   if (readFail > 0) say(`⚠️ ${readFail} 处未判定(取材失败或源被截断)—— **未判定 ≠ 通过**`)
 
-  if (showAll && !asJson && skipped.length > 0) {
-    say(`── 已放行 ${skipped.length} 处(供审计)──`)
+  if (showAll && !asJson && skipped.length + exempted.length > 0) {
+    say(`── 已放行 ${skipped.length} 处(吃 stdin / 判据要求 pipe)+ 豁免台账 ${exempted.length} 处(逐条实证)──`)
     const byWhy = {}
-    for (const s of skipped) (byWhy[s.why] = byWhy[s.why] || []).push(s)
+    for (const s of [...skipped, ...exempted]) (byWhy[s.why] = byWhy[s.why] || []).push(s)
     for (const [why, list] of Object.entries(byWhy)) {
       say(`  【${why}】${list.length} 处`)
       list.slice(0, 6).forEach((s) => say(`     ${s.file}:${s.line} ${s.fn}()`))
@@ -543,14 +857,20 @@ function main() {
   }
 
   if (missing.length === 0 && pipeBoth.length === 0) {
-    say(`✅ 无缺口(放行 ${skipped.length} 处:${'吃 stdin'} / ${'判据要求 pipe'})`)
+    say(`✅ 无缺口(放行 ${skipped.length} 处 + 豁免台账 ${exempted.length} 处)`)
     process.exit(0)
   }
 
   // --json:全量清单(供派单/批量修),一条不缺 —— 打印态只列前 N 条是给人看的,
   // 派单要的是**完整集合**,否则下一个人只能拿到前 25 条就以为"就这些"。
   if (argv.includes('--json')) {
-    console.log(JSON.stringify({ face, candidates: cands.length, missing, pipeBoth, skippedCount: skipped.length, readFail }, null, 1))
+    console.log(
+      JSON.stringify(
+        { face, candidates: cands.length, missing, pipeBoth, skippedCount: skipped.length, exempted, readFail },
+        null,
+        1,
+      ),
+    )
     process.exit(1)
   }
 
