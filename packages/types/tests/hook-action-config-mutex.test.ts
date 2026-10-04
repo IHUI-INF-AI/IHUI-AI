@@ -17,7 +17,7 @@
  * 探针文件只存在于内存 host 里、且必须放在 rootDir 之内(否则 TS6059 not under rootDir),
  * 全程不落盘(§15 工作区卫生:不在仓库内造临时产物)。
  */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll } from 'vitest'
 import ts from 'typescript'
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
@@ -40,19 +40,48 @@ delete OPTIONS.incremental
 delete OPTIONS.tsBuildInfoFile
 delete OPTIONS.composite
 
-/** 把片段当作内存文件编一次,返回全部诊断(语法 + 类型)。 */
+/**
+ * 一次编一个片段,返回全部诊断(语法 + 类型)。
+ *
+ * 为什么要自建 host 并缓存 SourceFile:每个用例都 `ts.createCompilerHost(...)` + 新 Program,
+ * 就要把 `lib.*.d.ts` 与 `hooks.ts` 的整棵声明图**重新读盘 + 重新解析**一遍。12 个用例 ⇒ 12 份
+ * 同样的成本。本地实测 ~250ms/例还能忍,CI runner 上同一枚文件直接越过 vitest 默认 5000ms
+ * 超时(实测红在 :94 / :98 / :105 三处,报 "Test timed out in 5000ms")—— 而红的表现是
+ * "测试超时",不是"判据不成立",很容易被人当成 CI 抖动重跑一次了事。
+ *
+ * 缓存的**只有探针以外**的真实文件:这些 .d.ts 在一次进程内不会变,解析结果可以安全共享
+ * (TS 的 SourceFile 解析后视为不可变;类型信息住在每个 Program 自己的 Checker 里,不跨 Program)。
+ * 探针文件每次重新解析 ⇒ 用例之间**不共享诊断**。这条隔离不是靠我说:最后那条反向对照
+ * (一个干净表达式必须落 0 诊断)跑在 11 条负例之后,任何"上一个用例的 TS2322 漏到下一个"
+ * 都会让它当场红。
+ */
+const host = ts.createCompilerHost(OPTIONS, true)
+const realGetSourceFile = host.getSourceFile.bind(host)
+const realFileExists = host.fileExists.bind(host)
+const realReadFile = host.readFile.bind(host)
+const parsedFileCache = new Map<string, ts.SourceFile>()
+/** 当前探针内容;host 的 readFile/getSourceFile 按它取值(每次 diagnose 前替换)。 */
+let probeSnippet = ''
+
+host.getSourceFile = (fileName, languageVersion, onError, shouldCreate) => {
+  if (normPath(fileName) === PROBE_KEY) {
+    return ts.createSourceFile(PROBE_PATH, probeSnippet, languageVersion, true, ts.ScriptKind.TS)
+  }
+  const cacheKey = `${normPath(fileName)}@${languageVersion}`
+  const hit = parsedFileCache.get(cacheKey)
+  if (hit) return hit
+  const created = realGetSourceFile(fileName, languageVersion, onError, shouldCreate)
+  if (created) parsedFileCache.set(cacheKey, created)
+  return created
+}
+host.fileExists = (fileName) => normPath(fileName) === PROBE_KEY || realFileExists(fileName)
+host.readFile = (fileName) =>
+  normPath(fileName) === PROBE_KEY ? probeSnippet : realReadFile(fileName)
+
 function diagnose(snippet: string): readonly ts.Diagnostic[] {
-  const host = ts.createCompilerHost(OPTIONS, true)
-  const realGetSourceFile = host.getSourceFile.bind(host)
-  const realFileExists = host.fileExists.bind(host)
-  const realReadFile = host.readFile.bind(host)
-  host.getSourceFile = (fileName, languageVersion, onError, shouldCreate) =>
-    normPath(fileName) === PROBE_KEY
-      ? ts.createSourceFile(PROBE_PATH, snippet, languageVersion, true, ts.ScriptKind.TS)
-      : realGetSourceFile(fileName, languageVersion, onError, shouldCreate)
-  host.fileExists = (fileName) => normPath(fileName) === PROBE_KEY || realFileExists(fileName)
-  host.readFile = (fileName) =>
-    normPath(fileName) === PROBE_KEY ? snippet : realReadFile(fileName)
+  probeSnippet = snippet
+  // 刻意**不**把上一次的 Program 当 oldProgram 传进去:那只省一点绑定成本,代价是
+  // "诊断跨用例泄漏"变成一个可能被读成绿色的形态。省下的这点不值这个风险。
   return ts.getPreEmitDiagnostics(ts.createProgram([PROBE_PATH], OPTIONS, host))
 }
 
@@ -90,7 +119,25 @@ const INVALID: readonly string[] = [
   '{ channel: "email", command: "echo hi" }',
 ]
 
+/**
+ * 预热整棵声明图(lib.*.d.ts + hooks.ts 的模块解析),把这**一次性**成本搬到 import 阶段。
+ *
+ * 缓存 host 之后,第一个用例仍要独自承担第一次真实读盘 + 解析(本地实测 403ms,其余用例
+ * 59–83ms)。本地看不出问题,而 CI runner 上这枚文件此前**每一枚**用例都超 5000ms(≈17 倍
+ * 慢),所以"只有第一枚慢"在 CI 上就是"第一枚红"。放在模块顶层 ⇒ 它落在 vitest 的 import
+ * 阶段,不计进任何单用例的 testTimeout(本文件没有配 testTimeout,用的就是默认 5000ms)。
+ * 结果:12 枚用例本地全部 ≤83ms,最快的那台 CI 上也不接近阈值。
+ */
+diagnose(`${HEAD}export const __warmup__: HookActionConfig = {}\n`)
+
 describe('G-675 · HookActionConfig 跨族互斥在构造点不可赋值', () => {
+  beforeAll(() => {
+    // 上面那行预热必须**真的跑过**:摘掉它时这一条必须红。否则第一枚用例又会在 CI 上独自
+    // 承担整棵 lib 图的解析 —— 本地 403ms 完全看不出问题,而 CI 上是 5000ms 超时。
+    // 判据只问"缓存里有没有东西",不问数量对不对:预热失败的唯一表现就是它空着。
+    expect(parsedFileCache.size, '编译探针的 SourceFile 缓存未被预热').toBeGreaterThan(0)
+  })
+
   it('探针 harness 有牙:各族正例(含 notify×webhook 真形态)+ 空配置 ⇒ 零诊断', () => {
     expect(describeDiags(diagnose(VALID))).toEqual([])
   })
