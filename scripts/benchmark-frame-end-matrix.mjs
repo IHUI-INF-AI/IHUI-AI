@@ -293,7 +293,8 @@ function main(argv) {
   // 幂等判据:同一份输入连续生成两次,文件的 git hash 必须不变。
   execFileSync(process.execPath, [join(ROOT, 'scripts', 'watermark.mjs'), 'inject', abs], {
     cwd: ROOT,
-    stdio: 'pipe',
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: 'ignore',
     windowsHide: true,
     timeout: 120000,
   })
