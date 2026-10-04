@@ -9,7 +9,6 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post, deleteExamWrongQuestion } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
-import BackChevron from '@/components/BackChevron'
 
 /** 错题行(对齐 web 端 wrong-questions 页的 WrongQuestion 形状子集,最小可用只取渲染所需字段) */
 interface WrongQuestionItem {
@@ -110,13 +109,10 @@ export default function WrongList() {
     [t],
   )
 
-  const goBack = () => Taro.navigateBack()
-
   return (
     <ThemeRoot>
       <View className="min-h-screen bg-background">
         <View className="flex flex-row items-center px-[20rpx] pt-[24rpx] pb-[16rpx] gap-[16rpx]">
-          <BackChevron onTap={goBack} />
           <Text className="text-[length:44rpx] font-semibold text-foreground">错题本</Text>
         </View>
 
