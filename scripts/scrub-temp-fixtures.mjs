@@ -26,16 +26,24 @@
  * 与 `check-parent-pollution` 同一套理由 —— 名字含 key/secret 的东西一律先补豁免再谈清理。
  *
  * 用法:
- *   node scripts/scrub-temp-fixtures.mjs                 # 只报告
+ *   node scripts/scrub-temp-fixtures.mjs                 # 只报告(默认扫多根并集,见下)
  *   node scripts/scrub-temp-fixtures.mjs --older-than 3  # 改账龄
  *   node scripts/scrub-temp-fixtures.mjs --apply         # 真删(显式要求)
- *   node scripts/scrub-temp-fixtures.mjs --root <dir>    # 测试夹具通道(生产不带)
+ *   node scripts/scrub-temp-fixtures.mjs --root <dir>[;<dir>…] # 显式只扫这些根(测试夹具通道,生产不带)
  *   node scripts/scrub-temp-fixtures.mjs --self-test
+ *
+ * **为什么不止一个根**(2026-10-04,台账 G-1058525):活进程拿到的 TEMP 与注册表里刚改的 TEMP
+ * 会并存很久(Windows 只在进程启动时读一次环境块),而历史残留散在三个根上。当轮现读:
+ * `D:\caches\Temp` 顶层 60,805 条里本项目命名 1,616 条 = 98,081 文件 / 18.07 GB,最旧 mtime 1980-01-01;
+ * `D:\tmp` 6,428 条里 362 条。只扫 `tmpdir()` 会让"另一个根有 18 GB"在账面上读成"没有残留"——
+ * 所以出口只能是并集,不是放宽判据。根一律经 `devEnvRoot()` 推导盘符,不得写死(§15b/§26);
+ * 推导失败**不静默少扫**,落「未判定」并让退出码为 2。
  */
-import { lstatSync, readdirSync, rmSync } from 'node:fs'
+import { existsSync, lstatSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { join, parse, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { devEnvRoot } from './seal-c-root-stray.mjs'
 
 const OUR_PREFIXES = ['ihui-', 'IHUI-', 'next-backup-', 'probe-']
 /** 整目录不碰:名字命中即跳过(按 toLowerCase 比对,大小写不敏感) */
@@ -50,6 +58,66 @@ const has = (name) => process.argv.includes(name)
 
 const isOurs = (name) => OUR_PREFIXES.some((p) => name.startsWith(p))
 const isProtected = (name) => PROTECTED_NAMES.includes(name.toLowerCase())
+
+/**
+ * 该扫哪些根 —— 只许有这一处推导。
+ *
+ * 三条不可让:
+ *  1. **盘符不得写死**:`<盘>\caches\Temp` 与 `<盘>\tmp` 是历史落点,由 `devEnvRoot()` 推出的同盘根拼出来;
+ *     `devEnvRoot()` 是 §15b 唯一外置根出口(与备份/审计/恢复演练同一份),本工具不得自派生。
+ *  2. **推不出来必须喊**:devEnvRoot 会在工作树位于夹具内时抛错。安静少扫两个根 = 把"没判"写成"判过了",
+ *     所以落 `undetermined` 并由 CLI 以退出码 2 拒出合格证。
+ *  3. **同一路径只判一次**:活 `tmpdir()` 与派生根在改过注册表之后必然重合,去重按 `resolve()` 后
+ *     小写比较(Windows 大小写不敏感),否则同一批条目被删两次、报告读成"两个根各有残留"。
+ */
+export function defaultRoots({
+  env = process.env,
+  tmp = tmpdir(),
+  devEnv,
+  deriveDevEnv = devEnvRoot,
+  exists = existsSync,
+  platform = process.platform,
+} = {}) {
+  const roots = []
+  const undetermined = []
+  const keyOf = (p) => resolve(p).toLowerCase().replace(/[\\/]+$/, '')
+  const push = (p) => {
+    if (!p) return
+    const k = keyOf(p)
+    if (!roots.some((r) => keyOf(r) === k)) roots.push(resolve(p))
+  }
+  push(tmp)
+  let dev = devEnv
+  if (dev === undefined) {
+    try {
+      dev = deriveDevEnv()
+    } catch (e) {
+      dev = null
+      undetermined.push(`devEnvRoot() 推导失败:${String(e?.message ?? e).replace(/\s+/g, ' ').slice(0, 120)}`)
+    }
+  }
+  if (dev) {
+    push(join(dev, 'Temp'))
+    push(join(parse(resolve(dev)).root, 'caches', 'Temp'))
+    push(join(parse(resolve(dev)).root, 'tmp'))
+  }
+  // **跨盘探测**:TEMP 曾被设在哪块盘,与工作树在哪块盘是两回事。2026-10-04 实测:工作树在 `G:\`
+  // 而 1,616 条本项目命名残留(18.07 GB)躺在 `D:\caches\Temp` —— 只按工作树盘推导会安静少扫整块盘,
+  // 而"少扫"在这把尺子上表现为候选 0,读起来跟"已清干净"一模一样。
+  // 代价是 26 次 `existsSync`(本机实测个位数毫秒);判据(名字/账龄/保护区)一条没放宽。
+  if (platform === 'win32') {
+    for (let c = 65; c <= 90; c++) {
+      const drive = `${String.fromCharCode(c)}:\\`
+      if (!exists(drive)) continue
+      for (const shape of [['caches', 'Temp'], ['tmp'], ['DevEnv', 'Temp']]) {
+        const p = join(drive, ...shape)
+        if (exists(p)) push(p)
+      }
+    }
+  }
+  for (const extra of String(env.IHUI_TEMP_SCRUB_ROOTS || '').split(';')) if (extra.trim()) push(extra.trim())
+  return { roots, undetermined }
+}
 
 /** 递归量一个普通目录(调用方已保证它不是重解析点)。
  *  同时找"整条不许删"的硬阻断:目录里藏着别人/用户的凭据或备份子目录 ——
@@ -194,20 +262,53 @@ if (isDirectRun) {
     console.log('判据装配证明在镜像测试面:node --test scripts/tests/scrub-temp-fixtures.test.mjs')
     process.exit(0)
   }
-  const root = arg('--root') || tmpdir()
   const minAgeDays = Number(arg('--older-than') || DEFAULT_MIN_AGE_DAYS)
   if (!Number.isFinite(minAgeDays) || minAgeDays < 0) {
     console.log(`❌ --older-than 需要非负数字,得到 ${arg('--older-than')}`)
     process.exit(2)
   }
   const apply = has('--apply')
-  const r = scan({ root, minAgeDays })
-  for (const l of formatReport(r, { apply, minAgeDays })) console.log(l)
-  if (r.error) process.exit(2)
-  if (apply && r.candidates.length) {
-    const d = del(resolve(root), r.candidates)
-    console.log(`  已删 ${d.ok} 条 / 失败 ${d.fail} 条 / 释放 ${(d.bytes / 1073741824).toFixed(2)} GB`)
-    if (d.fail) process.exit(1)
+  const only = arg('--root')
+  const { roots, undetermined } = only
+    ? { roots: only.split(';').map((s) => s.trim()).filter(Boolean).map((s) => resolve(s)), undetermined: [] }
+    : defaultRoots()
+  let errs = 0
+  let absent = 0
+  let totalCand = 0
+  let totalFiles = 0
+  let totalBytes = 0
+  let okAll = 0
+  let failAll = 0
+  for (const root of roots) {
+    if (!existsSync(root)) {
+      // 根不存在是一个**确定的答案**,但它不是"这一格已清扫":必须点名,否则换一个根又长回来无人知
+      absent++
+      console.log(`TEMP 夹具清扫 · root=${root} —— 该根不存在,本根跳过(不记残留,也不记为已清扫)`)
+      continue
+    }
+    const r = scan({ root, minAgeDays })
+    for (const l of formatReport(r, { apply, minAgeDays })) console.log(l)
+    if (r.error) {
+      errs++
+      continue
+    }
+    totalCand += r.candidates.length
+    totalFiles += r.candidates.reduce((a, c) => a + c.files, 0)
+    totalBytes += r.candidates.reduce((a, c) => a + c.bytes, 0)
+    if (apply && r.candidates.length) {
+      const d = del(resolve(root), r.candidates)
+      okAll += d.ok
+      failAll += d.fail
+      console.log(`  本根已删 ${d.ok} 条 / 失败 ${d.fail} 条 / 释放 ${(d.bytes / 1073741824).toFixed(2)} GB  root=${root}`)
+    }
   }
+  const judgable = roots.length - absent - errs
+  console.log(
+    `汇总 · 根 ${roots.length}(可判 ${judgable} / 不存在 ${absent} / 取不到 ${errs}) · 候选 ${totalCand}` +
+      ` · 文件 ${totalFiles} · ${(totalBytes / 1073741824).toFixed(2)} GB · 已删 ${okAll} 条 / 失败 ${failAll} 条`,
+  )
+  for (const u of undetermined) console.log(`  ⚠️ 未判定:${u} —— 派生根没推出来,少扫的根不等于没有残留`)
+  if (errs || undetermined.length) process.exit(2)
+  if (apply && failAll) process.exit(1)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
