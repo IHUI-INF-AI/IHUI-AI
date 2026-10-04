@@ -1336,7 +1336,20 @@ export const STATUS_VARIANTS: Record<AgentTaskStatus, string[]> = {
   done: ['done', 'completed'],
 }
 
-/** DB status(含 legacy 终态)→ Kanban status */
+/**
+ * DB status(含 legacy 终态)→ Kanban status。
+ *
+ * G-463(2026-10-04 补注,行为**未变**):本函数的返回类型标注是 `AgentTaskStatus`,
+ * 但实现对未登记值是**原样透传**并带 `as AgentTaskStatus` 断言 —— 编译期完全静默,
+ * 运行时那个值不是任何一档。**刻意不在这里改签名**:本函数是既有对外契约的一环
+ * (kanban 载荷逐字断言 + admin 广播 + 五端渲染),改签名会把"读侧"与"写侧"一起掀翻,
+ * 远超本票射程。真正的收口是**所有需要判合法性的地方都改走已存在的
+ * `statusOrUnrecognized` / `isAgentTaskStatus` / `isTransitionAllowedFromRaw`**,
+ * 本函数只保留"归一"职责。
+ *
+ * ⚠️ 因此**禁止**把本函数的返回值直接当下标去查 `ALLOWED_TRANSITIONS` —— 那样会求值成
+ * `undefined` 再 `.includes()` ⇒ `TypeError`。要判流转合法性请用 `isTransitionAllowedFromRaw`。
+ */
 export function mapStatus(raw: string): AgentTaskStatus {
   return LEGACY_STATUS_MAP[raw] ?? (raw as AgentTaskStatus)
 }
@@ -1448,9 +1461,40 @@ export function countUnrecognizedTasks(tasks: readonly Pick<KanbanTask, 'rawStat
   return tasks.reduce((n, t) => (isUnrecognizedKanbanTask(t) ? n + 1 : n), 0)
 }
 
+/**
+ * 取某个原始状态值可流转到的目标档位;未知状态一律返回**空表**(而不是让调用方去查一个不存在的键)。
+ *
+ * G-463(2026-10-04):这一层是**为 `ALLOWED_TRANSITIONS` 的直接下标查表兜底**而存在的。
+ * `mapStatus` 对未登记值是原样透传(见其头注),所以 `ALLOWED_TRANSITIONS[mapStatus(raw)]`
+ * 在库里出现六档之外的值时求值为 `undefined`,再 `.includes()` 就是 `TypeError` ⇒
+ * kanban transition 接口 500。本函数把"查不到 ⇒ 无合法流转"这个判断收到types 里,
+ * 与 `isTransitionAllowed` 同一个口径(它本就带 `?.`),使全仓不再有第二处裸下标。
+ */
+export function allowedTransitionsFrom(raw: string): readonly AgentTaskStatus[] {
+  const mapped = mapStatus(raw)
+  if (!isAgentTaskStatus(mapped)) return []
+  return ALLOWED_TRANSITIONS[mapped] ?? []
+}
+
 /** 流转合法性校验(transition / admin PUT 共用) */
 export function isTransitionAllowed(from: AgentTaskStatus, to: AgentTaskStatus): boolean {
   return ALLOWED_TRANSITIONS[from]?.includes(to) ?? false
+}
+
+/**
+ * 任意原始值 ⇒ 流转合法性(transition / admin PUT 的**唯一**判定出口)。
+ *
+ * 与 `isTransitionAllowed` 的差别只有一处:入参是**原始状态串**而非已归一的档位,
+ * 因此库里出现六档之外的值时,这里同样返回 false 而不是崩在 `.includes()` 上。
+ * 内部复用 `isTransitionAllowed` 而非自己查表 ⇒ 两个出口永远同判,不会漂移。
+ */
+export function isTransitionAllowedFromRaw(
+  fromRaw: string,
+  to: AgentTaskStatus,
+): boolean {
+  const from = mapStatus(fromRaw)
+  if (!isAgentTaskStatus(from)) return false
+  return isTransitionAllowed(from, to)
 }
 
 /** Kanban 列定义(Web 工作台渲染用) */

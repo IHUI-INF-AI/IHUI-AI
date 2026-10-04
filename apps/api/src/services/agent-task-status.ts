@@ -17,6 +17,11 @@ export {
   STATUS_VARIANTS,
   mapStatus,
   isTransitionAllowed,
+  // G-463(2026-10-04):`mapStatus` 对未登记值原样透传(其头注已写明),所以
+  // `ALLOWED_TRANSITIONS[mapStatus(raw)]` 在库里出现六档之外的值时求值为 undefined,
+  // 再 `.includes()` 就是 TypeError ⇒ kanban transition 接口 500。流转合法性一律改走
+  // 这条按**原始状态串**收口的出口,全仓不再有第二处裸下标。
+  isTransitionAllowedFromRaw,
   // 2026-09-28 拍板:不动六档枚举,但被折叠的终态成因要能被看板点名 —— 单一来源仍在 @ihui/types
   COLLAPSED_TERMINATIONS,
   TERMINATION_LABEL_KEYS,
