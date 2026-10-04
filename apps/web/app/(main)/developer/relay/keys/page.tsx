@@ -238,7 +238,7 @@ export default function RelayKeysPage() {
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
-        <AuthGatePrompt message="请先登录后管理 API Key" />
+        <AuthGatePrompt message={t('needLogin')} />
       </div>
     )
   }
