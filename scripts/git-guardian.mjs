@@ -1298,12 +1298,23 @@ function healWorktreeTracked() {
     const paths = o.paths || o.touched || []
     return `${paths.slice(0, 3).join(', ')}${paths.length > 3 ? ' …' : ''}`
   }
+  const briefList = (paths) =>
+    `${(paths || []).slice(0, 3).join(', ')}${(paths || []).length > 3 ? ' …' : ''}`
 
   const { r, err } = run(['--json'])
   if (err) log('工作区存续自愈失败(不阻断其余守护): ' + err)
   else if (r.restored)
     log(`✅ 工作区存续自愈:恢复 ${r.restored} 个被外部删除的跟踪文件(${brief(r)})`)
   else if (r.held) log(`ℹ️ 工作区 ${r.held} 个跟踪文件缺失,但索引里已是删除(他人在制)⇒ 不代裁恢复`)
+  // G-1018292:删除意图丢失这一档必须单独出声 —— 它与上面那档的差别是本质的:
+  // `held` 的证据在索引面(标记还在,只是不碰),这一档的标记**已经被摘掉**
+  // (某次 `git reset HEAD` 清空共享索引时没的)。折进 held 或只在 restored 时顺带提一句,
+  // 读日志的人就会以为"标记还在、只是没碰",而真相是标记已经没了。
+  if (r.intentLost)
+    log(
+      `⚠️ 工作区 ${r.intentLost} 个跟踪文件缺失且删除意图已丢失(暂存标记被共享索引清空摘掉)⇒ ` +
+        `分不清是宿主误删还是有意删除,不代裁恢复(${briefList(r.intentLostPaths)})`,
+    )
 
   // 第二层:幻影漂移对齐 + 落后索引刷新(2026-09-24 立,190730d3a67 交付,
   // 被同日 b805d31da44 整文件回写连带删掉 —— 现按原语义前向恢复)。
