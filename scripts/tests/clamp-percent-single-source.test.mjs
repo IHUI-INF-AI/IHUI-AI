@@ -49,7 +49,7 @@ const isTestFace = (path) =>
  * 棘轮基线(2026-10-04 站点普查现读,路径→处数)。清理该文件后把条目摘除;
  * 基线必须只减不增,新增文件永不入基线。
  */
-const RATCHET_BASELINE = {} as Record<string, number>
+const RATCHET_BASELINE = {}
 
 /** 裁定:一条 grep 预筛输出(HEAD:path:line:content)是否构成违规 */
 function judgeLine(raw) {
