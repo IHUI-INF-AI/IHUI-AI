@@ -40,7 +40,11 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { catBatch, gitBinary, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
-import { maskComments, maskCommentsAndStrings } from './lib/code-mask.mjs'
+import {
+  maskComments,
+  maskCommentsAndStrings,
+  maskCommentsStringsAndRegex,
+} from './lib/code-mask.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 export const LEDGER_FILE = 'scripts/data/credential-presence-exemptions.json'
@@ -151,17 +155,38 @@ export function namesOfRef(ref) {
   return out
 }
 
-/** 从 `openLine/openCol`(指向 '(' 本身)配平取条件文本与闭括号位置;算不出返回 null ⇒ 未判定 */
-export function readCondition(lines, openLine, openCol) {
+/** 一跳取"同文件常量里的字面量":`request.headers[DEFAULT_TENANT_HEADER]` 的头名住在
+ *  `const DEFAULT_TENANT_HEADER = 'x-tenant-id'`(真仓 apps/api/src/plugins/tenant.ts:19)。
+ *  只认单文件内的 `const|let|var NAME = 'literal'` 形态,**不做跨文件解析、不猜模板串**;
+ *  解析不到返回 null ⇒ 调用方必须落「未判定」并点名,不得把"看不见"读成"确信没有"。 */
+export function literalNameFromConst(name, src) {
+  if (!name || !src) return null
+  const esc = name.replace(/\$/g, '\\$')
+  const m = src.match(
+    // 只认引号字面量(单/双引号),模板串一律不算"解析得出" ⇒ 交调用方落未判定。
+    // 正则串刻意不用模板字面量写:反斜杠与反引号在同一串里打架(本仓实测踩过)。
+    new RegExp(`\\b(?:const|let|var)\\s+${esc}\\s*(?::[^=]*)?=\\s*["']([^"']+)["']`),
+  )
+  return m ? m[1] : null
+}
+/** 从 `openLine/openCol`(指向 '(' 本身)配平取条件文本与闭括号位置;算不出返回 null ⇒ 未判定。
+ *  `structure` 是**等长的字符串遮罩面**(noStr):深度只按语法括号数。不传它时行为与改动前逐字相同。
+ *  立因:真仓 `apps/api/src/utils/scoped-guard.ts:553/:569` 两处的条件里写着 `=== '('` 与
+ *  `startsWith('(select'` —— 字符串里的左括号被当成语法括号,depth 永不归零 ⇒ readCondition 返回
+ *  null ⇒ 整门在这两处落「未判定」。判据面必须保留字符串(头名住在字符串里),但**配平**是结构问题,
+ *  两件事要各用各的面,否则"看不清"会被写成"判不出"(与本仓把没判写成判过的禁令同族,方向相反同罪)。 */
+export function readCondition(lines, openLine, openCol, structure = null) {
   let depth = 0
   let text = ''
   let first = true
   for (let i = openLine; i < lines.length && i < openLine + 30; i++) {
     const line = lines[i]
+    const sLine = structure ? (structure[i] ?? '') : line
     for (let j = i === openLine ? openCol : 0; j < line.length; j++) {
       const ch = line[j]
-      if (ch === '(') depth++
-      else if (ch === ')') {
+      const sCh = sLine[j] ?? ch
+      if (sCh === '(') depth++
+      else if (sCh === ')') {
         depth--
         // 条件文本**不含**最外层括号:留着它,"去掉引用后还剩什么"的判据会把
         // 一个空条件读成"还剩一个 )",于是所有命中都被自己放行(本门第一版即此错)。
@@ -227,6 +252,11 @@ export function scanSource(rel, src) {
   //  · noStr = 注释与字符串都遮 —— 用来判"这个 `if (` 是不是写在字符串里的示例文本"。
   const code = maskComments(src).split('\n')
   const noStr = maskCommentsAndStrings(src).split('\n')
+  // 结构面(只管括号/花括号的语法位置):必须**连正则字面量一起遮**。只遮字符串不够 ——
+  // 真仓 `apps/api/src/routes/admin/export-csv.ts:78` 写 `if (/[",\r\n]/.test(safe))`，
+  // 正则里那个双引号会被字符串遮罩当成串首，把后半行(含收尾括号)整段抹掉 ⇒ 配平永不归零 ⇒
+  // 这一型换个面具就重新变成「未判定」。判据面仍用 code(保留字符串,头名住在字符串里)。
+  const struct = maskCommentsStringsAndRegex(src).split('\n')
   const lines = code
   // 一跳变量:条件是个裸标识符时,回看它的声明。刻意**不**要求"声明与引用同一行" ——
   // 真仓的 cookie 豁免就写成 `const authToken = (request as FastifyRequest & {...}).cookies\n  ?.auth_token`
@@ -260,7 +290,7 @@ export function scanSource(rel, src) {
       if (!(noStr[i] ?? '').slice(k, k + 4).trim()) continue
       const before = line.slice(0, k).trimEnd()
       if (before !== '' && !/[{};:]$/.test(before) && !/\belse$/.test(before)) continue
-      const rc = readCondition(lines, i, k + 3)
+      const rc = readCondition(lines, i, k + 3, struct)
       if (!rc) {
         undetermined.push(`${rel}:${i + 1} if 条件括号配平失败 ⇒ 判不出,不猜`)
         continue
@@ -291,7 +321,14 @@ export function scanSource(rel, src) {
       const residual = condForRest.replace(TYPE_GUARD_RE, '').replace(REF_RE, '').trim()
       if (residual !== '') continue // 条件里还有别的东西 ⇒ 已判定
       if (VERIFIED_RE.test(cond)) continue
-      const names = namesOfRef(refs[0])
+      let names = namesOfRef(refs[0])
+      if (names.length === 0) {
+        // 头名住在**同文件常量**里(`request.headers[DEFAULT_TENANT_HEADER]`,真仓 tenant.ts:19/:50)。
+        // 先一跳取字面量再判族属;取不到才落未判定 —— "解析不出"与"确实没有"必须不同形。
+        const ident = refs[0].match(/\[\s*([A-Za-z_$][\w$]*)\s*\]/)
+        const lit = ident ? literalNameFromConst(ident[1], src) : null
+        if (lit) names = [lit]
+      }
       if (names.length === 0) {
         undetermined.push(`${rel}:${i + 1} 取不出头名/cookie 名 ⇒ 判不出是否凭据族`)
         continue
@@ -632,6 +669,58 @@ function selfTest() {
   t('CB7 字符串里的该形态不得计入', s(IN_STRING).findings.length === 0)
   t('CB8 带原因的行内豁免放过', s(MARKED).findings.length === 0)
   t('CB9 裸标记(无原因)不得放过', s(UNMARKED_NO_REASON).findings.length === 1)
+  // CP1–CP5:两处"判不出"的清偿 —— 配平按**语法**括号数(字符串/正则里的 `(` 不得把条件撑成永不
+  // 闭合),以及头名住在**同文件常量**里时一跳取字面量。成对给正反例:放宽配平/加一跳解析都不许
+  // 顺手把判据弄瞎。(另起 CP 段:CB 段已被本自检既有用例占到 CB23,同号两套会被读成一套。)
+  const STRING_PAREN = `async function h(request, reply){
+  const end = 1
+  if (sqlText.slice(end, end + 1) === '(') continue
+  if (!verifyCsrfToken(a, b)) return reply.status(403).send(1)
+}`
+  const REGEX_WITH_QUOTE = `async function h(request, reply){
+  const safe = 'a,b'
+  if (/[",\\\\r\\\\n]/.test(safe)) return
+  if (!verifyCsrfToken(a, b)) return reply.status(403).send(1)
+}`
+  t(
+    'CP5 正则字面量里含引号时不得把条件撑破(真仓 export-csv.ts:78 那一型)',
+    s(REGEX_WITH_QUOTE).undetermined.length === 0,
+    JSON.stringify(s(REGEX_WITH_QUOTE).undetermined),
+  )
+  t(
+    'CP1 条件里字符串含左括号 ⇒ 必须配平成功,不得落未判定',
+    s(STRING_PAREN).undetermined.length === 0,
+    JSON.stringify(s(STRING_PAREN).undetermined),
+  )
+  const STRING_PAREN_PLUS_BAD = `async function h(request, reply){
+  if (sqlText.slice(0, 1) === '(') return
+  if (request.headers['x-internal-service-token']) return
+  if (!verifyCsrfToken(a, b)) return reply.status(403).send(1)
+}`
+  t(
+    'CP2 同文件存在字符串括号时,存在性豁免仍必须命中(修配平不得把判据弄瞎)',
+    s(STRING_PAREN_PLUS_BAD).findings.length === 1,
+    JSON.stringify(s(STRING_PAREN_PLUS_BAD)),
+  )
+  const CONST_HEADER_CRED = `const AUTH_HEADER = 'x-internal-service-token'
+async function h(request, reply){
+  if (request.headers[AUTH_HEADER]) return
+  if (!verifyCsrfToken(a, b)) return reply.status(403).send(1)
+}`
+  t(
+    'CP3 头名住在同文件常量里 ⇒ 一跳取字面量后必须命中',
+    s(CONST_HEADER_CRED).findings.length === 1,
+    JSON.stringify(s(CONST_HEADER_CRED)),
+  )
+  const CONST_HEADER_UNRESOLVED = `async function h(request, reply){
+  if (request.headers[HEADER_FROM_ELSEWHERE]) return
+  if (!verifyCsrfToken(a, b)) return reply.status(403).send(1)
+}`
+  t(
+    'CP4 常量取不到字面量 ⇒ 必须仍落未判定(解析不出不得读成"确信没有")',
+    s(CONST_HEADER_UNRESOLVED).undetermined.length > 0,
+    JSON.stringify(s(CONST_HEADER_UNRESOLVED).undetermined),
+  )
   t(
     'CB10 词元匹配非子串',
     !isCredentialName('hashtag') &&
@@ -861,6 +950,7 @@ export const __test__ = {
   selfTest,
   isCredentialName,
   namesOfRef,
+  literalNameFromConst,
   readCondition,
   bodyIsBareReturn,
   LEDGER_FILE,
