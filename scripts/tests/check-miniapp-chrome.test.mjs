@@ -54,10 +54,12 @@ function buildScratch({ tokensCss = TOKENS, themeJson = THEME_JSON, themeTs = TH
 
 /** 临时仓里的 git:绝对路径 + safe.directory + windowsHide(与本仓所有 git 调用同形)。 */
 function gitAt(dir, args) {
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   return execFileSync(gitBinary(), ['-c', 'safe.directory=*', '-C', dir, ...args], {
     encoding: 'utf8',
     windowsHide: true,
     timeout: 60000,
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 

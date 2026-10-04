@@ -143,6 +143,8 @@ function readHeadBlob(gitPath: string): string {
     windowsHide: true,
     timeout: 60_000,
     maxBuffer: 64 * 1024 * 1024,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
@@ -167,6 +169,8 @@ async function enumerateGateSide(gate: GateModule, scanDirs: string[]): Promise<
     windowsHide: true,
     timeout: 180_000,
     maxBuffer: 64 * 1024 * 1024,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   const matched = /注册工具数\s+(\d+)/.exec(out)
   if (!matched) throw new Error(`守门 111 输出里解析不到「注册工具数 N」(末行原文:${out.trim().split('\n').pop() ?? ''})`)

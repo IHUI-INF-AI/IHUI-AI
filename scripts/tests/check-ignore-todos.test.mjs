@@ -32,7 +32,8 @@ function runScript(opts = {}) {
   return spawnSync('node', [SCRIPT_PATH], {
     cwd: opts.cwd || process.cwd(),
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     timeout: 30000,
   })
 }

@@ -32,10 +32,10 @@ const SOURCE_SCRIPT = join(SCRIPTS_DIR, 'check-mypy.mjs')
 // 而不是靠读实现点头(§22c:镜像测试只复读实现就是复读机)。
 function createTempRepo() {
   const dir = mkScratch('ihui-mypy-')
-  execSync('git init -b main', { cwd: dir, stdio: 'pipe' })
-  execSync('git config user.email test@test.com', { cwd: dir, stdio: 'pipe' })
-  execSync('git config user.name test', { cwd: dir, stdio: 'pipe' })
-  execSync('git config commit.gpgsign false', { cwd: dir, stdio: 'pipe' })
+  execSync('git init -b main', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
+  execSync('git config user.email test@test.com', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
+  execSync('git config user.name test', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
+  execSync('git config commit.gpgsign false', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
   mkdirSync(join(dir, 'scripts'), { recursive: true })
   // 门现在 import 共用层(面取材 + 临时落点),复制面必须是**整条相对 import 闭包**。
   // 手抄清单必然晚一拍:`scratch-module-closure.mjs` 头注记过两次同型(ERR_MODULE_NOT_FOUND +
@@ -95,8 +95,8 @@ function createTempRepo() {
   writeFileSync(join(dir, '.gitignore'), '.stub-bin/\n')
   // 初始 commit(git diff --cached 需要 HEAD 作为参照)
   writeFileSync(join(dir, 'README.md'), '# init\n')
-  execSync('git add README.md .gitignore', { cwd: dir, stdio: 'pipe' })
-  execSync('git commit -m init', { cwd: dir, stdio: 'pipe' })
+  execSync('git add README.md .gitignore', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
+  execSync('git commit -m init', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
   return dir
 }
 
@@ -119,7 +119,8 @@ function runScript(dir, args = [], opts = {}) {
     cwd: opts.cwd || dir,
     encoding: 'utf8',
     env,
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     timeout: opts.timeout || 300000,
   })
   r.out = (r.stdout || '').replace(/\x1b\[[0-9;]*m/g, '')
@@ -132,7 +133,7 @@ function stageFile(dir, relPath, content = '') {
   const full = join(dir, relPath)
   mkdirSync(dirname(full), { recursive: true })
   writeFileSync(full, content)
-  execSync(`git add "${relPath}"`, { cwd: dir, stdio: 'pipe' })
+  execSync(`git add "${relPath}"`, { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
 }
 
 /** 只写盘不入库 —— 这就是"邻居的在飞文件/未跟踪现场",判定面不该看见它。 */
@@ -145,7 +146,7 @@ function writeOnly(dir, relPath, content = '') {
 /** 写盘 + add + commit —— 这才是"已入库代码",阳性对照必须走这条路。 */
 function commitFile(dir, relPath, content = '') {
   stageFile(dir, relPath, content)
-  execSync('git commit -m feat-fixture -q', { cwd: dir, stdio: 'pipe' })
+  execSync('git commit -m feat-fixture -q', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
 }
 
 // ─── 1. CLI 行为 ─────────────────────────────────────────
@@ -421,7 +422,7 @@ test('未跟踪的在飞文件不得改变结论;同一份内容入库后必须�
     assert.match(cwdLine, /[\\/]apps[\\/]ai-service$/, `临时面里的运行目录:${cwdLine}`)
 
     // 阳性对照:同一份内容进了索引 ⇒ 判定面变了 ⇒ 必须红
-    execSync('git add apps/ai-service/app/services/sandbox', { cwd: dir, stdio: 'pipe' })
+    execSync('git add apps/ai-service/app/services/sandbox', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
     const staged = runScript(dir, ['--staged'], { env: failEnv })
     assert.equal(staged.status, 1, `已入面的同一形态必须判红\nstdout: ${staged.out}`)
     assert.match(staged.out, /STUB-CAUSE exists:app\/services\/sandbox\/queue\.py/)

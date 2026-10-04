@@ -240,7 +240,9 @@ function measureCheck(check, runs, thresholdMs) {
       const result = spawnSync('node', [scriptPath, ...fullArgs], {
         cwd: ROOT,
         encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe'],
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        // 返回值被消费(读 result.status)⇒ stdout 仍须 pipe,只把 stdin 切掉
+        stdio: ['ignore', 'pipe', 'pipe'],
         timeout: DEFAULT_TIMEOUT_MS,
         windowsHide: true,
       })

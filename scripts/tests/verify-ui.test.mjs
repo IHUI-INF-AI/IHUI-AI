@@ -33,7 +33,8 @@ function runScript(args, cwd) {
   return spawnSync('node', [SCRIPT_PATH, ...args], {
     cwd,
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     // §5b 弹窗治理 + 守门 52:派生控制台程序必须 windowsHide,且不得无界挂起
     windowsHide: true,
     timeout: 60_000,

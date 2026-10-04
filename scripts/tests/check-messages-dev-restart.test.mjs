@@ -49,14 +49,21 @@ before(async () => {
 // ─── 辅助:创建临时 git 仓库(含初始 commit) ──────────────
 function createTempRepo() {
   const dir = mkScratch('ihui-msg-restart-')
-  const opt = { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
-  spawnSync('git', ['init', '-b', 'main'], opt)
-  spawnSync('git', ['config', 'user.email', 'test@ihui.local'], opt)
-  spawnSync('git', ['config', 'user.name', 'Test'], opt)
-  spawnSync('git', ['config', 'commit.gpgsign', 'false'], opt)
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  const opt = { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  spawnSync('git', ['init', '-b', 'main'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  spawnSync('git', ['config', 'user.email', 'test@ihui.local'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  spawnSync('git', ['config', 'user.name', 'Test'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  spawnSync('git', ['config', 'commit.gpgsign', 'false'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] })
   writeFileSync(join(dir, 'README.md'), '# init\n')
-  spawnSync('git', ['add', 'README.md'], opt)
-  spawnSync('git', ['commit', '-q', '-m', 'init'], opt)
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  spawnSync('git', ['add', 'README.md'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  spawnSync('git', ['commit', '-q', '-m', 'init'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] })
   return dir
 }
 
@@ -66,7 +73,8 @@ function stageFiles(dir, files) {
     const fullPath = join(dir, f)
     mkdirSync(dirname(fullPath), { recursive: true })
     writeFileSync(fullPath, `content for ${f}\n`)
-    execSync(`git add "${f}"`, { cwd: dir, stdio: 'pipe' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync(`git add "${f}"`, { cwd: dir, stdio: 'ignore' })
   }
 }
 
@@ -81,7 +89,8 @@ function runScript(opts = {}) {
   return spawnSync('node', [SCRIPT_PATH], {
     cwd: opts.cwd || process.cwd(),
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 

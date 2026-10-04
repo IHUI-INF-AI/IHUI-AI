@@ -88,6 +88,8 @@ function runGate(args, cwd = ROOT) {
     windowsHide: true,
     timeout: 300_000,
     maxBuffer: 64 << 20,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   return { rc: r.status, out: `${r.stdout || ''}${r.stderr || ''}` }
 }

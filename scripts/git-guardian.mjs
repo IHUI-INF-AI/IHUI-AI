@@ -332,7 +332,8 @@ function git(args, allowFail = false) {
   try {
     return execFileSync(bin, [...GIT_SAFE_ARGS, '-C', WORKTREE, ...args], {
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 180000,
       windowsHide: true,
     }).trim()
@@ -1068,13 +1069,15 @@ function healEnv() {
       try {
         const cur = execFileSync(bin, ['config', scope, '--get-all', 'safe.directory'], {
           encoding: 'utf8',
-          stdio: ['pipe', 'pipe', 'pipe'],
+          // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+          stdio: ['ignore', 'pipe', 'pipe'],
           windowsHide: true,
         }).trim()
         const list = cur.split(/\r?\n/).filter(Boolean)
         if (list.includes(p) || list.includes('*')) continue
         execFileSync(bin, ['config', scope, '--add', 'safe.directory', p], {
-          stdio: ['pipe', 'pipe', 'pipe'],
+          // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+          stdio: ['ignore', 'pipe', 'pipe'],
           windowsHide: true,
         })
         log(`环境修复: ${scope} safe.directory += ${p}`)
@@ -3741,7 +3744,9 @@ function main() {
     let pre
     try {
       pre = execFileSync('cscript.exe', ['//nologo', vbs], {
-        stdio: 'pipe',
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        // （`pre` 要被下面的 /error/i 预检吃，stdout 丢不得 ⇒ 只把 stdin 断开）
+        stdio: ['ignore', 'pipe', 'pipe'],
         encoding: 'utf8',
         windowsHide: true,
         timeout: 60_000,

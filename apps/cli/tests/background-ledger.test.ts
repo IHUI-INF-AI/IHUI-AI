@@ -58,7 +58,8 @@ function ledgerText(): string | null {
  * `windowsHide: true` 是硬要求(§5b —— 无控制台宿主下派生控制台程序必弹窗,守门 52 blocking)。
  */
 function deadPid(): number {
-  const r = spawnSync(process.execPath, ['-e', ''], { windowsHide: true, timeout: 20_000 });
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  const r = spawnSync(process.execPath, ['-e', ''], { windowsHide: true, timeout: 20_000, stdio: ['ignore', 'pipe', 'pipe'] });
   if (typeof r.pid !== 'number' || r.pid <= 0) {
     throw new Error('无法取得一个已退出的 pid,②③ 两组对照失去意义');
   }

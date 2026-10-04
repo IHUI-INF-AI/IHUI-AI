@@ -18,14 +18,14 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-multi-end-sync.mjs')
 // check-multi-end-sync.mjs 调用 git diff --cached 读取 staged 文件,需 git 环境
 function createTempRepo() {
   const dir = mkScratch('ihui-multi-end-')
-  const opt = { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
-  spawnSync('git', ['init', '-b', 'main'], opt)
-  spawnSync('git', ['config', 'user.email', 'test@ihui.local'], opt)
-  spawnSync('git', ['config', 'user.name', 'Test'], opt)
-  spawnSync('git', ['config', 'commit.gpgsign', 'false'], opt)
+  const opt = { cwd: dir, encoding: 'utf8' }
+  spawnSync('git', ['init', '-b', 'main'], { ...opt, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  spawnSync('git', ['config', 'user.email', 'test@ihui.local'], { ...opt, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  spawnSync('git', ['config', 'user.name', 'Test'], { ...opt, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  spawnSync('git', ['config', 'commit.gpgsign', 'false'], { ...opt, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   writeFileSync(join(dir, 'README.md'), '# init\n')
-  spawnSync('git', ['add', 'README.md'], opt)
-  spawnSync('git', ['commit', '-q', '-m', 'init'], opt)
+  spawnSync('git', ['add', 'README.md'], { ...opt, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  spawnSync('git', ['commit', '-q', '-m', 'init'], { ...opt, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   return dir
 }
 
@@ -36,7 +36,7 @@ function stageFiles(dir, files) {
     const fullPath = join(dir, f)
     mkdirSync(dirname(fullPath), { recursive: true })
     writeFileSync(fullPath, `content for ${f}\n`)
-    execSync(`git add "${f}"`, { cwd: dir, stdio: 'pipe' })
+    execSync(`git add "${f}"`, { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
   }
 }
 
@@ -50,7 +50,8 @@ function runScript(opts = {}) {
   const r = spawnSync('node', [SCRIPT_PATH], {
     cwd: opts.cwd || process.cwd(),
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   // 去除 ANSI 颜色码,便于正则断言
   r.out = (r.stdout || '').replace(/\x1b\[[0-9;]*m/g, '')
@@ -124,7 +125,7 @@ test('场景1: 纯根目录文件(README.md + package.json)→ exit 0 pass(豁�
     // README.md 已在初始 commit,修改使其 staged(Modified 走 diff-filter=M)
     writeFileSync(join(dir, 'README.md'), '# updated\n')
     writeFileSync(join(dir, 'package.json'), '{"name":"test"}\n')
-    execSync('git add README.md package.json', { cwd: dir, stdio: 'pipe' })
+    execSync('git add README.md package.json', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
     const r = runScript({ cwd: dir })
     assert.equal(r.status, 0, `根目录文件应 exit 0,实际 ${r.status}`)
     assert.match(r.out, /豁免/)

@@ -18,20 +18,20 @@ const STAGING_SNAPSHOT_PATH = join(__dirname, '..', 'lib', 'staging-snapshot.js'
 
 // 辅助:在子进程中跑脚本(避免污染当前测试进程的 process.on 监听器)
 function runInChild(script, cwd) {
-  return spawnSync('node', ['-e', script], { cwd: cwd || process.cwd(), encoding: 'utf8' })
+  return spawnSync('node', ['-e', script], { cwd: cwd || process.cwd(), encoding: 'utf8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
 }
 
 // ─── 测试辅助:创建临时 git 仓库 ─────────────────────────────
 function createTempGitRepo() {
   const dir = mkScratch('ihui-staging-snap-')
-  execSync('git init -b main', { cwd: dir, stdio: 'pipe' })
-  execSync('git config user.email test@test.com', { cwd: dir, stdio: 'pipe' })
-  execSync('git config user.name test', { cwd: dir, stdio: 'pipe' })
-  execSync('git config commit.gpgsign false', { cwd: dir, stdio: 'pipe' })
+  execSync('git init -b main', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  execSync('git config user.email test@test.com', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  execSync('git config user.name test', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  execSync('git config commit.gpgsign false', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   // 创建初始 commit(建立 HEAD)
   writeFileSync(join(dir, 'README.md'), '# init\n')
-  execSync('git add README.md', { cwd: dir, stdio: 'pipe' })
-  execSync('git commit -m "init"', { cwd: dir, stdio: 'pipe' })
+  execSync('git add README.md', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  execSync('git commit -m "init"', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   return dir
 }
 
@@ -40,7 +40,7 @@ function stageFile(dir, path, content = 'test') {
   const parentDir = join(fullPath, '..')
   mkdirSync(parentDir, { recursive: true })
   writeFileSync(fullPath, content)
-  execSync(`git add "${path}"`, { cwd: dir, stdio: 'pipe' })
+  execSync(`git add "${path}"`, { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
 }
 
 function getStagedFiles(dir) {
@@ -48,7 +48,8 @@ function getStagedFiles(dir) {
     return execSync('git diff --cached --name-only --diff-filter=ACMR', {
       cwd: dir,
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
       .split('\n')
       .filter(Boolean)
@@ -112,9 +113,9 @@ test('takeStagingSnapshot: 不含 Deleted 文件(只 ACMR)', () => {
   const dir = createTempGitRepo()
   try {
     stageFile(dir, 'to-delete.ts', 'x')
-    execSync('git commit -m "add"', { cwd: dir, stdio: 'pipe' })
+    execSync('git commit -m "add"', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     rmSync(join(dir, 'to-delete.ts'))
-    execSync('git add to-delete.ts', { cwd: dir, stdio: 'pipe' })
+    execSync('git add to-delete.ts', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const snapshot = takeStagingSnapshot({ cwd: dir })
     assert.equal(snapshot.size, 0)
   } finally {
@@ -197,7 +198,7 @@ test('restoreStaging: 大批量非预期 staged(250 个长路径)→ 仍须全�
     // 用 pathspec-from-file 暂存:不让夹具自己撞同样的命令行超限,污染取证结论
     const list = join(dir, '.polluted-list')
     writeFileSync(list, paths.join('\n'))
-    execSync('git add --pathspec-from-file=.polluted-list', { cwd: dir, stdio: 'pipe' })
+    execSync('git add --pathspec-from-file=.polluted-list', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
 
     const result = restoreStaging(snapshot, { cwd: dir, silent: true })
     assert.equal(result.skipped, false, '批量污染下不得整段跳过还原')
@@ -269,7 +270,7 @@ test('restoreStaging: lint-staged 修改已 staged 文件内容 → 不 unstage(
     stageFile(dir, 'file1.ts', 'original')
     const snapshot = takeStagingSnapshot({ cwd: dir })
     writeFileSync(join(dir, 'file1.ts'), 'fixed content')
-    execSync('git add file1.ts', { cwd: dir, stdio: 'pipe' })
+    execSync('git add file1.ts', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const result = restoreStaging(snapshot, { cwd: dir, silent: true })
     assert.equal(result.restored.length, 0)
     const staged = getStagedFiles(dir)
@@ -286,10 +287,10 @@ test('restoreStaging: 模拟真实事故场景(c3c864131 类似)', () => {
     mkdirSync(join(dir, 'apps/web'), { recursive: true })
     mkdirSync(join(dir, 'packages/i18n/messages/web'), { recursive: true })
     writeFileSync(join(dir, 'apps/web/seo.tsx'), 'seo code')
-    execSync('git add apps/web/seo.tsx', { cwd: dir, stdio: 'pipe' })
+    execSync('git add apps/web/seo.tsx', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const snapshot = takeStagingSnapshot({ cwd: dir })
     writeFileSync(join(dir, 'packages/i18n/messages/web/zh-CN.json'), '{}')
-    execSync('git add packages/i18n/messages/web/zh-CN.json', { cwd: dir, stdio: 'pipe' })
+    execSync('git add packages/i18n/messages/web/zh-CN.json', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const result = restoreStaging(snapshot, { cwd: dir, silent: true })
     assert.equal(result.restored.length, 1)
     assert.ok(result.restored[0].includes('zh-CN.json'))
@@ -307,14 +308,15 @@ test('E2E: 正常 commit 流程(单文件)不受影响', () => {
   const dir = createTempGitRepo()
   try {
     writeFileSync(join(dir, 'task.ts'), 'task content')
-    execSync('git add task.ts', { cwd: dir, stdio: 'pipe' })
+    execSync('git add task.ts', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const snapshot = takeStagingSnapshot({ cwd: dir })
     restoreStaging(snapshot, { cwd: dir, silent: true })
-    execSync('git commit -m "feat: task"', { cwd: dir, stdio: 'pipe' })
+    execSync('git commit -m "feat: task"', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const lastCommitFiles = execSync('git show --name-only --pretty=format:', {
       cwd: dir,
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
       .split('\n')
       .filter(Boolean)
@@ -334,15 +336,17 @@ test('E2E: 多文件正常 commit 不受影响', () => {
     writeFileSync(join(dir, 'README.md'), '# updated\n')
     execSync('git add apps/web/page.tsx apps/web/style.css README.md', {
       cwd: dir,
-      stdio: 'pipe',
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     const snapshot = takeStagingSnapshot({ cwd: dir })
     restoreStaging(snapshot, { cwd: dir, silent: true })
-    execSync('git commit -m "feat: multi-file"', { cwd: dir, stdio: 'pipe' })
+    execSync('git commit -m "feat: multi-file"', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const lastCommitFiles = execSync('git show --name-only --pretty=format:', {
       cwd: dir,
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
       .split('\n')
       .filter(Boolean)
@@ -356,16 +360,17 @@ test('E2E: 还原后 commit 不含被 unstage 的文件', () => {
   const dir = createTempGitRepo()
   try {
     writeFileSync(join(dir, 'task.ts'), 'task')
-    execSync('git add task.ts', { cwd: dir, stdio: 'pipe' })
+    execSync('git add task.ts', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const snapshot = takeStagingSnapshot({ cwd: dir })
     writeFileSync(join(dir, 'pollution.ts'), 'pollution')
-    execSync('git add pollution.ts', { cwd: dir, stdio: 'pipe' })
+    execSync('git add pollution.ts', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     restoreStaging(snapshot, { cwd: dir, silent: true })
-    execSync('git commit -m "feat: task only"', { cwd: dir, stdio: 'pipe' })
+    execSync('git commit -m "feat: task only"', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const lastCommitFiles = execSync('git show --name-only --pretty=format:', {
       cwd: dir,
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
       .split('\n')
       .filter(Boolean)

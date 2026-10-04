@@ -58,7 +58,8 @@ function runScript(cwd, args = []) {
   const r = spawnSync('node', [SCRIPT_PATH, ...args], {
     cwd,
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   r.out = stripAnsi(r.stdout)
   r.err = stripAnsi(r.stderr)
@@ -385,7 +386,8 @@ function writeHeadCopy(dir, name = 'migrate.head.mjs') {
   const src = execFileSync(
     'git',
     ['-c', 'safe.directory=*', 'show', 'HEAD:scripts/migrate-llm-providers.mjs'],
-    { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 1 << 28, windowsHide: true },
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 1 << 28, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] },
   )
   const p = join(dir, name)
   writeFileSync(p, src, 'utf8')
@@ -400,7 +402,8 @@ function runScriptLike(cwd, scriptPath, args) {
   const r = spawnSync(process.execPath, [scriptPath, ...args], {
     cwd,
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
   })
   r.out = stripAnsi(r.stdout)

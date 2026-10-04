@@ -71,7 +71,8 @@ function createTempRepo() {
 }
 
 function execSyncQuiet(cmd, cwd) {
-  execSync(cmd, { cwd, stdio: 'pipe' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync(cmd, { cwd, stdio: 'ignore' })
 }
 
 /**
@@ -384,7 +385,8 @@ test('normalizePath: 空串 → 空串', () => {
 test('CLI: --help → exit 0, stdout 含 check-staged-typecheck', () => {
   const r = spawnSync('node', [SCRIPT_PATH, '--help'], {
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   assert.equal(r.status, 0, `--help 应 exit 0, 实际 ${r.status}\nstderr: ${r.stderr}`)
   assert.ok(
@@ -396,7 +398,8 @@ test('CLI: --help → exit 0, stdout 含 check-staged-typecheck', () => {
 test('CLI: -h 短选项 → exit 0, stdout 含帮助文本', () => {
   const r = spawnSync('node', [SCRIPT_PATH, '-h'], {
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   assert.equal(r.status, 0, `-h 应 exit 0, 实际 ${r.status}`)
   const out = stripAnsi(r.stdout)
@@ -412,7 +415,8 @@ test('CLI: 非 git 目录 + --staged → exit 0 (无 staged 文件, 跳过)', ()
     const r = spawnSync('node', [SCRIPT_PATH, '--staged', '--root', dir], {
       cwd: dir,
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     })
     assert.equal(
       r.status,
@@ -433,7 +437,8 @@ test('CLI: git 仓库 + 空 staged → exit 0 (提示无 staged)', () => {
     const r = spawnSync('node', [SCRIPT_PATH, '--staged', '--root', dir], {
       cwd: dir,
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     })
     assert.equal(r.status, 0, `空 staged 应 exit 0, 实际 ${r.status}`)
     const out = stripAnsi(r.stdout)
@@ -453,7 +458,8 @@ test('CLI: git 仓库 + staged .ts 文件 + --dry-run → exit 0 (打印分组, 
     const r = spawnSync('node', [SCRIPT_PATH, '--dry-run', '--root', dir], {
       cwd: dir,
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     })
     assert.equal(
       r.status,
@@ -470,7 +476,8 @@ test('CLI: git 仓库 + staged .ts 文件 + --dry-run → exit 0 (打印分组, 
 test('CLI: --quiet 抑制 info 输出, 保留 error', () => {
   const r = spawnSync('node', [SCRIPT_PATH, '--help', '--quiet'], {
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   assert.equal(r.status, 0)
   assert.equal(
@@ -487,7 +494,8 @@ test('CLI: 无参数 + git 仓库 + 空 staged → exit 0 (默认 staged 模式)
     const r = spawnSync('node', [SCRIPT_PATH, '--root', dir], {
       cwd: dir,
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     })
     assert.equal(r.status, 0, `默认模式 + 空 staged 应 exit 0, 实际 ${r.status}`)
   } finally {
@@ -511,7 +519,8 @@ function runTool(argv, opts = {}) {
   return spawnSync(process.execPath, [SCRIPT_PATH, ...argv], {
     cwd: opts.cwd ?? ROOT,
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     env: opts.env,
     windowsHide: true, // 防 Windows 弹可见控制台窗口(守门 52)
   })
