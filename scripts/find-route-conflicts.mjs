@@ -74,17 +74,65 @@
  * 的子注册连同其下所有路由集体失明。所以块正则抓形参名，路由正则按实测出的接收者集
  * 拼 alternation（`extractRoutesFromFile` 的 `receivers`）。
  *
+ * ── 内联匿名子插件（2026-10-05 收口，从"仍不覆盖"移入已覆盖） ────────────
+ * 形态：`<接收者>.register(async (<形参>) => { ... }, { prefix? })`。首参是**函数表达式**
+ * 而非标识符 ⇒ `extractRegisterCalls` 的 `\w+` 匹配不到，此前 10 处子插件共 **54 条路由**
+ * 一条都不进面，而输出与"全仓干净"**逐字相同**。
+ *
+ * 本仓实测 10 处（收口前那句注释只列了 4 处 —— `alias-routes.ts` 3 处 +
+ * `role-routes.ts` 1 处，且没说明是哪个 `role-routes.ts`；实为 `admin-sys/role-routes.ts`，
+ * `admin-extended/role-routes.ts` 里一条 register 都没有。**少记的 6 处**是
+ * `exam.ts` / `live.ts` / `member.ts` / `newsletter.ts` / `oss.ts` / `service-inquiry.ts`
+ * 各 1 处，合计 49 条）：
+ *   · `admin-sys/alias-routes.ts:24/46/67` 形参 `s`    · prefix `/login-logs` `/tasks/logs` `/posts`
+ *   · `admin-sys/role-routes.ts:98`       形参 `sub`   · prefix `/authUser`
+ *   · `exam.ts:2045`（33 条）             形参 `child` · 无 prefix ⇒ 继承父 `/api`
+ *   · `live.ts:302` / `member.ts:492`     形参 `scope` / `authed` · 继承父
+ *   · `newsletter.ts:72` / `oss.ts:352`   形参 `adminServer` / `sub` · 继承父
+ *   · `service-inquiry.ts:188`            形参 `adminServer` · 继承父
+ * 两条踩过的坑，都留在代码里：
+ *   ① **形参名必须抓、不能写死**。6 个名字（`s`/`sub`/`child`/`scope`/`authed`/`adminServer`）
+ *      写死任何一个都会让其余 5 处整片失明。而 `role-routes.ts:98` 的接收者是 `s` 不是
+ *      `server` ⇒ 识别时不能把接收者写死 `server`。
+ *   ② **共用尾部漏一个 `\s*` 就整类静默失明**。`=>` 与函数体 `{` 之间源码有空格
+ *      （`=> {`），早先写成 `(?:...=>|...)\{` 时箭头分支全线匹配不上。症状与本门
+ *      修过的每一个缺陷同型：输出仍是"未发现重复路由"，只有量表能看出差别。
+ * 收口后实测：4196 → **4250** 条（+54，与独立探针逐条比对**零漏零多**），
+ * 注册插件 435 → **445**，**新暴露冲突 0 条**（4250 条里没有任何路径出现两次）。
+ *
  * ── 仍不覆盖的已知边界（如实列出，不得假装覆盖） ──────────────────────
- *   · **工厂式注册**：`routes/index.ts:1380` 的
- *     `server.register(createAgentRunRoutes({...}), { prefix: '/api/agent-runs' })`
- *     首参是调用表达式不是裸标识符，`extractRegisterCalls` 的 `\w+` 匹配不到。
- *   · **内联匿名子插件**：`server.register(async (sub) => {...}, { prefix })`
- *     （`admin-sys/alias-routes.ts` 3 处、`role-routes.ts` 1 处）。首参不是标识符，
- *     且其内部路由的接收者（`sub`）与前缀都需另算，当前不进面。
+ *   · **工厂式注册**：全仓**只有 1 处** —— `routes/index.ts:1380` 的
+ *     `server.register(createAgentRunRoutes({...}), { prefix: '/api/agent-runs' })`。
+ *     不收的**真实理由**是「**产物没有符号名可查**」，**不是**下面两条（两条都已实测否掉）：
+ *     ① **不是"静态判不准"**。工厂体 `routes/agent-runs.ts` 里 3 条路径全是**字面量**、
+ *        **无条件分支**、且**与实参无关**：`app.post('/')`@245、`app.get('/list')`@317、
+ *        `app.get('/resolve/:handle')`@361；返回类型还**显式标注**了
+ *        `createAgentRunRoutes(deps): FastifyPluginAsync`@232。实测若收，恰好 +3 条、
+ *        逐条核对**全是真路由**（`/api/agent-runs` 三条在别处均无同名面）、
+ *        **新暴露冲突 0 条**。判据完全够用，是**取材链**够不到。
+ *     ② **不是"`register` 名被占用 ⇒ 会造假冲突"**。非 Fastify 的
+ *        `runner.register({...}, fn)`（`routes/tools.ts:222/268`）首参是**对象字面量**、
+ *        `avalanche.register(key, ttl)`（`plugins/cache-resilience.ts:121/262`）首参是
+ *        **标识符** —— 按"首参是调用表达式"取材**一条都碰不到它们**；
+ *        而 `apps/cli/tests/` 里 55 处 `registry.register(makePlugin('a'))`（首参确实是调用）
+ *        **在取材面之外**（入口是 `apps/api/src`，`resolveTsPath` 对非相对说明符返回 null）。
+ *     真正卡住的是：工厂的产物是**函数体内的局部 const** ——
+ *     `agent-runs.ts:240` 的 `const routes: FastifyPluginAsync = async (app) => {...}`，
+ *     靠 `:388` 的 `return routes` 交出去，**该文件没有任何导出插件符号**
+ *     （三个抽取器对它全部返回 0）。而本门取材模型是
+ *     `符号名 → importMap → 文件 → 导出块`，**局部 return 值没有名字可查**。
+ *     要收它得加一层"返回值数据流"（跟 `return X` 回它的 const），那是**另一类机制**，
+ *     且本仓**只有这 1 处实例**可验证，收益是 4250 条里的 3 条（+0.07%）且不改变
+ *     "0 冲突"结论 —— 按「不许硬收」的口径，本轮**不收**。
+ *     下一个人若要试，判据必须同时满足四条：首参是调用表达式 ∧ 被调符号能经 importMap
+ *     解析 ∧ 其返回类型标注为 `FastifyPluginAsync` ∧ 函数体内 `return <标识符>`
+ *     能定位到该标识符的 `const ... = async (形参) => {` 块（形参名此处是 `app`，
+ *     又是 `server`/`s`/`sub` 之外的第 7 个名字）。**只满足"首参是调用"会失控**。
+ *     T9 钉住这一档不收。
  *   · **动态路径**：`server.get(` 后面跟模板串/变量（`` `/x/${id}` ``）的一律不收 ——
  *     判据要求字面量路径，这是**有意**为之（判不准就不判）。
- *   这三类都不影响本门当前的结论（报数用途），但**会影响"全仓无冲突"这句话的强度**：
- *   准确表述是"在 4196 条字面量字面路由上无冲突"。
+ *   这两类都不影响本门当前的结论（报数用途），但**会影响"全仓无冲突"这句话的强度**：
+ *   准确表述是"在 4250 条字面量路由上无冲突"。
  *
  * ── 循环 import 怎么防（三道，缺一道就可能不收敛） ──────────────────────
  *  ① **路径栈** `state.stack`（含正在展开的文件）：barrel A 引 B、B 又引回 A 时，
@@ -118,14 +166,16 @@
  *     这是有意为之：那不是路由冲突，只是重复挂载。
  *
  * ── 结论强度（"未发现重复路由"到底断言了什么） ─────────────────────────
- * 本仓修后实测：**0 条冲突**（4196 条字面量路由、435 个注册插件）。
+ * 本仓当前实测：**0 条冲突**（4250 条字面量路由、445 个注册插件）。
  * 这 0 条**不是**"扩面后新暴露 0 条"，而是"扩面后新暴露 3 条、逐条裁决后 3 条全是误报"。
  * 那 3 条误报是**本门自己在扩面中途引入的真 bug**（转发后未 `return`，导致同文件里
  * 另一个插件被重复挂到错前缀上），已修掉并在源码里留了划痕注释 —— 不是"本来就干净"。
  * 裁决过程见 `scripts/tests/find-route-conflicts.test.mjs` 头注。
+ * 2026-10-05 收口内联匿名子插件（+54 条）后**新暴露冲突仍是 0 条**：4250 条里没有任何
+ * 路径出现两次。这条 0 与上面那 3 条误报不同源 —— 是**扩面**（+1.3% 取材）后的真实结果。
  *
  * 本门**只报数、不判红**（两种业务分支都 `process.exit(0)`；只有取材面为空才非零退出）。
- * 理由：判据仍有上述三类已知边界（工厂式注册 / 内联匿名子插件 / 动态路径），
+ * 理由：判据仍有上述**两类**已知边界（工厂式注册 / 动态路径），
  * 在这个精度上判红会逼人 `--no-verify`（AGENTS §12e）。接判红是**另一票**的事。
  */
 import { readFileSync, existsSync } from 'node:fs'
@@ -255,6 +305,82 @@ function extractRegisterCalls(file) {
   return out
 }
 
+/**
+ * 抽「**内联匿名子插件**」：`<接收者>.register(async (<形参>) => { ... }, { prefix? })`。
+ *
+ * 这一类首参是**函数表达式**而非标识符，所以 {@link extractRegisterCalls} 的 `\w+` 匹配不到，
+ * 必须单独走一条识别；它与 barrel 无关（没有文件要 import），路由就**声明在本文件内**，
+ * 因此不进 `collectFromPluginFile` 的递归，而是就地由
+ * {@link extractRoutesFromFile} 按区间收掉。
+ *
+ * ## 只认这一形态，认不出就不收（与"动态路径"同口径）
+ *
+ * 首参正则只放行两种：async 箭头（`(x) =>` 与裸 `x =>` 两种写法）与 async function 表达式。
+ * 形如 `server.register(createAgentRunRoutes({...}), {...})`（`routes/index.ts:1380`）、
+ * `server.register(makePlugin(), {...})`、首参是变量/调用结果的，**一律不收** ——
+ * 判不准就不判，多收会凭空造出"两个插件抢同一路径"的假冲突。
+ *
+ * ## 形参名必须抓、不能写死
+ *
+ * 体内路由的接收者就是那个形参名，而本仓 10 处的形参名有 `s` / `sub` / `child` / `scope` /
+ * `authed` / `adminServer` **六种**（`admin-sys/role-routes.ts:98` 还是 `s.register(...)`
+ * 而非 `server.register(...)`）。写死任何一个都会让其余 9 处**整片失明**，
+ * 而输出仍是"未发现重复路由" —— 与本门修过的每一个缺陷同型。
+ *
+ * ## 块区间用 offset 级配对（{@link findClosingBracketAt}）
+ *
+ * `routes/exam.ts:2045` 的 `server.register(async (child) => {` 把函数体开括号放在
+ * register 调用的**同一行**，按行定位会拿不到体内区间。
+ *
+ * @param {string} src 文件内容
+ * @returns {Array<{name:string,prefix:string,receiver:string,startLine:number,endLine:number}>}
+ *   `name` 形如 `inline:server.register@exam.ts:2045`（进面报数与冲突展示都用它）
+ */
+function extractInlineRegisterCalls(src) {
+  const lineStarts = computeLineStarts(src)
+  // 捕获：1=接收者 2=带括号形参 3=裸形参 4=function 表达式的形参。
+  // 箭头分支与 function 分支**都归到同一个 `\s*\{`** 下 —— 早先写成
+  // `(?:...=>|...)\{` 时箭头分支匹配不上，因为源码是 `=> {`（箭头与花括号之间有空格），
+  // 而共用尾部里漏了 `\s*`。这类"少一个 \s* ⇒ 整类静默失明"在本门已犯过一次，
+  // 症状与原始缺陷一模一样：输出仍是"未发现重复路由"。
+  const re =
+    /(\w+)\.register\(\s*(?:async\s*(?:\(\s*(\w+)\s*\)|(\w+))\s*=>|async\s+function\s*\*?\s*(?:\w+\s*)?\(\s*(\w*)\s*\)\s*(?::[^{]*?)?)\s*\{/g
+  const out = []
+  let m
+  while ((m = re.exec(src)) !== null) {
+    const receiver = m[1]
+    const param = m[2] ?? m[3] ?? m[4]
+    // 形参抓不到（匿名 `async () => {}`、function 表达式无参）⇒ 体内没有可认的接收者
+    // 名，无法判断哪些 `x.get(...)` 属于它 ⇒ 不收（宁可漏，不可多收）。
+    if (!param) continue
+
+    const bodyOpen = m.index + m[0].length - 1
+    const bodyClose = findClosingBracketAt(src, bodyOpen, '{', '}')
+    if (bodyClose === -1) continue
+    // options 在**函数体闭合之后**、register 调用的右括号之前。只认字面量 prefix，
+    // 变量 prefix（`{ prefix: P }`）取不到 ⇒ 留空由调用方继承父 prefix（宁少报不误报）。
+    // '(' 紧跟在 `<receiver>.register` 之后。
+    const callOpen = m.index + receiver.length + '.register'.length
+    const callEnd = findClosingBracketAt(src, callOpen, '(', ')')
+    const options = callEnd === -1 ? '' : src.slice(bodyClose + 1, callEnd)
+    const pm = /(?:^|[,{]\s*)prefix\s*:\s*['"`]([^'"`]+)['"`]/.exec(options)
+
+    const startLine = lineIndexAt(lineStarts, bodyOpen)
+    const endLine = lineIndexAt(lineStarts, bodyClose)
+    out.push({
+      name: `inline:${receiver}.register@${startLine + 1}`,
+      prefix: pm ? pm[1] : '',
+      receiver: param,
+      startLine,
+      endLine,
+    })
+    // **不**跳过函数体：体内若再嵌一层 `<形参>.register(async (y) => {...})`（第三层），
+    // 它的接收者名与本层不同，`name` 又带行号，天然不与本层重复 —— 留着让它被收进来。
+    // 本仓实测 10 处**都没有**嵌套（见文件头「内联匿名子插件」段），故这条路径当前无样本。
+  }
+  return out
+}
+
 /** 每个 0 基行号的首字符在源串中的偏移，供 offset→行号 二分。 */
 function computeLineStarts(src) {
   const starts = [0]
@@ -290,6 +416,7 @@ function lineIndexAt(lineStarts, offset) {
  */
 function extractPluginsFromFile(src) {
   const lines = src.split('\n')
+  const lineStarts = computeLineStarts(src)
   const plugins = []
   const receivers = new Set()
 
@@ -308,7 +435,7 @@ function extractPluginsFromFile(src) {
     const exportMatch = exportRe.exec(line)
     if (exportMatch) {
       const startLine = i
-      const block = blockRange(lines, i)
+      const block = blockRange(src, lineStarts, i)
       if (block) {
         plugins.push({ name: exportMatch[1], receiver: exportMatch[2], startLine, endLine: block })
         receivers.add(exportMatch[2])
@@ -322,7 +449,7 @@ function extractPluginsFromFile(src) {
       const varRe = new RegExp(`(?:const|let|var|function)\\s+${varName}\\s*[:=]`)
       for (let j = 0; j < lines.length; j++) {
         if (!varRe.test(lines[j])) continue
-        const block = blockRange(lines, j)
+        const block = blockRange(src, lineStarts, j)
         if (block) {
           const recv = /[(]\s*(\w+)/.exec(lines[j].slice(lines[j].indexOf('=') + 1))
           plugins.push({
@@ -341,79 +468,82 @@ function extractPluginsFromFile(src) {
   return { plugins, receivers }
 }
 
-/** 从 `startLine` 起的首个 `{` 出发做括号配对，返回其闭合所在行号。 */
-function blockRange(lines, startLine) {
-  let braceStart = lines[startLine].indexOf('{')
-  let scan = startLine
-  while (braceStart === -1 && scan < lines.length - 1) {
-    scan++
-    braceStart = lines[scan].indexOf('{')
-  }
+/**
+ * 从 `startLine` 起的首个 `{` 出发做括号配对，返回其闭合所在行号；找不到 `{` 返回 `null`。
+ *
+ * 旧实现是"逐行 `lines[i].indexOf('{')`、找不到就换下一行"，那是因为拿到的只是行数组。
+ * 现在传的是整份 `src` + `lineStarts`，`indexOf` 一次就覆盖了 startLine 之后的**全部**
+ * 字符，语义与旧的逐行搜索等价（都取第一个 `{`），但不再需要 `scan` 那个循环。
+ */
+function blockRange(src, lineStarts, startLine) {
+  const braceStart = src.indexOf('{', lineStarts[startLine])
   if (braceStart === -1) return null
-  return findClosingBrace(lines, scan, braceStart)
+  const braceLine = lineIndexAt(lineStarts, braceStart)
+  return findClosingBrace(src, lineStarts, braceLine, braceStart - lineStarts[braceLine])
 }
 
-function findClosingBrace(lines, startLine, startCol) {
+/**
+ * 括号配对的**唯一实现**（字符级、字符串/注释感知）：从 `openOffset`（须指向 `open` 字符）
+ * 起做配对，返回闭合字符的 offset；配不拢返回 -1。
+ *
+ * **为什么必须是 offset 级而不是行级**：内联匿名子插件的函数体可以**与 register 调用同行**
+ * —— `routes/exam.ts:2045` 的 `server.register(async (child) => {` 就是如此，体内第一条
+ * 路由在下一行。行级定位拿不到块内区间，就只能收不到这 33 条。
+ * 行级 {@link findClosingBrace} 已降为本函数的薄包装，全仓只有这一处配对实现。
+ */
+function findClosingBracketAt(src, openOffset, open, close) {
   let depth = 0
   let inString = null
   let escaped = false
-  for (let i = startLine; i < lines.length; i++) {
-    const line = lines[i]
-    const begin = i === startLine ? startCol : 0
-    for (let j = begin; j < line.length; j++) {
-      const ch = line[j]
-      if (inString) {
-        if (escaped) {
-          escaped = false
-        } else if (ch === '\\') {
-          escaped = true
-        } else if (ch === inString) {
-          inString = null
-        }
-        continue
-      }
-      if (ch === '"' || ch === "'" || ch === '`') {
-        inString = ch
-        continue
-      }
-      if (ch === '/' && j + 1 < line.length) {
-        const next = line[j + 1]
-        if (next === '/') break // 行注释，跳过本行剩余
-        if (next === '*') {
-          // 块注释，简单跳过到 */
-          let found = false
-          for (let k = j + 2; k < line.length - 1; k++) {
-            if (lines[i][k] === '*' && lines[i][k + 1] === '/') {
-              j = k + 1
-              found = true
-              break
-            }
-          }
-          if (!found) {
-            // 跨行块注释，继续扫描下一行
-            let done = false
-            for (let k = i + 1; k < lines.length && !done; k++) {
-              for (let l = 0; l < lines[k].length - 1; l++) {
-                if (lines[k][l] === '*' && lines[k][l + 1] === '/') {
-                  i = k
-                  j = l + 1
-                  done = true
-                  break
-                }
-              }
-            }
-          }
-          continue
-        }
-      }
-      if (ch === '{') depth++
-      else if (ch === '}') {
-        depth--
-        if (depth === 0) return i
-      }
+  for (let i = openOffset; i < src.length; i++) {
+    const ch = src[i]
+    if (inString) {
+      if (escaped) escaped = false
+      else if (ch === '\\') escaped = true
+      else if (ch === inString) inString = null
+      continue
+    }
+    if (ch === '"' || ch === "'" || ch === '`') {
+      inString = ch
+      continue
+    }
+    // 行注释：跳到本行末（不跳换行本身，好让下一轮从行首继续）
+    if (ch === '/' && src[i + 1] === '/') {
+      const nl = src.indexOf('\n', i)
+      if (nl === -1) return -1
+      i = nl
+      continue
+    }
+    // 块注释：整段跳过（跨行也覆盖，这正是旧行级实现在这里最容易出错的地方）
+    if (ch === '/' && src[i + 1] === '*') {
+      const end = src.indexOf('*/', i + 2)
+      if (end === -1) return -1
+      i = end + 1
+      continue
+    }
+    if (ch === open) depth++
+    else if (ch === close) {
+      depth--
+      if (depth === 0) return i
     }
   }
-  return lines.length - 1
+  return -1
+}
+
+/**
+ * {@link findClosingBracketAt} 的行号版：配不拢时退回最后一行（沿用旧行为，不改变取材面）。
+ *
+ * @param {string} src 文件内容
+ * @param {number[]} lineStarts 每行首字符 offset
+ * @param {number} startLine 起始行号（0 基）
+ * @param {number} startCol 起始列（0 基）
+ * @returns {number} 闭合所在行号（0 基）
+ */
+function findClosingBrace(src, lineStarts, startLine, startCol) {
+  const open = lineStarts[startLine] + startCol
+  const close = findClosingBracketAt(src, open, '{', '}')
+  if (close === -1) return lineStarts.length - 1
+  return lineIndexAt(lineStarts, close)
 }
 
 /**
@@ -426,8 +556,13 @@ function findClosingBrace(lines, startLine, startCol) {
  * @param {string} src 文件内容
  * @param {Array} plugins 插件块区间
  * @param {Set<string>} receivers 该文件出现过的接收者名
+ * @param {Array<[number,number]>} exclude 要**跳过**的行区间（内联子插件的函数体）。
+ *   内联形参名可能与外层接收者同名（`alias-routes.ts` 外层 `server`、内联 `s`，不撞；
+ *   但 `exam.ts` 体内还有 `db.delete(...)` 这种非接收者的 `.delete`），不排除就会
+ *   在外层这一遍**重复收一遍**内联的路由，同一条路径算两次 ⇒ 报数虚高、且可能被
+ *   去重键误判成"重复挂载"。内联那遍自己单独收，不依赖这里。
  */
-function extractRoutesFromFile(src, plugins, receivers) {
+function extractRoutesFromFile(src, plugins, receivers, exclude = []) {
   const lineStarts = computeLineStarts(src)
   const routes = []
   const names = [...receivers].filter(Boolean).map(escapeRegExp)
@@ -437,6 +572,7 @@ function extractRoutesFromFile(src, plugins, receivers) {
   let m
   while ((m = re.exec(src)) !== null) {
     const lineIdx = lineIndexAt(lineStarts, m.index)
+    if (exclude.some(([a, b]) => lineIdx >= a && lineIdx <= b)) continue
     const plugin = plugins.find((p) => lineIdx >= p.startLine && lineIdx <= p.endLine)
     routes.push({
       method: m[1].toUpperCase(),
@@ -478,6 +614,7 @@ function newState() {
     entryFilesRead: 0,
     registerCalls: 0,
     forwarded: 0, // 纯再导出 barrel 转发次数
+    inlineSubPlugins: 0, // 内联匿名子插件（首参是 async 箭头/function 表达式）
     scannedFiles: new Set(),
     routeEntries: [],
     stack: new Set(), // ① 环检测：当前展开路径上的文件
@@ -535,7 +672,14 @@ function collectFromPluginFile(file, pluginName, prefix, state, depth) {
     const importMap = extractImportMap(file)
 
     if (block) {
-      const routes = extractRoutesFromFile(src, plugins, receivers)
+      // **内联匿名子插件**（`<recv>.register(async (<形参>) => {...}, { prefix? })`）。
+      // 先定位，才知道要排除哪些行 —— 见下面 `exclude` 的用途。
+      const inlines = extractInlineRegisterCalls(src).filter(
+        (inl) => inl.startLine >= block.startLine && inl.endLine <= block.endLine,
+      )
+      const inlineRanges = inlines.map((inl) => [inl.startLine, inl.endLine])
+
+      const routes = extractRoutesFromFile(src, plugins, receivers, inlineRanges)
       for (const r of routes) {
         if (r.pluginName !== block.name) continue
         state.routeEntries.push({
@@ -545,6 +689,32 @@ function collectFromPluginFile(file, pluginName, prefix, state, depth) {
           localPath: r.localPath,
           full: `${r.method} ${normalizePath(prefix, r.localPath)}`,
         })
+      }
+
+      // 内联子插件的路由声明**在本文件内**（没有别的文件要 import），所以不走 barrel 递归，
+      // 就地按区间收掉。复用 {@link extractRoutesFromFile}（不另写一份路由正则）——
+      // 传一个只覆盖函数体区间的合成块 + 只含该形参名的接收者集。
+      for (const inl of inlines) {
+        state.inlineSubPlugins++
+        state.registerCalls++
+        const own = joinPrefix(prefix, inl.prefix)
+        const routesIn = extractRoutesFromFile(
+          src,
+          [{ name: inl.name, receiver: inl.receiver, startLine: inl.startLine, endLine: inl.endLine }],
+          new Set([inl.receiver]),
+        )
+        for (const r of routesIn) {
+          if (r.pluginName !== inl.name) continue
+          state.routeEntries.push({
+            // 名字带上外层插件：光靠 `receiver@行号` 在两个文件里会撞名（都叫
+            // `inline:server.register@25`），撞名会让去重键相等 ⇒ 真冲突被当成重复挂载抹掉。
+            pluginName: `${pluginName}»${inl.name}`,
+            prefix: own,
+            method: r.method,
+            localPath: r.localPath,
+            full: `${r.method} ${normalizePath(own, r.localPath)}`,
+          })
+        }
       }
     } else {
       // **纯再导出 barrel 转发**（本门取材面能走通的关键一步）。
@@ -639,20 +809,21 @@ for (const [full, sources] of counts) {
   }
 }
 
-// 报数行：让"扫了多少"与"报了多少"同屏可读。取材面从 5 条扩到 4196 条后，
+// 报数行：让"扫了多少"与"报了多少"同屏可读。取材面从 5 条扩到 4250 条后，
 // 这两行是复核量表的第一手凭据 —— 也让"扫零个文件"这件事**可见**（两行都是 0）。
 console.log(
   `取材面:入口 ${state.entryFilesRead} 个 · register ${state.registerCalls} 条 · ` +
     `路由文件 ${state.scannedFiles.size} 个 · 路由条目 ${routeEntries.length} 条 · ` +
-    `最大下钻深度 ${state.maxDepth} · 再导出转发 ${state.forwarded} 次`,
+    `最大下钻深度 ${state.maxDepth} · 再导出转发 ${state.forwarded} 次 · ` +
+    `内联子插件 ${state.inlineSubPlugins} 处`,
 )
 console.log(`注册插件(去重): ${new Set(routeEntries.map((e) => e.pluginName)).size} 个`)
 console.log('')
 
 if (duplicates.length === 0) {
   // 措辞必须点破覆盖面：这不是"全仓无冲突"，是"在**已进面的**字面量路由上无冲突"。
-  // 文件头列了三类已知边界（工厂式注册 / 内联匿名子插件 / 动态路径），
-  // 读者只看到"未发现重复路由"会把 4196 条的结论误读成全仓。
+  // 文件头列了两类已知边界（工厂式注册 / 动态路径），
+  // 读者只看到"未发现重复路由"会把 4250 条的结论误读成全仓。
   console.log('未发现重复路由（在已进面的字面量路由上；覆盖面见脚本头「已知边界」段）')
   process.exit(0)
 }
@@ -664,8 +835,8 @@ for (const d of duplicates) {
     console.log(`  - ${s.pluginName} @ ${s.prefix || '/'} (${s.localPath})`)
   }
 }
-// 本门刻意**不因存在重复路由而 exit 非零**：本仓当前这 0 条，且已知的三类边界
+// 本门刻意**不因存在重复路由而 exit 非零**：本仓当前这 0 条，且已知的两类边界
 // 精度不足以支撑判红。exit 0 不等于"通过"，只等于"本门只负责报数"。
-// 判红起点由另一票决定（先把已知边界那三类补齐，再谈恒红门）。
+// 判红起点由另一票决定（先把已知边界那两类补齐，再谈恒红门）。
 process.exit(0)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

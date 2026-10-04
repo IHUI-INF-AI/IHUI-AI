@@ -77,7 +77,7 @@ test('T1 未接提交链时头注必须自称"尚未接";接了就必须成套(b
   }
   const entry = runner.match(/check-python-import-landed\.mjs[\s\S]{0,600}/)?.[0] ?? ''
   assert.match(entry, /mode:\s*'blocking'/, '接进提交链却不 blocking ⇒ 判对了也不拦')
-  assert.match(entry, /skipEnv:\s*'HUSKY_SKIP_PY_IMPORT_LANDED'/, 'blocking 门必须声明应急出口')
+  assert.match(entry, /skipEnv:\s*'HUSKY_SKIP_PYTHON_IMPORT_LANDED'/, 'blocking 门必须声明应急出口(名字须与门体头注一致,否则守门 172 判假逃生舱)')
 })
 
 test('T2 取材面纪律:内容走 face-reader,禁磁盘读 / 禁 cwd 定根', () => {
