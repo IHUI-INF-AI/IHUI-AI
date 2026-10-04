@@ -78,6 +78,8 @@ export function resolveBinaryPath(binary: string): string | null {
   const { cmd } = lookupCommandNames();
   try {
     const r = spawnSync(cmd, [binary], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf-8',
       windowsHide: true,
       timeout: LOOKUP_TIMEOUT_MS,
@@ -173,6 +175,8 @@ export function probeLspCandidate(
   let r: SpawnSyncReturns<string>;
   try {
     r = spawnSync(resolvedPath, candidate.versionArgs, {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf-8',
       windowsHide: true,
       timeout: VERSION_TIMEOUT_MS,
