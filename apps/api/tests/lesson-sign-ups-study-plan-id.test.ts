@@ -160,14 +160,23 @@ import { studyPlanRoutes } from '../src/routes/other/study-plan-routes.js'
 // ↓ 取**被桩过的**表对象:join 录下来的就是这个对象本身,断言必须按引用比,
 //   拿字符串列名去比表对象会永远落空(第一版就是这么错的)。
 import { lessons as lessonsTable, studyPlans as studyPlansTable } from '@ihui/database'
+// 类型面走**具名** type 导入:`typeof import('@ihui/database')` 这种内联 import() 类型标注被
+// 本仓 eslint 的 consistent-type-imports 判 forbidden(packages/eslint-config/index.js:44),
+// 而 lint 是 CI 那扇唯一 required 门里的一步 ⇒ 本文件此前整枚红。
+import type { lessonSignUps as lessonSignUpsTable } from '@ihui/database'
 
 /**
  * 取**真表对象**(内省用)。必须走 importActual:本文件把 '@ihui/database' 桩成了
  * 字符串列名,那份桩不是 pgTable,交给 getTableConfig 会炸。
+ * 键集 = 本文件真的内省到的那两张表;`vi.mock` 只换运行期导出,不影响类型面。
  */
-async function realSchema() {
-  return (await vi.importActual<typeof import('@ihui/database')>('@ihui/database')) as
-    typeof import('@ihui/database')
+type RealSchema = {
+  lessonSignUps: typeof lessonSignUpsTable
+  studyPlans: typeof studyPlansTable
+}
+
+async function realSchema(): Promise<RealSchema> {
+  return (await vi.importActual('@ihui/database')) as RealSchema
 }
 
 const HERE = dirname(fileURLToPath(import.meta.url))
