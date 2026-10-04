@@ -84,6 +84,10 @@ import {
   gitdirArchivePath,
   refExpectationSatisfied,
 } from './lib/gitdir.mjs'
+// 凭据形状脱敏的**唯一实现**住在 lib(G-334 / G-400):本文件原先自带一份逐字相同的副本,
+// 两份实现必漂移是本仓记过最多次的失效型,而这一族的失败形态是安静的 —— 漂了的一侧只会让
+// 某些告警少打码或多打码,没有任何门会喊。`redactChildOutput` 在本文件里已不再有实现。
+import { redactChildOutput } from './lib/secret-shape-redact.mjs'
 
 // 工作树 / 真实 gitdir / 备份目录动态解析(不再硬编码 D: 盘;见 scripts/lib/gitdir.mjs 2026-09-15)
 const WORKTREE = resolveWorktree()
@@ -1812,22 +1816,17 @@ export function buildGuardMailArgv({ to, title, severity, messageFile, dryRun = 
   ]
 }
 
-/** 子进程输出转诊断文本:逐行脱敏 + 截断(派发器崩溃可能把 .env 片段倒进 stderr,不落地) */
-const SECRETISH_RE = /(api[_-]?key|token|secret|passw|authorization|bearer)/i
-export function redactChildOutput(raw, limit = 300) {
-  const kept = String(raw ?? '')
-    .split(/\r?\n/)
-    .map((l) => {
-      const line = l.trimEnd()
-      if (!SECRETISH_RE.test(line)) return line
-      const sep = /[=:]/.exec(line)
-      return sep && sep.index < 40 ? `${line.slice(0, sep.index + 1)}***` : '[已脱敏]'
-    })
-    .filter((l) => l !== '')
-    .join(' / ')
-  if (!kept) return '(无输出)'
-  return kept.length > limit ? `${kept.slice(0, limit)}…(截断)` : kept
-}
+/**
+ * 子进程输出转诊断文本:逐行脱敏 + 截断。
+ *
+ * **实现已迁到 `lib/secret-shape-redact.mjs`(G-334 / G-400 合派一枚)。**
+ * 本文件原先自带一份逐字相同的实现(同一条 `SECRETISH_RE` 字面量、同一个 `limit = 300`),
+ * 而两侧消费面不同 ⇒ 漂移表现不同:一侧拼进到人邮件正文,一侧写守护日志与 UNDELIVERED 标记。
+ * 这条链的失败形态是**安静**的 —— 漂了的一侧只会让某些告警少打码或多打码,没有任何门会喊。
+ * 现在改调那一份;下面这行 `export` 只为保住既有出口(镜像测试与外部消费面仍按原路径取这个名字),
+ * 实现本身一个字都不在这里 —— 规则字面量再次出现在本文件,就是又抄了一份。
+ */
+export { redactChildOutput }
 
 /** dry-run 通道判定:派发器自报"至少一条通道齐备"才算可用(与 check-credential-health 同判据) */
 export function judgeDryRunChannel(stdout) {
