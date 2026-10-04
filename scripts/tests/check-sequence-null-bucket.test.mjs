@@ -41,9 +41,11 @@ function makeFixtureRepo(entries) {
 }
 
 function runGate(root, args = []) {
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   return execFileSync(process.execPath, [SCRIPT, '--root', root, ...args], {
     encoding: 'utf8',
     windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 

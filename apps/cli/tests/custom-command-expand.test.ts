@@ -191,7 +191,8 @@ describe('自定义命令:加载 + 展开(G-814413)', () => {
     const sentinel = path.join(tmpHome, 'sentinel-did-it-ran.txt');
     // 这段 body 若真被执行,就会创建 sentinel —— 先跑一次"故意执行"证明这条判据有牙
     const embedded = `require('fs').writeFileSync(${JSON.stringify(sentinel)},'ran')`;
-    execFileSync(process.execPath, ['-e', embedded], { windowsHide: true });
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execFileSync(process.execPath, ['-e', embedded], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     expect(fsNode.existsSync(sentinel)).toBe(true); // 阳性对照:执行 ⇒ 哨兵必出现
     fsNode.rmSync(sentinel, { force: true });
 

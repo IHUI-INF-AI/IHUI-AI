@@ -110,6 +110,8 @@ function pidAlive(pid, expectName = 'node.exe') {
       windowsHide: true,
       encoding: 'utf8',
       timeout: 8000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
     const m = (r.stdout || '').match(/^\s*"([^"]+)"/m);
     return !!m && m[1].toLowerCase() === expectName.toLowerCase();

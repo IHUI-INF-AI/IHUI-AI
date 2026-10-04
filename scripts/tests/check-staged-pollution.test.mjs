@@ -17,13 +17,13 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-staged-pollution.mjs')
 // ─── 辅助:创建临时 git 仓库(含初始 commit) ──────────────
 function createTempRepo() {
   const dir = mkScratch('ihui-staged-')
-  execSync('git init -b main', { cwd: dir, stdio: 'pipe' })
-  execSync('git config user.email test@test.com', { cwd: dir, stdio: 'pipe' })
-  execSync('git config user.name test', { cwd: dir, stdio: 'pipe' })
-  execSync('git config commit.gpgsign false', { cwd: dir, stdio: 'pipe' })
+  execSync('git init -b main', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
+  execSync('git config user.email test@test.com', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
+  execSync('git config user.name test', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
+  execSync('git config commit.gpgsign false', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
   writeFileSync(join(dir, 'README.md'), '# init\n')
-  execSync('git add README.md', { cwd: dir, stdio: 'pipe' })
-  execSync('git commit -m "init"', { cwd: dir, stdio: 'pipe' })
+  execSync('git add README.md', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
+  execSync('git commit -m "init"', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
   return dir
 }
 
@@ -35,7 +35,7 @@ function stageFiles(dir, files) {
     mkdirSync(dirname(fullPath), { recursive: true })
     writeFileSync(fullPath, `content for ${f}\n`)
     // git add 用正斜杠路径(Windows 上 git 也接受)
-    execSync(`git add "${f}"`, { cwd: dir, stdio: 'pipe' })
+    execSync(`git add "${f}"`, { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
   }
 }
 
@@ -44,7 +44,8 @@ function runScript(opts = {}) {
   return spawnSync('node', [SCRIPT_PATH], {
     cwd: opts.cwd || process.cwd(),
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
@@ -292,7 +293,7 @@ test('根目录文件: README.md(modified) + LICENSE(added)→ 2 组 → exit 0(
     // README.md 已在初始 commit,修改使其 staged(Modified 走 diff-filter=M)
     writeFileSync(join(dir, 'README.md'), '# updated\n')
     writeFileSync(join(dir, 'LICENSE'), 'MIT\n')
-    execSync('git add README.md LICENSE', { cwd: dir, stdio: 'pipe' })
+    execSync('git add README.md LICENSE', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
     const r = runScript({ cwd: dir })
     assert.equal(r.status, 0)
     const out = stripAnsi(r.stdout)

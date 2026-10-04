@@ -637,7 +637,8 @@ class SpecService {
         cwd: isAbsolute(root) && root ? root : undefined,
         encoding: 'utf-8',
         timeout: 5000,
-        stdio: ['pipe', 'pipe', 'ignore'],
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'ignore'],
         windowsHide: true,
       })
       author = out.trim() || 'Unknown'
@@ -1400,7 +1401,8 @@ ${requirementPreview}
             cwd: root,
             encoding: 'utf-8',
             timeout: 15000,
-            stdio: ['pipe', 'pipe', 'ignore'],
+            // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+            stdio: ['ignore', 'pipe', 'ignore'],
             windowsHide: true,
           },
         )
@@ -1408,7 +1410,8 @@ ${requirementPreview}
           cwd: root,
           encoding: 'utf-8',
           timeout: 5000,
-          stdio: ['pipe', 'pipe', 'ignore'],
+          // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+          stdio: ['ignore', 'pipe', 'ignore'],
           windowsHide: true,
         }).trim()
         stages.push({
