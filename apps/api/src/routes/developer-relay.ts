@@ -19,7 +19,7 @@
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, and, gte, lte, desc, sql, like, type SQL } from 'drizzle-orm'
+import { eq, and, gte, lte, desc, sql, like, isNotNull, type SQL } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
 import { db } from '../db/index.js'
 import { developerApiKeys, llmCallLogs, aiModelMappings } from '@ihui/database'
@@ -305,7 +305,23 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
       // 默认近 30 天
       conds.push(gte(llmCallLogs.createdAt, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)))
     }
-    // BYOK 模式筛选:byokMode=true 表示 BYOK 调用,其余为中转站调用
+    // BYOK 模式筛选:byokMode=true 表示 BYOK 调用,其余为中转站调用。
+    //
+    // G-790(2026-10-05):**JSON 内容过滤必须与独立判别条件同谓词**。`byokMode` 这个顶层键
+    // 今天只由 `relay-billing-service.recordCall` 写进 metadata,而该入口的
+    // `apiKeyId: string` 是必填项并原样落 `api_key_id` 列 ⇒ 加下面这条对**现存行是 no-op**;
+    // 但"只有这一族会写这个键"是今天的巧合而不是约束(上游同型论证:「今天 payload 里只有
+    // artifact-published,它带的是嵌套的 artifact.id 而不是顶层 artifactId,但明天未必」)。
+    // 明天任何别的写入者(内部任务 / 系统调用 / 新端点)给 metadata 打上顶层 `byokMode`,
+    // 这张用量表就会混入无关条目,而**条数与分页都"看起来正常"** —— 所以条件不能省。
+    //
+    // 如实登记的边界:`llm_call_logs` **没有** byok 判别列,`api_key_id IS NOT NULL` 是
+    // "该行是 API Key 计费流水"这一既有独立列给出的最强约束,不是 byok 本身的列。
+    // 真正的收口是加 `byok_mode` 列(属迁移票,有严格规程,本票不建列),见
+    // `routes/__tests__/README-g790-json-filter-inventory.md` 的「待迁移」格。
+    if (mode === 'byok' || mode === 'relay') {
+      conds.push(isNotNull(llmCallLogs.apiKeyId))
+    }
     if (mode === 'byok') {
       conds.push(sql`${llmCallLogs.metadata}->>'byokMode' = 'true'`)
     } else if (mode === 'relay') {
