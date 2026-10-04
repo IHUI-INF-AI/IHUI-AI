@@ -18,6 +18,7 @@ import {
   lessonChapters,
   lessonChapterSections,
   lessonSignUps,
+  studyPlans,
   users,
   type LearnCategory,
   type Lesson,
@@ -608,10 +609,39 @@ export async function deleteSection(id: string): Promise<void> {
 // =============================================================================
 
 /**
+ * 取"该用户最近更新的学习计划 id",用于建报名时落 lesson_sign_ups.study_plan_id。
+ *
+ * 口径(刻意选择,不是随手写的):
+ *   - study_plans 对同一用户**没有**唯一约束(一个用户可以有多条计划),而
+ *     lesson_sign_ups 有 UNIQUE(lesson_id, user_id) ⇒ 报名侧天然一对一候选。
+ *     多个计划时取**最近更新的那个**(ORDER BY updated_at DESC LIMIT 1):
+ *     报名是"此刻发生的动作",绑到用户当前正在关注的那条计划上语义最自然。
+ *     updated_at 而非 created_at:改过计划的用户应看到改后的那条。
+ *   - 一个计划都没有 ⇒ 返回 null。读侧 leftJoin 出来是 NULL 并回落到课程名,
+ *     **这是"没有计划"的正常态,不是缺陷** —— 所以这里不抛错、不造默认计划。
+ *
+ * 落 null 时依赖 FK 的可空性(不加 NOT NULL),历史行也一律保持 NULL。
+ */
+export async function findLatestStudyPlanId(userId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ id: studyPlans.id })
+    .from(studyPlans)
+    .where(eq(studyPlans.userId, userId))
+    .orderBy(desc(studyPlans.updatedAt))
+    .limit(1)
+  return row?.id ?? null
+}
+
+/**
  * 用户报名课程（幂等：已报名则直接返回）。
+ * studyPlanId 取该用户最近更新的学习计划;没有计划则落 NULL（见 findLatestStudyPlanId）。
  */
 export async function signUpLesson(lessonId: string, userId: string): Promise<void> {
-  await db.insert(lessonSignUps).values({ lessonId, userId }).onConflictDoNothing()
+  const studyPlanId = await findLatestStudyPlanId(userId)
+  await db
+    .insert(lessonSignUps)
+    .values({ lessonId, userId, studyPlanId })
+    .onConflictDoNothing()
 }
 
 /**
@@ -839,12 +869,15 @@ export async function updateSignupStatus(
 
 /**
  * Admin: 批量报名(为多个用户报名同一课程,幂等)。
+ * 每个用户各自落自己的最近更新计划(逐用户查一次,不能共用一个 id ——
+ * study_plan_id 指向的是**别人的**计划时会读出错的计划名)。
  */
 export async function batchSignUp(lessonId: string, userIds: string[]): Promise<number> {
   if (userIds.length === 0) return 0
+  const planIds = await Promise.all(userIds.map((userId) => findLatestStudyPlanId(userId)))
   const rows = await db
     .insert(lessonSignUps)
-    .values(userIds.map((userId) => ({ lessonId, userId })))
+    .values(userIds.map((userId, i) => ({ lessonId, userId, studyPlanId: planIds[i] ?? null })))
     .onConflictDoNothing()
     .returning({ id: lessonSignUps.id })
   return rows.length

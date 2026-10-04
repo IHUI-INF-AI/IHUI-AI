@@ -8,11 +8,12 @@
  *   ① **新列真的存在**,且类型/可空性对(lesson_id uuid REFERENCES lessons(id))。
  *   ② **FK 动作是 SET NULL,不是 CASCADE** —— 课程下架不该连带删掉用户的计划。
  *      这条判据同时钉住 SQL 迁移与 drizzle schema 两侧,任一侧改成 cascade 即翻红。
- *   ③ **登记"title 与 courseName 当前仍同源"** —— 这不是"顺带一提",而是本票
- *      刻意**不改** study-plan-routes.ts 的理由,必须机器可读:
- *      `lessonSignUps` 至今**没有**任何指向 study_plans 的列(见下方断言),
- *      所以 /api/study/plans 每行是"报名记录"而非"计划行",title 无正确来源。
- *      一旦有人补上报名→计划的关联列,本用例即翻红提醒同步改路由。
+ *   ③ **登记 title 的来源已切换** —— 原本这里钉的是"title 与 courseName 仍同源",
+ *      因为 lessonSignUps 当时**没有**任何指向 study_plans 的列,/api/study/plans
+ *      的 title 只能取 lessons.title。该列已由后续票
+ *      (20261004150000_lesson_sign_ups_study_plan_id)补上,路由改 leftJoin 取计划名,
+ *      所以本块已**翻转**为"title 取计划名、courseName 取课程名,两者不同源"。
+ *      完整判据(含 leftJoin 非 innerJoin)在 lesson-sign-ups-study-plan-id.test.ts。
  *
  * 判据取自**真实 drizzle schema 对象的内省**(getTableConfig),不是文本 grep ——
  * 文本 grep 会被注释/字符串骗过,而"FK 动作是 set null 还是 cascade"恰恰是
@@ -73,6 +74,9 @@ vi.mock('@ihui/database', async (importOriginal) => {
       id: 'lesson_sign_ups.id',
       userId: 'lesson_sign_ups.userId',
       lessonId: 'lesson_sign_ups.lessonId',
+      // 2026-10-04 后续票(lesson_sign_ups.study_plan_id)加的列:本票的桩原先没有它,
+      // 路由改 leftJoin 后会读到 undefined ⇒ 补上,保持桩与真实 schema 同形。
+      studyPlanId: 'lesson_sign_ups.studyPlanId',
       progress: 'lesson_sign_ups.progress',
       status: 'lesson_sign_ups.status',
       createdAt: 'lesson_sign_ups.createdAt',
@@ -188,9 +192,18 @@ describe('study_plans.lesson_id 加列票', () => {
       const mine = entries.filter((e) => e.tag === '20261004103000_study_plans_lesson_id')
       expect(mine).toHaveLength(1)
       expect(mine[0].idx).toBe(309)
-      // when 必须严格大于既有最大值(B3),否则 check-migration-bookkeeping 判红
-      const others = entries.filter((e) => e.tag !== '20261004103000_study_plans_lesson_id')
-      expect(mine[0].when).toBeGreaterThan(Math.max(...others.map((e) => e.when)))
+      // when 必须严格大于**它自己之前**那些条目的最大值(B3)。
+      // 注意不能拿"除自己以外全部"的最大值来比:journal 是单调追加的,后续票还会
+      // 继续加 idx(例如 20261004150000 的 study_plan_id),那种比法会让本用例在
+      // 别人正常追加迁移时误报红。判据的正确形式是"排在它后面的条目都更大"。
+      const whens = entries.map((e) => e.when)
+      const pos = entries.findIndex((e) => e.tag === '20261004103000_study_plans_lesson_id')
+      const before = whens.slice(0, pos)
+      const after = whens.slice(pos + 1)
+      expect(before.length).toBeGreaterThan(0)
+      expect(mine[0].when).toBeGreaterThan(Math.max(...before))
+      // 后续追加的条目必须更大(B3 的另一半:整表严格递增)
+      expect(Math.min(...after)).toBeGreaterThan(mine[0].when)
       // journal tag ↔ .sql basename 必须双向一一对应(B1)
       const tags = new Set(entries.map((e) => e.tag))
       expect(tags.has('20261004103000_study_plans_lesson_id')).toBe(true)
@@ -322,22 +335,37 @@ describe('study_plans.lesson_id 加列票', () => {
   })
 
   // ===================================================================
-  // ③ 登记:title 与 courseName 当前仍同源,因为 title 无正确来源
+  // ③ 前置已补齐:lesson_sign_ups.study_plan_id 已加(2026-10-04 后续票),
+  //    /api/study/plans 已改 leftJoin 取计划名 ⇒ title 与 courseName 不再同源。
+  //
+  //    本块原文是"登记 title 与 courseName 仍同源",并明写:
+  //      「一旦有人给 lesson_sign_ups 补上 study_plan_id 并改路由取计划名,
+  //        这条断言会翻红 —— 那正是本票留下的『该改路由了』的信号。」
+  //    那个人已经来了(迁移 20261004150000_lesson_sign_ups_study_plan_id)。
+  //    下面把该信号**翻转**成新现状的登记:同一条 tripwire 改钉"已补齐"。
+  //    该列与 leftJoin 的完整判据在 lesson-sign-ups-study-plan-id.test.ts。
   // ===================================================================
 
-  describe('③ 登记"title 与 courseName 仍同源"(本票不改 study-plan-routes 的理由)', () => {
-    it('lessonSignUps 至今没有任何指向 study_plans 的列(前置缺失)', async () => {
+  describe('③ 前置已补齐:title 取计划名、courseName 取课程名(两者不再同源)', () => {
+    it('lessonSignUps 已有指向 study_plans 的列 study_plan_id', async () => {
       const { lessonSignUps } = await realSchema()
       const cfg = getTableConfig(lessonSignUps)
       const names = cfg.columns.map((c) => c.name)
-      // 这条断言就是"第 4 步不能做"的机器可读依据:
-      // 报名与计划之间没有关联列 ⇒ /api/study/plans 无从把 title 换成计划名。
-      expect(names).not.toContain('study_plan_id')
-      expect(names).not.toContain('studyPlanId')
-      expect(names).toEqual(['id', 'lesson_id', 'user_id', 'status', 'progress', 'created_at'])
+      // 原来这里是 not.toContain('study_plan_id')(登记"前置缺失"),
+      // 现在前置已补 ⇒ 翻转为 toContain。少一列即翻红。
+      expect(names).toContain('study_plan_id')
+      expect(names).toEqual([
+        'id',
+        'lesson_id',
+        'user_id',
+        'study_plan_id',
+        'status',
+        'progress',
+        'created_at',
+      ])
     })
 
-    it('因此 /api/study/plans 仍返回 title === courseName(同源是已知现状,不是回归)', async () => {
+    it('有计划时 title 取计划名、courseName 取课程名 —— 两者不同源', async () => {
       const server = Fastify({ logger: false })
       await server.register(frontendStubOtherRoutes, { prefix: PREFIX })
       await server.ready()
@@ -353,23 +381,22 @@ describe('study_plans.lesson_id 加列票', () => {
             createdAt: new Date('2026-03-01T00:00:00Z'),
             lessonTitle: '函数式编程入门',
             lessonCount: 10,
+            planTitle: '考研数学冲刺计划',
           },
         ])
         const res = await server.inject({ method: 'GET', url: `${PREFIX}/study/plans` })
         expect(res.statusCode).toBe(200)
         const plan = res.json().data[0]
-        // **明确登记**:两个字段当前仍同源(都取 lessons.title)。
-        // 一旦有人给 lesson_sign_ups 补上 study_plan_id 并改路由取计划名,
-        // 这条断言会翻红 —— 那正是本票留下的"该改路由了"的信号。
-        expect(plan.title).toBe('函数式编程入门')
+        // 翻转后的登记:两个字段**不再**同源。
+        expect(plan.title).toBe('考研数学冲刺计划')
         expect(plan.courseName).toBe('函数式编程入门')
-        expect(plan.title).toBe(plan.courseName)
+        expect(plan.title).not.toBe(plan.courseName)
       } finally {
         await server.close()
       }
     })
 
-    it('该端点仍只 join 报名与课程,查询里不出现 study_plans(与"title 无来源"自洽)', async () => {
+    it('无计划(planTitle 为 NULL)时回落课程名,且该行不丢', async () => {
       const server = Fastify({ logger: false })
       await server.register(frontendStubOtherRoutes, { prefix: PREFIX })
       await server.ready()
@@ -385,14 +412,44 @@ describe('study_plans.lesson_id 加列票', () => {
             createdAt: new Date('2026-03-01T00:00:00Z'),
             lessonTitle: '课程',
             lessonCount: 1,
+            planTitle: null,
+          },
+        ])
+        const res = await server.inject({ method: 'GET', url: `${PREFIX}/study/plans` })
+        const data = res.json().data
+        // leftJoin 的意义:没有计划的报名**仍在**列表里(不是被 innerJoin 滤掉)
+        expect(data).toHaveLength(1)
+        expect(data[0].title).toBe('课程')
+      } finally {
+        await server.close()
+      }
+    })
+
+    it('归属过滤仍只落在 lesson_sign_ups.userId 上(不拿 study_plans 的归属列过滤)', async () => {
+      const server = Fastify({ logger: false })
+      await server.register(frontendStubOtherRoutes, { prefix: PREFIX })
+      await server.ready()
+      try {
+        dbQueue.items.length = 0
+        eqCalls.length = 0
+        mockAuthenticate.mockReset()
+        mockAuthed()
+        dbQueue.items.push([
+          {
+            id: '33333333-3333-4333-8333-333333333333',
+            progress: 0,
+            createdAt: new Date('2026-03-01T00:00:00Z'),
+            lessonTitle: '课程',
+            lessonCount: 1,
+            planTitle: null,
           },
         ])
         await server.inject({ method: 'GET', url: `${PREFIX}/study/plans` })
-        // 过滤列只落在报名表自己的 userId 上;没有任何一次拿 study_plans 的列做过滤
         const onUserId = eqCalls.filter((c) => c.left === 'lesson_sign_ups.userId')
         expect(onUserId.length).toBeGreaterThan(0)
         expect(onUserId.every((c) => c.right === USER_ID)).toBe(true)
-        expect(eqCalls.filter((c) => String(c.left).startsWith('study_plans.'))).toHaveLength(0)
+        // study_plans.id 允许出现在 join 条件里,但**归属列**不许参与过滤
+        expect(eqCalls.filter((c) => c.left === 'study_plans.userId')).toHaveLength(0)
       } finally {
         await server.close()
       }
