@@ -49,14 +49,14 @@ export default function MemberHistoryPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['member', 'history'],
     queryFn: () =>
-      api<{ list: HistoryItem[] }>('/api/history')
+      api<{ list: HistoryItem[] }>('/api/browse-history')
         .then((d) => d.list ?? [])
         .catch(() => [] as HistoryItem[]),
     enabled: ready && isAuthenticated,
   })
 
   const clearMut = useMutation({
-    mutationFn: () => api('/api/history', { method: 'DELETE' }),
+    mutationFn: () => api('/api/browse-history', { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['member', 'history'] }),
   })
 

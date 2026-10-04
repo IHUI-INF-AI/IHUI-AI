@@ -10,8 +10,10 @@ import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { ArrowLeft, Loader2, Eye, Newspaper } from 'lucide-react'
+import * as React from 'react'
 
 import { fetchApi } from '@/lib/api'
+import { useAuthStore } from '@/stores/auth'
 import { Card, CardContent } from '@ihui/ui-react'
 import { SafeHtml } from '@/components/common'
 import { generateArticleSchema } from '@/lib/seo/schema-article'
@@ -44,11 +46,32 @@ export default function ArticleDetailPage() {
   const { id } = useParams<{ id: string }>()
   const t = useTranslations('articles')
   const locale = useLocale()
+  const isAuthed = useAuthStore((s) => s.isAuthenticated)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['articles', 'detail', id],
     queryFn: () => api<DetailResponse>(`/api/article/detail/${id}`),
   })
+
+  // 浏览历史上报(2026-10-04,/member/history 页的写入侧):进详情页即记一条。
+  // 口径与取舍:
+  //   · fire-and-forget —— 上报失败绝不能打断阅读,故只吞错不重试、不弹提示。
+  //   · **只在登录态发** —— /api/browse-history/visit 走 authenticate,匿名发会 401;
+  //     而 fetchApi 对非 GET 的 401 会弹登录框(见 lib/api.ts requestLoginDialogForUnauthorized),
+  //     那等于"匿名读一篇文章被弹登录框"。门控在 isAuthenticated 上就不存在这个副作用。
+  //   · 依赖 article?.title —— 标题拿到才上报,列表页显示的是 title,空标题的行没意义。
+  //   · article?.id 而非路由 id —— 后端认的是 news_articles.id。
+  React.useEffect(() => {
+    if (!isAuthed || !data?.article?.id) return
+    void fetchApi('/api/browse-history/visit', {
+      method: 'POST',
+      body: JSON.stringify({
+        targetType: 'post',
+        targetId: data.article.id,
+        title: data.article.title,
+      }),
+    }).catch(() => {})
+  }, [isAuthed, data?.article?.id, data?.article?.title])
 
   const fmtDate = (v?: string | null) => {
     if (!v) return '-'
