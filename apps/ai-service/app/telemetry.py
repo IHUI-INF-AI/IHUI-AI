@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from typing import Any, cast
 
@@ -24,6 +25,25 @@ logger = logging.getLogger(__name__)
 
 _initialized = False
 _tracer: Any = None
+
+
+def _opaque_subject(raw: Any) -> str:
+    """把身份标识折成**不可逆 subject**(G-998111)。
+
+    为什么必须折:span 属性会随 trace 一起落到追踪端与日志里,裸 userId 等于
+    把可关联到自然人的标识复制到本该只见"行为"的地方。机制约定是
+    `sha256(userId)` 的十六进制串(同类实现见
+    `packages/services/src/zcode-agent/agentTelemetryEnv.ts`)——
+    追踪端仍能把同一主体的多次 span 关联起来,但**无法反推是谁**。
+
+    边界:
+    - 空值不入 span(调用方已判),这里不做兜底。
+    - 折叠成一个固定宽度(64 位十六进制)输出,**不截断** —— 截断会降低关联精度,
+      而这正是折哈希唯一还要保留的能力。
+    - 落的是 `sha256` 的**十六进制文本**而非 `hexdigest()` 的同一字节,
+      两者等价,选后者只是实现直白。
+    """
+    return hashlib.sha256(str(raw).encode("utf-8")).hexdigest()
 
 
 def _should_enable() -> bool:
@@ -122,9 +142,14 @@ async def telemetry_middleware(request: Request, call_next: Any) -> Response:
         span.set_attribute("http.route", route)
 
         # 注入用户/租户维度（与 JWTAuthMiddleware 解析的 payload 对齐）
+        # G-998111(2026-10-04):身份只能以**不可读 subject**入 trace。
+        # 原写法 `span.set_attribute("enduser.id", str(user_id))` 把裸 userId 直接放进 span,
+        # 而机制要求的是 sha256(userId) 的十六进制 subject(同类写法见
+        # packages/services/src/zcode-agent/agentTelemetryEnv.ts):Desktop 端原始账号只在
+        # Host 凭据边界可见,Agent 与追踪端只能收到不可逆的 subject。
         user_id = getattr(request.state, "user_id", None)
         if user_id:
-            span.set_attribute("enduser.id", str(user_id))
+            span.set_attribute("enduser.id", _opaque_subject(user_id))
         tenant_id = request.headers.get("x-tenant-id")
         if tenant_id:
             span.set_attribute("tenant.id", tenant_id)
