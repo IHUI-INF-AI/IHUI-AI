@@ -169,6 +169,58 @@ export const businessCardRoutes: FastifyPluginAsync = async (server) => {
     )
   })
 
+  // ===== 新增:GET /business-card/mine — 「我的名片」列表(按 request.userId 过滤)=====
+  // 与 /business-card/list 的区别:list 是 isPublic=true 的**全体公开卡**(广场),
+  // 语义上不含"我的"；本页小标题是"我的名片"且每卡带 edit/delete/share 操作,
+  // 拿到别人的卡会让 edit/delete 必然 403/404 ⇒ 前端改指本端点。
+  // 归属过滤:eq(businessCards.userId, request.userId!) 是**唯一**的可见性条件,
+  // 不叠加 isPublic(私密卡也要在"我的"里可见,否则用户会以为自己名片丢了)。
+  server.get('/business-card/mine', async (request, reply) => {
+    const q = parsePagination(request, reply)
+    if (q === null) return
+    const offset = (q.page - 1) * q.pageSize
+    const conds = [eq(businessCards.userId, request.userId!)]
+    if (q.search) {
+      const like = `%${q.search}%`
+      conds.push(
+        or(ilike(businessCards.name, like), ilike(businessCards.company, like))!,
+      )
+    }
+    const where = and(...conds)
+    const [list, totalRows] = await Promise.all([
+      dbRead
+        .select({
+          id: businessCards.id,
+          userId: businessCards.userId,
+          name: businessCards.name,
+          title: businessCards.title,
+          company: businessCards.company,
+          phone: businessCards.phone,
+          email: businessCards.email,
+          avatar: businessCards.avatar,
+          intro: businessCards.intro,
+          qrCode: businessCards.qrCode,
+          isPublic: businessCards.isPublic,
+          viewCount: businessCards.viewCount,
+          createdAt: businessCards.createdAt,
+          updatedAt: businessCards.updatedAt,
+          favoriteCount: favoriteCountSql,
+        })
+        .from(businessCards)
+        .where(where)
+        .orderBy(desc(businessCards.createdAt))
+        .limit(q.pageSize)
+        .offset(offset),
+      dbRead
+        .select({ count: sql<number>`count(*)::int` })
+        .from(businessCards)
+        .where(where),
+    ])
+    return reply.send(
+      success({ list, total: totalRows[0]?.count ?? 0, page: q.page, pageSize: q.pageSize }),
+    )
+  })
+
   // ===== 新增:POST /business-card/batch-delete — 批量删除(仅所有者)=====
   server.post('/business-card/batch-delete', async (request, reply) => {
     const body = batchDeleteSchema.safeParse(request.body)
