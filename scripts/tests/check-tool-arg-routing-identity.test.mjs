@@ -30,7 +30,8 @@ const RUNNER = join(REPO, 'scripts', 'guardian-runner.mjs')
 const SCRIPT_NAME = 'check-tool-arg-routing-identity.mjs'
 const SKIP_ENV = 'HUSKY_SKIP_TOOL_ARG_ROUTING_IDENTITY'
 const GIT = resolveGitBin() || 'git'
-const gitOpts = { encoding: 'utf8', windowsHide: true, timeout: 120000, maxBuffer: 64 << 20 }
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+const gitOpts = { encoding: 'utf8', windowsHide: true, timeout: 120000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] }
 const runGit = (dir, args) =>
   execFileSync(GIT, ['-c', 'safe.directory=*', '-C', dir, ...args], gitOpts)
 const runGuard = (dir, extra = []) =>
@@ -39,6 +40,8 @@ const runGuard = (dir, extra = []) =>
     windowsHide: true,
     timeout: 240000,
     maxBuffer: 64 << 20,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 
 /**
@@ -248,6 +251,8 @@ test('7 取材口径:--staged 与 --worktree 同给 ⇒ 判死(不选边)', () =
     encoding: 'utf8',
     windowsHide: true,
     timeout: 120000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   assert.equal(r.status, 2, `两面旗同给必须 exit 2,实得 ${r.status}`)
 })

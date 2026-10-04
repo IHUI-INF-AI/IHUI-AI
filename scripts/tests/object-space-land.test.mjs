@@ -33,7 +33,8 @@ import { resolveGitBin } from '../lib/gitdir.mjs'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const TOOL = join(HERE, '..', 'object-space-land.mjs')
 const GIT = resolveGitBin() || 'git'
-const runOpts = { encoding: 'utf8', windowsHide: true, timeout: 60_000, maxBuffer: 64 << 20 }
+const runOpts = { encoding: 'utf8', windowsHide: true, timeout: 60_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] }
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
 const runGit = (dir, args) =>
   execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e.local', '-c', 'user.name=e2e', '-c', 'core.autocrlf=false', '-C', dir, ...args], runOpts)
 
@@ -121,7 +122,8 @@ function runLand(dir, { paths = '', msg = 'chore: e2e land', baseRef, allowStale
     delete env.LAND_BLOBS
     delete env.LAND_BLOB_PROOF
   }
-  return spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20 })
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  return spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] })
 }
 
 test('T1 §22c 导出面:判据函数必须在 __test__ 里', () => {
@@ -557,7 +559,8 @@ function runLandBlob(dir, { paths, manifest, proof = 'e2e 构造证明', msg = '
   const env = { ...process.env, LAND_ROOT: dir, LAND_PATHS: paths, LAND_MSG: msg, LAND_BLOB_PROOF: proof }
   if (manifest) env.LAND_BLOBS = manifest
   else delete env.LAND_BLOBS
-  return spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20 })
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  return spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] })
 }
 
 test('T-BLOB-1 blob 模式未出具替代证明 ⇒ 直接拒落(少一道守卫不得静默)', (t) => {
@@ -567,7 +570,8 @@ test('T-BLOB-1 blob 模式未出具替代证明 ⇒ 直接拒落(少一道守卫
   writeFileSync(mf, JSON.stringify({ files: [{ path: 'a.txt', blob }] }))
   const env = { ...process.env, LAND_ROOT: dir, LAND_PATHS: 'a.txt', LAND_MSG: 'm', LAND_BLOBS: mf }
   delete env.LAND_BLOB_PROOF
-  const r = spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 120_000 })
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  const r = spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 120_000, stdio: ['ignore', 'pipe', 'pipe'] })
   assert.equal(r.status, 2, `无证明必须判死,实得 ${r.status}:${r.stdout}|${r.stderr}`)
   assert.match(r.stderr + r.stdout, /LAND_BLOB_PROOF/, '要指出缺的是哪一道')
 })
@@ -838,7 +842,8 @@ function runLandRaw(dir, paths, msg, extraEnv = {}) {
   for (const k of ['LAND_BLOBS', 'LAND_BLOB_PROOF', 'LAND_BASE_REF', 'LAND_ALLOW_STALE', 'LAND_DANGLING_GATE', 'IHUI_LAND_SKIP_DANGLING_GATE']) {
     if (!(k in extraEnv)) delete env[k]
   }
-  return spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20 })
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  return spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] })
 }
 
 const unreachableCommits = (dir) =>
@@ -1094,7 +1099,8 @@ test('T-BLOB-7 出口放行臂:祖先命中 + 声明与差集逐行等值 ⇒ �
     LAND_BLOBS: mf,
     LAND_CLASH_SCOPE: sc,
   }
-  const r = spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20 })
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  const r = spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] })
   assert.equal(r.status, 0, `声明与差集等值时应放行,实得 ${r.status}:${r.stdout}|${r.stderr}`)
   const out = r.stdout + r.stderr
   assert.match(out, /命中祖先 .* 但差集与本票声明逐行等值/, '必须点名"命中过祖先"这件事,不得静默放行')
@@ -1128,7 +1134,8 @@ test('T-BLOB-8 出口有牙臂(阳性对照):声明漏报他人行 ⇒ 照旧拒
     LAND_BLOBS: mf,
     LAND_CLASH_SCOPE: sc,
   }
-  const r = spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20 })
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  const r = spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] })
   assert.equal(r.status, 1, `声明不完整必须仍拒落,实得 ${r.status}:${r.stdout}|${r.stderr}`)
   const out = r.stdout + r.stderr
   assert.match(out, /声明的改动行与祖先↔基线的实际差集不等/, '要说清是"不等"而不是笼统的"等于祖先"')
@@ -1153,6 +1160,8 @@ test('T-BLOB-9 出口的两个判死臂:坏 JSON 与射程外声明都不得被�
     encoding: 'utf8',
     windowsHide: true,
     timeout: 180_000,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   assert.equal(r1.status, 2, `坏声明文件必须判死而不是当"无声明"落,实得 ${r1.status}:${r1.stdout}|${r1.stderr}`)
   assert.match(r1.stdout + r1.stderr, /LAND_CLASH_SCOPE/)
@@ -1164,6 +1173,8 @@ test('T-BLOB-9 出口的两个判死臂:坏 JSON 与射程外声明都不得被�
     encoding: 'utf8',
     windowsHide: true,
     timeout: 180_000,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   assert.equal(r2.status, 2, `射程外声明永不被核验 ⇒ 判死,实得 ${r2.status}:${r2.stdout}|${r2.stderr}`)
   assert.match(r2.stdout + r2.stderr, /射程外|未声明落地/)
@@ -1239,7 +1250,8 @@ function runLandGateStubbed(dir, paths, msg, stubRc, stubName = 'stub-gate.mjs')
     STUB_RC: String(stubRc),
   }
   for (const k of ['LAND_BLOBS', 'LAND_BLOB_PROOF', 'LAND_BASE_REF', 'LAND_ALLOW_STALE']) delete env[k]
-  return { r: spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20 }), gate }
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  return { r: spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] }), gate }
 }
 
 test('T-DG1 成对①:门说干净 ⇒ 源码照样落地(否则本闸就是新的恒红拦路虎)', (t) => {
@@ -1252,7 +1264,8 @@ test('T-DG1 成对①:门说干净 ⇒ 源码照样落地(否则本闸就是新�
     ...process.env, LAND_ROOT: dir, LAND_PATHS: 'src/a.ts', LAND_MSG: 'test: 门说干净', IHUI_LAND_SKIP_WATERMARK: '1',
     LAND_DANGLING_GATE: gate, STUB_RC: '0', STUB_LOG: stubLog,
   }
-  const r = spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20 })
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  const r = spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] })
   assert.equal(r.status, 0, `门说干净必须放行:\n${r.stdout}\n${r.stderr}`)
   assert.match(r.stdout, /涉事判据.*通过/, '放行也要报数,不得静默')
   const logged = readFileSync(stubLog, 'utf8')
@@ -1289,7 +1302,8 @@ test('T-DG4 非源码声明面不触发本闸(把不存在的门路径给它也�
     ...process.env, LAND_ROOT: dir, LAND_PATHS: 'notes.md', LAND_MSG: 'test: 只动文档', IHUI_LAND_SKIP_WATERMARK: '1',
     LAND_DANGLING_GATE: join(dir, 'no-such-gate.mjs'),
   }
-  const r = spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20 })
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  const r = spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] })
   assert.equal(r.status, 0, `文档面必须照常落地:\n${r.stdout}\n${r.stderr}`)
   assert.match(r.stdout, /未触发/, '并如实说明本次没有源码在声明面')
 })
@@ -1302,7 +1316,8 @@ test('T-DG5 应急跳过真实存在(文档不得写跑不通的出路),跳过�
     ...process.env, LAND_ROOT: dir, LAND_PATHS: 'src/a.ts', LAND_MSG: 'test: 应急跳过', IHUI_LAND_SKIP_WATERMARK: '1',
     LAND_DANGLING_GATE: join(dir, 'no-such-gate.mjs'), IHUI_LAND_SKIP_DANGLING_GATE: '1',
   }
-  const r = spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20 })
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  const r = spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] })
   assert.equal(r.status, 0, `应急跳过必须能落地:\n${r.stdout}\n${r.stderr}`)
   assert.match(r.stdout, /IHUI_LAND_SKIP_DANGLING_GATE=1/, '跳过必须打一行留痕')
 })

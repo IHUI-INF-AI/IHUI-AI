@@ -160,6 +160,8 @@ function gather() {
       maxBuffer: 128 * 1024 * 1024,
       windowsHide: true,
       cwd: ROOT,
+      stdio: ['ignore', 'pipe', 'pipe']
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     })
   } catch (e) {
     matrixErr = e instanceof Error ? e.message.slice(0, 400) : String(e).slice(0, 400)

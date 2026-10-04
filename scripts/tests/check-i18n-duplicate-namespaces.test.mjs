@@ -174,7 +174,9 @@ test('R6 收口的全部意义:同一棵临时仓里 HEAD 干净而索引带重�
     spawnSync(
       'git',
       ['-c', 'safe.directory=*', '-c', 'user.email=t@t', '-c', 'user.name=t', ...args],
+      // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
       {
+        stdio: ['ignore', 'pipe', 'pipe'],
         cwd: dir,
         encoding: 'utf8',
         windowsHide: true,

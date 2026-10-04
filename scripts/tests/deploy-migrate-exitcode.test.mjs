@@ -179,7 +179,8 @@ function resolvePwsh() {
   const candidates = ['C:\\Program Files\\PowerShell\\7\\pwsh.exe', 'pwsh', 'powershell.exe']
   for (const c of candidates) {
     if (c.includes(':') && !existsSync(c)) continue
-    const probe = spawnSync(c, ['-NoProfile', '-Command', 'exit 0'], { windowsHide: true, timeout: 20000 })
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    const probe = spawnSync(c, ['-NoProfile', '-Command', 'exit 0'], { windowsHide: true, timeout: 20000, stdio: ['ignore', 'pipe', 'pipe'] })
     if (probe.status === 0) return c
   }
   assert.fail('本机找不到可用的 PowerShell —— AGENTS §27 要求 pwsh 7 在位;不得静默跳过本组用例')
@@ -215,6 +216,8 @@ test('①②③判据行为:Get-MigrateOutcome 在假数据下给出 FAIL/UNDET/
       encoding: 'utf8',
       windowsHide: true,
       timeout: 60000,
+      stdio: ['ignore', 'pipe', 'pipe']
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     })
     assert.equal(res.status, 0, `harness 必须跑通:stderr=${res.stderr}`)
     const got = Object.fromEntries(

@@ -622,12 +622,16 @@ test('面旗互斥:--staged --worktree 与 --root(非 worktree) 都必须 exit 2
   const dir = createTempRoot()
   try {
     const both = spawnSync('node', [SCRIPT_PATH, '--staged', '--worktree'], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: dirname(SCRIPT_PATH),
       encoding: 'utf8',
       windowsHide: true,
     })
     assert.equal(both.status, 2, `两面旗同给应判死\nstdout: ${both.stdout}\nstderr: ${both.stderr}`)
     const badRoot = spawnSync('node', [SCRIPT_PATH, '--root', dir], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: dirname(SCRIPT_PATH),
       encoding: 'utf8',
       windowsHide: true,
@@ -665,6 +669,8 @@ test('形状锁:取材层必须真被用来读内容(退化回磁盘即红)', ()
 // ─── 29. --self-test 必须真能跑通(判据有效性自查,失败即 exit 1) ──
 test('--self-test 端到端 exit 0(含棘轮三例)', () => {
   const r = spawnSync('node', [SCRIPT_PATH, '--self-test'], {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd: dirname(SCRIPT_PATH),
     encoding: 'utf8',
     windowsHide: true,
@@ -941,6 +947,8 @@ test('通道等价:台账缺档 ⇒ 该维未判定并点名,不判红', () => {
 // 所以本维今天只能报未判定。它同时是防恒红的锁 —— 谁把这台门改成对现状判红,这里就红。
 test('真仓 HEAD 面:通道等价维必须现读出现写档、守卫 0 个,并落"未判定"', () => {
   const r = spawnSync('node', [SCRIPT_PATH], {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd: dirname(SCRIPT_PATH),
     encoding: 'utf8',
     timeout: 420000,

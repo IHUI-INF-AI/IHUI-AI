@@ -132,6 +132,8 @@ test('离线模式端到端可跑:退出码 0/1 且 JSON 结论完整(不得把 
     windowsHide: true,
     maxBuffer: 32 << 20,
     timeout: 300_000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   assert.ok(r.status === 0 || r.status === 1, `退出码异常 ${r.status}:${(r.stderr || '').slice(0, 300)}`)
   const report = JSON.parse(r.stdout)

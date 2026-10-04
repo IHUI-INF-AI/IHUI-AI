@@ -210,6 +210,8 @@ test('9 audit(--staged) 判索引内容:索引脏即红,仅工作区脏不影响
   mkdirSync(repo, { recursive: true })
   const g = (args) =>
     execFileSync(srcGit(), ['-c', 'safe.directory=*', '-C', repo, ...args], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
       windowsHide: true,
     })
@@ -252,6 +254,8 @@ test('10 auditRev 判提交树,且与后续提交隔离', () => {
   mkdirSync(repo, { recursive: true })
   const g = (args) =>
     execFileSync(srcGit(), ['-c', 'safe.directory=*', '-C', repo, ...args], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
       windowsHide: true,
     })

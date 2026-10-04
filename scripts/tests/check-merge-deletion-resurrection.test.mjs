@@ -146,6 +146,8 @@ test('T7 恒绿断言的形状锁:登记侧必须是 cond === true,不得回退�
 
 test('T8 真仓 HEAD 端到端:门本体 --json 可 parse,退出码落在 {0,1,2},不得把"未判定"写成通过', () => {
   const r = spawnSync(process.execPath, [resolve(ROOT, 'scripts', SCRIPT), '--json'], {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     windowsHide: true,
     timeout: 600000,

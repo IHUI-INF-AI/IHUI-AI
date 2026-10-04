@@ -32,7 +32,8 @@ const SCRIPT_NAME = 'check-subagent-permission-inherited.mjs'
 const SKIP_ENV = 'HUSKY_SKIP_SUBAGENT_PERMISSION_INHERITED'
 const GIT = resolveGitBin() || 'git'
 const GIT_TIMEOUT = 120000
-const gitOpts = { encoding: 'utf8', windowsHide: true, timeout: GIT_TIMEOUT, maxBuffer: 64 << 20 }
+const gitOpts = { encoding: 'utf8', windowsHide: true, timeout: GIT_TIMEOUT, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] }
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
 const runGit = (dir, args) => execFileSync(GIT, ['-c', 'safe.directory=*', '-C', dir, ...args], gitOpts)
 const runGuard = (dir, extra = []) =>
   spawnSync(process.execPath, [GUARD, '--root', dir, ...extra], {
@@ -40,6 +41,8 @@ const runGuard = (dir, extra = []) =>
     windowsHide: true,
     timeout: 240000,
     maxBuffer: 64 << 20,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
 
 /** 派生面文件(路径含 subagent)——内容故意漏掉两个必传键 */
@@ -189,8 +192,10 @@ test('11 判据字面量都在门源码里(预筛是判据的严格超集,漏一
 })
 
 test('12 自检可连跑两次且结论一致(只能跑一次的取证等于没取证)', () => {
-  const a = spawnSync(process.execPath, [GUARD, '--self-test'], { encoding: 'utf8', windowsHide: true, timeout: 120000, maxBuffer: 32 << 20 })
-  const b = spawnSync(process.execPath, [GUARD, '--self-test'], { encoding: 'utf8', windowsHide: true, timeout: 120000, maxBuffer: 32 << 20 })
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  const a = spawnSync(process.execPath, [GUARD, '--self-test'], { encoding: 'utf8', windowsHide: true, timeout: 120000, maxBuffer: 32 << 20, stdio: ['ignore', 'pipe', 'pipe'] })
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  const b = spawnSync(process.execPath, [GUARD, '--self-test'], { encoding: 'utf8', windowsHide: true, timeout: 120000, maxBuffer: 32 << 20, stdio: ['ignore', 'pipe', 'pipe'] })
   assert.equal(a.status, 0, a.stdout + a.stderr)
   assert.equal(b.status, 0, b.stdout + b.stderr)
   assert.equal(a.stdout, b.stdout, '两次自检输出必须逐字相同')
