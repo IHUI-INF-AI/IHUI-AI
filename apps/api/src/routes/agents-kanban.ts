@@ -36,9 +36,9 @@ import {
 } from '../services/workspace-lock-heartbeat.js'
 import { sseEventBus, broadcastSSEEvent } from '../services/agent-sse-bus.js'
 import {
-  ALLOWED_TRANSITIONS,
   STATUS_VARIANTS,
   mapStatus,
+  isTransitionAllowedFromRaw,
   terminationOf,
   countUnrecognizedTasks,
   statusOrUnrecognized,
@@ -434,7 +434,11 @@ export const agentsKanbanRoutes: FastifyPluginAsync = async (server) => {
       const fromStatus = mapStatus(current.status)
 
       // 校验流转合法性
-      const isAllowed = ALLOWED_TRANSITIONS[fromStatus].includes(toStatus)
+      // G-463(2026-10-04):原先是 `ALLOWED_TRANSITIONS[fromStatus].includes(toStatus)`,
+      // 无 `?.` 兜底 ⇒ 库里出现六档之外的 status 时求值为 undefined 再 .includes() 就是
+      // TypeError ⇒ 本接口 500(实测 `mapStatus('weird_status')` 透传后 `ALLOWED_TRANSITIONS[...]`
+      // 恒 undefined)。改走 types 的唯一出口:未知状态判"无合法流转"⇒ 走下面 409 分支。
+      const isAllowed = isTransitionAllowedFromRaw(current.status, toStatus)
       const response: KanbanTransitionResponse = {
         taskId: id,
         fromStatus,
