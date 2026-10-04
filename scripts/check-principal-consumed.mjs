@@ -90,7 +90,8 @@ function pythonCandidates(root) {
 function resolvePython(root) {
   for (const c of pythonCandidates(root)) {
     try {
-      const r = spawnSync(c.exe, ['--version'], { encoding: 'utf8', windowsHide: true, timeout: 20000, stdio: 'pipe' })
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      const r = spawnSync(c.exe, ['--version'], { encoding: 'utf8', windowsHide: true, timeout: 20000, stdio: 'ignore' })
       if (r.status === 0) return c.exe
     } catch {
       /* 试下一个候选;全部落空由调用方判"未判定",绝不静默 */
@@ -154,12 +155,14 @@ function materializeFace(root, face) {
       mkdirSync(dirname(abs), { recursive: true })
       writeFileSync(abs, text, 'utf8')
     }
-    execFileSync(GIT, ['-c', 'safe.directory=*', 'init', '-q', '.'], { cwd: dir, windowsHide: true, timeout: 60000, stdio: 'pipe' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execFileSync(GIT, ['-c', 'safe.directory=*', 'init', '-q', '.'], { cwd: dir, windowsHide: true, timeout: 60000, stdio: 'ignore' })
     execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.autocrlf=false', 'add', '-A', '--'], {
       cwd: dir,
       windowsHide: true,
       timeout: 120000,
-      stdio: 'pipe',
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: 'ignore',
     })
     return { dir, files: contents.size, missing: rels.length - contents.size }
   } catch (e) {
@@ -178,7 +181,8 @@ function runRuler(faceDir, pyExe) {
     timeout: SPAWN_TIMEOUT_MS,
     maxBuffer: MAX_BUFFER,
     windowsHide: true,
-    stdio: 'pipe',
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: 'ignore',
   })
   if (r.error) return { ok: false, reason: `尺子派生失败:${r.error.message}` }
   if (r.status !== 0 && r.status !== 1) {
