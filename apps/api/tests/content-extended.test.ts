@@ -61,6 +61,10 @@ import { contentExtendedRoutes } from '../src/routes/content-extended'
 
 const AUTH_HEADERS = { authorization: 'Bearer mock-access-token' }
 const MOCK_ID = '1'
+// carousels.id 是 uuid 列,路由侧 uuidIdParamSchema 已收紧成 z.uuid(防 22P02 ⇒ 500),
+// banners 的 :id 走这道闸;MOCK_ID 仍服务 activities/contacts/file-storage(那些路由未收紧),
+// 故此处单列合法 UUID,不动共用常量。
+const BANNER_UUID = '88888888-8888-4888-8888-888888888888'
 
 describe('content-extended routes', () => {
   const server = Fastify({ logger: false })
@@ -165,7 +169,7 @@ describe('content-extended routes', () => {
     it('PUT /api/content/banners/:id 未登录返回 401', async () => {
       const res = await server.inject({
         method: 'PUT',
-        url: `/api/content/banners/${MOCK_ID}`,
+        url: `/api/content/banners/${BANNER_UUID}`,
         body: { title: '更新横幅' },
       })
       expect(res.statusCode).toBe(401)
@@ -290,7 +294,7 @@ describe('content-extended routes', () => {
     it('PUT /api/content/banners/:id 返回 200', async () => {
       const res = await server.inject({
         method: 'PUT',
-        url: `/api/content/banners/${MOCK_ID}`,
+        url: `/api/content/banners/${BANNER_UUID}`,
         headers: AUTH_HEADERS,
         body: { title: '更新横幅', isActive: false },
       })
