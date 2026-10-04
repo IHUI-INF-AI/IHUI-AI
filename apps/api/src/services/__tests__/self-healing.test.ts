@@ -263,11 +263,13 @@ describe('killProcessVerified 身份复核出口(G-670 成对判据)', () => {
     expect(parseProcProbeOutput('IHUI-EP=D:\\a\\node.exe\nIHUI-CL=node --port 8801')).toEqual({
       executablePath: 'D:\\a\\node.exe',
       commandLine: 'node --port 8801',
+      creationUtcUs: null,
     })
     expect(parseProcProbeOutput('IHUI-PROC-NONE')).toBeNull()
     expect(parseProcProbeOutput('欢迎使用噪声行\nIHUI-EP=C:\\x.exe\nIHUI-CL=\n')).toEqual({
       executablePath: 'C:\\x.exe',
       commandLine: null,
+      creationUtcUs: null,
     })
   })
 })
