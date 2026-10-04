@@ -248,7 +248,7 @@ export interface NotificationListScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 浏览历史对象类型(与后端 /api/history 契约对齐) */
+/** 浏览历史对象类型(与后端 /api/browse-history 契约对齐) */
 export type HistoryTargetType = 'course' | 'article' | 'post' | 'note' | 'live' | string
 
 /** 浏览历史列表项(平台注入,字段对齐 mobile-rn HistoryScreen HistoryItem) */
