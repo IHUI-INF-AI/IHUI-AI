@@ -2157,6 +2157,13 @@
       "when": 1791021600000,
       "tag": "20261003180000_agent_memory_tables_expiry",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 309,
+      "when": 1791081000000,
+      "tag": "20261004103000_study_plans_lesson_id",
+      "breakpoints": true
     }
   ]
 }
