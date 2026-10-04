@@ -3,6 +3,9 @@
     "notFound": "{target} not found"
   },
   "cli": {
+    "bgNoticeStatus": "Task {id}  status: {status}  exitCode: {exitCode}",
+    "bgNoticeTimedOut": "[task timed out]",
+    "bgNoticeNoObservableSource": "[no observable source] The process is gone, neither output nor exit code was recorded, and no waiter was there to take it — the result of this terminal state cannot be recovered. Do not read it as success, and do not re-run the same command because of it (re-running is a separate decision, not a way to recover a result).",
     "custom": {
       "unknown": "Custom command /{name} is not defined. Add it by creating {name}.md inside the custom command folder {dir} (use $ARGUMENTS for the whole input, or $1 and $2 for positional arguments). Run /help to see the built-in commands.",
       "reserved": "The name /{name} collides with the built-in command /{owner}, so it was rejected: built-in commands always take priority. Choose another name.",
