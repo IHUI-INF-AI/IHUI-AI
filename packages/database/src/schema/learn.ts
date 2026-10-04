@@ -13,8 +13,18 @@ import {
   numeric,
   index,
   unique,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
+// ↓ 报名 → 学习计划的外键列需要 studyPlans(见 lessonSignUps.studyPlanId)。
+// study.ts 已经 import 本文件的 lessons ⇒ 这里构成**双向 import**。可行,因为:
+//   ① ESM 只 import 绑定,study.ts 在 import 期不读本文件的任何导出;
+//   ② drizzle 的 references() 把 ref 包进 ForeignKeyBuilder 惰性求值
+//      (drizzle-orm/pg-core/columns/common.js:33-40 —— buildForeignKeys 只登记,
+//      真正 ref() 在 getTableConfig()/建表时),故 TDZ 不会在模块求值期被触发。
+// 显式标 AnyPgColumn 与 resource.ts / comments.ts 的既有写法一致,也是 TS 打破
+// 跨文件循环推断的必要标注。
+import { studyPlans } from './study.js'
 
 /**
  * 课程分类表
@@ -121,6 +131,12 @@ export const lessonChapterSections = pgTable(
 
 /**
  * 报名记录表
+ * - studyPlanId: 报名所属的学习计划(2026-10-04 加列)。**可空且无默认值** —— 历史行
+ *   没有可信来源可回填(此前报名与计划之间没有任何关联列),按标题/时间猜等于制造假数据,
+ *   所以只允许"新数据显式写、老数据保持 NULL"。读侧 /api/study/plans 用 **leftJoin**
+ *   取计划名,join 不上时回落课程名 —— "只有报名、没有计划"是正常态,不是缺陷。
+ *   FK 用 set null(同 study.ts 的 study_plans.lesson_id):计划被删不该连带删掉报名。
+ *   UNIQUE(lesson_id, user_id) 已保证同一课程同一用户只有一行报名 ⇒ 无需再加唯一约束。
  */
 export const lessonSignUps = pgTable(
   'lesson_sign_ups',
@@ -132,6 +148,9 @@ export const lessonSignUps = pgTable(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+    studyPlanId: uuid('study_plan_id').references((): AnyPgColumn => studyPlans.id, {
+      onDelete: 'set null',
+    }),
     status: integer('status').default(1).notNull(), // 1=已报名 2=已完成 3=已退款
     progress: integer('progress').default(0).notNull(), // 0-100
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -139,6 +158,7 @@ export const lessonSignUps = pgTable(
   (t) => ({
     uniq: unique('lesson_sign_ups_lesson_user_unique').on(t.lessonId, t.userId),
     userIdx: index('lesson_sign_ups_user_idx').on(t.userId),
+    studyPlanIdx: index('lesson_sign_ups_study_plan_idx').on(t.studyPlanId),
   }),
 )
 
