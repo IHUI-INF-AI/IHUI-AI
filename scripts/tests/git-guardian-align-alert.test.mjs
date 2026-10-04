@@ -158,6 +158,8 @@ test('(e)装车证明:tick 真执行分支调用 checkConvergeAlignStall,名与�
       windowsHide: true,
       timeout: 30_000,
       maxBuffer: 32 << 20,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
   } catch {
     /* 问不到走工作树 */

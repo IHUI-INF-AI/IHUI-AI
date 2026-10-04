@@ -45,6 +45,8 @@ function runGuard(env) {
       env,
       windowsHide: true,
       cwd: ROOT,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     return { code: 0, text: out }
   } catch (e) {

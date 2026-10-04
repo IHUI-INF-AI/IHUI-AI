@@ -89,6 +89,8 @@ test('集成:临时目录里跑完整"删+复算"流程,收尾必须只剩当前
 const HOOK = new URL('../desktop-artifact-single.mjs', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')
 const runHook = (dir, expect) =>
   execFileSync(process.execPath, [HOOK, '--dir', dir, '--expect', expect], {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     windowsHide: true,
   })
@@ -125,6 +127,8 @@ test('钩子反例:目录里没有"本次应产的包"时**一个文件都不许
 test('钩子反例:目录压根不存在 → 静默退出 0,不报错也不建目录', () => {
   const missing = join(scratchRoot(), `ihui-artifact-none-${Date.now()}`)
   const out = execFileSync(process.execPath, [HOOK, '--dir', missing], {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     windowsHide: true,
   })

@@ -68,7 +68,8 @@ function log(msg) {
 
 function runCapture(exe, args, timeoutMs = 60_000) {
   try {
-    return execFileSync(exe, args, { encoding: 'utf8', windowsHide: true, timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024 })
+    // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
+    return execFileSync(exe, args, { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true, timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024 })
   } catch (e) {
     return `${e.stdout || ''}${e.stderr || ''}`
   }

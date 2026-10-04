@@ -41,7 +41,9 @@ function runCLI(args) {
   try {
     return {
       code: 0,
+      // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
       out: execFileSync(process.execPath, [SCRIPT, ...args], {
+        stdio: ['ignore', 'pipe', 'pipe'],
         encoding: 'utf8',
         windowsHide: true,
         timeout: 120000,
@@ -765,6 +767,7 @@ test('T27 阳性对照:把真历史那一对 blob 逐字喂判据 ⇒ 必须点�
   const BUGGY_PARENT = 'a980463fc^'
   const show = (rel) =>
     execFileSync(gate.GIT_BIN, ['-c', 'safe.directory=*', 'show', `${BUGGY_PARENT}:${rel}`], {
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: repoRoot(),
       encoding: 'utf8',
       windowsHide: true,

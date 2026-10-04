@@ -39,6 +39,8 @@ function makeRepo(name) {
       encoding: 'utf8',
       windowsHide: true,
       timeout: 60_000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
   git(['init', '-q'])
   git(['config', 'user.email', 'test@example.invalid'])
@@ -59,6 +61,8 @@ function gate(dir, extra = []) {
     encoding: 'utf8',
     timeout: 120_000,
     windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   if (r.error) return { code: null, text: String(r.error.message || r.error) }
   return { code: r.status, text: `${r.stdout || ''}${r.stderr || ''}` }

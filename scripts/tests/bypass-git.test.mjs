@@ -26,7 +26,8 @@ import { resolveGitBin } from '../lib/gitdir.mjs'
 const GIT = resolveGitBin() || 'git'
 const runOpts = { encoding: 'utf8', windowsHide: true, timeout: 60_000, maxBuffer: 64 << 20 }
 const runGit = (dir, args) =>
-  execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e.local', '-c', 'user.name=e2e', '-c', 'core.autocrlf=false', '-C', dir, ...args], runOpts)
+  // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
+  execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e.local', '-c', 'user.name=e2e', '-c', 'core.autocrlf=false', '-C', dir, ...args], { ...runOpts, stdio: ['ignore', 'pipe', 'pipe'] })
 
 function makeRepo(t) {
   const dir = mkScratch('bypass-git-')
@@ -187,6 +188,7 @@ test('T11 alignSharedIndex 删除档·正向:新 HEAD 无此路径且索引==父
   const idx = join(dir, '.git', 'tmp-align-idx')
   const runIdx = (args) =>
     execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e.local', '-c', 'user.name=e2e', '-C', dir, ...args], {
+      stdio: ['ignore', 'pipe', 'pipe'],
       ...runOpts,
       env: { ...process.env, GIT_INDEX_FILE: idx },
     }).trim()
@@ -218,6 +220,7 @@ test('T12 alignSharedIndex 删除档·反向:索引里是别人真暂存的内�
   const idx = join(dir, '.git', 'tmp-align-idx2')
   const runIdx = (args) =>
     execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e.local', '-c', 'user.name=e2e', '-C', dir, ...args], {
+      stdio: ['ignore', 'pipe', 'pipe'],
       ...runOpts,
       env: { ...process.env, GIT_INDEX_FILE: idx },
     }).trim()

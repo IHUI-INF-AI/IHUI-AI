@@ -719,7 +719,8 @@ function buildReport(opts) {
     run:
       deps.run ||
       ((argv) => {
-        const r = spawnSync(argv[0], argv.slice(1), { encoding: 'utf8', timeout: deps.tocTimeoutMs ?? 60_000, windowsHide: true, maxBuffer: 64 * 1024 * 1024 })
+        // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
+        const r = spawnSync(argv[0], argv.slice(1), { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', timeout: deps.tocTimeoutMs ?? 60_000, windowsHide: true, maxBuffer: 64 * 1024 * 1024 })
         if (r.error) throw r.error
         return { rc: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' }
       }),

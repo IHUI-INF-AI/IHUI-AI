@@ -166,7 +166,8 @@ export function scanThinShellWording({ beforeBuildCommand, entries }) {
 }
 
 function listTrackedFiles() {
-  const out = execFileSync(gitBinary(), ['-C', ROOT, 'ls-files', '-z', ...SCAN_ROOTS], { encoding: 'utf8', timeout: 30000, windowsHide: true })
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  const out = execFileSync(gitBinary(), ['-C', ROOT, 'ls-files', '-z', ...SCAN_ROOTS], { encoding: 'utf8', timeout: 30000, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
   const underRoot = out.split('\0').filter(Boolean).map((p) => p.replace(/\\/g, '/'))
   const extra = SCAN_FILES.filter((p) => !p.startsWith('apps/desktop/'))
   const all = [...new Set([...underRoot, ...extra, ...DEFERRED.map((d) => d.path)])].sort()

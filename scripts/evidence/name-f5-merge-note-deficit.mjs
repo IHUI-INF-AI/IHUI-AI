@@ -8,11 +8,15 @@ import { execFileSync } from 'node:child_process'
 import { unionLines } from '../union-converge.mjs'
 
 const ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  stdio: ['ignore', 'pipe', 'pipe'],
   encoding: 'utf8',
   windowsHide: true,
 }).trim()
 const g = (args) =>
   execFileSync('git', ['-C', ROOT, ...args], {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     maxBuffer: 1 << 28,
     windowsHide: true,

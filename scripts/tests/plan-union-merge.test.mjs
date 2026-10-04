@@ -51,6 +51,8 @@ const g = (dir, args) =>
     encoding: 'utf8',
     windowsHide: true,
     timeout: 60000,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
 
 /** 造一个真冲突:base 一行,两侧各自在同一处追加不同的行。 */
@@ -102,6 +104,8 @@ function runTool(scriptPath, args, cwd) {
     cwd,
     windowsHide: true,
     timeout: 120000,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   return { rc: r.status, out: `${r.stdout || ''}${r.stderr || ''}` }
 }

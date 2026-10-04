@@ -106,6 +106,8 @@ test('T10 共用出口真被 consult:IHUI_DEVENV_ROOT 改写候选落点(摘掉�
     timeout: 60_000,
     windowsHide: true,
     maxBuffer: 16 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   try {
     assert.equal(r.status, 2, `注入根下找不到运行副本必须判"未判定"exit 2,实得 status=${r.status} stderr=${String(r.stderr).slice(0, 200)}`)
