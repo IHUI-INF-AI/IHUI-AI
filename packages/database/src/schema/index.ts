@@ -156,6 +156,8 @@ export * from './repo-wiki.js'
 // 知识卡片(2026-09-10 新增,2-1 项目知识引擎:任务经验沉淀 + 检索复用)
 export * from './knowledge-card.js'
 export * from './user-automations.js'
+// 浏览历史(2026-10-04 新增,/member/history 页的载体;targetId 是 varchar 因 doc 走 slug)
+export * from './user-browse-history.js'
 export * from './agent-event-triggers.js'
 export * from './llm-call-logs.js'
 export * from './wechat-pay-contracts.js'
