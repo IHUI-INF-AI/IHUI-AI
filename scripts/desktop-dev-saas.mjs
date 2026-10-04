@@ -62,7 +62,12 @@ const log = (msg) => console.log(`[desktop-dev-saas] ${msg}`)
 /** 查询监听指定端口的 PID 列表(Windows netstat;Linux/macOS 用 lsof 兜底) */
 function listenersOfPort(port) {
   if (process.platform === 'win32') {
-    const r = spawnSync('netstat', ['-ano', '-p', 'TCP'], { encoding: 'utf8', windowsHide: true })
+    const r = spawnSync('netstat', ['-ano', '-p', 'TCP'], {
+      encoding: 'utf8',
+      windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     if (r.status !== 0 || !r.stdout) return []
     return [
       ...new Set(
@@ -121,6 +126,8 @@ function stopRunningDesktop() {
     encoding: 'utf8',
     windowsHide: true,
     timeout: 40_000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   if (r.status !== 0) {
     const why = r.stderr ? `:${String(r.stderr).trim().slice(0, 80)}` : ''

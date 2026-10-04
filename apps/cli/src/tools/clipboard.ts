@@ -75,6 +75,8 @@ export function readClipboardExcerpt(): ClipboardReadOutcome {
       // PowerShell Get-Clipboard 返回纯文本(-Format Text 避免 RTF)
       // PowerShell 会附加尾部 \r\n,需 trimEnd 保持往返一致
       const r = spawnSync('pwsh.exe', ['-NoProfile', '-Command', 'Get-Clipboard -Format Text'], {
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
         encoding: 'utf-8',
         windowsHide: true,
         timeout: 5000,
@@ -84,6 +86,8 @@ export function readClipboardExcerpt(): ClipboardReadOutcome {
     }
     if (platform === 'darwin') {
       const r = spawnSync('pbpaste', [], {
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
         encoding: 'utf-8',
         windowsHide: true,
         timeout: 5000,
@@ -94,6 +98,8 @@ export function readClipboardExcerpt(): ClipboardReadOutcome {
     if (platform === 'linux') {
       // 优先 xclip,fallback xsel
       const r = spawnSync('xclip', ['-selection', 'clipboard', '-o'], {
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
         encoding: 'utf-8',
         windowsHide: true,
         timeout: 5000,
@@ -102,6 +108,8 @@ export function readClipboardExcerpt(): ClipboardReadOutcome {
         return clipToClipboardBudget(r.stdout ?? '');
       }
       const r2 = spawnSync('xsel', ['--clipboard', '--output'], {
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
         encoding: 'utf-8',
         windowsHide: true,
         timeout: 5000,
@@ -190,17 +198,41 @@ export function isClipboardAvailable(): boolean {
   if (platform === 'win32') {
     // Windows 需要 pwsh.exe(PowerShell Core) 或 powershell.exe(标准 Windows PowerShell)
     // 优先检测 pwsh.exe, 再检测 powershell.exe
-    const pwsh = spawnSync('where', ['pwsh.exe'], { encoding: 'utf-8', windowsHide: true, timeout: 2000 });
+    const pwsh = spawnSync('where', ['pwsh.exe'], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+      encoding: 'utf-8',
+      windowsHide: true,
+      timeout: 2000,
+    });
     if (!pwsh.error && pwsh.status === 0) return true;
-    const ps = spawnSync('where', ['powershell.exe'], { encoding: 'utf-8', windowsHide: true, timeout: 2000 });
+    const ps = spawnSync('where', ['powershell.exe'], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+      encoding: 'utf-8',
+      windowsHide: true,
+      timeout: 2000,
+    });
     return !ps.error && ps.status === 0;
   }
   if (platform === 'darwin') return true;
   if (platform === 'linux') {
     // 检测 xclip 或 xsel 是否存在
-    const xclip = spawnSync('which', ['xclip'], { encoding: 'utf-8', windowsHide: true, timeout: 2000 });
+    const xclip = spawnSync('which', ['xclip'], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+      encoding: 'utf-8',
+      windowsHide: true,
+      timeout: 2000,
+    });
     if (!xclip.error && xclip.status === 0 && (xclip.stdout ?? '').trim().length > 0) return true;
-    const xsel = spawnSync('which', ['xsel'], { encoding: 'utf-8', windowsHide: true, timeout: 2000 });
+    const xsel = spawnSync('which', ['xsel'], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+      encoding: 'utf-8',
+      windowsHide: true,
+      timeout: 2000,
+    });
     if (!xsel.error && xsel.status === 0 && (xsel.stdout ?? '').trim().length > 0) return true;
     return false;
   }
