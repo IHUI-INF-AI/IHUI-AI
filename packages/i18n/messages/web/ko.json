@@ -13186,7 +13186,8 @@
       "keyIdLabel": "키 식별자",
       "gatewayHintA": "게이트웨이를 호출할 때 요청 헤더에 다음을 사용",
       "gatewayHintB": "(ihui_로 시작하는 키 식별자입니다. Secret은 안전하게 보관하고 요청 헤더에 넣지 마세요.)",
-      "savedClose": "저장 완료, 닫기"
+      "savedClose": "저장 완료, 닫기",
+      "needLogin": "API 키를 관리하려면 로그인하세요"
     },
     "relayUsage": {
       "title": "사용량 상세",
@@ -13228,7 +13229,8 @@
       "apiKeyFilter": "API 키 필터",
       "allApiKeys": "모든 API 키",
       "cacheRead": "읽기 {count}",
-      "cacheWrite": "쓰기 {count}"
+      "cacheWrite": "쓰기 {count}",
+      "needLogin": "사용량 세부 정보와 분석을 보려면 로그인하세요"
     }
   },
   "developerApiDocsPage": {
@@ -19850,7 +19852,8 @@
   "parentPortal": {
     "attendance": {
       "rate": "출석률",
-      "records": "출석 기록"
+      "records": "출석 기록",
+      "needLogin": "출석 기록을 보려면 로그인하세요"
     },
     "bind": {
       "confirm": "확인",
@@ -19882,7 +19885,10 @@
       "monthlyPlan": "월간 계획",
       "studyPlans": "학습 계획",
       "studyPlansHint": "자녀의 학습 계획 확인",
-      "weeklyPlan": "주간 계획"
+      "weeklyPlan": "주간 계획",
+      "coursesNeedLogin": "시간표를 보려면 로그인하세요",
+      "mealsNeedLogin": "식사 기록을 보려면 로그인하세요",
+      "studyPlansNeedLogin": "학습 계획을 보려면 로그인하세요"
     },
     "dashboard": {
       "bindChild": "자녀 연결",
@@ -27186,7 +27192,8 @@
     "ledgerNotReady": "장부 준비 중",
     "totalFeeLabel": "납부 예정 합계",
     "paidLabel": "납부 완료 합계",
-    "overdueLabel": "기간 초과"
+    "overdueLabel": "기간 초과",
+    "needLogin": "학부모 포털을 보려면 로그인하세요"
   },
   "eduSchedule": {
     "title": "시간표 관리",
