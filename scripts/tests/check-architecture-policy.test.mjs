@@ -293,11 +293,16 @@ test('T10 解析器坏了必须大声失败,不得静默少读模块', () => {
 /**
  * 「允许处于 managed:false 的块 → 理由」显式清单(唯一一份,可读、可核、可 diff)。
  * 理由不是装饰:登记一条豁免必须说清"为什么按住",否则清单就成了消红入口。
+ *
+ * 2026-10-05:**清单为空**。最后一块 `packages/types` 的按住前提(EX-C2-1:app.ts 超契约行上限,
+ * 拆完才可翻正)已兑现 —— src/app.ts 按业务域拆成 11 个 app-<域>.ts、自身退为 export * barrel、
+ * 公开面 442 项逐名等值,该例外与该登记同笔删除、该块已 managed:true。
+ * 空清单**不是**把守卫关掉:T13 的 A 向(未登记的降回必红)此刻反而是**活的** ——
+ * 谁把 packages/types 降回 false 而不在这里登记理由,直接红;而"块已 true 却留着旧登记"
+ * 走 stale 向也照样红。两个方向都有牙,正是这张空表要守的东西。
+ * ⚠️ 不要"顺手补回"一条 packages/types 的登记来让账面看起来有内容 —— 那是替一条不存在的债背书。
  */
-const MANAGED_FALSE_LEDGER = {
-  'packages/types':
-    '带 EX-C2-1 存量债(packages/types/src/app.ts HEAD 实测 5258 行 > 契约上限 2000);表内 reason 原文:"按业务域拆成多入口前,不得把该模块翻 managed:true" ⇒ 拆完之前按住是**制度**,不是遗漏',
-}
+const MANAGED_FALSE_LEDGER = {}
 
 /** 表里 managed:false 的块(升序)。判据只此一份实现,不在第二个测试里重抄(§22c)。 */
 function heldBackIds(text) {

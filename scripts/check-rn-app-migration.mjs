@@ -227,7 +227,9 @@ check-rn-app-migration.mjs — mobile-rn screen 迁移完整性守门
   )
   console.log(`    ${C.cyan}1. 在 packages/app/src/features/<feature>/<Name>Screen.tsx 创建共享组件${C.reset}`)
   console.log(`    ${C.cyan}2. 在 packages/app/src/index.ts 导出该组件${C.reset}`)
-  console.log(`    ${C.cyan}3. 在 packages/types/src/app.ts 定义 ScreenProps 类型契约${C.reset}`)
+  console.log(
+    `    ${C.cyan}3. 在 packages/types/src/app-<业务域>.ts 定义 ScreenProps 类型契约(app.ts 自 2026-10-04 起只是再导出 barrel;契约上限 2000 行/文件,写进 barrel 会重新撞 C2)${C.reset}`,
+  )
   console.log(`    ${C.cyan}4. 改造 apps/mobile-rn/src/screens/<Name>Screen.tsx 为 wrapper(保留 hooks/API/导航,UI 注入共享组件)${C.reset}`)
   console.log(`    ${C.cyan}5. 补充 packages/i18n/messages/shared/*.json 5 语言 i18n keys${C.reset}`)
   console.log(`    ${C.cyan}6. 验证 pnpm --filter @ihui/mobile-rn typecheck && pnpm --filter @ihui/rn-app typecheck 全绿${C.reset}`)
