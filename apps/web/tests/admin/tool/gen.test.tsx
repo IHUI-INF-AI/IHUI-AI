@@ -19,6 +19,14 @@ const { mockGetToolGenMeta, mockPostToolGen, mockToast } = vi.hoisted(() => ({
 }))
 
 vi.mock('@ihui/api-client', () => ({
+  // src/lib/api.ts 在模块顶层无条件调这 5 个 setter(同型见 src/lib/api.test.ts),而被测面经
+  // hooks/use-analytics → @/lib/api 拉到它。mock 工厂缺任一同名导出 ⇒ 模块求值即抛,
+  // 整个文件在**收集期**红(一条断言都不跑),与被测页的行为无关。
+  setTokenProvider: vi.fn(),
+  setBaseUrl: vi.fn(),
+  setStreamBaseUrl: vi.fn(),
+  setDeviceFingerprintProvider: vi.fn(),
+  setUnauthorizedHandler: vi.fn(),
   getToolGenMeta: mockGetToolGenMeta,
   postToolGen: mockPostToolGen,
 }))

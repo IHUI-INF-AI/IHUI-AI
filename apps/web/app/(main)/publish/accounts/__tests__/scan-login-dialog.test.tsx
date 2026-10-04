@@ -43,6 +43,11 @@ vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
 }))
 
+// 这张表必须覆盖 ScanLoginDialog 从 lucide-react 引的**每一个**名字:vi.mock 的工厂不给
+// 某个导出 ⇒ 组件模块求值期就抛 `No "X" export is defined on the mock`,本文件 13 条用例
+// **全部**灭在收集/渲染阶段,而报错误导成"扫码登录的行为坏了"。2026-10-05 它就是因为组件
+// 加了 RefreshCw 与 Import(出码提速/会话复用两票)而整文件红。对照:同目录
+// batch-scan-login-dialog.test.tsx 那张表是齐的。
 vi.mock('lucide-react', () => {
   const Icon = () => <span data-testid="icon" />
   return {
@@ -51,6 +56,9 @@ vi.mock('lucide-react', () => {
     CheckCircle2: Icon,
     XCircle: Icon,
     ExternalLink: Icon,
+    RefreshCw: Icon,
+    // 组件写的是 `Import as ImportIcon`,所以 mock 的**键名**必须是 Import
+    Import: Icon,
   }
 })
 
