@@ -11,6 +11,7 @@ import { useState, useCallback, useMemo } from 'react'
 import * as api from '@/api'
 import type { StudyRecord } from '@/api'
 import { formatRelativeTime } from '@ihui/shared'
+import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import ThemeRoot from '@/components/ThemeRoot'
 type TabKey = 'inProgress' | 'completed' | 'favorited'
 
@@ -178,7 +179,7 @@ export default function MyStudy() {
                       <View className="flex-1 h-[8rpx] bg-muted rounded-xs overflow-hidden mr-[12rpx]">
                         <View
                           className="h-full bg-success rounded-xs"
-                          style={{ width: `${Math.min(100, Math.max(0, item.progress))}%` }}
+                          style={{ width: `${clampPercent(item.progress)}%` }}
                         />
                       </View>
                       <Text className="text-[length:22rpx] text-muted-foreground flex-shrink-0">
