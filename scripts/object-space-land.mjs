@@ -18,6 +18,14 @@
  *    `D ` 暂存删除、改动文件成 `M `,此后一次不带 pathspec 的普通提交就把本轮交付写回旧版。
  *    对齐只在"索引 blob == 父提交 blob 或索引里没有"时动(判据住在 lib,只有一份实现);
  *    别人真暂存过的一律**不动并点名"归属他人"**(退出码 0,但逐条喊出来,绝不静默)。
+ *  - ③ (G-816708,2026-10-05)声明的落地面含 `PROJECT_PLAN.md` 时,CAS 成功后**就地补跑一次守门 71
+ *    台账自愈**(`--heal --commit`,与 `.husky/post-commit` 第 6 节同一条命令、同一个器物:
+ *    `lib/post-merge-ledger-sync.mjs`)。为什么必须由本器自己跑:本器产的提交走 commit-tree ⇒
+ *    **结构上不跑任何钩子** ⇒ 那层自愈对旁路落地从来不会触发,台账被滞后副本写回时账面只剩
+ *    "自愈每轮都跑过、什么都没缺"。判据必须在真跑它的那一刻才成立,否则等于没有(§1 为
+ *    `git-sync-converge` 补同一条时的原话)。补跑失败只喊一行、不改本器退出码;
+ *    未闭环的一格:`scripts/plan-tasks-merge.mjs` 是第四台旁路落地器,同样需要自带补跑,
+ *    本票开工时它正被他人持有(` M`)⇒ 未动,登记在这里而不是装作已全覆盖。
  *
  * CLI 契约(env 驱动,无参数):
  *  LAND_PATHS  必填,以 `;` 分隔的仓库相对路径清单
@@ -101,6 +109,7 @@ import {
   headBlobOf,
   resolveHeadRef,
   writeBlobOfWorktree,
+  rerunLedgerHeal,
   ABSENT,
   UNKNOWN,
 } from './lib/bypass-git.mjs'
@@ -1653,6 +1662,24 @@ async function main() {
       `⚠️ 跳门留痕未写入(落地已成功 HEAD=${landed.slice(0, 11)},不改退出码):${attest.why}`,
     )
   else console.log(`✅ 跳门留痕 1 行已写入 ${attest.path}(kind=bypass-landing,gatesRun=false)`)
+
+  /**
+   * G-816708(2026-10-05):本次落地含台账 ⇒ **就地补跑一次守门 71 的自愈**。
+   * 接在这里的三个理由(位置不是随手挑的):
+   *  ① 必须在 CAS 成功且提交面回读通过**之后** —— 没落地的东西没有"落地那一刻"可补,
+   *     而回读未判定/缺路径的分支各有自己的退出码,那些情形不该以自愈的名义再写一次 HEAD;
+   *  ② 必须在主索引对齐**之前** —— 自愈若建了前向恢复提交,HEAD 已是那一枚,随后
+   *     `alignSharedIndex` 会把共享主索引对齐到**恢复后**的 blob;顺序反过来就留下一格
+   *     "HEAD 已补、索引仍带着旧版",而下一次不带 pathspec 的普通提交正好把它写回旧态;
+   *  ③ 与上面的水印预检成套:同一套派生纪律(process.execPath + 绝对路径 + windowsHide + timeout,
+   *     住在 lib/post-merge-ledger-sync.mjs 那一份),同一器物、同一次调用 —— 判据必须在真跑它的
+   *     那一刻才成立,挂在钩子上对旁路落地等于没有。
+   * 用提交档还是报告档、以及为什么不成环:理由写在 `lib/bypass-git.mjs` 的 `rerunLedgerHeal` 头上
+   * (一句话:这一跑是 post-commit 第 6 节的替身,替身必须与原件同形;恢复提交仍由 commit-tree 产生
+   * ⇒ 钩子不跑 ⇒ 结构上回不到本器,且它只在 HEAD 真缺行时才建提交,补完即"无缺失"⇒ 严格收敛)。
+   * 补跑失败只喊一行(stderr),不改本轮落地的退出码 —— 零丢失自证已通过的落地不该被替身判红。
+   */
+  rerunLedgerHeal({ root, paths })
 
   // ② 共享主索引对齐(判据在 lib,只有一份):未尽事项点名后退出码仍 0 —— 落地本身已成功
   const align = alignSharedIndex({ root, paths, parentRef: parentSha })
