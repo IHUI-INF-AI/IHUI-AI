@@ -29,7 +29,9 @@ const generateBodySchema = z.object({
 })
 
 const keyIdBodySchema = z.object({
-  keyId: z.string().min(1, 'keyId 不能为空'),
+  // oauth_private_keys.id 是 uuid 列：/rotate 与 /revoke 都把它喂进 eq()/update().where()，
+  // 非 uuid 串让 Postgres 抛 22P02 ⇒ 500。原只校验 min(1)，漏掉格式。
+  keyId: z.uuid({ error: 'keyId 格式不正确' }),
 })
 
 const activeQuerySchema = z.object({
