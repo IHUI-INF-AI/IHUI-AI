@@ -204,6 +204,13 @@ const ALLOWED_HIDDEN_FILES = new Set([
   '.env.act',
   '.env.example',
   '.env.production.example',
+  // 2026-10-04 补登记:根级 `.env` 是本仓**受管的生产配置**(api 读它、护栏
+  // `_sync_env_file_to_os()` 按它同步,本仓 100+ 道门与全部自愈链都靠它取凭据),
+  // 长期存在且**必须**存在于根级 —— 但它此前只登记了 .env.example / .env.act / .env.production
+  // 这一族,`.env` 本体漏在白名单外 ⇒ 守门 44 恒红 ⇒ 各会话被迫 --no-verify
+  // (连带跳过全部 100+ 道门)。这正是 §12e「与提交无关的恒红门」那一族。
+  // 登记它**不等于**放松别处:.env 仍被 .gitignore 覆盖、不入库;这里只放行"根级存在"这一形态。
+  '.env',
   '.gitattributes',
   '.gitignore',
   '.npmrc',
