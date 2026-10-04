@@ -1293,10 +1293,64 @@ function healRefs() {
   return true
 }
 
+/**
+ * 嵌套 ref 健康判据(纯函数 —— 镜像测试直接喂构造面,不依赖活 gitdir)。
+ *
+ * 立因(2026-10-05 夜间巡检实测):`refs-manifest.json` 是 `{}`(2 字节,mtime 10-03 11:30),
+ * 而旧判据 `if (Object.keys(m).length === 0) return true` 把"清单里一个期望项都没有"直接判成
+ * **健康**。于是 `remediate()` 结构上到不了(`if (coreOk && before.refsOk)` 走健康分支早退),
+ * 而 `healRefs()` 是唯一的 bootstrap 入口 —— 旧注释写着"未 bootstrap 时不算异常(healRefs 会补)",
+ * 调用点却要求"不健康才补",两句话合起来 = 空清单状态下永不补齐。后果:盘上 5143 个
+ * depth>=2 的 ref(含 §22 明令禁删的 `refs/tags/backup/*` 与 `lost-commit/*`)在宿主清理层
+ * 再删一次时**没有任何离线重建依据**,而每轮巡检打印"嵌套 ref 完整"。失效形态是安静,不是报错。
+ *
+ * 判据:只有"确实没有东西要守"(清单为空 ∧ 盘上也看不到嵌套 ref)才算正常;
+ * 清单为空而盘上有嵌套 ref ⇒ `unbootstrapped` ⇒ 不健康 ⇒ 走 remediate() → healRefs() 的学习分支。
+ * 附带说明:清单文件损坏(存在但 JSON 解析不出)在 readRefsManifest() 里同样得到空对象,
+ * 因此也走这一支并被重新学习覆盖 —— 解析不出的那份本来就不是机器可用的期望值,而让它躺在原地
+ * 的代价是"这一维永不再被看守",与空清单同罪。
+ *
+ * `manifestCount` 取不到(非有限数)一律落 `undetermined` 并判不健康,绝不记为通过
+ * (本仓"把没判写成判过了"同一条禁令);healRefs() 只做学习/追加,判不出时调它是无害方向。
+ */
+export function judgeRefsHealth({ manifestCount, visibleNestedCount, missingCount } = {}) {
+  const mc = Number(manifestCount)
+  const vc = Number(visibleNestedCount)
+  const ms = Number(missingCount)
+  if (!Number.isFinite(mc) || mc < 0) {
+    return { ok: false, reason: 'undetermined', manifestCount: null, visibleNestedCount: 0, missingCount: 0 }
+  }
+  const visible = Number.isFinite(vc) && vc > 0 ? vc : 0
+  const missing = Number.isFinite(ms) && ms > 0 ? ms : 0
+  if (mc === 0) {
+    return visible > 0
+      ? { ok: false, reason: 'unbootstrapped', manifestCount: 0, visibleNestedCount: visible, missingCount: 0 }
+      : { ok: true, reason: 'nothing-to-guard', manifestCount: 0, visibleNestedCount: 0, missingCount: 0 }
+  }
+  return missing > 0
+    ? { ok: false, reason: 'missing', manifestCount: mc, visibleNestedCount: visible, missingCount: missing }
+    : { ok: true, reason: 'ok', manifestCount: mc, visibleNestedCount: visible, missingCount: 0 }
+}
+
+/** 盘上当前可见的嵌套 ref 个数(只在清单为空这一支量,避免热路径多一次 for-each-ref) */
+function visibleNestedRefCount() {
+  const cur = currentRefs()
+  let n = 0
+  for (const ref of Object.keys(cur)) if (isNestedRef(ref)) n++
+  return n
+}
+
+/** refs 健康结论的唯一取材点:status()/remediate()/anomalyLine 三处共用这一份,不得各算各的 */
+function refsVerdict() {
+  const manifestCount = Object.keys(readRefsManifest()).length
+  if (manifestCount === 0) {
+    return judgeRefsHealth({ manifestCount, visibleNestedCount: visibleNestedRefCount() })
+  }
+  return judgeRefsHealth({ manifestCount, visibleNestedCount: 0, missingCount: missingRefs().length })
+}
+
 function refsOk() {
-  const m = readRefsManifest()
-  if (Object.keys(m).length === 0) return true // 未 bootstrap 时不算异常(healRefs 会补)
-  return missingRefs().length === 0
+  return refsVerdict().ok
 }
 
 /**
@@ -3434,6 +3488,8 @@ function restoreRemoteConfig() {
 
 function status() {
   syncGitMeta()
+  // 一次取材,三处共用(refsOk / refsReason / 计数),不得在同一轮里对同一把尺子问两遍拿两个答案
+  const rv = refsVerdict()
   const health = {
     pointerOk: pointerOk(),
     gitdirOk: gitdirOk(),
@@ -3447,7 +3503,12 @@ function status() {
     branch: git(['rev-parse', '--abbrev-ref', 'HEAD'], true),
     dirty: (git(['status', '--porcelain'], true) || '').split('\n').filter(Boolean).length,
     backupOk: existsSync(join(BACKUP, 'HEAD')),
-    refsOk: refsOk(),
+    refsOk: rv.ok,
+    // refs 这一维的"为什么"必须与 ok 同时报出:`missing: []` 在旧实现里既可能是"全部在位",
+    // 也可能是"清单为空、根本没判"——只报 ok 就等于把后者写成前者(2026-10-05 实测的正是后者)。
+    refsReason: rv.reason,
+    refsManifestCount: rv.manifestCount,
+    refsNestedVisible: rv.visibleNestedCount,
     refsMissing: missingRefs(),
     // 通知层状态如实进 --status:"已配置/无收件人/上次投递失败"必须能被人工核验,
     // 否则"接线了"只是纸面结论(只读三个小文件,零副作用,--check 口径不变)
@@ -3465,7 +3526,16 @@ function anomalyLine(h) {
     h.pointerOk && h.gitdirOk && !h.gitUsable
       ? ` | HEAD=${JSON.stringify(headContent().slice(0, 60))}`
       : ''
-  const refsHint = h.refsOk === false ? ` | 缺失嵌套 ref ${(h.refsMissing || []).length} 个` : ''
+  // refs 不健康的三种成因必须分开点名:"缺 N 个"(有清单、对不上)与"根本没清单"(未 bootstrap)
+  // 处置动作完全不同 —— 后者靠学习补齐,前者靠离线重建,写成一句话会让人去查一个不存在的洞。
+  const refsHint =
+    h.refsOk === false
+      ? h.refsReason === 'unbootstrapped'
+        ? ` | 嵌套 ref 清单未 bootstrap(盘上 ${h.refsNestedVisible || 0} 个 depth>=2 引用无人看守,本轮离线学习)`
+        : h.refsReason === 'undetermined'
+          ? ' | 嵌套 ref 清单取不到(未判定,不得记为通过)'
+          : ` | 缺失嵌套 ref ${(h.refsMissing || []).length} 个`
+      : ''
   // 单独点名"裸档"这一型:它让其余四项全绿,却是唯一让全队 git 命令失效的那一格
   const bareHint = h.gitUsable && h.worktreeUsable === false ? ' | core.bare=true(工作树不可用)' : ''
   return `⚠️ 检测到 .git 异常: pointer=${h.pointerOk} gitdir=${h.gitdirOk} git=${h.gitUsable} worktree=${h.worktreeUsable}${hint}${refsHint}${bareHint}`
@@ -3861,7 +3931,11 @@ function main() {
   if (CHECK_ONLY) {
     console.log(
       coreOk
-        ? `❌ 嵌套 ref 异常(未修复,--check 模式):${(before.refsMissing || []).length} 个缺失`
+        ? before.refsReason === 'unbootstrapped'
+          ? `❌ 嵌套 ref 清单未 bootstrap(未修复,--check 模式):盘上 ${before.refsNestedVisible || 0} 个 depth>=2 引用无人看守 —— 跑 node scripts/git-refs-heal.mjs 离线补齐`
+          : before.refsReason === 'undetermined'
+            ? '❌ 嵌套 ref 清单取不到(未判定,--check 模式不得记为通过)'
+            : `❌ 嵌套 ref 异常(未修复,--check 模式):${(before.refsMissing || []).length} 个缺失`
         : '❌ .git 异常(未修复,--check 模式)',
     )
     return 1
@@ -4090,6 +4164,7 @@ if (isDirectRun) {
 // §22c 镜像测试出口:通知层"是否应当发信"的全部判据(指纹/去重窗口/退避/状态归一/argv 契约)
 // 必须能在零副作用、零网络、零真收件人的前提下取证。
 export const __test__ = {
+  judgeRefsHealth,
   alertFingerprint,
   stableAlertFingerprint,
   auditPublicPathProbe,

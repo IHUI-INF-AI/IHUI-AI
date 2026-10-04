@@ -90,8 +90,18 @@ describe('D184 锚点层:宿主监听在位且走同一包装/回报链(防「�
   it('监听真的注册在 window 上,且带清理(注册+清理 ≥2 处)', () => {
     const hits = host.match(/ihui:add-selection-attachment/g) ?? []
     expect(hits.length).toBeGreaterThanOrEqual(2)
-    expect(host).toContain("window.addEventListener('ihui:add-selection-attachment'")
-    expect(host).toContain('window.removeEventListener(')
+    // 锚点必须容忍**跨行书写**:prettier 会把 addEventListener 的三个实参拆成三行
+    // (message-input.tsx:572-575 与 :577-581 就是这一形态),按单行 toContain 判会把
+    // "注册与清理都在位"的正当写法读成"没注册"。这一型与"判据看不见跨行"是同一条禁令。
+    // 牙齿:名字必须紧挨在 addEventListener( 之后,且注册与清理各一条 —— 摘掉任一半即红。
+    expect(
+      /window\.addEventListener\(\s*'ihui:add-selection-attachment'/.test(host),
+      'window.addEventListener 的注册点解析不到(判据失明或注册真被摘)',
+    ).toBe(true)
+    expect(
+      /window\.removeEventListener\(\s*'ihui:add-selection-attachment'/.test(host),
+      '没有配套的清理 ⇒ 组件重挂会累积监听器',
+    ).toBe(true)
   })
 
   it('监听体:new File([trimmed], `${t(attachmentName)}.txt`) → addFileReferences → max_files 时 attachmentLimitReached({limit: 30})', () => {
