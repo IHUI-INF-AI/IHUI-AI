@@ -379,7 +379,18 @@ function isTracked(root, rel) {
 function isIgnored(root, rel) {
   try {
     execFileSync(GIT, ['-C', root, 'check-ignore', '-q', '--', rel], {
-      stdio: 'pipe',
+      // 2026-10-04 改(修一条把本门整体打成"无法判定"的真缺陷):
+      // 原值 `'pipe'` **三个位置都是 'pipe'** —— 而本机派生 git 的既有判据是
+      // 「**stdin 管道由谁建**:Node 建的必挂 EBUSY,OS 句柄直传的没事」。
+      // `check-ignore -q` 不吃 stdin ⇒ 正确写法是 `['ignore','pipe','pipe']`。
+      //
+      // 症状链(实测 2026-10-04 复跑,门输出逐字):
+      //   EBUSY ⇒ catch ⇒ `e.status === 1` 不成立(e.status 是 null 而非 1)
+      //   ⇒ 返回 null(无法判定)⇒ 9 对运行副本全部"无法判定"
+      //   ⇒ 门末"❌ 有 9 对无法判定 —— 不记为通过" ⇒ 本门在提交链上恒红。
+      // 而真因是**派生通道**,与"入库源↔运行副本是否等值"毫无关系 ——
+      // 读输出的人只会去查那 9 个脚本,方向从第一步就错了。
+      stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 20000,
       windowsHide: true,
     })
