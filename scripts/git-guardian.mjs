@@ -218,19 +218,52 @@ export const AUTO_HEAL_LEDGER = {
     why: '派发时已带 --apply,且动作自带 .stale-<stamp> 现场归档',
   },
   'merge-addition-loss': {
-    mode: 'auto',
-    where: 'auditMergeAdditionLoss → union-converge.mjs --apply',
-    why: '派发时已带 --apply(文件面零丢失 union)',
+    // ⚠ 2026-10-04 复核改判:本条原先登记为 auto 且理由写「派发时已带 --apply」——
+    //   **与代码事实相反**。全文件 `union-converge` 零处 execFileSync/spawnSync 派发,
+    //   auditMergeAdditionLoss(:1717)只派 `[script, '--all-new']`,而 :1539 的设计注释
+    //   白纸黑字写着「**只判不修**:自动重做合并的风险远大于收益;出口是
+    //   `scripts/union-converge.mjs --apply`(**人来点**)」⇒ 该格真实形态是「只喊人 + 人来点」。
+    //   这次错判能溜过,是因为台账的测试只校验**已登记项的形状**,不与代码对账
+    //   (见 test 里 why 的正则:写得"对"而"错"的文案完全合规)。已同时补上对账测试。
+    mode: 'manual',
+    where: 'auditMergeAdditionLoss → check-merge-addition-loss.mjs --all-new(只判);出口由人点 union-converge.mjs --apply',
+    why: '代码只判不修、出口由人点(:1539 明写"自动重做合并的风险远大于收益");而 union-converge --apply 实测一次 2–13 分钟且会**改写历史合并内容** —— 误自动执行等于在不可回滚的动作上拿别人的合并赌一把(需人判)',
   },
   'service-heal': {
     mode: 'auto',
     where: 'healUnresponsiveServices → heal-unresponsive-services.mjs --apply',
     why: '派发时已带 --apply,且自带三重封顶(consecutiveRounds/cooldown/maxRestartsPerWindow)',
   },
-  'worktree/pointer/env/refs/head/rootseal/junction': {
+  // 复核改判(2026-10-04):原先把 7 个动作面塞进一个复合 key、where 只写"remediate() 阶梯",
+  // 而其中三项**实际不在 remediate() 内** —— 挂在 main() 健康轮次的独立调用点
+  // (worktree :3667 / rootseal :3669 / junction :3672)。台账是权威清单,where 定位不准
+  // 会让下一个接手的人按错位置去查。已按真实挂点拆开。
+  'pointer/env/refs/head': {
     mode: 'auto',
-    where: 'remediate() 分层自愈阶梯',
-    why: '幂等 + 由 coreHealthy 健康判据驱动(本仓 243 行记过"造好没装车"的教训,判据已覆盖工作树可用性)',
+    where: 'remediate() 分层自愈阶梯(:3218 起,health 判据不通过时进入)',
+    why: '幂等 + 由 coreHealthy 健康判据驱动(本仓 :243 记过"造好没装车"的教训,判据已覆盖工作树可用性)',
+  },
+  worktree: {
+    mode: 'auto',
+    where: 'main() 健康轮次独立调用点 healWorktreeTracked()(:3667),不在 remediate() 内',
+    why: '幂等(索引==HEAD 且工作区内容==某祖先版本才动),任一不成立即放过 ⇒ 不覆盖他人未提交文件',
+  },
+  rootseal: {
+    mode: 'auto',
+    where: 'main() 健康轮次独立调用点 healRootSeal()(:3669),不在 remediate() 内',
+    why: '幂等(重启会清掉 junction,而第三方重建真目录只需一次启动);只在真恢复时写日志',
+  },
+  junction: {
+    mode: 'auto',
+    where: 'main() 健康轮次独立调用点 healHomeJunctions()(:3672),不在 remediate() 内',
+    why: '幂等;改道树被清掉后工具会立刻在 C 盘重建实体目录,不自动补回等于逼每一次提交绕过全部守门',
+  },
+  'recovery-source-refresh': {
+    // 2026-10-04 复核补登记(此前**漏登记** —— 台账唯一会漂的方向就是漏登记,因为
+    // 新增一格的人不会想到要回来改它,而现有测试遍历的是台账自身,抓不到)。
+    mode: 'auto',
+    where: 'refreshRecoverySource() 自身重跑(§5b 唯一空白层,15 分钟封顶)',
+    why: '已带自动重跑 + 增量追平;恢复源陈旧会让 .git 真坏时**没有可回滚的副本**,故此格必须自己先修',
   },
   'host-timezone': {
     mode: 'manual',
@@ -1273,6 +1306,31 @@ function refsOk() {
  * 逃生舱 IHUI_SKIP_DRIFT_ALIGN=1 只关第二层,不影响恢复层。
  */
 function healWorktreeTracked() {
+  // 2026-10-04 复核补节流:本函数**每轮都跑**,而收敛对齐的自愈(healConvergeAlignStall →
+  // git-sync-converge.mjs --align-only → heal-worktree-tracked.mjs --align-drift --json)
+  // 在**同一轮 tick 里排在本函数之后**,两者写的是同一个索引、跑的是同一个脚本
+  // (复核实测:本函数 :1324 与收敛器 :1391 派同一组参数)。
+  // 无节流时:一轮跑两遍写索引动作 ⇒ 抢 index.lock + 白白多花一次 40–51 秒。
+  // 判据用"对齐层跑过的窗口"而不是随便加个时间戳 —— 节流必须对齐真实动作面。
+  const now = Date.now()
+  let lastAlign = 0
+  try {
+    lastAlign = Number(readFileSync(WORKTREE_ALIGN_TICK, 'utf8')) || 0
+  } catch {
+    /* 首次:没有 tick 就是该跑 */
+  }
+  if (now - lastAlign < WORKTREE_HEAL_INTERVAL_MS) {
+    log(
+      `ℹ️ 工作区存续自愈跳过:对齐层 ${Math.round((now - lastAlign) / 1000)}s 前刚跑过(同一轮不必跑两遍写索引动作)`,
+    )
+    return
+  }
+  try {
+    mkdirSync(dirname(WORKTREE_ALIGN_TICK), { recursive: true })
+    writeFileSync(WORKTREE_ALIGN_TICK, String(now), 'utf8')
+  } catch {
+    /* tick 写不下去也要跑:否则一次盘错就永久失明 */
+  }
   const script = join(dirname(fileURLToPath(import.meta.url)), 'heal-worktree-tracked.mjs')
   if (!existsSync(script)) return
   // 两层共用一个调用出口:恢复层 `--json`,对齐层 `--align-drift --json`。
@@ -1285,6 +1343,11 @@ function healWorktreeTracked() {
         encoding: 'utf8',
         windowsHide: true, // §5b:漏此参数在计划任务下必弹控制台窗
         maxBuffer: 1 << 24,
+        // 2026-10-04 补:本调用**缺 stdio**。本机派生 git/node 命中 EBUSY 面时,症状是
+        // 这里 catch 到 err、只落一行"工作区存续自愈失败" —— 而真正原因是派生通道,
+        // 与工作区毫无关系,读日志的人会往错的方向查(本仓反复登记的同型)。
+        // 无 input ⇒ ignore 三态(见 MEMORY 派生 git 判据)。
+        stdio: ['ignore', 'pipe', 'pipe'],
       })
         .trim()
         .split('\n')
@@ -2282,8 +2345,24 @@ export function healConvergeAlignStall(opts = {}) {
 
   // 先落"已尝试",再跑:这样即使派发器本身把本进程带走(超时/异常),也不会留下一条
   // "从没试过"的记录而在下一轮立刻再派一次(那会让节流形同虚设)。
+  //
+  // ⚠ 2026-10-04 复核补一个**反直觉但必须**的分支:台账写失败时**仍然继续跑**。
+  // 直觉上"记不上账就别动手",但那样更糟:台账写不下去(磁盘满 / .workbuddy 权限)时
+  // attempts 永远读成 0、lastAttemptAt 永远为空 ⇒ **节流与熔断双双永不触发**
+  // ⇒ 每 2 分钟派发一次(每轮都真跑一个 40–51 秒的对齐器),正是本条要防的那件事。
+  // 写失败只意味着"本轮记不上账",下轮照旧会派 —— 与其在没护栏的情况下猛跑,
+  // 不如把"台账写不进去"这件事喊出来(下面 ok=false + why 点名),让熔断余量不至于
+  // 被无声烧光。**判据:哪个方向的失败更危险,选哪个。**
   const nextAttempts = (d.used ?? 0) + 1
-  writeAlignHealAttempts({ lastAttemptAt: now, attempts: nextAttempts, lastWhy: d.why }, attemptLogPath)
+  const ledgerWritten = writeAlignHealAttempts(
+    { lastAttemptAt: now, attempts: nextAttempts, lastWhy: d.why },
+    attemptLogPath,
+  )
+  if (!ledgerWritten) {
+    logFn(
+      `⚠️ 收尾对齐自愈台账写入失败(${attemptLogPath}):节流/熔断将从下一轮起失效(每轮都会重派)—— 请修该路径的可写性`,
+    )
+  }
   // 刻意**不**再写一份进程内副本:跨轮时进程内存不可靠,台账文件才是唯一真凭据 ——
   // 两处各记一次必然漂移(本仓反复登记的同型)。
 
@@ -2312,6 +2391,15 @@ export function healConvergeAlignStall(opts = {}) {
   const after = readAlignStateSafe(statePath)
   const failsAfter = after && Number.isFinite(after.consecutiveFailures) ? after.consecutiveFailures : null
   const ok = failsAfter === 0
+  // 2026-10-04 复核补:对齐层跑完也写同一个 tick —— 否则 healWorktreeTracked 的节流
+  // 永远看不到"对齐层刚跑过",节流形同虚设(两边各写一次才是闭环,单写不读或单读不写都是半拉)。
+  // 写失败只记日志:节流戳丢一次的后果是多跑一遍,不是正确性问题。
+  try {
+    mkdirSync(dirname(WORKTREE_ALIGN_TICK), { recursive: true })
+    writeFileSync(WORKTREE_ALIGN_TICK, String(now), 'utf8')
+  } catch (e) {
+    logFn(`ℹ️ 对齐层节流戳写入失败(下轮可能多跑一遍工作区自愈):${String((e && e.message) || e).slice(0, 100)}`)
+  }
   logFn(
     `${ok ? '✅ 自愈成功' : '⚠️ 自愈未修复'}: 收尾对齐(${ran.why}) ⇒ 失败计数 ${
       failsAfter === null ? '读不到' : failsAfter
@@ -2378,6 +2466,17 @@ export function checkConvergeAlignStall(opts = {}) {
             healed: true,
           }
         }
+      } else if (h && h.why) {
+        // 2026-10-04 复核补:原实现只在 `h.healed` 为真时写 healNote,于是**熔断/节流**
+        // (decideAlignHeal 返回 healed:false,why=「自愈已用满 3/3 次 ⇒ 熔断,转人工」/
+        //  「距上次自愈 N 分钟 < 节流 M 分钟」)这两档的 why 被整段丢弃 ——
+        // 收信人看到的是一条「从没说有人试过」的告警,与本文件头注
+        // 「收信人第一眼就要知道机器已经自己试过几次」**方向相反**。
+        // 而熔断恰恰是**最该让人看见**的一档:它意味着"自动修已经停手,等人"。
+        // 附带修掉一个静默区间:节流档(fails=1..2 时达不倒告警阈值)原先既不修也不喊,
+        // 现在至少把"为什么这次没修"写进日志与正文,不再是一个无声的静默重试。
+        healNote = `\n自动修复:本轮未派发(${h.why}) ⇒ 机器已自愈 ${h.attempts ?? 0} 次;仍需人工`
+        log(`ℹ️ 收尾对齐自愈未派发:${h.why}`)
       }
     } catch (e) {
       // 自愈自身异常**不得**阻断喊人:这是最后一层,静默退化比抛出去危险得多。
@@ -2714,6 +2813,22 @@ const PUBLIC_PROBE_TIMEOUT_MS = Number(process.env.IHUI_PUBLIC_PROBE_TIMEOUT_MS 
  */
 const OPS_PATROL_TICK = join(WORKTREE, '.workbuddy', 'ops-patrol-tick.ts')
 const SERVICE_HEAL_INTERVAL_MS = Number(process.env.IHUI_SERVICE_HEAL_INTERVAL_MS || 30 * 60 * 1000)
+
+/**
+ * 工作区写索引动作的节流(2026-10-04 复核补)。
+ *
+ * 成因:守护自己的 `healWorktreeTracked()` **每轮都跑**,而收敛对齐的自愈
+ * (`healConvergeAlignStall → git-sync-converge.mjs --align-only → heal-worktree-tracked
+ * .mjs --align-drift --json`)在同一轮 tick 里排在它之后 —— 两者写同一个索引、跑同一个
+ * 脚本(实测派发参数相同)。无节流时一轮跑两遍写索引动作:抢 index.lock(heal-worktree-tracked
+ * 虽对锁有让路逻辑,但让路只保证不硬拼,不保证不浪费)+ 白白多花一次 40–51 秒。
+ *
+ * 两侧共用这一个戳(读也写),少任何一边都等于半拉:只写不读 = 永远不跳;只读不写 = 永远跳。
+ * 取值 5 分钟:对齐器本机实测 40–51 秒,5 分钟足够隔开两次真动作,又不会让"工作区被删"
+ * (§12d 静默回滚温床)迟迟不修。env 可调。
+ */
+const WORKTREE_HEAL_INTERVAL_MS = Number(process.env.IHUI_WORKTREE_HEAL_INTERVAL_MS || 5 * 60 * 1000)
+const WORKTREE_ALIGN_TICK = join(WORKTREE, '.workbuddy', 'worktree-align-tick')
 const SERVICE_HEAL_TIMEOUT_MS = Number(process.env.IHUI_SERVICE_HEAL_TIMEOUT_MS || 420_000)
 
 /**
@@ -2792,7 +2907,13 @@ export function healUnresponsiveServices(opts = {}) {
       notify(
         `服务自愈动作(${acted.length} 拉起 / ${failed.length} 失败)`,
         `${body}\n\n在册 ${c.checked ?? '?'} 台:应答 ${c.answering ?? '?'} / 未判定 ${c.undetermined ?? '?'} / 观察 ${c.watch ?? '?'} / 冷却 ${c.cooldown ?? '?'} / 窗口封顶 ${c.capped ?? '?'}\n手动复现:node scripts/heal-unresponsive-services.mjs(只读)`,
-        { alertName: `service-heal-${acted.map((x) => x.name).join(',') || 'fail'}` },
+        // 2026-10-04 复核补:原写 `{ alertName: … }`,而 notifyGuardRed 的 opts 解构里
+        // **没有 alertName 这个键**(见其签名:severity/now/dispatch/stateFile/undFile/
+        // windowMs/failCooldownMs/dedupKey/force/logger)⇒ 该值被**静默丢弃**,这一格
+        // 实际只吃了默认的内容指纹去重。症状:同一个"服务 A 重启失败"与"服务 B 重启失败"
+        // 归成同一身份,B 恢复了 A 还在失败时,B 的新事实被压成旧指纹不重报。
+        // 改传 dedupKey(那才是真正被消费的字段),身份取"哪些服务"集合、有序无关。
+        { dedupKey: `service-heal;svcs=${[...acted, ...failed].map((x) => x.name).sort().join('+') || 'fail'}` },
       )
     }
     if (c.undetermined > 0 || c.planned > 0) {
