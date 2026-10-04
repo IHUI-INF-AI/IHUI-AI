@@ -34,8 +34,16 @@
  *   T4 防无限递归：夹具造**循环 import**（a 引 b、b 引 a）⇒ 断言能跑完不栈溢出。
  *   T5 源码锁：barrel 递归入口（`collectFromPluginFile` / `state.stack` /
  *               非空断言）不得被静默删掉。
+ *   T7 内联匿名子插件（`register(async (<形参>) => {...}, {prefix})`）的路由必须进面 ——
+ *               本组第二轮（2026-10-05）加的核心用例。首参是**函数表达式**不是标识符，
+ *               收口前本仓 10 处共 54 条路由一条都不进面，而输出与"全干净"逐字相同。
+ *   T8 同上但**形参名不是 `sub`/`server`**（用 `x`）⇒ 仍须进面。防的是把接收者名写死 ——
+ *               本仓 10 处形参名有 6 种（`s`/`sub`/`child`/`scope`/`authed`/`adminServer`），
+ *               写死任何一个都会让其余 5 处整片失明。
+ *   T9 **认不出的首参形态不收**（首参是 `makeRoutes({...})` 调用表达式）⇒ 断言不多收条目、
+ *               不凭空造冲突。防过度泛化。
  *
- * ## 变异验证怎么做的（结论可复现）
+ * ## 第一轮（2026-10-04，取材面从 5 条扩到 4196 条）的变异验证 —— 结论可复现
  *
  * A/B 副本放在 `scripts/_ab-reverted-route-conflicts.mjs`（**必须同目录**才跑得起来），
  * 内容 = `git show HEAD:scripts/find-route-conflicts.mjs` **只额外注入 `--root` 取景
@@ -56,6 +64,25 @@
  *     到底该"报错"还是"如实报 0 条"，判据上尚无定论，所以只钉
  *     "不报假绿、不凭空报数"这个两边都成立的弱性质。把它算成"变异没抓住"会
  *     逼着人去给它编一个当前并不存在的语义。
+ *
+ * ## 第二轮（2026-10-05）的变异验证结论
+ *
+ * 对「内联识别」做了三处突变，逐一实测（每处都跑全 11 例）：
+ *
+ *   变异 1 关闭内联识别（= 退回实现，真仓量表回到 4196 条 / 435 插件 / 0 内联）
+ *           ⇒ **T7 红 · T8 红 · T9 红** · 原有 8 例全绿 ⇒ 8 绿 3 红
+ *   变异 2 把形参名写死成 `sub`
+ *           ⇒ 真仓 4250 → 4202（**丢 48 条**）· **T8 红 · T9 红** · T7 绿（它用的就是
+ *             `sub`，所以理应绿）· 原有 8 例全绿 ⇒ 9 绿 2 红
+ *   变异 3 放宽首参为"任意标识符"（过度泛化）
+ *           ⇒ **T7 红 · T8 红 · T9 红** · 原有 8 例全绿 ⇒ 8 绿 3 红
+ *   还原后 11 全绿。
+ *
+ * 一条记账：**T9 第一版是空用例**。它原本只放"认不出的形态"，断言"不多收"——
+ * 而"关掉内联识别"（少收）同样满足"不多收"，于是退回实现时它照样全绿，抓不到任何突变。
+ * 已改成"同一个夹具里同时放一处认得出的内联 + 一处认不出的工厂式"：
+ * 收口实现下条目恰为 2 条（体外 1 + 内联 1），退回实现下变 1 条 ⇒ T9 才真正有牙。
+ * 这与本组 T3/T7 记的是同一个病：**只断言"没报冲突"的用例在扫零个/收零个时是假绿**。
  *
  * ## 不重写判据实现
  *
@@ -366,6 +393,157 @@ test('T5c "未发现重复路由"必须带覆盖面限定语（不得让读者�
     /未发现重复路由（在已进面的字面量路由上/,
     '结论行必须自带覆盖面限定语，否则 4196 条的结论会被读成全仓',
   )
+})
+
+// ─── T7~T9 内联匿名子插件（`<recv>.register(async (<形参>) => {...}, { prefix? })`） ───
+//
+// 缺陷本体：这一类首参是**函数表达式**而非标识符，`extractRegisterCalls` 的 `\w+` 匹配不到，
+// 收口前 10 处子插件（54 条路由）**一条都不进面**，而输出与"全干净"逐字相同。
+// 本仓 10 处实测（脚本头有账）：形参名有 s / sub / child / scope / authed / adminServer
+// **六种**，且 `admin-sys/role-routes.ts:98` 的接收者还是 `s` 而非 `server`。
+
+test('T7 内联匿名子插件的路由必须进面（首参是函数表达式，不是标识符）', () => {
+  const dir = root()
+  try {
+    put(dir, 'apps/api/src/server.ts', entryServer())
+    put(
+      dir,
+      'apps/api/src/routes/index.ts',
+      routesIndex([`{ alphaRoutes } from './alpha.js'`], [
+        "server.register(alphaRoutes, { prefix: '/api' })",
+      ]),
+    )
+    // 体外一条（对照，证明外层那遍仍在工作）+ 体内一条（本题核心）。
+    // 体内接收者名 `sub` 与外层 `server` 不同，正则的接收者 alternation 必须带上它。
+    put(
+      dir,
+      'apps/api/src/routes/alpha.ts',
+      [
+        'export const alphaRoutes = async (server) => {',
+        "  server.get('/outer', async () => ({}))",
+        '  server.register(',
+        '    async (sub) => {',
+        "      sub.get('/inner', async () => ({}))",
+        '    },',
+        "    { prefix: '/plug' },",
+        '  )',
+        '}',
+      ].join('\n'),
+    )
+
+    const r = run(dir)
+    assert.equal(r.status, 0, `本门只报数不判红,实得 status=${r.status}\n${r.err}`)
+    assert.match(r.out, /内联子插件 1 处/, `内联子插件必须被识别,实得:\n${r.out}`)
+    // **必须顺带断言真的扫到了 2 条**（1 体外 + 1 体内）。只断言"没报冲突"的防误报用例
+    // 在扫零个文件/收零条时是**假绿** —— 这与本组 T3 的记账同源。
+    assert.match(r.out, /路由条目 2 条/, `必须真的收齐体内那 1 条,实得:\n${r.out}`)
+    // 内联子插件算一个独立的去重插件名（外层 alphaRoutes + 内联那条）
+    assert.match(r.out, /注册插件\(去重\): 2 个/, `内联那条应独立计一个插件名,实得:\n${r.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T8 内联形参名不是 sub/server 时同样进面（防把接收者名写死）', () => {
+  const dir = root()
+  try {
+    put(dir, 'apps/api/src/server.ts', entryServer())
+    put(
+      dir,
+      'apps/api/src/routes/index.ts',
+      routesIndex([`{ alphaRoutes } from './alpha.js'`], [
+        "server.register(alphaRoutes, { prefix: '/api' })",
+      ]),
+    )
+    // 形参名 `x`：与本仓出现过的 6 个名（s/sub/child/scope/authed/adminServer）**都不相同**。
+    // 写死任何一个（或只认 `sub`）都会让这一处整片失明，而输出仍是"未发现重复路由"。
+    put(
+      dir,
+      'apps/api/src/routes/alpha.ts',
+      [
+        'export const alphaRoutes = async (server) => {',
+        "  server.get('/outer', async () => ({}))",
+        '  server.register(async (x) => {',
+        "    x.get('/inner', async () => ({}))",
+        '  })',
+        '}',
+      ].join('\n'),
+    )
+
+    const r = run(dir)
+    assert.equal(r.status, 0, `本门只报数不判红,实得 status=${r.status}\n${r.err}`)
+    assert.match(r.out, /内联子插件 1 处/, `形参名 x 的内联必须被识别,实得:\n${r.out}`)
+    assert.match(r.out, /路由条目 2 条/, `体内那条必须进面（写死接收者名会漏）,实得:\n${r.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T9 认不出的首参形态不收、且不报冲突（防过度泛化）', () => {
+  const dir = root()
+  try {
+    put(dir, 'apps/api/src/server.ts', entryServer())
+    put(
+      dir,
+      'apps/api/src/routes/index.ts',
+      routesIndex(
+        [`{ alphaRoutes } from './alpha.js'`, `{ makeRoutes } from './factory.js'`],
+        [
+          "server.register(alphaRoutes, { prefix: '/api' })",
+          // 首参是**调用表达式**：认不出它返回什么插件 ⇒ 不收（与动态路径同口径）
+          "server.register(makeRoutes({ tag: 'ghost' }), { prefix: '/api/ghost' })",
+        ],
+      ),
+    )
+    // alpha.ts 里同时放**一处认得出的内联**与一条体外路由。
+    // 为什么要掺进认得出的内联：若本用例只放"认不出的形态"，那么**关掉内联识别**
+    // （退回实现）时它照样全绿 —— "不收"被"没扫"同样满足，是个抓不到突变的空用例。
+    // 掺进来后，"只收认得出的、不收认不出的"两端同时被钉住。
+    put(
+      dir,
+      'apps/api/src/routes/alpha.ts',
+      [
+        'export const alphaRoutes = async (server) => {',
+        "  server.get('/list', async () => ({}))",
+        '  server.register(async (s) => {',
+        "    s.get('/plugged', async () => ({}))",
+        '  }, { prefix: "/plug" })',
+        '}',
+      ].join('\n'),
+    )
+    // 工厂文件里有一条**真会撞车**的路由（拼上父 prefix 即 /api/ghost/dup）。
+    // 若实现过度泛化、把工厂结果当成插件收进来 ⇒ 条目变多、且可能凭空造出冲突。
+    put(
+      dir,
+      'apps/api/src/routes/factory.ts',
+      [
+        'export function makeRoutes(opts) {',
+        '  return async (server) => {',
+        "    server.get('/dup', async () => ({}))",
+        '  }',
+        '}',
+      ].join('\n'),
+    )
+
+    const r = run(dir)
+    assert.equal(r.status, 0, `本门只报数不判红,实得 status=${r.status}\n${r.err}`)
+    // 认得出的内联：1 处（这条断言让本用例在"退回实现"下变红）
+    assert.match(r.out, /内联子插件 1 处/, `认得出的内联必须照收,实得:\n${r.out}`)
+    // 认不出的工厂式：一条都不许多收。应有 2 条 = alpha 体外 1 + 内联 1；
+    // 多收工厂那条会变成 3 条。
+    assert.match(
+      r.out,
+      /路由条目 2 条/,
+      `只应收到 alpha 的体外 1 条 + 内联 1 条；工厂式不得进面,实得:\n${r.out}`,
+    )
+    assert.doesNotMatch(
+      r.out,
+      /发现 \d+ 条重复路由/,
+      `认不出的形态不得凭空造出冲突\n${r.out}`,
+    )
+  } finally {
+    rmScratch(dir)
+  }
 })
 // ⁠‌‌‌‍‍‌‌‍‍‌‌‌‌‍‍‌‌‌‍‍‌‌‌‌‍‍‌‌‌‍‍‍‍‌‌‌‍‍‌‌‌‍‍‌‌‍‌ UPDATED-WATERMARK-2026-10-04 ⁠
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
