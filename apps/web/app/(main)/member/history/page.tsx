@@ -15,17 +15,17 @@ import { BackButton } from '@/components/common'
 import { useAuthStore } from '@/stores/auth'
 import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
 
-type ResourceType = 'project' | 'file' | 'doc' | 'post'
+type TargetType = 'project' | 'file' | 'doc' | 'post'
 
 interface HistoryItem {
   id: string
-  resourceType: ResourceType
-  resourceId: string
+  targetType: TargetType
+  targetId: string
   title?: string | null
   visitedAt: string
 }
 
-const TYPE_ICON: Record<ResourceType, React.ComponentType<{ className?: string }>> = {
+const TYPE_ICON: Record<TargetType, React.ComponentType<{ className?: string }>> = {
   project: Folder,
   file: FileText,
   doc: FileText,
@@ -117,7 +117,7 @@ export default function MemberHistoryPage() {
       ) : (
         <ul className="space-y-2 rounded-lg border p-2">
           {items.map((item) => {
-            const Icon = TYPE_ICON[item.resourceType] ?? FileText
+            const Icon = TYPE_ICON[item.targetType] ?? FileText
             return (
               <li
                 key={item.id}
@@ -125,10 +125,10 @@ export default function MemberHistoryPage() {
               >
                 <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <span className="shrink-0 whitespace-nowrap rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                  {item.resourceType}
+                  {item.targetType}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                  {item.title ?? item.resourceId}
+                  {item.title ?? item.targetId}
                 </span>
                 <span className="shrink-0 whitespace-nowrap tabular-nums text-xs text-muted-foreground">
                   {dateFmt.format(new Date(item.visitedAt))}
