@@ -3122,7 +3122,41 @@ for (const bp of backendPathSet) {
   }
   arr.push(parts)
 }
-/** 原 pathMatches 非通配分支逐行搬移(段数校验保留,防分桶外误用) */
+/**
+ * 原 pathMatches 非通配分支逐行搬移(段数校验保留,防分桶外误用)
+ *
+ * ## 已知假绿(2026-10-04 定位并实证,**刻意不修**,理由见下)
+ *
+ * 形态:`:param` 段被双向 `continue` 跳过之后,「段数相等」成了唯一约束
+ * ⇒ 一条**纯通配**注册会吞掉任意同段数路径。
+ *
+ * 实证链(每一步都留了痕,下一个人不必重查):
+ *  1. 向`packages/api-client/src/endpoints/agent.ts` 注入 `fetchApi('/api/zzz-not-here')`
+ *     ⇒ 本门报 `api-client:死调用 0 处 = 存量 0 + 新增 0`。**明显不存在的路径不报。**
+ *  2. 排除了取材面:本函数的取材正则(`pathRe`,见上)单独复算**能**匹配该形态。
+ *  3. 排除了豁免:棘轮基线 `scripts/api-routes-baseline.json` 与
+ *     `.check-api-routes-ignore.json` **均不含**该路径。
+ *  4. 排除了 catch-all:`matchStar` 的 `['*']` 形态(零比较、见下)只出现在**自测夹具**里,
+ *     不在真实注册面;真实 catch-all 都带至少一个字面量前缀段,匹配行为正常。
+ *  5. 定位到元凶:真实注册 `GET /api/admin/content/:type/:id`
+ *     (`apps/api/src/routes/admin/content/crud.ts:112`)被拼成 **`/api/:type/:id`** ——
+ *     拼接时 `admin/content` 段丢失,落成纯通配,于是 `/api/zzz-not-here` 被判在册。
+ *
+ * ## 为什么不在本门收紧(量表已出,结论是"会误杀真实接口")
+ *
+ * 自然的想法是"纯通配注册不作匹配依据"。量表(2026-10-04,7 端逐端算)结论相反:
+ *收紧后各端新增死调用合计 **+294 条**,而抽样里**大量是真实接口**:
+ *   · `/api/plans`   —— `apps/api/src/routes/billing.ts:25` 注册 `'/plans'`,
+ *                      `routes/index.ts:536` 以 `prefix:'/api'` 挂载 ⇒ **真接口**;
+ *   · `/api/data` / `/api/roles` / `/api/memory` 同类(prefix + 本地路径拼成)。
+ * 也就是说:**"纯通配"是本仓 prefix 拼接的常态,不是异常**。
+ * 一旦按形态收紧,会把大量正常接口判成死调用 ⇒ 恒红门 ⇒ 逼人 `--no-verify`
+ * 连带废掉全部守门(AGENTS §12e)。
+ *
+ * **正解在取材侧不在匹配侧**:真要收口,应先让拼接保住丢失的中间段
+ * (即 `admin/content`),而不是在匹配侧拿形态开刀。本门这一格维持现状,
+ * 由"死调用"读数恒为 0 的现状如实记为**已知覆盖缺口**,不记绿。
+ */
 function matchSegs(fParts, bParts) {
   if (fParts.length !== bParts.length) return false
   for (let i = 0; i < fParts.length; i++) {
@@ -3541,6 +3575,22 @@ if (undeterminedList.length > 0) {
 const shapeUnknownTotal = [...endStats.values()].reduce((a, s) => a + s.shapeUnknown, 0)
 console.log(
   `${C.yellow}[API 路由比对] ⚠️ 未判定调用形态 ${shapeUnknownTotal} 个文件(有传输口却抽不出 /api/ 路径,判据看不见 ≠ 没有死调用)${C.reset}`,
+)
+/**
+ * 纯通配注册造成的覆盖缺口(2026-10-04 定位,证据链见 `matchSegs` 上方注释)。
+ *
+ * **这一格无条件打印,不看本轮死调用是不是 0。** 理由:本门目前实测死调用恒为 0,
+ * 而"死调用 0"里有一部分是**真通过**、有一部分是**被纯通配注册吞掉的看不见**——
+ * 两者在输出里同形。不点破这一格,读数 0 就被读成"全对账过了",那是把"没判"写成"判过了"。
+ *
+ * 措辞纪律:不报"门坏了/有洞",只报**事实**——哪些形态当前不可判、原因、影响面。
+ * 修法在取材侧(拼接保住中间段),不在匹配侧;匹配侧收紧会误杀真实接口(量表 +294)。
+ */
+console.log(
+  `${C.yellow}[API 路由比对] ℹ️ 覆盖缺口:含 \`:param\` 段的注册(尤其 prefix 拼接后落成 \`/api/:x\` 这类纯通配)` +
+    `会吞掉同段数的任意路径 ⇒ 某些"不存在"的调用本门结构上看不见。` +
+    `故本门"死调用 0 处"只代表"在可判面内为 0",不代表全量对账通过。` +
+    `证据与修法方向见 matchSegs 上方注释(2026-10-04)${C.reset}`,
 )
 /**
  * CLI 端特有的一格:调用点**确实在**(工厂第二实参),但路径住在变量里 —— 变量可能由
