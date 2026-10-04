@@ -616,11 +616,13 @@ function runWebhookSync(entry: HookEntry, env: Record<string, string>): HookExec
     body: entry.body ? buildWebhookBody(entry.body, extractWebhookVars(env)) : undefined,
     timeout,
   };
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   const result = spawnSync(process.execPath, ['-e', WEBHOOK_SCRIPT], {
     env: { ...buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS), ...env, IHUI_WEBHOOK_CFG: JSON.stringify(cfg) },
     encoding: 'utf-8',
     timeout: timeout + 3000,
     windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
   });
   if (result.error && spawnErrorCode(result.error) !== 'ETIMEDOUT') {
     // 承载进程自己没起来 ⇒ "根本没跑到",不是"钩子失败"。旧写法把它折成 exit 1(与脚本

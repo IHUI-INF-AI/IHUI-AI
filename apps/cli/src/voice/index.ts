@@ -88,10 +88,12 @@ export interface VoiceInputResult {
  * ffmpeg 跨平台(Windows/macOS/Linux),是最佳通用选择。
  */
 export function checkMicrophoneAvailable(): boolean {
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   const result = spawnSync('ffmpeg', ['-version'], {
     encoding: 'utf-8',
     windowsHide: true,
     timeout: 5000,
+    stdio: ['ignore', 'pipe', 'pipe'],
   });
   return result.status === 0;
 }

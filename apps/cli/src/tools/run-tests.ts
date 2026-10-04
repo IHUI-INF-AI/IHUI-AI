@@ -145,12 +145,14 @@ export const run_tests: Tool = {
       if (filter) cmdArgs.push(filter);
     }
 
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     const result = spawnSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', cmdArgs, {
       cwd: ctx.workspacePath,
       encoding: 'utf-8',
       timeout: 120_000,
       maxBuffer: 10 * 1024 * 1024,
       windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
 
     const stdout = result.stdout ?? '';

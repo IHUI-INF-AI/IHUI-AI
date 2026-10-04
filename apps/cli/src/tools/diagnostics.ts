@@ -31,6 +31,8 @@ function runTsc(cwd: string): Diagnostic[] {
     timeout: 60_000,
     maxBuffer: 10 * 1024 * 1024,
     windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   });
   const stdout = (result.stdout as string) ?? '';
   const diags: Diagnostic[] = [];
@@ -59,6 +61,8 @@ function runEslint(cwd: string, targetPath?: string): Diagnostic[] {
     timeout: 60_000,
     maxBuffer: 10 * 1024 * 1024,
     windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   });
   const stdout = (result.stdout as string) ?? '';
   try {
