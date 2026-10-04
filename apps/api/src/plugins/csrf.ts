@@ -6,8 +6,9 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import fp from 'fastify-plugin'
 import { config } from '../config/index.js'
-import { parsePath, matchesAnyPrefix } from '../utils/http-normalize.js'
+import { parsePath, matchesAnyPrefix, normalizeHeader } from '../utils/http-normalize.js'
 import { isVerifiedInternalMachineCall } from '../utils/internal-principal.js'
+import { isServerSignedJwt } from '../utils/csrf-exempt-credential.js'
 
 /**
  * CSRF 防护（双提交 Cookie 模式）。
@@ -19,8 +20,15 @@ import { isVerifiedInternalMachineCall } from '../utils/internal-principal.js'
  *
  * 豁免：
  *  - 安全方法（GET/HEAD/OPTIONS）
- *  - Bearer JWT 鉴权请求（JWT 本身即 CSRF 防护）
  *  - 公开白名单（登录/回调/支付通知等无状态端点）
+ *  - 凭据**自证通过**的机器调用（内部密钥 / 服务端签名的 JWT / 库里真实存在的 API Key）
+ *
+ * ⚠️ 豁免的统一原则（G-373「按凭据存在性豁免」这一型无判据的收口）：
+ * **豁免的判据是"该凭据本身经过独立验签/验真"，不是"请求里出现了某个 header/cookie/
+ * 查询参数"**。本钩子注册在 onRequest，早于所有路由侧鉴权，所以"真伪由路由侧判"
+ * 不能作为豁免理由 —— 那一刻 CSRF 已经整块跳过了。任何新豁免都必须走
+ * `hasVerifiedBearerCredential` / `hasVerifiedApiKeyCarrier` / `isVerifiedInternalMachineCall`
+ * 这三个验真出口之一，并在注释里写明判据。
  */
 
 const CSRF_COOKIE_NAME = 'XSRF-TOKEN'
@@ -30,9 +38,12 @@ const CSRF_TOKEN_TTL = 12 * 3600 // 12 小时（秒）
 /**
  * Bearer 头的凭据**形态**判定(不是真伪校验):`ihui_` 前缀 API Key,或三段 base64url 的 JWT。
  *
- * 为什么需要它:CSRF 钩子早于路由侧鉴权执行,原先"看见 `Bearer ` 前缀就豁免"等于给
- * 任何乱码头发了免死金牌 —— O17 三通道实跑用 `Authorization: Bearer garbage` 实测把
- * RFC 7591 动态注册从 403 打成 201。形态不成立的头不再享受豁免,真伪仍由鉴权判定。
+ * ⚠️ 本函数**只是豁免前的廉价前置筛**,单独用它放行即是"按形态豁免"那一型缺陷
+ * (见 `hasVerifiedBearerCredential` 与 utils/csrf-exempt-credential.ts 的立因):
+ * 任何人都能拼出 `Bearer aaa.bbb.ccc`。保留它只为两件事:
+ *  ① 让明显不是凭据的乱码不必进后面的验签/查库(热路径开销);
+ *  ② 供既有镜像测试钉住"形态判据未被放宽"(csrf-internal-machine-call.test.ts 的 E 组)。
+ * **豁免的最终判据是验签/验真通过,不是本函数返回 true。**
  */
 export function isPlausibleBearerCredential(header: string): boolean {
   const trimmed = header.trim()
@@ -41,6 +52,80 @@ export function isPlausibleBearerCredential(header: string): boolean {
   if (token.startsWith('ihui_')) return true
   const parts = token.split('.')
   return parts.length === 3 && parts.every((p) => p.length > 0 && /^[A-Za-z0-9_-]+$/.test(p))
+}
+
+/** 从 `Authorization` 头取出 Bearer 后的凭据原文;形态不成立返回 undefined。 */
+function bearerCredentialOf(header: string | undefined): string | undefined {
+  if (!header) return undefined
+  const trimmed = header.trim()
+  if (!/^bearer\s+\S+/i.test(trimmed)) return undefined
+  const token = trimmed.slice(trimmed.indexOf(' ') + 1).trim()
+  return token.length > 0 ? token : undefined
+}
+
+/**
+ * Bearer 凭据是否**已自证**——CSRF 豁免的唯一判据。
+ *
+ * 两族各自有独立验签机制,任一通过即豁免:
+ *  ① JWT(三段 base64)⇒ `isServerSignedJwt`:验 HS256 签名,判据是"本服务端签发过的",
+ *     客户端无法伪造。**刻意不验 exp**:过期/封禁/refresh 冒充归路由侧 `authenticate()`
+ *     判 401,前端 401→静默续期链路(apps/web/src/lib/api.ts)才接得上;在这里因过期
+ *     而拒绝会把 401 变成 CSRF 403,续期分支永不触发。
+ *  ② `ihui_` API Key ⇒ `isRegisteredUsableApiKey`:查库确认这把 key 真实存在、active、
+ *     未过期。这是真伪判据而非形态判据(形态只需要 `Bearer ihui_` 五个字符)。
+ *
+ * fail-closed:验签/查库任一不可用(密钥缺失、DB 不可达)⇒ 不豁免,请求继续落到
+ * 下方 CSRF 双提交校验,而不是"判不出来就当机器调用放行"。
+ */
+async function hasVerifiedBearerCredential(header: string | undefined): Promise<boolean> {
+  // 廉价前置筛:形态都不成立就不必付验签/查库的开销(不改变判据,见 isPlausibleBearerCredential 注释)。
+  if (!header || !isPlausibleBearerCredential(header)) return false
+  const token = bearerCredentialOf(header)
+  if (!token) return false
+  if (token.startsWith('ihui_')) {
+    // 动态导入:csrf 插件在 server.ts 主作用域注册,不因一次豁免判定把 DB 依赖拉进加载图
+    // (与 utils/internal-principal.ts 对 secretsEqual 的处理同理由)。
+    try {
+      const { isRegisteredUsableApiKey } = await import('../utils/api-key-presence.js')
+      return await isRegisteredUsableApiKey(token)
+    } catch {
+      return false // fail-closed:判据不可达时拒绝豁免
+    }
+  }
+  return isServerSignedJwt(token)
+}
+
+/**
+ * Gemini / OpenAI 原生 API Key 载体(`x-goog-api-key` 头、`x-api-key` 头、`?key=` 查询
+ * 参数)里携带的 key 是否**已验真**。
+ *
+ * 这三个载体与 Bearer 头是同一族机器凭据,只是 SDK 生态用不同方式携带。存在性豁免
+ * (`headers['x-goog-api-key']` / `typeof query.key === 'string'`)等于把 CSRF 防线
+ * 交给"请求里有没有这个字符串",而 `?key=` 连自定义头都不需要 —— 跨站一个表单即可。
+ * 故与 Bearer 族共用 `isRegisteredUsableApiKey` 一个判据(查库确认 key 真实存在)。
+ *
+ * 任一载体验真通过 ⇒ true。全部缺失/验真失败 ⇒ false(fail-closed)。
+ */
+async function hasVerifiedApiKeyCarrier(request: FastifyRequest): Promise<boolean> {
+  const candidates = [
+    normalizeHeader(request.headers['x-goog-api-key']),
+    normalizeHeader(request.headers['x-api-key']),
+    typeof (request.query as { key?: unknown } | undefined)?.key === 'string'
+      ? ((request.query as { key: string }).key).trim() || undefined
+      : undefined,
+  ].filter((v): v is string => typeof v === 'string' && v.length > 0)
+  if (candidates.length === 0) return false
+  // 动态导入理由同 hasVerifiedBearerCredential(csrf 插件在主作用域注册,不把 DB 拖进加载图)。
+  let verify: (key: string | undefined) => Promise<boolean>
+  try {
+    ;({ isRegisteredUsableApiKey: verify } = await import('../utils/api-key-presence.js'))
+  } catch {
+    return false // fail-closed:判据不可达时拒绝豁免
+  }
+  for (const key of candidates) {
+    if (await verify(key)) return true
+  }
+  return false
 }
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
@@ -216,16 +301,23 @@ const csrfPlugin: FastifyPluginAsync<CsrfPluginOptions> = async (
     // Bearer 请求豁免（JWT 本身防 CSRF）
     // 2026-09-21 O17 三通道实跑收紧:原来只判前缀,任何 `Authorization: Bearer 乱码`
     // 都能整块跳过 CSRF —— 对"公开但要写状态"的端点(如 RFC 7591 动态注册)这就成了
-    // 免死金牌。现在要求**凭据形态**成立才豁免(三段 JWT 或 `ihui_` 前缀 API Key);
-    // 真伪仍由路由侧鉴权判定,本钩子只拒绝拿乱码头换豁免。
+    // 免死金牌。
+    // 2026-10-04 再收口(G-373「按凭据存在性豁免」型):形态判据本身仍是无判据 ——
+    // `Bearer aaa.bbb.ccc` 任何人都会拼。豁免的判据改为**该凭据自证通过**
+    // (JWT 验签 / API Key 查库),见 hasVerifiedBearerCredential。
     const auth = request.headers.authorization ?? ''
-    if (isPlausibleBearerCredential(auth)) return
+    if (await hasVerifiedBearerCredential(auth)) return
 
     // auth_token cookie 鉴权豁免（与 auth 插件一致）
-    // cookie token 也是 JWT，且 SameSite=Lax 已阻止跨站 POST 带 cookie，安全性与 Bearer 豁免一致
+    // 2026-10-04 修(G-373 同型):原 `if (authToken) return` 是**纯存在性豁免** ——
+    // cookie 里是空串以外的任何值(攻击者自造一个 `auth_token=x` 即可,或跨站场景下
+    // 任何非空 cookie)都整块跳过 CSRF。cookie 里的 token 同样是服务端签发的 JWT,
+    // 故判据与 Bearer 族同源:验签通过才豁免。
+    // 不验 exp 的理由同 hasVerifiedBearerCredential:过期由路由侧 authenticate() 判 401,
+    // 前端 401→静默续期链路依赖这个 401;提前拒绝会把续期场景变成 CSRF 403。
     const authToken = (request as FastifyRequest & { cookies?: Record<string, string> }).cookies
       ?.auth_token
-    if (authToken) return
+    if (authToken && (await isServerSignedJwt(authToken))) return
 
     // Internal service token 请求豁免(服务间调用,非浏览器,无 CSRF 风险)
     // ⚠️ #23 收口(2026-09-27):原先这里是 `if (request.headers['x-internal-service-token'])
@@ -246,8 +338,15 @@ const csrfPlugin: FastifyPluginAsync<CsrfPluginOptions> = async (
     // ?key= 查询参数携带 API Key(非浏览器自动携带的凭证,与 Bearer 同级防 CSRF),
     // 且该鉴权映射发生在路由 preHandler(mapGeminiAuth),晚于本钩子——不豁免
     // 会被 403 拦死,外部 Gemini SDK 客户端无法接入 /v1beta。
-    if (request.headers['x-goog-api-key']) return
-    if (typeof (request.query as { key?: unknown } | undefined)?.key === 'string') return
+    // 2026-10-04 修(G-373 同型):原写法 `if (headers['x-goog-api-key']) return` 与
+    // `if (typeof query.key === 'string') return` 是**教科书式的存在性豁免** ——
+    // 带上头/带上 ?key= 就跳过 CSRF,值是什么完全不看。而且这一族比内部凭据更糟:
+    // `?key=` 在 URL 里,跨站只需一个 <a>/表单就能带上,不需要任何"能发自定义头"的前提。
+    // 判据改为与 Bearer 族同源的**验真**:这把 key 必须在 developer_api_keys 里真实存在、
+    // active、未过期(与 mapGeminiAuth → requireApiKeyAuth 的前置条件一致,只是提前判)。
+    // fail-closed:查库不可达 ⇒ 不豁免。
+    // 只看这三个 Gemini/OpenAI 原生载体(Authorization 头已由上方 Bearer 族判过)。
+    if (await hasVerifiedApiKeyCarrier(request)) return
 
     const cookieValue = (request as FastifyRequest & { cookies?: Record<string, string> })
       .cookies?.[CSRF_COOKIE_NAME]

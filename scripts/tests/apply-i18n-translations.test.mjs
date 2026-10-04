@@ -25,6 +25,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -33,7 +34,7 @@ const LANGS = ['ja', 'ko', 'zh-CN', 'zh-TW']
 
 // ─── 辅助:创建临时项目根目录(含 apps/web/messages/ + .ihui-agent/goal-runtime/) ───
 function createTempProject() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-apply-i18n-'))
+  const root = mkScratch("ihui-apply-i18n-")
   fs.mkdirSync(path.join(root, 'apps', 'web', 'messages'), { recursive: true })
   fs.mkdirSync(path.join(root, '.ihui-agent', 'goal-runtime'), { recursive: true })
   return root

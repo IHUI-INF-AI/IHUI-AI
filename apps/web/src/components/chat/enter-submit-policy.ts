@@ -2,39 +2,29 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// G-843 + G-844 的唯一判据 —— "这次 keydown 该不该被输入组件内部当作提交消费"。
+// G-815941 —— 薄转发。判据本体已上移到共享层 packages/shared/src/chat/enter-submit.ts。
 //
-// 判定住在纯函数里(范式同 packages/shared 的 element-pack.ts"判定住在能被 vitest 直接问到的地方";
-// 票面写的 apps/web/.../message-list/element-pack.ts 是不存在的路径,且该判定依赖 DOM 概念
-// (defaultPrevented / isComposing),属 web 端特有,不得进跨端共享面),
-// web-input-core.tsx 只做装配 —— 键序与 IME 双腿判据因此可被单测逐输入穷尽,
-// 不必靠渲染整个组件才能问到。
-
-/** 判据的全部输入(原语化,与 React 事件类型解耦) */
-export interface EnterSubmitInputs {
-  key: string
-  shiftKey: boolean
-  /** 外部处理器被透传调用后是否已 preventDefault —— 外部握有否决权(G-843 的判序核心) */
-  defaultPrevented: boolean
-  /** IME 本地腿:compositionstart 已到、compositionend 未到的窗口期(G-844 腿一) */
-  localComposing: boolean
-  /** IME 事件腿:e.nativeEvent.isComposing(G-844 腿二) */
-  nativeComposing: boolean
-}
+// 为什么保留这个文件而不是删:web 端有既有引用方与既有用例按`@/components/chat/enter-submit-policy`
+// 这个路径 import(apps/web/src/components/chat/web-input-core.tsx:13 与
+// __tests__/enter-submit-policy.test.ts:9)。删掉会把它们一起改成新路径,属票面范围外的改动;
+// 留着它当转发层,则引用方一行不动、判据只有一份。
+//
+// 上一版此文件写着"属web 端特有,不得进跨端共享面"。那条理由只对 defaultPrevented 与
+// React 事件类型成立,而判据本体只是一次布尔运算、任何有物理键盘的端都适用 ——
+// 按"某端特有"关在web 目录里,第二个端要提交消息时只能重写一遍,而重写的那一遍
+// 几乎必然只抄走一条腿(实测本仓 5 处 Enter 提交点里 3 处是单腿)。缺陷就是这样复发的。
+// 现在 web 与后续各端都从同一出口取判据。
+import {
+  shouldSubmitOnEnter as shouldSubmitOnEnterShared,
+  type EnterSubmitSignals,
+} from '@ihui/shared/chat/enter-submit'
 
 /**
- * 该吃这一下 Enter 吗?三条短路判序逐条对应一次真实事故:
- *  1. defaultPrevented ⇒ 不吃。修掉"内部先吃 Enter、外部只在 else 分支被调用"的旧序 ——
- *     `#` 上下文选择器开着且有匹配项时 Enter 是"选中"(use-context-selector.ts 的 Enter 分支
- *     preventDefault+select),若内部仍然抢发,用户看到半截 `#文件` 被当正文发出去。
- *  2. 非 Enter 或 Shift+Enter ⇒ 不吃(换行语义,与既有行为逐字相同,本函数不改判序语义)。
- *  3. 两条 IME 腿取或 ⇒ 任一成立都不发送。单靠事件腿是单腿:部分引擎里"候选窗已关但
- *     compositionend 尚未落地"那一次 keydown 的 isComposing 已是 false,拼音/假名打字
- *     按 Enter 会把半成品发出去;本地腿由组件的 compositionstart/end 标志补住这一窗口。
+ * 判据的全部输入(原语化,与 React 事件类型解耦)。
+ * 语义与形状与共享层 `EnterSubmitSignals` 逐字同形 —— 这里只做类型别名,
+ * 不再是第二份定义,故不可能与共享层漂移。
  */
-export function shouldSubmitOnEnter(e: EnterSubmitInputs): boolean {
-  if (e.defaultPrevented) return false
-  if (e.key !== 'Enter' || e.shiftKey) return false
-  return !(e.localComposing || e.nativeComposing)
-}
+export type EnterSubmitInputs = EnterSubmitSignals
+
+export { shouldSubmitOnEnterShared as shouldSubmitOnEnter }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

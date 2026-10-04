@@ -627,7 +627,6 @@ describe('⑤ 五语言包:词条齐备', () => {
     'analysisTitle',
     'analysisClose',
     'analysisDesc',
-    'analysisLoading',
     'analysisLoadFailed',
     'analysisScenarioLabel',
     'analysisRecommended',

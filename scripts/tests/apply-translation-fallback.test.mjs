@@ -28,6 +28,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -35,7 +36,7 @@ const SCRIPT_PATH = path.join(__dirname, '..', 'apply-translation-fallback.mjs')
 
 // ─── 辅助:创建临时项目根目录(含 packages/i18n/messages/web/ 结构) ───
 function createTempProject() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-translation-fallback-'))
+  const root = mkScratch("ihui-translation-fallback-")
   fs.mkdirSync(path.join(root, 'packages', 'i18n', 'messages', 'web'), { recursive: true })
   return root
 }
