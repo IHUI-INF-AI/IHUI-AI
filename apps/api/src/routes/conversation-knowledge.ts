@@ -45,7 +45,9 @@ import { success, error } from '../utils/response.js'
 // =============================================================================
 
 const toKnowledgeSchema = z.object({
-  conversationId: z.string().min(1).max(64),
+  // chat_conversations.id / chat_messages.conversation_id 都是 uuid 列：本路由下面两处
+  // eq() 直接吃这个值,非 uuid 串让 Postgres 抛 22P02 ⇒ 500。原只校验 min(1).max(64),漏掉格式。
+  conversationId: z.uuid({ error: 'conversationId 格式不正确' }),
   /** 可选知识库集合名,默认 default(与 /api/knowledge 各端点同口径) */
   collectionName: z.string().min(1).max(100).default('default'),
 })
