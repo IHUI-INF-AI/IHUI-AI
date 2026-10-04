@@ -4,15 +4,15 @@
 
 /**
  * 收货地址(从 frontend-stub-other-routes.ts 拆分)。
- * POST /addresses, PUT/DELETE /addresses/:id, POST /addresses/:id/default
+ * GET /addresses, POST /addresses, PUT/DELETE /addresses/:id, POST /addresses/:id/default
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, desc, sql } from 'drizzle-orm'
 import { success, error } from '../../utils/response.js'
 import { db, dbRead } from '../../db/index.js'
 import { userAddresses } from '@ihui/database'
-import { parseIdParam } from './_shared.js'
+import { parseIdParam, parsePagination } from './_shared.js'
 
 const addressBodySchema = z.object({
   recipientName: z.string().min(1).max(100),
@@ -26,6 +26,38 @@ const addressBodySchema = z.object({
 })
 
 export const addressRoutes: FastifyPluginAsync = async (server) => {
+  // GET /addresses — 当前用户地址列表(member/addresses 页在调,此前无读端点)
+  // 归属口径与同文件写端点一致:user_addresses.user_id === request.userId
+  server.get('/addresses', async (request, reply) => {
+    const page = parsePagination(request, reply)
+    if (page === null) return
+    const { page: pageNo, pageSize } = page
+    const rows = await dbRead
+      .select()
+      .from(userAddresses)
+      .where(eq(userAddresses.userId, request.userId!))
+      .orderBy(desc(userAddresses.isDefault), desc(userAddresses.createdAt))
+      .limit(pageSize)
+      .offset((pageNo - 1) * pageSize)
+    const countRows = await dbRead
+      .select({ count: sql<number>`count(*)::int` })
+      .from(userAddresses)
+      .where(eq(userAddresses.userId, request.userId!))
+    const total = countRows[0]?.count ?? 0
+    const list = rows.map((r) => ({
+      id: r.id,
+      // 前端 Address 契约的字段名是 name,列名是 recipient_name,在此对齐(见 types.ts)
+      name: r.recipientName,
+      phone: r.phone,
+      province: r.province,
+      city: r.city,
+      district: r.district,
+      detail: r.detail,
+      isDefault: r.isDefault,
+    }))
+    return reply.send(success({ list, total, page: pageNo, pageSize }))
+  })
+
   // PUT /addresses/:id — 更新地址(仅所有者)
   server.put('/addresses/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)

@@ -28,7 +28,8 @@ export const studyPlanRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(lessonSignUps.userId, request.userId!), sql`${lessonSignUps.status} != 3`))
       .orderBy(desc(lessonSignUps.createdAt))
     const plans = signups.map((s) => {
-      const targetMinutes = (s.lessonCount ?? 0) * 30
+      const totalLessons = s.lessonCount ?? 0
+      const targetMinutes = totalLessons * 30
       const completedMinutes = Math.round((targetMinutes * (s.progress ?? 0)) / 100)
       const due = new Date(s.createdAt.getTime() + 30 * 86400_000)
       const progress = s.progress ?? 0
@@ -42,6 +43,12 @@ export const studyPlanRoutes: FastifyPluginAsync = async (server) => {
         completedMinutes,
         dueDate: due.toISOString().slice(0, 10),
         status,
+        // ↓ StudyPlanItem(packages/types/src/app.ts)另需这 4 个字段,只增不改:
+        // 已有字段名与 status 值域一律不动(值域涉及 i18n 词条,另一路已提请裁决)。
+        totalLessons,
+        completedLessons: Math.round((totalLessons * progress) / 100),
+        progress,
+        deadline: due.toISOString().slice(0, 10),
       }
     })
     return reply.send(success(plans))

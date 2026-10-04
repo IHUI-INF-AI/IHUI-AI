@@ -25,18 +25,43 @@ import {
 import { BackButton, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 
-interface AuditEvent {
+/**
+ * 安全审计条目 = `GET /api/security/audit` 的 `SecurityLog` 行(`security_logs` 表)。
+ *
+ * 字段映射注意(2026-10-04,改 URL 时逐字段核对过):
+ *  · 后端**没有 type / description 两列**。可用的只有 `action`(自由文本 varchar)、
+ *    `userAgent`、`metadata`。故 `type` 由 `action` 归类(未识别的落 `other`,词条已存在),
+ *    `description` 取 `action` 原文 —— 不编造后端没有的字段。
+ *  · `ip` 可为 null(渲染 `-`,与 CLI `security audit` 同一口径)。
+ *  · 响应是 `{list,total,page,pageSize}`,不是裸数组 ⇒ 必须取 `.list`。
+ */
+interface SecurityLogEntry {
   id: string
-  type: 'login' | 'permission' | 'sensitive'
-  description: string
-  ip: string
+  action: string
+  ip: string | null
+  userAgent: string | null
   createdAt: string
 }
 
-const TYPE_ICON: Record<AuditEvent['type'], React.ComponentType<{ className?: string }>> = {
+interface SecurityAuditResponse {
+  list?: SecurityLogEntry[]
+  total?: number
+}
+
+const TYPE_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
   login: LogIn,
   permission: KeyRound,
   sensitive: Settings,
+  other: ShieldAlert,
+}
+
+/** `action` 自由文本 → 页面四档图标/词条。未识别的一律 `other`(词条已存在,不新增 i18n)。 */
+function auditTypeOf(action: string): string {
+  const a = action.toLowerCase()
+  if (a.includes('login') || a.includes('logout') || a.includes('auth')) return 'login'
+  if (a.includes('permission') || a.includes('role') || a.includes('password')) return 'permission'
+  if (a.includes('sensitive') || a.includes('delete') || a.includes('transfer')) return 'sensitive'
+  return 'other'
 }
 
 const DEFAULT_ICON = ShieldAlert
@@ -58,8 +83,9 @@ export default function SecurityAuditPage() {
     queryKey: ['security-audit'],
     enabled: allow,
     queryFn: async () => {
-      const r = await fetchApi<AuditEvent[]>('/api/security-audit')
-      if (r.success && r.data) return r.data
+      // 响应是 {list,total,page,pageSize},不是裸数组 ⇒ 取 .list
+      const r = await fetchApi<SecurityAuditResponse>('/api/security/audit')
+      if (r.success && r.data) return r.data.list ?? []
       return []
     },
   })
@@ -103,17 +129,18 @@ export default function SecurityAuditPage() {
               </TableHeader>
               <TableBody>
                 {list.map((ev) => {
-                  const Icon = TYPE_ICON[ev.type] ?? DEFAULT_ICON
+                  const type = auditTypeOf(ev.action)
+                  const Icon = TYPE_ICON[type] ?? DEFAULT_ICON
                   return (
                     <TableRow key={ev.id}>
                       <TableCell className="px-4 py-2.5">
                         <span className="flex items-center gap-1.5 text-sm font-medium">
                           <Icon className="h-4 w-4 text-muted-foreground" />
-                          {t(TYPE_KEY[ev.type] ?? 'type.other')}
+                          {t(TYPE_KEY[type] ?? 'type.other')}
                         </span>
                       </TableCell>
-                      <TableCell className="px-4 py-2.5">{ev.description}</TableCell>
-                      <TableCell className="px-4 py-2.5 text-muted-foreground">{ev.ip}</TableCell>
+                      <TableCell className="px-4 py-2.5">{ev.action}</TableCell>
+                      <TableCell className="px-4 py-2.5 text-muted-foreground">{ev.ip ?? '-'}</TableCell>
                       <TableCell className="px-4 py-2.5 text-muted-foreground">
                         {fmtDate(ev.createdAt)}
                       </TableCell>
