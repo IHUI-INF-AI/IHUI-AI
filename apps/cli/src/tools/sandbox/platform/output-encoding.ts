@@ -24,6 +24,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { isSurrogateCodePoint } from '../../../../utils/prompt-boundary.js';
 
 /** 环境变量显式覆盖键(Windows 大小写不敏感读取) */
 export const WINDOWS_OUTPUT_ENCODING_OVERRIDE_ENV = 'IHUI_WINDOWS_OUTPUT_ENCODING';
@@ -119,7 +120,7 @@ export function analyzeUtf8Buffer(buffer: Buffer): Utf8BufferAnalysis {
       if ((cont & 0xc0) !== 0x80) return { hasNonAscii, incomplete: false, valid: false };
       codePoint = (codePoint << 6) | (cont & 0x3f);
     }
-    if (codePoint < minCodePoint || codePoint > 0x10ffff || (codePoint >= 0xd800 && codePoint <= 0xdfff)) {
+    if (codePoint < minCodePoint || codePoint > 0x10ffff || isSurrogateCodePoint(codePoint)) {
       return { hasNonAscii, incomplete: false, valid: false };
     }
     i += needed + 1;
