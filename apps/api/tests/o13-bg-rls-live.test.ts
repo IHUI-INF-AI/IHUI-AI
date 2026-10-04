@@ -95,6 +95,8 @@ function runPgCtl(pgBinDir: string, args: string[], timeoutMs: number): string {
     encoding: 'utf8',
     windowsHide: true,
     timeout: timeoutMs,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   const first = (s: unknown): string => String(s ?? '').split(/\r?\n/)[0] ?? ''
   return `${r.status} ${first(r.stdout) || first(r.stderr) || first(r.error?.message)}`.trim()
@@ -225,7 +227,14 @@ suite('o13 真库:旁路 GUC 生效与复位(临时集群,复刻 NOBYPASSRLS 属
             '--data-dir',
             DATA_DIR,
           ],
-          { encoding: 'utf8', windowsHide: true, timeout: 1_500_000, maxBuffer: 64 * 1024 * 1024 },
+          {
+            encoding: 'utf8',
+            windowsHide: true,
+            timeout: 1_500_000,
+            maxBuffer: 64 * 1024 * 1024,
+            // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+            stdio: ['ignore', 'pipe', 'pipe'],
+          },
         )
         expect(boot.error ?? null, `live-check 派生失败:${boot.error?.message ?? ''}`).toBeNull()
         let report: LiveCheckReport | null = null

@@ -16,7 +16,14 @@ import { readFileSync, writeFileSync } from 'node:fs'
 
 const FILE = 'scripts/guardian-runner.mjs'
 const ANCHOR = '  // --- info (1 项) ---'
-const g = (a) => execFileSync('git', ['-c', 'safe.directory=*', ...a], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, windowsHide: true })
+const g = (a) =>
+  execFileSync('git', ['-c', 'safe.directory=*', ...a], {
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
 
 const head = g(['show', `HEAD:${FILE}`])
 const wtPath = FILE
