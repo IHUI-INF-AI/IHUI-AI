@@ -47,7 +47,8 @@ const runGit = (dir, args) =>
       dir,
       ...args,
     ],
-    runOpts,
+    // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
+    { ...runOpts, stdio: ['ignore', 'pipe', 'pipe'] },
   )
 
 const norm = (s) => s.replace(/\r\n/g, '\n')
@@ -76,6 +77,7 @@ function runLive(
   if (anchorFile) env.LIVE_ANCHOR_FILE = anchorFile
   else delete env.LIVE_ANCHOR_FILE
   return spawnSync(process.execPath, [TOOL], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     env,
     encoding: 'utf8',
     windowsHide: true,
@@ -218,6 +220,7 @@ test('T9 用法错误 ⇒ exit 2 且不写盘:缺 msg / 缺 doc / 空正文块 /
   const r3 = runLive(dir, { blockFile: join(inputs, 'block.txt') })
   assert.equal(r3.status, 0, `正常块应可落地:${r3.stdout}|${r3.stderr}`)
   const r4 = spawnSync(process.execPath, [TOOL], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     env: {
       ...process.env,
       LIVE_ROOT: dir,
@@ -344,6 +347,7 @@ test('T12 端到端·整行改写的两型拒绝:锚点已漂 ⇒ 不写盘;插�
   writeFileSync(join(inputs, 'block.txt'), '- 登记甲\n')
   // 互斥档必须**同时**把两个 env 喂进去才测得到(runLive 会替调用方删掉另一个 ⇒ 测的就不是那一型了)
   const both = spawnSync(process.execPath, [TOOL], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     env: {
       ...process.env,
       LIVE_ROOT: dir,

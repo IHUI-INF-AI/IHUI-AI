@@ -1146,7 +1146,9 @@ function payloadIntactViaVerify(text) {
   try {
     const f = join(dir, 'probe.txt')
     writeFileSync(f, text, 'utf8')
+    // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
     const r = spawnSync(process.execPath, [WATERMARK_CLI, 'verify', f], {
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: REPO_ROOT,
       encoding: 'utf8',
       windowsHide: true,

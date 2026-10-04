@@ -81,6 +81,8 @@ test('T6 端到端装车证明:CLI 真跑 --self-test 必须全绿且 rc=0(例�
     windowsHide: true,
     timeout: 300_000,
     maxBuffer: 32 << 20,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   const m = /run-evidence --self-test:(\d+)\/(\d+) 通过/.exec(out)
   assert.ok(m, `自检末行没出现,输出尾部:${out.slice(-160)}`)
@@ -255,6 +257,8 @@ test('T12 --verify --expect-cwd=<同值> ⇒ complete / exit 0,且原样报出 C
         windowsHide: true,
         timeout: 120_000,
         encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe']
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
       },
     )
     assert.match(out, /complete/)
@@ -291,6 +295,8 @@ test('T13 --verify --expect-cwd=<不同值> ⇒ truncated / exit 3(取证面错�
           windowsHide: true,
           timeout: 120_000,
           encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'pipe']
+          // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
         },
       )
     } catch (e) {
@@ -372,7 +378,8 @@ test('T-新 CLI 层:逃逸路径 exit 2 且**一个字节都不写**(拒绝必�
     execFileSync(
       process.execPath,
       [TOOL, '../evidence-escape-should-not-exist.txt', '--', process.execPath, '-e', '0'],
-      { encoding: 'utf8', windowsHide: true, timeout: 30_000 },
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      { encoding: 'utf8', windowsHide: true, timeout: 30_000, stdio: ['ignore', 'pipe', 'pipe'] },
     )
   } catch (e) {
     status = e.status

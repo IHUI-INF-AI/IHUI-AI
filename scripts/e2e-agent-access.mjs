@@ -218,6 +218,8 @@ function evalRealJudges() {
     windowsHide: true,
     maxBuffer: 16 << 20,
     timeout: 60_000,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   const line = (r.stdout || '').trim().split('\n').filter(Boolean).pop()
   if (r.status !== 0 || !line) {
@@ -740,7 +742,8 @@ async function runOfflineChecks() {
   const guard = spawnSync(
     process.execPath,
     [resolve(ROOT, 'scripts/check-capability-catalog.mjs'), '--json'],
-    { cwd: ROOT, encoding: 'utf8', windowsHide: true, maxBuffer: 32 << 20, timeout: 300_000 },
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    { cwd: ROOT, encoding: 'utf8', windowsHide: true, maxBuffer: 32 << 20, timeout: 300_000, stdio: ['ignore', 'pipe', 'pipe'] },
   )
   let guardReport = null
   try {
@@ -786,7 +789,8 @@ async function runOfflineChecks() {
   const selfTest = spawnSync(
     process.execPath,
     [resolve(ROOT, 'scripts/check-capability-catalog.mjs'), '--self-test'],
-    { cwd: ROOT, encoding: 'utf8', windowsHide: true, timeout: 120_000 },
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    { cwd: ROOT, encoding: 'utf8', windowsHide: true, timeout: 120_000, stdio: ['ignore', 'pipe', 'pipe'] },
   )
   add(
     G,

@@ -46,6 +46,8 @@ function repo() {
       encoding: 'utf8',
       windowsHide: true,
       timeout: 300000,
+      stdio: ['ignore', 'pipe', 'pipe']
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     }).trim()
   run('init', '-q', '-b', 'main')
   run('config', 'user.email', 't@t')

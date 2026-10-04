@@ -104,7 +104,8 @@ function isLink(p) {
 }
 
 function run(cmd, args, timeout = STEP_TIMEOUT_MS) {
-  return spawnSync(cmd, args, { windowsHide: true, timeout, encoding: 'utf8' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  return spawnSync(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, timeout, encoding: 'utf8' })
 }
 
 /** 单项改道。dry=true 时只报告要做什么,不动任何文件。
@@ -636,6 +637,8 @@ function selfTest() {
     mkdirSync(dkDst, { recursive: true })
     writeFileSync(join(dkDst, 'k.txt'), 'abc', 'utf8')
     const mk = spawnSync(GIT_BASH, ['/c', 'mklink', '/J', dkSrc, dkDst], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
       encoding: 'utf8',
     })
