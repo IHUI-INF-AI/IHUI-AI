@@ -5,13 +5,14 @@
 /**
  * 学习计划(从 frontend-stub-other-routes.ts 拆分)。
  * GET /study/plans — 学习计划列表(mobile-rn StudyPlanScreen)
- * 基于 lessonSignUps + lessons 聚合,无需新表
+ * 每行仍以**报名记录**为骨架(lesson_sign_ups),leftJoin lessons 取课程名、
+ * leftJoin study_plans 取计划名;无关联计划时 title 回落课程名。
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { success } from '../../utils/response.js'
 import { dbRead } from '../../db/index.js'
-import { lessonSignUps, lessons } from '@ihui/database'
+import { lessonSignUps, lessons, studyPlans } from '@ihui/database'
 
 export const studyPlanRoutes: FastifyPluginAsync = async (server) => {
   server.get('/study/plans', async (request, reply) => {
@@ -19,12 +20,23 @@ export const studyPlanRoutes: FastifyPluginAsync = async (server) => {
       .select({
         id: lessonSignUps.id,
         progress: lessonSignUps.progress,
+        // 显式表别名前缀:lessonSignUps 与 studyPlans 都有 created_at,
+        // 不带前缀会被后 join 的表覆盖 ⇒ 下面 dueDate 的锚点会静默换列。
         createdAt: lessonSignUps.createdAt,
+        // 课程名(lessons.title)—— 一直是对的,courseName 继续用它。
         lessonTitle: lessons.title,
         lessonCount: lessons.lessonCount,
+        // 计划名(study_plans.title)—— leftJoin 上来,无计划时为 NULL。
+        // 别名不叫 title:lessons.title 也在这条 select 里,同名会撞车。
+        planTitle: studyPlans.title,
       })
       .from(lessonSignUps)
       .innerJoin(lessons, eq(lessons.id, lessonSignUps.lessonId))
+      // ↓ **必须 leftJoin,不能 innerJoin**:现状是"每个报名都有行",而报名可能
+      //   没有关联计划(study_plan_id 可空,历史行一律 NULL)。innerJoin 会把
+      //   "只有报名、没有计划"的用户整行过滤掉 —— 那是行为回归(列表凭空少项)。
+      //   leftJoin 下这类行 planTitle 为 NULL,title 回落到课程名。
+      .leftJoin(studyPlans, eq(studyPlans.id, lessonSignUps.studyPlanId))
       .where(and(eq(lessonSignUps.userId, request.userId!), sql`${lessonSignUps.status} != 3`))
       .orderBy(desc(lessonSignUps.createdAt))
     const plans = signups.map((s) => {
@@ -37,7 +49,9 @@ export const studyPlanRoutes: FastifyPluginAsync = async (server) => {
         progress >= 100 ? 'completed' : progress > 0 ? 'inProgress' : 'pending'
       return {
         id: s.id,
-        title: s.lessonTitle,
+        // 计划名优先;没有关联计划(planTitle 为 NULL)时回落课程名。
+        title: s.planTitle ?? s.lessonTitle,
+        // 课程名保持 lessons.title —— 它本来就对,两个字段不再同源。
         courseName: s.lessonTitle,
         targetMinutes,
         completedMinutes,
