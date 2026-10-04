@@ -254,7 +254,7 @@ export default function ParentPortalPage() {
       </header>
 
       {!allow ? (
-        <AuthGatePrompt message="请先登录后查看家长端" />
+        <AuthGatePrompt message={t('needLogin')} />
       ) : (
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
