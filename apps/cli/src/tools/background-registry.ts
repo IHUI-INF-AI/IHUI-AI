@@ -20,8 +20,26 @@ import * as crypto from 'node:crypto';
 import { cleanupWorktree } from './worktree.js';
 // 跨进程台账(状态判据的唯一实现也在那里,本文件不再自己判"进程在不在")
 import { recordHeartbeat, recordTaskSettle, recordTaskStart, type LedgerRecordedTerminal } from './background-ledger.js';
+// 终态播报正文走语言包(AGENTS §30「后台进程的状态词汇是一等契约」+ 守门 70 的硬编码中文棘轮):
+// 新增一档 = 同枚补齐五语言,而不是给文件加豁免或调基线。
+import { t } from '../i18n/index.js';
 
-export type BackgroundTaskStatus = 'running' | 'exited' | 'killed' | 'error';
+/**
+ * 后台任务的可达状态(G-816025 补最后一档 `lost`)。
+ *
+ * `lost` 不是"失败的另一种写法":它标的是**结果永远拿不回来** —— 进程已经不在、
+ * 内容一点没留下、退出码也没记到、当场还没有等待者能把终态接走。此前这一格落在
+ * `exited + exitCode:null` 上,与"跑完了且我们没拿到码"同形,台账另有 `ended-unknown`
+ * 承接它(见 `toLedgerTerminal`),而注册表面**没有档可写** —— 票面称之"按哪一档写没有定义"。
+ *
+ * 刻意与 `packages/types` 的两套对外契约值域**无关**(不扩那边、也不借那边的名字):
+ * `AGENT_TASK_STATUSES` 六档 = triage/todo/ready/in_progress/blocked/done,
+ * 第二域四档 = running/completed/failed/canceled —— 两边都不含 `lost`,
+ * 所以这一档不触碰落库列 / REST `z.enum` / SSE 载荷(守门 151 SV2 的两域不相交判据照旧成立)。
+ * 同族先例:`apps/cli/src/stream-tool-ledger.ts:33` 的 `LedgerState` 早就有 `lost`,
+ * 是另一个域(流式工具台账),两处不是同一件事的两种写法。
+ */
+export type BackgroundTaskStatus = 'running' | 'exited' | 'killed' | 'error' | 'lost';
 
 export interface BackgroundTask {
   id: string;
@@ -128,6 +146,11 @@ function cleanupTaskWorktree(task: BackgroundTask): void {
 function toLedgerTerminal(status: BackgroundTaskStatus, exitCode: number | null | undefined): LedgerRecordedTerminal {
   if (status === 'killed') return 'cancelled';
   if (status === 'error') return 'failed';
+  // G-816025:`lost` 在台账侧**不新立档**。`ended-unknown` 的原话就是它该表达的语义
+  // ("进程确实结束了,但结果没记到"),而 `background-ledger.ts` 的 `LedgerRecordedTerminal`
+  // 值域是跨进程契约(旧检出读得到新值就解不了),扩那一侧属另一票。
+  // 等价性由测试钉住:lost 与 (exited + 拿不到码) 经本函数必得同一个终态。
+  if (status === 'lost') return 'ended-unknown';
   if (exitCode === 0) return 'succeeded';
   if (typeof exitCode === 'number') return 'failed';
   return 'ended-unknown';
@@ -238,14 +261,40 @@ function addSettleListener(id: string, fn: SettleListener): () => void {
  *     摘掉,于是第一个抛错的监听者会连带吞掉排在它后面所有等待者的终态 —— 与本文件
  *     `clearAllTasks` 里那句"留一个没人回答的等待 = Promise 泄漏"是同一条禁令。
  *     现只摘**真送达**的那些,抛错的原样留在集合里等下一次投递重试。
+ *
+ * G-816025 新增的前半段 = **五道有序校验走一遍**(`decideTerminalSettlement`):
+ * 归属 → 幂等 → 可观察性 → 跨生产者去重 → 容量。它同时管两件事 ——
+ *  a) 确无结果去处时把条目落成 `lost`,**并且照样播报**(旧实现在这里直接 `return`,
+ *     于是"结果丢了"是一个既不落档也不出声的洞;只补档位不发通知等于把静默换个名字);
+ *  b) 容量截断只许在归属与幂等**之后**发生 —— 止步于前四道的条目拿不到通知文本,
+ *     也就结构上不可能带 `[truncated]`(判据③的载体)。
+ * 后半段的投递语义(claim / 回退 / 逐个摘除)一字未改;三条各去掉一条,红的必须是不同的用例。
  */
 function notifySettled(task: BackgroundTask): void {
   const set = settleListeners.get(task.id);
+  const hasDirectWaiter = !!set && set.size > 0;
+  const decision = decideTerminalSettlement({
+    ownsEntry: isTerminalStatus(task.status),
+    alreadyClaimed: task.notified,
+    hasObservableOutcome: hasObservableOutcome(task),
+    hasDirectWaiter,
+    handledByAnotherProducer: false,
+    buildNotice: (outcome) => terminalNoticeOf(task, outcome),
+  });
+  // 可观察性判不过 ⇒ 结果没有任何去处 ⇒ 显式落成 lost。
+  // 台账侧无需改次序:lost 与 (exited + 拿不到码) 经 toLedgerTerminal 得同一个 ended-unknown,
+  // 所以 handlers 里"先 ledgerSettle 再 notifySettled"的既有顺序不受影响(等价性由测试钉住)。
+  if (decision.markLost) task.status = 'lost';
+  if (decision.consumeClaim) task.notified = true;
+  if (decision.emitNotice && decision.notification !== null) emitTerminalNotice(decision.notification);
+  // 止步于归属 / 幂等 / 跨生产者去重 ⇒ 一律不向等待者投递(迟到快照不得二次投递,原语义保持)。
+  if (decision.haltedAt !== null) return;
   // 没有等待者就没有"待投递的东西",也就不该消耗 claim —— 位一旦被一个不存在的接收方
   // 占掉,随后登记进来的等待者会被 ① 拒收,而它从来没有被通知过。
+  // (settled 一支保持这条;只有 lost 在上面已经消耗过位 —— 那一支此刻必然没有等待者。)
+  // 这里重读 `set` 而不是用 `hasDirectWaiter`:同一条件,但 TS 只能在直接判空后收窄类型。
   if (!set || set.size === 0) return;
-  if (task.notified) return; // ① 本轮已投递过,不重复
-  task.notified = true;
+  task.notified = true; // ① claim 先行(投递一支)
   const snapshot = toSnapshot(task);
   const failures: unknown[] = [];
   // 迭代副本:监听者体内会走 waitForTask 的 cleanup 自行摘除自己(载荷性动作),
@@ -645,6 +694,203 @@ export function formatSettledTaskNotification(input: SettledTaskNotificationInpu
   return truncateTaskNotification(lines.join('\n'));
 }
 
+// ==================== 结果回灌历史前的五道有序校验(G-816025) ====================
+
+/**
+ * 一次终态结算必须**按序**走的五道判据。顺序即语义,不可重排:
+ *
+ *  ① `ownership`          归属 —— 这条终态事件属不属于该条目**当前这一轮**生命周期。
+ *                          我方载体 = 条目已落终态(`isTerminalStatus`):各 handler 之前
+ *                          的终态单向门已经把迟到快照挡在门外,这里再判一次是因为
+ *                          `__test__.notifySettled` 可以在没有事件的情况下被直接调用。
+ *  ② `idempotency`        幂等 —— 本轮是否已经 claim 过(`notified` 位)。已经投递过
+ *                          就不许再产出第二条通知(它与 `notifySettled` 文档里那条
+ *                          "① claim 先行"是同一个事实,只是在这里落成判据链的第二格,不重复实现)。
+ *  ③ `observability`      可观察性 —— 结果**还有没有去处**。三者皆无(内容没留、
+ *                          成败没记、当场没人接)⇒ 判 `lost`,**但通知照发**。
+ *  ④ `crossProducerDedup` 跨生产者去重 —— 这条终态已由另一个生产者处理过 ⇒ **仍 claim,但不发通知**。
+ *  ⑤ `capacity`           容量 —— 只有前四道都走完,才允许截断并产出通知文本。
+ *
+ * 为什么容量必须排在最后:截断会把"还该发通知"的条目正文先斩掉;而归属/幂等不合格的条目
+ * 根本不该产出一条看起来完整的通知 —— 上游同构:`background-tasks.ts:95-106`(归属)与
+ * `:130-145`(可观察性 ⇒ lost 且仍发通知)都排在 `task-output.ts:199-217` 的截断之前。
+ *
+ * 我方与上游的**取材口径差异**(如实登记,不得读成"已等价"):上游有全量落盘的输出文件,
+ * `hasSnapshotProvider` 量的是"文件还在不在";我方无落盘,能回灌进历史的只有条目自己留住的
+ * 两个窗口、记到的退出码、以及当场还活着的等待者 —— 所以 `hasObservableOutcome` 量的是这三样。
+ * 同理 `handledByAnotherProducer`:现读我方**没有第二个终态生产者**(`apps/cli/src/subagents`
+ * 不 import 本注册表;`git grep -nE "enqueueBackgroundTaskNotification|backgroundTaskNotification|pendingNotifications" HEAD -- apps/cli/src` 零命中),
+ * 故生产调用点恒传 `false`。判据先建在有序链里,是为了第二生产者落地时**只改这一个入参**、
+ * 不在别处再抄一遍顺序 —— 两处算同一件事必漂移。
+ */
+export type SettlementCheckName = 'ownership' | 'idempotency' | 'observability' | 'crossProducerDedup' | 'capacity';
+
+export interface TerminalSettlementEvidence {
+  /** ① 事件归属于该条目当前这一轮生命周期。 */
+  ownsEntry: boolean;
+  /** ② 本轮已经 claim 过(`notified` 位为真)。 */
+  alreadyClaimed: boolean;
+  /** ③ 结果还有去处(之一):内容留着 / 成败已记 / 终止原因已记。 */
+  hasObservableOutcome: boolean;
+  /** ③ 结果还有去处(之二):此刻有直接等待者能把终态接走。 */
+  hasDirectWaiter: boolean;
+  /** ④ 这条终态已由另一个生产者处理过。 */
+  handledByAnotherProducer: boolean;
+  /**
+   * ⑤ 正文的**构造函数**,不是正文本身 —— 只有走到容量步才会被调用。
+   * 之所以给构造函数而不是字符串:`lost` 这句结论本身要进正文,而它要等第③步判完才知道。
+   * 前四道止步 ⇒ 一次都不调用 ⇒ 拿不到文本,也就带不出 `[truncated]`(判据③的载体)。
+   */
+  buildNotice: (outcome: TerminalSettlementOutcome) => SettledTaskNotificationInput;
+}
+
+export type TerminalSettlementOutcome = 'settled' | 'lost' | 'not-owned' | 'already-claimed' | 'deduped-by-producer';
+
+export interface TerminalSettlementDecision {
+  outcome: TerminalSettlementOutcome;
+  /** 按序**通过**的判据名;`haltedAt` 非空时,其后的判据一律不在列。 */
+  passedChecks: SettlementCheckName[];
+  /** 止步于哪一道;`null` = 五道走完(此时 `notification` 才有值)。 */
+  haltedAt: SettlementCheckName | null;
+  /** 条目该不该落成 `lost` 终态。 */
+  markLost: boolean;
+  /** 要不要播报 —— `lost` 必为 true(票面判据①:补了档位而事件仍静默 = 把静默换个名字)。 */
+  emitNotice: boolean;
+  /** 该不该消耗 claim:`lost` 播报与跨生产者去重都要(后者"不发通知但仍 claim",上游 :484-504)。 */
+  consumeClaim: boolean;
+  /** 只有走到 ⑤ 容量步才有文本;前四道止步 ⇒ `null`。 */
+  notification: string | null;
+}
+
+/**
+ * 五道有序校验的唯一实现(纯函数:不读注册表、不读进程、不写台账,所以能被构造面逐条问出颜色)。
+ *
+ * 三条判读边界,每条都有成对用例钉着:
+ *  - **lost 不是失败**:它不发"失败通知",它发的是"结果拿不回来"这件事本身,所以
+ *    `emitNotice` 与 `markLost` 必须同时为真,不许只落档位不出声。
+ *  - **有去处不得判 lost**(反向锁):否则等于把所有终态都塞进新档,把 `exited`/`killed`
+ *    这些已知结论洗成"不知道"。
+ *  - **止步即无文本**:前四道任何一道拦下,`notification` 恒为 `null` 且 `buildNotice`
+ *    一次都不调用 —— 截断标记因此不可能出现在不合格的条目上。
+ */
+export function decideTerminalSettlement(evidence: TerminalSettlementEvidence): TerminalSettlementDecision {
+  const passed: SettlementCheckName[] = [];
+  const halt = (at: SettlementCheckName, outcome: TerminalSettlementOutcome, consumeClaim: boolean): TerminalSettlementDecision => ({
+    outcome,
+    passedChecks: passed.slice(),
+    haltedAt: at,
+    markLost: false,
+    emitNotice: false,
+    consumeClaim,
+    notification: null,
+  });
+
+  // ① 归属:不合格连正文都不构造 —— 更谈不上截断。
+  if (!evidence.ownsEntry) return halt('ownership', 'not-owned', false);
+  passed.push('ownership');
+
+  // ② 幂等:本轮已经 claim 过 ⇒ 不再产出第二条通知。
+  if (evidence.alreadyClaimed) return halt('idempotency', 'already-claimed', false);
+  passed.push('idempotency');
+
+  // ③ 可观察性:内容留着 / 成败已记 / 有人当场接得住 —— 三者皆无才是"无可观察源"。
+  const hasSomewhereToGo = evidence.hasObservableOutcome || evidence.hasDirectWaiter;
+  const outcome: TerminalSettlementOutcome = hasSomewhereToGo ? 'settled' : 'lost';
+  passed.push('observability');
+
+  // ④ 跨生产者去重:另一处已经处理过 ⇒ 仍要 claim(免得下一轮再判一遍),但不发通知。
+  //    且此时结果并非"无去处" —— 不得再报 lost,所以这一支把 outcome 覆盖掉。
+  if (evidence.handledByAnotherProducer) return halt('crossProducerDedup', 'deduped-by-producer', true);
+  passed.push('crossProducerDedup');
+
+  // ⑤ 容量:最后一步才截断(顺序锁的正向半边 —— 合格的条目**必须**能拿到截断后的文本,
+  //    否则"止步即无文本"那条判据可以靠"永远不产出"蒙过去)。斩法复用既有那一份实现,
+  //    不在这里抄第二份。
+  const notification = formatSettledTaskNotification(evidence.buildNotice(outcome));
+  passed.push('capacity');
+  return {
+    outcome,
+    passedChecks: passed.slice(),
+    haltedAt: null,
+    markLost: outcome === 'lost',
+    // settled 一支的"通知"载体是等待者投递(见 notifySettled 后半段),不从这里播报;
+    // 这里只补"当场没有人可投、又没有去处"那一格 —— 也就是 lost。不播报 settled,
+    // 否则每一次正常收尾都往 stderr 打一行,把这条出口变成噪音。
+    emitNotice: outcome === 'lost',
+    consumeClaim: outcome === 'lost',
+    notification,
+  };
+}
+
+/**
+ * ③ 的判据实现,**只此一份**(注册表与测试都问它,不许在别处再写一遍"有没有去处")。
+ *
+ * 三条载体按"信息量"排:内容留着 > 成败已记 > 终止原因已记。`killed`/`error` 计入第三条:
+ * 那两档是**已知的结论**(谁杀的 / 出错了),把它们折进 lost 就是把已知洗成未知。
+ * 所以真正落到 `lost` 的只剩一型:`close(null, null)` —— 进程没了,退出码没有、信号也没有、
+ * 一个字节输出都没留(Windows 上外部终止的典型形态,`toLedgerTerminal` 的注释早就登记过它)。
+ */
+function hasObservableOutcome(t: BackgroundTask): boolean {
+  if (t.totalStdoutChars > 0 || t.totalStderrChars > 0) return true;
+  if (typeof t.exitCode === 'number') return true;
+  if (t.status === 'killed' || t.status === 'error') return true;
+  return false;
+}
+
+/**
+ * 终态播报正文(状态事实行 + 两个正文节)。
+ *
+ * 与 `builtins.ts` 的 `wait_command` 那段状态行同形而**不是它的一份副本**:那一段是
+ * "模型问一次、当场答一次"的工具结果(带 `timed-out-unknown` 等等待侧才有的档位),
+ * 这一段是"没人问也喊一声"的播报。两者合并需要改 `builtins.ts` 与 `repl.ts`(不在本票面),
+ * 差异已登记在交付报告里,不在这里顺手统一措辞。
+ */
+function terminalNoticeOf(task: BackgroundTask, outcome: TerminalSettlementOutcome): SettledTaskNotificationInput {
+  const lines = [
+    t('cli.bgNoticeStatus', {
+      id: task.id,
+      status: outcome === 'lost' ? 'lost' : task.status,
+      exitCode: task.exitCode ?? '-',
+    }),
+  ];
+  if (task.timedOut) lines.push(t('cli.bgNoticeTimedOut'));
+  if (outcome === 'lost') {
+    lines.push(t('cli.bgNoticeNoObservableSource'));
+  }
+  return {
+    status: lines.join('\n'),
+    result: task.stdoutBuf.trim() ? `[stdout]\n${task.stdoutBuf.trimEnd()}` : undefined,
+    error: task.stderrBuf.trim() ? `[stderr]\n${task.stderrBuf.trimEnd()}` : undefined,
+  };
+}
+
+/**
+ * 播报出口类型。我方今天**没有**异步通知注入通道(上面 `handledByAnotherProducer` 那条现读),
+ * 所以"通知照发"能落到的载体只有这一行 stderr —— 与投递失败诊断(`notifySettled` 后半段)
+ * 同一形态,不另立日志设施。**通知通道一旦落地,这个出口的发射点必须改走它**,
+ * 而不是把这行留着当第二份真相。
+ */
+type TerminalNoticeSink = (notice: string) => void;
+
+const stderrTerminalNoticeSink: TerminalNoticeSink = (notice) => {
+  try {
+    process.stderr.write(`[background-registry] ${notice}\n`);
+  } catch {
+    /* 播报出口本身抛错不许把终态处理带崩(与投递失败诊断同一条纪律) */
+  }
+};
+
+let terminalNoticeSink: TerminalNoticeSink = stderrTerminalNoticeSink;
+
+function emitTerminalNotice(notice: string): void {
+  terminalNoticeSink(notice);
+}
+
+/** 测试通道:换掉播报出口(传 `null` 复原成默认的 stderr)。生产代码不调。 */
+function setTerminalNoticeSink(sink: TerminalNoticeSink | null): void {
+  terminalNoticeSink = sink ?? stderrTerminalNoticeSink;
+}
+
 /**
  * `waitForTask` 的四种结论,必须**互相可分辨**。
  *
@@ -1011,15 +1257,25 @@ export function clearAllLoops(): void {
 /**
  * 测试通道(本端既有形态:`apps/cli/src/plugins/path-safety.ts:237`)。
  *
- * 为什么只暴露这两个:投递的 claim/回退语义要能**脱离真实进程事件**被驱动
+ * 为什么只暴露这四个:投递的 claim/回退语义要能**脱离真实进程事件**被驱动
  * (一个会抛错的监听者体内没有任何生产入口能构造出来 —— `waitForTask` 自己的监听体
  * 只做 resolve,而 resolve 不抛)。把 `addSettleListener`/`notifySettled` 交出去,
  * 判据就能被成对用例正面问出"抛错之后位有没有回退、下一次还能不能投",
  * 而不必靠改产品代码去撞一条不可达分支。
+ * `setTerminalNoticeSink`(G-816025)是同一个理由的第二格:"lost 也要播报"必须能被
+ * 问出**播报文本**与**播报次数**(0 次与 1 次的差别就是本票判据①的全部内容),
+ * 而默认出口是 stderr —— 靠抓 stderr 断言会把测试绑在控制台编码上(§26 那类码页陷阱),
+ * 所以给一个可换的出口,并且只给换出口、不给换判据。
+ * `toLedgerTerminal`(G-816025)是第三格:`lost` 在台账侧**不新立档**,它与
+ * `exited + 拿不到退出码` 必须得同一个 `ended-unknown` —— 这条等价性是本票敢"先记账
+ * 再定终态"(不重排 handlers)的唯一理由;它一旦被改成 `failed`,"结果拿不回来"就会被
+ * 渲染成"跑失败了",而账面什么都不会红。判据本身没有值域可跑,只能问这一个纯函数。
  * 终态单向门**不放**进这个通道:它只认 `task.status`,由真事件驱动才有意义。
  */
 export const __test__ = {
   addSettleListener,
   notifySettled,
+  setTerminalNoticeSink,
+  toLedgerTerminal,
 };
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
