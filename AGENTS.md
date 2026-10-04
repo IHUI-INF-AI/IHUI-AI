@@ -685,7 +685,32 @@ pnpm dev                                       # 启动所有服务(web + api + 
 
 ## 交付物
 - 完整代码 + 自验通过 + 一句话总结
+
+## 我方现状(强制,2026-10-04 立 · G-830)
+<每条前提一行,格式:`<claim> | <token> | git grep -c -F <token> HEAD -- <scope…>`;
+ claim 只能是 exists / absent。禁止只写结论文本("我方已有 X")而不给 token 与可重跑命令。>
 ```
+
+### 我方现状格:前提自检(强制,2026-10-04 立,G-830)
+
+**为什么这道强制格存在(票面实证,不是假想)**:G-830 那一轮 5 枚并行代理里**三处由派单线给的前提被证伪** —— 派单人写下的"我方已有 `scripts/check-virtualization-coverage.mjs`"在 HEAD 面根本不存在;"SQLite 打开原语在 `apps/cli/src/db.ts:275-281`"该文件在 HEAD 也不存在。后果与"正向捏造"同型:**一句假的"我方已有"直接关掉一条真 P0 待办,而账面什么都看不出来** —— 台账上只留下一行读起来通顺的登记,没人看得出它是编的。
+
+**为什么这类前提必然腐烂**:本仓台账里大量票的前提是**登记当时成立**的("现全仓 0 处"、"现读只有 2 处")。HEAD 会被后续几十枚提交推进,几个月后同一句前提已经不成立,而照抄它去改范围**会砍错对象**。所以前提不能是结论,只能是**可重跑命令**。
+
+**机器检查(本节不是纯文档,判据住在代码里)**:
+
+```
+node scripts/check-dispatch-premise.mjs --ticket <票面.json> [--out <产物.json>]
+node scripts/check-dispatch-premise.mjs --self-test
+node --test scripts/tests/check-dispatch-premise.test.mjs
+```
+
+- 票面 JSON 形如 `{"ticket":"G-xxx","premises":[{"claim":"exists","token":"<标识>","probe":"git grep -c -F <标识> HEAD -- apps packages scripts"}]}`。
+- **作用域强制排除台账自身**(`PROJECT_PLAN.md` / `.ihui-agent`):票面把标识写进台账之后,全仓 `git grep` 读数至少是 1 而那一处命中就是台账自己 —— 不排除,这道门会被"台账引用了它"洗成永绿机(实测:`check-virtualization-coverage` 在 HEAD 全仓 = 1 命中,唯一命中文件 `HEAD:PROJECT_PLAN.md`;排除台账后在 apps/packages/scripts 面 = 0)。
+- 退出码:`0` 逐条仍成立 / `1` **至少一条前提已腐烂**(红字 + 结构化字段 + 读数产物落盘)/ `2` 判不出(缺 `--ticket`、票面读不了或缺 `premises`、probe 不是 `git grep -c -F … HEAD` 形状、仓库不可问)。**"没写前提"与"前提为假"必须分开** —— 缺 `premises` 判 2,绝不判通过。
+- 读数产物(默认 `.dispatch-premise-report.json`)记 `ticket / head / scope / probes[] / verdict / rot`,派单那一刻的读数**必须留下来可追责**,只往 stdout 打印不算交付。
+
+**代理回报"路径不存在"时按硬停手处理**:不得改范围、不得自行换成"看起来等价"的落点、不得把票面结论当既定事实往下做 —— 先回票面人,由票面人现读当前 HEAD 面后重新派单。
 
 ### 联动规则
 
