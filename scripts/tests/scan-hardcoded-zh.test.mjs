@@ -62,7 +62,8 @@ function runScript(args = [], opts = {}) {
   return spawnSync(process.execPath, [SCRIPT_PATH, ...rooted], {
     cwd,
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
   })
 }

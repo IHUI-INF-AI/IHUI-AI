@@ -375,10 +375,11 @@ test('T10 装车锁:converge 必须真的用 lib 的那一份出处判据,且每
 // ══════════════════════════════════════════════════════════════════════
 
 function shGit(args, cwd) {
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   return execFileSync('git', args, {
     cwd,
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
     timeout: 120_000,
   })
@@ -476,10 +477,11 @@ test('T11 e2e:converge 在"本地落后 + 一条四小时前的他人读数"下�
       }),
     )
 
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     const r = spawnSync(process.execPath, [CONVERGE_PATH, '--remotes=origin'], {
       cwd: work,
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
       timeout: 180_000,
       maxBuffer: 64 * 1024 * 1024,

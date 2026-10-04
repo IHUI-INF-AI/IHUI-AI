@@ -75,7 +75,9 @@ function runScript(root, extraArgs = []) {
     {
       cwd: root,
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      // 返回值被消费(整个 result 被断言)⇒ stdout 仍须 pipe,只把 stdin 切掉
+      stdio: ['ignore', 'pipe', 'pipe'],
       // 绝对 node 二进制 + windowsHide + 数字 timeout(AGENTS §5b / §守门 52):
       // 裸 'node' 依赖 PATH,钩子/服务上下文里取不到;无 windowsHide 会为每次派生弹可见控制台。
       windowsHide: true,

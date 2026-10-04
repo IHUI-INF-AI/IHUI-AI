@@ -17,20 +17,20 @@ const SCRIPT_PATH = join(__dirname, '..', 'sync-lost-commit-tags.mjs')
 // ─── 辅助:创建临时 git 仓库(含初始 commit) ──────────────
 function createTempRepo() {
   const dir = mkScratch('ihui-tag-sync-')
-  execSync('git init -b main', { cwd: dir, stdio: 'pipe' })
-  execSync('git config user.email test@test.com', { cwd: dir, stdio: 'pipe' })
-  execSync('git config user.name test', { cwd: dir, stdio: 'pipe' })
-  execSync('git config commit.gpgsign false', { cwd: dir, stdio: 'pipe' })
+  execSync('git init -b main', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  execSync('git config user.email test@test.com', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  execSync('git config user.name test', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  execSync('git config commit.gpgsign false', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   writeFileSync(join(dir, 'README.md'), '# init\n')
-  execSync('git add README.md', { cwd: dir, stdio: 'pipe' })
-  execSync('git commit -m "init"', { cwd: dir, stdio: 'pipe' })
+  execSync('git add README.md', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  execSync('git commit -m "init"', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   return dir
 }
 
 // 辅助:创建临时 bare 仓库(作为 origin)
 function createTempBareOrigin() {
   const dir = mkScratch('ihui-tag-origin-')
-  execSync('git init --bare -b main', { cwd: dir, stdio: 'pipe' })
+  execSync('git init --bare -b main', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   return dir
 }
 
@@ -40,8 +40,8 @@ function createSyncedRepoWithOrigin() {
   const origin = createTempBareOrigin()
   // Windows 路径转正斜杠(git remote add 兼容)
   const originUrl = origin.replace(/\\/g, '/')
-  execSync(`git remote add origin "${originUrl}"`, { cwd: work, stdio: 'pipe' })
-  execSync('git push -u origin main', { cwd: work, stdio: 'pipe' })
+  execSync(`git remote add origin "${originUrl}"`, { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  execSync('git push -u origin main', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   return { work, origin }
 }
 
@@ -50,7 +50,8 @@ function runScript(args = [], opts = {}) {
   return spawnSync('node', [SCRIPT_PATH, ...args], {
     cwd: opts.cwd || process.cwd(),
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, ...opts.env },
   })
 }
@@ -60,7 +61,8 @@ function remoteHasTag(workDir, tagName) {
   const out = execSync(`git ls-remote origin "refs/tags/${tagName}"`, {
     cwd: workDir,
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   }).trim()
   return out.length > 0
 }
@@ -70,7 +72,8 @@ function localHasTag(workDir, pattern) {
   const out = execSync(`git tag -l "${pattern}"`, {
     cwd: workDir,
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   }).trim()
   return out.length > 0
 }
@@ -130,7 +133,7 @@ test('CLI: --check --json 在干净仓库 → exit 0 + JSON status=ok', () => {
 test('反例:无 origin 但本地**有** lost-commit tag ⇒ 不得走"跳过"分支(那正是备份线缺失的故障)', () => {
   const dir = createTempRepo() // 该夹具不配 origin
   try {
-    execSync('git tag lost-commit/orphan HEAD', { cwd: dir, stdio: 'pipe' })
+    execSync('git tag lost-commit/orphan HEAD', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const r = runScript(['--check'], { cwd: dir })
     assert.notEqual(
       r.status,
@@ -146,7 +149,7 @@ test('反例:无 origin 但本地**有** lost-commit tag ⇒ 不得走"跳过"�
 test('CLI: --check --json 有仅本地 lost-commit tag → exit 1 + JSON status=fail', () => {
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
-    execSync('git tag lost-commit/test-local HEAD', { cwd: work, stdio: 'pipe' })
+    execSync('git tag lost-commit/test-local HEAD', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const r = runScript(['--check', '--json'], { cwd: work })
     assert.equal(r.status, 1, `仅本地 tag 应 exit 1,实际 ${r.status}`)
     const result = JSON.parse(r.stdout.trim())
@@ -177,8 +180,8 @@ test('CLI: --auto-push --dry-run 有 tag → dry-run,远端无 tag', () => {
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
     // 创建两种 tag 避免 glob refspec 空匹配失败
-    execSync('git tag lost-commit/dry-run-test HEAD', { cwd: work, stdio: 'pipe' })
-    execSync('git tag backup/dry-run-snap HEAD', { cwd: work, stdio: 'pipe' })
+    execSync('git tag lost-commit/dry-run-test HEAD', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+    execSync('git tag backup/dry-run-snap HEAD', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const r = runScript(['--auto-push', '--dry-run'], { cwd: work })
     assert.equal(r.status, 0, `dry-run 应 exit 0,实际 ${r.status}`)
     assert.match(r.stdout, /dry-run/, '应显示 dry-run')
@@ -194,8 +197,8 @@ test('CLI: --auto-push --dry-run 有 tag → dry-run,远端无 tag', () => {
 test('CLI: HUSKY_SKIP_TAG_SYNC=1 + --auto-push → 跳过 exit 0', () => {
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
-    execSync('git tag lost-commit/skip-test HEAD', { cwd: work, stdio: 'pipe' })
-    execSync('git tag backup/skip-snap HEAD', { cwd: work, stdio: 'pipe' })
+    execSync('git tag lost-commit/skip-test HEAD', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+    execSync('git tag backup/skip-snap HEAD', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const r = runScript(['--auto-push'], { cwd: work, env: { HUSKY_SKIP_TAG_SYNC: '1' } })
     assert.equal(r.status, 0, `SKIP + auto-push 应 exit 0,实际 ${r.status}`)
     assert.match(r.stdout, /已跳过|HUSKY_SKIP_TAG_SYNC/, '应显示跳过信息')
@@ -212,9 +215,9 @@ test('CLI: HUSKY_SKIP_TAG_SYNC=1 + --fetch → 不跳过(执行 fetch + 拉回 t
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
     // 在 origin 上创建 tag(通过 work 创建 + push,然后本地删除)
-    execSync('git tag lost-commit/skip-fetch HEAD', { cwd: work, stdio: 'pipe' })
-    execSync('git push origin lost-commit/skip-fetch', { cwd: work, stdio: 'pipe' })
-    execSync('git tag -d lost-commit/skip-fetch', { cwd: work, stdio: 'pipe' })
+    execSync('git tag lost-commit/skip-fetch HEAD', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+    execSync('git push origin lost-commit/skip-fetch', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+    execSync('git tag -d lost-commit/skip-fetch', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     assert.ok(!localHasTag(work, 'lost-commit/skip-fetch'), '前置:本地无 tag')
     // SKIP=1 + --fetch → 应执行 fetch(不跳过)
     const r = runScript(['--fetch'], { cwd: work, env: { HUSKY_SKIP_TAG_SYNC: '1' } })
@@ -233,8 +236,8 @@ test('CLI: HUSKY_SKIP_TAG_SYNC=1 + --fetch → 不跳过(执行 fetch + 拉回 t
 test('检测: 本地 lost-commit/* tag + 已 push 到 origin → check exit 0', () => {
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
-    execSync('git tag lost-commit/synced HEAD', { cwd: work, stdio: 'pipe' })
-    execSync('git push origin lost-commit/synced', { cwd: work, stdio: 'pipe' })
+    execSync('git tag lost-commit/synced HEAD', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+    execSync('git push origin lost-commit/synced', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const r = runScript(['--check'], { cwd: work })
     assert.equal(r.status, 0, `本地+远端一致应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /lost-commit\/synced/, 'stdout 应列出该 tag')
@@ -247,7 +250,7 @@ test('检测: 本地 lost-commit/* tag + 已 push 到 origin → check exit 0', 
 test('检测: 本地 lost-commit/* tag 未 push → check exit 1(仅本地)', () => {
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
-    execSync('git tag lost-commit/only-local HEAD', { cwd: work, stdio: 'pipe' })
+    execSync('git tag lost-commit/only-local HEAD', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const r = runScript(['--check'], { cwd: work })
     assert.equal(r.status, 1, `仅本地 tag 应 exit 1,实际 ${r.status}`)
     assert.match(r.stdout, /仅本地|未 push/, '应报告仅本地/未 push')
@@ -261,9 +264,9 @@ test('检测: 本地 lost-commit/* tag 未 push → check exit 1(仅本地)', ()
 test('检测: origin 有 lost-commit/* tag 本地缺失 → check exit 1(仅远端)', () => {
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
-    execSync('git tag lost-commit/only-remote HEAD', { cwd: work, stdio: 'pipe' })
-    execSync('git push origin lost-commit/only-remote', { cwd: work, stdio: 'pipe' })
-    execSync('git tag -d lost-commit/only-remote', { cwd: work, stdio: 'pipe' })
+    execSync('git tag lost-commit/only-remote HEAD', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+    execSync('git push origin lost-commit/only-remote', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+    execSync('git tag -d lost-commit/only-remote', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const r = runScript(['--check'], { cwd: work })
     assert.equal(r.status, 1, `仅远端 tag 应 exit 1,实际 ${r.status}`)
     assert.match(r.stdout, /仅远端|本地缺失/, '应报告仅远端/本地缺失')
@@ -277,8 +280,8 @@ test('检测: origin 有 lost-commit/* tag 本地缺失 → check exit 1(仅远�
 test('检测: 本地有 backup/* tag + 已 push → check exit 0', () => {
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
-    execSync('git tag backup/snapshot-1 HEAD', { cwd: work, stdio: 'pipe' })
-    execSync('git push origin backup/snapshot-1', { cwd: work, stdio: 'pipe' })
+    execSync('git tag backup/snapshot-1 HEAD', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+    execSync('git push origin backup/snapshot-1', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const r = runScript(['--check'], { cwd: work })
     assert.equal(r.status, 0, `backup tag 已 push 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /backup\/snapshot-1/, 'stdout 应列出该 tag')
@@ -294,8 +297,8 @@ test('auto-push: 本地有 tag → push 到 origin + 验证远端有 tag', () =>
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
     // 创建两种 tag(避免 glob refspec 空匹配导致 push 失败)
-    execSync('git tag lost-commit/push-test HEAD', { cwd: work, stdio: 'pipe' })
-    execSync('git tag backup/push-snap HEAD', { cwd: work, stdio: 'pipe' })
+    execSync('git tag lost-commit/push-test HEAD', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+    execSync('git tag backup/push-snap HEAD', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     assert.ok(!remoteHasTag(work, 'lost-commit/push-test'), '前置:远端无 lost-commit tag')
     assert.ok(!remoteHasTag(work, 'backup/push-snap'), '前置:远端无 backup tag')
     const r = runScript(['--auto-push'], { cwd: work })
@@ -313,9 +316,9 @@ test('auto-push: 本地有 tag → push 到 origin + 验证远端有 tag', () =>
 test('fetch: origin 有 tag 本地缺失 → fetch 后本地有 tag + exit 0', () => {
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
-    execSync('git tag lost-commit/fetch-test HEAD', { cwd: work, stdio: 'pipe' })
-    execSync('git push origin lost-commit/fetch-test', { cwd: work, stdio: 'pipe' })
-    execSync('git tag -d lost-commit/fetch-test', { cwd: work, stdio: 'pipe' })
+    execSync('git tag lost-commit/fetch-test HEAD', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+    execSync('git push origin lost-commit/fetch-test', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+    execSync('git tag -d lost-commit/fetch-test', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     assert.ok(!localHasTag(work, 'lost-commit/fetch-test'), '前置:本地无 tag')
     const r = runScript(['--fetch'], { cwd: work })
     assert.equal(r.status, 0, `fetch 后应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)

@@ -766,7 +766,8 @@ function runHookEntry(
     encoding: 'utf-8',
     timeout: entry.timeout ?? 10_000,
     env: { ...buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS), ...env },
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
   });
   if (result.error && spawnErrorCode(result.error) !== 'ETIMEDOUT') {

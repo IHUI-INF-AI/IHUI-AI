@@ -87,6 +87,8 @@ function headBlob(rel: string): string {
       encoding: 'utf8',
       cwd: REPO_ROOT,
       maxBuffer: 32 * 1024 * 1024,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
   } catch (e) {
     throw new Error(`取不到 HEAD:${rel} —— 判据失明,不记绿(${String(e)})`);

@@ -52,7 +52,8 @@ function isTracked(root, rel) {
 function isIgnored(root, rel) {
   try {
     execFileSync(GIT, ['-C', root, 'check-ignore', '-q', '--', rel], {
-      stdio: 'pipe',
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 20000,
       windowsHide: true,
     })

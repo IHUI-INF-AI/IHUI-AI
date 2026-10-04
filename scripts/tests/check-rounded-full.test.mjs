@@ -47,6 +47,8 @@ function createTempScanDir(files) {
       cwd: dir,
       encoding: 'utf8',
       windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
   git(['init', '-q', '-b', 'main'])
   git(['add', '-A'])
@@ -69,7 +71,8 @@ function runScript(cwd) {
   return spawnSync('node', [SCRIPT_PATH], {
     cwd: cwd || process.cwd(),
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
@@ -78,24 +81,25 @@ function runStaged(cwd) {
   return spawnSync('node', [SCRIPT_PATH, '--staged'], {
     cwd: cwd || process.cwd(),
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
 // 辅助:创建临时 git repo(含 baseline commit),用于 staged 模式测试
 function createTempGitRepo(files) {
   const dir = mkScratch('ihui-rounded-git-')
-  spawnSync('git', ['init', '-q'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
-  spawnSync('git', ['config', 'user.email', 'test@ihui.local'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
-  spawnSync('git', ['config', 'user.name', 'Test'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
-  spawnSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
+  spawnSync('git', ['init', '-q'], { cwd: dir, encoding: 'utf8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  spawnSync('git', ['config', 'user.email', 'test@ihui.local'], { cwd: dir, encoding: 'utf8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  spawnSync('git', ['config', 'user.name', 'Test'], { cwd: dir, encoding: 'utf8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  spawnSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: dir, encoding: 'utf8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   for (const [relPath, content] of Object.entries(files)) {
     const fullPath = join(dir, relPath)
     mkdirSync(join(fullPath, '..'), { recursive: true })
     writeFileSync(fullPath, content)
   }
-  spawnSync('git', ['add', '-A'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
-  spawnSync('git', ['commit', '-q', '-m', 'init'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
+  spawnSync('git', ['add', '-A'], { cwd: dir, encoding: 'utf8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  spawnSync('git', ['commit', '-q', '-m', 'init'], { cwd: dir, encoding: 'utf8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   return dir
 }
 
@@ -104,7 +108,7 @@ function stageFile(repoDir, relPath, content) {
   const fullPath = join(repoDir, relPath)
   mkdirSync(join(fullPath, '..'), { recursive: true })
   writeFileSync(fullPath, content)
-  spawnSync('git', ['add', relPath], { cwd: repoDir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
+  spawnSync('git', ['add', relPath], { cwd: repoDir, encoding: 'utf8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
 }
 
 // 辅助:断言 stdout 含违规标记
@@ -456,7 +460,7 @@ test('CLI --help 不崩溃(脚本未实现 --help flag,验证不 crash)', () => 
   // 本测试验证不 crash(exit code 0/1),而非显示帮助文本
   const dir = mkScratch('ihui-rounded-help-')
   try {
-    const r = spawnSync('node', [SCRIPT_PATH, '--help'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
+    const r = spawnSync('node', [SCRIPT_PATH, '--help'], { cwd: dir, encoding: 'utf8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     assert.ok(
       r.status === 0 || r.status === 1 || r.status === 2,
       `--help 不得 crash(允许 exit 0/1/2),实际 exit ${r.status}\nstderr: ${r.stderr}`,

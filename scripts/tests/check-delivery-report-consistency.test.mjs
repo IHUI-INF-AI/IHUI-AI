@@ -22,13 +22,13 @@ function createTempProject() {
 // 辅助:创建临时 git 仓库(--staged 模式需要)
 function createTempRepo() {
   const root = mkScratch('ihui-report-repo-')
-  execSync('git init -b main', { cwd: root, stdio: 'pipe' })
-  execSync('git config user.email test@test.com', { cwd: root, stdio: 'pipe' })
-  execSync('git config user.name test', { cwd: root, stdio: 'pipe' })
-  execSync('git config commit.gpgsign false', { cwd: root, stdio: 'pipe' })
+  execSync('git init -b main', { cwd: root, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  execSync('git config user.email test@test.com', { cwd: root, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  execSync('git config user.name test', { cwd: root, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  execSync('git config commit.gpgsign false', { cwd: root, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   writeFileSync(join(root, 'README.md'), '# init\n')
-  execSync('git add README.md', { cwd: root, stdio: 'pipe' })
-  execSync('git commit -m "init"', { cwd: root, stdio: 'pipe' })
+  execSync('git add README.md', { cwd: root, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  execSync('git commit -m "init"', { cwd: root, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   return root
 }
 
@@ -42,7 +42,7 @@ function stageMd(root, relPath, content) {
   const fullPath = join(root, relPath)
   mkdirSync(join(fullPath, '..'), { recursive: true })
   writeFileSync(fullPath, content)
-  execSync(`git add "${relPath.replace(/\\/g, '/')}"`, { cwd: root, stdio: 'pipe' })
+  execSync(`git add "${relPath.replace(/\\/g, '/')}"`, { cwd: root, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
 }
 
 // 辅助:运行脚本(stdout/stderr 去除 ANSI 颜色码)
@@ -51,7 +51,8 @@ function runScript(cwd, args = []) {
   const r = spawnSync('node', [SCRIPT_PATH, ...args], {
     cwd: cwd || process.cwd(),
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   if (r.stdout) r.stdout = r.stdout.replace(ANSI_RE, '')
   if (r.stderr) r.stderr = r.stderr.replace(ANSI_RE, '')
@@ -480,14 +481,14 @@ test('staged: 历史违规章节(无新增行)不检查,只检查 staged 新增�
       '# Report\n\n## 旧任务 (2026-07-10)\n\n完整收尾,仍有 TODO 项。\n'
     mkdirSync(join(root, 'docs'), { recursive: true })
     writeFileSync(join(root, 'docs', 'report.md'), baselineContent)
-    execSync('git add docs/report.md', { cwd: root, stdio: 'pipe' })
-    execSync('git commit -m "init report"', { cwd: root, stdio: 'pipe' })
+    execSync('git add docs/report.md', { cwd: root, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+    execSync('git commit -m "init report"', { cwd: root, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     // 修改:在新章节(不违规)加一行 → staged
     const updatedContent =
       baselineContent +
       '\n## 新任务 (2026-08-01)\n\n新任务已完成,无矛盾。\n'
     writeFileSync(join(root, 'docs', 'report.md'), updatedContent)
-    execSync('git add docs/report.md', { cwd: root, stdio: 'pipe' })
+    execSync('git add docs/report.md', { cwd: root, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const r = runScript(root, ['--staged'])
     // 旧章节(违规)无新增行 → 不检查 → 通过
     assertPass(r)
