@@ -117,6 +117,8 @@ export const SSE_FAMILY_CROSS_REFERENCES: {
   'tool-delta': null,
   form_request: null,
   goal_updated: null,
+  // G-815976(2026-10-04):流式中断标记帧是对话流独有(agent 任务流无同义帧),如实标 null
+  partial_done: null,
 }
 
 /** 查对话流事件在 agent 任务流上的同义名;无交叉返回 null(不猜)。 */
