@@ -352,7 +352,7 @@ function CategoryChip({
       style={[styles.chip, active ? styles.chipActive : null]}
       onPress={onPress}
     >
-      <Text style={[styles.chipText, active ? styles.chipTextActive : { color: tk.text.medium }]}>
+      <Text style={[styles.chipText, active ? styles.chipActiveText : { color: tk.text.medium }]}>
         {label}
       </Text>
     </TouchableOpacity>
@@ -366,8 +366,9 @@ function createStyles(tk: AppThemeTokens) {
       maxHeight: '88%',
       padding: 16,
       gap: 8,
-      borderTopLeftRadius: 12,
-      borderTopRightRadius: 12,
+      // 档位表单源:panel 角色档 = xl(12px),不得写死数字(守门 77 B1 / §4 圆角单一源头)
+      borderTopLeftRadius: rnRadius.xl,
+      borderTopRightRadius: rnRadius.xl,
       backgroundColor: tk.surface.bg,
     },
     header: {
@@ -421,10 +422,18 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
     },
-    chipActive: { backgroundColor: tk.brand.cta, borderColor: tk.brand.cta },
-    // 配对前景落进样式键(而不是行内 style):chipActive 是品牌实底,
-    // 门 83 R3 按「兄弟键成对」判是否与配对前景成文,行内色它看不见。
-    chipTextActive: { color: tk.brand.ctaForeground },
+    chipActive: {
+      // 选中态是纯品牌实底。原先另写一圈与填充同色的 borderColor(不可见环),按门 83 R3
+      // 计一笔"实底未与配对前景成文"的债。去掉那圈环并用等值 padding 补回 1px:
+      // 盒子尺寸与字形位置逐像素不变(10+1 / 5+1),不是靠豁免消账。
+      backgroundColor: tk.brand.cta,
+      borderWidth: 0,
+      paddingHorizontal: 11,
+      paddingVertical: 6,
+    },
+    // 配对前景必须落进**与底同名前缀**的样式键(而不是行内 style),门 83 R3 才认得到兄弟配对:
+    // chipActive × chipActiveText 成对 ⇒ 免债;叫 chipTextActive 时底那侧配不上,行内色它更看不见。
+    chipActiveText: { color: tk.brand.ctaForeground },
     chipText: { fontSize: 11 },
     linkText: { fontSize: 12, color: tk.brand.dark },
     field: { gap: 2, marginBottom: 6 },
