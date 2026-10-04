@@ -16,7 +16,15 @@ import { FolderOpen, Pin, PinOff } from 'lucide-react'
 import { normalizeOrgName, ORG_FOLDER_MAX_LENGTH } from '@ihui/shared'
 
 import { cn } from '@/lib/utils'
-import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input } from '@ihui/ui-react'
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+} from '@ihui/ui-react'
 
 export interface MoveToGroupDialogProps {
   open: boolean
@@ -74,7 +82,9 @@ export function MoveToGroupDialog({
             data-testid="move-target-none"
             className={cn(
               'flex w-full items-center gap-1.5 rounded-sm border px-2 py-1.5 text-left text-xs transition-colors',
-              selected === null && !newInput.trim() ? 'border-primary bg-primary/5' : 'hover:bg-muted',
+              selected === null && !newInput.trim()
+                ? 'border-brand-accent-deep bg-primary/5'
+                : 'hover:bg-muted',
             )}
           >
             <FolderOpen className="h-3.5 w-3.5 shrink-0" />
@@ -88,7 +98,7 @@ export function MoveToGroupDialog({
                 className={cn(
                   'flex items-center gap-1 rounded-sm border pr-1 transition-colors',
                   selected === folder && !newInput.trim()
-                    ? 'border-primary bg-primary/5'
+                    ? 'border-brand-accent-deep bg-primary/5'
                     : 'hover:bg-muted',
                 )}
               >
