@@ -12036,7 +12036,7 @@
     "toKnowledgeFailed": "Failed to add to knowledge base: {error}",
     "toKnowledgeAlready": "In knowledge base",
     "sourceWechat": "WeChat",
-    "sourceWechatHint": "Chat transcript exported from WeChat \"Merge & Forward\" (聊天记录.txt or its .zip)",
+    "sourceWechatHint": "Chat transcript exported from WeChat \"Merge & Forward\" (.txt or .zip)",
     "noValidContent": "No importable content found"
   },
   "commandPalette": {
