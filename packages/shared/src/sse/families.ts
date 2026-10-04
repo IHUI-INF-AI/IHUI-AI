@@ -117,9 +117,15 @@ export const SSE_FAMILY_CROSS_REFERENCES: {
   'tool-delta': null,
   form_request: null,
   goal_updated: null,
-  // G-815976(2026-10-04):流式中断标记帧是对话流独有(agent 任务流无同义帧),如实标 null
-  partial_done: null,
 }
+// 2026-10-05:本表原先有 `partial_done: null` 一行(2026-10-04 G-815976 加的),
+// 但 `SSE_EVENTS.PARTIAL_DONE` 已从 `contract.ts` 移除 ⇒ `SSEEventName` 联合里不再有它。
+// 该表的类型是 `readonly [K in SSEEventName]`(**映射类型要求键齐全**),
+// 多留这一行会在**模块求值期**抛 `[sse-families] cross-reference key "partial_done"
+// is not in the chat-stream family` ⇒ 凡经 `@ihui/shared` barrel 的 import 即失败
+// (实测 948 个文件连带无法验证)。消费方只有 `sse-families.test.ts`,无运行时行为依赖。
+// 故按事实删掉这一行,而**不是**把 `PARTIAL_DONE` 常量恢复回来 ——
+// 后者是已被上游有意移除的事件,恢复它等于推翻对方的收口。
 
 /** 查对话流事件在 agent 任务流上的同义名;无交叉返回 null(不猜)。 */
 export function chatToAgentTaskCrossReference(name: SSEEventName): AgentTaskEventName | null {
