@@ -99,6 +99,9 @@ const tboxRoutes: FastifyPluginAsync = async (server: FastifyInstance) => {
     await requireAdmin(req, reply)
     if (reply.sent) return
     const { id } = req.params as { id: string }
+    // 形状闸：与本文件 GET /devices/:id、GET /devices/:id/commands 同款(判据只有一份 utils/uuid.ts)。
+    // tbox_device.id 是 uuid 列，畸形段会让 Postgres 抛 22P02 ⇒ 500，与"设备不存在"的 404 同形。
+    if (!isUuidString(id)) return reply.status(404).send(error(404, '设备不存在'))
     const body = commandSchema.parse(req.body)
     const device = await db.select().from(tboxDevice).where(eq(tboxDevice.id, id)).limit(1)
     if (!device[0]) return reply.status(404).send(error(404, '设备不存在'))
@@ -138,6 +141,8 @@ const tboxRoutes: FastifyPluginAsync = async (server: FastifyInstance) => {
     await requireAdmin(req, reply)
     if (reply.sent) return
     const { id } = req.params as { id: string }
+    // 形状闸：同本文件 GET /devices/:id。tbox_device.id 是 uuid 列，畸形段 ⇒ 22P02 ⇒ 500。
+    if (!isUuidString(id)) return reply.status(404).send(error(404, '设备不存在'))
     const device = await db.select().from(tboxDevice).where(eq(tboxDevice.id, id)).limit(1)
     if (!device[0]) return reply.status(404).send(error(404, '设备不存在'))
     const body = parseOrThrow(updateDeviceSchema, req.body)
@@ -154,6 +159,8 @@ const tboxRoutes: FastifyPluginAsync = async (server: FastifyInstance) => {
     await requireAdmin(req, reply)
     if (reply.sent) return
     const { id } = req.params as { id: string }
+    // 形状闸：与上面 /command 等价路径同款，避免同型漏站。
+    if (!isUuidString(id)) return reply.status(404).send(error(404, '设备不存在'))
     const body = commandSchema.parse(req.body)
     const device = await db.select().from(tboxDevice).where(eq(tboxDevice.id, id)).limit(1)
     if (!device[0]) return reply.status(404).send(error(404, '设备不存在'))
