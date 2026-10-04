@@ -68,6 +68,9 @@ export const w2: HookActionConfig = { url: 'https://a.example/hook', method: 'PO
 export const s: HookActionConfig = { command: 'echo hi' }
 export const n: HookActionConfig = { channel: 'toast', message: '{{event}} 完成' }
 export const n2: HookActionConfig = { channel: 'webhook' }
+// notify × webhook 渠道同键:apps/web/src/stores/hooks.ts 构造的真形态(执行侧 _run_notify
+// 的 webhook 分支就读 url/method/headers)——它必须编译得动,否则类型层是在钉红正当写法。
+export const nw: HookActionConfig = { channel: 'webhook', url: 'https://a.example/hook', method: 'POST', headers: { 'x-a': '1' }, message: 'm' }
 export const l: HookActionConfig = { message: 'log line' }
 export const empty: HookActionConfig = {}
 `
@@ -82,10 +85,13 @@ const INVALID: readonly string[] = [
   '{ channel: "email", url: "https://a.example/hook" }', // notify × webhook(反序同判)
   '{ headers: { "x-a": "1" }, command: "echo hi" }', // webhook 附属键 × script
   '{ body: "{{event}}", channel: "toast" }', // webhook 附属键 × notify
+  // 渠道设错仍不可构造:webhook 那批键只随 channel:'webhook' 合法(放行真形态不等于放开一切)
+  '{ channel: "toast", url: "https://a.example/hook" }',
+  '{ channel: "email", command: "echo hi" }',
 ]
 
 describe('G-675 · HookActionConfig 跨族互斥在构造点不可赋值', () => {
-  it('探针 harness 有牙:四族正例 + 空配置 ⇒ 零诊断', () => {
+  it('探针 harness 有牙:各族正例(含 notify×webhook 真形态)+ 空配置 ⇒ 零诊断', () => {
     expect(describeDiags(diagnose(VALID))).toEqual([])
   })
 
