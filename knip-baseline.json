@@ -1,11 +1,11 @@
 {
   "note": "Knip 棘轮基线:各项计数不得超过此值。新增死代码会使 CI 失败;清理后请重跑 --update 收紧。",
-  "recordedFrom": "2026-10-03 收敛:CI 干净检出实测(run 37110359010 @ 6c2d36920d,与 CI 同形)。2026-10-04 增量(exports 2005→2007,+2):apps/api/src/services/ai-feed-service.ts 的 isLoopbackUrl / shouldUseSyncProxy —— 二者是该文件内部在用的出站代理判据(shouldUseSyncProxy 于 fetchWithTimeout:221 被调用,isLoopbackUrl 于 shouldUseSyncProxy:205 被调用),并由并行会话新增的 src/services/__tests__/ai-feed-proxy-egress.test.ts 独立钉死;本仓 knip.jsonc 未启用 vitest 插件(Knip 6.x 不再自动探测测试框架),测试文件的 import 不计入「被使用」⇒ 判为未用导出。不改生产代码:去掉 export 会破测试,违背源码注释「提成导出函数以便独立钉死」的初衷。按 check-knip-ratchet.mjs 自述出路(--update)只收紧这一类,total 同步 +2。此前基线(2026-09-26)之后并行会话落库的 gate-122/compliance/G-719/G-814403 等交付带来 exports+143/types+118/duplicates+11/unlisted+3/binaries+1 的既有面,按脚本自述出路 --update 口径收紧到当前现实;棘轮继续拦截未来增量。",
+  "recordedFrom": "2026-10-04 账务修正(非新增死代码):exports 2007 -> 2008。取证:①CI 在 b6f4a78d09(run 37176129089)与 288473001a(run 37176721425)两次实测均为 2008;②同环境本地 A/B——干净检出 3dff10bc23(本基线来源提交)与 288473001a(CI head)各跑 knip --reporter json,exports 均 2019、types 均 1725、files 均 779,(file,name) 集合差双向均为 0(逐条比对,非仅比计数);③2007->2008 的窗口(c609440f90..b6f4a78d09)内 TS/TSX 改动仅 member-routes.ts(内联 z.string().uuid() 前验,未新增 export)与新增的 context-budget-bar.test.tsx(全文件无 export);mjs 改动仅注释与白名单字面量;这些文件在 CI 的 2008 未用导出清单里一条都不出现。结论:两次 union 未引入任何新死代码,2007 是上一轮收紧基线时的记账误差(少计 1),故按 CI 实测口径补正为 2008。本地绝对值 2019 与 CI 2008 的差来自 apps/extension 工作区在本机加载失败(./.wxt/tsconfig.json 缺失),该 workspace 的 13 条在本地额外出现;两侧同环境比较故不受影响。 || 2026-10-03 收敛:CI 干净检出实测(run 37110359010 @ 6c2d36920d,与 CI 同形)。2026-10-04 增量(exports 2005→2007,+2):apps/api/src/services/ai-feed-service.ts 的 isLoopbackUrl / shouldUseSyncProxy —— 二者是该文件内部在用的出站代理判据(shouldUseSyncProxy 于 fetchWithTimeout:221 被调用,isLoopbackUrl 于 shouldUseSyncProxy:205 被调用),并由并行会话新增的 src/services/__tests__/ai-feed-proxy-egress.test.ts 独立钉死;本仓 knip.jsonc 未启用 vitest 插件(Knip 6.x 不再自动探测测试框架),测试文件的 import 不计入「被使用」⇒ 判为未用导出。不改生产代码:去掉 export 会破测试,违背源码注释「提成导出函数以便独立钉死」的初衷。按 check-knip-ratchet.mjs 自述出路(--update)只收紧这一类,total 同步 +2。此前基线(2026-09-26)之后并行会话落库的 gate-122/compliance/G-719/G-814403 等交付带来 exports+143/types+118/duplicates+11/unlisted+3/binaries+1 的既有面,按脚本自述出路 --update 口径收紧到当前现实;棘轮继续拦截未来增量。",
   "generatedAt": "2026-10-03T08:45:00.000Z",
-  "total": 4645,
+  "total": 4646,
   "counts": {
     "files": 703,
-    "exports": 2007,
+    "exports": 2008,
     "types": 1514,
     "duplicates": 288,
     "enumMembers": 5,
