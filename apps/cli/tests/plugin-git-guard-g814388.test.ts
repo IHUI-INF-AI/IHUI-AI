@@ -170,7 +170,7 @@ describe('G-814388 env 净化:可疑键剥离、git 必需白名单保留', () =
       // 投影源直接给被污染的 env,不 mutate 本进程的 process.env
       env: {
         PATH: process.env.PATH ?? '',
-        SystemRoot: process.env.SystemRoot ?? process.env.WINDIR ?? '',
+        SystemRoot: process.env.SystemRoot ?? process.env.WINDIR ?? 'C:////Windows', // Linux runner 两者皆缺,兜底字面量保证白名单有东西可透传
         GIT_DIR: 'Z:/wrong-gitdir',
         IHUI_G814388_MARKER: 'must-not-pass',
       },
