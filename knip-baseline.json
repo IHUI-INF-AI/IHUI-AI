@@ -1,11 +1,11 @@
 {
   "note": "Knip 棘轮基线:各项计数不得超过此值。新增死代码会使 CI 失败;清理后请重跑 --update 收紧。",
-  "recordedFrom": "2026-10-03 收敛:CI 干净检出实测(run 37110359010 @ 6c2d36920d,与 CI 同形)。此前基线(2026-09-26)之后并行会话落库的 gate-122/compliance/G-719/G-814403 等交付带来 exports+143/types+118/duplicates+11/unlisted+3/binaries+1 的既有面,按脚本自述出路 --update 口径收紧到当前现实;棘轮继续拦截未来增量。",
+  "recordedFrom": "2026-10-03 收敛:CI 干净检出实测(run 37110359010 @ 6c2d36920d,与 CI 同形)。2026-10-04 增量(exports 2005→2007,+2):apps/api/src/services/ai-feed-service.ts 的 isLoopbackUrl / shouldUseSyncProxy —— 二者是该文件内部在用的出站代理判据(shouldUseSyncProxy 于 fetchWithTimeout:221 被调用,isLoopbackUrl 于 shouldUseSyncProxy:205 被调用),并由并行会话新增的 src/services/__tests__/ai-feed-proxy-egress.test.ts 独立钉死;本仓 knip.jsonc 未启用 vitest 插件(Knip 6.x 不再自动探测测试框架),测试文件的 import 不计入「被使用」⇒ 判为未用导出。不改生产代码:去掉 export 会破测试,违背源码注释「提成导出函数以便独立钉死」的初衷。按 check-knip-ratchet.mjs 自述出路(--update)只收紧这一类,total 同步 +2。此前基线(2026-09-26)之后并行会话落库的 gate-122/compliance/G-719/G-814403 等交付带来 exports+143/types+118/duplicates+11/unlisted+3/binaries+1 的既有面,按脚本自述出路 --update 口径收紧到当前现实;棘轮继续拦截未来增量。",
   "generatedAt": "2026-10-03T08:45:00.000Z",
-  "total": 4643,
+  "total": 4645,
   "counts": {
     "files": 703,
-    "exports": 2005,
+    "exports": 2007,
     "types": 1514,
     "duplicates": 288,
     "enumMembers": 5,
