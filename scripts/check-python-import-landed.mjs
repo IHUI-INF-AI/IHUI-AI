@@ -235,7 +235,7 @@ function main(argv) {
     console.error(`❌ ${sel.error}`)
     return 2
   }
-  const face = sel.face
+  let face = sel.face
   const git = (a, r, o = {}) => gitRaw(a, r ?? ROOT, o)
   let files
   try {
@@ -243,6 +243,19 @@ function main(argv) {
   } catch (e) {
     console.error(`❌ 无法判定:清单取不到(${String(e?.message ?? e).split('\n')[0]})`)
     return 2
+  }
+  // --staged 在"本次没有 ai-service 的 .py"时**回退全量并喊出来**,不得判死:
+  // 文档/脚本/前端类提交结构上不带 Python 文件,判它空扫就是替每一次无关提交挡路;恒挡的唯一结局是逼人 --no-verify
+  // 连带链上全部守门作废(§12e;门 135/46 同一课)。回退只作用于清单,内容仍按回退后的那一张面取。
+  if (files.length === 0 && face === 'staged') {
+    console.log('[py-import-landed] --staged:本次没有 apps/ai-service 的 .py ⇒ 回退 HEAD 全量(只报存量,不判"无法判定")。')
+    face = 'head'
+    try {
+      files = facePySet({ face, git })
+    } catch (e) {
+      console.error(`❌ 无法判定:回退清单取不到(${String(e?.message ?? e).split(String.fromCharCode(10))[0]})`)
+      return 2
+    }
   }
   if (files.length === 0) {
     console.error(`❌ 枚举到 0 个 .py(判定面=${face})⇒ 判据失明,不记通过`)
