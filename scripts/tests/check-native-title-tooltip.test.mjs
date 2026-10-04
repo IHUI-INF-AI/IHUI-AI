@@ -30,7 +30,8 @@ function runScript(cwd) {
   return spawnSync('node', [SCRIPT_PATH], {
     cwd: cwd || process.cwd(),
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
@@ -39,24 +40,25 @@ function runStaged(cwd) {
   return spawnSync('node', [SCRIPT_PATH, '--staged'], {
     cwd: cwd || process.cwd(),
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
 // 辅助:创建临时 git repo(含 baseline commit),用于 staged 模式测试
 function createTempGitRepo(files) {
   const dir = mkScratch('ihui-title-git-')
-  spawnSync('git', ['init', '-q'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
-  spawnSync('git', ['config', 'user.email', 'test@ihui.local'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
-  spawnSync('git', ['config', 'user.name', 'Test'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
-  spawnSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
+  spawnSync('git', ['init', '-q'], { cwd: dir, encoding: 'utf8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  spawnSync('git', ['config', 'user.email', 'test@ihui.local'], { cwd: dir, encoding: 'utf8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  spawnSync('git', ['config', 'user.name', 'Test'], { cwd: dir, encoding: 'utf8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  spawnSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: dir, encoding: 'utf8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   for (const [relPath, content] of Object.entries(files)) {
     const fullPath = join(dir, relPath)
     mkdirSync(join(fullPath, '..'), { recursive: true })
     writeFileSync(fullPath, content)
   }
-  spawnSync('git', ['add', '-A'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
-  spawnSync('git', ['commit', '-q', '-m', 'init'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
+  spawnSync('git', ['add', '-A'], { cwd: dir, encoding: 'utf8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  spawnSync('git', ['commit', '-q', '-m', 'init'], { cwd: dir, encoding: 'utf8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   return dir
 }
 
@@ -65,7 +67,7 @@ function stageFile(repoDir, relPath, content) {
   const fullPath = join(repoDir, relPath)
   mkdirSync(join(fullPath, '..'), { recursive: true })
   writeFileSync(fullPath, content)
-  spawnSync('git', ['add', relPath], { cwd: repoDir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
+  spawnSync('git', ['add', relPath], { cwd: repoDir, encoding: 'utf8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
 }
 
 // 辅助:断言 stdout 含违规标记
@@ -311,7 +313,7 @@ test('staged 模式: 修改已有合法文件新增 title 违规 → 仅新增�
       join(dir, 'apps/web/Good.tsx'),
       `export function Good() {\n  return <Button title="编辑">Edit</Button>\n}\n`,
     )
-    spawnSync('git', ['add', 'apps/web/Good.tsx'], { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
+    spawnSync('git', ['add', 'apps/web/Good.tsx'], { cwd: dir, encoding: 'utf8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const r = runStaged(dir)
     assert.equal(r.status, 1, 'staged 模式应检测到新增 title 违规并 exit 1')
     assert.match(r.stdout, /Good\.tsx/, 'stdout 应列出违规文件')

@@ -74,7 +74,10 @@ describe('G-896416 前台超时钳制(clampForegroundTimeout)', () => {
 });
 
 describe('G-896416 killTask 的 deadline 持有者档(timedOut:true)', () => {
-  const sleeper = () => spawn(process.execPath, ['-e', 'setTimeout(() => {}, 20000)']);
+  const sleeper = () => spawn(process.execPath, ['-e', 'setTimeout(() => {}, 20000)'], {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
 
   beforeEach(() => clearAllTasks());
   afterEach(() => clearAllTasks());

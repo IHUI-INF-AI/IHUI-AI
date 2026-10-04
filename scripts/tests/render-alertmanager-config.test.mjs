@@ -42,11 +42,13 @@ const envExampleText = readFileSync(ENV_EXAMPLE, 'utf8')
 
 /** git 只读调用:绝对路径 git + windowsHide(守门 52)+ timeout(守门 80)。 */
 function git(args) {
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   return execFileSync(resolveGitBin(), ['-c', 'safe.directory=*', ...args], {
     cwd: ROOT,
     encoding: 'utf8',
     windowsHide: true,
     timeout: 15000,
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 

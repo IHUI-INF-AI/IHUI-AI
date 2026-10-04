@@ -153,7 +153,8 @@ export async function runSandboxedWindows(
           '-EncodedCommand',
           toUtf16LeBase64(psScript),
         ],
-        { cwd: cwd || undefined, env: childEnv, windowsHide: true },
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        { cwd: cwd || undefined, env: childEnv, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] },
       )
       // Node 侧兜底超时:PowerShell 自身卡死时强杀
       const guard = setTimeout(() => {

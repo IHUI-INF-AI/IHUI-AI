@@ -237,7 +237,8 @@ describe('G-814424 execGitStatus —— 超限降级为按目录折叠，且必�
   /** 造一个"未跟踪文件多到全档超上限、但折叠档装得下"的临时仓 */
   function mkUntrackedRepo(tag: string): string {
     const dir = mkScratch('ihui-gitcaps-' + tag + '-')
-    const g = (a: string[]) => execFileSync('git', ['-c', 'safe.directory=*', '-c', 'user.email=t@t', '-c', 'user.name=t', '-C', dir, ...a], { encoding: 'utf8' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    const g = (a: string[]) => execFileSync('git', ['-c', 'safe.directory=*', '-c', 'user.email=t@t', '-c', 'user.name=t', '-C', dir, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
     g(['init', '-q'])
     writeFileSync(join(dir, 'tracked.txt'), 'x\n')
     g(['add', 'tracked.txt'])

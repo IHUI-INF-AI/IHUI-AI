@@ -98,6 +98,8 @@ describe('O13 第二格:RLS 运行时验证器的镜像测试', () => {
       encoding: 'utf8',
       windowsHide: true, // §5b
       timeout: 120_000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       env: {
         ...process.env,
         IHUI_RLS_LIVE_PG_BIN: join(

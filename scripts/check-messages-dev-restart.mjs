@@ -38,6 +38,8 @@ function getStagedMessagesFiles() {
     const out = execSync('git diff --cached --name-only --diff-filter=ACMR', {
       encoding: 'utf-8',
       windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     return out
       .split('\n')

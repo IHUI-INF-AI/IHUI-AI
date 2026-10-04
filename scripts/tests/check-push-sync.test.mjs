@@ -18,20 +18,20 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-push-sync.mjs')
 // ─── 辅助:创建临时 git 仓库(含初始 commit) ──────────────
 function createTempRepo() {
   const dir = mkScratch('ihui-pushsync-')
-  execSync('git init -b main', { cwd: dir, stdio: 'pipe' })
-  execSync('git config user.email test@test.com', { cwd: dir, stdio: 'pipe' })
-  execSync('git config user.name test', { cwd: dir, stdio: 'pipe' })
-  execSync('git config commit.gpgsign false', { cwd: dir, stdio: 'pipe' })
+  execSync('git init -b main', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  execSync('git config user.email test@test.com', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  execSync('git config user.name test', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  execSync('git config commit.gpgsign false', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   writeFileSync(join(dir, 'README.md'), '# init\n')
-  execSync('git add README.md', { cwd: dir, stdio: 'pipe' })
-  execSync('git commit -m "init"', { cwd: dir, stdio: 'pipe' })
+  execSync('git add README.md', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  execSync('git commit -m "init"', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   return dir
 }
 
 // 辅助:创建临时 bare 仓库(作为 origin)
 function createTempBareOrigin() {
   const dir = mkScratch('ihui-origin-')
-  execSync('git init --bare -b main', { cwd: dir, stdio: 'pipe' })
+  execSync('git init --bare -b main', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   return dir
 }
 
@@ -41,8 +41,8 @@ function createSyncedRepoWithOrigin() {
   const origin = createTempBareOrigin()
   // Windows 路径转正斜杠(git remote add 兼容)
   const originUrl = origin.replace(/\\/g, '/')
-  execSync(`git remote add origin "${originUrl}"`, { cwd: work, stdio: 'pipe' })
-  execSync('git push -u origin main', { cwd: work, stdio: 'pipe' })
+  execSync(`git remote add origin "${originUrl}"`, { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  execSync('git push -u origin main', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   return { work, origin }
 }
 
@@ -51,7 +51,8 @@ function runScript(args = [], opts = {}) {
   return spawnSync('node', [SCRIPT_PATH, ...args], {
     cwd: opts.cwd || process.cwd(),
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, ...opts.env },
   })
 }
@@ -59,8 +60,8 @@ function runScript(args = [], opts = {}) {
 // 辅助:在工作仓库中创建一个新 commit(不 push)
 function makeLocalCommit(dir, message) {
   writeFileSync(join(dir, `file-${Date.now()}.txt`), `content-${Date.now()}\n`)
-  execSync('git add -A', { cwd: dir, stdio: 'pipe' })
-  execSync(`git commit -m "${message}"`, { cwd: dir, stdio: 'pipe' })
+  execSync('git add -A', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  execSync(`git commit -m "${message}"`, { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
 }
 
 // 辅助:去除 ANSI 颜色码(脚本输出含 \x1B[31m 等颜色码,需剥离后匹配)
@@ -260,13 +261,13 @@ test('push-state: 同一 protected-branch 读数,但远端已推进(真分叉)�
     // (少了这一推,夹具根本没让远端动 ⇒ 祖先成立 ⇒ 本用例退化成"照放行",什么也没证。)
     const originUrl = origin.replace(/\\/g, '/')
     const second = join(other, 'second')
-    execSync(`git clone "${originUrl}" "${second}"`, { cwd: other, stdio: 'pipe' })
+    execSync(`git clone "${originUrl}" "${second}"`, { cwd: other, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     makeLocalCommit(second, 'someone else pushed this')
-    execSync('git push origin HEAD:refs/heads/main', { cwd: second, stdio: 'pipe' })
+    execSync('git push origin HEAD:refs/heads/main', { cwd: second, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     // 必须 fetch:不取回那枚对象的话,work 里 `rev-list <远端tip>..HEAD` 会报
     // "Invalid revision range",而门对"问不到"的处置是**跳过放行** —— 那样本用例证的
     // 就不是"分叉仍拦",而是"夹具没搭对"(第一版就是这么假通过的)。
-    execSync('git fetch -q origin', { cwd: work, stdio: 'pipe' })
+    execSync('git fetch -q origin', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     makeLocalCommit(work, 'and a local commit on top of the older remote')
     writePushState(work, {
       status: 'failed',
@@ -317,10 +318,10 @@ test('push-state: remote-ref-race 但远端已推进(真分叉)→ 仍 exit 1(�
   try {
     const originUrl = origin.replace(/\\/g, '/')
     const second = join(other, 'second')
-    execSync(`git clone "${originUrl}" "${second}"`, { cwd: other, stdio: 'pipe' })
+    execSync(`git clone "${originUrl}" "${second}"`, { cwd: other, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     makeLocalCommit(second, 'someone else pushed this')
-    execSync('git push origin HEAD:refs/heads/main', { cwd: second, stdio: 'pipe' })
-    execSync('git fetch -q origin', { cwd: work, stdio: 'pipe' })
+    execSync('git push origin HEAD:refs/heads/main', { cwd: second, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+    execSync('git fetch -q origin', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     makeLocalCommit(work, 'and a local commit on top of the older remote')
     writePushState(work, {
       status: 'failed',
@@ -454,9 +455,9 @@ test('behind: 本地 behind origin → exit 0(无 ahead commit,跳过)', () => {
   try {
     // 在 work 创建并 push 一个 commit(origin 前进)
     makeLocalCommit(work, 'second commit')
-    execSync('git push origin main', { cwd: work, stdio: 'pipe' })
+    execSync('git push origin main', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     // reset --hard HEAD~1 使本地落后 origin
-    execSync('git reset --hard HEAD~1', { cwd: work, stdio: 'pipe' })
+    execSync('git reset --hard HEAD~1', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const r = runScript([], { cwd: work })
     // HEAD 不同但无 ahead commit(behind)→ 跳过,exit 0
     assert.equal(r.status, 0, `behind 应 exit 0(跳过),实际 ${r.status}`)
@@ -485,8 +486,8 @@ test('detached HEAD: git checkout <hash> → exit 0(跳过)', () => {
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
     // 切到 detached HEAD
-    const headHash = execSync('git rev-parse HEAD', { cwd: work, encoding: 'utf8' }).trim()
-    execSync(`git checkout ${headHash}`, { cwd: work, stdio: 'pipe' })
+    const headHash = execSync('git rev-parse HEAD', { cwd: work, encoding: 'utf8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+    execSync(`git checkout ${headHash}`, { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const r = runScript([], { cwd: work })
     assert.equal(r.status, 0, `detached HEAD 应 exit 0(跳过),实际 ${r.status}`)
     assert.match(r.stdout, /detached HEAD|跳过/)
@@ -503,14 +504,14 @@ test('detached HEAD: git checkout <hash> → exit 0(跳过)', () => {
 test('本地无 tracking ref 但 origin 可达 → 按 ls-remote 真值判定(不谎报跳过)', () => {
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
-    execSync('git remote remove origin', { cwd: work, stdio: 'pipe' })
-    execSync(`git remote add origin "${origin.replace(/\\/g, '/')}"`, { cwd: work, stdio: 'pipe' })
+    execSync('git remote remove origin', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+    execSync(`git remote add origin "${origin.replace(/\\/g, '/')}"`, { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     // 前提自证:本地确实没有 tracking ref(否则本用例什么都没测)
     assert.equal(
-      execSync('git for-each-ref refs/remotes', { cwd: work, encoding: 'utf8' }).trim(),
+      execSync('git for-each-ref refs/remotes', { cwd: work, encoding: 'utf8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] }).trim(),
       '',
     )
-    assert.throws(() => execSync('git rev-parse origin/main', { cwd: work, stdio: 'pipe' }))
+    assert.throws(() => execSync('git rev-parse origin/main', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] }))
     const r = runScript([], { cwd: work })
     assert.equal(r.status, 0, `同步态应 exit 0,实际 ${r.status}\n${r.stdout}`)
     assert.match(r.stdout, /已同步|ls-remote/, `应经 ls-remote 取到真值,实际:${r.stdout}`)
@@ -523,10 +524,10 @@ test('本地无 tracking ref 但 origin 可达 → 按 ls-remote 真值判定(�
 test('两条通道都取不到(origin 不可达 + 无本地 ref)→ exit 0 并如实说"无法确定"', () => {
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
-    execSync('git remote remove origin', { cwd: work, stdio: 'pipe' })
+    execSync('git remote remove origin', { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     // 指向一个不存在的目录 ⇒ ls-remote 失败;同时没有 tracking ref ⇒ 回退也失败
     const dead = join(origin, '..', 'definitely-not-a-remote-' + process.pid)
-    execSync(`git remote add origin "${dead.replace(/\\/g, '/')}"`, { cwd: work, stdio: 'pipe' })
+    execSync(`git remote add origin "${dead.replace(/\\/g, '/')}"`, { cwd: work, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const r = runScript([], { cwd: work })
     assert.equal(r.status, 0, `取不到远端 HEAD 应跳过而非阻塞,实际 ${r.status}\n${r.stdout}`)
     assert.match(r.stdout, /无法确定|未 fetch|跳过/, `应说明跳过原因,实际:${r.stdout}`)

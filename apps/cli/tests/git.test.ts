@@ -20,10 +20,14 @@ const gitAdd = GIT_TOOLS.find((t) => t.name === 'git_add')!;
 const gitCommit = GIT_TOOLS.find((t) => t.name === 'git_commit')!;
 
 function gitInit(repoDir: string): void {
-  spawnSync('git', ['init'], { cwd: repoDir, encoding: 'utf-8' });
-  spawnSync('git', ['config', 'user.email', 'test@ihui.local'], { cwd: repoDir, encoding: 'utf-8' });
-  spawnSync('git', ['config', 'user.name', 'Test'], { cwd: repoDir, encoding: 'utf-8' });
-  spawnSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: repoDir, encoding: 'utf-8' });
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  spawnSync('git', ['init'], { cwd: repoDir, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] });
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  spawnSync('git', ['config', 'user.email', 'test@ihui.local'], { cwd: repoDir, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] });
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  spawnSync('git', ['config', 'user.name', 'Test'], { cwd: repoDir, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] });
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  spawnSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: repoDir, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] });
 }
 
 describe('GIT_TOOLS 注册', () => {

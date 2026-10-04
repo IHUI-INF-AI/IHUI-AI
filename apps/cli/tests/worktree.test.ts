@@ -45,20 +45,24 @@ vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 })
 const VALID_KINDS: readonly CowKind[] = ['ficlone', 'clonefile', 'refs', 'none']
 
 function gitInit(repoDir: string): void {
-  spawnSync('git', ['init'], { cwd: repoDir, encoding: 'utf-8' })
+  spawnSync('git', ['init'], { cwd: repoDir, encoding: 'utf-8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   spawnSync('git', ['config', 'user.email', 'test@ihui.local'], {
     cwd: repoDir,
     encoding: 'utf-8',
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
-  spawnSync('git', ['config', 'user.name', 'Test'], { cwd: repoDir, encoding: 'utf-8' })
+  spawnSync('git', ['config', 'user.name', 'Test'], { cwd: repoDir, encoding: 'utf-8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   spawnSync('git', ['config', 'commit.gpgsign', 'false'], {
     cwd: repoDir,
     encoding: 'utf-8',
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
 function gitCommit(repoDir: string, msg: string): void {
-  spawnSync('git', ['commit', '-m', msg], { cwd: repoDir, encoding: 'utf-8' })
+  spawnSync('git', ['commit', '-m', msg], { cwd: repoDir, encoding: 'utf-8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
 }
 
 // ============ detectCowKind ============
@@ -306,7 +310,7 @@ describe('createWorktree', () => {
     fs.mkdirSync(sourceRepo, { recursive: true })
     gitInit(sourceRepo)
     fs.writeFileSync(path.join(sourceRepo, 'README.md'), 'hello\n', 'utf-8')
-    spawnSync('git', ['add', '.'], { cwd: sourceRepo, encoding: 'utf-8' })
+    spawnSync('git', ['add', '.'], { cwd: sourceRepo, encoding: 'utf-8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     gitCommit(sourceRepo, 'init')
     resetCowCache()
   })
@@ -352,12 +356,12 @@ describe('createWorktree', () => {
 
   it('ref checkout 切到指定分支', async () => {
     // 创建 feature-x 分支并提交一个新文件
-    spawnSync('git', ['branch', 'feature-x'], { cwd: sourceRepo, encoding: 'utf-8' })
-    spawnSync('git', ['checkout', 'feature-x'], { cwd: sourceRepo, encoding: 'utf-8' })
+    spawnSync('git', ['branch', 'feature-x'], { cwd: sourceRepo, encoding: 'utf-8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+    spawnSync('git', ['checkout', 'feature-x'], { cwd: sourceRepo, encoding: 'utf-8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     fs.writeFileSync(path.join(sourceRepo, 'feature.txt'), 'f\n', 'utf-8')
-    spawnSync('git', ['add', '.'], { cwd: sourceRepo, encoding: 'utf-8' })
+    spawnSync('git', ['add', '.'], { cwd: sourceRepo, encoding: 'utf-8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     gitCommit(sourceRepo, 'feature')
-    spawnSync('git', ['checkout', 'main'], { cwd: sourceRepo, encoding: 'utf-8' })
+    spawnSync('git', ['checkout', 'main'], { cwd: sourceRepo, encoding: 'utf-8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
 
     const dst = path.join(tmpDir, 'wt-4')
     await createWorktree({ source: sourceRepo, destination: dst, ref: 'feature-x' })
@@ -365,6 +369,8 @@ describe('createWorktree', () => {
     // 验证 destination 在 feature-x 分支
     const r = spawnSync('git', ['-C', dst, 'rev-parse', '--abbrev-ref', 'HEAD'], {
       encoding: 'utf-8',
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     expect(r.status).toBe(0)
     expect((r.stdout ?? '').trim()).toBe('feature-x')
@@ -432,13 +438,15 @@ describe('removeWorktree', () => {
     fs.mkdirSync(repo, { recursive: true })
     gitInit(repo)
     fs.writeFileSync(path.join(repo, 'a.txt'), 'a\n', 'utf-8')
-    spawnSync('git', ['add', '.'], { cwd: repo, encoding: 'utf-8' })
+    spawnSync('git', ['add', '.'], { cwd: repo, encoding: 'utf-8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     gitCommit(repo, 'init')
 
     const linkedWt = path.join(tmpDir, 'linked-wt')
     const r = spawnSync('git', ['worktree', 'add', linkedWt], {
       cwd: repo,
       encoding: 'utf-8',
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     // 某些环境(如 CI 受限)可能不允许 worktree add,跳过测试
     if (r.status !== 0) return
@@ -551,7 +559,7 @@ function initWorktreeRepo(tmpDir: string): string {
   fs.mkdirSync(repo, { recursive: true })
   gitInit(repo)
   fs.writeFileSync(path.join(repo, 'README.md'), 'base\n', 'utf-8')
-  spawnSync('git', ['add', '.'], { cwd: repo, encoding: 'utf-8' })
+  spawnSync('git', ['add', '.'], { cwd: repo, encoding: 'utf-8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   gitCommit(repo, 'init')
   return repo
 }
@@ -581,7 +589,7 @@ describe('WorktreeManager.create', () => {
     // .gitignore 自动写入 .worktrees/
     expect(fs.readFileSync(path.join(repo, '.gitignore'), 'utf-8')).toContain(DEFAULT_WORKTREE_DIR + '/')
     // 分支真实存在(git branch --list 对挂载在 worktree 的分支会加 "+" 前缀)
-    const br = spawnSync('git', ['branch', '--list', wt.branch], { cwd: repo, encoding: 'utf-8' })
+    const br = spawnSync('git', ['branch', '--list', wt.branch], { cwd: repo, encoding: 'utf-8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     expect((br.stdout ?? '').trim().replace(/^[+*]\s*/, '')).toBe(wt.branch)
   })
 
@@ -611,6 +619,8 @@ describe('WorktreeManager.create', () => {
     spawnSync('git', ['worktree', 'add', path.join(tmpDir, 'plain-wt')], {
       cwd: repo,
       encoding: 'utf-8',
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     mgr.create('agent-ls')
     const list = mgr.list()
@@ -642,7 +652,7 @@ describe('WorktreeManager.remove', () => {
     expect(mgr.remove('agent-rm', { force: true })).toBe(true)
     expect(fs.existsSync(wt.path)).toBe(false)
     expect(mgr.list().length).toBe(0)
-    const br = spawnSync('git', ['branch', '--list', wt.branch], { cwd: repo, encoding: 'utf-8' })
+    const br = spawnSync('git', ['branch', '--list', wt.branch], { cwd: repo, encoding: 'utf-8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     expect((br.stdout ?? '').trim()).toBe('')
   })
 

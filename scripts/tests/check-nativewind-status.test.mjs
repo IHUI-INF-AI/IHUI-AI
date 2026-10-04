@@ -72,7 +72,8 @@ function runScript({ npmDir, mode, response } = {}) {
   if (response !== undefined) env.NPM_FAKE_RESPONSE = response
   const r = spawnSync('node', [SCRIPT_PATH], {
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     env,
   })
   if (r.stdout) r.stdout = r.stdout.replace(ANSI_RE, '')

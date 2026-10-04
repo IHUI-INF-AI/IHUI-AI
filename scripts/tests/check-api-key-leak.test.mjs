@@ -17,13 +17,13 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-api-key-leak.mjs')
 // ─── 辅助:创建临时 git 仓库(--staged 模式需要) ──────────
 function createTempRepo() {
   const root = mkScratch('ihui-apikey-repo-')
-  execSync('git init -b main', { cwd: root, stdio: 'pipe' })
-  execSync('git config user.email test@test.com', { cwd: root, stdio: 'pipe' })
-  execSync('git config user.name test', { cwd: root, stdio: 'pipe' })
-  execSync('git config commit.gpgsign false', { cwd: root, stdio: 'pipe' })
+  execSync('git init -b main', { cwd: root, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
+  execSync('git config user.email test@test.com', { cwd: root, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
+  execSync('git config user.name test', { cwd: root, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
+  execSync('git config commit.gpgsign false', { cwd: root, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
   writeFileSync(join(root, 'README.md'), '# init\n')
-  execSync('git add README.md', { cwd: root, stdio: 'pipe' })
-  execSync('git commit -m "init"', { cwd: root, stdio: 'pipe' })
+  execSync('git add README.md', { cwd: root, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
+  execSync('git commit -m "init"', { cwd: root, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
   return root
 }
 
@@ -33,13 +33,13 @@ function writeAndStage(root, relPath, content) {
   mkdirSync(join(fullPath, '..'), { recursive: true })
   writeFileSync(fullPath, content)
   // Windows 路径分隔符在 git add 中需用 / 或转义;用引号包裹避免空格问题
-  execSync(`git add "${relPath.replace(/\\/g, '/')}"`, { cwd: root, stdio: 'pipe' })
+  execSync(`git add "${relPath.replace(/\\/g, '/')}"`, { cwd: root, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
 }
 
 // 辅助:写入文件并提交(默认档判 **HEAD blob**,2026-09-27 守门 118 迁移后夹具必须入库)
 function writeAndCommit(root, relPath, content) {
   writeAndStage(root, relPath, content)
-  execSync('git commit -m fixture', { cwd: root, stdio: 'pipe' })
+  execSync('git commit -m fixture', { cwd: root, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
 }
 
 // 辅助:运行脚本(stdout/stderr 去除 ANSI 颜色码)
@@ -48,7 +48,8 @@ function runScript(cwd, args = []) {
   const r = spawnSync('node', [SCRIPT_PATH, ...args], {
     cwd: cwd || process.cwd(),
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   if (r.stdout) r.stdout = r.stdout.replace(ANSI_RE, '')
   if (r.stderr) r.stderr = r.stderr.replace(ANSI_RE, '')
