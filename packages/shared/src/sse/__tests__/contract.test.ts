@@ -29,13 +29,15 @@ import {
 // ============ 1. 事件名集合完整性 ============
 
 describe('SSE_EVENTS 事件名集合', () => {
-  it('包含全部 32 个契约事件(V3 #48/#58:26 - token + terminal_delta + start + tool-approval;D113: + tool-delta;V3 #63: + form_request;D151: + terminal_interaction;D152: + goal_updated)', () => {
-    expect(Object.keys(SSE_EVENTS)).toHaveLength(32)
-    expect(SSE_EVENT_NAMES).toHaveLength(32)
+  it('包含全部 33 个契约事件(V3 #48/#58:26 - token + terminal_delta + start + tool-approval;D113: + tool-delta;V3 #63: + form_request;D151: + terminal_interaction;D152: + goal_updated)', () => {
+    expect(Object.keys(SSE_EVENTS)).toHaveLength(33)
+    expect(SSE_EVENT_NAMES).toHaveLength(33)
     // 光有计数会放过"删了别的、加了这个",新帧必须点名在位:
     expect(SSE_EVENTS.TERMINAL_INTERACTION).toBe('terminal_interaction')
     // D152(2026-09-29):目标状态单帧(cleared 由 status 承载,无 goal_cleared 第二帧)
     expect(SSE_EVENTS.GOAL_UPDATED).toBe('goal_updated')
+    // G-815976(2026-10-04):流式中断标记帧入契约(此前只有生产者,端上静默丢弃)
+    expect(SSE_EVENTS.PARTIAL_DONE).toBe('partial_done')
     expect(SSE_EVENT_NAMES as readonly string[]).not.toContain('goal_cleared')
   })
 
@@ -162,6 +164,8 @@ const PAYLOAD_TYPE_BY_KEY: Record<keyof typeof SSE_EVENTS, SSEEventName> = {
   FALLBACK: 'fallback',
   // 2026-09-19 立:网关预算档位提醒(流首软提醒,80%~95% warning / 95%~100% critical)
   BUDGET: 'budget',
+  // G-815976(2026-10-04):流式中断标记帧(此前只有生产者,端上静默丢弃)
+  PARTIAL_DONE: 'partial_done',
   INJECTION_APPLIED: 'injection_applied',
   RETRY_SCHEDULED: 'retry_scheduled',
 }
@@ -199,6 +203,8 @@ const UNION_MEMBER_BY_NAME: Record<SSEEventName, SSEEventPayload['type']> = {
   terminal_interaction: 'terminal_interaction',
   // D152(2026-09-29):会话目标状态帧(判别联合成员见 contract.ts)
   goal_updated: 'goal_updated',
+  // G-815976(2026-10-04):流式中断标记帧(判别联合成员见 contract.ts)
+  partial_done: 'partial_done',
   terminal_end: 'terminal_end',
   terminal_start: 'terminal_start',
   thinking: 'thinking',
