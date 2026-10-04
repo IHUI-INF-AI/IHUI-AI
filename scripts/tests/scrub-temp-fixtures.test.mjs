@@ -88,7 +88,9 @@ test('T3 保护区硬阻断:夹具内含 `密钥` 子目录 ⇒ 整条不删且�
     assert.equal(r.candidates.length, 0, '藏着凭据目录的整条候选必须被拒')
     assert.equal(r.skipped.protected, 1)
     assert.equal(r.protectedPaths.length, 1)
-    assert.match(r.protectedPaths[0], /密钥/)
+    assert.match(r.protectedPaths[0].path, /密钥/)
+    assert.equal(r.protectedPaths[0].name, 'ihui-with-secrets')
+    assert.ok(r.protectedPaths[0].bytes > 0, '被保护闸挡住的条也必须量出体积(只报名字会把 11 GB 读成"没多少")')
     assert.equal(existsSync(join(dir, '密钥', 'master.txt')), true)
     assert.match(formatReport(r, { apply: true, minAgeDays: 7 }).join('\n'), /整条不删/)
   } finally {
