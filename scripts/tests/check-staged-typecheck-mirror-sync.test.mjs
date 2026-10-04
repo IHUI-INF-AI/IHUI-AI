@@ -74,7 +74,8 @@ function buildGuardScript(tmpDir, tmpSource, tmpTest) {
 test('--help → exit 0, stdout 含帮助文本', () => {
   const r = spawnSync('node', [SCRIPT_PATH, '--help'], {
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   assert.equal(r.status, 0, `--help 应 exit 0, 实际 ${r.status}`)
   assert.ok(
@@ -89,7 +90,8 @@ test('--help → exit 0, stdout 含帮助文本', () => {
 test('-h 短选项 → exit 0 (与 --help 等价)', () => {
   const r = spawnSync('node', [SCRIPT_PATH, '-h'], {
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   assert.equal(r.status, 0)
 })
@@ -99,7 +101,8 @@ test('-h 短选项 → exit 0 (与 --help 等价)', () => {
 test('默认调用 (源/测 export 锚点一致) → exit 0, stdout 含"无漂移"', () => {
   const r = spawnSync('node', [SCRIPT_PATH], {
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   assert.equal(r.status, 0, `默认调用应 exit 0, 实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
   // 退出码优先; 文本只在非 --quiet 模式出现
@@ -113,7 +116,8 @@ test('默认调用 (源/测 export 锚点一致) → exit 0, stdout 含"无漂�
 test('--quiet 模式 → exit 0, stdout 为空', () => {
   const r = spawnSync('node', [SCRIPT_PATH, '--quiet'], {
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   assert.equal(r.status, 0, `--quiet 应 exit 0, 实际 ${r.status}`)
   assert.equal(
@@ -126,7 +130,8 @@ test('--quiet 模式 → exit 0, stdout 为空', () => {
 test('--json 模式 → exit 0, stdout 是合法 JSON 含 ok:true', () => {
   const r = spawnSync('node', [SCRIPT_PATH, '--json'], {
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   assert.equal(r.status, 0, `--json 应 exit 0, 实际 ${r.status}`)
   const report = JSON.parse(r.stdout)
@@ -171,7 +176,8 @@ test('源 __test__ export 缺失 → exit 1, 报告 source_export_missing', () =
     const guardPath = buildGuardScript(tmpDir, tmpSource, tmpTest)
     const r = spawnSync('node', [guardPath, '--json'], {
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     })
     assert.equal(r.status, 1, `源 export 缺失应 exit 1, 实际 ${r.status}`)
     const report = JSON.parse(r.stdout)
@@ -205,7 +211,8 @@ test('测试 import 路径错 → exit 1, 报告 test_import_missing', () => {
     const guardPath = buildGuardScript(tmpDir, tmpSource, tmpTest)
     const r = spawnSync('node', [guardPath, '--json'], {
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     })
     assert.equal(r.status, 1, `测试 import 错应 exit 1, 实际 ${r.status}`)
     const report = JSON.parse(r.stdout)
@@ -234,7 +241,8 @@ test('源文件不存在 → exit 2, 报告 source_missing', () => {
     writeFileSync(guardPath, guardModified, 'utf8')
     const r = spawnSync('node', [guardPath, '--json'], {
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     })
     assert.equal(r.status, 2, `源文件缺失应 exit 2, 实际 ${r.status}`)
     const report = JSON.parse(r.stdout)
@@ -265,7 +273,8 @@ test('源 __test__ 缺一个键 → exit 1, drift.source_key_missing', () => {
     const guardPath = buildGuardScript(tmpDir, tmpSource, tmpTest)
     const r = spawnSync('node', [guardPath], {
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     })
     assert.equal(r.status, 1, `键缺失应 exit 1, 实际 ${r.status}`)
     assert.ok(
@@ -304,7 +313,8 @@ test('--quiet + 漂移 → exit 1', () => {
     const guardPath = buildGuardScript(tmpDir, tmpSource, tmpTest)
     const r = spawnSync('node', [guardPath, '--quiet'], {
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     })
     // 注:守卫脚本失败路径 console.log 不受 QUIET 控制(2026-08-18 已知 bug,后续修)
     assert.equal(r.status, 1, `--quiet 漂移应 exit 1, 实际 ${r.status}`)
@@ -331,7 +341,8 @@ test('测试文件 import 行被注释掉 → exit 1, 报告 test_import_missing
     const guardPath = buildGuardScript(tmpDir, tmpSource, tmpTest)
     const r = spawnSync('node', [guardPath, '--json'], {
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     })
     assert.equal(
       r.status,
@@ -373,7 +384,8 @@ test('源 isDirectRun 守护被注释掉 → exit 1, 报告 source_isDirectRun_m
     const guardPath = buildGuardScript(tmpDir, tmpSource, tmpTest)
     const r = spawnSync('node', [guardPath, '--json'], {
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     })
     assert.equal(
       r.status,

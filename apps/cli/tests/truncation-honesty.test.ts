@@ -33,7 +33,10 @@ describe('G-816028 registry 计数', () => {
 
   it('正例(真进程):输出越过 1MiB 上限 ⇒ truncated=true、丢弃量逐字入账、内容带省略前缀', async () => {
     const OVER = 5000
-    const child = spawn(process.execPath, ['-e', `process.stdout.write('a'.repeat(1024 * 1024 + ${OVER}))`])
+    const child = spawn(process.execPath, ['-e', `process.stdout.write('a'.repeat(1024 * 1024 + ${OVER}))`], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     const id = registerTask(child, "node -e 'huge stdout'")
     await new Promise<void>((resolve) => {
       child.on('exit', () => resolve())

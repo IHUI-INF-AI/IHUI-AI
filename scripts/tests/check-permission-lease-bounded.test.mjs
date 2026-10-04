@@ -48,7 +48,8 @@ test('T2 未注册时不得声称已装车;已注册则 blocking + skipEnv 必�
 });
 
 test('T3 真仓 HEAD 面 exit 0(门对自己产出的形态不失明)', () => {
-  const out = execFileSync(process.execPath, [GATE], { cwd: ROOT, encoding: 'utf8', timeout: 120_000 });
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  const out = execFileSync(process.execPath, [GATE], { cwd: ROOT, encoding: 'utf8', timeout: 120_000, stdio: ['ignore', 'pipe', 'pipe'] });
   assert.match(out, /✅ 权限放宽均已租约化/);
 });
 

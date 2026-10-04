@@ -261,7 +261,8 @@ function getStagedFiles() {
     const out = execSync('git diff --cached --name-only --diff-filter=ACMR', {
       encoding: 'utf8',
       cwd: AUDIT_ROOT,
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     })
     return out
@@ -461,7 +462,8 @@ function runPackageTypecheck(pkg, files) {
     const result = spawnSync('pnpm', args, {
       cwd: AUDIT_ROOT,
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       shell: true,
       windowsHide: true, // 防 Windows 弹可见 cmd 窗口
     })

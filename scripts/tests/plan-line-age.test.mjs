@@ -66,10 +66,11 @@ test('(b) resolveLimit 对合法值与缺席:notice 为 null 且数值照旧(0 �
 test('(a) CLI --limit --json:exit 0 + stderr 点名 + stdout 仍是可 parse 的 JSON 且清单非空', () => {
   const dir = mkScratch('ihui-plan-line-age-')
   try {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     const bad = spawnSync('node', [SCRIPT_PATH, '--limit', '--json'], {
       cwd: dir,
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
       timeout: 300_000,
     })
@@ -80,10 +81,11 @@ test('(a) CLI --limit --json:exit 0 + stderr 点名 + stdout 仍是可 parse 的
     assert.ok(parsed.top.length > 0, '清单不得是空的 —— 空而 exit 0 正是本判据要防的那一型')
 
     // 同一时刻的默认档(不带 --limit)必须拿到同样多的行 ⇒ "退回默认"是真的,不是又一个猜测值
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     const plain = spawnSync('node', [SCRIPT_PATH, '--json'], {
       cwd: dir,
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
       timeout: 300_000,
     })

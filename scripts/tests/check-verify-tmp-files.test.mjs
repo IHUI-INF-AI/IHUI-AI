@@ -24,7 +24,8 @@ function runScript(cwd, args = []) {
   const r = spawnSync('node', [SCRIPT_PATH, ...args], {
     cwd,
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   r.out = r.stdout.replace(/\x1b\[[0-9;]*m/g, '')
   return r

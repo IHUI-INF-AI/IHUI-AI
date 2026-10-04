@@ -47,7 +47,9 @@ function runScript(cwd, args = [], env = {}) {
   const r = spawnSync('node', [SCRIPT_PATH, ...args], {
     cwd: cwd || process.cwd(),
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    // 返回值被消费(读 r.stdout 去 ANSI)⇒ stdout 仍须 pipe,只把 stdin 切掉
+    stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, ...env },
   })
   if (r.stdout) r.stdout = r.stdout.replace(ANSI_RE, '')

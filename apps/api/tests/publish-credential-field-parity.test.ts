@@ -38,12 +38,15 @@ const ADAPTER_DIR = 'apps/ai-service/app/services/publish/adapters'
 
 // 本测试的 cwd 是 apps/api，而两侧路径都要从**仓库根**算：不加 `-C` 时 git 按 cwd 解析这些
 // 前缀路径 ⇒ 恒"扫到 0 条"，而 0 在这类尺子里表现成一切正常（本仓最高频的失效型）。
-const REPO_ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim()
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+const REPO_ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
 
 function git(argList: string[]): string {
   return execFileSync('git', ['-C', REPO_ROOT, ...argList], {
     maxBuffer: 1 << 26,
     encoding: 'utf8',
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
