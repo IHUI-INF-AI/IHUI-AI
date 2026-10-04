@@ -1225,10 +1225,30 @@ test('FG-LOCK 反向锁:三条阳性对照各跑恰好一次,且盲区档挂在�
   }
   const src = readFileSync(SCRIPT_PATH, 'utf8')
   assert.match(src, /function\s+collectAliasLiteralBlindSites\s*\(/, "③' 的采集器必须在位")
+  // 2026-10-04 就地更正(票面更正,非"改测试让它绿"):本断言原来写的是
+  //   /collectAliasLiteralBlindSites\(\{ frontendFiles, alias \}\)/
+  // 它在 HEAD 上命中的是**函数定义那一行**(定义与调用点当时逐字同形),从**没有**测到
+  // 它自己声称要测的东西 —— "③' 真挂在 CE 执行段上"。本票给采集器加了第三个实参
+  // `hasRoute`(可判型要问在册与否),定义与调用点不再同形,那条字面量锁就此失效并变红。
+  // 现改为**分开锁两处**,且调用点那处锚在赋值语句上(排除定义行):
+  //   · 定义在位(锁形参表仍是 `{ frontendFiles, alias, hasRoute }`,防止有人悄悄删掉查询口)
+  //   · 调用点真挂在 CE 执行段(`const aliasLiteralBlind = collectAliasLiteralBlindSites(`)
+  // 后者刻意**不**把实参表写死:实参增删是正常演进,这条锁要钉的是"有没有人调用它",
+  // 钉死实参表只会让正常改动陪绑(这正是原写法踩的坑)。
   assert.match(
     src,
-    /collectAliasLiteralBlindSites\(\{ frontendFiles, alias \}\)/,
+    /function\s+collectAliasLiteralBlindSites\(\{\s*frontendFiles,\s*alias,\s*hasRoute,?\s*\}\)/,
+    "③' 采集器的定义必须仍在位且保留 hasRoute 查询口(可判型要问在册与否,删掉就退回静默)",
+  )
+  assert.match(
+    src,
+    /=\s*collectAliasLiteralBlindSites\(\{/,
     "③' 必须真挂在 CE 执行段上(定义了没人调 = 提交链上一路绿灯,守门 70/76/81 同型)",
+  )
+  assert.doesNotMatch(
+    src,
+    /function\s+collectAliasLiteralBlindSites\(\{\s*frontendFiles,\s*alias,?\s*\}\)/,
+    "③' 采集器的定义仍是不带 hasRoute 的旧形 —— 本票起可判型要问在册与否,查询口不许被删",
   )
   assert.match(src, /aliasLiteralBlind\.length > 0/, "③' 的输出必须无条件判读,不得嵌进别的分支")
   // 识别式只有一份:三处消费者共用 aliasLiteralRe,门内不得再抄第二张前缀匹配式
