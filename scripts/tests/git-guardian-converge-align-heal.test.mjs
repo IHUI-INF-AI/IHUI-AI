@@ -22,7 +22,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, readFileSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
@@ -393,5 +393,128 @@ test('分档台账:manual 格的理由必须点名"为什么不能自动"(不得
 
 test('分档台账:对齐格必须登记为 auto(第一批已落地,别被后续改动悄悄降级)', () => {
   assert.equal(AUTO_HEAL_LEDGER['converge-align'].mode, 'auto')
+})
+
+// ─── 台账 ⇄ 代码对账(2026-10-04 复核补立)───────────────────────────────
+//
+// 为什么必须补:上面那两条测试**遍历的是台账自身**,能抓"已登记项写错形状",
+// 抓不住"登记内容与代码相反"。实测就栽在这里 —— `merge-addition-loss` 登记成
+// `auto` 且理由写「派发时已带 --apply」,文案完全合规、字面全绿,而代码里
+// `union-converge` **零处派发**、`auditMergeAdditionLoss` 只派 `--all-new`,
+// 其设计注释还明写「只判不修…人来点」。**"写得对而错"的文案骗得过所有形状校验。**
+// 只有把台账的 `where` 拿去回读源码,才钉得住。
+
+const GUARDIAN_SRC = () => readFileSync(new URL('../git-guardian.mjs', import.meta.url), 'utf8')
+
+test('台账对账:auto 格声称"派发带 --apply"时,源码里那一格必须真的派发了它', () => {
+  const src = GUARDIAN_SRC()
+  // 从 where 里取出动作器脚本名(形如 xxx.mjs --apply)
+  const claimed = Object.entries(AUTO_HEAL_LEDGER).filter(
+    ([, v]) => v.mode === 'auto' && /派发时已带/.test(String(v.why)) && /[a-z0-9-]+\.mjs\s+--apply/i.test(String(v.where)),
+  )
+  assert.ok(claimed.length >= 2, '本应至少有两格声称"派发时已带 --apply"(ops-patrol / service-heal)')
+  for (const [name, v] of claimed) {
+    const script = String(v.where).match(/([a-z0-9-]+\.mjs)\s+--apply/i)[1]
+    // 两段都要找,缺一不可:
+    //  ① 源码里确实引到了这个脚本名(证明这格的动作面就是它);
+    //  ② 某个 execFileSync/spawnSync 调用里同时出现"脚本变量/名字"与 '--apply'。
+    //     派发有**两种写法**,只认一种会把真派发判成没派发(第一版就栽在这):
+    //       a) 直写路径:['scripts/xxx.mjs', '--json', '--apply']
+    //       b) 变量拼路径:const script = join(…, 'xxx.mjs'); execFileSync(…, [script, '--json', '--apply'])
+    const quoted = src.includes(script) || src.includes(script.replace(/\.mjs$/, ''))
+    assert.ok(quoted, `${name} 声称派发 ${script},但源码里连这个脚本名都没出现过`)
+    const re = new RegExp(`(execFileSync|spawnSync)\\([\\s\\S]{0,320}--apply`)
+    assert.match(src, re, `${name} 声称派发 ${script} --apply,但源码里找不到任何带 --apply 的派发调用`)
+  }
+})
+
+test('台账对账:manual 格不得声称"派发时已带 --apply"(动作面必须由人点)', () => {
+  for (const [name, v] of Object.entries(AUTO_HEAL_LEDGER)) {
+    if (v.mode !== 'manual') continue
+    assert.doesNotMatch(
+      String(v.why),
+      /派发时已带 --apply/,
+      `${name} 是 manual 却写"派发时已带 --apply" —— manual 格的动作面必须由人点`,
+    )
+  }
+})
+
+test('台账对账:merge-addition-loss 必须是 manual(代码只判不修,出口由人点)', () => {
+  // 本次错判的钉子:auditMergeAdditionLoss 只派 --all-new,设计注释明写"只判不修"
+  assert.equal(AUTO_HEAL_LEDGER['merge-addition-loss'].mode, 'manual')
+  assert.match(AUTO_HEAL_LEDGER['merge-addition-loss'].why, /只判不修|人来点/)
+})
+
+test('台账对账:每个告警出口都要有登记 —— 由源码里的告警身份反查', () => {
+  // 漏登记是台账唯一会漂的方向(新增一格的人不会想到回来改它),而遍历台账自身的
+  // 那两条测试对"漏登记"零判别力。这里改成**从源码的告警身份反查**。
+  const identities = [
+    ['converge-align', 'converge-align-stall'],
+    ['env-drift', 'env 键值漂移'],
+    ['ops-patrol', '元运维巡检红'],
+    ['service-heal', '服务自愈'],
+    ['merge-addition-loss', '合并吞并对账判红'],
+    ['host-timezone', '主机时区'],
+    ['disk-root-hygiene', '盘根外流'],
+    ['public-path', '公网路径探测'],
+    ['orphan-deletion-refs', '孤儿删除引用巡检命中'],
+    ['recovery-source-refresh', '恢复源'],
+  ]
+  for (const [key, needle] of identities) {
+    assert.ok(AUTO_HEAL_LEDGER[key], `告警出口「${needle}」在台账里没有登记 —— 漏登记的格必须登记`)
+    assert.ok(
+      GUARDIAN_SRC().includes(needle),
+      `告警出口「${needle}」在 git-guardian.mjs 里已找不到(可能已改名或删除),台账需同步`,
+    )
+  }
+})
+
+// ─── 自愈动作面收窄:必须真的派发 --align-only(不是裸跑收敛)──────────────
+//
+// 这是**动作面最关键的不变量**,而上一版测试只在告警**文案**里断言过
+// `--align-only` 出现过 —— 把它改成裸 `git-sync-converge.mjs`(那会 fetch/合并/推送)
+// 一样全绿。现在直接钉 argv。
+test('自愈动作面:实际派发的 argv 必须带 --align-only(裸跑收敛会 fetch/合并/推送)', () => {
+  const src = GUARDIAN_SRC()
+  assert.match(
+    src,
+    /spawnSync\([\s\S]{0,300}process\.execPath[\s\S]{0,200}\[\s*'scripts\/git-sync-converge\.mjs',\s*'--align-only'\s*\]/,
+    '自愈派发未带 --align-only —— 裸跑 git-sync-converge.mjs 会顺手做 fetch/合并/推送,动作面失控',
+  )
+  assert.doesNotMatch(
+    src,
+    /spawnSync\([\s\S]{0,300}process\.execPath[\s\S]{0,200}\[\s*'scripts\/git-sync-converge\.mjs'\s*\]/,
+    '自愈派发出现了不带 --align-only 的裸调用',
+  )
+})
+
+test('自愈总开关:env IHUI_ALIGN_HEAL_DISABLED 必须是实现的真实读取面(名字不一致要判红)', () => {
+  // 复核发现:注释写 ALIGN_HEAL_DISABLED 而实现读 IHUI_ALIGN_HEAL_DISABLED,名字不一致
+  // 且无测试能发现。这里钉住"实现确实读 IHUI_ 前缀的那个"。
+  const src = GUARDIAN_SRC()
+  assert.match(src, /process\.env\.IHUI_ALIGN_HEAL_DISABLED/)
+  // 纯判据层的注入面仍须有效(env 读不到时也要能用注入口测)
+  assert.equal(decideAlignHeal(FAILING, {}, NOW, { disabled: true }).heal, false)
+})
+
+test('自愈熔断:派发器起不来也计入次数时,必须在告警正文里看得见(不得静默烧光额度)', () => {
+  // 复核发现的两条熔断误消耗路径之一:run() 抛异常也算一次 attempts。
+  // 即便本次不修,也要钉住"熔断后告警正文必须出现熔断字样"——
+  // 否则收信人看到的是一条"从没说有人试过"的告警。
+  const dir = tmpDir('breaker')
+  const statePath = writeState(dir, FAILING)
+  const sent = []
+  checkConvergeAlignStall({
+    now: NOW,
+    statePath,
+    notify: (name, detail) => sent.push([name, String(detail || '')]),
+    // 熔断态:decideAlignHeal 返回 healed:false(used >= maxAttempts)
+    heal: () => ({ healed: false, ok: false, why: `自愈已用满 3/3 次 ⇒ 熔断,转人工`, attempts: 3 }),
+    cfg: {},
+  })
+  // 熔断时仍按原阈值喊人(不能因为"在修"就完全不喊)
+  assert.equal(sent.length, 1)
+  // 正文必须让人看得出"机器试过了、且已熔断"
+  assert.match(sent[0][1], /熔断|自动修复/)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
