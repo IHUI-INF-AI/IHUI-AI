@@ -28,6 +28,7 @@ import remarkGfm from 'remark-gfm'
 import { fetchApi } from '@/lib/api'
 import { Tooltip } from '@/components/feedback'
 import { Card, CardContent, Input, Button } from '@ihui/ui-react'
+import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import { FeatureCenterHeader, FeatureCenterNav } from '@/components/feature-center'
 import { formatDateOnly } from '@/lib/date-utils'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
@@ -297,7 +298,7 @@ export default function DocumentsPage() {
     // 1. 进度条
     const max = container.scrollHeight - container.clientHeight
     const p = max > 0 ? (container.scrollTop / max) * 100 : 0
-    setProgress(Math.min(100, Math.max(0, p)))
+    setProgress(clampPercent(p))
     // 2. TOC 高亮
     if (tocItems.length === 0) return
     const scrollTop = container.scrollTop
