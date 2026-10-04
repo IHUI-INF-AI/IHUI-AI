@@ -27,6 +27,8 @@ import {
   LogIn,
   ListFilter,
   FolderOpen,
+  // D165:侧栏「移动到分组」入口图标(文件夹 + 入箭头)
+  FolderInput,
   Tags,
   Pin,
   PinOff,
@@ -62,6 +64,16 @@ import {
 } from '@ihui/shared'
 import { useChatStore } from '@/stores/chat'
 import { useConversationOrgMap, useConversationOrgStore } from '@/stores/conversation-org'
+// D165:分组置顶(pin/unpin)客户端 store —— 只存分组名,分组本身仍以 orgMap 派生
+import {
+  useConversationGroupPinStore,
+  usePinnedFolders,
+} from '@/stores/conversation-group-pin'
+// D165:移动到分组/分组置顶排序的判据层(纯函数)。UI 只负责取数与呈现,
+// 四态判据与排序规则一律走这里,不在组件里复刻第二份。
+import { resolveMoveToGroup, orderFoldersWithPinned } from '@/components/sidebar/move-to-group'
+// D165:移动对话框(受控;目标选择态归它自己,四态判定与写入归宿主)
+import { MoveToGroupDialog } from '@/components/sidebar/move-to-group-dialog'
 // D187:侧栏「标记为未读」客户端标记 store(localStorage 按 userId 分桶,打开即清)
 import {
   useConversationUnreadMarks,
@@ -260,6 +272,18 @@ export function SidebarChatHistory({
   const setOrgFolder = useConversationOrgStore((s) => s.setFolder)
   const setOrgTags = useConversationOrgStore((s) => s.setTags)
   const orgFolders = React.useMemo(() => listFolderNames(orgMap), [orgMap])
+  // D165:已置顶分组(只读快照)。置顶顺序由 orderFoldersWithPinned 决定,
+  // 分组本身仍以 orgMap 派生 —— 置顶记录里已不存在的分组不会凭空长出来。
+  const pinnedFolders = usePinnedFolders(userId)
+  const toggleGroupPin = useConversationGroupPinStore((s) => s.togglePin)
+  /** 置顶优先的分组清单(筛选下拉与移动对话框共用同一份顺序) */
+  const orderedFolders = React.useMemo(
+    () => orderFoldersWithPinned(orgFolders, pinnedFolders),
+    [orgFolders, pinnedFolders],
+  )
+  // D165:移动到分组对话框的宿主态。ids 为空数组=不打开;单选与批量走同一个对话框。
+  // 目标分组的选择态归对话框自己所有(它每次 open 重置),宿主只在提交那一刻取回目标。
+  const [pendingMoveIds, setPendingMoveIds] = React.useState<string[]>([])
   // D187:当前用户的「标记为未读」集合(只读快照;动作经 store 单独取,引用稳定)
   const unreadMarks = useConversationUnreadMarks(userId)
   const markUnread = useConversationUnreadMarkStore((s) => s.markUnread)
@@ -622,6 +646,63 @@ export function SidebarChatHistory({
     success(tc('toast.orgSaved'))
   }
 
+  // D165:打开移动对话框(单选与批量共用)。进入多选态不清选中集 ——
+  // 「打开对话框」不是「改主意」,用户可能想移完继续挑下一批。
+  const openMoveToGroup = (ids: string[]) => {
+    setPendingMoveIds(ids)
+  }
+
+  /**
+   * D165:移动提交。判据一律交给 resolveMoveToGroup(纯函数),本函数只做三件事:
+   * 取提交那一刻的现势、写入 store、按四态给点名文案。
+   * 失败三态(folderMissing / unauthorized / conflict)一律**保留弹层** ——
+   * 用户改一个目标就能重试,关掉弹层等于把"重试"变成"从头再来一遍"。
+   */
+  const submitMoveToGroup = (target: string | null) => {
+    if (!userId || pendingMoveIds.length === 0) return
+    const currentFolderByConv: Record<string, string | null> = {}
+    for (const id of pendingMoveIds) currentFolderByConv[id] = getOrgMeta(orgMap, id).folder ?? null
+    const result = resolveMoveToGroup({
+      authorized: true,
+      target,
+      knownFolders: orgFolders,
+      currentFolderByConv,
+    })
+    if (result.status === 'unauthorized') {
+      error(t('moveFailUnauthorized'))
+      return
+    }
+    if (result.status === 'folderMissing') {
+      error(t('moveFailFolderMissing', { folder: result.folder }))
+      return
+    }
+    if (result.status === 'conflict') {
+      error(t('moveFailConflict', { folder: result.folder ?? t('moveDialog.none') }))
+      return
+    }
+    for (const id of pendingMoveIds) setOrgFolder(userId, id, result.folder)
+    // 「未分组」在文案层要有个名字,否则成功提示会留下一个空引号「」
+    success(
+      t('moveSuccess', {
+        count: result.moved,
+        folder: result.folder ?? t('moveDialog.none'),
+      }),
+    )
+    setPendingMoveIds([])
+    // 移动完成后清单已变(分组徽章/筛选计数),留着旧选中集等于让下一次批量动作打到已移走的行
+    selection.clear()
+  }
+
+  const closeMoveToGroup = () => {
+    setPendingMoveIds([])
+  }
+
+  // D165:分组置顶切换(客户端偏好,持久化到 localStorage;服务端就绪时另走 togglePinFolder)
+  const handleGroupPinToggle = (folder: string) => {
+    if (!userId) return
+    toggleGroupPin(userId, folder)
+  }
+
   const handleExport = (item: ConversationItem, format: 'txt' | 'md') => {
     setBusyId(item.id)
     exportMutation.mutate(
@@ -924,6 +1005,18 @@ export function SidebarChatHistory({
               <Tags className="mr-2 h-3.5 w-3.5" />
               <span>{tc('org.title')}</span>
             </DropdownMenuItem>
+            {/* D165:移动到分组(单选入口;批量入口在多选态动作条上) */}
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                openMoveToGroup([item.id])
+              }}
+              disabled={busyId === item.id || !userId}
+              data-testid="conversation-move-to-group-action"
+            >
+              <FolderInput className="mr-2 h-3.5 w-3.5" />
+              <span>{t('moveToGroup')}</span>
+            </DropdownMenuItem>
             {/* D179:「绑定 Issue」(竞品 bindIssue;已绑定时同入口可换绑,解绑在对话框内) */}
             <DropdownMenuItem
               onClick={(e) => {
@@ -1136,11 +1229,39 @@ export function SidebarChatHistory({
                   <DropdownMenuItem onClick={() => setFolderFilter(null)}>
                     <span className="min-w-0 truncate">{tc('org.folderNone')}</span>
                   </DropdownMenuItem>
-                  {orgFolders.map((f) => (
-                    <DropdownMenuItem key={f} onClick={() => setFolderFilter(f)}>
-                      <span className="min-w-0 truncate">{f}</span>
-                    </DropdownMenuItem>
-                  ))}
+                  {/* D165:分组行 = 「筛到这一组」+「置顶/取消置顶」两枚独立控件。
+                      置顶钮刻意**不**做成 DropdownMenuItem:菜单项一点即收菜单,
+                      而置顶是可反复切换的开关,收掉菜单等于逼用户每改一次重开一次。 */}
+                  {orderedFolders.map((f) => {
+                    const pinned = pinnedFolders.includes(f)
+                    return (
+                      <div key={f} className="flex items-center gap-0.5">
+                        <DropdownMenuItem
+                          onClick={() => setFolderFilter(f)}
+                          className="min-w-0 flex-1"
+                        >
+                          {pinned && (
+                            <Pin className="mr-1 h-3 w-3 shrink-0 fill-current text-primary" />
+                          )}
+                          <span className="min-w-0 truncate">{f}</span>
+                        </DropdownMenuItem>
+                        <button
+                          type="button"
+                          onClick={() => handleGroupPinToggle(f)}
+                          aria-label={pinned ? t('groupUnpin') : t('groupPin')}
+                          aria-pressed={pinned}
+                          data-testid={`conversation-group-pin-toggle-${f}`}
+                          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                        >
+                          {pinned ? (
+                            <PinOff className="h-3.5 w-3.5" />
+                          ) : (
+                            <Pin className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      </div>
+                    )
+                  })}
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
@@ -1207,6 +1328,7 @@ export function SidebarChatHistory({
             onToggleAll={(checked) => selection.selectAll(checked, visibleIds)}
             onInvert={() => selection.invert(visibleIds)}
             onBatch={runBatch}
+            onMoveToGroup={() => openMoveToGroup([...selection.orderedSelectedIds])}
             onCancel={selection.clear}
           />
         )}
@@ -1368,6 +1490,19 @@ export function SidebarChatHistory({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* D165:移动到分组对话框(单选/批量共用;受控组件,判据与写入都在宿主侧)。
+          失败三态下弹层刻意不关:改一个目标就能原地重试。 */}
+      <MoveToGroupDialog
+        open={pendingMoveIds.length > 0}
+        onOpenChange={(open) => {
+          if (!open) closeMoveToGroup()
+        }}
+        folders={orderedFolders}
+        pinnedFolders={pinnedFolders}
+        onTogglePin={handleGroupPinToggle}
+        onSubmit={submitMoveToGroup}
+      />
 
       {/* D20(G-11):文件夹/标签编辑对话框(受控组件,读写客户端元数据 store) */}
       <ConversationOrgDialog
