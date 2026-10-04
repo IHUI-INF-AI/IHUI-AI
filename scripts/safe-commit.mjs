@@ -55,6 +55,13 @@ import {
 // 把非 ASCII 路径八进制转写并加引号,按换行 split 的旧写法把 5 个中文名文件判成
 // 「暂存区出现非预期文件 ⇒ 中止提交」(Step 3)与污染事故(Step 5)。
 import { gitCommitPaths, gitStagedPaths, gitUntrackedPaths, gitWorktreePaths } from './lib/git-paths.mjs'
+// G-1018292(2026-10-04):`git reset HEAD` 清空共享索引时会摘掉他人暂存删除的保护标记,
+// 而 reflog/index 结构上不留痕 ⇒ 只能在清空前那一瞬取样。判据与留底面在此。
+import {
+  judgeStagedDeleteIntent,
+  readCachedNameStatus,
+  snapshotStagedDeleteIntent,
+} from './lib/staged-delete-intent.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 // 本脚本所在仓的根(AGENTS §15:由自身位置推导,不得写死盘符)
@@ -200,6 +207,42 @@ log('info', `safe-commit 启动 → 分支: ${C.bold}${currentBranch}${C.reset}`
 log('info', `期望暂存 ${C.cyan}${expectedFiles.length}${C.reset} 个文件`)
 
 /**
+ * 把"本次清空了他人的 N 项暂存删除"落成一份可追责的账(票 G-1018292)。
+ *
+ * 落点选`.workbuddy/` 而非仓根:① `.gitignore:377` 已忽略整个目录(实测 `check-ignore` rc=0),
+ * 不会留没人收的 `??`;② 本脚本既有的归因账 `safe-commit-attestation.jsonl` 也在同一目录,
+ * 两份留痕同族同生命周期;③ 落盘**失败不得阻断提交** —— 喊人已经在stdout 里发生了,
+ * 账写不进去是次级问题,不该把提交变成一次环境故障(与 Step 1 那个 warn 同取向)。
+ */
+function recordClearedStagedDeletions({ root, lost, selfStaged, kept, branch, headBefore, declaredFiles }) {
+  try {
+    mkdirSync(join(root, '.workbuddy'), { recursive: true })
+    appendFileSync(
+      join(root, '.workbuddy', 'staged-delete-intent-ledger.jsonl'),
+      `${JSON.stringify({
+        ts: new Date().toISOString(),
+        event: 'index-purge-cleared-staged-deletions',
+        branch,
+        headBefore,
+        // 三份清单都要留:lost=被摘掉标记的他人删除(归属会话要按它喊人),
+        // selfStaged=本票声明面(Step 2 会重新暂存,标记不丢),kept=清空后仍是暂存态的。
+        clearedIntentLost: lost,
+        selfStagedReadded: selfStaged,
+        stillStaged: kept,
+        declaredFiles,
+        // 明写"本脚本没有代裁":读账的人不该误以为这些删除已被恢复或已提交。
+        actionTaken: 'report-only',
+        note: '删除意图丢失;reflog/index 不留痕,归属会话需重新 git rm --cached 恢复标记。本脚本不恢复、不删除、不提交。',
+      })}\n`,
+    )
+    return true
+  } catch (e) {
+    log('warn', `删除意图账写入失败(不阻断提交):${String(e && e.message ? e.message : e).slice(0, 120)}`)
+    return false
+  }
+}
+
+/**
  * git 索引锁争用分诊(2026-09-24 立)。共享工作区里 `.git/index.lock` 常常**瞬时**存在又消失
  * (实测本会话 12:0x 一次:safe-commit 死在 Step 1 的 `git reset HEAD`,再看锁已没了)——
  * 这类失败一次钩子都没跑过,绝不能当成"钩子判红",更不能拿 --no-verify 去"修"它。
@@ -229,11 +272,80 @@ function gitStep(args, label) {
 }
 
 // ─── 1. git reset HEAD (清空整个暂存区) ────────────────────
+// G-1018292(2026-10-04):本 Step 的 `git reset HEAD` 会把**整个共享索引**清空,
+// 于是"他人已暂存的删除"(`git status --porcelain` 的 `D ` 形态)那枚保护标记
+// 一起被摘掉 —— 退化成 ` D` 之后存续自愈那三条判据(工作树缺 ∧ 索引 blob==HEAD blob
+// ∧ HEAD 有)全部成立,会把一枚**可能有意的删除**当成外部删除恢复回盘上,而两边账面都绿。
+//
+// **为什么只能在这里取样**:实测(2026-10-04 临时仓逐条试)`git reflog --all` /
+// `git reflog show --name-status HEAD` / `git fsck` 三条路都答不了"这批删除曾否是暂存态"
+// —— 索引不是对象库的一部分,`reset HEAD` 不产生任何 reflog 条目,`fsck` 无输出。
+// 清空之后**没有任何事后痕迹**可查,所以判据的唯一合法取样窗就是 reset 之前这一瞬。
+// 取样面与判据本体都在 scripts/lib/staged-delete-intent.mjs(纯函数,可构造面证明)。
+//
+// ⚠️ 本段只做**留底 + 判定 + 点名**,绝不代裁:不恢复、不删除、不改工作树,
+// 也不动别人那枚删除本身(票面明写"既不支持也不阻止")。判不出时按"未判定"报,
+// 不折进"没问题"(见三条不许漂第 1条)。
+const intentSnapshot = snapshotStagedDeleteIntent({ root: repoRoot })
+if (!intentSnapshot.ok) {
+  // 取不到就是取不到。此处**不阻断提交**(那会把一次环境抖动变成全仓提交停摆),
+  // 但必须留一行"未判定",不许让"读不到索引面"在账面上读成"没有删除"。
+  log(
+    'warn',
+    '删除意图判据:未判定 —— 清空前索引面取不到,无法判断本次清空是否摘掉了他人暂存删除的标记' +
+      '(不阻断本次提交;若确有他人暂存删除,请归属会话重新 stage 后再提交)',
+  )
+}
+
 log('info', 'Step 1/5: git reset HEAD — 清空暂存区(无论谁 staged 的)')
 const resetResult = gitStep(['reset', 'HEAD'], 'git reset HEAD')
 if (resetResult.status !== 0) {
   log('err', `git reset HEAD 失败: ${resetResult.stderr}`)
   process.exit(2)
+}
+
+// 清空之后**再取一次**索引面:判据必须是"清面前后两次观测"的差,不是单面推断。
+// (只用清空前那一次面会恒真 —— 那正是"放宽判据换绿"的同型。)
+if (intentSnapshot.ok) {
+  const afterFace = readCachedNameStatus({ root: repoRoot })
+  const intentVerdict = judgeStagedDeleteIntent({
+    before: intentSnapshot.before,
+    after: afterFace,
+    ownPaths: expectedFiles,
+  })
+  if (intentVerdict.kind === 'intent-lost') {
+    // 只喊人 + 留痕。恢复/删除都不做(恢复别人的删除比留下它更危险)。
+    log(
+      'err',
+      `本次清空了他人的 ${C.red}${intentVerdict.lost.length}${C.reset} 项暂存删除 —— ` +
+        `删除意图丢失,已无法从 git 侧复原(reflog/index 均不留痕):`,
+    )
+    for (const p of intentVerdict.lost) console.log(`     ${C.red}! ${p}${C.reset}(清空前是暂存删除)`)
+    log(
+      'warn',
+      '这些删除**不是本脚本删的**,本脚本也**不会替你恢复或提交**它们(票 G-1018292:只标记与喊人)。' +
+        '归属会话请重新 `git rm --cached -- <路径>` 恢复标记,或明确撤销该删除意图。',
+    )
+    recordClearedStagedDeletions({
+      root: repoRoot,
+      lost: intentVerdict.lost,
+      selfStaged: intentVerdict.selfStaged,
+      kept: intentVerdict.kept,
+      branch: currentBranch,
+      headBefore: run('git rev-parse HEAD', { allowFail: true }) || '',
+      declaredFiles: expectedFiles,
+    })
+  } else if (intentVerdict.kind === 'undetermined') {
+    log('warn', `删除意图判据:未判定 —— ${intentVerdict.reason}`)
+  } else if (intentVerdict.selfStaged.length > 0) {
+    // 反例②那一档:本会话自己声明的删除,清空后由 Step 2 的 add -A 重新暂存,标记会回来。
+    // 行为与改前逐字一致,故只在info 行里说明,不红。
+    log(
+      'info',
+      `其中 ${intentVerdict.selfStaged.length} 项暂存删除属本票声明面(将由 Step 2 重新暂存,标记不丢):` +
+        `${intentVerdict.selfStaged.slice(0, 5).join(', ')}${intentVerdict.selfStaged.length > 5 ? ' …' : ''}`,
+    )
+  }
 }
 
 // ─── 2. git add -A <用户预期文件>(-A 支持已删除文件) ─────
