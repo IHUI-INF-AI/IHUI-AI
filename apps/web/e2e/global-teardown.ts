@@ -36,9 +36,10 @@ const __dirname = path.dirname(__filename)
  */
 function hasConcurrentPlaywright(): boolean {
   try {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     const out = execSync(
       'powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name=\'chrome.exe\'\\" | Where-Object { $_.CommandLine -match \'ms-playwright|playwright\' } | Measure-Object | Select-Object -ExpandProperty Count"',
-      { encoding: 'utf8', timeout: 15000, windowsHide: true },
+      { encoding: 'utf8', timeout: 15000, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] },
     )
     const count = parseInt(out.trim(), 10)
     return !Number.isNaN(count) && count > 0

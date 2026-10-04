@@ -129,7 +129,8 @@ export function resolvePgBin(platform = process.platform, env = process.env) {
     found.sort((a, b) => Number(b.version) - Number(a.version))
     return found[0] ?? null
   }
-  const probe = spawnSync('initdb', ['--version'], { encoding: 'utf8', windowsHide: true, timeout: 15_000 })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  const probe = spawnSync('initdb', ['--version'], { encoding: 'utf8', windowsHide: true, timeout: 15_000, stdio: ['ignore', 'pipe', 'pipe'] })
   if (probe.status !== 0) return null
   return { dir: '', version: /(\d+\.\d+)/.exec(probe.stdout || '')?.[1] ?? null }
 }
