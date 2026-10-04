@@ -7,10 +7,14 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { useTheme } from 'next-themes'
-import { Check, ImageDown, RotateCcw, Scan, ZoomIn, ZoomOut } from 'lucide-react'
+import { Check, ImageDown, Maximize2, RotateCcw, Scan, ZoomIn, ZoomOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 // D198:渲染成功图表一键「复制为图片」(SVG→PNG→剪贴板),落盘实现见 lib/copy-as-image.ts
 import { svgElementToPngBlob } from '@/lib/copy-as-image'
+// G-854:倍率域 / 适应视口 / 定点缩放的算式改走共享层唯一出口,组件内不得再留第二份
+// (改造前这里是 `MermaidDiagram.tsx` 里的私有 `clampZoom` + 三个常量,逐字搬走了)
+import { ZOOM_STEP, clampZoom, fitZoom } from '@ihui/shared/utils/diagram-viewport'
+import { DiagramPreviewModal } from './DiagramPreviewModal'
 import {
   MERMAID_SKIP_NOTICE_KEYS,
   decideMermaidRender,
@@ -22,15 +26,6 @@ import {
 interface MermaidDiagramProps {
   code: string
   className?: string
-}
-
-// D196:缩放边界与步进(1 = 100%;倍率制而非固定档位,粒度足够且实现简单)
-const MIN_ZOOM = 0.4
-const MAX_ZOOM = 4
-const ZOOM_STEP = 1.2
-/** D196:把任意倍率收敛到 [MIN_ZOOM, MAX_ZOOM] 并保留两位小数,避免 1.2 连乘浮点尾巴 */
-function clampZoom(value: number): number {
-  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round(value * 100) / 100))
 }
 
 /**
@@ -167,6 +162,10 @@ function MermaidDiagramInner({ code, className }: MermaidDiagramProps) {
 
   // ── D196 缩放 + D198 复制为图片(全部 hook 置于下方条件 return 之前,rules-of-hooks)──
   const [zoom, setZoom] = React.useState(1)
+  // G-854:「展开为独立预览」的开关。Modal 自持一份视角状态(倍率/滚动/手势),内联这份不受影响;
+  // 入口做在本组件身上,是因为本组件已是 web 端唯一的 mermaid 渲染点(见文件头),
+  // 在 markdown 侧另接一条只会造出第二个入口 —— 而那个文件此刻由他人持有。
+  const [previewOpen, setPreviewOpen] = React.useState(false)
   const [imageCopied, setImageCopied] = React.useState(false)
   // 滚动视口(适应屏幕的视口测量基准)与被 transform 的内容(量取真实内容尺寸)
   const scrollRef = React.useRef<HTMLDivElement>(null)
@@ -188,21 +187,20 @@ function MermaidDiagramInner({ code, className }: MermaidDiagramProps) {
   /** 适应屏幕:量取内容自然尺寸(实测值含当前缩放,除回当前倍率),取「完整可见」的最大不放大倍率 */
   const handleZoomToFit = (): void => {
     const viewport = scrollRef.current
-    const content = zoomedRef.current
-    if (!viewport || !content) {
+    const rect = zoomedRef.current?.getBoundingClientRect()
+    if (!viewport || !rect) {
       setZoom(1)
       return
     }
-    const rect = content.getBoundingClientRect()
-    const naturalW = rect.width / zoom
-    const naturalH = rect.height / zoom
-    if (!Number.isFinite(naturalW) || naturalW <= 0 || naturalH <= 0) {
-      // 无测量数据(jsdom/未挂载)时安全回落 100%,不猜尺寸
-      setZoom(1)
-      return
-    }
-    const fit = Math.min(1, viewport.clientWidth / naturalW, viewport.clientHeight / naturalH)
-    setZoom(clampZoom(Number.isFinite(fit) && fit > 0 ? fit : 1))
+    // G-854:算式(含「测不到就回落 100%」这一档)只有共享层那一份,端内不再判一次 measurability
+    setZoom(
+      fitZoom({
+        viewportW: viewport.clientWidth,
+        viewportH: viewport.clientHeight,
+        naturalW: rect.width / zoom,
+        naturalH: rect.height / zoom,
+      }),
+    )
     viewport.scrollTop = 0
     viewport.scrollLeft = 0
   }
@@ -317,6 +315,17 @@ function MermaidDiagramInner({ code, className }: MermaidDiagramProps) {
             <ImageDown className="h-3.5 w-3.5" />
           )}
         </button>
+        {/* G-854:展开为独立预览 Modal(焦点陷阱 + Esc 关闭由承载层给) */}
+        <button
+          type="button"
+          onClick={() => setPreviewOpen(true)}
+          data-testid="mermaid-expand-preview"
+          className={zoomToolBtnClass}
+          aria-label={t('mermaidExpandPreview')}
+          aria-haspopup="dialog"
+        >
+          <Maximize2 className="h-3.5 w-3.5" />
+        </button>
       </div>
       {/* transform 缩放:scrollable overflow 含被变换内容的包围盒,缩放后横/纵滚动可达;
           zoom=1 时不挂 style,渲染路径与引入缩放前逐字节一致 */}
@@ -329,6 +338,14 @@ function MermaidDiagramInner({ code, className }: MermaidDiagramProps) {
           dangerouslySetInnerHTML={{ __html: svg }}
         />
       </div>
+      {/* G-854:独立预览 Modal。刻意常驻挂载而不是 `{open && <Modal/>}` ——
+          后者会在关闭的那一刻整块卸载,Radix 的退出动画被切成"瞬间消失";
+          open=false 时 Portal 不渲染任何东西,所以常驻的成本只是一次 effect。 */}
+      <DiagramPreviewModal
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        svgMarkup={svg}
+      />
     </div>
   )
 }
