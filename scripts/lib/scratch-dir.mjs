@@ -257,9 +257,35 @@ export function rmScratch(dir, opts = {}) {
   if (reason) {
     if (forced && reason.startsWith('子树里存在第二层')) {
       console.warn(`⚠ IHUI_SCRATCH_RM_FORCE=1 放行递归删,尽管:${reason}`)
+    } else if (opts.bestEffort) {
+      // 2026-10-04:`bestEffort` 出口 —— 清理失败**只告警不抛**。
+      //
+      // 立因:`union-converge.mjs` 的 `selfTest()` 形如
+      //   `try { …长报告… } finally { rmScratch(dir) }`
+      // 而 `rmScratch` 会因宿主 `node-safe-delete-shim.cjs` 的批量删除闸
+      // (`SAFE_DELETE_BULK_CONFIRM_REQUIRED`;实测本机 count 50~977、阈值 50)抛错
+      // ⇒ **`finally` 抛错会把 try 块里的整段报告与 `process.exit()` 全吞掉**
+      //
+      // 为什么要这个出口而不是让调用方各自 try/catch:清理失败**不该改写判据结论** ——
+      // 自检的通过/失败由 `cases` 决定,不该由"临时目录删不掉"决定。
+      // ⇒ 调用方在**只做清理、且清理失败不影响结论**的位置显式要 `bestEffort`。
+      console.warn(`⚠ rmScratch(bestEffort) 未清理:${dir} —— ${reason}`)
+      return
     } else {
       throw new Error(`rmScratch 拒绝递归删除:${reason}`)
     }
+  }
+  // `rmSync` 自己也会抛:宿主的 `node-safe-delete-shim.cjs` 在批量删除闸
+  // (`SAFE_DELETE_BULK_CONFIRM_REQUIRED`)命中时**直接把 `rmSync` 打断**,不经过上面的
+  // `evaluateDeleteTarget` ⇒ `bestEffort` 必须连这一层一起兜住,否则该出口形同虚设。
+  if (opts.bestEffort) {
+    try {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+      live.delete(dir)
+    } catch (e) {
+      console.warn(`⚠ rmScratch(bestEffort) 清理失败:${dir} —— ${String(e.message || e).slice(0, 160)}`)
+    }
+    return
   }
   rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
   live.delete(dir)
