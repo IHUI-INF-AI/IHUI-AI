@@ -136,7 +136,8 @@ test('落点:夹具 ROOT 必须在仓库树外(否则残留又会落进被扫描
  * 源脚本本身一个字没改,它的扫描面与定级都不动。
  */
 const trackedSet = new Set(
-  spawnSync('git', ['ls-files', '-z'], { cwd: PROJECT_ROOT, encoding: 'utf8', windowsHide: true })
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  spawnSync('git', ['ls-files', '-z'], { cwd: PROJECT_ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
     .stdout.split('\0')
     .filter(Boolean),
 )

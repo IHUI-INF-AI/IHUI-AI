@@ -242,7 +242,8 @@ test('T12 端到面:构造 >100 子项临时树 ⇒ 真 CLI 的 --json 出折叠
   const r = spawnSync(
     process.execPath,
     [SRC, '--root', norm(root), '--depth', '1', '--min-mb', '0', '--json', '--list-folded'],
-    { encoding: 'utf8', windowsHide: true, timeout: 120_000 },
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    { encoding: 'utf8', windowsHide: true, timeout: 120_000, stdio: ['ignore', 'pipe', 'pipe'] },
   )
   assert.equal(r.status, 0, `CLI 退出码 ${r.status}:${String(r.stderr).slice(0, 600)}`)
   const out = JSON.parse(r.stdout)
@@ -280,6 +281,8 @@ test('T12b 不带 --list-folded 时 items 必须**自己报名**"没进产物",�
     encoding: 'utf8',
     windowsHide: true,
     timeout: 120_000,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   assert.equal(r.status, 0, String(r.stderr).slice(0, 400))
   const lvl = JSON.parse(r.stdout).levels.depth1

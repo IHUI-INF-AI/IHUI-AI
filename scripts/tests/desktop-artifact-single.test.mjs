@@ -42,6 +42,8 @@ const runHook = (dir, expect, over) =>
     encoding: 'utf8',
     windowsHide: true,
     env: envFor(over),
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 
 const seed = (dir, names) => {

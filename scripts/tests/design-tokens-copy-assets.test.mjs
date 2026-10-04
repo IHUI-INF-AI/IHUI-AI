@@ -204,7 +204,7 @@ describe('CLI 入口形状与构建链一致', () => {
         '-e',
         `import(${JSON.stringify(href)}).then((m) => process.stdout.write("SHAPE:" + typeof m.__test__))`,
       ],
-      { encoding: 'utf8', windowsHide: true },
+      { encoding: 'utf8', windowsHide: true, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] },
     )
     assert.equal(probe.status, 0, probe.stderr)
     assert.ok(probe.stdout.includes('SHAPE:object'), probe.stdout)

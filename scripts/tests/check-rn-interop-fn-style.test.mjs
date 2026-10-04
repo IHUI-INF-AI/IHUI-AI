@@ -30,6 +30,8 @@ function resolveGitIndex() {
   const gitdir = execFileSync(GIT_BIN, ['-c', 'safe.directory=*', '-C', REPO, 'rev-parse', '--absolute-git-dir'], {
     encoding: 'utf8',
     windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   }).trim()
   return join(gitdir, 'index')
 }
@@ -41,6 +43,8 @@ function runNode(args) {
     maxBuffer: 1 << 28,
     windowsHide: true,
     timeout: 600000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
@@ -189,6 +193,8 @@ test('T10 遮罩双向对照:真代码违规必红 / 同一形态写进注释必
         windowsHide: true,
         timeout: 300000,
         env,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
       })
       return { code: r.status, out: (r.stdout || '') + (r.stderr || '') }
     }

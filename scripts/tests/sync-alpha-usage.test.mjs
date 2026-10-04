@@ -40,6 +40,8 @@ function headBlob(rel) {
     encoding: 'utf8',
     windowsHide: true,
     timeout: 120_000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
@@ -289,6 +291,8 @@ test('T10 CLI:import 无写盘副作用,--self-test/--help 退出码正确,--fac
           encoding: 'utf8',
           windowsHide: true,
           timeout: 300_000,
+          // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+          stdio: ['ignore', 'pipe', 'pipe'],
         },
       )
       return { code: 0, out }
