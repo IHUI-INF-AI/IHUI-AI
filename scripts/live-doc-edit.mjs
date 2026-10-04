@@ -85,6 +85,15 @@
  *  - "已在位"那一支**不动共享主索引**:对齐判据要的是"那枚提交的父",而本次没有新提交、索引此刻归谁
  *    无从判定 ⇒ 只把 0 档的措辞写在上面,不代删别人的锁、不猜。
  *
+ * 落地后自带的一次补跑(G-816708,2026-10-05):`LIVE_DOC=PROJECT_PLAN.md` 时,CAS 成功且回读通过后
+ *  本器**就地补跑一次守门 71 的台账自愈**(`--heal --commit`)。成因与本器存在的理由同源:每一枚提交都
+ *  走 `commit-tree` + CAS ⇒ 钩子结构性不跑 ⇒ 挂在 `.husky/post-commit` 第 6 节的那层自愈对本器从来
+ *  不会触发;而本器改的正是登记行(整行改写档把 `- [ ]` 翻成 `- [x] ✅…`),一次误写就是"已入库的登记行
+ *  被滞后底稿带回"那一型。派生与失败臂措辞复用 `lib/post-merge-ledger-sync.mjs` 那一份(与两台收敛器
+ *  同一个器物,不另发明第二套调用协议);补跑没跑成只喊一行 stderr,**不改本器退出码**。
+ *  未闭环的一格:`scripts/plan-tasks-merge.mjs` 是第四台旁路落地器,同样需要自带这一跑,本票开工时它
+ *  正被他人持有(` M`)⇒ 未动,登记在这里而不是装作已全覆盖。
+ *
  * ⚠️ 头注不写"已接 pre-commit/CI"字样(守门 89 R1/R2 判"声称已接线而零命中")。
  */
 
@@ -102,6 +111,7 @@ import {
   resolveHeadRef,
   sameLines,
   writeBlob,
+  rerunLedgerHeal,
 } from './lib/bypass-git.mjs'
 import {
   usedIdsOfPrefix,
@@ -909,6 +919,19 @@ async function main() {
       `⚠️ 跳门留痕未写入(落地已成功 HEAD=${landed.slice(0, 11)},不改退出码):${attest.why}`,
     )
   else console.log(`✅ 跳门留痕 1 行已写入 ${attest.path}(kind=bypass-landing,gatesRun=false)`)
+
+  /**
+   * G-816708(2026-10-05):落地的是台账(`LIVE_DOC=PROJECT_PLAN.md`)⇒ **就地补跑一次守门 71 自愈**。
+   * 本器每一枚提交都走 `commit-tree` + CAS ⇒ 钩子结构性不跑,挂在 `.husky/post-commit` 第 6 节的
+   * 自愈对本器从来不会触发;而本器改的正是登记行(整行改写档把 `- [ ]` 翻成 `- [x] ✅…`),
+   * 一次误写就是"已入库的登记行被滞后底稿带回"那一型。判据必须在真跑它的那一刻才成立。
+   * 位置与 object-space-land 同形:回读已证明内容入库(不满足就早退了)→ 留痕 → **补跑** → 索引对齐
+   * (自愈若建了恢复提交,随后的对齐会把共享索引对齐到恢复后的 blob,而不是把缺行那份写进索引)。
+   * 提交档而非报告档 + 为什么不成环:见 `lib/bypass-git.mjs` 的 `rerunLedgerHeal` 头注
+   * (这一跑是 post-commit 那节的替身,必须与原件同形;替身自己不跑钩子,且只在 HEAD 真缺行时建提交)。
+   * 补跑失败只喊一行(stderr),不改本器退出码。
+   */
+  rerunLedgerHeal({ root, paths: [doc] })
 
   const align = alignSharedIndex({ root, paths: [doc], parentRef: parentSha })
   // G-321②:走到这里内容**已经**入库并过了回读 ⇒ 索引没对齐只是副作用,不得冒充整次失败。
