@@ -38,12 +38,17 @@ function createTempProject() {
 
 // 辅助: 初始化 git 仓库 (用于 --staged 测试)
 function initGitRepo(root) {
-  execSync('git init -b main', { cwd: root, stdio: 'pipe' })
-  execSync('git config user.email test@test.com', { cwd: root, stdio: 'pipe' })
-  execSync('git config user.name test', { cwd: root, stdio: 'pipe' })
-  execSync('git config commit.gpgsign false', { cwd: root, stdio: 'pipe' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git init -b main', { cwd: root, stdio: 'ignore' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git config user.email test@test.com', { cwd: root, stdio: 'ignore' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git config user.name test', { cwd: root, stdio: 'ignore' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git config commit.gpgsign false', { cwd: root, stdio: 'ignore' })
   // 先做一次空 commit,让后续 git diff --cached --name-only 能产生 staged 输出
-  execSync('git commit --allow-empty -m init', { cwd: root, stdio: 'pipe' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git commit --allow-empty -m init', { cwd: root, stdio: 'ignore' })
 }
 
 // 辅助: 写文件 + git add (模拟 staged)
@@ -51,7 +56,8 @@ function writeAndStage(root, relPath, content) {
   const absPath = join(root, relPath)
   mkdirSync(dirname(absPath), { recursive: true })
   writeFileSync(absPath, content, 'utf8')
-  execSync(`git add "${relPath}"`, { cwd: root, stdio: 'pipe' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync(`git add "${relPath}"`, { cwd: root, stdio: 'ignore' })
 }
 
 // 辅助: 跑 check-c-drive-paths.mjs (cwd 设为临时项目根)
@@ -59,7 +65,8 @@ function runScript(args = [], opts = {}) {
   return spawnSync('node', [SCRIPT_PATH, ...args], {
     cwd: opts.cwd || process.cwd(),
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
@@ -267,7 +274,8 @@ describe('check-c-drive-paths.mjs 集成测试 (AGENTS.md §26)', () => {
       // 直接读 + 写,确保与源一致
       const realContent = readFileSync(realScriptPath, 'utf8')
       writeFileSync(tmpScriptPath, realContent, 'utf8')
-      execSync('git add scripts/check-c-drive-paths.mjs', { cwd: root, stdio: 'pipe' })
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      execSync('git add scripts/check-c-drive-paths.mjs', { cwd: root, stdio: 'ignore' })
       const r = runScript(['--staged'], { cwd: root })
       // 守门脚本自身正则字面量大量出现 (C:\\temp\\ 等),但应被路径排除
       assert_.equal(r.status, 0, `自身正则字面量应被排除 exit 0, 实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)

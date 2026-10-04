@@ -21,6 +21,8 @@ test('守门 77 自检全通过(含真实档位表端到端对账 + TS 内嵌 CS
     cwd: ROOT,
     encoding: 'utf8',
     windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   assert.match(out, /全部 (\d+) 例通过/)
   assert.doesNotMatch(out, /❌/)
@@ -73,7 +75,14 @@ test('守门 77 的棘轮锚点必须是 HEAD 自身而不是静态清单(装车
   const b = JSON.parse(readFileSync(join(ROOT, 'scripts/radius-single-source-baseline.json'), 'utf8'))
   assert.equal(b.sites.length, 0, `基线应为空,实际 ${b.sites.length} 处`)
   //  自检必须钉住误红、误绿两个方向
-  const out = execFileSync(process.execPath, [GUARD, '--self-test'], { cwd: ROOT, encoding: 'utf8', windowsHide: true, timeout: 120000 })
+  const out = execFileSync(process.execPath, [GUARD, '--self-test'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 120000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   assert.match(out, /锚点:HEAD 已迁完\(0 处\)/)
   assert.match(out, /锚点:HEAD 本来 3 处、待提交仍 3 处/)
   assert.match(out, /全部 \d+ 例通过/)
@@ -127,7 +136,14 @@ function copyGuardWithDeps(base) {
 }
 
 function git(dir, args) {
-  return execFileSync('git', ['-c', 'safe.directory=*', ...args], { cwd: dir, encoding: 'utf8', windowsHide: true, timeout: 60000 })
+  return execFileSync('git', ['-c', 'safe.directory=*', ...args], {
+    cwd: dir,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 60000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
 }
 function writeAt(base, rel, content) {
   const p = join(base, ...rel.split('/'))
@@ -159,7 +175,13 @@ function mkFixtureRepo(base, { withViolation, extra = {} }) {
   git(base, ['-c', 'user.name=radius-guard-fixture', '-c', 'user.email=guard-fixture@invalid', 'commit', '-m', 'fixture'])
 }
 function runGuard(guardPath) {
-  return spawnSync(process.execPath, [guardPath], { encoding: 'utf8', windowsHide: true, timeout: 120000 })
+  return spawnSync(process.execPath, [guardPath], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 120000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
 }
 
 test('无 git 环境(任何仓之外)⇒ exit 2 且输出含「无法判定」,不得记绿', () => {
@@ -370,7 +392,15 @@ const TABLE_FOR_SCAN = await (async () => {
   }
 })()
 const gateScan = async () => (await import(`file://${GUARD.replaceAll('\\', '/')}`)).scanText
-const gitShow = (spec) => execFileSync('git', ['-c', 'safe.directory=*', '-C', ROOT, 'show', spec], { encoding: 'utf8', windowsHide: true, timeout: 60000, maxBuffer: 1 << 26 })
+const gitShow = (spec) =>
+  execFileSync('git', ['-c', 'safe.directory=*', '-C', ROOT, 'show', spec], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 60000,
+    maxBuffer: 1 << 26,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
 const FIX_FILE = 'apps/miniapp-taro/src/components/DrawerComponent.tsx'
 
 test('T-B7a 死类名阳性对照:引入缺陷的那枚提交必须被 B7 点名', async () => {

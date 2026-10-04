@@ -47,6 +47,8 @@ interface GitResult {
 
 function runGit(args: string[], cwd: string): GitResult {
   const r = spawnSync('git', args, {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd,
     encoding: 'utf-8',
     windowsHide: true,
@@ -158,7 +160,11 @@ export function removeWorktree(
   if (opts.force) args.push('--force');
   const r = runGit(args, opts.sourcePath);
   if (!r.ok) {
-    const rm = spawnSync('rm', ['-rf', wtPath], { windowsHide: true });
+    const rm = spawnSync('rm', ['-rf', wtPath], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
     if (rm.error || rm.status !== 0) {
       throw new Error(`worktree 删除失败: ${r.stderr || r.stdout}`);
     }

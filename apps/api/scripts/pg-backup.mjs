@@ -75,7 +75,11 @@ console.log(`[pg-backup] 📦 ${db}@${host}:${port} → ${outFile}`)
 const pgDump = spawn(pgDumpExe, [
   '-h', host, '-p', port, '-U', user, '-d', db,
   '--no-owner', '--no-privileges', '--clean', '--if-exists',
-], { env: { ...process.env, PGPASSWORD: pass } })
+], {
+  env: { ...process.env, PGPASSWORD: pass },
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  stdio: ['ignore', 'pipe', 'pipe'],
+})
 
 const gzip = createGzip()
 const out = createWriteStream(outFile)

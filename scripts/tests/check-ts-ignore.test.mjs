@@ -21,17 +21,23 @@ const SOURCE_SCRIPT = join(__dirname, '..', 'check-ts-ignore.mjs')
 // 源脚本只读不改,仅运行副本。
 function createTempRepo() {
   const dir = mkScratch('ihui-ts-ignore-')
-  execSync('git init -b main', { cwd: dir, stdio: 'pipe' })
-  execSync('git config user.email test@test.com', { cwd: dir, stdio: 'pipe' })
-  execSync('git config user.name test', { cwd: dir, stdio: 'pipe' })
-  execSync('git config commit.gpgsign false', { cwd: dir, stdio: 'pipe' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git init -b main', { cwd: dir, stdio: 'ignore' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git config user.email test@test.com', { cwd: dir, stdio: 'ignore' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git config user.name test', { cwd: dir, stdio: 'ignore' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git config commit.gpgsign false', { cwd: dir, stdio: 'ignore' })
   // 复制脚本到 <dir>/scripts/check-ts-ignore.mjs(不改源脚本)
   mkdirSync(join(dir, 'scripts'), { recursive: true })
   copyFileSync(SOURCE_SCRIPT, join(dir, 'scripts', 'check-ts-ignore.mjs'))
   // 初始 commit(git diff --cached 需要 HEAD 作为参照)
   writeFileSync(join(dir, 'README.md'), '# init\n')
-  execSync('git add README.md', { cwd: dir, stdio: 'pipe' })
-  execSync('git commit -m init', { cwd: dir, stdio: 'pipe' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git add README.md', { cwd: dir, stdio: 'ignore' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git commit -m init', { cwd: dir, stdio: 'ignore' })
   return dir
 }
 
@@ -41,7 +47,8 @@ function runScript(dir, args = []) {
   const r = spawnSync('node', [scriptPath, ...args], {
     cwd: dir,
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   r.out = r.stdout.replace(/\x1b\[[0-9;]*m/g, '')
   return r
@@ -52,7 +59,8 @@ function stageFile(dir, relPath, content = '') {
   const full = join(dir, relPath)
   mkdirSync(dirname(full), { recursive: true })
   writeFileSync(full, content)
-  execSync(`git add "${relPath}"`, { cwd: dir, stdio: 'pipe' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync(`git add "${relPath}"`, { cwd: dir, stdio: 'ignore' })
 }
 
 // ─── 1. CLI 行为 ─────────────────────────────────────────
