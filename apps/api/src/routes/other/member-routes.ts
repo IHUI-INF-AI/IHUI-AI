@@ -108,6 +108,10 @@ export const memberRoutes: FastifyPluginAsync = async (server) => {
     }
     const userId = request.userId!
     const { id } = request.params
+    // G-536:pointRedeemItems.id 是 uuid 列,裸字符串直喂会以 PG 22P02 炸成 500 —— 先验格式回 400
+    if (!z.string().uuid().safeParse(id).success) {
+      return reply.status(400).send(error(400, '参数错误'))
+    }
     const [item] = await dbRead
       .select({ id: pointRedeemItems.id, points: pointRedeemItems.points })
       .from(pointRedeemItems)
