@@ -6,6 +6,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
+import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 
 import { useRules } from '@/hooks/use-rules'
 import { useRulesStore } from '@/stores/rules'
@@ -150,7 +151,7 @@ function RuleEditDialog() {
                 max={100}
                 value={priority}
                 onChange={(e) =>
-                  setPriority(Math.max(0, Math.min(100, Number(e.target.value) || 0)))
+                  setPriority(clampPercent(Number(e.target.value) || 0))
                 }
                 className="mt-0.5 h-8 text-sm"
               />
