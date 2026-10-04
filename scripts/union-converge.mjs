@@ -93,7 +93,8 @@ import {
   malformedLine,
   f9GroupLine,
   DUP_POINTER_RE,
-  MERGE_NOTE_RE,
+  lineNoteCount,
+  mergeNoteUnits,
   keyOfRow,
 } from './lib/plan-task-index.mjs'
 import { SIM_THRESHOLD, jaccard, tokenize, stripState } from './lib/live-doc-similarity.mjs'
@@ -442,16 +443,12 @@ export function planStateRegressions(mergedText, sideTexts, accepted = null, not
      * —— 直接照份数比,本票会让每一枚台账收敛在落地闸上自杀(恒红 ⇒ 唯一出路是各会话绕过收敛,
      * 比原病更响)。所以这里改成**先算合法上限、再判余下差额**:只有"带副本指针且合并结果里仍
      * ≥1 份"的行可以贡献豁免额度,其它任何一条注记行变少都照常判红。
-     * 注记针取自 `plan-task-index.MERGE_NOTE_RE`(与 F5 的读数同源;两处各写一遍必漂移),
-     * 逐行判必须用**非全局副本** —— 带 `g` 的 `.test()` 会推进 lastIndex,第二次调用就漏判。
+     * 注记的**形状判据与份数判据只有一份实现** = `plan-task-index.lineNoteCount`(G-977960 ① 收口:
+     * 本门此前把 MERGE_NOTE_RE 的 source 就地重拼成正则,自己抄了第二份逐行计数,而 F5 的读数住在
+     * 另一档量纲上 ⇒ 跨行注记既进不了总额也进不了合法额度,造出"无论怎么合并都差 N 条"的死局。
+     * 逐行判必须用**非全局副本**这一点由 lib 内部保证,调用方不得再自带正则。
      */
-    const noteRe = new RegExp(MERGE_NOTE_RE.source)
-    const occOf = (l) => {
-      const r = new RegExp(MERGE_NOTE_RE.source, 'g')
-      let n = 0
-      while (r.exec(l) !== null) n++
-      return n
-    }
+    const occOf = (l) => lineNoteCount(l)
     const mm = counter(mergedText)
     const sideCounters = sides.map((t) => counter(t))
     /**
@@ -461,7 +458,7 @@ export function planStateRegressions(mergedText, sideTexts, accepted = null, not
      */
     const universe = new Set()
     for (const c of [...sideCounters, mm])
-      for (const [l, n] of c) if (n > 0 && noteRe.test(l)) universe.add(l)
+      for (const [l, n] of c) if (n > 0 && occOf(l) > 0) universe.add(l)
     const suppress = noteCredits && noteCredits.suppress ? noteCredits.suppress : null
     const baseC = noteCredits && noteCredits.baseText ? counter(noteCredits.baseText) : null
     const oursC = noteCredits && noteCredits.oursText ? counter(noteCredits.oursText) : null
@@ -518,7 +515,67 @@ export function planStateRegressions(mergedText, sideTexts, accepted = null, not
       )
     }
   }
+  /**
+   * F5c:跨行注记换成 `lineAttributable` 量纲之后,必须另外钉住"承载它的那几行物理消失"这一型,
+   * 否则"少一道恒红"会变成"少一道判据"(与本仓记过的"修红不得顺手削判据"同一条禁令)。
+   * 判据刻意只问**这一行还在不在结果面**(而不是份数):
+   *  - 并集按行取 max ⇒ 一侧有的物理行必然还在(少带只发生在副本指针行,且至少留 1 份);
+   *  - 行序重排会改变"整面命中数",但不会让任何一行消失 —— 所以行还在而份数变了 = 上面那条 phantom,
+   *    由 `mergeNoteCrossLineCaliber` 报名;行不在了 = 真被抹掉,这里判红并点名行原文。
+   */
+  const mergedLines = counter(mergedText)
+  for (const t of sides) {
+    const units = mergeNoteUnits(t)
+    if (units.crossLine === 0) continue
+    const src = t.split('\n')
+    const sideCounts = counter(t)
+    for (const span of units.crossLineSpans) {
+      for (let i = span.startLine; i <= span.endLine; i++) {
+        const l = src[i]
+        if (!l || l.trim() === '') continue
+        if ((sideCounts.get(l) || 0) > 0 && (mergedLines.get(l) || 0) === 0) {
+          out.push(
+            `F5c 跨行注记的行段被抹掉:该注记横跨 ${span.endLine - span.startLine + 1} 行,` +
+              `其中一行在归并结果里一份不剩 ← ${l.slice(0, 70)}` +
+              `(注记片段:${span.snippet})`,
+          )
+        }
+      }
+    }
+  }
   return out
+}
+
+/**
+ * 跨行注记的**报名行**(只打印,不进判据、不进 violations —— 与 `f3ExitCaliber` 同一套规矩:
+ * 那个数组里每一条都判红,把"只报名"塞进去就是造一台拦不住任何事、却处处拦你的门)。
+ *
+ * 为什么 F5 不比这一档:`MERGE_NOTE_RE` 的字符类 `[^〕]` 含换行 ⇒ 一条注记可以横跨两行,
+ * 而三类合法额度(占位代表 / 本侧自缩 / 指针少带)**全部按行结算**。拿"整文件命中数"当份数去比,
+ * 跨行那部分既进不了总额也进不了额度 ⇒ 天然不可满足(实测 622 / 530 / 已扣 90+3 / 仍差 2 且名单为空)。
+ * 所以 F5 只比 `lineAttributable`,这一维单独报出来,让人看得见它有多少、在哪几条。
+ *
+ * 口径边界(不得读成"已覆盖"):现读 HEAD 面跨行 = 0 ⇒ 今天不比旧写法少抓任何一条真损失;
+ * 若将来出现跨行注记被合并抹掉,这里只点名、不拦。补它要把"份数"的定义扩到行区间,另计一票。
+ */
+export function mergeNoteCrossLineCaliber(mergedText, sideTexts) {
+  const sides = (sideTexts ?? []).filter((t) => typeof t === 'string' && t.trim() !== '')
+  if (typeof mergedText !== 'string' || mergedText.trim() === '' || sides.length === 0) return ''
+  const cal = auditPlan(mergedText).counts
+  const perSide = sides.map((t) => auditPlan(t).counts)
+  const worst = Math.max(0, ...perSide.map((c) => c.mergeNotesCrossLine ?? 0))
+  const now = cal.mergeNotesCrossLine ?? 0
+  if (worst === 0 && now === 0) return ''
+  const lost = worst - now
+  return (
+    `F5 量纲:跨行书写的注记 各侧最多 ${worst} 条 / 归并结果 ${now} 条` +
+    ` —— **只报名,不参与判红也不计额度**(三类额度都按行结算,拿它比就会造出不可满足的死局);` +
+    (lost > 0
+      ? `其中 ${lost} 条在本轮合并后不再成跨行匹配 —— 可能是行序重排后仍被整面匹配到(总额未变),也可能是真被抹掉,` +
+        '按逐行额度机器判不出是哪种,故只点名不裁决。'
+      : '这一档今天与较好一侧持平或更好。') +
+    `同轮的逐行可判档 = 各侧最多 ${Math.max(0, ...perSide.map((c) => c.mergeNotes))} 条 / 结果 ${cal.mergeNotes} 条(那才是 F5 的判据)。`
+  )
 }
 
 /**
@@ -917,6 +974,8 @@ export function buildUnion(
         for (const msg of __rg) violations.push(`${p} 归并放大任务状态分叉:${msg}`)
         for (const msg of __rg.accepted || []) acceptedGrowth.push(msg)
         console.log(`   ${f3ExitCaliber(mergedText, sides)}`)
+        const __cl0 = mergeNoteCrossLineCaliber(mergedText, sides)
+        if (__cl0) console.log(`   ${__cl0}`)
       }
     }
 
@@ -1115,6 +1174,8 @@ export function buildUnion(
         .map((oid) => blobText(oid, cwd))
       const __cal = f3ExitCaliber(blobText(mergedOid, cwd), sideTexts)
       if (__cal) console.log(`   ${__cal}`)
+      const __cl = mergeNoteCrossLineCaliber(blobText(mergedOid, cwd), sideTexts)
+      if (__cl) console.log(`   ${__cl}`)
       const __sideBlobs = [base, ours, theirs].map((rev) => blobOf(rev, p, cwd)).map((oid) => (oid ? blobText(oid, cwd) : null))
       const __rg2 = planStateRegressions(blobText(mergedOid, cwd), sideTexts, accepted, {
         suppress: null,
@@ -2107,6 +2168,55 @@ function selfTest() {
         }).join('')
           .includes('F5') === true,
     )
+    // ── G-977960 ①:跨行注记不得再造"无论怎么合并都差 N 条"的死局,但真抹掉行仍必须判红 ──
+    // `MERGE_NOTE_RE` 的字符类含换行 ⇒ 一条注记可以横写两行;旧写法拿"整面命中数"当份数,
+    // 而三类额度全部按行结算 ⇒ 这一档既进不了总额也进不了额度(实测名单为空而仍差 2)。
+    const CL_OPEN = '- [x] ✅(2026-09-20) **CL 跨行注记**:做完了。〔【归并】CL '
+    const CL_CLOSE = '落账:复测 2026-09-26: 取证〕'
+    const CL_SIDES = [CL_OPEN, CL_CLOSE, CL_OPEN, CL_CLOSE].join('\n') + '\n'
+    const CL_MERGED = [CL_OPEN, CL_OPEN, CL_CLOSE, CL_CLOSE].join('\n') + '\n'
+    ok(
+      '跨行注记:物理行一条没少、只是相邻顺序变了 ⇒ 落地闸不得判红(旧口径在这里必红,而名单为空)',
+      planStateRegressions(CL_MERGED, [CL_SIDES, 'z\n']).join('') === '',
+    )
+    ok(
+      '跨行注记的**变异对照**(证明上面那条不是恒真):同一形状按旧量纲(整面命中数)比 ⇒ 一定差 1 条 ' +
+        '—— 所以放掉的只有 phantom 残差,不是"比较量变小了所以什么都过"',
+      mergeNoteUnits(CL_SIDES).total - mergeNoteUnits(CL_MERGED).total === 1 &&
+        mergeNoteUnits(CL_SIDES).lineAttributable === mergeNoteUnits(CL_MERGED).lineAttributable,
+    )
+    ok(
+      '跨行注记必须**报名**:量纲说明行要同时给出各侧与结果的跨行条数,并写明"只报名不判红"',
+      (() => {
+        const line = mergeNoteCrossLineCaliber(CL_MERGED, [CL_SIDES, 'z\n'])
+        return (
+          line.includes('跨行书写的注记') &&
+          line.includes('各侧最多 2 条') &&
+          line.includes('归并结果 1 条') &&
+          line.includes('只报名,不参与判红')
+        )
+      })(),
+    )
+    ok(
+      'F5c 有牙:跨行注记的**承载行**在结果里一份不剩 ⇒ 必须判红并点名该行(换量纲不等于关掉这一维)',
+      planStateRegressions(CL_OPEN + '\n', [CL_SIDES, 'z\n']).join('').includes('F5c'),
+    )
+    ok(
+      'F5c 反向对照:同一形状里承载行都在位 ⇒ 不得判红(允许少带份数,不允许带走注记的行)',
+      planStateRegressions(CL_SIDES, [CL_SIDES, 'z\n']).join('') === '',
+    )
+    ok(
+      '形状锁:注记的形状判据与份数判据只许有一份实现 —— 本门不得再自带 new RegExp(MERGE_NOTE_RE,…) ' +
+        '抄第二份逐行计数(G-977960 ① 的根因就是"读数住整面量纲、额度住逐行量纲"两套并存)',
+      (() => {
+        const src = readFileSync(new URL(import.meta.url), 'utf8')
+        return (
+          /new RegExp\(\s*MERGE_NOTE_RE\.source/.test(src) === false &&
+          src.includes('lineNoteCount') &&
+          src.includes('mergeNoteUnits')
+        )
+      })(),
+    )
     // ── F9b 畸形号 / F9 撞号两维进落地闸(2026-09-28 G-606)──
     // 成对:① 归并自己造的必须点名;② 两侧本来就带着的存量不得钉红归并(否则每次收敛都红)。
     // 这两维判的是**行集/键集**而不是计数 —— 计数档对"抹掉一侧旧的、带进一枚新的"恒净零。
@@ -2843,6 +2953,7 @@ export const __test__ = {
   diffNames,
   lostAddedLines,
   planStateRegressions,
+  mergeNoteCrossLineCaliber,
   mergeThreeBlobs,
   liveDocExpectedCounts,
   theirsRewriteCaps,
