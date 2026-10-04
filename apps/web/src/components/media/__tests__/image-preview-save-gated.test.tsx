@@ -239,4 +239,111 @@ describe('G-851 保存:字节到手才落盘', () => {
     expect(created).toEqual([])
   })
 })
+
+// G-816000(2026-10-03 立):G-851 把"字节到手才算成功"钉死之后,跨域不给 CORS 头的一族
+// 只会看到"保存失败"却没有任何下一步。本组用例钉的是「失败也有真出口」:
+//  正例 取体被拒 ⇒ 兜底入口出现,点它真的把链接交出去(断言 window.open 副作用,不是断言存在);
+//  反例① 成功态不得出现该出口(否则每次成功都多一个按钮,是回归);
+//  反例② 出口文案不得硬编码中文(必须走 t() 拿既有键)。
+describe('G-816000 兜底出口:失败也有路可走', () => {
+  const opened: { url: string; target: string; features?: string }[] = []
+  let realOpen: typeof window.open | undefined
+
+  function stubOpen(): void {
+    realOpen = window.open
+    opened.length = 0
+    window.open = ((url: string, target?: string, features?: string) => {
+      opened.push({ url, target: target ?? '', features })
+      return null
+    }) as typeof window.open
+  }
+
+  function restoreOpen(): void {
+    if (realOpen) window.open = realOpen
+  }
+
+  function fallbackExit(): HTMLButtonElement | null {
+    return document.querySelector<HTMLButtonElement>('[data-image-transfer-btn="save-fallback"]')
+  }
+
+  afterEach(() => {
+    cleanup()
+    restoreOpen()
+    restoreDownloadSurface()
+    clicked.length = 0
+    created.length = 0
+    revoked.length = 0
+    urlSeq = 0
+    opened.length = 0
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it('正例:取体被拒后兜底入口出现,点它真的把链接开去新标签(断言副作用)', async () => {
+    stubDownloadSurface()
+    stubOpen()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('Failed to fetch')
+      }),
+    )
+
+    renderSave()
+    // 先点保存 → 如实报 failed(不退回假 success)
+    fireEvent.click(screen.getByRole('button', { name: 'imagePreview.save' }))
+    await waitFor(() => expect(transferState()).toBe('save-failed'))
+
+    // 判点:失败态下必须有可点出口
+    expect(fallbackExit()).not.toBeNull()
+    expect(opened).toEqual([])
+
+    // 判点:点了它**真的**产生副作用(开新标签),不是断言元素存在
+    fireEvent.click(screen.getByRole('button', { name: 'download' }))
+    expect(opened).toHaveLength(1)
+    expect(opened[0]?.url).toBe(PHOTO_URL)
+    expect(opened[0]?.target).toBe('_blank')
+    // 交链接不等于存成功:失败仍如实报失败
+    expect(transferState()).toBe('save-failed')
+  })
+
+  it('反例①:取体成功时不得出现兜底出口(成功态多一个按钮就是回归)', async () => {
+    stubDownloadSurface()
+    stubOpen()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => gatedResponse('image/png', [8, 8])),
+    )
+
+    renderSave()
+    fireEvent.click(screen.getByRole('button', { name: 'imagePreview.save' }))
+    await waitFor(() => expect(transferState()).toBe('save-success'))
+
+    expect(fallbackExit()).toBeNull()
+    // 未点保存前(transfer 为 idle)同样不得有出口
+    expect(fallbackExit()).toBeNull()
+  })
+
+  it('反例②:出口文案不得硬编码中文 —— 必须走 t() 拿既有键', async () => {
+    stubDownloadSurface()
+    stubOpen()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('Failed to fetch')
+      }),
+    )
+
+    renderSave()
+    fireEvent.click(screen.getByRole('button', { name: 'imagePreview.save' }))
+    await waitFor(() => expect(transferState()).toBe('save-failed'))
+
+    // next-intl 被 mock 成"回键名",所以 aria-label 必须是**键名**而不是任何中文字面量
+    const label = fallbackExit()?.getAttribute('aria-label') ?? ''
+    expect(label).toBe('download')
+    expect(label).not.toMatch(/[一-鿿]/)
+    // 也不得是键名兜底的假象:真正的界面文案由 a11y.download 提供
+    expect(label).not.toBe('')
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

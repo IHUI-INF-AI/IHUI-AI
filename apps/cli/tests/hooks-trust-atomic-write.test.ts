@@ -345,16 +345,21 @@ describe('D 回归对照:取材换了,判据一字未改', () => {
   });
 
   it('D2 覆盖同一目录只留一行,其它行逐字不动(旧 append 会留下两行而读侧只认第一行)', () => {
-    const keep = lineOf('C:/keep/me', 'sha-keep', '{"k":"d-k"}');
+    // 平台中立取材:Linux 上 path.resolve('C:/twice') 会挂上 cwd 前缀,字面 Windows
+    // 盘符路径经 normalizeFolderPath 后行首不再匹配 ⇒ 断言恒红。夹具目录改用真实
+    // 绝对路径(scratch 之下),两端同判。
+    const keepFolder = path.join(scratch, 'keep', 'me');
+    const twice = path.join(scratch, 'twice');
+    const keep = lineOf(keepFolder, 'sha-keep', '{"k":"d-k"}');
     fs.writeFileSync(trustPath, `${keep}\n`, 'utf-8');
-    expect(saveTrustedFolderRecord('C:/twice', 'sha-a', {}, trustPath)).toBe(true);
-    expect(saveTrustedFolderRecord('C:/twice', 'sha-b', { x: 'd-x' }, trustPath)).toBe(true);
+    expect(saveTrustedFolderRecord(twice, 'sha-a', {}, trustPath)).toBe(true);
+    expect(saveTrustedFolderRecord(twice, 'sha-b', { x: 'd-x' }, trustPath)).toBe(true);
 
     const lines = readText(trustPath).split('\n');
-    expect(lines.filter((l: string) => l.startsWith('C:/twice')).length).toBe(1);
+    expect(lines.filter((l: string) => l.startsWith(twice)).length).toBe(1);
     expect(lines.some((l: string) => l.includes('sha-a'))).toBe(false);
     expect(lines[0]).toBe(keep);
-    expect(isFolderTrusted('C:/keep/me', undefined, trustPath)).toBe(true);
+    expect(isFolderTrusted(keepFolder, undefined, trustPath)).toBe(true);
   });
 
   it('D3 撤销按目录匹配整行;撤销后判"从未批准"而不是"内容未确认"', () => {

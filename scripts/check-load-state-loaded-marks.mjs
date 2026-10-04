@@ -96,6 +96,7 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -235,7 +236,7 @@ export function judgeSources({ root = ROOT, python, criterionSrc, cases }) {
 
   let tmp = null
   try {
-    tmp = mkdtempSync(path.join(os.tmpdir(), 'ihui-loaded-marks-'))
+    tmp = mkScratch("ihui-loaded-marks-")
     const criterionPath = path.join(tmp, 'criterion.py')
     const payloadPath = path.join(tmp, 'payload.json')
     // ⚠️ 必须落 Buffer(二进制写盘):文本写盘会把 LF 转成 CRLF,判据看到的就是被
