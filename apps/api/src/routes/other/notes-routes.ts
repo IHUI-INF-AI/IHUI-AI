@@ -4,7 +4,7 @@
 
 /**
  * 笔记(从 frontend-stub-other-routes.ts 拆分)。
- * POST /notes, GET /notes/public, GET/PUT/DELETE /notes/:id
+ * GET /notes, POST /notes, GET /notes/public, GET/PUT/DELETE /notes/:id
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
@@ -12,9 +12,36 @@ import { eq, desc } from 'drizzle-orm'
 import { success, error } from '../../utils/response.js'
 import { db, dbRead } from '../../db/index.js'
 import { notes, users } from '@ihui/database'
-import { parseIdParam } from './_shared.js'
+import { parseIdParam, parsePagination } from './_shared.js'
 
 export const notesRoutes: FastifyPluginAsync = async (server) => {
+  // GET /notes - 当前用户笔记列表(mobile-rn NoteScreen 直接消费裸数组,故不包 {list})
+  // 归属口径与同文件写端点一致:notes.user_id === request.userId
+  server.get('/notes', async (request, reply) => {
+    const page = parsePagination(request, reply)
+    if (page === null) return
+    const { page: pageNo, pageSize } = page
+    const rows = await dbRead
+      .select({
+        id: notes.id,
+        title: notes.title,
+        content: notes.content,
+        updatedAt: notes.updatedAt,
+      })
+      .from(notes)
+      .where(eq(notes.userId, request.userId!))
+      .orderBy(desc(notes.updatedAt))
+      .limit(pageSize)
+      .offset((pageNo - 1) * pageSize)
+    const list = rows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      content: r.content,
+      updatedAt: r.updatedAt.toISOString(),
+    }))
+    return reply.send(success(list))
+  })
+
   // POST /notes - 创建笔记(mobile-rn NoteCreateScreen)
   server.post('/notes', async (request, reply) => {
     const body = z
