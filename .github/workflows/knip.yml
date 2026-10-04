@@ -20,6 +20,7 @@ on:
       - 'packages/**'
       - 'package.json'
       - 'knip.jsonc'
+      - 'knip-baseline.json'
       - 'pnpm-workspace.yaml'
       - '.github/workflows/knip.yml'
   pull_request:
@@ -29,6 +30,7 @@ on:
       - 'packages/**'
       - 'package.json'
       - 'knip.jsonc'
+      - 'knip-baseline.json'
       - 'pnpm-workspace.yaml'
       - '.github/workflows/knip.yml'
 

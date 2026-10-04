@@ -101,6 +101,10 @@ SSE_EVENTS: frozenset[str] = frozenset(
         "compaction",
         "steer",
         "budget",
+        # G-815976(2026-10-04 收口入契约):流式中断标记。生产点 llm_gateway.py
+        # astream 异常中断分支(已发过 chunk、不可换 provider/重试);消费
+        # api-client onPartialDone。必须与 packages/shared/src/sse/contract.ts 同步。
+        "partial_done",
         # D34(2026-09-22,G-40/G-44):运行环境交代两帧。事件名为我方协议自定
         # (与 plan_updated/terminal_end 同族 snake_case);竞品实证部分只有**字段形状**
         # (kind 八枚举 / collapsed+可展开全文 / attempt+maxRetries+retryInMs+httpStatus)。
@@ -314,6 +318,11 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
     # 流首命名帧,两处 :776 与 :1039)。2026-09-26 对标轮曾误判本帧"零生产点"——
     # 只查了 ai-service 的 llm_gateway 没查 apps/api 网关层,教训:**跨端事件先查网关**。
     SSEEventContract("budget", ("level", "percent", "usedTokens", "limitTokens", "tier", "resetAt")),
+    # 流式中断标记(G-815976 收口入契约,2026-10-04):llm_gateway.py astream 异常
+    # 中断且已发出过 chunk 时 yield(此后流终止,不会有 done)。此前只有生产者,
+    # 客户端解析层对它静默返回 null —— 半截回答与完整回答在端上完全同形。
+    # 消费:api-client onPartialDone → web send-message.ts 告知截断。
+    SSEEventContract("partial_done", ("fallback_applied", "reason", "model")),
 )
 
 

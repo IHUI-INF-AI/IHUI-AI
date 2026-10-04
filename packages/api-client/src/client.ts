@@ -570,8 +570,7 @@ export interface InboundEnvelope {
 }
 
 export type EnvelopeInboundResult =
-  | { matched: true; envelope: InboundEnvelope }
-  | { matched: false }
+  { matched: true; envelope: InboundEnvelope } | { matched: false }
 
 /**
  * 响应体入站校验的唯一入口(fetchOnce 2xx 分支调用)。
@@ -1404,6 +1403,11 @@ export interface StreamChatOptions {
    *  下发 warning(80%~95%)/critical(95%~100%)提醒帧,前端 toast 提示用量进度;
    *  ≥100% 为 HTTP 429 硬中断(errorCode 'BUDGET_EXHAUSTED'),走 onError 路径。 */
   onBudget?: (event: BudgetEvent) => void
+  /** G-815976(2026-10-04 收口入契约):流式中断标记 —— llm_gateway 在 astream 异常
+   *  中断且已发出过 chunk 时发出本帧(此后流终止,不会有 done)。此前它被解析层
+   *  静默丢弃 ⇒ 半截回答与完整回答在端上完全同形。收到本帧时已到达正文**有效**,
+   *  但必须如实告知用户"回答被截断",不得当作完整回答收束。 */
+  onPartialDone?: (event: PartialDoneEvent) => void
   /** D155 配置告警(2026-09-29 立):生效配置有问题(如 base URL 被覆盖)时下发。
    *  表外 severity 值在解析层回退 'warning',不丢帧。 */
   onConfigWarning?: (event: ConfigWarningEvent) => void
@@ -1590,6 +1594,11 @@ export function parseStreamLine(line: string): string | null {
     // Budget(2026-09-19 立):网关用量分档提醒帧走专用通道(tryParseBudget)。
     // 不拦截同样会被下方兜底抽取链喷进正文增量(与 steer 同一坑位,必须在兜底前拦截)
     if (json?.type === 'budget') return null
+    // G-815976(2026-10-04 收口入契约):流式中断标记帧走专用通道(onPartialDone)。
+    // 本帧不带 content/text 字段,兜底抽取链本会对它静默返回 null —— 但它存在的
+    // 意义恰是"半截回答 ≠ 完整回答",静默丢弃 = 该帧要防的混淆继续发生。
+    // 显式分流是不依赖兜底行为的写法(与 usage/steer/budget 同一姿势)。
+    if (json?.type === 'partial_done') return null
     // D34(2026-09-22 立):运行环境交代帧必须显式分流。injection_applied 带 collapsed/fullText、
     // retry_scheduled 带 message —— 不拦截会被下方兜底抽取链喷进正文增量,
     // 历史坑位与 usage/steer/budget 同一处。
@@ -1712,6 +1721,20 @@ export interface BudgetEvent {
   tier?: string
   /** 限额重置时间(ISO,东八区次日 0 点,可选) */
   resetAt?: string
+}
+
+// ---------------------------------------------------------------------------
+// G-815976(2026-10-04 收口入契约):流式中断标记帧。生产点 llm_gateway.py 的
+// astream 异常中断分支(已发过 chunk、不可撤回、不可中途换 provider);契约声明见
+// packages/shared/src/sse/contract.ts(SSE_EVENTS.PARTIAL_DONE)与
+// apps/ai-service/app/core/sse_contract.py 的 SSEEventContract("partial_done", …)。
+export interface PartialDoneEvent {
+  /** 恒 false:本帧只在"未走 fallback、已发过 chunk"那一格发出 */
+  fallback_applied: boolean
+  /** 中断原因,现值 'stream_interrupted' */
+  reason: string
+  /** 本轮实际使用的模型(可缺省) */
+  model?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -1933,15 +1956,17 @@ export function projectToolApprovalEnvFacts(json: {
     'execEnvironment' | 'networkTarget' | 'blockedNetworkTargets'
   > = {}
   const env = json.exec_environment
-  if (env && typeof env === 'object' && typeof (env as Record<string, unknown>).available === 'boolean') {
+  if (
+    env &&
+    typeof env === 'object' &&
+    typeof (env as Record<string, unknown>).available === 'boolean'
+  ) {
     const e = env as Record<string, unknown>
     out.execEnvironment = {
       available: e.available as boolean,
       ...(typeof e.inSandbox === 'boolean' ? { inSandbox: e.inSandbox } : {}),
       ...(typeof e.backend === 'string' ? { backend: e.backend } : {}),
-      ...(typeof e.networkIsolated === 'boolean'
-        ? { networkIsolated: e.networkIsolated }
-        : {}),
+      ...(typeof e.networkIsolated === 'boolean' ? { networkIsolated: e.networkIsolated } : {}),
       ...(typeof e.degraded === 'boolean' ? { degraded: e.degraded } : {}),
       ...(typeof e.degradeNote === 'string' ? { degradeNote: e.degradeNote } : {}),
     }
@@ -2546,7 +2571,8 @@ const FRAME_TRACE_ID_KEY = 'traceId'
  */
 export function readStreamTraceId(line: string): string | null {
   const raw = typeof line === 'string' ? line.trim() : ''
-  if (raw.length === 0 || raw.startsWith(':') || raw.startsWith('event:') || raw.startsWith('id:')) return null
+  if (raw.length === 0 || raw.startsWith(':') || raw.startsWith('event:') || raw.startsWith('id:'))
+    return null
   let payload = raw
   if (raw.startsWith('data:')) payload = raw.slice(5).trim()
   if (payload.length === 0 || payload === '[DONE]') return null
@@ -2850,1617 +2876,1539 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   const agentDedupeBuffer = new Map<string, string>()
   let seenTraceId: string | null = null
   try {
+    const hasReasoning = typeof opts.onReasoning === 'function'
+    const hasCompaction = typeof opts.onCompaction === 'function'
+    const hasQuestion = typeof opts.onQuestion === 'function'
+    const hasAgentDelta = typeof opts.onAgentDelta === 'function'
+    const hasToolCall = typeof opts.onToolCall === 'function'
+    // P4-2: fallback 事件回调存在时启用解析
+    const hasFallback = typeof opts.onFallback === 'function'
+    // Subagent 自动派发(2026-07-28 立):任一回调存在时启用解析
+    const hasSubagent =
+      typeof opts.onSubagentSpawn === 'function' ||
+      typeof opts.onSubagentEnd === 'function' ||
+      typeof opts.onSubagentProgress === 'function'
+    // 工具调用汇总(2026-07-31 立,AI 对话可视化):SSE 流末尾发出 type='tool-summary' 事件
+    const hasToolSummary = typeof opts.onToolSummary === 'function'
+    // 阶段 2:工具委托执行(浏览器端 fs 工具执行代理,2026-08-02 立)
+    const hasToolDelegate = typeof opts.onToolDelegate === 'function'
+    // V3 #58(2026-09-26 立):主对话流工具审批请求解析开关(onToolApproval 注册才解析)
+    const hasToolApproval = typeof opts.onToolApproval === 'function'
+    // W1(2026-09-12 立):plan / terminal SSE 事件能力检测
+    const hasPlanUpdate = typeof opts.onPlanUpdate === 'function'
+    const hasTerminal =
+      typeof opts.onTerminalStart === 'function' && typeof opts.onTerminalEnd === 'function'
+    // 终端实时输出增量(2026-09-18 立):onTerminalDelta 存在时启用解析
+    const hasTerminalDelta = typeof opts.onTerminalDelta === 'function'
+    // D151:没接这条腿就不解析该帧(与 onToolDelta/onInjection 同口径)
+    const hasTerminalInteraction = typeof opts.onTerminalInteraction === 'function'
+    // D152:没接这条腿就不解析该帧(与 onTerminalInteraction/onToolDelta 同口径)
+    const hasGoalUpdate = typeof opts.onGoalUpdate === 'function'
+    // D113:tool-delta 流中预览(未注册回调不解析)
+    const hasToolDelta = typeof opts.onToolDelta === 'function'
+    // #11 Citations 全链路(2026-09-13 立):knowledge_lookup 工具执行后下发引用溯源
+    const hasCitations = typeof opts.onCitations === 'function'
+    // P1 #27(2026-09-16 立):done 事件携带 memoryUpdates(已记住提示条数据源)
+    const hasMemoryUpdates = typeof opts.onMemoryUpdates === 'function'
+    // D130(2026-09-30 立):done 帧携带 reasoningEffort 回落通知(未注册回调不解析)
+    const hasReasoningEffortNotice = typeof opts.onReasoningEffortNotice === 'function'
+    const hasUsage = typeof opts.onUsage === 'function'
+    // Steer(中途引导,2026-09-19 立):onSteer 存在时启用解析
+    const hasSteer = typeof opts.onSteer === 'function'
+    // Budget(用量分档提醒,2026-09-19 立):onBudget 存在时启用解析
+    const hasBudget = typeof opts.onBudget === 'function'
+    // G-815976(2026-10-04 收口入契约):流式中断标记帧;未注册回调不解析
+    const hasPartialDone = typeof opts.onPartialDone === 'function'
+    // D155(2026-09-29 立):下行告警三档;未注册回调不解析(与其余 per-field 同口径)
+    const hasConfigWarning = typeof opts.onConfigWarning === 'function'
+    const hasDeprecationNotice = typeof opts.onDeprecationNotice === 'function'
+    const hasGuardianWarning = typeof opts.onGuardianWarning === 'function'
+    const hasInjection = typeof opts.onInjectionApplied === 'function'
+    const hasRetryScheduled = typeof opts.onRetryScheduled === 'function'
+    // D77(2026-09-25 立):业务表单请求帧;帧带 fields/actions 结构化字段,
+    // 未注册回调时不解析(与 injection 同口径)。
+    const hasFormRequest = typeof opts.onFormRequest === 'function'
+    // hasCitations 被 tryParseCitations 的守护读取(消除 TS6133:声明未使用)
+    void hasCitations
 
-      const hasReasoning = typeof opts.onReasoning === 'function'
-      const hasCompaction = typeof opts.onCompaction === 'function'
-      const hasQuestion = typeof opts.onQuestion === 'function'
-      const hasAgentDelta = typeof opts.onAgentDelta === 'function'
-      const hasToolCall = typeof opts.onToolCall === 'function'
-      // P4-2: fallback 事件回调存在时启用解析
-      const hasFallback = typeof opts.onFallback === 'function'
-      // Subagent 自动派发(2026-07-28 立):任一回调存在时启用解析
-      const hasSubagent =
-        typeof opts.onSubagentSpawn === 'function' ||
-        typeof opts.onSubagentEnd === 'function' ||
-        typeof opts.onSubagentProgress === 'function'
-      // 工具调用汇总(2026-07-31 立,AI 对话可视化):SSE 流末尾发出 type='tool-summary' 事件
-      const hasToolSummary = typeof opts.onToolSummary === 'function'
-      // 阶段 2:工具委托执行(浏览器端 fs 工具执行代理,2026-08-02 立)
-      const hasToolDelegate = typeof opts.onToolDelegate === 'function'
-      // V3 #58(2026-09-26 立):主对话流工具审批请求解析开关(onToolApproval 注册才解析)
-      const hasToolApproval = typeof opts.onToolApproval === 'function'
-      // W1(2026-09-12 立):plan / terminal SSE 事件能力检测
-      const hasPlanUpdate = typeof opts.onPlanUpdate === 'function'
-      const hasTerminal =
-        typeof opts.onTerminalStart === 'function' && typeof opts.onTerminalEnd === 'function'
-      // 终端实时输出增量(2026-09-18 立):onTerminalDelta 存在时启用解析
-      const hasTerminalDelta = typeof opts.onTerminalDelta === 'function'
-      // D151:没接这条腿就不解析该帧(与 onToolDelta/onInjection 同口径)
-      const hasTerminalInteraction = typeof opts.onTerminalInteraction === 'function'
-      // D152:没接这条腿就不解析该帧(与 onTerminalInteraction/onToolDelta 同口径)
-      const hasGoalUpdate = typeof opts.onGoalUpdate === 'function'
-      // D113:tool-delta 流中预览(未注册回调不解析)
-      const hasToolDelta = typeof opts.onToolDelta === 'function'
-      // #11 Citations 全链路(2026-09-13 立):knowledge_lookup 工具执行后下发引用溯源
-      const hasCitations = typeof opts.onCitations === 'function'
-      // P1 #27(2026-09-16 立):done 事件携带 memoryUpdates(已记住提示条数据源)
-      const hasMemoryUpdates = typeof opts.onMemoryUpdates === 'function'
-      // D130(2026-09-30 立):done 帧携带 reasoningEffort 回落通知(未注册回调不解析)
-      const hasReasoningEffortNotice = typeof opts.onReasoningEffortNotice === 'function'
-      const hasUsage = typeof opts.onUsage === 'function'
-      // Steer(中途引导,2026-09-19 立):onSteer 存在时启用解析
-      const hasSteer = typeof opts.onSteer === 'function'
-      // Budget(用量分档提醒,2026-09-19 立):onBudget 存在时启用解析
-      const hasBudget = typeof opts.onBudget === 'function'
-      // D155(2026-09-29 立):下行告警三档;未注册回调不解析(与其余 per-field 同口径)
-      const hasConfigWarning = typeof opts.onConfigWarning === 'function'
-      const hasDeprecationNotice = typeof opts.onDeprecationNotice === 'function'
-      const hasGuardianWarning = typeof opts.onGuardianWarning === 'function'
-      const hasInjection = typeof opts.onInjectionApplied === 'function'
-      const hasRetryScheduled = typeof opts.onRetryScheduled === 'function'
-      // D77(2026-09-25 立):业务表单请求帧;帧带 fields/actions 结构化字段,
-      // 未注册回调时不解析(与 injection 同口径)。
-      const hasFormRequest = typeof opts.onFormRequest === 'function'
-      // hasCitations 被 tryParseCitations 的守护读取(消除 TS6133:声明未使用)
-      void hasCitations
+    // ===== Dedupe 机制(isRetry 时启用) =====
+    // 重连后若服务端不支持续传会从头重发,前端用 receivedContent 前缀匹配
+    // 跳过已接收内容,仅追加新增部分;若服务端发送不同内容则放弃 dedupe 全量追加。
+    // (D138:dedupeBuffer/dedupeActive/agentDedupeBuffer 声明上移,isRetry 由
+    // runResumableSSEStream 的 onAttemptStart 逐次复位;读超时同批搬入 runner。)
 
-      // ===== Dedupe 机制(isRetry 时启用) =====
-      // 重连后若服务端不支持续传会从头重发,前端用 receivedContent 前缀匹配
-      // 跳过已接收内容,仅追加新增部分;若服务端发送不同内容则放弃 dedupe 全量追加。
-      // (D138:dedupeBuffer/dedupeActive/agentDedupeBuffer 声明上移,isRetry 由
-      // runResumableSSEStream 的 onAttemptStart 逐次复位;读超时同批搬入 runner。)
-
-      const emitDelta = (delta: string): void => {
-        if (!dedupeActive) {
-          opts.onDelta?.(delta)
-          receivedContentRef.current += delta
-          return
-        }
-        dedupeBuffer += delta
-        const received = receivedContentRef.current
-        if (dedupeBuffer.length < received.length) {
-          if (received.startsWith(dedupeBuffer)) return
-          opts.onDelta?.(dedupeBuffer)
-          receivedContentRef.current += dedupeBuffer
-          dedupeBuffer = ''
-          dedupeActive = false
-          return
-        }
-        const tail = dedupeBuffer.slice(received.length)
-        if (dedupeBuffer.slice(0, received.length) === received) {
-          if (tail) opts.onDelta?.(tail)
-          receivedContentRef.current += tail
-        } else {
-          opts.onDelta?.(dedupeBuffer)
-          receivedContentRef.current += dedupeBuffer
-        }
+    const emitDelta = (delta: string): void => {
+      if (!dedupeActive) {
+        opts.onDelta?.(delta)
+        receivedContentRef.current += delta
+        return
+      }
+      dedupeBuffer += delta
+      const received = receivedContentRef.current
+      if (dedupeBuffer.length < received.length) {
+        if (received.startsWith(dedupeBuffer)) return
+        opts.onDelta?.(dedupeBuffer)
+        receivedContentRef.current += dedupeBuffer
         dedupeBuffer = ''
         dedupeActive = false
+        return
       }
+      const tail = dedupeBuffer.slice(received.length)
+      if (dedupeBuffer.slice(0, received.length) === received) {
+        if (tail) opts.onDelta?.(tail)
+        receivedContentRef.current += tail
+      } else {
+        opts.onDelta?.(dedupeBuffer)
+        receivedContentRef.current += dedupeBuffer
+      }
+      dedupeBuffer = ''
+      dedupeActive = false
+    }
 
-      const emitAgentDelta = (agentId: string, delta: string): void => {
-        const received = receivedAgentRef.current.get(agentId) ?? ''
-        if (!isRetry || received.length === 0) {
-          opts.onAgentDelta!(agentId, delta)
-          receivedAgentRef.current.set(agentId, received + delta)
+    const emitAgentDelta = (agentId: string, delta: string): void => {
+      const received = receivedAgentRef.current.get(agentId) ?? ''
+      if (!isRetry || received.length === 0) {
+        opts.onAgentDelta!(agentId, delta)
+        receivedAgentRef.current.set(agentId, received + delta)
+        return
+      }
+      const buf = (agentDedupeBuffer.get(agentId) ?? '') + delta
+      if (buf.length < received.length) {
+        if (received.startsWith(buf)) {
+          agentDedupeBuffer.set(agentId, buf)
           return
         }
-        const buf = (agentDedupeBuffer.get(agentId) ?? '') + delta
-        if (buf.length < received.length) {
-          if (received.startsWith(buf)) {
-            agentDedupeBuffer.set(agentId, buf)
-            return
-          }
-          opts.onAgentDelta!(agentId, buf)
-          receivedAgentRef.current.set(agentId, received + buf)
-          agentDedupeBuffer.delete(agentId)
-          return
-        }
-        const tail = buf.slice(received.length)
-        if (buf.slice(0, received.length) === received) {
-          if (tail) opts.onAgentDelta!(agentId, tail)
-          receivedAgentRef.current.set(agentId, received + tail)
-        } else {
-          opts.onAgentDelta!(agentId, buf)
-          receivedAgentRef.current.set(agentId, received + buf)
-        }
+        opts.onAgentDelta!(agentId, buf)
+        receivedAgentRef.current.set(agentId, received + buf)
         agentDedupeBuffer.delete(agentId)
+        return
       }
-
-      const tryParseCompaction = (line: string): void => {
-        if (!hasCompaction) return
-        if (!line || line.startsWith(':')) return
-        let data = line
-        if (line.startsWith('data:')) {
-          data = line.slice(5).replace(/^\s/, '')
-        } else if (
-          line.startsWith('event:') ||
-          line.startsWith('id:') ||
-          line.startsWith('retry:')
-        ) {
-          return
-        }
-        if (!data || data === '[DONE]') return
-        try {
-          const json = JSON.parse(data)
-          if (json?.compaction?.triggered === true) {
-            opts.onCompaction!({
-              tokensBefore: Number(json.compaction.tokensBefore ?? 0),
-              tokensAfter: Number(json.compaction.tokensAfter ?? 0),
-              removedCount: Number(json.compaction.removedCount ?? 0),
-              // A10B-8:截断量是披露判据的事实来源。**刻意不写 `?? 0` 归一** ——
-              // 旧帧(生产者尚未带该字段)缺席必须原样传成 undefined,归零等于把
-              // "没被告知"改写成"确实没截断",消费侧就退回"该说不说"的沉默那一型。
-              truncatedCount:
-                typeof json.compaction.truncatedCount === 'number' &&
-                Number.isFinite(json.compaction.truncatedCount)
-                  ? json.compaction.truncatedCount
-                  : undefined,
-              usageRatio: Number(json.compaction.usageRatio ?? 0),
-              trigger:
-                typeof json.compaction.trigger === 'string' ? json.compaction.trigger : undefined,
-              compressedMessages: json.compaction.compressedMessages,
-            })
-          }
-        } catch {
-          /* 非 JSON 或非 compaction 事件忽略 */
-        }
+      const tail = buf.slice(received.length)
+      if (buf.slice(0, received.length) === received) {
+        if (tail) opts.onAgentDelta!(agentId, tail)
+        receivedAgentRef.current.set(agentId, received + tail)
+      } else {
+        opts.onAgentDelta!(agentId, buf)
+        receivedAgentRef.current.set(agentId, received + buf)
       }
+      agentDedupeBuffer.delete(agentId)
+    }
 
-      const tryParseQuestion = (line: string): void => {
-        if (!hasQuestion) return
-        if (!line || line.startsWith(':')) return
-        let data = line
-        if (line.startsWith('data:')) {
-          data = line.slice(5).replace(/^\s/, '')
-        } else if (
-          line.startsWith('event:') ||
-          line.startsWith('id:') ||
-          line.startsWith('retry:')
-        ) {
-          return
-        }
-        if (!data || data === '[DONE]') return
-        try {
-          const json = JSON.parse(data)
-          if (json?.type === 'question' && json?.question?.questionId) {
-            const q = json.question
-            opts.onQuestion!({
-              questionId: String(q.questionId),
-              prompt: String(q.prompt ?? ''),
-              options: Array.isArray(q.options)
-                ? q.options
-                    .filter((o: unknown) => o && typeof o === 'object' && 'id' in o && 'label' in o)
-                    .map((o: { id: unknown; label: unknown }) => ({
-                      id: String(o.id),
-                      label: String(o.label),
-                    }))
-                : [],
-              allowCustom: q.allowCustom !== false,
-              allowMultiple: q.allowMultiple === true,
-            })
-          }
-        } catch {
-          /* 非 JSON 或非 question 事件忽略 */
-        }
+    const tryParseCompaction = (line: string): void => {
+      if (!hasCompaction) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
       }
-
-      /** 解析 Vercel AI SDK 协议 tool_call 事件:
-       *  - type 2(tool-call):{ toolCallId, toolName, args }
-       *  - type 7(tool-result):{ toolCallId, result, isError }
-       *  - 自定义 tool_result JSON:{ type:'tool_result', toolCallId, toolName, args, result }
-       * 触发 onToolCall 回调,前端据 args.result 中的 url 自动打开 WorkPanel */
-      const tryParseToolCall = (line: string): void => {
-        if (!hasToolCall) return
-        if (!line || line.startsWith(':')) return
-        let data = line
-        if (line.startsWith('data:')) {
-          data = line.slice(5).replace(/^\s/, '')
-        } else if (
-          line.startsWith('event:') ||
-          line.startsWith('id:') ||
-          line.startsWith('retry:')
-        ) {
-          return
-        }
-        if (!data || data === '[DONE]') return
-
-        // Vercel AI SDK 协议 TYPE:JSON
-        const proto = data.match(/^(\d+):(.*)$/s)
-        if (proto?.[1] !== undefined) {
-          const t = proto[1]
-          try {
-            const parsed = JSON.parse(proto[2]!)
-            if (t === '2' && parsed?.toolCallId && parsed?.toolName) {
-              opts.onToolCall!({
-                type: 'tool-call-start',
-                toolCallId: String(parsed.toolCallId),
-                toolName: String(parsed.toolName),
-                args: parsed.args,
-              })
-            } else if (t === '7' && parsed?.toolCallId) {
-              opts.onToolCall!({
-                type: 'tool-result',
-                toolCallId: String(parsed.toolCallId),
-                toolName: typeof parsed.toolName === 'string' ? parsed.toolName : '',
-                result: parsed.result,
-                isError: parsed.isError === true,
-                // 2026-09-09 媒体产物顶层扁平化透传(与自定义 tool-result 分支一致)
-                image_url: typeof parsed.image_url === 'string' ? parsed.image_url : undefined,
-                audio_url: typeof parsed.audio_url === 'string' ? parsed.audio_url : undefined,
-                video_url: typeof parsed.video_url === 'string' ? parsed.video_url : undefined,
-                task_id: typeof parsed.task_id === 'string' ? parsed.task_id : undefined,
-              })
-            }
-          } catch {
-            /* JSON 解析失败忽略 */
-          }
-          return
-        }
-
-        // 自定义 JSON 事件(支持 ai-service agent tool loop 推送的 tool-call-start / tool-result)
-        if (data.startsWith('{')) {
-          try {
-            const json = JSON.parse(data) as Record<string, unknown>
-            // 2026-07-31 立,提取工具来源字段(兼容 snake_case / camelCase)
-            const serverSource = (json.serverSource ?? json.server_source ?? '') as string
-            const validServerSource =
-              serverSource === 'builtin' || serverSource === 'plugin' || serverSource === 'mcp'
-                ? serverSource
-                : undefined
-            const serverId =
-              typeof json.serverId === 'string'
-                ? json.serverId
-                : typeof json.server_id === 'string'
-                  ? json.server_id
-                  : undefined
-            const serverName =
-              typeof json.serverName === 'string'
-                ? json.serverName
-                : typeof json.server_name === 'string'
-                  ? json.server_name
-                  : undefined
-            // 优化(问题 4-5):合并 tool_result / tool-result 重复分支,
-            // 后端 snake_case(tool_result)与 kebab-case(tool-result)走同一逻辑
-            if (
-              (json?.type === 'tool_result' || json?.type === 'tool-result') &&
-              json?.toolCallId
-            ) {
-              opts.onToolCall!({
-                type: 'tool-result',
-                toolCallId: String(json.toolCallId),
-                toolName: typeof json.toolName === 'string' ? json.toolName : '',
-                args: json.args as Record<string, unknown> | undefined,
-                result: json.result,
-                isError: json.isError === true,
-                serverSource: validServerSource,
-                serverId,
-                serverName,
-                // 2026-09-09 媒体产物顶层扁平化透传:image_url/audio_url/video_url/task_id
-                image_url: typeof json.image_url === 'string' ? json.image_url : undefined,
-                audio_url: typeof json.audio_url === 'string' ? json.audio_url : undefined,
-                video_url: typeof json.video_url === 'string' ? json.video_url : undefined,
-                task_id: typeof json.task_id === 'string' ? json.task_id : undefined,
-              })
-            } else if (json?.type === 'tool-call-start' && json?.toolCallId) {
-              opts.onToolCall!({
-                type: 'tool-call-start',
-                toolCallId: String(json.toolCallId),
-                toolName: typeof json.toolName === 'string' ? json.toolName : '',
-                args: json.args as Record<string, unknown> | undefined,
-                serverSource: validServerSource,
-                serverId,
-                serverName,
-              })
-            }
-          } catch {
-            /* 非 JSON 忽略 */
-          }
-        }
-      }
-
-      /** 解析 Subagent 派发事件(2026-07-28 立):
-       *  - subagent_spawn:主 agent 调用 dispatch_subagent 工具执行前发出
-       *  - subagent_progress:执行期间实时发出(thinking/tool_call/tool_result/output_ready)
-       *  - subagent_end:执行后发出(带 status: done/failed)
-       *  触发 onSubagentSpawn/onSubagentProgress/onSubagentEnd 回调,前端进度面板自动展示。 */
-      const tryParseSubagent = (line: string): void => {
-        if (!hasSubagent) return
-        if (!line || line.startsWith(':')) return
-        let data = line
-        if (line.startsWith('data:')) {
-          data = line.slice(5).replace(/^\s/, '')
-        } else if (
-          line.startsWith('event:') ||
-          line.startsWith('id:') ||
-          line.startsWith('retry:')
-        ) {
-          return
-        }
-        if (!data || data === '[DONE]') return
-        try {
-          const json = JSON.parse(data) as Record<string, unknown>
-          if (json?.type === 'subagent_spawn' && json?.id) {
-            opts.onSubagentSpawn!({
-              id: String(json.id),
-              role: typeof json.role === 'string' ? json.role : '',
-              task: typeof json.task === 'string' ? json.task : '',
-              timestamp:
-                typeof json.timestamp === 'string' ? json.timestamp : new Date().toISOString(),
-            })
-          } else if (json?.type === 'subagent_progress' && json?.id) {
-            const phase = json.phase
-            if (
-              phase === 'thinking' ||
-              phase === 'tool_call' ||
-              phase === 'tool_result' ||
-              phase === 'output_ready'
-            ) {
-              opts.onSubagentProgress!({
-                id: String(json.id),
-                phase,
-                timestamp:
-                  typeof json.timestamp === 'string' ? json.timestamp : new Date().toISOString(),
-                iteration: typeof json.iteration === 'number' ? json.iteration : undefined,
-                tool: typeof json.tool === 'string' ? json.tool : undefined,
-                ok: typeof json.ok === 'boolean' ? json.ok : undefined,
-                outputPreview:
-                  typeof json.output_preview === 'string' ? json.output_preview : undefined,
-                agentName: typeof json.agentName === 'string' ? json.agentName : undefined,
-              })
-            }
-          } else if (json?.type === 'subagent_end' && json?.id) {
-            opts.onSubagentEnd!({
-              id: String(json.id),
-              status: json.status === 'failed' ? 'failed' : 'done',
-              failureReason:
-                typeof json.failureReason === 'string' ? json.failureReason : undefined,
-              timestamp:
-                typeof json.timestamp === 'string' ? json.timestamp : new Date().toISOString(),
-            })
-          }
-        } catch {
-          /* 非 JSON 或非 subagent 事件忽略 */
-        }
-      }
-
-      /** 解析工具调用汇总事件(2026-07-31 立,AI 对话可视化深度接入):
-       *  - 后端在 SSE 流末尾(done 之前)发出 type='tool-summary' 事件
-       *  - 聚合本轮所有工具调用统计(搜索文件次数/网页次数/修改文件数/行数变更/工具分类)
-       *  - 前端收到后直接写入 message.toolCallSummary,无需本地重复聚合
-       *  - 兼容后端 snake_case 字段(server_source/server_id/server_name)与 camelCase */
-      const tryParseToolSummary = (line: string): void => {
-        if (!hasToolSummary) return
-        if (!line || line.startsWith(':')) return
-        let data = line
-        if (line.startsWith('data:')) {
-          data = line.slice(5).replace(/^\s/, '')
-        } else if (
-          line.startsWith('event:') ||
-          line.startsWith('id:') ||
-          line.startsWith('retry:')
-        ) {
-          return
-        }
-        if (!data || data === '[DONE]') return
-        try {
-          const json = JSON.parse(data) as Record<string, unknown>
-          if (json?.type !== 'tool-summary') return
-          // 兼容 snake_case / camelCase 字段(后端 SSE 序列化策略)
-          const numOr = (v: unknown): number =>
-            typeof v === 'number' && Number.isFinite(v) ? v : 0
-          const toolsByCategory = json.toolsByCategory ?? json.tools_by_category
-          const safeToolsByCategory =
-            toolsByCategory && typeof toolsByCategory === 'object'
-              ? (toolsByCategory as Record<string, number>)
-              : {}
-          const totalDurationMsRaw = json.totalDurationMs ?? json.total_duration_ms
-          opts.onToolSummary!({
-            filesSearched: numOr(json.filesSearched ?? json.files_searched),
-            webSearched: numOr(json.webSearched ?? json.web_searched),
-            filesModified: numOr(json.filesModified ?? json.files_modified),
-            linesAdded: numOr(json.linesAdded ?? json.lines_added),
-            linesDeleted: numOr(json.linesDeleted ?? json.lines_deleted),
-            toolsByCategory: safeToolsByCategory,
-            totalCalls: numOr(json.totalCalls ?? json.total_calls),
-            totalDurationMs:
-              typeof totalDurationMsRaw === 'number' && Number.isFinite(totalDurationMsRaw)
-                ? totalDurationMsRaw
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data)
+        if (json?.compaction?.triggered === true) {
+          opts.onCompaction!({
+            tokensBefore: Number(json.compaction.tokensBefore ?? 0),
+            tokensAfter: Number(json.compaction.tokensAfter ?? 0),
+            removedCount: Number(json.compaction.removedCount ?? 0),
+            // A10B-8:截断量是披露判据的事实来源。**刻意不写 `?? 0` 归一** ——
+            // 旧帧(生产者尚未带该字段)缺席必须原样传成 undefined,归零等于把
+            // "没被告知"改写成"确实没截断",消费侧就退回"该说不说"的沉默那一型。
+            truncatedCount:
+              typeof json.compaction.truncatedCount === 'number' &&
+              Number.isFinite(json.compaction.truncatedCount)
+                ? json.compaction.truncatedCount
                 : undefined,
+            usageRatio: Number(json.compaction.usageRatio ?? 0),
+            trigger:
+              typeof json.compaction.trigger === 'string' ? json.compaction.trigger : undefined,
+            compressedMessages: json.compaction.compressedMessages,
           })
-        } catch {
-          /* 非 JSON 或非 tool-summary 事件忽略 */
         }
+      } catch {
+        /* 非 JSON 或非 compaction 事件忽略 */
       }
+    }
 
-      /** 阶段 2:解析工具委托执行事件(2026-08-02 立,浏览器端 fs 工具执行代理):
-       *  - ai-service 在远程服务器无法访问用户本地文件,LLM 调用 fs 类工具时
-       *    通过 SSE `tool-delegate` 事件委托前端执行
-       *  - 前端收到事件后用 FileSystemDirectoryHandle 执行工具,通过 postToolResult
-       *    POST API 回传结果,唤醒 ai-service tool loop 中等待的 asyncio.Event
-       *  - onToolDelegate 是 async 回调,await 等待执行完成后再继续读 SSE 流
-       *    (ai-service 在等待结果期间不会发新事件,阻塞读流是符合期望的)
-       *  - 工具执行失败不中断流,错误通过 postToolResult 回传给 ai-service */
-      const tryParseToolDelegate = async (line: string): Promise<void> => {
-        if (!hasToolDelegate) return
-        if (!line || line.startsWith(':')) return
-        let data = line
-        if (line.startsWith('data:')) {
-          data = line.slice(5).replace(/^\s/, '')
-        } else if (
-          line.startsWith('event:') ||
-          line.startsWith('id:') ||
-          line.startsWith('retry:')
-        ) {
-          return
-        }
-        if (!data || data === '[DONE]') return
-        let invoked = false
-        try {
-          const json = JSON.parse(data) as Record<string, unknown>
-          if (json?.type !== 'tool-delegate') return
-          if (typeof json.session_id !== 'string' || typeof json.tool_call_id !== 'string') return
-          invoked = true
-          await opts.onToolDelegate!({
-            session_id: json.session_id,
-            tool_call_id: json.tool_call_id,
-            tool_name: typeof json.tool_name === 'string' ? json.tool_name : '',
-            args:
-              json.args && typeof json.args === 'object'
-                ? (json.args as Record<string, unknown>)
-                : {},
-            iteration: typeof json.iteration === 'number' ? json.iteration : 0,
-            type: 'tool-delegate',
+    const tryParseQuestion = (line: string): void => {
+      if (!hasQuestion) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data)
+        if (json?.type === 'question' && json?.question?.questionId) {
+          const q = json.question
+          opts.onQuestion!({
+            questionId: String(q.questionId),
+            prompt: String(q.prompt ?? ''),
+            options: Array.isArray(q.options)
+              ? q.options
+                  .filter((o: unknown) => o && typeof o === 'object' && 'id' in o && 'label' in o)
+                  .map((o: { id: unknown; label: unknown }) => ({
+                    id: String(o.id),
+                    label: String(o.label),
+                  }))
+              : [],
+            allowCustom: q.allowCustom !== false,
+            allowMultiple: q.allowMultiple === true,
           })
-        } catch (err) {
-          // 原语义保留:**没被识别成本帧**(非 JSON / 缺字段)一律静默跳过,不中断读流。
-          // 但"回调已经跑起来了"再抛,就是**回传没送达** —— 后端协程还在等,静默咽掉等于
-          // 让整轮工具链默默等到超时(§5e「失败必须响」同一条禁令;2026-08-06 那句
-          // "抛错让调用方重试"在这一层从来没有出口,调用方拿不到任何信号)。
-          // 处置:不中断流(与既有设计一致),但必须喊出来,且喊的内容要能定位是哪一轮。
-          if (invoked) {
-            console.error(
-              '[streamChat] tool-delegate 回传未送达(后端将等到超时):',
-              err instanceof Error ? err.message : err,
-            )
+        }
+      } catch {
+        /* 非 JSON 或非 question 事件忽略 */
+      }
+    }
+
+    /** 解析 Vercel AI SDK 协议 tool_call 事件:
+     *  - type 2(tool-call):{ toolCallId, toolName, args }
+     *  - type 7(tool-result):{ toolCallId, result, isError }
+     *  - 自定义 tool_result JSON:{ type:'tool_result', toolCallId, toolName, args, result }
+     * 触发 onToolCall 回调,前端据 args.result 中的 url 自动打开 WorkPanel */
+    const tryParseToolCall = (line: string): void => {
+      if (!hasToolCall) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+
+      // Vercel AI SDK 协议 TYPE:JSON
+      const proto = data.match(/^(\d+):(.*)$/s)
+      if (proto?.[1] !== undefined) {
+        const t = proto[1]
+        try {
+          const parsed = JSON.parse(proto[2]!)
+          if (t === '2' && parsed?.toolCallId && parsed?.toolName) {
+            opts.onToolCall!({
+              type: 'tool-call-start',
+              toolCallId: String(parsed.toolCallId),
+              toolName: String(parsed.toolName),
+              args: parsed.args,
+            })
+          } else if (t === '7' && parsed?.toolCallId) {
+            opts.onToolCall!({
+              type: 'tool-result',
+              toolCallId: String(parsed.toolCallId),
+              toolName: typeof parsed.toolName === 'string' ? parsed.toolName : '',
+              result: parsed.result,
+              isError: parsed.isError === true,
+              // 2026-09-09 媒体产物顶层扁平化透传(与自定义 tool-result 分支一致)
+              image_url: typeof parsed.image_url === 'string' ? parsed.image_url : undefined,
+              audio_url: typeof parsed.audio_url === 'string' ? parsed.audio_url : undefined,
+              video_url: typeof parsed.video_url === 'string' ? parsed.video_url : undefined,
+              task_id: typeof parsed.task_id === 'string' ? parsed.task_id : undefined,
+            })
           }
-        }
-      }
-
-      /** V3 #58(2026-09-26 立):解析 tool-approval SSE 帧(主对话流工具审批门)。
-       *  - ai-service 在高危工具执行前发 `event: tool-approval` + data {type:'tool-approval',...}
-       *  - wire payload 与 agent 任务流 tool-approval 同形(snake_case),此处收窄为 camelCase
-       *  - 畸形帧(缺 approval_id)一律不发回调 —— 回调方没有 id 就无法回传决策,
-       *    弹了窗也只会让后端 120s 超时,等于欺骗用户
-       *  - 决策回传走 postToolApprovalResponse(直连 ai-service 流级端点,与
-       *    postToolResult 同族;不经网关 /agent/approval-response —— 两套审批注册表独立) */
-      const tryParseToolApproval = (line: string): void => {
-        if (!hasToolApproval) return
-        if (!line || line.startsWith(':')) return
-        let data = line
-        if (line.startsWith('data:')) {
-          data = line.slice(5).replace(/^\s/, '')
-        } else if (
-          line.startsWith('event:') ||
-          line.startsWith('id:') ||
-          line.startsWith('retry:')
-        ) {
-          return
-        }
-        if (!data || data === '[DONE]') return
-        try {
-          const json = JSON.parse(data) as Record<string, unknown>
-          if (json?.type !== 'tool-approval') return
-          const approvalId = json.approval_id
-          if (typeof approvalId !== 'string' || approvalId === '') return
-          opts.onToolApproval!({
-            type: 'tool-approval',
-            approvalId,
-            toolName: typeof json.tool_name === 'string' ? json.tool_name : '',
-            toolCallId: typeof json.tool_call_id === 'string' ? json.tool_call_id : '',
-            argsPreview: typeof json.args_preview === 'string' ? json.args_preview : '',
-            // danger_level 缺省 high(保守 UI 展示;后端仅在收录工具上发帧)
-            dangerLevel:
-              json.danger_level === 'medium'
-                ? 'medium'
-                : json.danger_level === 'low'
-                  ? 'low'
-                  : 'high',
-            ...(typeof json.session_id === 'string' && json.session_id !== ''
-              ? { sessionId: json.session_id }
-              : {}),
-            // D159:执行环境/网络目标事实必须随帧递出 —— 解析层不递 ⇒ 弹窗那一块
-            // 结构上永远是"字段缺席=整块不渲染",组件测得再全也到不了端。
-            ...projectToolApprovalEnvFacts(json),
-          })
         } catch {
-          /* 非 JSON 或非 tool-approval 事件忽略 */
+          /* JSON 解析失败忽略 */
         }
+        return
       }
 
-      /** W1(2026-09-12 立):解析 plan_updated SSE 事件(消息级 plan steps 快照)。
-       *  - ai-service 在 plan 更新时发送 `event: plan_updated` + `data: {"type":"plan_updated",...}`
-       *  - 前端按 messageId 整体替换 message.planSteps(权威快照)
-       *  - plan 数组每项保留实际存在的 step / status / startedAt / endedAt / durationMs / tokenUsage */
-      const tryParsePlanUpdate = (line: string): void => {
-        if (!hasPlanUpdate) return
-        if (!line || line.startsWith(':')) return
-        let data = line
-        if (line.startsWith('data:')) {
-          data = line.slice(5).replace(/^\s/, '')
-        } else if (
-          line.startsWith('event:') ||
-          line.startsWith('id:') ||
-          line.startsWith('retry:')
-        ) {
-          return
-        }
-        if (!data || data === '[DONE]') return
+      // 自定义 JSON 事件(支持 ai-service agent tool loop 推送的 tool-call-start / tool-result)
+      if (data.startsWith('{')) {
         try {
           const json = JSON.parse(data) as Record<string, unknown>
+          // 2026-07-31 立,提取工具来源字段(兼容 snake_case / camelCase)
+          const serverSource = (json.serverSource ?? json.server_source ?? '') as string
+          const validServerSource =
+            serverSource === 'builtin' || serverSource === 'plugin' || serverSource === 'mcp'
+              ? serverSource
+              : undefined
+          const serverId =
+            typeof json.serverId === 'string'
+              ? json.serverId
+              : typeof json.server_id === 'string'
+                ? json.server_id
+                : undefined
+          const serverName =
+            typeof json.serverName === 'string'
+              ? json.serverName
+              : typeof json.server_name === 'string'
+                ? json.server_name
+                : undefined
+          // 优化(问题 4-5):合并 tool_result / tool-result 重复分支,
+          // 后端 snake_case(tool_result)与 kebab-case(tool-result)走同一逻辑
+          if ((json?.type === 'tool_result' || json?.type === 'tool-result') && json?.toolCallId) {
+            opts.onToolCall!({
+              type: 'tool-result',
+              toolCallId: String(json.toolCallId),
+              toolName: typeof json.toolName === 'string' ? json.toolName : '',
+              args: json.args as Record<string, unknown> | undefined,
+              result: json.result,
+              isError: json.isError === true,
+              serverSource: validServerSource,
+              serverId,
+              serverName,
+              // 2026-09-09 媒体产物顶层扁平化透传:image_url/audio_url/video_url/task_id
+              image_url: typeof json.image_url === 'string' ? json.image_url : undefined,
+              audio_url: typeof json.audio_url === 'string' ? json.audio_url : undefined,
+              video_url: typeof json.video_url === 'string' ? json.video_url : undefined,
+              task_id: typeof json.task_id === 'string' ? json.task_id : undefined,
+            })
+          } else if (json?.type === 'tool-call-start' && json?.toolCallId) {
+            opts.onToolCall!({
+              type: 'tool-call-start',
+              toolCallId: String(json.toolCallId),
+              toolName: typeof json.toolName === 'string' ? json.toolName : '',
+              args: json.args as Record<string, unknown> | undefined,
+              serverSource: validServerSource,
+              serverId,
+              serverName,
+            })
+          }
+        } catch {
+          /* 非 JSON 忽略 */
+        }
+      }
+    }
+
+    /** 解析 Subagent 派发事件(2026-07-28 立):
+     *  - subagent_spawn:主 agent 调用 dispatch_subagent 工具执行前发出
+     *  - subagent_progress:执行期间实时发出(thinking/tool_call/tool_result/output_ready)
+     *  - subagent_end:执行后发出(带 status: done/failed)
+     *  触发 onSubagentSpawn/onSubagentProgress/onSubagentEnd 回调,前端进度面板自动展示。 */
+    const tryParseSubagent = (line: string): void => {
+      if (!hasSubagent) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        if (json?.type === 'subagent_spawn' && json?.id) {
+          opts.onSubagentSpawn!({
+            id: String(json.id),
+            role: typeof json.role === 'string' ? json.role : '',
+            task: typeof json.task === 'string' ? json.task : '',
+            timestamp:
+              typeof json.timestamp === 'string' ? json.timestamp : new Date().toISOString(),
+          })
+        } else if (json?.type === 'subagent_progress' && json?.id) {
+          const phase = json.phase
           if (
-            (json?.type !== 'plan_updated' && json?.type !== 'plan') ||
-            !Array.isArray(json.plan)
+            phase === 'thinking' ||
+            phase === 'tool_call' ||
+            phase === 'tool_result' ||
+            phase === 'output_ready'
           ) {
-            return
+            opts.onSubagentProgress!({
+              id: String(json.id),
+              phase,
+              timestamp:
+                typeof json.timestamp === 'string' ? json.timestamp : new Date().toISOString(),
+              iteration: typeof json.iteration === 'number' ? json.iteration : undefined,
+              tool: typeof json.tool === 'string' ? json.tool : undefined,
+              ok: typeof json.ok === 'boolean' ? json.ok : undefined,
+              outputPreview:
+                typeof json.output_preview === 'string' ? json.output_preview : undefined,
+              agentName: typeof json.agentName === 'string' ? json.agentName : undefined,
+            })
           }
-          type PlanStep = PlanUpdateEvent['plan'][number]
-          const plan: PlanStep[] = (json.plan as Array<Record<string, unknown>>)
-            .filter((p) => Boolean(p) && typeof p === 'object' && typeof p.step === 'string')
-            .map((p) => ({
-              step: p.step as string,
-              status: p.status as PlanStep['status'],
-              // 2026-09-18 v2:透传步骤 id(= toolCallId)与 toolCallIds(步骤↔工具卡精确关联)
-              ...(typeof p.id === 'string' ? { id: p.id } : {}),
-              ...(Array.isArray(p.toolCallIds) ? { toolCallIds: p.toolCallIds as string[] } : {}),
-              ...(p.error === true ? { error: true } : {}),
-              ...(typeof p.startedAt === 'string' ? { startedAt: p.startedAt } : {}),
-              ...(typeof p.endedAt === 'string' ? { endedAt: p.endedAt } : {}),
-              ...(typeof p.durationMs === 'number' ? { durationMs: p.durationMs } : {}),
-              ...(typeof p.tokenUsage === 'number' ? { tokenUsage: p.tokenUsage } : {}),
-            }))
-          const evt: PlanUpdateEvent = {
-            plan,
-            ...(typeof json.explanation === 'string' ? { explanation: json.explanation } : {}),
-            ...(typeof json.timestamp === 'string' ? { timestamp: json.timestamp } : {}),
-            ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
-          }
-          opts.onPlanUpdate!(evt)
-        } catch {
-          /* 非 JSON 或非 plan 事件忽略 */
-        }
-      }
-
-      /** W1(2026-09-12 立):解析 terminal_start / terminal_end SSE 事件(消息级终端任务)。
-       *  - terminal_start:构造 TerminalStartEvent(status 固定 'running')并触发 onTerminalStart
-       *  - terminal_end:构造 TerminalEndEvent 并触发 onTerminalEnd
-       *  - 契约字段名为 terminalId(不是 id) */
-      const tryParseTerminal = (line: string): void => {
-        if (!hasTerminal) return
-        if (!line || line.startsWith(':')) return
-        let data = line
-        if (line.startsWith('data:')) {
-          data = line.slice(5).replace(/^\s/, '')
-        } else if (
-          line.startsWith('event:') ||
-          line.startsWith('id:') ||
-          line.startsWith('retry:')
-        ) {
-          return
-        }
-        if (!data || data === '[DONE]') return
-        try {
-          const json = JSON.parse(data) as Record<string, unknown>
-          if (json?.type === 'terminal_start') {
-            if (typeof json.terminalId !== 'string') return
-            const evt: TerminalStartEvent = {
-              terminalId: json.terminalId,
-              command: typeof json.command === 'string' ? json.command : '',
-              status: 'running',
-              ...(typeof json.startedAt === 'string' ? { startedAt: json.startedAt } : {}),
-              ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
-            }
-            opts.onTerminalStart!(evt)
-            return
-          }
-          if (json?.type === 'terminal_end') {
-            if (typeof json.terminalId !== 'string') return
-            if (json.status !== 'completed' && json.status !== 'failed') return
-            // b76-13 票2:结构不变量(必要字段对)—— truncated=true 而 totalChars
-            // 缺席/坏型是"截断了却不知道截掉多少"的假话帧 ⇒ typed fault 丢弃且计数
-            // (不冒充解析成功,也不放行);对照:装饰字段(output,见下)坏了只降级。
-            if (json.truncated === true && typeof json.totalChars !== 'number') {
-              _sseFrameSchemaFaults++
-              return
-            }
-            const evt: TerminalEndEvent = {
-              terminalId: json.terminalId,
-              status: json.status,
-              // 装饰档(output):坏型 ⇒ 整字段按缺省处理,那张卡退化成纯文本,
-              // 不决定本帧生死(与 @ihui/shared SSE_DECORATIVE_FIELDS 同档登记)
-              ...(typeof json.output === 'string' ? { output: json.output } : {}),
-              ...(typeof json.exitCode === 'number' ? { exitCode: json.exitCode } : {}),
-              ...(typeof json.endedAt === 'string' ? { endedAt: json.endedAt } : {}),
-              ...(typeof json.durationMs === 'number' ? { durationMs: json.durationMs } : {}),
-              ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
-            }
-            opts.onTerminalEnd!(evt)
-          }
-        } catch {
-          /* 非 JSON 或非 terminal 事件忽略 */
-        }
-      }
-
-      /** 2026-09-18 立:解析 terminal_delta SSE 事件(命令执行期间 stdout/stderr 实时增量)。
-       *  - 后端逐块下发 `event: terminal_delta` + `data: {"type":"terminal_delta",...}`
-       *  - 按 terminalId 累加到 store.terminalOutputs(TerminalSection 实时回显),不落正文。
-       *  - 与 tryParseTerminal(任务级 start/end)互补:本函数只处理执行中的流式文本。 */
-      // D113:tool-delta 流中预览帧解析(累积文本整帧透传;同 seq 由前端覆盖,天然幂等)
-      const tryParseToolDelta = (line: string): void => {
-        if (!hasToolDelta) return
-        if (!line || line.startsWith(':')) return
-        let data = line
-        if (line.startsWith('data:')) {
-          data = line.slice(5).replace(/^\s/, '')
-        } else if (
-          line.startsWith('event:') ||
-          line.startsWith('id:') ||
-          line.startsWith('retry:')
-        ) {
-          return
-        }
-        if (!data || data === '[DONE]') return
-        try {
-          const json = JSON.parse(data) as Record<string, unknown>
-          if (json?.type !== 'tool-delta') return
-          if (typeof json.toolCallId !== 'string') return
-          opts.onToolDelta!({
-            toolCallId: json.toolCallId,
-            seq: typeof json.seq === 'number' ? json.seq : 0,
-            partialText: typeof json.partialText === 'string' ? json.partialText : '',
-            ...(json.truncated === true ? { truncated: true } : {}),
+        } else if (json?.type === 'subagent_end' && json?.id) {
+          opts.onSubagentEnd!({
+            id: String(json.id),
+            status: json.status === 'failed' ? 'failed' : 'done',
+            failureReason: typeof json.failureReason === 'string' ? json.failureReason : undefined,
+            timestamp:
+              typeof json.timestamp === 'string' ? json.timestamp : new Date().toISOString(),
           })
-        } catch {
-          /* 非 JSON 或非 tool-delta 事件忽略 */
+        }
+      } catch {
+        /* 非 JSON 或非 subagent 事件忽略 */
+      }
+    }
+
+    /** 解析工具调用汇总事件(2026-07-31 立,AI 对话可视化深度接入):
+     *  - 后端在 SSE 流末尾(done 之前)发出 type='tool-summary' 事件
+     *  - 聚合本轮所有工具调用统计(搜索文件次数/网页次数/修改文件数/行数变更/工具分类)
+     *  - 前端收到后直接写入 message.toolCallSummary,无需本地重复聚合
+     *  - 兼容后端 snake_case 字段(server_source/server_id/server_name)与 camelCase */
+    const tryParseToolSummary = (line: string): void => {
+      if (!hasToolSummary) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        if (json?.type !== 'tool-summary') return
+        // 兼容 snake_case / camelCase 字段(后端 SSE 序列化策略)
+        const numOr = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
+        const toolsByCategory = json.toolsByCategory ?? json.tools_by_category
+        const safeToolsByCategory =
+          toolsByCategory && typeof toolsByCategory === 'object'
+            ? (toolsByCategory as Record<string, number>)
+            : {}
+        const totalDurationMsRaw = json.totalDurationMs ?? json.total_duration_ms
+        opts.onToolSummary!({
+          filesSearched: numOr(json.filesSearched ?? json.files_searched),
+          webSearched: numOr(json.webSearched ?? json.web_searched),
+          filesModified: numOr(json.filesModified ?? json.files_modified),
+          linesAdded: numOr(json.linesAdded ?? json.lines_added),
+          linesDeleted: numOr(json.linesDeleted ?? json.lines_deleted),
+          toolsByCategory: safeToolsByCategory,
+          totalCalls: numOr(json.totalCalls ?? json.total_calls),
+          totalDurationMs:
+            typeof totalDurationMsRaw === 'number' && Number.isFinite(totalDurationMsRaw)
+              ? totalDurationMsRaw
+              : undefined,
+        })
+      } catch {
+        /* 非 JSON 或非 tool-summary 事件忽略 */
+      }
+    }
+
+    /** 阶段 2:解析工具委托执行事件(2026-08-02 立,浏览器端 fs 工具执行代理):
+     *  - ai-service 在远程服务器无法访问用户本地文件,LLM 调用 fs 类工具时
+     *    通过 SSE `tool-delegate` 事件委托前端执行
+     *  - 前端收到事件后用 FileSystemDirectoryHandle 执行工具,通过 postToolResult
+     *    POST API 回传结果,唤醒 ai-service tool loop 中等待的 asyncio.Event
+     *  - onToolDelegate 是 async 回调,await 等待执行完成后再继续读 SSE 流
+     *    (ai-service 在等待结果期间不会发新事件,阻塞读流是符合期望的)
+     *  - 工具执行失败不中断流,错误通过 postToolResult 回传给 ai-service */
+    const tryParseToolDelegate = async (line: string): Promise<void> => {
+      if (!hasToolDelegate) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      let invoked = false
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        if (json?.type !== 'tool-delegate') return
+        if (typeof json.session_id !== 'string' || typeof json.tool_call_id !== 'string') return
+        invoked = true
+        await opts.onToolDelegate!({
+          session_id: json.session_id,
+          tool_call_id: json.tool_call_id,
+          tool_name: typeof json.tool_name === 'string' ? json.tool_name : '',
+          args:
+            json.args && typeof json.args === 'object'
+              ? (json.args as Record<string, unknown>)
+              : {},
+          iteration: typeof json.iteration === 'number' ? json.iteration : 0,
+          type: 'tool-delegate',
+        })
+      } catch (err) {
+        // 原语义保留:**没被识别成本帧**(非 JSON / 缺字段)一律静默跳过,不中断读流。
+        // 但"回调已经跑起来了"再抛,就是**回传没送达** —— 后端协程还在等,静默咽掉等于
+        // 让整轮工具链默默等到超时(§5e「失败必须响」同一条禁令;2026-08-06 那句
+        // "抛错让调用方重试"在这一层从来没有出口,调用方拿不到任何信号)。
+        // 处置:不中断流(与既有设计一致),但必须喊出来,且喊的内容要能定位是哪一轮。
+        if (invoked) {
+          console.error(
+            '[streamChat] tool-delegate 回传未送达(后端将等到超时):',
+            err instanceof Error ? err.message : err,
+          )
         }
       }
+    }
 
-      const tryParseTerminalDelta = (line: string): void => {
-        if (!hasTerminalDelta) return
-        if (!line || line.startsWith(':')) return
-        let data = line
-        if (line.startsWith('data:')) {
-          data = line.slice(5).replace(/^\s/, '')
-        } else if (
-          line.startsWith('event:') ||
-          line.startsWith('id:') ||
-          line.startsWith('retry:')
-        ) {
+    /** V3 #58(2026-09-26 立):解析 tool-approval SSE 帧(主对话流工具审批门)。
+     *  - ai-service 在高危工具执行前发 `event: tool-approval` + data {type:'tool-approval',...}
+     *  - wire payload 与 agent 任务流 tool-approval 同形(snake_case),此处收窄为 camelCase
+     *  - 畸形帧(缺 approval_id)一律不发回调 —— 回调方没有 id 就无法回传决策,
+     *    弹了窗也只会让后端 120s 超时,等于欺骗用户
+     *  - 决策回传走 postToolApprovalResponse(直连 ai-service 流级端点,与
+     *    postToolResult 同族;不经网关 /agent/approval-response —— 两套审批注册表独立) */
+    const tryParseToolApproval = (line: string): void => {
+      if (!hasToolApproval) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        if (json?.type !== 'tool-approval') return
+        const approvalId = json.approval_id
+        if (typeof approvalId !== 'string' || approvalId === '') return
+        opts.onToolApproval!({
+          type: 'tool-approval',
+          approvalId,
+          toolName: typeof json.tool_name === 'string' ? json.tool_name : '',
+          toolCallId: typeof json.tool_call_id === 'string' ? json.tool_call_id : '',
+          argsPreview: typeof json.args_preview === 'string' ? json.args_preview : '',
+          // danger_level 缺省 high(保守 UI 展示;后端仅在收录工具上发帧)
+          dangerLevel:
+            json.danger_level === 'medium'
+              ? 'medium'
+              : json.danger_level === 'low'
+                ? 'low'
+                : 'high',
+          ...(typeof json.session_id === 'string' && json.session_id !== ''
+            ? { sessionId: json.session_id }
+            : {}),
+          // D159:执行环境/网络目标事实必须随帧递出 —— 解析层不递 ⇒ 弹窗那一块
+          // 结构上永远是"字段缺席=整块不渲染",组件测得再全也到不了端。
+          ...projectToolApprovalEnvFacts(json),
+        })
+      } catch {
+        /* 非 JSON 或非 tool-approval 事件忽略 */
+      }
+    }
+
+    /** W1(2026-09-12 立):解析 plan_updated SSE 事件(消息级 plan steps 快照)。
+     *  - ai-service 在 plan 更新时发送 `event: plan_updated` + `data: {"type":"plan_updated",...}`
+     *  - 前端按 messageId 整体替换 message.planSteps(权威快照)
+     *  - plan 数组每项保留实际存在的 step / status / startedAt / endedAt / durationMs / tokenUsage */
+    const tryParsePlanUpdate = (line: string): void => {
+      if (!hasPlanUpdate) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        if ((json?.type !== 'plan_updated' && json?.type !== 'plan') || !Array.isArray(json.plan)) {
           return
         }
-        if (!data || data === '[DONE]') return
-        try {
-          const json = JSON.parse(data) as Record<string, unknown>
-          if (json?.type !== 'terminal_delta') return
+        type PlanStep = PlanUpdateEvent['plan'][number]
+        const plan: PlanStep[] = (json.plan as Array<Record<string, unknown>>)
+          .filter((p) => Boolean(p) && typeof p === 'object' && typeof p.step === 'string')
+          .map((p) => ({
+            step: p.step as string,
+            status: p.status as PlanStep['status'],
+            // 2026-09-18 v2:透传步骤 id(= toolCallId)与 toolCallIds(步骤↔工具卡精确关联)
+            ...(typeof p.id === 'string' ? { id: p.id } : {}),
+            ...(Array.isArray(p.toolCallIds) ? { toolCallIds: p.toolCallIds as string[] } : {}),
+            ...(p.error === true ? { error: true } : {}),
+            ...(typeof p.startedAt === 'string' ? { startedAt: p.startedAt } : {}),
+            ...(typeof p.endedAt === 'string' ? { endedAt: p.endedAt } : {}),
+            ...(typeof p.durationMs === 'number' ? { durationMs: p.durationMs } : {}),
+            ...(typeof p.tokenUsage === 'number' ? { tokenUsage: p.tokenUsage } : {}),
+          }))
+        const evt: PlanUpdateEvent = {
+          plan,
+          ...(typeof json.explanation === 'string' ? { explanation: json.explanation } : {}),
+          ...(typeof json.timestamp === 'string' ? { timestamp: json.timestamp } : {}),
+          ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
+        }
+        opts.onPlanUpdate!(evt)
+      } catch {
+        /* 非 JSON 或非 plan 事件忽略 */
+      }
+    }
+
+    /** W1(2026-09-12 立):解析 terminal_start / terminal_end SSE 事件(消息级终端任务)。
+     *  - terminal_start:构造 TerminalStartEvent(status 固定 'running')并触发 onTerminalStart
+     *  - terminal_end:构造 TerminalEndEvent 并触发 onTerminalEnd
+     *  - 契约字段名为 terminalId(不是 id) */
+    const tryParseTerminal = (line: string): void => {
+      if (!hasTerminal) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        if (json?.type === 'terminal_start') {
           if (typeof json.terminalId !== 'string') return
-          const stream = json.stream === 'stderr' ? 'stderr' : 'stdout'
-          opts.onTerminalDelta!({
+          const evt: TerminalStartEvent = {
             terminalId: json.terminalId,
             command: typeof json.command === 'string' ? json.command : '',
-            stream,
-            text: typeof json.text === 'string' ? json.text : '',
-            iteration: typeof json.iteration === 'number' ? json.iteration : 0,
+            status: 'running',
+            ...(typeof json.startedAt === 'string' ? { startedAt: json.startedAt } : {}),
             ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
-          })
-        } catch {
-          /* 非 JSON 或非 terminal_delta 事件忽略 */
-        }
-      }
-
-      /** D151(2026-09-29):解析 terminal_interaction —— "命令停住了、在等你敲一行"。
-       *  判据与 tryParseTerminalDelta 同形(先看 type 再看 terminalId),但**不看 text 字段**:
-       *  服务端分流靠 payload 的 type,不是靠"有没有 text" —— 前端也必须按 type 认,
-       *  否则同一承载面上两种帧就会互相顶掉。 */
-      const tryParseTerminalInteraction = (line: string): void => {
-        if (!hasTerminalInteraction) return
-        if (!line || line.startsWith(':')) return
-        let data = line
-        if (line.startsWith('data:')) {
-          data = line.slice(5).replace(/^\s/, '')
-        } else if (
-          line.startsWith('event:') ||
-          line.startsWith('id:') ||
-          line.startsWith('retry:')
-        ) {
+          }
+          opts.onTerminalStart!(evt)
           return
         }
-        if (!data || data === '[DONE]') return
-        try {
-          const json = JSON.parse(data) as Record<string, unknown>
-          if (json?.type !== 'terminal_interaction') return
+        if (json?.type === 'terminal_end') {
           if (typeof json.terminalId !== 'string') return
-          opts.onTerminalInteraction!({
+          if (json.status !== 'completed' && json.status !== 'failed') return
+          // b76-13 票2:结构不变量(必要字段对)—— truncated=true 而 totalChars
+          // 缺席/坏型是"截断了却不知道截掉多少"的假话帧 ⇒ typed fault 丢弃且计数
+          // (不冒充解析成功,也不放行);对照:装饰字段(output,见下)坏了只降级。
+          if (json.truncated === true && typeof json.totalChars !== 'number') {
+            _sseFrameSchemaFaults++
+            return
+          }
+          const evt: TerminalEndEvent = {
             terminalId: json.terminalId,
-            sessionId: typeof json.sessionId === 'string' ? json.sessionId : '',
-            promptTail: typeof json.promptTail === 'string' ? json.promptTail : '',
-            waitingSinceMs: typeof json.waitingSinceMs === 'number' ? json.waitingSinceMs : 0,
-            inputMode: 'line',
-            maxInputChars: typeof json.maxInputChars === 'number' ? json.maxInputChars : 4096,
+            status: json.status,
+            // 装饰档(output):坏型 ⇒ 整字段按缺省处理,那张卡退化成纯文本,
+            // 不决定本帧生死(与 @ihui/shared SSE_DECORATIVE_FIELDS 同档登记)
+            ...(typeof json.output === 'string' ? { output: json.output } : {}),
+            ...(typeof json.exitCode === 'number' ? { exitCode: json.exitCode } : {}),
+            ...(typeof json.endedAt === 'string' ? { endedAt: json.endedAt } : {}),
+            ...(typeof json.durationMs === 'number' ? { durationMs: json.durationMs } : {}),
             ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
-          })
-        } catch {
-          /* 非 JSON 或非 terminal_interaction 事件忽略 */
-        }
-      }
-
-      /** D152(2026-09-29):解析 goal_updated —— 服务端那份目标主副本变了。
-       *  判据与同族一致:先看 type,再验 `status` ∈ GOAL_WIRE_STATUSES(六档 + cleared)。
-       *  **status 不合法就丢弃**,绝不回落成 chunk/meta 或"当作没发生"—— 把"没认出来"
-       *  写成"看见了"是本仓最高频的失效型。合法值集从 @ihui/types 现取,不在本包抄第二份。 */
-      const tryParseGoalUpdate = (line: string): void => {
-        if (!hasGoalUpdate) return
-        if (!line || line.startsWith(':')) return
-        let data = line
-        if (line.startsWith('data:')) {
-          data = line.slice(5).replace(/^\s/, '')
-        } else if (
-          line.startsWith('event:') ||
-          line.startsWith('id:') ||
-          line.startsWith('retry:')
-        ) {
-          return
-        }
-        if (!data || data === '[DONE]') return
-        try {
-          const json = JSON.parse(data) as Record<string, unknown>
-          if (json?.type !== 'goal_updated') return
-          const status = json.status
-          if (typeof status !== 'string' || !GOAL_WIRE_STATUSES.includes(status as GoalWireStatus)) {
-            return
           }
-          const event: GoalUpdateEvent = {
-            sessionId: typeof json.sessionId === 'string' ? json.sessionId : '',
-            status: status as GoalWireStatus,
-            ...(typeof json.objective === 'string' ? { objective: json.objective } : {}),
-            ...(typeof json.elapsedMs === 'number' ? { elapsedMs: json.elapsedMs } : {}),
-            ...(typeof json.tokenUsage === 'number' ? { tokenUsage: json.tokenUsage } : {}),
-            ...(typeof json.updatedAt === 'number' ? { updatedAt: json.updatedAt } : {}),
+          opts.onTerminalEnd!(evt)
+        }
+      } catch {
+        /* 非 JSON 或非 terminal 事件忽略 */
+      }
+    }
+
+    /** 2026-09-18 立:解析 terminal_delta SSE 事件(命令执行期间 stdout/stderr 实时增量)。
+     *  - 后端逐块下发 `event: terminal_delta` + `data: {"type":"terminal_delta",...}`
+     *  - 按 terminalId 累加到 store.terminalOutputs(TerminalSection 实时回显),不落正文。
+     *  - 与 tryParseTerminal(任务级 start/end)互补:本函数只处理执行中的流式文本。 */
+    // D113:tool-delta 流中预览帧解析(累积文本整帧透传;同 seq 由前端覆盖,天然幂等)
+    const tryParseToolDelta = (line: string): void => {
+      if (!hasToolDelta) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        if (json?.type !== 'tool-delta') return
+        if (typeof json.toolCallId !== 'string') return
+        opts.onToolDelta!({
+          toolCallId: json.toolCallId,
+          seq: typeof json.seq === 'number' ? json.seq : 0,
+          partialText: typeof json.partialText === 'string' ? json.partialText : '',
+          ...(json.truncated === true ? { truncated: true } : {}),
+        })
+      } catch {
+        /* 非 JSON 或非 tool-delta 事件忽略 */
+      }
+    }
+
+    const tryParseTerminalDelta = (line: string): void => {
+      if (!hasTerminalDelta) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        if (json?.type !== 'terminal_delta') return
+        if (typeof json.terminalId !== 'string') return
+        const stream = json.stream === 'stderr' ? 'stderr' : 'stdout'
+        opts.onTerminalDelta!({
+          terminalId: json.terminalId,
+          command: typeof json.command === 'string' ? json.command : '',
+          stream,
+          text: typeof json.text === 'string' ? json.text : '',
+          iteration: typeof json.iteration === 'number' ? json.iteration : 0,
+          ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
+        })
+      } catch {
+        /* 非 JSON 或非 terminal_delta 事件忽略 */
+      }
+    }
+
+    /** D151(2026-09-29):解析 terminal_interaction —— "命令停住了、在等你敲一行"。
+     *  判据与 tryParseTerminalDelta 同形(先看 type 再看 terminalId),但**不看 text 字段**:
+     *  服务端分流靠 payload 的 type,不是靠"有没有 text" —— 前端也必须按 type 认,
+     *  否则同一承载面上两种帧就会互相顶掉。 */
+    const tryParseTerminalInteraction = (line: string): void => {
+      if (!hasTerminalInteraction) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        if (json?.type !== 'terminal_interaction') return
+        if (typeof json.terminalId !== 'string') return
+        opts.onTerminalInteraction!({
+          terminalId: json.terminalId,
+          sessionId: typeof json.sessionId === 'string' ? json.sessionId : '',
+          promptTail: typeof json.promptTail === 'string' ? json.promptTail : '',
+          waitingSinceMs: typeof json.waitingSinceMs === 'number' ? json.waitingSinceMs : 0,
+          inputMode: 'line',
+          maxInputChars: typeof json.maxInputChars === 'number' ? json.maxInputChars : 4096,
+          ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
+        })
+      } catch {
+        /* 非 JSON 或非 terminal_interaction 事件忽略 */
+      }
+    }
+
+    /** D152(2026-09-29):解析 goal_updated —— 服务端那份目标主副本变了。
+     *  判据与同族一致:先看 type,再验 `status` ∈ GOAL_WIRE_STATUSES(六档 + cleared)。
+     *  **status 不合法就丢弃**,绝不回落成 chunk/meta 或"当作没发生"—— 把"没认出来"
+     *  写成"看见了"是本仓最高频的失效型。合法值集从 @ihui/types 现取,不在本包抄第二份。 */
+    const tryParseGoalUpdate = (line: string): void => {
+      if (!hasGoalUpdate) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        if (json?.type !== 'goal_updated') return
+        const status = json.status
+        if (typeof status !== 'string' || !GOAL_WIRE_STATUSES.includes(status as GoalWireStatus)) {
+          return
+        }
+        const event: GoalUpdateEvent = {
+          sessionId: typeof json.sessionId === 'string' ? json.sessionId : '',
+          status: status as GoalWireStatus,
+          ...(typeof json.objective === 'string' ? { objective: json.objective } : {}),
+          ...(typeof json.elapsedMs === 'number' ? { elapsedMs: json.elapsedMs } : {}),
+          ...(typeof json.tokenUsage === 'number' ? { tokenUsage: json.tokenUsage } : {}),
+          ...(typeof json.updatedAt === 'number' ? { updatedAt: json.updatedAt } : {}),
+        }
+        opts.onGoalUpdate!(event)
+      } catch {
+        /* 非 JSON 或非 goal_updated 事件忽略 */
+      }
+    }
+
+    /** 2026-09-18 立:解析 thinking SSE 事件(agent 通道的 hook thinking.delta 映射)。
+     *  - 后端发 `event: thinking` + `data: {"type":"thinking","content":"..."}`
+     *  - 两种(reasoning / thinking)都走 reasoning 通道:本函数把 content 投递给 onReasoning。
+     *  - 若 onReasoning 未传则直接丢弃,绝不回落成正文(parseStreamLine 已有 type 拦截兜底)。 */
+    const tryParseThinking = (line: string): void => {
+      if (!hasReasoning) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        if (json?.type !== 'thinking') return
+        if (typeof json.content !== 'string') return
+        opts.onReasoning!(json.content)
+      } catch {
+        /* 非 JSON 或非 thinking 事件忽略 */
+      }
+    }
+
+    /** #11(2026-09-13):解析 citations SSE 事件(knowledge_lookup 工具执行后下发的引用溯源)。 */
+    const tryParseCitations = (line: string): void => {
+      if (!hasCitations) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        if (json?.type !== 'citations' || !Array.isArray(json.citations)) return
+        opts.onCitations!({
+          messageId: typeof json.messageId === 'string' ? json.messageId : undefined,
+          citations: json.citations as CitationsEvent['citations'],
+        })
+      } catch {
+        /* 非 JSON 或非 citations 事件忽略 */
+      }
+    }
+
+    /** P1 #27(2026-09-16 立):解析 done 事件携带的 memoryUpdates(已记住提示条数据源)。
+     *  ai-service 在 done 事件 payload 写入 memoryUpdates: string[](本轮 LTM 新增条目摘要),
+     *  前端据此在对应助手消息下方渲染「已记住:N 条」提示条。空数组表示本轮无新记忆。 */
+    const tryParseMemoryUpdates = (line: string): void => {
+      if (!hasMemoryUpdates) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        if (json?.type !== 'done' || !Array.isArray(json.memoryUpdates)) return
+        const items = (json.memoryUpdates as unknown[]).filter(
+          (v): v is string => typeof v === 'string' && v.length > 0,
+        )
+        // 仅在有内容时回调(空数组不触发提示条)
+        if (items.length > 0) opts.onMemoryUpdates!({ items })
+      } catch {
+        /* 非 JSON 或非 done 事件忽略 */
+      }
+    }
+
+    /** 解析 done 帧的推理强度档位回落通知(D130,2026-09-30 立)。
+     *  与 tryParseMemoryUpdates 同形:读的是**同一个已存在的 done 帧**上新增的可选字段,
+     *  不新增事件名 ⇒ 不动 SSE 契约两侧 / sse-parse / dispatch 台账(本票文件清单外)。
+     *  只在 requested ≠ effective 或后端显式标 fallback 时回调 —— 没回落就不该有徽章。 */
+    const tryParseReasoningEffortNotice = (line: string): void => {
+      if (!hasReasoningEffortNotice) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        if (json?.type !== 'done') return
+        const raw = json.reasoningEffort
+        if (raw === undefined || raw === null || typeof raw !== 'object') return
+        const info = raw as Record<string, unknown>
+        const requested =
+          typeof info.requested === 'string' ? (info.requested as ReasoningEffort) : null
+        const effective =
+          typeof info.effective === 'string' ? (info.effective as ReasoningEffort) : null
+        const fallback = info.fallback === true || (requested !== null && effective !== requested)
+        if (!fallback) return
+        opts.onReasoningEffortNotice!({
+          requested,
+          effective,
+          fallback: true,
+          reason: typeof info.reason === 'string' ? info.reason : undefined,
+        })
+      } catch {
+        /* 非 JSON 或非 done 事件忽略 */
+      }
+    }
+
+    /** 解析 usage 帧(D1,2026-09-19 升级):
+     *  ① 命名帧 event: usage → data: { type:'usage', messageId, usage:{promptTokens,...},
+     *     timing:{firstTokenMs,durationMs}, model, costUsd }(ai-service 流收尾下发);
+     *  ② 旧 OpenAI 协议 usage chunk(stream_options.include_usage=true):
+     *     data: {..., usage: { prompt_tokens, completion_tokens, total_tokens }}。
+     *  两路统一触发 onUsage 回调;命名帧额外携带计时/模型/成本字段(缺失为 null)。 */
+    const tryParseUsage = (line: string): void => {
+      if (!hasUsage) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        const usage = json?.usage as Record<string, unknown> | undefined
+        if (!usage || typeof usage !== 'object') return
+        const promptTokens = Number(usage.prompt_tokens ?? usage.promptTokens ?? 0)
+        const completionTokens = Number(usage.completion_tokens ?? usage.completionTokens ?? 0)
+        const totalTokens = Number(usage.total_tokens ?? usage.totalTokens ?? 0)
+        if (promptTokens <= 0 && completionTokens <= 0 && totalTokens <= 0) return
+        // D1:命名帧(type:'usage')透传扩展字段;旧 OpenAI 协议路径置 null(前端徽章相应分段不渲染)
+        const isNamedFrame = json?.type === 'usage'
+        const rawTiming = isNamedFrame
+          ? (json?.timing as Record<string, unknown> | null | undefined)
+          : undefined
+        const reasoningRaw = isNamedFrame
+          ? (usage.reasoning_tokens ?? usage.reasoningTokens)
+          : undefined
+        opts.onUsage!({
+          promptTokens: Number.isFinite(promptTokens) ? promptTokens : 0,
+          completionTokens: Number.isFinite(completionTokens) ? completionTokens : 0,
+          totalTokens: Number.isFinite(totalTokens) ? totalTokens : 0,
+          reasoningTokens:
+            typeof reasoningRaw === 'number' && Number.isFinite(reasoningRaw) ? reasoningRaw : null,
+          messageId: isNamedFrame && typeof json.messageId === 'string' ? json.messageId : null,
+          timing:
+            rawTiming && typeof rawTiming === 'object'
+              ? {
+                  firstTokenMs:
+                    typeof rawTiming.firstTokenMs === 'number' &&
+                    Number.isFinite(rawTiming.firstTokenMs)
+                      ? rawTiming.firstTokenMs
+                      : null,
+                  durationMs:
+                    typeof rawTiming.durationMs === 'number' &&
+                    Number.isFinite(rawTiming.durationMs)
+                      ? rawTiming.durationMs
+                      : 0,
+                }
+              : null,
+          model: isNamedFrame && typeof json.model === 'string' ? json.model : null,
+          costUsd:
+            isNamedFrame && typeof json.costUsd === 'number' && Number.isFinite(json.costUsd)
+              ? json.costUsd
+              : null,
+        })
+      } catch {
+        /* 非 JSON 或非 usage 事件忽略 */
+      }
+    }
+
+    /**
+     * Steer(中途引导,2026-09-19 立):流式对话期间用户经 steer 端点提交引导文本,
+     * ai-service tool loop 每轮 LLM 调用前 drain 注入 messages 时下发注入确认:
+     *   event: steer → data: { type:'steer', phase:'injected', text, timestamp?, messageId? }
+     * 前端 onSteer 据此把消息 badge 从「排队中」换成「引导已生效」。 */
+    const tryParseSteer = (line: string): void => {
+      if (!hasSteer) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        if (json?.type !== 'steer' || typeof json?.text !== 'string') return
+        opts.onSteer!({
+          phase: 'injected',
+          text: json.text,
+          timestamp: typeof json.timestamp === 'string' ? json.timestamp : undefined,
+          messageId: typeof json.messageId === 'string' ? json.messageId : undefined,
+        })
+      } catch {
+        /* 非 JSON 或非 steer 事件忽略 */
+      }
+    }
+
+    /**
+     * Budget(用量分档提醒,2026-09-19 立,网关发):流首网关按用户当日 AI 用量
+     * 三态分档下发提醒帧(80%~95% warning / 95%~100% critical,均放行不中断流):
+     *   event: budget → data: { type:'budget', level:'warning'|'critical', percent?,
+     *                            usedTokens?, limitTokens?, tier?, resetAt? }
+     * 前端消费(V3 #69 起):onBudget → 写 budget-state 落点渲染输入框上方进度条 + toast 提示。 */
+    const tryParseBudget = (line: string): void => {
+      if (!hasBudget) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        if (json?.type !== 'budget') return
+        if (json?.level !== 'warning' && json?.level !== 'critical') return
+        opts.onBudget!({
+          level: json.level,
+          percent: typeof json.percent === 'number' ? json.percent : undefined,
+          usedTokens: typeof json.usedTokens === 'number' ? json.usedTokens : undefined,
+          limitTokens: typeof json.limitTokens === 'number' ? json.limitTokens : undefined,
+          tier: typeof json.tier === 'string' ? json.tier : undefined,
+          resetAt: typeof json.resetAt === 'string' ? json.resetAt : undefined,
+        })
+      } catch {
+        /* 非 JSON 或非 budget 事件忽略 */
+      }
+    }
+
+    /**
+     * G-815976(2026-10-04 收口入契约):流式中断标记帧解析。llm_gateway astream
+     * 异常中断且已发过 chunk 时发出 —— 收到它意味着"这条回答到这里被打断",
+     * 已到达正文有效,但端上必须如实告知截断,不得当完整回答收束。
+     * 与 tryParseBudget 同构:type 命中即收帧,字段只做 typeof 收窄不猜。
+     */
+    const tryParsePartialDone = (line: string): void => {
+      if (!hasPartialDone) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        if (json?.type !== 'partial_done') return
+        opts.onPartialDone!({
+          fallback_applied: json.fallback_applied === true,
+          reason: typeof json.reason === 'string' ? json.reason : 'stream_interrupted',
+          model: typeof json.model === 'string' ? json.model : undefined,
+        })
+      } catch {
+        /* 非 JSON 或非 partial_done 事件忽略 */
+      }
+    }
+
+    /**
+     * D155(2026-09-29 立)下行告警三档解析(契约见 shared contract.ts 的
+     * SSE_ALERT_EVENTS 段)。与 tryParseBudget 同构,但三档共用一条归一纪律:
+     * `type` 命中 + `message` 非空串 ⇒ 收帧;severity 表外/缺省**回退 'warning'**
+     * 而不是丢帧(D34/D40 教训:至少 message/severity 要到消费端);
+     * 可选串字段只在 `typeof === 'string'` 时透传(非串垃圾当缺省)。
+     */
+    const alertSeverity = (value: unknown): AlertSeverity =>
+      value === 'info' || value === 'warning' || value === 'critical' ? value : 'warning'
+
+    const tryParseConfigWarning = (line: string): void => {
+      if (!hasConfigWarning) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        if (json?.type !== 'config-warning') return
+        if (typeof json.message !== 'string' || json.message === '') return
+        opts.onConfigWarning!({
+          severity: alertSeverity(json.severity),
+          message: json.message,
+          field: typeof json.field === 'string' ? json.field : undefined,
+          provider: typeof json.provider === 'string' ? json.provider : undefined,
+          effectiveValue: typeof json.effectiveValue === 'string' ? json.effectiveValue : undefined,
+        })
+      } catch {
+        /* 非 JSON 或非 config-warning 事件忽略 */
+      }
+    }
+
+    const tryParseDeprecationNotice = (line: string): void => {
+      if (!hasDeprecationNotice) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        if (json?.type !== 'deprecation-notice') return
+        if (typeof json.message !== 'string' || json.message === '') return
+        opts.onDeprecationNotice!({
+          severity: alertSeverity(json.severity),
+          message: json.message,
+          capability: typeof json.capability === 'string' ? json.capability : undefined,
+          alternative: typeof json.alternative === 'string' ? json.alternative : undefined,
+          sunsetAt: typeof json.sunsetAt === 'string' ? json.sunsetAt : undefined,
+        })
+      } catch {
+        /* 非 JSON 或非 deprecation-notice 事件忽略 */
+      }
+    }
+
+    const tryParseGuardianWarning = (line: string): void => {
+      if (!hasGuardianWarning) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        if (json?.type !== 'guardian-warning') return
+        if (typeof json.message !== 'string' || json.message === '') return
+        opts.onGuardianWarning!({
+          severity: alertSeverity(json.severity),
+          message: json.message,
+          category: typeof json.category === 'string' ? json.category : undefined,
+          reviewId: typeof json.reviewId === 'string' ? json.reviewId : undefined,
+        })
+      } catch {
+        /* 非 JSON 或非 guardian-warning 事件忽略 */
+      }
+    }
+
+    /**
+     * 优化(问题 4-4):基于 SSE 行的 type 字段快速路由到对应 tryParse,
+     * 避免每行最多 6 次 tryParse 全量 JSON.parse 尝试。
+     *
+     * 已知 type → 路由到单一 tryParse(从 6 次 JSON.parse 降至 1 次);
+     * 未知/无 type / 注释行 / event:/id:/retry: 行 / 非 JSON token 行 → 返回 null,
+     * 由主循环走 fallback 全量调用(保留原有行为,因每个 tryParse 内部有快速 return 守护,
+     * 对非 JSON 行几乎零成本;注释/event/id/retry 行也立即 return)。
+     *
+     * 覆盖 type 清单(与各 tryParse 内部判断逐一对齐):
+     *  - compaction:tryParseCompaction 不基于 type,基于 json.compaction 字段
+     *  - question:tryParseQuestion
+     *  - tool_result / tool-result / tool-call-start:tryParseToolCall(JSON 形式)
+     *  - Vercel AI SDK 数字协议(^\d+:):仅 tryParseToolCall 内部 proto 分支能处理
+     *  - subagent_spawn / subagent_progress / subagent_end:tryParseSubagent
+     *  - tool-summary:tryParseToolSummary
+     *  - tool-delegate:tryParseToolDelegate
+     *  - tool-approval:tryParseToolApproval(V3 #58 2026-09-26 立,主对话流审批门)
+     *  - plan_updated / plan:tryParsePlanUpdate(W1 2026-09-12 立)
+     *  - terminal_start / terminal_end:tryParseTerminal(W1 2026-09-12 立)
+     *  - usage:tryParseUsage(OpenAI 协议 usage chunk,基于 json.usage 字段,非 type)
+     *  - steer:tryParseSteer(Steer 2026-09-19 立)
+     *  - budget:tryParseBudget(Budget 用量分档提醒 2026-09-19 立,网关发)
+     *  - config-warning / deprecation-notice / guardian-warning:
+     *    tryParseConfigWarning / tryParseDeprecationNotice / tryParseGuardianWarning
+     *    (D155 2026-09-29 立,下行告警三档)
+     *  - injection_applied / retry_scheduled:tryParseInjection / tryParseRetryScheduled
+     *    (D34/D39 2026-09-22 立;两帧都带文本字段,漏分流会喷进正文增量)
+     *  - form_request:tryParseFormRequest(D77 2026-09-25 立;对话流业务表单请求帧,
+     *    带结构化 fields/actions;批准与拒绝不成对的帧在解析层即丢弃)
+     */
+    /** D34/D39:上下文注入交代帧与重试交代帧(两帧都带文本字段,绝不能进兜底抽取链)。 */
+    const tryParseInjection = (line: string): void => {
+      if (!hasInjection) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        if (json?.type !== 'injection_applied') return
+        const collapsed = json.collapsed
+        const kind = json.kind
+        // 没有短标签就没有可显示的东西 ⇒ 不发回调(而不是发一条空行)
+        if (typeof collapsed !== 'string' || collapsed === '') return
+        if (typeof kind !== 'string' || kind === '') return
+        opts.onInjectionApplied!({
+          kind,
+          collapsed,
+          ...(typeof json.fullText === 'string' ? { fullText: json.fullText } : {}),
+          ...(typeof json.count === 'number' ? { count: json.count } : {}),
+          ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
+        })
+      } catch {
+        /* 非 JSON 或非 injection_applied 事件忽略 */
+      }
+    }
+
+    const tryParseRetryScheduled = (line: string): void => {
+      if (!hasRetryScheduled) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        if (json?.type !== 'retry_scheduled') return
+        const attempt = json.attempt
+        const maxRetries = json.maxRetries
+        if (typeof attempt !== 'number' || typeof maxRetries !== 'number') return
+        opts.onRetryScheduled!({
+          attempt,
+          maxRetries,
+          retryInMs: typeof json.retryInMs === 'number' ? json.retryInMs : 0,
+          ...(typeof json.httpStatus === 'number' ? { httpStatus: json.httpStatus } : {}),
+          ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
+        })
+      } catch {
+        /* 非 JSON 或非 retry_scheduled 事件忽略 */
+      }
+    }
+
+    /**
+     * D77 业务表单请求帧(2026-09-25 立,G-106)。
+     * 畸形帧一律**不发回调**,而不是发一张填不了/无法应答的表单:
+     *  · 缺 requestId → 应答无处带回
+     *  · actions 不成对(approve 与 reject 缺一)→ 违背本票硬约束,不给渲染
+     *  · fields 为空/非数组 → 渲染不出任何输入位
+     * fields/actions 的形状权威在 packages/shared/src/chat/business-forms.ts,本处只做 wire 收窄。
+     */
+    const tryParseFormRequest = (line: string): void => {
+      if (!hasFormRequest) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        if (json?.type !== 'form_request') return
+        const requestId = json.requestId
+        const kind = json.kind
+        if (typeof requestId !== 'string' || requestId === '') return
+        if (typeof kind !== 'string' || kind === '') return
+        const rawFields = json.fields
+        if (!Array.isArray(rawFields) || rawFields.length === 0) return
+        const fields: FormRequestEvent['fields'] = []
+        for (const raw of rawFields) {
+          if (typeof raw !== 'object' || raw === null) continue
+          const f = raw as Record<string, unknown>
+          if (typeof f.key !== 'string' || f.key === '') continue
+          fields.push({
+            key: f.key,
+            type: typeof f.type === 'string' ? f.type : 'text',
+            required: f.required === true,
+            ...(typeof f.placeholderKey === 'string' ? { placeholderKey: f.placeholderKey } : {}),
+          })
+        }
+        if (fields.length === 0) return
+        const actions = Array.isArray(json.actions)
+          ? json.actions.filter((a): a is string => typeof a === 'string')
+          : []
+        // 成对判据:批准与拒绝必须同时在,缺一即畸形帧
+        // (只给"批准"的表单等于替用户做完决定,只给"拒绝"的表单等于什么都不做)。
+        if (!actions.includes('approve') || !actions.includes('reject')) return
+        opts.onFormRequest!({
+          requestId,
+          kind,
+          fields,
+          actions,
+          ...(typeof json.sessionId === 'string' ? { sessionId: json.sessionId } : {}),
+          ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
+        })
+      } catch {
+        /* 非 JSON 或非 form_request 事件忽略 */
+      }
+    }
+
+    const routeLineByType = (line: string): string | null => {
+      if (!line || line.startsWith(':')) return null
+      if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return null
+      }
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      }
+      if (!data || data === '[DONE]') return null
+      // Vercel AI SDK 协议(数字前缀,如 "2:{...}" / "7:{...}"),
+      // 仅 tryParseToolCall 内部 proto 分支能处理
+      if (/^\d+:/.test(data)) return 'tool_call'
+      if (!data.startsWith('{')) return null
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        // compaction 事件不基于 type 字段,基于 json.compaction.triggered
+        if (json.compaction && typeof json.compaction === 'object') return 'compaction'
+        // usage 事件(OpenAI 协议)不基于 type 字段,基于 json.usage
+        if (json.usage && typeof json.usage === 'object') return 'usage'
+        const t = json.type
+        if (typeof t !== 'string') return null
+        switch (t) {
+          case 'question':
+            return 'question'
+          case 'tool_result':
+          case 'tool-result':
+          case 'tool-call-start':
+            return 'tool_call'
+          case 'subagent_spawn':
+          case 'subagent_progress':
+          case 'subagent_end':
+            return 'subagent'
+          case 'tool-summary':
+            return 'tool_summary'
+          case 'tool-delegate':
+            return 'tool_delegate'
+          // V3 #58(2026-09-26 立):主对话流工具审批请求帧
+          case 'tool-approval':
+            return 'tool_approval'
+          // D113:文件写类工具流中 diff 预览
+          case 'tool-delta':
+            return 'tool_delta'
+          case 'plan_updated':
+          case 'plan':
+            return 'plan'
+          case 'terminal_start':
+          case 'terminal_end':
+            return 'terminal'
+          case 'citations':
+            return 'citations'
+          // 2026-09-18 立:terminal_delta / thinking 走专用通道(与 reasoning 同理不落正文)
+          case 'terminal_delta':
+            return 'terminal_delta'
+          // D151(2026-09-29):命令在等键盘输入 —— 专用通道,不落正文、不当 delta
+          case 'terminal_interaction':
+            return 'terminal_interaction'
+          // D152(2026-09-29):会话目标状态帧 —— 专用通道,不落正文
+          case 'goal_updated':
+            return 'goal_updated'
+          case 'thinking':
+            return 'thinking'
+          // 2026-09-18 立:补 type==='compaction' 这一路(原仅认 json.compaction 字段形态)
+          case 'compaction':
+            return 'compaction'
+          // Steer(2026-09-19 立):中途引导注入确认帧
+          case 'steer':
+            return 'steer'
+          // Budget(2026-09-19 立):网关用量分档提醒帧
+          case 'budget':
+            return 'budget'
+          // G-815976(2026-10-04 收口入契约):流式中断标记帧
+          case 'partial_done':
+            return 'partial_done'
+          // D155(2026-09-29 立):下行告警三档(配置告警/弃用预告/守护告警)
+          case 'config-warning':
+            return 'config-warning'
+          case 'deprecation-notice':
+            return 'deprecation-notice'
+          case 'guardian-warning':
+            return 'guardian-warning'
+          // D34/D39(2026-09-22 立):运行环境交代与重试交代帧
+          case 'injection_applied':
+            return 'injection_applied'
+          case 'retry_scheduled':
+            return 'retry_scheduled'
+          // D77(2026-09-25 立):对话流业务表单请求帧
+          case 'form_request':
+            return 'form_request'
+          default:
+            return null
+        }
+      } catch {
+        return null
+      }
+    }
+
+    // 优化(问题 4-4):基于 type 路由调用单一 tryParse;未知 type 走 fallback 全量调用,
+    // 保留原有行为(parseStreamLine 等后续逻辑不变)
+    const dispatchTryParse = async (line: string): Promise<void> => {
+      const route = routeLineByType(line)
+      if (route === 'compaction') {
+        tryParseCompaction(line)
+      } else if (route === 'question') {
+        tryParseQuestion(line)
+      } else if (route === 'tool_call') {
+        tryParseToolCall(line)
+      } else if (route === 'subagent') {
+        tryParseSubagent(line)
+      } else if (route === 'tool_summary') {
+        tryParseToolSummary(line)
+      } else if (route === 'tool_delegate') {
+        await tryParseToolDelegate(line)
+      } else if (route === 'tool_approval') {
+        tryParseToolApproval(line)
+      } else if (route === 'plan') {
+        tryParsePlanUpdate(line)
+      } else if (route === 'terminal') {
+        tryParseTerminal(line)
+      } else if (route === 'citations') {
+        tryParseCitations(line)
+      } else if (route === 'terminal_delta') {
+        tryParseTerminalDelta(line)
+      } else if (route === 'terminal_interaction') {
+        tryParseTerminalInteraction(line)
+      } else if (route === 'goal_updated') {
+        tryParseGoalUpdate(line)
+      } else if (route === 'tool_delta') {
+        tryParseToolDelta(line)
+      } else if (route === 'thinking') {
+        tryParseThinking(line)
+      } else if (route === 'usage') {
+        tryParseUsage(line)
+      } else if (route === 'steer') {
+        tryParseSteer(line)
+      } else if (route === 'budget') {
+        tryParseBudget(line)
+      } else if (route === 'partial_done') {
+        tryParsePartialDone(line)
+      } else if (route === 'config-warning') {
+        tryParseConfigWarning(line)
+      } else if (route === 'deprecation-notice') {
+        tryParseDeprecationNotice(line)
+      } else if (route === 'guardian-warning') {
+        tryParseGuardianWarning(line)
+      } else if (route === 'injection_applied') {
+        tryParseInjection(line)
+      } else if (route === 'retry_scheduled') {
+        tryParseRetryScheduled(line)
+      } else if (route === 'form_request') {
+        tryParseFormRequest(line)
+      } else {
+        // fallback:无 type / 未知 type / 注释 / event:/id:/retry: / 非 JSON token 行。
+        // 各 tryParse 内部第一道守护(`if (!hasXxx) return` + line 前缀检查)对非匹配行立即 return,
+        // 对 token 行(非 JSON)无 JSON.parse 开销,保持原有行为
+        tryParseCompaction(line)
+        tryParseQuestion(line)
+        tryParseToolCall(line)
+        tryParseSubagent(line)
+        tryParseToolSummary(line)
+        tryParsePlanUpdate(line)
+        tryParseTerminal(line)
+        await tryParseToolDelegate(line)
+        tryParseToolApproval(line)
+        tryParseCitations(line)
+        tryParseUsage(line)
+        tryParseMemoryUpdates(line)
+        tryParseReasoningEffortNotice(line)
+        tryParseTerminalDelta(line)
+        tryParseTerminalInteraction(line)
+        tryParseGoalUpdate(line)
+        tryParseThinking(line)
+        tryParseSteer(line)
+        tryParseBudget(line)
+        tryParsePartialDone(line)
+        tryParseConfigWarning(line)
+        tryParseDeprecationNotice(line)
+        tryParseGuardianWarning(line)
+        tryParseInjection(line)
+        tryParseRetryScheduled(line)
+        tryParseFormRequest(line)
+      }
+    }
+
+    // ===== 流式调试:测量 chunk 到达间隔(仅开发期启用) =====
+    // 在控制台输出每个 SSE data: 行的时间戳/长度/内容摘要,
+    // 用于判断是"后端攒批"还是"前端解析/渲染批量处理"导致非逐字显示。
+    const enableStreamDebug =
+      typeof process !== 'undefined' &&
+      (process.env.NEXT_PUBLIC_DEBUG_SSE === 'true' || process.env.NODE_ENV?.includes('dev'))
+    const debugChunkTimer = enableStreamDebug
+      ? (() => {
+          let lastTime = performance.now()
+          let count = 0
+          return {
+            mark: (label: string, delta: string, line: string) => {
+              const now = performance.now()
+              const interval = now - lastTime
+              lastTime = now
+              count++
+              console.info(
+                `[SSE-DEBUG] #${String(count).padStart(4, '0')} ${label} interval=${interval.toFixed(1)}ms deltaLen=${delta.length} chunkLen=${line.length} delta=${JSON.stringify(delta)}`,
+              )
+            },
+            reset: () => {
+              lastTime = performance.now()
+              count = 0
+            },
           }
-          opts.onGoalUpdate!(event)
-        } catch {
-          /* 非 JSON 或非 goal_updated 事件忽略 */
-        }
-      }
+        })()
+      : null
 
-      /** 2026-09-18 立:解析 thinking SSE 事件(agent 通道的 hook thinking.delta 映射)。
-       *  - 后端发 `event: thinking` + `data: {"type":"thinking","content":"..."}`
-       *  - 两种(reasoning / thinking)都走 reasoning 通道:本函数把 content 投递给 onReasoning。
-       *  - 若 onReasoning 未传则直接丢弃,绝不回落成正文(parseStreamLine 已有 type 拦截兜底)。 */
-      const tryParseThinking = (line: string): void => {
-        if (!hasReasoning) return
-        if (!line || line.startsWith(':')) return
-        let data = line
-        if (line.startsWith('data:')) {
-          data = line.slice(5).replace(/^\s/, '')
-        } else if (
-          line.startsWith('event:') ||
-          line.startsWith('id:') ||
-          line.startsWith('retry:')
-        ) {
+    // D174:帧级 trace 关联键首次出现即回调一次;不注册则完全不求值(与本包其余 per-field 回调同形)
+    // (D138:seenTraceId 声明上移,由 runResumableSSEStream 的 onAttemptStart 逐次复位)
+    const noteFrameTraceId = (raw: string): void => {
+      if (!opts.onTraceId || seenTraceId !== null) return
+      const id = readStreamTraceId(raw)
+      if (id !== null) {
+        seenTraceId = id
+        opts.onTraceId(id)
+      }
+    }
+
+    // ===== D138(承 V4 #96):逐行处理体(原内联读环的行处理,原样搬为闭包)=====
+    // 读环、行缓冲、id: 游标捕获、读超时、重连/退避全部下沉 runResumableSSEStream;
+    // 本闭包只负责"一行已到"之后的解析与分发(id: 行由 runner 捕获游标后照常递出)。
+    const processLine = async (line: string): Promise<void> => {
+      // D116:原始帧采集(关闭时零开销)
+      recordStreamFrame(line)
+      noteFrameTraceId(line)
+      // b76-13 票1:水位闸 —— gap/死帧丢弃且计数,不进下游解析与渲染
+      if (shouldDropByWatermark(line)) return
+      await dispatchTryParse(line)
+      // P4-2: 优先检查 fallback 事件,命中即触发回调跳过 parseStreamLine
+      if (hasFallback) {
+        const fbEvt = parseFallbackEvent(line)
+        if (fbEvt) {
+          opts.onFallback!(fbEvt)
           return
         }
-        if (!data || data === '[DONE]') return
-        try {
-          const json = JSON.parse(data) as Record<string, unknown>
-          if (json?.type !== 'thinking') return
-          if (typeof json.content !== 'string') return
-          opts.onReasoning!(json.content)
-        } catch {
-          /* 非 JSON 或非 thinking 事件忽略 */
+      }
+      const delta = parseStreamLine(line)
+      if (delta) {
+        const agentId = hasAgentDelta ? extractAgentId(line) : undefined
+        if (agentId) emitAgentDelta(agentId, delta)
+        else emitDelta(delta)
+        debugChunkTimer?.mark('delta', delta, line)
+      }
+      if (hasReasoning) {
+        const r = parseStreamLineReasoning(line)
+        if (r) {
+          opts.onReasoning!(r)
+          debugChunkTimer?.mark('reasoning', r, line)
         }
       }
+    }
 
-      /** #11(2026-09-13):解析 citations SSE 事件(knowledge_lookup 工具执行后下发的引用溯源)。 */
-      const tryParseCitations = (line: string): void => {
-        if (!hasCitations) return
-        if (!line || line.startsWith(':')) return
-        let data = line
-        if (line.startsWith('data:')) {
-          data = line.slice(5).replace(/^\s/, '')
-        } else if (
-          line.startsWith('event:') ||
-          line.startsWith('id:') ||
-          line.startsWith('retry:')
-        ) {
-          return
-        }
-        if (!data || data === '[DONE]') return
-        try {
-          const json = JSON.parse(data) as Record<string, unknown>
-          if (json?.type !== 'citations' || !Array.isArray(json.citations)) return
-          opts.onCitations!({
-            messageId: typeof json.messageId === 'string' ? json.messageId : undefined,
-            citations: json.citations as CitationsEvent['citations'],
-          })
-        } catch {
-          /* 非 JSON 或非 citations 事件忽略 */
-        }
-      }
-
-      /** P1 #27(2026-09-16 立):解析 done 事件携带的 memoryUpdates(已记住提示条数据源)。
-       *  ai-service 在 done 事件 payload 写入 memoryUpdates: string[](本轮 LTM 新增条目摘要),
-       *  前端据此在对应助手消息下方渲染「已记住:N 条」提示条。空数组表示本轮无新记忆。 */
-      const tryParseMemoryUpdates = (line: string): void => {
-        if (!hasMemoryUpdates) return
-        if (!line || line.startsWith(':')) return
-        let data = line
-        if (line.startsWith('data:')) {
-          data = line.slice(5).replace(/^\s/, '')
-        } else if (
-          line.startsWith('event:') ||
-          line.startsWith('id:') ||
-          line.startsWith('retry:')
-        ) {
-          return
-        }
-        if (!data || data === '[DONE]') return
-        try {
-          const json = JSON.parse(data) as Record<string, unknown>
-          if (json?.type !== 'done' || !Array.isArray(json.memoryUpdates)) return
-          const items = (json.memoryUpdates as unknown[]).filter(
-            (v): v is string => typeof v === 'string' && v.length > 0,
-          )
-          // 仅在有内容时回调(空数组不触发提示条)
-          if (items.length > 0) opts.onMemoryUpdates!({ items })
-        } catch {
-          /* 非 JSON 或非 done 事件忽略 */
-        }
-      }
-
-      /** 解析 done 帧的推理强度档位回落通知(D130,2026-09-30 立)。
-       *  与 tryParseMemoryUpdates 同形:读的是**同一个已存在的 done 帧**上新增的可选字段,
-       *  不新增事件名 ⇒ 不动 SSE 契约两侧 / sse-parse / dispatch 台账(本票文件清单外)。
-       *  只在 requested ≠ effective 或后端显式标 fallback 时回调 —— 没回落就不该有徽章。 */
-      const tryParseReasoningEffortNotice = (line: string): void => {
-        if (!hasReasoningEffortNotice) return
-        if (!line || line.startsWith(':')) return
-        let data = line
-        if (line.startsWith('data:')) {
-          data = line.slice(5).replace(/^\s/, '')
-        } else if (
-          line.startsWith('event:') ||
-          line.startsWith('id:') ||
-          line.startsWith('retry:')
-        ) {
-          return
-        }
-        if (!data || data === '[DONE]') return
-        try {
-          const json = JSON.parse(data) as Record<string, unknown>
-          if (json?.type !== 'done') return
-          const raw = json.reasoningEffort
-          if (raw === undefined || raw === null || typeof raw !== 'object') return
-          const info = raw as Record<string, unknown>
-          const requested = typeof info.requested === 'string' ? (info.requested as ReasoningEffort) : null
-          const effective = typeof info.effective === 'string' ? (info.effective as ReasoningEffort) : null
-          const fallback =
-            info.fallback === true || (requested !== null && effective !== requested)
-          if (!fallback) return
-          opts.onReasoningEffortNotice!({
-            requested,
-            effective,
-            fallback: true,
-            reason: typeof info.reason === 'string' ? info.reason : undefined,
-          })
-        } catch {
-          /* 非 JSON 或非 done 事件忽略 */
-        }
-      }
-
-      /** 解析 usage 帧(D1,2026-09-19 升级):
-       *  ① 命名帧 event: usage → data: { type:'usage', messageId, usage:{promptTokens,...},
-       *     timing:{firstTokenMs,durationMs}, model, costUsd }(ai-service 流收尾下发);
-       *  ② 旧 OpenAI 协议 usage chunk(stream_options.include_usage=true):
-       *     data: {..., usage: { prompt_tokens, completion_tokens, total_tokens }}。
-       *  两路统一触发 onUsage 回调;命名帧额外携带计时/模型/成本字段(缺失为 null)。 */
-      const tryParseUsage = (line: string): void => {
-        if (!hasUsage) return
-        if (!line || line.startsWith(':')) return
-        let data = line
-        if (line.startsWith('data:')) {
-          data = line.slice(5).replace(/^\s/, '')
-        } else if (
-          line.startsWith('event:') ||
-          line.startsWith('id:') ||
-          line.startsWith('retry:')
-        ) {
-          return
-        }
-        if (!data || data === '[DONE]') return
-        try {
-          const json = JSON.parse(data) as Record<string, unknown>
-          const usage = json?.usage as Record<string, unknown> | undefined
-          if (!usage || typeof usage !== 'object') return
-          const promptTokens = Number(usage.prompt_tokens ?? usage.promptTokens ?? 0)
-          const completionTokens = Number(usage.completion_tokens ?? usage.completionTokens ?? 0)
-          const totalTokens = Number(usage.total_tokens ?? usage.totalTokens ?? 0)
-          if (promptTokens <= 0 && completionTokens <= 0 && totalTokens <= 0) return
-          // D1:命名帧(type:'usage')透传扩展字段;旧 OpenAI 协议路径置 null(前端徽章相应分段不渲染)
-          const isNamedFrame = json?.type === 'usage'
-          const rawTiming = isNamedFrame
-            ? (json?.timing as Record<string, unknown> | null | undefined)
-            : undefined
-          const reasoningRaw = isNamedFrame
-            ? (usage.reasoning_tokens ?? usage.reasoningTokens)
-            : undefined
-          opts.onUsage!({
-            promptTokens: Number.isFinite(promptTokens) ? promptTokens : 0,
-            completionTokens: Number.isFinite(completionTokens) ? completionTokens : 0,
-            totalTokens: Number.isFinite(totalTokens) ? totalTokens : 0,
-            reasoningTokens:
-              typeof reasoningRaw === 'number' && Number.isFinite(reasoningRaw)
-                ? reasoningRaw
-                : null,
-            messageId: isNamedFrame && typeof json.messageId === 'string' ? json.messageId : null,
-            timing:
-              rawTiming && typeof rawTiming === 'object'
-                ? {
-                    firstTokenMs:
-                      typeof rawTiming.firstTokenMs === 'number' &&
-                      Number.isFinite(rawTiming.firstTokenMs)
-                        ? rawTiming.firstTokenMs
-                        : null,
-                    durationMs:
-                      typeof rawTiming.durationMs === 'number' &&
-                      Number.isFinite(rawTiming.durationMs)
-                        ? rawTiming.durationMs
-                        : 0,
-                  }
-                : null,
-            model: isNamedFrame && typeof json.model === 'string' ? json.model : null,
-            costUsd:
-              isNamedFrame && typeof json.costUsd === 'number' && Number.isFinite(json.costUsd)
-                ? json.costUsd
-                : null,
-          })
-        } catch {
-          /* 非 JSON 或非 usage 事件忽略 */
-        }
-      }
-
-      /**
-       * Steer(中途引导,2026-09-19 立):流式对话期间用户经 steer 端点提交引导文本,
-       * ai-service tool loop 每轮 LLM 调用前 drain 注入 messages 时下发注入确认:
-       *   event: steer → data: { type:'steer', phase:'injected', text, timestamp?, messageId? }
-       * 前端 onSteer 据此把消息 badge 从「排队中」换成「引导已生效」。 */
-      const tryParseSteer = (line: string): void => {
-        if (!hasSteer) return
-        if (!line || line.startsWith(':')) return
-        let data = line
-        if (line.startsWith('data:')) {
-          data = line.slice(5).replace(/^\s/, '')
-        } else if (
-          line.startsWith('event:') ||
-          line.startsWith('id:') ||
-          line.startsWith('retry:')
-        ) {
-          return
-        }
-        if (!data || data === '[DONE]') return
-        try {
-          const json = JSON.parse(data) as Record<string, unknown>
-          if (json?.type !== 'steer' || typeof json?.text !== 'string') return
-          opts.onSteer!({
-            phase: 'injected',
-            text: json.text,
-            timestamp: typeof json.timestamp === 'string' ? json.timestamp : undefined,
-            messageId: typeof json.messageId === 'string' ? json.messageId : undefined,
-          })
-        } catch {
-          /* 非 JSON 或非 steer 事件忽略 */
-        }
-      }
-
-      /**
-       * Budget(用量分档提醒,2026-09-19 立,网关发):流首网关按用户当日 AI 用量
-       * 三态分档下发提醒帧(80%~95% warning / 95%~100% critical,均放行不中断流):
-       *   event: budget → data: { type:'budget', level:'warning'|'critical', percent?,
-       *                            usedTokens?, limitTokens?, tier?, resetAt? }
-       * 前端消费(V3 #69 起):onBudget → 写 budget-state 落点渲染输入框上方进度条 + toast 提示。 */
-      const tryParseBudget = (line: string): void => {
-        if (!hasBudget) return
-        if (!line || line.startsWith(':')) return
-        let data = line
-        if (line.startsWith('data:')) {
-          data = line.slice(5).replace(/^\s/, '')
-        } else if (
-          line.startsWith('event:') ||
-          line.startsWith('id:') ||
-          line.startsWith('retry:')
-        ) {
-          return
-        }
-        if (!data || data === '[DONE]') return
-        try {
-          const json = JSON.parse(data) as Record<string, unknown>
-          if (json?.type !== 'budget') return
-          if (json?.level !== 'warning' && json?.level !== 'critical') return
-          opts.onBudget!({
-            level: json.level,
-            percent: typeof json.percent === 'number' ? json.percent : undefined,
-            usedTokens: typeof json.usedTokens === 'number' ? json.usedTokens : undefined,
-            limitTokens: typeof json.limitTokens === 'number' ? json.limitTokens : undefined,
-            tier: typeof json.tier === 'string' ? json.tier : undefined,
-            resetAt: typeof json.resetAt === 'string' ? json.resetAt : undefined,
-          })
-        } catch {
-          /* 非 JSON 或非 budget 事件忽略 */
-        }
-      }
-
-      /**
-       * D155(2026-09-29 立)下行告警三档解析(契约见 shared contract.ts 的
-       * SSE_ALERT_EVENTS 段)。与 tryParseBudget 同构,但三档共用一条归一纪律:
-       * `type` 命中 + `message` 非空串 ⇒ 收帧;severity 表外/缺省**回退 'warning'**
-       * 而不是丢帧(D34/D40 教训:至少 message/severity 要到消费端);
-       * 可选串字段只在 `typeof === 'string'` 时透传(非串垃圾当缺省)。
-       */
-      const alertSeverity = (value: unknown): AlertSeverity =>
-        value === 'info' || value === 'warning' || value === 'critical' ? value : 'warning'
-
-      const tryParseConfigWarning = (line: string): void => {
-        if (!hasConfigWarning) return
-        if (!line || line.startsWith(':')) return
-        let data = line
-        if (line.startsWith('data:')) {
-          data = line.slice(5).replace(/^\s/, '')
-        } else if (
-          line.startsWith('event:') ||
-          line.startsWith('id:') ||
-          line.startsWith('retry:')
-        ) {
-          return
-        }
-        if (!data || data === '[DONE]') return
-        try {
-          const json = JSON.parse(data) as Record<string, unknown>
-          if (json?.type !== 'config-warning') return
-          if (typeof json.message !== 'string' || json.message === '') return
-          opts.onConfigWarning!({
-            severity: alertSeverity(json.severity),
-            message: json.message,
-            field: typeof json.field === 'string' ? json.field : undefined,
-            provider: typeof json.provider === 'string' ? json.provider : undefined,
-            effectiveValue:
-              typeof json.effectiveValue === 'string' ? json.effectiveValue : undefined,
-          })
-        } catch {
-          /* 非 JSON 或非 config-warning 事件忽略 */
-        }
-      }
-
-      const tryParseDeprecationNotice = (line: string): void => {
-        if (!hasDeprecationNotice) return
-        if (!line || line.startsWith(':')) return
-        let data = line
-        if (line.startsWith('data:')) {
-          data = line.slice(5).replace(/^\s/, '')
-        } else if (
-          line.startsWith('event:') ||
-          line.startsWith('id:') ||
-          line.startsWith('retry:')
-        ) {
-          return
-        }
-        if (!data || data === '[DONE]') return
-        try {
-          const json = JSON.parse(data) as Record<string, unknown>
-          if (json?.type !== 'deprecation-notice') return
-          if (typeof json.message !== 'string' || json.message === '') return
-          opts.onDeprecationNotice!({
-            severity: alertSeverity(json.severity),
-            message: json.message,
-            capability: typeof json.capability === 'string' ? json.capability : undefined,
-            alternative: typeof json.alternative === 'string' ? json.alternative : undefined,
-            sunsetAt: typeof json.sunsetAt === 'string' ? json.sunsetAt : undefined,
-          })
-        } catch {
-          /* 非 JSON 或非 deprecation-notice 事件忽略 */
-        }
-      }
-
-      const tryParseGuardianWarning = (line: string): void => {
-        if (!hasGuardianWarning) return
-        if (!line || line.startsWith(':')) return
-        let data = line
-        if (line.startsWith('data:')) {
-          data = line.slice(5).replace(/^\s/, '')
-        } else if (
-          line.startsWith('event:') ||
-          line.startsWith('id:') ||
-          line.startsWith('retry:')
-        ) {
-          return
-        }
-        if (!data || data === '[DONE]') return
-        try {
-          const json = JSON.parse(data) as Record<string, unknown>
-          if (json?.type !== 'guardian-warning') return
-          if (typeof json.message !== 'string' || json.message === '') return
-          opts.onGuardianWarning!({
-            severity: alertSeverity(json.severity),
-            message: json.message,
-            category: typeof json.category === 'string' ? json.category : undefined,
-            reviewId: typeof json.reviewId === 'string' ? json.reviewId : undefined,
-          })
-        } catch {
-          /* 非 JSON 或非 guardian-warning 事件忽略 */
-        }
-      }
-
-      /**
-       * 优化(问题 4-4):基于 SSE 行的 type 字段快速路由到对应 tryParse,
-       * 避免每行最多 6 次 tryParse 全量 JSON.parse 尝试。
-       *
-       * 已知 type → 路由到单一 tryParse(从 6 次 JSON.parse 降至 1 次);
-       * 未知/无 type / 注释行 / event:/id:/retry: 行 / 非 JSON token 行 → 返回 null,
-       * 由主循环走 fallback 全量调用(保留原有行为,因每个 tryParse 内部有快速 return 守护,
-       * 对非 JSON 行几乎零成本;注释/event/id/retry 行也立即 return)。
-       *
-       * 覆盖 type 清单(与各 tryParse 内部判断逐一对齐):
-       *  - compaction:tryParseCompaction 不基于 type,基于 json.compaction 字段
-       *  - question:tryParseQuestion
-       *  - tool_result / tool-result / tool-call-start:tryParseToolCall(JSON 形式)
-       *  - Vercel AI SDK 数字协议(^\d+:):仅 tryParseToolCall 内部 proto 分支能处理
-       *  - subagent_spawn / subagent_progress / subagent_end:tryParseSubagent
-       *  - tool-summary:tryParseToolSummary
-       *  - tool-delegate:tryParseToolDelegate
-       *  - tool-approval:tryParseToolApproval(V3 #58 2026-09-26 立,主对话流审批门)
-       *  - plan_updated / plan:tryParsePlanUpdate(W1 2026-09-12 立)
-       *  - terminal_start / terminal_end:tryParseTerminal(W1 2026-09-12 立)
-       *  - usage:tryParseUsage(OpenAI 协议 usage chunk,基于 json.usage 字段,非 type)
-       *  - steer:tryParseSteer(Steer 2026-09-19 立)
-       *  - budget:tryParseBudget(Budget 用量分档提醒 2026-09-19 立,网关发)
-       *  - config-warning / deprecation-notice / guardian-warning:
-       *    tryParseConfigWarning / tryParseDeprecationNotice / tryParseGuardianWarning
-       *    (D155 2026-09-29 立,下行告警三档)
-       *  - injection_applied / retry_scheduled:tryParseInjection / tryParseRetryScheduled
-       *    (D34/D39 2026-09-22 立;两帧都带文本字段,漏分流会喷进正文增量)
-       *  - form_request:tryParseFormRequest(D77 2026-09-25 立;对话流业务表单请求帧,
-       *    带结构化 fields/actions;批准与拒绝不成对的帧在解析层即丢弃)
-       */
-      /** D34/D39:上下文注入交代帧与重试交代帧(两帧都带文本字段,绝不能进兜底抽取链)。 */
-      const tryParseInjection = (line: string): void => {
-        if (!hasInjection) return
-        if (!line || line.startsWith(':')) return
-        let data = line
-        if (line.startsWith('data:')) {
-          data = line.slice(5).replace(/^\s/, '')
-        } else if (
-          line.startsWith('event:') ||
-          line.startsWith('id:') ||
-          line.startsWith('retry:')
-        ) {
-          return
-        }
-        if (!data || data === '[DONE]') return
-        try {
-          const json = JSON.parse(data) as Record<string, unknown>
-          if (json?.type !== 'injection_applied') return
-          const collapsed = json.collapsed
-          const kind = json.kind
-          // 没有短标签就没有可显示的东西 ⇒ 不发回调(而不是发一条空行)
-          if (typeof collapsed !== 'string' || collapsed === '') return
-          if (typeof kind !== 'string' || kind === '') return
-          opts.onInjectionApplied!({
-            kind,
-            collapsed,
-            ...(typeof json.fullText === 'string' ? { fullText: json.fullText } : {}),
-            ...(typeof json.count === 'number' ? { count: json.count } : {}),
-            ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
-          })
-        } catch {
-          /* 非 JSON 或非 injection_applied 事件忽略 */
-        }
-      }
-
-      const tryParseRetryScheduled = (line: string): void => {
-        if (!hasRetryScheduled) return
-        if (!line || line.startsWith(':')) return
-        let data = line
-        if (line.startsWith('data:')) {
-          data = line.slice(5).replace(/^\s/, '')
-        } else if (
-          line.startsWith('event:') ||
-          line.startsWith('id:') ||
-          line.startsWith('retry:')
-        ) {
-          return
-        }
-        if (!data || data === '[DONE]') return
-        try {
-          const json = JSON.parse(data) as Record<string, unknown>
-          if (json?.type !== 'retry_scheduled') return
-          const attempt = json.attempt
-          const maxRetries = json.maxRetries
-          if (typeof attempt !== 'number' || typeof maxRetries !== 'number') return
-          opts.onRetryScheduled!({
-            attempt,
-            maxRetries,
-            retryInMs: typeof json.retryInMs === 'number' ? json.retryInMs : 0,
-            ...(typeof json.httpStatus === 'number' ? { httpStatus: json.httpStatus } : {}),
-            ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
-          })
-        } catch {
-          /* 非 JSON 或非 retry_scheduled 事件忽略 */
-        }
-      }
-
-      /**
-       * D77 业务表单请求帧(2026-09-25 立,G-106)。
-       * 畸形帧一律**不发回调**,而不是发一张填不了/无法应答的表单:
-       *  · 缺 requestId → 应答无处带回
-       *  · actions 不成对(approve 与 reject 缺一)→ 违背本票硬约束,不给渲染
-       *  · fields 为空/非数组 → 渲染不出任何输入位
-       * fields/actions 的形状权威在 packages/shared/src/chat/business-forms.ts,本处只做 wire 收窄。
-       */
-      const tryParseFormRequest = (line: string): void => {
-        if (!hasFormRequest) return
-        if (!line || line.startsWith(':')) return
-        let data = line
-        if (line.startsWith('data:')) {
-          data = line.slice(5).replace(/^\s/, '')
-        } else if (
-          line.startsWith('event:') ||
-          line.startsWith('id:') ||
-          line.startsWith('retry:')
-        ) {
-          return
-        }
-        if (!data || data === '[DONE]') return
-        try {
-          const json = JSON.parse(data) as Record<string, unknown>
-          if (json?.type !== 'form_request') return
-          const requestId = json.requestId
-          const kind = json.kind
-          if (typeof requestId !== 'string' || requestId === '') return
-          if (typeof kind !== 'string' || kind === '') return
-          const rawFields = json.fields
-          if (!Array.isArray(rawFields) || rawFields.length === 0) return
-          const fields: FormRequestEvent['fields'] = []
-          for (const raw of rawFields) {
-            if (typeof raw !== 'object' || raw === null) continue
-            const f = raw as Record<string, unknown>
-            if (typeof f.key !== 'string' || f.key === '') continue
-            fields.push({
-              key: f.key,
-              type: typeof f.type === 'string' ? f.type : 'text',
-              required: f.required === true,
-              ...(typeof f.placeholderKey === 'string' ? { placeholderKey: f.placeholderKey } : {}),
-            })
-          }
-          if (fields.length === 0) return
-          const actions = Array.isArray(json.actions)
-            ? json.actions.filter((a): a is string => typeof a === 'string')
-            : []
-          // 成对判据:批准与拒绝必须同时在,缺一即畸形帧
-          // (只给"批准"的表单等于替用户做完决定,只给"拒绝"的表单等于什么都不做)。
-          if (!actions.includes('approve') || !actions.includes('reject')) return
-          opts.onFormRequest!({
-            requestId,
-            kind,
-            fields,
-            actions,
-            ...(typeof json.sessionId === 'string' ? { sessionId: json.sessionId } : {}),
-            ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
-          })
-        } catch {
-          /* 非 JSON 或非 form_request 事件忽略 */
-        }
-      }
-
-      const routeLineByType = (line: string): string | null => {
-        if (!line || line.startsWith(':')) return null
-        if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
-          return null
-        }
-        let data = line
-        if (line.startsWith('data:')) {
-          data = line.slice(5).replace(/^\s/, '')
-        }
-        if (!data || data === '[DONE]') return null
-        // Vercel AI SDK 协议(数字前缀,如 "2:{...}" / "7:{...}"),
-        // 仅 tryParseToolCall 内部 proto 分支能处理
-        if (/^\d+:/.test(data)) return 'tool_call'
-        if (!data.startsWith('{')) return null
-        try {
-          const json = JSON.parse(data) as Record<string, unknown>
-          // compaction 事件不基于 type 字段,基于 json.compaction.triggered
-          if (json.compaction && typeof json.compaction === 'object') return 'compaction'
-          // usage 事件(OpenAI 协议)不基于 type 字段,基于 json.usage
-          if (json.usage && typeof json.usage === 'object') return 'usage'
-          const t = json.type
-          if (typeof t !== 'string') return null
-          switch (t) {
-            case 'question':
-              return 'question'
-            case 'tool_result':
-            case 'tool-result':
-            case 'tool-call-start':
-              return 'tool_call'
-            case 'subagent_spawn':
-            case 'subagent_progress':
-            case 'subagent_end':
-              return 'subagent'
-            case 'tool-summary':
-              return 'tool_summary'
-            case 'tool-delegate':
-              return 'tool_delegate'
-            // V3 #58(2026-09-26 立):主对话流工具审批请求帧
-            case 'tool-approval':
-              return 'tool_approval'
-            // D113:文件写类工具流中 diff 预览
-            case 'tool-delta':
-              return 'tool_delta'
-            case 'plan_updated':
-            case 'plan':
-              return 'plan'
-            case 'terminal_start':
-            case 'terminal_end':
-              return 'terminal'
-            case 'citations':
-              return 'citations'
-            // 2026-09-18 立:terminal_delta / thinking 走专用通道(与 reasoning 同理不落正文)
-            case 'terminal_delta':
-              return 'terminal_delta'
-            // D151(2026-09-29):命令在等键盘输入 —— 专用通道,不落正文、不当 delta
-            case 'terminal_interaction':
-              return 'terminal_interaction'
-            // D152(2026-09-29):会话目标状态帧 —— 专用通道,不落正文
-            case 'goal_updated':
-              return 'goal_updated'
-            case 'thinking':
-              return 'thinking'
-            // 2026-09-18 立:补 type==='compaction' 这一路(原仅认 json.compaction 字段形态)
-            case 'compaction':
-              return 'compaction'
-            // Steer(2026-09-19 立):中途引导注入确认帧
-            case 'steer':
-              return 'steer'
-            // Budget(2026-09-19 立):网关用量分档提醒帧
-            case 'budget':
-              return 'budget'
-            // D155(2026-09-29 立):下行告警三档(配置告警/弃用预告/守护告警)
-            case 'config-warning':
-              return 'config-warning'
-            case 'deprecation-notice':
-              return 'deprecation-notice'
-            case 'guardian-warning':
-              return 'guardian-warning'
-            // D34/D39(2026-09-22 立):运行环境交代与重试交代帧
-            case 'injection_applied':
-              return 'injection_applied'
-            case 'retry_scheduled':
-              return 'retry_scheduled'
-            // D77(2026-09-25 立):对话流业务表单请求帧
-            case 'form_request':
-              return 'form_request'
-            default:
-              return null
-          }
-        } catch {
-          return null
-        }
-      }
-
-      // 优化(问题 4-4):基于 type 路由调用单一 tryParse;未知 type 走 fallback 全量调用,
-      // 保留原有行为(parseStreamLine 等后续逻辑不变)
-      const dispatchTryParse = async (line: string): Promise<void> => {
-        const route = routeLineByType(line)
-        if (route === 'compaction') {
-          tryParseCompaction(line)
-        } else if (route === 'question') {
-          tryParseQuestion(line)
-        } else if (route === 'tool_call') {
-          tryParseToolCall(line)
-        } else if (route === 'subagent') {
-          tryParseSubagent(line)
-        } else if (route === 'tool_summary') {
-          tryParseToolSummary(line)
-        } else if (route === 'tool_delegate') {
-          await tryParseToolDelegate(line)
-        } else if (route === 'tool_approval') {
-          tryParseToolApproval(line)
-        } else if (route === 'plan') {
-          tryParsePlanUpdate(line)
-        } else if (route === 'terminal') {
-          tryParseTerminal(line)
-        } else if (route === 'citations') {
-          tryParseCitations(line)
-        } else if (route === 'terminal_delta') {
-          tryParseTerminalDelta(line)
-        } else if (route === 'terminal_interaction') {
-          tryParseTerminalInteraction(line)
-        } else if (route === 'goal_updated') {
-          tryParseGoalUpdate(line)
-        } else if (route === 'tool_delta') {
-          tryParseToolDelta(line)
-        } else if (route === 'thinking') {
-          tryParseThinking(line)
-        } else if (route === 'usage') {
-          tryParseUsage(line)
-        } else if (route === 'steer') {
-          tryParseSteer(line)
-        } else if (route === 'budget') {
-          tryParseBudget(line)
-        } else if (route === 'config-warning') {
-          tryParseConfigWarning(line)
-        } else if (route === 'deprecation-notice') {
-          tryParseDeprecationNotice(line)
-        } else if (route === 'guardian-warning') {
-          tryParseGuardianWarning(line)
-        } else if (route === 'injection_applied') {
-          tryParseInjection(line)
-        } else if (route === 'retry_scheduled') {
-          tryParseRetryScheduled(line)
-        } else if (route === 'form_request') {
-          tryParseFormRequest(line)
-        } else {
-          // fallback:无 type / 未知 type / 注释 / event:/id:/retry: / 非 JSON token 行。
-          // 各 tryParse 内部第一道守护(`if (!hasXxx) return` + line 前缀检查)对非匹配行立即 return,
-          // 对 token 行(非 JSON)无 JSON.parse 开销,保持原有行为
-          tryParseCompaction(line)
-          tryParseQuestion(line)
-          tryParseToolCall(line)
-          tryParseSubagent(line)
-          tryParseToolSummary(line)
-          tryParsePlanUpdate(line)
-          tryParseTerminal(line)
-          await tryParseToolDelegate(line)
-          tryParseToolApproval(line)
-          tryParseCitations(line)
-          tryParseUsage(line)
-          tryParseMemoryUpdates(line)
-          tryParseReasoningEffortNotice(line)
-          tryParseTerminalDelta(line)
-          tryParseTerminalInteraction(line)
-          tryParseGoalUpdate(line)
-          tryParseThinking(line)
-          tryParseSteer(line)
-          tryParseBudget(line)
-          tryParseConfigWarning(line)
-          tryParseDeprecationNotice(line)
-          tryParseGuardianWarning(line)
-          tryParseInjection(line)
-          tryParseRetryScheduled(line)
-          tryParseFormRequest(line)
-        }
-      }
-
-      // ===== 流式调试:测量 chunk 到达间隔(仅开发期启用) =====
-      // 在控制台输出每个 SSE data: 行的时间戳/长度/内容摘要,
-      // 用于判断是"后端攒批"还是"前端解析/渲染批量处理"导致非逐字显示。
-      const enableStreamDebug =
-        typeof process !== 'undefined' &&
-        (process.env.NEXT_PUBLIC_DEBUG_SSE === 'true' || process.env.NODE_ENV?.includes('dev'))
-      const debugChunkTimer = enableStreamDebug
-        ? (() => {
-            let lastTime = performance.now()
-            let count = 0
-            return {
-              mark: (label: string, delta: string, line: string) => {
-                const now = performance.now()
-                const interval = now - lastTime
-                lastTime = now
-                count++
-                console.info(
-                  `[SSE-DEBUG] #${String(count).padStart(4, '0')} ${label} interval=${interval.toFixed(1)}ms deltaLen=${delta.length} chunkLen=${line.length} delta=${JSON.stringify(delta)}`,
-                )
-              },
-              reset: () => {
-                lastTime = performance.now()
-                count = 0
-              },
-            }
-          })()
-        : null
-
-      // D174:帧级 trace 关联键首次出现即回调一次;不注册则完全不求值(与本包其余 per-field 回调同形)
-      // (D138:seenTraceId 声明上移,由 runResumableSSEStream 的 onAttemptStart 逐次复位)
-      const noteFrameTraceId = (raw: string): void => {
-        if (!opts.onTraceId || seenTraceId !== null) return
-        const id = readStreamTraceId(raw)
-        if (id !== null) {
-          seenTraceId = id
-          opts.onTraceId(id)
-        }
-      }
-
-      // ===== D138(承 V4 #96):逐行处理体(原内联读环的行处理,原样搬为闭包)=====
-      // 读环、行缓冲、id: 游标捕获、读超时、重连/退避全部下沉 runResumableSSEStream;
-      // 本闭包只负责"一行已到"之后的解析与分发(id: 行由 runner 捕获游标后照常递出)。
-      const processLine = async (line: string): Promise<void> => {
-        // D116:原始帧采集(关闭时零开销)
-        recordStreamFrame(line)
-        noteFrameTraceId(line)
-        // b76-13 票1:水位闸 —— gap/死帧丢弃且计数,不进下游解析与渲染
-        if (shouldDropByWatermark(line)) return
-        await dispatchTryParse(line)
-        // P4-2: 优先检查 fallback 事件,命中即触发回调跳过 parseStreamLine
-        if (hasFallback) {
-          const fbEvt = parseFallbackEvent(line)
-          if (fbEvt) {
-            opts.onFallback!(fbEvt)
-            return
-          }
-        }
-        const delta = parseStreamLine(line)
-        if (delta) {
-          const agentId = hasAgentDelta ? extractAgentId(line) : undefined
-          if (agentId) emitAgentDelta(agentId, delta)
-          else emitDelta(delta)
-          debugChunkTimer?.mark('delta', delta, line)
-        }
-        if (hasReasoning) {
-          const r = parseStreamLineReasoning(line)
-          if (r) {
-            opts.onReasoning!(r)
-            debugChunkTimer?.mark('reasoning', r, line)
-          }
-        }
-      }
-
-      await runResumableSSEStream({
-        url,
-        method: 'POST',
-        body: JSON.stringify(body),
-        headers,
-        signal: opts.signal,
-        maxRetries,
-        // 原 streamChat 读环的 30s 读超时,数值逐字保留
-        readTimeoutMs: 30_000,
-        // 2026-07-27 跨域 SSE 直连:携带 credentials 让 CORS 允许凭证,
-        // Bearer token 在 Authorization header 中不受影响。
-        credentials: 'include',
-        onResponse: () => opts.onResponse?.(),
-        onAttemptStart: (runnerAttempt) => {
-          isRetry = runnerAttempt > 0
-          dedupeActive = isRetry && receivedContentRef.current.length > 0
-          dedupeBuffer = ''
-          agentDedupeBuffer.clear()
-          seenTraceId = null
-          debugChunkTimer?.reset()
-        },
-        onLine: (line) => processLine(line),
-        onReconnect: (retryAttempt, delayMs) => opts.onReconnect?.(retryAttempt, delayMs),
-      })
+    await runResumableSSEStream({
+      url,
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers,
+      signal: opts.signal,
+      maxRetries,
+      // 原 streamChat 读环的 30s 读超时,数值逐字保留
+      readTimeoutMs: 30_000,
+      // 2026-07-27 跨域 SSE 直连:携带 credentials 让 CORS 允许凭证,
+      // Bearer token 在 Authorization header 中不受影响。
+      credentials: 'include',
+      onResponse: () => opts.onResponse?.(),
+      onAttemptStart: (runnerAttempt) => {
+        isRetry = runnerAttempt > 0
+        dedupeActive = isRetry && receivedContentRef.current.length > 0
+        dedupeBuffer = ''
+        agentDedupeBuffer.clear()
+        seenTraceId = null
+        debugChunkTimer?.reset()
+      },
+      onLine: (line) => processLine(line),
+      onReconnect: (retryAttempt, delayMs) => opts.onReconnect?.(retryAttempt, delayMs),
+    })
+    opts.onDone?.()
+    return
+  } catch (err) {
+    if (isAbortError(err)) {
       opts.onDone?.()
       return
-    } catch (err) {
-      if (isAbortError(err)) {
-        opts.onDone?.()
-        return
-      }
-      // D138:重连判定/指数退避/Retry-After 消费已在 runResumableSSEStream 内做完,
-      // 走到这里都是终态(abort / 业务错误 / 自动重试耗尽)。
-      const info = getSSEErrorInfo(err)
-      const code = info?.code
-      // P2-2 口径保持:401/403/429 无 retryAfter 的业务错误分类,此处只影响
-      // recoverable 标记,不再驱动重试(重试已前移进 runner)。
-      const isBusinessError =
-        code === 401 || code === 403 || (code === 429 && info?.retryAfter === undefined)
-      const message = err instanceof Error ? err.message : '网络异常'
-      // 2026-09-04 吞错修复(Fix B):流内 SSE error 事件(如 provider 402 配额耗尽, errorCode: LLM_ERROR)
-      // 耗尽内部重试后,若调用方传了 onError 则保持原行为(回调后 return);
-      // 若未传 onError 则必须 throw err(reject),否则 Promise 会正常 resolve,
-      // 不传 onError 的调用方会把失败当成功(拿到空补全),错误被静默吞掉。
-      if (opts.onError) {
-        // recoverable=true 标记"网络可重试但已耗尽自动重连次数",前端可显示"网络不稳定,可手动重试"
-        opts.onError(message, { ...info, recoverable: !isBusinessError })
-        return
-      }
-      throw err
     }
+    // D138:重连判定/指数退避/Retry-After 消费已在 runResumableSSEStream 内做完,
+    // 走到这里都是终态(abort / 业务错误 / 自动重试耗尽)。
+    const info = getSSEErrorInfo(err)
+    const code = info?.code
+    // P2-2 口径保持:401/403/429 无 retryAfter 的业务错误分类,此处只影响
+    // recoverable 标记,不再驱动重试(重试已前移进 runner)。
+    const isBusinessError =
+      code === 401 || code === 403 || (code === 429 && info?.retryAfter === undefined)
+    const message = err instanceof Error ? err.message : '网络异常'
+    // 2026-09-04 吞错修复(Fix B):流内 SSE error 事件(如 provider 402 配额耗尽, errorCode: LLM_ERROR)
+    // 耗尽内部重试后,若调用方传了 onError 则保持原行为(回调后 return);
+    // 若未传 onError 则必须 throw err(reject),否则 Promise 会正常 resolve,
+    // 不传 onError 的调用方会把失败当成功(拿到空补全),错误被静默吞掉。
+    if (opts.onError) {
+      // recoverable=true 标记"网络可重试但已耗尽自动重连次数",前端可显示"网络不稳定,可手动重试"
+      opts.onError(message, { ...info, recoverable: !isBusinessError })
+      return
+    }
+    throw err
+  }
 }
 
 /**
@@ -4829,7 +4777,9 @@ export async function postSessionGoal(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: input.action,
-        ...(typeof input.objective === 'string' && input.objective ? { objective: input.objective } : {}),
+        ...(typeof input.objective === 'string' && input.objective
+          ? { objective: input.objective }
+          : {}),
         ...(typeof input.elapsedMs === 'number' ? { elapsed_ms: input.elapsedMs } : {}),
         ...(typeof input.tokenUsage === 'number' ? { token_usage: input.tokenUsage } : {}),
       }),

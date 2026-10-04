@@ -13186,7 +13186,8 @@
       "keyIdLabel": "Key 識別子",
       "gatewayHintA": "ゲートウェイを呼び出す際はリクエストヘッダーに次を使用",
       "gatewayHintB": "(ihui_ で始まる Key 識別子です。Secret は安全に保管し、リクエストヘッダーには入れないでください。)",
-      "savedClose": "保存しました、閉じる"
+      "savedClose": "保存しました、閉じる",
+      "needLogin": "API キーを管理するにはサインインしてください"
     },
     "relayUsage": {
       "title": "使用量の詳細",
@@ -13228,7 +13229,8 @@
       "apiKeyFilter": "API Key で絞り込み",
       "allApiKeys": "すべての API Key",
       "cacheRead": "読み込み {count}",
-      "cacheWrite": "書き込み {count}"
+      "cacheWrite": "書き込み {count}",
+      "needLogin": "使用量の詳細と分析を見るにはサインインしてください"
     }
   },
   "developerApiDocsPage": {
@@ -19850,7 +19852,8 @@
   "parentPortal": {
     "attendance": {
       "rate": "出席率",
-      "records": "チェックイン記録"
+      "records": "チェックイン記録",
+      "needLogin": "出席記録を見るにはサインインしてください"
     },
     "bind": {
       "confirm": "確認",
@@ -19882,7 +19885,10 @@
       "monthlyPlan": "月間プラン",
       "studyPlans": "学習計画",
       "studyPlansHint": "お子様の学習計画を確認",
-      "weeklyPlan": "週間プラン"
+      "weeklyPlan": "週間プラン",
+      "coursesNeedLogin": "時間割を見るにはサインインしてください",
+      "mealsNeedLogin": "給食記録を見るにはサインインしてください",
+      "studyPlansNeedLogin": "学習計画を見るにはサインインしてください"
     },
     "dashboard": {
       "bindChild": "お子様を紐付け",
@@ -27186,7 +27192,8 @@
     "ledgerNotReady": "帳票の準備ができません",
     "totalFeeLabel": "納付予定合計",
     "paidLabel": "納付済み合計",
-    "overdueLabel": "期限超過"
+    "overdueLabel": "期限超過",
+    "needLogin": "保護者ポータルを見るにはサインインしてください"
   },
   "eduSchedule": {
     "title": "時間割管理",
