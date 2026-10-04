@@ -3138,24 +3138,54 @@ for (const bp of backendPathSet) {
  *     `.check-api-routes-ignore.json` **均不含**该路径。
  *  4. 排除了 catch-all:`matchStar` 的 `['*']` 形态(零比较、见下)只出现在**自测夹具**里,
  *     不在真实注册面;真实 catch-all 都带至少一个字面量前缀段,匹配行为正常。
- *  5. 定位到元凶:真实注册 `GET /api/admin/content/:type/:id`
- *     (`apps/api/src/routes/admin/content/crud.ts:112`)被拼成 **`/api/:type/:id`** ——
- *     拼接时 `admin/content` 段丢失,落成纯通配,于是 `/api/zzz-not-here` 被判在册。
+ *  5. ~~定位到元凶:真实注册 `GET /api/admin/content/:type/:id` 被拼成 `/api/:type/:id`,
+ *     `admin/content` 段丢失~~ —— **该结论经二次实测不成立,别沿着它走。**
  *
- * ## 为什么不在本门收紧(量表已出,结论是"会误杀真实接口")
+ * ## ⚠️ 更正(2026-10-04 二次定位):真元凶是「3 段全参条目」,不是"前缀丢段"
  *
- * 自然的想法是"纯通配注册不作匹配依据"。量表(2026-10-04,7 端逐端算)结论相反:
- *收紧后各端新增死调用合计 **+294 条**,而抽样里**大量是真实接口**:
- *   · `/api/plans`   —— `apps/api/src/routes/billing.ts:25` 注册 `'/plans'`,
- *                      `routes/index.ts:536` 以 `prefix:'/api'` 挂载 ⇒ **真接口**;
- *   · `/api/data` / `/api/roles` / `/api/memory` 同类(prefix + 本地路径拼成)。
- * 也就是说:**"纯通配"是本仓 prefix 拼接的常态,不是异常**。
- * 一旦按形态收紧,会把大量正常接口判成死调用 ⇒ 恒红门 ⇒ 逼人 `--no-verify`
+ *  · 该路由的挂载前缀是 `/api/admin/content`(`apps/api/src/routes/index.ts:861`),
+ *    它**在** 166 个组合前缀里 ⇒ `GET /api/admin/content/:type/:id` **本来就在注册面中**,
+ *    带 `admin` + `content` 两个字面量锚段,**不是纯通配**;
+ *  · `/api/:type/:id` 不是"丢失"的产物,而是构建注册面时那行
+ *    `backendPathSet.add(\`${r.method} ${r.localPath}\`)` 把**裸 localPath**
+ *    (`/:type/:id`,3 段)单独收进面导致的 —— 那是**多拼**,不是少拼。
+ *
+ * ### 段数算术(这一格的真判据)
+ * 路径按 `path.split('/')` 切,首段是空串,所以:
+ *   探针 `/api/zzz-not-here`            → **3 段**
+ *   裸条目 `/:type/:id`                 → **3 段** ⇒ **命中**(吞掉探针的就是它)
+ *   带锚 `/api/admin/content/:type/:id` → **6 段** ⇒ **不命中**
+ *
+ * 面规模实测:`5383 条注册 × 166 个组合前缀 = 893,578` → 去重 **824,790** ——
+ * 注册面 99.99% 是笛卡尔积产物。其中 3 段纯通配条目约 10 个
+ * (来自 24 个"localPath 本身是 `/:x`"的路由文件),外加 3 条裸全参条目
+ * (`GET|PATCH|DELETE /:type/:id` @ `apps/api/src/routes/admin/content/crud.ts`)。
+ *
+ * ## 收口代价已实测量化(为什么仍然不动)
+ *
+ * 收口假绿**必然是减量** —— 探针之所以假绿正是因为这些条目在面里,删掉即"在册 → 不在册",
+ * 与"只增不减"的硬约束冲突。三方案实测:
+ *   S1 删裸全参条目      → 面 824,756,探针**仍不可见**,新增死调用 0
+ *   S2 删笛卡尔积纯通配  → 面 824,759,探针**仍不可见**,新增死调用 5
+ *   S1+S2(最小可用)     → 面 824,725,探针**可见**,新增死调用 **27**
+ *   理想全解析(563 文件) → 面 10,006,探针**仍不可见**,新增死调用 **1,197**
+ * 关键:**S1 或 S2 单独都修不好**(各自还剩另一半在吞),必须同时做。
+ * 那 27 条逐条抽查:**真错与取材假影混杂** ——
+ * `GET /api/model-pricing`、`GET /api/security-audit` 后端确实不存在(真错,约 10 条);
+ * `/api/ai-tutor:param`、`/api/subagents/all:param` 是取材正则把模板串 `${path}`/`${suffix}`
+ * 误抽成字面 `:param` 造成的**假影**(约 17 条)。
+ * ⇒ 直接落红会误伤。理想收口更糟:代价最大而收益为零(探针仍不可见)。
+ *
+ * **为什么不在匹配侧收紧**:量表(7 端逐端算)显示收紧后各端新增死调用 **+294 条**,
+ * 而抽样里大量是**真实接口** —— `/api/plans`(`billing.ts:25` 的 `'/plans'` +
+ * `index.ts:536` 的 `prefix:'/api'`)、`/api/data` 等。
+ * "纯通配"是本仓 prefix 拼接的**常态**,按形态收紧 ⇒ 恒红门 ⇒ 逼人 `--no-verify`
  * 连带废掉全部守门(AGENTS §12e)。
  *
- * **正解在取材侧不在匹配侧**:真要收口,应先让拼接保住丢失的中间段
- * (即 `admin/content`),而不是在匹配侧拿形态开刀。本门这一格维持现状,
- * 由"死调用"读数恒为 0 的现状如实记为**已知覆盖缺口**,不记绿。
+ * 本门这一格维持现状,由"死调用"读数恒为 0 如实记为**已知覆盖缺口**、不记绿。
+ * 真要收口的次序:**① 取材侧修准 `:param` 假影 → ② S1+S2 减量 → ③ 逐条裁决那 27 条真伪
+ * → ④ 才谈判红起点**。见文件末尾无条件打印的覆盖缺口提示
+ * 与 `scripts/tests/check-api-routes-wildcard-gap.test.mjs`(G1–G6 钉住"缺口必须报、不得记绿")。
  */
 function matchSegs(fParts, bParts) {
   if (fParts.length !== bParts.length) return false
