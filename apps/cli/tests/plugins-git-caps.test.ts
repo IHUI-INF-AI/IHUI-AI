@@ -152,12 +152,20 @@ describe('G-815 execGitCapped —— 净化 env', () => {
   });
 
   it('反向对照:白名单内的 PATH/SystemRoot 与代理键必须透传(否则"卡到协议超时"又回来了)', () => {
+    // Linux runner 没有 SystemRoot:白名单键必须自注入 —— 验证的是"透传"而非"恰好存在"
+    const prevSystemRoot = process.env.SystemRoot;
+    process.env.SystemRoot = 'C:////Windows';
     process.env.HTTP_PROXY = 'http://127.0.0.1:7897';
-    const raw = execGitCapped(['-e', ENV_PROBE_SCRIPT], { binary: process.execPath });
-    const seen = JSON.parse(raw.trim()) as Record<string, string | boolean | null>;
-    expect(seen.hasPath).toBe(true);
-    expect(typeof seen.systemRoot === 'string' && (seen.systemRoot as string).length > 0).toBe(true);
-    expect(seen.proxy).toBe('http://127.0.0.1:7897');
+    try {
+      const raw = execGitCapped(['-e', ENV_PROBE_SCRIPT], { binary: process.execPath });
+      const seen = JSON.parse(raw.trim()) as Record<string, string | boolean | null>;
+      expect(seen.hasPath).toBe(true);
+      expect(typeof seen.systemRoot === 'string' && (seen.systemRoot as string).length > 0).toBe(true);
+      expect(seen.proxy).toBe('http://127.0.0.1:7897');
+    } finally {
+      if (prevSystemRoot === undefined) delete process.env.SystemRoot;
+      else process.env.SystemRoot = prevSystemRoot;
+    }
   });
 
   it('buildGitEnv 只吃投影源,不吃调用方的其余键', () => {
