@@ -28,6 +28,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -42,7 +43,7 @@ function stripAnsi(s) {
 
 // ─── 辅助:创建临时项目根目录(含 packages/i18n/messages/<target>/ + .ihui-agent/tmp/) ───
 function createTempProject(target = 'web') {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-i18n-apply-'))
+  const root = mkScratch("ihui-i18n-apply-")
   fs.mkdirSync(path.join(root, 'packages', 'i18n', 'messages', target), { recursive: true })
   fs.mkdirSync(path.join(root, '.ihui-agent', 'tmp'), { recursive: true })
   return root
@@ -565,7 +566,7 @@ describe('--target 端注册:mobile-rn / cli / api 真的能写对目录', () =>
   })
 
   test('显式 --target 指向不存在的目录 → exit 2,不创建目录、不写文件', () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-i18n-apply-'))
+    const root = mkScratch("ihui-i18n-apply-")
     fs.mkdirSync(path.join(root, '.ihui-agent', 'tmp'), { recursive: true })
     try {
       writeTranslations(root, { translations: { en: { save: 'Save' } } })
