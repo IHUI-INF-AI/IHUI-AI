@@ -1238,15 +1238,71 @@ test('R-O F5 的豁免额度必须窄到"指针行 ∧ 仍 ≥1 份",否则注�
     plainGone.some((x) => x.startsWith('F5')),
     `C) 无指针注记行消失必须判红,实测 ${JSON.stringify(plainGone)}`,
   )
+  /**
+   * 注记的**形状判据只许有一份实现**(G-977960 ① 改的正是这里)。
+   * 旧版这条锁的是字面量 `new RegExp(MERGE_NOTE_RE.source)` —— 一条形状锁。本票把逐行计数
+   * 收进 lib 的 `lineNoteCount`,那串就消失了,于是"合规的改进"被这条锁判成红 —— 与本文件
+   * 上方那句"形状锁会被同一次改写连带改掉,行为锁不会"是自相矛盾的。现改判两件可核的事:
+   * ① 体内必须真的调用共享出口(不是自己再拼正则);② 体内不得再出现重拼 MERGE_NOTE_RE 的写法。
+   * 行为侧的"一行两条 = 2 个 occurrence"由 --self-test 的 F5 量纲成对用例钉着,不靠这条文本锁。
+   */
   assert.match(
     body,
-    /new RegExp\(MERGE_NOTE_RE\.source\)/,
-    '注记针必须复用尺子那份 MERGE_NOTE_RE,且逐行判要用非全局副本(带 g 的 .test() 会推进 lastIndex)',
+    /lineNoteCount\(/,
+    '注记的逐行计数必须复用 plan-task-index 那份 lineNoteCount;门内自拼正则 = 第二份实现,必漂移',
+  )
+  assert.equal(
+    /new RegExp\(\s*MERGE_NOTE_RE/.test(body),
+    false,
+    'planStateRegressions 体内不得再重拼 MERGE_NOTE_RE(F5 的读数与额度必须同量纲,见 G-977960 ①)',
   )
   assert.match(
     body,
     /m\.mergeNotes < noteMax - allowed/,
     '判红条件必须是"扣完合法额度仍差" —— 直接比 noteMax 会让每一枚台账收敛在落地闸自杀',
+  )
+})
+
+test('R-O2 量纲锁(G-977960 ①):跨行注记只报名不判红,承载行真消失仍判红', async () => {
+  // 同一条注记横写两行时,`[^〕]` 含换行 ⇒ 整面命中数会随**行序**变化,而逐行额度机器看不见它。
+  // 旧写法拿整面数当份数 ⇒ 一行没少也恒差 N 条且名单为空(实测 622/530/扣 90+3/差 2)。
+  const OPEN = '- [x] ✅(2026-09-20) **CL 跨行注记**:做完了。〔【归并】CL '
+  const CLOSE = '落账:复测 2026-09-26: 取证〕'
+  const sides = [
+    [OPEN, CLOSE, OPEN, CLOSE].join('\n') + '\n',
+    'z 无关行\n',
+  ]
+  const reflowed = [OPEN, OPEN, CLOSE, CLOSE].join('\n') + '\n'
+  // A) 行序重排:物理行一条没少 ⇒ 落地闸必须放过(旧口径在这里必红)
+  assert.equal(
+    U.planStateRegressions(reflowed, sides).join(''),
+    '',
+    `A) 重排不得判红,实测 ${JSON.stringify(U.planStateRegressions(reflowed, sides))}`,
+  )
+  // B) 报名行必须同时给出两侧与结果的跨行数,并写明"只报名"
+  const caliber = U.mergeNoteCrossLineCaliber(reflowed, sides)
+  assert.match(caliber, /各侧最多 2 条/, 'B) 量纲行必须报出各侧跨行数,实测:' + caliber)
+  assert.match(caliber, /归并结果 1 条/, 'B) 量纲行必须报出结果跨行数,实测:' + caliber)
+  assert.match(caliber, /只报名,不参与判红/, 'B) 必须写明这一档不参与判红,实测:' + caliber)
+  // C) 承载行真被抹掉 ⇒ 必须判红(换量纲不等于关掉这一维;F5c 是这条改动的下限)
+  const lostCarrier = U.planStateRegressions(OPEN + '\n', sides)
+  assert.ok(
+    lostCarrier.some((x) => x.startsWith('F5c')),
+    `C) 承载跨行注记的行消失必须判红并点名,实测 ${JSON.stringify(lostCarrier)}`,
+  )
+  // D) 反向对照:同一族注记原样归并 ⇒ 不得判红(允许少带份数,不允许带走注记的行)
+  assert.equal(
+    U.planStateRegressions(sides[0], sides).join(''),
+    '',
+    `D) 原样归并不得判红,实测 ${JSON.stringify(U.planStateRegressions(sides[0], sides))}`,
+  )
+  // E) 读数出口:auditPlan 必须同时给出"整面命中数"与"逐行可判档",少一档 = 上面的量纲比较失去同源
+  const idxMod = await import('../lib/plan-task-index.mjs')
+  const u = idxMod.mergeNoteUnits(sides[0])
+  assert.equal(
+    `${u.total}/${u.lineAttributable}/${u.crossLine}`,
+    '2/0/2',
+    `E) 跨行那族必须是 total=2 · 逐行=0 · 跨行=2,实测 ${JSON.stringify(u)}`,
   )
 })
 
