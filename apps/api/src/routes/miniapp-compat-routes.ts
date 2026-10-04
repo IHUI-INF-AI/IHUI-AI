@@ -29,7 +29,7 @@ import { eq, and, or, desc, asc, sql, ilike, gte, lt } from 'drizzle-orm' // 新
 import { success, error } from '../utils/response.js'
 import { checkAuth } from '../plugins/auth.js'
 import { db, dbRead } from '../db/index.js'
-import { findPublishedVideoFeed } from '../db/learn-queries.js'
+import { findPublishedVideoFeed, findLatestStudyPlanId } from '../db/learn-queries.js'
 import {
   lessons,
   lessonChapters,
@@ -824,11 +824,14 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
       continuousDays = prevStreak + 1
     }
 
+    // studyPlanId:该用户最近更新的学习计划;没有计划则落 NULL(正常态,读侧回落课程名)
+    const studyPlanId = await findLatestStudyPlanId(userId)
     const [inserted] = await db
       .insert(lessonSignUps)
       .values({
         userId,
         lessonId: parsed.data.lessonId,
+        studyPlanId,
         status: 1,
         progress: 0,
       })
