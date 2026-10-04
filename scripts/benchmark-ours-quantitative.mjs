@@ -124,7 +124,8 @@ writeFileSync(join(ROOT, OUT), md, 'utf8')
 // (幂等判据:同一份输入连续生成两次,文件的 git hash 必须不变 —— 见本文件的 --self-test 之外的实跑核对。)
 execFileSync(process.execPath, [join(ROOT, 'scripts', 'watermark.mjs'), 'inject', join(ROOT, OUT)], {
   cwd: ROOT,
-  stdio: 'pipe',
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  stdio: 'ignore',
   windowsHide: true,
   timeout: 120000,
 })
