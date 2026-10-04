@@ -1289,4 +1289,140 @@ test('形状锁:dump 旗标取值单点化,旧的两行裸索引形态不得回�
   const guardHits = src.match(/startsWith\('-'\)/g) || []
   assert.equal(guardHits.length, 1, '"不以 - 开头"判据只许写在唯一出口一处(两处各抄一份必漂移)')
 })
+
+// ═══════════════════════════════════════════════════════════
+// 35–37. 盲区点名(P1 扩面票的收尾,2026-10-05)
+//   票面铁律:"报数必须报名 —— 否则读者不知道哪一行是盲区"。改动前 `未判定(有传输口却抽不出
+//   路径) 504 个文件` 只有总数与每端计数,**一处名字都没有** ⇒ 扩面扩到的端只量到"没红",
+//   量不到"看不见的是哪一型"。这三例钉住:①点名真的发生 ②点名与计数共用同一份判据
+//   ③点名永不判红(它是"没看清",不是"有问题")。
+// ═══════════════════════════════════════════════════════════
+
+// ─── 35. 行为:mobile-rn 的"传输口在、路径抽不出"必须被逐条点名(§22c:输入逐字取自 HEAD 面真文件) ──
+// 夹具里 `fetch(\`${API_BASE_URL}/api/crash-reports\`, {` 这一行**逐字抄自 HEAD 面
+// `apps/mobile-rn/index.js:46`**(`git show HEAD:apps/mobile-rn/index.js`,2026-10-05 现读)——
+// 它正是本门看不见的那一型:传输口是裸 `fetch(`,路径前缀由变量插值给出,`pathRe` 要求引号紧邻
+// `/api/` ⇒ 一条都不进调用集。真仓 HEAD 全量档现读:这一型("传输口在代码里而路径抽不出")
+// 全仓 67 个文件,其中 mobile-rn 15 / web 33 / cli 8 / miniapp-taro 6 / api-client 3 / extension 2。
+test('盲区点名:mobile-rn「传输口在、路径抽不出」的文件必须逐条报名(HEAD 面真形态)', () => {
+  const dir = createTempRoot()
+  try {
+    writeFile(dir, 'apps/api/src/routes/x.ts', `server.get('/api/nothing', async () => {})`)
+    writeFile(
+      dir,
+      'scripts/api-routes-baseline.json',
+      baselineWith({}), // 空基线 = 该端存量为 0 ⇒ 棘轮有牙:本例若被误判成死调用就会 exit 1
+    )
+    writeFile(
+      dir,
+      'apps/mobile-rn/index.js',
+      [
+        "const { ErrorUtils } = require('react-native')",
+        "  const { API_BASE_URL } = require('./src/lib/config')",
+        "  if (ErrorUtils && typeof ErrorUtils.setGlobalHandler === 'function') {",
+        '    const defaultHandler = ErrorUtils.getGlobalHandler()',
+        '    ErrorUtils.setGlobalHandler((error, isFatal) => {',
+        '      try {',
+        '        const msg = error && error.message ? String(error.message) : String(error)',
+        '        fetch(`${API_BASE_URL}/api/crash-reports`, {',
+        "          method: 'POST',",
+        "          headers: { 'Content-Type': 'application/json' },",
+        '        })',
+        '      } catch {}',
+        '    })',
+        '  }',
+        '',
+      ].join('\n'),
+    )
+    const r = runScript(dir)
+    assert.equal(
+      r.status,
+      0,
+      `盲区站点只报名、不判红(看不清不是有问题;判红=恒红门)\nstdout: ${r.out}`,
+    )
+    assert.match(r.out, /未判定调用形态 1 个文件/, '总数必须照样给(计数口径一字未改)')
+    assert.match(r.out, /mobile-rn:盲区文件 1 个/, '每端必须给自己那一份数字')
+    assert.match(
+      r.out,
+      /apps\/mobile-rn\/index\.js:\d+/,
+      '必须点到 文件:行 —— 只给端名与数字就是"报数不报名"(行号由夹具排版决定,不钉死)',
+    )
+    assert.match(
+      r.out,
+      /apps\/mobile-rn\/index\.js:\d+ .*API_BASE_URL.*\/api\/crash-reports/,
+      '点名的那一行必须带原文(读者要看得见是什么形态)',
+    )
+    assert.match(
+      r.out,
+      /传输口形态 fetch\(/,
+      '必须给传输口形态 tally(同一份 TRANSPORT_RE 的命中 token)',
+    )
+    assert.match(
+      r.out,
+      /传输口在代码里而路径抽不出"1 个文件/,
+      '必须把"疑似真调用"与 import 语句/注释态分开(否则 504 这个数读起来像在告警)',
+    )
+  } finally {
+    destroyTempRoot(dir)
+  }
+})
+
+// ─── 36. 反证:只有 import 语句的文件不得被说成"调用点看不见"(标签必须分得开) ──
+test('盲区点名:import 语句与注释态必须被贴上标签,不得混进"调用点看不见"', () => {
+  const dir = createTempRoot()
+  try {
+    writeFile(dir, 'apps/api/src/routes/x.ts', `server.get('/api/nothing', async () => {})`)
+    writeFile(dir, 'scripts/api-routes-baseline.json', baselineWith({}))
+    writeFile(
+      dir,
+      'apps/mobile-rn/src/api/only-import.ts',
+      "import { getMe } from '@ihui/api-client'\nexport type { PageData } from '@ihui/api-client'\n",
+    )
+    const r = runScript(dir)
+    assert.equal(r.status, 0, `import 型不是死调用,不得判红\nstdout: ${r.out}`)
+    assert.match(r.out, /盲区文件 1 个/, 'import 型仍计入计数(口径不变)—— 但必须被标出来')
+    assert.match(
+      r.out,
+      /import\/export 语句\(路径住在被引模块内\)/,
+      '命中来自 @ihui/api-client 的 import 支时必须标成 import 型',
+    )
+    assert.match(
+      r.out,
+      /传输口在代码里而路径抽不出"0 个文件/,
+      '"调用点看不见"的文件数必须与 import/注释型分开(混起来就是把 177 个 import 读成 177 个嫌疑)',
+    )
+  } finally {
+    destroyTempRoot(dir)
+  }
+})
+
+// ─── 37. 形状锁:点名必须复用 TRANSPORT_RE 本体,不得抄第二份判据(§22c:只判形状) ──
+test('形状锁:盲区点名共用 TRANSPORT_RE,且登记与计数同一分支(两处各算一遍必漂移)', () => {
+  const src = readFileSync(SCRIPT_PATH, 'utf8')
+  assert.match(
+    src,
+    /new RegExp\(TRANSPORT_RE\.source,\s*TRANSPORT_RE\.flags \+ 'g'\)/,
+    '逐行取站点必须用 TRANSPORT_RE 派生的 /g 副本,不是手抄的第二张正则',
+  )
+  assert.match(
+    src,
+    /st\.shapeUnknown\+\+\n\s*shapeUnknownSites\.push\(collectShapeUnknownSites\(rel, end, src\)\)/,
+    '登记必须落在**计数的那一条分支里**(分开写就会出现"计了没报名"或"报了没计")',
+  )
+  const fnStart = src.indexOf('function collectShapeUnknownSites')
+  const fn = src.slice(fnStart, src.indexOf('/** 取不到内容的**前端代码文件**'))
+  assert.ok(fnStart > 1000 && fn.length > 400, 'collectShapeUnknownSites 必须切得出来')
+  // 点名函数的**代码面**(遮掉注释后)只许"用"判据,不许"再写一遍"判据:
+  // 传输口字面量一处都不许出现在它的代码里 —— 两处实现必漂移(本仓最常教的一条)。
+  const fnCode = maskComments(fn)
+  for (const token of ['Taro', 'XMLHttpRequest', 'axios', 'fetchApi']) {
+    assert.doesNotMatch(
+      fnCode,
+      new RegExp(token),
+      `点名函数的代码里不得出现第二处传输口字面量(${token})`,
+    )
+  }
+  assert.match(fnCode, /TRANSPORT_RE_G/, '点名必须走派生的那份正则')
+  assert.match(src, /maskComments\(src\)\.split\('\\n'\)/, '注释态标签必须引 lib 的遮罩(不得自造)')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
