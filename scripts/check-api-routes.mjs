@@ -62,6 +62,14 @@ const AI_SERVICE_API_DIR = 'apps/ai-service/app/api'
 const SERVER_FILE = 'apps/api/src/server.ts'
 const AI_SERVICE_MAIN_FILE = 'apps/ai-service/app/main.py'
 const IGNORE_FILE_REL = '.check-api-routes-ignore.json'
+/**
+ * Next.js rewrite 规则面(2026-10-04 新增判据的**唯一**取材点)。
+ * 只读它、绝不改它(§"只改 scripts/")。为什么必须读它而不是在前门里抄两条前缀:
+ * `continue` 的正当性完全取决于"web 端真有这条 rewrite 把该前缀转发到 ai-service",
+ * 而那是 next.config.ts 的**事实**;抄成硬编码前缀 = 把事实抄成断言,规则被删时门仍装看不见
+ * (2026-10-04 本票的原始病根:规则删了、门还绿、路径已真 404)。
+ */
+const NEXT_CONFIG_REL = 'apps/web/next.config.ts'
 /** 三端首次纳入的死调用棘轮基线(锚点 = 该文件在基线里的存量数,新增才判红) */
 const BASELINE_FILE_REL = 'scripts/api-routes-baseline.json'
 
@@ -1668,6 +1676,358 @@ function inferMethodAtLine(lines, idx) {
 const LINE_TRANSPORT_RE =
   /\bfetchApi(?:<[^<>]*>)?\s*\(|\bfetch(?:<[^<>]*>)?\s*\(|Taro\.request|\bwx\.request|\bmy\.request|\btt\.request|XMLHttpRequest|axios\.|\brequest(?:<[^<>]*>)?\s*\(/
 
+/**
+ * ============================================================================
+ * next rewrites 转发面:从 `apps/web/next.config.ts` **真读**出来的判据
+ * ============================================================================
+ *
+ * ## 为什么必须读,不能在前门抄前缀(本票的原始病根)
+ * 改前这里有两行 `continue`,注释写着"走 Next.js rewrite 到 ai-service":
+ *   `if (!cliShapes && rawPath.startsWith('/api/llm/')) continue`
+ *   `if (!cliShapes && rawPath.startsWith('/api/voice/')) continue`
+ * 那是**人工断言**,不是判据。断言与事实脱钩的后果是"规则删了门还装看不见":
+ * 哪天有人从 next.config.ts 删掉 `/api/llm/:path*` 那条 rewrite,这两行**照样跳过**
+ * ⇒ 门继续绿,而 `/api/llm/*` 在生产已真的 404(8802 无该路由 ⇒ 落到 8802 兜底后 404)。
+ * 判据与被它断言的那个文件之间必须有一条**读取边**,否则删规则这件事永远不触发本门。
+ *
+ * ## 分面在**取值处**做,不在匹配处做(本票硬要求)
+ * `next.config.ts` 里两类 destination 常量都往 `/api/*` 上落:
+ *   · `IHUI_AI_PROXY_TARGET`(默认 8803,ai-service)= **别的进程**,本门静态面看不见它,
+ *     所以这类前缀的调用点**不进对账**(与既���「不透明挂载未判定」同口径:不判死、只报)。
+ *   · `IHUI_API_PROXY_TARGET`(默认 8802,apps/api 自己)= **就是本门的对账对象**。
+ *     ⚠️ 8802 面里有一条 `source: '/api/:path*'` 兜底(现读 `next.config.ts:712`),
+ *     它覆盖**全仓每一个 `/api/*`**。若把它当成"已验面",本门主面就被自己豁免掉了 ——
+ *     全仓任意 `/api/whatever` 都不会再进对账,那不是修好,是把门打瞎。
+ * 所以 `parseNextRewriteForwardFaces` 一进函数就**按 destination 的目标常量把每条规则
+ * 归面**(ai / api / other),`forwardedPrefixes` 只装 ai 面。匹配函数**只面对已分面的集合**,
+ * 它自己不知道也不需要知道 destination —— 分面责任全在取值处(守门 8 同型:
+ * 同一条判据在两处各抄一遍必然漂移)。
+ */
+
+/** next.config.ts 里两条 destination 目标常量的**字面**判别式(取值处专用) */
+const REWRITE_TARGET_AI = 'IHUI_AI_PROXY_TARGET' // ai-service 进程(非 apps/api)
+const REWRITE_TARGET_API = 'IHUI_API_PROXY_TARGET' // apps/api 进程(= 本门对账对象)
+
+/**
+ * 一条 next `source` 模式 → 段序列。`/api/llm/:path*` ⇒ `['api','llm',':path*']`。
+ * 前导 `/` 产生的空段被切掉(切的是**首段**那个空,不是尾段 —— 尾段空有语义,见下)。
+ */
+function rewriteSourceSegments(source) {
+  const segs = String(source).split('/')
+  if (segs.length > 0 && segs[0] === '') segs.shift()
+  // 末尾斜杠:Next.js 的 source 写不写都能匹配同一条路径,归一掉免得两形态各判一次
+  while (segs.length > 0 && segs[segs.length - 1] === '') segs.pop()
+  return segs
+}
+
+/**
+ * 一条 `source` 模式能否命中一条调用路径 —— **双向语义**:
+ *   形态         命中                          不命中
+ *   `:path*`     `/api/llm` `/api/llm/x` `/api/llm/x/y`   `/api/llmx` `/api/voice/x` `/api`
+ *   `:path+`     `/api/llm/x` `/api/llm/x/y`               `/api/llm`(零段不合 +)
+ *   `:path?`     `/api/llm` `/api/llm/x`                   `/api/llm/x/y`
+ *   `:param`     `/api/llm/x`(恰好一段)                    `/api/llm` `/api/llm/x/y`
+ *   精确字面段   `/api/llm/chat`                           `/api/llm/chat/x` `/api/llmx`
+ *
+ * ⚠️ **前缀必须按整段比,不能 `startsWith`**:`:path*` 的语义是"吃掉 0..N 个**完整**段",
+ * 而 `'/api/llmx'.startsWith('/api/llm')` 为真 —— 那是把 `llmx` 读成 `llm` + 后缀,
+ * 会把 `/api/llmxxx` 整族误判成已转发。`:path*` 收在**末段**时(本仓 39/53 条都是这种)
+ * "前缀 + 任意尾部"等价于按段前缀比,所以实现上按段处理天然正确。
+ *
+ * 返回命中的那条 `source`(便于报告点名是哪条规则给了豁免),不命中返回 null。
+ */
+function matchRewriteSource(source, callPath) {
+  const s = rewriteSourceSegments(source)
+  const p = rewriteSourceSegments(callPath)
+  // Next.js 的 source 不含捕获组语法(实测本仓 53 条 ai 面 + 4 条 api 面:
+  // 参数形态只有 `:path*`(39)与 `:param`(7),零条带内联正则/自定义 pattern)。
+  // 见到未知形态(段内含 `(` 或 `:` 之外的花括号)⇒ **不猜**,返回 null。
+  //   后果方向是"不豁免 ⇒ 路径进对账 ⇒ 至多误报,绝不漏报";与 parseNextRewriteForwardFaces
+  //   的 unknownSource 计数一起报告,不会静默。
+  const norm = []
+  for (const seg of s) {
+    if (seg === '') return null
+    if (seg.startsWith(':')) {
+      const m = seg.match(/^:([A-Za-z0-9_]+)([*+?]?)$/)
+      if (!m) return null
+      norm.push({ param: m[1], mod: m[2] || '' })
+    } else {
+      if (/[(){}]/.test(seg)) return null
+      norm.push({ lit: seg })
+    }
+  }
+  // 逐段回溯(段数极小,无性能顾虑):`i` 走模式,`j` 走路径
+  //
+  // ⚠️ `take` 的上界是**剩余段数** `p.length - j`,不是 `j`(2026-10-04 首版写错成 `j`,
+  // 被 A/B 逐条对照当场抓住:`/api/llm/fim/metrics/summary` 是 5 段、`j` 到 llm 时只有 2,
+  // 上界被压成 2 ⇒ `:path*` 最多吃 2 段 ⇒ 4 段真调用点漏豁免、调用集 2753 → 2754)。
+  // 这类"上界写错 ⇒ 少豁免 ⇒ 多对账"的方向是安全的(至多误报),但仍必须钉死。
+  const walk = (i, j) => {
+    if (i === norm.length) return j === p.length
+    const item = norm[i]
+    if ('lit' in item) return j < p.length && p[j] === item.lit && walk(i + 1, j + 1)
+    // 参数段:`*` 吃 0..N,`+` 吃 1..N,`?` 吃 0..1,裸 `:p` 吃恰好 1
+    const avail = p.length - j
+    let lo
+    let hi
+    if (item.mod === '') {
+      lo = 1
+      hi = 1
+    } else if (item.mod === '?') {
+      lo = 0
+      hi = Math.min(1, avail)
+    } else if (item.mod === '+') {
+      lo = 1
+      hi = avail
+    } else {
+      lo = 0
+      hi = avail
+    }
+    for (let take = lo; take <= hi; take++) {
+      if (walk(i + 1, j + take)) return true
+    }
+    return false
+  }
+  return walk(0, 0) ? String(source) : null
+}
+
+/**
+ * 从 `apps/web/next.config.ts` 文本解析出「由 next rewrites 转发到**非 apps/api** 目标」
+ * 的 source 前缀集合。**分面在取值处完成**(见本节顶部「分面在取值处做」)。
+ *
+ * 返回 `{ read, forwardedPrefixes, selfFacePrefixes, otherRules, unknownSource }`:
+ *  · `forwardedPrefixes`   ai 面(IHUI_AI_PROXY_TARGET)—— 唯一可用来豁免的集合
+ *  · `selfFacePrefixes`    api 面(IHUI_API_PROXY_TARGET)—— **只登记,永不豁免**(见顶部 ⚠️)
+ *  · `otherRules`          destination 既非两个常量(如字面 `http://localhost:80/...`)——
+ *                          无法归属任一面 ⇒ 不豁免,并在报告里点名
+ *  · `unknownSource`       source 形态判据认不出的条数(不猜 ⇒ 不豁免)
+ *  · `read=false`          文件取不到(见 `nextRewriteExemption` 的降级口径)
+ *
+ * 判据必须只认**字面**的 `source: '...'` / `destination:` 对象字面量形态:next.config.ts 里
+ * 唯一的另一种 `source` 在 `headers()`(`source: '/(.*)'`),它没有 `destination`,
+ * 配对不上自然落空 —— 这就是为什么这里按"source 行 + 其后 4 行内找 destination"配对,
+ * 而不是全文扫 destination。
+ */
+function parseNextRewriteForwardFaces(src) {
+  const out = {
+    read: false,
+    forwardedPrefixes: [],
+    selfFacePrefixes: [],
+    otherRules: [],
+    unknownSource: 0,
+  }
+  if (src === null || src === undefined) return out
+  out.read = true
+  const lines = String(src).split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^\s*source:\s*'([^']*)'\s*,?\s*$/)
+    if (!m) continue
+    const source = m[1]
+    // 配对 destination:本仓形态是紧邻下一行;容 4 行是为 `destination` 折行的写法留余地。
+    // 撞上 `}` 提前收口 ⇒ 这是非 rewrite 规则(headers 里的 source),不算。
+    let dest = null
+    for (let j = i + 1; j < Math.min(lines.length, i + 5); j++) {
+      const d = lines[j].match(/destination:\s*(.+?),?\s*$/)
+      if (d) {
+        dest = d[1]
+        break
+      }
+      if (/^\s*\},?\s*$/.test(lines[j])) break
+    }
+    if (dest === null) continue
+    if (dest.includes(REWRITE_TARGET_API)) {
+      // apps/api 自己 = 本门对账对象。这条**只登记不豁免**;`/api/:path*` 兜底就在这里。
+      out.selfFacePrefixes.push(source)
+    } else if (dest.includes(REWRITE_TARGET_AI)) {
+      // 未知形态计数放在这里而不是匹配处:分面已定,剩下的只是"这条 source 认不认得"
+      if (rewriteSourceSegments(source).some((seg) => seg === '')) out.unknownSource++
+      out.forwardedPrefixes.push(source)
+    } else {
+      out.otherRules.push({ source, destination: dest })
+    }
+  }
+  return out
+}
+
+/**
+ * 判据的**策略面**:本门声明"愿意为这两条前缀放弃对账"。
+ * 它是政策(改前就写死在那两行 `continue` 里,本票不动它),不是事实 —— 事实由
+ * `parseNextRewriteForwardFaces` 从 next.config.ts 读出,并由 `corroborateExemptionPrefixes`
+ * 逐条给出"这条策略今天还成立吗"的裁定。
+ *
+ * 为什么策略面**不**改成"ai 面 53 条全豁免"(实测否证,数据见 `rewriteExemption` 处注释):
+ * 那会让 101 条真调用点退出对账、2 条「不透明挂载未判定」消失,而死调用仍是 0 ——
+ * 那一格从"判过且为 0"变成"看不见",是净失明。
+ */
+const REWRITE_EXEMPTION_CLAIMS = ['/api/llm/:path*', '/api/voice/:path*']
+
+/**
+ * 把一条 source 编译成段模式数组;形态认不出返回 null(不猜)。
+ * `['api','llm',':path*']` ⇒ `[{lit:'api'},{lit:'llm'},{param:'*'}]`
+ */
+function compileRewriteSource(source) {
+  const out = []
+  for (const seg of rewriteSourceSegments(source)) {
+    if (seg.startsWith(':')) {
+      const m = seg.match(/^:([A-Za-z0-9_]+)([*+?]?)$/)
+      if (!m) return null
+      out.push({ param: m[2] || '' })
+    } else {
+      if (!/^[A-Za-z0-9_.~-]+$/.test(seg)) return null
+      out.push({ lit: seg })
+    }
+  }
+  return out
+}
+
+/**
+ * 策略前缀 P 今天是否仍被 ai 面某条 source S 覆盖 —— 即"S 转发的那片路径包含 P 那片"。
+ *
+ * ## 判法:段模式的双游标包含判定(不是探针近似)
+ * 探针法(拿一两条样本路径去试)在这里**两个方向都会漂**,实测两个反例:
+ *  ① **收紧方向**:claim `/api/llm/:path*` 的探针 `/api/llm/chat` 与 `/api/llm/chat/x`,
+ *     精确路径 `/api/llm/chat` 两条都命中 ⇒ 探针法把"精确更窄"判成覆盖
+ *     ⇒ 免掉本该对账的路径。
+ *  ② **放宽方向**(更危险):同样那两条探针,`/api/llm/:path?` 也全都命中
+ *     ⇒ 探针法把"只覆盖一段"判成覆盖 `:path*` ⇒ 多段路径被豁免 ⇒ 门装看不见。
+ * 两个方向都会漂,所以改成在**段**这一层做语言包含(L(P) ⊆ L(S))。
+ *
+ * 包含判定:两个游标 i(P)/ j(S)同步走。段语言宽度表(`*` = Σ*,`+` = Σ+,`?` = Σ∪{ε},
+ * 裸 = Σ,字面 = 单个固定值):
+ *   · S 该位是**无界**位(`*` / `+`)⇒ 它能吃任意值的任意段数。
+ *     若它已是 S 的**末段** ⇒ P 剩下的全部(字面段与参数段都算)都被它吃掉 ⇒ 覆盖成立;
+ *     若它**后面还有段**(如 `/api/:p*` 后面再跟一个字面段)⇒ 交错咬合不做判定,
+ *     落"不覆盖"(保守方向)。
+ *   · P 该位是**无界**位(`*` / `+`)⇒ S 该位必须**也是无界**位。
+ *     `:p?` 与裸 `:p` 都**不算** —— 这一格就是上面探针法②翻车的那一格。
+ *   · P 是字面段 ⇒ S 该位是同值字面,或任意形态的参数段(参数取任意值)。
+ *   · P 是有界参数段(裸 `:p` / `:p?`)⇒ S 该位必须是参数段;
+ *     S 是字面段则**不覆盖**(固定值盖不住"任意一段")。
+ * P 走完 ⇒ 覆盖(S 可以更宽);S 走完而 P 仍有剩余 ⇒ 不覆盖。
+ * 任一侧形态认不出 ⇒ **不覆盖**。方向恒为"不豁免 ⇒ 进对账 ⇒ 至多误报,绝不漏报"。
+ */
+function rewriteSourceCoversClaim(faceSource, claim) {
+  const P = compileRewriteSource(claim)
+  const S = compileRewriteSource(faceSource)
+  if (P === null || S === null) return false
+  const isUnbounded = (seg) => 'param' in seg && (seg.param === '*' || seg.param === '+')
+  let i = 0
+  for (let j = 0; j < S.length; j++) {
+    if (i === P.length) return true // P 走完 ⇒ S 剩余部分不影响包含关系
+    const p = P[i]
+    const s = S[j]
+    if (isUnbounded(s)) {
+      // 末位无界 ⇒ 一口吃掉 P 剩下的全部;非末位无界 ⇒ 交错咬合不判定(保守判不覆盖)
+      if (j === S.length - 1) return true
+      return false
+    }
+    if ('param' in p && (p.param === '*' || p.param === '+')) {
+      // P 无界而 S 该位有界 ⇒ 覆盖不了(这一格是探针法②翻车处)
+      return false
+    }
+    if ('lit' in p) {
+      if ('lit' in s) {
+        if (s.lit !== p.lit) return false
+      }
+      // s 是有界参数段 ⇒ 任意值可匹配该字面段,算满足
+    } else if ('lit' in s) {
+      return false // P 要"任意一段"而 S 是固定字面 ⇒ 盖不住
+    }
+    i++ // s 吃恰好一段
+  }
+  return i === P.length
+}
+
+/**
+ * 逐条裁定策略面:策略前缀在 ai 面里**有**覆盖面才留,没有就丢掉。
+ * 丢掉 ⇒ 该前缀的路径重新进对账 —— 这正是本票要的收益(规则被删 ⇒ skip 自动失效)。
+ * 返回 `{ kept, dropped }`,`dropped` 带理由供报告点名。
+ */
+function corroborateExemptionPrefixes(claims, forwardedPrefixes) {
+  const kept = []
+  const dropped = []
+  for (const claim of claims) {
+    const hit = forwardedPrefixes.find((s) => rewriteSourceCoversClaim(s, claim))
+    if (hit !== undefined) kept.push(claim)
+    else dropped.push({ claim, reason: 'next.config.ts 的 ai-service 转发面里已无覆盖该前缀的规则' })
+  }
+  return { kept, dropped }
+}
+
+/**
+ * 读 next.config.ts 并算出「本门对账面里哪些 `/api/*` 前缀由 next rewrites 转发到非 apps/api 目标」。
+ *
+ * ## T5 这一格最易出事:文件读不到时的口径
+ * 三种可能口径里,**"静默当成没有转发面"与"静默当成全部已验"都排除**:
+ *  · 静默当成没有转发面 ⇒ 全部路径突然进对账 ⇒ 存量恒红(§12e:与本票无关的红只会逼人 `--no-verify`)
+ *  · 静默当成全部已验 ⇒ 门回到"规则删了也不响"的老病根
+ * 采用的第三种:**退回本票改前的字面前缀集(与改前逐字同形),并显式报告降级**。
+ * 降级既不是"没判"(它继续按改前的口径判)也不是"已判干净"(报告里点名说明用的是兜底集),
+ * 而是既有「不透明挂载未判定」桶同款的第三态:**显式未判定**。
+ * 报告行无条件打印(读到与否都打),因为"这一格今天读到了还是没读到"本身就是要被看见的事实。
+ *
+ * 为什么不直接 exit 2:next.config.ts 缺失/取不到属于"判定面不完整",而 exit 2 在本脚本里
+ * 专指**取材层**(git blob)失败;把单份配置文件的缺失升级成 exit 2 会让任何还没建出
+ * `apps/web/next.config.ts` 的夹具与 `--probe-ends` 冒烟一律 exit 2(实测 `--self-test`
+ * 13 例端到端夹具里只有 3 例带 next.config.ts,其余 10 例会当场全灭)。
+ */
+function nextRewriteExemption() {
+  const fallback = {
+    degraded: true,
+    reason: null,
+    forwarded: REWRITE_EXEMPTION_CLAIMS.slice(),
+    corroborated: REWRITE_EXEMPTION_CLAIMS.slice(),
+    dropped: [],
+    selfFace: [],
+    otherRules: [],
+    unknownSource: 0,
+  }
+  let src = null
+  try {
+    src = readSource(NEXT_CONFIG_REL)
+  } catch {
+    // 未经 prefetch 就取材(顺序写错)—— 与 Undetermined 同口径,不静默
+    return { ...fallback, reason: `${NEXT_CONFIG_REL} 未经 prefetch 就取材(取材顺序错了)` }
+  }
+  if (src === null || src === undefined) {
+    return { ...fallback, reason: `${NEXT_CONFIG_REL} 在本判定面上取不到内容` }
+  }
+  const faces = parseNextRewriteForwardFaces(src)
+  // 读到了但一条都解析不出 ⇒ 同样是"判不出",走同一个降级出口(不是"没有转发面")
+  if (faces.forwardedPrefixes.length === 0 && faces.selfFacePrefixes.length === 0) {
+    return {
+      ...fallback,
+      reason: `${NEXT_CONFIG_REL} 读到了但解析不出任何 source/destination 规则对(形态变了?)`,
+    }
+  }
+  const { kept, dropped } = corroborateExemptionPrefixes(
+    REWRITE_EXEMPTION_CLAIMS,
+    faces.forwardedPrefixes,
+  )
+  return {
+    degraded: false,
+    reason: null,
+    forwarded: faces.forwardedPrefixes,
+    corroborated: kept,
+    dropped,
+    selfFace: faces.selfFacePrefixes,
+    otherRules: faces.otherRules,
+    unknownSource: faces.unknownSource,
+  }
+}
+
+/**
+ * 这条 rawPath 是否落在「已裁定的 next rewrites 转发豁免面」内。
+ * 判据集合是 `corroborated`(策略面 ∩ ai 覆盖面),**不是** `forwarded`(ai 面全 53 条)——
+ * 后者会把 101 条真调用点赶出对账面,理由与实测见 `rewriteExemption` 处注释。
+ */
+function isNextRewriteForwardedPath(rawPath, exemption) {
+  for (const claim of exemption.corroborated) {
+    if (matchRewriteSource(claim, rawPath) !== null) return true
+  }
+  return false
+}
+
 function extractFrontendCalls(src, file, opts) {
   const cli = opts && opts.cli ? opts.cli : null
   const cliShapes = Boolean(opts && opts.cliShapes)
@@ -1730,15 +2090,22 @@ function extractFrontendCalls(src, file, opts) {
       // 把片段当调用 = 凭空造一条谁都没发过的请求(实测 capabilities.ts 的 4 条真调用之上
       // 会多出一条 `/api/v1/ai/capabilities`)。只对 cli 端生效,其余端行为一字不变。
       if (cli && cli.fragmentLines.has(idx + 1)) continue
-      // 下面两条 skip 的前提是「Next.js rewrite 把该前缀转发到 ai-service」——那是 **web 端**的
-      // 部署形态。apps/cli 是直连后端进程(resolveBaseUrl 默认 http://localhost:8802),
-      // 同一条字面量在 cli 侧就是一次真实调用,跳过 = 判据对整族隐身(实测 models.ts:242)。
-      // /api/llm/* 走 Next.js rewrite 到 ai-service (port 8000)，不在 API 路由检查范围
-      if (!cliShapes && rawPath.startsWith('/api/llm/')) continue
-      // /api/voice/* 走 Next.js rewrite 到 ai-service 8803(2026-08-31 新增),
-      // 与 /api/llm/ 同类——ai-service 路由由 router 扫描覆盖,此处纯字面量(如
-      // voice-input.tsx STT_ENDPOINT 常量)会误报 GET /api/voice/stt
-      if (!cliShapes && rawPath.startsWith('/api/voice/')) continue
+      // ── next rewrites 转发面豁免(2026-10-04:判据从 next.config.ts **真读**出来)──
+      //
+      // 改前这里是两行硬编码 `rawPath.startsWith('/api/llm/')` / `('/api/voice/')`,外加一句
+      // 关于"这些前缀会被转发到 ai-service"的人工断言(原话留档在 parseNextRewriteForwardFaces
+      // 顶部的变更说明里)。断言不是判据:把 `/api/llm/:path*` 那条 rewrite 从 next.config.ts
+      // 删掉,那两行**照样跳过** ⇒ 门继续装看不见,而生产已真 404。
+      //
+      // 现在的判据:`isNextRewriteForwardedPath` 逐条问「这条 rawPath 是否落在**从
+      // apps/web/next.config.ts 读出的** ai-service(非 apps/api)转发面内」。
+      // 面本身由 `parseNextRewriteForwardFaces` 在**取值处**按 destination 目标常量分面,
+      // 8802(apps/api 自己,含 `/api/:path*` 兜底)那面**永不参与豁免**(详见该函数顶部 ⚠️)。
+      // ⇒ 规则被删时 skip 自动失效、路径重新进对账,这正是本票要的收益。
+      //
+      // `!cliShapes` 保留原口径:apps/cli 直连后端进程(8802),next rewrites 是 **web 端**的
+      // 部署形态,web 的转发规则替不了 cli 的实际去向(实测 models.ts:242)。
+      if (!cliShapes && isNextRewriteForwardedPath(rawPath, rewriteExemption)) continue
       // `:param` 假影(2026-10-04):字面量里粘着模板串插值,且插值**不是**查询串构造器
       // ⇒ 归一后会造出 `all:param` / `ai-tutor:param` 这种**谁都没发过的段**
       // (运行期真实 URL 是 `/api/subagents/all` 或 `/api/ai-tutor/explain`)。
@@ -3261,6 +3628,10 @@ const baseInputs = new Set([
   AI_SERVICE_MAIN_FILE,
   IGNORE_FILE_REL,
   BASELINE_FILE_REL,
+  // next rewrites 转发面的判据输入:必须与其余内容**同面同轮**读满(理由同 CLIENT_TRANSPORT_FILE)。
+  // 不进 listFace ⇒ 不受 isIgnoredSourceFile 那条"next.config.* 是 rewrite 规则不是调用点"影响
+  // (那条只该挡它在**前端调用面**里被当调用点,与此处作为**判据输入**是两件事)。
+  NEXT_CONFIG_REL,
   // 通道等价维的三份输入:①归一实现、通道守卫面(整目录已在下一行)、首锚台账。
   // 必须与其余内容**同面同轮**读满 —— 分开取会产出自洽而基准错位的尺子(守门 101/116 同型)。
   CLIENT_TRANSPORT_FILE,
@@ -3271,6 +3642,22 @@ const baseInputs = new Set([
   ...listFace(AI_SERVICE_API_DIR, ['.py']),
 ])
 prefetch([...frontendRels, ...baseInputs])
+
+/**
+ * next rewrites 转发面(2026-10-04):在**取材完成后**算一次,`extractFrontendCalls` 每条路径来问。
+ * 放在 prefetch 之后是硬要求 —— `readSource` 对"未经 prefetch 就取材"抛 Undetermined,
+ * 提前算就是拿异常当流程控制。
+ *
+ * ⚠️ 为什么**不是**"把 ai 面 53 条前缀全当豁免面":
+ * 量表实测(`--warn-only` + `--dump-missing` 逐条对照,HEAD 面 2,753 → 2,656 调用):
+ * 全量豁免会把 api-client 端 700 → 663、web 端 1,908 → 1,848,合计 **97 条真调用点退出对账面**,
+ * 且**死调用仍为 0** ⇒ 那一格从"判过且为 0"变成"看不见",是净失明而非修好。
+ * 同时 `/api/mcp/export/*` 那 2 条「不透明挂载未判定」会随之消失(它们落在 `/api/mcp/:path*` 内),
+ * 连"本门看不见但已点名"这层兜底都没了。
+ * ⇒ 豁免面**只取改前那两条**(llm / voice),判据换成"该前缀在 next.config 的 ai 转发面内"。
+ * 这样默认档**逐字节不变**(两条规则现读都在 ai 面内),而任一条被删时 skip 自动失效。
+ */
+const rewriteExemption = nextRewriteExemption()
 
 /**
  * ===== CLI 变量路径 import 一跳的目标扩展预读(2026-09-27 判据扩面票) =====
@@ -4130,6 +4517,43 @@ if (opaqueUndetermined.length > 0) {
   for (const c of opaqueUndetermined) {
     console.log(
       `${C.dim}    ${c.method} ${c.path} @ ${c.file}:${c.line} —— 依据:${c.evidence}${C.reset}`,
+    )
+  }
+}
+
+/**
+ * next rewrites 转发面这一格的判据来源(2026-10-04)。
+ *
+ * ## 口径:降级 / 有失效前缀 / 有认不出的形态 ⇒ 无条件报;**读到了且一切如常 ⇒ 一声不吭**
+ * 这一格与本脚本里其他"未判定"桶同口径(守门 127 / 本脚本 OPAQUE_MOUNT_PREFIXES):
+ * **判不出就点名,不判死也不静默**。特别地,读不到时**既不当成"没有转发面"(会让全部路径
+ * 突然进对账、存量恒红,§12e)也不当成"全部已验"(那是本票要拔掉的病根)**,
+ * 而是退回改前的字面前缀集并把降级本身打在脸上。
+ *
+ * ### 为什么"读到了且一切如常"时不打印(这是逐字节不变的必要条件)
+ * 默认档下一旦多印一行,`--warn-only` / `--dump-missing` 的输出就与改前不再逐字相同 ——
+ * 而本票明确要求默认档逐字节不变。**报数不改变任何判定**,所以把"如常"这一档留白是
+ * 零信息损失;真有东西要说(降级 / 策略前缀失效 / 形态认不出)时才是非打印不可,那一档
+ * 恰恰是本票的收益所在(规则被删 ⇒ 立刻响)。
+ *
+ * ## 为什么 8802 面要在"有东西要说"的那一档里带上条数
+ * 那一面含 `source: '/api/:path*'` 兜底(现读 apps/web/next.config.ts:712),覆盖全仓每一个
+ * `/api/*`。它**永不参与豁免**(取值处已按目标常量分面挡掉),但把它报出来是刻意的:
+ * 下一个人若想把"凡是 rewrite 里有的前缀"当豁免面,这一行就是那个决定的即时反证。
+ */
+{
+  const ex = rewriteExemption
+  if (ex.degraded) {
+    console.log(
+      `${C.yellow}[API 路由比对] ⚠️ 未判定(next rewrites 转发面):${ex.reason} ⇒ 本轮退回改前的字面前缀集 ${ex.corroborated.length} 条(${ex.corroborated.join('、')});这一格是**兜底**,不是"已读出转发面"${C.reset}`,
+    )
+  } else if (ex.dropped.length > 0 || ex.unknownSource > 0 || ex.selfFace.length === 0) {
+    // 三个触发条件都是"判据现状与人的默认假设不一致",必须让人看见:
+    //  ① dropped   —— 有策略前缀在 next.config 的 ai 面里已无覆盖(规则被删/改窄)
+    //  ② unknownSource —— 有 source 形态判据认不出,那几条不豁免(可能误报)
+    //  ③ selfFace 为空 —— 那 4 条 apps/api 兜底规则不在了,读数的人会误以为"没有 /api/:path* 兜底"
+    console.log(
+      `${C.yellow}[API 路由比对] ⚠️ next rewrites 转发面(读自 ${NEXT_CONFIG_REL})有需要裁决的一格:ai-service(非 apps/api)面 ${ex.forwarded.length} 条,本门策略面 ${REWRITE_EXEMPTION_CLAIMS.length} 条经覆盖裁定后剩 ${ex.corroborated.length} 条;apps/api 自己那面 ${ex.selfFace.length} 条**永不豁免**${ex.selfFace.length === 0 ? '(⚠️ 连 /api/:path* 兜底都不在了,若本仓仍有依赖该兜底的路径,它们已全部直接进对账)' : '(含 /api/:path* 兜底,拿它当已验面会让全仓 /api/* 免死调用)'}${ex.dropped.length > 0 ? `;**已失效的策略前缀 ${ex.dropped.length} 条:${ex.dropped.map((d) => `${d.claim}(${d.reason})`).join('、')} ⇒ 其下路径已重新进对账**` : ''}${ex.otherRules.length > 0 ? `;destination 非两个目标常量的规则 ${ex.otherRules.length} 条不豁免` : ''}${ex.unknownSource > 0 ? `;source 形态认不出的 ${ex.unknownSource} 条不豁免` : ''}${C.reset}`,
     )
   }
 }
