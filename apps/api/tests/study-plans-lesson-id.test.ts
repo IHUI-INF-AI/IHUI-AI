@@ -25,7 +25,7 @@
  *
  * 测试隔离:全程不连 PostgreSQL —— db 层整体桩掉,且本文件根本不发起任何查询。
  */
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeAll, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
@@ -149,10 +149,26 @@ import { otherRoutes as frontendStubOtherRoutes } from '../src/routes/other/inde
  * 字符串列名(为了让路由层的"过滤了哪一列"可逐字断言),那份桩不是 pgTable,
  * 交给 getTableConfig 会炸。而 schema 内省要的恰恰是**未经桩化的真实列定义**
  * ——"FK 动作是 set null 还是 cascade"只能从运行时列定义里读出来。
+ *
+ * 类型面走**具名** type 导入:`typeof import('@ihui/database')` 这种内联 import() 类型标注
+ * 被本仓 eslint 的 consistent-type-imports 判 forbidden(packages/eslint-config/index.js:44),
+ * 而 lint 是 CI 那扇唯一 required 门里的一步 ⇒ 本文件此前整枚红。键集 = 本文件真的内省到的
+ * 三张表;`vi.mock` 只换运行期导出,不影响类型面。
  */
-async function realSchema() {
-  return (await vi.importActual<typeof import('@ihui/database')>('@ihui/database')) as
-    typeof import('@ihui/database')
+import type {
+  lessonSignUps as lessonSignUpsTable,
+  lessons as lessonsTable,
+  studyPlans as studyPlansTable,
+} from '@ihui/database'
+
+type RealSchema = {
+  lessonSignUps: typeof lessonSignUpsTable
+  lessons: typeof lessonsTable
+  studyPlans: typeof studyPlansTable
+}
+
+async function realSchema(): Promise<RealSchema> {
+  return (await vi.importActual('@ihui/database')) as RealSchema
 }
 
 const HERE = dirname(fileURLToPath(import.meta.url))
