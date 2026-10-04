@@ -14,6 +14,7 @@ import { persist } from 'zustand/middleware'
 // blocked/done 属同词不同义 —— 判据见 scripts/check-agent-status-vocabulary-parity.mjs SV2。
 import { GOAL_STATUSES, type GoalStatus as CanonicalGoalStatus } from '@ihui/types'
 import type { GoalUpdateEvent } from '@ihui/api-client'
+import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 
 import { ssrStorage } from './persist-helpers'
 import { createGoalPersistStorage } from '@/lib/chat-persist-crypto'
@@ -136,13 +137,13 @@ export const useGoalStore = create<GoalState>()(
       setProgress: (progress) =>
         set((s) => {
           if (!s.goal) return s
-          const clamped = Math.min(100, Math.max(0, Math.round(progress)))
+          const clamped = clampPercent(Math.round(progress))
           return { goal: { ...s.goal, progress: clamped, updatedAt: Date.now() } }
         }),
       advance: (delta) =>
         set((s) => {
           if (!s.goal) return s
-          const clamped = Math.min(100, Math.max(0, Math.round(s.goal.progress + delta)))
+          const clamped = clampPercent(Math.round(s.goal.progress + delta))
           return { goal: { ...s.goal, progress: clamped, updatedAt: Date.now() } }
         }),
       addBlocker: (text) =>

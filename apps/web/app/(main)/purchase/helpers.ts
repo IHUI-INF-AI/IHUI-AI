@@ -9,6 +9,8 @@
  * token 一律用紧凑格式(1.2M / 500K),避免长数字撑破卡片。
  */
 
+import { clampPercent } from '@ihui/shared/utils/clamp-percent'
+
 /** 分 → 人民币显示(整数元;不足 1 元保留 2 位小数)。 */
 export function formatCents(cents: number): string {
   const yuan = Number(cents ?? 0) / 100
@@ -52,6 +54,6 @@ export function formatDate(iso: string | null | undefined): string {
 /** 窗口已用比例(0-100);不限或未配置返回 0。 */
 export function windowPercent(used: number, limit: number): number {
   if (!Number.isFinite(limit) || limit <= 0) return 0
-  return Math.min(100, Math.max(0, Math.round((used / limit) * 100)))
+  return clampPercent(Math.round((used / limit) * 100))
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
