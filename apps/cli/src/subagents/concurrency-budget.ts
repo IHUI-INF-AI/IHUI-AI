@@ -201,6 +201,21 @@ interface ProviderAimdState {
   lastActivityMs: number
 }
 
+/**
+ * `ask` 的两种模式(G-686 新增,**默认值 `'gated'` ⇒ 既有调用方逐字不变**):
+ *
+ * - `gated`(缺省):原语义 —— 看冷却、看 cap,满了排队计数 +1 并拒绝。
+ * - `observer`:主代理那一族请求。**立即放行、不看 cap 也不看冷却,但照样计入在飞。**
+ *   为什么必须计入:observer 也是真的在打同一个模型端点,若它不进 `inflight`,
+ *   子代理侧的闸门就会把这部分负载看成 0 而超发(即"立即放行"退化成"不计量的放行")。
+ *   为什么**不动 `waiting`**:`waiting` 是 additive-increase 的唯一触发条件
+ *   (`release` 里"有等待者才抬 cap")。observer 的放行不是"闸门有空位"的证据 ——
+ *   它在 cap 满时也被放行,若顺手把 waiting 归零,就会把"还有人等"这一事实擦掉,
+ *   cap 从此再也抬不回来。这是"判据必须覆盖门自己产出的形态"那一型,勿"顺手统一"。
+ *   为什么仍跑 `idleResetIfNeeded`:空闲惰性重置与准入模式无关(它是时间维的)。
+ */
+export type AimdAskMode = 'gated' | 'observer'
+
 /** release 的事件:outcome + 事件发生时的 epoch(判 stale)+ 对端 Retry-After(ms)。 */
 export interface AimdReleaseEvent {
   outcome: 'success' | 'throttled' | 'timeout'
@@ -318,11 +333,16 @@ export class ProviderAimdGovernor {
   }
 
   /** 申请一个槽位;拒绝时给"在等"的因果(闸门外排队 slot / 已排定退避 backoff)。 */
-  ask(key: string): { ok: true } | { ok: false; wait: AskWaitInfo } {
+  ask(key: string, mode: AimdAskMode = 'gated'): { ok: true } | { ok: false; wait: AskWaitInfo } {
     const s = this.state(key)
     const t = this.now()
     this.idleResetIfNeeded(key, s, t)
     s.lastActivityMs = t
+    if (mode === 'observer') {
+      // 见 AimdAskMode 头注:放行不看 cap/冷却,但计入在飞;且不擦 waiting(那会让 cap 永不回升)
+      s.inflight += 1
+      return { ok: true }
+    }
     if (s.cooldownUntilMs > t) {
       s.waiting += 1
       return { ok: false, wait: { cause: 'backoff', retryAtMs: s.cooldownUntilMs } }
@@ -334,6 +354,38 @@ export class ProviderAimdGovernor {
     s.inflight += 1
     s.waiting = 0
     return { ok: true }
+  }
+
+  /**
+   * 把 `waiting` 同步成**队列持有者**算出的真实等待者数(G-686 新增)。
+   *
+   * 为什么必须有它:`ask()` 放行时会把 `waiting` 归零(本文件既有的"能放行即非饱和"口径),
+   * 而放行一次并不代表**其它 run**的排队者也拿到了名额 —— 准入队列住在
+   * `provider/request-admission.ts`,不在这里。没有这次同步,`waiting` 会在每次放行后被
+   * 擦成 0,additive-increase 的触发条件(`release` 里 `s.waiting > 0`)从此永不成立,
+   * cap 减下去就再也抬不回来。
+   *
+   * 口径分工(写死在这里以免两处各算一遍):
+   *   - cap / inflight / streak / epoch / cooldown 的唯一权威 = 本类
+   *   - **等待者数的唯一权威 = 准入队列**(它调用本方法把事实递进来)
+   */
+  noteWaiters(key: string, count: number): void {
+    const s = this.state(key)
+    s.waiting = Number.isFinite(count) && count > 0 ? Math.floor(count) : 0
+  }
+
+  /**
+   * 只归还名额、**不上报任何 AIMD 信号**(G-686 新增,给"非失败 retry"用)。
+   *
+   * 上游语义同形(workflow-concurrency-governor.ts:78-82 的 NON_FAILURE_RETRY_REASONS):
+   * 这类尝试终结既不减 cap 也不清 streak —— 例:token 刷新后重发、推理签名修复后重发。
+   * 它们不是"端点扛不住这个并发"的证据,喂进 `release()` 会让闸门因为一次自家修复而减半。
+   * 但**名额必须还**,否则 inflight 只增不减,闸门会把自己钉死。
+   */
+  releaseCounted(key: string): void {
+    const s = this.state(key)
+    if (s.inflight > 0) s.inflight -= 1
+    s.lastActivityMs = this.now()
   }
 
   /** 归还槽位并上报结果;返回本次产生的 change 列表(cap 减档/recovery/冷却广播)。 */
