@@ -316,7 +316,9 @@ describe('createProcessProbe:外部进程白名单红线', () => {
   })
 })
 
-describe('b76-09a 票2(G-998131) 验收:本机 Windows 真跑 CIM 建树', () => {
+describe.skipIf(process.platform !== 'win32')(
+  'b76-09a 票2(G-998131) 验收:本机 Windows 真跑 CIM 建树(依赖 cmd.exe/CIM,Linux 上结构性不可跑)',
+  () => {
   it(
     'spawn 活口子进程(其下再一层孙),sampleProcessTrees([root pid]) 含 root+child+grandchild 的 pid/parentPid/创建时间三元组',
     { timeout: 60_000 },
