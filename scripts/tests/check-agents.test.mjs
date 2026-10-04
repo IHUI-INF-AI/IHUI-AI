@@ -76,6 +76,8 @@ test('真跑导入: 指向不可达库时只允许连接错误,不得 ERR_MODULE
       timeout: 60000,
       windowsHide: true,
       env: { ...process.env, DATABASE_URL: 'postgresql://nobody:***@127.0.0.1:1/nope' },
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     },
   )
   const out = `${r.stdout ?? ''}${r.stderr ?? ''}`

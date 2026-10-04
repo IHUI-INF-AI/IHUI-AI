@@ -152,6 +152,8 @@ test('T7 自检连跑两次同结论(只能跑一次的取证等于没取证)', 
       cwd: REPO,
       timeout: 120_000,
       windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
   const first = run()
   const second = run()

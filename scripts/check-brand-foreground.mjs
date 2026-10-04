@@ -499,6 +499,8 @@ function r5Prefilter(fromHead) {
           maxBuffer: 1 << 26,
           windowsHide: true,
           timeout: 30000,
+          stdio: ['ignore', 'pipe', 'pipe']
+          // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
         },
       )
       return out
@@ -528,6 +530,8 @@ function listR5Files() {
         encoding: 'utf8',
         windowsHide: true,
         timeout: 30000,
+        stdio: ['ignore', 'pipe', 'pipe']
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
       })
         .split('\n')
         .filter((f) => isR5Scope(f)),
@@ -553,6 +557,8 @@ function stagedR5Files() {
     encoding: 'utf8',
     windowsHide: true,
     timeout: 30000,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
     .split('\n')
     .filter((f) => isR5Scope(f))
@@ -586,7 +592,8 @@ function r8Prefilter(fromHead) {
         '--',
         ...R8_DIRS,
       ],
-      { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 26, windowsHide: true, timeout: 30000 },
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 26, windowsHide: true, timeout: 30000, stdio: ['ignore', 'pipe', 'pipe'] },
     )
     return out
       .split('\n')
@@ -632,6 +639,8 @@ function stagedR8WebFiles() {
     encoding: 'utf8',
     windowsHide: true,
     timeout: 30000,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
     .split('\n')
     .filter((f) => isR8Scope(f))
@@ -1438,6 +1447,8 @@ function listTargetFiles() {
     cwd: ROOT,
     encoding: 'utf8',
     windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
     .split('\n')
     .filter((f) => /\.(ts|tsx)$/.test(f))
@@ -1449,6 +1460,8 @@ function stagedFiles() {
     cwd: ROOT,
     encoding: 'utf8',
     windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
     .split('\n')
     .filter((f) => SCAN_DIRS.some((d) => f.startsWith(`${d}/`) && /\.(ts|tsx)$/.test(f)))

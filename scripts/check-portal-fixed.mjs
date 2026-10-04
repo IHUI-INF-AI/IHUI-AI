@@ -54,6 +54,8 @@ function listStagedFiles() {
     const out = execSync('git diff --cached --name-only --diff-filter=ACM', {
       encoding: 'utf8',
       windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe']
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     })
     return out.split('\n').filter((f) => f && SCAN_EXTS.some((e) => f.endsWith(e)))
   } catch {

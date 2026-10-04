@@ -10,7 +10,8 @@
 import { execSync, spawnSync } from 'node:child_process'
 
 const GIT_BIN = (() => {
-  const w = execSync('where git', { encoding: 'utf8', windowsHide: true })
+  // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
+  const w = execSync('where git', { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true })
   for (const raw of w.split('\n')) {
     const p = raw.trim()
     if (/\\cmd\\git\.exe$/i.test(p)) return p
@@ -18,12 +19,12 @@ const GIT_BIN = (() => {
   return 'git'
 })()
 function runGit(args) {
-  const r = spawnSync(GIT_BIN, args, { encoding: 'utf8', maxBuffer: 64e6, windowsHide: true })
+  const r = spawnSync(GIT_BIN, args, { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', maxBuffer: 64e6, windowsHide: true })
   if (r.status !== 0) throw new Error(`git ${args[0]} exit=${r.status}: ${(r.stderr || '').slice(0, 150)}`)
   return (r.stdout || '').trim()
 }
 function runGitSoft(args) {
-  const r = spawnSync(GIT_BIN, args, { encoding: 'utf8', maxBuffer: 64e6, windowsHide: true })
+  const r = spawnSync(GIT_BIN, args, { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', maxBuffer: 64e6, windowsHide: true })
   return (r.stdout || '')
 }
 

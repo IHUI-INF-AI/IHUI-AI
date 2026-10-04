@@ -34,6 +34,8 @@ const run = (args, encoding = 'utf8') => {
       encoding,
       windowsHide: true,
       timeout: 120_000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     return { code: 0, out }
   } catch (e) {

@@ -26,6 +26,8 @@ function gitAt(root, args) {
     cwd: root,
     encoding: 'utf8',
     windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 

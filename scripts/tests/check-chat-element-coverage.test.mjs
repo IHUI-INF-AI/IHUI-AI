@@ -553,7 +553,9 @@ function runStagedWithPrivateIndex(spec) {
         env,
       )
     }
+    // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
     const r = spawnSync(process.execPath, [join(ROOT_DIR, 'scripts', 'check-chat-element-coverage.mjs'), '--staged'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
       env,
       cwd: ROOT_DIR,

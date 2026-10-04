@@ -212,7 +212,8 @@ function scanDir(dir, allFiles = []) {
 
 function getStagedFiles() {
   try {
-    const out = execSync('git diff --cached --name-only --diff-filter=ACM', { cwd: ROOT, encoding: 'utf8', windowsHide: true });
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    const out = execSync('git diff --cached --name-only --diff-filter=ACM', { stdio: ['ignore', 'pipe', 'pipe'], cwd: ROOT, encoding: 'utf8', windowsHide: true });
     return out.split(/\r?\n/).filter(Boolean)
       .filter(f => SCRIPT_EXTS.has(extname(f).toLowerCase()))
       .map(f => join(ROOT, f));
