@@ -14,6 +14,7 @@ import { BookOpen, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Button, Card, CardContent } from '@ihui/ui-react'
+import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import { AuthGatePrompt, BackButton } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 
@@ -100,7 +101,7 @@ export default function MyLessonsPage() {
                   : item.status === 3
                     ? 'statusRefunded'
                     : 'statusInProgress'
-              const progress = Math.max(0, Math.min(100, item.progress ?? 0))
+              const progress = clampPercent(item.progress ?? 0)
               return (
                 <Link key={item.id} href={`/learn/${item.lessonId}`}>
                   <Card className="overflow-hidden transition-colors hover:bg-accent">
