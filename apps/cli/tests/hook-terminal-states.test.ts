@@ -14,6 +14,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -58,14 +59,30 @@ const longCmd = isWin ? 'cmd /c ping -n 10 127.0.0.1 >nul' : "sh -c 'sleep 10'";
 
 let origConfig: string | undefined;
 let origTrust: string | undefined;
+let origHome: string | undefined;
+let fakeHome: string | null = null;
 
 beforeAll(() => {
   origConfig = process.env.IHUI_HOOKS_CONFIG;
   origTrust = process.env.IHUI_TRUST_WORKSPACE;
+  origHome = process.env.HOME;
   process.env.IHUI_HOOKS_CONFIG = CONFIG;
+  // CI runner 的工作区在 $HOME 之下(/home/runner/work/...):classifyHooksSource 会把
+  // 仓库自带配置判成 'user' 而整条短路信任门 —— skipped 用例拿到 succeeded,其余用例
+  // 靠"门被短路"蒙混。HOME 指到工作区之外的临时目录,把来源分类打回 'project' 支路。
+  if (process.platform !== 'win32') {
+    fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'hts-home-'));
+    process.env.HOME = fakeHome;
+  }
+  // 默认放行钩子真跑(门拒后的显式出口,见 hookTrustSkipReason);skip 用例自行删掉它,
+  // 验证"未信任 ⇒ skipped"的拒绝面。
+  process.env.IHUI_TRUST_WORKSPACE = '1';
 });
 
 afterAll(() => {
+  if (origHome === undefined) delete process.env.HOME;
+  else process.env.HOME = origHome;
+  if (fakeHome) fs.rmSync(fakeHome, { recursive: true, force: true });
   if (origConfig === undefined) delete process.env.IHUI_HOOKS_CONFIG;
   else process.env.IHUI_HOOKS_CONFIG = origConfig;
   if (origTrust === undefined) delete process.env.IHUI_TRUST_WORKSPACE;
