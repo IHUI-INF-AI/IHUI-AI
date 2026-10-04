@@ -32,7 +32,8 @@ import { resolveGitBin } from '../lib/gitdir.mjs'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const TOOL = join(HERE, '..', 'object-space-land.mjs')
 const GIT = resolveGitBin() || 'git'
-const runOpts = { encoding: 'utf8', windowsHide: true, timeout: 60_000, maxBuffer: 64 << 20 }
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+const runOpts = { encoding: 'utf8', windowsHide: true, timeout: 60_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] }
 const runGit = (dir, args) =>
   execFileSync(
     GIT,
@@ -64,7 +65,15 @@ function runLand(dir, { paths = '', msg = 'chore: e2e land' } = {}) {
   delete env.LAND_JSON_STRUCTURE
   delete env.LAND_BLOBS
   delete env.LAND_BLOB_PROOF
-  return spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20 })
+  return spawnSync(process.execPath, [TOOL], {
+    env,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 180_000,
+    maxBuffer: 64 << 20,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
 }
 
 /* ── .json 夹具:祖先 A → 基线 B(HEAD)。B 是别人的合法推进:删 legacy 键、加 G-002、自增 meta.read。── */
