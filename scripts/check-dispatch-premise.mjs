@@ -24,11 +24,15 @@
  *
  * ⚠️ 自指陷阱(本门第一型真判据,不做这层的话这道门会恒绿):票面把一个标识写进 `PROJECT_PLAN.md`
  * 之后,`git grep -F <token> HEAD` 的全仓读数**至少是 1,而那一处命中就是台账自己**。所以本门
- * **强制把台账自身排除出默认作用域**(`DEFAULT_SCOPE` 不含 `PROJECT_PLAN.md`,且 `--scope` 显式
- * 追加 `:(exclude)PROJECT_PLAN.md` / `:(exclude).ihui-agent`);否则票面点名的每个标识都会因
- * "台账引用了它"而被判成"前提仍成立",那道门就是一台永绿机(实测:票面点名的
+ * **强制把台账自身排除出作用域**(`MANDATORY_EXCLUDES`,且 `--scope` 传什么都追加);否则票面点名的
+ * 每个标识都会因"台账引用了它"而被判成"前提仍成立",那道门就是一台永绿机(实测:票面点名的
  * `check-virtualization-coverage` 在 HEAD 全仓 = 1 命中,唯一命中文件就是 `HEAD:PROJECT_PLAN.md`;
- * 排除台账面后 apps/packages/scripts = 0)。
+ * 排除台账后在 apps/packages 面 = 0)。
+ *
+ * ⚠️ 同一型在本门自己身上现形过一次(2026-10-04 落地当轮):本门与它的镜像测试把那个 token 写满
+ * 作为反例素材,而默认作用域当时含 `scripts` ⇒ 门读到了自己,读数 0→12,正例当场翻绿。
+ * 现在 `DEFAULT_SCOPE` 只取产品代码面(`apps packages`),且强制排除项里含本门自身与镜像测试。
+ * 教训写在这里:**判"前提是否腐烂"的门必须扫被审面,不能扫自己**。
  *
  * 判定方向(**两个方向都要红**,否则只挡"假已有"、放过"真已有被当成没有"):
  *   - `claim:"exists"`  但现读 0 命中 ⇒ `rotten`(票面这条"我方已有"已腐烂);
@@ -72,13 +76,32 @@ export const PREMISE_FIELDS = ['claim', 'probe', 'token']
 export const CLAIM_KINDS = ['exists', 'absent']
 
 /**
- * 默认作用域 = 生产代码面。**刻意不含 `PROJECT_PLAN.md`**:台账引用一个标识会让
- * `git grep HEAD` 的全仓读数 ≥1,而那一处命中就是台账自己 ⇒ 不排除就是恒绿门(见头注"自指陷阱")。
+ * 默认作用域 = **产品代码面**(票面那条判据问的是"我方产品代码里有没有等价物/真层在哪")。
+ *
+ * **刻意不含 `scripts`,也不含任何文档面**:台账与文档引用一个标识会让 `git grep HEAD` 的读数 ≥1,
+ * 而那一处命中就是引用它的那篇文档自己 ⇒ 不排除就是恒绿门(见头注"自指陷阱")。
+ *
+ * ⚠️ 这条不是洁癖,是本门自己的实测教训(2026-10-04 落地后当场现形):本门与它的镜像测试里写满了
+ * `check-virtualization-coverage` 这个 token 作为**反例素材**,而当初把 `scripts` 放进默认作用域,
+ * 于是门读到了自己 —— 落地后同一命令的读数从 0 变成 12/2/6,正例当场翻绿。
+ * **一道判"前提是否腐烂"的门,必须扫被审面而不是扫自己**:自指不是"要排除的例外",是判据的前提条件。
  */
-export const DEFAULT_SCOPE = ['apps', 'packages', 'scripts']
+export const DEFAULT_SCOPE = ['apps', 'packages']
 
-/** 台账自身与代理工作区:无论 `--scope` 传了什么都排除(否则派单者写下的标识会自证存在)。 */
-export const MANDATORY_EXCLUDES = [':(exclude)PROJECT_PLAN.md', ':(exclude).ihui-agent']
+/**
+ * 强制排除:台账、代理工作区、**以及本门自身与它的镜像测试**。
+ * 前两项防"派单者写下的标识自证存在";后一项防"门读到自己的反例素材"(见上)。
+ * 无论 `--scope` 传了什么都追加(强制并集,不是覆盖)。
+ */
+export const MANDATORY_EXCLUDES = [
+  ':(exclude)PROJECT_PLAN.md',
+  ':(exclude).ihui-agent',
+  ':(exclude)AGENTS.md',
+  ':(exclude)README.md',
+  ':(exclude)docs',
+  ':(exclude)scripts/check-dispatch-premise.mjs',
+  ':(exclude)scripts/tests/check-dispatch-premise.test.mjs',
+]
 
 /**
  * 判据出口的纯函数:逐条前提 + 逐条现读读数 ⇒ 结构化判定。
@@ -373,7 +396,7 @@ function runSelfTest() {
     const hits = live.readings[0]?.hits
     if (hits !== 0)
       failures.push(
-        `S7 真面读数应为 0(票面点名的标识在 apps/packages/scripts 面已不存在),实读 ${hits} ⇒ 自指排除可能失效`,
+        `S7 真面读数应为 0(票面点名的标识在产品代码面已不存在),实读 ${hits} ⇒ 自指排除失效(门读到了自己/台账/文档的引用)`,
       )
     else ok.push('S7 真面现读 check-virtualization-coverage = 0 命中 ⇒ 判 rotten(自指排除生效)')
   }
