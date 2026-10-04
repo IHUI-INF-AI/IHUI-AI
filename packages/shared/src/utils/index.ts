@@ -18,6 +18,9 @@ export * from './content-equal'
 export * from './conversation-org'
 export * from './dangerous-command-detector'
 export * from './date-utils'
+// G-854(2026-10-04 立)矢量图预览的视口数学唯一出口 —— 倍率域/适应视口/定点缩放/平移钳制,
+// 内联渲染器与独立预览 Modal 共用一份;端内不得再写第二遍(§「两处算同一件事必漂移」)
+export * from './diagram-viewport'
 // G-704(2026-09-29 立)「值等价即不写」的等深比较器唯一实现(端内不得各写一份近似品)
 export * from './deep-equal-records'
 export * from './error-messages'
