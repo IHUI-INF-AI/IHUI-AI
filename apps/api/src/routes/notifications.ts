@@ -14,6 +14,7 @@ import {
   markAsRead,
   markAllAsRead,
   deleteNotification,
+  deleteAllNotifications,
   findConversations,
   findMessagesBetween,
   createMessage,
@@ -198,6 +199,26 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
     }
     return reply.send(success({ id: parsed.data.id }))
   })
+
+  // DELETE /notifications - 清空当前用户全部通知
+  // 前端 use-notification.ts clearAll() 在调;此前只有 DELETE /notifications/:id(单条)
+  // 与 POST /notifications/read-all(标记已读),**没有**"物理删除全部"这条。
+  // 与 /notifications/:id 同前缀不同路径(Fastify 静态段优先),不与之冲突。
+  server.delete(
+    '/notifications',
+    {
+      schema: {
+        summary: '清空通知',
+        description: '物理删除当前用户的全部通知(不影响其他用户)',
+        tags: ['notifications'],
+        response: buildResponseSchema(401),
+      },
+    },
+    async (request, reply) => {
+      const deletedCount = await deleteAllNotifications(request.userId!)
+      return reply.send(success({ deletedCount }))
+    },
+  )
 
   // GET /conversations - 会话列表（每个对方最近一条 + 对方用户信息）
   server.get('/conversations', async (request, reply) => {
