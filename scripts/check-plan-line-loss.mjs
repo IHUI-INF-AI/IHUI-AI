@@ -2197,7 +2197,15 @@ function heal(commit) {
     const newCommit = execFileSync(
       GIT,
       ['-c', 'safe.directory=*', 'commit-tree', tree, '-p', parent, '-F', msgFile],
-      { cwd: ROOT, encoding: 'utf8', env: env2, maxBuffer: 8 * 1024 * 1024, windowsHide: true },
+      {
+        cwd: ROOT,
+        encoding: 'utf8',
+        env: env2,
+        maxBuffer: 8 * 1024 * 1024,
+        windowsHide: true,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
     ).trim()
     g2(['update-ref', 'refs/heads/main', newCommit, parent])
     console.log(`   已建前向恢复提交 ${newCommit.slice(0, 11)}`)

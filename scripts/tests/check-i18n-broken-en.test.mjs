@@ -50,17 +50,22 @@ function runScript(args = [], opts = {}) {
   return spawnSync('node', [SCRIPT_PATH, ...args], {
     cwd: opts.cwd || process.cwd(),
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, ...opts.env },
   })
 }
 
 // 辅助:初始化 git 仓库(用于 --staged 测试)
 function initGitRepo(root) {
-  execSync('git init -b main', { cwd: root, stdio: 'pipe' })
-  execSync('git config user.email test@test.com', { cwd: root, stdio: 'pipe' })
-  execSync('git config user.name test', { cwd: root, stdio: 'pipe' })
-  execSync('git config commit.gpgsign false', { cwd: root, stdio: 'pipe' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git init -b main', { cwd: root, stdio: 'ignore' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git config user.email test@test.com', { cwd: root, stdio: 'ignore' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git config user.name test', { cwd: root, stdio: 'ignore' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git config commit.gpgsign false', { cwd: root, stdio: 'ignore' })
 }
 
 // ─── 1. CLI --help 不崩溃(脚本未实现 --help,按默认模式运行) ─
@@ -418,7 +423,8 @@ test('--staged: en.json 已 staged → 触发扫描', () => {
   try {
     initGitRepo(root)
     writeWebEn(root, { common: { x: '你好世界' } }) // 含违规(≥4 字符)
-    execSync('git add packages/i18n/messages/web/en.json', { cwd: root, stdio: 'pipe' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git add packages/i18n/messages/web/en.json', { cwd: root, stdio: 'ignore' })
     const r = runScript(['--staged'], { cwd: root })
     assert.equal(r.status, 1, `staged en.json 含违规应 exit 1,实际 ${r.status}`)
     assert.match(r.stdout, /zh-residue/)

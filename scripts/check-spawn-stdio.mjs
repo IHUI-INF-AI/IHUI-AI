@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠‌‌‌‍‍‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‍‍‌‌‌‍‍‌‌‍‍‌⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * 守门：检测"派生子进程却漏 `stdio`"的调用点 —— 本机(Windows) EBUSY 的**唯一守门**。
@@ -81,7 +81,12 @@ const CALLS = ['execFileSync', 'spawnSync', 'execSync', 'exec', 'spawn']
  * 漏报一个调用的代价是一次人工判断,误伤一个的代价是**静默丢内容**。
  */
 const EATS_STDIN = [
-  /\binput\s*:/,
+  // ⚠️ 必认**简写形态** `{ input, … }`(ES6 简写)。首版只认 `input:` 带冒号的,
+  // 于是 `spawnSync(exe, args, { input, … })` 这类"喂剪贴板内容"的调用被判成
+  // pipe-both ⇒ 派单让人去"修" ⇒ 加了 `ignore` 就**静默丢内容**(status=0、拿到空串)。
+  // 实测三态(执行 agent 2026-10-04):`['pipe','pipe','pipe']`+input ⇒ EBUSY;
+  // `['ignore','pipe','pipe']`+input ⇒ status=0 但输入被丢弃 ⇒ 两头都坏。
+  /\binput\s*[:,}]/,
   /\bstdin\s*:\s*['"]pipe['"]/,
   /\bstdin\s*:\s*\d/,
   /['"]--stdin['"]/,
@@ -343,12 +348,38 @@ function stdioFromBindingVar(inner, bindingMap) {
   return v === undefined ? null : v
 }
 
+/**
+ * 该偏移是否落在**数组字面量内部**。
+ *
+ * 立因(2026-10-04,执行 agent 实测):测试里用多行数组 `.join('\n')` **合成一段源码**,
+ * 再喂给某道"扫散写子进程"的锁当阳性/阴性对照。那段合成源码里的 `execFileSync(…)`
+ * **不是真调用**。守门 80 的 `maskInert` 逐个字符串元素配对,遇到
+ * `"…",` 这种**带尾随逗号**的写法会失配 ⇒ 掩码留缝 ⇒ 本门把它扫成真调用
+ * (实测 `check-admin-gate-consistency.test.mjs:367` 报出 1 处假缺口)。
+ *
+ * 口径:从该偏移**往前**找最近的 `[` 或 `]`,谁先到听谁的 ——
+ * 撞到 `[` ⇒ 在数组内(放行);撞到 `]` ⇒ 不在(该数组已闭合,这是真代码)。
+ *
+ * 为什么不写"看 `[` 之后有没有 `)`":真实形态是 `maskComments([ … ].join('\n'))`,
+ * 那个 `[` 与目标偏移之间隔着 `maskComments(` 的 `(` 及其参数,`)` 一定出现 ⇒ 判据恒假。
+ */
+function insideArrayLiteral(src, at) {
+  for (let i = at - 1; i >= 0 && i > at - 4000; i--) {
+    const c = src[i]
+    if (c === ']') return false // 先撞到闭合的 ] ⇒ 那个数组已经过去,这是真代码
+    if (c === '[') return true
+  }
+  return false
+}
+
 /** 取参数区里最后一个顶层实参的原文(跳过高一级括号与引号内的逗号)。 */
 function lastTopLevelArg(inner) {
   const s = inner.replace(/\s+/g, ' ')
   let depth = 0
   let quote = null
   let cut = -1
+  let prevCut = -1
+  let lastSeg = ''
   for (let i = 0; i < s.length; i++) {
     const c = s[i]
     if (quote) {
@@ -361,9 +392,19 @@ function lastTopLevelArg(inner) {
     }
     if (c === '(' || c === '[' || c === '{') depth++
     else if (c === ')' || c === ']' || c === '}') depth--
-    else if (c === ',' && depth === 0) cut = i
+    else if (c === ',' && depth === 0) {
+      // 记下**到这一逗号为止**的那一段;末位实参后面常跟一个**尾逗号**(`…, runOpts,`),
+      // 那种形态下"cut 之后那一段"是空串 ⇒ 循环后必须再看一次末段。
+      const seg = s.slice(prevCut + 1, i).trim()
+      if (seg) lastSeg = seg
+      prevCut = i
+      cut = i
+    }
   }
-  return (cut === -1 ? s : s.slice(cut + 1)).trim()
+  // 循环后的末段(`'git', a, gitOpts` 里的 `gitOpts`;`…, runOpts,` 里的空段)
+  const tailSeg = s.slice(prevCut + 1).trim()
+  if (tailSeg) lastSeg = tailSeg
+  return cut === -1 ? s.trim() : lastSeg
 }
 
 /** `stdio:` 这个键名自身的长度(`stdio` + 空白 + 冒号)。 */
@@ -513,6 +554,12 @@ export function scanCalls(src) {
       if (src[k] !== '(') continue
       if (mask[at]) continue
       if (src[at - 1] === '.' || src[at - 1] === '_') continue
+      // 落在**数组字面量内部**的命中一律不算(2026-10-04,执行 agent 实测):
+      // 测试里常写 `[\n "import { execFileSync } from 'node:child_process'",\n "execFileSync('git',[…])",\n].join('\n')`
+      // —— 那是**故意造出来的违规样例**(给"散写子进程"那道锁当阳性对照),
+      // 每个元素各自一行 ⇒ 守门 80 的 `maskInert` 逐元素配对时会在**带尾随逗号**那一行失配,
+      // 掩码留了缝 ⇒ 该调用被当成真调用。改 `maskInert` 超出本票射程,故在本层自查。
+      if (insideArrayLiteral(src, at)) continue
       // 闭合判定:**自己数括号深度**,不能拿 `scanCallEnd` 的返回值当"闭合"信号 ——
       // 它对"闭合在源尾的合法调用"与"源被截断"都返回 `src.length`,两者不可分。
       // 深度回不到 0 ⇒ 源被截断 ⇒ fail-closed(交上层报未判定),绝不当"没缺 stdio"放过去。
@@ -737,6 +784,29 @@ const SELFTEST_PASS = [
     'const s = [\n  "import { execFileSync } from \'node:child_process\'",\n  "execFileSync(\'git\', [\'show\', p])",\n].join("\\n")',
     'none',
   ],
+  // 下面三条钉 2026-10-04 第二轮修的三处判据缺陷(都是执行 agent 实测报出来的)
+  [
+    '多行 join 合成面(元素带尾随逗号)⇒ 不算真调用',
+    'const s = [\n  "import { execFileSync } from \'node:child_process\'",\n  "execFileSync(\'git\', [\'show\', p])",\n].join("\\n")',
+    'none',
+  ],
+  [
+    'input 简写 { input, … } ⇒ skip-eats-stdin(加了 ignore 会静默丢内容)',
+    'import { spawnSync } from "node:child_process"\nconst r = spawnSync("pbcopy", [], { input, encoding: "utf8" })',
+    'skip-eats-stdin',
+  ],
+  [
+    '末位实参后有尾逗号 ⇒ ok(回查那个变量)',
+    'const runOpts = { stdio: ["ignore","pipe","pipe"] }\nconst r = execFileSync("git", args, runOpts,)',
+    'ok',
+  ],
+  // 下面这条钉"数组 + .join() 合成面"的真实形态(2026-10-04 执行 agent 实测 1 处):
+  // 数组是**某个函数调用的实参**,后面才 `.join('\n')` —— 前面先撞到的是那个 `(` 而非 `[`。
+  [
+    'maskComments([…,].join()) 合成面里的 execFileSync ⇒ 不算真调用',
+    'const bad = maskComments([\n  "import { execFileSync } from \'node:child_process\'",\n  "execFileSync(\'git\', [\'show\', p])",\n].join("\\n"))',
+    'none',
+  ],
 ]
 
 /** 自检源码统一补 child_process 导入前缀 —— 让每条用例都站在"真导入"的前提下,
@@ -889,3 +959,4 @@ function main() {
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) main()
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

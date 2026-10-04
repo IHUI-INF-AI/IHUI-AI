@@ -39,6 +39,8 @@ function readdirSafe(p) {
     return execSync(`node -e "console.log(require('fs').readdirSync(process.argv[1]).join('\\n'))" "${p}"`, {
       encoding: 'utf8',
       windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
       .trim()
       .split('\n')
@@ -54,7 +56,13 @@ function isCommentLine(line) {
 }
 
 function scanStaged() {
-  const out = execSync('git diff --cached --name-only --diff-filter=ACMR', { encoding: 'utf8', cwd: ROOT, windowsHide: true })
+  const out = execSync('git diff --cached --name-only --diff-filter=ACMR', {
+    encoding: 'utf8',
+    cwd: ROOT,
+    windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   return out.split('\n').filter((f) => f.startsWith(TARGET_DIR) && /\.(ts|tsx|mjs|js)$/.test(f))
 }
 

@@ -292,7 +292,11 @@ test('T11 判据2:持有者存活但身份无从对账(旧式 meta,无 pidStart)
   const f = makeFixture()
   const lockDir = join(f.backup, LOCK_SUB)
   // 一个真活着的无关进程当持有者;meta 手工写成旧形态(无 host/pidStart)⇒ verifyHolder 落 unverifiable
-  const sleeper = spawn(process.execPath, ['-e', 'setTimeout(()=>{},60_000)'], { windowsHide: true })
+  const sleeper = spawn(process.execPath, ['-e', 'setTimeout(()=>{},60_000)'], {
+    windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   try {
     plantMeta(lockDir, { unitId: LOCK_UNIT, pid: sleeper.pid, ts: Date.now() })
     const before = readMetaBytes(lockDir)
@@ -333,7 +337,11 @@ test('T13 单实例原语的三格分档(构造面 + 注入 identityRun,不派�
   const dir = mkScratch('ihui-g262-p-')
   // 第三/四格必须用**别的活进程**的 pid 当持有者:写本进程 pid 会被"同 unit ∧ pid=本进程"
   // 的重入分支短路(acquired=true 的理由就不是身份判据了)—— 夹具的第一版正好踩中这一格。
-  const holderProc = spawn(process.execPath, ['-e', 'setTimeout(()=>{},120_000)'], { windowsHide: true })
+  const holderProc = spawn(process.execPath, ['-e', 'setTimeout(()=>{},120_000)'], {
+    windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   try {
     // ① 死 + 超龄 ⇒ 回收并成功持锁,旧锁现场归档
     const d1 = join(dir, 'lock1')

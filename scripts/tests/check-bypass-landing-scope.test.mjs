@@ -25,12 +25,27 @@ const GATE = resolve(ROOT, 'scripts', 'check-bypass-landing-scope.mjs')
 const GIT = 'C:/Program Files/Git/cmd/git.exe'
 
 const gateSrc = readFileSync(GATE, 'utf8')
-const runnerSrcOf = () => execFileSync(GIT, ['cat-file','blob','HEAD:scripts/guardian-runner.mjs'], { cwd: ROOT, encoding: 'utf8', maxBuffer: 1<<28, windowsHide: true }).toString()
+const runnerSrcOf = () =>
+  execFileSync(GIT, ['cat-file', 'blob', 'HEAD:scripts/guardian-runner.mjs'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    maxBuffer: 1 << 28,
+    windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).toString()
 
 function repo(prefix) {
   const dir = mkScratch(prefix)
   const run = (...a) =>
-    execFileSync(GIT, ['-c', 'safe.directory=*', ...a], { cwd: dir, encoding: 'utf8', windowsHide: true, timeout: 300_000 }).toString()
+    execFileSync(GIT, ['-c', 'safe.directory=*', ...a], {
+      cwd: dir,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 300_000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).toString()
   run('init', '-q', '-b', 'main')
   run('config', 'user.email', 't@t')
   run('config', 'user.name', 't')
@@ -54,7 +69,13 @@ const bypassCommit = (dir, run, mutate) => {
   return run('commit-tree', tree, '-p', head, '-m', 'bypass (mirror)').trim()
 }
 const runGate = (dir, args = []) =>
-  spawnSync(process.execPath, [GATE, '--root', dir, ...args], { encoding: 'utf8', timeout: 300_000, windowsHide: true })
+  spawnSync(process.execPath, [GATE, '--root', dir, ...args], {
+    encoding: 'utf8',
+    timeout: 300_000,
+    windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
 const rec = (sha, declared, source = 'mirror') => ({
   ts: '2026-09-30T00:00:00Z',
   kind: BYPASS_KIND,
