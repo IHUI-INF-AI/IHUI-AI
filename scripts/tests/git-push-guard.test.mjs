@@ -29,20 +29,48 @@ const READER_PATHS = {
 // ─── 辅助:创建临时 git 仓库(含初始 commit) ──────────────
 function createTempRepo() {
   const dir = mkScratch('ihui-push-')
-  execSync('git init -b main', { cwd: dir, stdio: 'pipe' })
-  execSync('git config user.email test@test.com', { cwd: dir, stdio: 'pipe' })
-  execSync('git config user.name test', { cwd: dir, stdio: 'pipe' })
-  execSync('git config commit.gpgsign false', { cwd: dir, stdio: 'pipe' })
+  execSync('git init -b main', {
+    cwd: dir,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  execSync('git config user.email test@test.com', {
+    cwd: dir,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  execSync('git config user.name test', {
+    cwd: dir,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  execSync('git config commit.gpgsign false', {
+    cwd: dir,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   writeFileSync(join(dir, 'README.md'), '# init\n')
-  execSync('git add README.md', { cwd: dir, stdio: 'pipe' })
-  execSync('git commit -m "init"', { cwd: dir, stdio: 'pipe' })
+  execSync('git add README.md', {
+    cwd: dir,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  execSync('git commit -m "init"', {
+    cwd: dir,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   return dir
 }
 
 // 辅助:创建临时 bare 仓库(作为 origin)
 function createTempBareOrigin() {
   const dir = mkScratch('ihui-origin-')
-  execSync('git init --bare -b main', { cwd: dir, stdio: 'pipe' })
+  execSync('git init --bare -b main', {
+    cwd: dir,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   return dir
 }
 
@@ -52,8 +80,16 @@ function createSyncedRepoWithOrigin() {
   const origin = createTempBareOrigin()
   // Windows 路径转正斜杠(git remote add 兼容)
   const originUrl = origin.replace(/\\/g, '/')
-  execSync(`git remote add origin "${originUrl}"`, { cwd: work, stdio: 'pipe' })
-  execSync('git push -u origin main', { cwd: work, stdio: 'pipe' })
+  execSync(`git remote add origin "${originUrl}"`, {
+    cwd: work,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  execSync('git push -u origin main', {
+    cwd: work,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   return { work, origin }
 }
 
@@ -67,7 +103,8 @@ function runScript(args = [], opts = {}) {
   return spawnSync('node', [SCRIPT_PATH, ...args], {
     cwd: opts.cwd || process.cwd(),
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     // 派生一律带 windowsHide(§5b「🪟 后台进程禁弹窗」/守门 52);guard 会真派生 git。
     windowsHide: true,
     // guard 现在把 push 回显整段转写进自己的 stdout(分诊需要文本)⇒ 给足 maxBuffer,
@@ -84,11 +121,23 @@ function makeCommit(dir, relPath, content, message) {
     const fullPath = join(dir, relPath)
     mkdirSync(join(fullPath, '..'), { recursive: true })
     writeFileSync(fullPath, content)
-    execSync(`git add "${relPath.replace(/\\/g, '/')}"`, { cwd: dir, stdio: 'pipe' })
+    execSync(`git add "${relPath.replace(/\\/g, '/')}"`, {
+      cwd: dir,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
   } else {
-    execSync('git add -A', { cwd: dir, stdio: 'pipe' })
+    execSync('git add -A', {
+      cwd: dir,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
   }
-  execSync(`git commit -m "${message}"`, { cwd: dir, stdio: 'pipe' })
+  execSync(`git commit -m "${message}"`, {
+    cwd: dir,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
 }
 
 // 辅助:生成 N 行 JSON 内容(用于截断测试)
@@ -186,9 +235,17 @@ test('behind: 本地 behind origin → exit 1 + 提示 pull --rebase', () => {
   try {
     // 在工作仓库再 push 一个 commit(origin 前进)
     makeCommit(work, 'second.txt', 'second\n', 'second commit')
-    execSync('git push origin main', { cwd: work, stdio: 'pipe' })
+    execSync('git push origin main', {
+      cwd: work,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     // reset --hard HEAD~1 使本地落后 origin
-    execSync('git reset --hard HEAD~1', { cwd: work, stdio: 'pipe' })
+    execSync('git reset --hard HEAD~1', {
+      cwd: work,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     const r = runScript([], { cwd: work })
     assert.equal(r.status, 1, `behind 应 exit 1,实际 ${r.status}`)
     assert.match(r.stdout, /pull --rebase|落后/)
@@ -215,8 +272,17 @@ test('detached HEAD: git checkout <hash> → exit 2', () => {
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
     // 切到 detached HEAD
-    const headHash = execSync('git rev-parse HEAD', { cwd: work, encoding: 'utf8' }).trim()
-    execSync(`git checkout ${headHash}`, { cwd: work, stdio: 'pipe' })
+    const headHash = execSync('git rev-parse HEAD', {
+      cwd: work,
+      encoding: 'utf8',
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
+    execSync(`git checkout ${headHash}`, {
+      cwd: work,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     const r = runScript([], { cwd: work })
     assert.equal(r.status, 2, `detached HEAD 应 exit 2,实际 ${r.status}`)
     assert.match(r.stdout, /detached/)
@@ -273,13 +339,33 @@ test('JSON 截断: HEAD json 行数 < HEAD~1 × 50% 且减少 > 100 → exit 1',
   try {
     // Commit 1:大 json(300 行),push 到 origin
     writeFileSync(join(work, 'data.json'), generateJsonLines(300))
-    execSync('git add data.json', { cwd: work, stdio: 'pipe' })
-    execSync('git commit -m "add large json"', { cwd: work, stdio: 'pipe' })
-    execSync('git push origin main', { cwd: work, stdio: 'pipe' })
+    execSync('git add data.json', {
+      cwd: work,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    execSync('git commit -m "add large json"', {
+      cwd: work,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    execSync('git push origin main', {
+      cwd: work,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     // Commit 2:截断 json(50 行)→ ahead
     writeFileSync(join(work, 'data.json'), generateJsonLines(50))
-    execSync('git add data.json', { cwd: work, stdio: 'pipe' })
-    execSync('git commit -m "truncate json"', { cwd: work, stdio: 'pipe' })
+    execSync('git add data.json', {
+      cwd: work,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    execSync('git commit -m "truncate json"', {
+      cwd: work,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     const r = runScript([], { cwd: work })
     assert.equal(r.status, 1, `JSON 截断应 exit 1,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /截断|完整性预检失败|truncat/i)
@@ -294,13 +380,33 @@ test('AUTO_PUSH_CONFIRM=1: 跳过 JSON 截断预检 → push 成功 exit 0', () 
   try {
     // Commit 1:大 json
     writeFileSync(join(work, 'data.json'), generateJsonLines(300))
-    execSync('git add data.json', { cwd: work, stdio: 'pipe' })
-    execSync('git commit -m "add large json"', { cwd: work, stdio: 'pipe' })
-    execSync('git push origin main', { cwd: work, stdio: 'pipe' })
+    execSync('git add data.json', {
+      cwd: work,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    execSync('git commit -m "add large json"', {
+      cwd: work,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    execSync('git push origin main', {
+      cwd: work,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     // Commit 2:截断
     writeFileSync(join(work, 'data.json'), generateJsonLines(50))
-    execSync('git add data.json', { cwd: work, stdio: 'pipe' })
-    execSync('git commit -m "truncate json"', { cwd: work, stdio: 'pipe' })
+    execSync('git add data.json', {
+      cwd: work,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    execSync('git commit -m "truncate json"', {
+      cwd: work,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     const r = runScript([], {
       cwd: work,
       env: { AUTO_PUSH_CONFIRM: '1' },
@@ -366,10 +472,15 @@ function createAheadRepoWithPartialClone() {
 test('partial-clone: promisor=true + ahead → exit 1 且点名修复配方(不放行推送)', () => {
   const { work, origin } = createAheadRepoWithPartialClone()
   try {
-    execSync('git config --local remote.origin.promisor true', { cwd: work, stdio: 'pipe' })
+    execSync('git config --local remote.origin.promisor true', {
+      cwd: work,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     execSync('git config --local remote.origin.partialclonefilter blob:none', {
       cwd: work,
-      stdio: 'pipe',
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     const r = runScript([], { cwd: work })
     assert.equal(
@@ -381,8 +492,18 @@ test('partial-clone: promisor=true + ahead → exit 1 且点名修复配方(不�
     assert.match(r.stdout, /fetch --refetch/)
     assert.match(r.stdout, /GUARD_SKIP_PARTIAL_CLONE_CHECK/)
     // 关键反证:预检拦下后本地 commit 绝不能被推上远端
-    const localHead = execSync('git rev-parse HEAD', { cwd: work, encoding: 'utf8' }).trim()
-    const remoteHead = execSync('git rev-parse origin/main', { cwd: work, encoding: 'utf8' }).trim()
+    const localHead = execSync('git rev-parse HEAD', {
+      cwd: work,
+      encoding: 'utf8',
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
+    const remoteHead = execSync('git rev-parse origin/main', {
+      cwd: work,
+      encoding: 'utf8',
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
     assert.notEqual(localHead, remoteHead, '预检生效后远端不应已包含本地 ahead commit')
   } finally {
     forceRemove(work)
@@ -393,7 +514,11 @@ test('partial-clone: promisor=true + ahead → exit 1 且点名修复配方(不�
 test('partial-clone 逃生舱: GUARD_SKIP_PARTIAL_CLONE_CHECK=1 → 预检让位,推送照旧成功', () => {
   const { work, origin } = createAheadRepoWithPartialClone()
   try {
-    execSync('git config --local remote.origin.promisor true', { cwd: work, stdio: 'pipe' })
+    execSync('git config --local remote.origin.promisor true', {
+      cwd: work,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     const r = runScript([], { cwd: work, env: { GUARD_SKIP_PARTIAL_CLONE_CHECK: '1' } })
     assert.doesNotMatch(r.stdout, /partial-clone/, '逃生舱生效后不应再出现预检文案')
     assert.equal(

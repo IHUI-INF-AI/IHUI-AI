@@ -55,10 +55,14 @@ function createEmptyWebSource(root) {
 
 // 辅助:初始化 git 仓库
 function initGitRepo(root) {
-  execSync('git init -b main', { cwd: root, stdio: 'pipe' })
-  execSync('git config user.email test@test.com', { cwd: root, stdio: 'pipe' })
-  execSync('git config user.name test', { cwd: root, stdio: 'pipe' })
-  execSync('git config commit.gpgsign false', { cwd: root, stdio: 'pipe' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git init -b main', { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git config user.email test@test.com', { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git config user.name test', { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git config commit.gpgsign false', { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] })
 }
 
 // 辅助:运行 check-i18n-keys.mjs
@@ -72,20 +76,22 @@ function initGitRepo(root) {
 const FACE_FLAGS = ['--staged', '--worktree']
 function runScript(args = [], opts = {}) {
   const finalArgs = FACE_FLAGS.some((f) => args.includes(f)) ? args : [...args, '--worktree']
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   return spawnSync('node', [SCRIPT_PATH, ...finalArgs], {
     cwd: opts.cwd || process.cwd(),
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, ...opts.env },
   })
 }
 
 /** 判定面用例专用:**不**注入 --worktree,面旗必须由调用方显式给出。 */
 function runFaceScript(args, opts = {}) {
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   return spawnSync('node', [SCRIPT_PATH, ...args], {
     cwd: opts.cwd,
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, ...opts.env },
   })
 }
@@ -487,7 +493,8 @@ test('--staged: staged messages JSON → 触发 parity 检查', () => {
     initGitRepo(root)
     writeWebMessages(root, PARITY_OK)
     // stage JSON 文件
-    execSync('git add packages/i18n/messages/web/', { cwd: root, stdio: 'pipe' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git add packages/i18n/messages/web/', { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] })
     const r = runScript(['--staged'], { cwd: root })
     // staged JSON → messagesChanged = true → 跑 parity → exit 0
     assert.equal(
@@ -943,7 +950,8 @@ test('F1–F5 同一棵临时仓三面三答:磁盘脏不污染 HEAD 面;入索�
     const srcDir = join(root, 'apps', 'web', 'src')
     mkdirSync(srcDir, { recursive: true })
     writeFileSync(join(srcDir, 'index.ts'), 'export const x = 1\n')
-    execSync('git add -A && git commit -m base', { cwd: root, stdio: 'pipe' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git add -A && git commit -m base', { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] })
     // 三面对齐的基线:先证明默认面确实绿(否则后面的"绿"没有对照价值)
     const g = runFaceScript([], { cwd: root })
     assert.equal(g.status, 0, `基线(三面一致)默认面必须绿:${g.stdout}${g.stderr}`)
@@ -976,7 +984,8 @@ test('F1–F5 同一棵临时仓三面三答:磁盘脏不污染 HEAD 面;入索�
 
     // F5 把脏放进索引:--staged 必须随之转红 —— 证明 F3 的绿不是"staged 永远绿",
     // 索引面确实在读索引(与守门 90 镜像 ⑩ 同一条"条件式,不赌仓库此刻内容"的规矩)。
-    execSync('git add -A', { cwd: root, stdio: 'pipe' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git add -A', { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] })
     const f5 = runFaceScript(['--staged'], { cwd: root })
     assert.equal(f5.status, 1, `F5 索引含脏副本时 --staged 必须判红:\n${f5.stdout}${f5.stderr}`)
     assert.match(f5.stdout, /判定面:索引 blob/u, 'F5 末行必须自称索引 blob')
@@ -993,7 +1002,8 @@ test('F6 源文件面:只在磁盘上的 WIP 组件不得把 HEAD 面顶红(混�
     const srcDir = join(root, 'apps', 'web', 'src')
     mkdirSync(srcDir, { recursive: true })
     writeFileSync(join(srcDir, 'index.ts'), 'export const x = 1\n')
-    execSync('git add -A && git commit -m base', { cwd: root, stdio: 'pipe' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git add -A && git commit -m base', { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] })
     // 磁盘上再放一个**未提交**组件,引用五语言包都没有的键 —— 这就是 sideQueued 现场:
     // 磁盘枚举(旧)会把它算进"本提交引用未登记键",而它结构上进不了任何一面提交。
     writeFileSync(

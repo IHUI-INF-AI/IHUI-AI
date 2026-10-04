@@ -143,7 +143,12 @@ export function resolveShell(): string {
       if (existsSync(c)) return c;
     }
     // PATH 上的 git 反推 Git 安装目录（.../Git/cmd/git.exe -> .../Git/bin/bash.exe）
-    const git = spawnSync('where.exe', ['git'], { encoding: 'utf8', windowsHide: true });
+    const git = spawnSync('where.exe', ['git'], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+      encoding: 'utf8',
+      windowsHide: true,
+    });
     for (const line of (git.stdout ?? '').split(/\r?\n/)) {
       const m = /^(.*?)[\\/]cmd[\\/]git\.exe$/i.exec(line.trim());
       if (m) {
@@ -186,6 +191,8 @@ export function verifyTask(ws: string, task: BenchTask): { exitCode: number | nu
     args = ['-c', task.verifyCmd];
   }
   const r = spawnSync(cmd, args, {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd: ws,
     encoding: 'utf8',
     timeout: 120_000,
@@ -229,6 +236,8 @@ export function makeCliAgent(): RunAgentFn {
       ];
     }
     const r = spawnSync(cmd, args, {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: cliRoot,
       encoding: 'utf8',
       timeout: 600_000,

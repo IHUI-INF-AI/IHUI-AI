@@ -28,7 +28,12 @@ const REPO_SLUG = 'IHUI-INF-AI/IHUI-AI'
 const GIT_BIN = (() => {
   if (process.platform !== 'win32') return 'git'
   try {
-    const whereOut = execFileSync('where', ['git'], { encoding: 'utf8', windowsHide: true })
+    const whereOut = execFileSync('where', ['git'], {
+      encoding: 'utf8',
+      windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     for (const raw of whereOut.split('\n')) {
       if (/\\cmd\\git\.exe$/i.test(raw.trim())) return raw.trim()
     }
@@ -47,6 +52,8 @@ function git(args, allowFail = false) {
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
     windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   if (r.status !== 0) {
     if (allowFail) return null
