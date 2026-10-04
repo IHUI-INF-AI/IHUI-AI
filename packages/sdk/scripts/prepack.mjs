@@ -41,6 +41,10 @@ try {
     cwd: pkgRoot,
     encoding: 'utf8',
     windowsHide: true,
+    // 2026-10-04(G-463 同轮实测):`stdio` 必带。tsc 虽会读 stdin,但派生链上有一个环节
+    // 触碰句柄时会让本进程报 `spawnSync <node> EBUSY`(Windows 下管道未继承的已知形态);
+    // 显式给 'ignore' 让子进程拿到独立句柄,不再与父进程抢。
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   if (out.trim()) log(out.trim())
 } catch (err) {
