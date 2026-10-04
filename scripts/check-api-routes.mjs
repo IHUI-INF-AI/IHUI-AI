@@ -3274,12 +3274,26 @@ const compositePrefixes = buildCompositePrefixes(prefixes)
  * 两处 `--dump-*` 站点共用这一份实现,不得各写一遍(两处算同一件事必漂移)。
  */
 function dumpFlagValue(flag) {
-  const i = process.argv.indexOf(flag)
-  if (i === -1) return null
-  const v = process.argv[i + 1]
-  if (typeof v === 'string' && v !== '') {
-    if (!v.startsWith('-')) return v
-    console.error(`[API 路由比对] 忽略无效的 ${flag} 值: ${v}`)
+  // 2026-10-04 修:原先只认 `--flag value` 分离式,`--flag=value` 等号形式**静默失效**
+  // —— indexOf(flag) 返回 -1 ⇒ 返回 null、不落盘、不报错。排障时用等号写法会以为
+  // "这个旗标没输出东西",实际是旗标没被识别,而门对此**一声不响**。
+  // 现在两种写法都认;等号形式优先(它无歧义,不会误吃下一个 argv)。
+  for (let i = 0; i < process.argv.length; i++) {
+    const arg = process.argv[i]
+    if (arg === flag) {
+      const v = process.argv[i + 1]
+      if (typeof v === 'string' && v !== '') {
+        if (!v.startsWith('-')) return v
+        console.error(`[API 路由比对] 忽略无效的 ${flag} 值: ${v}`)
+      }
+      return null
+    }
+    if (arg.startsWith(flag + '=')) {
+      const v = arg.slice(flag.length + 1)
+      if (v !== '') return v
+      console.error(`[API 路由比对] 忽略无效的 ${flag} 值(等号写法后为空)`)
+      return null
+    }
   }
   return null
 }
