@@ -189,7 +189,13 @@ test('所有派生都带 windowsHide(§5b 禁弹窗)', () => {
 })
 
 test('真机 cmd 可用(mklink 走的是绝对路径 cmd.exe,不依赖 PATH)', () => {
-  const r = spawnSync(CMD, ['/c', 'ver'], { windowsHide: true, timeout: 30000, encoding: 'utf8' })
+  const r = spawnSync(CMD, ['/c', 'ver'], {
+    windowsHide: true,
+    timeout: 30000,
+    encoding: 'utf8',
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   assert.equal(r.status, 0, `cmd.exe 绝对路径不可用:${r.error?.message}`)
 })
 
@@ -290,6 +296,8 @@ test('端到端:把 USERPROFILE 换成系统账户家目录再调修复器 ⇒ �
       APPDATA: 'C:\\Windows\\System32\\config\\systemprofile\\AppData\\Roaming',
       LOCALAPPDATA: 'C:\\Windows\\System32\\config\\systemprofile\\AppData\\Local',
     },
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   const out = `${r.stdout || ''}${r.stderr || ''}`
   assert.match(out, /未判定/, '系统身份下必须喊未判定')
@@ -420,13 +428,20 @@ test('stash 清理按类型分流,且断链绝不穿透目标内容', () => {
     writeFileSync(join(dst, 'k.txt'), '12345', 'utf8')
     writeFileSync(join(dst, 'sub', 'x.bin'), '1234567', 'utf8')
     const src = join(home, '.demo')
-    spawnSync('cmd.exe', ['/c', 'mklink', '/J', src, dst], { windowsHide: true, timeout: 20000 })
+    spawnSync('cmd.exe', ['/c', 'mklink', '/J', src, dst], {
+      windowsHide: true,
+      timeout: 20000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     assert.ok(lstatSync(src).isSymbolicLink(), '夹具没建起来:src 不是指针')
 
     const linkStash = join(home, '.demo.pre-junction-2026-01-01T00-00-00-000Z')
     spawnSync('cmd.exe', ['/c', 'mklink', '/J', linkStash, dst], {
       windowsHide: true,
       timeout: 20000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     const covered = join(home, '.demo.pre-junction-2026-01-02T00-00-00-000Z')
     mkdirSync(join(covered, 'sub'), { recursive: true })

@@ -42,6 +42,8 @@ const runGate = (args, cwd = ROOT) =>
     windowsHide: true,
     timeout: 300000,
     cwd,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 
 /** 票面钉的两枚出处 ref:首次入库 / 就地改写。它们住在对象库里,不依赖工作树。 */
@@ -52,7 +54,13 @@ const REWRITTEN_SQL = `${gate.MIG_DIR}/20260927100000_tenant_rls_policies_batch1
 /** 在临时仓里造一份最小迁移布局并可选提交。 */
 function makeFixtureRepo(dir, { tags = ['0000_fixture'], body = 'CREATE TABLE fixture (id int);\n', commit = true } = {}) {
   const git = (args) =>
-    spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8', windowsHide: true, timeout: 60000 })
+    spawnSync('git', ['-C', dir, ...args], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 60000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
   assert.equal(git(['init', '-q']).status, 0)
   assert.equal(git(['config', 'user.email', 'gate@example.invalid']).status, 0)
   assert.equal(git(['config', 'user.name', 'gate']).status, 0)
@@ -262,10 +270,17 @@ test('T8 判死三态:无提交 / journal 空 entries / 面旗矛盾 / --root �
     void git
     // B) journal entries 为 0 ⇒ 空扫判死
     writeFileSync(join(dir2, gate.JOURNAL_REL), '{"version":"7","dialect":"postgresql","entries":[]}\n')
-    spawnSync('git', ['-C', dir2, 'add', '-A'], { windowsHide: true, timeout: 60000 })
+    spawnSync('git', ['-C', dir2, 'add', '-A'], {
+      windowsHide: true,
+      timeout: 60000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     spawnSync('git', ['-C', dir2, 'commit', '-qm', 'empty journal'], {
       windowsHide: true,
       timeout: 60000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     const emptyJournal = runGate(['--root', dir2])
     assert.equal(emptyJournal.status, 2, `0 个候选必须判死,stdout=${emptyJournal.stdout}`)

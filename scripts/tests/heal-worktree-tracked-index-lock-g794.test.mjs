@@ -82,7 +82,13 @@ function copyCliInto(dir) {
 }
 
 const runCli = (scriptPath, args, cwd) =>
-  spawnSync(process.execPath, [scriptPath, ...args], { cwd, encoding: 'utf8', windowsHide: true })
+  spawnSync(process.execPath, [scriptPath, ...args], {
+    cwd,
+    encoding: 'utf8',
+    windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
 
 /**
  * 造"落后索引 + 真 index.lock"现场(与 self-test ㉚ 同形,但走**独立小仓**:

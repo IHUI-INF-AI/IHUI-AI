@@ -45,6 +45,8 @@ const gitFace = (spec) =>
     windowsHide: true,
     timeout: 60000,
     maxBuffer: 32 << 20,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 
 /** 文件里最早出现的那一次真执行(守卫必须排在它之前才算数)。 */
@@ -112,6 +114,8 @@ test('A 真 require 本模块:必须零输出、退出码 0', () => {
         encoding: 'utf8',
         windowsHide: true,
         timeout: 120000,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
       })
     } catch (e) {
       code = e.status ?? -1
@@ -163,9 +167,17 @@ test('C 机制证明:同一份"守卫 + 打印"夹具,require 不打印而直接
       encoding: 'utf8',
       windowsHide: true,
       timeout: 30000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     assert.ok(!viaRequire.includes('FLOW-RAN'), '被 require 时最小夹具不得执行流程(否则 A 的"零输出"没有意义)')
-    const viaRun = execFileSync(process.execPath, [p], { encoding: 'utf8', windowsHide: true, timeout: 30000 })
+    const viaRun = execFileSync(process.execPath, [p], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 30000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     assert.match(viaRun, /FLOW-RAN/, '直接执行时最小夹具必须执行流程(否则"零输出"是空转而非守卫生效)')
   } finally {
     rmScratch(dir)

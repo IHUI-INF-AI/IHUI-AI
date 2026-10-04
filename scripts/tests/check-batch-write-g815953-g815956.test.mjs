@@ -299,7 +299,14 @@ test('G-815953 真仓对照:HEAD 的 id-mapping-queries.ts 走唯一出口零违
       'blob',
       'HEAD:apps/api/src/db/id-mapping-queries.ts',
     ],
-    { encoding: 'utf8', windowsHide: true, timeout: 120_000, maxBuffer: 8 << 20 },
+    {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120_000,
+      maxBuffer: 8 << 20,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
   )
   if (!blob.includes('backfillWhere('))
     throw new Error('HEAD 的 id-mapping-queries.ts 必须走 backfillWhere 唯一出口(首落点),否则正例对照失效')

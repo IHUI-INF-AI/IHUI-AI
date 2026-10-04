@@ -66,6 +66,8 @@ function getStagedFiles() {
       encoding: "utf8",
       cwd: ROOT,
       windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
     return out.trim().split("\n").filter(Boolean);
   } catch {
@@ -91,7 +93,13 @@ function main() {
   } else {
     // 全量扫描 working tree(非 staged 模式)
     try {
-      const out = execSync("git diff --name-only HEAD", { encoding: "utf8", cwd: ROOT, windowsHide: true });
+      const out = execSync("git diff --name-only HEAD", {
+        encoding: "utf8",
+        cwd: ROOT,
+        windowsHide: true,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
       files = out.trim().split("\n").filter(Boolean);
     } catch {
       files = [];

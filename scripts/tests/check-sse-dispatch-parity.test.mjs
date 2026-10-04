@@ -46,6 +46,8 @@ function gitRun(args, env) {
     maxBuffer: 32 * 1024 * 1024,
     timeout: 120000,
     env,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
@@ -230,7 +232,14 @@ test('⑤b 暂存区口径实跑:budget 一族的端内接线 + 台账一起进�
     const out = execFileSync(
       process.execPath,
       [join(REPO, 'scripts', 'check-sse-dispatch-parity.mjs'), '--staged'],
-      { encoding: 'utf8', windowsHide: true, timeout: 120000, env },
+      {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 120000,
+        env,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
     )
     assert.match(out, /守门通过/u, `暂存区口径未判绿:${out}`)
   } finally {
@@ -319,7 +328,15 @@ test('⑩ 台账判定面:索引与磁盘不一致时按索引出结论(旧磁�
       const out = execFileSync(
         process.execPath,
         [join(REPO, 'scripts', 'check-sse-dispatch-parity.mjs'), '--staged'],
-        { encoding: 'utf8', windowsHide: true, timeout: 180000, env, maxBuffer: 32 * 1024 * 1024 },
+        {
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 180000,
+          env,
+          maxBuffer: 32 * 1024 * 1024,
+          // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+          stdio: ['ignore', 'pipe', 'pipe'],
+        },
       )
       return { code: 0, out }
     } catch (e) {
@@ -452,6 +469,8 @@ test('⑨ --self-test 入口可用且全绿', () => {
       encoding: 'utf8',
       windowsHide: true,
       timeout: 120000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     },
   )
   assert.match(out, /\[self-test\] (\d+)\/\1 通过/u, '自测未全绿')
@@ -476,6 +495,8 @@ test('⑫ 面旗 CLI 四态:--worktree 真换面、两面旗同给判死、末�
           windowsHide: true,
           timeout: 180000,
           maxBuffer: 32 * 1024 * 1024,
+          // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+          stdio: ['ignore', 'pipe', 'pipe'],
         },
       )
       return { code: 0, out }

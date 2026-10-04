@@ -127,10 +127,14 @@ function withRegistryDefaults(files = {}) {
 function createTempGitRepo(rawFiles = {}) {
   const files = withRegistryDefaults(rawFiles)
   const dir = mkScratch('ihui-port-')
-  execSync('git init -b main', { cwd: dir, encoding: 'utf8', stdio: 'pipe' })
-  execSync('git config user.email "test@test.com"', { cwd: dir, encoding: 'utf8', stdio: 'pipe' })
-  execSync('git config user.name "test"', { cwd: dir, encoding: 'utf8', stdio: 'pipe' })
-  execSync('git config commit.gpgsign false', { cwd: dir, encoding: 'utf8', stdio: 'pipe' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git init -b main', { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git config user.email "test@test.com"', { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git config user.name "test"', { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git config commit.gpgsign false', { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
   // baseline 文件(确保初始 commit 有内容)
   writeFileSync(join(dir, 'README.md'), '# test baseline\n')
   for (const [relPath, content] of Object.entries(files)) {
@@ -138,8 +142,10 @@ function createTempGitRepo(rawFiles = {}) {
     mkdirSync(join(fullPath, '..'), { recursive: true })
     writeFileSync(fullPath, content)
   }
-  execSync('git add -A', { cwd: dir, encoding: 'utf8', stdio: 'pipe' })
-  execSync('git commit -q -m init', { cwd: dir, encoding: 'utf8', stdio: 'pipe' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git add -A', { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git commit -q -m init', { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
   return dir
 }
 
@@ -148,7 +154,8 @@ function stageFile(repoDir, relPath, content) {
   const fullPath = join(repoDir, relPath)
   mkdirSync(join(fullPath, '..'), { recursive: true })
   writeFileSync(fullPath, content)
-  spawnSync('git', ['add', relPath], { cwd: repoDir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  spawnSync('git', ['add', relPath], { cwd: repoDir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
 }
 
 // ─── 辅助:运行 check-port-registry.mjs ───
@@ -156,7 +163,8 @@ function runScript(cwd, args = []) {
   return spawnSync('node', [SCRIPT_PATH, ...args], {
     cwd,
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
