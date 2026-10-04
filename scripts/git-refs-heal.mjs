@@ -57,7 +57,9 @@ function git(args, allowFail = false) {
   try {
     return execFileSync(bin, ['-c', 'safe.directory=*', '-C', WORKTREE, ...args], {
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      // 返回值被消费(.trim() 后 return)⇒ stdout 仍须 pipe,只把 stdin 切掉
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true, // GUI 宿主下派生 git 不显控制台窗口(AGENTS.md §5b)
       timeout: 180000,
     }).trim()

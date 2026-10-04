@@ -33,6 +33,8 @@ function run(...args: string[]): { stdout: string; stderr: string; exitCode: num
       timeout: CHILD_TIMEOUT_MS,
       cwd: join(__dirname, '..'),
       windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     return { stdout, stderr: '', exitCode: 0 }
   } catch (err: unknown) {

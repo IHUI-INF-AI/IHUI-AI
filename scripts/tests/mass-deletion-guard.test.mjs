@@ -20,12 +20,14 @@ const GUARD = join(ROOT, 'scripts/check-mass-deletion.mjs')
 const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 
 const git = (args, env) =>
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   execFileSync(GIT, ['-c', 'safe.directory=*', ...args], {
     cwd: ROOT,
     encoding: 'utf8',
     windowsHide: true,
     env: { ...process.env, ...env },
     maxBuffer: 1 << 28,
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 
 const runGuard = (env) => {

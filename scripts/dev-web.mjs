@@ -42,7 +42,9 @@ function killPort(port) {
   try {
     const out = execSync(
       `pwsh -NoProfile -Command "Get-NetTCPConnection -LocalPort ${port} -State Listen -ErrorAction SilentlyContinue | ForEach-Object { $p=$_.OwningProcess; if ($p -gt 0) { taskkill /F /T /PID $p 2>&1 | Out-Null } }"`,
-      { stdio: 'pipe', windowsHide: true }
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      // 返回值被消费(.toString() 后判 out.trim())⇒ stdout 仍须 pipe,只把 stdin 切掉
+      { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true }
     ).toString()
     if (out.trim()) console.log(`[dev-web] killed port ${port} tree:\n${out.trim()}`)
     else console.log(`[dev-web] port ${port} already free`)

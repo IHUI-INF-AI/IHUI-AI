@@ -37,10 +37,14 @@ function createTempDir(prefix = 'ihui-archive-') {
 function createTempGitRepo() {
   const dir = mkScratch('ihui-archive-git-')
   const opt = { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
-  spawnSync('git', ['init', '-q'], opt)
-  spawnSync('git', ['config', 'user.email', 'test@ihui.local'], opt)
-  spawnSync('git', ['config', 'user.name', 'Test'], opt)
-  spawnSync('git', ['config', 'commit.gpgsign', 'false'], opt)
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  spawnSync('git', ['init', '-q'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  spawnSync('git', ['config', 'user.email', 'test@ihui.local'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  spawnSync('git', ['config', 'user.name', 'Test'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  spawnSync('git', ['config', 'commit.gpgsign', 'false'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] })
   return dir
 }
 
@@ -48,8 +52,10 @@ function createTempGitRepo() {
 function commitPlan(repoDir, content, msg = 'init plan') {
   writeFileSync(join(repoDir, 'PROJECT_PLAN.md'), content)
   const opt = { cwd: repoDir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
-  spawnSync('git', ['add', 'PROJECT_PLAN.md'], opt)
-  spawnSync('git', ['commit', '-q', '-m', msg], opt)
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  spawnSync('git', ['add', 'PROJECT_PLAN.md'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  spawnSync('git', ['commit', '-q', '-m', msg], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] })
 }
 
 // 运行脚本并去除 ANSI 颜色码
@@ -57,7 +63,8 @@ function runScript(cwd, args = []) {
   const r = spawnSync('node', [SCRIPT_PATH, ...args], {
     cwd,
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   r.out = r.stdout.replace(/\x1b\[[0-9;]*m/g, '')
   r.err = r.stderr.replace(/\x1b\[[0-9;]*m/g, '')

@@ -112,7 +112,8 @@ function getStagedFiles() {
     const output = execSync('git diff --cached --name-only --diff-filter=ACDMR', {
       encoding: 'utf8',
       cwd: ROOT,
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     })
     return output
@@ -131,7 +132,8 @@ function getWorkingTreeFiles() {
     const output = execSync('git status --porcelain', {
       encoding: 'utf8',
       cwd: ROOT,
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     })
     return output
@@ -174,7 +176,8 @@ function expandGlob(pattern) {
     const output = execSync(`git ls-files -- "${pattern}"`, {
       encoding: 'utf8',
       cwd: ROOT,
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     })
     return output
