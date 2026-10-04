@@ -21,6 +21,7 @@ import {
   XCircle,
   Zap,
 } from 'lucide-react'
+import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
@@ -279,7 +280,7 @@ function ProgressBar({
   max: number
   className?: string
 }) {
-  const pct = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0
+  const pct = max > 0 ? clampPercent((value / max) * 100) : 0
   return (
     <div className="h-1.5 w-full overflow-hidden rounded-xs bg-muted">
       <div
@@ -1029,7 +1030,7 @@ export function OrchestrationHubPanel() {
   const [activeTab, setActiveTab] = React.useState<TabKey>('events')
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background/80 backdrop-blur-md">
+    <div className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-background/80 backdrop-blur-md">
       {/* 标题栏 */}
       <header className="flex h-11 shrink-0 items-center gap-2 bg-muted/30 px-3">
         <div className="flex h-6 w-6 items-center justify-center rounded-md bg-cta text-cta-foreground">
