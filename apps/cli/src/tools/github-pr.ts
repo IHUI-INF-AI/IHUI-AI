@@ -33,6 +33,8 @@ function runGh(args: string[], cwd: string, timeoutMs = 30_000): GhResult {
     timeout: timeoutMs,
     maxBuffer: 2 * 1024 * 1024,
     windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   });
   if (result.error) {
     const code = (result.error as NodeJS.ErrnoException).code;
@@ -62,6 +64,8 @@ function inferOwnerRepo(cwd: string): { owner: string; repo: string } | null {
     encoding: 'utf-8',
     timeout: 10_000,
     windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   });
   if (r.error || r.status !== 0) return null;
   const url = (r.stdout as string).trim();
