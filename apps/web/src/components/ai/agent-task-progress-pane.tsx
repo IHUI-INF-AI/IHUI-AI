@@ -30,6 +30,7 @@ import {
   TerminalSquare,
   Package,
 } from 'lucide-react'
+import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import { cn } from '@/lib/utils'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 
@@ -553,7 +554,7 @@ function MinimizedSummaryBar({
       >
         <div
           className="h-full rounded-sm bg-primary transition-all duration-300"
-          style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+          style={{ width: `${clampPercent(progress)}%` }}
           data-testid="pane-minimized-progress-fill"
         />
       </div>

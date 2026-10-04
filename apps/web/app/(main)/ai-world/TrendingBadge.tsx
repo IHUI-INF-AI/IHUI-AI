@@ -7,6 +7,7 @@
 import * as React from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Flame } from 'lucide-react'
+import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import { Tooltip } from '@/components/feedback'
 
 interface Props {
@@ -37,7 +38,7 @@ export function TrendingBadge({ score, metrics, updatedAt }: Props) {
   )
 
   if (score === null || !Number.isFinite(score)) return null
-  const s = Math.max(0, Math.min(100, Math.round(score)))
+  const s = clampPercent(Math.round(score))
 
   const tier =
     s >= 80
