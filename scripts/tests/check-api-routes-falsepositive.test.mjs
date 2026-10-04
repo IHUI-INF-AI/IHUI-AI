@@ -32,7 +32,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -751,5 +751,70 @@ test('S2 源码锁:五个机制的判据依据注释不得被删(否则下一个
     SRC,
     /会把 \*\*2,623 条\*\*判成非调用点/,
     '⑤ 必须留着"只用无传输口当判据会剔掉 2,623 条真调用"这个否证理由',
+  )
+})
+
+// ─── D 排障出口:`--flag=value` 等号写法不得静默失效(2026-10-04) ───
+// 原缺陷:`dumpFlagValue` 只认 `--flag value` 分离式,`--flag=value` 走 indexOf(flag) 返回 -1
+// ⇒ 返回 null、**不落盘、不报错**。排障时用等号写法,会以为"这个旗标没输出东西",
+// 实际是旗标没被识别,而门对此一声不响 ⇒ 排障出口哑火。
+// 本组钉:两种写法都认 + 无效值仍报错(不许因为加了等号分支就变成静默吞掉)。
+
+test('D1 --dump-backend=<path> 等号写法能落盘(分离式之外的第二种写法)', () => {
+  const dir = root()
+  try {
+    put(dir, 'scripts/api-routes-baseline.json', BASELINE)
+    put(dir, 'apps/api/src/routes/x.ts', "server.get('/api/x', async () => ({}))\n")
+    const out = join(dir, 'bk.json')
+    const r = spawnSync(process.execPath, [SCRIPT, '--worktree', '--root', dir, `--dump-backend=${out}`], {
+      cwd: HERE,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
+    assert.ok(existsSync(out), `等号写法未落盘 ⇒ 旗标被静默忽略。stdout: ${(r.stdout || '').slice(-200)}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('D2 分离式仍然生效(加等号分支不许回退旧写法)', () => {
+  const dir = root()
+  try {
+    put(dir, 'scripts/api-routes-baseline.json', BASELINE)
+    put(dir, 'apps/api/src/routes/x.ts', "server.get('/api/x', async () => ({}))\n")
+    const out = join(dir, 'bk2.json')
+    const r = spawnSync(
+      process.execPath,
+      [SCRIPT, '--worktree', '--root', dir, '--dump-backend', out],
+      { cwd: HERE, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true },
+    )
+    assert.ok(existsSync(out), `分离式被回退。stdout: ${(r.stdout || '').slice(-200)}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('D3 等号写法后为空值时必须报错,不得静默返回 null', () => {
+  const dir = root()
+  try {
+    put(dir, 'scripts/api-routes-baseline.json', BASELINE)
+    const r = spawnSync(
+      process.execPath,
+      [SCRIPT, '--worktree', '--root', dir, '--dump-backend='],
+      { cwd: HERE, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true },
+    )
+    const err = (r.stderr || '') + (r.stdout || '')
+    assert.match(err, /等号写法后为空|忽略无效/, '空值必须被点名,不能一声不响')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('S3 源码锁:dumpFlagValue 的等号分支不得被静默删掉', () => {
+  assert.match(
+    SRC,
+    /arg\.startsWith\(flag \+ '='\)/,
+    '等号分支被删了 —— 排障出口会再次静默哑火',
   )
 })
