@@ -192,8 +192,81 @@ function fetchHeadMain() {
   return m ? m[1] : null
 }
 
+/** 远端面是否"完整到有资格删期望项":`--tags --heads` 任一侧半失败时必须一个都不删 */
+function remoteFaceIsComplete(remoteRefNames) {
+  const list = [...remoteRefNames]
+  return list.some((r) => r.startsWith('refs/heads/')) && list.some((r) => r.startsWith('refs/tags/'))
+}
+
+/** 清单里的本地键 → 远端可能用来表达它的那些 ref 名(拿不准就算"存在",宁留不误删) */
+function remoteCandidatesFor(ref) {
+  if (ref.startsWith('refs/remotes/origin/')) {
+    const rest = ref.slice('refs/remotes/origin/'.length)
+    // 镜像远端(gitee/gitcode)的 tracking ref 也长这样,故两种形态都算命中
+    return [`refs/heads/${rest}`, ref]
+  }
+  if (ref.startsWith('refs/tags/')) return [ref]
+  return null // 其它来源的键不在本判据射程(不判、也不删)
+}
+
+/**
+ * 从期望清单摘掉「远端已不存在」的项。
+ * 为什么必须有这一步(2026-10-04 实测):本器此前只增不删,于是远端**已被其属主删除**的分支会
+ * 永久留在 `refs-manifest.json` 里,而 healRefs() 每 2 分钟按清单把它重新造回来 —— 门 41
+ * (单分支开发)因此恒红,而 §9b 又明写"fetch + prune 是日常":两条规矩互相顶,结果是
+ * 被 prune 掉的引用一定会复活。`git fetch --prune` 当场能让门变绿、下一 tick 又红,即此型。
+ * 三条不可漂的护栏:
+ *  ① 远端面不完整 ⇒ 一个都不删并把原因喊出来。把"这次没返回"读成"远端没有",等于让一次
+ *     网络/权限抖动删光整族期望项 —— 那比恒红严重得多(§5b 的分层自愈正依赖这份清单)。
+ *  ② 只动 origin 命名空间(refs/remotes/origin/**、refs/tags/**),其它形态的键不判也不删。
+ *  ③ 按**键名**判存在,不比 sha(sha 由上面的校准负责);候选名任一命中即保留。
+ * @returns {{removed:string[], kept:number, skippedNonOrigin:number, declined:boolean}}
+ */
+function pruneAbsentExpectations(map, remoteRefNames) {
+  const all = Object.keys(map)
+  if (!remoteFaceIsComplete(remoteRefNames)) {
+    return {
+      removed: [],
+      kept: all.length,
+      skippedNonOrigin: 0,
+      tagHoldovers: 0,
+      declined: true,
+    }
+  }
+  const removed = []
+  let skippedNonOrigin = 0
+  let tagHoldovers = 0
+  for (const ref of all) {
+    const candidates = remoteCandidatesFor(ref)
+    if (!candidates) {
+      skippedNonOrigin++
+      continue
+    }
+    if (candidates.some((c) => remoteRefNames.has(c))) continue
+    // 命中"远端已无",仍要分档:tags 一律不动。清单是"被宿主清掉的 ref 离线重建"的唯一依据,
+    // 摘掉 backup/*、lost-commit/* 的期望项 = 那些备份 tag 一旦被清就永不重建(§22 禁删、§5b 双留)。
+    if (ref.startsWith('refs/tags/')) {
+      tagHoldovers++
+      continue
+    }
+    removed.push(ref)
+  }
+  for (const ref of removed) delete map[ref]
+  return {
+    removed,
+    kept: Object.keys(map).length,
+    skippedNonOrigin,
+    tagHoldovers,
+    declined: false,
+  }
+}
+
 /** 从 origin 校准:全量 tag + refs/heads/main(需网络;代理走环境变量) */
 let remoteCalibrated = false
+// 本轮 ls-remote 见到的远端 ref 全集。为什么要挂到模块级:摘除"远端已无"的期望项必须发生在
+// main 的学习步骤**之后**(learning 按盘面 ref 纳管,先摘会被同一轮立刻写回 —— 实测打印
+// "摘除 4 个"而清单残留 1),而学习那一步也要能问这份名单,否则它拿不到远端真值就只能猜。
+let lastRemoteRefs = null
 function refreshFromRemote() {
   const out = git(['ls-remote', '--tags', '--heads', 'origin'], true)
   if (!out) {
@@ -202,21 +275,35 @@ function refreshFromRemote() {
     return false
   }
   const map = readManifest()
+  const remoteRefNames = new Set()
+  lastRemoteRefs = remoteRefNames
   let added = 0
   for (const line of out.split('\n')) {
     const [sha, ref] = line.trim().split(/\s+/)
     if (!sha || !ref) continue
     if (ref.endsWith('^{}')) continue // annotated tag 的 peel 行
+    remoteRefNames.add(ref)
     // 远端分支只跟 main(refs/heads/main → refs/remotes/origin/main)
     const local = ref === 'refs/heads/main' ? 'refs/remotes/origin/main' : ref
     if (!isNestedRef(local)) continue // depth1 的天然存活,不入清单
     if (map[local] !== sha) added++
     map[local] = sha
   }
+  const pruned = pruneAbsentExpectations(map, remoteRefNames)
+  if (pruned.removed.length) {
+    console.log(`[refresh-remote] 摘除 ${pruned.removed.length} 个远端已不存在的期望项:`)
+    for (const r of pruned.removed) console.log(`   - ${r}`)
+  }
+  if (pruned.declined) {
+    console.log(
+      '[refresh-remote] ⚠️ 远端面不完整(本次没同时看到 refs/heads/* 与 refs/tags/*)⇒ 本次**只校准不摘除**;' +
+        '把"没返回"当成"远端没有"会一次删光整族期望项',
+    )
+  }
   const ok = saveManifest(map)
   if (ok) remoteCalibrated = true
   console.log(
-    `[refresh-remote] 已从 origin 校准 ${Object.keys(map).length} 个嵌套 ref(变更 ${added} 个)`,
+    `[refresh-remote] 已从 origin 校准 ${Object.keys(map).length} 个嵌套 ref(变更 ${added} 个、摘除 ${pruned.removed.length} 个、非 origin 键不动 ${pruned.skippedNonOrigin} 个)`,
   )
   return ok
 }
@@ -249,6 +336,63 @@ function selfTest() {
   const shaAlive = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
   const shaDead = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
   const existsOnly = (s) => s === shaAlive
+
+  // ── 摘除「远端已不存在」的期望项(2026-10-04 新增):门 41 恒红的根因是清单只增不删 ──
+  const GHOST = 'refs/remotes/origin/wip/collect-2026-09-30'
+  const GONE_TAG = 'refs/tags/backup/deleted-one'
+  t('摘除判据:远端已无的 origin 键被摘,存在的不被摘;tag 键一律不摘只报名', () => {
+    const map = { [A]: shaAlive, [GHOST]: shaAlive, [GONE_TAG]: shaAlive }
+    const remote = new Set(['refs/heads/main', A, 'refs/tags/keep/me'])
+    const r = pruneAbsentExpectations(map, remote)
+    if (r.declined) throw new Error('远端面含 heads+tags,不应判为不完整')
+    // 唯一应被摘的是那枚幻影 tracking ref
+    if (r.removed.length !== 1 || r.removed[0] !== GHOST)
+      throw new Error(`removed=${JSON.stringify(r.removed)},应只含 ${GHOST}`)
+    if (map[A] === undefined) throw new Error('main 被误摘')
+    // tag 那一支是 §22/§5b 的硬约束:远端没有也不许摘清单 —— 清单是备份 tag 被宿主清掉之后
+    // 唯一的离线重建依据,摘了就等于让"本地+远端双留"退化成"单留",且这件事不会有任何报错。
+    if (r.tagHoldovers !== 1) throw new Error(`tagHoldovers=${r.tagHoldovers},应为 1`)
+    if (map[GONE_TAG] === undefined) throw new Error('远端已无的 tag 期望项被摘除了(违反 §22 禁删)')
+    if (r.kept !== 2) throw new Error(`kept=${r.kept},应为 2`)
+  })
+  t('反向对照:把所有 tag 期望项都判成可摘,必须被上一条抓住', () => {
+    // 这条不是冗余断言 —— 它是上一条例外分支的"牙齿":若有人删掉 `ref.startsWith('refs/tags/')`
+    // 那一支,本用例仍会绿(因为它只数一遍),所以这里改判**方向**:远端整体缺失 tags 侧时,
+    // 不完整判据必须先拦住,任何 tag 键都不得进入 removed。
+    const map = { [GONE_TAG]: shaAlive, [GHOST]: shaAlive }
+    const r = pruneAbsentExpectations(map, new Set(['refs/heads/main']))
+    if (!r.declined) throw new Error('远端没看到任何 refs/tags/* 却进入了摘除流程')
+    if (r.removed.length !== 0) throw new Error(`removed=${JSON.stringify(r.removed)}`)
+    if (map[GONE_TAG] === undefined) throw new Error('declined 分支却摘掉了 tag 期望项')
+  })
+  t('关键反向对照:远端面不完整 ⇒ 一个都不摘(把"没返回"读成"远端没有"会删光整族)', () => {
+    const map = { [A]: shaAlive, [GHOST]: shaAlive, [GONE_TAG]: shaAlive }
+    // 只见 tags、整侧 heads 缺失(网络半失败的典型形状)
+    const onlyTags = new Set(['refs/tags/keep/me'])
+    const r1 = pruneAbsentExpectations(map, onlyTags)
+    if (!r1.declined || r1.removed.length !== 0)
+      throw new Error(`heads 侧缺失时仍执行了摘除:${JSON.stringify(r1.removed)}`)
+    if (Object.keys(map).length !== 3) throw new Error('declined 分支却改动了清单')
+    // 只见 heads、tags 侧缺失
+    const onlyHeads = new Set(['refs/heads/main', A])
+    const r2 = pruneAbsentExpectations({ [GONE_TAG]: shaAlive }, onlyHeads)
+    if (!r2.declined || r2.removed.length !== 0) throw new Error('tags 侧缺失时未拒绝摘除')
+  })
+  t('非 origin 命名空间的键不判也不摘(超出本判据射程就不许动手)', () => {
+    const map = { 'refs/heads/somewhere': shaAlive, 'refs/notes/x': shaAlive }
+    const r = pruneAbsentExpectations(map, new Set(['refs/heads/main', 'refs/tags/t']))
+    if (r.removed.length !== 0) throw new Error(`越界摘除了 ${JSON.stringify(r.removed)}`)
+    if (r.skippedNonOrigin !== 2) throw new Error(`skippedNonOrigin=${r.skippedNonOrigin}`)
+    if (Object.keys(map).length !== 2) throw new Error('越界键被改动了')
+  })
+  t('候选名任一命中即保留:远端以 refs/heads/<rest> 表达的 tracking ref 不得被摘', () => {
+    const map = { 'refs/remotes/origin/feature/x': shaAlive }
+    // 远端只有 refs/heads/feature/x(没有同名 refs/remotes/...)
+    const r = pruneAbsentExpectations(map, new Set(['refs/heads/feature/x', 'refs/tags/t']))
+    if (r.removed.length !== 0) throw new Error('同义候选名未参与判定 ⇒ 正当 ref 被误摘')
+    const r2 = pruneAbsentExpectations({ 'refs/remotes/origin/gone/x': shaAlive }, new Set(['refs/heads/main', 'refs/tags/t']))
+    if (r2.removed.length !== 1) throw new Error('远端确无该分支时应摘,却没摘')
+  })
 
   t('死引用进 dead、不进 rebuildable(否则会被反复"重建"成坏指针)', () => {
     const { dead, rebuildable } = splitDeadRefs(
@@ -346,6 +490,35 @@ function main() {
     map['refs/remotes/origin/HEAD'] = authoritativeMain
   }
   if (learned) console.log(`[learning] 纳入 ${learned} 个新出现的嵌套 ref`)
+  // 1d) 摘除「远端已不存在」的 origin 期望项 —— 顺序与"连 ref 一起删"都是本步的存在理由:
+  //     · 放在 learning **之后**:learning 按盘面 ref 纳管,先摘会在同一轮被它写回(实测);
+  //     · 清单与盘面 ref **必须同轮都动**:只摘清单则 packed-refs 里那枚还在 ⇒ `git branch -a`
+  //       看得见 ⇒ 门 41 照红,且下一轮 learning 必然再纳入,形成"摘了又学、学了又造"的死循环;
+  //       只删 ref 不清清单,则 healRefs() 会按清单把它造回来(2026-10-04 三轮 tick 全红的原状)。
+  //     · 只在**本轮真拿到远端全集**时做;取不到就整步跳过(把"没返回"当"远端没有"会误删期望项)。
+  if (remoteCalibrated && lastRemoteRefs) {
+    const pruned = pruneAbsentExpectations(map, lastRemoteRefs)
+    if (pruned.declined) {
+      console.log(
+        '[prune-gone] ⚠️ 远端面不完整(没同时看到 refs/heads/* 与 refs/tags/*)⇒ 本轮不摘任何期望项',
+      )
+    } else if (pruned.removed.length) {
+      console.log(`[prune-gone] 摘除 ${pruned.removed.length} 个远端已不存在的 tracking ref 期望项:`)
+      for (const r of pruned.removed) console.log(`   - ${r}`)
+      // §9b:"fetch + prune 是日常"。prune 只删本地 remote-tracking ref,远端与任何 commit/tag 都不动。
+      const pr = git(['remote', 'prune', 'origin'], true)
+      if (pr === null) {
+        console.log('[prune-gone] ⚠️ `git remote prune origin` 失败 ⇒ 期望项已摘但盘面 ref 仍在,下轮可能复红(如实报,不静默)')
+      } else {
+        for (const l of pr.split('\n')) if (l.trim().startsWith('* [pruned]')) console.log(`   ${l.trim()}`)
+      }
+    }
+    if (pruned.tagHoldovers) {
+      console.log(
+        `[prune-gone] 另有 ${pruned.tagHoldovers} 个 tag 期望项远端已无 —— **刻意不摘**(§22 备份 tag 禁删、§5b 要求双留;清单是它们被清后唯一的离线重建依据),只报名`,
+      )
+    }
+  }
   saveManifest(map)
   // 清单一旦被学习/校准改写,必须**先**把松散 ref 固化进 packed-refs 再判定。
   // 否则时序是:manifest 更新到新 tip → fetch 写的松散 ref 在 1 秒内被宿主清理 →
