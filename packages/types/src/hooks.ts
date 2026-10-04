@@ -65,9 +65,19 @@ export type HookActionType = 'webhook' | 'script' | 'log' | 'notify'
  *  webhook 渠道)"即此档):执行侧复用 webhook 发送器,本类型早期漏登记故已补齐。 */
 export type HookNotifyChannel = 'toast' | 'notification' | 'email' | 'webhook'
 
-/** Hook 动作配置(各类型字段互斥,根据 type 取对应字段) */
-export interface HookActionConfig {
-  // === webhook 字段 ===
+/**
+ * Hook 动作配置的四族形态(G-675,2026-10-04)。
+ *
+ * 每一族把自己不适用的键声明为 `?: never`,所以 `{url, command}` 这类跨族矛盾组合
+ * 在**构造点**就不可赋值。此前是一个全 optional 的平铺接口,任意组合都能构造出来,
+ * 互斥校验只存在于 apps/ai-service 的 Pydantic 分支 —— 即"客户端自报矛盾态、
+ * 到服务端才拦"那一型;而 api 侧的 zod `actionConfigSchema` 同样是平铺宽松档。
+ * 各族字段仍全部 optional:`config` 允许 `{}`(api 侧 `.default({})` 与 ai-service
+ * 的空 `HookActionConfigModel()` 都是既有合法形态,收紧必填字段属另一件事)。
+ */
+
+/** type='webhook':只有 webhook 族字段可用 */
+export interface WebhookActionConfig {
   /** webhook URL(type='webhook' 时必填) */
   url?: string
   /** HTTP 方法,默认 POST */
@@ -76,15 +86,50 @@ export interface HookActionConfig {
   headers?: Record<string, string>
   /** 请求体模板,支持 {{event}} {{tool}} {{args}} {{result}} 变量替换 */
   body?: string
-  // === script 字段 ===
+  command?: never
+  channel?: never
+  message?: never
+}
+
+/** type='script':只有 command 可用 */
+export interface ScriptActionConfig {
   /** shell 命令(type='script' 时必填,沙箱内执行,超时 10s) */
   command?: string
-  // === notify 字段 ===
+  url?: never
+  method?: never
+  headers?: never
+  body?: never
+  channel?: never
+  message?: never
+}
+
+/** type='notify':只有 channel + message 可用 */
+export interface NotifyActionConfig {
   /** 通知渠道 */
   channel?: HookNotifyChannel
   /** 通知消息模板,支持 {{event}} {{tool}} {{args}} 变量替换 */
   message?: string
+  url?: never
+  method?: never
+  headers?: never
+  body?: never
+  command?: never
 }
+
+/** type='log':只有 message 可用 */
+export interface LogActionConfig {
+  message?: string
+  url?: never
+  method?: never
+  headers?: never
+  body?: never
+  command?: never
+  channel?: never
+}
+
+/** Hook 动作配置(与 `HookActionType` 的四族一一对应) */
+export type HookActionConfig =
+  WebhookActionConfig | ScriptActionConfig | NotifyActionConfig | LogActionConfig
 
 /** Hook 动作 */
 export interface HookAction {
