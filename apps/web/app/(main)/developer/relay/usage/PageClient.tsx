@@ -273,7 +273,7 @@ export default function RelayUsagePage() {
           <Activity className="h-6 w-6 text-primary" aria-hidden />
           {tu('title')}
         </h1>
-        <AuthGatePrompt message="请先登录后查看用量明细与分析" />
+        <AuthGatePrompt message={tu('needLogin')} />
       </div>
     )
   }
