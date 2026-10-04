@@ -175,7 +175,16 @@ test('(e)装车证明:tick 真执行分支调用 checkConvergeAlignStall,名与�
   const daemonSeg = src.slice(src.indexOf('function startDaemon'))
   assert.match(daemonSeg, /checkConvergeAlignStall\(\)/)
   // 派发名逐字固定;状态文件路径与收敛器写入侧同源(.workbuddy/converge-align-state.json)
-  assert.match(src, /notify\('converge-align-stall', detail\)/)
+  //
+  // 2026-10-04 放宽了这条断言的**形状**(存量红的根因修复,不是把判据放松):
+  // 原式 `/notify\('converge-align-stall', detail\)/` 要求**恰好两个参数**,而提交 25ce43fc6a
+  // (全域告警 §5e-1 审计整改)已给它加了第三个参数 `{ dedupKey }` —— HEAD 面
+  // `scripts/git-guardian.mjs:2090` 起就是三参形态。也就是说这条断言从那次提交起一直是红的,
+  // 而它红在 origin/main 上,所以没人当回事(守门 130 那条"与提交无关的恒红门只会逼人
+  // --no-verify"的同型)。**判据要钉的是"派发名逐字固定"这件事**,不是"恰好两个参数" ——
+  // 逐字名 + 变量名仍在本条正则内,加参数不该让"装车证明"失效。
+  // 判别力已变异验证:把派发名改掉(挪到别的 alert 身份)仍会被这条正则抓住。
+  assert.match(src, /notify\('converge-align-stall', detail\b/)
   assert.match(src, /'.workbuddy', 'converge-align-state\.json'/)
   // __test__ 暴露判据(§22c)
   const blk = src.slice(src.indexOf('export const __test__'))
