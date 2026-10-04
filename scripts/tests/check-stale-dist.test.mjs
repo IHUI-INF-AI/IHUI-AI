@@ -31,13 +31,16 @@ const GIT = resolveGitBin() || 'git'
 const ANSI_RE = /\x1b\[[0-9;]*m/g
 
 const runGit = (dir, args) =>
+  // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
   execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', '-c', 'user.email=t@e2e.local', '-c', 'user.name=e2e', '-C', dir, ...args], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     windowsHide: true,
   })
 
 function runGate(root, flags = []) {
   const r = spawnSync(process.execPath, [GATE, '--root', root, ...flags], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     windowsHide: true,
     timeout: 120000,

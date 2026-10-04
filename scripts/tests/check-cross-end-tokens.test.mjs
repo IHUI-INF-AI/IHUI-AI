@@ -141,6 +141,8 @@ test('端到端:真仓 HEAD 与 --self-test 都必须全绿', () => {
       encoding: 'utf8',
       windowsHide: true,
       timeout: 120000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
   assert.match(run([]), /✅ .*条映射逐位同值/, 'R1 真仓必须全绿')
   assert.match(run([]), /无悬空 brand 引用/, 'R3 真仓 HEAD 必须无悬空引用(ctaFill 已删干净)')
@@ -310,6 +312,8 @@ test('反空绿:真仓跑出来的 R4 推导面必须仍是几十条量级(面�
     encoding: 'utf8',
     windowsHide: true,
     timeout: 120000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   const m = /R4 基础档按名推导 (\d+) 条同值/.exec(out)
   assert.ok(m, `结论行必须报出 R4 推导面计数,实得:${out.slice(-160)}`)
@@ -448,6 +452,8 @@ async function buildRepo(tag) {
       encoding: 'utf8',
       windowsHide: true,
       timeout: 120_000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
   const put = (rel, content) => {
     const abs = join(dir, rel)
@@ -496,6 +502,8 @@ async function buildRepo(tag) {
         encoding: 'utf8',
         windowsHide: true,
         timeout: 180_000,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
       })
       return { code: 0, out }
     } catch (e) {

@@ -45,6 +45,8 @@ const run = (args) =>
     windowsHide: true,
     timeout: 180000,
     maxBuffer: 64 << 20,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 
 // ---------------------------------------------------------------- §22c 锚点
@@ -310,6 +312,8 @@ test('T20 自豁免不得吃掉别的文件里的过期豁免(临时仓双向对
         encoding: 'utf8',
         windowsHide: true,
         timeout: 30000,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
       })
     git(['init', '-q'])
     git(['config', 'user.email', 't@test.invalid'])
@@ -330,6 +334,8 @@ test('T20 自豁免不得吃掉别的文件里的过期豁免(临时仓双向对
       encoding: 'utf8',
       windowsHide: true,
       timeout: 120000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     const parsed = JSON.parse(r.stdout || '{}')
     assert.equal(r.status, 1, `别的文件里的过期豁免必须判红:${r.stderr}`)
@@ -406,6 +412,8 @@ test('T24 E4 端到端有牙:临时索引新增未登记族必红、新增已登
       encoding: 'utf8',
       windowsHide: true,
       timeout: 30000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
   try {
     git(['init', '-q'])
@@ -426,6 +434,8 @@ test('T24 E4 端到端有牙:临时索引新增未登记族必红、新增已登
         encoding: 'utf8',
         windowsHide: true,
         timeout: 120000,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
       })
       return { status: r.status, out: JSON.parse(r.stdout || '{}') }
     }
@@ -592,6 +602,8 @@ test('T28 E5 端到端有牙:临时索引新增无 until 抑制必红、新增�
     execFileSync('git', ['-c', 'safe.directory=*', '-C', dir, ...a], {
       encoding: 'utf8',
       timeout: 30000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
   try {
     git(['init', '-q'])
@@ -616,6 +628,8 @@ test('T28 E5 端到端有牙:临时索引新增无 until 抑制必红、新增�
         encoding: 'utf8',
         windowsHide: true,
         timeout: 120000,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
       })
       return { status: r.status, out: JSON.parse(r.stdout || '{}') }
     }
@@ -650,6 +664,8 @@ test('T28 E5 端到端有牙:临时索引新增无 until 抑制必红、新增�
       encoding: 'utf8',
       windowsHide: true,
       timeout: 120000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     assert.equal(upd.status, 0, upd.stderr)
     const bl = JSON.parse(readFileSync(join(dir, gate.BASELINE_REL), 'utf8'))

@@ -91,7 +91,8 @@ function corpus() {
   const listed = execFileSync(
     'git',
     ['-c', 'safe.directory=*', '-C', ROOT, 'ls-files', 'scripts'],
-    { encoding: 'utf8', maxBuffer: 32 << 20, windowsHide: true },
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', maxBuffer: 32 << 20, windowsHide: true },
   )
     .split('\n')
     .filter((p) => /\.mjs$/.test(p))

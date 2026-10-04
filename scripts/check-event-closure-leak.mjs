@@ -72,7 +72,8 @@ function getStagedFiles() {
     const out = execFileSync(
       'git',
       ['diff', '--cached', '--name-only', '--diff-filter=ACMR'],
-      { encoding: 'utf8', cwd: process.cwd(), windowsHide: true },
+      // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
+      { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', cwd: process.cwd(), windowsHide: true },
     )
     return out
       .split('\n')
@@ -89,7 +90,7 @@ function getAllWebFiles() {
     const out = execFileSync(
       'git',
       ['ls-files', 'apps/web/src'],
-      { encoding: 'utf8', cwd: process.cwd(), windowsHide: true },
+      { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', cwd: process.cwd(), windowsHide: true },
     )
     return out
       .split('\n')

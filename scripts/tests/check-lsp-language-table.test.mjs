@@ -59,7 +59,9 @@ function gate(...argsAndOpts) {
   const last = argsAndOpts[argsAndOpts.length - 1]
   const opts = last && typeof last === 'object' ? last : {}
   const args = opts === last ? argsAndOpts.slice(0, -1) : argsAndOpts
+  // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
   return spawnSync(process.execPath, [opts.script ?? GATE_PATH, ...args], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd: opts.cwd ?? ROOT,
     encoding: 'utf-8',
     windowsHide: true,
@@ -266,7 +268,7 @@ export const LSP_SERVERS = [
       execFileSync(
         GIT_BIN,
         ['-c', 'safe.directory=*', '-c', 'user.name=gate-probe', '-c', 'user.email=probe@local', '-C', dir, ...args],
-        { encoding: 'utf8', windowsHide: true, timeout: 60_000 },
+        { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true, timeout: 60_000 },
       ).trim()
     git('init', '-q')
     git('add', '--', TABLE_REL, CLIENT_REL, 'apps/cli/src/tools/legacy-leak.ts')

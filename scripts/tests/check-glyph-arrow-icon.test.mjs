@@ -423,6 +423,8 @@ test('跨行自闭合标签的属性区必须真被咨询(HEAD 真文件双向�
     maxBuffer: 64 * 1024 * 1024,
     timeout: 120000,
     windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   const CROSS_LINE_SELF_CLOSING =
     /<ChevronLeft\n\s+size=\{16\}\n\s+color=\{tk\.text\.primary\}\n\s+style=\{page <= 1 && styles\.pageBtnDisabled\}\n\s*\/>/
@@ -522,6 +524,8 @@ test('GA7 必须真挂在 scan() 上,且正反两例的输入逐字取自 HEAD �
       maxBuffer: 64 * 1024 * 1024,
       timeout: 120000,
       windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
   const WRAP = 'apps/mobile-rn/src/screens/SettingsScreen.tsx'
   const CHILD = 'packages/app/src/features/settings/SettingsScreen.tsx'

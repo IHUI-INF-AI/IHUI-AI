@@ -65,6 +65,8 @@ if (isStaged) {
       encoding: 'utf8',
       cwd: ROOT,
       windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     const files = staged.split('\n').filter(Boolean)
     const relevant = files.some(

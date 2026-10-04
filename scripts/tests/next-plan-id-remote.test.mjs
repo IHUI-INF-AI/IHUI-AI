@@ -58,10 +58,11 @@ test('T3 --check 不问远端:发号维必须在 --check 分岔之后', () => {
 })
 
 test('T4 真仓只读冒烟:--next-only 恒一行号;完整报告正常退出(不断言具体号,号是现读的)', () => {
-  const r1 = spawnSync(process.execPath, [CLI, '--next-only'], { cwd: ROOT, encoding: 'utf8', timeout: 180_000 })
+  // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
+  const r1 = spawnSync(process.execPath, [CLI, '--next-only'], { stdio: ['ignore', 'pipe', 'pipe'], cwd: ROOT, encoding: 'utf8', timeout: 180_000 })
   assert.equal(r1.status, 0, `--next-only 必须 exit 0(真仓此刻远端可问/离线都该走得到发号):\n${r1.stderr}`)
   assert.match(String(r1.stdout).trim(), /^O\d+$/, `--next-only 的 stdout 恒为一行号,实得:${r1.stdout}`)
-  const r2 = spawnSync(process.execPath, [CLI], { cwd: ROOT, encoding: 'utf8', timeout: 180_000 })
+  const r2 = spawnSync(process.execPath, [CLI], { stdio: ['ignore', 'pipe', 'pipe'], cwd: ROOT, encoding: 'utf8', timeout: 180_000 })
   assert.equal(r2.status, 0, `完整报告必须 exit 0:\n${r2.stderr}`)
   assert.match(String(r2.stdout), /下一个号 = O\d+/)
 })

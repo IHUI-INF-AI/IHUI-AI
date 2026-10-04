@@ -45,7 +45,9 @@ function pidAlive(pid) {
   const p = Number(pid);
   if (!p || p <= 0) return false;
   try {
+    // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
     const r = spawnSync('tasklist', ['/FI', `PID eq ${p}`, '/FO', 'CSV', '/NH'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
       encoding: 'utf8',
       timeout: 8000,
@@ -72,7 +74,7 @@ function revive() {
       '--watch',
       '--device',
     ],
-    { windowsHide: true, timeout: 15_000 },
+    { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, timeout: 15_000 },
   );
   if (r.error) {
     log(`复活失败: ${r.error.message}`);
@@ -92,6 +94,7 @@ function supervisorTaskHealth() {
     `if (-not $t) { Write-Output 'MISSING' } else { Write-Output ('LOGON=' + $t.Principal.LogonType) }`,
   ].join('\n')
   const r = spawnSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', psEncode(ps)], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
     encoding: 'utf8',
     timeout: 30_000,
@@ -109,6 +112,7 @@ function ensureSupervisorTask() {
   if (health === 'ok' || health === 'unknown') return health
   log(`守护任务 ${SUPERVISOR_TASK} 异常(${health})→ 自动重装为 S4U 非交互形态`)
   const r = spawnSync(process.execPath, [path.join(ROOT, 'scripts', 'install-dev-stack-autostart.mjs')], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
     encoding: 'utf8',
     timeout: 90_000,
@@ -167,6 +171,7 @@ function install() {
     `Write-Output ("OK LOGON=" + $p.LogonType)`,
   ].join('\n');
   const r = spawnSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', psEncode(ps)], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
     encoding: 'utf8',
     timeout: 60_000,

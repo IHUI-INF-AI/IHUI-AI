@@ -159,7 +159,9 @@ test('T4 登记侧必须真求值:自检打印的 N/N 必须是量出来的,不�
     /t\(\s*['"`][^'"`]+['"`]\s*,\s*\(\)\s*=>/,
     '不得把箭头函数当 cond 传进登记器',
   )
+  // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
   const run = spawnSync(process.execPath, [TOOL, '--self-test'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     windowsHide: true,
     timeout: 300000,
@@ -198,6 +200,7 @@ test('T5 真仓内容阳性对照 + --apply 的 blob 必须从对象库回读得
     // —— 夹具自己的塌法从来不像夹具的问题(§22c:症状落在被测物上)。
     const run = (...args) =>
       execFileSync(GIT, ['-c', 'safe.directory=*', '-C', dir, ...args], {
+        stdio: ['ignore', 'pipe', 'pipe'],
         encoding: 'utf8',
         windowsHide: true,
         timeout: 300000,
@@ -239,6 +242,7 @@ test('T5 真仓内容阳性对照 + --apply 的 blob 必须从对象库回读得
 
     const cli = (extra) =>
       spawnSync(process.execPath, [TOOL, '--root', dir, '--jump', '250', ...extra], {
+        stdio: ['ignore', 'pipe', 'pipe'],
         encoding: 'utf8',
         windowsHide: true,
         timeout: 900000,
@@ -305,6 +309,7 @@ test('T5 真仓内容阳性对照 + --apply 的 blob 必须从对象库回读得
         GIT,
         ['-c', 'safe.directory=*', '-C', dir, 'cat-file', 'blob', f.blob],
         {
+          stdio: ['ignore', 'pipe', 'pipe'],
           encoding: 'utf8',
           windowsHide: true,
           maxBuffer: 1 << 27,
@@ -337,6 +342,7 @@ test('T6 面取不到 ⇒ UNDETERMINED + rc 2,绝不"没判"写成"判过了"', 
       process.execPath,
       [TOOL, '--root', dir, 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef'],
       {
+        stdio: ['ignore', 'pipe', 'pipe'],
         encoding: 'utf8',
         windowsHide: true,
         timeout: 300000,
@@ -359,7 +365,7 @@ test('T9 --json 档在 rc=2 那一支也只出一个 JSON 文档(未判定不得
     const run = spawnSync(
       process.execPath,
       [TOOL, '--json', '--root', dir, 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef'],
-      { encoding: 'utf8', windowsHide: true, timeout: 300000 },
+      { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true, timeout: 300000 },
     )
     assert.equal(run.status, 2, `面取不到必须 rc 2,实得 ${run.status}\n${run.stdout}${run.stderr}`)
     let parsed
@@ -375,7 +381,7 @@ test('T9 --json 档在 rc=2 那一支也只出一个 JSON 文档(未判定不得
     const human = spawnSync(
       process.execPath,
       [TOOL, '--root', dir, 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef'],
-      { encoding: 'utf8', windowsHide: true, timeout: 300000 },
+      { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true, timeout: 300000 },
     )
     assert.match(human.stdout, /UNDETERMINED 未判定:/, '人读档的措辞不得被 JSON 档改造带跑')
   } finally {
@@ -385,6 +391,7 @@ test('T9 --json 档在 rc=2 那一支也只出一个 JSON 文档(未判定不得
 
 test('T7 少参数 ⇒ rc 2 并给可执行用法(不得写跑不通的出路)', () => {
   const run = spawnSync(process.execPath, [TOOL], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     windowsHide: true,
     timeout: 120000,

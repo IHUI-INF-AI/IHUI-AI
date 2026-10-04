@@ -73,6 +73,8 @@ const fakeReadDec = (text) => () => ({ text })
 
 test('T1 接线方向锁:本门刻意不在提交链上 —— 被接进 guardian-runner 必读红', async () => {
   const runnerHead = execFileSync(GIT, ['-c', 'safe.directory=*', 'show', 'HEAD:scripts/guardian-runner.mjs'], {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd: path.resolve(HERE, '..', '..'),
     encoding: 'utf8',
     windowsHide: true,
@@ -83,6 +85,8 @@ test('T1 接线方向锁:本门刻意不在提交链上 —— 被接进 guardia
   // "为什么现在能接"的证据改这条测试,而不是悄悄接线。
   assert.equal(runnerHead.includes('check-wal-collector-state'), false, '本门被接进 guardian-runner —— 先补"为什么现在能接"的证据,再改这条测试')
   const rootManifest = execFileSync(GIT, ['-c', 'safe.directory=*', 'show', 'HEAD:package.json'], {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd: path.resolve(HERE, '..', '..'),
     encoding: 'utf8',
     windowsHide: true,
@@ -148,7 +152,8 @@ test('T7 取材面端到端:同一棵树里索引 ≠ HEAD ⇒ --staged 与缺�
     const rel = path.join('monitoring', 'postgres-exporter', 'collectors.json')
     const abs = path.join(dir, rel)
     writeFileSync(abs, declText(), 'utf8')
-    const git = (...args) => execFileSync(GIT, ['-c', 'safe.directory=*', ...args], { cwd: dir, windowsHide: true, timeout: 60000, encoding: 'utf8' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    const git = (...args) => execFileSync(GIT, ['-c', 'safe.directory=*', ...args], { stdio: ['ignore', 'pipe', 'pipe'], cwd: dir, windowsHide: true, timeout: 60000, encoding: 'utf8' })
     git('init', '-q', '.'); git('config', 'user.email', 't@t'); git('config', 'user.name', 't')
     git('add', 'monitoring/postgres-exporter/collectors.json'); git('commit', '-q', '-m', 'declare wal off')
     // 索引里把它改成"没有 wal 条目",磁盘再改成合法但另一份 —— 三面互异,才证得清读的是哪一面
@@ -209,6 +214,8 @@ test('T12 判据指向的入库真相源必须真在仓里(路径不写歪 = 尺
   const abs = path.join(repoRoot, DECLARATION_REL)
   assert.ok(DECLARATION_REL.startsWith('monitoring/'), '声明住在 monitoring/ 下(采集器配置的唯一落点)')
   const tracked = execFileSync(GIT, ['-c', 'safe.directory=*', 'ls-files', '--', DECLARATION_REL], {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd: repoRoot,
     encoding: 'utf8',
     windowsHide: true,

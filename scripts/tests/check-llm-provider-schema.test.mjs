@@ -36,6 +36,8 @@ const ENV_FILE = join(TMP_DIR, '.env')
  */
 function runCli(args = []) {
   const result = spawnSync('node', [SCRIPT, '--', '--env-file', ENV_FILE, ...args], {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     cwd: process.cwd(),
     timeout: 10000,
@@ -285,6 +287,8 @@ describe('CLI 参数', () => {
   test('--help → exit 0 + 显示用法', () => {
     // --help 不需要 .env 文件,直接跑
     const result = spawnSync('node', [SCRIPT, '--', '--help'], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
       cwd: process.cwd(),
       timeout: 10000,
@@ -298,7 +302,8 @@ describe('CLI 参数', () => {
     const result = spawnSync(
       'node',
       [SCRIPT, '--', '--env-file', '/nonexistent/path/.env'],
-      { encoding: 'utf8', cwd: process.cwd(), timeout: 10000 },
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', cwd: process.cwd(), timeout: 10000 },
     )
     assert.equal(result.status, 2)
     assert.match(result.stderr + result.stdout, /不存在/)
@@ -327,7 +332,8 @@ describe('CLI 参数', () => {
     const result = spawnSync(
       'node',
       [SCRIPT, '--', '--unknown-flag'],
-      { encoding: 'utf8', cwd: process.cwd(), timeout: 10000 },
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', cwd: process.cwd(), timeout: 10000 },
     )
     assert.equal(result.status, 2)
     assert.match(result.stderr + result.stdout, /未知参数/)
