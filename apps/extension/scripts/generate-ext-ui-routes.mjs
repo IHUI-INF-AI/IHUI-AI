@@ -112,7 +112,14 @@ function assertConsumerContract() {
 function sourceCommit() {
   try {
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+    return execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true, // §5b:GUI 宿主/计划任务下派生控制台程序不补这个参数必弹新窗口(守门 52)
+    })
+      .toString()
+      .trim()
   } catch {
     return 'unknown'
   }
