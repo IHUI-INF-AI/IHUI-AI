@@ -255,6 +255,8 @@ function getStagedSet(root) {
       windowsHide: true,
       timeout: 30000,
       maxBuffer: 16 * 1024 * 1024,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     return new Set(out.split('\n').filter(Boolean).map((f) => f.replaceAll('\\', '/')))
   } catch {
@@ -422,6 +424,8 @@ async function runSelfTest() {
       timeout: 120000,
       maxBuffer: 32 * 1024 * 1024,
       env: env ? { ...process.env, ...env } : process.env,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
   try {
     mkdirSync(MAIN, { recursive: true })

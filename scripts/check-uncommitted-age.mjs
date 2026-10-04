@@ -92,6 +92,8 @@ const GIT_BIN = (() => {
       encoding: 'utf8',
       windowsHide: true,
       timeout: 10_000,
+      stdio: ['ignore', 'pipe', 'pipe']
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     })
     const found = whereOut.split('\n').map((l) => l.trim()).filter(Boolean)
     // MSYS 的 git shim(.git.exe / usr/bin/git)在 Windows 下有双重陷阱,优先 Git\cmd\git.exe

@@ -846,7 +846,8 @@ async function runSelfTest() {
   const r24 = spawnSync(
     process.execPath,
     [TOOL_PATH, f24, '--timeout=300', '--', process.execPath, '-e', 'console.log(1)'],
-    { cwd: ROOT, windowsHide: true, encoding: 'utf8', timeout: 60_000 },
+    // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
+    { stdio: ['ignore', 'pipe', 'pipe'], cwd: ROOT, windowsHide: true, encoding: 'utf8', timeout: 60_000 },
   )
   const o24 = `${r24?.stdout ?? ''}${r24?.stderr ?? ''}`
   ok(
@@ -865,7 +866,7 @@ async function runSelfTest() {
       '-e',
       'setTimeout(() => {}, 30000)',
     ],
-    { cwd: ROOT, windowsHide: true, encoding: 'utf8', timeout: 60_000 },
+    { stdio: ['ignore', 'pipe', 'pipe'], cwd: ROOT, windowsHide: true, encoding: 'utf8', timeout: 60_000 },
   )
   const o25 = `${r25?.stdout ?? ''}${r25?.stderr ?? ''}`
   const t25 = existsSync(f25) ? readFileSync(f25, 'utf8') : ''

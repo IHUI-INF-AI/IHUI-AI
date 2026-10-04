@@ -34,6 +34,8 @@ const headBlob = (rel) =>
       encoding: 'utf8',
       maxBuffer: 1 << 26,
       windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe']
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     },
   )
 
@@ -118,6 +120,8 @@ test('T7 --staged --worktree 同给 ⇒ rc=2 并给出可诊断原因', () => {
     encoding: 'utf8',
     timeout: 120000,
     windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   assert.equal(r.status, 2, `实得 rc=${r.status} out=${r.stdout} err=${r.stderr}`)
   assert.ok((r.stdout + r.stderr).trim().length > 0, '判死必须大声给原因')
@@ -155,6 +159,8 @@ test('T8 已接线:check:all 经别名真调用本脚本,且脚本在 HEAD 面�
     cwd: ROOT,
     encoding: 'utf8',
     windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   assert.match(tree, /check-killer-parity-ends\.mjs/, '脚本必须在被审面上,否则注册是空指针')
 })
@@ -166,6 +172,8 @@ test('T9 --self-test 端到端 rc=0', () => {
     encoding: 'utf8',
     timeout: 300000,
     windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   assert.equal(r.status, 0, `自检未通过:${r.stdout}\n${r.stderr}`)
   assert.match(r.stdout, /自检 \d+\/\d+ 通过/)

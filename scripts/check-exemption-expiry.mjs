@@ -1294,7 +1294,9 @@ function endToEndCase() {
 }
 
 function runGate(gatePath, dir, extraArgs) {
+  // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
   const r = spawnSync(process.execPath, [gatePath, '--root', dir, '--json', ...extraArgs], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     windowsHide: true,
     timeout: 120000,

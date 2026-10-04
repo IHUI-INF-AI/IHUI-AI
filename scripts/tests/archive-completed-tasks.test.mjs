@@ -393,22 +393,23 @@ test('--auto-commit: 归档后自动 git commit(验证 commit 创建 + 工作区
     const old = dateAgo(10)
     commitPlan(dir, `# plan\n\n### [x] ✅(${old}) 任务A\n内容A\n`)
     const beforeCount = parseInt(
-      execSync('git rev-list --count HEAD', { cwd: dir, encoding: 'utf8' }).trim(),
+      // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
+      execSync('git rev-list --count HEAD', { stdio: ['ignore', 'pipe', 'pipe'], cwd: dir, encoding: 'utf8' }).trim(),
       10,
     )
     const r = runScript(dir, ['--auto-commit'])
     assert.equal(r.status, 0, `--auto-commit 应 exit 0\nstdout: ${r.out}\nstderr: ${r.err}`)
     assert.match(r.out, /归档 commit 已创建|自动 commit/)
     const afterCount = parseInt(
-      execSync('git rev-list --count HEAD', { cwd: dir, encoding: 'utf8' }).trim(),
+      execSync('git rev-list --count HEAD', { stdio: ['ignore', 'pipe', 'pipe'], cwd: dir, encoding: 'utf8' }).trim(),
       10,
     )
     assert.equal(afterCount, beforeCount + 1, '应新增 1 个 commit')
     // 最新 commit message 应含归档语义(允许 auto/chore 关键字,规避 Windows 中文编码波动)
-    const lastMsg = execSync('git log -1 --pretty=%s', { cwd: dir, encoding: 'utf8' }).trim()
+    const lastMsg = execSync('git log -1 --pretty=%s', { stdio: ['ignore', 'pipe', 'pipe'], cwd: dir, encoding: 'utf8' }).trim()
     assert.match(lastMsg, /归档|auto|chore/i, `commit message 应含归档语义,实际: ${lastMsg}`)
     // 工作区应干净(归档文件 + PROJECT_PLAN.md 都已 commit)
-    const status = execSync('git status --porcelain', { cwd: dir, encoding: 'utf8' }).trim()
+    const status = execSync('git status --porcelain', { stdio: ['ignore', 'pipe', 'pipe'], cwd: dir, encoding: 'utf8' }).trim()
     assert.equal(status, '', '工作区应干净')
   } finally {
     rmScratch(dir)
@@ -579,13 +580,13 @@ test('自动档 commit 必须带 pathspec:共享索引里挂着别人的 staged 
     writeFileSync(join(dir, 'PROJECT_PLAN.md'), `# plan\n\n### 任务A ✅(${d})\n正文A\n`)
     writeFileSync(join(dir, 'other.txt'), '别人的文件\n')
     const opt = { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
-    spawnSync('git', ['add', 'PROJECT_PLAN.md', 'other.txt'], opt)
-    spawnSync('git', ['commit', '-q', '-m', 'init two files'], opt)
-    spawnSync('git', ['rm', '--cached', '--', 'other.txt'], opt) // 别人 staged 的删除,尚未提交
+    spawnSync('git', ['add', 'PROJECT_PLAN.md', 'other.txt'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] })
+    spawnSync('git', ['commit', '-q', '-m', 'init two files'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] })
+    spawnSync('git', ['rm', '--cached', '--', 'other.txt'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] }) // 别人 staged 的删除,尚未提交
 
     const r = runScript(dir, ['--auto-commit'])
     assert.equal(r.status, 0, `自动档应成功,实得 ${r.status}\n${r.out}\n${r.err}`)
-    const files = spawnSync('git', ['show', '--pretty=format:', '--name-only', 'HEAD'], opt)
+    const files = spawnSync('git', ['show', '--pretty=format:', '--name-only', 'HEAD'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] })
       .stdout.split('\n')
       .map((s) => s.trim())
       .filter(Boolean)
@@ -597,7 +598,7 @@ test('自动档 commit 必须带 pathspec:共享索引里挂着别人的 staged 
     )
     assert.ok(!files.includes('other.txt'), '别人 staged 的删除被卷进了归档 commit(§12 污染)')
     // 那条删除必须仍留在索引里等它的主人自己提交 —— 我们既不代提交也不撤销
-    const staged = spawnSync('git', ['diff', '--cached', '--name-status', 'HEAD'], opt).stdout
+    const staged = spawnSync('git', ['diff', '--cached', '--name-status', 'HEAD'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] }).stdout
     assert.ok(
       !/other\.txt/.test(staged) || true,
       '索引态断言占位(不同 git 版本输出形态不同,主断言看上面的 commit 文件清单)',
@@ -625,12 +626,12 @@ test('生产形态的 .gitignore(整目录忽略 .ihui-agent/)下,自动档仍�
     // 刻意用**生产当时那一型**:整目录忽略、无例外 —— 旧代码(不带 -f)在这型下必然 add 失败,
     // 新代码靠 -f 才能把锚点入库。夹具若写"已修好的 ignore 形态",旧实现也能过,等于没牙。
     writeFileSync(join(dir, '.gitignore'), '.ihui-agent/\n')
-    spawnSync('git', ['add', 'PROJECT_PLAN.md', '.gitignore'], opt)
-    spawnSync('git', ['commit', '-q', '-m', 'init with prod-shaped gitignore'], opt)
+    spawnSync('git', ['add', 'PROJECT_PLAN.md', '.gitignore'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] })
+    spawnSync('git', ['commit', '-q', '-m', 'init with prod-shaped gitignore'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] })
 
     const r = runScript(dir, ['--auto-commit'])
     assert.equal(r.status, 0, `自动档应成功,实得 ${r.status}\n${r.out}\n${r.err}`)
-    const files = spawnSync('git', ['show', '--pretty=format:', '--name-only', 'HEAD'], opt)
+    const files = spawnSync('git', ['show', '--pretty=format:', '--name-only', 'HEAD'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] })
       .stdout.split('\n')
       .map((s) => s.trim())
       .filter(Boolean)
@@ -638,7 +639,7 @@ test('生产形态的 .gitignore(整目录忽略 .ihui-agent/)下,自动档仍�
       files.some((f) => f.includes('.ihui-agent/archive/PROJECT_PLAN_')),
       `归档文件必须进 commit(锚点入库),实得:\n  ${files.join('\n  ')}`,
     )
-    const tracked = spawnSync('git', ['ls-files', '--', '.ihui-agent/archive'], opt).stdout
+    const tracked = spawnSync('git', ['ls-files', '--', '.ihui-agent/archive'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] }).stdout
     assert.match(tracked, /PROJECT_PLAN_.*_auto-archive\.md/, '归档锚点必须已被 git 跟踪')
     // 计划文档里必须留下 13c/71 认得的占位注释,且非条目内容一字不动
     const plan = readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8')
@@ -676,10 +677,11 @@ test('回滚分支必须真被执行过:git add 失败时计划文档要写回�
     const opt = { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
     const original = `# plan\n\n### 任务A(已完成 ✅ ${d})\n正文A\n\n## 保留章节\n别的内容\n`
     writeFileSync(join(dir, 'PROJECT_PLAN.md'), original)
-    spawnSync('git', ['add', 'PROJECT_PLAN.md'], opt)
-    spawnSync('git', ['commit', '-q', '-m', 'init'], opt)
+    spawnSync('git', ['add', 'PROJECT_PLAN.md'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] })
+    spawnSync('git', ['commit', '-q', '-m', 'init'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] })
 
     const r = spawnSync('node', [SCRIPT_PATH, '--auto-commit'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: dir,
       encoding: 'utf8',
       windowsHide: true,
@@ -697,7 +699,7 @@ test('回滚分支必须真被执行过:git add 失败时计划文档要写回�
       .replace(/\x1b\[[0-9;]*m/g, '')
     assert.match(out, /已回滚|未被索引收下|add -f 失败/, '必须喊出为什么回滚')
     // 索引里不得残留计划文档的改写(那条改写已被工作树还原抵消)
-    const staged = spawnSync('git', ['diff', '--cached', '--name-only'], opt).stdout.trim()
+    const staged = spawnSync('git', ['diff', '--cached', '--name-only'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] }).stdout.trim()
     assert.ok(
       !staged.split('\n').includes('PROJECT_PLAN.md'),
       `撤销暂存必须生效,实得 staged=${JSON.stringify(staged)}`,
@@ -763,6 +765,7 @@ test('## 级条目端到端:父块吞并嵌套 ✅ 子标题一起搬;无 ✅ �
     // 端到端"两侧同形"装车证明:归档落地后,13c(同一份 lib 的保护集/占位反查/锚点判据)必须判绿。
     // 若归档器写的占位标题形态与门反查的剥前缀形态漂开,这一步会红 —— 那正是本票要根治的那一型。
     const g = spawnSync('node', [GATE_PATH, '--root', dir], {
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: dir,
       encoding: 'utf8',
       windowsHide: true,
@@ -831,6 +834,7 @@ function staleFixturePlan(row) {
 
 function gitShow(dir, spec) {
   const r = spawnSync('git', ['-c', 'safe.directory=*', '-C', dir, 'show', spec], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     windowsHide: true,
     timeout: 60_000,
@@ -839,6 +843,7 @@ function gitShow(dir, spec) {
 }
 function revCount(dir) {
   const r = spawnSync('git', ['-C', dir, 'rev-list', '--count', 'HEAD'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     windowsHide: true,
   })
@@ -846,6 +851,7 @@ function revCount(dir) {
 }
 function commitFiles(dir) {
   return spawnSync('git', ['-c', 'safe.directory=*', '-C', dir, 'show', '--name-only', '--format=', 'HEAD'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     windowsHide: true,
   })
@@ -855,12 +861,14 @@ function commitFiles(dir) {
 }
 function cachedDiff(dir) {
   return spawnSync('git', ['-C', dir, 'diff', '--cached', '--name-only'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     windowsHide: true,
   }).stdout.trim()
 }
 function runScriptEnv(cwd, args, env) {
   const r = spawnSync('node', [SCRIPT_PATH, ...args], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd,
     encoding: 'utf8',
     windowsHide: true,
@@ -983,11 +991,12 @@ test('B 正当归档仍在工作:条目确实完成 ≥7 天 ⇒ 搬走 + 留占
       '盘上那份 == 父提交那份 ⇒ 允许把本次搬运等价地写进磁盘(对齐,不是覆盖)',
     )
     assert.equal(
-      spawnSync('git', ['-C', dir, 'status', '--porcelain'], { encoding: 'utf8', windowsHide: true }).stdout.trim(),
+      spawnSync('git', ['-C', dir, 'status', '--porcelain'], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true }).stdout.trim(),
       '',
       '落地后工作区应干净(索引与工作树都随提交对齐)',
     )
     const g = spawnSync('node', [GATE_PATH, '--root', dir], {
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: dir,
       encoding: 'utf8',
       windowsHide: true,
@@ -1096,6 +1105,7 @@ test('G 子弹级 - [x] 真被搬走,且同一章节里的 - [ ] 一字不动地
     const r = runScriptEnv(dir, ['--auto-commit'], {})
     assert.equal(r.status, 0, `应 RC=0\n${r.all}`)
     const head = execSync('git show HEAD:PROJECT_PLAN.md', {
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: dir,
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,
@@ -1104,6 +1114,7 @@ test('G 子弹级 - [x] 真被搬走,且同一章节里的 - [ ] 一字不动地
     assert.ok(/^- \[ \] \*\*G-901/m.test(head), '未完成行必须原样留在计划文档里')
     assert.ok(/<!-- 已归档\(/.test(head), '原位必须留 §1 要求的归档占位')
     const arch = execSync(`git show HEAD:.ihui-agent/archive/PROJECT_PLAN_${todayStr()}_auto-archive.md`, {
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: dir,
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,
@@ -1129,6 +1140,7 @@ test('H 标题写"已完成"但体内含未勾登记的假条目:连 --allow-mas
     const r = runScriptEnv(dir, ['--auto-commit', '--allow-mass'], {})
     assert.equal(r.status, 0, `应 RC=0\n${r.all}`)
     const head = execSync('git show HEAD:PROJECT_PLAN.md', {
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: dir,
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,

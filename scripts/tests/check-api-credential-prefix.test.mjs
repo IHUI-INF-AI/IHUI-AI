@@ -95,6 +95,8 @@ function writeRepo(dir, { commit = true, body = CLEAN, extra = true } = {}) {
  */
 function run(dir, args) {
   const r = spawnSync(process.execPath, [GATE_ABS, ...args], {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd: dir,
     encoding: 'utf8',
     windowsHide: true,

@@ -194,7 +194,7 @@ function setLinkHidden(link, wantHidden) {
         '-Command',
         `Get-ChildItem -LiteralPath '${dir.replace(/'/g, "''")}' -Force | Where-Object Name -eq '${name.replace(/'/g, "''")}' | ForEach-Object { $_.Attributes }`,
       ],
-      { encoding: 'utf8', windowsHide: true, timeout: 30000 },
+      { encoding: 'utf8', windowsHide: true, timeout: 30000, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] },
     ).trim()
     return wantHidden ? /Hidden/i.test(listed) : !/Hidden/i.test(listed)
   } catch {
@@ -212,7 +212,7 @@ function parentListing(dir) {
       '-Command',
       `Get-ChildItem -LiteralPath '${String(dir).replace(/'/g, "''")}' -Force | ForEach-Object { "{0}={1}" -f $_.Name, $_.Attributes }`,
     ],
-    { encoding: 'utf8', windowsHide: true, timeout: 30000 },
+    { encoding: 'utf8', windowsHide: true, timeout: 30000, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] },
   )
 }
 

@@ -54,6 +54,8 @@ function git(args, cwd = REPO) {
     windowsHide: true,
     // 真仓 ls-files -s 输出 >1.2MB,默认 1MB 上限会 ENOBUFS 把尺子打断(实测)
     maxBuffer: 256 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
 }
 

@@ -20,6 +20,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const SRC = (rel) => readFileSync(join(ROOT, rel), 'utf8')
 const GIT = (spec) =>
   execFileSync('git', ['-c', 'safe.directory=*', 'show', spec], {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     maxBuffer: 1 << 28,
     cwd: ROOT,

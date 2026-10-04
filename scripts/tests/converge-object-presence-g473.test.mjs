@@ -32,6 +32,8 @@ function initRepo(t) {
       encoding: 'utf8',
       windowsHide: true,
       timeout: 120000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     }).trim()
   run('init', '-q', '-b', 'main')
   run('config', 'user.email', 't@t')
@@ -86,6 +88,8 @@ test('CLI:未判定必须 exit 2、含出路、且不得以 Node 堆栈收场', 
     encoding: 'utf8',
     windowsHide: true,
     timeout: 180000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   assert.equal(r.status, 2, `未判定档的退出码是 2(区别于 1="判了,需人工"),实得 ${r.status}\n${r.stdout}\n${r.stderr}`)
   assert.match(r.stdout, /未判定:对象不在本机/, `stdout 必须自己说清是"没判":\n${r.stdout}`)
