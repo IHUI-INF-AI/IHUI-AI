@@ -139,7 +139,7 @@ describe('AdminContent CRUD', () => {
   })
 
   it('POST /advertise creates a row', async () => {
-    queues.push({ type: 'carousel', method: 'insert', result: [{ id: 'c1', title: 'ad1' }] })
+    queues.push({ type: 'carousel', method: 'insert', result: [{ id: AD_ID, title: 'ad1' }] })
     const res = await app.inject({
       method: 'POST',
       url: '/api/admin/content/advertise',
