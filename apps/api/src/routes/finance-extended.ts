@@ -362,7 +362,9 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
 
   const adjustSchema = z.object({
-    userId: z.string().min(1),
+    // user_margins.user_id 是 uuid 列：本路由下面两处 eq() 与一处 insert().values()
+    // 都要吃这个值，非 uuid 串让 Postgres 抛 22P02 ⇒ 500。原只校验 min(1)，漏掉格式。
+    userId: z.uuid({ error: 'userId 格式不正确' }),
     amount: z.number().int(),
     remark: z.string().optional(),
   })
