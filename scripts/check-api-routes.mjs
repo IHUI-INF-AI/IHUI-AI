@@ -310,6 +310,55 @@ function normalizeCallPath(rawPath) {
 }
 
 /**
+ * 「这段字面量是模板串插值,还是源码里真写着的字面量?」—— `:param` 假影的唯一判据
+ * (2026-10-04 抽出,`matchSegs` 上方注释「收口次序 ① 取材侧修准 `:param` 假影」那一格)。
+ *
+ * ## 为什么需要它(pathRe 的字符类含 `$ { }` ⇒ 模板串插值被整段吃进路径)
+ * `pathRe` 刻意含 `?&=%,+~#@!;`(2026-09-17 加固,为了让单行内联查询串整条匹配),
+ * 字符类里的 `\$ { }` 是同一批加进来的。后果:`` `/api/subagents/all${suffix}` ``
+ * 被抽成整串 `/api/subagents/all${suffix}`,经 normalizeCallPath 落成
+ * `/api/subagents/all:param` —— 而运行期真实 URL 是 `/api/subagents/all`(suffix 是查询串)
+ * 或 `/api/subagents/all?status=x`。**`:param` 那个段谁都没发过**,于是凭空一条死调用。
+ *
+ * ## 判据(严格照抄 normalizeCallPath 的执行次序,不是"结果串长这样")
+ * 步骤1 `${expr}` → 查询串构造器 ? '' : ':param';步骤2 丢 `?.*`。
+ * 于是 `${user?.id}` 里的 `?` 在步骤1 就被整段替换掉了,不会误落进步骤2。
+ * 判「`?` 之前的路径部分里,有没有**字面量与 `:param` 粘连在同一段**」——
+ * 那就是`:param` 假影:`all:param` / `ai-tutor:param` 都不是任何人会写的段。
+ *
+ * ## 三种形态必须分清(判据收窄过头的两种死法都在这里)
+ *  ① 整段插值 `/api/activities/${slug}` ⇒ 段内除插值无字面量 ⇒ `:param` 就是**真实段形状**
+ *     (后端 `/api/activities/:slug` 对得上)⇒ **真调用,必须留在调用集**。
+ *  ② 粘连 + 查询串构造器 `/api/hooks${qs}` ⇒ qs 被整段删 ⇒ `/api/hooks` **就是真实 URL**
+ *     ⇒ **真调用,必须留在调用集**。
+ *  ③ 粘连 + 非查询串构造器 `/api/subagents/all${suffix}`、`/api/ai-tutor${path}`
+ *     ⇒ 假影 ⇒ 不进调用集(归 shapeUnknown 桶,见 extractFrontendCalls)。
+ *
+ * ## 为什么不做"收窄 pathRe 字符类"(方案 a,已实测否证)
+ * pathRe 要求**收尾引号紧邻**路径。把 `$ { }` 从字符类去掉,整条字面量就**匹配不上**
+ * (实测 `/api/subagents/all${suffix}` 连 `/api/subagents/all` 都抽不出)⇒ 1158 条
+ * 真实插值调用(形态 ①②)会一起消失,那是 2774 个调用点里的大半 ⇒ 判据整体失明。
+ * 且形态 ①② 的归一结果本来就是对的,收窄正则**没有任何收益**。故取本方案(标记 +
+ * 归入既有的「未判定(有传输口却抽不出路径)」桶),判定归属与既有的"抽不出路径"同口径。
+ *
+ * ## 面实测(2026-10-04,HEAD 面 = 工作树面,`scripts/_tmp-census-interp.mjs` 量得)
+ * 复用 pathRe 原文扫 12 个前端面 5,404 行候选:命中 1,162 条含插值的路径,
+ * 其中形态 ③(假影)**2 条**、形态 ①②(真实调用)1,158 条、另有 2 条无插值但含 `:`/`$`/`{`
+ * 的真字面量(收窄正则的影响面,本方案**不触碰**)。逐条依据见交付报告。
+ */
+function isTemplateInterpolationPhantom(rawPath) {
+  if (!rawPath.includes('${')) return false
+  // 与 normalizeCallPath 同序:先落 :param,再看 `?` 之前的路径部分
+  const marked = rawPath.replace(/\$\{([^}]+)\}/g, (_match, expr) =>
+    looksLikeQueryStringBuilder(expr) ? '' : ':param',
+  )
+  const pathPart = marked.split('?')[0]
+  return pathPart
+    .split('/')
+    .some((seg) => seg.includes(':param') && seg.replace(':param', '').length > 0)
+}
+
+/**
  * 同一入口的两种拼写候选:normalizeUrl 会把不以 `/api/` 开头的字面量补成 `/api/...`,
  * 所以调用点写的 `/admin/x` 与后端在册的 `/api/admin/x` 是**同一个入口**。刻意不把
  * "剥掉 /api" 也算一种候选 —— 那会让任何 `/api/x` 调用都凭空获得一个 `/x` 分身,
@@ -1429,6 +1478,16 @@ function extractFrontendCalls(src, file, opts) {
   // 形成守门结构盲区(实测漏检 288 条路径;其中 `/api/memory/graph` 后端从未实现 → 记忆图谱面板
   // 线上恒 404 却一路绿灯)。刻意**不含 `*` 与括号**,避免把 next.config.ts 的 rewrite 源
   // ('/api/:path*')与函数调用文本误当成调用点。
+  //
+  // 2026-10-04 现状说明(改这一行之前先读):
+  //  · 字符类里的 `\$ { }` 是上面那次加固**一并进来的**,后果是模板串插值被整段吃进路径
+  //    (`` `/api/subagents/all${suffix}` `` 抽出 `/api/subagents/all${suffix}`),
+  //    经 normalizeCallPath 落成 `.../all:param` —— 那是**谁都没发过的段**,即 `:param` 假影。
+  //  · **刻意保留这三个字符、不收窄**:pathRe 要求收尾引号紧邻,删掉它们会让整条字面量
+  //    匹配不上,实测连带抽不出 **1,158 条真实插值调用**(判据整体失明),且对假影零收益。
+  //    改法是**下游标记**:见 isTemplateInterpolationPhantom(与本函数同在 extractFrontendCalls
+  //    附近调用),把「粘连插值 + 非查询串构造器」归入「未判定(有传输口却抽不出路径)」桶。
+  //  · 改这一行会被 `scripts/tests/check-api-routes-template-interp.test.mjs` T5 拦下。
   const pathRe = /['"`](\/api\/(?:admin\/)?[a-zA-Z0-9/_\-${}:.?&=%,+~#@!;]+)['"`]/g
   lines.forEach((line, idx) => {
     let m
@@ -1451,6 +1510,14 @@ function extractFrontendCalls(src, file, opts) {
       // 与 /api/llm/ 同类——ai-service 路由由 router 扫描覆盖,此处纯字面量(如
       // voice-input.tsx STT_ENDPOINT 常量)会误报 GET /api/voice/stt
       if (!cliShapes && rawPath.startsWith('/api/voice/')) continue
+      // `:param` 假影(2026-10-04):字面量里粘着模板串插值,且插值**不是**查询串构造器
+      // ⇒ 归一后会造出 `all:param` / `ai-tutor:param` 这种**谁都没发过的段**
+      // (运行期真实 URL 是 `/api/subagents/all` 或 `/api/ai-tutor/explain`)。
+      // 这样的字面量**抽不出真路径**,归入既有的「未判定(有传输口却抽不出路径)」桶
+      // (由调用方按 `calls.length === 0 && TRANSPORT_RE` 记 shapeUnknown),不进调用集 ——
+      // 判据归属与"抽不出路径"同口径,措辞现成;判据本体见 isTemplateInterpolationPhantom。
+      // ⚠️ 刻意**不**收窄 pathRe 字符类(已实测否证,理由见该函数注释)。
+      if (isTemplateInterpolationPhantom(rawPath)) continue
       // method 推断与路径归一化都走文件级唯一出口(通用面与 CLI 形态面共用同一份实现)
       // cli 端额外允许两种"没有字面量 method:"的形态:
       //  ① **位置实参 method**:`memorySend('POST', '/api/memory/save', body)` —— 上一行以
@@ -3182,10 +3249,30 @@ for (const bp of backendPathSet) {
  * "纯通配"是本仓 prefix 拼接的**常态**,按形态收紧 ⇒ 恒红门 ⇒ 逼人 `--no-verify`
  * 连带废掉全部守门(AGENTS §12e)。
  *
- * 本门这一格维持现状,由"死调用"读数恒为 0 如实记为**已知覆盖缺口**、不记绿。
- * 真要收口的次序:**① 取材侧修准 `:param` 假影 → ② S1+S2 减量 → ③ 逐条裁决那 27 条真伪
- * → ④ 才谈判红起点**。见文件末尾无条件打印的覆盖缺口提示
- * 与 `scripts/tests/check-api-routes-wildcard-gap.test.mjs`(G1–G6 钉住"缺口必须报、不得记绿")。
+ * ## ✅ ① 取材侧修准 `:param` 假影 —— **本票已完成(2026-10-04)**
+ *
+ * 判据落在 `isTemplateInterpolationPhantom`(与 `normalizeCallPath` 同序:`${}` 先替换、
+ * `?.*` 后丢弃),在 `extractFrontendCalls` 里把「粘连插值 + 插值非查询串构造器」这一形态
+ * 标记为「抽不出真路径」,归入既有的「未判定(有传输口却抽不出路径)」桶,**不进调用集**。
+ * `pathRe` 字符类**一个字符都没动**(收窄它会连带抽不出 1,158 条真实插值调用,已实测否证;
+ * 否证理由与形态三分法都写在 `isTemplateInterpolationPhantom` 的注释里)。
+ *
+ * 本票实测结论(HEAD 面 = 工作树面,两面读数逐行相同):
+ *  · 全量调用集 **2,774 → 2,772**,逐条对账**只少那 2 条假影、零新增**:
+ *    `POST /api/ai-tutor:param @ apps/web/src/api/edu-api.ts:113`、
+ *    `GET /api/subagents/all:param @ packages/api-client/src/endpoints/subagents.ts:186`。
+ *  · 假影现场**恰是 2 处**(不是量表估的 17 —— 那个数含被 3 段通配吞掉的其他族),
+ *    判据逐条回源码那一行核过,见交付报告。
+ *  · 各端死调用读数**未上升**(HEAD/worktree 两面 dump-missing 均 2 → 2)。
+ *  · 镜像测试 `scripts/tests/check-api-routes-template-interp.test.mjs`(T1–T5)已钉住,
+ *    变异验证:退回修复 ⇒ T1/T5 翻红;改成"收窄正则"或"按文件整份跳过" ⇒ T2/T4/T5 翻红。
+ *
+ * **剩什么(本门这一格仍未收口)**:① 已修完,但它**只是为 ② 让路**——
+ * S1+S2 未做,那约 10 条**真错**(`/api/model-pricing`、`/api/security-audit` 等)仍被
+ * 3 段纯通配条目吞着,"死调用 0 处"这个读数**仍然不能读成"对账通过"**;
+ * 覆盖缺口提示与 `scripts/tests/check-api-routes-wildcard-gap.test.mjs`(G1–G6)继续钉住
+ * "缺口必须报、不得记绿"。下一步仍是 **② S1+S2 减量 → ③ 逐条裁决那批真错
+ * → ④ 才谈判红起点**。
  */
 function matchSegs(fParts, bParts) {
   if (fParts.length !== bParts.length) return false

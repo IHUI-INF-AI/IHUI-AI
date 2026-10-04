@@ -33,7 +33,14 @@ import * as fs from 'node:fs';
 // GAP-PLAN P0-1 收敛:此前此处二次写死旧版 '2024-11-05' 造成跨端漂移)
 import { DEFAULT_PROTOCOL_VERSION } from '@ihui/shared';
 import { assertSafeFetchUrl, formatSsrfRejection, type SelfHostedTrust } from '@ihui/shared/utils/ssrf-guard';
+// G-689:脱敏走共享层的**唯一出口**(票面点名)。不另写一套正则 ——
+// 对端 stderr 是任意内容,原样拼进 error.message 就等于把它泄进日志/上报链路。
+import { sanitizeEvidenceText } from '@ihui/shared/utils/redact';
 import { getMcpConfigPath, type McpServer } from '../commands/mcp-config.js';
+// G-690:进程树回收的**制造者**已经存在于 util/spawn-isolated.ts(机制 + export 都在那里,
+// 且它的注释就点名了"调用端配合条件:detached 只在 Unix 侧有意义")。
+// 这里只做**装车**:不另抄一份 taskkill/kill(-pid) 逻辑 —— 两处算同一件事必漂移。
+import { killProcessTree } from '../util/spawn-isolated.js';
 import type { Tool, ToolResult, ToolContext, ToolParameter } from './index.js';
 import { getCredential, isExpired, setCredential } from './mcp-credentials.js';
 import { startOAuthFlow, refreshAccessToken, type OAuthConfig } from './mcp-oauth.js';
@@ -116,6 +123,178 @@ function nextId(): number {
   return _nextId++;
 }
 
+/**
+ * MCP stdio 子进程 stderr 尾缓冲上限(**字节**)—— 对齐上游 `MCP_STDIO_STDERR_LOG_MAX_CHARS`
+ * (adapters/src/mcp/index.ts:97)的量级,不比它大。上游按字符切,这里按字节切,
+ * 免得一个多字节字符被腰斩成 U+FFFD 混进诊断文本。
+ */
+const MCP_STDIO_STDERR_TAIL_MAX_BYTES = 4_000;
+
+/**
+ * 尾缓冲的一次读数。四个字段**全是真实量值**,没有一个是恒真:
+ * `truncated` 由 `bytesRead > sizeBytes` 比较得出(而不是写死 true/false),
+ * 所以"超长时标 (truncated)、量值可信"这条判据有牙 —— 恒真标注会被用例咬出来。
+ */
+export interface McpStderrTailReading {
+  /** 已读到的 stderr 总字节数(**含**被上限丢掉的那部分) */
+  bytesRead: number;
+  /** 此刻实际保留在缓冲里的字节数 */
+  sizeBytes: number;
+  /** 保留的尾部文本。空串就是"对端一个字都没写",不得当成"有内容" */
+  text: string;
+  /** 真的截断过(= bytesRead > sizeBytes) */
+  truncated: boolean;
+}
+
+export interface McpStderrTailBuffer {
+  append(chunk: Buffer | string): void;
+  read(): McpStderrTailReading;
+}
+
+/**
+ * 有界尾缓冲:超上限丢头留尾,并如实记账"读了多少 / 留了多少 / 有没有丢"。
+ *
+ * 尾块按 Buffer 存,只在 `read()` 时解码 —— 从不腰斩多字节字符。
+ */
+function createStderrTailBuffer(maxBytes: number): McpStderrTailBuffer {
+  const chunks: Buffer[] = [];
+  let sizeBytes = 0;
+  let bytesRead = 0;
+  return {
+    append(chunk: Buffer | string): void {
+      const buf = typeof chunk === 'string' ? Buffer.from(chunk, 'utf8') : chunk;
+      if (!buf || buf.length === 0) return;
+      bytesRead += buf.length;
+      chunks.push(buf);
+      sizeBytes += buf.length;
+      // 丢头留尾:从头砍,砍到不超上限为止(单块就超限时只留它的尾部)
+      while (sizeBytes > maxBytes && chunks.length > 0) {
+        const excess = sizeBytes - maxBytes;
+        const head = chunks[0]!;
+        if (head.length <= excess) {
+          chunks.shift();
+          sizeBytes -= head.length;
+        } else {
+          chunks[0] = head.subarray(excess);
+          sizeBytes -= excess;
+        }
+      }
+    },
+    read(): McpStderrTailReading {
+      return {
+        bytesRead,
+        sizeBytes,
+        text: Buffer.concat(chunks).toString('utf8'),
+        truncated: bytesRead > sizeBytes,
+      };
+    },
+  };
+}
+
+interface StdioDiagnostics {
+  tail: McpStderrTailBuffer;
+  /** 子进程已退出时的退出码/信号(未退出为 null) */
+  exit: { code: number | null; signal: NodeJS.Signals | null } | null;
+  /** 异步 spawn 失败(ENOENT 等);未发生为 null */
+  spawnError: NodeJS.ErrnoException | null;
+  /** 在途 sendStdioRpc 的失败通知(每请求一份,结算即摘 —— 不留悬挂闭包) */
+  waiters: Set<(reason: Error) => void>;
+  /** 成对摘线(断连时把本文件挂上去的三个监听器一次摘干净) */
+  detach: () => void;
+}
+
+const stdioDiagnostics = new WeakMap<ChildProcess, StdioDiagnostics>();
+
+/**
+ * 读某个 stdio 子进程当前挂着的尾缓冲读数(测试与诊断用;没挂过则 undefined)。
+ *
+ * 暴露读数而不是只把文本拼进消息 —— 否则"截断标注是不是恒真""空缓冲是不是被当成
+ * 有内容"这两条判据就只能靠字符串猜,没有可对账的量值出口。
+ */
+export function readMcpStderrTail(proc: ChildProcess | undefined): McpStderrTailReading | undefined {
+  if (!proc) return undefined;
+  return stdioDiagnostics.get(proc)?.tail.read();
+}
+
+/**
+ * G-689:给 stdio 子进程挂上 stderr 尾缓冲 + `error`/`exit` 监听(**幂等**)。
+ *
+ * 改前这条链是:一个空回调把 stderr 整块丢弃(该行至今仍被本票的验收 grep 记为基线),
+ * 且全文件**零** `error`/`exit` 监听器 ⇒ ENOENT 走**异步** `error` 事件而无人接,
+ * 只能等满 `initialize` 的 10s 计时器,报成"MCP 请求超时: initialize" —— 真凶(命令不存在?
+ * 启动即崩? 端口不通?)一个字都留不下。现在三件事都有落点:尾缓冲留证据、error 立刻定性、
+ * exit 把退出码记进诊断。
+ */
+function ensureStdioDiagnostics(proc: ChildProcess): StdioDiagnostics {
+  const existing = stdioDiagnostics.get(proc);
+  if (existing) return existing;
+
+  const diag: StdioDiagnostics = {
+    tail: createStderrTailBuffer(MCP_STDIO_STDERR_TAIL_MAX_BYTES),
+    exit: null,
+    spawnError: null,
+    waiters: new Set(),
+    detach: () => {},
+  };
+
+  const onStderrData = (chunk: Buffer): void => {
+    diag.tail.append(chunk);
+  };
+  const onError = (err: NodeJS.ErrnoException): void => {
+    diag.spawnError = err;
+    const reason = new Error(
+      `MCP stdio 子进程启动失败: ${err.message}${formatStdioDiagnostics(proc)}`,
+    );
+    for (const waiter of [...diag.waiters]) waiter(reason);
+  };
+  const onExit = (code: number | null, signal: NodeJS.Signals | null): void => {
+    diag.exit = { code, signal };
+    const reason = new Error(`MCP stdio 子进程已退出${formatStdioDiagnostics(proc)}`);
+    for (const waiter of [...diag.waiters]) waiter(reason);
+  };
+
+  proc.stderr?.on('data', onStderrData);
+  proc.on('error', onError);
+  proc.on('exit', onExit);
+  diag.detach = (): void => {
+    proc.stderr?.off('data', onStderrData);
+    proc.off('error', onError);
+    proc.off('exit', onExit);
+    diag.waiters.clear();
+  };
+
+  stdioDiagnostics.set(proc, diag);
+  return diag;
+}
+
+/**
+ * 把尾缓冲读数渲染成错误消息里的一段诊断。
+ *
+ * 脱敏**只走共享唯一出口** `sanitizeEvidenceText`(packages/shared/src/utils/redact.ts):
+ * 对端可以在 stderr 里写任意内容,不脱敏就等于把它抄进 error.message 再泄进日志/上报。
+ * 本文件不建第二套正则(票面点名 + AGENTS 的"两处算同一件事必漂移")。
+ */
+function formatStderrTail(reading: McpStderrTailReading): string {
+  // 空缓冲显式写 <空> —— 反例锁:不得让"没有内容"看起来像"有内容"
+  const body = reading.text ? sanitizeEvidenceText(reading.text) : '<空>';
+  const mark = reading.truncated ? ', truncated' : '';
+  return `stderr 尾=${body} (bytesRead=${reading.bytesRead} sizeBytes=${reading.sizeBytes}${mark})`;
+}
+
+/** 诊断尾巴(尾缓冲 + 退出码 + spawn 失败原因);没挂过诊断的进程返回空串 */
+function formatStdioDiagnostics(proc: ChildProcess): string {
+  const diag = stdioDiagnostics.get(proc);
+  if (!diag) return '';
+  const parts = [formatStderrTail(diag.tail.read())];
+  if (diag.exit) {
+    parts.push(`子进程已退出(退出码=${diag.exit.code ?? 'null'},信号=${diag.exit.signal ?? 'null'})`);
+  }
+  if (diag.spawnError) {
+    parts.push(`spawn 失败(${diag.spawnError.code ?? 'UNKNOWN'}: ${diag.spawnError.message})`);
+  }
+  return ` | ${parts.join(' | ')}`;
+}
+
 async function sendStdioRpc(
   proc: ChildProcess,
   method: string,
@@ -131,8 +310,23 @@ async function sendStdioRpc(
     const id = nextId();
     const msg = JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n';
 
+    // G-689:错误消息必须带诊断尾(stderr 尾 / 退出码 / spawn 失败原因),
+    // 否则只剩一句"请求超时",排查时无从下手。
+    const withDiagnostics = (text: string): string => `${text}${formatStdioDiagnostics(proc)}`;
+
+    // G-689:把本次在途请求挂到子进程的诊断上 —— ENOENT 这类**异步** error / 提前 exit
+    // 发生时立刻以真因 reject,而不是干等满 timeoutMs 报"超时"(改前的行为)。
+    const diag = ensureStdioDiagnostics(proc);
+    const onChildFailure = (reason: Error): void => {
+      clearTimeout(timer);
+      diag.waiters.delete(onChildFailure);
+      reject(reason);
+    };
+    diag.waiters.add(onChildFailure);
+
     const timer = setTimeout(() => {
-      reject(new Error(`MCP 请求超时: ${method} (${timeoutMs}ms)`));
+      diag.waiters.delete(onChildFailure);
+      reject(new Error(withDiagnostics(`MCP 请求超时: ${method} (${timeoutMs}ms)`)));
     }, timeoutMs);
 
     const onData = (data: Buffer): void => {
@@ -144,8 +338,9 @@ async function sendStdioRpc(
           if (parsed.id === id) {
             clearTimeout(timer);
             stdout.off('data', onData);
+            diag.waiters.delete(onChildFailure);
             if (parsed.error) {
-              reject(new Error(parsed.error.message || 'MCP 错误'));
+              reject(new Error(withDiagnostics(parsed.error.message || 'MCP 错误')));
             } else {
               resolve(parsed.result);
             }
@@ -595,8 +790,14 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
         // 只有写在该 server 配置 env 里的键才进第三方子进程(过滤与声明的构造在 buildMcpChildEnv)
         env: buildMcpChildEnv(server.env),
         windowsHide: true,
+        // G-690:`killProcessTree` 的调用端配合条件 —— Unix 侧靠 `kill(-pid)` 打整个进程组,
+        // 而进程组只在 child 自成组leader(`detached: true`)时存在;Windows 没有进程组概念,
+        // 回收走 `taskkill /T`,此时 detached 只会多分配一个控制台窗口 ⇒ 两边分档。
+        detached: process.platform !== 'win32',
       });
-      proc.stderr?.on('data', () => { /* 忽略 stderr */ });
+      // G-689:stderr 不再整块丢弃 —— 挂有界尾缓冲 + error/exit 监听(ENOENT 这类异步
+      // 失败从此有真因可报,而不是等满 10s 计时器报"请求超时")。
+      ensureStdioDiagnostics(proc);
       conn.process = proc;
 
       await sendStdioRpc(proc, 'initialize', {
@@ -824,11 +1025,18 @@ function disconnectMcpServer(conn: McpConnection): void {
     conn.sseAbortController.abort();
   }
   if (conn.process) {
+    const child = conn.process;
     try {
-      conn.process.kill();
+      // G-690:整棵进程树回收,而不是只杀直接子进程 ——
+      // npx/cmd 那层壳被杀掉不等于它派生的 node 子进程也死了(壳一死,子进程被 reparent
+      // 成孤儿,永留 ⇒ 端口/内存/文件句柄全泄漏)。
+      killProcessTree(child);
     } catch {
-      // 忽略
+      // 回收失败不阻断断连语义(下面照样清状态)
     }
+    // G-689:成对摘线 —— 断连时把本文件挂上去的 stderr/error/exit 监听器摘干净,
+    // 否则子进程若仍存活(回收失败),这些闭包会一直挂在它身上。
+    stdioDiagnostics.get(child)?.detach();
     conn.process = undefined;
   }
   // 清理 SSE pending 请求,避免调用方永久挂起
