@@ -93,7 +93,8 @@ export function blameLineTimes(root, rev = 'HEAD', relPath = PLAN_REL) {
   const out = execFileSync(
     gitBinary(),
     ['-c', 'safe.directory=*', '-C', root, 'blame', '--line-porcelain', rev, '--', relPath],
-    { encoding: 'utf8', maxBuffer: 1 << 26, windowsHide: true, timeout: 180000 },
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    { encoding: 'utf8', maxBuffer: 1 << 26, windowsHide: true, timeout: 180000, stdio: ['ignore', 'pipe', 'pipe'] },
   )
   return parseBlame(out)
 }
@@ -203,6 +204,8 @@ function selfTest() {
           windowsHide: true,
           env: { ...process.env, ...env },
           timeout: 120000,
+          stdio: ['ignore', 'pipe', 'pipe']
+          // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
         },
       )
     const OLD = '2026-01-05T12:00:00+00:00'
@@ -230,6 +233,8 @@ function selfTest() {
       maxBuffer: 1 << 24,
       windowsHide: true,
       timeout: 60000,
+      stdio: ['ignore', 'pipe', 'pipe']
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     })
     const ages = openRowAges({ content, times, nowMs })
     const a = ages.find((x) => x.raw.includes('A 老账'))
@@ -327,6 +332,8 @@ export function headAges(root = ROOT) {
     maxBuffer: 1 << 26,
     windowsHide: true,
     timeout: 120000,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   return { ages: openRowAges({ content, times: blameLineTimes(root), nowMs: Date.now() }), content }
 }

@@ -58,7 +58,8 @@ if (!LICENSE_KEY) {
 }
 
 // 系统 tar 是否可用(Windows 10 1803+ 自带 System32\tar.exe)
-const tarCheck = spawnSync('tar', ['--version'], { shell: process.platform === 'win32' })
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+const tarCheck = spawnSync('tar', ['--version'], { shell: process.platform === 'win32', stdio: ['ignore', 'pipe', 'pipe'] })
 if (tarCheck.status !== 0) {
   log(C.red, '✗ 系统未安装 tar 命令,无法解压 GeoLite2 tar.gz。')
   log(C.dim, '  Windows 10 1803+ 自带(System32\\tar.exe);Linux/macOS 通常预装。')
@@ -100,6 +101,8 @@ try {
 log(C.cyan, '📦 解压 tar.gz ...')
 const extractResult = spawnSync('tar', ['-xzf', tarGzPath, '-C', tmpDir], {
   shell: process.platform === 'win32',
+  stdio: ['ignore', 'pipe', 'pipe']
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
 })
 if (extractResult.status !== 0) {
   log(C.red, `✗ 解压失败: ${extractResult.stderr?.toString().trim() || '未知错误'}`)

@@ -309,7 +309,8 @@ function main() {
 }
 
 function gitRead(a) {
-  return execFileSync(GIT, gitArgs(a), { cwd: ROOT, encoding: 'utf8', windowsHide: true, timeout: 120000, maxBuffer: 128 * 1024 * 1024 })
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  return execFileSync(GIT, gitArgs(a), { cwd: ROOT, encoding: 'utf8', windowsHide: true, timeout: 120000, maxBuffer: 128 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] })
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href

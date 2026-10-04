@@ -25,6 +25,8 @@ test('T1 自检必须跑通(六条成对正反例,含"src 比 dist 旧不得判�
     encoding: 'utf8',
     timeout: 120000,
     windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   assert.equal(r.status, 0, `自检退出码非 0:\n${r.stdout}\n${r.stderr}`)
   assert.match(r.stdout, /--self-test:\d+ 通过 \/ 0 失败/, '末行必须报"0 失败"')

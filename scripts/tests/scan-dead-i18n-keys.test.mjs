@@ -91,6 +91,8 @@ beforeEach(() => {
  */
 function runCli(args = [], opts = {}) {
   const result = spawnSync(process.execPath, [SCRIPT_PATH, '--root', tmpDir, ...args], {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd: tmpDir,
     encoding: 'utf8',
     timeout: 60000,
@@ -546,6 +548,8 @@ describe('契约键声明:跨端词包契约键 / 被测试钉住的形状键', 
   /** 在**真仓**跑一次 CLI(cwd 即扫描器 ROOT);--dry-run 不写报告 */
   function runCliOnRealRepo(args) {
     const r = spawnSync(process.execPath, [SCRIPT_PATH, ...args], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: REPO_ROOT,
       encoding: 'utf8',
       timeout: 60000,
@@ -596,6 +600,8 @@ describe('契约键声明:跨端词包契约键 / 被测试钉住的形状键', 
 
   function gitInRepo(args) {
     return spawnSync(GIT_IN_TESTS, ['-c', 'safe.directory=*', '-C', tmpDir, ...args], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
       windowsHide: true,
       timeout: 30_000,
@@ -802,6 +808,8 @@ describe('判定面纪律 --staged(索引 blob,不回退磁盘,未判定≠通�
 
   function gitInRepo(args, env = {}) {
     return spawnSync(GIT_IN_TESTS, ['-c', 'safe.directory=*', '-C', tmpDir, ...args], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
       windowsHide: true,
       timeout: 30_000,

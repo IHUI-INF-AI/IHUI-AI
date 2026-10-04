@@ -1644,6 +1644,8 @@ function auditHostTimezone() {
     let parsed = null
     try {
       const out = execFileSync(process.execPath, [script, '--quick', '--json'], {
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
         cwd: WORKTREE,
         windowsHide: true,
         timeout: 90_000,
@@ -2034,6 +2036,8 @@ function dispatchGuardMail({ title, desp, severity, dryRun = false }) {
     msgFile = join(NOTIFY_MSG_DIR, `${Date.now()}-${process.pid}.txt`)
     writeFileSync(msgFile, desp, 'utf8')
     const r = spawnSync(process.execPath, buildGuardMailArgv({ to, title, severity, messageFile: msgFile, dryRun }), {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
       windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
       timeout: NOTIFY_DISPATCH_TIMEOUT_MS,
@@ -2766,12 +2770,16 @@ function watchWatchdog() {
       `⚠️ 凭据/停摆巡检心跳已 ${(ageMs / 3600000).toFixed(1)} 小时未更新(任务被删/停用或 node 路径失效都会是这个形态)⇒ 重注册任务 + 就地拉起一轮`,
     )
     execFileSync(process.execPath, [script, '--install'], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: WORKTREE,
       encoding: 'utf8',
       windowsHide: true,
       timeout: 120000,
     })
     execFileSync(process.execPath, [script, '--json'], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: WORKTREE,
       encoding: 'utf8',
       windowsHide: true,
@@ -3299,6 +3307,8 @@ function ensureS4u() {
   if (!existsSync(vbs)) return
   try {
     const out = execFileSync('cscript.exe', ['//nologo', vbs, TASK_NAME], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
       windowsHide: true,
       timeout: 90000,
@@ -3483,6 +3493,8 @@ function registerTask() {
   let out = ''
   try {
     out = execFileSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
       windowsHide: true,
       timeout: 90_000,
@@ -3523,6 +3535,8 @@ function taskForm() {
   try {
     list = flat(
       execFileSync('schtasks.exe', ['/Query', '/FO', 'CSV', '/NH'], {
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
         windowsHide: true,
         timeout: 30_000,
         maxBuffer: 1 << 24,
@@ -3536,6 +3550,8 @@ function taskForm() {
   try {
     xml = flat(
       execFileSync('schtasks.exe', ['/Query', '/TN', TASK_NAME, '/XML'], {
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
         windowsHide: true,
         timeout: 30_000,
         encoding: 'buffer',

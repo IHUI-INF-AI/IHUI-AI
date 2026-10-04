@@ -122,6 +122,8 @@ test('真仓 HEAD 面:宽口径组数 > 判据组数,且引用图非空并逐条
     maxBuffer: 1 << 28,
     windowsHide: true,
     timeout: 120000,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   const f = f9Faces(content)
   assert.ok(f.wide.length > f.collisions.length, `宽口径必须比判据面多(伪组确实存在),实测 wide=${f.wide.length} declared=${f.collisions.length}`)

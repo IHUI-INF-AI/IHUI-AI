@@ -167,6 +167,8 @@ test('G4 端到端:临时索引上四向全咬合 —— 新增无 until 必红�
       windowsHide: true,
       timeout: 120000,
       maxBuffer: 64 << 20,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     return { status: r.status, out: JSON.parse(r.stdout || '{}'), err: `${r.stderr}` }
   }
@@ -231,6 +233,8 @@ test('G4 端到端:临时索引上四向全咬合 —— 新增无 until 必红�
       encoding: 'utf8',
       windowsHide: true,
       timeout: 120000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     assert.equal(upd.status, 0, `${upd.stdout}${upd.stderr}`)
     const bl = JSON.parse(readFileSync(join(dir, gate.BASELINE_REL), 'utf8'))

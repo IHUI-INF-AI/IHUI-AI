@@ -277,6 +277,8 @@ test('catBatchOids:按行对齐回 oid,且不得像 catBatchCheck 那样把非 h
   const head = spawnSync(GIT, ['-C', root, 'rev-parse', 'HEAD'], {
     encoding: 'utf8',
     windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   }).stdout.trim()
   assert.ok(/^[0-9a-f]{40}$/.test(head), `rev-parse HEAD 取到的不是 sha:${head}`)
   const specs = ['HEAD:package.json', `${head}^{tree}`, 'HEAD:nope/missing.ts']
@@ -561,6 +563,8 @@ test('取材面必须是 HEAD:未跟踪文件不得进分母(工作树面会把�
         cwd: dir,
         encoding: 'utf8',
         windowsHide: true,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
       })
     g('init', '-q', '-b', 'main')
     g('config', 'user.email', 't@t')

@@ -30,6 +30,8 @@ const readHead = (path) =>
     cwd: ROOT,
     encoding: 'utf8',
     timeout: 60000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 
 function matchBraces(text, open) {

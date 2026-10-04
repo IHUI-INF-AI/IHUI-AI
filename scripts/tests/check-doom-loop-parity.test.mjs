@@ -39,6 +39,8 @@ function git(dir, args) {
     encoding: 'utf8',
     windowsHide: true,
     timeout: 120000,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
 }
 
@@ -48,6 +50,8 @@ function runGate(args, cwd = REPO) {
     cwd,
     windowsHide: true,
     timeout: 120000,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   return { status: r.status, out: `${r.stdout ?? ''}${r.stderr ?? ''}` }
 }

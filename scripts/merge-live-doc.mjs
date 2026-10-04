@@ -42,6 +42,8 @@ const git = (args) =>
     windowsHide: true,
     timeout: 120000,
     maxBuffer: 268435456,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 
 const trim = (l) => l.trim()

@@ -178,6 +178,8 @@ function checkRefFlapping(root) {
     windowsHide: true,
     timeout: 60000,
     cwd: root,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   let parsed = null
   try {
@@ -216,6 +218,8 @@ function measureRemote(root, { noFetch }) {
         windowsHide: true,
         timeout: 60000,
         cwd: root,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
       },
     )
     if (r.status === 0) out.fetched = true

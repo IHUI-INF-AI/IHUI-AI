@@ -547,7 +547,8 @@ async function selfTest() {
   r = judge(base, {
     gitRunner: (args, opts = {}) => {
       const e = { ...process.env }
-      return spawnSync(args, e, opts)
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      return spawnSync(args, e, { stdio: ['ignore', 'pipe', 'pipe'], ...opts })
     },
   })
   check('T15 派生器形态排除 ⇒ 不点名', r.findings.length === 0 && r.warnings.length === 0)
