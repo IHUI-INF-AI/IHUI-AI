@@ -16,6 +16,14 @@ import { carousels, aiGcContent } from '@ihui/database'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
 
+/**
+ * carousels.id 是 uuid 列,而 PUT /content/banners/:id 把它直接喂进 eq(carousels.id, id)
+ * ⇒ 非 uuid 串让 Postgres 抛 22P02 ⇒ 500。
+ * 本文件另几处 idParamSchema 使用者走的是 raw SQL `WHERE "id"::text = $1`(显式转型,
+ * 不会 22P02),所以这里另立一个闸,**不去收紧共享的 idParamSchema**(那会改动那些站点的对外契约)。
+ */
+const uuidIdParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
+
 const paginationQuery = {
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
@@ -489,7 +497,7 @@ export const contentExtendedRoutes: FastifyPluginAsync = async (server) => {
   // PUT /content/banners/:id - 修改横幅
   server.put('/content/banners/:id', async (request, reply) => {
     await authenticate(request)
-    const paramParsed = idParamSchema.safeParse(request.params)
+    const paramParsed = uuidIdParamSchema.safeParse(request.params)
     if (!paramParsed.success) {
       return reply.status(400).send(error(400, '无效的 ID'))
     }
