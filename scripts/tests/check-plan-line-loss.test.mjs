@@ -714,3 +714,55 @@ test('端到端(G-722):索引注入畸形号 → --staged exit 1 并点名;摘�
   }
 })
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// G-816708(2026-10-05):自愈的**比较目标**从"工作树 + HEAD"两面扩成"工作树 + HEAD + 索引"三面。
+// 这一组钉的是端到端那一格(纯函数三档住在 `--self-test`,落地那一刻真的有人跑它住在
+// object-space-land / live-doc-edit 的镜像里)。方向:摘掉索引档 ⇒ 第一条立刻红;
+// 把"未判定"折成"缺 0 条" ⇒ 第二条立刻红。**判据宽严一字未动**(纯文本搜索的残余面照旧)。
+// ─────────────────────────────────────────────────────────────────────────────
+test('端到端(G-816708 索引档):HEAD 与工作树都在、只有索引带着旧版 ⇒ --heal 必须点名索引档且不宣布"无缺失"', () => {
+  const dir = tempPlanRepo(V1)
+  try {
+    // 只把**索引**换成旧版,再把工作树恢复成 HEAD 那一份 —— 这是旁路落地(commit-tree +
+    // update-index,两个面同时动)之后剩下的那一格:下一个人一次不带 pathspec 的普通提交
+    // 就把那一行再吞一遍,而旧实现在这里读不到任何东西。
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), STALE)
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), V1)
+    const idxBlob = git(dir, 'rev-parse', ':PROJECT_PLAN.md').trim()
+    const headBlob = git(dir, 'rev-parse', 'HEAD:PROJECT_PLAN.md').trim()
+    assert.notEqual(idxBlob, headBlob, '夹具必须真是"索引带旧版"')
+    const r = runGate(dir, ['--heal'])
+    const out = `${r.stdout}\n${r.stderr}`
+    assert.equal(r.status, 0, `--heal 索引档只点名,不该把落地侧判红,实得 ${r.status}\n${out}`)
+    assert.match(out, /\[点名\/索引\][^\n]*O42/, '索引档缺的那一条必须**点名到行**,不得只报数')
+    assert.doesNotMatch(out, /无缺失,无需回捞/, '三面里有一面缺 ⇒ "无缺失"这句话不得打印(票面的成因正在这句)')
+    assert.match(out, /不回写共享主索引/, '能力边界必须报名:点名 ≠ 已修好')
+    assert.equal(
+      git(dir, 'rev-parse', ':PROJECT_PLAN.md').trim(),
+      idxBlob,
+      '本层必须**没动**索引 —— 索引那一份可能属于别人尚未提交的暂存(§12 代收红线)',
+    )
+    assert.equal(readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8'), V1, '工作树本来就是对的,不得被顺手改写')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('端到端(G-816708 三态):索引面整个取不到 ⇒ 那一档写"未判定",既不冒红也绝不并进"无缺失"', () => {
+  const dir = tempPlanRepo(V1)
+  try {
+    // 索引里根本没有这份文档(git rm --cached)⇒ `:PROJECT_PLAN.md` 取不到内容。
+    // 这一档必须是**未判定**,不得折成"缺 0 条"—— "把没判写成判过了"是本仓最高频失效型。
+    git(dir, 'rm', '--cached', '-q', '--', 'PROJECT_PLAN.md')
+    const r = runGate(dir, ['--heal'])
+    const out = `${r.stdout}\n${r.stderr}`
+    assert.match(out, /\[点名\/索引\][^\n]*未判定/, '取不到必须单列为未判定(读数里也要是"未判定"而不是数字)')
+    assert.doesNotMatch(out, /无缺失,无需回捞/, '有一档没判 ⇒ 不得宣布"无缺失"')
+    assert.equal(r.status, 0, `未判定不是违规,实得 ${r.status}\n${out}`)
+    assert.match(out, /工作树副本缺 0 条 \/ HEAD 提交树缺 0 条/, '另两档的读数必须照常逐档报清')
+  } finally {
+    rmScratch(dir)
+  }
+})
