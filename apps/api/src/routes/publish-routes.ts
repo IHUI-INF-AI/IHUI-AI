@@ -577,6 +577,16 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
     await proxyToAiService(request, reply, '/scan-login/detect-from-profile')
   })
 
+  // scan_login.py 后补的两条(publish-proxy-parity 对账缺口):任务交互动作 + 在跑任务清单。
+  // Fastify 静态段优先于参数段,tasks/live 不会被 :taskId/status 一族吞掉。
+  server.get('/publish/scan-login/tasks/live', async (request, reply) => {
+    await proxyToAiService(request, reply, '/scan-login/tasks/live')
+  })
+  server.post('/publish/scan-login/:taskId/interact', async (request, reply) => {
+    const { taskId } = request.params as { taskId: string }
+    await proxyToAiService(request, reply, `/scan-login/${encodeURIComponent(taskId)}/interact`)
+  })
+
   // 外部 Chrome 扫码登录(2026-09-02 新增):带调试端口启动系统 Chrome + CDP 附着,
   // 前端拿到 session_id 后复用 detect-from-cdp 轮询,登录成功自动保存账号。
   server.post('/publish/scan-login/external-start', async (request, reply) => {

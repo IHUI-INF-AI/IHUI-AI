@@ -97,7 +97,7 @@ describe('checkBackupTarget:已判定问题与"没看清"分两桶,都不静默'
     // 真目录里躺着的是 keycloak_* / ihui_dev_*;给探针换一个谁都不匹配的前缀 ⇒ 必判缺失,
     // 而不是"目录里有档所以一切正常" —— 那正是第二个库永远绿的机制。
     const res = await checkBackupTarget(
-      target({ name: 'zz-no-such-db', dir: 'D:\\DevEnv\\backups\\pg' }),
+      target({ name: 'zz-no-such-db', dir: process.cwd() }),  // 平台中立(原为开发机 Windows 绝对路径字面量,Linux runner 上 readdir 失败恒红)
       NOW,
     )
     expect(res.issues).toEqual(['探针目标: 无任何备份文件'])
@@ -107,7 +107,7 @@ describe('checkBackupTarget:已判定问题与"没看清"分两桶,都不静默'
   it('前缀给空 ⇒ 未判定(不得退化成"整个目录都算本库的")', async () => {
     // 类型已把 namePrefix 收成必填,但 `''` 仍是合法字面量 ⇒ 运行时这一道栅栏不能省
     const res = await checkBackupTarget(
-      target({ name: 'keycloak', dir: 'D:\\DevEnv\\backups\\pg', namePrefix: '' }),
+      target({ name: 'keycloak', dir: process.cwd(), namePrefix: '' }),  // 平台中立(原为开发机 Windows 绝对路径字面量,Linux runner 上 readdir 失败恒红)
       NOW,
     )
     expect(res.issues).toEqual([])
