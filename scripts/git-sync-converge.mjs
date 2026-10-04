@@ -38,7 +38,7 @@
  *   ③ 回归网: --self-test(真仓库演练,正反用例) + scripts/tests/ 下镜像测试(§22c)。
  */
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, openSync, closeSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { resolveRemoteHead } from './lib/face-reader.mjs'
@@ -79,6 +79,23 @@ const C = {
   reset: '\x1b[0m',
 }
 const log = (color, msg) => console.log(`${color}${msg}${C.reset}`)
+
+/**
+ * 收尾对齐子进程(`heal-worktree-tracked.mjs --align-drift`)的封顶(ms)。
+ *
+ * 2026-10-04 立。此前是硬编码 `90_000`,而内层 `heal-worktree-tracked.mjs:87` 的 `makeGit`
+ * **刻意 `timeout: 0` 无界**(它的 `g` 兼承载 update-index / read-tree / restore 这类写操作,
+ * 写操作中途被 SIGTERM 可能留下 .git/index.lock)—— 两层语义直接打架:外层偏用 90s 砍它,
+ * 撞满即 SIGTERM 整棵子树,恰好制造它想避免的全局阻塞。
+ *
+ * 90s 这个数**没有任何实测支撑**:本机真仓四次实测 51/48/41/40 秒,最坏余量只有 1.76 倍;
+ * 并发一叠加(部署环 / 守护 / 会话同时碰共享 gitdir,本机派生 git 本就 EBUSY)必然撞满
+ * —— 10-03 07:41 的 `spawnSync ... node.exe ETIMEDOUT` 即此形态,此后 24.8 小时无一次成功。
+ *
+ * 取 600s:覆盖 40–51s 常态与数倍抖动,同时仍是**有限值** —— 守门 80 的口径要的是"有界",
+ * 不是"够大就永不超时"。env 可调,理由与同文件 `IHUI_UNION_CONVERGE_TIMEOUT_MS` 一致。
+ */
+const ALIGN_DRIFT_TIMEOUT_MS = Number(process.env.IHUI_ALIGN_DRIFT_TIMEOUT_MS || 600_000)
 
 /**
  * 合并提交的身份必须随调用一起给,不能依赖"当前用户配过 global config"。
@@ -776,7 +793,7 @@ function tgit(cwd, args, opts = {}) {
       'commit.gpgsign=false',
       ...args,
     ],
-    { encoding: 'utf8', cwd, windowsHide: true, ...opts },
+    { encoding: 'utf8', cwd, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], ...opts },
   ).trim()
 }
 
@@ -786,20 +803,57 @@ function lsTreeLines(treeish, cwd) {
     encoding: 'utf8',
     cwd,
     windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
     timeout: 300_000,
   })
     .trim()
     .split('\n')
 }
 
-/** 用 mktree 按行拼树(行格式与 ls-tree 输出一致) */
+/**
+ * 用 mktree 按行拼树(行格式与 ls-tree 输出一致)。
+ *
+ * 2026-10-04 改(不是风格调整,是修一条实测出来的机器级限制)。原写法有两种,都撞死:
+ *   ① `stdio: ['pipe','pipe','pipe'], input: …` —— 靠 Node 建 stdin 管道喂内容。
+ *      本机上这条路 **100% 失败**,成组对照 20×2 实测:pipe 三态 ok=0/fail=20,
+ *      firstErr=`spawnSync git EBUSY`;同机同命令同参数、只差 stdin 怎么来的 ignore 三态 ok=20/fail=0。
+ *   ② 改用 `git mktree --input=<file>` —— **`mktree` 根本没有 `--input` 选项**
+ *      (usage 只有 `[-z] [--missing] [--batch]`,实测报 unknown option)。这条路想当然。
+ * 正解:**stdio 传数字 fd**(`openSync` 出来的真实句柄),子进程直接拿它当 stdin,
+ * **完全不经过 Node 的管道机制**。实测 20/20 通过(mktree 与 hash-object 各 20/20)。
+ *
+ * 三条实测的合起来才是本条判据:本机派生 git 时,**能不能喂 stdin 取决于"管道由谁建"** ——
+ * Node 建的必挂(EBUSY),OS 句柄直传的没事。所以 MEMORY 里"带 input 用 pipe 三态"那句是错的,
+ * 已改:正确形态是数字 fd,或干脆用 git 支持的路径参数(若该动词真有的话)。
+ */
 function mktree(cwd, lines) {
-  return execFileSync('git', ['mktree'], {
-    encoding: 'utf8',
-    cwd,
-    windowsHide: true,
-    input: lines.join('\n') + '\n',
-  }).trim()
+  // 落在 cwd 内(而非 os.tmpdir):mktree 的 base 是仓库根,同盘临时文件避免跨卷与权限歧义。
+  const tmp = resolve(cwd, `.ihui-mktree-${process.pid}-${Math.random().toString(36).slice(2, 8)}.tmp`)
+  let fd = null
+  try {
+    writeFileSync(tmp, lines.join('\n') + '\n', 'utf8')
+    fd = openSync(tmp, 'r')
+    return execFileSync('git', ['mktree'], {
+      encoding: 'utf8',
+      cwd,
+      windowsHide: true,
+      stdio: [fd, 'pipe', 'pipe'],
+    }).trim()
+  } finally {
+    if (fd !== null) {
+      try {
+        closeSync(fd)
+      } catch {
+        /* 句柄已随子进程退出而失效,close 失败不影响结论 */
+      }
+    }
+    // 必删:临时文件留在工作区会被 status/guardian 当成未跟踪产物,进而污染对齐判据。
+    try {
+      rmSync(tmp, { force: true })
+    } catch {
+      /* 清理失败不掩盖真结果 */
+    }
+  }
 }
 
 /** 把行数组中 path 那行的 blob 换掉(拼"被回退"的树) */
@@ -822,6 +876,13 @@ function selfTest() {
       encoding: 'utf8',
       windowsHide: true,
       timeout: 60_000,
+      // 2026-10-04 补:本调用**独缺** stdio(文件内 git() 与 attemptUnionConverge 都写了)。
+      // 后果不是"慢",是本机派生 git 的 EBUSY 面 —— 实测 `node scripts/git-sync-converge.mjs
+      // --self-test` 直接 `❌ 自检异常:spawnSync git EBUSY` 崩在 :838,自测**根本跑不起来**,
+      // 于是这一整片判据的回归护栏是失效的,且失败信息(EBUSY)与真实原因毫无关系。
+      // 这正是 MEMORY 记的"411 处派生点、147 处同型未修"那一族:不写 stdio 时
+      // 失败**看起来**像随机故障,于是被当成"偶发"放过。
+      stdio: ['ignore', 'pipe', 'pipe'],
     }).trim()
     tmp = resolve(root, '.ihui-agent/tmp/converge-selftest')
     rmSync(tmp, { recursive: true, force: true })
@@ -852,6 +913,7 @@ function selfTest() {
         encoding: 'utf8',
         cwd: repo,
         windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
       },
     )
       .trim()
@@ -953,6 +1015,7 @@ function selfTest() {
         encoding: 'utf8',
         cwd: repo,
         windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
       },
     )
       .trim()
@@ -1154,6 +1217,9 @@ function selfTest() {
         cwd: repoId,
         windowsHide: true,
         env: idEnv,
+        // 本函数全部调用点(init/add/commit/checkout/rev-parse/merge-base…)都**不传 input**,
+        // 故 stdin 设 ignore 安全;若将来有调用点要传 input,必须同时把这里改成 ['pipe',…]。
+        stdio: ['ignore', 'pipe', 'pipe'],
         timeout: 60_000,
         ...opts,
       }).trim()
@@ -1281,6 +1347,32 @@ function main() {
     /* 清理失败不阻塞收敛 */
   }
 
+  // ── `--align-only`(2026-10-04 立):只跑一次收尾对齐,不碰合并 ──────────────
+  //
+  // 立因是上面那段头注自己没盖住的一个洞:alignWorktreeAfterHeadMove 只在**真的推进了 HEAD**
+  // 之后才被调用。于是"本地提交已被远端包含"这一轮(实测 2026-10-04:7 秒 rc=0)会整段跳过,
+  // recordAlignOutcome 不被调 ⇒ `.workbuddy/converge-align-state.json` 的
+  // consecutiveFailures 永不归零 ⇒ 守护的 converge-align-stall 阈值**结构上无法靠跑收敛解除**。
+  // 告警正文给的唯一出路正是"跑一轮收敛",而那条路在本地已同步时是空转 ——
+  // 实测 10-03 07:41 失败后 24.8 小时无人推进,告警一直挂着,不是有人忽略它。
+  //
+  // 本旗标是那条出路真正需要的那一格:**只跑对齐器**(它自身幂等、判据在 heal-worktree-tracked),
+  // 成败照旧写同一个状态文件,让"跑一次就能归零"成立。不碰合并、不 fetch、不碰远端。
+  if (argv.includes('--align-only')) {
+    log(C.dim, '── --align-only:只跑收尾对齐(不收敛、不推送)──')
+    alignWorktreeAfterHeadMove()
+    const st = readAlignState(resolve(repoRoot, ALIGN_STATE_FILE))
+    // log 的签名是 (color, msg) —— 两参都要给。第一版只给了拼接好的整串,于是 color=整串、
+    // msg=undefined,输出末尾挂一个 "undefined"(实测已复现),这类小瑕疵会让排障的人
+    // 以为状态里还有别的字段没判干净。
+    if (st && st.consecutiveFailures === 0) {
+      log(C.green, '  ✅ 收尾对齐成功,停摆台账已归零')
+    } else {
+      log(C.yellow, `  ⚠️ 收尾对齐未成功(连续失败 ${st ? st.consecutiveFailures : '未知'} 次)`)
+    }
+    process.exit(0)
+  }
+
   /**
    * 收敛成功后顺手对齐工作区幻影漂移(2026-09-23 立)。
    * 本器走 merge-tree/commit-tree/update-ref,只推进 HEAD 与 index、**从不 checkout**(§12d
@@ -1304,7 +1396,20 @@ function main() {
           cwd: repoRoot,
           // 子进程必须封顶:对齐器内部要写索引,并行会话持有 index.lock 时它会等/失败;
           // 无界等待等于把"收敛成功后的收尾"变成整条链的挂起点(守门 80 就是为这一族立的)。
-          timeout: 90_000,
+          //
+          // 2026-10-04 修(本条封顶与被调脚本的语义**自相矛盾**,是 24 小时停摆的成因):
+          // 内层 `heal-worktree-tracked.mjs:87` 的 `makeGit` 是**刻意 `timeout: 0` 无界**的,
+          // 理由已写在那个文件的头注里 —— 它的 `g` 同时承载写操作(update-index / read-tree /
+          // restore),写操作中途被 SIGTERM **可能留下 .git/index.lock**,把一次挂起换成全局阻塞。
+          // 于是两层语义打架:内层刻意无界,外层偏用 90s 砍它 ⇒ 撞满即 SIGTERM 整棵子树,
+          // 恰好制造它想避免的那种局面。
+          // 而 90s 这个数没有任何实测支撑:本机真仓四次实测 51/48/41/40 秒(2026-10-04),
+          // **最坏余量只有 1.76 倍** —— 并发一叠加(部署环 / 守护 / 会话同时碰共享 gitdir,
+          // 本机派生 git 本就 EBUSY)就必然撞满,这正是 10-03 07:41 那次 ETIMEDOUT 的形态。
+          // 取 600s:既能覆盖 40–51s 的常态与数倍抖动,又仍是有限值(守门 80 的口径要的是
+          // "有界",不是"够大就永不超时")。同文件 `attemptUnionConverge` 的
+          // IHUI_UNION_CONVERGE_TIMEOUT_MS 是同一族做法(默认 1500s + env 可调),口径一致。
+          timeout: ALIGN_DRIFT_TIMEOUT_MS,
         },
       )
         .trim()
