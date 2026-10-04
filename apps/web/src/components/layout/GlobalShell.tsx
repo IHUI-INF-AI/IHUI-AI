@@ -109,7 +109,7 @@ const GlobalTopBarMemo = React.memo(GlobalTopBar)
  * - shrink-0 / mr-1.5 / py-2 / h-full —— 与真实容器 class 逐项对齐(mr-1.5 对应 --ai-panel-occupy = width+6)
  * - aria-hidden —— 骨架不得被读屏/a11y 断言命中
  */
-const AiPanelPlaceholder = () => (
+export const AiPanelPlaceholder = () => (
   <div
     aria-hidden
     className="relative hidden h-full shrink-0 mr-1.5 py-2 min-[768px]:block"

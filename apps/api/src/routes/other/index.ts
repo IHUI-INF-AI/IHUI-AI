@@ -19,6 +19,7 @@ import {
   businessCardRoutes,
   developerRoutes,
   dramaRoutes,
+  historyRoutes,
   imageGenRoutes,
   knowledgeBaseRoutes,
   llmStreamRoutes,
@@ -59,6 +60,9 @@ export const otherRoutes: FastifyPluginAsync = async (server) => {
   await server.register(businessCardRoutes)
   await server.register(developerRoutes)
   await server.register(dramaRoutes)
+  // historyRoutes 自 1b1b030493 写下就没进过这张表 —— 三个端点在线上恒 404(整条 -S 历史零命中,
+  // 不是被谁摘掉的)。tests/browse-history-endpoints.test.ts 注册的正是本 barrel,所以它一直红。
+  await server.register(historyRoutes)
   await server.register(imageGenRoutes)
   await server.register(knowledgeBaseRoutes)
   await server.register(llmStreamRoutes)

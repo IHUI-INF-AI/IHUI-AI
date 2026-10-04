@@ -114,7 +114,13 @@ describe('G-853 RN · 手势接线形状锁', () => {
     //    本断言的第一版就是这样写的,它当时以"红"伪装成"有牙",变异自证才发现它恒定只看第一个。
     const allDeps = [
       ...src.matchAll(/setOffset\(\{\s*x:\s*0,\s*y:\s*0\s*\}\)[\s\S]{0,80}?\},\s*\[([^\]]*)\]/g),
-    ].map((m) => m[1].split(',').map((s) => s.trim()))
+    ].map((m) => {
+      const deps = m[1]
+      if (deps === undefined) {
+        throw new Error('判据失明:复位 effect 命中了却没有解析到依赖捕获组,不判为通过')
+      }
+      return deps.split(',').map((s) => s.trim())
+    })
     expect(allDeps.length, '一处复位 effect 都没解析到 ⇒ 判据失明,不记通过').toBeGreaterThan(0)
     const covers = allDeps.some((d) => d.includes('index') && d.includes('zoom'))
     expect(
