@@ -24,7 +24,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { isSurrogateCodePoint } from '../../../../utils/prompt-boundary.js';
+import { isSurrogateCodePoint } from '../../../utils/prompt-boundary.js';
 
 /** 环境变量显式覆盖键(Windows 大小写不敏感读取) */
 export const WINDOWS_OUTPUT_ENCODING_OVERRIDE_ENV = 'IHUI_WINDOWS_OUTPUT_ENCODING';
