@@ -24,6 +24,9 @@ import Fastify, { type FastifyInstance } from 'fastify'
 // ─────────────────────────────────────────────────────────────
 // Mock:鉴权
 // ─────────────────────────────────────────────────────────────
+// chat_conversations.id 是 uuid 列,路由侧 toKnowledgeSchema 已收紧成 z.uuid(防 22P02 ⇒ 500),
+// 这里原先用 'no-such-id' 字面量会被 400 挡下(用例要 404) —— 改账不改制:改用合法 UUID。
+const NO_SUCH_CONV = '77777777-7777-4777-8777-777777777777'
 const authState = vi.hoisted(() => ({ fail: false, userId: 'user-1' }))
 
 vi.mock('../../plugins/auth.js', () => ({
@@ -248,7 +251,7 @@ describe('导入会话 → 知识库路由', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/conversation-import/to-knowledge',
-        payload: { conversationId: 'no-such-id' },
+        payload: { conversationId: NO_SUCH_CONV },
       })
       expect(res.statusCode).toBe(404)
       expect(kbState.calls).toHaveLength(0)
