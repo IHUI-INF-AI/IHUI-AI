@@ -43,7 +43,14 @@ const gitQ = (cwd, args) =>
   execFileSync(
     'git',
     ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e', '-c', 'user.name=e2e', ...args],
-    { cwd, encoding: 'utf8', windowsHide: true, timeout: 60000 },
+    {
+      cwd,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 60000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
   )
 /** sha 必须 trim:gitQ 带尾换行,拿它比台账里的 landedSha 会把"绑对了"读成"绑错了"。 */
 const shaAt = (dir, ref = 'HEAD') => gitQ(dir, ['rev-parse', ref]).trim()
@@ -105,6 +112,8 @@ function runCli(env, args) {
         encoding: 'utf8',
         windowsHide: true,
         timeout: 180000,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
       }),
     }
   } catch (e) {
@@ -261,6 +270,8 @@ test('A3 站点表少一站 ⇒ 结构判据必红;现读站点数与表内条�
             encoding: 'utf8',
             windowsHide: true,
             timeout: 60000,
+            // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+            stdio: ['ignore', 'pipe', 'pipe'],
           }),
         }
       } catch (e) {
@@ -372,7 +383,13 @@ test('A5 HEAD 面装车锁:plan-tasks-merge 在 HEAD 上必须真的引了留痕
   const head = execFileSync(
     'git',
     ['-c', 'safe.directory=*', '-C', ROOT, 'show', 'HEAD:scripts/plan-tasks-merge.mjs'],
-    { encoding: 'utf8', maxBuffer: 1 << 28, windowsHide: true },
+    {
+      encoding: 'utf8',
+      maxBuffer: 1 << 28,
+      windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
   )
   assert.ok(
     head.includes("from './lib/commit-attestation.mjs'"),

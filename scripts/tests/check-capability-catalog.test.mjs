@@ -189,6 +189,8 @@ function runCli(root, extraArgs = []) {
     encoding: 'utf8',
     env: { ...process.env, CAPABILITY_CATALOG_ROOT: root },
     windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   return r
 }
@@ -225,7 +227,12 @@ test('CLI: 产物漂移 → exit 1 并提示重新生成', () => {
 })
 
 test('CLI: --self-test 内置断言全绿(exit 0);产物缺失也判失败', () => {
-  const selfTest = spawnSync(process.execPath, [SCRIPT_PATH, '--self-test'], { encoding: 'utf8', windowsHide: true })
+  const selfTest = spawnSync(process.execPath, [SCRIPT_PATH, '--self-test'], {
+    encoding: 'utf8',
+    windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   assert.equal(selfTest.status, 0, selfTest.stdout + selfTest.stderr)
   assert.ok(selfTest.stdout.includes('全部断言通过'))
   const root = makeFixtureTree('export default async (server) => {}')
@@ -245,6 +252,8 @@ test('CLI: --staged 且无 v1 路由文件暂存时不判定端点覆盖(用环�
       encoding: 'utf8',
       env: { ...process.env, CAPABILITY_CATALOG_ROOT: root, CAPABILITY_CATALOG_FILES: 'README.md' },
       windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     assert.equal(r.status, 0, r.stdout + r.stderr)
     assert.equal(JSON.parse(r.stdout).stats.filesScanned, 0)

@@ -194,7 +194,14 @@ async function createZip(version) {
     const output = execFileSync('pwsh.exe', [
       '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
       '-Command', psCommand
-    ], { encoding: 'utf-8', cwd: PROJECT_ROOT, timeout: 60000, windowsHide: true });
+    ], {
+      encoding: 'utf-8',
+      cwd: PROJECT_ROOT,
+      timeout: 60000,
+      windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
 
     if (!output.includes('ZIP_CREATED')) {
       err(`zip 创建失败，输出: ${output}`);
@@ -239,7 +246,13 @@ async function verifyZip(zipPath, manifestPath) {
     const output = execFileSync('pwsh.exe', [
       '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
       '-Command', psCommand
-    ], { encoding: 'utf-8', timeout: 30000, windowsHide: true });
+    ], {
+      encoding: 'utf-8',
+      timeout: 30000,
+      windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
 
     const match = output.match(/ENTRIES:(\d+)/);
     if (!match) {

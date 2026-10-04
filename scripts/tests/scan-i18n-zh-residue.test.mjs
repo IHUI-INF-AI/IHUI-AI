@@ -60,16 +60,21 @@ function runScript(args = [], opts = {}) {
   return spawnSync('node', [SCRIPT_PATH, ...args], {
     cwd: opts.cwd || process.cwd(),
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
 // 辅助:初始化 git 仓库(用于 --staged 测试)
 function initGitRepo(root) {
-  execSync('git init -b main', { cwd: root, stdio: 'pipe' })
-  execSync('git config user.email test@test.com', { cwd: root, stdio: 'pipe' })
-  execSync('git config user.name test', { cwd: root, stdio: 'pipe' })
-  execSync('git config commit.gpgsign false', { cwd: root, stdio: 'pipe' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git init -b main', { cwd: root, stdio: 'ignore' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git config user.email test@test.com', { cwd: root, stdio: 'ignore' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git config user.name test', { cwd: root, stdio: 'ignore' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git config commit.gpgsign false', { cwd: root, stdio: 'ignore' })
 }
 
 describe('scan-i18n-zh-residue.mjs 集成测试', () => {
@@ -292,7 +297,8 @@ describe('scan-i18n-zh-residue.mjs 集成测试', () => {
     try {
       initGitRepo(root)
       writeWebLocale(root, 'ko', { common: { save: '保存' } }) // 纯中文残留
-      execSync('git add packages/i18n/messages/web/ko.json', { cwd: root, stdio: 'pipe' })
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      execSync('git add packages/i18n/messages/web/ko.json', { cwd: root, stdio: 'ignore' })
       const r = runScript(['ko', '--staged'], { cwd: root })
       assert.equal(r.status, 1, `staged ko.json 含违规应 exit 1,实际 ${r.status}`)
       assert.match(r.stderr, /纯中文残留/)

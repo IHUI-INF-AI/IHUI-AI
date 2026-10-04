@@ -390,7 +390,13 @@ function git(args, cwd) {
       `core.hooksPath=${path.join(cwd, '.no-hooks-at-all')}`,
       ...args,
     ],
-    { cwd, encoding: 'utf8', windowsHide: true },
+    {
+      cwd,
+      encoding: 'utf8',
+      windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
   )
 }
 
@@ -398,7 +404,15 @@ function gateIn(dir, args) {
   const p = spawnSync(
     process.execPath,
     [path.join(dir, 'scripts', 'check-tool-contract-declared.mjs'), ...args],
-    { cwd: dir, encoding: 'utf8', windowsHide: true, timeout: 120000, maxBuffer: 32 << 20 },
+    {
+      cwd: dir,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120000,
+      maxBuffer: 32 << 20,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
   )
   return { code: p.status, out: String(p.stdout || '') + String(p.stderr || '') }
 }

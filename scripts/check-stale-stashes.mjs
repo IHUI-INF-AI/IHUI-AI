@@ -74,7 +74,12 @@ const C = {
 const GIT_BIN = (() => {
   if (process.platform !== 'win32') return 'git'
   try {
-    const whereOut = execSync('where git', { encoding: 'utf8', windowsHide: true })
+    const whereOut = execSync('where git', {
+      encoding: 'utf8',
+      windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     for (const raw of whereOut.split('\n')) {
       const p = raw.trim()
       if (/\\cmd\\git\.exe$/i.test(p)) return p
@@ -95,6 +100,8 @@ function runGit(args, opts = {}) {
     maxBuffer: 64 * 1024 * 1024,
     timeout: 10_000,
     windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     ...opts,
   })
   if (r.status !== 0) {

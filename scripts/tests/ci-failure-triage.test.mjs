@@ -33,6 +33,8 @@ function runTriage(env, cwd) {
     env: { ...process.env, ...env },
     cwd,
     encoding: 'utf8',
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
@@ -216,7 +218,13 @@ test('d: mutations prove the assertions have teeth; original untouched', () => {
     const mutant = original.replace(/tail -n 60/, 'tail -n 2')
     assert.notEqual(mutant, original, 'mutation must actually apply')
     writeFileSync(mutantPath, mutant, 'utf8')
-    const bad = spawnSync('bash', [mutantPath], { env: { ...process.env, ...envM }, cwd: TMP, encoding: 'utf8' })
+    const bad = spawnSync('bash', [mutantPath], {
+      env: { ...process.env, ...envM },
+      cwd: TMP,
+      encoding: 'utf8',
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     assert.equal(bad.status, 0)
     assert.equal(countAnnotated(bad.stdout), 2, 'mutant must lose lines => the 5-line assertion flips red against it')
   }
@@ -237,7 +245,13 @@ test('d: mutations prove the assertions have teeth; original untouched', () => {
     )
     assert.notEqual(mutant, original, 'mutation must actually apply')
     writeFileSync(mutantPath, mutant, 'utf8')
-    const bad = spawnSync('bash', [mutantPath], { env: { ...process.env, ...envM }, cwd: TMP, encoding: 'utf8' })
+    const bad = spawnSync('bash', [mutantPath], {
+      env: { ...process.env, ...envM },
+      cwd: TMP,
+      encoding: 'utf8',
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     assert.doesNotMatch(bad.stdout, /first failing step is \[alpha\]/)
     assert.match(bad.stdout, /first failing step is \[beta\]/, 'broken ordering must flip the alpha assertion red')
   }

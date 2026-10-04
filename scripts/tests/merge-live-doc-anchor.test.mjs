@@ -53,13 +53,19 @@ const NEW_LINE =
 
 function seedRepo() {
   const dir = mkScratch('merge-live-doc-cli-')
-  execFileSync(GIT, ['-c', 'safe.directory=*', 'init', '-q', '--initial-branch=main'], { cwd: dir })
+  execFileSync(GIT, ['-c', 'safe.directory=*', 'init', '-q', '--initial-branch=main'], {
+    cwd: dir,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   const g = (...a) =>
     execFileSync(GIT, ['-c', 'safe.directory=*', ...a], {
       cwd: dir,
       encoding: 'utf8',
       windowsHide: true,
       timeout: 120000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
   g('config', 'user.email', 't@t')
   g('config', 'user.name', 't')
@@ -80,7 +86,14 @@ function seedRepo() {
       return execFileSync(
         process.execPath,
         [join(dir, 'scripts/merge-live-doc.mjs'), '--file', 'AGENTS.md'],
-        { cwd: dir, encoding: 'utf8', windowsHide: true, timeout: 120000 },
+        {
+          cwd: dir,
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 120000,
+          // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+          stdio: ['ignore', 'pipe', 'pipe'],
+        },
       )
     } catch (e) {
       // 判红时 CLI 以非零退出;报告正文仍要读出来算数
@@ -130,6 +143,8 @@ test('D 工作树停在旧形态(HEAD 翻勾 + 追加注记)⇒ 报 stale=1,且�
       encoding: 'utf8',
       windowsHide: true,
       timeout: 120000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
   try {
     // 先把 HEAD 推到"已翻勾 + 追加注记"那一版并入库,再把工作树写回未翻勾的旧形态 ——
@@ -192,8 +207,14 @@ function seedTableRepo() {
       encoding: 'utf8',
       windowsHide: true,
       timeout: 120000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
-  execFileSync(GIT, ['-c', 'safe.directory=*', 'init', '-q', '--initial-branch=main'], { cwd: dir })
+  execFileSync(GIT, ['-c', 'safe.directory=*', 'init', '-q', '--initial-branch=main'], {
+    cwd: dir,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   g('config', 'user.email', 't@t')
   g('config', 'user.name', 't')
   mkdirSync(join(dir, 'scripts', 'lib'), { recursive: true })
@@ -212,7 +233,14 @@ function seedTableRepo() {
       return execFileSync(
         process.execPath,
         [join(dir, 'scripts/merge-live-doc.mjs'), '--file', 'README.md'],
-        { cwd: dir, encoding: 'utf8', windowsHide: true, timeout: 120000 },
+        {
+          cwd: dir,
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 120000,
+          // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+          stdio: ['ignore', 'pipe', 'pipe'],
+        },
       )
     } catch (e) {
       return String(e.stdout || '')

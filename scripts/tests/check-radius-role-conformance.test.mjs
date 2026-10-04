@@ -33,7 +33,14 @@ const git = (args, cwd) =>
   execFileSync(
     'git',
     ['-c', 'safe.directory=*', '-c', 'user.email=t@t', '-c', 'user.name=t', ...args],
-    { cwd, encoding: 'utf8', windowsHide: true, timeout: 60000 },
+    {
+      cwd,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 60000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
   )
 /**
  * 受控索引(GIT_INDEX_FILE)那一档 —— 回退判定的端到端**只能**拿它验:共享索引此刻有没有 .tsx
@@ -48,6 +55,8 @@ const gitIdx = (args, cwd, idx) =>
     windowsHide: true,
     timeout: 60000,
     env: { ...process.env, GIT_INDEX_FILE: idx },
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 /** 把 HEAD 上**已存在**的 blob 登记进受控索引:`--cacheinfo` 只写索引条目,不写对象库、不写工作树。 */
 const putInIndex = (cwd, idx, rel) =>
@@ -73,7 +82,14 @@ const probeBlob = (rel) =>
   execFileSync(
     'git',
     ['-c', 'safe.directory=*', 'show', PROBE_REF + ':' + rel],
-    { cwd: REPO, encoding: 'utf8', windowsHide: true, timeout: 60000 },
+    {
+      cwd: REPO,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 60000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
   )
 const headBlob = (rel) =>
   execFileSync('git', ['-c', 'safe.directory=*', 'show', `HEAD:${rel}`], {
@@ -82,6 +98,8 @@ const headBlob = (rel) =>
     maxBuffer: 1 << 26,
     windowsHide: true,
     timeout: 60000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 const TABLE = () => radiusLookup(headBlob('packages/design-tokens/src/radius.js'))
 const capture = async (argv, root) => {

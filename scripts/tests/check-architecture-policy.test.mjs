@@ -34,7 +34,14 @@ const runnerText = () => readFileSync(RUNNER, 'utf8')
 const policyText = () => readFileSync(POLICY, 'utf8')
 const runCLI = (args) => {
   try {
-    const out = execFileSync(process.execPath, [SCRIPT, ...args], { encoding: 'utf8', maxBuffer: 1 << 28, windowsHide: true, timeout: 600000 })
+    const out = execFileSync(process.execPath, [SCRIPT, ...args], {
+      encoding: 'utf8',
+      maxBuffer: 1 << 28,
+      windowsHide: true,
+      timeout: 600000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     return { code: 0, out }
   } catch (e) {
     return { code: e.status ?? 2, out: `${e.stdout || ''}${e.stderr || ''}` }

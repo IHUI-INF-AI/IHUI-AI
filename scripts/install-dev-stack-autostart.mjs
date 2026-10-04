@@ -59,6 +59,8 @@ function runPs(script) {
     windowsHide: true,
     encoding: 'utf8',
     timeout: 90_000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   });
   return `${r.stdout || ''}${r.stderr || ''}`.trim();
 }
@@ -73,7 +75,12 @@ function stopLegacyWatcher() {
   }
   const pid = Number(hb?.pid);
   if (!pid || pid <= 0) return 'no legacy watcher pid recorded';
-  const r = spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true, timeout: 20_000 });
+  const r = spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], {
+    windowsHide: true,
+    timeout: 20_000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
   return r.status === 0 ? `已停止旧守护 pid=${pid}` : `旧守护 pid=${pid} 无需停止或已退出`;
 }
 

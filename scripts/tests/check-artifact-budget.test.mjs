@@ -86,6 +86,8 @@ function run(repoDir, args, env = {}) {
     encoding: 'utf8',
     windowsHide: true,
     env: { ...process.env, ...env },
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
@@ -307,6 +309,8 @@ test('C10 --self-test 经 CLI 真跑必须 0 失败', () => {
     cwd: REPO,
     encoding: 'utf8',
     windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`)
   assert.match(r.stdout, /失败 0/)
@@ -398,7 +402,13 @@ test('C12 链式调用形态必须可执行:--target + --staged 不得 exit 2', 
   const r = spawnSync(
     process.execPath,
     [join(REPO, 'scripts', SCRIPT), '--target', 'miniapp', '--staged'],
-    { encoding: 'utf8', windowsHide: true, timeout: 240000 },
+    {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 240000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
   )
   assert.notEqual(
     r.status,
@@ -424,7 +434,13 @@ test('C12c 反向对照:未知参数仍必须 exit 2(证明 C12 的绿不是"什
   const r = spawnSync(
     process.execPath,
     [join(REPO, 'scripts', SCRIPT), '--totally-unknown-flag'],
-    { encoding: 'utf8', windowsHide: true, timeout: 120000 },
+    {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
   )
   assert.equal(r.status, 2, `未知参数应仍判"无法判定",实得 ${r.status}`)
 })
