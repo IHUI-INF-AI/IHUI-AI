@@ -15,6 +15,7 @@ import { db } from '../db/index.js'
 import { requireAuth } from '../plugins/require-permission.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import { success, error } from '../utils/response.js'
+import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 
 // AI 出题题型(与 ai_generated_question.question_type 注释对齐)
 const QUESTION_TYPES = ['choice', 'fill', 'subjective'] as const
@@ -363,7 +364,8 @@ export const aiGradingRoutes: FastifyPluginAsync = async (server) => {
     }
     let aiScore = Number(obj.aiScore)
     if (!Number.isFinite(aiScore)) aiScore = 0
-    aiScore = Math.max(0, Math.min(100, Math.round(aiScore)))
+    // G-815966:裁剪走具名唯一出口。写库路径,语义差如实登记:NaN 旧内联形态会算出 NaN,现出口按"非数值 ⇒ 0"落 0。
+    aiScore = clampPercent(Math.round(aiScore))
     const aiFeedback = String(obj.aiFeedback ?? obj.feedback ?? '').trim()
     if (!aiFeedback) {
       return reply.status(502).send(error(502, 'AI 批改反馈为空,请重试'))
