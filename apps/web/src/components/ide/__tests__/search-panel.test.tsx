@@ -27,7 +27,16 @@ vi.mock('@/stores/ide-workspace', () => ({
 
 // grepFiles mock
 const grepMock = vi.hoisted(() => ({ grepFiles: vi.fn() }))
-vi.mock('@ihui/api-client', () => ({ grepFiles: grepMock.grepFiles }))
+vi.mock('@ihui/api-client', () => ({
+  // src/lib/api.ts 在模块顶层无条件调这 5 个 setter(同型见 src/lib/api.test.ts),被测组件经
+  // @/lib/api 拉到它。缺任一同名导出 ⇒ 模块求值即抛,整文件在**收集期**红,与 SearchPanel 无关。
+  setTokenProvider: vi.fn(),
+  setBaseUrl: vi.fn(),
+  setStreamBaseUrl: vi.fn(),
+  setDeviceFingerprintProvider: vi.fn(),
+  setUnauthorizedHandler: vi.fn(),
+  grepFiles: grepMock.grepFiles,
+}))
 
 import { SearchPanel } from '../search-panel'
 
