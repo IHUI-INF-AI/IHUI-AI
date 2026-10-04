@@ -105,6 +105,8 @@ test('判据自测 9 例全绿(阈值边界 + 空仓不判定)', () => {
     cwd: ROOT,
     encoding: 'utf8',
     windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   if (!out.includes('self-test 全部通过')) throw new Error(out)
 })

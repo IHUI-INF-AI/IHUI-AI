@@ -105,7 +105,8 @@ test('T6 真仓 HEAD 端到端:门本体 --json 可 parse,且必须看得见 app
   const r = spawnSync(
     process.execPath,
     [resolve(ROOT, 'scripts', SCRIPT), '--json'],
-    { encoding: 'utf8', windowsHide: true, timeout: 300000, cwd: ROOT },
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    { encoding: 'utf8', windowsHide: true, timeout: 300000, cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] },
   )
   assert.equal(r.error, undefined, `门本体派生失败:${r.error?.message}`)
   assert.ok([0, 1].includes(r.status), `exit 必须是 0/1 的判定结论(实得 ${r.status};2=无法判定另议)`)

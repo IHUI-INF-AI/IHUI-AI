@@ -124,7 +124,9 @@ test('maskComments 保长保行,字符串不被误伤', () => {
 })
 
 // ── CLI 端到端装车证明(--self-test 夹具全量 + 根注入退出码) ──
+// 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
 const cli = (args, env) => spawnSync(process.execPath, [SELF, ...args], {
+  stdio: ['ignore', 'pipe', 'pipe'],
   encoding: 'utf8', windowsHide: true, timeout: 180000, maxBuffer: 32 * 1024 * 1024,
   env: env ? { ...process.env, ...env } : process.env,
 })

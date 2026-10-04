@@ -145,11 +145,13 @@ test('T9 跨文件锁:豁免族必须登记进守门 108 的存活期表且取 3
 })
 
 test('T10 CLI 语义:两面旗同给判死;--self-test 跑完不得留残留', () => {
-  const contradiction = spawnSync(process.execPath, [GATE, '--staged', '--worktree'], { encoding: 'utf8', timeout: 180000 })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  const contradiction = spawnSync(process.execPath, [GATE, '--staged', '--worktree'], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', timeout: 180000 })
   assert.equal(contradiction.status, 2, '两面旗同时给出必须 exit 2,而不是随便挑一面')
   const scratch = mkScratch('gate-cli')
   try {
-    const self = spawnSync(process.execPath, [GATE, '--self-test'], { encoding: 'utf8', timeout: 300000, cwd: ROOT })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    const self = spawnSync(process.execPath, [GATE, '--self-test'], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', timeout: 300000, cwd: ROOT })
     assert.equal(self.status, 0, `--self-test 必须跑完且全绿:\n${self.stdout?.slice(-2500)}${self.stderr?.slice(-800)}`)
     assert.match(self.stdout, /--self-test: 全部通过/)
   } finally {

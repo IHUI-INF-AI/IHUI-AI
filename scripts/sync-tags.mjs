@@ -22,7 +22,8 @@ const log = (s) => {
   console.log(line)
 }
 const run = (args, timeout = 240000) =>
-  spawnSync(G, args, { encoding: 'utf8', maxBuffer: 64e6, cwd, timeout })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  spawnSync(G, args, { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', maxBuffer: 64e6, cwd, timeout })
 
 // 镜像仓同步的命名空间白名单(前缀匹配);release 版本 tag 形如 v0.2.0/desktop-v*
 const MIRROR_NS = [

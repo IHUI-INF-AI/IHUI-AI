@@ -39,7 +39,8 @@ function put(dir, rel, text) {
 function repo() {
   const dir = mkScratch('stale-revert-it-')
   const run = (...a) =>
-    execFileSync(GIT, ['-c', 'safe.directory=*', ...a], { cwd: dir, encoding: 'utf8', windowsHide: true, timeout: 300000 }).trim()
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execFileSync(GIT, ['-c', 'safe.directory=*', ...a], { stdio: ['ignore', 'pipe', 'pipe'], cwd: dir, encoding: 'utf8', windowsHide: true, timeout: 300000 }).trim()
   run('init', '-q', '-b', 'main')
   run('config', 'user.email', 't@t')
   run('config', 'user.name', 't')

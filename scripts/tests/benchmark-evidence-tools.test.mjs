@@ -42,6 +42,8 @@ const run = (args, opts = {}) =>
     encoding: 'utf8',
     windowsHide: true,
     cwd: ROOT,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     ...opts,
   })
 
@@ -453,7 +455,9 @@ function headBlob(rel) {
     return execFileSync(
       gitBinary(),
       ['-c', 'safe.directory=*', '--no-optional-locks', 'show', `HEAD:${rel}`],
-      { cwd: ROOT, encoding: 'utf8', windowsHide: true, timeout: 20000, maxBuffer: 8 << 20 },
+      { cwd: ROOT, encoding: 'utf8', windowsHide: true, timeout: 20000, maxBuffer: 8 << 20,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'] },
     )
   } catch {
     return null

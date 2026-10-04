@@ -745,6 +745,8 @@ function gitInit(dir) {
       encoding: 'utf8',
       windowsHide: true,
       timeout: 60000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     }).trim()
   run('init', '-q', '-b', 'main')
   run('config', 'user.email', 't@t')
@@ -776,6 +778,8 @@ function runGate(dir, msg) {
       encoding: 'utf8',
       windowsHide: true,
       timeout: 60000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     return { code: 0, out }
   } catch (e) {

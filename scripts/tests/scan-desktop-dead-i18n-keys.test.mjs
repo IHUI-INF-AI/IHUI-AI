@@ -351,6 +351,8 @@ describe('desktop 端 i18n 死 key 扫描器集成测试', () => {
     // 项目根目录的 packages/i18n/messages/desktop/zh-CN.json 不存在 → 默认 skip → exit 0
     test('场景 14:默认运行 → exit 0(messagesPath 不存在,自动 skip)', () => {
       const result = spawnSync('node', ['scripts/scan-desktop-dead-i18n-keys.mjs'], {
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
         cwd: PROJECT_ROOT,
         encoding: 'utf8',
         timeout: 15000,
@@ -363,7 +365,8 @@ describe('desktop 端 i18n 死 key 扫描器集成测试', () => {
       const result = spawnSync(
         'node',
         ['scripts/scan-desktop-dead-i18n-keys.mjs', '--exit', '1'],
-        { cwd: PROJECT_ROOT, encoding: 'utf8', timeout: 15000 }
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        { stdio: ['ignore', 'pipe', 'pipe'], cwd: PROJECT_ROOT, encoding: 'utf8', timeout: 15000 }
       )
       assert.equal(result.status, 0, '--exit 1 应 exit 0(skip 优先于 exitOnDead)')
     })

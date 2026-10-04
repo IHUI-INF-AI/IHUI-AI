@@ -106,7 +106,9 @@ function extractRunBlock(yamlText) {
 
 /** 真跑抽出来的 shell,返回 {code, out}。env 只给必要项,其余留空以复现"未开通"。 */
 function runShell(script, env) {
+  // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
   const r = spawnSync('bash', ['-c', script], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd: ROOT,
     encoding: 'utf8',
     timeout: 90_000,

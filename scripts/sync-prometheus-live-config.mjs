@@ -169,7 +169,8 @@ function main() {
           'POST',
           DEFAULT_RELOAD_URL,
         ],
-        { windowsHide: true, encoding: 'utf8', timeout: 20000 },
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        { windowsHide: true, encoding: 'utf8', timeout: 20000, stdio: ['ignore', 'pipe', 'pipe'] },
       )
         .toString()
         .trim()
