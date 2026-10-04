@@ -4532,6 +4532,24 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- Python import 入库存续性对账(1 项,blocking)---
+  {
+    id: '189',
+    label:
+      'Python import 入库存续性对账',
+    script: 'check-python-import-landed.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PYTHON_IMPORT_LANDED',
+    stagedTriggers: ['apps/ai-service/'],
+    onFailHint: [
+      '',
+      'HEAD 里有人 import 一个从未入库的 Python 模块 ⇒ 干净检出与 CI 起不来,而本机在跑的进程把它掩盖了。',
+      '出路只有一条:把被 import 的包/模块与实现同一枚提交入库,或去掉这条 import。不得为过门改判据。',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
