@@ -531,7 +531,7 @@ describe('scanCode — 黑盒集成测试(通过临时 fixture 文件)', () => {
   let arrayFormFile
 
   before(() => {
-    const tmp = mkScratch("i18n-scan-test-")
+    tmpDir = mkScratch("i18n-scan-test-")
     clientFile = path.join(tmpDir, 'page.tsx')
     serverFile = path.join(tmpDir, 'server-page.tsx')
     propKeyFile = path.join(tmpDir, 'devices.ts')
