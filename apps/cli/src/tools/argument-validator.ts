@@ -88,7 +88,9 @@ export type SchemaMissingReason =
  * 而实际上校验整块消失了 —— 与上游那句"查不到就当 untyped 的兜底会把 typed 静默降级"同形。
  *
  * 为什么它不改今天的执行行为:
- *   ① 默认档 `off` 根本不进这三个消费点(telemetry 在 `mode === 'off'` 处就 return);
+ *   ① 显式设 IHUI_TOOL_ARG_VALIDATION=off 时一次都不调用校验器(mode === 'off' 处就 return,
+ *      telemetry:181);但**今天的默认档是 shadow**(DEFAULT_TOOL_ARG_VALIDATION_MODE,telemetry:56)——
+ *      它确实进消费点,只是只累加计数、返回值与不接这段代码时逐字相同,所以「不改今天的执行行为」仍成立;
  *   ② shadow / enforce / 回放都把这枚错误落进**独立的未判定档**,既不计通过也不计违规;
  *   ③ enforce 沿用**既有**的 `status:'undetermined'` fail-open 语义,executor 那一条
  *      分支(只有 `reject` 才拒)一字未动 ⇒ 同一条调用的返回值、`call.arguments` 的引用
