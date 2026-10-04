@@ -18,7 +18,9 @@ const REPO = resolve(HERE, '..', '..')
 const GUARD = resolve(REPO, 'scripts', 'check-ai-panel-mount-guards.mjs')
 
 function run(args) {
+  // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
   const spawned = spawnSync(process.execPath, [GUARD, ...args], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     windowsHide: true,
     timeout: 180_000,

@@ -36,6 +36,8 @@ function runNode(file, args, opts = {}) {
     maxBuffer: 1 << 28,
     windowsHide: true,
     timeout: 600000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     ...opts,
   })
 }
@@ -57,6 +59,8 @@ function git(args, env) {
     maxBuffer: 1 << 28,
     windowsHide: true,
     env: gitEnv(env),
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 /** 走 stdin 喂内容给 `git hash-object -w --stdin`(不经 shell,免码页/引号坑)。 */
@@ -456,6 +460,8 @@ function mainWorktreeCandidates() {
       cwd: REPO,
       encoding: 'utf8',
       windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     return out
       .split('\n')

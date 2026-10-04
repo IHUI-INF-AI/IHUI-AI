@@ -56,6 +56,8 @@ test('(a)装车证明:!CHECK_ONLY 分支真的调用 auditOrphanDeletionRefs', (
       windowsHide: true,
       timeout: 30_000,
       maxBuffer: 32 << 20,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
   } catch {
     /* 问不到走工作树(新建文件尚未入库时本例仍要有牙) */

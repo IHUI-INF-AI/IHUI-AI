@@ -29,6 +29,8 @@ function createTempScanDir(files) {
   const TABLE_REL = 'packages/design-tokens/src/radius.js'
   const tableSrc =
     spawnSync('git', ['-c', 'safe.directory=*', 'show', `HEAD:${TABLE_REL}`], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: join(__dirname, '..', '..'),
       encoding: 'utf8',
       windowsHide: true,

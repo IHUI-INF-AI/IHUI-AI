@@ -33,6 +33,8 @@ function git(dir, args) {
     encoding: 'utf8',
     windowsHide: true,
     timeout: 120000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
@@ -136,6 +138,8 @@ test('T6 CLI:两面旗同给必须判死,而不是"后者覆盖前者"', () => {
     encoding: 'utf8',
     windowsHide: true,
     timeout: 120000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   assert.equal(r.status, 2, `期望 exit 2,实得 ${r.status}:${r.stderr}`)
 })

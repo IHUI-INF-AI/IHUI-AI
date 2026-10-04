@@ -395,6 +395,8 @@ function runPsql(url, password, database, extraArgs, timeoutMs) {
       timeout: timeoutMs ?? PSQL_TIMEOUT_MS,
       maxBuffer: 32 * 1024 * 1024,
       env: { ...process.env, PGPASSWORD: password, PGCONNECT_TIMEOUT: '15' },
+      stdio: ['ignore', 'pipe', 'pipe']
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     },
   )
 }
@@ -476,6 +478,8 @@ function runDrizzleKitMigrate(url, password, tempUrl) {
     timeout: DRIZZLE_MIGRATE_TIMEOUT_MS,
     maxBuffer: 32 * 1024 * 1024,
     env: { ...process.env, DATABASE_URL: tempUrl, PGPASSWORD: password },
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   if (res.status !== 0) {
     return {

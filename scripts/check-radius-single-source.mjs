@@ -116,7 +116,9 @@ function loadTable() {
  * 共享工作区里 git 挂起过 80 分钟(CPU 仅 2.84s),钩子链上没有超时等于没有交付。
  */
 function gitRo(args) {
+  // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
   return execFileSync('git', ['-c', 'safe.directory=*', ...args], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd: ROOT,
     encoding: 'utf8',
     windowsHide: true,
@@ -177,7 +179,7 @@ const STAGED_SET = (() => {
   if (!isStaged) return null
   try {
     return new Set(
-      execFileSync(process.execPath === '' ? 'git' : 'git', ['diff', '--cached', '--name-only'], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+      execFileSync(process.execPath === '' ? 'git' : 'git', ['diff', '--cached', '--name-only'], { stdio: ['ignore', 'pipe', 'pipe'], cwd: ROOT, encoding: 'utf8', windowsHide: true })
         .split('\n')
         .filter(Boolean)
         .map((f) => f.replaceAll('\\', '/')),
@@ -1116,7 +1118,7 @@ async function main() {
   // 判据 C:覆盖面对账。与暂存范围无关,恒按全仓跟踪清单判 —— 静默逃逸不会因"本次没碰"而消失
   let cov = { red: [], exempt: [] }
   try {
-    const tracked = execFileSync('git', ['ls-files'], { cwd: ROOT, encoding: 'utf8', windowsHide: true, maxBuffer: 1 << 28, timeout: 120000 })
+    const tracked = execFileSync('git', ['ls-files'], { stdio: ['ignore', 'pipe', 'pipe'], cwd: ROOT, encoding: 'utf8', windowsHide: true, maxBuffer: 1 << 28, timeout: 120000 })
       .split('\n')
       .filter(Boolean)
     cov = coverageAudit(tracked, (f) => readFileSync(join(ROOT, f), 'utf8'))

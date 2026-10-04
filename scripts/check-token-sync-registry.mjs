@@ -730,6 +730,8 @@ function cliGate(repoArgs) {
     encoding: 'utf8',
     windowsHide: true,
     timeout: 120000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   if (r.error) throw r.error
   return { code: r.status, out: `${r.stdout ?? ''}${r.stderr ?? ''}` }

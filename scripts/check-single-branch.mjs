@@ -172,6 +172,8 @@ function getWorktreeBranches() {
       cwd: ROOT,
       encoding: 'utf8',
       windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe']
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     })
     const set = new Set()
     for (const line of raw.split('\n')) {
@@ -234,7 +236,8 @@ function unresolvableSet(names) {
 
 function listBranches() {
   try {
-    const raw = execSync('git branch -a', { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    const raw = execSync('git branch -a', { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
     return (
       raw
         .split('\n')
@@ -267,6 +270,8 @@ function main() {
         encoding: 'utf8',
         windowsHide: true,
         timeout: 10000,
+        stdio: ['ignore', 'pipe', 'pipe']
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
       }),
     )
   } catch {
@@ -296,7 +301,8 @@ function main() {
           'refs/heads',
           'refs/remotes',
         ],
-        { encoding: 'utf8', windowsHide: true, timeout: 10000, maxBuffer: 16 * 1024 * 1024 },
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        { encoding: 'utf8', windowsHide: true, timeout: 10000, maxBuffer: 16 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] },
       ),
     )
   } catch {

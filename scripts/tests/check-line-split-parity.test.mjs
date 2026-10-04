@@ -40,6 +40,8 @@ const runCli = (args) =>
     windowsHide: true,
     timeout: 300000,
     cwd: ROOT,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 
 /** 把一份 TS 源文本装成可 import 的模块(落进 scratch,与门自己的做法同形)。 */
@@ -70,6 +72,8 @@ test('T1 定级/接线方向锁:未进提交链时头注必须自称没进;进�
     windowsHide: true,
     timeout: 60000,
     cwd: ROOT,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   const runnerText = show.status === 0 ? show.stdout : ''
   const wired = runnerText.includes('check-line-split-parity')
@@ -219,6 +223,8 @@ test('T8 面一致性:被审面取不到实现时 CLI 必须 rc 2 并点名路�
     windowsHide: true,
     timeout: 60000,
     cwd: ROOT,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   const present = show.status === 0
   if (!present) {
