@@ -13187,7 +13187,8 @@
       "keyIdLabel": "Key 標識",
       "gatewayHintA": "呼叫網關時,請求頭使用",
       "gatewayHintB": "(即 ihui_ 開頭的 Key 標識;Secret 請妥善保管,勿放進請求頭)。",
-      "savedClose": "我已保存,關閉"
+      "savedClose": "我已保存,關閉",
+      "needLogin": "請先登入後管理 API Key"
     },
     "relayUsage": {
       "title": "用量明細",
@@ -13229,7 +13230,8 @@
       "apiKeyFilter": "API Key 篩選",
       "allApiKeys": "全部 API Key",
       "cacheRead": "讀 {count}",
-      "cacheWrite": "寫 {count}"
+      "cacheWrite": "寫 {count}",
+      "needLogin": "請先登入後用量明細與分析"
     }
   },
   "developerApiDocsPage": {
@@ -19851,7 +19853,8 @@
   "parentPortal": {
     "attendance": {
       "rate": "出勤率",
-      "records": "簽到記錄"
+      "records": "簽到記錄",
+      "needLogin": "請先登入後查看考勤記錄"
     },
     "bind": {
       "confirm": "確認",
@@ -19883,7 +19886,10 @@
       "monthlyPlan": "月計劃",
       "studyPlans": "學習計劃",
       "studyPlansHint": "查看孩子的學習計劃",
-      "weeklyPlan": "周計劃"
+      "weeklyPlan": "周計劃",
+      "coursesNeedLogin": "請先登入後查看課程表",
+      "mealsNeedLogin": "請先登入後查看用餐記錄",
+      "studyPlansNeedLogin": "請先登入後查看學習計畫"
     },
     "dashboard": {
       "bindChild": "綁定孩子",
@@ -27187,7 +27193,8 @@
     "actionDelete": "刪除",
     "confirmDelete": "確認刪除",
     "confirmDeleteContent": "確定要解除該綁定關係嗎？此操作不可撤銷。",
-    "cancel": "取消"
+    "cancel": "取消",
+    "needLogin": "請先登入後查看家長端"
   },
   "eduSchedule": {
     "title": "課程表管理",
