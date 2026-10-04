@@ -3968,6 +3968,24 @@ export function tempScrubDue(nowMs, tickMs, intervalMs = TEMP_SCRUB_INTERVAL_MS)
 /** 从清扫器的人类报告里取三个数(不重抄判据,只读它已经大声报出来的结论)。 */
 export function parseScrubReport(text) {
   const s = String(text || '')
+  // 清扫器现在按"多根并集"跑,每个根各打一行明细、最后一行打汇总。
+  // 取首条匹配会只读到**第一个根**的数字 ⇒ 把"另一个根还有 18 GB"读成"只剩这一点"。
+  // 所以汇总行优先,且只在它存在时才覆盖;没有汇总行(旧输出/崩在半路)照旧走明细正则。
+  const agg = /^汇总 ·.*$/m.exec(s)
+  if (agg) {
+    const cand = /候选 (\d+)/.exec(agg[0])
+    const del = /已删 (\d+) 条 \/ 失败 (\d+) 条/.exec(agg[0])
+    const err = /取不到 (\d+)/.exec(agg[0])
+    const root = /root=(\S+)/.exec(s)
+    return {
+      candidates: cand ? Number(cand[1]) : null,
+      deleted: del ? Number(del[1]) : null,
+      failed: del ? Number(del[2]) : null,
+      root: root ? root[1] : null,
+      aggregate: true,
+      unreadableRoots: err ? Number(err[1]) : 0,
+    }
+  }
   const cand = /候选 (\d+)/.exec(s)
   const del = /已删 (\d+) 条 \/ 失败 (\d+)/.exec(s)
   const root = /root=(\S+)/.exec(s)
@@ -3976,6 +3994,8 @@ export function parseScrubReport(text) {
     deleted: del ? Number(del[1]) : null,
     failed: del ? Number(del[2]) : null,
     root: root ? root[1] : null,
+    aggregate: false,
+    unreadableRoots: 0,
   }
 }
 
@@ -4040,9 +4060,12 @@ export function scrubTempFixtures(opts = {}) {
     )
     return { ran: true, ok: false, why: '未跑成', status: call.status }
   }
-  if (p.deleted && p.failed) {
+  if (p.failed) {
     logger(
-      `⚠️ TEMP 夹具清扫:删了 ${p.deleted} 条但有 ${p.failed} 条失败(多为在句柄中的夹具,属正常)· root=${p.root} · 候选 ${p.candidates}`,
+      `⚠️ TEMP 夹具清扫:删了 ${p.deleted ?? 0} 条但有 ${p.failed} 条失败(多为在句柄中的夹具,属正常)` +
+        ` · root=${p.root} · 候选 ${p.candidates}` +
+        (p.deleted ? '' : ' —— 一条都没删掉,残留仍在,下轮重试') +
+        (p.unreadableRoots ? ` · 取不到的根 ${p.unreadableRoots}` : ''),
     )
     return { ran: true, ok: true, partial: true, ...p }
   }
