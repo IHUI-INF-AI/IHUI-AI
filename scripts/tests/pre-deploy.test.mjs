@@ -45,7 +45,8 @@ const STACK_FRAME_RE = /^\s+at\s+\S/m
 function runScript(args) {
   const r = spawnSync(process.execPath, [SCRIPT_PATH, ...args], {
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
   })
   return { rc: r.status, out: r.stdout ?? '', err: r.stderr ?? '' }

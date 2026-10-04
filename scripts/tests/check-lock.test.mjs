@@ -25,8 +25,9 @@ const ALIVE_PID = process.pid
 let deadPid
 function ensureDeadPid() {
   if (deadPid) return deadPid
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   const child = spawnSync(process.execPath, ['-e', 'process.exit(0)'], {
-    stdio: 'pipe',
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   deadPid = child.pid
   assert.ok(deadPid, '获取 dead PID 失败')
@@ -36,10 +37,11 @@ function ensureDeadPid() {
 // ─── 辅助:运行 check-lock.mjs(可选 mode 参数) ────────
 function runScript(mode) {
   const args = mode ? [SCRIPT_PATH, mode] : [SCRIPT_PATH]
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   return spawnSync(process.execPath, args, {
     cwd: REPO_ROOT,
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    stdio: ['ignore', 'pipe', 'pipe'],
     timeout: 15000,
   })
 }

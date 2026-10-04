@@ -149,7 +149,9 @@ function run(cmd, opts = {}) {
   try {
     return {
       ok: true,
-      stdout: execSync(cmd, { cwd: ROOT, encoding: 'utf8', stdio: 'pipe', windowsHide: true, ...opts }),
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      // 返回值被消费(赋给 r.stdout 后被调用方读)⇒ stdout 仍须 pipe,只把 stdin 切掉
+      stdout: execSync(cmd, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, ...opts }),
     }
   } catch (e) {
     return {

@@ -17,14 +17,14 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-sanitizer-bypass.mjs')
 // ─── 辅助:创建临时 git 仓库 ───────────────────────────────
 function createTempRepo() {
   const root = mkScratch('ihui-sanitizer-')
-  execSync('git init -b main', { cwd: root, stdio: 'pipe' })
-  execSync('git config user.email test@test.com', { cwd: root, stdio: 'pipe' })
-  execSync('git config user.name test', { cwd: root, stdio: 'pipe' })
-  execSync('git config commit.gpgsign false', { cwd: root, stdio: 'pipe' })
+  execSync('git init -b main', { cwd: root, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
+  execSync('git config user.email test@test.com', { cwd: root, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
+  execSync('git config user.name test', { cwd: root, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
+  execSync('git config commit.gpgsign false', { cwd: root, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
   mkdirSync(join(root, 'apps', 'api', 'src', 'routes'), { recursive: true })
   writeFileSync(join(root, 'README.md'), '# init\n')
-  execSync('git add README.md', { cwd: root, stdio: 'pipe' })
-  execSync('git commit -m "init"', { cwd: root, stdio: 'pipe' })
+  execSync('git add README.md', { cwd: root, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
+  execSync('git commit -m "init"', { cwd: root, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
   return root
 }
 
@@ -32,7 +32,7 @@ function createTempRepo() {
 function writeRoute(root, fileName, content) {
   const fullPath = join(root, 'apps', 'api', 'src', 'routes', fileName)
   writeFileSync(fullPath, content)
-  execSync(`git add apps/api/src/routes/${fileName}`, { cwd: root, stdio: 'pipe' })
+  execSync(`git add apps/api/src/routes/${fileName}`, { cwd: root, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
 }
 
 // 辅助:在 routes 子目录下写入文件并 git add(验证 full 模式递归扫描子目录)
@@ -43,7 +43,8 @@ function writeRouteInSubdir(root, subdir, fileName, content) {
   writeFileSync(fullPath, content)
   execSync(`git add apps/api/src/routes/${subdir}/${fileName}`, {
     cwd: root,
-    stdio: 'pipe',
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: 'ignore',
   })
 }
 
@@ -53,7 +54,7 @@ function writeTestFile(root, fileName, content) {
   mkdirSync(dir, { recursive: true })
   const fullPath = join(dir, fileName)
   writeFileSync(fullPath, content)
-  execSync(`git add "apps/api/src/routes/__tests__/${fileName}"`, { cwd: root, stdio: 'pipe' })
+  execSync(`git add "apps/api/src/routes/__tests__/${fileName}"`, { cwd: root, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
 }
 
 // 辅助:运行脚本(stdout/stderr 去除 ANSI 颜色码,违规输出走 console.error → stderr)
@@ -62,7 +63,8 @@ function runScript(cwd, args = []) {
   const r = spawnSync('node', [SCRIPT_PATH, ...args], {
     cwd: cwd || process.cwd(),
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   if (r.stdout) r.stdout = r.stdout.replace(ANSI_RE, '')
   if (r.stderr) r.stderr = r.stderr.replace(ANSI_RE, '')

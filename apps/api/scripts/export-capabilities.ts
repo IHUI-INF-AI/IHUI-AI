@@ -85,7 +85,8 @@ function main(): number {
       process.execPath,
       [join(repoRoot, 'scripts', 'watermark.mjs'), 'inject', outFile],
       {
-        stdio: 'pipe',
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
         windowsHide: true,
       },
     )

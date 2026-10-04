@@ -51,7 +51,9 @@ function runScript(cwd, args = []) {
     {
       cwd: dirname(SCRIPT_PATH),
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      // 返回值被消费(r.out 读 r.stdout)⇒ stdout 仍须 pipe,只把 stdin 切掉
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     },
   )

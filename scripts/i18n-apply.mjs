@@ -620,7 +620,9 @@ function main() {
   try {
     const diffStat = execSync('git diff --stat -- packages/i18n/messages/', {
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      // 返回值被消费(下面 diffStat.split)⇒ stdout 仍须 pipe,只把 stdin 切掉
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     })
     const totalLine = diffStat.split('\n').slice(-2, -1)[0] || ''

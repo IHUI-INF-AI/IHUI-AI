@@ -53,7 +53,8 @@ afterEach(() => {
  */
 function rgInstalledHere(): boolean {
   try {
-    return spawnSync('rg', ['--version'], { encoding: 'utf-8', windowsHide: true, timeout: 5000 }).status === 0;
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    return spawnSync('rg', ['--version'], { encoding: 'utf-8', windowsHide: true, timeout: 5000, stdio: ['ignore', 'pipe', 'pipe'] }).status === 0;
   } catch {
     return false;
   }

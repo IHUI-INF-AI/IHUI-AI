@@ -143,7 +143,8 @@ export async function recordAudio(opts: RecordAudioOptions = {}): Promise<Record
   return new Promise((resolve, reject) => {
     const proc = spawn('ffmpeg', args, {
       windowsHide: true,
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
     let stderr = '';
     proc.stderr?.on('data', (chunk: Buffer) => {

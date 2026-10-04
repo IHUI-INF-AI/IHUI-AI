@@ -17,7 +17,8 @@ const TICK = String.fromCodePoint(0x2705)
 
 function mkRepo(rows) {
   const dir = mkScratch('pcf-')
-  const g = (a) => execFileSync('git', ['-c', 'safe.directory=*', '-c', 'user.email=t@t', '-c', 'user.name=t', '-C', dir, ...a]).toString()
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  const g = (a) => execFileSync('git', ['-c', 'safe.directory=*', '-c', 'user.email=t@t', '-c', 'user.name=t', '-C', dir, ...a], { stdio: ['ignore', 'pipe', 'pipe'] }).toString()
   g(['init', '-q'])
   writeFileSync(join(dir, 'PROJECT_PLAN.md'), rows.join('\n') + '\n', 'utf8')
   g(['add', 'PROJECT_PLAN.md'])
