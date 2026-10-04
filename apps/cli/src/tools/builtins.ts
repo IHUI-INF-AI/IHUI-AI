@@ -158,7 +158,13 @@ let ripgrepProbe: RipgrepProbe | null = null;
 function probeRipgrep(): RipgrepProbe {
   if (ripgrepProbe) return ripgrepProbe;
   try {
-    const result = spawnSync('rg', ['--version'], { encoding: 'utf-8', windowsHide: true, timeout: 5000 });
+    const result = spawnSync('rg', ['--version'], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+      encoding: 'utf-8',
+      windowsHide: true,
+      timeout: 5000,
+    });
     if (result.status === RG_EXIT_OK) {
       ripgrepProbe = { available: true, reason: null };
     } else {
@@ -207,6 +213,8 @@ function execRipgrep(pattern: string, opts: { cwd: string; searchPath: string; t
   // 在旧实现里那同样表现为"没有匹配"。Python 侧 search_file_contents 也带这个分隔符。
   args.push('--', pattern, opts.searchPath);
   const result = spawnSync('rg', args, {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd: opts.cwd,
     encoding: 'utf-8',
     timeout: 30_000,

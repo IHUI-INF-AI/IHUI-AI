@@ -34,7 +34,13 @@ const ROOT = TEST_ROOT ? resolve(TEST_ROOT) : resolve(dirname(fileURLToPath(impo
 const TICK = String.fromCodePoint(0x2705)
 const SELF_DECL = /〔[^〕]*(重复登记副本|派单以那条为准|本行不再单独派单)[^〕]*〕/
 const CLAIM = /（进行中/
-const git = (a) => execFileSync('git', ['-c', 'safe.directory=*', '-C', ROOT, ...a], { maxBuffer: 1 << 28, windowsHide: true }).toString()
+const git = (a) =>
+  execFileSync('git', ['-c', 'safe.directory=*', '-C', ROOT, ...a], {
+    maxBuffer: 1 << 28,
+    windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).toString()
 
 const argv = process.argv.slice(2)
 const flag = (n, d) => {

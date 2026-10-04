@@ -555,7 +555,12 @@ function censusSignaled(root) {
   const res = spawnSync(
     'git',
     ['-C', root, 'grep', '-I', '-l', '-i', '-E', 'permission[-_]?mode', '--', ':/', ':!.ihui-agent'],
-    { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
+    {
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
   )
   if (res.status === 0) return res.stdout.split('\n').map((s) => s.trim()).filter(Boolean)
   if (res.status === 1) return [] // git grep 无命中

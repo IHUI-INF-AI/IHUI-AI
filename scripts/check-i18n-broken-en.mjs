@@ -178,7 +178,12 @@ function walk(obj, pathStr, results) {
 
 function getStagedChanges(relPath) {
   try {
-    const out = execSync(`git diff --cached --name-only -- ${relPath}`, { encoding: 'utf8', windowsHide: true })
+    const out = execSync(`git diff --cached --name-only -- ${relPath}`, {
+      encoding: 'utf8',
+      windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     return out.trim().split('\n').filter(Boolean)
   } catch {
     return []

@@ -28,7 +28,14 @@ const RUNNER = join(REPO, 'scripts', 'guardian-runner.mjs')
 
 const run = (args) => {
   try {
-    const out = execFileSync(process.execPath, [SCRIPT, ...args], { encoding: 'utf8', maxBuffer: 1 << 28, timeout: 300000, windowsHide: true })
+    const out = execFileSync(process.execPath, [SCRIPT, ...args], {
+      encoding: 'utf8',
+      maxBuffer: 1 << 28,
+      timeout: 300000,
+      windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     return { code: 0, out }
   } catch (e) {
     return { code: typeof e.status === 'number' ? e.status : 2, out: `${e.stdout || ''}${e.stderr || ''}` }
