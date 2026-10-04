@@ -24,11 +24,13 @@ import { env } from 'node:process'
 import { eq, and, desc, asc, ilike, sql, isNull, gte } from 'drizzle-orm'
 import Parser from 'rss-parser'
 import { z } from 'zod'
+import { ProxyAgent, fetch as undiciFetch } from 'undici'
 import { db } from '../db/index.js'
 import { logger } from '../utils/logger.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import { fetchPublicAsset, formatPublicAssetFailure } from '../utils/public-asset-fetch.js'
 import { getSystemAccessToken } from '../utils/system-access-token.js'
+import { fetchWithinDeadline, type FetchDeadlineImpl } from '../utils/fetch-deadline.js'
 import {
   aiFeedSource,
   aiFeedHotItem,
@@ -165,21 +167,78 @@ const FETCH_RETRY_DELAYS_MS = [800, 2_000, 4_000]
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36'
 
+/** SYNC_PROXY_URL 对应的 ProxyAgent 单例(懒加载,进程内复用连接池) */
+let feedProxyAgent: ProxyAgent | null | undefined
+function getFeedProxyAgent(proxyUrl: string): ProxyAgent | null {
+  if (feedProxyAgent === undefined) {
+    try {
+      feedProxyAgent = new ProxyAgent(proxyUrl)
+    } catch (err) {
+      logger.warn('[ai-feed] SYNC_PROXY_URL 无效,忽略代理:', {
+        error: err instanceof Error ? err.message : err,
+      })
+      feedProxyAgent = null
+    }
+  }
+  return feedProxyAgent
+}
+
+/**
+ * localhost / 内网地址永不走代理(ai-service 本地调用不受影响)。
+ * 判据与 ai-world-sync.ts 的 `isLocal` 逐字同形,两份各写一遍必然漂移。
+ */
+export function isLoopbackUrl(url: string): boolean {
+  return /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:|\/|$)/i.test(url)
+}
+
+/**
+ * 纯判据(2026-10-04,提成导出函数以便独立钉死):
+ * 这一次的请求该不该走出站代理。
+ *
+ * 提成函数而不是埋在 fetch 里:判据只有「配了代理 且 不是回环」这一行,但它就是本轮根因的全部
+ * ——采集器漏了它,于是每轮固定 4 个境外源 `fetch failed`,再由 scheduler-worker 每天发一封告警邮件。
+ * 埋在 fetchWithTimeout 里就只能靠"真跑一次采集"验证,那需要外网+代理+数据库,回归窗口根本跑不起来。
+ *
+ * `proxyUrl` 传参而非读 env:让测试能直接喂各种组合,不必改进程环境变量去争全局状态。
+ */
+export function shouldUseSyncProxy(url: string, proxyUrl: string | undefined): boolean {
+  return Boolean(proxyUrl) && !isLoopbackUrl(url)
+}
+
 async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
   // 对间歇性连接抖动做 3 次指数退避重试(github.com 等路由抖动时首连失败、
   // 稍后即通;一次重试不足以覆盖持续 20-60s 的抖动窗口)。
+  //
+  // 2026-10-04 补代理(根因修复,此前是每轮固定 4 个境外源 fetch failed → 每天一封告警邮件):
+  // 本机直连被阻断的境外源(google-deepmind / meta-ai / mistral-ai / venturebeat-ai /
+  // microsoft-research 等)全部 `fetch failed`,而同一份 SYNC_PROXY_URL 只有 ai-world-sync 用了
+  // ——采集器这条腿漏了。实测经 127.0.0.1:7897 五个源全部 200 且能取到 items。
+  // 判据与实现刻意与 ai-world-sync.ts:557-601 同形(含 undici 自带 fetch 显式传 dispatcher:
+  // Node 22.22+ 的全局 fetch 已移除 RequestInit.dispatcher 支持,实测 UND_ERR_INVALID_ARG)。
+  // deadline 同时改走 utils/fetch-deadline.ts 那一份(headers 一到就 clearTimeout 的旧写法会让
+  // 源站在响应头之后停滞时永久占住这条逐源串行的采集队列)。
+  const proxyUrl = process.env.SYNC_PROXY_URL
+  const dispatcher = shouldUseSyncProxy(url, proxyUrl) ? getFeedProxyAgent(proxyUrl!) : null
+  const label = `ai-feed 抓取 ${url}`
+
   let lastErr: unknown
   const attempts = FETCH_RETRY_DELAYS_MS.length + 1
   for (let attempt = 1; attempt <= attempts; attempt++) {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
     try {
-      const res = await fetch(url, { ...init, signal: controller.signal })
-      return res
+      if (dispatcher) {
+        return await fetchWithinDeadline(
+          url,
+          { ...init, dispatcher } as RequestInit & { dispatcher?: unknown },
+          {
+            timeoutMs: FETCH_TIMEOUT_MS,
+            label,
+            fetchImpl: undiciFetch as unknown as FetchDeadlineImpl,
+          },
+        )
+      }
+      return await fetchWithinDeadline(url, init ?? {}, { timeoutMs: FETCH_TIMEOUT_MS, label })
     } catch (err) {
       lastErr = err
-    } finally {
-      clearTimeout(timer)
     }
     if (attempt < attempts) {
       await new Promise((r) => setTimeout(r, FETCH_RETRY_DELAYS_MS[attempt - 1]!))

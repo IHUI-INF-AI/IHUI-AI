@@ -133,6 +133,127 @@ const CONVERGE_ALIGN_STATE = join(WORKTREE, '.workbuddy', 'converge-align-state.
 const ALIGN_STALL_DEFAULT_FAILS = 3
 const ALIGN_STALL_DEFAULT_AGE_MS = 10 * 60 * 1000
 
+// —— 自动修复的节流与熔断(2026-10-04 立,回应"要自动修复而不是等人提")——
+//
+// 立因是实测的一次真停摆:10-03 07:41 失败后 **24.8 小时零动作**,而这段代码
+// 原本只负责"喊人"。更糟的是告警文案给的唯一出路在结构上解不掉它
+// (`alignWorktreeAfterHeadMove` 只在真推进 HEAD 后才调 ⇒ 本地已同步时跑收敛是空转,
+// 台账永不归零)。也就是**这一格既不自愈、给出的出路也不自愈**,只剩人在中间。
+//
+// 修法是把它接进本守护已有的自愈链(与 heal*/healRefs 同挂点、同分支),顺序固定为
+// **先自己修 → 修不好才喊**,且两道护栏:
+//   ① 节流 `ALIGN_HEAL_THROTTLE_MS`:对齐器本机实测 40–51 秒(真仓),本守护每 2 分钟一轮,
+//      不节流会在一次长故障里反复派生对齐器,把"修"本身变成新的负载源。
+//   ② 熔断 `ALIGN_HEAL_MAX_ATTEMPTS`:自愈本身失败也要有上限,否则就是每轮重试一次的
+//      无限循环 —— 那与"只喊人"只是换了个更吵的形态。
+// 两道都可用 env 调;设 ALIGN_HEAL_DISABLED=1 可整体关掉自愈(回到纯喊人),便于取证对照。
+const ALIGN_HEAL_THROTTLE_MS = Number(process.env.IHUI_ALIGN_HEAL_THROTTLE_MS || 30 * 60 * 1000)
+const ALIGN_HEAL_MAX_ATTEMPTS = Number(process.env.IHUI_ALIGN_HEAL_MAX_ATTEMPTS || 3)
+const ALIGN_HEAL_ATTEMPT_LOG = join(WORKTREE, '.workbuddy', 'converge-align-heal-attempts.json')
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 通用自动修复骨架(2026-10-04 第二批,李总"要 AI 自动修"授权后立)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// 上面那套是对齐格的专用版(2026-10-04 第一批)。李总随后要求把**全部可自动修的告警格**
+// 都接上自愈,而逐格各写一套节流/熔断必然漂移(本仓反复登记的同型)⇒ 抽成这一份通用骨架。
+//
+// **动作面分档是本骨架的前提**,不是可选项。自动化的收益是"快",代价是"可能在错的判断上
+// 动手"。所以只有**同时满足**下面三条的格才接进来:
+//   ① 幂等 —— 跑两次与跑一次同形(否则重启/重试会放大副作用);
+//   ② 有回滚材料 —— 动作自带归档/副本(`*.stale-<stamp>` 之类),错了能退;
+//   ③ 判据已在尺子脚本里 —— 本层**只派发**,不自己判断"该不该修"(不重复发明判据)。
+// 不满足的(内容回滚、文件被删、凭据漂移、公网不可达)一律留人工,理由见各 audit 头注。
+//
+// 四条护栏,所有格共用:
+//   ① 事实闸:没真判红就不修("未判定"也不算 —— 那不是能修的故障,是尺子没在跑);
+//   ② 节流:动作本身有耗时的,本守护每 2 分钟一轮,不节流会把"修"变成新的负载源;
+//   ③ 熔断:自愈失败要有上限,否则就是每轮重试一次,那比只喊人更吵;
+//   ④ 回读确认:动作跑完 ≠ 修好了 —— 修复后必须再判一次事实(见 healConvergeAlignStall)。
+//
+// ⚠ 这一段曾经试图再抽一份"通用骨架"(decideAutoHeal / runAutoHeal / AUTO_HEAL_PROFILE),
+// **已按实测结论撤回**,撤回理由连同撤回本身都写进下面的 AUTO_HEAL_LEDGER 头注 ——
+// 逐个核实后发现多数动作器**本来就带修复动作与封顶**,硬套第二层只会造出两处真相。
+// 保留下来的是**分档台账**,它才是李总要的那份"能自动修/不能自动修 + 理由"的显式清单。
+
+
+// 全量告警格的**自动修复分档台账**(2026-10-04 第二批,李总"要 AI 自动修"授权后立)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// 第一批只补了对齐那一格(真缺口:停摆 24.8 小时零动作)。李总随后要求"要 AI 自动修",
+// 于是把全部告警格逐个过了一遍 —— **结论与最初的设想相反,这里如实记录,因为它决定了
+// 为什么没有第二批自动修复**:
+//
+//   已自修(本层派发时即带修复动作,**不重复包一层**):
+//     · ops-patrol          --apply,写回运行副本 + POST /-/reload,自带 .stale-<stamp> 归档
+//     · merge-addition-loss --apply(union-converge),实测一次 2–13 分钟
+//     · service-heal        --apply,且它**自己已有完整封顶**(consecutiveRounds 2 +
+//                            cooldown 60min + maxRestartsPerWindow 2/60min,H6 自测钉着)
+//     · 其余 heal*           指针 / env / HEAD / refs / 工作区 / 盘根 / junction,均为
+//                            幂等修复,且多数带 git-lock 互斥
+//   不自动修(**逐格给了理由,不是"懒得做"**):
+//     · host-timezone   尺子头注明写"只读:不改时区、不写注册表"且"定级…不得自作主张改"
+//     · env-drift       动作面是**凭据回填**;错填一个密钥的后果远大于停摆,且备份值
+//                       需人工比对(自动回填等于无人核对地改生产凭据)
+//     · disk-root       动作面是删除文件;误删不可逆,无回滚材料
+//     · public-path     告警文案自己写着"先用 --report 确认是目标端慢/失败(而非探针机抖动)"
+//                       ⇒ 判红**不蕴含本机可修**,自动重启本机服务是在错误判断上动手
+//     · orphan-deletion 命中的是"疑似误删他人文件",归属需人判;自动回滚会覆盖当前持有者
+//
+// **因此本轮刻意没有新增第二处自动修复**。往已有封顶的动作器上再叠一层节流/熔断,
+// 只会造出"两处真相"(节流值在两处漂移),而收益为零 —— 这正是本仓反复登记的
+// "造好没装车 / 各写一遍必然漂移"那一型。
+//
+// 这份台账本身是**交付物**:它把"哪些能自动修、哪些不能、为什么"写成可被测试钉住的常量,
+// 而不是留在某个人的脑子里。新增告警格时必须在此登记,否则就是"新格默认只喊人"且无人察觉。
+export const AUTO_HEAL_LEDGER = {
+  'converge-align': {
+    mode: 'auto',
+    where: 'checkConvergeAlignStall → healConvergeAlignStall',
+    why: '幂等(重复跑同形)+ 只读判据(heal-worktree-tracked 自带对齐判据)+ 无回滚需求(只改索引/工作树副本,从不 checkout 别人的未提交文件)',
+  },
+  'ops-patrol': {
+    mode: 'auto',
+    where: 'auditOpsPatrol → check-ops-patrol.mjs --apply',
+    why: '派发时已带 --apply,且动作自带 .stale-<stamp> 现场归档',
+  },
+  'merge-addition-loss': {
+    mode: 'auto',
+    where: 'auditMergeAdditionLoss → union-converge.mjs --apply',
+    why: '派发时已带 --apply(文件面零丢失 union)',
+  },
+  'service-heal': {
+    mode: 'auto',
+    where: 'healUnresponsiveServices → heal-unresponsive-services.mjs --apply',
+    why: '派发时已带 --apply,且自带三重封顶(consecutiveRounds/cooldown/maxRestartsPerWindow)',
+  },
+  'worktree/pointer/env/refs/head/rootseal/junction': {
+    mode: 'auto',
+    where: 'remediate() 分层自愈阶梯',
+    why: '幂等 + 由 coreHealthy 健康判据驱动(本仓 243 行记过"造好没装车"的教训,判据已覆盖工作树可用性)',
+  },
+  'host-timezone': {
+    mode: 'manual',
+    why: '尺子头注明写「只读:不改时区、不写注册表、不停/启服务」,且定级要求「不得自作主张改」—— 自动改时区会影响全机所有时间戳判读,后果面远超本守护',
+  },
+  'env-drift': {
+    mode: 'manual',
+    why: '动作面是生产凭据回填。自动回填等于无人核对地改密钥;错一个值的代价远大于停摆本身,且判据只报键名不给值(脱敏要求),无法在本层完成比对',
+  },
+  'disk-root-hygiene': {
+    mode: 'manual',
+    why: '动作面是删除文件,无回滚材料;误删不可逆,属"不可逆 + 无人工确认"这一档',
+  },
+  'public-path': {
+    mode: 'manual',
+    why: '告警正文自己要求「先用 --report 确认是目标端慢/失败(而非探针机抖动)」⇒ 判红不蕴含本机可修;此时自动重启本机服务属于在错误判断上动手',
+  },
+  'orphan-deletion-refs': {
+    mode: 'manual',
+    why: '命中的是「疑似误删他人文件」,字节归属需人判(§12d 零触碰他人未提交文件);自动回滚会覆盖当前持有者的现场',
+  },
+}
+
 const CHECK_ONLY = process.argv.includes('--check')
 const STATUS_ONLY = process.argv.includes('--status')
 const INSTALL = process.argv.includes('--install')
@@ -2067,6 +2188,158 @@ export function shouldAlertAlignStall(state, nowMs, cfg = {}) {
 }
 
 /**
+/**
+ * 自愈尝试台账(跨轮):读不出/坏 JSON 一律当"空台账"重新开始,**不得**因此永久禁用自愈
+ * (fail-closed 的方向是"宁可多试",不是"从此不修")。
+ */
+export function readAlignHealAttempts(p = ALIGN_HEAL_ATTEMPT_LOG) {
+  try {
+    const v = JSON.parse(readFileSync(p, 'utf8'))
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return {}
+    return v
+  } catch {
+    return {}
+  }
+}
+
+/** 写尝试台账:失败只返回 false(自愈记录丢不得让本层抛,抛了会打断整轮 tick) */
+export function writeAlignHealAttempts(map, p = ALIGN_HEAL_ATTEMPT_LOG) {
+  try {
+    mkdirSync(dirname(p), { recursive: true })
+    const tmp = `${p}.${process.pid}.tmp`
+    writeFileSync(tmp, JSON.stringify(map, null, 1), 'utf8')
+    renameSync(tmp, p) // 原子替换:与收敛器侧 recordAlignOutcome 同一形态
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 纯判据(导出以便独立钉死):这一轮该不该派一次对齐自愈。
+ *
+ * 提成纯函数而不是埋在 tick 里:这四道判据(总开关 / 已有停摆 / 节流 / 熔断)任意一道写反,
+ * 症状都是"要么永不修、要么每 2 分钟重试一次",而这两种在日志上都不报错 ——
+ * 只有把判据单独拎出来测,才钉得住。
+ *
+ * @param state  收敛器写的对齐台账(converge-align-state.json 解析结果)
+ * @param ledger 本守护的自愈尝试台账(上一次自愈时间戳 + 已用次数)
+ * @param now    当前时刻(ms)
+ * @param cfg    测试注入口(阈值/节流/熔断/禁用)
+ */
+export function decideAlignHeal(state, ledger, now, cfg = {}) {
+  const throttleMs = Number.isFinite(cfg.throttleMs) ? cfg.throttleMs : ALIGN_HEAL_THROTTLE_MS
+  const maxAttempts = Number.isFinite(cfg.maxAttempts) ? cfg.maxAttempts : ALIGN_HEAL_MAX_ATTEMPTS
+  const disabled = Boolean(cfg.disabled)
+
+  if (disabled) return { heal: false, why: '自愈被 ALIGN_HEAL_DISABLED=1 显式关掉' }
+  // 计数为 0 = 上轮对齐是好的,没有任何事要修。别在健康时也去派生对齐器。
+  const fails = state && Number.isFinite(state.consecutiveFailures) ? state.consecutiveFailures : 0
+  if (fails < 1) return { heal: false, why: '对齐台账无失败(无需自愈)' }
+  const lastTry = ledger && Number.isFinite(ledger.lastAttemptAt) ? ledger.lastAttemptAt : 0
+  const used = ledger && Number.isFinite(ledger.attempts) ? ledger.attempts : 0
+  if (used >= maxAttempts) {
+    return { heal: false, why: `自愈已用满 ${used}/${maxAttempts} 次 ⇒ 熔断,转人工` }
+  }
+  if (lastTry && now - lastTry < throttleMs) {
+    return { heal: false, why: `距上次自愈 ${Math.round((now - lastTry) / 60000)} 分钟 < 节流 ${Math.round(throttleMs / 60000)} 分钟` }
+  }
+  return { heal: true, why: `失败 ${fails} 次且可自愈(第 ${used + 1}/${maxAttempts} 次)`, used }
+}
+
+/**
+ * 收尾对齐停摆的**自愈**(2026-10-04 立)。
+ *
+ * 派 `git-sync-converge.mjs --align-only`(只跑收尾对齐,不 fetch/不合并/不推送 ——
+ * 那个旗标是 2026-10-04 同批加的,正是为了让这一格有"不会顺手做别的事"的最小动作面)。
+ *
+ * **成败不靠退出码判,靠回读台账**:子进程退出 0 只说明"它跑完了",而这一格真正要的证据是
+ * `converge-align-state.json` 的 consecutiveFailures 归零。只信 rc 的话,一个"跑完但没归零"的
+ * 状态会被记成已修好,下一轮又去修,于是熔断计数被无意义地消耗光 —— 那就退化成每 2 分钟
+ * 试一次,正是本条要防的东西。
+ *
+ * 返回 `{ healed, ok, why, attempts }`:`ok` = 这次自愈后确实归零。
+ */
+export function healConvergeAlignStall(opts = {}) {
+  const {
+    now = Date.now(),
+    statePath = CONVERGE_ALIGN_STATE,
+    attemptLogPath = ALIGN_HEAL_ATTEMPT_LOG,
+    cfg = {},
+    // 测试注入口:镜像测试绝不在真仓库里派生对齐器
+    run = null,
+    log: logFn = log,
+  } = opts
+
+  const disabled = cfg.disabled ?? process.env.IHUI_ALIGN_HEAL_DISABLED === '1'
+  const state = readAlignStateSafe(statePath)
+  const ledger = readAlignHealAttempts(attemptLogPath)
+  const d = decideAlignHeal(state, ledger, now, { ...cfg, disabled })
+  if (!d.heal) {
+    if (d.why && !disabled) logFn(`ℹ️ 收尾对齐自愈未派发:${d.why}`)
+    return { healed: false, ok: false, why: d.why, attempts: ledger.attempts ?? 0 }
+  }
+
+  // 先落"已尝试",再跑:这样即使派发器本身把本进程带走(超时/异常),也不会留下一条
+  // "从没试过"的记录而在下一轮立刻再派一次(那会让节流形同虚设)。
+  const nextAttempts = (d.used ?? 0) + 1
+  writeAlignHealAttempts({ lastAttemptAt: now, attempts: nextAttempts, lastWhy: d.why }, attemptLogPath)
+  // 刻意**不**再写一份进程内副本:跨轮时进程内存不可靠,台账文件才是唯一真凭据 ——
+  // 两处各记一次必然漂移(本仓反复登记的同型)。
+
+  const timeoutMs = Number(cfg.runTimeoutMs ?? 15 * 60 * 1000)
+  let ran = { ok: false, why: '未执行(注入替身缺席)' }
+  try {
+    ran = run
+      ? run()
+      : (() => {
+          const r = spawnSync(process.execPath, ['scripts/git-sync-converge.mjs', '--align-only'], {
+            cwd: WORKTREE,
+            encoding: 'utf8',
+            windowsHide: true,
+            timeout: timeoutMs,
+            stdio: ['ignore', 'pipe', 'pipe'], // 无 input ⇒ ignore 三态(本机派生 git 的既有判据)
+          })
+          if (r.error) return { ok: false, why: `派发异常:${r.error.code || r.error.name}` }
+          if (r.timedOut) return { ok: false, why: `派发超时(${timeoutMs}ms)` }
+          return { ok: r.status === 0, why: `exit=${r.status}` }
+        })()
+  } catch (e) {
+    ran = { ok: false, why: `自愈调用异常:${String((e && e.message) || e).slice(0, 120)}` }
+  }
+
+  // **回读台账**判成败(见函数头注:不能只信 rc)
+  const after = readAlignStateSafe(statePath)
+  const failsAfter = after && Number.isFinite(after.consecutiveFailures) ? after.consecutiveFailures : null
+  const ok = failsAfter === 0
+  logFn(
+    `${ok ? '✅ 自愈成功' : '⚠️ 自愈未修复'}: 收尾对齐(${ran.why}) ⇒ 失败计数 ${
+      failsAfter === null ? '读不到' : failsAfter
+    }${ok ? '' : ' ⇒ 仍需人工'}`,
+  )
+  if (ok) {
+    // 归零台账:故障已除,留着的计数会让下一轮真故障一开始就撞上熔断余量。
+    try {
+      writeAlignHealAttempts({ lastAttemptAt: now, attempts: 0, lastWhy: `已恢复:${ran.why}` }, attemptLogPath)
+    } catch {
+      /* 台账写失败不影响"已恢复"这个结论 */
+    }
+  }
+  return { healed: true, ok, why: ran.why, attempts: nextAttempts, failsAfter }
+}
+
+/** 读对齐台账;读不到/坏 JSON 一律返回 null("无法判定"),不抛(同收敛器侧 readAlignState 形态) */
+function readAlignStateSafe(p) {
+  try {
+    const v = JSON.parse(readFileSync(p, 'utf8'))
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return null
+    return v
+  } catch {
+    return null
+  }
+}
+
+/**
  * 每轮 tick 的收尾对齐停摆检查。notify 出口可注入(镜像测试用假派发器断言参数,
  * 绝不在测试里真发邮件);检查层自身任何异常只降级为一行日志,不改守护自愈与退出码。
  * detail 里的数字(次数/分钟)会被 alertFingerprint 归一为 '#' ⇒ 停摆期间同指纹,
@@ -2078,6 +2351,8 @@ export function checkConvergeAlignStall(opts = {}) {
     statePath = CONVERGE_ALIGN_STATE,
     notify = notifyGuardRed,
     cfg = {},
+    // 自愈出口可注入(镜像测试绝不在真仓库里派生对齐器)
+    heal = healConvergeAlignStall,
   } = opts
   try {
     let state = null
@@ -2085,6 +2360,28 @@ export function checkConvergeAlignStall(opts = {}) {
       state = JSON.parse(readFileSync(statePath, 'utf8'))
     } catch {
       return { alert: false, reason: '状态文件读不到/坏 JSON ⇒ 无法判定,不喊' }
+    }
+    // 2026-10-04:**先自愈,再判要不要喊**(顺序不能反 —— 反了就还是"先发信再说")。
+    // 只有自愈没把失败计数归零、且已用满熔断次数,才升级为喊人;否则等于每轮发一封
+    // "正在修"的邮件,那比不修更吵。
+    let healNote = ''
+    try {
+      const h = heal({ now, statePath, cfg: cfg.heal ?? {} })
+      if (h?.healed) {
+        healNote = `\n自动修复:已派 ${'git-sync-converge.mjs --align-only'}(${h.why}) ⇒ ${
+          h.ok ? '失败计数已归零,本条自行解除' : `仍未修复(失败计数 ${h.failsAfter ?? '读不到'}),需人工`
+        }`
+        if (h.ok) {
+          return {
+            alert: false,
+            reason: `已自动修复(对齐自愈成功,尝试 ${h.attempts} 次)${healNote ? '' : ''}`,
+            healed: true,
+          }
+        }
+      }
+    } catch (e) {
+      // 自愈自身异常**不得**阻断喊人:这是最后一层,静默退化比抛出去危险得多。
+      healNote = `\n自动修复:自愈层自身异常,已跳过(${String((e && e.message) || e).slice(0, 120)})`
     }
     const d = shouldAlertAlignStall(state, now, cfg)
     if (!d.alert) return d
@@ -2095,9 +2392,16 @@ export function checkConvergeAlignStall(opts = {}) {
       `rc/真因(收敛器 alignFailureNote 原文): ${String(state.lastNote ?? '(无)').slice(0, 200)}\n` +
       `状态文件: ${statePath}\n` +
       // 出口 1(§5e-1):此前这一格**连尺子命令都没给**,只给一个状态文件路径 ——
-      // 比"手动:xxx"还退一档,收信人拿到信完全无从下手。补两条真能用的:
-      // ① 只读复现对齐器这一格;② 真跑收敛(它自身幂等,失败会留 note)。
-      `出路:node scripts/git-sync-converge.mjs --status(只读看对齐状态) / node scripts/git-sync-converge.mjs(跑一轮收敛,幂等)`
+      // 比"手动:xxx"还退一档,收信人拿到信完全无从下手。补三条真能用的:
+      // ① 只读复现对齐器这一格;② **只跑对齐**(2026-10-04 新增,见下);
+      // ③ 真跑收敛(它自身幂等,失败会留 note)。
+      // ② 为什么必需(实测 24.8 小时停摆的结构性原因):`alignWorktreeAfterHeadMove` 只在
+      // **真的推进了 HEAD** 之后才被调,而"本地提交已被远端包含"那一轮实测 7 秒 rc=0 且
+      // 整段跳过 ⇒ 台账不归零 ⇒ **只给 ③ 时,收信人在本地已同步的常态下怎么跑都解不掉这条告警**。
+      `出路:node scripts/git-sync-converge.mjs --align-only(只跑收尾对齐,幂等,台账即归零) / node scripts/git-sync-converge.mjs --status(只读看对齐状态) / node scripts/git-sync-converge.mjs(跑一轮收敛,幂等)` +
+      // 自愈痕迹入正文:收信人第一眼就要知道"机器已经自己试过几次、为什么没成",
+      // 否则每次都得回头翻日志才知道这封信是自动修复失败后的升级(2026-10-04)。
+      healNote
     notify('converge-align-stall', detail, {
       // dedupKey(§5e-1 配套,6 封):正文含 `已 N 分钟未恢复` 与失败时刻,逐轮变。
       // 身份取"失败次数分档 + 真因类别"—— 次数**分档**而非原值:1→9 是同一故障持续,
@@ -3511,7 +3815,18 @@ export const __test__ = {
   notifyGuardRed,
   shouldAlertAlignStall,
   checkConvergeAlignStall,
+  // 对齐停摆的自动修复(2026-10-04):与 checkConvergeAlignStall 配套导出,镜像测试据此
+  // 断言"先自愈后喊人"这条顺序 —— 这三格不导出的话,那格测试就只能靠 import 整模块起巡检,
+  // 而 §22d 明令禁止(import 即跑巡检含真发信)。
+  decideAlignHeal,
+  healConvergeAlignStall,
+  readAlignHealAttempts,
+  writeAlignHealAttempts,
   alignStallThresholds,
+  // 全量告警格的自动修复分档台账(2026-10-04)。导出是为了让镜像测试**逐格钉住**:
+  // 新增告警格若没在此登记,"它默认只喊人且无人察觉"这件事就没人发现 ——
+  // 而"漏登记"是这类台账唯一会漂的方向(没人会去改一个已经正确的登记)。
+  AUTO_HEAL_LEDGER,
   auditEnvDrift,
   envDriftDetail,
   homeHealDue,
