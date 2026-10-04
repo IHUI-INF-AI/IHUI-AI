@@ -94,7 +94,10 @@ export default function BusinessCardPage() {
     error: mineErr,
   } = useQuery({
     queryKey: ['business-card', 'mine'],
-    queryFn: () => api<CardListData>(`/api/business-card`).then((d) => d.list ?? []),
+    // 2026-10-04:原先打 /api/business-card(后端无此空路径端点,恒 404),
+    // 且语义也不对 —— /api/business-card/list 是 isPublic=true 的全体公开卡(广场)。
+    // 本页是"我的名片"且每卡带 edit/delete/share,改指按 userId 归属过滤的 /mine。
+    queryFn: () => api<CardListData>(`/api/business-card/mine`).then((d) => d.list ?? []),
     enabled: allow, // 2026-09-30 登录态门
   })
 
