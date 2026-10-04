@@ -155856,7 +155856,48 @@
         ]
       }
     },
+    "/api/publish/scan-login/tasks/live": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/publish/scan-login/{taskId}/cancel": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "taskId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "OAuth2": [
+              "publish:operate"
+            ]
+          }
+        ]
+      }
+    },
+    "/api/publish/scan-login/{taskId}/interact": {
       "post": {
         "parameters": [
           {
