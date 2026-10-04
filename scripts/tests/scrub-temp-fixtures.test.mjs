@@ -13,12 +13,24 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, writeFileSync, existsSync, lstatSync, readdirSync, statSync, utimesSync } from 'node:fs'
+import {
+  mkdirSync,
+  writeFileSync,
+  existsSync,
+  lstatSync,
+  readdirSync,
+  statSync,
+  utimesSync,
+  readFileSync,
+} from 'node:fs'
 import { spawnSync } from 'node:child_process'
-import { join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
-import { scan, del, formatReport } from '../scrub-temp-fixtures.mjs'
+import { scan, del, formatReport, defaultRoots } from '../scrub-temp-fixtures.mjs'
 
+const HERE = dirname(fileURLToPath(import.meta.url))
+const keyish = (p) => resolve(p).toLowerCase().replace(/[\\/]+$/, '')
 const DAY = 86400000
 /** 用 utimesSync 改 mtime(目录也算),不依赖 shell */
 const touchOld = (p, daysAgo = 30) => {
@@ -192,6 +204,115 @@ test('T9 变异对照:把账龄闸改成 0 天会让当日夹具进候选(证明
     assert.equal(scan({ root, minAgeDays: 0 }).candidates.length, 1)
   } finally {
     rmScratch(root)
+  }
+})
+
+test('T10 多根并集、去重与跨盘探测:只按工作树盘推导会安静少扫整块盘(实测 18 GB 在另一块盘上)', () => {
+  const dev = join(mkScratch('scrub-t10-dev'), 'DevEnv')
+  try {
+    mkdirSync(dev, { recursive: true })
+    // 造两块"盘":A 上有历史落点,B 上只有一个 —— 判据必须是"存在才进集合",不得写死盘符
+    const present = new Set([
+      'a:\\',
+      'b:\\',
+      'a:\\caches\\temp',
+      'a:\\devenv\\temp',
+      'b:\\tmp',
+      dev.toLowerCase(),
+      join(dev, 'Temp').toLowerCase(),
+    ])
+    const exists = (p) => present.has(resolve(p).toLowerCase())
+    const r = defaultRoots({ env: {}, tmp: join(dev, 'Temp'), devEnv: dev, exists, platform: 'win32' })
+    const keys = r.roots.map((p) => p.toLowerCase())
+    assert.ok(keys.includes('a:\\caches\\temp'.toLowerCase()), '另一块盘上的历史根必须进集合')
+    assert.ok(keys.includes('b:\\tmp'), 'B 盘存在的那个形状也要进集合')
+    assert.equal(keys.includes('a:\\tmp'), false, '盘上没有的形状不得凭空造一个根')
+    assert.equal(r.roots.filter((p) => keyish(p) === keyish(join(dev, 'Temp'))).length, 1, '派生根与活 tmpdir 重合必须去重')
+    assert.deepEqual(r.undetermined, [])
+    // 额外声明根参与并集且同样去重
+    const r2 = defaultRoots({ env: { IHUI_TEMP_SCRUB_ROOTS: `${dev};  ` }, tmp: '/nonexistent-tmp', devEnv: dev, exists, platform: 'win32' })
+    assert.equal(r2.roots.filter((p) => resolve(p) === resolve(dev)).length, 1)
+    // 非 win32 不做 26 盘探测(路径体系里没有盘符),只留 活 tmp + devEnv/Temp + 同盘两个历史形状。
+    // 判据写成"条数"而不是"有没有盘符":本机跑测试时 resolve() 会给 posix 风格路径补上盘符前缀,
+    // 拿字面盘符断言就会把宿主平台当成结论(该断的跨平台行为是"探测没跑",不是"路径长什么样")。
+    const r3 = defaultRoots({ env: {}, tmp: '/var/tmp', devEnv: '/srv/.DevEnv', exists: () => true, platform: 'linux' })
+    assert.equal(r3.roots.length, 4, `非 win32 只应有 4 个根(探测没跑),实测 ${JSON.stringify(r3.roots)}`)
+    const r4 = defaultRoots({ env: {}, tmp: '/var/tmp', devEnv: '/srv/.DevEnv', exists: () => true, platform: 'win32' })
+    assert.ok(r4.roots.length > 26, `win32 必须逐盘探过(A..Z 各 3 形状,存在即进),实测 ${r4.roots.length}`)
+  } finally {
+    rmScratch(join(dev, '..'))
+  }
+})
+
+test('T11 推导失败必须落「未判定」而不是安静少扫两个根', () => {
+  const r = defaultRoots({
+    env: {},
+    tmp: '/tmp/alive',
+    exists: () => false,
+    platform: 'win32',
+    deriveDevEnv: () => {
+      throw new Error('仓库根本身位于 scratch 夹具内')
+    },
+  })
+  assert.equal(r.roots.length, 1, '派生根一律不进集合')
+  assert.equal(r.undetermined.length, 1, '推导失败却什么都没记 ⇒ 这一格读起来像"没有别的根"')
+  assert.match(r.undetermined[0], /夹具/)
+})
+
+test('T12 形状锁:根只能由共用出口推,不得写死盘符;汇总行必须是首条可读数', () => {
+  const src = readFileSync(join(HERE, '..', 'scrub-temp-fixtures.mjs'), 'utf8')
+  assert.match(src, /from '\.\/seal-c-root-stray\.mjs'/, '没引共用外置根出口 ⇒ 盘符推导就是第二份真相')
+  assert.match(src, /deriveDevEnv\(\)/, 'defaultRoots 必须真调用那一份出口')
+  // 写死的根清单必然腐烂(§4 对 RN_ONLY_BRAND_KEYS 同一条教训)
+  assert.doesNotMatch(src, /(?:ROOTS|roots)\s*=\s*\[\s*['"`][A-Za-z]:[\\/]/, '出现写死盘符的根数组')
+  assert.match(src, /console\.log\(\n?\s*`汇总 ·/, '汇总行必须真的打印出来 —— 调度器只认这一行的合计')
+})
+
+test('T13 端到端:--root 显式多根 + --apply 只动声明的根,汇总行给出跨根合计', () => {
+  const a = mkScratch('scrub-t13-a')
+  const b = mkScratch('scrub-t13-b')
+  const gone = join(mkScratch('scrub-t13-gone'), 'no-longer-here')
+  try {
+    mkFixture(a, 'ihui-old-a', { files: 2 })
+    mkFixture(b, 'ihui-old-b', { files: 1 })
+    mkdirSync(join(b, 'not-ours'), { recursive: true })
+    rmScratch(join(gone, '..'))
+    const script = join(HERE, '..', 'scrub-temp-fixtures.mjs')
+    // 会变异的脚本不接管道(SIGPIPE 会让它中途退出而账面看不出来)
+    const run = spawnSync(process.execPath, [script, '--root', `${a};${b};${gone}`, '--apply', '--older-than', '7'], {
+      encoding: 'utf8',
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 60_000,
+    })
+    const out = `${run.stdout || ''}\n${run.stderr || ''}`
+    assert.equal(run.status, 0, `退出码应为 0,实测 ${run.status}\n${out}`)
+    assert.match(out, /该根不存在/, '不存在的根必须点名,不得被读成"已清扫"')
+    assert.match(out, /汇总 · 根 3\(可判 2 \/ 不存在 1 \/ 取不到 0\)/, `汇总行形状不符\n${out}`)
+    assert.match(out, /候选 2 ·/, '跨根候选必须相加,不得只报第一个根')
+    assert.match(out, /已删 2 条 \/ 失败 0 条/)
+    assert.equal(existsSync(join(a, 'ihui-old-a')), false)
+    assert.equal(existsSync(join(b, 'ihui-old-b')), false)
+    assert.equal(existsSync(join(b, 'not-ours')), true, '前缀不命中的他人条目一条都不许动')
+    // 反向对照:不带 --apply 时零删除
+    const a2 = mkScratch('scrub-t13-dry')
+    try {
+      mkFixture(a2, 'ihui-old-c')
+      const dry = spawnSync(process.execPath, [script, '--root', a2, '--older-than', '7'], {
+        encoding: 'utf8',
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: 60_000,
+      })
+      assert.equal(dry.status, 0)
+      assert.equal(existsSync(join(a2, 'ihui-old-c')), true, '默认档必须零副作用')
+      assert.match(`${dry.stdout}`, /本轮未删除任何东西|候选 1/)
+    } finally {
+      rmScratch(a2)
+    }
+  } finally {
+    rmScratch(a)
+    rmScratch(b)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

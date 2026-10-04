@@ -183,4 +183,45 @@ test('T8 归属锁(反向):本层不得自己判"什么算我们的残留" —�
   }
   assert.match(body, /parseScrubReport\(/, '读数必须走那一份解析出口')
 })
+
+test('T9 多根汇总:读数必须取「汇总」那一行,不得只读第一个根(否则 18 GB 被读成 0.01 GB)', () => {
+  const multi =
+    'TEMP 夹具清扫 · root=D:\\DevEnv\\Temp · 条目 12 → 候选 1(文件 2 · 0.01 GB)\n' +
+    '  本根已删 1 条 / 失败 0 条 / 释放 0.01 GB  root=D:\\DevEnv\\Temp\n' +
+    'TEMP 夹具清扫 · root=D:\\caches\\Temp · 条目 60805 → 候选 1616(文件 98081 · 18.06 GB)\n' +
+    '  本根已删 1616 条 / 失败 0 条 / 释放 18.06 GB  root=D:\\caches\\Temp\n' +
+    '汇总 · 根 4(可判 3 / 不存在 1 / 取不到 0) · 候选 1617 · 文件 98083 · 18.07 GB · 已删 1617 条 / 失败 0 条\n'
+  const p = G.parseScrubReport(multi)
+  assert.equal(p.aggregate, true)
+  assert.equal(p.candidates, 1617, '候选必须是跨根合计')
+  assert.equal(p.deleted, 1617)
+  // 反向对照:没有汇总行(旧输出/崩在半路)时照旧读明细,不得当成"什么都没读到"
+  const legacy = G.parseScrubReport('TEMP 夹具清扫 · root=D:\\tmp · 条目 6410 → 候选 3\n  已删 3 条 / 失败 0 条\n')
+  assert.equal(legacy.aggregate, false)
+  assert.equal(legacy.candidates, 3)
+  assert.equal(legacy.deleted, 3)
+  // 取不到的根必须被数出来(它决定这轮能不能声称扫全了)
+  const partial = G.parseScrubReport('汇总 · 根 4(可判 2 / 不存在 1 / 取不到 1) · 候选 5 · 已删 5 条 / 失败 0 条')
+  assert.equal(partial.unreadableRoots, 1)
+})
+
+test('T10 三态补洞:一条都没删掉而全部失败 ⇒ 必出 ⚠️ 且 partial,不得静默返回 ok:true', () => {
+  const dir = mkScratch('temp-scrub-allfail-')
+  try {
+    const h = harness({
+      status: 1,
+      stdout:
+        'TEMP 夹具清扫 · root=D:\\tmp · 账龄闸 7 天 · 条目 6410 → 候选 3(文件 9 · 0.00 GB)\n' +
+        '汇总 · 根 3(可判 3 / 不存在 0 / 取不到 0) · 候选 3 · 文件 9 · 0.00 GB · 已删 0 条 / 失败 3 条\n',
+      stderr: '',
+    })
+    const r = h.run(join(dir, 'x.iso'))
+    assert.equal(r.partial, true, '全部失败被读成"已清扫"就是把没判写成判过了')
+    assert.equal(h.logs.length, 1)
+    assert.match(h.logs[0], /^⚠️/)
+    assert.match(h.logs[0], /一条都没删掉/)
+  } finally {
+    rmScratch(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
