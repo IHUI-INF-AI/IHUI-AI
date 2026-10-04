@@ -39,11 +39,14 @@ type FileType = 'all' | 'tsx' | 'ts' | 'css' | 'json'
 
 const FILE_TYPE_FILTERS: {
   id: FileType
+  /** `ide.*` 命名空间下的键 */
   labelKey?: string
+  /** shared canonical(`common.*`)下的键 —— 「全部」全站只有一个词包,端内不得另立一档 */
+  commonKey?: string
   label?: string
   icon: typeof FileCode
 }[] = [
-  { id: 'all', labelKey: 'searchPanel.filterAll', icon: FileText },
+  { id: 'all', commonKey: 'all', icon: FileText },
   { id: 'tsx', label: 'TSX', icon: FileCode },
   { id: 'ts', label: 'TS', icon: FileCode },
   { id: 'css', label: 'CSS', icon: Hash },
@@ -96,6 +99,7 @@ function parseGrepResults(raw: unknown): SearchResult[] {
 
 export function SearchPanel() {
   const t = useTranslations('ide')
+  const tcommon = useTranslations('common')
   const { activeView, workspacePath } = useIDEWorkspace()
   const [query, setQuery] = React.useState('')
   const [replaceValue, setReplaceValue] = React.useState('')
@@ -266,7 +270,7 @@ export function SearchPanel() {
               )}
             >
               <Icon className="h-3 w-3" />
-              <span>{f.labelKey ? t(f.labelKey) : f.label}</span>
+              <span>{f.commonKey ? tcommon(f.commonKey) : f.labelKey ? t(f.labelKey) : f.label}</span>
             </button>
           )
         })}

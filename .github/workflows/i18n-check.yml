@@ -17,15 +17,37 @@ on:
     branches: [main, develop]
     paths:
       - 'apps/web/**'
-      - 'apps/web/messages/**'
+      # 2026-10-04 fail-open 修复(本 job 触发面必须覆盖脚本实际读取面,取证于
+      # `pnpm check:i18n-keys` → `node scripts/check-i18n-keys.mjs`,无参 ⇒ --target=web +
+      # mergeShared=true,即语言包读 packages/i18n/messages/web/ 与 shared/、源码扫 apps/web/、
+      # 判定面由 scripts/lib/face-reader.mjs 提供、目录排除规则来自 scripts/lib/exclude-dirs.mjs、
+      # 未翻译判据读 scripts/brand-glossary.json):
+      #   · 原条目 'apps/web/messages/**' 指向 2026-07-25 i18n 单一来源迁移后**已不存在**的目录
+      #     (git ls-tree -d HEAD apps/web/messages 回空,磁盘上也没有)⇒ 对过滤面零作用;
+      #     且它本就被上一条 'apps/web/**' 完全包含,删掉不损失任何触发能力。
+      #   · 缺 packages/i18n/messages/** ⇒ 改任何一条文案都不触发这道门(fail-open)。
+      #   · 用 messages/** 而非逐端 web/ + shared/ 两条:该脚本每次运行都会 readdirSync
+      #     packages/i18n/messages/ 做「端目录漂移对账」(classifyEndpointDrift),端目录的
+      #     增删本身就在判定面上,窄写法会把它漏掉。与 i18n-dead-key-audit.yml 的写法一致。
+      #   · scripts/data/i18n-key-removals.json(KR 台账)**故意不列**:KR 判据被
+      #     `if (FACE === 'index')` 圈在 --staged 档内,CI 无参运行走 HEAD 面,读不到它。
+      - 'packages/i18n/messages/**'
       - 'scripts/check-i18n-keys.mjs'
+      - 'scripts/lib/face-reader.mjs'
+      - 'scripts/lib/exclude-dirs.mjs'
+      - 'scripts/brand-glossary.json'
       - '.github/workflows/i18n-check.yml'
   pull_request:
     branches: [main, develop]
     paths:
       - 'apps/web/**'
-      - 'apps/web/messages/**'
+      # 2026-10-04 fail-open 修复:与上面 push 段逐字相同(两段必须同步,否则 PR 上仍然漏触发)。
+      # 取证与取舍理由见 push 段的注释,此处不重复。
+      - 'packages/i18n/messages/**'
       - 'scripts/check-i18n-keys.mjs'
+      - 'scripts/lib/face-reader.mjs'
+      - 'scripts/lib/exclude-dirs.mjs'
+      - 'scripts/brand-glossary.json'
       - '.github/workflows/i18n-check.yml'
 
 concurrency:
