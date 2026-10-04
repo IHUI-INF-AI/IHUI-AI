@@ -5,7 +5,7 @@
 /**
  * 浏览历史(member/history 页的载体)。
  *
- * 背景:该页此前 GET/DELETE 打的 /api/history **两端点都不存在** —— 页面恒 404,
+ * 背景:该页此前 GET/DELETE 打的 /api/browse-history **两端点都不存在** —— 页面恒 404,
  * "清空历史"是死按钮。仓里也没有可复用的表(对话历史/搜索条件历史/发布历史语义都不同;
  * visit_logs 是 URL/IP 埋点,没有"目标 id"维度),故新建 user_browse_history。
  *
@@ -37,8 +37,8 @@ const visitBodySchema = z.object({
 })
 
 export const historyRoutes: FastifyPluginAsync = async (server) => {
-  // GET /history — 当前用户的浏览历史(按最近访问倒序)
-  server.get('/history', async (request, reply) => {
+  // GET /browse-history — 当前用户的浏览历史(按最近访问倒序)
+  server.get('/browse-history', async (request, reply) => {
     const page = parsePagination(request, reply)
     if (page === null) return
     const { page: pageNo, pageSize } = page
@@ -64,9 +64,9 @@ export const historyRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total, page: pageNo, pageSize }))
   })
 
-  // DELETE /history — 物理全清当前用户的浏览历史("清空"按钮的落地)
+  // DELETE /browse-history — 物理全清当前用户的浏览历史("清空"按钮的落地)
   // 用 returning({id}) 数真实删掉的行数,而不是 affectedRowCount 猜。
-  server.delete('/history', async (request, reply) => {
+  server.delete('/browse-history', async (request, reply) => {
     const deleted = await db
       .delete(userBrowseHistory)
       .where(eq(userBrowseHistory.userId, request.userId!))
@@ -74,10 +74,10 @@ export const historyRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ deletedCount: deleted.length }))
   })
 
-  // POST /history/visit — 浏览行为上报(写入侧唯一入口)
+  // POST /browse-history/visit — 浏览行为上报(写入侧唯一入口)
   // 幂等:复合唯一 (user_id,target_id,target_type) + onConflictDoUpdate 只刷 visited_at,
   // 同一目标重复上报**不产生第二行**,只更新时间。
-  server.post('/history/visit', async (request, reply) => {
+  server.post('/browse-history/visit', async (request, reply) => {
     const body = visitBodySchema.safeParse(request.body)
     if (!body.success)
       return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
