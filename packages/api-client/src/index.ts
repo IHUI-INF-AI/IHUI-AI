@@ -85,6 +85,8 @@ export type {
   UsageEvent,
   // Budget 用量分档提醒事件(2026-09-19 立,网关发,前端 onBudget toast 提示用量进度)
   BudgetEvent,
+  // G-815976(2026-10-04 收口入契约):流式中断标记事件(llm_gateway astream 异常中断帧)
+  PartialDoneEvent,
   // D155(2026-09-29 立):下行告警三档事件类型(契约见 shared contract.ts SSE_ALERT_EVENTS 段)。
   // 显式命名清单纪律同 D130:漏一条端内拿到 undefined,回调入参类型点不到。
   AlertSeverity,
