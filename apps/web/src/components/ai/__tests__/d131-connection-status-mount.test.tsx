@@ -127,10 +127,21 @@ describe('D131 ②:反向对照 —— 正常态屏幕上必须搜不到该件',
 describe('D131 ③:装车证明(生产 importer,排除测试面)', () => {
   const repoRead = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8')
 
-  it('输入区 chrome 必须 import ConnectionStatusBar', () => {
-    const src = repoRead('../../chat/message-input.tsx')
-    expect(src).toContain("from '@/components/chat/connection-status-bar'")
-    expect(src).toContain('<ConnectionStatusBar')
+  it('输入区 chrome 必须把连接状态件装上车(经 input-status-slot 一跳)', () => {
+    // 2026-10-05 改判据的原因:连接状态不再由 message-input 直接 import —— 它收进了
+    // `input-status-slot`(该槽聚合连接/额度/告警等多枚状态件,并在折叠时不挂载)。
+    // 旧断言写死"message-input.tsx 里含 `from '@/components/chat/connection-status-bar'`",
+    // 于是**合法重构**被判成缺陷,而这一枚在干净 HEAD 上一直红(与任何人的提交内容无关的
+    // 红只会逼人跳钩子)。判据要守的东西没变:**生产面必须真的把它挂进输入区**,所以改成沿
+    // 真实链路两跳逐条验 —— 少任何一跳都红(把槽从输入区摘掉、或把本件从槽里摘掉,都红)。
+    const chrome = repoRead('../../chat/message-input.tsx')
+    const slot = repoRead('../../chat/input-status-slot.tsx')
+    // 第一跳:输入区挂了槽
+    expect(chrome).toContain("from './input-status-slot'")
+    expect(chrome).toContain('<InputStatusSlot')
+    // 第二跳:槽里渲染的是本件本体,而不是又抄一份 UI
+    expect(slot).toContain("from './connection-status-bar'")
+    expect(slot).toContain('<ConnectionStatusBar')
   })
 
   it('connection-status 四态件的生产 importer ≥1(命中不得只在测试面)', () => {

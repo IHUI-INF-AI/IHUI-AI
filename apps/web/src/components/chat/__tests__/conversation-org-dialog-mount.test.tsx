@@ -9,6 +9,9 @@
 // 所以挂载必须由这条用例在 DOM 面上自证。
 
 import { describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { render, screen } from '@testing-library/react'
 
 vi.mock('next-intl', () => ({
@@ -44,8 +47,14 @@ describe('ConversationOrgDialog 挂载分组管理', () => {
   })
 
   it('M2 源码级装载锁:对话框必须真的 import 并渲染 ConversationFolderAdmin(摘线即红)', async () => {
-    const fs = await import('node:fs')
-    const src = fs.readFileSync('D:/IHUI-AI/apps/web/src/components/chat/conversation-org-dialog.tsx', 'utf8')
+    // 路径从本文件自己的位置推,不写死绝对路径:写死 `D:/IHUI-AI/...` 时本机恒绿(盘在那儿)
+    // 而 CI 的 Linux runner 必 ENOENT —— 装载锁会退化成"只在一台机器上生效的判据"。
+    // 形态照 d129-user-message-body.test.tsx 那份同目录内已跑通的写法(静态 import,
+    // 不在用例里 await import('node:url') —— 那样拿到的不是 node 原生实现)。
+    const src = readFileSync(
+      join(resolve(dirname(fileURLToPath(import.meta.url)), '..'), 'conversation-org-dialog.tsx'),
+      'utf8',
+    )
     const importRe = /import\s*\{\s*ConversationFolderAdmin\s*\}\s*from\s*'@\/components\/chat\/conversation-folder-admin'/
     const renderRe = /<ConversationFolderAdmin\s*\/>/
     expect(importRe.test(src)).toBe(true)
