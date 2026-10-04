@@ -225,7 +225,13 @@ describe('killProcessVerified 身份复核出口(G-670 成对判据)', () => {
 
   it('②特征相符 ⇒ 正常杀:派生恰好一次且命令指向该 pid(正向对照,不改坏功能)', async () => {
     const spy = vi.fn(async (_bin: string, argv: string[]): Promise<string> => `done ${argv.join(' ')}`)
-    const out = await killProcessVerified(4242, expectPort8801(), { inspect: async () => MINE, runKill: spy })
+    const out = await killProcessVerified(4242, expectPort8801(), {
+      inspect: async () => MINE,
+      runKill: spy,
+      // G-998132: 终态一律按 OS 存活复核结算,不注入就去探真实系统的 pid 4242
+      // (本机该 pid 确实在跑 ⇒ 恒判 alive ⇒ 正向对照红)。这里钉住'杀后不在场'。
+      isAlive: async () => false,
+    })
     expect(out.killed).toBe(true)
     expect(spy).toHaveBeenCalledTimes(1)
     const [bin, argv] = spy.mock.calls[0] ?? []
