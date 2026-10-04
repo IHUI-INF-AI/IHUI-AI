@@ -86,7 +86,7 @@ export default function ChildStudyPlansPage() {
       </header>
 
       {!allow ? (
-        <AuthGatePrompt message="请先登录后查看学习计划" />
+        <AuthGatePrompt message={t('child.studyPlansNeedLogin')} />
       ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
