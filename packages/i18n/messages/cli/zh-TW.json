@@ -3,6 +3,9 @@
     "notFound": "找不到 {target}"
   },
   "cli": {
+    "bgNoticeStatus": "任務 {id}  狀態: {status}  exitCode: {exitCode}",
+    "bgNoticeTimedOut": "[任務逾時]",
+    "bgNoticeNoObservableSource": "[無可觀察來源] 程序已不存在、輸出與結束碼都未留下、當下也沒有等待者接住 —— 這條終態的結果拿不回來。不得讀成成功,也不得據此重跑同一條命令(重跑是另一個決定,不是恢復結果的手段)。",
     "custom": {
       "unknown": "未找到自訂命令 /{name}。在自訂命令目錄 {dir} 下新建 {name}.md 即可加入(正文用 $ARGUMENTS 接收全部輸入,或以 $1、$2 接收位置參數)。內建命令請用 /help 檢視。",
       "reserved": "自訂命令名 /{name} 與內建命令 /{owner} 衝突,已拒絕(內建命令永遠優先)。請換個名字。",
