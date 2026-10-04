@@ -144,7 +144,9 @@ async function executeCommand(body: ExecuteBody, withSecret = true) {
 
 /** /execute 先 push 再登记 pending,微任务落地后才能回传结果 */
 async function waitPending(requestId: string): Promise<void> {
-  for (let i = 0; i < 200; i++) {
+  // CI 高负载下(20+ 文件并行)inject→handler→push 全链路可超 1s,200×5ms 预算不够,
+  // 实测 retry x3 全红;5s 与路由自身 30s 超时保持量级隔离。
+  for (let i = 0; i < 1000; i++) {
     if (__test__.pending.has(requestId)) return
     await new Promise((resolve) => setTimeout(resolve, 5))
   }
