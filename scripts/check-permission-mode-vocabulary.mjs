@@ -558,6 +558,7 @@ function censusSignaled(root) {
     {
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,
+      windowsHide: true, // §5b/守门 52:热路径派生 git 一律带上 windowsHide,漏参数=用户桌面反复闪窗
       // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
       stdio: ['ignore', 'pipe', 'pipe'],
     },
