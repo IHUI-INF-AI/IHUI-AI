@@ -429,14 +429,25 @@ export function narrowCollisionsToIdPosition(content, collisions) {
  * 差值棘轮读组数、逐组点名读名单,两者不同形时红会点不出名)。
  * 其余六维(F1/F2/F3/F4/F4b/F6)一字未动:本票只动 F9。
  *
- * ⚠ **已知未收口的一格(如实登记,不是"已全覆盖")**:`scripts/git-sync-converge.mjs:220` 走的是
- * `ratchetViolations(base, probe(auditPlan(merged)))` —— 它自己调 lib 的宽口径 `auditPlan`,绕过了
- * 本函数。今天它已经因为 94(宽) > 73(基线键数) 而红(收窄前后同样红,本票没有新增恒红面),
- * 但一旦 17 组真撞号被清偿、`--update-baseline` 把基线收成编号位口径的键集,那一档的粗尺会拿
- * **宽**组数去比**窄**键数,把每一次合并都判成 F9 增长 ⇒ 合并落地闸变成一台越来越紧的恒红门。
- * 修法是一行(把 `auditPlan(merged)` 换成 `narrowF9Face(auditPlan(merged), merged)`),但那个文件
- * 不在本票的改动清单内(它属合并收敛线的持有人)—— 触发条件:**下一次 `--update-baseline` 落盘之前**
- * 必须同批改掉,否则红会落在与本次改动无关的合并上。
+ * ✅ **那一格已收口(2026-10-02 枚 4547745e1a,不再是待办)**:`scripts/git-sync-converge.mjs` 的第②把尺子
+ * (合并落地闸的基线档)原先走 `probe(auditPlan(merged))` —— 它自己调 lib 的宽口径 `auditPlan`,
+ * 绕过本函数。那一档已改成 `probe(narrowF9Face(auditPlan(merged), merged))`;`narrowF9Face` 由
+ * 该文件从本文件 import,**复用同一份实现、未在彼处另写一遍收窄逻辑**(两处算同一件事必漂移)。
+ * 所以下面这段触发条件**已经踩响过、也已消解**:合并落地闸现在吃的与 `--gate` 同一把声明位口径的面。
+ *
+ * ⚠ **但基线形状变了,本函数的下游读者必须跟着重算**:现读(2026-10-04)窄面 104 组 / 宽面 121 组,
+ * 而基线 `scripts/plan-task-state-baseline.json` 的 F9 是 73 键的**声明位口径**键集 ⇒ 两档量纲已不同。
+ * 判据本尊对此的处置是 `--update-baseline` 的 `refuse-widen`:`added`(现读有、基线无)非空即拒绝写盘,
+ * 所以**基线不会被宽口径追着跑**。真正要人做事的仍是那 62 个 `added` 键的逐组清偿(票 G-1018210);
+ * `--update-baseline` 只能收窄、不能替它们发通行证。
+ * ⚠ **`refuse-widen` 是全有全无的**:`added` 对**整份现读键集**算,不是对"这次清了哪几个"算 ⇒
+ * 部分清偿后它照样拒绝(实测:清掉 25 个全已勾键后 added 仍有 37)。**"先清几个零风险的再收窄基线"
+ * 这条捷径在判据层面不存在** —— 要么把 added 清零、让它第一次落 `write`(顺带收掉 31 个不再撞号的键),
+ * 要么基线原地不动。另注:`--update-baseline` **只写 F9 一维**,F1 得另找人工改 JSON(见票面登记)。
+ *
+ * ⚠ **别再照抄"git-sync-converge.mjs:220"这个行号**:它已随文件生长漂走(220 行现在是 spawnSync 的
+ * stdio/timeout 参数段,与 F9 无关);要定位就读该文件里 `ratchetViolations(base, probe(narrowF9Face(` 那一行。
+ * §1 规矩:行号不进证据文本 —— 它每次提交都会挪位。
  */
 export function narrowF9Face(a, content) {
   const wide = (a?.collisions ?? []).length
