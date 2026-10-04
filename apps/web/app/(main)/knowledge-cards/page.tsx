@@ -28,6 +28,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import { Alert, confirmDialog } from '@/components/feedback'
 import { Input, Select, Textarea } from '@/components/form'
 import { MarkdownStream } from '@/components/ai/markdown-stream'
@@ -490,7 +491,7 @@ export default function KnowledgeCardsPage() {
                 value={formConfidence}
                 onChange={(e) => {
                   const n = Number(e.target.value)
-                  setFormConfidence(Number.isNaN(n) ? 100 : Math.min(100, Math.max(0, n)))
+                  setFormConfidence(Number.isNaN(n) ? 100 : clampPercent(n))
                 }}
                 className="max-w-24"
               />
