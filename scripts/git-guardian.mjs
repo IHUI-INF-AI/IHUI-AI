@@ -3842,6 +3842,9 @@ function main() {
     if (!CHECK_ONLY) auditPublicPathProbe()
     // 不能进提交链,而"手动问责"等于只有人在跑 —— 本行是它唯一的调度器。挂进 CHECK_ONLY 分支等于永不执行。
     if (!CHECK_ONLY) auditOrphanDeletionRefs()
+    // TEMP 夹具清扫器同理:判据/保护面/镜像测试全在,唯独没人调度 ⇒ 本项目命名的残留过完账龄就永久留着。
+    // 节流 24h、失败只写 ⚠️ 不改本守护退出码(它是动作层不是判据),挂点语义与上面各层同格。
+    if (!CHECK_ONLY) scrubTempFixtures()
     // 看门人也要有人看:凭据/停摆巡检靠 schtasks 每 6 小时自跑,任务被删/被停/node 路径
     // 看门人也要有人看:凭据/停摆巡检靠 schtasks 每 6 小时自跑,任务被删/被停/node 路径
     // 失效时它**自己不会喊**(故障形态是"安静",正是今天两天冻结的同类)。本守护每 2 分钟
@@ -3918,6 +3921,10 @@ function startDaemon() {
         // 同一挂点语义:与 main() 单轮路径共用 .workbuddy/service-heal-tick.iso 节流戳
         // ⇒ 双执行体并存时只有先到那一个真跑,不会把同一台服务重启两遍。
         healUnresponsiveServices()
+        // TEMP 夹具清扫:与 main() 单轮路径共用 .workbuddy/temp-scrub-tick.iso 节流戳
+        // ⇒ 双执行体并存时只有先到那一个真删,不会把同一批夹具删两遍(第二遍也只是"无候选",
+        // 但日志会多一行噪声,更重要的是节流语义必须与其余各层一致)。
+        scrubTempFixtures()
       }
     } catch (e) {
       log('巡检异常(忽略): ' + String(e.message || e))
@@ -3925,6 +3932,124 @@ function startDaemon() {
     setTimeout(tick, intervalMs)
   }
   tick()
+}
+
+/**
+ * TEMP 夹具清扫的调度层(G-1058525,2026-10-04 立)。
+ *
+ * 为什么要有这一层:`scripts/scrub-temp-fixtures.mjs` 的判据与保护面都是对的
+ * (落点按**当前生效的** `tmpdir()` 现取、只认本项目命名、账龄闸、跳过重解析点与凭据/备份保护区、
+ * 真删必须显式 `--apply`),镜像测试也在,`package.json` 里还有 `pnpm scrub:temp` ——
+ * **但它没有任何调度器**:唯一入口要人记得手跑。实测后果就在本轮量到:
+ * 这台机的活 TEMP 已经是 `D:\tmp`(HKCU TEMP 现读值,与 §26 文档写的 `D:\DevEnv\Temp` 不一致),
+ * 顶层 6410 条目 / 4668 目录 / 900.7MB,其中本项目命名的条目被清扫器判为"账龄未到 362"——
+ * 也就是说**只要没人手跑,它们过 7 天就永久留着**,而守门 92 每次都只报一个 ⚠️。
+ * 这正是本仓记过最多次的那一型:判据在、工具在、无人调度 ⇒ 账面绿而事实累积(守门 64/70/81/115/138 同族)。
+ *
+ * 三条不可漂的写法:
+ *  ① 挂点 = **健康轮次早退之前 + `!CHECK_ONLY`**(本文件已两次踩过"挂进 CHECK_ONLY 路径等于永不执行");
+ *  ② 清扫器自己的名字白名单/账龄/保护区判据**不在本层重抄一遍** —— 本层只负责"什么时候跑 + 把结论落到日志",
+ *     两处各写一份"什么算我们的残留"必漂移(§"两处算同一件事"同一条禁令);
+ *  ③ 动作失败不改守护退出码、也不发信:它不是判据红,是一次没做成的清理。但**必须留一行 ⚠️**,
+ *     因为"这一层根本没跑"与"跑了没候选"在日志里必须不同形。
+ */
+const TEMP_SCRUB_TICK = join(WORKTREE, '.workbuddy', 'temp-scrub-tick.iso')
+const TEMP_SCRUB_INTERVAL_MS = Number(process.env.IHUI_TEMP_SCRUB_INTERVAL_MS || 24 * 60 * 60 * 1000)
+const TEMP_SCRUB_MIN_AGE_DAYS = Number(process.env.IHUI_TEMP_SCRUB_MIN_AGE_DAYS || 7)
+/** 清扫器要遍历整个 TEMP(实测这台机 4.6 万个条目);给 5 分钟硬上限,超时只算"本轮没跑成"。 */
+const TEMP_SCRUB_TIMEOUT_MS = Number(process.env.IHUI_TEMP_SCRUB_TIMEOUT_MS || 300_000)
+
+/** 节流判定(纯函数):取不到戳 ⇒ 视为**该跑了**(与 `orphanAuditDue` 同一条失效方向)。 */
+export function tempScrubDue(nowMs, tickMs, intervalMs = TEMP_SCRUB_INTERVAL_MS) {
+  if (!Number.isFinite(tickMs)) return true
+  return nowMs - tickMs >= intervalMs
+}
+
+/** 从清扫器的人类报告里取三个数(不重抄判据,只读它已经大声报出来的结论)。 */
+export function parseScrubReport(text) {
+  const s = String(text || '')
+  const cand = /候选 (\d+)/.exec(s)
+  const del = /已删 (\d+) 条 \/ 失败 (\d+)/.exec(s)
+  const root = /root=(\S+)/.exec(s)
+  return {
+    candidates: cand ? Number(cand[1]) : null,
+    deleted: del ? Number(del[1]) : null,
+    failed: del ? Number(del[2]) : null,
+    root: root ? root[1] : null,
+  }
+}
+
+export function scrubTempFixtures(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = TEMP_SCRUB_INTERVAL_MS,
+    minAgeDays = TEMP_SCRUB_MIN_AGE_DAYS,
+    tickFile = TEMP_SCRUB_TICK,
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'scrub-temp-fixtures.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ TEMP 夹具清扫:清扫器不在位(scripts/scrub-temp-fixtures.mjs)⇒ 本轮跳过,不记为已清扫')
+    return { ran: false, why: '清扫器不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!tempScrubDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+  } catch (_e) {
+    /* 戳写失败只意味着下轮多跑一遍清扫,不影响判定 */
+  }
+  const call =
+    typeof runner === 'function'
+      ? runner()
+      : (() => {
+          try {
+            const out = execFileSync(
+              process.execPath,
+              [script, '--apply', '--older-than', String(minAgeDays)],
+              {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+                timeout: TEMP_SCRUB_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
+                maxBuffer: 1 << 24,
+                stdio: ['ignore', 'pipe', 'pipe'],
+              },
+            )
+            return { status: 0, stdout: String(out || ''), stderr: '' }
+          } catch (e) {
+            return {
+              status: typeof e.status === 'number' ? e.status : 2,
+              stdout: String(e.stdout || ''),
+              stderr: String(e.stderr || e?.message || ''),
+            }
+          }
+        })()
+  const p = parseScrubReport(`${call.stdout}\n${call.stderr}`)
+  if (call.status === 2 || (p.candidates === null && p.deleted === null)) {
+    logger(
+      `⚠️ TEMP 夹具清扫未跑成(rc=${call.status}):${String(call.stderr || call.stdout).replace(/\s+/g, ' ').slice(0, 160)}` +
+        ' —— 未跑成不等于没有残留,下轮重试(不改本守护退出码)',
+    )
+    return { ran: true, ok: false, why: '未跑成', status: call.status }
+  }
+  if (p.deleted && p.failed) {
+    logger(
+      `⚠️ TEMP 夹具清扫:删了 ${p.deleted} 条但有 ${p.failed} 条失败(多为在句柄中的夹具,属正常)· root=${p.root} · 候选 ${p.candidates}`,
+    )
+    return { ran: true, ok: true, partial: true, ...p }
+  }
+  if (p.deleted) {
+    logger(`✅ TEMP 夹具清扫:释放 ${p.deleted} 条(账龄闸 ${minAgeDays} 天,root=${p.root},候选 ${p.candidates})`)
+  }
+  return { ran: true, ok: true, ...p }
 }
 
 // §22d isDirectRun:本模块需要"双形态"——CLI 直接跑守护 / 镜像测试 import 纯判据。
@@ -3974,6 +4099,9 @@ export const __test__ = {
   readProbeVerdict,
   orphanAuditDue,
   auditOrphanDeletionRefs,
+  tempScrubDue,
+  parseScrubReport,
+  scrubTempFixtures,
   // 裸档自愈(2026-09-28 立):测试在临时仓库上取证,不碰活仓库
   readBareFlag,
   writeBareFalse,
