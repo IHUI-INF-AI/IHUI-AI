@@ -12,6 +12,8 @@ const g = (args) =>
     encoding: 'utf8',
     maxBuffer: 1 << 28,
     windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 const rev = process.argv[2]
 const t = g(['show', `${rev}:PROJECT_PLAN.md`])

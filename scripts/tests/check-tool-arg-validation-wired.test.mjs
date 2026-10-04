@@ -47,7 +47,9 @@ function registrationOf(text, scriptName) {
 }
 
 const runGuard = (extra = []) =>
+  // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
   spawnSync(process.execPath, [GUARD, ...extra], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     windowsHide: true,
     timeout: 240000,

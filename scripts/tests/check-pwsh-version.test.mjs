@@ -477,7 +477,9 @@ test('T13 验收(票面①):守门 118 按**脚本名**反查本门分类必须�
   const r = spawnSync(
     process.execPath,
     [join(SCRIPTS_DIR, 'check-gate-face-discipline.mjs'), '--json', '--worktree'],
-    { encoding: 'utf8', windowsHide: true, timeout: 300_000, maxBuffer: 64 << 20 },
+    { encoding: 'utf8', windowsHide: true, timeout: 300_000, maxBuffer: 64 << 20,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'] },
   )
   // 为什么必须 --worktree:分类器全量档判 **HEAD blob**,而本迁移未提交(本任务禁止 commit/add),
   // HEAD 那份仍是 loose-fs 旧形态 —— 拿默认档跑等于用"没改的历史"验"改完的现在",必红且红得没道理。
@@ -562,6 +564,8 @@ function gitInitAndAdd(dir) {
       encoding: 'utf8',
       windowsHide: true,
       timeout: 60_000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     if (s.status !== 0) {
       return {

@@ -67,6 +67,8 @@ function runCli(args, opts = {}) {
     windowsHide: true,
     timeout: 60000,
     env: opts.env ?? process.env,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   return { status: r.status, out: `${r.stdout ?? ''}${r.stderr ?? ''}` }
 }
@@ -175,6 +177,8 @@ test('T7 真仓:只断不变量,绝不断"当前几条"', () => {
     // 削判据等于把这条真仓端到端证明关掉。
     timeout: 900000,
     maxBuffer: 64 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   const j = JSON.parse(out)
   assert.ok(Array.isArray(j.closedTwins), '--json 未输出 closedTwins')

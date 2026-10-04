@@ -33,7 +33,8 @@ import { resolveGitBin } from '../lib/gitdir.mjs'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const TOOL = join(HERE, '..', 'gate-registry-insert.mjs')
 const GIT = resolveGitBin() || 'git'
-const runOpts = { encoding: 'utf8', windowsHide: true, timeout: 60_000, maxBuffer: 64 << 20 }
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+const runOpts = { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true, timeout: 60_000, maxBuffer: 64 << 20 }
 const runGit = (dir, args) =>
   execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e.local', '-c', 'user.name=e2e', '-c', 'core.autocrlf=false', '-C', dir, ...args], runOpts)
 
@@ -107,7 +108,8 @@ function runGate(dir, extra = {}) {
   if (typeof extra.GATE_MODE === 'string') env.GATE_MODE = extra.GATE_MODE
   if (extra.triggers) env.GATE_TRIGGERS = extra.triggers
   if (extra.hint) env.GATE_HINT = extra.hint
-  return spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20 })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  return spawnSync(process.execPath, [TOOL], { stdio: ['ignore', 'pipe', 'pipe'], env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20 })
 }
 
 test('T1 §22c 导出面:取号/块生成/结构拼接/语法自证都在 __test__ 里', () => {
@@ -205,6 +207,8 @@ test('T8 用法错误 ⇒ exit 2:缺 GATE_SCRIPT / 缺 LABEL / 缺 SKIP_ENV 各�
   ]
   for (const c of cases) {
     const r = spawnSync(process.execPath, [TOOL], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, GATE_ROOT: dir, ...c, GATE_MSG: 'm' },
       encoding: 'utf8',
       windowsHide: true,

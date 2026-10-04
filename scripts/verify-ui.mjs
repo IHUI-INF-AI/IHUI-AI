@@ -85,7 +85,8 @@ function checkDevServer() {
   const result = spawnSync(
     'node',
     ['-e', 'fetch("http://localhost:8801").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'],
-    { encoding: 'utf8', timeout: 5000, windowsHide: true },
+    // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
+    { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', timeout: 5000, windowsHide: true },
   )
   if (result.status === 0) {
     log('  [OK]   web 服务在 http://localhost:8801 响应', GREEN)

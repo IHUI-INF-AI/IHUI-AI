@@ -148,6 +148,8 @@ test('M4 源脚本 --self-test 仍全绿(J1/J2/J3 红+绿咬合,主体没被镜�
     windowsHide: true,
     timeout: 120000,
     maxBuffer: 64 << 20,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   assert.equal(r.status, 0, r.stdout + r.stderr)
 })

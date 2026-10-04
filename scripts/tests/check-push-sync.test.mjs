@@ -198,7 +198,8 @@ test('push-state: done 且新鲜且 headSha 是 HEAD 祖先 → exit 0(上一轮
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
     makeLocalCommit(work, 'unpushed after a done push')
-    const parent = execSync('git rev-parse HEAD~1', { cwd: work, encoding: 'utf8' }).trim()
+    const parent = // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git rev-parse HEAD~1', { cwd: work, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
     writePushState(work, { status: 'done', headSha: parent, ts: Date.now(), pid: process.pid })
     const r = runScript([], { cwd: work })
     assert.equal(r.status, 0, `done+祖先应放行,实际 ${r.status}:${stripAnsi(r.stdout)}`)
@@ -237,7 +238,8 @@ test('push-state: protected-branch 且远端 tip 在本地祖先线内 → 放�
     writePushState(work, {
       status: 'failed',
       kind: 'protected-branch',
-      headSha: execSync('git rev-parse HEAD~1', { cwd: work, encoding: 'utf8' }).trim(),
+      headSha: // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git rev-parse HEAD~1', { cwd: work, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim(),
       ts: Date.now() - 3600_000,
       pid: process.pid,
     })
@@ -293,7 +295,8 @@ test('push-state: remote-ref-race 且远端 tip 在本地祖先线内 → 放行
     writePushState(work, {
       status: 'failed',
       kind: 'remote-ref-race',
-      headSha: execSync('git rev-parse HEAD~1', { cwd: work, encoding: 'utf8' }).trim(),
+      headSha: // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git rev-parse HEAD~1', { cwd: work, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim(),
       ts: Date.now() - 3600_000,
       pid: process.pid,
     })

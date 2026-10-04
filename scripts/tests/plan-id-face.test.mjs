@@ -222,6 +222,8 @@ test('T5 三态与 CLI 契约:枚举失败必须喊出来,--json 不得吐正文
     windowsHide: true,
     timeout: 180_000,
     maxBuffer: 64 << 20,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   assert.equal(r.status, 0, `--json 应 exit 0:${String(r.stderr).slice(0, 300)}`)
   const j = JSON.parse(r.stdout)
@@ -240,6 +242,8 @@ test('T5 三态与 CLI 契约:枚举失败必须喊出来,--json 不得吐正文
     encoding: 'utf8',
     windowsHide: true,
     timeout: 120_000,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   assert.equal(r2.status, 1, '面判不出的退出码必须是 1(取号出口据此拒绝发号)')
   assert.match(r2.stderr || r2.stdout, /未判定|判不出/)
@@ -248,6 +252,8 @@ test('T5 三态与 CLI 契约:枚举失败必须喊出来,--json 不得吐正文
     encoding: 'utf8',
     windowsHide: true,
     timeout: 60_000,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   assert.equal(r3.status, 2)
 })
@@ -295,6 +301,8 @@ function runLiveDocEdit(t, { withArchive }) {
     windowsHide: true,
     timeout: 300_000,
     maxBuffer: 64 << 20,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   const headText = git(['show', 'HEAD:PROJECT_PLAN.md'], { root: dir, raw: true })
   return { status: r.status, stdout: String(r.stdout || '') + String(r.stderr || ''), headText }
@@ -364,6 +372,8 @@ function runLiveDocEditArchivedOnlyFamily(t, { withArchive }) {
     windowsHide: true,
     timeout: 300_000,
     maxBuffer: 64 << 20,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   return {
     status: r.status,
@@ -397,6 +407,8 @@ test('T6 跑一次被检模块自己的 --self-test(自检不跑 = 它可以随�
     windowsHide: true,
     timeout: 300_000,
     maxBuffer: 64 << 20,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   const out = String(r.stdout || '')
   assert.equal(

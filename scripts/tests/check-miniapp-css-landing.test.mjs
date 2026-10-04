@@ -37,7 +37,9 @@ const GATE = join(ROOT, 'scripts', 'check-miniapp-css-landing.mjs')
 const RUNNER = join(ROOT, 'scripts', 'guardian-runner.mjs')
 
 function runGate(args, cwd = ROOT) {
+  // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
   const r = spawnSync(process.execPath, [GATE, ...args], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd,
     encoding: 'utf8',
     timeout: 300000,

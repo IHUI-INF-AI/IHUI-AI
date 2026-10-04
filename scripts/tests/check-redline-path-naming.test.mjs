@@ -83,6 +83,8 @@ test('T5 空全集护栏:注册表取不到 ⇒ 判"尺子失效",绝不报绿',
     const git = spawnSync('git', ['-c', 'safe.directory=*', '-C', scratch, 'init'], {
       encoding: 'utf8',
       windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe']
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     })
     assert.equal(git.status, 0, git.stderr)
     writeFileSync(join(scratch, 'a.txt'), 'a\n')
@@ -100,7 +102,8 @@ test('T5 空全集护栏:注册表取不到 ⇒ 判"尺子失效",绝不报绿',
         'add',
         '.',
       ],
-      { windowsHide: true },
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] },
     )
     const c = spawnSync(
       'git',
@@ -118,7 +121,8 @@ test('T5 空全集护栏:注册表取不到 ⇒ 判"尺子失效",绝不报绿',
         '-m',
         'seed',
       ],
-      { encoding: 'utf8', windowsHide: true },
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] },
     )
     assert.equal(c.status, 0, c.stderr)
     const res = runScan(scratch, [])
