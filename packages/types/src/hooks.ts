@@ -66,7 +66,7 @@ export type HookActionType = 'webhook' | 'script' | 'log' | 'notify'
 export type HookNotifyChannel = 'toast' | 'notification' | 'email' | 'webhook'
 
 /**
- * Hook 动作配置的四族形态(G-675,2026-10-04)。
+ * Hook 动作配置的各族形态(G-675,2026-10-04)。
  *
  * 每一族把自己不适用的键声明为 `?: never`,所以 `{url, command}` 这类跨族矛盾组合
  * 在**构造点**就不可赋值。此前是一个全 optional 的平铺接口,任意组合都能构造出来,
@@ -74,6 +74,12 @@ export type HookNotifyChannel = 'toast' | 'notification' | 'email' | 'webhook'
  * 到服务端才拦"那一型;而 api 侧的 zod `actionConfigSchema` 同样是平铺宽松档。
  * 各族字段仍全部 optional:`config` 允许 `{}`(api 侧 `.default({})` 与 ai-service
  * 的空 `HookActionConfigModel()` 都是既有合法形态,收紧必填字段属另一件事)。
+ *
+ * ⚠️ 互斥**不是**"四种 type 各一套键"那么理想:`notify` 的 `channel: 'webhook'` 复用
+ * webhook 动作同一批发送器与同一批键(`hook_engine._run_notify` 的 webhook 分支就读
+ * `url/method/headers`,而 `apps/web/src/stores/hooks.ts` 构造的正是这一形态)。所以那一档
+ * 单列成 `NotifyWebhookActionConfig`,并把 `channel` 收成必填字面量 —— 既放行这一形态,
+ * 又不放开设错渠道的组合(`{channel:'toast', url:…}` 仍不可构造)。
  */
 
 /** type='webhook':只有 webhook 族字段可用 */
@@ -103,16 +109,35 @@ export interface ScriptActionConfig {
   message?: never
 }
 
-/** type='notify':只有 channel + message 可用 */
+/** type='notify' 且渠道不是 webhook:只有 channel + message 可用 */
 export interface NotifyActionConfig {
-  /** 通知渠道 */
-  channel?: HookNotifyChannel
+  /** 通知渠道(webhook 渠道走 `NotifyWebhookActionConfig` —— 它复用 webhook 动作同一批键) */
+  channel?: Exclude<HookNotifyChannel, 'webhook'>
   /** 通知消息模板,支持 {{event}} {{tool}} {{args}} 变量替换 */
   message?: string
   url?: never
   method?: never
   headers?: never
   body?: never
+  command?: never
+}
+
+/**
+ * type='notify' 且 `channel === 'webhook'`:除 channel/message 外**还合法携带 webhook 那一族的键**。
+ *
+ * 这不是我把互斥放宽,而是执行侧本来的契约:`apps/ai-service` 的 `hook_engine._run_notify`
+ * 在 webhook 分支上就是按 `url/method/headers` 取值的(与 webhook 动作共用发送器),而
+ * `apps/web/src/stores/hooks.ts` 构造的正是这一形态 —— 只按四族纯互斥收类型,会把这份
+ * 已入库的正当写法判成 TS2322(本仓反复记过的"门把规矩写出来的形态钉红"那一型)。
+ * 因此 channel 在这里是**必填字面量** `'webhook'`:`{channel:'toast', url:…}` 仍然不可构造。
+ */
+export interface NotifyWebhookActionConfig {
+  channel: 'webhook'
+  message?: string
+  url?: string
+  method?: 'GET' | 'POST' | 'PUT'
+  headers?: Record<string, string>
+  body?: string
   command?: never
 }
 
@@ -127,9 +152,13 @@ export interface LogActionConfig {
   channel?: never
 }
 
-/** Hook 动作配置(与 `HookActionType` 的四族一一对应) */
+/** Hook 动作配置(与 `HookActionType` 各档一一对应;notify 的 webhook 渠道单列一形态) */
 export type HookActionConfig =
-  WebhookActionConfig | ScriptActionConfig | NotifyActionConfig | LogActionConfig
+  | WebhookActionConfig
+  | ScriptActionConfig
+  | NotifyActionConfig
+  | NotifyWebhookActionConfig
+  | LogActionConfig
 
 /** Hook 动作 */
 export interface HookAction {
