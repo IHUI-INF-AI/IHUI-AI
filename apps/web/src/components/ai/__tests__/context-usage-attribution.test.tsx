@@ -55,6 +55,13 @@ vi.mock('@/stores/chat', () => ({
 }))
 
 vi.mock('@ihui/api-client', () => ({
+  // src/lib/api.ts 在模块顶层无条件调这 5 个 setter(同型见 src/lib/api.test.ts),被测组件经
+  // @/lib/api 拉到它。mock 工厂缺任一同名导出 ⇒ 模块求值即抛,整个文件在**收集期**红。
+  setTokenProvider: vi.fn(),
+  setBaseUrl: vi.fn(),
+  setStreamBaseUrl: vi.fn(),
+  setDeviceFingerprintProvider: vi.fn(),
+  setUnauthorizedHandler: vi.fn(),
   compressConversation: vi.fn(async () => ({ success: true, data: {} })),
   // 组件从 @/lib/model-context-capacity 转导 api-client 的这个函数取 maxTokens;
   // mock 工厂必须把它一并导出,否则整个组件渲染期抛 "not a function"。
