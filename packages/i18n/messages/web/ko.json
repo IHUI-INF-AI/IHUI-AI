@@ -7957,6 +7957,8 @@
       "toolSummaryWebSearched": "웹 검색",
       "tools": {
         "args": "인수",
+        "categoryAwaiting": "명령 대기",
+        "categoryExplore": "탐색",
         "categoryExec": "실행",
         "categoryOther": "기타",
         "categoryRead": "읽기",

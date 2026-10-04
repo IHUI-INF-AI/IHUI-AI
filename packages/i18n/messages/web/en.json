@@ -7957,6 +7957,8 @@
       "toolSummaryWebSearched": "Web Searched",
       "tools": {
         "args": "Args",
+        "categoryAwaiting": "Awaiting",
+        "categoryExplore": "Explore",
         "categoryExec": "Execute",
         "categoryOther": "Other",
         "categoryRead": "Read",

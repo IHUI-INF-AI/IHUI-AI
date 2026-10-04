@@ -32,8 +32,17 @@ import {
   type HandoffSection,
 } from '@ihui/shared/chat/handoff-package'
 
-/** 四段 → 空态词包键(`ai.pane.handoff.empty.*`) */
-const EMPTY_KEY: Partial<Record<HandoffSection, string>> = {
+/**
+ * 四段 → 空态词包键(`ai.pane.handoff.empty.*`)。
+ *
+ * **完备 Record(G-815966)**:不用 `Partial`、不用 `as`。`HandoffSection` 是封闭集
+ * (四档,packages/shared/src/chat/handoff-package.ts:39),该表必须列全四段 —— 否则新增
+ * 一段交接位而忘配空态文案时,`tsc` 不报错,只有真渲染出空段才看得出来。
+ * `diagnosis` 段刻意为 `null`:它有专属渲染分支(方法名 + 逐行 + caveat),永远不显示空态文案,
+ * 但仍要在表里**显式登记** —— "这一段不需要" 是一条需要复核的决定,不是可以静默省略的空白。
+ */
+export const EMPTY_KEY: Record<HandoffSection, string | null> = {
+  diagnosis: null,
   fixSteps: 'empty.fixSteps',
   evidence: 'empty.evidence',
   productSurface: 'empty.productSurface',

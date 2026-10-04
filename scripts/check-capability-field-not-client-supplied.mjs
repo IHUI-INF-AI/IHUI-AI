@@ -32,6 +32,7 @@ import { tmpdir } from 'node:os'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..')
@@ -170,7 +171,7 @@ function main() {
 /** 内置正反例:临时目录写 fixture,跑同一 judgeFile,断言四态。 */
 function selfTest(fields) {
   const clientMode = fields.includes('clientMode') ? 'clientMode' : fields[0]
-  const dir = mkdtempSync(join(tmpdir(), 'cap-field-selftest-'))
+  const dir = mkScratch("cap-field-selftest-")
   const cases = []
   try {
     // 反例(必红):入站 schema 声明了 clientMode,无注入口

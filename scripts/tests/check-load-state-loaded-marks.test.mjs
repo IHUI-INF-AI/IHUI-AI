@@ -26,13 +26,13 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { __test__ as gate } from '../check-load-state-loaded-marks.mjs'
 import { maskCommentsAndStrings } from '../lib/code-mask.mjs'
+import { mkScratch, rmScratch, scratchRoot } from '../lib/scratch-dir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..', '..')
@@ -238,7 +238,7 @@ test('T11 反向对照①:判据面取不到 ⇒ 未判定(不是绿也不是红
 
 test('T12 反向对照①的运行面:判据本体不在的仓 ⇒ 未判定,不与绿同码', () => {
   // 构造一个"判据本体不在"的面(空仓),验它落未判定而不是绿。
-  const tmp = mkdtempSync(path.join(os.tmpdir(), 'ihui-marks-notopo-'))
+  const tmp = mkScratch("ihui-marks-notopo-")
   try {
     mkdirSync(join(tmp, 'scripts'), { recursive: true })
     let undetermined = 0
@@ -285,7 +285,7 @@ test('T15 反向对照②:python 存在但跑不起来 ⇒ 未判定(状态码�
   // 用一个必然不存在的二进制冒充 python:spawn 会失败 ⇒ fatal
   const v = gate.judgeSources({
     root: ROOT,
-    python: join(os.tmpdir(), 'ihui-no-such-python-$$.exe'),
+    python: join(scratchRoot(), 'ihui-no-such-python-$$.exe'),
     criterionSrc: readFileSync(join(ROOT, gate.LIFECYCLE_FILE), 'utf8'),
     cases: [{ path: 'fix.py', src: gate.FIX_FINALLY_SET }],
   })
@@ -427,11 +427,11 @@ test('T18 变异取证:门里自己写一份正则绕过调用 ⇒ T16/T17 必�
     } catch {
       // ⚠️ 删不掉就**搬走**,不许留在 scripts/ 下(本机 safe-delete 的 per-turn
       //   计数满了之后连单文件 rm 都会被 SAFE_DELETE_BULK_CONFIRM_REQUIRED 挡住)。
-      //   ⚠️ 搬移目标必须**同盘**:`os.tmpdir()` 在本机是 D:,仓在 G:,跨盘 rename 报
-      //   EXDEV(实测踩过)—— 兜底链里再套一层 rename 是错的,那正是"环境问题伪装成
-      //   业务结论"。所以同盘 temp 优先,EXDEV 再退到仓内 .ihui-agent/tmp(同盘)。
+      //   ⚠️ 搬移目标必须**同盘**:scratch 根与仓同盘(win32 臂 = `<盘根>/DevEnv/Temp`),
+      //   跨盘 rename 报 EXDEV(实测踩过)—— 兜底链里再套一层 rename 是错的,那正是"环境
+      //   问题伪装成业务结论"。所以同盘 scratch 优先,EXDEV 再退到仓内 .ihui-agent/tmp(同盘)。
       const stale = [
-        join(os.tmpdir(), `ihui-marks-mutant-stale-${process.pid}.mjs`),
+        join(scratchRoot(), `ihui-marks-mutant-stale-${process.pid}.mjs`),
         join(ROOT, '.ihui-agent', 'tmp', `ihui-marks-mutant-stale-${process.pid}.mjs`),
       ]
       let moved = false
