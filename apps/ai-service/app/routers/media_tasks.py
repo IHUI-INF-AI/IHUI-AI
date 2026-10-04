@@ -153,7 +153,7 @@ async def media_upload(
             filename = file.filename or "file.bin"
             upload_url = await provider.upload_file(data, filename, purpose=purpose)
             return {"ok": True, "data": {"file_url": upload_url, "filename": filename, "size": len(data)}}
-        from .screenshot_service import _validate_url_ssrf
+        from ..services.screenshot_service import _validate_url_ssrf
 
         ok_ssrf, reason = _validate_url_ssrf(url or "")
         if not ok_ssrf:

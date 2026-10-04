@@ -88,33 +88,95 @@ export function parseImport(line, fileRel) {
   return { kind: 'abs', base: PY_ROOT, parts, star }
 }
 
-/** 模块在文件集合里是否存在:`.py` 或包目录的 `__init__.py`。 */
-export function modulePresent(set, cand) {
-  return set.has(`${cand}.py`) || set.has(`${cand}/__init__.py`)
+/** 模块在文件集合里是否存在:`.py` / 包目录的 `__init__.py` / **命名空间包**(PEP 420:目录里有 .py 但没 __init__.py 也合法)。 */
+export function modulePresent(set, cand, dirs = null) {
+  return (
+    set.has(`${cand}.py`) ||
+    set.has(`${cand}/__init__.py`) ||
+    (dirs !== null && dirs.has(cand))
+  )
+}
+
+/**
+ * 把 Python 源码里的**字符串内部**遮成空格(行号与长度不变)。
+ * 为什么必须做:测试文件普遍把"示例代码"写在 docstring / 三引号里(本仓的越权用例夹具就是这么写的),
+ * 那些行逐字看就是 `from app.ghost import guard`。不遮字符串,这道门就会把**自己的测试**判成仓库违规,
+ * 而假阳的代价不是"多一行报告",是让人去修没坏的东西、并把判据口径说歪成"问题很多"。
+ * 只遮内部、保留引号本身 —— 引号是语法边界,抹掉会让下一行的状态机误判。
+ */
+export function maskPythonStrings(src) {
+  const s = String(src)
+  const out = s.split('')
+  let i = 0
+  const n = s.length
+  while (i < n) {
+    const c = s[i]
+    if (c === '#') {
+      while (i < n && s[i] !== '\n') i++
+      continue
+    }
+    if (c === '"' || c === "'") {
+      const triple = s.slice(i, i + 3) === c.repeat(3)
+      const q = triple ? c.repeat(3) : c
+      // f-string 的 {} 插值里可能是真代码,但拆词法代价大于收益 ⇒ 整段照遮,宁可漏不误报。
+      let j = i + q.length
+      while (j < n) {
+        if (s[j] === '\\') {
+          j += 2
+          continue
+        }
+        if (!triple && s[j] === '\n') break // 单引号串不跨行(跨行是语法错,不该由本门判)
+        if (s.slice(j, j + q.length) === q) {
+          j += q.length
+          break
+        }
+        if (out[j] !== '\n') out[j] = ' '
+        j++
+      }
+      i = j
+      continue
+    }
+    i++
+  }
+  return out.join('')
 }
 
 /** 判一个文件 ⇒ 缺失 / 未判定 / 非本仓计数 / 本仓检查数。 */
 export function scanFile(rel, src, faceFiles) {
   // 传 Set 或数组都接得住(镜像测试与 main 各自方便);内部只建一次,不逐条 import 重建。
   const faceSet = faceFiles instanceof Set ? faceFiles : new Set(faceFiles)
+  // 命名空间包(目录里有 .py 而无 __init__.py)在 Python 3 合法 ⇒ 预先把每个文件的所有祖先目录收进来。
+  const dirs = new Set()
+  for (const k of faceSet) {
+    let d = dirname(norm(k))
+    while (d && d !== '.' && d !== '/') {
+      dirs.add(d)
+      d = dirname(d)
+    }
+  }
   const missing = []
   const undetermined = []
   let foreign = 0
   let checked = 0
-  const lines = String(src).split('\n')
+  // 判据面 = **遮掉字符串内部**的那一份(行号/长度不变);注释另按行首 `#` 跳。
+  const maskedLines = maskPythonStrings(src).split('\n')
+  const rawLines = String(src).split('\n')
   // 动态导入结构上看不见目标 ⇒ 逐处点名成"未判定"。少了这一维就是"没判"被读成"判过了"。
-  lines.forEach((l, i) => {
+  rawLines.forEach((l, i) => {
     const t = l.trimStart()
     if (t.startsWith('#')) return
-    if (DYN_RE.test(l)) undetermined.push(`${rel}:${i + 1} 动态导入 ⇒ 本门不判其目标在位性`)
+    if (DYN_RE.test(maskedLines[i] ?? ''))
+      undetermined.push(`${rel}:${i + 1} 动态导入 ⇒ 本门不判其目标在位性`)
   })
-  for (let i = 0; i < lines.length; i++) {
-    const raw = lines[i]
+  for (let i = 0; i < maskedLines.length; i++) {
+    const raw = maskedLines[i] ?? ''
     if (raw.trimStart().startsWith('#')) continue
     const p = parseImport(raw, rel)
     if (p.kind === 'none') continue
     if (p.kind === 'escape') {
-      undetermined.push(`${rel}:${i + 1} 相对导入逃出被审根(${raw.trim().slice(0, 60)})⇒ 判不出`)
+      undetermined.push(
+        `${rel}:${i + 1} 相对导入逃出被审根(${raw.trim().slice(0, 60)})⇒ 判不出`,
+      )
       continue
     }
     if (p.kind === 'other') {
@@ -123,7 +185,7 @@ export function scanFile(rel, src, faceFiles) {
     }
     const cand = [p.base, ...p.parts].filter(Boolean).join('/')
     checked++
-    if (!modulePresent(faceSet, cand))
+    if (!modulePresent(faceSet, cand, dirs))
       missing.push({ file: rel, line: i + 1, mod: cand, star: !!p.star })
   }
   return { missing, undetermined, foreign, checked }
@@ -215,6 +277,26 @@ function selfTest() {
     (() => {
       const r = s1('import importlib\nm = importlib.import_module("app.services.sandbox")\n')
       return r.undetermined.some((u) => /动态导入/.test(u))
+    })(),
+  )
+  t(
+    'P11 命名空间包(目录有 .py 而无 __init__.py)在 Python 3 合法 ⇒ 不得判缺失',
+    (() => {
+      const files = new Set([A, 'apps/ai-service/app/middleware/llm_metrics.py'])
+      return s1('from app.middleware import llm_metrics\n', files).missing.length === 0
+    })(),
+  )
+  t(
+    'P12 写在 docstring / 三引号里的示例 import 不判(否则门把自己的测试当仓库违规)',
+    (() => {
+      const src = 'def f():\n    """用例文本:\n\n    from app.ghostmod import guard\n    """\n    return 1\n'
+      return s1(src).missing.length === 0
+    })(),
+  )
+  t(
+    'P12b 同一形态写在真代码里必须命中(遮字符串关掉的是误报,不是判据)',
+    (() => {
+      return s1('from app.ghostmod import guard\n').missing.length === 1
     })(),
   )
   return { pass, fail }
@@ -355,6 +437,15 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { parseImport, scanFile, modulePresent, facePySet, PY_ROOT, PKG, selfTest }
+export const __test__ = {
+  parseImport,
+  scanFile,
+  modulePresent,
+  maskPythonStrings,
+  facePySet,
+  PY_ROOT,
+  PKG,
+  selfTest,
+}
 // 由 watermark.mjs inject 复位隐写行
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
