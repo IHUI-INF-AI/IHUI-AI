@@ -39,6 +39,11 @@ const queues: {
   result: unknown
 }[] = []
 let cursor = 0
+// crud 路由 idParamSchema 已收成 z.uuid(防 PG 22P02 的 500)⇒ URL 里的 :id 必须是
+// 合法 UUID,'a1'/'none' 这类字面量会被 400 挡下 —— 那是路由的正确行为,不是缺陷。
+const ANN_ID = '11111111-1111-4111-8111-111111111111'
+const NOT_FOUND_ID = '22222222-2222-4222-8222-222222222222'
+const AD_ID = '33333333-3333-4333-8333-333333333333'
 
 const { dbMock } = vi.hoisted(() => {
   function makeChain<T>(result: T): DbChain<T> {
@@ -143,7 +148,7 @@ describe('AdminContent CRUD', () => {
     })
     expect(res.statusCode).toBe(201)
     const body = JSON.parse(res.body)
-    expect(body.data.item.id).toBe('c1')
+    expect(body.data.item.id).toBe(AD_ID)
   })
 
   it('POST /advertise 400 when missing required', async () => {
@@ -174,7 +179,7 @@ describe('AdminContent CRUD', () => {
     })
     const res = await app.inject({
       method: 'PATCH',
-      url: '/api/admin/content/announcement/a1',
+      url: `/api/admin/content/announcement/${ANN_ID}`,
       headers: { 'x-test-role': '1' },
       payload: { title: 'updated' },
     })
@@ -187,7 +192,7 @@ describe('AdminContent CRUD', () => {
     queues.push({ type: 'carousel', method: 'update', result: [] })
     const res = await app.inject({
       method: 'PATCH',
-      url: '/api/admin/content/advertise/none',
+      url: `/api/admin/content/advertise/${NOT_FOUND_ID}`,
       headers: { 'x-test-role': '1' },
       payload: { title: 'x' },
     })
@@ -198,7 +203,7 @@ describe('AdminContent CRUD', () => {
     queues.push({ type: 'ann', method: 'delete', result: [{ id: 'a1' }] })
     const res = await app.inject({
       method: 'DELETE',
-      url: '/api/admin/content/announcement/a1',
+      url: `/api/admin/content/announcement/${ANN_ID}`,
       headers: { 'x-test-role': '1' },
     })
     expect(res.statusCode).toBe(200)
@@ -210,7 +215,7 @@ describe('AdminContent CRUD', () => {
     queues.push({ type: 'carousel', method: 'delete', result: [] })
     const res = await app.inject({
       method: 'DELETE',
-      url: '/api/admin/content/advertise/none',
+      url: `/api/admin/content/advertise/${NOT_FOUND_ID}`,
       headers: { 'x-test-role': '1' },
     })
     expect(res.statusCode).toBe(404)
@@ -220,22 +225,22 @@ describe('AdminContent CRUD', () => {
     queues.push({ type: 'carousel', method: 'select', result: [] })
     const res = await app.inject({
       method: 'GET',
-      url: '/api/admin/content/advertise/none',
+      url: `/api/admin/content/advertise/${NOT_FOUND_ID}`,
       headers: { 'x-test-role': '1' },
     })
     expect(res.statusCode).toBe(404)
   })
 
   it('GET /advertise/:id 200 when found', async () => {
-    queues.push({ type: 'carousel', method: 'select', result: [{ id: 'c1', title: 'ad' }] })
+    queues.push({ type: 'carousel', method: 'select', result: [{ id: AD_ID, title: 'ad' }] })
     const res = await app.inject({
       method: 'GET',
-      url: '/api/admin/content/advertise/c1',
+      url: `/api/admin/content/advertise/${AD_ID}`,
       headers: { 'x-test-role': '1' },
     })
     expect(res.statusCode).toBe(200)
     const body = JSON.parse(res.body)
-    expect(body.data.item.id).toBe('c1')
+    expect(body.data.item.id).toBe(AD_ID)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

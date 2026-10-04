@@ -55,7 +55,26 @@ vi.mock('@ihui/database', () => ({
 
 // mock workspace-lock-heartbeat:_syncAgentTask 终态先 releaseTaskLockByTaskId(内部走 db.select/心跳),
 // 测试 db mock 仅含 insert/update,不 mock 该模块会让释放调用抛错被吞,终态 update 不再执行。
-vi.mock('../src/services/workspace-lock-heartbeat.js', () => ({
+import type * as LockHeartbeatModule from '../src/services/workspace-lock-heartbeat.js'
+
+vi.mock('../src/services/workspace-lock-heartbeat.js', () => {
+  // G-672 终态收窄:_syncAgentTask 先经 toLockReleaseOutcome 把 as-cast 态收窄成类型化
+  // outcome 再进释放原语 —— mock 缺该导出会让真代码在 mock 上抛 No export。表与真实现
+  // (LOCK_RELEASE_OUTCOME_VALUES)逐字同源,域加档必须两处同批。
+  const LOCK_RELEASE_OUTCOME_TABLE = [
+    'completed',
+    'failed',
+    'cancelled',
+    'preempted',
+    'quota_exceeded',
+    'triage',
+    'todo',
+    'ready',
+    'blocked',
+    'done',
+    'deleted',
+  ] as const
+  return {
   LOCK_HEARTBEAT_INTERVAL_MS: 30_000,
   startLockHeartbeat: vi.fn(),
   stopLockHeartbeat: vi.fn(),
@@ -63,7 +82,12 @@ vi.mock('../src/services/workspace-lock-heartbeat.js', () => ({
   releaseTaskLockFromRow: vi.fn().mockResolvedValue(undefined),
   releaseTaskLockByTaskId: vi.fn().mockResolvedValue(undefined),
   _resetLockHeartbeats: vi.fn(),
-}))
+  toLockReleaseOutcome: (status: string): LockHeartbeatModule.LockReleaseOutcome | null =>
+    (LOCK_RELEASE_OUTCOME_TABLE as readonly string[]).includes(status)
+      ? (status as LockHeartbeatModule.LockReleaseOutcome)
+      : null,
+}
+})
 
 import {
   aggregateDeliverables,
