@@ -13183,7 +13183,8 @@
       "keyIdLabel": "Key ID",
       "gatewayHintA": "When calling the gateway, use the header",
       "gatewayHintB": "(that is the ihui_-prefixed Key ID; keep the Secret safe and never put it in a header).",
-      "savedClose": "Saved, close"
+      "savedClose": "Saved, close",
+      "needLogin": "Please sign in to manage API keys"
     },
     "relayUsage": {
       "title": "Usage details",
@@ -13225,7 +13226,8 @@
       "apiKeyFilter": "API Key filter",
       "allApiKeys": "All API Keys",
       "cacheRead": "Read {count}",
-      "cacheWrite": "Write {count}"
+      "cacheWrite": "Write {count}",
+      "needLogin": "Please sign in to view usage details and analysis"
     }
   },
   "developerApiDocsPage": {
@@ -19847,7 +19849,8 @@
   "parentPortal": {
     "attendance": {
       "rate": "Attendance Rate",
-      "records": "Check-in Records"
+      "records": "Check-in Records",
+      "needLogin": "Please sign in to view attendance records"
     },
     "bind": {
       "confirm": "Confirm",
@@ -19879,7 +19882,10 @@
       "monthlyPlan": "Monthly Plan",
       "studyPlans": "Study Plans",
       "studyPlansHint": "View your child's study plans",
-      "weeklyPlan": "Weekly Plan"
+      "weeklyPlan": "Weekly Plan",
+      "coursesNeedLogin": "Please sign in to view the timetable",
+      "mealsNeedLogin": "Please sign in to view meal records",
+      "studyPlansNeedLogin": "Please sign in to view study plans"
     },
     "dashboard": {
       "bindChild": "Bind Child",
@@ -27183,7 +27189,8 @@
     "ledgerNotReady": "Ledger not ready",
     "totalFeeLabel": "Total due",
     "paidLabel": "Total paid",
-    "overdueLabel": "Overdue by"
+    "overdueLabel": "Overdue by",
+    "needLogin": "Please sign in to view the parent portal"
   },
   "eduSchedule": {
     "title": "Class Schedule",
