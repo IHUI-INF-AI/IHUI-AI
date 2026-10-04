@@ -23,6 +23,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -31,7 +32,7 @@ const GLOSSARY_SRC = path.join(__dirname, '..', 'brand-glossary.json')
 
 // ─── 辅助:创建临时项目根目录(含 apps/web/messages/ 结构 + 复制 brand-glossary.json) ───
 function createTempProject() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-brand-gloss-'))
+  const root = mkScratch("ihui-brand-gloss-")
   fs.mkdirSync(path.join(root, 'apps', 'web', 'messages'), { recursive: true })
   fs.mkdirSync(path.join(root, 'scripts'), { recursive: true })
   // 复制真实 brand-glossary.json(测试真实映射数据)

@@ -14,6 +14,8 @@ const base: EnterSubmitInputs = {
   defaultPrevented: false,
   localComposing: false,
   nativeComposing: false,
+  justEndedComposing: false,
+  hasContent: true,
 }
 const decide = (over: Partial<EnterSubmitInputs> = {}) => shouldSubmitOnEnter({ ...base, ...over })
 
