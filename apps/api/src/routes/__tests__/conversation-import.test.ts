@@ -12,6 +12,10 @@
  * 3. POST /commit:body 校验 400 / 成功 → 201 + 会话/消息落库(保留原始时间戳)
  *    + 批次记录 status=success / 时间戳缺省回退 / 消息写入失败 500 / 批次记录失败不阻塞 201
  * 4. GET /history:成功返回倒序列表
+ *    4b. G-790:failed / partial 批次仍留在读面(失败态不得被历史列表筛掉)
+ *    —— 判别列进谓词与"谓词里没有 status 收窄"的 SQL 形状判据在
+ *    `g790-json-filter-discriminator.test.ts`(本文件的 @ihui/database 是字符串占位 mock,
+ *    编译不出真 SQL,所以那一维不归这里判)。
  *
  * db / 鉴权 / ai-service-fetch 均 mock,不连真实 PG 与 ai-service;
  * multipart 用真插件 + 手工 boundary 请求体(参照 p0-audit-gaps 模式)。
@@ -560,6 +564,52 @@ describe('外部会话导入路由(D28)', () => {
       expect(body.data.list[0].id).toBe('imp-2')
       expect(body.data.list[0].importedAt).toBe('2026-09-20T10:00:00.000Z')
       expect(body.data.list[0].conversationId).toBe(CONV_ID)
+    })
+
+    it('G-790:failed / partial 批次仍留在读面(映射层不筛失败,conversationId 可为 null)', async () => {
+      // 一次用户可见的失败如果不在历史列表里,它就"在每张表面上都不存在"。
+      // /commit 的失败留痕写的是 conversationId=null + status='failed' + failedCount>0,
+      // 读面必须原样带出这三件事(状态用 status 字段表达,不靠"有没有会话 id"表达)。
+      store.pushSelect([
+        {
+          id: 'imp-fail',
+          source: 'codex',
+          conversationId: null,
+          fileName: 'broken.json',
+          parsedCount: 3,
+          importedCount: 0,
+          failedCount: 3,
+          status: 'failed',
+          errorMessage: '导入落库失败: db down',
+          importedAt: new Date('2026-10-02T10:00:00.000Z'),
+        },
+        {
+          id: 'imp-part',
+          source: 'aider',
+          conversationId: CONV_ID,
+          fileName: 'part.json',
+          parsedCount: 4,
+          importedCount: 2,
+          failedCount: 2,
+          status: 'partial',
+          errorMessage: null,
+          importedAt: new Date('2026-10-01T10:00:00.000Z'),
+        },
+      ])
+      const res = await app.inject({ method: 'GET', url: '/api/conversation-import/history' })
+      expect(res.statusCode).toBe(200)
+      const body = res.json()
+      expect(body.data.total).toBe(2)
+      const statuses = body.data.list.map((x: { status: string }) => x.status)
+      expect(statuses).toContain('failed')
+      expect(statuses).toContain('partial')
+
+      const failed = body.data.list.find((x: { status: string }) => x.status === 'failed')
+      expect(failed.conversationId).toBeNull() // 失败没有会话,但记录必须在
+      expect(failed.failedCount).toBe(3)
+      expect(failed.importedCount).toBe(0)
+      expect(String(failed.errorMessage)).toContain('db down')
+      expect(failed.importedAt).toBe('2026-10-02T10:00:00.000Z')
     })
   })
 })
