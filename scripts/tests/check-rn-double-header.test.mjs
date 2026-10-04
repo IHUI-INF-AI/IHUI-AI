@@ -38,6 +38,8 @@ function gitAt(args, opts = {}) {
     windowsHide: true,
     timeout: 180000,
     maxBuffer: 1 << 28,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     ...opts,
   }).trim()
 }
@@ -59,6 +61,8 @@ function runNode(args, opts = {}) {
     maxBuffer: 1 << 28,
     windowsHide: true,
     timeout: 600000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     ...opts,
   })
 }
@@ -295,6 +299,8 @@ test('T7 端到端双向锁(私有索引注入,绝不碰共享索引/工作树):
         windowsHide: true,
         timeout: 600000,
         env,
+        stdio: ['ignore', 'pipe', 'pipe']
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
       })
       return { code: r.status, out: (r.stdout || '') + (r.stderr || '') }
     }
@@ -345,6 +351,8 @@ test('T8 空暂存档不得判"无法判定"(与守门 135 的兜底同向),且 
     encoding: 'utf8',
     windowsHide: true,
     timeout: 600000,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   assert.equal(
     staged.status,
@@ -356,6 +364,8 @@ test('T8 空暂存档不得判"无法判定"(与守门 135 的兜底同向),且 
     encoding: 'utf8',
     windowsHide: true,
     timeout: 600000,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   // 2026-09-27 存量归零后:strict 与默认档的差别**只在有存量时存在** —— 判据改成
   // "strict 的状态 == (有存量 ? 红 : 绿)",而不是把"HEAD 必须还脏着"钉成断言

@@ -422,7 +422,9 @@ if (isStaged) {
    */
   let listing
   try {
+    // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
     listing = execSync('git ls-tree -r --name-only HEAD', {
+      stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     cwd: ROOT,
     maxBuffer: 1 << 27,

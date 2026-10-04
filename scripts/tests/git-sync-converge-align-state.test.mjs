@@ -157,6 +157,8 @@ function loadedSource(relPath, anchor) {
       windowsHide: true,
       timeout: 30_000,
       maxBuffer: 32 << 20,
+      stdio: ['ignore', 'pipe', 'pipe']
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     })
   } catch {
     /* git 问不到 ⇒ 走工作树 */

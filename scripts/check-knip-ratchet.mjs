@@ -84,6 +84,8 @@ function runKnipJson() {
     // 保持与本仓库其它守门脚本一致的删除守护豁免(pnpm/knip 内部可能创建临时目录)
     env: { ...process.env, CODEBUDDY_SAFE_DELETE_ENABLED: '0' },
     windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   if (result.error) {
     console.error(`[knip-ratchet] ❌ 无法启动 knip:${result.error.message}`)

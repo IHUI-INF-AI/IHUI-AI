@@ -48,6 +48,8 @@ test('T2 自检端到端:--self-test 跑完、退出 0、ST 全 ✅', () => {
     encoding: 'utf8',
     windowsHide: true,
     timeout: 180_000,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   assert.equal(r.status, 0, `--self-test 应退出 0,实得 ${r.status}\nstdout 尾:${(r.stdout || '').slice(-600)}`)
   assert.match(r.stdout || '', /# 自检 3\/3 通过/, '三条 ST 必须全部通过并在末行报出')

@@ -41,6 +41,8 @@ const g = (a) =>
     encoding: 'utf8',
     maxBuffer: 1 << 28,
     windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
 
 test('T1 散写 git 的门必判红(正向证明:名单不是死表)', () => {
@@ -109,6 +111,8 @@ test('T8 真仓 HEAD 面本门必须 exit 0(全量档只报数;红了就说明�
         encoding: 'utf8',
         maxBuffer: 1 << 28,
         windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe']
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
       })
       return 0
     } catch (e) {
@@ -570,6 +574,8 @@ function runGate(args) {
     encoding: 'utf8',
     windowsHide: true,
     maxBuffer: 1 << 28,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   return { rc: r.status, out: r.stdout ?? '', err: r.stderr ?? '' }
 }

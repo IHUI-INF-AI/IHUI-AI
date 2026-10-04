@@ -185,7 +185,9 @@ function collectFiles() {
     return []
   }
   try {
+    // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
     const out = execSync('git diff --cached --name-only --diff-filter=ACM', {
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
       cwd: ROOT,
       windowsHide: true,
