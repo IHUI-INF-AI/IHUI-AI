@@ -311,6 +311,12 @@ function sh(cmd, args, opts = {}) {
     maxBuffer: 32 * 1024 * 1024,
     shell: true,
     windowsHide: true,
+    // 2026-10-04(G-463 同轮实测):`stdio` 必带。`shell:true` 在 Windows 上会派生
+    // `cmd.exe`,而本机对原生 exe 的 spawn 存在 `EBUSY` 形态(台账"node spawnSync 对原生
+    // exe 持续 EBUSY"一族)。不显式给 stdio 时,实测报
+    // `spawnSync C:\Windows\system32\cmd.exe EBUSY` ⇒ 本闸门对本仓全部包**恒"无法判定"**
+    // (它刻意不回落 npm pack),于是 D18 这类票在本机永远跑不到判据。pipe 两端才能取回输出。
+    stdio: ['ignore', 'pipe', 'pipe'],
     ...opts,
   })
 }
