@@ -1402,8 +1402,22 @@ function inferMethodAtLine(lines, idx) {
         }
         if (!resolved) {
           // 向前搜索 path 之前的最近 method（前 3 行，取行号最大的 = 离 path 最近）
+          // 2026-10-04 加固:与「向后 4 行」段同口径 —— 遇「调用收尾行」即停。
+          // 原实现只判"这一行有没有 method",不判"我是否已经跨出了当前调用",于是会
+          // 隔着收尾行抓到**上一个无关调用**的 method:
+          //   mutationFn: async (favorited) => {
+          //     await fetchApi(`/api/favorites/aiworld/${id}`, {
+          //       method: 'DELETE',            ← 取消收藏的 method
+          //     })                             ← 收尾,应在此停止
+          //   ...
+          //   api('/api/ai-world')             ← 本身无 method(语义 GET),曾被误归成 DELETE
+          // 判据与向后那段**逐字同一条** `/^\s*[)\]}>;,]*\s*$/`(含"只用整行纯闭合"这条口径:
+          // 行内出现右括号不算收尾,否则 `reason.trim()` / `JSON.stringify(x)` 之类
+          // 实参里的括号会误触发,反而漏掉真正的 method)。
           for (let i = -1; i >= -3; i--) {
-            const beforeLine = (lines[idx + i] || '').toLowerCase()
+            const rawBefore = lines[idx + i] || ''
+            if (/^\s*[)\]}>;,]*\s*$/.test(rawBefore)) break
+            const beforeLine = rawBefore.toLowerCase()
             const beforeMatch = beforeLine.match(/method\s*:\s*['"`]?(get|post|put|patch|delete)/)
             if (beforeMatch) {
               resolved = beforeMatch[1].toUpperCase()
@@ -1425,8 +1439,39 @@ function inferMethodAtLine(lines, idx) {
             // 「同文件 wrapper」写法(my-circles/page.tsx:41、meal/page.tsx:85、use-task-receiver.ts:92
             // 的 apiData 等)。识别失败会让作用域搜索**越过 wrapper 继续向前**,抓到更早某个
             // 函数的 `method: 'POST'`(如 join/leave 之类的写操作),把 wrapper 的 GET 调用误判成 POST。
+            // 2026-10-04 加固:`funcStartRe` 的**限制 1(必须匹配 `=>` 或 `function`)确实生效**,
+            // 已实测 8 形态:`const x = useMutation({` 之类非函数开头一律不匹配。
+            // 但它**认不出对象方法简写**(`mutationFn: async (favorited) => {`、`onSuccess: (v) => {`
+            // —— 第三支要求 `const|let|var` 前缀,对象字面量里的方法没有前缀 ⇒ 不匹配)。
+            // 于是向上找 funcStartLine 时会**穿过**这些嵌套函数体,把它们的 method 当成
+            // 外层函数的 method 取走(实测 ai-world/[id]/PageClient.tsx:112 归成 DELETE,
+            // 源是 :81 取消收藏的 method)。
+            //
+            // 修法:向下扫时**整块跳过别的 React 数据/变更 hook 的对象参数块**(见下面
+            // `reactDataHookBlockRe` 处的完整理由)。ai-world 那个块在到达 `:112` 之前
+            // 就闭合了 ⇒ 跳过它,`:81` 的 DELETE 就借不出去,`:112` 落回 GET。
             const funcStartRe =
               /(?:const|let|var)\s+\w+\s*=\s*(?:async\s*)?(?:<[^<>()]*>\s*)?\([^)]*\)\s*=>|function\s+\w+\s*(?:<[^<>()]*>\s*)?\(|(?:const|let|var)\s+\w+\s*:\s*(?:async\s*)?\([^)]*\)\s*=>/
+            // 别的 React 数据/变更 hook 的**对象参数块**开头(**含对象方法简写**那类):
+            // `useMutation({` / `useQuery({` 这种行,块里的一切(`mutationFn` / `queryFn` /
+            // `onSuccess` 等)都属于**那个 hook 自己的请求**,与本调用无关。
+            //
+            // ⚠️ 为什么**不用**"通用嵌套深度记账"(试过,已弃,理由留档免得下一个人重走):
+            //   ① 按"整行纯闭合"记 -1:空行也匹配那条正则(字符类允许零个闭合符)⇒ 深度在第一个
+            //      空行就归零 ⇒ 作用域段对**任何带空行的函数体全部失效**。实测后果:
+            //      use-analytics.ts:181(`navigator.sendBeacon('/api/analytics/track',…)`,
+            //      `sendBeacon` 隐式 POST)由 POST 掉成 GET = **由对变错**,被 method 清单
+            //      A/B 对账当场抓住。
+            //   ② 只记函数体开/闭:ai-world 那个 `useMutation({` 开的块在扫到 `:112` 时**仍未闭合**
+            //      ⇒ 深度压根归不了零 ⇒ 拦不住。
+            // 窄口径只认 hook 调用块,上面两类都不碰。
+            //
+            // ⚠️ hook 名只收**数据/变更**类、且必须 `({` 起头:
+            //   `React.useCallback(async () => {` 的 `(` 后是 `async` 不是 `{` ⇒ 不匹配
+            //   (实测正是它承载了 use-analytics.ts:181 必须保住的那个 POST);
+            //   `React.useRef<T>([])` / `React.useEffect(() => {` 同理不匹配。
+            const reactDataHookBlockRe =
+              /\buse(?:Mutation|Queries|Query|SWR|InfiniteQuery|LazyQuery)\s*(?:<[^<>]*>)?\s*\(\s*\{\s*$/
             let funcStartLine = -1
             for (let i = idx - 1; i >= 0; i--) {
               if (funcStartRe.test(lines[i] || '')) {
@@ -1436,7 +1481,17 @@ function inferMethodAtLine(lines, idx) {
             }
             if (funcStartLine >= 0) {
               for (let i = funcStartLine; i <= idx; i++) {
-                const fl = (lines[i] || '').toLowerCase()
+                const raw = lines[i] || ''
+                // 别的 hook 对象块 ⇒ **整块跳过**(块内的 method 不属于本调用)。
+                // 配对到 idx 之后(含 idx)说明**本调用就写在这个块里** —— 它自己的
+                // queryFn/mutationFn,归因由「向后 4 行」段负责 ⇒ 同样不取,出循环。
+                if (reactDataHookBlockRe.test(raw)) {
+                  const blockEnd = findBraceBlockEnd(lines, i)
+                  i = blockEnd > i ? blockEnd : i
+                  if (i >= idx) break
+                  continue
+                }
+                const fl = raw.toLowerCase()
                 const fm = fl.match(/method\s*:\s*['"`]?(get|post|put|patch|delete)/)
                 if (fm) {
                   resolved = fm[1].toUpperCase()
@@ -1679,6 +1734,31 @@ function skipCommentLiteral(text, i) {
   }
   const end = text.indexOf('*/', i + 2)
   return end === -1 ? text.length : end + 1
+}
+
+/**
+ * 从 `openLine` 行**末尾**那个 `{` 起,按行配对找到该块的闭合行号(0 基)。
+ * 找不到(该行末尾不是 `{`,或扫到文件末尾仍未闭合)⇒ 返回 `openLine`(调用方据此"不跳")。
+ *
+ * 只为 `inferMethodAtLine` 的作用域段服务:跳过**别的** React hook 对象块。
+ * 行内字符串/模板串里的花括号必须排除 —— 否则 `` `{` `` 之类字面量会把配平算歪。
+ * 复用现成的 `findMatchingBracket`(它已处理字符串与注释):把行数组拼回全文即可。
+ */
+function findBraceBlockEnd(lines, openLine) {
+  const first = lines[openLine] || ''
+  if (!/\{\s*$/.test(first)) return openLine
+  let start = 0
+  for (let i = 0; i < openLine; i++) start += (lines[i] || '').length + 1
+  const text = lines.join('\n')
+  const close = findMatchingBracket(text, start + first.length - 1, '{', '}')
+  if (close === -1) return openLine
+  let line = openLine
+  let consumed = start + first.length
+  while (line + 1 < lines.length && consumed <= close) {
+    consumed += (lines[line] || '').length + 1
+    line++
+  }
+  return line
 }
 
 /** 从 openIdx 处的开括号找到配对闭括号下标(跳过字符串与注释);-1 = 未配平 */
