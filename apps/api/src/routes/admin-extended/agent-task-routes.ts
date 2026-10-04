@@ -15,7 +15,7 @@ import { requireAdmin } from '../../plugins/require-permission.js'
 import { success, error, parseOrThrow } from '../../utils/response.js'
 import { withAuditBoth } from '../../utils/audit.js'
 import { buildKanbanColumns } from '../agents-kanban.js'
-import { mapStatus, isTransitionAllowed } from '../../services/agent-task-status.js'
+import { mapStatus, isTransitionAllowedFromRaw } from '../../services/agent-task-status.js'
 import {
   startLockHeartbeat,
   releaseTaskLockFromRow,
@@ -74,9 +74,13 @@ export const agentTaskRoutes: FastifyPluginAsync = async (server) => {
 
     // P0-2:status 变更须走统一状态机校验(原先 admin PUT 可任意改 status 绕过流转图)
     if (body.status !== undefined && body.status !== current.status) {
-      const from = mapStatus(current.status)
+      // G-463(2026-10-04):`from` 走**原始串**出口。原先是 `mapStatus(current.status)`,
+      // 库里 status 落在六档之外时它原样透传 ⇒ 判"非法流转"只是碰巧对(不崩),
+      // 但报给用户的 `from` 是那个未登记原值。改走 isTransitionAllowedFromRaw 后,
+      // 未知档同样判非法(行为不变),且不再依赖"透传值恰好查不到表"这一巧合。
       const to = mapStatus(body.status)
-      if (!isTransitionAllowed(from, to)) {
+      const from = mapStatus(current.status)
+      if (!isTransitionAllowedFromRaw(current.status, to)) {
         return reply.status(409).send(error(409, `非法状态流转: ${from} → ${to}`))
       }
       // P0-2:进入 in_progress 且有工作区 → 与 transition 同款抢锁
