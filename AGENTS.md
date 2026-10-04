@@ -688,7 +688,8 @@ pnpm dev                                       # 启动所有服务(web + api + 
 
 ## 我方现状(强制,2026-10-04 立 · G-830)
 <每条前提一行,格式:`<claim> | <token> | git grep -c -F <token> HEAD -- <scope…>`;
- claim 只能是 exists / absent。禁止只写结论文本("我方已有 X")而不给 token 与可重跑命令。>
+ claim 只能是 exists / absent,默认 scope 是产品代码面 `apps packages`。
+ 禁止只写结论文本("我方已有 X")而不给 token 与可重跑命令。>
 ```
 
 ### 我方现状格:前提自检(强制,2026-10-04 立,G-830)
@@ -705,8 +706,9 @@ node scripts/check-dispatch-premise.mjs --self-test
 node --test scripts/tests/check-dispatch-premise.test.mjs
 ```
 
-- 票面 JSON 形如 `{"ticket":"G-xxx","premises":[{"claim":"exists","token":"<标识>","probe":"git grep -c -F <标识> HEAD -- apps packages scripts"}]}`。
-- **作用域强制排除台账自身**(`PROJECT_PLAN.md` / `.ihui-agent`):票面把标识写进台账之后,全仓 `git grep` 读数至少是 1 而那一处命中就是台账自己 —— 不排除,这道门会被"台账引用了它"洗成永绿机(实测:`check-virtualization-coverage` 在 HEAD 全仓 = 1 命中,唯一命中文件 `HEAD:PROJECT_PLAN.md`;排除台账后在 apps/packages/scripts 面 = 0)。
+- 票面 JSON 形如 `{"ticket":"G-xxx","premises":[{"claim":"exists","token":"<标识>","probe":"git grep -c -F <标识> HEAD -- apps packages"}]}`。
+- **作用域强制排除台账、文档与门自身**(`PROJECT_PLAN.md` / `.ihui-agent` / `AGENTS.md` / `README.md` / `docs` / 本门与它的镜像测试):票面把标识写进台账之后,全仓 `git grep` 读数至少是 1 而那一处命中就是引用它的那篇文档自己 —— 不排除,这道门会被"台账引用了它"洗成永绿机(实测:`check-virtualization-coverage` 在 HEAD 全仓 = 1 命中,唯一命中文件 `HEAD:PROJECT_PLAN.md`;强制排除后 = 0)。
+- ⚠️ **门不得读自己**(2026-10-04 落地当轮实测):本门与它的镜像测试里写满了 `check-virtualization-coverage` 这个 token 作反例素材,若默认作用域含 `scripts`,门会读到自己的素材 —— 同一命令读数当场从 0 抬到 12,正例翻绿。**判"前提是否腐烂"的门必须扫被审面,不能扫自己**;写派单模板时同理:模板正文里出现的标识不得让该模板自己的前提自证成立。
 - 退出码:`0` 逐条仍成立 / `1` **至少一条前提已腐烂**(红字 + 结构化字段 + 读数产物落盘)/ `2` 判不出(缺 `--ticket`、票面读不了或缺 `premises`、probe 不是 `git grep -c -F … HEAD` 形状、仓库不可问)。**"没写前提"与"前提为假"必须分开** —— 缺 `premises` 判 2,绝不判通过。
 - 读数产物(默认 `.dispatch-premise-report.json`)记 `ticket / head / scope / probes[] / verdict / rot`,派单那一刻的读数**必须留下来可追责**,只往 stdout 打印不算交付。
 
