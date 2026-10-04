@@ -9,7 +9,6 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
-import BackChevron from '@/components/BackChevron'
 
 /** 提问模式(对齐 apps/api 的 /api/ai-tutor 代理:explain 讲解 / hint 提示引导) */
 type TutorMode = 'explain' | 'hint'
@@ -89,13 +88,10 @@ export default function AiTutor() {
     }
   }, [question, sending, mode, loadHistory, t])
 
-  const goBack = () => Taro.navigateBack()
-
   return (
     <ThemeRoot>
       <View className="min-h-screen bg-background">
         <View className="flex flex-row items-center px-[20rpx] pt-[24rpx] pb-[16rpx] gap-[16rpx]">
-          <BackChevron onTap={goBack} />
           <Text className="text-[length:44rpx] font-semibold text-foreground">AI 助教</Text>
         </View>
 
