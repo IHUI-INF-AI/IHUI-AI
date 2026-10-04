@@ -46,13 +46,24 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 export const LEDGER_FILE = 'scripts/data/credential-presence-exemptions.json'
 const GIT_TIMEOUT_MS = 120_000
 
-const C = { red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m', cyan: '\x1b[36m', reset: '\x1b[0m' }
+const C = {
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  cyan: '\x1b[36m',
+  reset: '\x1b[0m',
+}
 
 /**
  * 射程:只有"安全判定发生的地方"才谈得上豁免。按目录 + 扩展名收,不按文件名清单。
  * 加目录必须同批改本注释与 `isSecuritySurface`,否则会出现"扫到了但没判"的静默失明。
  */
-const SCAN_DIRS = ['apps/api/src/plugins', 'apps/api/src/routes', 'apps/api/src/utils', 'apps/api/src/server.ts']
+const SCAN_DIRS = [
+  'apps/api/src/plugins',
+  'apps/api/src/routes',
+  'apps/api/src/utils',
+  'apps/api/src/server.ts',
+]
 const SCAN_EXTS = /\.(ts|mts|js|mjs)$/
 const TESTISH = /(\.test\.|\.spec\.|__tests__|[/\\]tests[/\\])/
 
@@ -246,7 +257,7 @@ export function scanSource(rel, src) {
     let k = -1
     while ((k = line.indexOf('if (', k + 1)) >= 0) {
       // 该 `if (` 在"连字符串一起遮"的面上是空白 ⇒ 它本来住在字符串字面量里(示例文本/文档),不算代码
-      if (!((noStr[i] ?? '').slice(k, k + 4).trim())) continue
+      if (!(noStr[i] ?? '').slice(k, k + 4).trim()) continue
       const before = line.slice(0, k).trimEnd()
       if (before !== '' && !/[{};:]$/.test(before) && !/\belse$/.test(before)) continue
       const rc = readCondition(lines, i, k + 3)
@@ -298,7 +309,8 @@ export function scanSource(rel, src) {
         continue
       }
       if (!enf) continue // 后面没有 enforcement ⇒ 这是控制流短路,不是"把防线换成一个字符串"
-      const marked = EXEMPT_RE.test(rawLines[i] ?? '') || EXEMPT_RE.test((rawLines[i - 1] ?? '').trim())
+      const marked =
+        EXEMPT_RE.test(rawLines[i] ?? '') || EXEMPT_RE.test((rawLines[i - 1] ?? '').trim())
       if (marked) continue
       findings.push({ file: rel, line: i + 1, ref: refs[0], names })
     }
@@ -312,12 +324,20 @@ export function readLedger(raw) {
   try {
     parsed = JSON.parse(raw)
   } catch (e) {
-    return { byKey: new Map(), absent: false, broken: `台账 JSON 解析失败:${String(e.message).split('\n')[0]}` }
+    return {
+      byKey: new Map(),
+      absent: false,
+      broken: `台账 JSON 解析失败:${String(e.message).split('\n')[0]}`,
+    }
   }
   const byKey = new Map()
   for (const e of parsed.exemptions ?? []) {
     if (!e.file || !e.anchor || !e.reason || !e.reviewBy) {
-      return { byKey: new Map(), absent: false, broken: `台账条目字段不齐(${e?.file ?? '?'}):reason 与 reviewBy 都必填` }
+      return {
+        byKey: new Map(),
+        absent: false,
+        broken: `台账条目字段不齐(${e?.file ?? '?'}):reason 与 reviewBy 都必填`,
+      }
     }
     byKey.set(`${e.file}#${e.anchor}`, e)
   }
@@ -377,8 +397,24 @@ export function decide({ findings, ledger, today, absent, scanned = null }) {
 function stagedPaths() {
   return execFileSync(
     gitBinary(),
-    ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', 'diff', '--cached', '--name-only', '--diff-filter=ACMR'],
-    { cwd: ROOT, encoding: 'utf8', timeout: GIT_TIMEOUT_MS, maxBuffer: 1 << 26, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] },
+    [
+      '-c',
+      'safe.directory=*',
+      '-c',
+      'core.quotepath=false',
+      'diff',
+      '--cached',
+      '--name-only',
+      '--diff-filter=ACMR',
+    ],
+    {
+      cwd: ROOT,
+      encoding: 'utf8',
+      timeout: GIT_TIMEOUT_MS,
+      maxBuffer: 1 << 26,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
   )
     .split(/\r?\n/)
     .filter(Boolean)
@@ -389,16 +425,20 @@ function listFiles(face) {
     face === 'staged'
       ? ['ls-files', '--', ...SCAN_DIRS]
       : ['ls-tree', '-r', '--name-only', 'HEAD', '--', ...SCAN_DIRS]
-  return execFileSync(gitBinary(), ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', ...args], {
-    cwd: ROOT,
-    encoding: 'utf8',
-    timeout: GIT_TIMEOUT_MS,
-    maxBuffer: 1 << 26,
-    windowsHide: true,
-    // EBUSY 根治(errno -4082):本机会话里 Node 建子进程 stdin 管道确定性失败。
-    // 调用点全为只读 git(ls-files / diff --cached),不喂 stdin。
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+  return execFileSync(
+    gitBinary(),
+    ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', ...args],
+    {
+      cwd: ROOT,
+      encoding: 'utf8',
+      timeout: GIT_TIMEOUT_MS,
+      maxBuffer: 1 << 26,
+      windowsHide: true,
+      // EBUSY 根治(errno -4082):本机会话里 Node 建子进程 stdin 管道确定性失败。
+      // 调用点全为只读 git(ls-files / diff --cached),不喂 stdin。
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  )
     .split(/\r?\n/)
     .filter((p) => p && (SCAN_EXTS.test(p) || p === 'apps/api/src/server.ts') && !TESTISH.test(p))
 }
@@ -414,7 +454,7 @@ export function analyze({ face, root = ROOT }) {
           timeout: GIT_TIMEOUT_MS,
           maxBuffer: 1 << 26,
           windowsHide: true,
-          stdio: ['ignore', 'pipe', 'pipe']
+          stdio: ['ignore', 'pipe', 'pipe'],
           // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
         })
           .split(/\r?\n/)
@@ -431,7 +471,9 @@ export function analyze({ face, root = ROOT }) {
   const specs = isWorktree ? [] : files.map((p) => `${pre}${p}`)
   let contents
   try {
-    contents = isWorktree ? new Map() : catBatch(root, specs, { maxBuffer: 1 << 29, timeout: GIT_TIMEOUT_MS })
+    contents = isWorktree
+      ? new Map()
+      : catBatch(root, specs, { maxBuffer: 1 << 29, timeout: GIT_TIMEOUT_MS })
   } catch (e) {
     throw new Error(`内容取不到:${String(e.message).split('\n')[0]}`)
   }
@@ -462,7 +504,10 @@ export function analyze({ face, root = ROOT }) {
     ledgerRaw = readWorktreeFile(root, LEDGER_FILE)
   } else {
     try {
-      const m = catBatch(root, [`${pre}${LEDGER_FILE}`], { maxBuffer: 1 << 27, timeout: GIT_TIMEOUT_MS })
+      const m = catBatch(root, [`${pre}${LEDGER_FILE}`], {
+        maxBuffer: 1 << 27,
+        timeout: GIT_TIMEOUT_MS,
+      })
       ledgerRaw = m.get(`${pre}${LEDGER_FILE}`) ?? null
     } catch (e) {
       throw new Error(`台账取不到:${String(e.message).split('\n')[0]}`)
@@ -480,6 +525,35 @@ export function analyze({ face, root = ROOT }) {
     scanned: face === 'staged' ? new Set(files) : null,
   })
   return { files, findings, undetermined, unreadable, ledgerLoaded: !ledger.absent, ...res }
+}
+
+// ── 阳性对照:钉**出处 ref**,不钉 HEAD ─────────────────────────────────────────
+// 本门立项的站点是 `apps/api/src/plugins/csrf.ts` 里 `if (request.headers['x-internal-service-token'])
+// return`,而 `6fb790eb70a8`(票#23「验过才免」)把它改掉了。把"必须看得见这一型"钉在 HEAD 上的后果是
+// **账还清的那一天起自检永久红**(2026-10-04 实测:`c824c12070` 收掉 5 处真漏洞后,HEAD 面 findings 归零,
+// 于是自检喊"判据可能失明"、镜像 T4 同红 —— 红的不是仓库,是一句做不到的承诺,而恒红的出路只有跳门)。
+// 判据与出口表都不放宽:改成拿**对象库里那两枚 blob**喂同一把尺子,成对正反(改前必命中 / 改后必不命中),
+// "清偿了"与"看不见"从此在读数上分开。与守门 131/150 的 `PROBE_REF` 同一条路子。
+export const PROBE_FILE = 'apps/api/src/plugins/csrf.ts'
+export const PROBE_REV_BEFORE = '6fb790eb70a8^'
+export const PROBE_REV_AFTER = '6fb790eb70a8'
+export const PROBE_TOKEN = 'x-internal-service-token'
+
+export function probeHistorical(root = ROOT) {
+  const specs = [`${PROBE_REV_BEFORE}:${PROBE_FILE}`, `${PROBE_REV_AFTER}:${PROBE_FILE}`]
+  let m
+  try {
+    m = catBatch(root, specs, { maxBuffer: 1 << 27, timeout: GIT_TIMEOUT_MS })
+  } catch (e) {
+    throw new Error(`出处 blob 取不到(派生失败):${String(e?.message ?? e).split('\n')[0]}`)
+  }
+  const missing = specs.filter((s) => !m.get(s))
+  if (missing.length) throw new Error(`出处 blob 取不到:${missing.join(' ')}`)
+  const hitsOf = (rev) =>
+    scanSource(PROBE_FILE, String(m.get(rev)))
+      .findings.filter((f) => String(f.ref ?? '').includes(PROBE_TOKEN))
+      .map((f) => `${f.file}:${f.line}`)
+  return { before: hitsOf(specs[0]), after: hitsOf(specs[1]) }
 }
 
 function selfTest() {
@@ -549,34 +623,129 @@ function selfTest() {
   t('CB2 #23 修法形态必须放过(判据要覆盖门认可的写法)', s(FIXED).findings.length === 0)
   t('CB3 非凭据族头放过', s(NONCRED).findings.length === 0)
   t('CB4 带值比较放过', s(COMPARE).findings.length === 0)
-  t('CB5 一跳变量形态必须命中(提成变量不该让门失明)', s(VARHOP).findings.length === 1, JSON.stringify(s(VARHOP)))
+  t(
+    'CB5 一跳变量形态必须命中(提成变量不该让门失明)',
+    s(VARHOP).findings.length === 1,
+    JSON.stringify(s(VARHOP)),
+  )
   t('CB6 注释里的该形态不得计入', s(IN_COMMENT).findings.length === 0)
   t('CB7 字符串里的该形态不得计入', s(IN_STRING).findings.length === 0)
   t('CB8 带原因的行内豁免放过', s(MARKED).findings.length === 0)
   t('CB9 裸标记(无原因)不得放过', s(UNMARKED_NO_REASON).findings.length === 1)
-  t('CB10 词元匹配非子串', !isCredentialName('hashtag') && !isCredentialName('tokenizer') && isCredentialName('x-id-token'))
+  t(
+    'CB10 词元匹配非子串',
+    !isCredentialName('hashtag') &&
+      !isCredentialName('tokenizer') &&
+      isCredentialName('x-id-token'),
+  )
   const f0 = s(BAD).findings[0]
   const key = `a.ts#${f0.ref}`
-  t('CB11 未裁过 ⇒ 红', decide({ findings: [f0], ledger: new Map(), today: '2026-09-28', absent: false }).violations.length === 1)
-  t('CB12 台账齐备 ⇒ 豁免且不销案', decide({ findings: [f0], ledger: new Map([[key, { file: 'a.ts', anchor: f0.ref, reason: '另有验真', reviewBy: '2026-12-31' }]]), today: '2026-09-28', absent: false }).violations.length === 0)
-  t('CB13 台账缺原因/复核日 ⇒ 不得放过', decide({ findings: [f0], ledger: new Map([[key, { file: 'a.ts', anchor: f0.ref, reason: '', reviewBy: '' }]]), today: '2026-09-28', absent: false }).violations.length === 1)
-  t('CB14 复核日过期 ⇒ 仍判(红或过期,绝不静默放过)', decide({ findings: [f0], ledger: new Map([[key, { file: 'a.ts', anchor: f0.ref, reason: 'x', reviewBy: '2026-01-01' }]]), today: '2026-09-28', absent: false }).expired.length === 1)
-  t('CB15 台账腐烂(登记了而面上没命中)必红', decide({ findings: [], ledger: new Map([[key, { file: 'a.ts', anchor: f0.ref, reason: 'x', reviewBy: '2026-12-31' }]]), today: '2026-09-28', absent: false, scanned: new Set(['a.ts']) }).stale.length === 1)
-  t('CB15b 台账条目落在审查面外 ⇒ 不判腐烂(否则 --staged 下不带 csrf.ts 的提交恒红)', decide({ findings: [], ledger: new Map([[key, { file: 'a.ts', anchor: f0.ref, reason: 'x', reviewBy: '2026-12-31' }]]), today: '2026-09-28', absent: false, scanned: new Set(['b.ts']) }).stale.length === 0)
-  t('CB16 台账缺席按零豁免判,不把腐烂当结论', decide({ findings: [], ledger: new Map([[key, { file: 'a.ts', anchor: f0.ref, reason: 'x', reviewBy: '2026-12-31' }]]), today: '2026-09-28', absent: true }).stale.length === 0)
+  t(
+    'CB11 未裁过 ⇒ 红',
+    decide({ findings: [f0], ledger: new Map(), today: '2026-09-28', absent: false }).violations
+      .length === 1,
+  )
+  t(
+    'CB12 台账齐备 ⇒ 豁免且不销案',
+    decide({
+      findings: [f0],
+      ledger: new Map([
+        [key, { file: 'a.ts', anchor: f0.ref, reason: '另有验真', reviewBy: '2026-12-31' }],
+      ]),
+      today: '2026-09-28',
+      absent: false,
+    }).violations.length === 0,
+  )
+  t(
+    'CB13 台账缺原因/复核日 ⇒ 不得放过',
+    decide({
+      findings: [f0],
+      ledger: new Map([[key, { file: 'a.ts', anchor: f0.ref, reason: '', reviewBy: '' }]]),
+      today: '2026-09-28',
+      absent: false,
+    }).violations.length === 1,
+  )
+  t(
+    'CB14 复核日过期 ⇒ 仍判(红或过期,绝不静默放过)',
+    decide({
+      findings: [f0],
+      ledger: new Map([
+        [key, { file: 'a.ts', anchor: f0.ref, reason: 'x', reviewBy: '2026-01-01' }],
+      ]),
+      today: '2026-09-28',
+      absent: false,
+    }).expired.length === 1,
+  )
+  t(
+    'CB15 台账腐烂(登记了而面上没命中)必红',
+    decide({
+      findings: [],
+      ledger: new Map([
+        [key, { file: 'a.ts', anchor: f0.ref, reason: 'x', reviewBy: '2026-12-31' }],
+      ]),
+      today: '2026-09-28',
+      absent: false,
+      scanned: new Set(['a.ts']),
+    }).stale.length === 1,
+  )
+  t(
+    'CB15b 台账条目落在审查面外 ⇒ 不判腐烂(否则 --staged 下不带 csrf.ts 的提交恒红)',
+    decide({
+      findings: [],
+      ledger: new Map([
+        [key, { file: 'a.ts', anchor: f0.ref, reason: 'x', reviewBy: '2026-12-31' }],
+      ]),
+      today: '2026-09-28',
+      absent: false,
+      scanned: new Set(['b.ts']),
+    }).stale.length === 0,
+  )
+  t(
+    'CB16 台账缺席按零豁免判,不把腐烂当结论',
+    decide({
+      findings: [],
+      ledger: new Map([
+        [key, { file: 'a.ts', anchor: f0.ref, reason: 'x', reviewBy: '2026-12-31' }],
+      ]),
+      today: '2026-09-28',
+      absent: true,
+    }).stale.length === 0,
+  )
   t('CB17 坏台账不得被当成空台账放行', readLedger('{ not json').broken !== null)
-  t('CB18 条目字段不齐 ⇒  broken(不静默当空表)', readLedger('{"exemptions":[{"file":"a.ts","anchor":"x"}]}').broken !== null)
-  t('CB19 遮罩后行号不变(标记按原文行判的前提)', maskCommentsAndStrings('a\n// x\nb').split('\n').length === 3)
+  t(
+    'CB18 条目字段不齐 ⇒  broken(不静默当空表)',
+    readLedger('{"exemptions":[{"file":"a.ts","anchor":"x"}]}').broken !== null,
+  )
+  t(
+    'CB19 遮罩后行号不变(标记按原文行判的前提)',
+    maskCommentsAndStrings('a\n// x\nb').split('\n').length === 3,
+  )
   // ↓ 三条新维度:假阳收窄与"看不见必须报名",缺一条本门就要么咬错人、要么对自己立项那一型失明
-  t('CB20 映射短路(后面没有执行动作)不得判红', s(MAPPING_ONLY).findings.length === 0, JSON.stringify(s(MAPPING_ONLY)))
-  t('CB21 一跳变量带 enforcement 必须命中', s(VARHOP).findings.length === 1, JSON.stringify(s(VARHOP)))
-  t('CB22 跨行 + 类型断言的 cookie 豁免必须被命中(第一版对此失明)', s(IDENT).findings.length === 1, JSON.stringify(s(IDENT)))
+  t(
+    'CB20 映射短路(后面没有执行动作)不得判红',
+    s(MAPPING_ONLY).findings.length === 0,
+    JSON.stringify(s(MAPPING_ONLY)),
+  )
+  t(
+    'CB21 一跳变量带 enforcement 必须命中',
+    s(VARHOP).findings.length === 1,
+    JSON.stringify(s(VARHOP)),
+  )
+  t(
+    'CB22 跨行 + 类型断言的 cookie 豁免必须被命中(第一版对此失明)',
+    s(IDENT).findings.length === 1,
+    JSON.stringify(s(IDENT)),
+  )
   const DBVAR = `async function h(request, reply){
   const apiKey = await resolveApiKeyFromDb(id)
   if (apiKey) return
   if (!verifyScope(apiKey)) return reply.status(403).send(1)
 }`
-  t('CB23 名字像凭据但声明里不含 headers/cookies ⇒ 不属本型,也不得报成未判定(30 条噪声会淹掉信号)', s(DBVAR).findings.length === 0 && s(DBVAR).undetermined.length === 0, JSON.stringify(s(DBVAR)))
+  t(
+    'CB23 名字像凭据但声明里不含 headers/cookies ⇒ 不属本型,也不得报成未判定(30 条噪声会淹掉信号)',
+    s(DBVAR).findings.length === 0 && s(DBVAR).undetermined.length === 0,
+    JSON.stringify(s(DBVAR)),
+  )
   return { pass, fail }
 }
 
@@ -585,21 +754,45 @@ function main(argv) {
     const { pass, fail } = selfTest()
     console.log(`\n[credential-presence] 自检 ${pass} 通过 / ${fail} 失败`)
     if (fail > 0) return 1
-    // 自检跑在被审面上:真仓 HEAD 必须至少看得见已裁过的站点(看不见 = 门空转)
+    // 阳性对照钉**出处 ref**(见 probeHistorical 上方注释):HEAD 面只量"扫描面在不在位"。
+    // 旧写法把"看得见存量"当恒定前提,而这条路在账还清那天必然变成一台与任何提交都无关的恒红自检
+    // —— 恒红的唯一结局是逼人 `--no-verify`,连带链上全部守门对该提交作废(§12e)。
     try {
-      const a = analyze({ face: 'head' })
-      if (a.exempted === 0 && a.findings.length === 0) {
-        console.log(`${C.red}❌ 自检:真仓 HEAD 面既无命中也无豁免 ⇒ 判据可能失明,不记通过${C.reset}`)
+      const p = probeHistorical()
+      if (p.before.length === 0) {
+        console.log(
+          `${C.red}❌ 自检:出处 ${PROBE_REV_BEFORE} 的 ${PROBE_FILE} 未被命中 ⇒ 判据对该型失明,不记通过${C.reset}`,
+        )
         return 1
       }
-      console.log(`✅ 自检真仓对照:命中候选 ${a.findings.length} 处 / 台账豁免 ${a.exempted} 处 / 扫 ${a.files.length} 文件`)
+      if (p.after.length > 0) {
+        console.log(
+          `${C.red}❌ 自检:票#23(${PROBE_REV_AFTER})之后同一站点仍被命中 ⇒ 门对自己认可的修法形态全盲(按规矩写就红=逼人跳门)${C.reset}`,
+        )
+        return 1
+      }
+      const a = analyze({ face: 'head' })
+      if (a.files.length <= 100) {
+        console.log(
+          `${C.red}❌ 自检:HEAD 面只扫到 ${a.files.length} 个安全面文件 ⇒ 扫描面失效,不记通过${C.reset}`,
+        )
+        return 1
+      }
+      console.log(
+        `✅ 自检真仓对照:出处命中 ${p.before.join(' ')}(改后同一站点不命中 ⇒ 成对证明);\n` +
+          `   HEAD 面 候选 ${a.findings.length} / 台账豁免 ${a.exempted} / 未判定 ${a.undetermined.length} / 扫 ${a.files.length} 文件`,
+      )
     } catch (e) {
-      console.log(`${C.red}❌ 自检真仓对照跑不动:${e.message}${C.reset}`)
+      console.log(`${C.red}❌ 自检真仓对照跑不动(未判定,不等于通过):${e.message}${C.reset}`)
       return 2
     }
     return 0
   }
-  const sel = selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree'), def: 'head' })
+  const sel = selectFace({
+    staged: argv.includes('--staged'),
+    worktree: argv.includes('--worktree'),
+    def: 'head',
+  })
   if (sel.error) {
     console.error(`${C.red}❌ ${sel.error}${C.reset}`)
     return 2
@@ -629,9 +822,13 @@ function main(argv) {
       `${C.cyan}[credential-presence] 判定面=${face === 'worktree' ? '工作树(仅人工)' : face}:扫 ${a.files.length} 个安全面文件;存在性豁免候选 ${a.findings.length} 处(台账豁免 ${a.exempted} 处,行内豁免已不计入候选)${C.reset}`,
     )
     if (!a.ledgerLoaded)
-      console.log(`${C.yellow}⚠ 台账 ${LEDGER_FILE} 不在被审面上 ⇒ 按"零豁免"判并大声报出(缺席不等于通过)。${C.reset}`)
-    for (const v of a.violations) console.log(`  ${C.red}❌ ${v.file}:${v.line} ${v.ref} —— ${v.why}${C.reset}`)
-    for (const s of a.stale) console.log(`  ${C.red}❌ 清单腐烂:台账有 ${s} 而被审面没命中${C.reset}`)
+      console.log(
+        `${C.yellow}⚠ 台账 ${LEDGER_FILE} 不在被审面上 ⇒ 按"零豁免"判并大声报出(缺席不等于通过)。${C.reset}`,
+      )
+    for (const v of a.violations)
+      console.log(`  ${C.red}❌ ${v.file}:${v.line} ${v.ref} —— ${v.why}${C.reset}`)
+    for (const s of a.stale)
+      console.log(`  ${C.red}❌ 清单腐烂:台账有 ${s} 而被审面没命中${C.reset}`)
     for (const s of a.expired) console.log(`  ${C.red}❌ 豁免过期:${s}${C.reset}`)
     for (const u of a.undetermined) console.log(`  ${C.yellow}ℹ 未判定:${u}${C.reset}`)
     if (a.violations.length + a.stale.length + a.expired.length === 0)
@@ -668,5 +865,10 @@ export const __test__ = {
   bodyIsBareReturn,
   LEDGER_FILE,
   SCAN_DIRS,
+  probeHistorical,
+  PROBE_FILE,
+  PROBE_REV_BEFORE,
+  PROBE_REV_AFTER,
+  PROBE_TOKEN,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
