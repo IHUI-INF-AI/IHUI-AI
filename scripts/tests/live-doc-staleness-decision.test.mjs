@@ -97,6 +97,8 @@ function runCli(repo, extra = []) {
     encoding: 'utf8',
     windowsHide: true,
     timeout: 120000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   return r
 }
@@ -296,6 +298,8 @@ test('T12 自检端到端:源文件自带的 --self-test 必须 rc 0(装车证�
     encoding: 'utf8',
     windowsHide: true,
     timeout: 120000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   assert.equal(r.status, 0, `自检必须全绿:${r.stdout}${r.stderr}`)
   const m = /自检:(\d+)\/(\d+) 通过/.exec(r.stdout)

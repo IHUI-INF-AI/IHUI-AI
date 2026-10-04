@@ -30,6 +30,8 @@ const git = (args) =>
     timeout: 180000,
     maxBuffer: 64 * 1024 * 1024,
     windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 
 // 两端同名配对组件:圆角必须**都声明在组件自身**,不得一端在组件、一端在调用点。

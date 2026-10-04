@@ -43,7 +43,8 @@ export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 const shSafe = (cmd) => {
   try {
-    return execSync(cmd, { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, windowsHide: true }).trim()
+    // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
+    return execSync(cmd, { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, windowsHide: true }).trim()
   } catch {
     return ''
   }

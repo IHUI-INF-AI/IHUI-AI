@@ -104,6 +104,8 @@ if (stagedMode) {
   let stagedFiles = []
   try {
     const out = execFileSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACMR'], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf-8',
       cwd: ROOT,
       windowsHide: true,

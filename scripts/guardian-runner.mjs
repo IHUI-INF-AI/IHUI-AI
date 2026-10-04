@@ -4821,6 +4821,8 @@ function computeGateFingerprint() {
       // 只读查询,可安全封顶:同日 check-port-registry 因无 timeout 挂住 80 分钟,
       // 把整条 pre-commit 拖成"看起来像卡死"。5 分钟远高于任何正常耗时,只截病态挂起。
       timeout: 300_000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     }).trim()
     // -z:NUL 分隔,路径无转义歧义;rename 条目 "R  new\0old\0" 需跳过 old 段
     const statusRaw = execFileSync(
@@ -4830,6 +4832,8 @@ function computeGateFingerprint() {
         encoding: 'utf8',
         windowsHide: true,
         timeout: 300_000,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
       },
     )
     const h = createHash('sha1')
@@ -4924,6 +4928,8 @@ function stagedFilesOrNull() {
       cwd: process.cwd(),
       windowsHide: true,
       timeout: 120_000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
       .split('\n')
       .map((s) => s.trim())

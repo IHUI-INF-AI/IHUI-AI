@@ -63,7 +63,9 @@ const WHITELIST = new Set([
 function getFilesToCheck() {
   if (isStaged) {
     try {
+      // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
       const output = execSync('git diff --cached --name-only --diff-filter=ACM', {
+        stdio: ['ignore', 'pipe', 'pipe'],
         cwd: ROOT,
         encoding: 'utf-8',
         windowsHide: true,
@@ -87,6 +89,7 @@ function getFilesToCheck() {
     // Windows 上 PowerShell 会吞引号、git pathspec `**` 对深层子目录匹配不稳定,
     // 经常返回空列表导致 full 模式漏检。改为列目录 + JS 过滤更可靠。
     const output = execSync('git ls-files apps/api/src/routes/', {
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: ROOT,
       encoding: 'utf-8',
       windowsHide: true,

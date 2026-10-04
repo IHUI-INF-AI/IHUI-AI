@@ -49,6 +49,8 @@ function writeValidProject(root) {
 
 function runScript(args, opts = {}) {
   return spawnSync(process.execPath, [SCRIPT, ...args], {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     cwd: opts.cwd ?? REPO,
     windowsHide: true,
@@ -386,6 +388,8 @@ test('脚本的布局表与手写字面量逐字相等(表漂移即红)', () => 
 
 test('手写字面量在 git 版本树里真实存在(独立真值,不读脚本表)', () => {
   const r = spawnSync(GIT_BIN, ['-c', 'safe.directory=*', 'ls-tree', '-r', '--name-only', 'HEAD'], {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd: REPO,
     encoding: 'utf8',
     windowsHide: true,

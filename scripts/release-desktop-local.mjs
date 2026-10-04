@@ -202,7 +202,8 @@ console.log(`    全平台(macos/linux)如需发布: git tag desktop-v${version}
 
 // ── 5. 本机静默自装 ──
 if (!NO_INSTALL) {
-  const running = spawnSync('tasklist', [], { windowsHide: true }).stdout?.toString().toLowerCase().includes('ihui-desktop');
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  const running = spawnSync('tasklist', [], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }).stdout?.toString().toLowerCase().includes('ihui-desktop');
   if (running) {
     console.log('⚠️ 桌面端正在运行,跳过自装(请关闭后重跑或手动安装)');
   } else {

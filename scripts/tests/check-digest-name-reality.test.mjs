@@ -192,16 +192,20 @@ test('T3 预筛是判据关键字的严格超集 + 名单逐键在临时仓真�
   // 端到面:每关键字单独一文件,预筛必须逐名枚举到;无关键字的哨兵文件不得入面
   const dir = mkScratch('dgnr-prefilter-')
   try {
-    execFileSync(GIT, ['-c', 'safe.directory=*', '-C', dir, 'init', '-q'], { windowsHide: true, timeout: 60_000 })
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execFileSync(GIT, ['-c', 'safe.directory=*', '-C', dir, 'init', '-q'], { windowsHide: true, timeout: 60_000, stdio: ['ignore', 'pipe', 'pipe'] })
     mkdirSync(join(dir, 'apps'), { recursive: true })
     keys.forEach((k, i) => {
       writeFileSync(join(dir, 'apps', `kw${i}.ts`), `const v${i} = 1 // ${k}\n`, 'utf8')
     })
     writeFileSync(join(dir, 'apps', 'zznotkw.ts'), 'const plain = 1 // zzqqx\n', 'utf8')
-    execFileSync(GIT, ['-c', 'safe.directory=*', '-C', dir, 'add', '-A'], { windowsHide: true, timeout: 60_000 })
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execFileSync(GIT, ['-c', 'safe.directory=*', '-C', dir, 'add', '-A'], { windowsHide: true, timeout: 60_000, stdio: ['ignore', 'pipe', 'pipe'] })
     execFileSync(GIT, ['-c', 'safe.directory=*', '-C', dir, '-c', 'user.email=g@f.local', '-c', 'user.name=g', 'commit', '-q', '-m', 'f'], {
       windowsHide: true,
       timeout: 60_000,
+      stdio: ['ignore', 'pipe', 'pipe']
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     })
     const listed = new Set(listCandidates(dir, 'head'))
     keys.forEach((_k, i) => assert.ok(listed.has(`apps/kw${i}.ts`), `关键字文件 apps/kw${i}.ts 没被预筛枚举到 ⇒ 超集是纸面的`))
@@ -324,16 +328,20 @@ test('T9 CLI 端到端(临时 git 仓):存量只报数 / 相等不红 / 净新�
   const dir = mkScratch('dgnr-cli-')
   const rel = 'apps/ai-service/app/services/publish/x_guard.py'
   try {
-    execFileSync(GIT, ['-c', 'safe.directory=*', '-C', dir, 'init', '-q'], { windowsHide: true, timeout: 60_000 })
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execFileSync(GIT, ['-c', 'safe.directory=*', '-C', dir, 'init', '-q'], { windowsHide: true, timeout: 60_000, stdio: ['ignore', 'pipe', 'pipe'] })
     for (const c of [['user.email', 'gate@fixture.local'], ['user.name', 'gate-fixture'], ['commit.gpgsign', 'false']]) {
-      execFileSync(GIT, ['-c', 'safe.directory=*', '-C', dir, 'config', ...c], { windowsHide: true, timeout: 60_000 })
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      execFileSync(GIT, ['-c', 'safe.directory=*', '-C', dir, 'config', ...c], { windowsHide: true, timeout: 60_000, stdio: ['ignore', 'pipe', 'pipe'] })
     }
     mkdirSync(join(dir, ...rel.split('/').slice(0, -1)), { recursive: true })
     writeFileSync(join(dir, rel), FIX_PY, 'utf8')
     // 门按自身位置推 ROOT,不装它 + 它的相对 import 闭包,夹具里跑的就是真仓那份门(守门 70 同型)
     copyScriptWithClosure(SCRIPTS_DIR, GATE_REL, join(dir, 'scripts'), ['lib/face-reader.mjs', 'lib/gitdir.mjs'])
-    execFileSync(GIT, ['-c', 'safe.directory=*', '-C', dir, 'add', '-A'], { windowsHide: true, timeout: 60_000 })
-    execFileSync(GIT, ['-c', 'safe.directory=*', '-C', dir, 'commit', '-q', '-m', 'fixture'], { windowsHide: true, timeout: 60_000 })
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execFileSync(GIT, ['-c', 'safe.directory=*', '-C', dir, 'add', '-A'], { windowsHide: true, timeout: 60_000, stdio: ['ignore', 'pipe', 'pipe'] })
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execFileSync(GIT, ['-c', 'safe.directory=*', '-C', dir, 'commit', '-q', '-m', 'fixture'], { windowsHide: true, timeout: 60_000, stdio: ['ignore', 'pipe', 'pipe'] })
 
     // ① 默认档(HEAD 面):有命中也**只报数不判红** —— 与改动无关的恒红门唯一结局是逼人 --no-verify
     const def = runGate(['--root', dir], dir)
@@ -348,7 +356,8 @@ test('T9 CLI 端到端(临时 git 仓):存量只报数 / 相等不红 / 净新�
 
     // ③ 净新增必须红:同一文件再加一处同型撒谎 ⇒ 索引 > HEAD 锚点
     writeFileSync(join(dir, rel), FIX_PY + FIX_PY_GROW, 'utf8')
-    execFileSync(GIT, ['-c', 'safe.directory=*', '-C', dir, 'add', '--', rel], { windowsHide: true, timeout: 60_000 })
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execFileSync(GIT, ['-c', 'safe.directory=*', '-C', dir, 'add', '--', rel], { windowsHide: true, timeout: 60_000, stdio: ['ignore', 'pipe', 'pipe'] })
     const grew = runGate(['--staged', '--root', dir], dir)
     assert.equal(grew.code, 1, `净新增必须 exit 1,实得 ${grew.code}:${grew.out}`)
     const m = /HEAD 存量 (\d+) → 索引 (\d+)/.exec(grew.out)

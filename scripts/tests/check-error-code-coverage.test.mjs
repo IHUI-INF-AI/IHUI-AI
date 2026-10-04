@@ -168,6 +168,8 @@ function fixture(catalogText = CATALOG) {
 
 function run(dir, args = []) {
   return spawnSync(process.execPath, [join(dir, 'scripts', SCRIPT), ...args], {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd: dir,
     windowsHide: true,
     timeout: 120000,

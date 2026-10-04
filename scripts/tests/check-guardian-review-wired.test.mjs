@@ -168,7 +168,9 @@ test('T7 真仓端到端:当前工作树(含本交付)喂 --worktree 面必须 e
   const r = spawnSync(
     process.execPath,
     [path.join(ROOT, 'scripts', 'check-guardian-review-wired.mjs'), '--worktree'],
-    { cwd: ROOT, encoding: 'utf8', windowsHide: true, timeout: 180_000 },
+    { cwd: ROOT, encoding: 'utf8', windowsHide: true, timeout: 180_000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'] },
   )
   assert.equal(r.status, 0, `worktree 面应绿,实际 rc=${r.status}\n${r.stdout}\n${r.stderr}`)
   assert.ok(r.stdout.includes('已装车'))

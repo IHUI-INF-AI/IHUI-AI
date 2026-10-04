@@ -47,7 +47,9 @@ function withRepo(fn) {
     spawnSync(
       gitBinary(),
       ['-c', 'safe.directory=*', '-c', 'user.email=t@t', '-c', 'user.name=t', '-C', dir, ...args],
+      // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
       {
+        stdio: ['ignore', 'pipe', 'pipe'],
         encoding: 'utf8',
         windowsHide: true,
         timeout: 120000,
@@ -55,6 +57,7 @@ function withRepo(fn) {
     )
   const run = () =>
     spawnSync(process.execPath, [CLI, '--staged', '--gate', '--root', dir], {
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
       windowsHide: true,
       timeout: 120000,
@@ -140,6 +143,7 @@ test('F8-E2E-5 到期清单必须落到"量得到年龄"这一面:追溯器报�
     process.execPath,
     [path.join(ROOT, 'scripts', 'lib', 'plan-line-age.mjs'), '--self-test'],
     {
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
       windowsHide: true,
       timeout: 300000,
