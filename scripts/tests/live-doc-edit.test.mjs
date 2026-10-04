@@ -16,15 +16,16 @@
 // git 写操作只发生在 scratch-dir 临时仓内,绝不碰真仓。
 
 import { execFileSync, spawnSync } from 'node:child_process'
-import { readFileSync, utimesSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import { __test__ } from '../live-doc-edit.mjs'
-import { git, headBlobOf, indexBlobOf, writeBlob } from '../lib/bypass-git.mjs'
+import { git, headBlobOf, indexBlobOf, landsLedger, writeBlob } from '../lib/bypass-git.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
 import { resolveGitBin } from '../lib/gitdir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -1303,4 +1304,128 @@ test('T14b 装饰括注行必须顶起号段基准(本票病根);行文引用不
   assert.equal(p.ok, true)
   assert.equal(p.basis[0].localMax, 700, `散文引用不得进号段基准,实测 ${p.basis[0].localMax}`)
   assert.equal(p.assigned, 'G-701', `应紧接基准发号,实测 ${p.assigned}`)
+})
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// G-816708(2026-10-05):旁路落地台账的那一刻,守门 71 的自愈必须真的被跑到。
+// 本器每一枚提交都走 commit-tree + CAS ⇒ 钩子结构性不跑 ⇒ 挂在 .husky/post-commit 第 6 节
+// 那层自愈对本器从来不会触发;而本器改的正是登记行。三条用例与 object-space-land 同构:
+//  H1 正向(真门,不是桩):整行改写把编号从行上摘掉 ⇒ 同一轮里点名 + 前向恢复提交;
+//  H2 反向对照:同样的调用形态但 LIVE_DOC 不是台账 ⇒ 不得多派生那一个进程(哨兵可证);
+//  H3 方向锁 + 失败臂:补跑没跑成 ⇒ 落地照旧 0,但必须喊出来。
+// 夹具一律 `git init -b main`:门 71 的恢复提交写 refs/heads/main(既有实现),分支名不对就只剩
+// "跑而未成"那一档可测;桩只仿"有没有被派生 / 退出码 / stderr"三格传输,不仿判据(与门体桩同规)。
+// ─────────────────────────────────────────────────────────────────────────────
+const LDFILL = [1, 2, 3, 4].map(
+  (i) => `  - **G-9001${i}0 填充行(夹具)**:与本轮判定无关、三面都在的登记行,只为把基线垫过规模闸。`,
+)
+const LD_A = '  - **G-900001 甲行(夹具)**:三面都在的无关登记行,用来确认现场里只有乙行被动过。'
+const LD_B = '  - **G-900002 乙行(夹具)**:这一行本来在 HEAD 里,本轮整行改写把编号从行上摘掉了 ⇒ 必须被点名。'
+// 改写后的形态:复选框 + 日期都在,但**行上不再有编号** —— 台账结清时最容易顺手做出的那一型丢失
+const LD_B_DONE =
+  '  - [x] ✅(2026-10-05) 乙行收尾:编号在这次改写里被摘掉了(这正是本器会造成的那一型丢失),正文足够长以入选登记行基线。'
+const LD_PLAN = ['# 计划', '', LD_A, ...LDFILL, '', LD_B, ''].join('\n')
+
+function makeLedgerDocRepo(t) {
+  const dir = mkScratch('lde-ledger-')
+  const inputs = mkScratch('lde-ledger-in-')
+  t.after(() => rmScratch(dir))
+  t.after(() => rmScratch(inputs))
+  runGit(dir, ['init', '-q', '-b', 'main'])
+  // 提交身份写进**夹具的 git config**:自愈那个子进程用裸 git 派生,不靠调用方传 -c
+  runGit(dir, ['config', 'user.email', 'heal@e2e.local'])
+  runGit(dir, ['config', 'user.name', 'heal-e2e'])
+  runGit(dir, ['config', 'commit.gpgsign', 'false'])
+  writeFileSync(join(dir, 'PROJECT_PLAN.md'), LD_PLAN)
+  runGit(dir, ['add', '--', 'PROJECT_PLAN.md'])
+  runGit(dir, ['commit', '-q', '-m', 'plan: 甲乙入库'])
+  return { dir, inputs }
+}
+
+function installRealGate(dir) {
+  return copyScriptWithClosure(join(HERE, '..'), 'check-plan-line-loss.mjs', join(dir, 'scripts'), [
+    'lib/face-reader.mjs',
+  ])
+}
+
+function installHealStub(dir, { rc = 0, stderr = '' } = {}) {
+  mkdirSync(join(dir, 'scripts'), { recursive: true })
+  writeFileSync(
+    join(dir, 'scripts', 'check-plan-line-loss.mjs'),
+    "import { writeFileSync } from 'node:fs'\n" +
+      "writeFileSync(new URL('../.heal-ran', import.meta.url), JSON.stringify(process.argv.slice(2)))\n" +
+      `process.stderr.write(${JSON.stringify(stderr)})\n` +
+      `process.exit(${rc})\n`,
+  )
+  writeFileSync(join(dir, 'scripts', 'git-push-guard.mjs'), 'process.exit(0)\n')
+}
+const healSentinel = (dir) => join(dir, '.heal-ran')
+
+test('H1 G-816708 正向(行为断言):落地台账的同一轮里补跑真门,点名被摘掉的登记行并建恢复提交', (t) => {
+  const { dir, inputs } = makeLedgerDocRepo(t)
+  installRealGate(dir)
+  const rep = join(inputs, 'replace.json')
+  writeFileSync(rep, JSON.stringify([{ before: LD_B, after: LD_B_DONE }]), 'utf8')
+  const before = git(['rev-parse', 'HEAD'], { root: dir })
+  const r = runLive(dir, { doc: 'PROJECT_PLAN.md', replaceFile: rep })
+  const out = `${r.stdout}\n${r.stderr}`
+  assert.equal(r.status, 0, `改写应成功落地,实得 ${r.status}:\n${out}`)
+  assert.match(out, /\[G-816708\][\s\S]{0,120}就地补跑守门 71/, '本器必须报名"这一跑是 post-commit 的替身"')
+  assert.match(out, /\[分档\] 历史登记行 \d+ 条/, '补跑要的是真门,不是桩:它的读数必须可见')
+  assert.match(out, /\[点名\/HEAD\][^\n]*G-900002 乙行/, '被摘掉编号的那一行必须**点名**到行,不得只报数')
+  // 仓库状态是**最硬的回读**:本器一枚 + 就地恢复一枚,恰好两枚,后者父是前者
+  assert.equal(
+    Number(git(['rev-list', '--count', `${before}..HEAD`], { root: dir })),
+    2,
+    `应为"改写落地一枚 + 补跑恢复一枚",实得:\n${out}`,
+  )
+  const landedText = git(['show', "HEAD^:PROJECT_PLAN.md"], { root: dir, raw: true })
+  assert.match(landedText, /乙行收尾/, '本次改写确实落进了 HEAD(现场成立)')
+  assert.doesNotMatch(landedText, /G-900002 乙行/, '本次改写确实把那一条登记行摘没了(现场成立)')
+  assert.match(
+    git(['show', 'HEAD:PROJECT_PLAN.md'], { root: dir, raw: true }),
+    /G-900002 乙行/,
+    '恢复后的 HEAD 必须重新含那一行 —— "当场收口"而不是"报给下一个人"',
+  )
+  assert.equal(
+    indexBlobOf('PROJECT_PLAN.md', { root: dir }),
+    headBlobOf('HEAD', 'PROJECT_PLAN.md', { root: dir }),
+    '主索引必须对齐到恢复后的 HEAD blob(补跑排在索引对齐之前正是为了这一格)',
+  )
+})
+
+test('H2 G-816708 反向对照:同样的落地形态但 LIVE_DOC 不是台账 ⇒ 不得多派生那一个进程', (t) => {
+  const { dir, inputs } = makeLedgerDocRepo(t)
+  installHealStub(dir)
+  runGit(dir, ['mv', '-f', 'PROJECT_PLAN.md', 'DOC.md'])
+  runGit(dir, ['commit', '-q', '-m', '把同一份内容改名成非台账文档'])
+  const rep = join(inputs, 'replace.json')
+  writeFileSync(rep, JSON.stringify([{ before: LD_B, after: LD_B_DONE }]), 'utf8')
+  const r = runLive(dir, { doc: 'DOC.md', replaceFile: rep })
+  const out = `${r.stdout}\n${r.stderr}`
+  assert.equal(r.status, 0, `改 DOC.md 应成功:\n${out}`)
+  assert.equal(existsSync(healSentinel(dir)), false, '不含台账的落地不得派生那一个进程(哨兵被写了)')
+  assert.doesNotMatch(out, /\[G-816708\]/, '没跑就不许喊"补跑过"(凭空声称一个没发生的动作)')
+})
+
+test('H3 G-816708 方向锁 + 失败臂:补跑没跑成 ⇒ 落地照旧 0,但必须喊出来', (t) => {
+  const { dir, inputs } = makeLedgerDocRepo(t)
+  installHealStub(dir, { rc: 1, stderr: 'boom: 门体未能判定\n' })
+  const rep = join(inputs, 'replace.json')
+  writeFileSync(rep, JSON.stringify([{ before: LD_B, after: LD_B_DONE }]), 'utf8')
+  const r = runLive(dir, { doc: 'PROJECT_PLAN.md', replaceFile: rep })
+  const out = `${r.stdout}\n${r.stderr}`
+  assert.ok(existsSync(healSentinel(dir)), '摘掉补跑调用 ⇒ 这一条先红(没人写哨兵)')
+  assert.equal(JSON.parse(readFileSync(healSentinel(dir), 'utf8')).join(' '), '--heal --commit', '补跑必须是提交档(与 post-commit 第 6 节同形)')
+  assert.equal(r.status, 0, `替身没跑成不该把已入库的落地判红,实得 ${r.status}:\n${out}`)
+  assert.match(out, /跑而未成|未派生成功/, '失败必须点名是哪一档(跑而未成 / 根本没派生)')
+  assert.doesNotMatch(out, /无缺失,无需回捞/, '补跑没跑成时,"无缺失"这句话不得由任何人替它说')
+})
+
+test('H4 G-816708 触发条件单位锁:LIVE_DOC 只有逐字等于台账才成立(AGENTS/README 不触发)', () => {
+  assert.equal(landsLedger(['PROJECT_PLAN.md']), true)
+  assert.equal(landsLedger(['AGENTS.md']), false, 'AGENTS 也是活文档,但不是那本台账')
+  assert.equal(landsLedger(['README.md']), false)
+  assert.equal(landsLedger(['docs/PROJECT_PLAN.md']), false, '子目录里那份不是台账')
 })

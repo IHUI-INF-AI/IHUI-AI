@@ -22,6 +22,15 @@
  * 本层只装 plumbing(派生传输 + blob 取数 + 临时索引提交 + CAS + 一份索引对齐判据);
  * 各工具自己的判据(锚点唯一性、取号规则、结构组装)刻意留在工具内 —— 不为了 DRY 把决策揉在一起。
  *
+ * G-816708(2026-10-05)起本层再装**第二条落地契约**:`landsLedger()` / `rerunLedgerHeal()` ——
+ * 旁路落地(`commit-tree` + CAS)结构上不跑任何钩子,所以挂在 `.husky/post-commit` 第 6 节的
+ * 守门 71 台账自愈对旁路落地**结构性失明**(台账被滞后副本写回时,门的全量档点名已入库的红,
+ * 而同一分钟的自愈日志写着"无缺失,无需回捞")。判据必须在真跑它的那一刻才成立,否则等于没有
+ * (§1 为 `git-sync-converge` 补"落合并提交后就地补跑一次自愈"是同一原则),所以每一台旁路落地器
+ * 都要在 CAS 成功出口自己补跑一次。补跑的派生/措辞只在 `lib/post-merge-ledger-sync.mjs` 那一份,
+ * 本层加的只是"这次落地是否含台账"那条触发条件与大声点名 —— 两台落地器各写一份条件必然漂开
+ * (本文件头注那三条漂移实例之一正是"同一规矩两份实现")。
+ *
  * 纪律(与本仓既有共用层同规):
  *  - git 一律**绝对路径**候选解析(AGENTS §5b"git 调用不得依赖环境";复用 scripts/lib/gitdir.mjs 的 resolveGitBin,
  *    与 scripts/lib/face-reader.mjs 同一条兜底链,不再抄第三份候选表)。
@@ -37,6 +46,9 @@ import { join, resolve } from 'node:path'
 
 import { resolveGitBin } from './gitdir.mjs'
 import { mkScratch, rmScratch } from './scratch-dir.mjs'
+// G-816708:旁路落地后补跑台账自愈的**唯一派生出口**(命令行形状、派生参数、失败臂措辞都在那一份里,
+// 与 git-sync-converge / union-converge 用的是同一个器物 —— 不另发明第二套调用协议)。
+import { postMergeLedgerSync } from './post-merge-ledger-sync.mjs'
 
 const GIT_BIN = resolveGitBin() || 'git'
 const DEFAULT_TIMEOUT_MS = 180_000
@@ -334,5 +346,84 @@ export function alignSharedIndex({
     }
   }
   return { moved: 0, already: 0, skipped: [], undetermined: [], lockAbandoned: false, failed: true, error: '轮次耗尽' }
+}
+
+/**
+ * 台账的仓库相对路径(逐字比较)。git 的 pathspec 是大小写敏感的规范名,落地器声明的也是它,
+ * 所以这里不做大小写折叠 —— 折叠会把 `project_plan.md`(另一个仓里的同名文件)也算成台账。
+ */
+export const LEDGER_DOC = 'PROJECT_PLAN.md'
+
+/**
+ * 这次落地的路径里有没有台账?只判**声明的落地面**,不判"消息里提到了它"(LAND_MSG / LIVE_MSG 是
+ * 提交信息文本,不是路径 —— 本仓为这一格踩过取证坑)。分隔符与 `./` 前缀归一是唯一的形态处理。
+ */
+export function landsLedger(paths) {
+  const norm = (p) =>
+    String(p ?? '')
+      .replace(/\\/g, '/')
+      .replace(/^\.\//, '')
+  return (Array.isArray(paths) ? paths : []).some((p) => norm(p) === LEDGER_DOC)
+}
+
+/**
+ * G-816708:旁路落地器在 CAS 成功出口**就地补跑一次台账自愈**。
+ *
+ * 为什么必须由落地器自己跑:钩子对 `commit-tree` 那一族结构性不跑 ⇒ 自愈挂在 `.husky/post-commit`
+ * 就等于对旁路落地永不触发;而"账面读起来像每轮都跑过、什么都没缺"正是本票的成因。
+ *
+ * 用**提交档**(`--heal --commit`)而不是报告档,一行理由:这一跑是**钩子的替身**,替身必须与原件
+ * 同形 —— 原件(`.husky/post-commit` 第 6 节)跑的就是 `--heal --commit`,只给报告档等于把
+ * "回补"留给下一个人(plan-union-merge 那条先例写的就是这句),而旁路落地缺的恰恰是已入库那一档。
+ *
+ * **不成环**(票面硬要求,三条都是既有事实而不是新造的旗):
+ *  ① 恢复提交由 `commit-tree` + `update-ref` 产生 ⇒ 钩子结构性不跑 ⇒ 永远不会回调本落地器;
+ *  ② 幂等判据已在生产侧:该档只在 HEAD 真的缺登记行时才建提交,补完后再扫一次即
+ *     "无缺失,无需回捞"(`heal()` 的 `headMissing.length === 0` 那一支),故严格收敛、不会自激;
+ *  ③ 规模安全闸(>40% 判基线异常)拒绝写盘并返回 1 ⇒ 异常形态只会喊,不会连着产提交。
+ * 紧急旗沿用**既有**那一个:`HUSKY_SKIP_PLAN_HEAL=1` 由 `.husky/post-commit` 读;本器刻意**不**读它 ——
+ *  给落地器同一个逃生舱等于把本票要闭的那个洞重新开一条(旁路落地不跑钩子,那面旗在钩子里才有意义)。
+ *
+ * 谁在调用本出口(逐台点名,少一台就是该型缺陷没兜住):
+ *  · 已接:`object-space-land.mjs`(本票) · `live-doc-edit.mjs`(本票)
+ *  · 早已接(先例,走的是同一个器物):`git-sync-converge.mjs` / `union-converge.mjs`
+ *  · **未接,本票动不了**:`scripts/plan-tasks-merge.mjs` —— 它是第四台旁路落地器
+ *    (`--heal --commit` / `--fold-twins --commit` 都走 commit-tree + CAS,同样不跑钩子,
+ *    而它落的内容正是台账行)。它同样必须自带补跑,否则本票的洞在它那一台上原地复活。
+ *    未做的原因是硬约束而不是遗漏:该文件本票开工时是 ` M`(他人持有),票面明令禁止改动;
+ *    镜像测试 `post-merge-ledger-sync.test.mjs` 的 L2 装车锁目前只钉两台收敛器,把它扩到
+ *    落地器三台(object-space-land / live-doc-edit / plan-tasks-merge)是那一票的收口动作。
+ *
+ * 失败一律**大声点名且不改变落地成败**(与 lib/post-merge-ledger-sync.mjs 第 2 条同规:零丢失自证
+ * 已经通过的落地,不该被一次补跑没跑成判成失败;但"没跑成"必须被喊出来,静默的自愈等于没有自愈)。
+ *
+ * @param {{root:string, paths:string[], log?:Function, loud?:Function}} a
+ * @returns {{triggered:boolean, ran:boolean, ok:boolean, why:string}}
+ */
+export function rerunLedgerHeal({
+  root,
+  paths,
+  log = (s) => console.log(s),
+  loud = (s) => console.error(s),
+} = {}) {
+  if (!landsLedger(paths)) return { triggered: false, ran: false, ok: true, why: '' }
+  log(
+    `🩹 [G-816708] 本次落地声明含 ${LEDGER_DOC} ⇒ 就地补跑守门 71 台账自愈` +
+      `(` +
+      '`node scripts/check-plan-line-loss.mjs --heal --commit`' +
+      `;旁路落地不跑钩子,这一跑就是 post-commit 第 6 节的替身)`,
+  )
+  const r = postMergeLedgerSync({ root, log })
+  if (!r.ran)
+    loud(
+      `❌ [G-816708] 台账自愈**未派生成功**(这不等"跑过且没问题"):${r.why}\n` +
+        `   本轮台账的登记行缺失此刻无人核过 ⇒ 请手工补跑:node scripts/check-plan-line-loss.mjs --heal --commit`,
+    )
+  else if (!r.ok)
+    loud(
+      `❌ [G-816708] 台账自愈**跑而未成**(rc≠0/超时):${r.why}\n` +
+        `   这一轮的"缺不缺登记行"没有任何一面得出过结论 ⇒ 不得当成"什么都没缺";手工补跑:node scripts/check-plan-line-loss.mjs --heal --commit`,
+    )
+  return { triggered: true, ran: r.ran, ok: r.ok, why: r.why }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
