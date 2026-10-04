@@ -173,6 +173,8 @@ function detectRefs(dir: string): boolean {
     const drive = resolved.slice(0, 2)
     if (!/^[A-Za-z]:$/.test(drive)) return false
     const r = spawnSync('fsutil', ['fsinfo', 'volumeinfo', drive], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf-8',
       windowsHide: true,
       timeout: 5_000,
@@ -541,6 +543,8 @@ export async function createWorktree(opts: WorktreeOptions): Promise<WorktreeRes
   // 7. ref 指定且不是 HEAD → checkout
   if (ref && ref !== 'HEAD') {
     const r = spawnSync('git', ['-C', destination, 'checkout', ref], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf-8',
       windowsHide: true,
     })
@@ -554,6 +558,8 @@ export async function createWorktree(opts: WorktreeOptions): Promise<WorktreeRes
   // 8. preserveWorkingTree=false → reset --hard 丢弃未提交修改
   if (!preserveWorkingTree) {
     const r = spawnSync('git', ['-C', destination, 'reset', '--hard'], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf-8',
       windowsHide: true,
     })
@@ -576,6 +582,8 @@ export async function createWorktree(opts: WorktreeOptions): Promise<WorktreeRes
 async function readModifiedFiles(repoDir: string): Promise<string[]> {
   try {
     const r = spawnSync('git', ['-C', repoDir, 'status', '--porcelain'], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf-8',
       windowsHide: true,
       // 只读查询封顶 60s(守门 80):等锁/等 IO 型挂死会把整条 CoW 快路径拖成长尾
@@ -623,6 +631,8 @@ export async function removeWorktree(wtPath: string): Promise<void> {
     if (isLinked && sourceRepo) {
       // linked worktree:从源仓库调 git worktree remove --force
       const r = spawnSync('git', ['worktree', 'remove', '--force', wtPath], {
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
         cwd: sourceRepo,
         encoding: 'utf-8',
         windowsHide: true,

@@ -99,11 +99,13 @@ function npmPackDryRun() {
       stdio: ['ignore', 'pipe', 'pipe'],
     })
   }
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   const r = spawnSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', args, {
     cwd: PKG_DIR,
     encoding: 'utf8',
     shell: true,
     windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   if (r.status !== 0) throw new Error(r.stderr || `npm pack exit ${r.status}`)
   return r.stdout
