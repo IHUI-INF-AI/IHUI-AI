@@ -49,34 +49,7 @@ const isTestFace = (path) =>
  * 棘轮基线(2026-10-04 站点普查现读,路径→处数)。清理该文件后把条目摘除;
  * 基线必须只减不增,新增文件永不入基线。
  */
-const RATCHET_BASELINE = {
-  'apps/api/src/routes/ai-grading.ts': 1,
-  'apps/miniapp-taro/src/components/ProgressBar.tsx': 1,
-  'apps/miniapp-taro/src/components/ProgressCircle.tsx': 1,
-  'apps/miniapp-taro/src/pages/study/my-study/index.tsx': 1,
-  'apps/miniapp-taro/src/pages/study/record.tsx': 1,
-  'apps/web/app/(main)/admin/saas/_components/QuotaCard.tsx': 1,
-  'apps/web/app/(main)/admin/saas/metrics/page.tsx': 1,
-  'apps/web/app/(main)/ai-world/TrendingBadge.tsx': 1,
-  'apps/web/app/(main)/developer/PageClient.tsx': 1,
-  'apps/web/app/(main)/feature-center/documents/page.tsx': 1,
-  'apps/web/app/(main)/knowledge-cards/page.tsx': 1,
-  'apps/web/app/(main)/learn/map/page.tsx': 2,
-  'apps/web/app/(main)/purchase/helpers.ts': 1,
-  'apps/web/app/(main)/stock/page.tsx': 1,
-  'apps/web/app/(main)/student/my-lessons/page.tsx': 1,
-  'apps/web/app/(main)/user/learn-record/page.tsx': 1,
-  'apps/web/src/components/ai/agent-task-progress-pane.tsx': 1,
-  'apps/web/src/components/ai/chart-template-card.tsx': 1,
-  'apps/web/src/components/ai/orchestration-hub-panel.tsx': 1,
-  'apps/web/src/components/ai/progress-sections/progress-ring.tsx': 1,
-  'apps/web/src/components/common/ProgressBar.tsx': 1,
-  'apps/web/src/components/publish/UploadProgress.tsx': 1,
-  'apps/web/src/components/rules/RuleEditDialog.tsx': 1,
-  'apps/web/src/hooks/use-chat/budget-state.ts': 2,
-  'apps/web/src/stores/goal.ts': 2,
-  'packages/app/src/features/study-plan/StudyPlanScreen.tsx': 1,
-}
+const RATCHET_BASELINE = {} as Record<string, number>
 
 /** 裁定:一条 grep 预筛输出(HEAD:path:line:content)是否构成违规 */
 function judgeLine(raw) {
