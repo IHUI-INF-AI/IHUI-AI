@@ -179,6 +179,19 @@ function tmpPathFor(absPath: string): string {
 const O_NOFOLLOW_FLAG = typeof fs.constants.O_NOFOLLOW === 'number' ? fs.constants.O_NOFOLLOW : 0;
 
 function openTmpExclusive(tmp: string): number {
+  // POSIX 实测(2026-10-04 CI/Linux):「tmp 分量是符号链接且指向存在目标」时,
+  // O_CREAT|O_EXCL 的存在性判定先于 O_NOFOLLOW 触发 ⇒ 拿到的是 EEXIST 而非 ELOOP,
+  // 下面的 ELOOP 映射接不住,裸 Error 漏给调用方。open 前先 lstat 一眼:凡符号链接
+  // 一律按同一口径映射 SymlinkTargetError,不给它伪装成"tmp 名撞车"的机会。
+  // (这也正是注释里承诺的 Windows 兜底口径 —— 该平台 Node 未暴露 O_NOFOLLOW。)
+  try {
+    if (fs.lstatSync(tmp).isSymbolicLink()) {
+      throw new SymlinkTargetError(tmp, '(tmp 分量当前是重解析点)');
+    }
+  } catch (e) {
+    if (e instanceof SymlinkTargetError) throw e;
+    // lstat 失败(多半 ENOENT)= 常规路径,继续走 O_EXCL 独占创建
+  }
   try {
     return fs.openSync(
       tmp,

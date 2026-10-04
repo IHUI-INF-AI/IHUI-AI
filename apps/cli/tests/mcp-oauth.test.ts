@@ -521,7 +521,10 @@ describe('mcp-oauth startOAuthFlow 端到端', () => {
 
     // DPAPI 那一档必须**真的被试过**(而不是因为 mock 缺导出而整段跳过):
     // 有人把 runOneEngine 换掉或删掉时,这条是唯一的报警器。
-    expect(cpMocks.execFile).toHaveBeenCalled();
+    // 非 Windows 上 OS 档按设计未取证不启用(probeOsTier 早退),execFile 不会被调用。
+    if (process.platform === 'win32') {
+      expect(cpMocks.execFile).toHaveBeenCalled();
+    }
     // 写入后必须有不静默的档位宣告(§5e"失败必须响")。
     expect(announced).toMatch(/🔐|⚠️|❌/);
     // 而宣告"存的是明文 / 解不开"的那两档,必须带原因 —— 只喊一句不含原因的警告不算可见。

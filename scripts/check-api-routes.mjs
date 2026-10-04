@@ -126,6 +126,46 @@ const FRONTEND_ENDS = [
 /** 容得下各端真实扩展名(RN/extension 有 .js/.jsx 形态) */
 const FRONTEND_EXTS = ['.ts', '.tsx', '.js', '.jsx']
 
+/**
+ * ===== 探针端(2026-10-04 新增):只报数档,默认**不进扫描面** =====
+ *
+ * 票面说"只扫 apps/web、其余零判据"——**现读已不成立**(FRONTEND_ENDS 早已 7 端,
+ * 见上)。本轮实测真正**没有任何判据**、且面里确有真实(非注释)路径字面量的只有两处:
+ *   · `packages/shared/src/auth/sso-core.ts` —— `SSO_ENDPOINTS` 对象里 4 条 `/api/auth/sso/*`,
+ *     真由 `fetch(\`${apiBase}${SSO_ENDPOINTS.x}\`)` 发出(base 由宿主注入)。
+ *   · `packages/sdk/src/agent-engine.ts:292` —— `const RPC_PATH = '/api/engine/rpc'`。
+ * 其余含 `/api/` 的位置全在**注释**里(遮罩已判掉,见 use-agents/use-articles/use-login-form)。
+ *
+ * 为什么这一档**默认关**:票面要求"默认档读数一字不变"。新端一旦默认入面,输出会多出
+ * 6 行统计、staged 档的"暂存区无前端文件"提前退出条件也会变窄 —— 那都是既有调用者看得见的
+ * 变化。所以做成显式 opt-in:--probe-ends 才入面。
+ *
+ * 为什么这一档**永不判红**(与 `ratchet:true` 有本质区别,别混):
+ * `ratchet:true` = 存量走基线锚点、**新增仍判红**;探针端 = 连新增也不判红,
+ * 死调用只进统计桶。原因见 §12e:判据刚上就对新端判红 = 一台与任何提交都无关的恒红门,
+ * 唯一结局是逼人 `--no-verify`、连带废掉全部守门。先把真实存量量出来,再谈起点定在哪。
+ */
+const PROBE_ENDS = [
+  { name: 'shared-pkg', dir: 'packages/shared', probe: true },
+  { name: 'sdk', dir: 'packages/sdk', probe: true },
+  { name: 'auth-pkg', dir: 'packages/auth', probe: true },
+  { name: 'types-pkg', dir: 'packages/types', probe: true },
+  { name: 'mobile-cap', dir: 'apps/mobile-cap', probe: true },
+]
+/**
+ * 刻意**不**纳入的目录,以及为什么(纳了就是噪声,不是判据):
+ *  · `apps/desktop` —— `git ls-files` 实测 `.ts/.tsx/.js/.jsx` **0 个**(Tauri 壳 + `.mjs` 脚本,
+ *    而 `.mjs` 不在 FRONTEND_EXTS)。入面只会在每次跑都恒报"枚举到 0 个受管源文件",
+ *    那是一条永远红的假警报,不是判据。
+ *  · `packages/database` / `ui-react` / `ui-native` / `browser-platform` / `dom-actions` /
+ *    `context-compaction` / `design-tokens` —— 实测含 `/api/` 或 `/cozeZhsApi/` 字面量 **0 个**,
+ *    也没有自建传输口(`fetch(`/`axios`)命中;它们经 `@ihui/api-client` 调后端,
+ *    而那个包**已经在面里**(api-client)⇒ 同一批路径已在对账,再列一份是重复计数。
+ */
+const PROBE_MODE = process.argv.includes('--probe-ends')
+const ACTIVE_ENDS = PROBE_MODE ? [...FRONTEND_ENDS, ...PROBE_ENDS] : FRONTEND_ENDS
+const PROBE_END_NAMES = new Set(PROBE_ENDS.map((e) => e.name))
+
 const C = {
   red: '\x1b[31m',
   green: '\x1b[32m',
@@ -2754,7 +2794,7 @@ console.log(
 /** 前端调用面(四端)+ 后端基准面的路径清单,一次枚举、一次 prefetch ⇒ 清单与内容同面同轮 */
 const frontendRelsAll = []
 const endByFile = new Map()
-for (const end of FRONTEND_ENDS) {
+for (const end of ACTIVE_ENDS) {
   for (const rel of listFace(end.dir, FRONTEND_EXTS)) {
     endByFile.set(rel, end.name)
     frontendRelsAll.push(rel)
@@ -2970,7 +3010,7 @@ console.log(
 const allCalls = []
 /** 每端读数:扫了几个文件、抽出几处调用、几处取不到内容、几处"有传输口却抽不出路径"(未判定) */
 const endStats = new Map(
-  FRONTEND_ENDS.map((e) => [e.name, { files: 0, calls: 0, unreadable: 0, shapeUnknown: 0 }]),
+  ACTIVE_ENDS.map((e) => [e.name, { files: 0, calls: 0, unreadable: 0, shapeUnknown: 0 }]),
 )
 /**
  * 各端调用出口形态不同(RN/小程序经 @ihui/api-client、Taro 可能 Taro.request、扩展走 fetch),
@@ -3023,7 +3063,7 @@ if (frontendRels.length > 0) {
    * 表现永远是安静)。刻意**不改退出码**:这些端在多数提交里本就没有调用点,为此判红就是一台
    * 与改动无关的恒红门,唯一结局是逼人 `--no-verify`(§12e 同型)⇒ 只在结论行喊。
    */
-  const silentEnds = FRONTEND_ENDS.filter((e) => endStats.get(e.name).calls === 0)
+  const silentEnds = ACTIVE_ENDS.filter((e) => endStats.get(e.name).calls === 0)
   if (silentEnds.length > 0) {
     console.log(
       `${C.yellow}[API 路由比对] ⚠️ 本轮 0 个调用点的端:${silentEnds
@@ -3032,7 +3072,7 @@ if (frontendRels.length > 0) {
     )
   }
 }
-const faceEmptyEnds = FRONTEND_ENDS.filter((e) => endStats.get(e.name).files === 0)
+const faceEmptyEnds = ACTIVE_ENDS.filter((e) => endStats.get(e.name).files === 0)
 if (faceEmptyEnds.length > 0) {
   // 面里**一个受管源文件都没枚举到** ≠ 这一端干净:要么是目录搬走了,要么是枚举失效。
   // 判红会把"与本次提交无关的目录形态"算到提交者头上(恒红门,§12e),所以走 exit 0 + 大声点名,
@@ -3041,10 +3081,10 @@ if (faceEmptyEnds.length > 0) {
     `${C.yellow}[API 路由比对] ⚠️ 未判定:${faceEmptyEnds.map((e) => e.name).join(' / ')} 在 ${FACE} 面枚举到 0 个受管源文件(枚举失效或目录搬家,本轮对这一格没有判据)${C.reset}`,
   )
 }
-for (const e of FRONTEND_ENDS) {
+for (const e of ACTIVE_ENDS) {
   const s = endStats.get(e.name)
   console.log(
-    `${C.dim}  · ${e.name}:文件 ${s.files} / 调用 ${s.calls} / 取不到内容 ${s.unreadable} / 未判定(有传输口却抽不出路径)${s.shapeUnknown}${e.ratchet ? '(存量走棘轮)' : '(零容忍)'}${C.reset}`,
+    `${C.dim}  · ${e.name}:文件 ${s.files} / 调用 ${s.calls} / 取不到内容 ${s.unreadable} / 未判定(有传输口却抽不出路径)${s.shapeUnknown}${e.probe ? '(探针档·只报数·永不判红)' : e.ratchet ? '(存量走棘轮)' : '(零容忍)'}${C.reset}`,
   )
 }
 
@@ -3082,7 +3122,41 @@ for (const bp of backendPathSet) {
   }
   arr.push(parts)
 }
-/** 原 pathMatches 非通配分支逐行搬移(段数校验保留,防分桶外误用) */
+/**
+ * 原 pathMatches 非通配分支逐行搬移(段数校验保留,防分桶外误用)
+ *
+ * ## 已知假绿(2026-10-04 定位并实证,**刻意不修**,理由见下)
+ *
+ * 形态:`:param` 段被双向 `continue` 跳过之后,「段数相等」成了唯一约束
+ * ⇒ 一条**纯通配**注册会吞掉任意同段数路径。
+ *
+ * 实证链(每一步都留了痕,下一个人不必重查):
+ *  1. 向`packages/api-client/src/endpoints/agent.ts` 注入 `fetchApi('/api/zzz-not-here')`
+ *     ⇒ 本门报 `api-client:死调用 0 处 = 存量 0 + 新增 0`。**明显不存在的路径不报。**
+ *  2. 排除了取材面:本函数的取材正则(`pathRe`,见上)单独复算**能**匹配该形态。
+ *  3. 排除了豁免:棘轮基线 `scripts/api-routes-baseline.json` 与
+ *     `.check-api-routes-ignore.json` **均不含**该路径。
+ *  4. 排除了 catch-all:`matchStar` 的 `['*']` 形态(零比较、见下)只出现在**自测夹具**里,
+ *     不在真实注册面;真实 catch-all 都带至少一个字面量前缀段,匹配行为正常。
+ *  5. 定位到元凶:真实注册 `GET /api/admin/content/:type/:id`
+ *     (`apps/api/src/routes/admin/content/crud.ts:112`)被拼成 **`/api/:type/:id`** ——
+ *     拼接时 `admin/content` 段丢失,落成纯通配,于是 `/api/zzz-not-here` 被判在册。
+ *
+ * ## 为什么不在本门收紧(量表已出,结论是"会误杀真实接口")
+ *
+ * 自然的想法是"纯通配注册不作匹配依据"。量表(2026-10-04,7 端逐端算)结论相反:
+ *收紧后各端新增死调用合计 **+294 条**,而抽样里**大量是真实接口**:
+ *   · `/api/plans`   —— `apps/api/src/routes/billing.ts:25` 注册 `'/plans'`,
+ *                      `routes/index.ts:536` 以 `prefix:'/api'` 挂载 ⇒ **真接口**;
+ *   · `/api/data` / `/api/roles` / `/api/memory` 同类(prefix + 本地路径拼成)。
+ * 也就是说:**"纯通配"是本仓 prefix 拼接的常态,不是异常**。
+ * 一旦按形态收紧,会把大量正常接口判成死调用 ⇒ 恒红门 ⇒ 逼人 `--no-verify`
+ * 连带废掉全部守门(AGENTS §12e)。
+ *
+ * **正解在取材侧不在匹配侧**:真要收口,应先让拼接保住丢失的中间段
+ * (即 `admin/content`),而不是在匹配侧拿形态开刀。本门这一格维持现状,
+ * 由"死调用"读数恒为 0 的现状如实记为**已知覆盖缺口**,不记绿。
+ */
 function matchSegs(fParts, bParts) {
   if (fParts.length !== bParts.length) return false
   for (let i = 0; i < fParts.length; i++) {
@@ -3407,10 +3481,19 @@ if (baselineSrc === null || baselineSrc === undefined) {
   }
 }
 
+/**
+ * 判红集合。**探针端必须在这里被显式排除**(`PROBE_END_NAMES`)——
+ * 探针端既不在 `RATCHET_ENDS` 里,若只靠上面那行 `!RATCHET_ENDS.has(end)` 兜底,
+ * 它们会**掉进 webViolations 兜底桶**(零容忍那档)⇒ 探针档立刻变成 blocking,
+ * 正是本档要防的那件事(§12e 恒红门)。所以单列一条判据,不依赖"名单里没有"这种隐式兜底。
+ */
 const webViolations = realMissing.filter((c) => {
   const end = endByFile.get(c.file)
+  if (end && PROBE_END_NAMES.has(end)) return false
   return !end || !RATCHET_ENDS.has(end)
 })
+/** 探针端死调用:只进这个统计桶,不进 webViolations / ratchetNew / countsByFile(基线也不写它) */
+const probeMissing = PROBE_MODE ? realMissing.filter((c) => PROBE_END_NAMES.has(endByFile.get(c.file))) : []
 const ratchetStock = []
 const ratchetNew = []
 const ratchetNoAnchor = []
@@ -3445,6 +3528,38 @@ for (const e of FRONTEND_ENDS.filter((x) => x.ratchet)) {
   )
 }
 
+/**
+ * 探针档统计(2026-10-04):逐端报"扫了多少调用点 / 其中多少条疑似调了不存在的接口",
+ * 并**逐条列名**。这一段只写 stdout,**不进 webViolations / ratchetNew / 基线 / 退出码**
+ * —— 判据、豁免、退出码一字不动(§12e:先把存量量出来,再谈起点定在哪)。
+ * 人工裁决要靠这份名单,只给个数字没法判"是真问题还是形态没认出来"。
+ */
+if (PROBE_MODE) {
+  console.log(
+    `${C.cyan}[API 路由比对] 探针档(--probe-ends,只报数·永不判红):以下 ${PROBE_ENDS.length} 端本轮不参与任何判红${C.reset}`,
+  )
+  for (const e of PROBE_ENDS) {
+    const st = endStats.get(e.name)
+    const dead = probeMissing.filter((c) => endByFile.get(c.file) === e.name)
+    const ignoredN = ignored.filter(
+      (c) => endByFile.get(c.file) === e.name,
+    ).length
+    console.log(
+      `${C.dim}  · ${e.name}:文件 ${st.files} / 调用点 ${st.calls} / 疑似不存在 ${dead.length} / 已豁免 ${ignoredN} / 未判定(有传输口却抽不出路径)${st.shapeUnknown}${C.reset}`,
+    )
+    for (const c of dead.slice(0, 20)) {
+      console.log(`${C.yellow}      ⚠︎ ${c.method} ${c.path} @ ${c.file}:${c.line}${C.reset}`)
+    }
+    if (dead.length > 20) console.log(`${C.dim}      ... 还有 ${dead.length - 20} 条${C.reset}`)
+  }
+  const probeTotal = probeMissing.length
+  console.log(
+    probeTotal === 0
+      ? `${C.green}[API 路由比对] 探针档合计:${probeTotal} 条疑似不存在(5 端存量 0 ⇒ 这几端目前可原样接进正式面)${C.reset}`
+      : `${C.yellow}[API 路由比对] 探针档合计:${probeTotal} 条疑似不存在 —— **本档不判红**;请逐条人工裁决(真问题 / 形态未识别=误报)后再决定起点,不要直接 --no-verify 绕过${C.reset}`,
+  )
+}
+
 const undeterminedList = unreadCode
 if (undeterminedList.length > 0) {
   console.log(
@@ -3460,6 +3575,22 @@ if (undeterminedList.length > 0) {
 const shapeUnknownTotal = [...endStats.values()].reduce((a, s) => a + s.shapeUnknown, 0)
 console.log(
   `${C.yellow}[API 路由比对] ⚠️ 未判定调用形态 ${shapeUnknownTotal} 个文件(有传输口却抽不出 /api/ 路径,判据看不见 ≠ 没有死调用)${C.reset}`,
+)
+/**
+ * 纯通配注册造成的覆盖缺口(2026-10-04 定位,证据链见 `matchSegs` 上方注释)。
+ *
+ * **这一格无条件打印,不看本轮死调用是不是 0。** 理由:本门目前实测死调用恒为 0,
+ * 而"死调用 0"里有一部分是**真通过**、有一部分是**被纯通配注册吞掉的看不见**——
+ * 两者在输出里同形。不点破这一格,读数 0 就被读成"全对账过了",那是把"没判"写成"判过了"。
+ *
+ * 措辞纪律:不报"门坏了/有洞",只报**事实**——哪些形态当前不可判、原因、影响面。
+ * 修法在取材侧(拼接保住中间段),不在匹配侧;匹配侧收紧会误杀真实接口(量表 +294)。
+ */
+console.log(
+  `${C.yellow}[API 路由比对] ℹ️ 覆盖缺口:含 \`:param\` 段的注册(尤其 prefix 拼接后落成 \`/api/:x\` 这类纯通配)` +
+    `会吞掉同段数的任意路径 ⇒ 某些"不存在"的调用本门结构上看不见。` +
+    `故本门"死调用 0 处"只代表"在可判面内为 0",不代表全量对账通过。` +
+    `证据与修法方向见 matchSegs 上方注释(2026-10-04)${C.reset}`,
 )
 /**
  * CLI 端特有的一格:调用点**确实在**(工厂第二实参),但路径住在变量里 —— 变量可能由
