@@ -1601,7 +1601,8 @@ async function main() {
       try {
         execFileSync(GIT_BIN, [...gitQ, 'add', '-f', '--', planRel, archiveRel], {
           cwd: ROOT,
-          stdio: 'pipe',
+          // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+          stdio: 'ignore',
           windowsHide: true,
           timeout: 120_000,
         })
@@ -1641,7 +1642,8 @@ async function main() {
         try {
           execFileSync(GIT_BIN, [...gitQ, 'restore', '--staged', '--', planRel, archiveRel], {
             cwd: ROOT,
-            stdio: 'pipe',
+            // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+            stdio: 'ignore',
             windowsHide: true,
             timeout: 120_000,
           })
@@ -1662,7 +1664,8 @@ async function main() {
         [...gitQ, 'commit', '--no-verify', '-m', msg, '--', planRel, archiveRel],
         {
           cwd: ROOT,
-          stdio: 'pipe',
+          // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+          stdio: 'ignore',
           windowsHide: true,
           env: { ...process.env, IHUI_ARCHIVE_COMMIT: '1' },
           timeout: 120_000,

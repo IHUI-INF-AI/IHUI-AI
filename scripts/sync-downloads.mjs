@@ -241,17 +241,20 @@ function zipDirectoryContents(srcDir, targetZip) {
     try {
       execSync('pwsh -NoProfile -Command "$PSVersionTable.PSVersion.Major"', {
         encoding: 'utf8',
-        stdio: 'pipe',
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: 'ignore',
         windowsHide: true,
       })
     } catch {
       // 无 pwsh 时回退 Windows PowerShell(传统环境)
       cmd = `powershell -NoProfile -Command "${inner}"`
     }
-    execSync(cmd, { encoding: 'utf8', stdio: 'pipe', windowsHide: true })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync(cmd, { encoding: 'utf8', stdio: 'ignore', windowsHide: true })
   } else {
     // macOS/Linux: cd 到源目录后 zip 内容(-X 不保留额外文件属性,-r 递归)
-    execSync(`zip -r -X '${targetZip}' .`, { encoding: 'utf8', stdio: 'pipe', cwd: srcDir })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync(`zip -r -X '${targetZip}' .`, { encoding: 'utf8', stdio: 'ignore', cwd: srcDir })
   }
 }
 
