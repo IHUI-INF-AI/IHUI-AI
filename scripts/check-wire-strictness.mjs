@@ -20,14 +20,18 @@
  *   - 不得把装饰字段塞进控制面 schema 来"顺手通过"(装饰载荷应走 `.optional().catch()` 降级);
  *   - 不得用字符串拼接/动态属性等手段隐藏 schema 声明让统计失明。
  *
- * 用法: node scripts/check-wire-strictness.mjs [--self-test]
- * 本脚本刻意**不接提交链**(guardian-runner / package.json scripts / .husky 均不归本脚本改),
- * 接链由守门持有人统一做(AGENTS §12f)。
+ * 用法: `node scripts/check-wire-strictness.mjs [--staged|--worktree|--self-test]`
+ * **判定面(2026-10-05 收口)**:缺省全量档判 **HEAD blob**、`--staged` 判**索引 blob**(清单与内容同面同轮,
+ * 一次 `cat-file --batch` 读满)、`--worktree` 只是人工取证档;两面旗同给 ⇒ **exit 2**、枚举到 0 个扫描文件
+ * ⇒ **exit 2 判死不记绿**、列在面上而正文取不到的计「未判定」并逐条点名(旧写法直接按 0 计入总量,那等于
+ * 把"没判"写成"判过了")。
+ * 改这一条的起因:此前清单走 `git ls-files`(索引)而内容走磁盘 `readFileSync`,于是**别人半编辑的在飞文件**
+ * 会把全队每一次提交钉红(实测 HEAD 面 91 = 基线、索引面 91,而磁盘面 92 ⇒ 红根本不在任何提交内容里)。
+ * 接链由守门持有人统一做(AGENTS §12f);本门现读已在 `scripts/guardian-runner.mjs` 注册。
  */
-import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import path from 'node:path'
+import { catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -62,30 +66,63 @@ export function judgeTotal(total, baseline = BASELINE_TOTAL) {
   return total <= baseline
 }
 
-function listScanFiles() {
-  const out = execFileSync('git', ['ls-files', ...SCAN_ROOTS], {
-    cwd: ROOT,
-    encoding: 'utf8',
-    // 本会话环境已知病:spawnSync 默认建 stdin 管道会 EBUSY —— stdin 走 ignore 规避
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
-  })
+/** 清单与内容必须同面同轮(旧写法:清单取索引、内容取磁盘 ⇒ 别人半编辑的文件替全队挡门)。 */
+function listScanFiles(face) {
+  const args =
+    face === 'head'
+      ? ['ls-tree', '-r', '--name-only', 'HEAD', '--', ...SCAN_ROOTS]
+      : ['ls-files', '--cached', '--', ...SCAN_ROOTS]
+  const out = gitRaw(args, ROOT)
+  if (out === null || out === undefined) return null
   return out
     .split('\n')
     .map((s) => s.trim())
     .filter((s) => EXTENSIONS.test(s))
 }
 
-function run() {
-  const files = listScanFiles()
+function run(argv) {
+  const sel = selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree') })
+  if (!sel.face) {
+    console.error(`❌ ${sel.error}`)
+    return 2
+  }
+  const face = sel.face
+  let files
+  try {
+    files = listScanFiles(face === 'worktree' ? 'staged' : face)
+  } catch (e) {
+    console.error(`❌ 无法判定:清单取不到(${String(e?.message ?? e).split('\n')[0]})`)
+    return 2
+  }
+  if (files === null) {
+    console.error('❌ 无法判定:git 清单取不到,不记通过也不冒红')
+    return 2
+  }
+  if (files.length === 0) {
+    console.error(`❌ 枚举到 0 个扫描文件(判定面=${face})⇒ 判据失明,不记通过`)
+    return 2
+  }
+  const prefix = face === 'head' ? 'HEAD:' : face === 'staged' ? ':' : ''
+  let contents = new Map()
+  if (face === 'worktree') {
+    for (const p of files) contents.set(p, readWorktreeFile(ROOT, p))
+  } else {
+    try {
+      contents = catBatch(ROOT, files.map((p) => `${prefix}${p}`))
+    } catch (e) {
+      console.error(`❌ 无法判定:内容取不到(${String(e?.message ?? e).split('\n')[0]})`)
+      return 2
+    }
+  }
   const perFile = []
+  const unreadable = []
   let total = 0
   for (const rel of files) {
-    let src
-    try {
-      src = readFileSync(path.join(ROOT, rel), 'utf8')
-    } catch {
-      continue // 立门后已删除的跟踪文件跳过
+    const src = contents.get(`${prefix}${rel}`) ?? contents.get(rel)
+    if (src === undefined || src === null) {
+      // 列在面上却取不到正文 ≠ 该文件没有算子:计未判定并点名,绝不静默按 0 计入总量。
+      unreadable.push(rel)
+      continue
     }
     const c = countWireOperators(src)
     const sum = c.objectDecl + c.strict + c.catch
@@ -95,7 +132,14 @@ function run() {
   perFile.sort((a, b) => b.sum - a.sum)
   const worst10 = perFile.slice(0, 10)
 
+  console.log(`[check-wire-strictness] 判定面=${face}${face === 'worktree' ? '(仅人工取证档,不作问责)' : ''}`)
   console.log(`[check-wire-strictness] scanned files: ${files.length}`)
+  if (unreadable.length) {
+    console.log(
+      `[check-wire-strictness] 未判定 ${unreadable.length} 个(列在面上但正文取不到 ⇒ 未计入总量,逐条点名):`,
+    )
+    for (const u of unreadable.slice(0, 10)) console.log(`     ${u}`)
+  }
   console.log(`[check-wire-strictness] total(z.object + .strict + .catch): ${total} (baseline ${BASELINE_TOTAL}, 只减不增)`)
   console.log('[check-wire-strictness] worst 10 files:')
   for (const w of worst10) console.log(`  ${String(w.sum).padStart(4)} ${w.file}`)
@@ -106,9 +150,10 @@ function run() {
         '控制面边界只减不增被破坏。禁止换 .passthrough()/looseObject 降红;禁止把装饰字段塞进控制面 schema。',
     )
     process.exitCode = 1
-    return
+    return 1
   }
   console.log('[check-wire-strictness] PASS')
+  return 0
 }
 
 // ---------- --self-test:不触盘,内嵌用例验证统计与判定逻辑 ----------
@@ -145,10 +190,20 @@ function selfTest() {
   console.log(`[check-wire-strictness:self-test] ${cases.length} assertions passed`)
 }
 
-if (process.argv.includes('--self-test')) {
-  selfTest()
-  if (process.exitCode !== 1) console.log('[check-wire-strictness:self-test] ALL GREEN')
-} else {
-  run()
+// §22d 双形态入口:被 import(镜像测试 / 诊断脚本)时**只导出判据,不跑审计**。
+// 立据:本文件此前无守卫,任何 `import { countWireOperators }` 都会在导入瞬间打印整份报告并以
+// process.exitCode=1 污染调用方 —— 我拿它做定位脚本时就是这样,一份诊断尺子被伪装成了一次判红。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  const argv = process.argv.slice(2)
+  if (argv.includes('--self-test')) {
+    selfTest()
+    if (process.exitCode !== 1) console.log('[check-wire-strictness:self-test] ALL GREEN')
+  } else {
+    process.exitCode = run(argv)
+  }
 }
+
+export const __test__ = { countWireOperators, judgeTotal, listScanFiles, BASELINE_TOTAL, SCAN_ROOTS }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
