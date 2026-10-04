@@ -14,7 +14,8 @@
 //       (fallback 复用组件本体时由组件保证;内联形态则两处几何逐 token 比对);
 //      R2 = ai-side-panel 内重模块禁静态导入。
 // 用法:node scripts/check-ai-panel-mount-guards.mjs             # 全量扫描(默认 HEAD blob)
-//      node scripts/check-ai-panel-mount-guards.mjs --staged    # 仅审目标文件的 git 索引 blob
+//      node scripts/check-ai-panel-mount-guards.mjs --staged    # 审目标文件的 git 索引 blob;
+//                                                               # 暂存集不含目标文件时按整棵索引兜底(防空暂存恒绿)
 //      node scripts/check-ai-panel-mount-guards.mjs --worktree  # 审工作树(人工排查)
 //      node scripts/check-ai-panel-mount-guards.mjs --root <dir> | --root=<dir>
 //                                                               # 显式注入根目录
@@ -143,7 +144,13 @@ function stagedTargets(root) {
 function readTargets(root, face) {
   ensureDirectory(root)
   if (face !== 'worktree') assertRepoRoot(root, 'AI 面板挂载守门')
-  const candidates = face === 'staged' ? stagedTargets(root) : [...TARGET_FILES]
+  const listed = face === 'staged' ? stagedTargets(root) : [...TARGET_FILES]
+  // 2026-10-04:暂存集不含目标文件时按整棵索引兜底(与 rn-double-header 门 145 同一修法),
+  // 否则任何不碰 AI 面板的提交都会在 staged 档进 UNDETERMINED 判死 —— 那是一台与本次
+  // 提交内容无关的恒红门(§12e)。兜底读的仍是索引 blob(下方 spec 组装 `:rel`),不是
+  // 工作树,所以"没有实际读取输入不得记为通过"的 fail-closed 语义原样保留。
+  const fallbackToFullIndex = face === 'staged' && listed.length === 0
+  const candidates = fallbackToFullIndex ? [...TARGET_FILES] : listed
   if (candidates.length === 0) {
     throw new Undetermined(
       `${FACE_LABEL[face] ?? face} 的候选目标文件为 0；没有实际读取输入,不得记为通过`,
@@ -164,7 +171,7 @@ function readTargets(root, face) {
       throw new Undetermined(`${FACE_LABEL[face] ?? face} 取不到目标文件 ${rel}`)
     }
   }
-  return { candidates, texts }
+  return { candidates, texts, fallbackToFullIndex }
 }
 
 /** 遮掉注释但保留字符串与位置,避免注释里的 import / JSX 被当成代码。 */
@@ -478,13 +485,15 @@ function inspectTargets(candidates, texts) {
   return violations
 }
 
-function report(violations, candidates, face) {
+function report(violations, candidates, face, fallbackToFullIndex = false) {
   const faceLabel = FACE_LABEL[face] ?? face
   if (violations.length === 0) {
     log.info(
       paint(
         COLORS.green,
-        `[PASS] AI 面板装载守门通过(面=${faceLabel},目标文件=${candidates.length},违规=0)`,
+        `[PASS] AI 面板装载守门通过(面=${faceLabel},目标文件=${candidates.length},违规=0${
+          fallbackToFullIndex ? ',空暂存兜底=整棵索引' : ''
+        })`,
       ),
     )
     return 0
@@ -511,8 +520,8 @@ function report(violations, candidates, face) {
 }
 
 function runCheck({ root, face }) {
-  const { candidates, texts } = readTargets(root, face)
-  return { candidates, violations: inspectTargets(candidates, texts) }
+  const { candidates, texts, fallbackToFullIndex } = readTargets(root, face)
+  return { candidates, violations: inspectTargets(candidates, texts), fallbackToFullIndex }
 }
 
 const PLACEHOLDER_CLASSES =
@@ -777,7 +786,7 @@ function main(argv = process.argv.slice(2)) {
   }
   try {
     const result = runCheck(parsed)
-    return report(result.violations, result.candidates, parsed.face)
+    return report(result.violations, result.candidates, parsed.face, result.fallbackToFullIndex)
   } catch (error) {
     if (error instanceof Undetermined) {
       log.error(paint(COLORS.red, `[UNDETERMINED] ${error.message}`))
