@@ -25,9 +25,8 @@ import {
   StyleSheet,
   Text,
   View,
+  type GestureResponderEvent,
   type ImageSourcePropType,
-  type NativeSyntheticEvent,
-  type TouchEvent,
 } from 'react-native'
 import { ChevronLeft, ChevronRight, Copy, Download, Minus, Plus, X } from 'lucide-react-native'
 import {
@@ -135,7 +134,7 @@ export default function ImagePreviewModal({
   /** 只有真的溢出了才把手势面打开 —— 未放大时 tap-to-close 现网行为一字不变 */
   const panApplies = imagePreviewPanApplies(panGeometryAt(0, 0))
 
-  const handleGrant = (event: NativeSyntheticEvent<TouchEvent>) => {
+  const handleGrant = (event: GestureResponderEvent) => {
     dragRef.current = {
       x0: event.nativeEvent.pageX,
       y0: event.nativeEvent.pageY,
@@ -143,7 +142,7 @@ export default function ImagePreviewModal({
       oy: offset.y,
     }
   }
-  const handleMove = (event: NativeSyntheticEvent<TouchEvent>) => {
+  const handleMove = (event: GestureResponderEvent) => {
     const drag = dragRef.current
     if (!drag) return
     setOffset(
