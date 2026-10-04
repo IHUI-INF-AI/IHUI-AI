@@ -8,6 +8,7 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, BookOpen } from 'lucide-react'
+import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { pushError } from '@/stores/error-banner'
@@ -80,7 +81,7 @@ export default function LearnRecordPage() {
         <ul className="space-y-2">
           {items.map((item) => {
             const progress =
-              typeof item.progress === 'number' ? Math.min(100, Math.max(0, item.progress)) : 0
+              typeof item.progress === 'number' ? clampPercent(item.progress) : 0
             return (
               <li
                 key={item.id}

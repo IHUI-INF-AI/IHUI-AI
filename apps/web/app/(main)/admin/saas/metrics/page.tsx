@@ -27,6 +27,7 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import { CenteredText, Skeleton } from '@/components/common'
 import { Tooltip } from '@/components/feedback'
 
@@ -226,7 +227,7 @@ function BarRow({
       <div className="mt-1 h-1.5 w-full overflow-hidden rounded-xs bg-muted">
         <div
           className="h-full rounded bg-primary/60"
-          style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
+          style={{ width: `${clampPercent(pct)}%` }}
           role="progressbar"
           aria-valuenow={Math.round(pct)}
           aria-valuemin={0}
