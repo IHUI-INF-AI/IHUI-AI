@@ -201,7 +201,9 @@ export function scan({ root, minAgeDays = DEFAULT_MIN_AGE_DAYS, now = Date.now()
     if (m.protectedHit) {
       // 整条不许删:里面收着凭据/备份目录,报出路径交人核,不做"递归时顺手跳过它"的半删
       skipped.protected++
-      protectedPaths.push(m.protectedHit)
+      // 体积必须一起记:保护闸"恒拒"的那一族若只报名字不报 GB,读报告的人会以为这一格没多少东西,
+      // 而实测这一族里最大的一条是 11.14 GB(见台账 G-1058525 ③)。
+      protectedPaths.push({ path: m.protectedHit, name: e.name, files: m.files, bytes: m.bytes })
       continue
     }
     candidates.push({ name: e.name, path: full, dir: st.isDirectory(), mtime: new Date(st.mtimeMs).toISOString().slice(0, 10), ...m })
@@ -224,7 +226,10 @@ export function formatReport(r, { apply, minAgeDays }) {
   )
   for (const c of r.candidates.slice(0, apply ? r.candidates.length : 25))
     lines.push(`  ${apply ? 'DEL ' : '·   '} ${c.mtime}  ${(c.bytes / 1048576).toFixed(2)}MB  ${c.dir ? '目录' : '文件'} ${c.name}`)
-  for (const p of r.protectedPaths.slice(0, 10)) lines.push(`  ⛔ 整条不删(夹具内收着凭据/备份目录,交人核): ${p}`)
+  for (const p of r.protectedPaths.slice(0, 10))
+    lines.push(
+      `  ⛔ 整条不删(夹具内收着凭据/备份目录,交人核): ${p.name} · ${p.files} 文件 · ${(p.bytes / 1073741824).toFixed(2)} GB · ${p.path}`,
+    )
   if (r.protectedPaths.length > 10) lines.push(`  ⛔ … 另 ${r.protectedPaths.length - 10} 条保护区命中`)
   if (!apply && r.candidates.length > 25) lines.push(`  … 另 ${r.candidates.length - 25} 条(--apply 时逐条列全)`)
   if (!apply) lines.push('  本轮未删除任何东西;要删请加 --apply')
