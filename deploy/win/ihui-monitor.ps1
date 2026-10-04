@@ -119,6 +119,19 @@ function Log($m) { "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $m" | Add-Conten
 # 4h 窗口结构上永不命中(实测 48h 寄出 47 封)。两处各写一遍必然漂开,故收成一份。
 . (Join-Path $PSScriptRoot 'alert-dedup.ps1')
 
+# ── 并发锁判据:与 ihui-deploy-loop.ps1 / ihui-deploy.ps1 **共用同一份实现**
+#    (deploy-lock-common.ps1)。2026-10-04 接入,理由见 Get-Diagnosis 第 1 分支的注释:
+#    此前本脚本裸 Test-Path,把"锁文件在盘上"当成"真有部署在跑",而部署崩在收尾之前
+#    留下的锁永不过期 ⇒ 每轮巡检都自称"部署重启中"并据此抑制真告警。
+#    找不到就大声死,不得退回裸 Test-Path 继续跑(同 ihui-deploy-loop.ps1:98-104 的处置):
+#    静默退回旧判据 = 把本条修复变成一个永远不生效的选项。
+$LockCommon = Join-Path $PSScriptRoot 'deploy-lock-common.ps1'
+if (-not (Test-Path -LiteralPath $LockCommon)) {
+    Write-Host "FAIL  缺少并发锁判据:$LockCommon(监控拒绝启动,不退回裸 Test-Path 判据)"
+    exit 1
+}
+. $LockCommon
+
 function Resolve-NodeExe {
   # NSSM(LocalSystem)服务上下文的 PATH 常常没有 node,Get-Command 落空后必须按绝对路径兜底。
   $cmd = Get-Command node.exe -ErrorAction SilentlyContinue
@@ -276,11 +289,45 @@ function Get-Diagnosis {
     $buildAgeMin = [math]::Round(($now - $bt).TotalMinutes, 0)
   }
 
-  # 1) 部署锁存在 → 正在构建/部署(最可能原因)
-  if ($deployLockExists) {
-    $lines += "[部署重启中-预期现象] 检测到部署锁(.deploy.lock),有构建/部署正在进行,服务重启导致的短暂不可用属正常,数分钟内自动恢复"
-    return ($lines -join "`n")
-  }
+    # 1) 部署锁存在 → 正在构建/部署(最可能原因)
+    #
+    # 2026-10-04 修(根因,不是收紧):此前是裸 `Test-Path $deployLockDir`,而"锁文件在盘上"
+    # 与"真有部署在跑"是两件事 —— 部署进程崩在收尾之前就会留下一个永不过期的锁。
+    # 实测本机 `.deploy.lock/meta.json` 停在 09-30 19:46,里面记的 pid 6616 / ownerPid 23228
+    # **两个进程都不存在**,锁却仍在;而这个判据是 Get-Diagnosis 的**第 1 分支**,
+    # 于是它恒真 ⇒ 每一轮巡检都自称"[部署重启中-预期现象]"
+    # ⇒ Send-Alert 的抑制分支每轮都命中(实测 10-03 23:42 / 10-04 00:44 / 01:01 三轮全是
+    # "[INFO] 预期窗口(部署重启中)告警已抑制"),真故障被这条**假**理由压住,
+    # 邮件正文里的[原因诊断]也整段答错。
+    #
+    # 仓库里早有陈旧锁的四条判据(deploy-lock-common.ps1 的 Resolve-IhuiDeployLockState,
+    # 其文件头记着上一轮同类事故:pid 会被复用,所以"进程还在"不等于"锁还有主"),
+    # 部署环与守护都走它 —— 只有本监控脚本漏了。改为走同一份实现,不再各写一遍 Test-Path。
+    $deployLockExists = $false
+    $deployLockNote = ''
+    try {
+        if (Test-Path $deployLockDir) {
+            $lockPath = Join-Path $deployLockDir 'meta.json'
+            $lockFile = if (Test-Path $lockPath) { $lockPath } else { $deployLockDir }
+            $st = Resolve-IhuiDeployLockState -Path $lockFile
+            $deployLockNote = Format-IhuiDeployLockState $st
+            # 只有"判定为仍被持有"才算真有部署在跑;stale(陈旧)与 absent 一律按没锁处理。
+            $deployLockExists = ($st.LockExists -and $st.ShouldHold)
+        }
+    } catch {
+        # 判不出时**不**当成有部署(那会静默压住真告警),也不当成没部署(那会把
+        # 换流窗口的短暂拒连当正式告警寄出去)。判不出就走"无锁"并把判据失败写进诊断,
+        # 让人看得见这一格没测到 —— 沉默地选一边正是本条要治的病。
+        $deployLockNote = "部署锁状态判不出($($_.Exception.Message)),本轮按无锁处理"
+        $deployLockExists = $false
+    }
+    if ($deployLockExists) {
+        $lines += "[部署重启中-预期现象] 检测到部署锁(.deploy.lock),有构建/部署正在进行,服务重启导致的短暂不可用属正常,数分钟内自动恢复 | $deployLockNote"
+        return ($lines -join "`n")
+    }
+    if ($deployLockNote) {
+        $lines += "[部署锁已判陈旧/无锁] $deployLockNote(不按'部署重启中'抑制,真故障照报)"
+    }
 
   # 2) 最近 15 分钟内有构建完成 → 刚部署完,服务重启中
   if ($lastBuild -and $buildAgeMin -le 15) {
@@ -377,13 +424,17 @@ while ($true) {
   $alerts = @()
 
   # 1. 本地端口
-  #    旧清单里还有一项 @{n="cdn(80)";p=80},已删。本机 aizhs.top 的公网入口是 **token 模式的
-  #    Cloudflared 服务**(outbound 长连接,deploy/prod-bundle/cloudflared/config.yml 自述"当前
-  #    部署默认用 token 模式,本文件仅作备选"),它**从不在本机 80 上监听** ⇒ "cdn(80) 未监听"
-  #    不是故障,是该拓扑下的恒真误报。此前它无人可见,只因微信腿已被配额打死;邮件腿一通,
-  #    它就会每 $AlertRepeatHours 小时寄一封真信报警一个不存在的故障 —— 所以摘通道的同一次
-  #    改动里必须一起修,否则修好的是"送不到",弄坏的是"报得准"。
+  #    cdn(80) 曾于 2026-09-27 被摘出本清单,理由是"本机公网入口是 token 模式的 Cloudflared
+  #    服务,它从不在本机 80 上监听 ⇒ 'cdn(80) 未监听' 是恒真误报"。**那个前提是错的**:
+  #    本机 80 上监听的一直是图片源站 cdn-server.js(由当时的开机计划任务 IHUI-ImageCDN 在
+  #    每次开机拉起),与 Cloudflared 无关;摘掉它是拿"隧道组件不绑 80"去否定"源站不绑 80"。
+  #    而这条链是**用户可见的**:apps/web/next.config.ts:315-321 把 /remote-images/* 反代到
+  #    http://localhost:80,源站一挂,公网页面图片全断,而本清单不会喊。
+  #    2026-09-29 实测复现该失明:把 cdn-server.js 的进程杀掉,本清单 6 个端口**一个都不红**。
+  #    自本行起它归位;载体同日已从开机计划任务换成 nssm 服务 IHUI-IMAGE-CDN(见
+  #    deploy/win/install-image-cdn-service.ps1)⇒ 挂了先由服务拉回,拉不回来由这里喊人。
   foreach ($p in @(@{n="web(8801)";p=8801}, @{n="api(8802)";p=8802}, @{n="ai(8803)";p=8803},
+                  @{n="cdn(80)";p=80},
                   # ↓ 2026-09-27 补:监控链自身的三个端口。加它们的唯一理由是**自指**——
                   #   prometheus 一死,alerts.yml 里那条 `PrometheusDown` 就没有评估者了
                   #   (由将死的进程判自己活着,结构上自相矛盾),alertmanager/bridge 同型。
@@ -404,7 +455,16 @@ while ($true) {
 
   # 2. 公网(2026-08-09 加"连续 2 次确认":单次瞬时失败不报警,重测一次仍失败才记录,
   #    过滤 Cloudflared 隧道重连/瞬时抖动导致的误报)
-  foreach ($u in @("https://aizhs.top/", "https://aizhs.top/api/health", "https://bsm.aizhs.top/", "https://api.aizhs.top/api/health", "https://aizhs.top/tabbar/tabbar/home.png")) {
+  #    图片那一条 2026-09-29 换了 URL。旧的 `aizhs.top/tabbar/tabbar/home.png` **不经过图片源站**:
+  #    next.config.ts 只把 `/remote-images/*` 反代到 localhost:80,`/tabbar/*` 由 web(8801)
+  #    自己应答 ⇒ 实测本机 :80 对同一路径回 137 B 占位图,而公网回 174 B 且来自 web,
+  #    两侧字节数都不一样。也就是说那一条探测从来没有验过 CDN。
+  #    换成 `/remote-images/default/home/setting_icon.png` 后,链路是
+  #    Cloudflare → web → 反代 → :80 源站,源站挂了会拿到 5xx(实测真图 3376 B 可取)。
+  #    如实登记它判不出的那一格:cdn-server 对**不存在**的路径也回 200 + 占位图
+  #    (实测 `/nope/nope/nope.jpg` => 200),所以这一条只验"链路通不通",
+  #    "源站在不在"由上面 cdn(80) 那条端口判据负责,两格各判一件事,不互相顶。
+  foreach ($u in @("https://aizhs.top/", "https://aizhs.top/api/health", "https://bsm.aizhs.top/", "https://api.aizhs.top/api/health", "https://aizhs.top/remote-images/default/home/setting_icon.png")) {
     $code1 = $null
     try {
       $r = Invoke-WebRequest -Uri $u -Method Head -TimeoutSec 15 -ErrorAction Stop
