@@ -1251,7 +1251,12 @@ const REAL_REPO = (() => {
 // 独立 oracle:自己数 HEAD 面上某族 zh-CN 的叶子键数,不读脚本的结论
 // (否则断言只是在复读实现 —— §22c"镜像测试只复读实现就是复读机")
 function leafCountOfHeadPack(repoRoot, relPack) {
-  const raw = execSync(`git show HEAD:${relPack}`, { cwd: repoRoot, encoding: 'utf8' })
+  const raw = execSync(`git show HEAD:${relPack}`, {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   const walk = (o) => {
     let n = 0
     for (const v of Object.values(o)) {
