@@ -122,6 +122,10 @@ beforeEach(() => {
   state.writeRows = []
 })
 
+// oauth_private_keys.id 是 uuid 列,路由侧 keyIdBodySchema 已收紧成 z.uuid(防 22P02 ⇒ 500),
+// 这里原先用 'key-9' 字面量会被 400 挡下 —— 改账不改制:测试改用合法 UUID。
+const KEY_ID = '44444444-4444-4444-8444-444444444444'
+
 describe('POST /api/auth/logout — revoked 必须由 revokeRefreshToken 的 RETURNING 派生', () => {
   let app: FastifyInstance
   beforeAll(async () => {
@@ -241,27 +245,27 @@ describe('POST /api/oauth-keys/revoke — revoked 必须由本写链 RETURNING �
   })
 
   it('存在性预读通过但 UPDATE 命中 0 行 ⇒ revoked: false', async () => {
-    state.selectRows = [{ id: 'key-9', clientId: 'c-1', isActive: 1 }]
+    state.selectRows = [{ id: KEY_ID, clientId: 'c-1', isActive: 1 }]
     state.writeRows = []
     const res = await app.inject({
       method: 'POST',
       url: '/api/oauth-keys/revoke',
-      payload: { keyId: 'key-9' },
+      payload: { keyId: KEY_ID },
     })
     expect(res.statusCode).toBe(200)
-    expect(res.json().data).toEqual({ keyId: 'key-9', revoked: false })
+    expect(res.json().data).toEqual({ keyId: KEY_ID, revoked: false })
   })
 
   it('UPDATE 命中 1 行 ⇒ revoked: true', async () => {
-    state.selectRows = [{ id: 'key-9', clientId: 'c-1', isActive: 1 }]
-    state.writeRows = [{ id: 'key-9' }]
+    state.selectRows = [{ id: KEY_ID, clientId: 'c-1', isActive: 1 }]
+    state.writeRows = [{ id: KEY_ID }]
     const res = await app.inject({
       method: 'POST',
       url: '/api/oauth-keys/revoke',
-      payload: { keyId: 'key-9' },
+      payload: { keyId: KEY_ID },
     })
     expect(res.statusCode).toBe(200)
-    expect(res.json().data).toEqual({ keyId: 'key-9', revoked: true })
+    expect(res.json().data).toEqual({ keyId: KEY_ID, revoked: true })
   })
 })
 
