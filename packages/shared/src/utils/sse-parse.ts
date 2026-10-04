@@ -89,6 +89,12 @@ export interface SSEEvent {
     // 状态与目标原文整帧丢失(terminal_delta=D19-A1、tool-delta=D113、
     // terminal_interaction=D151 同型三次;判据 scripts/check-sse-parser-parity.mjs)。
     | 'goal_updated'
+    // ===== G-815976(2026-10-04 收口入契约):流式中断标记帧 =====
+    // llm_gateway astream 异常中断且已发过 chunk 时发出(此后流终止,不会有 done)。
+    // 载荷 {fallback_applied, reason, model?} —— 不带 content/delta/text,不认领会
+    // 被静默丢掉 ⇒ 小程序端半截回答与完整回答完全同形(与 api-client 的
+    // onPartialDone 同一帧,两端解析必须同源,判据 scripts/check-sse-parser-parity.mjs)。
+    | 'partial_done'
   content?: string
   sessionId?: string
   /**
@@ -162,6 +168,12 @@ export interface SSEEvent {
   terminalInteraction?: TerminalInteractionEvent
   /** D152 会话目标状态(goal_updated):字段口径与 api-client tryParseGoalUpdate 一致 */
   goalUpdated?: GoalUpdateEvent
+  /** G-815976 流式中断标记(partial_done):字段口径与 api-client PartialDoneEvent 一致 */
+  partialDone?: {
+    fallback_applied: boolean
+    reason: string
+    model?: string
+  }
 }
 
 function applyErrorMeta(evt: SSEEvent, json: Record<string, unknown>): void {
@@ -593,6 +605,18 @@ function parseLineEvent(line: string): SSEEvent | null {
         ...(typeof json.updatedAt === 'number' ? { updatedAt: json.updatedAt } : {}),
       }
       return { type: 'goal_updated', goalUpdated: goal }
+    }
+    // G-815976(2026-10-04):流式中断标记帧认领 —— 不带 content/delta/text,不认领
+    // 会被静默丢掉(与 terminal_delta/tool-delta 同型:帧能到设备却像"功能不存在")。
+    if (json?.type === 'partial_done') {
+      return {
+        type: 'partial_done',
+        partialDone: {
+          fallback_applied: json.fallback_applied === true,
+          reason: typeof json.reason === 'string' ? json.reason : 'stream_interrupted',
+          model: typeof json.model === 'string' ? json.model : undefined,
+        },
+      }
     }
     const choices = json?.choices as Array<Record<string, unknown>> | undefined
     const choice = choices?.[0]
