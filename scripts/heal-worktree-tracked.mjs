@@ -398,12 +398,62 @@ function restoreToHead(g, paths) {
   return { done, deferred, viaIndex }
 }
 
+/** 路径归一(与 safe-commit 的 `normalize` 同算式:统一正斜杠、去 ./ 前缀)。 */
+const normRepoPath = (p) => String(p).replace(/\\/g, '/').replace(/^\.\//, '')
+
+/**
+ * G-1018292:读 safe-commit 清空前留下的"删除意图丢失"账,返回**路径集合**。
+ *
+ * 账的落点:`<repo>/.workbuddy/staged-delete-intent-ledger.jsonl`(写入方是
+ * `safe-commit.mjs` 的 `recordClearedStagedDeletions`;`.gitignore:377` 已忽略整个目录)。
+ *
+ * 三条判据纪律:
+ *  - **取不到账 ⇒ 返回空集合,但调用方必须当成"判不出"而不是"没有删除"** ——
+ *    调用点因此只把该路径移进报数档,**不做任何写动作**。
+ *  - **只认 `actionTaken==='report-only'` 且 `clearedIntentLost` 非空的条目**:
+ *    账是我们自己写的,读它时按"声明过没动过手"来验,免得账被改成"已恢复"而本层跟着信。
+ *  - **读账失败(坏JSON / 权限 / 半截行)一律吞掉并按空集合走**:本层每 2 分钟被守护调一次,
+ *    账坏了不该让整层崩掉(G-794 同一取向);而空集合的失效方向是"照原判据恢复",
+ *    那正是改前的行为,不是新的破坏面。
+ */
+export function recentlyClearedStagedIntent(repoRoot) {
+  const out = new Set()
+  let raw
+  try {
+    raw = readFileSync(join(repoRoot, '.workbuddy', 'staged-delete-intent-ledger.jsonl'), 'utf8')
+  } catch {
+    return out // 账不存在 = 从没发生过清空 ⇒ 无证据(调用点按判不出处理,不做写动作)
+  }
+  for (const line of raw.split('\n')) {
+    const s = line.trim()
+    if (!s) continue
+    let rec
+    try {
+      rec = JSON.parse(s)
+    } catch {
+      continue // 半截行(并发 append 撞上)不折进结论,也不让整层崩
+    }
+    if (!rec || rec.actionTaken !== 'report-only') continue
+    for (const p of Array.isArray(rec.clearedIntentLost) ? rec.clearedIntentLost : []) {
+      if (typeof p === 'string' && p) out.add(normRepoPath(p))
+    }
+  }
+  return out
+}
+
 /** 工作区缺失但索引与 HEAD 完全一致的已跟踪文件 = 被外部删除 */
 export function findOrphanedDeletions(repoRoot) {
   const g = makeGit(repoRoot)
   const st = g(['status', '--porcelain', '-z'])
   const safe = []
   const held = []
+  /**
+   * G-1018292 新增档:**只报数不代裁**。判据与理由见下面 `recentlyClearedStagedIntent` 调用处。
+   * 它与 `held`(索引里也没有 = 他人已 `git rm`)是**两件不同的事**,不可折进同一格:
+   * `held` 的证据在索引面(此刻仍读得到),`intentLost` 的证据在清空前留下的账
+   * (索引面已被覆盖,标记已经不在了)——折进同一格会让账面读起来像"标记还在,只是没碰"。
+   */
+  const intentLost = []
   /**
    * **只报不修**的一类:`git status` 首列 `D ` —— 索引里没有、磁盘也没有,而 HEAD 有该路径。
    * 两种成因在机器上分不开:① 会话有意 `git rm`(暂存删除,尚未提交);② 旁路提交
@@ -445,10 +495,31 @@ export function findOrphanedDeletions(repoRoot) {
     } catch {
       headBlob = ''
     }
-    if (indexBlob && indexBlob === headBlob && !existsSync(resolve(repoRoot, path))) safe.push(path)
-    else if (!indexBlob) held.push(path) // 索引里也没有:他人已暂存删除,不碰
+    if (indexBlob && indexBlob === headBlob && !existsSync(resolve(repoRoot, path))) {
+      // G-1018292(2026-10-04):**恢复前的最后一道问句** —— 这枚删除的意图是否刚被
+      // 共享索引的整批清空摘掉过?是则**只报数,不代裁**。
+      //
+      // 为什么必须问:本层那三条判据(工作树缺 ∧ 索引 blob==HEAD blob ∧ HEAD 有)在
+      // "有意`git rm` 的暂存删除"与"宿主清理层误删"两种成因上**同形** —— 两者都是
+      // ` D`、三条全成立。而 `safe-commit.mjs` 的 Step① `git reset HEAD` 会把整个共享
+      // 索引清空,于是他人那枚 `D ` 退化成 ` D`,保护标记被摘掉 ⇒ 本层把一枚可能有意的
+      // 删除当成外部删除恢复(2026-09-28 实测链,票G-1018292)。
+      //
+      // 为什么答不出就**只报数**:实测 reflog / `reflog show --name-status` / `fsck`
+      // 三条路结构上都答不了"曾否是暂存态"(索引不是对象库的一部分,reset 不留痕),
+      // 唯一的证据面是 safe-commit 清空前落下的那份账。故取不到账 =判不出,
+      // 而**判不出不等于可以恢复**:恢复一枚有意的删除比留下它更危险。
+      //
+      // ⚠️ 这一档**只把该路径从 safe 移到 intentLost(报数)**,不改任何既有判据:
+      // 索引/HEAD/工作树三条的算法、其余分支、退出码面全部逐字未动。
+      if (recentlyClearedStagedIntent(repoRoot).has(normRepoPath(path))) {
+        intentLost.push(path)
+        continue
+      }
+      safe.push(path)
+    } else if (!indexBlob) held.push(path) // 索引里也没有:他人已暂存删除,不碰
   }
-  return { safe, held, orphanIndex }
+  return { safe, held, orphanIndex, intentLost }
 }
 
 /**
@@ -1434,11 +1505,14 @@ function restoreBypassOrphansInner(g, repoRoot, dryRun) {
 }
 
 export function heal(repoRoot, { dryRun = false } = {}) {
-  const { safe, held, orphanIndex } = findOrphanedDeletions(repoRoot)
+  const { safe, held, orphanIndex, intentLost } = findOrphanedDeletions(repoRoot)
   const rec = reconcileStaleIndexOrphans(repoRoot, { dryRun })
   // 让路原因必须随返回值走:reconcile 跳过 ≠ 无事发生(G-794 —— 旧形状里这一层的跳过只剩
   // 一个 reconciled:0,读报告的人无从知道它是"被锁挡了"还是"本来就没有"。)
   const layerSkips = rec.lockSkip ? [{ layer: '陈旧索引孤儿对齐', ...rec.lockSkip }] : []
+  // G-1018292:这一档不进 restored,也不进 paths(那是"已恢复"的清单),单列一个字段 ——
+  // 折进 paths 会让读日志的人以为这些文件已回到盘上,而它们**恰恰没有**(那正是本票的事故)。
+  const intentLostPaths = [...intentLost]
   if (!safe.length)
     return {
       restored: 0,
@@ -1446,6 +1520,8 @@ export function heal(repoRoot, { dryRun = false } = {}) {
       reconciled: rec.reconciled,
       orphanIndex: orphanIndex.length,
       paths: [],
+      intentLost: intentLostPaths.length,
+      intentLostPaths,
       layerSkips,
     }
   if (dryRun)
@@ -1455,6 +1531,8 @@ export function heal(repoRoot, { dryRun = false } = {}) {
       reconciled: rec.reconciled,
       orphanIndex: orphanIndex.length,
       paths: safe,
+      intentLost: intentLostPaths.length,
+      intentLostPaths,
       dryRun: true,
       layerSkips,
     }
@@ -1471,6 +1549,9 @@ export function heal(repoRoot, { dryRun = false } = {}) {
     // 常态下这个数是 0。只报总数会让下一次读日志的人以为锁是通的。
     restoreViaIndex: viaIndex.length,
     orphanIndex: orphanIndex.length,
+    // G-1018292:报数档(删除意图被共享索引清空摘掉标记 ⇒ 分不清是宿主误删还是有意删除,不代裁)。
+    intentLost: intentLostPaths.length,
+    intentLostPaths,
     layerSkips,
     // 延后的原因不能只留一个数字:锁在位 / 疑似悬挂 / 此刻无锁(⇒ 前提复核不成立)是三种结论
     ...(deferred.length ? { lockStateAtReport: probeIndexLock(repoRoot, g) } : {}),
@@ -2324,6 +2405,7 @@ async function main() {
     !res.restored &&
     !res.paths.length &&
     !res.held &&
+    !res.intentLost &&
     !res.orphanIndex &&
     !res.deferred?.length &&
     !res.layerSkips?.length
@@ -2365,11 +2447,25 @@ async function main() {
         ? `(其中 ${res.restoreViaIndex} 个经 checkout-index 降级写回 —— 此刻索引锁被占用)`
         : '') +
       (res.held ? `;另有 ${res.held} 个他人已暂存的删除(不碰)` : '') +
+      // G-1018292:报数档必须在这里出声。折进 held 会让读日志的人以为"标记还在、只是没碰",
+      // 而这一档的标记**已经**被共享索引的整批清空摘掉了 —— 那正是本票的事故本身。
+      (res.intentLost
+        ? `;⚠️ ${res.intentLost} 个删除意图已丢失(暂存标记被共享索引清空摘掉,分不清是宿主误删还是有意删除 ⇒ 不代裁恢复)`
+        : '') +
       (res.orphanIndex
         ? `;⚠️ ${res.orphanIndex} 个路径 HEAD 有而索引+磁盘都无(旁路提交孤儿或有意 git rm;恢复走 --align-drift 第四层,四判据可证才修,其余只报数)`
         : ''),
   )
   for (const p of res.paths.slice(0, 20)) console.log('   - ' + p)
+  if (res.intentLostPaths?.length) {
+    for (const p of res.intentLostPaths.slice(0, 20))
+      console.log(
+        '   ⚠ 删除意图丢失 ' +
+          p +
+          ' —— 清空前它是暂存删除(`D `),标记已被一次 `git reset HEAD` 摘掉;' +
+          '出口:归属会话确认意图(要删就重新 `git rm --cached -- <路径>`,要留就 checkout 回来)',
+      )
+  }
   if (res.orphanIndex) {
     const { orphanIndex } = findOrphanedDeletions(repoRoot)
     for (const p of orphanIndex.slice(0, 10))
