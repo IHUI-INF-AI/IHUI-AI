@@ -43,6 +43,8 @@ function runCli(args) {
       windowsHide: true, // §5b:漏此参数在守护/计划任务下必弹控制台窗
       timeout: 60_000, // 守门 80:派生一律带上限
       maxBuffer: 8 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe']
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     })
     return { code: 0, stdout }
   } catch (e) {

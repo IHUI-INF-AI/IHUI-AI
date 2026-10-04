@@ -72,6 +72,8 @@ test('T3 真仓 HEAD 面必须判绿(出生即红的门等于没有门)', () => 
     encoding: 'utf8',
     timeout: 180_000,
     windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe']
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   assert.match(out, /取材面=head/)
   assert.match(out, /结论:通过\(判红 0 条\)/)

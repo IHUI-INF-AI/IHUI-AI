@@ -75,6 +75,8 @@ test('本门编号在 runner 里必须唯一(多会话同日加门会撞号,撞�
 
 test('--self-test 入口可用且全绿', () => {
   const out = execFileSync(process.execPath, [join(REPO, 'scripts', 'check-git-read-timeout.mjs'), '--self-test'], {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     windowsHide: true,
     timeout: 120_000,

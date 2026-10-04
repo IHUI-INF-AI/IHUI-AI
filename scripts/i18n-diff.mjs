@@ -231,6 +231,8 @@ const stagedI18nFiles = (() => {
   if (!isStaged) return null
   try {
     const out = execSync(`git diff --cached --name-only -- "${TARGET_CFG.dir}"`, {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: ROOT,
       encoding: 'utf8',
       windowsHide: true,
@@ -245,6 +247,8 @@ function readMessageJson(absPath) {
   const repoRel = absPath.replaceAll('\\', '/').replace(/^.*?packages\/i18n\//, 'packages/i18n/')
   if (stagedI18nFiles && stagedI18nFiles.has(repoRel)) {
     const blob = execSync(`git show ":${repoRel}"`, {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: ROOT,
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,
@@ -288,6 +292,8 @@ function collectLeafEntries(obj, prefix = '') {
 function getStagedLocales() {
   try {
     const output = execSync('git diff --cached --name-only --diff-filter=ACM', {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
       cwd: ROOT,
       windowsHide: true,

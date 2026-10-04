@@ -216,7 +216,9 @@ test('端到端(CLI,两个不同进程):acquire 打印 token;无凭据的 releas
     const dir = join(base, 'lock')
     const dead = deadPid()
     const run = (args) =>
+      // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
       spawnSync(process.execPath, [SCRIPT, ...args, '--lock-dir', dir], {
+        stdio: ['ignore', 'pipe', 'pipe'],
         encoding: 'utf8',
         windowsHide: true, // §5b:漏了就是反复弹窗
         timeout: 60_000,

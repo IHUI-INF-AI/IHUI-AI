@@ -143,7 +143,9 @@ test('T5 测试面识别:夹具/用例文件不得算生产装载证据(正反�
 })
 
 test('T6 两面旗同给 ⇒ exit 2(不得静默挑一个面)', () => {
+  // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
   const r = spawnSync(process.execPath, [GUARD, '--staged', '--worktree'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     windowsHide: true,
     timeout: 120_000,
@@ -153,6 +155,7 @@ test('T6 两面旗同给 ⇒ exit 2(不得静默挑一个面)', () => {
 
 test('T7 默认档必须判 HEAD 而非磁盘(正面跑一次并给出可解析结论)', () => {
   const r = spawnSync(process.execPath, [GUARD], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     windowsHide: true,
     timeout: 180_000,

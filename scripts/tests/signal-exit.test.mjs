@@ -185,7 +185,9 @@ function runLoopChild({ trigger }) {
         `setTimeout(() => process.exit(99), 4000)`,
       ].join('\n'),
     )
+    // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
     return spawnSync(process.execPath, [child], {
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
       timeout: 60_000,
       windowsHide: true,
@@ -230,7 +232,7 @@ test('T9 真内核投递臂(仅 POSIX):process.kill(self,SIGTERM) ⇒ 同一监�
         `setTimeout(() => process.exit(99), 4000)`,
       ].join('\n'),
     )
-    const r = spawnSync(process.execPath, [child], { encoding: 'utf8', timeout: 60_000, windowsHide: true })
+    const r = spawnSync(process.execPath, [child], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', timeout: 60_000, windowsHide: true })
     assert.equal(r.status, 143, `实装投递必须产出 143(实得 status=${r.status} signal=${r.signal}):\n${r.stderr}`)
     assert.equal(r.signal, null)
   } finally {

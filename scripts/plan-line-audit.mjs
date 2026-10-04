@@ -60,6 +60,8 @@ function repoRoot() {
     encoding: 'utf8',
     windowsHide: true,
     timeout: 20000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   }).trim()
 }
 
@@ -121,6 +123,8 @@ async function selfTest() {
       encoding: 'utf8',
       windowsHide: true,
       timeout: 30000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
   let n = 0
   const t = (name, ok) => {

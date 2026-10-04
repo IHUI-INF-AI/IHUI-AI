@@ -36,7 +36,9 @@ const GUARD_REL = 'check-file-write-safety.mjs'
 
 const GIT_ARGS = ['-c', 'safe.directory=*', '-c', 'commit.gpgsign=false']
 function git(dir, ...args) {
+  // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
   const r = spawnSync('git', [...GIT_ARGS, '-C', dir, ...args], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     windowsHide: true,
     timeout: 60000,
@@ -47,6 +49,7 @@ function git(dir, ...args) {
 
 function runGuard(dir, flags = []) {
   return spawnSync(process.execPath, [join(dir, 'scripts', GUARD_REL), ...flags], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     windowsHide: true,
     timeout: 120000,

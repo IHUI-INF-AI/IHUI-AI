@@ -65,6 +65,8 @@ function showHead(path) {
     maxBuffer: 64 * 1024 * 1024,
     timeout: 120_000,
     windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
@@ -91,6 +93,8 @@ function gitAt(dir, args) {
     encoding: 'utf8',
     windowsHide: true,
     timeout: 60_000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
@@ -186,6 +190,8 @@ function runFixture({ dir, script }, args = ['--json']) {
     timeout: 60_000,
     windowsHide: true,
     env: { ...process.env, HUSKY_SKIP_SSE_PARSER_PARITY: '' },
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   const json = leadingJson(r.stdout)
   assert.ok(
@@ -419,6 +425,8 @@ function runRaw(f, args = ['--json']) {
     windowsHide: true,
     cwd: f.dir,
     env: { ...process.env, HUSKY_SKIP_SSE_PARSER_PARITY: '' },
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   return { code: r.status, out: `${r.stdout ?? ''}${r.stderr ?? ''}`, json: leadingJson(r.stdout) }
 }

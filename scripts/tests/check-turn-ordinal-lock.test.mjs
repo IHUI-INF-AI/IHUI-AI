@@ -187,7 +187,8 @@ test('T9 临时仓端到端:--staged 棘轮双向 + 全量档只报数(§22c 禁
   const dir = mkScratch('g818-turnlock-')
   try {
     const git = (args) =>
-      spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8', windowsHide: true, timeout: 60000 })
+      // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
+      spawnSync('git', ['-C', dir, ...args], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true, timeout: 60000 })
     assert.equal(git(['init', '-q']).status, 0)
     assert.equal(git(['config', 'user.email', 'gate@example.invalid']).status, 0)
     assert.equal(git(['config', 'user.name', 'gate']).status, 0)
@@ -195,6 +196,7 @@ test('T9 临时仓端到端:--staged 棘轮双向 + 全量档只报数(§22c 禁
     mkdirSync(join(dir, 'apps', 'api', 'src', 'services'), { recursive: true })
     const runGate = (args) =>
       spawnSync(process.execPath, [SCRIPT, ...args, '--root', dir], {
+        stdio: ['ignore', 'pipe', 'pipe'],
         encoding: 'utf8',
         windowsHide: true,
         timeout: 120000,
@@ -221,6 +223,7 @@ test('T9 临时仓端到端:--staged 棘轮双向 + 全量档只报数(§22c 禁
     assert.equal(full.status, 0, `全量档只报数应 rc=0,stdout=${full.stdout} stderr=${full.stderr}`)
     assert.ok(full.stderr.includes('patrol-x.ts'), '存量红必须可见(点名走 stderr,只报数不判死)')
     const fullJson = spawnSync(process.execPath, [SCRIPT, '--json', '--root', dir], {
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
       windowsHide: true,
       timeout: 120000,
@@ -239,7 +242,7 @@ test('T10 改动集未触及扫描根 ⇒ 回落全量只报数(与守门 121 �
   const dir = mkScratch('g818-turnlock-fb-')
   try {
     const git = (args) =>
-      spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8', windowsHide: true, timeout: 60000 })
+      spawnSync('git', ['-C', dir, ...args], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true, timeout: 60000 })
     assert.equal(git(['init', '-q']).status, 0)
     assert.equal(git(['config', 'user.email', 'gate@example.invalid']).status, 0)
     assert.equal(git(['config', 'user.name', 'gate']).status, 0)
@@ -248,6 +251,7 @@ test('T10 改动集未触及扫描根 ⇒ 回落全量只报数(与守门 121 �
     assert.equal(git(['add', '-A']).status, 0)
     assert.equal(git(['commit', '-qm', 'base']).status, 0)
     const r = spawnSync(process.execPath, [SCRIPT, '--staged', '--json', '--root', dir], {
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
       windowsHide: true,
       timeout: 120000,
