@@ -44,6 +44,17 @@ import { coverageFileSet } from './lib/watermark-scope.mjs'
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const REPO_ROOT = join(ROOT)
 const NO_FIX = process.argv.includes('--no-fix')
+/**
+ * G-1018220(2026-10-04 收口):`--staged` 由 `scripts/guardian-runner.mjs` 在提交档统一追加。
+ * 此前本门**不认识**这面旗,于是提交档判的是「整张共享索引」—— 别人 `git add` 过、
+ * 而我这次提交根本不携带的文件,它的存量水印欠账会算到我头上;更坏的是自愈分支会对它
+ * `inject` + `git add`,即**门替别人补的东西,由下一个人负责提交**(污染 + 越权两型),
+ * 与归因层「点名即定责」相乘 ⇒ 零风险改动任何人都不提交得动。
+ * 现口径与守门 135 / 157 / 70 同形:`--staged` **只收窄"哪些文件算在本次提交头上"这一份文件清单**,
+ * 内容判据(缺横幅 / 载荷损坏 / 排除面 / 自愈上限)一字未动;全量档与 `--no-fix` 仍判所有已跟踪文件,
+ * 所以仓库存量欠账不会被洗成绿色,只是不再由无关的提交者承担。
+ */
+const STAGED = process.argv.includes('--staged')
 // 安全闸: 一次性自动回写的文件数上限。超过则拒绝自愈并直接报错,
 // 避免"某个批量改写脚本把半个仓库打回未水印态"时被静默整体重写。
 const MAX_AUTOFIX = 200
@@ -179,6 +190,90 @@ function selfTest() {
     return r.verdict === 'pass' && r.missing.length === 0
   })
 
+  // ── 组 4:提交档收窄(G-1018220)—— 每条都配同输入的全量档对照,证明**判据没被放宽** ──
+  t('W1 提交档:本次携带的文件缺横幅 ⇒ 仍判红并点名它(收窄没有放过提交者自己的欠账)', () => {
+    const r = decideCoverage({
+      scope: OK_SCOPE,
+      uncovered: ['b.ts'],
+      isExcluded: noExclusion,
+      stagedFace: true,
+      carried: ['b.ts'],
+    })
+    return r.verdict === 'gap' && r.missing.join() === 'b.ts' && r.untouchedGaps.length === 0
+  })
+  t('W2 提交档:同一份缺横幅,但本次不携带它 ⇒ 不判红、不自愈,只报名(恒红的那一格)', () => {
+    const r = decideCoverage({
+      scope: OK_SCOPE,
+      uncovered: ['a.ts'],
+      isExcluded: noExclusion,
+      stagedFace: true,
+      carried: ['b.ts'],
+    })
+    return (
+      r.verdict === 'pass' &&
+      r.missing.length === 0 &&
+      r.untouchedGaps.length === 1 &&
+      r.untouchedGaps[0] === 'a.ts'
+    )
+  })
+  t('W3 反向对照:同一份输入走全量档必须照旧判红(证明收窄只动"算在谁头上",没动判据)', () => {
+    const r = decideCoverage({ scope: OK_SCOPE, uncovered: ['a.ts'], isExcluded: noExclusion })
+    return r.verdict === 'gap' && r.missing.join() === 'a.ts' && r.untouchedGaps.length === 0
+  })
+  t('W4 提交档混合面:两类欠账同现 ⇒ 只有携带的那条进自愈清单(门不得 git add 别人的文件)', () => {
+    const r = decideCoverage({
+      scope: scopeOf(['a.ts', 'b.ts', 'c.ts']),
+      uncovered: ['a.ts', 'b.ts', 'c.ts'],
+      isExcluded: noExclusion,
+      stagedFace: true,
+      carried: ['b.ts'],
+    })
+    return r.verdict === 'gap' && r.missing.join() === 'b.ts' && r.untouchedGaps.join() === 'a.ts,c.ts'
+  })
+  t('W5 提交档:别人存量欠账不得把自愈上限顶爆(上限按"本次携带"计)', () => {
+    const all = ['a.ts', 'b.ts', 'c.ts', 'd.ts']
+    const r = decideCoverage({
+      scope: scopeOf(all),
+      uncovered: all,
+      isExcluded: noExclusion,
+      maxAutofix: 2,
+      stagedFace: true,
+      carried: ['c.ts', 'd.ts'],
+    })
+    return r.verdict === 'gap' && r.missing.join() === 'c.ts,d.ts'
+  })
+  t('W6 fail-closed:提交档取不到携带面(git 抖动)⇒ 未判定,不得冒充"本次什么都没带"', () => {
+    const r = decideCoverage({
+      scope: OK_SCOPE,
+      uncovered: ['a.ts'],
+      isExcluded: noExclusion,
+      stagedFace: true,
+      carried: null,
+      carriedError: 'spawnSync git EBUSY',
+    })
+    return r.verdict === 'undetermined' && /携带/.test(r.reason || '') && r.missing.length === 0
+  })
+  t('W7 fail-closed:提交档 carried 不是数组(取材层形状异常)⇒ 未判定', () => {
+    const r = decideCoverage({
+      scope: OK_SCOPE,
+      uncovered: [],
+      isExcluded: noExclusion,
+      stagedFace: true,
+      carried: 'a.ts',
+    })
+    return r.verdict === 'undetermined'
+  })
+  t('W8 提交档空携带面(暂存==HEAD)⇒ pass 且 untouched 照旧报名,不静默', () => {
+    const r = decideCoverage({
+      scope: OK_SCOPE,
+      uncovered: ['a.ts'],
+      isExcluded: noExclusion,
+      stagedFace: true,
+      carried: [],
+    })
+    return r.verdict === 'pass' && r.untouchedGaps.join() === 'a.ts'
+  })
+
   let bad = 0
   for (const [name, ok] of cases) {
     if (!ok) bad++
@@ -251,6 +346,30 @@ function trackedFiles() {
   return scope
 }
 
+/**
+ * 本次提交**携带**的文件面 = 索引相对 HEAD 有差异的路径(`git diff --cached --name-only`)。
+ * G-1018220 的落点:提交档的门只能问"这次进来的文件有没有横幅",不能问"整张共享索引干不干净"。
+ * 三条不可漂:① 取不到 ⇒ 带 error 上去,由 `decideCoverage` 判**未判定**,不得当成"没带文件";
+ * ② 派生一律带 timeout(守门 80 那一型:无界只读 git 调用把提交挂死几十分钟);
+ * ③ 只读动词,不碰工作树、不碰别人的在飞文件。
+ * @returns {{paths:string[]|null, error:string|null}}
+ */
+function carriedFiles() {
+  try {
+    const out = execFileSync('git', ['diff', '--cached', '--name-only'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+      timeout: 60_000,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    return { paths: out.split('\n').map((s) => s.trim()).filter(Boolean), error: null }
+  } catch (e) {
+    return { paths: null, error: String(e && e.message ? e.message : e).split('\n')[0] }
+  }
+}
+
 function reportGap(missing, reason) {
   console.error(`[watermark-coverage] ❌ ${missing.length} 个已跟踪文件缺失/损坏溯源水印${reason}:`)
   for (const f of missing.slice(0, 30)) console.error('  - ' + f)
@@ -276,13 +395,18 @@ function reportGap(missing, reason) {
  * @param {string|null} input.uncoveredError
  * @param {(f:string)=>boolean} input.isExcluded
  * @param {number} [input.maxAutofix]
- * @returns {{verdict:'pass'|'undetermined'|'gap'|'gap-too-many', reason?:string, missing:string[], untrackedGaps:string[], drift:string[]}}
+ * @param {boolean} [input.stagedFace] 提交档:只判本次提交携带的文件(G-1018220)
+ * @param {string[]|null} [input.carried] 索引相对 HEAD 有差异的路径(仅 stagedFace 时必需)
+ * @param {string|null} [input.carriedError] 取不到携带面的原因 ⇒ 未判定,不得冒充"本次什么都没带"
+ * @returns {{verdict:'pass'|'undetermined'|'gap'|'gap-too-many', reason?:string, missing:string[], untrackedGaps:string[], untouchedGaps:string[], drift:string[]}}
  */
 export function decideCoverage(input) {
   const { scope, uncovered, isExcluded, maxAutofix = MAX_AUTOFIX } = input
+  const stagedFace = input.stagedFace === true
+  const carriedError = input.carriedError ?? null
   const scopeError = input.scopeError ?? scope?.error ?? null
   const uncoveredError = input.uncoveredError ?? null
-  const empty = { missing: [], untrackedGaps: [], drift: [] }
+  const empty = { missing: [], untrackedGaps: [], untouchedGaps: [], drift: [] }
   // ── fail-closed 第一格:清单取不到 = 判据失明,**不得**按"没有缺口"放行 ──
   if (scopeError) return { ...empty, verdict: 'undetermined', reason: `取不到清单:${scopeError}` }
   // ── fail-closed 第二格:list-uncovered 派生失败(EBUSY / git 不可用 / 脚本非零退出) ──
@@ -297,36 +421,72 @@ export function decideCoverage(input) {
   }
   const indexSet = new Set(scope.indexFiles)
   const denominator = new Set(scope.files ?? scope.indexFiles)
+  // ── fail-closed 第四格(G-1018220):提交档拿不到"本次携带面"⇒ 未判定 ──
+  // 这一格必须存在:否则一次 git 抖动就把「没判」写成「本次没带文件 ⇒ 通过」,
+  // 而"无横幅文件进提交"这条通道正是本门立项要堵的那一格(§5c)。
+  if (stagedFace && carriedError) {
+    return { ...empty, verdict: 'undetermined', reason: `取不到本次提交携带的文件面:${carriedError}` }
+  }
+  if (stagedFace && !Array.isArray(input.carried)) {
+    return { ...empty, verdict: 'undetermined', reason: '本次提交携带的文件面不是数组(取材层形状异常)' }
+  }
   // 双保险:排除面已由 watermark.mjs 的 scanCoverage 用同一个谓词移出分母,这里再筛一次 ——
   // 若哪天有人只改了一侧,本门要么把横幅打进第三方内容(自愈侧),要么恒红(判定侧)。
   const inDenominator = uncovered.filter((f) => denominator.has(f) && !isExcluded(f))
   // 只有**索引里**的那批可以判红/自愈:未跟踪面里挂着别人在飞的源文件,
   // 判红 = 与本次提交无关的恒红门(各会话只好 --no-verify,连带全部守门作废),
   // 自动注入 = 往别人的未提交文件里写字并 git add 别人的东西(污染 + 越权两型)。
-  const missing = inDenominator.filter((f) => indexSet.has(f))
+  const inIndexGaps = inDenominator.filter((f) => indexSet.has(f))
+  // G-1018220 的收窄:提交档只把「本次提交真的携带(索引相对 HEAD 有差异)」的文件算成判红/自愈面;
+  // 别人 add 过而我这次不带的那些,降到**只报数**那一档(与未跟踪面同一处理方式),
+  // 由全量档 / CI 继续问责 —— 既不洗红,也不让门替别人的欠账挡路、更不许 git add 别人的文件。
+  const carriedSet = stagedFace ? new Set(input.carried) : null
+  const missing = carriedSet ? inIndexGaps.filter((f) => carriedSet.has(f)) : inIndexGaps
+  const untouchedGaps = carriedSet ? inIndexGaps.filter((f) => !carriedSet.has(f)) : []
   const untrackedGaps = inDenominator.filter((f) => !indexSet.has(f))
   const drift = uncovered.filter((f) => indexSet.has(f) && isExcluded(f))
-  if (missing.length === 0) return { verdict: 'pass', missing, untrackedGaps, drift }
+  if (missing.length === 0) return { verdict: 'pass', missing, untrackedGaps, untouchedGaps, drift }
   if (missing.length > maxAutofix) {
-    return { verdict: 'gap-too-many', reason: `超过自愈上限 ${maxAutofix}, 拒绝自动回写`, missing, untrackedGaps, drift }
+    return {
+      verdict: 'gap-too-many',
+      reason: `超过自愈上限 ${maxAutofix}, 拒绝自动回写`,
+      missing,
+      untrackedGaps,
+      untouchedGaps,
+      drift,
+    }
   }
-  return { verdict: 'gap', missing, untrackedGaps, drift }
+  return { verdict: 'gap', missing, untrackedGaps, untouchedGaps, drift }
 }
 
 const scope = trackedFiles()
 const uncoveredList = listUncovered()
+// G-1018220:提交档(`--staged`,由 guardian-runner 自动下发)把**判红面与自愈面**收到"本次提交携带的文件"。
+//   - 全量档 / `--no-fix` 一字未动:仍判所有已跟踪文件 ⇒ 仓库存量欠账不会被这次收窄洗成绿色。
+//   - 索引里别人 add 过而我这次不带的缺口 ⇒ 降为**只报数**那一档(与既有"未跟踪面"同一处理方式),
+//     既不 git add 别人的文件(污染 + 越权两型),也不让一道与本次提交无关的门替当前提交者挡路(§12e/§12f)。
+//   - 携带面取不到 ⇒ 未判定并 exit 1(不得读成"这次什么都没带 ⇒ 通过")。
+//   - 携带面为空(暂存集与 HEAD 逐字相同)⇒ 本次提交不携带任何文件,判"通过"但大声说明,
+//     并点名索引里的存量欠账 —— 这一档的正当性来自本门的立项语义:"无水印文件进入提交"。
+const face = STAGED ? carriedFiles() : { paths: null, error: null }
 const decision = decideCoverage({
   scope,
   uncovered: uncoveredList,
   isExcluded: exclusion.isExcluded,
+  stagedFace: STAGED,
+  carried: face.paths,
+  carriedError: face.error,
 })
 if (decision.verdict === 'undetermined') {
   console.error(`[watermark-coverage] ❌ ${decision.reason}`)
   console.error('  取不到判定面时**不**按"没有缺口"放行 —— 那等于把"没判"写成"判过了"。')
   process.exit(1)
 }
-const { missing, untrackedGaps, drift } = decision
+const { missing, untrackedGaps, untouchedGaps, drift } = decision
 const indexSet = new Set(scope.indexFiles)
+// 自愈后的回读校验必须用**同一个面**(carried):沿用整张索引去复核,等于把刚收窄掉的那一格
+// 从后门请回来 —— 那会让提交档再次恒红(G-1018220 的症状原样复现)。
+const carriedSetForVerify = STAGED && Array.isArray(face.paths) ? new Set(face.paths) : null
 if (drift.length > 0) {
   console.warn(
     `[watermark-coverage] ⚠️ 排除面两侧不一致:${drift.length} 个已登记第三方文件被 list-uncovered 报成缺口(watermark.mjs 未走同一谓词?),已跳过不注入。示例: ${drift.slice(0, 5).join(', ')}`,
@@ -391,8 +551,31 @@ if (untrackedGaps.length > 0) {
   )
 }
 
+if (untouchedGaps.length > 0) {
+  // 只报数、不判红、**不代写也不代 add**:这批文件在索引里,但本次提交不携带它们(别人 add 过)。
+  // 判红 = 与本次提交无关的恒红门(§12e/§12f);自愈 = 把别人的欠账连同横幅 git add 进我的提交(§12 污染型)。
+  // 问责仍在:全量档与本门的 CI 侧照旧逐条判它们,所以这不是把红洗成绿,是把责任还给持有它的那一枚提交。
+  console.log(
+    `[watermark-coverage] ℹ️ 索引里另有 ${untouchedGaps.length} 个缺水印文件**不由本次提交携带**` +
+      `(**不计入退出码、不 git add 别人的文件**):` +
+      untouchedGaps.slice(0, 5).join(', ') +
+      (untouchedGaps.length > 5 ? ` … 其余 ${untouchedGaps.length - 5} 个` : ''),
+  )
+  console.log(
+    '   出口:谁提交它谁跑 `node scripts/watermark.mjs inject <file>`(或让全量档/CI 问责);' +
+      '本门不得替别人补齐再由下一个人背 —— 见 PROJECT_PLAN G-1018220。',
+  )
+}
+
 if (missing.length === 0) {
-  console.log('[watermark-coverage] ✅ 已跟踪文件水印完整(未跟踪产物不计入,见上)')
+  // 措辞必须与**判过的面**一致:提交档只判了本次携带的文件,不能声称"已跟踪文件水印完整"
+  // —— 那会把"没判的那一格"写成"判过了"(本仓最高频失效型),也正好掩盖 untouchedGaps 那一档。
+  console.log(
+    STAGED
+      ? `[watermark-coverage] ✅ 本次提交携带的 ${face.paths ? face.paths.length : 0} 个文件水印完整` +
+          `(索引存量欠账 ${untouchedGaps.length} 个只报数,由全量档/其持有者问责)${untouchedGaps.length === 0 && face.paths && face.paths.length === 0 ? ' —— 暂存面为空,本次不携带任何文件' : ''}`
+      : '[watermark-coverage] ✅ 已跟踪文件水印完整(未跟踪产物不计入,见上)',
+  )
   process.exit(0)
 }
 
@@ -422,7 +605,9 @@ for (const f of missing) {
 }
 
 // 回读校验: 注入后必须彻底达标(不信任"命令返回 0"这一层)
-const stillMissing = listUncovered().filter((f) => indexSet.has(f) && !exclusion.isExcluded(f))
+const stillMissing = listUncovered().filter(
+  (f) => indexSet.has(f) && !exclusion.isExcluded(f) && (!carriedSetForVerify || carriedSetForVerify.has(f)),
+)
 if (stillMissing.length > 0) {
   reportGap(stillMissing, '(自愈后仍不达标)')
   console.error('')
