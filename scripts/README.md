@@ -156,7 +156,7 @@ Git 协作守门、CLI 验证、运维工具、证书管理、API 工具、基�
 
 | 脚本名                   | 用途                                                   | pre-commit 项 | 备注                                        |
 | ------------------------ | ------------------------------------------------------ | ------------- | ------------------------------------------- |
-| find-route-conflicts.mjs | 扫描后端路由文件,输出按 method+path 分组的真实重复路由 | —             | 按 pluginName 划分插件块                    |
+| find-route-conflicts.mjs | 扫描后端路由文件,输出按 method+path 分组的真实重复路由 | —             | 取材面=server.ts+routes/index.ts 两入口,barrel 递归下钻,只报数不判红 |
 | generate-stub-routes.mjs | 根据 api-routes-missing.json 批量生成前端缺失路由桩    | —             | 输出 apps/api/src/routes/frontend-stub-*.ts |
 
 ### 基础设施(4 个)
