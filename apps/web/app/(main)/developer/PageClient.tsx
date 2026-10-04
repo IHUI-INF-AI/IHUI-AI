@@ -27,6 +27,7 @@ import {
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent } from '@ihui/ui-react'
+import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import { BackButton, AuthGatePrompt } from '@/components/common'
@@ -79,7 +80,7 @@ function formatTokens(n: number): string {
 
 function windowPercent(used: number, limit: number): number {
   if (!Number.isFinite(limit) || limit <= 0) return 0
-  return Math.min(100, Math.max(0, Math.round((used / limit) * 100)))
+  return clampPercent(Math.round((used / limit) * 100))
 }
 
 export default function DeveloperHomePageClient() {
