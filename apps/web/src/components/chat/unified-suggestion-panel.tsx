@@ -483,7 +483,7 @@ export function UnifiedPasteReferencePreview({
               onSend(draft.trim())
               onDismiss()
             }}
-            className="ml-auto rounded-sm bg-primary px-2 py-0.5 text-[10px] text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            className="ml-auto rounded-sm bg-cta px-2 py-0.5 text-[10px] text-cta-foreground disabled:cursor-not-allowed disabled:opacity-50"
           >
             {tc('referencePreview.send')}
           </button>
