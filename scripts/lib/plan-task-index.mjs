@@ -842,11 +842,64 @@ export function findRotatedPointers(content) {
  * 方向与其余判据相反,故单列:**只许增不许减**。
  */
 export const MERGE_NOTE_RE = /〔【归并】[^〕]{0,80}?落账:复测 \d{4}-\d{2}-\d{2}/g
-export function countMergeNotes(content) {
+
+/**
+ * 注记的**量纲**只在这里算一次(G-977960 ①,2026-10-04 立)。
+ *
+ * 为什么要拆两档:上面那把尺子的字符类 `[^〕]` **含换行**,所以一条注记可以横跨两行书写
+ * (台账被并发登记/`git merge-file` 逐行拼接时天然会产出这种形态)。旧写法把"整文件命中数"
+ * 直接当份数喂给落地闸,而额度机器(搬运感知 / 本侧自缩 / 副本指针少带)全是**逐行**算的 ⇒
+ * 跨行那部分既进不了总额也进不了合法额度 ⇒ 存在"无论怎么合并都差 N 条"的不可满足三元组
+ * (实测:各侧最多 622 / 结果 530 / 已扣 90+3 / 仍差 2,且欠账名单为空 —— 名单为空正是
+ * "判据看不见这 2 条"的指纹,不是"没人欠账")。落地闸一红就等于全队每次台账收敛都被逼跳门
+ * (§12f 同型),所以这一格必须修判据的量纲,而不是调阈值或声明放行。
+ *
+ * 三档定义(互不重叠,`total` 仍单独报出,免得"拆开"被读成"少算了"):
+ *  - `lineAttributable` = 逐行命中数之和 —— **唯一**能和额度机器同量纲比较的那一档;
+ *  - `crossLine` = 整文件命中数 − 逐行命中数(>0 的那部分,即跨行书写的注记);
+ *  - `migrationArtifact` = 逐行之和 > 整文件数时为真:整文件扫描是非重叠顺序推进的,
+ *    一条跨行匹配会吃掉后随行内的完整匹配 ⇒ 两把尺子天然不可能严格相等。
+ *    出现这一型时 `crossLine` 归 0 并**点名**,绝不把"没看清"写成"没有问题"。
+ *
+ * ⚠️ 口径边界(如实登记,不得读成已覆盖):跨行注记在落地闸**只报名、不判红、不计额度**。
+ * 现读 HEAD 面 `crossLine = 0`(整文件 479 条 == 逐行 479 条),所以今天不因此放过任何一条真损失;
+ * 若将来合并把一条跨行注记抹掉,这一维只在报告行里点名 —— 补它需要先把"份数"的归属定义扩到
+ * 行区间,那是另一票,不得顺手半做。
+ */
+export function mergeNoteUnits(text) {
+  const s = String(text ?? '')
   const re = new RegExp(MERGE_NOTE_RE.source, 'g')
+  const spans = []
+  for (let m = re.exec(s); m !== null; m = re.exec(s)) {
+    const startLine = (s.slice(0, m.index).match(/\n/g) || []).length
+    const endLine = startLine + (m[0].match(/\n/g) || []).length
+    spans.push({ startLine, endLine, snippet: m[0].replace(/\s+/g, ' ').slice(0, 90) })
+  }
+  let lineAttributable = 0
+  for (const l of s.split('\n')) lineAttributable += lineNoteCount(l)
+  const total = spans.length
+  return {
+    total,
+    lineAttributable,
+    crossLine: Math.max(0, total - lineAttributable),
+    migrationArtifact: lineAttributable > total,
+    crossLineSpans: spans.filter((x) => x.endLine > x.startLine),
+  }
+}
+
+/** 单行内的注记条数 —— 额度机器与逐行求和共用这一份实现,不得各处 `new RegExp` 再抄一遍。 */
+export function lineNoteCount(line) {
+  const re = new RegExp(MERGE_NOTE_RE.source, 'g')
+  const s = String(line ?? '')
   let n = 0
-  for (let m = re.exec(String(content)); m !== null; m = re.exec(String(content))) n++
+  while (re.exec(s) !== null) n++
   return n
+}
+
+export function countMergeNotes(content) {
+  // 投影到与逐行额度机器同量纲的那一档(见 mergeNoteUnits 头注的不可满足三元组)。
+  // 现读 HEAD 面 total == lineAttributable == 479 ⇒ 这一改动不移动任何已有读数。
+  return mergeNoteUnits(content).lineAttributable
 }
 
 /**
@@ -1394,6 +1447,8 @@ export function auditPlan(content, { archivedKeys = null } = {}) {
   const rows = parseTaskRows(content)
   const { groups, forks, dupOpen, dupDone } = findForks(content)
   const voidRows = findVoidRows(content)
+  // 注记三档只算一次(整文件扫描 + 逐行扫描各一遍;在下面三个字段里是同一份读数的投影)
+  const noteUnits = mergeNoteUnits(content)
   const rotated = findRotatedPointers(content)
   /**
    * 给每条腐烂指针标"此刻有没有出口"。两条出口按**次序**判,先强后弱:
@@ -1480,7 +1535,7 @@ export function auditPlan(content, { archivedKeys = null } = {}) {
     dupBlocks,
     collisions,
     // F9 三档(G-460):判据输入 / 只报数的引用图 / 单独点名的畸形号
-    f9Declared: f9.collisions,
+    f9Declared,
     f9References: f9.references,
     f9MalformedMasquerade: f9.malformed,
     malformedRows,
@@ -1534,7 +1589,10 @@ export function auditPlan(content, { archivedKeys = null } = {}) {
       // 标过指针的是历史上已归并过的。派单口径两条都扣,所以报告里必须分列,否则读者对不上账。
       dupPointerRows: openRows.filter((r) => DUP_POINTER_RE.test(r.raw)).length,
       // 内容级存续性证据(只许增不许减,方向与四条状态判据相反 ⇒ 单独一把尺子,别塞进同一个 ratchet)
-      mergeNotes: countMergeNotes(content),
+      mergeNotes: noteUnits.lineAttributable,
+      // 跨行书写的注记:落地闸**只报名不判红**(与 lineAttributable 不同量纲,见 mergeNoteUnits 头注)
+      mergeNotesCrossLine: noteUnits.crossLine,
+      mergeNotesTotal: noteUnits.total,
       // F6 块级重复:行级判据(F1–F4)量不到"整块被追加两遍",见 findDupBlocks 头注
       dupBlocks: dupBlocks.verbatim.length,
       dupBlockCopies: dupBlocks.verbatim.reduce((s, b) => s + b.copies, 0),
