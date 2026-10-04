@@ -20,7 +20,8 @@ const TMP_DIR = mkScratch('ihui-i18n-ns-')
 function runScript(args = []) {
   const r = spawnSync('node', [SCRIPT_PATH, ...args], {
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   r.out = (r.stdout || '').replace(/\x1b\[[0-9;]*m/g, '')
   r.err = (r.stderr || '').replace(/\x1b\[[0-9;]*m/g, '')

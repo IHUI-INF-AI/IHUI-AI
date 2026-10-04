@@ -579,7 +579,8 @@ describe('接线锁:barrel 真导出 + 存在非测试面 importer', () => {
             'export function (mergeHistoryTurnPages|projectHistoryPage|deriveHistoryBoundary)\\b',
             'HEAD',
           ],
-          { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 },
+          // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+          { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] },
         )
       } catch (e) {
         const err = e as { status?: number; stdout?: string }

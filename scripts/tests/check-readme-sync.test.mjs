@@ -18,14 +18,14 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-readme-sync.mjs')
 // check-readme-sync.mjs 通过 git diff 读取 staged/working 文件,需 git 环境
 function createTempRepo() {
   const dir = mkScratch('ihui-readme-sync-')
-  const opt = { cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
-  spawnSync('git', ['init', '-b', 'main'], opt)
-  spawnSync('git', ['config', 'user.email', 'test@ihui.local'], opt)
-  spawnSync('git', ['config', 'user.name', 'Test'], opt)
-  spawnSync('git', ['config', 'commit.gpgsign', 'false'], opt)
+  const opt = { cwd: dir, encoding: 'utf8' }
+  spawnSync('git', ['init', '-b', 'main'], { ...opt, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  spawnSync('git', ['config', 'user.email', 'test@ihui.local'], { ...opt, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  spawnSync('git', ['config', 'user.name', 'Test'], { ...opt, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  spawnSync('git', ['config', 'commit.gpgsign', 'false'], { ...opt, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   writeFileSync(join(dir, 'README.md'), '# init\n')
-  spawnSync('git', ['add', 'README.md'], opt)
-  spawnSync('git', ['commit', '-q', '-m', 'init'], opt)
+  spawnSync('git', ['add', 'README.md'], { ...opt, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  spawnSync('git', ['commit', '-q', '-m', 'init'], { ...opt, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   return dir
 }
 
@@ -36,7 +36,7 @@ function stageFiles(dir, files) {
     const fullPath = join(dir, f)
     mkdirSync(dirname(fullPath), { recursive: true })
     writeFileSync(fullPath, `content for ${f}\n`)
-    execSync(`git add "${f}"`, { cwd: dir, stdio: 'pipe' })
+    execSync(`git add "${f}"`, { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
   }
 }
 
@@ -44,7 +44,7 @@ function stageFiles(dir, files) {
 // 用于"README 已同步"场景(README.md 在初始 commit 中,需 modified 才进 staged)
 function stageReadme(dir, content) {
   writeFileSync(join(dir, 'README.md'), content)
-  execSync('git add README.md', { cwd: dir, stdio: 'pipe' })
+  execSync('git add README.md', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
 }
 
 function stripAnsi(s) {
@@ -59,7 +59,8 @@ function runScript(opts = {}) {
   const r = spawnSync('node', [SCRIPT_PATH, ...args], {
     cwd: opts.cwd || process.cwd(),
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   r.err = stripAnsi(r.stderr || '')
   r.out = stripAnsi(r.stdout || '')

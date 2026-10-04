@@ -52,7 +52,8 @@ function runScript(cwd) {
   const r = spawnSync('node', [SCRIPT_PATH], {
     cwd: cwd || process.cwd(),
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   if (r.stdout) r.stdout = r.stdout.replace(ANSI_RE, '')
   if (r.stderr) r.stderr = r.stderr.replace(ANSI_RE, '')

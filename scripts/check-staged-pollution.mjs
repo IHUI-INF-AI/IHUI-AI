@@ -47,7 +47,9 @@ function getStagedFiles() {
     const output = execSync('git diff --cached --name-only --diff-filter=ACDMR', {
       encoding: 'utf8',
       cwd: ROOT,
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      // 返回值被消费(下面 output.split)⇒ stdout 仍须 pipe,只把 stdin 切掉
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     })
     return output

@@ -11,7 +11,10 @@ import { dirname, join } from 'node:path'
 import { registerTask, killTask, getTaskOutput } from '../src/tools/background-registry.js'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const sleeper = () => spawn(process.execPath, ['-e', 'setTimeout(() => {}, 30000)'])
+const sleeper = () => spawn(process.execPath, ['-e', 'setTimeout(() => {}, 30000)'], {
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  stdio: ['ignore', 'pipe', 'pipe'],
+})
 
 describe('G-816026 停止发起方(stopInitiator)', () => {
   it('模型停 ⇒ 读得出 model,且 timedOut=false(不是超时)', async () => {

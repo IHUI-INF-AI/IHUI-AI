@@ -73,7 +73,9 @@ function runScript(tempDir, args = []) {
   return spawnSync('node', [scriptPath, ...args], {
     cwd: tempDir,
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    // 返回值被消费(整个 result 被断言)⇒ stdout 仍须 pipe,只把 stdin 切掉
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 

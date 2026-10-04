@@ -17,15 +17,15 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-staged-files.mjs')
 // ─── 辅助:创建临时 git 仓库(含初始 commit) ──────────────
 function createTempRepo() {
   const dir = mkScratch('ihui-staged-files-')
-  execSync('git init -b main', { cwd: dir, stdio: 'pipe' })
-  execSync('git config user.email test@test.com', { cwd: dir, stdio: 'pipe' })
-  execSync('git config user.name test', { cwd: dir, stdio: 'pipe' })
-  execSync('git config commit.gpgsign false', { cwd: dir, stdio: 'pipe' })
+  execSync('git init -b main', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  execSync('git config user.email test@test.com', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  execSync('git config user.name test', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  execSync('git config commit.gpgsign false', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   // 禁用 git 对非 ASCII 路径的转义,使中文路径原样输出(脚本透传 git 输出)
-  execSync('git config core.quotepath false', { cwd: dir, stdio: 'pipe' })
+  execSync('git config core.quotepath false', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   writeFileSync(join(dir, 'README.md'), '# init\n')
-  execSync('git add README.md', { cwd: dir, stdio: 'pipe' })
-  execSync('git commit -m "init"', { cwd: dir, stdio: 'pipe' })
+  execSync('git add README.md', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
+  execSync('git commit -m "init"', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   return dir
 }
 
@@ -36,7 +36,7 @@ function stageFiles(dir, files) {
     const fullPath = join(dir, f)
     mkdirSync(dirname(fullPath), { recursive: true })
     writeFileSync(fullPath, `content for ${f}\n`)
-    execSync(`git add "${f}"`, { cwd: dir, stdio: 'pipe' })
+    execSync(`git add "${f}"`, { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
   }
 }
 
@@ -45,7 +45,8 @@ function runScript(opts = {}) {
   return spawnSync('node', [SCRIPT_PATH], {
     cwd: opts.cwd || process.cwd(),
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
@@ -155,7 +156,7 @@ test('Modified 文件(已 commit 后修改并 add)→ 显示在清单', () => {
   try {
     // README.md 已在 init commit,修改并 stage
     writeFileSync(join(dir, 'README.md'), '# updated\n')
-    execSync('git add README.md', { cwd: dir, stdio: 'pipe' })
+    execSync('git add README.md', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const r = runScript({ cwd: dir })
     assert.equal(r.status, 0)
     const out = stripAnsi(r.stdout)
@@ -170,7 +171,7 @@ test('Modified 文件(已 commit 后修改并 add)→ 显示在清单', () => {
 test('Deleted 文件(git rm 后 stage)→ 显示在清单', () => {
   const dir = createTempRepo()
   try {
-    execSync('git rm README.md', { cwd: dir, stdio: 'pipe' })
+    execSync('git rm README.md', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const r = runScript({ cwd: dir })
     assert.equal(r.status, 0)
     const out = stripAnsi(r.stdout)
@@ -185,7 +186,7 @@ test('Deleted 文件(git rm 后 stage)→ 显示在清单', () => {
 test('Renamed 文件(git mv)→ --name-only 显示新路径', () => {
   const dir = createTempRepo()
   try {
-    execSync('git mv README.md NEWREADME.md', { cwd: dir, stdio: 'pipe' })
+    execSync('git mv README.md NEWREADME.md', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
     const r = runScript({ cwd: dir })
     assert.equal(r.status, 0)
     const out = stripAnsi(r.stdout)

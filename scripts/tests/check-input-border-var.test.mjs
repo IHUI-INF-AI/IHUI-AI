@@ -36,10 +36,11 @@ function createTempScanDir(files) {
 
 // 辅助:运行 check-input-border-var.mjs(全量模式,无 --staged)
 function runScript(cwd) {
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   return spawnSync('node', [SCRIPT_PATH], {
     cwd: cwd || process.cwd(),
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
@@ -66,10 +67,11 @@ function assertPass(r) {
 test('CLI: --help 不崩溃(空目录 → 扫描 0 文件 exit 0)', () => {
   const dir = mkScratch('ihui-input-help-')
   try {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     const r = spawnSync('node', [SCRIPT_PATH, '--help'], {
       cwd: dir,
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     assert.ok(r.status === 0 || r.status === 1, `--help 不应 crash,实际 exit ${r.status}\nstderr: ${r.stderr}`)
     assert.ok(!r.stderr.includes('Error:'), `--help 不应产生未捕获 Error`)
