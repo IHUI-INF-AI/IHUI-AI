@@ -60,6 +60,14 @@ export function isFramedReminder(text: string): boolean {
 export const SKILL_NAME_MAX_CHARS = 80;
 
 /**
+ * 0xD800–0xDFFF 的唯一判据(G-937964 结构钉):整仓不允许第二份区间字面量,
+ * 需要判"这个码位是不是代理"必须走本函数 —— 字面量只活在唯一出口内。
+ */
+export function isSurrogateCodePoint(unit: number): boolean {
+  return unit >= 0xd800 && unit <= 0xdfff;
+}
+
+/**
  * 按码位截断,并丢弃输入里本就孤立的代理(单码元落在 D800–DFFF)。
  *
  * 为什么不能用 `.slice(0, n)`:那是 UTF-16 **码元**口径,而 BMP 外字符(emoji、生僻汉字)
@@ -78,7 +86,7 @@ export function truncateToCodePoints(text: string, maxCodePoints: number): strin
     // ch 恒为一个码位:BMP 内长度 1、代理对长度 2。长度 1 却落在代理区 ⇒ 本就孤立的半对,丢弃。
     if (ch.length === 1) {
       const unit = ch.charCodeAt(0);
-      if (unit >= 0xd800 && unit <= 0xdfff) continue;
+      if (isSurrogateCodePoint(unit)) continue;
     }
     out += ch;
     taken += 1;
@@ -99,7 +107,7 @@ export function codePointLength(text: string): number {
   for (const ch of text) {
     if (ch.length === 1) {
       const unit = ch.charCodeAt(0);
-      if (unit >= 0xd800 && unit <= 0xdfff) continue;
+      if (isSurrogateCodePoint(unit)) continue;
     }
     n += 1;
   }
