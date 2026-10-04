@@ -5029,6 +5029,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 
 - [ ]（进行中）**WP-7 浏览器语义快照与可复用元素句柄**(规格已写,未开工)。
+- [ ] G-1058602 **两把尺子的「面标签 / 判得出」缺口(2026-10-05 值守会话现读量到,各带复现命令与归属)**:① **守门 52 `check-no-visible-spawn`** 全量档打印「判定面:HEAD blob」,而 `listCandidates` 实际并了索引与**未跟踪未忽略**件、`readFaceContent` 对 HEAD 取不到的路径**静默改取工作树**(代码注释自述是刻意为之)⇒ 标签没写这一维,读报告的人会把他人在飞半成品当成仓库既有违规:本轮实测该档因未入库的 `scripts/check-lazy-index-guard.mjs:581` 报 rc=1,值守会话据此差点去改别人的文件。修法 = 标签补「(未入库件走工作树,逐条标注)」+ 命中行加 `[未入库]` 后缀 + 汇总点名件数,**判定强度一字不改**;该文件此刻 ` M` 由别人持有 ⇒ 本票不代改,归属 = 守门 52 持有人。② **守门 157 `check-credential-presence-bypass`** 有两型「判不出」其实是尺子没跟到词法:`readCondition` 在**保留字符串**的面上数括号 ⇒ `startsWith('(select')` 这类**串内左括号**永远配不平(`apps/api/src/utils/scoped-guard.ts:553/:569`),而 `request.headers[DEFAULT_TENANT_HEADER]` 的计算属性名取不回头名 ⇒ `tenant.ts:50` 也落未判定;后果不是漏报,而是 `--strict` 恒 rc=2 —— 拒绝出合格证的那一格永远清不掉。修法 = 配平改走「连字符串也遮」的结构面、条件文本按同一坐标从代码面切回(遮罩等长 ⇒ 坐标可直通),再加一跳把 `headers[常量]` 的常量值认回头名、按既有词元表判;两条各配成对自检(串内括号必配平 / `x-tenant-id` 不判红而 `x-id-token` 必命中)。**禁止**为了让 rc 变 0 就把「未判定」并成「已判定干净」(把没判写成判过了是同一条禁令)。复现:`node scripts/check-no-visible-spawn.mjs` 与 `node scripts/check-credential-presence-bypass.mjs --strict`(现读各 rc=1 / rc=2)。
 - [ ]（进行中）**WP-8 上下文占用归因 + 流式工具账本 + 目标完成独立校验轮**。后者是补
 <!-- 已归档(2026-09-28:✅(2026-09-26) D17 专家包/技能市场/连接器授权中心统一入口(对标 WorkBuddy 生态)(G-25,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md -->
 ### O62 附⑫:构建漂移的**根因是 webpack 持久缓存**,以及一条我差点漏掉的"门自己作假证"
