@@ -71,17 +71,17 @@ test('P1 正例:票面点名的标识 HEAD 面 0 命中 + 声明 exists ⇒ 判�
     {
       claim: 'exists',
       token: 'check-virtualization-coverage',
-      probe: 'git grep -c -F check-virtualization-coverage HEAD -- apps packages scripts',
+      probe: 'git grep -c -F check-virtualization-coverage HEAD -- apps packages',
     },
     {
       claim: 'exists',
       token: 'apps/web/src/hooks/virtualization/',
-      probe: 'git grep -c -F apps/web/src/hooks/virtualization/ HEAD -- apps packages scripts',
+      probe: 'git grep -c -F apps/web/src/hooks/virtualization/ HEAD -- apps packages',
     },
     {
       claim: 'exists',
       token: 'apps/cli/src/db.ts',
-      probe: 'git grep -c -F apps/cli/src/db.ts HEAD -- apps packages scripts',
+      probe: 'git grep -c -F apps/cli/src/db.ts HEAD -- apps packages',
     },
   ]
   const face = readFace({ root: REPO_ROOT, premises })
@@ -107,13 +107,13 @@ test('P2 反例(反向锁):标识确有命中 + 声明 exists ⇒ 判绿(不许�
   const premises = [
     {
       claim: 'exists',
-      token: 'live-doc-edit',
-      probe: 'git grep -c -F live-doc-edit HEAD -- scripts',
+      token: 'session-store',
+      probe: 'git grep -c -F session-store HEAD -- apps packages',
     },
     {
       claim: 'exists',
-      token: 'check-migration-bookkeeping',
-      probe: 'git grep -c -F check-migration-bookkeeping HEAD -- scripts',
+      token: 'ai-vendors',
+      probe: 'git grep -c -F ai-vendors HEAD -- apps packages',
     },
   ]
   const face = readFace({ root: REPO_ROOT, premises })
@@ -130,8 +130,8 @@ test('P3 反向腐烂:声明 absent 但现读有命中 ⇒ 同样判红(方向�
   const premises = [
     {
       claim: 'absent',
-      token: 'live-doc-edit',
-      probe: 'git grep -c -F live-doc-edit HEAD -- scripts',
+      token: 'session-store',
+      probe: 'git grep -c -F session-store HEAD -- apps packages',
     },
   ]
   const face = readFace({ root: REPO_ROOT, premises })
@@ -184,11 +184,8 @@ test('P4 自指陷阱:作用域强制排除台账,否则"台账引用了它"会�
     rawHits(['.']) >= 1,
     `活体前提失效:全仓 scope 下 ${TOKEN} 应 ≥1 命中(台账引用了它),实读 ${rawHits(['.'])}`,
   )
-  assert.equal(
-    rawHits(['.', ':(exclude)PROJECT_PLAN.md', ':(exclude).ihui-agent']),
-    0,
-    '强制排除台账后应 0 命中 ⇒ 恒绿门',
-  )
+  // 用 effectiveScope 取排除项,不手写清单 —— 清单会随判据增补而陈旧,而陈旧的断言会假红。
+  assert.equal(rawHits(effectiveScope(['.'])), 0, '强制排除台账后应 0 命中 ⇒ 恒绿门')
   // 经 readFace(强制排除在内部生效)读全仓 scope,同样必须 0。
   const guarded = readFace({
     root: REPO_ROOT,
@@ -199,6 +196,41 @@ test('P4 自指陷阱:作用域强制排除台账,否则"台账引用了它"会�
     guarded.readings[0].hits,
     0,
     `readFace 内强制排除未生效,实读 ${guarded.readings[0].hits}`,
+  )
+})
+
+test('P4b 门不读自己:本门与它的镜像测试里写满反例 token,作用域必须扫不到它们', () => {
+  // 这条是本门自己的实测教训(落地当轮现形):反例素材就写在本门源码与本测试里,若默认作用域
+  // 含 `scripts`,门会读到自己的素材 ⇒ 票面点名的标识读数从 0 抬到 12,正例当场翻绿。
+  assert.ok(
+    !DEFAULT_SCOPE.includes('scripts'),
+    `默认作用域含 scripts ⇒ 门会读到自己的反例素材:${DEFAULT_SCOPE.join(' ')}`,
+  )
+  assert.ok(!DEFAULT_SCOPE.includes('docs'), '默认作用域含 docs ⇒ 文档引用会让标识自证存在')
+  // 强制排除项必须显式含门自身与镜像测试(即便 scope 被传成 `scripts`)。
+  for (const p of [
+    'scripts/check-dispatch-premise.mjs',
+    'scripts/tests/check-dispatch-premise.test.mjs',
+  ]) {
+    assert.ok(effectiveScope(['scripts']).includes(`:(exclude)${p}`), `强制排除项缺 ${p}`)
+  }
+  // 活体验证:门源码里确实写满了这些 token(前提未失效),而经 readFace 读 `scripts` 面仍是 0。
+  const TOKEN = 'check-virtualization-coverage'
+  assert.ok(
+    readFileSync(resolve(REPO_ROOT, 'scripts', 'check-dispatch-premise.mjs'), 'utf8').includes(
+      TOKEN,
+    ),
+    '前提失效:本门源码里已不含该 token ⇒ 这条断言失去意义',
+  )
+  const face = readFace({
+    root: REPO_ROOT,
+    premises: [{ claim: 'exists', token: TOKEN, scope: ['scripts'] }],
+  })
+  assert.deepEqual(face.problems, [])
+  assert.equal(
+    face.readings[0].hits,
+    0,
+    `门读到了自己的素材(实读 ${face.readings[0].hits})⇒ 正例会翻绿`,
   )
 })
 
@@ -264,7 +296,7 @@ test('P8 退出码分档:正例 1 / 反例 0 / 用法错 2,产物落盘且带读
       {
         claim: 'exists',
         token: 'check-virtualization-coverage',
-        probe: 'git grep -c -F check-virtualization-coverage HEAD -- apps packages scripts',
+        probe: 'git grep -c -F check-virtualization-coverage HEAD -- apps packages',
       },
     ],
   })
@@ -273,8 +305,8 @@ test('P8 退出码分档:正例 1 / 反例 0 / 用法错 2,产物落盘且带读
     premises: [
       {
         claim: 'exists',
-        token: 'live-doc-edit',
-        probe: 'git grep -c -F live-doc-edit HEAD -- scripts',
+        token: 'session-store',
+        probe: 'git grep -c -F session-store HEAD -- apps packages',
       },
     ],
   })
@@ -298,7 +330,7 @@ test('P8 退出码分档:正例 1 / 反例 0 / 用法错 2,产物落盘且带读
   assert.equal(j.verdict, 'rotten')
   assert.equal(j.rot, 1)
   assert.match(j.head, /^[0-9a-f]{40}$/)
-  assert.deepEqual(j.scope.slice(-2), MANDATORY_EXCLUDES)
+  assert.deepEqual(j.scope.slice(-MANDATORY_EXCLUDES.length), MANDATORY_EXCLUDES)
   assert.equal(j.probes[0].token, 'check-virtualization-coverage')
   assert.equal(j.probes[0].hits, 0)
   assert.equal(j.probes[0].verdict, 'rotten')
