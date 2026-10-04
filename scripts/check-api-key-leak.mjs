@@ -82,6 +82,8 @@ function collectFiles() {
         cwd: ROOT,
         // 防 Windows 弹可见控制台窗口
         windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe']
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
       })
       return output
         .split('\n')

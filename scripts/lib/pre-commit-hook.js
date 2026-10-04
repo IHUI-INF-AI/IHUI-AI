@@ -264,6 +264,8 @@ if (process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
       encoding: 'utf8',
       cwd: process.cwd(),
       windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     const stagedList = stagedForTokens
       .split('\n')
@@ -526,6 +528,8 @@ try {
     encoding: 'utf8',
     cwd: process.cwd(),
     windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
     .split('\n')
     .filter(Boolean)
@@ -608,6 +612,8 @@ try {
       encoding: 'utf8',
       cwd: process.cwd(),
       windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     const involvesMiniappIcu = stagedForIcu
       .split('\n')

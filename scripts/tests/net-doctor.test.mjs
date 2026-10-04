@@ -225,7 +225,9 @@ for (const c of cases) {
 
 // 端到端：自检必须在真子进程里跑完，且覆盖面不得比这份镜像少（防"自检被改成空转"）
 test('子进程跑 --self-test 必须 rc=0 且用例数不少于本文件', () => {
+  // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
   const r = spawnSync(process.execPath, [SRC, '--self-test'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     timeout: 120000,
     windowsHide: true,

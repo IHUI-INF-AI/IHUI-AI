@@ -95,7 +95,9 @@ test('T4 junction 不得被穿透:canary 在 apply 之后必须原样活着', ()
 
     const fixture = mkFixture(root, 'ihui-has-junction', { files: 1 })
     const link = join(fixture, 'link-into-real')
+    // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
     const mk = spawnSync('cmd.exe', ['/c', 'mklink', '/J', link, target], {
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
       encoding: 'utf8',
     })

@@ -44,6 +44,8 @@ if (skip) process.exit(0)
 let staged = []
 try {
   const out = execSync('git diff --cached --name-only', {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf-8',
     cwd: process.cwd(),
       windowsHide: true,

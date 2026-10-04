@@ -32,12 +32,16 @@ const REPO = resolve(HERE, '..', '..')
 const GIT = process.env.GIT_BIN || 'git'
 const git = (cwd, ...args) =>
   execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e.local', '-c', 'user.name=e2e', ...args], {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd,
     encoding: 'utf8',
   })
 function run(cwd, args) {
   try {
     const stdout = execFileSync(process.execPath, [GATE, ...args], {
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd,
       encoding: 'utf8',
       maxBuffer: 32 << 20,
@@ -78,7 +82,8 @@ test('T1 装车证明:runner(HEAD 面)里有本门条目,blocking + skipEnv + st
     throw new Error(`注册条目缺 stagedTriggers=['README.md','README.en.md']:${entry.slice(0, 300)}`)
   // "注册在位而门体文件不在"(§12f):干净检出上 runner 会派生一个不存在的脚本并崩掉整批门。
   // 判据是**存在性**(ls-tree 枚举,不读内容,不算散写取材)。本门体不存在 ⇒ 本测试红 ⇒ 判死。
-  const listed = execFileSync(GIT, ['-c', 'safe.directory=*', '-C', REPO, 'ls-tree', 'HEAD', '--name-only', '--', 'scripts/check-doc-numbers.mjs', 'scripts/gen-doc-numbers.mjs'], { encoding: 'utf8' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  const listed = execFileSync(GIT, ['-c', 'safe.directory=*', '-C', REPO, 'ls-tree', 'HEAD', '--name-only', '--', 'scripts/check-doc-numbers.mjs', 'scripts/gen-doc-numbers.mjs'], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' })
     .split(/\r?\n/)
     .map((s) => s.trim())
     .filter(Boolean)

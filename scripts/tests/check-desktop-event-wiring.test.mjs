@@ -27,7 +27,9 @@ const GATE = path.resolve(__dirname, '..', 'check-desktop-event-wiring.mjs')
 const SRC = readFileSync(GATE, 'utf8')
 
 test('T1 装车证明:--self-test 派生必须 rc=0 且逐行无 ✗(永远绿的自检与永远红的同样没用)', () => {
+  // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
   const r = spawnSync(process.execPath, [GATE, '--self-test'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     timeout: 180000,
     windowsHide: true,
@@ -40,6 +42,7 @@ test('T1 装车证明:--self-test 派生必须 rc=0 且逐行无 ✗(永远绿�
 
 test('T2 本票新增的表驱动变异对照必须真在自检里跑过(不是只写在注释/文档里)', () => {
   const r = spawnSync(process.execPath, [GATE, '--self-test'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     timeout: 180000,
     windowsHide: true,
@@ -171,6 +174,7 @@ test('T10 端到端双向锁:私有索引注入(宿主面红 / 补出口绿 / �
   const gitBin = process.env.GIT_BIN || 'git'
   const git = (args, idx) =>
     execFileSync(gitBin, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', ...args], {
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: ROOT,
       encoding: 'utf8',
       windowsHide: true,
@@ -195,6 +199,7 @@ test('T10 端到端双向锁:私有索引注入(宿主面红 / 补出口绿 / �
         git(['update-index', '--add', '--cacheinfo', `100644,${blob},${rel}`], idx)
       }
       const r = spawnSync(process.execPath, [GATE, '--staged'], {
+        stdio: ['ignore', 'pipe', 'pipe'],
         cwd: ROOT,
         encoding: 'utf8',
         timeout: 300000,
