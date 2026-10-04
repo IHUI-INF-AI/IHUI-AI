@@ -1086,6 +1086,16 @@ export function createSendMessage(
             toast.info('今日 AI 用量较高', { description: parts.join(',') })
           }
         },
+        // G-815976(2026-10-04 收口入契约):流式中断标记 —— llm_gateway astream 异常
+        // 中断且已发过 chunk 时发出(此后不会有 done)。此前该帧被解析层静默丢弃,
+        // 半截回答与完整回答完全同形("静默变短等于伪造完整性")。已到达正文有效,
+        // 但必须如实告知截断;流随后按正常收束路径结束,不再补 error(避免半截
+        // 内容 + error 的二次混淆 —— 生产端注释里写明的原始意图)。
+        // 文案刻意复用既有键(语言包族正被并行会话大改,新键插入会扫进他们的在飞面;
+        // 该键语义「回答已被中断,可继续输入追加指令」与本帧完全一致)。
+        onPartialDone: () => {
+          toast.warning(t('appendAfterInterrupt.title'))
+        },
         // D155 下行告警三档(2026-09-29 立):帧 → stream-alerts 落点(输入框上方
         // StreamAlertBar 渲染)。message/severity 已由 api-client 解析层逐字段收窄
         // (表外 severity 回退 warning),此处整帧照收,chrome 文案在组件层走 i18n。
