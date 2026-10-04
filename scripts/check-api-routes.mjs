@@ -3856,6 +3856,89 @@ const endStats = new Map(
  */
 const TRANSPORT_RE =
   /fetchApi\s*\(|Taro\.request|\bwx\.request|\bmy\.request|\btt\.request|XMLHttpRequest|axios\.|\bfetch\s*\(|from\s+['"]@ihui\/api-client['"]/
+/**
+ * ===== 盲区点名(P1 扩面票的收尾,2026-10-05)=====
+ * 上面那段 `st.shapeUnknown++` 只给**数字**。票面铁律:"报数必须报名 —— 否则读者不知道哪一行是
+ * 盲区"。全量档现读 504 个文件落进这一格(web 206 / mobile-rn 180 / miniapp-taro 47 /
+ * extension 45 / cli 20 / api-client 6),而"这 504 个是谁、长什么样"在改动前**一个字都没有**
+ * ⇒ 扩面扩到的端只量到"没红",量不到"看不见的是哪一型"。这一段就是把名字补上。
+ *
+ * 三条纪律:
+ *  ① **不开第二份判据**:点名用的是 `TRANSPORT_RE` 自己(下面那个 `/g` 副本由 `.source`+`.flags`
+ *     派生,不是手抄的第二个正则 —— 手抄一份就是本仓反复教的"两处实现必漂移")。因此
+ *     "被点名的文件集合"与"被计数的文件集合"结构上同一,不会出现"计了 180 只报得出 150"。
+ *     计数口径(`calls.length===0 && TRANSPORT_RE.test(src)`)一字未改。
+ *  ② **只报名,不判红,不进基线,不动退出码**:这一格说的是"判据看不见",不是"这里有问题"。
+ *  ③ 默认档每端只印前 `SHAPE_SITE_PRINT_PER_END` 个文件(全量档跑在 pre-commit 链里,刷屏等于
+ *     逼人 `--no-verify`),其余走 `--dump-missing`(与既有"逐条见 --dump-missing"同一手法)。
+ *
+ * `--dump-missing <file>` 写出的 JSON **形状不变**(仍是死调用数组)—— 那是既有调用者的契约;
+ * 盲区逐条只进 stdout 那一份列表。
+ */
+const TRANSPORT_RE_G = new RegExp(TRANSPORT_RE.source, TRANSPORT_RE.flags + 'g')
+/** 单个盲区文件最多点几条(一屏里不让一个 60 处 `fetch(` 的文件占满) */
+const SHAPE_SITE_CAP = 3
+/** 默认档每端打印的盲区文件数 */
+const SHAPE_SITE_PRINT_PER_END = 8
+/** 盲区站点:`{end, file, carriers:[传输口形态], sites:[{line,text,note}], crossLineOnly, callLike}` */
+const shapeUnknownSites = []
+/**
+ * 从**同一个** TRANSPORT_RE 里取出这个文件的传输口形态与行位置。
+ * 跨行形态(`fetchApi\n(` —— `\s*` 能吞换行)在整文件上命中、在单行上取不到 ⇒
+ * `crossLineOnly:true`,仍登记文件名(否则数字对不上,就是"把没点名说成没有")。
+ *
+ * `note` 只是**给登出来的那一行贴事实标签**,不改任何计数口径:
+ *  · `import型` —— 命中的是 `import … from '@ihui/api-client'` 一类语句 ⇒ 这文件把调用交给
+ *    共享传输口,路径住在 `packages/api-client`(该包**已在面内**,实测 700 处调用点)。
+ *  · `注释态` —— 原文里有传输口字样、`maskComments` 之后就没了 ⇒ 它压根不是调用点。
+ *    (计数读的是原文,所以这一型今天**仍算在 504 里** —— 我不改这个口径,一改就是在放宽判据;
+ *     但把它标出来,读报告的人才知道"180 个盲区文件"里有多少其实是一个 `// Taro.request 说明`。)
+ *  · 两者都不是 ⇒ `callLike`:真的发了调用而路径静态读不出(`fetch(\`${BASE}/api/x\`)`、
+ *    `fetchApi(BASE + '/x')`、路径住在变量里)。**这一型才是"看不见的那一型"**。
+ */
+function collectShapeUnknownSites(rel, end, src) {
+  const carriers = new Set()
+  const sites = []
+  const lines = src.split('\n')
+  const maskedLines = maskComments(src).split('\n')
+  let callLike = false
+  for (let i = 0; i < lines.length; i++) {
+    let hits = null
+    try {
+      hits = [...lines[i].matchAll(TRANSPORT_RE_G)]
+    } catch {
+      hits = []
+    }
+    if (hits.length === 0) continue
+    for (const h of hits) carriers.add(h[0].replace(/\s+/g, ' ').trim())
+    if (sites.length >= SHAPE_SITE_CAP) continue
+    const maskedHits = (() => {
+      try {
+        return [...(maskedLines[i] ?? '').matchAll(TRANSPORT_RE_G)].length
+      } catch {
+        return 0
+      }
+    })()
+    // 命中本身是不是"import 形态":TRANSPORT_RE 的最后一个分支就是 `from '@ihui/api-client'`,
+    // 所以命中串以 `from` 开头 ⇒ 这一行是 import/export 语句(多行 import 的**续行**也以 `from`
+    // 起头,按行首猜 `^\s*(import|export)` 会漏掉它 —— 直接从命中串判,不再发明第三条规则)。
+    const importOnly = hits.every((h) => /^\s*from\b/.test(h[0]))
+    let note = ''
+    if (maskedHits === 0) note = '注释态(遮罩后该行无传输口,非代码)'
+    else if (importOnly) note = 'import/export 语句(路径住在被引模块内)'
+    else note = '传输口在代码里、路径抽不出(形态见原文)'
+    if (maskedHits > 0 && !importOnly) callLike = true
+    sites.push({ line: i + 1, text: lines[i].trim().slice(0, 110), note })
+  }
+  return {
+    end,
+    file: rel,
+    carriers: [...carriers].sort(),
+    sites,
+    crossLineOnly: carriers.size === 0,
+    callLike,
+  }
+}
 /** 取不到内容的**前端代码文件**(与"配置面缺失"分开报,免得一句"取不到 1 个文件"混着两件事) */
 const unreadCode = []
 /** CLI 端"调用点确实在、路径住在变量里"的站点 ⇒ 未判定,逐条点名(不记通过、也不判红) */
@@ -3887,7 +3970,10 @@ for (const rel of frontendRels) {
     cliVarPaths += extra.varPaths
   }
   st.calls += calls.length
-  if (calls.length === 0 && TRANSPORT_RE.test(src)) st.shapeUnknown++
+  if (calls.length === 0 && TRANSPORT_RE.test(src)) {
+    st.shapeUnknown++
+    shapeUnknownSites.push(collectShapeUnknownSites(rel, end, src))
+  }
   allCalls.push(...calls)
 }
 
@@ -4468,6 +4554,70 @@ console.log(
   `${C.yellow}[API 路由比对] ⚠️ 未判定调用形态 ${shapeUnknownTotal} 个文件(有传输口却抽不出 /api/ 路径,判据看不见 ≠ 没有死调用)${C.reset}`,
 )
 /**
+ * 数字之后必须**报名**(P1 扩面票的"报数必须报名 —— 否则读者不知道哪一行是盲区"):
+ * 改动前这一格只有 `504 个文件` 一个总数 + 每端一个计数,没有一处名字 ⇒ 读到"死调用 0"的人
+ * 无法判断这 0 是"都对账过了"还是"504 个文件根本没看清"。下面按端给
+ * ①该端盲区文件数 ②传输口形态 tally(同一份 TRANSPORT_RE 的命中 token,不是第二份判据)
+ * ③逐条 `文件:行 原文`。
+ *
+ * 这一档**永不判红、不进棘轮、不进基线、不改退出码**:它说的是"判据看不见",不是"这里有问题"。
+ * 顺带把"为什么不把新端升成 blocking"的依据写在这里(2026-10-05 现读,全量档 HEAD 面):
+ * 扩面后的 5 端死调用**存量已清到 0**(见上面 per-end 死调用行)——单看这一格像是可以升档了;
+ * **但同一批端里仍有 298 个文件在本门看不见**(mobile-rn 180 / miniapp-taro 47 / extension 45 /
+ * cli 20 / api-client 6),其中"传输口在代码里而路径抽不出"的嫌疑文件 **34 个**
+ * (15 / 6 / 2 / 8 / 3),其余 264 个只是 `import … from '@ihui/api-client'` 语句或注释里的
+ * 传输口字样(路径住在**已在面内**的共享包里,不是盲区嫌疑)。那 34 个的真实形态是
+ * `fetchApi('/checkin')` 这类"基址由宿主注入、字面量不以 `/api/` 开头"、`fetch(\`${BASE}/api/x\`)`
+ * 前缀插值、`fetchApi(cfg.url)` 路径住在变量里 —— 静态读不出真路径。
+ * 看不见就是看不见:据此判红就是把别人的正确实现钉成缺陷(恒红门,§12e),臆造路径就是造第二份
+ * 真相。blocking 起点只能等这一格被逐条裁决(或取材侧补上拼接/归一解析)之后再定,那是另一个决定。
+ */
+{
+  const byEnd = new Map()
+  for (const s of shapeUnknownSites) {
+    if (!byEnd.has(s.end)) byEnd.set(s.end, [])
+    byEnd.get(s.end).push(s)
+  }
+  for (const e of ACTIVE_ENDS) {
+    const list = byEnd.get(e.name)
+    if (!list || list.length === 0) continue
+    const tally = new Map()
+    let crossLine = 0
+    for (const s of list) {
+      if (s.crossLineOnly) crossLine++
+      for (const c of s.carriers) tally.set(c, (tally.get(c) || 0) + 1)
+    }
+    const tallyText =
+      tally.size > 0
+        ? [...tally.entries()]
+            .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
+            .map(([k, v]) => `${k}×${v}`)
+            .join(' / ')
+        : '(单行无命中)'
+    // 真正"看不见有没有死调用"的那一档:有调用点、路径却抽不出。import 型与注释型不算嫌疑
+    // (前者的路径住在已在面内的共享包里,后者压根不是代码)—— 但两者仍留在计数里,口径不动。
+    const suspects = list.filter((s) => s.callLike)
+    console.log(
+      `${C.yellow}    ${e.name}:盲区文件 ${list.length} 个 —— 其中"传输口在代码里而路径抽不出"${suspects.length} 个文件、import 语句/注释态 ${list.length - suspects.length} 个${crossLine > 0 ? `、跨行传输口 ${crossLine} 个` : ''} | 传输口形态 ${tallyText}${C.reset}`,
+    )
+    const ordered = [...suspects, ...list.filter((s) => !s.callLike)]
+    for (const s of ordered.slice(0, SHAPE_SITE_PRINT_PER_END)) {
+      if (s.sites.length === 0) {
+        console.log(`${C.dim}      ${s.file} —— 传输口跨行,无单行站点可登${C.reset}`)
+        continue
+      }
+      for (const site of s.sites) {
+        console.log(`${C.dim}      ${s.file}:${site.line} ${site.text} —— ${site.note}${C.reset}`)
+      }
+    }
+    if (ordered.length > SHAPE_SITE_PRINT_PER_END) {
+      console.log(
+        `${C.dim}      ... 还有 ${ordered.length - SHAPE_SITE_PRINT_PER_END} 个文件(逐条见 --dump-missing)${C.reset}`,
+      )
+    }
+  }
+}
+/**
  * 纯通配注册造成的覆盖缺口(2026-10-04 定位,证据链见 `matchSegs` 上方注释)。
  *
  * **这一格无条件打印,不看本轮死调用是不是 0。** 理由:本门目前实测死调用恒为 0,
@@ -4601,7 +4751,17 @@ if (DUMP_MISSING) {
       dump.push(
         `${c.method} ${c.path} @ ${c.file}:${c.line} [棘轮${s.allowed !== undefined ? `存量/允许 ${s.count}/${s.allowed}` : '无锚点'}]`,
       )
-  console.log(`[API 路由比对] --dump-missing 逐条死调用(${dump.length} 处):`)
+  // 盲区逐条也走这一份清单(上面 per-end 打印只给前 SHAPE_SITE_PRINT_PER_END 个文件)。
+  // 落盘的 JSON(`--dump-missing <file>`)仍是纯死调用数组 —— 那是既有调用者的契约,不加字段。
+  for (const s of shapeUnknownSites) {
+    if (s.sites.length === 0) {
+      dump.push(`${s.file} [未判定形态:${s.end}] 传输口跨行,无单行站点`)
+      continue
+    }
+    for (const site of s.sites)
+      dump.push(`${s.file}:${site.line} [未判定形态:${s.end}] ${site.text} —— ${site.note}`)
+  }
+  console.log(`[API 路由比对] --dump-missing 逐条死调用/盲区站点(${dump.length} 处):`)
   for (const d of dump) console.log(`    ${d}`)
 }
 
