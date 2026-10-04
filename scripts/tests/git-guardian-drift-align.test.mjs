@@ -106,7 +106,15 @@ function makeDrillRepo() {
     '演练仓未拷到 scripts/lib/face-reader.mjs —— CLI 的 git 派生已收口到共用层,少一跳就是 ERR_MODULE_NOT_FOUND',
   )
   const g = (args) =>
-    execFileSync('git', ['-c', 'safe.directory=*', '-C', tmp, ...args], { encoding: 'utf8' })
+    execFileSync('git', ['-c', 'safe.directory=*', '-C', tmp, ...args], {
+      encoding: 'utf8',
+      // 2026-10-04 补:本调用点**缺 stdio**,而本机派生 git 命中 EBUSY 面 ⇒ 这两条 CLI 契约测试
+      // 自落地起就一直崩在 `spawnSync git EBUSY`,**从未真正跑过 CLI**(症状与判据无关,
+      // 失败信息里完全看不出是派生问题,极易被当成"环境不稳"放过)。
+      // 无 input ⇒ ignore 三态;若将来要喂 stdin,改用 openSync 的数字 fd(见 MEMORY 同条判据)。
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
   g(['init', '-q', '--initial-branch=main'])
   g(['config', 'core.autocrlf', 'false']) // 否则 restore 写回 CRLF,断言随本机 git 配置漂移(与本仓自愈自检同法)
   g(['config', 'user.email', 't@t'])
@@ -128,6 +136,10 @@ function runAlign(tmp, env = {}) {
       cwd: tmp,
       encoding: 'utf8',
       windowsHide: true,
+      // 2026-10-04 补:同型第三处(前两处在 makeDrillRepo 的 g() 与本调用)。缺 stdio 时本机
+      // 派生命中 EBUSY 面,症状是 status=null(进程没能起来),而断言里写的是
+      // "实得 null;stdout 末行=" —— 读起来像"CLI 自己没输出",与真正的派生故障毫无关系。
+      stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, ...env },
     },
   )
