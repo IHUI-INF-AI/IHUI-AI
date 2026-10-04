@@ -119,7 +119,8 @@ function runnerFaces() {
     ['索引', ':scripts/guardian-runner.mjs'],
   ]) {
     try {
-      out.push({ label, text: execFileSync(GIT, ['-c', 'safe.directory=*', '-C', REPO, 'show', spec], { encoding: 'utf8', windowsHide: true, timeout: 120000, maxBuffer: 64 << 20 }) })
+      // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
+      out.push({ label, text: execFileSync(GIT, ['-c', 'safe.directory=*', '-C', REPO, 'show', spec], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true, timeout: 120000, maxBuffer: 64 << 20 }) })
     } catch {
       /* 该面取不到就少一面,由调用方判"两面无条目" */
     }

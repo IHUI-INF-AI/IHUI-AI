@@ -323,6 +323,9 @@ test('S0 机制清单必须就是 AGENTS.md 点名的那些唯一实现,且每�
   // 第 4/5 条(2026-09-25)= 页头返回键的**两份同名实现**(小程序端内 + RN/共享屏层)。
   // 为什么两份都要登记:只看着端内那一份时,共享层 `packages/app` 那份被摘线(改回文本字形、
   // 或没人 import)本门全绿 —— 而 RN 与桌面端同时失去唯一实现。同名不同实现最容易只记一份。
+  // 第 6 条(2026-09-30)= 输入框聚焦描边的唯一实现:AGENTS §4 那天新立"聚焦态描边取墨档"
+  // 这一例外位,而例外位是有载体的 —— 载体被改成别的档(或没人 import)时,§4 那句话就变成
+  // 一句没人执行的散文。本断言按路径集合对账,所以加一条必须同时在 AGENTS 点名它。
   assert.deepEqual(
     [...gate.MECHANISMS.map((m) => m.file)].sort(),
     [
@@ -331,8 +334,9 @@ test('S0 机制清单必须就是 AGENTS.md 点名的那些唯一实现,且每�
       'apps/web/src/components/common/view-more-link.tsx',
       'packages/app/src/components/BackChevron.tsx',
       'packages/app/src/components/MoreLink.tsx',
+      'packages/app/src/components/TextField.tsx',
     ].sort(),
-    'S0 机制清单与既定五条形成了偏差',
+    'S0 机制清单与 AGENTS.md 点名的唯一实现集合形成了偏差',
   )
   for (const m of gate.MECHANISMS) {
     assert.ok(
@@ -419,6 +423,8 @@ test('跨行自闭合标签的属性区必须真被咨询(HEAD 真文件双向�
     maxBuffer: 64 * 1024 * 1024,
     timeout: 120000,
     windowsHide: true,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   const CROSS_LINE_SELF_CLOSING =
     /<ChevronLeft\n\s+size=\{16\}\n\s+color=\{tk\.text\.primary\}\n\s+style=\{page <= 1 && styles\.pageBtnDisabled\}\n\s*\/>/
@@ -518,6 +524,8 @@ test('GA7 必须真挂在 scan() 上,且正反两例的输入逐字取自 HEAD �
       maxBuffer: 64 * 1024 * 1024,
       timeout: 120000,
       windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
   const WRAP = 'apps/mobile-rn/src/screens/SettingsScreen.tsx'
   const CHILD = 'packages/app/src/features/settings/SettingsScreen.tsx'

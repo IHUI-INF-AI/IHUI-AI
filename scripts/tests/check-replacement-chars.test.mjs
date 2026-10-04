@@ -19,6 +19,8 @@ const REPL = String.fromCharCode(0xfffd)
 
 const headBlob = (rel) =>
   execFileSync(GIT, ['-C', ROOT, '-c', 'safe.directory=*', '-c', 'core.quotePath=false', 'show', `HEAD:${rel}`], {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     maxBuffer: 1 << 28,
     encoding: 'utf8',
   })
@@ -82,13 +84,15 @@ test('T7 自检登记侧必须真求值(守门 156 那一型:cond 传函数 ⇒ 
 })
 
 test('T8 存量与新增分档:全量档不得因存量判红', () => {
-  const out = execFileSync(process.execPath, [resolve(ROOT, SCRIPT)], { encoding: 'utf8', maxBuffer: 1 << 28 })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  const out = execFileSync(process.execPath, [resolve(ROOT, SCRIPT)], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', maxBuffer: 1 << 28 })
   assert.match(out, /面=head/, '全量档必须自报判定面')
   assert.match(out, /只报数|零 U\+FFFD/, '有存量时必须写明"只报数",不得静默')
 })
 
 test('T9 未判定与通过不得同色:枚举到 0 个源码文件必须判死', () => {
-  const out = execFileSync(process.execPath, [resolve(ROOT, SCRIPT), '--self-test'], { encoding: 'utf8', maxBuffer: 1 << 28 })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  const out = execFileSync(process.execPath, [resolve(ROOT, SCRIPT), '--self-test'], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', maxBuffer: 1 << 28 })
   assert.match(out, /self-test: \d+ 通过 \/ 0 失败/, '自检必须现跑现绿')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

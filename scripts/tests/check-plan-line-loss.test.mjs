@@ -95,7 +95,9 @@ function tempPlanRepo(planText) {
 }
 
 const runGate = (dir, args) =>
+  // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
   spawnSync(process.execPath, [join(dir, 'scripts', 'check-plan-line-loss.mjs'), ...args], {
+    stdio: ['ignore', 'pipe', 'pipe'],
     cwd: dir,
     encoding: 'utf8',
     windowsHide: true,
@@ -486,6 +488,7 @@ test('接线自检:脚本被复制进临时夹具仓(五处落点全不存在)�
     assert.equal(w.wired, false)
     // 端到端:在这样一个复制出来的脚本上跑 --check,不得因接线判据而红
     const r = spawnSync(process.execPath, [join(dst, 'check-plan-line-loss.mjs'), '--check'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: dir,
       encoding: 'utf8',
       windowsHide: true,

@@ -263,6 +263,8 @@ test('输出顺序: 与 git diff --cached --name-only 一致', () => {
     const gitOut = execSync('git diff --cached --name-only', {
       cwd: dir,
       encoding: 'utf8',
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
       .split('\n')
       .filter(Boolean)

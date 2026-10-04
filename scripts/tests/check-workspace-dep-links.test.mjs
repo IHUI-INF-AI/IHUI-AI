@@ -341,7 +341,9 @@ test('自检入口可用(--self-test 退出码 0)', () => {
   const out = execFileSync(
     process.execPath,
     [join(REPO, 'scripts', 'check-workspace-dep-links.mjs'), '--self-test'],
-    { encoding: 'utf8', windowsHide: true, timeout: 120_000 },
+    { encoding: 'utf8', windowsHide: true, timeout: 120_000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'] },
   )
   assert.match(out, /--self-test \d+\/\d+ 通过/)
   assert.doesNotMatch(out, /❌ .*— /, '自检存在失败用例')
