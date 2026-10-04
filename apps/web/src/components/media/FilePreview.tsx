@@ -24,6 +24,12 @@ import {
   type ImageTransferKind,
   type ImageTransferResult,
 } from '@ihui/shared/chat/element-pack'
+// G-853 平移判据的唯一出口(与 mobile-rn 端共用同一份算式)。走**子路径**导入:
+// `src/utils/index.ts` 那份 barrel 此刻被并行会话持有,按 §12 不得提交别人的在飞文件。
+import {
+  clampImagePreviewOffset,
+  imagePreviewPanApplies,
+} from '@ihui/shared/utils/image-preview-offset'
 import { cn } from '@/lib/utils'
 import { fetchGatedBlob } from '@/lib/gated-blob-fetch'
 import { downloadFilenameFor } from '@/lib/file-preview-attachment'
@@ -242,6 +248,124 @@ function ImagePreview({
   const zoomBy = (direction: 'in' | 'out') => setZoom((prev) => zoomStep(prev, direction))
   const zoomPercent = `${Math.round(zoom * 100)}%`
 
+  // ---- G-853:放大后的平移 + pointer capture 的显式释放 -------------------------------
+  // 判据(能不能平移 / 平移量的边界)一律走 `@ihui/shared/utils/image-preview-offset`,
+  // 与 mobile-rn 端同一份算式;本文件只做 DOM 侧的取材与手势接线,不在此推第二套钳制。
+  const viewportRef = React.useRef<HTMLDivElement | null>(null)
+  const [offset, setOffset] = React.useState<{ x: number; y: number }>({ x: 0, y: 0 })
+  /** 只跟一根指针:记录按下时的坐标与当时的平移量(多指不叠加,免得抖动) */
+  const dragRef = React.useRef<{
+    id: number
+    x0: number
+    y0: number
+    ox: number
+    oy: number
+  } | null>(null)
+  /** 本组件实际捕获过的 pointerId —— 释放出口按它判,不靠"猜有没有捕获" */
+  const capturedRef = React.useRef<number | null>(null)
+  const [panReady, setPanReady] = React.useState<boolean>(false)
+
+  /**
+   * 取材:图片的 `getBoundingClientRect()` 含 transform scale 后的**实际渲染尺寸**,
+   * 外层视口那层给未缩放的窗口尺寸 —— 两者直接喂共享判据,端内不再乘一次 zoom。
+   * 量不到(未挂载 / 图片还没出盒)一律回 null,由调用方落到"不平移",不猜一个数。
+   */
+  const measurePanGeometry = React.useCallback(() => {
+    const viewport = viewportRef.current
+    const img = viewport?.querySelector('img') ?? null
+    if (!viewport || !img) return null
+    const box = viewport.getBoundingClientRect()
+    const imageBox = img.getBoundingClientRect()
+    return {
+      viewportWidth: box.width,
+      viewportHeight: box.height,
+      scaledWidth: imageBox.width,
+      scaledHeight: imageBox.height,
+    }
+  }, [])
+
+  const releasePointerCapture = React.useCallback((pointerId: number) => {
+    const target = viewportRef.current
+    capturedRef.current = null
+    if (!target || typeof target.releasePointerCapture !== 'function') return
+    // hasPointerCapture 存在时先问一次:对不活跃的 pointerId 调 release 会抛 DOMException,
+    // 而这一步只是收尾,绝不能因为收尾失败把手势卡在"还在拖"。
+    if (typeof target.hasPointerCapture === 'function' && !target.hasPointerCapture(pointerId)) return
+    try {
+      target.releasePointerCapture(pointerId)
+    } catch {
+      /* 收尾失败不阻断:平移量已复位,捕获残留由下一次按下覆盖 */
+    }
+  }, [])
+
+  React.useEffect(() => {
+    // 换图 / 翻页 / 改缩放 ⇒ 平移复位(否则放大倍数变小后图片会停在视口外)。
+    setOffset({ x: 0, y: 0 })
+    dragRef.current = null
+    const box = viewportRef.current
+    if (box) {
+      const geometry = measurePanGeometry()
+      setPanReady(geometry === null ? false : imagePreviewPanApplies({ offsetX: 0, offsetY: 0, ...geometry }))
+    }
+    // 卸载出口:票面引的上游注释直说"残留 capture 会让 hover/click 继续命中视口而不是浮层按钮",
+    // 所以 pointerup / pointercancel / **卸载** 三个出口都要显式释放,少一个就是留一根幽灵捕获。
+    return () => {
+      const captured = capturedRef.current
+      if (captured !== null && box && typeof box.releasePointerCapture === 'function') {
+        try {
+          box.releasePointerCapture(captured)
+        } catch {
+          /* 卸载路径上的收尾失败无从补救,静默但不抛 */
+        }
+      }
+      capturedRef.current = null
+      dragRef.current = null
+    }
+  }, [zoom, active, current.url, measurePanGeometry])
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    const geometry = measurePanGeometry()
+    // 未放大 ⇒ 整段不吃事件:既不捕获指针,也不 touch-action: none,页面滚动照常(验收项 2)。
+    if (!geometry || !imagePreviewPanApplies({ offsetX: 0, offsetY: 0, ...geometry })) return
+    dragRef.current = {
+      id: event.pointerId,
+      x0: event.clientX,
+      y0: event.clientY,
+      ox: offset.x,
+      oy: offset.y,
+    }
+    const target = event.currentTarget
+    if (typeof target.setPointerCapture === 'function') {
+      try {
+        target.setPointerCapture(event.pointerId)
+        capturedRef.current = event.pointerId
+      } catch {
+        capturedRef.current = null
+      }
+    }
+  }
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current
+    if (!drag || drag.id !== event.pointerId) return
+    const geometry = measurePanGeometry()
+    if (!geometry) return
+    setOffset(
+      clampImagePreviewOffset({
+        offsetX: drag.ox + (event.clientX - drag.x0),
+        offsetY: drag.oy + (event.clientY - drag.y0),
+        ...geometry,
+      }),
+    )
+  }
+
+  const endDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current
+    if (!drag || drag.id !== event.pointerId) return
+    dragRef.current = null
+    releasePointerCapture(event.pointerId)
+  }
+
   const [transfer, setTransfer] = React.useState<{
     kind: ImageTransferKind
     result: ImageTransferResult
@@ -331,7 +455,23 @@ function ImagePreview({
         copy={copy}
         onRetry={feed.refresh}
       />
-      <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
+      {/*
+        G-853 平移层:指针事件挂在这一层 div(不是 img)—— 捕获的是"看图的这块视口",
+        松手/取消/卸载三个出口都显式 release,不留幽灵捕获(票面引的上游注释就是这条)。
+        touch-action 只在真的能平移时才收走(`none`),未放大保持 `auto` ⇒ 不吃页面滚动。
+      */}
+      <div
+        ref={viewportRef}
+        className="flex min-h-0 flex-1 items-center justify-center overflow-hidden"
+        style={{ touchAction: panReady ? 'none' : 'auto' }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        data-image-pan-ready={panReady ? 'true' : 'false'}
+        data-image-pan-x={offset.x}
+        data-image-pan-y={offset.y}
+      >
         <Image
           src={current.url}
           alt={current.name ?? 'preview'}
@@ -339,7 +479,10 @@ function ImagePreview({
           height={600}
           unoptimized
           className="h-auto w-auto min-h-0 max-h-full max-w-full flex-1 object-contain"
-          style={{ transform: `scale(${zoom})`, transformOrigin: 'center' }}
+          style={{
+            transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
+            transformOrigin: 'center',
+          }}
           data-testid="image-preview-img"
           data-image-zoom={zoomPercent}
         />

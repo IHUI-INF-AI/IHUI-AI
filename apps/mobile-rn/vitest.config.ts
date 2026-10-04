@@ -126,6 +126,13 @@ export default defineConfig({
         __dirname,
         '../../packages/shared/src/utils/agent-action-addressing.ts',
       ),
+      // G-853:平移钳制的共享出口。必须排在下面的 '@ihui/shared/utils' 父别名**之前** ——
+      // 父别名按 startsWith 会把这条子路径吞成 <mock>/image-preview-offset(收集期 MODULE_NOT_FOUND)。
+      // 与 date-utils / app-control-intent 同一处理,原因写在该两条的注释里。
+      '@ihui/shared/utils/image-preview-offset': resolve(
+        __dirname,
+        '../../packages/shared/src/utils/image-preview-offset.ts',
+      ),
       '@ihui/shared/utils': resolve(__dirname, 'tests/__mocks__/ihui-shared-utils.ts'),
       '@ihui/shared/hooks': resolve(__dirname, 'tests/__mocks__/ihui-shared-hooks.ts'),
       // 2026-09-27 收口:stores 从"手写替身"改为直指真实工厂。
