@@ -24,6 +24,7 @@ import type { ClaimLedger } from './ledger.js'
 import type { AutomationsConfig } from './config.js'
 import { redactSecrets } from './redact.js'
 import { describeAutomationFailure } from './failure-class.js'
+import { parseScanItemKey } from './scan-item-key.js'
 
 const GOAL_LIMIT = 4000
 const TITLE_LIMIT = 60
@@ -52,14 +53,18 @@ export function prTitleFor(item: ScanItem): string {
   return `[automations] fix: ${summary}`
 }
 
-/** 分支名:automations/fix-<source>-<key 序号>-<时间戳>(slug 化防非法字符) */
+/**
+ * 分支名:automations/fix-<source>-<key 序号>-<时间戳>(slug 化防非法字符)。
+ *
+ * G-998157:序号一律经 parseScanItemKey 取,不再 `split(':')[1] ?? 'x'` ——
+ * 那样空段/无冒号会静默变成占位符 'x',两个坏键撞出同一个分支名,错配一路走到底。
+ * 键解析失败(空段/段数不符/未知前缀)在此显式抛错,由调用点的 try 兜住并记账。
+ */
 export function branchNameFor(item: ScanItem, now = new Date()): string {
-  const seq = item.key.split(':')[1] ?? 'x'
-  const stamp = now
-    .toISOString()
-    .replace(/[-:T]/g, '')
-    .slice(0, 14)
-  return `automations/fix-${item.source}-${seq}-${stamp}`
+  const parsed = parseScanItemKey(item.key)
+  if (!parsed) throw new Error(`[automations] 条目键无法解析,拒绝生成分支名:${item.key}`)
+  const stamp = now.toISOString().replace(/[-:T]/g, '').slice(0, 14)
+  return `automations/fix-${parsed.source}-${parsed.seq}-${stamp}`
 }
 
 /** 认领回帖文案 */
@@ -72,13 +77,14 @@ export function claimCommentBody(item: ScanItem): string {
 }
 
 /** 结果回帖文案(成功含 PR 链接;失败含脱敏后的错误摘要) */
-export function resultCommentBody(item: ScanItem, ok: boolean, summary: string, prUrl: string | null): string {
+export function resultCommentBody(
+  item: ScanItem,
+  ok: boolean,
+  summary: string,
+  prUrl: string | null,
+): string {
   const head = ok ? '✅ 修复任务已执行' : '❌ 修复任务执行失败'
-  const lines = [
-    `${head}(automations D30,条目 \`${item.key}\`):`,
-    '',
-    summary || '(无摘要)',
-  ]
+  const lines = [`${head}(automations D30,条目 \`${item.key}\`):`, '', summary || '(无摘要)']
   if (prUrl) lines.push('', `PR:${prUrl}`)
   return lines.join('\n')
 }
@@ -105,19 +111,15 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
 
   async function scanAll(): Promise<ScanItem[]> {
     const [issues, alerts, runs] = await Promise.all([
-      github
-        .scanIssues(config.label)
-        .catch((err) => {
-          audit?.warn('[automations] issue 扫描失败', { err: safe(String(err)) })
-          return [] as ScanItem[]
-        }),
+      github.scanIssues(config.label).catch((err) => {
+        audit?.warn('[automations] issue 扫描失败', { err: safe(String(err)) })
+        return [] as ScanItem[]
+      }),
       github.scanCodeScanningAlerts(),
-      github
-        .scanFailedRuns(config.maxRuns)
-        .catch((err) => {
-          audit?.warn('[automations] 失败 run 扫描失败', { err: safe(String(err)) })
-          return [] as ScanItem[]
-        }),
+      github.scanFailedRuns(config.maxRuns).catch((err) => {
+        audit?.warn('[automations] 失败 run 扫描失败', { err: safe(String(err)) })
+        return [] as ScanItem[]
+      }),
     ])
     return [...issues, ...alerts, ...runs]
   }
@@ -168,7 +170,11 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
       ok = false
       summary = safe(String(err))
     }
-    audit?.info('[automations] 修复任务执行完成', { key: item.key, ok, summary: summary.slice(0, 300) })
+    audit?.info('[automations] 修复任务执行完成', {
+      key: item.key,
+      ok,
+      summary: summary.slice(0, 300),
+    })
 
     // ---- G-669:失败条目必须有"下场",并且逐条点名 ----
     // 改造前这里只有 report.failed++:认领永不释放 ⇒ transient 失败(上游重启/网络抖动)
@@ -232,7 +238,10 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
         audit?.warn('[automations] 结果回帖失败', { key: item.key, err: safe(String(err)) })
       }
     } else if (item.issueNumber !== null) {
-      audit?.info('[automations] 条目已回队,本轮不发结果回帖', { key: item.key, reason: dropReason })
+      audit?.info('[automations] 条目已回队,本轮不发结果回帖', {
+        key: item.key,
+        reason: dropReason,
+      })
     }
   }
 
