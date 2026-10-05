@@ -25,6 +25,27 @@
 //   C6(G-816043)i18n 码表键:`packages/i18n/messages/<面板>/<lang>.json` 里**五语言全有**
 //      的键,反查全仓生产面发射点 —— "有译文却零生产者"是 C1~C5 都看不见的一种未接线。
 //      零发射 ⇒ 未接线(按面板归 `…/<面板>/en.json` 计数,走同一棘轮;动态拼键只报数)。
+//   C7(G-816034 ①②)工厂族:任意扫描根里**导出**且名字形如 `create*Handler` / `create*Transport`
+//      的**工厂**(本票立项的那一格:造好没装车 + 带着绿灯测试却零生产调用方 —— C1~C5 看不见它:
+//      它既不是 TTL/预算常量、也不是 `*Contract`、也不是 `(prune|cleanup|…)` 清理函数)。
+//      立案要**两条**都成立:① 名字 `^create(非小写)…(Handler|Transport)$` 且 `export`;
+//      ② **定义形态读得出是工厂**(函数声明,或 `const/let = function|箭头`,允许中间夹返回类型标注)。
+//      ②就是票面那条「同词不同义」的落地:**不得按名字一律算候选** —— 同名的
+//      `interface`/`type`/`class`/对象初值/方法都判"不是工厂"(实测真仓两处正是这一型:
+//      `apps/api/src/plugins/upload-scanner.ts:270` 的接口字段、`apps/api/src/services/email-service.ts:100`
+//      的 `createTransport(opts…)` 方法,连顶层声明都不是);名字命中但**声明行读不出初值**
+//      (如 `export let createXHandler`)⇒ **报数并逐条点名、不立案**(判不了 ≠ 判没有,也 ≠ 判红 ——
+//      与本门 C6 对"判不了"的既有口径同一:动态拼键/歧义绑定只报数;把它并进 exit 2 会让一种合法
+//      写法成为与任何提交无关的恒红门,§12e)。真正让 C7 落**未判定**的是"集合根本推不出来":
+//      扫描根文件在判定面取不到内容 ⇒ undetermined ⇒ exit 2(不记绿,沿用本门既有那条)。
+//      定级**沿用本门既有口径**,本票不升级:全量档只报数不判红、`--staged` 与 C1~C6 走**同一条**
+//      perFile 棘轮(新增即拦、存量不追)。升 blocking 的前置 = 该族存量清零(§12e:与任何提交
+//      无关的恒红门只会逼人 `--no-verify`、连带废掉全部守门)。
+//      新族的存量读数由 judge() 的 `factory` 字段当场给出(候选数 / 零生产调用方逐条点名 /
+//      读不出形态逐条点名),全量档打印在 C7 行,`--json` 里同名可读。
+//      现读(2026-10-05,HEAD 面,本枚改动跑出来的):候选 21 / 零生产调用方 6 / 形态读不出 0。
+//      这 6 条里 4 条是真零调用方,2 条(`createTaroTransport`、`createTaroStreamTransport`)是
+//      下面"已知限制"里"取用面从第一个顶层声明起算"那一型 —— 消费者真在生产面,只是写在前面。
 //
 // "接线"的算法(与守门 64/115 同族的收口点):
 //   - 消费者 = **生产面文件**(扫描根 apps/*/src + packages/*/src;测试面整面排除:
@@ -71,6 +92,15 @@
 // 已知限制(如实登记,不以豁免遮):
 //   - specifier 兼容判定只认"文件基名 / 直接父目录 / @ihui/<pkg>"三种链形,更深的 barrel 跳数
 //     不追(失误方向是把"已接线"错判成"未接线",由棘轮与全量档只报数兜住);
+//   - **取用面从该文件第一个顶层声明起算**(`parseFile` 的 uses/edges 先要认出一个 host):
+//     写在所有顶层声明**之前**的模块级调用(入口文件最常见的 `setTransport(createXTransport())`
+//     形态)不被认成消费者。这一条自 C1~C5 立项就在,方向同样是"把已接线判成未接线"(更严),
+//     由棘轮与全量档只报数兜住;本票**不改它** —— 动 `uses` 的收集范围会换掉既有四族与 C6 的
+//     现读数,那是另一枚票的活(改哪一面都要同枚重述存量)。C7 现读 6 条里的
+//     `apps/miniapp-taro/src/utils/api-client-transport.ts:32 createTaroTransport` 与
+//     `apps/miniapp-taro/src/utils/taro-stream-transport.ts:46 createTaroStreamTransport` 正是
+//     这一型(消费方 `apps/miniapp-taro/src/app.tsx:56/57` 真在调,而那两行位于第 118 行第一个
+//     顶层声明之前);其余 4 条经逐条读定义确认是真零生产调用方。
 //   - 类型可达 ≠ 运行时供给:接口字段把某契约类型引到位,闭包会判"已接线"。
 //     "工具字面量到底有没有供 contract(含 resultBudget)"由守门 111 按同族判据管,两门互补。
 //   - C6(G-816043):「有值」只认票面五语言(en/ja/ko/zh-CN/zh-TW)全有,缺任一语言的面板
@@ -79,6 +109,11 @@
 //     失误方向是把已接线判未接线,棘轮兜住);模板前缀覆盖可能偏宽(`items${i}` 连
 //     itemsFoo 一起盖住)—— 宁可少红不假绿;泛用变量名(如 t)若还兼作他用会误接线,
 //     同由全量档只报数与棘轮兜底。
+//   - C7(G-816034):形状判据读的是**遮噪后的顶层声明行**(与 C1~C5 同一份 parseFile 面,注释与
+//     字符串里的同名提及因此天然不可见),只看这一行:`= …` 换行才写初值的读成"非工厂"(漏报方向)、
+//     一行多个声明符只读第一个(同上)、`= 别的工厂调用`(如 `= composeHandlers(…)`)读不出返回类型
+//     也归"非工厂"。名字命中而**整行没有 `=`** 的 ⇒ 报数逐条点名、不立案(不判红也不 exit 2,
+//     理由见上面 C7 那段与 §12e);出路是把它写成函数形态或就地赋值,不是给门加豁免。
 //
 // 手动:
 //   node scripts/check-declared-policy-has-consumer.mjs                # 全量(HEAD)报存量
@@ -110,7 +145,7 @@ export function inScanRoot(p) {
   return SCAN_ROOT_RE.test(p) && SRC_EXT_RE.test(p) && !TEST_FACE_RE.test(p)
 }
 
-// ==================== 候选声明的形态(C1~C5,宁窄不误报)====================
+// ==================== 候选声明的形态(C1~C5 + C7,宁窄不误报)====================
 
 /** C1 策略常量:大写-下划线族的 MAX_AGE / MAXAGE / TTL / RETENTION */
 export function isPolicyConstName(name) {
@@ -136,14 +171,49 @@ export function isPredicateFnName(name, rel, exported) {
 export function isCleanupFnName(name, exported) {
   return exported && /^(?:prune|cleanup|purge|expire|sweep)(?:[A-Z_]|$)/.test(name)
 }
+/**
+ * C7 名字形如 create*Handler / create*Transport 的**导出**工厂(G-816034 ①②)。
+ * 宁窄:`create` 之后不得紧跟小写(故 `createdHandler` 这类巧合不命中),结尾恰为
+ * Handler/Transport(故 `createHandlerFactory`、复数 `…Handlers` 都不命中 —— 复数更像集合而非工厂)。
+ * 名字只是**第一道**,第二道是 declShape(见下):同词不同义不得按名字一律算候选。
+ */
+export function isHandlerFactoryName(name, exported) {
+  return exported && /^create(?![a-z])[A-Za-z0-9_$]*(?:Handler|Transport)$/.test(name)
+}
 
-export function candidateKinds(name, rel, exported) {
+// 工厂的"定义形态"三态(判据只读**声明行**这一条语法事实,不引第二台词法器):
+//   'factory'     ⇒ 函数声明(含 async),或变量声明且初值是 function/箭头(允许中间夹返回类型标注)
+//   'not-factory' ⇒ 明确不是工厂:interface/type/enum/class、对象/数组/字面量/别的调用
+//   'unknown'     ⇒ 名字命中但声明行读不出形态(如 `export let createXHandler` 整行无初值)
+// 落子规则:not-factory **不立案**(宁窄,失误方向是漏报)、unknown **报数并逐条点名但不立案**
+// (判不了 ≠ 判没有,也 ≠ 判红 —— 与本门 C6 的"动态拼键/歧义绑定只报数"同口径),
+// factory 才进候选集。
+export const DECL_SHAPES = ['factory', 'not-factory', 'unknown']
+/** 变量初值写成 function / 箭头才算工厂(`: T` 返回类型标注可以夹在参数与 `=>` 之间) */
+const FACTORY_INIT_RE = /=\s*(?:async\s+)?(?:function\b|[A-Za-z0-9_$]+\s*=>|\([^)]*\)\s*(?::[^=]*)?=>)/
+
+/**
+ * 声明行 ⇒ 工厂形态三态。`kind` 是 TOP_DECL_RES 命中的规则号
+ * (0=function / 1=const|let|var / 2=class / 3=interface|type|enum)。
+ */
+export function declShape(line, kind) {
+  const l = String(line ?? '')
+  if (kind === 0) return 'factory'
+  if (kind === 2 || kind === 3) return 'not-factory'
+  if (kind !== 1) return 'unknown'
+  if (FACTORY_INIT_RE.test(l)) return 'factory'
+  return l.includes('=') ? 'not-factory' : 'unknown'
+}
+
+export function candidateKinds(name, rel, exported, shape = 'unknown') {
   const kinds = []
   if (isPolicyConstName(name)) kinds.push(exported ? 'policy-const' : 'policy-const-module-private')
   if (isBudgetContractName(name)) kinds.push('budget-contract')
   if (isContractTypeName(name, rel, exported)) kinds.push('contract-type')
   if (isPredicateFnName(name, rel, exported)) kinds.push('predicate-fn')
   if (isCleanupFnName(name, exported)) kinds.push('cleanup-fn')
+  // C7 只收"读得出是工厂"的声明;同名而定义是类型/对象/方法的 ⇒ 同词不同义,不立案。
+  if (shape === 'factory' && isHandlerFactoryName(name, exported)) kinds.push('handler-factory')
   return kinds
 }
 
@@ -613,7 +683,10 @@ const IDENT_RE = /[A-Za-z0-9_$]+/g
 
 /**
  * 解析一个源文件(注释见文件头"接线算法"):
- *  - decls:   顶层声明 [{name, exported, line(0 基)}]
+ *  - decls:   顶层声明 [{name, exported, line(0 基), shape}];行文本取自**遮噪后的代码面**
+ *             (注释与字符串内容都已抹平),所以"注释里写了一句 `export function createXHandler`"
+ *             既不会成为候选、也不会成为消费者 —— C7 的形态判定与这条口径共用同一份面。
+ *             shape ∈ DECL_SHAPES(工厂/非工厂/读不出),只给 C7 用,C1~C5 不读它;
  *  - imports: import 绑定 [{imported, local, spec}];`export … from` 是转出不是消费,
  *             收进 reExports(只为把它从取用面遮掉,永不作消费者证据);
  *  - uses:    在 import/export-from 语句区域之外出现过的标识符集合;
@@ -652,10 +725,15 @@ export function parseFile(rel, text) {
   const lines = code.split('\n')
   const decls = []
   for (let li = 0; li < lines.length; li++) {
-    for (const re of TOP_DECL_RES) {
-      const dm = re.exec(lines[li])
+    for (let ki = 0; ki < TOP_DECL_RES.length; ki++) {
+      const dm = TOP_DECL_RES[ki].exec(lines[li])
       if (dm) {
-        decls.push({ name: dm[1], exported: /^\s*export\s/.test(lines[li]), line: li })
+        decls.push({
+          name: dm[1],
+          exported: /^\s*export\s/.test(lines[li]),
+          line: li,
+          shape: declShape(lines[li], ki),
+        })
         break
       }
     }
@@ -717,6 +795,23 @@ export function specCompat(spec, declFile) {
 // ==================== 聚合判定(judge = 纯函数;自检与镜像测试都构造输入)====================
 
 /**
+ * C7 新族的**当场读数**(票面"扩判据与清偿必须同枚":判据扩了面,门就要能说出新面的存量)。
+ * @param candidates judge 的候选全集 @param unwired 其中的未接线全集 @param unreadable 名字命中但形态读不出
+ * @returns {{candidates:number,unwired:string[],unreadable:string[]}}
+ *   - `unwired` 走 C1~C5 同一条 perFile 棘轮(这里只是把该族单独点名);
+ *   - `unreadable` **只报数**:并进 undetermined 会让一种合法写法成为与任何提交无关的恒红门(§12e),
+ *     故沿用本门 C6 对"判不了"的既有口径(动态拼键/歧义绑定 = 报数,不接线也不判红)。
+ */
+export function factoryFace(candidates, unwired, unreadable = []) {
+  const isF = (c) => c.kinds.includes('handler-factory')
+  return {
+    candidates: candidates.filter(isF).length,
+    unwired: unwired.filter(isF).map((c) => `${c.file}:${c.line} ${c.name}`),
+    unreadable,
+  }
+}
+
+/**
  * @param files Map<rel, text|null> —— 同一判定面的全部扫描根源文件(清单与内容同面同轮)
  * @param opts { face?, lexicon?: Map<rel, text|null>, mutate: null|'no-external-refs'|'no-closure' }
  *   —— lexicon 给出则启用 C6(i18n 码表键对账);mutate 是**变异对照专用**通道:各禁用一支
@@ -745,15 +840,22 @@ export function judge(files, opts = {}) {
       byKind: {},
       undetermined: ['判定面枚举到 0 个扫描根源文件 —— 空扫不记绿'],
       i18n: null,
+      factory: factoryFace([], [], []),
     }
   }
 
   // 1) 候选声明
   const candidates = []
   const candidateFiles = new Set()
+  // C7 的"名字命中但形态读不出"另立一档:**不立案**(宁窄,失误方向是漏报)但**报数点名**。
+  // 不喂 decide() ⇒ 不判红也不进 exit 2:这是本门 C6 对"判不了"的既有口径(动态拼键/歧义绑定
+  // 只报数),把它并进 undetermined 会让某个合法写法变成与任何提交无关的恒红门(§12e)。
+  const factoryUnreadable = []
   for (const p of parsed.values()) {
     for (const d of p.decls) {
-      const kinds = candidateKinds(d.name, p.rel, d.exported)
+      if (d.shape === 'unknown' && isHandlerFactoryName(d.name, d.exported))
+        factoryUnreadable.push(`${p.rel}:${d.line + 1} ${d.name}`)
+      const kinds = candidateKinds(d.name, p.rel, d.exported, d.shape)
       if (!kinds.length) continue
       candidates.push({ file: p.rel, name: d.name, line: d.line + 1, kinds })
       candidateFiles.add(p.rel)
@@ -840,7 +942,16 @@ export function judge(files, opts = {}) {
     // 词表路径不在 apps|packages/*/src 扫描根里)
     for (const [f, n] of Object.entries(i18n.perFile)) perFile[f] = (perFile[f] || 0) + n
   }
-  return { scanned: parsed.size, candidates, unwired, perFile, byKind, undetermined, i18n }
+  return {
+    scanned: parsed.size,
+    candidates,
+    unwired,
+    perFile,
+    byKind,
+    undetermined,
+    i18n,
+    factory: factoryFace(candidates, unwired, factoryUnreadable),
+  }
 }
 
 /**
@@ -961,7 +1072,7 @@ export function main(argv) {
     return m && i18n ? (i18n.byFolder[m[1]]?.samples ?? null) : null
   }
   if (argv.includes('--json')) {
-    console.log(JSON.stringify({ face: out.face, fellBack: out.fellBack, exit: out.exit, mode: out.mode, scanned: judged.scanned, candidates: judged.candidates.length, unwired: judged.unwired, i18n, reds: out.reds, undetermined: out.undetermined }, null, 2))
+    console.log(JSON.stringify({ face: out.face, fellBack: out.fellBack, exit: out.exit, mode: out.mode, scanned: judged.scanned, candidates: judged.candidates.length, unwired: judged.unwired, i18n, factory: judged.factory, reds: out.reds, undetermined: out.undetermined }, null, 2))
     return out.exit
   }
   if (out.reds.length) {
@@ -990,6 +1101,11 @@ export function main(argv) {
       }
       console.log(`   · ${f} × ${names.length}: ${names.slice(0, 6).join(', ')}${names.length > 6 ? ' …' : ''}`)
     }
+    // C7 新族的存量读数**当场说出**(票面"扩判据与清偿必须同枚"):总数走上面那条,这里逐条点名。
+    const fac = judged.factory
+    console.log(`ℹ️ 工厂族(C7,导出 create*Handler / create*Transport):候选 ${fac.candidates} / 零生产调用方 ${fac.unwired.length} / 形态读不出 ${fac.unreadable.length}(定级沿用本门:只报数不判红,升 blocking 的前置 = 存量清零)`)
+    for (const u of fac.unwired) console.log(`   · ${u}`)
+    for (const u of fac.unreadable) console.log(`   ⚠️ 名字命中但声明行读不出工厂形态 ⇒ 未立案(不判红也不计未判定):${u}`)
     if (i18n) {
       console.log(`ℹ️ i18n 码表(C6):未接线 ${i18nUnwiredTotal} 键(动态拼键 ${i18n.dynamic} 处、歧义绑定 ${i18n.ambiguous} 处${i18n.skipped.length ? `、异常面板 ${i18n.skipped.length} 个` : ''} —— 动态/歧义只报数不判红)`)
       for (const [f, v] of Object.entries(i18n.byFolder)) {
@@ -1000,7 +1116,7 @@ export function main(argv) {
     }
   }
   const verdict = out.exit === 0 ? '✅ 通过' : out.exit === 2 ? '❌ 无法判定(exit 2)' : '❌ 判红(exit 1)'
-  console.log(`${verdict}(面=${FACE_NAME[out.face]} 扫描 ${judged.scanned} 文件 / 候选声明 ${judged.candidates.length} / 未接线 ${judged.unwired.length}${i18n ? ` / i18n 未接线 ${i18nUnwiredTotal}` : ''} / 判红文件 ${out.reds.length} / 未判定 ${out.undetermined.length})`)
+  console.log(`${verdict}(面=${FACE_NAME[out.face]} 扫描 ${judged.scanned} 文件 / 候选声明 ${judged.candidates.length} / 未接线 ${judged.unwired.length}${i18n ? ` / i18n 未接线 ${i18nUnwiredTotal}` : ''} / 工厂族 C7 ${judged.factory.candidates} 候选·${judged.factory.unwired.length} 零生产调用方 / 判红文件 ${out.reds.length} / 未判定 ${out.undetermined.length})`)
   return out.exit
 }
 
@@ -1038,6 +1154,41 @@ const TOOL_CONSUMER = [
   'export interface Tool extends MountContract {}',
   '',
 ].join('\n')
+// C7 工厂族夹具(G-816034 ①②)。**同一批名字**,三种定义形态各占一处:
+//   createFooHandler / createBazHandler = 函数声明、createBarTransport = 箭头初值(带返回类型标注)、
+//   createQuxTransport = 对象初值(读得出,**不是工厂** ⇒ 不立案)、
+//   createLooseHandler = `export let` 整行无初值(读不出 ⇒ 报数点名、不立案、不进 exit 2)。
+const HF_SRC = [
+  'export function createFooHandler(deps: unknown): (e: unknown) => unknown { return (e) => [deps, e]; }',
+  'export const createBarTransport = (): { send(): void } => ({ send() {} });',
+  'export function createBazHandler(): void {}',
+  'export const createQuxTransport: { send(): void } = { send() {} };',
+  'export let createLooseHandler',
+  '',
+].join('\n')
+/** 同词不同义对照:名字与 HF_SRC 里的工厂**完全同名**,定义却是 type / 接口字段 / class */
+const HF_TYPE = [
+  'export type createFooHandler = { run(): void }',
+  'export interface UploadShape { createBarTransport: (o: unknown) => unknown }',
+  'export class createBazHandler { send(): void {} }',
+  '',
+].join('\n')
+/** 生产面消费者:三个都 import,但只取用两个 ⇒ 只 import 不取用那一支照旧红 */
+const HF_CONSUMER = [
+  "import { createFooHandler, createBarTransport, createBazHandler } from '../stream-handlers';",
+  'export function loop(): void { createFooHandler(1); createBarTransport(); }',
+  '',
+].join('\n')
+/** 噪声消费者:import 在、取用只写在注释与字符串里 ⇒ 一个都不算(验收②) */
+const HF_NOISE = [
+  "import { createFooHandler } from '../stream-handlers';",
+  '// createFooHandler(1) 曾在 D113 接线 —— 注释里的提及不算消费者',
+  'export const note = "createBarTransport() 也不算";',
+  'export function loop(): void { return; }',
+  '',
+].join('\n')
+const HF_DECL_FILE = 'apps/web/src/hooks/use-chat/stream-handlers.ts'
+const HF_USE_FILE = 'apps/web/src/hooks/use-chat/send-message.ts'
 
 function selfTest() {
   let ran = 0
@@ -1136,7 +1287,62 @@ function selfTest() {
   const iHook = judge(new Map([['apps/mobile-rn/src/s.ts', "import { useTt, useI18n } from '@/i18n'\nexport function A(): string { const tt = useTt(); return tt('chat.hi') }\nexport function B(): string { const { t } = useI18n(); return t('chat.bye') }\n"]]), { lexicon: lexMap })
   eq('I14 useTt()/useI18n() 钩子(直收与解构)⇒ 返回的取词函数按根 ns 接线', [iHook.i18n.emitted, iHook.i18n.byFolder.web.unwired], [2, 1])
 
-  console.log(fail ? `\n❌ 自检 ${fail}/${ran} 例失败` : `\n全部 ${ran} 例通过(正向证明双夹具 + 双变异对照 + 测试面/re-export/注释/specifier 四排除 + 契约闭包 + 棘轮四向 + 空扫判死 + i18n 码表三验收)`)
+  // ⑰ C7 工厂族(G-816034 ①②):候选族扩到导出 create*Handler / create*Transport
+  //   成对用例:命中必红 / 接线必绿 / 只 import 不取用仍红 / 注释与字符串提及不算消费者 /
+  //   同名但类型不同不得算候选 / 形状读不出报数不立案 / 集合推不出来落未判定 / 定级不动。
+  const fOff = judge(new Map([[HF_DECL_FILE, HF_SRC]]))
+  eq('F1 验收① 新族命中必红:三个读得出是工厂的导出 ⇒ 逐条点名 3 处零生产调用方', [fOff.factory.candidates, fOff.factory.unwired.length, uNames(fOff), fOff.byKind['handler-factory']], [3, 3, ['createBarTransport', 'createBazHandler', 'createFooHandler'], 3])
+  eq('F2 同词不同义的反向锁:createQuxTransport(对象初值)与 createLooseHandler 都不在候选里', fOff.candidates.map((c) => c.name).sort(), ['createBarTransport', 'createBazHandler', 'createFooHandler'])
+  // 正向证明(接线必绿):同一批声明,补上真取用的生产 importer
+  const HF_WIRED = "import { createFooHandler, createBarTransport, createBazHandler } from '../stream-handlers';\nexport function loop(): void { createFooHandler(1); createBarTransport(); createBazHandler(); }\n"
+  const fOn = judge(new Map([[HF_DECL_FILE, HF_SRC], [HF_USE_FILE, HF_WIRED]]))
+  eq('F3 三个工厂都被生产面 import 且真取用 ⇒ 0 未接线(新族不是恒真摆设)', [fOn.factory.candidates, fOn.factory.unwired.length, fOn.perFile[HF_DECL_FILE] ?? 0], [3, 0, 0])
+  // 变异对照 M3:关掉外部消费整支 ⇒ 已接线夹具必退回 3 处红(证明新族走的是同一种子判据)
+  eq('M3 mutate=no-external-refs ⇒ 已接线的工厂夹具仍判 3 处未接线', judge(new Map([[HF_DECL_FILE, HF_SRC], [HF_USE_FILE, HF_WIRED]]), { mutate: 'no-external-refs' }).factory.unwired.length, 3)
+  // 变异对照 M4:关掉传递闭包 —— 工厂经"同文件宿主"接线的那一支必须有牙
+  const HF_CLO = 'const DEFAULT_TTL_MS = 1\nfunction createWrappedHandler(): unknown { return DEFAULT_TTL_MS }\nexport function mount(): unknown { return createWrappedHandler() }\n'
+  eq('M4 mutate=no-closure ⇒ 工厂喂给已接线宿主的常量仍判红(闭包对新族同样有效)', judge(new Map([[HF_DECL_FILE, HF_CLO], [HF_USE_FILE, "import { mount } from '../stream-handlers';\nexport function go(): void { mount() }\n"]]), { mutate: 'no-closure' }).unwired.map((u) => u.name), ['DEFAULT_TTL_MS'])
+  eq('F4 只 import 不取用 ⇒ 新族照旧不算消费者(createBazHandler 单点红)', judge(new Map([[HF_DECL_FILE, HF_SRC], [HF_USE_FILE, HF_CONSUMER]])).factory.unwired, [`${HF_DECL_FILE}:3 createBazHandler`])
+  eq('F5 验收② 注释与字符串里的提及不算消费者(遮噪后不可见,3 处照红)', judge(new Map([[HF_DECL_FILE, HF_SRC], [HF_USE_FILE, HF_NOISE]])).factory.unwired.length, 3)
+  eq('F6 票面"同词不同义":与工厂**完全同名**的 type/接口字段/class 一律不立案', (() => {
+    const r = judge(new Map([['apps/miniapp-taro/src/pkg-ai/ai/cards/types.ts', HF_TYPE]]))
+    return [r.scanned, r.candidates.length, r.factory.candidates, r.unwired.length]
+  })(), [1, 0, 0, 0])
+  eq('F7 名字边界(宁窄):createdHandler/…Factory/复数/非导出都不立案,createHandler 与 create*Transport 立案', [
+    isHandlerFactoryName('createToolDeltaHandler', true),
+    isHandlerFactoryName('createHandler', true),
+    isHandlerFactoryName('createMemoryTransport', true),
+    isHandlerFactoryName('createdHandler', true),
+    isHandlerFactoryName('createHandlerFactory', true),
+    isHandlerFactoryName('createToolDeltaHandlers', true),
+    isHandlerFactoryName('createLooseHandler', false),
+  ], [true, true, true, false, false, false, false])
+  eq('F8 形状三态:函数/箭头(夹返回类型标注)=factory、对象初值=not-factory、整行无初值=unknown', [
+    declShape('export function createAHandler(): void {}', 0),
+    declShape('export const createAHandler = (d: unknown): H => ({})', 1),
+    declShape('export const createAHandler = base(H)', 1),
+    declShape('export const createAHandler: H = { run() {} }', 1),
+    declShape('export let createAHandler', 1),
+    declShape('export interface createAHandler { run(): void }', 3),
+    declShape('export class createAHandler { run() {} }', 2),
+  ], ['factory', 'factory', 'not-factory', 'not-factory', 'unknown', 'not-factory', 'not-factory'])
+  eq('F9 名字命中而形状读不出 ⇒ 报数逐条点名、不立案、也**不进 exit 2**(§12e:合法写法不得造恒红门)', [fOff.factory.unreadable, fOff.undetermined.length, decide({ stagedCounts: fOff.perFile, mode: 'full', undetermined: fOff.undetermined }).exit], [[`${HF_DECL_FILE}:5 createLooseHandler`], 0, 0])
+  eq('F10 factoryFace 纯函数投影(候选/未接线点名/读不出三档各归各)', factoryFace(
+    [{ file: 'a.ts', line: 1, name: 'createXHandler', kinds: ['handler-factory'] }, { file: 'a.ts', line: 2, name: 'K', kinds: ['policy-const'] }],
+    [{ file: 'a.ts', line: 1, name: 'createXHandler', kinds: ['handler-factory'] }],
+    ['a.ts:9 createYHandler'],
+  ), { candidates: 1, unwired: ['a.ts:1 createXHandler'], unreadable: ['a.ts:9 createYHandler'] })
+  eq('F11 集合推导失败落未判定:候选文件在判定面取不到内容 ⇒ 未判定点名,decide 给 exit 2(不记绿)', (() => {
+    const r = judge(new Map([[HF_DECL_FILE, null]]), { face: 'head' })
+    return [r.factory.candidates, r.undetermined.length, decide({ stagedCounts: r.perFile, mode: 'full', undetermined: r.undetermined }).exit]
+  })(), [0, 1, 2])
+  eq('F12 定级不动:C7 计数并入同一条 perFile 棘轮(新增即拦、齐平不红、全量档不判存量红)', [
+    decide({ stagedCounts: { [HF_DECL_FILE]: 3 }, headCounts: { [HF_DECL_FILE]: 2 }, mode: 'staged' }).exit,
+    decide({ stagedCounts: { [HF_DECL_FILE]: 3 }, headCounts: { [HF_DECL_FILE]: 3 }, mode: 'staged' }).exit,
+    decide({ stagedCounts: fOff.perFile, headCounts: fOff.perFile, mode: 'full' }).exit,
+  ], [1, 0, 0])
+
+  console.log(fail ? `\n❌ 自检 ${fail}/${ran} 例失败` : `\n全部 ${ran} 例通过(正向证明双夹具 + 双变异对照 + 测试面/re-export/注释/specifier 四排除 + 契约闭包 + 棘轮四向 + 空扫判死 + i18n 码表三验收 + C7 工厂族四验收)`)
   process.exit(fail ? 1 : 0)
 }
 
@@ -1162,7 +1368,11 @@ export const __test__ = {
   inScanRoot,
   isPolicyConstName,
   isBudgetContractName,
+  isHandlerFactoryName,
+  declShape,
+  DECL_SHAPES,
   candidateKinds,
+  factoryFace,
   isLexiconPath,
   LEX_LANGS,
   flattenLexicon,
@@ -1179,6 +1389,18 @@ export const __test__ = {
   analyze,
   SELF_SKIP,
   FACE_NAME,
-  FIXTURES: { SS_UNWIRED, SS_WIRED, REPL_CONSUMER, TC_SRC, TOOL_CONSUMER },
+  FIXTURES: {
+    SS_UNWIRED,
+    SS_WIRED,
+    REPL_CONSUMER,
+    TC_SRC,
+    TOOL_CONSUMER,
+    HF_SRC,
+    HF_TYPE,
+    HF_CONSUMER,
+    HF_NOISE,
+    HF_DECL_FILE,
+    HF_USE_FILE,
+  },
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
