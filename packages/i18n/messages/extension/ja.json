@@ -176,6 +176,7 @@
     "emptyHint": "メッセージを入力して開始",
     "inputPlaceholder": "何か入力してください...",
     "compactionNotice": "コンテキストを自動圧縮しました:{before} → {after}({removed} 件の履歴を削除)",
+    "partialDoneTitle": "回答が中断されました。以下の内容は不完全な可能性があります",
     "voiceStop": "録音を停止",
     "voiceStart": "録音を開始",
     "voiceError": "マイクにアクセスできません。ブラウザの設定でマイクの許可を有効にしてください",
