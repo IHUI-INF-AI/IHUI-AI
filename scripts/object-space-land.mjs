@@ -1169,7 +1169,7 @@ function payloadIntactViaVerify(text) {
   } catch (e) {
     return { judged: false, why: String(e?.message ?? e).split('\n')[0] }
   } finally {
-    rmScratch(dir)
+    rmScratch(dir, { bestEffort: true })
   }
 }
 
