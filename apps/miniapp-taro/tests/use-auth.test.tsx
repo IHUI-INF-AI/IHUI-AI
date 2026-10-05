@@ -20,7 +20,7 @@
  * 7.  login 不传 refreshToken:不调 setRefreshToken,refreshToken 保持 null
  * 8.  logout:调 logoutApi(refreshToken) + clearAll + 清 user
  * 9.  logoutApi 抛异常:本地清理仍执行,token/user 都清空
- * 10. logout 无 refreshToken:不调 logoutApi
+ * 10. logout 无 refreshToken:**仍调** logoutApi(cookie 模式)
  * 11. logout 不传 logoutApi:跳过后端调用,直接清本地
  * 12. refresh 默认实现返回 false
  * 13. setUser:直接更新 user state
@@ -436,13 +436,13 @@ describe('useAuth 跨端共享 hook — miniapp-taro 端集成测试', () => {
   let store: TokenStore
   let bindTransport: Mock<(store: TokenStore) => void>
   let fetchProfile: Mock<() => Promise<{ success: boolean; data?: TestUser; error?: string }>>
-  let logoutApi: Mock<(refreshToken: string) => Promise<void>>
+  let logoutApi: Mock<(refreshToken?: string) => Promise<void>>
 
   beforeEach(() => {
     store = createInMemoryTokenStore()
     bindTransport = vi.fn<(store: TokenStore) => void>()
     fetchProfile = vi.fn<() => Promise<{ success: boolean; data?: TestUser; error?: string }>>()
-    logoutApi = vi.fn<(refreshToken: string) => Promise<void>>()
+    logoutApi = vi.fn<(refreshToken?: string) => Promise<void>>()
   })
 
   afterEach(async () => {
@@ -582,7 +582,7 @@ describe('useAuth 跨端共享 hook — miniapp-taro 端集成测试', () => {
     expect(result.current.isAuthenticated).toBe(false)
   })
 
-  it('10. logout 无 refreshToken 时:不调 logoutApi', async () => {
+  it('10. logout 无 refreshToken 时:**仍调** logoutApi(cookie 模式)', async () => {
     const { result } = await renderHook(() =>
       useAuth<TestUser>({ store, bindTransport, fetchProfile, logoutApi }),
     )
@@ -593,7 +593,10 @@ describe('useAuth 跨端共享 hook — miniapp-taro 端集成测试', () => {
     await act(async () => {
       await result.current.logout()
     })
-    expect(logoutApi).not.toHaveBeenCalled()
+    expect(logoutApi).toHaveBeenCalledTimes(1)
+    // G-1058614 的靶心:不是"调用了就行" —— 必须是**不传 refreshToken**的 cookie 形态。
+    // 若实现退化成传空串,后端 logoutSchema 的 min(1) 会把它拦成 400,cookie 兜底仍走不到。
+    expect(logoutApi).toHaveBeenCalledWith(undefined)
     expect(store.getToken()).toBeNull()
     expect(result.current.user).toBeNull()
   })
