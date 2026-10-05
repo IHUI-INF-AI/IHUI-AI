@@ -21,6 +21,7 @@ export {
   parseStreamLineReasoning,
   parseFallbackEvent,
   extractAgentId,
+  extractOpenTiming,
   getSSEErrorInfo,
   formatSSEError,
   // 厂商账号额度耗尽稳定码 + 同族等效替换 reason(2026-09-22 批次 60 前端配套)
@@ -87,6 +88,9 @@ export type {
   BudgetEvent,
   // G-815976(2026-10-04 收口入契约):流式中断标记事件(llm_gateway astream 异常中断帧)
   PartialDoneEvent,
+  // G-998168 票5(2026-10-05 立):首帧耗时分段归因 —— 挂在首帧数据载荷的顶层可选字段
+  // openTiming 上随流回传,**回传不落库(机主拍板⑥)**;端内经 extractOpenTiming 提取。
+  StreamOpenTiming,
   // D155(2026-09-29 立):下行告警三档事件类型(契约见 shared contract.ts SSE_ALERT_EVENTS 段)。
   // 显式命名清单纪律同 D130:漏一条端内拿到 undefined,回调入参类型点不到。
   AlertSeverity,
