@@ -1046,7 +1046,9 @@ const checks = [
   // 校验 apps/ai-service/.env 的 LLM_PROVIDERS 字段是否符合
   //   ProviderConfig schema(apps/ai-service/app/core/provider_config.py),
   //   提前发现 JSON 格式错 / 字段类型错 / 未知 provider,避免运行时 Pydantic ValidationError。
-  // 校验规则(7 条):JSON 解析 / 顶层对象 / 31 个 provider 白名单 / 字段类型 / 未知字段 / 空值 / 重复。
+  // 校验规则(7 条):JSON 解析 / 顶层对象 / provider 白名单 / 字段类型 / 未知字段 / 空值 / 重复。
+  //   白名单条数不在此写死(曾写"31 个"已漂成实际 39):名单与条数唯一真源是
+  //   scripts/check-llm-provider-schema.mjs 的 PROVIDER_WHITELIST,改名单只改那一个文件。
   // 失败含义:用户 .env 中 LLM_PROVIDERS JSON 字段不符合 schema,ai-service 启动后会运行时崩。
   // 已有依赖:scripts/check-llm-provider-schema.mjs(2026-07-26),3 退出码(0/1/2)。
   // 注意:LLM_PROVIDERS 为空是合法的(降级 stub 模式),info 不阻塞。
