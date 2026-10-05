@@ -11,6 +11,7 @@
  */
 
 import type { AuditLogger, FetchLike, ScanItem, ScanSource } from './types.js'
+import { buildScanItemKey } from './scan-item-key.js'
 
 const API_ROOT = 'https://api.github.com'
 const DETAIL_LIMIT = 4000
@@ -25,7 +26,12 @@ export interface GitHubClient {
   /** 从默认分支切出修复分支(返回 base 分支名供 PR 用) */
   createFixBranch(branch: string): Promise<{ base: string }>
   /** 创建 PR(base 为 createFixBranch 返回的基分支) */
-  createPullRequest(input: { title: string; head: string; base: string; body: string }): Promise<{ url: string; number: number }>
+  createPullRequest(input: {
+    title: string
+    head: string
+    base: string
+    body: string
+  }): Promise<{ url: string; number: number }>
   /** 在 issue 下回帖 */
   addIssueComment(issueNumber: number, body: string): Promise<void>
 }
@@ -81,7 +87,7 @@ export function createGitHubClient(input: {
   }
 
   const mapIssue = (it: GhIssue): ScanItem => ({
-    key: `issue:${it.number}`,
+    key: buildScanItemKey('issue', it.number),
     source: 'issue' as ScanSource,
     title: (it.title ?? `issue #${it.number}`).slice(0, 300),
     detail: (it.body ?? '').slice(0, DETAIL_LIMIT),
@@ -94,7 +100,7 @@ export function createGitHubClient(input: {
     const message = a.most_recent_instance?.message
     const stack = typeof message === 'string' ? message : JSON.stringify(message ?? '')
     return {
-      key: `code-scanning:${a.number}`,
+      key: buildScanItemKey('code-scanning', a.number),
       source: 'code-scanning',
       title: `[code-scanning] ${ruleDesc}`.slice(0, 300),
       detail: stack.slice(0, DETAIL_LIMIT),
@@ -105,7 +111,7 @@ export function createGitHubClient(input: {
   }
 
   const mapRun = (r: GhRun): ScanItem => ({
-    key: `workflow-run:${r.id}`,
+    key: buildScanItemKey('workflow-run', r.id),
     source: 'workflow-run',
     title: `[workflow] ${r.name ?? 'workflow'} ${r.display_title ?? ''}`.trim().slice(0, 300),
     detail: `失败运行日志:${r.html_url ?? '(无链接)'}`,
@@ -124,7 +130,9 @@ export function createGitHubClient(input: {
 
     async scanCodeScanningAlerts() {
       try {
-        const rows = await gh<GhAlert[]>(`/repos/${repo}/code-scanning/alerts?state=open&per_page=20`)
+        const rows = await gh<GhAlert[]>(
+          `/repos/${repo}/code-scanning/alerts?state=open&per_page=20`,
+        )
         return rows.map(mapAlert)
       } catch (err) {
         // 常见:仓库未启用 code scanning → 403/404;单源失败不拖垮其余两源

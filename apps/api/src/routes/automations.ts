@@ -30,6 +30,7 @@ import {
 } from '../services/agent-automation-scheduler.js'
 import type { AutomationRepairService } from '../services/automation-repair-service.js'
 import { buildRepairService } from '../services/automation-repair-service.js'
+import { describeScanItemKeyIssue } from '../services/automations/scan-item-key.js'
 
 // =============================================================================
 // Zod schemas
@@ -142,12 +143,14 @@ const repairListQuerySchema = z.object({
 })
 
 const repairKeyParamSchema = z.object({
-  /** 任务键:issue:123 / code-scanning:45 / workflow-run:6789 */
-  key: z
-    .string()
-    .min(3)
-    .max(120)
-    .regex(/^[\w.-]+:[\w.-]+$/, '任务键形如 source:number'),
+  /**
+   * 任务键:格式见 services/automations/scan-item-key.ts 的 SCAN_ITEM_KEY_FORMAT(此处不另抄一份)。
+   * G-1058624:本 schema **只管长度**(URL 边界防护),不再自带第二份格式正则 ——
+   * 形态判据只住协议层一处,否则 `foo:1` / `issue:abc` 会过路由校验却在协议层被拒,
+   * 错误从「400 明确拒绝」退化成「跑起来才炸」。真正的形态校验在下面的 handler 里
+   * 调 describeScanItemKeyIssue(与 parseScanItemKey 同一份实现)。
+   */
+  key: z.string().min(3, '任务键过短').max(120, '任务键过长'),
 })
 
 export interface RepairAdminRoutesOptions {
@@ -198,6 +201,10 @@ export const repairAdminRoutes: FastifyPluginAsync<RepairAdminRoutesOptions> = a
     const parsed = repairKeyParamSchema.safeParse(request.params)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    // G-1058624:形态判据复用协议层解析器(不另写正则)。400 文案必须点名拒绝类别 ——
+    // 未知前缀 / 序号非数字 分开说,调用方才知道是换前缀还是改序号。
+    const keyIssue = describeScanItemKeyIssue(parsed.data.key)
+    if (keyIssue !== null) return reply.status(400).send(error(400, keyIssue))
     const task = service.getTask(parsed.data.key)
     if (!task) return reply.status(404).send(error(404, '修复任务不存在'))
     return reply.send(success(task))
