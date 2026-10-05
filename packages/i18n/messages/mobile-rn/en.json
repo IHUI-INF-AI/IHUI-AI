@@ -301,7 +301,8 @@
     "modelCategoryVideo": "Video generation",
     "modelCategoryGuard": "Safety guard",
     "modelCategoryOcr": "OCR",
-    "modelCategoryOther": "Other"
+    "modelCategoryOther": "Other",
+    "partialDoneTitle": "Response interrupted, the content below may be incomplete"
   },
   "settings": {
     "title": "Settings",
