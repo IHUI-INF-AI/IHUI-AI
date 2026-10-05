@@ -948,11 +948,11 @@ const DISPOSITION_RULES = [
 ]
 /** 归属判据看的面:**行内反引号 span 遮成等长空白**。
  *  立因(G-1058610 病②,2026-10-05 实测):台账里大量票面**转述上游代码的成文理由**,那些句子
- *  本身就带"等待用户…""需人定…"字样 —— 例如 G-815964 引了上游源码里那句"paused-log 正在等待
- *  用户继续上传",于是**一条零阻塞可做的票被整条算成"等人拍板"**,派单人照着这个数就会把一件
- *  根本没人拦的活挂起来等人。
+ *  本身就带"等待用户…""需人定…"字样 —— 例如 `G-815964` 引了上游 `:148-155` 的
+ *  「paused-log 正在等待用户继续上传」,于是**一条零阻塞可做的票被整条算成"等人拍板"**,
+ *  派单人照着这个数就会把一件根本没人拦的活挂起来等人。
  *  只遮反引号、**不遮中文引号「」与直角引号** —— 本仓正当的等待措辞常常正写在那种引号里
- *  ("台账明写「属 §24 需用户确认」"),把它们一起遮掉就等于给判据摘牙(§12f:修红不得顺手削判据)。
+ *  ("台账明写「属 §24 需拍板」"),把它们一起遮掉就等于给判据摘牙(§12f:修红不得顺手削判据)。
  *  等长替换:列位不变,后续任何按列取窗的逻辑不受影响。 */
 export function dispositionFace(line) {
   return String(line).replace(/`[^`\n]*`/g, (m) => ' '.repeat(m.length))
@@ -1037,10 +1037,29 @@ export function findUndisposedOpenRows(content) {
  *    纳入只会产出几百条噪声(实测阈值以下候选数暴涨到不可用)。
  *  - **逐字相同**才算重复:正文一漂移就归到 drifted 一类,它需要人来判哪份作数,
  *    机器折半必然有损(与 F4 的处置同一条理由)。
+ *
+ * ⚠ drifted 这一格此前把**两件不同的事**读成了"首行相同而正文漂移"。
+ * 两个成因,都出在"块"的定义上:
+ *  ① **块 = 连续 `- ` 行的极大行段**,不是逻辑登记块。台账里一条登记下面挂着若干续行小项,
+ *     切分产物把这些续行小项裹进了"块"里 —— 首行因此根本不是登记行(缺复选框),
+ *     它们压根不是"同一件事登记两次"。实测 24 组里 6 组是这一型。
+ *  ② drifted 按首行分组,而**首行相同是分组的恒等条件**(不是证据)。同章节/同批次的
+ *     登记开头格式一致,首行撞上是巧合;正文讲的是完全不同的任务。实测 4 组正文
+ *     共享行数 = 0(重合率 0% —— 唯一相同的那行就是分组键本身)。
+ * 处置:① 首行必须是**登记行**(复选框在位),走既有出口 `bodyOfRow`(不另抄复选框正则);
+ * ② 组内任两份块的**正文**(去掉首行后的行集合)行级 Jaccard 须 >= `DUP_BLOCK_MIN_BODY_OVERLAP`。
+ *     阈值取 5% 的依据(HEAD 面 20 组两两实测,body-Jaccard 排序):
+ *     `0 0 0 0 | 1.8 2 2.4 | 6.7 9.5 10 11.5 11.8 12.5 14.4 20 20.8 24.1 33.3 44.4 69.2`
+ *     —— 0 那一簇是"除首行外一条都不重合"(⇒ 不同的事,已剔);6.7 往上是真漂移
+ *     (逐条核过:D41/G-295/G-189 等确实是同一件事被登记两遍且正文各自演化)。
+ *     5% 落在 2.4 与 6.7 之间的空档里,取档口而非贴着某一组。
+ * 只减不增:本判据只剔误报,不新增报红;`drifted` 是只报数格,不是判红输入。
  * 数字一律现读,不得写进文档当恒定事实。 */
 const DUP_BLOCK_MIN_LINES = 3
 const DUP_BLOCK_MIN_LINE_LEN = 40
-/** @returns {{verbatim:Array<{first:string,lines:number[],copies:number}>,drifted:Array<{first:string,variants:number}>}} */
+/** 正文(去首行)行级 Jaccard 下限:低于它 ⇒ 两份块除首行外几乎无共同正文 ⇒ 不是同一件事。 */
+const DUP_BLOCK_MIN_BODY_OVERLAP = 0.05
+/** @returns {{verbatim:Array<{first:string,lines:number[],copies:number,len:number}>,drifted:Array<{first:string,variants:number}>}} */
 export function findDupBlocks(content) {
   const lines = String(content).split('\n')
   const blocks = new Map()
@@ -1069,15 +1088,41 @@ export function findDupBlocks(content) {
       len: k.split('\n').length,
     }))
     .sort((a, b) => a.lines[0] - b.lines[0])
+  // drifted:按首行分组,但**只有首行是登记行的块才进候选**(切分产物剔出,见头注①),
+  // 且组内任两份块的正文 Jaccard 须过阈(首行撞号是恒等条件不是证据,见头注②)。
   const byFirst = new Map()
-  for (const k of blocks.keys()) {
-    const f = k.split('\n')[0]
-    byFirst.set(f, (byFirst.get(f) ?? 0) + 1)
+  for (const [k, ls] of blocks) {
+    const seg = k.split('\n')
+    if (bodyOfRow(seg[0]) === null) continue
+    const f = seg[0]
+    if (!byFirst.has(f)) byFirst.set(f, [])
+    byFirst.get(f).push({ body: seg.slice(1), lines: ls })
   }
   const drifted = [...byFirst.entries()]
-    .filter(([, n]) => n > 1)
-    .map(([f, n]) => ({ first: f, variants: n }))
+    .filter(([, g]) => g.length > 1 && hasBodyOverlap(g))
+    .map(([f, g]) => ({ first: f, variants: g.length }))
   return { verbatim, drifted }
+}
+
+/** 同一首行分组内是否存在两份块正文真的重合(过阈)。两两比,任一对成立即算"这一组要人判"。 */
+function hasBodyOverlap(group) {
+  for (let a = 0; a < group.length; a++) {
+    for (let b = a + 1; b < group.length; b++) {
+      if (bodyOverlap(group[a].body, group[b].body) >= DUP_BLOCK_MIN_BODY_OVERLAP) return true
+    }
+  }
+  return false
+}
+
+/** 两段正文(均已去掉首行)的行级 Jaccard。空侧 ⇒ 0(无从重合,不许因"两边都空"而算同一件事)。 */
+function bodyOverlap(aBody, bBody) {
+  const a = new Set(aBody)
+  const b = new Set(bBody)
+  if (a.size === 0 || b.size === 0) return 0
+  let inter = 0
+  for (const x of a) if (b.has(x)) inter++
+  const union = a.size + b.size - inter
+  return union > 0 ? inter / union : 0
 }
 
 /**
@@ -1528,10 +1573,10 @@ export function auditPlan(content, { archivedKeys = null } = {}) {
   const claimableRows = unclaimedRows.filter(isClaimable)
   // F7b(G-1058610 病①,2026-10-05 立):同一份分层在**派单口径**上再算一遍。
   // 上面的基数 unclaimedRows 里混着两千多行"已标副本指针 / 当次算出的同题副本",所以它那组
-  // 读数天生虚高 —— 实测"等人拍板 70 行"按复合主键去重只剩 20 个独立事项,照那个数去问就是
-  // 把同一件活问七遍。这一组才是派单人该看的那一组。
-  // 刻意**不替换**上面那组:两把口径都有人读,而把既有读数换基数,下一次没人能证明它量的是
-  // 同一件事(§12f:修红不得顺手移动别人的锚点)。两行一起印,基数写在行内。
+  // 读数天生虚高 —— 实测"等人拍板 70 行"按复合主键去重只剩 20 个独立事项,照 70 去问就是
+  // 把同一件事问七遍。这一组才是派单人该看的那一组。
+  // 刻意**不替换**上面那组:两把口径都有人读,而把既有读数改名/换基数,下一次没人能证明
+  // 它量的是同一件事(§12f:修红不得顺手移动别人的锚点)。两行一起印,基数写在行内。
   const dispClaimBuckets = {
     actionable: [],
     'waiting-human': [],
