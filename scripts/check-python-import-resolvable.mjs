@@ -21,39 +21,68 @@
 // 定级:warn + 手动问责,**刻意不接提交链** —— 接进去之前必须先把现读存量清零,
 // 否则就是一台与任何提交都无关的恒红门,唯一结局是各会话 `--no-verify`、连带全部守门作废(AGENTS §12f)。
 // 接线前置与取号规矩同 `scripts/audit-benchmark-delivery.mjs`(见台账 G-816103)。
+//
+// 2026-10-06(G-998191)git 出口收口:本门唯一的 git 派生 —— `listFacePy()` 里那两处
+// (`ls-files --cached` / `ls-tree -r --name-only`)—— 由本地 `git()` 包装的
+// `execFileSync('git', …)` 裸调用,迁到取材层 `scripts/lib/face-reader.mjs` 的 `gitRaw`
+// (仓内逐文件迁移的存量债,判据在 `scripts/tests/face-reader.test.mjs` 的
+// `BARE_GIT_BASELINE`,只减不增)。收益不止"统一"本身:裸调用依赖 PATH、且每处都要各自
+// 记得写全 stdio/timeout/maxBuffer 三项。逐条行为面对照见 `listFacePy()` 的头注
+// (其中 **quotepath 一项是纠偏**,不是等价替换 —— 且它纠的是一条会**静默漏判**的哑尺子风险)。
 
-import { execFileSync } from 'node:child_process'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { catBatch, selectFace } from './lib/face-reader.mjs'
+import { catBatch, gitRaw, selectFace } from './lib/face-reader.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const GIT_TIMEOUT = 180000
 const PKG = 'apps/ai-service'
 // 只判**仓内自有包**的 import(第三方库不在射程:`from fastapi import` 之类永远判不出)
 const LOCAL_PREFIXES = ['app.', 'scripts.']
 
-const git = (args, opts = {}) =>
-  execFileSync('git', ['-c', 'safe.directory=*', '-C', ROOT, ...args], {
-    encoding: 'utf8',
-    windowsHide: true,
-    timeout: GIT_TIMEOUT,
-    maxBuffer: 1 << 28,
-    ...opts,
-    // EBUSY 根治(errno -4082):本机交互会话里 Node 建子进程 stdin 管道确定性失败。
-    // 调用点只有 ls-files / ls-tree,不吃 stdin ⇒ stdio[0]='ignore'。
-    // (文件头注释提到的 `cat-file --batch` 是设计意图,当前实现尚未接那条通道;
-    //  真接上时必须改成 input===undefined ? ignore : pipe 两态,否则清单会被静默丢弃。)
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+// 本门的两处清单派生:timeout 与旧实现同为 180s(与下面 `catBatch` 的 240s 一起构成
+// 取材面的两档预算;旧 `git()` 的 `GIT_TIMEOUT` 即 180000,逐字沿用而非改小)。
+const GIT_TIMEOUT = 180000
 
-/** 清单与内容同面同轮:先取被审面的 .py 清单,再一次性 cat-file --batch 读正文。 */
+/** 清单与内容同面同轮:先取被审面的 .py 清单,再一次性 cat-file --batch 读正文。
+ *
+ *  2026-10-06(G-998191)两处 git 派生迁到取材层 `gitRaw`,行为面逐条对照(不靠记忆,逐项核过):
+ *   · **stdio**:旧 `git()` 自己写死 `['ignore','pipe','pipe']`,注释记着它的成因 ——
+ *     本机交互会话里 Node 建子进程 stdin 管道确定性失败(EBUSY / errno -4082),而本门
+ *     这两处(`ls-files` / `ls-tree`)不吃 stdin。`gitRaw` 把这一档**写死**在层里
+ *     (face-reader.mjs:94,不带 input 即 'ignore'),不再由每个调用方各自记得传。
+ *     ⚠️ 但**另一条通道相反**:`run()` 里 `catBatch(ROOT, specs, …)` 用 `input` 喂清单,
+ *     必须 `stdio[0]='pipe'` —— 设成 'ignore' 时清单被 git 静默丢弃且**不报错**,
+ *     只是"每个对象都取不到"。两态都由层按 `opts.input` 自动分派,本文件两头都不必再手写。
+ *   · **绝对路径 git**:`gitRaw` 走层内 `resolveGitBin()`;旧裸调用写死 'git' 依赖 PATH,
+ *     而本机 IDE/会话环境里 PATH 上的 git 未必是仓里那一份(见本文件 `qtdemo` 实测:
+ *     不带 stdio 兜底的裸 execFileSync 当场 EBUSY)。
+ *   · **safe.directory**:层统一 `-c safe.directory=*`,与旧裸调用一致,无行为差。
+ *   · **windowsHide / timeout / maxBuffer**:层全给足(windowsHide=true;timeout 本处显式
+ *     180000 沿用旧值,不落层默认 60s;maxBuffer 层默认 64MB)。maxBuffer 这一项**不是等价替换,
+ *     是收窄**:旧 `git()` 给的是 `1<<28`(256MB)。实测本门两处输出的真实量级 ——
+ *     `ls-tree -r --name-only -- apps/ai-service/` = 80052 字节、全仓 `ls-files --cached`
+ *     = 711026 字节 ⇒ 对 64MB 有 94x 余量,且这两条命令输出的是**路径清单**而非文件正文
+ *     (正文走下面的 `catBatch`,那里另行给了 `1<<28`)。故 64MB 够用且不构成行为漂移。
+ *   · **quotepath —— 这一项是纠偏,且纠的是一条会静默漏判的哑尺子风险**(实测,非推断):
+ *     层强制 `core.quotepath=false`,而旧裸调用吃 git 默认的 quotepath=**true**,
+ *     后者把非 ASCII 路径转义成八进制并**加双引号**。本门对清单做的第一道过滤是
+ *     `.endsWith('.py')`,而转义后的行以 `.py"` 结尾 ⇒ **带中文/重音目录的 .py 文件
+ *     在旧形态下会被这道过滤整条丢掉**,不进 `tracked`、也不进 `trackedDirs`。
+ *     方向是"少一条漏判"(真模块存在却读成不存在 ⇒ 假红;反之该文件里的 import 无人审判)。
+ *     当前被审面上 17 条非 ASCII 路径**全是 .md/.png/.txt/.json,`.py` 结尾 0 条**,
+ *     所以本门现读结论不受影响 —— 这是"此刻无暴露",不是"此处无纠偏面"。
+ *     同样的机制在 `ls-files` 侧一字不差地复现(两取值实测不相等)。
+ *   · **失败语义**:层失败抛 `Undetermined`(Error 子类),旧形态抛裸 Error。两者都被本文件
+ *     最外层 `catch` 折成同一条「工具自身失败 ⇒ exit 2」,不把"取不到"折叠成"通过"。
+ */
 function listFacePy(face) {
   const out =
     face === 'staged'
-      ? git(['ls-files', '--cached', `${PKG}/`])
-      : git(['ls-tree', '-r', '--name-only', 'HEAD', '--', `${PKG}/`])
+      ? gitRaw(['ls-files', '--cached', `${PKG}/`], ROOT, { timeout: GIT_TIMEOUT })
+      : gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '--', `${PKG}/`], ROOT, {
+          timeout: GIT_TIMEOUT,
+        })
   return out
     .split('\n')
     .filter((l) => l.endsWith('.py'))
