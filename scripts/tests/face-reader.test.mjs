@@ -387,7 +387,17 @@ test('parseBatch:非 blob 的头(tree / commit)归 null,且不得把内容当下
 // `node --test scripts/tests/face-reader.test.mjs` 会打出 `◽ 裸 git 存量已降到 85` 的提示)。
 // 2026-10-05 入库后复核完成:该提示已打出(`◽ 裸 git 存量已降到 85(基线 86)`)⇒ 86 → 85。
 // 同一轮把第 2 枚 `check-orphan-deletion-refs.mjs`(3 处)也迁完并入库,故本轮共降 2(87→86→85)。
-const BARE_GIT_BASELINE = 85
+// 2026-10-06 末轮复核(G-998191 全部 5 枚入库后一次降到位:85 → 81)。
+// 之所以这次能一步降 4 而不受上面那条"一次只降 1"的约束:那条约束写在本轮**提交之前**——
+// 迁移未入库时判据分母仍算它一枚,基线若一步降到位,提交前立刻 现读 > 基线 判红。
+// 此刻 5 枚**全部已入库**(`da04dfe166` 为末枚),HEAD 面现读存量本身就是 **81**
+// ⇒ 81 <= 81 判得过,提交前也判得过,那条约束的护栏已不适用。
+// 降到 81(紧贴真实现存、不留余量)是本棘轮「只减不减」的正解:留余量等于**容忍新增**,
+// 那才是放宽判据。复跑 `node --test scripts/tests/face-reader.test.mjs` 应打出
+// `◽ 裸 git 存量已降到 81(基线 81)`;若打出别的数字,以现读为准再校。
+// 同轮另有 `◽ 型 B 存量已降到 10(基线 11)` 提示 —— 那是`PATH_BOUND_GIT_BASELINE`
+// 另一条判据的收口提示,归属 G-998191 之外的迁移面(型 B),**本轮不动它**。
+const BARE_GIT_BASELINE = 81
 const PATH_BOUND_GIT_BASELINE = 11
 const SELF_BATCH_BASELINE = 0
 
