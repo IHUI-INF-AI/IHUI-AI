@@ -29,6 +29,9 @@ import {
   setConversationAdditionalDirectories,
 } from '../db/chat-queries.js'
 import { aiServiceFetch, aiServiceFetchStream } from '../utils/ai-service-fetch.js'
+// G-998168 票5:首帧耗时分段归因 —— 所有计时一律走 elapsed-ms 唯一出口(格②),
+// 裸 performance.now() 差值在端内是判红项。
+import { startStopwatch, type ElapsedSample } from '../utils/elapsed-ms.js'
 import {
   generateSemanticSummary,
   getCachedSemanticSummary,
@@ -59,6 +62,74 @@ const sseMetrics = {
   budgetRejects: 0, // 预算校验拦截次数
   retryAfterSent: 0, // Retry-After header 下发次数
   upstreamErrors: 0, // 上游 ai-service 错误次数
+}
+
+/**
+ * G-998168 票5 + 机主拍板⑥:首帧耗时的**分段归因**线格式(随首帧回传给客户端)。
+ *
+ * **回传不落库(拍板⑥)**:本对象只出现在首帧的 `openTiming` 可选字段里,不建表、
+ * 不做迁移、不加指标家族/直方图 —— 总时长 TTFT 仍由 business-metrics.ts 既有口径承载,
+ * 本对象不进任何持久层;"重启即无历史、画不了长期趋势"是拍板的预期代价,禁止顺手补指标表。
+ *
+ * 字段集固定且 versioned;各 ms 为整数;**不可信样本(时钟回退/双钟分歧)⇒ null 而不是
+ * Math.max(0,…) 夹成 0** —— 夹成 0 会把"这段测量不可信"谎报成"这段零耗时"(肯定结论),
+ * null 才是缺席语义(消费端按"未知"渲染)。不可信样本由 elapsed-ms 出口计入
+ * elapsedClockStats(观测面可回答"标了几条")。
+ */
+export interface StreamOpenTiming {
+  /** 分段字段集版本(字段集变更时 +1) */
+  version: 1
+  /** host 前置:网关入口 → 发起上游连接前(字面含下方 storage 读;storageReadMs 是
+   *  它的归因子段而非互斥切分,故四段不承诺相加恰为 TTFT,消费端不得做该假设) */
+  prepareMs: number | null
+  /** 上游连接:发起上游请求 → 拿到响应头 */
+  upstreamConnectMs: number | null
+  /** 首个上游字节:响应头 → 首次 read 返回 */
+  firstByteMs: number | null
+  /** 存储/索引读(repo wiki 百科 + 知识库检索)耗时;该路径无此类读 ⇒ null */
+  storageReadMs: number | null
+  /** 上游连接是否冷启(无复用即冷;进程级首连标记的近似,见 aiServiceStreamConnectedOnce) */
+  coldStart: boolean
+}
+
+/**
+ * ElapsedSample → 线格式整数毫秒。**为负 ⇒ null,而不是 Math.max(0,…) 夹成 0**(差异见
+ * StreamOpenTiming 头注);null 表示"该段测量不可信/缺席",不是零耗时。
+ */
+function elapsedSampleToMs(sample: ElapsedSample | null): number | null {
+  if (sample === null || sample.elapsedMs === null) return null
+  return Math.round(sample.elapsedMs)
+}
+
+/** 分段对象的唯一构造点:字段集只在这里拼装一次,与 StreamOpenTiming 类型同处对账。 */
+function buildStreamOpenTiming(parts: {
+  prepareSample: ElapsedSample | null
+  connectSample: ElapsedSample | null
+  firstByteSample: ElapsedSample | null
+  storageSample: ElapsedSample | null
+  coldStart: boolean
+}): StreamOpenTiming {
+  return {
+    version: 1,
+    prepareMs: elapsedSampleToMs(parts.prepareSample),
+    upstreamConnectMs: elapsedSampleToMs(parts.connectSample),
+    firstByteMs: elapsedSampleToMs(parts.firstByteSample),
+    storageReadMs: elapsedSampleToMs(parts.storageSample),
+    coldStart: parts.coldStart,
+  }
+}
+
+/**
+ * 进程级"上游已成功建连"标记(coldStart 判据:无复用即冷)。
+ * 首次成功拿到上游响应头之前,进程连接池里没有任何可复用连接 ⇒ 该次为冷启;
+ * 之后视为热。**近似声明**:undici 不暴露逐请求的连接复用事实,对端断连后重建的
+ * 那一次会被标为热 —— 这是拍板⑥"回传不落库、不做深插桩"边界内的可接受代价。
+ */
+let aiServiceStreamConnectedOnce = false
+
+/** 测试复位钩子(先例:semantic-summary.js 的 __clearSemanticSummaryCacheForTests)。 */
+export function __resetAiServiceStreamColdStartForTests(): void {
+  aiServiceStreamConnectedOnce = false
 }
 
 const chatStreamSchema = z.object({
@@ -291,6 +362,9 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     },
     extraFirstEvents: Array<{ key: string; payload: unknown }> = [],
   ): Promise<void> {
+    // G-998168 票5:prepare 段起表(入口)。只测不存:各段经首帧 openTiming 字段回传,
+    // **不落库(拍板⑥)** —— 不建表、不迁移、不进 business-metrics。
+    const prepareSw = startStopwatch()
     reply.hijack()
     const raw = reply.raw
     // 2026-07-27 修复跨域 SSE:reply.hijack() 绕过 @fastify/cors 插件,
@@ -435,6 +509,12 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         userId: opts.metadata?.userId ?? request.userId,
         messageId: opts.metadata?.messageId,
       }
+      // G-998168 票5:storage 段(存储/索引读 = repo wiki 百科 + 知识库检索)起表。
+      // 两个读都未启用(repoName 缺省且 knowledgeContext 显式关)时该段缺席 ⇒ null;
+      // 该段是 prepare 的归因子段(见 StreamOpenTiming.prepareMs 注),非互斥切分。
+      const storageSw =
+        opts.repoName || opts.knowledgeContext !== false ? startStopwatch() : null
+      let storageSample: ElapsedSample | null = null
       // P1-8(2026-09-13 立):读取「项目百科」总览(失败/未命中一律 null,不阻塞主链路)
       const wiki = await loadRepoWikiContext(mergedMetadata.userId ?? null, opts.repoName)
       // P1 #26(2026-09-16 立):知识库检索注入(失败/未命中一律 null,不阻塞主链路)。
@@ -463,6 +543,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           })
         }
       }
+      // storage 段止于两个读完成(其后的字符串折叠/合成是纯内存操作,归 prepare 尾巴)
+      if (storageSw) storageSample = storageSw.stop()
       // 与 wiki_context 合计限制在 20000 字符内:知识块超长时截断,防撑爆上下文窗口
       if (knowledgeBlock) {
         const wikiLen = wiki?.content?.length ?? 0
@@ -478,6 +560,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           ? `${opts.systemPrompt}\n\n${knowledgeBlock}`
           : knowledgeBlock
       }
+      // G-998168 票5:prepare 段到"发起上游连接前"为止(票面字面语义:入口 → 发起上游
+      // 连接前);connect 段:发起上游请求 → 拿到响应头。
+      const prepareSample = prepareSw.stop()
+      const connectSw = startStopwatch()
       const resp = await aiServiceFetchStream(request, '/api/llm/complete/stream', {
         method: 'POST',
         headers: {
@@ -555,6 +641,17 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         return
       }
 
+      // G-998168 票5:connect 段止于响应头到达;**只有建连成功才翻转 cold-start 标记**
+      // (失败连接不产生"可复用连接",下一次仍按冷启计)。
+      const connectSample = connectSw.stop()
+      const coldStart = !aiServiceStreamConnectedOnce
+      aiServiceStreamConnectedOnce = true
+      // firstByte 段:响应头 → 首个上游字节(首个 read 返回即停,见转发循环)。
+      const firstByteSw = startStopwatch()
+      let firstByteSample: ElapsedSample | null = null
+      // openTiming 只在首个上游字节后才能算齐(firstByteMs 依赖首读),故注入点在转发循环
+      // 的首个 JSON data 行(见下);extraFirstEvents 发送于 fetch 之前,物理上装不下它。
+      let openTimingPending: StreamOpenTiming | null = null
       // 逐行注入 agentId:ai-service 返回的 token chunk 默认不带 agentId,
       // 这里对 JSON 格式的 data: 行注入顶层 agentId,让前端能按 agentId 分流到 subagent 卡片。
       // Vercel AI SDK `0:"token"` 格式同样经 emitUpstreamLine 编号+缓冲(#22),透传原样。
@@ -566,6 +663,18 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       let pendingNamedEvent: string | null = null
       for (;;) {
         const { done, value } = await reader.read()
+        // G-998168 票5:首次 read 返回即停 firstByte 段(空流时 done 分支同样停表 ——
+        // 该段测的是"等到首个读返回",此后构造完整分段对象,等待注入首帧)。
+        if (firstByteSample === null) {
+          firstByteSample = firstByteSw.stop()
+          openTimingPending = buildStreamOpenTiming({
+            prepareSample,
+            connectSample,
+            firstByteSample,
+            storageSample,
+            coldStart,
+          })
+        }
         if (done) break
         streamBuffer += decoder.decode(value, { stream: true })
         let nl: number
@@ -601,6 +710,28 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           if (evMatch) {
             pendingNamedEvent = evMatch[1] ?? null
             continue
+          }
+          // G-998168 票5:openTiming 注入(仅一次)—— 挂在客户端看到的**首帧**数据载荷上
+          // (additive optional 字段,非新增命名事件:契约文件/事件名集合零变化,
+          // 老客户端按未知字段忽略)。刻意不注入 usage/steer/fallback 命名帧(上方
+          // pendingNamedEvent 分支已 continue),计量帧保持纯净;非 JSON data 行
+          // (Vercel `0:"..."` 协议)不解析,注入机会顺延到下一个 JSON data 行。
+          if (openTimingPending && line.startsWith('data:') && !line.startsWith('data: [DONE]')) {
+            const data = line.slice(5).replace(/^\s/, '')
+            if (data && data !== '[DONE]' && data.startsWith('{')) {
+              try {
+                const json = JSON.parse(data) as Record<string, unknown>
+                if (typeof json === 'object' && json !== null) {
+                  json.openTiming = openTimingPending
+                  openTimingPending = null
+                  if (opts.agentId && !json.agentId) json.agentId = opts.agentId
+                  emitUpstreamLine(session, `data: ${JSON.stringify(json)}`)
+                  continue
+                }
+              } catch {
+                /* 非 JSON,透传,等下一个 JSON data 行 */
+              }
+            }
           }
           if (opts.agentId && line.startsWith('data:') && !line.startsWith('data: [DONE]')) {
             const data = line.slice(5).replace(/^\s/, '')

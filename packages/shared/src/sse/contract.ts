@@ -97,13 +97,6 @@ export const SSE_EVENTS = {
   // 六档状态是**第三个域**,与 AGENT_TASK_STATUSES / WORKSPACE_AGENT_TASK_STATUSES
   // 不得并集(AGENTS §30 + 守门 check-agent-status-vocabulary-parity)。
   GOAL_UPDATED: 'goal_updated',
-  // G-815976(2026-10-04 收口入契约):流式中断标记帧。生产点 llm_gateway.py 的
-  // astream 异常中断分支 —— 已发出过 chunk 时不可中途换 provider,也不重试,
-  // yield 本帧后流终止(**不会有 done**)。此前它只有生产者:客户端解析层对它
-  // 静默返回 null ⇒ 半截回答与完整回答在端上完全同形("静默变短等于伪造完整性"
-  // 同一条禁令)。消费:api-client `onPartialDone` → web send-message.ts 告知截断。
-  // 必须与 apps/ai-service/app/core/sse_contract.py 同步。
-  PARTIAL_DONE: 'partial_done',
 } as const
 
 /**
@@ -201,7 +194,11 @@ export type SSEEventWithMeta<T extends Record<string, unknown>> = T & SSEEventMe
  * 的 `DENIAL_REASONS` 同集合(值表**只有一份语义**:后端产出的就是这三个词)。
  * 用 `as const` 数组派生联合,不用裸 `string` 兜底(AGENTS §3 类型零债)。
  */
-export const TOOL_APPROVAL_DENIAL_REASONS = ['not_allowed', 'not_allowed_local', 'denied'] as const
+export const TOOL_APPROVAL_DENIAL_REASONS = [
+  'not_allowed',
+  'not_allowed_local',
+  'denied',
+] as const
 
 export type ToolApprovalDenialReason = (typeof TOOL_APPROVAL_DENIAL_REASONS)[number]
 
@@ -595,31 +592,39 @@ export type SSEEventPayload =
        *  (要读成本请调查询接口,不要从 usage 帧取)。 */
       costUsd: number | null
     }>
-  // 文件写类工具的流中 diff 预览增量帧(D113 于 2026-09-27 立;2026-09-28 由 D132 补入联合)。
-  // 字段清单同样以 `sse_contract.py` 的 `SSEEventContract("tool-delta", …)` 为准;
+  // 文件写类工具的流中 diff 预览帧(D113 于 2026-09-27 立;2026-09-28 由 D132 补入联合)。
+  // 字段清单以 `sse_contract.py` 的 `SSEEventContract("tool-delta", …)` 为准;
   // 消费方 `packages/api-client/src/client.ts` 的 `tryParseToolDelta` 与
   // `packages/shared/src/utils/sse-parse.ts` 都按这四个键取值。
+  //
+  // **载荷语义 = 累积式,整帧替换(G-816035 收口;这段此前写的是"每帧只带本次新增的那一截",与生产端和
+  // 六个消费端全部相反 —— 覆盖式写入只在累积语义下安全,照旧注释改成增量会让每个端静默丢正文而不报错)**:
+  // 生产端 `apps/ai-service/app/routers/llm.py` 的 `_file_edit_preview_frames()` 每帧发的是
+  // **从正文开头到当前的整段预览**,消费端一律按 `toolCallId` 整帧覆盖(web
+  // `hooks/use-chat/stream-handlers.ts::createToolDeltaHandler`、extension
+  // `lib/tool-call-frames.ts::applyToolDelta`、miniapp `pkg-ai/ai/cards/types.ts`、RN
+  // `utils/chat-render-model.ts::applyToolDelta`,加 api-client 与 shared 两条解析腿)。
+  // 因此 `seq` **当前不参与任何判定**:覆盖写本身已让同帧重放与乱序天然幂等。若将来真要改成增量,
+  // 消费端必须先引入按 seq 排序的缓冲 —— 那是六个端各写一份的活(本仓"两处算同一件事必漂移"同型),
+  // 不是顺手改一行注释的量级。
+  // ⚠️ 跨语言 parity 门 `scripts/check-agent-event-parity.mjs` 只比**字段名集合**,对"键在而语义反"
+  // 这一型**判不出来**(本票刻意不扩那道门:它的射程属守门持有人裁决)。这一维唯一的看守是
+  // `src/sse/__tests__/contract.test.ts` 的 G-816035 三条锁(契约注释在位 / 生产端构造形态 /
+  // 消费端反向),不得把 parity 绿读成语义一致。
   | SSEEventWithMeta<{
       type: 'tool-delta'
       /** 对应的 tool-call-start 的 toolCallId */
       toolCallId: string
-      /** 同一 toolCallId 内的递增序号(乱序/重传由消费端按 seq 收敛) */
+      /**
+       * 同一 toolCallId 内的序号(生产端 `enumerate(_file_edit_preview_frames(...), start=1)`)。
+       * **当前不参与消费端判定** —— 整帧覆盖已使重放/乱序幂等;保留它是为"若将来改增量"预留
+       * 排序凭据,不构成"已按 seq 收敛"的承诺(G-816035)。
+       */
       seq: number
-      /** 本次增量的正文(不是全量) */
+      /** 截至当前的整段预览正文(累积式,整帧替换渲染) */
       partialText: string
       /** 超长截断标记;缺席表示未截断 */
       truncated?: boolean
-    }>
-  // 流式中断标记帧(G-815976 收口入契约,2026-10-04)。字段与 llm_gateway.py 的
-  // yield 字面量逐字对齐;reason 现值只有 'stream_interrupted',按封闭串建模。
-  | SSEEventWithMeta<{
-      type: 'partial_done'
-      /** 恒 false:本帧只在"未走 fallback、已发过 chunk、不可撤回"那一格发出 */
-      fallback_applied: boolean
-      /** 中断原因,现值 'stream_interrupted' */
-      reason: string
-      /** 本轮实际使用的模型(可缺省) */
-      model?: string
     }>
 
 /** 事件名数组(去重,用于契约对账/测试)。 */
@@ -980,7 +985,10 @@ export function resolveSseFailureDisposition(
  * resolveSseFailureDisposition 得处置 —— 两步拆开是为了让"哪个码算哪类失败"
  * 与"这类失败下一步做什么"各自只有一个真相源。
  */
-export function classifyHttpFailureKind(status: number, errorCode?: string): SseFailureKind {
+export function classifyHttpFailureKind(
+  status: number,
+  errorCode?: string,
+): SseFailureKind {
   if (errorCode === 'SCHEMA_MISMATCH' || errorCode === 'CONTRACT_MISMATCH') {
     return 'contract_mismatch'
   }
@@ -1038,20 +1046,14 @@ const formResponseSchema = zod
   .superRefine((v, ctx) => {
     if (v.action === 'approve') {
       if (v.values === undefined) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'action=approve 必须带 values(拒绝零副作用不适用)',
-        })
+        ctx.addIssue({ code: 'custom', message: 'action=approve 必须带 values(拒绝零副作用不适用)' })
       }
       if (v.reject_reason !== undefined) {
         ctx.addIssue({ code: 'custom', message: 'action=approve 不得带 reject_reason' })
       }
     } else {
       if (v.reject_reason === undefined) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'action=reject 必须带 reject_reason(空理由则整字段省略是生产侧纪律)',
-        })
+        ctx.addIssue({ code: 'custom', message: 'action=reject 必须带 reject_reason(空理由则整字段省略是生产侧纪律)' })
       }
       if (v.values !== undefined) {
         ctx.addIssue({ code: 'custom', message: 'action=reject 不得带 values(拒绝零副作用)' })
@@ -1077,10 +1079,7 @@ const terminalEndSchema = zod
   .strict()
   .superRefine((v, ctx) => {
     if (v.truncated === true && v.totalChars === undefined) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'truncated=true 必须携带 totalChars(截断前的原始字符数)',
-      })
+      ctx.addIssue({ code: 'custom', message: 'truncated=true 必须携带 totalChars(截断前的原始字符数)' })
     }
   })
 
@@ -1110,19 +1109,14 @@ const formRequestSchema = zod
     requestId: zod.string().min(1),
     sessionId: zod.string().optional().catch(undefined),
     kind: zod.string().min(1),
-    fields: zod
-      .array(zod.object({ key: zod.string(), type: zod.string(), required: zod.boolean() }))
-      .min(1),
+    fields: zod.array(zod.object({ key: zod.string(), type: zod.string(), required: zod.boolean() })).min(1),
     actions: zod.array(zod.string()),
     messageId: zod.string().optional().catch(undefined),
   })
   .strict()
   .superRefine((v, ctx) => {
     if (!(v.actions.includes('approve') && v.actions.includes('reject'))) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'actions 必须成对(恒含 approve 与 reject),缺一条整帧不可用',
-      })
+      ctx.addIssue({ code: 'custom', message: 'actions 必须成对(恒含 approve 与 reject),缺一条整帧不可用' })
     }
   })
 
@@ -1143,7 +1137,8 @@ export interface SseFrameSchemaFault {
 }
 
 export type SseFrameSchemaResult =
-  { ok: true; data: unknown } | { ok: false; fault: SseFrameSchemaFault }
+  | { ok: true; data: unknown }
+  | { ok: false; fault: SseFrameSchemaFault }
 
 /**
  * 帧级字段校验唯一出口:登记表内的帧过 schema(strict + superRefine);

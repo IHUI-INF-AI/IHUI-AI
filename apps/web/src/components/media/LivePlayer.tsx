@@ -9,6 +9,7 @@ import type Hls from 'hls.js'
 import { useTranslations } from 'next-intl'
 import { Play, Pause, Volume2, VolumeX, Maximize, Loader2, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { releaseMediaElement } from './media-release'
 
 interface LivePlayerProps {
   src: string
@@ -16,6 +17,11 @@ interface LivePlayerProps {
   autoPlay?: boolean
   muted?: boolean
   className?: string
+  /**
+   * G-856:这一项是否在场。false(宿主把视图藏起来但没卸载)⇒ 立即收口:停播 + 摘流 +
+   * destroy hls;回到 true ⇒ 重新拉流。默认 true,与改造前逐字一致。
+   */
+  active?: boolean
   onTimeUpdate?: (currentTime: number, duration: number) => void
 }
 
@@ -33,6 +39,7 @@ export function LivePlayer({
   autoPlay = false,
   muted = false,
   className,
+  active = true,
   onTimeUpdate,
 }: LivePlayerProps) {
   const t = useTranslations('a11y')
@@ -44,8 +51,10 @@ export function LivePlayer({
   const [error, setError] = React.useState<string | null>(null)
   const retryCount = React.useRef(0)
   const retryTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  // G-856 ②:失败是**终态**,但不是死路 —— 手动重试换 attempt,连同旧失败态一起作废
+  const [attempt, setAttempt] = React.useState(0)
 
-  const cleanup = React.useCallback(() => {
+  const cleanup = React.useCallback((node?: HTMLVideoElement | null) => {
     if (hlsRef.current) {
       hlsRef.current.destroy()
       hlsRef.current = null
@@ -54,10 +63,13 @@ export function LivePlayer({
       clearTimeout(retryTimer.current)
       retryTimer.current = null
     }
-    const video = videoRef.current
+    // 参数优先:卸载路径上 React 已经把 ref 摘成 null,只有 effect 体内捕获的那个节点还拿得到。
+    // 少了这一步,`hls.destroy()` 只交回了缓冲与 worker,**元素本身仍在往下解码**。
+    const video = node ?? videoRef.current
     if (video) {
       video.onloadedmetadata = null
       video.onerror = null
+      releaseMediaElement(video)
     }
   }, [])
 
@@ -139,9 +151,16 @@ export function LivePlayer({
   )
 
   React.useEffect(() => {
+    // 必须在 effect 体内捕获节点:cleanup 真正跑起来时(卸载)`videoRef.current` 已被 React
+    // 置空,当时读 ref 的写法会静默 no-op —— 暂停"有先例"却从没在切离路径上真调用过。
+    const node = videoRef.current
+    if (!active) {
+      cleanup(node)
+      return () => undefined
+    }
     attachHls(src)
-    return cleanup
-  }, [src, attachHls, cleanup])
+    return () => cleanup(node)
+  }, [src, active, attempt, attachHls, cleanup])
 
   const togglePlay = () => {
     const v = videoRef.current

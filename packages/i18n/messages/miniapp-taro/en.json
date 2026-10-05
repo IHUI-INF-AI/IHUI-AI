@@ -4111,6 +4111,7 @@
   "tail": {
     "6": "No data",
     "7": "Retry",
+    "8": "Loading...",
     "9": "Enter a description",
     "10": "No withdrawal records",
     "11": "Selected model: {m}",
