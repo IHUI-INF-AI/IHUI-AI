@@ -49,6 +49,9 @@ afterEach(() => {
 
 describe('KanbanTaskCard / 终态次级标记', () => {
   const cases: Array<[AgentTaskTermination, string]> = [
+    // G-1018245(2026-10-05,用户拍板路 B):`failed` 由不在册改为在册。
+    // 它进表时是四档里的第一档,顺序与 COLLAPSED_TERMINATIONS 逐字一致。
+    ['failed', 'terminatedFailed'],
     ['cancelled', 'terminatedCancelled'],
     ['quota_exceeded', 'terminatedQuotaExceeded'],
     ['preempted', 'terminatedPreempted'],
@@ -73,6 +76,44 @@ describe('KanbanTaskCard / 终态次级标记', () => {
     render(<KanbanTaskCard task={taskWith({ termination: 'cancelled' })} onSelect={() => {}} />)
     expect(screen.queryByText('blocked')).not.toBeNull()
     expect(screen.queryByText('terminatedCancelled')).not.toBeNull()
+  })
+
+  /**
+   * G-1018245 的靶心用例:`failed` 必须取到**自己**的键。
+   *
+   * 09-28 当年把 `failed` 排除出册的理由是「把真失败说成被取消,比不标更糟」——
+   * 拍板路 B 让它入册,但这条理由仍然成立,所以实现上唯一可接受的形态是
+   * `failed ⇒ terminatedFailed`。若有人图省事把 `TERMINATION_LABEL_KEYS.failed`
+   * 指到 `terminatedCancelled`(两个键都在表里,不报错、测试也只查"出标了"),
+   * 只有本例能抓到 —— 这正是"入册"与"入册且没说错话"的差别。
+   */
+  it('failed 取自己的键,不得复用 cancelled 的键(否则等于把真失败说成被取消)', () => {
+    render(<KanbanTaskCard task={taskWith({ termination: 'failed' })} onSelect={() => {}} />)
+    const badge = screen.queryByTestId('kanban-termination-failed')
+    expect(badge?.textContent).toBe('terminatedFailed')
+    expect(
+      screen.queryByTestId('kanban-termination-cancelled'),
+      'failed 不得长出 cancelled 的标记',
+    ).toBeNull()
+    expect(screen.queryByText('terminatedCancelled')).toBeNull()
+  })
+
+  /**
+   * `failed` 与 `cancelled` 在库里都是"折叠进 blocked"的终态,但它们的下一步动作相反:
+   * 前者要去读 errorMessage 查因、后者重跑大概率就好。两者同形就把用户指错了方向 ——
+   * 这正是本票存在的理由,所以必须钉住"两张脸不重合"。
+   */
+  it('failed 与 cancelled 各自出标,互不串味(四档的键逐字不同)', () => {
+    const { unmount } = render(
+      <KanbanTaskCard task={taskWith({ termination: 'failed' })} onSelect={() => {}} />,
+    )
+    expect(screen.queryByText('terminatedFailed')).not.toBeNull()
+    expect(screen.queryByText('terminatedCancelled')).toBeNull()
+    unmount()
+
+    render(<KanbanTaskCard task={taskWith({ termination: 'cancelled' })} onSelect={() => {}} />)
+    expect(screen.queryByText('terminatedCancelled')).not.toBeNull()
+    expect(screen.queryByText('terminatedFailed')).toBeNull()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
