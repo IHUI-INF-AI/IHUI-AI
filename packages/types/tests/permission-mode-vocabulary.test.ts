@@ -168,9 +168,10 @@ export function findMappingDefects(
 ): string[] {
   const problems: string[] = []
   const mappedIds = Object.keys(wireMap)
-  const mapEntries = Object.entries(wireMap).filter(
-    (e): e is [string, string] => typeof e[1] === 'string',
-  )
+  // 下面第 2、3 步一律用 `Object.entries(wireMap)` 原样遍历,**不得**改成"先滤掉非字符串值再遍历"的清单:
+  // 映射表类型是 `Partial<Record<string, string>>`,值可以是 undefined,而"某档映射到 undefined"
+  // 正是要报的缺陷 —— 一旦先过滤,这一格就静默消失(判据变松),账面照旧全绿。
+  // (这里曾有一条 `mapEntries` 做了那种过滤却从不被使用:死代码 + 给下一个人的弱化陷阱,已删。)
 
   // 1. 每个 wire 值必须是某个规范档映射来的值(无多余)
   for (const w of wireValues) {
@@ -218,13 +219,24 @@ export function findMappingDefects(
 }
 
 describe('权限档 wire 词汇:单一真相源防漂移(G-161/G-164)', () => {
+  /**
+   * 超时显式给 60s —— 这是**资源预算**,不是判据放宽:扫描面、判据、断言一个字没动。
+   *
+   * 为什么不能用 vitest 默认的 5000ms:本用例是发现式全仓扫描,成本随 monorepo 线性涨。
+   * 现量(2026-10-05,本机):命中 4362 个 .ts/.tsx、51.1 MB,枚举 71ms + 读取 192ms + 正则 220ms,
+   * 整条用例单机 ~0.4s。但 CI 上这一步是 `pnpm turbo run test` 并行跑所有包,
+   * 磁盘与 CPU 争用下 51MB 的字符串扫描被实测打爆过 5s
+   * (required 检查 run 37294883676 的 annotations 原文:`Test timed out in 5000ms … :221:3`),
+   * 而同样的内容在相邻提交上跑绿 —— 红的是这台 runner 那一刻的负载,不是仓库里的第二份清单。
+   * 60s 与同仓既有用例的档位一致(如 apps/api 的长耗时用例给到 60_000/120_000)。
+   */
   it('全仓 TS 源码不存在第二份完整档位清单(发现式扫描,非硬编码清单)', () => {
     const targets = collectScanTargets()
     // 扫描面本身要有量,否则"空集恒绿"会让这条断言形同虚设
     expect(targets.length).toBeGreaterThan(200)
     const problems = findSecondListCopies(targets, PERMISSION_MODES, PERMISSION_MODE_WIRE_VALUES)
     expect(problems).toEqual([])
-  })
+  }, 60_000)
 
   it('wire ↔ 规范档映射是双射,无遗漏无多余,差异已显式声明', () => {
     const problems = findMappingDefects(
