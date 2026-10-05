@@ -41,6 +41,7 @@ from app.services.command_streamer import (
     PROTOCOL_FRAME_LIMIT_BYTES,
     read_protocol_frame,
 )
+from app.services.process_tree import CREATE_NO_WINDOW, kill_process_tree
 
 logger = logging.getLogger(__name__)
 
@@ -295,6 +296,9 @@ class LspClient:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=self.workspace_path,
+                # 拍板④(2026-10-05):Python 侧禁窗用 CREATE_NO_WINDOW
+                # (Node 侧才是 windowsHide,互不可抄)。
+                creationflags=CREATE_NO_WINDOW,
                 # 第三十三批:不声明 limit 时 stdout 的 StreamReader 用默认
                 # 65536,而 _read_loop 是按行读头部、再按 Content-Length 读体
                 # —— 头部一行超限(服务器把非协议内容写到 stdout 上很常见)
@@ -574,8 +578,11 @@ class LspClient:
                 self.proc.terminate()
                 await asyncio.wait_for(self.proc.wait(), timeout=2)
             except Exception:
+                # 拍板④(2026-10-05):terminate 超时 = 卡死,树杀兜底
+                # (系统自带 taskkill /T /F,typescript-language-server 派生的
+                # node 孙进程一并退场,不留僵尸)。
                 with contextlib.suppress(Exception):
-                    self.proc.kill()
+                    await kill_process_tree(self.proc.pid)
         self._initialized = False
 
     # P1 修复(LSP _instances 全局 dict + reader_task + 子进程全部泄漏):
@@ -601,8 +608,9 @@ class LspClient:
                 self.proc.terminate()
                 await asyncio.wait_for(self.proc.wait(), timeout=2.0)
             except (TimeoutError, ProcessLookupError, Exception):
-                with contextlib.suppress(ProcessLookupError):
-                    self.proc.kill()
+                # 拍板④(2026-10-05):terminate 超时/已死都走树杀兜底(幂等不抛)。
+                with contextlib.suppress(Exception):
+                    await kill_process_tree(self.proc.pid)
         self._initialized = False
 
 
