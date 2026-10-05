@@ -22,9 +22,61 @@ import { config } from '../config/index.js'
 import { error } from '../utils/response.js'
 import { db } from '../db/index.js'
 import { users } from '@ihui/database'
+import {
+  INTERNAL_TICKET_HEADER,
+  createRedisReplayStore,
+  verifyInternalServiceTicket,
+  type InternalTicketScope,
+  type RedisSetNxLike,
+} from './internal-service-ticket.js'
 
 const INTERNAL_TOKEN_HEADER = 'x-internal-service-token'
 const USER_ID_HEADER = 'x-user-id'
+
+/**
+ * 通道档位(2026-10-06 接线,票档契约早已由 `internal-service-ticket.ts` 定死,
+ * 由 `tests/internal-service-ticket.test.ts` 逐条钉住):
+ *
+ * - `ticket`  **只**认短期票。老门彻底关掉(测试「ticket 档:常驻密钥被拒」钉这一条)。
+ * - `dual`    两档并存(默认)。老门留着是为了兼容窗口,**不是**兜底 ——
+ *             票判失败时**绝不**回落老通道(见下)。
+ * - `legacy`  回到改造前形态,只用于应急回退;它保的是"能进",不是"安全"。
+ *
+ * 为什么票判失败不回落:`internal-service-ticket.ts` 顶部第 3 条依据写的是
+ * "兼容窗口里有一条**独立、显式、按配置**的旧通道"。若票判失败就自动回落,
+ * 那条通道就不是"显式配置"的,而是"检查失败时的默认行为"——
+ * 正是本仓记过最多次的失效形态:兜底表现得像功能正常。
+ */
+function internalAuthMode(): 'ticket' | 'dual' | 'legacy' {
+  // 读 env 而不是只读 config:档位切换是**运维面**的动作(改 env 重启即生效),
+  // 而 config 是导入期求值的快照。两者在生产同源;测试要靠运行期切档
+  // (vi.resetModules 不会重跑 mock 工厂),所以这里以 env 为准、config 兜底。
+  const raw =
+    process.env.INTERNAL_SERVICE_AUTH_MODE ??
+    (config as unknown as { INTERNAL_SERVICE_AUTH_MODE?: string }).INTERNAL_SERVICE_AUTH_MODE
+  const v = (raw ?? 'dual').trim().toLowerCase()
+  return v === 'ticket' || v === 'legacy' ? v : 'dual'
+}
+
+/** 票档的 TTL 封顶由验票侧读配置(缺省 300,见 MAX_TICKET_TTL_SECONDS)。 */
+function ticketMaxTtlSeconds(): number | undefined {
+  const raw = (config as unknown as { INTERNAL_SERVICE_TICKET_MAX_TTL_SECONDS?: number })
+    .INTERNAL_SERVICE_TICKET_MAX_TTL_SECONDS
+  return typeof raw === 'number' && Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : undefined
+}
+
+/**
+ * 从 fastify 实例取 redis 插件当单次使用登记表。
+ *
+ * 取不到就返回 null —— `verifyInternalServiceTicket` 对 null 一律 `replay_store_unavailable`
+ * (fail-closed,理由见该文件顶部三条依据),**不在这里**做任何"没共享状态就跳过检查"的兜底。
+ */
+function resolveReplayStore(request: FastifyRequest) {
+  const redis = (request.server as unknown as { redis?: RedisSetNxLike }).redis
+  if (!redis || typeof redis.set !== 'function') return null
+  return createRedisReplayStore(redis)
+}
+
 
 /**
  * 常数时间比较两把凭据(2026-09-27 立,第三十八批)。
@@ -56,9 +108,51 @@ export function secretsEqual(a: string, b: string): boolean {
 export async function checkInternalServiceToken(
   request: FastifyRequest,
   reply: FastifyReply,
+  opts?: { scope?: InternalTicketScope; userId?: string | null },
 ): Promise<boolean> {
+  const requestedUserId = opts?.userId ?? (request.headers[USER_ID_HEADER] as string | undefined)
+  const mode = internalAuthMode()
+
+  // ── 票档(优先):带票请求一律先走验票,不与老门混在一条判据里 ──
+  // 顺序不能反:老门是"有一把常驻密钥就过",若先判它,任何一张伪造的票都会因为
+  // "顺便带了把对的旧密钥"而被放过 —— 分流判据就分不出两档凭据了。
+  const rawTicket = request.headers[INTERNAL_TICKET_HEADER] as string | undefined
+  if (mode !== 'legacy' && rawTicket) {
+    const verdict = await verifyInternalServiceTicket(rawTicket, {
+      store: resolveReplayStore(request),
+      expectedScope: opts?.scope,
+      maxTtlSeconds: ticketMaxTtlSeconds(),
+    })
+    // 票判失败**直接拒**,不回落老通道(理由见 internalAuthMode 上方注释)。
+    if (!verdict.ok) {
+      request.log.warn(
+        { reason: verdict.reason, ip: request.ip, endpoint: request.url },
+        '[internal-token] internal service ticket rejected',
+      )
+      reply.status(401).send(error(401, 'Invalid internal service ticket'))
+      return false
+    }
+    // 票里带的 userId 是签发时封进去的主体;它与 x-user-id 头同时存在时必须一致,
+    // 否则攻击者可以拿自己那张票配别人的 x-user-id 去冒用。
+    if (requestedUserId && requestedUserId !== verdict.userId) {
+      request.log.warn(
+        { ip: request.ip, endpoint: request.url },
+        '[internal-token] ticket subject does not match X-User-Id',
+      )
+      reply.status(401).send(error(401, 'Subject mismatch'))
+      return false
+    }
+    return await injectVerifiedUser(request, reply, verdict.userId)
+  }
+
+  // `ticket` 档下走到这里 = 只带老门没带票 ⇒ 老门已关,拒。
+  if (mode === 'ticket') {
+    reply.status(401).send(error(401, 'Internal service token not accepted (ticket-only mode)'))
+    return false
+  }
+
+  // ── 老通道(常驻密钥)──
   const token = request.headers[INTERNAL_TOKEN_HEADER] as string | undefined
-  const requestedUserId = request.headers[USER_ID_HEADER] as string | undefined
 
   // 未配置 internal secret 时拒绝(强制配置后才可用)
   if (!config.AI_CALLBACK_SECRET) {
@@ -66,8 +160,8 @@ export async function checkInternalServiceToken(
     return false
   }
 
-  // 必须是常数时间比较:明文 `!==` 会在"前缀对多少"上分叉,给离线枚举密钥留计时侧信道。
-  // (旧写法 `token !== config.AI_CALLBACK_SECRET` 不得加回 —— 由镜像测试按源码面钉住。)
+  // 必须是常数时间比较:明文本比较会在"前缀对多少"上分叉,给离线枚举密钥留计时侧信道。
+  // (第三十八批锁:直接拿 env 值做相等比较的旧写法不得加回 —— 由镜像测试按源码面钉住。)
   if (!token || !secretsEqual(token, config.AI_CALLBACK_SECRET)) {
     reply.status(401).send(error(401, 'Invalid internal service token'))
     return false
@@ -79,6 +173,20 @@ export async function checkInternalServiceToken(
     return false
   }
 
+  return await injectVerifiedUser(request, reply, requestedUserId)
+}
+
+/**
+ * 主体已由上游(验票 or 常驻密钥比对)确认后,统一做"用户存在 + 活跃"校验与注入。
+ *
+ * 抽出来是因为两条通道的**后续**判据必须逐字一致:票档不是特权通道,
+ * 它省掉的只是"那把常驻密钥从哪来",省不掉"这个主体是不是活跃用户"。
+ */
+async function injectVerifiedUser(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  requestedUserId: string,
+): Promise<boolean> {
   // 验证用户存在且活跃(防 X-User-Id 欺骗:internal secret 泄露后不能冒充任意/已注销用户)
   const [user] = await db
     .select({ id: users.id, status: users.status, roleId: users.roleId })
@@ -119,9 +227,12 @@ export async function checkInternalServiceToken(
 }
 
 /**
- * 检测请求是否携带 internal service token header(用于 checkAuthOrInternalService 分流)。
+ * 检测请求是否携带**任一种**内部凭据头(用于 checkAuthOrInternalService / require-permission 分流)。
+ *
+ * 两个头都要认:只认老头的话,一张合法票会被分流判据当成"没有内部凭据"而掉进
+ * 用户 JWT 分支 —— 票档验票代码根本没机会跑。少认一半 = 票档等于没接。
  */
 export function hasInternalServiceToken(request: FastifyRequest): boolean {
-  return !!request.headers[INTERNAL_TOKEN_HEADER]
+  return !!(request.headers[INTERNAL_TOKEN_HEADER]) || !!request.headers[INTERNAL_TICKET_HEADER]
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
