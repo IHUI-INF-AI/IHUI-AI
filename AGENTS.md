@@ -2801,6 +2801,7 @@ React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会�
   - **落点(2026-09-30 改,用户拍板"项目产物不外流"):`git worktree add --detach .worktrees/wt-<任务名>`**(项目内 `.worktrees/`,已 gitignore;旧落点 `../IHUI-AI-wt-<任务名>` 即盘根散落目录,2026-09-30 已清理 13 个残留,并立盘根卫生巡检档 `check-disk-root-hygiene.mjs`(warn,判"项目产物是否外流到盘根"与"worktree 落点是否合法"两维;出口 = git-guardian 每 30 分钟巡检 + `node scripts/check-disk-root-hygiene.mjs --strict` 手动问责,刻意不接提交链 —— 判的是机器/磁盘状态,提交者结构上满足不了)防回潮)。detached HEAD,不占分支名,不违反 §9b
 - **守门脚本速查补登(2026-10-01,守门 89 `check-gate-wiring.mjs` 接线层对账 R4 收口:以下 52 枚在五处权威接线点(scripts/guardian-runner.mjs / scripts/lib/pre-commit-hook.js / .husky/ / package.json / CI)已接线,而本速查此前通篇未点名 —— "文档看不见的门会被重复造或绕过",现按主题归堆补齐;mode 与跳过变量一律以 runner 注册条目与 pre-commit-hook 现值为准,编号勿照抄本节)**
   - **API key 泄露**〔scripts/check-api-key-leak.mjs · blocking〕—— 扫描面硬编码密钥/令牌(基础面 id 1)。
+  - **枚举兜底不得取宽档**〔scripts/check-enum-default-widening.mjs · warn · HUSKY_SKIP_ENUM_DEFAULT_WIDENING〕—— switch default / `?? 宽档` 之类的兜底不得把"没声明"读成"允许";宽档集合由被审面注册表现读推导(门内不抄第二份档名清单),推导不出或槽位撞名一律「未判定」( `--strict` 下有未判定即 exit 2,拒绝出具合格证),定级 warn 的判据是 HEAD 面现读判红 0 而 `--strict` rc=2(未判定尚未逐条定性 ⇒ 不得升 blocking,§12e)。守门 id 以 runner 现值为准。
   - **schema drift**〔scripts/check-db-schema-drift.mjs · blocking〕—— 数据库 schema 漂移对账(基础面 id 3)。
   - **packages 陈旧 dist**〔scripts/check-stale-dist.mjs · blocking〕—— 源码改动后 dist 未重建(基础面 id 4)。
   - **dist UTF-8 BOM**〔scripts/check-dist-encoding.mjs · blocking〕—— 产物编码完整性(基础面 id 4b)。
