@@ -79,55 +79,8 @@ const ROOT = rootArgValue
   ? path.resolve(rootArgValue)
   : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
-const TARGETS = {
-  web: {
-    localeDir: 'packages/i18n/messages/web',
-    scanTargets: [
-      'apps/web/src',
-      'apps/web/app', // Next.js 15 App Router(2026-07-26 漏扫 bug 修复)
-      'apps/miniapp-taro/src',
-      'apps/mobile-rn/src', // React Native 端,2026-07-26 mobile-rn 子任务补扫(与 web 共享部分 leaf key)
-      'packages/app/src', // @ihui/rn-app 共享屏,web/mobile-rn/miniapp-taro 共用 messages/web(2026-08-20 修假阳性 bug: 此前漏扫导致 865 误报)
-    ],
-  },
-  'miniapp-taro': {
-    localeDir: 'packages/i18n/messages/miniapp-taro',
-    // packages/shared/src = @ihui/shared 的 useLoginForm/useRegisterForm 被 miniapp-taro
-    // login/register 页消费,其内部 setError('auth.xxx') 返回的 key 由本端 t() 渲染,
-    // 2026-09-12 修复跨包引用漏检(auth.ssoFailed 等误判为死 key的同类模式)
-    scanTargets: ['apps/miniapp-taro/src', 'packages/shared/src'],
-  },
-  'mobile-rn': {
-    localeDir: 'packages/i18n/messages/mobile-rn',
-    // packages/app = @ihui/rn-app 共享屏,由 mobile-rn wrapper 传入本端 t 消费其 key
-    // packages/shared/src = @ihui/shared 的 useLoginForm/useRegisterForm 被 mobile-rn
-    // LoginScreen/RegisterScreen 消费(2026-09-12 修复跨包引用漏检:
-    // setError('auth.ssoFailed') 的 key 在 shared 包内,原 scanTargets 不含它,被误判为死 key)
-    scanTargets: ['apps/mobile-rn/src', 'packages/app/src', 'packages/shared/src'],
-  },
-  cli: {
-    localeDir: 'packages/i18n/messages/cli',
-    // 2026-09-24 补 `packages/shared/src/chat`:与上面 extension 同一先例同形 —— cli 的等待语只是
-    // `apps/cli/src/commands/waiting-text.ts` 把取词函数 t 注入进 shared 的
-    // `resolveWaitingText()`,真正拼键(`waiting.<象限>.<阶段>.<下标>` 与 `waiting.vividTail`)
-    // 发生在 packages/shared/src/chat/waiting-pool.ts;端 scanTargets 不含它 ⇒ 76 枚 waiting.* 恒被判死。
-    // 窄口径:只加 chat,不加 packages/app(照 extension 那条实测教训)。
-    scanTargets: ['apps/cli/src', 'packages/shared/src/chat'],
-  },
-  extension: {
-    localeDir: 'packages/i18n/messages/extension',
-    // 2026-09-23 补 `packages/shared/src/chat`:该目录下的等待语池(waiting-pool.ts)与权限档词表
-    // (permission-tier.ts)按"跨端共享"设计被 extension 真实消费(MessageContent.tsx:682-683 等),
-    // 但端 scanTargets 不含它 ⇒ 76 枚 waiting.* + 10 枚 permissionTier.mode.* 恒被判死。
-    // 与 2026-09-12 给 taro / mobile-rn 加 `packages/shared/src` 的同一先例同形(窄口径:只加 chat,
-    // 不加 packages/app —— taro 票实测会把别端专属键倒灌成本端假 wire)。
-    scanTargets: ['apps/extension/entrypoints', 'apps/extension/src', 'apps/extension/lib', 'packages/shared/src/chat'],
-  },
-  desktop: {
-    localeDir: 'packages/i18n/messages/desktop',
-    scanTargets: [], // desktop 是 Rust/Tauri 包装,无 JS 代码可扫描;messages 目录未建立,自动跳过 exit 0
-  },
-}
+import { TARGETS } from './lib/i18n-scan-targets.mjs'
+
 
 const TODAY = new Date().toISOString().slice(0, 10)
 
