@@ -401,6 +401,12 @@ export default function ChatPage() {
           }),
         )
       },
+      // G-815976(2026-10-04 收口入契约):流式中断标记帧 —— llm_gateway astream 异常中断且已
+      // 发过 chunk 时发出(此后流终止,不会有 done)。半截回答必须如实告知截断,不再与完整
+      // 回答同形;提示面复用本页既有 notice 状态条(与 onCompaction 同一出口,不新立 UI)。
+      onPartialDone: () => {
+        setNotice(t('chat.partialDoneTitle'))
+      },
       onDelta: (delta) => {
         window.clearTimeout(timeoutId)
         assistantText += delta

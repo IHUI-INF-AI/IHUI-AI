@@ -412,6 +412,17 @@ export const chatStream = async (
   }) => void,
   /** W5:新增事件回调集合(第 10 个可选参数,保持既有位置参数调用兼容) */
   callbacks?: StreamEventCallbacks,
+  /**
+   * G-815976 流式中断标记帧(partial_done):llm_gateway 在流异常中断且已发过 chunk 时下发,
+   * 载荷字段口径与共享 sse-parse 的 evt.partialDone 逐字一致(fallback_applied/reason/model?)。
+   * 追加为第 11 个可选参数 —— 与 W5 callbacks 同一纪律,不动既有位置参数,老调用方
+   * (含只传到 onDone 的页面与只传 callbacks 的测试驱动)零变化;不注册 ⇒ 帧静默丢弃。
+   */
+  onPartialDone?: (info: {
+    fallback_applied: boolean
+    reason: string
+    model?: string
+  }) => void,
 ): Promise<void> => {
   const resolvedModel = options.model ?? options.modelId
 
@@ -462,6 +473,12 @@ export const chatStream = async (
         break
       case 'compaction':
         if (evt.compaction) onCompaction?.(evt.compaction)
+        break
+      // G-815976:partial_done —— 流异常中断且已发过 chunk 的标记帧。共享 sse-parse 已在
+      // 兜底链之前认领该帧(不认领就整帧丢失),这里只承接已认领的 evt.partialDone;
+      // 不注册回调 ⇒ 帧照旧静默丢弃,半截回答与完整回答完全同形(截断可见性由调用方提示补上)。
+      case 'partial_done':
+        if (evt.partialDone) onPartialDone?.(evt.partialDone)
         break
       case 'done':
         onDone?.({
