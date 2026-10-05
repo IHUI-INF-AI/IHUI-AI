@@ -1761,6 +1761,20 @@ function auditHostTimezone() {
 const DISK_ROOT_AUDIT_TICK = join(WORKTREE, '.workbuddy', 'disk-root-hygiene-audit-tick.ts')
 const DISK_ROOT_AUDIT_INTERVAL_MS = 30 * 60 * 1000
 
+/**
+ * 告警去重的**计数分档**:档内抖动不重报,跨档才算真恶化/真缓解。
+ * 为什么必须分档而不是直接用计数 —— 见 auditDiskRootHygiene() 里 dedupKey 的注释。
+ * 0 单独成档:"缓解到 0"必须重报一次(那是终态变化,不是抖动)。
+ */
+function tier(n) {
+  const k = Number(n) || 0
+  if (k <= 0) return 0
+  if (k < 2) return 1
+  if (k < 4) return 2
+  if (k < 8) return 3
+  return 4
+}
+
 function auditDiskRootHygiene() {
   try {
     let last = 0
@@ -1801,35 +1815,62 @@ function auditDiskRootHygiene() {
         return
       }
     }
-    if (!parsed || parsed.verdict === 'undetermined') {
-      logger(`ℹ️ 盘根卫生:未判定(${(parsed && parsed.counts && `worktree 维度未判定=${parsed.counts.worktreeUndetermined}`) || '载荷缺 verdict'})`)
+    if (!parsed || !parsed.verdict) {
+      logger('ℹ️ 盘根卫生:未判定(载荷缺 verdict)—— 不寄信,也别当已判过')
+      return
+    }
+    const c = parsed.counts || {}
+    const uN = Number(c.diskRootUndetermined) || 0
+    const wN = Number(c.worktreeUndetermined) || 0
+    const nN = Number(c.diskRootNotApplicable) || 0
+    if (parsed.verdict === 'undetermined') {
+      // 未判定必须**逐维**报名:旧写法只印 worktree 一维,于是"本机盘根没在 config 申报"
+      // 这一整格在日志里长得像"盘根那维已经判过了"(把没判写成判过了,同一条禁令)。
+      logger(`ℹ️ 盘根卫生:未判定(盘根维 ${uN}、worktree 维 ${wN};不适用盘根 ${nN})—— 不寄信,也别当已判过`)
       return
     }
     if (parsed.verdict === 'red') {
+      // 违规类别 → 措辞。未识别的类别**单独报名**,不得顺手当成 worktree 那型渲染
+      // (旧写法是 `kind !== 'stray-root-entry'` 一律印 "worktree 落点外: undefined",
+      // 那会把"尺子看不懂载荷"伪装成"又有一处落点外",既误导整改方向也污染信文)。
+      const LABEL = {
+        'stray-root-entry': (v) => `盘根外流: ${v.path || `${v.root}${v.entry}`}`,
+        'worktree-outside-sanctioned-root': (v) => `worktree 落点外: ${v.path}${v.prunable ? '(prunable)' : ''}`,
+      }
       const lines = (parsed.violations || [])
-        .map((v) => (v.kind === 'stray-root-entry' ? `盘根外流: ${v.root}${v.entry}` : `worktree 落点外: ${v.path}${v.prunable ? '(prunable)' : ''}`))
+        .map((v) => (LABEL[v.kind] ? LABEL[v.kind](v) : `未识别的违规类别 kind=${String(v.kind)} ⇒ 请核对尺子与本守护是否同代`))
         .join('\n')
+      // 合法落点由本机路径推导:旧信文写死 `G:\IHUI-AI\.worktrees\`,在别的 checkout 上
+      // 是一句跑不通的出路(§26 盘符按当次实测取值)。
+      const landing = join(WORKTREE, '.worktrees')
       notifyGuardRed(
         '盘根外流:项目产物出现在声明白名单之外',
         `${lines}\n\n白名单:config/disk-root-allowlist.json(封闭集合,新增合法条目必须显式改配置并随 commit 提交)\n` +
-          `worktree 合法落点:G:\\IHUI-AI\\.worktrees\\(AGENTS §12d);回收:git worktree remove + prune\n` +
+          `worktree 合法落点:${landing}(AGENTS §12d);回收前逐条核实归属 —— 不可 prune 的登记项很可能是别的会话**正在用**的隔离检出\n` +
+          `⚠️ 本信不构成删除依据:主工作树与 §5b 的外置 gitdir / *.git-backup-* 恢复源**禁止删除**;明细里若出现这类路径,那是尺子又瞎了,先查尺子不要动手\n` +
           `手动问责:node scripts/check-disk-root-hygiene.mjs --strict`,
         {
           severity: 'warning',
-          // 去重身份只取"违规类别 + 计数",明细行不进指纹(2026-10-03 立)。
-          // 原先指纹吃 detail 全文,而 detail 是 worktree/盘根条目的**清单** ——
-          // 多会话并行建删 worktree 是本仓常态(2026-10-03 实测 4 个落点外 worktree
-          // 全是探针残留),清单一动指纹就变,shouldAlert 判"新故障"立即重报,
-          // 4 小时窗口被绕成虚设:实测 09-30 至 10-03 同一原因寄出 27 封(约每轮巡检一封)。
-          // 判据本身不动(§12e):违规照旧点名、照旧 exit 1,只把"什么算同一故障"钉成
-          // 稳定语义 —— 违规类别变或计数变(真恶化/真缓解)仍立即重报。
-          dedupKey: `stray=${parsed.counts.diskRootStray};wtOutside=${parsed.counts.worktreeOutside}`,
+          // 去重身份只取"违规类别 + **计数分档**",明细行不进指纹(2026-10-03 立;
+          // 2026-10-05 把"计数"改成"分档")。实测 09-30 至 10-05 同一原因寄出 **34 封**,
+          // 其中 10-04 20:59 / 21:29 / 21:59 三封**只隔 30 分钟** —— 4 小时窗口形同虚设。
+          // 真因不是明细抖动而是**计数本身在抖**:旧判据把"外置 gitdir 被误判成落点外"
+          // 恒记 1,再叠加别人在飞的 0~3 个 worktree ⇒ 每轮巡检至少有一个数在变
+          // ⇒ shouldAlert 判"新故障"立即重报。分档语义:档内抖动不重报,
+          // **跨档才算真恶化/真缓解**;信文照旧逐条点名(信息量没降),判据一字未动(§12e)。
+          dedupKey: `stray=${tier(c.diskRootStray)};wtOutside=${tier(c.worktreeOutside)}`,
         },
       )
-      logger(`⚠️ 盘根卫生判红:外流 ${parsed.counts.diskRootStray} / worktree 落点外 ${parsed.counts.worktreeOutside}`)
+      logger(
+        `⚠️ 盘根卫生判红:外流 ${Number(c.diskRootStray) || 0} / worktree 落点外 ${Number(c.worktreeOutside) || 0}` +
+          `(未判定 盘根 ${uN}、worktree ${wN};不适用 ${nN})`,
+      )
       return
     }
-    logger(`✅ 盘根卫生:0 违规(白名单对账 + worktree 落点全在 .worktrees)`)
+    logger(
+      `✅ 盘根卫生:0 违规(白名单对账 + worktree 落点全在 ${join(WORKTREE, '.worktrees')})` +
+        (nN ? `;另有 ${nN} 个声明盘根在本机不适用(不是"已判干净",是"本机没有这块盘")` : ''),
+    )
   } catch (e) {
     logger(`⚠️ 盘根卫生自身异常(不改自愈与退出码):${String(e && e.message).slice(0, 160)}`)
   }
@@ -1946,12 +1987,19 @@ export function alertFingerprint(name, detail) {
  * 稳定身份指纹(2026-10-03 立):调用方显式给定"什么算同一故障",**不做数字归一**。
  *
  * 为什么不能直接复用 alertFingerprint:那条路把 `\d+` 一律打成 `#`,本意是压掉
- * "38 个路径"↔"39 个路径"这类实时计数抖动;但盘根卫生的 dedupKey 恰恰**要靠计数
- * 区分故障演化**(外流 2 项 → 5 项是恶化,必须立即重报)。走归一后 `stray=2;wt=4` 与
+ * "38 个路径"↔"39 个路径"这类实时计数抖动;但盘根卫生的 dedupKey 恰恰**要靠量级
+ * 区分故障演化**(外流 2 项 → 5 项是恶化,必须重报)。走归一后 `stray=2;wt=4` 与
  * `stray=5;wt=4` 撞同一指纹,恶化被静默 —— 那是把"压抖动"改成"压事实"。
  *
- * 因此这里刻意**不归一**:调用方给什么身份就是什么身份,身份怎么构造是调用方的义务
- * (盘根这一格给的是"违规类别 + 计数",明细清单不进身份)。
+ * 2026-10-05 修正(同一格,措辞必须跟着改,否则下一个人会以为身份里是原始计数):
+ * 原始计数也不行 —— 实测 09-30 至 10-05 同一原因寄出 **34 封**,其中 10-04
+ * 20:59 / 21:29 / 21:59 三封只隔 30 分钟,4 小时窗口形同虚设。真因是计数本身在抖
+ * (多会话并行建删落点外 worktree 是常态,0↔1↔2↔3 每轮都可能变)。所以身份里放的是
+ * `tier()` 的**档位**:0 / 1 / 2-3 / 4-7 / 8+ —— 档内抖动不重报,跨档(含缓解到 0)重报。
+ * 这是"压抖动"与"压事实"之间的一条实测出来的线,不是把两者混为一谈的第三条路。
+ *
+ * 因此这里刻意**不做通用归一**:调用方给什么身份就是什么身份,身份怎么构造是调用方的义务
+ * (盘根这一格给的是"违规类别 + 计数档位",明细清单不进身份)。
  */
 export function stableAlertFingerprint(name, identity) {
   const id = String(identity ?? '').replace(/\s+/g, ' ').trim()
