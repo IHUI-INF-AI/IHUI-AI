@@ -46,12 +46,32 @@
  * **只有人在跑、没有班次在跑**,而同一型缺陷(HEAD 有 / 索引与磁盘都无 / 源码仍 import)当晚两次炸构建。
  * 手动问责入口仍是上方「用法」那一行。
  * 头注不写"已接钩子 / 已进持续集成 / 第几项"那类措辞:五处权威点里没有它,那种声称会被守门 89 判红。
+ *
+ * 2026-10-05(G-998191)git 出口收口:本器**三处**git 派生(`git()` 包络、`grepCandidates` 的
+ * `git grep`、`selfTest` 的夹具建仓链)全部由 `execFileSync('git', …)` 裸调用迁到取材层
+ * `scripts/lib/face-reader.mjs` 的 `gitRaw` —— 仓内逐文件迁移的存量债(判据在
+ * `scripts/tests/face-reader.test.mjs` 的 `BARE_GIT_BASELINE`,只减不增)。收益不止"统一":
+ * 裸 `'git'` 依赖 PATH(§5b"git 调用不得依赖环境",换机/换服务身份就 ENOENT);层还写死了
+ * 绝对路径 binary、`-c safe.directory=*`、显式 stdio 三态、数字 timeout、64MB maxBuffer。
+ * 逐条行为面对照见下面 `git()` 与 `grepCandidates()` 的头注(**其中 quotepath 一项是纠偏,
+ * 不是等价替换**;失败消息文本亦有一次可观察的加前缀,已在两处 catch 的头注点名)。
+ * ⚠️ 本票的验证通道有一处**环境限制**,如实记在这里:`--self-test` 在本机跑不完 ——
+ * 它造完现场后要 `rmSync` 删磁盘文件,而本机 CLI 侧挂着批量删除闸
+ * (`SAFE_DELETE_BULK_CONFIRM_REQUIRED`,阈值 50),该调用被拦 ⇒ 自检在**第一条断言之前**就退出。
+ * 已实测这不是迁移引入的:把 `git show HEAD:` 的**未迁移原版**放回同路径跑 `--self-test`,
+ * 报同一句同一条栈(`selfTest` 里的 `rmSync`)。故那一格的读数由等价的探针代替
+ * (用改名搬走代替删除,断言与判据同形,6 条全 PASS),不靠"应该没问题"交差。
  */
 
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+// 2026-10-05(G-998191)迁移:本器全部 git 派生改走取材层的 `gitRaw`。此前是三处
+// `execFileSync('git', …)` 裸调用,形态同时踩三条:① 裸 'git' 依赖 PATH(换机/换服务身份
+// 就 ENOENT);② 默认 stdio 把子进程 stderr 直接透到父进程,而本器的 stdout 是**逐行读数**
+// (末行"孤儿删除 N 条 / 命中 M 条"),git 的杂音(`fatal:` 之类)会混进读数里;③ 无 timeout,
+// 索引锁住时无界挂起 —— 而本器恰恰是去读索引面的尺子,撞锁的概率高于别的门。
+import { gitRaw } from './lib/face-reader.mjs'
 
 // 临时夹具唯一落点(§26):裸 `mkdtempSync` 在本仓被镜像测试当反向锁钉过 —— 仓库树内的夹具会被
 // `git rev-parse --show-toplevel` 向上逃逸到真仓,夹具就证不了"这是个独立仓"。
@@ -63,33 +83,65 @@ import { collectHits } from './check-staged-deletions.mjs'
 import { findOrphanedDeletions } from './heal-worktree-tracked.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+/** `git grep` 预筛的 timeout:全仓逐 stem 扫描,冷缓存下层默认的 60s 不够(见 grepCandidates 头注)。 */
+const GREP_TIMEOUT_MS = 90_000
+/** 夹具建仓链的 timeout:旧裸调用无上界,层默认这一档是净收益(见 selfTest 里 `g` 的头注)。 */
+const FIXTURE_GIT_TIMEOUT_MS = 60_000
 /** 只有源码与配置才可能"引用一个模块";文档/JSON 里的同名串不算证据。 */
 const SCAN_EXT = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs|py|vue|svelte|json|jsonc|css|scss|html)(\.[^/]*)?$/
 
+/**
+ * 一次 git 派生的唯一出口。2026-10-05(G-998191)由 `execFileSync('git', …)` 迁到层 `gitRaw`,
+ * 行为面逐条对齐(不靠记忆,逐项对过):
+ *   · **stdio 三态**是本仓实测铁律(2026-09-30):git 子进程不吃 stdin ⇒ stdin 必须 'ignore',
+ *     否则交互会话下 spawnSync 报 EBUSY。旧调用显式写了 `['ignore','pipe','pipe']`;
+ *     `gitRaw` 把这一档**写死**在层里(face-reader.mjs:94,不带 input 即 'ignore'),
+ *     不再由每个调用方各自记得传 —— 这正是本次迁移的收益本身。
+ *     连带取消能力:旧 `opt.stdio` 旁路(可让调用方改成继承/piping)没有了,而**本器无调用方
+ *     用过它**(`g()` 唯一调用点是 `ls-files -z`),所以收口不损失任何在用能力。
+ *   · **绝对路径 git + safe.directory + windowsHide + 数字 timeout + 64MB maxBuffer** 全部由层
+ *     给足:旧调用自带 `maxBuffer: 1 << 26`(64MB)与 `timeout`,与层的默认值**逐字相同**
+ *     (GIT_TIMEOUT=60000、GIT_MAX_BUFFER=64<<20),所以这两项是等价替换,不是收紧也不是放宽。
+ *   · **quotepath**:层强制 `core.quotepath=false`,旧裸调用吃 git 默认的 `true`。对本器的
+ *     `ls-files -z` **无影响** —— `-z` 本就逐条 NUL 分隔、路径不经 quoting;真正吃 quotepath 的
+ *     是下面 `grepCandidates` 那一处,那里它是有利方向的纠偏(见该函数头注)。
+ *   · **失败语义**:层抛 `Undetermined`(Error 子类)并把 `e.status` 挂上(face-reader.mjs:121),
+ *     所以 `grepCandidates` 里 `e?.status === 1`(git grep 无命中)那条判别**仍然成立** ——
+ *     迁移不会把"git 说没有"折叠成"git 没跑成",反之亦然。
+ */
 function git(root, args, opt = {}) {
-  return execFileSync('git', ['-c', 'safe.directory=*', ...args], {
-    cwd: root,
-    encoding: 'utf8',
-    maxBuffer: 1 << 26,
-    windowsHide: true,
-    timeout: opt.timeout ?? 60_000,
-    stdio: opt.stdio ?? ['ignore', 'pipe', 'pipe'],
-  })
+  return gitRaw(args, root, { timeout: opt.timeout ?? GIT_TIMEOUT_MS })
 }
 
-/** 预筛:`git grep` 搜**工作树**(不带 rev),`-F` 让每个 stem 按字面量匹配,不自己转义。 */
+/** `ls-files` 那条派生的 timeout;与层默认同值,写出来只为把"数字 timeout"这条落到本文件可见处。 */
+const GIT_TIMEOUT_MS = 60_000
+
+/** 预筛:`git grep` 搜**工作树**(不带 rev),`-F` 让每个 stem 按字面量匹配,不自己转义。
+ *
+ *  2026-10-05(G-998191)迁到层 `gitRaw`,三处行为面对照:
+ *   · **timeout 90_000 保留**:本调用是全仓逐 stem 的 `git grep -F -l`,候选集大小预料不了,
+ *     层默认的 60s 不足以覆盖大仓冷缓存,故显式给 90_000(不放宽到"无 timeout" —— 旧调用有上界,
+ *     收口不得把这道护栏丢掉)。
+ *   · **maxBuffer 64MB**:旧值 `1 << 26` 与层默认**逐字相同**,等价替换。
+ *   · **quotepath=false 是纠偏,不是等价替换**(本机实测,git 2.55.0.windows.3):旧裸调用吃默认
+ *     `true`,`git grep -l` 命中**非 ASCII 文件名**时吐出的是带引号的八进制串
+ *     (`"apps/web/src/\345\274\225...ts"`),而这些候选名随后要过 `SCAN_EXT.test(f)`、
+ *     `existsSync(resolve(root, f))`(live 活集)与 `readFileSync` —— 实测转义串**三道全不过**
+ *     (SCAN_EXT=false / existsSync=false / 不可读),即含中文/重音文件名的**真引用会被静默漏判**;
+ *     层强制 `false` 后拿到真路径,三道全过。方向是"少漏一条真引用",与本器"宁漏不误报"的取舍同向
+ *     (误报会让人把告警当噪音;漏报只在本就未判红的一格里少报数)。
+ *     ⚠️ 别把这个差推广到 `ls-files -z`:实测 `-z` 下两种取值输出**逐字相同**(NUL 分隔不经
+ *     quoting),所以上面 `git()` 那一条只需写"无影响" —— 它没有可观察的纠偏面。
+ *   · **`-c safe.directory=*` 由层统一注入**,故此处不再自己拼 —— 拼两份虽不报错,却是两处真相。
+ *   · 失败分支的文本有一处**可观察变化**:层抛的 `Undetermined` 把 git 首行错误包进 message,
+ *    而旧代码取 `e.stderr` 的首行。落到 `undetermined` 里的那串因此会带上 `git grep 失败:` 前缀。
+ *    形态仍是"逐条打印原因 + 该维标未判定",判据与出口码都不变(见 main() 的 146 行 push)。
+ */
 function grepCandidates(root, stems) {
-  const args = ['-c', 'safe.directory=*', 'grep', '-I', '-l', '-F']
+  const args = ['grep', '-I', '-l', '-F']
   for (const s of stems) args.push('-e', s)
   try {
-    const out = execFileSync('git', args, {
-      cwd: root,
-      encoding: 'utf8',
-      maxBuffer: 1 << 26,
-      windowsHide: true,
-      timeout: 90_000,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    const out = gitRaw(args, root, { timeout: GREP_TIMEOUT_MS })
     return { files: [...new Set(out.split(String.fromCharCode(10)).filter(Boolean))] }
   } catch (e) {
     // git grep 的 1 = 无命中(正常的空结果),>=2 = 真失败 ⇒ 交调用方记未判定,不得当"没有引用"
@@ -178,15 +230,18 @@ function selfTest() {
     writeFileSync(abs, text, 'utf8')
   }
   try {
-    const g = (args) =>
-      execFileSync('git', ['-c', 'safe.directory=*', ...args], {
-        cwd: tmp,
-        encoding: 'utf8',
-        windowsHide: true,
-        // EBUSY 根治(errno -4082):夹具建仓走的是 init/config/add/commit,**零 input**,
-        //所以 stdio[0]='ignore' 安全(正文一律 writeFileSync 落盘,不用 stdin 喂)。
-        stdio: ['ignore', 'pipe', 'pipe'],
-      })
+    // 2026-10-05(G-998191)迁到层 `gitRaw`。这一条链(init/config/add/commit/rm --cached)是
+    // 夹具建仓,**cwd 在 scratch 临时仓**而非仓根 —— `gitRaw` 第二参就是那个仓根,层用 `-C <root>`
+    // 与 `cwd: root` 双指,**逐字等价**于旧调用的 `cwd: tmp`。
+    // 能力对照:① 旧调用**无 timeout**(裸 default),层给 60_000 ⇒ 净收益(夹具建仓撞索引锁时
+    // 由无界挂起变成有界失败);② 旧调用 maxBuffer 走 Node 默认 1MB,层给 64MB ⇒ 净收益;
+    // ③ stdio 旧显式 `['ignore','pipe','pipe']` + 那条"EBUSY 根治(errno -4082):零 input
+    // 所以 stdio[0]='ignore' 安全"的注释**原样成立** —— 层在不带 input 时正是写死这一档
+    // (face-reader.mjs:94),而本链走 init/config/add/commit/rm,一律不喂 stdin(正文一律
+    // writeFileSync 落盘),所以收口没有把那条根治注释变成谎言;④ quotepath 由层强制 false,
+    // 本链输出(`init -q` 空、`add` 无输出、`commit -q` 无输出、`rm --cached -q` 无输出)
+    // 一条路径都不经 ⇒ 无可观察差异。
+    const g = (args) => gitRaw(args, tmp, { timeout: FIXTURE_GIT_TIMEOUT_MS })
     g(['init', '-q'])
     g(['config', 'user.email', 't@t'])
     g(['config', 'user.name', 't'])

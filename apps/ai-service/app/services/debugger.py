@@ -25,6 +25,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, cast
 
+from app.services.process_tree import CREATE_NO_WINDOW, kill_process_tree
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_SESSION_TIMEOUT = 30 * 60  # 30 分钟
@@ -240,12 +242,11 @@ class DapClient:
             logger.warning("debugger.disconnect DAP disconnect 请求失败: %s", e, exc_info=True)
         if self._read_task and not self._read_task.done():
             self._read_task.cancel()
-        try:
-            self._process.kill()
-        except ProcessLookupError:
-            pass
-        except Exception as e:
-            logger.warning("debugger.disconnect 进程 kill 失败: %s", e, exc_info=True)
+        # 拍板④(2026-10-05):kill 升级为树杀 —— debugpy/js-debug-adapter
+        # 会派生被调试目标进程,单杀 adapter 留下整树孤儿;系统自带
+        # taskkill /T /F 兜底(幂等不抛)。
+        with contextlib.suppress(Exception):
+            await kill_process_tree(self._process.pid)
 
 
 # ==================== DebugSession ====================
@@ -342,6 +343,9 @@ class DebugSessionManager:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=cwd,
+                # 拍板④(2026-10-05):Python 侧禁窗用 CREATE_NO_WINDOW
+                # (Node 侧才是 windowsHide,互不可抄)。
+                creationflags=CREATE_NO_WINDOW,
             )
         except FileNotFoundError as e:
             raise RuntimeError(
