@@ -122,10 +122,6 @@ beforeEach(() => {
   state.writeRows = []
 })
 
-// oauth_private_keys.id 是 uuid 列,路由侧 keyIdBodySchema 已收紧成 z.uuid(防 22P02 ⇒ 500),
-// 这里原先用 'key-9' 字面量会被 400 挡下 —— 改账不改制:测试改用合法 UUID。
-const KEY_ID = '44444444-4444-4444-8444-444444444444'
-
 describe('POST /api/auth/logout — revoked 必须由 revokeRefreshToken 的 RETURNING 派生', () => {
   let app: FastifyInstance
   beforeAll(async () => {
@@ -160,6 +156,54 @@ describe('POST /api/auth/logout — revoked 必须由 revokeRefreshToken 的 RET
     })
     expect(res.statusCode).toBe(200)
     expect(res.json().data).toEqual({ revoked: true })
+  })
+})
+
+// 2026-10-05 生产实测回归:P2-18 cookie 化后,浏览器端 JS 读不到 refresh_token,登出只能
+// 靠 httpOnly cookie 自动附带。修复前 logout 路由 schema 仍写 required:['refreshToken'] +
+// type:'object' ⇒ 无 body 的 POST 被 Fastify 在校验层 400,handler 的 cookie 兜底永远走不到,
+// 实测"登出后 refresh 仍 200"(会话未被吊销)。与 /refresh 2026-08-26 修的是同一道门。
+describe('POST /api/auth/logout — cookie 化登出路径不得被 schema 拦死', () => {
+  let app: FastifyInstance
+  beforeAll(async () => {
+    app = Fastify({ logger: false })
+    await app.register(cookie)
+    await app.register(authRoutes, { prefix: '/api/auth' })
+    await app.ready()
+  })
+  afterAll(async () => {
+    await app.close()
+  })
+
+  it('无 body 无 cookie:不得被 schema 拦成 400,应走到 handler 回 200(revoked:false)', async () => {
+    state.selectRows = []
+    state.writeRows = []
+    const res = await app.inject({ method: 'POST', url: '/api/auth/logout' })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data).toEqual({ revoked: false })
+  })
+
+  it('无 body + refresh_token cookie:必须走 cookie 兜底吊销(revoked:true)', async () => {
+    state.selectRows = [{ id: 'rt-1', token: 'tok', revokedAt: null }]
+    state.writeRows = [{ id: 'rt-1' }]
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/logout',
+      headers: { cookie: 'refresh_token=tok' },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data).toEqual({ revoked: true })
+  })
+
+  it('空对象 body({})也不得被拦:同 schema 门,浏览器端空 POST 复现路径', async () => {
+    state.selectRows = []
+    state.writeRows = []
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/logout',
+      payload: {},
+    })
+    expect(res.statusCode).toBe(200)
   })
 })
 
@@ -234,6 +278,10 @@ describe('POST /api/developer/relay/keys/:id/revoke — revoked 派生且 404 �
 })
 
 describe('POST /api/oauth-keys/revoke — revoked 必须由本写链 RETURNING 派生', () => {
+  // oauth_private_keys.id 是 uuid 列,/revoke 走 eq(oauthPrivateKeys.id, keyId)。
+  // 原 fixture 'key-9' 形状上永远不可能命中真实 uuid 列,只因查询层被桩掉才"能过";
+  // keyIdBodySchema 收成 z.uuid() 后它会先被 400 拦下,故改成合法 uuid。
+  const OAUTH_KEY_ID = '123e4567-e89b-42d3-a456-426614174000'
   let app: FastifyInstance
   beforeAll(async () => {
     app = Fastify({ logger: false })
@@ -245,27 +293,27 @@ describe('POST /api/oauth-keys/revoke — revoked 必须由本写链 RETURNING �
   })
 
   it('存在性预读通过但 UPDATE 命中 0 行 ⇒ revoked: false', async () => {
-    state.selectRows = [{ id: KEY_ID, clientId: 'c-1', isActive: 1 }]
+    state.selectRows = [{ id: OAUTH_KEY_ID, clientId: 'c-1', isActive: 1 }]
     state.writeRows = []
     const res = await app.inject({
       method: 'POST',
       url: '/api/oauth-keys/revoke',
-      payload: { keyId: KEY_ID },
+      payload: { keyId: OAUTH_KEY_ID },
     })
     expect(res.statusCode).toBe(200)
-    expect(res.json().data).toEqual({ keyId: KEY_ID, revoked: false })
+    expect(res.json().data).toEqual({ keyId: OAUTH_KEY_ID, revoked: false })
   })
 
   it('UPDATE 命中 1 行 ⇒ revoked: true', async () => {
-    state.selectRows = [{ id: KEY_ID, clientId: 'c-1', isActive: 1 }]
-    state.writeRows = [{ id: KEY_ID }]
+    state.selectRows = [{ id: OAUTH_KEY_ID, clientId: 'c-1', isActive: 1 }]
+    state.writeRows = [{ id: OAUTH_KEY_ID }]
     const res = await app.inject({
       method: 'POST',
       url: '/api/oauth-keys/revoke',
-      payload: { keyId: KEY_ID },
+      payload: { keyId: OAUTH_KEY_ID },
     })
     expect(res.statusCode).toBe(200)
-    expect(res.json().data).toEqual({ keyId: KEY_ID, revoked: true })
+    expect(res.json().data).toEqual({ keyId: OAUTH_KEY_ID, revoked: true })
   })
 })
 
