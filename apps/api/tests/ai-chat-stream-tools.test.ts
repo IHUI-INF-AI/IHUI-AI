@@ -348,7 +348,23 @@ describe('原生 function calling 网关透传(/chat/stream + /chat/answer)', ()
         expect(body).toContain('event: tool-result')
         expect(body).toContain('event: chunk')
         // data 原样透传:toolCallId / toolName / args 不丢
-        expect(body).toContain(JSON.stringify(TOOL_CALL_START_DATA))
+        // 口径改过一次(2026-10-05,G-998168 票5 / 拍板⑥):首帧现在**有意**被注入
+        // `openTiming`(分段耗时只回传、不落库),所以"整份 data 逐字相等"这条断言
+        // 会把一条已拍板的合法注入判成回归 —— required 检查因此恒红。
+        // 但"不改名 / 不丢字段"这一维必须留住,而且要更严:逐字段验原样,并显式要求
+        // **除 openTiming 外不得多出任何键**(否则一次误改名或偷偷加字段会被"JSON 反正变了"
+        // 的噪声淹没)。逐字段断言仍然在下方,两条不重复。
+        const startFrame = body.match(/event: tool-call-start\ndata: (.*)\n/)?.[1]
+        expect(startFrame, 'tool-call-start 帧必须仍在,且 data 是可解析 JSON').toBeDefined()
+        const forwarded = JSON.parse(startFrame as string) as Record<string, unknown>
+        expect(Object.keys(forwarded).sort()).toEqual(
+          [...Object.keys(TOOL_CALL_START_DATA), 'openTiming'].sort(),
+        )
+        expect(forwarded.type).toBe(TOOL_CALL_START_DATA.type)
+        expect(forwarded.toolCallId).toBe(TOOL_CALL_START_DATA.toolCallId)
+        expect(forwarded.toolName).toBe(TOOL_CALL_START_DATA.toolName)
+        expect(forwarded.args).toEqual(TOOL_CALL_START_DATA.args)
+        expect(typeof forwarded.openTiming).toBe('object')
         expect(body).toContain('"toolCallId":"call_abc123"')
         expect(body).toContain('"toolName":"get_weather"')
       } finally {
