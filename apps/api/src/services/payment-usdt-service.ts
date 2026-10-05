@@ -18,6 +18,17 @@
  * 汇率:存 system_configs(key='usdt_payment.rate'),默认 1.0(1 USDT = 1 USD = 100 cents)。
  * 区块链 API key:从 env TRONGRID_API_KEY / ETHERSCAN_API_KEY 读取。
  *
+ * 充值地址格式校验(TRC20 形态,见 assertUsdtAddressFormat):
+ * - 只卡 TRC20,ERC20 不动。ERC20 是 `0x` + 40 位 hex,形态规则与 Base58 完全不同;
+ *   把 TRC20 正则套到 ERC20 上会把所有 ERC20 充值误拒,故 ERC20 显式放行。
+ * - 形态非法报 400 而非 500:「未配置」是缺配置(补环境变量即可,500);
+ *   「配错了」是人的错,报 500 会让一次可修的配置笔误在监控上表现成服务故障。
+ * - 正则 `^T[1-9A-HJ-NP-Za-km-z]{33}$` 来自波场地址形态:大写 T 开头
+ *   + 33 个 Base58 字符(总长 34),字母表排除易混淆的 0/O/I/l。
+ * - 调用点两处:createUsdtPayment(落库前拦新订单)与 verifyTrc20OnChain
+ *   (兜住校验上线前已落库的存量脏行,该处 address 来自订单行而非 env)。
+ * - 错误信息不回显地址原文:坏值常带复制噪声,回显会让它流进日志/告警并长期留存。
+ *
  * 金额转换:
  *   amountCents(用户充值金额,分) → USDT amount = amountCents / 100 / rate
  *   amountPaid(实收 USDT) → tokens credited = round(amountPaid × rate × 100)
@@ -62,6 +73,65 @@ const FLOW_OP_RECHARGE = 0
 
 /** 金额精确匹配容差(USDT 6-8 位小数,浮点比较误差容限) */
 const AMOUNT_EPS = 1e-4
+
+// =============================================================================
+// 充值地址格式校验
+// =============================================================================
+
+/**
+ * 波场(TRC20)地址形态:大写 T 开头 + 33 个 Base58 字符,总长 34。
+ * 字母表取 Base58(排除易混淆的 0 / O / I / l),因此正则里显式写出
+ * `[1-9A-HJ-NP-Za-km-z]`(数字去 0;大写去 I、O;小写去 l)。
+ * 说明:此处只做形态校验(前缀 + 长度 + 字母表),不做 Base58Check 校验和
+ * (sha256 双重哈希)计算 —— 形态校验已能拦住「复制截断/ 混入 0OIl / 粘上
+ * 前后空白 / 填了 ERC20 地址」这几类真实错配,校验和需引入 crypto 依赖且
+ * 对「配的是别人地址」这种错配无帮助(那是配置问题,不是格式问题)。
+ */
+const TRON_ADDRESS_REGEX = /^T[1-9A-HJ-NP-Za-km-z]{33}$/
+
+/**
+ * 判断字符串是否为形态合法的波场(TRC20)地址。
+ *
+ * 为什么只卡 TRC20、ERC20 放行:
+ * ERC20 地址是 `0x` + 40 位十六进制,形态规则与 Base58 完全不同
+ * (长度 42、含 0/x、大小写十六进制混排)。若把TRC20 正则套到 ERC20 上,
+ * 所有 ERC20 充值都会被误拒。因此本函数只服务 TRC20 路径,
+ * 调用方必须用 network === 'TRC20' 显式分流,ERC20 不走这里。
+ *
+ * 为什么不回显地址原文:
+ * 地址是收款敏感配置,坏值常带复制噪声(空白/换行/半截串)。把原文拼进
+ * 错误信息会让它流进日志与告警系统并被长期留存,反而扩大泄漏面。
+ * 因此调用方只报告「格式非法」这一事实 + 期望形态,不带值。
+ */
+export function isTronAddress(value: string): boolean {
+  return TRON_ADDRESS_REGEX.test(value)
+}
+
+/**
+ * 断言充值地址形态合法,不合法则抛 400。
+ *
+ * 为什么是 400 而不是「未配置」的 500:
+ * - 未配置(env 为空)= 服务端缺配置,补一个环境变量即可,归类为服务不可用(500)。
+ * - 格式非法 = 值填了但填错了(截断/混入 0OIl/贴错链的地址),是**人的配置错误**,
+ *   归类为「请求无法被正确处理」的 4xx。若报 500,整条充值链路在监控上会表现成
+ *   「服务故障」,把一次可修的配置笔误升级成需要排查的线上事故。
+ *
+ * @param network 网络标识(大小写不敏感);非 TRC20 直接放行
+ * @param address 待校验的充值地址
+ */
+export function assertUsdtAddressFormat(network: string, address: string): void {
+  const net = (network || '').toUpperCase()
+  // ERC20 形态规则不同(0x + 40 hex),不在本函数职责内,显式放行而非漏判
+  if (net !== 'TRC20') return
+  if (isTronAddress(address)) return
+  throw Object.assign(
+    new Error(
+      'TRC20 充值地址格式非法(应为 T 开头的 34 位波场 Base58 地址:大写 T + 33 位 Base58 字符,' +
+        '字母表不含 0/O/I/l);请核对环境变量 USDT_TRC20_ADDRESS 的取值,为避免脏数据入账已拒绝',
+    ),
+    { statusCode: 400 },
+  )
+}
 
 // =============================================================================
 // 类型定义
@@ -302,6 +372,11 @@ export async function createUsdtPayment(
       },
     )
   }
+  // 落库前拦形态非法的地址:该值会被写进 usdt_payments.address,并成为后续
+  // verifyTrc20OnChain「收款地址一致性」比对的基准 ⇒ 错一个字符就是脏数据落库
+  // + 该网络全部取证失败(比对永不相等)。校验放在「未配置」分支之后,保证
+  // 「没配」与「配错」是两条可区分的路径(500 / 400)。
+  assertUsdtAddressFormat(upperNetwork, address)
 
   const usdtAmount = amountCents / 100 / config.rate
   const orderId = generateOrderNumber('USDT')
@@ -554,6 +629,16 @@ async function verifyTrc20OnChain(
     to: string | null,
     confirmations: number | null,
   ) => ({ verified: false, reason, network: 'TRC20', txHash, amountOnChain, to, confirmations })
+
+  // 与 createUsdtPayment 共用同一份实现。存在的理由不是「同一批配置」,
+  // 而是**存量脏数据**:本函数拿到的 address 来自 usdt_payments.address(订单行),
+  // 不是直接读 env。在补校验之前落库的订单行可能已含形态非法的地址,这类行
+  // 靠创建侧校验永远补不到(不会重新创建)。而 address 在本函数里同时充当
+  // ① TronGrid 查询路径 ②「收款地址一致性」比对基准(tx.to !== address)——
+  // 基准本身畸形时,比对结果不可信。故在此复用同一断言 fail-closed:
+  // 抛错被 verifyUsdtOnChain 的 try 捕获 → verified=false,订单保持 pending,
+  // 永不入账,也不会把畸形地址继续拼进链上查询。
+  assertUsdtAddressFormat('TRC20', address)
 
   const apiKey = process.env.TRONGRID_API_KEY
   const params = new URLSearchParams({
