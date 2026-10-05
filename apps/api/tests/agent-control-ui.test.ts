@@ -170,6 +170,17 @@ async function reportResult(body: Record<string, unknown>) {
 }
 
 describe('agent-control ui category — /api/agent-control/*', () => {
+  /**
+   * hook 超时显式给 180s(2026-10-05 第二枚修正)—— 上一枚把一次性鉴权预热搬进 beforeAll,
+   * 于是那笔动态 import 的成本从"某条计数用例的 5s 窗口"挪到了"hook 的 15s 窗口",CI 上照样红,
+   * 只是换了个报错形状:
+   *   run 37308809241 / annotations: Error: Hook timed out in 15000ms.
+   *     ... apps/api/tests/agent-control-ui.test.ts:173:3
+   *   (那个行号是当时那次运行的,会随编辑漂移,不要按它找位置 —— 找 beforeAll 本身。)
+   * 冷 runner + 并行 turbo 下,首次拉起 db/drizzle/postgres-js 那张图可以远超本机实测的 1.2s。
+   * 只给这一条 hook 放宽预算,**不动 apps/api/vitest.config.ts 的全局 hookTimeout** ——
+   * 其余 hook 仍应在 15s 内诚实失败。判据与断言一字未动。
+   */
   beforeAll(async () => {
     process.env.AGENT_CONTROL_INTERNAL_SECRET = INTERNAL_SECRET
     app = Fastify({ logger: false })
@@ -202,7 +213,7 @@ describe('agent-control ui category — /api/agent-control/*', () => {
     const warmupBody = warmup.json<{ data: AgentActionResponse }>().data
     expect(warmupBody.errorCode).toBe('TARGET_NOT_CONNECTED')
     expect(mockPush).not.toHaveBeenCalled()
-  })
+  }, 180_000)
 
   afterAll(async () => {
     delete process.env.AGENT_CONTROL_INTERNAL_SECRET
