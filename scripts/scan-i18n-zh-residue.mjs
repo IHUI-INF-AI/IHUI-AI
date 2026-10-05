@@ -9,13 +9,15 @@
  * 并可扩展到 ja / vi / th 等任意非中文 locale。
  *
  * 用法:
- *   node scripts/scan-i18n-zh-residue.mjs <locale> [--staged] [--readme] [--target=web|extension]
+ *   node scripts/scan-i18n-zh-residue.mjs <locale> [--staged] [--readme] [--target=web|extension|shared|api|cli|miniapp-taro|mobile-rn]
  *
  * 参数:
  *   <locale>  必填，翻译文件名 (不含 .json)，如 ko / ja / zh-TW / vi
  *   --staged  可选，仅当对应 locale 文件在 git 暂存区时检查 (pre-commit 用)
  *   --readme  可选，扫描根目录 README.<locale>.md 而非 apps/web/messages/<locale>.json
- *   --target  可选，扫描目标 web(默认 apps/web/messages/) | extension(packages/i18n/messages/extension/) | shared(packages/i18n/messages/shared/)
+ *   --target  可选，扫描目标 packages/i18n/messages/<target>/<locale>.json，
+ *             默认 web；可选七个面:web | extension | shared | api | cli | miniapp-taro | mobile-rn
+ *             (2026-07-25 起已无 apps/* 侧散落副本，七面同构；未知值报错退出，不静默回落)
  *             与 --readme 互斥(--readme 优先扫描 README)
  *
  * 检测逻辑 (按 locale 分支):
@@ -46,6 +48,7 @@ import path from 'node:path'
 import { execSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import * as OpenCC from 'opencc-js'
+import { I18N_MESSAGE_FACES, faceMessageRelPath, isKnownFace } from './lib/i18n-message-faces.mjs'
 
 // locale 配置表：mode 决定检测策略，localRe 为该语言的本地字符范围
 // 未列出的非中文 locale 走默认 charRange 模式，localRe 为 null (任何汉字即纯残留)
@@ -135,10 +138,13 @@ function parseArgs(argv) {
       // 未知 target 以前会被静默丢掉 → 变成"扫 web",还打印"web/xx.json 无中文残留",
       // 让人以为已经校验过 mobile-rn / miniapp-taro(2026-09-21 两个会话先后踩到)。
       // 现在:支持全部语言包目录,未知值直接报错退出。
-      const ALLOWED = ['web', 'extension', 'shared', 'miniapp-taro', 'mobile-rn', 'cli', 'api']
-      if (ALLOWED.includes(val)) target = val
+      // 面清单自 2026-10-05 起取自 lib/i18n-message-faces.mjs —— 与修复器同一份,
+      // 两端面名/路径不再各写一遍(此前修复器仍指 apps/* 旧址而本器已迁 packages/i18n)。
+      if (isKnownFace(val)) target = val
       else {
-        console.error(`未知 --target=${val};可选:${ALLOWED.join(' | ')}(不再静默回落到 web)`)
+        console.error(
+          `未知 --target=${val};可选:${I18N_MESSAGE_FACES.join(' | ')}(不再静默回落到 web)`,
+        )
         process.exit(2)
       }
     } else if (arg.startsWith('--')) {
@@ -346,11 +352,11 @@ function main() {
 
   if (!locale) {
     console.error(
-      '用法: node scripts/scan-i18n-zh-residue.mjs <locale> [--staged] [--readme] [--target=web|extension|shared]',
+      '用法: node scripts/scan-i18n-zh-residue.mjs <locale> [--staged] [--readme] [--target=<面>]',
     )
     console.error('  <locale>: ko / ja / zh-TW / vi ...')
     console.error('  --readme: 扫描根目录 README.<locale>.md')
-    console.error('  --target: web (默认) | extension | shared')
+    console.error(`  --target: web (默认) | ${I18N_MESSAGE_FACES.filter((f) => f !== 'web').join(' | ')}`)
     process.exit(2)
   }
 
@@ -360,15 +366,11 @@ function main() {
   if (isReadme) {
     relPath = `README.${locale}.md`
     fileLabel = `README.${locale}.md`
-  } else if (target === 'web') {
-    // 2026-07-25 i18n 单一来源:web 翻译迁移到 packages/i18n/messages/web/
-    relPath = `packages/i18n/messages/web/${locale}.json`
-    fileLabel = `web/${locale}.json`
   } else {
-    // 其余端(shared / extension / miniapp-taro / mobile-rn / cli / api)同构:
-    // packages/i18n/messages/<target>/<locale>.json。以前只有 3 个 target 有分支,
-    // 传 miniapp-taro / mobile-rn 会静默落到 web 路径并报"无残留"。
-    relPath = `packages/i18n/messages/${target}/${locale}.json`
+    // 七面同构(2026-07-25 i18n 单一来源迁移后已无 apps/* 侧散落副本);
+    // 路径拼法取自 lib/i18n-message-faces.mjs,与修复器共用一份 —— 此前 web 走单独分支,
+    // 正是扫描器与修复器两头漂开的成因之一。
+    relPath = faceMessageRelPath(target, locale)
     fileLabel = `${target}/${locale}.json`
   }
   const file = path.resolve(relPath)
