@@ -7142,6 +7142,7 @@
       "todo": "할 일",
       "transition": "상태 전환",
       "triage": "분류 대기",
+      "terminatedFailed": "실행 실패",
       "terminatedCancelled": "취소됨",
       "terminatedQuotaExceeded": "할당량 초과",
       "terminatedPreempted": "선점됨",
