@@ -47,6 +47,8 @@ import {
   discardStagingDirectory,
   isUsableDirectoryCopy,
   prepareStagingDirectory,
+  // 同名多行的"当代"取舍(G-832):唯一实现在 cache.js,写侧不得另写一份首行 find
+  pickAuthorityRecord,
   PluginSwapCancelledError,
   type StagedSwap,
 } from './cache.js';
@@ -531,10 +533,17 @@ async function installLocal(
 
   // 已装短路:按 name + sourcePath 去重。"已装"必须过可用性判据 ——
   // 只问 existsSync 会把"空目录/半成品"报成装好了(与缓存降级同一型)。
+  //
+  // G-832 写侧第二格:短路只对**当代那一条**成立。同名多行时 `records.find` 取的是首行
+  // (旧写侧 `push` 留下的最旧那代),于是"当代那条其实是别处装的"(换过源 / 别代)也会被
+  // 读成"这个源已经装过了" ⇒ 本次安装被跳过,而目录里躺着的是别一代 —— 用户看到的是
+  // "我装了 A,插件还是 B"。取舍与读侧同源:`cache.js` 的 `pickAuthorityRecord`。
   const reg = loadInstallRegistry();
-  const existing = reg.records.find(
-    (r) => r.name === manifest.name && r.sourceType === 'local' && r.sourcePath === resolvedSrc,
-  );
+  const authority = pickAuthorityRecord(reg.records, manifest.name) as InstallRecord | undefined;
+  const existing =
+    authority && authority.sourceType === 'local' && authority.sourcePath === resolvedSrc
+      ? authority
+      : undefined;
   if (existing && isUsableDirectoryCopy(dest)) {
     return {
       name: manifest.name,
@@ -577,8 +586,8 @@ async function installLocal(
  *  - 安装目录按 name 派生:`getPluginInstallPath(manifest.name)`(本文件 local 腿与 git 腿各一次),
  *    而 `paths.ts:55-57` 就是 `installed-plugins/<name>` ⇒ **同名两条记录必然指向同一个目录**,
  *    "一名多行"在物理层没有承载物,它不是"多实例",只是同一件事被登记了两遍。
- *  - 权威面问事务号用的也是裸 name:`cache.ts:266-276` 由 target 反推出 `recordKey = name`,
- *    `cache.ts:520-524` 再 `records.find(r => r.name === recordKey)` 取记录。
+ *  - 权威面问事务号用的也是裸 name:`cache.js` 的 `authorityForTarget` 由 target 反推出
+ *    `recordKey = name`,再由 `pickAuthorityRecord` 在同名行里选**当代那一条**取记录。
  *  - 卸载按 name 删的就是那一个目录(`uninstallPlugin`),所以"还剩一行别的同名记录"必然谎报已装。
  *
  * 刻意不把来源列并进主键:那三列描述的是"这一代从哪来",每次覆盖安装都可能合法变化
@@ -598,10 +607,12 @@ function installRecordKey(record: Pick<InstallRecord, 'name'>): string {
  * 按主键 upsert:命中同主键则**就地替换那一行**(保持数组位置),否则追加。
  *
  * 三条设计点:
- *  1. **原位替换**而不是"删掉再 push":读侧 `cache.ts:520-524` 取的是**首行**同名记录,
- *     留在原位 ⇒ 它问到的必然是刚落的这一代。存量里已存在的同名多行(旧写侧留下的)一律**不动**
- *     —— 本票不做数据迁移,那些副本由读侧的"取最新一行"兜底(见报告:那一行改动住在 cache.ts,
- *     在本票文件清单外)。
+ *  1. **原位替换**而不是"删掉再 push":读侧(`cache.js` 的 `pickAuthorityRecord`)取的是
+ *     同名行里**当代那一条**(installedAt 最新、并列取靠后;G-832 之前是取首行),而本函数
+ *     按 `findIndex` 命中的是**第一个**同名位置 —— 存量同名多行时这两个位置不是同一行。
+ *     所以"留在原位"保证的只是**数组位置稳定**(其余插件的下标不动),它**不**保证读侧问到
+ *     刚落的这一代:真正让读侧问到当代的是设计点 2 的"installedAt 一并刷新"。
+ *     存量同名多行(旧写侧留下的)一律**不动** —— 本票不做数据迁移,那些副本由读侧取舍兜底。
  *  2. **整体替换**而不是逐字段合并(即刻意**不**保留上一代的 `installedAt`):
  *     ① 上一代的 `transactionId` 必须消失 —— 留着它,finalize 会去问一笔已被取代的事务;
  *     ② `installedAt` 一并刷新,是为了让"按出生时刻排序取最新"这条读侧兜底不会把刚写的记录读成旧的。
@@ -723,15 +734,17 @@ async function installGit(
   const manifest = readPluginManifest(pluginDir);
   const dest = getPluginInstallPath(manifest.name);
 
-  // 已装短路:按 name + sourceUrl + pluginSubdir 去重(同 local,须可用才算已装)
+  // 已装短路:按 name + sourceUrl + pluginSubdir 去重(同 local,须可用才算已装;
+  // 且同样只对当代那一条成立 —— 取舍见上面 local 腿的 G-832 注记,两腿共用一处实现)。
   const reg = loadInstallRegistry();
-  const existing = reg.records.find(
-    (r) =>
-      r.name === manifest.name &&
-      r.sourceType === 'git' &&
-      r.sourceUrl === url &&
-      r.pluginSubdir === pluginSubdir,
-  );
+  const authority = pickAuthorityRecord(reg.records, manifest.name) as InstallRecord | undefined;
+  const existing =
+    authority &&
+    authority.sourceType === 'git' &&
+    authority.sourceUrl === url &&
+    authority.pluginSubdir === pluginSubdir
+      ? authority
+      : undefined;
   if (existing && isUsableDirectoryCopy(dest)) {
     return {
       name: manifest.name,
