@@ -10,6 +10,7 @@
  * 数据模型(三张表):
  *  - ai_model_config            (v1 已有,作为 provider 主表)
  *  - ai_model_config_models     (Phase 1 新增,1:N 关联到 provider)
+ *    注:extra_metadata 已按 O19b B 案摘除(2026-10-05),列保留待迁移票。
  *  - ai_model_config_groups     (Phase 1 新增,按用户分组聚合 provider)
  *
  * 设计原则:
@@ -129,7 +130,6 @@ const createModelSchema = z.object({
   enabled: z.boolean().default(true),
   isDefault: z.boolean().default(false),
   sortOrder: z.number().int().min(-10000).max(10000).default(0),
-  extraMetadata: z.record(z.string(), z.unknown()).default({}),
 })
 
 const updateModelSchema = z.object({
@@ -141,7 +141,6 @@ const updateModelSchema = z.object({
   enabled: z.boolean().optional(),
   isDefault: z.boolean().optional(),
   sortOrder: z.number().int().min(-10000).max(10000).optional(),
-  extraMetadata: z.record(z.string(), z.unknown()).optional(),
 })
 
 const createGroupSchema = z.object({
@@ -320,7 +319,6 @@ interface ModelRow {
   sort_order: number
   health_status: string
   last_health_check_at: string | null
-  extra_metadata: unknown
   usage_30d_tokens: number
   usage_30d_cost_cents: number
   created_at: string
@@ -340,18 +338,6 @@ function parseModelRow(row: ModelRow): Record<string, unknown> {
       defaultParams = row.default_params as Record<string, unknown>
     }
   }
-  let extraMetadata: Record<string, unknown> = {}
-  if (row.extra_metadata) {
-    if (typeof row.extra_metadata === 'string') {
-      try {
-        extraMetadata = JSON.parse(row.extra_metadata) as Record<string, unknown>
-      } catch {
-        /* ignore */
-      }
-    } else if (typeof row.extra_metadata === 'object') {
-      extraMetadata = row.extra_metadata as Record<string, unknown>
-    }
-  }
   return {
     id: row.id,
     configId: row.config_id,
@@ -366,7 +352,6 @@ function parseModelRow(row: ModelRow): Record<string, unknown> {
     sortOrder: row.sort_order,
     healthStatus: row.health_status,
     lastHealthCheckAt: row.last_health_check_at,
-    extraMetadata,
     usage30dTokens: row.usage_30d_tokens,
     usage30dCostCents: row.usage_30d_cost_cents,
     createdAt: row.created_at,
@@ -820,14 +805,14 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
             config_id, model_id, display_name, context_length,
             input_price_per_1k, output_price_per_1k,
             default_params, enabled, is_default, sort_order,
-            health_status, last_health_check_at, extra_metadata,
+            health_status, last_health_check_at,
             usage_30d_tokens, usage_30d_cost_cents,
             created_at, updated_at
           ) VALUES (
             ${p.data.id}, ${normalizedModelId}, ${data.displayName ?? normalizedModelId}, ${data.contextLength},
             ${data.inputPricePer1k}, ${data.outputPricePer1k},
             ${JSON.stringify(data.defaultParams)}::jsonb, ${data.enabled}, ${data.isDefault}, ${data.sortOrder},
-            'unknown', NULL, ${JSON.stringify(data.extraMetadata)}::jsonb,
+            'unknown', NULL,
             0, 0,
             NOW(), NOW()
           )
@@ -893,8 +878,6 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
           if (body.data.enabled !== undefined) sets.push(sql`enabled = ${body.data.enabled}`)
           if (body.data.isDefault !== undefined) sets.push(sql`is_default = ${body.data.isDefault}`)
           if (body.data.sortOrder !== undefined) sets.push(sql`sort_order = ${body.data.sortOrder}`)
-          if (body.data.extraMetadata !== undefined)
-            sets.push(sql`extra_metadata = ${JSON.stringify(body.data.extraMetadata)}::jsonb`)
           sets.push(sql`updated_at = NOW()`)
           // 改真(守门 134 的"裸 SQL 写链"普查):本 UPDATE 原先**不带 RETURNING**,而响应无条件
           // 回 `updated: true` —— ① 只有 `updated_at` 一列时这里直接 return,整趟事务没发任何写;
