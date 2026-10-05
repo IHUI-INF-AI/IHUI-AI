@@ -896,6 +896,12 @@ export function ChatScreen() {
       onFallback: (event) => {
         showToast('info', `模型降级:${event.primaryModel} → ${event.backupModel}`)
       },
+      // 流式中断标记帧(G-815976 收口入契约):llm_gateway astream 异常中断且已发过
+      // chunk 时发出,此后流终止不会再有 done —— 半截回答必须如实告知截断,
+      // 不再与完整回答同形。提示出口复用本端既有 FloatBox(与 onFallback 同形)
+      onPartialDone: () => {
+        showToast('warning', t('chat.partialDoneTitle'))
+      },
       // D39 重试交代:与 N8n 屏同一句词包(否则用户在流上只看到"卡住")
       onRetryScheduled: (event) => {
         showToast(
