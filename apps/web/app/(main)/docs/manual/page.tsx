@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { Metadata } from 'next'
-import { BookOpen, Rocket, MessageCircle, Coins, Bot, Settings, HelpCircle, ChevronRight } from 'lucide-react'
+import { BookOpen, Rocket, MessageCircle, Coins, Bot, Settings, HelpCircle, ChevronRight, ChevronLeft } from 'lucide-react'
 
 const SITE_URL = 'https://aizhs.top'
 
@@ -168,15 +168,17 @@ export default function ManualIndexPage() {
       <div className="mt-12 flex flex-wrap items-center justify-between gap-3">
         <a
           href="/docs"
-          className="rounded-lg border bg-card px-4 py-2 text-sm hover:bg-accent"
+          className="inline-flex items-center gap-1 rounded-lg border bg-card px-4 py-2 text-sm hover:bg-accent"
         >
-          ← 返回文档中心
+          <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
+          <span>返回文档中心</span>
         </a>
         <a
           href="/docs/manual/getting-started"
-          className="rounded-lg bg-cta px-4 py-2 text-sm font-medium text-cta-foreground hover:bg-cta/90"
+          className="inline-flex items-center gap-1 rounded-lg bg-cta px-4 py-2 text-sm font-medium text-cta-foreground hover:bg-cta/90"
         >
-          开始阅读 →
+          <span>开始阅读</span>
+          <ChevronRight className="h-3.5 w-3.5" aria-hidden />
         </a>
       </div>
     </main>
