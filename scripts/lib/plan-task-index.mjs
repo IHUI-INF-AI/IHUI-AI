@@ -946,8 +946,21 @@ const DISPOSITION_RULES = [
     /本机结构性缺|本机(无|没有|未装|起不来)|需真机|需 macOS|模拟器|开发者工具|阻塞(主体|在|于)|生产侧|暂留本地|需建表|等(并行|对端|环境|新装机)|外部(条件|服务)|线上(仍是|未|无)/,
   ],
 ]
+/** 归属判据看的面:**行内反引号 span 遮成等长空白**。
+ *  立因(G-1058610 病②,2026-10-05 实测):台账里大量票面**转述上游代码的成文理由**,那些句子
+ *  本身就带"等待用户…""需人定…"字样 —— 例如 G-815964 引了上游源码里那句"paused-log 正在等待
+ *  用户继续上传",于是**一条零阻塞可做的票被整条算成"等人拍板"**,派单人照着这个数就会把一件
+ *  根本没人拦的活挂起来等人。
+ *  只遮反引号、**不遮中文引号「」与直角引号** —— 本仓正当的等待措辞常常正写在那种引号里
+ *  ("台账明写「属 §24 需用户确认」"),把它们一起遮掉就等于给判据摘牙(§12f:修红不得顺手削判据)。
+ *  等长替换:列位不变,后续任何按列取窗的逻辑不受影响。 */
+export function dispositionFace(line) {
+  return String(line).replace(/`[^`
+]*`/g, (m) => ' '.repeat(m.length))
+}
 export function dispositionOf(line) {
-  for (const [kind, re] of DISPOSITION_RULES) if (re.test(line)) return kind
+  const face = dispositionFace(line)
+  for (const [kind, re] of DISPOSITION_RULES) if (re.test(face)) return kind
   return 'actionable'
 }
 
@@ -1513,6 +1526,20 @@ export function auditPlan(content, { archivedKeys = null } = {}) {
     !voidLines.has(r.line) &&
     !dupCopyLines.has(r.line) &&
     !DUP_POINTER_RE.test(r.raw)
+  const claimableRows = unclaimedRows.filter(isClaimable)
+  // F7b(G-1058610 病①,2026-10-05 立):同一份分层在**派单口径**上再算一遍。
+  // 上面的基数 unclaimedRows 里混着两千多行"已标副本指针 / 当次算出的同题副本",所以它那组
+  // 读数天生虚高 —— 实测"等人拍板 70 行"按复合主键去重只剩 20 个独立事项,照那个数去问就是
+  // 把同一件活问七遍。这一组才是派单人该看的那一组。
+  // 刻意**不替换**上面那组:两把口径都有人读,而把既有读数换基数,下一次没人能证明它量的是
+  // 同一件事(§12f:修红不得顺手移动别人的锚点)。两行一起印,基数写在行内。
+  const dispClaimBuckets = {
+    actionable: [],
+    'waiting-human': [],
+    'waiting-env': [],
+    'owned-elsewhere': [],
+  }
+  for (const r of claimableRows) dispClaimBuckets[dispositionOf(r.raw)].push(r)
   return {
     rows: rows.length,
     /** 当前面上所有条目行的原文集合 —— 调用方用它算"本次新增的行"(逐字不在基准面上)。
@@ -1546,7 +1573,9 @@ export function auditPlan(content, { archivedKeys = null } = {}) {
      *  租约这一维是第一版的漏口:146 条"无人认领"里混着 44 条别人已认领的活,
      *  照那个数派单就是把正在做的事再派一遍(§1 认领标记存在的理由)。
      *  F4 这一维是第二版才补上的:副本行各算一条 ⇒ 同一件活被派两遍,而报告里只飘着一个组数。 */
-    claimableRows: unclaimedRows.filter(isClaimable),
+    claimableRows,
+    /** F7b 名单:派单口径的逐桶行(与 counts.dispClaim* 同源一份,不得两处各算)。 */
+    dispClaimBuckets,
     counts: {
       open: openRows.length,
       claimed: openRows.filter((r) => r.claim).length,
@@ -1619,6 +1648,12 @@ export function auditPlan(content, { archivedKeys = null } = {}) {
       dispWaitingHuman: dispBuckets['waiting-human'].length,
       dispWaitingEnv: dispBuckets['waiting-env'].length,
       dispOwnedElsewhere: dispBuckets['owned-elsewhere'].length,
+      // ── F7b 同一分层在派单口径上的读数(基数 = claimable,已扣副本/作废/分叉)──
+      // 四桶相加必须等于 claimable,与上面四条"相加等于 unclaimed"是两条独立的闭合判据。
+      dispClaimActionable: dispClaimBuckets.actionable.length,
+      dispClaimWaitingHuman: dispClaimBuckets['waiting-human'].length,
+      dispClaimWaitingEnv: dispClaimBuckets['waiting-env'].length,
+      dispClaimOwnedElsewhere: dispClaimBuckets['owned-elsewhere'].length,
       // ── F8 寿命两档 ──
       // 无交代:全部未勾选行里既没租约、也没说等什么、又没有日期的 —— 这批才是"只会涨的账"。
       undisposed: undisposed.length,

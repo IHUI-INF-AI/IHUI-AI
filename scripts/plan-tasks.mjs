@@ -222,6 +222,14 @@ function report(a, face) {
     `归属分层(未认领 ${c.unclaimed} 行按正文推导,逐桶互斥可相加):` +
       `现在可做 ${c.dispActionable} / 等人拍板 ${c.dispWaitingHuman} / 等条件 ${c.dispWaitingEnv} / 归他人 ${c.dispOwnedElsewhere}`,
   )
+  // ── F7b 同一分层的**派单口径**读数(G-1058610 病①)──
+  // 上面那行的基数混着两千多行"已标副本指针/当次算出的同题副本",所以它的"等人拍板"是**行数**
+  // 而不是**事项数**(实测 70 行 → 20 个独立事项)。派单/提问一律看下面这行,它已扣副本。
+  console.log(
+    `  └ 同一分层按**派单口径**重算(基数 ${c.claimable} 行,已扣同题副本/作废/分叉):` +
+      `现在可做 ${c.dispClaimActionable} / 等人拍板 ${c.dispClaimWaitingHuman} / 等条件 ${c.dispClaimWaitingEnv} / 归他人 ${c.dispClaimOwnedElsewhere}` +
+      ` —— 两行不得互相顶结论:上行答"账面有几行挂着",下行答"真有几件事"`,
+  )
   // ── F8 寿命 ──
   console.log(
     `账的交代:无交代 ${c.undisposed} 行(其中 ${c.undated} 行连日期都没有 = 只看行内日期时判不到龄)` +
@@ -1010,6 +1018,52 @@ function selfTest() {
   ok(
     prio.counts.dispOwnedElsewhere === 1 && prio.counts.dispWaitingEnv === 0,
     `双命中必须落"归他人",实测 归他人 ${prio.counts.dispOwnedElsewhere} / 等条件 ${prio.counts.dispWaitingEnv}`,
+  )
+  // ── F7c 遮"转述"必须成对钉死(G-1058610 病②)──
+  // 同一句等待话,包在反引号里 = 转述别人的代码/文案 ⇒ 不得算成这条票在等人;
+  // 包在中文引号里 = 本仓正当的拍板措辞 ⇒ 必须照算。
+  // 两条必须同时成立:只留前者,判据会把真等待项一起洗成"可做"(摘牙);只留后者,
+  // 派单人就照着一堆转述句去问用户 —— 实测这条把一条零阻塞可做的票挂成了"等人拍板"。
+  const F7CFIX = [
+    '- [ ] **T8 转述上游**:该态的成文理由写在源码里:`paused-log 正在等待用户继续上传` —— 我方现状 0 命中。',
+    '- [ ] **T9 正当拍板措辞**:台账明写「属 §24 需用户确认」。',
+    '',
+  ].join('\n')
+  const f7c = auditPlan(F7CFIX)
+  ok(
+    f7c.counts.dispActionable === 1 &&
+      f7c.counts.dispWaitingHuman === 1 &&
+      f7c.dispBuckets.actionable.length === 1 &&
+      f7c.dispBuckets.actionable[0].raw.includes('T8'),
+    `反引号内的转述不得算等待(应落 T8),中文引号内的正当措辞必须仍算(应落 T9),实测 可做=${f7c.counts.dispActionable} 待人=${f7c.counts.dispWaitingHuman} 名单=${f7c.dispBuckets.actionable
+      .map((r) => r.raw.slice(0, 12))
+      .join('|')}`,
+  )
+  // ── F7d 派单口径分桶(G-1058610 病①)──
+  // 副本行在"未认领分层"里照旧计数(那是账面),但在"派单口径分层"里必须不现身 ——
+  // 否则派单人照 70 去问,实际只有 20 件事,同一件会被问七遍。
+  const F7DFIX = [
+    '- [ ] **T10 原件**:是否对外发布需用户确认,属 §24。',
+    '- [ ] **T10 原件**:是否对外发布需用户确认,属 §24。 〔【归并】重复登记副本(2026-10-05):同主键的另一条登记,派单以那条为准,本行不再单独派单。〕',
+    '',
+  ].join('\n')
+  const f7d = auditPlan(F7DFIX)
+  ok(
+    f7d.counts.dispWaitingHuman === 2 && f7d.counts.dispClaimWaitingHuman === 1,
+    `同一件事的两份副本:账面口径必须仍数到 2 行,派单口径必须只留 1 件,实测 账面 ${f7d.counts.dispWaitingHuman} / 派单 ${f7d.counts.dispClaimWaitingHuman}`,
+  )
+  ok(
+    f7d.counts.dispClaimActionable +
+      f7d.counts.dispClaimWaitingHuman +
+      f7d.counts.dispClaimWaitingEnv +
+      f7d.counts.dispClaimOwnedElsewhere ===
+      f7d.counts.claimable,
+    `派单口径四桶相加必须等于 claimable(漏桶=有一件事在任何清单里都不现身),实测相加 ${
+      f7d.counts.dispClaimActionable +
+      f7d.counts.dispClaimWaitingHuman +
+      f7d.counts.dispClaimWaitingEnv +
+      f7d.counts.dispClaimOwnedElsewhere
+    } vs claimable ${f7d.counts.claimable}`,
   )
   // F8a 只在差值档有意义:全量档它算不出来,必须显式"未判定"而不是悄悄当 0
   const headFace = auditPlan(F7FIX)
