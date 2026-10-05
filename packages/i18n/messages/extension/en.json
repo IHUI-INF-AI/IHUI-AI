@@ -176,6 +176,7 @@
     "emptyHint": "Type a message to start",
     "inputPlaceholder": "Say something...",
     "compactionNotice": "Context auto-compacted: {before} → {after} (removed {removed} messages)",
+    "partialDoneTitle": "Response interrupted, the content below may be incomplete",
     "voiceStop": "Stop Recording",
     "voiceStart": "Start Recording",
     "voiceError": "Cannot access microphone. Please allow microphone permission in browser settings",
