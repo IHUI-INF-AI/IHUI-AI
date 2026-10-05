@@ -6,12 +6,13 @@
 """Gitee 发行直传(release-desktop-local.mjs 的 Gitee 阶段,python 实现——
 Node fetch(undici) 对 Gitee multipart 上传报 401,python urllib 实证可行):
   用法: gitee-release-attach.py --tag desktop-v0.1.22 --exe <path> --sig <path> --version 0.1.22 [--skip-upload]
-  行为: 找/建 Gitee release → 上传 exe+sig(跳过同名)→ 更新更新器 feed:
+  行为: 找/建 Gitee release → 上传 exe+sig(跳过同名)→ 维护 Gitee 侧 feed 附件:
         **release 附件方案**(2026-09-17 终极):latest.json 作为
         desktop-updater-feed release 的附件(替换式更新)——仓库治理「单分支守门」
         会删除除 main 外所有分支(desktop-feed 分支被删三次的真因),release 附件不受影响。
-        Gitee 与 GitHub 双平台同步更新,更新器端点见 tauri.conf.json plugins.updater.endpoints。
-环境变量: GITEE_TOKEN;可选 GH_TOKEN(启用 GitHub 侧 feed 更新), GITHUB_REPOSITORY
+        注:Gitee 侧 feed release **不是**更新器端点(客户端只认 aizhs.top 单端点,
+        2026-10-05 机主拍板);GitHub 侧 feed 维护已随该拍板删除,本脚本不再接触 GitHub API。
+环境变量: GITEE_TOKEN
 """
 import argparse
 import json
@@ -62,11 +63,12 @@ def replace_gitee_feed(latest_data):
     """Gitee feed 更新:整删重建 release(2026-09-17 实证——同名附件允许重复上传但
     下载直链永远取第一个旧附件;而 asset 列表不返回 id 无法逐一删除,故删整个 release)。"""
     # 2026-09-17:tag 残留导致同 tag 重建必失败,且 Gitee 无删 tag API——
-    # 快速路径:tag 已存在则本平台 feed 由 GitHub release 附件承担(更新器双端点),
-    # 不做无谓的删/建重试(每次省 ~10s)。仅当无残留 tag 时才创建。
+    # 快速路径:tag 已存在则跳过(该 release 只是 Gitee 侧附件存档,**不是**更新器端点,
+    # 客户端不读它;更新器端点 2026-10-05 已定稿为 aizhs.top 单端点),不做无谓的删/建重试。
+    # 仅当无残留 tag 时才创建。
     rel = api(f"/repos/{OWNER}/{REPO}/releases/tags/{FEED_TAG}")
     if rel and rel.get("id"):
-        print("[gitee] feed release 已存在(Gitee 侧 feed 由 GitHub 端点承担,跳过重建)")
+        print("[gitee] feed release 已存在(非更新器端点,无需更新,跳过重建)")
         return
     rel = api(f"/repos/{OWNER}/{REPO}/releases", "POST", {
         "tag_name": FEED_TAG, "name": "Desktop updater feed(更新 feed 固定端点)",
@@ -85,51 +87,6 @@ def replace_gitee_feed(latest_data):
     req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
     r = urllib.request.urlopen(req, timeout=300)
     print(f"[gitee] feed release 重建并更新 latest.json: {r.status}")
-
-
-def replace_github_feed(latest_data):
-    gh = os.environ.get("GH_TOKEN")
-    if not gh:
-        print("[gh] 无 GH_TOKEN,跳过 GitHub feed")
-        return
-    gh_repo = os.environ.get("GITHUB_REPOSITORY", "IHUI-INF-AI/IHUI-AI")
-    hdr = {"Authorization": f"Bearer {gh}", "Accept": "application/vnd.github+json",
-           "User-Agent": "ihui"}
-
-    def gh_api(pth, method="GET", payload=None):
-        req = urllib.request.Request(f"https://api.github.com{pth}", method=method)
-        req.headers.update(hdr)
-        if payload is not None:
-            req.add_header("Content-Type", "application/json")
-            req.data = json.dumps(payload).encode()
-        try:
-            r = urllib.request.urlopen(req, timeout=120)
-            b = r.read().decode()
-            return (json.loads(b) if b.strip() else None)
-        except urllib.error.HTTPError as e:
-            print(f"[gh] {method} {pth} -> {e.code}")
-            return None
-
-    rel = gh_api(f"/repos/{gh_repo}/releases/tags/{FEED_TAG}")
-    if not rel or not rel.get("id"):
-        rel = gh_api(f"/repos/{gh_repo}/releases", "POST", {
-            "tag_name": FEED_TAG, "name": "Desktop updater feed",
-            "body": "Automated: latest.json updated on each desktop release.",
-            "prerelease": False, "draft": False})
-    if not rel or not rel.get("id"):
-        print("[gh] feed release 不可用,跳过")
-        return
-    for a in rel.get("assets", []):
-        if a["name"] == "latest.json":
-            gh_api(f"/repos/{gh_repo}/releases/assets/{a['id']}", "DELETE")
-    req = urllib.request.Request(rel["upload_url"].split("{")[0] + "?name=latest.json",
-                                 data=latest_data, method="POST")
-    req.headers.update(hdr)
-    req.add_header("Content-Type", "application/json")
-    try:
-        print(f"[gh] feed release latest.json 更新: {urllib.request.urlopen(req, timeout=300).status}")
-    except urllib.error.HTTPError as e:
-        print(f"[gh] feed 上传失败: {e.code}")
 
 
 def main():
@@ -182,11 +139,7 @@ def main():
         replace_gitee_feed(latest_data)
     except Exception as e:
         print(f"[gitee] feed 更新异常: {e}")
-    try:
-        replace_github_feed(latest_data)
-    except Exception as e:
-        print(f"[gh] feed 更新异常: {e}")
-    print("[done] 端点: gitee/github releases/download/desktop-updater-feed/latest.json")
+    print("[done] Gitee release 资产 + feed 附件已处理(更新器端点见 tauri.conf.json,单端点)")
 
 
 if __name__ == "__main__":
