@@ -152,6 +152,15 @@ const envSchema = z.object({
   // AI 回调共享密钥(可选,为空则不校验;配置后 ai-service 回调需带 X-Internal-Secret 头)
   AI_CALLBACK_SECRET: z.string().default(''),
 
+  // ── 内部服务鉴权通道档位(2026-10-06 立)──
+  // ticket = 只认一次性短期票(老门彻底关掉);dual = 两档并存(默认,兼容窗口);
+  // legacy = 只认老门(应急回退,保的是"能进"不是"安全")。
+  // 未知值一律落回 dual,理由:拼错档位名不该静默把门关掉。
+  INTERNAL_SERVICE_AUTH_MODE: z.enum(['ticket', 'dual', 'legacy']).default('dual'),
+
+  // 票的 TTL 上限(秒),**由验票侧封顶**——发票方误配大值时"短期"这个前提必须还成立。
+  INTERNAL_SERVICE_TICKET_MAX_TTL_SECONDS: z.coerce.number().int().positive().default(300),
+
   // TBox webhook 签名密钥(可选,为空则不校验;配置后设备事件通知需带 X-Signature 头)
   TBOX_WEBHOOK_SECRET: z.string().default(''),
 
