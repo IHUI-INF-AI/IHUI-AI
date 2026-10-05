@@ -378,7 +378,14 @@ test('parseBatch:非 blob 的头(tree / commit)归 null,且不得把内容当下
 // 与 HEAD 各跑一次求差,逐文件名单见台账 G-998190)。重定 ≠ 赦免:逐文件迁移 gitRaw 的
 // 收口票挂在 G-998190,迁移一枚就下调一枚;selfBatch 恒 0(agent-event-coverage 的自拼
 // 临时 fd 批 2026-10-02 已收编进层,判据同源)。
-const BARE_GIT_BASELINE = 87
+// 2026-10-05 再下调(G-998191 逐文件迁移,本轮只做一枚):基线 87 → 86。
+// 下调到 **86 而不是本门落地后的 85**,是本棘轮"只读 HEAD blob"这条口径的硬约束:
+// 本门 `check-disk-root-hygiene.mjs` 的迁移此刻还在工作树、未入库 ⇒ 判据分母里它仍算一枚,
+// 现读就是 86。基线若一步下调到 85,提交前立刻 86 > 85 判红 —— 一台恒红的尺子只有一个结局:
+// 各会话跳门,连带全部守门作废(§12e 同型)。故此处的下限是"提交前也判得过"的那一档。
+// **提交者在把本门落地入库后,应复核并把 86 再下调到 85**(届时
+// `node --test scripts/tests/face-reader.test.mjs` 会打出 `◽ 裸 git 存量已降到 85` 的提示)。
+const BARE_GIT_BASELINE = 86
 const PATH_BOUND_GIT_BASELINE = 11
 const SELF_BATCH_BASELINE = 0
 
