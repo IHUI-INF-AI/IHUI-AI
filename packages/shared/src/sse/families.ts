@@ -117,15 +117,20 @@ export const SSE_FAMILY_CROSS_REFERENCES: {
   'tool-delta': null,
   form_request: null,
   goal_updated: null,
+  // G-815976(2026-10-04):流式中断标记帧是对话流独有(agent 任务流无同义帧),如实标 null
+  partial_done: null,
 }
-// 2026-10-05:本表原先有 `partial_done: null` 一行(2026-10-04 G-815976 加的),
-// 但 `SSE_EVENTS.PARTIAL_DONE` 已从 `contract.ts` 移除 ⇒ `SSEEventName` 联合里不再有它。
-// 该表的类型是 `readonly [K in SSEEventName]`(**映射类型要求键齐全**),
-// 多留这一行会在**模块求值期**抛 `[sse-families] cross-reference key "partial_done"
-// is not in the chat-stream family` ⇒ 凡经 `@ihui/shared` barrel 的 import 即失败
-// (实测 948 个文件连带无法验证)。消费方只有 `sse-families.test.ts`,无运行时行为依赖。
-// 故按事实删掉这一行,而**不是**把 `PARTIAL_DONE` 常量恢复回来 ——
-// 后者是已被上游有意移除的事件,恢复它等于推翻对方的收口。
+// 2026-10-05 更正:上面这行曾被 `d81011c4ec` 删掉,理由是"SSE_EVENTS.PARTIAL_DONE 已从
+// contract.ts 移除 ⇒ SSEEventName 联合里不再有它"。**该前提在当次面上不成立**:
+// `git log -S PARTIAL_DONE origin/main -- packages/shared/src/sse/contract.ts` 只有
+// `c54b9d8123`(10-04 14:05)一枚命中 —— 它被加进来过、从未被移走,现读 contract.ts:106 仍在。
+// 本表的键类型 `[K in SSEEventName]` 与启动自检的 `chatSet`(= `SSE_EVENT_NAMES` =
+// `Object.values(SSE_EVENTS)`)**同源于 SSE_EVENTS**,所以在当前面上"必须有这个键"和
+// "这个键合法"是同一件事,并不互斥;删掉它的直接后果是 `tsc --noEmit` 报 TS2741
+// (CI step 9 `shared-typecheck` 因此红,连带挡住整条 required check)。
+// 当时那句"模块求值期 throw"若真发生过,只能是那次运行读到了 `c54b9d8123` 之前的滞后
+// contract 副本(共享工作树常年滞后 HEAD,AGENTS §12),而不是表与契约真的冲突。
+// 留这一格的规矩:**解除阻塞之前先确认自己读的是被审面,不要用删判据去迁就一份旧副本。**
 
 /** 查对话流事件在 agent 任务流上的同义名;无交叉返回 null(不猜)。 */
 export function chatToAgentTaskCrossReference(name: SSEEventName): AgentTaskEventName | null {
