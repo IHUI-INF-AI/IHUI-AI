@@ -87,6 +87,75 @@ describe('G-815926 ② 取词出口 t():插值与回退', () => {
   })
 })
 
+/**
+ * ④ **按-locale-取词这条主路径的正向覆盖**(G-1058621,2026-10-05 补)。
+ *
+ * 为什么必须有这一组:本文件原有两条带 `locale` 的测试(`:80` 未知 locale 回落 / `:86` 终极回退)
+ * **都在验"取不到时怎么办"** —— 没有任何一条验"传一个**真实存在**的 locale 能拿到该语言的文案"。
+ * 后果不是"覆盖率低"这么软:`ja.json`/`ko.json` 里那 65 个 `apiOutbound` 叶子
+ * **在测试里从未被渲染过一次**;于是把 `ja` 误写成 `jp`、把 `zh-CN` 误写成 `zh_CN` 这类
+ * locale 拼写错,会**静默回落到 zh-CN 而测试照样全绿** —— 错语言上线了也没有任何测试能发现。
+ *
+ * 两条断言都要有,缺一条就漏一类退化:
+ *  - `toBe(期望)`:钉住"确实拿到了那个 locale 的字面量";
+ *  - `not.toBe(zh-CN 同键值)`:防"静默回落冒充通过" —— 只钉 `toBe` 的话,
+ *    哪天词包被误改回 zh-CN 值,断言会在"期望值跟着一起变"时一起通过。
+ * 期望值**从词包现读**(不硬编码字面量):翻译更新时本测试跟着走,不会假红;
+ * 真正要抓的是"取词时用错了 locale",不是"某个字面量被改了"。
+ */
+describe('G-1058621 ④ 取词出口正向:真实 locale 必须取到该语言(不是静默回落 zh-CN)', () => {
+  const SAMPLES = [
+    { key: 'apiOutbound.foldNotice', params: { count: 1 } },
+    { key: 'apiOutbound.adapterMissing', params: { platform: 'feishu' } },
+  ] as const
+
+  for (const { key, params } of SAMPLES) {
+    it(`${key} @ ${LOCALES.slice(1).join('/')} 四面各自取到本语言值`, () => {
+      const zhCn = t(key, params, 'zh-CN')
+      for (const locale of LOCALES.slice(1)) {
+        const got = t(key, params, locale)
+        // 期望值从词包**现读模板**再渲染一遍(与 t() 走同一套占位符替换)
+        const expected = renderWith(rawTemplate(locale, key), params)
+        expect(got, `${locale} @ ${key}`).toBe(expected)
+        expect(got, `${locale} @ ${key} 静默回落成了 zh-CN`).not.toBe(zhCn)
+      }
+    })
+  }
+
+  it('locale 拼写错误必须**不被当成合法 locale**(否则错语言上线无测试可发现)', () => {
+    // `jp` 是常见误写(日本国码是 ja)。若将来有人给 t() 加"宽松匹配",这一条会翻红。
+    const bogus = t('apiOutbound.foldNotice', { count: 1 }, 'jp')
+    const zhCn = t('apiOutbound.foldNotice', { count: 1 }, 'zh-CN')
+    // 现读行为:未知 locale 一律回落 zh-CN ⇒ 值相等。**钉的是"回落"这个已知行为**,
+    // 而不是"报错" —— 取词出口的设计就是缺键/缺面都不得抛错(见 i18n-outbound.ts 头注)。
+    expect(bogus).toBe(zhCn)
+    // 但**合法 locale 必须真的不同**:这一条才有意义 —— 若两句都回落,上面那组正向测试就全红了
+    expect(t('apiOutbound.foldNotice', { count: 1 }, 'ja')).not.toBe(zhCn)
+  })
+})
+
+/** 从词包取模板原文(`{count}` / `{platform}` 保持未替换)。 */
+function rawTemplate(locale: string, key: string): string {
+  const tree = loadApiMessages(locale).apiOutbound
+  return key
+    .split('.')
+    .slice(1)
+    .reduce<unknown>(
+      (node, seg) =>
+        node && typeof node === 'object' && !Array.isArray(node)
+          ? (node as Record<string, unknown>)[seg]
+          : undefined,
+      tree,
+    ) as string
+}
+
+/** 与 `i18n-outbound.ts` 的插值规则同形:`{name}` 占位,未提供的原样保留。 */
+function renderWith(template: string, params: Record<string, string | number>): string {
+  return template.replace(/\{(\w+)\}/g, (ph, name: string) =>
+    Object.prototype.hasOwnProperty.call(params, name) ? String(params[name]) : ph,
+  )
+}
+
 describe('G-815926 ③ 五语言同枚', () => {
   it('api/*.json 的 apiOutbound 键集五端逐键一致', () => {
     const keySets = LOCALES.map((locale) =>
