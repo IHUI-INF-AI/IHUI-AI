@@ -206,6 +206,37 @@ interface StdioDiagnostics {
 const stdioDiagnostics = new WeakMap<ChildProcess, StdioDiagnostics>();
 
 /**
+ * G-691/G-694:**收到过对端应答帧**这件事必须能从错误对象上读出来。
+ *
+ * 为什么需要这个标记:一次 `tools/call` 失败有两种完全相反的性质 ——
+ * ① 对端回了一帧 `error`(如 `method-not-found`)=**对端健在**,只是不认这条方法;
+ *② 传输层失败(超时 / 管道断 / 子进程退出)= 对端可能已经死了。
+ * 两者都表现为"抛 Error",上层若一律当传输失败处理,就会在**每个业务性失败**上
+ * 重启 MCP 子进程,把进程内状态(会话、订阅、缓存)全部丢掉。
+ *
+ * 载体选 `WeakSet<Error>` 而不是往 Error 上加字段:Error 是跨层传递的值,
+ * 加可枚举字段会漏进日志序列化与用户可见输出;而 WeakSet 不持有对象、
+ * 不会延长其生命周期,读不存在的键天然是"未知"而不是"猜一个默认值"。
+ */
+const peerAnsweredErrors = new WeakSet<Error>();
+
+/** 给错误打上"对端已应答"标记,返回同一个对象(便于在构造处内联)。 */
+export function markPeerAnswered(error: Error): Error {
+  peerAnsweredErrors.add(error);
+  return error;
+}
+
+/**
+ * 这个错误是否意味着"对端已应答"。
+ *
+ * 未知来源的 Error 一律读成 `false`(fail-closed):读成 `true` 会让上层
+ * 在真传输失败上反而**不**重启子进程,把坏连接留在原地。
+ */
+export function readMcpPeerAnswered(error: unknown): boolean {
+  return error instanceof Error && peerAnsweredErrors.has(error);
+}
+
+/**
  * 读某个 stdio 子进程当前挂着的尾缓冲读数(测试与诊断用;没挂过则 undefined)。
  *
  * 暴露读数而不是只把文本拼进消息 —— 否则"截断标注是不是恒真""空缓冲是不是被当成
@@ -295,7 +326,23 @@ function formatStdioDiagnostics(proc: ChildProcess): string {
   return ` | ${parts.join(' | ')}`;
 }
 
-async function sendStdioRpc(
+/**
+ * G-694:stdio RPC 的**成对清理纪律** —— 无论从哪条路终结(成功 / 协议错误帧 / 子进程异步
+ * 失败 / 超时),都必须同样摘掉 `stdout` 的 `data` 监听器、摘掉诊断等待者、停掉计时器。
+ *
+ * 病灶(改前的形态):`stdout.off('data', onData)` **只挂在"收到匹配 id"那一支**,
+ * 于是每超时一次就永久留下一个 `data` 监听器。泄漏的不只是监听器本身 ——
+ * 每个死监听器都闭包持有本次请求的 `resolve`/`reject` 与 `msg`,整条 promise 链
+ * 因此无法被 GC。共享工作区里超时是常态(对端启动慢 / 不支持某方法 / 子进程已死
+ * 但无人监听 exit),跑一夜就能把监听器堆成百,而之后每一条 stdout 事件都要替这些
+ * 死监听器白跑一遍 `split` + `JSON.parse`。
+ *
+ * 修法不是"给两个分支各补一行 off"(那是把同一件事抄两遍,必漂移):收敛成
+ * **唯一终态出口 `settle()`**,`settled` 闩保证它只生效一次。
+ * `settled` 闩同时防住另一族竞态:同一个 id 既可能收到应答帧、也可能撞上超时,
+ * 两条路都试图终结同一个 promise。
+ */
+export async function sendStdioRpc(
   proc: ChildProcess,
   method: string,
   params: Record<string, unknown> = {},
@@ -317,32 +364,51 @@ async function sendStdioRpc(
     // G-689:把本次在途请求挂到子进程的诊断上 —— ENOENT 这类**异步** error / 提前 exit
     // 发生时立刻以真因 reject,而不是干等满 timeoutMs 报"超时"(改前的行为)。
     const diag = ensureStdioDiagnostics(proc);
-    const onChildFailure = (reason: Error): void => {
-      clearTimeout(timer);
+
+    // G-694:先声明 `onData`/`timer` 再定义 settle —— settle 是它们的闭包,
+    // 而 timer 与 onChildFailure 的初始化都会调用它(声明顺序不可调换)。
+    let settled = false;
+    let timer: NodeJS.Timeout | undefined;
+    let onData: (data: Buffer) => void;
+
+    /** 唯一终态出口:摘干净一切,然后只结算一次。 */
+    const settle = (outcome: { ok: true; value: unknown } | { ok: false; error: Error }): void => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      stdout.off('data', onData);
       diag.waiters.delete(onChildFailure);
-      reject(reason);
+      if (outcome.ok) resolve(outcome.value);
+      else reject(outcome.error);
+    };
+
+    const onChildFailure = (reason: Error): void => {
+      settle({ ok: false, error: reason });
     };
     diag.waiters.add(onChildFailure);
 
-    const timer = setTimeout(() => {
-      diag.waiters.delete(onChildFailure);
-      reject(new Error(withDiagnostics(`MCP 请求超时: ${method} (${timeoutMs}ms)`)));
+    timer = setTimeout(() => {
+      settle({ ok: false, error: new Error(withDiagnostics(`MCP 请求超时: ${method} (${timeoutMs}ms)`)) });
     }, timeoutMs);
 
-    const onData = (data: Buffer): void => {
+    onData = (data: Buffer): void => {
       const text = data.toString();
       for (const line of text.split('\n')) {
         if (!line.trim()) continue;
         try {
           const parsed = JSON.parse(line) as { id?: number; error?: { message?: string }; result?: unknown };
           if (parsed.id === id) {
-            clearTimeout(timer);
-            stdout.off('data', onData);
-            diag.waiters.delete(onChildFailure);
             if (parsed.error) {
-              reject(new Error(withDiagnostics(parsed.error.message || 'MCP 错误')));
+              // G-691/G-694:协议错误帧是"对端已应答、就是这条方法不被支持"⇒
+              // 带 `peerAnswered` 标记(供上层判"该不该 markDead"),不是传输层失败。
+              settle({
+                ok: false,
+                error: markPeerAnswered(
+                  new Error(withDiagnostics(parsed.error.message || 'MCP 错误')),
+                ),
+              });
             } else {
-              resolve(parsed.result);
+              settle({ ok: true, value: parsed.result });
             }
             return;
           }
@@ -353,7 +419,13 @@ async function sendStdioRpc(
     };
 
     stdout.on('data', onData);
-    proc.stdin.write(msg);
+    proc.stdin.write(msg, (err) => {
+      // G-694:写失败(管道已销毁 / EPIPE)是**没有 id、也没有超时**的终态。
+      // 改前它只能等满计时器才报"超时",且那条路还不摘监听器。
+      if (err) {
+        settle({ ok: false, error: new Error(withDiagnostics(`MCP 请求写入失败: ${method} (${err.message})`)) });
+      }
+    });
   });
 }
 
