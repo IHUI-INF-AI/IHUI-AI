@@ -20,6 +20,13 @@ import { createOrchestrator } from './orchestrator.js'
 import type { FetchLike } from './types.js'
 
 export * from './types.js'
+export {
+  buildScanItemKey,
+  parseScanItemKey,
+  SCAN_ITEM_KEY_SOURCES,
+  SCAN_ITEM_KEY_FORMAT,
+  type ScanItemKey,
+} from './scan-item-key.js'
 export { loadAutomationsConfig, validateConfig } from './config.js'
 export { redactSecrets, makeAuditLogger } from './redact.js'
 export { createFileLedger } from './ledger.js'
@@ -111,9 +118,7 @@ export function startAutomationsScheduler(): boolean {
   const ledger = createFileLedger(raw.ledgerPath, audit)
   const github = createGitHubClient({ pat: raw.pat, repo: raw.repo, transport, audit })
   const executor =
-    raw.executor === 'agent'
-      ? createAgentExecutor({ agentId: raw.agentId })
-      : createStubExecutor()
+    raw.executor === 'agent' ? createAgentExecutor({ agentId: raw.agentId }) : createStubExecutor()
   const orchestrator = createOrchestrator({ config: raw, github, ledger, executor, audit })
 
   const flight = createSingleFlightTick(
