@@ -6,6 +6,9 @@
 //
 // 与源脚本的关系:本文件 `import { __test__ }`(§22d isDirectRun 保证 import 无副作用),
 // 不复制判据实现 —— 两份真相是登记在案的漂移源。
+// 判据族:C1~C5(策略常量/预算契约/契约类型/谓词/清理函数)+ C6(i18n 码表键)+
+//   C7(G-816034 ①②,导出 `create*Handler` / `create*Transport` 工厂)—— T11 判纯函数四验收,
+//   T12 让子进程在临时仓真跑 `--staged`,证明新族走的是同一条取材面 + 同一条棘轮 + 同一套退出码。
 // 装车前置(刻意不硬写编号):接线归主会话(AGENTS §25 三件同批事实),本测试判"注册表
 // 若出现本门,必须同时 blocking + skipEnv + 编号唯一";未注册时绿,并如实说明是"未装车"
 // 而不是"已防护"。
@@ -18,6 +21,8 @@ import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+// 遮噪只引这一份实现(§3 共享层优先 / 本仓"注释里的提及不算"口径),测试里不得另写一台。
+import { maskComments } from '../lib/code-mask.mjs'
 import { __test__ as gate } from '../check-declared-policy-has-consumer.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -28,6 +33,10 @@ test('T1 §22c 锚点:__test__ 必须导出核心判据且 skipEnv 命名在位'
   for (const k of [
     'inScanRoot',
     'candidateKinds',
+    'isHandlerFactoryName',
+    'declShape',
+    'DECL_SHAPES',
+    'factoryFace',
     'maskCommentsKeepStrings',
     'blankStringContents',
     'parseFile',
@@ -46,6 +55,13 @@ test('T1 §22c 锚点:__test__ 必须导出核心判据且 skipEnv 命名在位'
     assert.ok(k in gate, `__test__ 缺导出:${k}`)
   }
   assert.equal(gate.SELF_SKIP, 'HUSKY_SKIP_DECLARED_POLICY_CONSUMER')
+  // C7 的夹具必须只有一份实现(§22c:测试里再抄一份夹具 = 第二真相);路径也要真在扫描面内,
+  // 否则"0 候选"的绿是夹具路径写错换来的,不是判据判出来的。
+  for (const k of ['HF_SRC', 'HF_TYPE', 'HF_CONSUMER', 'HF_NOISE', 'HF_DECL_FILE', 'HF_USE_FILE']) {
+    assert.ok(k in gate.FIXTURES, `FIXTURES 缺 C7 夹具:${k}`)
+  }
+  assert.ok(gate.inScanRoot(gate.FIXTURES.HF_DECL_FILE), 'C7 声明夹具路径不在扫描根 ⇒ 该族所有断言恒绿')
+  assert.ok(gate.inScanRoot(gate.FIXTURES.HF_USE_FILE), 'C7 消费者夹具路径不在扫描根 ⇒ 接线侧断言恒绿')
 })
 
 test('T2 正向证明(镜像自带构造):未接线必红、已接线必绿', () => {
@@ -162,12 +178,32 @@ test('T7 runner 装车前置:未注册 ⇒ 绿并如实报"未装车";一旦注�
     block.includes(gate.SELF_SKIP),
     '注册条目缺紧急跳过通道 HUSKY_SKIP_DECLARED_POLICY_CONSUMER',
   )
-  const ids = [...runner.matchAll(/id:\s*['"]([^'"]+)['"]/g)].map((m) => m[1])
-  const dup = ids.filter((v, i) => ids.indexOf(v) !== i)
+  // 撞号核查必须判在**遮掉注释的面上**(`lib/code-mask.mjs` 那一份,不新写遮噪器):
+  // runner 里"编号 NNN:注册前已核 grep -n \"id: 'NNN'\" 为空"这类注释**逐字写着 id 形态**,
+  // 原文读会把它当成第二条注册 ⇒ 本门镜像测试从 2026-10-04 起对每次提交恒红(实测 HEAD 面
+  // dup=['186','187'],真注册 dup=[])。这正是本仓那条口径:**注释里的提及不算**。
+  // 不得反过来弱化:两条真注册同编号仍必须红 —— 由下面的成对构造证明(§22c 判据要有牙)。
+  const dupGateIds = (text) => {
+    const ids = [...maskComments(text).matchAll(/id:\s*['"]([^'"]+)['"]/g)].map((m) => m[1])
+    return ids.filter((v, i) => ids.indexOf(v) !== i)
+  }
+  const dup = [...new Set(dupGateIds(runner))]
   assert.deepEqual(
     dup,
     [],
     `runner 出现重复编号(${dup.join(', ')})—— 同日多会话撞号在 origin/main 上会互相覆盖注册块`,
+  )
+  // 成对反向锁:①注释里 quoting id 不得算撞号;②真注册撞号不得被这条锁放过。
+  const CONTROL = [
+    "  // 编号 900:注册前已核 `grep -n \"id: '900'\"` 为空(未被占用);现值以本文件为准。",
+    "  { id: '900', script: 'a.mjs' },",
+    "  { id: '901', script: 'b.mjs' },",
+  ].join('\n')
+  assert.deepEqual(dupGateIds(CONTROL), [], '注释里的 id 形态被当成了第二条注册 ⇒ 撞号锁会造恒红门')
+  assert.deepEqual(
+    [...new Set(dupGateIds(`${CONTROL}\n  { id: '900', script: 'c.mjs' },`))].sort(),
+    ['900'],
+    '两条真注册同编号却没判红 ⇒ 撞号锁是摆设',
   )
 })
 
@@ -314,6 +350,128 @@ test('T10 端到端(--staged,临时仓):接线减账 ⇒ 绿;码表加无主键 
     )
     assert.match(String(red.stderr), /packages\/i18n\/messages\/web\/en\.json/, '红点名必须落在 en.json 计数上')
     assert.match(String(red.stderr), /orphan\.b/, '红点名必须给出样例键')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ---------------------------------------------------------------- C7 工厂族(G-816034 ①②)
+
+/**
+ * T11 与源脚本 --self-test 的 F 组成对(§22c:镜像测试**不重读实现**,只判据 + 判退出码)。
+ * 四条票面验收各占一对正反用例,判据与夹具都从源脚本的 `__test__` 取(单一真相)。
+ */
+test('T11 C7 工厂族四验收:命中必红/接线必绿/同词不同义不立案/注释与字符串不算消费者/形状读不出报数/集合失败落未判定', () => {
+  const { HF_SRC, HF_TYPE, HF_CONSUMER, HF_NOISE, HF_DECL_FILE, HF_USE_FILE } = gate.FIXTURES
+  const decl = [HF_DECL_FILE, HF_SRC]
+  // ① 新族命中必红(票面验收①:零生产调用方 ⇒ 报数并逐条点名,不是只报一个总数)
+  const off = gate.judge(new Map([decl]))
+  assert.deepEqual(
+    [off.factory.candidates, off.factory.unwired.length, off.byKind['handler-factory']],
+    [3, 3, 3],
+    '三个读得出是工厂的导出声明必须全部立案并报零消费者',
+  )
+  assert.deepEqual(
+    off.unwired.map((u) => u.name).sort(),
+    ['createBarTransport', 'createBazHandler', 'createFooHandler'],
+  )
+  // ② 反向锁(定级不升):形状读不出只报数,既不立案也不进 exit 2(§12e 恒红陷阱)
+  assert.deepEqual(off.factory.unreadable, [`${HF_DECL_FILE}:5 createLooseHandler`], '读不出形态的必须逐条点名')
+  assert.equal(off.undetermined.length, 0, '形状读不出不得伪装成"无法判定"')
+  assert.equal(gate.decide({ stagedCounts: off.perFile, mode: 'full' }).exit, 0, '全量档对存量只报数')
+  // ③ 接线必绿 + 只 import 不取用照旧红(新族不是恒真摆设)
+  const on = gate.judge(new Map([decl, [HF_USE_FILE, HF_CONSUMER]]))
+  assert.deepEqual(on.factory.unwired, [`${HF_DECL_FILE}:3 createBazHandler`], '真取用的两支必须转绿,只 import 不取用的那支必须仍红')
+  // ④ 注释里的提及不算消费者(票面验收②,复用守门 115 那条口径 = 本门既有遮噪面)
+  const noise = gate.judge(new Map([decl, [HF_USE_FILE, HF_NOISE]]))
+  assert.deepEqual(noise.factory.unwired.sort(), off.factory.unwired.sort(), '注释/字符串里的提及不得让任何一支转绿')
+  // ⑤ 同词不同义(票面"不得按名字一律算候选"):与工厂**完全同名**的 type/接口字段/class 不立案
+  const sameName = gate.judge(new Map([['apps/miniapp-taro/src/pkg-ai/ai/cards/types.ts', HF_TYPE]]))
+  assert.deepEqual(
+    [sameName.scanned, sameName.candidates.length, sameName.factory.candidates],
+    [1, 0, 0],
+    '同一批名字,定义不是工厂 ⇒ 一个候选都不许立',
+  )
+  // ⑥ 形状三态落在 parseFile 的同一份遮噪面上(不是第二台词法器)
+  const shapes = gate.parseFile(HF_DECL_FILE, HF_SRC).decls.map((d) => d.shape)
+  assert.deepEqual(shapes, ['factory', 'factory', 'factory', 'not-factory', 'unknown'])
+  assert.ok(shapes.every((s) => gate.DECL_SHAPES.includes(s)), '出现了 DECL_SHAPES 之外的形状值')
+  // ⑦ 集合推导失败 ⇒ 未判定(取不到内容不得折成"该族 0 候选 = 绿")
+  const blind = gate.judge(new Map([[HF_DECL_FILE, null]]), { face: 'head' })
+  assert.equal(blind.undetermined.length, 1, '取不到内容必须逐条点名')
+  assert.equal(blind.factory.candidates, 0)
+  assert.equal(
+    gate.decide({ stagedCounts: blind.perFile, mode: 'full', undetermined: blind.undetermined }).exit,
+    2,
+    '未判定必须落 exit 2,绝不记绿',
+  )
+  // ⑧ 新族并入同一条棘轮(新增即拦、齐平不红)
+  assert.equal(gate.decide({ stagedCounts: { [HF_DECL_FILE]: 3 }, headCounts: { [HF_DECL_FILE]: 2 }, mode: 'staged' }).exit, 1)
+  assert.equal(gate.decide({ stagedCounts: { [HF_DECL_FILE]: 3 }, headCounts: { [HF_DECL_FILE]: 3 }, mode: 'staged' }).exit, 0)
+})
+
+/**
+ * T12 端到端(--staged,临时仓):新族**必须在索引 blob 上真响**。
+ * 纯函数判红不等于装车 —— 这里让子进程跑整门,验"锚点齐平不红 / 新增未接线工厂红且点名 /
+ * 补上生产消费者又绿",证明 C7 走的是与本门既有四族同一套取材面与退出码口径。
+ */
+test('T12 C7 端到端(--staged 临时仓):工厂存量齐平不红、新增零消费者工厂红且点名、补上消费者复绿', () => {
+  const dir = mkScratch('g121-c7-')
+  try {
+    const git = (args) =>
+      spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8', windowsHide: true, timeout: 60000, stdio: ['ignore', 'pipe', 'pipe'] })
+    assert.equal(git(['init', '-q']).status, 0)
+    assert.equal(git(['config', 'user.email', 'gate@example.invalid']).status, 0)
+    assert.equal(git(['config', 'user.name', 'gate']).status, 0)
+    mkdirSync(join(dir, 'apps', 'web', 'src', 'hf'), { recursive: true })
+    const DECL = join(dir, 'apps', 'web', 'src', 'hf', 'stream-handlers.ts')
+    const BOOT = join(dir, 'apps', 'web', 'src', 'hf', 'boot.ts')
+    const writeDecl = (extra) =>
+      writeFileSync(
+        DECL,
+        [
+          'export function createFooHandler(): unknown { return 1 }',
+          'export function createBazHandler(): unknown { return 2 }',
+          extra,
+          '',
+        ].join('\n'),
+      )
+    // 消费者只取用 createFooHandler ⇒ createBazHandler 从基线起就是 1 处未接线(= HEAD 锚点)
+    writeDecl('')
+    writeFileSync(
+      BOOT,
+      "import { createFooHandler, createBazHandler } from './stream-handlers.js';\nexport function boot(): unknown { return createFooHandler() }\n",
+    )
+    assert.equal(git(['add', '-A']).status, 0)
+    assert.equal(git(['commit', '-qm', 'base']).status, 0)
+    const runGate = () =>
+      spawnSync(process.execPath, [SCRIPT, '--staged', '--root', dir], {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 120000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+    // A. 只改声明文件本身、不加新工厂 ⇒ 索引面未接线数与 HEAD 锚点齐平 ⇒ 绿(存量不追)
+    writeDecl('// 本轮只动注释,未新增工厂')
+    assert.equal(git(['add', '-A']).status, 0)
+    const flat = runGate()
+    assert.equal(flat.status, 0, `齐平应当绿 rc=${flat.status}\n${flat.stdout?.slice(-700)}${flat.stderr?.slice(-700)}`)
+    // B. 新增一个零生产调用方的工厂 ⇒ 2 > 锚点 1 ⇒ 红,且点名该文件与该工厂
+    writeDecl("export function createQuxHandler(): unknown { return 3 }\nexport let createLooseHandler")
+    assert.equal(git(['add', '-A']).status, 0)
+    const red = runGate()
+    assert.equal(red.status, 1, `新增零消费者工厂应当红 rc=${red.status}\n${red.stdout?.slice(-700)}${red.stderr?.slice(-700)}`)
+    assert.match(String(red.stderr), /stream-handlers\.ts/, '红必须点名声明文件')
+    assert.match(String(red.stderr), /createQuxHandler/, '红必须点名新增的工厂')
+    // C. 把它接到生产面 ⇒ 回到锚点 ⇒ 复绿(证明判据不是恒红摆设,也证明"读得出形状"才接线)
+    writeDecl("export function createQuxHandler(): unknown { return 3 }\nexport let createLooseHandler")
+    writeFileSync(
+      BOOT,
+      "import { createFooHandler, createBazHandler, createQuxHandler } from './stream-handlers.js';\nexport function boot(): unknown { return createFooHandler() }\nexport function boot2(): unknown { return createBazHandler() }\nexport function boot3(): unknown { return createQuxHandler() }\n",
+    )
+    assert.equal(git(['add', '-A']).status, 0)
+    const wired = runGate()
+    assert.equal(wired.status, 0, `补上消费者应当复绿 rc=${wired.status}\n${wired.stdout?.slice(-700)}${wired.stderr?.slice(-700)}`)
   } finally {
     rmScratch(dir)
   }
