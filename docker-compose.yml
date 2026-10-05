@@ -78,6 +78,9 @@ services:
       - WX_ANDROID_NOTIFY_URL=${WX_ANDROID_NOTIFY_URL:-}
       - ALIPAY_NOTIFY_URL=${ALIPAY_NOTIFY_URL:-}
       - PAYPAL_WEBHOOK_ID=${PAYPAL_WEBHOOK_ID:-}
+      # USDT 充值地址:默认为空 ⇒ 该网络充值fail-closed(创建订单返回 500「地址未配置」),
+      # 即不配置 = 该链充值不可用(不会静默收不到钱)。TRC20 另会在创建订单时校验地址形态,
+      # 非法返回 400。格式要求与填写方式见 .env.example 的 USDT 段。
       - USDT_TRC20_ADDRESS=${USDT_TRC20_ADDRESS:-}
       - USDT_ERC20_ADDRESS=${USDT_ERC20_ADDRESS:-}
       - USDT_WEBHOOK_SECRET=${USDT_WEBHOOK_SECRET:-}
@@ -175,6 +178,9 @@ services:
       - WX_ANDROID_NOTIFY_URL=${WX_ANDROID_NOTIFY_URL:-}
       - ALIPAY_NOTIFY_URL=${ALIPAY_NOTIFY_URL:-}
       - PAYPAL_WEBHOOK_ID=${PAYPAL_WEBHOOK_ID:-}
+      # USDT 充值地址:默认为空 ⇒ 该网络充值fail-closed(创建订单返回 500「地址未配置」),
+      # 即不配置 = 该链充值不可用(不会静默收不到钱)。TRC20 另会在创建订单时校验地址形态,
+      # 非法返回 400。格式要求与填写方式见 .env.example 的 USDT 段。
       - USDT_TRC20_ADDRESS=${USDT_TRC20_ADDRESS:-}
       - USDT_ERC20_ADDRESS=${USDT_ERC20_ADDRESS:-}
       - USDT_WEBHOOK_SECRET=${USDT_WEBHOOK_SECRET:-}
