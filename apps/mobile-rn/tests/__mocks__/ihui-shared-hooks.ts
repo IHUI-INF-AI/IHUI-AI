@@ -21,7 +21,7 @@ export interface UseAuthOptions<U = unknown> {
   store: TokenStore
   bindTransport?: (store: TokenStore) => void
   fetchProfile?: () => Promise<{ success: boolean; data?: U; error?: string }>
-  logoutApi?: (refreshToken: string) => Promise<void>
+  logoutApi?: (refreshToken?: string) => Promise<void>
   autoBind?: boolean
 }
 
@@ -75,9 +75,16 @@ export function useAuth<U = unknown>(opts: UseAuthOptions<U>): UseAuthReturn<U> 
   )
 
   const logout = useCallback(async () => {
-    if (logoutApi && refreshToken) {
+    // G-1058614(2026-10-05):守卫只剩"有没有注入",不再把"拿不到 refreshToken"当成
+    // "不用通知后端" —— P2-18 httpOnly cookie 化后浏览器端恒拿不到它,原守卫让后端
+    // /auth/logout 一次都不会被敲(httpOnly cookie 也只能由服务端 clearAuthCookies 清),
+    // 于是"登出"后服务端会话仍可续签。本替身(mocks/ihui-shared-hooks.ts)必须与
+    // `packages/shared/src/hooks/use-auth.ts` 逐字同形,否则本端测试钉的是一份虚构契约。
+    // ⚠️ 本替身整体仍是"测替身"(RN 的 vitest 把 '@ihui/shared/hooks' 指到本文件而非真实源),
+    //    该结构性债归 G-815404,本票不在这条路径上顺手改别名。
+    if (logoutApi) {
       try {
-        await logoutApi(refreshToken)
+        await logoutApi(refreshToken ?? undefined)
       } catch {
         // ignore
       }
