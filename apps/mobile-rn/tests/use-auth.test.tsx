@@ -40,13 +40,13 @@ describe('useAuth 跨端共享 hook — 集成测试', () => {
   let store: TokenStore
   let bindTransport: Mock<(store: TokenStore) => void>
   let fetchProfile: Mock<() => Promise<{ success: boolean; data?: TestUser; error?: string }>>
-  let logoutApi: Mock<(refreshToken: string) => Promise<void>>
+  let logoutApi: Mock<(refreshToken?: string) => Promise<void>>
 
   beforeEach(() => {
     store = createInMemoryTokenStore()
     bindTransport = vi.fn<(store: TokenStore) => void>()
     fetchProfile = vi.fn<() => Promise<{ success: boolean; data?: TestUser; error?: string }>>()
-    logoutApi = vi.fn<(refreshToken: string) => Promise<void>>()
+    logoutApi = vi.fn<(refreshToken?: string) => Promise<void>>()
   })
 
   it('挂载后 ready=true,初始 token 为 null,isAuthenticated=false', async () => {
@@ -202,7 +202,7 @@ describe('useAuth 跨端共享 hook — 集成测试', () => {
     expect(result.current.isAuthenticated).toBe(false)
   })
 
-  it('logout 无 refreshToken 时:不调 logoutApi', async () => {
+  it('logout 无 refreshToken 时:**仍调** logoutApi(cookie 模式)', async () => {
     const { result } = renderHook(() =>
       useAuth<TestUser>({ store, bindTransport, fetchProfile, logoutApi }),
     )
@@ -218,7 +218,10 @@ describe('useAuth 跨端共享 hook — 集成测试', () => {
       await result.current.logout()
     })
 
-    expect(logoutApi).not.toHaveBeenCalled()
+    expect(logoutApi).toHaveBeenCalledTimes(1)
+    // G-1058614 的靶心:不是"调用了就行" —— 必须是**不传 refreshToken**的 cookie 形态。
+    // 若实现退化成传空串,后端 logoutSchema 的 min(1) 会把它拦成 400,cookie 兜底仍走不到。
+    expect(logoutApi).toHaveBeenCalledWith(undefined)
     expect(store.getToken()).toBeNull()
     expect(result.current.user).toBeNull()
   })
