@@ -176,6 +176,7 @@
     "emptyHint": "輸入訊息開始對話",
     "inputPlaceholder": "說點什麼...",
     "compactionNotice": "上下文已自動壓縮:{before} → {after}(移除 {removed} 條歷史)",
+    "partialDoneTitle": "回答被中斷,以下內容可能不完整",
     "voiceStop": "停止錄音",
     "voiceStart": "開始錄音",
     "voiceError": "無法存取麥克風,請在瀏覽器設定中允許麥克風權限",

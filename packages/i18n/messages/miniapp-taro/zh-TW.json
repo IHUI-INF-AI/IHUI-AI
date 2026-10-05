@@ -3476,6 +3476,7 @@
     "members": "成員"
   },
   "chat": {
+  "partialDoneTitle": "回答被中斷,以下內容可能不完整",
     "send": "傳送",
     "meta": {
       "pullOnly": "小程式端將於下次開啟時同步此改動"
