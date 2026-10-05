@@ -385,7 +385,9 @@ test('parseBatch:非 blob 的头(tree / commit)归 null,且不得把内容当下
 // 各会话跳门,连带全部守门作废(§12e 同型)。故此处的下限是"提交前也判得过"的那一档。
 // **提交者在把本门落地入库后,应复核并把 86 再下调到 85**(届时
 // `node --test scripts/tests/face-reader.test.mjs` 会打出 `◽ 裸 git 存量已降到 85` 的提示)。
-const BARE_GIT_BASELINE = 86
+// 2026-10-05 入库后复核完成:该提示已打出(`◽ 裸 git 存量已降到 85(基线 86)`)⇒ 86 → 85。
+// 同一轮把第 2 枚 `check-orphan-deletion-refs.mjs`(3 处)也迁完并入库,故本轮共降 2(87→86→85)。
+const BARE_GIT_BASELINE = 85
 const PATH_BOUND_GIT_BASELINE = 11
 const SELF_BATCH_BASELINE = 0
 
