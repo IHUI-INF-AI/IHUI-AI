@@ -25,10 +25,25 @@
  * 由 config.SSE_REGISTRY_BACKEND 选择 memory|redis(默认 memory,行为与单副本
  * 改造前完全一致)。同副本热路径读(takeover/getReplayEvents)仍直读本地镜像
  * (sse-replay-buffer)保证同步零延迟;跨副本异步读由状态层 fetch* 方法提供。
+ *
+ * G-714(2026-10-05 立)生产侧接线:本层是 SSE 的**发送路径**,字节水位的两条放弃
+ * 条件必须在这里同步判定才有意义(缓冲自己看不到 socket 的真实状态)。每帧写完后
+ * 做三件事 —— ① 把 socket 写队列实测长度报给缓冲(未确认字节维);② 读窗口状态,
+ * 饱和则让上游读循环经 waitForReplayHeadroom 暂停 drain(④ 边沿触发);③ 一旦窗口
+ * 被显式放弃,写一帧「窗口已放弃、请全量重取」的协议动作并用单向闩保证只写一次,
+ * 此后本会话不再往已死的窗口里追加帧(继续堆只会在重连时被读成"完整的尾巴")。
  */
 
 import type { FastifyReply } from 'fastify'
-import { getEventsAfter, type ReplayEvent } from './sse-replay-buffer.js'
+import {
+  getEventsAfter,
+  getReplayWindowStatus,
+  REPLAY_UNACKED_GRACE_MS,
+  reportReplayPendingBytes,
+  takeSaturationEdge,
+  type ReplayEvent,
+  type ReplayWindowStatus,
+} from './sse-replay-buffer.js'
 import { getSseStateStore, SSE_REPLICA_ID } from './sse-state-store.js'
 
 /** 断线宽限期:此窗口内上游继续生成等重连接管,超时才 abort(省 token 与上游资源)。 */
@@ -51,6 +66,13 @@ export interface StreamSession {
   raw: FastifyReply['raw'] | null
   graceTimer: ReturnType<typeof setTimeout> | null
   finished: boolean
+  /**
+   * G-714 ③ 单向闩:本会话的重放窗口已被显式放弃(告知帧已写出)。
+   * 置位后:不再往窗口里追加帧、也不再重复写告知帧。新 session(createSession)才归零。
+   */
+  replayAbandoned: boolean
+  /** G-714 ④:上一次观测到的饱和态(边沿只在翻转时被消费一次)。 */
+  replaySaturated: boolean
 }
 
 const sessions = new Map<string, StreamSession>()
@@ -58,6 +80,134 @@ const sessions = new Map<string, StreamSession>()
 /** 实际写出:有连接直写;断线/已结束丢弃(事件已在 replay buffer,可经重放找回)。 */
 function write(session: StreamSession, str: string): void {
   if (session.raw) session.raw.write(str)
+}
+
+/**
+ * 在途未确认字节的**实测**口径:`reply.raw.writableLength` —— Node socket 写队列里
+ * 尚未被对端消费的字节数。断线(session.raw 已置 null)时这一帧根本没写出去,
+ * 谈不上"未确认"⇒ 0(那一路的压力体现在窗口字节维度,由缓冲自己计量)。
+ * 桩对象/旧连接没有该属性时按 0 处理,不猜值。
+ */
+function pendingBytesOf(session: StreamSession): number {
+  const raw = session.raw
+  if (!raw) return 0
+  const len = (raw as unknown as { writableLength?: unknown }).writableLength
+  return typeof len === 'number' && Number.isFinite(len) && len > 0 ? Math.trunc(len) : 0
+}
+
+/**
+ * G-714 ③:放弃是**显式协议动作** —— 写一帧告知「窗口已放弃、请全量重取」,
+ * 恢复语义由既有路径承接:重连带 Last-Event-ID ⇒ 放弃态下 complete 恒 false
+ * ⇒ 路由走 replay-window-* 降级分支做全量重新生成(= 不带 Last-Event-ID 从头订阅)。
+ *
+ * 只写一次(session.replayAbandoned 单向闩);不编号、不进已死的窗口 ——
+ * 把告知帧塞进放弃后的缓冲,等于下一轮重放时继续冒充完整。
+ *
+ * 字段口径注意:载荷**不带 content / delta / text / sessionId** —— 共享解析器
+ * packages/shared/src/utils/sse-parse.ts 尾部有泛化兜底,带上就会被折成 chunk/meta,
+ * 把协议帧喷成正文(该文件已为此记过 D19-A1 / D113 / D151 三次)。与网关既有的
+ * {type:'cancelled'} 同类:网关发帧,端侧认领属另一票(契约在飞,见交付说明)。
+ */
+function announceReplayAbandonment(session: StreamSession, status: ReplayWindowStatus): void {
+  if (session.replayAbandoned) return
+  session.replayAbandoned = true
+  session.replaySaturated = false
+  const payload = {
+    type: 'replay-window-abandoned',
+    reason: status.abandonReason,
+    action: 'resubscribe-from-beginning',
+    message: '重放窗口已放弃,请全量重取(不带 Last-Event-ID 重新订阅)',
+    unackedBytes: status.unackedBytes,
+    windowBytes: status.windowBytes,
+    droppedCount: status.droppedCount,
+    lowestId: status.lowestId,
+  }
+  try {
+    write(session, `data: ${JSON.stringify(payload)}\n\n`)
+    console.warn(
+      `[sse-stream-registry] 重放窗口已放弃(reason=${String(status.abandonReason)}),` +
+        `已告知客户端全量重取: ${session.replayKey ?? ''}`,
+    )
+  } catch {
+    /* 告知帧写出失败不阻塞:闩已置,重连侧 complete:false 仍兜住"不许冒充完整" */
+  }
+}
+
+/**
+ * 一帧进缓冲 + 发送路径内的同步压力处置(G-714 ①②③④)。
+ *
+ * 顺序钉死:先 append(缓冲按 replayFrameBytes 现算窗口字节)→ 再报实测在途字节
+ * (判①未确认字节越界、②宽限窗越界)→ 再读窗口状态(时间维在此才可被发现)。
+ * 放弃态下后续帧一律不进缓冲;饱和边沿只在状态真的翻转时被消费一次(来回抖动不重复通知)。
+ */
+function acceptReplayEvent(session: StreamSession, event: ReplayEvent): void {
+  const key = session.replayKey
+  if (!key || session.replayAbandoned) return
+  getSseStateStore().appendReplayEvent(key, event)
+  reportReplayPendingBytes(key, pendingBytesOf(session))
+  const status = getReplayWindowStatus(key, session.seq)
+  if (status.saturated !== session.replaySaturated) {
+    takeSaturationEdge(key) // 消费这一条边沿:同一条边上层只看到一次
+    session.replaySaturated = status.saturated
+  }
+  if (status.abandoned) announceReplayAbandonment(session, status)
+}
+
+/** 等 socket 'drain'(或 error/close/宽限窗超时)一次;监听器用完即摘,不留悬挂。 */
+function waitForSocketDrain(raw: FastifyReply['raw']): Promise<void> {
+  return new Promise<void>((resolvePromise) => {
+    let settled = false
+    const finish = (): void => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      raw.off('drain', finish)
+      raw.off('error', finish)
+      raw.off('close', finish)
+      resolvePromise()
+    }
+    const timer = setTimeout(finish, REPLAY_UNACKED_GRACE_MS)
+    raw.on('drain', finish)
+    raw.on('error', finish)
+    raw.on('close', finish)
+  })
+}
+
+/**
+ * G-714 ④「饱和即暂停 drain」的闸:上游读循环每处理完一个 chunk 后 await 本函数。
+ *
+ * - 无 replayKey / 已放弃 / 无连接(断线时事件只进缓冲,不占 socket)/ 未饱和 ⇒ 立即放行。
+ * - 饱和 ⇒ 挂起等 socket 'drain'(对端把写队列消费掉),最长等 REPLAY_UNACKED_GRACE_MS;
+ *   醒来先按实测 writableLength 复核一次未确认字节(drain 之后不复核就会一直挂着饱和),
+ *   超时**不**主动 abort 上游 —— 时间维(②)由下一次状态读取落放弃闩并照发告知帧。
+ * 返回 'abandoned' 表示窗口已被显式放弃(告知帧已写出),调用方应停止继续透传。
+ */
+export async function waitForReplayHeadroom(
+  session: StreamSession,
+): Promise<'clear' | 'abandoned'> {
+  const key = session.replayKey
+  if (!key) return 'clear'
+  if (session.replayAbandoned) return 'abandoned'
+  const before = getReplayWindowStatus(key, session.seq)
+  if (before.abandoned) {
+    announceReplayAbandonment(session, before)
+    return 'abandoned'
+  }
+  if (!session.raw || !before.saturated) return 'clear'
+  takeSaturationEdge(key) // 这一条进入边沿由本闸消费(读即清)
+  await waitForSocketDrain(session.raw)
+  const raw = session.raw
+  if (raw) reportReplayPendingBytes(key, pendingBytesOf(session))
+  const after = getReplayWindowStatus(key, session.seq)
+  if (after.abandoned) {
+    announceReplayAbandonment(session, after)
+    return 'abandoned'
+  }
+  if (after.saturated !== session.replaySaturated) {
+    takeSaturationEdge(key)
+    session.replaySaturated = after.saturated
+  }
+  return 'clear'
 }
 
 /**
@@ -79,6 +229,8 @@ export function createSession(
     raw,
     graceTimer: null,
     finished: false,
+    replayAbandoned: false,
+    replaySaturated: false,
   }
   if (replayKey) {
     const old = sessions.get(replayKey)
@@ -135,6 +287,10 @@ export function takeoverStream(
   // 同副本热路径:直读本地镜像(同步零延迟;跨副本异步读走状态层 fetchReplayEvents)
   const missed = session.replayKey ? getEventsAfter(session.replayKey, lastSeq) : []
   session.raw = raw
+  // G-714:接管即"客户端已确认到 lastSeq" —— 换绑后必须按**新**连接重测在途字节。
+  // 不重报的话,旧连接遗留的写队列长度会被读成"仍未确认",宽限窗一到就把一条
+  // 已经追回来的连接误判成放弃(放弃是终态,误判一次的代价是整轮重新生成)。
+  if (session.replayKey) reportReplayPendingBytes(session.replayKey, pendingBytesOf(session))
   return missed
 }
 
@@ -178,7 +334,7 @@ export function emitUpstreamLine(session: StreamSession, line: string): void {
   if (canBuffer) {
     session.seq += 1
     write(session, `id: ${session.seq}\ndata: ${dataContent}\n\n`)
-    getSseStateStore().appendReplayEvent(session.replayKey!, {
+    acceptReplayEvent(session, {
       id: session.seq,
       rawLine: `data: ${dataContent}`,
     })
@@ -211,7 +367,7 @@ export function emitNamedEvent(
   if (canBuffer) {
     session.seq += 1
     write(session, `id: ${session.seq}\n${frame}\n\n`)
-    getSseStateStore().appendReplayEvent(session.replayKey!, { id: session.seq, rawLine: frame })
+    acceptReplayEvent(session, { id: session.seq, rawLine: frame })
     return
   }
   write(session, `${frame}\n\n`)
