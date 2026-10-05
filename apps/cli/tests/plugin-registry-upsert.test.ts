@@ -455,4 +455,65 @@ describe('G-832 读侧 —— 历史同名多行问"当代"那一行,不再问�
     expect(fs.existsSync(archive2)).toBe(true);
   });
 });
+
+// ==================== ⑤ G-832 第二格:写侧"已装短路"只认当代那一条 ====================
+
+describe('G-832 写侧 —— 已装短路只对"当代那条来自同一个源"成立', () => {
+  it('⑤ 当代那条是别处装的 ⇒ 不得短路(目录里躺着的是别一代,装了 A 却还是 B)', async () => {
+    process.chdir(tmpCwd);
+    const name = 'p-stale-short';
+    const srcA = writeLocalPlugin('a', { name, version: '1.0.0' });
+    const srcB = writeLocalPlugin('b', { name, version: '2.0.0' });
+
+    // 手造历史两行:首行是本源 A(**最旧**,正是旧短路 `records.find` 会命中的那行),
+    // 第二行是别源 B 且**更新** ⇒ 当代那条是 B。
+    saveInstallRegistry({
+      records: [
+        { ...legacyRecord(name, '1.0.0', '2026-01-01T00:00:00.000Z', 'TXN-A-OLD'), sourcePath: srcA },
+        { ...legacyRecord(name, '2.0.0', '2026-02-02T00:00:00.000Z', 'TXN-B-NEW'), sourcePath: srcB },
+      ],
+    });
+
+    // 让"已装"这一侧的可用性判据成立(目录可用):旧实现正是靠它把本次安装跳掉
+    const dest = getPluginInstallPath(name);
+    fs.mkdirSync(dest, { recursive: true });
+    fs.writeFileSync(path.join(dest, 'plugin.json'), JSON.stringify({ name, version: '2.0.0' }), 'utf-8');
+    fs.writeFileSync(path.join(dest, 'marker.txt'), '2.0.0', 'utf-8');
+
+    const out = await installPlugin('./a');
+    // ★ 靶心:改前短路命中首行(A)⇒ wasInstalled:true ⇒ 盘上仍是 B 那一代
+    expect(out.wasInstalled).toBe(false);
+    expect(fs.readFileSync(path.join(dest, 'marker.txt'), 'utf-8')).toBe('1.0.0');
+    // 权威表里当代那行已换成本次装的这一代(来源列 = A)
+    const rows = rowsFor(name);
+    expect(rows).toHaveLength(2); // 存量同名多行不迁移(清理属另行裁决)
+    expect(path.basename(rows[0].sourcePath ?? '')).toBe('a');
+  });
+
+  it('⑤b 当代那条就是本源 ⇒ 短路仍然成立(阳性对照:判据没被写成"永不短路")', async () => {
+    process.chdir(tmpCwd);
+    const name = 'p-fresh-short';
+    const srcA = writeLocalPlugin('a', { name, version: '1.0.0' });
+    const srcB = writeLocalPlugin('b', { name, version: '2.0.0' });
+
+    // 同一份两行,但**当代换成本源 A**:首行是别源 B(旧短路 `records.find` 会命中它 ——
+    // 但它的谓词不匹配 ⇒ 旧实现同样不短路),第二行才是本源 A 且时刻更新。
+    saveInstallRegistry({
+      records: [
+        { ...legacyRecord(name, '2.0.0', '2026-01-01T00:00:00.000Z', 'TXN-B-OLD'), sourcePath: srcB },
+        { ...legacyRecord(name, '1.0.0', '2026-02-02T00:00:00.000Z', 'TXN-A-NEW'), sourcePath: srcA },
+      ],
+    });
+
+    const dest = getPluginInstallPath(name);
+    fs.mkdirSync(dest, { recursive: true });
+    fs.writeFileSync(path.join(dest, 'plugin.json'), JSON.stringify({ name, version: '1.0.0' }), 'utf-8');
+    fs.writeFileSync(path.join(dest, 'marker.txt'), '1.0.0', 'utf-8');
+
+    const out = await installPlugin('./a');
+    expect(out.wasInstalled).toBe(true);
+    // 短路 = 什么都不动,盘上仍是原来那一代
+    expect(fs.readFileSync(path.join(dest, 'marker.txt'), 'utf-8')).toBe('1.0.0');
+  });
+});
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
