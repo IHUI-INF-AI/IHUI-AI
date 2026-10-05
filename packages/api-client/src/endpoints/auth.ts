@@ -200,11 +200,23 @@ export async function register(
   })
 }
 
-/** 登出(吊销 refreshToken) — POST /auth/logout */
-export async function logout(refreshToken: string): Promise<ApiResult<{ revoked: boolean }>> {
+/**
+ * 登出(吊销 refreshToken) — POST /auth/logout
+ *
+ * G-1058614(2026-10-05):形参由必选改可选 —— P2-18 cookie 化后浏览器端读不到
+ * refresh_token,共享层 `use-auth` 原先因此**整个跳过**这次调用(见该文件的注记),
+ * 服务端会话登出后仍可续签。缺省即 cookie 模式:**不带 refreshToken 字段**。
+ *
+ * 为什么缺省时发 `{}` 而不是像 `refresh` 那样发空字符串:后端 `logoutSchema` 是
+ * `z.string().min(1).optional()` —— 空串会被 `min(1)` 判失败 ⇒ 400,反而把 cookie 兜底
+ * 挡在门外;`{}`(optional 缺席)才走到 `bodyToken = undefined` 的 cookie 分支。
+ * 而 /refresh 那条空串绕行是**后端路由 schema 仍 required** 时期的产物,不要照抄到这里。
+ */
+export async function logout(refreshToken?: string): Promise<ApiResult<{ revoked: boolean }>> {
+  const body: { refreshToken?: string } = refreshToken ? { refreshToken } : {}
   return fetchApi<{ revoked: boolean }>('/api/auth/logout', {
     method: 'POST',
-    body: JSON.stringify({ refreshToken }),
+    body: JSON.stringify(body),
   })
 }
 
