@@ -4,7 +4,7 @@
   },
   "conversationImport": {
     "pageTitle": "匯入對話",
-    "desc": "將 Claude Code / Codex / Cursor / Aider / 微信等外部工具的對話紀錄匯入本平台",
+    "desc": "將 Claude Code / Codex / Cursor / Aider / 微信等外部工具的對話紀錄匯入本平臺",
     "sourcesTitle": "選擇對話來源",
     "sourceClaudeCode": "Claude Code",
     "sourceClaudeCodeHint": "匯出檔案:.jsonl / .json",
@@ -572,7 +572,7 @@
     "refunded": "(已退費)",
     "receiptNo": "單號 {no}",
     "businessLine": {
-      "after_school_care": "托管",
+      "after_school_care": "託管",
       "kindergarten": "幼兒園",
       "academic": "文化課",
       "ai_course": "AI課",
@@ -3476,7 +3476,7 @@
     "members": "成員"
   },
   "chat": {
-  "partialDoneTitle": "回答被中斷,以下內容可能不完整",
+    "partialDoneTitle": "回答被中斷,以下內容可能不完整",
     "send": "傳送",
     "meta": {
       "pullOnly": "小程式端將於下次開啟時同步此改動"
@@ -4114,6 +4114,7 @@
     "9": "請輸入描述",
     "10": "暫無提現記錄",
     "11": "已選模型: {m}",
+    "12": "驗證碼已發送至 {m}",
     "13": "加入於 {m}",
     "14": "選擇感興趣的賽道,獲取個人化推薦",
     "15": "預設模型",
@@ -4379,5 +4380,23 @@
   },
   "profile": {
     "myCourses": "我的課程"
+  },
+  "Menu": {
+    "d1": "音樂"
+  },
+  "verify": {
+    "phoneEmpty": "手機號碼為空",
+    "phoneInvalid": "請輸入正確手機號碼",
+    "codeSent": "驗證碼已發送",
+    "codeIncomplete": "請輸入完整驗證碼",
+    "verifySuccess": "驗證成功",
+    "getCode": "取得驗證碼"
+  },
+  "VerifyCodeModal": {
+    "p2": "重新發送",
+    "p3": "驗證中..."
+  },
+  "VoiceInput": {
+    "p1": "錄音啟動失敗"
   }
 }
