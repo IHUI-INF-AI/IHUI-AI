@@ -7142,6 +7142,7 @@
       "todo": "未着手",
       "transition": "遷移",
       "triage": "トリアージ",
+      "terminatedFailed": "実行失敗",
       "terminatedCancelled": "キャンセル済み",
       "terminatedQuotaExceeded": "割り当て超過",
       "terminatedPreempted": "プリエンプト",

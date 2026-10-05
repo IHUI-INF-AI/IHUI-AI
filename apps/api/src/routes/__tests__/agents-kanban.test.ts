@@ -11,7 +11,7 @@
  * 3. teamId 过滤:非成员 403 / 成员 200 / admin 放行(不查成员表)
  * 4. transition 进 in_progress:锁获取成功(token 入 payload,lockedBy 审计,P0-1 启动心跳)/ 被占 409+持有者
  * 5. transition 离开 in_progress:P0-2 统一释放原语(releaseLockToken)/ 无 token 时 stopLockHeartbeat
- * 6. P0-3 状态映射:cancelled/quota_exceeded/preempted → blocked 列
+ * 6. P0-3 状态映射:failed/cancelled/quota_exceeded/preempted → blocked 列(+ termination 点名)
  * 7. P0-4 团队过滤:默认视图非 admin 仅见所属团队 / :id 越权 404
  * 8. DELETE:P0-2 删除前 releaseTaskLockByTaskId 统一释放
  * 9. PATCH 改名/改描述(D25 统一任务看板):审计写入 / 至少一项约束 / 404
@@ -618,7 +618,7 @@ describe('Agent Kanban 路由(2-2 工作区锁 + 团队任务板)', () => {
   })
 
   // ───────────────────────────────────────────────────────────
-  // 7. P0-3 状态映射:cancelled/quota_exceeded/preempted → blocked
+  // 7. P0-3 状态映射:failed/cancelled/quota_exceeded/preempted → blocked
   // ───────────────────────────────────────────────────────────
   describe('P0-3 状态映射', () => {
     it('mapStatus:遗留终态全部映射进 blocked', () => {
@@ -643,9 +643,7 @@ describe('Agent Kanban 路由(2-2 工作区锁 + 团队任务板)', () => {
      * transition 接口 500。本组钉住"未知档判无合法流转,且正常档一档不少"。
      */
     it('isTransitionAllowedFromRaw:未知档判非法而非抛 TypeError(transition 不再 500)', () => {
-      expect(() =>
-        isTransitionAllowedFromRaw('nonsense_status', 'todo'),
-      ).not.toThrow()
+      expect(() => isTransitionAllowedFromRaw('nonsense_status', 'todo')).not.toThrow()
       expect(isTransitionAllowedFromRaw('nonsense_status', 'todo')).toBe(false)
       // 空串与大小写变体同属未登记:不得因为"看起来像"就放行
       expect(isTransitionAllowedFromRaw('', 'todo')).toBe(false)
@@ -671,21 +669,35 @@ describe('Agent Kanban 路由(2-2 工作区锁 + 团队任务板)', () => {
      * 「已取消 / 配额超限 / 被抢占」重跑大概率就好,「待解阻塞」要先去解阻塞;
      * 两者同形会把用户的下一步动作指错方向。
      */
-    it('terminationOf 只点名被折叠的三种终态,其余一律 null(不得猜一个标记)', () => {
+    it('terminationOf 点名被折叠的四种终态,其余一律 null(不得猜一个标记)', () => {
+      expect(terminationOf('failed')).toBe('failed')
       expect(terminationOf('cancelled')).toBe('cancelled')
       expect(terminationOf('quota_exceeded')).toBe('quota_exceeded')
       expect(terminationOf('preempted')).toBe('preempted')
-      // 真·阻塞与真·失败没有可点名的终态:标成"已取消"就是把猜测当事实
+      // 真·阻塞没有可点名的终态;六档其它值也不是"被折叠的成因"
       expect(terminationOf('blocked')).toBeNull()
-      expect(terminationOf('failed')).toBeNull()
       expect(terminationOf('done')).toBeNull()
+      expect(terminationOf('in_progress')).toBeNull()
       expect(terminationOf(undefined)).toBeNull()
       expect(terminationOf('nonsense_status')).toBeNull()
+      // G-1018245(2026-10-05,用户拍板路 B):`failed` 由 null 改为 'failed'。
+      // 原断言是 `expect(terminationOf('failed')).toBeNull()` —— 它钉的正是 09-28 的排除决定,
+      // 不改就等于让测试替缺陷站岗。之所以必须入册:排除出册的实测后果是 `failed` 成为
+      // 四档里唯一在看板上完全不可点名的(与真·阻塞同形、与三档终态也同形),
+      // 而它的下一步动作(读 errorMessage 查因)与另外三档(重跑)相反。
+      // 注意它仍**不许**复用 `terminatedCancelled` 的文案键(见下一例与
+      // packages/types/tests/kanban-collapsed-termination-vocabulary.test.ts)。
+    })
+
+    it('四档各有自己的 i18n 键,逐字互不相同(说错话比不标更糟)', () => {
+      const keys = Object.values(TERMINATION_LABEL_KEYS)
+      expect(new Set(keys).size).toBe(keys.length)
+      expect(TERMINATION_LABEL_KEYS.failed).not.toBe(TERMINATION_LABEL_KEYS.cancelled)
     })
 
     it('每个终态都有 i18n 键(表里加一档就必须同批改五语言,不得留悬空键)', () => {
       expect(Object.keys(TERMINATION_LABEL_KEYS).sort()).toEqual(
-        ['cancelled', 'preempted', 'quota_exceeded'].sort(),
+        ['failed', 'cancelled', 'preempted', 'quota_exceeded'].sort(),
       )
       for (const key of Object.values(TERMINATION_LABEL_KEYS)) {
         expect(key.startsWith('agents.kanban.')).toBe(true)
