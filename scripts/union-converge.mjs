@@ -245,7 +245,7 @@ function writeBlob(content, p, cwd) {
       },
     ).trim()
   } finally {
-    rmScratch(scratch)
+    rmScratch(scratch, { bestEffort: true })
   }
 }
 
@@ -1203,7 +1203,7 @@ export function buildUnion(
       liveDocs,
     }
   } finally {
-    rmScratch(scratch)
+    rmScratch(scratch, { bestEffort: true })
   }
 }
 
@@ -1964,7 +1964,7 @@ function selfTest() {
         JSON.stringify(qb.needHuman.map((h) => [h.path, h.kind])),
       )
     } finally {
-      rmScratch(d2)
+      rmScratch(d2, { bestEffort: true })
     }
 
     // 丢行判据本身的语义边界(纯函数,不需仓库)
@@ -2418,7 +2418,7 @@ function selfTest() {
             /^- \[ \] 待办 T9$/m.test(show(base3, 'PROJECT_PLAN.md', d3)),
         )
       } finally {
-        rmScratch(d3)
+        rmScratch(d3, { bestEffort: true })
       }
     }
     // ── 搬运感知(2026-09-28):被 `已归档` 占位代表着的行不得再从对侧取回 ──────────
@@ -2534,7 +2534,7 @@ function selfTest() {
           formatMoveAwareReport(p4.moveAware).join(' / '),
         )
       } finally {
-        rmScratch(d4)
+        rmScratch(d4, { bestEffort: true })
       }
       // ── 端到端:副本指针 cap(G-814386)——纯函数过了不代表 plan() 在真仓里也认这条例外 ──
       {
@@ -2587,7 +2587,7 @@ function selfTest() {
             JSON.stringify(p5.caps),
           )
         } finally {
-          rmScratch(d5)
+          rmScratch(d5, { bestEffort: true })
         }
       }
       // ── 端到端:影子 .js 不得随合并恢复,而它的**删除**要传播(2026-09-29 用户拍板"在合并规则里堵死")──
@@ -2685,7 +2685,7 @@ function selfTest() {
             JSON.stringify([pc.tookTheirs, pc.shadowRestores, pc.shadowDeletes, pc.bad]),
           )
         } finally {
-          rmScratch(d6)
+          rmScratch(d6, { bestEffort: true })
         }
       }
       // ── 纯函数:影子候选名只认 .js/.cjs/.mjs → .ts/.tsx 这一个方向 ──
@@ -2702,7 +2702,7 @@ function selfTest() {
       )
     }
   } finally {
-    rmScratch(dir)
+    rmScratch(dir, { bestEffort: true })
   }
   for (const c of cases) console.log(`${c.c ? '✅' : '❌'} ${c.n}${c.c ? '' : ` —— ${c.note}`}`)
   const fail = cases.filter((c) => !c.c).length
