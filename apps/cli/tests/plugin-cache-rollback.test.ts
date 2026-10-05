@@ -10,6 +10,7 @@ import * as path from 'node:path';
 import { mkScratch, rmScratch } from '../../../scripts/lib/scratch-dir.mjs'; // arch-exempt: 测试夹具只能取 §26 唯一落点(禁 os.tmpdir/裸 mkdtemp),属测试面而非生产依赖边;正解=给"测试支持层"在策略表建档并降到 apps 之下 until 2026-12-28
 
 import { getInstalledPluginsDir, getMarketplaceCacheDir, getRegistryPath } from '../src/plugins/paths.js';
+import { loadInstallRegistry, rollbackInstallAuthority, saveInstallRegistry, upsertInstallRecord, type InstallRecord } from '../src/plugins/installer.js';
 import {
   DirectorySwapError,
   PluginSwapCancelledError,
@@ -768,4 +769,63 @@ describe('遗留归档的恢复 — 写者证据 × 权威结论', () => {
     expect(fs.existsSync(path.join(cachePath, 'legacy.txt'))).toBe(false);
   });
 });
+
+describe('G-732 — 权威回滚本身要 CAS(并发更新不得被无条件盖写)', () => {
+  // 票面验收(逐字):句柄 A 先写 registry → 句柄 B 交换失败触发回滚 ⇒
+  // 断言 A 内容逐字仍在 ∧ 错误点名 concurrent update。
+  it('句柄 A 先写 → 句柄 B(过期基准)回滚 ⇒ 报 concurrent update 且 A 内容逐字仍在', () => {
+    // 句柄 A:正常写入一条带事务号的记录(它的"上一代"是 tx-prev)
+    const regA = loadInstallRegistry();
+    const recordA: InstallRecord = {
+      name: 'plg',
+      sourceType: 'local',
+      installedAt: '2026-10-03T00:00:00Z',
+      transactionId: 'txA',
+    };
+    upsertInstallRecord(regA, recordA);
+    saveInstallRegistry(regA);
+
+    // 句柄 B:基于 A 写入**之前**的过期内存基准,交换失败后触发回滚,
+    // 声称要回滚的是"自己的" txB —— CAS 必须拒,且错误点名 concurrent update。
+    expect(() =>
+      rollbackInstallAuthority({ name: 'plg', expectTransactionId: 'txB' }),
+    ).toThrow(/Cannot roll back marketplace authority after concurrent update/);
+
+    // A 的内容逐字仍在(无条件盖写会把这条抹掉 —— 那正是本票要防的形态)
+    const onDisk = JSON.parse(fs.readFileSync(getRegistryPath(), 'utf-8')) as { records: InstallRecord[] };
+    expect(onDisk.records).toHaveLength(1);
+    expect(onDisk.records[0]).toEqual(recordA);
+  });
+
+  it('反向对照:CAS 凭据相符 ⇒ 回滚成功,上一代记录逐字还原', () => {
+    const previous: InstallRecord = {
+      name: 'plg2',
+      sourceType: 'local',
+      installedAt: '2026-10-02T00:00:00Z',
+      transactionId: 'tx-prev',
+    };
+    const reg = loadInstallRegistry();
+    upsertInstallRecord(reg, previous);
+    saveInstallRegistry(reg);
+    // 同一笔事务(凭据相符)触发回滚,还原到上一代
+    const current: InstallRecord = { ...previous, installedAt: '2026-10-03T01:00:00Z', transactionId: 'tx-new' };
+    const reg2 = loadInstallRegistry();
+    upsertInstallRecord(reg2, current);
+    saveInstallRegistry(reg2);
+
+    const result = rollbackInstallAuthority({ name: 'plg2', expectTransactionId: 'tx-new', restoreRecord: previous });
+    expect(result).toEqual({ rolledBack: true, recordExisted: true });
+    const onDisk = JSON.parse(fs.readFileSync(getRegistryPath(), 'utf-8')) as { records: InstallRecord[] };
+    expect(onDisk.records).toHaveLength(1);
+    expect(onDisk.records[0]).toEqual(previous);
+  });
+
+  it('记录缺席 ⇒ 幂等返回不报错(回滚目标态已达)', () => {
+    expect(rollbackInstallAuthority({ name: 'absent-plg', expectTransactionId: 'tx-x' })).toEqual({
+      rolledBack: false,
+      recordExisted: false,
+    });
+  });
+});
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
