@@ -1305,10 +1305,19 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         description: '吊销当前 refreshToken,完成退出登录',
         tags: ['auth'],
         body: {
-          type: 'object',
-          required: ['refreshToken'],
+          // 2026-10-05 修复(生产实测):与 /refresh 2026-08-26 同型的漏修 —— P2-18 cookie 化后
+          // 前端 JS 读不到 refresh_token,登出只能靠 httpOnly cookie 自动附带,但此处仍写
+          // required: ['refreshToken'] + type: 'object':无 body 的 POST 被 Fastify 在校验层
+          // 直接 400,handler 里的 cookie 兜底(logoutSchema/zod 侧早已 optional)永远走不到。
+          // 实测后果:浏览器端"登出"=后端 400 + 会话未被吊销(refresh 仍 200,可续签);
+          // 带 body refreshToken 的负向对照 200 且吊销生效(见下)——
+          // 即吊销机制本身是好的,缺陷被钉死在这道 schema 门上。
+          // 另注:共享层 use-auth.ts:127 的登出被 `if (logoutApi && rt)` 守着,cookie 化后
+          // store 里 rt 为空 ⇒ 后端 logout 被整个跳过,本地"假登出"。
+          type: ['object', 'null'],
+          required: [],
           properties: {
-            refreshToken: { type: 'string', description: '刷新令牌' },
+            refreshToken: { type: 'string', description: '刷新令牌(body 模式,cookie 模式可缺省)' },
           },
         },
         response: buildResponseSchema(400),
@@ -1316,7 +1325,11 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
-      const parsed = logoutSchema.safeParse(request.body)
+      // 2026-10-05 修复(生产实测):无 body 的 POST 其 request.body 是 undefined,
+      // logoutSchema(object) 对 undefined 判失败 ⇒ 这里 400 早退,cookie 兜底仍走不到。
+      // 与 /refresh handler 同型:解析失败不早退,bodyToken 取 undefined 交给 cookie 路径。
+      // (真正畸形 body —— 非对象非 null —— 仍会被 zod 拦成 400,见下面 issues 兜底。)
+      const parsed = logoutSchema.safeParse(request.body ?? {})
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
