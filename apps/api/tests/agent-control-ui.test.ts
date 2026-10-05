@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest'
 import Fastify from 'fastify'
 import type { FastifyInstance } from 'fastify'
 import type { AgentActionRequest, AgentActionResponse, AgentControlCapability } from '@ihui/types'
@@ -113,6 +113,13 @@ const INTERNAL_HEADERS = { authorization: `Bearer ${INTERNAL_SECRET}` }
 
 let app: FastifyInstance
 const mockPush = vi.fn<(userId: string, payload: unknown) => void>()
+/**
+ * 本用例发出、但可能在断言之前就被弃用的 /execute(②/⑨/⑱/⑲ 都是"先 fire、
+ * 后半段才 await"的写法)。afterEach 必须排空它们,理由见那里那段注释。
+ */
+const inflightExecutes: Array<Promise<unknown>> = []
+/** 排空用的旁观句柄只需要"落地了没有",不需要值,也不需要 rejection 逃逸出去 */
+const ignore = (): undefined => undefined
 
 /** 以指定用户身份上报能力(等价于端启动时注册自己属于哪个用户) */
 async function reportCapability(body: CapabilityBody, userId: string) {
@@ -134,12 +141,17 @@ async function reportCapability(body: CapabilityBody, userId: string) {
 }
 
 async function executeCommand(body: ExecuteBody, withSecret = true) {
-  return app.inject({
+  const res = app.inject({
     method: 'POST',
     url: `${PREFIX}/execute`,
     payload: { params: {}, timeout: 1000, ...body },
     ...(withSecret ? { headers: INTERNAL_HEADERS } : {}),
   })
+  // 挂一个永不 reject 的旁观句柄:① 让 afterEach 能等它落地;② 用例若在 await 之前
+  // 抛错(句柄被弃用),它也不会变成 unhandled rejection。返回值仍是原 promise,
+  // 用例自己的 await 语义一字未动。
+  inflightExecutes.push(res.then(ignore, ignore))
+  return res
 }
 
 /** /execute 先 push 再登记 pending,微任务落地后才能回传结果 */
@@ -164,6 +176,32 @@ describe('agent-control ui category — /api/agent-control/*', () => {
     app.decorate('pushNotification', mockPush)
     await app.register(agentControlRoutes, { prefix: PREFIX })
     await app.ready()
+
+    /**
+     * 预热 /execute 的鉴权路径(2026-10-05 立,与下面 afterEach 的排空是一对,不是重复劳动)。
+     * `isVerifiedAgentControlInternalCall` 对 `plugins/internal-service-token.js` 是**动态
+     * import**,而那张图静态依赖 db(drizzle + postgres-js):于是"本进程第一条 /execute"
+     * 会卡在 push 之前 —— 本机现测它注册 pending 要 1202ms,其后每条只要 14ms。CI(4 核、
+     * 冷 transform 缓存、几十个文件同时抢 CPU)把这一笔秒级开销顶过 waitPending 的 5s 预算,
+     * 先报 `pending 未登记`,再被 `retry: 2` 复播成"push 被计 3 次"。这里用一条**不可能命中
+     * 任何端**的请求把这笔一次性成本付在任何计数用例之前:此刻注册表是空的 ⇒
+     * TARGET_NOT_CONNECTED,路由结构上走不到 pushNotification(下面第二行就在钉这一句)。
+     */
+    const warmup = await app.inject({
+      method: 'POST',
+      url: `${PREFIX}/execute`,
+      headers: INTERNAL_HEADERS,
+      payload: {
+        requestId: 'req-warmup',
+        category: 'ui',
+        action: 'describe',
+        params: {},
+        timeout: 1000,
+      },
+    })
+    const warmupBody = warmup.json<{ data: AgentActionResponse }>().data
+    expect(warmupBody.errorCode).toBe('TARGET_NOT_CONNECTED')
+    expect(mockPush).not.toHaveBeenCalled()
   })
 
   afterAll(async () => {
@@ -189,6 +227,25 @@ describe('agent-control ui category — /api/agent-control/*', () => {
     })
     mockAuthenticate.mockReset()
     mockAuthenticate.mockRejectedValue(new Error('Authentication required'))
+  })
+
+  /**
+   * 隔离点(2026-10-05 立,根治 CI 上 ② 的 `toHaveBeenCalledTimes(1)` 收到 3 次):
+   * 排空本用例发出却没有 await 到的 /execute。
+   *
+   * 为什么必须有它:/execute 在 `pushNotification` **之前**有一次 `await`
+   * (isVerifiedAgentControlInternalCall 内部对 plugins/internal-service-token.js 是**动态
+   * import**,那张图静态依赖 db/drizzle/postgres-js —— 本机现测第一条 /execute 因此要
+   * 1202ms 才注册 pending,其后各条只要 14ms)。用例若在这之前判失败(②/⑨/⑱/⑲ 都是
+   * "先 fire、后半段才 await"),那个 handler 并不会随之取消:它稍后照样 push 一次,
+   * 而下一次 beforeEach 的 `mockPush.mockReset()` 已经翻篇 ⇒ 计数落在**别人**的窗口里。
+   * vitest 配置里 `retry: 2` 再把这件事放大成"三次尝试各补一刀",于是报的是"多推了两次"
+   * 而不是它真正的原因(首条请求没能在预算内注册)。等它落地 = 让它把 push 打在**自己**
+   * 这一轮的窗口里,复位之后再也收不到上一轮的投递。
+   */
+  afterEach(async () => {
+    const outstanding = inflightExecutes.splice(0)
+    if (outstanding.length > 0) await Promise.all(outstanding)
   })
 
   it('① category=ui 命中 endpoint=web 端,不误配 desktop', async () => {
