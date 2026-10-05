@@ -21,7 +21,7 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
-import { currentDriveRoot, deriveSanctioned, auditDiskRoot, auditWorktreeRegistry } from '../check-disk-root-hygiene.mjs'
+import { currentDriveRoot, deriveSanctioned, normalizeRootKey, auditDiskRoot, auditWorktreeRegistry } from '../check-disk-root-hygiene.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
@@ -91,8 +91,11 @@ test('T3 违规仍然要出得来:一维不适用/未判定不得把另一维已
     assert.ok(here, 'currentDriveRoot() 在本机必须解析得出来')
     const entries = readdirSync(here)
     assert.ok(entries.length > 0, '真盘根至少有一个条目才能构造违规')
-    const keep = entries.slice(0, -1) // 故意漏掉最后一条 ⇒ 它必须被判外流
-    const dropped = entries[entries.length - 1]
+    // 故意漏掉**第一项**(Windows 上恒为 `$RECYCLE.BIN`,不会在两次 readdir 之间消失)。
+    // 取"最后一条"会让夹具自己变成 race:盘根条目会被别的会话加/删,那时 names.includes()
+    // 就会假红 —— 那是假阳,不是判据有牙。新增条目只会多算,不影响本用例的断言方向。
+    const dropped = entries[0]
+    const keep = entries.filter((e) => e !== dropped)
     const cfg = join(dir, 'cfg.json')
     writeFileSync(
       cfg,
@@ -223,6 +226,17 @@ test('T11 反向对照:纯函数面对不存在目录与空 allowlist 的结论�
   )
   assert.equal(v.length, 1, `首条=主工作树、第二条命中前缀 ⇒ 只有 C:/out 该算外流,实得 ${JSON.stringify(v)}`)
   assert.equal(v[0].path, 'C:/out', `点名对象错了:${v[0].path}`)
+})
+
+test('T15 键形归一必须跟平台走(必需 job 在 ubuntu-latest,写死反斜杠会让盘根永久未判定)', () => {
+  // parse/resolve 绑平台 ⇒ 在 Windows 上喂不进 POSIX 路径;归一式单独成纯函数就是为了这一条
+  // **跨平台可证**。旧实现写死 `'\\'`:Windows 上恰好对,Linux 上算出 `\`,config 里
+  // 无论申报什么键都匹配不上 ⇒ 盘根维度永久落"未判定"(不冒红,但也永远不出合格证)。
+  assert.equal(normalizeRootKey('/', '/'), '/', `POSIX 根必须归一成 "/",实得 ${JSON.stringify(normalizeRootKey('/', '/'))}`)
+  assert.equal(normalizeRootKey('D:\\', '\\'), 'D:\\', 'Windows 根必须归一成 "D:\\\\"')
+  assert.equal(normalizeRootKey('D:/', '\\'), 'D:\\', '混写分隔符不得影响键形')
+  assert.equal(normalizeRootKey(null, '/'), null, '取不到根必须报 null,不得凭空造一个键')
+  assert.notEqual(normalizeRootKey('/', '\\'), '/', '写死反斜杠那一型必须与 POSIX 正解不同形(否则本用例没有牙)')
 })
 
 test('T14 派生豁免的行为证明:本机仓内 .worktrees 的登记项不得被喊成落点外(带变异对照)', () => {
