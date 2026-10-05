@@ -26,7 +26,10 @@ export type ScanSource = 'issue' | 'code-scanning' | 'workflow-run'
 
 /** 归一化后的待修复条目(三源扫描产物) */
 export interface ScanItem {
-  /** 认领去重唯一键:issue:{n} / code-scanning:{n} / workflow-run:{id} */
+  /**
+   * 认领去重唯一键。格式见 scan-item-key.ts 的 SCAN_ITEM_KEY_FORMAT,
+   * 构造/解析分别用 buildScanItemKey / parseScanItemKey(成对,勿手写字符串)。
+   */
   key: string
   source: ScanSource
   title: string

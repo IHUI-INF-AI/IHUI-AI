@@ -37,6 +37,21 @@
    活跃任务照样到期)与 ``_timestamps``(最后活动时间,供**空闲 TTL** 用 —— 保留原意:
    任务结束后 ttl 秒内仍可重放)。任一到期即清理。
 
+4. **续传锚点只看序号、不看身份**(2026-10-05,台账票 G-998170;实测确认):
+   ``clear()`` 把 ``_counters`` 一起弹掉,于是同一 ``task_id`` 的缓冲重建后 event_id
+   的序号从 1 重起。客户端手里那个 ``<task>-3`` 在新缓冲里**又能命中**,但它当年看到的
+   第 3 条与新缓冲的第 3 条**不是同一条事件** —— 身份换了、序号没换,旧实现只认序号。
+   实测症状:``replay_outcome(task, "task-epoch-3")`` 返回 ``hit`` 并回灌新代次的第 4、5 条,
+   客户端按 id 追加即拿到一段它从未见过、也不属于它那条流的内容。
+   现引入 **epoch(代次)**:``clear()`` 使该 task 的 epoch 递增(含 TTL/存活上限触发的清理,
+   那也是一代结束),序号仍**只在同一 epoch 内单调**。裸序号锚点 ``seq`` 只有在
+   **高过所有已退役代次的序号上限**时才可能唯一属于当前代次 ⇒ 判 hit;否则身份不可辨 ⇒
+   ``REPLAY_NOT_RESUMABLE``,原因写明"缓冲代次已更换(epoch A→B)"。终态不可逆:代次换过
+   之后旧锚点不再被承认(不猜、不和稀泥)。
+   epoch **不进 event_id**:既有测试与 ``routers/agents.py:1293`` 的
+   ``last_event_id.rsplit("-", 1)[0]`` 把 id 形态钉死为 ``{task_id}-{seq}``,多塞一段会
+   让上层取错 task_id 而退回 ``UNKNOWN_TASK``。代价是代次只能靠序号反推(见 ``_EpochState``)。
+
 用法:
     buffer = SSEEventBuffer()
     eid = buffer.append("task-1", {"type": "chunk", "content": "hello"})
@@ -79,8 +94,39 @@ DEFAULT_MAX_BYTES_PER_TASK: Final[int] = 1024 * 1024
 # run 应以 checkpoint 续跑(POST /agents/execute/resume)而不是靠 SSE 内存缓冲兜住。
 DEFAULT_MAX_LIFETIME_SECONDS: Final[int] = 30 * 60
 
+# 代次账的容量上限(病灶 4 的记账有代价:``clear()`` 刻意不清它,否则旧锚点的身份凭证
+# 就消失了)。task_id 是每轮 run 的 id,长跑进程里会无界增长,因此按插入顺序淘汰最老的账。
+# 淘汰只影响"该 task 的缓冲早已被 TTL 清理、且其 epoch 早已无人引用"的情形:真有活跃
+# 缓冲或刚重连的客户端时,它的账必然是最近写入的那批,不会落到被淘汰的头部。
+DEFAULT_MAX_EPOCH_RECORDS: Final[int] = 10_000
+
 # 一帧除 data 载荷外还有 id: / event: 行与空行的开销,估算时按固定值计入。
 _FRAME_OVERHEAD_BYTES: Final[int] = 64
+
+# 已退役代次的水位线只保留"最高序号 + 它的代次"这一个数(病灶 4)。
+# 为什么够用:裸锚点 ``task-N`` 若 N <= 这个水位线,则 N 在某一旧代次里出现过 —— 身份
+# 不可辨(它可能指向旧代次的第 N 条,也可能指向当前代次第 N 条),一律判不可续传;
+# N 高过水位线时它只可能属于当前代次(当前代次序号从 1 起单调增长,旧代次都没到过 N),
+# 身份唯一 ⇒ 照旧续传。不必逐代留存历史,一个 max 就够判。
+
+@dataclass(frozen=True)
+class _EpochState:
+    """单个 task 的代次账(病灶 4)。
+
+    epoch **不进 event_id**:既有测试与 ``routers/agents.py:1293`` 的
+    ``last_event_id.rsplit("-", 1)[0]`` 把 id 形态钉死为 ``{task_id}-{seq}``,多塞一段
+    会让上层取错 task_id 而退回 ``UNKNOWN_TASK``。代价是代次不能随锚点往返,只能靠
+    序号反推身份 —— 而这正是上面那两个水位线数字的用途。
+
+    Attributes:
+        epoch: 当前代次序号,``clear()`` 递增;从未清过的 task 记 1。
+        retired_max: **所有已退役代次**里出现过的最高 event 序号(水位线)。
+        retired_epoch: 那个最高序号所属的代次 —— 只为把"A→B"里的 A 写准。
+    """
+
+    epoch: int
+    retired_max: int
+    retired_epoch: int
 
 
 @dataclass(frozen=True)
@@ -147,6 +193,7 @@ class SSEEventBuffer:
         max_events_per_task: int = DEFAULT_MAX_EVENTS_PER_TASK,
         max_bytes_per_task: int = DEFAULT_MAX_BYTES_PER_TASK,
         max_lifetime_seconds: int = DEFAULT_MAX_LIFETIME_SECONDS,
+        max_epoch_records: int = DEFAULT_MAX_EPOCH_RECORDS,
     ) -> None:
         """初始化缓冲区。
 
@@ -158,19 +205,32 @@ class SSEEventBuffer:
             max_bytes_per_task: 单 task 估算字节上限,溢出丢最旧并计数。
             max_lifetime_seconds: 单 task **存活**上限(自首事件起算)—— 活跃任务也到期,
                 这是旧实现把时间戳记成"最后更新时间"时丢掉的那一半(病灶 3)。
+            max_epoch_records: 代次账条数上限(病灶 4),超出按插入顺序淘汰最老的账。
         """
         self._buffers: dict[str, list[_Entry]] = {}
         self._counters: dict[str, int] = {}
+        self._epochs: dict[str, _EpochState] = {}  # task_id -> 代次账(病灶 4;clear 不清它)
         self._timestamps: dict[str, float] = {}  # task_id -> 最后活动时间(空闲锚点)
         self._started: dict[str, float] = {}  # task_id -> 首事件时间(存活锚点)
         self._bytes: dict[str, int] = {}  # task_id -> 当前估算占用
         self._dropped: dict[str, int] = {}  # task_id -> 自首事件起累计丢弃条数
         self._ttl = ttl_seconds
         self._max_lifetime = max_lifetime_seconds
+        self._max_epoch_records = max_epoch_records
         self._max_events = max_events_per_task
         self._max_bytes = max_bytes_per_task
         self._cleanup_interval = cleanup_interval
         self._last_cleanup = time.monotonic()
+
+    def epoch(self, task_id: str) -> int:
+        """该 task 当前所处的代次(从未写入或从未清理过 ⇒ 1)。
+
+        这是"身份 + 序号共同判定"里的**身份**那一半的可观测出口:同一 task_id 在缓冲
+        被 ``clear()`` 重建后 epoch 递增,而序号又从 1 重起 —— 只看序号就分不出
+        "客户端上次看到的第 N 条"和"这次缓冲里的第 N 条"是不是同一条。
+        """
+        state = self._epochs.get(task_id)
+        return state.epoch if state is not None else 1
 
     def append(self, task_id: str, event: dict[str, Any]) -> str:
         """追加事件到缓冲区,返回分配的 event_id(格式 ``{task_id}-{seq}``)。
@@ -242,7 +302,8 @@ class SSEEventBuffer:
 
             - ``REPLAY_HIT``: 锚点在缓冲内 ⇒ events 为其后事件(last_event_id 为 None 时
               为现存全部);此时客户端按 id 追加是**连续**的。
-            - ``REPLAY_NOT_RESUMABLE``: 锚点已被上限丢弃 / 序号越界 / id 不属于本 task
+            - ``REPLAY_NOT_RESUMABLE``: 锚点已被上限丢弃 / 序号越界 / id 不属于本 task /
+              **锚点序号属于已退役的代次**(病灶 4)
               ⇒ events 恒为空 + ``reason`` 说明是哪一种。**这是旧实现最错的一格** —— 它
               在这里返回整段历史,于是"翻倍"而不是"补齐"。
             - ``REPLAY_UNKNOWN_TASK``: task 从未写入、已到期清理或已 clear ⇒ events 为空,
@@ -276,6 +337,19 @@ class SSEEventBuffer:
                 [],
                 dropped,
                 f"Last-Event-ID {last_event_id!r} 与 task {task_id!r} 的 id 形态不符",
+            )
+        # 身份这一半(病灶 4):裸序号 seq 若落在已退役代次的序号水位线以内,就无法证明
+        # 它属于当前代次 —— 它当年可能指向旧代次的第 seq 条。终态不可逆:代次换过就
+        # 不再承认旧锚点,不猜、不和稀泥。N 高过水位线 ⇒ 只可能属于当前代次(当前代次
+        # 序号从 1 单调增长,旧代次都没到过 N),身份唯一,交由下面的区间判据处理。
+        state = self._epochs.get(task_id)
+        if state is not None and seq <= state.retired_max:
+            return ReplayOutcome(
+                REPLAY_NOT_RESUMABLE,
+                [],
+                dropped,
+                f"缓冲代次已更换(epoch {state.retired_epoch}→{state.epoch}),"
+                f"续传锚点 {last_event_id!r} 的序号 {seq} 在旧代次中已出现过,身份不可辨",
             )
         # 序号连续且只从最旧端丢 ⇒ 首尾序号即可判定位次,不必线性扫描整表(旧 :84-86 那一遍)
         first, last = entries[0].seq, entries[-1].seq
@@ -327,13 +401,41 @@ class SSEEventBuffer:
         return self._dropped.get(task_id, 0)
 
     def clear(self, task_id: str) -> None:
-        """清除指定 task 的缓冲区(连同计数、两个时间锚点与丢弃账)。"""
+        """清除指定 task 的缓冲区(连同计数、两个时间锚点与丢弃账)。
+
+        代次账 ``_epochs`` **刻意不清**:清掉它等于让旧锚点的身份凭证消失,下一次
+        重建又从 epoch 1 重数,跨代续传会重新被放行 —— 那正是本方法在旧实现里埋的
+        病灶。这里改成把当前代次**退役**:epoch 递增,并把这一代用过的最高序号记进水位线,
+        使这些序号此后永远无法再作为有效锚点(终态不可逆)。
+        TTL / 存活上限触发的清理也走本方法(那同样是一代结束),语义一致。
+        """
+        state = self._epochs.get(task_id)
+        last_seq = self._counters.get(task_id, 0)
+        if state is None:
+            self._epochs[task_id] = _EpochState(epoch=2, retired_max=last_seq, retired_epoch=1)
+        else:
+            # 水位线只升不降:跨多代累计,任何被用过的序号都留在水位线以内
+            self._epochs[task_id] = _EpochState(
+                epoch=state.epoch + 1,
+                retired_max=max(state.retired_max, last_seq),
+                retired_epoch=state.epoch if last_seq > state.retired_max else state.retired_epoch,
+            )
+        self._evict_oldest_epochs()
         self._buffers.pop(task_id, None)
         self._counters.pop(task_id, None)
         self._timestamps.pop(task_id, None)
         self._started.pop(task_id, None)
         self._bytes.pop(task_id, None)
         self._dropped.pop(task_id, None)
+
+    def _evict_oldest_epochs(self) -> None:
+        """代次账超出容量上限时,按插入顺序淘汰最老的账(见 ``DEFAULT_MAX_EPOCH_RECORDS``)。
+
+        dict 保插入序,所以 ``next(iter(...))`` 就是最老的一条;被淘汰者的缓冲早已被 TTL
+        清理,它的 epoch 也不会再被引用(真有活跃缓冲的 task 记账是刚写入的,排在尾部)。
+        """
+        while len(self._epochs) > self._max_epoch_records:
+            self._epochs.pop(next(iter(self._epochs)))
 
     @staticmethod
     def _parse_seq(task_id: str, event_id: str) -> int | None:
