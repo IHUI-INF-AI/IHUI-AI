@@ -1153,6 +1153,51 @@ function convertSchema(schema: unknown): Record<string, ToolParameter> {
  * `export` 只为让单测能拿到**生产的那一份**转换(免批两轴的映射是它的行为,不该在测试里
  * 重写一遍 —— 本仓"测试内联第二份判据"记过多次)。判定本身**不在**本文件。
  */
+/**
+ * G-691:把一次 `tools/call` 的**结果**翻译成本仓 `ToolResult`。
+ *
+ * **为什么抽成纯函数**:改前这段判定内联在 `mcpToolToTool(...).execute()` 里,
+ * 要测它就得把整条 `callMcpServer` 依赖链mock 一遍 —— 而 ESM 的具名导出
+ * **`vi.spyOn` 根本拦不住**(实测:spy 不生效,用例读到的是真调用报的
+ * "stdio 连接未建立")⇒ 那一格只能靠"跑真子进程"或"改实现结构"才测得到。
+ * 抽出来之后,这条判据本身可被直接对账,且与"怎么发请求"彻底解耦。
+ *
+ * 判据本体(**只读 `isError`,不猜**):
+ * - `isError === true` ⇒ `success: false`。**优先于"有没有文本"** ——
+ *   远端常把错误信息放在 `content` 里回传,那时文本非空但**它是错误正文**,
+ *   读成成功等于把错误提示当正常结果交给模型。
+ * - 其余按改前形态:`content` 缺失 ⇒ `(无输出)`;无文本 ⇒ `(无文本输出)`。
+ */
+export function mcpToolResultToToolResult(
+  raw: unknown,
+  toolName: string,
+): Pick<ToolResult, 'success' | 'output'> & { error?: string } {
+  const result = raw as {
+    content?: Array<{ type: string; text?: string }>;
+    isError?: boolean;
+  } | null;
+
+  const texts = result?.content
+    ?.filter((c) => c.type === 'text' && c.text)
+    .map((c) => c.text!)
+    .join('\n');
+  const output = texts || '(无文本输出)';
+
+  if (result?.isError === true) {
+    return {
+      success: false,
+      output,
+      error: output === '(无文本输出)' ? `MCP 工具 ${toolName} 返回 isError` : output,
+    };
+  }
+
+  if (!result?.content) {
+    return { success: true, output: '(无输出)' };
+  }
+
+  return { success: true, output };
+}
+
 export function mcpToolToTool(conn: McpConnection, mcpTool: McpToolDef): Tool {
   const params = convertSchema(mcpTool.inputSchema);
   const required = mcpTool.inputSchema.required ?? [];
@@ -1183,18 +1228,9 @@ export function mcpToolToTool(conn: McpConnection, mcpTool: McpToolDef): Tool {
           name: mcpTool.name,
           arguments: args,
         });
-        const result = raw as { content?: Array<{ type: string; text?: string }> } | null;
-
-        if (!result?.content) {
-          return { success: true, output: '(无输出)' };
-        }
-
-        const texts = result.content
-          .filter((c) => c.type === 'text' && c.text)
-          .map((c) => c.text!)
-          .join('\n');
-
-        return { success: true, output: texts || '(无文本输出)' };
+        // G-691:isError 的判定与出口都在纯函数里(见mcpToolResultToToolResult 的
+        // 判据说明),此处只做转发 —— 两处算同一件事必漂移。
+        return mcpToolResultToToolResult(raw, mcpTool.name);
       } catch (err) {
         return {
           success: false,
@@ -1386,9 +1422,20 @@ export class ManagedMcpClient {
       this.consecutiveFailures = 0;
       return result;
     } catch (err) {
-      this.consecutiveFailures++;
-      if (this.consecutiveFailures >= this.DEAD_THRESHOLD) {
-        this.markDead();
+      // G-691:只有**传输层**失败才累计到 markDead。收到过对端应答帧
+      // (method-not-found / 参数不合法 / 工具业务报错)说明这条连接健在,
+      // 改前照样累计 ⇒ 每个业务性失败都会把子进程重启一遍,
+      // 进程内状态(会话、订阅、缓存)全部丢掉。
+      // 反向也要fail-closed:标记读成 false 时才累计,读不出的一律当传输失败。
+      if (!readMcpPeerAnswered(err)) {
+        this.consecutiveFailures++;
+        if (this.consecutiveFailures >= this.DEAD_THRESHOLD) {
+          this.markDead();
+        }
+      } else {
+        // 对端健在 ⇒ 失败计数必须归零,否则早先攒下的传输失败会一直挂着,
+        // 在下一次真传输失败时**立刻**越过阈值把好连接误杀。
+        this.consecutiveFailures = 0;
       }
       throw err;
     }
