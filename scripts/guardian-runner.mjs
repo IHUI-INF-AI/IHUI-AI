@@ -787,6 +787,70 @@ const checks = [
     args: ['zh-TW', '--target=shared'],
     mode: 'blocking',
   },
+  // --- 2026-10-05 补:zh-TW / ko 的**分面射程** —— 此前这两个 blocking 档只守
+  // web(默认面)+ extension + shared 三面,api / cli / miniapp-taro / mobile-rn 四面
+  // 从未进过门。实证不是推演:2026-10-05 首次分面现读就在这四面里量到 7 处 zh-TW 简体残留
+  // (api 5 处「平台」、miniapp-taro 2 处「平台」「托管」),而默认档(web)当时同样报红 4 处,
+  // 说明残留是**全仓通病**、只是另外四面没人看。同日已修复并把修复器
+  // (fix-zh-tw-residue.mjs)从 2026-07-25 迁移前的 apps/* 旧址拉回 packages/i18n/messages/,
+  // 现七面 zh-TW 与 ko 全绿 ⇒ 此刻升 blocking 不误伤任何在途提交。
+  // 面的清单与路径拼法与扫描器共用 scripts/lib/i18n-message-faces.mjs 一份。
+  {
+    id: '2p-api',
+    label: '🔍 [api] zh-TW 简体字残留(blocking,2026-10-05 补分面射程)',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['zh-TW', '--target=api'],
+    mode: 'blocking',
+  },
+  {
+    id: '2q-cli',
+    label: '🔍 [cli] zh-TW 简体字残留(blocking,2026-10-05 补分面射程)',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['zh-TW', '--target=cli'],
+    mode: 'blocking',
+  },
+  {
+    id: '2r-miniapp-taro',
+    label: '🔍 [miniapp-taro] zh-TW 简体字残留(blocking,2026-10-05 补分面射程)',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['zh-TW', '--target=miniapp-taro'],
+    mode: 'blocking',
+  },
+  {
+    id: '2s-mobile-rn',
+    label: '🔍 [mobile-rn] zh-TW 简体字残留(blocking,2026-10-05 补分面射程)',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['zh-TW', '--target=mobile-rn'],
+    mode: 'blocking',
+  },
+  {
+    id: '2t-api',
+    label: '🔍 [api] ko.json 中文残留(blocking,2026-10-05 补分面射程)',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['ko', '--target=api'],
+    mode: 'blocking',
+  },
+  {
+    id: '2u-cli',
+    label: '🔍 [cli] ko.json 中文残留(blocking,2026-10-05 补分面射程)',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['ko', '--target=cli'],
+    mode: 'blocking',
+  },
+  {
+    id: '2v-miniapp-taro',
+    label: '🔍 [miniapp-taro] ko.json 中文残留(blocking,2026-10-05 补分面射程)',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['ko', '--target=miniapp-taro'],
+    mode: 'blocking',
+  },
+  {
+    id: '2w-mobile-rn',
+    label: '🔍 [mobile-rn] ko.json 中文残留(blocking,2026-10-05 补分面射程)',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['ko', '--target=mobile-rn'],
+    mode: 'blocking',
+  },
   {
     id: '2k-shared',
     label: '🔍 [shared] ko.json 中文残留(blocking)',
