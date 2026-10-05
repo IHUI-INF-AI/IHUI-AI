@@ -1665,6 +1665,84 @@ export function extractAgentId(line: string): string | undefined {
   return undefined
 }
 
+// ---------------------------------------------------------------------------
+// G-998168 票5(2026-10-05 立):首帧耗时分段归因 —— **回传不落库(机主拍板⑥)**。
+// 服务端(apps/api 网关)把 prepare/upstreamConnect/firstByte/storage 四段计时挂在
+// **首帧**数据载荷的顶层可选字段 `openTiming` 上随流回传(additive optional 字段,
+// 非新增命名事件:契约文件/事件名集合零变化,老客户端按未知字段忽略)。
+// 不建表、不做迁移、不加指标家族 —— "重启即无历史、画不了长期趋势"是拍板的预期代价。
+// ---------------------------------------------------------------------------
+/**
+ * 首帧耗时分段归因(线格式,与网关侧 apps/api StreamOpenTiming 同形)。
+ * 字段集固定且 versioned;各 ms 为整数;**不可信样本(时钟回退/双钟分歧)⇒ null
+ * 而不是夹成 0**(缺席语义,消费端按"未知"渲染)。
+ */
+export interface StreamOpenTiming {
+  /** 分段字段集版本(字段集变更时 +1) */
+  version: 1
+  /** host 前置:网关入口 → 发起上游连接前(含存储读归因子段,非互斥切分) */
+  prepareMs: number | null
+  /** 上游连接:发起上游请求 → 拿到响应头 */
+  upstreamConnectMs: number | null
+  /** 首个上游字节:响应头 → 首次 read 返回 */
+  firstByteMs: number | null
+  /** 存储/索引读耗时;该路径无此类读 ⇒ null */
+  storageReadMs: number | null
+  /** 上游连接是否冷启(无复用即冷) */
+  coldStart: boolean
+}
+
+/**
+ * G-998168 票5:从 SSE data: 行提取顶层 openTiming 分段归因对象(与 extractAgentId 同构;
+ * chunk 帧带该字段时正文仍由 parseStreamLine 照常产出 —— 字段级增量,不做帧级分流)。
+ * 仅 JSON 对象格式支持;字段集/取值校验失败(version 非 1 / ms 非整数且非 null /
+ * coldStart 非 boolean / 缺字段)⇒ 整体返回 null —— 半个分段对象比没有更误导,
+ * 不做部分放行。Vercel AI SDK `0:"..."` / 纯文本 / event:/id: 行 / [DONE] ⇒ null。
+ */
+export function extractOpenTiming(line: string): StreamOpenTiming | null {
+  if (!line || line.startsWith(':')) return null
+  let data = line
+  if (line.startsWith('data:')) {
+    data = line.slice(5).replace(/^\s/, '')
+  } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+    return null
+  }
+  if (!data || data === '[DONE]') return null
+  // Vercel AI SDK 协议 `0:"..."` → 无 openTiming
+  if (/^\d+:/.test(data)) return null
+  if (!data.startsWith('{')) return null
+  try {
+    const json = JSON.parse(data) as Record<string, unknown>
+    const raw = json?.openTiming
+    if (typeof raw !== 'object' || raw === null) return null
+    const o = raw as Record<string, unknown>
+    // version 之外的多余 key 静默忽略(向前兼容);六个固定字段逐一严校
+    if (o.version !== 1) return null
+    const msOrNull = (v: unknown): v is number | null =>
+      v === null || (typeof v === 'number' && Number.isInteger(v))
+    if (
+      !msOrNull(o.prepareMs) ||
+      !msOrNull(o.upstreamConnectMs) ||
+      !msOrNull(o.firstByteMs) ||
+      !msOrNull(o.storageReadMs)
+    ) {
+      return null
+    }
+    if (typeof o.coldStart !== 'boolean') return null
+    return {
+      version: 1,
+      prepareMs: o.prepareMs,
+      upstreamConnectMs: o.upstreamConnectMs,
+      firstByteMs: o.firstByteMs,
+      storageReadMs: o.storageReadMs,
+      coldStart: o.coldStart,
+    }
+  } catch {
+    /* 非 JSON */
+  }
+  return null
+}
+
 /** P4-2: 后端 fallback 事件 — 主模型失败切换到备用模型时,后端在 chunk 产出前发送此事件 */
 export interface FallbackEvent {
   /** 原模型(失败的主模型) */
