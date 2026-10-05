@@ -113778,14 +113778,15 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "required": [
-                  "refreshToken"
+                "type": [
+                  "object",
+                  "null"
                 ],
+                "required": [],
                 "properties": {
                   "refreshToken": {
                     "type": "string",
-                    "description": "刷新令牌"
+                    "description": "刷新令牌(body 模式,cookie 模式可缺省)"
                   }
                 }
               }
