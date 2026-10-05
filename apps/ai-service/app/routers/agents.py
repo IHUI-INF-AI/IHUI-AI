@@ -1647,6 +1647,19 @@ async def resume_agent_execute(
             raise HTTPException(
                 status_code=403, detail="该 checkpoint 所属会话不属于当前用户"
             )
+        # G-1058610③(2026-10-05 机主拍板):两级都判不出属主 ⇒ **不放行自动续跑**。
+        # 旧口径是"只剩登录地板即放行"并顺手 record_ownership 把会话登记给请求者 ——
+        # 那等于让第一个按下续跑的人无声取得归属。现在停在原地:报 409 等人确认归属,
+        # **不登记归属**(登记即放行,放行即本次要关掉的那个口)。
+        if known_owner is None:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "AGENT_RESUME_OWNER_UNVERIFIABLE: 该 checkpoint 没有可判定的属主"
+                    "(既无持久 owner_user_id,也无进程内在飞登记),按机主拍板不自动放行续跑 —— "
+                    "请先人工确认这条会话的归属再续跑"
+                ),
+            )
         if resumed_session:
             record_ownership(resumed_session, current_user)
 
@@ -1726,6 +1739,7 @@ _RESUME_STATUS_BY_OUTCOME: dict[ResumeOutcome, int] = {
     ResumeOutcome.FORBIDDEN: 403,
     ResumeOutcome.NO_CHECKPOINT: 404,
     ResumeOutcome.NOT_PAUSED: 409,
+    ResumeOutcome.OWNER_UNVERIFIABLE: 409,
     ResumeOutcome.RESUME_FAILED: 503,
 }
 
