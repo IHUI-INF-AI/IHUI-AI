@@ -27,6 +27,27 @@
         "WeixinGameData"
       ],
       "note": "IHUI-AI=项目主仓;workbuddy=WorkBuddy 应用本体;tmp=WorkBuddy mcp/ext 运行日志活跃写入点(2026-09-30 实证 mcp.log 一小时内持续写,292K);.pytest_tmp/.pytest_tmp_runs=pytest basetemp 落点(2026-10-03 补,见 _pytestBasetempNote);其余=第三方 IDE/工具(盘根物理上不可能只剩项目,现实目标是'项目产物不外流',第三方安装目录按声明放行)"
+    },
+    "D:\\": {
+      "allow": [
+        "IHUI-AI",
+        "IHUI-AI-git-repo",
+        "DevEnv",
+        "BaiduSyncdisk",
+        "pagefile.sys",
+        "$RECYCLE.BIN",
+        "System Volume Information",
+        "tmp",
+        ".pytest_tmp_runs",
+        "电脑软件",
+        "系统配套软件",
+        "桌面",
+        "Code",
+        "XiaomiCloudTemp",
+        "小米云盘",
+        "Huorong"
+      ],
+      "note": "2026-10-05 逐条实测后申报(本机就是 D: 这份 checkout,而此前 config 只有 G:\\ ⇒ 本机盘根这一维从来没有尺子,--strict 恒落「未判定」)。IHUI-AI=项目主仓;IHUI-AI-git-repo=§5b 的**外置真 gitdir**(指针文件指向它,§5b 明令禁删,申报它是为了让本尺子不去喊「回收」);DevEnv=§15b 唯一备份/缓存/临时物根;BaiduSyncdisk=§5d 凭据权威根(盘符按当次实测,这台机是 D:);pagefile.sys=§26 手设 D 盘页面文件;$RECYCLE.BIN / System Volume Information=系统;tmp=WorkBuddy mcp/ext 日志活跃写入点(mtime 2026-10-05 00:34,内含 git-trace.log/gt2.log);.pytest_tmp_runs=pytest per-run 隔离树(同 G: 那条 _pytestBasetempNote 的成因);电脑软件/系统配套软件=机主定的 Windows 软件统一安装位;桌面=用户个人桌面;Code=用户个人文件夹(内含 ljd-交接文件,mtime 2026-08-04);XiaomiCloudTemp/小米云盘=第三方网盘客户端;Huorong=火绒安全(第三方,内含其自更新 .exe)。【刻意未申报的三项,不要顺手补进白名单】① .pnpm-store(内含 v11)=AGENTS §15 ⑤ 明令禁止在盘根跑 pnpm 创建的东西,而 §26 登记的 store 真身在 D:\\DevEnv\\tools\\pnpm\\store\\v11;本机今天(10-05 00:46)仍在生成 ⇒ 还有调用方站在盘根上,出路是改那个调用方。② ihui-head-check(mtime 10-03 07:49)=整份仓拷贝(有 .git/.husky/apps),按名字是某次「按 HEAD 面取证」建的对照检出,落在盘根违反 §15b「项目产物不外流」,正确落点是项目内 .worktrees\\(§12d 2026-09-30 改);归属未逐字核实,故此处只登记「不申报」,删除须先验身份(§7)。③ nonexistent_deny_dir_xyz(内含一个 c.json,mtime 10-03 00:54)=名字像一个「拒绝不存在路径」用例的夹具,而全仓 HEAD 文本面 git grep 该串零命中 ⇒ 生产者不在跟踪代码里,归属未定。三项都属于「红了能整改」那一类(本文件上方那条一般教训),所以留在点名集合里。"
     }
   },
   "_pytestBasetempNote": "2026-10-03 补:.pytest_tmp(pyproject addopts 的 --basetemp=../../../.pytest_tmp)与 .pytest_tmp_runs(conftest.py pytest_configure 的 per-run 隔离树)进白名单,理由不是'看起来无害',而是这两条是 pytest 基础设施的**设计落点且落在仓外**:① 落仓内会让'仓库外'场景用例(find_project_root 向上找 .git / git baseline / 文档根越界)撞上真实 .git 全翻车(RUN5 实证,已写进 apps/ai-service/pyproject.toml 与 tests/conftest.py 注释);② 落系统 TEMP 会让全量 20 worker 的每用例 tmp SQLite 在 7200rpm HDD 上 fsync 饱和,实测 25 个跨文件用例各被拖到 ~84s(py-spy 抓栈),迁同盘 NVMe 是 09-20 性能立的直接产出;③ 两者都由 pytest 自己在每场运行 rm_rf + 重建(conftest 只回收 mtime>24h 的 run-*),不是人工堆放,也就不存在'产物外流'。不申报的后果是结构性的:每次跑 pytest 必然重建 ⇒ 盘根卫生永远判红 ⇒ 每 4 小时到人一次,而实测它催生不出任何整改动作(2026-09-30 立尺至 10-03 三天里 27 封同因告警,违规条目集合逐字不变)。真正的外流(临时 worktree 落点、探针残留)仍由 H1/H2 两维照常点名。",
