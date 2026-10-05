@@ -23,6 +23,7 @@ export * from './types.js'
 export {
   buildScanItemKey,
   parseScanItemKey,
+  describeScanItemKeyIssue,
   SCAN_ITEM_KEY_SOURCES,
   SCAN_ITEM_KEY_FORMAT,
   type ScanItemKey,
