@@ -25,7 +25,6 @@
 const token = process.env.GITHUB_TOKEN
 const repo = process.env.GITHUB_REPOSITORY
 const tag = process.env.RELEASE_TAG
-const FEED_TAG = 'desktop-updater-feed'
 
 if (!token || !repo || !tag) {
   console.error('Missing required env: GITHUB_TOKEN, GITHUB_REPOSITORY, RELEASE_TAG')
@@ -198,12 +197,11 @@ async function main() {
   console.log('Generated latest.json:')
   console.log(jsonStr)
 
-  // 4. 上传到发版 Release
+  // 4. 上传到发版 Release(客户端更新源已定稿为单端点 aizhs.top/desktop-feed.json,
+  //    由 resolve-desktop-download.mjs 刷站点快照后随 Web 部署生效;GitHub 兜底端点
+  //    已于 2026-10-05 按机主拍板删除 —— 本机发版通道无 GH_TOKEN、该端点只由 CI 维护,
+  //    是一个"看似有兜底、实际随发布路径分叉"的假能力,故不再维护 feed release)
   await uploadLatestJson(release, jsonStr)
-
-  // 5. 同步到固定 feed release(updater endpoint 指向它;首次运行自动创建)
-  const feedRelease = await ensureFeedRelease()
-  await uploadLatestJson(feedRelease, jsonStr)
 }
 
 /** 删除指定 release 上的旧 latest.json 并上传新内容 */
@@ -230,26 +228,6 @@ async function uploadLatestJson(release, jsonStr) {
     throw new Error(`Upload latest.json to ${release.tag_name} failed: ${uploadRes.status} ${text}`)
   }
   console.log(`Uploaded latest.json to release ${release.tag_name} successfully`)
-}
-
-/** 获取固定 feed release;不存在则自动创建(tag 挂在默认分支) */
-async function ensureFeedRelease() {
-  try {
-    return await githubApi(`/repos/${repo}/releases/tags/${FEED_TAG}`)
-  } catch (err) {
-    if (!/\b404\b/.test(String(err))) throw err
-    console.log(`Feed release ${FEED_TAG} not found, creating...`)
-    return githubApi(`/repos/${repo}/releases`, {
-      method: 'POST',
-      body: JSON.stringify({
-        tag_name: FEED_TAG,
-        name: 'Desktop Updater Feed',
-        body: '桌面端自动更新 feed,由 release-desktop workflow 自动维护,请勿手动修改。latest.json 始终指向最新桌面版。',
-        draft: false,
-        prerelease: false,
-      }),
-    })
-  }
 }
 
 main().catch((err) => {
