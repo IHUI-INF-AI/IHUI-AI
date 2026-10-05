@@ -563,18 +563,25 @@ function toAgentListItem(a: AgentShopItem): AgentListItem {
   }
 }
 
-/** 智能体收藏(对齐 Uniapp pay.js getAgentCollect:POST /cozeZhsApi/agents/collect,body {uuid, botId})
- *  api-client 暂无封装,按项目模式用 fetchApi 在本文件内定义 */
+/** 智能体收藏(对齐 Uniapp pay.js getAgentCollect,body {uuid, botId})
+ *  api-client 暂无封装,按项目模式用 fetchApi 在本文件内定义
+ *  G-1058623:原写 /cozeZhsApi/agents/collect,归一后多一段 agents(成 /api/agents/collect),
+ *  而后端 agents.ts:1567 注册的是 server.post('/collect') 且 agentsRoutes 挂 prefix /api
+ *  ⇒ 实际路径是 /api/collect,原路径运行时必 404。此处按后端实际注册面改。
+ *  (注释内路径一律不带引号/反引号:守门 8 的 pathRe 把引号与反引号同等当引号,
+ *   加了就会被抽成调用点,自己给自己造一条死调用。) */
 function postAgentCollect(uuid: string, botId: string): Promise<ApiResult<unknown>> {
-  return fetchApi<unknown>('/cozeZhsApi/agents/collect', {
+  return fetchApi<unknown>('/api/collect', {
     method: 'POST',
     body: JSON.stringify({ uuid, botId }),
   })
 }
 
-/** 智能体点赞(对齐 Uniapp pay.js getAgentLike:POST /cozeZhsApi/agents/thumbs,body {uuid, botId}) */
+/** 智能体点赞(对齐 Uniapp pay.js getAgentLike,body {uuid, botId})
+ *  G-1058623:同 postAgentCollect,原写 /cozeZhsApi/agents/thumbs 多写一段 agents;
+ *  后端 agents.ts:1552 是 server.post('/thumbs') + prefix /api ⇒ 实际 /api/thumbs。 */
 function postAgentLike(uuid: string, botId: string): Promise<ApiResult<unknown>> {
-  return fetchApi<unknown>('/cozeZhsApi/agents/thumbs', {
+  return fetchApi<unknown>('/api/thumbs', {
     method: 'POST',
     body: JSON.stringify({ uuid, botId }),
   })
