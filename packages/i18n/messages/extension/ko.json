@@ -176,6 +176,7 @@
     "emptyHint": "메시지를 입력하여 시작",
     "inputPlaceholder": "무언가 입력하세요...",
     "compactionNotice": "컨텍스트 자동 압축:{before} → {after}({removed}개 기록 제거)",
+    "partialDoneTitle": "응답이 중단되었습니다. 아래 내용은 불완전할 수 있습니다",
     "voiceStop": "녹음 중지",
     "voiceStart": "녹음 시작",
     "voiceError": "마이크에 접근할 수 없습니다. 브라우저 설정에서 마이크 권한을 허용해 주세요",

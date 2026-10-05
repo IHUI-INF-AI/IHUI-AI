@@ -561,6 +561,8 @@ export interface RunToolLoopOptions {
   onSteer?: NonNullable<StreamChatOptions['onSteer']>;
   /** 额度分档告警(budget) — 同上,REPL 据此打印"今日用量较高/即将耗尽"一行 */
   onBudget?: NonNullable<StreamChatOptions['onBudget']>;
+  /** G-815976 流式中断标记帧(partial_done) — 透传 api-client 的 onPartialDone,未传时由 sampleWithRetry 落默认 stderr 警告一行 */
+  onPartialDone?: NonNullable<StreamChatOptions['onPartialDone']>;
   /** D19 终端实时输出增量(terminal_delta) — 透传 api-client 的 onTerminalDelta,未传时零开销(与 onPlanUpdate 同一条纪律) */
   onTerminalDelta?: NonNullable<StreamChatOptions['onTerminalDelta']>;
   /** D151 命令等待键盘输入(terminal_interaction) — 透传 api-client 的 onTerminalInteraction,未传时零开销(同上) */
@@ -1130,6 +1132,8 @@ interface SampleWithRetryOptions {
   onSteer?: NonNullable<StreamChatOptions['onSteer']>;
   /** 额度分档告警(budget) — 未传时零开销(与 onPlanUpdate 同一条纪律) */
   onBudget?: NonNullable<StreamChatOptions['onBudget']>;
+  /** G-815976 流式中断标记帧(partial_done) — 调用方未传时默认落 stderr 警告一行(半截回答不得与完整回答同形) */
+  onPartialDone?: NonNullable<StreamChatOptions['onPartialDone']>;
   /**
    * provider usage 帧 — WP-2 守卫一「压缩后真值复测」的唯一权威基准。
    * 未传时零开销(与 onPlanUpdate 同一条纪律)。
@@ -1266,6 +1270,13 @@ async function sampleWithRetry(
         ...(opts.onCitations ? { onCitations: opts.onCitations } : {}),
         ...(opts.onSteer ? { onSteer: opts.onSteer } : {}),
         ...(opts.onBudget ? { onBudget: opts.onBudget } : {}),
+        // G-815976 流式中断标记帧(partial_done):未传回调时由这里落默认 stderr 警告一行
+        // (走 stderr 避免污染 stdout 的流式正文;chalk.yellow 与 [retry]/[truncated] 警告族同风格)。
+        onPartialDone:
+          opts.onPartialDone ??
+          (() => {
+            process.stderr.write(chalk.yellow(`${t('cli.partialDoneTitle')}\n`));
+          }),
         ...(opts.onUsage ? { onUsage: opts.onUsage } : {}),
         ...(opts.onTerminalDelta ? { onTerminalDelta: opts.onTerminalDelta } : {}),
         ...(opts.onTerminalInteraction ? { onTerminalInteraction: opts.onTerminalInteraction } : {}),
@@ -1788,6 +1799,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         ...(opts.onCitations ? { onCitations: opts.onCitations } : {}),
         ...(opts.onSteer ? { onSteer: opts.onSteer } : {}),
         ...(opts.onBudget ? { onBudget: opts.onBudget } : {}),
+        ...(opts.onPartialDone ? { onPartialDone: opts.onPartialDone } : {}),
         // D19 终端实时输出增量透传(terminal_delta):REPL 借此把命令 stdout/stderr 逐行打进终端
         ...(opts.onTerminalDelta ? { onTerminalDelta: opts.onTerminalDelta } : {}),
         // D151 命令等待键盘输入透传(terminal_interaction):REPL 借此在终端交代"命令在等你敲一行"

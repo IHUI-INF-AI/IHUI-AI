@@ -301,7 +301,8 @@
     "modelCategoryVideo": "影片生成",
     "modelCategoryGuard": "安全審核",
     "modelCategoryOcr": "文字辨識",
-    "modelCategoryOther": "其他"
+    "modelCategoryOther": "其他",
+    "partialDoneTitle": "回答被中斷,以下內容可能不完整"
   },
   "settings": {
     "title": "設定",
