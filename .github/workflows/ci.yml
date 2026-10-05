@@ -169,9 +169,23 @@ jobs:
         id: lint
         run: pnpm turbo run lint
 
+      # Test 步刻意限制并发(2026-10-05,根治"必需检查一天四枚红")
+      # 为什么:ubuntu-latest 是 4 核,而 turbo 缺省并发是 10 —— 10 个包同时起 vitest,
+      # 每个包内部还会再开 worker,于是 ~40 个 node 进程抢 4 个核。超时不是用例慢,是抢不到 CPU:
+      # 同一天里 required 检查 `lint-typecheck-test` 因**四种不同形状**红过,而每一次的
+      # failure-triage 都写着同一句话"单独重跑 exit 0 / not reproducible standalone"
+      # (这正是争用的指纹,不是顺序依赖):
+      #   run 37281979505 → apps/api agent-control-ui `:234` "called 1 times, but got 3 times"
+      #   run 37294883676 → packages/types `:221` "Test timed out in 5000ms"(4362 文件/51.1MB 全仓扫描)
+      #   run 37308809241 → apps/api `:173` "Hook timed out in 15000ms"
+      #   run 37316398602 → apps/mobile-rn "Test timed out in 60000ms"(冷 transform 的重 import)
+      # 逐条把预算从 5s→15s→60s 抬上去是在跟同一件事打地鼠:每一枚红都换一个包出现。
+      # 并发降到 2 之后,包内 vitest 仍可自己并行跑满核,总 CPU 工作量不变,只是不再互相饿死。
+      # 边界:只降 Test 这一步的并发(它是唯一被观测到饿死的一步),lint/typecheck/build 未动 ——
+      # 那几步至今没有争用型红点,没有证据就不改。
       - name: Test
         id: test
-        run: pnpm turbo run test
+        run: pnpm turbo run test --concurrency=2
 
       # Build 步已上移至 2026-09-24(见 Prepare WXT types 之后),不再作为本 job 最后一步 ——
       # 留在末尾意味着任何前置步骤变红时"能否构建"这一结论直接缺失。
