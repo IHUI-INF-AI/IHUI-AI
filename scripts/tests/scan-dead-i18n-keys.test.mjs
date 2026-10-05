@@ -60,6 +60,8 @@ const ORIGINAL_CWD = process.cwd()
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const SCRIPT_PATH = path.resolve(__dirname, '../scan-dead-i18n-keys.mjs')
+// 端配置(消息包目录 + 代码取材面)的唯一出处,2026-10-05 从上面那个 CLI 脚本抽成 lib。
+const TARGETS_PATH = path.resolve(__dirname, '../lib/i18n-scan-targets.mjs')
 const HELPERS_PATH = path.resolve(__dirname, '../_i18n-scan-helpers.mjs')
 const HOOK_PATH = path.resolve(__dirname, '../lib/pre-commit-hook.js')
 
@@ -406,8 +408,13 @@ describe('scan-dead-i18n-keys.mjs CLI 入口测试', () => {
   test('场景 19:装车证明 —— cli 的 scanTargets 必须含真正拼键的跨包消费方', () => {
     // 键在 packages/shared/src/chat 里运行期拼出,端内代码只有注入 t 的那一层;
     // 少了这个目录,76 枚 waiting.* 会被整族误判成死键(2026-09-24 实测)。
-    const src = fs.readFileSync(SCRIPT_PATH, 'utf8')
-    const cliBlock = src.slice(src.indexOf('  cli: {'), src.indexOf('  extension: {'))
+    //
+    // 2026-10-05:端配置从本脚本抽到 scripts/lib/i18n-scan-targets.mjs(删除器要在删键之前
+    // 复用同一份取材面,而 import 本 CLI 会连带执行全量审计)。**断言的内容与强度一字未改**,
+    // 只把取样源从"本脚本正文"改成"配置的唯一出处";下面那半段真跑夹具的证明也原样保留 ——
+    // 它才是这条锁真正要护的行为(少了目录 ⇒ 76 枚 waiting.* 误判死键)。
+    const src = fs.readFileSync(TARGETS_PATH, 'utf8')
+    const cliBlock = src.slice(src.indexOf("  cli: {"), src.indexOf('  extension: {'))
     assert.match(cliBlock, /packages\/shared\/src\/chat/, 'cli.scanTargets 必须含 packages/shared/src/chat')
     setupFixture({
       target: 'cli',
