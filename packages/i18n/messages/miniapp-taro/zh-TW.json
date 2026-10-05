@@ -4,7 +4,7 @@
   },
   "conversationImport": {
     "pageTitle": "匯入對話",
-    "desc": "將 Claude Code / Codex / Cursor / Aider / 微信等外部工具的對話紀錄匯入本平台",
+    "desc": "將 Claude Code / Codex / Cursor / Aider / 微信等外部工具的對話紀錄匯入本平臺",
     "sourcesTitle": "選擇對話來源",
     "sourceClaudeCode": "Claude Code",
     "sourceClaudeCodeHint": "匯出檔案:.jsonl / .json",
@@ -572,7 +572,7 @@
     "refunded": "(已退費)",
     "receiptNo": "單號 {no}",
     "businessLine": {
-      "after_school_care": "托管",
+      "after_school_care": "託管",
       "kindergarten": "幼兒園",
       "academic": "文化課",
       "ai_course": "AI課",
