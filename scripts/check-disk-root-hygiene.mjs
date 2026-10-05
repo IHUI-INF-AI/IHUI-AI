@@ -53,6 +53,13 @@
  *   ③ 落点外的出路措辞按 prunable 分档:可 prune 的直接给命令;不可 prune 的**先核实归属**
  *      (多会话并行时那很可能是别人正在用的隔离检出,不是垃圾)。
  *
+ * 2026-10-05(G-998191)git 出口收口:本门唯一的 git 派生(`git worktree list --porcelain`)
+ * 由 `execFileSync('git', …)` 裸调用迁到取材层 `scripts/lib/face-reader.mjs` 的 `gitRaw`
+ * —— 仓内逐文件迁移的存量债(判据在 `scripts/tests/face-reader.test.mjs` 的
+ * `BARE_GIT_BASELINE`,只减不增)。收益不止"统一"本身:裸调用依赖 PATH、默认 stdio 会把
+ * 子进程 stderr 透进本门的读数、且无 timeout;层把这三项逐条写死。逐条行为面对照见
+ * `currentWorktreePorcelain()` 的头注(其中 quotepath 一项是**纠偏**,不是等价替换)。
+ *
  * 用法:
  *   node scripts/check-disk-root-hygiene.mjs              # 报告档(违规仍 exit 0)
  *   node scripts/check-disk-root-hygiene.mjs --strict     # 问责档(违规 exit 1)
@@ -62,10 +69,15 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, parse, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { execFileSync } from 'node:child_process'
 // 合法落点必须由**运行时解析**给出(见头注 ②):盘符字面量只能是别的机器的申报,
 // 不能是本机事实的来源。此处只引那一份实现,不在本文件再抄一套指针/gitdir 推导。
 import { resolveGitdir } from './lib/gitdir.mjs'
+// 2026-10-05(G-998191)迁移:本门唯一的 git 派生改走取材层的 `gitRaw`。此前是
+// `execFileSync('git', …)` 一处裸调用 —— 那形态同时踩三条:① 裸 'git' 依赖 PATH
+// (AGENTS §5b"git 调用不得依赖环境",换机/换服务身份就 ENOENT);② 默认 stdio 把子进程
+// stderr 直接透到父进程,本门的 stdout 逐行读数会被 git 的杂音污染;③ 无 timeout,
+// 索引锁住时无界挂起。
+import { gitRaw } from './lib/face-reader.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..')
@@ -192,16 +204,24 @@ export function auditWorktreeRegistry(porcelainText, policy, derived) {
 }
 
 /** 取当前仓的 worktree porcelain 面;取不到 ⇒ null(判"无法判定",不冒红也不记绿)。
- *  stdio 三态是本仓实测铁律(2026-09-30):git 子进程不吃 stdin ⇒ stdin 必须 'ignore',
- *  否则交互会话下 spawnSync 报 EBUSY(check-root-dir-clean 同型调用已带同参)。 */
+ *
+ *  2026-10-05(G-998191)迁到取材层 `gitRaw`,行为面逐条对齐:
+ *   · stdio 三态是本仓实测铁律(2026-09-30):git 子进程不吃 stdin ⇒ stdin 必须 'ignore',
+ *     否则交互会话下 spawnSync 报 EBUSY(check-root-dir-clean 同型调用已带同参)。
+ *     `gitRaw` 把这一档**写死**在层里(face-reader.mjs:94,不带 input 即 'ignore'),
+ *     不再由每个调用方各自记得传 —— 这正是本次迁移的收益本身。
+ *   · 绝对路径 git(层内 `resolveGitBin()`)+ `-c safe.directory=*` + windowsHide + 数字
+ *     timeout + 64MB maxBuffer:全部由层给足,本函数不再有"少写一项就只在本机炸"的余地。
+ *   · quotepath:层强制 `core.quotepath=false`。旧裸调用用 git 默认的 quotepath=true,
+ *     登记面上的非 ASCII 落点会被转义成八进制 ⇒ `auditWorktreeRegistry` 的前缀比较
+ *     对含中文/重音的路径会**误判成落点外**。故这一项是迁移带来的纠偏而非等价替换,
+ *     方向是"少一条假指控"(与头注 ② 同一原则)。
+ *   · 失败语义保持不变:层抛 `Undetermined`(Error 子类),这里 catch 后仍返回 null,
+ *     交 main() 落"未判定"那一维 —— 迁移不把"取不到"折叠成"没有违规"。 */
+const WORKTREE_GIT_TIMEOUT_MS = 60_000
 function currentWorktreePorcelain() {
   try {
-    return execFileSync('git', ['worktree', 'list', '--porcelain'], {
-      encoding: 'utf8',
-      cwd: REPO_ROOT,
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    return gitRaw(['worktree', 'list', '--porcelain'], REPO_ROOT, { timeout: WORKTREE_GIT_TIMEOUT_MS })
   } catch {
     return null
   }
