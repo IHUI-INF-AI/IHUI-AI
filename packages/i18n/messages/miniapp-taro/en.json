@@ -3476,6 +3476,7 @@
     "members": "Members"
   },
   "chat": {
+  "partialDoneTitle": "Response interrupted, the content below may be incomplete",
     "send": "Send",
     "meta": {
       "pullOnly": "On the mini program, this change syncs the next time you open it"
