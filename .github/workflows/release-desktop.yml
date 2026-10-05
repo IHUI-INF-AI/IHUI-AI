@@ -146,10 +146,10 @@ jobs:
           releaseDraft: false
           prerelease: false
           # 启用自动更新 artifacts:tauri-action 生成各平台 .sig 签名包并上传 Release assets;
-          # publish-updater-json job 聚合全部平台生成统一 latest.json,
-          # 并同步到固定 feed tag desktop-updater-feed(见 scripts/generate-latest-json.mjs)。
-          # updater endpoint 配置在 tauri.conf.json 指向固定 feed(避免 releases/latest 被其他 release 漂移):
-          # https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-updater-feed/latest.json
+          # publish-updater-json job 聚合全部平台生成统一 latest.json 上传到本 Release。
+          # updater endpoint 已定稿为单端点 https://aizhs.top/desktop-feed.json(2026-10-05 机主拍板,
+          # 原 GitHub desktop-updater-feed 兜底端点已删除:它只由 CI 维护、本机发版通道无 GH_TOKEN,
+          # 属于"看似有兜底、实际随发布路径分叉"的假能力)。
           updaterJsonPreferNsis: true
 
       # 2026-09-18 兜底断言:此前 Build & Release 是 continue-on-error(为绕过非 ASCII
@@ -248,7 +248,7 @@ jobs:
         run: |
           echo "### Updater JSON 发布完成" >> $GITHUB_STEP_SUMMARY
           echo "tag: ${{ inputs.tag || github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "latest.json 已聚合所有平台签名,上传到 Release assets + 固定 feed tag desktop-updater-feed" >> $GITHUB_STEP_SUMMARY
+          echo "latest.json 已聚合所有平台签名,上传到 Release assets" >> $GITHUB_STEP_SUMMARY
 
   # 同步构建产物到 apps/web/public/downloads/,实现"构建 → 自动同步下载包 → 自动更新 manifest"全链路
   sync-downloads:
