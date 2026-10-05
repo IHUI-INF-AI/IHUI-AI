@@ -1265,6 +1265,51 @@ function selfTest() {
     `narrowF9Face 必须同时改 counts.collisionGroups 与 collisions(组数与名单分叉时,红会点不出名),实测 ${JSON.stringify([narrowFace.counts.collisionGroups, narrowFace.collisions.length, narrowFace.counts.f9WideGroups])}`,
   )
   ok(f9KeySetOf(narrowFace).length === 0, '收窄后的键集不得再把叙述引用号喂给基线棘轮')
+  // ── F9 题面归一的三型取材口径(2026-10-05,修"F9 数到自己产的形态")──────────
+  // 成对写:三型各一条"必须绿",真撞号与**分叉前缀**各一条"必须红"。
+  // 只留绿的那三条 = 没有牙(判据失效的表现永远是安静);摘掉任何一型,§22c 镜像测试
+  // `scripts/tests/plan-task-index-f9-title-normalization.test.mjs` 里对应的变异用例会翻红点名。
+  const f9TailNote =
+    '- [ ] 68. 流式中切换模型 → 终止后自动带入新模型\n' +
+    '- [ ] 68. 流式中切换模型 → 终止后自动带入新模型 〔【归并】重复登记副本(2026-09-29):同主键的另一条登记,派单以那条为准。〕'
+  const f9PrefixNest =
+    '- [ ] **G-500 D6-G1 v2 执行器:适配器入库 + 四个 surface 全部接线** —— 交付说明。\n' +
+    '- [ ] **G-500 D6-G1 v2 执行器适配器已入库并单测真跑,但四个 surface 刻意未接** —— 交付说明。'
+  const f9ForeignLead =
+    '- [ ] **G-501 登录态串号甲**:第一件事。\n' +
+    '- [ ] **G-501 D129 登录态串号甲**:同一件事,只是题面开头多写了别人的号(承 D129,不占该号)。'
+  const f9ThinForeign =
+    '- [ ] **G-504 D160 补注**:指针行。\n- [ ] **G-504 运维班次这一格已补**:另一件事。'
+  const f9Branched =
+    '- [ ] **G-503 登录态串号**:一件事。\n' +
+    '- [ ] **G-503 登录态串号已修**:第二件事。\n' +
+    '- [ ] **G-503 登录态串号复发**:第三件事。'
+  for (const [name, face] of [
+    ['①行尾〔…〕注记', f9TailNote],
+    ['②精确前缀套叠', f9PrefixNest],
+    ['③题面开头他号引用', f9ForeignLead],
+  ]) {
+    const got = narrowF9Face(auditPlan(face), face)
+    ok(
+      got.counts.collisionGroups === 0 && got.collisions.length === 0,
+      `F9 归一:「${name}」是同一件事的合法形态,不得算第二次登记,实测 ${JSON.stringify(got.collisions.map((g) => [g.key, g.titleCount]))}`,
+    )
+  }
+  const f9True2 = narrowF9Face(auditPlan(f9TruePair), f9TruePair)
+  ok(
+    f9True2.counts.collisionGroups === 1 && f9True2.collisions[0].titleCount === 2,
+    `F9 归一不得放松判据:两个互不相干的标题同号必须仍判一组,实测 ${JSON.stringify(f9True2.collisions.map((g) => [g.key, g.titleCount]))}`,
+  )
+  const f9Branch = narrowF9Face(auditPlan(f9Branched), f9Branched)
+  ok(
+    f9Branch.counts.collisionGroups === 1 && f9Branch.collisions[0].titleCount === 2,
+    `并桶只认**精确前缀**不认相似度:甲 ⊂ 甲乙 与 甲 ⊂ 甲丙 分叉时必须仍剩 2 个标题,实测 ${JSON.stringify(f9Branch.collisions[0]?.titles?.map((t) => t.title))}`,
+  )
+  const f9Thin = narrowF9Face(auditPlan(f9ThinForeign), f9ThinForeign)
+  ok(
+    f9Thin.counts.collisionGroups === 1 && f9Thin.collisions[0].titles.some((t) => t.title === 'D160补注'),
+    `他号让位在"剥完给不出实质题面"时必须逐字退回原样(不许没收覆盖面),实测 ${JSON.stringify(f9Thin.collisions[0]?.titles?.map((t) => t.title))}`,
+  )
   // 成套性 + 方向:进 probe ⇒ 走同一套差值棘轮;涨点名、平不点名;存量(含 --strict)不判红。
   ok(
     probe(f9).some(([k, , n]) => k === 'F9' && n === 1),
