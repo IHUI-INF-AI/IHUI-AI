@@ -122,6 +122,7 @@
     },
     "goalNotAchieved": "独立校验未通过:本次运行不得宣布完成",
     "truncatedByLength": "本轮输出已达长度上限被截断,回复可能不完整;可让我分次继续,或调高 max_tokens 后重试。",
+    "partialDoneTitle": "回答被中断,以下内容可能不完整",
     "mcpCredentials": {
       "storePlaintext": "MCP 凭据当前以明文存于 {path}（本机降级）",
       "storeEncrypted": "MCP 凭据已加密存储（后端：{backend}）",

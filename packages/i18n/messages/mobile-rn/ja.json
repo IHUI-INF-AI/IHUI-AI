@@ -301,7 +301,8 @@
     "modelCategoryVideo": "動画生成",
     "modelCategoryGuard": "安全性審査",
     "modelCategoryOcr": "文字認識",
-    "modelCategoryOther": "その他"
+    "modelCategoryOther": "その他",
+    "partialDoneTitle": "回答が中断されました。以下の内容は不完全な可能性があります"
   },
   "settings": {
     "title": "設定",
