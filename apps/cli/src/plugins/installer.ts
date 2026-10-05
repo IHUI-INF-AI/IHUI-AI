@@ -652,6 +652,56 @@ function persistInstallAuthority(
     );
   }
 }
+/**
+ * 插件域文件权威面(registry.json)的**唯一**回滚出口 —— 回滚本身要 CAS
+ * (G-732,2026-10-03;上游 marketplace.ts:1827-1848 的写法,报错文案逐字同义)。
+ *
+ * 防的形态:回滚无条件盖写。句柄 A 写完 registry 后,句柄 B(基于过期的内存基准)
+ * 交换失败要回滚 —— 若 B 直接把"删记录/还原旧记录"盖上去,A 的更新就被抹掉了。
+ * 所以回滚前必须**从盘上重读**并核对:该条记录的事务号仍等于本次要回滚的那笔;
+ * 不等 ⇒ 抛 `Cannot roll back marketplace authority after concurrent update`
+ * (并发写入者已接手这条记录,回滚方无权处置)。记录缺席 = 没有"这笔"可回滚,
+ * 幂等返回、不报错(回滚的幂等语义:目标态已达)。
+ *
+ * 上游同款的后半(:421-444)—— "权威回滚失败时**故意**先 finalize 数据面,
+ * 宁可权威指新代,也不让它指向已被删的旧代" —— 属于调用方的失败编排:
+ * 本提交点的既有纪律(see installFromDirectory:「提交点已越过:此后绝不回退」)
+ * 仍优先,未来任何要在权威面回退的流程(如恢复处置表新增动作)**必须**走本出口,
+ * 不得再写第二份无条件盖写。
+ */
+export function rollbackInstallAuthority(opts: {
+  /** 记录键(插件名) */
+  name: string
+  /** 本次要回滚掉的那笔写入的事务号 —— CAS 凭据:盘上该条仍带它才许动 */
+  expectTransactionId: string
+  /** 回滚到的上一代记录;缺省 = 整条移除(= 这条安装从未发生) */
+  restoreRecord?: InstallRecord
+  /** 测试注入缝(缺省真读盘;镜像测试不在这里造第二份判据) */
+  load?: typeof loadInstallRegistry
+  save?: typeof saveInstallRegistry
+}): { rolledBack: boolean; recordExisted: boolean } {
+  const load = opts.load ?? loadInstallRegistry
+  const save = opts.save ?? saveInstallRegistry
+  // CAS 的对面是"盘上现状"——每次都重读,绝不用调用方内存里那份基准
+  const fresh = load()
+  const idx = fresh.records.findIndex((r) => installRecordKey(r) === opts.name)
+  if (idx < 0) return { rolledBack: false, recordExisted: false }
+  const current = fresh.records[idx]!;
+  if ((current.transactionId ?? '') !== opts.expectTransactionId) {
+    throw new Error(
+      `Cannot roll back marketplace authority after concurrent update:` +
+        `盘上记录的事务号(${current.transactionId ?? '(缺席)'})≠ 本次要回滚的事务号(${opts.expectTransactionId})` +
+        `—— 已有并发写入者接手这条记录,无条件盖写会把别人的更新抹掉`,
+    )
+  }
+  if (opts.restoreRecord) {
+    fresh.records[idx] = opts.restoreRecord
+  } else {
+    fresh.records.splice(idx, 1)
+  }
+  save(fresh)
+  return { rolledBack: true, recordExisted: true }
+}
 
 /**
  * Git URL 安装(内部)。
