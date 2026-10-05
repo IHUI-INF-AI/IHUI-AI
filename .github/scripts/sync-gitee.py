@@ -166,14 +166,16 @@ def main():
     # 5. 更新器 feed(2026-09-17 终极:release 附件方案)
     # 旧 desktop-feed 分支方案已废弃——仓库「单分支守门」会删该分支,且 Gitee contents API
     # 的 PUT 行为不稳。改写 desktop-updater-feed release 的 latest.json 附件(幂等替换),
-    # 与 gitee-release-attach.py(本机发版路径)完全一致;失败不阻塞(更新器双端点,GH 兜底)。
+    # 与 gitee-release-attach.py(本机发版路径)一致。
+    # 注:Gitee 侧该 release 只是附件存档,**不是**更新器端点(客户端 2026-10-05 起只认
+    # aizhs.top 单端点);GitHub feed 维护已随该拍板删除,这里不再提任何 GitHub 端点。
     try:
         content_b64 = __import__("base64").b64encode(
             json.dumps(latest, indent=2, ensure_ascii=False).encode()).decode()
         FEED_TAG = "desktop-updater-feed"
         rel = gitee_api(f"/repos/{GITEE_OWNER}/{GITEE_REPO}/releases/tags/{FEED_TAG}")
         if rel and rel.get("id"):
-            print("[gitee] feed release 已存在(Gitee 侧 feed 由 GitHub 端点承担,跳过)")
+            print("[gitee] feed release 已存在(非更新器端点,跳过)")
         else:
             rel = gitee_api(f"/repos/{GITEE_OWNER}/{GITEE_REPO}/releases", "POST", {
                 "tag_name": FEED_TAG, "name": "Desktop updater feed(更新 feed 固定端点)",
@@ -196,10 +198,9 @@ def main():
                 req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
                 r = urllib.request.urlopen(req, timeout=300)
                 print(f"[gitee] feed release latest.json 更新: {r.status}")
-        print("[done] 端点: gitee/github releases/download/desktop-updater-feed/latest.json")
+        print("[done] Gitee feed 附件已处理(非更新器端点,仅存档)")
     except Exception as e:
         print(f"[gitee] feed 更新异常(不阻塞): {e}")
-    print("[done] Gitee 更新器端点: https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-updater-feed/latest.json")
 
 
 if __name__ == "__main__":
