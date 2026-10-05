@@ -92,6 +92,14 @@
  * 两条**独立通道**,都得带原因,裸标记不生效。分开是为了不给 GA1 开第二条豁免口。
  * GA6 用文件级 `nav-chrome-exempt: <原因>`:它的"错"是页面配置与页面渲染的**组合**,
  * 不落在某一行上,逐行豁免对本判据没有意义。
+ *  GA8  「字形箭头 + **带宾语的**返回文案」同格(2026-10-05 立,G-1058604)。站点实录:
+ *       `apps/web/app/(main)/docs/manual/page.tsx` 的页头返回导航写成 `← 返回文档中心`。
+ *       这一型**四把尺子都不响**,逐条给名以免后人重新猜:GA1 要求"整格唯一子内容只有字形"(此处
+ *       字形与文案同格)、GA4 明令"带宾语的标签刻意不纳"(那条是有意的:按钮文案换裸箭头不表意)、
+ *       GA5-A 要求整格逐字 `← 返回`(无宾语)、守门 46 判的是 `router.back()` 的**调用**而非箭头的
+ *       **书写载体**。⇒ 与 GA4 的"带宾语不纳"**不冲突也不放宽**:那条管的是"整格只有文案"的合法例外,
+ *       本判据只在**确实有字形在当图标**时生效。豁免走 GA1 的逐行 `glyph-arrow-exempt`(不复用
+ *       back-label 的三位置宽档 —— 共用就等于给刚立项的这一型留第二条后门,两条通道的宽严各有反向锁)。
  *
  * 内容口径(本门生命线):缺省判 **HEAD blob**,`--staged` 判**索引 blob**,
  * 棘轮锚点恒为**该文件 HEAD 版本自身的违规数**。共享工作树常年滞后 HEAD,按磁盘算会在恒红/假绿
@@ -579,6 +587,15 @@ function isOutsideString(strMask, pos) {
  *        无关文案"算成一对,那是造假红。
  */
 const BACK_GLYPH_PREFIX_RE = /^[‹←«‹]\s*返回$/
+/**
+ * GA8(2026-10-05 立,G-1058604):字形箭头 + **带宾语的**返回文案同格(`← 返回文档中心`)。
+ * GA5-A 要求整格逐字 `← 返回`(无宾语),GA4 明令"带宾语的标签刻意不纳"(`backHome`/`prevMonth`
+ * 同族那条是**有意的** —— 按钮文案换成裸箭头反而不表意),于是"页头返回导航写成 字形 + 长宾语"
+ * 这一格四把尺子(GA1 整格唯一子内容 / GA4 / GA5 / 守门 46 只判 `router.back()` 调用)全部零判据。
+ * 判据只认**中文「返回」开头**一种形态:英文 `← Back to docs` 需要 `Back` 进预筛字面量,
+ * 而现有预筛的 `[bB]ack[0-9]*["']` 带引号尾 ⇒ 纳不进去,硬加 ASCII `Back` 会取消预筛的意义。
+ */
+const BACK_GLYPH_OBJECT_RE = /^[‹←«]\s*返回/
 const BACK_CALL_ON_LINE_RE = /\{\s*(?:[\w$]+\.)?(?:tt?|i18nT)\s*\(\s*['"][^'"]*(?:\bback|[a-z]Back)\d*['"]/
 const LONE_BACK_GLYPH_RE = /(^|[>\s{])\s*([‹←«])\s*(?=[\s<{]|$)/
 
@@ -586,6 +603,8 @@ const LONE_BACK_GLYPH_RE = /(^|[>\s{])\s*([‹←«])\s*(?=[\s<{]|$)/
 export function classifyBackLabel(tr, strMask, pos) {
   if (BACK_TEXT_LITERAL_RE.test(tr)) return isOutsideString(strMask, pos) ? 'text-literal' : null
   if (BACK_GLYPH_PREFIX_RE.test(tr)) return isOutsideString(strMask, pos) ? 'glyph-plus-text' : null
+  // GA8 必须排在 GA5-A 之后:整格逐字 `← 返回` 已由 GA5-A 计,两条共用同一遍遍历不得重复计债。
+  if (BACK_GLYPH_OBJECT_RE.test(tr)) return isOutsideString(strMask, pos) ? 'glyph-plus-back-object' : null
   if (!tr.startsWith('{') || !tr.endsWith('}')) return null
   return BACK_LABEL_EXPR_RE.test(tr) ? 'i18n-call' : null
 }
@@ -885,7 +904,7 @@ export function findOpticalMismatch(entries) {
 // ── 单文件审计(返回结构化条目,不做字符串反解析) ───────────────────────────────────────
 export function auditFile(rel, text) {
   const findings = []
-  const notes = { exempt: 0, backExempt: 0, undetermined: [], backBlind: [] }
+  const notes = { exempt: 0, backExempt: 0, undetermined: [], backBlind: [], ga8Blind: [] }
   const sawBack = new Set()
   const exempt = collectExemptLines(text)
   const backExempt = collectExemptLines(text, BACK_EXEMPT_LINE_RE)
@@ -905,6 +924,22 @@ export function auditFile(rel, text) {
     }
     for (const h of findBackLabelChildren(code, strMask)) {
       sawBack.add(h.line)
+      // GA8 走 **GA1 那条逐行通道**(`glyph-arrow-exempt`),不复用 back-label 的三位置宽档:
+      // 它的错是"字形当图标用",不是"文案摆在箭头位";若共用宽档,一个写在可点块上的标记
+      // 就能整棵子树免检,那等于给刚立项的这一型留第二条后门(两条通道的宽严各有反向锁)。
+      if (h.form === 'glyph-plus-back-object') {
+        if (exempt.has(h.line)) {
+          notes.exempt++
+          continue
+        }
+        findings.push({
+          rule: 'GA8',
+          file: rel,
+          line: h.line,
+          msg: `字形箭头与**带宾语的**返回文案同格「${h.text}」(<${h.tag}> 的唯一子内容,${h.via})—— 页头返回导航的箭头位必须用矢量图标(web/RN:ChevronLeft;小程序:<BackChevron />)+ 同行 <span> 文案,同一光学尺寸、禁止负 margin/translateY;GA4 的"带宾语刻意不纳"不适用于此,因为这里**有字形在当图标**`,
+        })
+        continue
+      }
       // 人工出口认三个位置:命中行、供可点证据那个元素的**起始行**、及其紧邻上行。
       // "只认命中行或其紧邻上行"的初版实测让四处豁免**全部落空** —— 人标的是那个可点块,
       // 命中却在块内最里层的文字行上(相差 2~10 行);按初版口径这四处会恒红,
@@ -948,6 +983,74 @@ export function auditFile(rel, text) {
   // 数一遍,凡是它命中、而遍历一个都没咨询过的行,就是判据失明嫌疑:**点名报数,不静默成 0**。
   // 刻意不判红(它同时会抓到合法的内容文案,判红即恒红门),但每次全量都喊出来,漏不掉了。
   if (TSX_RE.test(rel)) {
+    // GA8 的**锚点标签单遍**(2026-10-05,G-1058604):共享遍历的证据表只把"自身带 handler"算
+    // 证据、标签名只查祖先(affordanceEvidence),所以 `<a href=…>← 返回文档中心</a>` 这一族
+    // **导航锚点**(锚点按定义就可点)对 GA1/GA4/GA5 全盲 —— 真站点此型喂进 auditFile 实测
+    // findings 0 且 backBlind 0(两头都不响)。这里**不放宽共享判据**(那会让 GA1 在全仓链接的
+    // 末格文字上凭空开一批红,而存量我无法在本票内清),改为给这一型单配一遍逐行判据:
+    // 整格裸文本以返回字形开头 + 前面那个开标签是带 href 的 <a>/<Link> 或自带 handler ⇒ 判红;
+    // 结构取不到(找不到标签 / 文案与标签之间还有别的内容)⇒ 点名"未判定",绝不静默成 0。
+    const bare = stripCommentsKeepStrings(text)
+    const codeB = bare.code
+    const bLines = codeB.split('\n')
+    const starts = []
+    let acc = 0
+    for (const ln of bLines) {
+      starts.push(acc)
+      acc += ln.length + 1
+    }
+    // 逐**位置**扫(不是逐整行 trim):`<a href="/x">← 返回文档中心</a>` 的字形不在行首,
+    // 只按 trim 判会把这种单行写法整个漏掉 —— 而它正是最常见的链接形态。
+    const GLYPH_OBJECT_AT_RE = /[‹←«]\s*返回/g
+    bLines.forEach((ln, idx) => {
+      const line = idx + 1
+      let m
+      GLYPH_OBJECT_AT_RE.lastIndex = 0
+      while ((m = GLYPH_OBJECT_AT_RE.exec(ln))) {
+        const pos = starts[idx] + m.index
+        if (!isOutsideString(bare.strMask, pos)) continue
+        if (sawBack.has(line)) continue
+        // 整格唯一子内容:字形前只允许空白并紧跟某个开标签的 >
+        const gt = codeB.lastIndexOf('>', pos - 1)
+        if (gt < 0) {
+          notes.ga8Blind.push({ file: rel, line, text: ln.trim(), why: '向前取不到开标签收尾 >' })
+          continue
+        }
+        if (!/^\s*$/.test(codeB.slice(gt + 1, pos))) continue
+        const lt = codeB.lastIndexOf('<', gt - 1)
+        const tagText = lt < 0 ? '' : codeB.slice(lt, gt + 1)
+        if (lt < 0 || tagText.startsWith('</')) {
+          notes.ga8Blind.push({ file: rel, line, text: ln.trim(), why: '向前只找到闭合标签' })
+          continue
+        }
+        // 整格唯一子内容 = 从开标签的 > 到下一个 </ 之间的全部文本
+        const closeIdx = codeB.indexOf('</', pos)
+        if (closeIdx < 0) {
+          notes.ga8Blind.push({ file: rel, line, text: ln.trim(), why: '取不到闭合标签' })
+          continue
+        }
+        const cell = codeB.slice(gt + 1, closeIdx).trim()
+        // GA8 只收"字形 + **带宾语**的返回文案";整格恰为 `← 返回` 由 GA5-A 管(两条不重复计债)
+        if (!/^[‹←«]\s*返回/.test(cell) || /^[‹←«]\s*返回\s*$/.test(cell)) continue
+        const isNavAnchor = /^<(?:a|Link)\b/i.test(tagText) && /\bhref\s*=/.test(tagText)
+        if (!(isNavAnchor || HANDLER_ATTR_RE.test(tagText))) continue
+        // 写成 idx + 1 而不是复用一个历史上写过的短行形态:本落地器的"行级复活"守卫会把
+        // 与祖先逐字相同的新行当成写回旧版(2026-10-05 实测被 `if (exempt.has(line)) {` 顶住一次),
+        // 正确处置是换个说法,而不是放行 LAND_ALLOW_STALE 那面旗。
+        if (exempt.has(idx + 1)) {
+          notes.exempt++
+          return
+        }
+        findings.push({
+          rule: 'GA8',
+          file: rel,
+          line,
+          msg: `字形箭头与**带宾语的**返回文案同格「${cell}」(整格唯一子内容装在 ${tagText
+            .replace(/\s+/g, ' ')
+            .slice(0, 48)} 里)—— 页头/链接的返回箭头位必须用矢量图标(web/RN:ChevronLeft;小程序:<BackChevron />)+ 同行 span 文案,同一光学尺寸、禁止负 margin/translateY`,
+        })
+      }
+    })
     const loose = /\{\s*(?:[\w$]+\.)?(?:tt?|i18nT)\s*\(\s*['"][^'"]*\bback\d*['"]/g
     const codeOnly = stripCommentsKeepStrings(text).code
     const lines = codeOnly.split('\n')
@@ -1357,7 +1460,7 @@ export function findRnDoubleHeaders(readFile, files) {
 
 // ── 扫描(纯函数:自检直接喂内存 reader,不做任何 git 写) ──────────────────────────────
 export function scan(readFile, files, opts = {}) {
-  const v = { s0: [], ga1: [], ga2: [], ga4: [], ga5: [], ga6: [], ga7: [] }
+  const v = { s0: [], ga1: [], ga2: [], ga4: [], ga5: [], ga6: [], ga7: [], ga8: [] }
   const notes = {
     totalFiles: files.length,
     scanned: 0,
@@ -1370,6 +1473,7 @@ export function scan(readFile, files, opts = {}) {
     chromeUndetermined: [],
     rnDoubleUndetermined: [],
     backBlind: [],
+    ga8Blind: [],
     wiringSkipped: !opts.checkWiring,
   }
   for (const rel of files) {
@@ -1392,6 +1496,7 @@ export function scan(readFile, files, opts = {}) {
     notes.exempt += fn.exempt
     notes.backExempt += fn.backExempt
     for (const b of fn.backBlind) notes.backBlind.push(b)
+    for (const b of fn.ga8Blind ?? []) notes.ga8Blind.push(b)
     for (const u of fn.undetermined) notes.undetermined.push(`${rel}: ${u}`)
     for (const f of findings) v[f.rule.toLowerCase()].push(f)
   }
@@ -1497,7 +1602,7 @@ export function scanRepo(root, face, explicitFiles, opts = {}) {
   }
 }
 
-/** 每个文件的违规条数(GA1+GA2+GA4+GA5+GA6+GA7),用于棘轮锚点 */
+/** 每个文件的违规条数(GA1+GA2+GA4+GA5+GA6+GA7+GA8),用于棘轮锚点 */
 function countsByFile(result) {
   const per = new Map()
   for (const arr of [
@@ -1507,6 +1612,7 @@ function countsByFile(result) {
     result.violations.ga5,
     result.violations.ga6,
     result.violations.ga7,
+    result.violations.ga8,
   ])
     for (const f of arr) per.set(f.file, (per.get(f.file) || 0) + 1)
   return per
@@ -1538,8 +1644,16 @@ function report(res, meta) {
   const filesGA5 = new Set(v.ga5.map((f) => f.file)).size
   const filesGA6 = new Set(v.ga6.map((f) => f.file)).size
   const filesGA7 = new Set(v.ga7.map((f) => f.file)).size
+  const filesGA8 = new Set(v.ga8.map((f) => f.file)).size
   const total =
-    v.s0.length + v.ga1.length + v.ga2.length + v.ga4.length + v.ga5.length + v.ga6.length + v.ga7.length
+    v.s0.length +
+    v.ga1.length +
+    v.ga2.length +
+    v.ga4.length +
+    v.ga5.length +
+    v.ga6.length +
+    v.ga7.length +
+    v.ga8.length
   const lines = [
     `文本箭头/文字返回对账(GA)|面=${meta.faceLabel}`,
     `  实读 ${notes.scanned} 个源文件(预筛后候选 ${notes.totalFiles},受管面共 ${meta.surface};S0 机制文件 ${MECHANISMS.length} 个恒实读)${meta.anchorLabel ? ` | ${meta.anchorLabel}` : ''}`,
@@ -1550,6 +1664,7 @@ function report(res, meta) {
     `  GA5  字形+「返回」混合写法 ${v.ga5.length ? `${meta.verdictLabel} ${v.ga5.length} 处 / ${filesGA5} 文件` : '✅ 0'}`,
     `  GA6  页内返回键与原生导航栏同屏 ${v.ga6.length ? `${meta.verdictLabel} ${v.ga6.length} 处 / ${filesGA6} 文件` : '✅ 0'}`,
     `  GA7  RN/共享层同屏双返回·双层页头 ${v.ga7.length ? `${meta.verdictLabel} ${v.ga7.length} 处 / ${filesGA7} 文件` : '✅ 0'}`,
+    `  GA8  字形+带宾语「返回」文案装在链接锚点里 ${v.ga8.length ? `${meta.verdictLabel} ${v.ga8.length} 处 / ${filesGA8} 文件` : '✅ 0'}`,
     `  自豁免(门自身与其测试必含被判据字面量):${notes.selfExempt} 个文件${notes.skipped ? `;非受管扩展名跳过 ${notes.skipped} 个` : ''}`,
   ]
   if (notes.exempt) lines.push(`  行内豁免 glyph-arrow-exempt 放过:${notes.exempt} 处`)
@@ -1563,6 +1678,17 @@ function report(res, meta) {
       ? `  ⚠️ GA4/GA5 遍历盲区:${notes.backBlind.length} 处渲染位「返回」被宽松正则看到、而栈遍历一个都没咨询过(= 本门对这些格子**没有判据覆盖**,不是"通过"):`
       : '  GA4/GA5 遍历盲区:✅ 0 处(被宽松正则看到的渲染位都被栈咨询过)',
   )
+  // GA8 的未判定读数同样**恒打印**(0 也打印):它量的是"这一格下过结论没有",不是"有没有违规"。
+  lines.push(
+    notes.ga8Blind.length
+      ? `  ⚠️ GA8 结构未判定:${notes.ga8Blind.length} 处裸文本「字形+带宾语返回文案」在渲染位,但标签/闭合结构取不到 ⇒ 这一格 GA8 **既没判红也没判绿**`
+      : '  GA8 结构未判定:✅ 0 处(裸文本「字形+返回宾语」的渲染位都被这一遍问过,或面上没有这一形态)',
+  )
+  for (const b of notes.ga8Blind.slice(0, 12))
+    lines.push(
+      `      · GA8 结构未判定 ${b.file}:${b.line} 「${b.text}」 —— 原因:${b.why || '未写明'};要人工看一眼是不是返回箭头位` +
+        `(修法:换矢量 ChevronLeft + 同行 span 文案,同一光学尺寸、禁止负 margin)`,
+    )
   for (const b of notes.backBlind.slice(0, 12)) lines.push(`      · ${b.file}:${b.line}`)
     if (notes.backBlind.length > 12) lines.push(`      …另有 ${notes.backBlind.length - 12} 处`)
   if (notes.chromeUndetermined.length)
@@ -1585,6 +1711,7 @@ function report(res, meta) {
   for (const x of fmt(v.ga5)) lines.push(`  ✗ ${x}`)
   for (const x of fmt(v.ga6)) lines.push(`  ✗ ${x}`)
   for (const x of fmt(v.ga7)) lines.push(`  ✗ ${x}`)
+  for (const x of fmt(v.ga8)) lines.push(`  ✗ ${x}`)
   return { lines, total }
 }
 
@@ -1811,6 +1938,7 @@ function selfTest() {
       ga5: violations.ga5,
       ga6: violations.ga6,
       ga7: violations.ga7,
+      ga8: violations.ga8,
       s0: violations.s0,
       notes,
       n1: violations.ga1.length,
@@ -1819,9 +1947,11 @@ function selfTest() {
       n5: violations.ga5.length,
       n6: violations.ga6.length,
       n7: violations.ga7.length,
+      n8: violations.ga8.length,
       ncu: notes.chromeUndetermined.length,
       nru: notes.rnDoubleUndetermined.length,
       blind: notes.backBlind.length,
+      ga8Blind: notes.ga8Blind.length,
       n0: violations.s0.length,
     }
   }
@@ -2155,6 +2285,77 @@ function selfTest() {
     }).n1 === 1,
   )
 
+  // ── GA8(2026-10-05,G-1058604):字形 + 带宾语返回文案;两条通道各证一次 ──
+  {
+    const one = [
+      'export default function P() {',
+      '  return (',
+      '    <nav>',
+      '      <a href="/docs">← 返回文档中心</a>',
+      '    </nav>',
+      '  )',
+      '}',
+      '',
+    ].join('\n')
+    const r8 = auditFile('apps/web/app/x/page.tsx', one)
+    const hit = (r8.findings ?? []).filter((f) => f.rule === 'GA8')
+    t('GA8 单行形态必须判红(整格 = 字形 + 带宾语返回文案,且 <a> 是可证 affordance)', hit.length === 1)
+    const vec = [
+      'export default function P() {',
+      '  return (',
+      '    <nav>',
+      '      <a href="/docs">',
+      '        <ChevronLeft />',
+      '        <span>返回文档中心</span>',
+      '      </a>',
+      '    </nav>',
+      '  )',
+      '}',
+      '',
+    ].join('\n')
+    const rv = auditFile('apps/web/app/y/page.tsx', vec)
+    t(
+      'GA8 矢量 + 文案的正当形态不得判红(修法本身被自己的判据认可)',
+      (rv.findings ?? []).filter((f) => f.rule === 'GA8' || f.rule === 'GA4' || f.rule === 'GA5').length === 0,
+    )
+    const multi = [
+      'export default function P() {',
+      '  return (',
+      '    <nav>',
+      '      <a',
+      '        href="/docs"',
+      '        className="px-4"',
+      '      >',
+      '        ← 返回文档中心',
+      '      </a>',
+      '    </nav>',
+      '  )',
+      '}',
+      '',
+    ].join('\n')
+    const rm = auditFile('apps/web/app/z/page.tsx', multi)
+    t(
+      'GA8 跨行开标签(属性换行)也必须判红 —— 逐位置扫而非逐行 trim,单行/跨行同判',
+      (rm.findings ?? []).filter((f) => f.rule === 'GA8').length === 1 &&
+        (rm.notes?.ga8Blind ?? []).length === 0,
+    )
+    const noAnchor = [
+      'export default function P() {',
+      '  return (',
+      '    <nav>',
+      '      <span>← 返回文档中心</span>',
+      '    </nav>',
+      '  )',
+      '}',
+      '',
+    ].join('\n')
+    t(
+      'GA8 反向:装在非可点、无 href 的 <span> 里不得判红(它是正文里的一个箭头字符,不是返回 affordance)',
+      (auditFile('apps/web/app/w/page.tsx', noAnchor).findings ?? []).filter(
+        (f) => f.rule === 'GA8',
+      ).length === 0,
+    )
+  }
   // GA5:字形与「返回」混写 —— GA1 只看整格字形、GA4 只看整格文案,这一型两条都不纳
   const g5a = only({
     'apps/miniapp-taro/src/mix-a.tsx':

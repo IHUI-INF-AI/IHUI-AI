@@ -625,4 +625,58 @@ const FIXTURES = {
     "export default defineAppConfig({ window: { navigationBarTitleText: 'I' } })\n",
   'apps/miniapp-taro/src/components/MoreLink.tsx': 'x',
 }
+
+// ── GA8(2026-10-05,G-1058604):字形 + 带宾语「返回」文案装在导航锚点里 ──────────────
+// 两条都是**行为断言**,不读源码正则 —— 源码窗口式的"装车锁"会随措辞漂成恒红或恒绿,
+// 而这一型在本门已经咬过一次(GA5/GA6 的"函数在而没人调"锁就是文本式的,改判据即失效)。
+const GA8_SITE = [
+  'export default function P() {',
+  '  return (',
+  '    <nav>',
+  '      <a',
+  '        href="/docs/manual"',
+  '        className="px-4"',
+  '      >',
+  '        ← 返回文档中心',
+  '      </a>',
+  '    </nav>',
+  '  )',
+  '}',
+  '',
+].join('\n')
+
+test('GA8 必须真挂在 auditFile 上(判据写了却没人调 = 提交链上一路绿灯)', () => {
+  const hits = (gate.auditFile('apps/web/app/(main)/docs/manual/page.tsx', GA8_SITE).findings ?? []).filter(
+    (f) => f.rule === 'GA8',
+  )
+  assert.equal(hits.length, 1, '跨行开标签 + 裸文本「字形+带宾语返回文案」必须产出恰好一条 GA8')
+  // 反向对照:同一位置换成矢量 + span 的正当写法,GA8/GA4/GA5 一条都不该有
+  const OK = GA8_SITE.replace(
+    '        ← 返回文档中心',
+    '        <ChevronLeft className="h-3.5 w-3.5" aria-hidden />\n        <span>返回文档中心</span>',
+  )
+  const after = (gate.auditFile('apps/web/app/(main)/docs/manual/page.tsx', OK).findings ?? []).filter(
+    (f) => f.rule === 'GA8' || f.rule === 'GA4' || f.rule === 'GA5',
+  )
+  assert.equal(after.length, 0, '修法本身被自己的判据认可,否则门就是在逼人跳门')
+})
+
+test('GA8 不得复用 back-label 的三位置宽档(它借的是 GA1 那条逐行通道)', () => {
+  const withBackExempt = GA8_SITE.replace(
+    '      <a',
+    '      {/* back-label-exempt: 页头返回键 */}\n      <a',
+  )
+  const stillRed = (
+    gate.auditFile('apps/web/app/q/page.tsx', withBackExempt).findings ?? []
+  ).filter((f) => f.rule === 'GA8').length
+  assert.equal(stillRed, 1, 'back-label-exempt 写在标签上不得救 GA8 —— 否则一条标记救整棵子树')
+  const withGlyphExempt = GA8_SITE.replace(
+    '        ← 返回文档中心',
+    '        ← 返回文档中心 {/* glyph-arrow-exempt: 装饰性示意 */}',
+  )
+  const nowOut = (
+    gate.auditFile('apps/web/app/r/page.tsx', withGlyphExempt).findings ?? []
+  ).filter((f) => f.rule === 'GA8').length
+  assert.equal(nowOut, 0, 'GA8 的合法出口必须是 glyph-arrow-exempt(带原因、逐行)')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
