@@ -365,11 +365,11 @@ export async function sendStdioRpc(
     // 发生时立刻以真因 reject,而不是干等满 timeoutMs 报"超时"(改前的行为)。
     const diag = ensureStdioDiagnostics(proc);
 
-    // G-694:先声明 `onData`/`timer` 再定义 settle —— settle 是它们的闭包,
-    // 而 timer 与 onChildFailure 的初始化都会调用它(声明顺序不可调换)。
+    // G-694:`timer` 必须先声明(它是唯一终态出口 settle 要读的可选值,且下面才赋值);
+    // `onData` 用**整体提升的函数声明**(同 `git-runner.ts` 里 `onAbort` 的先例),这样 settle
+    // 无论何时被触发都拿得到一个真函数,不会再对 undefined 调 stdout.off()。
     let settled = false;
-    let timer: NodeJS.Timeout | undefined;
-    let onData: (data: Buffer) => void;
+    let timer: NodeJS.Timeout | undefined = undefined;
 
     /** 唯一终态出口:摘干净一切,然后只结算一次。 */
     const settle = (outcome: { ok: true; value: unknown } | { ok: false; error: Error }): void => {
@@ -391,7 +391,7 @@ export async function sendStdioRpc(
       settle({ ok: false, error: new Error(withDiagnostics(`MCP 请求超时: ${method} (${timeoutMs}ms)`)) });
     }, timeoutMs);
 
-    onData = (data: Buffer): void => {
+    function onData(data: Buffer): void {
       const text = data.toString();
       for (const line of text.split('\n')) {
         if (!line.trim()) continue;
@@ -416,7 +416,7 @@ export async function sendStdioRpc(
           // 忽略非 JSON 行
         }
       }
-    };
+    }
 
     stdout.on('data', onData);
     proc.stdin.write(msg, (err) => {
