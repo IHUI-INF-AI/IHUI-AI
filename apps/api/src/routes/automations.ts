@@ -142,7 +142,7 @@ const repairListQuerySchema = z.object({
 })
 
 const repairKeyParamSchema = z.object({
-  /** 任务键:issue:123 / code-scanning:45 / workflow-run:6789 */
+  /** 任务键:格式见 services/automations/scan-item-key.ts 的 SCAN_ITEM_KEY_FORMAT(此处不另抄一份) */
   key: z
     .string()
     .min(3)
