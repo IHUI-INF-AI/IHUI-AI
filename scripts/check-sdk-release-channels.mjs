@@ -24,8 +24,23 @@
 // 退出码:0 通过(未判定项已逐条点名) / 1 判红 / 2 无法判定或台账不可读 / self-test 同 0|1
 // 本脚本刻意**不接进 pre-commit / check:all**:它判的是外部 registry 与 gh 身份这类机器态/网络态,
 // 与提交者改了什么无关;blocking 的净效果是逼各会话 --no-verify(§12e 同型)。问责走手动/CI。
-
+//
+// 2026-10-05(G-998191)git 出口收口:本脚本代码面**三处** git 派生(勘察报的"11 处"是含注释的
+// 误计 —— 抹注释后代码面只有 3 处,其余 8 处都在头注/散文里)全部由 `execFileSync('git', …)`
+// 裸调用迁到取材层 `scripts/lib/face-reader.mjs` 的 `gitRaw`(仓内逐文件迁移的存量债,判据在
+// `scripts/tests/face-reader.test.mjs` 的 `BARE_GIT_BASELINE`,只减不增)。三处分别是:
+//   ① `runProbe` 的 `git-ls-remote` 探针(读远端 tag);
+//   ② `selfTest` 夹具建仓链的 `g()` 闭包(add/commit/tag);
+//   ③ `selfTest` 的 `git init`。
+// 收益:绝对路径 git(不依赖 PATH)+ safe.directory + windowsHide + 数字 timeout + 64MB maxBuffer
+// + 显式 stdio 逐条由层写死,不再由每个调用方各自记得传。逐处行为面对照写在各自函数头注里。
+// **明确不迁的一处**:`ghSecretState()` 的 `execFileSync('gh', …)` —— 它派生的是 `gh` 不是 `git`,
+// `gitRaw` 会往 argv 里塞 `-C <root>` 与 `safe.directory`,那是 git 的参数,喂给 gh 是错的。
+// 同理 `binAvailable()` 的 `spawnSync('where.exe'/'which')` 也留在原地(查 PATH,非 git 派生)。
+// 另:第①处的 `resolveGitBin()` 动态导入在迁移后**成了死代码**(层自己已经解析过同一个 git 二进制),
+// 已随之删除 —— 留着会变成第二处真相,且 `bin` 变量无人再用。
 import { execFileSync, spawnSync } from 'node:child_process'
+import { gitRaw } from './lib/face-reader.mjs'
 import { readFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { dirname, join, resolve } from 'node:path'
@@ -39,6 +54,19 @@ export const STATUS_ENUM = ['ready', 'blocked-by-credential', 'blocked-by-extern
 export const PROBE_KINDS = ['http-status', 'git-ls-remote', 'none']
 export const EXPECTED_CHANNEL_IDS = ['npm', 'pypi', 'maven', 'nuget', 'go']
 const PROBE_TIMEOUT_MS = 25_000
+/**
+ * `git-ls-remote` 探针的 timeout。2026-10-05(G-998191)迁移前这就是显式的 30_000,
+ * 迁到层 `gitRaw` 后**原值保留**(层默认是 60_000,此处不取默认:本探针的语义是
+ * "网络可达性回读",超时短一点更早落 `undetermined`,而 undetermined 对 blocked 项不判红 ——
+ * 放宽到 60s 只会让 CLI 多等 30 秒换同一结论)。写出常量只为把"数字 timeout"落到本文件可见处。
+ */
+const LS_REMOTE_GIT_TIMEOUT_MS = 30_000
+/**
+ * `selfTest` 夹具建仓链(init/add/commit/tag)的 timeout,与迁移前的裸调用逐字同值(20_000)。
+ * 夹具全在本地 scratch 仓里跑,20s 余量绰绰有余;不放宽到"无 timeout" —— 旧调用有上界,
+ * 收口不得把这道护栏丢掉(索引/锁异常时无界挂起会让自检永远不返回)。
+ */
+const FIXTURE_GIT_TIMEOUT_MS = 20_000
 
 // ───────────────────────── 结构判据(纯函数) ─────────────────────────
 
@@ -234,26 +262,42 @@ export async function runProbe(probe, opts = {}) {
     }
   }
   if (probe.kind === 'git-ls-remote') {
-    let bin = 'git'
+    // 2026-10-05(G-998191)迁到取材层 `gitRaw`。行为面逐条对过(不靠记忆):
+    //   · **stdio**:旧调用显式写 `['ignore','pipe','pipe']`,与层在"不带 input"时写死的那一档
+    //     (face-reader.mjs:94)**逐字相同** ⇒ 等价替换,不损失任何能力(本调用无 input 需求)。
+    //   · **绝对路径 git**:旧代码自己 `import('scripts/lib/gitdir.mjs')` 取 `resolveGitBin()`,
+    //     失败才退回 `'git'`;层在 face-reader.mjs:60 已做同一解析(`resolveGitBin() || 'git'`)——
+    //     **同一个解析器**,故删掉本地的动态导入不是丢降级路径,而是去掉重复的一次同源解析。
+    //   · **safe.directory**:旧调用自己拼 `-c safe.directory=*`,层统一注入 ⇒ 不再拼第二份。
+    //   · **windowsHide / timeout / maxBuffer**:旧值 `windowsHide:true` + `timeout:30000` +
+    //     默认 1MB maxBuffer;层给 `windowsHide:true` + 本调用显式保留的 `timeout: 30000`
+    //     (**与旧值逐字相同**,不收紧也不放宽)+ 64MB maxBuffer(比旧的 1MB 宽,是净收益:
+    //     远端 tag 极多时旧上限会静默截断,而截断只会让行数变少,方向仍是"少报数"不误红)。
+    //   · **quotepath:此处无纠偏面(实测,不是推断)**。层强制 `core.quotepath=false`,旧裸调用吃
+    //     git 默认的 `true`;但本调用是 `ls-remote --tags`,输出形态是 `<sha>\t<ref>` 两列,
+    //     **不经路径 quoting**。实测(G:/tmp-probe/g998191-qp,真仓 + 非 ASCII tag `v测试-1.0`,
+    //     `cat -A` 逐字节比)两种取值输出**逐字相同**。
+    //     ⚠️ 这一点对本脚本还不只是"无影响"而是**双重的**:本探针只读 `out.trim().length>0` 与
+    //     `split(/\r?\n/).length`(见下),**从不解析 ref 名** ⇒ 即便 quotepath 改了输出,判据也读不到。
+    //     所以此处**不得**写成"纠偏"(与 `check-orphan-deletion-refs.mjs` 的 `git grep -l` 那处不同,
+    //     那处候选名要过扩展名/存在性/可读三道检查,才有真引用被漏判的面)。
+    //   · **失败文本有一处可观察变化**:层抛 `Undetermined`,把 git 首行错误包进
+    //     `git ls-remote 失败: <首行>`(face-reader.mjs:118-121),而旧代码自己取 `e.stderr` 首行。
+    //     落到 `probe=undetermined(...)` 那串会因此多带 `ls-remote 失败:` 前缀(旧:裸首行文本)。
+    //     形态仍是"未判定 + 逐条点名",判据与出口码不变;镜像测试
+    //     `scripts/tests/check-sdk-release-channels.test.mjs` 只对 `http-status` 探针断言三态,
+    //     **不断言本探针的失败文本**,故不构成契约破坏。
     try {
-      const mod = await import(pathToFileURL(join(REPO_ROOT, 'scripts/lib/gitdir.mjs')).href)
-      if (typeof mod.resolveGitBin === 'function') bin = mod.resolveGitBin() || 'git'
-    } catch {
-      // 共享解析器不可用:退回 PATH,结论行里用的是哪条仍如实(git 跑不动会落 undetermined,不冒判)
-    }
-    try {
-      const out = execFileSync(bin, ['-c', 'safe.directory=*', 'ls-remote', '--tags', probe.remote, probe.pattern], {
-        cwd: REPO_ROOT,
-        encoding: 'utf8',
-        windowsHide: true,
-        timeout: 30_000,
-        stdio: ['ignore', 'pipe', 'pipe'],
+      const out = gitRaw(['ls-remote', '--tags', probe.remote, probe.pattern], REPO_ROOT, {
+        timeout: LS_REMOTE_GIT_TIMEOUT_MS,
       })
       return out.trim().length > 0
         ? { state: 'present', detail: `origin 有匹配 tag(${out.trim().split(/\r?\n/).length} 条)` }
         : { state: 'absent', detail: '命令 exit 0、输出为空(远端可达且无该前缀 tag)' }
     } catch (err) {
-      return { state: 'undetermined', detail: `ls-remote 失败:${String(err?.stderr ?? err?.message ?? err).toString().split('\n')[0]}` }
+      // 层抛的 `Undetermined` 已把上下文包进 message(`git ls-remote 失败: <git 首行>`),
+      // 故这里直接取 message 首行即可 —— 不要再叠一层 `ls-remote 失败:` 前缀(会读成叠词)。
+      return { state: 'undetermined', detail: String(err?.message ?? err).split('\n')[0] }
     }
   }
   return { state: 'undetermined', detail: `未知 probe.kind ${probe.kind}` }
@@ -396,8 +440,24 @@ async function runSelfTest() {
   const scratch = mkScratch('sdk-channels')
   try {
     const work = join(scratch, 'work')
-    const g = (a) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.invalid', '-c', 'commit.gpgsign=false', ...a], { cwd: work, windowsHide: true, timeout: 20_000, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' })
-    execFileSync('git', ['init', work], { windowsHide: true, timeout: 20_000, stdio: ['ignore', 'pipe', 'pipe'] })
+    // 2026-10-05(G-998191)迁到层 `gitRaw`。这一条链(init/add/commit/tag)是**夹具建仓**,
+    // cwd 在 scratch 临时仓而非仓根 —— `gitRaw` 第二参就传那个临时仓,层用 `-C <root>` 达到
+    // 同形(旧调用是 `cwd: work`;`-C` 与 `cwd` 对 git 是等价的,前者还能顺带让层注入
+    // safe.directory/quotepath)。行为面对照:
+    //   · **stdio**:旧 `['ignore','pipe','pipe']` = 层"不带 input"那一档,逐字相同。
+    //   · **timeout 20_000 保留**(见 `FIXTURE_GIT_TIMEOUT_MS` 头注),不取层默认 60s。
+    //   · **maxBuffer**:旧的 1MB 默认 → 层的 64MB;本链输出是"提交/打标回读",量级远小于 1MB,
+    //     是等价替换(取宽的一侧不改变任何一条断言的取值)。
+    //   · **quotepath**:本链的输出只有 commit/tag 的 sha 与 ref 名,且**无断言读它们的字节**
+    //     (S17/S18 只看 `state` 是 absent/present),故与 ls-remote 那处同理**无纠偏面**;
+    //     不同的是这层`add` 会读工作树里的 `f.txt`,而那个文件名是 ASCII 常量,不受影响。
+    //   · **失败语义**:层抛 `Undetermined` 并挂 `e.status`。`g()` 的失败会直接冒到
+    //     `runSelfTest` 外层(旧代码也是裸冒),出口码形态不变(1 失败 / 2 崩溃)。
+    const g = (a) => gitRaw(['-c', 'user.name=t', '-c', 'user.email=t@example.invalid', '-c', 'commit.gpgsign=false', ...a], work, { timeout: FIXTURE_GIT_TIMEOUT_MS })
+    // 同一条链的建仓第一步。旧调用**故意不设 cwd**(在进程当前目录下 `git init <绝对路径>`);
+    // 迁到层后必须给一个 root,给 `REPO_ROOT` 即可 —— `work` 是绝对路径,`git init` 的目标
+    // 不受 cwd 影响,故与旧行为同解(层只是顺带给了 `-C REPO_ROOT`)。
+    gitRaw(['init', work], REPO_ROOT, { timeout: FIXTURE_GIT_TIMEOUT_MS })
     const { writeFileSync } = await import('node:fs')
     writeFileSync(join(work, 'f.txt'), 'x')
     g(['add', 'f.txt'])
