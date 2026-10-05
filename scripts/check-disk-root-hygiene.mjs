@@ -101,12 +101,22 @@ function rootJoined(root, entry) {
   return String(root).replace(/[\\/]+$/, '') + sep + entry
 }
 
-/** 本机仓根所在盘根,归一到与 config.roots 的键同形的写法(如 `D:\`)。取不到 ⇒ null。 */
+/**
+ * 把 `path.parse(...).root` 归一到 config.roots 的键形(Windows `D:\` / POSIX `/`)。
+ * **分隔符只能取当次平台的 `sep`,不能写死 `\`** —— 必需 job 跑在 ubuntu-latest,写死反斜杠
+ * 会让这台尺子在 Linux 上算出 `\`,config 永远申报不上 ⇒ 盘根维度永久"未判定"
+ * (2026-10-05 我落地当轮由镜像测试暴露)。单独成函数是为了**跨平台可证**:
+ * `parse`/`resolve` 绑平台,在 Windows 上喂不进 POSIX 路径,而这条归一式是纯字符串活。
+ */
+export function normalizeRootKey(rawRoot, platformSep = sep) {
+  if (!rawRoot) return null
+  return String(rawRoot).replace(/[\\/]+$/, '') + platformSep
+}
+
+/** 本机仓根所在盘根,归一到与 config.roots 的键同形。取不到 ⇒ null。 */
 export function currentDriveRoot(repoRoot = REPO_ROOT) {
   try {
-    const root = parse(resolve(repoRoot)).root
-    if (!root) return null
-    return root.replace(/[\\/]+$/, '') + '\\'
+    return normalizeRootKey(parse(resolve(repoRoot)).root)
   } catch {
     return null
   }
