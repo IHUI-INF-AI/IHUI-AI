@@ -22,8 +22,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync, readFileSync, mkdirSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { writeFileSync, readFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   AUTO_HEAL_LEDGER,
@@ -34,11 +33,13 @@ import {
   shouldAlertAlignStall,
   writeAlignHealAttempts,
 } from '../git-guardian.mjs'
+// 夹具落点 = scripts/lib/scratch-dir.mjs(§26:不写 os.tmpdir() —— 活进程 TEMP 可能仍钉在 C 盘)
+import { mkScratch } from '../lib/scratch-dir.mjs'
 
 const NOW = 1_700_000_000_000
 const MIN = 60_000
 
-const tmpDir = (tag) => mkdtempSync(join(tmpdir(), `align-heal-${tag}-`))
+const tmpDir = (tag) => mkScratch(`align-heal-${tag}-`)
 const writeState = (dir, obj) => {
   const p = join(dir, 'state.json')
   writeFileSync(p, JSON.stringify(obj), 'utf8')

@@ -34,8 +34,9 @@
  * 2. **TokenStore 契约**:`createAuthStore` 依赖 `TokenStore` 接口,本文件将现有
  *    `useAuthStore`(已与 auth_token / refresh_token cookie 双向同步)适配为该契约,
  *    无新持久化逻辑,无新 cookie 写入路径,完全复用现有 setToken / setUser / logout。
- * 3. **安全优先**:只持久化 `user` + `isAuthenticated` 到 localStorage(2026-07-21 审计结论),
- *    token 一律不落盘,refresh token 仍走 refresh_token cookie(由后端管理)。
+ * 3. **安全优先**:只持久化 `user` 资料到 localStorage(2026-07-21 审计结论),
+ *    token 一律不落盘,refresh token 仍走 refresh_token cookie(由后端管理);
+ *    `isAuthenticated` 不落盘 —— 登录态由「有没有 token」派生(2026-09-28 G-456 收口)。
  * 4. **SSR 友好**:userTransport 用 `createSSRSafeWebTransport`,服务端渲染阶段
  *    自动 fallback 到内存,避免 `window.localStorage` 访问报错。
  *
@@ -95,7 +96,7 @@ const userTransport = createSSRSafeWebTransport()
  * Web 端共享 Auth zustand store 实例
  *
  * 实例化一次,模块作用域导出,所有组件共享同一份 state。
- * 持久化策略:`name: 'ihui-auth-user'`,仅存 `user` + `isAuthenticated`,
+ * 持久化策略:`name: 'ihui-auth-user'`,仅存 `user` 资料(`isAuthenticated` 由 token 派生,不落盘),
  * 与现有 `useAuthStore` 的 `ihui-auth` 持久化分区互不干扰(不同 key)。
  */
 export const webSharedAuthStore = createAuthStore<AuthUser>({
