@@ -48,6 +48,7 @@ import {
   finishSession,
   getReplayEvents,
   takeoverStream,
+  waitForReplayHeadroom,
 } from '../utils/sse-stream-registry.js'
 import { getReplayWindowStatus, isStreamActive } from '../utils/sse-replay-buffer.js'
 
@@ -358,14 +359,21 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
             return
           }
         } else {
-          // 有洞 / 窗口已过期:降级为全量重新生成(丢弃必须点名,不许静默)
+          // 有洞 / 窗口已过期 / 窗口已被显式放弃:降级为全量重新生成(丢弃必须点名,不许静默)
+          // G-714③:放弃态的恢复语义就是这条既有分支 —— complete 在放弃态恒为 false,
+          // 于是"从头订阅、全量重取"不需要新代码,只需窗口不许冒充完整。
           request.log.warn(
             {
               replayKey,
               lastSeq,
               lowestBufferedId: window.lowestId,
               droppedCount: window.droppedCount,
-              reason: window.known ? 'replay-window-hole' : 'replay-window-expired',
+              abandonReason: window.abandonReason,
+              reason: window.abandoned
+                ? 'replay-window-abandoned'
+                : window.known
+                  ? 'replay-window-hole'
+                  : 'replay-window-expired',
             },
             '[SSEReplay] 重放窗口不足以覆盖 Last-Event-ID,放弃部分重放 → 重新生成',
           )
@@ -611,6 +619,18 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
             }
           }
           emitUpstreamLine(session, line)
+        }
+        // G-714 ④:饱和即暂停 drain —— 上游读循环在这里停一停,等 socket 把在途字节吐干净,
+        // 而不是继续把生成结果堆进缓冲区、把「未确认」养成「放弃」。
+        // 返回 'abandoned'(窗口已被显式放弃、告知帧已写出)⇒ 停止透传并中止上游,
+        // 由客户端按「不带 Last-Event-ID 重新订阅」的全量语义恢复(见上方降级分支)。
+        if ((await waitForReplayHeadroom(session)) === 'abandoned') {
+          request.log.warn(
+            { replayKey, seqAtAbandon: session.seq },
+            '[SSEReplay] 重放窗口已放弃 ⇒ 停止透传,等待客户端全量重取',
+          )
+          controller.abort()
+          break
         }
       }
       if (streamBuffer && session.raw) session.raw.write(streamBuffer)
