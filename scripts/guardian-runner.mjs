@@ -4550,6 +4550,24 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 枚举兜底不得取宽档(1 项,warn)---
+  {
+    id: '190',
+    label:
+      '枚举/映射取不到时的兜底分支不得落到更宽的权限或能力档(票 G-816027):宽档集合由被审面的两份注册表(TS POLICY_BY_MODE / PY skips_approval_permission_mode)现读推导,推导失败或槽位撞名一律未判定;与"凭据在场即豁免"那道门(157)不重叠计账',
+    script: 'check-enum-default-widening.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_ENUM_DEFAULT_WIDENING',
+    stagedTriggers: ['apps/cli/src/', 'packages/types/src/', 'apps/ai-service/app/core/'],
+    onFailHint: [
+      '',
+      '修复:兜底分支要么显式抛错,要么取最窄档;不得把"没声明"读成"允许"。',
+      '问责档(含未判定即拒绝出合格证):node scripts/check-enum-default-widening.mjs --strict',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
