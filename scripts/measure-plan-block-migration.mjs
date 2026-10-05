@@ -109,6 +109,75 @@ function isAnnotatedGroup(rows) {
 }
 
 /**
+ * ── 混态组的第二层拆分(G-1058623 立,2026-10-06)──────────────────────────
+ *
+ * **它答的是另一个问,不能由上面那套跨块量表代答**:`measureBlockMigration` 只看**跨 `###` 块**的组,
+ * 而 F1 判的是**同一主键下 `- [x]` 与 `- [ ]` 并存**,**与块无关**。两者的交集不等于任一方。
+ *
+ * **为什么要拆这一层(量表实测定死)**:现读 F1 唯一那组 `O19b#剩余4列故意不并` 的 13 个 open 行里,
+ * **12 个带 `【归并】重复登记副本` 注记**(副本行,归并器已正确标注),**只有 1 个不带**(L10710 =
+ * 归并的目标行/持有行,注记逐字写着"本行是两半…等 owner 拍板")。
+ * ⇒ **把副本行剔掉(与 F4 同形)之后 F1 仍不是 0** —— 剩下的那 1 行是**持有行,它的未勾选是真状态**
+ * (同主键的 done 行自述"拍板②只读普查已完成、未动任一侧"⇒ ② 仍开着)。
+ * ⇒ **"剔副本行"这一半不足以让这族归零**;而持有行"是否真还有活"是**正文语义,行级判据判不了**。
+ * 这就是为什么 F1 若要剔副本,必须**同时把剩下的持有行单列一档、只报数不问责**。
+ *
+ * @param content 台账正文
+ * @returns `{ok, groups, holderGroups, openAnnotated, openHolders, notes[]}`
+ *          `holderGroups` = 剔掉带注记 open 行后**仍然混态**的组(即"机器判不了的那一格")。
+ */
+export function measureMixedSplit(content) {
+  // ⚠️ 判不出 ≠ 量到 0(自检 M5 抓到的真 bug,曾返空数组):
+  // 四个读数档**必须同时**为 null,否则调用方会把"尺子失明"当成"台账干净"。
+  if (typeof content !== 'string')
+    return {
+      ok: false,
+      groups: null,
+      holderGroups: null,
+      openAnnotated: null,
+      openHolders: null,
+      notes: [`台账正文不是字符串(${typeof content})`],
+    }
+
+  const byKey = new Map()
+  for (const r of parseTaskRows(content)) {
+    const k = compositeKeyOf(r.raw)
+    if (!k) continue
+    if (!byKey.has(k)) byKey.set(k, { key: k, open: [], done: [] })
+    byKey.get(k)[r.state].push(r)
+  }
+
+  const groups = []
+  let openAnnotated = 0
+  let openHolders = 0
+  for (const g of byKey.values()) {
+    if (g.open.length === 0 || g.done.length === 0) continue
+    const ann = g.open.filter((r) => DUP_POINTER_RE.test(r.raw))
+    const hold = g.open.filter((r) => !DUP_POINTER_RE.test(r.raw))
+    openAnnotated += ann.length
+    openHolders += hold.length
+    groups.push({
+      key: g.key,
+      done: g.done.map((r) => r.line),
+      open: g.open.map((r) => r.line),
+      openAnnotated: ann.map((r) => r.line),
+      openHolders: hold.map((r) => r.line),
+      // 剔掉带注记的 open 行之后**仍然混态** ⇒ 剩下的持有行是"机器判不了的那一格"
+      holderOnlyFork: hold.length > 0,
+    })
+  }
+
+  return {
+    ok: true,
+    groups,
+    holderGroups: groups.filter((g) => g.holderOnlyFork),
+    openAnnotated,
+    openHolders,
+    notes: [],
+  }
+}
+
+/**
  * 量「同一复合主键跨 `###` 区块」的组。
  *
  * @param content 台账正文
@@ -451,6 +520,83 @@ function selfTest() {
     `ok=${empty.ok} cross=${empty.crossGroups.length} total=${empty.totalRows}`,
   )
 
+  // ── M 组:`measureMixedSplit` 的自检(2026-10-06 随 G-1058623 第二层同枚补)──
+  // ⚠️ **这组是补出来的,不是一开始就有的**:两个变异(MV1 `holderOnlyFork` 恒真 / MV2 带注记与
+  // 持有行判反)在真语料上**都让读数变了**(1 组→2 组;13/1→1/1),而当时 23 条自检**照样全绿** ——
+  // 与本文件 S14 那次同型:**夹具缺这一维,判据退一步没人看见**。补法同样是让夹具带上它。
+  {
+    const D = '刻意写长的标题让分叉点落在标题前缀之外甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉'
+    // ① 混态 + open 侧一行带注记(副本)、一行不带(持有)⇒ holderOnlyFork = true
+    const MIXED = [
+      '### 甲块',
+      `- [x] G-9001 **${D}** 已完成`,
+      '### 乙块',
+      `- [ ] G-9001 **${D}** 甲 【归并】重复登记副本 见甲块那条`,
+      `- [ ] G-9001 **${D}** 乙还开着`,
+      '',
+    ].join('\n')
+    const a = measureMixedSplit(MIXED)
+    ok(
+      'M1 混态组:open 侧按【归并】注记拆成 副本/持有 两档,行号逐条对得上',
+      a.ok === true &&
+        a.groups.length === 1 &&
+        a.openAnnotated === 1 &&
+        a.openHolders === 1 &&
+        a.groups[0].openAnnotated.length === 1 &&
+        a.groups[0].openHolders.length === 1,
+      JSON.stringify({ g: a.groups.length, ann: a.openAnnotated, hold: a.openHolders }),
+    )
+    ok(
+      'M2 holderGroups(剔副本后仍混态)= 1 组 —— 这就是"机器判不了的那一格",与 MV1 直接对立',
+      a.holderGroups.length === 1 && a.holderGroups[0].holderOnlyFork === true,
+      `holderGroups=${a.holderGroups.length}`,
+    )
+
+    // ② 混态但 open 侧**全带注记** ⇒ 剔完副本不剩 open ⇒ holderOnlyFork = false
+    const ALL_DUP = [
+      '### 甲块',
+      `- [x] G-9002 **${D}** 已完成`,
+      '### 乙块',
+      `- [ ] G-9002 **${D}** 甲 【归并】重复登记副本 见甲块`,
+      '### 丙块',
+      `- [ ] G-9002 **${D}** 丙 【归并】重复登记副本 见甲块`,
+      '',
+    ].join('\n')
+    const b = measureMixedSplit(ALL_DUP)
+    ok(
+      'M3 open 侧全带注记 ⇒ 剔副本后不剩 open ⇒ **不算"机器判不了的那一格"**(与 M2 成对)',
+      b.groups.length === 1 && b.openAnnotated === 2 && b.openHolders === 0 && b.holderGroups.length === 0,
+      `ann=${b.openAnnotated} hold=${b.openHolders} holderGroups=${b.holderGroups.length}`,
+    )
+
+    // ③ **同块内**的混态也算混态 —— 本档与 `###` 块无关,这是它与跨块量表的根本区别
+    const SAME_BLOCK = [
+      '### 唯一块',
+      `- [x] G-9003 **${D}** 已完成`,
+      `- [ ] G-9003 **${D}** 还开着`,
+      '',
+    ].join('\n')
+    const c = measureMixedSplit(SAME_BLOCK)
+    ok(
+      'M4 **同块内**的混态照样算混态(本档与 ### 块无关 —— 与 measureBlockMigration 的根本区别)',
+      c.groups.length === 1 && c.holderGroups.length === 1,
+      `groups=${c.groups.length} holderGroups=${c.holderGroups.length}`,
+    )
+    ok(
+      'M4b 同一份内容在跨块量表眼里是 0 组(块内不跨)⇒ 两把尺交集不等于任一方,不可互相代答',
+      measureBlockMigration(SAME_BLOCK).mixedGroups.length === 0,
+      `blockMixed=${measureBlockMigration(SAME_BLOCK).mixedGroups.length}`,
+    )
+
+    // ④ 三态不并桶
+    const bad = measureMixedSplit(null)
+    ok(
+      'M5 正文不是字符串 ⇒ ok=false 且两档皆 null(**不是 0**:量到了 0 与判不出必须可区分)',
+      bad.ok === false && bad.groups === null && bad.holderGroups === null,
+      `ok=${bad.ok} groups=${JSON.stringify(bad.groups)}`,
+    )
+  }
+
   const fail = results.filter((x) => !x.pass)
   for (const x of results)
     console.log(
@@ -466,16 +612,16 @@ function main() {
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) return selfTest()
 
-  const allowed = new Set(['--json', '--self-test', '--source', '--limit'])
+  const allowed = new Set(['--json', '--self-test', '--source', '--limit', '--mixed-only'])
   const takesValue = new Set(['--source', '--limit'])
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (!a.startsWith('--')) {
-      console.error(`✗ 不接受位置参数 ${a}(可用:--source <rev> / --limit <n> / --json / --self-test)`)
+      console.error(`✗ 不接受位置参数 ${a}(可用:--source <rev> / --limit <n> / --mixed-only / --json / --self-test)`)
       return 2
     }
     if (!allowed.has(a)) {
-      console.error(`✗ 未知参数 ${a}(可用:--source <rev> / --limit <n> / --json / --self-test)`)
+      console.error(`✗ 未知参数 ${a}(可用:--source <rev> / --limit <n> / --mixed-only / --json / --self-test)`)
       return 2
     }
     if (takesValue.has(a)) i++ // 跳过取值 token(照抄 plan-id-face 的旗标口径,见其 iSrc 注释)
@@ -513,6 +659,46 @@ function main() {
   if (typeof content !== 'string') {
     console.error(`❌ 台账 ${source}:${LEDGER_DOC} 没读到正文 ⇒ 本次不判`)
     return 1
+  }
+
+  // ── `--mixed-only`:只答 F1 那一问(与跨块无关),G-1058623 的第二层量表 ──
+  // 放在 `measureBlockMigration` **之前**返回:两把尺量的是不同维度,混在一起报会让人
+  // 把"跨块"读成"混态"的前置条件(实测两者交集不等于任一方:现读跨块 656 组里混态 0 组,
+  // 而 F1 的 1 组恰恰**同块**)。旗标在前 ⇒ 一把尺两个问,不另开脚本。
+  if (argv.includes('--mixed-only')) {
+    const mx = measureMixedSplit(content)
+    if (!mx.ok) {
+      for (const n of mx.notes) console.error(`❌ ${n}`)
+      return 1
+    }
+    if (argv.includes('--json')) {
+      console.log(JSON.stringify({ ...mx, source }, null, 2))
+      return 0
+    }
+    console.log(`被审面:${source}:${LEDGER_DOC}(混态档 · **与 ### 块无关**)`)
+    console.log(`F1 同主键两态并存: ${mx.groups.length} 组`)
+    console.log(
+      `  其中未勾选行:带【归并】注记(副本行) ${mx.openAnnotated} / 不带(持有行) ${mx.openHolders}`,
+    )
+    console.log(
+      `\n★ **机器判不了的那一格**:剔掉带注记的 open 行后**仍然混态**的组 = ${mx.holderGroups.length} 组`,
+    )
+    if (mx.holderGroups.length === 0)
+      console.log(`  ⇒ 剔副本行即可让 F1 归零。`)
+    else
+      console.log(
+        `  ⇒ **只做"剔副本行"这一半不足以归零**:剩下的持有行"是否真还有活"是正文语义,行级判据判不了` +
+          ` ⇒ 若要让 F1 归零,必须同时把这一档**单列、只报数不问责**。`,
+      )
+    if (limit > 0)
+      for (const g of mx.groups.slice(0, limit)) {
+        console.log(
+          `\n  ${g.key}\n      done@${g.done.join('+')} | open@${g.open.join('+')}` +
+            `\n      open 带注记(副本)@${g.openAnnotated.join('+') || '无'} | 不带注记(持有)@${g.openHolders.join('+') || '无'}` +
+            `\n      剔副本后仍混态? ${g.holderOnlyFork ? '是 ← 机器判不了的那一格' : '否'}`,
+        )
+      }
+    return 0
   }
 
   const m = measureBlockMigration(content)
@@ -584,6 +770,7 @@ if (isDirectRun) {
 
 export const __test__ = {
   measureBlockMigration,
+  measureMixedSplit,
   rowsWithBlocks,
   BLOCK_HEADING_RE,
   LEDGER_DOC,
