@@ -6,6 +6,10 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
+    // 2026-10-05:CI 的 Test 步是 `pnpm turbo run test` 并行跑所有包,runner 争用下 vitest 默认 5000ms
+    // 会把纯 I/O 用例判成超时(required 检查 run 37294883676 实测 "Test timed out in 5000ms")。
+    // 取与 apps/api / apps/cli 已有的 15_000 同档 —— 这是**资源预算**,不改任何判据与用例内容。
+    testTimeout: 15_000,
     environment: 'node',
     // 两族扩展名都要收:`.test.ts` 与包内 TS 源同族,`.test.mjs` 与被测的 `.mjs` 脚本同族
     // (把后者排除在外 = 给它一个"写了测试但没人跑"的通道,本仓最高频失效型)。
