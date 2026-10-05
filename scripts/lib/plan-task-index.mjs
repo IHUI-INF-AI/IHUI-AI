@@ -955,8 +955,7 @@ const DISPOSITION_RULES = [
  *  ("台账明写「属 §24 需用户确认」"),把它们一起遮掉就等于给判据摘牙(§12f:修红不得顺手削判据)。
  *  等长替换:列位不变,后续任何按列取窗的逻辑不受影响。 */
 export function dispositionFace(line) {
-  return String(line).replace(/`[^`
-]*`/g, (m) => ' '.repeat(m.length))
+  return String(line).replace(/`[^`\n]*`/g, (m) => ' '.repeat(m.length))
 }
 export function dispositionOf(line) {
   const face = dispositionFace(line)
