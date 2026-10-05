@@ -37,6 +37,10 @@ assertCollectionSurface(COLLECT_INCLUDE)
 
 export default defineConfig({
   test: {
+    // 2026-10-05:CI 的 Test 步是 `pnpm turbo run test` 并行跑所有包,runner 争用下 vitest 默认 5000ms
+    // 会把纯 I/O 用例判成超时(required 检查 run 37294883676 实测 "Test timed out in 5000ms")。
+    // 取与 apps/api / apps/cli 已有的 15_000 同档 —— 这是**资源预算**,不改任何判据与用例内容。
+    testTimeout: 15_000,
     // 收集面显式写死,且 **src/** 与 tests/** 两棵子树都必须在面内**(实测 2026-09-25:
     // `npx vitest list --filesOnly` = 55 份 = src 39 + tests 16,磁盘上不存在第三种落点)。
     // 为什么单独补这一行 include:此前这里只有 exclude,收集全靠 vitest 默认 glob,而紧邻的注释
