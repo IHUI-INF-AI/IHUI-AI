@@ -34,8 +34,17 @@ export interface UseAuthOptions<TUser = AuthUser> {
   bindTransport?: (store: TokenStore) => void
   /** 登录后获取用户 profile 的函数(各端可复用 @ihui/api-client getProfile) */
   fetchProfile?: () => Promise<{ success: boolean; data?: TUser; error?: string }>
-  /** 登出时调用的后端 API(默认不调,各端按需注入) */
-  logoutApi?: (refreshToken: string) => Promise<void>
+  /**
+   * 登出时调用的后端 API(默认不调,各端按需注入)
+   *
+   * G-1058614(2026-10-05):形参由必选改可选 —— P2-18 httpOnly cookie 化之后,浏览器 JS
+   * 已读不到 refresh_token(cookie 化后 store 里它恒为空),而本 hook 原先是
+   * `if (logoutApi && rt)` ⇒ 后端 `/api/auth/logout` 被**整个跳过**,httpOnly cookie
+   * 也没人清(前端清不掉,只能服务端 `clearAuthCookies` 下发)⇒ 用户点了「登出」,
+   * 服务端 refresh 会话依然有效、可继续续签(G-1058613 生产实测:登出后 refresh 仍 200)。
+   * 现在:**只要注入了 logoutApi 就调**,拿不到 rt 就走 cookie 模式(不传或显式 undefined)。
+   */
+  logoutApi?: (refreshToken?: string) => Promise<void>
   /** 是否在 hook 挂载时自动 bind transport,默认 true */
   autoBind?: boolean
 }
@@ -124,11 +133,14 @@ export function useAuth<TUser = AuthUser>(options: UseAuthOptions<TUser>): UseAu
 
   const logout = useCallback(async () => {
     const rt = store.getRefreshToken()
-    if (logoutApi && rt) {
+    // G-1058614:守卫只剩「有没有注入」,不再把"拿不到 rt"当成"不用通知后端" ——
+    // 见上面 `logoutApi` 形参的注记:漏这一格 = 服务端会话登出后仍可续签。
+    if (logoutApi) {
       try {
-        await logoutApi(rt)
+        // 有 rt 走 body 模式(旧前端同形);没有即以 cookie 模式调,由服务端清 httpOnly cookie
+        await logoutApi(rt ?? undefined)
       } catch {
-        // 后端 logout 失败不阻塞本地清理
+        // 后端 logout 失败不阻塞本地清理(该既有行为保持不变)
       }
     }
     await store.clearAll?.()

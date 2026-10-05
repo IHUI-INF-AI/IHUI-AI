@@ -156,7 +156,15 @@ export const loginByPassword = (phone: string, password: string) =>
 export const loginByWechat = (code: string) =>
   unwrapApi(_loginByWechat(code)) as Promise<LoginResult>
 
-/** 退出登录 — POST /auth/logout (本地实现,api-client 需传 refreshToken,签名不兼容) */
+/**
+ * 退出登录 — POST /auth/logout(本地实现)
+ *
+ * 2026-10-05(G-1058614):无 body 已是**正确形态**,不必再传 refreshToken ——
+ * P2-18 httpOnly cookie 化之后客户端读不到 refresh_token,吊销只能靠 cookie;
+ * 后端 logoutSchema 是 `z.string().min(1).optional()`,传空串反而被 min(1) 判失败 ⇒ 400。
+ * 旧的"api-client 需传 refreshToken,签名不兼容"注记已失效:api-client 的 `logout()`
+ * 现已接受可选形参,两端契约一致(它发 `{}`,本实现发无 body,后端 route schema 均判通过)。
+ */
 export const logout = () => post('/auth/logout')
 
 /** 获取当前用户信息 — GET /user/profile (本地实现,api-client 用 /auth/me 端点不兼容) */
@@ -418,11 +426,7 @@ export const chatStream = async (
    * 追加为第 11 个可选参数 —— 与 W5 callbacks 同一纪律,不动既有位置参数,老调用方
    * (含只传到 onDone 的页面与只传 callbacks 的测试驱动)零变化;不注册 ⇒ 帧静默丢弃。
    */
-  onPartialDone?: (info: {
-    fallback_applied: boolean
-    reason: string
-    model?: string
-  }) => void,
+  onPartialDone?: (info: { fallback_applied: boolean; reason: string; model?: string }) => void,
 ): Promise<void> => {
   const resolvedModel = options.model ?? options.modelId
 
