@@ -7142,6 +7142,7 @@
       "todo": "待辦",
       "transition": "狀態轉換",
       "triage": "待分類",
+      "terminatedFailed": "執行失敗",
       "terminatedCancelled": "已取消",
       "terminatedQuotaExceeded": "配額超限",
       "terminatedPreempted": "被搶佔",

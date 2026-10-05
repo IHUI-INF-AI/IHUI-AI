@@ -1355,27 +1355,51 @@ export function mapStatus(raw: string): AgentTaskStatus {
 }
 
 /**
- * 被 `LEGACY_STATUS_MAP` 折叠进 `blocked` 的三种终态**成因**(2026-09-28 拍板:
+ * 被 `LEGACY_STATUS_MAP` 折叠进 `blocked` 的四种终态**成因**(2026-09-28 拍板:
  * **不动六档枚举**(那是落库列 + REST 校验 + SSE 载荷 + Python 调度器 + 五语言的对外契约),
  * 只在看板卡片上加一枚次级标记)。
  *
- * 为什么必须有这一层:这三档与"真的在等解阻塞"在折叠后完全同形,而它们的下一步动作相反 ——
- * 「已取消 / 配额超限 / 被抢占」重跑大概率就好，「待解阻塞」要先去解阻塞。用户按同一张脸
- * 决定重跑还是去查依赖，是被状态显示指错了方向。
+ * 为什么必须有这一层:这四档与"真的在等解阻塞"在折叠后完全同形,而它们的下一步动作相反 ——
+ * 「已取消 / 配额超限 / 被抢占」重跑大概率就好,「待解阻塞」要先去解阻塞,**而「执行失败」要去
+ * 读 errorMessage 查因**。用户按同一张脸决定重跑、去解阻塞、还是去查日志,是被状态显示指错了方向。
+ *
+ * ⚠️ **2026-10-05(G-1018245,用户拍板路 B)`failed` 由"不在册"改为"在册"**:
+ * 09-28 首版只收了三种,`failed` 被有意排除,理由写在原 `terminationOf` 注释里 ——
+ * 「把真失败说成被取消,比不标更糟」。该理由**本身仍然成立**(所以
+ * `failed` 必须有自己的文案键 `terminatedFailed`,不许复用 `terminatedCancelled`),
+ * 但它成立的方式是"给 failed 一个**独立的**键",而不是"让 failed 落回裸 blocked":
+ * 排除出册的实测后果是 **`failed` 是四档里唯一在看板上完全不可点名的** —— 它与
+ * 真的·阻塞同形、与三档终态也同形,用户在四张同形的脸里读不到任何成因。
+ * 拍板同时否掉的是台账原写的另一条路(「六档变七档」):本轮实测 `agent_tasks.status`
+ * 的写侧只有三处(`createTask` 写死 `triage`、transition 的 `z.enum` 六档、admin PUT),
+ * `failed`/`cancelled`/`quota_exceeded`/`preempted` **无任何我方生产者**(纯历史/外部写入的
+ * 兼容读侧),Python 调度器失败一律 `task.status = "blocked"`(`dag_scheduler.py` 的
+ * `is_failed` 判据即此)⇒ 新增第七档会造出一个我方永不写入、只被 legacy 数据点亮的空面,
+ * 且要动两处 REST `z.enum` 契约。故维持六档,只把四档成因补齐。
  */
-export const COLLAPSED_TERMINATIONS = ['cancelled', 'quota_exceeded', 'preempted'] as const
+export const COLLAPSED_TERMINATIONS = [
+  'failed',
+  'cancelled',
+  'quota_exceeded',
+  'preempted',
+] as const
 export type AgentTaskTermination = (typeof COLLAPSED_TERMINATIONS)[number]
 
 /** 次级标记的 i18n 键(单一来源;`agents.kanban.*` 五语言必须同批齐,守门 151 同一条口径) */
 export const TERMINATION_LABEL_KEYS: Record<AgentTaskTermination, string> = {
+  // 四档各有自己的键,逐字不同:复用 `terminatedCancelled` 就会把"执行失败"说成"被取消",
+  // 正是 09-28 排除 failed 时写下的那句「把真失败说成被取消,比不标更糟」。
+  failed: 'agents.kanban.terminatedFailed',
   cancelled: 'agents.kanban.terminatedCancelled',
   quota_exceeded: 'agents.kanban.terminatedQuotaExceeded',
   preempted: 'agents.kanban.terminatedPreempted',
 }
 
 /**
- * 取原始状态里的终态成因;非终态(含 `blocked` 本身与 `failed`)一律返回 null。
- * 刻意返回 null 而不是"猜测一个":把真失败说成被取消,比不标更糟。
+ * 取原始状态里的终态成因;非终态(含 `blocked` 本身)一律返回 null。
+ *
+ * 仍然不为未知值猜测一档:库里出现四档之外的串,归`statusOrUnrecognized` 的"未识别"档
+ * (见下方),不归这里 —— 两个出口的职责是正交的,不是同一判断的两个名字。
  */
 export function terminationOf(raw: string | null | undefined): AgentTaskTermination | null {
   if (typeof raw !== 'string') return null
@@ -1488,10 +1512,7 @@ export function isTransitionAllowed(from: AgentTaskStatus, to: AgentTaskStatus):
  * 因此库里出现六档之外的值时,这里同样返回 false 而不是崩在 `.includes()` 上。
  * 内部复用 `isTransitionAllowed` 而非自己查表 ⇒ 两个出口永远同判,不会漂移。
  */
-export function isTransitionAllowedFromRaw(
-  fromRaw: string,
-  to: AgentTaskStatus,
-): boolean {
+export function isTransitionAllowedFromRaw(fromRaw: string, to: AgentTaskStatus): boolean {
   const from = mapStatus(fromRaw)
   if (!isAgentTaskStatus(from)) return false
   return isTransitionAllowed(from, to)
