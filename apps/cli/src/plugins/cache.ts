@@ -683,8 +683,12 @@ function installedAtRankOf(record: unknown): number {
  *
  * 失效方向刻意是"少挑一行"(找不到 ⇒ `undefined` ⇒ 既有语义的 `present:false` / `unknown`),
  * 而不是"多认一笔已提交"。
+ * **导出即共用**:写侧(`installer.js` 的"已装短路")问的是同一件事的另一面 ——
+ * "这条记录现在还在不在" —— 两侧对同名多行若一个取首行、一个取最新,同一份 registry
+ * 会对同一次安装给出两个答案(本仓记过最多次的失败型就是"同型判据两处各写一份")。
+ * 所以取舍只许住在这里一处,写侧的写法是"先取本 name 的当代那一条,再看它的来源是不是本次这一源"。
  */
-function pickAuthorityRecord(records: readonly unknown[], recordKey: string): unknown | undefined {
+export function pickAuthorityRecord(records: readonly unknown[], recordKey: string): unknown | undefined {
   let found = false;
   let best: unknown;
   let bestRank = Number.NEGATIVE_INFINITY;
