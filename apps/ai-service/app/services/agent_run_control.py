@@ -130,6 +130,7 @@ class ResumeOutcome(StrEnum):
     NO_CHECKPOINT = "no_checkpoint"  # 查不到该会话的暂停点 → 404
     NOT_PAUSED = "not_paused"  # 有会话但它不是暂停态(还在跑 / 已跑完)→ 409
     FORBIDDEN = "forbidden"  # 属主可判定且非请求者 → 403
+    OWNER_UNVERIFIABLE = "owner_unverifiable"  # 属主判不出 → 不放行,等人工确认 → 409
     RESUME_FAILED = "resume_failed"  # 续跑过程报错(存储/循环不可用)→ 503
 
 
@@ -506,14 +507,29 @@ async def resume_session(
         )
 
     # 持久属主兜底判定:进程内没有记录时(跨进程/重启后),checkpoint 自带的主人是
-    # 唯一可追溯依据。有值且不符 → 403;无值 → 沿用既有"只剩必须登录这一层地板"的
-    # 如实标注,不假装判过(与 resume_agent_execute 的 O19 注释同口径)。
+    # 唯一可追溯依据。有值且不符 → 403;无值 → 见下一格(不放行,等人工确认)。
     persistent_owner = checkpoint.owner_user_id
     if persistent_owner is not None and persistent_owner != requester:
         return ResumeResult(
             outcome=ResumeOutcome.FORBIDDEN,
             changed=False,
             detail="该检查点所属会话不属于当前用户",
+        )
+
+    # G-1058610③(2026-10-05 机主拍板):**属主判不出就不放行续跑**。
+    # 旧数据(O19 改造前写入的 checkpoint 没有 owner_user_id)在跨进程后两级都判不出,
+    # 旧口径是"只剩登录地板即放行"——等于让第一个来按续跑的人**无声拿到**这条会话的
+    # 归属(下面 resume_agent_execute 还会顺手 record_ownership 把它登记成他的)。
+    # 拍板口径:停在原地等人确认 —— 不调 runner、不置 running、不登记归属,只回报
+    # "属主不可判定"这一型结论,由人在确认归属后再放行(跨实例租约另计一票,不在本条内)。
+    if persistent_owner is None:
+        return ResumeResult(
+            outcome=ResumeOutcome.OWNER_UNVERIFIABLE,
+            changed=False,
+            detail=(
+                "该检查点没有可判定的属主(既无进程内在飞登记,也无持久 owner_user_id):"
+                "按机主拍板不自动放行续跑,停在原地等人工确认归属"
+            ),
         )
 
     if checkpoint.status != "paused":

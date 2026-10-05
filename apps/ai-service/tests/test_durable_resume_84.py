@@ -496,15 +496,22 @@ class TestOwnership:
         assert runner.calls == 1
 
     @pytest.mark.asyncio
-    async def test_row_without_owner_is_not_silently_trusted(self) -> None:
-        """无持久属主 = 判不出,沿用既有"只剩必须登录这一层地板"的口径,不代裁成他人。"""
+    async def test_row_without_owner_is_not_resumed_waits_for_human(self) -> None:
+        """G-1058610③(2026-10-05 机主拍板):属主判不出 ⇒ 不放行自动续跑。
+
+        无持久属主 = 两级登记(进程内 in-flight、checkpoint 持久 owner_user_id)都
+        判不出归属。拍板口径:停在原地等人工确认 —— 不调 runner、不置 running、
+        不登记归属,只回报 OWNER_UNVERIFIABLE 这一型结论;读一次行属正当开销。
+        """
         row = cp("r", iteration=2, created_at=T0)
         loader, runner = _Loader(row), _Runner()
         out = await run_control.resume_session(
             SESSION, USER_B, load_latest=loader, runner=runner
         )
-        assert out.outcome is run_control.ResumeOutcome.RESUMED
-        assert runner.calls == 1  # 现口径:无属主时不判越权(登记为已知敞口,见报告)
+        assert out.outcome is run_control.ResumeOutcome.OWNER_UNVERIFIABLE
+        assert out.changed is False
+        assert runner.calls == 0, "属主判不出之前不得把循环起起来"
+        assert loader.calls == 1  # 判属主必须读一次行,这一下是正当的
 
     def test_service_signature_cannot_receive_self_reported_identity(self) -> None:
         """控制面的 requester 只能是位置参:结构上没有"从请求体带个 user_id 进来"的口。"""
@@ -516,10 +523,13 @@ class TestOwnership:
     def test_http_resume_body_has_no_identity_field(self) -> None:
         from app.routers.agents import AgentSessionResumeRequest
 
+        # permission_mode 是 b76-11 落的权限面字段(与 create/另一条 resume 出口同形),
+        # 不是身份自报 —— 本断言锁的是"请求体里没有任何可代充身份的字段"。
         assert set(AgentSessionResumeRequest.model_fields) == {
             "model",
             "max_iterations",
             "tools",
+            "permission_mode",
         }
 
     def test_route_passes_token_principal_not_body(self) -> None:
