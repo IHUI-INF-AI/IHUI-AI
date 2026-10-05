@@ -18,8 +18,7 @@
 // git 操作**只有只读**(git grep / rev-parse),不建临时仓、不写任何东西 ⇒ 绝不碰真仓。
 
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { test } from 'node:test'
@@ -27,6 +26,8 @@ import assert from 'node:assert/strict'
 
 import { __test__ } from '../check-dispatch-premise.mjs'
 import { resolveGitBin } from '../lib/gitdir.mjs'
+// 夹具落点 = scripts/lib/scratch-dir.mjs(§26:不写 os.tmpdir() —— 活进程 TEMP 可能仍钉在 C 盘)
+import { mkScratch } from '../lib/scratch-dir.mjs'
 
 const SELF = fileURLToPath(import.meta.url)
 const REPO_ROOT = resolve(dirname(SELF), '..', '..')
@@ -268,7 +269,7 @@ test('P6 probe 必须可重跑:非 git grep 形状 ⇒ 判不出,不当通过', 
 })
 
 test('P7 票面 schema:缺 ticket / premises 为空 / token 与 probe 不一致 ⇒ exit 2 那一支', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'dispatch-premise-'))
+  const dir = mkScratch('dispatch-premise-')
   const noTicket = loadTicket(
     ticketFile(dir, 'a.json', {
       premises: [{ claim: 'exists', token: 't', probe: 'git grep -c -F t HEAD' }],
@@ -289,7 +290,7 @@ test('P7 票面 schema:缺 ticket / premises 为空 / token 与 probe 不一致 
 })
 
 test('P8 退出码分档:正例 1 / 反例 0 / 用法错 2,产物落盘且带读数与 head', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'dispatch-premise-'))
+  const dir = mkScratch('dispatch-premise-')
   const rot = ticketFile(dir, 'rot.json', {
     ticket: 'FIXTURE-ROT',
     premises: [
