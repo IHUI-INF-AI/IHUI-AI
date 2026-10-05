@@ -13,6 +13,9 @@ import { Tooltip } from '@/components/feedback'
 // (apps/web/src/lib/export-utils.ts neutralizeFormulaCell, G-823 落地),不得在本文件
 // 另写一份前缀中和 —— 那正是 G-823 判定"第四份转义实现"的形态。
 import { neutralizeFormulaCell } from '@/lib/export-utils'
+// G-827:横向溢出的方向线索。判据与外观都只有一份实现,接线处只负责"把滚动容器的 ref 交出去"。
+import { HorizontalEdgeCue } from '@/components/ai/horizontal-edge-cue'
+import { useHorizontalEdgeCue } from '@/hooks/use-horizontal-edge-cue'
 
 /**
  * G-824 内联表格工具栏 —— DOM 回读 → 复制 GFM / 下载 CSV / 全屏(sticky 表头)。
@@ -128,14 +131,23 @@ function ToolbarButton({
  */
 export function MarkdownTableBlock({ children }: { children: React.ReactNode }) {
   const tableRef = React.useRef<HTMLTableElement | null>(null)
+  // G-827:线索挂在**滚动容器**上(不是 <table>),因为它才是 scrollLeft/clientWidth 的主人。
+  // ref 交给 hook,本组件不参与任何溢出判断 —— 判据只住在 horizontal-edge-cue 那一处。
+  const scrollRef = React.useRef<HTMLDivElement | null>(null)
+  const edges = useHorizontalEdgeCue(scrollRef)
   return (
     <div className="my-0">
       <MarkdownTableToolbar tableRef={tableRef} />
-      <div className="overflow-x-auto">
-        {/* 2026-08-02:表格字号同步放大 14px → 15px */}
-        <table ref={tableRef} className="my-0 w-full border-collapse text-[15px]">
-          {children}
-        </table>
+      <div className="relative">
+        <div ref={scrollRef} className="overflow-x-auto">
+          {/* 2026-08-02:表格字号同步放大 14px → 15px */}
+          <table ref={tableRef} className="my-0 w-full border-collapse text-[15px]">
+            {children}
+          </table>
+        </div>
+        {/* 覆盖层必须是滚动容器的兄弟:放在容器**内部**会随内容一起滚走,线索就跟着跑了。
+            直接父级不是圆角容器 ⇒ 用 flush 档(§4 圆角避让那一档留给代码块外框)。 */}
+        <HorizontalEdgeCue edges={edges} />
       </div>
     </div>
   )

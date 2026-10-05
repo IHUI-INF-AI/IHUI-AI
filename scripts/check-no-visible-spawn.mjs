@@ -32,6 +32,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // 判定面取材的唯一出口(2026-09-26 迁):git 绝对路径 / stdio[0]=pipe / 一次 batch 读一批 /
 // maxBuffer 给足,这五件事各门自己写必错 —— 见 scripts/lib/face-reader.mjs 头注。
 import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+// 正则字面量位置只从这一份取(2026-10-04):本门自带的分词器不认正则,含引号的正则
+// (如 `/['"]--stdin['"]/`)会让引号配对失同步 ⇒ 其后**每一个**字符串字面量都可能被读成代码,
+// 于是别的门的自检夹具被当生产违规 → 干净 HEAD 恒红。逐字形说明见 maskInert 头注。
+// ⚠️ 只借"哪些区间是正则体"这一维;模板插值里是真实代码,本门仍要保持不掩(见下)。
+import { scanSpans } from './lib/code-mask.mjs'
 
 /** ROOT 由脚本自身位置推导(§15,不得写死盘符);此前依赖 process.cwd(),换 cwd 即静默扫不到文件。 */
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -116,11 +121,34 @@ export function skipQuoted(src, start, quote) {
  *
  * 模板插值 `${…}` 里是**真实代码**,必须保持不掩 —— 否则 `spawn(\`…${execFileSync('git', a)}\`)`
  * 这类真调用会被一起放过,判据就变松了。
+ *
+ * ── 正则字面量这一维为什么必须补(2026-10-04 实测,本门在干净 HEAD 上恒红)────────────
+ * 上面这层分词只认注释与三种引号,**不认正则**。而正则里出现引号是常事,本仓实载:
+ *   `scripts/check-spawn-stdio.mjs:90` `/\bstdin\s*:\s*['"]pipe['"]/`
+ *   `scripts/check-spawn-stdio.mjs:92` `/['"]--stdin['"]/`
+ * 分词器走到 `['"]` 的 `'` 就当成字符串开头,再遇下一个 `'` 闭合 ⇒ **引号全局错位**,
+ * 于是该文件里 `check-spawn-stdio.mjs:719/724` 两行**自检夹具的字符串字面量**
+ * (`'const proc = spawnSync("node", …)'`)被读成真实代码 → 本门全量档 rc=1。
+ * 那是别的门的**故意构造的判据字符串**,与"生产代码漏 windowsHide"无关;本门此前已为
+ * `check-git-read-timeout.mjs` 的同型夹具修过一次(头注 L114 记着),但那次只补了那一处夹具,
+ * 没补"分词器认不认正则"这个根因,于是换一个含引号正则的文件就复发 ——
+ * **同一根因第二次复发,说明修的是落点不是判据**。
+ * 修法:正则区间的识别**只从 `lib/code-mask.mjs` 的 `scanSpans` 取**(§22c 不得另写一份分词器)。
+ * 方向锁:正则体是**模式不是代码**,掩掉它只会让判据更准、不会放过真调用 ⇒ 这一维**只紧不松**。
  */
 export function maskInert(src) {
   const mask = new Uint8Array(src.length)
+  // 正则体(含定界符与 flags)先掩:它内部的引号/括号是模式,不是代码 token。
+  for (const sp of scanSpans(src)) {
+    if (sp.kind !== 'regex') continue
+    for (let k = sp.start; k < sp.end; k++) mask[k] = 1
+  }
   let i = 0
   while (i < src.length) {
+    if (mask[i]) {
+      i++
+      continue
+    }
     const ch = src[i]
     const nx = src[i + 1]
     if (ch === '/' && nx === '/') {
@@ -524,6 +552,31 @@ function selfTest() {
       want: 0,
     },
     // --- 盲区 2:未跟踪文件纳入扫描(判据在 listCandidates,详见 tests 镜像用例) ---
+    // --- 正则字面量档(2026-10-04)---
+    // 这组四条是"含引号正则 ⇒ 引号配对失同步 ⇒ 其后字符串夹具全被读成代码"的钉子。
+    // 载体是本仓真实形态 `scripts/check-spawn-stdio.mjs:90/92` 的 `['"]` 写法,不是构造的新形状。
+    {
+      name: 'R1 含引号正则之后的字符串夹具不判红(缺陷形态,真仓 2026-10-04 恒红根因)',
+      src: `const RE = /['"]--stdin['"]/\nconst c = 'spawnSync("node", ["-e", "s"], { })'`,
+      want: 0,
+    },
+    {
+      name: 'R2 正则体里写着类调用形态 ⇒ 不判红(模式不是代码)',
+      src: `const PAT = /execFileSync\\("git"/`,
+      want: 0,
+    },
+    {
+      // 反向锁:正则档只紧不松 —— 模板插值里是**真实代码**,必须仍然判红。
+      name: 'R3 反向锁:模板插值内真实 git 派生调用仍判红(正则档不得让判据变松)',
+      src: 'const h = `${execFileSync("git", ["rev-parse"], { encoding: "utf8" })}`',
+      want: 1,
+    },
+    {
+      // 防越界:`/` 在除法位置不得被当成正则起点,否则其后的真调用会被误掩放过。
+      name: 'R4 除法表达式后的真实调用仍判红(正则起点判定不越界)',
+      src: `const q = total / count / 2\nconst r = spawnSync('git', ['x'], {})`,
+      want: 1,
+    },
   ]
   // ihui:selftest-samples:end
   let bad = 0
