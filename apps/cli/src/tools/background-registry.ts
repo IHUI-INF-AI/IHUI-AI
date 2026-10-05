@@ -43,6 +43,20 @@ export type BackgroundTaskStatus = 'running' | 'exited' | 'killed' | 'error' | '
 
 export interface BackgroundTask {
   id: string;
+  /**
+   * G-654② —— **登记身份(代际 token)**:每一次 `registerTask`/`registerFailedTask`
+   * 现场生成,终生不变。它回答的是"这个 key 上现在站着的是不是**我这一轮**"。
+   *
+   * 为什么 `id` 不够:`id` 是可复用的键(`genId()` = `Date.now()` + 3 随机字节,
+   * 本文件 `notified` 字段的注释早就登记过"pruneCompleted() 之后同 id 复用是真路径"),
+   * 而"按 id 删/按 id 投递"在键被复用时会拿**上一轮**的迟到终态去清**这一轮**的登记 ——
+   * 表现是"新任务的等待者再也没收到终态",与本文件反对的每一件事同名。
+   * 所以删除与投递一律要身份匹配;不匹配就**不动**,并计入 `getRemovalGuardStats()`。
+   *
+   * 刻意**不**进 `BackgroundTaskSnapshot` 的 Pick 清单:代际是本注册表的内部账,
+   * 不是给模型读的任务结果。
+   */
+  identity: string;
   command: string;
   process: ChildProcess | null;
   startedAt: string;
@@ -128,6 +142,45 @@ const tasks = new Map<string, BackgroundTask>();
 function genId(): string {
   return `bg_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
 }
+
+/**
+ * G-654② 代际身份 token:每次登记一枚,只用于"这个 key 上还是不是我这一轮"的判定。
+ * 与 `id` 分工:`id` 是**对外键名**(可复用、会被台账引用),`identity` 是**对内世代号**
+ * (不外传、不进快照、每次登记新生成)。两者缺一都会退化成"按 key 盲删"。
+ */
+function genIdentity(): string {
+  return `gen_${crypto.randomBytes(8).toString('hex')}`;
+}
+
+/**
+ * G-654② 守卫账:被身份守卫拦下来的次数(每一格都是"盲删本该发生而没发生"的证据面)。
+ * - `missingIdentity` —— 调用方**没给身份**就要删 ⇒ 拒绝(本票明令不得保留"不带身份就盲删"的默认档)
+ * - `identityMismatch` —— 给了身份但**不是在任那一代** ⇒ 拒绝(旧一轮删不掉新一轮的登记)
+ * - `staleTerminalRejected` —— 迟到终态:对象所属世代已被新登记取代 ⇒ 不改状态、不投递、不摘桶
+ * - `staleBucketReconciled` —— 桶属于另一代 ⇒ 先把旧等待者以 `null` 回答(不留无人应答的等待),再换桶
+ * 只增不减;测试按**增量**断言(模块级状态跨用例存活,断言绝对值就是把测试绑在跑序上)。
+ */
+const removalGuardStats = {
+  missingIdentity: 0,
+  identityMismatch: 0,
+  staleTerminalRejected: 0,
+  staleBucketReconciled: 0,
+};
+
+/** 身份守卫账只读出口(成对用例用它问出"拒绝了几次",而不是只问"有没有抛")。 */
+export function getRemovalGuardStats(): {
+  missingIdentity: number;
+  identityMismatch: number;
+  staleTerminalRejected: number;
+  staleBucketReconciled: number;
+} {
+  return { ...removalGuardStats };
+}
+
+/** G-654② `removeTask`/`removeLoop` 的结果:三种拒绝档位互不相通,绝不塌成"没删就是不存在"。 */
+export type GuardedRemovalOutcome =
+  | { removed: true; id: string }
+  | { removed: false; reason: 'missing-identity' | 'identity-mismatch' | 'not-found'; id: string };
 
 /** 清理任务关联的 worktree(收尾调用,失败吞掉不阻塞) */
 function cleanupTaskWorktree(task: BackgroundTask): void {
@@ -215,11 +268,59 @@ function toSnapshot(t: BackgroundTask): BackgroundTaskSnapshot {
 }
 
 /**
- * 终态监听器:task.id → 等待者集合。
+ * 终态监听器:task.id → **该代登记的**等待者集合。
  * 回调参数是**该任务那一刻的快照**;null 表示"任务已从注册表消失,无人能给出终态"。
+ *
+ * G-654②:桶上必须带**世代身份**(`identity`)。只有 `Map<id, Set>` 的话,同一 key 上的
+ * 上一轮遗留桶会被这一轮的终态事件整块摘掉(或反过来:上一轮迟到的终态向这一轮新登记的
+ * 等待者投递一份**别人家的**快照)—— 两种都是"按 key 盲操作"的形态,本票要杀的就是它。
  */
 type SettleListener = (snapshot: BackgroundTaskSnapshot | null) => void;
-const settleListeners = new Map<string, Set<SettleListener>>();
+
+interface SettleBucket {
+  /** 桶建立时该 key 上在任登记的世代;`NO_GENERATION_IDENTITY` = 此刻键上没有登记。 */
+  identity: string;
+  listeners: Set<SettleListener>;
+}
+
+/** 没有在册登记时的世代占位值(与 `genIdentity()` 的形态永不相撞:后者必带 `gen_` 前缀)。 */
+const NO_GENERATION_IDENTITY = '';
+
+const settleListeners = new Map<string, SettleBucket>();
+
+/** 此刻该 key 上在任登记的世代身份(无登记 ⇒ 占位档)。删除/投递的匹配基准就是它。 */
+function currentIdentityOf(id: string): string {
+  return tasks.get(id)?.identity ?? NO_GENERATION_IDENTITY;
+}
+
+/** 逐个回答桶里的等待者(与 `clearAllTasks`/`notifySettled` 同一条纪律:**逐个包**,一人抛错不吞后面)。 */
+function answerBucketListeners(bucket: SettleBucket, snapshot: BackgroundTaskSnapshot | null): void {
+  for (const fn of Array.from(bucket.listeners)) {
+    try {
+      fn(snapshot);
+    } catch {
+      /* 单个等待者的清理体内抛错不许带崩整桶收尾 */
+    }
+  }
+  bucket.listeners.clear();
+}
+
+/**
+ * G-654② 摘桶的唯一守卫出口:**身份匹配才摘**。
+ * 匹配 ⇒ 先把桶里剩下的等待者以 `null` 回答(留一个没人回答的等待 = Promise 泄漏),再摘桶;
+ * 不匹配 ⇒ 这一格**原样不动**并计数 —— 那是别的一代登记的桶,本票禁止拿 key 相等当删除凭据。
+ */
+function dropSettleBucketGuarded(id: string, identity: string): boolean {
+  const bucket = settleListeners.get(id);
+  if (!bucket) return false;
+  if (bucket.identity !== identity) {
+    removalGuardStats.identityMismatch += 1;
+    return false;
+  }
+  settleListeners.delete(id);
+  answerBucketListeners(bucket, null);
+  return true;
+}
 
 /**
  * 挂一个终态监听器,返回撤销函数。
@@ -228,20 +329,37 @@ const settleListeners = new Map<string, Set<SettleListener>>();
  * 反过来(先读到 running → 再挂监听)会在"读"与"挂"之间漏掉那次终态,
  * 于是这个等待者只能等自己的 deadline 到点,把一个**其实早就结束**的任务报成
  * `timed-out-unknown`。这类漏登记在单线程下也能发生 —— await 就是让出点。
+ *
+ * G-654②:桶按**世代身份**归置。若该 key 上残留的是另一代的桶(上一轮迟到的等待者),
+ * 先把那一桶以 `null` 回答完再换桶 —— 既不把旧等待者吊死,也不让旧桶占住新登记的投递面。
+ * 撤销函数同样带身份守卫:key 上换代的桶**不是我的**,摘它会顺手清掉新登记的等待者。
  */
 function addSettleListener(id: string, fn: SettleListener): () => void {
-  let set = settleListeners.get(id);
-  if (!set) {
-    set = new Set();
-    settleListeners.set(id, set);
+  const identity = currentIdentityOf(id);
+  let bucket = settleListeners.get(id);
+  if (bucket && bucket.identity !== identity) {
+    // 另一代遗留的桶:当场结掉它(报 `null` = "无人能为其给出终态"),再为当代开新桶。
+    settleListeners.delete(id);
+    removalGuardStats.staleBucketReconciled += 1;
+    answerBucketListeners(bucket, null);
+    bucket = undefined;
   }
-  set.add(fn);
+  if (!bucket) {
+    bucket = { identity, listeners: new Set() };
+    settleListeners.set(id, bucket);
+  }
+  bucket.listeners.add(fn);
   return () => {
     const current = settleListeners.get(id);
     if (!current) return;
-    current.delete(fn);
+    if (current.identity !== identity) {
+      // 键已换代:这一桶不属于我这一代,整块摘它就是本票要杀的形状 ⇒ 不动、只计数。
+      removalGuardStats.identityMismatch += 1;
+      return;
+    }
+    current.listeners.delete(fn);
     // 逐层删空集合:留着空 Set 就是让 Map 只增不减
-    if (current.size === 0) settleListeners.delete(id);
+    if (current.listeners.size === 0) settleListeners.delete(id);
   };
 }
 
@@ -269,9 +387,27 @@ function addSettleListener(id: string, fn: SettleListener): () => void {
  *  b) 容量截断只许在归属与幂等**之后**发生 —— 止步于前四道的条目拿不到通知文本,
  *     也就结构上不可能带 `[truncated]`(判据③的载体)。
  * 后半段的投递语义(claim / 回退 / 逐个摘除)一字未改;三条各去掉一条,红的必须是不同的用例。
+ *
+ * G-654② 在最前面再加一道**代际归属门**,与上面三条各判各的:
+ *  - 终态单向门拦"同一个对象被迟到的快照改写";
+ *  - claim(判据①)拦"同一轮里通知发两次";
+ *  - 本门拦"迟到的是**上一代登记**的对象,而 key 上已经换成了新一代" —— 旧写法 key 相等就当
+ *    归属成立,于是上一轮的终态会向新一轮的等待者投递一份别人家的快照,并把那一桶整块摘掉。
+ *    现在:不改新条目、不投递、不摘桶,`getRemovalGuardStats().staleTerminalRejected` 计一次。
  */
 function notifySettled(task: BackgroundTask): void {
-  const set = settleListeners.get(task.id);
+  // G-654② 代际归属门(先于一切判据):这个 key 上如今站着**另一代**登记 ⇒ 手上一条终态
+  // 是上一轮迟到的 ⇒ 整段拒收:不改新条目的状态、不向新登记的等待者投递、不摘新登记的桶,
+  // 并计数。旧写法只问 `settleListeners.get(task.id)` —— key 相等就当归属成立,正是本票要杀的
+  // "按 id 盲操作"那一型(票面②:旧一次运行迟到的终态不得清掉同一 key 的新登记)。
+  const live = tasks.get(task.id);
+  if (live && live.identity !== task.identity) {
+    removalGuardStats.staleTerminalRejected += 1;
+    return;
+  }
+  // 桶同样要按身份认领:另一代遗留的桶不由这一轮投递,也不在这一轮手里被清。
+  const bucket = settleListeners.get(task.id);
+  const set = bucket && bucket.identity === task.identity ? bucket.listeners : undefined;
   const hasDirectWaiter = !!set && set.size > 0;
   const decision = decideTerminalSettlement({
     ownsEntry: isTerminalStatus(task.status),
@@ -341,6 +477,7 @@ export function registerTask(
   const id = genId();
   const task: BackgroundTask = {
     id,
+    identity: genIdentity(),
     command,
     process,
     startedAt: new Date().toISOString(),
@@ -476,6 +613,7 @@ export function registerFailedTask(command: string, errorMessage: string): strin
   const id = genId();
   const task: BackgroundTask = {
     id,
+    identity: genIdentity(),
     command,
     process: null,
     startedAt: new Date().toISOString(),
@@ -1136,9 +1274,51 @@ function pruneCompleted(): void {
   for (const t of toRemove) {
     // 被裁掉的都是非 running 的任务 ⇒ 终态通知早已在 close/error 里发过。
     // 这里仍要摘监听器集合,否则一个"任务已被删除"的键会把监听器永久留在 Map 里。
-    settleListeners.delete(t.id);
-    tasks.delete(t.id);
+    // G-654② 两处都换成**带身份**的摘除:先按在册那一代的身份了结等待者再摘条目。
+    // 旧写法凭 key 整块 `settleListeners.delete` / `tasks.delete`,而这份清单来自
+    // `listTasks()` 的**快照**(与删除之间隔着一次遍历)—— 正是票面②要杀的盲删形状。
+    const live = tasks.get(t.id);
+    if (!live) continue; // 快照已过时:key 上已经没有登记,无可删(不拿过期条目当删除凭据)
+    deleteTaskGeneration(live.id, live);
   }
+}
+
+/**
+ * G-654② 摘除一代登记的**唯一**出口:`tasks.delete` 只在这里发生
+ * (`clearAllTasks` 是整表终局重置,不是"按 key 删某一代",另说)。
+ * 顺序判据:先按身份了结该代等待者,再摘条目 —— 反过来会让等待者在一个已经不在册的条目上
+ * 收到投递,而 `notifySettled` 的代际门此时读不到登记,等于把"没人负责"伪装成"已结算"。
+ */
+function deleteTaskGeneration(id: string, task: BackgroundTask): void {
+  dropSettleBucketGuarded(id, task.identity);
+  tasks.delete(id);
+}
+
+/**
+ * G-654② —— **删除要带身份守卫**:`remove(id, identity)` 语义,只有身份匹配才删。
+ *
+ * 三档拒绝互不相通,不塌成"没删就是不存在":
+ *  - `missing-identity` —— 调用方**没给身份**就要删 ⇒ 拒绝并计数。本票明令不得保留
+ *    "不带身份就盲删"的默认档,所以这一格是**拒**,不是"那就按 key 删吧"。
+ *  - `identity-mismatch` —— 给了身份但不是在册那一代 ⇒ 拒绝并计数:旧一轮迟到的收尾
+ *    不得清掉同一 key 上新登记的条目。
+ *  - `not-found` —— key 上根本没有登记(已被裁掉/从未注册)。
+ * 匹配 ⇒ 摘条目 + 按身份了结该代等待者(`waitForTask` 收到 `gone`)。
+ * 公开 API 既有签名一个都没动:本函数是**新增**出口。
+ */
+export function removeTask(id: string, identity?: string): GuardedRemovalOutcome {
+  if (typeof identity !== 'string' || identity === '') {
+    removalGuardStats.missingIdentity += 1;
+    return { removed: false, reason: 'missing-identity', id };
+  }
+  const live = tasks.get(id);
+  if (!live) return { removed: false, reason: 'not-found', id };
+  if (live.identity !== identity) {
+    removalGuardStats.identityMismatch += 1;
+    return { removed: false, reason: 'identity-mismatch', id };
+  }
+  deleteTaskGeneration(live.id, live);
+  return { removed: true, id };
 }
 
 /** 清空所有任务(用于 REPL 退出或测试清理)。 */
@@ -1152,17 +1332,12 @@ export function clearAllTasks(): void {
   // (与本文件 killTask 处 P0-4 修复记的是同一型故障)。
   // 与 notifySettled 同一条纪律:**逐个包**,一个监听者体内抛错不许吞掉它后面所有等待者
   // —— 那正是本段存在的理由要排除的形态。清空是终局动作,所以这里不参与 claim/回退语义。
-  for (const id of settleListeners.keys()) {
-    const set = settleListeners.get(id);
-    if (!set) continue;
+  // G-654② 口径登记:`tasks.clear()` / 逐桶摘除是**整表终局重置**,不是"按 key 删某一代登记",
+  // 没有可比的世代身份(它要清的就是全部世代),所以这一支不走身份守卫,但桶仍是按世代归置的,
+  // 回答的仍是各自那一桶里的等待者。
+  for (const [id, bucket] of [...settleListeners]) {
     settleListeners.delete(id);
-    for (const fn of Array.from(set)) {
-      try {
-        fn(null);
-      } catch {
-        /* 单个等待者的清理体内抛错不带崩整表清空 */
-      }
-    }
+    answerBucketListeners(bucket, null);
   }
   tasks.clear();
 }
@@ -1171,6 +1346,8 @@ export function clearAllTasks(): void {
 
 export interface LoopTask {
   id: string;
+  /** G-654② 世代身份(与 `BackgroundTask.identity` 同一判据:删除凭身份,不凭 key 相等)。 */
+  identity: string;
   command: string;
   intervalMs: number;
   timer: NodeJS.Timeout;
@@ -1196,7 +1373,7 @@ export interface StartLoopOptions {
   spawn: (command: string) => string; // 注入 registerTask 的方式
 }
 
-export function startLoop(opts: StartLoopOptions): { id: string; intervalMs: number } | { error: string } {
+export function startLoop(opts: StartLoopOptions): { id: string; intervalMs: number; identity: string } | { error: string } {
   const intervalMs = parseInterval(opts.interval);
   if (intervalMs === null) {
     return { error: `非法间隔格式: "${opts.interval}",应为 Ns/Nm/Nh/Nd(如 5m / 1h)` };
@@ -1208,6 +1385,7 @@ export function startLoop(opts: StartLoopOptions): { id: string; intervalMs: num
   const id = `loop_${Date.now()}_${crypto.randomBytes(2).toString('hex')}`;
   const loopTask: LoopTask = {
     id,
+    identity: genIdentity(),
     command: opts.command,
     intervalMs,
     timer: null as unknown as NodeJS.Timeout,
@@ -1225,7 +1403,7 @@ export function startLoop(opts: StartLoopOptions): { id: string; intervalMs: num
   loopTask.timer = setInterval(run, intervalMs);
   loops.set(id, loopTask);
 
-  return { id, intervalMs };
+  return { id, intervalMs, identity: loopTask.identity };
 }
 
 export function listLoops(): Array<{ id: string; command: string; intervalMs: number; runCount: number; lastRunAt?: string; lastTaskId?: string }> {
@@ -1239,12 +1417,41 @@ export function listLoops(): Array<{ id: string; command: string; intervalMs: nu
   }));
 }
 
-export function stopLoop(id: string): boolean {
-  const l = loops.get(id);
-  if (!l) return false;
-  clearInterval(l.timer);
+/**
+ * G-654② 周期任务的**严格**删除:与 `removeTask` 同一套三档拒绝,不给"不带身份就盲删"留默认档。
+ * 身份匹配才 `clearInterval` + 摘表 ——  clearInterval 也是删除的一部分:停错一代的定时器
+ * 会让上一轮迟到的收尾掐掉这一轮的重复执行。
+ */
+export function removeLoop(id: string, identity?: string): GuardedRemovalOutcome {
+  if (typeof identity !== 'string' || identity === '') {
+    removalGuardStats.missingIdentity += 1;
+    return { removed: false, reason: 'missing-identity', id };
+  }
+  const live = loops.get(id);
+  if (!live) return { removed: false, reason: 'not-found', id };
+  if (live.identity !== identity) {
+    removalGuardStats.identityMismatch += 1;
+    return { removed: false, reason: 'identity-mismatch', id };
+  }
+  clearInterval(live.timer);
   loops.delete(id);
-  return true;
+  return { removed: true, id };
+}
+
+/**
+ * 终止周期任务(既有签名向后兼容:传不传身份都还能调)。
+ *
+ * 每一处 `loops.delete` 现在都经 `removeLoop` 的身份守卫出口。刻意说明**这一支的口径**:
+ * 调用方没给身份时,取"此刻在册那一代"的身份再去守卫 —— 这是"读到的就是摘掉的"同代删除,
+ * 不是"凭 key 盲删"(它删不掉任何它没看见的世代,身份不匹配照样拒)。
+ * 为什么不改成"无身份即拒":`apps/cli/src/commands/repl.ts:1758` 是 `/loop stop` 的既有调用点,
+ * 本票禁改该文件;把它逼成拒绝等于**顺手改坏用户命令**,而票面要杀的是跨代误删,不是这一格。
+ * 需要严格档的调用点请直接用 `removeLoop(id, identity)`(身份可从 `startLoop` 返回值取)。
+ */
+export function stopLoop(id: string, identity?: string): boolean {
+  const live = loops.get(id);
+  if (!live) return false;
+  return removeLoop(id, identity ?? live.identity).removed;
 }
 
 export function clearAllLoops(): void {
