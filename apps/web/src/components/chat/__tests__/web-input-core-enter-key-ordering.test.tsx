@@ -526,11 +526,19 @@ describe('组 E — G-845 空输入框 Backspace 删最后一个附件', () => {
     render(<Harness fileNames={['a.png']} />)
     expect(screen.getByTestId('attachments').textContent).toBe('a.png')
 
+    const ev = new KeyboardEvent('keydown', {
+      key: 'Backspace',
+      bubbles: true,
+      cancelable: true,
+    })
     act(() => {
-      fireEvent.keyDown(ta(), { key: 'Backspace' })
+      ta().dispatchEvent(ev)
     })
 
     expect(screen.getByTestId('attachments').textContent).toBe('')
+    // 与两条反例成对:这一档成立时必须真的把这一一下消费掉 —— 不 preventDefault 就等于
+    // 一边摘附件、一边让浏览器顺手删字符(交还默认语义),那仍是 bug 而不是"没行为"。
+    expect(ev.defaultPrevented).toBe(true)
     // 输入框保持原样(空),且绝不触发发送
     expect(ta().value).toBe('')
     expect(screen.getByTestId('sends').textContent).toBe('0')
