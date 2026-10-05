@@ -30,18 +30,69 @@ const C = {
   cyan: '\x1b[36m', dim: '\x1b[2m', bold: '\x1b[1m', reset: '\x1b[0m',
 }
 
-// provider name 白名单 —— 本门手工维护的一份副本(条数现读 `PROVIDER_WHITELIST.size`,勿在注释里写死)。
-// 事实来源:apps/ai-service/app/core/config.py 已完全字典化,唯一配置源是 .env 的 LLM_PROVIDERS 并由其自动识别,
-// 旧 24+7 扁平字段与 `_PROVIDER_KEY_ALIASES` 均已删除 —— 所以这里**没有**可投影的机器源。
-// 后果:按 config.py 的设计"新增 provider 零代码改动",而本门会把它判成未知 provider。
-// 收口方向(另计一票):由 .env/服务端能力清单单向投影出白名单,或让 ai-service 暴露名单出口;
-// 在此之前新增 provider 必须同步这里,不得为消红删判据。
+// provider name 白名单 —— 条数现读 `PROVIDER_WHITELIST.size`,勿在注释里写死。
+//
+// 名单为什么长这样(2026-10-06 逐条落实「凭什么算数」):
+//   本名单**不是**"审核过的合法 provider 全集",而是"`.env` 里出现过的 provider name 的并集"。
+//   判据形态是「名单外判黄」(见下方 validateJsonField),名单内条目从不判红——所以名单里的
+//   闲置条目不制造任何红,裁剪属产品口径(见 §B),不是本门该动的。
+//
+//   可投影的机器源**确实存在**(旧注释断言"没有"是错的,已更正):
+//     apps/ai-service/app/services/free_provider_registry.py 的 `provider_code=` 条目(92 个 uniq),
+//     经 apps/ai-service/app/services/model_availability.py:328 `_to_llm_providers_name()`
+//     (映射表 :313,含 cloudflare_workers_ai→cloudflare 等 5 条)投影到 .env 的 LLM_PROVIDERS name,
+//     再由 :421-422 / :955-956 `settings.get_provider_config(cfg_name)` 真正读 api_key。
+//     实测:registry 92 个 provider_code 里有 14 个能在 .env 命中已配 api_key 的 name。
+//   故新增 provider 的正解是同步 free_provider_registry + .env;本名单是**兜底副本**,不是唯一真源。
+//   收口方向(另计一票):由 registry 投影出本名单,或让 ai-service 暴露名单出口
+//   (routers/llm.py:2636 GET /llm/providers/availability 已返回 providers[],是现成出口);
+//   在此之前新增 provider 必须同步这里,不得为消红删判据。
 const PROVIDER_WHITELIST = new Set([
-  'openai', 'anthropic', 'groq', 'gemini', 'openrouter', 'agnes', 'stepfun',
-  'cloudflare', 'nvidia', 'github', 'vercel', 'opencode', 'modal', 'inference_net',
-  'nlp_cloud', 'scaleway', 'alibaba_intl', 'cerebras', 'mistral', 'cohere',
-  'huggingface', 'zai', 'kilo', 'pollinations', 'llm7', 'ovh', 'aihorde', 'reka',
-  'routeway', 'bazaarlink', 'ainative', 'token6688',
+  // ── §A 有生产代码在用(.env 实配 15 个中除去 §B 闲置后的全部)────────────────
+  // 依据:.env LLM_PROVIDERS 实配 + 下列生产代码位置。删掉任一条 ⇒ 对应模型重新 502。
+  //
+  // 「真 provider」vs「模型名前缀/别称」—— 7 条**全是真 provider**(每个都有 get_provider_config
+  // 读取点,即真的 key 载体),但其中 4 条**同时兼任裸模型名前缀规则**,这一身二职必须如实标注:
+  //   A1 纯 provider 身份,只经带斜杠的 vendor 路径可达(不靠"猜裸名"):
+  'ihui_relay',   // llm_gateway.py:1823 get_provider_config + :277 "ihui/"→ihui_relay;api_base 由 :109
+                  //   _detect_ihui_relay_base() 国内/海外竞速自动检测;free_provider_registry.py:266。
+                  //   解的是:中转模型列表可选、一调用即 502。
+                  //   注意 model_availability.py:108 的 ("ihui/", "ihui_relay") 是前缀→code,不是 name 映射。
+  'hf_qwen',      // 真 provider,但**只经 vendor 路径**可达: llm_gateway.py:311 "hf-qwen/"→hf_qwen,
+                  //   且 :1262 _FREE_PROVIDER_ENDPOINT_RESOLVERS["hf-qwen/"] 自带免 key 公网端点
+                  //   (HF Victor,端点生命周期短)。key 由 :1856-1858 循环 `get_provider_config(code)` 读,
+                  //   是**间接**消费(不像 ihui_relay 那样字面出现在调用里)。
+                  //   ⚠ 7 条里**唯一**不在 free_provider_registry 的 provider —— 因为它是免 key 端点。
+  'siliconflow',  // 真 provider,消费路径**经 availability 而非网关内联**: llm_gateway.py:377-378
+                  //   "siliconcloud/"与"siliconflow/"两个前缀都→siliconflow;
+                  //   key 由 model_availability.py:421-422 经 _to_llm_providers_name('siliconflow')
+                  //   → get_provider_config('siliconflow') 读;free_provider_registry.py:1093 有条目。
+                  //   ⚠ 全仓无字面 get_provider_config("siliconflow") —— 别按"网关内联"判它不存在。
+  // ── A2 provider key **兼任**裸模型名前缀(名字可无斜杠出现,故必须与 A1 区分)──
+  // 这 4 条的生产修复同源: 模型选择器发的是裸 id(/llm/models 的 m.id),不带 vendor 前缀,
+  // 落到末尾 openai 默认分支 → LiteLLM "LLM Provider NOT provided" 502。
+  'deepseek',     // llm_gateway.py:1871 字面 get_provider_config + :295 "deepseek-" 裸前缀兜底;
+                  //   model_pricing.py:115 有计价条目;registry 有条目。裸 deepseek-chat/reasoner 靠这条。
+  'zhipu',        // llm_gateway.py:1876 字面 get_provider_config + :291 "glm-" 裸前缀(智谱 id 无斜杠);
+                  //   model_pricing.py:116 计价;registry :135。裸 glm-4-plus/glm-5 靠这条。
+  'qwen',         // llm_gateway.py:1884 字面 get_provider_config + :278 "qwen" / :279 "qwen-" 裸前缀;
+                  //   registry 有条目(与 bailian 同端点,见 registry notes)。
+                  //   ⚠ 名字双重含义:既是 provider key,也是阿里 dashscope 的裸模型名前缀。
+  'mimo',         // llm_gateway.py:1892 字面 get_provider_config + :283 "mimo" / :284 "mimo-" 裸前缀;
+                  //   小米公网端点 https://api.xiaomimimo.com/v1 写死在代码里(.env 只配了 api_key)。
+                  //   ⚠ 归属有例外: llm_gateway.py:529-530 记载 mimo-v2.5-free 在库里只挂在
+                  //   provider_code='opencode_zen' 名下,故 mimo 归属以 DB 实证优先(见 :536 三级判定)。
+
+  // ── §B .env 未配置、当前无生产调用点的闲置条目(24 条)────────────────────
+  // 待机主裁剪口径:**本轮不动**。它们不制造任何红(判据只判名单外),但会让名单虚高、
+  // 掩盖"名单外=真未知"的信号。裁剪前请确认不是"计划接入但尚未配 key"。
+  'anthropic', 'github', 'vercel', 'opencode', 'modal', 'inference_net', 'nlp_cloud', 'scaleway',
+  'alibaba_intl', 'cerebras', 'mistral', 'cohere', 'huggingface', 'zai', 'kilo', 'pollinations',
+  'llm7', 'ovh', 'aihorde', 'reka', 'routeway', 'bazaarlink', 'ainative', 'token6688',
+
+  // ── §C .env 实配且有生产代码在用的既有条目(本轮未动,补注释以保持名单可读)──
+  'openai', 'groq', 'gemini', 'openrouter', 'agnes', 'stepfun',
+  'cloudflare', 'nvidia',
 ])
 const KNOWN_FIELDS = new Set(['api_key', 'api_base', 'enabled', 'models', 'default_model'])
 const DEFAULT_ENV_FILE = 'apps/ai-service/.env'
