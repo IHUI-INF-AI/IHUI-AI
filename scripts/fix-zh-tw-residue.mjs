@@ -20,11 +20,17 @@
  *
  * 用法:
  *   node scripts/fix-zh-tw-residue.mjs                          (修复 shared/zh-TW.json)
- *   node scripts/fix-zh-tw-residue.mjs --target=web              (修复 apps/web/messages/zh-TW.json)
- *   node scripts/fix-zh-tw-residue.mjs --target=miniapp-taro     (修复 apps/miniapp-taro/src/i18n/zh-TW.ts)
- *   node scripts/fix-zh-tw-residue.mjs --target=extension        (修复 apps/extension/messages/zh-TW.json)
- *   node scripts/fix-zh-tw-residue.mjs --target=all              (修复所有目标)
+ *   node scripts/fix-zh-tw-residue.mjs --target=web              (修复 packages/i18n/messages/web/zh-TW.json)
+ *   node scripts/fix-zh-tw-residue.mjs --target=miniapp-taro     (修复 packages/i18n/messages/miniapp-taro/zh-TW.json)
+ *   node scripts/fix-zh-tw-residue.mjs --target=extension        (修复 packages/i18n/messages/extension/zh-TW.json)
+ *   node scripts/fix-zh-tw-residue.mjs --target=all              (修复全部七个面)
  *   node scripts/fix-zh-tw-residue.mjs --dry-run                 (只打印改动,不写文件)
+ *
+ * 2026-10-05 修:三个面指向 2026-07-25 i18n 单一来源迁移**之前**的旧址
+ * (apps/web/messages/ · apps/extension/messages/ · apps/miniapp-taro/src/i18n/zh-TW.ts),
+ * 全部命中"跳过(不存在)",末行却打"总计: 0 个文件, 0 行改动" —— 与"无残留"同形,
+ * 于是这台正牌出口静默失效,残留只能靠人手改。现面清单与路径拼法取自
+ * lib/i18n-message-faces.mjs(与扫描器同一份);目标文件不存在一律 **报错退出**,不再跳过。
  *
  * 依赖:opencc-js(仓库根 node_modules,pnpm 已就绪)
  *
@@ -37,22 +43,28 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import OpenCC from 'opencc-js'
+import { I18N_MESSAGE_FACES, faceMessageRelPath, isKnownFace } from './lib/i18n-message-faces.mjs'
 
 const ROOT = process.cwd()
 const args = process.argv.slice(2)
 const isDryRun = args.includes('--dry-run')
 const targetArg = args.find((a) => a.startsWith('--target='))?.split('=')[1] || 'shared'
 
-const TARGETS = {
-  shared: 'packages/i18n/messages/shared/zh-TW.json',
-  web: 'apps/web/messages/zh-TW.json',
-  'miniapp-taro': 'apps/miniapp-taro/src/i18n/zh-TW.ts',
-  extension: 'apps/extension/messages/zh-TW.json',
-}
+// 面清单与路径拼法取自 lib/i18n-message-faces.mjs —— 与扫描器同一份,不得在此另写一套。
+// 本器只修 zh-TW(简→繁字形),故 locale 恒为 'zh-TW'。
+const TARGETS = Object.fromEntries(
+  I18N_MESSAGE_FACES.map((f) => [f, faceMessageRelPath(f, 'zh-TW')]),
+)
 
 function pickTargets(arg) {
   if (arg === 'all') return Object.values(TARGETS)
-  return [TARGETS[arg] || TARGETS.shared]
+  if (!isKnownFace(arg)) {
+    console.error(
+      `未知 --target=${arg};可选:all | ${I18N_MESSAGE_FACES.join(' | ')}(不再静默回落到 shared)`,
+    )
+    process.exit(2)
+  }
+  return [TARGETS[arg]]
 }
 
 const files = pickTargets(targetArg)
@@ -66,11 +78,16 @@ const LINE_RE = /^(\s*)("[^"]+"\s*:\s*)"((?:[^"\\]|\\.)*)"([,}\s].*)$/
 
 let totalFiles = 0
 let totalChanges = 0
+/** 目标文件缺失清单 —— 非空则整体判"未判定"并退出非零,禁止当成通过。 */
+const missingTargets = []
 
 for (const relPath of files) {
   const absPath = join(ROOT, relPath)
   if (!existsSync(absPath)) {
-    console.log(`⏭  跳过(不存在): ${relPath}`)
+    // 2026-10-05 起:不存在 = **未判定**,不是"无需修"。静默跳过会让末行那句
+    // "总计: 0 个文件, 0 行改动"读起来与"无残留"同形,正是本器失效三个月的外衣。
+    console.error(`❌ 目标文件不存在(未判定,不得读作"无残留"): ${relPath}`)
+    missingTargets.push(relPath)
     continue
   }
   const text = readFileSync(absPath, 'utf8')
@@ -113,4 +130,11 @@ for (const relPath of files) {
 }
 
 console.log(`\n📊 总计: ${totalFiles} 个文件, ${totalChanges} 行改动${isDryRun ? ' (dry-run)' : ''}`)
+if (missingTargets.length) {
+  console.error(
+    `❌ 未判定:${missingTargets.length} 个目标文件不存在 —— 本轮读数不构成"无残留"结论,先修路径或补文件:\n` +
+      missingTargets.map((p) => `   - ${p}`).join('\n'),
+  )
+  process.exit(2)
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

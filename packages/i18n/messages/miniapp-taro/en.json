@@ -3476,7 +3476,7 @@
     "members": "Members"
   },
   "chat": {
-  "partialDoneTitle": "Response interrupted, the content below may be incomplete",
+    "partialDoneTitle": "Response interrupted, the content below may be incomplete",
     "send": "Send",
     "meta": {
       "pullOnly": "On the mini program, this change syncs the next time you open it"
@@ -4114,6 +4114,7 @@
     "9": "Enter a description",
     "10": "No withdrawal records",
     "11": "Selected model: {m}",
+    "12": "Verification code sent to {m}",
     "13": "Joined on {m}",
     "14": "Select tracks you are interested in for personalized recommendations",
     "15": "Default model",
@@ -4379,5 +4380,23 @@
   },
   "profile": {
     "myCourses": "My courses"
+  },
+  "Menu": {
+    "d1": "Music"
+  },
+  "verify": {
+    "phoneEmpty": "Phone number is empty",
+    "phoneInvalid": "Please enter a valid phone number",
+    "codeSent": "Verification code sent",
+    "codeIncomplete": "Please enter the full verification code",
+    "verifySuccess": "Verification succeeded",
+    "getCode": "Get verification code"
+  },
+  "VerifyCodeModal": {
+    "p2": "Resend",
+    "p3": "Verifying..."
+  },
+  "VoiceInput": {
+    "p1": "Failed to start recording"
   }
 }
