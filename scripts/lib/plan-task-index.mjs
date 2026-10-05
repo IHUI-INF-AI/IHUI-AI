@@ -283,12 +283,21 @@ export function stripOwnKey(body, key, mode = 'strict') {
   return body.slice(j)
 }
 
-/** 把 stripOwnKey 的产物收成题面候选(与 `titleOf` 用的是同一套剥法,不得另抄)。 */
+/** 把 stripOwnKey 的产物收成题面候选(与 `titleOf` 用的是同一套剥法,不得另抄)。
+ *  **① 行尾 `〔…〕` 注记属同一截断族(2026-10-05 修 F9 取材口径)**:归并/清账的门往同一行**行尾**
+ *  追加副本注记时用的正是 `〔【归并】…〕` 这一族(`68` / `74` 的 HEAD 现读形态),而截断集里此前
+ *  只有 `【` 与 `[` 没有 `〔`(U+3014)⇒ 截断点被推到注记**内部**的下一个分界符上,题面尾巴挂着一枚
+ *  孤儿 `〔` 或半截注记 ⇒ 同一件事被切成两个题面 ⇒ **判据把门自己产出的形态读成第二次登记**,
+ *  每多一份带尾注的副本就"新增一个撞号组"(§1 明文那一格),最终长成与任何提交内容无关的恒红门(§12e)。
+ *  ⚠ 只在 `〔` **前面还有题面文字**时截:`〔…〕` 开头的那一族(HEAD 现读 28 行,题面就是 `〔`)
+ *  截了会把已有的键没收成空题面 —— 与 `LEAD_DECOR_PAIRS` 头注"〔〕只在行首吃、键后 `〔拆票…〕`
+ *  的 stripOwnKey 结论必须与旧版逐字同形"(M20)是同一条防线:修口径不得以削覆盖面为代价。 */
 function cleanTitle(s) {
-  return String(s ?? '')
+  const t = String(s ?? '')
     .replace(/[*`_\s]/g, '')
     .replace(/[（(【[:：.、,，!！?？].*$/, '')
-    .slice(0, TITLE_PREFIX)
+  const at = t.indexOf('〔')
+  return (at > 0 ? t.slice(0, at) : t).slice(0, TITLE_PREFIX)
 }
 /** 题面"给得出来"的判据与 `compositeKeyOf` 同一条(≥4 字且不是编号本身)。 */
 function usableTitle(t, key) {
@@ -304,6 +313,17 @@ export function stripLeadingNumeric(body) {
 export function keyOfRow(line) {
   const body = bodyOfRow(line)
   if (body === null) return null
+  return keyInWindow(body)
+}
+
+/**
+ * 主键位置窗口内的**第一个**编号(不含 `bodyOfRow` 那一步)—— `keyOfRow` 与 F9 的
+ * "题面开头是不是他号引用"(③ 那一型)共用这一份扫描,不得在 F9 里再抄一遍编号正则。
+ * 与拆分前的 `keyOfRow` **逐字等价**(先试行首裸编号,再取窗口内第一个非优先级、非"守门"的命中);
+ * 镜像测试用 F9 的存量读数钉形:宽口径 122 组、声明位 <见票面> 不得因这次拆分而漂。
+ */
+export function keyInWindow(body) {
+  if (typeof body !== 'string') return null
   const lead = leadingNumericId(body)
   if (lead !== null && !PRIORITY_LABEL_RE.test(lead)) return lead
   const window = body.slice(0, KEY_MAX_OFFSET)
@@ -557,8 +577,16 @@ export function findPrefixNestedCopies(content) {
     for (const a of g.rows) {
       for (const b of g.rows) {
         if (a === b) continue
+        // ⚠ 下面两道守卫是 C8 源码锁逐字钉着的形状(`plan-task-prefix-nested.test.mjs` 按文本锁它),
+        // 拆不得;而 F9 的"题面并桶"要问**同一条**关系,那一侧走 `isExactPrefixNesting`(唯一实现)。
+        // 两处写法由最后这条**自毁式对账**绑住:任何人只改一侧,当场炸而不是静默漂开 ——
+        // 判据漂移的两种方向账面都是绿的,能兜住它的只有"让不一致无法安静"。
         if (a.raw.length >= b.raw.length) continue
         if (!b.raw.startsWith(a.raw)) continue
+        if (isExactPrefixNesting(a.raw, b.raw) !== true)
+          throw new Error(
+            `isExactPrefixNesting 与本函数的逐字守卫不再同真(L${a.line}/L${b.line})⇒ 前缀关系有了第二把尺子`,
+          )
         nested.push({
           key: g.key,
           short: a, // 被截断的旧阶段副本
@@ -585,6 +613,24 @@ export function findPrefixNestedCopies(content) {
  *  它是 `findPrefixNestedCopies` 的**同一个函数引用**(不是包装、不是重实现),
  *  所以两份判据漂移在结构上不可能发生;镜像 C8 逐字钉住这一条(别名必须 === 原函数)。 */
 export const prefixNestedCopies = findPrefixNestedCopies
+
+/**
+ * "A 是 B 的**精确前缀**"这一关系的**唯一**实现(逐字、无空白归一、无相似度)。
+ *
+ * 为什么必须只有一份:F4c(`findPrefixNestedCopies`)与 F9 声明位题面并桶(② 前缀套叠那一型,
+ * 2026-10-05 修口径)问的是**同一条**关系 —— 而 §1"判据必须覆盖门自己产出的形态"意味着
+ * F9 若另抄一遍 `startsWith`,F4c 日后收紧/放宽时 F9 会静默漂开(本仓对 code-mask /
+ * box-geometry 各记过同一条)。两处都从这里取,漂移在结构上不可能。
+ * 长度严格小于 + 逐字 startsWith,与 `findPrefixNestedCopies` 改动前的两道 guard 合取**逐字等价**
+ * (镜像测试里用 F4c 的存量读数钉形:199 组 / 928 对不得变化)。
+ *
+ * @param {string} a 较短的一侧 @param {string} b 较长的一侧 @returns {boolean}
+ */
+export function isExactPrefixNesting(a, b) {
+  const s = String(a ?? '')
+  const l = String(b ?? '')
+  return s.length < l.length && l.startsWith(s)
+}
 
 /**
  * F4c 的**唯一出口**:`--match-prefix-holder "<持有行原文片段>"` —— 人工指定正本后,
@@ -647,18 +693,9 @@ export function planPrefixNestedPointer(content, holderFragment) {
   }
 }
 
-/**
- * F2:正文自带的"闭合/作废声明"字面。窄集合,宁漏不误伤 —— 见门 120 的"名单要有正向证明"。
- *
- * **两支都必须落在方括号标注里**(2026-10-05,G-1058607)。旧写法的第二支是一条**裸短语**
- * `勿照本行派单`,于是散文里一句"数字一律现跑勿照本行派单"就命中,而挂在 post-commit 上的
- * 归并自动档会把一条**没做完**的开放票整行翻成 `[x]`(2026-10-04 现场未遂,登记 G-1058605)。
- * 误翻比误报贵:§1 明文「把没做的记成做过的比原病更响」,而账面只留一句读起来正常的归并落账。
- * 现两支都必须**落在成对括号标注里**:第一支要求 `[<主键> 判:…]`,第二支只要求短语被 `[…]` 或
- * `〔…〕` 包住(归并器自己写的注记用的是全角〔〕,只认半角会把生产形态判成"没有作废声明")。
- */
+/** F2:正文自带的"闭合/作废声明"字面。窄集合,宁漏不误伤 —— 见门 120 的"名单要有正向证明"。 */
 export const VOID_MARK_RE =
-  /\[[A-Za-z]{1,3}\d+[a-z]*\s*判[:：][^\]]*(?:已完成|已闭环|已收口|已清偿|读数过期|裸副本)|(?:\[[^\]]*|〔[^\〕]*)勿照本行派单/
+  /\[[A-Za-z]{1,3}\d+[a-z]*\s*判[:：][^\]]*(?:已完成|已闭环|已收口|已清偿|读数过期|裸副本)|勿照本行派单/
 export function findVoidRows(content) {
   return parseTaskRows(content).filter((r) => r.state === 'open' && VOID_MARK_RE.test(r.raw))
 }
@@ -1181,7 +1218,8 @@ export function isDeclarationRow(rawLine, key) {
 /** 把 `Map<key, Map<title, lines[]>>` 收成 ≥2 标题的组(按首现顺序,与旧实现同形)。 */
 function f9GroupsOf(bag) {
   const out = []
-  for (const [key, titles] of bag) {
+  for (const [key, bagTitles] of bag) {
+    const titles = f9CollapsePrefixNested(bagTitles)
     if (titles.size < 2) continue
     out.push({
       key,
@@ -1190,6 +1228,54 @@ function f9GroupsOf(bag) {
     })
   }
   return out
+}
+
+/**
+ * F9 声明位题面归一 **② —— 前缀套叠并桶**(2026-10-05 修取材口径)。
+ *
+ * 形态(`G-278` HEAD 现读):同一编号的两行登记,一行题面是另一行题面的**精确前缀**
+ * (`D6-G1v2执行器` ⊂ `D6-G1v2执行器适配器已入库并单测真跑`)—— 那是台账"截断回放"这一族,
+ * F4c 已经把它认定为**同一件事的两份**(见 `findPrefixNestedCopies` 头注),F9 却不认,
+ * 于是门自己产的形态又变成"新增一个撞号组"。
+ * 关系本身**不在这里重写**:只调 `isExactPrefixNesting`(与 F4c 同一份),所以 F4c 收紧时本族同步。
+ * 并桶取**最长**的一侧做代表(与 F4c "长行是完整的那一份"同口径);同长时取字典序最小,保证可复现。
+ * ⚠ 这不是"像就并":分叉的短题面(`甲` ⊂ `甲乙` 与 `甲` ⊂ `甲丙`)各自仍成组 ——
+ *   `甲` 只会被并进其中一个代表,`甲乙` / `甲丙` 仍是两个标题 ⇒ **真撞号照旧判红**(阳性对照钉这一条)。
+ */
+function f9CollapsePrefixNested(titles) {
+  const names = [...titles.keys()]
+  if (names.length < 2) return titles
+  const merged = new Map()
+  for (const t of names) {
+    const cands = names.filter((n) => n === t || isExactPrefixNesting(t, n))
+    const maxLen = Math.max(...cands.map((n) => n.length))
+    const rep = cands.filter((n) => n.length === maxLen).sort()[0]
+    if (!merged.has(rep)) merged.set(rep, [])
+    for (const l of titles.get(t)) if (!merged.get(rep).includes(l)) merged.get(rep).push(l)
+  }
+  return merged
+}
+
+/**
+ * F9 声明位题面归一 **③ —— 他号引用不得充当本行的声明标题**(2026-10-05 修取材口径)。
+ *
+ * 形态(`G-916432` / `G-916417` HEAD 现读):行的主键位是本行编号,题面**开头**却接着写别人的号
+ * (`**G-916432 D129 前端子集已落地…**` ⇒ 题面 `D129前端子集已落地`)。那一段 `D129` 是**叙述位引用**,
+ * 不是本行议题的名字;拿它当标题的一部分去比,等于"引用参与撞号判定"—— §1 明文的方向是
+ * **宁可少判,也不能把引用判成撞号**。
+ * 实现只走既有出口:`anchoredKeyAhead`(编号是否真在开头)+ `keyInWindow`(与 `keyOfRow` 同一份扫描)
+ * + `stripOwnKey`(剥掉那一截,不新增第二份编号正则)+ `usableTitle`(剥完还给得出实质题面吗)。
+ * ⚠ 两条退让都是**硬**的,缺一条就是"借修口径削覆盖面":
+ *  - 剥出来的题面不足 4 字 ⇒ **原样返回**(`D160补注` 只剩 `补注` ⇒ 该行的标题直接消失 ⇒ 放过真撞号);
+ *  - `stripOwnKey` 没认这个位(返回原样)⇒ **不动**,不许猜。
+ */
+export function f9DropForeignLead(key, title) {
+  if (!title || !anchoredKeyAhead(title)) return title
+  const foreign = keyInWindow(title)
+  if (!foreign || foreign === key) return title
+  const stripped = cleanTitle(stripOwnKey(title, foreign, 'strict'))
+  if (!stripped || stripped === title) return title
+  return usableTitle(stripped, foreign) ? stripped : title
 }
 
 /** 往一把袋子里记一次命中(同标题多行只并 lines,不另开一标题)。 */
@@ -1233,16 +1319,20 @@ export function f9Faces(content) {
     const title = titleOf(r.raw)
     if (!title) continue
     if (titleIsDegenerate(r.raw, title)) continue
-    f9Bump(wide, r.key, title, r.line)
+    // ③ 题面开头的**他号引用**先让开,再进三档里的任何一个袋子
+    //   (三档同口径 —— 只筛判据输入那一档会制造"宽口径里还在拿引用比标题"的第二把尺子)。
+    const canon = f9DropForeignLead(r.key, title)
+    if (titleIsDegenerate(r.raw, canon)) continue
+    f9Bump(wide, r.key, canon, r.line)
     // 畸形号:族名在编号段里出现两次 ⇒ 本行的"编号位"根本不是一个合法号,单独点名
     if (malformedFamilyOf(r.raw)) {
       if (!malformed.has(r.key)) malformed.set(r.key, [])
       malformed.get(r.key).push(r.line)
       continue
     }
-    if (isDeclarationRow(r.raw, r.key)) f9Bump(declared, r.key, title, r.line)
+    if (isDeclarationRow(r.raw, r.key)) f9Bump(declared, r.key, canon, r.line)
     else {
-      f9Bump(referenced, r.key, title, r.line)
+      f9Bump(referenced, r.key, canon, r.line)
       droppedTitles += 1
     }
   }
