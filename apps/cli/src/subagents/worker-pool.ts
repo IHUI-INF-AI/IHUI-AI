@@ -267,7 +267,27 @@ export class SubagentWorkerPool {
   readonly config: WorkerPoolConfig;
   private readonly workers: Map<string, WorkerEntry> = new Map();
   private readonly queue: Array<{ req: SubagentSpawnRequest; resolve: (r: SubagentSpawnResponse) => void }> = [];
-  private activeCount = 0;
+  /**
+   * G-654① —— 运行计数**不得是第二份真相**。
+   *
+   * 旧写法是 `private activeCount = 0` 自己 ++/--:配对要靠 8 处调用点各自记得,而本文件
+   * 那句「若不在此补清理,… → drainQueue 条件永远少一格」正是它自己的供状 —— 漏一处就泄一格,
+   * 多减一处会变成**负数**(负数让 `< maxWorkers` 反而多放行一格)。
+   * 现由**应计入的集合之和**派生(唯一计算口 `activeCountNow()`):
+   *  - `workers` —— 已登记在跑的条目(含已转后台、进程仍活着的那些:旧计数器同样数它们,
+   *    行为不变,见 `checkIdleTimeout` 那条"转后台 ≠ 杀死");
+   *  - `reservedStarts` —— drainQueue 已决定启动、但 `startWorker` 还没把它写进 `workers`
+   *    的那一格(占位形状与旧写法"`activeCount++` 早于 startWorker"一致 ⇒ 并发上界不松口)。
+   * 集合是真相,数字只是它的投影:从集合里摘掉就等于减了一格,不存在"忘了 --"这条路。
+   */
+  private readonly reservedStarts = new Set<string>();
+  private nextReservedSlot = 0;
+  /**
+   * 上一次**发布出去**的派生计数值 —— 「算出来的值与上次相同 ⇒ 不发事件/不重复通知」的参照位。
+   * 只在 `publishActiveCountIfChanged()` 里读写(它不是计数,只是发射台账)。
+   */
+  private lastPublishedActiveCount = 0;
+  private readonly activeCountListeners = new Set<(next: number, prev: number) => void>();
   private nextWorkerSeq = 0;
   private readonly entryPath: string;
   private shutDown = false;
@@ -485,14 +505,15 @@ export class SubagentWorkerPool {
    *
    * 为什么这不是一层语法糖:`drainQueue()` 的重扫时机只有三个(入队时、worker 结算时、
    * 取消/关闭时)。把 `maxWorkers` 从 1 抬到 2 而不调它,队列里那条等待项**没有任何事件**
-   * 会再去问一次 `activeCount < maxWorkers` —— 于是"上界抬高了"这件事在盘面上是真的、
-   * 在行为上是假的,表现为"任务卡在队列里永远不启动"。上游同一条结论写在
+   * 会再去问一次 `派生计数 < maxWorkers`(G-654①:该判据读 `activeCountNow()`,占的仍是同一格)
+   * —— 于是"上界抬高了"这件事在盘面上是真的、在行为上是假的,表现为"任务卡在队列里永远不启动"。
+   * 上游同一条结论写在
    * `engine/scheduler.ts:384-403,425-428`(「抬高上界后必须显式 `pumpAll()` ——
    * 除结算外没有任何事件会触发重扫」)。
    *
    * 钳制一律走并发档唯一出口 `resolveMaxConcurrency`(见 concurrency-budget.ts 头注:
    * 本文件不得再出现并发字面量),所以传进来的数**不会**越过硬上限,也不会被降到 0
-   * (0 会让 `activeCount < maxWorkers` 永不成立 ⇒ 整池饿死)。
+   * (0 会让 `派生计数 < maxWorkers` 永不成立 ⇒ 整池饿死;下限 MIN_CONCURRENCY=1 就是这一格守卫)。
    *
    * 非抢占式(与 `maxWorkers 限制并发(排队),非抢占式` 那条设计一致):调低只拦**后续**启动,
    * 已在跑的 worker 一个都不动 —— 这里没有任何 kill/abort 逻辑,不得加进来。
@@ -545,7 +566,7 @@ export class SubagentWorkerPool {
 
   /** 等待所有活跃子进程完成(不等待排队中的,因为排队会随活跃完成而启动) */
   async waitAll(): Promise<SubagentSpawnResponse[]> {
-    while (this.activeCount > 0 || this.queue.length > 0) {
+    while (this.activeCountNow() > 0 || this.queue.length > 0) {
       await new Promise<void>((r) => setTimeout(r, 100));
     }
     return [...this.workers.values()].map((w) => this.entryToResponse(w, 'completed'));
@@ -599,20 +620,80 @@ export class SubagentWorkerPool {
       }
     }
     this.workers.clear();
-    this.activeCount = 0;
+    // G-654①:这里不再"把计数抹回 0"(那是旧写法盖住真相的第二只手)。集合清空即计数归零;
+    // 占位格一并还掉,否则 shutdown 会把 drainQueue 的格子永久占住。
+    // 迟到的 exit/error 事件此后只会对**已不在集合里**的条目做功 ⇒ 派生值不会被减成负数
+    // (旧写法会:那正是"第二份真相"漏出来的形状)。
+    this.reservedStarts.clear();
+    this.publishActiveCountIfChanged();
   }
 
   // ───────────────────────── 内部实现 ─────────────────────────
 
+  /**
+   * G-654① 派生运行计数唯一计算口:**应计入并发的集合之和**。
+   * 不缓存、不自增自减 —— 每次读都是对真相面的一次投影,所以"漏减/多减"在这一层无法表达。
+   */
+  private activeCountNow(): number {
+    return this.workers.size + this.reservedStarts.size;
+  }
+
+  /**
+   * G-654① 计数发射唯一出口,判据只有一条:**算出来的值与上次发布值相同 ⇒ 什么都不发**
+   * (不发事件、不回调、不重复通知)。调用次数不等于发射次数 —— 同一个值上重复结算
+   * (迟到的 exit、重复的 shutdown、幂等的占位归还)必须问不出第二声。
+   */
+  private publishActiveCountIfChanged(): void {
+    const next = this.activeCountNow();
+    if (next === this.lastPublishedActiveCount) return;
+    const prev = this.lastPublishedActiveCount;
+    this.lastPublishedActiveCount = next;
+    // 迭代副本:回调体内可能撤销自己(与 background-registry 的投递同一条纪律)
+    for (const listener of [...this.activeCountListeners]) listener(next, prev);
+  }
+
+  /** 只读观测面:当前派生运行计数(running 集合 + 已占位尚未登记的启动格)。 */
+  activeWorkerCount(): number {
+    return this.activeCountNow();
+  }
+
+  /**
+   * G-654① 计数变化观测点(可选注册,默认无人注册 ⇒ 不产生任何输出)。
+   * 返回撤销函数。回调只在派生值**发生变化**时被调用。
+   */
+  onActiveCountChange(listener: (next: number, prev: number) => void): () => void {
+    this.activeCountListeners.add(listener);
+    return () => {
+      this.activeCountListeners.delete(listener);
+    };
+  }
+
+  /**
+   * 归还 drainQueue 的启动占位格(两条路径:早退未起进程、正常交接给 `workers`)。
+   * 归还即可能为 drainQueue 让出一格 ⇒ 随后调用方自己负责重扫(与旧写法一致)。
+   */
+  private releaseReservedStart(slot: string): void {
+    this.reservedStarts.delete(slot);
+    this.publishActiveCountIfChanged();
+  }
+
   private async drainQueue(): Promise<void> {
-    while (this.queue.length > 0 && this.activeCount < this.config.maxWorkers && !this.shutDown) {
+    while (this.queue.length > 0 && this.activeCountNow() < this.config.maxWorkers && !this.shutDown) {
       const item = this.queue.shift()!;
-      this.activeCount++;
-      this.startWorker(item.req, item.resolve);
+      // 旧写法这一格是 `this.activeCount++`;现是一枚占位 token —— 性质相同(先占格再启动),
+      // 但归还得走集合(早退路径 releaseReservedStart / 正常路径交接给 workers),不会漏。
+      const slot = `slot_${this.nextReservedSlot++}`;
+      this.reservedStarts.add(slot);
+      this.publishActiveCountIfChanged();
+      this.startWorker(item.req, item.resolve, slot);
     }
   }
 
-  private startWorker(req: SubagentSpawnRequest, resolve: (r: SubagentSpawnResponse) => void): void {
+  private startWorker(
+    req: SubagentSpawnRequest,
+    resolve: (r: SubagentSpawnResponse) => void,
+    slot: string,
+  ): void {
     const subagentId = generateSubagentId();
     const timeoutSec = req.timeoutSeconds ?? this.config.taskTimeoutSeconds;
     // worktree 源路径优先级:config.workspaceSourcePath > req.workspacePath > process.cwd()
@@ -629,7 +710,7 @@ export class SubagentWorkerPool {
           status: 'failed',
           error: 'worktree 隔离需要 workspaceSourcePath 或 workspacePath,两者都为空(类型契约:空=不启用 worktree 隔离)',
         });
-        this.activeCount--;
+        this.releaseReservedStart(slot);
         void this.drainQueue();
         return;
       }
@@ -643,7 +724,7 @@ export class SubagentWorkerPool {
           status: 'failed',
           error: `worktree creation failed: ${e instanceof Error ? e.message : String(e)}`,
         });
-        this.activeCount--;
+        this.releaseReservedStart(slot);
         void this.drainQueue();
         return;
       }
@@ -699,6 +780,11 @@ export class SubagentWorkerPool {
       terminationKindLocked: false,
     };
     this.workers.set(subagentId, entry);
+    // 交接:条目进了 `workers`(计数真相面之一),占位格立刻还掉 —— 两格之和在这一拍不变,
+    // 所以并发上界既不松也不紧(派生值与旧计数器同值),发射台账也听不见这一拍(值没变 ⇒ 不发)。
+    // **顺序即判据:必须先入集合、再还占位。** 反过来会让 publish 在中间读到一个假 0,
+    // 于是"1→0"被这一拍提前消耗,真那次结算反而哑掉 —— 发射台账就此与真相面脱钩。
+    this.releaseReservedStart(slot);
 
     // IPC 消息:heartbeat / progress
     proc.on('message', (msg: WorkerIPCMessage) => {
@@ -770,8 +856,10 @@ export class SubagentWorkerPool {
 
     // 进程错误(spawn 失败等)
     // P0-1 修复:spawn 失败时 Node 只触发 'error' 不触发 'exit'(参见 Node.js child_process 文档)
-    // 若不在此补清理,activeCount 永久占位 → drainQueue 条件 activeCount < maxWorkers 永远少一格
-    // → worker 池容量逐次缩减至 0
+    // 若不在此补清理,条目会永久留在 workers 里占位 → drainQueue 条件(派生计数 < maxWorkers)
+    // 永远少一格 → worker 池容量逐次缩减至 0。
+    // G-654① 换了计数口径,**这条清理照样一句不能少**:计数由集合派生只是让"忘了 --"不再可能,
+    // "忘了从集合里摘掉"仍然是同一格泄漏 —— 真相面漏了,投影跟着漏。
     proc.on('error', (err) => {
       // exit 已收口(或 error 重放)时不得覆盖真实终态 —— 原实现靠"resolver 已被消费"
       // 达成,现靠生命周期终态标志,方向一致:后到的信号不改写先落定的终态
@@ -801,7 +889,8 @@ export class SubagentWorkerPool {
       if (entry.heartbeatTimer) clearInterval(entry.heartbeatTimer);
       this.workers.delete(subagentId);
       this.finishedLifecycles.set(subagentId, entry.lifecycle);
-      this.activeCount--;
+      // G-654①:摘出集合就是减一格(旧写法这里 ++/-- 一只管自己,现在没有那只手了)。
+      this.publishActiveCountIfChanged();
       // 清理 worktree(spawn 失败时 worktree 已创建但子进程未启动)
       if (entry.worktree) {
         try {
@@ -1019,7 +1108,8 @@ export class SubagentWorkerPool {
 
     this.workers.delete(subagentId);
     this.finishedLifecycles.set(subagentId, entry.lifecycle);
-    this.activeCount--;
+    // G-654① 结算:条目出集合 ⇒ 派生计数自然减一格;值真的变了才发一次通知(没变 ⇒ 一声不出)。
+    this.publishActiveCountIfChanged();
     void this.drainQueue();
   }
 
