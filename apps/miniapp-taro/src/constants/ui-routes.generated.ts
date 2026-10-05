@@ -894,6 +894,13 @@ export const TARO_UI_ROUTES: readonly TaroUiRouteEntry[] = [
     requiresParams: true,
   },
   {
+    path: '/pages/exam/wrong-list/index',
+    title: '智汇AI',
+    tab: false,
+    subPackageRoot: 'pages/exam',
+    requiresParams: false,
+  },
+  {
     path: '/pages/study/index',
     title: '学习中心',
     tab: false,
@@ -941,6 +948,13 @@ export const TARO_UI_ROUTES: readonly TaroUiRouteEntry[] = [
     tab: false,
     subPackageRoot: 'pages/study',
     requiresParams: true,
+  },
+  {
+    path: '/pages/study/ai-tutor/index',
+    title: '智汇AI',
+    tab: false,
+    subPackageRoot: 'pages/study',
+    requiresParams: false,
   },
   {
     path: '/pages/circle/index',

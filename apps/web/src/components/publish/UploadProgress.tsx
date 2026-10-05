@@ -16,8 +16,8 @@
 import * as React from 'react'
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import { cn } from '@/lib/utils'
+import { clampPercent } from '@ihui/shared'
 
 export type UploadStatus = 'uploading' | 'success' | 'error'
 
