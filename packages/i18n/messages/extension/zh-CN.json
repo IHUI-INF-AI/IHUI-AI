@@ -176,6 +176,7 @@
     "emptyHint": "输入消息开始对话",
     "inputPlaceholder": "说点什么...",
     "compactionNotice": "上下文已自动压缩:{before} → {after}(移除 {removed} 条历史)",
+    "partialDoneTitle": "回答被中断,以下内容可能不完整",
     "voiceStop": "停止录音",
     "voiceStart": "开始录音",
     "voiceError": "无法访问麦克风,请在浏览器设置中允许麦克风权限",

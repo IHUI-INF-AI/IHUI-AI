@@ -992,6 +992,11 @@ export default function ChatPage() {
                 t('ai.stream.reconnect', { attempt, seconds: Math.round(delayMs / 1000) }),
               ),
           },
+          // G-815976:partial_done(流异常中断且已发过 chunk 的标记帧)→ 截断告知。
+          // 半截回答与完整回答完全同形会让用户误以为回答完整,用与 onCompaction 同款 toast 提示。
+          () => {
+            Taro.showToast({ title: t('chat.partialDoneTitle'), icon: 'none', duration: 2500 })
+          },
         )
       } catch (e) {
         if ((e as Error)?.name !== 'AbortError') {
