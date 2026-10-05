@@ -7142,6 +7142,7 @@
       "todo": "To Do",
       "transition": "Transition",
       "triage": "Triage",
+      "terminatedFailed": "Failed",
       "terminatedCancelled": "Cancelled",
       "terminatedQuotaExceeded": "Quota exceeded",
       "terminatedPreempted": "Preempted",
