@@ -34,7 +34,8 @@
 //   node scripts/check-shared-nonde-node-purity.mjs --staged   # 提交链(索引面)
 //   node scripts/check-shared-nonde-node-purity.mjs --json     # 机读结论
 //   node scripts/check-shared-nonde-node-purity.mjs --self-test
-// 紧急跳过:HUSKY_SKIP_SHARED_NONDE_PURITY=1(注册由主会话统一接线,本文件不自注册)
+// 紧急跳过:HUSKY_SKIP_SHARED_NONDE_PURITY=1(该出口由 runner 注册项提供;本文件不自注册,
+//   注册由守门持有人按 AGENTS §12f 统一做)。
 
 import { dirname, resolve as resolvePath } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'

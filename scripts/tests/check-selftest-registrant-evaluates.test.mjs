@@ -185,7 +185,17 @@ test('T5 装车证明:未注册不得被读成已装车;已注册则成套且定
     assert.fail(
       `${SRC_NAME} 尚未注册进 guardian-runner —— 本用例的意义就是拦住"以为已接线"。`,
     )
-  const entry = runner.slice(Math.max(0, at - 900), at + 900)
+  // ⚠️ 原取 `at ± 900` 的**窗口**判 warn,实测无牙(2026-10-06 变异坐实):本门 id '156' 紧邻
+  // id '154'/'155'/'157',±900 窗口一次吞进 4 条注册块,邻门的 `mode:'warn'` 替本门交差 ——
+  // 把本门自己升成 `blocking` 后本断言**仍绿**(变异面旧窗口内 mode 读数:
+  // ['warn','warn','blocking','blocking'],本门那条已是 blocking)。
+  // 下方那条"不得带 --strict"的负向锁同在此窗口内,同样会被邻门的 args 顶替。
+  // 改按**注册块边界**取本门那一条。`\n  {` = 顶层注册项起始,`\n    script:` = 下一条开始;
+  // 块内含下一条的头两行(id/label),但 mode/skipEnv/args 一律排在 `script:` 之后 ⇒ 切不进邻门。
+  // 退化路径(lastIndexOf 返 -1 则用 at;indexOf 返 -1 则取到文件尾)保留,仅防 runner 形态再变。
+  const start = runner.lastIndexOf('\n  {', at)
+  const next = runner.indexOf('\n    script:', at + 10)
+  const entry = runner.slice(start < 0 ? at : start, next > 0 ? next : runner.length)
   assert.match(
     entry,
     /mode:\s*'warn'/,
@@ -200,10 +210,58 @@ test('T5 装车证明:未注册不得被读成已装车;已注册则成套且定
   )
 })
 
-test('T6 门体头注不得谎报定级或接线(守门 89 专判这一格)', () => {
+/**
+ * T6 头注声称的接线态与定级必须与 runner 现读一致(两态都认,不许把真话判红)。
+ *
+ * 2026-10-06 改判据的原因(与门 133 的 M3、radius 的 T2、token-sync 的 T9、mode-permission 的 T9
+ * 同族):原判据是**无条件** `doesNotMatch(/已接 pre-commit|CI 必跑|已 blocking/)` ——
+ * 它锚死三句台词,既不看注册表真值,也不看本门现读定级。于是:
+ *   - 本门**真值已注册**(实测 id 156,在 `checks` 数组内 ⇒ pre-commit 会跑它),头注若如实写
+ *     「已接入」就被判红 —— **把真相判红**(变异注入确认生效后读到 true)。
+ *   - 「已 blocking」与「已接 pre-commit」被塞进同一条 alternation:前者对(warn 是真值)、
+ *     后者错(已注册是事实)。一锅端判据既会放过真谎报(改成别的措辞就空转),又会判红真话。
+ * 一条把真相判红的尺子,教出来的就是谎报。
+ *
+ * ⚠️ 收口口径(同族三次踩坑换来的):只认『接线状态:』引导的**现状陈述**(容许括号里的时点注记),
+ * 带 `已漂移 / 原<日期> / 不再是` 的历史记录与引文整行剔掉后再看 —— 判红「谎报现状」与判红
+ * 「记录历史」必须分开。引导语两种语序都真实存在(本门头注尚未补该行,permission-lease 门写
+ * 「接线现状」、merge-deletion 门写「接线状态」)⇒ 显式列出两个词,不用字符类赌语序。
+ *
+ * 定级这一维仍按现读 `mode` 判,而不是按台词:现读 warn 就禁「已 blocking」,现读 blocking 就禁
+ * 「warn 起步」—— 前者是本票设计的红线(接线瞬间 36 处潜伏会把每台每次提交钉红),后者防降级走私。
+ */
+test('T6 头注接线态与定级必须与 runner 现读一致(两态都认,不许把真话判红)', () => {
   const head = gateSrc.slice(0, 5200)
-  assert.doesNotMatch(head, /已接 pre-commit|CI 必跑|已 blocking/, '头注写死"已接线/已 blocking"是假承诺')
-  assert.match(head, /warn 起步/, '定级理由必须写在头注里,否则后人只会看到 warn 不知道为什么')
+  const runner = gitShow('HEAD:scripts/guardian-runner.mjs')
+  const at = runner.indexOf(`    script: '${SRC_NAME}'`)
+  const registered = at >= 0
+  const GUIDE = /接线(?:现状|状态)\s*(?:\([^)]*\))?\s*[:：]/
+  const HISTORY = /已漂移|原\s*20\d{2}[-/]\d{2}|不再是/
+  const spoken = head.split('\n').filter((l) => !HISTORY.test(l))
+  const statusLines = spoken.filter((l) => GUIDE.test(l))
+  const claimsWired = statusLines.some((l) => /已接入|已注册|已挂进/.test(l))
+
+  if (registered) {
+    assert.ok(
+      !statusLines.some((l) => /未接|尚未|未进/.test(l)),
+      `注册表里本门已注册,但头注的『接线状态:』那一行仍说未接线 ⇒ 文档与提交链分叉:${JSON.stringify(statusLines)}`,
+    )
+  } else {
+    assert.ok(
+      !claimsWired,
+      `未进注册表却自称已接入 ⇒ 给后人一个跑不通的出路(守门 89 R1):${JSON.stringify(statusLines)}`,
+    )
+  }
+
+  // 定级按现读 mode 判(不写死是哪一档):T5 已钉住现读必须是 warn,这里禁的是**头注与它分叉**。
+  const entry = at < 0 ? '' : runner.slice(runner.lastIndexOf('\n  {', at), runner.indexOf('\n    script:', at + 10) > 0 ? runner.indexOf('\n    script:', at + 10) : runner.length)
+  const mode = /mode:\s*'([^']*)'/.exec(entry)?.[1] ?? null
+  if (mode === 'warn') {
+    assert.doesNotMatch(spoken.join('\n'), /已 blocking|blocking 起步|CI 必跑/, '注册表现读 warn,头注却称 blocking/CI 必跑 ⇒ 假承诺(升档须先清潜伏)')
+    assert.match(head, /warn 起步/, '定级理由必须写在头注里,否则后人只会看到 warn 不知道为什么')
+  } else if (mode === 'blocking') {
+    assert.doesNotMatch(spoken.join('\n'), /warn 起步/, '注册表现读已升 blocking,头注仍按 warn 起步写 ⇒ 后人会以为它拦不住提交')
+  }
 })
 
 test('T7 判据自身的 --self-test 必须连跑两次都为 0(曾有过"第二次起恒红"的门)', () => {

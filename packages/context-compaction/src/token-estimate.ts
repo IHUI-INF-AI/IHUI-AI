@@ -56,19 +56,76 @@ function estimateToolCallTokens(tc: ChatMessageToolCall): number {
   return estimateTextWithImagePlaceholders(inner) + TOOL_CALL_OVERHEAD_TOKENS
 }
 
+/** 可见正文投影(唯一出口):只有 content,**刻意不含 reasoning**。
+ *  摘要 / UI 文案 / 错误信息读这条投影 —— 估算面不得复用它(见 projectForEstimation)。 */
+export function projectVisibleBody(message: ChatMessage): string {
+  return message.content ?? ''
+}
+
+/** reasoning 读不出文本时的哨兵文本(非空 ⇒ 估算必然 > 0)。
+ *  纪律:"存在但读不出"不许静默按 0 计 —— 宁可按这段确定文本计,也不许当成"没有"。 */
+const UNREADABLE_REASONING_SENTINEL = '[unreadable-reasoning-shape]'
+
+/** 把跨端形状不一的 reasoning 读成文本;空(确实没有)与读不出(有但拿不到文本)是两回事。
+ *  本包无 logger、`estimateMessagesTokens` 的返回类型是既有公开契约(15 处消费方),
+ *  所以"如实记账"走**计入估算**这一侧而非改返回值形状(票 G-816015 二选一,理由见仓内注释)。 */
+function projectReasoningText(reasoning: unknown): string {
+  // 确实没有推理通道 ⇒ 空串,不计(与"有但读不出"不同)
+  if (reasoning === undefined || reasoning === null) return ''
+  if (typeof reasoning === 'string') return reasoning
+  if (typeof reasoning === 'number' || typeof reasoning === 'boolean' || typeof reasoning === 'bigint') {
+    return String(reasoning)
+  }
+  if (Array.isArray(reasoning)) {
+    if (reasoning.length === 0) return ''
+    // 分块形态(Anthropic 的 [{ type: 'text', text }]):逐块递归取文本,拼成一段
+    return reasoning.map((block) => projectReasoningText(block)).join('')
+  }
+  if (typeof reasoning === 'object') {
+    const bag = reasoning as Record<string, unknown>
+    const text = bag['text'] ?? bag['content'] ?? bag['thinking'] ?? bag['reasoning']
+    if (typeof text === 'string') return text
+    try {
+      const json = JSON.stringify(reasoning)
+      // JSON 文本是"这块 reasoning 确实占了上下文"的保守下界(序列化形态会被回送给 provider)
+      if (typeof json === 'string' && json.length > 0) return json
+    } catch {
+      // 循环引用 / 不可序列化 ⇒ 落到哨兵,绝不落回 0
+    }
+    return UNREADABLE_REASONING_SENTINEL
+  }
+  // function / symbol 等无法还原为文本的形状
+  return UNREADABLE_REASONING_SENTINEL
+}
+
+/** 估算面投影(唯一出口):可见正文 + reasoning。只给 token 估算读。
+ *
+ * 与 projectVisibleBody 是**两条语义**,不是"把 reasoning 并进 content":
+ *   - 可见正文投影刻意隐藏 reasoning(进了 UI 文案/记忆/错误信息就是泄漏);
+ *   - 估算面必须把它算进去 —— reasoning 真实占用上下文窗口,复用可见正文投影会让
+ *     "没有 usage anchor 的那一轮"系统性少算(票 G-816015)。
+ * 无 reasoning 时逐字节返回可见正文投影 ⇒ 老行为不变(反向锁)。 */
+export function projectForEstimation(message: ChatMessage): string {
+  const body = projectVisibleBody(message)
+  const reasoning = projectReasoningText(message.reasoning)
+  if (reasoning === '') return body
+  return body === '' ? reasoning : `${body}\n${reasoning}`
+}
+
 /** 估算字符串 token 数(BPE);含图片占位短路。导出供跨端共享。 */
 export function estimateTokens(text: string): number {
   return estimateTextWithImagePlaceholders(text)
 }
 
-/** 估算消息列表总 token 数(content + tool_calls.arguments + tool_call_id + 每条固定开销)
+/** 估算消息列表总 token 数(估算面投影 + tool_calls.arguments + tool_call_id + 每条固定开销)
  *  跨端对齐:与 Python 端 estimate_messages_tokens 增量规则一致
- *  (tool_calls 参数计 +TOOL_CALL_OVERHEAD_TOKENS;tool 消息 +TOOL_CALL_OVERHEAD_TOKENS;每消息 +MESSAGE_OVERHEAD_TOKENS) */
+ *  (tool_calls 参数计 +TOOL_CALL_OVERHEAD_TOKENS;tool 消息 +TOOL_CALL_OVERHEAD_TOKENS;每消息 +MESSAGE_OVERHEAD_TOKENS)
+ *  文本来源是 projectForEstimation(独立估算投影),不是可见正文投影。 */
 export function estimateMessagesTokens(messages: ChatMessage[]): number {
   let total = 0
   for (const m of messages) {
     total += MESSAGE_OVERHEAD_TOKENS
-    total += estimateTokens(m.content ?? '')
+    total += estimateTokens(projectForEstimation(m))
     if (Array.isArray(m.tool_calls)) {
       for (const tc of m.tool_calls) {
         total += estimateToolCallTokens(tc)

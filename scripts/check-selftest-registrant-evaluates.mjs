@@ -64,6 +64,12 @@
 //     出口自己被扫到只会在文件里读出自己的函数名。出口的合规性由**消费方**证明 ——
 //     `scripts/check-baseline-freshness.mjs` 是第一处样板,它的读数(潜伏 1 → 0)是本判据的实证。
 //
+// 【接线状态:已接入】注册条目已落在 scripts/guardian-runner.mjs 的 `checks` 数组内
+//   (不是 pushGateChecks ⇒ pre-commit 会真跑它;id 以 runner 现值为准,勿照抄本行数字):
+//   warn 档 + skipEnv:HUSKY_SKIP_SELFTEST_REGISTRANT,带 stagedTriggers。
+//   ⚠️ 本行是**现状陈述**,不是设计意图 —— 判据(镜像 T6)按现读 mode 两态对账:
+//   哪天真升成 blocking,这一行必须跟着改,否则头注与提交链分叉。
+//
 // 定级:**warn 起步**,不是"先松后紧"的托辞 —— 现读潜伏 36 处 + 未判定 4 处会在接线瞬间把
 //   每台每次提交钉红(§12f 那型)。问责出口 = 直接跑本脚本的 `--strict` 档
 //   (`node scripts/check-selftest-registrant-evaluates.mjs --strict`);**刻意不写 `pnpm check:*`
