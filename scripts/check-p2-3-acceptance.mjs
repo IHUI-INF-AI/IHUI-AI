@@ -17,6 +17,8 @@
 //   与脚本相同的 capability 上报 + WS 监听 + result 回传闭环即可,已在
 //   apps/extension/lib/agent-control-bridge.ts 与 apps/desktop/src-tauri/src/lib.rs 落地。
 
+import { pathToFileURL } from 'node:url'
+
 const BASE = process.env.API_BASE ?? 'http://localhost:8802'
 const ACCOUNT = process.argv[2] ?? process.env.ACCOUNT ?? 'admin'
 const PASSWORD = process.argv[3] ?? process.env.PASSWORD ?? 'admin123'
@@ -255,8 +257,22 @@ function finish() {
   process.exit(allPass ? 0 : 1)
 }
 
-main().catch((e) => {
-  log('脚本异常:', e)
-  process.exit(2)
-})
+// §22d 双形态入口守卫:CLI 直跑才执行入口,被测试 import 时零副作用 —— 旧写法是顶层裸调用 +
+// 顶层 catch,测试一 import 就会拿默认账号去连 BASE(login → ws → execute),
+// 网络失败即 process.exit,把 node --test 进程打死。
+// main() 本就是 async(不改签名),故用模板的 `.catch` 形;exit 2 = 脚本自身异常(§22b)。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main().catch((e) => {
+    log('脚本异常:', e)
+    process.exit(2)
+  })
+}
+
+export const __test__ = {
+  decodeJwtSub,
+  openWs,
+  onWsMessage,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
