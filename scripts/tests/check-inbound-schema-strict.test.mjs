@@ -81,7 +81,17 @@ test('T1 装车方向锁:注册块若在则成套(blocking+skipEnv+stagedTrigger
   const wired = runner.includes(GATE_NAME)
   if (wired) {
     const at = runner.indexOf(GATE_NAME)
-    const block = runner.slice(Math.max(0, at - 1200), at + 1800)
+    // ⚠️ 原取 `at ± 1200/1800` 的**窗口**判成套,实测无牙(2026-10-06 变异坐实):本门左右各有
+    // 邻门(id '160' slash-command-wired / '164' / '165'),窗口一次吞进 4 条注册块,邻门的
+    // `mode:'blocking'`、别的门的 skipEnv、别人的 stagedTriggers 全部顶替本门交差
+    // (变异面旧窗口内 mode 读数:['blocking','warn','blocking','blocking'] —— 本门那条已是 warn)。
+    // 四条断言(mode/skipEnv/stagedTriggers/id)当时**一起**失去牙齿。改按**注册块边界**取本门那一条。
+    // `\n  {` = 顶层注册项起始,`\n    script:` = 下一条开始;块内会含下一条的头两行(id/label),
+    // 但 mode/skipEnv/stagedTriggers 一律排在 `script:` 之后 ⇒ 切不进邻门的定级/触发字段。
+    // 退化路径(lastIndexOf 返 -1 则用 at;indexOf 返 -1 则取到文件尾)保留,仅防 runner 形态再变。
+    const start = runner.lastIndexOf('\n  {', at)
+    const next = runner.indexOf('\n    script:', at + 10)
+    const block = runner.slice(start < 0 ? at : start, next > 0 ? next : runner.length)
     assert.match(block, /id:\s*'?\d+'?/, '注册块没有 id —— 撞号会串 skipEnv 与失败归属(守门 89 R5)')
     assert.match(
       block,

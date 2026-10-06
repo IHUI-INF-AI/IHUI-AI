@@ -172,10 +172,19 @@ test('T11 接线一致性:runner 里没这条注册时,门体头注不得声称�
       '门体声称已接线,但 guardian-runner 里没有这条注册',
     )
   } else {
-    const entry = src.slice(0, 0) // 占位:真正接线的断言在下面按 runner 取条目
-    assert.ok(entry !== null)
-    const idx = runner.indexOf('check-error-code-not-text-matching.mjs')
-    const around = runner.slice(Math.max(0, idx - 600), idx + 600)
+    const idx = runner.indexOf(`script: 'check-error-code-not-text-matching.mjs'`)
+    assert.ok(idx >= 0, 'wired 判真但按 `script: …` 形状取不到锚点 ⇒ 上面那处 includes 命中的是注释里的提及')
+    // ⚠️ 原取 `idx ± 600` 的**窗口**判成套,实测无牙(2026-10-06 合成块坐实):本门这条是门挨着门
+    // 装的,±600 窗口必然吞进邻门注册块,邻门的 `mode:'blocking'` 替本门交差 —— 把本门自己翻成
+    // `warn` 后这三条断言**仍全绿**(变异面旧窗口内 mode 读数:['blocking','warn','blocking'],
+    // 本门那条已被翻成 warn)。今天本门尚未注册(磁盘/HEAD 两面 runner 里都查无此条)⇒ else 分支
+    // 走不到,所以这是**潜在**的病:等哪天接线,三条锁会一起变成装饰。故按**注册块边界**取本门那条。
+    // `\n  {` = 顶层注册项起始,`\n    script:` = 下一条开始;块内含下一条的头两行(id/label),
+    // 但 mode/skipEnv/stagedTriggers 一律排在 `script:` 之后 ⇒ 切不进邻门的定级/触发字段。
+    // 退化路径(lastIndexOf 返 -1 则用 at;indexOf 返 -1 则取到文件尾)保留,仅防 runner 形态再变。
+    const start = runner.lastIndexOf('\n  {', idx)
+    const next = runner.indexOf('\n    script:', idx + 10)
+    const around = runner.slice(start < 0 ? idx : start, next > 0 ? next : runner.length)
     assert.match(around, /mode:\s*'blocking'/, '既已接线,定级就必须是 blocking(warn 的代价是"门判对了也没人被打断")')
     assert.match(around, /HUSKY_SKIP_ERROR_CODE_TEXT_MATCHING/, '接线必须带与本门头注一致的应急跳过变量')
     assert.match(around, /stagedTriggers/, '接线必须带 stagedTriggers,否则"只改文档的提交"根本不唤起本门')
