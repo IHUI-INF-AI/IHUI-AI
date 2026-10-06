@@ -45,6 +45,7 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { execSync } from 'node:child_process'
 
 const ROOT = process.cwd()
@@ -589,5 +590,47 @@ function main() {
   process.exit(result.stats.total > 0 ? 1 : 0)
 }
 
-main()
+// AGENTS §22d:CLI 直跑与被 import 双形态必须隔离副作用,Windows 反斜杠路径要经 pathToFileURL 归一。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  try {
+    main()
+  } catch (e) {
+    console.error(String(e?.stack ?? e))
+    process.exit(2)
+  }
+}
+
+export const __test__ = {
+  flagValue,
+  resolveTarget,
+  fatalUsage,
+  loadGlossary,
+  readMessageJson,
+  loadMessages,
+  collectLeafEntries,
+  getStagedLocales,
+  isUntranslated,
+  isAsciiFallback,
+  detectPending,
+  printReport,
+  main,
+  ROOT,
+  TARGET,
+  TARGET_CONFIG,
+  VALID_TARGETS,
+  TARGET_CFG,
+  MESSAGES_DIR,
+  DEFAULT_OUTPUT,
+  OUTPUT_FILE,
+  BASE_LANG,
+  TARGET_LANGS,
+  INTENTIONAL_SAME_VALUE_KEYS,
+  HAN_RE,
+  ASCII_RE,
+  isStaged,
+  isQuiet,
+  customOutput,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
