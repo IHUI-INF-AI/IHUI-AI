@@ -115,6 +115,28 @@ foreach ($p in @('D:\DevEnv\runtimes\node','D:\DevEnv\tools\npm-global','C:\wind
     if ((Test-Path $p) -and ($env:PATH -notlike "*$p*")) { $env:PATH = "$p;$env:PATH" }
 }
 
+# ── pnpm 缓存目录钉死(2026-10-06 加,G-1059129):同一型问题的第二半 —— 上面那段补的是
+#    "找不到 pnpm",这一段补的是"找到了但把它的缓存扔到盘根"。
+#    IHUI-DEPLOYLOOP 的 AppEnvironmentExtra 实测只有 IHUI_ADMIN_PASSWORD 一项,LocalSystem
+#    不读 HKCU 的用户级环境变量,所以服务上下文里 PNPM_HOME 是空的;pnpm 缺省按
+#    "<工作目录所在卷根>\.pnpm-store\v11" 落缓存 ⇒ 本脚本那两处 `pnpm install` 每装一次
+#    就往 D:\.pnpm-store 里堆(2026-10-05 量到 2550.1 MB / 194517 个文件)。
+#    判据取值经四臂实测(S1-S4,同版本 pnpm.cjs):
+#      · 不设 PNPM_HOME ⇒ D:\.pnpm-store\v11(就是这个坏形态)
+#      · 只设 npm_config_store_dir ⇒ **仍然** D:\.pnpm-store\v11 —— 这一族配置键在本版本
+#        不通过 npm_config_* 生效,按直觉写它等于没改,所以这里不写它。
+#      · 只设 PNPM_HOME ⇒ D:\DevEnv\tools\pnpm\store\v11,即交互上下文一直在用的那份
+#        已装满的缓存(实测目录内 files/index.db/links/projects 均在)⇒ 钉它不会让下次
+#        部署重下全部依赖。
+#    路径不存在时不静默钉(那会把部署冻结换成一次盘根污染,两头都是错),而是喊出来:
+#    落点由人裁,但"没人知道它在长"必须结束。
+$IhuiPnpmHome = 'D:\DevEnv\tools\pnpm'
+if (Test-Path $IhuiPnpmHome) {
+    $env:PNPM_HOME = $IhuiPnpmHome
+} elseif (-not $env:PNPM_HOME) {
+    Write-Host '[WARN][PNPM-STORE] 未找到 pnpm 缓存根 D:\DevEnv\tools\pnpm 且环境无 PNPM_HOME ⇒ 本次 install 的缓存将落在盘根 .pnpm-store(台账 G-1059129 那一型),请人工裁落点'
+}
+
 # ── 并发锁(2026-09-07 加;2026-09-26 判据重写):手动 -deployLatest 与计划任务 loop 可能
 #    同时进入,两者会互相 Remove-Item/.next 与 .next-staging,导致构建期 ENOENT(实测
 #    _buildManifest.js.tmp.* 被对端删除)。
