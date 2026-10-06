@@ -277,9 +277,9 @@
     "effectiveDate": "Effective date",
     "loading": "Loading...",
     "privacyPolicy": "Privacy Policy",
-    "staticContent1": "Welcome to this platform. By using the services of this platform, you agree to all terms of this agreement.",
-    "staticContent2": "We will strictly protect your personal privacy information and will not disclose it to any third party without your permission.",
-    "staticContent3": "If you have any questions about this agreement, please contact platform customer service.",
+    "staticContent1": "This is the fallback text for the agreement page: the agreement service is temporarily unavailable, so the officially filed terms could not be loaded. To avoid misleading you, the platform's actual data-handling practices are stated below (the official terms prevail).",
+    "staticContent2": "To provide AI chat and code-assistance features, the messages you send, the code snippets you paste, and related context are transmitted to the third-party model providers we have configured (including large-language-model inference and text-embedding services). Model call records (including the full text of your prompts and responses) are stored in our own database and purged automatically after 30 days by default; code semantic index entries carry a 90-day validity period and are reclaimed by a scheduled task when it expires. You may turn off code indexing and automatic memory writes at any time under Settings → Privacy, or delete your account to have your data removed.",
+    "staticContent3": "If you have questions about this agreement or our data handling, or wish to exercise your rights of access, correction, or deletion, please contact us through customer support.",
     "subtitle": "Please read the following agreements carefully",
     "title": "Agreements and Policies",
     "userAgreement": "User Agreement",
@@ -493,18 +493,6 @@
     "captchaRefresh": "Refresh captcha"
   },
   "chat": {
-    "markdownTable": {
-      "copy": "Copy table",
-      "copied": "Copied",
-      "copyFailed": "Copy failed",
-      "downloadCsv": "Download CSV",
-      "csvFailed": "CSV download failed",
-      "fullscreen": "Fullscreen",
-      "fullscreenTitle": "Table (fullscreen)",
-      "close": "Close",
-      "unsupported": "Not supported in this environment",
-      "empty": "Empty table"
-    },
     "mcp": {
       "state": {
         "connecting": "Connecting to {server}…",

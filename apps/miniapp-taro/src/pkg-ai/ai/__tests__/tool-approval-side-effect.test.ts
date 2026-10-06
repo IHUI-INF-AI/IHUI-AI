@@ -90,22 +90,22 @@ describe('D136 副作用断言:页级流程(入队 → 决议 → 记录)走通�
     await upstream(payload as unknown as Record<string, unknown>)
     expect(executeTool).not.toHaveBeenCalled()
     queue = dequeueApprovalRequest(queue, REQUEST.approvalId)
-    const records = appendApprovalRecord([], {
-      approvalId: REQUEST.approvalId,
-      sessionId: REQUEST.sessionId,
-      toolName: REQUEST.toolName,
-      decision: 'reject',
-      outcome: 'rejected',
-      overrideCount: 0,
-    } as ApprovalRecord)
+    const records = appendApprovalRecord(
+      [],
+      {
+        approvalId: REQUEST.approvalId,
+        sessionId: REQUEST.sessionId,
+        toolName: REQUEST.toolName,
+        decision: 'reject',
+        outcome: 'rejected',
+        overrideCount: 0,
+      } as ApprovalRecord,
+    )
     expect(queue).toHaveLength(0)
     expect(offersManualOverride(records[0] as ApprovalRecord)).toBe(true)
     // 人工放行 = 用记录里的 id 重新构造批准载荷(页级补 sessionId)重送
     const override = buildApprovePayload({ approvalId: REQUEST.approvalId }, 'once')
-    await upstream({ ...override, sessionId: REQUEST.sessionId } as unknown as Record<
-      string,
-      unknown
-    >)
+    await upstream({ ...override, sessionId: REQUEST.sessionId } as unknown as Record<string, unknown>)
     expect(executeTool).toHaveBeenCalledTimes(1)
     expect(executeTool).toHaveBeenCalledWith('once')
   })
