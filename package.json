@@ -50,6 +50,8 @@
     "check:egress-facts": "node scripts/check-egress-facts.mjs",
     "check:compaction-denominator": "node scripts/check-compaction-denominator.mjs",
     "check:artifact-budget": "node scripts/check-artifact-budget.mjs --target miniapp",
+    "check:benchmark-delivery": "node scripts/audit-benchmark-delivery.mjs --strict",
+    "check:percent-clamp": "node scripts/check-percent-clamp-single-source.mjs --strict",
     "check:test-collection": "node scripts/check-test-collection-runs.mjs --strict",
     "check:plan-task-state": "node scripts/plan-tasks.mjs --gate --strict",
     "check:plan-age": "node scripts/lib/plan-line-age.mjs",
