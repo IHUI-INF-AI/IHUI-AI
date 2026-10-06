@@ -550,12 +550,24 @@ test('T20 单一取材出口:三处判据取材全走同一个 readFace,面外�
     false,
     '尺子连无 timeout 的样本都抓不住',
   )
-  for (const name of ['gitRaw', 'catBatch']) {
-    const at = layer.indexOf(`export function ${name}(`)
+  // 2026-10-06(G-1058628)针脚同步:G-467(4267e30c10)把批量读改造成
+  // `catBatch`(utf8 薄壳)→ `catBatchRaw`(二进制安全真身)之后,派生三件套
+  // (windowsHide/数字 timeout)随实现搬进了 catBatchRaw —— 针脚必须钉在真身而不是形状。
+  // 这里改为钉 gitRaw 与 catBatchRaw 两个真身,另钉"catBatch 薄壳必须仍走 catBatchRaw"
+  // 防有人绕开统一出口再抄一份派生。
+  for (const name of ['gitRaw', 'catBatchRaw']) {
+    // catBatchRaw 是模块私有(非 export)——按 `function <name>(` 定位,对 export/私有两态都成立
+    const at = layer.indexOf(`function ${name}(`)
     assert.ok(at > 0, `层里找不到 ${name}`)
     const body = layer.slice(at, layer.indexOf('\n}', at))
     assert.match(body, /windowsHide: true/, `${name} 缺 windowsHide`)
     assert.match(body, HAS_TIMEOUT, `${name} 缺数字 timeout`)
+  }
+  {
+    const shellAt = layer.indexOf('export function catBatch(')
+    assert.ok(shellAt > 0, '层里找不到 catBatch 薄壳')
+    const shell = layer.slice(shellAt, layer.indexOf('\nexport ', shellAt + 10))
+    assert.match(shell, /catBatchRaw\(root, revs, opts\)/, 'catBatch 薄壳不再走 catBatchRaw ⇒ 派生出口被绕开')
   }
   // 层里 batch 的 stdio[0] 必须是 pipe —— 设成 'ignore' 会让 git 读到空输入,于是每个 rev 都
   // "取不到"(本门第一次真仓自验就是被这一条咬出的假 exit 2)。收口前这条写在本门的注释里,
@@ -564,13 +576,21 @@ test('T20 单一取材出口:三处判据取材全走同一个 readFace,面外�
   // ⚠️ 两处修正(2026-09-25,都是"针脚必须钉在真身而不是形状"的同一族):
   // ① 定位不能用 `indexOf("'cat-file', '--batch'")` —— 它是 `'--batch-check'` 的**前缀**,
   //   那样永远落在 `catBatchCheck` 上,`catBatch` 本体(本门真正调的那个出口)根本不在视野里。
-  //   改为按 `export function catBatch(` 取函数体。
   // ② maxBuffer 现在是**可配**的(`opts.maxBuffer ?? GIT_MAX_BUFFER`,层为门 98/103 那种
   //   一次读 85MB 的批量口径开的口子,默认值不变)。针脚要钉的是"默认必须吃到那个常量",
   //   不是"字面上必须等于 GIT_MAX_BUFFER" —— 钉字面会把层的合法演进判成缺陷。
-  const catBatchAt = layer.indexOf('export function catBatch(')
-  assert.ok(catBatchAt > 0, '层里找不到 catBatch 本体')
-  const batch = layer.slice(catBatchAt, layer.indexOf('\nexport ', catBatchAt + 10))
+  // ③ 2026-10-06(G-1058628)再次随实现搬家:G-467(4267e30c10)后 `catBatch` 只是
+  //   `catBatchRaw` 上的 utf8 薄壳,真正的 `cat-file --batch` 派生与 stdio/input 都在
+  //   模块私有的 `catBatchRaw`(非 export)里 —— 针脚跟着搬到真身,取函数体到下一个
+  //   顶层声明为止。
+  const catBatchAt = layer.indexOf('function catBatchRaw(')
+  assert.ok(catBatchAt > 0, '层里找不到 catBatchRaw 本体')
+  const nextTop = ['\nfunction ', '\nexport ']
+    .map((t) => layer.indexOf(t, catBatchAt + 10))
+    .filter((n) => n > 0)
+    .sort((a, b) => a - b)[0]
+  assert.ok(nextTop > catBatchAt, 'catBatchRaw 之后找不到顶层边界')
+  const batch = layer.slice(catBatchAt, nextTop)
   assert.match(batch, /stdio:\s*\[\s*'pipe',\s*'pipe',\s*'pipe'\s*\]/)
   assert.match(batch, /input:\s*Buffer\.from\(/, 'rev 清单必须由 input 喂进去')
   // 2026-09-25 层的合法演进:批次改为**按字节装箱**,读点写的是 `maxBuffer: budget`,
