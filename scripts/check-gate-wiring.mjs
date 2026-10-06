@@ -320,6 +320,61 @@ const ZERO_WIDTH_RE = /[​‌‍⁠]/g
 export const CLAIM_NEGATION_RE =
   /可选|手动|后续项|待接|未接线|尚未|暂未|暂不|计划中|已废弃|已移除|不再|按需|人工触发/
 
+/**
+ * R1/R2 否定判据的**结构层**(2026-10-07 立,修「同义如实陈述被判红」的假红)。
+ *
+ * 为什么要另起一层而不是往CLAIM_NEGATION_RE 里加词:
+ *   那个词表是**整短语枚举**(「未接线」收、「未接入」不收),于是判据的可靠性取决于
+ *   **有人恰好把常用否定说法逐个抄进了这张表** —— 实测漏了「未接入 / 未纳入 / 未挂载 /
+ *   未登记」这一整族(隔离2:18 个常用否定词里 14 个判红)。抄漏的形态与本仓已修的 40+ 例同型:
+ *   尺子锚的是**绝对字面量**而不是**语义关系**,词表每漏一个词,那一族如实陈述就变成谎报。
+ *   真仓已有 5 枚门在头注里写「未接入 / 未纳入」,它们今天靠**别的**否定词(手动 / 按需 /
+ *   尚未)侥幸没红 —— 侥幸不是判据(见 --self-test N4:删掉救场词即当场翻红)。
+ *
+ * 这一层锚的是**语义关系**而非词形:某个「接线动词」被一个**否定词紧邻修饰**时,那句是
+ * 如实陈述「没接」,不是谎报「接了」。判据因此对**没被枚举过的新说法**一样成立。
+ *
+ * 为什么必须与词表**并集**而不是替换:词表里那些**整体否定的说法**(可选 / 手动 / 计划中 /
+ * 已废弃)不是「动词被否定」型,结构层认不出它们 —— 换掉会把那批已知假红放回来(削判据,§12e)。
+ *
+ * 收紧方向说明:本层只**多认一种否定**,不新增任何承认。阳性对照(真谎言)照旧判红,
+ * 逐条见 --self-test P17/N4/N5 与镜像 T26。
+ */
+export const WIRING_VERB_RE = /(接入|纳入|挂载|登记|收录|进\s*runner|上\s*钩子|加\s*进|装\s*车)/
+
+/** 否定词:必须**紧邻**接线动词(中间不得隔字),否则「不阻塞 commit」这类会被误读成否定 */
+export const NEGATOR_RE = /(?:未|不|没|无|非|尚未|暂未|并未|从未|还没|尚未|未尝|未曾)/
+
+/** 存档语气:「原<日期>接入」「曾接入」「已撤出」—— 讲历史不是讲现状(同族已踩三次) */
+export const ARCHIVE_RE =
+  /原\s*\d{4}|\d{4}\s*年\s*\d{1,2}\s*月|曾(经)?\s*(?:接入|纳入|挂载|登记)|已(?:撤出|移除|下线|摘除)|(?:此前|原先|早前|过去)(?:已|曾)?\s*(?:接入|纳入|挂载|登记|上线)/
+
+/**
+ * 纯函数:这句里的「接入」类动词是否**全部**被否定词紧邻修饰。
+ *
+ * 为什么要求「全部」而不是「任一」:一句里可以同时出现如实现状与一句谎报
+ * (「未纳入 runner,已接入 guardian-runner 第 88 项」)。此时**谎报那半句必须仍然判红** ——
+ * 若按「任一否定即放过」,一句谎报只要在同句里加个「未」就能洗白,那等于给 R1 开了免票
+ * (与 T12b「正反向遮蔽」同型,那是判据失效而不是对称)。
+ *
+ * @param sent 句子/窗口文本
+ * @returns true = 该句的接线动词全被否定(如实陈述「没接」);false = 有肯定式接线动词,或压根没有
+ */
+export function isNegatedWiringSentence(sent) {
+  const s = String(sent || '')
+  if (ARCHIVE_RE.test(s)) return true
+  let sawVerb = false
+  const scanner = new RegExp(WIRING_VERB_RE.source, 'g')
+  let m
+  while ((m = scanner.exec(s)) !== null) {
+    sawVerb = true
+    //动词**前面**紧邻的那一小段里有没有否定词(取前 6 字,覆盖「尚未/从未/并没有」这类多字)
+    const before = s.slice(Math.max(0, m.index - 6), m.index)
+    if (!NEGATOR_RE.test(before)) return false
+  }
+  return sawVerb
+}
+
 /** 从 git ls-tree 输出里挑出被测守门脚本(纯函数,全集口径) */
 export function filterGatePaths(lsTreeOut) {
   return (
@@ -387,7 +442,8 @@ export function extractHeaderClaims(headerText) {
       m = scanner.exec(t)
       if (!m) break
       const lineNo = t.slice(0, m.index).split('\n').length - 1
-      if (!CLAIM_NEGATION_RE.test(claimWindow(lines, lineNo))) affirmative = true
+      const win = claimWindow(lines, lineNo)
+      if (!CLAIM_NEGATION_RE.test(win) && !isNegatedWiringSentence(win)) affirmative = true
     }
     if (affirmative) hits.push(tag)
   }
@@ -513,6 +569,11 @@ export function findAgentsClaims(clauses, gateName) {
       // 其余全部对账对该提交作废,§12e/§12f 同型)。R1 认这 14 个否定词而 R2 不认,是同一问题
       // 的两把尺子;这里补的是**对称性**,不是放松 —— 肯定式声称照旧判红。
       if (CLAIM_NEGATION_RE.test(sent)) continue
+      // 结构层否定(与 R1 同一份实现,禁止在此另写词表或另写一套否定逻辑):
+      // 「未接入 / 未纳入 / 未挂载 / 未登记」这一族**整族**不在 CLAIM_NEGATION_RE 的枚举里,
+      // 只靠那张词表时,文档里如实写「未接入」的未接线门会被判成谎报 ⇒ 89 对每次提交恒红
+      // (实测 e2e:同一夹具仅把「未接线」换成「未接入」,即从无R1 红变成 [RED-R1])。
+      if (isNegatedWiringSentence(sent)) continue
       claimed = sent.trim().slice(0, 160)
       break
     }
@@ -2084,6 +2145,53 @@ function runSelfTest() {
       '集成位置: 可选手动跑\n\n另一段\n\n集成位置: .husky/pre-push 已集成',
     ).includes('集成位置'),
   )
+
+  // ── 2026-10-07 否定判据结构层(同族第 4 次:「同义否定/记录历史」被读成谎报) ──
+  // N4 负向:「未接入 / 未纳入 / 未挂载 / 未登记」这一族**整族**不在 CLAIM_NEGATION_RE 的枚举里。
+  // 立据(为什么必须结构判据而不是再往词表抄词):抄词那张表的可靠性取决于「有人恰好把常用否定
+  // 说法逐个抄进去」,抄漏的形态与本仓已修的 40+ 例同型。改前实测:同一夹具仅把头注的「未接线」
+  // 换成「未接入」,即从「无 R1 红」变成「[RED-R1]」—— 如实陈述被判谎报。真仓已有 5 枚门在头注
+  // 写「未接入 / 未纳入」,改前它们靠**别的**否定词(手动/按需/尚未)侥幸没红;侥幸不是判据,
+  // 所以本组用例**不带任何救场词**。
+  assert(
+    'N4 R1 负向:「未接入/未纳入/未挂载/未登记」整族(无救场词)不得判声称',
+    extractHeaderClaims('集成位置: 未接入 runner。').length === 0 &&
+      extractHeaderClaims('集成位置: 未纳入 runner。').length === 0 &&
+      extractHeaderClaims('集成位置: 未挂载到任何钩子。').length === 0 &&
+      extractHeaderClaims('集成位置: 未登记进 runner。').length === 0,
+  )
+  // N5 正向(遮蔽反向):同句里「如实否定」与「肯定式谎报」并存时,谎报那半句必须**仍**判红。
+  // 没有这一条,一句谎报只要在同句里加个「未」就能洗白 —— 那是判据失效不是对称(同 T12b)。
+  assert(
+    'N5 R1 正向:「未纳入 runner,已接入 guardian-runner 第 88 项」谎报半句必须仍判红',
+    extractHeaderClaims('集成位置: 未纳入 runner,已接入 guardian-runner 第 88 项。').length >= 1 &&
+      extractHeaderClaims('集成位置: 当前未接入 runner(另:已接入 pre-commit 第 3 步)。').length >= 1,
+  )
+  // N6 存档语气:「原<日期>接入…撤出」是**如实记录历史**而非谎报现状(本仓同族已踩三次)。
+  assert(
+    'N6 R1/R2 负向:「原<日期>接入…已撤出」记录历史不得判红',
+    extractHeaderClaims('集成位置: 原 2026-08-01 接入 runner 第 89 项,2026-09-01 撤出。')
+      .length === 0 &&
+      findAgentsClaims(
+        [
+          '- `scripts/check-x.mjs`:当前未接入 runner。\n- 历史:原 2026-08-01 接入 runner 第 89 项,2026-09-01 撤出。',
+        ],
+        'check-x.mjs',
+      ).length === 0,
+  )
+  // N7 R2 负向 + 形状锁:R1/R2 必须共用**同一份**结构判据(禁止另写一套否定逻辑),
+  // 且否定词必须**紧邻**动词 —— 「不阻塞 commit」这类普通「不」不得被当成否定。
+  assert(
+    'N7 R2 与 R1 共用结构否定判据,且否定词必须紧邻动词',
+    findAgentsClaims(['- `scripts/check-y.mjs`:未接入 runner,仅手动跑'], 'check-y.mjs')
+      .length === 0 &&
+      /isNegatedWiringSentence\(sent\)/.test(findAgentsClaims.toString()) &&
+      /isNegatedWiringSentence\(win\)/.test(extractHeaderClaims.toString()) &&
+      isNegatedWiringSentence('不阻塞 commit') === false &&
+      isNegatedWiringSentence('集成位置: .husky/pre-commit 已接入') === false &&
+      isNegatedWiringSentence('集成位置: 未接入 runner') === true,
+  )
+
   // R2 负向:真仓 §1 原文形态 —— 同一条款他句(示例代码里的「守门」)不得算到本脚本头上
   assert(
     'P19 R2 负向:「…O20d 守门…」示例 + 末句「扫描工具:node scripts/check-task-claims.mjs」不得判红',
@@ -2935,6 +3043,10 @@ export const __test__ = {
   GATE_FILE_RE,
   HEADER_CLAIM_PATTERNS,
   CLAIM_NEGATION_RE,
+  isNegatedWiringSentence,
+  WIRING_VERB_RE,
+  NEGATOR_RE,
+  ARCHIVE_RE,
   AGENTS_CLAIM_RE,
   AGENTS_SENTENCE_SPLIT_RE,
   SELF_EXEMPT_SCRIPT,
