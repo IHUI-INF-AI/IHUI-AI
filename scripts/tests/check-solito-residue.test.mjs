@@ -9,6 +9,7 @@ import { writeFileSync, mkdirSync, copyFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
+import { __test__ as gate } from '../check-solito-residue.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -308,5 +309,84 @@ test('非违规: package.json 描述字段含 solito 字样(非依赖名)→ exi
   } finally {
     rmScratch(dir)
   }
+})
+
+// ─── 5. 生产判据直测(AGENTS §22c:经 __test__ import 门体判据,不另抄检测逻辑) ───
+
+test('判据: findSolitoInPackageJson 检出四类依赖 + pnpm.patchedDependencies', () => {
+  const hits = gate.findSolitoInPackageJson(
+    JSON.stringify({
+      dependencies: { solito: '^1.0.0' },
+      devDependencies: { solito: '^1.0.0' },
+      peerDependencies: { solito: '^1.0.0' },
+      optionalDependencies: { solito: '^1.0.0' },
+      pnpm: { patchedDependencies: { 'solito@1.0.0': 'patches/solito@1.0.0.patch' } },
+    }),
+    'package.json',
+  )
+  assert.deepEqual(
+    hits.map((h) => h.field),
+    [
+      'dependencies.solito',
+      'devDependencies.solito',
+      'peerDependencies.solito',
+      'optionalDependencies.solito',
+      'pnpm.patchedDependencies.solito@1.0.0',
+    ],
+  )
+})
+
+test('判据: findSolitoInPackageJson 非依赖名不误报', () => {
+  const hits = gate.findSolitoInPackageJson(
+    JSON.stringify({ name: 'test', description: 'removed solito dependency in v2' }),
+    'package.json',
+  )
+  assert.equal(hits.length, 0, `描述字段中的 solito 不应命中:${JSON.stringify(hits)}`)
+})
+
+test('判据: findSolitoInPnpmWorkspace 只检 publicHoistPattern 列表项', () => {
+  const hits = gate.findSolitoInPnpmWorkspace(
+    `publicHoistPattern:\n  - '*solito*'\n  - '@types/*'\notherKey:\n  - solito\n`,
+    'pnpm-workspace.yaml',
+  )
+  assert.equal(hits.length, 1, `应只命中 hoist 块内的 *solito*:${JSON.stringify(hits)}`)
+  assert.equal(hits[0].value, '*solito*')
+})
+
+test('判据: SOLITO_IMPORT_REGEX 精确匹配 solito / solito/*,不匹配 solito-router', () => {
+  assert.ok(gate.SOLITO_IMPORT_REGEX.test(`import { Link } from 'solito/link'`))
+  assert.ok(gate.SOLITO_IMPORT_REGEX.test(`import { r } from "solito"`))
+  assert.ok(!gate.SOLITO_IMPORT_REGEX.test(`import { Foo } from 'solito-router'`))
+})
+
+test('判据: isTargetFile 路径分类(--staged 目标筛选)', () => {
+  assert.ok(gate.isTargetFile('package.json'))
+  assert.ok(gate.isTargetFile('packages/app/package.json'))
+  assert.ok(gate.isTargetFile('apps/web/package.json'))
+  assert.ok(gate.isTargetFile('pnpm-workspace.yaml'))
+  assert.ok(gate.isTargetFile('patches/solito@1.0.0.patch'))
+  assert.ok(gate.isTargetFile('packages/app/src/foo.tsx'))
+  assert.ok(!gate.isTargetFile('README.md'))
+  assert.ok(!gate.isTargetFile('packages/app/src/foo.ts'))
+  assert.ok(!gate.isTargetFile('apps/web/other.json'))
+})
+
+test('判据: findSolitoInTsx 递归扫描 + 跳过注释行 + 只查 .tsx', () => {
+  const dir = mkScratch('ihui-solito-judge-')
+  try {
+    mkdirSync(join(dir, 'sub'), { recursive: true })
+    writeFileSync(join(dir, 'a.tsx'), `import { Link } from 'solito/link'\n`)
+    writeFileSync(join(dir, 'sub', 'b.tsx'), `// import { Link } from 'solito/link'\n`)
+    writeFileSync(join(dir, 'c.ts'), `import { Link } from 'solito/link'\n`)
+    const hits = gate.findSolitoInTsx(dir, 'packages/app/src')
+    assert.equal(hits.length, 1, `仅 a.tsx 应命中:${JSON.stringify(hits)}`)
+    assert.equal(hits[0].file, 'packages/app/src/a.tsx')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('判据: findSolitoPatches 当前仓库无 solito@*.patch(与全量扫描过门一致)', () => {
+  assert.deepEqual(gate.findSolitoPatches(), [])
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

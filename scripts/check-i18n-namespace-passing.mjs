@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * check-i18n-namespace-passing.mjs — 防止 useTranslations('xxx') 限定命名空间后把 t 传给共享登录组件
@@ -44,7 +43,8 @@
 import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
-import { withExcludes, isExcludedDirName } from './lib/exclude-dirs.mjs'
+import { pathToFileURL } from 'node:url'
+import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 import { COLORS as C } from './lib/logger.mjs'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
@@ -62,13 +62,9 @@ const SHARED_LOGIN_COMPONENTS = new Set([
   'QrTab',
 ])
 
-// EXCLUDE_DIRS:基于共享 EXCLUDE_DIRS,追加脚本特有(tests / __tests__)
-const EXCLUDE_DIRS = withExcludes(['tests', '__tests__'])
-
 // 匹配 const/let/var <varName> = useTranslations('<ns>')
 // 仅匹配带参数形式(限定命名空间);无参数形式 useTranslations() 是正确用法,不匹配
-const NS_HOOK_RE =
-  /(?:const|let|var)\s+(\w+)\s*=\s*useTranslations\(\s*['"]([^'"]+)['"]\s*\)/g
+const NS_HOOK_RE = /(?:const|let|var)\s+(\w+)\s*=\s*useTranslations\(\s*['"]([^'"]+)['"]\s*\)/g
 
 // 匹配 import { A, B as C, ... } from '@ihui/ui-react'(单行)
 const UI_REACT_IMPORT_RE = /import\s+\{([^}]+)\}\s+from\s+['"]@ihui\/ui-react['"]/
@@ -92,7 +88,7 @@ function getStagedFiles() {
   try {
     const out = execSync(
       'git -c core.quotepath=false diff --cached --name-only --diff-filter=ACMR',
-// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
       { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] },
     )
     return out.split('\n').filter(Boolean)
@@ -109,7 +105,10 @@ function parseUiReactImports(src) {
   const m = UI_REACT_IMPORT_RE.exec(src)
   if (!m) return new Set()
   const names = new Set()
-  for (const raw of m[1].split(',').map((s) => s.trim()).filter(Boolean)) {
+  for (const raw of m[1]
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)) {
     const cleaned = raw.replace(/^type\s+/, '')
     const asMatch = cleaned.match(/^(\w+)\s+as\s+(\w+)$/)
     if (asMatch) {
@@ -141,9 +140,7 @@ function extractNamespaceHooks(src) {
  */
 function findTPropUsage(src, compName, varName) {
   const escapedVar = varName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const re = new RegExp(
-    `<${compName}\\b[^<>]*?\\bt\\s*=\\s*\\{\\s*${escapedVar}\\s*\\}`,
-  )
+  const re = new RegExp(`<${compName}\\b[^<>]*?\\bt\\s*=\\s*\\{\\s*${escapedVar}\\s*\\}`)
   return re.test(src)
 }
 
@@ -158,9 +155,7 @@ function scanFile(filePath) {
   if (hooks.length === 0) return []
   const imports = parseUiReactImports(src)
   if (imports.size === 0) return []
-  const sharedUsed = [...imports].filter((n) =>
-    SHARED_LOGIN_COMPONENTS.has(n),
-  )
+  const sharedUsed = [...imports].filter((n) => SHARED_LOGIN_COMPONENTS.has(n))
   if (sharedUsed.length === 0) return []
 
   const bugs = []
@@ -179,7 +174,9 @@ function main() {
   if (args.includes('--help')) {
     console.log('用法: node scripts/check-i18n-namespace-passing.mjs [--staged] [--help]')
     console.log('')
-    console.log("检测 useTranslations('xxx') 限定命名空间 + 把 t 传给 @ihui/ui-react 共享登录组件的 bug")
+    console.log(
+      "检测 useTranslations('xxx') 限定命名空间 + 把 t 传给 @ihui/ui-react 共享登录组件的 bug",
+    )
     console.log('共享组件清单:' + [...SHARED_LOGIN_COMPONENTS].join(' / '))
     console.log('退出码:0 无 bug / 1 发现 bug(warn 级别,不阻塞 commit)')
     process.exit(0)
@@ -252,18 +249,31 @@ function main() {
   console.log(
     `   ${C.cyan}修复:${C.reset}把 useTranslations('${violations[0].bugs[0].ns}') 改为 useTranslations()(无命名空间),`,
   )
-  console.log(
-    `   ${C.dim}让 t 能解析共享组件内部的长 key 路径(如 auth.emailLogin)${C.reset}`,
-  )
+  console.log(`   ${C.dim}让 t 能解析共享组件内部的长 key 路径(如 auth.emailLogin)${C.reset}`)
   process.exit(1)
 }
 
-main().catch((e) => {
-  console.error(
-    `${C.red}❌ check-i18n-namespace 脚本执行异常:${C.reset}`,
-    e?.message ?? e,
-  )
-  console.error(e?.stack ?? '(no stack)')
-  process.exit(2)
-})
+// §22d 双形态入口:import 期不得执行任何判据/打印/退出,只有 CLI 直跑才点火。
+// 必须经 pathToFileURL() —— Windows 下 process.argv[1] 带反斜杠,手拼 'file:///' 永不相等。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main().catch((e) => {
+    console.error(`${C.red}❌ check-i18n-namespace 脚本执行异常:${C.reset}`, e?.message ?? e)
+    console.error(e?.stack ?? '(no stack)')
+    process.exit(2)
+  })
+}
+
+// §22c 收口通道(G-1058651):镜像测试 scripts/tests/check-i18n-namespace-passing.test.mjs
+// 原先把这 5 个判据单元整段抄在自己文件里(见该测试 42-81 行的旧副本)。此处只导**判据形式**
+// (正则常量 / 形式清单 / 纯判定函数);main()、scanFile、CLI 参数解析不是判据形式,故不导 ——
+// 一旦导出即成为本门的契约面,不得为好看而全导。
+export const __test__ = {
+  NS_HOOK_RE,
+  UI_REACT_IMPORT_RE,
+  SHARED_LOGIN_COMPONENTS,
+  parseUiReactImports,
+  findTPropUsage,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

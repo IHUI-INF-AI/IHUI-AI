@@ -37,6 +37,7 @@
  */
 import { existsSync, readdirSync } from 'node:fs'
 import { join, relative, resolve, sep } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 const C = {
   red: '\x1b[31m',
@@ -131,7 +132,7 @@ function toRel(absPath) {
   return relative(ROOT, absPath).split(sep).join('/')
 }
 
-function main() {
+async function main() {
   const isStrict = process.argv.includes('--strict')
 
   console.log(`${C.cyan}${C.bold}🛡️  verify-*.mjs / verify-*.ts 临时文件归档守门(AGENTS.md §25 配套)${C.reset}`)
@@ -176,7 +177,7 @@ function main() {
 
   if (warnIssues.length === 0) {
     console.log(`\n  ${C.green}${C.bold}✅ 所有 verify-*.* 临时文件均已归档(或未发现)${C.reset}`)
-    process.exit(0)
+    return 0
   }
 
   // 输出警告列表
@@ -194,16 +195,42 @@ function main() {
 
   if (isStrict) {
     console.log(`\n${C.red}❌ --strict 模式下警告即阻断,exit 1${C.reset}`)
-    process.exit(1)
+    return 1
   }
 
   console.log(`\n${C.green}✅ 警告项已提示(不阻塞,默认 warn-only)${C.reset}`)
-  process.exit(0)
+  return 0
 }
 
-main().catch((e) => {
-  console.error(`${C.red}❌ 脚本执行异常:${C.reset}`, e?.message ?? e)
-  console.error(e?.stack ?? '(no stack)')
-  process.exit(2)
-})
+// ── §22d 双形态入口守卫(G-1058651)────────────────────────────────
+// 改前本门顶层是裸 `main().catch(...)`:任何 import 本门的进程都会在 import 期真的跑
+// 一遍全仓 apps/ 扫描并打印 13 行 CLI 输出(实测),而且 main() 用 process.exit 收尾,
+// 等于把宿主进程一起带走 —— 镜像测试因此只能走进程面、拿不到判据。
+// 现在:CLI 直跑才执行 main();被 import 时零副作用,判据单元经 __test__ 单点导出(§22c)。
+// 必须经 pathToFileURL():Windows 下 process.argv[1] 带反斜杠,手拼 file:/// 永不相等。
+const isDirectRun =
+  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main()
+    .then((code) => {
+      if (code !== 0) process.exit(code)
+    })
+    .catch((e) => {
+      console.error(`${C.red}❌ 脚本执行异常:${C.reset}`, e?.message ?? e)
+      console.error(e?.stack ?? '(no stack)')
+      process.exit(2) // 2 = 脚本自身异常,1 = 业务判定失败(§22d 档位约定)
+    })
+}
+
+// §22c:判据单元经 __test__ 单点暴露给镜像测试
+// (scripts/tests/check-verify-tmp-files.test.mjs),测试禁止再抄一份豁免表/正则。
+export const __test__ = {
+  findVerifyFiles,
+  SCAN_ROOTS,
+  EXCLUDE_DIRS,
+  ALLOWED_DOT_DIRS,
+  TEST_DIR_NAMES,
+  VERIFY_FILE_RE,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
