@@ -61,7 +61,14 @@
  * 调用方:
  *   - scripts/guardian-runner.mjs 第 30 项(warn-only → 后续 blocking)
  *   - 手动验证: git 异常操作后跑一次确认无丢失
+ *
+ * 入口形态(AGENTS.md §22d):本文件**既可被当命令跑,也可被 import**。
+ *   原先它在顶层无条件 `try { main() } catch (e) { onFatal(e) }`,于是任何 `import` 都会
+ *   把整道门跑一遍(判据取不到时还会 exit 2)⇒ 镜像测试拿不到判定单元,只能各抄一份
+ *   正则/分类逻辑 —— 那正是 §22c 禁的镜像模式(抄的那份会静默漂移,而漂移的表现是恒绿)。
+ *   现由 `isDirectRun` 守卫执行,判定单元经 `export const __test__` 供测试取用。
  */
+import { pathToFileURL } from 'node:url'
 import { batchExecFileSync, catBatch, gitBinary, gitErrText, gitRaw, Undetermined } from './lib/face-reader.mjs'
 
 /**
@@ -85,6 +92,41 @@ const C = {
 const SKIP_ENV = 'HUSKY_SKIP_COMMIT_LOSS_CHECK'
 
 /**
+ * 三个档位的 argv 读取点(**唯一源头**)。
+ * 镜像测试原先各抄一份 `'--blocking' / '--filter-stash'` 字面量:档位名一旦改,测试传的
+ * 就成了没人读的字符串,断言照样绿(§22c 的"镜像常量漂移")。故导出真常量,测试取用。
+ */
+const FLAGS = { strict: '--strict', blocking: '--blocking', filterStash: '--filter-stash' }
+
+/**
+ * 「判绿」两句文案的唯一源头。测试只能靠 stdout 区分"判完了、判绿"与"没判成",
+ * 原先它把这两句各抄一份正则(文案一改就静默失配 ⇒ 判据失效的表现是安静)。
+ * 这里只是把已有的两处字面量挪成常量,**输出内容逐字不变**。
+ */
+const GREEN_MARKERS = {
+  noUnreachable: '未检测到悬空 commit',
+  noRisk: '无 commit 丢失风险',
+}
+
+/** 悬空 commit / tag 明细行的 hash 展示宽度(测试不得再各写一个 12)。 */
+const SHORT_HASH_LEN = 12
+
+/**
+ * fsck stdout 上悬空 commit 行的前缀(判据与夹具的**同一个**源头)。
+ * 镜像测试原先在桩数据里手打 `'unreachable commit <hash>'` —— 前缀一改,桩就再也喂不进
+ * 判据,而那格断言仍可能绿(它断的是"清单被取用",拿不到清单也判不出为什么)。
+ */
+const UNREACHABLE_COMMIT_PREFIX = 'unreachable commit'
+const UNREACHABLE_COMMIT_LINE_RE = /^unreachable commit\s+/
+
+/**
+ * reflog 行 → "这是一次把 HEAD 往回退的 reset" 的判据(唯一源头)。
+ * 命中形态:`reset: moving to HEAD~` / `reset: moving to HEAD@{1}`;
+ * 不命中:`checkout: moving from …` / `commit: …` / `reset: moving to <具体 hash>`。
+ */
+const RESET_LINE_RE = /reset:\s*moving to HEAD[~@]/
+
+/**
  * "仅本地 tag"这句 warn 在 2026-09-24 被证明会被反复误读成"再推一次就好",
  * 而真实原因多半是**空壳 tag**(历史链里的对象本机已没有 ⇒ push 必然
  * `unable to read <sha>` + `remote unpack failed: index-pack failed`,重试与换网络都无用)。
@@ -96,9 +138,9 @@ const HOLLOW_TAG_HINT =
   ' 补推是死路(只能从仍持有该对象的 gitdir 回补,或按 AGENTS.md §29 人工 GC)。' +
   ' 逐枚判完整要用 git rev-list --objects --missing=allow-any(默认 rev-list 会在第一个缺失对象处 abort,' +
   ' 只看 stdout 会把"半路死"读成"链完整")。'
-const isStrict = process.argv.includes('--strict')
-const isBlocking = process.argv.includes('--blocking')
-const isFilterStash = process.argv.includes('--filter-stash')
+const isStrict = process.argv.includes(FLAGS.strict)
+const isBlocking = process.argv.includes(FLAGS.blocking)
+const isFilterStash = process.argv.includes(FLAGS.filterStash)
 
 /**
  * 名称列表截断(2026-09-18)。
@@ -229,6 +271,35 @@ function header(label) {
   return `\n${C.cyan}${C.bold}── ${label} ──${C.reset}`
 }
 
+/** reflog 单行是否为"往回退的 reset"(判据见 RESET_LINE_RE)。 */
+function isResetReflogLine(line) {
+  return RESET_LINE_RE.test(line)
+}
+
+/**
+ * reflog 行的**行首字段** = 该次操作后该 ref 指向的对象 hash
+ * (git 对唯一对象输出短 hash,所以只能按前缀比,不能等值比)。
+ */
+function reflogLineSourceHash(line) {
+  return String(line || '').trim().split(/\s+/)[0] || ''
+}
+
+/**
+ * 2026-09-04 修复:若 reset 的源 commit(hash 即行首字段)已被 lost-commit/* tag
+ * 备份,则该次 reset 不构成丢失风险,放行(与悬空 commit 的 tag 备份判定对齐)。
+ * 否则历史 reset 会永久滞留 reflog 最近 50 步窗口内,无解阻塞所有后续 commit。
+ * 前缀匹配是双向的(git 可能输出短 hash,tag 名里可能带短 hash)。
+ */
+function dropBackedResets(resets, backedHashes) {
+  return resets.filter((line) => {
+    const srcHash = reflogLineSourceHash(line)
+    if (!srcHash) return true
+    // 前缀匹配(git 对唯一对象输出短 hash)
+    for (const h of backedHashes) if (h.startsWith(srcHash) || srcHash.startsWith(h)) return false
+    return true
+  })
+}
+
 function detectResets() {
   // reflog 最近 50 步(每行包含: hash | ref@{} | action: subject)
   // 2026-07-26 升级:从 20 步扩到 50 步,覆盖更长期的 reset 历史
@@ -238,25 +309,16 @@ function detectResets() {
   const resets = []
   for (const line of lines) {
     // 匹配 "reset: moving to HEAD~" / "reset: moving to HEAD@{1}" 等
-    if (/reset:\s*moving to HEAD[~@]/.test(line)) {
+    if (isResetReflogLine(line)) {
       resets.push(line)
     }
   }
-  // 2026-09-04 修复:若 reset 的源 commit(hash 即行首字段)已被 lost-commit/* tag
-  // 备份,则该次 reset 不构成丢失风险,放行(与悬空 commit 的 tag 备份判定对齐)。
-  // 否则历史 reset 会永久滞留 reflog 最近 50 步窗口内,无解阻塞所有后续 commit。
   const backedHashes = new Set(
     verifyAllTagReachability(listLostCommitTags())
       .map((r) => r.hash)
       .filter(Boolean),
   )
-  return resets.filter((line) => {
-    const srcHash = line.trim().split(/\s+/)[0] || ''
-    if (!srcHash) return true
-    // 前缀匹配(git 对唯一对象输出短 hash)
-    for (const h of backedHashes) if (h.startsWith(srcHash) || srcHash.startsWith(h)) return false
-    return true
-  })
+  return dropBackedResets(resets, backedHashes)
 }
 
 function isStashSubject(subject) {
@@ -298,6 +360,22 @@ function extractOriginalHashFromStash(subject) {
   if (!subject) return ''
   const m = subject.match(/^[A-Za-z ]+on\s+\S.*?:\s+([0-9a-f]{7,40})\b/)
   return m ? m[1] : ''
+}
+
+/**
+ * fsck stdout → 悬空 commit hash 列表(**纯函数**,不派生 git)。
+ *
+ * 只认 `unreachable commit` 行(`unreachable tree|blob`、`broken link …` 都不是本门判据);
+ * 空数组是合法读数 —— "取不到"由 `listUnreachableHashes` 抛 `Undetermined` 表达,不在这里。
+ * 导出给镜像测试:测试原先自己抄一份同样的行解析来构造期望,源一改那份就漂移成恒绿。
+ */
+function parseUnreachableCommitLines(stdout) {
+  return String(stdout ?? '')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.startsWith(UNREACHABLE_COMMIT_PREFIX))
+    .map((l) => l.replace(UNREACHABLE_COMMIT_LINE_RE, ''))
+    .filter(Boolean)
 }
 
 /**
@@ -384,12 +462,7 @@ function listUnreachableHashes() {
     }
     stdout = out
   }
-  return stdout
-    .split('\n')
-    .map((l) => l.trim())
-    .filter((l) => l.startsWith('unreachable commit'))
-    .map((l) => l.replace(/^unreachable commit\s+/, ''))
-    .filter(Boolean)
+  return parseUnreachableCommitLines(stdout)
 }
 
 function detectUnreachable() {
@@ -484,6 +557,41 @@ function listRemoteBackups() {
   return parseRemoteTagOutput(out)
 }
 
+/**
+ * `for-each-ref --format=%(refname:short)%09%(objectname)%09%(*objectname)` 的输出
+ * → Map<shortName,{obj,peeled}>(**纯函数**:tag 可达性读取的第一段,不派生 git)。
+ */
+function parseForEachRefTagInfo(out) {
+  // shortName → { obj, peeled }
+  const infoByTag = new Map()
+  for (const line of String(out || '').split('\n')) {
+    const [shortName, obj, peeled] = line.split('\t')
+    if (shortName) infoByTag.set(shortName, { obj: obj || '', peeled: peeled || '' })
+  }
+  return infoByTag
+}
+
+/**
+ * 本地 tag 清单 + 上面那份 ref 信息 → 逐枚可达性结论(**纯函数**:tag 可达性读取的第二段)。
+ * for-each-ref 能列出即对象可达;annotated tag 用 peeled commit,lightweight 直接用 obj。
+ * 列不出来 = `ref 缺失`(那是 blocking 的一侧,不得读成"没有这枚 tag")。
+ */
+function buildTagReachability(tags, infoByTag) {
+  return tags.map((tag) => {
+    const info = infoByTag.get(tag)
+    const result = { tag, hash: '', tagReachable: false, commitReachable: false, reason: '' }
+    if (!info) {
+      result.reason = 'for-each-ref 未列出该 tag(ref 缺失)'
+      return result
+    }
+    result.hash = info.peeled || info.obj
+    result.tagReachable = true
+    result.commitReachable = true
+    result.ok = true
+    return result
+  })
+}
+
 // 对所有本地 lost-commit/* + backup/* tag 做可达性校验
 // 2026-08-17 性能修复:原实现对每个 tag 单独 execSync(git rev-parse + cat-file -e),
 // lost-commit tag 数千个时累积 10-30 分钟阻塞 pre-commit。改为一次 git for-each-ref
@@ -500,26 +608,25 @@ function verifyAllTagReachability(tags) {
     { allowFail: true, timeout: LOCAL_GIT_TIMEOUT_MS },
   )
   if (!out) return []
-  // shortName → { obj, peeled }
-  const infoByTag = new Map()
-  for (const line of out.split('\n')) {
-    const [shortName, obj, peeled] = line.split('\t')
-    if (shortName) infoByTag.set(shortName, { obj: obj || '', peeled: peeled || '' })
+  return buildTagReachability(tags, parseForEachRefTagInfo(out))
+}
+
+/**
+ * `for-each-ref refs/tags/lost-commit refs/tags/backup --format=%(objectname)%09%(*objectname)`
+ * 的行 → 备份集合所覆盖的 commit hash 集(**纯函数**)。
+ * annotated tag: 两列都有 → 第 2 列 peeled commit;
+ * lightweight: 仅第 1 列(第 2 列为空串)→ 即 commit 本身.
+ * 注意:必须用 || 而非 ??——peeled 空串在轻量 tag 下是常态.
+ * seeds 传"已由 reachability 算出的 hash 集"(2026-08-28 性能修复:复用批量结果,零额外子进程)。
+ */
+function collectBackupCommitHashes(refOut, seeds = []) {
+  const hashes = new Set(seeds)
+  for (const line of String(refOut || '').split('\n')) {
+    const cols = line.trim().split('\t')
+    const commitHash = cols[1] || cols[0]
+    if (/^[0-9a-f]{40}$/.test(commitHash || '')) hashes.add(commitHash)
   }
-  return tags.map((tag) => {
-    const info = infoByTag.get(tag)
-    const result = { tag, hash: '', tagReachable: false, commitReachable: false, reason: '' }
-    if (!info) {
-      result.reason = 'for-each-ref 未列出该 tag(ref 缺失)'
-      return result
-    }
-    // for-each-ref 能列出即对象可达;annotated tag 用 peeled commit,lightweight 直接用 obj
-    result.hash = info.peeled || info.obj
-    result.tagReachable = true
-    result.commitReachable = true
-    result.ok = true
-    return result
-  })
+  return hashes
 }
 
 // 对比两个 tag 集合,返回 { onlyLocal, onlyRemote, both }
@@ -533,7 +640,12 @@ function compareTagSets(local, remote) {
   }
 }
 
-function main() {
+/**
+ * 判定主体。§22d 后它是 **async**(入口守卫要拿它的 promise 接 `.then/.catch`);
+ * 函数体内没有任何 await ⇒ 求值时序与旧的同步版逐字相同,每条出口仍自己 `process.exit(N)`
+ * (0 = 通过/降级通过,1 = blocking 判红,skip 档 = 0),`onFatal` 仍负责异常侧的 exit 2。
+ */
+async function main() {
   if (skip) {
     console.log(`${C.yellow}⚠ ${SKIP_ENV}=1 已跳过 commit 丢失防护守门(不推荐)${C.reset}`)
     process.exit(0)
@@ -616,7 +728,7 @@ function main() {
   // ── 2. fsck 悬空 commit 检测 ──
   console.log(header('2. fsck 悬空 commit 检测(可能丢失的 commit)'))
   if (unreachable.length === 0) {
-    console.log(`  ${C.green}✅ 未检测到悬空 commit${C.reset}`)
+    console.log(`  ${C.green}✅ ${GREEN_MARKERS.noUnreachable}${C.reset}`)
     if (isFilterStash && stashCount > 0) {
       console.log(
         `     ${C.dim}(已过滤 ${stashCount} 个 stash-like 对象:WIP / On main / index on main / untracked files on main)${C.reset}`,
@@ -625,7 +737,7 @@ function main() {
   } else {
     console.log(`  ${C.yellow}⚠️  检测到 ${unreachable.length} 个悬空 commit:${C.reset}`)
     for (const c of unreachable.slice(0, 10)) {
-      const short = c.slice(0, 12)
+      const short = c.slice(0, SHORT_HASH_LEN)
       const subject = gitText(['log', '-1', '--format=%s', c], { allowFail: true })
       console.log(`     ${C.cyan}${short}${C.reset}  ${C.dim}${subject || '(空)'}${C.reset}`)
     }
@@ -683,7 +795,7 @@ function main() {
     const DETAIL_LIMIT = 10
     for (const tag of lostTags.slice(0, DETAIL_LIMIT)) {
       const hash = tagToHash.get(tag) || ''
-      const short = hash.slice(0, 12) || '?'
+      const short = hash.slice(0, SHORT_HASH_LEN) || '?'
       console.log(
         `     ${C.cyan}${tag}${C.reset} → ${C.dim}${short}${C.reset}  ${subjByHash.get(hash) || ''}`,
       )
@@ -698,7 +810,9 @@ function main() {
     const BACKUP_DETAIL_LIMIT = 10
     for (const tag of backups.slice(0, BACKUP_DETAIL_LIMIT)) {
       const hash = gitText(['rev-list', '-1', tag], { allowFail: true })
-      console.log(`     ${C.cyan}${tag}${C.reset} → ${C.dim}${hash?.slice(0, 12) || '?'}${C.reset}`)
+      console.log(
+        `     ${C.cyan}${tag}${C.reset} → ${C.dim}${hash?.slice(0, SHORT_HASH_LEN) || '?'}${C.reset}`,
+      )
     }
     if (backups.length > BACKUP_DETAIL_LIMIT) {
       console.log(
@@ -854,15 +968,7 @@ function main() {
       } catch {
         refOut = ''
       }
-      const hashes = new Set(backedUp)
-      for (const line of refOut.split('\n')) {
-        const cols = line.trim().split('\t')
-        // annotated tag: 两列都有 → 第 2 列 peeled commit;
-        // lightweight: 仅第 1 列(第 2 列为空串)→ 即 commit 本身.
-        // 注意:必须用 || 而非 ??——peeled 空串在轻量 tag 下是常态.
-        const commitHash = cols[1] || cols[0]
-        if (/^[0-9a-f]{40}$/.test(commitHash || '')) hashes.add(commitHash)
-      }
+      const hashes = collectBackupCommitHashes(refOut, backedUp)
       try {
         // 旧写法把 `<oid>^{tree}` 喂 `cat-file --batch-check=%(objectname)`;层没有那条批量
         // 通道,改由层的 catBatch 读 commit 内容首行的 `tree <oid>`(仍是一次批量派生)。
@@ -923,7 +1029,7 @@ function main() {
       for (const c of unbacked.slice(0, 10)) {
         const subj = gitText(['log', '-1', '--format=%s', c], { allowFail: true }) || ''
         console.log(
-          `  ${C.yellow}   ↳ 未备份:${C.cyan}${c.slice(0, 12)}${C.reset} ${C.dim}${subj.slice(0, 80)}${C.reset}`,
+          `  ${C.yellow}   ↳ 未备份:${C.cyan}${c.slice(0, SHORT_HASH_LEN)}${C.reset} ${C.dim}${subj.slice(0, 80)}${C.reset}`,
         )
       }
       if (unbacked.length > 10)
@@ -972,7 +1078,7 @@ function main() {
   }
 
   if (issues.length === 0) {
-    console.log(`  ${C.green}✅ 无 commit 丢失风险${C.reset}`)
+    console.log(`  ${C.green}✅ ${GREEN_MARKERS.noRisk}${C.reset}`)
     process.exit(0)
   }
 
@@ -1020,6 +1126,9 @@ function main() {
  * 访问压根没机会执行 ⇒ 这道兜底是**死代码**,任何"取材失败"都会以 Node 默认的未捕获异常
  * 形态落地(exit 1 + 裸栈)。实测 2026-10-03:fsck 取不到时门报 exit 1 而非约定的 2。
  * 同步函数只能用 try/catch 接。
+ * 2026-10-07 §22d:`main()` 改为 async 后 `.catch` 才真的能接住 ⇒ 入口守卫用它接本函数,
+ * 兜底行为**逐字不变**(Undetermined → exit 2,其它异常 → 打栈 + exit 2);本函数的
+ * 判定与输出没动一行 —— 它仍是致命分支的唯一出口。
  */
 function onFatal(e) {
   /**
@@ -1045,9 +1154,67 @@ function onFatal(e) {
   process.exit(2)
 }
 
-try {
+/**
+ * §22d 入口守卫。
+ * 比较用 `pathToFileURL(process.argv[1]).href`,**不能**做字符串等号:Windows 下 argv[1]
+ * 可能是反斜杠绝对路径,也可能是 runner 传的相对路径(`scripts/<x>.mjs`),
+ * 而 pathToFileURL 会按 process.cwd() 归一成 `file:///G:/…` 形态 —— 与 import.meta.url 同形。
+ */
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
   main()
-} catch (e) {
-  onFatal(e)
+    .then((code) => {
+      // main() 的每条出口都自己 process.exit(0/1),正常不会走到这里;
+      // 保留数值出口,是为了判据将来改成 return code 时不必再动入口守卫(§22d 同族写法)。
+      // 真走到这里时 code=undefined ⇒ process.exit(undefined) 沿用当前 exitCode(0),
+      // 与旧写法"同步跑到文件末尾自然退出"同值,不是新增语义。
+      if (code !== 0) process.exit(code)
+    })
+    .catch((e) => {
+      // 与原先那条 `try { main() } catch (e) { onFatal(e) }` **逐字同一**的兜底:
+      // Undetermined ⇒ exit 2「无法判定」(不得折成 1);其它异常 ⇒ 打栈 + exit 2。
+      onFatal(e)
+    })
+}
+
+/**
+ * §22c 唯一出口:把本门的**判定单元**导出给镜像测试,免得测试各抄一份正则/分类逻辑
+ * (抄的那份不与源同步,漂移后测试仍绿 —— 而"判据失效的表现永远是安静")。
+ * 刻意放在入口守卫**之后**,且只导纯函数与常量:任何 git 派生都不在这里发生。
+ * 那条"空壳 tag"提示常量没进这个清单:守门 30a 的配对用例(见
+ * scripts/tests/check-commit-loss-guard-hint.test.mjs)断的是**源文件里那个标识符的出现次数**
+ * 必须等于两处 warn(漏一处就等于没说),在这里多引用一处就会把那条用例改红 —— 而它红了
+ * 读起来像"配对缺口",不是"导出面加了个键"。
+ */
+export const __test__ = {
+  // 豁免 / 档位名常量
+  SKIP_ENV,
+  FLAGS,
+  REMOTE_TIMEOUT_MS,
+  LOCAL_GIT_TIMEOUT_MS,
+  SPAWN_DEFAULT_TIMEOUT_MS,
+  // 输出侧唯一文案与展示宽度(stdout 判读用,不得由测试另抄一份)
+  GREEN_MARKERS,
+  SHORT_HASH_LEN,
+  // reflog 行解析
+  RESET_LINE_RE,
+  isResetReflogLine,
+  reflogLineSourceHash,
+  dropBackedResets,
+  // 悬空 commit 分类
+  UNREACHABLE_COMMIT_PREFIX,
+  UNREACHABLE_COMMIT_LINE_RE,
+  parseUnreachableCommitLines,
+  isStashSubject,
+  extractOriginalHashFromStash,
+  // tag 可达性 / 集合比对读取
+  parseRemoteTagOutput,
+  parseForEachRefTagInfo,
+  buildTagReachability,
+  collectBackupCommitHashes,
+  compareTagSets,
+  // 展示层的截断规则("仅本地 N 个"那两句 warn 的形态)
+  briefList,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
