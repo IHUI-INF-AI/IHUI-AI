@@ -17,15 +17,35 @@
 //   ③ 私有 index 全程零接触共享面 ⇒ 无论对方怎么写暂存区,都不影响本提交。
 //
 // 用法:node .ihui-agent/tmp/commit-with-private-index.mjs <msgFile> <file...>
-import { execFileSync } from 'node:child_process'
 import { existsSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { batchExecFileSync, gitBinary } from './face-reader.mjs'
 
 const GITDIR = 'D:/IHUI-AI-git-repo'
 const REPO = 'D:/IHUI-AI'
 
+/**
+ * 派生 git 一律走取材层(AGENTS §5b「git 调用不得依赖环境」;face-reader 的型 A 棘轮把
+ * 裸 `execFileSync('git', …)` 记成债 —— 它依赖 PATH,服务账户 / GUI 宿主下会静默失败)。
+ *
+ * ## 为什么用 `batchExecFileSync` 而不是 `gitRaw`(两者的关键差别)
+ *   本工具的全部意义是把 `GIT_INDEX_FILE` **只**喂给私有 index 那几次派生:第 ④⑤ 步读的必须是
+ *   共享 index(`gitTry([...])` 不传 env),才能报出"我们全程没碰过它"。`gitRaw` 的 opts 不接
+ *   `env`,而它把异常折成 `Undetermined` 并丢弃原异常的 `stdout`/`stderr` —— 下面 `gitTry` 靠
+ *   `e.stderr` 取 git 原文、第 ⑤ 步靠 `e.stdout + e.stderr + e.status` 回报提交结果,
+ *   换出口会把这两处的取数一并改形。`batchExecFileSync` 是同层导出的派生包装(绝对路径 git
+ *   由 `gitBinary()` 给足 + EBUSY 的临时 fd 兜底),主路径就是带同样 opts 的 `execFileSync`,
+ *   并把原异常**原样抛出** ⇒ 除"EBUSY 病窗从必失败变成有兜底"外逐档与改动前同形。
+ *   同款取舍的先例与论证:`scripts/check-commit-loss-guard.mjs` 头注
+ *   「为什么用 `batchExecFileSync` 而不是 `gitRaw`」。
+ *   ⚠️ 不要把首参提成 `const GIT = gitBinary() || 'git'` 再传它 —— 型 B 棘轮
+ *   (`PATH_BOUND_GIT_DECL_RE`)判的正是"常量声明处绑裸名",那只是换一型继续欠债。
+ */
 function git(args, env = process.env) {
-  return execFileSync('git', args, {
+  // 与 gitRaw 同形的派生选项,逐字对齐:safe.directory 是共享工作区硬需求,
+  // quotepath=false 防中文路径被转义(cwd 与 -C 双给,与层内实现一致)。
+  const argv = ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', '-C', REPO, ...args]
+  return batchExecFileSync(gitBinary() || 'git', argv, {
     cwd: REPO,
     encoding: 'utf8',
     // 本宿主派生 git 必须显式接管 stdio(不写则 spawnSync git EBUSY,30/30 实测)
