@@ -1046,7 +1046,7 @@ const checks = [
   // 校验 apps/ai-service/.env 的 LLM_PROVIDERS 字段是否符合
   //   ProviderConfig schema(apps/ai-service/app/core/provider_config.py),
   //   提前发现 JSON 格式错 / 字段类型错 / 未知 provider,避免运行时 Pydantic ValidationError。
-  // 校验规则(7 条):JSON 解析 / 顶层对象 / provider 白名单 / 字段类型 / 未知字段 / 空值 / 重复。
+  // 校验规则(7 条):JSON 解析 / 顶层对象 / 31 个 provider 白名单 / 字段类型 / 未知字段 / 空值 / 重复。
   //   白名单条数不在此写死(曾写"31 个"已漂成实际 39):名单与条数唯一真源是
   //   scripts/check-llm-provider-schema.mjs 的 PROVIDER_WHITELIST,改名单只改那一个文件。
   // 失败含义:用户 .env 中 LLM_PROVIDERS JSON 字段不符合 schema,ai-service 启动后会运行时崩。
@@ -4856,6 +4856,51 @@ const pushGateChecks = [
     script: 'check-typecheck.mjs',
     args: [],
     mode: 'blocking',
+  },
+  // 2026-10-06 合流让号:本块原登记为 189,而 189 在基底与主干上都属 check-python-import-landed.mjs
+  // (取号发生在一份**滞后工作树副本**上,那次快照把 189 顶成同号两门,并顺带摘掉 2p-2w / 190 共 9 道门)。
+  // 合流以主干整面为底(它是基底超集,9 道门原样恢复),本块按空闲号 193 插回;两侧注册块一个不删。
+  // git 派生调用的 stdio 纪律(2026-10-03 立)。病根本机实测(30 组对照,本票复测 2 组 × 10 次同形):
+  // `execFileSync('git', […], { cwd, encoding, windowsHide, timeout })` —— **不写 stdio** ⇒ 0/30 成功、
+  // 抛 EBUSY;同一段补 `stdio: ['ignore','pipe','pipe']` ⇒ 30/30 成功。同刻交互 bash 里直接跑 git 正常
+  // ⇒ 与 git 被锁/并发无关;**绝对路径 GIT_BIN / gitBinary() / resolveGitBin() 不是豁免**(EBUSY 是
+  // 派生面的病,与怎么找到那个 exe 无关)。另一副面孔:`execSync(<字符串>)` / `shell: true` 经 cmd.exe,
+  // 同源同修法。⚠️ 间歇性是这坑的要害(实测有一次测到"不写 stdio 6/6 通过")⇒ 任何判断必须成组对照。
+  // 口径:① 射程 = scripts/ 与 scripts/lib/ **全域**(git ls-files 枚举,不用静态清单 —— 清单会漏,
+  //    漏的那部分永远绿着;与门 80 的 HOT 清单刻意不同源,并进去会造成"只扫热文件其余静默漏过");
+  //    ② 判据匹配**调用括号内的整个文本**(括号配平取整体)⇒ prettier 折行不改判据(本仓吃过逐行
+  //    匹配的亏);③ 只判 `stdio` **作为属性名**出现、不判取值(pipe 三元与 ignore 三元都合规);
+  //    ④ 判据落在**该次调用的 options 内**(同文件另一处合规调用不得洗白本处);
+  //    ⑤ 取不到内容 ⇒ exit 2「未判定」,少扫不等于没有违规;⑥ 自豁免只对门自身与本门镜像测试两个
+  //    精确路径,**不前缀通配整个 scripts/tests**(测试面那 200+ 处同样在派生 git);⑦ 豁免只认具名
+  //    数据文件 scripts/check-git-stdio-exemptions.json,**行内豁免注释不是通道**(裁决账也不是)。
+  // 本票只立门 + 登记待办:存量判红是预期结果(那正是"问题变可见"),不在本票改生产代码。
+  {
+    id: '193',
+    label:
+      '🧯  git 派生调用必须显式接管 stdio(blocking,拦本机 EBUSY 病灶 —— 不写 stdio 时 0/30 成功,补上即 30/30)',
+    script: 'check-git-stdio-discipline.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_GIT_STDIO_DISCIPLINE',
+    onFailHint: [
+      '',
+      '  💡 病根(2026-10-03 实测):options 里**不写** `stdio` ⇒ 派生 git 抛 EBUSY(0/30);',
+      '     同一段补 `stdio: [\x27ignore\x27,\x27pipe\x27,\x27pipe\x27]` ⇒ 30/30 成功。',
+      '     绝对路径 GIT_BIN / gitBinary() / resolveGitBin() **不是豁免** —— EBUSY 是派生面的病。',
+      '     另一副面孔:`execSync(<字符串>)` / `shell: true` 经 cmd.exe,同样 100% EBUSY。',
+      '  ⚠️ 不要用单次探测下结论:实测有一次测到"不写 stdio 6/6 通过" —— 单次/小样本会给出',
+      '     "不需要 stdio"的假象。任何相关判断必须**成组对照**(每组 ≥10 次)。',
+      '  修法:options 里显式写 `stdio` 属性名。取值两种都合规:',
+      '     [\x27ignore\x27,\x27pipe\x27,\x27pipe\x27] 与 [\x27pipe\x27,\x27pipe\x27,\x27pipe\x27]。',
+      '  豁免只能进具名数据文件 scripts/check-git-stdio-exemptions.json',
+      '     (字段 file/reason/owner/reviewBy);**行内注释不是豁免通道**。',
+      '  单独复验:node scripts/check-git-stdio-discipline.mjs [--staged|--worktree]',
+      '     自检:node scripts/check-git-stdio-discipline.mjs --self-test(21 例,含折行不改判据命门例)',
+      '     镜像:node --test scripts/tests/check-git-stdio-discipline.test.mjs(14 例)',
+      '  紧急跳过(不推荐):HUSKY_SKIP_GIT_STDIO_DISCIPLINE=1 git commit ...',
+      '',
+    ].join('\n'),
   },
 ]
 

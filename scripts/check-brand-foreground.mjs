@@ -499,8 +499,6 @@ function r5Prefilter(fromHead) {
           maxBuffer: 1 << 26,
           windowsHide: true,
           timeout: 30000,
-          stdio: ['ignore', 'pipe', 'pipe']
-          // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
         },
       )
       return out
@@ -530,8 +528,14 @@ function listR5Files() {
         encoding: 'utf8',
         windowsHide: true,
         timeout: 30000,
-        stdio: ['ignore', 'pipe', 'pipe']
-        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        /**
+         * stdio 必须显式接管(2026-10-03 立):本宿主派生 git 会 EBUSY(同刻 bash 里 git 正常
+         * ⇒ 排除 git 被锁与并发),凡走默认 stdio 继承的派生一律 `spawnSync git EBUSY`。
+         * 实测同一段代码:补 stdio 前 0/30 成功,补后 30/30 成功(成组对照,单次探测会读到
+         * 偶发成功的假象)。这一处是本仓第三例同型(前两例:plan-tasks-merge 的 gitIn、
+         * plan-tasks-merge.test 的 gitQ)—— 凡裸 `execFileSync('git', …)` 都得照此补齐。
+         */
+        stdio: ['ignore', 'pipe', 'pipe'],
       })
         .split('\n')
         .filter((f) => isR5Scope(f)),
@@ -557,8 +561,6 @@ function stagedR5Files() {
     encoding: 'utf8',
     windowsHide: true,
     timeout: 30000,
-    stdio: ['ignore', 'pipe', 'pipe']
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
     .split('\n')
     .filter((f) => isR5Scope(f))
@@ -592,8 +594,7 @@ function r8Prefilter(fromHead) {
         '--',
         ...R8_DIRS,
       ],
-// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 26, windowsHide: true, timeout: 30000, stdio: ['ignore', 'pipe', 'pipe'] },
+      { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 26, windowsHide: true, timeout: 30000 },
     )
     return out
       .split('\n')
@@ -639,8 +640,6 @@ function stagedR8WebFiles() {
     encoding: 'utf8',
     windowsHide: true,
     timeout: 30000,
-    stdio: ['ignore', 'pipe', 'pipe']
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
     .split('\n')
     .filter((f) => isR8Scope(f))
@@ -1447,8 +1446,6 @@ function listTargetFiles() {
     cwd: ROOT,
     encoding: 'utf8',
     windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe']
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
     .split('\n')
     .filter((f) => /\.(ts|tsx)$/.test(f))
@@ -1460,8 +1457,6 @@ function stagedFiles() {
     cwd: ROOT,
     encoding: 'utf8',
     windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe']
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
     .split('\n')
     .filter((f) => SCAN_DIRS.some((d) => f.startsWith(`${d}/`) && /\.(ts|tsx)$/.test(f)))
