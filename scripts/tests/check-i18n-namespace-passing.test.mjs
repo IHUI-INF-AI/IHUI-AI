@@ -9,6 +9,8 @@ import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
+// §22c 收口通道(G-1058651):判据单元一律从生产入口取,不在本文件里留副本。
+import { __test__ as i18nGate } from '../check-i18n-namespace-passing.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -40,45 +42,19 @@ function runScript(args = []) {
 // 退出码:0 = 全部通过;非 0 = 有失败
 // ═══════════════════════════════════════════════════════════════
 
-const NS_HOOK_RE =
-  /(?:const|let|var)\s+(\w+)\s*=\s*useTranslations\(\s*['"]([^'"]+)['"]\s*\)/g
-
-const UI_REACT_IMPORT_RE = /import\s+\{([^}]+)\}\s+from\s+['"]@ihui\/ui-react['"]/
-
-const SHARED_LOGIN_COMPONENTS = new Set([
-  'LoginForm',
-  'EmailCodeLoginForm',
-  'PhoneCodeLoginForm',
-  'PasswordLoginForm',
-  'AgreementCheckbox',
-  'AgreementNoticeDialog',
-  'ThirdPartyLoginButtons',
-  'QrTab',
-])
-
-function parseUiReactImports(src) {
-  const m = UI_REACT_IMPORT_RE.exec(src)
-  if (!m) return new Set()
-  const names = new Set()
-  for (const raw of m[1].split(',').map((s) => s.trim()).filter(Boolean)) {
-    const cleaned = raw.replace(/^type\s+/, '')
-    const asMatch = cleaned.match(/^(\w+)\s+as\s+(\w+)$/)
-    if (asMatch) {
-      names.add(asMatch[2])
-    } else if (/^\w+$/.test(cleaned)) {
-      names.add(cleaned)
-    }
-  }
-  return names
-}
-
-function findTPropUsage(src, compName, varName) {
-  const escapedVar = varName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const re = new RegExp(
-    `<${compName}\\b[^<>]*?\\bt\\s*=\\s*\\{\\s*${escapedVar}\\s*\\}`,
-  )
-  return re.test(src)
-}
+// §22c 收口(G-1058651):此处原有 5 段判据副本(NS_HOOK_RE / UI_REACT_IMPORT_RE /
+// SHARED_LOGIN_COMPONENTS / parseUiReactImports / findTPropUsage),与
+// scripts/check-i18n-namespace-passing.mjs 逐字同形 —— 抄一份就是一笔"改门不改测"的暗债,
+// 而门侧清单加第 9 个组件时本测试会安静地测不到。
+// 现直接解构生产入口导出的**同一批对象**:下面的断言判的就是线上真正在用的判据本身。
+// (门侧已加 §22d isDirectRun 守卫,import 期零副作用,故这一口 import 不会打印/退出。)
+const {
+  NS_HOOK_RE,
+  UI_REACT_IMPORT_RE,
+  SHARED_LOGIN_COMPONENTS,
+  parseUiReactImports,
+  findTPropUsage,
+} = i18nGate
 
 // ═══════════════════════════════════════════════════════════════
 // 1. NS_HOOK_RE 单元测试:命中 useTranslations('xxx') 限定命名空间
