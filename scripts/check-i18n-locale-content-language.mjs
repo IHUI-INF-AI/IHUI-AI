@@ -46,13 +46,25 @@
  *   判它等于把 conventions 当违规。该计数照打印,不藏。
  *
  * ── 定级依据(实测数字,不是偏好) ─────────────────────────────────────────
- * HEAD 面实测:L1 候选**非 0**(L1a 15 处叶级 + L1b 1 个块),L2 存量 **5**(不是 0 —— 五份
- * `web/*.json` 各 1 处 `aiChat.toast.orgSaved`)。所以:
+ * 【**立项读数**,2026-09-26 那天 HEAD 面实测,保留作立论依据 —— 不是现状】L1 候选**非 0**
+ * (L1a 15 处叶级 + L1b 1 个块),L2 存量 **5**(不是 0 —— 五份 `web/*.json` 各 1 处
+ * `aiChat.toast.orgSaved`)。所以:
  *   · **默认档 L1 只报数**(exit 0),`--strict` 才判红。与本次改动无关的恒红 blocking 门,唯一结局
  *     是逼人 `--no-verify` 并连带废掉全部守门(AGENTS §12e 同型)。
  *   · **L2 走每文件 HEAD 自身存量棘轮**:锚点 = 该文件在 HEAD 的 L2 计数,只拦"比锚点更多"。
- *     存量 5 处只报数;任何新增(含全新 locale 文件,锚点按 0 计)当场判红 —— 这一条**默认档就判**。
+ *     存量 5 处(立项读数)只报数;任何新增(含全新 locale 文件,锚点按 0 计)当场判红 —— 这一条
+ *     **默认档就判**。
  *   · `--strict` 下若还有"未判定"项 ⇒ **exit 2**,不得读成通过。
+ *
+ * ⚠️ **现读已漂移(2026-10-06 实跑,时点 = HEAD 21987b2 / 35 份 locale 文件 / 162,829 条叶子)**
+ *   上面那三个数字**已全部过期,现读一律是 0**:L1a = 0、L1b = 0(故 L1 候选合计 **0**),
+ *   L2 同名自套存量 = **0**(锚点内 0、超锚点 0),`--strict` 因此 exit **0**、未判定 0。
+ *   `aiChat.toast.orgSaved` 那 5 处自套已在 2026-09-26 之后被修掉(现读 `web/ja.json` 该键已是
+ *   平铺字符串 `"会話の整理を保存しました"`,不再是 `{orgSaved:{orgSaved:…}}`)。
+ *   **为什么仍要留着"存量 5 处"这个数字**:上面的定级三条是由它推出来的,而立论不因数字归零而失效
+ *   —— L1 默认档只报数、L2 走 HEAD 锚点棘轮,这两条现在照样生效(棘轮的锚点全为 0,新增即判红)。
+ *   **什么条件下会再变**:任何人在 `packages/i18n/messages/**` 写入 `{"x":{"x":…}}` 形态,或写入
+ *   跨族内容,下一次跑就会出现非 0 的 L2 / L1 读数 ⇒ **以每次实跑的一行读数为准,不要引用本段数字**。
  *
  * ── 取材面(照 36/56/60/93/124 与 check-i18n-duplicate-namespaces 同一套) ─────
  * 全量判 **HEAD blob**、`--staged` 判**索引 blob**、`--worktree` 只作人工/夹具逃生舱;两面旗同给
@@ -77,6 +89,16 @@
  *      身份不同;字级放行对两者一视同仁,那不叫分派,叫"靠改表过门"——`properNouns` 因此是**与 2136
  *      表分离的独立集合**,一个字都没进 `chars`/`codepoints`。反向防线:掺进任何一个非专名的表外字,
  *      整叶仍判。E3 命中数**必须单列打印**(归零即"合法字被当残留抓了"或"专名集没随表落库")。
+ *      ⚠️ **现读已漂移(2026-10-06 实跑,时点 = HEAD 21987b2)**:`aboutIcprecord.r2` 现在**不在 E1 的
+ *      例子里,已归到本条 E3(专名豁免)名下** —— 输出为
+ *      `packages/i18n/messages/miniapp-taro/ja.json :: aboutIcprecord.r2 [专名:智匯]`,
+ *      即它的表外字种(实测 `智`、`匯`;`愛`/`學` 在 2136 表内、`学` 是简体字)全部落在 `properNouns`
+ *      (25 字)内,由 E3 放过。同时 **E1 现读触发数为 0**(全库 `exemptIdentical` 空;E2 = 6、
+ *      E3 = 90、E4 = 2)。上面那段"躲过 E1 ⇒ 落进 L1b 挨打"留作**立论的历史**:它是 E3 诞生的原因,
+ *      逻辑仍成立(E1 对该叶确实判不出,已实测 `sameAsZhCn` = false),但**别再拿它当 E1 的现行例子**
+ *      —— 现在 E1 一处都没命中。**什么条件下会再变**:语言包里出现"非 zh-CN 文件与 zh-CN 逐字相同
+ *      且含外语族字符"的叶子时 E1 计数会重新非 0;E3 计数随 `properNouns` 表与专名叶子增删而变,
+ *      两者都以每次实跑那行读数为准。
  *   E4(2026-10-06 立)**叶子级**双语标注豁免(只为把 `en` 收进 L1 而立的**最窄**一条):该叶子的
  *      **全部汉字都落在圆括号段内**、括号**外没有汉字**、且括号外**有拉丁字母** ⇒ 这是英文句子里
  *      夹的一句中文对照(SEO 双语标注),不是"没翻译"。立论:`web/en.json` 实测只有 2 处汉字,形状是
@@ -92,7 +114,17 @@
  * 用法:node scripts/check-i18n-locale-content-language.mjs
  *        [--staged | --worktree] [--strict] [--all] [--self-test] [--root <dir>(仅 --worktree 档)]
  * 紧急跳过:HUSKY_SKIP_I18N_LOCALE_CONTENT_LANGUAGE=1(接线后由 runner 的 skipEnv 使用)
- * 接线状态:**尚未接入 guardian-runner / package.json**(由主会话统一注册;本头注不声称已接线)。
+ * 接线状态:⚠️ **已漂移 —— 现读是「已接入」,不再是"尚未接入"**。
+ *   · `scripts/guardian-runner.mjs` 已注册本门,id = **`133`**(第 3620 行),`script` 在第 3623 行,
+ *     **`mode: 'blocking'`** 在第 3625 行(另 `skipEnv` 3626 / `stagedTriggers: ['packages/i18n/messages/']` 3627)。
+ *   · `package.json` 有两个 script:`check:i18n-locale-content-language`(:84)与
+ *     `check:i18n-locale-content-language:strict`(:85);`scripts/all-checks-runner.mjs:47` 也列了它。
+ *   · **会再变的条件**:接线状态只由上面三个文件决定,本头注管不到 —— 谁把 runner 那一项摘掉 /
+ *     降级 / 改 id,或删掉那两个 package.json script,这里就又变成过期。**核实时以
+ *     `grep -n "check-i18n-locale-content-language" scripts/guardian-runner.mjs package.json`
+ *     的当次读数为准,不要信本段。**
+ *   ·(原 2026-09-26 的写法是"**尚未接入 guardian-runner / package.json**(由主会话统一注册;
+ *     本头注不声称已接线)" —— 保留作历史,当时的接线确实是空的。)
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
