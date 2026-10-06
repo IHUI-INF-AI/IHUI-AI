@@ -4672,15 +4672,19 @@ const checks = [
   {
     id: '194',
     label:
-      '🧯 §22d 入口守卫对账:scripts/**.mjs 不得顶层裸 main()(现读存量 54 走差值棘轮,只拦本次新增)',
+      '🧯 §22d 入口守卫对账:scripts/**.mjs 不得顶层裸 main()(存量以 node scripts/check-direct-run-guard.mjs 末行现读为准,差值棘轮只拦本次新增)',
     script: 'check-direct-run-guard.mjs',
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_DIRECT_RUN_GUARD',
     stagedTriggers: ['scripts/'],
     onFailHint: [
-      '',
-      '',
+      "本门判的是:scripts/**.mjs 顶层裸 main() 且全文没有 §22d 的 isDirectRun 双形态入口守卫。",
+      "复现与现读:node scripts/check-direct-run-guard.mjs(全量档判 HEAD blob 只报数,差值棘轮只拦本次新增)",
+      "修法只有一个:在文件末尾按 AGENTS.md §22d 那四行补守卫(main() 位置不动,只决定何时触发),",
+      "  并把判据单元 export 成 __test__ 供 §22c 镜像测试调用;禁止为变绿去删用例或放宽形态清单。",
+      "紧急跳过:HUSKY_SKIP_DIRECT_RUN_GUARD=1(跳过即放弃「新脚本必须可导入」这一不变量,须在提交信息写明理由与清偿票)",
+      "具名台账唯一出口:scripts/data/direct-run-guard-exemptions.json(逐条 path+reason+reviewBy,过期即回到队列)。",
     ].join('\n'),
   },
 
