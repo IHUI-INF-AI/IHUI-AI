@@ -7,8 +7,10 @@
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as os from 'node:os';
+import * as path from 'node:path';
 import { EventEmitter } from 'node:events';
 import type { ChildProcess } from 'node:child_process';
+import { mkScratch, rmScratch } from '../../../scripts/lib/scratch-dir.mjs'; // arch-exempt: 测试夹具只能取 §26 唯一落点(禁 os.tmpdir/裸 mkdtemp),属测试面而非生产依赖边;正解=给"测试支持层"在策略表建档并降到 apps 之下 until 2026-12-28
 import {
   registerTask,
   registerFailedTask,
@@ -19,6 +21,7 @@ import {
   killTask,
   clearAllTasks,
   settleAllInFlight,
+  getRemovalGuardStats,
   startLoop,
   listLoops,
   stopLoop,
@@ -28,6 +31,7 @@ import {
   TASK_NOTIFICATION_MAX_CHARS,
   __test__,
 } from '../src/tools/background-registry.js';
+import type { BackgroundTask, BackgroundTaskSnapshot } from '../src/tools/background-registry.js';
 import { runSandboxedAsync } from '../src/sandbox/index.js';
 
 const isWindows = process.platform === 'win32';
@@ -808,6 +812,222 @@ describe('G-937959 输出投影(运行中读头、终态读尾、省略量入账
 
   it('读不存在 ⇒ 返回 null(available:false),绝不抛', () => {
     expect(getTaskOutput('no-such-task')).toBeNull();
+  });
+});
+
+// ==================== G-816002 同一 key 重开(重臂):结算面 / 身份面分域 ====================
+
+/**
+ * 票面 G-816002 要求"重臂复位按**结算面/身份面**分域,非重臂重挂载不得复位"。
+ * 现读 HEAD(blob `a9756461`,工作区与索引与之逐字相同)的结论是三态里的 **(A)** ——
+ * 票面那台"复位机"已被更强的机制取代,字面对象在本文件里不存在:
+ *
+ *  - **我方没有"重挂载"这条路径**:登记只有两处写 `tasks` —— `registerTask`(源码 499 行)
+ *    与 `registerFailedTask`(638 行),两处写的都是**全新对象字面量**(`identity: genIdentity()`
+ *    与 `notified: false` 当场新生,见 478-498 / 613-637 行),没有任何字段从上一世带过来;
+ *    `id` 由 `genId()` 自造(142-144 行 = `Date.now()` + 3 随机字节),**没有任何入口接受外部
+ *    传入的 id** ⇒ 票面①"重臂后旧 `notified` 必须为假"由构造成立;
+ *  - 票面②"重臂后 `turnId`/`agentId` 逐字不变"**在我方没有对应物**:本文件的结构里跨世代
+ *    逐字保持的只有**对外的 `id` 这枚键**,而**对内代际号 `identity` 必换**(57-59 行的字段注释
+ *    明写它"不外传、不进快照、每次登记新生成")。新世的 `command`/`startedAt` 是新世自己的;
+ *  - 于是票面③"非重臂重挂载不得复位"改写成它在我方结构上的等价形:**凡是带着"不是在任那一代"
+ *    的身份来的收尾,一律整块不动**(逐字段回读 + 不投递 + 不消耗 claim + 计数)。
+ *    消费那枚世代号的四处:403-407(投递的代际归属门)、409-411(桶按身份认领)、
+ *    1292-1295(`tasks.delete` 的唯一出口)、1309-1318(带身份删除)。
+ *
+ * 与 `g-654-identity-guarded-removal.test.ts` 的分工:那份锁的是**拒绝档与计数**
+ * (以及"两次登记的 identity 必不相同"),本块锁的是**被拒之后新那一世还完整吗** ——
+ * 结算面逐字段不动、投递权不被别人家用掉、代际号不外传。同一件事不在两处各算一遍。
+ *
+ * 变异自证(六发,每发只红它该红的那条,已全部摘除;源码现与 HEAD 逐字相同):
+ *  1. `notifySettled` 代际归属门短路(403-407) ⇒ ② 与 ③ 红在"被拒计数"档;
+ *  2. 再把桶的身份认领短路(409-411,= 退化成"key 相等就当归属成立"的旧写法) ⇒ ② 与 ③ 红在
+ *     "在任那一世的等待者被喂了别人家的快照";
+ *  3. 门改成"把在任条目的结算面复位成迟到那一发的结局" ⇒ ③ 红在逐字段回读、② 红在
+ *     "claim 被旧世预支 ⇒ 本世再也投不出去"(= 票面点名的第一种失效);
+ *  4. `genIdentity()` 恒成一枚 ⇒ ① 红在"代际号必换";
+ *  5. `registerFailedTask` 的 `notified` 起在 true ⇒ ① 红在票面① 的字面要求;
+ *  6. 代际号外传进对外快照 ⇒ ② 红在 `not.toHaveProperty('identity')`。
+ *
+ * 台账隔离照 `g-654-identity-guarded-removal.test.ts` 的做法(§26 唯一落点 + `IHUI_HOME` 出口):
+ * 本块每一步登记都会写台账,不许落到真实 `~/.ihui`。
+ */
+
+/** 结算面(票面点名、且我方真实存在的那一半):终态与结果本身。票面的 `resultText`→`stdoutBuf`、`pid`→`process`。 */
+const SETTLEMENT_FACE = [
+  'status',
+  'exitCode',
+  'exitedAt',
+  'timedOut',
+  'stopInitiator',
+  'notified',
+  'stdoutBuf',
+  'stderrBuf',
+  'stdoutHead',
+  'stderrHead',
+  'totalStdoutChars',
+  'totalStderrChars',
+  'truncated',
+  'droppedStdoutBytes',
+  'droppedStderrBytes',
+  'process',
+] as const;
+
+/** 身份面(我方真实存在的那一半):键与登记自身的属性。票面的 agentId/parentToolCallId/turnId/description **我方无此字段**,故不参与分域。 */
+const IDENTITY_FACE = ['id', 'identity', 'command', 'startedAt', 'worktreePath', 'worktreeSourcePath'] as const;
+
+// 编译期半边:"分域"必须是一句有牙齿的话 —— 两域不相交且合起来覆盖 `BackgroundTask` 每一个键。
+// 新增字段没归面,下面两行就类型报错,而不是让"逐字段"悄悄变窄。
+type FaceGap = Exclude<keyof BackgroundTask, (typeof SETTLEMENT_FACE)[number] | (typeof IDENTITY_FACE)[number]>;
+type FacesOverlap = Extract<(typeof SETTLEMENT_FACE)[number], (typeof IDENTITY_FACE)[number]>;
+const FACE_COVERAGE: FaceGap extends never ? (FacesOverlap extends never ? true : false) : false = true;
+
+describe('G-816002 同一 key 重开(重臂)的结算面/身份面分域', () => {
+  let scratch: string | null = null;
+  let previousHome: string | undefined;
+
+  /** 假子进程:注册表对 process 只做四件事(stdout?.on / stderr?.on / on('error') / on('close'))。 */
+  function fakeChild(): ChildProcess {
+    return new EventEmitter() as unknown as ChildProcess;
+  }
+
+  /** 结算面逐字段回读 —— 票面③"一个字段都不许变"只能这样问,判"没抛错"问不出颜色。 */
+  function settlementFace(task: BackgroundTask): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    for (const key of SETTLEMENT_FACE) out[key] = task[key];
+    return out;
+  }
+
+  /**
+   * 重臂场景里"上一世迟到的收尾"载体:**同一枚 key** + 旧的那一枚世代号 + 自己已经落过终态。
+   * 我方没有任何入口能把 key 交给第二次登记(见块头),所以这一型沿用文件内既有夹具的写法
+   * (`g-654-identity-guarded-removal.test.ts:55-58` 同名同形),投递入口 `__test__.notifySettled`
+   * 就是它的真实现场:handlers 携带的正是"登记那一刻抓的活对象"。
+   */
+  function staleTerminalOf(live: BackgroundTask): BackgroundTask {
+    return { ...live, identity: 'gen_previous_life', status: 'lost', exitCode: 9, notified: false };
+  }
+
+  beforeEach(() => {
+    const dir: string = mkScratch('g816002-'); // §26 唯一落点(夹具模块无类型声明,按 string 取用)
+    scratch = dir;
+    previousHome = process.env.IHUI_HOME;
+    process.env.IHUI_HOME = path.join(dir, 'home');
+    clearAllTasks();
+    clearAllLoops();
+    __test__.setTerminalNoticeSink(null);
+  });
+
+  afterEach(() => {
+    __test__.setTerminalNoticeSink(null);
+    clearAllTasks();
+    clearAllLoops();
+    if (previousHome === undefined) delete process.env.IHUI_HOME;
+    else process.env.IHUI_HOME = previousHome;
+    if (scratch) rmScratch(scratch);
+    scratch = null;
+  });
+
+  it('字段清单先自证:两域互斥且穷尽(否则下面"逐字段"的判据是空的)', () => {
+    expect(FACE_COVERAGE).toBe(true);
+    // 归类本身也要能被问出颜色:claim 位在结算面(票面① 要复位的正是它),代际号在身份面(只活在注册表内部)。
+    expect(SETTLEMENT_FACE).toContain('notified');
+    expect(IDENTITY_FACE).toContain('identity');
+    expect(new Set([...SETTLEMENT_FACE, ...IDENTITY_FACE]).size).toBe(
+      SETTLEMENT_FACE.length + IDENTITY_FACE.length,
+    );
+  });
+
+  it('① 新登记的条目从不继承任何结算面(票面①"旧 notified 必须为假"由整枚对象换掉满足)', () => {
+    const firstChild = fakeChild();
+    const firstId = registerTask(firstChild, 'g816002 上一世');
+    const first = getTask(firstId)!;
+    __test__.addSettleListener(firstId, () => undefined); // 有当场接得住的等待者,claim 位才会真被消耗
+    firstChild.emit('close', 3, null);
+    // 先确认上一世确实"脏"了 —— 否则后半段的断言可以靠"本来就没东西"蒙过去
+    expect(first.notified).toBe(true);
+    expect(first.status).toBe('exited');
+    expect(first.exitCode).toBe(3);
+    const firstFaceBeforeRearm = settlementFace(first);
+
+    // 重臂的两条真实登记路径都要判:一条生下来在跑,一条生下来就是终态(沙盒预检失败)。
+    const runningId = registerTask(fakeChild(), 'g816002 新一世(在跑)');
+    const failedId = registerFailedTask('g816002 新一世(生下来即终态)', 'sandbox denied');
+    const running = getTask(runningId)!;
+    const failed = getTask(failedId)!;
+    for (const life of [running, failed]) {
+      expect(life.notified).toBe(false); // ← 票面① 的字面要求
+      expect(life.exitCode ?? null).not.toBe(3); // 上一世的退出码没有跟过来
+      expect(life.exitedAt ?? null).not.toBe(first.exitedAt);
+      expect(life.stdoutBuf).toBe('');
+      expect(life.totalStdoutChars).toBe(0); // 上一世的产出量(两窗记账的分母)不得跟过来
+      expect(life.droppedStdoutBytes).toBe(0);
+      expect(life.timedOut).toBe(false);
+      expect(life.stopInitiator ?? null).toBeNull(); // 我方无 resultText/pid 位,发起方只有 stopInitiator
+    }
+    // "生下来就是终态"与"已经投递过"是两件事:位标的是有没有交出去过,不是是不是终态。
+    expect(failed.status).toBe('error');
+    expect(running.status).toBe('running');
+    // 代际号必换(每世一枚),对外的键也各是一枚 —— 复位只发生在"新"这一侧。
+    expect(running.identity).not.toBe(first.identity);
+    expect(failed.identity).not.toBe(first.identity);
+    // 反向半边:新登记不许回头改写上一世已经落定的结算面。
+    expect(settlementFace(first)).toEqual(firstFaceBeforeRearm);
+  });
+
+  it('② 迟到的上一世代不得替在任那一世把投递权用掉:等待者收到的必须是自己那一世的那一份', () => {
+    const child = fakeChild();
+    const id = registerTask(child, 'g816002 在任的一世');
+    const live = getTask(id)!;
+    const received: Array<BackgroundTaskSnapshot | null> = [];
+    __test__.addSettleListener(id, (snap) => received.push(snap));
+    const notices: string[] = [];
+    __test__.setTerminalNoticeSink((notice) => notices.push(notice));
+    const rejectedBefore = getRemovalGuardStats().staleTerminalRejected;
+
+    __test__.notifySettled(staleTerminalOf(live)); // 同一枚 key、旧世代号、已经落终态的一发
+    expect(received).toEqual([]); // 别人家的快照没喂进来(桶还在,没被整块摘掉)
+    expect(getRemovalGuardStats().staleTerminalRejected - rejectedBefore).toBe(1); // 计数只做旁证
+    expect(notices).toEqual([]); // 也不许从播报出口漏出去
+
+    child.emit('close', 0, null); // 本世自己的终态
+    expect(received.length).toBe(1);
+    expect(received[0]!.status).toBe('exited'); // 收到的正是在任这一世
+    expect(received[0]!.id).toBe(id); // 跨世代逐字保持的是这枚对外的键
+    expect(live.notified).toBe(true); // claim 由本世自己消耗,不是被上一世预支
+    expect(received[0]!).not.toHaveProperty('identity'); // 代际号不外传:不进快照
+  });
+
+  it('③ 反向锁:非重臂的同 key 收尾一律整块不动(结算面逐字段与调用前等值,条目原位存活)', () => {
+    const child = fakeChild();
+    const id = registerTask(child, 'g816002 在册条目');
+    const live = getTask(id)!;
+    const received: Array<BackgroundTaskSnapshot | null> = [];
+    __test__.addSettleListener(id, (snap) => received.push(snap));
+    const before = settlementFace(live);
+    const rejectedBefore = getRemovalGuardStats().staleTerminalRejected;
+
+    // 两型迟到都试:没 claim 过的(若被当成归属成立,它会去喂这一世的桶)与已经 claim 过的
+    // (票面① 的载体,若被当成归属成立,它会把这一世的 claim 预支掉)。
+    __test__.notifySettled(staleTerminalOf(live));
+    __test__.notifySettled({ ...staleTerminalOf(live), status: 'exited', exitCode: null, notified: true });
+
+    expect(settlementFace(live)).toEqual(before); // ← 票面③ 的字面要求:一个字段都不许变
+    expect(getTask(id)).toBe(live); // 条目没被换掉、没被摘掉:被拒就是"整块没动"
+    expect(received).toEqual([]); // 该代的等待者一口都没被别人家的快照喂到
+    expect(live.notified).toBe(false); // 旧世的位不许写到新世头上(claim 不被预支)
+    expect(getRemovalGuardStats().staleTerminalRejected - rejectedBefore).toBe(2);
+
+    // 存活证据:本世代随后照常落自己的终态 —— 上面两发是被拒,不是流程坏了
+    child.emit('error', new Error('本世 spawn error'));
+    expect(live.status).toBe('error');
+    expect(received.length).toBe(1);
+    expect(received[0]!.status).toBe('error');
+    expect(live.notified).toBe(true); // claim 由本世自己(带着当场接得住的等待者)消耗
+    // 迟到的第二发终态:单向门拦下,一帧都不许多发、一个字段都不许多写
+    child.emit('close', 0, null);
+    expect(received.length).toBe(1);
+    expect(live.exitCode ?? null).toBeNull(); // error 一支不落退出码:迟到快照不得改写它
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
