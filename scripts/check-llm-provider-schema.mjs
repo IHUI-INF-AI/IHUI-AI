@@ -24,6 +24,7 @@
  */
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve, relative } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 const C = {
   red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m',
@@ -364,24 +365,27 @@ function emitFatal(message, args) {
 }
 
 // ── 主流程 ────────────────────────────────────────────────────────────────
-function main() {
+// 退出码一律走 main() 返回值,由文件末尾的 §22d 入口守卫统一 process.exit。
+// (2026-10-06 之前这里散布 5 处 process.exit + 顶层裸 main().catch(),
+//  镜像测试一旦 import 本门即触发 CLI 全流程 —— 见 G-1058651)
+async function main() {
   let args
   try {
     args = parseArgs(process.argv.slice(2))
   } catch (e) {
     console.error(`${C.red}参数错误: ${e.message}${C.reset}`)
     console.error(`用 --help 查看可用参数`)
-    process.exit(2)
+    return 2
   }
   if (args.help) {
     printHelp()
-    process.exit(0)
+    return 0
   }
 
   const envFile = resolve(process.cwd(), args.envFile)
   if (!existsSync(envFile)) {
     emitFatal(`.env 文件不存在: ${args.envFile}`, args)
-    process.exit(2)
+    return 2
   }
 
   let envVars
@@ -389,7 +393,7 @@ function main() {
     envVars = parseEnvFile(envFile)
   } catch (e) {
     emitFatal(`.env 解析失败: ${e.message}`, args)
-    process.exit(2)
+    return 2
   }
 
   // 收集两个字段(LLM_PROVIDERS_JSON 优先,但都校验)
@@ -403,12 +407,37 @@ function main() {
   if (args.json) outputJson(allIssues)
   else outputHuman(envFile, envVars, allIssues)
 
-  process.exit(allIssues.some((i) => i.level === 'error') ? 1 : 0)
+  return allIssues.some((i) => i.level === 'error') ? 1 : 0
 }
 
-main().catch((e) => {
-  console.error(`${C.red}❌ 脚本执行异常:${C.reset}`, e?.message ?? e)
-  console.error(e?.stack ?? '(no stack)')
-  process.exit(2)
-})
+// ── §22d 入口守卫:被 import 时零副作用,CLI 直跑才执行 main() ───────────────
+// 用 pathToFileURL 归一(本机 Windows argv[1] 是反斜杠盘符路径,手写 'file:///'+ 永不匹配)
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main()
+    .then((code) => {
+      if (code !== 0) process.exit(code)
+    })
+    .catch((e) => {
+      console.error(`${C.red}❌ 脚本执行异常:${C.reset}`, e?.message ?? e)
+      console.error(e?.stack ?? '(no stack)')
+      process.exit(2)
+    })
+}
+
+// 判据单元出口(§22c 唯一真源):镜像测试 import 这份,不得再自抄实现/名单
+export const __test__ = {
+  PROVIDER_WHITELIST,
+  KNOWN_FIELDS,
+  FIELD_CHECKS,
+  DEFAULT_ENV_FILE,
+  parseArgs,
+  parseEnvFile,
+  typeOf,
+  fmtValue,
+  validateProviderConfig,
+  validateJsonField,
+  providerNames,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
