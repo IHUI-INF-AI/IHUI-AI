@@ -13,7 +13,7 @@
 
 from __future__ import annotations
 
-from app.core.usage_cache import extract_cache_metrics, normalize_usage
+from app.core.usage_cache import extract_cache_metrics, has_cache_signals, normalize_usage
 
 # =============================================================================
 # normalize_usage:各厂商原生形态
@@ -186,4 +186,38 @@ def test_extract_cache_metrics_non_dict():
 
 def test_extract_cache_metrics_no_cache_fields():
     assert extract_cache_metrics({"prompt_tokens": 5}) == (0, 0)
+
+
+# =============================================================================
+# G-403(2026-10-07):has_cache_signals —— 发射端区分"真 0"与"没采到"的判据。
+# normalize_usage 把没采到折叠成 0 是内部计量口径;对外下发帧必须区分两个结论,
+# 没采到显式发 None(未知),不许拿 0 冒充"一次都没命中"(G-394 禁令)。
+# =============================================================================
+
+
+def test_has_cache_signals_detects_every_read_alias():
+    # 三家读别名 + OpenAI 嵌套形态,逐一命中(值哪怕是 0 也是"报了这一档")
+    assert has_cache_signals({"cached_tokens": 0}) is True
+    assert has_cache_signals({"cache_read_input_tokens": 7}) is True
+    assert has_cache_signals({"prompt_cache_hit_tokens": 4}) is True
+    assert has_cache_signals({"prompt_tokens_details": {"cached_tokens": 6}}) is True
+
+
+def test_has_cache_signals_detects_write_aliases():
+    assert has_cache_signals({"cache_creation_tokens": 3}) is True
+    assert has_cache_signals({"cache_creation_input_tokens": 0}) is True
+
+
+def test_has_cache_signals_absent_means_not_reported():
+    # 上游压根不报缓存维(OpenAI/DeepSeek 常见)⇒ False ⇒ 发射端应发 None 而不是 0
+    assert has_cache_signals({"prompt_tokens": 5, "completion_tokens": 2}) is False
+    assert has_cache_signals({}) is False
+
+
+def test_has_cache_signals_non_dict():
+    assert has_cache_signals(None) is False
+    assert has_cache_signals(123) is False
+    # 嵌套形态坏值(非 dict / 缺内层键)不算信号
+    assert has_cache_signals({"prompt_tokens_details": "bad"}) is False
+    assert has_cache_signals({"prompt_tokens_details": {}}) is False
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

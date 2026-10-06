@@ -583,6 +583,20 @@ export type SSEEventPayload =
          *  (正确形态);`apps/web/src/hooks/use-chat/stream-handlers.ts` 的 `!== null ? Number(x) : null`
          *  只挡 null,缺席会算出 **NaN** 并被徽章直接渲染 —— 这就是本票立项要的"由消费端各猜"的后果样本。 */
         reasoningTokens?: number | null
+        /**
+         * prompt 缓存命中读 token。G-403(2026-10-07 入契约)—— 三态分工与 reasoningTokens
+         * 同一条"两态绝不并桶"纪律,判据方向相反:
+         *  · **数字(含 0)** = 上游 usage 里报了缓存档,0 就是"一次都没命中"这个结论本身
+         *    (发射处 llm.py `_usage_frame` 经 usage_cache.has_cache_signals 判定后,由
+         *    extract_cache_metrics 归一取数,OpenAI/Anthropic/DeepSeek 别名都认);
+         *  · **显式 null** = 上游这条链路**没采到**缓存维(usage 里没有任何缓存别名键)
+         *    ⇒ 报"未知",消费端呈现"—/不可得",绝不许折成 0(G-394 禁令);
+         *  · **缺席** = 帧代际差:该字段 2026-10-07 前的帧与旧 OpenAI 无名帧不发它,读作"未知"。
+         *  三值(`number | null | undefined`)必须保持可分 —— 折叠只许发生在渲染位,
+         *  不许发生在解析位(api-client 的 `UsageEvent.cacheReadTokens` 同为可选)。 */
+        cacheReadTokens?: number | null
+        /** prompt 缓存**写入** token 数(Anthropic 系才有原生字段);三态同上, */
+        cacheWriteTokens?: number | null
       }
       timing: {
         /** 首 token 耗时;流未产出首 token 时为 null */

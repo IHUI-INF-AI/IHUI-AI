@@ -150,6 +150,14 @@ export default function ChatPage() {
   const [approvalQueue, setApprovalQueue] = useState<readonly ApprovalRequestView[]>([])
   const [approvalRecords, setApprovalRecords] = useState<readonly ApprovalRecord[]>([])
   const [approvalSending, setApprovalSending] = useState(false)
+  // ── G-403(2026-10-07):消息级 usage 缓存两维(onUsage 帧 → 归因条)──
+  // 三态口径与 web 端 store 一致:数字(含 0)= 上游真回报;null = 没采到(未知),
+  // 归因条据此显示"不可得"而非 0(G-394 同令)。发送新流时重置 null —— 上一轮
+  // 的缓存读数挂到本轮消息上就是把别人的账记到这一页。
+  const [latestCacheTokens, setLatestCacheTokens] = useState<{
+    cacheReadTokens: number | null
+    cacheWriteTokens: number | null
+  }>({ cacheReadTokens: null, cacheWriteTokens: null })
 
   /**
    * D136:审批决议回传(卡片 onDecision 的唯一出口)。
@@ -179,9 +187,7 @@ export default function ChatPage() {
           appendApprovalRecord(prev, {
             ...recordBase,
             decision: payload.decision,
-            ...(payload.decision === 'approve' && payload.scope
-              ? { scope: payload.scope }
-              : {}),
+            ...(payload.decision === 'approve' && payload.scope ? { scope: payload.scope } : {}),
             outcome: payload.decision === 'approve' ? 'approved' : 'rejected',
           }),
         )
@@ -453,9 +459,9 @@ export default function ChatPage() {
    * 直接引用会撞 TDZ。用 ref 间接调用,与本文件既有的 captureScreenHandlerRef 同款。
    */
   const autoSendDoneRef = useRef(false)
-  const sendMessageRef = useRef<(overrideText?: string, baseHistory?: readonly ChatMessage[]) => Promise<void>>(
-    async () => {},
-  )
+  const sendMessageRef = useRef<
+    (overrideText?: string, baseHistory?: readonly ChatMessage[]) => Promise<void>
+  >(async () => {})
   const runServerReplay = useCallback(() => {
     if (!routeSessionId || replayedSessionRef.current === routeSessionId) return
     replayedSessionRef.current = routeSessionId
@@ -673,6 +679,8 @@ export default function ChatPage() {
       setThinking(true)
       // W5:新一轮对话开始,清空上一轮的执行过程列表
       setStreamActivities([])
+      // G-403:新一轮开始,重置上一轮的缓存读数(旧账不得挂到新消息上)
+      setLatestCacheTokens({ cacheReadTokens: null, cacheWriteTokens: null })
       startThinkingProgress()
       scrollToBottom()
       const controller = new AbortController()
@@ -887,20 +895,20 @@ export default function ChatPage() {
                 // 清除只有一处出口。
                 terminalTasks: clearTerminalWaiting(
                   c.terminalTasks.map((x) =>
-                  x.id === evt.terminalId
-                    ? {
-                        ...x,
-                        status: evt.status,
-                        // terminal_end 的 output 是权威快照整体替换;但 D19 起 running 期
-                        // 已有实时累加的 output,终帧缺 output 时不得清空它(否则等于丢增量)。
-                        output: evt.output ?? x.output,
-                        // 截断交代必须一起承接:小程序没有 live 输出缓冲,只能靠这两个字段
-                        truncated: evt.truncated ?? x.truncated,
-                        totalChars: evt.totalChars ?? x.totalChars,
-                        exitCode: evt.exitCode,
-                        durationMs: evt.durationMs,
-                      }
-                    : x,
+                    x.id === evt.terminalId
+                      ? {
+                          ...x,
+                          status: evt.status,
+                          // terminal_end 的 output 是权威快照整体替换;但 D19 起 running 期
+                          // 已有实时累加的 output,终帧缺 output 时不得清空它(否则等于丢增量)。
+                          output: evt.output ?? x.output,
+                          // 截断交代必须一起承接:小程序没有 live 输出缓冲,只能靠这两个字段
+                          truncated: evt.truncated ?? x.truncated,
+                          totalChars: evt.totalChars ?? x.totalChars,
+                          exitCode: evt.exitCode,
+                          durationMs: evt.durationMs,
+                        }
+                      : x,
                   ),
                   evt.terminalId,
                 ),
@@ -986,6 +994,12 @@ export default function ChatPage() {
               if (typeof info.totalTokens === 'number') {
                 pushStreamActivity(t('ai.stream.usage', { n: info.totalTokens }))
               }
+              // G-403(2026-10-07):缓存两维接住 —— `?? null` 把"缺席(旧帧)"与"显式
+              // null(没采到)"都归 null = 未知;数字(含 0=真没命中)原样保留,不造 0。
+              setLatestCacheTokens({
+                cacheReadTokens: info.cacheReadTokens ?? null,
+                cacheWriteTokens: info.cacheWriteTokens ?? null,
+              })
             },
             onReconnect: (attempt, delayMs) =>
               pushStreamActivity(
@@ -1385,11 +1399,15 @@ export default function ChatPage() {
         </View>
       ) : null}
 
-      {/* 上下文占用归因条(消费共享引擎,tailPreview 语义与 web 端一致) */}
+      {/* 上下文占用归因条(消费共享引擎,tailPreview 语义与 web 端一致)。
+          G-403:缓存两维由 onUsage 帧落到页级 state 后传入 —— 没采到时组件收 null,
+          归因条显示"不可得"而非 0(与 web 端同一口径)。 */}
       {messages.length ? (
         <ContextUsageStrip
           messages={messages}
           maxTokens={currentModel ? getModelContextCapacity(currentModel) : 0}
+          cacheReadTokens={latestCacheTokens.cacheReadTokens}
+          cacheWriteTokens={latestCacheTokens.cacheWriteTokens}
         />
       ) : null}
 
