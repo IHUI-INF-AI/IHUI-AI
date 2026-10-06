@@ -1125,8 +1125,19 @@ export function blobBannerPreserved({ root, paths, blobOf, baseRef = 'HEAD' }) {
       continue
     }
     const bt = git(['cat-file', 'blob', baseOid], { root, raw: true, allowFail: true })
-    const nt = git(['cat-file', 'blob', blobOf.get(p)], { root, raw: true, allowFail: true })
-    if (bt === null || nt === null) {
+    /**
+     * `blobOf` 的值有两种形态,取决于调用方走的是哪条通道 —— 这里必须都认:
+     * · 索引/工作树通道给的是 **oid** ⇒ 向 git 取正文;
+     * · `LAND_BLOBS` 通道给的是**正文本身**(见上面 `new Map(...map(f => [f.path, f.blob]))`)。
+     * 之前这里无条件 `cat-file blob <值>`,于是 blob 模式(恰恰是"盘上那份属他人、不能读盘"时
+     * 唯一可用的通道)每次都被判成"正文取不到"⇒ 整次落地 exit 2 —— 守卫把它要保护的那条路堵死了,
+     * 而账面只有一句"取不到不等于保持",读起来像仓库有问题。判据没跑成 ≠ 判据判红(§12e)。
+     */
+    const want = blobOf.get(p)
+    const nt = /^[0-9a-f]{40}([0-9a-f]{24})?$/.test(want)
+      ? git(['cat-file', 'blob', want], { root, raw: true, allowFail: true })
+      : want
+    if (bt === null || nt === null || nt === undefined) {
       unjudged.push({ path: p, why: 'blob 正文取不到' })
       continue
     }
