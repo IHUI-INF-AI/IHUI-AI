@@ -164,7 +164,12 @@ test('T5 真仓 HEAD 面端到端:看不见存量不算通过(默认只报数,--
     `全量档默认不得因存量判红,stdout=${plain.stdout} stderr=${plain.stderr}`,
   )
   assert.match(plain.stderr, /IM1 检出 \d+ 条/, '存量红必须被点名(只报数不等于不报)')
-  assert.match(plain.stdout, /\[判定面=head\][\s\S]*可比对 30\d/)
+  // ⚠️ 原断言是 `/可比对 30\d/` —— 锚定**数字前缀**, 而"可比对候选数"会随迁移入库单调增长
+  // (现读 311,已跨过 30\d 的边界 ⇒ 这条断言从某天起永久失效, 且没人会注意到它失效)。
+  // 它想说的是"可比对数非零且与 json 面同源", 不是"落在某个区间" ⇒ 改成结构断言:
+  // 先要求该字段出现, 再由下面已有的 `counts.compared > 300` 承担量级判断。
+  // **与本票同族的教训**: 锚定**会变的量**的字面量, 等于给自己埋一颗定时炸弹。
+  assert.match(plain.stdout, /\[判定面=head\][\s\S]*可比对 \d+/)
 
   const strict = runGate(['--strict'])
   assert.equal(strict.status, 1, `--strict 下有存量不等必须判红,stdout=${strict.stdout}`)
