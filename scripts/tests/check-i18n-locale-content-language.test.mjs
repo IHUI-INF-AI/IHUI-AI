@@ -26,7 +26,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, join, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { gitBinary } from '../lib/face-reader.mjs'
@@ -36,6 +36,8 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const SCRIPTS_DIR = join(HERE, '..')
 const REPO_ROOT = join(SCRIPTS_DIR, '..')
 const SCRIPT = join(SCRIPTS_DIR, 'check-i18n-locale-content-language.mjs')
+// 接线真值的唯一源:头注对不对,取决于注册表里到底有没有本门(见 M3 形状锁)。
+const RUNNER = join(SCRIPTS_DIR, 'guardian-runner.mjs')
 const JA_REL = 'packages/i18n/messages/web/ja.json'
 const LOCALE_CODES = ['zh-CN', 'zh-TW', 'ja', 'ko', 'en']
 
@@ -244,17 +246,54 @@ test('M3 形状锁:定根 / §22d 守卫 / 取材必须走面层 / 族表必须�
     '码位族表必须走唯一源 —— 在门里再抄一份区间就是本仓反复登记的"两份表必然漂移"',
   )
   assert.match(text, /判定面|FACE_TXT/, '面声明必须在位:未说面的门会被读成"当然判磁盘"')
-  // 本票**刻意不接线**(runner / package.json / AGENTS 由主会话统一改)。头注若声称"已接 pre-commit"
-  // 而注册表里没有,守门 89 的 R1 就会判红 —— 这里反向钉住"不得出现已接线的声称"。
-  // 判据必须**放得下"尚未接入"这句实话**:第一版写成 /接入\s?guardian/ 把自家那句"尚未接入
-  // guardian-runner"也判红了 —— 一条拦谎报的尺子如果连"我没做"都读成"我声称做了",
-  // 它教出来的就是谎报。故只拦**肯定式**声称。
-  assert.match(text, /尚未接入/, '头注必须明说未接线(而不是留白让人猜)')
-  assert.doesNotMatch(
-    text,
-    /已接\s?pre-commit|已接入\s?guardian|接线完成|第\s?\d+\s?项[^）]{0,14}blocking/,
-    '头注不得声称已接线(接线属主会话;谎称已接线是守门 89 R1 的立论形态)',
-  )
+  // ── 接线声明必须锚定**注册表真值**,而不是锚定一句会过期的台词 ──
+  //
+  // 立意(不变):头注若声称"已接入"而注册表里没有,守门 89 的 R1 就会判红 ⇒ 必须拦住谎报。
+  //
+  // 为什么改判据(2026-10-06):原判据是**绝对字面量** —— 硬要求头注含「尚未接入」四字,
+  // 并禁止出现「已接入 guardian」等肯定式声称。它当年是对的(门确实还没接线),
+  // 但接线后来**真的发生了**(guardian-runner.mjs 已注册 id:'133' / mode:'blocking'),
+  // 于是这条判据反过来**逼注释继续说谎**: 谁把头注如实改成"已接入", 谁就会被它判红。
+  // 一条把真相判红的尺子, 教出来的就是谎报。
+  //
+  // 现在改成**相对判据**: 先读注册表真值, 再据此决定头注该说的是哪一态 ——
+  //   真值在   ⇒ 头注**不得把未接线说成现状**(旧注释形态 = 判错)
+  //   真值不在 ⇒ 头注**不得把已接线说成现状**(谎报 = 判错)
+  // 判据跟着真值走: 真值再变一次, 它也不会失准。
+  //
+  // ⚠️ 为什么必须用「否定的现状陈述」而不是「存在某个词」(2026-10-06 变异实测的教训):
+  // 第一版两个分支都写成**存在式**断言(match 已接入 / doesNotMatch 已接入)。
+  // 实测**两个变异全部 0 红** —— 因为现读注释为了记录漂移史,在同一句里同时写了
+  // 「现读是『已接入』,不再是"尚未接入"」: 两种措辞共存, 任一分支都能匹配。
+  // **两个方向都抓不到 = 无牙**。故改为: 只认「把某态说成**现状**」的措辞,
+  // 引用历史/漂移说明不算数(那正是注释该做的事)。
+  const runner = readFileSync(RUNNER, 'utf8')
+  const registered = new RegExp(
+    `id:\\s*'133'[\\s\\S]{0,400}?${basename(SCRIPT).replace(/\./g, '\\.')}`,
+  ).test(runner)
+  // 「未接线被说成现状」: 只认**没有历史限定、没有引文包裹**的现状陈述。
+  // 排除两类合法表述(它们恰恰是注释该做的事):
+  //   ① 记录漂移史:「原 2026-09-26 的写法是"尚未接入…"」
+  //   ② 引文:「不再是"尚未接入"」
+  // 实测踩过的坑: 第一版正则含 `尚未接入` 的裸匹配, 把上面①这类历史说明也判红了
+  // —— 判红"如实记录历史"与判红"谎报现状"是两件事, 判据必须分开。
+  const claimsNotWired =
+    /接线状态\s*[:：]\s*(?!.*(?:已漂移|原\s*\d{4}|不再是))尚未(?:接入|注册)/
+  // 「已接线被说成现状」: 排除引文与否定语境。
+  const claimsWired = /接线状态\s*[:：]\s*(?!.*(?:已漂移|不再是|原\s*\d{4}))(?:已接入|已注册)/
+  if (registered) {
+    assert.doesNotMatch(
+      text,
+      claimsNotWired,
+      '注册表里本门已注册,但头注把「未接线」说成现状 —— 头注必须跟着真值走(它现在就在教人说谎)',
+    )
+  } else {
+    assert.doesNotMatch(
+      text,
+      claimsWired,
+      '头注把「已接线」说成现状,而注册表里没有 —— 谎称已接线是守门 89 R1 的立论形态',
+    )
+  }
 })
 
 test('M4 三面三答:同一棵树 HEAD 干净 / 索引与磁盘带真事故 ⇒ 各自独立回答,且不得借面凑数', () => {
