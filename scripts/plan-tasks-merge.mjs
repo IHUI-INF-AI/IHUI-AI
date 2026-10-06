@@ -63,8 +63,6 @@ import {
   keyOfRow,
   parseTaskRows,
   titleOf,
-  VOID_MARK_RE,
-  findVoidRows,
 } from './lib/plan-task-index.mjs'
 // F3「归档反查出口」的**面判据**直接取守门 13c 那一份实现(A2/A3 问的就是"归档件真在被审面上吗",
 // 与本出口问的同一件事;在这里另抄一份 ls-tree/readFileSync 就是本仓禁的第二份真相)。
@@ -521,19 +519,10 @@ function rewriteDup(line, key, today) {
  * @returns {{ text:string, changed:Array<{line:number,kind:string,before:string,after:string}>,
  *             refused:string[], adjudicationNeeded:Array<{line:number,key:string,reason:string}>, dupTwins:string[], before:object }}
  */
-
-export function buildMerge(content, today, opts = {}) {
-  /**
-   * G-1058607:**F2 的翻勾不再是默认动作**。作废声明本身是"这一件已闭环"的一手证据,但判据是
-   * 一条**文本形态**判据,而文本会与散文同形(2026-10-04 未遂:开放票正文里一句普通措辞 ⇒
-   * 自动档把它翻成已完成)。默认档改为逐行点名"拟翻勾但需人工确认",只有显式
-   * `--confirm-void-flip` 才真的落。F1/F3/F4/F10 不受本旗影响(它们不改勾选状态)。
-   */
-  const flipVoid = opts.flipVoid === true
+export function buildMerge(content, today) {
   const a = audit(content)
   const lines = content.split('\n')
   const dupTwins = []
-  const voidAwaiting = []
   const adjudicationNeeded = []
   const plan = new Map()
   const note = (ln, kind, key) => {
@@ -599,12 +588,7 @@ export function buildMerge(content, today, opts = {}) {
       pointerArchived = archived
       after = rewritePointer(after, v.key, archived)
     }
-    const deferredToVoid = v.kinds.includes('F2') && !flipVoid && /^- \[ \]/.test(after)
-    if (deferredToVoid) voidAwaiting.push({ line: ln, before })
-    if (
-      (v.kinds.includes('F1') || (v.kinds.includes('F2') && flipVoid)) &&
-      /^- \[ \]/.test(after)
-    ) {
+    if ((v.kinds.includes('F1') || v.kinds.includes('F2')) && /^- \[ \]/.test(after)) {
       const rawForFlip = after.replace(/^\s*[-*]\s\[ \]\s*/, '')
       if (FORK_SUFFIX_ANY_RE.test(rawForFlip) || FORK_PREFIX_RE.test(rawForFlip)) {
         // 并集复活态(2026-09-30 真仓 L11529 实测):行**已带结构化翻勾注记**而复选框仍是 [ ] ——
@@ -639,7 +623,7 @@ export function buildMerge(content, today, opts = {}) {
     // F4 放最后:一行只可能被标一次;F4 与 F1 结构上互斥(dupCopies 只收"全未勾选"的组)
     if (v.kinds.includes('F4') && /^- \[ \]/.test(after)) after = rewriteDup(after, v.key, today)
     if (after === before) {
-      if (!deferredToVoid) refused.push(`L${ln} 无可施加的改写(${v.kinds.join('+')})`)
+      refused.push(`L${ln} 无可施加的改写(${v.kinds.join('+')})`)
       continue
     }
     lines[ln - 1] = after
@@ -651,7 +635,6 @@ export function buildMerge(content, today, opts = {}) {
     refused,
     adjudicationNeeded,
     dupTwins,
-    voidAwaiting,
     before: a.counts,
   }
 }
@@ -2558,25 +2541,23 @@ function gitIn(idx, args) {
     cwd: ROOT,
     encoding: 'utf8',
     env: idx ? { ...process.env, GIT_INDEX_FILE: idx } : process.env,
+    /**
+     * stdio 三元必须显式接管(2026-10-03 复装,形态对齐 3ce93da4e2「在飞两文件的收敛链 stdio 根治」,
+     * 当年被 49f17a3fe5 连函数重写掉了、此处在 10-03 重新出现):本宿主派生 `cmd.exe` 必 EBUSY。
+     * 本次实测 30 组对照:不写 stdio **0/30 成功**,写 stdio **30/30 成功**(同刻 bash 里 git 正常
+     * ⇒ 排除 git 被锁与并发)。缺它时的表现极具欺骗性:**自检 136/0 全绿**(自检不派生 git),
+     * 只有真落地那条臂炸 —— 又一次「自检绿 ≠ 真安全」。
+     * 注:偶发测到"不写也 6/6 通过",所以单次探测不足以下结论,必须成组对照。
+     */
+    stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
     timeout: 60000,
     maxBuffer: 1 << 28,
   }).trim()
 }
 
-
 export function healAndLand() {
   const stamp = Date.now()
-  // 自动档(post-commit 挂的就是这一档)**不带**这面旗 ⇒ F2 只报数、不翻勾(G-1058607)。
-  const flipVoid = process.argv.includes('--confirm-void-flip')
-  const reportVoid = (rows) => {
-    if (!rows.length) return
-    console.log(
-      `⚠️ F2 作废声明 ${rows.length} 行:自动档只报数、不翻勾。要落地请人工逐行看过后带 --confirm-void-flip 重跑。`,
-    )
-    for (const v of rows.slice(0, 20)) console.log(`   · L${v.line} 拟翻勾但被拦:${v.before.slice(0, 150)}`)
-    if (rows.length > 20) console.log(`   …另有 ${rows.length - 20} 行`)
-  }
   const head = gitIn(null, ['rev-parse', 'HEAD'])
   const spec = `HEAD:${PLAN_REL}`
   const src = catBatch(ROOT, [spec], { maxBuffer: 1 << 28 }).get(spec)
@@ -2601,7 +2582,7 @@ export function healAndLand() {
   // 整条判据留在一行里:T10 的源码锁就是钉这一行的(把 F10 拆成多行会让那条锁无声失效)
   if (
     !b0.forks &&
-    !(flipVoid && b0.voidRows) &&
+    !b0.voidRows &&
     !b0.rotatedAuto &&
     !b0.dupOpenCopies &&
     !b0.verbatimDupCopies &&
@@ -2610,8 +2591,7 @@ export function healAndLand() {
     console.log('✅ 自愈:HEAD 无状态分叉(也没有可折的同题不同编号孪生副本),不动任何东西')
     return 0
   }
-  const r = buildMerge(src, today, { flipVoid })
-  reportVoid(r.voidAwaiting)
+  const r = buildMerge(src, today)
   /**
    * 折叠维跑在**归并结果之上**这一层:`buildMerge` 只改行内内容、一行不增不删 ⇒ 两维共用同一套
    * 行号坐标,合到一枚提交、一次 CAS 里落地。两维刻意互不干涉:F10 只插注记、绝不碰复选框,
@@ -2634,7 +2614,6 @@ export function healAndLand() {
     [...r.changed, ...f.edits.map((e) => ({ ...e, kind: 'F10折叠' }))],
     r.refused.length + f.refused.length,
     landAdj,
-    { flipVoid },
   )
   bad.push(...verifyTwinFold(r.text, f.text, f.edits, f.refused).problems)
   if (bad.length) {
@@ -2705,10 +2684,7 @@ export function healAndLand() {
     )
     const postUnmerged =
       adjudicationProblems({ forks: audit(landedText).forks }, landAdj).problems.length +
-      (flipVoid ? after.voidRows : 0) +
-      after.rotatedAuto +
-      after.dupOpenCopies +
-      after.verbatimDupCopies
+      after.voidRows + after.rotatedAuto + after.dupOpenCopies + after.verbatimDupCopies
     if (postUnmerged > 0) {
       console.log('   ⚠️ 落地面仍有未归并项 —— 上面就是现读数字,不得当"已清零"引用。')
       return 1
@@ -2850,7 +2826,7 @@ export function pointerVisibilityRegression(srcText, merged) {
 }
 
 /** 自愈的"该不该停手"判据 —— 抽成纯函数,否则这一层最要紧的安全断言只能在真仓上验一次。 */
-export function healStopReasons(srcText, merged, changed, refusedCount, adj = null, opts = {}) {
+export function healStopReasons(srcText, merged, changed, refusedCount, adj = null) {
   // 与 verifyMerge 同一处理:F1+F3 那一型里 F3 的锚点替换是本工具授权的改写,先折回 before,
   // 再交给下面那条一字未动的逐字判据(否则归并对这一型永久停手,那条 F1 再也修不掉)。
   changed = normalizeForkedBefore(changed)
@@ -2880,7 +2856,7 @@ export function healStopReasons(srcText, merged, changed, refusedCount, adj = nu
     bodyBroken ? '有翻勾行未逐字保留正文(剥注记后必须相等)' : null,
     twinLeft ? `折叠维未闭合:折完仍有 ${twinLeft} 行"同题不同编号"可折` : null,
     ...(adjudicationProblems({ forks: audit(merged).forks }, adj).problems.length ||
-      (opts.flipVoid === true ? after.voidRows : 0) || after.rotatedAuto || after.dupOpenCopies
+      after.voidRows || after.rotatedAuto || after.dupOpenCopies
       ? ['归并后未归零']
       : []),
     pointerVisibilityRegression(srcText, merged),
@@ -3031,7 +3007,7 @@ export function loadAdjudications(root, today) {
   }
   return adj
 }
-export function verifyMerge(original, merged, changed, adj = null, opts = {}) {
+export function verifyMerge(original, merged, changed, adj = null) {
   changed = normalizeForkedBefore(changed)
   const problems = []
   const o = original.split('\n')
@@ -3062,8 +3038,7 @@ export function verifyMerge(original, merged, changed, adj = null, opts = {}) {
   }
   const after = audit(merged)
   problems.push(...adjudicationProblems(after, adj).problems)
-  if (opts.flipVoid === true && after.counts.voidRows)
-    problems.push(`F2 未归零:${after.counts.voidRows} 行`)
+  if (after.counts.voidRows) problems.push(`F2 未归零:${after.counts.voidRows} 行`)
   if (after.counts.rotatedAuto) problems.push(`F3(可自动收口)未归零:${after.counts.rotatedAuto} 处`)
   if (after.counts.dupOpenCopies)
     problems.push(`F4 未归零:${after.counts.dupOpenCopies} 行同题待办副本仍挂着`)
@@ -3088,12 +3063,12 @@ function selfTest() {
     '- [ ] **D95 指针无出口**:本行正题存活于 L1 的同编号登记。',
     '- [ ] **D98 真待办**:谁都没做过,不得被动。',
   ].join('\n')
-  const r = buildMerge(src, '2026-09-26', { flipVoid: true })
+  const r = buildMerge(src, '2026-09-26')
   // 3 = F1(D99 旧副本)+ F2(D97)+ D96 那一行。注意 D96 **同时**命中 F1 与 F3(它与已勾那份同复合主键,
   // 而指针又指向同主键的行)—— 一行只可能被改一次,所以这里不能按"判据条数"数,只能按行号数。
   ok(r.changed.length === 3, `应改 3 行(F1 + F2 + D96 那行),实测 ${r.changed.length}`)
   ok(r.refused.length === 0, `不应拒写,实测 ${JSON.stringify(r.refused)}`)
-  const v = verifyMerge(src, r.text, r.changed, null, { flipVoid: true })
+  const v = verifyMerge(src, r.text, r.changed)
   ok(v.problems.length === 0, `零损失与归零断言应全过:${JSON.stringify(v.problems)}`)
   ok(
     v.after.rotatedAuto === 0 && v.after.rotatedNoExit === 1,
@@ -3103,16 +3078,6 @@ function selfTest() {
     v.after.claimable === 2,
     `归并后真待办应是 D95(无出口指针,事项本身没做完)+ D98 两条,实测 ${v.after.claimable}`,
   )
-  {
-    // 同一份夹具走**默认档**(自动档的真实形态):F2 不得被翻勾,但必须被点名。
-    const d = buildMerge(src, '2026-09-26')
-    ok(
-      d.changed.length === 2 && d.voidAwaiting.length === 1 && /D97/.test(d.voidAwaiting[0].before),
-      `默认档应改 2 行 + 点名 1 行作废声明,实测 changed=${d.changed.length} void=${d.voidAwaiting.length}`,
-    )
-    ok(/^- \[ \] \*\*D97/.test(d.text.split('\n')[2]), '默认档下 D97 必须仍是未勾选(机器不替人判闭环)')
-    ok(healStopReasons(src, d.text, d.changed, d.refused.length, null, {}).length === 0, '默认档不得被 F2 未归零钉成恒停手')
-  }
   const line5 = r.text.split('\n')[4]
   ok(!/存活于\s*L\d/.test(line5) && line5.includes('同主键登记'), 'F3(可收口)必须换成内容锚点')
   const line6 = r.text.split('\n')[5]
@@ -3140,43 +3105,6 @@ function selfTest() {
     '什么都不改(分叉仍在)必须停手 —— 否则自愈会变成"跑过一次就算修好"',
   )
   ok(healStopReasons(src, r.text, r.changed, 2).join().includes('拒写'), '有拒写项必须停手')
-
-  /**
-   * G-1058607 成对判据(2026-10-05)。立因:第二支作废令牌原本是**裸短语**,散文里一句普通
-   * 措辞就命中,而挂在 post-commit 上的归并自动档会把没做完的开放票整行翻成 [x] —— 误翻比
-   * 误报贵(§1「把没做的记成做过的比原病更响」)。四条各证一件事,少任何一条都留一型失明:
-   * 散文不判 / 带方括号标注必判 / 默认档不翻勾且点名 / 显式确认才翻。
-   */
-  const PROSE_VOID = '- [ ] G-900100 **散文里出现同一个短语**:数字一律现跑勿照本行派单,不得照抄派单。'
-  const BRACKET_VOID = '- [ ] G-900101 **带标注的作废声明**:[G-900101 勿照本行派单] 已另行收口。'
-  const FULLWIDTH_VOID = '- [ ] G-900102 **全角标注(归并器自己写的形态)**:〔本行判:已完成,勿照本行派单〕。'
-  ok(VOID_MARK_RE.test(FULLWIDTH_VOID), '全角〔…〕里的作废声明必须判 F2(生产侧注记用的就是这一形)')
-  ok(!VOID_MARK_RE.test(PROSE_VOID), '散文句不得判 F2 —— 收紧后第二支必须落在方括号标注里')
-  ok(VOID_MARK_RE.test(BRACKET_VOID), '带方括号主键标注的作废声明必须判 F2(不得把判据收成恒绿)')
-  {
-    const vsrc = ['# T', '', PROSE_VOID, BRACKET_VOID, ''].join('\n')
-    const vr = findVoidRows(vsrc)
-    ok(vr.length === 1, '现读只该有 1 行 F2(实得 ' + vr.length + ')')
-    const vrow = (txt, id) => (String(txt).split('\n').find((l) => l.includes(id)) ?? '')
-    const def = buildMerge(vsrc, '2026-10-05')
-    ok(
-      def.voidAwaiting.length === 1 && /^- \[ \] G-900101/.test(vrow(def.text, 'G-900101')),
-      '默认档不得翻勾,但必须把那一行点名(既不静默丢弃,也不冒充改过)',
-    )
-    const yes = buildMerge(vsrc, '2026-10-05', { flipVoid: true })
-    ok(
-      /^- \[x\] ✅\(2026-10-05\) G-900101/.test(vrow(yes.text, 'G-900101')) && yes.voidAwaiting.length === 0,
-      '显式 --confirm-void-flip 才真的翻勾(收紧不得把出口做成永久不生效)',
-    )
-    ok(
-      healStopReasons(vsrc, def.text, def.changed, def.refused.length, null, {}).length === 0,
-      '默认档的落地闸不得被"F2 未归零"钉成恒停手(那等于把所有归并堵死)',
-    )
-    ok(
-      healStopReasons(vsrc, yes.text, yes.changed, 0, null, { flipVoid: true }).length === 0,
-      '确认档翻完勾必须能落地(否则这面旗只是装饰)',
-    )
-  }
   /**
    * G-307(a) 成对判据:翻勾前后,剥掉复选框与本工具追加的注记之后,两侧正文必须逐字相等。
    * 正向 = 现行后置式与 legacy 前置式都判"保住了";反向 = "整行替换/截断"的实现必须被炸出来
@@ -3977,8 +3905,6 @@ export const KNOWN_FLAGS = [
   '--dedupe-rows',
   '--dedupe-open-rows',
   '--fold-twins',
-
-  '--confirm-void-flip',
   '--audit-pointers',
   '--restore-terminals',
   '--json',
@@ -4656,14 +4582,7 @@ function main() {
   }
   const today =
     argv.find((a) => /^\d{4}-\d{2}-\d{2}$/.test(a)) ?? new Date().toISOString().slice(0, 10)
-  const flipVoid = argv.includes('--confirm-void-flip')
-  const r = buildMerge(src, today, { flipVoid })
-  if (r.voidAwaiting.length) {
-    console.log(
-      `⚠️ F2 作废声明 ${r.voidAwaiting.length} 行 —— 报告档同样不翻勾(翻勾要 --confirm-void-flip 且人工逐行确认):`,
-    )
-    for (const x of r.voidAwaiting.slice(0, 20)) console.log(`   · L${x.line}:${x.before.slice(0, 150)}`)
-  }
+  const r = buildMerge(src, today)
   // 裁决账(唯一一份,入库受版本控制):走**共用加载块**(G-1038502 把这段从 CLI 提为模块级
   // `loadAdjudications`,落地档 `healAndLand` 调的是同一个 —— 两处曾各写一份,于是
   // "落地档不认裁决账"这个洞能从报告档一侧完全看不见)。
