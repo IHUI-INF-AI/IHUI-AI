@@ -31,6 +31,12 @@ export const LOCALE_KEY = 'lang' as const
 export const THEME_KEY = 'theme' as const
 export const USER_INFO_LEGACY_KEY = 'ihui_user_info' as const
 
+// i18n 按需语言包缓存 key 前缀(完整 key: `lang_pack_<locale>_<version>`,version 为载荷 sha256)。
+// 刻意**不带** ihui_ 前缀:app.tsx onMemoryWarning 的 L5 清理只摘 ihui_ 前缀 key —— 语言包虽
+// 可再下载(非关键数据),但内存紧张时把它清掉会立刻触发重新拉取,反而加重弱网负担;
+// 用户显式"清除缓存"仍可按各组清理逻辑处置(清掉后下次冷启自然重下,静默回落不受影响)。
+export const I18N_PACK_KEY_PREFIX = 'lang_pack_' as const
+
 // storage key 前缀(用于 app.tsx 内存清理时识别 ihui_ 前缀的 key)
 export const IHUI_KEY_PREFIX = 'ihui_' as const
 
