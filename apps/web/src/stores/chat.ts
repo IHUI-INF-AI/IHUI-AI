@@ -94,6 +94,12 @@ export interface MessageUsage {
   completionTokens: number
   /** 推理 token( reasoning 模型才有;非推理模型后端给 null) */
   reasoningTokens: number | null
+  /** prompt 缓存命中读 token。G-403(2026-10-07 接线):三态收敛到两值落盘 ——
+   *  数字(含 0)= 上游真回报;null = 没采到(上游不报/帧代际差都归此),
+   *  消费端据此显示"不可得"而非 0(与 G-394 同令)。 */
+  cacheReadTokens: number | null
+  /** prompt 缓存写入 token(Anthropic 系才有);三态收敛同上 */
+  cacheWriteTokens: number | null
   /** 首 token 延迟(ms):从请求发出到首个内容 token 到达 */
   firstTokenMs: number
   /** 总生成耗时(ms):从请求发出到流结束 */

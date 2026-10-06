@@ -150,8 +150,8 @@ describe('streamChat usage 帧的缓存两维端到端(解析面 → onUsage 载
     expect(u.cacheWriteTokens).toBe(0)
   })
 
-  it('S3 命名帧不带缓存(ai-service 今天的事实)⇒ null,不是 0', async () => {
-    // 载荷逐字取自 app/routers/llm.py 的 _usage_frame:usage 只有四个键
+  it('S3 帧不带缓存两键(旧帧代际差/旧 OpenAI 无名帧)⇒ null,不是 0', async () => {
+    // 载荷 = app/routers/llm.py 的 _usage_frame 在 G-403 之前的形态:usage 只有四个键
     const u = await captureUsage([
       'event: usage',
       'data: {"type":"usage","messageId":"m-1","usage":{"promptTokens":100,"completionTokens":30,"totalTokens":130,"reasoningTokens":12},"timing":{"firstTokenMs":420,"durationMs":3400},"model":"deepseek-chat","costUsd":0.0021}',
@@ -159,6 +159,26 @@ describe('streamChat usage 帧的缓存两维端到端(解析面 → onUsage 载
     expect(u.totalTokens).toBe(130)
     expect(u.cacheReadTokens).toBeNull()
     expect(u.cacheWriteTokens).toBeNull()
+  })
+
+  it('S7 命名帧带缓存两键(G-403 后 llm.py 补发的线格式)⇒ camelCase 键被接住', async () => {
+    // 载荷键名与 llm.py _usage_frame 补发后的线格式逐字对齐(cacheReadTokens/cacheWriteTokens)
+    const u = await captureUsage([
+      'event: usage',
+      'data: {"type":"usage","messageId":"m-1","usage":{"promptTokens":1000,"completionTokens":30,"totalTokens":1030,"reasoningTokens":0,"cacheReadTokens":800,"cacheWriteTokens":50},"timing":{"firstTokenMs":420,"durationMs":3400},"model":"deepseek-chat","costUsd":0.0021}',
+    ])
+    expect(u.cacheReadTokens).toBe(800)
+    expect(u.cacheWriteTokens).toBe(50)
+  })
+
+  it('S8 命名帧缓存两键为 null(上游没采到,发射端 has_cache_signals 判空)⇒ 原样 null,不得读成 0', async () => {
+    const u = await captureUsage([
+      'event: usage',
+      'data: {"type":"usage","messageId":"m-1","usage":{"promptTokens":1000,"completionTokens":30,"totalTokens":1030,"cacheReadTokens":null,"cacheWriteTokens":null},"timing":{"firstTokenMs":420,"durationMs":3400},"model":"deepseek-chat","costUsd":null}',
+    ])
+    expect(u.cacheReadTokens).toBeNull()
+    expect(u.cacheWriteTokens).toBeNull()
+    expect(u.cacheReadTokens).not.toBe(0)
   })
 
   it('S4 Anthropic 原生别名经 streamChat 也被接住', async () => {
