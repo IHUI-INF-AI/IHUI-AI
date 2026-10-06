@@ -122,4 +122,22 @@ def extract_cache_metrics(usage: Any) -> tuple[int, int]:
     return int(normalized.get("cached_tokens") or 0), int(
         normalized.get("cache_creation_tokens") or 0
     )
+
+
+def has_cache_signals(raw: Any) -> bool:
+    """探测 usage dict 里是否出现任何缓存读/写键(含 OpenAI 嵌套形态)。
+
+    供发射端区分「上游确实报了缓存档(值可能是 0)」与「上游压根不报这一维」:
+    normalize_usage 会把"没有别名命中"折叠成 0(内部计量口径),但对外下发帧
+    必须区分这两种结论 —— 没采到要显式发 None(未知),不许拿 0 冒充
+    "一次都没命中"(G-394/G-403 口径,与 api-client 的 parseUsageCacheTokens
+    "两态绝不并桶"同一条纪律)。
+    """
+    if not isinstance(raw, dict):
+        return False
+    for key in (*_CACHE_READ_ALIASES, *_CACHE_WRITE_ALIASES):
+        if key in raw:
+            return True
+    nested = raw.get("prompt_tokens_details")
+    return isinstance(nested, dict) and "cached_tokens" in nested
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
