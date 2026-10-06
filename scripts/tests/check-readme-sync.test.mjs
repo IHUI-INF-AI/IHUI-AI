@@ -9,6 +9,8 @@ import { writeFileSync, mkdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
+// §22c:判据真相只在门体一份 —— 测试导入生产判据,不在测试里重抄豁免/触发表
+import { __test__ as gate } from '../check-readme-sync.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -303,5 +305,31 @@ test('非 staged 模式: 默认模式(无 --staged)读取 working tree 改动,�
   } finally {
     rmScratch(dir)
   }
+})
+
+// ═══════════════════════════════════════════════════════════
+// §22c 判据直连(触发/豁免表只在门体一份,测试不重抄)
+// ═══════════════════════════════════════════════════════════
+
+// ─── 16. 判据直连: gate.isTrigger / gate.isExempt 与端到端用例同形 ──
+test('判据直连: 触发与豁免判据来自门体 export(§22c 单一真相)', () => {
+  assert.ok(Array.isArray(gate.TRIGGER_PATTERNS) && gate.TRIGGER_PATTERNS.length > 0)
+  assert.ok(Array.isArray(gate.EXEMPT_PATTERNS) && gate.EXEMPT_PATTERNS.length > 0)
+  // 触发端:与用例 7/8/9/10 的端到端结论一致
+  assert.equal(gate.isTrigger('apps/web/src/page.tsx'), true)
+  assert.equal(gate.isTrigger('packages/ui/src/button.tsx'), true)
+  assert.equal(gate.isTrigger('apps/ai-service/app/api/route.py'), true)
+  assert.equal(gate.isTrigger('apps/ai-service/app/services/llm.py'), true)
+  // 非触发端:与用例 13 一致
+  assert.equal(gate.isTrigger('apps/web/foo.ts'), false)
+  // 豁免端:与用例 5/11/12 一致
+  assert.equal(gate.isExempt('scripts/check-foo.mjs'), true)
+  assert.equal(gate.isExempt('apps/web/src/foo.test.ts'), true)
+  assert.equal(gate.isExempt('apps/web/src/guide.md'), true)
+  // 裁定组合(TRIGGER 命中但被 EXEMPT 抵消)同样走门体函数,测试不复述表内容
+  const isViolation = (f) => gate.isTrigger(f) && !gate.isExempt(f)
+  assert.equal(isViolation('apps/web/src/page.tsx'), true)
+  assert.equal(isViolation('apps/web/src/guide.md'), false)
+  assert.equal(isViolation('scripts/check-foo.mjs'), false)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

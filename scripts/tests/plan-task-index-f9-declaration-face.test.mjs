@@ -96,8 +96,28 @@ test('auditPlan 面必须同时递出判据/宽口径/引用图/畸形号四份�
     assert.equal(typeof a.counts[k], 'number', `counts 缺 ${k} —— 只报名单不报数同样无从对账`)
   assert.equal(a.counts.f9WideGroups, a.collisions.length, '宽口径组数必须与 collisions 名单同形(判据面另在 f9Declared)')
   const n = narrowF9Face(a, [TRUE_PAIR, CROSS_REF, REF_GRAPH, MALFORMED].join('\n'))
-  assert.equal(n.collisions, a.f9Declared, '判定面必须直接取台账那份,不在 CLI 重筛一遍(两处算同一件事必漂移)')
+  // ⚠ 这条锁的是"**不在 CLI 重筛一遍编号位**",不是"collisions 与 f9Declared 同一个数组对象":
+  // 2026-10-06 起 F9 在收窄之后还过一道**定级**(「组内全已勾选」的组降为只报数,见 splitF9SettledGroups),
+  // 那个过滤必然让 collisions 不再是同一个数组引用。判据因此从"引用相等"改成**元素级同形**:
+  // 留下的每一个组都必须是台账那份的**原对象**(重筛会产出新对象 ⇒ 这条会红),被抽走的必须
+  // 恰好等于降档名单(否则就是"少判/多判了一组"而不是"降档")。
+  assert.ok(
+    n.collisions.every((g) => a.f9Declared.includes(g)),
+    '判定面必须直接取台账那份的**原对象**,不在 CLI 重筛一遍(重筛会产出新对象)',
+  )
+  const keptFrom = a.f9Declared.filter((g) => n.collisions.includes(g))
+  assert.equal(
+    n.collisions.length + n.f9Settled.length,
+    a.f9Declared.length,
+    `判红组 + 降档组 必须等于台账那份组集(少同步一处账面就自相矛盾),实测 ${JSON.stringify([n.collisions.length, n.f9Settled.length, a.f9Declared.length])}`,
+  )
+  assert.deepEqual(
+    keptFrom.map((g) => g.key).sort(),
+    n.collisions.map((g) => g.key).sort(),
+    '留在判红面的组必须逐个来自台账那份,不得掺进新对象',
+  )
   assert.equal(n.counts.collisionGroups, n.collisions.length, '组数与名单必须一起收窄')
+  assert.equal(n.counts.f9SettledGroups, n.f9Settled.length, '降档组数与降档名单必须同形')
 })
 
 /** ⑥ 单一实现锁:分组循环只许有一份,CLI 侧不得再抄"什么算声明行" */

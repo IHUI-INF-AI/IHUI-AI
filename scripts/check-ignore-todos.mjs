@@ -29,6 +29,7 @@
  */
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 const C = {
   red: '\x1b[31m',
@@ -42,7 +43,33 @@ const C = {
 
 const IGNORE_FILE = resolve(process.cwd(), '.check-api-routes-ignore.json')
 
-function main() {
+// ─── 判据单元(AGENTS.md §22c:唯一真相,由文件末尾 __test__ 暴露给镜像测试) ───
+// 第 1 类关键词: TODO 后端待实装
+const TODO_KEYWORD = '待实装'
+// 第 2 类关键词: 守门脚本 bug 标注
+const GUARD_BUG_KEYWORD = '守门脚本'
+
+// 第 1 类: TODO 后端待实装(reason 含 "待实装")
+function isTodoItem(it) {
+  return typeof it.reason === 'string' && it.reason.includes(TODO_KEYWORD)
+}
+
+// 第 2 类: 守门脚本 bug 标注(reason 含 "守门脚本")
+function isGuardBugItem(it) {
+  return typeof it.reason === 'string' && it.reason.includes(GUARD_BUG_KEYWORD)
+}
+
+// 其他(已知豁免): 两类关键词都不含
+function isOtherItem(it) {
+  return !isTodoItem(it) && !isGuardBugItem(it)
+}
+
+// 健康度: 豁免中非 TODO 条目占比(0-100 整数)
+function computeHealthScore(items, todoItems) {
+  return Math.round(((items.length - todoItems.length) / items.length) * 100)
+}
+
+async function main() {
   let data
   try {
     const raw = readFileSync(IGNORE_FILE, 'utf8')
@@ -59,18 +86,11 @@ function main() {
   }
 
   // 第 1 类: TODO 后端待实装(reason 含 "待实装")
-  const todoItems = items.filter(
-    (it) => typeof it.reason === 'string' && it.reason.includes('待实装'),
-  )
+  const todoItems = items.filter(isTodoItem)
   // 第 2 类: 守门脚本 bug 标注(reason 含 "守门脚本")
-  const guardBugItems = items.filter(
-    (it) => typeof it.reason === 'string' && it.reason.includes('守门脚本'),
-  )
+  const guardBugItems = items.filter(isGuardBugItem)
   // 其他
-  const otherItems = items.filter(
-    (it) =>
-      !(typeof it.reason === 'string' && (it.reason.includes('待实装') || it.reason.includes('守门脚本'))),
-  )
+  const otherItems = items.filter(isOtherItem)
 
   console.log('')
   console.log(`${C.cyan}${C.bold}📊 check-api-routes-ignore.json 监控报告${C.reset}`)
@@ -103,9 +123,7 @@ function main() {
   }
 
   // 健康度评估
-  const healthScore = Math.round(
-    ((items.length - todoItems.length) / items.length) * 100,
-  )
+  const healthScore = computeHealthScore(items, todoItems)
   const healthColor =
     healthScore >= 80 ? C.green : healthScore >= 50 ? C.yellow : C.red
   console.log(
@@ -116,5 +134,26 @@ function main() {
   process.exit(0)
 }
 
-main()
+// AGENTS.md §22d 双形态入口守卫:CLI 直跑才执行 main();被 import(镜像测试等)时零副作用。
+// 用 pathToFileURL 比对而非字符串拼接,因 Windows 反斜杠路径永远匹配不上手搓的 file:/// 串。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main().catch((e) => {
+    // 脚本自身异常 = 2(warn-only 门体也不得把"自身崩了"记为通过)
+    console.error(`${C.red}✗${C.reset} 脚本自身异常(不记为通过):${e?.message ?? e}`)
+    process.exit(2)
+  })
+}
+
+// AGENTS.md §22c 判据唯一真相:镜像测试从这里取分类判据,不再自抄一份
+export const __test__ = {
+  IGNORE_FILE,
+  TODO_KEYWORD,
+  GUARD_BUG_KEYWORD,
+  isTodoItem,
+  isGuardBugItem,
+  isOtherItem,
+  computeHealthScore,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
