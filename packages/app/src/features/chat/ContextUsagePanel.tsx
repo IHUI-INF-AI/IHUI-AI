@@ -70,9 +70,22 @@ interface ContextUsagePanelProps {
   /** 当前模型窗口容量(token);0 = 未知,占比显示为 — */
   maxTokens: number
   colorScheme: 'light' | 'dark'
+  /** G-403(2026-10-07):prompt 缓存命中读 token —— 数字(含 0)=上游真回报;
+   *  null/缺省 = 没采到(未知),面板显示"不可得"而非 0(与 web ring 同一口径)。
+   *  RN 链路当前无 usage 源(宿主不强传)⇒ 恒 null = 如实"不可得"。 */
+  cacheReadTokens?: number | null
+  /** prompt 缓存写入 token(Anthropic 系才有);三态同上 */
+  cacheWriteTokens?: number | null
 }
 
-export function ContextUsagePanel({ t, messages, maxTokens, colorScheme }: ContextUsagePanelProps) {
+export function ContextUsagePanel({
+  t,
+  messages,
+  maxTokens,
+  colorScheme,
+  cacheReadTokens = null,
+  cacheWriteTokens = null,
+}: ContextUsagePanelProps) {
   const tk = getTokens(colorScheme)
   const [expanded, setExpanded] = useState(false)
   const [openSegment, setOpenSegment] = useState<AttributionKey | null>(null)
@@ -84,10 +97,12 @@ export function ContextUsagePanel({ t, messages, maxTokens, colorScheme }: Conte
         // toolCalls 缺省时的口径一致(该段如实不出现,不伪造)。
         messages: messages.map((m): AttributionMessage => ({ role: m.role, content: m.content })),
         providerPromptTokens: null,
-        cacheReadTokens: null,
-        cacheWriteTokens: null,
+        // G-403:由宿主透传(当前无源 ⇒ 保持 null);渲染位折叠,绝不在此造 0
+        // (0 = "一次都没命中"的肯定结论,不是"没量到")。
+        cacheReadTokens: cacheReadTokens ?? null,
+        cacheWriteTokens: cacheWriteTokens ?? null,
       }),
-    [messages],
+    [messages, cacheReadTokens, cacheWriteTokens],
   )
 
   const usedTokens = attribution.totalTokens
