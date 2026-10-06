@@ -6,8 +6,25 @@
 // JSON.stringify → gzip(level 9) → base64,生成 src/i18n/generated/remote-locales.gen.ts。
 // 运行时经 fflate 解压还原,与源 JSON 无损等价(见 src/i18n/__tests__/i18n-compressed.test.ts)。
 // 用法:node scripts/gen-i18n-compressed.mjs  (package.json: pnpm gen:i18n)
+//
+// 2026-10-06 主包余量治理(按需拉取改造):同一份 base64 载荷现在产出**三个消费面**,
+// 全部由本生成器从同一批输入派生(单源多产物,与 record_back.png"单一源→两份产物"同规矩):
+//   ① src/i18n/generated/remote-locales.gen.ts —— 离线对账真相(gzip+b64 内联),运行时
+//      **不再 import 它**(否则 440KB 重新进 common.js);check-i18n-messages-exist /
+//      check-tool-display-resolvable / check-word-table-resolvable / G5 钉门等守门脚本
+//      仍从磁盘读它对账,格式一字不变。
+//   ② src/assets/remote-locales/<locale>.b64.txt —— CDN 部署载荷(与 ① 逐字节相同),
+//      由运维把该目录拷进 cdn-server.js 的 server-root(与 src/assets/remote-images/ 同一
+//      部署通道),运行时经 aizhsUrl('remote-locales/<locale>.b64.txt?v=<version>') 按需拉取
+//      (?v= 只做缓存击穿;cdn-server.js 用 URL(...).pathname 取文件,query 不参与路径解析)。
+//      .txt 不在水印分母(watermark.mjs EXT_MAP 只映射源码扩展),载荷保持无横幅字节精确。
+//   ③ src/i18n/generated/remote-locale-manifest.gen.ts —— 运行时轻量清单(version=载荷
+//      sha256,bytes=载荷字节数),进主包(约 0.5KB):version 作 storage 缓存 key 与失效
+//      判据,bytes 作下载完整性粗校验。真完整校验靠"b64 字符集 + gunzip + JSON.parse"
+//      结构性校验(解码失败一律回落,不进缓存)。
 
 import { gzipSync, strToU8 } from 'fflate'
+import { createHash } from 'node:crypto'
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -26,6 +43,10 @@ const repoRoot = resolve(__dirname, '../../..')
 const messagesRoot = resolve(repoRoot, 'packages/i18n/messages')
 const outDir = resolve(__dirname, '../src/i18n/generated')
 const outFile = resolve(outDir, 'remote-locales.gen.ts')
+const manifestFile = resolve(outDir, 'remote-locale-manifest.gen.ts')
+// CDN 部署载荷目录:与 src/assets/remote-images/ 同一镜像约定 —— 目录名即 CDN URL 路径段,
+// 运维把它整体拷进 cdn-server.js 的 server-root 后,载荷即出现在 /remote-locales/<locale>.b64.txt。
+const cdnPayloadDir = resolve(__dirname, '../src/assets/remote-locales')
 const GENERATOR_REL = 'apps/miniapp-taro/scripts/gen-i18n-compressed.mjs'
 
 const REMOTE_LOCALES = ['en', 'ja', 'ko', 'zh-TW']
@@ -98,6 +119,16 @@ console.log(
   `[gen:i18n] 合计: 原始 ${totalOriginal.toFixed(1)}KB → b64 ${totalB64.toFixed(1)}KB (净省 ${(totalOriginal - totalB64).toFixed(1)}KB)`,
 )
 
+// 运行时清单:version = 载荷 sha256(storage 缓存 key 与失效判据),bytes = 载荷字节数
+// (下载完整性粗校验)。sha256 只在生成期(node crypto)算,运行时只做字符串比较,不带依赖进主包。
+const REMOTE_LOCALE_MANIFEST = {}
+for (const locale of REMOTE_LOCALES) {
+  REMOTE_LOCALE_MANIFEST[locale] = {
+    version: createHash('sha256').update(REMOTE_LOCALE_B64[locale], 'utf8').digest('hex'),
+    bytes: REMOTE_LOCALE_B64[locale].length,
+  }
+}
+
 // 源版本钉里的出处行:HEAD 的 sha。取不到一律写 unknown —— 它只是给人看的台账,
 // 不参与陈旧判据(判据只认 inputsSha256),所以「git 此刻不可用」绝不允许变成生成失败。
 function readSourceCommit() {
@@ -115,17 +146,21 @@ function readSourceCommit() {
   }
 }
 
+// 自述钉两份产物共用同一份(同批输入 + 同一时刻行 ⇒ 幂等性对两份产物同时成立)
+const pinLines = renderPin({
+  generator: GENERATOR_REL,
+  sourceCommit: readSourceCommit(),
+  inputs: pinInputs,
+  generatedAt: new Date().toISOString(),
+})
+
 const lines = [
   '// GENERATED FILE — DO NOT EDIT. 由 scripts/gen-i18n-compressed.mjs 生成(pnpm gen:i18n)',
   '// 非中文语言包离线 gzip+base64 内联,运行时经 fflate 解压,数据与源 JSON 无损等价(见 __tests__/i18n-compressed.test.ts)',
   // 自述钉:紧贴上面两行说明之后、在任何数据行之前 —— 解析器按行取,位置不影响内容,
   // 但放在文件头才会在 `head` / PR diff 里第一眼可见(本票的动机正是"没人愿意去猜产物新不新")。
-  ...renderPin({
-    generator: GENERATOR_REL,
-    sourceCommit: readSourceCommit(),
-    inputs: pinInputs,
-    generatedAt: new Date().toISOString(),
-  }),
+  // 2026-10-06 起运行时不再 import 本文件(载荷改 CDN 按需拉取);它仍是守门对账与 CDN 载荷的唯一真相。
+  ...pinLines,
   "export type RemoteLocale = 'en' | 'ja' | 'ko' | 'zh-TW'",
   'export const REMOTE_LOCALE_B64: Record<RemoteLocale, string> = {',
 ]
@@ -140,20 +175,55 @@ lines.push('')
 mkdirSync(outDir, { recursive: true })
 writeFileSync(outFile, lines.join('\n'), 'utf8')
 
+// 产物③:运行时轻量清单(进主包,约 0.5KB)。与 ① 同钉,保证"缓存 key/字节校验的判据"
+// 与"离线真相"出自同一批输入 —— 两份产物任何一份单独重生成都会被 G5 钉门点名为陈旧。
+const manifestLines = [
+  '// GENERATED FILE — DO NOT EDIT. 由 scripts/gen-i18n-compressed.mjs 生成(pnpm gen:i18n)',
+  '// 按需拉取语言包的运行时清单:version = 载荷 gzip+b64 的 sha256(storage 缓存 key 与失效判据),',
+  '// bytes = 载荷字节数(下载完整性粗校验)。载荷真相在 generated/remote-locales.gen.ts(离线对账)',
+  '// 与 src/assets/remote-locales/<locale>.b64.txt(CDN 部署),三者同批派生、同钉对账。',
+  ...pinLines,
+  "export type RemoteLocale = 'en' | 'ja' | 'ko' | 'zh-TW'",
+  'export const REMOTE_LOCALE_MANIFEST: Record<RemoteLocale, { version: string; bytes: number }> = {',
+]
+for (const locale of REMOTE_LOCALES) {
+  const { version, bytes } = REMOTE_LOCALE_MANIFEST[locale]
+  manifestLines.push(
+    `  ${locale === 'zh-TW' ? "'zh-TW'" : locale}: { version: '${version}', bytes: ${bytes} },`,
+  )
+}
+manifestLines.push('}')
+manifestLines.push('')
+writeFileSync(manifestFile, manifestLines.join('\n'), 'utf8')
+
+// 产物②:CDN 部署载荷(与 ① 的 b64 逐字节相同,无换行尾巴 —— 运行时按清单 bytes 粗校验)。
+// 部署动作属运维既有通道:把本目录拷进 cdn-server.js 的 server-root(与 remote-images 同法)。
+mkdirSync(cdnPayloadDir, { recursive: true })
+for (const locale of REMOTE_LOCALES) {
+  writeFileSync(resolve(cdnPayloadDir, `${locale}.b64.txt`), REMOTE_LOCALE_B64[locale], 'utf8')
+}
+
 // 溯源水印:生成产物同样是 git 跟踪文件,受 `scripts/check-watermark-coverage.mjs` 门禁约束。
 // 此前生成器不写横幅 → 该文件长期缺失水印,使 pre-commit 与 CI 的 watermark 门禁必红。
 // 统一改为复用仓库水印工具(单一事实源),幂等:重复生成不产生 diff。
+// (两份 .ts 产物都要注入;.b64.txt 载荷不在水印分母,保持字节精确。)
 const watermarkScript = resolve(repoRoot, 'scripts/watermark.mjs')
-try {
-  execFileSync(process.execPath, [watermarkScript, 'inject', outFile], {
-    stdio: 'inherit',
-    windowsHide: true, // 防 Windows 弹可见控制台窗口
-  })
-} catch (e) {
-  console.error(
-    `[gen:i18n] ❌ 溯源水印注入失败,产物将导致 check-watermark-coverage 红: ${e.message || e}`,
-  )
-  process.exit(1)
+for (const generatedFile of [outFile, manifestFile]) {
+  try {
+    execFileSync(process.execPath, [watermarkScript, 'inject', generatedFile], {
+      stdio: 'inherit',
+      windowsHide: true, // 防 Windows 弹可见控制台窗口
+    })
+  } catch (e) {
+    console.error(
+      `[gen:i18n] ❌ 溯源水印注入失败(${generatedFile}),产物将导致 check-watermark-coverage 红: ${e.message || e}`,
+    )
+    process.exit(1)
+  }
 }
 
 console.log(`[gen:i18n] 已写入 ${outFile} (${readFileSync(outFile).length} 字节, 含溯源水印)`)
+console.log(`[gen:i18n] 已写入 ${manifestFile} (${readFileSync(manifestFile).length} 字节, 含溯源水印)`)
+console.log(
+  `[gen:i18n] 已写入 CDN 载荷 ${cdnPayloadDir}/{${REMOTE_LOCALES.join(',')}}.b64.txt (部署: 整目录拷入 cdn-server.js 的 server-root)`,
+)
