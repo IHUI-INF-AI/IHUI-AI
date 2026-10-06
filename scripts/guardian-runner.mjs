@@ -4636,6 +4636,22 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 测试判据复制对账(§22c 跨门尺子;门体与镜像测试各写一份形态清单/正则即点名,存量 27 处只报数 ⇒ warn,升 blocking 前置 = 命中归零)(1 项,warn)---
+  {
+    id: '191',
+    label:
+      '测试判据复制对账(§22c 跨门尺子;门体与镜像测试各写一份形态清单/正则即点名,存量 27 处只报数 ⇒ warn,升 blocking 前置 = 命中归零)',
+    script: 'check-test-judge-not-replicated.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_TEST_JUDGE_REPLICATED',
+    stagedTriggers: ['scripts/check-', 'scripts/tests/'],
+    onFailHint: [
+      '',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
