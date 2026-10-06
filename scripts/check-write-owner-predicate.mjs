@@ -91,7 +91,12 @@
  *   node --test scripts/tests/check-write-owner-predicate.test.mjs
  *   node scripts/check-write-owner-predicate.mjs            (全量档,判 HEAD blob)
  *   node scripts/check-write-owner-predicate.mjs --strict
- * 问责档是 `--strict`;**本门当前未接提交链**(按任务书由主会话统一接线,注册表属共享文件)。
+ * 【接线状态:已接入】注册条目已落在 scripts/guardian-runner.mjs(id 以 runner 现值为准,
+ *   勿照抄本行数字):blocking + skipEnv:HUSKY_SKIP_WRITE_OWNER_PREDICATE,带 stagedTriggers;
+ *   根 package.json 另有 scripts.check:write-owner 手工问责入口(它走 --strict)。
+ *   —— 本行原写"本门当前未接提交链(按任务书由主会话统一接线,注册表属共享文件)",
+ *   那是立项时的实况,已过期(门早已装车);立论保留,接线事实按上条现读改写。
+ * 问责档是 `--strict`。
  */
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, resolve } from 'node:path'
