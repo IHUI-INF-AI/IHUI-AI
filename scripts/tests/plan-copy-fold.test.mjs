@@ -9,7 +9,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch } from '../lib/scratch-dir.mjs'
-import { keyOfRow, parseTaskRows } from '../lib/plan-task-index.mjs'
+import { compositeKeyOf, keyOfRow, parseTaskRows } from '../lib/plan-task-index.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const TOOL = resolve(HERE, '../plan-copy-fold.mjs')
@@ -18,7 +18,12 @@ const TICK = String.fromCodePoint(0x2705)
 function mkRepo(rows) {
   const dir = mkScratch('pcf-')
   // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-  const g = (a) => execFileSync('git', ['-c', 'safe.directory=*', '-c', 'user.email=t@t', '-c', 'user.name=t', '-C', dir, ...a], { stdio: ['ignore', 'pipe', 'pipe'] }).toString()
+  const g = (a) =>
+    execFileSync(
+      'git',
+      ['-c', 'safe.directory=*', '-c', 'user.email=t@t', '-c', 'user.name=t', '-C', dir, ...a],
+      { stdio: ['ignore', 'pipe', 'pipe'] },
+    ).toString()
   g(['init', '-q'])
   writeFileSync(join(dir, 'PROJECT_PLAN.md'), rows.join('\n') + '\n', 'utf8')
   g(['add', 'PROJECT_PLAN.md'])
@@ -109,3 +114,49 @@ test('T6 --root 缺省时按脚本自身位置定根(生产语义不变)', () =>
   assert.equal(rows.filter((r) => r.state === 'done').length, 1, '夹具经真解析器读得出一勾一未勾')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// T7(G-1058637 的立项凭据,2026-10-06):本器一度用 `keyOfRow`(只回裸编号)当"复合主键",
+// 而编号在本仓会复用 —— 真仓现读的 143 条候选里 110 条是把**另一道已闭环的同号行**当成持有行,
+// 例如未勾的「G-335. 分叉合并带进来的三组跨分支撞号」与已勾的「G-335 --self-test 登记侧不求值洞」
+// 是两道不同的票。翻勾它们等于把没做完的事记成做过的(§1 明令"比原病更响")。
+// 判据换成 `compositeKeyOf`(编号 + 题面前缀逐字)后,这一族必须**一条都不折叠**,并且拒绝时要
+// 把"判出了多少行"说出来 —— 只报 rc 非零与"判据没跑"在措辞上同形,那正是本仓最贵的假绿。
+const DUP_ID_DONE = `- [x] ${TICK}(2026-09-01) G-900 \`--self-test\` 的登记侧不求值洞已逐门普查完:41 道潜伏`
+const DUP_ID_OPEN =
+  '- [ ] G-900 分叉合并带进来的三组跨分支撞号(G-901 / G-902),锚点已按现读收下,清偿不在这张票里'
+
+test('T7 同号不同题不得被折叠成已闭环(编号复用是常态,复合主键才是主键)', () => {
+  const dir = mkRepo(['# 夹具', DUP_ID_DONE, DUP_ID_OPEN])
+  // 夹具前提自查:裸编号档**确实相等** —— 不等就说明夹具写错了,而不是判据有牙。
+  assert.equal(
+    keyOfRow(DUP_ID_OPEN),
+    keyOfRow(DUP_ID_DONE),
+    '夹具前提:两行裸编号相等(否则测不到这一型)',
+  )
+  const ca = compositeKeyOf(DUP_ID_OPEN)
+  const cb = compositeKeyOf(DUP_ID_DONE)
+  assert.ok(ca && cb, '夹具前提:两行都必须取得出复合主键(取不出就只是在测「判不出」那一档)')
+  assert.notEqual(ca, cb, '夹具前提:复合主键必须不等(相等就成了真同题副本)')
+  let rc = 0
+  let err = ''
+  try {
+    execFileSync(process.execPath, [TOOL, `--root=${dir}`, '--mode=f1', '--out=cand.md'], {
+      encoding: 'utf8',
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+  } catch (e) {
+    rc = e.status
+    err = String(e.stderr || '') + String(e.stdout || '')
+  }
+  assert.notEqual(rc, 0, 'f1 档把同号不同题当成副本 ⇒ 一旦 --apply 就会误翻勾')
+  assert.match(err, /无事可做或判据失效/, '仍须给出可读的拒绝理由')
+  assert.match(err, /归并候选 0/, '一条都不许折叠 —— 这是本判据存在的全部理由')
+  assert.match(err, /判过未折 1/, '必须报出「看过并判断过这一行」,否则与「扫了个空」同形')
+})
+
+test('T8 同题真孪生仍须折叠(收紧不得变成永远拒绝)', () => {
+  const dir = mkRepo(['# 夹具', DONE, OPEN])
+  const out = run(dir, ['--mode=f1', '--out=cand.md'])
+  assert.match(out, /归并 1 行/, '真同题副本必须还能折叠 —— 否则本器只是把能力关掉')
+})
