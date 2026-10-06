@@ -438,6 +438,56 @@ test('T12b R2 与 R1 必须同一条否定词判据(如实陈述不得被读成�
   )
 })
 
+test('T26 否定判据必须有结构层:同义否定整族与存档句不得判红,谎报半句必须仍红', () => {
+  // 负向(本组修复的真缺陷):「未接入/未纳入/未挂载/未登记」这一族**整族**不在
+  // CLAIM_NEGATION_RE 的枚举里 —— 只靠那张抄出来的词表时,判据的可靠性取决于「有人恰好把
+  // 常用否定说法逐个抄进去」。改前实测:同一夹具仅把头注「未接线」换成「未接入」,
+  // 即从「无 R1 红」变成「[RED-R1]」,如实陈述被当成谎报(本仓同族已修 40+ 例的同型)。
+  // 用例**不带任何救场词**:真仓那 5 枚写「未接入」的门改前是靠「手动/按需」侥幸没红,
+  // 侥幸不是判据。
+  for (const w of ['未接入 runner', '未纳入 runner', '未挂载到任何钩子', '未登记进 runner']) {
+    assert.deepEqual(
+      G.extractHeaderClaims(`集成位置: ${w}。`),
+      [],
+      `R1 不得把如实陈述「${w}」判成谎报`,
+    );
+  }
+  // 正向(遮蔽反向,缺这条则本用例只是"放松"不是"修准"):同句并存时谎报那半句必须仍红。
+  assert.ok(
+    G.extractHeaderClaims('集成位置: 未纳入 runner,已接入 guardian-runner 第 88 项。').length >= 1,
+    '同句后半的肯定式谎报必须仍判红(加个「未」不得洗白)',
+  );
+  // 存档语气:如实记录历史不是谎报现状(同族已踩三次)。
+  assert.deepEqual(
+    G.extractHeaderClaims('集成位置: 原 2026-08-01 接入 runner 第 89 项,2026-09-01 撤出。'),
+    [],
+    '「原<日期>接入…撤出」是记录历史,不得判红',
+  );
+  assert.equal(
+    G.findAgentsClaims(
+      [
+        '- `scripts/check-x.mjs`:当前未接入 runner。\n- 历史:原 2026-08-01 接入 runner 第 89 项,2026-09-01 撤出。',
+      ],
+      'check-x.mjs',
+    ).length,
+    0,
+    'R2 同样不得把「记录历史」判成谎报',
+  );
+  // 形状锁:R1/R2 共用同一份结构判据;否定词必须**紧邻**动词,普通「不」不算否定。
+  assert.ok(
+    /isNegatedWiringSentence\(win\)/.test(G.extractHeaderClaims.toString()) &&
+      /isNegatedWiringSentence\(sent\)/.test(G.findAgentsClaims.toString()),
+    'R1/R2 必须共用同一份结构否定判据(禁止另写一套否定逻辑)',
+  );
+  assert.equal(G.isNegatedWiringSentence('不阻塞 commit'), false, '普通「不」不得被当成否定');
+  assert.equal(
+    G.isNegatedWiringSentence('集成位置: .husky/pre-commit 已接入'),
+    false,
+    '肯定式接线必须认成声称',
+  );
+  assert.equal(G.isNegatedWiringSentence('集成位置: 未接入 runner'), true);
+})
+
 test('T13 装车证明:本门自己必须真在 runner 里 blocking,且 R4 真参与 reds(本门自豁免 ⇒ 无人替它兜底)', () => {
   // 89 号门对自身是 SELF_EXEMPT 的(创建当期 HEAD 里还没有它,设计如此),
   // 所以"它自己被摘掉接线"这件事 R1/R2/R4 都看不见 —— 只能由本用例钉死。
