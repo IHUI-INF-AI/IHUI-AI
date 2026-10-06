@@ -15,12 +15,20 @@
 //     ② 读环接线:client.ts 的 SSE 读环真调水位闸(生产了 ≠ 到端了);
 //     ③ 阳性对照翻面:真仓 packages/shared/src/sse 里 'fromSeq' 的命中数 ——
 //        落地前为 0("看不见"型缺陷:对整型缺陷全盲而账面报绿,AGENTS §12f),
-//        落地后必须 ≥1。**本对照从工作树现读**(不是 HEAD:本门不接提交链,
-//        验收跑在工作树面上;主会话提交后 HEAD 面自然同步)。
+//        落地后必须 ≥1。
+// 【接线状态:已接入】注册条目已落在 scripts/guardian-runner.mjs(id 以 runner 现值为准,
+// 勿照抄本行数字):blocking + skipEnv:HUSKY_SKIP_SSE_FRAME_WATERMARK,无 stagedTriggers。
+// —— 取材面(与接线状态无关,别再挂到接不接链上):本门**恒读工作树**,零 git 调用、
+//    不解释 --staged(runner 在 pre-commit 模式统一追加该标志,本门忽略它)。
+//    故上一段原写的「现读工作树(不是 HEAD:本门不接提交链,验收跑在工作树面上;
+//    主会话提交后 HEAD 面自然同步)」是谎报接线态 + 技术归因说错:工作树取材**不是**
+//    「未接提交链」的推论,接链前后都读工作树(代码里根本没有 HEAD 取材路径)。既然本门
+//    已 blocking 装车,pre-commit 的放行判定依据的是**工作树**状态而非本次暂存内容 ——
+//    这一点不因「谁何时挂链」而改变。
 //
 // 跑法:`node scripts/check-sse-frame-watermark.mjs`(缺省档,exit 0 = 绿)
 //       `node scripts/check-sse-frame-watermark.mjs --self-test`(内置红/绿对照)
-// 本门由主会话决定是否挂提交链;--self-test 不依赖真仓通过与否。
+// --self-test 不依赖真仓通过与否;接线状态见上方【接线状态:】一行(以 runner 现值为准)。
 
 import { readFileSync, existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
