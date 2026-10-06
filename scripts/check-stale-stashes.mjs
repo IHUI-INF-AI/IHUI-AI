@@ -43,6 +43,7 @@
  *   - apps/web predev(warn-only)
  */
 import { execSync, spawnSync } from 'node:child_process'
+import { pathToFileURL } from 'node:url'
 
 const SKIP_ENV = 'HUSKY_SKIP_STALE_STASH_CHECK'
 const isStrict = process.argv.includes('--strict')
@@ -256,8 +257,18 @@ function main() {
   process.exit(0)
 }
 
-main().catch((e) => {
-  console.error(`${C.red}❌ 脚本执行异常:${C.reset}`, e?.message ?? e)
-  process.exit(2)
-})
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  // main() 是同步函数(本票禁止改为 async),故走 try/catch 而非 .catch(AGENTS.md §22d);
+  // 异常文案与退出码逐字沿用原 `main().catch(…)` 处理体(同步 main 下它从未生效过一次)。
+  try {
+    main()
+  } catch (e) {
+    console.error(`${C.red}❌ 脚本执行异常:${C.reset}`, e?.message ?? e)
+    process.exit(2)
+  }
+}
+
+export const __test__ = { formatAge, NON_WORK_FILE }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
