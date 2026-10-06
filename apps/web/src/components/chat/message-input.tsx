@@ -75,7 +75,7 @@ import { useMessageSend } from '@/hooks/use-message-send'
 // D166 链接预览(承 V4 §9.4③):粘贴 http(s) 链接的发送前可达性提示卡
 import { useLinkPreview } from '@/hooks/use-link-preview'
 import { LinkPreviewCard } from './link-preview-card'
-import { usePromptDrafts } from '@/hooks/use-prompt-drafts'
+import { peekInitialDraft, usePromptDrafts } from '@/hooks/use-prompt-drafts'
 import { usePromptHistory } from '@/hooks/use-prompt-history'
 import { useMentionFiles, useAiSkills } from '@/hooks/use-lazy-resource-hooks'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
@@ -264,10 +264,12 @@ export function MessageInput({
   const draftKey = conversationId ? `chat:draft:${conversationId}` : 'chat:draft'
   // P1 草稿自动保存(2026-07-23):刷新/路由切换不丢失未发送内容
   // W27 升级:初始读取按当前 conversationId 对应的草稿 key
+  // 2026-10-06(O59⑤):改走加密通道。桌面端值是密文、peekSync 恒返 null ⇒ 初值先空,
+  // 由 usePromptDrafts 内部解密完成后一次性回填(机主拍板:不闪旧明文)。
   const [value, setValue] = React.useState(() => {
     if (typeof window === 'undefined') return ''
     const convId = useChatStore.getState().conversationId
-    return localStorage.getItem(convId ? `chat:draft:${convId}` : 'chat:draft') ?? ''
+    return peekInitialDraft(convId ? `chat:draft:${convId}` : 'chat:draft')
   })
   const [slashOpen, setSlashOpen] = React.useState(false)
   const [mentionOpen, setMentionOpen] = React.useState(false)
