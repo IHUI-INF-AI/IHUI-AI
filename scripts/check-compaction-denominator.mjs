@@ -10,7 +10,11 @@
 // 口径同守门 70/77/83/91/98/101/103:全量判 **HEAD blob**、--staged 判**索引 blob**、
 // --worktree 仅人工逃生舱;取不到内容 ⇒ exit 2「无法判定」(不冒红也不记绿)。
 // 存量走 scripts/compaction-denominator-baseline.json 每文件棘轮(只减不增)。
-// 紧急跳过 HUSKY_SKIP_COMPACTION_DENOMINATOR=1(本仓尚未接进 guardian-runner,接线由主会话统一做)。
+// 【接线状态:已接入】注册条目已落在 scripts/guardian-runner.mjs(id 以 runner 现值为准,
+// 勿照抄本行数字):blocking + skipEnv:HUSKY_SKIP_COMPACTION_DENOMINATOR,无 stagedTriggers。
+// 根 package.json 另有 scripts.check:compaction-denominator 手工入口。
+// —— 本行原写"本仓尚未接进 guardian-runner,接线由主会话统一做",那是立项时的实况,已过期。
+// 紧急跳过 HUSKY_SKIP_COMPACTION_DENOMINATOR=1。
 //
 // 已知限制(如实登记,不等于"没有违规"):
 //   1. 只判**除法**。`Math.floor(contextLimit * triggerRatio)` 这类乘法不在射程内 —— 它是同一个
