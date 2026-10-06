@@ -6,12 +6,12 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 
 import { useRules } from '@/hooks/use-rules'
 import { useRulesStore } from '@/stores/rules'
 import type { RuleInput, RuleMatchType, RuleScope } from '@ihui/types'
 import { Button, CloseButton, Input } from '@ihui/ui-react'
+import { clampPercent } from '@ihui/shared'
 
 const SCOPE_OPTIONS = [
   { value: 'global', labelKey: 'scopeGlobal' },
@@ -150,9 +150,7 @@ function RuleEditDialog() {
                 min={0}
                 max={100}
                 value={priority}
-                onChange={(e) =>
-                  setPriority(clampPercent(Number(e.target.value) || 0))
-                }
+                onChange={(e) => setPriority(clampPercent(Number(e.target.value) || 0))}
                 className="mt-0.5 h-8 text-sm"
               />
             </div>
