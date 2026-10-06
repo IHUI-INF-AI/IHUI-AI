@@ -375,7 +375,7 @@ test(
     const elapsed = Date.now() - t0
     assert.ok(elapsed < 8000, `openWs 对真服务端用了 ${elapsed}ms —— 超时兜底失效`)
     assert.ok(outcome === 'resolved' || outcome.startsWith('rejected'), `读数不可解释:${outcome}`)
-    console.log(`    · 真机现读:无效票据握手 = ${outcome}(${elapsed}ms)`)
+    console.info(`    · 真机现读:无效票据握手 = ${outcome}(${elapsed}ms)`)
   },
 )
 
@@ -410,7 +410,7 @@ test('P7 测试不得重写判据(裁定只走门体导出的三枚闭包)', () 
 })
 
 test('P8 加载期能力读数(账面可复核:哪些臂有对象、哪些记 skip)', () => {
-  console.log(
+  console.info(
     [
       `    · Node ${process.version} / it.skipIf 可用 = ${typeof test.skipIf === 'function'} / 全局 WebSocket = ${WS_CAPABLE}`,
       `    · 现测 127.0.0.1:${ACCEPT_PORT} 在听 = ${SERVER_UP}(加载期 spawnSync TCP 探针,非缓存)`,
