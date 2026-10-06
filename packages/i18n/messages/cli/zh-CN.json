@@ -118,7 +118,8 @@
       "unattributed": "失败类型未判定(保留原始信息:{raw})—— 未归为超时,也未归为正常完成,请人工确认后再重试。",
       "fsProbeUnavailable": "命令空输出且以 {status} 退出,但文件系统状态无法查询({why})—— 未判定:既未定为\"空间/inode 已尽\",也未当作\"什么都没发生\"。",
       "fsExhaustedSpace": "根因诊断:命令空输出且以 {status} 退出,而 {cwd} 所在文件系统实测空间已尽(bavail×bsize≈{availMB}MB,低于 10MB 诊断阈)—— 大概率是磁盘写满导致输出/落盘失败;请清理磁盘空间后重试。",
-      "fsExhaustedInodes": "根因诊断:命令空输出且以 {status} 退出,而 {cwd} 所在文件系统实测 inode 已尽(ffree={freeInodes},低于 1000 诊断阈)—— 目录项已满;请清理大量小文件/目录,或检查该文件系统的 inode 配额后重试。"
+      "fsExhaustedInodes": "根因诊断:命令空输出且以 {status} 退出,而 {cwd} 所在文件系统实测 inode 已尽(ffree={freeInodes},低于 1000 诊断阈)—— 目录项已满;请清理大量小文件/目录,或检查该文件系统的 inode 配额后重试。",
+      "envCredentialReport": "子进程将继承疑似凭据形态的环境变量(仅报名,不拦截):{vars} —— 是否收窄属后续单独拍板;同一名单随沙盒审计日志(IHUI_SANDBOX_AUDIT_LOG)结构化留档。"
     },
     "goalNotAchieved": "独立校验未通过:本次运行不得宣布完成",
     "truncatedByLength": "本轮输出已达长度上限被截断,回复可能不完整;可让我分次继续,或调高 max_tokens 后重试。",
