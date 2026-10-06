@@ -191,6 +191,19 @@ const FAMILY_LIFETIME_DAYS = {
    */
   'credential-presence-exempt': 30,
   /**
+   * 守门 191(`check-test-judge-not-replicated.mjs`,镜像测试不得复制门体判据)的行内出口。取 **30 天**
+   * —— 它豁免的是**待偿的收口债**:那一处测试确实还没有可复用的判据出口(门体没把那条形态导出),
+   * 唯一出路是把判据从门体导出、让测试改调生产入口(§22c 的合规形状,门 191 头注 P1 通道那一条),
+   * 到期由人重新定性。刻意**不取** `back-label-exempt` 的 365 天:那一族是"这个位置的文案就是它"式的
+   * 结构性定性,而"测试复制了源判据"是要偿的债,给长周期等于把复制登记成永久惯例;也**不走**
+   * `DEFAULT_LIFETIME_DAYS` 的 90 天默认档 —— 默认档意味着没人给它拍过寿命。与同是待偿债的
+   * `api-error-exempt` / `interop-style-exempt` / `credential-presence-exempt` 同档。
+   * **同笔登记的真正理由**:族若不在表里,第一处真被写出的行内豁免就会被本门 E4 判成"新引入的未登记
+   * 豁免族" —— 一道门自己的合法出口被邻居钉红(radius-role / border-ink / credential-presence 同课)。
+   * 这把跨文件锁住在门 191 的镜像测试 T10(原型即 157 的 T10),不靠人记得。
+   */
+  'judge-replica-exempt': 30,
+  /**
    * `check-batch-write-count-honesty` 的 B1/B2 判据(假删除 ack)的合法例外通道:确属"该 delete/update
    * 由触发器/UPSERT 语义保证必命中一行"时才允许保留字面量 `deleted: true`。取 **30 天**,与
    * `glyph-arrow-exempt` / `statusbar-exempt` / `api-error-exempt` 同档 —— 这一族是**待偿的迁移债**,

@@ -60,9 +60,16 @@
  *   · 唯一形数量超过 `MAX_FORMS`(护栏)时分桶退化为"前缀+后缀+整串",退化会打印在结论里,不静默。
  *
  * 手动:`node scripts/check-test-judge-not-replicated.mjs [--staged|--worktree|--json|--strict|--self-test]`
- * **尚未接线**:不在 `scripts/guardian-runner.mjs`,也不在 pre-commit 链 —— 接线、定级、`stagedTriggers`
- * 与 `skipEnv` 由主会话单写者裁。行内豁免族 `judge-replica-exempt` 也**尚未登记进守门 108 的族寿命表**
- * (那张表在 runner 里,本票不碰;未登记的族按 30 天默认寿命处理)。
+ * **接线现状(2026-10-06 已入提交链)**:注册在 `scripts/guardian-runner.mjs`,定级 **warn**,
+ * `skipEnv=HUSKY_SKIP_TEST_JUDGE_REPLICATED`、`stagedTriggers=['scripts/check-','scripts/tests/']`。
+ * 定级不是随手定的:默认档只报数是因为真仓 HEAD 面现读**命中不为 0**,当场 blocking 就是一台与任何提交都无关的
+ * 恒红门,唯一结局是各会话跳钩子、连带链上全部守门对该提交作废(§12e)。**升 blocking 的前置见本头注下一段。**
+ * 行内豁免族 `judge-replica-exempt` **已同笔登记进守门 108**
+ * (`scripts/check-exemption-expiry.mjs` 的 `FAMILY_LIFETIME_DAYS`)取 **30 天** —— 它豁免的是"测试里复制了
+ * 源判据"这笔**待偿的收口债**(唯一出路 = 把判据从门体导出、测试改调生产入口),不是结构性定性,所以不取
+ * 那一族的 365 天;108 对未登记族兜的是 `DEFAULT_LIFETIME_DAYS` = 90 天默认档,那条只保证"新族不隐身",
+ * 不算登记。这条跨文件规矩由本文件的**镜像测试 T10** 钉住:族名现取门体自己的 `EXEMPT_MARK`,登记与否
+ * 现取 108 自己的 `isFamilyRegistered`,两处都不靠人记得、也不在测试里手抄。
  */
 import { dirname, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -203,7 +210,6 @@ function declarationSpans(text) {
     const m = DECL_LINE.exec(line)
     if (!m) continue
     const rest = m[2]
-    const indent = line.match(/^[\t ]*/)[0].length
     if (LIST_TAIL.test(rest)) {
       let end = e
       for (let lj = li + 1; lj < starts.length; lj++) {
@@ -491,7 +497,6 @@ function audit(contents, { strict = false } = {}) {
     const sites = matcherSites(text)
     const imports = importMap(text)
     const mirrors = mirrorNameCandidates(testRel).filter((x) => gateContents[x] !== undefined)
-    const linked = new Set([...imports, ...mirrors])
     const usesGateExports = /\bgate\s*\.\s*[A-Za-z0-9_$]+|\b__test__\s*\.\s*[A-Za-z0-9_$]+/.test(struct)
     // 每个声明里到底有几个单元:光"是个 list"不够,`const appJson = { … }` 这种数据块也满足 list 形状,
     // 里面 0~1 条正则就说明它不是形态清单(把数据块判成"自带清单"是假阳,不是抓漏)。
