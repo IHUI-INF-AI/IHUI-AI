@@ -5,8 +5,7 @@
 import { useChatStore, type ToolCall } from '@/stores/chat'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { emitAgentHook } from '@/stores/agent-hooks'
-import type { ToolDeltaEvent,
-  ToolSummaryEvent, UsageEvent } from '@ihui/api-client'
+import type { ToolDeltaEvent, ToolSummaryEvent, UsageEvent } from '@ihui/api-client'
 import { PROVIDER_QUOTA_EXHAUSTED } from '@ihui/api-client'
 import { BROWSER_TOOL_NAMES, extractToolUrl } from './tool-config'
 
@@ -215,6 +214,12 @@ export function createUsageHandler(assistantMessageId: string) {
       promptTokens: Number(payload.promptTokens) || 0,
       completionTokens: Number(payload.completionTokens) || 0,
       reasoningTokens: payload.reasoningTokens !== null ? Number(payload.reasoningTokens) : null,
+      // G-403(2026-10-07):缓存读/写两维透传落盘 —— `?? null` 把"缺席(旧帧代际差)"
+      // 与"显式 null(上游没采到)"都归 null = 未知;数字(含 0=真没命中)原样保留。
+      // 绝不在此造 0(把"没量到"渲染成 0 是 G-394 禁令);渲染位由
+      // context-usage-ring 经共享引擎把 null 折成"不可得"。
+      cacheReadTokens: payload.cacheReadTokens ?? null,
+      cacheWriteTokens: payload.cacheWriteTokens ?? null,
       firstTokenMs: Number(payload.timing?.firstTokenMs) || 0,
       durationMs: Number(payload.timing?.durationMs) || 0,
       model: payload.model ?? '',
