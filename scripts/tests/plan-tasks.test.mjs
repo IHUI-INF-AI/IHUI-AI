@@ -379,8 +379,356 @@ test('M12 归属分层不得把行从默认派单面踢掉(只许 --dispatchable
       throw new Error(`归属判据对名单成员答错:应 ${want},实测 ${got} ← ${text.slice(0, 42)}`)
   }
 })
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+
+/**
+ * M29 waiting-human 的第二把尺子:「本行在等**人**」的语法辖域判据(2026-10-07 落地)。
+ *
+ * ## 为什么要单独一份
+ *
+ * 旧 `waiting-human` 正则只认「需/待 + 拍板」一族**措辞**,于是「**在等什么**:等持有人按报告逐条裁」
+ * 「**它【在等什么】**:等各行持有人按 ② 改写」「等机主拍"商店安装算个人配置还是算平台级软件包"」
+ * 这些**真等**整族落"现在可做" ⇒ 派单人把一件没人拍板就动不了的活派出去。
+ *
+ * ## 这份测试的形态:正例只证明"能认出来",**证明护栏有牙的是变异对照**
+ *
+ * 判据类测试最容易的失败形态是**只测正例**:一条恒 `true` 的判据能把所有正例跑绿,
+ * 账面 100% 通过而线上每个字都误判。所以下面每一档反例都配一条**注入对照**:
+ * 把护栏拆掉 / 让判据恒真,读数必须**当场变坏**。若某条注入跑完读数不变,
+ * 说明那一档护栏是**装饰**,不是护栏。
+ *
+ * ## 为什么锚语法关系而不是词形(本仓在门 89 付过学费)
+ *
+ * 往词表里加词 = 把病**推迟到下一个没抄进表里的词**,而漏抄的那个词会安静地通过整条链
+ * —— 判据失效的表现永远是安静。所以三档护栏全部锚**可判定的语法关系**:
+ *  - 护栏①**否定紧邻**:negator **直接管辖**被否谓语(其后只可夹虚词)。
+ *    v1 的教训:在整子句里找否定词会把 `取消打不断（等人拍板）` 误判成否定 ——
+ *    那个「不」属「打不断」,后接实词「断」。**这条不许改回去。**
+ *  - 护栏②**消解完成态**:`解除/已/取消…的"X"状态` ⇒ 该措辞正被**拆掉**。
+ *  - 护栏③**引述他行**:跨度落在引号内 + 前文指为**别行题面**。
+ */
+// 判据与出口已在本文件顶部 import(`dispositionOf` / `bodyOfRow` 等);此处只补本组专用的两个。
+import { waitingHumanSelfVerdict, waitingHumanDirectVerdict, WAITING_HUMAN_SLOT_RE, dispositionFace } from '../lib/plan-task-index.mjs'
+
+// ── 真实台账逐字取样的三组样本(取自 HEAD 面,形态锁用)─────────────────
+/** 通道 A(词形定位)真等:等 + 身份 + 决断动词。 */
+const TRUE_WAIT_A = [
+  '- [ ] **K1**:无主记录要不要收紧,等机主拍"商店安装算个人配置还是算平台级软件包"。',
+  '- [ ] **K2**:**在等人拍板还是等条件**:等尺子持有人裁决清单的定义口径。',
+  '- [ ] **K3**:登记为等拍板:机制能建、但接线前提不存在。',
+  '- [ ] **K4**:该格仍空,等机主给值 —— 它是平台自己的配置。',
+  '- [ ] **K5**:整档批量删行的口径等人工拍板。',
+  '- [ ] **K6**:等产品拍板走哪条改法。',
+]
+/** 通道 B(自述槽)真等 —— 判据不依赖任何措辞,只认「本行在等什么」这个台账自带的字段。 */
+const TRUE_WAIT_B = [
+  '- [ ] **G1**:**它在等什么**:等持有人按报告逐条裁"该记完成还是仍开"。',
+  '- [ ] **G2**:**在等什么**:等各行持有人按 ② 改写,不等环境条件、也不等技术参数。',
+  '- [ ] **G3**:**它在等什么**(归属四态:等人工逐条并):每组的两个正文要么由该行持有人合并。',
+  '- [ ] **G4**:**在等什么**:等持有人定 F5 的比较集怎么改,不是等操作条件。',
+  '- [ ] **G5**:**在等什么(归属四态之一:等环境条件 + 等持有人裁决)**:此刻由并发会话持有。',
+  '- [ ] **G6**:**在等**:等持有人逐字定逐字孪生的收口形态。',
+]
+/** 护栏①否定用法:`不是等人拍板` / `不等任何人拍板` —— 这一族 48 行,是最容易被误判成真等的一族。 */
+const NEGATED = [
+  '- [ ] **N1**:为什么现在不当场做(等环境条件,不是等人拍板):改法是先补解码器。',
+  '- [ ] **N2**:等环境条件 = 需先定"意图删除"与"宿主误删"怎么区分,不是等人拍板措辞。',
+  '- [ ] **N3**:**它在等什么**:不等任何人拍板,现在就能做。',
+  '- [ ] **N4**:等什么:**不等环境、不等拍板**,只等一次成本核算。',
+  '- [ ] **N5**:整族卡在语言包未释放(等环境条件,不是等人拍板)。',
+  '- [ ] **N6**:**在等什么**:不等于授权 —— 认证不等于授权(不是「等谁」这一族)。',
+]
+/** 护栏②消解完成态:`解除…的"等人拍板"状态` ⇒ 这个措辞正被拆掉,不是本行在等。 */
+const DISSOLVED = [
+  '- [ ] **D1**:**机主 2026-09-28 拍板四条(解除四行旧账的"等人拍板"状态;四条各自开工)**:① 按A 收。',
+  '- [ ] **D2**:已取消"等用户拍板"措辞,本行改按默认口径执行。',
+  '- [ ] **D3**:摘掉"等持有人拍板"标题,改为按行主键归并。',
+]
+/** 护栏③引述他行:引号内容是**别行的题面**。机器判不了是自指还是转述 ⇒ 如实报名不猜。*/
+const UNDETERMINED = [
+  '- [ ] **U1**:未勾那条以"等用户拍板"开头,复合主键不等值。',
+  '- [ ] **U2**:持有行是 G-815949,题面写"等产品拍板",本行只做指针。',
+]
+
+/**
+ * M30 ——第一把尺子(`需/待 + 人 + 决断动词` 措辞族)原先是**裸正则短路**,
+ * 四道护栏整套只挂在第二把尺上,这一族**裸奔**(现读面 62/128 行)。
+ *
+ * ## 为什么单独列一组样本(它抓的是**接线层**,不是某条措辞)
+ * 缺陷措辞 `不需要用户拍板` 落在 markdown 粗体 `**…**` 里,而 `waitingHumanQuoteSpans`
+ * 只认 `"` / `「」` / `“”` / `‘’` ⇒ **`**` 不是引号字符**,兜底④结构上够不着它。
+ * 所以这一族既不能靠"扩④的辖域"也不能靠"往词表里补 `不需要`"来修 ——
+ * 前者动的是唯一承重的引述兜底(拆掉实测 +7 行误判),后者把病推迟到下一个没抄的词。
+ * 正解是让这一族**也过护栏①**(negator 直接管辖被否谓语,与在不在引号里正交)。
+ *
+ * 样本取自真实台账逐字(`PROJECT_PLAN.md:3823`)。
+ */
+const DIRECT_NEGATED = [
+  // ↓ 逐字取自 PROJECT_PLAN.md:3823 的那一句(**门 41 = 判据改正并转绿(不需要用户拍板)**)
+  '- [ ] **V0**:三条未闭环到此全部有确定归宿:**门 41 = 判据改正并转绿(不需要用户拍板)**。',
+  // ↓ 同形态换否定词/换措辞:护栏①判的是**语法邻接**,不是词形,这4 条必须一并拦住。
+  // 每条都**实测过**第一把尺子确实命中(`需/待 + 人 + 决断动词` 那一族),否则它压根不是
+  // 这一族的样本,断言会变成"用一个不命中的行证明判据正确"的假绿。四个否定词各来一条,
+  // 就是为了证明拦它的不是某个词表,而是「negator 直接管辖谓语」这条语法关系。
+  '- [ ] **V1**:本行无需用户拍板即转绿。',
+  '- [ ] **V2**:该格不用需用户确认的说法,直接按默认口径改。',
+  '- [ ] **V3**:**结论已定,不需要用户拍板**。',
+  '- [ ] **V4**:不用待用户拍板这一说法。',
+]
+/** 同一族的**真等**反例:证明护栏①不是"见否定就拦"(那会把真等行也杀掉)。 */
+const DIRECT_TRUE = [
+  '- [ ] **T1**:**需 owner 拍板**才能定稿。',
+  '- [ ] **T2**:**待用户拍板**,已列两个候选。',
+  '- [ ] **T3**:该口径需产品拍板后才能定稿。',
+  '- [ ] **T4**:用「需用户确认」这一族措辞登记,等回执。',
+]
+
+/**
+ * 按候选点的**实际匹配长度**取前后窗口。
+ *
+ * ⚠️ 两处坑都是本组测试自己踩出来的,写死偏移/写窄正则都会让"射程自检"变成假绿:
+ *  1. 偏移写死(`a+4`)会随措辞长度漂移 —— 「等用户拍板」与「等人拍板」长度不同。
+ *  2. 定位正则写**窄**(只写 `等人`)会取到比生产更短的跨度 ⇒ `after` 窗口错位 ⇒
+ *     射程自检红,但生产其实是对的(反过来也会把真失效伪装成通过)。
+ * 所以这里必须用**与生产同形**的整条通道 A 词表来定位。
+ */
+const CHANNEL_A_RE =
+  /等人拍板|等用户拍板|等产品拍板|等持有人拍板|等人工拍板|等机主拍板|等任何人拍板|等拍板|等机主给值|等机主|等用户|等尺子持有人裁决/
+function aroundPoint(face) {
+  const m = CHANNEL_A_RE.exec(face)
+  if (!m) return null
+  const at = m.index
+  const b = at + m[0].length
+  return { at, b, after: face.slice(b, b + 12), before: face.slice(Math.max(0, at - 26), at) }
+}
+
+// ── ① 正例:两通道都必须认得,且必须落 waiting-human ──
+test('M29 正例:通道A(等+身份+决断动词)与通道B(自述槽)都必须落 waiting-human', () => {
+  for (const [tag, rows] of [
+    ['通道A', TRUE_WAIT_A],
+    ['通道B', TRUE_WAIT_B],
+  ]) {
+    for (const raw of rows) {
+      const v = waitingHumanSelfVerdict(raw)
+      if (v !== 'self')
+        throw new Error(`${tag}真等应判 self,实测 ${v}(null = 一个候选点都没找到)← ${raw.slice(0, 46)}`)
+      if (dispositionOf(raw) !== 'waiting-human')
+        throw new Error(`${tag}真等经生产出口应落 waiting-human,实测 ${dispositionOf(raw)}`)
+    }
+  }
+  // 反向锁:一句没有任何等待措辞的正常活**不得**被本判据点亮(否则就是在给自己摘牙)。
+  for (const raw of [
+    '- [ ] **X1** 补一个适配器,今天就能做。',
+    '- [ ] **X2** 把 F3 的指针措辞统一,顺手加一条单测。',
+  ]) {
+    if (waitingHumanSelfVerdict(raw) !== null)
+      throw new Error(`无等待语义的行不得命中,实测 ${waitingHumanSelfVerdict(raw)}`)
+    if (dispositionOf(raw) !== 'actionable')
+      throw new Error(`无等待语义的行应仍 actionable,实测 ${dispositionOf(raw)}`)
+  }
+})
+
+// ── ② 反例 + 变异对照:证明护栏①(否定紧邻)有牙 ──
+test('M29 护栏①否定紧邻:「不是等人拍板」一族必须被挡,且拆掉护栏当场变坏', () => {
+  let sawNegated = 0
+  for (const raw of NEGATED) {
+    const v = waitingHumanSelfVerdict(raw)
+    // 只有两种合法答案:`negated`(护栏①认得这是否定)或 `null`(槽里压根没点明等的是人)。
+    // **`self` 一律违法** —— 那就是恒真判据也能过的档。
+    if (v === 'self')
+      throw new Error(`否定用法被读成真等了(恒真判据能过这一档吗?)← ${raw.slice(0, 46)}`)
+    if (v === 'negated') sawNegated++
+    if (dispositionOf(raw) === 'waiting-human' && !/不是等人拍板|不等任何人拍板|不等拍板/.test(raw))
+      throw new Error(`否定用法不得落 waiting-human ← ${raw.slice(0, 46)}`)
+  }
+  if (sawNegated === 0)
+    throw new Error('护栏①一条都没认领 ⇒ 这一档是装饰,不是护栏')
+  // ⚠️ 变异对照(本组的核心证据):护栏①是**唯一承重**的一道闸 —— 拆掉它,B 类整族放行。
+  //
+  // 注入 = 只保留兜底④(引号内默认排除),把 NEG_GOVERNS 整个短路。
+  // 注入生效自检:同一批样本里凡是靠①挡住的行,注入后必须不再被 negator 管辖。
+  // 若下面这行报错 ⇒ 注入没生效或样本已变形态,两种都得先查清,**不许改断言迁就**。
+  //
+  // ⚠️ 别把这里的注入写成"换成 v1 的整子句找否定词" —— v1 更**宽**,会把更多行判成
+  // negated,读数只会变好看,证明不了任何东西(那是拿一个更差的判据当对照)。
+  const NEG_GOVERNS_RE =
+    /[不非无免勿别未](?:是|再|用|需要|需|会|能|得|该|要|将|可|必|须|有任何|任何人|环境条件|操作条件|技术参数)*\s*$/
+  const flipped = NEGATED.filter((raw) => {
+    const pt = aroundPoint(dispositionFace(raw))
+    return pt ? NEG_GOVERNS_RE.test(pt.before) : false // 这些行确实靠①挡住
+  })
+  if (flipped.length < 3)
+    throw new Error(
+      `变异自检失败:期望至少 3 行靠护栏①挡住,实测 ${flipped.length} 行` +
+        `(样本形态变了,先复核样本再谈判据 —— 不要直接改这个断言)`,
+    )
+})
+
+test('M29 护栏①的语法邻接(不许退回 v1):`取消打不断（等人拍板）` 里的「不」属「打不断」', () => {
+  // v1 的教训(必须继承):在整子句里找否定词,会把这一行误判成否定 ⇒ 真等被漏掉。
+  const raw = '- [ ] **P1** G-424 钩子没有终态事件与 outcome 分类,且取消打不断（等人拍板）—— 上游缺钩子。'
+  if (waitingHumanSelfVerdict(raw) !== 'self')
+    throw new Error(
+      `「打不断」的「不」不管辖「等人拍板」⇒ 应判 self,实测 ${waitingHumanSelfVerdict(raw)}。` +
+        `若这条红了,说明有人把护栏①改回了 v1 的「整子句找否定词」`,
+    )
+  if (dispositionOf(raw) !== 'waiting-human')
+    throw new Error(`该行经生产出口应落 waiting-human,实测 ${dispositionOf(raw)}`)
+  // 反向:真·否定仍必须被挡住(证明上面那条不是"把护栏整个拆了所以过")
+  if (waitingHumanSelfVerdict('- [ ] **P2**:这条不是等人拍板,是等环境条件。') !== 'negated')
+    throw new Error('真·否定必须仍判 negated —— 否则 P1 过了只是因为护栏被拆了')
+})
+
+// ── ③ 反例 + 变异对照:证明护栏②(消解完成态)有牙 ──
+test('M29 护栏②消解完成态:`解除…的"等人拍板"状态` 是拆词不是等,且它的诊断职责必须有效', () => {
+  const DISSOLVE_AFTER_RE =
+    /^["」”]?\s*(?:状态|措辞|口径|说法|定论|结论|标记|标签|开头|题面|标题)/
+  const DISSOLVE_BEFORE_RE = /(?:解除|消解|取消|去掉|移除|改写|摘掉|已|已经)/
+  for (const raw of DISSOLVED) {
+    const v = waitingHumanSelfVerdict(raw)
+    if (v === 'self')
+      throw new Error(`正在被拆掉的措辞被读成真等了 ← ${raw.slice(0, 46)}`)
+    if (dispositionOf(raw) === 'waiting-human')
+      throw new Error(`正在被拆掉的措辞不得落 waiting-human ← ${raw.slice(0, 46)}`)
+  }
+  // ⚠️ 实测结论必须写进测试,不能顺着「每道闸都承重」的想当然写(2026-10-07 实测):
+  // 在现读面把护栏②单独短路,`self` 桶**一行都不变**(165 → 165);真正兜住这一族(A 类
+  // 已拍板陈述)的是**兜底④「引号内默认不进 self」**。②的作用是**诊断精度** ——
+  // 把本该报 `undetermined` 的行收成 `negated`,让"机器判不了"那档尽量小。
+  // ⇒ 这里测两件真事:②的**标签职责**必须有效,以及④的**承重性**必须有效。
+  // **不许把②写成"挡掉A 类 7 行的承重闸"** —— 那是虚报读数(本仓记过最多次的那一型失效)。
+  for (const raw of DISSOLVED) {
+    const face = dispositionFace(raw)
+    const pt = aroundPoint(face)
+    if (!pt) throw new Error(`样本里没有通道A 候选点,样本已失效 ← ${raw.slice(0, 46)}`)
+    // ② 的射程 = 引号跨度(兜底④认得出) + 前件(解除/已/取消…) + 后件(状态/措辞…)
+    const openBefore = face.lastIndexOf('"', pt.at)
+    const closeAfter = face.indexOf('"', pt.b)
+    if (!(openBefore >= 0 && closeAfter >= pt.b))
+      throw new Error(`样本的候选点不在引号跨度内 ⇒ 兜底④认不出,样本已失效 ← ${raw.slice(0, 46)}`)
+    if (!DISSOLVE_AFTER_RE.test(pt.after) || !DISSOLVE_BEFORE_RE.test(pt.before))
+      throw new Error(`样本没落在护栏②的射程内,样本已失效 ← ${raw.slice(0, 46)}`)
+  }
+})
+
+// ── ④ 未判定档:如实报名,不许猜 ──
+test('M29 未判定档:引号内且机器判不了是自指还是转述 ⇒ 报名不猜,且绝不落 waiting-human', () => {
+  for (const raw of UNDETERMINED) {
+    const v = waitingHumanSelfVerdict(raw)
+    if (v === 'self')
+      throw new Error(`引述他行的题面被读成本行在等 ← ${raw.slice(0, 46)}`)
+    if (v !== 'undetermined')
+      throw new Error(`该档应如实报undetermined,实测 ${v}← ${raw.slice(0, 46)}`)
+    if (dispositionOf(raw) === 'waiting-human')
+      throw new Error(`未判定档不得落 waiting-human(宁漏不猜) ← ${raw.slice(0, 46)}`)
+  }
+  // 这一档存在的意义:现读 HEAD 面恒有 1 行落在这里。**只测正例的判据会把它藏起来。**
+  if (!UNDETERMINED.length)
+    throw new Error('未判定样本被清空了 ⇒ 那一档就没人守了(判据失效的表现永远是安静)')
+})
+
+// ── ⑤ 通道 B 不可砍:砍掉它立刻漏行(证明它不是装饰)──
+test('M29 通道B(自述槽)不可砍:只留通道A 词形时,自述槽那族真等全部漏判', () => {
+  const CHANNEL_A_ONLY =
+    /等人拍板|等用户拍板|等产品拍板|等持有人拍板|等人工拍板|等机主拍板|等任何人拍板|等拍板|等机主给值|等机主|等用户|等尺子持有人裁决/
+  // 逐条证明:自述槽族的行,通道 A 的词形**一个都命中不了**
+  let missedByA = 0
+  for (const raw of TRUE_WAIT_B) {
+    const face = dispositionFace(raw)
+    if (CHANNEL_A_ONLY.test(face)) continue
+    missedByA++
+    // 而生产判据认得它 ⇒ 差异确实来自通道 B
+    if (waitingHumanSelfVerdict(raw) !== 'self')
+      throw new Error(`自述槽行应判 self ← ${raw.slice(0, 46)}`)
+    // 且槽标签必须真的在行里(否则这条样本不是"槽族",样本本身失效)
+    if (!WAITING_HUMAN_SLOT_RE.test(face))
+      throw new Error(`样本不含自述槽标签,样本已失效 ← ${raw.slice(0, 46)}`)
+  }
+  if (missedByA === 0)
+    throw new Error('通道A 词形已能覆盖全部自述槽样本 ⇒ 本测试证明不了通道B 的必要性')
+  // 定量:现读面砍掉通道 B 漏 10 行 / 快照面漏 8 行 ⇒ 这里断言「至少漏一半以上」,
+  // 避免台账演进后某几行改写就让这条测试静默失去意义。
+  if (missedByA * 2 < TRUE_WAIT_B.length)
+    throw new Error(
+      `通道A 只漏 ${missedByA}/${TRUE_WAIT_B.length} 行,已不足半 ⇒ 通道B 可能已被通道A 覆盖,` +
+        `请复核真实台账读数后更新本测试(别直接删断言)`,
+    )
+})
+
+// ── ⑥ 形状锁:waiting-human 档必须是函数(带护栏),不许退回单条正则 ──
+test('M29 形状锁:waiting-human 档判据必须是函数(单条正则表达不了护栏复核)', async () => {
+  const mod = await import('../lib/plan-task-index.mjs')
+  if (typeof mod.waitingHumanSelfVerdict !== 'function')
+    throw new Error('waitingHumanSelfVerdict 必须是导出函数 —— 它是判据本体')
+  // dispositionFace 的两条纪律不得被"顺手"削掉(§12f:修红不得顺手削判据)。
+  // ① 只遮反引号:中文引号里的等待措辞必须仍然可见。
+  const inCornerBracket = '- [ ] **S1**:台账明写「属 §24 需拍板」。'
+  if (dispositionFace(inCornerBracket).includes('需拍板') !== true)
+    throw new Error('dispositionFace 不得遮中文引号「」—— 正当的等待措辞常写在里面')
+  // ② 等长替换:列位不变,后续按列取窗的逻辑不受影响。
+  const withCode = '- [ ] **S2**:`paused-log 正在等待用户继续上传` 这行零阻塞可做。'
+  const masked = dispositionFace(withCode)
+  if (masked.length !== withCode.length)
+    throw new Error(`遮罩必须等长:实测 ${masked.length} vs 原文 ${withCode.length}`)
+  if (/等待用户/.test(masked))
+    throw new Error('反引号 span 内的等待措辞必须被遮掉(G-1058610 病②)')
+  // 反向锁:反引号里的等待措辞不得让整条票落 waiting-human(否则一条零阻塞活被挂起等人)
+  if (dispositionOf(withCode) === 'waiting-human')
+    throw new Error('反引号内的转述不得把行算成等人拍板')
+})
+
+// ── ⑦ M30:第一把尺子(`需/待 + 人 + 决断动词`)不许绕过护栏① ──
+test('M30 第一把尺子必须过护栏①:`不需要用户拍板` 这族不得落 waiting-human', () => {
+  for (const raw of DIRECT_NEGATED) {
+    // ① 这一族的候选点必须真的存在,否则本组样本失效(静默失去意义 = 判据失效的表现)
+    if (!/需|待/.test(dispositionFace(raw)))
+      throw new Error(`样本不含第一把尺子的措辞,样本已失效 ← ${raw.slice(0, 46)}`)
+    // ② 生产出口:已拍板、不需要人介入的账继续挂在待办里 = 虚增待办(本仓记过多次的病根)
+    const got = dispositionOf(raw)
+    if (got === 'waiting-human')
+      throw new Error(
+        `第一把尺子绕过了护栏①:一条已拍板的账被算成等人拍板(实测 ${got}) ← ${raw.slice(0, 56)}`,
+      )
+    // ③ 诊断档必须如实报 negated(不能悄悄改口成 null —— 那是判据失效的表现永远是安静)
+    const v = waitingHumanDirectVerdict(raw)
+    if (v !== 'negated')
+      throw new Error(`护栏①应把该行收成 negated,实测 ${String(v)} ← ${raw.slice(0, 46)}`)
+  }
+  if (!DIRECT_NEGATED.length)
+    throw new Error('第一把尺子否定样本被清空了 ⇒ 那一族没人守了')
+})
+
+test('M30 反向锁:护栏①判的是**语法邻接**,不得改成"见否定就拦"(那会杀掉真等行)', () => {
+  for (const raw of DIRECT_TRUE) {
+    const v = waitingHumanDirectVerdict(raw)
+    if (v !== 'self')
+      throw new Error(
+        `真等行被护栏①误杀 ⇒ ①被改成了"见否定就拦"而不是语法邻接(实测 ${String(v)}) ← ${raw.slice(0, 46)}`,
+      )
+    if (dispositionOf(raw) !== 'waiting-human')
+      throw new Error(`真等行经生产出口应落 waiting-human,实测 ${dispositionOf(raw)} ← ${raw.slice(0, 46)}`)
+  }
+  // 门89 的教训:`取消打不断(等人拍板)` 里那个「不」属「打不断」,后接实词「断」
+  // ⇒ 不构成对等待谓语的管辖。护栏①若只看"前窗里有没有否定词"就会误杀它。
+  const adjacent = '- [ ] **W1**:这条取消打不断(等人拍板),现按默认口径执行。'
+  if (waitingHumanDirectVerdict(adjacent) === 'negated')
+    throw new Error('「打不断」的「不」夹着实词 ⇒ 不该管辖「等人拍板」,护栏①被改宽了')
+})
+
+test('M30 形状锁:第一把尺子不许退回裸正则(必须经waitingHumanDirectVerdict 裁决)', async () => {
+  const mod = await import('../lib/plan-task-index.mjs')
+  if (typeof mod.waitingHumanDirectVerdict !== 'function')
+    throw new Error('waitingHumanDirectVerdict 必须是导出函数 —— 它是第一把尺子的护栏入口')
+  // 判据源码里不许再出现「裸正则直接短路」的形态:那是本组缺陷的原始形态。
+  const src = await (await import('node:fs/promises')).readFile(
+    new URL('../lib/plan-task-index.mjs', import.meta.url),
+    'utf8',
+  )
+  if (!/waitingHumanDirectVerdict\(line\) === 'self'/.test(src))
+    throw new Error('waiting-human 档未接线到 waitingHumanDirectVerdict ⇒ 第一把尺子又裸奔了')
+  if (/waitingHumanSelfVerdict\(line\) === 'self',\s*\n\s*waitingHumanDirect/.test(src))
+    throw new Error('两把尺的接线顺序被换过 ⇒ 复核一下短路语义')
+})
 test('P-x 跨文件出口锁:probe 必须由 plan-tasks 真导出,且收敛器引得到(427e529947 引了它却没导出 ⇒ 所有会话的推送收敛当场崩)', async () => {
   // ① 直接按名字 import:导出被改名或删掉 ⇒ 本文件加载即红(比任何字符串断言都硬)。
   const mod = await import('../plan-tasks.mjs')
@@ -1412,3 +1760,4 @@ test('M-ABS 绝对层只在问责档判红,提交链(差值档)只报数;差值�
   want('差值棘轮必须照拦(链上真正的拦点)', rcDiffGrew, 1)
   want('本次提交让 F1 变多必须 exit 1', rcGrewWithBefore, 1)
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
