@@ -338,7 +338,29 @@ describe('useWorkPanelStore - 持久化(P4-1 验证)', () => {
     })
   })
 
-  it('reorderTabs 写回 localStorage(刷新后顺序保持)', async () => {
+  /**
+   * 经 store 自己的 persist storage 读回落盘内容,而不是去localStorage 掏字面量。
+   *
+   * 2026-10-06(D48 同批收口):桌面端这条persist 已改走加密装载层,盘上不再是明文 JSON
+   * (见 ../../../lib/chat-persist-crypto.ts 的 createWorkPanelPersistStorage),
+   *故"盘上是明文 JSON"不再是本 store 的不变量 —— 只有**"经这层读回来的状态对"**才是。
+   * 本文件是 jsdom(浏览器路径),读回来的仍是明文;桌面端读回来的是解开的信封,
+   * 但两条路径下 `getItem` 的契约都是 `{state, version}` —— 断言因此与存储形态解耦。
+   * 浏览器路径"盘上就是明文"这一条由 lib/__tests__/work-panel-persist-encryption.test.ts
+   * 的「要求1」组单独锁住,两处互补不重叠。
+   */
+  async function readPersisted(): Promise<{
+    state: {
+      tabs: { url: string; state: Record<string, unknown> }[]
+      [k: string]: unknown
+    }
+  } | null> {
+    const storage = useWorkPanelStore.persist.getOptions().storage
+    if (!storage) throw new Error('persist storage 缺失(接线被改坏了)')
+    return (await storage.getItem('ihui-work-panel')) as never
+  }
+
+  it('reorderTabs 写回持久层(读回来顺序保持)', async () => {
     useWorkPanelStore.getState().newTab('https://a.com')
     useWorkPanelStore.getState().newTab('https://b.com')
     useWorkPanelStore.getState().newTab('https://c.com')
@@ -346,14 +368,16 @@ describe('useWorkPanelStore - 持久化(P4-1 验证)', () => {
     useWorkPanelStore.getState().reorderTabs(a!.id, c!.id)
     // 给 zustand persist 异步写入一点时间
     await new Promise((r) => setTimeout(r, 10))
-    const raw = localStorage.getItem('ihui-work-panel')
-    expect(raw).not.toBeNull()
-    const parsed = JSON.parse(raw!)
-    const urls = parsed.state.tabs.map((t: { url: string }) => t.url)
-    expect(urls).toEqual(['https://b.com', 'https://c.com', 'https://a.com'])
+    const persisted = await readPersisted()
+    expect(persisted).not.toBeNull()
+    expect(persisted!.state.tabs.map((t) => t.url)).toEqual([
+      'https://b.com',
+      'https://c.com',
+      'https://a.com',
+    ])
   })
 
-  it('持久化时清除 screenshot 大字段', () => {
+  it('持久化时清除 screenshot 大字段', async () => {
     useWorkPanelStore.getState().newTab('https://a.com')
     // 手动塞 screenshot 进 state(模拟 takeScreenshot 完成后)
     useWorkPanelStore.setState((s) => ({
@@ -366,12 +390,12 @@ describe('useWorkPanelStore - 持久化(P4-1 验证)', () => {
         },
       })),
     }))
-    const raw = localStorage.getItem('ihui-work-panel')
-    expect(raw).not.toBeNull()
-    const parsed = JSON.parse(raw!)
-    const persisted = parsed.state.tabs[0]
-    expect(persisted.state.screenshot).toBeUndefined()
-    expect(persisted.state.status).toBe('idle') // 重置回 idle
+    await new Promise((r) => setTimeout(r, 10))
+    const persisted = await readPersisted()
+    expect(persisted).not.toBeNull()
+    const tab = persisted!.state.tabs[0]!
+    expect(tab.state.screenshot).toBeUndefined()
+    expect(tab.state.status).toBe('idle') // 重置回 idle
   })
 })
 
