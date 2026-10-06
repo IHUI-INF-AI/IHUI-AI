@@ -234,6 +234,76 @@ export const DEFAULT_BLOCKED_ENV_VARS = [
   '*_PASSWORD',
 ];
 
+/**
+ * G-465 报名面(只报名,**不剥、不拦**)—— 与上方 deny 表(buildFilteredEnv 消费的那份)
+ * 是两回事:deny 表决定"什么不进子进程",本表决定"什么进子进程但要喊一声"。
+ *
+ * 现量(2026-10-06 用真实现直测):deny 表四个后缀族(`*_API_KEY/*_SECRET/*_TOKEN/*_PASSWORD`)
+ * 盖不到单数 `*_KEY`、`*_SENDKEY`、`*_TOKEN_ID`、`*_AUTH_PAYLOAD_FILE`、`*_TOKEN_PATH` 等形态,
+ * LIBTV_ACCESS_KEY / SERVERCHAN_SENDKEY / TUNNEL_SERVICE_TOKEN_ID / QODER_SDK_AUTH_PAYLOAD_FILE /
+ * TRAE_JWT_TOKEN_PATH 一类第三方凭据原样漏进子进程。
+ *
+ * 为什么只报名不拦(机主拍板,与 tests/child-env-boundary.test.ts"宁窄不误伤"同向):
+ * 宽 deny 会打断交互终端里**靠 env 工作**的第三方 CLI(aws/gcloud 这类),是用户可见回归。
+ * 本表把敞口变成可见的报名(log + 结构化审计字段,点名变量名与命中模式),
+ * 拦不拦由后续按"对 MCP+hook 子进程改白名单"那一型单独拍板。
+ *
+ * 纪律:本表**不得**被 buildFilteredEnv 或任何剥离路径消费 —— 它不是 deny 表。
+ * 匹配顺序即报名的模式归因序:更具体的形态在前,宽后缀 `*_KEY` 收尾兜底。
+ */
+export const SUSPICIOUS_CREDENTIAL_ENV_PATTERNS: readonly string[] = [
+  '*_SENDKEY', // 推送服务 sendkey(SERVERCHAN_SENDKEY;更具体,先于 *_KEY 归因)
+  '*_AUTH_PAYLOAD_FILE', // 指向凭据载荷文件的路径(QODER_SDK_AUTH_PAYLOAD_FILE)—— 路径型也是敞口
+  '*_TOKEN_ID', // token 标识符(TUNNEL_SERVICE_TOKEN_ID)
+  '*_SECRET_ID', // secret 标识符(腾讯云 SECRET_ID 族)
+  '*_KEY_ID', // key 标识符(AWS_ACCESS_KEY_ID 族)
+  '*_TOKEN_PATH', // 指向 token 文件的路径(TRAE_JWT_TOKEN_PATH)
+  '*_TOKEN_FILE', // 同上(AWS_WEB_IDENTITY_TOKEN_FILE 族)
+  '*_KEY_PATH', // 指向 key 文件的路径(SSH_KEY_PATH 族)
+  '*_KEY_FILE', // 同上(GIT_SSH_KEY_FILE 族)
+  '*_KEY', // 单数 KEY 后缀兜底(LIBTV_ACCESS_KEY / *_ACCESS_KEY / *_SECRET_KEY …)
+];
+
+/** 一条报名:子进程将继承的"疑似凭据形态"变量,点名变量名与命中模式。 */
+export interface SuspiciousEnvVarReport {
+  /** 变量名(经 deny 表过滤后的**幸存者** —— 它真的会进子进程 env)。 */
+  name: string;
+  /** 命中的报名模式(来自 SUSPICIOUS_CREDENTIAL_ENV_PATTERNS,首个命中者)。 */
+  pattern: string;
+}
+
+/**
+ * 报名面识别(纯函数):对**将要交给子进程的 env**(即 buildFilteredEnv 产物)逐键过
+ * SUSPICIOUS_CREDENTIAL_ENV_PATTERNS,返回全部幸存的疑似凭据变量。
+ * 输入必须是过滤后的 env:被 deny 表剥掉的键不报名(它们没进子进程,无敞口)。
+ */
+export function detectSuspiciousEnvVars(env: NodeJS.ProcessEnv): SuspiciousEnvVarReport[] {
+  const reports: SuspiciousEnvVarReport[] = [];
+  for (const name of Object.keys(env)) {
+    const pattern = SUSPICIOUS_CREDENTIAL_ENV_PATTERNS.find((p) => matchPattern(name, p));
+    if (pattern) reports.push({ name, pattern });
+  }
+  return reports;
+}
+
+/** 报名去重账:同一组(变量,模式)签名只喊一次 —— 每条命令都喊会刷屏,静默则敞口不可见。 */
+const suspiciousEnvReportedSignatures = new Set<string>();
+
+/**
+ * 报名出口:往父进程 stderr 写一行(子进程自己的 stderr 是管道收的,不会混进命令输出)。
+ * 同一签名去重(进程生命周期内只喊一次);reports 为空时零输出。
+ * 测试注入口:spy process.stderr.write 后直接调用本函数(签名里放全新变量名即绕过去重)。
+ */
+export function reportSuspiciousEnvVars(reports: readonly SuspiciousEnvVarReport[]): void {
+  if (reports.length === 0) return;
+  const signature = reports.map((r) => `${r.name}=${r.pattern}`).sort().join('|');
+  if (suspiciousEnvReportedSignatures.has(signature)) return;
+  suspiciousEnvReportedSignatures.add(signature);
+  const vars = reports.map((r) => `${r.name}(${r.pattern})`).join(', ');
+  // 安全边界文案走 cli 语言包(AGENTS §19,与 spawn_error/outputLimit 同一形态)
+  process.stderr.write(`⚠ env-report: ${t('cli.sandbox.envCredentialReport', { vars })}\n`);
+}
+
 /** 从命令行提取主命令名(第一个 token 的 basename,去扩展名) */
 function extractCommandName(commandLine: string): string {
   const trimmed = commandLine.trim();
@@ -406,6 +476,8 @@ export interface SandboxAuditEntry {
   failureKind?: SandboxFailureKind | null;
   /** failureKind==='fs_exhausted' 时点名的维度。 */
   fsExhaustion?: SandboxFsExhaustion;
+  /** G-465 报名面:本次子进程将继承的"疑似凭据形态"变量(只报名,不剥不拦);空缺=无命中。 */
+  suspiciousEnvVars?: SuspiciousEnvVarReport[];
   durationMs: number;
 }
 
@@ -766,6 +838,12 @@ export function runSandboxed(commandLine: string, opts: SandboxOptions): Sandbox
     }
   }
 
+  // G-465 报名面:先算出真正交给子进程的 env,对幸存者做疑似凭据报名(只报名,不剥不拦;
+  // 剥离仍由 buildFilteredEnv + blockedEnvVars 一家独管,两表不得混用)。
+  const filteredEnv = buildFilteredEnv(blockedEnvVars);
+  const suspiciousEnvVars = detectSuspiciousEnvVars(filteredEnv);
+  reportSuspiciousEnvVars(suspiciousEnvVars);
+
   const spawnOpts: SpawnSyncOptions = {
     cwd: opts.cwd,
     encoding: 'utf-8',
@@ -775,7 +853,7 @@ export function runSandboxed(commandLine: string, opts: SandboxOptions): Sandbox
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
-    env: buildFilteredEnv(blockedEnvVars),
+    env: filteredEnv,
   };
 
   if (process.platform !== 'win32') {
@@ -802,6 +880,7 @@ export function runSandboxed(commandLine: string, opts: SandboxOptions): Sandbox
     blocked: false,
     failureKind: settled.failureKind,
     fsExhaustion: settled.fsExhaustion,
+    suspiciousEnvVars: suspiciousEnvVars.length > 0 ? suspiciousEnvVars : undefined,
     durationMs: Date.now() - startedAt,
   });
 
@@ -882,12 +961,18 @@ export function runSandboxedAsync(commandLine: string, opts: SandboxOptions): Sa
     };
   }
 
+  // G-465 报名面:与同步路径同一出口(只报名,不剥不拦;precheck 拒绝分支没拉起子进程,
+  // 没有 env 交接,不报名)。
+  const filteredEnv = buildFilteredEnv(blockedEnvVars);
+  const suspiciousEnvVars = detectSuspiciousEnvVars(filteredEnv);
+  reportSuspiciousEnvVars(suspiciousEnvVars);
+
   const spawnOpts: SpawnOptions = {
     cwd: opts.cwd,
     shell: true,
     stdio: ['pipe', 'pipe', 'pipe'],
     windowsHide: true,
-    env: buildFilteredEnv(blockedEnvVars),
+    env: filteredEnv,
     // POSIX:detached 建立独立进程组,超时可 kill(-pid) 团灭整组(含孙进程);
     // Windows:detached 无进程组语义,团灭走 taskkill /T /F(见 killTree)。
     detached: process.platform !== 'win32',
@@ -1050,6 +1135,7 @@ export function runSandboxedAsync(commandLine: string, opts: SandboxOptions): Sa
         timedOut,
         truncated,
         blocked: false,
+        suspiciousEnvVars: suspiciousEnvVars.length > 0 ? suspiciousEnvVars : undefined,
         durationMs: Date.now() - startedAt,
       });
       resolve({
