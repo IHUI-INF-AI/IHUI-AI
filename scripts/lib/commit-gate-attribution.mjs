@@ -181,6 +181,59 @@ function lineBlamesFile(lines, idx, declared) {
   return null
 }
 
+/**
+ * 「钩子/lint-staged 自己 echo 的回显块」首行 —— 块边界靠**首行字面量**认,不是关键字黑名单。
+ *
+ * 为什么要按**整块边界**摘掉,而不是"看到某几个词就当回显"(G-1058649 ①):
+ *   黑名单是"逐行猜",会漏 —— 钩子改一次措辞、lint-staged 换一个版本,猜的那几个词就不在了,
+ *   而回显行**照样**在窗口里被读成点名。整块边界是"这一段是工具自己打的清单/任务回显,
+ *   整块不算证据":认不认只取决于**首行是不是那一句**,块内行一律不参与取材。
+ *
+ * 两条首行(逐字取自生产源,不是猜的):
+ *   `staging-snapshot.js:367`  📋 staged 文件清单审计(…)      —— 钩子自己打的 staged 清单
+ *   `staging-snapshot.js:327`  ⏭  staged 文件清单审计(…)      —— 同上被 HUSKY_SKIP_STAGING_AUDIT 跳过
+ *   lint-staged 17.3.0        ⋯ Running tasks for staged files… —— lint-staged 自己的任务回显
+ *     (逐字形态核自 .workbuddy/hook-logs/pre-commit.log:21257 与 :21312)
+ *
+ * 块尾怎么定(可靠,不靠猜):**从首行起,吃掉后续所有"空行或以空白开头"的行,遇第一行
+ * 列 0 的非空行即止**。这两块的正文**逐行都是缩进的**(见上面两处生产源的 console.log
+ * 缩进与实测原文),而块后面紧跟的下一个步骤输出都从列 0 起(实测 `🎨 运行 lint-staged...`、
+ * `✖ Failed to stage changes from tasks!` 都在列 0)⇒ 缩进形态**唯一地**把这两块与后续
+ * 步骤分开。哪天真出现列 0 的续行,后果是块尾早停(少摘),**失效方向是保守的**
+ * —— 退回本票修之前的行为,不会把真 finding 摘掉。
+ */
+const ECHO_BLOCK_OPENERS = [/📋\s*staged 文件清单审计/, /⏭\s*staged 文件清单审计/, /⋯\s*Running tasks for staged files/]
+
+/**
+ * 摘掉「钩子/lint-staged 自己 echo 的回显块」,**返回新数组**(不改入参)。
+ * 只在"点名"取材面(`blameInWindow`)上调用 —— env 指纹取材与旧判据对照读数都不动它。
+ * @param {string[]} lines
+ * @returns {{kept: string[], dropped: number}}
+ */
+export function exciseEchoBlocks(lines) {
+  const raw = Array.isArray(lines) ? lines : []
+  const drop = new Array(raw.length).fill(false)
+  let dropped = 0
+  for (let i = 0; i < raw.length; i++) {
+    if (drop[i]) continue
+    const head = stripAnsi(raw[i])
+    if (!ECHO_BLOCK_OPENERS.some((re) => re.test(head))) continue
+    drop[i] = true
+    dropped++
+    for (let j = i + 1; j < raw.length; j++) {
+      const l = stripAnsi(raw[j])
+      if (l.trim() === '' || /^\s/.test(l)) {
+        // 块内空行也一并摘:它是块内分隔,留着会让"块尾早停"看起来像块被截断
+        drop[j] = true
+        dropped++
+        continue
+      }
+      break // 列 0 的非空行 = 下一段输出,块到此为止
+    }
+  }
+  return { kept: raw.filter((_, k) => !drop[k]), dropped }
+}
+
 /** 按"窗口内是否点名 declared"定责:任一命中行成立即算,并带回证据行。 */
 function blameInWindow(lines, stagedFiles) {
   const named = []
@@ -226,13 +279,20 @@ function legacyWouldBlame(text, stagedFiles) {
  *
  * 判据(G-1058649 收紧,失效方向仍只允许"多要一次定向说明"):
  *   前提:窗口里有**内容错形状**(不再收裸 `failed`/`✖` —— 见 CONTENT_ERROR_SHAPE_RE 的头注);
+ *   **取材面(2026-10-07 加)**:钩子/lint-staged 自己 echo 的回显块**整块退出**取材面 ——
+ *     按块首行字面量认块、按缩进形态定块尾(见 exciseEchoBlocks),不靠关键字黑名单;
  *   点名:命中行同行带内容错,或它是报错块的路径表头行(其后 ≤4 行有内容错);
  *   **纯清单回显 / 纯 warning 表头** 都不构成点名(`lineBlamesFile` 的 ③)。
  */
 export function blameFromFailedStep(text, stagedFiles) {
   for (const w of failureWindows(text)) {
-    if (!w.lines.some((l) => contentErrorLine(l))) continue
-    const named = blameInWindow(w.lines, stagedFiles)
+    // 结构性摘除(G-1058649 ①):回显块整块退出"点名"取材面。
+    // 摘在**内容错前提判定之前** —— 否则钩子自己 staged 清单里的一行会被 `contentErrorLine`
+    // 判过的下一行内容错"带"成点名(实测 lineBlamesFile ②号形态:回显行与其后 ≤4 行的
+    // 内容错行相距多远都能借到,只有路径表头行能截断 ⇒ 治标必须落在取材面上)。
+    const { kept } = exciseEchoBlocks(w.lines)
+    if (!kept.some((l) => contentErrorLine(l))) continue
+    const named = blameInWindow(kept, stagedFiles)
     if (named.length > 0)
       return {
         step: w.step,
@@ -1717,6 +1777,7 @@ export const __test__ = {
   lineBlamesFile,
   legacyWouldBlame,
   contentErrorLine,
+  exciseEchoBlocks,
   classifyHookFailure,
   verdictLine,
   blockedBeforeBatch,
