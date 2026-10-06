@@ -102,8 +102,19 @@ test('T7 装车证明:已注册则必须成套(blocking + skipEnv 用门自己�
     // 未注册不是错误,但**不得被读成已装车**:本仓"造好没装车"记过最多次,方向性对照必须存在。
     assert.fail(`${SRC_NAME} 尚未注册进 guardian-runner —— 这条镜像用例的意义就是拦住"以为已接线"`)
   }
-  const entry = runner.slice(Math.max(0, at - 900), at + 900)
-  assert.match(entry, /mode:\s*'blocking'/)
+  // ⚠️ 原取 `at ± 900` 的**窗口**判 blocking/skipEnv/--strict,实测无牙(2026-10-06 变异坐实):
+  // 本门 id '147' 正好夹在 id '146'(readme-table-integrity)与 id '148'(auth-handler-parity)之间,
+  // ±900 一次吞进 3 条注册块,左右邻门的 `mode:'blocking'` 替本门交差 —— 把本门自己翻成
+  // `warn` 后本断言**仍绿**(变异面旧窗口内 mode 读数:['blocking','warn','blocking'],
+  // 本门那条已是 warn;同窗口还多出 2 个别人的 skipEnv 与 3 份 stagedTriggers)。
+  // 这就是「看起来有牙,其实没有」的最坏一格。改按**注册块边界**取本门那一条。
+  // `\n  {` = 顶层注册项起始,`\n    script:` = 下一条开始;块内含下一条的头两行(id/label),
+  // 但 mode/skipEnv/args 一律排在 `script:` 之后 ⇒ 切不进邻门的定级字段。
+  // 退化路径(lastIndexOf 返 -1 则用 at;indexOf 返 -1 则取到文件尾)保留,仅防 runner 形态再变。
+  const start = runner.lastIndexOf('\n  {', at)
+  const next = runner.indexOf('\n    script:', at + 10)
+  const entry = runner.slice(start < 0 ? at : start, next > 0 ? next : runner.length)
+  assert.match(entry, /mode:\s*'blocking'/, '定级不是 blocking —— 邻门顶替时本断言曾静默假绿')
   assert.match(entry, new RegExp(`skipEnv:\\s*'${gate.SELF_SKIP}'`), '应急跳过名必须与门自己声明的同一个')
   // 本门**默认档只报数**(存量漂移不该造恒红门),所以提交链上必须有 --strict 才有牙;
   // 少了它,这道门就是一个永不拦截的装饰 —— 与守门 117 升档时"不带 args 的升档是假的"同一课。
