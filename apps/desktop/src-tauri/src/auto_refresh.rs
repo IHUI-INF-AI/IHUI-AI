@@ -308,6 +308,7 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
             if healthy {
                 // 远程页在窗口隐藏期间已开始加载,直接点亮
                 if reveal_on_probe {
+                    log::info!("[window-show] site=auto_refresh_probe_online trigger=启动探活成功且 reveal_on_probe=true(用户未勾「启动后先进托盘」)⇒ 点亮线上前端");
                     let _ = w.show();
                     log::info!("[auto-refresh] 启动探活成功 → 显示线上前端");
                 } else {
@@ -347,6 +348,7 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
                     crate::localized_app_name()
                 ));
                 if reveal_on_probe {
+                    log::info!("[window-show] site=auto_refresh_probe_offline trigger=启动探活失败已切离线兜底页且 reveal_on_probe=true ⇒ 点亮离线页");
                     let _ = w.show();
                 } else {
                     log::info!("[auto-refresh] 离线兜底页已就绪,但用户要求启动后进托盘 → 保持隐藏");
