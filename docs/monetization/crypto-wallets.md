@@ -20,7 +20,7 @@
 | --- | --- | --- | --- | --- |
 | Bitcoin (BTC) | BTC 主网 · Native SegWit (bech32) | `bc1q3q4ffds36kmmz7x8q0ynuvh70hmfaf08sh3e0y` | [blockchain.com](https://blockchain.com/btc/address/bc1q3q4ffds36kmmz7x8q0ynuvh70hmfaf08sh3e0y) | `bc1` 开头,手续费较 legacy 低 |
 | Ethereum (ETH) | ETH 主网 | `0x66e0101c41aed519b309faead5d3778091a8ab09` | [etherscan.io](https://etherscan.io/address/0x66e0101c41aed519b309faead5d3778091a8ab09) | 标准外部账户(EOA) |
-| USDT (ERC20) | ETH 主网 | `0x66e0101c41aed519b309faead5d3778091a8ab09` | [etherscan.io](https://etherscan.io/address/0x66e0101c41aed519b309faead5d3778091a8ab09) | 与 ETH 同地址 |
+| USDT (ERC20) | ETH 主网 | `0x26e359a5c69cf903d8709a286f5fd2d7554579dd` | [etherscan.io](https://etherscan.io/address/0x26e359a5c69cf903d8709a286f5fd2d7554579dd) | 2026-10-06 起与充值收款地址收敛(env `USDT_ERC20_ADDRESS` 为权威);原 `0x66e0101c…ab09` 链上历史仍可查 |
 | USDT (TRC20) | Tron 主网 | `TMtTpPEMduWurHLi6Fe8XjfcP5Y5AMMnbG` | [tronscan.org](https://tronscan.org/#/address/TMtTpPEMduWurHLi6Fe8XjfcP5Y5AMMnbG) | **推荐**:手续费最低(~$1),到账最快 |
 
 ---
@@ -47,7 +47,7 @@ IHUI-AI 是开源全栈 AI 操作系统,接受全球用户的加密货币打赏�
 4. 区块链确认后到账,可在上表「浏览器查询」链接查看交易记录。
 5. 项目维护者定期从钱包提现到交易所变现(见下节)。
 
-> 技术实现:地址硬编码在 `CryptoDonation.tsx` 组件中(前端静态,不依赖环境变量),i18n 文案在 `packages/i18n/messages/web/{locale}.json` 的 `crypto` 命名空间。
+> 技术实现:地址硬编码在 `CryptoDonation.tsx` 组件中(前端静态),i18n 文案在 `packages/i18n/messages/web/{locale}.json` 的 `crypto` 命名空间。USDT 充值地址的权威值在 env `USDT_TRC20_ADDRESS` / `USDT_ERC20_ADDRESS`,前端常量与其对齐(2026-10-06),待后续公开配置端点化后改为从接口读取。
 
 ---
 
