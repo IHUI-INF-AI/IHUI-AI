@@ -40,6 +40,9 @@ const USAGE_FULL = {
   completionTokens: 50,
   totalTokens: 150,
   reasoningTokens: 20,
+  // G-403(2026-10-07):缓存两维进落库行 —— 数字=真回报(含 0),null/缺键=没采到
+  cacheReadTokens: 80,
+  cacheWriteTokens: 0,
   firstTokenMs: 800,
   durationMs: 3400,
   model: 'deepseek-chat',
@@ -63,6 +66,8 @@ describe('usageDetail → MessageUsage 读回', () => {
       promptTokens: 100,
       completionTokens: 50,
       reasoningTokens: 20,
+      cacheReadTokens: 80,
+      cacheWriteTokens: 0,
       firstTokenMs: 800,
       durationMs: 3400,
       model: 'deepseek-chat',
@@ -74,6 +79,37 @@ describe('usageDetail → MessageUsage 读回', () => {
     seedHistoryProcessInfoFrames([row({ usageDetail: { totalTokens: 10 } })])
     const usage = useChatStore.getState().usageByMessageId[ID]
     expect(usage).toMatchObject({ totalTokens: 10, reasoningTokens: null, costUsd: null })
+  })
+
+  // G-403(2026-10-07):缓存两维"未知而非 0"口径 —— 旧落库行没这两键(undefined)
+  // 与显式 null(上游没采到)都必须读回 null = 未知,绝不许折成 0;
+  // 0 是"真没命中"的肯定结论,只有真回报了 0 才存 0。
+  it('G-403:缓存两维缺键(旧落库行)→ null(未知),不是 0', () => {
+    seedHistoryProcessInfoFrames([
+      row({ usageDetail: { totalTokens: 10, promptTokens: 6, completionTokens: 4 } }),
+    ])
+    const usage = useChatStore.getState().usageByMessageId[ID]
+    expect(usage).toMatchObject({ cacheReadTokens: null, cacheWriteTokens: null })
+  })
+
+  it('G-403:缓存两维显式 null(上游没采到)→ 原样 null;真回报 0 → 保留 0', () => {
+    seedHistoryProcessInfoFrames([
+      row({ usageDetail: { totalTokens: 10, cacheReadTokens: null, cacheWriteTokens: null } }),
+    ])
+    expect(useChatStore.getState().usageByMessageId[ID]).toMatchObject({
+      cacheReadTokens: null,
+      cacheWriteTokens: null,
+    })
+    seedHistoryProcessInfoFrames([
+      row(
+        { usageDetail: { totalTokens: 10, cacheReadTokens: 0, cacheWriteTokens: 0 } },
+        'msg-d33-b',
+      ),
+    ])
+    expect(useChatStore.getState().usageByMessageId['msg-d33-b']).toMatchObject({
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+    })
   })
 
   it('totalTokens 非正数 / 非有限值 → 不 seed(与 live 渲染位 totalTokens<=0 不显示同口径)', () => {
