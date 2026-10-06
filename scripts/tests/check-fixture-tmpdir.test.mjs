@@ -15,7 +15,7 @@
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -570,6 +570,71 @@ test('L5 台账必须被 run() 真加载:一份从没被读过的台账与一份
     )
     .join('\n')
   assert.match(loadedText, /已闭合/, '加载过台账且确无命中时才允许打"已闭合"(两档不得同形,也不得同严)')
+})
+
+// ── 跳过出口必须**真的能跳**(2026-10-06 补)─────────────────────────────────
+// 背景: 本门在注册块里声明的 `skipEnv: 'HUSKY_SKIP_FIXTURE_TMPDIR'` 此前**零真实读点**
+// (全仓 grep 只命中注册块那一行), 而代码只读建门时的旧名 `..._GUARD`
+// ⇒ 照注册表设变量的人会被 runner 放行、门却照跑不误 = **一条写出来跑不通的出路**。
+// 这正是 `check-service-binary-paths.mjs` 头注点名的那一型。
+//
+// 为什么测在 CLI 层: 这个缺陷的本质是"进程真的认不认这个环境变量",
+// 纯函数层测不到 —— 必须起真子进程、真的把变量灌进去、看它是否 exit 0 且说明跳过。
+
+/** 起真子进程跑本门, 返回 { code, out }。env 用来灌跳过变量。 */
+function runGateEnv(args, env) {
+  const r = spawnSync(process.execPath, [GATE, ...args], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 180_000,
+    maxBuffer: 1 << 26,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, ...env },
+  })
+  return { code: r.status, out: (r.stdout || '') + (r.stderr || '') }
+}
+
+/** 从注册块里取本门声明的 skipEnv 名字(不硬编码 —— 注册表才是真值源)。 */
+function declaredSkipEnv() {
+  const raw = readFileSync(join(SCRIPTS_DIR, 'guardian-runner.mjs'), 'utf8')
+  const idx = raw.indexOf('check-fixture-tmpdir.mjs')
+  if (idx < 0) return null
+  const open = raw.lastIndexOf('{', idx)
+  let depth = 0
+  let end = -1
+  for (let i = open; i < raw.length; i++) {
+    if (raw[i] === '{') depth += 1
+    else if (raw[i] === '}') {
+      depth -= 1
+      if (depth === 0) { end = i; break }
+    }
+  }
+  const m = /skipEnv:\s*'([^']+)'/.exec(raw.slice(open, end < 0 ? undefined : end))
+  return m ? m[1] : null
+}
+
+test('注册块声明的 skipEnv 名字必须真能跳过本门(不得是写出来跑不通的出路)', () => {
+  const declared = declaredSkipEnv()
+  assert.ok(declared, '本门已注册, 注册块里必须有 skipEnv —— 取不到就是另一类缺陷,本条不适用')
+  const r = runGateEnv(['--worktree'], { [declared]: '1' })
+  assert.equal(r.code, 0, `按注册表声明的 ${declared}=1 应能跳过, 实得 exit ${r.code}:\n${r.out.slice(-400)}`)
+  assert.match(r.out, /⏭/, '跳过时必须说明它跳过了, 不能静默 exit 0(否则与"判绿"不可区分)')
+})
+
+test('旧的 _GUARD 名字仍可用(向后兼容:建门起的变量名不能因为修新名而失效)', () => {
+  const r = runGateEnv(['--worktree'], { HUSKY_SKIP_FIXTURE_TMPDIR_GUARD: '1' })
+  assert.equal(r.code, 0, `旧名 HUSKY_SKIP_FIXTURE_TMPDIR_GUARD=1 仍应能跳过:\n${r.out.slice(-400)}`)
+})
+
+test('两个名字都未设时不得进入跳过分支(防"恒真"的跳过判据)', () => {
+  // 反向防线: 跳过必须由环境变量驱动, 不是无脑 exit 0。
+  // ⚠️ 第一版写的是 `assert.notEqual(code, 0)` —— **我自己写错了**:
+  // 该门 `--self-test` 全绿时 exit 本来就是 0, 于是这条断言恒红。
+  // 改判据为看**输出内容**: 跳过分支会打 `⏭`, 真跑自检会打 "self-test 全绿"。
+  // **exit 码在这个门上区分不了"跑了"与"跳过了", 只能看输��。**
+  const r = runGateEnv(['--self-test'], { HUSKY_SKIP_FIXTURE_TMPDIR: '', HUSKY_SKIP_FIXTURE_TMPDIR_GUARD: '' })
+  assert.doesNotMatch(r.out, /⏭/, '未设跳过变量时不得进入跳过分支 —— 跳过判据恒真')
+  assert.match(r.out, /self-test/, '未设跳过变量时应真的跑出自检(输出里应有 self-test 结论)')
 })
 
 function runGateReal(args) {

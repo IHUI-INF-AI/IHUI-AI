@@ -71,7 +71,12 @@
  * 用法:node scripts/check-fixture-tmpdir.mjs [--strict] [--staged|--worktree] [--json]
  *                                            [--all] [--files a b] [--self-test]
  * 镜像测试:node --test scripts/tests/check-fixture-tmpdir.test.mjs
- * 紧急跳过:HUSKY_SKIP_FIXTURE_TMPDIR_GUARD=1(本门此刻**未接**提交链,该变量是接线时的配套)
+ * 紧急跳过:**两个名字都认** —— `HUSKY_SKIP_FIXTURE_TMPDIR=1`(注册块 `skipEnv:` 声明的那个)
+ *   或 `HUSKY_SKIP_FIXTURE_TMPDIR_GUARD=1`(建门起代码就在读的旧名, 兼容保留)。
+ *   本门此刻在注册表里的 mode 是 `'warn'`(存量未清零), 不是 blocking。
+ *   ⚠️ 2026-10-06 修:此前注册块只声明 `HUSKY_SKIP_FIXTURE_TMPDIR` 而**代码零读点**
+ *   (全仓 grep 只命中注册块那一行) ⇒ 照注册表设变量的人会被 runner 放行、门却照跑不误,
+ *   即**一条写出来跑不通的出路**。现已让代码认下注册表声明的那个名字。
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -956,8 +961,24 @@ function run({ strict, face, json, all, files }) {
 }
 
 function main(argv) {
-  if (process.env.HUSKY_SKIP_FIXTURE_TMPDIR_GUARD === '1' && !argv.includes('--self-test')) {
-    console.log('⏭  HUSKY_SKIP_FIXTURE_TMPDIR_GUARD=1 —— 跳过临时夹具落点对账')
+  // 跳过出口**两个名字都要认**(2026-10-06 修一条"写出来跑不通的出路"):
+  //   · HUSKY_SKIP_FIXTURE_TMPDIR_GUARD —— 本门代码从建门起就在读的那个(原读点)
+  //   · HUSKY_SKIP_FIXTURE_TMPDIR        —— `guardian-runner.mjs` 注册块里 `skipEnv:` 声明的那个
+  // 此前只有后者被声明、**零真实读点**(全仓 grep 只命中注册块自身那一行) ⇒
+  // 想跳这道门的人按注册表设了 HUSKY_SKIP_FIXTURE_TMPDIR, runner 会放行,
+  // 而门自己不看那个变量 ⇒ 照跑不误。**注册表写了就是承诺, 承诺必须有兑现点。**
+  // 这与 `check-service-binary-paths.mjs` 头注点名的形态同型(它已把那条写进头注)。
+  //
+  // ⚠️ 本门在注册表里的 mode 是 `'warn'`, 不是 blocking; 这与"存量未清零"的现状一致。
+  // 不改注册表(共享面, 且改它会牵动他人): 让代码认下注册表声明的那个名字即可。
+  const skip =
+    process.env.HUSKY_SKIP_FIXTURE_TMPDIR_GUARD === '1' ||
+    process.env.HUSKY_SKIP_FIXTURE_TMPDIR === '1'
+  if (skip && !argv.includes('--self-test')) {
+    console.log(
+      '⏭  HUSKY_SKIP_FIXTURE_TMPDIR[_GUARD]=1 —— 跳过临时夹具落点对账' +
+        '（注册块声明的是 HUSKY_SKIP_FIXTURE_TMPDIR；旧名 _GUARD 一并接受）',
+    )
     process.exit(0)
   }
   if (argv.includes('--self-test')) process.exit(selfTest())
