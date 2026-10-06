@@ -33,7 +33,11 @@
  *              · 配 LAND_BLOBS 时内容来自清单,**不读工作树** —— 用于"同一文件里别人有在飞改动"
  *                的场景:那种情况下交工作树字节 = 替别人落地(§12 污染型),正确内容只能是 HEAD⊕本票行
  *  LAND_MSG    必填,提交信息
- *  LAND_BLOBS  可选,JSON 清单 `{files:[{path,blob}]}`(blob 由 hash-object -w 得到,须已在对象库)
+ *  LAND_BLOBS  可选,指向一份 JSON 清单**文件的路径**(内容 `{files:[{path,blob}]}`;
+ *              blob 由 hash-object -w 得到,须已在对象库)。注意与 LAND_CLASH_SCOPE 同形:传的是路径,
+ *              不是内联 JSON —— 本器按 `readFileSync(env.LAND_BLOBS)` 取它,把 JSON 字符串直接塞进
+ *              这个变量会被当成仓库根下的文件名,得到一条 `ENOENT: ... open ’D:/IHUI-AI/{“files”...’`,
+ *              读起来像"文件丢了"而实为调用形状错(2026-10-07 值守实测踩到)。
  *  LAND_BLOB_PROOF 配 LAND_BLOBS 时必填:一句话写明"构造内容相对基线只动了本票行"是靠什么证的。
  *              工作树取材的两道陈旧守卫在 blob 模式结构上不适用(它们比的是盘上那份),
  *              替代尺 = 祖先 blob 对账 + 水印横幅保持 + 这句证明;三者都大声报数,少守卫不静默。
