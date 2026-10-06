@@ -34,6 +34,9 @@ from ..core.config import settings
 from ..core.context_compaction import SUMMARY_MARKER, compress_messages_if_needed
 from ..core.llm_gateway import llm_gateway, moa_router
 from ..core.model_naming import to_official_model_name
+# G-403(2026-10-07):usage 帧补发缓存读/写两维 —— 归一层已产出统一键,
+# 发射面此前只写 prompt/completion/total/reasoning 四键,缓存两维断在帧构造。
+from ..core.usage_cache import extract_cache_metrics, has_cache_signals
 
 # V3 #53(2026-09-27):ChatMode × PermissionMode 硬收窄的**唯一判据出口**在
 # core/permission_mode.py(矩阵 + 交集实现 + 被拦文案)。本路由不再自带任何
@@ -5163,6 +5166,19 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 _completion = _u.get("completion_tokens") or _u.get("completionTokens")
                 _total = _u.get("total_tokens") or _u.get("totalTokens")
                 _reasoning = _u.get("reasoning_tokens") or _u.get("reasoningTokens")
+                # G-403(2026-10-07):缓存读/写两维补发射 —— 两态分工与 reasoningTokens
+                # 同款纪律(G-721),但判据反过来:reasoning 是"键恒写、上游没有 ⇒ null";
+                # 缓存是"上游 usage 里出现任何缓存别名键才发数字(可能是 0 = 真没命中),
+                # 整维缺席 ⇒ None(没采到)"。归一层 normalize_usage 会把没采到折叠成 0,
+                # 那是内部计量口径;对外下发帧必须区分两个结论,不许拿 0 冒充"没命中"
+                # (G-394 禁令)。_u 是各 provider 原生形态(流式主路径未过 normalize_usage),
+                # extract_cache_metrics 内部走归一,各家别名都认。
+                _cache_read: int | None
+                _cache_write: int | None
+                if has_cache_signals(_u):
+                    _cache_read, _cache_write = extract_cache_metrics(_u)
+                else:
+                    _cache_read, _cache_write = None, None
                 if _total is None and _prompt is not None and _completion is not None:
                     _total = _prompt + _completion
                 _first_ms = (
@@ -5177,6 +5193,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                         "completionTokens": _completion,
                         "totalTokens": _total,
                         "reasoningTokens": _reasoning,
+                        "cacheReadTokens": _cache_read,
+                        "cacheWriteTokens": _cache_write,
                     },
                     "timing": {"firstTokenMs": _first_ms, "durationMs": _duration_ms},
                     "model": accumulated.get("model"),
@@ -5205,6 +5223,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                         "completionTokens": _completion,
                         "totalTokens": _total,
                         "reasoningTokens": _reasoning,
+                        # G-403:与 event: usage 同源同字段(注释同上);回放端 web
+                        # history-message 的 readUsageDetailFromMetadata 按同一键名读回。
+                        "cacheReadTokens": _cache_read,
+                        "cacheWriteTokens": _cache_write,
                         "firstTokenMs": _first_ms,
                         "durationMs": _duration_ms,
                         "model": accumulated.get("model"),

@@ -56,9 +56,19 @@ interface ContextUsageStripProps {
   messages: ChatMessage[]
   /** 当前模型窗口容量(token);0 = 未知,占比显示为 — */
   maxTokens: number
+  /** G-403(2026-10-07):prompt 缓存命中读 token —— 数字(含 0)=上游真回报;
+   *  null/缺省 = 没采到(未知),归因条显示"不可得"而非 0(与 web ring 同一口径)。 */
+  cacheReadTokens?: number | null
+  /** prompt 缓存写入 token(Anthropic 系才有);三态同上 */
+  cacheWriteTokens?: number | null
 }
 
-export default function ContextUsageStrip({ messages, maxTokens }: ContextUsageStripProps) {
+export default function ContextUsageStrip({
+  messages,
+  maxTokens,
+  cacheReadTokens = null,
+  cacheWriteTokens = null,
+}: ContextUsageStripProps) {
   const [expanded, setExpanded] = useState(false)
   const [openSegment, setOpenSegment] = useState<AttributionKey | null>(null)
 
@@ -71,10 +81,12 @@ export default function ContextUsageStrip({ messages, maxTokens }: ContextUsageS
           error: m.error,
         })),
         providerPromptTokens: null,
-        cacheReadTokens: null,
-        cacheWriteTokens: null,
+        // G-403:由宿主(chat.tsx onUsage 帧)透传;没采到保持 null —— 渲染位折叠,
+        // 绝不在此造 0(0 = "一次都没命中"的肯定结论,不是"没量到")。
+        cacheReadTokens: cacheReadTokens ?? null,
+        cacheWriteTokens: cacheWriteTokens ?? null,
       }),
-    [messages],
+    [messages, cacheReadTokens, cacheWriteTokens],
   )
 
   // t 由页面级 I18nProvider 提供(useI18n 是端内唯一取词通道)

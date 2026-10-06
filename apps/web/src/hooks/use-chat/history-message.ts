@@ -170,7 +170,8 @@ function readFallbackFromMetadata(raw: unknown): ChatMessage['fallback'] {
  *
  * 落库 schema 与 SSE usage 帧同源但**扁平**(firstTokenMs/durationMs 直接顶层,无 timing 嵌套),
  * 数值一律按"可有限才采"守卫(部分 provider 给字符串/NaN);缺分项与 live 口径一致:
- * reasoningTokens/costUsd → null(徽章对应分段不渲染),计时/分项 → 0。
+ * reasoningTokens/costUsd/cacheReadTokens/cacheWriteTokens(G-403)→ null(徽章对应分段不渲染),
+ * 计时/分项 → 0。
  * totalTokens 非正数 = "这轮没有可交代的用量",整条不采(与渲染位 totalTokens<=0 不显示同判据)。
  */
 function readUsageDetailFromMetadata(raw: unknown): MessageUsage | undefined {
@@ -187,11 +188,18 @@ function readUsageDetailFromMetadata(raw: unknown): MessageUsage | undefined {
   }
   const totalTokens = num(rec.totalTokens)
   if (totalTokens <= 0) return undefined
+  // G-403(2026-10-07):缓存两维读回 —— nullable 把"旧落库行没这两键(undefined)"
+  // 与"显式 null(没采到)"都归 null = 未知,与 live 通道的落盘口径一致;
+  // 数字(含 0 = 真没命中)原样回填,渲染位折叠成"不可得"绝不显示假 0。
+  const cacheRead = nullable(rec.cacheReadTokens)
+  const cacheWrite = nullable(rec.cacheWriteTokens)
   return {
     totalTokens,
     promptTokens: num(rec.promptTokens),
     completionTokens: num(rec.completionTokens),
     reasoningTokens: nullable(rec.reasoningTokens),
+    cacheReadTokens: cacheRead,
+    cacheWriteTokens: cacheWrite,
     firstTokenMs: num(rec.firstTokenMs),
     durationMs: num(rec.durationMs),
     model: typeof rec.model === 'string' ? rec.model : '',
