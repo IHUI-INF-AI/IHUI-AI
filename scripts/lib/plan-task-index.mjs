@@ -1453,9 +1453,25 @@ export function ageAnchorOf(line) {
   return lastDateInRow(line) ?? birthDateOf(line)
 }
 
-/** F8 的"有无交代":租约 / 非 actionable 归属 / 任何可算日期,三者齐缺即无主账。 */
+/**
+ * F8 的"有无交代":指针 / 租约 / 非 actionable 归属 / 任何可算日期,四者齐缺即无主账。
+ *
+ * ⚠ 指针这一支是**接线补齐**,不是新增判据(2026-10-07):`副本指针(编号 …)` 行首族早就被
+ * `isClaimExcludedPointer` 认成"指针不是待办"(派单侧 `dispositionOf` 一直在用它,见 :2101),
+ * 而本函数的三个出口(租约 / 非 actionable 桶 / 日期)**一个都不占指针** ⇒
+ * 那批行既不是待办、又被 F8 判成"无交代的活待办"。实测 HEAD 面:台账里被判指针的共 4193 行,
+ * 其中恰好 8 行落进 F8 面(`副本指针(编号 62/63/75/51)` 各两份 + `副本指针(编号 P1-①)` 一条),
+ * 补上这一支 F8 由 175 降到 167,消失的逐字就是那 8 行,一条不多。
+ *
+ * 为什么复用既有出口而不是新写正则:`isClaimExcludedPointer` 是"什么算指针"的**唯一**实现
+ * (派单侧与本处共用),新写一份必然与它漂移 —— 而漂移的后果是"派单不派它、F8 却仍计它的债"。
+ * 同理**不放宽**:判据面只认逐字行首族(`副本指针(编号 …)`),正文里**提及**该形态的行
+ * (如 G-1058653 那条"派单口径漏认第二个副本指针形态"的真活账)照旧计债,已用反例钉住。
+ */
 export function hasDisposition(row) {
   if (row.claim) return true
+  // 指针不是待办,不占"无交代的活待办"这个量纲(见头注:这是接线补齐,不是新判据)
+  if (isClaimExcludedPointer(row.raw)) return true
   if (dispositionOf(row.raw) !== 'actionable') return true
   return ageAnchorOf(row.raw) !== null
 }
