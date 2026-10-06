@@ -185,7 +185,17 @@ test('T5 装车证明:未注册不得被读成已装车;已注册则成套且定
     assert.fail(
       `${SRC_NAME} 尚未注册进 guardian-runner —— 本用例的意义就是拦住"以为已接线"。`,
     )
-  const entry = runner.slice(Math.max(0, at - 900), at + 900)
+  // ⚠️ 原取 `at ± 900` 的**窗口**判 warn,实测无牙(2026-10-06 变异坐实):本门 id '156' 紧邻
+  // id '154'/'155'/'157',±900 窗口一次吞进 4 条注册块,邻门的 `mode:'warn'` 替本门交差 ——
+  // 把本门自己升成 `blocking` 后本断言**仍绿**(变异面旧窗口内 mode 读数:
+  // ['warn','warn','blocking','blocking'],本门那条已是 blocking)。
+  // 下方那条"不得带 --strict"的负向锁同在此窗口内,同样会被邻门的 args 顶替。
+  // 改按**注册块边界**取本门那一条。`\n  {` = 顶层注册项起始,`\n    script:` = 下一条开始;
+  // 块内含下一条的头两行(id/label),但 mode/skipEnv/args 一律排在 `script:` 之后 ⇒ 切不进邻门。
+  // 退化路径(lastIndexOf 返 -1 则用 at;indexOf 返 -1 则取到文件尾)保留,仅防 runner 形态再变。
+  const start = runner.lastIndexOf('\n  {', at)
+  const next = runner.indexOf('\n    script:', at + 10)
+  const entry = runner.slice(start < 0 ? at : start, next > 0 ? next : runner.length)
   assert.match(
     entry,
     /mode:\s*'warn'/,
