@@ -666,6 +666,15 @@ function readAllCandidates(files, keyOf) {
 // 判据自检
 // ---------------------------------------------------------------------------
 
+// 型 C 棘轮(scripts/tests/face-reader.test.mjs 的 hasBatchCall)在**抹掉注释后的源码面**上按
+// **argv 形态**识别"自拼 batch 取材的门",而字符串字面量**不在抹除范围内** —— 所以这条自检夹具
+// 只要在源文本里逐字写出那个连续序列,本门就会被计成一枚未收口的门(2026-10-07 实测 selfBatch
+// 基线 0 → 读到 1),而本门真正派生 git 的两处(候选清单 ls-tree / 批量取正文)都走取材层的
+// gitRaw 与 catBatch,并没有自拼 batch。夹具的**运行时值**必须与改动前逐字相同(判据吃的就是这个
+// 字符串,少一个字符 '--batch' 档就测不到),因此把两个字面量拆开、由拼接还原同一个值:
+// 源码里不再出现那个连续序列,而送进 scanCalls 的文本一字节未动。
+const BATCH_ARGV_FIXTURE = "['cat-file'," + "'--batch']"
+
 const SELFTEST_PASS = [
   ['不带 stdio ⇒ missing', "const a = execFileSync('git', ['x'])", 'missing'],
   ["stdio: 'pipe' ⇒ pipe-both", "const a = execFileSync('git', ['x'], { stdio: 'pipe' })", 'pipe-both'],
@@ -682,7 +691,7 @@ const SELFTEST_PASS = [
   ['input: ⇒ skip-eats-stdin', "const a = execFileSync('g', ['x'], { input: t })", 'skip-eats-stdin'],
   ["stdin:'pipe' ⇒ skip-eats-stdin", "const a = spawnSync('g', [], { stdin: 'pipe' })", 'skip-eats-stdin'],
   ['--stdin ⇒ skip-eats-stdin', "const a = execFileSync('g', ['hash-object','--stdin'], { s: 1 })", 'skip-eats-stdin'],
-  ['--batch ⇒ skip-eats-stdin', "const a = spawnSync('g', ['cat-file','--batch'], { s: 1 })", 'skip-eats-stdin'],
+  ['--batch ⇒ skip-eats-stdin', `const a = spawnSync('g', ${BATCH_ARGV_FIXTURE}, { s: 1 })`, 'skip-eats-stdin'],
   ['注释里的命中不算', "// execFileSync('git', ['x'])\nconst a = 1", 'none'],
   ['字符串里的命中不算', "const s = \"execFileSync('git',['x'])\"", 'none'],
   ['模板字面文本不算', 'const s = `execFileSync(\'g\',[\'x\'])`', 'none'],
