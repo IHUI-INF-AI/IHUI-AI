@@ -131,8 +131,18 @@ test('T1 装车证明:guardian-runner 必须真有本门条目,且 mode=blocking
   const src = readFileSync(RUNNER, 'utf8')
   const at = src.indexOf("script: 'check-stale-dist.mjs'")
   assert.ok(at >= 0, '本门不在 guardian-runner 注册表里 ⇒ "门存在而无人调度"')
-  const entry = src.slice(Math.max(0, at - 400), at + 400)
-  assert.match(entry, /mode: 'blocking'/, '本门条目必须仍 blocking')
+  // ⚠️ 原取 `at ± 400` 的**窗口**判 mode,实测无牙(2026-10-06 变异坐实):本门 id '4' 紧邻
+  // id '2g-web'/'3'/'4b'/'4c'/'6',±400 窗口跨进邻门注册块,邻门的 `mode: 'blocking'`
+  // 替本门交差 —— 把本门自己翻成 `warn` 后本断言**仍绿**(变异面旧窗口内 mode 字段读数:
+  // ['blocking','blocking','warn','blocking','blocking'],本门那条已被翻成 warn)。
+  // 改按**注册块边界**取本门那一条。`\n  {` = 顶层注册项起始,`\n    script:` = 下一条开始;
+  // next>0 时块内含下一条的头两行(id/label),但 mode/args/skipEnv 一律排在 `script:` 之后
+  // ⇒ 永远切不进邻门的定级字段。退化路径(lastIndexOf 返 -1 则用 at;indexOf 返 -1 则取到
+  // 文件尾)保留,仅在 runner 形态变了时兜底,不会静默把邻门当本门。
+  const start = src.lastIndexOf('\n  {', at)
+  const next = src.indexOf('\n    script:', at + 10)
+  const entry = src.slice(start < 0 ? at : start, next > 0 ? next : src.length)
+  assert.match(entry, /mode: 'blocking'/, '本门条目必须仍 blocking —— 定级被邻门顶替时本断言曾静默假绿')
 })
 
 test('T2 反向锁:mtime 一条都不许出现在判据里(恒红门成因,§12e)', () => {
