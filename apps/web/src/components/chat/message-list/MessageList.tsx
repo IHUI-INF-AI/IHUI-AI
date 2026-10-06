@@ -30,7 +30,12 @@ import { AmbientSuggestions } from '@/components/ai/ambient-suggestions'
 import { CanvasOverlay } from '@/components/chat/canvas-overlay'
 import { EmptyState } from './EmptyState'
 import { FallbackBanner } from './FallbackBanner'
+// G-828(2026-10-04):窗口化的纯判据(区间 + 窗口外占位高度)单点住在 ../windowing,
+// 本组件不再手算 `offsets[len] - offsets[end+1]`。
+import { windowPaddings } from '../windowing'
 import { useMessageListScroll } from './use-message-list-scroll'
+// G-828(2026-10-04):窗口化挂载的纯判据(区间/占位高度)单点住在 ../windowing。
+import { windowPaddings } from '../windowing'
 import { useMessageListDerivations } from './use-message-list-derivations'
 import { useMessageListSearch } from './use-message-list-search'
 import { useMessageListContextMenu } from './use-message-list-context-menu'
@@ -379,18 +384,28 @@ export function MessageList({
     )
   }
 
-  // #7 虚拟滚动:窗口化渲染,仅渲染可见范围 + buffer,用 padding 占位未渲染部分
-  // - 非虚拟模式(消息数 <= VIRTUAL_THRESHOLD):全量渲染,保留原逻辑
-  // - 虚拟模式:用 measureItem ref 测量真实高度,handleScroll 计算可见范围
+  // #7 虚拟滚动:窗口化渲染,仅挂载可见范围 + buffer,窗口外用占位高度顶住滚动条
+  // - 未窗口化(消息数 <= WINDOW_THRESHOLD):全量渲染,保留原逻辑
+  // - 窗口化:用 measureItem ref 测量真实高度,handleScroll 按 windowing.ts 的纯判据定区间
+  // G-828(2026-10-04):占位高度改由 windowing.windowPaddings 计算(与区间判据同一份
+  // offsets,不再在这侧手算 `offsets[len] - offsets[end+1]`);容器与行上补三个 data-* 数值
+  // 钩子(window-start/window-end/window-padding-*、window-index)——窗口化是否**真的生效**
+  // 只能靠读挂载行数与占位高度来判,截图判不出来(也判不了"未生效 vs 被裁剪")。
   const renderItems = enableVirtual
     ? visibleMessages.slice(visibleRange.start, visibleRange.end + 1)
     : visibleMessages
 
   const offsets = enableVirtual ? computeCumulative().offsets : []
-  const paddingTop = enableVirtual ? (offsets[visibleRange.start] ?? 0) : 0
-  const paddingBottom = enableVirtual
-    ? Math.max(0, (offsets[visibleMessages.length] ?? 0) - (offsets[visibleRange.end + 1] ?? 0))
-    : 0
+  const paddings = enableVirtual
+    ? windowPaddings({
+        offsets,
+        count: visibleMessages.length,
+        start: visibleRange.start,
+        end: visibleRange.end,
+      })
+    : { paddingTop: 0, paddingBottom: 0 }
+  const paddingTop = paddings.paddingTop
+  const paddingBottom = paddings.paddingBottom
 
   // 2026-08-16 移除:DEBUG useEffect 在 early return 之后调用(违反 Rules of Hooks,
   // lint error),且 console.log 为调试残留——删除,虚拟滚动 padding 信息无需打印。
@@ -407,6 +422,13 @@ export function MessageList({
       role="tabpanel"
       className="hover-scroll min-h-0 h-full flex-1 overflow-y-auto"
       data-testid="message-list-inline-panel"
+      data-window-active={enableVirtual ? 'true' : 'false'}
+      data-window-start={enableVirtual ? visibleRange.start : 0}
+      data-window-end={enableVirtual ? visibleRange.end : visibleMessages.length - 1}
+      data-window-mounted={renderItems.length}
+      data-window-total={visibleMessages.length}
+      data-window-padding-top={paddingTop}
+      data-window-padding-bottom={paddingBottom}
     >
       <div className="mx-auto flex max-w-3xl flex-col gap-0.5 px-4 py-6">
         {/* P4-2: fallback 通知横幅(主模型失败切换到备用模型时展示,amber 警告色) */}
