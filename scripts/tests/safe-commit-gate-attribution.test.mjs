@@ -1148,4 +1148,173 @@ test('G-1058649-6 装车证明:env-blocked 在 safe-commit 的分流/措辞/留�
   )
 })
 
+// ─── G-1058649 ①(2026-10-07):「点名」取材面的结构性收窄 ──────────────────────
+// 立因(实测,不是推演):旧 `blameFromFailedStep` 先问「窗口里有没有内容错形状」,再在窗口里
+// 找点名行,而 `lineBlamesFile` 的②号形态是「命中行 + 其后 ≤4 行内出现内容错」——
+// **它不要求命中行自己是报错块表头**。于是钩子自己 echo 的 staged 清单里那一行
+// (`      - PROJECT_PLAN.md`)只要与任一内容错行相距 ≤4 行、且中间没有路径表头隔断,
+// 就会被读成「报错块表头 ⇒ 点名了本次文件」。
+// 实测该形态可开:gap=1/2/3/4 且无表头隔断时,四档**全部**判 mine(探针 .ihui-agent/tmp/probe-order.mjs)。
+// 而 45 行取材窗口**够得着**这两块(实测最小行距:staged 清单块 20 行、lint-staged 任务回显块 11 行,
+// 探针 probe-echo-gap.mjs)⇒ 摘除有承重空间,不是"摘了也白摘"。
+//
+// 夹具形状逐行取自 .workbuddy/hook-logs/pre-commit.log:21243-21257(钩子 staged 清单回显)
+// 与 :21312(lint-staged 任务回显);根级声明文件取自同档 3:00:27 那一轮真实的 PROJECT_PLAN.md。
+
+const ECHO_AUDIT_BLOCK = `📋 staged 文件清单审计(2026-08-06 立,防同目录文件级污染,共 1 个文件):
+   📁 (root)/
+      - PROJECT_PLAN.md
+`
+const LINT_TASK_ECHO_BLOCK = `⋯ Running tasks for staged files…
+    *.{ts,tsx,js,jsx,mjs,cjs} — 1 files
+      ⋯ eslint --fix --ignore-pattern '**/public/**'
+`
+const GIT_STEP_FAILS = `✖ Failed to stage changes from tasks!
+  ✖ lint-staged failed due to a git error.
+❌ 🎨 运行 lint-staged...失败，提交已阻止
+`
+/** 一条**属于别人文件**的真 finding 行:它与回显行相邻,故旧判据会让回显行借到它。 */
+const OTHER_FILE_ERROR = "  12:3  error  'unusedThing' is assigned a value but never used  @typescript-eslint/no-unused-vars"
+
+const ROOT_DECLARED = ['PROJECT_PLAN.md']
+
+test('G-1058649-7 锁①:回显块(钩子 staged 清单 / lint-staged 任务回显)整块退出「点名」取材面', () => {
+  const { blameFromFailedStep, classifyHookFailure } = __test__
+  // 两块各测一次;两条臂唯一的变量就是"回显块在不在窗口里",结论必须可分,否则其中一条是夹具碰巧。
+  for (const [name, block] of [
+    ['staged 清单审计块', ECHO_AUDIT_BLOCK],
+    ['lint-staged 任务回显块', LINT_TASK_ECHO_BLOCK],
+  ]) {
+    const text = `${block}${OTHER_FILE_ERROR}\n\n✖ 1 problems (1 errors, 0 warnings)\n${GIT_STEP_FAILS}`
+    assert.equal(
+      blameFromFailedStep(text, ROOT_DECLARED),
+      null,
+      `${name}: 回显行不得借邻行的内容错被读成点名(否则钩子回显的 staged 清单就是"点名即我的红")`,
+    )
+    const v = classifyHookFailure({ text, stagedFiles: ROOT_DECLARED, runGate: runGateGreen })
+    assert.notEqual(v.kind, 'mine', `${name}: 不得判 mine,实得 ${v.kind}`)
+  }
+})
+
+test('G-1058649-7 锁②生死线:真 finding(同行 / 块表头两形态)必须**仍**判 mine —— 收窄取材面不得削判据', () => {
+  const { blameFromFailedStep, classifyHookFailure } = __test__
+  // 这是收窄判据最大的风险:把真 finding 一起摘掉。两条臂覆盖 lineBlamesFile 的
+  // ①号形态(同行带内容错)与②号形态(报错块表头 + 其下 ≤4 行有内容错)。
+  const arms = [
+    [
+      '①号形态 同行',
+      `G:\\IHUI-AI\\scripts\\check-foo.mjs
+  12:3  error  'unusedThing' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+✖ 1 problems (1 errors, 0 warnings)
+${GIT_STEP_FAILS}`,
+    ],
+    [
+      '②号形态 块表头(表头独占一行,其下即 error)',
+      `G:\\IHUI-AI\\scripts\\check-foo.mjs
+  12:3  error  'unusedThing' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  13:3  warning  Unexpected console statement  no-console
+
+✖ 1 problems (1 errors, 1 warnings)
+${GIT_STEP_FAILS}`,
+    ],
+  ]
+  for (const [name, text] of arms) {
+    const b = blameFromFailedStep(text, ['scripts/check-foo.mjs'])
+    assert.ok(b, `${name}: 真 finding 落在本次文件上必须仍算点名`)
+    assert.deepEqual(b.named, ['scripts/check-foo.mjs'], `${name}: 点名对象必须逐字相等`)
+    const v = classifyHookFailure({
+      text,
+      stagedFiles: ['scripts/check-foo.mjs'],
+      runGate: runGateGreen,
+    })
+    assert.equal(v.kind, 'mine', `${name}: 必须仍判 mine,实得 ${v.kind}:${v.reason}`)
+    assert.match(v.reason, /禁止 --no-verify/, `${name}: 必须仍是"拒绝跳门"的措辞`)
+  }
+  // 方向锁:同一段文本,只把证据行从"真 error 行"换成"工具 echo 行",结论必须从 mine 翻掉。
+  // 这一条才是"按整块边界收窄"的证明 —— 若两者同档,说明摘除是碰巧。
+  const echoArm = `${ECHO_AUDIT_BLOCK}${OTHER_FILE_ERROR}\n\n✖ 1 problems (1 errors, 0 warnings)\n${GIT_STEP_FAILS}`
+  assert.notEqual(
+    classifyHookFailure({
+      text: arms[0][1],
+      stagedFiles: ['scripts/check-foo.mjs'],
+      runGate: runGateGreen,
+    }).kind,
+    classifyHookFailure({ text: echoArm, stagedFiles: ROOT_DECLARED, runGate: runGateGreen }).kind,
+    '真 finding 与回显块必须判成不同档:否则这处收窄不是"按整块边界",而是碰巧',
+  )
+})
+
+test('G-1058649-7 锁③:「命中 git 步骤指纹但无任何 finding 行」必须落既非 mine 也非 not-ours 的档', () => {
+  const { classifyHookFailure, envStepBlocker, blameFromFailedStep, verdictLine } = __test__
+  const text = `${ECHO_AUDIT_BLOCK}\n${GIT_STEP_FAILS}`
+  const v = classifyHookFailure({ text, stagedFiles: ROOT_DECLARED, runGate: runGateGreen })
+  // 前提:该档的存在性必须由**指纹**支撑,不是"没归因成功"那种含糊
+  const env = envStepBlocker(text)
+  assert.ok(env, '前提:这一轮必须真的命中 git 步骤指纹,否则本用例落的是另一档')
+  assert.ok(
+    env.fingerprints.some((f) =>
+      /Failed to stage changes from tasks|failed due to a git error/.test(f),
+    ),
+    `指纹必须可机读,实得 ${JSON.stringify(env.fingerprints)}`,
+  )
+  assert.equal(blameFromFailedStep(text, ROOT_DECLARED), null, '前提:窗口内不得有任何点名')
+  // 正读:既不是 mine,也不是 not-ours(它没有"红不在本次内容里"那个证据)
+  assert.notEqual(v.kind, 'mine', '无 finding 不得判 mine')
+  assert.notEqual(v.kind, 'not-ours', '这一档没有"与本次无关"的证据,不得滑进 not-ours')
+  assert.equal(v.kind, 'env-blocked', `该落既非 mine 也非 not-ours 的档,实得 ${v.kind}`)
+  const line = verdictLine(v)
+  assert.match(line, /不是你的红,也不是别人的红/, '措辞必须把这一型喊出来')
+  assert.ok(!/不在本次提交内容里/.test(line), '反向锁:它没证明这件事,不得这么写')
+})
+
+test('G-1058649-7 锁④:既无指纹也无 finding 的空/无关报错 ⇒ 落 unattributed,不得落 env-blocked', () => {
+  const { classifyHookFailure, verdictLine } = __test__
+  // 选择与理由:这一格**没有**量到"这一步自己没跑完"的任何证据(无 git 步骤指纹),
+  // 所以它不能借 env-blocked 的措辞 ——「环境性失败」是一个**已量到**的断言,
+  // 而本仓禁止未量到的归因(模块头注 ③);它也不能落 not-ours(那要求"红不在本次内容里"的正面证据)。
+  // 它唯一能如实说的是"归因未计算" ⇒ unattributed。
+  const text = `❌ 🎨 运行 lint-staged...失败，提交已阻止
+something went wrong
+`
+  const v = classifyHookFailure({ text, stagedFiles: ROOT_DECLARED, runGate: runGateGreen })
+  assert.equal(v.kind, 'unattributed', `空/无关报错落 unattributed,实得 ${v.kind}`)
+  assert.notEqual(v.kind, 'env-blocked', '无指纹不得声称"环境性失败"—— 那是未量到的归因')
+  const line = verdictLine(v)
+  assert.ok(!/环境性失败/.test(line), '措辞不得冒充已量到的环境性判定')
+})
+
+test('G-1058649-7 锁⑤:块边界认的是首行字面量 + 缩进形态,不是关键字黑名单(抗"改措辞"变异)', () => {
+  const { exciseEchoBlocks } = __test__
+  // 块身含**真会命中内容错形状**的文本(这里就有 `12:3 error`),证明摘的是"整块"而非"含错词的行"
+  const lines = [
+    '📋 staged 文件清单审计(2026-08-06 立,防同目录文件级污染,共 1 个文件):',
+    '   📁 (root)/',
+    '      - PROJECT_PLAN.md',
+    "  12:3  error  'x' is assigned a value but never used",
+    '✖ Failed to stage changes from tasks!',
+  ]
+  const r = exciseEchoBlocks(lines)
+  assert.equal(r.dropped, 4, `首行 + 3 行缩进块身应整块摘掉,实得 ${JSON.stringify(r)}`)
+  assert.deepEqual(r.kept, ['✖ Failed to stage changes from tasks!'], '块后列 0 的行必须保留')
+  // 列 0 的非空行 = 块尾:这条是"边界可靠"的核心 —— 不靠猜,靠缩进形态实测
+  const r2 = exciseEchoBlocks([
+    '📋 staged 文件清单审计(x):',
+    '   - a.mjs',
+    'G:\\x\\b.mjs',
+    '  1:1  error  boom',
+  ])
+  assert.deepEqual(
+    r2.kept,
+    ['G:\\x\\b.mjs', '  1:1  error  boom'],
+    '表头行在列 0 ⇒ 块尾早停,不得越块摘走真 finding',
+  )
+  // 首行不是那两句 ⇒ 一行都不摘(证明认的是首行,不是"块内出现某词")
+  const r3 = exciseEchoBlocks(['      - PROJECT_PLAN.md', '  12:3  error  boom'])
+  assert.equal(r3.dropped, 0, '没有首行就没有块;不得按行内关键词摘')
+  // 漏块内空行会让"块尾早停"看起来像块被截断 ⇒ 空行必须一并摘
+  const r4 = exciseEchoBlocks(['📋 staged 文件清单审计(x):', '   - a.mjs', '', '      - b.mjs', '✖ x'])
+  assert.deepEqual(r4.kept, ['✖ x'], '块内空行不得把块腰斩')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
