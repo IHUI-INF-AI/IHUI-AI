@@ -12,3 +12,11 @@ venv/
 
 # MCP 应用商店安装状态持久化(P2-1,运行时数据,不入库)
 data/
+
+# e2e 验收脚本的落盘产物(2026-10-06 补)。
+# 起因:`scripts/e2e_token6688.py --free` 的 F2 把 mp3 写在**仓内** `scripts/`,
+# 跑一次就在 `git status` 里多一条 `?? apps/ai-service/scripts/.e2e_free_tts.mp3`,
+# 而此前根 .gitignore 与本文件都没有 e2e 产物这一档。
+# 脚本侧已加 finally 清理(失败项也删),这一条是第二道:脚本被 Ctrl-C 掐掉、
+# 或换别的 e2e 脚本再落产物时兜底。点开头=只在仓根生效,不误伤别处的同名文件。
+/scripts/.e2e_*
