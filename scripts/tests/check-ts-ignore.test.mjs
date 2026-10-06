@@ -9,6 +9,8 @@ import { writeFileSync, mkdirSync, copyFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
+// §22c:判据真相只在门体一份 —— 测试导入生产判据,不再用注释复述正则/白名单
+import { __test__ as gate } from '../check-ts-ignore.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -165,7 +167,7 @@ test('违规: .ts 含 /* @ts-ignore */ 块注释形式 → exit 1', () => {
 // ─── 3. 非违规:文档化行为边界(正则精度 + 白名单 + 扩展名) ──
 
 test('非违规: .ts 含 // @ts-expect-error → exit 0(不在检测范围)', () => {
-  // 脚本正则仅匹配 @ts-(?:ignore|nocheck),不含 @ts-expect-error
+  // 压制性注释判据单点来自门体 gate.TS_IGNORE_REGEX(见 §5 判据直连用例)
   const dir = createTempRepo()
   try {
     stageFile(dir, 'apps/web/expect.ts', '// @ts-expect-error\nconst a: number = "x"\n')
@@ -202,7 +204,7 @@ test('非违规: .py 文件(非目标扩展名)→ exit 0 + "无目标文件"', 
 })
 
 test('非违规: apps/e2e/ 下 .ts 含 @ts-ignore → exit 0(白名单跳过)', () => {
-  // SKIP_PATTERNS 中 /[\\/]e2e[\\/]/ 匹配路径含 /e2e/ 的文件
+  // 白名单判据单点来自门体 gate.SKIP_PATTERNS(见 §5 判据直连用例),此处只验端到端行为
   const dir = createTempRepo()
   try {
     stageFile(dir, 'apps/e2e/test.ts', '// @ts-ignore\nconst x = 1\n')
@@ -215,7 +217,7 @@ test('非违规: apps/e2e/ 下 .ts 含 @ts-ignore → exit 0(白名单跳过)', 
 })
 
 test('非违规: 字符串内含 @ts-ignore(非注释行首)→ exit 0', () => {
-  // 正则要求行首 // 或 /*,字符串内的 @ts-ignore 不匹配
+  // 是否算违规由门体 gate.TS_IGNORE_REGEX 单点裁定(见 §5 判据直连用例)
   const dir = createTempRepo()
   try {
     stageFile(
@@ -232,7 +234,7 @@ test('非违规: 字符串内含 @ts-ignore(非注释行首)→ exit 0', () => {
 })
 
 test('非违规: JSDoc 延续行 * @ts-ignore(非行首 // 或 /*)→ exit 0', () => {
-  // JSDoc 延续行以 * 开头,不匹配 ^\s*(?:\/\/|\/\*)
+  // 同上:JSDoc 延续行是否算违规,由门体 gate.TS_IGNORE_REGEX 单点裁定(见 §5 判据直连用例)
   const dir = createTempRepo()
   try {
     stageFile(
@@ -267,5 +269,29 @@ test('批量: 2 文件(1 违规 + 1 干净)→ exit 1 + 仅报告违规文件', 
   } finally {
     rmScratch(dir)
   }
+})
+
+// ─── 5. 判据直连(§22c:真相来自门体 export,测试不复述正则/白名单) ──
+
+test('判据直连: gate.TS_IGNORE_REGEX 只认行首压制性注释,描述性提及不算违规', () => {
+  assert.equal(gate.TS_IGNORE_REGEX.test('// @ts-ignore'), true)
+  assert.equal(gate.TS_IGNORE_REGEX.test('  /* @ts-nocheck */'), true)
+  assert.equal(gate.TS_IGNORE_REGEX.test('// @ts-expect-error'), false)
+  assert.equal(gate.TS_IGNORE_REGEX.test('const s = "// @ts-ignore"'), false)
+  assert.equal(gate.TS_IGNORE_REGEX.test(' * @ts-ignore 这里是描述性提及'), false)
+})
+
+test('判据直连: gate.isSkip 走门体白名单表(e2e/ 跳过、业务代码不跳过)', () => {
+  assert.ok(Array.isArray(gate.SKIP_PATTERNS) && gate.SKIP_PATTERNS.length > 0)
+  assert.equal(gate.isSkip('apps/e2e/test.ts'), true)
+  assert.equal(gate.isSkip('packages/app/node_modules/pkg/index.ts'), true)
+  assert.equal(gate.isSkip('apps/web/foo.ts'), false)
+})
+
+test('判据直连: gate.isTargetExt 覆盖 ts/tsx/mjs/js/cjs,py 不在范围', () => {
+  for (const f of ['a.ts', 'a.tsx', 'a.mjs', 'a.js', 'a.cjs']) {
+    assert.equal(gate.isTargetExt(f), true, `${f} 应为目标扩展名`)
+  }
+  assert.equal(gate.isTargetExt('apps/api/main.py'), false)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
