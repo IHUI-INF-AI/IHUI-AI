@@ -76,8 +76,10 @@
  *
  * onFailHint:① `--strict --explain` 看清哪条声明在打哪条不存在的路由;② 二选一 —— 在对侧实现该路由,
  *   或删除这行硬编码声明;③ 禁止为本门加基线文件/豁免清单消红,禁止改判据阈值让它好看。
- * 紧急跳过:本门**尚未接入提交链**(注册表由主会话单写,§12),故当前没有 skipEnv;
- *   接入时按 runner 现值取 `HUSKY_SKIP_DECLARED_OUTBOUND_ROUTES=1`。
+ * 紧急跳过:【接线状态:已接入】注册条目已落在 scripts/guardian-runner.mjs(id 以 runner 现值为准,
+ *   勿照抄本行数字):blocking + skipEnv:HUSKY_SKIP_DECLARED_OUTBOUND_ROUTES,无 stagedTriggers。
+ *   —— 本行原写的是"尚未接入提交链(注册表由主会话单写,§12),故当前没有 skipEnv",
+ *   那句立项时的谨慎说明已过期(门早已装车),按 runner 现值重写如上;skipEnv 名同样以 runner 现值为准。
  */
 
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -252,7 +254,7 @@ const USAGE = `用法: node scripts/check-declared-outbound-routes.mjs [--staged
   默认档只报数不判红(exit 0)—— 真仓当下有 hub 那批真红,当场判红就是恒红门(§12e)。
   问责:① --strict --explain 看清哪条声明打的是不存在的路由;② 二选一 —— 补对侧路由,或删这行硬编码声明;
         ③ 禁止为本门加基线文件/豁免清单让它好看,禁止为消红削判据。
-  紧急跳过(接入提交链后):${SELF_SKIP}=1`
+  紧急跳过:${SELF_SKIP}=1`
 
 /**
  * `--files <逗号分隔的路径清单>` 的取值判据。
