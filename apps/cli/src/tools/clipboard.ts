@@ -148,6 +148,8 @@ export function writeClipboardWithOutcome(text: string): ClipboardWriteOutcome {
     if (platform === 'win32') {
       // PowerShell Set-Clipboard 接受 stdin 管道输入
       const r = spawnSync('pwsh.exe', ['-NoProfile', '-Command', '$input | Set-Clipboard'], {
+        // 2026-10-04:吃 stdin 的子进程(stdin 走 input)必须给 stdio,否则本机报 spawnSync EBUSY;给 ignore 会静默丢内容
+        stdio: ['pipe', 'pipe', 'pipe'],
         input,
         encoding: 'utf-8',
         windowsHide: true,
@@ -157,6 +159,8 @@ export function writeClipboardWithOutcome(text: string): ClipboardWriteOutcome {
     }
     if (platform === 'darwin') {
       const r = spawnSync('pbcopy', [], {
+        // 2026-10-04:吃 stdin 的子进程(stdin 走 input)必须给 stdio,否则本机报 spawnSync EBUSY;给 ignore 会静默丢内容
+        stdio: ['pipe', 'pipe', 'pipe'],
         input,
         encoding: 'utf-8',
         windowsHide: true,
@@ -167,6 +171,8 @@ export function writeClipboardWithOutcome(text: string): ClipboardWriteOutcome {
     if (platform === 'linux') {
       // 优先 xclip,fallback xsel
       const r = spawnSync('xclip', ['-selection', 'clipboard'], {
+        // 2026-10-04:吃 stdin 的子进程(stdin 走 input)必须给 stdio,否则本机报 spawnSync EBUSY;给 ignore 会静默丢内容
+        stdio: ['pipe', 'pipe', 'pipe'],
         input,
         encoding: 'utf-8',
         windowsHide: true,
@@ -174,6 +180,8 @@ export function writeClipboardWithOutcome(text: string): ClipboardWriteOutcome {
       });
       if (!r.error && r.status === 0) return { ok: true, droppedChars: clip.droppedChars, truncated: clip.truncated };
       const r2 = spawnSync('xsel', ['--clipboard', '--input'], {
+        // 2026-10-04:吃 stdin 的子进程(stdin 走 input)必须给 stdio,否则本机报 spawnSync EBUSY;给 ignore 会静默丢内容
+        stdio: ['pipe', 'pipe', 'pipe'],
         input,
         encoding: 'utf-8',
         windowsHide: true,

@@ -89,7 +89,9 @@ function run(cmd, opts = {}) {
   try {
     return execSync(cmd, {
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      // (三通道 pipe 会让 stdin 也建管道,与"不写 stdio"同病;返回值被 .trim() 消费故不能给裸 ignore)
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
       ...opts,
     }).trim()

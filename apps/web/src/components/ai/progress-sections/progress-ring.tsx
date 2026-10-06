@@ -6,8 +6,8 @@
 
 import * as React from 'react'
 import { Check } from 'lucide-react'
-import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import { cn } from '@/lib/utils'
+import { clampPercent } from '@ihui/shared'
 
 /**
  * Phase 16: 进度环组件(2026-07-28 立,对标 AI 工作台)
