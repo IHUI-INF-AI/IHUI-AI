@@ -181,6 +181,13 @@ function report(a, face) {
     `  F6 整块登记重复(块级,行级四条判不到这一维): ${c.dupBlocks} 块 / 共 ${c.dupBlockCopies} 份` +
       ` —— 逐字相同才可自动收口;另有 ${c.dupBlockDrifted} 块首行相同而正文漂移(必须人工判哪份作数)`,
   )
+  // ── F4c:头注承诺"只报数**并逐条点名**",而这一档此前只有 counts 两个整数、点名出口是空的 ──
+  // ⚠ 病根:lib 侧算出了 `a.prefixNested`(pairs 带 key/short/long/state),`plan-tasks.mjs` 里
+  //   `prefixNested` 出现 0 次、`--json` 顶层 12 个键也没有它 ⇒ 478 对只剩两个数字,
+  //   "报数"退化成"报一个没人能定位的数"。本仓"报数不报名"记过多次(守门 70/76/81/128 同族)。
+  // 为什么这一档**不判红**:存量现读 179 组,接 blocking = 与任何提交无关的恒红门(§12e/§12f)。
+  // 人读文案走 `f4cHumanLine`(唯一出口,否则 selfTest 够不着 ⇒ slice 阈值被改坏全绿放过)。
+  console.log(f4cHumanLine(a.prefixNested, c))
   console.log(
     `  F9 撞号(只认**声明位**:同一编号的声明位挂多个不同标题): ${c.collisionGroups} 组` +
       ` —— F1/F4 的键是"编号+标题逐字等值",抓不到"两个不同任务抢同一个号";存量绝大多数是子项命名惯例,` +
@@ -487,6 +494,101 @@ export function splitF9SettledGroups(content, groups) {
     else kept.push(g)
   }
   return { groups: kept, settled }
+}
+
+/**
+ * F4c「同题前缀套叠」一行的**唯一**文案出口(人读面与 `--json` 都从它取,两处各写一遍必漂移)。
+ * 为什么必须有:lib 侧算出了 pairs,但 `plan-tasks.mjs` 此前 0 次提及 `prefixNested` ⇒
+ * 那一档"只报数"退化成两个无人能定位的整数(本仓"报数不报名"同族)。
+ * 形态说清是"哪一行是另一行的前缀",不写"重复/多余"—— 这一族**合法**(台账截断回放),
+ * 报数是为了让人自己判"哪一份是完整的",不是判它有罪。
+ * ⚠ 与 `f9GroupLine` 同一条禁令:行号不进证据文本(每次 append 都会挪位,§1 明令它不得当判据);
+ *   要定位读 `--json` 的 `prefixNested[].short.line` / `.long.line`,那是机器字段而不是证据。
+ */
+export function f4cPairLine(p) {
+  // ⚠ `short`/`long` 是 `parseTaskRows` 的**整行 row**(`raw`/`body`/`key`/`state`…),没有 `title` 字段
+  //   —— 取 `title` 会静默拿到 undefined 并印出「undefined」,那正是"证据文本看着有内容、其实没指名谁"。
+  const bodyOf = (side) => (side?.raw ?? '').replace(/^\s*- \[[ xX]\]\s*/, '').slice(0, 60)
+  return `编号 ${p.key}：「${bodyOf(p.short)}」是「${bodyOf(p.long)}」的精确前缀`
+}
+
+/**
+ * `--json` 输出面的**纯函数组装**(判据面 → 机器可读面),供 CLI 与 selfTest 共用。
+ * 为什么抽出来:`--json` 那一大坨原先是 `main()` 里的内联字面量 ⇒ **selfTest 够不着它**,
+ * 于是"把 `prefixNested` 名单整段删掉"这种变异**全绿放过**(2026-10-07 变异验证当场抓出 ESCAPED)。
+ * 判据失效的表现永远是安静 ⇒ **判据面与输出面之间必须有一条可测的缝**,不能靠"读代码看着对"。
+ * 这一族只做**形状投影**,不含任何判据(判据全在 `auditPlan`/本文件上面的并列导出里)。
+ * @param a 判定面(通常已过 `narrowF9Face`)
+ * @param clip 正文截断函数(文本字段用它,行号字段原样透出)
+ */
+export function buildJsonFace(a, clip) {
+  return {
+    face: LABEL[a.__face ?? 'head'],
+    counts: a.counts,
+    rows: a.rows,
+    composites: a.composites,
+    open: a.claimableRows.map((r) => ({ line: r.line, key: r.key, text: clip(r.raw, 160) })),
+    forks: a.forks.map((f) => ({
+      key: f.key,
+      done: f.done.map((r) => r.line),
+      open: f.open.map((r) => r.line),
+    })),
+    void: a.voidRows.map((r) => ({ line: r.line, text: clip(r.raw, 160) })),
+    pointers: a.rotated.map((r) => ({ line: r.line, target: r.target, reason: r.reason })),
+    collisions: a.collisions.map((g) => ({
+      key: g.key,
+      titleCount: g.titleCount,
+      titles: g.titles.map((t) => ({ title: t.title, lines: t.lines })),
+    })),
+    references: (a.f9References ?? []).map((g) => ({
+      key: g.key,
+      titleCount: g.titleCount,
+      titles: g.titles.map((t) => ({ title: t.title, lines: t.lines })),
+    })),
+    malformedMasquerade: (a.f9MalformedMasquerade ?? []).map((m) => ({ key: m.key, lines: m.lines })),
+    settled: (a.f9Settled ?? []).map((g) => ({
+      key: g.key,
+      titleCount: g.titleCount,
+      titles: g.titles.map((t) => ({ title: t.title, lines: t.lines })),
+    })),
+    // F4c 同题前缀套叠(只报数,但**逐对可定位** —— 与 F9 的 settled 同一条纪律:
+    // 报数不报名就只剩一个无人能定位的整数)。行号在这一档**是允许的**:
+    // 它是 `--json` 的机器字段(定位用),不是证据文本;证据文本走 `f4cPairLine`,那里不印行号。
+    prefixNested: (a.prefixNested?.pairs ?? []).map((p) => ({
+      key: p.key,
+      state: p.state,
+      lenShort: p.lenShort,
+      lenLong: p.lenLong,
+      short: { raw: p.short?.raw, line: p.short?.line },
+      long: { raw: p.long?.raw, line: p.long?.line },
+    })),
+  }
+}
+
+/**
+ * F4c 一行**人读**文案的**唯一**出口(与 `f4cPairLine` 同一纪律:人读面与机器面各一份实现必然漂移)。
+ *
+ * 为什么必须抽成函数而不是内联在 `main()` 里:内联时 selfTest 够不着它 ⇒
+ * "把 slice 阈值从 5 改成 1(只报第一对)"这种变异**全绿放过**(2026-10-07 变异验证实测 ESCAPED)。
+ * 与 `buildJsonFace` 同一个病根:**判据面/输出面之间必须有一条可测的缝**,
+ * 否则"人读面看着有报名"是没法验证的信念,不是事实。
+ * @param prefixNested `a.prefixNested`
+ * @param c `a.counts`
+ * @param head 人读面一次最多逐条点名几对(超出的走"另 N 对见 --json",不许静默截断)
+ */
+export function f4cHumanLine(prefixNested, c, head = 5) {
+  const f4c = prefixNested ?? { pairs: [], groupKeys: [] }
+  const open = f4c.pairs.filter((p) => p.state === 'open')
+  const done = f4c.pairs.filter((p) => p.state !== 'open')
+  return (
+    `  F4c 同题"前缀套叠"副本(只报数、永不判红): ${c.prefixNestedGroups ?? f4c.groupKeys.length} 组 / ` +
+    `${c.prefixNestedPairs ?? f4c.pairs.length} 对 —— 其中含未勾选行 ${open.length} 对 / ` +
+    `整对都已勾选 ${done.length} 对` +
+    (open.length
+      ? ` —— 逐条点名(前 ${head} 对):${open.slice(0, head).map(f4cPairLine).join(' / ')}` +
+        (open.length > head ? ` (另 ${open.length - head} 对见 --json 的 prefixNested)` : '')
+      : ' —— 本面没有含未勾选行的套叠对(这一句是"量到了 0",不是"没量")')
+  )
 }
 
 /**
@@ -909,6 +1011,136 @@ function selfTest() {
   ok(
     c.dupDoneGroups === 1 && c.dupOpenGroups === 1,
     `done 侧同态重复只报数、open 侧由 F4 判:实测 open=${c.dupOpenGroups} done=${c.dupDoneGroups}`,
+  )
+  // ── F4c 点名出口(2026-10-07):这一族此前只有 counts 两个整数、名单在 --json 里缺失 ──
+  // 成对写:一条"必须逐对可定位"(正)+ 一条"整对已勾选也必须在名单里"(反向:别只报含活的)。
+  // ⚠ 这一档**永不判红**(存量 179 组,接 blocking 就是恒红门),所以它的自测只能钉"可定位 + 分档齐",
+  //   钉不到"会不会误判红" —— 那一条由「counts 里没有把 F4c 送进差值棘轮」结构性保证。
+  // ⚠ 夹具形态要点(两条实测踩出来的,不是猜的):
+  //   ① F4c 判的是 **`raw` 全行逐字前缀**(含复选框),而 `- [x]` 与 `- [ ]` 第 4 字符不同
+  //   ⇒ **"一 open 一 done"的两行结构上不可能成对**(混合对在这一族不可达)。
+  //   ② 同主键靠 `titleOf`(截断到 24 字)⇒ 两行必须**题面前缀逐字相同**、正文才有长短差。
+  //   真实形态是:短行是裸行,长行逐字以它开头 + 行尾挂 〔【归并】…〕指针(下面逐字取自真台账)。
+  const f4cShort = '- [ ] 68. 流式中切换模型 → 终止后自动带入新模型'
+  const f4cLong =
+    f4cShort +
+    ' 〔【归并】重复登记副本(2026-09-29):同主键的另一条登记 「68 · 流式中切换模型→终止后自动带入新模型」,派单以那条为准,本行不再单独派单。〕'
+  const f4cShortDone = '- [x] 69. 终止后自动带入新模型'
+  const f4cLongDone =
+    f4cShortDone +
+    ' 〔【归并】重复登记副本(2026-09-30):同主键的另一条登记,派单以那条为准,本行不再单独派单。〕'
+  const f4cFace = auditPlan([f4cShort, f4cLong, f4cShortDone, f4cLongDone].join('\n'))
+  const f4cPairs = f4cFace.prefixNested?.pairs ?? []
+  ok(
+    f4cPairs.length === 2,
+    `F4c 应逐对点名(两个编号各一对),实测 ${f4cPairs.length} —— 名单缺失时这一条会读 0`,
+  )
+  ok(
+    f4cPairs.every((p) => p.key && p.short?.raw && p.long?.raw) &&
+      f4cPairs.some((p) => p.state === 'open') &&
+      f4cPairs.some((p) => p.state !== 'open'),
+    `F4c 名单必须逐条带 key/两侧题面,且 open 与 done 两档都在场(只报含活的那一档=半份名单),实测 ${JSON.stringify(f4cPairs.map((p) => [p.key, p.state]))}`,
+  )
+  ok(
+    (f4cFace.counts.prefixNestedPairs ?? 0) === f4cPairs.length &&
+      (f4cFace.counts.prefixNestedGroups ?? 0) === (f4cFace.prefixNested?.groupKeys?.length ?? -1),
+    `F4c 计数与名单必须同形(数与名单分叉时读者对不上账),实测 ${JSON.stringify([f4cFace.counts.prefixNestedPairs, f4cPairs.length, f4cFace.counts.prefixNestedGroups, f4cFace.prefixNested?.groupKeys?.length])}`,
+  )
+  ok(
+    !f4cPairLine(f4cPairs[0]).match(/L\d+/) && f4cPairLine(f4cPairs[0]).includes(f4cPairs[0].key),
+    `F4c 证据文本不得印行号(§1:每次 append 都会挪位),且必须点名编号,实测 ${JSON.stringify(f4cPairLine(f4cPairs[0]))}`,
+  )
+  // ⚠ 下面三条是**补上去的反向锁**:2026-10-07 第一版自测缺了它们,变异验证当场抓出 3 条 ESCAPED
+  //   (删掉 --json 名单 / 只报第一对 / 取不存在的 title 字段 —— 三条都 130/0 全绿放过)。
+  //   教训:**"用例跑绿"不等于"用例有牙"** —— 每条新判据都必须配一条"把出口拆掉仍绿"的变异。
+  const f4cLine = f4cPairLine(f4cPairs[0])
+  ok(
+    !/undefined|\[object Object\]/.test(f4cLine) && f4cLine.includes('流式中切换模型'),
+    `F4c 证据文本取字段取错时会静默印 undefined/"[object Object]" —— 那是"看着有内容、其实没指名谁",实测 ${JSON.stringify(f4cLine)}`,
+  )
+  ok(
+    f4cLine.includes(f4cShort.slice(6, 30)) && f4cLine.includes(f4cShort.slice(6, 30)),
+    `F4c 证据文本必须真的指名两侧题面(短侧正文逐字在场),实测 ${JSON.stringify(f4cLine)}`,
+  )
+  // 人读点名的"半份名单"防线:改 slice 阈值只报第一对时,这条靠**逐对文案互不相同**咬住
+  ok(
+    new Set(f4cPairs.map((p) => f4cPairLine(p))).size === f4cPairs.length,
+    'F4c 每对文案必须互不相同(同名文案 ⇒ 人读面分不出是哪一对)',
+  )
+  // 机器面:走 buildJsonFace 那个**唯一出口**(不是另抄一份形状),把"名单被拆掉"这类变异钉住。
+  const f4cJson = buildJsonFace(f4cFace, clip)
+  ok(
+    Array.isArray(f4cJson.prefixNested) &&
+      f4cJson.prefixNested.length === f4cPairs.length &&
+      f4cJson.prefixNested.every(
+        (p) => p.key && p.short?.line && p.long?.line && p.short.raw && p.long.raw,
+      ),
+    `--json 的 prefixNested 名单必须逐对带 key/两侧行号与原文(删掉这段时本条读 0),实测 ${JSON.stringify(f4cJson.prefixNested)}`,
+  )
+  ok(
+    Array.isArray(f4cJson.settled) &&
+      Array.isArray(f4cJson.collisions) &&
+      Array.isArray(f4cJson.references) &&
+      Array.isArray(f4cJson.malformedMasquerade),
+    '机器面四份名单(判红/降档/引用图/畸形号)必须同形 —— 少一份就是那一档在机器面上失明',
+  )
+  // 人读面:走 `f4cHumanLine`(唯一出口)。这条钉住"逐条点名不许静默截断"——
+  //   slice 阈值从 5 改成 1 时,超出的那几对必须在文案里**说出来**(另 N 对见 --json),
+  //   悄悄只报第一对 = 半份名单(2026-10-07 变异验证第一版就是在这儿 ESCAPED 的)。
+  const f4cHuman = f4cHumanLine(f4cFace.prefixNested, f4cFace.counts, 5)
+  ok(
+    f4cHuman.includes('逐条点名(前 5 对)') && f4cHuman.includes(f4cPairs[0].key),
+    `F4c 人读文案必须标明本次点名了几对并点名首对,实测 ${JSON.stringify(f4cHuman)}`,
+  )
+  // "余量必须说出来"这条要用**真超过 head 的面**验(夹具只有 1 对 open 时 head=1 恰好不触发,
+  //   那时这条断言会绿得毫无意义 —— 断言必须落在它真的会响的地方)。
+  const f4cThreeOpen = [70, 71, 72].map((n) => {
+    const s = `- [ ] ${n}. 流式中切换模型 → 终止后自动带入新模型`
+    return [s, s + ' 〔【归并】重复登记副本(2026-10-07):同主键的另一条登记,派单以那条为准。〕']
+  }).flat()
+  const f4cBig = auditPlan(f4cThreeOpen.join('\n'))
+  const f4cHead1 = f4cHumanLine(f4cBig.prefixNested, f4cBig.counts, 1)
+  ok(
+    f4cBig.prefixNested.pairs.length === 3 &&
+      !f4cHead1.includes('前 5 对') &&
+      f4cHead1.includes('前 1 对') &&
+      f4cHead1.includes('另 2 对见 --json'),
+    `F4c 人读点名被收窄时必须把余量说出来(静默截断 = 报数不报名),实测 ${JSON.stringify(f4cHead1)}`,
+  )
+  // ⚠ 这条钉的是"head 参数**真的被尊重**":传 3 就得报 3 对。
+  //   变异"open.slice(0, head) → open.slice(0, 1)"(人读点名无视 head、少报)就是被它咬住的
+  //   —— 2026-10-07 第一版只钉了"余量话术在不在",那样子"只报 1 对"输出仍是合法文案 ⇒ 放过了。
+  const f4cHead3 = f4cHumanLine(f4cBig.prefixNested, f4cBig.counts, 3)
+  const f4cHead3Keys = [f4cBig.prefixNested.pairs[0].key, f4cBig.prefixNested.pairs[1].key, f4cBig.prefixNested.pairs[2].key]
+  ok(
+    f4cHead3.includes('前 3 对') &&
+      f4cHead3Keys.every((k) => f4cHead3.includes(k)) &&
+      !f4cHead3.includes('另 '),
+    `F4c 人读点名必须真的按 head 报满(传 3 报 3 对,一条不许少),实测 ${JSON.stringify(f4cHead3)}`,
+  )
+  ok(
+    f4cHumanLine(f4cBig.prefixNested, f4cBig.counts, 5).includes('前 5 对') &&
+      !f4cHumanLine(f4cBig.prefixNested, f4cBig.counts, 5).includes('另 '),
+    'F4c 名单短于 head 时不得打印"另 0 对"这类占位话',
+  )
+  // ⚠ done 档的人数必须被钉住:2026-10-07 变异验证第一版把它漏了,
+  //   变异"const done = f4c.pairs.filter(...) → []"(只报含活的那一半)因此 141/0 全绿放过。
+  ok(
+    f4cHuman.includes('整对都已勾选 1 对') &&
+      f4cHuman.includes('含未勾选行 1 对'),
+    `F4c 人读文案必须把"含未勾选行/整对已勾选"两档都报出来(只报含活的那一半 = 报数不报名),实测 ${JSON.stringify(f4cHuman)}`,
+  )
+  ok(
+    !f4cHuman.includes('undefined') && !f4cHuman.includes('[object Object]'),
+    'F4c 人读文案不得出现 undefined/[object Object](取错字段时的静默失效)',
+  )
+  ok(
+    f4cHumanLine({ pairs: [] }, { prefixNestedGroups: 0, prefixNestedPairs: 0 }).includes('量到了 0'),
+    'F4c 空面必须明写"量到了 0"而不是静默不打印这一行(报数不报名同族)',
+  )
+  ok(
+    !probe(f4cFace).some(([k]) => k === 'F4c'),
+    'F4c 绝不许进 probe 差值棘轮(存量 179 组 ⇒ 恒红门,§12e/§12f),这一条是结构性防线',
   )
   // 派单口径:未勾选 5 行(D99 副本 / D98 / D97 / D96 / D94 已认领),
   // 扣掉 F1 分叉行、F2 作废行与**带租约的 D94** ⇒ 只剩 D98 与 D96
@@ -1800,53 +2032,10 @@ function main() {
     return 0
   }
   if (o.json) {
-    console.log(
-      JSON.stringify(
-        {
-          face: LABEL[o.face],
-          counts: a.counts,
-          rows: a.rows,
-          composites: a.composites,
-          open: a.claimableRows.map((r) => ({ line: r.line, key: r.key, text: clip(r.raw, 160) })),
-          forks: a.forks.map((f) => ({
-            key: f.key,
-            done: f.done.map((r) => r.line),
-            open: f.open.map((r) => r.line),
-          })),
-          void: a.voidRows.map((r) => ({ line: r.line, text: clip(r.raw, 160) })),
-          pointers: a.rotated.map((r) => ({ line: r.line, target: r.target, reason: r.reason })),
-          // F9 逐组点名明细(存量只报数,但"报数"也得能报到是哪几个编号、被哪几个标题共用)
-          collisions: a.collisions.map((g) => ({
-            key: g.key,
-            titleCount: g.titleCount,
-            titles: g.titles.map((t) => ({ title: t.title, lines: t.lines })),
-          })),
-          // F9 引用图 / 畸形号两档(只报数,但必须逐条可定位 —— 判据挪出红路不等于事情消失)
-          references: (a.f9References ?? []).map((g) => ({
-            key: g.key,
-            titleCount: g.titleCount,
-            titles: g.titles.map((t) => ({ title: t.title, lines: t.lines })),
-          })),
-          malformedMasquerade: (a.f9MalformedMasquerade ?? []).map((m) => ({
-            key: m.key,
-            lines: m.lines,
-          })),
-          // F9 定级档(2026-10-06):"组内每一行都已勾选"而被降为只报数的撞号组,逐组在场。
-          // 上面 `collisions` 是判红面、这里是降档面,两者之和才是编号位口径的组总数 ——
-          // 只留一边就等于让"降档"在机器面上不可见(本仓"报数不报名"同族)。
-          settled: (a.f9Settled ?? []).map((g) => ({
-            key: g.key,
-            titleCount: g.titleCount,
-            titles: g.titles.map((t) => ({ title: t.title, lines: t.lines })),
-          })),
-          // 宽口径(窗口内任意命中)读数在 `counts.f9WideGroups`,名单本身不进 json:
-          // 它是诊断量,任何判据都不吃它 —— 喂给判据的只有上面的 collisions(声明位)与
-          // 下面两档(引用图 / 畸形号),它们各自的名单都已逐条在场。
-        },
-        null,
-        2,
-      ),
-    )
+    // 机器面一律经 `buildJsonFace`(唯一出口):此前这段是 `main()` 里的内联字面量 ⇒ selfTest
+    // 够不着 ⇒ "把 prefixNested 名单整段删掉"这种变异全绿放过(2026-10-07 变异验证实测 ESCAPED)。
+    // 两处各写一遍输出面必然漂移,而漂开时账面看起来是同一份 json。
+    console.log(JSON.stringify(buildJsonFace({ ...a, __face: o.face }, clip), null, 2))
     return 0
   }
   if (o.open) {
