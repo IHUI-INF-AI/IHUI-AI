@@ -439,7 +439,39 @@ export function compositeKeyOf(line) {
   return `${key}#${title}`
 }
 
-/** F1:按复合主键聚合并挑出两态并存的组。 */
+/**
+ * F1:按复合主键聚合并挑出两态并存的组。
+ *
+ * **G-1058623(2026-10-06 修正)——「两态并存」的 open 侧必须先剔掉归并副本行。**
+ *
+ * 病灶(现读实测,非推理):F1 只做`compositeKeyOf` 分组,进了 `open` 桶的行使**无条件**
+ * 参与混态判定 ⇒ 同一个注记在 F4 里是"已归并、别再派单",在 F1 里等于不存在。
+ * 真语料现读 2 组里,未勾选行**13 条带 `【归并】重复登记副本` 注记**(归并器已正确标注过的
+ * 副本)、只有 1 条不带(那是持有行,见下)。
+ *
+ * **为什么这不是纯洁癖 —— 它会写坏台账(这是本条真正紧急的理由)**:
+ * `plan-tasks-merge.mjs:544` 是 F1 的自愈写路径,`:605` 随后对**每一条 F1 命中的 open 行**
+ * 真把复选框翻成 `[x]`。于是今天的 `--heal --commit` 会把 `O19b#剩余4列故意不并` 的
+ * **持有行 L10710 翻成已完成** —— 而那一行的未勾选是**真状态**:
+ * 它同主键的 done 行 L1432 自己写着"列+GIN 下线立迁移票 G-1058625",
+ * 即同主键下**还有一张新开的活票**。翻它= 把未完成登记成已完成,并丢掉那张活票的指针。
+ * ⇒ 这不是"假红",是**自动替人做决定**。
+ *
+ * **档 A 的边界(刻意只做这一半,不做"剩下持有行也剔")**:
+ * 剔完副本行后 `forks` 现读是 **1 组**(O19b 剩 L10710),**不是 0** ——
+ * 因为持有行"是否真还有活"是**正文语义,行级判据判不了**。这一格必须由人裁。
+ * 票面明令不得连持有行一起剔(§12e 削判据):那会把真状态一并放过。
+ *
+ * **为什么不动 `groups`/`dupOpen`/`dupDone`**:`forks`/`dupOpen`/`dupDone` 三者由**同一个 `all`**
+ * 派生。若在分组阶段 `continue` 掉带注记行,`dupOpen` 会被连带腰斩 ——
+ * 实测 `counts.dupOpenGroups` 会从 **213 变成 1**,而 `dupOpenCopies` 判红用的那个数不变。
+ * 那就不是修 F1,是**悄悄把 F4 的报数档关了**(本仓踩过的坑:报数在、判据瞎)。
+ * 故本判据**只在 `forks` 的派生处**做过滤,`groups`/`dupOpen`/`dupDone` 一律原样返回。
+ *
+ * 反向防线:某主键**唯一**的 open 行带注记时,该组剔完就没有 open 了⇒ 自然退出 F1,
+ * 不会被"带注记"三个字静默放过(这与 `planPrefixNestedPointer` 的"holder 自身不带注记"
+ * 口径一致,:670/:684/:686)。
+ */
 export function findForks(content) {
   const groups = new Map()
   for (const r of parseTaskRows(content)) {
@@ -449,9 +481,11 @@ export function findForks(content) {
     groups.get(k)[r.state].push(r)
   }
   const all = [...groups.values()]
+  // 与 F4(`findDupOpenCopies`:472)同形的剔副本口径 —— **同一件事只在一个地方判**。
+  const liveOpenOf = (g) => g.open.filter((r) => !DUP_POINTER_RE.test(r.raw))
   return {
     groups: all,
-    forks: all.filter((g) => g.open.length > 0 && g.done.length > 0),
+    forks: all.filter((g) => liveOpenOf(g).length > 0 && g.done.length > 0),
     dupOpen: all.filter((g) => g.open.length > 1),
     dupDone: all.filter((g) => g.done.length > 1),
   }
@@ -1625,7 +1659,11 @@ export function auditPlan(content, { archivedKeys = null } = {}) {
         : null
   }
   const openRows = rows.filter((r) => r.state === 'open')
-  const forkOpenLines = new Set(forks.flatMap((g) => g.open.map((r) => r.line)))
+  // G-1058623:与 `findForks` 判据**同口径** —— 只取剔掉归并副本后的存活 open 行。
+  // 改前取 `g.open` 全量,于是 12 条已被归并器正确标注的副本行也顶上了"F1 分叉行"身份,
+  // 被`isClaimable` 从派单口径里剔除 —— 与它下面那道独立的 `!DUP_POINTER_RE` 判据重复。
+  // 两道判据同口径后,剔除只发生一次、且理由唯一(不是"既是副本又是分叉")。
+  const forkOpenLines = new Set(forks.flatMap((g) => g.open.filter((r) => !DUP_POINTER_RE.test(r.raw)).map((r) => r.line)))
   const voidLines = new Set(voidRows.map((r) => r.line))
   // "真·无人认领"必须**同时**扣掉带租约的行 —— 第一版没扣,于是 146 条"无人认领"里
   // 混着 44 条别人已认领的活(门 109 的租约形 `（进行中@日期/持有者）` 与裸标记都算)。
