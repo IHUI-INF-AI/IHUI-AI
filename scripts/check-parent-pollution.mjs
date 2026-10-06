@@ -41,7 +41,7 @@ import { readFileSync, existsSync, readdirSync, unlinkSync, statSync } from 'nod
 import * as os from 'node:os'
 import { execSync } from 'node:child_process'
 import { join, resolve, relative, dirname, basename, extname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createLogger } from './lib/logger.mjs'
 import { isRootLinkedWorktree } from './lib/worktree.mjs'
 
@@ -322,6 +322,10 @@ function matchesAgentFilenamePattern(filename) {
   return AGENT_FILENAME_PATTERNS.some((p) => p.test(filename))
 }
 
+// 双信号判定的两个分量(§22c:判据只写一份 —— 镜像测试经 __test__ 调用它,不得再抄一遍清单)
+const hasProjectRefSignal = (content) => PROJECT_REF_PATTERNS.some((p) => p.test(content))
+const hasAgentOpSignal = (content) => AGENT_OP_TRACES.some((p) => p.test(content))
+
 function scanFileContent(filePath) {
   let content
   try {
@@ -335,10 +339,11 @@ function scanFileContent(filePath) {
     content = content.slice(0, 50 * 1024)
   }
 
-  const hasProjectRef = PROJECT_REF_PATTERNS.some((p) => p.test(content))
-  const hasAgentOp = AGENT_OP_TRACES.some((p) => p.test(content))
-
-  return { hasProjectRef, hasAgentOp, content }
+  return {
+    hasProjectRef: hasProjectRefSignal(content),
+    hasAgentOp: hasAgentOpSignal(content),
+    content,
+  }
 }
 
 function findPollution(dir, recursive = false, depth = 0) {
@@ -517,5 +522,19 @@ function main() {
   process.exit(1)
 }
 
-main()
+// §22d:CLI 直接执行才跑主流程(主流程要扫盘,有副作用);被镜像测试 import 时不得触发扫描。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) main()
+
+// §22c:镜像测试经此导出口裁定判据 —— 清单与判定在本门体只写一份(守门 191 命中项收口)。
+export const __test__ = {
+  SUSPICIOUS_EXTS,
+  CREDENTIAL_DIR_NAMES,
+  BACKUP_DIR_NAMES,
+  BACKUP_DIR_PREFIXES,
+  isBackupDataDir,
+  isUserLegit,
+  matchesAgentFilenamePattern,
+  contentTriggers: (content) => hasProjectRefSignal(content) && hasAgentOpSignal(content),
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
