@@ -35,7 +35,9 @@
 | Bitcoin             | BTC (Native SegWit) | `bc1q3q4ffds36kmmz7x8q0ynuvh70hmfaf08sh3e0y` |
 | Ethereum            | ETH                 | `0x66e0101c41aed519b309faead5d3778091a8ab09` |
 | USDT (TRC20) ⭐推荐 | Tron(手续费 ~$1)    | `TMtTpPEMduWurHLi6Fe8XjfcP5Y5AMMnbG`         |
-| USDT (ERC20)        | ETH                 | `0x66e0101c41aed519b309faead5d3778091a8ab09` |
+| USDT (ERC20)        | ETH                 | `0x26e359a5c69cf903d8709a286f5fd2d7554579dd` |
+
+> 2026-10-06 更新:USDT (ERC20) 收款地址收敛为 env `USDT_ERC20_ADDRESS` 权威值(上表已同步);原 `0x66e0101c…ab09` 链上历史仍可查。
 
 私钥已离线保管,公开地址可立即接收全球转账。
 
