@@ -32,14 +32,41 @@
  *    ⇒ 落「未判定」并点名。这不是偷懒,是拒绝在门里补一份"哪个档更宽"的手抄结论。
  *  · 集合推导不出来 ⇒ 判「未判定」并点名原因,绝不记为通过(--strict 下 exit 2)。
  *
+ * G-816027 补账(2026-10-05 现读 7 处未判定的逐条定性,结论写在这里以便下次复跑对得上):
+ *  · (b) 正当形态 1 处 —— `apps/cli/src/commands/agent.ts:2961` `stopReasonToExitCode()` 的
+ *    `default: return 1`:兜底值是**数字**退出码,而本门四份词表全部由字符串字面量推导,
+ *    数字在集合构造上不可能被含进;该槽位(switch 主表达式 `reason`)也不踩权限轴。
+ *    ⇒ 判据里给了这条绿路(见 `classify()` 内注释),它从"未判定"移到"放过(带理由)"。
+ *    边界一并钉死:权限轴槽位上的数字兜底(`switch (permissionMode) { default: return 0 }`)
+ *    仍是未判定 —— 那要读消费方才知道 0 是宽是严(成对锁 ES29)。
+ *  · (c) 判不出 6 处 —— 形态都已经被认到,缺的是"这一处的档名是不是那个它"之外的知识,
+ *    而且它不在本门的判据形状里(本门只答"缺席取到的那个值是不是宽档"):
+ *      ① `permission_mode.py:361` `or "build"`(ChatMode 轴两极:工具轴全开 / 审批轴不放宽);
+ *      ② `agent.ts:2271` `?? 'read'`(dangerLevel 词表声明在 `tools/index.ts:156`,射程外;
+ *        而真正的宽严住在 `tools/permissions.ts` 的 mode 矩阵里 —— "取最窄档名 ⇒ 消费方给免批"
+ *        这一条不在本门的形状里,补它要把消费方读进来,属另一型 ⇒ 留未判定,不代主会话落槌);
+ *      ③ `agent.ts:1575` `?? 'auto'`(需要 `Settings.nativeFunctionCalling` 的声明类型,射程外);
+ *      ④ `precedence.ts:212` `?? 'none'`(隔离轴 'none'=从不隔离最宽,与工具轴 'none' 同名反极);
+ *      ⑤ `worker-entry.ts:197` `?? 'default'`(modelId 是路由键,词表在别的包);
+ *      ⑥ `permission-mode.ts:150` `?? 'unknown'`(展示层哨兵,要读它的消费方才知道会不会被当档用)。
+ *    六处一律保留未判定并逐条点名;`--strict` 因此仍出 exit 2。**没有**为了归零去猜档名或塞白名单。
+ *  · (a) 判据盲区:7 处未判定本身都不是形态盲区(它们全是已认到的 `??` / `default:` 写法)。
+ *    但形态盲区确实存在,只是它不体现在未判定计数里(**没入候选的站点根本不计数**):
+ *    解构默认值、JS 形参默认值、Python `def` 形参默认值这三型 HEAD 面 0 落点、全仓 958 个产品文件
+ *    仅 5 处正当写法(实测见探针),旧版一条都不认 ⇒ 本次一并补锚(形态②b)+ 成对自检 ES21–ES27。
+ *    仍**未**补的两型如实登记:三元 else 支(`cfg ? cfg.mode : '宽档'` —— 条件是不是"在场测试"要读
+ *    上半句才能知道,收进来必带假红)与 `Object.assign` 默认对象(方向决定语义,写反了就不是缺席)。
+ *
  * 与既有门的分工(不得重叠计账,守门 83 那格写过:同一处两门各计一次会让两份基线互相顶掉):
  *  · `scripts/check-credential-presence-bypass.mjs`(G-459)判的是**按凭据在场即放行**
  *    —— 形态是 `if (request.headers['x-…']) return`,条件里带凭据引用 + 体是裸 return;
  *  · `scripts/check-gate-presence-exemption.mjs` 判的是**按门/开关在场即豁免**;
  *  · 本门判的是**按枚举缺席即取档** —— 形态必须带 `default:` / `case _:` / `?? | \|\| | or |
- *    .get(k, 值)` 的兜底槽位。两族在语法形态上互斥(凭据门那一族没有兜底字面量,本门不认
- *    裸 `if (x) return`),故同一站点不会被两门各记一次;反向锁在 `--self-test` ES9 与镜像
- *    测试 M5 里钉着,不靠人记得。
+ *    .get(k, 值)` 的兜底槽位,或"只在没给参数时才生效"的解构/形参默认值(G-816027 补的形态②b)。
+ *    两族在语法形态上互斥(凭据门那一族没有兜底字面量,本门不认
+ *    裸 `if (x) return`),故同一站点不会被两门各记一次;反向锁在 `--self-test` ES11/ES27 与镜像
+ *    测试 T12 里钉着,不靠人记得(G-816027 交付时另跑了双向站点比对:另两门在本门射程内 0 站点,
+ *    本门 11 处候选与它们交集为空)。
  *
  * 口径同 70/77/83/98/101/103/118/135/150:全量档判 **HEAD blob**、`--staged` 判**索引 blob**、
  * `--worktree` 仅人工逃生舱、两面旗同给判死、取不到判「无法判定」且**不回落**另一个面、
@@ -339,13 +366,6 @@ export function classify(expr, slotText, u, keyText = '') {
   // 判序要紧:`throw new Error('unknown permissionMode')` 里也有字符串 —— 先认"显式抛错"这一支,
   // 否则门会把自己的合法出口读成兜底字面量(成对自检 ES2 钉的就是这条)。
   if (/^\s*(?:throw|raise)\b/.test(body)) return { kind: 'green', why: '显式抛错,不静默取档' }
-  const lit = stringLiteralOf(body)
-  if (lit === null) {
-    return {
-      kind: 'undetermined',
-      why: `兜底值 ${expr.trim().slice(0, 40) || '(空)'} 不是档名字面量(变量/表达式),无法证明它不落在宽档集合`,
-    }
-  }
   /**
    * 槽位一致性:档名会跨词表撞名(实测 `'auto'` 既是 acceptEdits 的历史别名拼写,也是
    * `settings.nativeFunctionCalling ?? 'auto'` 的原生 FC 三态档;`'none'` 既是工具轴也是隔离档)。
@@ -355,6 +375,30 @@ export function classify(expr, slotText, u, keyText = '') {
    */
   const slotKey = keyText || slotText
   const axisHit = [...tokensOf(slotKey)].some((t) => u.axisTokens.has(t))
+  /**
+   * G-816027 定性第 (b) 类(正当形态)的落槌处:HEAD 面 7 处未判定里,
+   * `apps/cli/src/commands/agent.ts:2961` 的 `stopReasonToExitCode()` 里 `default: return 1`
+   * 是**这一档**。为什么它不属本型(写在判据旁边而不是只写在报告里):
+   *  · 本门的四份词表(wide / narrow / classes / chat)全部由**字符串字面量**现读推导 ——
+   *    纯数字字面量在集合构造上就不可能被含进任何一份,这不是"猜它不是档",是推导器给的界;
+   *  · 该处"缺席"取的是**退出码**(给 CI/脚本读的返回值),与展示名/颜色/排序键同族,
+   *    它放大或收窄的不是权限,是"这次运行算不算失败"。
+   * 只在槽位**没踩到权限轴**(axisHit 为假)时这样放过:`switch (permissionMode) { default: return 0 }`
+   * 那一型("消费方把 0 读成允许")仍落未判定 —— 要读消费方才知道 0 是宽是严,不在本门射程。
+   * 收窄的是这一处的形态,不是宽严判据本身:默认返回宽档仍是红(ES1/ES29 成对钉着)。
+   */
+  if (!axisHit && /^\s*-?\d[\d_]*\s*$/.test(body))
+    return {
+      kind: 'green',
+      why: `兜底值 ${body.trim()} 是数字字面量(退出码/计数一类的数值),不可能落在任何由字符串档名推导出的集合里;且槽位(${clip(slotKey, 40)})未踩权限轴 ⇒ 该处"缺席"取的不是档,不属本型`,
+    }
+  const lit = stringLiteralOf(body)
+  if (lit === null) {
+    return {
+      kind: 'undetermined',
+      why: `兜底值 ${expr.trim().slice(0, 40) || '(空)'} 不是档名字面量(变量/表达式),无法证明它不落在宽档集合`,
+    }
+  }
   if (u.wide.has(lit)) {
     if (!axisHit)
       return {
@@ -580,6 +624,60 @@ export function scanSource(rel, src, u) {
       // 但集合推不出时**这道收窄本身不可信**(词表是残缺的)⇒ 一律入候选,由 classify 落未判定。
       if (u.ok && !(tierShaped && mentionsSlot) && !isTierName) continue
       push(m.index, `'${lit}'`, slot, lang === 'py' ? 'py-fallback' : 'js-fallback', keyText)
+    }
+  }
+
+  /**
+   * 形态②b(G-816027 补的三道锚):兜底值写在**只有"没给参数"才生效**的语法位上 ——
+   *  · JS 解构默认值 `const { permissionMode = '宽档' } = ctx`
+   *  · JS 形参默认值 `function f(permissionMode = '宽档')` / `(a, mode = '宽档') =>` / 方法签名
+   *  · Python def 形参默认值 `def resolve(permission_mode="宽档")`
+   * 这三型此前**整型隐身**(票面把它们列为"判据盲区"要点名的形态;实测:HEAD 面 12 文件 0 落点,
+   * 全仓 958 个产品文件里该写法有 5 处正当样本,一条都没被读过)。
+   * 为什么按语法位置收、而不是按整行 `name = '值'` 收:普通赋值(`mode = 'auto'`)与关键字实参
+   * (`dict(permission_mode="auto")`)都是**无条件写死**,不是"缺席即取档",收进来就是把别的判据的
+   * 地盘扫成本型 ⇒ 假红。签名与调用的区分靠收尾:JS 只认 `) [返回类型] {` 或 `) =>`(调用点的 `)`
+   * 后面紧跟 `;`/`,`/`)`,进不来),Python 只认 `def …(…):`(含 `-> 注:` 形态)。
+   * 入队过滤与形态②共用同一条(档形字面量 + 槽位提到注册表词,或本身就是档名),
+   * 遮噪与行号也走同一套偏移判定 ⇒ 新锚不引入第二把尺子。
+   */
+  const defShapes =
+    lang === 'py'
+      ? [/\b(?:async\s+)?def\s+[\w$]+\s*\(([^()]*)\)\s*(?:->[^:\n]{0,80})?:/g]
+      : [
+          /\{([^{}]*)\}\s*=\s*(?=[A-Za-z_$([])/g,
+          /\(([^()]*)\)\s*(?::[^(){};=]{0,80})?\s*(?:\{|=>)/g,
+        ]
+  const anchored = new Set()
+  for (const re of defShapes) {
+    for (const m of src.matchAll(re)) {
+      const grp = m[1]
+      if (!grp) continue
+      const gStart = m.index + m[0].indexOf(grp)
+      for (const d of grp.matchAll(/(?:^|[{,(])\s*([A-Za-z_$][\w$]*)\s*=\s*(['"])((?:(?!\2)[^\\]|\\.)*)\2/g)) {
+        const off = gStart + d.index + d[0].indexOf(d[2])
+        // 遮噪判定取**等号那一位**,不取引号那一位:maskedSpans 的串区间含引号本身,
+        // 拿引号位去问 isCode 会把自己刚认出来的合法形态判成"写在串里"(ES21 第一版就栽在这)。
+        const codeProbe = gStart + d.index + d[0].indexOf('=')
+        if (!isCode(codeProbe)) continue
+        if (anchored.has(off)) continue
+        anchored.add(off)
+        const lit = d[3]
+        const keyText = d[1]
+        const slot = `${slotTextFor(src, starts, codeProbe)} ${keyText}=`
+        const uTokens = u.nameTokens
+        let mentionsSlot = false
+        for (const t of tokensOf(slot))
+          if (uTokens.has(t)) {
+            mentionsSlot = true
+            break
+          }
+        const isTierName =
+          u.wide.has(lit) || u.narrow.has(lit) || u.classes.has(lit) || u.chat.has(lit)
+        const tierShaped = /^[A-Za-z][\w.:-]{0,48}$/.test(lit)
+        if (u.ok && !(tierShaped && mentionsSlot) && !isTierName) continue
+        push(off, `'${lit}'`, slot, 'default-param', keyText)
+      }
     }
   }
   return out
@@ -824,6 +922,33 @@ export function selfTest(root = ROOT) {
     String(analyze).includes('...files, ...REGISTRY_FILES'),
     ' analyze() 里找不到"注册表总是进批次"这一句',
   )
+  // ES21–ES26:G-816027 补的"缺席才生效"三道锚(解构默认值 / JS 形参默认值 / Python def 形参默认值)。
+  // 成对方向都各给正反两例:新锚必须咬住推导出的宽档,同形的正当写法必须一条不收。
+  const dParam = `function f(permissionMode = '${WIDE}') {\n  return permissionMode\n}`
+  t('ES21 JS 形参默认值落宽档必须判红(旧版整型隐身)', reds(s(dParam)).length === 1, JSON.stringify(s(dParam)))
+  const dArrow = `const g = (a, permissionMode = '${WIDE}') => a + permissionMode`
+  t('ES22 箭头形参默认值同锚必须命中(不只在 function 形态上有牙)', reds(s(dArrow)).length === 1, JSON.stringify(s(dArrow)))
+  const dDestruct = `const { permissionMode = '${WIDE}' } = ctx`
+  t('ES23 解构默认值落宽档必须判红', reds(s(dDestruct)).length === 1, JSON.stringify(s(dDestruct)))
+  const dPyDef = `def resolve(permission_mode="${WIDE}"):\n    return permission_mode\n`
+  t('ES24 Python def 形参默认值落宽档必须判红', reds(s(dPyDef, 'py')).length === 1, JSON.stringify(s(dPyDef, 'py')))
+  // 逐字取自全仓实测的 5 处正当写法(形参默认值写死 host/包名/展示串),它们都不是枚举档 ⇒ 一条不得入候选
+  const legitDef = `function openBrowser(host = '127.0.0.1', errorType = 'unknown') {\n  return host\n}\nconst label = (packageName = '@ihui/cli') => packageName\n`
+  t('ES25 成对:同形但兜底不是档名的形参默认值不得入候选(正当样本不被扫进)', s(legitDef).length === 0, JSON.stringify(s(legitDef)))
+  const legitDestruct = `const { permissionMode = '${NARROW}' } = ctx`
+  t('ES26 成对:解构默认值落非免批档 ⇒ 放过(既不得冒红也不得整条消失)', s(legitDestruct).length === 1 && s(legitDestruct)[0].kind === 'green', JSON.stringify(s(legitDestruct)))
+  // 无条件写死不是"缺席即取档":关键字实参必须留在门外(否则本门侵占别的判据地盘并造出假红)
+  const kwArg = `def build():\n    return dict(permission_mode="${WIDE}")\n`
+  t('ES27 成对:Python 关键字实参(无条件写死)不属本型,不得入候选', s(kwArg, 'py').length === 0, JSON.stringify(s(kwArg, 'py')))
+  // ES28–ES30:G-816027 定性 (b) —— `default: return 1` 这一档从"未判定"移到"放过"。
+  // 夹具逐字取自 HEAD:apps/cli/src/commands/agent.ts:2940-2964(stopReasonToExitCode)。
+  const exitCode = `export function stopReasonToExitCode(reason: AgentStopReason): number {\n  switch (reason) {\n    case 'error':\n      return 1;\n    default:\n      return 1;\n  }\n}`
+  const rExit = s(exitCode)
+  t('ES28 数字兜底且槽位不踩权限轴 ⇒ 放过(退出码不是档)', rExit.length === 1 && rExit[0].kind === 'green', JSON.stringify(rExit))
+  const rAxisNum = s(sw('return 0;'))
+  t('ES29 成对:同一数字兜底写在权限轴槽位上仍落未判定(不得把"数字"当成一律干净)', rAxisNum.length === 1 && unds(rAxisNum).length === 1, JSON.stringify(rAxisNum))
+  const rAxisWide = s(sw(`return '${WIDE}';`))
+  t('ES30 成对:加了数字这条绿路之后,default 返回宽档依旧是红(判据没被放宽)', reds(rAxisWide).length === 1, JSON.stringify(rAxisWide))
   return { pass, fail, fatal: false, live: a }
 }
 

@@ -275,7 +275,9 @@ export function analyzeInputs(inputs) {
       continue
     }
     // 离线包只要求覆盖**已被该端消费的** display key;D83 的 MCP 三层表目前无人消费
-    // (apps 接线属后续票),故此处刻意不掺入 mcpKeys —— 掺了就是把"尚未接线的表"当成
+    // (apps 接线属后续票),故此处刻意不掺入 mcpKeys —— 掺了就是把"D83 MCP 三层表尚未被
+    // apps 端消费"当成 // 本票的落点债。⚠️ 指代纪律: 这说的是**那张表的消费状态**,
+    //   不是本门自身的接线态(本门早已装车); 措辞含"尚未接线"四字极易被误读成本门未接链。
     // 本票的落点债,而落点债由守门 74 的 W5 notice 如实报数,不该由这道门硬拦。
     for (const key of displayKeys) check(`taro-gen/${lang}`, bundle[lang].taskStatus ?? {}, key)
   }
