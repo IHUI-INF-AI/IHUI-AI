@@ -106,6 +106,19 @@ describe('权限决策徽章端接线证据(miniapp-taro 源码)', () => {
   const stripFormat = (src: string): string =>
     src.replace(/,*(\s*[)\]])/g, '$1').replace(/\s+/g, '')
 
+  /**
+   * 这条判据要钉的是**调用形状**,不是第一个实参叫什么名字。
+   * `t(key, params)` 根本没有 locale 形参 —— 当前语言由 I18nProvider 同步到模块级
+   * `currentLocale`(见 index.tsx 里那段注释)。上一版把标识符逐字写成 `locale`,于是
+   * 2026-10-06 那次"离线语言包改按需拉取"(枚 6e9a5555e8)把 t() 改成读 `currentLocale`
+   * (语义一字未变)时,这条断言判红,而它红在**已入库**面上 ⇒ 全队唯一 required 门被一次
+   * 排版级重构堵住。假红的代价从来不是"多一行红",是所有人的交付。
+   * 放宽的只有"标识符是谁";`fallback: zhCNMessages` 与 `params` 两档一档不松,
+   * 并由下面那两条构造面成对自证(摘掉 fallback 必读红,换标识符不得读红)。
+   */
+  const T_CALL_SHAPE =
+    /translate\(getMessages\([A-Za-z_$][\w$]*\),key,\{fallback:zhCNMessages,params\}\)/
+
   it('组件从 @ihui/shared 引 permissionDecisionWord,并以 stepDecision 命名空间取词', () => {
     expect(/import\s*{[^}]*permissionDecisionWord[^}]*}\s*from\s*'@ihui\/shared'/.test(panel)).toBe(
       true,
@@ -126,9 +139,24 @@ describe('权限决策徽章端接线证据(miniapp-taro 源码)', () => {
     expect(stripFormat(i18nEntry)).toContain(
       stripFormat('mergeMessages(sharedZhCN as Messages, miniappZhCN as Messages)'),
     )
-    expect(stripFormat(i18nEntry)).toContain(
-      stripFormat('translate(getMessages(locale), key, { fallback: zhCNMessages, params })'),
-    )
+    expect(stripFormat(i18nEntry)).toMatch(T_CALL_SHAPE)
+    // 成对自证(变异对照,不靠人记得去改源码):同一形状只换标识符 ⇒ 必须仍匹配;
+    // 少了 `fallback: zhCNMessages` 那一档 ⇒ 必须不匹配。两条同时成立才叫"放宽的是标识符,
+    // 不是判据本身"。cond 一律是已求值布尔,不得把箭头函数当条件传(§守门速查那条恒绿断言同型)。
+    expect(
+      T_CALL_SHAPE.test(
+        stripFormat(
+          'function t(k){ return translate(getMessages(anyName), key, { fallback: zhCNMessages, params }) }',
+        ),
+      ),
+    ).toBe(true)
+    expect(
+      T_CALL_SHAPE.test(
+        stripFormat(
+          'function t(k){ return translate(getMessages(currentLocale), key, { params }) }',
+        ),
+      ),
+    ).toBe(false)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
