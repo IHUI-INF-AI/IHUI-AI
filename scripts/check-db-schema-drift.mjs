@@ -29,6 +29,7 @@
  */
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 const ROOT = process.cwd()
 const SCHEMA_DIR = join(ROOT, 'packages/database/src/schema')
@@ -213,9 +214,10 @@ function scanMigrations() {
   return { finalTables, createdTables, droppedTables, files }
 }
 
-function main() {
+// 退出码一律走 main() 返回值,由文件末尾的 §22d 入口守卫统一 process.exit。
+async function main() {
   if (process.argv.includes('--self-test')) {
-    selfTest()
+    return selfTest()
   }
 
   // 运行时权威优先: dist 存在且新鲜时用真实 pgTable 符号,否则回退文本解析
@@ -423,15 +425,15 @@ function main() {
     console.log(
       `${C.red}${C.bold}❌ 无法判定:可做列级对照的表为 0(schema 目录或 migration 目录缺失/为空?)${C.reset}`,
     )
-    process.exit(2)
+    return 2
   }
 
   if (hasError) {
     console.log(`${C.red}${C.bold}❌ schema drift check 失败${C.reset}`)
-    process.exit(1)
+    return 1
   }
   console.log(`${C.green}${C.bold}✅ schema drift check 通过${C.reset}`)
-  process.exit(0)
+  return 0
 }
 
 // ───────────────── 字段级尺子(列出处对照) ─────────────────
@@ -655,11 +657,40 @@ function selfTest() {
   }
   if (failed.length > 0) {
     console.log(`${C.red}${C.bold}❌ self-test 失败 ${failed.length}/${cases.length}${C.reset}`)
-    process.exit(1)
+    return 1
   }
   console.log(`${C.green}${C.bold}✅ self-test 通过 ${cases.length}/${cases.length}${C.reset}`)
-  process.exit(0)
+  return 0
 }
 
-main()
+// ── §22d 入口守卫:被 import 时零副作用,CLI 直跑才执行 main() ───────────────
+// 用 pathToFileURL 归一(本机 Windows argv[1] 是反斜杠盘符路径,手写 'file:///'+ 永不匹配)
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main()
+    .then((code) => {
+      if (code !== 0) process.exit(code)
+    })
+    .catch((e) => {
+      console.error(`❌ check-db-schema-drift 脚本执行异常:`, e?.message ?? e)
+      console.error(e?.stack ?? '(no stack)')
+      process.exit(2)
+    })
+}
+
+// 判据单元出口(§22c 唯一真源):镜像测试 import 这份,不得再自抄解析器/白名单
+export const __test__ = {
+  SCHEMA_DIR,
+  MIGRATIONS_DIR,
+  DEAD_MIGRATION_WHITELIST,
+  DRIZZLE_COLUMN_TYPES,
+  COLUMN_RE_SRC,
+  NON_COLUMN_LEADS,
+  parseTsSchemaTables,
+  scanMigrations,
+  extractTsColumnsFromSource,
+  findCallEnd,
+  extractColumnProvenanceFromSql,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
