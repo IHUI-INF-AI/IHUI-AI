@@ -23,10 +23,11 @@
 //
 // 行内豁免:无(不允许)。P1/P2/P3 都是"两份实现是否同形"的硬事实,豁免即失明。
 //
-// ⚠️ 接线状态:本文件**尚未**接进 scripts/guardian-runner.mjs / package.json / CI
-//    (注册由主会话单写完成)。镜像测试 scripts/tests/check-doom-loop-parity.test.mjs
-//    的 T1 钉住"未注册时不得被判定为已装车"。应急跳过环境变量预留为
-//    HUSKY_SKIP_DOOM_LOOP_PARITY(注册时由主会话写进 runner 条目的 skipEnv)。
+// 【接线状态:已接入】注册条目已落在 scripts/guardian-runner.mjs(id 以 runner 现值为准,
+//    勿照抄本行数字):blocking + skipEnv:HUSKY_SKIP_DOOM_LOOP_PARITY,带 stagedTriggers。
+//    镜像测试 scripts/tests/check-doom-loop-parity.test.mjs 的 T1 已随接线翻转成"注册后必须成套"。
+// —— 本段原写"尚未接进 runner / package.json / CI,注册由主会话单写,skipEnv 预留待写入",
+// 那是立项时的实况,已过期;立论(T1 钉住"未注册不得被读成已装车"这个方向)保留。
 
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
