@@ -2478,7 +2478,7 @@ const USAGE = `用法: node scripts/${GATE}.mjs [--staged|--worktree] [--strict]
   只报数不判红(现读惯例存量,写在结论行):布尔 ack(五键按键分组现读,无写链的那一半)与读查询 \`count: X.length\`;--explain 逐条点名
   六条判据的存量都按「该文件 HEAD 自身同判据计数」差值棘轮:全量档只报数(恒红门=逼人 --no-verify,§12e),
   提交链档与 --strict 才问责(B4/B5 例外:全量档含 --strict 都只报数,只拦新增)。
-  紧急跳过(接入提交链后):${SELF_SKIP}=1`
+  紧急跳过:${SELF_SKIP}=1`
 
 function main(argv) {
   if (argv.includes('--help') || argv.includes('-h')) return void console.log(USAGE)

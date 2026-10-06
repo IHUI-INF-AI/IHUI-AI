@@ -17,8 +17,11 @@
  * 应同步演进本门而不是绕过它。
  *
  * 用法: node scripts/check-upload-budget.mjs [--self-test]
- * 本脚本刻意**不接提交链**(guardian-runner / package.json scripts / .husky 均不归本脚本改),
- * 接链由守门持有人统一做(AGENTS §12f)。
+ * 【接线状态:已接入】注册条目已落在 scripts/guardian-runner.mjs(id 以 runner 现值为准,
+ * 勿照抄本行数字):blocking + skipEnv:HUSKY_SKIP_UPLOAD_BUDGET,无 stagedTriggers。
+ * —— 本段原写"本脚本刻意不接提交链(guardian-runner / package.json scripts / .husky 均不归
+ * 本脚本改),接链由守门持有人统一做(AGENTS §12f)",那是立项时的实况,已过期(门早已装车);
+ * 分工边界保留,接线事实按上条现读改写。
  */
 import { readFileSync } from 'node:fs'
 import path from 'node:path'

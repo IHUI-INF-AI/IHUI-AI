@@ -311,6 +311,10 @@ const checks = [
     script: 'check-input-border-var.mjs',
     args: [],
     mode: 'blocking',
+    // 2026-10-03 立:门体此前**没有**任何逃生舱(脚本也不读跳过变量)。本门属"读 HEAD 面"的一族,
+    // 批量跑 24–30 分钟期间并发会话推进 main ⇒ 拿过期基线报红(逐门单独复跑是绿的),
+    // 而没有逃生舱就只剩 --no-verify 一条路 —— 那是最后手段,不该是唯一手段。
+    skipEnv: 'HUSKY_SKIP_INPUT_BORDER_VAR',
   },
   {
     id: '18',
@@ -445,6 +449,10 @@ const checks = [
     script: 'check-commit-loss-guard.mjs',
     args: ['--blocking', '--filter-stash'],
     mode: 'blocking',
+    // 2026-10-03 补齐:门体头注一直写着 `HUSKY_SKIP_COMMIT_LOSS_CHECK`,但 runner 从未声明该字段
+    // ⇒ 那是**假逃生舱**(设了毫无效果,只会逼人改用 --no-verify 连带废掉全部门)。
+    // 照 TAGSVIEW_GUARD 的同一处修法补这一行即让承诺成真(runner 的分发循环统一 honors skipEnv)。
+    skipEnv: 'HUSKY_SKIP_COMMIT_LOSS_CHECK',
     onFailHint: [
       '',
       '  💡 若上表是"仅远端 tag"或 origin 变 [gone],通常是宿主清理嵌套 ref 导致的抖动,',
@@ -779,6 +787,70 @@ const checks = [
     args: ['zh-TW', '--target=shared'],
     mode: 'blocking',
   },
+  // --- 2026-10-05 补:zh-TW / ko 的**分面射程** —— 此前这两个 blocking 档只守
+  // web(默认面)+ extension + shared 三面,api / cli / miniapp-taro / mobile-rn 四面
+  // 从未进过门。实证不是推演:2026-10-05 首次分面现读就在这四面里量到 7 处 zh-TW 简体残留
+  // (api 5 处「平台」、miniapp-taro 2 处「平台」「托管」),而默认档(web)当时同样报红 4 处,
+  // 说明残留是**全仓通病**、只是另外四面没人看。同日已修复并把修复器
+  // (fix-zh-tw-residue.mjs)从 2026-07-25 迁移前的 apps/* 旧址拉回 packages/i18n/messages/,
+  // 现七面 zh-TW 与 ko 全绿 ⇒ 此刻升 blocking 不误伤任何在途提交。
+  // 面的清单与路径拼法与扫描器共用 scripts/lib/i18n-message-faces.mjs 一份。
+  {
+    id: '2p-api',
+    label: '🔍 [api] zh-TW 简体字残留(blocking,2026-10-05 补分面射程)',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['zh-TW', '--target=api'],
+    mode: 'blocking',
+  },
+  {
+    id: '2q-cli',
+    label: '🔍 [cli] zh-TW 简体字残留(blocking,2026-10-05 补分面射程)',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['zh-TW', '--target=cli'],
+    mode: 'blocking',
+  },
+  {
+    id: '2r-miniapp-taro',
+    label: '🔍 [miniapp-taro] zh-TW 简体字残留(blocking,2026-10-05 补分面射程)',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['zh-TW', '--target=miniapp-taro'],
+    mode: 'blocking',
+  },
+  {
+    id: '2s-mobile-rn',
+    label: '🔍 [mobile-rn] zh-TW 简体字残留(blocking,2026-10-05 补分面射程)',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['zh-TW', '--target=mobile-rn'],
+    mode: 'blocking',
+  },
+  {
+    id: '2t-api',
+    label: '🔍 [api] ko.json 中文残留(blocking,2026-10-05 补分面射程)',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['ko', '--target=api'],
+    mode: 'blocking',
+  },
+  {
+    id: '2u-cli',
+    label: '🔍 [cli] ko.json 中文残留(blocking,2026-10-05 补分面射程)',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['ko', '--target=cli'],
+    mode: 'blocking',
+  },
+  {
+    id: '2v-miniapp-taro',
+    label: '🔍 [miniapp-taro] ko.json 中文残留(blocking,2026-10-05 补分面射程)',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['ko', '--target=miniapp-taro'],
+    mode: 'blocking',
+  },
+  {
+    id: '2w-mobile-rn',
+    label: '🔍 [mobile-rn] ko.json 中文残留(blocking,2026-10-05 补分面射程)',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['ko', '--target=mobile-rn'],
+    mode: 'blocking',
+  },
   {
     id: '2k-shared',
     label: '🔍 [shared] ko.json 中文残留(blocking)',
@@ -975,6 +1047,8 @@ const checks = [
   //   ProviderConfig schema(apps/ai-service/app/core/provider_config.py),
   //   提前发现 JSON 格式错 / 字段类型错 / 未知 provider,避免运行时 Pydantic ValidationError。
   // 校验规则(7 条):JSON 解析 / 顶层对象 / 31 个 provider 白名单 / 字段类型 / 未知字段 / 空值 / 重复。
+  //   白名单条数不在此写死(曾写"31 个"已漂成实际 39):名单与条数唯一真源是
+  //   scripts/check-llm-provider-schema.mjs 的 PROVIDER_WHITELIST,改名单只改那一个文件。
   // 失败含义:用户 .env 中 LLM_PROVIDERS JSON 字段不符合 schema,ai-service 启动后会运行时崩。
   // 已有依赖:scripts/check-llm-provider-schema.mjs(2026-07-26),3 退出码(0/1/2)。
   // 注意:LLM_PROVIDERS 为空是合法的(降级 stub 模式),info 不阻塞。
@@ -1034,6 +1108,11 @@ const checks = [
     label: '🧹 根目录整洁守门(一级目录白名单)',
     script: 'check-root-dir-clean.mjs',
     args: [],
+    // 2026-10-03 补齐:门体头注写着 `HUSKY_SKIP_ROOT_DIR_GUARD`,runner 从未声明 ⇒ 假逃生舱
+    // (同 30a,照 TAGSVIEW_GUARD 的修法)。本门尤甚:它的 `--staged` 档靠 `git ls-files` 取索引面,
+    // 而本机 Node 间歇性 spawnSync git EBUSY ⇒ 取不到就按自己注释里的退路「退回全量拦截」,
+    // 把本机若干**未跟踪**目录算成本枚提交引入。没有逃生舱就只剩 --no-verify 一条路。
+    skipEnv: 'HUSKY_SKIP_ROOT_DIR_GUARD',
     mode: 'blocking',
     onFailHint: [
       '',
@@ -3237,13 +3316,15 @@ const checks = [
     stagedTriggers: ['apps/', 'packages/'],
     onFailHint: [
       '',
-      '  💡 本仓最高频失效型"造好没装车":声明了保留期/预算契约/清理函数,却没有任何生产面',
-      '     消费者(注释、字符串、纯 re-export、测试面、scripts 层都不算消费者)。',
-      '     实测存量:候选 131 / 未接线 32 处 29 文件(含 pruneOldSubagentStates、apps/api cleanup 族 9 处)⇒ 只报数。',
+      '  💡 本仓最高频失效型"造好没装车":声明了保留期/预算契约/清理函数/导出工厂,',
+      '     却没有任何生产面消费者(注释、字符串、纯 re-export、测试面、scripts 层都不算消费者)。',
+      '     候选族含 C7 工厂族(导出 create*Handler / create*Transport,G-816034 ①②)——',
+      '     零生产调用方只报数并逐条点名 file:line,升 blocking 的前置 = 存量清零(§12e)。',
+      '     存量/候选/自检/镜像的数**一律跑命令现读**,本提示不钉数字(钉了就是一份会腐烂的假账)。',
       '     棘轮锚点=该文件 HEAD 自身未接线数;新增即红。全量判 HEAD blob、--staged 判索引、取不到 exit 2。',
       '     单独复验:node scripts/check-declared-policy-has-consumer.mjs',
-      '     自检:--self-test(22 例,含真未接线/已接线双夹具 + 禁闭包/禁外部消费双变异)',
-      '     镜像:node --test scripts/tests/check-declared-policy-has-consumer.test.mjs(8 例,含装车前置证明)',
+      '     问责档:node scripts/check-declared-policy-has-consumer.mjs --strict',
+      '     自检:--self-test  镜像:node --test scripts/tests/check-declared-policy-has-consumer.test.mjs',
       '',
     ]
   },
@@ -4519,6 +4600,74 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- Python import 入库存续性对账(1 项,blocking)---
+  {
+    id: '189',
+    label:
+      'Python import 入库存续性对账',
+    script: 'check-python-import-landed.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PYTHON_IMPORT_LANDED',
+    stagedTriggers: ['apps/ai-service/'],
+    onFailHint: [
+      '',
+      'HEAD 里有人 import 一个从未入库的 Python 模块 ⇒ 干净检出与 CI 起不来,而本机在跑的进程把它掩盖了。',
+      '出路只有一条:把被 import 的包/模块与实现同一枚提交入库,或去掉这条 import。不得为过门改判据。',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 枚举兜底不得取宽档(1 项,warn)---
+  {
+    id: '190',
+    label:
+      '枚举/映射取不到时的兜底分支不得落到更宽的权限或能力档(票 G-816027):宽档集合由被审面的两份注册表(TS POLICY_BY_MODE / PY skips_approval_permission_mode)现读推导,推导失败或槽位撞名一律未判定;与"凭据在场即豁免"那道门(157)不重叠计账',
+    script: 'check-enum-default-widening.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_ENUM_DEFAULT_WIDENING',
+    stagedTriggers: ['apps/cli/src/', 'packages/types/src/', 'apps/ai-service/app/core/'],
+    onFailHint: [
+      '',
+      '修复:兜底分支要么显式抛错,要么取最窄档;不得把"没声明"读成"允许"。',
+      '问责档(含未判定即拒绝出合格证):node scripts/check-enum-default-widening.mjs --strict',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 测试判据复制对账(§22c 跨门尺子;门体与镜像测试各写一份形态清单/正则即点名,存量 27 处只报数 ⇒ warn,升 blocking 前置 = 命中归零)(1 项,warn)---
+  {
+    id: '191',
+    label:
+      '测试判据复制对账(§22c 跨门尺子;门体与镜像测试各写一份形态清单/正则即点名,存量 27 处只报数 ⇒ warn,升 blocking 前置 = 命中归零)',
+    script: 'check-test-judge-not-replicated.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_TEST_JUDGE_REPLICATED',
+    stagedTriggers: ['scripts/check-', 'scripts/tests/'],
+    onFailHint: [
+      '',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 注册表工作树超集对账(package.json / guardian-runner 的已入库入口被工作树副本整行写回旧态;今日 28 份注册表零存量 ⇒ blocking,只在 --staged 面问责)(1 项,blocking)---
+  {
+    id: '192',
+    label:
+      '注册表工作树超集对账(package.json / guardian-runner 的已入库入口被工作树副本整行写回旧态;今日 28 份注册表零存量 ⇒ blocking,只在 --staged 面问责)',
+    script: 'check-registry-worktree-superset.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_REGISTRY_WORKTREE_SUPERSET',
+    stagedTriggers: ['package.json', 'scripts/guardian-runner.mjs'],
+    onFailHint: [
+      '',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
@@ -4693,7 +4842,24 @@ const checks = [
       '',
     ].join('\n'),
   },
+]
 
+// === push 门检查集(2026-08-31 新增) ===
+// .husky/pre-push 直跑 `pnpm typecheck:full`,多会话并行时被其他会话非暂存损坏文件误伤
+// (上千个 TS1005 全部来自非暂存文件,却输出"❌ 全量 typecheck 失败,推送已阻止")。
+// 新增 scripts/check-typecheck.mjs 包装做 staged-scope 降级判定(全部报错文件均不在
+// 暂存区 → 降级为警告放行),经 --push-gate 显式启用;hook 本体不在改动允许范围内。
+const pushGateChecks = [
+  {
+    id: 'T1',
+    label: '🔍 push 门全量 typecheck(staged-scope 降级)',
+    script: 'check-typecheck.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  // 2026-10-06 合流让号:本块原登记为 189,而 189 在基底与主干上都属 check-python-import-landed.mjs
+  // (取号发生在一份**滞后工作树副本**上,那次快照把 189 顶成同号两门,并顺带摘掉 2p-2w / 190 共 9 道门)。
+  // 合流以主干整面为底(它是基底超集,9 道门原样恢复),本块按空闲号 193 插回;两侧注册块一个不删。
   // git 派生调用的 stdio 纪律(2026-10-03 立)。病根本机实测(30 组对照,本票复测 2 组 × 10 次同形):
   // `execFileSync('git', […], { cwd, encoding, windowsHide, timeout })` —— **不写 stdio** ⇒ 0/30 成功、
   // 抛 EBUSY;同一段补 `stdio: ['ignore','pipe','pipe']` ⇒ 30/30 成功。同刻交互 bash 里直接跑 git 正常
@@ -4710,7 +4876,7 @@ const checks = [
   //    数据文件 scripts/check-git-stdio-exemptions.json,**行内豁免注释不是通道**(裁决账也不是)。
   // 本票只立门 + 登记待办:存量判红是预期结果(那正是"问题变可见"),不在本票改生产代码。
   {
-    id: '189',
+    id: '193',
     label:
       '🧯  git 派生调用必须显式接管 stdio(blocking,拦本机 EBUSY 病灶 —— 不写 stdio 时 0/30 成功,补上即 30/30)',
     script: 'check-git-stdio-discipline.mjs',
@@ -4735,21 +4901,6 @@ const checks = [
       '  紧急跳过(不推荐):HUSKY_SKIP_GIT_STDIO_DISCIPLINE=1 git commit ...',
       '',
     ].join('\n'),
-  },
-]
-
-// === push 门检查集(2026-08-31 新增) ===
-// .husky/pre-push 直跑 `pnpm typecheck:full`,多会话并行时被其他会话非暂存损坏文件误伤
-// (上千个 TS1005 全部来自非暂存文件,却输出"❌ 全量 typecheck 失败,推送已阻止")。
-// 新增 scripts/check-typecheck.mjs 包装做 staged-scope 降级判定(全部报错文件均不在
-// 暂存区 → 降级为警告放行),经 --push-gate 显式启用;hook 本体不在改动允许范围内。
-const pushGateChecks = [
-  {
-    id: 'T1',
-    label: '🔍 push 门全量 typecheck(staged-scope 降级)',
-    script: 'check-typecheck.mjs',
-    args: [],
-    mode: 'blocking',
   },
 ]
 
@@ -4851,6 +5002,8 @@ function computeGateFingerprint() {
       // 只读查询,可安全封顶:同日 check-port-registry 因无 timeout 挂住 80 分钟,
       // 把整条 pre-commit 拖成"看起来像卡死"。5 分钟远高于任何正常耗时,只截病态挂起。
       timeout: 300_000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     }).trim()
     // -z:NUL 分隔,路径无转义歧义;rename 条目 "R  new\0old\0" 需跳过 old 段
     const statusRaw = execFileSync(
@@ -4860,6 +5013,8 @@ function computeGateFingerprint() {
         encoding: 'utf8',
         windowsHide: true,
         timeout: 300_000,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
       },
     )
     const h = createHash('sha1')
@@ -4954,6 +5109,8 @@ function stagedFilesOrNull() {
       cwd: process.cwd(),
       windowsHide: true,
       timeout: 120_000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
       .split('\n')
       .map((s) => s.trim())
