@@ -120,11 +120,15 @@ export interface SSEEvent {
     /** G-150:incompressible = 压缩已撞到上限,界面须改口径并给"开新对话"出口 */
     trigger?: string
   }
-  /** done 事件携带的 token 用量(对标原 ai_assistant.vue total_tokens,ai-service event:done 下发) */
+  /** done 事件携带的 token 用量(对标原 ai_assistant.vue total_tokens,ai-service event:done 下发)。
+   *  G-403(2026-10-07):cacheReadTokens/cacheWriteTokens 三态(数字=真回报含 0;null/缺席=未采到),
+   *  与 api-client UsageEvent、shared sse contract 的 usage 帧同口径 —— 绝不许把"没采到"写成 0。 */
   usage?: {
     promptTokens?: number
     completionTokens?: number
     totalTokens?: number
+    cacheReadTokens?: number | null
+    cacheWriteTokens?: number | null
   }
   /** done 事件携带的模型名 */
   model?: string
@@ -889,6 +893,11 @@ function parseLineEvent(line: string): SSEEvent | null {
             promptTokens: Number.isFinite(promptTokens) ? promptTokens : 0,
             completionTokens: Number.isFinite(completionTokens) ? completionTokens : 0,
             totalTokens: Number.isFinite(totalTokens) ? totalTokens : 0,
+            // G-403(2026-10-07):缓存读/写两维在此接住,与 api-client 的
+            // parseUsageCacheTokens 同一套别名清单、同一条"两态绝不并桶"纪律:
+            // 真回报的数字(含 0)原样透传;整维没采到 ⇒ null(未知),绝不造 0。
+            // shared 不能反向依赖 api-client,故此处内联同一判据(改动须两处同步)。
+            ...parseCacheTokensShared(usageRaw),
           },
         }
       }
@@ -896,6 +905,51 @@ function parseLineEvent(line: string): SSEEvent | null {
     return null
   } catch {
     return data ? { type: 'chunk', content: data } : null
+  }
+}
+
+/**
+ * G-403(2026-10-07):从 usage 对象接住 prompt 缓存读/写两维(共享解析版)。
+ *
+ * 与 `packages/api-client/src/client.ts` 的 `parseUsageCacheTokens` 同一套别名清单、
+ * 同一条"两态绝不并桶"纪律:真回报的数字(含 0)是读数;整维没采到 ⇒ null(未知),
+ * 绝不造 0。shared 不能反向依赖 api-client,故内联同一判据 —— **两处改动须同步**,
+ * 权威出处:
+ * - `cached_tokens` / `cache_creation_tokens` = ai-service 归一契约(usage_cache.py);
+ * - `prompt_tokens_details.cached_tokens` = OpenAI 原生嵌套形态;
+ * - `cache_read_input_tokens` / `cache_creation_input_tokens` = Anthropic 原生;
+ * - `prompt_cache_hit_tokens` = DeepSeek 原生;
+ * - camelCase `cacheReadTokens` / `cacheWriteTokens` = 我方命名帧线格式(llm.py _usage_frame)。
+ */
+function parseCacheTokensShared(usage: Record<string, unknown>): {
+  cacheReadTokens: number | null
+  cacheWriteTokens: number | null
+} {
+  const toNumber = (v: unknown): number | null =>
+    typeof v === 'number' && Number.isFinite(v) ? v : null
+  const details = usage['prompt_tokens_details']
+  const nested = details && typeof details === 'object' ? (details as Record<string, unknown>) : {}
+  const firstReported = (candidates: unknown[]): number | null => {
+    for (const c of candidates) {
+      const n = toNumber(c)
+      if (n !== null) return n
+    }
+    return null
+  }
+  return {
+    cacheReadTokens: firstReported([
+      usage['cacheReadTokens'],
+      usage['cached_tokens'],
+      nested['cached_tokens'],
+      usage['cache_read_input_tokens'],
+      usage['prompt_cache_hit_tokens'],
+    ]),
+    cacheWriteTokens: firstReported([
+      usage['cacheWriteTokens'],
+      usage['cacheCreationTokens'],
+      usage['cache_creation_tokens'],
+      usage['cache_creation_input_tokens'],
+    ]),
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
