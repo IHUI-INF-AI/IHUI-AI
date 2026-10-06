@@ -211,10 +211,73 @@ test('T9 定级锁:默认面是 warn(判红不拦提交),且注册时必须是 w
     )
 })
 
-test('T10 自检必须端到端有牙:23 条成对全绿,且真仓对照读数被报出', () => {
+test('T10 自检必须端到端有牙:成对用例全绿(条数不写死,以"0 失败"为准),且真仓对照读数被报出', () => {
   const out = runCli(['--self-test'])
   assert.match(out, /自检 \d+ 通过 \/ 0 失败/, `自检有失败:${out}`)
   assert.match(out, /自检真仓对照:HEAD 面 扫 \d+ 文件/)
   assert.match(out, /未判定 \d+/)
 })
+
+/**
+ * T11 — G-816027 定性 (b) 的对外形状锁。
+ * 夹具逐字取自 HEAD(`stopReasonToExitCode` 的 `default: return 1`),不在测试里抄第二份判据:
+ *  · 该处必须被读成"放过"(数字退出码不在任何由字符串档名推导出的集合里);
+ *  · 同一次 --json 读数里,票面点名的 dangerLevel 站点**必须仍是未判定** ——
+ *    这条是防"为了把未判定归零顺手把邻格也洗绿"的反向锁(本仓最常见的失效型)。
+ */
+test('T11 定性(b):退出码兜底移到放过,而票面点名的 dangerLevel 站点仍留未判定', () => {
+  const u = universe()
+  const face = faceShow(REAL_SITE)
+  const body = face.slice(
+    face.indexOf('export function stopReasonToExitCode'),
+    face.indexOf('export function stopReasonToExitCode') + 900,
+  )
+  assert.ok(body.includes('default:'), `HEAD:${REAL_SITE} 里找不到 stopReasonToExitCode 的 default 支 ⇒ 票面前提与门体读数已不同形`)
+  const hits = gate.scanSource(REAL_SITE, body, u).filter((c) => c.form === 'switch-default')
+  assert.equal(hits.length, 1, `switch-default 必须恰入一条候选,实得 ${JSON.stringify(hits)}`)
+  assert.equal(hits[0].kind, 'green', `数字兜底(退出码)应判放过,实得 ${JSON.stringify(hits[0])}`)
+  assert.match(hits[0].why, /数字字面量/, '放过必须带理由,不得静默')
+
+  const parsed = JSON.parse(runCli(['--json']))
+  const stillUnd = parsed.undetermined.filter((c) => c.expr === "'read'" && c.form === 'js-fallback')
+  assert.equal(stillUnd.length, 1, `dangerLevel 站点必须留在未判定(不得被邻格一起洗绿):${JSON.stringify(parsed.undetermined)}`)
+  assert.equal(parsed.counts.red, 0, '定性不得造出判红')
+  assert.equal(parsed.counts.candidates, parsed.red.length + parsed.green.length + parsed.undetermined.length, '三态必须恰好分完候选(不并桶也不凭空增删)')
+})
+
+/**
+ * T12 — G-816027 补的"缺席才生效"三道锚(解构默认值 / JS 形参默认值 / Python def 形参默认值)。
+ * 方向锁两头都给:宽档写进这三个语法位必须咬红;同形的正当写法(逐字取自 HEAD 的真样本)
+ * 与"无条件写死"的关键字实参必须一条不收 —— 后者是另一判据的地盘,收进来就是假红。
+ */
+test('T12 形态②b:三道默认值锚对宽档有牙,对同形正当写法与关键字实参不得误伤', () => {
+  const u = universe()
+  const WIDE = [...u.wide][0]
+  const shapes = {
+    'JS 形参默认值': ['a.ts', `function f(permissionMode = '${WIDE}') {\n  return permissionMode\n}`],
+    'JS 箭头形参默认值': ['a.ts', `const g = (a, permissionMode = '${WIDE}') => a + permissionMode`],
+    'JS 解构默认值': ['a.ts', `const { permissionMode = '${WIDE}' } = ctx`],
+    'Python def 形参默认值': ['a.py', `def resolve(permission_mode="${WIDE}"):\n    return permission_mode\n`],
+  }
+  for (const [name, [file, src]] of Object.entries(shapes)) {
+    const found = gate.scanSource(file, src, u)
+    assert.equal(found.filter((c) => c.kind === 'red').length, 1, `${name} 落宽档 '${WIDE}' 必须判红,实得 ${JSON.stringify(found)}`)
+    assert.equal(found.length, 1, `${name} 一条形态不得计两次,实得 ${JSON.stringify(found)}`)
+  }
+  // 正当样本:全仓该写法只有这几处,兜底值都不是枚举档(逐字取自 HEAD,不手抄)
+  const legitBrowser = faceShow('apps/cli/src/tools/browser.ts')
+  const hostLine = legitBrowser.split('\n').find((l) => l.includes("host = '127.0.0.1'"))
+  assert.ok(hostLine, 'HEAD 的 browser.ts 里找不到 host 默认值那行 ⇒ 成对锁的夹具已与真仓脱节')
+  assert.equal(gate.scanSource('apps/cli/src/tools/browser.ts', hostLine, u).length, 0, `形参默认值写死非档名值不得入候选:${hostLine}`)
+  const legitMemory = faceShow('apps/cli/src/memory/index.ts')
+  const catLine = legitMemory.split('\n').find((l) => l.includes("= '通用'"))
+  if (catLine)
+    assert.equal(gate.scanSource('apps/cli/src/memory/index.ts', catLine, u).length, 0, `解构/形参默认值写死中文展示名不得入候选:${catLine}`)
+  // 关键字实参是"无条件写死",不属"缺席即取档" ⇒ 留在门外(否则与别的判据重复记账)
+  const kwArg = gate.scanSource('a.py', `def build():\n    return dict(permission_mode="${WIDE}")\n`, u)
+  assert.equal(kwArg.length, 0, `Python 关键字实参不得被本锚收进:${JSON.stringify(kwArg)}`)
+  // 遮噪方向对新锚同样成立(写进注释/串里一条不计)
+  assert.equal(gate.scanSource('a.ts', `// const { permissionMode = '${WIDE}' } = ctx\nconst y = 1`, u).length, 0, '注释里的解构默认值不得入候选')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
