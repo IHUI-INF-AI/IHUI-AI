@@ -1240,8 +1240,9 @@ export interface UsageEvent {
  * - `prompt_tokens_details.cached_tokens` = OpenAI 原生嵌套形态;
  * - `cache_read_input_tokens` / `cache_creation_input_tokens` = Anthropic 原生;
  * - `prompt_cache_hit_tokens` = DeepSeek 原生;
- * - camelCase `cacheReadTokens` / `cacheCreationTokens` = 本包既有 dual-spelling 习惯
- *   (与 `usage.prompt_tokens ?? usage.promptTokens` 同形),命名帧若补发这两键会用它。
+ * - camelCase `cacheReadTokens` / `cacheWriteTokens` = 我方命名帧线格式(G-403 后
+ *   llm.py `_usage_frame` 补发这两键,与 `UsageEvent` 类型名对齐);
+ *   camelCase `cacheCreationTokens` = 本包早期 dual-spelling 兼容候选,保留不删。
  *
  * **两态绝不并桶**:回报的数字(含 0)是读数;缺字段/非数字是 `null` = 未采到。
  * 本函数刻意不返回默认值 —— 造 0 就是把"没量到"写成"一次都没命中"。 */
@@ -1273,6 +1274,9 @@ export function parseUsageCacheTokens(usage: Record<string, unknown>): {
       usage['prompt_cache_hit_tokens'],
     ]),
     cacheWriteTokens: firstReported([
+      // G-403(2026-10-07):命名帧(llm.py _usage_frame)的线格式键,与 UsageEvent
+      // 类型名对齐 —— 排在最前;snake_case 候选(relay verbatim 透传)在后,不变。
+      usage['cacheWriteTokens'],
       usage['cacheCreationTokens'],
       usage['cache_creation_tokens'],
       usage['cache_creation_input_tokens'],
