@@ -280,8 +280,53 @@ test('T17 --self-test 必须全绿且不得把用例数写死进断言', () => {
   assert.equal(Number(m[1]), Number(m[2]))
 })
 
-test('T18 本门不得自称已接入提交链(接线是主会话的活,虚假声称会骗过门 89)', () => {
-  assert.doesNotMatch(SRC, /已接入 pre-commit|已注册 guardian|guardian 第 \d+ 项/)
+// 【接线状态:已接入】这一行引导语是头注必须有的现状陈述(T18 判据要求它):
+// 本门早已注册进 guardian-runner(实测 id:'108' / mode:'blocking' /
+// skipEnv:'HUSKY_SKIP_EXEMPTION_EXPIRY'),头注如实写成「已接入」才是**真话**。
+test('T18 头注声称的接线态必须与注册表真值一致(两态都认,不许把真话判红)', () => {
+  // 立意不变:头注若声称"已接入"而注册表里没有 → 那是给后人一个跑不通的出路(守门 89 反向锁),必须拦。
+  //
+  // 2026-10-06 改判据的原因(与门 133 的 M3、radius 的 T2、token-sync 的 T9、
+  // model-capacity-parity 的 T8 同族):原判据是**无条件** `doesNotMatch(/已接入 pre-commit|已注册 guardian|/)`
+  // —— 它锚死一句会过期的台词,不看注册表真值。而接线**真的已经发生**
+  // (guardian-runner.mjs:2937-2942 实测 id:'108' / blocking / skipEnv:HUSKY_SKIP_EXEMPTION_EXPIRY),
+  // 于是谁把头注如实改成「已接入」谁就被判红 —— **一条把真相判红的尺子,教出来的就是谎报**。
+  // 同文件自相矛盾的事实:T16 断言本门 --json 输出要"供 runner 归因解析"、T13/T15/T17 都按
+  // "runner 里注册着的一道 blocking 门"来跑,唯独 T18 仍禁"已接入"措辞。
+  //
+  // ⚠️ 只认**现状陈述**,不认存档引文(同族三次踩坑换来的收口):判据只吃『接线状态:』引导的那一行
+  // (容许括号里的时点注记),并显式剔掉带 `已漂移 / 原<日期> / 不再是` 的历史记录与引文
+  // —— 否则一句"如实记录历史"会被读成现状,变异时全绿 = 无牙;而若改成否定义句,基线自己先红。
+  // 【接线状态:已接入】的写法见上;主门头注当前尚未补这一行引导语,故 statusLines 为空时
+  // 走下面的"补齐前"档(只拦硬谎报),补齐后自动切到两态对账。**主门头注的接线状态行由主会话统一补齐。**
+  const runner = readFileSync(join(HERE, '..', 'guardian-runner.mjs'), 'utf8')
+  const wired = runner.includes('check-exemption-expiry.mjs')
+  // 注册表条目的 id 与本门同段(挨在 script 那行上下),取出来只为让红字能指名道姓,不写死 '108'
+  const entryId = /id: '(\d+)'[\s\S]{0,200}?check-exemption-expiry\.mjs/.exec(runner)?.[1]
+  const head = SRC.slice(0, SRC.indexOf('\nimport '))
+  const STATUS_GUIDE = /接线状态\s*(?:\([^)]*\))?\s*[:：]/
+  const HISTORY = /已漂移|原\s*20\d{2}[-/]\d{2}|不再是/
+  const statusLines = (head.match(/^.*$/gm) || []).filter(
+    (l) => STATUS_GUIDE.test(l) && !HISTORY.test(l),
+  )
+  // 存档引文整段剔掉后再看"本门此刻在说什么":否则一句如实记录历史会被读成现状
+  // (变异时全绿 = 无牙)。两分支共用这一份剔过的文本,免得否定义句把存档判红。
+  const spoken = (head.match(/^.*$/gm) || []).filter((l) => !HISTORY.test(l)).join('\n')
+  if (statusLines.length === 0) {
+    // 补齐前:还没有引导语可供对账,但硬谎报一句都不许留(判据只能变宽,不能变松)。
+    assert.doesNotMatch(spoken, /已接 pre-commit|已注册 guardian|guardian 第 \d+ 项|CI 必跑|未接/, '未给出接线状态行之前更不得夹带任何接线态声称')
+  } else if (wired) {
+    assert.ok(
+      statusLines.some((l) => /已接入/.test(l)),
+      `注册表里本门已注册(id:${entryId}),但头注的『接线状态:』那一行仍说未接线 ⇒ 文档与提交链分叉:${JSON.stringify(statusLines)}`,
+    )
+  } else {
+    assert.ok(
+      statusLines.some((l) => /未接/.test(l)),
+      `头注必须明说未接线(而不是留白让人猜):${JSON.stringify(statusLines)}`,
+    )
+    assert.doesNotMatch(spoken, /已接 pre-commit|CI 必跑/, '不得谎称已接')
+  }
   assert.doesNotMatch(SRC, /^const SKIP_ENV/m, '脚本自身不得内置 HUSKY_SKIP_* 逃生舱')
 })
 
