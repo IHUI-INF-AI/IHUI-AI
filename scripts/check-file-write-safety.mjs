@@ -277,7 +277,12 @@ export function evaluateWiring({
           hits: [],
         })
       } else {
-        notices.push(`R3 未收口:${TOOL_MODULE} 仍走裸写盘(出口尚未接线),只报数不判红`)
+        // ⚠️ 措辞纪律: 主语是**被审代码**(`${TOOL_MODULE}`)与**它所缺的原子写出口**,
+        //   不是本门自身的接线态(本门早已装车)。写「出口尚未接线」极易被下一位读者
+        //   误读成本门未接链 ⇒ 把指代对象写全, 不许改成本门接线态(那会把真话改成假话)。
+        notices.push(
+          `R3 未收口:${TOOL_MODULE} 仍走裸写盘(该工具尚未 import 原子写出口 ${EXIT_MODULE}),只报数不判红`,
+        )
       }
     } else if (toolFacts.callsCaptureBaseline === 0) {
       findings.push({
