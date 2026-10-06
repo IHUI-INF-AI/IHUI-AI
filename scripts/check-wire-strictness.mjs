@@ -27,7 +27,12 @@
  * 把"没判"写成"判过了")。
  * 改这一条的起因:此前清单走 `git ls-files`(索引)而内容走磁盘 `readFileSync`,于是**别人半编辑的在飞文件**
  * 会把全队每一次提交钉红(实测 HEAD 面 91 = 基线、索引面 91,而磁盘面 92 ⇒ 红根本不在任何提交内容里)。
- * 接链由守门持有人统一做(AGENTS §12f);本门现读已在 `scripts/guardian-runner.mjs` 注册。
+ * 【接线状态:已接入】注册条目已落在 scripts/guardian-runner.mjs(id 以 runner 现值为准,
+ * 勿照抄本行数字):blocking + skipEnv:HUSKY_SKIP_WIRE_STRICTNESS,无 stagedTriggers。
+ * 应急放行出口由该注册项提供。注册动作按 AGENTS §12f 由守门持有人统一做(实现门不自注册)。
+ * —— 本段原写「接链由守门持有人统一做(AGENTS §12f);本门现读已在 guardian-runner.mjs 注册」:
+ *   前半句是**流程规约**(谁来做注册),不是接线状态本身,两句并列时读成"前半说未接、后半说已接"的自相矛盾。
+ *   规约归规约、现状归现状,接线事实按上条现读。
  */
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import path from 'node:path'
