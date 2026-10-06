@@ -953,6 +953,9 @@ function defaultRun(cmd, args, opts) {
  * 因此调用方必须用 `LAND_BLOB_PROOF` 出具"构造内容相对基线只动了本票行"的证据,本器把那句话
  * 原样打进输出 —— 少一道守卫必须写明少了哪道、由什么替代,不得静默当"判过了"。
  */
+/** LAND_BLOBS 契约的头注第 37 行:清单里的 blob 必须是 hash-object -w 之后的 oid。这一判据只许有一份。 */
+const isOidLike = (v) => /^[0-9a-f]{40}([0-9a-f]{24})?$/.test(String(v))
+
 export function blobAncestorClash({ root, paths, blobOf, baseRef = 'HEAD', scope = null }) {
   const clashes = []
   const unjudged = []
@@ -962,6 +965,16 @@ export function blobAncestorClash({ root, paths, blobOf, baseRef = 'HEAD', scope
     const oid = blobOf.get(p)
     if (!oid) {
       unjudged.push({ path: p, why: '清单里没有该路径的 blob' })
+      continue
+    }
+    if (!isOidLike(oid)) {
+      // 值不是 oid(调用方把正文塞进了清单)⇒ cat-file 取不到,这一维**根本没判**。
+      // 旧写法让它落到"取不到正文 ⇒ 不等于任何祖先",于是报告打的是 ✅ —— 把没判写成判过了,
+      // 而陈旧落地守卫正是为本票而存在的那一维。
+      unjudged.push({
+        path: p,
+        why: 'LAND_BLOBS 的值不是 oid(看着像正文)⇒ 祖先对账无从做起;先 git hash-object -w -- <文件> 取 oid 再写清单',
+      })
       continue
     }
     if (headBlobOf(baseRef, p, { root }) === ABSENT) {
@@ -1125,19 +1138,23 @@ export function blobBannerPreserved({ root, paths, blobOf, baseRef = 'HEAD' }) {
       continue
     }
     const bt = git(['cat-file', 'blob', baseOid], { root, raw: true, allowFail: true })
-    /**
-     * `blobOf` 的值有两种形态,取决于调用方走的是哪条通道 —— 这里必须都认:
-     * · 索引/工作树通道给的是 **oid** ⇒ 向 git 取正文;
-     * · `LAND_BLOBS` 通道给的是**正文本身**(见上面 `new Map(...map(f => [f.path, f.blob]))`)。
-     * 之前这里无条件 `cat-file blob <值>`,于是 blob 模式(恰恰是"盘上那份属他人、不能读盘"时
-     * 唯一可用的通道)每次都被判成"正文取不到"⇒ 整次落地 exit 2 —— 守卫把它要保护的那条路堵死了,
-     * 而账面只有一句"取不到不等于保持",读起来像仓库有问题。判据没跑成 ≠ 判据判红(§12e)。
-     */
     const want = blobOf.get(p)
-    const nt = /^[0-9a-f]{40}([0-9a-f]{24})?$/.test(want)
-      ? git(['cat-file', 'blob', want], { root, raw: true, allowFail: true })
-      : want
-    if (bt === null || nt === null || nt === undefined) {
+    /**
+     * `LAND_BLOBS` 清单里的 `blob` 按头注第 37 行的契约**必须是 oid**(hash-object -w 之后已在对象库)。
+     * 上一版这里不校验形态,直接把值交给 `cat-file`,于是调用方误把**正文**塞进清单时得到的是
+     * "blob 正文取不到" —— 那句读数与"仓库里有问题"同形,而真正的原因是用错了通道。
+     * 现在把这条判据写实:值不是 40/64 位十六进制 ⇒ 点名"这是正文不是 oid",并给出正确取号办法。
+     */
+    if (!isOidLike(want)) {
+      unjudged.push({
+        path: p,
+        why: 'LAND_BLOBS 的值不是 oid(看着像正文)⇒ 先 `git hash-object -w -- <文件>` 取 oid 再写清单;' +
+          '本器按契约不替调用方写 blob(那会把"内容来自对象空间"这件事悄悄换成"从盘上读")',
+      })
+      continue
+    }
+    const nt = git(['cat-file', 'blob', want], { root, raw: true, allowFail: true })
+    if (bt === null || nt === null) {
       unjudged.push({ path: p, why: 'blob 正文取不到' })
       continue
     }
