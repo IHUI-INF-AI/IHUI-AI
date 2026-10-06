@@ -20,6 +20,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import { selfTest, __test__ } from '../lib/commit-gate-attribution.mjs'
+import { maskComments } from '../lib/code-mask.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const runnerSource = readFileSync(join(here, '..', 'guardian-runner.mjs'), 'utf8')
@@ -72,7 +73,8 @@ test('态①b:门在我这一侧判 exit 2 ⇒ 落未判定档,既不判 mine �
   const text = SUMMARY + FAIL_29
   const undeterminable = {
     status: 2,
-    output: '⚠️ 根目录整洁守门[无法判定]:存在白名单外条目,但它们**未被 git 跟踪**,归属无从判定\n   - stray.ps1  (文件,未跟踪 → 不属任何提交)',
+    output:
+      '⚠️ 根目录整洁守门[无法判定]:存在白名单外条目,但它们**未被 git 跟踪**,归属无从判定\n   - stray.ps1  (文件,未跟踪 → 不属任何提交)',
   }
 
   // 臂 1:只有我这个面 exit 2,基线绿不绿都不该改变结论 —— 关键是**不得判 mine**
@@ -82,7 +84,11 @@ test('态①b:门在我这一侧判 exit 2 ⇒ 落未判定档,既不判 mine �
     runGate: () => undeterminable,
     runGateBaseline: () => ({ ran: true, status: 0, output: 'HEAD 面绿', why: null }),
   })
-  assert.equal(v1.kind, 'undetermined-red', '基线绿而我的面喊"判不出"时,差分的前提不成立,不得判 mine')
+  assert.equal(
+    v1.kind,
+    'undetermined-red',
+    '基线绿而我的面喊"判不出"时,差分的前提不成立,不得判 mine',
+  )
   assert.equal(
     v1.delta?.myFaceUndetermined,
     1,
@@ -167,7 +173,10 @@ test('态①c:结论行点名"他人挂在索引里的路径" ⇒ 不判 mine,�
   // 臂 4:别人 staged 的路径只出现在**清单/回显行**(不在结论行) ⇒ 不降档,照旧走差分
   const v4 = classifyHookFailure({
     ...base,
-    runGate: () => ({ status: 1, output: '📋 staged 文件清单: PROJECT_PLAN.md\n另一道题的红与路径无关' }),
+    runGate: () => ({
+      status: 1,
+      output: '📋 staged 文件清单: PROJECT_PLAN.md\n另一道题的红与路径无关',
+    }),
     foreignStaged: FOREIGN,
   })
   assert.equal(v4.kind, 'mine', '回显行不算点名 —— 这条与既有 findingLines 口径同形,不得单独放宽')
@@ -181,7 +190,11 @@ test('态①c 的取材面:未跟踪清单必须排除忽略项,且两路都要�
   // quotePath 八进制转写)。锁的意图不变,实现位置跟到 lib —— 与本文件 A12 注释同例:
   // "行为还在、断言先红"时改的是锁的位置,不是判据的松紧。
   const gitPathsSource = readFileSync(join(here, '..', 'lib', 'git-paths.mjs'), 'utf8')
-  assert.match(safeCommitSource, /gitUntrackedPaths\(\{ root: repoRoot \}\)/, '未跟踪清单必须走 lib 的 -z 出口')
+  assert.match(
+    safeCommitSource,
+    /gitUntrackedPaths\(\{ root: repoRoot \}\)/,
+    '未跟踪清单必须走 lib 的 -z 出口',
+  )
   assert.match(
     gitPathsSource,
     /'ls-files', '--others', '--exclude-standard', '-z'/,
@@ -217,7 +230,11 @@ test('态①c 的取材面:未跟踪清单必须排除忽略项,且两路都要�
       new RegExp(outlet),
       `他人现场清单缺了 ${outlet} 这一路 —— 那一路引发的红会被差分错记成本枚提交者引入`,
     )
-  assert.match(m[0], /!expectedFiles\.includes\(p\)/, '三路清单都必须扣掉本票声明的文件(我自己的在飞文件仍要算我的红)')
+  assert.match(
+    m[0],
+    /!expectedFiles\.includes\(p\)/,
+    '三路清单都必须扣掉本票声明的文件(我自己的在飞文件仍要算我的红)',
+  )
   assert.match(
     safeCommitSource,
     /gitStagedPaths,\s*gitUntrackedPaths,\s*gitWorktreePaths/,
@@ -256,7 +273,11 @@ test('态①d:门点名"他人已跟踪未暂存的在飞路径" ⇒ 落未判�
 
   // 臂 1:第三路接上 ⇒ 落未判定,且措辞必须说出真正原因(不是笼统的"归属未知")
   const v1 = classifyHookFailure({ ...base, foreignStaged: [INFLIGHT] })
-  assert.equal(v1.kind, 'undetermined-red', '在飞路径已在他人现场清单里时不得再判 mine(那会死锁零风险改动)')
+  assert.equal(
+    v1.kind,
+    'undetermined-red',
+    '在飞路径已在他人现场清单里时不得再判 mine(那会死锁零风险改动)',
+  )
   assert.equal(v1.delta.foreignFace, 1, '这一态必须可机读计数')
   const l1 = verdictLine(v1)
   assert.match(l1, /他人挂在共享索引\/工作树里/, '措辞要说出真正原因,不得写成笼统的"归属未知"')
@@ -299,7 +320,6 @@ test('态①d:门点名"他人已跟踪未暂存的在飞路径" ⇒ 落未判�
   })
   assert.equal(v4.kind, 'mine', '回显行不算点名 —— 这条与既有 findingLines 口径同形,不得单独放宽')
 })
-
 
 test('装车证明:safe-commit 必须真的 import 并调用本判据', () => {
   assert.match(
@@ -524,7 +544,10 @@ test('三支之二 · 自跑一个都没点名 ⇒ 可跳,但措辞只能说量�
     stagedFiles: MY_FILES,
     hookText: '❌ 🎨 运行 lint-staged...失败，提交已阻止',
     runBatch: () => ({ ran: true, status: 1, output: SUMMARY + FAIL_29, why: null }),
-    runGate: () => ({ status: 1, output: '[tool-name-coverage] ❌ 覆盖率 86/87\n  未映射工具名(1):probe_x' }),
+    runGate: () => ({
+      status: 1,
+      output: '[tool-name-coverage] ❌ 覆盖率 86/87\n  未映射工具名(1):probe_x',
+    }),
     runGateBaseline: () => ({ ran: true, status: 0, output: '✅ 87/87', why: null }),
   })
   assert.equal(selfRunIntroduced.kind, 'mine', '自跑支必须把差分结论透传,不得退回"未点名⇒可跳"')
@@ -536,10 +559,23 @@ test('三支之二 · 自跑一个都没点名 ⇒ 可跳,但措辞只能说量�
     hookText: '❌ 🎨 运行 lint-staged...失败，提交已阻止',
     runBatch: () => ({ ran: true, status: 1, output: SUMMARY + FAIL_29, why: null }),
     runGate: () => ({ status: 1, output: '  ✗ 未映射工具名(1):probe_x' }),
-    runGateBaseline: () => ({ ran: true, status: 1, output: "Cannot find module 'typescript'", why: null }),
+    runGateBaseline: () => ({
+      ran: true,
+      status: 1,
+      output: "Cannot find module 'typescript'",
+      why: null,
+    }),
   })
-  assert.equal(selfRunNoDelta.kind, 'undetermined-red', '未差分不得被自跑支洗成 unattributed 或 not-ours')
-  assert.equal(selfRunNoDelta.selfRunOk, true, '自跑确实拿到了门级结论,这一格不得谎报为"自跑也未成功"')
+  assert.equal(
+    selfRunNoDelta.kind,
+    'undetermined-red',
+    '未差分不得被自跑支洗成 unattributed 或 not-ours',
+  )
+  assert.equal(
+    selfRunNoDelta.selfRunOk,
+    true,
+    '自跑确实拿到了门级结论,这一格不得谎报为"自跑也未成功"',
+  )
 })
 
 test('三支之三 · 自跑本身也没成功 ⇒ 仍按应急路径落地,但 unattributed 必带具体原因', () => {
@@ -696,19 +732,32 @@ test('装车证明(2026-09-26 新增支):批没跑完 ⇒ safe-commit 必须真�
     1,
     '自跑闭包里不止一次 spawn ⇒ 同一轮取证被跑两遍会得出两份互相矛盾的汇总',
   )
-  // ④ 结论与原因必须落进**既有**记录,不得另立平行落盘文件
-  const attestAt = safeCommitSource.indexOf('safe-commit-attestation.jsonl')
-  assert.ok(attestAt > 0)
-  const attestBlock = safeCommitSource.slice(attestAt, attestAt + 1200)
-  assert.match(attestBlock, /batchSelfRun/, '自跑结论没进既有的 jsonl 记录 ⇒ 事后无从核查这一支')
-  assert.match(attestBlock, /selfRunOk/, '自跑成败没进记录 ⇒ "跑过但没结论"与"没跑"无法区分')
+  // ④ 结论与原因必须落进**既有**记录,不得另立平行落盘文件。
+  // 判的是"这份记录的那一个写点"(结构位),不是"文件名第一次出现后的 1200 字符窗口"。
+  // 窗口型写法在本仓已两次漂成恒红,这次是它自己:2026-10-04 票 G-1018292 往本脚本加了
+  // **另一份不同用途**的 appendFileSync(删除意图账 staged-delete-intent-ledger.jsonl),
+  // 旧写法把"全文件 appendFileSync 只许一处"当不变量 ⇒ 一个正当的第二留痕把这条锁钉红,
+  // 而"字段没进窗口"那句红话还会把人引去给记录加字段 —— 修的是尺子,不是仓库。
+  // 真不变量只有两条:① 这份记录**恰有一个写点**;② 那个写点之后紧接着的对象里带这两个键,
+  // 且两键在整个代码面各只出现一次(出现两次就是两份记录形态)。
+  const codeOnly = maskComments(safeCommitSource)
+  const siteRe = /appendFileSync\(\s*join\([^)]*'safe-commit-attestation\.jsonl'/g
+  const sites = codeOnly.match(siteRe) ?? []
   assert.equal(
-    (safeCommitSource.match(/appendFileSync\(/g) || []).length,
+    sites.length,
     1,
-    '出现了第二个落盘点 ⇒ 第二份真相(硬要求③)',
+    `归因账写点数=${sites.length}(须恰为 1;0 ⇒ 自跑结论无处可落,>1 ⇒ 两份真相)`,
+  )
+  const siteAt = codeOnly.search(siteRe)
+  const afterSite = codeOnly.slice(siteAt)
+  assert.match(afterSite, /batchSelfRun:/, '自跑结论没进既有的 jsonl 记录 ⇒ 事后无从核查这一支')
+  assert.match(afterSite, /selfRunOk/, '自跑成败没进记录 ⇒ "跑过但没结论"与"没跑"无法区分')
+  assert.equal(
+    (codeOnly.match(/batchSelfRun:/g) ?? []).length,
+    1,
+    'batchSelfRun 在码面出现多处 ⇒ 记录形态有两份,读账的人分不出哪一条是本次的',
   )
 })
-
 
 /**
  * 差分四态(2026-09-27 立)的镜像锁。
@@ -758,7 +807,11 @@ test('R5 源码级反向锁:点名判定必须先归一,且不得新建"按门 i
     'blameFromFailedStep 不得再自带一份归一逻辑:两处算同一件事必须共用 lineNamesFile',
   )
   assert.match(code, /lines\.some\(\(l\) => lineNamesFile\(l, f\)\)/, '结论行判据必须走共用实现')
-  assert.match(code, /some\(\(l\) => lineNamesFile\(l, f\)\)/, 'blame 支必须复用同一份 lineNamesFile')
+  assert.match(
+    code,
+    /some\(\(l\) => lineNamesFile\(l, f\)\)/,
+    'blame 支必须复用同一份 lineNamesFile',
+  )
   // ② 门 id 清单必然腐烂(AGENTS 明文),可差分区只能现读"基线面这一次跑得出跑不出"
   assert.doesNotMatch(
     code,
@@ -771,10 +824,19 @@ test('R5 源码级反向锁:点名判定必须先归一,且不得新建"按门 i
       text: __test__.SUMMARY + __test__.FAIL_29,
       stagedFiles: __test__.MY_FILES,
       runGate: () => ({ status: 1, output: '❌ 未映射工具名(1):probe_x' }),
-      runGateBaseline: () => ({ ran: false, status: null, output: '', why: '抽取树缺 node_modules' }),
+      runGateBaseline: () => ({
+        ran: false,
+        status: null,
+        output: '',
+        why: '抽取树缺 node_modules',
+      }),
     }),
   )
-  assert.doesNotMatch(vd, /不在本次提交内容里/, 'undetermined-red 的措辞不得冒充实证过的"与本次无关"')
+  assert.doesNotMatch(
+    vd,
+    /不在本次提交内容里/,
+    'undetermined-red 的措辞不得冒充实证过的"与本次无关"',
+  )
   assert.match(vd, /未经差分证明/)
 })
 
@@ -819,7 +881,11 @@ test('装车证明:基线面注入口必须真被 safe-commit 接上(否则态�
     '基线面必须钉在提交前的那枚 sha 上,不能信"此刻的 HEAD"字样',
   )
   // 落点与清理:临时树走 scratch-dir 出口(§26:禁 os.tmpdir、禁落仓库树),且必须被删除
-  assert.match(safeCommitSource, /lib\/scratch-dir\.mjs/, '隔离基线树不得用 os.tmpdir()/裸 mkdtemp(§26)')
+  assert.match(
+    safeCommitSource,
+    /lib\/scratch-dir\.mjs/,
+    '隔离基线树不得用 os.tmpdir()/裸 mkdtemp(§26)',
+  )
   assert.match(safeCommitSource, /rmScratch|worktree remove/, '隔离面必须有清理出口,不得留残骸')
 })
 
@@ -832,7 +898,11 @@ test('反向锁:差分不得把"点名别人的文件"一律翻成 mine(那会�
     runGate: () => ({ status: 1, output: '❌ apps/web/src/other.tsx:3 error: boom' }),
     runGateBaseline: () => ({ ran: true, status: 1, output: 'HEAD 也红', why: null }),
   })
-  assert.equal(v.kind, 'not-ours', `存量红不得被判成 mine(过度定责同样会毁掉守门信任),实得 ${v.kind}`)
+  assert.equal(
+    v.kind,
+    'not-ours',
+    `存量红不得被判成 mine(过度定责同样会毁掉守门信任),实得 ${v.kind}`,
+  )
 })
 
 test('R6 旧例不得翻向:needsBatchSelfRun 对三个新 kind 的触达条件必须显式成立', () => {
