@@ -60,11 +60,10 @@ vi.mock('../src/db/index.js', () => {
 import { contentExtendedRoutes } from '../src/routes/content-extended'
 
 const AUTH_HEADERS = { authorization: 'Bearer mock-access-token' }
-const MOCK_ID = '1'
-// carousels.id 是 uuid 列,路由侧 uuidIdParamSchema 已收紧成 z.uuid(防 22P02 ⇒ 500),
-// banners 的 :id 走这道闸;MOCK_ID 仍服务 activities/contacts/file-storage(那些路由未收紧),
-// 故此处单列合法 UUID,不动共用常量。
-const BANNER_UUID = '88888888-8888-4888-8888-888888888888'
+// carousels.id 是 uuid 列：PUT /content/banners/:id 走 eq(carousels.id, id),
+// 故 :id 必须是真 uuid 形状才可能落到列上。原值 '1' 只因查询层被桩掉才"通过",
+// 形状上永远不可能命中真实 uuid 列,现已改成合法 uuid。
+const MOCK_ID = '123e4567-e89b-42d3-a456-426614174000'
 
 describe('content-extended routes', () => {
   const server = Fastify({ logger: false })
@@ -169,7 +168,7 @@ describe('content-extended routes', () => {
     it('PUT /api/content/banners/:id 未登录返回 401', async () => {
       const res = await server.inject({
         method: 'PUT',
-        url: `/api/content/banners/${BANNER_UUID}`,
+        url: `/api/content/banners/${MOCK_ID}`,
         body: { title: '更新横幅' },
       })
       expect(res.statusCode).toBe(401)
@@ -294,7 +293,7 @@ describe('content-extended routes', () => {
     it('PUT /api/content/banners/:id 返回 200', async () => {
       const res = await server.inject({
         method: 'PUT',
-        url: `/api/content/banners/${BANNER_UUID}`,
+        url: `/api/content/banners/${MOCK_ID}`,
         headers: AUTH_HEADERS,
         body: { title: '更新横幅', isActive: false },
       })

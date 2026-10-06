@@ -22,6 +22,7 @@ import {
   imageGenRoutes,
   knowledgeBaseRoutes,
   llmStreamRoutes,
+  historyRoutes,
   memberRoutes,
   messageRoutes,
   notesRoutes,
@@ -62,6 +63,7 @@ export const otherRoutes: FastifyPluginAsync = async (server) => {
   await server.register(imageGenRoutes)
   await server.register(knowledgeBaseRoutes)
   await server.register(llmStreamRoutes)
+  await server.register(historyRoutes)
   await server.register(memberRoutes)
   await server.register(messageRoutes)
   await server.register(notesRoutes)

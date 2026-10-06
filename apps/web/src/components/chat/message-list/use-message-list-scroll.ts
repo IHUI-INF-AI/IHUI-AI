@@ -26,14 +26,23 @@ import {
   type UserScrollIntent,
 } from './scroll-authority'
 
+import {
+  buildOffsets,
+  ESTIMATED_ITEM_HEIGHT,
+  historyAnchorCandidates,
+  resolveVisibleWindow,
+  shouldWindow,
+  WINDOW_BUFFER_ITEMS,
+  WINDOW_THRESHOLD,
+} from '../windowing'
+
 // #7 虚拟滚动配置(2026-07-25 立):消息数超过阈值时启用窗口化渲染
+// G-828(2026-10-04):阈值 / 缓冲 / 估计高度这三档常量搬到 ../windowing 单点持有,
+// 本文件只留"读 DOM + 记账",窗口数学不再有两份。
 // - ESTIMATED_ITEM_HEIGHT:消息平均高度估计值,用于初始 padding 计算
-// - VIRTUAL_THRESHOLD:超过此条数启用虚拟滚动(60 条以下全量渲染,保留流畅性)
-// - BUFFER:上下各多渲染的缓冲条数,减少快速滚动时的白屏
+// - WINDOW_THRESHOLD:超过此条数启用虚拟滚动(短会话全量渲染,保留流畅性)
+// - WINDOW_BUFFER_ITEMS:上下各多挂载的缓冲行数,减少快速滚动时的白屏
 // - heightMap:ResizeObserver 测量的真实高度映射,滚动时用真实累积高度精确定位
-const ESTIMATED_ITEM_HEIGHT = 160
-const VIRTUAL_THRESHOLD = 60
-const BUFFER = 6
 // 2026-09-27 改:补页触发不再写死 60px —— 见 scroll-authority.historyPrefetchTriggerPx
 // (按视口高推两屏,网络与渲染应在用户抵达窗口边界前完成;60px 那一档用户必然先撞到边界)
 
@@ -107,7 +116,11 @@ export function useMessageListScroll({
   const lastContent = messages[messages.length - 1]?.content
 
   // #7 虚拟滚动状态
-  const [visibleRange, setVisibleRange] = React.useState({ start: 0, end: VIRTUAL_THRESHOLD - 1 })
+  const [visibleRange, setVisibleRange] = React.useState({ start: 0, end: WINDOW_THRESHOLD - 1 })
+  // G-828(2026-10-04):窗口区间的 ref 镜像。补页锚点要在 scroll 事件当场挑"当前挂在 DOM 里
+  // 的第一行",而 scroll 回调拿不到本轮 state(高频路径也不能靠重渲染取),所以自己记一份。
+  const visibleRangeRef = React.useRef(visibleRange)
+  visibleRangeRef.current = visibleRange
   // heightMap:messageId → 真实高度(px)。ResizeObserver 持续更新,用于精确计算累积 offset
   const heightMapRef = React.useRef<Map<string, number>>(new Map())
   // 2026-09-27 改:卸载不再删测量值(删了重挂就回落 ESTIMATED_ITEM_HEIGHT 重测 ⇒ 滚动条逐帧跳),
@@ -123,10 +136,15 @@ export function useMessageListScroll({
   // 本 hook 自己发起的滚动落到哪一档为止(用于把随后几枚 scroll 事件判为 programmatic)
   const programmaticUntilRef = React.useRef(0)
   // 前插历史的位置锚点:触发瞬间存,commit 时刻用(替代原先的 rAF 轮询 scrollHeight)
+  // G-828(2026-10-04):锚点行与"数组首行"拆成两个字段。窗口化后数组首行大概率没挂在
+  // DOM 里(量不到 ⇒ 旧写法整条补偿链断裂、前插时视口跳位),真正用来量位移的是
+  // `anchorKey`(取当前窗口首行,必在 DOM 内);`firstRowKey` 只负责判定"这一枚 commit 是前插"。
   const pendingAnchorRef = React.useRef<{
-    /** 触发瞬间的首行 key —— 既是"首行 key 是否变小"的比较基准,也是平移量的锚点 */
+    /** 触发瞬间用来量位移的行 key(窗口首行,保证可测) */
     anchorKey: string
-    /** 触发瞬间该锚点相对视口顶部的偏移(px),即要恢复到的绝对位置 */
+    /** 触发瞬间数组首行 key —— 只用于"首行 key 是否变小"的前插判定 */
+    firstRowKey: string
+    /** 触发瞬间锚点相对视口顶部的偏移(px),即要恢复到的绝对位置 */
     savedOffset: number
     commitsLeft: number
   } | null>(null)
@@ -226,7 +244,7 @@ export function useMessageListScroll({
     timer: null,
   })
 
-  const enableVirtual = messages.length > VIRTUAL_THRESHOLD
+  const enableVirtual = shouldWindow(messages.length)
 
   // P1-3 修复(2026-07-28):缓存 offsets/total,仅在 messages.length 或 heightMap 版本变化时重算,
   // 避免每次 scroll 都 O(n) 全量计算(虚拟滚动下 handleScroll 高频触发)。
@@ -248,15 +266,12 @@ export function useMessageListScroll({
       return { offsets: offsetsCacheRef.current, total: totalCacheRef.current }
     }
     const map = heightMapRef.current
-    let total = 0
-    const offsets = new Array(messages.length + 1)
-    for (let i = 0; i < messages.length; i++) {
-      const msg = messages[i]
-      if (!msg) continue
-      offsets[i] = total
-      total += map.get(msg.id) ?? ESTIMATED_ITEM_HEIGHT
-    }
-    offsets[messages.length] = total
+    // G-828:累积高度的构造(含"量不到就回落估计高度")交给 windowing.buildOffsets,
+    // 本处只保留缓存这层机械动作。
+    const { offsets, total } = buildOffsets(messages.length, (index) => {
+      const msg = messages[index]
+      return msg ? map.get(msg.id) : undefined
+    }, ESTIMATED_ITEM_HEIGHT)
     // 写入缓存,供下次 scroll 命中
     offsetsCacheRef.current = offsets
     totalCacheRef.current = total
@@ -351,13 +366,30 @@ export function useMessageListScroll({
         loading: Boolean(loadingMoreHistory),
       })
     ) {
-      const anchorKey = messagesRef.current[0]?.id
-      const anchorEl = anchorKey
-        ? (el.querySelector(`[data-message-id="${anchorKey}"]`) as HTMLElement | null)
-        : null
-      if (anchorKey && anchorEl) {
+      // G-828:锚点行按 `historyAnchorCandidates` 取(当前窗口首行优先,数组首行兜底)。
+      // 窗口化后数组首行通常不在 DOM 里,旧写法 querySelector 落空 ⇒ 根本不存锚点 ⇒
+      // 前插历史时视口直接跳位;窗口首行一定挂着,量得到,补偿链因此才闭合。
+      const firstRowKey = messagesRef.current[0]?.id
+      const candidates = historyAnchorCandidates(
+        messagesRef.current.length,
+        visibleRangeRef.current.start,
+      )
+      let anchorKey: string | null = null
+      let anchorEl: HTMLElement | null = null
+      for (const index of candidates) {
+        const key = messagesRef.current[index]?.id
+        if (!key) continue
+        const found = el.querySelector(`[data-message-id="${key}"]`) as HTMLElement | null
+        if (found) {
+          anchorKey = key
+          anchorEl = found
+          break
+        }
+      }
+      if (anchorKey && anchorEl && firstRowKey) {
         pendingAnchorRef.current = {
           anchorKey,
+          firstRowKey,
           savedOffset: anchorEl.getBoundingClientRect().top - el.getBoundingClientRect().top,
           commitsLeft: PENDING_ANCHOR_MAX_COMMITS,
         }
@@ -365,42 +397,21 @@ export function useMessageListScroll({
       onLoadMoreHistory?.()
     }
 
-    // #7 虚拟滚动:计算可见范围
+    // #7 虚拟滚动:计算可见范围(几何判据见 ../windowing.resolveVisibleWindow)
     if (!enableVirtual) return
-    const { offsets, total } = computeCumulative()
-    if (total === 0) return
+    const { offsets } = computeCumulative()
 
-    // 二分查找找到 startIndex(第一个 offset > scrollTop - buffer*ESTIMATED)
-    const scrollPos = metrics.scrollTop
-    const viewportBottom = scrollPos + el.clientHeight
-    let start = 0
-    let lo = 0,
-      hi = messages.length - 1
-    while (lo <= hi) {
-      const mid = (lo + hi) >> 1
-      if (offsets[mid + 1] < scrollPos - BUFFER * ESTIMATED_ITEM_HEIGHT) lo = mid + 1
-      else if (offsets[mid] > scrollPos) hi = mid - 1
-      else {
-        start = mid
-        if (offsets[mid + 1] < scrollPos) lo = mid + 1
-        else hi = mid - 1
-      }
-    }
-    start = Math.max(0, start - BUFFER)
-
-    // 找到 endIndex(第一个 offset > viewportBottom + buffer*ESTIMATED)
-    let end = start
-    while (
-      end < messages.length - 1 &&
-      offsets[end + 1] < viewportBottom + BUFFER * ESTIMATED_ITEM_HEIGHT
-    ) {
-      end++
-    }
-    end = Math.min(messages.length - 1, end + BUFFER)
+    const nextRange = resolveVisibleWindow({
+      count: messages.length,
+      offsets,
+      scrollTop: metrics.scrollTop,
+      viewportHeight: el.clientHeight,
+      bufferItems: WINDOW_BUFFER_ITEMS,
+    })
 
     setVisibleRange((prev) => {
-      if (prev.start === start && prev.end === end) return prev
-      return { start, end }
+      if (prev.start === nextRange.start && prev.end === nextRange.end) return prev
+      return nextRange
     })
   }, [
     enableVirtual,
@@ -580,12 +591,25 @@ export function useMessageListScroll({
       isFarFromBottomRef.current = false
       setIsFarFromTop(false)
       setIsFarFromBottom(false)
-      setVisibleRange({ start: 0, end: VIRTUAL_THRESHOLD - 1 })
-    } else if (messages.length <= VIRTUAL_THRESHOLD) {
+      setVisibleRange({ start: 0, end: WINDOW_THRESHOLD - 1 })
+    } else if (messages.length <= WINDOW_THRESHOLD) {
       setVisibleRange({ start: 0, end: messages.length - 1 })
     }
     // setUserScrolledUp 是 zustand store 稳定引用,无需列入依赖
   }, [messages.length, applyAuthority])
+
+  // G-828(2026-10-04):窗口必须跟着"本轮 commit 的几何"重算一次。
+  // 原先只有两把钥匙能改窗口:① DOM 的 scroll 事件,② measureItem 量到高度变化。
+  // 于是有一整类"没有位移也没有高度变化"的帧把旧窗口原样留着:
+  // - 打开一个长会话:初始区间是**最旧的 WINDOW_THRESHOLD 行**,而用户此刻在底部
+  //   (贴底滚动要么没派发事件、要么派得比这次重排早)⇒ 首帧挂的是看不见的历史行;
+  // - 流式追加新消息 / 前插更早历史:行数变了但 scrollTop 可能一格没动。
+  // 补这一格用现成的合并通道 `scheduleScrollUpdate`(rAF 合并 + 来源显式 'layout',
+  // 不会被读成用户滚动),不新增第三种滚动来源。
+  React.useEffect(() => {
+    if (!enableVirtual) return
+    scheduleScrollUpdate()
+  }, [enableVirtual, messages.length, scheduleScrollUpdate])
 
   // 前插历史的位置恢复(2026-09-27 立,取代原先的 rAF 轮询 scrollHeight)。
   // 用 useLayoutEffect:补偿必须发生在这一帧画出来之前,否则用户先看到跳一下。
@@ -607,7 +631,7 @@ export function useMessageListScroll({
       ? anchorEl.getBoundingClientRect().top - containerTop + el.scrollTop
       : null
     const outcome = prependScrollAdjustment<string>({
-      firstRowKeyBefore: pending.anchorKey,
+      firstRowKeyBefore: pending.firstRowKey,
       firstRowKeyAfter: messages[0]?.id ?? null,
       savedOffset: pending.savedOffset,
       anchorOffsetAfter,

@@ -9,6 +9,8 @@ import { useState, useCallback, useRef } from 'react'
 import { getCouponList } from '@/api'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
+// G-815963/966:值域收窄的唯一出口 + 同源类型别名。
+import { coerceKnownOr, type KnownValues } from '@ihui/types'
 
 interface Coupon {
   id: string
@@ -16,7 +18,35 @@ interface Coupon {
   amount: number
   threshold: number
   expireTime: string
+  /** 服务端字段是自由字符串 —— 读侧一律先经 resolveCouponStatus 收窄,不得直接猜档 */
   status: string
+}
+
+/**
+ * 优惠券状态全集(G-815966:值域由这张 `as const` 元组闭合,展示表以它的成员联合为键)。
+ * 旧形态 `Record<string, string>` + `?? 'member.coupon.expired'` 让"新增一档忘配展示"
+ * 在编译层完全不红 —— 键域开放时表永远"合法",漏配被 `??` 静默成兜底文案。
+ */
+const COUPON_STATUSES = ['unused', 'used', 'expired'] as const
+type CouponStatusValue = KnownValues<typeof COUPON_STATUSES>
+
+/**
+ * 未知档兜底档 = expired(终态、不可用)。
+ * 刻意不兜 'unused':unused 是本屏唯一挂出「立即使用」按钮的档位,把身份不明的券兜成它
+ * 等于把未知账放回可操作集合(票面点名的上游反例形态)。
+ */
+const COUPON_READONLY_FALLBACK = 'expired' as const satisfies CouponStatusValue
+
+/** 完备展示表:漏一档即 TS 错误 */
+const COUPON_STATUS_KEY: Record<CouponStatusValue, string> = {
+  unused: 'member.coupon.unused',
+  used: 'member.coupon.used',
+  expired: 'member.coupon.expired',
+}
+
+/** 读侧收窄:合法值逐字不变,未知/非字符串 ⇒ 终态只读档 */
+function resolveCouponStatus(raw: unknown): CouponStatusValue {
+  return coerceKnownOr(raw, COUPON_STATUSES, COUPON_READONLY_FALLBACK)
 }
 
 const TABS = (tt: TtFn) => [
@@ -28,12 +58,6 @@ const TABS = (tt: TtFn) => [
     fallback: tt('member.index.expired', '已过期'),
   },
 ]
-
-const COUPON_STATUS_KEY: Record<string, string> = {
-  unused: 'member.coupon.unused',
-  used: 'member.coupon.used',
-  expired: 'member.coupon.expired',
-}
 
 const PAGE_SIZE = 10
 
@@ -189,7 +213,7 @@ export default function CouponPage() {
                     >
                       <Text className="text-[length:22rpx] text-[var(--color-surface-light)]">
                         {tt(
-                          COUPON_STATUS_KEY[c.status] ?? 'member.coupon.expired',
+                          COUPON_STATUS_KEY[resolveCouponStatus(c.status)],
                           c.status === 'used'
                             ? tt('coupon.used', '已使用')
                             : tt('member.index.expired', '已过期'),
