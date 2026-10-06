@@ -41,7 +41,8 @@ const WALLETS = [
     id: 'usdtErc20',
     icon: null,
     emoji: '₮',
-    address: '0x66e0101c41aed519b309faead5d3778091a8ab09',
+    // 权威值在 env USDT_ERC20_ADDRESS(0x26e359a5…79dd),2026-10-06 与 env 对齐;待后续公开配置端点化后改为从接口读取。
+    address: '0x26e359a5c69cf903d8709a286f5fd2d7554579dd',
     explorer: 'https://etherscan.io/address/',
     recommended: false,
   },
