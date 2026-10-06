@@ -36,7 +36,7 @@
  *  LAND_BLOBS  可选,指向一份 JSON 清单**文件的路径**(内容 `{files:[{path,blob}]}`;
  *              blob 由 hash-object -w 得到,须已在对象库)。注意与 LAND_CLASH_SCOPE 同形:传的是路径,
  *              不是内联 JSON —— 本器按 `readFileSync(env.LAND_BLOBS)` 取它,把 JSON 字符串直接塞进
- *              这个变量会被当成仓库根下的文件名,得到一条 `ENOENT: ... open 'D:\\IHUI-AI\\{"files"...'`,
+ *              这个变量会被当成仓库根下的文件名,得到一条 `ENOENT: ... open ’D:/IHUI-AI/{“files”...’`,
  *              读起来像"文件丢了"而实为调用形状错(2026-10-07 值守实测踩到)。
  *  LAND_BLOB_PROOF 配 LAND_BLOBS 时必填:一句话写明"构造内容相对基线只动了本票行"是靠什么证的。
  *              工作树取材的两道陈旧守卫在 blob 模式结构上不适用(它们比的是盘上那份),
