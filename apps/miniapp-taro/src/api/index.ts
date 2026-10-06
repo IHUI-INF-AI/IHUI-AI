@@ -360,11 +360,15 @@ export interface StreamEventCallbacks {
   onTerminalEnd?: (evt: TerminalEndEvent) => void
   /** 主模型失败切换到备用模型 */
   onFallback?: (evt: FallbackEvent) => void
-  /** token 用量(独立 usage 事件;done 事件的 usage 仍走 onDone) */
+  /** token 用量(独立 usage 事件;done 事件的 usage 仍走 onDone)。
+   *  G-403(2026-10-07):缓存两维三态透传 —— 数字(含 0)=真回报;null/缺席=没采到(未知),
+   *  与 api-client UsageEvent、shared sse contract 同口径,绝不把"没采到"写成 0。 */
   onUsage?: (info: {
     promptTokens?: number
     completionTokens?: number
     totalTokens?: number
+    cacheReadTokens?: number | null
+    cacheWriteTokens?: number | null
   }) => void
   /** 断点重连通知(指数退避重试前触发,attempt 从 1 起) */
   onReconnect?: (attempt: number, delayMs: number) => void
