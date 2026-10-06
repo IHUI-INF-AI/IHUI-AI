@@ -42,13 +42,35 @@ const ENVELOPE_FIELDS_SORTED: readonly string[] = [...ENVELOPE_FIELDS].sort()
 const ALG = 'A256GCM' as const
 
 /** 派生域:每处密文各用一把互不通用的子密钥(HKDF info 隔离) */
-export type VaultDomain = 'chat-persist' | 'refresh-token' | 'goal-persist' | 'auth-persist'
+export type VaultDomain =
+  | 'chat-persist'
+  | 'refresh-token'
+  | 'goal-persist'
+  | 'auth-persist'
+  | 'chat-draft'
+  | 'work-panel-persist'
+  | 'chat-prompt-history'
 
 const DOMAIN_INFO: Record<VaultDomain, string> = {
   'chat-persist': 'ihui/desktop/vault/chat-persist/v1',
   'refresh-token': 'ihui/desktop/vault/refresh-token/v1',
   'goal-persist': 'ihui/desktop/vault/goal-persist/v1',
   'auth-persist': 'ihui/desktop/vault/auth-persist/v1',
+  // 输入草稿(O59⑤ 残留修复,2026-10-06):`chat:draft*` 过去走裸 localStorage,
+  // 绕过了本模块。与 chat-persist 里的 `draftInput` 是**两个不同的键**
+  // (persist blob 是 `ihui-chat` 整体 JSON,这里是按会话分桶的纯文本),
+  // 故必须单开一域:共用子密钥会让"哪份密文"与键名脱钩,迁移判据(层数)失去锚点。
+  'chat-draft': 'ihui/desktop/vault/chat-draft/v1',
+  // 工作展示区(D48 同批收口,2026-10-06):`ihui-work-panel` 过去走 createPersistConfig
+  // 的默认 storage,整块明文躺在 WebView localStorage —— 其中 tabs[].title /
+  // favorites[].title 是**用户自己起的工作区标签名**(盘上实测有中文残留),
+  // 属用户可见个人数据,与 chat/goal/auth 同性质。单开一域的理由同 chat-draft:
+  // 该 persist blob 的键名与内容没有结构级锚点,共用子密钥会让"哪份密文"与键名脱钩,
+  // 迁移判据(层数)失去锚点。
+  'work-panel-persist': 'ihui/desktop/vault/work-panel-persist/v1',
+  // prompt-history 桶(`chat:prompt-history*`):与 chat-draft 同族不同键,
+  // 单开一域的理由同 chat-draft(共用子密钥会让两族密文互相可解、换密钥时同生共死)。
+  'chat-prompt-history': 'ihui/desktop/vault/chat-prompt-history/v1',
 }
 
 /** Tauri v2 运行时探测(原 desktop-token-vault 的定义,移到这里做单一事实源) */
