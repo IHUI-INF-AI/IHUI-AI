@@ -5,11 +5,11 @@
 
 // 模型容量 / 推理档位的 TS↔Python 跨语言对账门(2026-09-27 立)。
 //
-// 【接线状态:尚未进提交链】本门目前只有本文件与它的镜像测试。
-// 注册进 scripts/guardian-runner.mjs 与 AGENTS/README 点名由主会话统一落
-// (注册表是多会话共写面,并行改必然互相覆盖注册块)。
-// 本头注刻意不声称本门已挂进任何钩子链、也不自称"第 N 项":守门 89 的 R1 判的正是
-// "声称已接线而五处权威点零命中",这里没接线也没声称,两侧都不撒谎。
+// 【接线状态:已接入】注册条目已落在 scripts/guardian-runner.mjs(id 以 runner 现值为准,
+// 勿照抄本行数字):blocking + args:['--strict'] + skipEnv:HUSKY_SKIP_MODEL_CAPACITY_PARITY,
+// 带 stagedTriggers。根 package.json 另有 scripts.check:model-capacity 手工问责入口。
+// —— 本段原写"尚未进提交链/只有本文件与镜像测试/由主会话统一落",那是立项时的实况,
+// 已过期(门早已装车);保留"为何曾这么设计"的立论,接线事实按上条现读改写。
 //
 // 它钉的是什么病(立项时逐条实测,不是假想):
 //   · apps/ai-service/app/core/model_context_window.py 的头注原文写着"暂无自动对账门",
