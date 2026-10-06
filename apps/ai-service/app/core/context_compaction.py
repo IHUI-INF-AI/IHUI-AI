@@ -4,7 +4,7 @@
 
 """上下文压缩模块(Python 端兜底实现)。
 
-跨端统一规则(与 TypeScript 共享包 @ihui/context-compaction 等价):
+跨端规则(与 TypeScript 共享包 @ihui/context-compaction 对齐):
 - 默认触发阈值:88%(0.88)
 - 默认目标:60%(0.6)
 - 默认尾部保留:6 条 non-system 消息
@@ -20,7 +20,33 @@
 设计目的:
 - API 层(apps/api)在调用 ai-service 前已调用 TS 共享包压缩
 - ai-service 本层是兜底:防御性压缩,避免 API 漏传 contextLimit 时仍能保护上下文
-- 跨端一致性:Python 实现与 TS 共享包逻辑等价,阈值统一 0.88
+
+【BPE 词表:本模块与 TS 侧目前 NOT 一致(实测 2026-10-07)—— 原"等价"说法已撤】
+- 本模块原文写着「跨端一致性:Python 实现与 TS 共享包逻辑等价」,而 TS 侧
+  packages/context-compaction/src/token-estimate.ts 的头注同时写着「Python 等价实现见本文件」
+  —— **两侧互指对方为等价,却建立在两张不同的 BPE 词表上**:
+    · 本模块 :92 是 `tiktoken.get_encoding("cl100k_base")` ⇒ **cl100k_base**;
+    · TS 侧那条 import 未指定编码,而 gpt-tokenizer ^3.4.0 主入口**实际再导出
+      `./encoding/o200k_base.js`**(证据:node_modules/gpt-tokenizer/esm/main.js 第 2 行)
+      ⇒ **o200k_base**。
+- 分歧样本(纯 ASCII、无 CJK、无 emoji):"Addition is defined by the successor function."
+  TS 侧 8 token / 本侧 9 token。差在 `Add+ition` 这一个合并:o200k 切 ['Addition',…],
+  cl100k 切 ['Add','ition',…]。中文放大得更狠(实测"上下文压缩模块的跨端一致性判据。"= 13 vs 22)。
+- 后果不是"小数点误差":压缩按估算占比触发(0.88),两端对同一段对话算出不同 token 数
+  ⇒ 同一段上下文可能**在 TS 侧已触发压缩、在本侧尚未触发**(或反之)。
+- ⚠️ 既有 packages/context-compaction/tests/fixtures/parity.json 的 24 条消息在两张表下
+  **逐条同值**,那是**巧合**(整批落在等值子集上、踩不到分歧词),**不是**"两端一致"的证据。
+- 机器判据:scripts/check-bpe-encoding-parity.mjs(C1 读两端真实声明 + C2 实跑两端生产估算器
+  逐值比对 + C3 反向锁防空转),该门当前**判红**。
+- **统一到哪张表是替真实业务选模型,须人拍板** —— 本模块不擅自改成任何一边。
+  改编码会同时改动真实估算值与压缩触发点,属行为变更,不是纯注释债,须走评审。
+
+【本模块两条静默降级路径 —— 一旦触发,两端分歧会进一步扩大(事实陈述,不是 TODO)】
+- 上面那条是"声明层"的分歧。本模块还有两条**运行时**降级路径,会让实际用的表/算法
+  与声明**脱钩**,且都是**静默**的(只 logger.warning/debug,不改返回值、不抛错):
+    · :94-95 —— tiktoken 加载失败时 fallback 到 **p50k_base**(**第三张表**);
+    · :112 与 :119 —— encode 失败时 fallback 到 `len(text)//4`(完全不是 BPE,是字符数除四)。
+- 一旦任一触发,与 TS 侧的差距会**比上面那条声明层分歧更大**,而且从返回值上只看不出来。
 """
 
 from __future__ import annotations
@@ -85,7 +111,25 @@ _encoder: tiktoken.Encoding | None = None
 
 
 def _get_encoder() -> tiktoken.Encoding:
-    """获取 tiktoken encoder(cl100k_base,与 TS 端 gpt-tokenizer 一致)。"""
+    """获取 tiktoken encoder(**cl100k_base**)。
+
+    ⚠️ 本函数**不**与 TS 端一致(实测 2026-10-07):TS 侧
+    packages/context-compaction/src/token-estimate.ts 的 `import { encode } from 'gpt-tokenizer'`
+    未指定编码,而该包主入口实际再导出 `./encoding/o200k_base.js` ⇒ TS 侧是 **o200k_base**。
+    本行原文写着「cl100k_base,与 TS 端 gpt-tokenizer 一致」—— 那句"一致"是**错的**,已改正。
+    分歧样本(纯 ASCII):"Addition is defined by the successor function."
+    TS 侧 8 token / 本侧 9 token(差在 Add+ition 的合并)。
+
+    该docstring 原写"一致"时的代价:压缩按估算占比触发(0.88),两端读数不同 ⇒ 同一段上下文
+    可能一边已触发压缩、另一边尚未触发,而 typecheck / lint / 全部既有守门都不红。
+
+    **统一到哪张表须人拍板**(这是替真实业务选模型:o200k 是 GPT-4o 系的表,cl100k 是 GPT-4
+    系较早的表,选哪张取决于本项目实际打给哪家模型)。本模块不擅自改。
+    机器判据 scripts/check-bpe-encoding-parity.mjs 当前判红。
+
+    另注:下面的 except 分支会静默切到 **p50k_base**(第三张表) —— 一旦触发,
+    本侧实际用的表与上面声明的、与 TS 侧的对比都会脱钩,分歧进一步扩大。
+    """
     global _encoder
     if _encoder is None:
         try:
