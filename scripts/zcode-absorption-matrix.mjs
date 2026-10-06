@@ -20,6 +20,12 @@
  *   M4 状态自洽:`unread` 切片却挂着 evidence ⇒ 红(没读却有发现 = 记账方向反了)。
  *   M5 登记表自洽:同一 `path` 登记两次 ⇒ 红(台账副本腐烂,AGENTS §1 同条)。
  *   M6 票挂账:切片声明了 `tickets` 却状态是 deep 且无 evidence ⇒ 由 M2 拦,这里只报数。
+ *   M12 可复核清单:readFiles 逐条落在被审面、行数与现量相符、同路径只计一次;`read` 超出
+ *      可复核数不判红(差额=早期自报),但头条必须分开报两个数(2026-09-29 立)。
+ *   M13 全量具名清单:readFiles 写作字符串路径(= 声明"本切片读集已逐名登记",w17 G 票)时,
+ *      `read` 必须等于清单去重后的长度,M8/M10/M11 的读量改由清单算出 —— 具名清单是唯一计数
+ *      来源,自报数与清单对不上即红。对象形态({p, lines})是 M12 的"可复核子集",
+ *      不承担计数职责(2026-09-29 那批回填全是此形态,向后兼容)。
  *
  * 三态硬要求:上游克隆不在位 / 不是 git 仓 / git 问不到清单 ⇒ **exit 2 未判定**并点名原因,
  * 绝不记绿也绝不冒红(克隆是 gitignore 的本机文件,在非部署机上判红就是一台恒红门 —— 与
@@ -123,9 +129,20 @@ export function decide({ files, lineCounts, registry }) {
         errors.push(`M3 行号越界(文件只有 ${lineCounts[p]} 行):${e}`)
       }
     }
+    // M13 全量具名清单(w17 G 票):readFiles 写作字符串路径 ⇒ 它就是本切片读集的逐名登记,
+    // `read` 必须等于清单去重后的长度(禁省略去重、禁把代理报的"读了 N 个"直接抄进 read ——
+    // 具名清单是唯一计数来源;read 缺省则直接由清单导出)。
+    // 对象形态({p, lines})是 M12 的可复核子集,不声明全量 ⇒ 不触发本判据(向后兼容)。
+    const namedRead = namedReadOf(s)
+    if (namedRead !== null && s.read !== undefined && Number(s.read) !== namedRead) {
+      errors.push(
+        `M13 切片 ${s.path} 的 read=${s.read} ≠ readFiles 去重后的 ${namedRead} 个(具名清单是唯一计数来源,数字必须由清单算出)`,
+      )
+    }
     // M8 读量自洽:`read` 是"整文件读到体"的文件数,不得超过该切片现量;
+    // 挂了全量具名清单 ⇒ 读量由清单导出(M13),否则沿用自报数;
     // 不给 read 而标 deep/windowed ⇒ 警告(头条"真读到体多少"就无从汇总 —— 正是本器存在的理由)
-    const readN = Number(s.read ?? 0)
+    const readN = namedRead ?? Number(s.read ?? 0)
     if (!Number.isFinite(readN) || readN < 0) {
       errors.push(`M8 切片 ${s.path} 的 read="${s.read}" 不是非负整数`)
     } else if (readN > counted) {
@@ -213,7 +230,8 @@ export function decide({ files, lineCounts, registry }) {
  * 而账面什么都看不出来 —— "把代理结论当事实"在本仓是最高频失效型,头条数字恰好也在这条上。
  *
  * 判据只认结构事实,不猜"有没有真读":清单里每条必须
- * ① 在被审面存在;② 若带 `lines`,必须与面上现量逐字相符;③ 同一路径不得计两次。
+ * ① 在被审面存在;② 若带 `lines`,必须与面上现量逐字相符;③ 同一路径只计一次(重复条目
+ * 去重,不双计;全量清单的"数与清单一致"由 M13 把关)。
  * 三条都不满足的那份**不计入可复核数**,并把原因推进 errors(不静默)。
  * `read` 大于可复核数**不判红** —— 早期轮次确实没有留清单,那是历史状态不是本次故障;
  * 头条因此必须分开报两个数,把差额摆在明面上,而不是让它伪装成已证。
@@ -242,14 +260,26 @@ function verifiedReadOf(s, lineCounts, files, errors) {
       bad.push(`行数不符:${p} 写 ${claimed} / 面上 ${lineCounts[p]}`)
       continue
     }
-    if (seen.has(p)) {
-      bad.push(`路径重复计入:${p}`)
-      continue
-    }
     seen.add(p)
   }
   for (const b of bad) errors.push(`M12 ${s.path} 清单不可兑现 ⇒ ${b}`)
   return [...seen]
+}
+
+/**
+ * M13 —— 全量具名读清单的去重长度;切片没挂清单 ⇒ null(沿用自报数,旧行为)。
+ *
+ * 两种形态的分工(2026-09-30 立,w17 G 票):
+ *   - 字符串路径 = "本切片读集已逐名登记"的**全量声明**:读量必须由它算出(去重后长度),
+ *     新读判重从此可机器判定("新读文件 ∈ 清单 ⇒ 不计数"),下界少报的问题消失。
+ *   - `{p, lines}` 对象 = M12 的可复核子集(2026-09-29 那批回填全是此形态):它只证明
+ *     "清单里这几份可兑现",不声明清单之外没读 ⇒ 不触发 M13,读量沿用自报数。
+ * 两种形态混挂时按对象形态处理(保守侧:宁可少一条判据,不冒判)。
+ */
+function namedReadOf(s) {
+  if (!Array.isArray(s.readFiles)) return null
+  if (!s.readFiles.every((item) => typeof item === 'string')) return null
+  return new Set(s.readFiles).size
 }
 
 function measure(root) {
@@ -400,11 +430,101 @@ function runSelfTest() {
   const vWrong = mkVerified([{ p: 'packages/a/src/x.ts', lines: 11 }])
   cases.push(['M12 行数与现量不符必须红', vWrong.errors.some((e) => e.includes('行数不符'))])
   const vDup = mkVerified([{ p: 'packages/a/src/x.ts', lines: 10 }, { p: 'packages/a/src/x.ts', lines: 10 }])
-  cases.push(['M12 同一路径计两次必须红', vDup.errors.some((e) => e.includes('重复计入'))])
+  cases.push([
+    'M12 同一路径重复条目去重只计一次(不双计也不红;全量完整性由 M13 把关)',
+    vDup.ok && vDup.rows[0].verifiedRead === 1 && !vDup.errors.some((e) => e.includes('重复计入')),
+  ])
   const vLegacy = mkVerified(undefined)
   cases.push([
     'M12 没有清单的早期自报数不判红,但可复核数必须为 0(差额不得被吞成已证)',
     vLegacy.ok && vLegacy.rows[0].verifiedRead === 0 && vLegacy.rows[0].read === 2,
+  ])
+
+  // M13 全量具名清单(w17 G 票):字符串形态 = 读集逐名登记 ⇒ read 必须等于去重长度,
+  // M8/M10/M11 读量改由清单算出。四条主判据:缺省=旧行为 / 与 read 不一致=红 /
+  // 重复路径去重后相等=绿 / 读量从具名集合算(M8 与 M11 各一条正反例)。
+  const mkNamed = (over = {}) =>
+    decide({
+      files: vf,
+      lineCounts: { 'packages/a/src/x.ts': 10, 'packages/a/src/y.ts': 20 },
+      registry: {
+        slices: [
+          {
+            path: 'packages/a/src',
+            status: 'deep',
+            evidence: ['packages/a/src/x.ts:1-3'],
+            verified: 'self',
+            ...over,
+          },
+        ],
+      },
+    })
+  const nDedup = mkNamed({ read: 2, readFiles: ['packages/a/src/x.ts', 'packages/a/src/x.ts', 'packages/a/src/y.ts'] })
+  cases.push([
+    'M13 重复路径去重后与 read 相等 ⇒ 绿,读量由清单去重算出',
+    nDedup.ok && nDedup.rows[0].read === 2 && nDedup.rows[0].verifiedRead === 2,
+  ])
+  const nMismatch = mkNamed({ read: 3, readFiles: ['packages/a/src/x.ts', 'packages/a/src/y.ts'] })
+  cases.push(['M13 readFiles 与 read 不一致必须红(具名清单是唯一计数来源)', nMismatch.errors.some((e) => e.startsWith('M13'))])
+  const nDerived = mkNamed({ readFiles: ['packages/a/src/x.ts', 'packages/a/src/y.ts'] })
+  cases.push([
+    'M13 挂全量清单而 read 缺省 ⇒ 读量由清单导出,不红(清单是唯一计数来源)',
+    nDerived.ok && nDerived.rows[0].read === 2 && nDerived.readTotal === 2,
+  ])
+  const nPartial = mkNamed({ read: 2, readFiles: ['packages/a/src/x.ts'] })
+  cases.push([
+    'M13 清单只登记 1/2 仍声明全量 ⇒ M13 红(deep 也另犯 M11),不得靠抬自报数蒙混',
+    nPartial.errors.some((e) => e.startsWith('M13')) && nPartial.errors.some((e) => e.startsWith('M11')),
+  ])
+  const nOverFace = decide({
+    files: ['packages/a/src/x.ts'],
+    lineCounts: { 'packages/a/src/x.ts': 10 },
+    registry: {
+      slices: [
+        {
+          path: 'packages/a/src',
+          status: 'windowed',
+          read: 0,
+          evidence: ['packages/a/src/x.ts:1'],
+          verified: 'self',
+          readFiles: ['packages/a/src/x.ts', 'packages/a/src/gone.ts'],
+        },
+      ],
+    },
+  })
+  cases.push([
+    'M8 读量从具名集合算:自报 0 但清单去重 2 > 现量 1 ⇒ 红(旧口径自报数救不了)',
+    nOverFace.errors.some((e) => e.startsWith('M8') && e.includes('读量超过切片现量')),
+  ])
+  const nM11FromList = decide({
+    files: ['packages/a/src/x.ts', 'packages/a/src/y.ts'],
+    lineCounts: { 'packages/a/src/x.ts': 10, 'packages/a/src/y.ts': 20 },
+    registry: {
+      slices: [
+        {
+          path: 'packages/a/src',
+          status: 'deep',
+          evidence: ['packages/a/src/x.ts:1-3'],
+          verified: 'self',
+          read: 0,
+          readFiles: ['packages/a/src/x.ts'],
+        },
+      ],
+    },
+  })
+  cases.push([
+    'M11 读量从具名集合算:deep 而清单只覆盖 1/2 ⇒ 红(自报 read 抬不上去)',
+    nM11FromList.errors.some((e) => e.startsWith('M11')),
+  ])
+  const nObjectForm = mkNamed({ read: 2, readFiles: [{ p: 'packages/a/src/x.ts', lines: 10 }] })
+  cases.push([
+    'M13 对象形态(可复核子集)不触发 ⇒ 读量沿用自报数,只走 M12(M12 那批回填向后兼容)',
+    nObjectForm.ok && nObjectForm.rows[0].read === 2 && nObjectForm.rows[0].verifiedRead === 1 && !nObjectForm.errors.some((e) => e.startsWith('M13')),
+  ])
+  const nAbsent = mkNamed({ read: 1, status: 'windowed' })
+  cases.push([
+    'M13 readFiles 缺省 = 旧行为(自报数照用,只报数)',
+    nAbsent.ok && nAbsent.rows[0].read === 1 && nAbsent.rows[0].verifiedRead === 0,
   ])
 
   const brokenRegistry = decide({ files, lineCounts: lines, registry: {} })

@@ -226,7 +226,8 @@ describe('user_browse_history 三端点(此前 /api/browse-history 全不存在)
       enqueue([historyRow()], [{ count: 1 }])
       const res = await server.inject({ method: 'GET', url: `${PREFIX}/browse-history` })
       const item = res.json().data.list[0]
-      // 与共享契约 BookmarkItem(packages/types/src/app.ts:196-197)对齐
+      // 与共享契约 BookmarkItem(packages/types/src/app-engagement.ts;2026-10-04 起 app.ts 拆为业务域文件,
+      // 该类型现住在 app-engagement.ts —— §1 禁写行号,按类型名定位)对齐
       expect(item.targetType).toBe('post')
       expect(item.targetId).toBe('22222222-2222-4222-8222-222222222222')
       // 旧名不许残留 —— 残留会让前端 member/history 页拿到 undefined

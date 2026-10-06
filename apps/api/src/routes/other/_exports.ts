@@ -17,6 +17,8 @@ export { dramaRoutes } from './drama-routes.js'
 export { imageGenRoutes } from './image-gen-routes.js'
 export { knowledgeBaseRoutes } from './knowledge-base-routes.js'
 export { llmStreamRoutes } from './llm-stream-routes.js'
+// 浏览历史(2026-10-04 新增,/member/history 页此前打的三个端点都不存在)
+export { historyRoutes } from './history-routes.js'
 export { memberRoutes } from './member-routes.js'
 export { messageRoutes } from './message-routes.js'
 export { notesRoutes } from './notes-routes.js'
