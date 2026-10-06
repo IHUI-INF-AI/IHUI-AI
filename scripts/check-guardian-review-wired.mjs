@@ -15,9 +15,12 @@
 //    · W4 含调用点的生产文件必须同时引用 `to_event_payload(` —— 复核跑了
 //      但结论没随事件下发给用户 = 没装车。
 //
-// 接线现状(如实登记,不冒充):本门由主会话接线,当前**未**接入提交链;
-// 手动问责入口 `node scripts/check-guardian-review-wired.mjs`。
-// 紧急跳过(接入提交链后生效):HUSKY_SKIP_GUARDIAN_REVIEW_WIRED=1。
+// 【接线状态:已接入】注册条目已落在 scripts/guardian-runner.mjs(id 以 runner 现值为准,
+// 勿照抄本行数字):blocking + skipEnv:HUSKY_SKIP_GUARDIAN_REVIEW_WIRED,带 stagedTriggers。
+// —— 本段原写"本门由主会话接线,当前未接入提交链 / 紧急跳过接入提交链后生效",
+// 那是立项时的实况,已过期(门早已装车);立论保留,接线事实按上条现读改写。
+// 手动问责入口仍为 `node scripts/check-guardian-review-wired.mjs`。
+// 紧急跳过:HUSKY_SKIP_GUARDIAN_REVIEW_WIRED=1。
 //
 // 取材口径同 70/77/83/98/101/103/118:全量判 HEAD blob、--staged 判索引 blob、
 // --worktree 仅人工逃生舱、两面旗同给 exit 2、面取不到判"无法判定"、
