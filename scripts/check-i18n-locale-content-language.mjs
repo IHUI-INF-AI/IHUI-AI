@@ -54,7 +54,7 @@
  * 读(表是判据输入,读磁盘会让"改表未提交"与"已提交"两种状态混用)。枚举到 0 个 locale 文件 /
  * 0 条叶子 ⇒ **判死而不记绿**。
  *
- * ── 豁免(两条,都是结构式判据,不是登记表;不新增行内标记族 ⇒ 不给守门 108 添新账) ──
+ * ── 豁免(三条,都是结构式判据,不是登记表;不新增行内标记族 ⇒ 不给守门 108 添新账) ──
  *   E1 与同 target 的 `zh-CN` 文件**同键路径逐字相同** ⇒ 有意的原文保留(法人名 / 备案号 / 品牌 /
  *      语言本名),不属"错语种"。**审的文件本身就是 zh-CN 时 E1 不生效** —— 否则自我比对等于自我豁免,
  *      zh-CN 里的整块外语永远看不见。zh-CN 侧由 L1a 自身把守,所以"zh-CN 与 zh-TW 同时装韩文"这种
@@ -62,7 +62,15 @@
  *   E2 叶子键名本身点名某种语言(`settings.lang_ko` / `settings.ko` / `languageKO`:末段归一后以某个
  *      locale 码结尾且等于它或以 `lang`/`language` 开头)⇒ 语言选择器按设计显示该语言**本名**。
  *      locale 码集**从被审目录的文件名自己推出**,没有手工清单。
- *   两条都**只报数并打印命中键路径**(清单腐烂会表现为计数变化,不是静默)。
+ *   E3(2026-10-06 立)**叶子级**专名豁免:该叶子的**全部**表外字种都落在 `properNouns` 内 ⇒ 专名的
+ *      日文正字形写法,放过。立论:`aboutIcprecord.r2` = `吉林省愛智匯人工智能科技有限公司` 躲过 E1
+ *      **不是因为内容对**,而是 ja 用日文正字形(愛/匯/學)而 zh-CN 用中国简化字(爱/汇/学),逐字不同 ⇒
+ *      E1 判不出 ⇒ 落进 L1b 挨打。这一整类(硅基流動/訊飛星火/火山引擎/企鵞号/鈦媒體/西瓜動画)都被
+ *      漏到 L1b。**必须叶子级不能字级**:同一个 `智` 在 `community.text1`(专名)与在别处(普通词)
+ *      身份不同;字级放行对两者一视同仁,那不叫分派,叫"靠改表过门"——`properNouns` 因此是**与 2136
+ *      表分离的独立集合**,一个字都没进 `chars`/`codepoints`。反向防线:掺进任何一个非专名的表外字,
+ *      整叶仍判。E3 命中数**必须单列打印**(归零即"合法字被当残留抓了"或"专名集没随表落库")。
+ *   三条都**只报数并打印命中键路径**(清单腐烂会表现为计数变化,不是静默)。
  *
  * 退出码:0 = 通过 / 仅默认档报数 · 1 = 判红(L2 新增,或 --strict 下的 L1 候选)· 2 = 无法判定
  * 用法:node scripts/check-i18n-locale-content-language.mjs
@@ -84,6 +92,7 @@ import {
   hasHangul,
   joyoSetFromRaw,
   nonJoyoHan,
+  properNounSetFromRaw,
   rangesAreDisjoint,
 } from './lib/i18n-script-families.mjs'
 
@@ -257,19 +266,22 @@ export function readL2Anchors(root, rels) {
 
 /** 读常用汉字表(判据输入,按被审面取)。取不到 ⇒ {set:null,error} —— 调用方记未判定,不猜。
  *  ⚠️ **每条"取不到"都必须带得出原因**:本函数第一版在"文件在、解不出"时把 error 留成 null,
- *  于是结论行打成 `未判定(null)` —— 一句让人无法行动的诊断,与 §5d"读不到被下游报成失效"同族。 */
+ *  于是结论行打成 `未判定(null)` —— 一句让人无法行动的诊断,与 §5d"读不到被下游报成失效"同族。
+ *  专名字集合(`properNouns`)走**同一个 raw / 同一个面**:表与专名集同源,分开读就会出现
+ *  "表已更新、专名集还是旧的"这种口径漂移,而漂移的表现是门变绿 —— 最坏的方向。 */
 export function loadJoyo(root, face) {
   const finish = (raw, source, missingText) => {
     if (raw === null || raw === undefined)
-      return { set: null, source: null, error: missingText || `${JOYO_REL} 在该面取不到` }
+      return { set: null, proper: null, source: null, error: missingText || `${JOYO_REL} 在该面取不到` }
     const set = joyoSetFromRaw(raw)
     if (!set)
       return {
         set: null,
+        proper: null,
         source,
         error: `${JOYO_REL} 取到了但解不出 ≥2000 字(表被截断或格式变了)`,
       }
-    return { set, source, error: null }
+    return { set, proper: properNounSetFromRaw(raw), source, error: null }
   }
   if (face === 'worktree') {
     try {
@@ -319,6 +331,33 @@ export function sameAsZhCn(zhObj, segs, value) {
     else return false
   }
   return typeof cur === 'string' && cur === value
+}
+
+/**
+ * E3:该叶子是否**整体**是"专名的日文正字形写法"⇒ 豁免(只报数)。
+ *
+ * 立论(2026-10-06 由 HEAD 面恒红逼出):`aboutIcprecord.r2` = `吉林省愛智匯人工智能科技有限公司`。
+ * 它躲过 E1「与 zh-CN 逐字相同」不是因为内容对,而是因为 ja 侧用**日文正字形**(愛/匯/學)而
+ * zh-CN 侧用**中国简化字**(爱/汇/学)—— 逐字不同 ⇒ E1 判不出来 ⇒ 落进 L1b 挨打。
+ * 这是「专名的日文正字形写法」这一整类被漏到 L1b 的真实病灶,不是孤例。
+ *
+ * ⚠️ **必须落在叶子级(叶子值 + 键上下文),不能落在字级**。同一个 `智` 在 `community.text1`
+ * (公司名 `智匯AI`) 与在别的键(普通词)身份完全不同;字级放行对两者一视同仁,那不叫分派,
+ * 叫"靠改表过门"。所以本判据读的是**叶子的全部表外字种**:全部落在专名集合内才豁免,
+ * 只要掺进一个非专名的表外字(真残留),整叶仍判 —— 这就是反向防线。
+ *
+ * @param {string} value 叶子值
+ * @param {Set<string>|null} proper 专名字集合;null = 未取到 ⇒ **false**(不猜也不放行)
+ * @param {Set<string>|null} joyo 常用汉字表;null ⇒ false
+ * @returns {{ok:boolean, chars:string}} chars = 落在专名集合内的那些表外字(报数用)
+ */
+export function properNounLeaf(value, proper, joyo) {
+  if (!proper || proper.size === 0) return { ok: false, chars: '' }
+  const suspects = nonJoyoHan(value, joyo)
+  if (!suspects) return { ok: false, chars: '' }
+  let chars = ''
+  for (const ch of suspects) if (proper.has(ch)) chars += ch
+  return { ok: chars.length > 0 && chars.length === [...suspects].length, chars }
 }
 
 /** 值里出现的 L1a 族标记集合(kana / hangul / han);纯拉丁/数字/标点 ⇒ 空 */
@@ -396,10 +435,10 @@ export function findSelfNesting(node, prefix = '', sole = [], notSole = []) {
  * 单份 locale 文件的全部判据。**纯函数**(不碰磁盘 / 不派生 git),所以每条分支都能被自检构造出来。
  * @param rel 被审文件路径
  * @param obj 已 JSON.parse 的语言包对象;null = 解析失败(⇒ 计入未判定)
- * @param opts {{locale,localeCodes,zhCnObj,zhCnMissing,joyo}}
+ * @param opts {{locale,localeCodes,zhCnObj,zhCnMissing,joyo,proper}}
  */
 export function scanLocaleContent(rel, obj, opts) {
-  const { locale, localeCodes, zhCnObj, zhCnMissing, joyo } = opts
+  const { locale, localeCodes, zhCnObj, zhCnMissing, joyo, proper } = opts
   const res = {
     rel,
     locale,
@@ -408,6 +447,7 @@ export function scanLocaleContent(rel, obj, opts) {
     l1b: [],
     exemptEndonym: [],
     exemptIdentical: [],
+    exemptProper: [],
     hanElsewhereOwned: 0,
     notJudgedLocale: LOCALE_MATRIX[locale] === null,
     undetermined: [],
@@ -467,6 +507,11 @@ export function scanLocaleContent(rel, obj, opts) {
     if (!joyo) {
       res.undetermined.push(`${rel}:常用汉字表(${JOYO_REL})取不到 ⇒ L1b 未判定(不猜,也不放行)`)
     } else {
+      if (!proper)
+        res.undetermined.push(
+          `${rel}:专名字集(${JOYO_REL} 的 properNouns)取不到 ⇒ E3 判不出,L1b 照判(不猜,也不放行)`,
+        )
+      const exemptProperSeen = new Set()
       const walkBlocks = (node, prefix, baseSegs) => {
         for (const [k, v] of Object.entries(node)) {
           if (!v || typeof v !== 'object' || Array.isArray(v)) continue
@@ -479,11 +524,24 @@ export function scanLocaleContent(rel, obj, opts) {
               `${rel}::${p} 叶子数达上限 ${MAX_LEAVES_PER_BLOCK} ⇒ 本块 L1b 未判定(不是"没有矛盾")`,
             )
           } else {
-            const usable = all.filter(
-              (l) =>
-                !isEndonymKey(leafKeyName(l.segs), localeCodes) &&
-                !sameAsZhCn(zhCnObj, l.segs, l.v),
-            )
+            // 三道豁免并列为**结构式**判据(E1 逐字相同 / E2 键名点名语言 / E3 叶子整体是专名
+            // 正字形写法),不新增行内标记族 ⇒ 不给守门 108 添新账。E3 落在叶子级而非字级:
+            // 掺进任何一个非专名的表外字,整叶仍判(反向防线,见 properNounLeaf 的立论)。
+            // ⚠️ 块是**递归**遍历的(一个叶子属于所有祖先块),豁免计数必须按路径去重,
+            // 否则同一个叶子会被它的每个祖先块各数一次,报数虚高。
+            const usable = all.filter((l) => {
+              if (isEndonymKey(leafKeyName(l.segs), localeCodes)) return false
+              if (sameAsZhCn(zhCnObj, l.segs, l.v)) return false
+              const pn = properNounLeaf(l.v, proper, joyo)
+              if (pn.ok) {
+                if (!exemptProperSeen.has(l.path)) {
+                  exemptProperSeen.add(l.path)
+                  res.exemptProper.push({ path: l.path, chars: pn.chars, v: l.v.slice(0, 40) })
+                }
+                return false
+              }
+              return true
+            })
             const hanLeaves = usable.filter((l) => hasHan(l.v))
             const scriptLeaves = usable.filter((l) => marksOfValue(l.v).size > 0)
             const kanaLeaves = usable.filter((l) => hasKana(l.v) || hasHangul(l.v))
@@ -525,6 +583,7 @@ export function summarize(results, anchors) {
     l2: [],
     exemptEndonym: [],
     exemptIdentical: [],
+    exemptProper: [],
     hanElsewhereOwned: 0,
     l2SoleTotal: 0,
     l2WithinAnchor: 0,
@@ -539,6 +598,7 @@ export function summarize(results, anchors) {
     for (const x of r.l1b) s.l1b.push({ ...x, rel: r.rel })
     for (const x of r.exemptEndonym) s.exemptEndonym.push({ ...x, rel: r.rel })
     for (const x of r.exemptIdentical) s.exemptIdentical.push({ ...x, rel: r.rel })
+    for (const x of r.exemptProper) s.exemptProper.push({ ...x, rel: r.rel })
     s.hanElsewhereOwned += r.hanElsewhereOwned
     s.l2NotSole += r.l2NotSole.length
     s.truncatedBlocks += r.truncatedBlocks
@@ -712,6 +772,7 @@ function main() {
         zhCnObj: locale === 'zh-CN' ? null : (zhByTarget.get(target) ?? null),
         zhCnMissing: locale !== 'zh-CN' && !zhByTarget.has(target),
         joyo: joyoInfo.set,
+        proper: joyoInfo.proper,
       }),
     )
   }
@@ -729,7 +790,7 @@ function main() {
     `  ${C.dim}口径:L1 默认档只报数(--strict 问责) / L2 每文件 HEAD 存量棘轮 / 不判:ko 的汉字(他门射程,实测 ${s.hanElsewhereOwned} 处)、${[...s.notJudgedLocales].join('/') || '无'} 的 L1(原文必须保留)、zh-CN 自身的 E1 豁免、汉字族内部简繁(码位判不了)${C.reset}`,
   )
   console.log(
-    `  ${C.dim}豁免命中:E2 语言本名 ${s.exemptEndonym.length} 处、E1 与 zh-CN 逐字相同 ${s.exemptIdentical.length} 处;L2 同名自套存量 ${s.l2SoleTotal} 处(其中 ${s.l2WithinAnchor} 处落在各自 HEAD 锚点内 ⇒ 只报数不判红)、L2「同名但非唯一子键」(仓内既有形态,不判)${s.l2NotSole} 处;块样本截断 ${s.truncatedBlocks} 处${C.reset}`,
+    `  ${C.dim}豁免命中:E2 语言本名 ${s.exemptEndonym.length} 处、E1 与 zh-CN 逐字相同 ${s.exemptIdentical.length} 处、E3 专名(叶子级,日文正字形)${s.exemptProper.length} 处${s.exemptProper.length === 0 ? C.yellow + '(⚠ 归零 = 合法字被当残留抓了,或 properNouns 未随表落库)' + C.dim : ''};L2 同名自套存量 ${s.l2SoleTotal} 处(其中 ${s.l2WithinAnchor} 处落在各自 HEAD 锚点内 ⇒ 只报数不判红)、L2「同名但非唯一子键」(仓内既有形态,不判)${s.l2NotSole} 处;块样本截断 ${s.truncatedBlocks} 处${C.reset}`,
   )
   if (listed.unparsed)
     console.log(
@@ -757,7 +818,9 @@ function main() {
   )
   printList(
     '豁免命中(只报数)',
-    s.exemptEndonym.concat(s.exemptIdentical),
+    s.exemptEndonym
+      .concat(s.exemptIdentical)
+      .concat(s.exemptProper.map((x) => ({ ...x, marks: `专名:${x.chars}` }))),
     (x) => `${x.rel} :: ${x.path} [${x.marks}] = ${JSON.stringify(clip(x.v))}`,
     showAll,
   )
@@ -828,12 +891,18 @@ function runSelfTest() {
   // 真表提前加载:T2b 的"误报压制"证明只有拿**仓里那张 2136 字表**跑才算数 ——
   // 合成表证明的是判据形状,真表证明的是"HEAD 面那 42 个纯汉字块不会因此变红"。
   let REAL_JOYO = null
+  let REAL_PROPER = null
   let realJoyoErr = ''
   try {
-    REAL_JOYO = joyoSetFromRaw(readFileSync(resolve(ROOT, JOYO_REL), 'utf8'))
+    const raw = readFileSync(resolve(ROOT, JOYO_REL), 'utf8')
+    REAL_JOYO = joyoSetFromRaw(raw)
+    REAL_PROPER = properNounSetFromRaw(raw)
   } catch (e) {
     realJoyoErr = String((e && e.message) || e).slice(0, 60)
   }
+  // 合成专名集:证明判据**形状**用(真表另由 T7e2 证)。
+  // 收 智/匯/硅/钉 —— 钉**故意收在合成集里**,好让 T7f 能证明"掺一个非专名表外字 ⇒ 整叶仍判"。
+  const PROPER = new Set([...'智匯硅钉'])
   const CODES = ['zh-CN', 'zh-TW', 'ja', 'ko', 'en']
   const mk = (locale, obj, extra = {}) =>
     scanLocaleContent(`packages/i18n/messages/t/${locale}.json`, obj, {
@@ -842,6 +911,7 @@ function runSelfTest() {
       zhCnObj: extra.zhCnObj ?? null,
       zhCnMissing: extra.zhCnMissing ?? false,
       joyo: 'joyo' in extra ? extra.joyo : JOYOS,
+      proper: 'proper' in extra ? extra.proper : PROPER,
     })
 
   console.log(`${C.bold}--self-test:i18n 语种内容/同名自套${C.reset}`)
@@ -1117,6 +1187,63 @@ function runSelfTest() {
     JSON.stringify(noZh.undetermined),
   )
 
+  // T7e E3 正反成对(逐字取自 HEAD 面真事故 aboutIcprecord 的形状)。
+  // 对照组的说服力全在**两个字都不在常用汉字表内、方向也相同**(智匯 / 钉钉),
+  // 唯一区别是一个是专名正字形、一个是没翻译的专名 ⇒ 分派不生效时这两个读数必须一模一样。
+  const pnOk = mk(
+    'ja',
+    { aboutIcprecord: { r1: '吉ICP備2025027274号', r2: '吉林省愛智匯人工智能科技有限公司', p1: '吉ICP備2025027274号-7A' } },
+    { joyo: REAL_JOYO, proper: REAL_PROPER },
+  )
+  A(
+    'T7e E3 专名正字形(智匯)⇒ 豁免且**单列计数**,块因 usable 不足落"不判"',
+    !!REAL_PROPER &&
+      pnOk.l1b.length === 0 &&
+      pnOk.exemptProper.length === 1 &&
+      pnOk.exemptProper[0].path === 'aboutIcprecord.r2' &&
+      pnOk.exemptProper[0].chars === '智匯',
+    JSON.stringify({ l1b: pnOk.l1b, ex: pnOk.exemptProper }),
+  )
+  const pnBad = mk(
+    'ja',
+    { connectors: { dingtalk: '钉钉', feishu: '飛書', wecom: '企業微信', more: '钉钉飛書' } },
+    { joyo: REAL_JOYO, proper: REAL_PROPER },
+  )
+  A(
+    'T7e2 对照组:钉钉(同为表外、同方向、非专名)⇒ **必须仍判红**并点名键(分派生效的反证)',
+    !!REAL_PROPER &&
+      pnBad.l1b.length === 1 &&
+      pnBad.l1b[0].suspects.includes('钉') &&
+      pnBad.exemptProper.length === 0,
+    JSON.stringify({ l1b: pnBad.l1b, ex: pnBad.exemptProper }),
+  )
+  // T7f **反向防线**:带专名不许静默放过整块 —— 掺一个非专名表外字,整叶仍判。
+  const pnMixed = mk(
+    'ja',
+    { mixed: { a: '吉林省愛智匯人工智能科技有限公司', b: '整理會話', c: '資料夾', d: '標籤' } },
+    { joyo: REAL_JOYO, proper: REAL_PROPER },
+  )
+  A(
+    // 嫌疑字里**不该**有 `話`:話(U+8A71)是 2136 表内的常用汉字,表内字永远不是嫌疑。
+    // 这里逐字写死,就是防"有人为了把这块变绿去动 2136 名单"。
+    'T7f 反向防线:块里既有专名叶又有真残留叶 ⇒ 专名叶豁免、真残留叶仍被抓(不得整块放过)',
+    !!REAL_PROPER &&
+      pnMixed.exemptProper.length === 1 &&
+      pnMixed.l1b.length === 1 &&
+      pnMixed.l1b[0].suspects === '會夾籤',
+    JSON.stringify({ ex: pnMixed.exemptProper, l1b: pnMixed.l1b }),
+  )
+  const pnNone = mk(
+    'ja',
+    { org: { title: '整理會話', folderLabel: '資料夾', tagsLabel: '標籤' } },
+    { joyo: REAL_JOYO, proper: null },
+  )
+  A(
+    'T7g 专名集取不到 ⇒ 记未判定且**照判**(不得因判不出就放行)',
+    pnNone.l1b.length === 1 && pnNone.exemptProper.length === 0,
+    JSON.stringify({ und: pnNone.undetermined, l1b: pnNone.l1b }),
+  )
+
   // T8 en 的 L1 刻意不判,但 L2 仍判
   const enRes = mk('en', { about: { meta: 'IHUI AI (智汇 AI) 出品' } })
   A(
@@ -1224,6 +1351,19 @@ function runSelfTest() {
     !!REAL_JOYO && REAL_JOYO.size >= 2000,
     REAL_JOYO ? String(REAL_JOYO.size) : realJoyoErr,
   )
+  // T11b **防假修法锁**:专名字一个字都不许进 2136 名单。把专名塞进 `chars`/`codepoints`
+  // 也能让门变绿,但那是污染文化厅告示原文 + 没有分派逻辑的假修法(见 properNounSetFromRaw 立论)。
+  // 交集非空 ⇒ 本条立刻判红。
+  A(
+    'T11b 防假修法:专名集与 2136 名单**零交集**(不许靠改表过门)',
+    !!REAL_PROPER && [...REAL_PROPER].every((c) => !REAL_JOYO.has(c)),
+    [...(REAL_PROPER || [])].filter((c) => REAL_JOYO && REAL_JOYO.has(c)).join(''),
+  )
+  A(
+    'T11c 专名集非空且随表落库(E3 归零 = 合法字被当残留抓了,这条是它的哨兵)',
+    !!REAL_PROPER && REAL_PROPER.size > 0,
+    realJoyoErr || String((REAL_PROPER || new Set()).size),
+  )
 
   console.log(`\n[i18n-locale-lang] --self-test pass ${pass} / fail ${fail}`)
   return fail === 0 ? 0 : 1
@@ -1251,6 +1391,7 @@ export const __test__ = {
   loadJoyo,
   isEndonymKey,
   sameAsZhCn,
+  properNounLeaf,
   marksOfValue,
   collectLeaves,
   truncatedAt,
