@@ -54,6 +54,7 @@
 import { execSync } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 // ROOT 取自 process.cwd() (而非脚本所在目录),使测试能通过 spawnSync 的
 // cwd 选项切换 git 上下文。pre-commit 钩子天然从项目根调用,行为一致。
@@ -66,8 +67,16 @@ const JSON_OUT = argv.includes('--json')
 const QUIET = argv.includes('--quiet')
 const SHOW_HELP = argv.includes('--help') || argv.includes('-h')
 
+// §22d 双形态入口(G-1058651):此前顶层裸调 main(),而 main() 内有 4 处 process.exit ——
+// 任何 import 本门的进程都会被当场打死。守卫只决定**何时点火**,不改判什么;
+// CLI 直跑时 argv[1] == 本文件,守卫放行;被 import 时 argv[1] 是宿主入口,守卫放行不了,
+// 于是导入不再执行 HUSKY_SKIP/SHOW_HELP 的 process.exit 与 main()。
+// 必须经 pathToFileURL():Windows 下 process.argv[1] 带反斜杠,手拼 'file:///' 永不相等。
+const isDirectRun =
+  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
 // === 应急逃生舱 (与 check-pwsh-version / check-root-dir-clean 一致) ===
-if (process.env.HUSKY_SKIP_C_DRIVE_PATHS === '1') {
+if (isDirectRun && process.env.HUSKY_SKIP_C_DRIVE_PATHS === '1') {
   if (!QUIET && !JSON_OUT) {
     console.log('  ⏭  C 盘路径硬编码扫描 (HUSKY_SKIP_C_DRIVE_PATHS=1, 跳过)')
   }
@@ -98,7 +107,7 @@ function log(level, msg) {
 }
 
 // === 帮助 ===
-if (SHOW_HELP) {
+if (isDirectRun && SHOW_HELP) {
   console.log(`
 check-c-drive-paths.mjs — C 盘路径硬编码扫描守门 (AGENTS.md §26)
 
@@ -307,5 +316,18 @@ function main() {
   process.exit(violations.length === 0 ? 0 : 1)
 }
 
-main()
+if (isDirectRun) {
+  main()
+}
+
+// §22c/§22d(G-1058651):导出判据单元,使镜像测试可走「调生产入口」通道,
+// 不必再把材料抄一遍。导入本模块(经 isDirectRun 守卫)不再产生副作用、不再 process.exit。
+export const __test__ = {
+  TARGET_EXTS,
+  EXCLUDE_PATHS,
+  PATTERNS,
+  collectFiles,
+  shouldScan,
+  scanFile,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
