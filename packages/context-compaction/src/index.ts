@@ -30,6 +30,10 @@ export {
   IMAGE_TOKEN_PLACEHOLDER,
   estimateTokens,
   estimateMessagesTokens,
+  // 两条投影必须同时公开:可见正文投影(不含 reasoning)与估算面投影(含 reasoning)。
+  // 只公开其一,消费方就会去复用另一条 —— 票 G-816015 的成因正是"估算复用了可见正文投影"。
+  projectVisibleBody,
+  projectForEstimation,
 } from './token-estimate.js'
 
 import { estimateMessagesTokens, estimateTokens } from './token-estimate.js'
