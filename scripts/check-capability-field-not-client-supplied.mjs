@@ -22,7 +22,11 @@
 // 口径
 //   · 名单从 agent-runtime.ts 现读(单一真相源);读不到 ⇒ exit 2「无法判定」。
 //   · 默认全仓扫描(packages/*/src + apps/*/src 的 .ts/.py);`--files a,b` 只查指定文件;
-//     `--self-test` 跑内置正反例(不接提交链 —— 本门由主会话决定何时挂链)。
+//     `--self-test` 跑内置正反例。
+// 【接线状态:已接入】注册条目已落在 scripts/guardian-runner.mjs(id 以 runner 现值为准,
+// 勿照抄本行数字):blocking + skipEnv:HUSKY_SKIP_CAPABILITY_FIELD_NOT_CLIENT_SUPPLIED,无 stagedTriggers。
+// —— 本段原写"不接提交链 —— 本门由主会话决定何时挂链",那是立项时的实况,已过期(门早已装车)。
+//
 //   · 退出码:有 hit ⇒ 1;无 hit(含 undetermined,逐条报名)⇒ 0;无法判定 ⇒ 2。
 //
 // 口径同 70/77/118:静态启发式守门,undetermined 不冒红也不记绿。
