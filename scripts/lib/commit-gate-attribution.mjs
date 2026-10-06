@@ -70,39 +70,212 @@ function tailAfterSummary(text) {
 
 /** 钩子里"某一步失败并阻止提交"的打印(lint-staged / 各独立步骤都用这一形状)。 */
 const STEP_FAIL_RE = /❌\s*([^\n]{2,120}?)失败[，,]\s*提交已阻止/g
-/** 明显是"内容错"而非"清单回显"的形状。 */
-const ERROR_SHAPE_RE = /\d+:\d+\s+error|SyntaxError|Cannot find module|not defined|failed|✖/
+/**
+ * 「内容错」形状 —— blame(定责)的**唯一**前提(G-1058649 重写,替换旧 ERROR_SHAPE_RE)。
+ *
+ * 为什么必须换掉(实测,不是理论):旧那条 `…|failed|✖` 里的**裸 `failed`/`✖`** 恰好就是
+ * "这一步自己没跑完"的失败正文自带的字样(`✖ Failed to stage changes from tasks!`、
+ * `  ✖ lint-staged failed due to a git error.`)⇒ 前提被**它本该分类的那次失败**满足,
+ * 于是窗口里任何一行出现过声明文件的路径(eslint 的**纯 warning 块表头**、lint-staged 的
+ * 任务回显、`--ignore-pattern` 参数串)都被读成"点名了我的违规"⇒ `mine` ⇒ 禁止跳门。
+ * 环境性失败被判成提交人的红,而"禁止跳门"又把唯一合法的应急出口关掉 —— 这正是逼人
+ * 绕过全部守门人的成因。
+ * 每一条都在真机上核过输出形态(lint-staged 本仓只配了 eslint --fix 与 prettier --write,
+ * 见根 package.json 的 lint-staged 段):
+ *   `  3:9  error  'unusedLocal' is assigned…`      ⇒ `\d+:\d+\s+error`(eslint stylish 严重度列)
+ *   `✖ 3 problems (2 errors, 1 warning)`           ⇒ `\([1-9]\d*\s+errors?`(**(0 errors 不命中**)
+ *   `x.ts(1,14): error TS2322: Type 'string'…`     ⇒ `\(\d+,\d+\):\s*error` / `error TS\d+`(tsc)
+ *   `[error] a.ts: SyntaxError: Expression expected. (1:26)` ⇒ `SyntaxError`(prettier 解析失败)
+ *   `[warn] Code style issues found in the above file.`      ⇒ `Code style issues found`(prettier --check)
+ *   `Cannot find module` / `'x' is not defined`             ⇒ 模块/未定义(config 崩溃与 no-undef)
+ * ⚠️ 刻意**不收**的两条,各有理由:
+ *   ① 裸 `✖` / 裸 `failed`(本票的病根);
+ *   ② prettier 的 `[error]` 前缀 —— 它同样打在 `[error] No files matching the pattern were
+ *      found: "<路径>" 这一行(实测),那是**暂存面/环境**问题而不是内容错,收了就等于再造一次本票。
+ */
+const CONTENT_ERROR_SHAPE_RE = new RegExp(
+  [
+    '\\d+:\\d+\\s+error\\b',
+    '\\d+:\\s*error\\s*:',
+    '\\(\\d+,\\d+\\):\\s*error\\b',
+    'error\\s+TS\\d+',
+    'SyntaxError',
+    'Parsing error',
+    'Cannot find module',
+    '\\bis not defined\\b',
+    'Code style issues found',
+    '\\([1-9]\\d*\\s+errors?\\b',
+  ].join('|'),
+  'i',
+)
+/** eslint/prettier 报告块里的"文件路径独占一行"表头(用它判块边界,防止越块借证据)。 */
+const PATH_HEADER_LINE_RE = /^\s*\S*[\\/][^\s\\/]+\.[A-Za-z]{1,5}\s*$/
+/** 纯 warning 行(eslint 严重度列 = warning):它**不是**内容错,但也不结束报告块。 */
+const WARNING_SEVERITY_LINE_RE = /^\s*\d+:\d+\s+warning\b/i
+/**
+ * "这一步自己没跑完"的环境指纹(git 步骤失败)—— 判 `env-blocked` 的正面依据。
+ * 逐条取自 `.workbuddy/hook-logs/pre-commit.log` 2026-10-06 20:02/20:08 两轮的原文。
+ * ⚠️ 刻意**不含** `Failed to run tasks for staged files!`:那一行在 lint 真报错时同样出现
+ *    (实测同一轮的 21262 行就是带 2 个真 error 的那一轮打的),它不是环境指纹。
+ */
+const GIT_STEP_FAIL_SHAPE_RE = new RegExp(
+  [
+    'Failed to stage changes from tasks',
+    'Failed to (?:hide|hude) unstaged changes',
+    'Failed to restore unstaged changes',
+    'Failed to get staged files',
+    'Failed to create backup stash',
+    'failed due to a git error',
+    'errno -4082',
+    '\\bEBUSY\\b',
+    'index\\.lock',
+    'git 步骤没跑完',
+  ].join('|'),
+  'i',
+)
+/**
+ * 旧 ERROR_SHAPE_RE 的原样留档,**只**用于把"降级发生了"喊出来(见 legacyWouldBlame)。
+ * 定责一律走 CONTENT_ERROR_SHAPE_RE;拿它定责就是本票要修的那一型。
+ */
+const LEGACY_BLAME_SHAPE_RE = /\d+:\d+\s+error|SyntaxError|Cannot find module|not defined|failed|✖/
+
+/** 窗口取"失败标记之前 ≤45 行 / ≤6000 字符" —— 两个判据共用同一份取窗实现,防漂移。 */
+function failureWindows(text) {
+  const clean = stripAnsi(text || '')
+  if (!clean.trim()) return []
+  const wins = []
+  for (const m of clean.matchAll(STEP_FAIL_RE)) {
+    const before = clean.slice(Math.max(0, m.index - 6000), m.index)
+    wins.push({ step: m[1].trim(), lines: before.split(/\r?\n/).slice(-45) })
+  }
+  return wins
+}
+
+/** 这一行是不是"内容错"?(剥 ANSI、反斜杠归一后判;不做任何窗口级判断) */
+function contentErrorLine(line) {
+  return CONTENT_ERROR_SHAPE_RE.test(normGatePath(stripAnsi(line)))
+}
+
+/**
+ * "这一行点名了 declared,且**带着内容错证据**吗?" —— 三种成立形态(G-1058649 判据 2):
+ *  ① 命中行自己就是内容错(eslint `a.ts:12:5 error …`、prettier `[error] a.ts: SyntaxError: …`、
+ *     tsc `a.ts(1,14): error TS2322`、mypy `a.py:32: error: …`);
+ *  ② 命中行是**报错块的路径头行**(eslint stylish 的排版:"路径独占一行,其下数行才是
+ *     `行:列 error`")⇒ 其后 ≤4 行内出现内容错才算成立;
+ *  ③ 都不成立 ⇒ 不是点名。**纯 warning 块**(表头 + 只有 warning 行)按 ③ 处理 ——
+ *     实测本票那一枚被误判的行就是 `G:\IHUI-AI\scripts\check-exemption-expiry.mjs`
+ *     这种"下面 18 行全是 no-console warning"的表头行。
+ * 块边界:往后看时一旦撞上**下一个**路径表头行就停,绝不跨文件借证据。
+ */
+function lineBlamesFile(lines, idx, declared) {
+  const line = normGatePath(stripAnsi(lines[idx]))
+  if (!lineNamesFile(line, declared)) return null
+  if (contentErrorLine(line)) return { via: 'same-line', evidence: line.trim() }
+  for (let j = idx + 1; j <= idx + 4 && j < lines.length; j++) {
+    const nxt = normGatePath(stripAnsi(lines[j]))
+    if (contentErrorLine(nxt)) return { via: 'error-block-header', evidence: nxt.trim() }
+    if (PATH_HEADER_LINE_RE.test(nxt)) return null
+    if (WARNING_SEVERITY_LINE_RE.test(nxt)) continue
+    if (!nxt.trim()) continue
+  }
+  return null
+}
+
+/** 按"窗口内是否点名 declared"定责:任一命中行成立即算,并带回证据行。 */
+function blameInWindow(lines, stagedFiles) {
+  const named = []
+  for (const f of stagedFiles || []) {
+    for (let i = 0; i < lines.length; i++) {
+      const hit = lineBlamesFile(lines, i, f)
+      if (hit) {
+        named.push({ file: f, ...hit })
+        break
+      }
+    }
+  }
+  return named
+}
+
+/**
+ * 旧判据的**对照读数**(不为定责,只为把"这一格被降级过"喊出来)。
+ * 旧写法 = 窗口里有错误形状(含裸 failed/✖) + 窗口里出现过声明路径 ⇒ 定责。
+ */
+function legacyWouldBlame(text, stagedFiles) {
+  for (const w of failureWindows(text)) {
+    const joined = w.lines.join('\n')
+    if (!LEGACY_BLAME_SHAPE_RE.test(joined)) continue
+    const win = joined.replace(/\\/g, '/')
+    const named = (stagedFiles || []).filter((f) =>
+      win.split(/\r?\n/).some((l) => lineNamesFile(l, f)),
+    )
+    if (named.length > 0) return { step: w.step, named }
+  }
+  return null
+}
 
 /**
  * 从"没有守门汇总块"的钩子输出里做**最后一级**归因:找出把提交挡住的那一步,
- * 取它自己那一段输出(失败标记之前 ≤45 行),看它有没有点名本次声明的文件。
+ * 取它自己那一段输出(失败标记之前 ≤45 行),看它有没有**带着内容错证据**地点名本次声明的文件。
  *
  * 为什么必须有这一级(2026-09-25 实测,提交 9bd6748ba):`lint-staged` 跑在守门批**之前**,
  * 它一失败就没有任何汇总块产生 ⇒ 本模块的解析与逐道复跑全都没有输入 ⇒ 判 `unattributed`
  * ⇒ safe-commit 走应急路径落地。而那一轮点名的是**我自己刚写出来的 eslint 错误**
  * (`'Undetermined' is defined but never used` in 我本次提交的文件)。这与 48ac2c03e 是同一条
  * 事故路径的第二个入口:第一个入口是"借了别人那轮的汇总"(已由轮次绑定关掉),这一个入口是
- * "根本没有汇总,于是连尝试归因都没有"。判据仍然保守 —— 只在该步输出**同时**含错误形状
- * (eslint 的 `行:列 error` / SyntaxError / Cannot find module …)且含本次声明的文件路径时才定责,
- * 纯清单回显(`📋 staged 文件清单`)不含错误形状,不会被读成点名。
+ * "根本没有汇总,于是连尝试归因都没有"。
+ *
+ * 判据(G-1058649 收紧,失效方向仍只允许"多要一次定向说明"):
+ *   前提:窗口里有**内容错形状**(不再收裸 `failed`/`✖` —— 见 CONTENT_ERROR_SHAPE_RE 的头注);
+ *   点名:命中行同行带内容错,或它是报错块的路径表头行(其后 ≤4 行有内容错);
+ *   **纯清单回显 / 纯 warning 表头** 都不构成点名(`lineBlamesFile` 的 ③)。
  */
 export function blameFromFailedStep(text, stagedFiles) {
-  const clean = stripAnsi(text || '')
-  if (!clean.trim()) return null
-  const marks = [...clean.matchAll(STEP_FAIL_RE)]
-  for (const m of marks) {
-    const block = clean.slice(Math.max(0, m.index - 6000), m.index).split(/\r?\n/)
-    const window = block.slice(-45).join('\n')
-    if (!ERROR_SHAPE_RE.test(window)) continue
-    const win = window.replace(/\\/g, '/')
-    // 归一与"结论行点名"共用一份实现(lineNamesFile),否则两处判据必然漂移。
-    const named = (stagedFiles || []).filter((f) =>
-      win.split(/\r?\n/).some((l) => lineNamesFile(l, f)),
-    )
-    if (named.length > 0) return { step: m[1].trim(), named }
+  for (const w of failureWindows(text)) {
+    if (!w.lines.some((l) => contentErrorLine(l))) continue
+    const named = blameInWindow(w.lines, stagedFiles)
+    if (named.length > 0)
+      return {
+        step: w.step,
+        named: named.map((n) => n.file),
+        evidence: named.map((n) => `${n.via}:${n.evidence.slice(0, 160)}`),
+      }
   }
   return null
 }
+
+/**
+ * "这一步自己没跑完"的环境性阻塞 —— `env-blocked` 档的正面依据。
+ * @returns {{step:string,fingerprints:string[]}|null} 命中哪个步骤、被哪几行指纹证明
+ */
+export function envStepBlocker(text) {
+  const wins = failureWindows(text)
+  for (let i = wins.length - 1; i >= 0; i--) {
+    const fp = wins[i].lines
+      .map((l) => normGatePath(stripAnsi(l)).trim())
+      .filter((l) => GIT_STEP_FAIL_SHAPE_RE.test(l))
+    if (fp.length > 0) return { step: wins[i].step, fingerprints: [...new Set(fp)].slice(0, 3) }
+  }
+  return null
+}
+
+/**
+ * 钩子日志是**多轮追加**的 ⇒ 借用尾部日志做归因时,只能用**最后一轮**(G-1058649)。
+ * 轮次边界取自 pre-commit-hook 自己打的 `==== <时间> :: scripts/lib/pre-commit-hook.js ====`。
+ * 为什么 blame 支也必须绑轮:`pickLastSummaryRun` 早就为"借上一轮的汇总"关了这道锁
+ * (实测 48ac2c03e 把自引入红洗成 not-ours),而"没有汇总块 ⇒ 去日志尾部找那一步的报错正文"
+ * 这条支**一直没绑**。实测 2026-10-06 20:08:46 那一轮就是这样被拒的:它自己的输出里
+ * eslint 是 `✔` 通过的、通篇没有本次文件路径,而 256KB 尾部还留着 20:02:49 那一轮的
+ * eslint 报告(那 2 个真 error 已在两轮之间被修掉)⇒ 借来的旧红挡住了已经不需要挡的提交。
+ * 认不出轮次头时原样返回(没有更弱的假设可做)。
+ */
+export function lastHookRound(text) {
+  const clean = stripAnsi(text || '')
+  const re = /^====[^\n]*::\s*scripts\/lib\/pre-commit-hook\.js[^\n]*====$/gm
+  let last = null
+  for (const m of clean.matchAll(re)) last = m
+  return last ? clean.slice(last.index) : clean
+}
+
 
 /**
  * 批外步骤名 —— 只在"汇总已跑完且批内 0 blocking 失败"时才有意义。
@@ -410,7 +583,25 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
   }
   if (!parsed.batchReported || parsed.failed.length === 0) {
     // 最后一道:没有汇总块时,仍然试一次"把提交挡住的那一步自己有没有点名我"。
-    const blame = blameFromFailedStep(text, stagedFiles) ?? blameFromFailedStep(fallbackText, stagedFiles)
+    // ⚠ 第二输入源(钩子日志尾部)必须先切到**最后一轮**再喂(G-1058649,见 lastHookRound 头注):
+    //   日志是多轮追加的,而 blame 支历史上没有轮次绑定 ⇒ 上一轮的 eslint 报告能替本轮定责。
+    const fbRound = fallbackText ? lastHookRound(fallbackText) : ''
+    const blameText = blameFromFailedStep(text, stagedFiles)
+    const blameFb = blameText ? null : blameFromFailedStep(fbRound, stagedFiles)
+    const blame = blameText ?? blameFb
+    const blameSource = blameText ? '钩子标准输出' : '同一轮钩子日志尾部的最后一轮'
+    // 旧判据(窗口里有 failed/✖ + 出现过声明路径)在这一枚上会不会定责?
+    // 只用来把"降级发生了"喊出来 —— 绝不用它定责。
+    // 第三臂专门盯"借上一轮"这一格:旧写法的 blame 支**没有轮次绑定**,拿整段尾部读证据;
+    // 新写法切到最后一轮后证据消失了 ⇒ 这同样是一次降级,必须点名,不得静默换 kind。
+    const legacyStaleRound =
+      fbRound !== fallbackText && !legacyWouldBlame(fbRound, stagedFiles)
+        ? legacyWouldBlame(fallbackText, stagedFiles)
+        : null
+    const legacy =
+      legacyWouldBlame(text, stagedFiles) ??
+      legacyWouldBlame(fbRound, stagedFiles) ??
+      legacyStaleRound
     if (blame) {
       return {
         kind: 'mine',
@@ -419,15 +610,97 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
         detail: [
           '本轮**没有**守门汇总块(该步跑在批量检查之前),归因来自那一步自己的输出',
           `阻塞步骤「${blame.step}」的报错正文点名本次声明的文件:${blame.named.join(' , ')}`,
+          ...blame.evidence.map((e) => `  取证:${e}`),
         ],
         reason: `钩子未跑守门批,但阻塞步骤「${blame.step}」的报错点名了本任务声明的文件 —— 这是本任务自己的红,必须修,禁止 --no-verify`,
+      }
+    }
+    // ── 态⑤之前先让"别人的内容错"这一档走掉(G-1058649 判据 3 的第三条出口)──
+    // 同一把尺(blameFromFailedStep)换一份清单再判一次:窗口里有**内容错**且点名的是
+    // 本任务之外的路径(别人挂在共享索引/工作树里的在飞文件)⇒ 这一步的红确实存在,但不在
+    // 本枚声明集里 ⇒ not-ours(既有语义,措辞不得改)。顺序刻意排在 env-blocked 之前:
+    // 看见真内容错时说"这一步没跑完"就是写错解释。
+    const foreignList = (Array.isArray(foreignStaged) ? foreignStaged : []).filter(
+      (f) => f && !stagedFiles.includes(f),
+    )
+    const fBlame =
+      blameFromFailedStep(text, foreignList) ?? blameFromFailedStep(fbRound, foreignList)
+    if (fBlame) {
+      return {
+        kind: 'not-ours',
+        ranFullBatch: false,
+        failed: parsed.failed,
+        // ⚠ 刻意**不**用 outsideStep:那个字段的措辞档承诺"批内 0 失败是量出来的",
+        //   而这一型守门批一道都没跑 —— 承诺不得替判据没做过的事背书(故另开 stepBlame 档)。
+        stepBlame: fBlame.step,
+        detail: [
+          '本轮**没有**守门汇总块(该步跑在守门批量检查之前),归因来自那一步自己的输出',
+          `阻塞步骤「${fBlame.step}」的内容错点名的是**本任务之外**的路径(他人现场):${fBlame.named.join(' , ')}`,
+          ...fBlame.evidence.map((e) => `  取证:${e}`),
+          ...(legacy
+            ? [
+                `⚠️ 原先会被判 mine 的形态,现按 not-ours 处理,依据:带内容错的那一行点名的是他人路径,` +
+                  `不是本次声明集(旧判据把裸 failed/✖ 当内容错,于是把环境指纹也算成"我的违规")`,
+              ]
+            : []),
+        ],
+        reason:
+          `钩子未跑守门批,阻塞步骤「${fBlame.step}」的内容错点名的是本任务之外的路径` +
+          `(${fBlame.named.join(' , ')}),不属于本次声明集 —— 该红仍在,须由能改的人清偿`,
+      }
+    }
+    // ── 态⑤ env-blocked(2026-10-06,G-1058649)──
+    // 阻塞提交的那一步**自己没跑完**(git 步骤失败 / EBUSY),而窗口里没有任何内容错形状
+    // 点名本任务文件 ⇒ 归属**无从判定**:既不能说"是你的红"(那是本票的误伤),也不能说
+    // "因他人代码"(本仓禁止未量到的归因)。仍可走应急路径落地,但必须响亮地说清是哪一型。
+    const env = envStepBlocker(text) ?? envStepBlocker(fbRound)
+    if (env) {
+      const downgradeNote = legacy
+        ? `原先会被判 mine 的形态,现按 env-blocked 处理,依据:` +
+          (legacyStaleRound
+            ? `旧判据是从**上一轮**日志尾部借的证据(blame 支此前未绑轮,现由 lastHookRound 关掉),而本轮窗口内没有任何内容错形状与本任务文件同行/同块`
+            : `未命中内容错形状 —— 旧判据里点名本任务文件的行(${legacy.named.join(' , ')})在本轮窗口内既不是内容错行、也不是"其 ≤4 行内有内容错"的报错块表头;它满足旧前提靠的是裸 failed/✖(正是本步失败的指纹本身)`) +
+          `(指纹行:${env.fingerprints.map((f) => f.slice(0, 60)).join(' ⏎ ')})。` +
+          `这是**判据纠偏,不是拆防线** —— 同一枚提交若真有内容错点名本任务文件,mine 照旧判死`
+        : null
+      return {
+        kind: 'env-blocked',
+        ranFullBatch: false,
+        failed: parsed.failed,
+        envStep: env.step,
+        envFingerprint: env.fingerprints,
+        downgradedFromMine: Boolean(legacy),
+        detail: [
+          '本轮**没有**守门汇总块(该步跑在批量检查之前)',
+          `阻塞步骤「${env.step}」自己没跑完 —— 命中 git 步骤失败指纹:`,
+          ...env.fingerprints.map((f) => `  · ${f}`),
+          `窗口内**没有**任何内容错形状(行:列 error / SyntaxError / Parsing error / Cannot find module / is not defined / tsc error TS / Code style issues found / ✖ N problems (M>0 errors) 与本任务文件同行或同块)⇒ 归属无从判定`,
+          ...(downgradeNote ? [`⚠️ ${downgradeNote}`] : []),
+        ],
+        reason:
+          `阻塞步骤「${env.step}」自己没跑完(命中 git 步骤失败指纹,如 EBUSY/git error),` +
+          `窗口内无内容错点名本任务文件 ⇒ 归属无从判定(既未证明是本任务的红,也不得写成任何未经量到的归因)`,
       }
     }
     return {
       kind: 'unattributed',
       ranFullBatch: false,
       failed: parsed.failed,
-      detail: ['未能从钩子输出解析出守门汇总块 —— 归因未计算,不得声称"因他人代码"'],
+      ...(legacy
+        ? {
+            detail: [
+              '未能从钩子输出解析出守门汇总块 —— 归因未计算,不得声称"因他人代码"',
+              `⚠️ 原先会被判 mine 的形态,现按 unattributed 处理,依据:窗口内出现过声明路径,` +
+                `但该行既不是内容错、也不是"其下有内容错的报错块表头"(旧判据靠裸 failed/✖ 满足前提)—— ` +
+                `这是判据纠偏,不是拆防线`,
+            ],
+          }
+        : {
+            detail: [
+              '未能从钩子输出解析出守门汇总块 —— 归因未计算,不得声称"因他人代码"',
+              `blame 支已核(${blameSource}):既无内容错点名本任务文件,也无 git 步骤失败指纹`,
+            ],
+          }),
       reason: parsed.batchReported
         ? '汇总里没列出 blocking 失败门(可能红在守门批量检查之外)'
         : '钩子未产出守门汇总(可能提前退出)',
@@ -632,6 +905,14 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
 /** 给提交者看的一句话:只说量到的事,不做没做过的归因 */
 export function verdictLine(v) {
   if (v.kind === 'mine') return `❌ ${v.reason}`
+  // 态⑤ env-blocked:这一步**自己没跑完**,归属无从判定。措辞三条硬约束(G-1058649):
+  //   ① 喊清"不是你的红,也不是别人的红"(本仓禁止未量到的归因,所以不许写"因他人代码");
+  //   ② 给出可执行的下一步(环境性失败的重跑路径),不许只留一句"未归因";
+  //   ③ 仍然非零留痕、仍然不得读成"通过了守门"。
+  if (v.kind === 'env-blocked')
+    return `⚠️ 这一步是**环境性失败,不是你的红,也不是别人的红** —— ${v.reason};本枚按应急路径落地并留痕。下一步:①查并发 git/node 进程(tasklist | findstr /i "git node")后重跑本命令;②原样手工复跑那一步(EBUSY 是间歇病);③若仍红,看留痕 kind=env-blocked 的行${
+      v.downgradedFromMine ? ';**注意:这一格原先会被判 mine,现按 env-blocked 处理(判据纠偏,非拆防线)**' : ''
+    }${v.batchSelfRun ? '(safe-commit 自跑取证也未取得门级结论)' : ''}`
   // 态④:未能差分。它可以落地,但它**没有**证明"这道红不是我带的",所以措辞必须把
   // 这个差别喊出来 —— 禁止出现"不在本次提交内容里"(由镜像测试的反向锁钉死,不靠自觉)。
   if (v.kind === 'undetermined-red')
@@ -717,6 +998,9 @@ export function blockedBeforeBatch(text) {
 export function needsBatchSelfRun(verdict) {
   if (!verdict || typeof verdict !== 'object') return false
   if (verdict.kind === 'mine') return false
+  // env-blocked 与 unattributed 同条:归因层手里没有门级结论 ⇒ 值得再跑一遍补证据
+  // (自跑若真有内容红点名本任务文件 ⇒ 照旧 mine ⇒ 该拒还是拒)。
+  if (verdict.kind === 'env-blocked') return true
   return verdict.kind === 'unattributed' || verdict.ranFullBatch === false
 }
 
@@ -765,7 +1049,8 @@ export function decideWithSelfRunBatch({
       selfRun?.why ?? failure ?? (runBatch ? '自跑未产出结论(既无 ran 也无 why)' : '未提供自跑出口')
     return {
       ...verdict,
-      kind: 'unattributed',
+      // env-blocked 的量到证据(环境指纹)不因自跑失败而消失 ⇒ 保留 kind,补一句自跑未成功
+      kind: verdict.kind === 'env-blocked' ? 'env-blocked' : 'unattributed',
       batchSelfRun: true,
       selfRunOk: false,
       blockerBeforeBatch: blocker,
@@ -817,6 +1102,21 @@ export function decideWithSelfRunBatch({
     }
   }
   /**
+   * 态⑤ 透传:自跑那一轮**仍然**只看到"这一步自己没跑完"的环境指纹(守门批里也复现了
+   * EBUSY / git 步骤失败)⇒ 保留 env-blocked,不得退化成 unattributed —— 那等于把
+   * "量到的环境指纹"丢掉,账面又变回"没跑守门、原因不明"(本仓最恨的静默)。
+   */
+  if (hinge.kind === 'env-blocked') {
+    return {
+      ...hinge,
+      batchSelfRun: true,
+      selfRunOk: true,
+      blockerBeforeBatch: blocker,
+      detail: [sourceNote, provenance, ...hinge.detail],
+      reason: `${hinge.reason}(取证来自自跑的那一轮守门批,非钩子内那一轮)`,
+    }
+  }
+  /**
    * 批跑完、blocking 失败 0、退出码 0 ⇒ **结构上没有任何一门点名本次文件**(红门数为 0)。
    * 这正是"一个都没点名"那一支,只是它由"全绿"而不是由"逐道复跑未点名"证明。
    * 首轮的 classifyHookFailure 对这种输入会给 unattributed(它只认"解析到失败门清单"),
@@ -847,7 +1147,8 @@ export function decideWithSelfRunBatch({
   // 自跑了但仍拿不到门级结论(超时后仍有部分输出 / 格式漂了解析不出 / 复跑不可用)
   return {
     ...verdict,
-    kind: 'unattributed',
+    // 同上:首轮已量到环境指纹 ⇒ 保留 env-blocked,不得被"自跑无结论"洗成 unattributed
+    kind: verdict.kind === 'env-blocked' ? 'env-blocked' : 'unattributed',
     batchSelfRun: true,
     selfRunOk: false,
     blockerBeforeBatch: blocker,
@@ -1411,6 +1712,11 @@ export const __test__ = {
   parseStagedEcho,
   outsideBatchStep,
   blameFromFailedStep,
+  envStepBlocker,
+  lastHookRound,
+  lineBlamesFile,
+  legacyWouldBlame,
+  contentErrorLine,
   classifyHookFailure,
   verdictLine,
   blockedBeforeBatch,
