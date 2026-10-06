@@ -149,10 +149,35 @@ test('T8 R4 warn 注册 ⇒ 红;注册块取不出 mode ⇒ 未判定(不记绿�
   assert.ok(v2.undetermined.some((s) => /R4/.test(s)))
 })
 
-test('T9 头注诚实(守门 89 反向锁):声称"接线由主会话统一做"且通篇无肯定式已接线声称', () => {
-  assert.match(SRC, /接线由主会话统一做/)
-  const affirm = /(已接|已接入|已注册到|挂在)\s*(guardian-runner|pre-commit|CI)/
-  assert.ok(!affirm.test(SRC), `头注出现肯定式接线声称,但它并未经接线:${affirm.exec(SRC)?.[0]}`)
+test('T9 头注诚实:接线态必须与注册表真值一致(两态都认,不许把真话判红)', () => {
+  // 立意不变: 头注若声称"已接入"而注册表里没有 → 谎报, 必须拦(守门 89 反向锁)。
+  //
+  // 2026-10-06 改判据的原因(与门 133 的 M3、radius 门的 T2 同型):
+  // 原判据名为「反向锁」, 实际锁的是**「未接线」这个假事实** ——
+  // 它硬要求源码含「接线由主会话统一做」, 又禁止任何肯定式接线措辞。
+  // 实测注册表里本门早已注册(id:'125' / blocking), 于是谁把用法输出如实改成
+  // 「已接入」谁就被判红。**名字与行为反了**, 这是它比前两例更隐蔽的原因。
+  // 改为读注册表真值再决定该说哪一态。
+  const runner = readFileSync(path.join(HERE, '..', 'guardian-runner.mjs'), 'utf8')
+  const wired = runner.includes('check-token-sync-registry.mjs')
+  // 只认**现状陈述**: 带存档/历史限定的行不算数(那正是注释该做的事)。
+  // 本门那行在 CLI 用法数组的**字符串字面量**里, 行首是引号而非 `//` ⇒ 不限定行首。
+  const claimsWired = /接线状态\s*(?:\([^)]*\))?\s*[:：][^\n]*已接入/
+  const claimsNotWired = /接线状态\s*(?:\([^)]*\))?\s*[:：]\s*未接/
+  if (wired) {
+    assert.match(
+      SRC,
+      claimsWired,
+      '注册表里本门已注册,但用法输出/头注的『接线状态:』那一行仍说未接线 ⇒ 文档与提交链分叉',
+    )
+  } else {
+    assert.doesNotMatch(
+      SRC,
+      claimsWired,
+      '头注出现肯定式接线声称,但它并未经接线(给后人一个跑不通的出路)',
+    )
+    assert.match(SRC, claimsNotWired, '未接线时必须明说未接线(而不是留白让人猜)')
+  }
 })
 
 test('T10 §22d/§22c 结构锁:isDirectRun 守卫在 __test__ 导出之前,测试 import 不触发 main', () => {
