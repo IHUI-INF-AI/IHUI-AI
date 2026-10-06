@@ -9,6 +9,7 @@ import { writeFileSync, mkdirSync, copyFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
+import { __test__ as gate } from '../check-cli-i18n-parity.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -236,5 +237,38 @@ test('违规: --quiet 不一致时仍输出错误 → exit 1', () => {
   } finally {
     rmScratch(dir)
   }
+})
+
+// ─── 4. 生产判据直测(AGENTS §22c:经 __test__ import 门体判据,不另抄检测逻辑) ───
+
+test('判据: getAllKeys 递归展平嵌套 key(点号拼接,数组/标量为叶子)', () => {
+  const keys = gate.getAllKeys({
+    nav: { home: 'H', settings: { deep: 'D' } },
+    actions: ['x'],
+    top: 'T',
+  })
+  assert.deepEqual(keys.sort(), ['actions', 'nav.home', 'nav.settings.deep', 'top'])
+})
+
+test('判据: getAllKeys 非对象输入返回空数组', () => {
+  assert.deepEqual(gate.getAllKeys(null), [])
+  assert.deepEqual(gate.getAllKeys('str'), [])
+  assert.deepEqual(gate.getAllKeys(42), [])
+})
+
+test('判据: REQUIRED_LOCALES 为约定的 5 语言', () => {
+  assert.deepEqual(gate.REQUIRED_LOCALES, ['zh-CN', 'en', 'ja', 'ko', 'zh-TW'])
+})
+
+test('判据: loadLocaleKeys 读真实仓库 cli/*.json,5 语言键数一致(parity 判据源)', () => {
+  const sizes = {}
+  for (const loc of gate.REQUIRED_LOCALES) {
+    const keys = gate.loadLocaleKeys(loc)
+    assert.ok(keys instanceof Set, `cli/${loc}.json 应解析为 Set(实得 ${keys === null ? 'null' : typeof keys})`)
+    assert.ok(keys.size > 0, `cli/${loc}.json 应有键`)
+    sizes[loc] = keys.size
+  }
+  const distinct = new Set(Object.values(sizes))
+  assert.equal(distinct.size, 1, `5 语言键数应一致:${JSON.stringify(sizes)}`)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

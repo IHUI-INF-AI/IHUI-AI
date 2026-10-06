@@ -17,13 +17,12 @@
  *   node scripts/check-cli-i18n-parity.mjs --quiet    # errors only
  */
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, join } from 'node:path'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const CLI_I18N_DIR = join(root, 'packages/i18n/messages/cli')
 const REQUIRED_LOCALES = ['zh-CN', 'en', 'ja', 'ko', 'zh-TW']
-const quiet = process.argv.includes('--quiet')
 
 function getAllKeys(obj, prefix = '') {
   const keys = []
@@ -51,7 +50,8 @@ function loadLocaleKeys(locale) {
   }
 }
 
-function main() {
+async function main() {
+  const quiet = process.argv.includes('--quiet')
   if (!existsSync(CLI_I18N_DIR)) {
     if (!quiet) console.log('[OK] cli i18n directory does not exist, skipping')
     process.exit(0)
@@ -97,5 +97,21 @@ function main() {
   process.exit(1)
 }
 
-main()
+// §22d:CLI 直接执行才跑主流程;镜像测试 import 判据函数时不得有副作用
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main().catch((e) => {
+    console.error(`[ERROR] check-cli-i18n-parity 脚本执行异常: ${e?.message ?? e}`)
+    process.exit(2)
+  })
+}
+
+// §22c:判据单元经 __test__ 暴露给镜像测试,测试不得另抄一遍检测逻辑
+export const __test__ = {
+  CLI_I18N_DIR,
+  REQUIRED_LOCALES,
+  getAllKeys,
+  loadLocaleKeys,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
