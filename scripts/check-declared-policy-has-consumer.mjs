@@ -1342,7 +1342,26 @@ function selfTest() {
     decide({ stagedCounts: fOff.perFile, headCounts: fOff.perFile, mode: 'full' }).exit,
   ], [1, 0, 0])
 
-  console.log(fail ? `\n❌ 自检 ${fail}/${ran} 例失败` : `\n全部 ${ran} 例通过(正向证明双夹具 + 双变异对照 + 测试面/re-export/注释/specifier 四排除 + 契约闭包 + 棘轮四向 + 空扫判死 + i18n 码表三验收 + C7 工厂族四验收)`)
+  // F13(2026-10-06 G-816034 复核副产):F5 的噪声注释写在**第一个顶层声明之前**,host 行域规则
+  // 就已经把它挡掉了 ⇒ F5 证不了"遮噪"这一层承重(把注释遮噪改松,F5 一条都不翻)。
+  // 这一对把同一段提及放进函数体里(它确实落在宿主行域内),两种写法只差一个 `// `:
+  // 注释形态必须仍 3 处未接线(唯一防线是遮噪),去掉标记的形态必须少 1 处(接线真生效)。
+  // ⇒ 遮噪被改松 ⇒ 第一臂翻绿;`// ` 前缀写错/替换落空 ⇒ 第二臂翻红。
+  const HF_IN_BODY = (withMarker) =>
+    [
+      "import { createFooHandler } from '../stream-handlers';",
+      'export function loop(): void {',
+      `  ${withMarker ? '// ' : ''}createFooHandler(1)`,
+      '  return;',
+      '}',
+      '',
+    ].join('\n')
+  eq('F13 注释落在宿主行域内时遮噪才是唯一防线(成对:注释形态仍 3 红 / 去掉注释标记即接线)', [
+    judge(new Map([[HF_DECL_FILE, HF_SRC], [HF_USE_FILE, HF_IN_BODY(true)]])).factory.unwired.length,
+    judge(new Map([[HF_DECL_FILE, HF_SRC], [HF_USE_FILE, HF_IN_BODY(false)]])).factory.unwired.length,
+  ], [3, 2])
+
+  console.log(fail ? `\n❌ 自检 ${fail}/${ran} 例失败` : `\n全部 ${ran} 例通过(正向证明双夹具 + 双变异对照 + 测试面/re-export/注释/specifier 四排除 + 契约闭包 + 棘轮四向 + 空扫判死 + i18n 码表三验收 + C7 工厂族五验收)`)
   process.exit(fail ? 1 : 0)
 }
 
