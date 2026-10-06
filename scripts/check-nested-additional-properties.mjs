@@ -33,6 +33,7 @@
  */
 
 import { readFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 
 const VALIDATOR_PATH = 'apps/cli/src/tools/argument-validator.ts';
 const TYPES_PATH = 'apps/cli/src/tools/index.ts';
@@ -147,5 +148,23 @@ function selfTest(validatorSrc, typesSrc) {
   process.exit(0);
 }
 
-main();
+// §22d 双形态入口守卫:CLI 直跑才执行入口,被测试 import 时零副作用 —— 旧写法是顶层裸调用,
+// 测试一 import 就会去读两份 src 并按结论 process.exit,直接把 node --test 进程打死。
+// main() 是同步函数(本票禁止改成 async,那属行为变化),同步抛错接不进 `.catch` ⇒ 用 try/catch 形。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (isDirectRun) {
+  try {
+    main();
+  } catch (e) {
+    console.error(String(e?.stack ?? e));
+    process.exit(2);
+  }
+}
+
+export const __test__ = {
+  check,
+  VALIDATOR_PATH,
+  TYPES_PATH,
+};
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
