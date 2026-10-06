@@ -73,19 +73,40 @@ test('T2 单一真相源:判据语义只在 lib 里一份,门不得原地重写�
   }
 })
 
-test('T3 装车方向锁:门**尚未**接线时不得出现"已接"声称(守门 89 R1 型)', () => {
-  const wired = runnerSrc.includes('check-tool-exec-budget')
-  const claimsWired = /已接\s*pre-commit|已接入\s*guardian|第\s*\d+\s*项.*本门/.test(gateSrc)
-  if (!wired) {
-    assert.ok(!claimsWired, '未接线却声称已接 = 给下一道"看起来有其实没有"的门背书')
-    assert.match(gateSrc, /尚未接进|接线由主会话/, '未接线必须在头注如实写明')
-  }
-  if (wired) {
-    // 一旦接线:必须同时有 blocking 语义与应急跳过通道,否则恒红只能逼人 --no-verify
-    assert.match(gateSrc, /HUSKY_SKIP_TOOL_EXEC_BUDGET/, '接线后门必须自带应急跳过通道')
-    const block = runnerSrc.slice(runnerSrc.indexOf('check-tool-exec-budget') - 600, runnerSrc.indexOf('check-tool-exec-budget') + 600)
-    assert.match(block, /blocking/, '接线后必须是 blocking(不得静默降成 warn)')
-  }
+test('T3 装车方向锁:头注声明必须与 runner 现读一致;接线后必须 blocking + 应急跳过(守门 89 R1 型)', () => {
+  const SCRIPT_RE = /script:\s*'[^']*check-tool-exec-budget\.mjs'/
+  const wired = SCRIPT_RE.test(runnerSrc)
+
+  // ⚠️ 原判据是一对**措辞 grep**:claimsWired = /已接\s*pre-commit|已接入\s*guardian|第\s*\d+\s*项.*本门/
+  //   (反向)+ assert.match(gateSrc, /尚未接进|接线由主会话/)(正向)。两处都锚在**会被人改写的
+  //   头注散文**上,而不是锚 runner:
+  //   ① 反向锁只认"pre-commit / guardian / 第 N 项"三种**旧措辞**;头注早已改写成
+  //      【接线状态:已接入】,于是注册条被摘掉而头注仍自称已接入时它算"没自称"⇒ 照样绿。
+  //      另注:`第 \d+ 项` 里的编号随 runner 门数单调增长(本门现为 id 123),锚它就是锚
+  //      一个会漂的字面量 —— 与 migration T5 的 `/可比对 30\d/` 同族。
+  //   ② 正向锁的"绿"来自头注里**追述立项时状态**的那行("本行原写'尚未接进
+  //      guardian-runner…',那是立项时的实况,已过期"),拿它当"当前尚未接线"的证据是自欺。
+  // ⇒ 改成结构判据:头注用**唯一**的【接线状态:…】标记声明接线事实,本用例按 runner 现读
+  //    做**双向**对账。措辞不再进断言 ⇒ 头注日后怎么改写都不会假红/假绿。
+  const claim = gateSrc.match(/【接线状态:([^】]+)】/)
+  assert.ok(claim, '头注缺【接线状态:…】标记 ⇒ 接线声明无处可读,本用例已空转')
+  assert.equal(
+    claim[1] === '已接入',
+    wired,
+    `头注声明「接线状态:${claim[1]}」与 runner 现读不一致(wired=${wired})`,
+  )
+  if (!wired) return
+
+  // 一旦接线:必须同时有 blocking 语义与应急跳过通道,否则恒红只能逼人 --no-verify
+  assert.match(gateSrc, /HUSKY_SKIP_TOOL_EXEC_BUDGET/, '接线后门必须自带应急跳过通道')
+  const at = runnerSrc.search(SCRIPT_RE)
+  assert.ok(at >= 0, 'runner 注册块缺 script 字段(仅路径字符串不构成装车)')
+  // ⚠️ 原来取 `at ± 600` 的**窗口**判 blocking,实测无牙:窗口跨进邻门,邻门的 blocking
+  // 替本门交差(把本门自己翻成 warn 后断言仍绿)。改按**注册块边界**取本门那条。
+  const start = runnerSrc.lastIndexOf('\n  {', at)
+  const next = runnerSrc.indexOf('\n    script:', at + 10)
+  const block = runnerSrc.slice(start < 0 ? at : start, next > 0 ? next : runnerSrc.length)
+  assert.match(block, /mode:\s*'blocking'/, '接线后必须是 blocking(不得静默降成 warn)')
 })
 
 test('T4 反假绿:空枚举与缺必在场文件都必须"无法判定"而非绿', () => {

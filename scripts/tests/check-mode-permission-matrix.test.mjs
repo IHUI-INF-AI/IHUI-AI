@@ -156,22 +156,37 @@ test('T8 别名调用也得算消费者:数调用而不是数名字(否则 M5 �
   assert.equal(G.countCalls('resolve_mode_policy', 'y = legacy_mode_check(a)\n'), 0)
 })
 
-test('T9 接线成套性:若已被主会话注册进提交链,则必须 blocking + 有应急跳过 env', () => {
+test('T9 接线成套性:头注声明必须与 runner 现读一致;已注册则必须 blocking + 有应急跳过 env', () => {
   const runner = readFileSync(path.join(REPO, 'scripts/guardian-runner.mjs'), 'utf8')
-  const registered = runner.includes('check-mode-permission-matrix.mjs')
+  const SCRIPT_RE = /script:\s*'[^']*check-mode-permission-matrix\.mjs'/
+  const registered = SCRIPT_RE.test(runner)
   const gateSrc = readFileSync(path.join(REPO, GATE_REL), 'utf8')
-  if (!registered) {
-    // 未接线时不得在头注声称已接 —— 守门 89 的 R1 判的正是这个差。
-    assert.ok(
-      !/已接 pre-commit|guardian 第 \d+ 项/.test(gateSrc),
-      '门未注册却声称已接线 = 89 R1 会红,且会误导下一个接手者',
-    )
-    assert.ok(/尚未接线|注册由主会话/.test(gateSrc), '头注应如实写明接线状态')
-    return
-  }
-  const at = runner.indexOf('check-mode-permission-matrix.mjs')
-  const entry = runner.slice(Math.max(0, at - 900), at + 900)
-  assert.ok(/mode:\s*'blocking'/.test(entry), '接线了却不是 blocking —— 判对了也没人被打断')
-  assert.ok(/skipEnv:\s*'HUSKY_SKIP_MODE_PERMISSION_MATRIX'/.test(entry), '缺应急跳过通道')
+
+  // ⚠️ 原未注册分支是一对**措辞 grep**:`!/已接 pre-commit|guardian 第 \d+ 项/`(反向)+
+  //   `/尚未接线|注册由主会话/`(正向)。两处都锚在**会被人改写的头注散文**上,而不是锚 runner:
+  //   ① 反向锁原状就已 miss —— 头注早已改写成【接线状态:已接入】,不再有"已接 pre-commit"
+  //      字样 ⇒ 哪天注册条被摘掉而头注仍自称已接入,这条反向锁**照样绿**(静默假绿,最难发现)。
+  //   ② 正向锁的"绿"来自门体中段一句讲"矩阵由另一枚提交带"的散文(讲现实场景那段里的
+  //      "注册由主会话落"),与头注无关 ⇒ 那句散文被删就假红,而头注真的写对了也照样红。
+  // ⇒ 改成结构判据:头注用**唯一**的【接线状态:…】标记声明接线事实,本用例按 runner 现读
+  //    做**双向**对账。措辞不再进断言 ⇒ 头注日后怎么改写都不会假红/假绿。
+  const claim = gateSrc.match(/【接线状态:([^】]+)】/)
+  assert.ok(claim, '头注缺【接线状态:…】标记 ⇒ 接线声明无处可读,本用例已空转')
+  assert.equal(
+    claim[1] === '已接入',
+    registered,
+    `头注声明「接线状态:${claim[1]}」与 runner 现读不一致(registered=${registered})`,
+  )
+  if (!registered) return
+
+  const at = runner.search(SCRIPT_RE)
+  assert.ok(at >= 0, 'runner 注册块缺 script 字段(仅路径字符串不构成装车)')
+  // ⚠️ 原来取 `at ± 900` 的**窗口**判 blocking/skipEnv,实测无牙:窗口跨进邻门,邻门的
+  // `mode:'blocking'` 替本门交差(把本门自己翻成 warn 后断言仍绿)。改按**注册块边界**取本门那条。
+  const start = runner.lastIndexOf('\n  {', at)
+  const next = runner.indexOf('\n    script:', at + 10)
+  const entry = runner.slice(start < 0 ? at : start, next > 0 ? next : runner.length)
+  assert.match(entry, /mode:\s*'blocking'/, '接线了却不是 blocking —— 判对了也没人被打断')
+  assert.match(entry, /skipEnv:\s*'HUSKY_SKIP_MODE_PERMISSION_MATRIX'/, '缺应急跳过通道')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
