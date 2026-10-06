@@ -309,6 +309,11 @@ function spawnGate(args) {
       encoding: 'utf8',
       cwd: ROOT,
       maxBuffer: 64 * 1024 * 1024,
+      // 不吃 stdin 的子进程必须显式给 stdio,否则本仓 Windows 上 spawnSync 对原生
+      // node.exe 持续 EBUSY(status=null、断言拿到 null !== 期望码)。这条不是洁癖:
+      // 少了它,R1–R4 四条"真跑子进程"的用例会以 EBUSY 判红,而那**不是判据有病**,
+      // 是尺子自己的测量手段坏了 —— 与 §22c 同型(工具坏了不能冒充结论)。
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     return { status: 0, stdout, stderr: '' }
   } catch (e) {
