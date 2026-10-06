@@ -27,8 +27,11 @@ import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+// §22c:判定单元从**源文件**取,不在本文件重抄(门体已带 §22d 入口守卫,静态 import 不会跑门)。
+// 这条 import 本身就是 E1 那条用例的载荷:守卫一旦失效,本文件在加载阶段就会把真门跑一遍。
+import { __test__ as gate } from '../check-commit-loss-guard.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
@@ -37,6 +40,19 @@ const SCRIPT = join(REPO, 'scripts', 'check-commit-loss-guard.mjs')
 /** 40-hex 的合法 commit hash,夹具里当"fsck 报出来的悬空 commit"用。 */
 const H1 = 'a'.repeat(40)
 const H2 = 'b'.repeat(40)
+
+/**
+ * 悬空清单的**行形态**由源常量给出(原先本文件自己打 `'unreachable commit <hash>'`:
+ * 源里那个前缀一改,桩就再也喂不进判据,而断言仍可能绿 —— 它断的是"清单被取用",
+ * 喂不进去这件事没人报。现与 `gate.UNREACHABLE_COMMIT_PREFIX` 同源。
+ */
+const unreachableLine = (h) => `${gate.UNREACHABLE_COMMIT_PREFIX} ${h}`
+/** 桩数据里的"非判据行"(unreachable tree / broken link 都不该被当成悬空 commit)。 */
+const NON_JUDGMENT_LINES = [
+  `unreachable tree  ${'c'.repeat(40)}`,
+  `broken link from    tree ${'d'.repeat(40)}`,
+  `              to    blob ${'e'.repeat(40)}`,
+]
 
 /**
  * stub 取材层:`batchExecFileSync` 按 MODE 投放指定形态,其余导出**原样转发**真层。
@@ -76,16 +92,10 @@ export function batchExecFileSync(file, args, opts) {
     }
     if (mode === 'unreachable-rc2-with-data') {
       // 本仓真实形态:RC=2(broken link 所致),而 unreachable 清单**完整可信**。
+      // 清单行形态取自 gate.UNREACHABLE_COMMIT_PREFIX(与判据同源,见 unreachableLine 注)。
       const e = new Error('Command failed: git fsck')
       e.status = 2
-      e.stdout = [
-        'unreachable commit ${H1}',
-        'unreachable tree  ${'c'.repeat(40)}',
-        'broken link from    tree ${'d'.repeat(40)}',
-        '              to    blob ${'e'.repeat(40)}',
-        'unreachable commit ${H2}',
-        '',
-      ].join('\\n')
+      e.stdout = ${JSON.stringify([unreachableLine(H1), ...NON_JUDGMENT_LINES, unreachableLine(H2), ''].join('\n'))}
       e.stderr = ''
       throw e
     }
@@ -184,9 +194,15 @@ process.on('exit', () => {
   }
 })
 
-/** 「判绿」的两句文案。两句都命中才算绿——只判一句会被改措辞骗过。 */
+/**
+ * 「判绿」的两句文案 —— 由源常量给出(§22c)。原先这两条正则是从门体 console.log 里抄的:
+ * 文案一改就静默"看不见绿",而"看不见绿"与"没有绿"在读日志的人眼里长得一样
+ * —— A1/A2 那两条会在门实际判绿时照样通过。
+ * 命中任一句即算绿(与旧的 /a/.test || /b/.test 逐字同值)。
+ */
 function looksGreen(out) {
-  return /未检测到悬空 commit/.test(out) || /无 commit 丢失风险/.test(out)
+  const { noUnreachable, noRisk } = gate.GREEN_MARKERS
+  return out.includes(noUnreachable) || out.includes(noRisk)
 }
 
 test('A1 取不到(派生层未取得退出码,EBUSY 形态)⇒ 必须 exit 2 且不得判绿', () => {
@@ -210,7 +226,10 @@ test('B1 真的零悬空(RC=0 + 空 stdout)⇒ 必须判绿(exit 0)', () => {
   // 却把整门变成恒红,最后人人 --no-verify,连带真正防丢的判据一起作废(§12e 同型)。
   const { code, out } = runGateWithStub('rc0-empty')
   assert.equal(code, 0, `fsck 真的报零悬空必须放行;实得 ${code}\n${out}`)
-  assert.match(out, /未检测到悬空 commit/, '零悬空是合法读数,必须判绿')
+  assert.ok(
+    out.includes(gate.GREEN_MARKERS.noUnreachable),
+    `零悬空是合法读数,必须判绿(期望 stdout 出现源文案"${gate.GREEN_MARKERS.noUnreachable}")\n${out}`,
+  )
 })
 
 test('C1 RC≠0 但 stdout 带完整清单 ⇒ 清单必须被取用,不得因退出码丢弃', () => {
@@ -218,9 +237,19 @@ test('C1 RC≠0 但 stdout 带完整清单 ⇒ 清单必须被取用,不得因�
   // 判据:fsck 报出来的 hash 必须出现在 stdout 里。实现若"RC 非 0 即丢弃清单",
   // 这里会看到「未检测到悬空 commit」—— 也就退回本票修掉的那个假绿。
   const { code, out } = runGateWithStub('unreachable-rc2-with-data')
+  // ① 判定单元侧(§22c:分类逻辑向源取,不在本文件重抄行解析):
+  //    同一份桩数据喂给源的解析函数,必须正好得到 H1/H2 —— 那些非判据行
+  //    (unreachable tree / broken link)一格都不许混进清单。
+  const parsed = gate.parseUnreachableCommitLines(
+    [unreachableLine(H1), ...NON_JUDGMENT_LINES, unreachableLine(H2), ''].join('\n'),
+  )
+  assert.deepEqual(parsed, [H1, H2], '源的悬空清单解析必须只取 unreachable commit 行')
+  // ② 黑盒 CLI 侧(原有断言保留):门的 stdout 必须真把那两枚明细打出来。
+  //    展示宽度也从源取(gate.SHORT_HASH_LEN),门改了测试就跟着改,不会静默失配。
+  const W = gate.SHORT_HASH_LEN
   assert.ok(
-    out.includes(H1.slice(0, 12)) || out.includes(H2.slice(0, 12)),
-    `RC=2 时 stdout 里的 unreachable 清单是可信读数,必须被取用(期望见到 ${H1.slice(0, 12)} / ${H2.slice(0, 12)} 之一)\n${out}`,
+    out.includes(H1.slice(0, W)) || out.includes(H2.slice(0, W)),
+    `RC=2 时 stdout 里的 unreachable 清单是可信读数,必须被取用(期望见到 ${H1.slice(0, W)} / ${H2.slice(0, W)} 之一)\n${out}`,
   )
   assert.ok(!looksGreen(out), '清单非空却报"未检测到悬空 commit" = 假绿\n' + out)
   assert.notEqual(code, 2, `RC=2 且清单完整属正常读数,不该折成"无法判定";实得 ${code}\n${out}`)
@@ -244,4 +273,39 @@ test('D1 判据面锁:fsck 不得再走 allowFail(那三行就是假绿的成因
   // 反向锁:allowFail 不是被全局删掉(它对 reflog/tag 这类"取不到就降级"的调用点仍合法),
   // 是在这一个判据上被收回了。
   assert.match(src, /allowFail/, 'allowFail 应仍服务于其它降级型调用点')
+})
+
+test('E1 §22d:裸 import 门体 ⇒ 零输出且 exit 0(入口守卫在场,判定单元才取得到)', () => {
+  /**
+   * 这条锁的是"门为什么能被测":本文件顶部静态 `import { __test__ }` 之所以安全,全靠
+   * 门体那条 `if (isDirectRun)` 守卫。守卫一旦被人删回顶层无条件 `main()`,任何 import
+   * 都会把整道门跑一遍 —— 那时测试拿到的不是判定单元,而是一句别人看的日志,
+   * 而 fsck 在非仓库目录里必然抛 Undetermined ⇒ 加载阶段 exit 2(本用例把它读成红,而不是"没判据")。
+   *
+   * 探针跑在**夹具 scratch 目录**里(非 git 目录):若门真被跑起来,它判据取不到就会
+   * 打印 + exit 2,绝不会被读成"安静通过"。刻意复用本文件已有的那一份夹具,
+   * 不再多一对 mk/rm(宿主批量删除闸会按本轮累计数计,理由见 fixture() 注)。
+   */
+  const scratch = fixture()
+  const probe = join(scratch, 'probe-import.mjs')
+  writeFileSync(
+    probe,
+    `import(${JSON.stringify(pathToFileURL(SCRIPT).href)}).then((m) => process.stdout.write('PROBE_KEYS=' + Object.keys(m).join(',') + '\\n'))\n`,
+    'utf8',
+  )
+  const r = spawnSync(process.execPath, [probe], {
+    cwd: scratch,
+    encoding: 'utf8',
+    timeout: 60000,
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  const got = `${r.stdout || ''}${r.stderr || ''}`
+  assert.equal(r.status, 0, `裸 import 必须 exit 0(门被跑起来时它在非仓库目录里取不到判据 ⇒ 2);实得 ${r.status}\n${got}`)
+  assert.equal(r.stderr, '', `裸 import 不得写 stderr(那说明 main() 跑了)\n${got}`)
+  assert.equal(
+    r.stdout,
+    'PROBE_KEYS=__test__\n',
+    `裸 import 的唯一输出必须是探针自己那一行,且门的导出面只有 __test__;实得 stdout=${JSON.stringify(r.stdout)}\n${got}`,
+  )
 })
