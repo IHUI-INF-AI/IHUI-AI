@@ -231,7 +231,7 @@ test('X7 测试不得重写判据(本文件只许用门体导出的 POLLUTION / 
 })
 
 test('X8 加载期能力读数(账面可复核:哪些臂有对象、哪些记 skip)', () => {
-  console.log(
+  console.info(
     [
       `    · Node ${process.version} / it.skipIf 可用 = ${typeof test.skipIf === 'function'} / skip 通道 = test(name,{skip}) 等价`,
       `    · 门体 NEXT_ENV = ${gate.NEXT_ENV} / 仓根对账 = ${CWD_IS_REPO} / 相对取材路径 = ${REL_NEXT_ENV}`,
