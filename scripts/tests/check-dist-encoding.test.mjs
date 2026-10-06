@@ -9,15 +9,14 @@ import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
+import { __test__ as gate } from '../check-dist-encoding.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const SCRIPT_PATH = join(__dirname, '..', 'check-dist-encoding.mjs')
 
-// ─── BOM 字节序常量(与源脚本保持一致) ──────────────────────
-const BOM_UTF8 = Buffer.from([0xef, 0xbb, 0xbf])
-const BOM_UTF16_LE = Buffer.from([0xff, 0xfe])
-const BOM_UTF16_BE = Buffer.from([0xfe, 0xff])
+// ─── BOM 字节序常量:由生产门体提供(AGENTS.md §22c:测试不得自抄判据) ───
+const { BOM_UTF8, BOM_UTF16_LE, BOM_UTF16_BE } = gate
 
 // ─── 辅助:创建临时项目根目录 ─────────────────────────────
 function createTempRoot() {
@@ -222,7 +221,7 @@ test('apps/*/dist 文件含 BOM 同样被扫描 → exit 1', () => {
 test('目标扩展名(.js .mjs .cjs .ts .map .css .json .html)中含 BOM → 全部 exit 1', () => {
   const root = createTempRoot()
   try {
-    const exts = ['.js', '.mjs', '.cjs', '.ts', '.map', '.css', '.json', '.html']
+    const exts = [...gate.TARGET_EXTS]
     const files = exts.map((ext, i) => ({
       name: `f${i}${ext}`,
       content: Buffer.concat([BOM_UTF8, Buffer.from('content\n')]),

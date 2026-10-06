@@ -38,6 +38,7 @@
 import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 const C = {
   red: '\x1b[31m',
@@ -112,26 +113,26 @@ function scanFile(filePath) {
   return hits
 }
 
-function main() {
+async function main() {
   const args = process.argv.slice(2)
   if (args.includes('--help')) {
     console.log('用法: node scripts/check-ts-ignore.mjs [--staged] [--help]')
     console.log('')
     console.log('检测 staged 文件中新增的 @ts-ignore / @ts-nocheck 注释(warn 级别)。')
     console.log('跳过白名单:e2e/ / node_modules/ / dist/ / .next/ / build/')
-    process.exit(0)
+    return 0
   }
 
   const staged = args.includes('--staged') ? getStagedFiles() : []
   if (staged.length === 0) {
     console.log(`${C.dim}ℹ️  check-ts-ignore: 无 staged 文件,跳过${C.reset}`)
-    process.exit(0)
+    return 0
   }
 
   const targets = staged.filter((f) => isTargetExt(f) && !isSkip(f))
   if (targets.length === 0) {
     console.log(`${C.dim}ℹ️  check-ts-ignore: 无目标文件(.ts/.tsx/.mjs/.js),跳过${C.reset}`)
-    process.exit(0)
+    return 0
   }
 
   const violations = []
@@ -144,7 +145,7 @@ function main() {
 
   if (violations.length === 0) {
     console.log(`${C.green}✅${C.reset} check-ts-ignore: ${targets.length} 个文件无新增 @ts-ignore`)
-    process.exit(0)
+    return 0
   }
 
   const totalHits = violations.reduce((s, v) => s + v.hits.length, 0)
@@ -159,12 +160,30 @@ function main() {
   }
   console.log('')
   console.log(`   ${C.cyan}提示:${C.reset}若 @playwright/test 等第三方库类型缺陷,可改用 e2e/tsconfig.json 独立配置`)
-  process.exit(1)
+  return 1
 }
 
-main().catch((e) => {
-  console.error(`${C.red}❌ check-ts-ignore 脚本执行异常:${C.reset}`, e?.message ?? e)
-  console.error(e?.stack ?? '(no stack)')
-  process.exit(2)
-})
+// AGENTS.md §22d:双形态入口守卫 —— 导入时不得触发 CLI 主流程(镜像测试据 §22c 导入本文件判据)
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main()
+    .then((code) => {
+      process.exit(code)
+    })
+    .catch((e) => {
+      console.error(`${C.red}❌ check-ts-ignore 脚本执行异常:${C.reset}`, e?.message ?? e)
+      console.error(e?.stack ?? '(no stack)')
+      process.exit(2)
+    })
+}
+
+// §22c:判据单元单一来源,测试从此处导入而非自抄
+export const __test__ = {
+  SKIP_PATTERNS,
+  TS_IGNORE_REGEX,
+  isSkip,
+  isTargetExt,
+}
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
