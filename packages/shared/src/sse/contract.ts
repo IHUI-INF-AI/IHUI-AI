@@ -595,19 +595,46 @@ export type SSEEventPayload =
        *  (要读成本请调查询接口,不要从 usage 帧取)。 */
       costUsd: number | null
     }>
-  // 文件写类工具的流中 diff 预览增量帧(D113 于 2026-09-27 立;2026-09-28 由 D132 补入联合)。
+  // 文件写类工具的流中 diff 预览帧(D113 于 2026-09-27 立;2026-09-28 由 D132 补入联合)。
   // 字段清单同样以 `sse_contract.py` 的 `SSEEventContract("tool-delta", …)` 为准;
   // 消费方 `packages/api-client/src/client.ts` 的 `tryParseToolDelta` 与
   // `packages/shared/src/utils/sse-parse.ts` 都按这四个键取值。
+  //
+  // 载荷语义 = **累积式整帧替换**(此前本段把方向写反过,说成"每帧只带新增的那一段",谁照它写
+  // 消费端就把正文翻倍)。口径逐字取自生产端,不得凭本注释反推实现:
+  // `apps/ai-service/app/routers/llm.py::_file_edit_preview_frames` 的 docstring 原文是
+  // 「把预览文本切成 (partialText, truncated) 帧序列(累积式)」,其产帧语句取的是
+  // `"\n".join(kept[: i + _PREVIEW_LINES_PER_FRAME])` —— 切片下标从 0 起,所以第 N 帧带的是
+  // **从头到当前批次的整段正文**,后一帧必然以前一帧为前缀。该事实由跨语言台账
+  // `apps/ai-service/tests/fixtures/file-edit-preview-cases.json` 逐帧核前缀,锁在
+  // `packages/shared/src/sse/__tests__/contract.test.ts`(G-816035 组)。
+  // 六个消费端一律按 toolCallId 把整帧**覆盖**进 `partialDiff`:web `stream-handlers.ts` 的
+  // `createToolDeltaHandler`、extension `lib/tool-call-frames.ts::applyToolDelta`、小程序
+  // `pkg-ai/ai/cards/types.ts`、RN `utils/chat-render-model.ts::applyToolDelta`、
+  // `packages/api-client` 的 `tryParseToolDelta`、本包 `utils/sse-parse.ts`。
+  //
+  // **谁不得怎么做**:以上任何消费端都不得对 `partialText` 做 `+=` / `+` 拼接 / `.concat(` 累加,
+  // 也不得"先读旧 `partialDiff` 再拼新帧"。覆盖式写入只在累积语义下安全;按增量实现时,每帧都
+  // 含已显示过的那段 ⇒ 正文静默翻倍,且不报错、不红任何 typecheck(本仓"判据失效的表现永远是
+  // 安静"那一族)。反向锁见上述测试文件第 ② 条。
+  //
+  // `seq` 当前**不参与**排序或收敛:上述消费端只按 toolCallId 覆盖、不读 seq 判新旧
+  // (extension 头注原文即「`seq` 不参与判断」),因此同帧重放与乱序天然幂等。seq 的现职是
+  // 可观测性(排查"这是第几帧"),不是判据;若将来改成按 seq 收敛,必须同步改掉本段与六个消费端,
+  // 不得只改一处。
+  //
+  // 这一维目前没有任何跨语言判据看守:parity 门 `scripts/check-agent-event-parity.mjs` 只提
+  // **事件名**,对本帧载荷语义零判据(该边界由上述测试第 ③ 条钉住 —— 它开始判这一维时那条必须红,
+  // 届时请把本段这句"零判据"改掉,不要留着替坏状态背书)。
   | SSEEventWithMeta<{
       type: 'tool-delta'
       /** 对应的 tool-call-start 的 toolCallId */
       toolCallId: string
-      /** 同一 toolCallId 内的递增序号(乱序/重传由消费端按 seq 收敛) */
+      /** 同一 toolCallId 内的递增序号;当前**不参与**排序/收敛(消费端只按 toolCallId 整帧覆盖) */
       seq: number
-      /** 本次增量的正文(不是全量) */
+      /** 累积式正文:从本工具调用开头到当前批次的**整段**预览文本,消费端整帧替换、不得拼接 */
       partialText: string
-      /** 超长截断标记;缺席表示未截断 */
+      /** 超长截断标记;缺席表示未截断(生产端只在末帧置真) */
       truncated?: boolean
     }>
   // 流式中断标记帧(G-815976 收口入契约,2026-10-04)。字段与 llm_gateway.py 的
