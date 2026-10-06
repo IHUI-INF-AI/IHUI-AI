@@ -1760,6 +1760,13 @@ class AgentLoopV2:
         self._llm_supports_on_chunk: bool = self._detect_on_chunk_support(
             llm_complete_fn
         )
+        # G-815969(2026-10-31):本轮 LLM 已到达本进程的流式文本快照(_make_on_chunk
+        # 逐 chunk 追加,每次发起 LLM 调用时重置)。此前 chunk 只往外发、自己不留底,
+        # 取消/暂停时半截回答随 _LoopInterrupted 的返回一起丢失(重开会话时回复比用户
+        # 亲眼见过的短)。现在由 _run_loop 的 _LoopInterrupted 返回处递出去。
+        # 只记到手的流式文本增量(thinking.delta 同源的内容),不记任何工具载荷
+        # —— 工具在飞时仍等终态路径处理。
+        self._stream_text_snapshot: str = ""
         self._tools: dict[str, ToolDefinition] = {t.name: t for t in tools}
         self.max_iterations = max_iterations
         self.tool_timeout = tool_timeout
@@ -3269,6 +3276,9 @@ class AgentLoopV2:
         async def _on_chunk(text: str) -> None:
             if not text:
                 return
+            # G-815969:逐 chunk 留底"已到达本进程"的文本(与往外发同一份内容,
+            # 不做二次加工),供取消/暂停时在 _LoopInterrupted 返回处递出去。
+            self._stream_text_snapshot += text
             await self._events.emit_thinking_delta(
                 session_id, text, iteration=iteration, is_final=False
             )
@@ -3318,6 +3328,10 @@ class AgentLoopV2:
         last_exc: BaseException | None = None
         # 批 57:每轮 LLM 调用重置重试决策状态机(行为兼容;状态仅在本轮重试内累积)。
         self._stream_retry_state = None
+        # G-815969:每次发起 LLM 调用重置文本快照(重试轮重开一条流,旧增量不能留;
+        # 非流式 mock 下快照恒为空,与现状逐零差异)。重置发生在本轮 chunk 之前,
+        # 因此"LLM 已产出文本 → 工具在飞时被取消"仍保留该文本(那是用户见过的半截)。
+        self._stream_text_snapshot = ""
         # 2026-09-18 第二批:生成参数透传(空 dict 时不加 kwargs,签名与现状逐零差异)
         extra_params: dict[str, Any] = self._model_params or {}
         # 批58(十九):推理努力档位钉扎(对标 codex reasoning_effort.rs——采样可建立
@@ -4134,7 +4148,12 @@ class AgentLoopV2:
                 return AgentLoopResult(
                     compaction_events=self._compaction_events,
                     success=False,
-                    final_response="",
+                    # G-815969(2026-10-31):把"已到达本进程的半截回答"递出去。此前
+                    # 这里恒为空串,流式增量已经发给了用户、循环却一个字都不留,上层
+                    # (agents.py SSE / agent_plan 路由读 final_response)拿不到内容,
+                    # 落库路径也就无从标注中断。零字符时快照本就是空串 ⇒ 与现状逐零
+                    # 差异,不会造出空 assistant 气泡。
+                    final_response=self._stream_text_snapshot,
                     iterations=iterations,
                     total_duration_ms=(
                         (datetime.now(UTC) - start_time).total_seconds() * 1000
