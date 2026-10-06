@@ -108,6 +108,14 @@
       {
         "role": "assistant",
         "content": "Recent message 23 near the end of history. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. "
+      },
+      {
+        "role": "user",
+        "content": "你好,世界。"
+      },
+      {
+        "role": "assistant",
+        "content": "上下文压缩是长对话系统里绕不开的一环:当历史消息累积到把预算吃满,就必须把较早的轮次折叠成摘要,同时把最近若干轮原样留下。汉字之间没有空格,分词器只能按自己的词表切分,于是同一段中文在两端可能切出不同数量的词元,这正是本探针要量的东西:跨端分词分歧在纯 ASCII 上不明显,一旦换成中文就会被放大。"
       }
     ],
     "options": {
@@ -126,12 +134,12 @@
       "user",
       "assistant"
     ],
-    "summaryMarkerLine": "[上下文摘要 — 之前 17 条消息已压缩]",
-    "summaryBodyLineCount": 17,
+    "summaryMarkerLine": "[上下文摘要 — 之前 19 条消息已压缩]",
+    "summaryBodyLineCount": 19,
     "noOrphanToolMessages": true,
     "recentTierCount": 6,
     "recentTierFirst200CharsPresent": true,
-    "coveredCountTotal": 17
+    "coveredCountTotal": 19
   },
   "reasoningCases": {
     "_comment": "票 G-1058650(2026-10-07)新增的\"消息带 reasoning\"这一格,双端逐值对账。判定=分支 B(Python 镜像端\"少算 reasoning\"这一型不可达),依据四条可重跑取证:(1) apps/ai-service/app/core/context_compaction.py 全文零次出现 reasoning(git grep -c \"reasoning\" HEAD -- apps/ai-service/app/core/context_compaction.py → 无输出 rc=1,即 0 命中),估算入口 estimate_messages_tokens 只读 content/tool_calls/role/tool_call_id;(2) ai-service 内 92 处 messages.append(...) 写入面无一携带 reasoning 键;(3) 唯一上游发送方 apps/api 的 /chat/stream zod schema 为 {role, content}(apps/api/src/routes/ai-chat-stream.ts:136-143),zod 默认剥离未知键 ⇒ 客户端回传的 reasoning 进不了消息列表;(4) Python 侧携带 reasoning 的对象(llm_gateway.py:2318-2320 result[\"reasoning\"]、routers/llm.py:2838 accumulated)都是**响应/事件**字典,从不作为消息进入上下文。⇒ 按仓规\"加守卫前先证明坏状态可达\",不给 Python 加它永远拿不到输入的分支;可达性由 tests/reasoning-parity.test.ts 的按键名枚举哨兵实时重扫(写入点一旦非零即翻红,并要求把 pyCountsReasoning 翻 true 走同值对账)。数值取法:tokensTs/tokensTsReasoningBlind 由 packages/context-compaction/dist 的 estimateMessagesTokens 现跑,tokensPyAsShipped 由 apps/ai-service/.venv 解释器现跑 app.core.context_compaction.estimate_messages_tokens(2026-10-07)。",
@@ -212,9 +220,64 @@
     }
   },
   "reverseLock": {
-    "_comment": "反向锁(票 G-1058650):不含 reasoning 的既有夹具逐值不变。input/expectations 与 HEAD d07ac60ceb 字节一致,本格只**追加** reasoningCases/reverseLock 两个新键。29367 = 同一 messages 现跑 estimateMessagesTokens(TS) 与 estimate_messages_tokens(Python .venv)的相同值(2026-10-07 实测,两端在这一格本就同值)。",
-    "tokensTs": 29367,
-    "tokensPyAsShipped": 29367,
-    "existingMessagesCarryReasoningKeys": false
+    "_comment": "反向锁(票 G-1058650 残余⑤)。两层结构,各有各的守什么,各有各的**正确状态**:①`baseline` —— **既有 24 条**(下标 0..23,全 ASCII、无 CJK、无 reasoning)的切片锁:两端同值 29367。这条『同值』**仍然为真**,由切片锁守着;CJK 用例只追加在它们**之后**(下标 24/25),故这一锁不受影响 —— 这是「只追加、不动基线」的机械证明。⚠️ 但它证明的只是『这批 ASCII 文本没踩到两套词表的分歧词』,**不是跨端一致性证据**(见 scripts/check-bpe-encoding-parity.mjs 头注:24/24 同值是巧合)。②整列(现 26 条)两端**不再相等,且为不等是正确状态**:TS=29500 / Python=29558,差 -58,因为整列含 CJK 而两端不是同一套 BPE 词表(TS=o200k_base / Python=cl100k_base)。故这一格**不按『两端同值』判**,按**差值逐值钉死**判:`crossEndGapFullColumn` 必须等于 `tokensTs - tokensPyAsShipped`。字段语义:`tokensTs` = **TS 侧**整列真值,`tokensPyAsShipped` = **Python 侧**整列真值 —— 各归各端,谁也不许存对方的读数(字段名叫 tokensTs 却存 Python 的值 = 过载,那是尺子教人谎报的产物,已撤销)。",
+    "tokensTs": 29500,
+    "tokensPyAsShipped": 29558,
+    "existingMessagesCarryReasoningKeys": false,
+    "baselineMessageCount": 24,
+    "baseline": {
+      "_comment": "既有 24 条(不含 CJK、不含 reasoning)的切片锁:对 input.messages 前 24 条现跑estimateMessagesTokens(TS) 与 estimate_messages_tokens(Python .venv),两端同值 29367。",
+      "messageCount": 24,
+      "tokensTs": 29367,
+      "tokensPyAsShipped": 29367
+    },
+    "crossEndGapFullColumn": -58
+  },
+  "cjkCases": {
+    "_comment": "CJK 用例(票 G-1058650 残余⑤):覆盖「两端分词器对汉字的分歧」。读数口径:TS 侧 `gpt-tokenizer` 默认 `o200k_base`,Python 侧 `tiktoken` `cl100k_base` —— **词表分歧未修(残余②另票归因),两端不等是预期**;本键只把差值逐值钉死,不许抹平。实测方向与 ASCII 相反:既有 24 条纯 ASCII 两端零漂移,汉字上 **Python 反而比 TS 多**(短 -3 / 长 -55),且随文本变长而累积放大。另注意 `crossEndGap` 一律定义为 `tokensTs - tokensPyAsShipped`,故汉字上为**负**。",
+    "cases": [
+      {
+        "id": "cjk-short-text-cross-end-split-gap",
+        "what": "短中文(6 字):分词分歧的最小可观测单位。TS=8 / Python=11 / 差 -3。",
+        "messageIndexInInput": 24,
+        "input": {
+          "messages": [
+            {
+              "role": "user",
+              "content": "你好,世界。"
+            }
+          ]
+        },
+        "expect": {
+          "tokensTs": 8,
+          "tokensPyAsShipped": 11,
+          "crossEndGap": -3
+        }
+      },
+      {
+        "id": "cjk-long-text-accumulated-split-gap",
+        "what": "长中文(150 字):长文本才能暴露**累积**分歧 —— 同样的分歧按字数放大到 -55,证明这不是某一两个汉字的偶然切点差异。TS=125 / Python=180 / 差 -55。",
+        "messageIndexInInput": 25,
+        "input": {
+          "messages": [
+            {
+              "role": "assistant",
+              "content": "上下文压缩是长对话系统里绕不开的一环:当历史消息累积到把预算吃满,就必须把较早的轮次折叠成摘要,同时把最近若干轮原样留下。汉字之间没有空格,分词器只能按自己的词表切分,于是同一段中文在两端可能切出不同数量的词元,这正是本探针要量的东西:跨端分词分歧在纯 ASCII 上不明显,一旦换成中文就会被放大。"
+            }
+          ]
+        },
+        "expect": {
+          "tokensTs": 125,
+          "tokensPyAsShipped": 180,
+          "crossEndGap": -55
+        }
+      }
+    ],
+    "aggregate": {
+      "_comment": "两条 CJK 合并成一个列表的现场值(证明逐值锁不是各自独立凑出来的);它也等于 input.messages 整列相对既有 24 条的增量(29500-29367=133 / 29558-29367=191)。",
+      "tokensTs": 133,
+      "tokensPyAsShipped": 191,
+      "crossEndGap": -58
+    }
   }
 }
