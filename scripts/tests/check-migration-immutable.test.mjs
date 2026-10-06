@@ -83,7 +83,7 @@ function makeFixtureRepo(dir, { tags = ['0000_fixture'], body = 'CREATE TABLE fi
   return { git, sqlRel, journalAbs: join(dir, gate.JOURNAL_REL) }
 }
 
-test('T1 接线一致性:本枚刻意未接提交链 ⇒ 头注自称未接线,且 runner 里确实没有它', () => {
+test('T1 接线一致性:头注声称的接线态必须与 runner 真值一致(两态都认)', () => {
   const src = readFileSync(SCRIPT, 'utf8')
   // 注册面读 HEAD(磁盘那份常年滞后,拿它当"已接线"会把刚落的注册读成没有)
   const runner = catBatch(ROOT, ['HEAD:scripts/guardian-runner.mjs']).get(
@@ -91,7 +91,11 @@ test('T1 接线一致性:本枚刻意未接提交链 ⇒ 头注自称未接线,�
   )
   assert.ok(runner, '取不到 HEAD 面的 guardian-runner ⇒ 本条必须红,不得当成"没接线"放过')
   const wired = runner.includes('check-migration-immutable')
-  const claimsWired = /已接\s*pre-commit|已接线|第\s*\d+\s*项/.test(src)
+  // ⚠️ 这条正则 2026-10-06 扩过一次:`已接线` 漏了同义形态 `已接入`,
+  // 于是头注如实写成「已接入」时 claimsWired 仍为 false ⇒ 方向锁反向判红。
+  // **教训与门 133 的 M3 同型**:判据锚定字面量,而不是锚定"这一态"本身 ——
+  // 措辞一换,尺子就失准。两态的合法措辞都要认。
+  const claimsWired = /已接\s*pre-commit|已接线|已接入|第\s*\d+\s*项/.test(src)
   if (wired) {
     assert.ok(
       claimsWired,
