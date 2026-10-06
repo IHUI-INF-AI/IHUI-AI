@@ -148,7 +148,7 @@ describe('check-c-drive-paths.mjs 集成测试 (AGENTS.md §26)', () => {
       writeAndStage(root, 'packages/cli/src/runner.ps1', '$tempPath = "AppData\\Local\\Temp\\myapp.log"\nWrite-Output $tempPath\n')
       const r = runScript(['--staged'], { cwd: root })
       assert_.equal(r.status, 1, `含 AppData\\Local\\Temp\\ 应 exit 1, 实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
-      assert_.match(r.stdout + r.stderr, /AppData\\Local\\Temp|appdata-local-temp/)
+      assert_.match(r.stdout + r.stderr, new RegExp(cdrivePatternAlt(['appdata-local-temp'])))
     } finally {
       rmScratch(root)
     }
