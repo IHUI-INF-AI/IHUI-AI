@@ -36,7 +36,11 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const SCRIPTS_DIR = join(HERE, '..')
 const REPO_ROOT = join(SCRIPTS_DIR, '..')
 const SCRIPT = join(SCRIPTS_DIR, 'check-i18n-locale-content-language.mjs')
+const JA_REL = 'packages/i18n/messages/web/ja.json'
 const LOCALE_CODES = ['zh-CN', 'zh-TW', 'ja', 'ko', 'en']
+
+/** 门侧的 E3 判据(叶子级专名豁免)。走 __test__ 导出,不重抄一份实现(§22c)。 */
+const properNounLeaf = gate.properNounLeaf
 
 function run(args, opts = {}) {
   return spawnSync(process.execPath, [SCRIPT, ...args], {
@@ -119,6 +123,18 @@ function initRepo(dir) {
   writeFileSync(join(dir, 'scripts', 'joyo-kanji.json'), JSON.stringify({ codepoints }), 'utf8')
 }
 
+/**
+ * 在临时仓的表上**追加** `properNouns`(E3 的数据源)。
+ * ⚠️ 只加 `chars`、**一个字都不动 `codepoints`** —— 这正是"防假修法"在夹具层的形态:
+ * 若实现偷偷把专名塞进 codepoints 让门变绿,本夹具的阳性对照(钉钉必须红)会立刻失败。
+ */
+function addProperNouns(dir, chars) {
+  const p = join(dir, 'scripts', 'joyo-kanji.json')
+  const obj = JSON.parse(readFileSync(p, 'utf8'))
+  obj.properNouns = { chars, note: 'fixture' }
+  writeFileSync(p, JSON.stringify(obj), 'utf8')
+}
+
 /** 用导出的面函数跑一遍完整判定(跨仓取证只能这么做:CLI 的 ROOT 由脚本自身位置推导) */
 function fullScan(dir, face) {
   const list = gate.listLocaleRels(dir, face)
@@ -135,6 +151,7 @@ function fullScan(dir, face) {
     }
   }
   const results = []
+  const joyo = gate.loadJoyo(dir, face)
   for (const rel of list.rels) {
     const { target, locale } = gate.parseLocalePath(rel)
     let obj = null
@@ -149,7 +166,8 @@ function fullScan(dir, face) {
         localeCodes: LOCALE_CODES,
         zhCnObj: locale === 'zh-CN' ? null : (zh.get(target) ?? null),
         zhCnMissing: locale !== 'zh-CN' && !zh.has(target),
-        joyo: gate.loadJoyo(dir, face).set,
+        joyo: joyo.set,
+        proper: joyo.proper,
       }),
     )
   }
@@ -483,4 +501,152 @@ test('M10 对外行为:两面旗同给判死、skipEnv 必须说出来、判定�
   assert.ok(gate.faceFromArgv(['--staged', '--worktree']).error)
   // runner 会追加的无关旗标不得改变判定面(否则同一枚提交在钩子内与人工复核时结论不同)
   assert.equal(gate.faceFromArgv(['--staged', '--quiet', '--exit', '1']).face, 'staged')
+})
+
+test('M11 E3 专名豁免:叶子级放过专名、抓住真残留,且 codepoints 一个字都不许动', () => {
+  const dir = mkScratch('i18n-lang-proper')
+  const JA = 'packages/i18n/messages/web/ja.json'
+  try {
+    initRepo(dir)
+    // ⚠️ 夹具的 `wanted` 串里已有 会話整理夾標籤削除保存確認月火水木金土 —— 那些字在表**内**,
+    // 永远不是嫌疑字。所以"真残留"必须挑 `wanted` 之外的字(資/料/釘/谱/视/频…),
+    // 否则阳性对照会静默退化成"什么都没验到却看着在验"。
+    addProperNouns(dir, '智匯硅')
+    const web = join(dir, 'packages', 'i18n', 'messages', 'web')
+    mkdirSync(web, { recursive: true }) // initRepo 只造 scripts/,语言包目录得自己建
+    const ja = {
+      // 专名块:三叶的表外字全部落在 properNouns 内 ⇒ 豁免 ⇒ usable 不足 ⇒ 不判
+      brand: { badge: '智匯', vendor: '智匯硅', again: '智匯騰' },
+      // 对照组:釘釘 同为表外、同方向,但**不在** properNouns 内 ⇒ 必须红
+      residue: { ding: '釘釘', zhipu: '智谱', shipinhao: '视频' },
+      // 反向防线:专名叶与真残留叶同块 ⇒ 专名叶豁免,真残留叶仍被抓(不得整块放过)
+      // ⚠️ 真残留叶必须 **≥3 个**(即豁免后 usable 仍过 MIN_BLOCK_LEAVES)。实测(2026-10-06):
+      //   豁免会把叶子从 usable 里剔掉,于是"专名叶 1 + 真残留叶 2"整块落到 usable=2 < 3 ⇒ 不判。
+      //   这**不是 E3 引入的新洞**,E1/E2 完全同形(逐个构造验过),是 MIN_BLOCK_LEAVES 的原语义
+      //   ("1~2 叶的块汉字是日语常态,样本不足以定性")。所以这里用能过门槛的形状,
+      //   门槛那一格由上面那行 pureNounLeaf 断言与 T2b 覆盖。
+      mixed: { ok: '智匯', bad: '資料夾', worse: '標籤', third: '檔案夾' },
+    }
+    writeFileSync(join(web, 'ja.json'), JSON.stringify(ja, null, 2) + '\n', 'utf8')
+    for (const l of ['zh-CN', 'zh-TW', 'ko', 'en'])
+      writeFileSync(join(web, l + '.json'), JSON.stringify({}, null, 2) + '\n', 'utf8')
+
+    const j = gate.loadJoyo(dir, 'worktree')
+    assert.ok(j.set && j.proper, '表与专名集必须一起取到(同一个 raw、同一个面)')
+    assert.deepEqual([...j.proper], ['智', '匯', '硅'], '专名集出口必须独立于 2136 集合')
+    for (const c of j.proper)
+      assert.ok(!j.set.has(c), `防假修法:专名字 ${c} 不许出现在 2136 表内`)
+
+    // 判据纯函数:掺一个非专名表外字 ⇒ 整叶仍判(这是 E3 必须是叶子级的那条命)。
+    // 用 資料夾 而不是 夾:夾 在夹具表内,表内字永远不是嫌疑字,拿它测"掺字"等于测了个空分支。
+    assert.equal(properNounLeaf('智匯', j.proper, j.set).ok, true)
+    assert.equal(properNounLeaf('智匯硅', j.proper, j.set).ok, true)
+    assert.equal(properNounLeaf('智匯資料夾', j.proper, j.set).ok, false, '掺非专名表外字必须仍判')
+    assert.equal(properNounLeaf('資料夾', j.proper, j.set).ok, false)
+    assert.equal(properNounLeaf('智匯', null, j.set).ok, false, '专名集取不到 ⇒ 判不出,不得放行')
+    assert.equal(properNounLeaf('智匯', j.proper, null).ok, false)
+
+    const r = gate.scanLocaleContent(JA, ja, {
+      locale: 'ja',
+      localeCodes: LOCALE_CODES,
+      zhCnObj: null,
+      zhCnMissing: false,
+      joyo: j.set,
+      proper: j.proper,
+    })
+    const paths = r.l1b.map((x) => x.path).sort()
+    assert.ok(!paths.includes('brand'), `专名块必须不红,实得 ${JSON.stringify(r.l1b)}`)
+    const residue = r.l1b.find((x) => x.path === 'residue')
+    assert.ok(residue, `对照组必须红,实得 ${JSON.stringify(r.l1b)}`)
+    assert.match(residue.suspects, /釘/, '必须点名键与嫌疑字')
+    const mixed = r.l1b.find((x) => x.path === 'mixed')
+    assert.ok(mixed, '混合块必须仍红')
+    assert.ok(
+      mixed.suspects.includes('資') && mixed.suspects.includes('料'),
+      `混合块必须仍抓到真残留,实得 ${mixed.suspects}`,
+    )
+    assert.ok(
+      !mixed.suspects.includes('智') && !mixed.suspects.includes('匯'),
+      `专名字不得出现在混合块的嫌疑字里(豁免必须生效),实得 ${mixed.suspects}`,
+    )
+    // 门槛交互(E1/E2/E3 共形,非 E3 独有):豁免会把叶子剔出 usable,不足 3 叶的块整块不判。
+    // 钉死这一格,免得以后有人把门槛调小/调大时没人发现 E3 的判红面积被悄悄改了。
+    const thin = gate.scanLocaleContent(
+      JA_REL,
+      { mixed: { ok: '智匯', bad: '資料夾', worse: '標籤' } },
+      {
+        locale: 'ja',
+        localeCodes: LOCALE_CODES,
+        zhCnObj: null,
+        zhCnMissing: false,
+        joyo: j.set,
+        proper: j.proper,
+      },
+    )
+    assert.equal(
+      thin.exemptProper.length,
+      1,
+      '薄块里专名叶照样豁免并计数(豁免不因块小而消失)',
+    )
+    assert.equal(
+      thin.l1b.length,
+      0,
+      '豁免后 usable=2 < MIN_BLOCK_LEAVES ⇒ 整块不判(E1/E2/E3 共有的 MIN_BLOCK_LEAVES 语义)',
+    )
+    // 豁免必须**单列计数**并带得上键路径(报数可定位,不许只报一个总数)
+    const exPaths = r.exemptProper.map((x) => x.path)
+    assert.ok(exPaths.includes('brand.badge') && exPaths.includes('mixed.ok'), JSON.stringify(exPaths))
+    assert.equal(
+      new Set(exPaths).size,
+      exPaths.length,
+      '豁免计数必须按路径去重(块是递归遍历的,否则一个叶子被每个祖先块各数一次)',
+    )
+    const s = gate.summarize([r], new Map())
+    assert.equal(s.exemptProper.length, exPaths.length, 'summarize 必须把豁免并进结论对象')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('M12 专名集缺失 ⇒ 记未判定且照判(不得因判不出就静默放行整块)', () => {
+  const dir = mkScratch('i18n-lang-noproper')
+  try {
+    initRepo(dir) // 不调 addProperNouns ⇒ 表里没有 properNouns
+    const web = join(dir, 'packages', 'i18n', 'messages', 'web')
+    mkdirSync(web, { recursive: true })
+    writeFileSync(
+      join(web, 'ja.json'),
+      JSON.stringify({ brand: { a: '智匯', b: '智匯硅', c: '智匯騰' } }, null, 2) + '\n',
+      'utf8',
+    )
+    for (const l of ['zh-CN', 'zh-TW', 'ko', 'en'])
+      writeFileSync(join(web, l + '.json'), JSON.stringify({}, null, 2) + '\n', 'utf8')
+    const j = gate.loadJoyo(dir, 'worktree')
+    assert.equal(j.proper, null, '表里没有 properNouns ⇒ 必须 null(不得返回空集冒充"没有专名")')
+    const r = gate.scanLocaleContent(JA_REL, JSON.parse(readFileSync(join(web, 'ja.json'), 'utf8')), {
+      locale: 'ja',
+      localeCodes: LOCALE_CODES,
+      zhCnObj: null,
+      zhCnMissing: false,
+      joyo: j.set,
+      proper: j.proper,
+    })
+    assert.equal(r.exemptProper.length, 0, '判不出时不得豁免任何叶子')
+    assert.equal(r.l1b.length, 1, '判不出时必须照判(不得因 E3 失效而静默放过)')
+    assert.ok(
+      r.undetermined.some((t) => /properNouns/.test(t)),
+      `必须点名是哪条判据判不出,实得 ${JSON.stringify(r.undetermined)}`,
+    )
+    // CLI 侧同样必须说出来。判红**优先于**未判定(T9f 的定级),所以这里 rc=1 而不是 2:
+    // 判不出 E3 ⇒ 照判 ⇒ 判红,这条链正是"不得因判不出就静默放过"的机器读数。
+    const rep = run(['--worktree', '--root', dir])
+    assert.match(rep.stdout, /专名字集|properNouns/, `结论必须喊出 E3 判不出:\n${rep.stdout}`)
+    assert.match(rep.stdout, /L1b ja 整块汉字/, '判不出时必须照判并点名')
+    assert.equal(rep.status, 0, '默认档 L1 只报数')
+    const strict = run(['--worktree', '--root', dir, '--strict'])
+    assert.equal(strict.status, 1, `--strict 下判不出 E3 的块必须判红,实得 ${strict.status}`)
+    assert.match(lastLine(strict.stdout), /判红 1/, lastLine(strict.stdout))
+  } finally {
+    rmScratch(dir)
+  }
 })
