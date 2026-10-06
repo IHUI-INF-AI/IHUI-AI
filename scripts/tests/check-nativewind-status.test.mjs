@@ -74,6 +74,8 @@ function runScript({ npmDir, mode, response } = {}) {
     encoding: 'utf8',
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     stdio: ['ignore', 'pipe', 'pipe'],
+    // §12g:本机(Win)派生子进程必须显式 windowsHide,否则闪控制台窗
+    windowsHide: true,
     env,
   })
   if (r.stdout) r.stdout = r.stdout.replace(ANSI_RE, '')
