@@ -15,7 +15,8 @@
 //
 // 三条方向性对照(AGENTS 反复登记):
 //   T1 runner 里没有本门时,**不得**被判定为已装车(反向锁);注册后必须成套
-//      (blocking + skipEnv + 编号唯一)。
+//      (blocking + skipEnv + 编号唯一)。头注与 runner 两边必须**双向**对账 ——
+//      门早已装车,只钉"未注册不得自称已接"会让注册条被摘时无人喊红。
 //   T2 取材面纪律形状锁:必须走 face-reader(catBatch),不得 readFileSync 被审内容。
 //   T3/T4 阳性对照:把一侧阈值改掉 ⇒ 必红;且红点出现在**被改的那一面**(索引脏而
 //      HEAD 干净 ⇒ staged 红、head 绿),证明判据真在看被审面而不是磁盘。
@@ -65,31 +66,43 @@ function materialize(dir, contents) {
   }
 }
 
-test('T1 装配对账:未注册时不得冒充已装车;注册后必须成套(blocking+skipEnv+编号唯一)', () => {
+test('T1 装配对账:头注声明必须与 runner 现读一致;注册后必须成套(blocking+skipEnv+编号唯一)', () => {
   const runnerPath = path.join(REPO, 'scripts', 'guardian-runner.mjs')
   const runner = readFileSync(runnerPath, 'utf8')
-  const wired = runner.includes('check-doom-loop-parity.mjs')
+  const SCRIPT_RE = /script:\s*'[^']*check-doom-loop-parity\.mjs'/
+  const wired = SCRIPT_RE.test(runner)
   const gateSrc = readFileSync(path.join(REPO, GATE_REL), 'utf8')
-  if (!wired) {
-    // 本镜像测试存在的当下,主会话尚未注册 ⇒ 门自身不得声称已接线(R1/R2 反装型)
-    assert.ok(
-      !/已接\s*pre-commit|已接入\s*pre-commit|guardian-runner.*已注册/s.test(gateSrc),
-      '未注册的门脚本不得自称已接提交链(守门 89 R1 同型)',
-    )
-    assert.ok(
-      gateSrc.includes('尚未') && gateSrc.includes('接线'),
-      '未注册状态必须在门头注如实写明(现状:头注缺"尚未接线"字样)',
-    )
-    return
-  }
+
+  // ⚠️ 原未注册分支是一对**措辞 grep**:`!/已接\s*pre-commit|已接入\s*pre-commit|
+  //   guardian-runner.*已注册/s`(反向)+ `includes('尚未') && includes('接线')`(正向)。
+  //   两处都锚在**会被人改写的头注散文**上,而不是锚 runner:
+  //   ① 反向锁只认"pre-commit / guardian-runner 已注册"两种**旧措辞**;头注早已改写成
+  //      【接线状态:已接入】,于是注册条被摘掉而头注仍自称已接入时它算"没自称"⇒ 照样绿。
+  //   ② 正向锁更宽:头注里"尚未"只出现在**追述立项时状态**的那段("本段原写'尚未接进
+  //      runner…',那是立项时的实况,已过期")里,拿它当"当前尚未接线"的证据是自欺。
+  // ⇒ 改成结构判据:头注用**唯一**的【接线状态:…】标记声明接线事实,本用例按 runner 现读
+  //    做**双向**对账。措辞不再进断言 ⇒ 头注日后怎么改写都不会假红/假绿。
+  const claim = gateSrc.match(/【接线状态:([^】]+)】/)
+  assert.ok(claim, '头注缺【接线状态:…】标记 ⇒ 接线声明无处可读,本用例已空转')
+  assert.equal(
+    claim[1] === '已接入',
+    wired,
+    `头注声明「接线状态:${claim[1]}」与 runner 现读不一致(wired=${wired})`,
+  )
+  if (!wired) return
+
   // 注册后:条目必须成套。按脚本名定位注册块(不硬写编号 —— 编号以 runner 现值为准)
   // 判"注册条目唯一",不判"脚本文本出现一次":runner 的 onFailHint 里必然再提一次门的名字,
   // 拿文本次数当撞号判据会把**正常注册**判成红(本仓 §22c:镜像测试只复读实现就是复读机)。
-  const registrations = runner.match(/script:\s*'[^']*check-doom-loop-parity\.mjs'/g) ?? []
+  const registrations = runner.match(new RegExp(SCRIPT_RE.source, 'g')) ?? []
   assert.equal(registrations.length, 1, `本门在 runner 中的注册条目必须恰好一条(现 ${registrations.length} 条)`)
-  const at = runner.search(/script:\s*'[^']*check-doom-loop-parity\.mjs'/)
+  const at = runner.search(SCRIPT_RE)
   assert.ok(at >= 0, 'runner 注册块缺 script 字段(仅路径字符串不构成装车)')
-  const block = runner.slice(Math.max(0, at - 1200), at + 1200)
+  // ⚠️ 原来取 `at ± 1200` 的**窗口**判 mode/skipEnv,实测无牙:窗口跨进邻门,邻门的
+  // `mode:'blocking'` 替本门交差(把本门自己翻成 warn 后断言仍绿)。改按**注册块边界**取本门那条。
+  const start = runner.lastIndexOf('\n  {', at)
+  const next = runner.indexOf('\n    script:', at + 10)
+  const block = runner.slice(start < 0 ? at : start, next > 0 ? next : runner.length)
   assert.match(block, /mode:\s*'blocking'/, '本门注册必须是 blocking')
   assert.match(block, /skipEnv:\s*'HUSKY_SKIP_DOOM_LOOP_PARITY'/, 'skipEnv 必须成套(否则摘线无出口)')
   const idMatch = block.match(/id:\s*'([^']+)'/)
