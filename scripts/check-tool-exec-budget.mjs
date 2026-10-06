@@ -29,7 +29,11 @@
 //   3. 父级 signal 注入(`commands/agent.ts` 构造 ctx 那一处)本票无权改,故 S2 只做棘轮点名。
 //   4. 只扫 `apps/cli/src/tools/**` 的声明面;端内别处若自建工具级墙钟,本门看不见(宁窄不误)。
 //
-// 接线建议见交付报告(本文件**尚未**接进 guardian-runner / package.json / CI —— 接线由主会话统一做)。
+// 【接线状态:已接入】注册条目已落在 scripts/guardian-runner.mjs(id 以 runner 现值为准,
+// 勿照抄本行数字):blocking + skipEnv:HUSKY_SKIP_TOOL_EXEC_BUDGET,带 stagedTriggers;
+// 根 package.json 另有 scripts.check:tool-exec-budget 手工入口。
+// —— 本行原写"尚未接进 guardian-runner / package.json / CI,接线由主会话统一做",
+// 那是立项时的实况,已过期(门早已装车);立论保留,接线事实按上条现读改写。
 
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'

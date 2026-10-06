@@ -37,8 +37,11 @@
  * 加界归属谁 —— **不得钉 HEAD**:ref 是对现状的论证,不是"某个 commit 时是好的"的担保);
  * 基线条目没有 ref=、或指向的命中已不存在(过期条目)都判红 —— 防烂账静默沉淀。
  *
- * 本门**不接提交链**(guardian-runner / package.json / .husky 一律不动,接链由守门持有人
- * 在存量清偿后统一做,§12f)。跑法:
+ * 【接线状态:已接入】注册条目已落在 scripts/guardian-runner.mjs(id 以 runner 现值为准,
+ *   勿照抄本行数字):blocking + skipEnv:HUSKY_SKIP_ERROR_MESSAGE_BOUNDED,无 stagedTriggers。
+ *   —— 本段原写"本门不接提交链(guardian-runner / package.json / .husky 一律不动,接链由守门
+ *   持有人在存量清偿后统一做,§12f)",那是立项时的实况,已过期(门早已装车);
+ *   立论(§12f 的分寸)保留,接线事实按上条现读改写。跑法:
  *   node scripts/check-error-message-bounded.mjs             # 真仓扫描,exit 0 = 绿
  *   node scripts/check-error-message-bounded.mjs --self-test # 夹具自检(正反成对)
  *   node scripts/check-error-message-bounded.mjs --json      # 机读输出
