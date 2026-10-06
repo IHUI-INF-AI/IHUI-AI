@@ -1217,6 +1217,67 @@ export interface UsageEvent {
   model?: string | null
   /** 本次调用估算成本(USD,暂未计费为 null) */
   costUsd?: number | null
+  /** prompt 缓存**命中读取** token 数(G-1058632,2026-10-05 立)。
+   *  三态必须分开,不得合并:
+   *  - `number`(含 **0**)＝ 上游真回报了,0 就是"一次都没命中"这个结论本身;
+   *  - `null` / 缺字段 ＝ 上游这条链路**没采到**,消费端必须呈现"未知/—",
+   *    不得在本包造默认值 —— 把"没量到"显示成 0 会把两个不同的结论压成同一个,
+   *    与 G-394(把未量到渲染成 0)是同一条禁令。 */
+  cacheReadTokens?: number | null
+  /** prompt 缓存**写入** token 数;三态同上(Anthropic 系才有原生字段,
+   *  其余厂商上游不回报时应保持 null,而不是写 0 冒充"该厂商不写缓存")。 */
+  cacheWriteTokens?: number | null
+}
+
+/** G-1058632(2026-10-05 立):从上游 usage 对象接住 prompt 缓存读/写两维。
+ *
+ * 存在的理由:此前解析面只取 prompt/completion/total,缓存两维在**读侧**从未被接住,
+ * 于是三个消费端只能恒传 null —— 那显示的是"这个模型没有缓存",而事实是"我们没采到"。
+ *
+ * 键名一律取自现读出处,不发明:
+ * - `cached_tokens` / `cache_creation_tokens` = ai-service 跨厂商归一契约
+ *   (`apps/ai-service/app/core/usage_cache.py` 的 `normalize_usage()` 五个统一键);
+ * - `prompt_tokens_details.cached_tokens` = OpenAI 原生嵌套形态;
+ * - `cache_read_input_tokens` / `cache_creation_input_tokens` = Anthropic 原生;
+ * - `prompt_cache_hit_tokens` = DeepSeek 原生;
+ * - camelCase `cacheReadTokens` / `cacheCreationTokens` = 本包既有 dual-spelling 习惯
+ *   (与 `usage.prompt_tokens ?? usage.promptTokens` 同形),命名帧若补发这两键会用它。
+ *
+ * **两态绝不并桶**:回报的数字(含 0)是读数;缺字段/非数字是 `null` = 未采到。
+ * 本函数刻意不返回默认值 —— 造 0 就是把"没量到"写成"一次都没命中"。 */
+export function parseUsageCacheTokens(usage: Record<string, unknown>): {
+  cacheReadTokens: number | null
+  cacheWriteTokens: number | null
+} {
+  const toNumber = (v: unknown): number | null =>
+    typeof v === 'number' && Number.isFinite(v) ? v : null
+
+  const details = usage['prompt_tokens_details']
+  const nested = details && typeof details === 'object' ? (details as Record<string, unknown>) : {}
+
+  /** 按序取首个"真回报"的数字;全部缺位 ⇒ null(而不是 0)。 */
+  const firstReported = (candidates: unknown[]): number | null => {
+    for (const c of candidates) {
+      const n = toNumber(c)
+      if (n !== null) return n
+    }
+    return null
+  }
+
+  return {
+    cacheReadTokens: firstReported([
+      usage['cacheReadTokens'],
+      usage['cached_tokens'],
+      nested['cached_tokens'],
+      usage['cache_read_input_tokens'],
+      usage['prompt_cache_hit_tokens'],
+    ]),
+    cacheWriteTokens: firstReported([
+      usage['cacheCreationTokens'],
+      usage['cache_creation_tokens'],
+      usage['cache_creation_input_tokens'],
+    ]),
+  }
 }
 
 /**
@@ -3846,6 +3907,13 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
             isNamedFrame && typeof json.costUsd === 'number' && Number.isFinite(json.costUsd)
               ? json.costUsd
               : null,
+          // G-1058632(2026-10-05 立):缓存读/写两维在此接住。
+          // 刻意**不受** isNamedFrame 门控(与上面 reasoningTokens 相反):ai-service 的命名帧
+          // (app/routers/llm.py 的 _usage_frame)今天根本不带这两键,有数据的是 relay
+          // verbatim 转发的 OpenAI 协议路径(apps/api/src/services/relay-upstream-forwarder.ts
+          // 头注「逐行转发上游原始 data 行…不改写」)。沿用门控就等于对唯一有数据的通路全盲。
+          // 上游没回报 ⇒ null(未采到),不得在此造 0。
+          ...parseUsageCacheTokens(usage),
         })
       } catch {
         /* 非 JSON 或非 usage 事件忽略 */
