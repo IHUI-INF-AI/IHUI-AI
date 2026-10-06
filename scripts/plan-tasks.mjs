@@ -189,6 +189,16 @@ function report(a, face) {
       `已按 G-417 收窄、自 G-460 起分组输入根本不造它们`,
   )
   console.log(`  同态重复(done 侧只报数): done ${c.dupDoneGroups} 组`)
+  // ── F9 定级档:降为只报数的组必须报名 ──────────────────────────────────────
+  const f9Settled = a.f9Settled ?? []
+  console.log(
+    `  F9 组内全已勾选(降为只报数、永不判红): ${c.f9SettledGroups ?? f9Settled.length} 组` +
+      (f9Settled.length
+        ? ` —— ${f9Settled.slice(0, 6).map(f9GroupLine).join(' / ')}` +
+          (f9Settled.length > 6 ? ` (另 ${f9Settled.length - 6} 组见 --json 的 settled)` : '') +
+          ` —— 判据按**组**判:只要组内有一行未勾选就仍判红(HEAD 面混合组是这条的反向用例)`
+        : ' —— 本面没有"整组都勾选"的撞号组(这一句是"量到了 0",不是"没量")'),
+  )
   // ── F9 另外两档:被从判据里挪出来的东西必须**报名**,否则"挪到报数档"与"没人看过"同形 ──
   const f9Refs = a.f9References ?? []
   console.log(
@@ -432,10 +442,62 @@ export function narrowCollisionsToIdPosition(content, collisions) {
 }
 
 /**
+ * F9 **定级**:「组内每一行都已勾选」的撞号组**不进判红,降为只报数**(2026-10-06 立)。
+ *
+ * ## 为什么是"按组"而不是"按行"或"按号"
+ * 这一族必须按**组**判,按行/按号判都会放过真活票:
+ *  - **按行剔**(只把已完成行从组里摘出去)⇒ 组一旦还剩 ≥2 个标题就仍判红,而"剩下的行"正是**活票**,
+ *    剔了等于没剔,反过来若把 done 行摘到只剩 <2 标题就整组消失 ⇒ 那时消失的是**只剩历史快照的组**,
+ *    但按行实现同时会把"done 1 行 + open 1 行"的混合组误判成"无标题组"而一并放过 —— 混合组才是真活票所在;
+ *  - **按号剔**(某号下全是 done 就放过该号)⇒ 组是按 (号, 题面) 分的,一个号下**可以同时**有
+ *    "全 done 的历史快照组"与"含活票的组";按号判会把后者一起放过。
+ *  - 正确形状只有一个:**一个组当且仅当它自己名下每一行都是 `- [x]`,才降为只报数**。
+ *    实测该形状下的组正是"这件事当年留下的历史快照",而任何含一行 `- [ ]` 的组必须仍红
+ *    (HEAD 面 21 个混合组就是这条的用例,自测里逐个钉住)。
+ *
+ * ## 为什么这一刀是"定级"而不是"放过"
+ * 判据覆盖面变窄,只有一条纪律兜底:**降档的组必须报名**(`counts.f9SettledGroups` +
+ * `f9Settled` 名单 + 逐组文案),否则"从红路挪走"与"没人看过"同形 —— 本仓"报数不报名"记过多次
+ * (守门 70/76/81/128 同族)。人读摘要与 `--json` 都给出这一档。
+ *
+ * ## 削覆盖面这件事本身的红线
+ * 这一族**只把"组内全 done"剔出红路**,不做任何"看起来像已完成"的推断(不认行内日期、不认
+ * `【已完成】`装饰、不认"无未勾选行"这类近似)。放宽窗口/加近似条件是本族唯一禁止的改法:
+ * 豁免一旦变成放过真活票,差值棘轮就再也拦不住新增撞号(§12e/§12f)。
+ *
+ * ## fail-closed:读不到组内行 ⇒ 仍判红
+ * 组明细里出现**取不到的行号**(面被换过、裁剪过)时**不得**当成"全 done":`every()` 遇缺行即 false,
+ * 整组仍进红路。判据失效方向按票面:宁可多判。
+ *
+ * @param content 被审面全文(必须与 groups 同一面同轮)
+ * @param groups 已收窄到编号位的组集(`narrowCollisionsToIdPosition` 或 `f9Declared` 的产物)
+ * @returns {{groups:Array, settled:Array}} `groups` = 仍判红的组;`settled` = 降为只报数的组(原样保留)
+ */
+export function splitF9SettledGroups(content, groups) {
+  const list = groups ?? []
+  if (!list.length) return { groups: list, settled: [] }
+  const stateByLine = new Map()
+  for (const r of parseTaskRows(content)) stateByLine.set(r.line, r.state)
+  const kept = []
+  const settled = []
+  for (const g of list) {
+    const lines = (g.titles ?? []).flatMap((t) => t.lines ?? [])
+    // ⚠ 空组不得当成"全 done"(那是"没量到"而不是"量到全 done"):仍判红。
+    if (lines.length && lines.every((ln) => stateByLine.get(ln) === 'done')) settled.push(g)
+    else kept.push(g)
+  }
+  return { groups: kept, settled }
+}
+
+/**
  * 判定面 = `auditPlan` 的产物,但 **F9 这一维按编号位收窄后的组集覆盖宽口径读数**
  * (counts.collisionGroups 与 collisions 必须同面同轮同步,否则"组数"与"名单"分叉 ——
  * 差值棘轮读组数、逐组点名读名单,两者不同形时红会点不出名)。
  * 其余六维(F1/F2/F3/F4/F4b/F6)一字未动:本票只动 F9。
+ *
+ * ── F9 定级(2026-10-06):收窄之后再过一道 `splitF9SettledGroups`,"组内全 done"的组降为只报数。
+ * 三处读数必须**同批同步**,少改一处账面就会自相矛盾:
+ *  `counts.collisionGroups` / `collisions`(组数与名单) / 新增 `counts.f9SettledGroups` + `f9Settled`(降档名单)。
  *
  * ✅ **那一格已收口(2026-10-02 枚 4547745e1a,不再是待办)**:`scripts/git-sync-converge.mjs` 的第②把尺子
  * (合并落地闸的基线档)原先走 `probe(auditPlan(merged))` —— 它自己调 lib 的宽口径 `auditPlan`,
@@ -469,10 +531,15 @@ export function narrowF9Face(a, content) {
           droppedGroups: wide - a.f9Declared.length,
         }
       : narrowCollisionsToIdPosition(content, a?.collisions)
+  // F9 定级(2026-10-06):"组内每一行都已勾选"的撞号组降为只报数。**按组判**,不按行也不按号
+  // (头注有三种形状的失效推演)。降档名单必须与判红组集**同批**落到面上,否则"组数"与"名单"分叉。
+  const split = splitF9SettledGroups(content, narrowed.groups)
   a.counts.f9WideGroups = wide
   a.counts.f9NonIdTitles = narrowed.droppedTitles
-  a.collisions = narrowed.groups
-  a.counts.collisionGroups = narrowed.groups.length
+  a.collisions = split.groups
+  a.counts.collisionGroups = split.groups.length
+  a.f9Settled = split.settled
+  a.counts.f9SettledGroups = split.settled.length
   return a
 }
 
@@ -1371,6 +1438,57 @@ function selfTest() {
     f9Thin.counts.collisionGroups === 1 && f9Thin.collisions[0].titles.some((t) => t.title === 'D160补注'),
     `他号让位在"剥完给不出实质题面"时必须逐字退回原样(不许没收覆盖面),实测 ${JSON.stringify(f9Thin.collisions[0]?.titles?.map((t) => t.title))}`,
   )
+  // ── F9 定级(2026-10-06):「组内全已勾选」降为只报数,**按组判** ──────────────────
+  // 成对写:一条"必须降档"(正向)+ 一条"必须仍红"(反向锁)+ 一条"读不到行仍红"(fail-closed)。
+  // ⚠ 反向锁这一条最要紧:把判据改成"按行剔"或"按号剔"时,它**是唯一会变红的那条** ——
+  //   HEAD 面 21 个混合组正是它的真实样本,按行/按号实现会放过真活票(§12e:豁免变成放过即失效)。
+  const f9AllDone =
+    '- [x] **G-610 历史快照甲**:当年的一件事。\n' +
+    '- [x] **G-610 历史快照乙**:同一件事的另一份措辞(措辞随时间演进,不是逐字重复)。'
+  const f9Mixed =
+    '- [x] **G-611 历史快照甲**:当年的一件事。\n' +
+    '- [ ] **G-611 历史快照乙**:同一件事的另一份措辞。'
+  const f9SettledFace = narrowF9Face(auditPlan(f9AllDone), f9AllDone)
+  ok(
+    f9SettledFace.counts.collisionGroups === 0 &&
+      f9SettledFace.collisions.length === 0 &&
+      f9SettledFace.counts.f9SettledGroups === 1 &&
+      f9SettledFace.f9Settled[0]?.key === 'G-610',
+    `组内每一行都已勾选的撞号组必须降为只报数(且降档名单可定位),实测 ${JSON.stringify([f9SettledFace.counts.collisionGroups, f9SettledFace.counts.f9SettledGroups, f9SettledFace.f9Settled.map((g) => g.key)])}`,
+  )
+  const f9MixedFace = narrowF9Face(auditPlan(f9Mixed), f9Mixed)
+  ok(
+    f9MixedFace.counts.collisionGroups === 1 &&
+      f9MixedFace.collisions[0]?.key === 'G-611' &&
+      f9MixedFace.counts.f9SettledGroups === 0,
+    `反向锁:组内只要有一行未勾选就必须仍判红(按行剔/按号剔都会放过这一组真活票),实测 ${JSON.stringify([f9MixedFace.counts.collisionGroups, f9MixedFace.counts.f9SettledGroups, f9MixedFace.collisions.map((g) => g.key)])}`,
+  )
+  ok(
+    narrowCollisionsToIdPosition(f9Mixed, auditPlan(f9Mixed).collisions).groups.length === 1,
+    '变异自证:定级这一刀不得顺带改掉"收窄到编号位"那一层(两笔改动互相掩盖时,一条坏了另一条会顶着看不出来)',
+  )
+  ok(
+    splitF9SettledGroups(f9Mixed, [{ key: 'X-1', titleCount: 2, titles: [] }]).groups.length === 1,
+    'fail-closed:组明细里取不到任何行 ⇒ 那是"没量到"不是"量到全 done",必须仍判红',
+  )
+  ok(
+    splitF9SettledGroups(f9Mixed, [
+      { key: 'Y-1', titleCount: 2, titles: [{ title: '甲', lines: [999] }, { title: '乙', lines: [998] }] },
+    ]).groups.length === 1,
+    'fail-closed:行号取不到对应行(面被换过/裁剪过)时必须仍判红,不得当成全 done 放过',
+  )
+  ok(
+    splitF9SettledGroups(f9AllDone, [
+      { key: 'Z-1', titleCount: 2, titles: [{ title: '甲', lines: [1] }, { title: '乙', lines: [2] }] },
+    ]).settled.length === 1,
+    '纯函数自证:两条 `- [x]` 的组必须被认成全 done(否则上面那条正向用例是碰巧过的)',
+  )
+  ok(
+    narrowF9Face(auditPlan(f9AllDone), f9AllDone).counts.collisionGroups +
+      narrowF9Face(auditPlan(f9AllDone), f9AllDone).counts.f9SettledGroups ===
+      auditPlan(f9AllDone).counts.f9DeclaredGroups,
+    `判红组数 + 降档组数 必须等于收窄后的总组数(少同步一处,账面就会自相矛盾),实测 ${JSON.stringify([narrowF9Face(auditPlan(f9AllDone), f9AllDone).counts, auditPlan(f9AllDone).counts.f9DeclaredGroups])}`,
+  )
   // 成套性 + 方向:进 probe ⇒ 走同一套差值棘轮;涨点名、平不点名;存量(含 --strict)不判红。
   ok(
     probe(f9).some(([k, , n]) => k === 'F9' && n === 1),
@@ -1712,6 +1830,14 @@ function main() {
           malformedMasquerade: (a.f9MalformedMasquerade ?? []).map((m) => ({
             key: m.key,
             lines: m.lines,
+          })),
+          // F9 定级档(2026-10-06):"组内每一行都已勾选"而被降为只报数的撞号组,逐组在场。
+          // 上面 `collisions` 是判红面、这里是降档面,两者之和才是编号位口径的组总数 ——
+          // 只留一边就等于让"降档"在机器面上不可见(本仓"报数不报名"同族)。
+          settled: (a.f9Settled ?? []).map((g) => ({
+            key: g.key,
+            titleCount: g.titleCount,
+            titles: g.titles.map((t) => ({ title: t.title, lines: t.lines })),
           })),
           // 宽口径(窗口内任意命中)读数在 `counts.f9WideGroups`,名单本身不进 json:
           // 它是诊断量,任何判据都不吃它 —— 喂给判据的只有上面的 collisions(声明位)与
