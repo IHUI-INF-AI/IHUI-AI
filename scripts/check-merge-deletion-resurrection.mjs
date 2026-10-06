@@ -60,10 +60,13 @@
  * `readWorktreeFile`(它按设计只存在于磁盘:`.workbuddy/` 被 .gitignore 忽略,改判 HEAD 会让它永远为空
  * ⇒ 每轮重判已入库历史 ⇒ 恒红,与守门 100 同一课)。
  *
- * 已接线(2026-09-30 同枚):`scripts/guardian-runner.mjs` 第 **168** 项(blocking,skipEnv =
- *  `HUSKY_SKIP_MERGE_DELETION_RESURRECTION`),AGENTS.md「守门脚本速查」与 README 守门表同枚点名。
- *  头注在注册前刻意不自称已接线(守门 89 的 R1/R2 判的正是"声称已接线而权威点零命中";镜像测试
- *  T1 是一条方向锁:未注册时必须读到"尚未接线"),本段随接线翻转 —— 两种状态各由同一枚 T1 钉住。
+ * 【接线状态:已接入】注册条目已落在 scripts/guardian-runner.mjs(id 以 runner 现值为准,
+ * 勿照抄本行数字):blocking + skipEnv:HUSKY_SKIP_MERGE_DELETION_RESURRECTION,无 stagedTriggers。
+ * AGENTS.md「守门脚本速查」与 README 守门表同枚点名。镜像测试 T1 是**双向**方向锁:未注册时要求头注
+ * 自称"尚未接线"且无守门 89 R1 的肯定式声称,已注册时改验注册块 blocking + skipEnv 成套 ——
+ * 两种状态只可能有一种为真,本段取哪一态由 runner 现读决定。
+ * —— 本段原写"已接线(2026-09-30 同枚):第 **168** 项"与"头注在注册前刻意不自称已接线……本段随接线
+ *   翻转",前者把注册时点的历史号写死在头注(号会漂),后者是注册前的姿态描述;接线事实按上条现读改写。
  *
  * 用法:
  *   node scripts/check-merge-deletion-resurrection.mjs                # 提交链口径(未入 origin/main 的合并)
