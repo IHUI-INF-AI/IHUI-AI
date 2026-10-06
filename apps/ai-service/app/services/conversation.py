@@ -654,6 +654,19 @@ class ConversationService:
         intent = IntentResult(intent="other", confidence=0.0)
         used_model = model or "default"
         final_response = ""
+        # G-815969(2026-10-31)「已到达本进程的半截回答必须显式落库」——三条**显式**
+        # 本地状态,不是猜测,也不是从 memory_store 反查(反查要读库,取消路径不该再
+        # 发查询):
+        # - arrived_text:本轮 answer 文本(LLM 真实返回过的 content)。只有它进快照,
+        #   意图分类轮的 JSON、工具结果都不进 —— 语义就是"用户可能已经看到的回答文本"。
+        # - assistant_written:第 6 步正常路径落库成功后置 True。它是那条记录**唯一**的
+        #   写入点,所以 False 严格等价于"成功路径没写过这条 assistant",finally 支路
+        #   据此补写,不可能与成功路径重复写同一条。
+        # - interrupted:只在 except asyncio.CancelledError 里置 True。取消语义原样
+        #   不变(照样 raise),但编排异常([对话编排失败])不会误触发补写。
+        arrived_text = ""
+        assistant_written = False
+        interrupted = False
 
         try:
             # 1. 写入用户消息到记忆
@@ -843,6 +856,13 @@ class ConversationService:
 
                 content = str(result.get("content", "") or "")
                 tool_calls_raw = result.get("tool_calls") or []
+                # G-815969:answer 文本已"到达本进程"⇒ 记入快照(取消时的唯一可落库
+                # 内容)。刻意只记文本:工具在飞时不记任何工具载荷,半截 result 归
+                # 第 5.3 回灌的终态路径处理(给工具写半截 result 会造出"调用无回复"
+                # 的历史)。空 content 不覆盖快照 ⇒ arrived_text 始终是"最近一次真正
+                # 到手的回答文本",从未拿到过文本时保持初始空串(零字符判据的来源)。
+                if content:
+                    arrived_text = content
 
                 trace.append({
                     "node": "llm_call",
@@ -1028,6 +1048,12 @@ class ConversationService:
                     break
 
             # 6. 写入 assistant 响应
+            # G-815969:进入本行即视为"这条 assistant 已由成功路径接管"。判据为何成立:
+            # 本行是 assistant 记录的唯一正常写入点,置位发生在 await **之前** ⇒ 只要
+            # 走到第 6 步,finally 支路就绝不会再补写一条(同一次回复不会落库两遍)。
+            # 写失败时也不回退置位:那次失败已由上面的 warning 暴露,不该由"半截回答"
+            # 支路用中断标注补一条形状不同的记录 —— 把完整回答标成中断是新的事实错误。
+            assistant_written = True
             try:
                 await memory_store.add(sid, "assistant", final_response)
             except Exception as e:
@@ -1042,10 +1068,42 @@ class ConversationService:
             except Exception as e:
                 logger.warning("媒体产物摘要写入记忆失败(降级,不阻塞): %s", e)
         except asyncio.CancelledError:
+            # G-815969:取消语义逐零差异(仍立即 raise,不吞不重试),仅立一个显式标记,
+            # 让下面的 finally 支路能把"用户按停止"与"编排异常"分开。
+            interrupted = True
             raise
         except Exception as e:
             logger.exception("对话编排失败: %s", e)
             final_response = f"[对话编排失败] {e}"
+        finally:
+            # G-815969「用户按停止时,已到达本进程的半截回答必须显式落库」:票面那句
+            # 结构事实在这里成立 —— except asyncio.CancelledError 在 memory_store.add
+            # (第 6 步)**之前**被到达,取消时一条都不写,重开会话时那条回复比用户
+            # 亲眼见过的短,且没有"被中断"的痕迹。
+            # 三条判据都是显式本地状态,不做猜测也不反查库(反查要在取消路径再发一次
+            # 查询,本身就是不该做的事):
+            # - interrupted:仅取消路径置位 ⇒ 正常完成/编排异常都不补写;
+            # - not assistant_written:成功路径没接管这条记录 ⇒ 补写不会写两遍;
+            # - arrived_text 非空:一个字都没到达本进程时**不写**空 assistant 气泡。
+            # 范围刻意收窄:只 flush 已到达本进程的 answer 文本,不读任何工具载荷
+            # (工具在飞时给它写半截 result 会造出"调用无回复"的历史,那条路仍归
+            # 第 5.3 回灌的终态路径处理)。
+            if interrupted and not assistant_written and arrived_text.strip():
+                try:
+                    await memory_store.add(
+                        sid,
+                        "assistant",
+                        arrived_text,
+                        # 中断标注落在 memory_store.add 已有的 metadata 参数(写进消息
+                        # 记录既有的 metadata 字段)⇒ 零新增列、零迁移。
+                        {"interrupted": True, "interrupt_reason": "user_cancelled"},
+                    )
+                except Exception as e:
+                    # 落库失败不把取消路径炸成 500:与第 6 步同一形状,logger.warning
+                    # 后让 CancelledError 继续传播(取消语义不变)。
+                    logger.warning(
+                        "取消路径半截 assistant 落库失败(降级,不阻塞取消): %s", e
+                    )
 
         return ConversationResult(
             session_id=sid,
