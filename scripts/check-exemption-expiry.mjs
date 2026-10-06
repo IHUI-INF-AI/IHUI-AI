@@ -51,8 +51,12 @@
 // 用法:node scripts/check-exemption-expiry.mjs [--all|--json|--staged|--worktree|--self-test
 //       |--update-baseline|--root <dir>]
 // 退出码:0 通过 / 1 判据红 / 2 无法判定(取材失败,不冒红也不记绿)。
-// 接线由主会话统一做(guardian-runner 取当时最大 id+1、blocking、skipEnv
-// HUSKY_SKIP_EXEMPTION_EXPIRY=1);本文件自身不提供任何绕过钩子的开关。
+// 【接线状态:已接入】注册条目已落在 scripts/guardian-runner.mjs(id 以 runner 现值为准,
+// 勿照抄本行数字):blocking + skipEnv:HUSKY_SKIP_EXEMPTION_EXPIRY,无 stagedTriggers。
+//   紧急跳过 HUSKY_SKIP_EXEMPTION_EXPIRY=1(该出口由 runner 注册项提供)。
+// —— 本段原写"接线由主会话统一做(guardian-runner 取当时最大 id+1、blocking、skipEnv
+//   HUSKY_SKIP_EXEMPTION_EXPIRY=1)",那是立项时的实况,已过期(门早已装车)。
+// 本文件自身不提供任何绕过钩子的开关(无内置 SKIP_ENV 常量,镜像测试 T18 对此有断言)。
 
 import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -186,6 +190,19 @@ const FAMILY_LIFETIME_DAYS = {
    * 写的"两道门互咬"(radius-role-exempt / border-ink-exempt 都记过同一课)。
    */
   'credential-presence-exempt': 30,
+  /**
+   * 守门 191(`check-test-judge-not-replicated.mjs`,镜像测试不得复制门体判据)的行内出口。取 **30 天**
+   * —— 它豁免的是**待偿的收口债**:那一处测试确实还没有可复用的判据出口(门体没把那条形态导出),
+   * 唯一出路是把判据从门体导出、让测试改调生产入口(§22c 的合规形状,门 191 头注 P1 通道那一条),
+   * 到期由人重新定性。刻意**不取** `back-label-exempt` 的 365 天:那一族是"这个位置的文案就是它"式的
+   * 结构性定性,而"测试复制了源判据"是要偿的债,给长周期等于把复制登记成永久惯例;也**不走**
+   * `DEFAULT_LIFETIME_DAYS` 的 90 天默认档 —— 默认档意味着没人给它拍过寿命。与同是待偿债的
+   * `api-error-exempt` / `interop-style-exempt` / `credential-presence-exempt` 同档。
+   * **同笔登记的真正理由**:族若不在表里,第一处真被写出的行内豁免就会被本门 E4 判成"新引入的未登记
+   * 豁免族" —— 一道门自己的合法出口被邻居钉红(radius-role / border-ink / credential-presence 同课)。
+   * 这把跨文件锁住在门 191 的镜像测试 T10(原型即 157 的 T10),不靠人记得。
+   */
+  'judge-replica-exempt': 30,
   /**
    * `check-batch-write-count-honesty` 的 B1/B2 判据(假删除 ack)的合法例外通道:确属"该 delete/update
    * 由触发器/UPSERT 语义保证必命中一行"时才允许保留字面量 `deleted: true`。取 **30 天**,与

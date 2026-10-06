@@ -68,6 +68,14 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
 })
 `
 
+/** R4 的唯一出口夹具:内容与真仓同形态(必须真的导出 coerceKnownOr),否则 R4-OUTLET 会把自己判红。
+ *  它不是"为了让门变绿而补的文件" —— 门现在真的依赖这一份,夹具不供它就等于让 e2e 跑在一个
+ *  真仓不存在的形态上(那正是"延后与放开一条回退通道"的差别所在)。 */
+const OUTLET = `export function coerceKnownOr<T extends string>(value: unknown, known: readonly T[], safe: T): T {
+  return typeof value === 'string' && known.includes(value as string) ? (value as T) : safe
+}
+`
+
 function git(dir, ...args) {
   return execFileSync(
     GIT,
@@ -142,7 +150,7 @@ function copyWithClosure(dir, rootUrl) {
 
 /** 把真实门脚本 + 它 import 的 lib 复制进临时 git 仓,造一棵最小码面/词表/词包。
  *  `catalogText` 可换形状,用来证明"同一张内容、不同排版 ⇒ 同一份结论"。 */
-function fixture(catalogText = CATALOG) {
+function fixture(catalogText = CATALOG, outletText = OUTLET) {
   const dir = mkScratch('ihui-ecc-')
   try {
     const w = (rel, text) => {
@@ -156,6 +164,7 @@ function fixture(catalogText = CATALOG) {
     w('packages/i18n/messages/web/zh-CN.json', MESSAGES)
     w('packages/api-client/src/client.ts', "const e = { errorCode: 'TIMEOUT' }\n")
     w('apps/ai-service/app/r.py', 'return {"ok": False, "errorCode": "BAD_PARAMS"}\n')
+    w('packages/types/src/enum-coerce.ts', outletText)
     git(dir, 'init', '-q')
     git(dir, 'add', '-A')
     git(dir, 'commit', '-qm', 'ecc fixture')
@@ -294,6 +303,156 @@ test('判据失明不得伪装成"全线违规":定位不到 catalog 表体 → 
       /未收录/,
       '表体读不到时把每条错误码判成"未收录",等于把判据故障伪装成 106 处业务违规 ⇒ 逼人跳门',
     )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/** R4 系列(G-815963 扩出来的那一维)共用的写文件助手。 */
+function writeIn(dir, rel, text) {
+  const p = join(dir, ...rel.split('/'))
+  mkdirSync(dirname(p), { recursive: true })
+  writeFileSync(p, text, 'utf8')
+}
+const R4_PROBE =
+  'export function readStatus(row: { status: unknown }) {\n  return row.status as ChatMessageStatus\n}\n'
+
+test('R4a 端到端双向锁:注入 as ChatMessageStatus 到索引 ⇒ --staged 判红并点名,而 HEAD 面不得被牵连', () => {
+  const dir = fixture()
+  try {
+    writeIn(dir, 'packages/shared/src/r4-probe.ts', R4_PROBE)
+    git(dir, 'add', '-A') // 只进索引,不进 HEAD ⇒ 锚点 0
+    const staged = run(dir, ['--staged'])
+    assert.equal(staged.status, 1, `索引里有一处直转必须拦:${staged.stdout}${staged.stderr}`)
+    assert.match(staged.stderr, /R4a/)
+    assert.match(staged.stderr, /r4-probe\.ts/)
+    assert.match(staged.stderr, /ChatMessageStatus/)
+    // 反向对照:HEAD 面上还没有这一族站点 ⇒ 全量档不得被别人未提交的索引内容牵连
+    const head = run(dir)
+    assert.equal(
+      head.status,
+      0,
+      `HEAD 仍干净,不得被索引里的新站点判红:${head.stdout}${head.stderr}`,
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('R4a 反向对照:同一形态只写在注释里 ⇒ --staged 必绿(门不得把解释自己的散文判成违规)', () => {
+  const dir = fixture()
+  try {
+    writeIn(
+      dir,
+      'packages/shared/src/r4-comment.ts',
+      `// 旧写法在这里只是说明:row.status as ChatMessageStatus 会透传未知值\nexport const ok = 1\n`,
+    )
+    git(dir, 'add', '-A')
+    const r = run(dir, ['--staged'])
+    assert.equal(r.status, 0, `注释形态不得计入站点:${r.stdout}${r.stderr}`)
+    assert.doesNotMatch(`${r.stdout}${r.stderr}`, /R4a/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('R4a 棘轮的两个方向:站点进了 HEAD ⇒ 只报数不判红;在此之上再加一处 ⇒ 判红(否则就是恒红门)', () => {
+  const dir = fixture()
+  try {
+    writeIn(dir, 'packages/shared/src/r4-probe.ts', R4_PROBE)
+    git(dir, 'add', '-A')
+    git(dir, 'commit', '-qm', 'land a legacy cast site') // 锚点 = 1
+    const full = run(dir)
+    assert.equal(full.status, 0, `HEAD 自身存量不得每天重判一遍:${full.stdout}${full.stderr}`)
+    assert.match(full.stdout, /R4 枚举兜底/)
+    assert.match(full.stdout, /存量只报数/)
+    const stagedSame = run(dir, ['--staged'])
+    assert.equal(stagedSame.status, 0, '索引 == HEAD(锚点相等)时不得判红')
+    // 在既有站点之上再加一处 ⇒ 这一次是"把这一族加回来",必须红
+    writeIn(dir, 'packages/shared/src/r4-probe.ts', R4_PROBE + R4_PROBE)
+    git(dir, 'add', '-A')
+    const stagedMore = run(dir, ['--staged'])
+    assert.equal(stagedMore.status, 1, `站点数超过该文件 HEAD 自身存量必须红:${stagedMore.stdout}`)
+    assert.match(stagedMore.stderr, /R4a/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('R4-OUTLET 摘线方向锁:唯一出口不再导出 coerceKnownOr ⇒ 判红并参与退出码(只打印不算拦)', () => {
+  const dir = fixture(CATALOG, 'export function somethingElse(a: unknown) { return a }\n')
+  try {
+    const r = run(dir)
+    assert.equal(r.status, 1, `出口没了必须拦,实际 ${r.status}:${r.stdout}${r.stderr}`)
+    assert.match(r.stderr, /R4-OUTLET/)
+    assert.match(r.stderr, /enum-coerce/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('R4b 未判定不得伪装成通过,也不得冒红:coerceKnownOr 少给第三参 ⇒ exit 0 且逐条点名', () => {
+  const dir = fixture()
+  try {
+    writeIn(
+      dir,
+      'packages/shared/src/r4-coerce.ts',
+      'import { coerceKnownOr } from "@ihui/types"\nexport const v = coerceKnownOr(row.status, DEMO_STATUSES)\n',
+    )
+    git(dir, 'add', '-A')
+    const r = run(dir, ['--staged'])
+    assert.equal(r.status, 0, `判不出的形态不得冒红:${r.stdout}${r.stderr}`)
+    assert.match(r.stdout, /R4b 未判定/)
+    assert.match(r.stdout, /r4-coerce\.ts/)
+    // 补上第三参 ⇒ 同一条点名消失(证明那一条红/绿只差在那一参上,判据有牙)
+    writeIn(
+      dir,
+      'packages/shared/src/r4-coerce.ts',
+      `import { coerceKnownOr } from "@ihui/types"\nexport const v = coerceKnownOr(row.status, DEMO_STATUSES, 'cancelled')\n`,
+    )
+    git(dir, 'add', '-A')
+    const fixed = run(dir, ['--staged'])
+    assert.equal(fixed.status, 0)
+    assert.doesNotMatch(fixed.stdout, /R4b 未判定/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('R4 问责档 --strict:有未判定 ⇒ exit 2 拒绝合格证,而缺省档同一面是 exit 0(只报不拦)', () => {
+  const dir = fixture()
+  try {
+    writeIn(
+      dir,
+      'packages/shared/src/r4-strict.ts',
+      "import { coerceKnownOr } from '@ihui/types'\nexport const v = coerceKnownOr(row.status, row.known)\n",
+    )
+    git(dir, 'add', '-A')
+    git(dir, 'commit', '-qm', 'a coerce site nobody can resolve')
+    const normal = run(dir)
+    assert.equal(normal.status, 0, `缺省档不得因未判定拦人:${normal.stdout}${normal.stderr}`)
+    assert.match(normal.stdout, /R4b 未判定/)
+    const strict = run(dir, ['--strict'])
+    assert.equal(strict.status, 2, `--strict 必须拒绝出具合格证,实际 ${strict.status}`)
+    assert.match(`${strict.stdout}${strict.stderr}`, /拒绝出具合格证/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('R4 取材面自证:枚举清单与内容同取自被审面,且夹具里非空(判据没在扫空气)', () => {
+  const dir = fixture()
+  try {
+    const reader = G.makeFaceReader('head', dir)
+    const files = G.collectEnumFiles(reader)
+    assert.ok(files.length > 0, 'R4 枚举面在夹具上必须非空 —— 空面会被读成"没有违规"')
+    assert.ok(
+      files.some((f) => f.relPath === 'packages/shared/src/chat/error-catalog.ts'),
+      'packages/shared/src 必须在 R4 射程内(与票面指定的两棵树之一)',
+    )
+    // 夹具本身零直转站点:门对"as const"这类合法断言不误伤
+    const sites = files.flatMap((f) => G.extractEnumCastSites(f.relPath, f.src))
+    assert.equal(sites.length, 0, `夹具里不该有直转站点:${JSON.stringify(sites)}`)
   } finally {
     rmScratch(dir)
   }
