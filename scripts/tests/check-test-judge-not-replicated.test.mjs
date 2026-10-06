@@ -25,6 +25,9 @@ import test from 'node:test'
 
 import { catBatch, readWorktreeFile } from '../lib/face-reader.mjs'
 import { __test__ as gate } from '../check-test-judge-not-replicated.mjs'
+// 存活期表的唯一真相源住在守门 108:`isFamilyRegistered` / `FAMILY_LIFETIME_DAYS` 就是它判 E4 用的那把尺子。
+// 本文件只问这两个出口,不复制天数表、也不在此手抄族名(§22c:不留第二份真相)。
+import { __test__ as expiry } from '../check-exemption-expiry.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const GATE_PATH = 'scripts/check-test-judge-not-replicated.mjs'
@@ -49,9 +52,77 @@ const selfSrc = worktreeText(SELF_TEST_PATH)
 const runnerSrc = blobAt(`HEAD:${RUNNER_PATH}`)
 
 // ─── T1~T3 方向锁:头注自述与事实同向 ────────────────────────────────────────
-test('T1 头注自述尚未接线,且 runner 里确实没有这一枚(接线时本断言必须翻向)', () => {
-  assert.match(gateSrc, /尚未接线/, '头注必须如实交代未接线(谎称已接线 = 零命中的假绿门,守门 89 那一型)')
-  assert.equal(/check-test-judge-not-replicated/.test(runnerSrc), false, 'runner 已登记本门 ⇒ 接线这一笔发生了,须同笔把本断言改成"已登记"并复核定级')
+/**
+ * 从注册表里取出「本门那一条注册项」的原文 —— 不是复制门 191 的判据(它判的是"测试有没有抄门体的
+ * 形态清单",与注册形状无关),而是一条**装车证明**必需的取段。刻意按大括号配对取整条,不取
+ * 「脚本名前后各 N 字符」的窗口:窗口会跨进邻门,于是"别人有 blocking"会被读成"我有"(本仓记过同型)。
+ */
+function runnerEntryOf(text, scriptName) {
+  const key = `script: '${scriptName}'`
+  const at = text.indexOf(key)
+  if (at < 0) return null
+  // ① 向左找未被闭合的 `{`(遇到 `}` 记一层深度,深度非零时的 `{` 只是别人的收尾)
+  let depth = 0
+  let open = -1
+  for (let i = at - 1; i >= 0; i--) {
+    const c = text[i]
+    if (c === '}') depth++
+    else if (c === '{') {
+      if (depth === 0) {
+        open = i
+        break
+      }
+      depth--
+    }
+  }
+  if (open < 0) return null
+  // ② 从 open 向右配平;跳过引号内内容(标签里带括号与路径,按裸字符数会提前闭合)
+  let d2 = 0
+  let quote = null
+  for (let i = open; i < text.length; i++) {
+    const c = text[i]
+    if (quote) {
+      if (c === '\\') i++
+      else if (c === quote) quote = null
+      continue
+    }
+    if (c === "'" || c === '"' || c === '`') {
+      quote = c
+      continue
+    }
+    if (c === '{') d2++
+    else if (c === '}') {
+      d2--
+      if (d2 === 0) return text.slice(open, i + 1)
+    }
+  }
+  return null
+}
+
+test('T1 装车证明 + 摘线方向锁:头注称"已入提交链"就必须真在 runner 里,且定级成套(摘线而声称不变 ⇒ 本断言必读红)', () => {
+  assert.match(gateSrc, /接线现状\(2026-10-06 已入提交链\)/, '头注必须如实交代接线现状')
+  assert.doesNotMatch(gateSrc, /尚未接线/, 'runner 已登记本门,头注里不得再留"尚未接线"(文档与实际分叉 = 守门 89 R1/R2 那一型)')
+  const entry = runnerEntryOf(runnerSrc, 'check-test-judge-not-replicated.mjs')
+  assert.ok(entry, 'runner 里没有本门的注册项 ⇒ 头注那句"已入提交链"是空头支票(谎称已接线比零命中的假绿门更坏)')
+  // 取段必须是**本门那一条**,不是"脚本名附近一段文本":下面两条把窗口式取法当场否掉 ——
+  // 条目里出现第二条 `script:` 或邻门的 script 名,说明括号配平失败了(或被人改回了窗口式)。
+  assert.equal(
+    (entry.match(/script:\s*'/g) || []).length,
+    1,
+    '取出的条目里有不止一条 script: ⇒ 取段跨进了邻门,别人的定级会被算成我的(本仓记过同型)',
+  )
+  assert.doesNotMatch(entry, /check-registry-worktree-superset/, '邻门(注册表工作树超集对账)的 script 名出现在本条目内 = 窗口式取段,别人有 blocking 会被读成我有')
+  assert.match(entry, /mode:\s*'warn'/, "定级必须是 warn —— 真仓 HEAD 面现读命中不为 0,当场 blocking 就是与任何提交无关的恒红门(§12e)")
+  assert.match(
+    entry,
+    /skipEnv:\s*'HUSKY_SKIP_TEST_JUDGE_REPLICATED'/,
+    '应急跳过变量必须随条目成套,否则文档承诺的出路根本没人读(守门 172 那一型)',
+  )
+  assert.match(
+    entry,
+    /stagedTriggers:\s*\[[^\]]*'scripts\/check-'[^\]]*'scripts\/tests\/'[^\]]*\]/,
+    '触发面必须同时含门体面与测试面 —— 只改测试文件的提交不唤起本门,等于判据存在而永不调用(守门 81 教训)',
+  )
 })
 
 test('T2 取材面与遮噪的单一实现都写在门体里(引层 + 不散写 git 读正文 + 不再造分词器)', () => {
@@ -127,6 +198,37 @@ test('T9 三态不并桶:命中+放过+未判定 = 清单长度,且扫描数非 
   const c = res.counts
   assert.equal(c.hits + c.passes + c.undetermined, res.items.length, '并桶就是把未判读成已判')
   assert.ok(c.testsScanned >= 1 && c.gatesIndexed >= 1 && c.formCount >= 1, `读数缺失:${JSON.stringify(c)}`)
+})
+
+/**
+ * T10 跨文件锁:门体声明的行内豁免族必须进守门 108 的 `FAMILY_LIFETIME_DAYS`(原型 = 门 157 镜像测试的
+ * T10)。两侧都不在本文件手抄:族名现取自门体自己的 `EXEMPT_MARK`,登记与否/天数现取自 108 自己的
+ * `isFamilyRegistered` / `FAMILY_LIFETIME_DAYS` —— 那对函数与那张表就是 108 判 E4 用的同一把尺子,
+ * 在测试里再抄一份"什么算已登记"正是 §22c 要杀的第二份真相(也正因为判据是"问结构"而不是"读文本",
+ * 本锁不必、也不该自己去拼 git/磁盘取被审内容 —— 取材面纪律在此格没有可站错的尺子)。
+ * 不登记的实际代价不是"少一个到期日",而是走 90 天默认档,且第一处真被写出的行内豁免会被 108 的 E4
+ * 判成"新引入的未登记豁免族" —— 一道门自己的合法出口被邻居钉红(radius-role / border-ink /
+ * credential-presence 都记过同一课)。
+ */
+test('T10 跨文件锁:本门的行内豁免族必须进守门 108 的存活期表(30 天,待偿的收口债)', () => {
+  const fam = String(gate.EXEMPT_MARK.source)
+    .split(':')[0]
+    .trim()
+  assert.ok(fam.length >= 3 && fam.includes('-'), `门体里读不出豁免族名 ⇒ 本锁空转(锁必须问结构,不接受"看着像")`)
+  assert.ok(
+    expiry.isFamilyRegistered(fam),
+    `${fam} 不在 FAMILY_LIFETIME_DAYS 里 ⇒ 它只出生不死亡,且第一处行内豁免会被守门 108 的 E4 判成"新引入的未登记族"`,
+  )
+  assert.equal(
+    expiry.FAMILY_LIFETIME_DAYS[fam],
+    30,
+    `${fam} 豁免的是"测试里复制了源判据"这笔待偿的收口债(出路 = 判据从门体导出、测试改调生产入口),取 30 天;改档要去 108 表旁写理由,不得就地放宽`,
+  )
+  assert.notEqual(
+    expiry.FAMILY_LIFETIME_DAYS[fam],
+    expiry.DEFAULT_LIFETIME_DAYS,
+    '靠默认值兜底不算登记 —— 那正是 E4 要判的形态',
+  )
 })
 
 // ─── 阳性对照:历史 blob 现取必命中,同 SHA 自比必不命中 ──────────────────────
