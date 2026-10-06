@@ -21,6 +21,8 @@ import { useAnalytics } from '@/hooks/use-analytics'
 import { steerChatStream } from '@ihui/api-client'
 import { useChatStore } from '@/stores/chat'
 import { answerSideQuestion, tryHandleSideSlash } from '@/hooks/use-chat/slash-commands'
+// 2026-10-06(O59⑤):草稿清桶走加密通道(单一出口,防漏点 —— 过去是 6 处裸 localStorage)
+import { clearDraft } from '@/lib/chat-draft-storage'
 
 /** WebInputCore 句柄 — 与 message-input.tsx 的 WebInputCoreHandle 契约一致。
  * 独立声明(不依赖 message-input.tsx)以避免 hook 反向依赖组件,符合 hooks/ 目录
@@ -409,7 +411,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       refs.forEach((r) => {
         if (r.thumbnail) URL.revokeObjectURL(r.thumbnail)
       })
-      if (typeof window !== 'undefined') localStorage.removeItem(draftKey)
+      if (typeof window !== 'undefined') clearDraft(draftKey)
       resetReferences()
       setValue('')
       requestAnimationFrame(() => inputCoreRef.current?.resize())
@@ -448,14 +450,14 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
           useChatStore.getState().enqueueSideQuestion(conversationId, side.question)
           toast.info(t('sideEnqueued'))
           setValue('')
-          if (typeof window !== 'undefined') localStorage.removeItem(draftKey)
+          if (typeof window !== 'undefined') clearDraft(draftKey)
           requestAnimationFrame(() => inputCoreRef.current?.resize())
           return
         }
         // 非流式:等同 /btw 即答(直调 REST runBestOfN N=1,回答不入主线历史)。
         // 先清空输入让用户感觉"已发出";失败恢复为 /side <问题> 供重试。
         setValue('')
-        if (typeof window !== 'undefined') localStorage.removeItem(draftKey)
+        if (typeof window !== 'undefined') clearDraft(draftKey)
         requestAnimationFrame(() => inputCoreRef.current?.resize())
         try {
           await answerSideQuestion(side.question, t)
@@ -520,7 +522,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
         setPendingMessages((prev) => [...prev, { text, refs: references.map((r) => ({ ...r })) }])
         setValue('')
         resetReferences()
-        if (typeof window !== 'undefined') localStorage.removeItem(draftKey)
+        if (typeof window !== 'undefined') clearDraft(draftKey)
         requestAnimationFrame(() => inputCoreRef.current?.resize())
         return
       }
@@ -528,7 +530,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       // 先乐观清空输入框,让用户感觉"已发出"(doSend 返回后还会再清空一次,幂等)
       setValue('')
       resetReferences()
-      if (typeof window !== 'undefined') localStorage.removeItem(draftKey)
+      if (typeof window !== 'undefined') clearDraft(draftKey)
       requestAnimationFrame(() => inputCoreRef.current?.resize())
       const ok = await doSend(text, references)
       if (!ok) {
@@ -604,7 +606,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       // 埋点:中途引导发送成功(web 端)
       track({ name: 'chat_steer', category: 'chat', label: 'web' })
       setValue('')
-      if (typeof window !== 'undefined') localStorage.removeItem(draftKey)
+      if (typeof window !== 'undefined') clearDraft(draftKey)
       requestAnimationFrame(() => inputCoreRef.current?.resize())
     } catch {
       // 5xx / 网络失败(fetchApi 抛错路径):同样保留输入内容,toast 提示

@@ -550,6 +550,7 @@ fn restart_app(app: tauri::AppHandle) {
 #[tauri::command]
 async fn open_admin_window(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("admin") {
+        log::info!("[window-show] site=admin_existing trigger=前端 menu dispatcher 调 open_admin_window(admin 已存在分支,label=admin)");
         let _ = window.show();
         let _ = window.set_focus();
         return Ok(());
@@ -649,12 +650,14 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
                     if let Err(e) = window.emit("desktop-tray-action", "new_chat") {
                         log::warn!("[desktop-event] emit desktop-tray-action failed: {}", e);
                     }
+                    log::info!("[window-show] site=tray_menu_new_chat trigger=用户点托盘菜单「新建对话」");
                     let _ = window.show();
                     let _ = window.set_focus();
                 }
             }
             "tray.show" => {
                 if let Some(window) = app.get_webview_window("main") {
+                    log::info!("[window-show] site=tray_menu_show trigger=用户点托盘菜单「显示主窗口」");
                     let _ = window.show();
                     let _ = window.set_focus();
                 }
@@ -670,6 +673,7 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
                     if let Err(e) = window.emit("desktop-tray-action", "toggle_theme") {
                         log::warn!("[desktop-event] emit desktop-tray-action failed: {}", e);
                     }
+                    log::info!("[window-show] site=tray_menu_theme trigger=用户点托盘菜单「切换主题」");
                     let _ = window.show();
                     let _ = window.set_focus();
                 }
@@ -680,6 +684,7 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
                     if let Err(e) = window.emit("desktop-tray-action", "open_settings") {
                         log::warn!("[desktop-event] emit desktop-tray-action failed: {}", e);
                     }
+                    log::info!("[window-show] site=tray_menu_settings trigger=用户点托盘菜单「设置」");
                     let _ = window.show();
                     let _ = window.set_focus();
                 }
@@ -694,6 +699,7 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
                     if let Err(e) = window.emit("desktop-tray-action", "check_update") {
                         log::warn!("[desktop-event] emit desktop-tray-action failed: {}", e);
                     }
+                    log::info!("[window-show] site=tray_menu_update trigger=用户点托盘菜单「检查更新」");
                     let _ = window.show();
                     let _ = window.set_focus();
                 }
@@ -733,6 +739,7 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
                             if window.is_visible().unwrap_or(false) {
                                 let _ = window.hide();
                             } else {
+                                log::info!("[window-show] site=tray_double_click trigger=用户双击托盘图标(非 Windows 平台分支)");
                                 let _ = window.show();
                                 let _ = window.set_focus();
                             }
@@ -756,6 +763,7 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
                                     if window.is_visible().unwrap_or(false) {
                                         let _ = window.set_focus();
                                     } else {
+                                        log::info!("[window-show] site=tray_single_click_menu trigger=用户左键单击托盘(左键=弹菜单档,Windows 补一步显示主窗口)");
                                         let _ = window.show();
                                         let _ = window.set_focus();
                                     }
@@ -769,6 +777,7 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
                                 if window.is_visible().unwrap_or(false) {
                                     let _ = window.hide();
                                 } else {
+                                    log::info!("[window-show] site=tray_single_click_toggle trigger=用户左键单击托盘(左键=窗口开关档)");
                                     let _ = window.show();
                                     let _ = window.set_focus();
                                 }
@@ -1549,6 +1558,10 @@ fn restore_window_state(label: Option<String>, app: tauri::AppHandle) -> Result<
         .get(win_key(label, "maximized"))
         .and_then(|v| v.as_bool())
     {
+        // 观测点(G-1038429 采样归因用,非 show 调用):持久化的"上次是最大化"会在启动恢复时
+        // 被重放,而 tao 的 set_maximized 在 Windows 上是带显示语义的窗口操作 —— 它属于
+        // "谁把窗口弄可见了"的候选,必须能在日志里被看见或被排除。
+        log::info!("[window-show] site=restore_state_maximize trigger=非 show 调用——恢复持久化最大化(set_maximized 在 Windows 有显示语义),label={}", label);
         let _ = window.maximize();
         return Ok(OkResult { ok: true });
     }
@@ -2523,6 +2536,7 @@ fn dispatch_deep_links(app: &tauri::AppHandle, urls: &[String]) {
 
     // 唤起动作与投递解耦:即便全部进了 pending,窗口该露脸还是要露脸(用户点了链接就该看到 App)
     if let Some(w) = window {
+        log::info!("[window-show] site=deep_link_dispatch trigger=ihui:// 深链抵达 on_open_url(外部浏览器/其他应用唤起,非用户在本机点托盘)");
         let _ = w.show();
         let _ = w.set_focus();
     }
@@ -2925,6 +2939,7 @@ pub fn run() {
         // single-instance 必须在 plugin chain 最前,防止多开 + 唤起已有窗口
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
+                log::info!("[window-show] site=single_instance trigger=第二个实例被拉起 ⇒ 插件把已有主窗口唤起(可由双击图标/自启重复触发)");
                 let _ = window.show();
                 let _ = window.set_focus();
             }
@@ -3069,6 +3084,11 @@ pub fn run() {
             #[cfg(debug_assertions)]
             {
                 if let Some(window) = app.get_webview_window("main") {
+                    // 观测点(G-1038429 采样归因用,非 show 调用):debug 构建独有路径,
+                    // release 编译期即消失。WebView2 的 OpenDevToolsWindow 是异步挂到
+                    // webview 就绪之后的,若它把宿主窗口一起带可见,时间戳会落在启动后数秒——
+                    // 与票面「11 秒后自行转可见」同形,所以必须能一眼排除。
+                    log::info!("[window-show] site=debug_open_devtools trigger=非 show 调用——debug 构建 setup 期 open_devtools(cfg(debug_assertions),release 无此路径)");
                     window.open_devtools();
                 }
             }
@@ -3168,6 +3188,13 @@ pub fn run() {
             //   一旦关掉就再也打不开 —— 持久化的用户选择被一条他改不动的命令行参数覆盖。
             // ⚠️ 如实登记行为变更:此前"开机自启即最小化"是默认表现,现在默认档
             //   launch_minimized=false ⇒ 自启也会弹窗口;要老表现请把该开关打开。
+            // 观测点(G-1038429 采样归因用,非 show 调用):把"本次到底是哪一档配置"落进日志,
+            // 否则 5 趟采样只有外部读数、没有同一趟的配置自证。
+            log::info!(
+                "[window-show] site=startup_tray_gate trigger=非 show 调用——本次启动可见性闸门读数:launch_minimized={} ⇒ reveal_on_probe={}",
+                startup_prefs.launch_minimized,
+                !startup_prefs.launch_minimized
+            );
             if startup_prefs.launch_minimized {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.hide();
@@ -3189,6 +3216,7 @@ pub fn run() {
                         if window.is_visible().unwrap_or(false) {
                             let _ = window.hide();
                         } else {
+                            log::info!("[window-show] site=shortcut_ctrl_shift_i trigger=用户按全局快捷键 Ctrl+Shift+I");
                             let _ = window.show();
                             let _ = window.set_focus();
                         }
@@ -3202,6 +3230,7 @@ pub fn run() {
                         if let Err(e) = window.emit("desktop-shortcut", "new_chat") {
                             log::warn!("[desktop-event] emit desktop-shortcut failed: {}", e);
                         }
+                        log::info!("[window-show] site=shortcut_ctrl_shift_n trigger=用户按全局快捷键 Ctrl+Shift+N(新建对话)");
                         let _ = window.show();
                         let _ = window.set_focus();
                     }
@@ -3214,6 +3243,7 @@ pub fn run() {
                         if let Err(e) = window.emit("desktop-shortcut", "quick_screenshot") {
                             log::warn!("[desktop-event] emit desktop-shortcut failed: {}", e);
                         }
+                        log::info!("[window-show] site=shortcut_ctrl_shift_s trigger=用户按全局快捷键 Ctrl+Shift+S(快速截图)");
                         let _ = window.show();
                         let _ = window.set_focus();
                     }

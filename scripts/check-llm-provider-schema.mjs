@@ -32,10 +32,13 @@ const C = {
 
 // provider name 白名单 —— 条数现读 `PROVIDER_WHITELIST.size`,勿在注释里写死。
 //
+// 下文 §A/§B 各条注释里的 `llm_gateway.py:N` 一律指 **apps/ai-service/app/core/llm_gateway.py**
+// (core 层,不是 services/ —— 写全路径是为了不让下一个人按 services/ 去找而扑空)。
+//
 // 名单为什么长这样(2026-10-06 逐条落实「凭什么算数」):
 //   本名单**不是**"审核过的合法 provider 全集",而是"`.env` 里出现过的 provider name 的并集"。
 //   判据形态是「名单外判黄」(见下方 validateJsonField),名单内条目从不判红——所以名单里的
-//   闲置条目不制造任何红,裁剪属产品口径(见 §B),不是本门该动的。
+//   §B 条目不制造任何红,裁剪属产品口径(见 §B),不是本门该动的。
 //
 //   可投影的机器源**确实存在**(旧注释断言"没有"是错的,已更正):
 //     apps/ai-service/app/services/free_provider_registry.py 的 `provider_code=` 条目(92 个 uniq),
@@ -48,7 +51,7 @@ const C = {
 //   (routers/llm.py:2636 GET /llm/providers/availability 已返回 providers[],是现成出口);
 //   在此之前新增 provider 必须同步这里,不得为消红删判据。
 const PROVIDER_WHITELIST = new Set([
-  // ── §A 有生产代码在用(.env 实配 15 个中除去 §B 闲置后的全部)────────────────
+  // ── §A 有生产代码在用(.env 实配 15 个;§B 的 24 条另有代码调用点但未配 key)──
   // 依据:.env LLM_PROVIDERS 实配 + 下列生产代码位置。删掉任一条 ⇒ 对应模型重新 502。
   //
   // 「真 provider」vs「模型名前缀/别称」—— 7 条**全是真 provider**(每个都有 get_provider_config
@@ -83,9 +86,18 @@ const PROVIDER_WHITELIST = new Set([
                   //   ⚠ 归属有例外: llm_gateway.py:529-530 记载 mimo-v2.5-free 在库里只挂在
                   //   provider_code='opencode_zen' 名下,故 mimo 归属以 DB 实证优先(见 :536 三级判定)。
 
-  // ── §B .env 未配置、当前无生产调用点的闲置条目(24 条)────────────────────
-  // 待机主裁剪口径:**本轮不动**。它们不制造任何红(判据只判名单外),但会让名单虚高、
-  // 掩盖"名单外=真未知"的信号。裁剪前请确认不是"计划接入但尚未配 key"。
+  // ── §B 有生产调用点、但 `.env` 未配 api_key 的条目(24 条)────────────────
+  // ⚠ **措辞更正(2026-10-06)**:本节此前写作"当前无生产调用点的闲置条目",**那是错的**。
+  //   逐条机读核验(`app/core/llm_gateway.py`)结果:
+  //   24 条**全部有代码调用点,零调用点为 0**,分两类 ——
+  //     A 类 16 条:字面 `get_provider_config('<name>')` 读取点;
+  //     B 类  8 条:走 _FREE_PROVIDER_ENDPOINT_RESOLVERS 查表
+  //                 (:1249 建表,:1856 循环消费)—— github/vercel/opencode/modal/
+  //                 inference_net/nlp_cloud/scaleway/alibaba_intl。
+  //   它们与 `.env` 实配的 15 个**零交集** ⇒ 裁掉不判红,但那是**没配 key**,不是不可达:
+  //   配了 key 就能用。判它"闲置"会把"待配 key"误报成"死代码",后者才是不可达的终态。
+  //   本轮**不裁**(机主 2026-10-06 拍板):裁剪属产品口径,且名单内条目从不判红,留着无害。
+  //   它们仍会让名单虚高、掩盖"名单外=真未知"的信号;将来要裁,判据是"是否仍无 key"。
   'anthropic', 'github', 'vercel', 'opencode', 'modal', 'inference_net', 'nlp_cloud', 'scaleway',
   'alibaba_intl', 'cerebras', 'mistral', 'cohere', 'huggingface', 'zai', 'kilo', 'pollinations',
   'llm7', 'ovh', 'aihorde', 'reka', 'routeway', 'bazaarlink', 'ainative', 'token6688',
