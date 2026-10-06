@@ -546,8 +546,9 @@ function usage() {
     [
       '用法: node scripts/check-token-sync-registry.mjs [--staged|--worktree|--root <dir>] [--self-test]',
       '默认判 HEAD blob;--staged 判索引 blob;--worktree 仅人工逃生舱;两面旗同给 ⇒ exit 2。',
-      '接线状态(现读,已漂移): 已接入 guardian-runner —— id:125 / blocking /',
-      '  skipEnv: HUSKY_SKIP_TOKEN_SYNC_REGISTRY。接线由主会话统一做(立项时本门未注册,保留此句作存档)。',
+      '接线状态(现读): 已接入 guardian-runner(id 以 runner 现值为准,勿照抄本行数字)',
+      '  —— blocking / skipEnv:HUSKY_SKIP_TOKEN_SYNC_REGISTRY。',
+      '  存档(非现状,勿当接线态读):立项时本门尚未注册,接线由主会话统一做。',
     ].join('\n'),
   )
 }
