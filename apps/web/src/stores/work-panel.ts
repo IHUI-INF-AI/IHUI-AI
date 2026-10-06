@@ -29,8 +29,10 @@ export type WorkPanelOpenSource =
   | 'markdown-image'
   | 'user-attachment-image'
 import type { WebViewMode, WebViewStatus, WorkPanelTab } from '@ihui/types'
+import type { PersistStorage } from 'zustand/middleware'
 
-import { createPersistConfig } from './persist-helpers'
+import { createPersistConfig, ssrStorage } from './persist-helpers'
+import { createWorkPanelPersistStorage } from '@/lib/chat-persist-crypto'
 
 /** 工作展示区默认宽度(右侧面板) */
 export const WORK_PANEL_DEFAULT_WIDTH = 480
@@ -1080,7 +1082,17 @@ export const useWorkPanelStore = create<WorkPanelState>()(
         }),
     }),
     {
-      ...createPersistConfig<WorkPanelState>(WORK_PANEL_STORAGE_KEY, buildWorkPanelPersistedState),
+      // D48同批收口(2026-10-06):第三个参数把默认 storage 换成加密装载层——
+      // 这条 persist 里带 tabs[].title / favorites[].title(用户自己起的工作区标签名),
+      // 过去整块明文落在桌面端 WebView localStorage。浏览器路径 createWorkPanelPersistStorage
+      // 原样返回 ssrStorage,零行为变更;存量明文由该层在读时一次性 seal 回写。
+      ...createPersistConfig<WorkPanelState>(
+        WORK_PANEL_STORAGE_KEY,
+        buildWorkPanelPersistedState,
+        createWorkPanelPersistStorage<Partial<WorkPanelState>>(
+          ssrStorage as PersistStorage<Partial<WorkPanelState>>,
+        ),
+      ),
       // D50②:hydrate 完成前挂起 chat 作用域装配(防止 persist 的浅合并把已装入的
       // 会话视图覆盖回顶层全局桶);完成后立即补装最近一次请求的作用域。
       onRehydrateStorage: () => () => {
