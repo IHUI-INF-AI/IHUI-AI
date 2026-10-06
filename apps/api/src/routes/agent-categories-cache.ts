@@ -78,25 +78,42 @@ function toPositiveInt(v: string | undefined, fallback: number): number {
   return Number.isFinite(n) && n > 0 ? n : fallback
 }
 
+// =============================================================================
+// 公开双键字典推导(G-1058623③,机主拍板:新建公开 {agentCategory, agentMainCategory} 端点)
+// =============================================================================
+
+/** 单个分类字典项(对齐 api-client AgentCategoryItem:{ id, name }) */
+export interface AgentCategoryDictItem {
+  id: string
+  name: string
+}
+
+/** 公开字典形状(对齐 api-client AgentCategories:赛道 + 主分类两组并列) */
+export interface AgentCategoryDict {
+  /** 赛道列表(对应 Uniapp tools/index.vue agentCategory 参数,"全公司/技术/设计...") */
+  agentCategory: AgentCategoryDictItem[]
+  /** 主分类列表(对应 Uniapp fenlei_active_id 参数,"全部/写作/编程...") */
+  agentMainCategory: AgentCategoryDictItem[]
+}
+
 /**
- * G-1058623③ 公开双键分类字典的**唯一**推导出口(admin 列表与公开端点共用同一份语义)。
- *
- * field2 是源端语义,不得漂移:'1'=赛道 → `agentCategory`,'0'=种类 → `agentMainCategory`。
- * 两个刻意的设计点:
- *  - **无 field2 的条目两组都不落** —— 无法诚实归类就不猜,宁可让 RN 侧继续走它的静态 fallback;
- *  - `name` 缺省回退 `key` —— 不把 `undefined` 塞进 JSON(那会让客户端读到 `name: undefined` 而静默退化)。
- * 排序口径与 admin 列表一致:`sort` 升序,同值按 `key` 的 localeCompare,免得两端顺序分叉。
+ * 从缓存存储推导「赛道 + 主分类」双键字典(公开端点 /api/cache/agent-category-dict/categories 用)。
+ * field2 沿用源端语义(见 CategoryCacheEntry):'0'=种类(→agentMainCategory), '1'=赛道(→agentCategory);
+ * 无 field2 的条目无法诚实归类,跳过(不编造归属)。id 取 key,name 缺省回退 key。
+ * 排序与 admin 列表端点同款:sort 升序,同序按 key 字典序。只读,不改 cacheStore。
  */
-export function buildAgentCategoryDict(): {
-  agentCategory: Array<{ id: string; name: string }>
-  agentMainCategory: Array<{ id: string; name: string }>
-} {
-  const pickGroup = (field2: string): Array<{ id: string; name: string }> =>
-    Array.from(cacheStore.values())
-      .filter((entry) => entry.field2 === field2)
-      .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || a.key.localeCompare(b.key))
-      .map((entry) => ({ id: entry.key, name: entry.name ?? entry.key }))
-  return { agentCategory: pickGroup('1'), agentMainCategory: pickGroup('0') }
+export function buildAgentCategoryDict(): AgentCategoryDict {
+  const sorted = Array.from(cacheStore.values()).sort(
+    (a, b) => (a.sort ?? 0) - (b.sort ?? 0) || a.key.localeCompare(b.key),
+  )
+  const toItem = (entry: CategoryCacheEntry): AgentCategoryDictItem => ({
+    id: entry.key,
+    name: entry.name ?? entry.key,
+  })
+  return {
+    agentCategory: sorted.filter((e) => e.field2 === '1').map(toItem),
+    agentMainCategory: sorted.filter((e) => e.field2 === '0').map(toItem),
+  }
 }
 
 // =============================================================================

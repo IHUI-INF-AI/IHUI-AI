@@ -82,6 +82,8 @@ export function readServiceEnv(service, key) {
       encoding: 'utf8',
       windowsHide: true,
       timeout: 15000,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
       .replace(/\0/g, '')
     for (const line of out.split(/\r?\n/)) {
@@ -564,6 +566,8 @@ function deployStallCheck() {
         encoding: 'utf8',
         windowsHide: true,
         timeout: 20000,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
       }).trim()
     } catch (e) {
       errs.push(`${args.join(' ')}: ${String((e && e.message) || e).slice(0, 70)}`)
@@ -790,7 +794,13 @@ function ensureVbs() {
   return VBS
 }
 function schtasks(args) {
-  return spawnSync('schtasks.exe', args, { encoding: 'utf8', windowsHide: true, timeout: 30000 })
+  return spawnSync('schtasks.exe', args, {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 30000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
 }
 function installTask() {
   const vbs = ensureVbs()
@@ -813,7 +823,13 @@ function installTask() {
   if (r.status === 0) {
     const up = join(REPO, 'scripts', 'task-set-s4u.vbs')
     if (existsSync(up)) {
-      const u = spawnSync('cscript.exe', ['//nologo', up, TASK_NAME], { encoding: 'utf8', windowsHide: true, timeout: 90000 })
+      const u = spawnSync('cscript.exe', ['//nologo', up, TASK_NAME], {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 90000,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
       const o = String(u.stdout || '') + String(u.stderr || '')
       console.log(/switched to S4U|already S4U/.test(o) ? `✅ 已确保 S4U:${o.split(/\r?\n/).pop()}` : `⚠️ S4U 升级未确认(不影响任务存在):${o.replace(/\r?\n/g, ' | ').slice(0, 160)}`)
     }
@@ -1079,7 +1095,13 @@ function dispatchBrandMail({ title, desp, severity, plain, dryRun }) {
     const r = spawnSync(
       process.execPath, // 本进程就是 node ⇒ 绝对路径天然可得,不必像 PowerShell 那样按候选找 node.exe
       buildBrandMailArgv({ to: ALERT_EMAIL_TO, title, severity, messageFile: msgFile, plain, dryRun }),
-      { encoding: 'utf8', windowsHide: true, timeout: BRAND_MAIL_TIMEOUT_MS }, // windowsHide:§5b,漏了就是桌面反复弹窗
+      {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: BRAND_MAIL_TIMEOUT_MS, // windowsHide:§5b,漏了就是桌面反复弹窗
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
     )
     if (r.error) return { ok: false, why: `派发器进程异常(${r.error.code || r.error.name}): ${redactChildOutput(r.error.message)}` }
     if (dryRun) return { ok: judgeDryRunChannel(r.stdout), why: `通道判定: ${redactChildOutput(r.stdout)}` }

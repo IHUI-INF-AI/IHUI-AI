@@ -27,6 +27,9 @@ import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 import { useDebounce } from '@/hooks/use-debounce'
+// G-827:横向溢出方向线索 —— 判据/外观单源在 ./horizontal-edge-cue,量测编排在 use-horizontal-edge-cue
+import { HorizontalEdgeCue } from './horizontal-edge-cue'
+import { useHorizontalEdgeCue } from '@/hooks/use-horizontal-edge-cue'
 import { cn } from '@/lib/utils'
 import { MarkdownTableBlock } from './markdown-table-toolbar'
 import { IconButton } from '@ihui/ui-react'
@@ -382,6 +385,9 @@ const CodeBlockImpl = function CodeBlock({
   const codeLines = code.split('\n')
   const shouldCollapse = collapseLines > 0 && codeLines.length > collapseLines
   const preRef = React.useRef<HTMLPreElement>(null)
+  // G-827:<pre> 自己就是横向滚动容器(未开自动换行时),四态由真测量给。
+  // 开了自动换行(wrap)那一支不会溢出,量出来自然是 none —— 不需要也不许在这里加分支。
+  const codeEdges = useHorizontalEdgeCue(preRef)
 
   // 当代码块展开/折叠时，自动滚动到代码块位置
   React.useEffect(() => {
@@ -536,6 +542,13 @@ const CodeBlockImpl = function CodeBlock({
   )
   // G-842:外层 frame(仿本文件 CodeRunOutput 的「外框 + header 条 + 主体」形态)
   const codeFrameClass = 'overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700'
+  // G-827:方向线索必须是 <pre> 的**兄弟**而不是子节点 —— 绝对定位子节点会随内容一起滚走,
+  // 线索就跟着跑了;所以由这层 shell 提供定位锚。外框是 rounded-lg + overflow-hidden,
+  // 故取 roundedInsetY2 档(§4「圆角容器内 absolute 子元素避让」rounded-lg → top-2 bottom-2),
+  // 不贴圆角。三处渲染点(纯文本 / 高亮降级 / 高亮正常)共用这一份:漏接任何一处,
+  // 就会产出"同一种代码块有的有线索有的没有"的屏内分叉。
+  const preShellClass = 'relative'
+  const codeEdgeCue = <HorizontalEdgeCue edges={codeEdges} position="roundedInsetY2" />
   // G-842:代码块 header —— 文件图标 + 语言名映射的示例文件名(纯展示,非交互)
   const codeHeader = (
     <div
@@ -571,11 +584,14 @@ const CodeBlockImpl = function CodeBlock({
         {inlinePreview}
         <div className={codeFrameClass}>
           {codeHeader}
-          <pre ref={preRef} className={preClassName}>
-            {copyButton}
-            {collapseButton}
-            <code className="font-mono">{displayCode}</code>
-          </pre>
+          <div className={preShellClass}>
+            <pre ref={preRef} className={preClassName}>
+              {copyButton}
+              {collapseButton}
+              <code className="font-mono">{displayCode}</code>
+            </pre>
+            {codeEdgeCue}
+          </div>
         </div>
         {runResult && <CodeRunOutput result={runResult} onClose={clearRunResult} />}
       </>
@@ -586,11 +602,14 @@ const CodeBlockImpl = function CodeBlock({
   const fallback = (
     <div className={codeFrameClass}>
       {codeHeader}
-      <pre ref={preRef} className={preClassName}>
-        {copyButton}
-        {collapseButton}
-        <code className={cn('font-mono', language && `language-${language}`)}>{displayCode}</code>
-      </pre>
+      <div className={preShellClass}>
+        <pre ref={preRef} className={preClassName}>
+          {copyButton}
+          {collapseButton}
+          <code className={cn('font-mono', language && `language-${language}`)}>{displayCode}</code>
+        </pre>
+        {codeEdgeCue}
+      </div>
     </div>
   )
 
@@ -600,26 +619,29 @@ const CodeBlockImpl = function CodeBlock({
       <CodeBlockErrorBoundary fallback={fallback}>
         <div className={codeFrameClass}>
           {codeHeader}
-          <pre ref={preRef} className={preClassName}>
-            {copyButton}
-            {collapseButton}
-            <SyntaxHighlighter
-              language={lang}
-              style={syntaxStyle}
-              showLineNumbers={!!lineNumberStyle}
-              lineNumberStyle={lineNumberStyle}
-              // D197:换行偏好传导进高亮器(code 标签 whiteSpace: pre-wrap;与行号并存时行转 flex)
-              wrapLongLines={wrap}
-              customStyle={{
-                margin: 0,
-                padding: 0,
-                background: 'transparent',
-                fontSize: '15px',
-              }}
-            >
-              {displayCode}
-            </SyntaxHighlighter>
-          </pre>
+          <div className={preShellClass}>
+            <pre ref={preRef} className={preClassName}>
+              {copyButton}
+              {collapseButton}
+              <SyntaxHighlighter
+                language={lang}
+                style={syntaxStyle}
+                showLineNumbers={!!lineNumberStyle}
+                lineNumberStyle={lineNumberStyle}
+                // D197:换行偏好传导进高亮器(code 标签 whiteSpace: pre-wrap;与行号并存时行转 flex)
+                wrapLongLines={wrap}
+                customStyle={{
+                  margin: 0,
+                  padding: 0,
+                  background: 'transparent',
+                  fontSize: '15px',
+                }}
+              >
+                {displayCode}
+              </SyntaxHighlighter>
+            </pre>
+            {codeEdgeCue}
+          </div>
         </div>
       </CodeBlockErrorBoundary>
       {runResult && <CodeRunOutput result={runResult} onClose={clearRunResult} />}
