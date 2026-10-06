@@ -240,6 +240,37 @@ export function joyoSetFromRaw(raw, { min = 2000 } = {}) {
   return set
 }
 
+/**
+ * 取**专名字**集合(2026-10-06 立,门 133 的 L1b 第三道豁免的数据源)。
+ *
+ * ⚠️ **刻意与 `joyoSetFromRaw` 分成两个独立集合,绝不能合并**:
+ *   把专名字塞进 `chars`/`codepoints` 让 `nonJoyoHan` 放行,是"靠改表过门"的假修法 ——
+ *   它污染 2136 名单的语义(那张表是文化厅告示的原文,一个字都不许动),而且**没有任何分派逻辑**:
+ *   字级放行对所有键一视同仁,而同一个 `智` 在 `community.text1`(公司名专名)与在别处(普通词)
+ *   身份完全不同。豁免必须由调用方落在**叶子级**(叶子值 + 键上下文),见门侧的 `properNounLeaf`。
+ *
+ * 形态与 `joyoSetFromRaw` 同族(两种 chars 形态都认),但**门槛不同**:专名集天然只有几十个字,
+ * 所以用 `min = 1` 而不是 2000;取不到 ⇒ null(调用方判"未判定",不得回落成"没有专名")。
+ * @returns {Set<string>|null}
+ */
+export function properNounSetFromRaw(raw, { min = 1 } = {}) {
+  let obj = null
+  try {
+    obj = JSON.parse(raw)
+  } catch {
+    return null
+  }
+  if (!obj || typeof obj !== 'object') return null
+  const src = obj.properNouns
+  if (!src || typeof src !== 'object') return null
+  const chars = typeof src.chars === 'string' ? [...src.chars] : Array.isArray(src.chars) ? src.chars : null
+  if (!chars) return null
+  // 专名用字必须落在 BMP 单码位上:astral 字种无法用 `ch.length === 1` 表达,混进来会静默失配
+  const set = new Set(chars.filter((c) => typeof c === 'string' && [...c].length === 1))
+  if (set.size < min) return null
+  return set
+}
+
 /** 值内的"非日本常用汉字"字种(用于把"整块汉字"进一步判成"那是中文不是日语") */
 export function nonJoyoHan(text, joyo) {
   if (!joyo) return null // 未判定,不是"没有嫌疑"
