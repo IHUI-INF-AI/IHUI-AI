@@ -945,12 +945,26 @@ function selfTest() {
     `逐字相同的两份应算 1 块重复,实测 ${twoCopies.counts.dupBlocks}`,
   )
   ok(twoCopies.counts.dupBlockCopies === 2, `份数应为 2,实测 ${twoCopies.counts.dupBlockCopies}`)
-  // 漂移(首行同而正文不同)不得混进"可自动收口"那一档 —— 机器折半必然有损,与 F4 同一条理由
+  // 漂移(首行同而正文不同)不得混进"可自动收口"那一档 —— 机器折半必然有损,与 F4 同一条理由。
+  // 首行**必须是登记行**(带复选框):这是 drifted 的候选条件,不是装饰 —— 判据侧按 `bodyOfRow` 剔掉
+  // 切分产物(头注①:实测 24 组里 6 组是"续行小项裹进块",首行缺复选框压根不是登记两次),
+  // 再用正文 Jaccard >= 5% 剔掉"首行撞号是巧合"(头注②)。所以本夹具首行必须写 `- [ ] …`。
+  // 首行形态与判据同源 ⇒ 真实台账现读 `dupBlockDrifted = 8`(2026-10-06),这一维是活的。
+  const R1 = `- [ ] ${B1.slice(2)}`
   const drift = auditPlan(
-    `## 段\n${block}\n## 另一段\n${[pad(B1), pad(B2 + '(改)'), pad(B3)].join('\n')}`,
+    `## 段\n${[pad(R1), pad(B2), pad(B3)].join('\n')}\n## 另一段\n${[pad(R1), pad(B2 + '(改)'), pad(B3)].join('\n')}`,
   )
   ok(drift.counts.dupBlocks === 0, `漂移副本不得算逐字重复,实测 ${drift.counts.dupBlocks}`)
   ok(drift.counts.dupBlockDrifted === 1, `漂移应单独计 1,实测 ${drift.counts.dupBlockDrifted}`)
+  // 反向锁:裸 bullet 首行 + 正文漂移**恒为 0** —— 收窄语义是判据的有意设计(头注①②),不是漏报。
+  // 没有这一条,下一个人会把 R1 改回裸 bullet 并把drifted 的实报数说成"坏了"(2026-10-06 本票的起因)。
+  const driftNaked = auditPlan(
+    `## 段\n${block}\n## 另一段\n${[pad(B1), pad(B2 + '(改)'), pad(B3)].join('\n')}`,
+  )
+  ok(
+    driftNaked.counts.dupBlockDrifted === 0,
+    `首行非登记行的漂移块不入drifted 候选(有意收窄),实测 ${driftNaked.counts.dupBlockDrifted}`,
+  )
   // 阈值两向:2 行块与短行块都不算(否则会产出成百条噪声,把这一维淹掉)
   ok(auditPlan(`${pad(B1)}\n${pad(B2)}`).counts.dupBlocks === 0, '2 行块不得纳入块级判据')
   ok(auditPlan('- a\n- b\n- c\n- a\n- b\n- c').counts.dupBlocks === 0, '短行块不得纳入块级判据')
