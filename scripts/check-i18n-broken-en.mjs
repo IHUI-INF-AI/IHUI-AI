@@ -20,11 +20,17 @@
  *   - 配置 key：JSON 路径如 models.nav.sort
  *   - 占位符：{var} / {{var}} / %s
  *
+ * 本脚本仅支持 3 个 target(--target=web|extension|shared,不带 --target 默认 web)。
+ * 传入其它 target(含 packages/i18n/messages/ 下确实存在 en.json 但本脚本未覆盖的
+ * api / cli / miniapp-taro / mobile-rn)一律报错退出,绝不回落去扫 web ——
+ * 守门脚本的假绿比不判更糟(2026-10-06 fail-closed 修复)。
+ *
  * 用法：
- *   node scripts/check-i18n-broken-en.mjs                          # 全量扫描 apps/web/messages/en.json
+ *   node scripts/check-i18n-broken-en.mjs                          # 扫 packages/i18n/messages/web/en.json
  *   node scripts/check-i18n-broken-en.mjs --staged                 # 仅扫描 staged 改动
  *   node scripts/check-i18n-broken-en.mjs --fix                    # 输出修复建议（不写文件）
  *   node scripts/check-i18n-broken-en.mjs --readme                 # 扫描根目录 README.en.md
+ *   node scripts/check-i18n-broken-en.mjs --target=web             # 同默认
  *   node scripts/check-i18n-broken-en.mjs --target=extension       # 扫描 packages/i18n/messages/extension/en.json
  *   node scripts/check-i18n-broken-en.mjs --target=shared          # 扫描 packages/i18n/messages/shared/en.json
  *
@@ -226,13 +232,33 @@ function scanMarkdownForBrokenEn(text) {
   return results
 }
 
+// 本脚本真实支持的 target 白名单(fail-closed:不在表内 ⇒ 报错退出,绝不回落 web)
+const SUPPORTED_TARGETS = ['web', 'extension', 'shared']
+
 function main() {
   const args = process.argv.slice(2)
   const staged = args.includes('--staged')
   const fix = args.includes('--fix')
   const readme = args.includes('--readme')
   const targetArg = args.find((a) => a.startsWith('--target='))
-  const target = targetArg ? targetArg.split('=')[1] : 'web'
+  const target = targetArg ? targetArg.slice('--target='.length) : 'web'
+
+  // fail-closed 校验(2026-06-06):未知 target 绝不静默回落扫 web。
+  // 原缺陷:--target=api / --target=zzz / 不带参数 三种跑法输出逐字相同都报"✅ 通过" ⇒ 假绿。
+  if (!SUPPORTED_TARGETS.includes(target)) {
+    const known = SUPPORTED_TARGETS.join(' / ')
+    console.error(
+      [
+        `[broken-en] ❌ 未知 --target=${target === '' ? '(空)' : target}`,
+        `  本脚本仅支持: --target=${known}(不带 --target 默认 web)`,
+        `  拒绝回落去扫 web —— 未知 target 静默回 web 会制造假绿(守门脚本假绿比不判更糟)。`,
+        `  注:packages/i18n/messages/ 下 api / cli / miniapp-taro / mobile-rn 的 en.json`,
+        `      确实存在,但本脚本尚未覆盖,它们仍无人用本门禁管(已知缺口,非本脚本职责)。`,
+      ].join('\n'),
+    )
+    process.exit(1)
+  }
+
   const isExtension = target === 'extension'
   const isShared = target === 'shared'
 
@@ -245,6 +271,8 @@ function main() {
     relPath = 'packages/i18n/messages/shared/en.json'
   } else {
     // 2026-07-25 i18n 单一来源:web 翻译迁移到 packages/i18n/messages/web/
+    // 此分支现在只在 target==='web'(含不带 --target 的默认)时可达,
+    // 未知 target 已在上面的白名单校验处 exit,不会落到这里。
     relPath = 'packages/i18n/messages/web/en.json'
   }
   const targetFile = path.resolve(relPath)
