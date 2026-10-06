@@ -27,6 +27,7 @@
 import { execSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 const root = process.cwd()
 const MESSAGES_DIR = join(root, 'apps/web/messages')
@@ -73,16 +74,16 @@ function isWebDevServerRunning() {
   }
 }
 
-function main() {
+async function main() {
   if (!existsSync(MESSAGES_DIR)) {
     console.log('[messages-dev-restart] messages 目录不存在,跳过')
-    return
+    return 0
   }
 
   const staged = getStagedMessagesFiles()
   if (staged.length === 0) {
     console.log('[messages-dev-restart] 无 messages JSON 改动,跳过')
-    return
+    return 0
   }
 
   console.log(`[messages-dev-restart] 检测到 ${staged.length} 个 messages JSON 改动:`)
@@ -90,7 +91,7 @@ function main() {
 
   if (!isWebDevServerRunning()) {
     console.log('[messages-dev-restart] dev server 未在跑,无需重启')
-    return
+    return 0
   }
 
   console.log('')
@@ -109,7 +110,36 @@ function main() {
   console.log('           auth.agreementNotice* 键直接渲染,见 PROJECT_PLAN.md。')
   console.log('')
   console.log('  本检查为 warn-only,不阻塞 commit。')
+  return 0
 }
 
-main()
+// ── §22d 双形态入口守卫(G-1058651)────────────────────────────────
+// 改前本门顶层是裸 `main()`:任何 import 本门的进程都会在 import 期真的跑一遍
+// existsSync + `git diff --cached` + netstat 探测并往 stdout 打印(实测 1 行输出)
+// ⇒ 镜像测试拿不到判据,只能整族走黑盒 spawnSync,§22c 的"改调生产入口"结构性不可达。
+// 现在:CLI 直跑才执行 main();被 import 时零副作用,判据单元经 __test__ 单点导出(§22c)。
+// 必须经 pathToFileURL():Windows 下 process.argv[1] 带反斜杠,手拼 file:/// 永不相等。
+const isDirectRun =
+  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main()
+    .then((code) => {
+      if (code !== 0) process.exit(code)
+    })
+    .catch((e) => {
+      console.error(`❌ check-messages-dev-restart 脚本异常:${e?.message ?? e}`)
+      console.error(e?.stack ?? '(no stack)')
+      process.exit(2) // 2 = 脚本自身异常,1 = 业务判定失败(§22b/§22d 档位约定)
+    })
+}
+
+// §22c:判据单元经 __test__ 单点暴露给镜像测试
+// (scripts/tests/check-messages-dev-restart.test.mjs),测试禁止再抄一份端口探测/端口号。
+export const __test__ = {
+  getStagedMessagesFiles,
+  isWebDevServerRunning,
+  MESSAGES_DIR,
+  WEB_PORT,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
