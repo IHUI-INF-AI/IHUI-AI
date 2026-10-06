@@ -274,14 +274,14 @@ const CRYPTO_ADDRESSES = {
 在 `.env` 文件中添加:
 
 ```bash
-# Cryptocurrency addresses (public, safe to commit)
-NEXT_PUBLIC_BTC_ADDRESS=用户的 BTC 地址
-NEXT_PUBLIC_ETH_ADDRESS=用户的 ETH 地址
+# Cryptocurrency addresses (public, but do NOT use the NEXT_PUBLIC_ prefix)
+BTC_ADDRESS=用户的 BTC 地址
+ETH_ADDRESS=用户的 ETH 地址
 USDT_TRC20_ADDRESS=用户的 USDT TRC20 地址
-NEXT_PUBLIC_USDC_ADDRESS=用户的 USDC 地址
+USDC_ADDRESS=用户的 USDC 地址
 ```
 
-> ✅ 充值地址是**公开信息**，可以用 `NEXT_PUBLIC_` 前缀让前端访问
+> ✅ 充值地址是**公开信息**，但**不加 `NEXT_PUBLIC_` 前缀**——该前缀会把值内联进客户端 bundle(与 .env.example 的 USDT 段注记同口径);前端展示走服务端接口/后端配置读取
 > ❌ 私钥是**机密信息**，绝不提交到 git
 
 ---
@@ -427,7 +427,7 @@ A:
 - [ ] 反钓鱼码已设置
 - [ ] 多币种充值地址已获取（BTC / ETH / USDT / USDC）
 - [ ] 项目 `/sponsor` 页面显示加密货币地址
-- [ ] `.env` 文件已配置 `NEXT_PUBLIC_*_ADDRESS` 变量
+- [ ] `.env` 文件已配置收款地址变量(`BTC_ADDRESS` / `ETH_ADDRESS` / `USDT_TRC20_ADDRESS` / `USDC_ADDRESS`,不加 `NEXT_PUBLIC_` 前缀)
 - [ ] **测试**:用另一个钱包向 USDT 地址转 1 USDT，确认 Binance 收到
 - [ ] **测试**:卖 1 USDT 提现 ¥7，确认到账银行卡
 

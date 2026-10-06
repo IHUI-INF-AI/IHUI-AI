@@ -27,8 +27,6 @@ import {
   LogIn,
   ListFilter,
   FolderOpen,
-  // D165:侧栏「移动到分组」入口图标(文件夹 + 入箭头)
-  FolderInput,
   Tags,
   Pin,
   PinOff,
@@ -64,16 +62,8 @@ import {
 } from '@ihui/shared'
 import { useChatStore } from '@/stores/chat'
 import { useConversationOrgMap, useConversationOrgStore } from '@/stores/conversation-org'
-// D165:分组置顶(pin/unpin)客户端 store —— 只存分组名,分组本身仍以 orgMap 派生
-import {
-  useConversationGroupPinStore,
-  usePinnedFolders,
-} from '@/stores/conversation-group-pin'
-// D165:移动到分组/分组置顶排序的判据层(纯函数)。UI 只负责取数与呈现,
-// 四态判据与排序规则一律走这里,不在组件里复刻第二份。
-import { resolveMoveToGroup, orderFoldersWithPinned } from '@/components/sidebar/move-to-group'
-// D165:移动对话框(受控;目标选择态归它自己,四态判定与写入归宿主)
-import { MoveToGroupDialog } from '@/components/sidebar/move-to-group-dialog'
+// D165:分组置顶 store(pin/unpin,localStorage 按 userId 分桶持久化)
+import { useConversationGroupPinStore, usePinnedFolders } from '@/stores/conversation-group-pin'
 // D187:侧栏「标记为未读」客户端标记 store(localStorage 按 userId 分桶,打开即清)
 import {
   useConversationUnreadMarks,
@@ -127,10 +117,17 @@ import {
 // V3 #62:侧栏批量选择的选中集唯一持有者 + 动作条(动作条不持有选中集,只读 props)
 import { useConversationSelection } from '@/components/sidebar/use-conversation-selection'
 import { ConversationBatchBar } from '@/components/sidebar/conversation-batch-bar'
+// D165:「移动到分组」对话框(单选/批量共用)+ 分组三动作纯逻辑
+import { MoveToGroupDialog } from '@/components/sidebar/move-to-group-dialog'
+import { orderFoldersWithPinned, resolveMoveToGroup } from '@/components/sidebar/move-to-group'
 // D186:归档「不再提示」偏好(勾选后持久化到 localStorage,后续归档跳过二次确认)
 import { useArchivePrefsStore } from '@/stores/archive-prefs'
 // D179:会话绑定 Issue(搜索对话框 + 行徽章 + metadata.issueBinding 解析)
-import { IssueBindDialog, LinkedIssueBadge, resolveIssueBinding } from '@/components/chat/issue-bind-dialog'
+import {
+  IssueBindDialog,
+  LinkedIssueBadge,
+  resolveIssueBinding,
+} from '@/components/chat/issue-bind-dialog'
 
 interface ConversationItem {
   id: string
@@ -272,18 +269,13 @@ export function SidebarChatHistory({
   const setOrgFolder = useConversationOrgStore((s) => s.setFolder)
   const setOrgTags = useConversationOrgStore((s) => s.setTags)
   const orgFolders = React.useMemo(() => listFolderNames(orgMap), [orgMap])
-  // D165:已置顶分组(只读快照)。置顶顺序由 orderFoldersWithPinned 决定,
-  // 分组本身仍以 orgMap 派生 —— 置顶记录里已不存在的分组不会凭空长出来。
+  // D165:分组置顶快照 + 列表置顶优先排序(筛选下拉与移动对话框共用同一顺序)
   const pinnedFolders = usePinnedFolders(userId)
   const toggleGroupPin = useConversationGroupPinStore((s) => s.togglePin)
-  /** 置顶优先的分组清单(筛选下拉与移动对话框共用同一份顺序) */
   const orderedFolders = React.useMemo(
     () => orderFoldersWithPinned(orgFolders, pinnedFolders),
     [orgFolders, pinnedFolders],
   )
-  // D165:移动到分组对话框的宿主态。ids 为空数组=不打开;单选与批量走同一个对话框。
-  // 目标分组的选择态归对话框自己所有(它每次 open 重置),宿主只在提交那一刻取回目标。
-  const [pendingMoveIds, setPendingMoveIds] = React.useState<string[]>([])
   // D187:当前用户的「标记为未读」集合(只读快照;动作经 store 单独取,引用稳定)
   const unreadMarks = useConversationUnreadMarks(userId)
   const markUnread = useConversationUnreadMarkStore((s) => s.markUnread)
@@ -293,6 +285,8 @@ export function SidebarChatHistory({
   // D189:排序方式(pinnedFirst=置顶优先=既有默认行为;byTime=后端返回序=按时间)
   const [sortMode, setSortMode] = React.useState<'pinnedFirst' | 'byTime'>('pinnedFirst')
   const [pendingOrgItem, setPendingOrgItem] = React.useState<ConversationItem | null>(null)
+  // D165:「移动到分组」对话框宿主(单选移动与批量移动所选共用,存会话 id 列表)
+  const [pendingMoveIds, setPendingMoveIds] = React.useState<string[] | null>(null)
   // D179:「绑定 Issue」对话框宿主行(绑定/换绑/解绑都在对话框内完成)
   const [issueDialogFor, setIssueDialogFor] = React.useState<ConversationItem | null>(null)
 
@@ -646,24 +640,26 @@ export function SidebarChatHistory({
     success(tc('toast.orgSaved'))
   }
 
-  // D165:打开移动对话框(单选与批量共用)。进入多选态不清选中集 ——
-  // 「打开对话框」不是「改主意」,用户可能想移完继续挑下一批。
-  const openMoveToGroup = (ids: string[]) => {
+  // D165:移动到分组 —— 单选入口(行菜单);批量入口在 ConversationBatchBar
+  const handleMoveToGroup = (item: ConversationItem) => setPendingMoveIds([item.id])
+
+  // D165:移动所选到分组(批量入口;选中集只从 selection 读)
+  const handleBatchMoveToGroup = () => {
+    const ids = [...selection.orderedSelectedIds]
+    if (ids.length === 0) return
     setPendingMoveIds(ids)
   }
 
-  /**
-   * D165:移动提交。判据一律交给 resolveMoveToGroup(纯函数),本函数只做三件事:
-   * 取提交那一刻的现势、写入 store、按四态给点名文案。
-   * 失败三态(folderMissing / unauthorized / conflict)一律**保留弹层** ——
-   * 用户改一个目标就能重试,关掉弹层等于把"重试"变成"从头再来一遍"。
-   */
-  const submitMoveToGroup = (target: string | null) => {
-    if (!userId || pendingMoveIds.length === 0) return
-    const currentFolderByConv: Record<string, string | null> = {}
-    for (const id of pendingMoveIds) currentFolderByConv[id] = getOrgMeta(orgMap, id).folder ?? null
+  // D165:提交移动。结果由 resolveMoveToGroup 判定 —— 失败三态(目标分组已删/权限不足/
+  // 冲突:已在目标分组)每种都给点名文案,弹层保持打开 = 可重试出口;禁止裸「操作失败」。
+  const confirmMoveToGroup = (target: string | null) => {
+    if (!pendingMoveIds || pendingMoveIds.length === 0) return
+    const currentFolderByConv: Record<string, string | null | undefined> = {}
+    for (const id of pendingMoveIds) {
+      currentFolderByConv[id] = getOrgMeta(orgMap, id).folder ?? null
+    }
     const result = resolveMoveToGroup({
-      authorized: true,
+      authorized: !!userId,
       target,
       knownFolders: orgFolders,
       currentFolderByConv,
@@ -673,34 +669,19 @@ export function SidebarChatHistory({
       return
     }
     if (result.status === 'folderMissing') {
-      error(t('moveFailFolderMissing', { folder: result.folder }))
+      error(t('moveFailFolderMissing', { folder: result.folder ?? '' }))
       return
     }
     if (result.status === 'conflict') {
       error(t('moveFailConflict', { folder: result.folder ?? t('moveDialog.none') }))
       return
     }
-    for (const id of pendingMoveIds) setOrgFolder(userId, id, result.folder)
-    // 「未分组」在文案层要有个名字,否则成功提示会留下一个空引号「」
-    success(
-      t('moveSuccess', {
-        count: result.moved,
-        folder: result.folder ?? t('moveDialog.none'),
-      }),
-    )
-    setPendingMoveIds([])
-    // 移动完成后清单已变(分组徽章/筛选计数),留着旧选中集等于让下一次批量动作打到已移走的行
-    selection.clear()
-  }
-
-  const closeMoveToGroup = () => {
-    setPendingMoveIds([])
-  }
-
-  // D165:分组置顶切换(客户端偏好,持久化到 localStorage;服务端就绪时另走 togglePinFolder)
-  const handleGroupPinToggle = (folder: string) => {
-    if (!userId) return
-    toggleGroupPin(userId, folder)
+    if (userId) {
+      // 写 orgMap store → 列表(徽章/筛选/分组)同帧即时更新
+      for (const id of pendingMoveIds) setOrgFolder(userId, id, target)
+    }
+    setPendingMoveIds(null)
+    success(t('moveSuccess', { count: result.moved, folder: target ?? t('moveDialog.none') }))
   }
 
   const handleExport = (item: ConversationItem, format: 'txt' | 'md') => {
@@ -1005,16 +986,16 @@ export function SidebarChatHistory({
               <Tags className="mr-2 h-3.5 w-3.5" />
               <span>{tc('org.title')}</span>
             </DropdownMenuItem>
-            {/* D165:移动到分组(单选入口;批量入口在多选态动作条上) */}
+            {/* D165:移动到分组(单选入口;批量入口在动作条「移动所选到分组」) */}
             <DropdownMenuItem
               onClick={(e) => {
                 e.stopPropagation()
-                openMoveToGroup([item.id])
+                handleMoveToGroup(item)
               }}
               disabled={busyId === item.id || !userId}
               data-testid="conversation-move-to-group-action"
             >
-              <FolderInput className="mr-2 h-3.5 w-3.5" />
+              <FolderOpen className="mr-2 h-3.5 w-3.5" />
               <span>{t('moveToGroup')}</span>
             </DropdownMenuItem>
             {/* D179:「绑定 Issue」(竞品 bindIssue;已绑定时同入口可换绑,解绑在对话框内) */}
@@ -1229,37 +1210,29 @@ export function SidebarChatHistory({
                   <DropdownMenuItem onClick={() => setFolderFilter(null)}>
                     <span className="min-w-0 truncate">{tc('org.folderNone')}</span>
                   </DropdownMenuItem>
-                  {/* D165:分组行 = 「筛到这一组」+「置顶/取消置顶」两枚独立控件。
-                      置顶钮刻意**不**做成 DropdownMenuItem:菜单项一点即收菜单,
-                      而置顶是可反复切换的开关,收掉菜单等于逼用户每改一次重开一次。 */}
                   {orderedFolders.map((f) => {
+                    // D165:分组置顶(分组维度第三动作)—— 行内 pin/unpin,已置顶分组整体前移
                     const pinned = pinnedFolders.includes(f)
                     return (
-                      <div key={f} className="flex items-center gap-0.5">
-                        <DropdownMenuItem
-                          onClick={() => setFolderFilter(f)}
-                          className="min-w-0 flex-1"
-                        >
-                          {pinned && (
-                            <Pin className="mr-1 h-3 w-3 shrink-0 fill-current text-primary" />
-                          )}
-                          <span className="min-w-0 truncate">{f}</span>
-                        </DropdownMenuItem>
+                      <DropdownMenuItem key={f} onClick={() => setFolderFilter(f)}>
+                        <span className="min-w-0 flex-1 truncate">{f}</span>
+                        {pinned && (
+                          <Pin className="h-3 w-3 shrink-0 fill-current text-primary" aria-hidden />
+                        )}
                         <button
                           type="button"
-                          onClick={() => handleGroupPinToggle(f)}
                           aria-label={pinned ? t('groupUnpin') : t('groupPin')}
-                          aria-pressed={pinned}
                           data-testid={`conversation-group-pin-toggle-${f}`}
-                          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            e.preventDefault()
+                            if (userId) toggleGroupPin(userId, f)
+                          }}
+                          className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:text-foreground"
                         >
-                          {pinned ? (
-                            <PinOff className="h-3.5 w-3.5" />
-                          ) : (
-                            <Pin className="h-3.5 w-3.5" />
-                          )}
+                          {pinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
                         </button>
-                      </div>
+                      </DropdownMenuItem>
                     )
                   })}
                 </DropdownMenuContent>
@@ -1328,7 +1301,7 @@ export function SidebarChatHistory({
             onToggleAll={(checked) => selection.selectAll(checked, visibleIds)}
             onInvert={() => selection.invert(visibleIds)}
             onBatch={runBatch}
-            onMoveToGroup={() => openMoveToGroup([...selection.orderedSelectedIds])}
+            onMoveToGroup={handleBatchMoveToGroup}
             onCancel={selection.clear}
           />
         )}
@@ -1491,19 +1464,6 @@ export function SidebarChatHistory({
         </DialogContent>
       </Dialog>
 
-      {/* D165:移动到分组对话框(单选/批量共用;受控组件,判据与写入都在宿主侧)。
-          失败三态下弹层刻意不关:改一个目标就能原地重试。 */}
-      <MoveToGroupDialog
-        open={pendingMoveIds.length > 0}
-        onOpenChange={(open) => {
-          if (!open) closeMoveToGroup()
-        }}
-        folders={orderedFolders}
-        pinnedFolders={pinnedFolders}
-        onTogglePin={handleGroupPinToggle}
-        onSubmit={submitMoveToGroup}
-      />
-
       {/* D20(G-11):文件夹/标签编辑对话框(受控组件,读写客户端元数据 store) */}
       <ConversationOrgDialog
         open={pendingOrgItem !== null}
@@ -1514,6 +1474,20 @@ export function SidebarChatHistory({
         meta={pendingOrgItem ? getOrgMeta(orgMap, pendingOrgItem.id) : {}}
         folders={orgFolders}
         onSubmit={handleOrgSubmit}
+      />
+
+      {/* D165:「移动到分组」对话框(单选/批量共用;失败时保持打开 = 可重试出口) */}
+      <MoveToGroupDialog
+        open={pendingMoveIds !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingMoveIds(null)
+        }}
+        folders={orderedFolders}
+        pinnedFolders={pinnedFolders}
+        onTogglePin={(f) => {
+          if (userId) toggleGroupPin(userId, f)
+        }}
+        onSubmit={confirmMoveToGroup}
       />
 
       {/* D179:「绑定 Issue」对话框(搜索→选中绑定/换绑;已绑定时展示+解绑「改为独立任务」) */}

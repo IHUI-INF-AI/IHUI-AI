@@ -27,7 +27,7 @@ import {
   rnRadius,
   type ChartTemplatePayload,
 } from '@ihui/design-tokens'
-import { clampPercent } from '@ihui/shared/utils/clamp-percent'
+import { clampPercent } from '@ihui/shared'
 
 const W = 560
 const H = 280

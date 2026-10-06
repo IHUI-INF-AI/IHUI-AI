@@ -205,7 +205,7 @@ Binance 主要用于加密货币提现，不需要项目环境变量。在项目
 | ETH | `ETH_ADDRESS` | 以太坊充值地址 |
 | USDT-TRC20 | `USDT_TRC20_ADDRESS` | USDT（波场链）充值地址 |
 
-> 这些地址从用户的 `wallet-secrets.json` 中读取。
+> 这些地址由部署环境 `.env` 的同名变量提供(权威值与提交策略见 `.env.example` USDT 段注记;2026-10-06 起 `USDT_TRC20_ADDRESS` 已落值,前端 `/sponsor` 页常量与 env 对齐)。
 
 ### 4.9 支付宝个人环境变量
 
