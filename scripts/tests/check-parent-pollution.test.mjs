@@ -26,143 +26,26 @@ function runScript(args = []) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// 正则规则单元测试(源脚本未导出函数,直接复制正则验证规则逻辑)
-// 与 check-commit-loss-guard.test.mjs 同款做法:正则复制自源脚本
+// 正则规则单元测试(§22c 收口 · 守门 191 命中项 scripts/tests/check-parent-pollution.test.mjs:40
+// ⇄ scripts/check-parent-pollution.mjs:94):清单与双信号判定**一律取自门体导出口 __test__**。
+// 这里原先手抄了 SUSPICIOUS_EXTS / AGENT_FILENAME_PATTERNS / AGENT_OP_TRACES /
+// PROJECT_REF_PATTERNS / USER_LEGIT_PATTERNS / CREDENTIAL_DIR_NAMES / BACKUP_DIR_NAMES /
+// BACKUP_DIR_PREFIXES 八份材料 —— 抄出来的那份与门体各写各的,最先腐烂,现已全部删除。
 // ═══════════════════════════════════════════════════════════════
 
-const SUSPICIOUS_EXTS = new Set([
-  '.ps1', '.psm1', '.bat', '.cmd', '.sh',
-  '.py', '.js', '.mjs', '.cjs', '.ts',
-  '.txt', '.log', '.tmp',
-])
+import { __test__ as gate } from '../check-parent-pollution.mjs'
 
-const AGENT_FILENAME_PATTERNS = [
-  /^search_.*\.(ps1|py|sh|bat|txt|js|mjs)$/i,
-  /_search_.*\.(ps1|py|sh|bat|txt)$/i,
-  /_search_result.*\.txt$/i,
-  /^search_result.*\.txt$/i,
-  /^uuyc.*\.(ps1|txt|log)$/i,
-  /^tmp_.*\.(ps1|py|sh|bat|txt|js|mjs)$/i,
-  /^ihui[-_].*\.(ps1|py|sh|bat|txt|js|mjs|json)$/i,
-  /^test_.*\.(ps1|py|sh|bat)$/i,
-  /^debug_.*\.(txt|log|ps1)$/i,
-  /^cleanup.*\.(ps1|py|sh|bat)$/i,
-  /^fix_.*\.(ps1|py|sh|bat)$/i,
-  /^migrate.*\.(ps1|py|sh|bat)$/i,
-  /^scan_.*\.(ps1|py|sh|bat|txt)$/i,
-  /_result\.txt$/i,
-  /_output\.txt$/i,
-  /_list\.txt$/i,
-]
+const { SUSPICIOUS_EXTS, CREDENTIAL_DIR_NAMES, BACKUP_DIR_NAMES, BACKUP_DIR_PREFIXES } = gate
 
-const AGENT_OP_TRACES = [
-  /Get-ChildItem/i,
-  /Write-Output/i,
-  /Out-File/i,
-  /Set-Content/i,
-  /Add-Content/i,
-  /Remove-Item/i,
-  /Copy-Item/i,
-  /Move-Item/i,
-  /New-Item/i,
-  /Select-Object/i,
-  /Format-Table/i,
-  /Format-List/i,
-  /\$ErrorActionPreference/i,
-  /\[Console\]::OutputEncoding/i,
-  /WriteAllBytes|WriteAllText/i,
-  /require\(['"]fs['"]\)/,
-  /import.*from\s+['"]node:fs['"]/,
-]
+// 判定同样走生产入口(不再在测试里重写 .some((p) => p.test(x)) 那一遍)
+const matchesAgentFilenamePattern = gate.matchesAgentFilenamePattern
+const isUserLegit = gate.isUserLegit
+const isBackupDataDir = gate.isBackupDataDir
+const contentTriggers = gate.contentTriggers
 
-const PROJECT_REF_PATTERNS = [
-  /IHUI[-_]?AI/i,
-  /d:\\桌面\\项目/i,
-  /D:\\桌面\\项目/i,
-  /桌面\\项目/i,
-  /apps[\\/]web[\\/]/,
-  /apps[\\/]api[\\/]/,
-  /apps[\\/]ai-service[\\/]/,
-  /apps[\\/]extension[\\/]/,
-  /apps[\\/]desktop[\\/]/,
-  /apps[\\/]miniapp-taro[\\/]/,
-  /apps[\\/]mobile-rn[\\/]/,
-  /apps[\\/]cli[\\/]/,
-  /packages[\\/]database[\\/]/,
-  /packages[\\/]auth[\\/]/,
-  /packages[\\/]types[\\/]/,
-  /packages[\\/]ui([-_]?react)?[\\/]/,
-  /@ihui\//i,
-  /@ihui[-_]/i,
-]
-
-const USER_LEGIT_PATTERNS = [
-  /\.lnk$/i,
-  /\.url$/i,
-  /\.(docx?|xlsx?|pptx?|pdf|odt|ods|odp)$/i,
-  /\.(jpg|jpeg|png|gif|bmp|webp|svg|ico|tiff?)$/i,
-  /\.(mp4|mp3|wav|avi|mkv|flv|mov|wma|flac)$/i,
-  /\.(zip|rar|7z|tar|gz|bz2|xz)$/i,
-  /\.(exe|msi|dmg|pkg|deb|rpm|appimage)$/i,
-  /^desktop\.ini$/i,
-  /^Thumbs\.db$/i,
-  /^项目端口分析与维护成本优化\.md$/i,
-  /^check-stale-dist\.old\.mjs$/i,
-  /^inject_wb_i18n\.mjs$/i,
-  /^ihui-release\.keystore\.说明\.txt$/i,
-  /^ihui-app-password\.txt$/i,
-]
-
-// 镜像源脚本 CREDENTIAL_DIR_NAMES(§22c 镜像常量)。2026-09-22 立:凭据库目录必须整目录
-// 不扫,逐文件名豁免已被证明会漏第三把密钥。改源脚本此集合必须同步这里。
-const CREDENTIAL_DIR_NAMES = new Set([
-  'secrets',
-  'secret',
-  'credentials',
-  'credential',
-  '密钥',
-  'certs',
-  'certificates',
-  '.pybcrypt',
-])
-
-// 镜像源脚本 findPollution 的目录跳过判定
+// 镜像门体 findPollution 的目录跳过判定(凭据库整目录不扫;集合本身来自门体)
 function isCredentialDir(name) {
   return CREDENTIAL_DIR_NAMES.has(name.toLowerCase())
-}
-
-// 镜像源脚本 BACKUP_DIR_NAMES / BACKUP_DIR_PREFIXES(§22c 镜像常量)。
-// 2026-09-23 立:备份按用户策略集中到项目外唯一目录后,该目录正落在本守门 2 层扫描深度内,
-// 不整目录跳过的话,--auto-clean 会把备份里的 *.txt/*.log/*.tmp 当 agent 垃圾实删。
-const BACKUP_DIR_NAMES = new Set(['backups', 'pg_archives', 'archives', 'archive', 'quarantine'])
-const BACKUP_DIR_PREFIXES = [
-  'ihui-ai-git-repo',
-  'ihui-ai.git-backup',
-  'ihui-ai-backup',
-  'ihui-ai_workbak',
-  'ihui-ai-out-of-tree-artifacts',
-  'bak-inflight',
-]
-
-function isBackupDataDir(name) {
-  const n = name.toLowerCase()
-  if (BACKUP_DIR_NAMES.has(n)) return true
-  return BACKUP_DIR_PREFIXES.some((p) => n.startsWith(p))
-}
-
-function matchesAgentFilenamePattern(filename) {
-  return AGENT_FILENAME_PATTERNS.some(p => p.test(filename))
-}
-
-function isUserLegit(filename) {
-  return USER_LEGIT_PATTERNS.some(p => p.test(filename))
-}
-
-// 模拟源脚本 scanFileContent 的双信号判定
-function contentTriggers(content) {
-  const hasProjectRef = PROJECT_REF_PATTERNS.some(p => p.test(content))
-  const hasAgentOp = AGENT_OP_TRACES.some(p => p.test(content))
-  return hasProjectRef && hasAgentOp
 }
 
 // ═══════════════════════════════════════════════════════════════

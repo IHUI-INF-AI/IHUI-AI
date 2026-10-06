@@ -26,10 +26,22 @@ import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
+// §22c/§22d(G-1058651):直接调门体导出的生产判据,不再在测试里重述判据材料。
+// 门体已加 isDirectRun 守卫,import 本行不产生副作用、不 process.exit(见门体头注)。
+import { __test__ as cdriveGate } from '../check-c-drive-paths.mjs'
 
 // ─── 路径推导 (AGENTS.md §15: 用 import.meta.url, 不硬编码) ───
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const SCRIPT_PATH = join(__dirname, '..', 'check-c-drive-paths.mjs')
+
+// 判据材料统一从门体导出的 PATTERNS 取(§22c:测试不得另抄一份):
+// 给定一组 pattern id,产出「id ∪ 转义后 desc」的可选命中正则。
+function cdrivePatternAlt(ids) {
+  return cdriveGate.PATTERNS
+    .filter((p) => ids.includes(p.id))
+    .flatMap((p) => [p.id, p.desc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')])
+    .join('|')
+}
 
 // ─── 辅助: 创建临时项目根 ─────────────────────────────
 function createTempProject() {
@@ -92,7 +104,7 @@ describe('check-c-drive-paths.mjs 集成测试 (AGENTS.md §26)', () => {
       writeAndStage(root, 'apps/web/src/foo.ts', 'const tmp = "C:\\temp\\foo"\nexport default tmp\n')
       const r = runScript(['--staged'], { cwd: root })
       assert_.equal(r.status, 1, `含 C:\\temp\\ 应 exit 1, 实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
-      assert_.match(r.stdout + r.stderr, /C:\\temp\\|c-temp|硬编码/)
+      assert_.match(r.stdout + r.stderr, new RegExp(`${cdrivePatternAlt(['c-temp'])}|硬编码`))
     } finally {
       rmScratch(root)
     }
@@ -106,8 +118,8 @@ describe('check-c-drive-paths.mjs 集成测试 (AGENTS.md §26)', () => {
       writeAndStage(root, 'scripts/temp-helper.mjs', "const p = 'C:\\Users\\admin\\AppData\\Local\\Temp\\bar'\nconsole.log(p)\n")
       const r = runScript(['--staged'], { cwd: root })
       assert_.equal(r.status, 1, `含 AppData\\Local\\Temp\\ 应 exit 1, 实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
-      // 应命中 c-users 或 appdata-local-temp 任一
-      assert_.match(r.stdout + r.stderr, /C:\\Users|AppData\\Local\\Temp|c-users|appdata-local-temp/)
+      // 应命中 c-users 或 appdata-local-temp 任一 —— 判据材料取自门体导出的 PATTERNS
+      assert_.match(r.stdout + r.stderr, new RegExp(cdrivePatternAlt(['c-users', 'appdata-local-temp'])))
     } finally {
       rmScratch(root)
     }
@@ -121,7 +133,7 @@ describe('check-c-drive-paths.mjs 集成测试 (AGENTS.md §26)', () => {
       writeAndStage(root, 'apps/api/utils/path.py', 'PATH = "c:/temp/shared"\nimport os\nos.environ["X"] = PATH\n')
       const r = runScript(['--staged'], { cwd: root })
       assert_.equal(r.status, 1, `含 c:/temp/ 应 exit 1, 实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
-      assert_.match(r.stdout + r.stderr, /c:\/temp|c-temp-forward/)
+      assert_.match(r.stdout + r.stderr, new RegExp(cdrivePatternAlt(['c-temp-forward'])))
     } finally {
       rmScratch(root)
     }
@@ -211,7 +223,11 @@ describe('check-c-drive-paths.mjs 集成测试 (AGENTS.md §26)', () => {
       assert_.ok(report.violations.length > 0, 'JSON.violations 应非空')
       assert_.equal(report.violations[0].file, 'scripts/bad.mjs')
       assert_.ok(typeof report.violations[0].line === 'number')
-      assert_.match(report.violations[0].pattern, /c-temp/)
+      // 期望的 pattern 取自门体导出的 PATTERNS(单一真相源):对 staged 行求首个命中项的 id,
+      // 不再硬编码 'c-temp' —— 门体改了 id/正则,这里随之同步,不出现"测试自己抄一份"的漂移。
+      const stagedLine = 'const x = "C:\\temp\\oops"'
+      const expectedPatternId = cdriveGate.PATTERNS.find((p) => p.re.test(stagedLine)).id
+      assert_.equal(report.violations[0].pattern, expectedPatternId)
     } finally {
       rmScratch(root)
     }
