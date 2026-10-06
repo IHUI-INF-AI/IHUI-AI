@@ -21,6 +21,8 @@ import { radiusLookup } from '../lib/radius-tokens.mjs'
 import { ROLE_STEMS, radiusFormsInLine, rolesOfName } from '../lib/radius-roles.mjs'
 
 const SRC = join(import.meta.dirname, '..', 'check-radius-role-conformance.mjs')
+// 接线真值的唯一源: 头注该说哪一态由它决定, 不由一句会过期的台词决定(见 T2)。
+const RUNNER = join(import.meta.dirname, '..', 'guardian-runner.mjs')
 const LIB = join(import.meta.dirname, '..', 'lib', 'radius-roles.mjs')
 const MASK_LIB = join(import.meta.dirname, '..', 'lib', 'code-mask.mjs')
 const REPO = join(import.meta.dirname, '..', '..')
@@ -147,10 +149,38 @@ test('T1 装车证明:本门必须在 checks 数组内(不是 pushGateChecks),�
   assert.match(block, /skipEnv: 'HUSKY_SKIP_RADIUS_ROLE_CONFORMANCE'/, '缺应急跳过出口')
 })
 
-test('T2 门头注不得声称"已接入提交链",但必须把接线条目写全', () => {
+test('T2 门头注声称的接线态必须与注册表真值一致(两态都认,不许把真话判红)', () => {
   const src = readFileSync(SRC, 'utf8')
-  assert.match(src, /刻意不自行接进提交链/, '头注必须明说未接线')
-  assert.doesNotMatch(src, /已接入 pre-commit|已注册进 guardian-runner|已挂进提交链/, '不得谎称已接')
+  const runner = readFileSync(RUNNER, 'utf8')
+  const wired = runner.includes('check-radius-role-conformance.mjs')
+  // 立意不变: 头注若声称"已接入"而注册表里没有 → 那是给后人一个跑不通的出路(AGENTS 禁令),必须拦。
+  //
+  // 2026-10-06 改判据的原因(与门 133 的 M3 同型): 原判据是**绝对字面量** ——
+  // 硬要求头注含「刻意不自行接进提交链」, 且禁止任何「已接入/已注册进」字样。
+  // 它当年正确(门确实没接线), 但接线后来**真的发生了**(实测 runner 里已注册
+  // id:'150' / mode:'blocking' / skipEnv: HUSKY_SKIP_RADIUS_ROLE_CONFORMANCE),
+  // 于是它反过来**逼文档继续说谎**: 谁把头注如实改成"已接入" 谁就被判红。
+  // 一条把真相判红的尺子, 教出来的就是谎报。
+  //
+  // ⚠️ 只认**现状陈述**,不认存档引文(变异实测): 裸匹配 `刻意不自行接进提交链` 会把
+  // 「立项时那句「本门刻意不自行接进提交链…」连同建议值一并留在下方作存档」这类
+  // **如实记录历史**读成现状 ⇒ `wired=false` 变异全绿 = 无牙。
+  // 故只认『接线状态:』引导的那一行(容许括号里的时点注记)。
+  if (wired) {
+    assert.match(
+      src,
+      /^[/ \*]*接线状态\s*(?:\([^)]*\))?\s*[:：][^\n]*已接入/m,
+      '注册表里本门已注册,但头注的『接线状态:』那一行仍说未接线 ⇒ 文档与提交链分叉(同型已修:门 133 的 M3)',
+    )
+  } else {
+    assert.match(
+      src,
+      /^[/ \*]*接线状态\s*(?:\([^)]*\))?\s*[:：]\s*未接/m,
+      '头注必须明说未接线(而不是留白让人猜)',
+    )
+    assert.doesNotMatch(src, /已接入 pre-commit|已注册进 guardian-runner|已挂进提交链/, '不得谎称已接')
+  }
+  // 接线条目要素两态都要齐(主会话接线时只能猜 ⇒ 要素必须写在头注里)
   for (const needle of ["mode: 'blocking'", 'HUSKY_SKIP_RADIUS_ROLE_CONFORMANCE', 'stagedTriggers'])
     assert.ok(src.includes(needle), `头注缺接线条目要素:${needle} —— 主会话接线时只能猜`)
 })
