@@ -80,7 +80,14 @@ test('D171 中文名判同值(①):-z 暂存清单与中文名声明逐字相等
   )
 
   // 判据有牙的反证:旧式取值(git 默认 quotePath)在本夹具上必须比不中该路径
-  const oldLines = runGit(dir, ['-c', 'core.quotePath=true', 'diff', '--cached', '--name-only', '--no-renames'])
+  const oldLines = runGit(dir, [
+    '-c',
+    'core.quotePath=true',
+    'diff',
+    '--cached',
+    '--name-only',
+    '--no-renames',
+  ])
     .split('\n')
     .filter(Boolean)
   assert.ok(
@@ -129,7 +136,14 @@ test('D171 中文名提交面(Step 5 同尺):gitCommitPaths 对含中文名的�
     '提交面清单必须取到中文名真路径',
   )
   // 判据有牙的反证:旧式 `git show --name-only` 输出按换行 split 必然比不中
-  const oldLines = runGit(dir, ['-c', 'core.quotePath=true', 'show', '--name-only', '--pretty=format:', head])
+  const oldLines = runGit(dir, [
+    '-c',
+    'core.quotePath=true',
+    'show',
+    '--name-only',
+    '--pretty=format:',
+    head,
+  ])
     .split('\n')
     .map((x) => x.trim())
     .filter(Boolean)
@@ -138,21 +152,37 @@ test('D171 中文名提交面(Step 5 同尺):gitCommitPaths 对含中文名的�
 
 test('D171 形状锁:safe-commit 的路径取值必须走 lib/git-paths 的 -z 出口,换行 split 取路径的旧形态不得回归', () => {
   const src = readFileSync(TOOL, 'utf8')
-  assert.match(
-    src,
-    /import \{ gitCommitPaths, gitStagedPaths, gitUntrackedPaths \} from '\.\/lib\/git-paths\.mjs'/,
-    '三个 -z 出口必须真被 import',
+  // 钉的是"那三个 -z 出口确实被这份 import 递进来了",不是"import 名单逐字等于某一天的四个名字"。
+  // 写成整串字面量 ⇒ 后人每加一个 -z 出口(2026-10 加了 gitWorktreePaths)都要顺手来改这条锁,
+  // 而它红的时候读起来像"出口没 import",实际是名单变长了 —— 钉条目会自己腐烂,钉不变量不会。
+  const importStmt = /import \{([^}]*)\} from '\.\/lib\/git-paths\.mjs'/.exec(src)
+  assert.ok(importStmt, '找不到 ./lib/git-paths.mjs 的 import ⇒ 取路径根本没走 -z 出口')
+  const imported = new Set(
+    importStmt[1]
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
   )
+  for (const need of ['gitCommitPaths', 'gitStagedPaths', 'gitUntrackedPaths']) {
+    assert.ok(imported.has(need), `${need} 未被 import ⇒ 那一处的取路径可能退回换行 split`)
+  }
   assert.equal(
     (src.match(/gitStagedPaths\(\{ root: repoRoot \}\)/g) ?? []).length,
     3,
     'Step 3 / 归因面 / 重暂存校验三处都必须走 lib 出口',
   )
   assert.match(src, /gitUntrackedPaths\(\{ root: repoRoot \}\)/, '未跟踪清单也必须走 -z 出口')
-  assert.match(src, /gitCommitPaths\(\{ root: repoRoot, sha \}\)/, 'Step 5 filesOfCommit 必须走 diff-tree -z 出口')
+  assert.match(
+    src,
+    /gitCommitPaths\(\{ root: repoRoot, sha \}\)/,
+    'Step 5 filesOfCommit 必须走 diff-tree -z 出口',
+  )
   // 旧形态不得回归:遮掉注释与字符串后,代码面不得再出现任何 --name-only 取路径调用
   const masked = maskCommentsAndStrings(src)
-  assert.ok(!masked.includes('--name-only'), '换行 split 的 --name-only 旧形态不得回归(D171 的事故原形)')
+  assert.ok(
+    !masked.includes('--name-only'),
+    '换行 split 的 --name-only 旧形态不得回归(D171 的事故原形)',
+  )
   const lib = readFileSync(join(HERE, '..', 'lib', 'git-paths.mjs'), 'utf8')
   assert.ok(lib.includes("'-z'"), 'lib 出口必须用 -z NUL 分帧(quotePath 转写不得回来)')
 })
