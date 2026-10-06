@@ -27,6 +27,7 @@
 //   exit 1 = 发现含 BOM 的 dist 文件(报告 + 修复命令)
 import { existsSync, readdirSync, statSync, openSync, readSync, closeSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 const ROOT = process.cwd()
 const PACKAGES_DIR = join(ROOT, 'packages')
@@ -124,7 +125,7 @@ function collectAllDistFiles(rootDir) {
   return out
 }
 
-function main() {
+async function main() {
   const distFiles = [
     ...collectAllDistFiles(PACKAGES_DIR),
     ...collectAllDistFiles(APPS_DIR),
@@ -178,5 +179,27 @@ function main() {
   process.exit(0)
 }
 
-main()
+// AGENTS.md §22d 双形态入口守卫:CLI 直跑才执行 main();被 import(镜像测试等)时零副作用。
+// 用 pathToFileURL 比对而非字符串拼接,因 Windows 反斜杠路径永远匹配不上手搓的 file:/// 串。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main().catch((e) => {
+    // 脚本自身异常 = 2(与"业务判定不通过"的 1 区分,守门不得静默放行)
+    console.error(`${C.red}✗${C.reset} 脚本自身异常(不记为通过):${e?.message ?? e}`)
+    process.exit(2)
+  })
+}
+
+// AGENTS.md §22c 判据唯一真相:镜像测试从这里取,不再自抄一份 BOM 字节序/扩展名
+export const __test__ = {
+  BOM_UTF8,
+  BOM_UTF16_LE,
+  BOM_UTF16_BE,
+  TARGET_EXTS,
+  PROBE_BYTES,
+  detectBom,
+  collectFiles,
+  collectAllDistFiles,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

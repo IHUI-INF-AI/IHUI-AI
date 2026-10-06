@@ -8,7 +8,8 @@ import { spawnSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { __test__ as gate } from '../check-ignore-todos.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -337,5 +338,58 @@ test('输出格式:含报告标题 + 文件路径 + 健康度', () => {
   } finally {
     rmScratch(root)
   }
+})
+
+// ─── 16. §22c 判据单一真相 + §22d import 零副作用 ─────────────────
+test('分类判据取自生产门体且与 CLI 计数同形;纯 import 不跑 main()', () => {
+  const root = createTempProject()
+  try {
+    const items = [
+      { method: 'GET', pathPattern: '/a', reason: 'TODO 后端待实装' },
+      { method: 'GET', pathPattern: '/b', reason: '守门脚本误报' },
+      { method: 'POST', pathPattern: '/c', reason: '已知豁免' },
+    ]
+    writeIgnoreFile(root, { ignorePatterns: items })
+    const r = runScript({ cwd: root })
+    assert.equal(r.status, 0, `混合条目应 exit 0,实际 ${r.status}`)
+    const out = stripAnsi(r.stdout)
+    // 用生产判据自算分类,再比对 CLI 报告——判据一旦分叉,这里立刻红
+    const todo = items.filter(gate.isTodoItem)
+    const guardBug = items.filter(gate.isGuardBugItem)
+    const other = items.filter(gate.isOtherItem)
+    assert.match(out, new RegExp(`TODO 后端待实装: ${todo.length}`))
+    assert.match(out, new RegExp(`守门脚本 bug 标注: ${guardBug.length}`))
+    assert.match(out, new RegExp(`其他\\(已知豁免\\): ${other.length}`))
+    assert.match(
+      out,
+      new RegExp(`健康度: ${gate.computeHealthScore(items, todo)}%`),
+    )
+  } finally {
+    rmScratch(root)
+  }
+
+  // §22d:纯 import 门体不得触发 CLI 主流程(零输出 + exit 0)
+  const imp = spawnSync(
+    'node',
+    ['-e', `import('${pathToFileURL(SCRIPT_PATH).href}')`],
+    {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      // AGENTS.md §12g:本机派生进程必须显式给 stdio + windowsHide
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      timeout: 30000,
+    },
+  )
+  assert.equal(
+    imp.status,
+    0,
+    `纯 import 应 exit 0,实际 ${imp.status}\nstderr: ${imp.stderr}`,
+  )
+  assert.equal(
+    `${imp.stdout || ''}${imp.stderr || ''}`,
+    '',
+    '纯 import 不应有任何输出(顶层仍在跑 main() = 缺 §22d 守卫)',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
