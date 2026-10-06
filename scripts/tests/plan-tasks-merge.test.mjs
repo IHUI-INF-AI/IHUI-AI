@@ -56,14 +56,22 @@ import { forkPreserved } from '../lib/plan-merge-annotation.mjs'
 import { headIdOf, headIdSet, lostMarkers, markerOf } from '../check-plan-line-loss.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+/**
+ * stdio 三元必须**显式接管**:本宿主上派生 `cmd.exe` 100% EBUSY ⇒ 凡是走默认 stdio 继承的
+ * 派生都稳定 `spawnSync git EBUSY`(同一时刻 bash 里 git 正常,加上
+ * `stdio:['ignore','pipe','pipe']` 也正常;git 自己没有被锁,绝对路径同样复现)。
+ * 这与 face-reader.mjs 记的老陷阱同源另一副面孔:那边是 `stdio[0]='ignore'` 吞掉 `--batch`
+ * 清单,这边是继承式管道派生直接失败 —— 两种失效都表现为"安静地少数据 / 直接报错",
+ * 账面只看得见测试红,看不出是宿主派生面。`maxBuffer` 一并写死(与 stdio 同源)。
+ */
 const gitQ = (cwd, args) =>
   execFileSync('git', ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e', '-c', 'user.name=e2e', ...args], {
     cwd,
     encoding: 'utf8',
     windowsHide: true,
     timeout: 60000,
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     stdio: ['ignore', 'pipe', 'pipe'],
+    maxBuffer: 1 << 24,
   })
 const PLAN_A = ['# 计划', '', '- [x] ✅(2026-09-20) **D9 同一件事**:做完了。', '- [ ] **D9 同一件事**:另一侧还挂着未勾。', '- [ ] **D8 真待办**:还没人做。', ''].join('\n')
 
@@ -107,8 +115,8 @@ const runHeal = (env) => {
       encoding: 'utf8',
       windowsHide: true,
       timeout: 120000,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
       stdio: ['ignore', 'pipe', 'pipe'],
+      maxBuffer: 1 << 24,
     })
   } catch (e) {
     code = e.status ?? 1
@@ -332,10 +340,14 @@ test('T10 落地调度锁:早退判据必须看见 F4b,结论数字必须回读�
   const src = readFileSync(path.resolve(ROOT, 'scripts', 'plan-tasks-merge.mjs'), 'utf8')
   // 判据与出口都写好了、而落地档的早退只看 F4 ⇒ 报告"拟改写 15 行"却回一句"无状态分叉"什么都不做
   // (2026-09-27 实测)。"有牙而无人调度"这一型只有源码锁能防,行为测试只会跟着一起绿。
-  const guard = /if \(!b0\.forks[^\n]*\)\s*\{/.exec(src)
+  // 正则必须**容忍折行**:早退判据是一串 `&&` 链,prettier 会按 printWidth 把它折成多行
+  // (本机实测即如此),单行式 `/if \(!b0\.forks[^\n]*\)\s*\{/` 会在格式化后凭空失明 ——
+  //  判据失效的表现永远是安静,且它自己绿着。`[\s\S]{0,400}?` 配惰性量词跨行取值,
+  //  再回查该片段里有没有 F4b,与源码是否折行无关。
+  const guard = /if \(\s*!b0\.forks[\s\S]{0,400}?\)\s*\{/.exec(src)
   if (!guard) throw new Error('找不到 healAndLand 的早退判据那一行(形态变了,本锁需同步)')
   if (!/verbatimDupCopies/.test(guard[0]))
-    throw new Error(`早退判据没把 F4b 算进去 ⇒ 无主键孪生行永远修不掉:${guard[0].slice(0, 90)}`)
+    throw new Error(`早退判据没把 F4b 算进去 ⇒ 无主键孪生行永远修不掉:${guard[0].slice(0, 120)}`)
   if (/F1\/F2\/F3\/F4 = 0\/0\/0\/0/.test(src))
     throw new Error('落地结论写着死的 0/0/0/0,而不是回读落地那枚提交的现读数字')
 })
@@ -466,8 +478,8 @@ function runCli(env, args) {
       encoding: 'utf8',
       windowsHide: true,
       timeout: 120000,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
       stdio: ['ignore', 'pipe', 'pipe'],
+      maxBuffer: 1 << 24,
     })
   } catch (e) {
     code = e.status ?? 1
