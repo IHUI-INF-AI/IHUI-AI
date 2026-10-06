@@ -89,7 +89,9 @@ function run(cmd, opts = {}) {
   try {
     return execSync(cmd, {
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      // (三通道 pipe 会让 stdin 也建管道,与"不写 stdio"同病;返回值被 .trim() 消费故不能给裸 ignore)
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
       ...opts,
     }).trim()
@@ -826,6 +828,35 @@ if (hookFailed && commitResult.status !== 0) {
   log('warn', `首次 commit 失败(exit ${commitResult.status})—— 开始逐道复跑失败门以计算归因`)
   for (const line of verdict.detail) log('info', `  · ${line}`)
   log(verdict.kind === 'mine' ? 'err' : 'info', verdictLine(verdict))
+  /**
+   * 态⑤ env-blocked 必须**响亮地单独喊一次**(G-1058649):它是"这一步自己没跑完"的环境性失败,
+   * 既不是提交人的红、也不得写成"因他人代码"(本仓禁止未量到的归因)。
+   * 之所以不能只靠上面那一行:上一版把这种环境失败判成 mine 并禁止跳门,而"禁止跳门"关掉的
+   * 正是唯一合法出口 —— 那才是逼人绕过全部守门人的成因。这里给可执行的下一步,并在下面留痕。
+   */
+  if (verdict.kind === 'env-blocked') {
+    log(
+      'err',
+      `🚧 阻塞提交的那一步「${verdict.envStep}」自己没跑完 —— **环境性失败,不是你的红,也不是别人的红**`,
+    )
+    log(
+      'err',
+      `   指纹:${(verdict.envFingerprint ?? []).join(' ⏎ ')|| '(未取到指纹行)'}`,
+    )
+    log(
+      'err',
+      '   下一步:① tasklist | findstr /i "git node" 看并发 git/node 进程后重跑本命令;' +
+        '② 原样手工复跑那一步(EBUSY 是间歇病);③ 仍红则加 --debug 看那一步自己的 git 调用。' +
+        '本枚按应急路径落地并留痕(kind=env-blocked),不得读成"通过了守门"。',
+    )
+    if (verdict.downgradedFromMine)
+      log(
+        'err',
+        '   ⚠️ 判据纠偏说明:这一格**原先会被判 mine**(阻塞步骤的报错正文里出现过本任务文件路径),' +
+          '现按 env-blocked 处理 —— 依据是命中行**未带内容错形状**(旧判据把 lint-staged 那句 git 步骤失败' +
+          '自带的裸 failed/✖ 当成了"有内容错")。这不是拆防线:若真有 eslint/tsc/prettier 的内容错点名本任务文件,mine 照旧判死。',
+      )
+  }
 
   mkdirSync(join(repoRoot, '.workbuddy'), { recursive: true })
   appendFileSync(
@@ -844,6 +875,11 @@ if (hookFailed && commitResult.status !== 0) {
       batchSelfRun: verdict.batchSelfRun === true,
       selfRunOk: verdict.selfRunOk === true,
       blockerBeforeBatch: verdict.blockerBeforeBatch ?? null,
+      // 态⑤(G-1058649):kind=env-blocked 的那份"这一步自己没跑完"指纹必须可机读 ——
+      // 否则事后读账的人分不出"环境性失败"与"未归因",而这两者的修法完全不同。
+      envStep: verdict.envStep ?? null,
+      envFingerprint: verdict.envFingerprint ?? null,
+      downgradedFromMine: verdict.downgradedFromMine === true,
     })}\n`,
   )
 
