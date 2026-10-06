@@ -40,7 +40,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, gitBinary, gitRaw, selectFace, Undetermined } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
-import { radiusEntriesOf, radiusLookup, radiusSetOf } from './lib/radius-tokens.mjs'
+import { radiusEntriesOf, radiusLookup, radiusPxInLine, radiusSetOf } from './lib/radius-tokens.mjs'
 import { facePx } from './lib/length-units.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -1859,6 +1859,240 @@ export function radiusCount(f) {
 }
 
 /**
+ * ── RS 根槽位维(台账 G-629)────────────────────────────────────────
+ *
+ * **为什么 RD 恒 0 而门对真实投诉一条都不判**:RD(与 RE)比的都是"**文件里**出现过的档集合/ 同名元素
+ * 各取了哪一档",而集合相等只说明**候选档位相同**,不说明**同一个渲染元素取了同一档**。真实形态是:
+ * 小程序在**组件根**声明圆角、RN 在各屏**外层 wrapper** 声明、RN 组件自身不带圆角 —— 于是屏幕上
+ * 分别是 8 / 16 / 无,而门里 `[4,6,8]` 对 `[4,6,8]` ⇒ **圆角跨端维读 0**。把"文件级集合相等"当成
+ * "两端同值"是**推断错误**,不是精度不够。
+ *
+ * 修法不是把集合判据改得更细(那只是同一型错误的另一半),而是让**层**进入判据:
+ * 同名元素必须在**渲染路径上的同一个槽位**比 —— 这里取"组件体顶层 `return` 直接吐出的那个元素"。
+ *
+ * 三态必须分开,**不得折成一个数**(与 RE 维同一条纪律):
+ *  - `anchored:false` —— `export default` 锚不到 ⇒ 槽位这一维**没看**,不当"一致"记;
+ *  - `indirect:true` / `tiers:null` —— 根由子组件代渲染 / 间接 `return` / HOC 包裹 ⇒ 读不出,
+ *    报"未判定",**不得记成"两端根上都无档"**(那正是本次投诉的原始读数);
+ *  - `tiers` —— 锚到且直出时,根元素上的圆角 px 集合。
+ */
+
+/**
+ * 字符串安全的遮罩:**引号与模板串里的括号花括号一律替换成空格**,长度不变。
+ *
+ * 为什么必须遮:深度走查(`{`/`}` 计数)一旦被字符串里的括号带偏,后面整个组件体的边界就找错,
+ * 于是判据**跟着字符串内容漂** —— `className="don't { break"` 这种写法在真仓里不罕见,
+ * 而漂一次的读数是"看起来自洽"的假分叉(与 §4"CSS 声明形态整面隐身"同族:错得安静)。
+ * 模板串**连 `${…}` 内的代码一起遮**:那一段是插值表达式,不是本判据要读的静态类名串,
+ * 放它进来只会让深度计数多一处可能失衡的来源。
+ *
+ * ⚠️ 与 `stripComments` 的分工:那个剥注释但**保留字符串内容**(方向相反会各错一次,见其头注);
+ * 这个遮字符串但**同样保留换行**。两处各需要一种,不得互相替换。
+ */
+function maskStringsForDepth(src) {
+  const s = String(src ?? '')
+  let out = ''
+  let i = 0
+  while (i < s.length) {
+    const c = s[i]
+    if (c === '"' || c === "'" || c === '`') {
+      const quote = c
+      out += c
+      i++
+      while (i < s.length) {
+        if (s[i] === '\\') {
+          out += '  '
+          i += 2
+          continue
+        }
+        if (s[i] === quote) {
+          out += quote
+          i++
+          break
+        }
+        // 换行必须留着:后面按行取材料时行号会对不上
+        out += s[i] === '\n' ? '\n' : ' '
+        i++
+      }
+      continue
+    }
+    out += c
+    i++
+  }
+  return out
+}
+
+/**
+ * 从 `export default` 起,取组件体顶层 `return` 直接吐出的那个元素上的圆角档(px 数组)。
+ *
+ * @param {string} src 组件源文本
+ * @param {Record<string, number>|null} table `radiusLookup` 的档位表
+ * @returns {{anchored:boolean, indirect:boolean, tiers:number[]|null}}
+ */
+export function rootSlotRadiiOf(src, table) {
+  const code = maskStringsForDepth(stripComments(String(src ?? '')))
+  const defAt = code.search(/\bexport\s+default\b/)
+  if (defAt < 0) return { anchored: false, indirect: false, tiers: null }
+  /**
+   * `export default` 后面是什么,决定这一维**有没有得看**:
+   *  - 具名/匿名函数、类、箭头函数 ⇒ 组件体在本文内,根槽位可判;
+   *  - 任何**不是**上述形态的东西(`withMemo(Foo)` / `connect(…)(Foo)` / 一个裸标识符)
+   *    ⇒ 组件体在别处,本文里没有"顶层 return 直接吐出的那个元素"可读。
+   * 这两种都必须**如实报**,不得当成"这个组件根上没有圆角"。
+   */
+  const after = code.slice(defAt).replace(/^\s*export\s+default\s+/, '')
+  const isFnBody = /^(?:async\s+)?(?:function\b|class\b|\(\s*[^)]*\)\s*=>|[A-Za-z_$][\w$]*\s*=>)/.test(
+    after,
+  )
+  const bodyOpen = isFnBody ? code.indexOf('{', defAt) : -1
+  if (bodyOpen < 0) return { anchored: true, indirect: true, tiers: null }
+  // 组件体顶层 return:只在**函数体第一层**找,嵌套函数/回调里的 return 不是根槽位。
+  const body = code.slice(bodyOpen)
+  let depth = 0
+  let retAt = -1
+  for (let i = 0; i < body.length; i++) {
+    const c = body[i]
+    if (c === '{') depth++
+    else if (c === '}') {
+      depth--
+      if (depth === 0) break
+    } else if (depth === 1 && c === 'r' && body.startsWith('return', i) && !/[\w$]/.test(body[i - 1] ?? ''))
+      if (!/[\w$]/.test(body[i + 6] ?? '')) {
+        retAt = i
+        break
+      }
+  }
+  if (retAt < 0) return { anchored: true, indirect: true, tiers: null }
+  /**
+   * `return` 的表达式:只认**直接吐一个元素**的形态 —— 可选的一层圆括号,紧跟 `<`。
+   * 其余(`return null` / `return cond ? <A/> : <B/>` / `return renderList()` / `return <Foo />` 里
+   * `Foo` 是**别的组件**)都是"根槽位读不出":根由子组件代渲染或间接产出。
+   *
+   * ⚠️ `return <Foo />` 这一格是本维最要紧的分辨点:小程序侧把圆角声明在**组件根**、RN 侧声明在
+   * **外层 wrapper**,若把"根是自组件"读成"根上无档",本维就会把那次投诉原样再判一次绿。
+   */
+  /**
+   * 表达式起点(相对 `code` 的绝对下标)。`body` 是 `code.slice(bodyOpen)`,所以
+   * `body` 里的下标要加回 `bodyOpen` 才回到 `code` 坐标 —— 这一处换算只做一次,
+   * 下面取材与定位共用同一个 `exprAt`(两处各算一遍必漂,而漂开的表现是"取材取到隔壁一行的档")。
+   *
+   * ⚠️ `maskStringsForDepth` **长度不变**,所以 `code` 的下标可以直接用来切原文 —— 这是
+   * "深度定位在遮罩上做、取材在原文上做"能成立的前提;哪天遮罩改成变长输出,这一格立刻失效。
+   */
+  const retEnd = bodyOpen + retAt + 6
+  let exprAt = retEnd
+  while (exprAt < code.length && /\s/.test(code[exprAt])) exprAt++
+  /** 可选的一层圆括号:`return (\n <View …> )` 与 `return <View …>` 两种写法都算"直接吐出根元素"。 */
+  if (code[exprAt] === '(') {
+    exprAt++
+    while (exprAt < code.length && /\s/.test(code[exprAt])) exprAt++
+  }
+  if (code[exprAt] !== '<') return { anchored: true, indirect: true, tiers: null }
+  /**
+   * 根元素的**开标签**到 `>` / `/>` 为止 —— 子树上的档**不属于根槽位**(那正是 RD 的读数面;
+   * 把子树也算进来,本维就会退化成 RD 加一个"根"字样,恰好复现它要修的那个推断错误)。
+   */
+  const tagEnd = findJsxOpenTagEnd(code, exprAt)
+  if (tagEnd < 0) return { anchored: true, indirect: true, tiers: null }
+  const tagName = /^<\s*([A-Za-z_$][\w$.]*)/.exec(code.slice(exprAt, tagEnd))?.[1] ?? ''
+  if (!tagName) return { anchored: true, indirect: true, tiers: null }
+  /**
+   * 根元素是**本地定义的组件**(`function Foo(){…}` 且顶层 return 吐 `<Foo />`,或 `const Foo=…`)
+   * ⇒ 真正渲染出来的那个盒在它的定义里,本文的根槽位对它零判据。
+   * 宿主元素(`View` / `div` / `Text` / `Image` …)不在本地声明表里 ⇒ 就是根槽位本身。
+   */
+  if (isLocallyDeclaredComponent(code, tagName)) return { anchored: true, indirect: true, tiers: null }
+  if (!table) return { anchored: true, indirect: false, tiers: null }
+  /**
+   * 取材走**未遮字符串的原文**:圆角档就写在 `className="rounded-lg"` 的**引号内**,
+   * 用遮罩后的文本读会把它抹成空格(判据失明)。深度定位在遮罩上做、取材在原文上做,
+   * 两步的分工是这一格能同时满足"字符串安全"与"读得到真档"的原因。
+   */
+  const tagText = String(src ?? '').slice(exprAt, tagEnd + 1)
+  const pxs = radiusPxInLine(tagText, table)
+  return {
+    anchored: true,
+    indirect: false,
+    tiers: [...new Set(pxs.filter((p) => Number.isFinite(p) && p > 0))].sort((a, b) => a - b),
+  }
+}
+
+/**
+ * 从 `from` 起的 JSX **开标签**末尾下标(`>` 或 `/>`),读不到返回 -1。
+ * 花括号属性(`style={{ … }}`)内部的花括号必须配平,否则属性里的 `>` 会把标签提前截断。
+ */
+function findJsxOpenTagEnd(code, from) {
+  let depth = 0
+  for (let i = from; i < code.length; i++) {
+    const c = code[i]
+    if (c === '{') depth++
+    else if (c === '}') depth--
+    else if (c === '>' && depth <= 0) return i
+  }
+  return -1
+}
+
+/**
+ * 这个标签名是不是**本文件里定义/声明**的组件(而不是宿主元素)。
+ *
+ * 只认三种声明形态(`function Foo` / `class Foo` / `const Foo =`),因为只有这三种能在**同一文件**
+ * 里构成"根由子组件代渲染"。从别处 import 进来的组件名同样算 —— 它也不是本文的根槽位。
+ */
+function isLocallyDeclaredComponent(code, tagName) {
+  const decl = new RegExp(
+    `(?:^|[\\s;{(])(?:export\\s+default\\s+|export\\s+)?(?:async\\s+)?(?:function\\s+${tagName}\\b|class\\s+${tagName}\\b|(?:const|let|var)\\s+${tagName}\\s*=)|import\\s[^;]*\\b${tagName}\\b[^;]*from`,
+    'm',
+  )
+  return decl.test(code)
+}
+
+/**
+ * RS 逐对比对:两端**根槽位**上的圆角档是否逐字相同。
+ *
+ * 三态与 `rootSlotRadiiOf` 一一对应,**在配对层就要分开** ——
+ * "没看"(锚不到)与"读不出"(间接 return)若在这里被折成 `tiers:[]`,退化的正是本维要修的那个推断:
+ * `[] 对 []` 会被读成"两端根上都无档,一致",而真相是"这一维没看"。
+ *
+ * @returns {{findings:{name:string,miniapp:number[],rn:number[]}[], undetermined:{name:string,why:string}[]}}
+ */
+export function rootSlotAudit(pairs, text, table, styles = {}) {
+  const findings = []
+  const undetermined = []
+  for (const p of pairs?.pairs ?? []) {
+    const a = withLocalStyles(text, styles, p.miniapp)
+    const b = withLocalStyles(text, styles, p.rn)
+    if (a === undefined || b === undefined) continue
+    const ra = rootSlotRadiiOf(a, table)
+    const rb = rootSlotRadiiOf(b, table)
+    if (!ra.anchored || !rb.anchored) {
+      undetermined.push({ name: p.name, why: `export default 锚不到(${!ra.anchored ? 'miniapp' : 'rn'}侧)⇒ 根槽位这一维没看,不当"一致"记` })
+      continue
+    }
+    if (ra.tiers === null || rb.tiers === null) {
+      undetermined.push({ name: p.name, why: '根槽位读不出(间接 return / HOC 包裹 / 根由子组件代渲染)⇒ 未判定,不得记成"两端根上都无档"' })
+      continue
+    }
+    // 两侧都空 = 这一族根本没在根上声明过圆角 ⇒ 本维零判据,不报(报它等于把"没声明"叫成"分叉")。
+    if (!ra.tiers.length && !rb.tiers.length) continue
+    if (String(ra.tiers) === String(rb.tiers)) continue
+    findings.push({ name: p.name, miniapp: ra.tiers, rn: rb.tiers })
+  }
+  return { findings, undetermined }
+}
+
+/**
+ * 差值棘轮:本轮判红 = 出现在 `findings` 而**HEAD 面没有这一族**。
+ *
+ * 与 IC / SL 两维同一条纪律(§12e):存量当场判红就是一台恒红门,唯一结局是逼人跳门;
+ * 而"新增"必须是相对 HEAD 判的 —— 相对台账判会把"这一族早就红着"永远记成新增。
+ * 本维 `undetermined` **只报数不判红**:它是射程边界不是违规(与 `radiusUnpaired` 同处置)。
+ */
+export function rootSlotDelta(findings, headFindings) {
+  const prior = new Set((headFindings ?? []).map((f) => f.name))
+  return (findings ?? []).filter((f) => !prior.has(f.name))
+}
+
+/**
  * RE 维 —— **同一命名元素**在两端取了不同圆角档。
  *
  * 为什么要有第三条维而不是把 RD 修一修:RD 比的是"两端各自文件里出现过的圆角值**集合**之差",
@@ -2021,6 +2255,11 @@ export function usedClassNames(src) {
  * ⇒ 把别处的档算到这个组件头上。**归因过宽比漏读更贵** —— 它产出的是一条条自洽的假"同值"
  * (与本次"阴影半径被当盒档"同一型,那枚是靠既有锚点才拦住的)。
  * 所以这里只把"用了全局类名"这件事如实报出来;要真去接全局表,前置是先解决**归属**问题。
+ *
+ * 第三参 `_globalDefined` **传了但函数体从不消费** —— 这不是漏传,也不是待办:调用点(`collect`)
+ * 确实把真集合递了进来,而"消费它"这一步就是上面记录的**归因过宽**。参数留着是为了让
+ * "这一格已经想清楚了、且想清楚的结果是不接"在签名上可见(删掉它,下一个人会以为是忘了写);
+ * 下划线前缀声明"故意不读",好让 eslint 的 `no-unused-vars` 不再为一个**已经做出的决定**报错。
  */
 export function unresolvedClassNames(src, ownCssText, _globalDefined = null) {
   const used = usedClassNames(src)
@@ -2029,6 +2268,18 @@ export function unresolvedClassNames(src, ownCssText, _globalDefined = null) {
   for (const m of String(ownCssText ?? '').matchAll(/\.([a-z][a-z0-9]*(?:-[a-z0-9]+)*)\s*\{/gi))
     defined.add(m[1])
   return [...used].filter((c) => !defined.has(c)).sort()
+}
+
+/**
+ * **组件正文 + 它自己 import 的本地样式表** —— RD / RE 两维的取材表达式,**只此一份**。
+ *
+ * 为什么必须抽出来:票⑫ 实测过"几何漏跟本地样式表"造出的**假分叉**("RN 11 档 / 小程序 0 档",
+ * 而端上一行代码未改),修法是把样式表并进来;但并进来的那一行若在 `audit` 与别处各写一遍,
+ * 两处必然漂移 —— 漂开的表现不是报错,而是**两维读到的不是同一份材料**(RD 读到并入后的、
+ * RE 读到没并的),账面看起来仍自洽。本门后来又添了根槽位维(RS),取材面若再各拼一遍就是第三份。
+ */
+function withLocalStyles(text, styles, f) {
+  return text[f] + (styles[f] ?? '')
 }
 
 export function audit(pairs, text, baseline = {}, tiers = {}, radiusTable = null, styles = {}) {
@@ -2050,8 +2301,8 @@ export function audit(pairs, text, baseline = {}, tiers = {}, radiusTable = null
      * 与 §4 记过的"CSS 声明形态整面隐身"是同一条洞。分开喂是因为 IC 判的是图标载体,
      * 把样式表里的 `url(...)` 混进来会改动那条维的既有口径(要扩也得单独一笔)。
      */
-    const aAll = a + (styles[p.miniapp] ?? '')
-    const bAll = b + (styles[p.rn] ?? '')
+    const aAll = withLocalStyles(text, styles, p.miniapp)
+    const bAll = withLocalStyles(text, styles, p.rn)
     const ga = readGeometry(aAll, 'miniapp', tiers)
     const gb = readGeometry(bAll, 'rn', tiers)
     const named = namedConflicts(ga.named, gb.named)
@@ -2158,8 +2409,8 @@ export function webRadiusAudit(webPairs, text, radiusTable, styles = {}) {
       undetermined.push({ name: p.name, why: '圆角档位表解析不出 ⇒ web 腿失明,不得记为同档' })
       continue
     }
-    const aAll = a + (styles[p.miniapp] ?? '')
-    const bAll = b + (styles[p.rn] ?? '')
+    const aAll = withLocalStyles(text, styles, p.miniapp)
+    const bAll = withLocalStyles(text, styles, p.rn)
     const mini = new Set(radiusSetOf(aAll, radiusTable, { side: 'miniapp' }))
     const web = new Set(radiusSetOf(bAll, radiusTable))
     if (!mini.size && !web.size) {
@@ -2505,6 +2756,19 @@ export function main(argv, repoRoot = ROOT) {
     (n) =>
       (baseline[WEB_LEDGER.radius]?.[n] ?? 0) > 0 || (baseline[WEB_LEDGER.counts]?.[n] ?? 0) > 0,
   )
+  /**
+   * ── RS 根槽位维(台账 G-629)读数 ─────────────────────────────────
+   * 同样**必须在 `--json` 分支之前算好**:json 要暴露 `rootSlot`,退出码要折 `rsRed`。
+   * 放在分支之后 = json 少一个字段而退出码少一条判红,两者都不报错 —— 那一维就成了
+   * "有判据而没人调度"的状态,账面读起来仍全绿(自检 KU 就是钉这一点的)。
+   */
+  const rs = rootSlotAudit(collected.pairs, collected.text, collected.radius, collected.styles ?? {})
+  let rsRed = []
+  if (rs.findings.length && face !== 'head') {
+    const base = collect(repoRoot, 'head', { pairAll, aliases })
+    const baseRs = rootSlotAudit(base.pairs, base.text, base.radius, base.styles ?? {})
+    rsRed = rootSlotDelta(rs.findings, baseRs.findings)
+  }
   if (argv.includes('--emit-baseline')) {
     const next = emitBaseline(res.findings, baseline, web.findings)
     /**
@@ -2566,6 +2830,14 @@ export function main(argv, repoRoot = ROOT) {
         exitNotes: collected.exitNotes ?? [],
         red: res.red,
         waived: res.waived.length,
+        /**
+         * RS(根槽位维):**层**进入判据的读数。它与 RD 并列而非替换 ——
+         * RD 的 `radiusSeen` 只说明两端文件里出现过的档集合,而集合相等**不证明同一元素同档**
+         * (台账 G-629:小程序在组件根、RN 在外层 wrapper,`[4,6,8]` 对 `[4,6,8]` ⇒ 圆角维恒 0)。
+         * `undetermined` 必须一起进 json:空 `findings` 有两个来源(真的一致 / 判据瞎了),
+         * 只给 `findings` 这两者在机器面上分不开。
+         */
+        rootSlot: { findings: rs.findings, undetermined: rs.undetermined, red: rsRed.map((x) => x.name) },
         // web 腿也要能被机器读:只有人读面的话,下一票(把 web 的几何也纳进来)就得抄终端输出当数据源。
         web: {
           pairCount: web.findings.length,
@@ -2886,6 +3158,37 @@ export function main(argv, repoRoot = ROOT) {
     }
   }
   /*
+   * ── RS 根槽位对账(层进入判据)────────────────────────────────────
+   * 红条件与 IC / SL 同形 = 该族的根槽位分叉是**新增**的(HEAD 面没有),存量只报数。
+   * 处置姿势与 RD 相反:根槽位不同**不是**给某一端补一个数字,而是把声明挪到同一个槽位 ——
+   * 两端各在不同的层上声明圆角,屏幕上就是两个不同的圆角,补数字只会让某一层多一档。
+   */
+  if (rs.findings.length && !argv.includes('--json')) {
+    for (const x of rs.findings)
+      console.log(
+        `  ${rsRed.some((r) => r.name === x.name) ? '×' : '·'} RS ${x.name}` +
+          `(根槽位 小程序[${x.miniapp.join(',')}] / RN[${x.rn.join(',')}])`,
+      )
+    console.log(
+      `根槽位圆角 ${rs.findings.length} 族 → 新增判红 ${rsRed.length} / 只报数 ${rs.findings.length - rsRed.length}` +
+        '(同一元素必须在渲染路径的同一个槽位上比;文件级档集合相等**不证明**同值 —— ' +
+        '小程序在组件根、RN 在外层 wrapper 时,RD 读 0 而屏幕上圆角不同)',
+    )
+  }
+  /**
+   * 未判定必须自己报数(不判红):`anchored:false`(锚不到)与 `indirect`(根由子组件代渲染 /
+   * HOC 包裹)都是"这一维没看"。不写出来,"根槽位 0 分叉"会被读成"两端根上圆角一致",
+   * 而真相是"这一族根本没被判" —— 这正是本维要修的那个推断在读数面上的复发。
+   */
+  if (rs.undetermined.length && !argv.includes('--json')) {
+    console.log(
+      `  ⓘ 根槽位未判定 ${rs.undetermined.length} 族 —— 下列各族这一维**没看**,` +
+        `其"无差异"不得读成"两端根上同档"`,
+    )
+    for (const u of rs.undetermined.slice(0, 6)) console.log(`     · ${u.name} —— ${u.why}`)
+    if (rs.undetermined.length > 6) console.log(`     · 其余 ${rs.undetermined.length - 6} 条同上(不静默省略计数)`)
+  }
+  /*
    * ── PAIR 拆对声明对账 ───────────────────────────────────────────
    * 三条红:① 声明本身坏(无理由 / 过期 / 形态不对 / legs 里有不认识的腿名);
    * ② 拆掉的族仍挂**它所作用的那条腿**的锚点或豁免(同一族既被声明"不是同一个元素"又被记账
@@ -3003,7 +3306,7 @@ export function main(argv, repoRoot = ROOT) {
     return 1
   }
   if (aliasRed) return 1
-  return rotRed + res.red.length + icRed.length + slRed.length + rejRed + (geoRed ? 1 : 0) ? 1 : 0
+  return rotRed + res.red.length + icRed.length + slRed.length + rejRed + (geoRed ? 1 : 0) + rsRed.length ? 1 : 0
 }
 
 /**
@@ -4393,7 +4696,14 @@ function runSelfTest() {
     (() => {
       const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
       return (
-        /webRadiusAudit\(collected\.webPairs/.test(src) &&
+        /**
+         * 这几条锁刻意用 `\s*` 容忍**折行**:早先它们写成 `webRadiusAudit\(collected\.webPairs`
+         * 这样的紧邻子串,而调用点被格式化工具折成多行后锁就红了 —— 判据与被判据的**排版**挂钩,
+         * 于是"格式化"成了唯一能修它的手段,而本仓明令不得对本校验器跑格式化(自检里有多处
+         * 源码正则自证,折行会凭空让它们失明)。带 `\s*` 后语义不变(仍是"这个调用在本体内"),
+         * 但换行不再让它变成恒红(§12e:恒红门的唯一结局是逼人跳门)。
+         */
+        /webRadiusAudit\(\s*collected\.webPairs/.test(src) &&
         /if \(webVerdict\.red\.length \|\| webGhostRed\)/.test(src) &&
         /const webGhostRed = webPriorKeys\.length && !web\.findings\.length/.test(src) &&
         /web 腿整族消失|台账钉着 \$\{webPriorKeys\.length\} 族/.test(src)
@@ -4659,15 +4969,23 @@ function runSelfTest() {
     })(),
   )
   t(
-    '㊳ 装车锁:别名表必须由 main 喂进 collect,且 HEAD 棘轮那两次基线取样同样要喂' +
+    '㊳ 装车锁:别名表必须由 main 喂进 collect,且**每一处** HEAD 棘轮基线取样同样要喂' +
       '(漏喂 ⇒ 本轮多出的配对在基准侧不存在,别人欠的债会被算成新增红)',
     (() => {
       const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+      /**
+       * 这里断言的是"**每一处** HEAD 基线取样都喂了 aliases",不是"恰好 N 处"。
+       * 原来写死 `=== 2` 时它数的是当时已有的两处;RS 维的差值棘轮合法地添了第三处之后,
+       * 那个数字就变成"新维必须不存在"的隐含约束 —— 判据一加维度就把守门弄红,这是**恒红门**(§12e),
+       * 而恒红门的唯一结局是逼人跳门。逐处断言反而比计数强:新增任何一处取样都逃不掉。
+       */
+      const headSamples = [...src.matchAll(/collect\(repoRoot, 'head',[^\n]*/g)].map((m) => m[0])
       return (
         /collect\(repoRoot, face, \{ pairAll, rejected: rejNames, rejectMap: rej, aliases \}\)/.test(
           src,
         ) &&
-        (src.match(/collect\(repoRoot, 'head', \{ pairAll, aliases \}\)/g) ?? []).length === 2 &&
+        headSamples.length >= 2 &&
+        headSamples.every((s) => s.includes('aliases')) &&
         /if \(aliasRed\) return 1/.test(src) &&
         /aliasPairs: \(collected\.pairs\?\.pairs \?\? \[\]\)/.test(src)
       )
@@ -5163,6 +5481,92 @@ function runSelfTest() {
         /facePx\(/.test(src) &&
         !/\/\s*RPX_PER_PX|RPX_PER_PX\s*\*/.test(src)
       )
+    })(),
+  )
+  t(
+    'KU 装车锁(根槽位维必须装车):读数在 --json 分支**之前**算好、红色折进退出码、' +
+      'json 必须暴露 rootSlot —— 缺一条就是"有判据而没人调度",而账面读起来仍全绿',
+    (() => {
+      const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+      const at = src.indexOf('const rs = rootSlotAudit(collected.pairs')
+      return (
+        at >= 0 &&
+        at < src.indexOf("if (argv.includes('--json'))") &&
+        /rootSlot: \{ findings: rs\.findings/.test(src) &&
+        /\+ \(geoRed \? 1 : 0\) \+ rsRed\.length \? 1 : 0/.test(src) &&
+        /rootSlotDelta\(rs\.findings, baseRs\.findings\)/.test(src)
+      )
+    })(),
+  )
+  t(
+    'KV 根槽位必须字符串安全:引号与模板串里的括号花括号不得破坏深度走查' +
+      '(判据跟着字符串漂是同类洞 —— 漂一次的读数是看起来自洽的假分叉)',
+    (() => {
+      const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+      const src =
+        'const s = "don\'t { break ( ["\n' +
+        'const t = `x${y ? "(" : ")" }z`\n' +
+        'export default function Foo() {\n' +
+        '  return (\n' +
+        '    <View className="rounded-lg">\n' +
+        '      <View className="rounded-2xl" />\n' +
+        '    </View>\n' +
+        '  )\n' +
+        '}\n'
+      const r = rootSlotRadiiOf(src, tbl)
+      return r.anchored === true && r.indirect === false && JSON.stringify(r.tiers) === '[8]'
+    })(),
+  )
+  t(
+    'KW 端到端(真 git 夹具):真 git 夹具上,内层档凑平集合时 RD 读 0 而 RS 点名 —— ' +
+      'miniapp 把 2xl 放组件根、RN 放内层 ⇒ 两侧档位**集合**都是 {8,16},元素级凑平 ⇒ ' +
+      'RD 读 0(findings 里没有 Foo),而 RS 在**根槽位**上读出 [16] vs [] 并点名',
+    (() => {
+      const fx = FIXTURE_BASE({
+        rn: "import { Foo } from '@ihui/rn-app'\nexport function RootNavigator() { return <Foo /> }\n",
+      })
+      fx['apps/miniapp-taro/src/components/Foo.tsx'] =
+        'export default function Foo() {\n  return (\n    <View className="rounded-2xl">\n      <View className="rounded-lg" />\n    </View>\n  )\n}\n'
+      fx['packages/app/src/components/Foo.tsx'] =
+        'export default function Foo() {\n  return (\n    <View>\n      <View className="rounded-2xl" />\n      <View className="rounded-lg" />\n    </View>\n  )\n}\n'
+      // 档位表必须随夹具走:collect 对"表取不到而组件在用圆角"判失明。
+      // 逐条目一行的真表同构(objectEntries 按行取条目,单行对象会解析为 null)。
+      fx['packages/design-tokens/src/radius.js'] = [
+        'export const RADIUS_STEPS = {',
+        '  xs: 2,',
+        '  md: 6,',
+        '  lg: 8,',
+        '  xl: 12,',
+        "  '2xl': 16,",
+        '}',
+        'export const RADIUS_ROLES = {',
+        "  chip: 'md',",
+        "  card: 'lg',",
+        '}',
+        '',
+      ].join('\n')
+      const dir = makeFixtureRepo(fx)
+      try {
+        const got = collect(dir, 'head')
+        const rd = audit(got.pairs, got.text, {}, got.tiers, got.radius, got.styles ?? {})
+        const rs = rootSlotAudit(got.pairs, got.text, got.radius, got.styles ?? {})
+        const f = rd.findings.find((x) => x.name === 'Foo')
+        const r = rs.findings.find((x) => x.name === 'Foo')
+        // 前提:RD 读 0(两侧集合相同 ⇒ 元素级也凑平,这一族不进 RD findings)
+        // `rs.undetermined.length === 0` 这条不可省:空 findings 有两个来源(真的一致 / 判据瞎了),
+        // 只看 findings 分不开 —— 而"分不开"正是本维要修的那个推断本身。
+        return (
+          !f &&
+          rs.undetermined.length === 0 &&
+          !!r &&
+          JSON.stringify(r.miniapp) === '[16]' &&
+          JSON.stringify(r.rn) === '[]'
+        )
+      } catch (e) {
+        return `抛错:${e?.message ?? e}`
+      } finally {
+        rmScratch(dir)
+      }
     })(),
   )
   console.log(`--self-test:${pass} 通过 / ${fail} 失败`)
