@@ -4652,6 +4652,22 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 注册表工作树超集对账(package.json / guardian-runner 的已入库入口被工作树副本整行写回旧态;今日 28 份注册表零存量 ⇒ blocking,只在 --staged 面问责)(1 项,blocking)---
+  {
+    id: '192',
+    label:
+      '注册表工作树超集对账(package.json / guardian-runner 的已入库入口被工作树副本整行写回旧态;今日 28 份注册表零存量 ⇒ blocking,只在 --staged 面问责)',
+    script: 'check-registry-worktree-superset.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_REGISTRY_WORKTREE_SUPERSET',
+    stagedTriggers: ['package.json', 'scripts/guardian-runner.mjs'],
+    onFailHint: [
+      '',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
