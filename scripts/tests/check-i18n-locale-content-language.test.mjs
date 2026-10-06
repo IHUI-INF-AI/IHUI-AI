@@ -41,6 +41,15 @@ const LOCALE_CODES = ['zh-CN', 'zh-TW', 'ja', 'ko', 'en']
 
 /** 门侧的 E3 判据(叶子级专名豁免)。走 __test__ 导出,不重抄一份实现(§22c)。 */
 const properNounLeaf = gate.properNounLeaf
+/** 门侧的 E4 判据(叶子级双语标注豁免)。同样走 __test__,不重抄。 */
+const bilingualAnnotationLeaf = gate.bilingualAnnotationLeaf
+
+/**
+ * **真·**常用汉字表 + 专名集(走门自己的 loader,与 CLI 同一张表、同一个面)。
+ * M9 要判"超旧上限的 ja 块必须照判",所以判据里必须有真表 —— 用合成表的话
+ * `整理會話/資料夾/標籤` 这些字全都表外,块的汉字占比门槛会走偏,阳性对照就废了。
+ */
+const REAL_JOYO = gate.loadJoyo(REPO_ROOT, 'worktree')
 
 function run(args, opts = {}) {
   return spawnSync(process.execPath, [SCRIPT, ...args], {
@@ -53,14 +62,24 @@ function run(args, opts = {}) {
 }
 
 /**
- * 造 5 份语言包。三个开关各自对应一类真事故形态:
+ * 造 5 份语言包。四个开关各自对应一类真事故形态:
  *  - `jaHanOnlyBlock` ja 的某块整体是繁体中文(① 号形态;默认开着,便于 M4/M5 直接看见)
  *  - `wrongLang`      zh-TW 的那一块整体是谚文(② 号形态)
  *  - `nesting`        `toast.orgSaved:{orgSaved:"…"}` 同名自套一层(④ 号形态)
  *  - `endonym`        语言选择器键(`settings.ko`)按设计显示该语言本名 —— E2 必须放行它
+ *  - `enResidue`      **en.json 里塞一段未翻译的中文**(2026-10-06 新增)。这一型在改动前
+ *                     **结构上看不见**:en 整门被 `LOCALE_MATRIX` 判为"不判",门在叶子循环之前
+ *                     就 return;而 `check-i18n-broken-en.mjs` 只接了 7 面中的 3 面。M13 靠它
+ *                     证明"en 那格洞真的堵上了",而不是只证明 E4 放过合法形状。
  */
 function writeLocale(dir, o = {}) {
-  const { jaHanOnlyBlock = true, wrongLang = false, nesting = false, endonym = false } = o
+  const {
+    jaHanOnlyBlock = true,
+    wrongLang = false,
+    nesting = false,
+    endonym = false,
+    enResidue = false,
+  } = o
   const web = join(dir, 'packages', 'i18n', 'messages', 'web')
   mkdirSync(web, { recursive: true })
   const cnOrg = { title: '整理会话', folderLabel: '文件夹', tagsLabel: '标签' }
@@ -89,6 +108,10 @@ function writeLocale(dir, o = {}) {
       aiChat: {
         org: { title: 'Organize', folderLabel: 'Folder', tagsLabel: 'Tag' },
         toast: { orgSaved: 'Saved' },
+        // 未翻译的中文残留:括号外全是汉字,没有任何"双语标注"解释
+        ...(enResidue ? { untranslated: { title: '会话整理', send: '发送消息' } } : {}),
+        // 合法形状:逐字取自 HEAD 面 web/en.json::about.metaDescription
+        brandNote: 'IHUI AI (智汇 AI) is an all-in-one full-stack AI operating system.',
       },
       settings,
     },
@@ -433,8 +456,13 @@ test('M8 未判定不得被读成通过:缺常用汉字表 ⇒ L1b 记未判定,
   }
 })
 
-test('M9 反向回归锁:文件级扫描不得受块上限截断(本门第一次真仓实跑就栽在这里)', () => {
-  const N = gate.MAX_LEAVES_PER_BLOCK + 30
+test('M9 反向回归锁:文件级与块级都不得截断(本门两次真仓实跑都栽在这一型)', () => {
+  // ⚠️ `MAX_LEAVES_PER_BLOCK`(4000)已于 2026-10-06 连参数一起删除,理由见门侧 collectLeaves 的注释:
+  //   它保护不了任何东西(文件级本来就是全量),却把 `web/ja.json::admin`(4,804 叶)变成永久
+  //   未判定 ⇒ `--strict` 永远 exit 2。所以这里用**字面量** 4000 当"必须被超过的下界",
+  //   而不是 import 那个已不存在的常量 —— 有人把上限加回来(哪怕调到 5 万),本条仍必须红。
+  const LEGACY_CAP = 4000
+  const N = LEGACY_CAP + 30
   const deep = {}
   for (let i = 0; i < N; i++) deep[`k${i}`] = `plain ${i}`
   deep[`k${N - 1}`] = '한국어입니다'
@@ -461,23 +489,49 @@ test('M9 反向回归锁:文件级扫描不得受块上限截断(本门第一次
     joyo: new Set(),
   })
   assert.ok(noZh.undetermined.length >= 1, '无对照文件时那一叶必须落进未判定,不能静默')
-  // 块级上限**仍然**生效,并且截断必须落进未判定(不是静默少扫)
+  // 块级**同样不截断**(2026-10-06 新增,替代旧的反向断言):造一个叶子数超过旧上限的 ja 块,
+  // 块尾放三叶真残留(繁体中文)。旧实现会记"未判定"而**不判**;现在必须照判 + 报出最大块。
   const bigBlock = {}
-  for (let i = 0; i < gate.MAX_LEAVES_PER_BLOCK + 5; i++) bigBlock[`k${i}`] = `x ${i}`
+  for (let i = 0; i < LEGACY_CAP + 5; i++) bigBlock[`k${i}`] = `x ${i}`
+  Object.assign(bigBlock, { bad1: '整理會話', bad2: '資料夾', bad3: '標籤' })
   const tr = gate.scanLocaleContent(
-    'x/web/ko.json',
+    'x/web/ja.json',
     { huge: { inner: bigBlock } },
     {
       locale: 'ja',
       localeCodes: LOCALE_CODES,
       zhCnObj: null,
       zhCnMissing: false,
-      joyo: new Set(['x']),
+      joyo: REAL_JOYO.set,
+      proper: REAL_JOYO.proper,
     },
   )
+  assert.equal(
+    tr.undetermined.length,
+    0,
+    `没有任何块该因大而进未判定,实得 ${JSON.stringify(tr.undetermined)}`,
+  )
+  // 块是**递归**遍历的,所以 `huge` 与 `huge.inner` 都会被判(两者的 usable 都 ≥3 叶汉字)。
+  // 这里断言的是"超上限的块**被判了**",不是"只被判一次" —— 判红条数会随块形状变,
+  // 把它写死成一个数就是给判据套一个跟数据走的锁。
+  const hugePaths = tr.l1b.map((x) => x.path)
   assert.ok(
-    tr.truncatedBlocks >= 1 && tr.undetermined.some((t) => /上限/.test(t)),
-    `块级截断必须报数并进未判定,实得 ${JSON.stringify(tr.undetermined)}`,
+    hugePaths.includes('huge') && hugePaths.includes('huge.inner'),
+    `超旧上限(${LEGACY_CAP})的 ja 块必须**照判**,实得 ${JSON.stringify(hugePaths)}`,
+  )
+  assert.ok(
+    tr.l1b.every((x) => x.leaves >= 3),
+    '判红条目必须带真实叶数(证明它是被全量判过的,不是被截断后凑出来的)',
+  )
+  assert.ok(
+    tr.maxBlockLeaves >= LEGACY_CAP + 5 && tr.maxBlockPath === 'huge',
+    `块的大小必须仍然**可见**(上限删了,可视性不能跟着删),实得 ${tr.maxBlockLeaves}/${tr.maxBlockPath}`,
+  )
+  // 截断计数已从结论对象里彻底删除 —— 它若回来,说明块级上限又被加回来了
+  assert.ok(!('truncatedBlocks' in tr), 'truncatedBlocks 不得复活(块级上限已删)')
+  assert.ok(
+    !('MAX_LEAVES_PER_BLOCK' in gate) && !('truncatedAt' in gate),
+    '已删除的上限常量与 truncatedAt 不得复活',
   )
 })
 
@@ -646,6 +700,81 @@ test('M12 专名集缺失 ⇒ 记未判定且照判(不得因判不出就静默�
     const strict = run(['--worktree', '--root', dir, '--strict'])
     assert.equal(strict.status, 1, `--strict 下判不出 E3 的块必须判红,实得 ${strict.status}`)
     assert.match(lastLine(strict.stdout), /判红 1/, lastLine(strict.stdout))
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('M13 en 参与 L1:合法双语标注走 E4 放过,未翻译中文必须判红(2026-10-06 堵"en 整门不判"那个洞)', () => {
+  const dir = mkScratch('i18n-lang-en-l1')
+  try {
+    initRepo(dir)
+    // 夹具带:ja 的繁体中文块(阳性对照,证明门本身是活的)+ en 的合法双语标注 + en 的真残留
+    writeLocale(dir, { jaHanOnlyBlock: true, wrongLang: false, enResidue: true })
+    // ---- 判据纯函数层:E4 的正反成对 ----
+    assert.equal(
+      bilingualAnnotationLeaf('IHUI AI (智汇 AI) is an all-in-one OS.').ok,
+      true,
+      'HEAD 面 web/en 的真形状必须豁免',
+    )
+    assert.equal(
+      bilingualAnnotationLeaf('会话整理').ok,
+      false,
+      '整段未翻译中文绝不可豁免(这是 E4 的全部意义)',
+    )
+    assert.equal(
+      bilingualAnnotationLeaf('整理会话 (Organize chats)').ok,
+      false,
+      '汉字在括号外 ⇒ 是正文不是标注',
+    )
+    // ---- 门层:en.json 的真残留必须被 L1a 点名 ----
+    const scanned = fullScan(dir, 'worktree')
+    const enHits = scanned.s.l1a.filter((x) => x.rel.endsWith('/en.json'))
+    assert.deepEqual(
+      enHits.map((x) => x.path).sort(),
+      ['aiChat.untranslated.send', 'aiChat.untranslated.title'],
+      `en.json 的未翻译中文必须被点名,实得 ${JSON.stringify(enHits.map((x) => x.path))}`,
+    )
+    assert.ok(
+      enHits.every((x) => x.marks === 'han'),
+      `en 的这处必须是 han 族矛盾,实得 ${JSON.stringify(enHits.map((x) => x.marks))}`,
+    )
+    const enE4 = scanned.s.exemptBilingual.filter((x) => x.rel.endsWith('/en.json'))
+    assert.deepEqual(
+      enE4.map((x) => x.path),
+      ['aiChat.brandNote'],
+      `合法双语标注必须走 E4 放过,实得 ${JSON.stringify(enE4.map((x) => x.path))}`,
+    )
+    // E4 **不得**把 ja 的繁体块一起放过(豁免名单里不该出现 ja 的键)
+    assert.ok(
+      !scanned.s.exemptBilingual.some((x) => x.rel.endsWith('/ja.json')),
+      'E4 只为 han 的双语标注而设,不得越界豁免别的 locale',
+    )
+    // ---- CLI 层:默认档只报数,--strict 问责;且**不得**因为 en 而产生未判定 ----
+    const rep = run(['--worktree', '--root', dir])
+    assert.equal(rep.status, 0, `默认档必须 0:\n${rep.stdout}`)
+    assert.match(rep.stdout, /en\.json :: aiChat\.untranslated\.title/, '必须点名到键路径')
+    assert.match(
+      rep.stdout,
+      /E4 双语标注\(叶子级,en 括号内对照\)1 处/,
+      'E4 命中数必须打印(夹具里恰好一处合法标注)',
+    )
+    // 这里断的是"**en 不再产生未判定**",不是"整个夹具零未判定" —— 夹具没建 scripts/joyo-kanji.json
+    // 的 properNouns,ja 那侧会 legitimately 记一条"E3 判不出"(那是 M12 覆盖的另一型)。
+    // 写成"未判定 0"会把 E3 那条也一起要求掉,于是本测试在夹具不改进的情况下长期红。
+    assert.match(
+      lastLine(rep.stdout),
+      /未判定 \d+/,
+      `结论行必须带未判定计数:\n${lastLine(rep.stdout)}`,
+    )
+    assert.ok(
+      !/en\.json:locale「en」的 L1 刻意不判/.test(rep.stdout) &&
+        !/en\.json[^\n]*判不出|判不出[^\n]*en\.json/.test(rep.stdout),
+      `en 不得再产生任何未判定条目,实得:\n${rep.stdout}`,
+    )
+    const strict = run(['--worktree', '--root', dir, '--strict'])
+    assert.equal(strict.status, 1, `--strict 必须把 en 的残留判红,实得 ${strict.status}`)
+    assert.match(lastLine(strict.stdout), /判红 3/, lastLine(strict.stdout)) // 2 处 en + 1 个 ja 块
   } finally {
     rmScratch(dir)
   }
