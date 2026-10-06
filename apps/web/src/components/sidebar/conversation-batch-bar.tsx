@@ -6,7 +6,7 @@
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Archive, ArchiveRestore, FolderInput, Trash2 } from 'lucide-react'
+import { Archive, ArchiveRestore, FolderOpen, Trash2 } from 'lucide-react'
 import type { BatchConversationAction } from '@ihui/api-client'
 import { Button, Checkbox } from '@ihui/ui-react'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
@@ -40,11 +40,7 @@ export interface ConversationBatchBarProps {
   onInvert: () => void
   /** 发起批量动作(delete 会先走二次确认,由本组件内部拦下) */
   onBatch: (action: BatchConversationAction) => void
-  /**
-   * D165:打开「移动所选到分组」对话框。
-   * 归类动作与归档/删除不同 —— 它不改后端行状态、只写客户端分组归属,
-   * 所以不进 onBatch 的 BatchConversationAction 枚举,由宿主持有对话框。
-   */
+  /** D165:移动所选到分组(打开目标分组对话框,单选/批量共用同一提交面) */
   onMoveToGroup: () => void
   /**
    * 「取消选择」= 清空选中,但**留在**多选态。
@@ -101,7 +97,6 @@ export function ConversationBatchBar({
         >
           <span>{t('invertSelection')}</span>
         </Button>
-        {/* D165:批量归类入口(对话框由宿主持有,本组件只负责把动作递出去) */}
         <Button
           variant="ghost"
           size="xs"
@@ -109,7 +104,7 @@ export function ConversationBatchBar({
           disabled={disabled}
           data-testid="batch-move-to-group"
         >
-          <FolderInput className="mr-1 h-3.5 w-3.5" />
+          <FolderOpen className="mr-1 h-3.5 w-3.5" />
           <span>{t('moveSelectedToGroup')}</span>
         </Button>
         <Button

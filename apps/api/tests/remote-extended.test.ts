@@ -61,10 +61,10 @@ import { remoteExtendedRoutes } from '../src/routes/remote-extended'
 import { db } from '../src/db/index.js'
 
 const AUTH_HEADERS = { authorization: 'Bearer mock-access-token' }
-
-// agents.agent_id 是 uuid 列,路由侧 favoriteAgentSchema 已收紧成 z.uuid(防 22P02 ⇒ 500),
-// 这里原先用 'agent-001' 字面量会被 400 挡下 / DELETE 被 404 挡下 —— 改账不改制:改用合法 UUID。
-const AGENT_ID = '55555555-5555-4555-8555-555555555555'
+// agents.agent_id 是 uuid 列：POST /remote/agent/favorite 走 eq(agents.agentId, …)
+// (DELETE 侧走 agent_id::text)。原 fixture 用 'agent-001' 这种串 —— 形状上永远不可能
+// 命中真实 uuid 列,只因查询层被桩掉才"看起来能过"。现改为合法 uuid。
+const MOCK_AGENT_ID = '123e4567-e89b-42d3-a456-426614174000'
 
 describe('remote-extended routes', () => {
   const server = Fastify({ logger: false })
@@ -112,7 +112,7 @@ describe('remote-extended routes', () => {
       const res = await server.inject({
         method: 'POST',
         url: '/api/remote/agent/favorite',
-        body: { agentId: AGENT_ID },
+        body: { agentId: MOCK_AGENT_ID },
       })
       expect(res.statusCode).toBe(401)
     })
@@ -120,7 +120,7 @@ describe('remote-extended routes', () => {
     it('DELETE /api/remote/agent/favorite/:agentId 未登录返回 401', async () => {
       const res = await server.inject({
         method: 'DELETE',
-        url: `/api/remote/agent/favorite/${AGENT_ID}`,
+        url: `/api/remote/agent/favorite/${MOCK_AGENT_ID}`,
       })
       expect(res.statusCode).toBe(401)
     })
@@ -211,7 +211,7 @@ describe('remote-extended routes', () => {
         method: 'POST',
         url: '/api/remote/agent/favorite',
         headers: AUTH_HEADERS,
-        body: { agentId: AGENT_ID },
+        body: { agentId: MOCK_AGENT_ID },
       })
       expect(res.statusCode).toBe(201)
       expect(res.json().code).toBe(0)
@@ -220,7 +220,7 @@ describe('remote-extended routes', () => {
     it('DELETE /api/remote/agent/favorite/:agentId 返回 200', async () => {
       const res = await server.inject({
         method: 'DELETE',
-        url: `/api/remote/agent/favorite/${AGENT_ID}`,
+        url: `/api/remote/agent/favorite/${MOCK_AGENT_ID}`,
         headers: AUTH_HEADERS,
       })
       expect(res.statusCode).toBe(200)

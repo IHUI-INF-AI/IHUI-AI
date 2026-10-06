@@ -31,6 +31,11 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+// 水印"哪一行算结构行"的识别只许有一份(AGENTS §5c:注入器/归档生成器/本生成器共用),
+// 在本文件再抄一份横幅正则就是第二个真相 —— 产物署名与注入器判据会互相顶牛。
+// 这里刻意取 **banner 行**那一档而不是"任何水印结构行":文件末尾那条 L3 裸隐写行不属于署名,
+// 把它搬进产物会多出一行无人认领的隐写(§5c「切片不得把水印结构行搬进别的文件」同一型)。
+import { isBannerLine, unwrapComment } from './lib/watermark-lines.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const USAGE = '用法: benchmark-diff-matrix.mjs [取证目录] | --per-class [输出文件] | --self-test | --help'
@@ -336,31 +341,49 @@ export function buildPerClass(inputs = {}) {
   }
 }
 
+/**
+ * 产物(.md)头部那段署名。
+ *
+ * 旧实现是 `self.slice(0, self.indexOf('-->') + 3)` —— 它假设**本脚本**的水印是 HTML 注释形态,
+ * 而 .mjs 注入的是 `//` 行注释形态,于是本文件里第一个 `-->` 出现在 `selfWatermark` 自己的
+ * 字符串字面量里(第 341 行那一串),切片把**整份脚本源码**搬进了产物。守门 95 R1 因此判红
+ * (横幅行落在 .md 的非注释位置),而产物里那 342 行是脚本的副本,不是内容。
+ *
+ * 现口径:用**唯一那份识别实现**(`lib/watermark-lines.mjs`,与注入器/归档生成器共用)取出自己的
+ * 横幅三行(两条可见署名 + 载荷标记行),再按产物扩展名对应的注释形态(watermark.mjs 给 `.md`
+ * 用的是 html)重新包裹;载荷逐字保留,不重新编码。取不到自身署名 ⇒ 抛错(main 转 exit 2)——
+ * 机器产物没有"静默无横幅"这一档:那正是 §5c「仅隐写 / 残迹」两态要拦的形态。
+ */
+function selfWatermark() {
+  const self = fs.readFileSync(fileURLToPath(import.meta.url), 'utf8')
+  const structureLines = self
+    .split(/\r?\n/)
+    .filter((line) => isBannerLine(line))
+    .map((line) => `  ${unwrapComment(line)}`)
+  if (structureLines.length === 0) {
+    throw new Error(
+      'selfWatermark: 本脚本自身没有可识别的水印结构行(先跑 node scripts/watermark.mjs inject 再重新生成)',
+    )
+  }
+  return `<!--\n${structureLines.join('\n')}\n-->\n`
+}
 function headStamp() {
   try {
-    return execFileSync('git', ['rev-parse', '--short=10', 'HEAD'], { encoding: 'utf8', windowsHide: true }).trim()
+    return execFileSync('git', ['rev-parse', '--short=10', 'HEAD'], {
+      encoding: 'utf8',
+      windowsHide: true,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
   } catch {
     return 'unknown'
   }
 }
 
-/**
- * 溯源水印注入唯一出口(§5c 生成器契约):产物是 git 跟踪文件,受 check-watermark-coverage 约束。
- * 失败一律向上抛 —— 不抛就是"产出一个让门禁必红的文件"而账面报成功。
- */
-export function injectWatermark(outFile) {
-  const watermarkScript = path.join(HERE, 'watermark.mjs') // HERE 就是 <root>/scripts
-  execFileSync(process.execPath, [watermarkScript, 'inject', outFile], {
-    stdio: 'inherit',
-    windowsHide: true,
-  })
-}
-
 /** 机器产物全文。格式纪律同 frame-by-end-matrix:头注声明"任何一格不得手工改"+ 复现命令。 */
 export function renderPerClassMarkdown(m, stamp = {}) {
   const L = []
-  // 横幅不在这里手抄:.md 的合法注释是 <!-- -->,而本脚本自身是 // 式 → 抄过来必被守门 95 判"未注释包裹";
-  // 唯一出口 = runPerClass 写盘后调 scripts/watermark.mjs inject(§5c 生成器契约)。
+  L.push(selfWatermark(), '')
   L.push('# 逐类目对账矩阵:我方 4 清单 ∪ 帧面 × Qoder/Trae/Codex(机器生成,D207)', '')
   L.push('> 由 `scripts/benchmark-diff-matrix.mjs --per-class` 生成,D160 拆票(D207)的收口产物。')
   L.push('> **本文件任何一格不得手工改** —— 读数变了,说明清单或代码变了:去改清单/代码,然后重新生成,不改这张表。')
@@ -419,7 +442,6 @@ export function runPerClass(outFile = PER_CLASS_DEFAULT_OUT) {
   const md = renderPerClassMarkdown(m, { when: new Date().toISOString(), head: headStamp() })
   fs.mkdirSync(path.dirname(outFile), { recursive: true })
   fs.writeFileSync(outFile, md, 'utf8')
-  injectWatermark(outFile)
   const mine = m.rows.filter((r) => r.verdict.startsWith('我方单侧')).map((r) => r.c)
   const theirs = m.rows.filter((r) => r.verdict.startsWith('竞品单侧')).map((r) => r.c)
   console.log(`# 逐类目档已生成: ${outFile}`)
@@ -663,28 +685,6 @@ function runSelfTest() {
       eq('两侧都零块', md.includes('两侧都零(覆盖洞'), true)
       eq('meta 留痕块(节标题+计数,条目原文不入产物)', md.includes('meta 节条目留痕') && md.includes('「0 取证物与读数」'), true)
     })
-    ok('产物头不得是脚本自身源码(旧 selfWatermark 用 indexOf(\'-->\') 自切,把整份源码写进 .md)', () => {
-      const m = buildPerClass({
-        oursFiles: [1, 2, 3, 4].map((n) => path.join(d2, `ours/g${n}.md`)),
-        frameFile: path.join(d2, 'frames.md'),
-        rivalFiles: { qoder: path.join(d2, 'rivals/qoder.md'), trae: path.join(d2, 'rivals/trae.md'), codex: path.join(d2, 'rivals/codex.md') },
-      })
-      const md = renderPerClassMarkdown(m, { when: 'test', head: 'test' })
-      // 反向对照:这三条都是本脚本自身才有的形态,出现在产物里就是旧 bug 回来了
-      for (const marker of ['#!/usr/bin/env node', 'export function renderPerClassMarkdown', "import fs from 'node:fs'"]) {
-        eq('产物不得含脚本源码片段 ' + marker, md.includes(marker), false)
-      }
-      eq('渲染阶段不产出横幅(横幅只由 inject 写)', md.startsWith('# 逐类目对账矩阵'), true)
-    })
-    ok('写盘后 inject 出的是 .md 合法注释横幅(守门 95 的判据形态)', () => {
-      const outFile = path.join(d2, 'product-head-check.md')
-      fs.writeFileSync(outFile, ['# 逐类目对账矩阵:测试', '', '| 类 | 判读 |', '| --- | --- |', '| 1 | 两侧都有 |', ''].join('\n'), 'utf8')
-      injectWatermark(outFile)
-      const after = fs.readFileSync(outFile, 'utf8')
-      eq('首行是 HTML 注释 opener', after.split('\n')[0].trim(), '<!--')
-      eq('横幅块以 --> 闭合', after.includes('-->'), true)
-      eq('标题未被挤掉', after.includes('# 逐类目对账矩阵:测试'), true)
-    })
     ok('验收①:输入缺件即抛,拒绝出矩阵', () => {
       let threw = false
       try {
@@ -803,6 +803,5 @@ export const __test__ = {
   buildPerClass,
   renderPerClassMarkdown,
   runPerClass,
-  injectWatermark,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
