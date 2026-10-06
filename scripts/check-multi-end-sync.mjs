@@ -39,6 +39,8 @@
 import { readFileSync } from 'node:fs'
 import { execSync } from 'node:child_process'
 import { join } from 'node:path'
+// AGENTS.md §22d: Windows 反斜杠路径须经 pathToFileURL 归一化后才能与 import.meta.url 比对
+import { pathToFileURL } from 'node:url'
 
 const ROOT = process.cwd()
 
@@ -184,7 +186,9 @@ function isTaskLabeledSharedPackage(entry) {
   return false
 }
 
-function main() {
+/** 判定内核: staged 分类 → 4 场景判据 → warn/pass 输出与退出码
+ *  (AGENTS.md §22d: 必须 async, 便于 if (isDirectRun) 的 .catch 兜住异常 ⇒ exit 2) */
+async function main() {
   const staged = getStagedFiles()
 
   if (staged.length === 0) {
@@ -345,5 +349,26 @@ function main() {
   process.exit(0)
 }
 
-main()
+// ─── AGENTS.md §22d: 双形态入口守护 ────────────────────────────────────
+// CLI 直跑(node scripts/check-multi-end-sync.mjs / .husky/pre-commit 第 21 项)⇒ 执行入口;
+// 被测试 import ⇒ 零副作用(不跑判据流程、不调 git diff、不 process.exit)。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main().catch((e) => {
+    console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
+    process.exit(2)
+  })
+}
+
+// AGENTS.md §22c: 暴露判据单元(端清单 / 判定函数)给镜像测试直接 import,
+// 测试不得再自抄一份(消除"第二份真相")。
+export const __test__ = {
+  END_MAP,
+  ALL_ENDS,
+  classifyFile,
+  getActiveTaskEntry,
+  isTaskLabeledSingleEnd,
+  isTaskLabeledSharedPackage,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
