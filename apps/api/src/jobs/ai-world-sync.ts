@@ -25,10 +25,6 @@ import RSSParser from 'rss-parser'
 import * as cheerio from 'cheerio'
 import { parquetReadObjects } from 'hyparquet'
 import { ProxyAgent, fetch as undiciFetch } from 'undici'
-import {
-  boundedDeadlineFetchImpl,
-  type EgressTransport,
-} from '../utils/proxy-dispatcher.js'
 import { and, eq, gte, sql } from 'drizzle-orm'
 import {
   aiWorldCategories,
@@ -44,7 +40,11 @@ import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import { logger } from '../utils/logger.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import { getSystemAccessToken } from '../utils/system-access-token.js'
-import { fetchWithinDeadline, mergedSignal } from '../utils/fetch-deadline.js'
+import {
+  fetchWithinDeadline,
+  mergedSignal,
+  type FetchDeadlineImpl,
+} from '../utils/fetch-deadline.js'
 
 // ===== 类型定义 =====
 
@@ -572,27 +572,16 @@ const fetchWithTimeout = async (
     const dispatcher = getSyncProxyAgent(proxyUrl)
     if (dispatcher) {
       // 2026-09-05 根治:Node 22.22 的全局 fetch 已移除 RequestInit.dispatcher 支持
-      // (实测 UND_ERR_INVALID_ARG),代理分支必须用 undici 自带 fetch 显式传 dispatcher。
-      // G-749(2026-10-03):两个分支都收进 boundedEgressFetch 同一个有界主循环 ——
-      // 代理侧传 dispatcher transport,直连侧不传;重定向跟随、跨 origin 剥头、
-      // 字节上限全在主循环里,本文件不得抄第二遍。
-      const dispatcherTransport: EgressTransport = (targetUrl, init) =>
-        undiciFetch(targetUrl, {
-          method: init.method,
-          headers: init.headers,
-          body: init.body,
-          redirect: 'manual',
-          signal: init.signal,
-          dispatcher,
-        } as never).then((r) => r as unknown as Response)
-      return fetchWithinDeadline(url, opts, {
+      // (实测 UND_ERR_INVALID_ARG),代理分支必须用 undici 自带 fetch 显式传 dispatcher
+      const proxiedInit: RequestInit & { dispatcher?: unknown } = { ...opts, dispatcher }
+      return fetchWithinDeadline(url, proxiedInit, {
         timeoutMs,
         label,
-        fetchImpl: boundedDeadlineFetchImpl(dispatcherTransport),
+        fetchImpl: undiciFetch as unknown as FetchDeadlineImpl,
       })
     }
   }
-  return fetchWithinDeadline(url, opts, { timeoutMs, label, fetchImpl: boundedDeadlineFetchImpl() })
+  return fetchWithinDeadline(url, opts, { timeoutMs, label })
 }
 
 /** SYNC_PROXY_URL 对应的 ProxyAgent 单例(懒加载,进程内复用连接池) */
