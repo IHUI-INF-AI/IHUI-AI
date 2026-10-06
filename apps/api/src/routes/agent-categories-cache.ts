@@ -78,6 +78,27 @@ function toPositiveInt(v: string | undefined, fallback: number): number {
   return Number.isFinite(n) && n > 0 ? n : fallback
 }
 
+/**
+ * G-1058623③ 公开双键分类字典的**唯一**推导出口(admin 列表与公开端点共用同一份语义)。
+ *
+ * field2 是源端语义,不得漂移:'1'=赛道 → `agentCategory`,'0'=种类 → `agentMainCategory`。
+ * 两个刻意的设计点:
+ *  - **无 field2 的条目两组都不落** —— 无法诚实归类就不猜,宁可让 RN 侧继续走它的静态 fallback;
+ *  - `name` 缺省回退 `key` —— 不把 `undefined` 塞进 JSON(那会让客户端读到 `name: undefined` 而静默退化)。
+ * 排序口径与 admin 列表一致:`sort` 升序,同值按 `key` 的 localeCompare,免得两端顺序分叉。
+ */
+export function buildAgentCategoryDict(): {
+  agentCategory: Array<{ id: string; name: string }>
+  agentMainCategory: Array<{ id: string; name: string }>
+} {
+  const pickGroup = (field2: string): Array<{ id: string; name: string }> =>
+    Array.from(cacheStore.values())
+      .filter((entry) => entry.field2 === field2)
+      .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || a.key.localeCompare(b.key))
+      .map((entry) => ({ id: entry.key, name: entry.name ?? entry.key }))
+  return { agentCategory: pickGroup('1'), agentMainCategory: pickGroup('0') }
+}
+
 // =============================================================================
 // Routes plugin
 // =============================================================================
