@@ -4668,6 +4668,22 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- §22d 入口守卫对账(1 项,blocking)---
+  {
+    id: '194',
+    label:
+      '🧯 §22d 入口守卫对账:scripts/**.mjs 不得顶层裸 main()(现读存量 54 走差值棘轮,只拦本次新增)',
+    script: 'check-direct-run-guard.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_DIRECT_RUN_GUARD',
+    stagedTriggers: ['scripts/'],
+    onFailHint: [
+      '',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
