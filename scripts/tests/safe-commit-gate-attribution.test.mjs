@@ -932,4 +932,220 @@ test('反向回归锁:没有汇总块时,必须先试"那一步有没有点名�
   assert.ok(unattr >= 0 && blame < unattr, '定责尝试必须排在未归因出口之前,顺序反了等于没有')
 })
 
+/**
+ * G-1058649:环境性失败(git 步骤没跑完)曾被归属铰链判成"本任务自己的红"⇒ 禁止跳门。
+ *
+ * 实测载体(2026-10-06 两枚被拒的提交,留痕 kind=mine):
+ *   20:02:49 那一轮 eslint 报了 2 个**真错** ⇒ 判 mine 是对的;
+ *   20:08:46 那一轮 lint-staged 的 git 步骤死在 EBUSY(eslint 全程 `✔`、通篇没有本任务路径)
+ *   ⇒ 它自己的输出定不了责,而 `blameFromFailedStep(fallbackText)` 从 256KB 日志尾部
+ *   **借用了上一轮**的 eslint 报告 ⇒ 又判 mine ⇒ 已修好的红继续替本轮挡门。
+ * 夹具逐行取自 .workbuddy/hook-logs/pre-commit.log:21529-21626 与 :21254-21308 的真实形状。
+ */
+const DECLARED3 = [
+  'scripts/check-exemption-expiry.mjs',
+  'scripts/check-test-judge-not-replicated.mjs',
+  'scripts/tests/check-test-judge-not-replicated.test.mjs',
+]
+const ESLINT_TASK_ECHO = `🎨 运行 lint-staged...
+⋯ Running tasks for staged files…
+    *.{ts,tsx,js,jsx,mjs,cjs} — 3 files
+      ⋯ eslint --fix --ignore-pattern '**/public/**' --ignore-pattern '**/e2e/**'
+`
+/** 纯 warning 块(0 errors)+ git 步骤失败指纹 —— 本票的误伤形态。 */
+const ENV_BLOCKED_TEXT = `${ESLINT_TASK_ECHO}
+G:\\IHUI-AI\\scripts\\check-exemption-expiry.mjs
+  1256:33  warning  Unexpected console statement. Only these console methods are allowed: warn, error, info  no-console
+  1257:3   warning  Unexpected console statement. Only these console methods are allowed: warn, error, info  no-console
+  1356:5   warning  Unexpected console statement. Only these console methods are allowed: warn, error, info  no-console
+
+✖ 25 problems (0 errors, 25 warnings)
+✖ Failed to stage changes from tasks!
+  ✖ lint-staged failed due to a git error.
+❌ 🎨 运行 lint-staged...失败，提交已阻止
+`
+/** 同一份文本,只把该文件块的第一行换成真 error ⇒ 必须翻回 mine(证明 kind 是判据给的)。 */
+const REAL_RED_TEXT = ENV_BLOCKED_TEXT.replace(
+  '  1256:33  warning  Unexpected console statement. Only these console methods are allowed: warn, error, info  no-console',
+  "  1256:33  error  'x' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars",
+).replace('✖ 25 problems (0 errors, 25 warnings)', '✖ 25 problems (1 errors, 24 warnings)')
+
+const runGateGreen = () => ({ status: 0, output: '' })
+
+test('G-1058649-1 环境性失败不得判 mine:git 步骤指纹 + 纯 warning 表头 ⇒ env-blocked', () => {
+  const { classifyHookFailure, verdictLine, legacyWouldBlame } = __test__
+  const v = classifyHookFailure({
+    text: ENV_BLOCKED_TEXT,
+    stagedFiles: DECLARED3,
+    runGate: runGateGreen,
+  })
+  assert.equal(v.kind, 'env-blocked', `实得 ${v.kind}:${v.reason}`)
+  assert.equal(v.ranFullBatch, false, '批从未跑过,不得记成"全批已跑"')
+  assert.equal(v.envStep, '🎨 运行 lint-staged...', '必须点名是哪一步')
+  assert.ok(
+    v.envFingerprint.some((f) => /Failed to stage changes from tasks/.test(f)),
+    `环境指纹必须可机读,实得 ${JSON.stringify(v.envFingerprint)}`,
+  )
+  // ③「降级发生了」必须点名(否则下一人分不清这是纠偏还是拆防线)
+  assert.equal(v.downgradedFromMine, true, '旧判据会定责 ⇒ 必须显式登记这一格被降级')
+  assert.ok(legacyWouldBlame(ENV_BLOCKED_TEXT, DECLARED3), '前提:旧判据确实会在这段文本上判 mine')
+  const note = v.detail.find((l) => /原先会被判 mine/.test(l)) || ''
+  assert.match(note, /依据:未命中内容错形状/, '降级说明必须给出依据,不得只喊"降级了"')
+  assert.match(note, /不是拆防线|非拆防线/, '降级说明必须交代"这不是拆防线"')
+  const line = verdictLine(v)
+  assert.match(line, /环境性失败,不是你的红,也不是别人的红/, '措辞必须喊出这一型')
+  assert.ok(!/因他人代码/.test(line), '本仓禁止未量到的归因:不得写"因他人代码"')
+  assert.ok(!/不在本次提交内容里/.test(line), '反向锁:它没证明这件事')
+  assert.match(line, /tasklist|重跑/, '必须给可执行的下一步(重跑 / 查并发 git·node 进程)')
+})
+
+test('G-1058649-2 生死线不得放宽:同一行/同一块的内容错点名本任务文件 ⇒ 仍 mine', () => {
+  const { classifyHookFailure } = __test__
+  // 臂 A:表头行 + 其下 ≤4 行内有 error ⇒ 报错块表头即点名(2026-09-25 那条链不得被拆)
+  const a = classifyHookFailure({ text: REAL_RED_TEXT, stagedFiles: DECLARED3, runGate: runGateGreen })
+  assert.equal(a.kind, 'mine', `真 error 落在本任务文件上时必须仍 mine,实得 ${a.kind}`)
+  assert.match(a.reason, /禁止 --no-verify/)
+  // 臂 B:唯一变量是"那行是 warning 还是 error" ⇒ 两态必须可分,否则 A 是夹具碰巧
+  assert.notEqual(a.kind, 'env-blocked', 'A/1 两例只差在严重度列 ⇒ 结论必须可分')
+  // 臂 C:同行形态(路径与 行:列 error 在同一行)
+  const c = classifyHookFailure({
+    text: `⋯ eslint --fix\nscripts/foo.mjs 12:5  error  'x' is assigned a value but never used  no-unused-vars\n✖ Failed to stage changes from tasks!\n  ✖ lint-staged failed due to a git error.\n❌ 🎨 运行 lint-staged...失败，提交已阻止\n`,
+    stagedFiles: ['scripts/foo.mjs'],
+    runGate: runGateGreen,
+  })
+  assert.equal(c.kind, 'mine', `同行形态必须仍 mine(生死线),实得 ${c.kind}`)
+  assert.match(c.detail.join('\n'), /same-line/, '取证行要写明命中形态')
+  // 臂 D:tsc / prettier / eslint 汇总四形态各自"认得出"(逐条真机核过输出)
+  for (const [name, l] of [
+    ['tsc', 'src/a.ts(1,14): error TS2322: Type X is not assignable'],
+    ['tsc 裸行', 'error TS18003: No inputs were found'],
+    ['prettier', '[error] scripts/foo.mjs: SyntaxError: Expression expected. (1:26)'],
+    ['eslint 汇总', '✖ 27 problems (2 errors, 25 warnings)'],
+    ['prettier check', '[warn] Code style issues found in the above file.'],
+    ['mypy', 'app/x.py:32: error: Module has no attribute'],
+  ])
+    assert.equal(__test__.contentErrorLine(l), true, `内容错形状漏了 ${name} ⇒ 那一型继续逃逸`)
+  // 反向:每一形态的"非内容错"近亲都不得命中(加错一条就会误伤,故成对钉)
+  for (const [name, l] of [
+    ['裸 ✖', '✖ Failed to stage changes from tasks!'],
+    ['裸 failed', '  ✖ lint-staged failed due to a git error.'],
+    ['eslint 纯 warning(行内含 error 字样)', '  1256:33  warning  Only these console methods are allowed: warn, error, info  no-console'],
+    ['eslint 0 errors 汇总', '✖ 25 problems (0 errors, 25 warnings)'],
+    ['prettier 找不到文件', '[error] No files matching the pattern were found: "scripts/foo.mjs".'],
+    ['清单回显', '    *.{ts,tsx,js,jsx,mjs,cjs} — 3 files'],
+  ])
+    assert.equal(__test__.contentErrorLine(l), false, `${name} 不是内容错,命中它就是把环境指纹当违规`)
+})
+
+test('G-1058649-3 窗口里点名"他人文件"的内容错 ⇒ not-ours(既有语义不得改,且不得冒充"批内 0 失败")', () => {
+  const { classifyHookFailure, verdictLine } = __test__
+  const text = `${ESLINT_TASK_ECHO}
+G:\\IHUI-AI\\packages\\types\\src\\agent-control.ts
+  12:5  error  'x' is assigned a value but never used  no-unused-vars
+✖ 1 problem (1 error, 0 warnings)
+✖ Failed to stage changes from tasks!
+  ✖ lint-staged failed due to a git error.
+❌ 🎨 运行 lint-staged...失败，提交已阻止
+`
+  const v = classifyHookFailure({
+    text,
+    stagedFiles: DECLARED3,
+    runGate: runGateGreen,
+    foreignStaged: ['packages/types/src/agent-control.ts'],
+  })
+  assert.equal(v.kind, 'not-ours', `实得 ${v.kind}:${v.reason}`)
+  assert.match(v.reason, /本任务之外|不属于本次声明集/)
+  assert.equal(v.stepBlame, '🎨 运行 lint-staged...', '必须点名是哪一步')
+  assert.ok(!v.outsideStep, '这一型守门批从未跑,不得带 outsideStep 去走"批内 0 失败"那一档措辞')
+  assert.ok(!/批内 0 失败/.test(verdictLine(v)), '措辞不得替判据没做过的事背书')
+})
+
+test('G-1058649-4 blame 支必须绑轮:上一轮的 eslint 报告不得替本轮定责', () => {
+  const { classifyHookFailure, lastHookRound } = __test__
+  const stale = `==== 2026-10-06 20:02:49 :: scripts/lib/pre-commit-hook.js ====\n${REAL_RED_TEXT}`
+  const current = `==== 2026-10-06 20:08:46 :: scripts/lib/pre-commit-hook.js ====\n${ESLINT_TASK_ECHO}✔ eslint --fix\n✖ Failed to stage changes from tasks!\n  ✖ lint-staged failed due to a git error.\n❌ 🎨 运行 lint-staged...失败，提交已阻止\n`
+  assert.match(lastHookRound(`${stale}\n${current}`), /20:08:46/, '必须切到最后一轮')
+  const v = classifyHookFailure({
+    text: current.split('\n').slice(1).join('\n'),
+    fallbackText: `${stale}\n${current}`,
+    stagedFiles: DECLARED3,
+    runGate: runGateGreen,
+  })
+  assert.notEqual(v.kind, 'mine', '借上一轮的内容错来挡本轮 ⇒ 正是本票要关掉的门(实测 20:08:57 那枚 mine)')
+  assert.equal(v.kind, 'env-blocked', `本轮自己只有环境指纹,应落 env-blocked,实得 ${v.kind}`)
+  // 反向锁:认不出轮次头时**不得**把整段丢掉(否则第二输入源等于没有)
+  assert.ok(lastHookRound('无任何轮次头的一轮输出\n❌ x 失败，提交已阻止').includes('无任何轮次头'))
+})
+
+test('G-1058649-5 新 kind 必须接满:触发自跑、自跑失败保留 kind、留痕与分流都显式处理', () => {
+  const { needsBatchSelfRun, decideWithSelfRunBatch, classifyHookFailure, MY_FILES, SUMMARY, FAIL_29 } = __test__
+  const v = classifyHookFailure({ text: ENV_BLOCKED_TEXT, stagedFiles: DECLARED3, runGate: runGateGreen })
+  assert.equal(v.kind, 'env-blocked', '前提')
+  assert.equal(needsBatchSelfRun(v), true, '归因层手里没有门级结论 ⇒ 必须触发自跑取证')
+  // A) 自跑那一轮仍是环境指纹 ⇒ 原样保留 env-blocked(不得洗成 unattributed)
+  const keepA = decideWithSelfRunBatch({
+    verdict: v,
+    stagedFiles: DECLARED3,
+    hookText: '❌ 🎨 运行 lint-staged...失败，提交已阻止',
+    runBatch: () => ({ ran: true, status: 1, output: ENV_BLOCKED_TEXT, why: null }),
+    runGate: runGateGreen,
+  })
+  assert.equal(keepA.kind, 'env-blocked', `自跑仍只见环境指纹时必须保留 kind,实得 ${keepA.kind}`)
+  assert.equal(keepA.selfRunOk, true)
+  // B) 自跑根本没跑成 ⇒ 同样保留(量到的环境指纹不因自跑失败而消失)
+  const keepB = decideWithSelfRunBatch({
+    verdict: v,
+    stagedFiles: DECLARED3,
+    hookText: '❌ 🎨 运行 lint-staged...失败，提交已阻止',
+    runBatch: () => ({ ran: false, status: null, output: '', why: '派生失败 EBUSY' }),
+    runGate: runGateGreen,
+  })
+  assert.equal(keepB.kind, 'env-blocked', `自跑失败时不得把 env-blocked 降级成 unattributed,实得 ${keepB.kind}`)
+  assert.match(keepB.reason, /自跑 guardian-runner 同样未成功/)
+  // C) 自跑拿到门级结论且点名本次 ⇒ mine 照旧(新 kind 不得吃掉更强的证据)
+  const toMine = decideWithSelfRunBatch({
+    verdict: v,
+    stagedFiles: MY_FILES,
+    hookText: '❌ 🎨 运行 lint-staged...失败，提交已阻止',
+    runBatch: () => ({ ran: true, status: 1, output: SUMMARY + FAIL_29, why: null }),
+    runGate: () => ({ status: 1, output: '  ✗ scripts/foo.mjs:12 违规' }),
+  })
+  assert.equal(toMine.kind, 'mine', '自跑点名本次文件时必须翻回 mine,env-blocked 不是免死牌')
+  // D) 全批跑完且 0 失败 ⇒ not-ours(自跑那批的结构证据优先于环境指纹)
+  const allGreen = decideWithSelfRunBatch({
+    verdict: v,
+    stagedFiles: DECLARED3,
+    hookText: '❌ 🎨 运行 lint-staged...失败，提交已阻止',
+    runBatch: () => ({ ran: true, status: 0, output: GREEN_BATCH, why: null }),
+    runGate: runGateGreen,
+  })
+  assert.equal(allGreen.kind, 'not-ours', `批全绿 ⇒ 红在批外,应走既有 not-ours,实得 ${allGreen.kind}`)
+})
+
+test('G-1058649-6 装车证明:env-blocked 在 safe-commit 的分流/措辞/留痕三处都被显式处理', () => {
+  const code = maskComments(safeCommitSource)
+  assert.match(code, /verdict\.kind === 'env-blocked'/, '主流程没有 env-blocked 分支 ⇒ 新 kind 只活在判据里(守门 70/76 同型)')
+  assert.match(code, /环境性失败,不是你的红,也不是别人的红/, '响亮那一行必须在码面,不在注释里')
+  assert.match(code, /tasklist/, '必须给可执行的下一步')
+  assert.match(code, /downgradedFromMine/, '"降级发生了"必须既打印又落账')
+  const siteAt = code.search(/appendFileSync\(\s*join\([^)]*'safe-commit-attestation\.jsonl'/)
+  assert.ok(siteAt > 0, '找不到留痕写点')
+  assert.match(code.slice(siteAt), /envFingerprint:/, '环境指纹必须进既有记录,否则事后读不出这一型')
+  assert.match(code.slice(siteAt), /kind: verdict\.kind/, 'kind 必须原样落账(不得混进 unattributed)')
+  // 反向锁:定责前提不得回退成"裸 failed/✖ 也算内容错"
+  assert.doesNotMatch(
+    code,
+    /ERROR_SHAPE_RE/,
+    '旧常量不得回来;内容错形状与"这一步没跑完"的指纹必须分家(G-1058649 判据 1)',
+  )
+  assert.match(hingeSource, /LEGACY_BLAME_SHAPE_RE\s*=/, '降级说明需要旧判据对照读数')
+  assert.equal(
+    (hingeSource.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[^\S\n]*\/\/.*$/gm, '')).match(
+      /LEGACY_BLAME_SHAPE_RE/g,
+    ).length,
+    2,
+    '旧判据只许"定义 + 对照读数"两处出现;第三处 = 拿它定责,正是本票要修的那一型',
+  )
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
