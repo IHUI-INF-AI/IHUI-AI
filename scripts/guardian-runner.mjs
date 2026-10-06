@@ -4858,7 +4858,11 @@ const pushGateChecks = [
     mode: 'blocking',
   },
   // 2026-10-06 合流让号:本块原登记为 189,而 189 在基底与主干上都属 check-python-import-landed.mjs
-  // (取号发生在一份**滞后工作树副本**上,那次快照把 189 顶成同号两门,并顺带摘掉 2p-2w / 190 共 9 道门)。
+  // (取号发生在一份**滞后工作树副本**上,那次快照把 189 顶成同号两门,并顺带摘掉 9 道门:
+  //  i18n 流水线条件档 2p-api / 2q-cli / 2r-miniapp-taro / 2s-mobile-rn / 2t-api / 2u-cli /
+  //  2v-miniapp-taro / 2w-mobile-rn 与 190;另连带摘掉两扇门体 check-python-import-landed.mjs、
+  //  check-enum-default-widening.mjs。名单是 2026-10-07 拿注册面对账 7aa67dbe891 vs 基底 763e7da2e22
+  //  量出来的,不是记忆 —— 原写在此处的 2p-2w 并非真实 id(真实名是 2w-mobile-rn),按 §1 消掉)。
   // 合流以主干整面为底(它是基底超集,9 道门原样恢复),本块按空闲号 193 插回;两侧注册块一个不删。
   // git 派生调用的 stdio 纪律(2026-10-03 立)。病根本机实测(30 组对照,本票复测 2 组 × 10 次同形):
   // `execFileSync('git', […], { cwd, encoding, windowsHide, timeout })` —— **不写 stdio** ⇒ 0/30 成功、
