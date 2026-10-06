@@ -562,7 +562,12 @@ export async function main(argv = process.argv.slice(2), defaultRoot) {
   return 0
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  // 保留 .then(fulfill, reject) 而非模板的 .catch():main() 的返回值就是退出码(0/1/2),
+  // 必须原样 process.exit(code) 上抛给 pre-commit / runner —— 换成只 catch 的写法会让
+  // 违规(rc=1)以 rc=0 退出,那是判据语义变化,本票明确禁止。
   main().then(
     (code) => process.exit(code),
     (e) => {
