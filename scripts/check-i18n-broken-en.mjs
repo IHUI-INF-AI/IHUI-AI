@@ -34,6 +34,14 @@
  *   node scripts/check-i18n-broken-en.mjs --target=extension       # 扫描 packages/i18n/messages/extension/en.json
  *   node scripts/check-i18n-broken-en.mjs --target=shared          # 扫描 packages/i18n/messages/shared/en.json
  *
+ * 入口形态（§22d，2026-10-08 台账家族票 G-1058651 收口）：
+ *   修前本文件在模块顶层裸调 `main()` —— 于是 `import` 它就等于跑一遍扫描（有输出、还能把
+ *   宿主进程的 exitCode 改掉），镜像测试无从取用生产判据，只能照 §22c 的反面"自己抄一份"。
+ *   现 `main()` 只在 `isDirectRun`（真被 CLI 直跑）时执行，且**返回**退出码而不是自己
+ *   `process.exit`：CLI 面的退出码契约不变（0 通过 / 1 违规或未知 target），
+ *   判据本体（detectBroken / scanMarkdownForBrokenEn / SUPPORTED_TARGETS …）经
+ *   `export const __test__` 单点导出，镜像测试 import 它，不再手写第二份 target 清单。
+ *
  * Markdown 模式 (--readme):
  *   扫描 README.en.md 检测破碎机翻英文，跳过:
  *     - ``` / ~~~ 代码块内容
@@ -46,6 +54,10 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { execSync } from 'node:child_process'
+// §22d 入口守卫:Windows 下 process.argv[1] 是反斜杠绝对路径,与手拼的 'file:///…' 永不相等,
+// 必须用 node:url 的 pathToFileURL 归一后再比 —— 与仓内已收口的门体(check-test-judge-not-replicated
+// 等)同一份写法,不在本文件另创第二形。
+import { pathToFileURL } from 'node:url'
 
 // 豁免词（完整 token 等于 或 按 -/_/. 分段后任一段等于，大小写不敏感）
 // 注意：不用子串包含匹配，避免 "M3" 误豁免 "M3SubAI" 等 CamelCase token
@@ -235,7 +247,12 @@ function scanMarkdownForBrokenEn(text) {
 // 本脚本真实支持的 target 白名单(fail-closed:不在表内 ⇒ 报错退出,绝不回落 web)
 const SUPPORTED_TARGETS = ['web', 'extension', 'shared']
 
-function main() {
+/**
+ * 扫描主流程。**返回**退出码(0 通过 / 1 违规或未知 target),不在内部 `process.exit` ——
+ * 裸 exit 会把 import 本模块的宿主(测试运行器)一起带走。
+ * @returns {Promise<number>}
+ */
+async function main() {
   const args = process.argv.slice(2)
   const staged = args.includes('--staged')
   const fix = args.includes('--fix')
@@ -256,7 +273,7 @@ function main() {
         `      确实存在,但本脚本尚未覆盖,它们仍无人用本门禁管(已知缺口,非本脚本职责)。`,
       ].join('\n'),
     )
-    process.exit(1)
+    return 1
   }
 
   const isExtension = target === 'extension'
@@ -281,13 +298,13 @@ function main() {
     const stagedFiles = getStagedChanges(relPath)
     if (!stagedFiles.includes(relPath)) {
       console.log(`[broken-en] 跳过 (staged 模式: ${relPath} 未改动)`)
-      return
+      return 0
     }
   }
 
   if (!fs.existsSync(targetFile)) {
     console.log(`[broken-en] 跳过 (文件不存在: ${targetFile})`)
-    return
+    return 0
   }
 
   if (readme) {
@@ -295,7 +312,7 @@ function main() {
     const results = scanMarkdownForBrokenEn(text)
     if (results.length === 0) {
       console.log(`[broken-en] ✅ ${relPath} 通过 (0 处破碎英文)`)
-      return
+      return 0
     }
     console.log(`[broken-en] ❌ ${relPath} 发现 ${results.length} 处破碎机翻英文:\n`)
     for (const r of results.slice(0, 50)) {
@@ -308,7 +325,7 @@ function main() {
     if (fix) {
       console.log('\n--fix 模式:仅提供诊断,不自动写文件(避免误改)')
     }
-    process.exit(1)
+    return 1
   }
 
   // 原 JSON 模式逻辑保持不变
@@ -318,7 +335,7 @@ function main() {
     obj = JSON.parse(raw)
   } catch (e) {
     console.error(`[broken-en] ❌ ${relPath} JSON 解析失败: ${e.message}`)
-    process.exit(1)
+    return 1
   }
 
   const results = []
@@ -326,7 +343,7 @@ function main() {
 
   if (results.length === 0) {
     console.log('[broken-en] ✅ 通过 (0 处破碎英文)')
-    return
+    return 0
   }
 
   console.log(`[broken-en] ❌ 发现 ${results.length} 处破碎机翻英文:\n`)
@@ -342,8 +359,35 @@ function main() {
     console.log('\n--fix 模式:仅提供诊断,不自动写文件(避免误改)')
   }
 
-  process.exit(1)
+  return 1
 }
 
-main()
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) {
+  main()
+    .then((code) => {
+      if (code !== 0) process.exit(code)
+    })
+    .catch((e) => {
+      console.error(`[broken-en] ❌ 脚本自身异常: ${e && e.stack ? e.stack : e}`)
+      process.exit(2)
+    })
+}
+
+// §22c:导出的是**判据本身**,不是给测试的第二份复制品。镜像测试 import 它,
+// 就不再需要在自己文件里重写一份 target 清单 / 检测规则。
+export const __test__ = {
+  SUPPORTED_TARGETS,
+  WHITELIST_TOKENS,
+  WHITELIST_SET,
+  LANGUAGE_AUTOGLOSSONYMS,
+  BRAND_NAME_ZH,
+  MARKDOWN_LINE_WHITELIST_EN,
+  isWhitelistedToken,
+  isBrandNameInParens,
+  detectBroken,
+  walk,
+  scanMarkdownForBrokenEn,
+  main,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
