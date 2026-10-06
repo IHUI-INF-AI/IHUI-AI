@@ -132,5 +132,89 @@
     "recentTierCount": 6,
     "recentTierFirst200CharsPresent": true,
     "coveredCountTotal": 17
+  },
+  "reasoningCases": {
+    "_comment": "票 G-1058650(2026-10-07)新增的\"消息带 reasoning\"这一格,双端逐值对账。判定=分支 B(Python 镜像端\"少算 reasoning\"这一型不可达),依据四条可重跑取证:(1) apps/ai-service/app/core/context_compaction.py 全文零次出现 reasoning(git grep -c \"reasoning\" HEAD -- apps/ai-service/app/core/context_compaction.py → 无输出 rc=1,即 0 命中),估算入口 estimate_messages_tokens 只读 content/tool_calls/role/tool_call_id;(2) ai-service 内 92 处 messages.append(...) 写入面无一携带 reasoning 键;(3) 唯一上游发送方 apps/api 的 /chat/stream zod schema 为 {role, content}(apps/api/src/routes/ai-chat-stream.ts:136-143),zod 默认剥离未知键 ⇒ 客户端回传的 reasoning 进不了消息列表;(4) Python 侧携带 reasoning 的对象(llm_gateway.py:2318-2320 result[\"reasoning\"]、routers/llm.py:2838 accumulated)都是**响应/事件**字典,从不作为消息进入上下文。⇒ 按仓规\"加守卫前先证明坏状态可达\",不给 Python 加它永远拿不到输入的分支;可达性由 tests/reasoning-parity.test.ts 的按键名枚举哨兵实时重扫(写入点一旦非零即翻红,并要求把 pyCountsReasoning 翻 true 走同值对账)。数值取法:tokensTs/tokensTsReasoningBlind 由 packages/context-compaction/dist 的 estimateMessagesTokens 现跑,tokensPyAsShipped 由 apps/ai-service/.venv 解释器现跑 app.core.context_compaction.estimate_messages_tokens(2026-10-07)。",
+    "cases": [
+      {
+        "id": "reasoning-string-text-counted-by-ts-only",
+        "what": "reasoning 有可读文本:TS 估算面计入,Python 按设计不计 ⇒ 两端值不等,差值被逐值钉住。",
+        "input": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are a math tutor."
+            },
+            {
+              "role": "user",
+              "content": "Why does 1 + 1 equal 2?"
+            },
+            {
+              "role": "assistant",
+              "content": "Addition is defined by the successor function.",
+              "reasoning": "Let me think this through carefully. Peano axioms define the successor function S. Addition is defined recursively on the second argument: a + 0 = a, and a + S(b) = S(a + b). Applying the second clause with a = 1 and b = 0 gives 1 + S(0) = S(1 + 0), and the first clause gives 1 + 0 = 1, so the whole expression collapses to S(1), which is by definition the numeral 2. I should keep the visible answer short and avoid dumping the axioms on the student."
+            },
+            {
+              "role": "user",
+              "content": "Say it again, shorter."
+            }
+          ]
+        },
+        "expect": {
+          "tokensTs": 173,
+          "tokensTsReasoningBlind": 47,
+          "tokensPyAsShipped": 48,
+          "reasoningContributionTs": 126,
+          "crossEndGap": 125,
+          "blindSkew": -1
+        },
+        "pyCountsReasoning": false
+      },
+      {
+        "id": "reasoning-present-but-unreadable-shape",
+        "what": "reasoning 存在但形态读不出(循环引用对象):TS 按哨兵文本计入(非 0),Python 不计。",
+        "input": {
+          "messages": [
+            {
+              "role": "user",
+              "content": "Fix the indentation of this snippet."
+            },
+            {
+              "role": "assistant",
+              "content": "Done.",
+              "reasoning": {
+                "$shape": "circular-self-reference"
+              }
+            }
+          ]
+        },
+        "expect": {
+          "tokensTs": 27,
+          "tokensTsReasoningBlind": 17,
+          "tokensPyAsShipped": 17,
+          "reasoningContributionTs": 10,
+          "crossEndGap": 10,
+          "blindSkew": 0
+        },
+        "pyCountsReasoning": false
+      }
+    ],
+    "reachabilitySentinel": {
+      "reasoningKeyNames": [
+        "reasoning",
+        "reasoning_content",
+        "reasoning_details",
+        "thinking",
+        "redacted_thinking"
+      ],
+      "scannedRoot": "apps/ai-service/app",
+      "pythonReasoningMessageWritePointsAtAuthoringTime": 0
+    }
+  },
+  "reverseLock": {
+    "_comment": "反向锁(票 G-1058650):不含 reasoning 的既有夹具逐值不变。input/expectations 与 HEAD d07ac60ceb 字节一致,本格只**追加** reasoningCases/reverseLock 两个新键。29367 = 同一 messages 现跑 estimateMessagesTokens(TS) 与 estimate_messages_tokens(Python .venv)的相同值(2026-10-07 实测,两端在这一格本就同值)。",
+    "tokensTs": 29367,
+    "tokensPyAsShipped": 29367,
+    "existingMessagesCarryReasoningKeys": false
   }
 }
