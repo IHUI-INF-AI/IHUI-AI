@@ -20,7 +20,6 @@ import { checkAuth } from '../plugins/auth.js'
 import { verifyAccessToken } from '@ihui/auth'
 import { success, error } from '../utils/response.js'
 import { fetchWithinDeadline, isDeadlineAbort } from '../utils/fetch-deadline.js'
-import { boundedDeadlineFetchImpl } from '../utils/proxy-dispatcher.js'
 
 // ============================================================================
 // 通用工具
@@ -35,13 +34,7 @@ async function fetchWithTimeout(
   // 于是 DashScope 发完 headers 之后停滞时,这条请求既没有 deadline 也不会被 abort —— await resp.json()
   // / arrayBuffer() 永久挂住该请求处理链。deadline 现在罩到响应体消费结束(见 utils/fetch-deadline.ts)。
   // label 刻意不带 url:audioUrl 是供应商签发的带签名参数的 OSS 地址,不得进错误文案(守门 67 同型)。
-  // G-749(2026-10-03):出站传输经 boundedDeadlineFetchImpl 走 boundedEgressFetch 同一个
-  // 有界主循环(直连侧不传 dispatcher),deadline 的收口语义不变。
-  return fetchWithinDeadline(url, options, {
-    timeoutMs,
-    label: 'ai-audio→DashScope 出站请求',
-    fetchImpl: boundedDeadlineFetchImpl(),
-  })
+  return fetchWithinDeadline(url, options, { timeoutMs, label: 'ai-audio→DashScope 出站请求' })
 }
 
 // G-815411(2026-09-29):出站 deadline 的 abort(reason 带 label)不得被 `.catch(() => ({}))`
@@ -557,8 +550,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
         // G-815411:ASR 前置完全无守卫的这一格补上 —— !ok 先判,成功分支 abort 不折叠
         if (!asrResp.ok) {
           const asrErr = await asrResp.json().catch(() => ({}))
-          const msg =
-            (asrErr as { message?: string }).message ?? `ASR 请求失败 ${asrResp.status}`
+          const msg = (asrErr as { message?: string }).message ?? `ASR 请求失败 ${asrResp.status}`
           logOutboundFailure(request, new Error(`ASR ${asrResp.status}: ${msg}`))
           reply.status(502).send(error(502, `语音识别失败: ${msg}`))
           return
@@ -665,8 +657,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
       // G-815411:完全无守卫的这一格补上 —— !ok 先判,成功分支 abort 不折叠成空结果
       if (!resp.ok) {
         const errData = await resp.json().catch(() => ({}))
-        const msg =
-          (errData as { message?: string }).message ?? `任务查询失败 ${resp.status}`
+        const msg = (errData as { message?: string }).message ?? `任务查询失败 ${resp.status}`
         reply.status(502).send(error(502, `下载音频异常: ${msg}`))
         return
       }
