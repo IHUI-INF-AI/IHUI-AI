@@ -66,7 +66,7 @@
 import { mkdirSync } from 'node:fs'
 import { createConnection } from 'node:net'
 import { join, resolve, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -462,9 +462,23 @@ async function main() {
   process.exit(0)
 }
 
-main().catch((e) => {
-  console.error(c('red', `❌ 未捕获异常: ${e.message || e}`))
-  if (e.stack) console.error(c('dim', e.stack))
-  process.exit(1)
-})
+// §22d 双形态入口守卫:被测试 import 时不得触发 CLI 副作用;直跑行为逐字不变
+// (本文件的 main() 本就是 async 且自带 .catch ⇒ 保持原 catch 体与原退出码 1,只加守卫)。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) {
+  main().catch((e) => {
+    console.error(c('red', `❌ 未捕获异常: ${e.message || e}`))
+    if (e.stack) console.error(c('dim', e.stack))
+    process.exit(1)
+  })
+}
+
+// §22c 镜像常量出口:测试 import 这些判据单元,不得在测试里重抄一份。
+export const __test__ = {
+  REPO_ROOT,
+  TMP_DIR,
+  loadPlaywright,
+  buildDetectFn,
+  probeServer,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
