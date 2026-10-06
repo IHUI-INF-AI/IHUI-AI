@@ -26,7 +26,10 @@
  *   ST3 「取不到判未判定、不得记绿」:任一取材文件读不到 ⇒ 输出 UNDETERMINED、
  *        exit 非 0,绝不记绿。
  *
- * 本脚本不接提交链(不改 guardian-runner / package.json scripts / .husky)。
+ * 【接线状态:已接入】注册条目已落在 scripts/guardian-runner.mjs(id 以 runner 现值为准,
+ * 勿照抄本行数字):blocking + skipEnv:HUSKY_SKIP_NESTED_ADDITIONAL_PROPERTIES,无 stagedTriggers。
+ * —— 本行原写"本脚本不接提交链(不改 guardian-runner / package.json scripts / .husky)",
+ * 那是立项时的实况,已过期(门早已装车);接线路径的边界声明保留,接线事实按上条现读改写。
  */
 
 import { readFileSync } from 'node:fs';

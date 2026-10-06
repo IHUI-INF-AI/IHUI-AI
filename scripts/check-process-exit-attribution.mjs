@@ -18,7 +18,10 @@
  *   node scripts/check-process-exit-attribution.mjs --self-test   # 自测(夹具子进程真跑)
  *   node scripts/check-process-exit-attribution.mjs               # 门本体(源形态检查)
  *
- * 本脚本不接提交链(§12f:接链由守门持有人统一做)。
+ * 【接线状态:已接入】注册条目已落在 scripts/guardian-runner.mjs(id 以 runner 现值为准,
+ * 勿照抄本行数字):blocking + skipEnv:HUSKY_SKIP_PROCESS_EXIT_ATTRIBUTION,无 stagedTriggers。
+ * —— 本行原写"本脚本不接提交链(§12f:接链由守门持有人统一做)",那是立项时的实况,
+ * 已过期(门早已装车);§12f 的分寸保留,接线事实按上条现读改写。
  */
 import { spawn } from 'node:child_process'
 import { readFileSync } from 'node:fs'
