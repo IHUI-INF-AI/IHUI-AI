@@ -43,9 +43,7 @@ vi.mock('react-native', async (importOriginal) => {
   const { createElement: ce } = await import('react')
   const Modal = (props: Record<string, unknown>) => {
     h.modal = props
-    return props.visible === true
-      ? ce('div', { 'data-modal-open': '1' }, props.children as ReactNode)
-      : null
+    return props.visible === true ? ce('div', { 'data-modal-open': '1' }, props.children as ReactNode) : null
   }
   return { ...(mod as Record<string, unknown>), Modal }
 })
