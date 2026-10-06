@@ -67,6 +67,23 @@ test('T1 装车证明:守护里必须有定义 + 两个调用点(单轮路径与
   assert.equal(calls, 2, `调用点应为 2 处(main 单轮 + tick 循环),现读 ${calls} 处 —— 少一处就等于那条路径上永不执行`)
 })
 
+/**
+ * T2 摘线方向锁:动作器头注自称"已接线"时,守护必须真的调它。
+ *
+ * 为什么这不是同族病根(2026-10-06 逐条核过,与门 133 的 M3 / radius 的 T2 / token-sync 的 T9
+ * / mode-permission 的 T9 那一族对照):那一族的病根是**判据锚绝对字面量**,而本用例两端读的是
+ * **两个不同文件** —— `claimsWired` 读动作器头注(`heal-unresponsive-services.mjs`)的措辞,
+ * `wired` 读调度方(`scripts/git-guardian.mjs`)里的真实调用点 `healUnresponsiveServices()`。
+ * 「用措辞验措辞」才会空转;这里措辞在左、代码在右,措辞改成任何写法都动不了右边那个读数。
+ * 实测两侧现读:claimsWired=true / wired=true;T1 另行钉住调用点恰好 2 处。
+ *
+ * 变异坐实牙口(把 git-guardian 里的调用改名,注入确认生效后):wired 读出 false ⇒ :76 判红。
+ * 反向若 `wired` 也去读头注,头注里只有散文、没有 `healUnresponsiveServices()` 调用形态
+ * (实测 false),那条就会退化成恒绿 —— 现在不是。
+ *
+ * 注::75 与 :76 是同一命题的两个书写方向(双向对账的另半边),逻辑等价不是冗余错误:
+ * 少任何一半,"造好没装车"与"装车了却写没装"就有一头没人拦。
+ */
 test('T2 摘线方向锁:动作器头注自称"已接线"时,守护必须真的调它', () => {
   const healerSrc = readFileSync(HEALER, 'utf8')
   const guardianSrc = readFileSync(GUARDIAN, 'utf8')
