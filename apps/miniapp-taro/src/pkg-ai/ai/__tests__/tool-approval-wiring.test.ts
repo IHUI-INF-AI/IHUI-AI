@@ -58,7 +58,10 @@ const API_SRC = src('src/api/index.ts')
 const CARD_SRC = src('src/pkg-ai/ai/tool-approval-card.tsx')
 const FRAME_SRC = src('src/lib/tool-approval-frame.ts')
 const SSE_SRC = src('src/lib/sse.ts')
-const API_CLIENT_SRC = readFileSync(join(REPO_ROOT, 'packages/api-client/src/client.ts'), 'utf8')
+const API_CLIENT_SRC = readFileSync(
+  join(REPO_ROOT, 'packages/api-client/src/client.ts'),
+  'utf8',
+)
 
 function fakeTt(dict: Record<string, string> = {}): TranslateWithFallback {
   return (key, fallback) => dict[key] ?? fallback
@@ -241,8 +244,9 @@ describe('D136 ④ 帧认领与传输层:帧到设备不再静默丢弃', () => 
     expect(parseToolApprovalLine('data: {"type":"chunk","content":"hi"}')).toBeNull()
     expect(parseToolApprovalLine('data: not-json')).toBeNull()
     expect(
-      parseToolApprovalLine('data: {"type":"tool-approval","approval_id":"a","danger_level":"low"}')
-        ?.dangerLevel,
+      parseToolApprovalLine(
+        'data: {"type":"tool-approval","approval_id":"a","danger_level":"low"}',
+      )?.dangerLevel,
     ).toBe('low')
   })
 
@@ -303,9 +307,7 @@ describe('D136 ⑤ 接线自证:回调表 → 渲染位 → 唯一回传出口',
     // 传输层必须有整行旁路出口(sse.ts):没有它认领层拿不到原始行,上面三条全是死字
     expect(SSE_SRC).toContain('onRawLine')
     // 决策回传走 @ihui/api-client,端内不另起传输层
-    expect(API_SRC).toMatch(
-      /export\s*\{[\s\S]{0,160}postToolApprovalResponse[\s\S]{0,80}\} from '@ihui\/api-client'/u,
-    )
+    expect(API_SRC).toMatch(/export\s*\{[\s\S]{0,160}postToolApprovalResponse[\s\S]{0,80}\} from '@ihui\/api-client'/u)
   })
 
   it('chat.tsx 的回调表里有 onToolApproval 代码行,且真的入队', () => {
