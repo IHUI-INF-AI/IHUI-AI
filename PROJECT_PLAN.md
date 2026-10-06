@@ -22024,6 +22024,27 @@ services 归档/分享/HTTP 层)判"值得抄"的 **26 条**逐条立项(每条�
 - [ ] G-1058646 **`pnpm --filter @ihui/ai-service test` 是一条静默零用例的假绿出口,而台账里有 8 张开放行把它写成验收命令** —— 现读(2026-10-06):`apps/ai-service/package.json` **没有 `test` 脚本**(grep 零命中),而 `pnpm --filter @ihui/ai-service test` 实测 **RC=0 且 stdout/stderr 全空**(封缄取证件当轮 #EVIDENCE-RC=0、正文 0 字节)⇒ 任何按票面跑它的会话都会把「一个用例都没跑」读成「测试通过」;开放行计数口径:`git show HEAD:PROJECT_PLAN.md | grep -cE '^- \[ \].*pnpm --filter @ihui/ai-service test'` = **8**(两个数一律现跑取当轮值,不得照本行写的数字派单)。真实口径只有 `apps/ai-service/.venv/Scripts/python.exe -m pytest <file>`(PATH 上的 `python` 是 Windows 商店桩,`python -m pytest` 会 RC=9009)。**为什么「给 ai-service 补一个 test 脚本」不是顺手正解**:`pnpm -r test` 与 CI 的 test 链路会连带把整套 pytest(万级用例)挂进每条前端/后端提交路径,而测试隔离铁律(§5)要求 mock 掉共享池 —— 那是一个需要单独设计的挂点,不是补一行 script。**等什么**:归 ai-service 测试面持有人二选一 —— ① 建一个**具名**只读入口(如 `pnpm --filter @ihui/ai-service check:pytest`,并在 AGENTS 点名)供人按文件跑;② 或维持「pytest 只能直调 .venv 解释器」的口径,把那 8 行的验收命令逐条改写(改写必须走 `scripts/live-doc-edit.mjs` 整行档,不得按行号定位)。另记一格**本票不预设结论**的观察:零输出 + RC=0 目前在证据面上与「真跑过且没问题」完全同形,要不要给 `scripts/run-evidence.mjs` 补一维 SILENT-NOOP 提醒属该器持有人〔立票@2026-10-06(本轮实测)〕
 
 - [ ] G-1058647 **未声明 `dangerLevel` 的工具在默认权限档下被映射为 allow ⇒ 「没写」比「写了 dangerous」更松,这一型今天零判据**(2026-10-06 由 G-816027 的任务二取证带出,证据链按内容锚点写,不用行号) —— 链:① `apps/cli/src/tools/index.ts` 里工具描述符的 `dangerLevel?` 是**可选**字段,同一文件的缺省注释写着"未标注按只读处理";② 该文件 `--flip-audit` 现读**仍有 16 个工具两样都没写**(既无 `dangerLevel` 也无显式 `alwaysAsk`),其中 `apps/cli/src/tools/mcp-runtime.ts` 自述"MCP 工具从不写这个字段";③ `apps/cli/src/commands/agent.ts` 的 `const dangerLevel = tool?.dangerLevel ?? 'read'` 把缺席折成 `'read'`;④ `apps/cli/src/tools/permissions.ts` 的批准矩阵里 **default / acceptEdits / plan 三档都把 `read` 映射为 allow** ⇒ ③ 那支的 ask 分支根本不进,唯一还能问人的是 manual 档与 `rules.ask`,而那两支内部是 fail-closed 的收紧路径;⑤ 工具层自己的批准闸只认 `=== 'dangerous'` 与显式 alwaysAsk ⇒ 两处都不问人。**反向证据(说明这不是笔误而是两本账)**:同一份 `index.ts` 对"同一缺席"在另两处取 `'write'` 并注释称"保守",即 ③ ④ 这条链取的是**更松的一侧**。**后果定级为什么现在不喊 P0**:被波及的是无 `dangerLevel` 的工具(含 MCP 全族),它们今天是否真能落盘/发网络请求需逐个看 handler,本票未量;但"未声明即免批"的**形状**已经成立。**等什么 / 归谁**:归 `apps/cli/src/tools/permissions.ts` 与 Tool 契约的持有人拍两件事 —— ① 缺席该落哪一档(取严 = 落 `dangerous`/`write`,还是落 `unknown` 并强制 ask;守门 111 的契约面已有 `dangerLevel` 缺省语义的账,不得两处各定一套);② 判据形状已定,补进 G-816027 那条门即可闭环:"**缺席取到的那一档,在同一被审面的消费方矩阵里被映射为 allow/免批,且该槽位的类型上界不包含它**" —— 前置是把 `permissions.ts` 的矩阵与 `apps/cli/src/tools/index.ts` 一起纳入射程(否则判据看不到"档 → allow"这半边,只能猜)。在 ①② 落地之前**不得**由第三方顺手把 `?? 'read'` 改成别的字面量:那会在持有人未拍板前改变全部无标注工具(含 MCP)的批准行为,而这类改动的用户可见面是"昨天能跑今天全要批准"。**同批未补的两型形态**(属 G-816027 的门,不由本票夹带):三元 else 支与 `Object.assign({}, defaults, x)` 默认对象,原因写在该门头注〔立票@2026-10-06(本轮实测)〕
+- [ ] G-1058649 **pre-commit 钩子里 lint-staged 仍死于「a git error」,而同一串参数在钩子外手跑 RC=0 —— 枚 c14f582a63 的兜底只挡住了钩子自己那次 spawn**(等什么:归 c14f582a63 的持有人用 `--debug` 在钩子内复现一次,定位 lint-staged 内部 git 步骤到底继承到什么句柄;归属:该 fix 的持有人,本会话只交证据不代裁。今天这一格没有任何尺子看得见)
+
+  实测三条(全部当轮现跑,时间戳为 UTC,证据文件在 `.ihui-agent/tmp/g816034/`,每份都带 `#EVIDENCE-RC` 收尾行):
+  ① 09:26:00Z ② 09:27:39Z ③ 09:28:32Z 三次 `node scripts/safe-commit.mjs -- <3 files>` 与一次裸 `git commit -- <pathspec>` 全部被同一句挡住:
+  `❌ lint-staged 失败,提交已阻止(EBUSY 形态,已重试 3 次仍失败)`,stderr 原文里出现的是指纹 **③`lint-staged failed due to a git error`**(每轮 2 次),
+  而**不是**指纹 ①(钩子自己 spawn 的 `errno -4082`)。c14f582a63(08:21:59Z 落地,`stdio: ['ignore','inherit','pipe']` + 200/600/1500ms 退避)
+  治的是①,③ 在它落地**一小时后**照旧复现 —— 也就是说它把"钩子这一层不吃 stdin"做到了,但 lint-staged 自己那几步 git 仍然起不来。
+  对照组(这是本票的全部价值,不是猜测):同一批暂存文件、同一串参数 `npx lint-staged --max-arg-length 4096 --no-stash --debug` 在 09:28:08Z 于钩子外手跑 **RC=0**,
+  且跑完 `git diff` 为空(prettier/eslint 都没意见)⇒ 红不在 lint 规则,在钩子那一条执行链的句柄继承。
+  后果已经在账:本会话因此对 3 枚提交走了旁路落地(`.workbuddy/safe-commit-attestation.jsonl` 里 `kind=bypass-landing,gatesRun=false`),
+  旁路不跑钩子 ⇒ 那 190 道门对这几枚提交**从未执行**,只能由调用方在 HEAD 面自跑(本会话已逐条补跑:门 121/89/118/103/71 各 RC=0,门 121 自检 51/51、镜像 12/12)。
+  还有一格必须一起看:safe-commit 的归因铰链把这句红**定责到了本任务**,因为 30a 的结论行脚注里逐字写着"AGENTS.md §22"——
+  而我声明的文件就叫 `AGENTS.md`。这不是"归因太松",是**判据把帮助文案当成了点名**;按 §12e 的失效方向它落在"多拦一次"那一侧,
+  但代价是正当提交被逼成旁路落地,而旁路落地正是这一族问题的放大器。
+  落点(两半都要,缺一半下一个人还会踩):① 在钩子内跑 `--debug` 取回 lint-staged 自己那步 git 的 errno/argv,把③的成因钉死后再决定是给
+  `LINT_STAGED_CMD` 那条 spawn 连 stderr 一起改成不吃管道,还是在 husky 薄壳那一层就把 stdin 关掉;
+  ② 归因铰链的文件名匹配必须只在**结论行点名文件的路径形态**上成立(例如要求命中 `(^|\s)AGENTS\.md(\s|$|:)` 且该行含"违规/红/未通过"类判定词,
+  或改用门自己输出的结构化字段),不得拿"整段输出里出现过这个字符串"当定责证据。
+  判据缺口如实登记:今天没有任何一道门能发现"钩子把提交逼成旁路"这件事在**当天反复发生**——`plan-bypass-ledger-report.mjs` 只有被人想起来跑才说话。
+  禁止的出路:不得为让提交顺畅去删 lint-staged 这一步、不得把它降成 warn(那等于把 eslint/prettier 从提交链摘掉),
+  更不得把 30a 的 boilerplate 文案删掉来"消除误判"——要改的是**匹配方式**,不是被匹配的那句话。
 
 - [ ] G-1058648 **F9 基线外 61 组撞号已逐组量清形态：42 组「全已完成」无须归并、19 组「两态并存」是下一批可收的真债**（2026-10-06 值守量化）：F9 判红读数 102 组里，基线键集 73 之外的新增 61 组按两态拆开是**两种完全不同的东西**，不一起动才不会违反 G-312「不得批量改号」：
   - **42 组「全已完成」**（例 `G-334` / `G-336` / `G-328` / `G-456` / `G-369` / `G-299` / `G-337` / `G-372` / `G-385` / `G-418` / `G-419` / `G-368` / `G-429` / `G-466` / `G-468` / `G-628` / `G-579` / `G-373` / `G-374` / `G-431` …）：同一编号下两条**各自都已完成**的不同任务，**没有未勾选行、没有派单面污染**，按定级本就只报数。这类**不需要归并动作**，红它们的原因是「键不在基线键集」而不是「事情没做完」—— 强行归并反而会把两件真做完的事并成一件事（§1 禁止的正是这个）。
