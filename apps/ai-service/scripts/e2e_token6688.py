@@ -179,6 +179,19 @@ async def run_free_mode() -> int:
             failures.append(name)
         print(f"[{'PASS' if ok else 'FAIL'}] {name}: {msg}")
 
+    # 产物清理(2026-10-06 补):F2 的 mp3 落在仓内 `scripts/`,**跑一次就多一个未跟踪文件**
+    # ——实测 `git status` 里出现 `?? apps/ai-service/scripts/.e2e_free_tts.mp3`,
+    # 而根 `.gitignore` 与 `apps/ai-service/.gitignore` 都没有 e2e 产物这一档。
+    # 两条处置一起做,只做一条都不够:
+    #   ① 这里 finally 删产物(验收脚本不该留垃圾);
+    #   ② `.gitignore` 补一条(别人 clone 下来、或脚本中途被 Ctrl-C 掐掉时兜底)。
+    # 失败项也要删:那正是最需要人去看现场的时候,但 mp3 不是现场,读了也没信息。
+    try:
+        if out_path.exists():
+            out_path.unlink()
+    except OSError as e:  # noqa: BLE001 — 清理失败不得改验收结论
+        print(f"[WARN] 产物清理失败(不影响验收结论): {out_path} — {type(e).__name__}: {e}")
+
     print()
     if failures:
         print(f"验收失败 {len(failures)} 项: {failures}")
