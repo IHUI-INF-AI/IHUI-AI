@@ -30,7 +30,7 @@
  */
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, join } from 'node:path'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -39,118 +39,138 @@ const NSI = process.env.IHUI_NSI_PATH || join(ROOT, 'apps/desktop/src-tauri/wind
 const ASSET_ROOT = join(ROOT, 'apps/desktop/src-tauri/windows/installer-assets')
 const TIERS = ['100', '125', '150', '175', '200']
 
-if (!existsSync(NSI)) {
-  console.error(`[check-installer-assets] 找不到 ${NSI}`)
-  process.exit(1)
-}
-const src =
-  readFileSync(NSI, 'utf8') +
-  // 卸载器主题独立成文件(2026-09-22),它同样 File 打包资产 —— 不并入扫描面,
-  // 新增的 unconfirm/uninstfiles 会永远被误报「未被打包」,而真正漏登记也报不出来。
-  // 自测模式(IHUI_NSI_PATH 喂故意残缺的副本)不并入,保持判据单一。
-  (process.env.IHUI_NSI_PATH
-    ? ''
-    : existsSync(join(ROOT, 'apps/desktop/src-tauri/windows/ihui-uninstaller.nsi'))
-      ? readFileSync(join(ROOT, 'apps/desktop/src-tauri/windows/ihui-uninstaller.nsi'), 'utf8')
-      : '')
+// ── §22d 双形态入口守卫(G-1058651)────────────────────────────────
+// 为什么必须加这道守卫:本门顶层**就是** CLI 主体 —— 三段判定块(引用/打包/落盘三方对账、
+// GetOptions 前缀误匹配、七条跨文件几何不变量)全都裸跑在模块顶层,且各自带 process.exit。
+// 后果实测:任何 import 本门的进程(镜像测试 scripts/tests/check-installer-assets-geo.test.mjs
+// 的第 300 行就 import 了 checkWorkAreaDownshift)会在import 期真的跑一遍门体 ——
+// 实测改前该测试自己的 TAP 输出里就带着本门的 PASS 行(引用 13 个 · 打包 30 个),
+// 更致命的是把 IHUI_NSI_PATH 指向不存在的文件后 import,门体会process.exit(1)
+// **当场终结宿主进程**(实测 RC=1,#PROBE-END 这行再也印不出来)⇒ 测试被静默打死。
+// 所以「可导入性」是本门能不能被镜像测试调用的前提,不是装饰,别当冗余删掉。
+//
+// 为什么自己写而不用库:本仓没有提供 isDirectRun 的库文件(scripts/lib/ 下无此导出),
+// 各门体一律自写,照抄 scripts/check-migration-immutable.mjs 的现行形态。
+// 必须经 pathToFileURL():Windows 下 process.argv[1] 带反斜杠,手拼 file:/// 永不相等。
+const isDirectRun =
+  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 
-/** @returns {Set<string>} */
-function collect(re) {
-  const out = new Set()
-  for (const m of src.matchAll(re)) out.add(m[1])
-  return out
-}
-
-function readdirSafe(dir) {
-  try {
-    return readdirSync(dir)
-  } catch {
-    return []
+if (isDirectRun) {
+  if (!existsSync(NSI)) {
+    console.error(`[check-installer-assets] 找不到 ${NSI}`)
+    process.exit(1)
   }
-}
+  const src =
+    readFileSync(NSI, 'utf8') +
+    // 卸载器主题独立成文件(2026-09-22),它同样 File 打包资产 —— 不并入扫描面,
+    // 新增的 unconfirm/uninstfiles 会永远被误报「未被打包」,而真正漏登记也报不出来。
+    // 自测模式(IHUI_NSI_PATH 喂故意残缺的副本)不并入,保持判据单一。
+    (process.env.IHUI_NSI_PATH
+      ? ''
+      : existsSync(join(ROOT, 'apps/desktop/src-tauri/windows/ihui-uninstaller.nsi'))
+        ? readFileSync(join(ROOT, 'apps/desktop/src-tauri/windows/ihui-uninstaller.nsi'), 'utf8')
+        : '')
 
-// ---- ① 引用:宏实参 + 裸 LoadImage ----
-const refs = new Set([
-  ...collect(/!insertmacro\s+IHUI_BTN\s+\$\S+\s+([\w.-]+\.bmp)/g),
-  ...collect(/!insertmacro\s+IHUI_PAGEBG\s+([\w.-]+\.bmp)/g),
-  ...collect(/!insertmacro\s+IHUI_INST_OVERLAY\s+\$\S+\s+([\w.-]+\.bmp)/g),
-  ...collect(/LoadImage\([^)]*`\$PLUGINSDIR\\([\w.-]+\.bmp)`/g),
-])
-
-// ---- ② 打包:File "/oname=$PLUGINSDIR\X.bmp" ----
-const packed = collect(/File\s+"\/oname=\$PLUGINSDIR\\([\w.-]+\.bmp)"/g)
-
-const fail = []
-const warn = []
-
-// C. 自我保护:解析为零命中说明正则/文件结构变了,不能静默通过
-if (refs.size === 0) {
-  fail.push('解析到 0 个品牌位图引用 —— 正则或 ihui-ui.nsi 结构已变,门禁失效,拒绝放行')
-}
-if (packed.size === 0) {
-  fail.push('解析到 0 条 File 打包记录 —— 正则或 ihui-ui.nsi 结构已变,门禁失效,拒绝放行')
-}
-
-// A. 引用 ⊆ 打包
-for (const name of [...refs].sort()) {
-  if (!packed.has(name)) {
-    fail.push(
-      `引用了但未打包: ${name}\n` +
-        `      → 缺一行: File "/oname=$PLUGINSDIR\\${name}" "\${IHUI_ASSETROOT}\\assets-\${LIT}\\${name}"\n` +
-        `        须加在 !macro IHUI_EXTRACTPAGESETS_SET 内(与 btn-close.bmp 同处)`,
-    )
+  /** @returns {Set<string>} */
+  function collect(re) {
+    const out = new Set()
+    for (const m of src.matchAll(re)) out.add(m[1])
+    return out
   }
-}
 
-// B. 打包 ⊆ 落盘(5 档齐全)
-for (const name of [...packed].sort()) {
-  const missing = TIERS.filter((t) => !existsSync(join(ASSET_ROOT, `assets-${t}`, name)))
-  if (missing.length > 0) {
-    fail.push(`打包了但档位缺文件: ${name} —— 缺 assets-${missing.join(' / assets-')}`)
+  function readdirSafe(dir) {
+    try {
+      return readdirSync(dir)
+    } catch {
+      return []
+    }
   }
-}
 
-// 反向提示(非阻塞):落盘有、nsi 从不引用 = 冗余资产(仅提示,不拦)
-for (const tier of TIERS) {
-  const dir = join(ASSET_ROOT, `assets-${tier}`)
-  if (!existsSync(dir)) continue
-  for (const f of readdirSafe(dir)) {
-    if (f.endsWith('.bmp') && !packed.has(f)) warn.push(`资产未被打包(冗余): assets-${tier}/${f}`)
+  // ---- ① 引用:宏实参 + 裸 LoadImage ----
+  const refs = new Set([
+    ...collect(/!insertmacro\s+IHUI_BTN\s+\$\S+\s+([\w.-]+\.bmp)/g),
+    ...collect(/!insertmacro\s+IHUI_PAGEBG\s+([\w.-]+\.bmp)/g),
+    ...collect(/!insertmacro\s+IHUI_INST_OVERLAY\s+\$\S+\s+([\w.-]+\.bmp)/g),
+    ...collect(/LoadImage\([^)]*`\$PLUGINSDIR\\([\w.-]+\.bmp)`/g),
+  ])
+
+  // ---- ② 打包:File "/oname=$PLUGINSDIR\X.bmp" ----
+  const packed = collect(/File\s+"\/oname=\$PLUGINSDIR\\([\w.-]+\.bmp)"/g)
+
+  const fail = []
+  const warn = []
+
+  // C. 自我保护:解析为零命中说明正则/文件结构变了,不能静默通过
+  if (refs.size === 0) {
+    fail.push('解析到 0 个品牌位图引用 —— 正则或 ihui-ui.nsi 结构已变,门禁失效,拒绝放行')
   }
-}
+  if (packed.size === 0) {
+    fail.push('解析到 0 条 File 打包记录 —— 正则或 ihui-ui.nsi 结构已变,门禁失效,拒绝放行')
+  }
 
-console.log(
-  `[check-installer-assets] 引用 ${refs.size} 个 · 打包 ${packed.size} 个 · 档位 ${TIERS.length} 档`,
-)
-if (warn.length > 0) {
-  for (const w of [...new Set(warn)]) console.log(`  ⚠ ${w}`)
+  // A. 引用 ⊆ 打包
+  for (const name of [...refs].sort()) {
+    if (!packed.has(name)) {
+      fail.push(
+        `引用了但未打包: ${name}\n` +
+          `      → 缺一行: File "/oname=$PLUGINSDIR\\${name}" "\${IHUI_ASSETROOT}\\assets-\${LIT}\\${name}"\n` +
+          `        须加在 !macro IHUI_EXTRACTPAGESETS_SET 内(与 btn-close.bmp 同处)`,
+      )
+    }
+  }
+
+  // B. 打包 ⊆ 落盘(5 档齐全)
+  for (const name of [...packed].sort()) {
+    const missing = TIERS.filter((t) => !existsSync(join(ASSET_ROOT, `assets-${t}`, name)))
+    if (missing.length > 0) {
+      fail.push(`打包了但档位缺文件: ${name} —— 缺 assets-${missing.join(' / assets-')}`)
+    }
+  }
+
+  // 反向提示(非阻塞):落盘有、nsi 从不引用 = 冗余资产(仅提示,不拦)
+  for (const tier of TIERS) {
+    const dir = join(ASSET_ROOT, `assets-${tier}`)
+    if (!existsSync(dir)) continue
+    for (const f of readdirSafe(dir)) {
+      if (f.endsWith('.bmp') && !packed.has(f)) warn.push(`资产未被打包(冗余): assets-${tier}/${f}`)
+    }
+  }
+
+  console.log(
+    `[check-installer-assets] 引用 ${refs.size} 个 · 打包 ${packed.size} 个 · 档位 ${TIERS.length} 档`,
+  )
+  if (warn.length > 0) {
+    for (const w of [...new Set(warn)]) console.log(`  ⚠ ${w}`)
+  }
+  if (fail.length > 0) {
+    console.error(`\n[check-installer-assets] FAIL —— ${fail.length} 项:`)
+    for (const f of fail) console.error(`  ✗ ${f}`)
+    process.exit(1)
+  }
+  console.log('[check-installer-assets] PASS —— 引用/打包/落盘三方一致')
 }
-if (fail.length > 0) {
-  console.error(`\n[check-installer-assets] FAIL —— ${fail.length} 项:`)
-  for (const f of fail) console.error(`  ✗ ${f}`)
-  process.exit(1)
-}
-console.log('[check-installer-assets] PASS —— 引用/打包/落盘三方一致')
 
 // ---- 附加守门:GetOptions 不得直接吃 $CMDLINE(2026-09-20 事故) ----
 // NSIS ${GetOptions} 是"任意 '/' 后前缀匹配"且大小写不敏感。$CMDLINE 含 exe 完整
 // 路径,路径里任何 /ns 段(如 Git Bash 正斜杠路径 .../ihui-nsi-build/nsis-output.exe)
 // 都会误匹配 "/NS" → NoShortcutMode=1 → 完成页行3开关静默消失。
 // 正确写法:先 ${GetParameters} $R9 剥掉 exe 路径,再 ${GetOptions} $R9 ...
-const installerNsi = readFileSync(
-  join(ROOT, 'apps/desktop/src-tauri/windows/installer.nsi'),
-  'utf8',
-)
-const badGetOptions = [...installerNsi.matchAll(/\$\{GetOptions\}\s+\$CMDLINE/g)]
-if (badGetOptions.length > 0) {
-  console.error(
-    `\n[check-installer-assets] FAIL —— installer.nsi 有 ${badGetOptions.length} 处 GetOptions 直接解析 \$CMDLINE:\n` +
-      `  GetOptions 对 '/' 后做前缀匹配,exe 路径里的 /ns 等段会误匹配开关。\n` +
-      `  修法: 每处之前加 \${GetParameters} \$R9,并把 \$CMDLINE 换成 \$R9。`,
+if (isDirectRun) {
+  const installerNsi = readFileSync(
+    join(ROOT, 'apps/desktop/src-tauri/windows/installer.nsi'),
+    'utf8',
   )
-  process.exit(1)
+  const badGetOptions = [...installerNsi.matchAll(/\$\{GetOptions\}\s+\$CMDLINE/g)]
+  if (badGetOptions.length > 0) {
+    console.error(
+      `\n[check-installer-assets] FAIL —— installer.nsi 有 ${badGetOptions.length} 处 GetOptions 直接解析 \$CMDLINE:\n` +
+        `  GetOptions 对 '/' 后做前缀匹配,exe 路径里的 /ns 等段会误匹配开关。\n` +
+        `  修法: 每处之前加 \${GetParameters} \$R9,并把 \$CMDLINE 换成 \$R9。`,
+    )
+    process.exit(1)
+  }
+  console.log('[check-installer-assets] PASS —— GetOptions 未直接吃 $CMDLINE(前缀误匹配免疫)')
 }
-console.log('[check-installer-assets] PASS —— GetOptions 未直接吃 $CMDLINE(前缀误匹配免疫)')
 
 // =====================================================================
 // 附加守门二:七条**跨文件几何/集合不变量**(2026-09-23 起逐条追加)
@@ -715,40 +735,42 @@ export function checkWorkAreaDownshift({ uiSrc }) {
     )
   return v
 }
-const UI_SRC_FOR_GEO = readFileSync(process.env.IHUI_NSI_PATH || NSI, 'utf8')
-const INSTALLER_SRC_FOR_GEO = readFileSync(
-  process.env.IHUI_INSTALLER_NSI_PATH || join(ROOT, 'apps/desktop/src-tauri/windows/installer.nsi'),
-  'utf8',
-)
-const GEN_SRC_FOR_GEO = readFileSync(
-  process.env.IHUI_ASSET_GEN_PATH || join(ROOT, 'scripts/desktop-installer-assets.mjs'),
-  'utf8',
-)
-
-const geoFail = [
-  ...checkHoleEqualsButton({ uiSrc: UI_SRC_FOR_GEO }),
-  ...checkBadgeConcentric({ uiSrc: UI_SRC_FOR_GEO, genSrc: GEN_SRC_FOR_GEO }),
-  ...checkAnchorsMatchTicks({ installerSrc: INSTALLER_SRC_FOR_GEO, genSrc: GEN_SRC_FOR_GEO }),
-  ...checkReinstallCards({ uiSrc: UI_SRC_FOR_GEO, genSrc: GEN_SRC_FOR_GEO, assetRoot: ASSET_ROOT }),
-  ...checkVarScopeOrder({
-    installerSrc: INSTALLER_SRC_FOR_GEO,
-    sources: [[join(NSI).replace(/^.*[\\/]/, ''), UI_SRC_FOR_GEO]],
-  }),
-  ...checkEditInContainerCentered({ uiSrc: UI_SRC_FOR_GEO, genSrc: GEN_SRC_FOR_GEO }),
-  ...checkDpiReanchorCompleteness({ uiSrc: UI_SRC_FOR_GEO, installerSrc: INSTALLER_SRC_FOR_GEO }),
-  ...checkWorkAreaDownshift({ uiSrc: UI_SRC_FOR_GEO }),
-]
-if (geoFail.length > 0) {
-  console.error(
-    `\n[check-installer-assets] FAIL —— 跨文件几何/集合不变量被破坏 ${geoFail.length} 项:`,
+if (isDirectRun) {
+  const UI_SRC_FOR_GEO = readFileSync(process.env.IHUI_NSI_PATH || NSI, 'utf8')
+  const INSTALLER_SRC_FOR_GEO = readFileSync(
+    process.env.IHUI_INSTALLER_NSI_PATH || join(ROOT, 'apps/desktop/src-tauri/windows/installer.nsi'),
+    'utf8',
   )
-  for (const m of geoFail) console.error(`  - ${m}`)
-  process.exit(1)
+  const GEN_SRC_FOR_GEO = readFileSync(
+    process.env.IHUI_ASSET_GEN_PATH || join(ROOT, 'scripts/desktop-installer-assets.mjs'),
+    'utf8',
+  )
+
+  const geoFail = [
+    ...checkHoleEqualsButton({ uiSrc: UI_SRC_FOR_GEO }),
+    ...checkBadgeConcentric({ uiSrc: UI_SRC_FOR_GEO, genSrc: GEN_SRC_FOR_GEO }),
+    ...checkAnchorsMatchTicks({ installerSrc: INSTALLER_SRC_FOR_GEO, genSrc: GEN_SRC_FOR_GEO }),
+    ...checkReinstallCards({ uiSrc: UI_SRC_FOR_GEO, genSrc: GEN_SRC_FOR_GEO, assetRoot: ASSET_ROOT }),
+    ...checkVarScopeOrder({
+      installerSrc: INSTALLER_SRC_FOR_GEO,
+      sources: [[join(NSI).replace(/^.*[\\/]/, ''), UI_SRC_FOR_GEO]],
+    }),
+    ...checkEditInContainerCentered({ uiSrc: UI_SRC_FOR_GEO, genSrc: GEN_SRC_FOR_GEO }),
+    ...checkDpiReanchorCompleteness({ uiSrc: UI_SRC_FOR_GEO, installerSrc: INSTALLER_SRC_FOR_GEO }),
+    ...checkWorkAreaDownshift({ uiSrc: UI_SRC_FOR_GEO }),
+  ]
+  if (geoFail.length > 0) {
+    console.error(
+      `\n[check-installer-assets] FAIL —— 跨文件几何/集合不变量被破坏 ${geoFail.length} 项:`,
+    )
+    for (const m of geoFail) console.error(`  - ${m}`)
+    process.exit(1)
+  }
+  console.log(
+    '[check-installer-assets] PASS —— 洞=按钮矩形、百分比同心、埋点=刻度、重装页卡片/指示器几何、' +
+      'Function 体内不引用后置 Var、目录页输入框垂直居中、重装页 DPI 重锚走完窗口框+裁剪区域' +
+      '且两轮紧邻定档(与 GUIINIT 同口径,region 宏收尾) 八条跨文件不变量成立',
+  )
 }
-console.log(
-  '[check-installer-assets] PASS —— 洞=按钮矩形、百分比同心、埋点=刻度、重装页卡片/指示器几何、' +
-    'Function 体内不引用后置 Var、目录页输入框垂直居中、重装页 DPI 重锚走完窗口框+裁剪区域' +
-    '且两轮紧邻定档(与 GUIINIT 同口径,region 宏收尾) 八条跨文件不变量成立',
-)
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
