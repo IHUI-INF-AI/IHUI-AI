@@ -14,7 +14,7 @@
 // 薄壳经 wscript + cmd /c SW_HIDE 执行本文件,stdout/stderr 落
 // .workbuddy/hook-logs/pre-commit.log,由薄壳回显摘要/失败详情。
 // 本文件内部所有 execSync 均带 windowsHide:true,不受影响。
-const { execSync } = require('child_process')
+const { execSync, spawnSync } = require('child_process')
 const {
   takeStagingSnapshot,
   setupRestoreOnExit,
@@ -163,6 +163,127 @@ setupRestoreOnExit(INITIAL_STAGED_SNAPSHOT, {
 // 跳过方法:HUSKY_SKIP_STAGING_AUDIT=1
 auditStagingFiles()
 
+// ─── lint-staged 调用的 EBUSY 稳健性兜底(2026-10-06 立)────────────────────
+// 为什么单独包一层而**不改 run()**:run() 被本文件几十处守门调用,给它加"失败自动重试"
+// 会把「所有守门」都变成重试语义 —— 那是本票绝不允许的扩散(真实 lint 失败会被重试 3 次
+// 再报错,日志噪音 + 耗时,还会掩盖"哪一门真的红")。重试只对下面这一条 EBUSY 兜底有意义。
+//
+// 病因(已实测,不重复推导):`node_modules/.pnpm/tinyexec@1.3.0/.../main.mjs:201` 的
+// `defaultNodeOptions = { windowsHide: true }` **不设 stdio**,而 lint-staged 17.3.0 的
+// 每一次 git 调用都走 `execGit.js` → `tinyexec.exec` → 那个 spawn ⇒ git.exe 继承 stdin 管道
+// ⇒ 撞 EBUSY(errno -4082)。`--no-stash` 挡不住这条:`--no-stash` 只让 `runAll.js` 的
+// `ctx.shouldBackup` 为 false,从而跳过 `gitWorkflow.js:252` 那块 **stash** 逻辑;
+// 而 EBUSY 命中的是 `updateIndex()`(:442 `Failed to stage changes from tasks!`)与
+// `applyModifications()` 之前的 `git restore`(:308),这两处**都不碰 stash**。
+//
+// 检测口径(两条都必须认,缺一条就漏):
+//   ① 钩子这一层自己 spawn 失败 ⇒ `status === null` / `errno === -4082` / stderr 含 EBUSY。
+//   ② lint-staged 内部 git 步骤被 EBUSY 打死 ⇒ 钩子这一层只看到 `status !== 0` 加一句
+//      泛泛的 git 错误文案。**这是本机最常见的那一格**:lint-staged 把 EBUSY 吞进了
+//      `gitWorkflow.js:443` 的 `debugLog(error)`,而 debug 默认关闭 ⇒ "EBUSY" 三个字
+//      永远不会出现在钩子可见的输出里。所以还必须认它自己的指纹文案。
+// ⚠️ 认指纹 ≠ 吞错误:重试耗尽后照样 exit 1(见调用点),只是把"这是 EBUSY 形态、已重试几次、
+//    怎么绕"写成人能直接照做的诊断,而不是让人对着一句 git error 猜。
+const LINT_STAGED_CMD = 'npx lint-staged --max-arg-length 4096 --no-stash'
+// 递增退避 200/600/1500ms:EBUSY 是负载相关的间歇病(本机空载复现率低、并发时升高),
+// 给它几拍重试通常第二三次就通了。间隔递增是为了不给本机已经很忙的进程面再加压。
+const LINT_STAGED_EBUSY_BACKOFF_MS = [200, 600, 1500]
+// lint-staged 自己的 git 步骤失败指纹(全部出自 node_modules/lint-staged/lib/messages.js
+// 与 gitWorkflow.js,逐字对齐;含 17.3.0 的原文拼写错误 "hude")。
+const LINT_STAGED_GIT_STEP_FINGERPRINTS = [
+  'Failed to hude unstaged changes to partially staged files',
+  'Failed to stage changes from tasks',
+  'lint-staged failed due to a git error',
+]
+
+function spawnLintStagedOnce() {
+  // 形态说明:`shell: true` 是 npx.cmd 在 Windows 上的必需(与既有 execSync 等价);
+  // `windowsHide: true` 是 AGENTS §5b 硬要求(shell:true 不配它会弹可见控制台)。
+  // stdio[0]='ignore' 是**本票的兜底本体**:不写 stdio / 写 'pipe' 都是三通道全管道
+  // ⇒ 这条 spawn 自己也 EBUSY(本机实测 `npx lint-staged --version` 裸调即 EBUSY)。
+  // stdout 仍 inherit ⇒ lint-staged 的任务输出照旧原样透传(不改变它的实际行为)。
+  // stderr 改 pipe ⇒ 仅为把指纹文案拿回来做判定,用完原样回显,见下。
+  const r = spawnSync(LINT_STAGED_CMD, {
+    cwd: process.cwd(),
+    windowsHide: true,
+    shell: true,
+    stdio: ['ignore', 'inherit', 'pipe'],
+    encoding: 'utf8',
+  })
+  const stderr = String(r.stderr || '')
+  if (stderr) process.stderr.write(stderr)
+  return { ...r, stderrText: stderr }
+}
+
+function isEbusyShaped(res) {
+  // ① 钩子这一层 spawn 自己被 EBUSY 打死。注意 errno 挂在 res.error.errno 上,
+  //    res.errno 在 spawnSync 上是 undefined(2026-10-06 实测,两处都认)。
+  if (res.status === null && res.signal === null) return true
+  if (res.error && (res.error.errno === -4082 || res.error.code === 'EBUSY')) return true
+  if (res.errno === -4082) return true
+  // ⚠️ 形态锁(2026-10-06 反向实测钉住,这不是洁癖):这里的文本判定**必须锚在 Node 自己的
+  //    spawn 错误句式上**,不能拿裸 "EBUSY" 子串去捞。
+  //    反例是本机首版栽的:一个**真实的 eslint 报错**提交被误判成 EBUSY 形态并重试 3 次,
+  //    原因是我这个 worktree 目录名 `IHUI-AI-verify-ebusy` 里的 "ebusy" 被
+  //    `/EBUSY/i` 命中了 —— 路径里出现了被检索的词,于是"lint 规则不通过"被讲成了
+  //    "git 子进程起不来"。那正是本票最不许发生的一类误导(把真实 lint 失败说成环境抖动,
+  //    让人去查并发进程,而真正该改的是那行代码)。
+  //    真实句式固定为 `spawnSync <cmd> EBUSY` / `spawn <cmd> EBUSY`(Node 生成,不可拼错),
+  //    故锚 "spawn…EBUSY" 即可;`resource busy or locked` 同样是 Windows 系统的固定串。
+  if (/\bspawn(?:Sync)?\s+\S*\s*EBUSY\b/i.test(res.stderrText)) return true
+  if (/resource busy or locked/i.test(res.stderrText)) return true
+  // ② lint-staged 内部 git 步骤的 EBUSY(被它吞进 debugLog,只留指纹文案)
+  return LINT_STAGED_GIT_STEP_FINGERPRINTS.some((fp) => res.stderrText.includes(fp))
+}
+
+function runLintStaged() {
+  // 用 console.info 而非 console.log:两者都写 stdout(输出逐字不变),但 info 在本仓
+  // eslint 的 no-console 白名单内 —— 不给本文件新增一条告警(基线 34 条,改后仍 34 条)。
+  console.info('🎨 运行 lint-staged...')
+  let last = null
+  for (let attempt = 0; attempt <= LINT_STAGED_EBUSY_BACKOFF_MS.length; attempt++) {
+    if (attempt > 0) {
+      const wait = LINT_STAGED_EBUSY_BACKOFF_MS[attempt - 1]
+      console.warn(`   ↻ lint-staged 命中 EBUSY 形态,${wait}ms 后重试(第 ${attempt} 次重试)`)
+      // 同步退避:本文件是全同步的 execSync 风格,不能改 async(会改掉后面几十处守门的时序)。
+      // Atomics.wait 是唯一能在同步上下文里真睡的原生手段(不用第三方依赖、不 spawn 子进程 ——
+      // 在一个正为 EBUSY 难受的进程里再 spawn 只会更糟)。
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, wait)
+    }
+    const res = spawnLintStagedOnce()
+    if (res.status === 0) return true
+    last = res
+    if (!isEbusyShaped(res)) {
+      // 不是 EBUSY 形态 ⇒ 是 lint/eslint 自己的真实判定(如 ESLint 报错)。
+      // 这种情况**一个字都不能改**:它必须原样红,且不该被重试拖慢。
+      console.error(`❌ lint-staged 失败,提交已阻止(非 EBUSY 形态,如为 eslint/prettier 真实报错)`)
+      return false
+    }
+  }
+  // 重试耗尽:仍然 exit 1(见调用点)。这里只负责把"为什么"讲清楚。
+  console.error(`❌ lint-staged 失败,提交已阻止(EBUSY 形态,已重试 ${LINT_STAGED_EBUSY_BACKOFF_MS.length} 次仍失败)`)
+  console.error(`   形态:lint-staged 的 git 步骤没跑完 —— git.exe 子进程起不来(errno -4082 EBUSY / status=null)。`)
+  console.error(
+    `   判据:命中 git 步骤失败指纹或 spawn EBUSY 特征,**不是** lint 规则不通过(真 lint 报错不带这些指纹)。`,
+  )
+  console.error(
+    `   根因:本机 lint-staged 17.3.0 的 git 调用走 tinyexec(不设 stdio,git 继承 stdin 管道)。`,
+  )
+  console.error(
+    `   已做:已给钩子这条 spawn 补 stdio 兜底 + ${LINT_STAGED_EBUSY_BACKOFF_MS.length} 次递增退避重试;仍未通过说明当前是持续句柄争用。`,
+  )
+  console.error(`   怎么绕(按代价从低到高):`)
+  console.error(`     1) 查并发面:tasklist | findstr /i "git node" —— 杀掉残留的 git/node 进程再 commit;`)
+  console.error(`     2) 原样手工复跑一次(EBUSY 是间歇病,单独跑通常就通):npx lint-staged --max-arg-length 4096 --no-stash`)
+  console.error(`     3) 仍红则先看 lint-staged 自己的 git 步骤是否真有问题(别把这句 git error 当 lint 报错):`)
+  console.error(`        npx lint-staged --max-arg-length 4096 --no-stash --debug`)
+  if (last && last.stderrText) {
+    console.error(`   ---- lint-staged stderr 原文 ----`)
+    console.error(last.stderrText.trimEnd())
+  }
+  return false
+}
+
 // 5. lint-staged：对暂存文件运行 eslint --fix 和 prettier --write
 // ⚠️ 必须带 --no-stash(2026-09-12 立,事故根治):
 //   lint-staged 默认在跑任务前用 `git stash` 备份现场。本机存在「宿主清理 gitdir 嵌套目录」
@@ -172,7 +293,9 @@ auditStagingFiles()
 //   staging area 的安全性已由本文件顶部的 staging-snapshot 机制兜住(hook 退出前自动
 //   unstage 非预期新增文件),故不需要 lint-staged 自带备份。
 //   回退方式:删掉 --no-stash 即可(但请先确认宿主清理病理已消失)。
-if (!run('🎨 运行 lint-staged...', 'npx lint-staged --max-arg-length 4096 --no-stash')) {
+// ⚠️ 2026-10-06:这一条改走 runLintStaged()(EBUSY 兜底 + 重试),命令串与 --no-stash 原样保留,
+//   lint-staged 的配置/版本/检查规则一律没动。真实 lint 失败仍然原样阻断,见 runLintStaged 内注释。
+if (!runLintStaged()) {
   process.exit(1)
 }
 
