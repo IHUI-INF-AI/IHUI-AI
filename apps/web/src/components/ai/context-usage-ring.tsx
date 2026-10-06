@@ -392,10 +392,12 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
     return computeContextAttribution({
       messages: toAttributionMessages(messages),
       providerPromptTokens: providerUsage?.promptTokens ?? null,
-      // 后端 usage 帧当前不携带缓存读数 —— 显式传 null 让 UI 如实显示"不可得",
-      // 不得用 0 顶替(0 会被读成"一次都没命中",那是另一个结论)。
-      cacheReadTokens: null,
-      cacheWriteTokens: null,
+      // G-403(2026-10-07 起 usage 帧携带缓存两维):store 落盘口径是"数字=真回报(含 0),
+      // null=没采到"。这里只做渲染位折叠 —— undefined(旧消息无此字段)与 null(未知)
+      // 都归 null,UI 如实显示"不可得";数字(含 0=真没命中)原样交给引擎。
+      // 绝不用 0 顶替未知(0 会被读成"一次都没命中",那是另一个结论)。
+      cacheReadTokens: providerUsage?.cacheReadTokens ?? null,
+      cacheWriteTokens: providerUsage?.cacheWriteTokens ?? null,
     })
   }, [messages, usageByMessageId])
 
