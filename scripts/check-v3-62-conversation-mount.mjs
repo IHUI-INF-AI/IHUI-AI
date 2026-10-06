@@ -38,8 +38,12 @@
 //   node scripts/check-v3-62-conversation-mount.mjs --self-test  # 临时独立仓正反成对自检
 //   --root <dir>  显式仓库根(测试通道;生产不带)
 // 退出码:0 通过 / 1 判据违规 / 2 无法判定或脚本自身异常
-// 应急跳过环境变量名:见 SKIP_ENV_NAME(尚未接线 ⇒ 该 env 目前只由本脚本自读,
-//   runner 侧的 skipEnv 需与注册同笔落地,不得先声称已接)。
+// 【接线状态:已接入】注册条目已落在 scripts/guardian-runner.mjs(id 以 runner 现值为准,
+// 勿照抄本行数字):blocking + skipEnv:HUSKY_SKIP_V362_CONV_MOUNT,带 stagedTriggers。
+// 应急跳过环境变量名:见 SKIP_ENV_NAME —— 该 env 现有**两个**读点(本脚本 line 866 自读 +
+// runner 注册项 skipEnv),不是"只由本脚本自读"。
+// —— 本段原写"应急跳过环境变量名:见 SKIP_ENV_NAME(尚未接线 ⇒ 该 env 目前只由本脚本自读,
+//   runner 侧的 skipEnv 需与注册同笔落地,不得先声称已接)",那是立项时的实况,已过期(门早已装车)。
 
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'

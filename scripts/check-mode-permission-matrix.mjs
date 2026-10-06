@@ -511,7 +511,7 @@ export function runAudit({ root = ROOT, face } = {}) {
     return { face: usedFace, ...res, fileCount: Object.keys(contents).length }
   } catch (e) {
     // 解析器读不到表 ⇒ **无法判定**,不是一枚带栈回溯的崩溃,也不是"没问题"。
-    // 现实场景:本门比被审代码先到某个检出(注册由主会话落,矩阵由另一枚提交带),
+    // 现实场景:本门比被审代码先到某个检出(注册早已装车,矩阵由另一枚提交带),
     // 或有人在矩阵上做了语法性破坏。两种都必须喊"看不见",绝不能静默算通过。
     const msg = e instanceof Error ? e.message : String(e)
     return {
