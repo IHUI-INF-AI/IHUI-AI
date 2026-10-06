@@ -15,7 +15,10 @@
  *   node scripts/check-diagnostic-redaction.mjs --self-test   # 脱敏器行为自测 + 源形态检查
  *   node scripts/check-diagnostic-redaction.mjs               # 门本体(源形态检查)
  *
- * 本脚本不接提交链(§12f:接链由守门持有人统一做)。
+ * 【接线状态:已接入】注册条目已落在 scripts/guardian-runner.mjs(id 以 runner 现值为准,
+ * 勿照抄本行数字):blocking + skipEnv:HUSKY_SKIP_DIAGNOSTIC_REDACTION,无 stagedTriggers。
+ * —— 本行原写"本脚本不接提交链(§12f:接链由守门持有人统一做)",那是立项时的实况,
+ * 已过期(门早已装车);§12f 的分寸保留,接线事实按上条现读改写。
  */
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'

@@ -51,8 +51,12 @@
 // 用法:node scripts/check-exemption-expiry.mjs [--all|--json|--staged|--worktree|--self-test
 //       |--update-baseline|--root <dir>]
 // 退出码:0 通过 / 1 判据红 / 2 无法判定(取材失败,不冒红也不记绿)。
-// 接线由主会话统一做(guardian-runner 取当时最大 id+1、blocking、skipEnv
-// HUSKY_SKIP_EXEMPTION_EXPIRY=1);本文件自身不提供任何绕过钩子的开关。
+// 【接线状态:已接入】注册条目已落在 scripts/guardian-runner.mjs(id 以 runner 现值为准,
+// 勿照抄本行数字):blocking + skipEnv:HUSKY_SKIP_EXEMPTION_EXPIRY,无 stagedTriggers。
+//   紧急跳过 HUSKY_SKIP_EXEMPTION_EXPIRY=1(该出口由 runner 注册项提供)。
+// —— 本段原写"接线由主会话统一做(guardian-runner 取当时最大 id+1、blocking、skipEnv
+//   HUSKY_SKIP_EXEMPTION_EXPIRY=1)",那是立项时的实况,已过期(门早已装车)。
+// 本文件自身不提供任何绕过钩子的开关(无内置 SKIP_ENV 常量,镜像测试 T18 对此有断言)。
 
 import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
