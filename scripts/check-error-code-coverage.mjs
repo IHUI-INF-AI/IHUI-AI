@@ -11,13 +11,26 @@
 // 「AI 服务异常」。D71 补了 `packages/shared/src/chat/error-catalog.ts` 这张
 // errorCode → 标题/动作 表;本门负责让它**不会悄悄漏码**。
 //
-// 三条正交规则:
+// 三条正交规则(2026-10-05 由 G-815963 扩出第四条 R4,原有 R1/R2/R3 的逻辑一字未改):
 //   R1 覆盖   —— 我方产出的每个 errorCode 都必须在 catalog 里有条目(零「未知错误」兜底);
 //   R2 八类   —— 台账点名的八类(CONTEXT_TOO_LONG / MEDIA_COUNT_EXCEEDED / MODEL_REFUSED /
 //                REQUEST_TIMEOUT / INTERNAL_ERROR / VERSION_TOO_LOW / ACCOUNT_RESTRICTED /
 //                TOKEN_EXPIRED)必须全部登记;
 //   R3 零兜底 —— catalog 内不得出现 category='unknown'、不得出现 UNKNOWN 键,
 //                且 zh-CN 词包的 `ai.pane.errorCatalog` 下不得出现「未知错误」字样。
+//
+// R4(G-815963「未知枚举的兜底档必须是"不再产生副作用"那一档」)判的是**读侧**的同一型失真:
+//   R4a `apps/api/src/db/**` 与 `packages/shared/src/**` 里 `as XxxStatus`(含两段式
+//       `as unknown as XxxStatus`)直转 —— 未知值原样透传。锚点 = **该文件在 HEAD 面自身的站点数**,
+//       所以全量档只报数、`--staged` 只拦"把这一族加回来";HEAD 现读 0 处,今天等价零容忍,
+//       但判据不能建在"今天恰好是 0"上(那型红与本次提交无关 ⇒ 恒红门 ⇒ 全队跳钩子,§12e)。
+//   R4b `coerceKnownOr(` 调用点必须把安全档给成**读得出的字面量**;能机械判出"安全档 ∉ 它自己的
+//       内联全集"时判红(零容忍、不吃棘轮 —— 那一档红是本次改动自己带的),其余判不出的形态
+//       一律落**未判定**并逐条点名(既不冒红也不记绿)。
+//   R4-OUTLET 唯一出口 `packages/types/src/enum-coerce.ts` 的 `coerceKnownOr` 被摘线或整块消失 ⇒
+//       判"尺子失明"**并参与退出码**(只打印不改退出码 = 下一次没人看;同守门 135/144 的规矩)。
+//   刻意不做:"兜到初态还是终态"需要 per-enum 终态声明表 = 语义裁决 ⇒ **零判据**,不自建名单、不用
+//       名字启发式(把 pending 当"初态"判红会误伤真实业务码)。这一格在结论行里如实报名。
 //
 // 判据有效性靠 --self-test 注入违规自证(不读脚本自己的注释):
 // 尤其 R1 带阳性反演 —— 注入一个未收录 code 必须 exit 1,否则这条门形同虚设。
@@ -37,6 +50,8 @@
 // 名单里补装;改这句时请同步改 runner,否则门 89 会把本行判成 R1「声称已接线但五处零命中」。
 //   node scripts/check-error-code-coverage.mjs                 # 全量:判 HEAD blob
 //   node scripts/check-error-code-coverage.mjs --staged        # 判索引 blob(pre-commit)
+//   node scripts/check-error-code-coverage.mjs --strict        # 问责档:R4a 存量按锚点 0 一并问责,
+//                                                              #   有未判定 ⇒ exit 2 拒绝出合格证
 //   node scripts/check-error-code-coverage.mjs --worktree      # 磁盘逃生舱
 //   node scripts/check-error-code-coverage.mjs --self-test
 //   node scripts/check-error-code-coverage.mjs --list
@@ -58,6 +73,14 @@ import {
   readWorktreeFile,
   selectFace,
 } from './lib/face-reader.mjs'
+// 遮噪只有这一份实现(§22c / 守门 118:两处各写一遍必然漂开)。本门 R4 要**两遍方向不同的遮噪**:
+//   · R4a(判 `as XxxStatus` 直转)用 maskCommentsAndStrings —— 类型断言不住在字符串里,
+//     连字符串一起抹是可的,而且必须抹:注释里逐字引用旧写法(HEAD 的 enum-coerce.ts 头注就是这么
+//     一句 `as XxxStatus`)若被当代码读,门就会把"解释自己防的是什么"判成仓库违规(守门 131 那一型);
+//   · R4b(判 coerceKnownOr 的安全档)**必须保留字符串** —— 要判的那个字面量本身就是字符串,
+//     连字符串一起抹等于对 R4b 立项的那一格全盲而账面报"零违规"。
+// 两档共用同一台分词器(code-mask 里的 scanSpans),只是取的投影不同。
+import { maskComments, maskCommentsAndStrings } from './lib/code-mask.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -137,6 +160,51 @@ const VALID_CATEGORIES = new Set([
 const UNKNOWN_CATEGORY = 'unknown'
 
 // ---------------------------------------------------------------------------
+// R4(G-815963,2026-10-05 加):未知枚举的兜底档必须是"不再产生副作用"那一档
+// ---------------------------------------------------------------------------
+
+/**
+ * R4 的扫描面:读侧把外部值(数据库行 / HTTP 响应 / 上游 payload)直转成枚举档的两个高发树。
+ * 与 R1 的 SCAN_ROOTS **刻意不同面** —— R1 问"产出的错误码在表里没有",R4 问"读进来的枚举值有没有兜底"。
+ * 扩面必须先跑一次现读(本门加维度前 HEAD 面 R4a 站点数 = 0,见交付报告),否则新判据一上手就是恒红门。
+ */
+const R4_SCAN_ROOTS = [
+  { dir: 'apps/api/src/db', exts: ['.ts', '.tsx'] },
+  { dir: 'packages/shared/src', exts: ['.ts', '.tsx'] },
+]
+
+/** 唯一出口(G-815963 前半已入库)。摘线时本门判"尺子失明"并参与退出码 —— 同守门 135/144 的规矩。 */
+const OUTLET_FILE = 'packages/types/src/enum-coerce.ts'
+const OUTLET_EXPORT = 'coerceKnownOr'
+
+/**
+ * 直转形态:`as ChatMessageStatus` 与两段式 `as unknown as OrderStatus`。
+ * 一条合并正则而不是两条,是为了**一次命中只计一个站点** —— 两段式的后半 `as OrderStatus`
+ * 单独也能匹配,分两条写会把同一处算成两处,而 R4a 的棘轮锚点按站点数比,重复计数会让
+ * "把两段式改成直转"这种无变化看起来像减少违规、反向看起来像新增(守门 134 扩布尔档键时同一课)。
+ * 标识符必须以 `Status` 结尾且前面至少有一个字符 ⇒ 裸 `as Status` 不匹配(与票面 `as [A-Za-z]+Status` 同形)。
+ */
+const CAST_STATUS_RE = /\bas\s+(unknown\s+as\s+)?([A-Za-z_$][\w$]*Status)\b/g
+
+/** 调用点定位:`coerceKnownOr(` —— 带左括号才算调用,`import { coerceKnownOr }` 与声明处不算。 */
+const COERCE_CALL_RE = /\bcoerceKnownOr\s*\(/g
+
+/** 安全档字面量:整段就是一个引号串(单/双引号,允许转义)。 */
+const STRING_LITERAL_RE = /^(?:'((?:\\.|[^'\\])*)'|"((?:\\.|[^"\\])*)")$/
+
+/** 安全档是裸标识符时,允许在**同一文件**里把它读成一个字面量(不是第二份名单,是同文件的一处直读)。 */
+const IDENT_RE = /^[A-Za-z_$][\w$]*$/
+
+/**
+ * 刻意的能力边界(必须写在这里,免得下一个人把"没判"读成"判过了"):
+ *   **"兜到初态还是终态"这一维零判据。** 判它需要一张 per-enum 的"哪一档是终态/只读/禁用"声明表,
+ *   那是语义裁决;本票不自建第二份名单(登记表必然腐烂,AGENTS §4 对 RN_ONLY_BRAND_KEYS 记过同型),
+ *   也不得用启发式猜(把 `pending`/`running` 这类名字当"初态"判红,第一版就会咬到真实业务码)。
+ *   R4b 能机械判的只有一件事:**安全档必须是个能读出来的字面量,而且得落在它自己的全集之内**
+ *   (第二参写成内联字符串数组时才可判;写成 `as const` 具名元组时,追那张表要跨文件解析 ⇒ 未判定)。
+ */
+
+// ---------------------------------------------------------------------------
 // 判定面(取材层)—— 原语来自 scripts/lib/face-reader.mjs,这里只剩本门特有的形状适配
 // ---------------------------------------------------------------------------
 
@@ -144,10 +212,10 @@ const UNKNOWN_CATEGORY = 'unknown'
  *  类本体就是共用层的 Undetermined(别名再导出,保持对外导出面与本门测试的 `instanceof` 不变)。 */
 export const UndeterminedError = Undetermined
 
-function requireNonEmpty(list, label) {
+function requireNonEmpty(list, label, scopeDesc) {
   if (list.length === 0)
     throw new UndeterminedError(
-      `${label} 在扫描面(${SCAN_ROOTS.map((s) => s.dir).join(' + ')})枚举到 0 个文件 —— 判据不扫空气,按无法判定处理`,
+      `${label} 在扫描面(${scopeDesc || SCAN_ROOTS.map((s) => s.dir).join(' + ')})枚举到 0 个文件 —— 判据不扫空气,按无法判定处理`,
     )
   return list
 }
@@ -183,61 +251,97 @@ function makeGitReader(face, root) {
       contents.set(rel, text)
     }
   }
+  /** 按根枚举一棵树上的路径(与 R1 共用同一套排除,所以只写一遍)。
+   *  `lang` 必须照根描述符传下去 —— R1 的 py 树靠它决定要不要跑常量正则,写死成 ts 就是改 R1 的行为。 */
+  function listIn(roots) {
+    const out = []
+    for (const { dir, exts, lang = 'ts' } of roots) {
+      // -z 空字节分隔:中文/空格路径不能被换行分帧打断
+      const raw =
+        face === 'head'
+          ? gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '-z', '--', dir], root)
+          : gitRaw(['ls-files', '-z', '--', dir], root)
+      for (const rel of raw.split('\0')) {
+        if (!rel || EXCLUDE_DIR.test(rel) || EXCLUDE_FILE.test(rel)) continue
+        if (!exts.some((x) => rel.endsWith(x))) continue
+        out.push({ relPath: rel, lang })
+      }
+    }
+    return out
+  }
   return {
     label,
     listScanFiles() {
-      const out = []
-      for (const { dir, exts, lang } of SCAN_ROOTS) {
-        // -z 空字节分隔:中文/空格路径不能被换行分帧打断
-        const raw =
-          face === 'head'
-            ? gitRaw(['ls-tree', '-r', '--name-only', 'HEAD', '-z', '--', dir], root)
-            : gitRaw(['ls-files', '-z', '--', dir], root)
-        for (const rel of raw.split('\0')) {
-          if (!rel || EXCLUDE_DIR.test(rel) || EXCLUDE_FILE.test(rel)) continue
-          if (!exts.some((x) => rel.endsWith(x))) continue
-          out.push({ relPath: rel, lang })
-        }
-      }
-      return requireNonEmpty(out, label)
+      return requireNonEmpty(listIn(SCAN_ROOTS), label)
+    },
+    listEnumScanFiles() {
+      return requireNonEmpty(
+        listIn(R4_SCAN_ROOTS),
+        label,
+        R4_SCAN_ROOTS.map((s) => s.dir).join(' + '),
+      )
     },
     fetch,
     read(rel) {
       fetch([rel])
       return contents.get(rel)
     },
+    /**
+     * "取不到 ⇒ null 而不抛"的那一档,只服务**锚点面**(HEAD 的同一文件)与出口存续性。
+     * 判据面照旧用 read() —— 被判的内容取不到必须 exit 2,不得把"少读一个文件"读成"没违规";
+     * 而锚点侧的文件在 HEAD 里本就可能不存在(本次新加的文件),那是一条**合法**的锚点 0,不是故障。
+     * 出口文件同理:它被删掉时应当由 R4-OUTLET 大声判红,而不是在这里抛出去把整轮结论作废。
+     * 存在性与内容走同一个原语(catBatch 的 null),不另立第二份"这个路径在不在面上"的账。
+     */
+    readIfPresent(rel) {
+      const text = catBatch(root, [prefix + rel]).get(prefix + rel)
+      return text === null || text === undefined ? null : text
+    },
   }
 }
 
 function makeWorktreeReader(root) {
   const label = FACE_LABEL.worktree
+  function walkIn(roots) {
+    const out = []
+    for (const { dir, exts, lang = 'ts' } of roots) {
+      const walk = (abs) => {
+        let entries
+        try {
+          entries = readdirSync(abs, { withFileTypes: true })
+        } catch {
+          return // 整棵目录缺失交给"0 文件即无法判定"兜底,不在这里静默当"扫过了"
+        }
+        for (const e of entries) {
+          const p = join(abs, e.name)
+          const rel = p.slice(root.length + 1).replace(/\\/g, '/')
+          if (e.isDirectory()) {
+            if (!EXCLUDE_DIR.test(rel)) walk(p)
+            continue
+          }
+          if (!exts.some((x) => rel.endsWith(x))) continue
+          if (EXCLUDE_DIR.test(rel) || EXCLUDE_FILE.test(rel)) continue
+          // lang 必须照根描述符传下去(与 git 面的 listIn 同形):R1 的 py 树靠它决定要不要跑
+          // 常量正则,写死成 'ts' 就是**改了 R1 的行为** —— 而 worktree 档是人工取证面,
+          // 这种偏差不会在提交链上现形,只会在下一次有人用逃生舱时对不上数。
+          out.push({ relPath: rel, lang })
+        }
+      }
+      walk(join(root, dir))
+    }
+    return out
+  }
   return {
     label,
     listScanFiles() {
-      const out = []
-      for (const { dir, exts, lang } of SCAN_ROOTS) {
-        const walk = (abs) => {
-          let entries
-          try {
-            entries = readdirSync(abs, { withFileTypes: true })
-          } catch {
-            return // 整棵目录缺失交给"0 文件即无法判定"兜底,不在这里静默当"扫过了"
-          }
-          for (const e of entries) {
-            const p = join(abs, e.name)
-            const rel = p.slice(root.length + 1).replace(/\\/g, '/')
-            if (e.isDirectory()) {
-              if (!EXCLUDE_DIR.test(rel)) walk(p)
-              continue
-            }
-            if (!exts.some((x) => rel.endsWith(x))) continue
-            if (EXCLUDE_DIR.test(rel) || EXCLUDE_FILE.test(rel)) continue
-            out.push({ relPath: rel, lang })
-          }
-        }
-        walk(join(root, dir))
-      }
-      return requireNonEmpty(out, label)
+      return requireNonEmpty(walkIn(SCAN_ROOTS), label)
+    },
+    listEnumScanFiles() {
+      return requireNonEmpty(
+        walkIn(R4_SCAN_ROOTS),
+        label,
+        R4_SCAN_ROOTS.map((s) => s.dir).join(' + '),
+      )
     },
     fetch() {},
     read(rel) {
@@ -247,6 +351,10 @@ function makeWorktreeReader(root) {
       if (text === null)
         throw new UndeterminedError(`${label} 取不到 ${rel}(磁盘上不存在 / 二进制含 NUL)`)
       return text
+    },
+    /** 与 git 面同名的软读档:出口文件在磁盘上不在 ⇒ null,交给 R4-OUTLET 定性,而不是崩。 */
+    readIfPresent(rel) {
+      return readWorktreeFile(root, rel)
     },
   }
 }
@@ -441,10 +549,276 @@ export function checkNoFallback(catalog, messages) {
 }
 
 // ---------------------------------------------------------------------------
+// R4 判据
+// ---------------------------------------------------------------------------
+
+/** 行号按"该遍遮噪后的文本"算:两档遮噪都保换行,所以行号与原文一致(列位不保证,故从不报列)。 */
+function lineAt(text, index) {
+  let line = 1
+  for (let i = 0; i < index; i += 1) if (text[i] === '\n') line += 1
+  return line
+}
+
+/** R4 的文件集:清单与内容同取自判定面。刻意**不吃 --scan-extra 探针** ——
+ *  探针是磁盘面,而 R4a 走"该文件 HEAD 自身存量"棘轮,混面会产出与提交无关的假红/假绿。 */
+export function collectEnumFiles(reader) {
+  const listed = reader.listEnumScanFiles()
+  reader.fetch(listed.map((f) => f.relPath))
+  return listed.map(({ relPath }) => ({ relPath, src: reader.read(relPath) }))
+}
+
+/** R4a 站点提取:遮注释 + 字符串之后的代码面上找 `as XxxStatus` / `as unknown as XxxStatus`。 */
+export function extractEnumCastSites(relPath, src) {
+  const face = maskCommentsAndStrings(src)
+  const sites = []
+  for (const m of face.matchAll(CAST_STATUS_RE)) {
+    sites.push({
+      relPath,
+      line: lineAt(face, m.index),
+      type: m[2],
+      twoStage: Boolean(m[1]),
+    })
+  }
+  return sites
+}
+
+/**
+ * R4a:读侧直转枚举档。锚点 = **该文件在 HEAD 面自身的站点数**。
+ * 为什么必须带棘轮而不是零容忍:HEAD 现读这一族是 0 处(见交付报告的现读命令),但"0"是今天的读数,
+ * 不是判据 —— 一旦有人在别人尚未合入的文件里加了一处,当场判红就是与本次改动无关的恒红,
+ * 而恒红 blocking 门的唯一结局是各会话 `--no-verify`、连带链上全部守门对该提交作废(AGENTS §12e)。
+ * 所以:全量档(判 HEAD)只报数;`--staged` 档拿索引面与 HEAD 锚点比,新增/加回才红。
+ */
+export function checkEnumCastRatchet(files, { anchorOf, ratcheted }) {
+  const sites = []
+  for (const f of files) sites.push(...extractEnumCastSites(f.relPath, f.src))
+  const byFile = new Map()
+  for (const s of sites) {
+    if (!byFile.has(s.relPath)) byFile.set(s.relPath, [])
+    byFile.get(s.relPath).push(s)
+  }
+  const problems = []
+  const reported = []
+  for (const [rel, list] of [...byFile.entries()].sort()) {
+    const anchor = ratcheted ? anchorOf(rel) : null
+    if (anchor === null) {
+      // 没有可比的锚点(全量档 / worktree 逃生舱):如实报数,不冒红也不冒充"已判无违规"
+      reported.push(`${rel}(${list.length} 处)`)
+      continue
+    }
+    if (list.length <= anchor) continue
+    const where = list.map((s) => `${s.line}:${s.twoStage ? 'as unknown as' : 'as'} ${s.type}`)
+    problems.push(
+      `R4a ${rel} 把外部值直转成枚举档 ${list.length} 处(HEAD 自身存量 ${anchor})—— ${where.join(' / ')} ` +
+        `⇒ 未知值会原样透传;改走 ${OUTLET_FILE} 的 ${OUTLET_EXPORT}(值, 全集, 安全档),安全档逐枚举显式声明为终态/只读/禁用`,
+    )
+  }
+  return { problems, sites, reported }
+}
+
+/** 从 `(` 的下标起做括号配平;认引号与模板串,不被字符串里的括号带偏。 */
+function matchParen(text, openIndex) {
+  let depth = 0
+  let i = openIndex
+  while (i < text.length) {
+    const ch = text[i]
+    if (ch === '"' || ch === "'" || ch === '`') {
+      i = skipQuote(text, i)
+      if (i < 0) return -1
+      continue
+    }
+    if (ch === '(') depth += 1
+    else if (ch === ')') {
+      depth -= 1
+      if (depth === 0) return i
+    }
+    i += 1
+  }
+  return -1
+}
+
+/** 跳到引号串结束之后的下标;串未闭合返回 -1。 */
+function skipQuote(text, start) {
+  const q = text[start]
+  let i = start + 1
+  while (i < text.length) {
+    if (text[i] === '\\') {
+      i += 2
+      continue
+    }
+    if (text[i] === q) return i + 1
+    i += 1
+  }
+  return -1
+}
+
+/** 顶层逗号切分实参:嵌套 ()/[]/{} 与字符串内部的逗号不算分隔。 */
+function splitTopLevelArgs(inner) {
+  if (inner.trim() === '') return []
+  const parts = []
+  let depth = 0
+  let cur = ''
+  for (let i = 0; i < inner.length; i += 1) {
+    const ch = inner[i]
+    if (ch === '"' || ch === "'" || ch === '`') {
+      const end = skipQuote(inner, i)
+      if (end < 0) return null // 串未闭合 ⇒ 参数边界判不出
+      cur += inner.slice(i, end)
+      i = end - 1
+      continue
+    }
+    if (ch === '(' || ch === '[' || ch === '{') depth += 1
+    else if (ch === ')' || ch === ']' || ch === '}') depth -= 1
+    if (depth === 0 && ch === ',') {
+      parts.push(cur.trim())
+      cur = ''
+      continue
+    }
+    cur += ch
+    if (depth < 0) return null // 括号形状不对,不猜
+  }
+  parts.push(cur.trim())
+  return parts
+}
+
+/** 第二参写成内联字符串数组时,把它的成员读出来(唯一能在不建名单的前提下判"安全档 ∈ 全集"的形态)。 */
+function inlineStringArray(text) {
+  const t = (text || '').trim()
+  if (!t.startsWith('[') || !t.endsWith(']')) return null
+  const inner = t.slice(1, -1)
+  const items = []
+  for (const piece of splitTopLevelArgs(inner) || []) {
+    const m = STRING_LITERAL_RE.exec(piece)
+    if (!m) return null // 数组里混了非字面量 ⇒ 全集读不出,不猜
+    items.push(m[1] ?? m[2])
+  }
+  return items
+}
+
+/** 在同一文件里把一个标识符读成字面量(`const SAFE = 'cancelled'`)。这是同文件直读,不是第二份登记表。 */
+function resolveLocalLiteral(src, ident) {
+  const re = new RegExp(`\\b(?:const|let|var)\\s+${ident}\\s*(?::[^=\\n]+)?=\\s*(['"])([^'"]*)\\1`)
+  const m = re.exec(src)
+  return m ? m[2] : null
+}
+
+/**
+ * R4b:`coerceKnownOr(` 调用点的安全档必须**显式给且读得出来**。三态绝不并桶:
+ *   ok         —— 第三参是字面量(或本文件可解析成字面量的常量),且(第二参是内联数组时)在集合内;
+ *   red        —— 第三参是字面量、第二参是内联字符串数组、而它不在全集里 ⇒ 兜底值落在枚举外,
+ *                 与"不直转"的初衷相反(这条机械可判,零容忍、不吃棘轮);
+ *   undetermined —— 缺第三参 / 括号配平不到 / 第三参是需要跨文件才知道的那张表。
+ * 为什么"缺第三参"落未判定而不是判红:票面把这一形态写成"既不冒红也不记绿"的点名项,而 TS 侧
+ * `safe: T` 是必填形参 ⇒ 少参在 `tsc` 那侧已经是硬错误,本门重复判红只会把同一件事计两遍;
+ * 反过来把它写成未判定并**逐条点名**,才是"这一格本门没判"的诚实说法。
+ */
+export function checkCoerceSafeArg(files) {
+  const ok = []
+  const red = []
+  const undetermined = []
+  for (const f of files) {
+    const face = maskComments(f.src) // 保留字符串:安全档本身就是字符串字面量
+    for (const m of [...face.matchAll(COERCE_CALL_RE)]) {
+      const line = lineAt(face, m.index)
+      const openIndex = face.indexOf('(', m.index)
+      const close = openIndex < 0 ? -1 : matchParen(face, openIndex)
+      const at = `${f.relPath}:${line}`
+      if (close < 0) {
+        undetermined.push({
+          at,
+          why: '括号配平不到(正则字面量或未闭合字符串在 R4b 这一遍是可见的)',
+        })
+        continue
+      }
+      const args = splitTopLevelArgs(face.slice(openIndex + 1, close))
+      if (!args) {
+        undetermined.push({ at, why: '实参边界切不出来(嵌套形状超出本判据)' })
+        continue
+      }
+      if (args.length < 3) {
+        undetermined.push({ at, why: `只给出 ${args.length} 个实参,第三参(安全档)取不出` })
+        continue
+      }
+      const thirdRaw = args[2]
+      const lit = STRING_LITERAL_RE.exec(thirdRaw)
+      let safe = lit ? (lit[1] ?? lit[2]) : null
+      if (!lit && IDENT_RE.test(thirdRaw)) {
+        safe = resolveLocalLiteral(face, thirdRaw)
+        if (safe === null) {
+          undetermined.push({
+            at,
+            why: `安全档是变量 ${thirdRaw},本文件读不出那张表 ⇒ 需要 per-enum 终态声明,本门不猜`,
+          })
+          continue
+        }
+      }
+      if (safe === null) {
+        undetermined.push({
+          at,
+          why: `安全档形态判不出(${thirdRaw.slice(0, 40) || '空'})`,
+        })
+        continue
+      }
+      const known = inlineStringArray(args[1])
+      if (known && !known.includes(safe)) {
+        red.push(
+          `R4b ${at} 的安全档 '${safe}' 不在它自己的全集 [${known.join(', ')}] 之内 —— ` +
+            '兜底值落在枚举外,与「as XxxStatus」直转同害(零容忍,不吃棘轮)',
+        )
+        continue
+      }
+      ok.push({ at, safe, domainChecked: Boolean(known) })
+    }
+  }
+  return { ok, red, undetermined }
+}
+
+/**
+ * 出口存续性:`packages/types/src/enum-coerce.ts` 必须真的导出 coerceKnownOr。
+ * 出口被摘线时**判红并参与退出码** —— 只打印不改退出码 = 下一次没人看(守门 135/144 同一条规矩)。
+ * 文件整体不在面上 ⇒ null ⇒ 同样判红并点名,因为"唯一出口消失了"正是本维要防的失效型。
+ */
+export function checkOutletLiveness(text) {
+  if (text === null)
+    return [
+      `R4-OUTLET 唯一出口 ${OUTLET_FILE} 在被审面上取不到 —— 出口没了,R4 判据对这一型失明(尺子失明即红)`,
+    ]
+  const exported =
+    new RegExp(`export\\s+(?:async\\s+)?function\\s+${OUTLET_EXPORT}\\b`).test(text) ||
+    new RegExp(`export\\s+(?:const|let)\\s+${OUTLET_EXPORT}\\b`).test(text) ||
+    new RegExp(`export\\s*\\{[^}]*\\b${OUTLET_EXPORT}\\b[^}]*\\}`).test(text)
+  return exported
+    ? []
+    : [
+        `R4-OUTLET ${OUTLET_FILE} 不再导出 ${OUTLET_EXPORT}() —— 出口被摘线,R4 的修复出口不存在(尺子失明即红)`,
+      ]
+}
+
+// ---------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------
 
-export function runChecks({ root = ROOT, face = 'head', extraFiles = [] } = {}) {
+/**
+ * R4 的一条取材纪律:锚点面**永远是 HEAD**,与判定档无关。
+ *   · 判 `--staged`(索引)⇒ 判据面与锚点面是两个不同的面,这是棘轮的定义(同守门 152 的
+ *     "--staged 档比 HEAD"),锚点侧文件在 HEAD 不存在 ⇒ 锚点 0(新文件的正当形态),不判"无法判定"。
+ *   · 判 HEAD / worktree ⇒ 没有独立锚点可比(自己减自己恒 0),所以只报数不判红。
+ * 两档不得混成一个"随便取个数"的循环:把 HEAD 当成被审内容来判,就等于把上一次提交的红
+ * 天天重判一遍(恒红门,§12e)。
+ */
+function buildAnchorProvider(root) {
+  const anchorReader = makeFaceReader('head', root)
+  const cache = new Map()
+  return (rel) => {
+    if (cache.has(rel)) return cache.get(rel)
+    const src = anchorReader.readIfPresent(rel)
+    const n = src === null ? 0 : extractEnumCastSites(rel, src).length
+    cache.set(rel, n)
+    return n
+  }
+}
+
+export function runChecks({ root = ROOT, face = 'head', extraFiles = [], strict = false } = {}) {
   const reader = makeFaceReader(face, root)
   const files = collectFiles(reader, extraFiles, root)
   const scanned = scanErrorCodes(files)
@@ -453,13 +827,55 @@ export function runChecks({ root = ROOT, face = 'head', extraFiles = [] } = {}) 
     reader.read(MESSAGE_FILE),
     `${reader.label} 的 ${MESSAGE_FILE}`,
   )
+  // —— R4(G-815963):枚举兜底档 ——
+  const enumFiles = collectEnumFiles(reader)
+  // 问责档(--strict)与提交链的差别只有一处:缺省的全量/工作树档对"该文件 HEAD 自身存量"**只报数**,
+  // 而 --strict 把锚点当 0 问责(这一族站点本来就该是 0 处,存量也是债,该有人清偿)。
+  // 这不新增恒红面:提交链的注册条目 args 为空(runner 现值),拿不到 --strict;
+  // 次序同守门 117 —— 先现读存量归零,再谈把问责档挂进提交链,而不是反过来。
+  const ratcheted = face === 'staged' || strict
+  // 问责档只把**全量/工作树面**的锚点收成 0(存量一并问责);`--staged` 面的锚点照旧是"该文件 HEAD
+  // 自身存量" —— 棘轮语义不因为多带一枚旗就变严,否则同一次提交会被"别人欠的 + 我加的"混成一堆红。
+  // 两档共用同一条 --strict 后果:有未判定 ⇒ 拒绝出具合格证(exit 2)。
+  const anchorOf = face === 'staged' ? buildAnchorProvider(root) : () => (strict ? 0 : null)
+  // 锚点从哪儿来必须跟着读数一起说:三种模式的红含义不同(别人的存量 / 本次加回来 / 问责存量),
+  // 印成同一句话就会让读报告的人把"这次新加的一处"读成"别人欠的债"。
+  const anchorMode =
+    face === 'staged'
+      ? '锚点面=HEAD 自身存量,棘轮生效'
+      : strict
+        ? '问责档:锚点按 0(存量也问责)'
+        : '全量/工作树档:存量只报数,不判红'
+  const cast = checkEnumCastRatchet(enumFiles, { anchorOf, ratcheted })
+  const coerce = checkCoerceSafeArg(enumFiles)
+  const outlet = checkOutletLiveness(reader.readIfPresent(OUTLET_FILE))
   const problems = [
     ...checkCoverage(scanned, catalog),
     ...checkClasses(catalog),
     ...checkNoFallback(catalog, messages),
+    ...cast.problems,
+    ...coerce.red,
+    ...outlet,
   ]
   // 读的哪一面必须自己说出来:口径不写出来,下一次诊断又要从头猜。
-  return { problems, scanned, catalog, files: files.length, face: reader.label }
+  return {
+    problems,
+    scanned,
+    catalog,
+    files: files.length,
+    face: reader.label,
+    r4: {
+      enumFiles: enumFiles.length,
+      castSites: cast.sites.length,
+      castReported: cast.reported,
+      ratcheted,
+      anchorMode,
+      strict,
+      coerceOk: coerce.ok.length,
+      coerceUndetermined: coerce.undetermined,
+      outletProblems: outlet.length,
+    },
+  }
 }
 
 /** 注入违规自证:证明每条规则各自真的咬得住(不靠脚本自述)。 */
@@ -621,6 +1037,135 @@ function selfTest() {
   )
   t('R3 现状零兜底', checkNoFallback(base, msgs).length === 0)
 
+  // —— R4a(G-815963):读侧直转枚举档 —— 成对正反例 ——
+  const castFile = (src) => [{ relPath: 'packages/shared/src/db/x.ts', src }]
+  const straight = 'const s = (row.status ?? "") as ChatMessageStatus\n'
+  t(
+    'R4a 咬住代码面的 as ChatMessageStatus(阳性:注入必被认出)',
+    extractEnumCastSites('a.ts', straight).some((s) => s.type === 'ChatMessageStatus'),
+  )
+  t(
+    'R4a 不咬同一形态只写在注释里(门不得把自己立项那一型的说明判成仓库违规)',
+    extractEnumCastSites('a.ts', `// 旧写法:${straight.trim()}\n`).length === 0,
+  )
+  t(
+    'R4a 不咬字符串字面量里的同名散文(类型断言不住在字符串里)',
+    extractEnumCastSites('a.ts', 'const doc = "cast it as ChatMessageStatus please"\n').length ===
+      0,
+  )
+  const twoStage = extractEnumCastSites('a.ts', 'const s = raw as unknown as OrderStatus\n')
+  t(
+    'R4a 认两段式 as unknown as,且**一次命中只计一个站点**(分两条写会让棘轮锚点虚高)',
+    twoStage.length === 1 && twoStage[0].twoStage === true,
+  )
+  t(
+    'R4a 不吃裸 as Status(标识符必须以 Status 结尾且前面有字符,与票面 as [A-Za-z]+Status 同形)',
+    extractEnumCastSites('a.ts', 'const s = x as Status\n').length === 0,
+  )
+  // 棘轮三态:锚点面 = 该文件 HEAD 自身存量
+  const oneSiteFiles = castFile(straight)
+  t(
+    'R4a 棘轮:索引 1 处 / HEAD 锚点 1 处 ⇒ 不判红(存量不是本次的债)',
+    checkEnumCastRatchet(oneSiteFiles, { anchorOf: () => 1, ratcheted: true }).problems.length ===
+      0,
+  )
+  t(
+    'R4a 棘轮:索引 2 处 / HEAD 锚点 1 处 ⇒ 判红并点名文件(把同一型加回来才是新增)',
+    checkEnumCastRatchet(castFile(straight + straight), {
+      anchorOf: () => 1,
+      ratcheted: true,
+    }).problems.some((p) => p.includes('R4a') && p.includes('packages/shared/src/db/x.ts')),
+  )
+  t(
+    'R4a 棘轮:新文件锚点 0 ⇒ 一处即红(锚点取不到不等于免检)',
+    checkEnumCastRatchet(oneSiteFiles, { anchorOf: () => 0, ratcheted: true }).problems.length ===
+      1,
+  )
+  t(
+    'R4a 全量档(判 HEAD)只报数不判红 —— 否则同一条红每天重判一遍,就是恒红门(§12e)',
+    (() => {
+      const r = checkEnumCastRatchet(oneSiteFiles, { anchorOf: null, ratcheted: false })
+      return r.problems.length === 0 && r.reported.length === 1
+    })(),
+  )
+
+  // —— R4b:coerceKnownOr 调用点的安全档 —— 三态不并桶 ——
+  const coerceRun = (src) => checkCoerceSafeArg(castFile(src))
+  const missThird = coerceRun('const v = coerceKnownOr(row.status, DEMO_STATUSES)\n')
+  t(
+    'R4b 缺第三参 ⇒ 落「未判定」并逐条点名(既不冒红也不记绿)',
+    missThird.red.length === 0 &&
+      missThird.ok.length === 0 &&
+      missThird.undetermined.length === 1 &&
+      missThird.undetermined[0].why.includes('第三参'),
+  )
+  const withThird = coerceRun("const v = coerceKnownOr(row.status, DEMO_STATUSES, 'cancelled')\n")
+  t(
+    'R4b 补上第三参字面量 ⇒ 不再计未判定(同一条夹具只差那一参 ⇒ 差的就是判据的牙)',
+    withThird.undetermined.length === 0 && withThird.ok.length === 1,
+  )
+  const varSafe = coerceRun('const v = coerceKnownOr(row.status, DEMO_STATUSES, SAFE_STATUS)\n')
+  t(
+    'R4b 安全档是变量且本文件读不出那张表 ⇒ 未判定(不猜、也不放行)',
+    varSafe.undetermined.length === 1 && varSafe.red.length === 0,
+  )
+  const varResolvable = coerceRun(
+    "const SAFE_STATUS = 'cancelled'\nconst v = coerceKnownOr(row.status, DEMO_STATUSES, SAFE_STATUS)\n",
+  )
+  t(
+    'R4b 同文件把该常量写成字面量 ⇒ 认它(同文件直读,不是第二份 per-enum 登记表)',
+    varResolvable.undetermined.length === 0 && varResolvable.ok.length === 1,
+  )
+  const outOfDomain = coerceRun(
+    "const v = coerceKnownOr(raw, ['completed', 'cancelled'], 'admitted')\n",
+  )
+  t(
+    'R4b 安全档不在它自己的内联全集 ⇒ 判红(兜底值落在枚举外,和直转同害)',
+    outOfDomain.red.length === 1 && outOfDomain.red[0].includes('R4b'),
+  )
+  const inDomain = coerceRun(
+    "const v = coerceKnownOr(raw, ['completed', 'cancelled'], 'cancelled')\n",
+  )
+  t(
+    'R4b 安全档在内联全集内 ⇒ 通过且带 domainChecked',
+    inDomain.ok.length === 1 && inDomain.ok[0].domainChecked === true,
+  )
+  t(
+    'R4b 括号配平不到 ⇒ 未判定,绝不静默丢弃也不判红',
+    coerceRun('const v = coerceKnownOr(a, (b, )\n').undetermined.length === 1,
+  )
+  t(
+    'R4b 不吃 import 与注释里的提及(mobile-rn 那份 __mocks__ 的注释就是这一型)',
+    coerceRun(
+      'import { coerceKnownOr } from "@ihui/types"\n// coerceKnownOr( 只是散文\nconst x = 1\n',
+    ).ok.length === 0,
+  )
+  t(
+    'R4b 刻意不判"兜到初态还是终态":安全档取初态且在全集内 ⇒ 不判红(那需要 per-enum 终态表,本票不自建名单、不用启发式猜)',
+    (() => {
+      const r = coerceRun("const v = coerceKnownOr(raw, ['pending', 'done'], 'pending')\n")
+      return r.red.length === 0 && r.undetermined.length === 0
+    })(),
+  )
+
+  // —— 出口存续性:摘线必须参与退出码,不得只打印 ——
+  t(
+    'R4-OUTLET 出口被摘线(文件在、导出不见)⇒ 判红并进问题清单',
+    checkOutletLiveness('export function somethingElse(a, b, c) { return a }\n').length === 1,
+  )
+  t(
+    'R4-OUTLET 出口文件整块消失 ⇒ 同样判红并点名(取不到不等于没违规)',
+    checkOutletLiveness(null).some((p) => p.includes('R4-OUTLET') && p.includes(OUTLET_FILE)),
+  )
+  t(
+    'R4-OUTLET 认 function / const / 再导出三种声明形态(判据必须覆盖门自己产出的形态)',
+    [
+      'export function coerceKnownOr(a, b, c) { return c }',
+      'export const coerceKnownOr = (a, b, c) => c',
+      "export { coerceKnownOr } from './x.js'",
+    ].every((s) => checkOutletLiveness(s).length === 0),
+  )
+
   // —— 排版无关性(2026-09-26 实测教训):同一张表,单行与多行必须解出同一批条目 ——
   const SINGLE = `export const ERROR_CODE_CATALOG = Object.freeze({
   ALPHA_ONE: { titleKey: 'ALPHA_ONE.title', actionKey: 'ALPHA_ONE.action', category: 'runtimeException' },
@@ -698,6 +1243,31 @@ function selfTest() {
   t('当前 HEAD 零违规(本门默认判定面)', live.problems.length === 0)
   t('扫描面非空(判据没在扫空气)', live.scanned.length > 50)
   t('catalog 条目数 ≥ 扫描到的码数', live.catalog.entries.length >= live.scanned.length)
+  // R4 的三条"现状"必须各判一件事:枚举面非空 / 出口在位 / 全量档不因存量判红。
+  // 刻意不断言"HEAD 站点数 == 0" —— 那一维在存量非零那天会把自检变成恒红(与本次改动无关的红)。
+  t('R4 枚举扫描面非空(两棵树真的在面上,不是枚举到 0 而后报绿)', live.r4.enumFiles > 50)
+  t(
+    'R4 唯一出口在 HEAD 面上真的导出(出口摘线时本门会判红,自检先证明它现在没红)',
+    live.r4.outletProblems === 0,
+  )
+  t(
+    'R4 全量档对存量只报数:HEAD 面直转站点哪怕 >0 也不得进 problems(否则每次提交被逼 --no-verify)',
+    live.problems.every((p) => !p.startsWith('R4a')),
+  )
+  // 问责档的接线必须被证明"真的传到了",而不是只写在 main 里 —— 用与全量档同一份数据比:
+  // 今天 HEAD 零站点,所以两档都该是 0 条 R4a 红;差值只在锚点(0 vs null),那条差值由
+  // 上面"新文件锚点 0 ⇒ 一处即红"那条构造面用例证明有牙(全量档走的就是这一支)。
+  t(
+    '--strict 全量档同样零违规(HEAD 现读零站点 ⇒ 问责档不凭空造红),且锚点模式真的换成问责档',
+    (() => {
+      const strictLive = runChecks({ strict: true })
+      return (
+        strictLive.r4.strict === true &&
+        strictLive.r4.anchorMode.includes('问责档') &&
+        strictLive.problems.every((p) => !p.startsWith('R4a'))
+      )
+    })(),
+  )
 
   for (const c of cases) console.log(`${c.ok ? '✅' : '❌'} ${c.name}`)
   return cases.every((c) => c.ok) ? 0 : 1
@@ -738,22 +1308,49 @@ function main() {
       if (arg.startsWith('--scan-extra=')) extraFiles.push(arg.slice('--scan-extra='.length))
     }
 
-    const { problems, scanned, catalog, files, face } = runChecks({
+    const strict = argv.includes('--strict')
+    const { problems, scanned, catalog, files, face, r4 } = runChecks({
       face: pickFace(argv),
       extraFiles,
+      strict,
     })
+    // R4 的三态必须各说各的:把"没判"写成"判过了"是本仓最高频的失效型。
+    const r4line =
+      `R4 枚举兜底:扫 ${r4.enumFiles} 个文件 · 直转站点 ${r4.castSites} 处(${r4.anchorMode}) · ` +
+      `coerceKnownOr 调用点 通过 ${r4.coerceOk} / 未判定 ${r4.coerceUndetermined.length} · 出口摘线 ${r4.outletProblems}`
+    const r4detail = [
+      ...r4.castReported.map((s) => `   · R4a 存量只报数:${s}`),
+      ...r4.coerceUndetermined.map((u) => `   · R4b 未判定:${u.at} —— ${u.why}`),
+    ]
     if (problems.length === 0) {
       console.log(
         `✅ 错误码覆盖率通过(判定面:${face}):扫 ${files} 个文件,产出 ${scanned.length} 个 errorCode,` +
           `catalog ${catalog.entries.length} 条全覆盖,八类齐全,零「未知错误」兜底`,
       )
+      console.log(`   ${r4line}`)
+      for (const line of r4detail) console.log(line)
+      if (r4detail.length > 0) {
+        console.log(
+          '   ⚠️ 以上「未判定」不是「已确认没问题」——逐条需要人工或语义裁决(本门不建 per-enum 终态表)',
+        )
+        // 问责档:把"未判定"当合格证交出去,等于把没看清写成没问题(守门 94/103/118 同一条禁令)。
+        if (strict) {
+          console.log('   --strict:有未判定 ⇒ exit 2,拒绝出具合格证')
+          return 2
+        }
+      }
       return 0
     }
     console.error(`❌ 错误码覆盖率发现 ${problems.length} 处问题(判定面:${face}):`)
+    console.error(`   ${r4line}`)
+    for (const line of r4detail) console.error(line)
     for (const p of problems) console.error(`   · ${p}`)
     console.error(`\n唯一真源:${CATALOG_FILE}`)
     console.error(
       '改法:在 ERROR_CODE_CATALOG 补一行,并同步 packages/i18n/messages/web/*.json 五语言词包',
+    )
+    console.error(
+      `     枚举兜底(R4)的改法:改走 ${OUTLET_FILE} 的 ${OUTLET_EXPORT}(值, 全集, 安全档),安全档逐枚举显式声明为终态/只读/禁用`,
     )
     return 1
   } catch (e) {
@@ -780,10 +1377,17 @@ export const __test__ = {
   checkCoverage,
   checkClasses,
   checkNoFallback,
+  collectEnumFiles,
+  extractEnumCastSites,
+  checkEnumCastRatchet,
+  checkCoerceSafeArg,
+  checkOutletLiveness,
   makeFaceReader,
   runChecks,
   CATALOG_FILE,
   MESSAGE_FILE,
+  OUTLET_FILE,
+  R4_SCAN_ROOTS,
   UndeterminedError,
 }
 
