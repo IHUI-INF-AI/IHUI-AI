@@ -35,6 +35,7 @@
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 const C = {
   red: '\x1b[31m',
@@ -256,7 +257,7 @@ function findSolitoPatches() {
 
 // === 主流程 ===
 
-function main() {
+async function main() {
   const args = process.argv.slice(2)
   if (args.includes('--help')) {
     console.log('用法: node scripts/check-solito-residue.mjs [--staged] [--help]')
@@ -355,9 +356,25 @@ function main() {
   process.exit(1)
 }
 
-main().catch((e) => {
-  console.error(`${C.red}❌ check-solito-residue 脚本执行异常:${C.reset}`, e?.message ?? e)
-  console.error(e?.stack ?? '(no stack)')
-  process.exit(2)
-})
+// §22d:CLI 直接执行才跑主流程;镜像测试 import 判据函数时不得有副作用
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main().catch((e) => {
+    console.error(`${C.red}❌ check-solito-residue 脚本执行异常:${C.reset}`, e?.message ?? e)
+    console.error(e?.stack ?? '(no stack)')
+    process.exit(2)
+  })
+}
+
+// §22c:判据单元经 __test__ 暴露给镜像测试,测试不得另抄一遍检测逻辑
+export const __test__ = {
+  TARGET_PACKAGE_JSONS,
+  SOLITO_IMPORT_REGEX,
+  isTargetFile,
+  findSolitoInPackageJson,
+  findSolitoInPnpmWorkspace,
+  findSolitoInTsx,
+  findSolitoPatches,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
