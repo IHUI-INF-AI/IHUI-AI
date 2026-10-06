@@ -7,9 +7,10 @@
  *
  * 判据**行为**(候选分类 / 台账 / 窗口 / DR1+DR2)由门自己的 `--self-test` 在真临时仓里成对证明;
  * 本文件只钉"只有镜像能钉"的东西 —— 也就是**跨文件**与**源码形状**这两类:
- *  T1  方向锁:本门在 HEAD 面 runner 里**未注册**时,门体头注必须自称"尚未接线"且不得出现守门 89
- *      R1 的任何肯定式声称;**已注册**时同一枚测试必须读出 blocking + skipEnv 成套。
- *      (两种状态只可能有一种为真,所以它既不会在注册前假装通过,也不会在注册后变成绊脚石。)
+ *  T1  方向锁:本门在 HEAD 面 runner 里**未注册**时,门体头注必须在『接线状态:』那一行明说未接线
+ *      且不得出现守门 89 R1 的任何肯定式声称;**已注册**时改验注册块 blocking + skipEnv 成套,
+ *      并要求头注那一行说已接入。判据只认**现状陈述**,带时点/漂移标记的历史记录与引文整行剔掉
+ *      (两态只可能有一种为真,所以它既不会在注册前假装通过,也不会在注册后变成绊脚石)。
  *  T2  提取器有牙:同一提取器对不含本门的合成 runner 必须返回 null —— 否则 T1 是恒真式。
  *  T3  同源常量:短语与台账路径的**唯一定义**只能在 scripts/lib/deletion-intent.mjs;门体与本测试
  *      都不得再写一遍(两处实现必漂移,本仓 §3 / 守门 131/134 记过太多次)。
@@ -72,18 +73,63 @@ function extractEntry(runnerText, scriptName) {
   return { block: lines.slice(start, end + 1).join('\n') }
 }
 
+/**
+ * 未注册分支的现状陈述判据(2026-10-06 改)。
+ *
+ * 立意不变:未注册 ⇒ 头注必须**明说**未接线,且不得出现守门 89 R1 的任何肯定式声称。
+ *
+ * 原判据 `assert.match(GATE_SRC, /尚未接线/)` 是**存在式**,锚在一句会过期的台词上,实测无牙
+ * (注入确认生效后逐条坐实):
+ *   - 它命中的是头注里**一句描述镜像测试怎么判的引文**(第 66 行"自称'尚未接线'且无守门 89 R1 的
+ *     肯定式声称,已注册时改验注册块 blocking + skipEnv 成套"),不是本门此刻在说什么。
+ *     把那句引文整段删掉(其余一字不动),断言立刻转红 ⇒ 它一直在给存档引文发合格证,
+ *     判红的是"引文还在",不是"未接线这句被说了"。
+ *   - 未注册 + 头注谎称 `【接线状态:已接入】` 时,R1 六个模式**一个都不命中**、`:78` 也只因上面
+ *     那句引文而绿 ⇒ 谎报现状全程无人拦(与 permission-lease 门 T2 改前同型)。
+ * 一条把真相判红的尺子,教出来的就是谎报。
+ *
+ * ⚠️ 收口口径(同族三次踩坑换来的):只认『接线状态:』引导的**现状陈述**(容许括号里的时点注记),
+ * 并把带 `已漂移 / 原<日期> / 不再是` 的历史记录与引文整行剔掉后再看 —— 判红「谎报现状」与
+ * 判红「记录历史」必须分开,否则改否定义句就会把基线自己判红。
+ * 引导语两种语序都真实存在(本门写「接线状态」,permission-lease 门写「接线现状」)⇒ 显式列出两个词;
+ * `接线状[态现]` / `接线[状现][态现]` 这两种字符类写法对「接线现状」都是 0 命中(实测),
+ * 等于判据对它要读的那一行是瞎的。
+ */
+const WIRING_GUIDE = /接线(?:现状|状态)\s*(?:\([^)]*\))?\s*[:：]/
+const WIRING_HISTORY = /已漂移|原\s*20\d{2}[-/]\d{2}|不再是/
+
 test('T1 方向锁:未注册时头注必须自称"尚未接线",已注册时注册项必须成套', () => {
   const e = extractEntry(runnerHeadText(), SCRIPT)
+  // 现状陈述与历史引文必须分开:先把带时点/漂移标记的行剔掉,再看本门此刻在说什么。
+  const spoken = GATE_SRC.split('\n').filter((l) => !WIRING_HISTORY.test(l))
+  const statusLines = spoken.filter((l) => WIRING_GUIDE.test(l))
+  const claimsWired = statusLines.some((l) => /已接入|已注册|已挂进/.test(l))
+  const claimsNotWired = statusLines.some((l) => /未接|尚未|未进/.test(l))
   if (e === null) {
-    assert.match(GATE_SRC, /尚未接线/, '未注册时头注必须明写"尚未接线"')
+    assert.ok(
+      !claimsWired,
+      `未注册,头注的『接线状态:』那一行却声称已接入 ⇒ 谎报现状(守门 89 R1 会对每次提交恒红):${JSON.stringify(statusLines)}`,
+    )
+    assert.ok(
+      claimsNotWired || statusLines.length === 0,
+      `未注册,头注必须明说未接线(而不是留白让人猜):${JSON.stringify(statusLines)}`,
+    )
+    // R1 措辞锁只扫**剔过历史**的文本:否则一句如实记录"当初未接线"的引文会被读成现状。
+    const spokenText = spoken.join('\n')
     for (const { re, tag } of HEADER_CLAIM_PATTERNS)
-      assert.ok(!re.test(GATE_SRC), `头注出现肯定式声称「${tag}」而本门未注册 ⇒ 守门 89 R1 会对每次提交恒红`)
-    assert.doesNotMatch(GATE_SRC, /集成位置/, '不得写"集成位置"(该措辞正是 R1 的肯定式模板)')
+      assert.ok(!re.test(spokenText), `头注出现肯定式声称「${tag}」而本门未注册 ⇒ 守门 89 R1 会对每次提交恒红`)
+    assert.doesNotMatch(spokenText, /集成位置/, '不得写"集成位置"(该措辞正是 R1 的肯定式模板)')
   } else {
     assert.ok(!e.malformed, `注册块形状漂:${JSON.stringify(e)}`)
     assert.match(e.block, /mode: 'blocking'/, '定级必须是 blocking(票面要求)')
     assert.match(e.block, /skipEnv: 'HUSKY_SKIP_MERGE_DELETION_RESURRECTION'/, 'skipEnv 必须成套')
     assert.match(e.block, /id: ['"]\d+['"],/, '必须带数字 id')
+    // 已注册这一臂也不能把「谎报现状」与「记录历史」混判:头注的现状陈述须说已接入,
+    // 否则文档与提交链分叉(反过来,谁把头注如实改成"未接线"谁就被判红 —— 那正是本族的病根)。
+    assert.ok(
+      claimsWired,
+      `注册表里本门已注册,但头注的『接线状态:』那一行仍说未接线 ⇒ 文档与提交链分叉:${JSON.stringify(statusLines)}`,
+    )
   }
 })
 

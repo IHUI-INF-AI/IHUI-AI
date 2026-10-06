@@ -129,23 +129,41 @@ test('T6 声明被改名/换成运行时表达式 ⇒ 未判定(绝不带着半�
   assert.match(JSON.stringify(r.undetermined), /解析不到声明/)
 })
 
-test('T7 装车成套性:未注册不得被读成已装车;已注册则必须成套', () => {
+test('T7 装车成套性:头注声明必须与 runner 现读一致;已注册则必须成套', () => {
+  // 两边都取 **HEAD 面**:本用例判的是"提交链上装没装车"这个事实,不是工作树此刻长什么样。
+  // 混面(HEAD 的 runner 配工作树的头注)会在别人改了一半、还没提交时假红 —— 共享工作树下必踩。
+  const headGate = gitShow(`HEAD:scripts/${SRC_NAME}`)
+  assert.ok(headGate, `HEAD 面取不到 scripts/${SRC_NAME} ⇒ 本用例空转`)
   const runner = gitShow('HEAD:scripts/guardian-runner.mjs')
-  const registered = !!runner && runner.includes(`  script: '${SRC_NAME}'`)
-  const head = readFileSync(join(ROOT, 'scripts', SRC_NAME), 'utf8').slice(0, 6000)
-  if (!registered) {
-    // 本票按任务书**不接线**。这一格的意义是把方向钉死:未注册时头注不得声称已接线,
-    // 而本用例本身也必须继续报"尚未注册"这一事实,而不是被顺手改成"注册了就红"。
-    assert.doesNotMatch(
-      head,
-      /已接 pre-commit|CI 必跑|第 \d+ 项/,
-      '未接线却声称已接线 = 守门 89 的 R1 恒红',
-    )
-    assert.ok(true)
-    return
-  }
-  const at = runner.indexOf(`  script: '${SRC_NAME}'`)
-  const entry = runner.slice(Math.max(0, at - 900), at + 900)
+  const SCRIPT_RE = new RegExp(`script: '${SRC_NAME.replace(/\./g, '\\.')}'`)
+  const registered = !!runner && SCRIPT_RE.test(runner)
+
+  // ⚠️ 原未注册分支是 assert.doesNotMatch(head, /已接 pre-commit|CI 必跑|第 \d+ 项/)。
+  //   普查报它"字面量略宽、可收紧"只说对了一半 —— 真病是**锚错了对象**:
+  //   ① 它只认"pre-commit / CI 必跑 / 第 N 项"三种**旧措辞**;本门头注早已改写成
+  //      【接线状态:已接入】,于是"注册条被摘、头注仍自称已接入"它算没命中 ⇒ 照样绿(静默假绿)。
+  //   ② `第 \d+ 项` 锚的是 runner 里的门序号,随门数单调增长(会漂的字面量,与
+  //      migration T5 的 `/可比对 30\d/` 同族);`CI 必跑` 则是本门从未有过的形态。
+  //   ③ 它只钉"不得自称已接"这一个方向 ⇒ 头注删了接线声明、或 runner 注册了而头注仍
+  //      写"未接入",两处反向漂移都无人喊红。
+  // ⇒ 改成结构判据:头注用**唯一**的【接线状态:…】标记声明接线事实,本用例按 runner 现读
+  //    做**双向**对账。措辞不再进断言 ⇒ 头注日后怎么改写都不会假红/假绿。
+  const claim = headGate.match(/【接线状态:([^】]+)】/)
+  assert.ok(claim, '头注缺【接线状态:…】标记 ⇒ 接线声明无处可读,本用例已空转')
+  assert.equal(
+    claim[1] === '已接入',
+    registered,
+    `头注声明「接线状态:${claim[1]}」与 runner 现读不一致(registered=${registered})`,
+  )
+  if (!registered) return
+
+  const at = runner.search(SCRIPT_RE)
+  assert.ok(at >= 0, 'runner 注册块缺 script 字段(仅路径字符串不构成装车)')
+  // ⚠️ 原来取 `at ± 900` 的**窗口**判 mode/skipEnv,实测无牙:窗口跨进邻门,邻门的
+  // `mode:'blocking'` 替本门交差(把本门自己翻成 warn 后断言仍绿)。改按**注册块边界**取本门那条。
+  const start = runner.lastIndexOf('\n  {', at)
+  const next = runner.indexOf('\n    script:', at + 10)
+  const entry = runner.slice(start < 0 ? at : start, next > 0 ? next : runner.length)
   assert.match(entry, /mode:\s*'blocking'/)
   assert.match(
     entry,
