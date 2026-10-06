@@ -60,8 +60,15 @@
 //   4. 面 = 被审文件,跨文件的"定义在 A、入站用在 B"只把 B 的那处记进未判定,不代裁 A。
 //
 // 用法:node scripts/check-inbound-schema-strict.mjs [--staged|--worktree|--json|--strict|--all|--files a b|--self-test]
-// 现状:**尚未接进提交链** —— 注册由主会话用 `scripts/gate-registry-insert.mjs` 统一接线,
-// 接线那一笔必须同把 `inbound-strict-exempt` 挂进守门 108 的豁免存活期表(否则豁免只有出生没有死亡)。
+// 接线状态(2026-10-06 现读,已漂移):**已接入** —— `guardian-runner.mjs:4204` 起现注册
+//   `id:'161'` / `mode:'blocking'` / `skipEnv: HUSKY_SKIP_INBOUND_SCHEMA_STRICT`。
+//   ⚠️ 其 `stagedTriggers` 写成**逗号拼接的单字符串**
+//   `['apps/api/src/,apps/cli/src/,apps/extension/,apps/desktop/']`,看着像漏了引号的老 bug,
+//   但**实测不是**:`lib/guardian-triggers.mjs:27` 有 `entry.split(',')` 归一,逗号串会被正确拆开,
+//   与写成多元素**行为完全一致**(含反例: 只暂存 apps/api 时命中、只暂存 README 时不命中,两者读数相同)。
+//   故**刻意保留原写法**,不在本票顺手改注册表 —— 它不是缺陷,改了反而是无依据的噪音。
+// 立项时那句话保留作存档:注册由主会话用 `scripts/gate-registry-insert.mjs` 统一接线,
+//   接线那一笔必须同把 `inbound-strict-exempt` 挂进守门 108 的豁免存活期表(否则豁免只有出生没有死亡)。
 
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
