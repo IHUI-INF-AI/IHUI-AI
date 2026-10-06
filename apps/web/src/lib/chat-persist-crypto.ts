@@ -212,4 +212,22 @@ export function createAuthPersistStorage<S>(
     domain: 'auth-persist',
   })
 }
+
+/**
+ * work-panel store 的唯一入口(独立 HKDF 域)。
+ * 该 persist 记录里带 `tabs[].title` / `favorites[].title` —— **用户自己起的工作区标签名**
+ * (盘上实测有中文残留),属用户可见个人数据,过去走 createPersistConfig 的默认 storage
+ * 即整块明文落在 WebView localStorage。故与 chat/goal/auth 同通道加密。
+ * 浏览器路径仍原样返回 base(零行为变更);明文存量由 createVaultBackedPersistStorage
+ * 在**读时**一次性 seal 回写(判据是信封层数,不是"是否存在密文")。
+ */
+export function createWorkPanelPersistStorage<S>(
+  base: PersistStorage<S> | undefined,
+): PersistStorage<S> | undefined {
+  return createVaultBackedPersistStorage({
+    base,
+    kv: resolveBrowserKv(),
+    domain: 'work-panel-persist',
+  })
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
