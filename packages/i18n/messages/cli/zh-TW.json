@@ -118,7 +118,8 @@
       "unattributed": "失敗類型未判定(保留原始資訊:{raw})—— 未歸為超時,也未歸為正常完成,請人工確認後再重試。",
       "fsProbeUnavailable": "命令空輸出且以 {status} 退出,但檔案系統狀態無法查詢({why})—— 未判定:既未定為\"空間/inode 已盡\",也未當作\"什麼都沒發生\"。",
       "fsExhaustedSpace": "根因診斷:命令空輸出且以 {status} 退出,而 {cwd} 所在檔案系統實測空間已盡(bavail×bsize≈{availMB}MB,低於 10MB 診斷閾)—— 大概率是磁碟寫滿導致輸出/落盤失敗;請清理磁碟空間後重試。",
-      "fsExhaustedInodes": "根因診斷:命令空輸出且以 {status} 退出,而 {cwd} 所在檔案系統實測 inode 已盡(ffree={freeInodes},低於 1000 診斷閾)—— 目錄項已滿;請清理大量小文件/目錄,或檢查該檔案系統的 inode 配額後重試。"
+      "fsExhaustedInodes": "根因診斷:命令空輸出且以 {status} 退出,而 {cwd} 所在檔案系統實測 inode 已盡(ffree={freeInodes},低於 1000 診斷閾)—— 目錄項已滿;請清理大量小文件/目錄,或檢查該檔案系統的 inode 配額後重試。",
+      "envCredentialReport": "子程序將繼承疑似憑證形態的環境變數(僅報名,不攔截):{vars} —— 是否收窄屬後續單獨拍板;同一名單隨沙盒稽核日誌(IHUI_SANDBOX_AUDIT_LOG)結構化留檔。"
     },
     "goalNotAchieved": "獨立校驗未通過:本次執行不得宣佈完成",
     "truncatedByLength": "本輪輸出已達長度上限被截斷,回覆可能不完整;可讓我分次繼續,或調高 max_tokens 後重試。",
