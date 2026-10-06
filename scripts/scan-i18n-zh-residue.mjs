@@ -49,6 +49,7 @@ import { execSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import * as OpenCC from 'opencc-js'
 import { I18N_MESSAGE_FACES, faceMessageRelPath, isKnownFace } from './lib/i18n-message-faces.mjs'
+import { properNounSetFromRaw } from './lib/i18n-script-families.mjs'
 
 // locale 配置表：mode 决定检测策略，localRe 为该语言的本地字符范围
 // 未列出的非中文 locale 走默认 charRange 模式，localRe 为 null (任何汉字即纯残留)
@@ -239,6 +240,8 @@ function scanWarnOnly(text) {
 
 // ── ja 精确判据(2026-09-23)──────────────────────────────────────────────
 // 常用汉字表(2010 版 2136 字)。缺文件/缺字符时**不猜**:整轮回退到旧 warnOnly 并如实说明。
+// 2026-10-06 起**同一个 raw 还要吐出专名字集**(`properNouns`),与守门 133 的 E3 同一份数据 ——
+// 此前本文件自己 fs.readFileSync 读表、自己实现 joyoSuspects,只改门不改它,两门口径会漂移。
 let _joyo = null
 function joyoSet() {
   if (_joyo) return _joyo
@@ -246,17 +249,54 @@ function joyoSet() {
     const raw = JSON.parse(fs.readFileSync(path.join(HERE, 'joyo-kanji.json'), 'utf8'))
     const set = new Set([...raw.chars])
     if (set.size < 2000) return null
-    _joyo = { set, converter: OpenCC.Converter({ from: 'cn', to: 'tw' }) }
+    _joyo = {
+      set,
+      proper: properNounSetFromRaw(JSON.stringify(raw)),
+      converter: OpenCC.Converter({ from: 'cn', to: 'tw' }),
+    }
     return _joyo
   } catch {
     return null
   }
 }
 
+/**
+ * E3:该值是否**整体**是"专名的日文正字形写法"⇒ 与守门 133 同判据、同豁免。
+ *
+ * 为什么必须是**叶子级**(整值的表外字全部落在专名集内)而不是字级:同一个 `智` 在
+ * `community.text1`(公司名 `智匯AI`)与在别处(普通词)身份不同;字级放行对两者一视同仁,
+ * 那不叫分派,叫"靠改表过门"。掺进任何一个非专名的表外字,整叶仍判。
+ *
+ * ⚠️ 实测口径差(2026-10-06):本门嫌疑字 = 表外 ∧ cn→tw 字形变,与守门 133 的"表外"不是同一集合 ——
+ *   79 个表外字里只有 `简谱视频钉` 5 个同时是本门嫌疑字,而这 5 个**刻意不在** properNouns 内
+ *   (它们是没翻译的专名,必须继续报)。所以本函数在当前内容上是**可证的 no-op**(E3 命中 0),
+ *   它的价值是**锁住口径**:往后任何一门的表一改,另一门不会静默漂移。
+ */
+function properNounValue(value, tab) {
+  if (!tab.proper || tab.proper.size === 0) return false
+  const out = new Set(value.match(HAN_ALL_RE) || [])
+  let allProper = out.size > 0
+  let hitProper = 0
+  for (const c of out)
+    if (!tab.set.has(c)) {
+      // ⚠️ 必须**至少命中一个专名字**,否则判据退化成无差别放行器:
+      //   一个纯常用汉字的值(如「削除」)表外字数为 0,`allProper` 会一直是 true
+      //   ⇒ 2026-10-06 第一版实测 web 面"豁免 16515 处"(= 几乎每个含汉字的叶子),
+      //   E3 就成了一张万能白名单。**豁免数异常暴涨与归零一样是缺陷信号**(§5d)。
+      if (tab.proper.has(c)) hitProper++
+      else {
+        allProper = false
+        break
+      }
+    }
+  return allProper && hitProper > 0
+}
+
 /** 一值内的"中国简化字残留"字种集合:字形与繁体不同 ∧ 不在常用汉字表内 */
 function joyoSuspects(value, tab) {
   const out = []
-  for (const c of new Set(value.match(HAN_ALL_RE) || [])) if (!tab.set.has(c) && tab.converter(c) !== c) out.push(c)
+  for (const c of new Set(value.match(HAN_ALL_RE) || []))
+    if (!tab.set.has(c) && !tab.proper.has(c) && tab.converter(c) !== c) out.push(c)
   return out
 }
 
@@ -265,6 +305,8 @@ function scanJoyo(text) {
   if (!tab) return { pure: [], half: scanWarnOnly(text).half }
   const lines = text.split('\n')
   const pure = []
+  // E3 命中数随结果回传,由 main() 打印 —— 归零即"专名集没随表落库",必须看得见。
+  let properExempt = 0
   for (let i = 0; i < lines.length; i++) {
     const m = lines[i].match(LINE_RE)
     if (!m) continue
@@ -275,10 +317,15 @@ function scanJoyo(text) {
     // 与 markdown 侧既有 MARKDOWN_LINE_WHITELIST 同口径;JSON 侧此前没有这道豁免,
     // 导致 `吉ICP备2025027274号-7A`、`粤公網安備44010602000001号` 被判成"日文里残留中文"。
     if (LEGAL_REGISTRATION_RE.test(value)) continue
+    // E3 与守门 133 同豁免(叶子级:整叶的表外字全是专名才放过)。豁免数**照打印**,不静默。
+    if (properNounValue(value, tab)) {
+      properExempt++
+      continue
+    }
     const s = joyoSuspects(value, tab)
     if (s.length) pure.push({ line: i + 1, key: m[2], value, suspects: s.join('') })
   }
-  return { pure, half: [] }
+  return { pure, half: [], properExempt }
 }
 
 // Markdown 模式: 扫描 README.<locale>.md 检测中文残留
@@ -405,6 +452,21 @@ function main() {
 
   const { pure, half } = result
   let failed = false
+
+  // E3 计数照打印(与守门 133 同一纪律):豁免量回落成 0 时,读报告的人无法区分
+  // 「本来就没有专名」与「专名集没随表落库 / 口径漂了」。归零要看得见。
+  if (config.mode === 'joyo') {
+    const tab = joyoSet()
+    const n = result.properExempt || 0
+    if (!tab || !tab.proper)
+      console.warn(
+        `⚠️ ${fileLabel} 专名字集(properNouns)取不到 ⇒ E3 豁免未生效(不猜,也不放行);与守门 133 口径已漂`,
+      )
+    else
+      console.warn(
+        `ℹ️ ${fileLabel} E3 专名豁免 ${n} 处(叶子级;与守门 133 同一份 properNouns,专名字一个都没进 2136 名单)`,
+      )
+  }
 
   if (pure.length > 0) {
     const label =
