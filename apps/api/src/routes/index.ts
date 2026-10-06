@@ -356,6 +356,8 @@ import { tencentHunyuan3dRoutes } from './tencent-hunyuan-3d.js'
 // P1-3/P1-4 补建：智能体分类字典缓存 + 分类同步 API（迁移自 coze_zhs_py/api/agent_category_cache_api.py + category_sync_api.py）
 import { agentCategoriesCacheRoutes } from './agent-categories-cache.js'
 import { categorySyncRoutes } from './category-sync.js'
+// G-1058623③ 补建：智能体分类字典公开双键端点（api-client getAgentCategories 的精确路径）
+import { agentCategoryDictRoutes } from './agent-category-dict.js'
 // 对外公开 API(/v1/*,API Key 鉴权,2026-07-22 立)
 import v1PublicRoutes from './v1-public.js'
 import v1GeminiRoutes from './v1-gemini.js'
@@ -1121,6 +1123,9 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(agentCategoriesCacheRoutes)
   // 5 端点: POST pull / POST push / GET status / POST resolve / GET history（绝对路径字面量注册，见 routes/category-sync.ts）
   server.register(categorySyncRoutes)
+  // G-1058623③ 公开双键分类字典(机主拍板): GET /api/cache/agent-category-dict/categories
+  // （api-client getAgentCategories 的精确路径;公开无 auth,数据复用 agent-categories-cache 的缓存推导,绝对路径字面量注册）
+  server.register(agentCategoryDictRoutes)
 
   // 对外公开 API(/v1/*,API Key 鉴权,2026-07-22 立)
   server.register(v1PublicRoutes, { prefix: '/v1' })
