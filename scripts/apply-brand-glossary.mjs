@@ -33,6 +33,7 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import * as OpenCC from 'opencc-js'
 
 const DIR = path.resolve('apps/web/messages')
@@ -175,5 +176,32 @@ function main() {
   }
 }
 
-main()
+// AGENTS §22d:CLI 直跑与被 import 双形态必须隔离副作用,Windows 反斜杠路径要经 pathToFileURL 归一。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  try {
+    main()
+  } catch (e) {
+    console.error(String(e?.stack ?? e))
+    process.exit(2)
+  }
+}
+
+export const __test__ = {
+  applyReplacements,
+  walk,
+  main,
+  DIR,
+  GLOSSARY,
+  ALL_REPLACEMENTS,
+  REPLACEMENTS,
+  ZH_TW_REPLACEMENTS,
+  SORTED_KEYS,
+  ZH_TW_SORTED_KEYS,
+  TRADITIONAL_KEYS,
+  LOCALE_DEFAULT,
+  CHINESE_RE,
+  PATH_RE,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
