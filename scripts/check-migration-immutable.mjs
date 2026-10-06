@@ -60,7 +60,16 @@
  *   `--no-renames` 是必需的:开着改名检测时一次搬家被写成 `R`,而 `--diff-filter=A` 不收 R
  *   ⇒ 该路径拿不到基线,整型静默退成未判定。
  *
- * 定级建议(**本枚刻意没接提交链 —— 注册表由主会话单写者接**):
+ * 接线状态(2026-10-06 现读,已漂移):**已接入** —— `guardian-runner.mjs` 现注册
+ *   `id:'185'` / `mode:'blocking'` / `skipEnv: HUSKY_SKIP_MIGRATION_IMMUTABLE` /
+ *   `stagedTriggers: ['packages/database/','apps/api/src/']`。
+ *   下面那段「定级建议」是**立项时的建议原文**,它已被原样采纳(连 `stagedTriggers`
+ *   都与注册块一致),保留在此作为定级理由的存档 —— **不要再把它读成待办**。
+ *   ⚠️ 本门测试 `check-migration-immutable.test.mjs` 的 T1 正是「按注册表真值反查
+ *   头注是否说谎」的方向锁:注册表里有的门,头注不得仍自称未接线。修好判据那一刻
+ *   它是红的,因为头注欠账 —— **绿不是从来如此,是欠账还完了**。
+ *
+ * 定级建议(立项原文,已采纳 —— 见上方接线状态):
  *   · 建议 blocking,`stagedTriggers=packages/database/`;
  *   · 建议应急变量 `HUSKY_SKIP_MIGRATION_IMMUTABLE=1`(门体自身也读它,手动复跑同样生效);
  *   · 可以直挂 blocking 的依据:提交链档只走 IM2(无基线、存量不背),IM1 存量在默认档只报数;
@@ -98,7 +107,7 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 /** ROOT 由脚本自身位置推导(AGENTS §15,禁止写死盘符) */
 const ROOT = resolve(HERE, '..')
 
-/** 应急跳过变量(**建议值**;本门尚未接进提交链,接线时随 runner 条目声明)。 */
+/** 应急跳过变量(**现读已随 runner 条目声明** —— 见头注「接线状态」)。 */
 export const SELF_SKIP = 'HUSKY_SKIP_MIGRATION_IMMUTABLE'
 
 /**
