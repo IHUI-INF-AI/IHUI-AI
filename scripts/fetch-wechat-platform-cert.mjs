@@ -42,7 +42,7 @@ const err = (...args) => console.error(...args)
 import { createSign, randomBytes } from 'node:crypto'
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const PROJECT_ROOT = resolve(__dirname, '..')
@@ -222,8 +222,20 @@ async function main() {
   log('     期望输出: { "status": "ok" }')
 }
 
-main().catch((e) => {
-  err('❌ 未捕获异常:', e)
-  process.exit(1)
-})
+// AGENTS §22d:CLI 直跑与被 import 双形态必须隔离副作用,Windows 反斜杠路径要经 pathToFileURL 归一。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main().catch((e) => {
+    err('❌ 未捕获异常:', e)
+    process.exit(1)
+  })
+}
+
+// 注意:`required` 与 `privateKey` 持有 APIv3 密钥/商户私钥原文,刻意不进导出面(凭据面)。
+export const __test__ = {
+  loadEnvFile,
+  buildAuthorization,
+  missing,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -126,7 +126,7 @@ export function decideOnline(role) {
  *  位置参数特别禁止 —— 外部传入的库名(哪怕是"看起来无害的第一个参数")不能进本工具的射程。 */
 export function parseCliArgs(argv) {
   const modes = ['--check', '--dry-run', '--apply', '--offline-verify']
-  const flags = new Set([...modes, '--json'])
+  const flags = new Set([...modes, '--json', '--pre-extended'])
   const positional = (argv || []).filter((a) => !String(a).startsWith('-'))
   if (positional.length > 0) return { error: `不接受位置参数(实得 ${positional.join(' ')});本工具刻意不接受任何外部库名` }
   const seen = (argv || []).filter((a) => String(a).startsWith('-'))
@@ -135,7 +135,13 @@ export function parseCliArgs(argv) {
   }
   const picked = seen.filter((a) => modes.includes(a))
   if (picked.length > 1) return { error: `模式开关互斥,实得 ${picked.join(' ')}` }
-  return { mode: picked[0] || '--check', json: seen.includes('--json') }
+  // --pre-extended(拍板① 2026-10-05 路径 B):只作为 --apply 的修饰档,单独出现即判死。
+  // 该档把"见同名库即中止"反转为"必须已存在且是干净+已装 vector 的演练库",不与 --apply 同给就是误用。
+  const preExtended = seen.includes('--pre-extended')
+  if (preExtended && (picked[0] || '--check') !== '--apply')
+    return { error: `--pre-extended 只能与 --apply 同给(它是路径 B 的执行档修饰,单独使用没有意义)` }
+  const base = { mode: picked[0] || '--check', json: seen.includes('--json') }
+  return preExtended ? { ...base, preExtended: true } : base
 }
 
 const STATS_SQL =
@@ -171,15 +177,38 @@ export function buildPlan(ctx) {
   assertDrillTarget(targetDb, 'buildPlan')
   const psqlBase = [bins.psql, '-w', '-h', conn.host, '-p', String(conn.port), '-U', conn.user]
   const countsStep = (id, db, label) => ({ id, kind: 'read', label, argv: [...psqlBase, '-d', db, '-t', '-A', '-v', 'ON_ERROR_STOP=1', '-c', COUNTS_SQL] })
+  // 拍板①(2026-10-05)路径 B(--pre-extended):演练库已由人工建好且已装 vector 扩展,
+  // 工具不 CREATE,只把"存在性预检"反转成"干净度+扩展预检":
+  //   连上演练库读 `public表数|vector扩展数`,必须恰为 `0|1` ——
+  //   0 张 public 表 ⇒ 空库(里面没有别人的东西,复用它才不违反"只动今天新建的那一个");
+  //   1 个 vector ⇒ dump 里的 CREATE EXTENSION IF NOT EXISTS vector 会命中"已存在即跳过"路径,
+  //   不再按超管判权 —— 这正是拍板①要求实测而 2026-09-27 没测到的那条。
+  // 任何不等于 `0|1` 的读数(连不上/表非空/扩展缺失/多出别的扩展行)都判中止,绝不往里写。
+  const existsStep = ctx.preExtended
+    ? {
+        id: 'exists',
+        kind: 'read',
+        label: `确认演练库已存在且干净+已装 vector(拍板①路径B;须读得 0|1)`,
+        argv: [...psqlBase, '-d', targetDb, '-t', '-A', '-v', 'ON_ERROR_STOP=1', '-c',
+          `SELECT (SELECT count(*) FROM pg_tables WHERE schemaname='public') || '|' || (SELECT count(*) FROM pg_extension WHERE extname='vector')`],
+      }
+    : {
+        id: 'exists',
+        kind: 'read',
+        label: `确认演练库不存在(存在即中止,绝不复用/删除)`,
+        argv: [...psqlBase, '-d', 'postgres', '-t', '-A', '-c', `SELECT 1 FROM pg_database WHERE datname = '${targetDb}'`],
+      }
   return [
     { id: 'pre-stats', kind: 'read', label: `生产库只读统计指纹(演练前)`, argv: [...psqlBase, '-d', conn.prodDb, '-t', '-A', '-c', STATS_SQL] },
-    { id: 'exists', kind: 'read', label: `确认演练库不存在(存在即中止,绝不复用/删除)`, argv: [...psqlBase, '-d', 'postgres', '-t', '-A', '-c', `SELECT 1 FROM pg_database WHERE datname = '${targetDb}'`] },
-    { id: 'create', kind: 'write', label: `CREATE DATABASE(仅演练库)`, argv: [...psqlBase, '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-c', `CREATE DATABASE ${quoteIdent(targetDb)}`] },
+    existsStep,
+    ...(ctx.preExtended
+      ? []
+      : [{ id: 'create', kind: 'write', label: `CREATE DATABASE(仅演练库)`, argv: [...psqlBase, '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-c', `CREATE DATABASE ${quoteIdent(targetDb)}`] }]),
     { id: 'restore', kind: 'write', label: `pg_restore 到演练库(单事务,原子性=全有或全无)`, argv: [bins.pgRestore, '-w', '-h', conn.host, '-p', String(conn.port), '-U', conn.user, '-d', targetDb, '--no-owner', '--no-privileges', '--single-transaction', dumpPath] },
     countsStep('counts-prod', conn.prodDb, '生产库逐表行数(基准,只 SELECT)'),
     countsStep('counts-drill', targetDb, '演练库逐表行数(还原后)'),
     { id: 'drill-size', kind: 'read', label: '演练库库大小', argv: [...psqlBase, '-d', targetDb, '-t', '-A', '-c', 'SELECT pg_database_size(current_database())'] },
-    { id: 'post-stats', kind: 'read', label: `生产库只读统计指纹(演练后,须与演练前逐字一致)`, argv: [...psqlBase, '-d', conn.prodDb, '-t', '-A', '-c', STATS_SQL] },
+    { id: 'post-stats', kind: 'read', label: `生产库只读统计指纹(演练后,表数/行数估计须与演练前一致)`, argv: [...psqlBase, '-d', conn.prodDb, '-t', '-A', '-c', STATS_SQL] },
     { id: 'drop', kind: 'write', label: `DROP DATABASE(仅且只有演练库;只在全部核对通过后单独派发)`, argv: [...psqlBase, '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-c', `DROP DATABASE ${quoteIdent(targetDb)}`] },
   ]
 }
@@ -468,15 +497,20 @@ function modeDryRun(ctx) {
       conn: ctx.conn,
       dumpPath: latest ? join(ctx.backupDir, latest.name) : join(ctx.backupDir, '<最新 ihui_dev_YYYYMMDD_HHMMSS.dump>'),
       targetDb: target,
+      preExtended: ctx.preExtended,
     })
     out.targetDb = target
+    out.preExtended = ctx.preExtended === true
     out.plan = plan.map((s) => ({ kind: s.kind, label: s.label, argv: s.argv, stdinSql: s.input ? `${String(s.input).slice(0, 80)}…(SQL 走 stdin)` : undefined }))
     out.cleanup = plan.filter((s) => s.kind === 'write' && s.id === 'drop').map((s) => s.label)
     out.guards = [
       '口令绝不打印;上面的 -U 后即凭据来源而非凭据',
-      'CREATE/DROP 前逐字符校验库名形状;同名库已存在即中止,绝不复用/删除',
-      'restore 失败或生产统计前后不一致 ⇒ 保留演练库待人工取证,不静默 DROP',
-      'drop 步骤只在逐表行数与统计指纹全部核对通过后单独派发',
+      'CREATE/DROP 前逐字符校验库名形状;普通档见同名库即中止,绝不复用/删除',
+      ...(ctx.preExtended
+        ? ['路径B(拍板①):演练库须已由人工建好且恰为 空库+vector 扩展(预检读数 0|1),否则中止;工具不 CREATE、不替人装扩展']
+        : []),
+      'restore 失败或生产统计比对异常 ⇒ 保留演练库待人工取证,不静默 DROP',
+      'drop 步骤只在逐表行数与统计比对全部通过后单独派发',
     ]
     return { code: 0, out }
   } catch (e) {
@@ -518,17 +552,30 @@ function modeApply(ctx) {
   }
   const target = drillDbName(ctx.ymd)
   out.targetDb = target
-  const plan = buildPlan({ bins: ctx.bins, conn: ctx.conn, dumpPath: out.dump.path, targetDb: target })
+  const plan = buildPlan({ bins: ctx.bins, conn: ctx.conn, dumpPath: out.dump.path, targetDb: target, preExtended: ctx.preExtended })
   const byId = Object.fromEntries(plan.map((s) => [s.id, s]))
   const mainPlan = plan.filter((s) => s.id !== 'drop')
   const exec = (step) =>
     ctx.run(step, {
       timeoutMs: step.id === 'restore' ? Number(process.env.IHUI_RESTORE_DRILL_RESTORE_TIMEOUT_MS || 30 * 60_000) : 120_000,
     })
-  // 中止条件:存在性预检非空(库已存在,绝不动它)/ 任何写步骤非零退出。
+  // 中止条件:存在性预检不过 / 任何写步骤非零退出。
+  // 普通档:exists 读数必须为空(库不存在)。pre-extended 档(拍板①路径B):读数必须恰为 `0|1`
+  // (0 张 public 表 + 恰 1 个 vector 扩展),连不上/表非空/扩展缺失一律中止,绝不往里写。
   const check = (step, o) => {
-    if (step.id === 'exists' && String(o.stdout || '').trim() !== '')
-      return `演练库 ${target} 已存在 —— 中止(不复用、不删除;这违反"只动今天新建的那一个"的前提)`
+    if (step.id === 'exists') {
+      if (ctx.preExtended) {
+        if (o.rc !== 0)
+          return `连不上演练库 ${target}(exit ${o.rc})—— 路径 B 要求它已由人工建好并装好 vector 扩展;${String(o.stderr || '').slice(0, 200)}`
+        const reading = String(o.stdout || '').trim()
+        if (reading !== '0|1')
+          return `演练库 ${target} 预检读数 ${JSON.stringify(reading)} ≠ '0|1'(须 0 张 public 表 + 恰 1 个 vector)—— 中止,不复用不干净的库,也不替人装扩展`
+        return null
+      }
+      if (String(o.stdout || '').trim() !== '')
+        return `演练库 ${target} 已存在 —— 中止(不复用、不删除;这违反"只动今天新建的那一个"的前提)`
+      return null
+    }
     if (step.kind === 'write' && o.rc !== 0)
       return `写步骤失败于「${step.label}」(exit ${o.rc}):${String(o.stderr || '').slice(0, 400) || '无 stderr'}`
     return null
@@ -539,7 +586,12 @@ function modeApply(ctx) {
   } catch (e) {
     const done = e.aborted ? e.results : null
     out.abortedAt = done ? done[done.length - 1]?.step?.id : 'unknown'
-    out.verdict = `中止:${String(e.message ?? e)};${done && done.some((r) => r.step.id === 'create') ? `演练库可能残留待人工处置: ${target}` : '未产生任何残留(写步骤尚未成功执行)'}`
+    const residue = done && done.some((r) => r.step.id === 'create')
+      ? `演练库可能残留待人工处置: ${target}`
+      : ctx.preExtended
+        ? `演练库(人工预建)原地保留,处置权在人工: ${target}`
+        : '未产生任何残留(写步骤尚未成功执行)'
+    out.verdict = `中止:${String(e.message ?? e)};${residue}`
     return { code: 1, out }
   }
   const got = (id) => results.find((r) => r.step.id === id).out
@@ -561,8 +613,37 @@ function modeApply(ctx) {
   out.tableCount = { prod: pm.size, drill: dm.size }
   out.rowDiffs = diffs
   out.drillDbSize = String(got('drill-size').stdout || '').trim()
-  if (!fingerprintsEqual(out.prodStatsBefore, out.prodStatsAfter)) {
-    out.verdict = `生产库统计前后不一致 —— 立即停,不 DROP,保留演练库待人工取证: ${target}(before≠after 均已打印)`
+  // 生产统计比对(2026-10-05 按台账 G-269④ 预留口径改判据):
+  // 生产库是活的,db_size 逐字相等在本机不成立(零干预对照实测 +16384B/70s ≈ 234B/s)。
+  // 判据改为 —— tables/reltuples 两行必须逐字相等(硬);db_size 漂移必须能被活写基线解释:
+  // 不可解释的缩库(< -1MB)与超尺度异动(> +200MB,约等于 1/3 个整库)立即停,保留演练库。
+  // "对生产零写入"的结构性证明不靠这个指纹:计划里所有打生产的步骤都是 SELECT,
+  // 写步骤目标名已逐字符闸死(见 buildPlan 的 assertDrillTarget)——指纹是冗余警报,不是唯一防线。
+  const statMap = (fp) => {
+    const m = {}
+    for (const line of String(fp || '').split('\n')) {
+      const i = line.indexOf('=')
+      if (i > 0) m[line.slice(0, i)] = Number(line.slice(i + 1))
+    }
+    return m
+  }
+  const sb = statMap(out.prodStatsBefore)
+  const sa = statMap(out.prodStatsAfter)
+  out.statsCompare = {
+    tablesEqual: sb.tables === sa.tables,
+    reltuplesEqual: sb.reltuples === sa.reltuples,
+    dbSizeBefore: sb.db_size,
+    dbSizeAfter: sa.db_size,
+    dbSizeDrift: (sa.db_size ?? 0) - (sb.db_size ?? 0),
+    criterion: 'G-269④ 活库判据:tables/reltuples 须相等;db_size 漂移须在活写基线内(< -1MB 或 > +200MB 判异动)',
+  }
+  const statsBad =
+    !out.statsCompare.tablesEqual ||
+    !out.statsCompare.reltuplesEqual ||
+    out.statsCompare.dbSizeDrift < -1_048_576 ||
+    out.statsCompare.dbSizeDrift > 209_715_200
+  if (statsBad) {
+    out.verdict = `生产库统计比对异常 —— 立即停,不 DROP,保留演练库待人工取证: ${target}(statsCompare 已打印)`
     return { code: 1, out }
   }
   if (diffs.length > 0) {
@@ -581,7 +662,7 @@ function modeApply(ctx) {
     out.verdict = `核对全过,DROP 阶段中止: ${String(e.message ?? e)};演练库残留待人工处置: ${target}`
     return { code: 1, out }
   }
-  out.verdict = `在线演练成功:${pm.size} 张表逐表行数全等;生产库前后统计指纹逐字一致;演练库已 DROP`
+  out.verdict = `在线演练成功:${pm.size} 张表逐表行数全等;生产库表数/行数估计前后一致、db_size 漂移在活写基线内;演练库已 DROP`
   return { code: 0, out }
 }
 
@@ -672,6 +753,7 @@ function main(argv = [], deps = {}) {
     backupDir: deps.backupDir || backupPgDir(),
     cred,
     prodDb: conn.prodDb,
+    preExtended: cli.preExtended === true,
     // 统一执行入口:凭据只在这里并进子进程 env(永不进输出)
     run:
       deps.run ||
@@ -696,7 +778,7 @@ if (isDirectRun) {
       if (r.json) console.info(JSON.stringify(r.out))
       else if (r.out && r.out.error) {
         console.error(`❌ ${r.out.error}`)
-        console.error('用法: node scripts/pg-restore-drill.mjs [--check|--dry-run|--apply|--offline-verify] [--json]')
+        console.error('用法: node scripts/pg-restore-drill.mjs [--check|--dry-run|--apply|--offline-verify] [--pre-extended(仅随 --apply,拍板①路径B)] [--json]')
       } else console.info(renderHuman(r.out))
       process.exit(r.code)
     })
