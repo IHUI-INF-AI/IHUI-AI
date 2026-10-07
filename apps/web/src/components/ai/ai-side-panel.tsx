@@ -1325,9 +1325,9 @@ export function AISidePanel() {
             <div className="mt-1.5 flex justify-end">
               <Button
                 type="button"
-                size="sm"
+                size="xs"
                 variant="outline"
-                className="h-7 text-[11px]"
+                className="text-[11px]"
                 data-testid="import-analysis-open"
                 onClick={() => setAnalysisOpen(true)}
               >
