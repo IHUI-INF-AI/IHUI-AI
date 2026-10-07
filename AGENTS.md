@@ -1517,7 +1517,7 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 - **适配层接线**(64):miniapp-taro `adapters/*.taro.tsx` 未被 adapters **目录外**源文件从 adapters 路径 import 即拦截(blocking,2026-09-22 立)。补 `check-adapter-style-parity.mjs` 只守硬编码颜色、不守"是否被 import"的缺口——9 个屏级适配器 3078 行"造好没装车"直到删除始终无闸可挡,即本条成因。存量基线已清零(`scripts/adapter-wiring-baseline.json` = `unwiredAdapters: []`),任何新增未接线适配器一律直接拦截;判据必须限定 specifier,否则端内同名自有组件(`components/NavBar.tsx` 等)会造成假阳性放过死代码。紧急跳过 `HUSKY_SKIP_ADAPTER_WIRING=1`,自检 `node --test scripts/tests/check-adapter-wiring.test.mjs`
 - **Python 类型**(35):mypy 检查(阻塞,防 ai-service Python 类型回退)
 - **依赖治理**(38):solito 幽灵依赖回归守门(阻塞,防 P0 优化被回退)
-- **迁移完整性**(39):mobile-rn screen 迁移守门(阻塞,防独立实现回升,白名单:Debug/DevEnter/SharedDemo/profileMenuData)
+- **迁移完整性**(39):mobile-rn screen 迁移守门(阻塞,防独立实现回升,豁免清单**只住门体的 `WHITELIST`**,本文此前写着 4 项而现读为 28 项 ⇒ 那份副本已删除,要几项跑 `node scripts/check-rn-app-migration.mjs` 或读门体,别再在文档里登记第二个清单(§4 对 `RN_ONLY_BRAND_KEYS` 同一条教训:名单必然腐烂))
 - **共享层重复**(40):端内重新实现 shared hook/util 检测(阻塞,防端内独立实现回升,白名单:web/useChat + web/useAuth + web/useAgentRuntime + web/useClipboard + web/useNotificationStore + mobile-rn/useAuth + mobile-rn/useNotificationStore(后二者均为 re-export wrapper + 平台 adapter,属 §3 允许形态;守门的 re-export 判定只看 export 那一行有无 `from`,函数型 wrapper 必须显式登记))
 - **条件**(16/16b):staged-typecheck(任意 staged .ts/.tsx → 全量 include + 错误过滤,2026-08-18 根治);packages/database/src staged → build(脚本:check-staged-typecheck.mjs,详见 §22b)
 - (16c):check-staged-typecheck-mirror-sync(源/测镜像漂移防御,blocking,AGENTS.md §22b 配套,2026-08-18 立)
