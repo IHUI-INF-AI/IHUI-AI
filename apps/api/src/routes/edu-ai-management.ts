@@ -74,6 +74,8 @@ import {
   roles,
   userRoles,
   eduFeeSchedule,
+  zhsCoursePay,
+  zhsCoursePayLog,
 } from '@ihui/database'
 // 2026-08-30 教师角色 RBAC 接入:教务管理端点由 requireAdmin 改为 requirePermission('edu:manage')
 // admin(users.roleId >= 1)在 requirePermission 内自动豁免,行为不变;
@@ -4204,8 +4206,44 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .orderBy(desc(eduPaymentRecord.createdAt))
       .limit(pageSize)
       .offset((page - 1) * pageSize)
+    // ── 遗留表历史账段(G-816106 ⑤,拍板 2026-10-07)──
+    // zhs_course_pay(+ 操作日志 zhs_course_pay_log)是旧课程平台的支付记录。拍板:
+    // 数据归属**维持遗留表为历史账**(不回填、不改写、不迁数据),但读数出口并入本端点,
+    // 随新流水一起对 web 财务页可见,每行带 source:'legacy' 来源标记 + 该笔的操作日志。
+    // 遗留行的 user_uuid 是旧平台标识,与新 users.id 无映射,所以这一段只读展示、
+    // 不参与欠费/汇总口径(欠费口径仍只由账目出口 edu-ledger 持有),也不受上面的
+    // studentId/classId 过滤影响 —— 那些过滤键对遗留表结构上无意义,硬套是编造归属。
+    const legacyPays = await db
+      .select({
+        payId: zhsCoursePay.id,
+        userUuid: zhsCoursePay.userUuid,
+        courseId: zhsCoursePay.courseId,
+        orderNo: zhsCoursePay.orderNo,
+        amount: zhsCoursePay.amount,
+        status: zhsCoursePay.status,
+        createTime: zhsCoursePay.createTime,
+      })
+      .from(zhsCoursePay)
+      .orderBy(desc(zhsCoursePay.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize)
+    const legacyPayIds = legacyPays.map((p) => p.payId)
+    const legacyLogs = legacyPayIds.length
+      ? await db
+          .select({
+            payId: zhsCoursePayLog.payId,
+            action: zhsCoursePayLog.action,
+            detail: zhsCoursePayLog.detail,
+            createTime: zhsCoursePayLog.createTime,
+          })
+          .from(zhsCoursePayLog)
+          .where(inArray(zhsCoursePayLog.payId, legacyPayIds))
+          .orderBy(asc(zhsCoursePayLog.createTime))
+      : []
+    const [legacyTotalRow] = await db.select({ c: count() }).from(zhsCoursePay)
+    const legacy = buildLegacySegment(legacyPays, legacyLogs, Number(legacyTotalRow?.c ?? 0))
     return reply.send(
-      success({ list, total, page, pageSize, totalPages: Math.ceil(total / pageSize) }),
+      success({ list, total, page, pageSize, totalPages: Math.ceil(total / pageSize), legacy }),
     )
   })
 
@@ -5536,6 +5574,57 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 }
 
 /**
+ * 遗留表历史账段组装(G-816106 ⑤,拍板 2026-10-07)。抽成纯函数的理由与缴费契约同:
+ * 「legacy 段每行必带 source:'legacy' + 自己的操作日志;没日志的行给空数组而不是 undefined」
+ * 这条形状约定,翻坏时 typecheck 不响(web 端 `p.logs.map` 直接炸),必须有一条不连库
+ * 就能钉住的断言(测试见 apps/api/tests/edu-legacy-paylog-contract.test.ts)。
+ * 口径边界:遗留行只读展示、不参与欠费/汇总;分组保持入参顺序(SQL 侧已按 createTime 升序)。
+ */
+export interface LegacyPayRow {
+  payId: number
+  userUuid: string
+  courseId: number
+  orderNo: string | null
+  amount: number
+  status: number
+  createTime: Date | null
+}
+export interface LegacyPayLogRow {
+  payId: number
+  action: string
+  detail: string | null
+  createTime: Date | null
+}
+export function buildLegacySegment(
+  pays: LegacyPayRow[],
+  logs: LegacyPayLogRow[],
+  total: number,
+): {
+  source: 'legacy'
+  total: number
+  list: Array<LegacyPayRow & { source: 'legacy'; logs: Array<Omit<LegacyPayLogRow, 'payId'>> }>
+} {
+  const logsByPay = new Map<
+    number,
+    { action: string; detail: string | null; createTime: Date | null }[]
+  >()
+  for (const l of logs) {
+    const arr = logsByPay.get(l.payId)
+    if (arr) arr.push({ action: l.action, detail: l.detail, createTime: l.createTime })
+    else logsByPay.set(l.payId, [{ action: l.action, detail: l.detail, createTime: l.createTime }])
+  }
+  return {
+    source: 'legacy' as const,
+    total,
+    list: pays.map((p) => ({
+      ...p,
+      source: 'legacy' as const,
+      logs: logsByPay.get(p.payId) ?? [],
+    })),
+  }
+}
+
+/**
  * 供测试 import 的判据出口(§22c)。
  * 为什么必须导出而不是"跑一次 HTTP 看看":缴费契约在 2026-09-29 从
  * 「studentId/classId 必填」翻成「enrollmentId 必填」—— 翻错或被人改回去时,
@@ -5549,6 +5638,7 @@ export const __test__ = {
   batchFeeReminderSchema,
   generateFeeScheduleSchema,
   feeReminderStatsSchema,
+  buildLegacySegment,
 }
 
 export default eduAiManagementRoutes
