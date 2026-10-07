@@ -1436,33 +1436,32 @@ async function main() {
       entryBytes,
     })
     if (sel.picked.length === 0 && toArchive.length > 0) {
+      // 2026-10-07 用户拍板(G-1059142):自动归档**不得停摆** —— 旧逻辑在这里打印
+      // "需人工放行"后 process.exit(0) 静默跳过;而"最旧一条自身超预算"一旦出现
+      // (2026-09-29→10-07 实测:积压 737 条/13.2MB、最旧单条 507,928 B > 262,144 B 预算),
+      // 每轮自动档都重算同一批再拒绝 ⇒ 阀门把"少做一件事"变成"永远不做这件事",
+      // 归档链对这批存量结构性失效而账面一路绿。现改为**单条超预算强制放行**:
+      // 整条照搬(不拆条目,"完整任务条目"不变量保持),每轮必推进;零损失闸
+      // (底稿面/占位/结构等值/plan-line-loss)不因超预算而放松。其余条目仍按预算
+      // 后续轮次继续(每轮超预算只放行一条,积压越大排空越慢但永不为零)。
+      let oldest = toArchive[0]
+      for (const t of toArchive) {
+        if (String(t.date || '9999-12-31') < String(oldest.date || '9999-12-31')) oldest = t
+      }
+      const oldestBytes = entryBytes(oldest)
       console.log(
         C.yellow +
-          '⚠  大批量归档阀门关闭中(自动档):' +
-          toArchive.length +
-          ' 条 / ' +
-          sel.totalBytes +
-          ' B,且最旧一条自身 ' +
-          sel.oldestBytes +
-          ' B 已超单批预算 ' +
+          '⚠  单条超预算强制放行(2026-10-07 拍板:自动归档不得停摆):最旧一条 ' +
+          oldestBytes +
+          ' B 超单批预算 ' +
           MASS_MAX_BYTES +
-          ' B(预算 ' +
-          MASS_MAX_ENTRIES +
-          ' 条或 ' +
-          MASS_MAX_BYTES +
-          ' B)' +
+          ' B,本轮整条照搬(不拆条目),余 ' +
+          (toArchive.length - 1) +
+          ' 条后续轮次继续' +
           C.reset,
       )
-      console.log(
-        C.dim +
-          '   单条即超预算 ⇒ 不拆条目搬(拆了就不是"完整任务条目"了),需人工放行:' +
-          ' node scripts/archive-completed-tasks.mjs --allow-mass' +
-          C.reset,
-      )
-      // 退出码 0:这是"自动档少做一件事",不是错误 —— 绝不得让钩子链因此红
-      process.exit(0)
-    }
-    if (sel.deferredCount > 0) {
+      toArchive = [oldest]
+    } else if (sel.deferredCount > 0) {
       // 选段返回的是**按日期**的最旧前缀,而拼接要求按行号升序 —— 直接把 picked 交给
       // buildNewPlanText 会产出交错损坏的文档(2026-09-28 实测被结构等值闸拦下过一次)。
       toArchive = sel.picked.sort((a, b) => a.startLine - b.startLine)
