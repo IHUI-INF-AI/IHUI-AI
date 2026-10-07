@@ -581,6 +581,27 @@ function registerLocalSession(
 }
 
 /**
+ * G-1059134:SSH 认证凭证二选一的运行时互斥校验。
+ *
+ * TerminalSshParams.password?/privateKey? 在类型层保持平铺二选一(REST 连接入参,
+ * 机主拍板不改 wire、不引入 kind 字面量),互斥性只能在消费面运行时守卫:两个凭证
+ * 同给是非法组合,按 400 类错误拒绝。空串/缺席按"未提供"处理(与下方 connectOpts
+ * 的 truthy 装配语义一致),单给与都不给(agent 认证形态)不受影响。
+ *
+ * @throws Error statusCode=400 + errorCode='ssh_auth_conflict'
+ */
+export function assertSshAuthExclusive(ssh: TerminalSshParams): void {
+  if (ssh.password && ssh.privateKey) {
+    const err = new Error(
+      'SSH 认证方式二选一:password 与 privateKey 不可同时提供',
+    ) as Error & { statusCode?: number; errorCode?: string }
+    err.statusCode = 400
+    err.errorCode = 'ssh_auth_conflict'
+    throw err
+  }
+}
+
+/**
  * 创建 SSH 远程会话。
  *
  * 流程:ssh2.Client.connect → ready 事件 → client.shell({cols,rows}) → stream
@@ -597,6 +618,8 @@ function createSshSession(
   cols: number,
   rows: number,
 ): TerminalSession {
+  // G-1059134:入参合法性先于能力检查 —— 非法凭证组合在任何客户端/连接建立之前 400 拒绝
+  assertSshAuthExclusive(ssh)
   if (!ssh2Mod) {
     const err = new Error('SSH 远程需要安装 ssh2: pnpm --filter @ihui/api add ssh2') as Error & {
       statusCode?: number
