@@ -578,6 +578,15 @@ export function pickLastSummaryRun(logText, mustMention) {
 }
 
 /**
+ * G-815912(2026-10-07):判「远端态」门的自声明标记。门源码头注里带这个标记的
+ * (check-push-sync 是票面点名成员),它的失败读数是「本地⇄远端同步态」,不是本枚提交的
+ * 内容结论 —— 归因层读到标记就走「未差分」分支,不进差分四态、不产假红假绿。
+ * 为什么门自声明而不是归因层维护 id 清单:中央清单必然腐烂(新门忘记登记 = 假差分复活),
+ * 门作者在自己源里写一行声明,与门语义同生共死。
+ */
+export const REMOTE_STATE_MARK = '[judges-remote-state]'
+
+/**
  * 归因主判据。
  * @param text        首次 commit 的 stdout+stderr(可含 ANSI)
  * @param fallbackText 可选:同一轮的钩子日志尾部(stdout 未带汇总时的第二输入源)
@@ -592,12 +601,15 @@ export function pickLastSummaryRun(logText, mustMention) {
  *        (`diff`,不帶 `--cached`)。少第三路时,按工作树面判红的门(门 47 溯源水印)点名的
  *        路径本分支看不见 ⇒ 落进差分档 ⇒ 差分把别人的在飞改动判成本枚引入 ⇒ 零风险改动被死锁。
  *        票 G-1018220;缺这一项时本参数**不得**由调用方臆造为空数组来"求个绿"。
+ * @param readGateSource 可选:(script) => string —— 门源码读取器(G-815912)。归因层用它读
+ *        门源,识别门内 `[judges-remote-state]` 自声明;缺注入时该识别整体关闭,行为与
+ *        旧版逐字同形(判据自测 A1 无 reader 注入,差分读数不受影响)。
  * @returns kind ∈ 'mine'(点名本次文件 **或** 差分证明本枚引入 ⇒ 拒跳)
  *          | 'not-ours'(有证据表明红不在本次内容 ⇒ 可跳:复跑过关,或 HEAD 面亦红)
  *          | 'undetermined-red'(仍红且基线面跑不出去 ⇒ 可跳,但不得声称与本次无关,2026-09-27 新增)
  *          | 'unattributed'(批未跑完 / 解析不到 / 复跑不可用 ⇒ 保守可跳,但如实说未归因)
  */
-export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, runGateBaseline, foreignStaged }) {
+export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, runGateBaseline, foreignStaged, readGateSource = null }) {
   let parsed = parseGateSummary(text)
   let source = '钩子标准输出'
   if (parsed.failed.length === 0 && fallbackText) {
@@ -781,6 +793,7 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
   let deltaUnknown = 0
   let myFaceUndetermined = 0
   let foreignFace = 0
+  let remoteState = 0
   let noBaselineOutlet = false
   for (const g of parsed.failed) {
     let r = null
@@ -798,6 +811,24 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
       continue
     }
     const lines = findingLines(r.output)
+    // ── 态⓪(G-815912,2026-10-07):判「远端态」的门不进差分、不归责内容 ──
+    // 门源自声明 [judges-remote-state](check-push-sync 是票面点名成员):这类门判的是
+    // 「本地⇄远端同步态」,不是本枚提交的内容 —— 刚提交必然未推送,它的红在提交落地后
+    // 天然为真,基线面(HEAD 检出)上也一样红 ⇒ 差分必产假红("HEAD 绿=你引入")或假绿
+    // ("HEAD 亦红=存量");而它的「点名」(列未推送提交/文件)也不构成内容因果 —— 修法是
+    // 推送,不是改内容。故标记门一进"复跑仍红"就落「未差分」标签。
+    // 刻意放在点名判据**之前**(与态①b exit-2 那条"点名优先"的排序理由不同型,详见其注释):
+    // 对同步态门,点名不构成内容因果;放后面会让它在列了本次文件时被误判 mine ⇒ 假红复活。
+    if (readGateSource && String(readGateSource(g.script) ?? '').includes(REMOTE_STATE_MARK)) {
+      remoteState++
+      deltaUnknown++
+      detail.push(
+        `[${g.id}] ${g.label} —— 未差分:该门自声明判「远端态」(${REMOTE_STATE_MARK}),` +
+          `它的红是同步态读数不是内容结论(取证行:${lines.slice(0, 2).join(' ⏎ ')});` +
+          `不进差分、不归责本次内容,也不读成"这道红不存在"(修法=推送)`,
+      )
+      continue
+    }
     const named = stagedFiles.filter((f) => lines.some((l) => lineNamesFile(l, f)))
     if (named.length > 0) {
       mine++
@@ -933,16 +964,22 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
       ranFullBatch: !parsed.earlyAbort,
       failed: parsed.failed,
       detail,
-      delta: { introduced, stock, deltaUnknown, noBaselineOutlet, myFaceUndetermined, foreignFace },
+      delta: { introduced, stock, deltaUnknown, noBaselineOutlet, myFaceUndetermined, foreignFace, remoteState },
       reason:
-        `${deltaUnknown} 道失败门仍红但未点名本次文件,而` +
-        (myFaceUndetermined > 0
-          ? `其中 ${myFaceUndetermined} 道**在本枚提交的面上就判"无法判定"(exit 2)**、基线面(HEAD)`
-          : '基线面(HEAD)') +
-        (noBaselineOutlet
-          ? '无从差分(调用方未注入 runGateBaseline)'
-          : '在隔离面跑不通(缺依赖 / 门按磁盘判 / exit 2)') +
-        ` ⇒ 未能差分,归属未知` +
+        (remoteState === deltaUnknown
+          ? `${deltaUnknown} 道失败门自声明判「远端态」([judges-remote-state]):` +
+            '红是本地⇄远端同步态读数,不是本枚内容结论(修法=推送),不进差分 ⇒ 归属未知'
+          : `${deltaUnknown} 道失败门仍红但未点名本次文件,而` +
+            (myFaceUndetermined > 0
+              ? `其中 ${myFaceUndetermined} 道**在本枚提交的面上就判"无法判定"(exit 2)**、基线面(HEAD)`
+              : '基线面(HEAD)') +
+            (noBaselineOutlet
+              ? '无从差分(调用方未注入 runGateBaseline)'
+              : '在隔离面跑不通(缺依赖 / 门按磁盘判 / exit 2)') +
+            ' ⇒ 未能差分,归属未知') +
+        (remoteState > 0 && remoteState < deltaUnknown
+          ? `;其中 ${remoteState} 道自声明判「远端态」([judges-remote-state],红是同步态读数,不进差分)`
+          : '') +
         (foreignFace > 0
           ? `;其中 ${foreignFace} 道的结论行点名了**他人挂在共享索引/工作树里**的路径(本枚带 pathspec,进不了本次内容)`
           : '') +
@@ -1786,5 +1823,6 @@ export const __test__ = {
   SUMMARY,
   FAIL_29,
   MY_FILES,
+  REMOTE_STATE_MARK,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

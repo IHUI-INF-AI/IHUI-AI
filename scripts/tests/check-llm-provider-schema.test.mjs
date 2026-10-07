@@ -5,10 +5,12 @@
 import { test, before, after, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { writeFileSync, mkdirSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { resolve, join } from 'node:path'
 
 import { rmScratch, mkScratch } from '../lib/scratch-dir.mjs'
+// 名单投影族出口(§22d 入口守卫保证 import 零副作用)
+import { __test__ as gate } from '../check-llm-provider-schema.mjs'
 
 // =============================================================================
 // check-llm-provider-schema.mjs 端到端集成测试
@@ -16,7 +18,7 @@ import { rmScratch, mkScratch } from '../lib/scratch-dir.mjs'
 // 覆盖 7 条校验规则 + CLI 参数 + 边界情况:
 //   1. JSON 解析必须合法
 //   2. 顶层必须是对象
-//   3. provider name 不在 31 个白名单 → warning(--strict 升级为 error)
+//   3. provider name 不在投影名单(服务端能力清单单向投影)→ warning(--strict 升级为 error)
 //   4. 字段类型:api_key=str / api_base=str|null / enabled=bool / models=str[] / default_model=str|null
 //   5. 未知字段:允许(透传到 extra),info 提示
 //   6. api_key="" 且无 api_base → info 提示"可能未配置"
@@ -142,7 +144,7 @@ describe('规则 3: provider 白名单', () => {
     assert.match(stdout, /未知 provider name: "unknown_provider"/)
   })
 
-  test('31 个白名单 provider 全部合法 → exit 0', () => {
+  test('旧手抄名单代表条目全部合法 → exit 0', () => {
     // 抽样验证 5 个 provider 覆盖不同厂商
     const providers = ['openai', 'anthropic', 'gemini', 'stepfun', 'cloudflare']
     const json = JSON.stringify(
@@ -457,6 +459,78 @@ describe('综合场景', () => {
     assert.ok(!stdout.includes(fakeKey), 'stdout 不得包含 api_key 原值')
     assert.doesNotMatch(stdout, /sk-[A-Za-z0-9_-]{10,}/, 'stdout 不得包含任何 sk- 长 token')
     assert.match(stdout, /providers: openai/, '摘要应显示 provider 名称而非值')
+  })
+})
+
+// =============================================================================
+// 8. provider 名单单向投影(G-354族/G-393/G-762 拍板②,2026-10-07)
+//    名单 = 服务端能力清单单向投影,手抄 PROVIDER_WHITELIST 已消灭:
+//    投影内 provider 永不判"未知";新增 provider 正解 = 进机器源,本门零改动自动识别。
+// =============================================================================
+describe('名单单向投影(G-354族/G-393/G-762)', () => {
+  test('三源并集投影:构造源注入 → 并集与映射投影正确,notes 全 ok', () => {
+    const registrySrc = [
+      'class _F:  # 测试 fixture',
+      '    provider_code="openai"',
+      "    provider_code='deepseek'",
+      '    provider_code="agnes_qwen"',
+      '    provider_code="cloudflare_workers_ai"',
+    ].join('\n')
+    const availabilitySrc = [
+      '_PROVIDER_CODE_TO_LLM_PROVIDERS_NAME = {',
+      '    "cloudflare_workers_ai": "cloudflare",',
+      '}',
+    ].join('\n')
+    const gatewaySrc = [
+      '_FREE_PROVIDER_ENDPOINT_RESOLVERS = {',
+      '    "nvidia": ("nvidia_nim", lambda: None),',
+      '}',
+    ].join('\n')
+    const literalSrcs = ['cfg = get_provider_config("hf_qwen")']
+    const { set, notes } = gate.projectProviderWhitelist({
+      registrySrc, availabilitySrc, gatewaySrc, literalSrcs,
+    })
+    for (const n of ['openai', 'deepseek', 'agnes_qwen', 'cloudflare', 'nvidia_nim', 'hf_qwen'])
+      assert.ok(set.has(n), `投影名单应含 ${n}`)
+    assert.ok(!set.has('cloudflare_workers_ai'), '映射键(原始 code)不得直接入名单,应投影成 name')
+    assert.ok(notes.every((x) => x.kind === 'ok'), `四源 notes 应全 ok,实得 ${JSON.stringify(notes)}`)
+  })
+
+  test('全空源 → set 空 + notes 全 empty(不抛错、不静默充数)', () => {
+    const { set, notes } = gate.projectProviderWhitelist({})
+    assert.equal(set.size, 0)
+    assert.equal(notes.length, 4)
+    assert.ok(notes.every((x) => x.kind === 'empty'))
+  })
+
+  test('真仓面:getProviderWhitelist 三源健康,投影 ≥ 50 条', () => {
+    const wl = gate.getProviderWhitelist()
+    assert.ok(wl.set.size >= 50, `投影名单应 ≥ 50 条,实得 ${wl.set.size}`)
+    assert.ok(
+      wl.notes.every((x) => x.kind === 'ok'),
+      `真仓三源应全 ok,实得 ${JSON.stringify(wl.notes)}`,
+    )
+  })
+
+  test('旧手抄名单代表条目全部 ∈ 投影 → 名单外判黄语义不变回归锁', () => {
+    const wl = gate.getProviderWhitelist()
+    for (const n of ['openai', 'anthropic', 'gemini', 'stepfun', 'cloudflare', 'deepseek',
+      'zhipu', 'qwen', 'nvidia', 'openrouter'])
+      assert.ok(wl.set.has(n), `旧手抄名单条目 ${n} 应仍在投影内`)
+  })
+
+  test('CLI 端到端:.env 实配 12 名全部无「未知 provider」warning(改前 7 名被误判)', () => {
+    const wl = gate.getProviderWhitelist()
+    const names = ['agnes', 'stepfun', 'openrouter', 'cloudflare', 'nvidia', 'gemini',
+      'ihui_relay', 'hf_qwen', 'openai', 'deepseek', 'zhipu', 'qwen']
+    for (const n of names) assert.ok(wl.set.has(n), `实配名 ${n} 应在投影名单内`)
+    const json = JSON.stringify(
+      Object.fromEntries(names.map((p) => [p, { api_key: 'sk-test', enabled: false }])),
+    )
+    writeEnv(`LLM_PROVIDERS_JSON=${json}`)
+    const { exitCode, stdout } = runCli()
+    assert.equal(exitCode, 0)
+    assert.doesNotMatch(stdout, /未知 provider/, '投影后实配名不得再判未知')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
