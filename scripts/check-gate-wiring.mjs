@@ -71,6 +71,17 @@
  *              双向用例:self-test P41/P41b(解析)+ M5(CI 面注入即红)+ E2 基线恰两红
  *              (现状必绿的反向锁)。
 
+ *   R12 默认只报数 / `--strict` 判红:登记表文档 ↔ 代码注册表的**反向**对账(票 G-776;
+ *              首接一处:docs/UI_GUIDELINES.md §3.1 角色↔px ↔ packages/design-tokens/src/radius.js
+ *              的 RADIUS_ROLES/RADIUS_STEPS)。R10 管守门**门体**的点名,R12 管数据/角色**注册表**:
+ *              文档表列了而代码注册表没有,与门体同名不同命是同一格 blindness。两侧一律**现读**
+ *              (索引优先、退回 HEAD,与 R2/R4 文档面例外同源:同一枚提交里"改注册表 + 同步文档行"
+ *              不得被自己判红),门内零手抄 —— 在门里抄第二份清单正是本票反对的漂移面。三态分开
+ *              报数不并桶:文档列了代码没有 ⇒ 真缺口(默认报数,--strict 判红);代码有文档没列 ⇒
+ *              只报数(该方向归 R4 既有行为,本维不并债);同角色不同 px ⇒ 报数(--strict 一并判红,
+ *              "照文档写必错"同源);任一侧枚举到 0 行 ⇒ 未判定,不冒绿也不冒红。
+ *              双向用例:self-test R12a-R12g(端到端夹具 + 变异还原)+ 镜像测试 T-R12。
+
  *   R7 blocking:台账 type=dispatcher 的"依据"文件不存在、或文件里没提被豁免脚本 =
  *              假依据(实测抓到 check-lock.mjs 一条编造的 dispatcher 说明)。
  *   R9 blocking:注册表点名要跑的 `script:` 文件**不在这张面上** ⇒ runner 去 `node scripts/<它>`
@@ -1274,6 +1285,146 @@ function gitGrepNumbered(pattern, mode, root) {
   }
 }
 
+// ────────────────────────────────────────────────────────────────────────
+// R12:登记表文档 ↔ 代码注册表(票 G-776,2026-10-07 立;首接 §3.1 圆角角色 ↔ RADIUS_ROLES)
+// ────────────────────────────────────────────────────────────────────────
+/**
+ * 「文档列了而实现侧没有」的登记表版。R10 管守门**门体**点名 ↔ 存在;R12 管文档里的
+ * **登记表**(角色/端口这类"唯一真相源在代码、文档是它的展开"的表)↔ 代码注册表同值。
+ * 病理实锤(docs/UI_GUIDELINES.md §3.1 自记):该表前两行曾与 RADIUS_ROLES 差一档,
+ * "照文档写必错" —— 因为没有任何一道门对这两份清单做对账(守门 150 判代码不判文档)。
+ *
+ * 判据纪律(票面三条硬要求):
+ *   ① 文档侧清单**现读**(解析 §3.1 表格),代码侧**现读**(解析 RADIUS_ROLES/RADIUS_STEPS
+ *      字面量)—— 门体内**零手抄**:在这里抄第二份清单,正是本票反对的那个漂移面;
+ *   ② 三态分开报数不并桶:docOnly(文档列了代码没有 ⇒ 真缺口;默认报数,--strict 判红)/
+ *      codeOnly(代码有文档没列 ⇒ 只报数,该方向归 R4 既有行为,本维不并债)/
+ *      pxMismatch(同角色不同 px ⇒ 报数,--strict 一并判红 —— "照文档写必错"正是本票立票病理);
+ *   ③ 任一侧枚举到 0 行 / 文件取不到 ⇒ status='undetermined',不冒绿也不冒红
+ *      (0 行是"判据失明",与 R9 的"0 条注册"同一条教训,绝不读成"两侧一致")。
+ *
+ * 取材面:两侧都是**索引优先、退回 HEAD**(与 R2/R4 文档面例外同源)——同一枚提交里
+ * "改注册表 + 同步文档行"是正确姿势,不能被自己的新判据挡住;实际用的面在结论行如实报出。
+ * 解析全部**逐行锚定**:键值行必须整行是 `key: 'value'[, // 注释]` 形态,注释行(`*` 开头)
+ * 天然不命中 —— 不引第二套词法器,也就不会造出"第二套遮罩实现"那类漂移。
+ */
+
+/** R12 文档侧:登记表文档(首接圆角角色表) */
+export const R12_DOC_REL = 'docs/UI_GUIDELINES.md'
+/** R12 代码侧:角色→档 唯一注册表(档位→px 也在同文件,用于折 px) */
+export const R12_CODE_REL = 'packages/design-tokens/src/radius.js'
+
+/**
+ * 纯函数(R12 文档侧):取 `### 3.1 …` 到下一个 2-4 级标题之间的表格行,解析 角色键 + 像素值。
+ * 返回 {roles: Map<role,px>, conflicts, pxUnparsable, rows}:
+ *   conflicts    同角色两行 px 不同 ⇒ 文档内部自相矛盾,点名不猜(比对以首行为准);
+ *   pxUnparsable 有角色键但像素格读不出 `Npx` ⇒ 该行不算数,点名报数(判不出 ≠ 没有);
+ *   rows         含角色键的表格行总数(0 ⇒ 上层判"文档侧枚举为空",不得记为"已对账")。
+ * 围栏内一律不算(§3.2 的 ``` 围栏演示不得污染登记表;与 R10 的 FENCE_RE 同一份)。
+ */
+export function parseRadiusRoleDocTable(mdText) {
+  const lines = String(mdText ?? '').split(/\r?\n/)
+  const roles = new Map()
+  const conflicts = []
+  const pxUnparsable = []
+  let rows = 0
+  let inSec = false
+  let inFence = false
+  for (const line of lines) {
+    if (FENCE_RE.test(line)) {
+      inFence = !inFence
+      continue
+    }
+    if (inFence) continue
+    const h = line.match(/^#{2,4}\s+(.*)$/)
+    if (h) {
+      if (/^3\.1(\.|\s|$)/.test(h[1].trim())) inSec = true
+      else if (inSec) inSec = false
+      continue
+    }
+    if (!inSec || !/^\s*\|/.test(line)) continue
+    const cells = line.split('|').map((c) => c.trim())
+    if (cells.length < 5) continue
+    if (/^[-:]+$/.test(cells[1])) continue // 表头分隔行
+    const role = (cells[3] || '').replace(/[*_`]/g, '').trim()
+    if (!role || role === '角色键') continue // 表头行
+    rows += 1
+    const pxRaw = (cells[2] || '').replace(/[*_`]/g, '').trim()
+    const pxm = pxRaw.match(/^(\d+(?:\.\d+)?)\s*px$/i)
+    if (!pxm) {
+      pxUnparsable.push({ role, px: pxRaw })
+      continue
+    }
+    const px = Number(pxm[1])
+    if (roles.has(role)) {
+      if (roles.get(role) !== px) conflicts.push({ role, px, prev: roles.get(role) })
+      continue
+    }
+    roles.set(role, px)
+  }
+  return { roles, conflicts, pxUnparsable, rows }
+}
+
+/**
+ * 纯函数(R12 代码侧):从 radius.js 源码解析 `export const RADIUS_ROLES`(角色→档)与
+ * `export const RADIUS_STEPS`(档→px)。ok=false ⇔ RADIUS_ROLES 缺失或 0 条 —— 那是
+ * "判据失明",上层必须落未判定,绝不读成"没有角色"(R9 同一条教训)。
+ */
+export function parseRadiusRoleRegistry(jsText) {
+  const src = String(jsText ?? '')
+  const grabBlock = (name) => {
+    const m = src.match(new RegExp(`export\\s+const\\s+${name}\\s*=\\s*\\{([\\s\\S]*?)\\n\\}`))
+    return m ? m[1] : null
+  }
+  const rolesBlock = grabBlock('RADIUS_ROLES')
+  const stepsBlock = grabBlock('RADIUS_STEPS')
+  // 逐行锚定:整行 `key: 'value',` / `key: 8,`(允许行尾 // 或 /* */ 注释)。注释行以 `*`/`/*` 开头,天然不命中。
+  // 行尾允许注释是**漏读方向**的护栏:键值行尾补一句说明不得让该条目从注册面消失(那会凭空造 docOnly 假红)。
+  const KEY = String.raw`(?:'([^'\n]+)'|"([^"\n]+)"|([A-Za-z_$][\w$]*))`
+  const TAIL = String.raw`\s*,?\s*(?:\/\/[^\n]*|/\*[\s\S]*?\*/)?`
+  const roles = new Map()
+  const steps = new Map()
+  if (rolesBlock) {
+    for (const m of rolesBlock.matchAll(new RegExp(String.raw`^\s*${KEY}\s*:\s*['"]([^'"\n]+)['"]${TAIL}$`, 'gm'))) {
+      roles.set(m[1] ?? m[2] ?? m[3], m[4])
+    }
+  }
+  if (stepsBlock) {
+    for (const m of stepsBlock.matchAll(new RegExp(String.raw`^\s*${KEY}\s*:\s*(\d+(?:\.\d+)?)${TAIL}$`, 'gm'))) {
+      steps.set(m[1] ?? m[2] ?? m[3], Number(m[4]))
+    }
+  }
+  return { roles, steps, ok: rolesBlock !== null && roles.size > 0 }
+}
+
+/**
+ * 纯函数(R12 判读):两侧现读结果 → 三态差集 + 折不出 px 的余数。绝不并桶:
+ *   docOnly     文档列了而 RADIUS_ROLES 没有 ⇒ 真缺口(--strict 判红);
+ *   codeOnly    代码有而文档没列 ⇒ 只报数(该方向归 R4 既有行为,本维不并债,永不判红);
+ *   pxMismatch  同角色但文档 px ≠ 代码 档→px ⇒ 报数(--strict 判红);
+ *   pxUnjudged  代码认得角色但档位折不出 px ⇒ 该格未判定,点名不猜。
+ */
+export function compareRadiusRoleRegistries({ docRoles, reg }) {
+  const docOnly = []
+  const codeOnly = []
+  const pxMismatch = []
+  const pxUnjudged = []
+  for (const [role, px] of docRoles || []) {
+    const step = reg.roles.get(role)
+    if (step === undefined) {
+      docOnly.push({ role, px })
+      continue
+    }
+    const codePx = reg.steps.has(step) ? reg.steps.get(step) : null
+    if (codePx === null) pxUnjudged.push({ role, step })
+    else if (codePx !== px) pxMismatch.push({ role, docPx: px, codePx, step })
+  }
+  for (const [role, step] of reg.roles || []) {
+    if (!(docRoles || []).has(role)) codeOnly.push({ role, step })
+  }
+  return { docOnly, codeOnly, pxMismatch, pxUnjudged }
+}
+
 async function main(argv = process.argv.slice(2)) {
   const opts = {
     root: DEFAULT_ROOT,
@@ -1297,7 +1448,7 @@ async function main(argv = process.argv.slice(2)) {
     console.log(
       '用法: node scripts/check-gate-wiring.mjs [--json|--staged|--strict|--self-test|--root=<dir>]\n' +
         '  --staged 语义:仍做全量对账(全量对账型,同守门 78;按暂存收窄会放过整类破损)\n' +
-        '  --strict 语义:把 R10 的"文档点名而门体不在面上"真缺口计入退出码(默认档只报数)\n' +
+        '  --strict 语义:把 R10 的"文档点名而门体不在面上"与 R12 的"文档列了而代码注册表没有/px 不符"真缺口计入退出码(默认档只报数)\n' +
         '  紧急跳过: HUSKY_SKIP_GATE_WIRING=1',
     )
     return 0
@@ -1372,6 +1523,12 @@ async function main(argv = process.argv.slice(2)) {
   const RUNNER_REL = 'scripts/guardian-runner.mjs'
   blobSpecs.add(`HEAD:${RUNNER_REL}`)
   blobSpecs.add(`:${RUNNER_REL}`)
+  // R12(票 G-776):登记表两侧都要"索引优先、退回 HEAD"可读 —— 四个规格同批预取,
+  // 面上没有这份文件 ⇒ catBatch 归 null(不是抛),由 R12 段落判"未判定"并点名。
+  blobSpecs.add(`HEAD:${R12_DOC_REL}`)
+  blobSpecs.add(`:${R12_DOC_REL}`)
+  blobSpecs.add(`HEAD:${R12_CODE_REL}`)
+  blobSpecs.add(`:${R12_CODE_REL}`)
   for (const n of gateNames) blobSpecs.add(`HEAD:scripts/${n}`)
   const isCorpusFile = (f) =>
     f.endsWith('.mjs') || f.endsWith('.js') || f === 'package.json' || f.startsWith('.husky/')
@@ -1717,6 +1874,76 @@ async function main(argv = process.argv.slice(2)) {
 
   const docModes = docReader.modes()
 
+  // ── R12(票 G-776,2026-10-07):登记表文档 ↔ 代码注册表 ────────────────
+  // 首接 §3.1 角色↔px ↔ RADIUS_ROLES。两侧现读(索引优先退 HEAD,判据头注有取材说明),
+  // 三态分开报数不并桶;未判定不冒绿也不冒红,只把"未构成对账合格证"喊出来。
+  const r12 = {
+    status: 'undetermined',
+    docFace: '',
+    codeFace: '',
+    docRoles: 0,
+    codeRoles: 0,
+    why: '',
+    docOnly: [],
+    codeOnly: [],
+    pxMismatch: [],
+    pxUnjudged: [],
+    docConflicts: [],
+    pxUnparsable: [],
+  }
+  {
+    // 索引优先、退回 HEAD:索引条目存在 ⇒ 它就是"这一枚提交将带走的内容"(与 HEAD 同内容时
+    // 如实标注,不冒充读过另一个面);索引取不到(未跟踪/被暂存删除)退回 HEAD;两面皆无 ⇒ null。
+    const pickR12 = (rel) => {
+      const idx = blobOf(`:${rel}`)
+      const head = blobOf(`HEAD:${rel}`)
+      if (idx !== null && idx !== undefined) {
+        return { text: idx, face: head !== null && head !== undefined && idx === head ? 'HEAD(索引同内容)' : '索引(本枚提交将带走)' }
+      }
+      if (head !== null && head !== undefined) return { text: head, face: 'HEAD(索引取不到)' }
+      return { text: null, face: '取不到' }
+    }
+    const doc = pickR12(R12_DOC_REL)
+    const code = pickR12(R12_CODE_REL)
+    r12.docFace = doc.face
+    r12.codeFace = code.face
+    const parsedDoc = parseRadiusRoleDocTable(doc.text)
+    const parsedReg = parseRadiusRoleRegistry(code.text)
+    r12.docRoles = parsedDoc.roles.size
+    r12.codeRoles = parsedReg.roles.size
+    r12.docConflicts = parsedDoc.conflicts
+    r12.pxUnparsable = parsedDoc.pxUnparsable
+    if (doc.text === null) {
+      r12.why = `${R12_DOC_REL} 在被审面取不到(该面没有这份登记表文档)`
+    } else if (parsedDoc.roles.size === 0) {
+      r12.why = `${R12_DOC_REL} §3.1 枚举到 0 行可判角色登记(小节不在/表格为空/形态漂了 ⇒ 判据看不见文档侧,不得记为"已对账")`
+    } else if (code.text === null) {
+      r12.why = `${R12_CODE_REL} 在被审面取不到(该面没有这份注册表)`
+    } else if (!parsedReg.ok) {
+      r12.why = `${R12_CODE_REL} 解析不到 RADIUS_ROLES(0 条注册 ⇒ 判据失明,不是"没有角色")`
+    } else {
+      r12.status = 'judged'
+      Object.assign(r12, compareRadiusRoleRegistries({ docRoles: parsedDoc.roles, reg: parsedReg }))
+    }
+  }
+  // 定级与 R10 同一条升档路径:默认档只报数,--strict 才把真缺口计入退出码。
+  if (opts.strict && r12.status === 'judged') {
+    for (const g of r12.docOnly) {
+      reds.push({
+        script: `(§3.1 角色 '${g.role}')`,
+        status: 'red-r12',
+        reason: `登记表文档列了而代码注册表没有:${R12_DOC_REL} §3.1 写了 ${g.role}(${g.px}px),${R12_CODE_REL} 的 RADIUS_ROLES 没有这个角色 —— 照文档写必错`,
+      })
+    }
+    for (const g of r12.pxMismatch) {
+      reds.push({
+        script: `(§3.1 角色 '${g.role}')`,
+        status: 'red-r12',
+        reason: `登记表文档与代码注册表同角色不同值:§3.1 写 ${g.px}px,代码 ${g.role}→'${g.step}'=${g.codePx}px —— 两份清单漂了,照文档写必错`,
+      })
+    }
+  }
+
   if (opts.json) {
     console.log(
       JSON.stringify(
@@ -1745,6 +1972,12 @@ async function main(argv = process.argv.slice(2)) {
             sharedSkipEnvs: sharedEnvs.length,
             dispatcherProblems: dispatcherProblems.length,
             baselineUpdateHitsR11: r11.hits.length,
+            radiusStatusR12: r12.status,
+            radiusDocRolesR12: r12.docRoles,
+            radiusCodeRolesR12: r12.codeRoles,
+            radiusDocOnlyR12: r12.docOnly.length,
+            radiusCodeOnlyR12: r12.codeOnly.length,
+            radiusPxMismatchR12: r12.pxMismatch.length,
           },
           dispatcherProblems,
           // R11(票 G-665)明细:CI 面的 --update-baseline 命中(file:line),供复核
@@ -1771,6 +2004,8 @@ async function main(argv = process.argv.slice(2)) {
             staleIdMentions: r10StaleIds,
             strictRed: opts.strict,
           },
+          // R12(票 G-776/G-381)明细:文档表 ↔ 代码注册表双向对账,三态各一份,未判定带 why
+          radiusParityR12: r12,
         },
         null,
         2,
@@ -1839,6 +2074,27 @@ async function main(argv = process.argv.slice(2)) {
         (r11.emptyFace ? ' | ⚠️ CI 面不存在,判据无对象(已判红)' : ''),
     )
 
+    // R12(票 G-776/G-381):文档表 ↔ 代码注册表双向对账 —— 三态分开报数,绝不并桶
+    if (r12.status === 'judged') {
+      console.log(
+        `   R12(文档表 ↔ 代码注册表双向对账;文档=${r12.docFace},代码=${r12.codeFace};默认档:真缺口只报数): ` +
+          `docOnly ${r12.docOnly.length} / codeOnly ${r12.codeOnly.length} / pxMismatch ${r12.pxMismatch.length}` +
+          (r12.pxUnjudged.length ? ` / pxUnjudged ${r12.pxUnjudged.length}` : ''),
+      )
+      for (const d of r12.docOnly)
+        console.log(`     · 文档列了代码没有: §3.1 角色 '${d.role}'(${d.px})`)
+      for (const c of r12.codeOnly)
+        console.log(`     · 代码有文档没列: 角色 '${c.role}'(档 '${c.step}')—— 走 R4 语义,不并入本维红`)
+      for (const m of r12.pxMismatch)
+        console.log(`     · px 不符: §3.1 '${m.role}'=${m.docPx}px vs RADIUS '${m.role}'→'${m.step}'=${m.codePx}px`)
+      for (const u of r12.pxUnjudged)
+        console.log(`     · 未判定(px 折不出): 角色 '${u.role}' 档 '${u.step}' 在 RADIUS_STEPS 无值`)
+    } else {
+      console.log(
+        `   R12(文档表 ↔ 代码注册表双向对账): 未判定(${r12.why};不构成"登记表已对账"的合格证,不冒绿也不判红)`,
+      )
+    }
+
     if (undocumented.length) {
       console.log(
         '     ' +
@@ -1876,7 +2132,7 @@ async function main(argv = process.argv.slice(2)) {
   if (reds.length > 0) {
     if (!opts.json) {
       console.error(
-        `\n❌ 接线层结构性缺陷共 ${reds.length} 枚(R1/R2 撒谎 · R4 文档隐形 · R5 撞号 · R7 假依据 · R8 注册形态非法 · R9 注册的门体不在面上${opts.strict ? ' · R10 文档点名的门体不在面上' : ''})—— 禁止为消红塞台账:`,
+        `\n❌ 接线层结构性缺陷共 ${reds.length} 枚(R1/R2 撒谎 · R4 文档隐形 · R5 撞号 · R7 假依据 · R8 注册形态非法 · R9 注册的门体不在面上${opts.strict ? ' · R10 文档点名的门体不在面上 · R12 文档列了而代码注册表没有/px 不符' : ''})—— 禁止为消红塞台账:`,
       )
       for (const r of reds)
         console.error(
@@ -1909,6 +2165,12 @@ async function main(argv = process.argv.slice(2)) {
       console.error(
         '              要么删掉/改写文档里那句接线断言。禁止为了变绿去放宽 R10 的接线词表。',
       )
+      console.error(
+        '         R12 → 文档列了而代码没有:要么补进 RADIUS_ROLES/RADIUS_STEPS,要么删掉/改写 §3.1 那行;',
+      )
+      console.error(
+        '              px 不符的以 radius.js 的注册表为唯一真相源对齐。禁止为变绿去手抄第二份清单。',
+      )
       console.error('         紧急跳过 HUSKY_SKIP_GATE_WIRING=1')
     }
     return 1
@@ -1916,7 +2178,12 @@ async function main(argv = process.argv.slice(2)) {
   if (!opts.json)
     console.log(
       `✅ R1/R2/R4 零红(已接线 ${by('wired').length} / 台账豁免 ${by('exempt').length} / 文档未点名 0)` +
-        ` —— R10 真缺口 ${r10.gap.length} 枚${opts.strict ? '(已按 --strict 判红)' : '(默认档只报数,问责跑 --strict)'}`,
+        ` —— R10 真缺口 ${r10.gap.length} 枚${opts.strict ? '(已按 --strict 判红)' : '(默认档只报数,问责跑 --strict)'}` +
+        ` —— R12 ${
+          r12.status === 'judged'
+            ? `真缺口 ${r12.docOnly.length + r12.pxMismatch.length} 枚${opts.strict ? '(已按 --strict 判红)' : '(默认档只报数,问责跑 --strict)'}`
+            : `未判定(${r12.why};不构成对账合格证)`
+        }`,
     )
   return 0
 }
@@ -3012,6 +3279,152 @@ function runSelfTest() {
         fencedGap.named === 1,
     )
 
+    // ── R12(票 G-776/G-381):文档表 ↔ 代码注册表双向对账 ──
+    // 端到端四件套:judged 全 0 / docOnly 默认报数+strict 红 / 变异还原复绿 / codeOnly 不并债 / 双侧失明不冒绿。
+    // 夹具沿用 M9 的零红基线(runner 注册 + 文档点名全量),保证红只可能来自 R12 本维。
+    const r12DocMd = (rows) =>
+      '# UI 指南\n\n### 3.1 圆角角色表\n\n| 元素 | 圆角 | 角色键 | 场景 |\n| --- | --- | --- | --- |\n' +
+      rows.join('\n') +
+      '\n\n### 3.2 其他\n\n围栏内不算登记表:\n\n```\n| 假行 | 99px | `fence-only` | 演示 |\n```\n'
+    const r12CodeJs = (roles, steps) =>
+      'export const RADIUS_ROLES = {\n' +
+      Object.entries(roles)
+        .map(([k, v]) => `  '${k}': '${v}',`)
+        .join('\n') +
+      '\n}\n\nexport const RADIUS_STEPS = {\n' +
+      Object.entries(steps)
+        .map(([k, v]) => `  '${k}': ${v},`)
+        .join('\n') +
+      '\n}\n'
+    const r12Read = (dir, extraArgs = []) => {
+      const r = runGateCli([`--root=${dir}`, '--json', ...extraArgs])
+      const j = JSON.parse(r.out.slice(r.out.indexOf('{')))
+      return {
+        code: r.code,
+        j,
+        d: j.radiusParityR12 || {},
+        reds: (j.reds || []).map((x) => `${x.script}:${x.status}`),
+      }
+    }
+    const r12Rows = ['| 控件 | 4px | `control` | 按钮 |', '| 卡片 | 8px | `card` | 列表 |']
+    const r12Files = {
+      'docs/UI_GUIDELINES.md': r12DocMd(r12Rows),
+      'packages/design-tokens/src/radius.js': r12CodeJs({ control: 'sm', card: 'lg' }, { sm: 4, lg: 8 }),
+    }
+    const repoR12a = makeFixtureRepo(base, {
+      files: { 'scripts/guardian-runner.mjs': m9Runner, 'AGENTS.md': m8Doc(true), ...r12Files },
+    })
+    const s12a = r12Read(repoR12a)
+    assert(
+      `R12a 两侧同值 ⇒ judged 且三态全 0、exit 0、取材面如实报、围栏行不吃(实得 code=${s12a.code} status=${s12a.d.status} docRoles=${s12a.d.docRoles} face=${s12a.d.docFace}/${s12a.d.codeFace} do=${(s12a.d.docOnly || []).length} co=${(s12a.d.codeOnly || []).length} px=${(s12a.d.pxMismatch || []).length})`,
+      s12a.code === 0 &&
+        s12a.d.status === 'judged' &&
+        s12a.d.docRoles === 2 &&
+        (s12a.d.docOnly || []).length === 0 &&
+        (s12a.d.codeOnly || []).length === 0 &&
+        (s12a.d.pxMismatch || []).length === 0 &&
+        s12a.d.docFace === 'HEAD(索引同内容)' &&
+        s12a.d.codeFace === 'HEAD(索引同内容)',
+    )
+    const repoR12b = makeFixtureRepo(base, {
+      files: {
+        'scripts/guardian-runner.mjs': m9Runner,
+        'AGENTS.md': m8Doc(true),
+        ...r12Files,
+        'docs/UI_GUIDELINES.md': r12DocMd([...r12Rows, '| 弹层 | 6px | `ghost-role` | 浮层 |']),
+      },
+    })
+    const s12b = r12Read(repoR12b)
+    assert(
+      `R12b 默认档:文档多列一个 ghost-role ⇒ 只报数不判红,docOnly 恰 1(实得 code=${s12b.code} docOnly=${JSON.stringify(s12b.d.docOnly)})`,
+      s12b.code === 0 &&
+        s12b.reds.length === 0 &&
+        (s12b.d.docOnly || []).length === 1 &&
+        (s12b.d.docOnly || [])[0]?.role === 'ghost-role' &&
+        (s12b.d.docOnly || [])[0]?.px === 6,
+    )
+    const s12bS = r12Read(repoR12b, ['--strict'])
+    assert(
+      `R12bS strict:同一缺口 ⇒ red-r12 进退出码(实得 code=${s12bS.code} reds=${s12bS.reds.join('|')})`,
+      s12bS.code === 1 && s12bS.reds.includes("(§3.1 角色 'ghost-role'):red-r12"),
+    )
+    // 变异自证(与 M8 同型):改回原文 + git add ⇒ strict 必须复绿。只证"会红"不证"红是因为它"不算数。
+    writeFileSync(join(repoR12b, 'docs', 'UI_GUIDELINES.md'), r12DocMd(r12Rows), 'utf8')
+    git(['add', 'docs/UI_GUIDELINES.md'], repoR12b, { quiet: true })
+    const s12c = r12Read(repoR12b, ['--strict'])
+    assert(
+      `R12c 变异还原(改回+git add)⇒ strict 复绿(实得 code=${s12c.code} reds=${s12c.reds.join('|')} docOnly=${(s12c.d.docOnly || []).length})`,
+      s12c.code === 0 && s12c.reds.length === 0 && (s12c.d.docOnly || []).length === 0,
+    )
+    const repoR12d = makeFixtureRepo(base, {
+      files: {
+        'scripts/guardian-runner.mjs': m9Runner,
+        'AGENTS.md': m8Doc(true),
+        ...r12Files,
+        // 文档 control=4px,代码 sm=2 ⇒ 同角色不同值(px 不符是独立于 docOnly 的桶)
+        'packages/design-tokens/src/radius.js': r12CodeJs({ control: 'sm', card: 'lg' }, { sm: 2, lg: 8 }),
+      },
+    })
+    const s12dS = r12Read(repoR12d, ['--strict'])
+    assert(
+      `R12d px 不符 ⇒ strict 判红且不并入 docOnly 桶(实得 code=${s12dS.code} reds=${s12dS.reds.join('|')} px=${JSON.stringify(s12dS.d.pxMismatch)})`,
+      s12dS.code === 1 &&
+        s12dS.reds.includes("(§3.1 角色 'control'):red-r12") &&
+        (s12dS.d.pxMismatch || []).length === 1 &&
+        (s12dS.d.pxMismatch || [])[0]?.docPx === 4 &&
+        (s12dS.d.pxMismatch || [])[0]?.codePx === 2 &&
+        (s12dS.d.pxMismatch || [])[0]?.step === 'sm' &&
+        (s12dS.d.docOnly || []).length === 0,
+    )
+    const repoR12e = makeFixtureRepo(base, {
+      files: {
+        'scripts/guardian-runner.mjs': m9Runner,
+        'AGENTS.md': m8Doc(true),
+        ...r12Files,
+        // 代码多一个文档没列的 panel ⇒ 只落 codeOnly 报数,strict 仍绿(该方向归 R4 语义,本维不并债)
+        'packages/design-tokens/src/radius.js': r12CodeJs(
+          { control: 'sm', card: 'lg', panel: 'xl' },
+          { sm: 4, lg: 8, xl: 12 },
+        ),
+      },
+    })
+    const s12eS = r12Read(repoR12e, ['--strict'])
+    assert(
+      `R12e 代码有文档没列 ⇒ 只落 codeOnly 报数,strict 仍绿(实得 code=${s12eS.code} reds=${s12eS.reds.join('|')} codeOnly=${JSON.stringify(s12eS.d.codeOnly)})`,
+      s12eS.code === 0 &&
+        s12eS.reds.length === 0 &&
+        (s12eS.d.codeOnly || []).length === 1 &&
+        (s12eS.d.codeOnly || [])[0]?.role === 'panel',
+    )
+    const repoR12f = makeFixtureRepo(base, {
+      files: {
+        'scripts/guardian-runner.mjs': m9Runner,
+        'AGENTS.md': m8Doc(true),
+        ...r12Files,
+        'docs/UI_GUIDELINES.md': '# UI 指南\n\n正文,没有 3.1 小节。\n',
+      },
+    })
+    const s12f = r12Read(repoR12f)
+    assert(
+      `R12f 文档侧枚举为空 ⇒ 未判定不冒绿不冒红(实得 code=${s12f.code} status=${s12f.d.status} why=${s12f.d.why})`,
+      s12f.code === 0 && s12f.d.status === 'undetermined' && String(s12f.d.why || '').includes('0 行'),
+    )
+    const repoR12g = makeFixtureRepo(base, {
+      files: {
+        'scripts/guardian-runner.mjs': m9Runner,
+        'AGENTS.md': m8Doc(true),
+        ...r12Files,
+        'packages/design-tokens/src/radius.js': 'export const OTHER = 1\n',
+      },
+    })
+    const s12g = r12Read(repoR12g)
+    assert(
+      `R12g 代码侧解析不到 RADIUS_ROLES ⇒ 未判定不冒绿不冒红(实得 code=${s12g.code} status=${s12g.d.status} why=${s12g.d.why})`,
+      s12g.code === 0 &&
+        s12g.d.status === 'undetermined' &&
+        String(s12g.d.why || '').includes('RADIUS_ROLES'),
+    )
+
 
   } catch (e) {
     assert(`EX 端到端异常: ${e && e.message}`, false)
@@ -3101,5 +3514,10 @@ export const __test__ = {
   findDocNamedAbsentGates,
   findStaleIdMentions,
   parseRunnerRegistrations,
+  R12_DOC_REL,
+  R12_CODE_REL,
+  parseRadiusRoleDocTable,
+  parseRadiusRoleRegistry,
+  compareRadiusRoleRegistries,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
