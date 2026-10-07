@@ -211,7 +211,9 @@ describe('G-425 有界续写(生产入口 runToolLoop,本地 provider 面)', () 
     const secondRequest = requestBodies[1]!.messages;
     expect(secondRequest.length).toBeGreaterThan(0);
     expect(secondRequest[secondRequest.length - 1]!.role).toBe('user');
-    expect(secondRequest[secondRequest.length - 1]!.content).toContain('Output token limit hit');
+    // 断正文**等于那份常量**,而不是"含 Output token limit hit 这几个字":上游打磨过的指令面
+    // 是整句提示,被人改写成别的话(或只留半句)时"含关键词"仍然绿,而模型收到的指令已经变了。
+    expect(secondRequest[secondRequest.length - 1]!.content).toBe(OUTPUT_TOKEN_CONTINUE_PROMPT);
     // 续写段正常收口:正文 = 首答 + 续写段,只喊过一次截断
     expect(result.assistantText).toBe('前半句后半句' + '前半句后半句');
     expect(countLinesWith(stderr, '长度上限被截断')).toBe(1);
@@ -221,7 +223,7 @@ describe('G-425 有界续写(生产入口 runToolLoop,本地 provider 面)', () 
     expect(result.outputTruncated).toBe(false);
     // 续写补丁绝不写进持久历史:传入的 messages 数组(runToolLoop 的落库源)里不存在补丁
     for (const m of messages) {
-      expect(m.content).not.toContain('Output token limit hit');
+      expect(m.content).not.toContain(OUTPUT_TOKEN_CONTINUE_PROMPT);
     }
     // 持久历史里首答残句照存(上游同语义:partial 照存,用户已看到的残句不蒸发)
     expect(messages.some((m) => m.role === 'assistant' && m.content === '前半句后半句')).toBe(true);
