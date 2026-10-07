@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * check-shrinkable-text-button.mjs — 小高度 button + 极小字号 + 中文 span label 缺 shrink-0 / whitespace-nowrap 守门
@@ -52,11 +51,15 @@
 import { readFileSync, readdirSync, statSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join, relative, dirname } from 'node:path'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
+import { pathToFileURL } from 'node:url'
 
 // ─── CLI 参数解析 ────────────────────────────────────────────────
 const args = process.argv.slice(2)
 
-if (args.includes('--help') || args.includes('-h')) {
+// §22d 双形态守卫:被镜像测试 import 时不得触发 CLI 副作用(扫描 / 打印 / process.exit)
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun && (args.includes('--help') || args.includes('-h'))) {
   console.log(`
 check-shrinkable-text-button.mjs — 小高度 button + 极小字号 + 中文 span label 缺 shrink-0 / whitespace-nowrap 守门
 
@@ -93,11 +96,11 @@ const outputPath = outputIdx >= 0 ? args[outputIdx + 1] : null
 const pathIdx = args.findIndex((a) => a === '--path')
 const pathArg = pathIdx >= 0 ? args[pathIdx + 1] : null
 
-if (outputIdx >= 0 && !outputPath) {
+if (isDirectRun && outputIdx >= 0 && !outputPath) {
   console.error('❌ --output 需要指定路径')
   process.exit(2)
 }
-if (pathIdx >= 0 && !pathArg) {
+if (isDirectRun && pathIdx >= 0 && !pathArg) {
   console.error('❌ --path 需要指定 glob(逗号分隔)')
   process.exit(2)
 }
@@ -415,117 +418,153 @@ function analyzeButton(content, block) {
 }
 
 // ─── 主流程 ─────────────────────────────────────────────────
-const scanStart = Date.now()
-const allHits = []
-let totalButtons = 0
-let filesScanned = 0
+async function main() {
+  const scanStart = Date.now()
+  const allHits = []
+  let totalButtons = 0
+  let filesScanned = 0
 
-for (const scanDir of SCAN_DIRS) {
-  const fullDir = join(REPO_ROOT, scanDir)
-  const files = walkDir(fullDir)
-  for (const file of files) {
-    filesScanned++
-    let content
-    try {
-      content = readFileSync(file, 'utf8')
-    } catch (err) {
-      console.error(`❌ 读取失败: ${file} — ${err.message}`)
-      continue
-    }
-    const blocks = findButtonBlocks(content)
-    totalButtons += blocks.length
-    for (const block of blocks) {
-      const result = analyzeButton(content, block)
-      if (result) {
-        allHits.push({
-          file: relative(REPO_ROOT, file).replace(/\\/g, '/'),
-          line: result.line,
-          label: result.label,
-          className: result.className,
-          missing: result.missing,
-        })
+  for (const scanDir of SCAN_DIRS) {
+    const fullDir = join(REPO_ROOT, scanDir)
+    const files = walkDir(fullDir)
+    for (const file of files) {
+      filesScanned++
+      let content
+      try {
+        content = readFileSync(file, 'utf8')
+      } catch (err) {
+        console.error(`❌ 读取失败: ${file} — ${err.message}`)
+        continue
+      }
+      const blocks = findButtonBlocks(content)
+      totalButtons += blocks.length
+      for (const block of blocks) {
+        const result = analyzeButton(content, block)
+        if (result) {
+          allHits.push({
+            file: relative(REPO_ROOT, file).replace(/\\/g, '/'),
+            line: result.line,
+            label: result.label,
+            className: result.className,
+            missing: result.missing,
+          })
+        }
       }
     }
   }
-}
 
-const filesAffected = new Set(allHits.map((h) => h.file)).size
-const elapsedMs = Date.now() - scanStart
+  const filesAffected = new Set(allHits.map((h) => h.file)).size
+  const elapsedMs = Date.now() - scanStart
 
-const result = {
-  scannedAt: new Date().toISOString(),
-  totalButtons,
-  filesScanned,
-  hits: allHits,
-  summary: {
-    filesAffected,
-    totalHits: allHits.length,
-    elapsedMs,
-    scanDirs: SCAN_DIRS,
-  },
-}
-
-// ─── 输出 ──────────────────────────────────────────────────
-if (isScan) {
-  // JSON 模式
-  if (outputPath) {
-    try {
-      // outputPath 可能是绝对路径(测试场景)或相对路径(项目内路径)
-      // Windows path.join 不识别 C:\ 开头的绝对路径,需用 isAbsolute 判断
-      const isAbs = /^[a-zA-Z]:[\\\/]/.test(outputPath) || outputPath.startsWith('/')
-      const outFull = isAbs ? outputPath : join(REPO_ROOT, outputPath)
-      mkdirSync(dirname(outFull), { recursive: true })
-      writeFileSync(outFull, JSON.stringify(result, null, 2), 'utf8')
-      if (!isQuiet) {
-        console.log(c('green', `✅ JSON 已写入: ${outputPath}`))
-        console.log(c('dim', `  扫描 ${filesScanned} 文件, ${totalButtons} button 块, 命中 ${allHits.length} 条(涉及 ${filesAffected} 文件), 耗时 ${elapsedMs}ms`))
-      } else {
-        console.log(`scanned=${filesScanned} buttons=${totalButtons} hits=${allHits.length} files=${filesAffected} elapsed=${elapsedMs}ms`)
-      }
-    } catch (err) {
-      console.error(`❌ 写入失败: ${outputPath} — ${err.message}`)
-      process.exit(1)
-    }
-  } else {
-    console.log(JSON.stringify(result, null, 2))
+  const result = {
+    scannedAt: new Date().toISOString(),
+    totalButtons,
+    filesScanned,
+    hits: allHits,
+    summary: {
+      filesAffected,
+      totalHits: allHits.length,
+      elapsedMs,
+      scanDirs: SCAN_DIRS,
+    },
   }
-  if (isStrict && allHits.length > 0) process.exit(1)
-  process.exit(0)
-} else {
-  // 人类可读模式
-  if (isQuiet) {
-    console.log(`scanned=${filesScanned} buttons=${totalButtons} hits=${allHits.length} files=${filesAffected}`)
+
+  // ─── 输出 ──────────────────────────────────────────────────
+  if (isScan) {
+    // JSON 模式
+    if (outputPath) {
+      try {
+        // outputPath 可能是绝对路径(测试场景)或相对路径(项目内路径)
+        // Windows path.join 不识别 C:\ 开头的绝对路径,需用 isAbsolute 判断
+        const isAbs = /^[a-zA-Z]:[\\\/]/.test(outputPath) || outputPath.startsWith('/')
+        const outFull = isAbs ? outputPath : join(REPO_ROOT, outputPath)
+        mkdirSync(dirname(outFull), { recursive: true })
+        writeFileSync(outFull, JSON.stringify(result, null, 2), 'utf8')
+        if (!isQuiet) {
+          console.log(c('green', `✅ JSON 已写入: ${outputPath}`))
+          console.log(
+            c(
+              'dim',
+              `  扫描 ${filesScanned} 文件, ${totalButtons} button 块, 命中 ${allHits.length} 条(涉及 ${filesAffected} 文件), 耗时 ${elapsedMs}ms`,
+            ),
+          )
+        } else {
+          console.log(
+            `scanned=${filesScanned} buttons=${totalButtons} hits=${allHits.length} files=${filesAffected} elapsed=${elapsedMs}ms`,
+          )
+        }
+      } catch (err) {
+        console.error(`❌ 写入失败: ${outputPath} — ${err.message}`)
+        process.exit(1)
+      }
+    } else {
+      console.log(JSON.stringify(result, null, 2))
+    }
     if (isStrict && allHits.length > 0) process.exit(1)
     process.exit(0)
-  }
-  if (allHits.length === 0) {
-    console.log(c('green', `✅ 小高度 button 中文 label 守门通过`))
-    console.log(
+  } else {
+    // 人类可读模式
+    if (isQuiet) {
+      console.log(
+        `scanned=${filesScanned} buttons=${totalButtons} hits=${allHits.length} files=${filesAffected}`,
+      )
+      if (isStrict && allHits.length > 0) process.exit(1)
+      process.exit(0)
+    }
+    if (allHits.length === 0) {
+      console.log(c('green', `✅ 小高度 button 中文 label 守门通过`))
+      console.log(
+        c(
+          'dim',
+          `扫描 ${filesScanned} 文件, ${totalButtons} button 块, 命中 0 条, 耗时 ${elapsedMs}ms`,
+        ),
+      )
+      process.exit(0)
+    }
+    console.error('')
+    console.error(
       c(
-        'dim',
-        `扫描 ${filesScanned} 文件, ${totalButtons} button 块, 命中 0 条, 耗时 ${elapsedMs}ms`,
+        'red',
+        `❌ 发现 ${c('bold', allHits.length)} 处小高度 button 中文 label 缺 shrink-0 / whitespace-nowrap`,
       ),
     )
+    console.error(
+      c(
+        'dim',
+        `扫描 ${filesScanned} 文件, ${totalButtons} button 块, 涉及 ${filesAffected} 文件, 耗时 ${elapsedMs}ms`,
+      ),
+    )
+    console.error('')
+    for (const h of allHits) {
+      console.error(`  ${c('red', `${h.file}:${h.line}`)}`)
+      console.error(`  ${c('yellow', `  label: "${h.label}"`)}`)
+      console.error(`  ${c('yellow', `  缺: ${h.missing.join(', ')}`)}`)
+      console.error(`  ${c('dim', `  className: ${h.className}`)}`)
+      console.error('')
+    }
+    console.error(c('bold', '修复方法:'))
+    console.error(
+      `  给 button className 补 ${c('green', 'shrink-0')} + ${c('green', 'whitespace-nowrap')}`,
+    )
+    console.error(
+      `  ${c('dim', '例: className="inline-flex h-5 shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-1.5 text-[10px]"')}`,
+    )
+    console.error('')
+    if (isStrict) process.exit(1)
     process.exit(0)
   }
-  console.error('')
-  console.error(
-    c('red', `❌ 发现 ${c('bold', allHits.length)} 处小高度 button 中文 label 缺 shrink-0 / whitespace-nowrap`),
-  )
-  console.error(c('dim', `扫描 ${filesScanned} 文件, ${totalButtons} button 块, 涉及 ${filesAffected} 文件, 耗时 ${elapsedMs}ms`))
-  console.error('')
-  for (const h of allHits) {
-    console.error(`  ${c('red', `${h.file}:${h.line}`)}`)
-    console.error(`  ${c('yellow', `  label: "${h.label}"`)}`)
-    console.error(`  ${c('yellow', `  缺: ${h.missing.join(', ')}`)}`)
-    console.error(`  ${c('dim', `  className: ${h.className}`)}`)
-    console.error('')
-  }
-  console.error(c('bold', '修复方法:'))
-  console.error(`  给 button className 补 ${c('green', 'shrink-0')} + ${c('green', 'whitespace-nowrap')}`)
-  console.error(`  ${c('dim', '例: className="inline-flex h-5 shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-1.5 text-[10px]"')}`)
-  console.error('')
-  if (isStrict) process.exit(1)
-  process.exit(0)
+}
+
+if (isDirectRun) {
+  main().catch((e) => {
+    console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
+    process.exit(2)
+  })
+}
+
+// §22c:判据从门体 export,镜像测试引用而非手抄(只导判据单元,不导流程)
+export const __test__ = {
+  HAS_SHRINK_0,
+  HAS_WHITESPACE_NOWRAP,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -10,6 +10,9 @@ import { join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
+// §22c:判据从门体 export —— 本文件不得再手抄门体用来判"文字可收缩"的类名/正则材料
+import { __test__ as gate } from '../check-shrinkable-text-button.mjs'
+
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const SCRIPT_PATH = join(__dirname, '..', 'check-shrinkable-text-button.mjs')
@@ -63,8 +66,8 @@ test('违规: <button> h-5 + text-[10px] + 中文 span + 缺 shrink-0/whitespace
     assert.equal(r.status, 0, '默认模式 warn-only,exit 0')
     assert.match(r.stderr, /发现 \d+ 处/)
     assert.match(r.stderr, /对话流/)
-    assert.match(r.stderr, /shrink-0/)
-    assert.match(r.stderr, /whitespace-nowrap/)
+    assert.match(r.stderr, gate.HAS_SHRINK_0)
+    assert.match(r.stderr, gate.HAS_WHITESPACE_NOWRAP)
   } finally {
     rmScratch(dir)
   }
