@@ -123,6 +123,7 @@
     },
     "goalNotAchieved": "獨立校驗未通過:本次執行不得宣佈完成",
     "truncatedByLength": "本輪輸出已達長度上限被截斷,回覆可能不完整;可讓我分次繼續,或調高 max_tokens 後重試。",
+    "truncatedContinuationExhausted": "已自動續寫 3 次仍被長度上限截斷,回覆不完整;請調高 max_tokens 或讓我分次繼續。",
     "partialDoneTitle": "回答被中斷,以下內容可能不完整",
     "mcpCredentials": {
       "storePlaintext": "MCP 憑證目前以明文存於 {path}(本機降階)",
