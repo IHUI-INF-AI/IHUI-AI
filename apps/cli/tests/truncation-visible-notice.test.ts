@@ -3,8 +3,9 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 输出被长度上限截断时,用户必须看得见(已批口径:**只做可见提示**,不做自动续写/重试;
- * **禁止新增 SSE 事件**)。
+ * 输出被长度上限截断时,用户必须看得见(**每次**截断各喊一行;G-425 拍板@2026-10-07 后
+ * 截断还会触发有界续写 —— 续写语义由 g-425-output-token-continuation.test.ts 钉,
+ * 本文件只钉"可见性":无论截断后是续写还是收口,残句都不得伪装成完整回答)。
  *
  * 病灶:本地 provider 的流解析(`src/provider/local.ts`)早就把 `choice.finish_reason` 收进了
  * 结果,但唯一消费点 `src/commands/agent.ts` 的 `sampleOnceLocal` 只取 `result.error`,
@@ -146,16 +147,19 @@ describe('输出长度截断的可见提示(本地 provider 面,生产入口 run
     vi.unstubAllGlobals();
   });
 
-  it('① finish_reason=length ⇒ 终端出现且只出现一行可见截断提示', async () => {
-    const { stderr, text } = await driveOneTurn(textStream('length'));
-    expect(countTag(stderr)).toBe(1);
+  it('① finish_reason=length ⇒ 每次截断各喊一行,且触发有界续写(第二次请求真的发出)', async () => {
+    const { stderr, stopReason, text } = await driveOneTurn(textStream('length'));
+    // G-425 拍板后截断触发续写:maxIterations=2 ⇒ 首答 + 一次续写,两条流各自截断、各自喊一行
+    expect(fetchMock.mock.calls.length).toBe(2);
+    expect(countTag(stderr)).toBe(2);
     // 键名不得漏到界面(取词失败会回显 'cli.truncatedByLength',那就等于没提示)
     expect(stderr).not.toContain('cli.truncatedByLength');
     // 措辞要能定位问题:说"被长度上限截断",不是"发生错误"
     expect(stderr).toContain('长度上限被截断');
     expect(stderr).not.toContain('[error]');
-    // 提示不得吞掉已收到的正文
-    expect(text).toBe('前半句后半句');
+    // 每段的正文都不被提示吞掉:首答 + 续写段都进正文
+    expect(text).toBe('前半句后半句' + '前半句后半句');
+    expect(stopReason).toBe('max_iterations');
   });
 
   it('② finish_reason=stop ⇒ 一声不响(正常说完,不得误报)', async () => {
