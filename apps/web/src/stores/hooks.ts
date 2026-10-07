@@ -99,9 +99,13 @@ export function draftToUpdateInput(draft: HookDraft): Partial<CreateHookInput> {
   }
 }
 
+/** 兜底动作(老数据可能缺 action):log + 空 config。用带类型注解的常量而非 `as` 断言,
+ *  让这处构造同样吃 HookAction 的 type↔config 判据(G-1059133 收紧构造点)。 */
+const FALLBACK_HOOK_ACTION: HookAction = { type: 'log', config: {} }
+
 /** 从 Hook 实体构建草稿(编辑模式回填) */
 export function hookToDraft(hook: Hook): HookDraft {
-  const action = hook.action || ({ type: 'log', config: {} } as HookAction)
+  const action = hook.action || FALLBACK_HOOK_ACTION
   const config = action.config || {}
   let webhookHeadersText = '{\n  "Content-Type": "application/json"\n}'
   if (config.headers) {
