@@ -4,9 +4,10 @@
 /**
  * 服务端出站/通知文案取词出口(台账号 G-815926)。
  *
- * 口径:服务端现读订阅用户语言不可得(会话语言通道不在本轮),缺省渲染 zh-CN;
- * 文案单一来源 = packages/i18n/messages/api/*.json 的 `apiOutbound` 键族,
- * zh-CN 值与既有硬编码逐字相同 ⇒ 行为零变化。「按订阅用户语言渲染」留账后续票。
+ * 口径:服务端出站文案按**目标订阅用户语言**渲染(G-1058621,2026-10-07 落地):
+ * 调用方把用户语言真实传入 locale 形参(用户语言读 user_preferences group='preferences'
+ * key='language',经 normalizeOutboundLocale 归一);拿不到/认不出 ⇒ 缺省渲染 zh-CN。
+ * 文案单一来源 = packages/i18n/messages/api/*.json 的 `apiOutbound` 键族。
  *
  * 设计:
  *  - 模块级缓存,每 locale 只读一次盘;读不到/解析不了 ⇒ 空词典、由回退链兜底,
@@ -22,6 +23,26 @@ type MessagesTree = Record<string, unknown>
 export type OutboundI18nParams = Record<string, string | number>
 
 const DEFAULT_LOCALE = 'zh-CN'
+
+/** 出站文案实际有词包的语言面(= packages/i18n/messages/api/ 下存在的 locale,与测试 LOCALES 同源)。 */
+export const SUPPORTED_OUTBOUND_LOCALES = ['zh-CN', 'zh-TW', 'en', 'ja', 'ko'] as const
+
+/**
+ * 把存储值(用户偏好 language 等)归一到支持的 locale。
+ * G-1058621:locale 形参要有真实调用方 —— 归一规则:精确命中(大小写/连接符不敏感,
+ * `en_US` ≡ `en-US`)→ 主子标签前缀命中(`en-US` → `en`)→ 认不出一律 zh-CN(硬判据:缺面回落,
+ * 与 t() 的缺键回退同一条禁令 —— 绝不让「拼错的 locale」静默变成另一种语言)。
+ */
+export function normalizeOutboundLocale(raw: string | null | undefined): string {
+  const value = raw?.trim()
+  if (!value) return DEFAULT_LOCALE
+  const canonical = value.replace(/_/g, '-').toLowerCase()
+  const exact = SUPPORTED_OUTBOUND_LOCALES.find((l) => l.toLowerCase() === canonical)
+  if (exact) return exact
+  const primary = canonical.split('-')[0] ?? ''
+  const byPrimary = SUPPORTED_OUTBOUND_LOCALES.find((l) => l.toLowerCase().split('-')[0] === primary)
+  return byPrimary ?? DEFAULT_LOCALE
+}
 
 const messagesCache = new Map<string, MessagesTree>()
 

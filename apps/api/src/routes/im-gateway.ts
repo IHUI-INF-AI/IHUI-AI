@@ -28,7 +28,7 @@ import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
-import { imAdapters, imMessages } from '@ihui/database'
+import { imAdapters, imMessages, userPreferences } from '@ihui/database'
 import type {
   ImAdapterConfig,
   ImAdapterFieldSchema,
@@ -45,7 +45,7 @@ import type {
 import { checkAuth, checkAuthOrInternalService } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { fetchWithinDeadline, withBody } from '../utils/fetch-deadline.js'
-import { t } from '../services/i18n-outbound.js'
+import { normalizeOutboundLocale, t } from '../services/i18n-outbound.js'
 import {
   INBOUND_DEDUP_TTL_MS,
   OUTBOUND_REQUEST_TIMEOUT_MS,
@@ -1511,9 +1511,26 @@ export const imGatewayRoutes: FastifyPluginAsync = async (server) => {
       replyToMessageId,
     }
 
+    // G-1058621:出站正文里的系统文案(硬切标记/折叠告知)按**目标订阅用户语言**渲染。
+    // 用户语言的唯一真相源 = user_preferences(group='preferences', key='language',
+    // 由 POST /settings/language 写入);没写过/读不到 ⇒ undefined ⇒ t() 缺省 zh-CN
+    // (与改造前逐字同值)。分段的判定仍用原文长度,locale 只影响附加文案的取词。
+    const [langRow] = await dbRead
+      .select({ value: userPreferences.value })
+      .from(userPreferences)
+      .where(
+        and(
+          eq(userPreferences.userId, userId),
+          eq(userPreferences.group, 'preferences'),
+          eq(userPreferences.key, 'language'),
+        ),
+      )
+      .limit(1)
+    const outboundLocale = normalizeOutboundLocale(langRow?.value)
+
     // G-815417:长文本按平台上限分段(优先 \n/空格边界、无边界才带标记硬切);
     // G-815416:逐段走**同一份**投递策略(有界重试 + 退避 + 熔断),路由不再自己抄循环。
-    const planned = planOutboundMessages(outbound)
+    const planned = planOutboundMessages(outbound, { locale: outboundLocale })
     const report = await deliverWithPolicy(planned.items, {
       circuit: imOutboundCircuitBreaker,
       circuitKey: OutboundCircuitBreaker.keyFor(userId, platform),
