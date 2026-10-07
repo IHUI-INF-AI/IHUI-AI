@@ -7,7 +7,7 @@
  * check-miniapp-generated.mjs —— 小程序端「源 ↔ 派生产物」存续性对账(守门,blocking 语义)
  *
  * 立因(2026-09-25):miniapp 端有四件派生产物生成器,此前状态是「只有人手动跑、既无构建入口也无守门」:
- *   ① apps/miniapp-taro/scripts/gen-i18n-compressed.mjs   → src/i18n/generated/remote-locales.gen.ts
+ *   ① scripts/gen-i18n-compressed.mjs                     → src/i18n/generated/remote-locales.gen.ts
  *      (在 build/build:weapp 链里,但 **不在 dev 链** ⇒ 开发时离线语言包常年是旧的)
  *   ② scripts/gen-taro-lucide-icons.mjs                   → src/static/images/icons/*.svg   (纯人工,无入口)
  *   ③ apps/miniapp-taro/scripts/gen-line-icons.mjs        → src/components/LineIcon/icons.ts(纯人工,无入口)
@@ -256,7 +256,7 @@ const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArr
 
 /**
  * 与 packages/i18n/src/loader.ts:80 的 mergeMessages 同语义(该文件即单一真相源;
- * apps/miniapp-taro/scripts/gen-i18n-compressed.mjs:30 是本函数的另一份镜像,本门是第三份)。
+ * scripts/gen-i18n-compressed.mjs 是本函数的另一份镜像,本门是第三份)。
  * 刻意在此写明三处而非默默复制 —— 改语义必须三处同批,否则「产物 ⊇ 源」这条判据会开始说谎。
  */
 function mergeMessages(base, override) {

@@ -1,0 +1,78 @@
+#EVIDENCE-CMD: node --test scripts/tests/check-word-table-resolvable.test.mjs
+#EVIDENCE-LABEL: mirror tests: check-word-table-resolvable.test.mjs
+#EVIDENCE-START: 2026-10-07T08:00:17.820Z
+✔ §22c:源脚本必须 export __test__ 且关键判据函数可 import(唯一真相在源文件) (1.2423ms)
+✔ W1:嵌套 Record<K,{title,desc}> 取到 4 键,导出性与表名如实 (0.619ms)
+✔ W1:注释里的示例词表不得被扫到(stripComments 先生效) (0.3077ms)
+✔ W1:值里混了硬编码中文/函数/数组 → 整表不认(动态表不属本门) (0.1425ms)
+✔ W2 反例:含点但不是 i18n 键的字符串 map(模型名/版本号)判为不检 (0.3449ms)
+✔ W2 反例:命名空间相对取词的表(配 useTranslations 的短键)判为不检 (0.2394ms)
+✔ W2 不掩盖真缺陷:过半可解析的表里,解析不出的那几个键仍逐条咬 (0.2572ms)
+✔ W3 注入:某语言抽掉一个键 → 判红且点名 键/表/语言 (0.2192ms)
+✔ W3 反例:值恰好等于键名(静默回显)也算缺 (0.2013ms)
+✔ W3 反例:消费端为空的表不产生 W3 失败(不凭空要求未接入端) (0.2094ms)
+✔ W4:端 JSON 有值但小程序离线包缺键 → 判红并点名 taro-gen (0.2132ms)
+✔ W4:离线包整块解不出 → 点名需 pnpm gen:i18n (0.1899ms)
+✔ W4:取不到 REMOTE_LOCALES 清单时单列"离线面未核验",不冒充逐语言缺键 (0.2253ms)
+✔ W5:共享层词表在"依赖但未接入"的端整块缺键 → 落点债一条(不逐键刷屏) (0.196ms)
+✔ W5 不误伤:端包内的表不要求别的端 (0.1274ms)
+✔ 空输入不得恒真:全量 0 表 → guardNoTables 给原因;暂存区无词表属正常态 (0.0856ms)
+✔ import 解析:作用域名占两段;css/第三方/越界/不存在一律 null (680.1535ms)
+✔ import 解析:相对路径与 barrel 都能落到真实文件;说明符三类形态都收 (1.3559ms)
+✔ 包依赖图:packages/shared 被 5 端依赖,packages/ui-react 只有 web+extension (168.0031ms)
+✔ 真仓锚点:PERMISSION_TIER_WORD_KEYS 被认定、10 键且全部绝对可解析(锚定不是空判据) (1314.7542ms)
+✔ 真表 × 真语料注入:删掉 web/ko 的一个键 → W3 点名 1 处 (200.985ms)
+✔ 消费端符号粒度:同模块多导出时,只认读到这张表的那几个 (0.9759ms)
+✔ 消费端符号粒度:两处兜底都必须退回全量,切分失效不得洗成绿 (0.4335ms)
+✔ 真仓 A/B:error-messages 的全量符号面判出消费端、收窄面判零(70 枚恒红的根因) (5723.1724ms)
+✔ 真仓防收窄过窄:四端都在用的 permission-tier 真 accessor 不能被剔掉 (0.6988ms)
+✖ taro 离线包取法与既有闸同源(生成器格式变了要立即炸) (42.1268ms)
+✔ W6 阳性对照:数组里的 labelKey 从未入库 → 必被抓且点名键/行 (0.7633ms)
+✔ W6 反例(判据非恒红):入库绝对键 / 相对命名空间 / 裸 key / 非取词属性 / 注释 全放过 (0.3202ms)
+✔ W6 阳性对照:t()/tt() 直调的未入库键同样必抓 (0.1104ms)
+✔ W6 真仓端到端:HomeScreen 现状零违规,把当年那批 menu.* 塞回去即点名 (1340.7882ms)
+✔ W6 棘轮:与 HEAD 齐平放过、超出必红、新文件锚 0(存量数十文件不得变恒红) (0.2986ms)
+✖ 判定面:全量入口按 HEAD blob 自报口径,且在 HEAD 上判绿(反恒红) (6595.9084ms)
+✔ 判定面:--staged 判索引 blob 而非滞后的共享工作树 (3742.5938ms)
+✔ 判定面:取不到输入是「无法判定」(exit 2 语义),既不冒红也不记绿 (171.9817ms)
+✔ 反混面:CLI 同时给 --staged 与 --worktree 必须 exit 2,不得猜一个面 (97.9117ms)
+✔ 判据不得按磁盘读:fs 直读只允许出现在 makeWorktreeReader(人工逃生舱)内 (0.7466ms)
+ℹ tests 36
+ℹ suites 0
+ℹ pass 34
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 20394.8208
+
+✖ failing tests:
+
+test at scripts\tests\check-word-table-resolvable.test.mjs:486:1
+✖ taro 离线包取法与既有闸同源(生成器格式变了要立即炸) (42.1268ms)
+  Error: HEAD blob 取不到 scripts/gen-i18n-compressed.mjs(对象缺失 / 非 blob / 已删除)
+      at Object.read (file:///G:/IHUI-AI/scripts/check-word-table-resolvable.mjs:243:15)
+      at readText (file:///G:/IHUI-AI/scripts/tests/check-word-table-resolvable.test.mjs:25:32)
+      at TestContext.<anonymous> (file:///G:/IHUI-AI/scripts/tests/check-word-table-resolvable.test.mjs:487:29)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+
+test at scripts\tests\check-word-table-resolvable.test.mjs:576:1
+✖ 判定面:全量入口按 HEAD blob 自报口径,且在 HEAD 上判绿(反恒红) (6595.9084ms)
+  Error: HEAD blob 取不到 scripts/gen-i18n-compressed.mjs(对象缺失 / 非 blob / 已删除)
+      at Object.read (file:///G:/IHUI-AI/scripts/check-word-table-resolvable.mjs:243:15)
+      at sourceFile (file:///G:/IHUI-AI/scripts/check-word-table-resolvable.mjs:714:23)
+      at Object.run (file:///G:/IHUI-AI/scripts/check-word-table-resolvable.mjs:1175:32)
+      at TestContext.<anonymous> (file:///G:/IHUI-AI/scripts/tests/check-word-table-resolvable.test.mjs:577:18)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+#EVIDENCE-RC=1
+#EVIDENCE-END: 2026-10-07T08:00:38.259Z
