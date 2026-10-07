@@ -31,6 +31,7 @@
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "typecheck:tests": "tsc -p tsconfig.tests.json --noEmit",
     "test": "vitest run",
     "bench": "tsx benchmarks/runner.ts",
     "clean": "rimraf dist .turbo node_modules"
