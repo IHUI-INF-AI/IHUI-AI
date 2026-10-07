@@ -34,8 +34,8 @@ success_cookies(登录判定);本模块只拥有 **cookie 归属** 维度(domain
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Mapping, Sequence
 
 __all__ = [
     "PlatformCookieRule",
@@ -282,10 +282,7 @@ def domain_matches_rule(domain: str, rule: PlatformCookieRule) -> bool:
     d = normalize_cookie_domain(domain)
     if not d:
         return False
-    for allowed in rule.domains:
-        if d == allowed or d.endswith("." + allowed):
-            return True
-    return False
+    return any(d == allowed or d.endswith("." + allowed) for allowed in rule.domains)
 
 
 def _login_pattern_matches(pattern: str, name: str) -> bool:
