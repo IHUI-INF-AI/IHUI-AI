@@ -490,7 +490,6 @@
     "mute": "Mute",
     "unmute": "Unmute",
     "refresh": "Refresh",
-    "removeAttachment": "Remove attachment",
     "addAttachment": "Add attachment (image / video / file)",
     "breadcrumb": "Breadcrumb",
     "searchOption": "Search options",
@@ -499,10 +498,7 @@
     "copyCode": "Copy code",
     "collapse": "Collapse",
     "expand": "Expand",
-    "more": "More",
     "close": "Close",
-    "copy": "Copy",
-    "copyResponse": "Copy response",
     "barChart": "Bar chart",
     "heatmap": "Heatmap",
     "lineChart": "Line chart",
@@ -510,15 +506,11 @@
     "radarChart": "Radar chart",
     "slashCommand": "Slash command",
     "mentionFile": "Mention file",
-    "openCustomerService": "Open customer service",
-    "minimize": "Minimize",
-    "send": "Send",
     "closeTag": "Close tag",
     "closeAlert": "Close alert",
     "menu": "Menu",
     "showPassword": "Show password",
     "hidePassword": "Hide password",
-    "uploadAvatar": "Upload avatar",
     "streamAnnounceStart": "AI is replying",
     "streamAnnounceProgress": "AI is replying, {n} characters so far",
     "streamAnnounceDone": "AI reply complete, {n} characters in total",
@@ -10339,12 +10331,6 @@
     "accountPlaceholder": "Enter account/phone/email",
     "agreePrefix": "I have read and agree to the",
     "agreeRequired": "Please read and agree to the terms",
-    "agreementNoticeAgree": "Agree & Continue",
-    "agreementNoticeDesc": "To protect your account security, please read and agree to the following terms before logging in",
-    "agreementNoticeDisagree": "Disagree",
-    "agreementNoticeEnterHint": "Click \"Agree and Continue\" to indicate you have read and agreed",
-    "agreementNoticeSafe": "Your information is transmitted securely via an encrypted channel",
-    "agreementNoticeTitle": "Please Agree to Continue",
     "alipayLogin": "AlipayLogin",
     "and": "and",
     "appLogin": "App QR",
@@ -10466,7 +10452,13 @@
     "twoFactorTitle": "Two-Factor Authentication",
     "username": "Username",
     "usernamePlaceholder": "Enter username",
-    "wechatLogin": "WeChat Login"
+    "wechatLogin": "WeChat Login",
+    "agreementNoticeAgree": "Agree & Continue",
+    "agreementNoticeDesc": "To protect your account security, please read and agree to the following terms before logging in",
+    "agreementNoticeDisagree": "Disagree",
+    "agreementNoticeEnterHint": "Click \"Agree and Continue\" to indicate you have read and agreed",
+    "agreementNoticeSafe": "Your information is transmitted securely via an encrypted channel",
+    "agreementNoticeTitle": "Please Agree to Continue"
   },
   "behavior": {
     "createdAt": "Recorded At",
@@ -12458,41 +12450,6 @@
     }
   },
   "course": {
-    "chapters": {
-      "empty": "No chapters",
-      "sectionCount": "{count} sections"
-    },
-    "interaction": {
-      "favorite": "Favorite",
-      "like": "Like"
-    },
-    "tabs": {
-      "anonymous": "Anonymous user",
-      "certAcquired": "Congratulations on completing the course! You've earned the certificate.",
-      "certNo": "Certificate No.: {no}",
-      "certPending": "Complete all lessons and pass the assessment to earn the certificate.",
-      "certPreview": "Certificate preview",
-      "certStudent": "Student name",
-      "certTitle": "Completion Certificate",
-      "certificate": "Certificate",
-      "comments": "Comments",
-      "homework": "Homework",
-      "instructor": "Instructor Info",
-      "intro": "Course Intro",
-      "noComments": "No comments yet",
-      "noHomework": "No assignments",
-      "noIntro": "No intro available",
-      "noRating": "No ratings",
-      "objectives": "Learning Objectives",
-      "overview": "Overview",
-      "ratersCount": "{count} raters",
-      "rating": "Rating",
-      "scoreUnit": "pts"
-    },
-    "video": {
-      "cover": "Course cover",
-      "selectChapter": "Select a chapter to start learning"
-    },
     "studentCount": "{count} students",
     "empty": "No courses",
     "free": "Free",
@@ -16107,16 +16064,6 @@
       "wholeWord": "Word",
       "wholeWordTitle": "Whole word"
     },
-    "terminalSessionList": {
-      "closeTerminalAria": "Close terminal",
-      "empty": "No terminal sessions",
-      "loading": "Loading...",
-      "newTerminalAria": "New terminal",
-      "statusActive": "Running",
-      "statusClosed": "Closed",
-      "statusExited": "Exited",
-      "title": "Terminal sessions"
-    },
     "terminalTabBar": {
       "closeTerminalAria": "Close terminal",
       "connectType": "Connection type",
@@ -19492,55 +19439,6 @@
       "more": "More",
       "tenK": "k",
       "title": "Hot News"
-    },
-    "integral": {
-      "all": "All",
-      "currentPoints": "Current points",
-      "mall": "Points Mall",
-      "myRank": "My rank",
-      "recentRecords": "Recent records",
-      "title": "Points Center",
-      "weeklyGain": "Weekly gain"
-    },
-    "messageSystem": {
-      "messageCenterAria": "Message Center",
-      "noNewMessages": "No new messages",
-      "title": "Messages",
-      "unreadCount": "{count} unread",
-      "viewAll": "View all"
-    },
-    "rightModule": {
-      "defaultEntries": {
-        "help": {
-          "description": "User Guide",
-          "label": "Help Center"
-        },
-        "invite": {
-          "description": "Earn Points",
-          "label": "Invite Friends"
-        },
-        "mall": {
-          "description": "Redeem Gifts",
-          "label": "Points Mall"
-        },
-        "vip": {
-          "description": "Premium Perks",
-          "label": "VIP Center"
-        }
-      },
-      "defaultTags": {
-        "agent": "Agent",
-        "backend": "Backend",
-        "frontend": "Frontend",
-        "llm": "AI LLM",
-        "opensource": "Open Source",
-        "rag": "RAG",
-        "tutorial": "Tutorial"
-      },
-      "hotTags": "Hot Tags",
-      "more": "More",
-      "promotion": "Promotion",
-      "quickEntries": "Quick Access"
     }
   },
   "operationLogs": {
