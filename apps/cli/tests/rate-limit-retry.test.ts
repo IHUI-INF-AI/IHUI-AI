@@ -17,6 +17,7 @@ import {
   type Tool,
   type ToolContext,
 } from '../src/tools/index.js'
+import { getFailureFallbackStats, resetFailureFallbackStats, ToolError } from '../src/tools/failure-classification.js'
 
 const ctx: ToolContext = { workspacePath: '.' }
 
@@ -219,40 +220,83 @@ describe('executeWithRetry 错误恢复', () => {
   })
 })
 
-describe('P1-4 ErrorType 分级', () => {
-  it('classifyError 识别 rate_limited', () => {
+describe('P1-4 ErrorType 分级(G-710:结构化码先决,文本只兜底)', () => {
+  beforeEach(() => {
+    resetFailureFallbackStats()
+  })
+
+  it('抛出方给码:ToolError 的码先决 —— 文本像可重试(rate limit/429),码说 permission ⇒ 不重试', async () => {
+    let calls = 0
+    const tool: Tool = {
+      name: 'read_code_wins',
+      description: 'test',
+      parameters: {},
+      required: [],
+      dangerLevel: 'read',
+      execute: async () => {
+        calls++
+        throw new ToolError('permission', 'rate limit exceeded 429')
+      },
+    }
+    const result = await executeWithRetry(tool, {}, ctx)
+    expect(result.success).toBe(false)
+    expect(result.errorType).toBe('permission')
+    expect(calls).toBe(1)
+  })
+
+  it('抛出方给码:码说可重试(rate_limited),文本像不可重试 ⇒ 照样重试(矛盾夹具:码赢)', async () => {
+    let calls = 0
+    const tool: Tool = {
+      name: 'read_code_retry',
+      description: 'test',
+      parameters: {},
+      required: [],
+      dangerLevel: 'read',
+      execute: async () => {
+        calls++
+        if (calls === 1) throw new ToolError('rate_limited', 'permission denied: 操作被拒绝')
+        return { success: true, output: 'ok' }
+      },
+    }
+    const result = await executeWithRetry(tool, {}, ctx)
+    expect(result.success).toBe(true)
+    expect(calls).toBe(2)
+  })
+
+  it('码路径零文本读取:兜底台账不报名(结构化先决的可观测证明)', async () => {
+    let calls = 0
+    const tool: Tool = {
+      name: 'read_code_silent',
+      description: 'test',
+      parameters: {},
+      required: [],
+      dangerLevel: 'read',
+      execute: async () => {
+        calls++
+        throw new ToolError('permission', 'whatever text')
+      },
+    }
+    await executeWithRetry(tool, {}, ctx)
+    expect(calls).toBe(1)
+    expect(getFailureFallbackStats().total).toBe(0)
+  })
+
+  it('无码 ⇒ 文本兜底(降级通道)仍给出结论,且该次使用被计数报名', () => {
     expect(classifyError('rate limit exceeded')).toBe('rate_limited')
-    expect(classifyError('工具触发限流')).toBe('rate_limited')
-    expect(classifyError('Too Many Requests')).toBe('rate_limited')
+    const stats = getFailureFallbackStats()
+    expect(stats.total).toBe(1)
+    expect(stats.bySite['tools/classifyError']).toBe(1)
+    expect(stats.bySiteAndCode['tools/classifyError|rate_limited']).toBe(1)
   })
 
-  it('classifyError 识别 timeout', () => {
+  it('无码兜底表逐字未变(口径纪律:只换判据来源,不改判据强度;全表与计数断言见 error-code-classification.test.ts)', () => {
     expect(classifyError('request timeout')).toBe('timeout')
-    expect(classifyError('operation timed out')).toBe('timeout')
-    expect(classifyError('请求超时')).toBe('timeout')
-  })
-
-  it('classifyError 识别 permission', () => {
-    expect(classifyError('permission denied')).toBe('permission')
-    expect(classifyError('access forbidden')).toBe('permission')
+    expect(classifyError('Too Many Requests')).toBe('rate_limited')
+    expect(classifyError('工具触发限流')).toBe('rate_limited')
     expect(classifyError('权限不足')).toBe('permission')
-    expect(classifyError('操作被拒绝')).toBe('permission')
-  })
-
-  it('classifyError 识别 not_found', () => {
-    expect(classifyError('file not found')).toBe('not_found')
     expect(classifyError('ENOENT: no such file')).toBe('not_found')
-    expect(classifyError('文件不存在')).toBe('not_found')
-  })
-
-  it('classifyError 识别 network', () => {
-    expect(classifyError('network error')).toBe('network')
     expect(classifyError('ECONNRESET')).toBe('network')
     expect(classifyError('fetch failed')).toBe('network')
-    expect(classifyError('连接被拒绝')).toBe('network')
-  })
-
-  it('classifyError 兜底 unknown', () => {
     expect(classifyError('something weird')).toBe('unknown')
     expect(classifyError(undefined)).toBe('unknown')
     expect(classifyError('')).toBe('unknown')
