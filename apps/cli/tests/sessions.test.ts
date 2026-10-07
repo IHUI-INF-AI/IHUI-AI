@@ -19,6 +19,7 @@ import {
   getSessionStateDir,
   getSessionStatePath,
   newSessionId,
+  patchSession,
   type SessionState,
   type SessionMessage,
 } from '../src/sessions/index.js';
@@ -355,6 +356,98 @@ describe('路径与 ID 工具', () => {
     saveSession(s);
     expect(fs.existsSync(path.join(nested, `${s.id}.json`))).toBe(true);
     expect(loadSession(s.id)).toEqual(s);
+  });
+});
+
+describe('patchSession — G-820(2026-10-07)列所有权 + 单调钟 + 乐观护栏', () => {
+  it('只合并声明的列,未声明列纹丝不动(文件面验证)', () => {
+    const s = makeSession({ model: 'm-1', cwd: '/work/a', status: 'running' });
+    saveSession(s);
+    const patched = patchSession(s.id, { status: 'failed' });
+    expect(patched!.status).toBe('failed');
+    expect(patched!.model).toBe('m-1');
+    expect(patched!.cwd).toBe('/work/a');
+    expect(patched!.messages).toEqual(s.messages);
+    const loaded = loadSession(s.id)!;
+    expect(loaded.status).toBe('failed');
+    expect(loaded.model).toBe('m-1');
+    expect(loaded.cwd).toBe('/work/a');
+    expect(loaded.messages).toEqual(s.messages);
+  });
+
+  it('toolState 等未声明列原样保留(读侧水合不渗进写回路)', () => {
+    const s = makeSession({ toolState: { 'k:raw': { v: 1 } } });
+    saveSession(s);
+    patchSession(s.id, { status: 'failed' });
+    expect(loadSession(s.id)!.toolState).toEqual({ 'k:raw': { v: 1 } });
+  });
+
+  it('时钟单调:文件里更晚的钟不被 patch 压回;普通 patch 至少推进到 now', () => {
+    const s = makeSession();
+    saveSession(s);
+    const future = new Date(Date.now() + 3_600_000).toISOString();
+    saveSession({ ...s, updatedAt: future }); // 模拟并发另一方刚把钟推进
+    const patched = patchSession(s.id, { status: 'completed' });
+    expect(Date.parse(patched!.updatedAt)).toBeGreaterThanOrEqual(Date.parse(future));
+
+    const s2 = makeSession();
+    saveSession(s2);
+    const before = Date.parse(loadSession(s2.id)!.updatedAt);
+    const patched2 = patchSession(s2.id, { status: 'failed' });
+    expect(Date.parse(patched2!.updatedAt)).toBeGreaterThanOrEqual(before);
+  });
+
+  it('expected 不匹配 ⇒ 拒写(返回 null),文件保持他人写入后的样子', () => {
+    const s = makeSession();
+    saveSession(s);
+    const snap = loadSession(s.id)!;
+    const future = new Date(Date.now() + 3_600_000).toISOString();
+    saveSession({ ...snap, status: 'completed', updatedAt: future }); // 他人先写一步
+    expect(patchSession(s.id, { status: 'failed' }, snap.updatedAt)).toBeNull();
+    const after = loadSession(s.id)!;
+    expect(after.status).toBe('completed');
+    expect(after.updatedAt).toBe(future);
+  });
+
+  it('expected 匹配 ⇒ 正常写入', () => {
+    const s = makeSession();
+    saveSession(s);
+    const expected = loadSession(s.id)!.updatedAt;
+    expect(patchSession(s.id, { status: 'cancelled' }, expected)!.status).toBe('cancelled');
+    expect(loadSession(s.id)!.status).toBe('cancelled');
+  });
+
+  it('目标会话不存在 ⇒ null 且不代建文件(建会话只归 saveSession)', () => {
+    const ghost = 'no-such-session-' + Date.now();
+    expect(patchSession(ghost, { status: 'failed' })).toBeNull();
+    expect(fs.existsSync(getSessionStatePath(ghost))).toBe(false);
+  });
+});
+
+describe('saveSession 兼容路径 — G-820(2026-10-07)单调钟', () => {
+  it('旧快照整份覆写时,不得把并发已推进的钟压回(其余列仍以调用方为准)', () => {
+    const s = makeSession({ status: 'running' });
+    saveSession(s);
+    const future = new Date(Date.now() + 3_600_000).toISOString();
+    saveSession({ ...s, updatedAt: future }); // 并发方推进钟
+    saveSession({ ...s, status: 'completed', updatedAt: s.updatedAt }); // 旧快照回写
+    const loaded = loadSession(s.id)!;
+    expect(Date.parse(loaded.updatedAt)).toBeGreaterThanOrEqual(Date.parse(future));
+    expect(loaded.status).toBe('completed'); // 兼容语义:除钟外仍整份覆盖
+  });
+
+  it('新建会话(文件尚不存在)行为不变', () => {
+    const s = makeSession({ updatedAt: '2026-01-01T00:00:00.000Z' });
+    saveSession(s);
+    expect(loadSession(s.id)).toEqual(s);
+  });
+
+  it('同钟重写幂等(≥ 语义,钟不抖动)', () => {
+    const s = makeSession();
+    saveSession(s);
+    const clock = loadSession(s.id)!.updatedAt;
+    saveSession({ ...s, updatedAt: clock });
+    expect(loadSession(s.id)!.updatedAt).toBe(clock);
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
