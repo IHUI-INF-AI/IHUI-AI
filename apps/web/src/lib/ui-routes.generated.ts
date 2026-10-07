@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: 3250ecb589e983cb8a88904d859a09ec954f27b8
-// inputsSha256: 79f50ce9e5c6b2c5a471052280c8b7f0d1c35ea872e4de76652b3009b403c4da
+// sourceCommit: 6ad02e2192b4cc499928956b4f009432426df03e
+// inputsSha256: 41a38a52f581af06dbb5c5ec60ffceff47818d4158048aa09e27766a56f7702d
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx 3d3cf195c8dcb8ec142e08a1d50b9016687a48c3503839f0db0dff7f9bbce67e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -558,7 +558,7 @@
 // input: apps/web/app/(main)/edu/dashboard/page.tsx b3e3c0296feda7155f8a88488a14b5230f1925eeda199b3ec9a2659c6a5976e8
 // input: apps/web/app/(main)/edu/edu-management/attendance/page.tsx ee249673237ea43b362e64ac999eea54c1e170455eb5433939a3fc06835a38ad
 // input: apps/web/app/(main)/edu/edu-management/enrollment/page.tsx 43d8feb0ea77f479f2286c0c521c47a6b741482ecdb4da81a06e0417437f7c08
-// input: apps/web/app/(main)/edu/edu-management/finance/page.tsx 2ba39a0012cb0b5e95ca3f70293c9154ece9b799ce72716274caff2ddad5b1df
+// input: apps/web/app/(main)/edu/edu-management/finance/page.tsx 32a6b007d18dd468eb4e18dfbe24d26c0ae3c2ed4a6ee8c5b2b4ee6cf4d45674
 // input: apps/web/app/(main)/edu/edu-management/grades/page.tsx 995cbff800387b67319592f4b6ef107859ff49a08f1e944bf8092c45c8d557c7
 // input: apps/web/app/(main)/edu/edu-management/grades/trend/[studentId]/page.tsx bc6a04718ae14638d59ed11026b720cb0706d9b6b1009a08362b9486c21ff94a
 // input: apps/web/app/(main)/edu/edu-management/homework/page.tsx 8a544efa39c6f7c569f8ebba0a92c54a670ad7c29bb295ef6c88698a9a29dfba
@@ -912,7 +912,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 6df145382f287882d4dfd57434356f055a22a13afc39f5a8efff3edf6f8460a2
 // input: apps/web/app/status/page.tsx 73f528f7654b7eb8bf5d08493a07afa63ed1de621f5a792399270a41505bf2fd
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-10-06T04:33:09.947Z
+// generatedAt: 2026-10-07T07:14:26.733Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
