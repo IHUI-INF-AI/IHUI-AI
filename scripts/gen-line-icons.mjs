@@ -266,19 +266,40 @@ async function main() {
  */
 const preState = readFileSync(OUT, 'utf8')
 
-main().then(
-  (code) => {
-    if (!process.argv.includes('--write')) {
-      if (readFileSync(OUT, 'utf8') !== preState) {
-        console.error('❌ 校验档竟改动了 icons.ts —— 判据本身有问题,停止')
-        process.exit(2)
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+// AGENTS §22d 双形态入口守卫:只有 CLI 直跑才执行 —— 这条入口链的两个回调都会 process.exit,
+// 被 import 就跑会直接把测试进程打死。
+// main 是 **async** 函数;原顶层已是 main().then( fulfilled, rejected )(拿返回值当退出码),
+// 所以**原样保留**这条链、只把它包进守卫:换成规格 §2 的 .catch 形态会丢掉 process.exit(code)
+// 的退出码语义(校验档 0/1 是它的对外契约),那属于"行为变了",不做。
+// 注:`const preState`(上方一行)是本守卫块要读的快照,留在原位置未动 —— 它是一句顶层
+// readFileSync,规格 §3 说这类"守卫之外的顶层可执行语句"交主会话裁决,故此处不自作主张搬进块内。
+if (isDirectRun) {
+  main().then(
+    (code) => {
+      if (!process.argv.includes('--write')) {
+        if (readFileSync(OUT, 'utf8') !== preState) {
+          console.error('❌ 校验档竟改动了 icons.ts —— 判据本身有问题,停止')
+          process.exit(2)
+        }
       }
-    }
-    process.exit(code)
-  },
-  (err) => {
-    console.error(`❌ ${err?.message ?? err}`)
-    process.exit(2)
-  },
-)
+      process.exit(code)
+    },
+    (err) => {
+      console.error(`❌ ${err?.message ?? err}`)
+      process.exit(2)
+    },
+  )
+}
+
+// 判据单元 = 本文件已有的判定/生成函数(字形解析 / SVG 组装 / 字形身份 / 定点改写 / 三分类),
+// 只引用不写实现。
+export const __test__ = {
+  parseNode,
+  svgFor,
+  sigOf,
+  splice,
+  run,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

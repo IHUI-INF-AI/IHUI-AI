@@ -31,6 +31,7 @@
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, rmSync, mkdirSync, statSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { gitdirArchivePath } from './lib/gitdir.mjs'
 // §26:临时夹具唯一落点。旧写法把 544MB 的重建克隆落 `os.tmpdir()`,而活进程的 TEMP
 // 可能仍钉在 C 盘(§26 实测:盘根 `C:\c` 就是这样套出 515MB 的 origin 克隆)。
@@ -269,5 +270,24 @@ function main() {
   console.log(`   损坏备份: ${backupDir}(确认无误后可删除)`)
 }
 
-main()
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+// AGENTS §22d 双形态入口守卫:只有 CLI 直跑才执行,被 import 时**绝不**触发重建流程
+// (本脚本的默认档会动 .git / 覆盖 gitdir,被 import 就跑等于在测试进程里做仓库手术)。
+// main 是**同步**函数 ⇒ 用 try/catch 形态而非 .catch(规格 §2 第 2 条)。
+if (isDirectRun) {
+  try {
+    main()
+  } catch (e) {
+    console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
+    process.exit(2)
+  }
+}
+
+// 判据单元 = 本文件已有的三个决策函数(路径推导 / 健康检查 / 远端回退),只引用不写实现。
+export const __test__ = {
+  externalGitDir,
+  isHealthy,
+  remoteUrl,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
