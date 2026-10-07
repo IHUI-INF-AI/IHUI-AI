@@ -5,6 +5,12 @@
 
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
+ * [judges-remote-state] 本门判「本地⇄远端同步态」(未 push commit 数),不是本枚提交的内容 ——
+ * G-815912:归因层(commit-gate-attribution)经 readGateSource 读到本声明,把本门的失败
+ * 判「未差分」:不进差分四态、不归责提交内容、不产假红假绿(红出现在刚提交后是必然态,
+ * 修法 = push,不是改内容)。
+ */
+/**
  * check-push-sync.mjs — Push 同步兜底守门(防"commit 后忘记 push"复发)
  *
  * 背景:
