@@ -32,6 +32,7 @@ const LOCK = join(REPO, '.git', 'ihui-git-write.lock')
 function gitHeadSha() {
   const r = spawnSync(GIT, ['-c', 'safe.directory=*', 'rev-parse', 'HEAD'], {
     cwd: REPO,
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     windowsHide: true,
     timeout: 15000,
