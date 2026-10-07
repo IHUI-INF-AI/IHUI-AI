@@ -9,7 +9,7 @@
 // 写入策略:write-through(fire-and-forget,失败降级内存并告警,不打断对话流);
 // 读取策略:内存 miss 后从 DB 惰性恢复。
 
-import { eq, desc, type SQL, and } from 'drizzle-orm'
+import { eq, desc, sql, type SQL, and } from 'drizzle-orm'
 import { agentRuntimeSessions, type Database } from '@ihui/database'
 import type { Session, SessionStatus } from '../clawdbot/session-manager.js'
 
@@ -55,7 +55,20 @@ function toSession(row: typeof agentRuntimeSessions.$inferSelect): Session {
   }
 }
 
-// 写透单条会话(全量覆盖 messages,与内存态保持一致)
+// G-815954:metadata 走具名成员合并 —— 本次写入点名的成员即 metadata 的自有键。
+// undefined 成员归一为 null(JSON.stringify 会静默丢弃 undefined 键,不归一则"清空"意图无声丢失);
+// 显式 null 与归一后的 null 都落成行内墓碑,防止重启后被旧值复活。
+function namedMembersJson(metadata: Record<string, unknown>): string {
+  const members: Record<string, unknown> = {}
+  for (const key of Object.keys(metadata)) {
+    members[key] = metadata[key] === undefined ? null : metadata[key]
+  }
+  return JSON.stringify(members)
+}
+
+// 写透单条会话。jsonb 列逐列声明写策略(G-815954,禁无声明整列覆盖):
+// messages = 全量真相(内存 SessionManager 是转写唯一权威,显式清空即空数组整列落盘);
+// metadata = 具名成员合并(不整列覆盖,否则吃掉行内"显式清空"墓碑与旧版回滚快照字段)。
 export async function persistSession(session: Session): Promise<void> {
   const db = await getDb()
   if (!db) return
@@ -76,8 +89,12 @@ export async function persistSession(session: Session): Promise<void> {
         target: agentRuntimeSessions.id,
         set: {
           status: session.status,
+          // messages:全量真相 —— 内存态即完整转写,整列落盘。
           messages: session.context.messages,
-          metadata: session.context.metadata,
+          // metadata:具名成员合并(`||` 右侧只含本次点名的成员):
+          // 行内未被点名的旧成员是旧版回滚快照,不因本次写入未携带而被吃掉;
+          // 点名为 null 的成员落成行内墓碑(下次导入不得复活旧值)。
+          metadata: sql`${agentRuntimeSessions.metadata} || ${namedMembersJson(session.context.metadata)}::jsonb`,
           updatedAt: new Date(session.lastActiveAt),
         },
       })
