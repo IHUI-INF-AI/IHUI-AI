@@ -490,7 +490,6 @@
     "mute": "静音",
     "unmute": "取消静音",
     "refresh": "刷新",
-    "removeAttachment": "移除附件",
     "addAttachment": "添加附件（图片/视频/文件）",
     "breadcrumb": "面包屑导航",
     "searchOption": "搜索选项",
@@ -499,10 +498,7 @@
     "copyCode": "复制代码",
     "collapse": "收起",
     "expand": "展开",
-    "more": "更多",
     "close": "关闭",
-    "copy": "复制",
-    "copyResponse": "复制回复",
     "barChart": "柱状图",
     "heatmap": "热力图",
     "lineChart": "折线图",
@@ -510,15 +506,11 @@
     "radarChart": "雷达图",
     "slashCommand": "斜杠命令",
     "mentionFile": "提及文件",
-    "openCustomerService": "联系客服",
-    "minimize": "最小化",
-    "send": "发送",
     "closeTag": "关闭标签",
     "closeAlert": "关闭提示",
     "menu": "菜单",
     "showPassword": "显示密码",
     "hidePassword": "隐藏密码",
-    "uploadAvatar": "上传头像",
     "streamAnnounceStart": "AI 开始回复",
     "streamAnnounceProgress": "AI 正在回复,已输出 {n} 字",
     "streamAnnounceDone": "AI 回复完成,共 {n} 字",
@@ -10329,12 +10321,6 @@
     "accountPlaceholder": "请输入账号/手机号/邮箱",
     "agreePrefix": "我已阅读并同意",
     "agreeRequired": "请先同意用户协议",
-    "agreementNoticeAgree": "同意并继续",
-    "agreementNoticeDesc": "请在使用前仔细阅读以下协议",
-    "agreementNoticeDisagree": "不同意",
-    "agreementNoticeEnterHint": "点击\"同意并继续\"表示您已阅读并同意以上协议",
-    "agreementNoticeSafe": "我们重视您的隐私安全",
-    "agreementNoticeTitle": "用户协议",
     "alipayLogin": "支付宝",
     "and": "和",
     "appLogin": "App 扫码",
@@ -10456,7 +10442,13 @@
     "twoFactorTitle": "两步验证",
     "username": "使用者名",
     "usernamePlaceholder": "请输入使用者名",
-    "wechatLogin": "微信"
+    "wechatLogin": "微信",
+    "agreementNoticeAgree": "同意并继续",
+    "agreementNoticeDesc": "请在使用前仔细阅读以下协议",
+    "agreementNoticeDisagree": "不同意",
+    "agreementNoticeEnterHint": "点击\"同意并继续\"表示您已阅读并同意以上协议",
+    "agreementNoticeSafe": "我们重视您的隐私安全",
+    "agreementNoticeTitle": "用户协议"
   },
   "behavior": {
     "createdAt": "记录时间",
@@ -12448,41 +12440,6 @@
     }
   },
   "course": {
-    "chapters": {
-      "empty": "暂无章节",
-      "sectionCount": "{count} 节"
-    },
-    "interaction": {
-      "favorite": "收藏",
-      "like": "点赞"
-    },
-    "tabs": {
-      "anonymous": "匿名用户",
-      "certAcquired": "恭喜完成课程学习，已获得结业证书",
-      "certNo": "证书编号：{no}",
-      "certPending": "完成全部课程学习并通过考核后，将获得结业证书",
-      "certPreview": "证书预览",
-      "certStudent": "学员姓名",
-      "certTitle": "结业证书",
-      "certificate": "证书",
-      "comments": "评论",
-      "homework": "作业",
-      "instructor": "讲师信息",
-      "intro": "课程简介",
-      "noComments": "暂无评论",
-      "noHomework": "暂无作业",
-      "noIntro": "暂无简介",
-      "noRating": "暂无评分",
-      "objectives": "学习目标",
-      "overview": "概览",
-      "ratersCount": "{count} 人评分",
-      "rating": "评分",
-      "scoreUnit": "分"
-    },
-    "video": {
-      "cover": "课程封面",
-      "selectChapter": "选择章节开始学习"
-    },
     "studentCount": "{count} 名学生",
     "empty": "暂无课程",
     "free": "免费",
@@ -16097,16 +16054,6 @@
       "wholeWord": "全字",
       "wholeWordTitle": "全字匹配"
     },
-    "terminalSessionList": {
-      "closeTerminalAria": "关闭终端",
-      "empty": "暂无终端会话",
-      "loading": "加载中...",
-      "newTerminalAria": "新建终端",
-      "statusActive": "运行中",
-      "statusClosed": "已关闭",
-      "statusExited": "已退出",
-      "title": "终端会话"
-    },
     "terminalTabBar": {
       "closeTerminalAria": "关闭终端",
       "connectType": "连接类型",
@@ -19477,55 +19424,6 @@
       "more": "更多",
       "tenK": "万",
       "title": "热门资讯"
-    },
-    "integral": {
-      "all": "全部",
-      "currentPoints": "当前积分",
-      "mall": "积分商城",
-      "myRank": "我的排名",
-      "recentRecords": "最近明细",
-      "title": "积分中心",
-      "weeklyGain": "本周新增"
-    },
-    "messageSystem": {
-      "messageCenterAria": "消息中心",
-      "noNewMessages": "暂无新消息",
-      "title": "消息中心",
-      "unreadCount": "{count} 条未读",
-      "viewAll": "查看全部"
-    },
-    "rightModule": {
-      "defaultEntries": {
-        "help": {
-          "description": "使用指南",
-          "label": "帮助中心"
-        },
-        "invite": {
-          "description": "赚积分",
-          "label": "邀请好友"
-        },
-        "mall": {
-          "description": "兑换好礼",
-          "label": "积分商城"
-        },
-        "vip": {
-          "description": "尊享特权",
-          "label": "会员中心"
-        }
-      },
-      "defaultTags": {
-        "agent": "智能体",
-        "backend": "后端",
-        "frontend": "前端",
-        "llm": "AI 大模型",
-        "opensource": "开源",
-        "rag": "RAG",
-        "tutorial": "教程"
-      },
-      "hotTags": "热门标签",
-      "more": "更多",
-      "promotion": "推广",
-      "quickEntries": "快捷入口"
     }
   },
   "operationLogs": {
