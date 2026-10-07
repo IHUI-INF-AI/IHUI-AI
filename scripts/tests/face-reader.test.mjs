@@ -406,7 +406,15 @@ test('parseBatch:非 blob 的头(tree / commit)归 null,且不得把内容当下
 //     (82 > 79);**3 枚随本批落地入库后**现读 = 82 − 3 = 79 ⇒ 79 ≤ 79 判得过,本棘轮
 //     「只减不增」的下限恰是这一档。提交者落地后复核:`node --test scripts/tests/face-reader.test.mjs`
 //     应打出 `◽ 裸 git 存量已降到 79(基线 79)`;若打出别的数字,以现读为准再校。
-const BARE_GIT_BASELINE = 79
+// 2026-10-07 再迁 3 枚(G-998191 第四批:plan-copy-fold、plan-merge-note-attribution、
+// evidence/name-f5-merge-note-deficit,裸派生各 2 处,改前改后只读档 stdout/rc 逐字对账过)。
+// 基线 79 → 76,账目与上一批同条:3 枚此刻在工作树、未入库 ⇒ 判据分母(HEAD 面)里它们仍各算
+// 一枚,现读仍 79,提交前本门红(79 > 76);**3 枚随本批落地入库后**现读 = 79 − 3 = 76 ⇒
+// 76 ≤ 76 判得过,棘轮「只减不增」的下限恰是这一档。提交者落地后复核
+// `node --test scripts/tests/face-reader.test.mjs` 应打出 `◽ 裸 git 存量已降到 76(基线 76)`;
+// 若打出别的数字,以现读为准再校。本棘轮刻意不持有逐文件名单表(见判据提示的措辞注),
+// 基线即唯一账面 ⇒ 本批无逐文件名单需要同步。
+const BARE_GIT_BASELINE = 76
 const PATH_BOUND_GIT_BASELINE = 11
 const SELF_BATCH_BASELINE = 0
 
