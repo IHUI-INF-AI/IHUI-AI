@@ -56,6 +56,7 @@ function planText() {
 function gitIn(cwd, args) {
   return execFileSync(GIT, ['-c', 'safe.directory=*', ...args], {
     cwd,
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     timeout: 60000,
     windowsHide: true,

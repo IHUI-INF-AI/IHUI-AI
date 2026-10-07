@@ -50,6 +50,7 @@ const headPlan = () => {
     return execFileSync('git', ['show', 'HEAD:PROJECT_PLAN.md'], {
       cwd: ROOT,
       encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
       maxBuffer: 64 * 1024 * 1024,
     })
   } catch {
