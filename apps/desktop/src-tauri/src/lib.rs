@@ -11,6 +11,8 @@ mod desktop_prefs;
 mod git_channel_ipc;
 mod git_local_status;
 mod git_status_core;
+// G-379/G-407/G-774,2026-10-07:桌面日志保留期——政策常量唯一出处 + setup 期裁剪历史档案。
+mod log_retention;
 mod startup_guard;
 
 use serde::{Deserialize, Serialize};
@@ -2923,6 +2925,15 @@ pub fn run() {
                         file_name: Some("ihui-desktop".into()),
                     }),
                 ])
+                // G-379/G-407/G-774,2026-10-07:默认 KeepOne 在文件超限时直接
+                // remove_file 主日志(插件源码 :237-239),历史=0、无保留期。改
+                // KeepSome:超限走 fs::rename 把整卷改名 ihui-desktop_<时间戳>.log
+                // (rename 保留 mtime,避开上游 copyFileSync 改 mtime 的陷阱);
+                // 保留份数唯一出处是 log_retention::KEEP_ARCHIVES,年龄/总量裁剪
+                // 在 log_retention 模块(setup 期跑一次)。
+                .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepSome(
+                    log_retention::KEEP_ARCHIVES,
+                ))
                 .build(),
         )
         // 2026-09-17 薄壳化配套:离线兜底页协议。断网时 auto_refresh 模块将 main 窗口
@@ -3062,6 +3073,11 @@ pub fn run() {
                     lock_wait
                 );
             }
+
+            // G-379/G-407/G-774,2026-10-07:日志保留期。此刻日志插件自己的 setup 已跑完
+            // (活跃文件句柄在插件手里、超限历史已按 KeepSome rename 成档案),这里只裁
+            // 历史档案(mtime 年龄/份数/总量),活跃主文件结构性不碰 —— 详见模块头注。
+            log_retention::enforce_on_startup(app);
 
             // 2026-09-27 立:main 窗口没建出来,进程就不该继续活着。
             // 实测形态(09-27 桌面端日志):两实例并存时,第二个实例的 WebView2 因用户数据
