@@ -1017,19 +1017,21 @@ const checks = [
   //   留空占位:不重新分配 id,避免历史 commit log / AGENTS.md §22 引用断裂。
 
   // --- 34 (2026-07-26 新增,@ts-ignore 新增检测,防历史遗留复发) ---
-  // warn-only:本批次刚清理 215 处历史遗留 @ts-ignore(早期 workspace 包未导出类型时的压制),
-  //   包已修复导出,@ts-ignore 是无效历史遗留。warn 级别原因:@ts-ignore 有时是合理压制
-  //   (如第三方库类型缺陷),不强制阻塞 commit,只提醒开发者审视。
+  // G-815990(2026-10-07)warn → **blocking**。升档前置已现读兑现:本门只判 staged **新增**的
+  //   @ts-ignore / @ts-nocheck,215 处历史遗留已于 2026-07-26 批次清零 ⇒ 升档不造恒红门。
+  //   原 warn 期理由("@ts-ignore 有时是合理压制")的正规出口:确需压制时,该文件对应规则的
+  //   覆盖已永久归零,由守门 103 的 DC 判据(裸 lint 抑制增长,锚点 = 该文件 HEAD 自身存量)
+  //   与策略表 exceptions(带 until)问责 —— 行内压制不再有免检通道。
   // 跳过白名单:e2e/ 目录(@playwright/test 类型解析场景)、node_modules/ / dist/ / .next/ / build/。
   // 失败含义:staged 文件中新增 @ts-ignore / @ts-nocheck 注释,需审视是否真的需要。
   // id 说明:任务原话"第 31 项"但 id '31' 已被 AuthShell 占用(同日 2026-07-26 新增),
   //   故用 id '34'(33 LLM provider 之后的下一个可用编号)。
   {
     id: '34',
-    label: '🔍 @ts-ignore 新增检测(warn-only,防 215 处历史遗留复发)',
+    label: '🔍 @ts-ignore 新增检测(blocking:存量已清零,只拦 staged 新增)',
     script: 'check-ts-ignore.mjs',
     args: [],
-    mode: 'warn',
+    mode: 'blocking',
     onFailHint: [
       '',
       '  💡 @ts-ignore 是类型安全压制,本仓库刚清理 215 处历史遗留',

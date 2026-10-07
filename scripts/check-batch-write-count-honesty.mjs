@@ -240,6 +240,28 @@
  *   ④声明写在键行上方 >3 行 ⇒ 读不到;⑤jsonb_insert( 等其他路径语义函数未列绿腿 ⇒ 按整列覆盖计
  *   (fail-closed,同 ③ 有声明通道)。
  *
+ * B7(2026-10-07 立,G-815984):写时刻必须原样回给调用方 —— 写链(.delete/.update)带了 .returning(
+ *   且实参是**显式列投影对象字面量**时,取了业务列就必须同时取回时间列(票面点名形态 `.returning({id})`
+ *   的"只回主键"是既有计数绿形态,归豁免半句,见下)。判据一条,四腿:
+ *     - 裸 `.returning()` 无参 = 回全行 ⇒ 绿(处置 bare-full-row;时间列结构性在内);
+ *     - 纯 id 计数投影(顶层键全部 id 形)⇒ 绿(处置 id-count;票面"写链 `.returning({id})` **之外**"
+ *       的豁免半句 —— 它是 V1/B1 的既有绿形态、也是本门修法指引自己推荐的形状,判它违规会让棘轮把
+ *       "按修法指引补 .returning({id})"判成净新增(自检 BR/B2R"补回即归零"契约当场红),门与自己打架;
+ *     - 投影里带时间列(键/值任一侧出现 At|Time 结尾标识符,仓内驼峰时间戳惯例
+ *       createdAt/updatedAt/deletedAt/settledAt…)⇒ 绿(处置 time-col);
+ *     - 其余(取了业务列却无任何时间列)⇒ 违规 —— 写入时刻没回给调用方,时序/去重/审计只能靠猜。
+ *   **棘轮专用维(与 B4/B5/B6 同档同构)**:head 面(含 --strict)只报数、永不判红(decide 签名**刻意
+ *   不收** b7Violations —— 结构锁同 B4/B5/B6,自检 B7D 钉住);staged 面走「该文件 HEAD 自身 B7 计数」
+ *   差值棘轮,净新增即红(新文件锚点 0:第一个写点第一次就漏回传必须判红)。棘轮粒度 = 文件 × 判据
+ *   (无 ack 键;缺的列名已在红点 excerpt 里点名 —— 同文件换一列再写 = 新增一处,照红,无"换列逃逸")。
+ *   取材:findWriteChains 链对象新增 returningText 字段(与 whereText/setText 同源同批 —— links 只此
+ *   一份,B7 不二次扫描,§22c);判据读**全遮蔽档** —— 注释里提时间列冒充不了投影(自检 B7f 钉住)。
+ *   判不了格(如实登记,不进面、不冒充已判):①实参经变量传入(returning(cols))⇒ 里面有没有时间列
+ *   词法不可知;②投影对象带展开({...pick})⇒ 同格;③`sql` 模板实参 ⇒ 遮蔽面读不到内容,同格;
+ *   ④"调用方是否真需要时序"是语义问题,词法按"取业务列的写点默认随行回传写时刻"收紧(存量只报数,
+ *   新增走棘轮);⑤insert 链不进本维 —— findWriteChains 动词锚只有 .delete/.update,扩动词会同时改
+ *   B1/B3/B4 的面,那是另一个决策(登记,不装看不见)。
+ *
  * 两份"惯例存量"计数(可见性,不是判据 —— **永不影响退出码**):上面那两个"刻意放过"的形状此前只有
  * 注释里的一句"全仓 257 处"撑着,而那句是人肉量的,下次谁扩面/收面账面没人知道它变了多少。现由本门
  * 每次现读数并报数:
@@ -599,6 +621,9 @@ export function findWriteChains(code) {
     }
     const whereLink = links.find((l) => l.name === 'where')
     const setLink = links.find((l) => l.name === 'set')
+    // B7(G-815984)的取材:returning 实参原文 —— 与 whereText/setText 同源同批(links 只此一份,
+    // B7 不二次扫描,§22c)。
+    const returningLink = links.find((l) => l.name === 'returning')
     out.push({
       start: m.index,
       end: cur,
@@ -612,6 +637,7 @@ export function findWriteChains(code) {
       // 与 hasWhere/hasReturning 同源 —— links 只此一份,不存在第二份链扫描(§22c)。
       whereText: whereLink ? whereLink.text : '',
       setText: setLink ? setLink.text : '',
+      returningText: returningLink ? returningLink.text : '',
     })
   }
   return out
@@ -1870,6 +1896,90 @@ export function findJsonbUpsertSites(relPath, rawText, maskedCode, nonBlankCode)
   return out
 }
 
+/**
+ * B7 的时间列识别(词法近似,票面"时间列"的仓内落地):驼峰时间戳惯例 —— 标识符以 At|Time 结尾
+ * (createdAt/updatedAt/deletedAt/settledAt/lastMessageAt…全仓实测取材)。键与值两侧都算:投影值侧
+ * 引用 schema 时间列(`updatedAt: t.updatedAt`)与键侧改名(`writtenAt: t.updatedAt`)都是"取回了时间"。
+ */
+const TIME_COL_RE = /\b[A-Za-z_$][\w$]*(?:At|Time)\b/
+
+/**
+ * B7(G-815984,2026-10-07):判据与判不了格见头注 B7 段。**棘轮专用维**:head 面(含 --strict)对
+ * violations 只报数、永不判红 —— 拦截发生在 analyze 的 staged 差值棘轮(kind='b7');decide 签名刻意
+ * 不收 b7Violations(结构锁同 B4/B5/B6)。取材 = findWriteChains 同一份链(hasReturning/returningText,
+ * 不二次扫描,§22c),正文用链所在的全遮蔽档 —— 注释里提时间列冒充不了投影。候选 ⊇ 违规(B3/B4
+ * 同款口径):bare-full-row / time-col 两条绿腿也在 candidates 里,--explain 可复核。
+ */
+export function findReturningTimeColSites(relPath, maskedCode, chains) {
+  const out = { file: relPath, candidates: [], violations: [] }
+  for (const c of chains) {
+    if (!c.hasReturning || c.opaque) continue
+    const rt = (c.returningText || '').trim()
+    const site = {
+      file: relPath,
+      line: lineAt(maskedCode, c.start),
+      receiver: c.receiver,
+      via: 'drizzle',
+      excerpt: rt.replace(/\s+/g, ' ').trim().slice(0, 60) || '(无参,回全行)',
+    }
+    if (!rt) {
+      // 裸 `.returning()` = 回全行,时间列结构性在内 ⇒ 绿(票面"写入时刻回传"的满配形态)。
+      site.disposition = 'bare-full-row'
+      out.candidates.push(site)
+      continue
+    }
+    // 判不了格(如实登记,不进面):实参非对象字面量(变量 / `sql` 模板 / 解构表达式)或对象里带
+    // 展开 —— 里面有没有时间列词法不可知,不假装已判(头注 B7①②③)。
+    if (!/^\{[\s\S]*\}$/.test(rt) || /\.\.\./.test(rt)) continue
+    // 票面"写链 `.returning({id})` **之外**"这一半:纯 id 计数投影(顶层键全部 id 形)是 V1/B1 的
+    // 既有绿形态、也是本门修法指引自己推荐的形状 ⇒ 处置 id-count 放过。若把它判违规,棘轮会把
+    // "按修法指引补 .returning({id})"判成净新增(自检 BR/B2R 的'补回即归零'契约当场红)——
+    // 门与自己打架,登记为刻意豁免而不是疏漏。
+    const keys = topProjectionKeys(rt)
+    if (keys.length > 0 && keys.every((k) => /^[A-Za-z_$]*[Ii]d$/.test(k))) {
+      site.disposition = 'id-count'
+      out.candidates.push(site)
+      continue
+    }
+    if (TIME_COL_RE.test(rt)) {
+      site.disposition = 'time-col'
+      out.candidates.push(site)
+      continue
+    }
+    site.disposition = 'violation'
+    site.why =
+      '非计数投影(含业务列)却不取回任何时间列(须同时取回 createdAt/updatedAt 等 At|Time 结尾列,或改裸 .returning() 回全行)'
+    out.violations.push(site)
+    out.candidates.push(site)
+  }
+  return out
+}
+
+/** B7 取材:对象字面量**顶层**键清单(带深度配平的顶层切分,展开已在调用前挡掉;shorthand `{ id }` 也算键)。 */
+function topProjectionKeys(objText) {
+  const body = objText.slice(1, -1)
+  const keys = []
+  let depth = 0
+  let curStart = -1
+  for (let i = 0; i <= body.length; i++) {
+    const ch = body[i]
+    if (i === body.length || (ch === ',' && depth === 0)) {
+      if (curStart >= 0) {
+        const seg = body.slice(curStart, i)
+        // 键形二选一:`键: 值` 或 shorthand `键`(值侧在遮蔽档可能是空串,单看冒号有无不可靠)。
+        const km = /^\s*(?:['"]?)([A-Za-z_$][\w$]*)(?:['"])?\s*(?::|$)/.exec(seg)
+        if (km) keys.push(km[1])
+      }
+      curStart = -1
+      continue
+    }
+    if (curStart < 0 && !/\s/.test(ch)) curStart = i
+    if (ch === '(' || ch === '[' || ch === '{') depth++
+    else if (ch === ')' || ch === ']' || ch === '}') depth--
+  }
+  return keys
+}
+
 /* ------------------------------- 单文件判据 ------------------------------- */
 
 /** 纯函数:一份文件正文 → 候选与处置。自检与端到面都跑它(判据只此一份实现)。 */
@@ -1929,6 +2039,8 @@ export function scanFileText(relPath, text, opts = {}) {
     b5: { candidates: [], violations: [] },
     // B6(G-815954)与 B3/B4/B5 同一条教训:壳必须建在 U2 提前 return 之前。
     b6: { candidates: [], violations: [] },
+    // B7(G-815984)与 B3/B4/B5/B6 同一条教训:壳必须建在 U2 提前 return 之前。
+    b7: { candidates: [], violations: [] },
   }
   if (res.leaks.length) {
     res.undetermined.push({
@@ -2014,6 +2126,9 @@ export function scanFileText(relPath, text, opts = {}) {
   // B6(G-815954):取材三档全部由本函数已算好的三份正文传入(结构=code 全遮蔽档、形态=nonBlank
   // 留字符串档、声明=text 原始正文),判据不二次 maskText —— 每多一遍 mask 就是第二套取材。
   res.b6 = findJsonbUpsertSites(relPath, text, code, nonBlank)
+  // B7(G-815984):消费 allChains(上面 L2006 那一份,§22c 链扫描只此一个来源),
+  // 正文就是链所在的遮蔽档 code —— 判据不二次扫描、不二次 maskText。
+  res.b7 = findReturningTimeColSites(relPath, code, allChains)
   // 裸 SQL 写链**解析不到**(括号配平失败)那一格:只有当同一函数体里确实有 ack 时,判据的结论
   // 才依赖它 ⇒ 记"未判定"(与 U1/U2 同档,--strict 下拒绝出合格证);体里没有 ack 的解析失败不影响
   // 任何结论,只进 rawSqlUnparsed 可见性桶(报数点名,不冒红也不静默算通过)。
@@ -2230,6 +2345,8 @@ export function analyze(root, face, opts = {}) {
   const b5Violations = per.flatMap((r) => r.b5.violations)
   // B6(G-815954)的聚合:基础面(per)∪ 专属面增量(b6OnlyPer),两处各算各的、此处只做拼接。
   const b6Violations = [...per, ...b6OnlyPer].flatMap((r) => r.b6.violations)
+  // B7(G-815984)的聚合:面与基础面同一张表(无专属面增量,与 B3/B4/B5 同理)。
+  const b7Violations = per.flatMap((r) => r.b7.violations)
   const exempt = ['returning', 'db', 'outlet', 'marker'].reduce(
     (a, k) => ({ ...a, [k]: per.reduce((x, r) => x + r.exempt[k], 0) }),
     {},
@@ -2281,6 +2398,10 @@ export function analyze(root, face, opts = {}) {
     b6Candidates: [...per, ...b6OnlyPer].reduce((a, r) => a + r.b6.candidates.length, 0),
     b6Violations: b6Violations.length,
     b6Files: new Set(b6Violations.map((v) => v.file)).size,
+    // B7(G-815984)自己的键:追加在 b6* 之后,一字不并入既有数。
+    b7Candidates: per.reduce((a, r) => a + r.b7.candidates.length, 0),
+    b7Violations: b7Violations.length,
+    b7Files: new Set(b7Violations.map((v) => v.file)).size,
     // 2026-09-27 追加在**最末尾**:布尔 ack 按键分组的现读数(五键恒在位,含 0)。
     // 语义变化必须如实说:`booleanAckSites` / `booleanAckFiles` 自本批改用**键族五键**计数,
     // 所以这两个数的口径比扩面前宽(扩面前只有 `deleted`)—— 它们仍**不参与任何退出码**(X1/R7/R8/M13
@@ -2319,7 +2440,8 @@ export function analyze(root, face, opts = {}) {
       b3Violations.length ||
       b4Violations.length ||
       b5Violations.length ||
-      b6Violations.length)
+      b6Violations.length ||
+      b7Violations.length)
   ) {
     const bucketBy = (list) => {
       const m = new Map()
@@ -2336,6 +2458,7 @@ export function analyze(root, face, opts = {}) {
     const b4ByFile = bucketBy(b4Violations)
     const b5ByFile = bucketBy(b5Violations)
     const b6ByFile = bucketBy(b6Violations)
+    const b7ByFile = bucketBy(b7Violations)
     const files = [
       ...new Set(
         [
@@ -2346,6 +2469,7 @@ export function analyze(root, face, opts = {}) {
           ...b4ByFile.keys(),
           ...b5ByFile.keys(),
           ...b6ByFile.keys(),
+          ...b7ByFile.keys(),
         ].map((k) => k.split('\u0000')[0]),
       ),
     ]
@@ -2379,6 +2503,7 @@ export function analyze(root, face, opts = {}) {
     const headB4By = bucketBy(headPer.flatMap((r) => r.b4.violations))
     const headB5By = bucketBy(headPer.flatMap((r) => r.b5.violations))
     const headB6By = bucketBy(headPer.flatMap((r) => r.b6.violations))
+    const headB7By = bucketBy(headPer.flatMap((r) => r.b7.violations))
     ratcheted = []
     // faceSet:该判据的 HEAD **存在性面**(锚点=0 只该发生在"HEAD 里根本没有这个文件"时)。
     // 其余判据传空走 headSet;B6 传 b6HeadFaceSet(专属面文件在 headSet 之外)。
@@ -2401,6 +2526,8 @@ export function analyze(root, face, opts = {}) {
     for (const k of b4ByFile.keys()) pushRatchet(b4ByFile, headB4By, k, 'b4')
     for (const k of b5ByFile.keys()) pushRatchet(b5ByFile, headB5By, k, 'b5')
     for (const k of b6ByFile.keys()) pushRatchet(b6ByFile, headB6By, k, 'b6', b6HeadFaceSet)
+    // B7 面与基础面同一张表 ⇒ faceSet 走默认 headSet(与 B3/B4/B5 同理,无专属面)。
+    for (const k of b7ByFile.keys()) pushRatchet(b7ByFile, headB7By, k, 'b7')
   }
   const exit = decide({
     face,
@@ -2413,9 +2540,9 @@ export function analyze(root, face, opts = {}) {
     b2Violations,
     b2Undetermined,
     // b3Violations 进 decide(--strict 全量判红,B1/B2 同档);
-    // b4Violations / b5Violations / b6Violations **刻意不传** —— 棘轮专用维,head 面(含 --strict)
-    // 只报数不判红(头注 B4/B5/B6 段),"签名即判据"的结构锁:谁想把 B4/B5/B6 接进 --strict,必须先
-    // 改 decide 签名并推翻票面拍板。
+    // b4Violations / b5Violations / b6Violations / b7Violations **刻意不传** —— 棘轮专用维,head 面
+    // (含 --strict)只报数不判红(头注 B4/B5/B6/B7 段),"签名即判据"的结构锁:谁想把 B4/B5/B6/B7
+    // 接进 --strict,必须先改 decide 签名并推翻票面拍板。
     b3Violations,
   })
   return {
@@ -2436,6 +2563,7 @@ export function analyze(root, face, opts = {}) {
     b4Violations,
     b5Violations,
     b6Violations,
+    b7Violations,
     // B6 专属面增量单独成一份(per 不并入 —— 其余判据不得顺带扩面);--explain 消费它。
     b6OnlyPer,
   }
@@ -2453,7 +2581,9 @@ export function analyze(root, face, opts = {}) {
  * --strict 必须先改本签名,那是一步显式动作而不是顺手一个 `||`。**B5 同构(G-815955)**:排序无尾键
  * 同为棘轮专用维,decide 签名同样刻意不收 b5Violations(头注 B5 段),拦截只走 staged 的
  * ratcheted(kind='b5')。**B6 再同构(G-815954)**:jsonb 整列覆盖无声明同为棘轮专用维,签名刻意不收
- * b6Violations(头注 B6 段),拦截只走 staged 的 ratcheted(kind='b6')。而两份**惯例存量**计数
+ * b6Violations(头注 B6 段),拦截只走 staged 的 ratcheted(kind='b6')。**B7 再同构(G-815984)**:
+ * 写时刻不回传同为棘轮专用维,签名刻意不收 b7Violations(头注 B7 段),拦截只走 staged 的
+ * ratcheted(kind='b7')。而两份**惯例存量**计数
  * (booleanAck* / readQueryCount*)**依旧刻意不在参数里**,所以"把可见性计数接进退出码"这一改法
  * 在结构上就要求改签名,而那一步由 self-test 的 X1/X1b + 镜像 M13 判红(惯例存量是**决策依据**不是**债**)。
  */
@@ -2478,7 +2608,7 @@ export function decide({
         : violations.length ||
           b1Violations.length ||
           b2Violations.length ||
-          b3Violations.length // B4/B5 刻意缺席(见上):棘轮专用维,head+strict 不判红
+          b3Violations.length // B4/B5/B6/B7 刻意缺席(见上):棘轮专用维,head+strict 不判红
     )
       return 1
     return 0
@@ -2505,6 +2635,7 @@ export function formatReport(out) {
   const b4v = out.b4Violations || []
   const b5v = out.b5Violations || []
   const b6v = out.b6Violations || []
+  const b7v = out.b7Violations || []
   if (out.ratcheted && out.ratcheted.length) {
     const nLegacy = out.ratcheted.filter((r) => (r.kind || 'count') === 'count').length
     const nB1 = out.ratcheted.filter((r) => r.kind === 'b1').length
@@ -2513,12 +2644,13 @@ export function formatReport(out) {
     const nB4 = out.ratcheted.filter((r) => r.kind === 'b4').length
     const nB5 = out.ratcheted.filter((r) => r.kind === 'b5').length
     const nB6 = out.ratcheted.filter((r) => r.kind === 'b6').length
+    const nB7 = out.ratcheted.filter((r) => r.kind === 'b7').length
     L.push(
-      `❌ 判红:${out.ratcheted.length} 条净新增越线(按 文件×判据;计数自算 ${nLegacy} · B1 假 ack ${nB1} · B2 委托假 ack ${nB2} · B3 回填无界 ${nB3} · B4 终态回退 ${nB4} · B5 排序无尾键 ${nB5} · B6 jsonb 无声明 ${nB6};锚点 = 该文件 HEAD 自身同判据计数)`,
+      `❌ 判红:${out.ratcheted.length} 条净新增越线(按 文件×判据;计数自算 ${nLegacy} · B1 假 ack ${nB1} · B2 委托假 ack ${nB2} · B3 回填无界 ${nB3} · B4 终态回退 ${nB4} · B5 排序无尾键 ${nB5} · B6 jsonb 无声明 ${nB6} · B7 写时刻不回传 ${nB7};锚点 = 该文件 HEAD 自身同判据计数)`,
     )
     for (const r of out.ratcheted)
       L.push(
-        `   [${{ b1: 'B1假ack', b2: 'B2委托假ack', b3: 'B3回填无界', b4: 'B4终态回退', b5: 'B5排序无尾键', b6: 'B6jsonb无声明' }[r.kind] || '计数自算'}] ${r.file}${r.key ? `〈ack 键 ${r.key}〉` : ''}:索引 ${r.now} 处 > HEAD ${r.anchor} 处 ⇒ 净新增 ${r.added} 处`,
+        `   [${{ b1: 'B1假ack', b2: 'B2委托假ack', b3: 'B3回填无界', b4: 'B4终态回退', b5: 'B5排序无尾键', b6: 'B6jsonb无声明', b7: 'B7写时刻不回传' }[r.kind] || '计数自算'}] ${r.file}${r.key ? `〈ack 键 ${r.key}〉` : ''}:索引 ${r.now} 处 > HEAD ${r.anchor} 处 ⇒ 净新增 ${r.added} 处`,
       )
     if (nLegacy) {
       L.push(
@@ -2577,9 +2709,17 @@ export function formatReport(out) {
         '   确为全量真相(内存态即完整转写)的整列覆盖,在 set 键同行或上 3 行内写逐列声明注释 `// <列>:全量真相 —— <理由>`;这一维按票面拍板只拦新增。',
       )
     }
+    if (nB7) {
+      L.push(
+        '   B7 修法:投影里补时间列(returning({ id: t.id, updatedAt: t.updatedAt })),或改裸 .returning() 回全行 ——',
+      )
+      L.push(
+        '   写入时刻必须原样回给调用方,时序/去重/审计不得靠猜;这一维按票面拍板只拦新增。',
+      )
+    }
   } else if (out.face === 'staged')
     L.push(
-      '✅ 索引面未见新增"批量写自算计数 / B1 假 ack / B2 委托假 ack / B3 回填无界 / B4 终态回退 / B5 排序无尾键 / B6 jsonb 整列覆盖无声明"(存量按各文件 HEAD 自身计数豁免,不代裁)。',
+      '✅ 索引面未见新增"批量写自算计数 / B1 假 ack / B2 委托假 ack / B3 回填无界 / B4 终态回退 / B5 排序无尾键 / B6 jsonb 整列覆盖无声明 / B7 写时刻不回传"(存量按各文件 HEAD 自身计数豁免,不代裁)。',
     )
   if (out.face !== 'staged' && c.violations) {
     L.push(
@@ -2655,6 +2795,18 @@ export function formatReport(out) {
       )
     if (c.b6Violations > 40) L.push(`   …另 ${c.b6Violations - 40} 处(--explain 看全量)`)
   }
+  // B7 是**棘轮专用维**(G-815984,与 B4/B5/B6 同档):head 面含 --strict 一律 ⚠️ 只报数 —— 这一行
+  // 永远不出 ❌,拦截只发生在 staged 差值棘轮(kind='b7')。措辞里必须把这句话喊出来。
+  if (out.face !== 'staged' && c.b7Violations) {
+    L.push(
+      `⚠️ 全量档现读 B7 写时刻不回传 ${c.b7Violations} 处 / ${c.b7Files} 文件(写链 .returning( 取了业务列却不取回任何时间列 —— 写入时刻没回给调用方)—— **只报数不判红(--strict 也不判)**:票面拍板"现存违规报数不判红,只拦新增",提交链走差值棘轮,净新增即红;面内共 ${c.b7Candidates ?? 0} 处、其中带时间列/裸回全行/纯 id 计数而放过 ${c.b7Candidates != null ? c.b7Candidates - c.b7Violations : 0} 处`,
+    )
+    for (const v of b7v.slice(0, 40))
+      L.push(
+        `   ${v.file}:${v.line}  (写链=${v.receiver}.… returning→${v.excerpt} ⇒ ${v.why})(只拦新增,不进 --strict)`,
+      )
+    if (c.b7Violations > 40) L.push(`   …另 ${c.b7Violations - 40} 处(--explain 看全量)`)
+  }
   if (c.undetermined) {
     L.push(`⚠️ 未判定 ${c.undetermined} 处 —— **未判定不等于通过**,下列每一处本门都承认自己看不见:`)
     for (const u of out.undetermined.slice(0, 40)) L.push(`   ${u.file}:${u.line}  ${u.why}`)
@@ -2691,10 +2843,11 @@ export function formatReport(out) {
     !c.b3Violations &&
     !c.b4Violations &&
     !c.b5Violations &&
-    !c.b6Violations
+    !c.b6Violations &&
+    !c.b7Violations
   )
     L.push(
-      '✅ 通过:覆盖面内无自算计数、无 B1/B2 假 ack、无 B3 回填无界、无 B4 终态回退、无 B5 排序无尾键、无 B6 jsonb 整列覆盖无声明,且无未判定项。',
+      '✅ 通过:覆盖面内无自算计数、无 B1/B2 假 ack、无 B3 回填无界、无 B4 终态回退、无 B5 排序无尾键、无 B6 jsonb 整列覆盖无声明、无 B7 写时刻不回传,且无未判定项。',
     )
   if (
     out.face === 'staged' &&
@@ -2739,6 +2892,9 @@ export function formatReport(out) {
       // B6(G-815954)与 B4/B5 同构:现读点名 + 把"只拦新增"喊出来(0 也照喊,"0 处 ≠ 没扫过")。
       `;B6 jsonb 无声明(判据:违规 ${c.b6Violations ?? 0} 处 / ${c.b6Files ?? 0} 文件,` +
       `候选 ${c.b6Candidates ?? 0};只报数不进 --strict,票面拍板只拦新增,提交链差值棘轮)` +
+      // B7(G-815984)与 B4/B5/B6 同构:现读点名 + 把"只拦新增"喊出来(0 也照喊,"0 处 ≠ 没扫过")。
+      `;B7 写时刻不回传(判据:违规 ${c.b7Violations ?? 0} 处 / ${c.b7Files ?? 0} 文件,` +
+      `候选 ${c.b7Candidates ?? 0};只报数不进 --strict,票面拍板只拦新增,提交链差值棘轮)` +
       // 逐键点名(2026-09-27):扩键族后"合计 12 处"这句话什么都没说 —— 新那一族可能一处都没有,
       // 也可能全是新那一族。含 0 也照喊,理由与 B1/B2 段同一句("0 处 ≠ 没扫过")。
       // 表由 BOOL_ACK_KEYS 派生:**报表漏键在这里结构上不可能发生**,自检 K0 再用一份独立写死的
@@ -2781,9 +2937,19 @@ const USAGE = `用法: node scripts/${GATE}.mjs [--staged|--worktree] [--strict]
     判不了格如实登记:config 非对象字面量/值经变量拼装/声明超 3 行窗/jsonb_insert 未列绿腿 ⇒ 不进面
     扫描面 = 基础面 ∪ services/plugins(其余判据不随此扩面);**head 面(含 --strict)只报数不判红**
     (decide 签名刻意不收 b6Violations);staged 差值棘轮净新增即红
+  判据八(B7 写时刻不回传,2026-10-07 G-815984,**棘轮专用维,与 B4/B5/B6 同构**):写链(.delete/.update)
+    的 .returning( 实参是显式列投影对象字面量、取了业务列,而投影全文(键/值两侧)无任何时间列
+    (At|Time 结尾的标识符,仓内驼峰时间戳惯例 createdAt/updatedAt/deletedAt…)⇒ 违规 ——
+    写入时刻必须原样回给调用方,时序/去重/审计不得靠猜
+    放过:裸 .returning() 无参(回全行)/ 投影带时间列(键或值任一侧)/ 纯 id 计数投影(票面
+    "写链 \`.returning({id})\` 之外"的豁免半句 —— V1/B1 既有绿形态与修法指引推荐形状,处置 id-count)
+    判不了格如实登记:实参经变量传入 / 投影对象带展开({...pick})/ \`sql\` 模板实参 ⇒ 里面有没有
+    时间列词法不可知,不进面;insert 链不进本维(findWriteChains 动词锚只有 .delete/.update,扩动词
+    会同时改 B1/B3/B4 的面,登记不装看不见)
+    **head 面(含 --strict)只报数不判红**(decide 签名刻意不收 b7Violations);staged 差值棘轮净新增即红
   只报数不判红(现读惯例存量,写在结论行):布尔 ack(五键按键分组现读,无写链的那一半)与读查询 \`count: X.length\`;--explain 逐条点名
-  七条判据的存量都按「该文件 HEAD 自身同判据计数」差值棘轮:全量档只报数(恒红门=逼人 --no-verify,§12e),
-  提交链档与 --strict 才问责(B4/B5/B6 例外:全量档含 --strict 都只报数,只拦新增)。
+  八条判据的存量都按「该文件 HEAD 自身同判据计数」差值棘轮:全量档只报数(恒红门=逼人 --no-verify,§12e),
+  提交链档与 --strict 才问责(B4/B5/B6/B7 例外:全量档含 --strict 都只报数,只拦新增)。
   紧急跳过:${SELF_SKIP}=1`
 
 function main(argv) {
@@ -2879,6 +3045,12 @@ function main(argv) {
         console.log(
           `  · B6jsonb ${s.file}:${s.line} set→${s.setExcerpt} ⇒ ${s.disposition}${s.setWhy ? ` (${s.setWhy})` : ''}(只拦新增,不进 --strict)`,
         )
+    // B7 的逐条处置:候选含"绿"的处置(裸回全行/带时间列),面与基础面同一张表(out.per 已覆盖)。
+    for (const r of out.per)
+      for (const s of r.b7.candidates)
+        console.log(
+          `  · B7写时刻 ${s.file}:${s.line} returning→${s.excerpt} ⇒ ${s.disposition}${s.why ? ` (${s.why})` : ''}(只拦新增,不进 --strict)`,
+        )
   }
   if (argv.includes('--json')) {
     console.log(
@@ -2900,11 +3072,12 @@ function main(argv) {
           b1NoBody: out.b1NoBody,
           b2Violations: out.b2Violations,
           b2Undetermined: out.b2Undetermined,
-          // G-815953/G-815956/G-815955/G-815954:继续**追加在末尾**(镜像 M10/M18 同一条契约 —— 只追加不改写)。
+          // G-815953/G-815956/G-815955/G-815954/G-815984:继续**追加在末尾**(镜像 M10/M18 同一条契约 —— 只追加不改写)。
           b3Violations: out.b3Violations,
           b4Violations: out.b4Violations,
           b5Violations: out.b5Violations,
           b6Violations: out.b6Violations,
+          b7Violations: out.b7Violations,
         },
         null,
         2,
@@ -3343,6 +3516,64 @@ const FIX = {
     '    target: kv.key,',
     '    set: { messages: "messages:全量真相 —— 完整转写" },',
     '  })',
+    '}',
+    '',
+  ].join('\n'),
+  // ---- B7(G-815984)夹具:写时刻不回传的正反例(判据八,棘轮专用维与 B4/B5/B6 同构)----
+  /** 红腿:取了业务列(name)却不取回任何时间列 —— 写入时刻没回给调用方。 */
+  b7ProjNoTime: [
+    'export async function renameThing(id: string, name: string) {',
+    '  const rows = await db.update(things).set({ name }).where(eq(things.id, id)).returning({ id: things.id, name: things.name })',
+    '  return rows',
+    '}',
+    '',
+  ].join('\n'),
+  /** 绿腿(id-count 豁免半句):纯 id 计数投影 —— 票面"写链 `.returning({id})` 之外"的既有绿形态。 */
+  b7IdCountOnly: [
+    'export async function renameThing(id: string, name: string) {',
+    '  const rows = await db.update(things).set({ name }).where(eq(things.id, id)).returning({ id: things.id })',
+    '  return rows',
+    '}',
+    '',
+  ].join('\n'),
+  /** 绿腿(票面正例):同一写链的显式投影带上 updatedAt —— 写时刻原样回给调用方。 */
+  b7ProjWithTime: [
+    'export async function renameThing(id: string, name: string) {',
+    '  const rows = await db.update(things).set({ name }).where(eq(things.id, id)).returning({ id: things.id, updatedAt: things.updatedAt })',
+    '  return rows',
+    '}',
+    '',
+  ].join('\n'),
+  /** 绿腿:裸 `.returning()` 无参 = 回全行(时间列结构性在内),处置 bare-full-row。 */
+  b7BareFullRow: [
+    'export async function renameThing(id: string, name: string) {',
+    '  const rows = await db.update(things).set({ name }).where(eq(things.id, id)).returning()',
+    '  return rows',
+    '}',
+    '',
+  ].join('\n'),
+  /** 判不了格(不进面):投影实参经变量传入 —— 里面有没有时间列词法不可知,不假装已判。 */
+  b7ProjVarArg: [
+    'export async function renameThing(id: string, name: string, cols) {',
+    '  const rows = await db.update(things).set({ name }).where(eq(things.id, id)).returning(cols)',
+    '  return rows',
+    '}',
+    '',
+  ].join('\n'),
+  /** 判不了格(不进面):投影对象带展开 —— `...pick` 是否含时间列词法不可知。 */
+  b7ProjSpread: [
+    'export async function renameThing(id: string, name: string, pick) {',
+    '  const rows = await db.update(things).set({ name }).where(eq(things.id, id)).returning({ id: things.id, ...pick })',
+    '  return rows',
+    '}',
+    '',
+  ].join('\n'),
+  /** 冒充钉子 B7f:注释里提时间列 ⇒ 全遮蔽档剥注释,业务列投影里没有就是没有,照红。 */
+  b7CommentTime: [
+    'export async function renameThing(id: string, name: string) {',
+    '  // 以后需要时序的话记得把 createdAt 也取回去',
+    '  const rows = await db.update(things).set({ name }).where(eq(things.id, id)).returning({ id: things.id, name: things.name })',
+    '  return rows',
     '}',
     '',
   ].join('\n'),
@@ -4740,6 +4971,131 @@ function selfTest(argv) {
           !/✅ 通过/.test(t1),
         t2.includes('[B6jsonb无声明] c.ts') && /B6 jsonb 无声明 1/.test(t2),
         /B6 jsonb 无声明\(判据:违规 0 处 \/ 0 文件,候选 0;只报数不进 --strict/.test(t3),
+      ]
+    })(),
+    [true, true, true],
+  )
+  // ---- B7(G-815984,2026-10-07):写时刻不回传。二元组 = [b7候选, b7违规]。
+  //      判据取模块导出的 findReturningTimeColSites(§22c),棘轮专用维与 B4/B5/B6 同构。----
+  const b7v = (t) => {
+    const r = v(t)
+    return [r.b7.candidates.length, r.b7.violations.length]
+  }
+  eq(
+    'B7 取了业务列(name)却无时间列 ⇒ 违规 1(写入时刻没回给调用方)',
+    b7v(FIX.b7ProjNoTime),
+    [1, 1],
+  )
+  eq(
+    'B7b 纯 id 计数投影 ⇒ 放过(票面"写链 .returning({id}) 之外"的豁免半句,处置 id-count —— 门自己的修法指引推荐形状不得被棘轮判净新增)',
+    [b7v(FIX.b7IdCountOnly), v(FIX.b7IdCountOnly).b7.candidates[0].disposition],
+    [[1, 0], 'id-count'],
+  )
+  eq(
+    'B7c 同链投影带 updatedAt ⇒ 放过(票面正例:写时刻原样回给调用方,处置 time-col)',
+    [
+      b7v(FIX.b7ProjWithTime),
+      v(FIX.b7ProjWithTime).b7.candidates[0].disposition,
+    ],
+    [[1, 0], 'time-col'],
+  )
+  eq(
+    'B7d 裸 .returning() 无参 ⇒ 放过(回全行,时间列结构性在内,处置 bare-full-row)',
+    [b7v(FIX.b7BareFullRow), v(FIX.b7BareFullRow).b7.candidates[0].disposition],
+    [[1, 0], 'bare-full-row'],
+  )
+  eq(
+    'B7e 投影实参经变量 ⇒ 判不了格不进面(候选 0 违规 0,不假装已判)',
+    b7v(FIX.b7ProjVarArg),
+    [0, 0],
+  )
+  eq(
+    'B7e2 投影对象带展开 ⇒ 判不了格不进面(...pick 是否含时间列词法不可知)',
+    b7v(FIX.b7ProjSpread),
+    [0, 0],
+  )
+  eq(
+    'B7f 注释里提时间列冒充不了投影 ⇒ 全遮蔽档剥注释,照红(冒充钉子)',
+    b7v(FIX.b7CommentTime),
+    [1, 1],
+  )
+  eq(
+    'B7g 红点形态:receiver/via/excerpt/why 齐备(镜像测试按字段复核);why 点名"业务列无时间列"',
+    (() => {
+      const r = v(FIX.b7ProjNoTime).b7.violations[0]
+      return [r.receiver, r.via, r.excerpt.includes('name: things.name'), /业务列.*无.*时间列|非计数投影/.test(r.why || '')]
+    })(),
+    ['db', 'drizzle', true, true],
+  )
+  eq(
+    'B7D decide:B7 刻意**不在签名里** —— head+strict 即便有 B7 存量也不判红(与 B4/B5/B6 同构,棘轮专用维);staged 净新增经 ratcheted(kind=b7)照红',
+    [
+      D({ face: 'head', violations: [], undetermined: [], ratcheted: null, strict: true }),
+      D({
+        face: 'staged',
+        violations: [],
+        undetermined: [],
+        ratcheted: [{ file: 'a.ts', kind: 'b7', now: 1, anchor: 0, added: 1 }],
+        strict: false,
+      }),
+    ],
+    [0, 1],
+  )
+  eq(
+    'B7fmt 报告面:B7 行**永远 ⚠️ 只报数**(strict 也不许出 ❌);棘红块 kind 分列点名 B7;结论行 0 也照喊',
+    (() => {
+      const t1 = formatReport({
+        face: 'head',
+        strict: true,
+        ratcheted: null,
+        violations: [],
+        undetermined: [],
+        exempt: { returning: 0, db: 0, outlet: 0, marker: 0 },
+        b1Violations: [],
+        b2Violations: [],
+        b2Undetermined: [],
+        b3Violations: [],
+        b4Violations: [],
+        b5Violations: [],
+        b6Violations: [],
+        b7Violations: [
+          {
+            file: 'apps/api/src/db/x.ts',
+            line: 11,
+            receiver: 'db',
+            via: 'drizzle',
+            excerpt: '{ id: things.id, name: things.name }',
+            why: '非计数投影(含业务列)却不取回任何时间列(须同时取回 createdAt/updatedAt 等 At|Time 结尾列,或改裸 .returning() 回全行)',
+          },
+        ],
+        counts: { ...BASE_COUNTS, b7Violations: 1, b7Files: 1, b7Candidates: 1 },
+      }).join('\n')
+      const t2 = formatReport({
+        face: 'staged',
+        strict: false,
+        ratcheted: [{ file: 'c.ts', kind: 'b7', now: 1, anchor: 0, added: 1 }],
+        violations: [],
+        undetermined: [],
+        exempt: { returning: 0, db: 0, outlet: 0, marker: 0 },
+        b1Violations: [],
+        counts: BASE_COUNTS,
+      }).join('\n')
+      const t3 = formatReport({
+        face: 'head',
+        strict: false,
+        ratcheted: null,
+        violations: [],
+        undetermined: [],
+        exempt: { returning: 0, db: 0, outlet: 0, marker: 0 },
+        counts: BASE_COUNTS,
+      }).join('\n')
+      return [
+        /B7 写时刻不回传 1 处 \/ 1 文件/.test(t1) &&
+          /只报数不判红/.test(t1) &&
+          !/❌/.test(t1) &&
+          !/✅ 通过/.test(t1),
+        t2.includes('[B7写时刻不回传] c.ts') && /B7 写时刻不回传 1/.test(t2),
+        /B7 写时刻不回传\(判据:违规 0 处 \/ 0 文件,候选 0;只报数不进 --strict/.test(t3),
       ]
     })(),
     [true, true, true],
