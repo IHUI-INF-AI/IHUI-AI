@@ -20,7 +20,7 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_updater::UpdaterExt;
 
@@ -81,6 +81,26 @@ fn notify(app: &tauri::AppHandle, title: &str, body: &str) {
 /// 直接 `format!("location.href='{url}'")` 在 URL 含 `'` / `\` 时会破坏脚本并静默失效。
 fn js_string(s: &str) -> String {
     serde_json::to_string(s).unwrap_or_else(|_| "\"\"".to_string())
+}
+
+// G-379,2026-10-07
+/// 宿主发起整页导航前先触发"存草稿"——与 lib.rs CloseRequested 是**同一道闸**:
+/// 那边注释原文"三种去向都照发…先存草稿"(无条件 `emit("desktop-before-close")`),
+/// 而本模块的热刷新/离线切换同样由宿主掀掉渲染端,CloseRequested 根本不会走,
+/// 那条 emit 一次都不发生 ⇒ 正在编辑的草稿随页面一起丢。导航前补发同一事件,
+/// 前端消费链与关窗路径完全一致(use-desktop.ts listen → dispatchEvent → 存草稿)。
+///
+/// emit 是 fire-and-forget,而紧随的 eval 会立刻开始卸载页面 ⇒ 同一轮里 emit 必输给
+/// unload,"发了事件"不等于"草稿存住"。故发完等一拍再返回,给监听链留落盘时间
+/// (关窗路径有 prevent_close 顶着不缺这一拍,导航路径必须自己等)。失败只告警:
+/// 存草稿闸与深链复位闸同纪律——闸失败不拦导航,导航照走,不能因存草稿卡死重连。
+const DRAFT_FLUSH_GRACE: Duration = Duration::from_millis(200);
+
+async fn emit_before_close_for_navigation(window: &tauri::WebviewWindow) {
+    if let Err(e) = window.emit("desktop-before-close", ()) {
+        log::warn!("[auto-refresh] 导航前 emit desktop-before-close 失败: {e}");
+    }
+    tokio::time::sleep(DRAFT_FLUSH_GRACE).await;
 }
 
 /// 探活一次(HEAD /api/health)。仅 2xx 视为健康。
@@ -342,6 +362,8 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
                 // 监听后调 take_pending_deep_links 重新点亮;复位调用点的对账判据见
                 // lib.rs 测试「导航发起处无一例外必须先复位闸门」+ 守门 G 组。
                 crate::reset_deep_link_gate_for_navigation("main");
+                // G-379,2026-10-07:导航前过存草稿闸(与 CloseRequested 同通道,下同)
+                emit_before_close_for_navigation(&w).await;
                 let _ = w.eval(&format!("location.href={}", js_string(OFFLINE_URL)));
                 let _ = w.set_title(&format!(
                     "{} · 离线,自动重连中",
@@ -386,6 +408,8 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
                             .filter(|u| is_resumable_url(u));
                         // 导航前复位深链闸门(同启动离线处,调用点对账见 lib.rs 测试)
                         crate::reset_deep_link_gate_for_navigation("main");
+                        // G-379,2026-10-07:导航前过存草稿闸
+                        emit_before_close_for_navigation(&w).await;
                         let _ = w.eval(&format!("location.href={}", js_string(OFFLINE_URL)));
                         let _ = w.set_title(&format!(
                             "{} · 离线,自动重连中",
@@ -415,6 +439,8 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
                     if let Some(w) = app.get_webview_window("main") {
                         // 导航前复位深链闸门(调用点对账见 lib.rs 测试)
                         crate::reset_deep_link_gate_for_navigation("main");
+                        // G-379,2026-10-07:导航前过存草稿闸
+                        emit_before_close_for_navigation(&w).await;
                         let _ = w.eval(&format!("location.href={}", js_string(&target)));
                         let _ = w.set_title(&crate::localized_app_name());
                     }
@@ -434,6 +460,8 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
                         if let Some(w) = app.get_webview_window("main") {
                             // reload 前复位深链闸门(调用点对账见 lib.rs 测试)
                             crate::reset_deep_link_gate_for_navigation("main");
+                            // G-379,2026-10-07:reload 前过存草稿闸
+                            emit_before_close_for_navigation(&w).await;
                             let _ = w.eval("location.reload()");
                         }
                     }
@@ -462,6 +490,8 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
                                 if let Some(w) = app.get_webview_window("main") {
                                     // reload 前复位深链闸门(调用点对账见 lib.rs 测试)
                                     crate::reset_deep_link_gate_for_navigation("main");
+                                    // G-379,2026-10-07:reload 前过存草稿闸
+                                    emit_before_close_for_navigation(&w).await;
                                     let _ = w.eval("location.reload()");
                                     notify(
                                         &app,
