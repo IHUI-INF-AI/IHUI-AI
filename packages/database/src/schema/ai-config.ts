@@ -136,7 +136,6 @@ export const aiModelConfigModels = pgTable(
     lastTestResponseMs: integer('last_test_response_ms'),
     lastTestedAt: varchar('last_tested_at', { length: 32 }),
     lastTestError: text('last_test_error'),
-    extraMetadata: jsonb('extra_metadata').default({}),
     // --- P0-5 中转站字段(2026-07-29 立) ---
     /** 是否在中转站公开上架(/v1/models 返回此模型) */
     isRelayPublic: boolean('is_relay_public').default(false).notNull(),

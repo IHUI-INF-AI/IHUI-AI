@@ -35,7 +35,7 @@ git tag desktop-v<version> && git push origin desktop-v<version>   # → .github
 
 - 本机：`~/.tauri/ihui-updater.key` + `~/.tauri/ihui-updater-password.txt` → `TAURI_SIGNING_PRIVATE_KEY` / `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`（`scripts/release-desktop-local.mjs`）。
 - CI：同名 env 取自 secrets `DESKTOP_TAURI_PRIVATE_KEY` / `DESKTOP_TAURI_KEY_PASSWORD`（`release-desktop.yml`）。
-- feed：`tauri.conf.json` → `plugins.updater.endpoints` 两条，`https://aizhs.top/desktop-feed.json`（站点快照，由 `scripts/resolve-desktop-download.mjs` 刷新）与 GitHub Release 固定附件 `.../releases/download/desktop-updater-feed/latest.json`（`scripts/generate-latest-json.mjs` 聚合各平台后发布）；`bundle.createUpdaterArtifacts: true` 产出 `.sig`。
+- feed：`tauri.conf.json` → `plugins.updater.endpoints` 单端点 `https://aizhs.top/desktop-feed.json`（站点快照，由 `scripts/resolve-desktop-download.mjs` 刷新；2026-10-05 起 GitHub `desktop-updater-feed` 兜底端点已删除）；`bundle.createUpdaterArtifacts: true` 产出 `.sig`。
 - 开发态端口：`build.devUrl` = `http://localhost:8801`，`beforeDevCommand` = `pnpm --filter @ihui/web dev`。
 
 ## Windows 安装包（NSIS）
