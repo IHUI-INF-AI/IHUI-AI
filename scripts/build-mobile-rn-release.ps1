@@ -20,7 +20,7 @@
     - build.gradle 未检测到凭据时 release 回退 debug 签名(仅本机可装, 不可上架)
 
   用法:
-    pwsh -File scripts/build-mobile-rn-release.ps1                  # 默认三 ABI(arm64-v8a+armeabi-v7a+x86_64)
+    pwsh -File scripts/build-mobile-rn-release.ps1                  # 默认双 ABI(arm64-v8a+x86_64)
     pwsh -File scripts/build-mobile-rn-release.ps1 -VersionCode 2   # 指定版本号(上架必须递增)
     pwsh -File scripts/build-mobile-rn-release.ps1 -Abi x86_64      # 单 ABI(模拟器/快速验证)
     pwsh -File scripts/build-mobile-rn-release.ps1 -FullAbi         # 含 x86(32位, 一般不必要)
@@ -32,7 +32,7 @@
 .PARAMETER ShowVersionCode
   只解析并打印本次会用的 versionCode 与依据,不构建(给取证脚本与人工先确认落点用)
 .PARAMETER Abi
-  目标 ABI(逗号分隔, 如 arm64-v8a,armeabi-v7a); 缺省为 arm64-v8a,armeabi-v7a,x86_64(不含 32 位 x86)
+  目标 ABI(逗号分隔, 如 arm64-v8a,x86_64); 缺省为 arm64-v8a,x86_64(32 位真机已放弃, 见 PROJECT_PLAN G-977963)
 .PARAMETER FullAbi
   构建全部 ABI(含 x86 32 位)
 .PARAMETER SkipVerify
@@ -131,11 +131,11 @@ if (-not $hasKs -or -not $hasProps) {
   Write-Host '  签名凭据 OK (~/.gradle/gradle.properties)' -ForegroundColor Green
 }
 
-# 目标 ABI: -Abi 优先 > -FullAbi 全量 > 默认三 ABI
+# 目标 ABI: -Abi 优先 > -FullAbi 全量 > 默认双 ABI (32位真机已放弃,见 PROJECT_PLAN G-977963)
 $abiArg = ''
 if ($FullAbi) { $abiArg = '-PreactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64' }
 elseif ($Abi)  { $abiArg = "-PreactNativeArchitectures=$Abi" }
-else           { $abiArg = '-PreactNativeArchitectures=arm64-v8a,armeabi-v7a,x86_64' }
+else           { $abiArg = '-PreactNativeArchitectures=arm64-v8a,x86_64' }
 
 Write-Host "`n===== [3/4] gradlew assembleRelease (versionCode=$VersionCode) =====" -ForegroundColor Cyan
 Write-Host "  ABI: $($abiArg -replace '^.*=','')"
