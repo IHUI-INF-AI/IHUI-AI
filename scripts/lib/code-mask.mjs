@@ -25,6 +25,18 @@
 // 需要"看得见正则字面量"的那一侧请用 **`maskCommentsStringsAndRegex`**(新导出):同一台分词器、
 // 同样等长,额外把正则字面量的**体**清空(正则里的 `(` 与 `'` 是模式,不是代码)。
 //
+// ─── 正则档的两处误切修复(G-1059136 续篇,2026-10-07)────────────────────────
+//  门 194 的"未判定 3 枚"根因都在正则档词法上,已修:
+//  1) 模板串不感知 `${}` 插值 —— 嵌套反引号(`\`${u.key}\`` 型)被当成"本串闭合",真串被
+//     切碎、后文按代码误读(gen-doc-numbers.mjs 实证)。现正则档反引号走插值栈:顶层模板
+//     仍是一枚 span,插值内的嵌套模板/串/注释/正则只消费不产 span(span 面与旧同形)。
+//  2) 正则起始带"下一字符非空格"守卫 —— `/ {4}let …/g`、`/ effectScope: 'none',/` 这类
+//     **以空格开头的正则字面量**被拒认,闭合 `/` 反被当成新正则起点吞掉真 `)`
+//     (check-desktop-event-wiring / check-tool-contract-declared 各实证一枚)。守卫已去,
+//     代价由 postfix 保守规则兜住:`++ /`、`-- /`(带空白)按除法。
+//  兼容档(regex:false)一字未动:反引号仍整串走、插值不感知 —— "嵌套反引号切碎模板串"
+//  是该档**已档化的历史边界**(十几道门的读数钉在它上面,改字节级行为 = 让那些门换读数)。
+//
 // ─── 一台分词器,四个投影 ────────────────────────────────────────────────
 // 词法只有一份(`scanSpans`),下面每个导出都是它在不同 span 集合上的投影:
 //  - `maskCommentsAndStrings`      注释 + 字符串,正则档关 ⇒ **与历史字节级同形**(兼容面)
@@ -149,25 +161,73 @@ function readRegexSpan(text, i) {
  * (这一句本身踩过坑:注释里逐字写出那三个字符会**提前终结本块注释**,于是说明文字变成代码。)
  * 所以注释判定不受 lastSig 影响;正则判定只在字符串之外才问。
  *
- * `opts.regex === false` 关掉正则档 ⇒ 斜杠永远按普通字符走,引号即使在正则字面量里也当字符串
- * 开头。这不是"另一种词法",而是**同一次分词去掉一个分支** —— 旧导出
- * `maskCommentsAndStrings` 的历史字节级形态正是这一档(由 corpus A/B 逐字节证明,见
- * `scripts/tests/code-mask.test.mjs` 的 M-legacy 组)。默认(不给 opts 或 `regex:true`)认正则:
- * 闭合不了的"正则"按除法处理且**什么都不清**,所以误判方向只会是"少遮"(可能多报),
- * 绝不会是"把真 token 吞掉"。
+ * 模板插值栈(G-1059136 续篇,2026-10-07):正则档的反引号串走**插值感知** —— 顶层模板
+ * 仍是**一枚** span(区间语义与 `readStringSpan` 同形:闭合时 bodyEnd=闭反引号位、end=其+1),
+ * `${}` 插值内的嵌套模板/串/注释/正则只消费不产 span。没有这一层,`` \`${u.key}\` `` 型的
+ * 嵌套反引号会被当成"本串在此闭合",真串被切碎、后文按代码误读(gen-doc-numbers.mjs 实证)。
+ *
+ * 正则起始只去掉"下一字符非空格"的守卫:`/ {4}let …/g` 这类**以空格开头的正则字面量**是
+ * 真语法(check-desktop-event-wiring 实证),拒认它们会让闭合 `/` 被当成新正则起点吞掉真
+ * `)`。代价由 postfix 保守规则兜住:`++ /`、`-- /`(斜杠前带空白、再前一位是同号)按除法
+ * —— `a++ / 2 / 3` 的除法链不得开正则态。
+ *
+ * `opts.regex === false` 关掉正则档 ⇒ 斜杠永远按普通字符走,引号(**含反引号,整串一枚、
+ * 不感知插值**)即使在正则字面量里也当字符串开头。这不是"另一种词法",而是**同一次分词
+ * 去掉一个分支** —— 旧导出 `maskCommentsAndStrings` 的历史字节级形态正是这一档(由
+ * corpus A/B 逐字节证明,见 `scripts/tests/code-mask.test.mjs` 的 M-legacy 组);
+ * "嵌套反引号把模板串切碎"是这一档**已档化的历史边界**(十几道门的读数钉着它,不修)。
+ * 默认(不给 opts 或 `regex:true`)认正则:闭合不了的"正则"按除法处理且**什么都不清**,
+ * 所以误判方向只会是"少遮"(可能多报),绝不会是"把真 token 吞掉"。
  */
 export function scanSpans(text, opts = {}) {
   const useRegex = opts.regex !== false
   const spans = []
+  // 模板插值栈:顶层模板开栏时产 1 枚占位 span(spanIdx 指向它),闭合时回填;
+  // 插值内嵌套的模板/串(spanIdx:-1)只消费。braceDepth 数插值内的 `{}`,归 0 回模板体。
+  const tplStack = []
   let i = 0
   let lastSig = ''
   let lastWord = ''
   while (i < text.length) {
+    const tpl = tplStack[tplStack.length - 1]
+    if (tpl && !tpl.inInterp) {
+      // 模板体内:只认转义、闭合反引号与插值开栏,其余逐字符消费(是文本,不是 token)
+      const c = text[i]
+      if (c === '\\') {
+        i += 2
+        continue
+      }
+      if (c === '`') {
+        if (tpl.spanIdx >= 0) {
+          const s = spans[tpl.spanIdx]
+          s.bodyEnd = i
+          s.end = i + 1
+          s.closed = true
+          s.body = text.slice(s.bodyStart, s.bodyEnd)
+        }
+        tplStack.pop()
+        lastSig = '`'
+        lastWord = ''
+        i += 1
+        continue
+      }
+      if (c === '$' && text[i + 1] === '{') {
+        tpl.inInterp = true
+        tpl.braceDepth = 1
+        lastSig = '(' // 插值是表达式位置:`${/re/.test(x)}` 的 `/` 须认正则
+        lastWord = ''
+        i += 2
+        continue
+      }
+      i += 1
+      continue
+    }
+    const inInterp = tpl !== undefined
     const c = text[i]
     if (c === '/' && text[i + 1] === '/') {
       let j = i
       while (j < text.length && text[j] !== '\n') j += 1
-      spans.push({ kind: 'line', start: i, end: j, bodyStart: i, bodyEnd: j })
+      if (!inInterp) spans.push({ kind: 'line', start: i, end: j, bodyStart: i, bodyEnd: j })
       i = j
       continue
     }
@@ -175,32 +235,69 @@ export function scanSpans(text, opts = {}) {
       let j = i + 2
       while (j < text.length && !text.startsWith('*/', j)) j += 1
       const end = Math.min(j + 2, text.length)
-      spans.push({ kind: 'block', start: i, end, bodyStart: i, bodyEnd: end })
+      if (!inInterp) spans.push({ kind: 'block', start: i, end, bodyStart: i, bodyEnd: end })
       i = end
       continue
     }
-    if (c === "'" || c === '"' || c === '`') {
+    if (c === "'" || c === '"' || (c === '`' && !useRegex)) {
+      // 兼容档反引号照走整串(字节级历史形态,插值不感知);插值内的串只消费不产 span
       const r = readStringSpan(text, i)
-      spans.push({ kind: 'string', start: i, ...r })
+      if (!inInterp) spans.push({ kind: 'string', start: i, ...r })
       i = r.end
       lastSig = c
       lastWord = ''
       continue
     }
-    if (
-      useRegex &&
-      c === '/' &&
-      regexCanStart(lastSig, lastWord) &&
-      text[i + 1] !== undefined &&
-      text[i + 1] !== ' '
-    ) {
-      const r = readRegexSpan(text, i)
-      if (r.closed) {
-        spans.push({ kind: 'regex', start: i, ...r })
-        i = r.end
-        lastSig = '/'
-        lastWord = ''
-        continue
+    if (useRegex && c === '`') {
+      if (inInterp) {
+        tplStack.push({ spanIdx: -1, inInterp: false, braceDepth: 0 })
+      } else {
+        spans.push({
+          kind: 'string',
+          start: i,
+          bodyStart: i + 1,
+          bodyEnd: i + 1,
+          end: i + 1,
+          body: '',
+          closed: false,
+          isTemplate: true,
+        })
+        tplStack.push({ spanIdx: spans.length - 1, inInterp: false, braceDepth: 0 })
+      }
+      i += 1
+      continue
+    }
+    if (inInterp && (c === '{' || c === '}')) {
+      if (c === '{') {
+        tpl.braceDepth += 1
+      } else {
+        tpl.braceDepth -= 1
+        if (tpl.braceDepth === 0) {
+          tpl.inInterp = false
+          i += 1
+          continue
+        }
+      }
+      lastSig = c
+      lastWord = ''
+      i += 1
+      continue
+    }
+    if (useRegex && c === '/' && regexCanStart(lastSig, lastWord) && text[i + 1] !== undefined) {
+      // postfix 保守:`++ /`、`-- /`(带空白)按除法,防 `a++ / 2 / 3` 除法链误切
+      const postfix =
+        (lastSig === '+' || lastSig === '-') &&
+        (text[i - 1] === ' ' || text[i - 1] === '\t') &&
+        text[i - 2] === lastSig
+      if (!postfix) {
+        const r = readRegexSpan(text, i)
+        if (r.closed) {
+          if (!inInterp) spans.push({ kind: 'regex', start: i, ...r })
+          i = r.end
+          lastSig = '/'
+          lastWord = ''
+          continue
+        }
       }
       // 闭合不了 ⇒ 按除法,且**不清任何东西**(宁可少遮,绝不吞掉真 token)
       i += 1
@@ -216,6 +313,14 @@ export function scanSpans(text, opts = {}) {
       lastWord = /[\w$]/.test(c) ? lastWord + c : ''
     }
     i += 1
+  }
+  // EOF 仍未闭合的模板:span 收到文本尾(closed:false),与 readStringSpan 的 EOF 语义一致
+  for (const tpl of tplStack) {
+    if (tpl.spanIdx < 0) continue
+    const s = spans[tpl.spanIdx]
+    s.bodyEnd = text.length
+    s.end = text.length
+    s.body = text.slice(s.bodyStart, s.bodyEnd)
   }
   return spans
 }
