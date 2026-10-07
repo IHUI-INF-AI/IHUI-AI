@@ -10615,6 +10615,16 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "markdownTable": {
+      "copy": "複製表格",
+      "downloadCsv": "下載 CSV",
+      "fullscreen": "全螢幕",
+      "fullscreenTitle": "表格全螢幕預覽",
+      "empty": "內容為空",
+      "unsupported": "目前瀏覽器不支援此操作",
+      "copyFailed": "複製失敗",
+      "csvFailed": "匯出失敗"
+    },
     "linkPreview": {
       "loading": "正在載入連結預覽...",
       "unavailable": "無法讀取連結預覽",
