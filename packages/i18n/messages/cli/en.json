@@ -123,6 +123,7 @@
     },
     "goalNotAchieved": "Independent verification did not pass: this run must not be reported as complete",
     "truncatedByLength": "Output hit the length limit and was truncated; the reply may be incomplete. Ask me to continue in parts, or raise max_tokens and retry.",
+    "truncatedContinuationExhausted": "Still hit the length limit after 3 automatic continuations; the reply is incomplete. Raise max_tokens or ask me to continue in parts.",
     "partialDoneTitle": "Response interrupted, the content below may be incomplete",
     "mcpCredentials": {
       "storePlaintext": "MCP credentials are currently stored in plaintext at {path} (degraded on this machine)",
