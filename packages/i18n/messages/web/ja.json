@@ -11009,12 +11009,6 @@
     "loginRequiredDesc": "ログインすれば AI エージェントと会話でき、モデル切替・添付アップロード・深い思考などに対応します。",
     "loginRequiredTitle": "ログイン後に AI チャットを開始",
     "manageModels": "カスタムモデル設定",
-    "markdownTable": {
-      "copy": "Markdown をコピー",
-      "downloadCsv": "CSV をダウンロード",
-      "fullscreen": "全画面",
-      "fullscreenTitle": "テーブル全画面"
-    },
     "me": "マイ",
     "mentionPopover": {
       "removeLabel": "{label}を削除"
