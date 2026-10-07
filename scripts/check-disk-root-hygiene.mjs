@@ -288,14 +288,29 @@ export function selfTest() {
     // 本机真实形态:第一条 = 外置 gitdir(§5b 禁删项),第二条 = 仓内 .worktrees 下的检出。
     const derived = deriveSanctioned()
     assert(derived, 'deriveSanctioned() 在本机必须算得出来(算不出来这条要红,不得静默跳过)')
-    const gitdir = normPath(derived.exempt[1])
-    const txt = `worktree ${gitdir}\nHEAD abc\nbranch refs/heads/main\n\nworktree ${normPath(derived.prefixes[0])}/wt-live\nHEAD def\ndetached\n\n`
-    const vConfigOnly = auditWorktreeRegistry(txt, { exemptPaths: ['G:\\IHUI-AI'], sanctionedPrefixes: ['G:\\IHUI-AI\\.worktrees\\'] })
-    const vDerived = auditWorktreeRegistry(txt, { exemptPaths: ['G:\\IHUI-AI'], sanctionedPrefixes: ['G:\\IHUI-AI\\.worktrees\\'] }, derived)
+    // 对照面显式注入**假盘符**(G-1059131):本用例模拟的是"另一台机的 checkout"——
+    // 仓根盘符与 config 字面量(G:)不同盘。旧写法直接拿 derived.prefixes[0](真盘符)拼
+    // 登记 ⇒ 在仓根本就在 G: 的机器上,夹具路径与配置字面量恰好同形,"摘掉 derived 仍绿",
+    // 下面那条变异对照在这台机上恒红 —— 夹具赌了本机盘符。现按 §5b"凡盘符每次现取":
+    // 把真派生结果的盘根整体换成一个**合成盘根**(运行时保证 ≠ 配置字面量的盘符字母),
+    // 派生豁免集同步搬到同一假盘 ⇒ "derived 与配置不同盘"在任何机器上结构成立。
+    // 路径只进纯字符串比对(auditWorktreeRegistry 不碰 fs),合成盘不需要真实存在。
+    const CONFIG_REPO = 'G:\\IHUI-AI'
+    const cfgDriveLetter = CONFIG_REPO[0] // 配置字面量的盘符,运行时现取,不写死比较对象
+    const fakeDriveLetter = cfgDriveLetter === 'Q' ? 'R' : 'Q' // 结构性保证 ≠ 配置盘符
+    const fakeRoot = `${fakeDriveLetter}:\\`
+    // 把任一本机真实路径整体搬到假盘:摘掉原盘根(parse 取各自平台的根形)、接上假盘根。
+    const toFakeDrive = (p) => fakeRoot + String(p).slice(parse(p).root.length)
+    const fakeDerived = { exempt: derived.exempt.map(toFakeDrive), prefixes: [toFakeDrive(derived.prefixes[0])] }
+    const gitdir = normPath(fakeDerived.exempt[1])
+    const txt = `worktree ${gitdir}\nHEAD abc\nbranch refs/heads/main\n\nworktree ${normPath(fakeDerived.prefixes[0])}/wt-live\nHEAD def\ndetached\n\n`
+    const policy = { exemptPaths: [CONFIG_REPO], sanctionedPrefixes: [CONFIG_REPO + '\\.worktrees\\'] }
+    const vConfigOnly = auditWorktreeRegistry(txt, policy)
+    const vDerived = auditWorktreeRegistry(txt, policy, fakeDerived)
     assert(vDerived.length === 0, `派生豁免必须吃掉这两条,实得 ${JSON.stringify(vDerived)}`)
-    // 变异对照(= 本次要修的假指控):摘掉 derived ⇒ 仓内 .worktrees 在**另一台机**的 checkout
-    // 上不被 G: 的字面量前缀命中,于是被喊成"落点外待回收"。登记面第一条(外置 gitdir)
-    // 由上一层结构性豁免兜住,那条的变异对照见「主工作树豁免(配置盘符与本机不同形…)」。
+    // 变异对照(= 本次要修的假指控):摘掉 derived ⇒ 假盘上的仓内 .worktrees 不被 G: 的
+    // 字面量前缀命中,于是被喊成"落点外待回收"。登记面第一条(外置 gitdir)由上一层
+    // 结构性豁免兜住,那条的变异对照见「主工作树豁免(配置盘符与本机不同形…)」。
     assert(vConfigOnly.length === 1, `变异必须复现旧误判(1 条 .worktrees),实得 ${vConfigOnly.length}`)
   })
 
