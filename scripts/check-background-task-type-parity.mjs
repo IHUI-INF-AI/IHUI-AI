@@ -202,6 +202,9 @@ export function parseAdvertised(rawSrc) {
  *
  * @returns {{found: boolean, tokens: string[], derived: boolean, derivesUnproven: boolean}}
  */
+/** 判据单元:派生出口的调用形态(§22c 由 __test__ 交给镜像测试,禁止测试再抄一份)。 */
+const BG_TASK_TYPES_PROSE_CALL_RE = /\b_bg_task_types_prose\s*\(/
+
 export function parseProseWhitelist(rawMcp) {
   const src = maskPyNoise(rawMcp)
   const start = src.indexOf('name="run_in_background"')
@@ -213,7 +216,7 @@ export function parseProseWhitelist(rawMcp) {
   for (const m of block.matchAll(/(?:支持|白名单:)\s*([a-z0-9_]+(?:\/[a-z0-9_]+)*)/g)) {
     for (const tok of m[1].split('/')) if (tok) tokens.add(tok)
   }
-  const callsHelper = /\b_bg_task_types_prose\s*\(/.test(block)
+  const callsHelper = BG_TASK_TYPES_PROSE_CALL_RE.test(block)
   const helperDef = /def _bg_task_types_prose\([\s\S]*?\n(?=\S)/.exec(src)
   const helperReadsRegistry = Boolean(helperDef && /RUN_IN_BACKGROUND_TASK_TYPES/.test(helperDef[0]))
   return {
@@ -715,6 +718,7 @@ if (isDirectRun) {
 
 export const __test__ = {
   judge,
+  BG_TASK_TYPES_PROSE_CALL_RE,
   parseRegistryTypes,
   parseAdvertised,
   parseProseWhitelist,
