@@ -51,7 +51,7 @@ if (arm === 'emit-once') {
   process.emit('SIGTERM')
   process.emit('SIGTERM')
 } else if (arm === 'selfterm-once' || arm === 'selfterm-twice') {
-  console.log('ready')
+  console.info('ready')
   process.kill(process.pid, 'SIGTERM')
   if (arm === 'selfterm-twice') process.kill(process.pid, 'SIGTERM')
   // 保持存活等投递(装了监听器 ⇒ 默认动作已被抑制)

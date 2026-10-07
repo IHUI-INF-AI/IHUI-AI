@@ -82,6 +82,8 @@ export function UserMessageBody({ content, testId }: UserMessageBodyProps) {
           onClick={() => openImageSource(im.url, 'user-attachment-image')}
           className="block max-w-full overflow-hidden rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
         >
+          {/* eslint-disable-next-line @next/next/no-img-element -- 用户上传的附件图来自任意 URL(可能是
+              blob / 外链 / 本地路径),宽高未知且由容器 max-h-64 约束,next/image 需要固定尺寸无法适配 */}
           <img
             data-testid="user-message-image"
             src={im.url}

@@ -317,12 +317,18 @@ export function CdpBrowserView({
     }
     ws.addEventListener('message', onResult)
     ws.send(JSON.stringify({ type: 'execute', script }))
-  }, [jsCode])
+  }, [jsCode, t, ta])
 
   // 回调 ref(避免 effect 依赖变化导致 WebSocket 重连)
   const cbRefs = React.useRef({ onNavigation, onLoaded, onFailed })
   React.useEffect(() => {
     cbRefs.current = { onNavigation, onLoaded, onFailed }
+  })
+  // 连接期文案同样走 ref:建连 effect 刻意不随 locale 变化重跑(重跑 = 断开重连、视口闪断),
+  // 而闭包里的 t 会停在旧 locale ⇒ 用 ref 才能同时做到"取当下"与"不重连"。
+  const tRef = React.useRef(t)
+  React.useEffect(() => {
+    tRef.current = t
   })
 
   // 视口同步(2026-08-17 1:1 无缩放):前端容器尺寸 → 后端 Playwright 视口。
@@ -361,7 +367,7 @@ export function CdpBrowserView({
     try {
       ws = new WebSocket(wsUrl)
     } catch (e) {
-      const msg = e instanceof Error ? e.message : t('wsCreateFailed')
+      const msg = e instanceof Error ? e.message : tRef.current('wsCreateFailed')
       setError(msg)
       cbRefs.current.onFailed?.(msg)
       return
@@ -422,7 +428,7 @@ export function CdpBrowserView({
     ws.onerror = () => {
       if (disposed) return
       // 检查 ai-service 是否在线(给用户更有用的错误提示)
-      const msg = t('connectFailed')
+      const msg = tRef.current('connectFailed')
       setError(msg)
       cbRefs.current.onFailed?.(msg)
     }
@@ -430,7 +436,7 @@ export function CdpBrowserView({
     ws.onclose = (e) => {
       if (disposed) return
       if (e.code !== 1000 && !hasFirstFrame.current) {
-        const msg = e.reason || t('connectionClosed')
+        const msg = e.reason || tRef.current('connectionClosed')
         setError(msg)
         cbRefs.current.onFailed?.(msg)
       }
@@ -685,7 +691,7 @@ export function CdpBrowserView({
       })
     }
     return items
-  }, [onBack, onForward, onReload, onOpenExternal, currentUrl, copied, handleCopyUrl])
+  }, [onBack, onForward, onReload, onOpenExternal, currentUrl, copied, handleCopyUrl, t])
 
   return (
     <div ref={containerRef} className="relative h-full w-full overflow-hidden bg-background">
