@@ -39,7 +39,16 @@ export type HeadlessEvent =
   | { type: 'tool_delta_clear'; name: string; toolCallId: string }
   | { type: 'iteration'; count: number; max: number }
   | { type: 'error'; message: string }
-  | { type: 'complete'; stopReason: AgentStopReason; iterations: number; usage: TokenUsage }
+  | {
+      type: 'complete'
+      stopReason: AgentStopReason
+      iterations: number
+      usage: TokenUsage
+      /** G-425:最后一次模型响应的 finish_reason(本地 provider 面才有;缺省 = 远端流拿不到,未知) */
+      finishReason?: string
+      /** G-425:最终一次响应是否仍被输出长度上限截断(续写预算耗尽后仍未说完) */
+      outputTruncated?: boolean
+    }
 
 /**
  * 极简 YAML 序列化器(不引入外部依赖)。
@@ -139,5 +148,32 @@ export function formatHeadlessEvent(event: HeadlessEvent, format: OutputFormat):
   if (format === 'markdown') return eventToMarkdown(event)
   if (format === 'yaml') return '---\n' + toYaml(event) + '\n'
   return '' // text
+}
+
+/**
+ * G-814408:NDJSON 出口的「结果行封笔」闸 —— 上游 `headless-workflow.ts:328-329` 的结构事实
+ * ("结果行之后绝不能再冒出事件行")在本出口做成**结构事实**,不依赖调用方自觉:
+ *  - `detachEvents()` 在结果行写出**前**停掉事件通道(上游"先停订阅、再写结果行"的那一步);
+ *  - 停笔之后**只有结果行(complete)还能出门**,其余一切事件一律出不了闸。
+ * 这是停写,不是去重:没有任何"双装两个 sink 再按 id 抹平"的第二通道 —— 事件流上
+ * "谁在写"的单一写者判据在 `src/event-stream-ownership.ts`,本闸只管 NDJSON 出口的最后一道门。
+ */
+export interface HeadlessEventGate {
+  /** 结果行输出前调用:停掉事件通道(此后普通事件行不再出门)。 */
+  detachEvents(): void
+  /** emit 的唯一放行判据:未停笔全放;停笔后只放结果行(complete)。 */
+  canEmit(event: HeadlessEvent): boolean
+}
+
+export function createHeadlessEventGate(): HeadlessEventGate {
+  let eventsDetached = false
+  return {
+    detachEvents(): void {
+      eventsDetached = true
+    },
+    canEmit(event: HeadlessEvent): boolean {
+      return !eventsDetached || event.type === 'complete'
+    },
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
