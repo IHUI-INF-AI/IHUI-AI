@@ -35,7 +35,7 @@
 import { spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { performance } from 'node:perf_hooks'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { join } from 'node:path'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -531,9 +531,32 @@ function main() {
   process.exit(0)
 }
 
-main().catch((e) => {
-  console.error(`${C.red}❌ measure-guardian-performance 脚本执行异常:${C.reset}`, e?.message ?? e)
-  console.error(e?.stack ?? '(no stack)')
-  process.exit(3)
-})
+// AGENTS §22d:CLI 直跑与被 import 双形态必须隔离副作用,Windows 反斜杠路径要经 pathToFileURL 归一。
+// 入口按该文件现有调用名与现有链式形态原样关进守卫(main 为同步函数,不改 async、不重构)。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main().catch((e) => {
+    console.error(`${C.red}❌ measure-guardian-performance 脚本执行异常:${C.reset}`, e?.message ?? e)
+    console.error(e?.stack ?? '(no stack)')
+    process.exit(3)
+  })
+}
+
+export const __test__ = {
+  loadChecks,
+  parseArgs,
+  measureCheck,
+  fmtMs,
+  printTable,
+  printJson,
+  printHelp,
+  main,
+  C,
+  ROOT,
+  RUNNER_PATH,
+  DEFAULT_RUNS,
+  DEFAULT_THRESHOLD_MS,
+  DEFAULT_TIMEOUT_MS,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
