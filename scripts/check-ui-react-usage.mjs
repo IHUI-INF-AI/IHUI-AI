@@ -31,21 +31,34 @@
  *   node scripts/check-ui-react-usage.mjs --staged      (pre-commit 透传,语义同默认)
  *   node scripts/check-ui-react-usage.mjs --strict      (WARN 也阻塞)
  *
+ * [G-1059141 2026-10-07] --staged 现为 no-op:代码只消费 --strict,本行仅为 pre-commit
+ *   透传兼容保留,staged 模式从未实现(实现属行为变更,不在该票范围)。
+ *
  * 集成位置: CI / guardian-runner 后续项(暂 FAIL-blocking + WARN-only)
  * 历史案例: P3-2.3 PageShell 抽离(2026-08-01)
  */
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import { join, relative, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { withExcludes, isExcludedDirName } from './lib/exclude-dirs.mjs'
+import { readWorktreeFile } from './lib/face-reader.mjs'
 import { COLORS as C } from './lib/logger.mjs'
 
 const ROOT = resolve(process.cwd())
 // 只扫描 Web 系三端(web + extension + desktop),P3-2 阶段 2 范围
 const SCAN_ROOTS = ['apps/web', 'apps/extension', 'apps/desktop']
 // 排除目录:构建产物 / 依赖 / 测试 / 脚本子目录
+// [G-1059141 2026-10-07] 本清单自该票起由 findTsxFiles 真正消费(增量式,叠加在
+// isExcludedDirName 之上,前缀族排除不变)。此前仅声明、从未被读取,tests/__tests__/
+// e2e/scripts 四名单目录里的 .tsx(实测 280 枚,全部 *.test.tsx)一直在被空扫。
 const EXCLUDE_DIRS = withExcludes(['tests', '__tests__', 'e2e', 'scripts'])
 // 隐藏目录白名单(允许进入扫描)
+// [G-1059141 2026-10-07 结构性死配置备注(实测,名单保留不删)]:
+//   - .vscode / .idea:被 exclude-dirs.mjs 通用 EXCLUDE_DIRS 先挡(isExcludedDirName 链
+//     的基座 Set 就含这两项),写在本白名单里的"放行"从未生效;
+//   - .github:名义放行且放行逻辑有效,但三个扫描根(apps/web|extension|desktop)下
+//     今日均无该目录(实测不存在),现无实面;
+//   - 保留是为了未来 .github 真落进扫描根时不被点目录规则误挡,以本注释止损"配置说谎"。
 const ALLOWED_DOT_DIRS = new Set(['.vscode', '.idea', '.github'])
 // @ihui/ui-react import 检测
 const UI_REACT_IMPORT_RE = /@ihui\/ui-react/
@@ -78,6 +91,10 @@ function findTsxFiles(root) {
       const full = join(dir, name)
       if (entry.isDirectory()) {
         if (isExcludedDirName(name)) continue
+        // [G-1059141 2026-10-07] 增量接线脚本扩展排除清单(tests/__tests__/e2e/scripts):
+        // 保留 isExcludedDirName 链在前(.next-* / .tmp-* 前缀族照旧排除),此处只多挡
+        // 名单目录;实测扫描面 2923 → 2643(−280,全部 *.test.tsx 无一命中),判定读数不变。
+        if (EXCLUDE_DIRS.has(name)) continue
         if (name.startsWith('.') && !ALLOWED_DOT_DIRS.has(name)) continue
         stack.push(full)
         continue
@@ -117,14 +134,19 @@ function main() {
 
     for (const file of files) {
       const basename = file.split(/[\\/]/).pop()
+      const rel = toRel(file)
       let content = ''
       try {
-        content = readFileSync(file, 'utf8')
+        // [G-1059141 2026-10-07] 内容读取经 face-reader 取材层(门 118 取材面纪律):
+        // readWorktreeFile 与原 readFileSync 判定语义等价 —— 取不到(null/抛)照旧 continue
+        // 少扫一个,读到的就是工作树正文;只是统一取材口,判定面与读数不变。
+        const got = readWorktreeFile(ROOT, rel)
+        if (got === null) continue
+        content = got
       } catch {
         continue
       }
       const usesShared = UI_REACT_IMPORT_RE.test(content)
-      const rel = toRel(file)
 
       // [FAIL] PageShell 独立实现:文件名含 page-shell/page-layout 但未用共享包
       if (PAGE_SHELL_FILE_RE.test(basename) && !usesShared) {
