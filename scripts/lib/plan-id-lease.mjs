@@ -24,8 +24,21 @@
  * 判据只有一份:行解析复用 `plan-task-index.mjs` 的 `parseTaskRows`/`keyOfRow`,本文件不抄
  * 第二份"什么算一个编号"。机器标识 = `IHUI_MACHINE_ID` env > 主机名+仓根路径指纹 —— 同机双
  * checkout(G:/D: 两份工作区共用同一远端)各占各段,不互借。
+ *
+ * G-815400(2026-10-07):机器标识与段起点都混入机器指纹。
+ *  ① 机器标识派生混入 machineGuid(Windows 注册表 MachineGuid / Linux /etc/machine-id):
+ *    仅主机名+路径在"同 host 换仓根目录"的场景仍可 forgery 式趋同,GUID 是 OS 安装级唯一量。
+ *    注意:本机旧租约行登记的是旧指纹 ⇒ 改后首次取号认不出自有段而另立新段 —— 失效方向是
+ *    多占一段(安全侧),不撞别人的段。
+ *  ② 新占段整体平移:段起点 = floor+1+off,off = hash(machineId|family|floor) % segmentSize,
+ *    段尺寸不变(end = start + segmentSize - 1)。残余撞号面 = "两侧同刻/同 floor 新占段"——
+ *    旧口径两侧起点/主键(段尾号)必然同值:F9 主键撞号必发生、首实号必撞;平移后两侧起点
+ *    大概率分离(hash 熵 999 分之一同偏),主键随之分离,CAS 兜底仍在。无 machineId ⇒ off=0,
+ *    与旧口径逐字同形(镜像 N2/N3 回归锁)。
  */
 import { createHash } from 'node:crypto'
+import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { hostname } from 'node:os'
 import { resolve } from 'node:path'
 
@@ -45,19 +58,60 @@ const ID_HEAD_RE = /^([A-Za-z]+)([-_ ]?)(\d+)/
 const SEGMENT_RE = /段=([A-Za-z]+[-_ ]?)?(\d+)~(?:[A-Za-z]+[-_ ]?)?(\d+)/
 const MACHINE_RE = /本机=([^\s（(〔【,，;；"']+)/
 
+/** 机器 GUID 的模块级缓存(undefined=未读,''=读过但读不到,已降级)。 */
+let machineGuidCache
+
 /**
- * 机器标识:env 显式给优先(部署机可自报稳定名);缺省 = 主机名 + 仓根路径指纹(8 hex)。
+ * 机器 GUID:Windows 走注册表 MachineGuid,Linux 走 /etc/machine-id;读不到降级 ''。
+ * 为什么模块级缓存:reg query 一次子进程数十 ms,批量令牌多次取号不重复付这个钱。
+ */
+function readMachineGuid() {
+  if (machineGuidCache !== undefined) return machineGuidCache
+  let guid = ''
+  try {
+    if (process.platform === 'win32') {
+      const out = execFileSync(
+        'reg',
+        ['query', 'HKLM\\SOFTWARE\\Microsoft\\Cryptography', '/v', 'MachineGuid'],
+        { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true, timeout: 5000 },
+      )
+      guid = /MachineGuid\s+REG_SZ\s+(\S+)/.exec(out)?.[1] ?? ''
+    } else {
+      guid = readFileSync('/etc/machine-id', 'utf8').trim()
+    }
+  } catch {
+    guid = '' // 降级:无 GUID 时指纹退回主机名+路径,机制不失效,只是熵变少
+  }
+  machineGuidCache = guid
+  return guid
+}
+
+/**
+ * 机器标识:env 显式给优先(部署机可自报稳定名);缺省 = 主机名 + 仓根路径⊕机器GUID 指纹(8 hex)。
  * 为什么带路径指纹:同机两份 checkout(D:/G: 两个盘符的工作区)是**两个取号主体**,
  * 只用主机名会让两份互借同一段,而它们各自 CAS 各自的 HEAD,借段会把段内连号打乱。
+ * G-815400:GUID 混入指纹 —— 跨机同路径(容器/镜像克隆仓)不再同标识。
  */
 export function machineIdentity(root) {
   const env = process.env.IHUI_MACHINE_ID
   if (env && env.trim()) return env.trim().replace(/\s+/g, '-')
   const fp = createHash('sha256')
-    .update(resolve(String(root ?? '.')).toLowerCase())
+    .update(`${resolve(String(root ?? '.')).toLowerCase()}|${readMachineGuid()}`)
     .digest('hex')
     .slice(0, 8)
   return `${String(hostname()).replace(/\s+/g, '-')}-${fp}`
+}
+
+/**
+ * G-815400:新占段的段首偏移。off = hash(machineId|family|floor) % segmentSize,
+ * 段起点 = floor+1+off(封顶 floor+segmentSize),段尺寸不变(end = start+segmentSize-1)。
+ * 无 machineId ⇒ 0 —— 旧口径逐字同形;family/floor 缺省仅测试直调 leaseCursor 用,真实路径
+ * 由 decideLease 恒给 family、floor 恒为实数。
+ */
+export function claimOffset({ machineId, family = '', floor = 0, segmentSize = LEASE_SEGMENT_SIZE }) {
+  if (!machineId || !(segmentSize > 1)) return 0
+  const h = createHash('sha256').update(`${machineId}|${family}|${floor}`).digest()
+  return h.readUInt32BE(0) % segmentSize
 }
 
 /** 构造一行租约登记。template 取自 usedIdsOfPrefix 的该族形状(如 `G-%d`),不另写编号语法。 */
@@ -120,13 +174,15 @@ export function parseLeases(content, family) {
  * 取号游标的租约判定(纯函数)。
  *  - 自有段(按 machine)从最新段起找还有空闲的:段内已用 = usedNumbers ∩ [start,end] 且**剔除
  *    本行主键**(主键是段尾号,不是实号) ⇒ 下一个 = 段内 max+1(空段 = 段首)。
- *  - 没有 / 段满 ⇒ 新占段 [floor+1, floor+段容量],floor = max(本地已用, 租约主键, baseMax)。
+ *  - 没有 / 段满 ⇒ 新占段 [floor+1+off, floor+off+段容量],floor = max(本地已用, 租约主键,
+ *    baseMax),off 由机器 id 派生(G-815400:两机同 floor 新占段起点/主键大概率分离)。
  *    baseMax 由调用方给"max(本地, 远端)" —— 新占段必须站在两侧 Union 之上,否则占段本身就撞。
  */
 export function leaseCursor({
   usedNumbers = [],
   leases = [],
   machineId,
+  family,
   baseMax = null,
   segmentSize = LEASE_SEGMENT_SIZE,
 }) {
@@ -145,7 +201,8 @@ export function leaseCursor({
     // 判"还有空闲"必须用 next < end;写成 <= 会在段只剩末号时把租约行自己的主键发出去(镜像 T3 钉)。
     if (next < lease.end) return { mode: 'in-lease', next, lease }
   }
-  return { mode: 'claim', start: floor + 1, end: floor + segmentSize }
+  const off = claimOffset({ machineId, family, floor, segmentSize })
+  return { mode: 'claim', start: floor + 1 + off, end: floor + off + segmentSize }
 }
 
 /** resolveIdTokens 的族级胶水:解析 + 判定一次给全(调用方只传 usedIdsOfPrefix 的结果)。 */
@@ -155,7 +212,7 @@ export function decideLease({ baseContent, family, used, baseMax, machineId, seg
     const m = ID_HEAD_RE.exec(String(label))
     return m ? Number(m[3]) : Number.NaN
   })
-  return leaseCursor({ usedNumbers, leases, machineId, baseMax, segmentSize })
+  return leaseCursor({ usedNumbers, leases, machineId, family, baseMax, segmentSize })
 }
 
 /**
