@@ -474,9 +474,10 @@ test('T26 否定判据必须有结构层:同义否定整族与存档句不得判
     'R2 同样不得把「记录历史」判成谎报',
   );
   // 形状锁:R1/R2 共用同一份结构判据;否定词必须**紧邻**动词,普通「不」不算否定。
+  // 两个形状都取自门体导出的那一份(§22c:镜像测试不得把源判据再写一遍,两份必漂)。
   assert.ok(
-    /isNegatedWiringSentence\(win\)/.test(G.extractHeaderClaims.toString()) &&
-      /isNegatedWiringSentence\(sent\)/.test(G.findAgentsClaims.toString()),
+    G.R1_NEGATION_CALL_SHAPE_RE.test(G.extractHeaderClaims.toString()) &&
+      G.R2_NEGATION_CALL_SHAPE_RE.test(G.findAgentsClaims.toString()),
     'R1/R2 必须共用同一份结构否定判据(禁止另写一套否定逻辑)',
   );
   assert.equal(G.isNegatedWiringSentence('不阻塞 commit'), false, '普通「不」不得被当成否定');
