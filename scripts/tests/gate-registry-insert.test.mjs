@@ -36,7 +36,7 @@ const GIT = resolveGitBin() || 'git'
 // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
 const runOpts = { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true, timeout: 60_000, maxBuffer: 64 << 20 }
 const runGit = (dir, args) =>
-  execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e.local', '-c', 'user.name=e2e', '-c', 'core.autocrlf=false', '-C', dir, ...args], runOpts)
+  execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e.local', '-c', 'user.name=e2e', '-c', 'core.autocrlf=false', '-C', dir, ...args], { ...runOpts, stdio: ['ignore', 'pipe', 'pipe'] })
 
 const norm = (s) => s.replace(/\r\n/g, '\n')
 

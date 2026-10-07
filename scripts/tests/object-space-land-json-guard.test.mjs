@@ -38,7 +38,7 @@ const runGit = (dir, args) =>
   execFileSync(
     GIT,
     ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e.local', '-c', 'user.name=e2e', '-c', 'core.autocrlf=false', '-C', dir, ...args],
-    runOpts,
+    { ...runOpts, stdio: ['ignore', 'pipe', 'pipe'] },
   )
 
 function makeRepo(t) {

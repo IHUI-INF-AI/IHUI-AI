@@ -34,7 +34,7 @@ const GIT = resolveGitBin() || 'git'
 const GIT_TIMEOUT = 120000
 const gitOpts = { encoding: 'utf8', windowsHide: true, timeout: GIT_TIMEOUT, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] }
 // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-const runGit = (dir, args) => execFileSync(GIT, ['-c', 'safe.directory=*', '-C', dir, ...args], gitOpts)
+const runGit = (dir, args) => execFileSync(GIT, ['-c', 'safe.directory=*', '-C', dir, ...args], { ...gitOpts, stdio: ['ignore', 'pipe', 'pipe'] })
 const runGuard = (dir, extra = []) =>
   spawnSync(process.execPath, [GUARD, '--root', dir, ...extra], {
     encoding: 'utf8',

@@ -124,6 +124,7 @@ test('T4 真仓:HEAD 面已清偿 + 摘掉注册点仍能点名 DEBUG_TOOLS(判�
   const probe = join(REPO, '.git', 'ihui-probe-index-t4.tmp')
   const git = (args, extra = {}) =>
     spawnSync('git', ['-c', 'safe.directory=*', ...args], {
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
       windowsHide: true,
       maxBuffer: 32 << 20,
@@ -157,6 +158,7 @@ test('T5 变异对照:把某一族的注册点从**探针索引**里摘掉 ⇒ -
   const probe = join(REPO, '.git', 'ihui-probe-index-tool-family.tmp')
   const git = (args, extra = {}) =>
     spawnSync('git', ['-c', 'safe.directory=*', ...args], {
+      stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
       windowsHide: true,
       maxBuffer: 32 << 20,

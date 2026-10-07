@@ -176,6 +176,7 @@ test('T10 遮罩双向对照:真代码违规必红 / 同一形态写进注释必
     const env = { ...process.env, GIT_INDEX_FILE: tmpIndex }
     const gitEnv = (args, opts = {}) =>
       execFileSync(GIT_BIN, ['-c', 'safe.directory=*', '-C', REPO, ...args], {
+        stdio: ['pipe', 'pipe', 'pipe'],
         encoding: 'utf8',
         windowsHide: true,
         timeout: 120000,
