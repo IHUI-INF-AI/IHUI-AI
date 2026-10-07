@@ -18,6 +18,8 @@ import {
   readClipboard,
   writeClipboard,
   isClipboardAvailable,
+  clipToClipboardBudget,
+  clipboardTruncationNote,
 } from '../src/tools/clipboard.js';
 
 const SKIP_END_TO_END = !isClipboardAvailable();
@@ -132,6 +134,40 @@ describe('readClipboard / writeClipboard 底层函数', () => {
     // 这是已知的 Windows 环境问题,容忍空读取(不强制断言相等)
     if (read === '') return;
     expect(read).toBe(testText);
+  });
+});
+
+describe('裁剪自报成对判据(G-814409):溢出必报数、未溢出不报', () => {
+  it('溢出必报数:clip 超限 ⇒ truncated=true、丢弃量如实,note 点名丢弃字数', () => {
+    const raw = 'y'.repeat(40_000);
+    const clip = clipToClipboardBudget(raw);
+    expect(clip.truncated).toBe(true);
+    expect(clip.droppedChars).toBeGreaterThan(0);
+    // 丢弃量守恒:留下的 + 丢掉的 == 原始长度
+    expect(clip.text.length + clip.droppedChars).toBe(raw.length);
+    const note = clipboardTruncationNote(raw.length, clip.droppedChars);
+    expect(note).not.toBe('');
+    expect(note).toContain(`丢弃 ${clip.droppedChars} 字`);
+    expect(note).toContain(`原始长度 ${raw.length} 字符`);
+  });
+
+  it('未溢出不报:clip 限内 ⇒ truncated=false、零丢弃,note 为空串', () => {
+    const raw = 'z'.repeat(100);
+    const clip = clipToClipboardBudget(raw);
+    expect(clip.truncated).toBe(false);
+    expect(clip.droppedChars).toBe(0);
+    expect(clip.text).toBe(raw);
+    expect(clipboardTruncationNote(raw.length, clip.droppedChars)).toBe('');
+  });
+
+  it('写路径集成:超长写入成功时输出必须点名丢弃量(与既有"已写入"断言同链)', async () => {
+    if (!isClipboardAvailable()) return;
+    const result = await clipboard_write.execute({ text: 'w'.repeat(40_000) }, { workspacePath: '/tmp' });
+    // 丢弃 8_000 字是输入决定的必然 ⇒ 一旦写入成功,note 不得缺席(失败容错同既有用例)
+    if (!result.success) return;
+    expect(result.output).toContain('已写入');
+    expect(result.output).toContain('丢弃');
+    expect(result.output).toMatch(/丢弃 \d+ 字/);
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
