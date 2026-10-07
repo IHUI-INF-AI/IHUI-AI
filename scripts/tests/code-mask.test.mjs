@@ -301,4 +301,28 @@ test('M10 消费方接线锁:守门 156 必须真的改用认正则那一档(改
     )
   }
 })
+
+test('M12 换行清 lastWord:行首斜杠不得被上一行的行尾关键字带成正则(G-1059136)', () => {
+  // 旧实现里 lastWord 跨行存活:上一行行尾的 `return` 会把下一行行首的 `/foo/` 判成正则
+  // ⇒ 正则档的遮噪面漂移(判据看漏真代码)。换行必须清 lastWord;lastSig 保留(第 3 案)。
+  assert.equal(
+    scanSpans('if (x) return\n/foo/.test(s)\n').filter((s) => s.kind === 'regex').length,
+    0,
+    '跨行残留 lastWord 把行首 `/` 判成正则 ⇒ 遮噪面被扩大',
+  )
+  // 同一行不受影响:`return /re/` 仍按正则起始(纯语法事实,不得因修复而失明)
+  const sameLine = scanSpans('if (x) return /re/\n')
+  assert.equal(sameLine.filter((s) => s.kind === 'regex').length, 1)
+  assert.equal(sameLine[0].kind, 'regex')
+  // 跨行调用实参仍认正则:lastSig 不清,`foo(\n/re/` 的开括号照样放行正则起始
+  const crossLine = scanSpans('foo(\n/re/\n)')
+  assert.equal(crossLine.filter((s) => s.kind === 'regex').length, 1)
+  assert.equal(crossLine[0].kind, 'regex')
+  // 兼容档(regex:false)不读 lastWord ⇒ 修复对旧投影零影响(与 M1 的字节级同形互为印证)
+  assert.equal(
+    scanSpans('if (x) return\n/foo/.test(s)\n', { regex: false }).filter((s) => s.kind === 'regex')
+      .length,
+    0,
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

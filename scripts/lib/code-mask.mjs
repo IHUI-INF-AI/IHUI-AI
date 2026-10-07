@@ -208,6 +208,9 @@ export function scanSpans(text, opts = {}) {
       lastWord = ''
       continue
     }
+    // 换行清 lastWord:上一行行尾的关键字词段(如 `if (x) return`)不得把下一行行首的 `/`
+    // 误判成正则起始(G-1059136)。lastSig 保留 —— `foo(\n/re/` 的开括号仍须认正则实参。
+    if (c === '\n') lastWord = ''
     if (!isBlankish(c)) {
       lastSig = c
       lastWord = /[\w$]/.test(c) ? lastWord + c : ''
