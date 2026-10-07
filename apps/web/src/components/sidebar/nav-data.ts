@@ -203,7 +203,7 @@ const USER_CHILDREN: NavItem[] = [
 const EDU_ITEMS: NavItem[] = [
   // 学习模块
   { href: '/edu/dashboard', labelKey: 'eduDashboard', icon: LayoutDashboard },
-  { href: '/learn', labelKey: 'eduCourses', icon: BookOpen },
+  // /learn 课程入口不再单列:eduGroup 主体已有 /learn(React key=href,重复项触发 duplicate key 警告且菜单双条目)
   { href: '/edu/exam', labelKey: 'eduExam', icon: FileCheck },
   { href: '/certificate', labelKey: 'eduCertificates', icon: Award },
   // 课程表
@@ -502,8 +502,9 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/live', labelKey: 'live', icon: PlayCircle },
       { href: '/exam', labelKey: 'exam', icon: ScrollText },
       // 错题本/今日复习此前实现完整但全站无入口(只能手敲 URL,G-978073)
-      { href: '/exam/wrong-questions', labelKey: 'exam.wrongQuestions.title', icon: NotebookPen },
-      { href: '/learn/review', labelKey: 'learn.dailyReview.title', icon: RefreshCw },
+      // labelKey 用 nav 命名空间的扁平 key(nav.exam 是字符串,点分嵌套 key 解析不到)
+      { href: '/exam/wrong-questions', labelKey: 'examWrongQuestions', icon: NotebookPen },
+      { href: '/learn/review', labelKey: 'learnDailyReview', icon: RefreshCw },
       { href: '/lecturers', labelKey: 'lecturers', icon: Users },
       // /schedule 实为定时任务管理页(label 已从「课表」改为「任务调度」,学生课表在 /edu/schedule)
       { href: '/schedule', labelKey: 'schedule', icon: Calendar },

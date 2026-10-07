@@ -24,8 +24,10 @@ from pydantic import BaseModel, Field
 
 from ..core.jwt_auth import require_request_user_id, resolve_request_role_id
 from ..core.sse_buffer import REPLAY_HIT, sse_buffer
+
 # D174/R3:帧级 traceId 的唯一注入点(与 llm 那条对话流共用一份实现,不在本路由再抄一遍判序)
 from ..core.sse_frames import with_frame_trace_id
+from ..services.agent_checkpoint import AgentLoopCheckpoint
 from ..services.agent_deliverables import get_deliverables
 from ..services.agent_events import (
     AGENT_SUBSCRIBE_EVENTS,
@@ -46,8 +48,8 @@ from ..services.agent_events import (
     SSE_START,
     map_hook_event_to_sse,
 )
-from ..services.agent_checkpoint import AgentLoopCheckpoint
 from ..services.agent_loop import agent_executor
+from ..services.agent_orchestrator import AgentOrchestrator, agent_orchestrator
 from ..services.agent_run_control import (
     PauseOutcome,
     ResumeOutcome,
@@ -57,7 +59,9 @@ from ..services.agent_run_control import (
     register_run,
     resume_session,
 )
-from ..services.agent_orchestrator import AgentOrchestrator, agent_orchestrator
+
+# V3 #84 生产者侧(2026-10-07):视野硬上限唯一真源,Field(le=) 直接引它,不抄第二份数字。
+from ..services.durable_resume import DURABLE_HORIZON_MAX_SECONDS
 from ..services.goal_completion_gate import (
     GoalCriterionSpec,
     GoalCriterionSpecError,
@@ -485,6 +489,7 @@ async def _new_v2_loop(
     current_user: str,
     user_role: int,
     permission_mode: str | None = None,
+    durable_horizon_seconds: int | None = None,
 ) -> "AgentLoopV2":
     """构造 AgentLoopV2 的**唯一**入口(D144③ 2026-09-29 从 execute/stream 抽出)。
 
@@ -506,6 +511,8 @@ async def _new_v2_loop(
         current_user: **令牌主体**(O19:审批属主登记与记忆隔离都据此),不得取请求体自报值。
         user_role: V3 #47 的角色桥;取不到 = 0 = 普通用户。
         permission_mode: G-161 权限档;None 时沿用 env 默认(与旧 resume 构造同语义)。
+        durable_horizon_seconds: V3 #84 生产者侧的视野声明(秒);None = 非耐久,
+            构造出的循环不写耐久键(与现状逐零差异)。
 
     Returns:
         构造好的 AgentLoopV2 实例(调用方负责 run / resume_from_checkpoint 与属主登记)。
@@ -533,6 +540,8 @@ async def _new_v2_loop(
         # 走灰度总闸 AGENT_COMPACTION_MODE=off,语义正确且可放量)。
         # 此前缺省 0=永不压缩,放量基建(灰度/指标/回退)齐备但线上从未生效。
         compaction_context_limit=resolve_with_env_priority(model),
+        # V3 #84 生产者侧:耐久视野声明透传(唯一构造入口,三处调用点共用这一份)。
+        durable_horizon_seconds=durable_horizon_seconds,
     )
 
 
@@ -931,6 +940,21 @@ class AgentExecuteRequest(BaseModel):
         ),
         max_length=40,
     )
+    # V3 #84 生产者侧(2026-10-07):发起侧耐久视野声明(秒)。声明后本 run 落的每行
+    # checkpoint 元数据都带 durable_horizon_seconds + durable_launched_at,#84 的续期闸
+    # 才有"这一行点名要耐久"的判据(此前判据全量在位、唯独没人写键,声明即轮空)。
+    # 上限=7 天(DURABLE_HORIZON_MAX_SECONDS 唯一真源,续期侧对超限拒续并点名);
+    # 省略 = 不声明 = 非耐久任务,与现状逐零差异。不做 env 全局缺省:
+    # "要活多久"只能由点名要耐久的这一次请求自己说,服务端不代决定。
+    durable_horizon_seconds: int | None = Field(
+        None,
+        ge=1,
+        le=int(DURABLE_HORIZON_MAX_SECONDS),
+        description=(
+            "耐久任务视野声明(秒,1 ~ 7天)。声明后 checkpoint 元数据带耐久视野"
+            "与发起时刻,停手等人回来时可按 #84 续期闸补差额;省略 = 非耐久任务"
+        ),
+    )
 
 
 def _resolved_permission_mode(raw: str | None) -> str | None:
@@ -962,6 +986,16 @@ class AgentResumeRequest(BaseModel):
         None,
         description="权限模式:default / acceptEdits / bypassPermissions / plan / manual"
         "(历史别名自动归一;省略沿用 env 默认)",
+    )
+    # V3 #84 生产者侧(2026-10-07):与 AgentExecuteRequest 同格 —— 续跑重建的循环
+    # 落新 checkpoint 时同样可声明耐久视野(两条 resume 出口共用
+    # `_resume_run_from_checkpoint`,字段面必须同形,否则又是第二份漂开的参数表)。
+    # 省略 = 不声明 = 重建循环不写耐久键,与现状逐零差异。
+    durable_horizon_seconds: int | None = Field(
+        None,
+        ge=1,
+        le=int(DURABLE_HORIZON_MAX_SECONDS),
+        description="耐久任务视野声明(秒,1 ~ 7天);续跑重建的循环落盘时携带,省略 = 非耐久",
     )
 
 
@@ -1191,6 +1225,8 @@ async def execute_agent(
                 current_user=current_user,
                 user_role=resolve_request_role_id(request),
                 permission_mode=resolved_mode,
+                # V3 #84 生产者侧:耐久视野声明透传(省略 = None = 非耐久,零差异)。
+                durable_horizon_seconds=req.durable_horizon_seconds,
             )
             await register_run(session_id, owner_user_id=current_user, loop=loop)
             registered = True
@@ -1362,6 +1398,8 @@ async def execute_agent_stream(
                     current_user=current_user,
                     user_role=user_role,
                     permission_mode=_resolved_permission_mode(req.permission_mode),
+                    # V3 #84 生产者侧:耐久视野声明透传(省略 = None = 非耐久,零差异)。
+                    durable_horizon_seconds=req.durable_horizon_seconds,
                 )
                 # V3 #65(2026-09-28):把这枚在飞循环登记进 run 控制面,`pause()` 从此
                 # 才有人能够得着 —— 此前 loop 实例是生成器的局部变量,HTTP 面无任何
@@ -1540,6 +1578,7 @@ async def _resume_run_from_checkpoint(
     request: Request,
     current_user: str,
     permission_mode: str | None = None,
+    durable_horizon_seconds: int | None = None,
 ) -> "AgentLoopResult":
     """构造与 execute/stream 同参的 AgentLoopV2 并从 checkpoint 续跑(**全仓唯一实现**)。
 
@@ -1568,6 +1607,8 @@ async def _resume_run_from_checkpoint(
         current_user=current_user,
         user_role=resumed_role,
         permission_mode=permission_mode,
+        # V3 #84 生产者侧:耐久视野声明透传(省略 = None = 非耐久,零差异)。
+        durable_horizon_seconds=durable_horizon_seconds,
     )
     return await loop.resume_from_checkpoint(checkpoint_id)
 
@@ -1674,6 +1715,8 @@ async def resume_agent_execute(
             request=request,
             current_user=current_user,
             permission_mode=resolved_mode,
+            # V3 #84 生产者侧:耐久视野声明透传(省略 = None = 非耐久,零差异)。
+            durable_horizon_seconds=req.durable_horizon_seconds,
         )
     except ValueError as e:
         return {
@@ -1725,6 +1768,14 @@ class AgentSessionResumeRequest(BaseModel):
         None,
         description="权限模式:default / acceptEdits / bypassPermissions / plan / manual"
         "(历史别名自动归一;省略沿用 env 默认)",
+    )
+    # V3 #84 生产者侧(2026-10-07):与 AgentResumeRequest 同格,同因 —— 耐久视野
+    # 声明面两条 resume 出口必须同形。省略 = 不声明 = 重建循环不写耐久键。
+    durable_horizon_seconds: int | None = Field(
+        None,
+        ge=1,
+        le=int(DURABLE_HORIZON_MAX_SECONDS),
+        description="耐久任务视野声明(秒,1 ~ 7天);续跑重建的循环落盘时携带,省略 = 非耐久",
     )
 
 
@@ -1865,6 +1916,8 @@ async def resume_agent_session(
                 request=request,
                 current_user=requester,
                 permission_mode=resolved_mode,
+                # V3 #84 生产者侧:耐久视野声明透传(省略 = None = 非耐久,零差异)。
+                durable_horizon_seconds=req.durable_horizon_seconds,
             )
         except ValueError as exc:
             # resume_from_checkpoint 的"这个 checkpoint 没了"在这里是**取用前的竞态失效**

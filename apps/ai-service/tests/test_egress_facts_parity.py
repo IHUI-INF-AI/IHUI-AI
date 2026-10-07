@@ -99,7 +99,7 @@ def test_dual_side_parity_full_fields() -> None:
     """同一份 env、同一份语料:两侧 12 个字段逐字段全等(含 None/null 与数组逐项)。"""
     ts_facts = _load_ts_facts(PARITY_URLS)
     assert len(ts_facts) == len(PARITY_URLS)
-    for url, ts in zip(PARITY_URLS, ts_facts):
+    for url, ts in zip(PARITY_URLS, ts_facts, strict=True):
         py = resolve_egress_facts(url, PARITY_ENV)
         assert set(py) == set(ts), f"字段闭集漂移:{url}"
         for field in ts:

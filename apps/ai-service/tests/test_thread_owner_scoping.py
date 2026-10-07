@@ -349,7 +349,7 @@ def test_http_mutation_endpoints_scoped(tmp_path) -> None:
 
 def test_http_search_scoped(tmp_path) -> None:
     store = _store(tmp_path)
-    alice_tid = _thread_with_content(store, "alice", "cross-user-phrase")
+    _thread_with_content(store, "alice", "cross-user-phrase")
     bob_tid = _thread_with_content(store, "bob", "cross-user-phrase")
 
     data = sessions_router.search_sessions(
