@@ -12,7 +12,11 @@
  * 设计:
  *   - 每个子 agent 一个 fork() 子进程,入口 worker-entry.ts
  *   - 主进程通过 IPC channel 收子进程 heartbeat,超 heartbeatTimeoutSeconds(默认 60s)无心跳标记 dead
- *   - 超时:timeoutSeconds 到期 SIGTERM 子进程,标记 failed
+ *   - taskTimeout(G-426 改语义):timeoutSeconds 是**无活动空闲窗**(默认 300s),每次真实任务
+ *     活动(stdout/stderr/progress IPC,markActivity 唯一写入点)把窗口重排回完整值 —— 仍在
+ *     推进的慢子代理不再被墙钟 SIGTERM,真正卡死的才超时;另设**从开始计时**的绝对上限
+ *     = 窗口 × 3(TASK_TIMEOUT_ABSOLUTE_FACTOR)兜底防无限续命;错误 context 带
+ *     idleMs 与 recoverable/retryable 标记。旧行为"无条件 300s 墙钟到点即杀"已废。
  *   - 无活动超时(2026-09-27 票,见 getLifecycleStatus / awaitResult):
  *       最后一次"任务活动"(子进程 stdout/stderr 输出、progress IPC)距今超过阈值 ⇒
  *       **转后台** —— spawn Promise 以 wire 形态 status='running' 提前 resolve,
@@ -64,6 +68,13 @@ import {
 
 const HEARTBEAT_INTERVAL_MS = 5_000;
 const DEFAULT_TASK_TIMEOUT_SECONDS = 300;
+/**
+ * G-426:taskTimeout 绝对上限倍数。空闲窗改成"每次任务活动重排"后,必须留一个**从开始计时**
+ * 的总上限兜底,否则持续输出事件的死循环能无限续命。取窗口 3 倍而不是独立常量:timeoutSeconds
+ * 是逐请求可调档(默认 300s),"多长的执行算滥用"应与该请求自己声明的合理时长同比例缩放 ——
+ * 3 = 名义窗口之外再给两整段同额推进余量,足以容纳合法的慢长任务,又把无限续命封死。
+ */
+const TASK_TIMEOUT_ABSOLUTE_FACTOR = 3;
 const DEFAULT_MAX_QUEUE_SIZE = 100;
 
 /**
@@ -236,6 +247,15 @@ interface WorkerEntry {
   resolver?: (resp: SubagentSpawnResponse) => void;
   timeoutTimer?: NodeJS.Timeout;
   heartbeatTimer?: NodeJS.Timeout;
+  /**
+   * G-426:taskTimeout 从"无条件墙钟"改为"无活动空闲窗 + 绝对上限"后的两枚锚点。
+   * `taskTimeoutWindowMs` = timeoutSeconds × 1000(空闲窗,每次真实任务活动重排);
+   * `taskDeadlineAt` = start + window × TASK_TIMEOUT_ABSOLUTE_FACTOR(从开始计时的总上限,
+   * 不随活动重排 —— 防一个持续输出事件的死循环无限续命)。两者都在 arm 时写定,
+   * markActivity 只读它们重排定时器;缺省(undefined)= taskTimeout 未装配,重排为 no-op。
+   */
+  taskTimeoutWindowMs?: number;
+  taskDeadlineAt?: number;
   stdoutBuf: string;
   stderrBuf: string;
   timedOut: boolean;
@@ -915,10 +935,8 @@ export class SubagentWorkerPool {
     };
     proc.send(startMsg);
 
-    // 超时定时器
-    entry.timeoutTimer = setTimeout(() => {
-      this.handleTimeout(subagentId, entry, timeoutSec);
-    }, timeoutSec * 1000);
+    // 超时定时器(G-426:无活动空闲窗 + 绝对上限,装配与重排唯一入口在 armTaskTimeout)
+    this.armTaskTimeout(subagentId, entry, timeoutSec);
 
     // 心跳超时检测(每 5s 检查)
     entry.heartbeatTimer = setInterval(() => {
@@ -931,6 +949,44 @@ export class SubagentWorkerPool {
   /** 活动信号唯一写入点(判"有没有活动"只读 lastActivityAt,别处不得另记一份) */
   private markActivity(entry: WorkerEntry): void {
     entry.lastActivityAt = Date.now();
+    // G-426:每次真实任务活动把 taskTimeout 空闲窗重排回完整窗口 —— 仍在推进的慢子代理
+    // 不再被"墙钟到点"误杀(SIGTERM),真正卡死的才会在窗口耗尽时超时。重排只经这一条路:
+    // 判"活动"与"重排"在同一处收口,不存在第二份记时。
+    this.rearmTaskTimeout(entry.subagentId, entry);
+  }
+
+  /**
+   * G-426:taskTimeout 装配唯一入口(spawn 时一次)。窗口 = timeoutSeconds × 1000;
+   * 绝对上限 = start + 窗口 × TASK_TIMEOUT_ABSOLUTE_FACTOR,从开始计时、不随活动重排。
+   */
+  private armTaskTimeout(subagentId: string, entry: WorkerEntry, timeoutSec: number): void {
+    const windowMs = timeoutSec * 1000;
+    entry.taskTimeoutWindowMs = windowMs;
+    entry.taskDeadlineAt = Date.now() + windowMs * TASK_TIMEOUT_ABSOLUTE_FACTOR;
+    this.rearmTaskTimeout(subagentId, entry);
+  }
+
+  /**
+   * G-426:空闲窗重排唯一实现。剩余时间 = min(完整窗口, 距绝对上限的余额):
+   * 活动只把"空闲"这一维清零,"总时长"这一维永远在走。remaining ≤ 0 ⇒ 绝对上限到点,
+   * 即使仍有活动也按 absolute 归因收口(防无限续命)。
+   */
+  private rearmTaskTimeout(subagentId: string, entry: WorkerEntry): void {
+    if (entry.taskTimeoutWindowMs === undefined || entry.taskDeadlineAt === undefined) return;
+    if (entry.timedOut) return; // 已按超时收口(SIGTERM 宽限期内残余事件不得把归因翻回来)
+    if (entry.timeoutTimer) clearTimeout(entry.timeoutTimer);
+    const remaining = Math.min(entry.taskTimeoutWindowMs, entry.taskDeadlineAt - Date.now());
+    if (remaining <= 0) {
+      this.handleTimeout(subagentId, entry, 'absolute');
+      return;
+    }
+    // 归因跟随**约束方**:剩余时间被绝对上限压短(≤ 完整窗口)⇒ 这枚定时器到点就是总时长到头,
+    // 归因 absolute;否则是空闲窗自然耗尽,归因 idle。混用会让"持续活动被上限收口"谎报成空闲。
+    const reason: 'idle' | 'absolute' =
+      entry.taskDeadlineAt - Date.now() <= entry.taskTimeoutWindowMs ? 'absolute' : 'idle';
+    entry.timeoutTimer = setTimeout(() => {
+      this.handleTimeout(subagentId, entry, reason);
+    }, remaining);
   }
 
   /**
@@ -994,8 +1050,13 @@ export class SubagentWorkerPool {
     }
   }
 
-  /** 超时处理:SIGTERM 子进程,resolve failed */
-  private handleTimeout(subagentId: string, entry: WorkerEntry, timeoutSec: number): void {
+  /**
+   * 超时处理:SIGTERM 子进程,resolve failed。
+   * G-426:两档归因 —— `idle` = 空闲窗内没有任何真实任务活动(真正卡死);
+   * `absolute` = 总时长越过窗口 × TASK_TIMEOUT_ABSOLUTE_FACTOR(持续活动也到头了)。
+   * 错误 context 按票面口径带 idleMs 与 recoverable/retryable 标记(ASCII,消费方是模型)。
+   */
+  private handleTimeout(subagentId: string, entry: WorkerEntry, reason: 'idle' | 'absolute'): void {
     entry.timedOut = true;
     // G-998115:超时属宿主 watchdog 回收 ⇒ 先写归因(首因锁定),再发信号
     this.setTerminationKind(entry, 'watchdog_recycle');
@@ -1003,12 +1064,23 @@ export class SubagentWorkerPool {
     void this.signalWorker(entry, 'SIGTERM', 'task-timeout');
     // exit handler 会 resolve;但以防 exit 不触发,这里也 resolve 一次(幂等)
     if (entry.resolver) {
+      const now = Date.now();
+      const idleMs = now - (entry.lastActivityAt ?? entry.startedAt);
+      const totalMs = now - entry.startedAt;
+      const windowMs = entry.taskTimeoutWindowMs;
+      const shared =
+        ` (idleMs=${idleMs}, totalMs=${totalMs}, recoverable=true, retryable=false; ` +
+        `every stdout/stderr/progress event rearms the idle window)`;
+      const error =
+        reason === 'idle'
+          ? `timeout: no task activity for the whole ${windowMs}ms idle window${shared}`
+          : `timeout: absolute cap reached after ${totalMs}ms despite activity (cap = 3x idle window ${windowMs}ms)${shared}`;
       const resp: SubagentSpawnResponse = {
         subagentId,
         pid: entry.proc.pid ?? 0,
         status: 'failed',
-        error: `timeout after ${timeoutSec}s`,
-        durationMs: Date.now() - entry.startedAt,
+        error,
+        durationMs: totalMs,
       };
       entry.resolver(resp);
       entry.resolver = undefined;
