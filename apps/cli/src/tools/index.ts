@@ -200,6 +200,17 @@ export interface Tool extends ToolContractMount {
    * (否则 MCP 重连会留下一条指向已死连接的旧工具,那比原来的静默顶掉更糟)。
    */
   registrationOwner?: string;
+  /**
+   * 逐工具 strict 声明位(G-464:provider 约束解码**资格**,不是命令)。
+   * 语义对齐上游 contracts/tools/contract.ts:174-180:声明了也只是"有资格走 provider 的
+   * 结构化/约束解码";是否真带 strict 下发由 adapter 按 provider/model 决定,strict 面
+   * 表达不了的关键字(值约束一类)由消费方折进 description 后剥离。
+   * 唯一消费方:`toolsToProviderSchema()`(与本位**同笔**引入 —— 有声明零消费者是守门 121
+   * 禁的型)。收窄位置:全局资格开关 `useNativeTools`(commands/agent)之上的**逐工具**收窄,
+   * 全局没开原生 tools 时本位无效果;开了也只影响显式声明的这一枚。
+   * 缺省(省略)= 现状逐字不变。
+   */
+  strictSchema?: boolean;
   execute(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult>;
 }
 
@@ -1303,12 +1314,81 @@ export interface ProviderToolSchema {
   function: {
     name: string;
     description: string;
+    /**
+     * G-464:仅 `Tool.strictSchema === true` 的工具产出 —— 资格在本面(OpenAI 兼容)可表达
+     * ⇒ 命令化落点。未声明的工具不产这个键,线上形态与引入前逐字节同形。
+     */
+    strict?: boolean;
     parameters: {
       type: 'object';
       properties: Record<string, unknown>;
       required: string[];
     };
   };
+}
+
+// ==================== 逐工具 strict 资格位 → 严格解码面改造(G-464,与声明位同笔)====================
+
+/** strict 结构化解码不解释、只能折进 description 的值约束关键字(provider 拒不认识的关键字,留着会被整单拒)。 */
+const STRICT_INEXPRESSIBLE_KEYS: readonly string[] = [
+  'minimum',
+  'maximum',
+  'minLength',
+  'maxLength',
+  'pattern',
+];
+
+function isStrictRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+/** 把一条"线上表达不了"的事实折进该节点 description —— 信息不丢,只是改走散文通道。 */
+function foldStrictNote(node: Record<string, unknown>, note: string): void {
+  const base = typeof node.description === 'string' && node.description !== '' ? `${node.description} ` : '';
+  node.description = `${base}(strict-schema 折入: ${note})`;
+}
+
+/**
+ * 把一份已投影的 parameters **就地**改造成 strict 解码面可接受的形态(三件事,其余逐键不动):
+ *   ① 值约束关键字(`STRICT_INEXPRESSIBLE_KEYS`)剥离,原样折进本节点 description;
+ *   ② 每个 object 层收成 `additionalProperties: false`(strict 面要求显式闭集;true/子 schema 形无法表达);
+ *   ③ 未列于 required 的属性并入 required(strict 面要求全属性 required),"可省略"语义折进该属性 description。
+ * 只被 `strictSchema === true` 的工具走到;缺省路径一次都不进,现状逐字不变。
+ */
+function conditionSchemaForStrict(node: unknown, path: string): void {
+  if (!isStrictRecord(node)) return;
+  for (const key of STRICT_INEXPRESSIBLE_KEYS) {
+    if (key in node) {
+      foldStrictNote(node, `${key}=${JSON.stringify(node[key])}`);
+      delete node[key];
+    }
+  }
+  if (isStrictRecord(node.items)) conditionSchemaForStrict(node.items, `${path}.items`);
+  if (node.type === 'object' && isStrictRecord(node.properties)) {
+    const props = node.properties;
+    for (const [name, child] of Object.entries(props)) {
+      conditionSchemaForStrict(child, `${path}.properties.${name}`);
+    }
+    const required = new Set(
+      Array.isArray(node.required)
+        ? node.required.filter((r): r is string => typeof r === 'string')
+        : [],
+    );
+    for (const [name, child] of Object.entries(props)) {
+      if (!required.has(name) && isStrictRecord(child)) {
+        required.add(name);
+        foldStrictNote(child, '本参数可省略(strict 面要求全属性 required,以本声明为准)');
+      }
+    }
+    node.required = [...required];
+    const ap = node.additionalProperties;
+    if (ap !== false) {
+      if (ap !== undefined) {
+        foldStrictNote(node, `additionalProperties=${JSON.stringify(ap)} 无法表达,已收为 false`);
+      }
+      node.additionalProperties = false;
+    }
+  }
 }
 
 /**
@@ -1323,16 +1403,28 @@ export interface ProviderToolSchema {
  * `apps/cli/node_modules/.bin/tsx .ihui-agent/tmp/a13-baseline/ab-equality.mts`
  * → 覆盖 158 个真工具对象(含 factory 产出的多实例),**158/158 线字节相同 + 属性名集合相同 +
  * required 集合相同**,归一化账本零动作。数字会随仓库推进漂移,复测请按上面命令跑。
+ *
+ * 逐工具 strict 分叉(G-464):`strictSchema === true` 的工具先经 `conditionSchemaForStrict`
+ * 改造成严格解码面形态,再落 `function.strict = true`(资格 → 命令的唯一落点);其余工具
+ * 与该分支引入前逐字同形。全局资格(`useNativeTools`,commands/agent)不开时本函数根本不会被调,
+ * 本位在其之上只做逐工具收窄。
  */
 export function toolsToProviderSchema(tools: Tool[]): ProviderToolSchema[] {
-  return tools.map((t) => ({
-    type: 'function' as const,
-    function: {
-      name: t.name,
-      description: t.description,
-      parameters: projectToolInputSchema(t.parameters, t.required),
-    },
-  }));
+  return tools.map((tool) => {
+    const entry: ProviderToolSchema = {
+      type: 'function' as const,
+      function: {
+        name: tool.name,
+        description: tool.description,
+        parameters: projectToolInputSchema(tool.parameters, tool.required),
+      },
+    };
+    if (tool.strictSchema === true) {
+      conditionSchemaForStrict(entry.function.parameters, '$');
+      entry.function.strict = true;
+    }
+    return entry;
+  });
 }
 
 /** 解析 arguments 字段:JSON 字符串 / 对象 / 非法值 → {} */
