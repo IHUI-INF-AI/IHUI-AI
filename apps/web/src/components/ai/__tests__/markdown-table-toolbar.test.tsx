@@ -3,13 +3,52 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
 import * as React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, fireEvent, cleanup, waitFor } from '@testing-library/react'
 
-vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string) => key,
-}))
+const here = dirname(fileURLToPath(import.meta.url))
+const MESSAGES_ROOT = join(here, '../../../../../../packages/i18n/messages/web')
+const LOCALES = ['zh-CN', 'zh-TW', 'en', 'ja', 'ko'] as const
+const readPack = (locale: string): Record<string, string | undefined> => {
+  const root = JSON.parse(readFileSync(join(MESSAGES_ROOT, `${locale}.json`), 'utf8')) as {
+    chat?: { markdownTable?: Record<string, string> }
+  }
+  return root.chat?.markdownTable ?? {}
+}
+const zhPack = readPack('zh-CN')
+if (Object.keys(zhPack).length === 0) throw new Error('web 语言包缺少 chat.markdownTable 词表')
+
+// t() 由**真实 web 词包**驱动(缺键时和 next-intl 一样回吐裸键名)。
+// 于是用例断言的是真实文案:键没补齐 → 界面出现 markdownTable.xxx → 用例真红;
+// 而不是把"显示裸键名"这个缺陷本身钉成期望值。
+vi.mock('next-intl', async () => {
+  const { readFileSync: readFile } = await import('node:fs')
+  const { dirname: dir, join: cat } = await import('node:path')
+  const { fileURLToPath: toPath } = await import('node:url')
+  const root = JSON.parse(
+    readFile(
+      cat(dir(toPath(import.meta.url)), '../../../../../../packages/i18n/messages/web/zh-CN.json'),
+      'utf8',
+    ),
+  ) as { chat?: { markdownTable?: Record<string, string> } }
+  const subtree = root.chat?.markdownTable ?? {}
+  const flat: Record<string, string | undefined> = Object.fromEntries(
+    Object.entries(subtree).map(([k, v]) => [`markdownTable.${k}`, v]),
+  )
+  return {
+    useTranslations:
+      () =>
+      (key: string): string => {
+        const raw = flat[key]
+        return raw === undefined ? key : raw
+      },
+  }
+})
 
 // 项目 Tooltip 基于 Radix,需 TooltipProvider 祖先;本单测直接 render 组件不走应用根布局
 vi.mock('@/components/feedback', () => ({
@@ -217,7 +256,7 @@ describe('G-824 工具栏 —— 回读→复制/下载/全屏', () => {
     // 判据是**报了 empty**:只断言"没调剪贴板"分不清是走了 empty 分支还是点击没生效
     await waitFor(() => {
       expect(container.querySelector('[data-testid="markdown-table-notice"]')?.textContent).toBe(
-        'markdownTable.empty',
+        zhPack.empty,
       )
     })
     expect(writeText).not.toHaveBeenCalled()
@@ -237,7 +276,7 @@ describe('G-824 工具栏 —— 回读→复制/下载/全屏', () => {
     fireEvent.click(container.querySelector('[data-testid="markdown-table-copy"]') as HTMLElement)
     await waitFor(() => {
       expect(container.querySelector('[data-testid="markdown-table-notice"]')?.textContent).toBe(
-        'markdownTable.empty',
+        zhPack.empty,
       )
     })
     expect(writeText).not.toHaveBeenCalled()
@@ -260,7 +299,7 @@ describe('G-824 工具栏 —— 回读→复制/下载/全屏', () => {
     fireEvent.click(container.querySelector('[data-testid="markdown-table-copy"]') as HTMLElement)
     await waitFor(() => {
       expect(container.querySelector('[data-testid="markdown-table-notice"]')?.textContent).toBe(
-        'markdownTable.unsupported',
+        zhPack.unsupported,
       )
     })
     expect(writeText).not.toHaveBeenCalled()
@@ -323,6 +362,8 @@ describe('G-824 工具栏 —— 回读→复制/下载/全屏', () => {
       const dialog = document.querySelector('[data-testid="markdown-table-dialog"]')
       expect(dialog).toBeTruthy()
       expect(dialog?.className).toContain('[&_th]:sticky')
+      // 标题也是词表里的真实文案(chat.markdownTable.fullscreenTitle),不是裸键名
+      expect(dialog?.textContent).toContain(String(zhPack.fullscreenTitle))
     })
     // 全屏里那张表是真实表格的克隆(用户点之前的内容在里头)
     const cloned = document.querySelector(
@@ -331,7 +372,7 @@ describe('G-824 工具栏 —— 回读→复制/下载/全屏', () => {
     expect(readRowsFromTable(cloned)).toEqual([['姓名'], ['张三']])
   })
 
-  it('工具栏按钮文案全部取自 chat.markdownTable.* 词表(无硬编码中文)', () => {
+  it('工具栏按钮文案取 chat.markdownTable.* 的真实文案(键缺失会回吐裸键名 ⇒ 本用例真红)', () => {
     const { container } = render(
       <MarkdownTableBlock>
         <tbody>
@@ -346,13 +387,35 @@ describe('G-824 工具栏 —— 回读→复制/下载/全屏', () => {
     )
       .map((b) => b.getAttribute('aria-label'))
       .filter((x): x is string => x !== null)
-    expect(labels).toEqual([
-      'markdownTable.copy',
-      'markdownTable.downloadCsv',
-      'markdownTable.fullscreen',
-    ])
-    // 反向对照:按钮面上不得出现任何中文字符
+    expect(labels).toEqual([zhPack.copy, zhPack.downloadCsv, zhPack.fullscreen])
+    // 正向对照:aria-label 必须是词表里的真实文案,不是 markdownTable.xxx
+    expect(labels.join(' ')).not.toContain('markdownTable.')
+    // 反向对照:按钮面上不得出现任何中文字符(文案只进 aria-label / Tooltip)
     expect(container.querySelector('[data-testid="markdown-table-toolbar"]')?.textContent).toBe('')
+  })
+
+  it('组件用到的 8 个 chat.markdownTable.* 键在五语言词包齐全、键集一致、都是真实文案', () => {
+    // 这份名单来自源码:4 个 t('markdownTable.*') 字面量 + 4 个经 flashNotice 变量喂给 t() 的键
+    const COMPONENT_KEYS = [
+      'copy',
+      'downloadCsv',
+      'fullscreen',
+      'fullscreenTitle',
+      'empty',
+      'unsupported',
+      'copyFailed',
+      'csvFailed',
+    ]
+    for (const locale of LOCALES) {
+      const pack = readPack(locale)
+      expect(Object.keys(pack).sort(), locale).toEqual([...COMPONENT_KEYS].sort())
+      for (const key of COMPONENT_KEYS) {
+        const value = pack[key]
+        expect(typeof value, `${locale}.chat.markdownTable.${key}`).toBe('string')
+        expect((value ?? '').trim().length, `${locale}.${key} 不能是空串`).toBeGreaterThan(0)
+        expect(value, `${locale}.${key} 不得把裸键名当文案`).not.toBe(`markdownTable.${key}`)
+      }
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
