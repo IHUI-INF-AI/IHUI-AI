@@ -234,6 +234,54 @@ describe('isSafeNavigationTarget - 协议判定(与归属判定不同义)', () =
   })
 })
 
+// ── G-387,2026-10-07(承 G-413 同型残余③):allowDeepLink 与 env SSO_ALLOWED_DEEP_LINK_SCHEMES 对账 ──
+describe('isSafeNavigationTarget - 深链 scheme 与 env SSO_ALLOWED_DEEP_LINK_SCHEMES 对账', () => {
+  const ENV_KEY = 'SSO_ALLOWED_DEEP_LINK_SCHEMES'
+  let saved: string | undefined
+
+  beforeEach(() => {
+    saved = process.env[ENV_KEY]
+  })
+
+  afterEach(() => {
+    if (saved === undefined) delete process.env[ENV_KEY]
+    else process.env[ENV_KEY] = saved
+  })
+
+  it('env 缺席 ⇒ 默认档判据逐字不变(只判协议族 + host,未知 scheme 也放)', () => {
+    delete process.env[ENV_KEY]
+    expect(isSafeNavigationTarget('ihui://sso/callback', { allowDeepLink: true })).toBe(true)
+    expect(isSafeNavigationTarget('ihui-miniapp://sso/callback', { allowDeepLink: true })).toBe(true)
+    expect(isSafeNavigationTarget('unknown-app://x/y', { allowDeepLink: true })).toBe(true)
+    expect(isSafeNavigationTarget('ihui://', { allowDeepLink: true })).toBe(false) // 裸 scheme 无 host,既有判据不动
+  })
+
+  it('env 为空串 / 纯逗号 ⇒ 与缺席同档(默认档)', () => {
+    process.env[ENV_KEY] = ''
+    expect(isSafeNavigationTarget('ihui://sso/callback', { allowDeepLink: true })).toBe(true)
+    process.env[ENV_KEY] = ' , , '
+    expect(isSafeNavigationTarget('ihui://sso/callback', { allowDeepLink: true })).toBe(true)
+  })
+
+  it('env 在且含该 scheme ⇒ 过(条目空格与大小写归一)', () => {
+    process.env[ENV_KEY] = ' ihui, ihui-miniapp '
+    expect(isSafeNavigationTarget('ihui://sso/callback', { allowDeepLink: true })).toBe(true)
+    expect(isSafeNavigationTarget('Ihui-MiniApp://sso', { allowDeepLink: true })).toBe(true)
+  })
+
+  it('env 在但不含该 scheme ⇒ 拒(哪怕 host 形状完好)', () => {
+    process.env[ENV_KEY] = 'other-app'
+    expect(isSafeNavigationTarget('ihui://sso/callback', { allowDeepLink: true })).toBe(false)
+    expect(isSafeNavigationTarget('other-app://sso/callback', { allowDeepLink: true })).toBe(true)
+  })
+
+  it('env 对账不成为自执行协议的放行通道,也不影响默认档(不带 allowDeepLink 的调用点)', () => {
+    process.env[ENV_KEY] = 'javascript'
+    expect(isSafeNavigationTarget('javascript:alert(1)', { allowDeepLink: true })).toBe(false)
+    expect(isSafeNavigationTarget('ihui://sso/callback')).toBe(false)
+  })
+})
+
 describe('resolveSafeRedirectTarget - 回跳落点的唯一决策出口', () => {
   // 三条"落点被改写"的路径分开判,因为两档策略本来就不同义:
   //  - 自执行协议 / 协议相对 / 反斜杠:任何调用点都必须改写(它们要么在本站执行代码,要么伪装站内)
