@@ -81,6 +81,12 @@ export interface IsolatedSubprocessOptions {
   stdio?: StdioOptions
   /** 等待 reap 的最长时间(杀进程后到确认退出的最大等待,默认 2000ms) */
   reapTimeoutMs?: number
+  /**
+   * G-998133:kill 清理结算的绝对 deadline(Date.now 基准,工具执行预算面传导进
+   * kill 清理)。给出后 force 升级在 ≤ min(FORCE_EXIT 宽限, 绝对剩余) 内结算;
+   * 缺省无绝对约束(行为与旧版一致)。
+   */
+  cleanupDeadlineMs?: number
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000
@@ -454,6 +460,14 @@ function awaitReap(
 export const FORCE_EXIT_GRACE_MS = 5_000
 
 /**
+ * G-998133(拍板:要):kill 清理的纯观察档下限(上游 WINDOWS_LATE_EXIT_OBSERVATION_MS=750 同值)。
+ * 语义:目标集为空(child 已被观察到退出)时**不预留满档 FORCE_EXIT 宽限**,只保这份
+ * 纯观察窗口到点 —— 但不能把观察预算压得更短,否则会把随后 code=0 的正常退出误报成
+ * 持久残留;绝对 deadline 剩余比它还紧时以绝对剩余为准(结算 ≤ min(相对,绝对) 是硬顶)。
+ */
+export const CLEANUP_OBSERVATION_FLOOR_MS = 750
+
+/**
  * 毁掉 child 的 stdio 流(FORCE_EXIT 档)。
  * 动机:强杀后孙进程可能继承管道写端,父侧 stdout/stderr 读端永远等不到 close/end,
  * 输出收集器悬挂;显式 destroy 释放父侧 fd,读端立即解挂(票面:毁流释放 pipe 读端)。
@@ -478,6 +492,20 @@ export interface StopMachineDeps {
   scheduleTimer?: (ms: number, fn: () => void) => NodeJS.Timeout
   /** 与 scheduleTimer 配对的清除口。 */
   clearTimer?: (timer: NodeJS.Timeout) => void
+  /**
+   * G-998133(拍板:要):工具执行预算传导面 —— kill 清理结算的绝对 deadline
+   * (Date.now 基准,由调用方在清理起点固定)。给出后 force 升级在
+   * ≤ min(FORCE_EXIT 宽限, 绝对剩余) 内结算;缺省无绝对约束(相对宽限照旧)。
+   */
+  absoluteDeadlineMs?: number
+  /** 时钟注入口(缺省 Date.now;单测假钟驱动夹逼判定,不真等墙钟)。 */
+  now?: () => number
+  /**
+   * requestStop 时刻是否存在真实信号目标(缺省恒 true)。
+   * false = child 已被观察到退出 ⇒ 目标集为空:不预留满档 FORCE_EXIT 宽限,
+   * 只保 CLEANUP_OBSERVATION_FLOOR_MS 纯观察窗口到点(无信号目标不预留命令超时)。
+   */
+  signalTargetAlive?: () => boolean
 }
 
 export interface StopMachine {
@@ -527,7 +555,23 @@ export function createStopMachine(deps: StopMachineDeps): StopMachine {
         timeoutTimer = null
       }
       deps.killTree()
-      forceTimer = schedule(FORCE_EXIT_GRACE_MS, () => {
+      // G-998133:双 deadline 夹逼 —— 清理结算 ≤ min(相对宽限, 绝对剩余)。
+      // 上游病灶:相对预算各段(forceAfter + taskkillBudget + waitAfterForce)自顾自追加,
+      // 慢查询耗尽前段后 waiter 又追加完整后段,总清理窗口突破外层 phase 预算;
+      // 绝对 deadline 在本调用点(清理起点)现取剩余夹逼,结算时刻不超过它。
+      const nowMs = (deps.now ?? Date.now)()
+      let settleMs = FORCE_EXIT_GRACE_MS
+      if (typeof deps.absoluteDeadlineMs === 'number') {
+        settleMs = Math.min(settleMs, Math.max(0, deps.absoluteDeadlineMs - nowMs))
+      }
+      // 无信号目标不预留命令超时:目标集为空(child 已被观察到退出)⇒ 不白等满宽限,
+      // 压到纯观察档并让它走完(防把随后 code=0 的退出误报成持久残留);
+      // 绝对剩余更紧时以绝对剩余为准(硬顶,结算仍 ≤ min(相对, 绝对))。
+      const hasSignalTarget = deps.signalTargetAlive ? deps.signalTargetAlive() : true
+      if (!hasSignalTarget) {
+        settleMs = Math.min(settleMs, CLEANUP_OBSERVATION_FLOOR_MS)
+      }
+      forceTimer = schedule(settleMs, () => {
         forceTimer = null
         deps.forceKill()
         deps.destroyStreams()
@@ -691,6 +735,13 @@ export async function spawnIsolated(
       try { child.kill('SIGKILL') } catch { /* 已死:忽略 */ }
     },
     destroyStreams: () => destroyChildOutputStreams(child),
+    // G-998133:工具执行预算的绝对 deadline 传导进 kill 清理(缺省不传,行为逐字不变);
+    // 真实信号目标判定与 G-998130 同一判据:exit/signal 已被观察到 ⇒ 目标集为空,
+    // 清理不白等满宽限,只保观察档(防把随后 code=0 的退出误报成持久残留)。
+    ...(options.cleanupDeadlineMs !== undefined
+      ? { absoluteDeadlineMs: options.cleanupDeadlineMs }
+      : {}),
+    signalTargetAlive: () => child.exitCode === null && child.signalCode === null,
   })
   stopMachine.armTimeout(timeoutMs, () => {
     timedOut = true
