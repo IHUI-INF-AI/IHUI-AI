@@ -424,6 +424,19 @@ test('parseBatch:非 blob 的头(tree / commit)归 null,且不得把内容当下
 // 现读已是 10(测试打 `◽ 型 B 存量已降到 10(基线 11)` 提示);棘轮判 HEAD blob,本批工作树改动
 // 不进分母 ⇒ 提交前现读仍 10,10 ≤ 10 判得过;入库后现读 9,9 ≤ 10 仍判得过(打降档提示)。
 // 提交者入库后复核:若打出 `◽ 型 B 存量已降到 9(基线 10)`,可将基线一并降到 9。
+// 2026-10-08 gitRaw 第五批(archive-completed-tasks 4 处迁 gitRaw)—— 账目与既往批不同:**型 A 基线不动,仍 76**。
+// 该文件自 2026-09-28 对象空间收口起,git 派生全部经 `GIT_BIN` 变量间接:IIFE 形态不落
+// `const X = …'git'` 的声明行(型 B 尺不认),`execFileSync(GIT_BIN,…)` 也不匹配型 A 的直呼
+// 'git' 尺 —— 判据自证用例明文"走常量的正确写法不得误报"。已现读核实(迁移前后各跑一次
+// headDerivationScan):bareGit 名单 76 枚不含 scripts/archive-completed-tasks.mjs,故它的
+// 迁移前/后现读同为 76,型 A 分母一枚不降;若按既往批格式把基线降到 75,落地入库后现读仍
+// 76 ⇒ 76 > 75 恒红 —— 棘轮"留余量等于容忍新增"的反面是"挖坑等于恒红",恒红的尺子只会
+// 被跳门(§12e 同型),所以本批不降。本批价值在取材形态统一(safe.directory/quotepath/EBUSY
+// 兜底/stdio 两态进层),不在棘轮数字;该文件余下两处刻意不迁(GIT_BIN --version 探针与
+// writeChannelProbe:IHUI_GIT_BIN 逃生舱契约 + 镜像例注入点,env 覆写维度与上行 bypass-git
+// git() 的"不可迁"账同型),若未来层支持 env 二进制覆写、两处也迁层,该文件才产生"降 1"
+// 的账。落地入库后复跑本判据应仍是 76 ≤ 76 判得过(不打印"已降到"提示);若打出别的数字,
+// 以现读为准再校。
 const BARE_GIT_BASELINE = 76
 const PATH_BOUND_GIT_BASELINE = 10
 const SELF_BATCH_BASELINE = 0
