@@ -810,8 +810,19 @@ export async function acquireLock(
     }
 
     // PID 存活,等待其他进程完成
+    // G-998105(拍板选②):等待预算耗尽**不得升级为抢占** —— 语义对照上游
+    // zcode-cli core/utils/atomicFileLock.ts 的 createFileLockTimeoutError(:159-174):
+    // 上游把"触到 maxWait"当**终态**,只抛带持有者信息的超时错;等待者绝不会在预算
+    // 耗尽那一刻变成立即回收者,回收只发生在环内正常轮询且持有者已死(下面
+    // isProcessAlive 证伪分支,即本循环 `!alive ⇒ unlink ⇒ continue` 这条路)。
+    // 本实现同判据:活持有者哪怕被等满 timeoutMs 也绝不抢,到点只抛 McpLockTimeoutError。
+    // 对照:scripts/git-lock.mjs 的 acquire 档「刻意允许最后时刻抢占」(名义活着的锁
+    // 超 staleMs 也抢,靠心跳续命兜住)—— 那是 git 写锁有意的可用性取舍,与本文件的
+    // 凭据锁口径分属两档,**不得顺手统一**(镜像测试见 tests/g-998105-*.test.ts)。
     await sleep(LOCK_POLL_INTERVAL_MS);
   }
+  // G-998105(拍板选②):预算耗尽 = 终态抛错而非抢占 —— 这一刻锁文件内容原样保留
+  // (持有者信息未动),调用侧凭 isLockTimeoutError 先重读再定性(票A:等锁超时 ≠ 刷新失败)。
   throw new McpLockTimeoutError(`OAuth lock 等待超时 (${timeoutMs}ms),其他进程未释放 ${lockPath}`);
 }
 
