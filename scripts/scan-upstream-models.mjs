@@ -23,9 +23,11 @@
 import { createRequire } from 'node:module'
 import { createDecipheriv } from 'node:crypto'
 import { readFileSync } from 'node:fs'
+import { pathToFileURL } from 'node:url'
 import { normalizeModelId } from './lib/model-names.mjs'
 
-const require = createRequire(import.meta.url)
+// §22d:postgres 仅在 apps/api / packages/database 声明,从 scripts/ 锚定解析不到 ⇒ 改锚 database 包清单,import 面与根目录直跑面均可解析,直跑行为不变
+const require = createRequire(new URL('../packages/database/package.json', import.meta.url))
 const postgres = require('postgres')
 
 // ===== CLI 参数解析 =====
@@ -264,10 +266,29 @@ async function main() {
   return report
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((e) => {
-    console.error('FATAL:', e?.message || e)
-    process.exit(2)
-  })
+// AGENTS §22d:CLI 直跑与被 import 双形态必须隔离副作用,Windows 反斜杠路径要经 pathToFileURL 归一。
+// 入口按该文件现有调用名与现有链式形态原样关进守卫(main 为 async,不改写、不重构)。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main()
+    .then(() => process.exit(0))
+    .catch((e) => {
+      console.error('FATAL:', e?.message || e)
+      process.exit(2)
+    })
+}
+
+export const __test__ = {
+  loadEncryptionKey,
+  decryptJSON,
+  resolveApiKey,
+  log,
+  main,
+  args,
+  dryRun,
+  providerFilter,
+  dbUrl,
+  normalizeModelId,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
