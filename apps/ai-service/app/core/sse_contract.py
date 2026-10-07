@@ -258,8 +258,11 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
         "compaction",
         ("triggered", "tokensBefore", "tokensAfter", "removedCount", "usageRatio", "trigger"),
     ),
-    # 中途引导注入确认(Steer,2026-09-19 立):llm.py tool loop 注入用户引导文本时发出
-    SSEEventContract("steer", ("phase", "text", "timestamp", "messageId")),
+    # 中途引导注入确认(Steer,2026-09-19 立):llm.py tool loop 注入用户引导文本时发出。
+    # G-815975(2026-10-07):phase 两个值 —— injected(注入确认)/ dropped(流收口时
+    # 该条引导未消费的显式回报,点名该条目,不再静默丢弃);kind 为条目类型轴
+    # (guide=普通引导可 inline / control=设置轮不可 inline,吸收循环遇它即停)。
+    SSEEventContract("steer", ("phase", "text", "timestamp", "messageId", "kind")),
     # V3 #58(2026-09-26):主聊天流工具审批帧(与 agent 任务流 tool-approval 同形,
     # 前端同一弹窗消费;approval_id 为流内唯一标识,decision 回传走流级端点)
     #
