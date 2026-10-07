@@ -2185,6 +2185,13 @@
       "when": 1791338400000,
       "tag": "20261007100000_llm_call_logs_retryable",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 313,
+      "when": 1791378631996,
+      "tag": "20261007211031_ai_model_config_drop_extra_metadata",
+      "breakpoints": true
     }
   ]
 }
