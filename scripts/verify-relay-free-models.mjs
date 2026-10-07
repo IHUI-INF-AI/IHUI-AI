@@ -26,9 +26,6 @@ import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-const require = createRequire(import.meta.url)
-const postgres = require('postgres')
-
 // ============================================================================
 // CLI 参数
 // ============================================================================
@@ -100,6 +97,10 @@ const EXPECTED_FREE_MODELS = [
 // ============================================================================
 
 async function main() {
+  // AGENTS §22d/批次 G2:模块解析与建库连接都只在 CLI 真正执行时发生,被 import 时零副作用。
+  const require = createRequire(import.meta.url)
+  const postgres = require('postgres')
+
   console.log(`\n========== 中转站免费模型上架完整性验证 ${dryRun ? '(DRY-RUN)' : ''} ==========`)
   console.log(`期望清单:${EXPECTED_FREE_MODELS.length} 个免费模型,来自 ${new Set(EXPECTED_FREE_MODELS.map((m) => m.provider_code)).size} 个免费 provider`)
   console.log('对齐:ai-service free_provider_registry + seed-free-providers.mjs\n')
@@ -255,8 +256,19 @@ async function main() {
   process.exit(hasIssue ? 1 : 0)
 }
 
-main().catch((e) => {
-  console.error('FATAL:', e?.message || e)
-  process.exit(2)
-})
+import { pathToFileURL } from 'node:url'
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main().catch((e) => {
+    console.error('FATAL:', e?.message || e)
+    process.exit(2)
+  })
+}
+
+// 本文件无独立判定函数(交叉比对全部内联在 async main 里),只导出那份期望清单 —— 它是 main 的判定输入。
+export const __test__ = {
+  EXPECTED_FREE_MODELS,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

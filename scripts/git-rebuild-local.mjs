@@ -267,7 +267,7 @@ function main() {
   console.log('   git status          # 查看差异(你的改动会显示为 modified/untracked)')
   console.log('   git diff            # 确认改动内容')
   console.log('   git add <文件> && git commit  # 重新提交(建议用 scripts/safe-commit.mjs)')
-  console.log(`   损坏备份: ${backupDir}(确认无误后可删除)`)
+  console.log(`   损坏备份: ${archiveDir}(确认无误后可删除)`)
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
