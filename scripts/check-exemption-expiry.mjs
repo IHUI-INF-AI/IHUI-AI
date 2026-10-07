@@ -1588,6 +1588,12 @@ export const __test__ = {
   undatedKey,
   loadBaseline,
   MARKER_RE,
+  /**
+   * 到期日形状的**唯一**出口(§22c)。镜像测试要"整串必须是一个日期"时,不得在本文件之外再抄一遍
+   * `20\d{2}-\d{2}-\d{2}` —— 门体这里已有四处同源用法(DATE_RE / parseMarkerTail 的 until /
+   * 剥理由里的日期 / E5 的 until 判定),抄一份就等于给"改一处漏三处"埋雷。
+   */
+  DATE_RE,
   PREFILTER_RE,
   SELF_EXEMPT_RE,
   TOOL_FACE_RE,
