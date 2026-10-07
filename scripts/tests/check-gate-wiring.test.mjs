@@ -762,4 +762,123 @@ test('T24 R10 形状锁:main() 必须真把判据挂上,默认档不得进 reds,
   assert.ok(/r10Face[\s\S]{0,160}tracked[\s\S]{0,80}r10IndexPaths|new Set\(\[...tracked, \.\.\.r10IndexPaths\]\)/.test(main), 'R10 存在性面必须是 HEAD ∪ 索引')
 })
 
+test('T25 R12 文档侧解析:§3.1 限定 + 围栏排除 + 表头跳过 + px 读不出与内部矛盾点名不猜', () => {
+  const md = [
+    '# UI 指南',
+    '',
+    '### 3.1 圆角角色表',
+    '',
+    '| 元素 | 圆角 | 角色键 | 场景 |',
+    '| --- | --- | --- | --- |',
+    '| 控件 | 4px | `control` | 按钮 |',
+    '| 卡片 | **8px** | card | 列表 |',
+    '| 弹层 | 档位? | ghost | 读不出 |',
+    '| 卡片 | 12px | card | 重复且矛盾 |',
+    '',
+    '### 3.2 演示',
+    '',
+    '```',
+    '| 假行 | 99px | `fence-only` | 围栏不算 |',
+    '```',
+    '',
+    '### 3.11 相邻小节不得被 3.1 前缀误吞',
+    '',
+    '| 邻 | 1px | `neighbor` | 不在 3.1 |',
+  ].join('\n')
+  const p = G.parseRadiusRoleDocTable(md)
+  assert.deepEqual(
+    [...p.roles],
+    [
+      ['control', 4],
+      ['card', 8],
+    ],
+    '首行定值,同角色重复行不改判(以首行为准);反例 neighbor/fence-only 必须排除',
+  )
+  assert.equal(p.rows, 4, '有角色键的表格行计数(含矛盾行与读不出行;表头/分隔行/围栏行不算)')
+  assert.deepEqual(p.pxUnparsable, [{ role: 'ghost', px: '档位?' }], '有角色键但 px 读不出 ⇒ 点名报数,判不出 ≠ 没有')
+  assert.deepEqual(p.conflicts, [{ role: 'card', px: 12, prev: 8 }], '同角色两行不同值 ⇒ 文档内部自相矛盾,点名不猜')
+})
+
+test('T26 R12 代码侧解析:单/双引号与裸键同认、行尾注释不得让条目从注册面消失、RADIUS_ROLES 缺失 ⇒ ok=false', () => {
+  const js = [
+    'export const RADIUS_ROLES = {',
+    "  tiny: 'xs', // 行尾行注释",
+    '  \'control\': "sm",',
+    "  card: 'lg', /* 行尾块注释 */",
+    '  /** JSDoc 行不是键值行,天然不命中 */',
+    '}',
+    '',
+    'export const RADIUS_STEPS = {',
+    '  xs: 2,',
+    "  'sm': 4, // px",
+    '  DEFAULT: 8,',
+    '}',
+  ].join('\n')
+  const p = G.parseRadiusRoleRegistry(js)
+  assert.ok(p.ok, 'RADIUS_ROLES 在且 >0 条 ⇒ ok(判据不瞎)')
+  assert.deepEqual(
+    [...p.roles],
+    [
+      ['tiny', 'xs'],
+      ['control', 'sm'],
+      ['card', 'lg'],
+    ],
+    '裸键/单引号/双引号同认;行尾 // 与 /* */ 注释不得让条目消失(漏读方向 = 凭空造 docOnly 假红)',
+  )
+  assert.equal(p.steps.get('xs'), 2)
+  assert.equal(p.steps.get('sm'), 4)
+  assert.equal(p.steps.get('DEFAULT'), 8, '裸键 DEFAULT(真仓 radius.js 形态)必须认')
+  const bad = G.parseRadiusRoleRegistry('export const OTHER = 1\n')
+  assert.equal(bad.ok, false, 'RADIUS_ROLES 缺失 ⇒ ok=false(失明 ≠ "没有角色",上层必须落未判定)')
+  const noSteps = G.parseRadiusRoleRegistry("export const RADIUS_ROLES = {\n  a: 'b',\n}\n")
+  assert.ok(noSteps.ok && noSteps.steps.size === 0, '只有 RADIUS_STEPS 缺 ⇒ 角色面仍可判(差值走 pxUnjudged,不算失明)')
+})
+
+test('T27 R12 三态差集:docOnly/codeOnly/pxMismatch/pxUnjudged 四桶互斥,绝不并桶', () => {
+  const reg = G.parseRadiusRoleRegistry(
+    "export const RADIUS_ROLES = {\n  control: 'sm',\n  chip: 'sm',\n  'fold-less': 'nope',\n  extra: 'lg',\n}\n" +
+      'export const RADIUS_STEPS = {\n  sm: 4,\n  lg: 8,\n}\n',
+  )
+  const docRoles = new Map([
+    ['control', 4], // 同值 ⇒ 不进任何缺口桶
+    ['chip', 9], // 代码认得角色但 px 对不上 ⇒ pxMismatch
+    ['ghost-role', 6], // 文档列了代码没有 ⇒ docOnly
+    ['fold-less', 3], // 代码认得角色但档位折不出 px ⇒ pxUnjudged
+  ])
+  const out = G.compareRadiusRoleRegistries({ docRoles, reg })
+  assert.deepEqual(out.docOnly, [{ role: 'ghost-role', px: 6 }])
+  assert.deepEqual(out.pxMismatch, [{ role: 'chip', docPx: 9, codePx: 4, step: 'sm' }])
+  assert.deepEqual(out.pxUnjudged, [{ role: 'fold-less', step: 'nope' }])
+  assert.deepEqual(out.codeOnly, [{ role: 'extra', step: 'lg' }], '代码有文档没列 ⇒ 只报数(该方向归 R4 语义,本维永不判红)')
+  assert.equal(
+    out.docOnly.length + out.pxMismatch.length + out.pxUnjudged.length + out.codeOnly.length,
+    4,
+    '四桶各恰一条 ⇒ 同一笔漂移只会出现在一个桶里(并桶 = 报数失真)',
+  )
+})
+
+test('T28 R12 形状锁:main() 必须真接三段判据,red-r12 只允许在 --strict 分支,取材必须走 blobSpecs 预取', () => {
+  const src = readFileSync(join(fileURLToPath(new URL('.', import.meta.url)), '..', 'check-gate-wiring.mjs'), 'utf8')
+  const main = src.slice(src.indexOf('async function main('), src.indexOf('// ─── self-test'))
+  assert.ok(main.length > 500, 'main() 区块取形失败(截取判据的前置条件不成立 ⇒ 本条断言无牙)')
+  // ① 装车:三段判据必须被 main() 真调用(函数在而无人调 = 提交链上一路绿灯)
+  for (const call of ['parseRadiusRoleDocTable(', 'parseRadiusRoleRegistry(', 'compareRadiusRoleRegistries(']) {
+    assert.ok(main.includes(call), `main() 里没有调用 ${call} ⇒ R12 对该形态失明`)
+  }
+  // ② 定级:red-r12 只允许出现在 --strict 且已判定(judged)的分支里 —— 未判定态判红就是把
+  // "取材失败"当"有缺口"(恒红机),judged 之外的红都是冤枉提交。
+  const strictGuard = main.match(/if \(opts\.strict && r12\.status === 'judged'\) \{[\s\S]{0,600}?red-r12/)
+  assert.ok(strictGuard, "red-r12 必须在 `if (opts.strict && r12.status === 'judged')` 块内 —— 默认档判红就是造恒红机")
+  assert.equal(
+    (main.match(/status: 'red-r12'/g) || []).length,
+    2,
+    "red-r12 恰两个 push 点(docOnly 与 pxMismatch 各一),都必须在同一 strict 块内;新增桶必须一起改这条锁",
+  )
+  // ③ 取材面:两侧四规格必须 HEAD/索引同批预取(索引优先退 HEAD),禁止 readFileSync 工作区
+  for (const spec of ['HEAD:${R12_DOC_REL}', ':${R12_DOC_REL}', 'HEAD:${R12_CODE_REL}', ':${R12_CODE_REL}']) {
+    assert.ok(main.includes(`blobSpecs.add(\`${spec}\`)`), `R12 取材缺 blobSpecs 预取 ${spec} ⇒ 未预取面会抛 Undetermined`)
+  }
+  assert.ok(!/readFileSync\([^)]*(UI_GUIDELINES|radius\.js)/.test(main), 'R12 禁止 readFileSync 工作区取材(他人未提交的编辑不算仓库内容)')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
