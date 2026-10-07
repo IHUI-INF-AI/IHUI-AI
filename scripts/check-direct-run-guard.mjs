@@ -618,12 +618,14 @@ export function selfTest() {
   t('ST16 括号配平失败 ⇒ 未判定并点名', s(UNBALANCED).state === 'undetermined' && /未判定/.test(s(UNBALANCED).why), JSON.stringify(s(UNBALANCED)))
   t('ST16b 两档都切不出时,未判定必须**同时点名两档**的原因(不得只报一半)', /注释\+字符串\+正则体.*注释\+字符串\(正则档关\)/.test(s(UNBALANCED).why || ''), s(UNBALANCED).why)
   t('ST17 多余闭括号 ⇒ 未判定', s(EXTRA_CLOSE).state === 'undetermined', JSON.stringify(s(EXTRA_CLOSE)))
-  // ST17b/ST17c:现读量到的那一型(check-brand-email-channel.mjs:253)—— 上一行 `return true` 让
-  // 分词器把本行的 `/` 认成除法 ⇒ 主档吞掉半截正则、面上留下配不平的 `[`;两档并跑才判得出来。
+  // ST17b/ST17c:现读量到的那一型(check-brand-email-channel.mjs:253)。G-1059136 修复前,上一行
+  // 行尾的 `true` 与本行行首的 `return` 累积成非关键字 `truereturn` ⇒ 主档把本行 `/` 认成除法、
+  // 吞掉半截正则,面上留下配不平的 `[`,只有备档判得出来(故旧读数把 ST17c 钉在备档);修复后
+  // 换行清 lastWord ⇒ 本型主档即判。ST17c 的意图是"读数可归因",档位随修复同批重锚为主档。
   const REGEX_CLASS_SLASH = `function isA(base) {\n  if (base.length) return true\n  return /^alertmanager[^/]*$/i.test(base)\n}\nmain()\n`
   const j17 = s(REGEX_CLASS_SLASH)
   t('ST17b 字符类里带斜杠的正则不得把判定打成未判定(两档并跑)', j17.state === 'hit' && j17.hits.length === 1, JSON.stringify(j17))
-  t('ST17c 该型走的是备档 ⇒ 如实登记用的是哪一档(读数可归因)', j17.mask === MASK_PROJECTIONS[1].name, JSON.stringify(j17.mask))
+  t('ST17c 如实登记用的是哪一档(读数可归因;G-1059136 修复后本型主档即判,不再回落备档)', j17.mask === MASK_PROJECTIONS[0].name, JSON.stringify(j17.mask))
   const GUARD_IN_COMMENT_WITH_REGEX = `function isA(base) {\n  if (base.length) return true\n  return /^alertmanager[^/]*$/i.test(base)\n}\nmain()\n// const isDirectRun = true\n/* if (isDirectRun) { main() } */\n`
   t('ST17d 换到备档判时,"守卫只写在注释里"仍然不得放过(两档都抹注释)', s(GUARD_IN_COMMENT_WITH_REGEX).state === 'hit', JSON.stringify(s(GUARD_IN_COMMENT_WITH_REGEX)))
   t('ST18 内容取不到 ⇒ 未判定(不回落另一个面)', J('a.mjs', null).state === 'undetermined')
