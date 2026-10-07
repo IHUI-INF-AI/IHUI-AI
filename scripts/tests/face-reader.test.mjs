@@ -414,8 +414,18 @@ test('parseBatch:非 blob 的头(tree / commit)归 null,且不得把内容当下
 // `node --test scripts/tests/face-reader.test.mjs` 应打出 `◽ 裸 git 存量已降到 76(基线 76)`;
 // 若打出别的数字,以现读为准再校。本棘轮刻意不持有逐文件名单表(见判据提示的措辞注),
 // 基线即唯一账面 ⇒ 本批无逐文件名单需要同步。
+// 2026-10-08 gitRaw 型 B 批第 1 枚(scripts/lib/bypass-git.mjs):isAncestor() 的 spawnSync 迁
+// gitRaw(三态语义一字未动,行为面对照记在该文件头);git() 因 env 维度不可迁 —— 默认剥
+// GIT_INDEX_FILE + 显式 env 注入临时索引(commitTreeWithIndex 的落地通道),gitRaw 的 opts
+// {input,timeout,maxBuffer,binary} 无 env 形态,另 win32 protectNTFS=false 为路径面所需 ——
+// 保留自派生,仅二进制取数改走层 gitBinary()(恒等 `resolveGitBin() || 'git'`),声明不再绑裸
+// 'git' ⇒ 该文件脱离型 B 口径,基线 11 → 10。型 A 分母不动:该文件两处派生首参均为 GIT_BIN
+// 变量、从无字面 'git' 派生,BARE_GIT_BASELINE 76 不变。现读账:本批开工(改动前)HEAD 面型 B
+// 现读已是 10(测试打 `◽ 型 B 存量已降到 10(基线 11)` 提示);棘轮判 HEAD blob,本批工作树改动
+// 不进分母 ⇒ 提交前现读仍 10,10 ≤ 10 判得过;入库后现读 9,9 ≤ 10 仍判得过(打降档提示)。
+// 提交者入库后复核:若打出 `◽ 型 B 存量已降到 9(基线 10)`,可将基线一并降到 9。
 const BARE_GIT_BASELINE = 76
-const PATH_BOUND_GIT_BASELINE = 11
+const PATH_BOUND_GIT_BASELINE = 10
 const SELF_BATCH_BASELINE = 0
 
 /**
