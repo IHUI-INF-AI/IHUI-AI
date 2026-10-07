@@ -6,6 +6,7 @@
  * 后台任务注册表 + /loop 测试
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { EventEmitter } from 'node:events';
@@ -32,6 +33,7 @@ import {
   __test__,
 } from '../src/tools/background-registry.js';
 import type { BackgroundTask, BackgroundTaskSnapshot } from '../src/tools/background-registry.js';
+import { ledgerFilePath } from '../src/tools/background-ledger.js';
 import { runSandboxedAsync } from '../src/sandbox/index.js';
 
 const isWindows = process.platform === 'win32';
@@ -1028,6 +1030,95 @@ describe('G-816002 同一 key 重开(重臂)的结算面/身份面分域', () =>
     child.emit('close', 0, null);
     expect(received.length).toBe(1);
     expect(live.exitCode ?? null).toBeNull(); // error 一支不落退出码:迟到快照不得改写它
+  });
+});
+
+describe('G-1058645 写账侧世代围栏(ledgerSettle)', () => {
+  let scratch: string | null = null;
+  let previousHome: string | undefined;
+
+  /** 假子进程(同文件既有夹具同形:注册表对 process 只做 stdout?.on / stderr?.on / on('error') / on('close'))。 */
+  function fakeChild(): ChildProcess {
+    return new EventEmitter() as unknown as ChildProcess;
+  }
+
+  function ledgerText(): string | null {
+    try {
+      return fs.readFileSync(ledgerFilePath(), 'utf-8');
+    } catch {
+      return null;
+    }
+  }
+
+  function lastLineIdentity(): string | undefined {
+    const lines = (ledgerText() ?? '').trim().split('\n');
+    const last = lines[lines.length - 1];
+    if (!last) return undefined;
+    return (JSON.parse(last) as { identity?: string }).identity;
+  }
+
+  /**
+   * 迟到载体:同一枚 key + 旧世代号 + 已落终态(构造论证同 G-816002 块头:key 换代没有
+   * 公开入口,handlers 携带的正是登记那一刻抓的活对象)。face 选一支:spawn error 支
+   * (status error,不落退出码)与 close 支(status exited,落退出码)。
+   */
+  function staleTerminalOf(live: BackgroundTask, face: 'spawn-error' | 'close'): BackgroundTask {
+    const base: BackgroundTask = { ...live, identity: 'gen_previous_life' };
+    if (face === 'spawn-error') return { ...base, status: 'error', exitCode: null };
+    return { ...base, status: 'exited', exitCode: 3 };
+  }
+
+  beforeEach(() => {
+    const dir: string = mkScratch('g1058645-'); // §26 唯一落点;台账隔离走 IHUI_HOME 出口
+    scratch = dir;
+    previousHome = process.env.IHUI_HOME;
+    process.env.IHUI_HOME = path.join(dir, 'home');
+    clearAllTasks();
+    clearAllLoops();
+  });
+
+  afterEach(() => {
+    clearAllTasks();
+    clearAllLoops();
+    if (previousHome === undefined) delete process.env.IHUI_HOME;
+    else process.env.IHUI_HOME = previousHome;
+    if (scratch) rmScratch(scratch);
+    scratch = null;
+  });
+
+  it("『spawn error』支:迟到的旧世代结算不写账 —— 账面一字不动,守卫账计一次", () => {
+    const child = fakeChild();
+    const id = registerTask(child, 'g1058645 在任的一世');
+    const live = getTask(id)!;
+    child.emit('close', 0, null); // 本世先正常收尾:台账里有本世的 start + settled
+    const before = ledgerText();
+    const rejectedBefore = getRemovalGuardStats().staleTerminalRejected;
+
+    __test__.ledgerSettle(staleTerminalOf(live, 'spawn-error'), 'spawn error');
+
+    expect(ledgerText()).toBe(before); // ← 一行都没多:旧世代的迟到结算没写进账
+    expect(getRemovalGuardStats().staleTerminalRejected - rejectedBefore).toBe(1);
+    // 正向对照:在任那一代自己的结算照写 —— 被拒的是冒名的那一发,不是写账流程坏了
+    __test__.ledgerSettle(live, '本世自己的结算(身份匹配,照写)');
+    expect(ledgerText()).not.toBe(before);
+    expect(lastLineIdentity()).toBe(live.identity);
+  });
+
+  it('close 支:同判据 —— 迟到的旧世代 close 不写账,身份匹配的照写', () => {
+    const child = fakeChild();
+    const id = registerTask(child, 'g1058645 close 支');
+    const live = getTask(id)!;
+    child.emit('error', new Error('g1058645 spawn error')); // 本世先走 error 支
+    const before = ledgerText();
+    const rejectedBefore = getRemovalGuardStats().staleTerminalRejected;
+
+    __test__.ledgerSettle(staleTerminalOf(live, 'close'), 'closed by signal SIGTERM');
+
+    expect(ledgerText()).toBe(before);
+    expect(getRemovalGuardStats().staleTerminalRejected - rejectedBefore).toBe(1);
+    __test__.ledgerSettle(live, '本世自己的结算(身份匹配,照写)');
+    expect(ledgerText()).not.toBe(before);
+    expect(lastLineIdentity()).toBe(live.identity);
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

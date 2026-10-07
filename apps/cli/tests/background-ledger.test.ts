@@ -22,6 +22,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 // 测试夹具唯一落点(§26)。它住在 scripts/ —— 运行时代码不引它,只有测试引;
@@ -35,6 +36,7 @@ import {
   ledgerFilePath,
   ledgerStateLabel,
   pruneLedger,
+  recordHeartbeat,
   recordTaskSettle,
   recordTaskStart,
   summarizeLedger,
@@ -157,6 +159,7 @@ describe('后台任务台账 · ② 进程已不在且没记终态 ⇒ detached-
   it('跨机器记录判不成"已脱离" ⇒ outcome-unknown(无从判断,不冒红也不记绿)', () => {
     const foreign: BackgroundLedgerRecord = {
       id: 'bg_foreign',
+      identity: '',
       kind: 'node',
       commandDigest: 'deadbeefcafebabe',
       startedAt: new Date().toISOString(),
@@ -310,6 +313,176 @@ describe('后台任务台账 · 记录内容不涉密', () => {
     const s = summarizeLedger();
     expect(s.malformedLines).toBe(2);
     expect(s.entries.map((e) => e.record.id)).toEqual(['bg_good']);
+  });
+});
+
+describe('后台任务台账 · G-1058645 折叠按世代身份,同 id 复用互不覆盖', () => {
+  it('同 id 复用(pruneCompleted 后真路径):上一代迟到的 close 结算不得把新一代那条账标成旧世结局', () => {
+    // 上一代:登记 → 正常落终态
+    recordTaskStart({ id: 'bg_reuse', command: 'echo gen1', childPid: null, identity: 'gen_aaaa1111aaaa' });
+    recordTaskSettle({
+      id: 'bg_reuse',
+      identity: 'gen_aaaa1111aaaa',
+      terminal: 'succeeded',
+      exitCode: 0,
+      note: 'gen1 closed',
+    });
+    // 同 id 的新一代(pruneCompleted 之后键被复用):账上只有"已开始、无终态"
+    recordTaskStart({ id: 'bg_reuse', command: 'echo gen2', childPid: null, identity: 'gen_bbbb2222bbbb' });
+    // 上一代**迟到**的 close(旧版按 id 折叠,这一发会把新一代那条盖成旧世结局)
+    recordTaskSettle({
+      id: 'bg_reuse',
+      identity: 'gen_aaaa1111aaaa',
+      terminal: 'failed',
+      exitCode: 1,
+      note: 'late close of gen1',
+    });
+
+    const entries = summarizeLedger({ liveIds: ['bg_reuse'] }).entries.filter((e) => e.record.id === 'bg_reuse');
+    expect(entries).toHaveLength(2); // 两代各占一条,互不折叠
+    const gen1 = entries.find((e) => e.record.identity === 'gen_aaaa1111aaaa');
+    const gen2 = entries.find((e) => e.record.identity === 'gen_bbbb2222bbbb');
+    expect(gen1).toBeDefined();
+    expect(gen2).toBeDefined();
+    // 迟到的结算记在上一代自己头上(同代内仍是"最后一条为准"的既有语义)
+    expect(gen1!.record.terminal).toBe('failed');
+    expect(gen1!.record.exitCode).toBe(1);
+    // ← 票面钉的那一格:新一代没被标成旧世结局 —— 账面与"它其实还在跑"一致
+    expect(gen2!.record.terminal).toBeNull();
+    expect(gen2!.record.exitCode).toBeNull();
+    expect(gen2!.record.note).toBe('');
+    expect(gen2!.state).toBe('running-here');
+  });
+
+  it('折叠键是 identity 而不是 id:同一 id 的两代记录(纯文件面)在摘要里各占一条', () => {
+    const file = ledgerFilePath();
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    const stamp = new Date().toISOString();
+    const line = (identity: string, terminal: string | null, note: string): string =>
+      JSON.stringify({
+        id: 'bg_two_gens',
+        identity,
+        kind: 'node',
+        commandDigest: 'a'.repeat(16),
+        startedAt: stamp,
+        lastSeenAt: stamp,
+        terminal,
+        exitCode: null,
+        host: 't',
+        ownerPid: 1,
+        childPid: null,
+        note,
+      });
+    fs.writeFileSync(file, `${line('gen_old', 'failed', 'old gen')}\n${line('gen_new', null, '')}\n`, 'utf-8');
+
+    const entries = summarizeLedger().entries.filter((e) => e.record.id === 'bg_two_gens');
+    expect(entries).toHaveLength(2);
+    expect(entries.find((e) => e.record.identity === 'gen_old')?.record.terminal).toBe('failed');
+    expect(entries.find((e) => e.record.identity === 'gen_new')?.record.terminal).toBeNull();
+  });
+
+  it('心跳按世代找账:旧世代的心跳摸不到新一代的账,新一代自己的心跳照常', () => {
+    recordTaskStart({ id: 'bg_hb', command: 'echo gen1', childPid: null, identity: 'gen_hb_old' });
+    recordTaskSettle({ id: 'bg_hb', identity: 'gen_hb_old', terminal: 'succeeded', exitCode: 0 });
+    recordTaskStart({ id: 'bg_hb', command: 'echo gen2', childPid: null, identity: 'gen_hb_new' });
+    const before = ledgerText();
+    // 旧世代(已落终态)的心跳:按世代只找到自己那条已终态的 —— 不写、不顶新任何一代的 lastSeenAt
+    expect(recordHeartbeat('bg_hb', 'gen_hb_old')).toBe('throttled');
+    expect(ledgerText()).toBe(before);
+
+    // 正向对照:新一代自己的心跳找得到自己的账
+    recordTaskStart({ id: 'bg_hb2', command: 'echo gen2 solo', childPid: null, identity: 'gen_hb_solo' });
+    const hb = recordHeartbeat('bg_hb2', 'gen_hb_solo');
+    expect(hb).not.toBe('throttled');
+    expect((hb as { ok: boolean }).ok).toBe(true);
+    const last = JSON.parse(lastLedgerLine()) as { identity: string; terminal: string | null };
+    expect(last.identity).toBe('gen_hb_solo');
+    expect(last.terminal).toBeNull();
+  });
+});
+
+describe('后台任务台账 · G-1058645 旧格式记录的读时迁移', () => {
+  it('旧格式(无 identity)读入 → 补占位世代原子写回:不丢记录、不丢字段、字段值零变化,坏行逐字保留', () => {
+    const file = ledgerFilePath();
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    const stamp = new Date().toISOString();
+    const legacy = {
+      id: 'bg_legacy',
+      kind: 'node',
+      commandDigest: 'b'.repeat(16),
+      startedAt: stamp,
+      lastSeenAt: stamp,
+      terminal: null,
+      exitCode: null,
+      host: os.hostname(),
+      ownerPid: process.pid,
+      childPid: 777,
+      note: '旧世界的一条',
+    };
+    const body = `${JSON.stringify(legacy)}\nnot json at all\n${JSON.stringify({ ...legacy, id: 'bg_legacy_2', terminal: 'succeeded', exitCode: 0 })}\n`;
+    fs.writeFileSync(file, body, 'utf-8');
+
+    const s = summarizeLedger();
+    expect(s.total).toBe(2); // 迁移不丢记录
+    expect(s.malformedLines).toBe(1); // 坏行照旧计数
+
+    // 旧字段语义零变化:值逐字段相等(identity 之外一个都不许动)
+    const migrated = s.entries.find((e) => e.record.id === 'bg_legacy');
+    expect(migrated).toBeDefined();
+    expect(migrated!.record.kind).toBe('node');
+    expect(migrated!.record.startedAt).toBe(stamp);
+    expect(migrated!.record.childPid).toBe(777);
+    expect(migrated!.record.note).toBe('旧世界的一条');
+    expect(migrated!.record.terminal).toBeNull();
+
+    // 占位世代:按 id 确定性派生,与 gen_ 形态不相撞
+    expect(migrated!.record.identity).toBe('legacy:bg_legacy');
+
+    // 读时迁移已落盘:记录行补了 identity,行数不变,坏行逐字保留
+    const lines = (ledgerText() ?? '').split('\n');
+    expect(lines).toHaveLength(4); // 三行 + 末尾换行
+    const rewritten = JSON.parse(lines[0]!) as Record<string, unknown>;
+    expect(rewritten.identity).toBe('legacy:bg_legacy');
+    expect(rewritten.note).toBe('旧世界的一条');
+    expect(lines[1]).toBe('not json at all');
+
+    // 幂等:再读一次,文件不再变化(一次性迁移,不是每次读都重写)
+    const once = ledgerText();
+    summarizeLedger();
+    expect(ledgerText()).toBe(once);
+  });
+
+  it('迁移出的占位世代与真世代同 id 时互不折叠(占位不碰撞)', () => {
+    const file = ledgerFilePath();
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    const stamp = new Date().toISOString();
+    const legacyLine = JSON.stringify({
+      id: 'bg_mixed',
+      kind: 'node',
+      commandDigest: 'c'.repeat(16),
+      startedAt: stamp,
+      lastSeenAt: stamp,
+      terminal: null,
+      exitCode: null,
+      host: 't',
+      ownerPid: 1,
+      childPid: null,
+      note: '',
+    });
+    fs.writeFileSync(file, `${legacyLine}\n`, 'utf-8');
+    // 同 id 的新一代(带真世代号)随后登记:追加写把迁移一并带上
+    recordTaskStart({ id: 'bg_mixed', command: 'echo new gen', childPid: null, identity: 'gen_cccc3333' });
+
+    const entries = summarizeLedger().entries.filter((e) => e.record.id === 'bg_mixed');
+    expect(entries).toHaveLength(2);
+    expect(entries.map((e) => e.record.identity).sort()).toEqual(['gen_cccc3333', 'legacy:bg_mixed']);
+    // 追加即迁移:盘上两行(旧格式补齐的那行 + 新登记那行)都带世代,且各归各的
+    const onDisk = (ledgerText() ?? '')
+      .trim()
+      .split('\n')
+      .map((l) => JSON.parse(l) as { id: string; identity: string });
+    expect(onDisk.map((l) => l.identity).sort()).toEqual(['gen_cccc3333', 'legacy:bg_mixed']);
+    expect(onDisk.every((l) => l.id === 'bg_mixed')).toBe(true);
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
