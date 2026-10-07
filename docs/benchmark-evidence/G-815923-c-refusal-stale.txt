@@ -1,0 +1,11 @@
+#EVIDENCE-CMD: node scripts/check-miniapp-generated.mjs --worktree --group i18n
+#EVIDENCE-LABEL: c-refusal: input+1byte, gate105 must reject G5 naming en.json
+#EVIDENCE-START: 2026-10-07T07:55:22.211Z
+[miniapp-generated] 面=worktree(工作树(磁盘)) 扫描源文件 0 个 / 产物文件 0 个 / 注册表键 0 个 / LineIcon 调用点 0 个 / 语言 4 种
+  ❌ 漏生成/缺资源 1 处:
+     [G5] apps/miniapp-taro/src/i18n/generated/remote-locales.gen.ts —— 产物自述钉的 inputsSha256=1bbd64e8a9da… 与 worktree面现算=11b4668e37e9… 不等 ⇒ 离线包陈旧(键集合可能一模一样而值是旧的)。不一致的输入:packages/i18n/messages/shared/en.json(钉 81094d38… vs worktree面 1aa9fec6…)
+  ◽ 判不了但如实计数:动态资源路径 0 处
+  ◽ LineIcon 调用点逃逸写法(as 断言/尾部 !)存量 0 处 —— 只报数;--staged 面按该文件 HEAD 自身数量锚定,只拦新增(I2)
+  📌 离线包自述钉(G-680):stale —— 
+#EVIDENCE-RC=1
+#EVIDENCE-END: 2026-10-07T07:55:22.370Z

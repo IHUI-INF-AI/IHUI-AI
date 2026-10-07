@@ -62,7 +62,7 @@ const END_DIRS = ['web', 'extension', 'miniapp-taro', 'mobile-rn', 'cli']
 /** 四个必需输入:取不到就是"没判",不得退化成"没有违规"。 */
 const TOOL_DISPLAY_REL = 'packages/shared/src/chat/tool-display.ts'
 const MCP_ACTIVITY_REL = 'packages/shared/src/chat/mcp-tool-activity.ts'
-const TARO_GEN_SCRIPT_REL = 'apps/miniapp-taro/scripts/gen-i18n-compressed.mjs'
+const TARO_GEN_SCRIPT_REL = 'scripts/gen-i18n-compressed.mjs'
 const TARO_BUNDLE_REL = 'apps/miniapp-taro/src/i18n/generated/remote-locales.gen.ts'
 const REQUIRED_RELS = [TOOL_DISPLAY_REL, MCP_ACTIVITY_REL, TARO_GEN_SCRIPT_REL, TARO_BUNDLE_REL]
 
