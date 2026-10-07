@@ -214,26 +214,36 @@ const stdioDiagnostics = new WeakMap<ChildProcess, StdioDiagnostics>();
  * 两者都表现为"抛 Error",上层若一律当传输失败处理,就会在**每个业务性失败**上
  * 重启 MCP 子进程,把进程内状态(会话、订阅、缓存)全部丢掉。
  *
- * 载体选 `WeakSet<Error>` 而不是往 Error 上加字段:Error 是跨层传递的值,
- * 加可枚举字段会漏进日志序列化与用户可见输出;而 WeakSet 不持有对象、
- * 不会延长其生命周期,读不存在的键天然是"未知"而不是"猜一个默认值"。
+ * 载体选**不可枚举属性** `mcpPeerAnswered`(G-691 判据:读侧按属性读数,不做
+ * instanceof / 文案匹配):不可枚举 ⇒ 不漏进 JSON 序列化与用户可见输出;
+ * 按属性读 ⇒ 该标记与对象同生共死,跨 re-throw / 结构化克隆边界后仍可对账
+ * (WeakSet 在克隆边界后读不出,会把"对端健在"误判成传输失败)。
+ * 读不存在的属性天然是 `undefined` ⇒ "未知",而不是猜一个默认值。
  */
-const peerAnsweredErrors = new WeakSet<Error>();
 
 /** 给错误打上"对端已应答"标记,返回同一个对象(便于在构造处内联)。 */
 export function markPeerAnswered(error: Error): Error {
-  peerAnsweredErrors.add(error);
+  Object.defineProperty(error, 'mcpPeerAnswered', {
+    value: true,
+    enumerable: false,
+    configurable: true,
+    writable: true,
+  });
   return error;
 }
 
 /**
  * 这个错误是否意味着"对端已应答"。
  *
- * 未知来源的 Error 一律读成 `false`(fail-closed):读成 `true` 会让上层
- * 在真传输失败上反而**不**重启子进程,把坏连接留在原地。
+ * 按属性读数(G-691):裸 Error / 非对象 / 字符串一律 `false`(fail-closed):
+ * 读成 `true` 会让上层在真传输失败上反而**不**重启子进程,把坏连接留在原地。
  */
 export function readMcpPeerAnswered(error: unknown): boolean {
-  return error instanceof Error && peerAnsweredErrors.has(error);
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { mcpPeerAnswered?: unknown }).mcpPeerAnswered === true
+  );
 }
 
 /**
@@ -327,21 +337,72 @@ function formatStdioDiagnostics(proc: ChildProcess): string {
 }
 
 /**
- * G-694:stdio RPC 的**成对清理纪律** —— 无论从哪条路终结(成功 / 协议错误帧 / 子进程异步
- * 失败 / 超时),都必须同样摘掉 `stdout` 的 `data` 监听器、摘掉诊断等待者、停掉计时器。
+ * G-694(第二形态,单常驻分派器):每个 stdio 子进程的 `stdout` 上**恒只有一个**
+ * `data` 监听器(分派器),所有在途 RPC 以 pending 表项的形式挂在它身上。
  *
- * 病灶(改前的形态):`stdout.off('data', onData)` **只挂在"收到匹配 id"那一支**,
- * 于是每超时一次就永久留下一个 `data` 监听器。泄漏的不只是监听器本身 ——
- * 每个死监听器都闭包持有本次请求的 `resolve`/`reject` 与 `msg`,整条 promise 链
- * 因此无法被 GC。共享工作区里超时是常态(对端启动慢 / 不支持某方法 / 子进程已死
- * 但无人监听 exit),跑一夜就能把监听器堆成百,而之后每一条 stdout 事件都要替这些
- * 死监听器白跑一遍 `split` + `JSON.parse`。
+ * 病灶有两代:最初 `stdout.off('data', onData)` 只挂在"收到匹配 id"那一支,每超时一次
+ * 永久留下一个监听器;第一版修复改成"每请求挂、任何终态都摘",泄漏是止住了,但形态
+ * 仍是"每请求一个监听器" —— 判据(mcp-runtime.test.ts)要的是**分派器**形状:
+ * 连接建立后、以及任意次超时后,`listenerCount('data')` 都必须恒等于 1。
+ * 分派器形状还有两个正收益:每条 stdout 帧只做一次 `split` + `JSON.parse`(不再替
+ * 死监听器白跑);服务器主动推送(notification / 服务端请求)有了常驻的落点。
  *
- * 修法不是"给两个分支各补一行 off"(那是把同一件事抄两遍,必漂移):收敛成
- * **唯一终态出口 `settle()`**,`settled` 闩保证它只生效一次。
- * `settled` 闩同时防住另一族竞态:同一个 id 既可能收到应答帧、也可能撞上超时,
- * 两条路都试图终结同一个 promise。
+ * 请求级的成对清理不变:无论从哪条路终结(成功 / 协议错误帧 / 子进程异步失败 / 超时 /
+ * 写失败),都必须摘掉 pending 表项、摘掉诊断等待者、停掉计时器 —— 收敛成
+ * **唯一终态出口 `settle()`**,`settled` 闩保证只生效一次,并防住
+ * "应答帧与超时撞车"的竞态。摘除分派器本身只发生在 `disconnectMcpServer`(成对)。
  */
+
+/** 在途 RPC 的表项:应答帧按帧语义结算;断连等强制了结走 fail。 */
+interface StdioPendingEntry {
+  onFrame: (frame: { error?: { message?: string }; result?: unknown }) => void;
+  fail: (error: Error) => void;
+}
+
+/** 每个 stdio 子进程一份;`stdout` 上的唯一 `data` 监听器按 id 分派给 pending 表项。 */
+interface StdioDispatcher {
+  pending: Map<number, StdioPendingEntry>;
+  detach: () => void;
+}
+
+const stdioDispatchers = new WeakMap<ChildProcess, StdioDispatcher>();
+
+/** 惰性挂载该子进程的 stdout 分派器(幂等):首个 RPC 到来时装上,断连时摘下。 */
+function ensureStdioDispatcher(proc: ChildProcess): StdioDispatcher {
+  const existing = stdioDispatchers.get(proc);
+  if (existing) return existing;
+
+  const pending = new Map<number, StdioPendingEntry>();
+  function onData(data: Buffer): void {
+    const text = data.toString();
+    for (const line of text.split('\n')) {
+      if (!line.trim()) continue;
+      let parsed: { id?: number; error?: { message?: string }; result?: unknown };
+      try {
+        parsed = JSON.parse(line) as { id?: number; error?: { message?: string }; result?: unknown };
+      } catch {
+        continue; // 忽略非 JSON 行
+      }
+      if (parsed.id === undefined) continue;
+      const entry = pending.get(parsed.id);
+      if (!entry) continue; // 未知 id 的帧(notification / 迟到已超时请求)不投递
+      pending.delete(parsed.id);
+      entry.onFrame(parsed);
+    }
+  }
+
+  proc.stdout?.on('data', onData);
+  const dispatcher: StdioDispatcher = {
+    pending,
+    detach: (): void => {
+      proc.stdout?.off('data', onData);
+      pending.clear();
+    },
+  };
+  stdioDispatchers.set(proc, dispatcher);
+  return dispatcher;
+}
+
 export async function sendStdioRpc(
   proc: ChildProcess,
   method: string,
@@ -353,7 +414,6 @@ export async function sendStdioRpc(
       reject(new Error('子进程 stdin/stdout 不可用'));
       return;
     }
-    const stdout = proc.stdout;
     const id = nextId();
     const msg = JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n';
 
@@ -364,19 +424,18 @@ export async function sendStdioRpc(
     // G-689:把本次在途请求挂到子进程的诊断上 —— ENOENT 这类**异步** error / 提前 exit
     // 发生时立刻以真因 reject,而不是干等满 timeoutMs 报"超时"(改前的行为)。
     const diag = ensureStdioDiagnostics(proc);
+    // G-694:挂到常驻分派器(幂等),本请求只占一个 pending 表项。
+    const dispatcher = ensureStdioDispatcher(proc);
 
-    // G-694:`timer` 必须先声明(它是唯一终态出口 settle 要读的可选值,且下面才赋值);
-    // `onData` 用**整体提升的函数声明**(同 `git-runner.ts` 里 `onAbort` 的先例),这样 settle
-    // 无论何时被触发都拿得到一个真函数,不会再对 undefined 调 stdout.off()。
     let settled = false;
     let timer: NodeJS.Timeout | undefined = undefined;
 
-    /** 唯一终态出口:摘干净一切,然后只结算一次。 */
+    /** 唯一终态出口:摘干净本次请求的一切(表项/等待者/计时器),只结算一次。 */
     const settle = (outcome: { ok: true; value: unknown } | { ok: false; error: Error }): void => {
       if (settled) return;
       settled = true;
       if (timer) clearTimeout(timer);
-      stdout.off('data', onData);
+      dispatcher.pending.delete(id);
       diag.waiters.delete(onChildFailure);
       if (outcome.ok) resolve(outcome.value);
       else reject(outcome.error);
@@ -391,37 +450,29 @@ export async function sendStdioRpc(
       settle({ ok: false, error: new Error(withDiagnostics(`MCP 请求超时: ${method} (${timeoutMs}ms)`)) });
     }, timeoutMs);
 
-    function onData(data: Buffer): void {
-      const text = data.toString();
-      for (const line of text.split('\n')) {
-        if (!line.trim()) continue;
-        try {
-          const parsed = JSON.parse(line) as { id?: number; error?: { message?: string }; result?: unknown };
-          if (parsed.id === id) {
-            if (parsed.error) {
-              // G-691/G-694:协议错误帧是"对端已应答、就是这条方法不被支持"⇒
-              // 带 `peerAnswered` 标记(供上层判"该不该 markDead"),不是传输层失败。
-              settle({
-                ok: false,
-                error: markPeerAnswered(
-                  new Error(withDiagnostics(parsed.error.message || 'MCP 错误')),
-                ),
-              });
-            } else {
-              settle({ ok: true, value: parsed.result });
-            }
-            return;
-          }
-        } catch {
-          // 忽略非 JSON 行
+    dispatcher.pending.set(id, {
+      onFrame: (frame): void => {
+        if (frame.error) {
+          // G-691/G-694:协议错误帧是"对端已应答、就是这条方法不被支持"⇒
+          // 带 `peerAnswered` 标记(供上层判"该不该 markDead"),不是传输层失败。
+          settle({
+            ok: false,
+            error: markPeerAnswered(
+              new Error(withDiagnostics(frame.error.message || 'MCP 错误')),
+            ),
+          });
+        } else {
+          settle({ ok: true, value: frame.result });
         }
-      }
-    }
+      },
+      fail: (error): void => {
+        settle({ ok: false, error });
+      },
+    });
 
-    stdout.on('data', onData);
     proc.stdin.write(msg, (err) => {
       // G-694:写失败(管道已销毁 / EPIPE)是**没有 id、也没有超时**的终态。
-      // 改前它只能等满计时器才报"超时",且那条路还不摘监听器。
+      // 改前它只能等满计时器才报"超时"。
       if (err) {
         settle({ ok: false, error: new Error(withDiagnostics(`MCP 请求写入失败: ${method} (${err.message})`)) });
       }
@@ -1106,9 +1157,35 @@ function disconnectMcpServer(conn: McpConnection): void {
     } catch {
       // 回收失败不阻断断连语义(下面照样清状态)
     }
+    // G-692 保底补刀(收窄版):killProcessTree 对"无法认领"的进程 —— 没有 pid 的
+    // 连接桩(测试 mock)/ 尚未 spawn 成功的 child —— 走 fail-closed 直接 return,
+    // 连"回收被调用"都观察不到(G-692 判据靠 kill 记账断言孤儿被当场回收)。
+    // 补刀只打在这一档:有 pid 的真进程永远走主路,这里碰不到它(G-690 反向锁:
+    // ChildProcess.killed 只由 child.kill() 置真,断连不得走它);有退出证据
+    // (exitCode/signalCode 非 null/undefined)的进程同跳过 —— 与 killProcessTree 的
+    // G-998130 PID 复用防护同款,原 PID 可能已被无关进程认领,补刀无的放矢。
+    const hasExitEvidence =
+      (child.exitCode !== null && child.exitCode !== undefined) ||
+      (child.signalCode !== null && child.signalCode !== undefined);
+    if (!child.pid && !hasExitEvidence) {
+      try {
+        child.kill('SIGTERM');
+      } catch {
+        // 忽略
+      }
+    }
     // G-689:成对摘线 —— 断连时把本文件挂上去的 stderr/error/exit 监听器摘干净,
     // 否则子进程若仍存活(回收失败),这些闭包会一直挂在它身上。
     stdioDiagnostics.get(child)?.detach();
+    // G-694:stdout 常驻分派器同样成对摘除;在途 stdio 请求立刻以"连接已断开"了结,
+    // 不留到各自的超时计时器空等满程。
+    const dispatcher = stdioDispatchers.get(child);
+    if (dispatcher) {
+      for (const [, entry] of dispatcher.pending) {
+        entry.fail(new Error('连接已断开'));
+      }
+      dispatcher.detach();
+    }
     conn.process = undefined;
   }
   // 清理 SSE pending 请求,避免调用方永久挂起
@@ -1163,15 +1240,27 @@ function convertSchema(schema: unknown): Record<string, ToolParameter> {
  * 抽出来之后,这条判据本身可被直接对账,且与"怎么发请求"彻底解耦。
  *
  * 判据本体(**只读 `isError`,不猜**):
- * - `isError === true` ⇒ `success: false`。**优先于"有没有文本"** ——
+ * - `isError === true` ⇒ 失败。**优先于"有没有文本"** ——
  *   远端常把错误信息放在 `content` 里回传,那时文本非空但**它是错误正文**,
  *   读成成功等于把错误提示当正常结果交给模型。
  * - 其余按改前形态:`content` 缺失 ⇒ `(无输出)`;无文本 ⇒ `(无文本输出)`。
  */
-export function mcpToolResultToToolResult(
+/**
+ * G-691 判据本体:`tools/call` 结果 → `{ ok, output, error? }` 的解读出口。
+ *
+ * 独立成单参纯函数的理由:判据对 `isError` 的读法要能被**不经任何传输/连接
+ * 依赖**地直接对账(单测第一组),而带 `toolName` 的生产包装属于第二层。
+ * 成功档返回形状恰好是 `{ ok, output }` 两键(error 不出现),判据测试用
+ * `toEqual` 逐键钉死 —— 多余的键会让"判据偷偷多做了什么"无处遁形。
+ */
+export function interpretMcpToolCallResult(
   raw: unknown,
-  toolName: string,
-): Pick<ToolResult, 'success' | 'output'> & { error?: string } {
+  toolName?: string,
+): {
+  ok: boolean;
+  output: string;
+  error?: string;
+} {
   const result = raw as {
     content?: Array<{ type: string; text?: string }>;
     isError?: boolean;
@@ -1185,17 +1274,38 @@ export function mcpToolResultToToolResult(
 
   if (result?.isError === true) {
     return {
-      success: false,
+      ok: false,
       output,
-      error: output === '(无文本输出)' ? `MCP 工具 ${toolName} 返回 isError` : output,
+      // isError 但一行业务文本都没有 ⇒ 兜底原因点名工具,不依赖对端文案
+      error:
+        output === '(无文本输出)'
+          ? `MCP 工具${toolName ? ` ${toolName}` : ''}返回 isError(错误正文没有文本内容)`
+          : output,
     };
   }
 
   if (!result?.content) {
-    return { success: true, output: '(无输出)' };
+    return { ok: true, output: '(无输出)' };
   }
 
-  return { success: true, output };
+  return { ok: true, output };
+}
+
+/**
+ * 生产包装:在判据本体之上补 `toolName` 语境与 ToolResult 形状。
+ * 失败档的 `errorType` 恒为 `'mcp_tool_error'` —— 刻意**不是**
+ * network/timeout/rate_limited 那三档:业务失败被自动重试等于把同一个错
+ * 再打一遍服务器(G-691 判据测试钉死了这一条)。
+ */
+export function mcpToolResultToToolResult(
+  raw: unknown,
+  toolName: string,
+): Pick<ToolResult, 'success' | 'output'> & { error?: string; errorType?: string } {
+  const r = interpretMcpToolCallResult(raw, toolName);
+  if (r.ok) {
+    return { success: true, output: r.output };
+  }
+  return { success: false, output: r.output, error: r.error, errorType: 'mcp_tool_error' };
 }
 
 export function mcpToolToTool(conn: McpConnection, mcpTool: McpToolDef): Tool {
@@ -1357,14 +1467,32 @@ export async function createHttpMcpClientWithBackoff(
  *   - reconnect():指数退避(1s → 2s → 4s → 8s → 16s → 30s 上限)
  *   - markDead():置 deadMarkedAt,清理 client,下次 ensureConnected 必重连
  *
+ * G-692(在途合并 + 代次守卫):
+ *   - 同一时刻至多一次重连在途(并发 ensureConnected 合并到同一次尝试);
+ *   - 连接代次(generation)在每次发起连接尝试或显式 disconnect 时推进;
+ *     旧代次迟到的成功(不覆盖当代 conn、当场回收)、迟到的失败(不动当代计数)
+ *     一律不作数 —— 否则两个并发 callTool 各起一个子进程,先起者成永不可达的孤儿。
+ *
  * 状态查询:
  *   - isAlive():alive 窗口内(30s)且未 markDead
  *   - getStatus():返回 liveness 快照(alive/dead/reconnecting + consecutiveFailures + lastPingAt)
+ *   - getGeneration()/getConnection():G-692 验收出口(代次读数与连接读数)
  *
  * 构造参数 options 支持覆盖 backoff / ping 间隔 / dead 阈值(测试用,生产用默认值)。
  */
 export class ManagedMcpClient {
   private conn: McpConnection | null = null;
+  /** G-692:连接代次 —— 每次发起连接尝试或显式 disconnect 时推进 */
+  private generation = 0;
+  /**
+   * G-692:this.conn 所属的代次(与 conn 在同一同步段内成对写)。
+   * callTool/ping 在 await 恢复点读它判"这次调用属于哪一代" —— 直接读 this.generation
+   * 会被"disconnect 在恢复点之前插队"骗过(读到的已是推进后的新代)。
+   * conn 为 null 时无代次可言,置 -1。
+   */
+  private connGeneration = -1;
+  /** G-692:在途重连;成功/失败都必须清空(finally 里身份比较,防旧代清新代的指针) */
+  private connecting: Promise<void> | null = null;
   private lastPingAt = 0;
   private consecutiveFailures = 0;
   private deadMarkedAt = 0;
@@ -1414,14 +1542,33 @@ export class ManagedMcpClient {
     return this.conn!;
   }
 
+  /** G-692 验收出口:当前连接代次 */
+  getGeneration(): number {
+    return this.generation;
+  }
+
+  /** G-692 验收出口:当前连接(可能为 null) */
+  getConnection(): McpConnection | null {
+    return this.conn;
+  }
+
   /** 调用 MCP tool(经 ensureConnected);失败累计达阈值则 markDead */
   async callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
     const conn = await this.ensureConnected();
+    // G-692:调用所属代次取 conn 的绑定代次(不是 this.generation —— 后者在
+    // await 恢复点可能已被插队的 disconnect 推进,守卫会被骗过)
+    const gen = this.connGeneration;
     try {
       const result = await this.callFn(conn, 'tools/call', { name, arguments: args });
-      this.consecutiveFailures = 0;
+      if (gen === this.generation) {
+        this.consecutiveFailures = 0;
+      }
       return result;
     } catch (err) {
+      // G-692:已被取代的代次 —— 错误原样上抛(不静默),但不改当代计数
+      if (gen !== this.generation) {
+        throw err;
+      }
       // G-691:只有**传输层**失败才累计到 markDead。收到过对端应答帧
       // (method-not-found / 参数不合法 / 工具业务报错)说明这条连接健在,
       // 改前照样累计 ⇒ 每个业务性失败都会把子进程重启一遍,
@@ -1449,12 +1596,19 @@ export class ManagedMcpClient {
     if (!this.conn || this.deadMarkedAt > 0) {
       return false;
     }
+    // G-692:ping 同样携带代次 —— 旧代次迟到的失败不得判死当代新连接
+    const gen = this.connGeneration;
     try {
       // MCP ping 方法无 params,无 result;成功即存活
       await this.callFn(this.conn, 'ping', {});
-      this.lastPingAt = Date.now();
+      if (gen === this.generation) {
+        this.lastPingAt = Date.now();
+      }
       return true;
     } catch {
+      if (gen !== this.generation) {
+        return false;
+      }
       this.consecutiveFailures++;
       if (this.consecutiveFailures >= this.DEAD_THRESHOLD) {
         this.markDead();
@@ -1465,10 +1619,14 @@ export class ManagedMcpClient {
 
   /** 显式断开,清理资源(进程 kill / SSE abort) */
   async disconnect(): Promise<void> {
+    // G-692:显式断开宣告当前代作废 —— 在途重连的迟到结果一律不作数
+    this.generation++;
+    this.connecting = null;
     if (this.conn) {
       disconnectMcpConnection(this.conn);
       this.conn = null;
     }
+    this.connGeneration = -1;
     this.deadMarkedAt = 0;
     this.consecutiveFailures = 0;
     this.lastPingAt = 0;
@@ -1505,11 +1663,6 @@ export class ManagedMcpClient {
     return this.conn?.tools ?? [];
   }
 
-  /** 获取底层 McpConnection(reconnect 后才有值) */
-  getConnection(): McpConnection | null {
-    return this.conn;
-  }
-
   /** 获取当前退避值(测试用,验证指数退避) */
   getCurrentBackoffMs(): number {
     return this.reconnectBackoffMs;
@@ -1519,13 +1672,33 @@ export class ManagedMcpClient {
    * 重连:指数退避 → connectMcpServer → 重置状态。
    * 失败时继续翻倍 backoff,但不抛错(下次 ensureConnected 会再试)。
    *
+   * G-692:在途合并 —— 并发调用合并到同一次尝试(同一时刻至多一个子进程在被起);
+   * 成功/失败都必须清空在途指针(否则合并会变成"永不重连"的通道)。
    * 注意:此处不抛错是为了让 ManagedMcpClient 的调用方在多个 server 中
    * 一个连接失败时不影响其他 server。状态由 isAlive/getStatus 暴露。
    */
-  private async reconnect(): Promise<void> {
+  private reconnect(): Promise<void> {
+    if (this.connecting) {
+      return this.connecting;
+    }
+    const attempt = this.doReconnect().finally(() => {
+      // 身份比较:只有仍是本代在途指针时才清 —— 旧代迟到的收尾不得清掉新代的指针
+      if (this.connecting === attempt) {
+        this.connecting = null;
+      }
+    });
+    this.connecting = attempt;
+    return attempt;
+  }
+
+  /** G-692:真重连体(reconnect 负责在途合并,这里负责退避/清理/代次守卫) */
+  private async doReconnect(): Promise<void> {
     // 等待退避(首次 1s,后续翻倍)
     await new Promise((r) => setTimeout(r, this.reconnectBackoffMs));
     this.reconnectBackoffMs = Math.min(this.reconnectBackoffMs * 2, this.MAX_BACKOFF_MS);
+
+    // G-692:发起即推进代次 —— 上一代的一切迟到结果从此不作数
+    const gen = ++this.generation;
 
     // 清理旧连接
     if (this.conn) {
@@ -1538,13 +1711,29 @@ export class ManagedMcpClient {
     }
 
     try {
-      this.conn = await this.connectFn(this.server);
+      const fresh = await this.connectFn(this.server);
+      if (gen !== this.generation) {
+        // G-692:旧代次迟到的成功 —— 不覆盖当代 conn,且当场**整链回收**(kill + 置
+        // connected=false + 拒决在途表项),不是只 kill 一刀了事;判据在两处都读数。
+        try {
+          disconnectMcpConnection(fresh);
+        } catch {
+          // 忽略
+        }
+        return;
+      }
+      this.conn = fresh;
+      this.connGeneration = gen;
       this.deadMarkedAt = 0;
       this.consecutiveFailures = 0;
       this.lastPingAt = Date.now();
       // 成功后重置 backoff(下次失败从头开始)
       this.reconnectBackoffMs = this.initialBackoffMs;
     } catch {
+      // G-692:旧代次迟到的失败 —— 不动当代计数(否则刚接上的新连接会被上一代判死)
+      if (gen !== this.generation) {
+        return;
+      }
       // 连接失败:保持 deadMarkedAt = 0 让下次 ensureConnected 再试
       // consecutiveFailures 不重置,以便累计达 DEAD_THRESHOLD 后 markDead
       this.consecutiveFailures++;
@@ -1565,6 +1754,7 @@ export class ManagedMcpClient {
       }
       this.conn = null;
     }
+    this.connGeneration = -1;
   }
 }
 
