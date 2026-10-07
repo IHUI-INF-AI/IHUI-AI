@@ -10605,6 +10605,16 @@
     "expiryDate": "만료 날짜"
   },
   "chat": {
+    "markdownTable": {
+      "copy": "표 복사",
+      "downloadCsv": "CSV 다운로드",
+      "fullscreen": "전체 화면",
+      "fullscreenTitle": "표 전체 화면",
+      "empty": "표 내용이 없습니다",
+      "unsupported": "이 브라우저는 이 작업을 지원하지 않습니다",
+      "copyFailed": "복사 실패",
+      "csvFailed": "내보내기 실패"
+    },
     "linkPreview": {
       "loading": "링크 미리보기를 불러오는 중...",
       "unavailable": "링크 미리보기를 읽을 수 없습니다",

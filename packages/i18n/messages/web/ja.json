@@ -10605,6 +10605,16 @@
     "expiryDate": "有効期限"
   },
   "chat": {
+    "markdownTable": {
+      "copy": "表をコピー",
+      "downloadCsv": "CSV をダウンロード",
+      "fullscreen": "全画面",
+      "fullscreenTitle": "表の全画面表示",
+      "empty": "表の内容がありません",
+      "unsupported": "このブラウザではこの操作を利用できません",
+      "copyFailed": "コピー失敗",
+      "csvFailed": "エクスポート失敗"
+    },
     "linkPreview": {
       "loading": "リンクのプレビューを読み込み中...",
       "unavailable": "リンクのプレビューを読み取れません",
