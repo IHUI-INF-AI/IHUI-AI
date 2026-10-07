@@ -42,8 +42,8 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { config as dotenvConfig } from 'dotenv'
-import { eq, sql } from 'drizzle-orm'
-import { chatMessages, type Database } from '@ihui/database'
+import { eq, getTableColumns, sql, type Column, type Table } from 'drizzle-orm'
+import { chatConversations, chatMessages, type Database } from '@ihui/database'
 import postgres from 'postgres'
 import Fastify, { type FastifyInstance } from 'fastify'
 import { mockAuthenticate, mockCheckAuth, setMockUser } from './helpers/mock-auth.js'
@@ -142,6 +142,7 @@ CREATE TABLE chat_conversations (
   compressed_context text,
   pinned boolean NOT NULL DEFAULT false,
   pinned_at timestamp with time zone,
+  group_id uuid, -- schema 里是 FK → chat_conversation_groups;演练库不建那张表,被测路由只做 SELECT ⇒ 补列不补约束
   share_token varchar(32) UNIQUE,
   history_projection_state jsonb
 );
@@ -175,6 +176,42 @@ let chatQ: {
 } | null = null
 let server: FastifyInstance | null = null
 let userId = ''
+
+/**
+ * 演练 schema 与生产 schema 的**列集对账**。这一组刻意不连库,所以它在 CI 上也跑。
+ *
+ * 立因(2026-10-07 实测):本文件下面那组真库演练在探不到 PostgreSQL 时整组 skip
+ * (CI 就是这个形态),于是"演练用的最小 DDL 与 `packages/database` 的 schema 漂开"这件事
+ * **只有装了 PG 的机器看得见**。2026-10-01 那次给 `chat_conversations` 加 `group_id`
+ * (`46fc721037`)没带上这里,之后路由的 `db.select().from(chatConversations)` 在真库演练里
+ * 直接 500 —— 而 CI 一路绿,红了 6 天没人看见。头注那句"逐列对齐"因此第一次有了机器判据。
+ */
+function ddlColumnsOf(tableSqlName: string): string[] {
+  const marker = `CREATE TABLE ${tableSqlName} (`
+  const from = SCHEMA_DDL.indexOf(marker)
+  expect(from).toBeGreaterThanOrEqual(0)
+  const to = SCHEMA_DDL.indexOf('\n);', from)
+  expect(to).toBeGreaterThan(from)
+  const body = SCHEMA_DDL.slice(from + marker.length, to)
+  return [...body.matchAll(/^\s{2}([a-z_][a-z0-9_]*)\s+[a-z]/gm)].map((m) => m[1]).sort()
+}
+
+function schemaColumnsOf(table: Table): string[] {
+  const cols = Object.values(getTableColumns(table) as Record<string, Column>).map((c) => c.name)
+  // 取不到列集 = 判据失明,不得被读成"两边一致"
+  expect(cols.length, `drizzle schema 在 ${table} 上读到 0 列`).toBeGreaterThan(0)
+  return [...new Set(cols)].sort()
+}
+
+describe('演练 DDL ↔ 生产 schema 列集对账(零连接,CI 也跑)', () => {
+  it('chat_conversations 的 DDL 列集等于 schema', () => {
+    expect(ddlColumnsOf('chat_conversations')).toEqual(schemaColumnsOf(chatConversations))
+  })
+
+  it('chat_messages 的 DDL 列集等于 schema', () => {
+    expect(ddlColumnsOf('chat_messages')).toEqual(schemaColumnsOf(chatMessages))
+  })
+})
 
 suite('O82 续四:turn_ordinal 并发双插(真库演练)', () => {
   beforeAll(async () => {
