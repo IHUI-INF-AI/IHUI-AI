@@ -241,11 +241,9 @@ def _is_request_arg(arg: ast.arg) -> bool:
     —— 必须经这个口读到 **user_id** 这一档才算消费;"碰过 request"不算。
     """
     ann = arg.annotation
-    if isinstance(ann, ast.Name) and ann.id == "Request":
-        return True
-    if isinstance(ann, ast.Attribute) and ann.attr == "Request":
-        return True
-    return False
+    if isinstance(ann, ast.Name):
+        return ann.id == "Request"
+    return isinstance(ann, ast.Attribute) and ann.attr == "Request"
 
 
 def _state_chain_owner(node: ast.Attribute) -> str | None:

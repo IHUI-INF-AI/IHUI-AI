@@ -100,6 +100,21 @@ interface UnattributedPayment {
   paymentDate: string
 }
 
+/* 遗留课程平台历史账段(GET /payment-record 响应的 legacy 字段,G-816106 ⑤):
+   旧表 zhs_course_pay(+zhs_course_pay_log)的历史支付,拍板=数据归属维持遗留表,
+   这里只读展示;user_uuid 为旧平台标识,与新学员无映射,不参与欠费/汇总口径 */
+interface LegacyCoursePay {
+  payId: number
+  userUuid: string
+  courseId: number
+  orderNo: string | null
+  amount: number
+  status: number
+  createTime: string | null
+  source: 'legacy'
+  logs: Array<{ action: string; detail: string | null; createTime: string | null }>
+}
+
 interface RefundRecord {
   id: string
   studentName: string
@@ -1172,12 +1187,15 @@ export default function FinancePage() {
       if (paymentClassFilter) params.set('classId', paymentClassFilter)
       if (paymentStatusFilter) params.set('status', paymentStatusFilter)
       const qs = params.toString()
-      return api<{ list: PaymentRecord[] }>(
+      return api<{ list: PaymentRecord[]; legacy?: { source: string; total: number; list: LegacyCoursePay[] } }>(
         `/api/edu-ai-management/payment-record${qs ? `?${qs}` : ''}`,
       )
     },
   })
   const payments = (paymentQuery.data?.list ?? []).filter((p) => !p.deletedAt)
+  /* 遗留表历史账段:只读展示,复用同一张列表的表格样式,不另起 UI */
+  const legacyPayments = paymentQuery.data?.legacy?.list ?? []
+  const legacyTotal = paymentQuery.data?.legacy?.total ?? 0
 
   const summaryQuery = useQuery({
     queryKey: ['edu-ai-management', 'payment-record', 'summary', paymentClassFilter],
@@ -1827,6 +1845,85 @@ export default function FinancePage() {
                             >
                               撤销
                             </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 遗留表历史账段(G-816106 ⑤):zhs_course_pay/_log 历史支付只读展示,
+              复用上方同款表格样式;user_uuid 为旧平台标识,不参与欠费/汇总口径 */}
+          {legacyPayments.length > 0 && (
+            <Card>
+              <CardContent className="p-0">
+                <div className="border-b px-4 py-3 text-xs text-muted-foreground">
+                  历史账 · 遗留课程平台（只读，共 {legacyTotal} 条；不参与欠费与汇总口径）
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          来源
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          旧平台用户
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          课程ID
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          单号
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          金额
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          支付时间
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          状态
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          操作日志
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {legacyPayments.map((p) => (
+                        <tr key={p.payId} className="border-b last:border-0 hover:bg-muted/30">
+                          <td className="px-4 py-3">
+                            <Badge variant="secondary" className="text-[10px] bg-gray-500 text-white">
+                              遗留
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3 font-mono text-xs">{p.userUuid}</td>
+                          <td className="px-4 py-3 text-xs">{p.courseId}</td>
+                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                            {p.orderNo || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-xs font-medium">
+                            {p.amount.toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                            {p.createTime ? p.createTime.slice(0, 19).replace('T', ' ') : '-'}
+                          </td>
+                          <td className="px-4 py-3 text-xs">{p.status}</td>
+                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                            {p.logs.length === 0
+                              ? '-'
+                              : p.logs
+                                  .map(
+                                    (l) =>
+                                      `${l.action}${l.detail ? `:${l.detail}` : ''}${
+                                        l.createTime ? `@${l.createTime.slice(0, 10)}` : ''
+                                      }`,
+                                  )
+                                  .join('；')}
                           </td>
                         </tr>
                       ))}

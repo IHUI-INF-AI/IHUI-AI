@@ -5,6 +5,7 @@
 import type { FastifyPluginAsync, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { type JWTPayload, verifyRefreshToken } from '@ihui/auth'
+import { isSameOriginRelativePath } from '@ihui/shared/auth/sso-core'
 import { authenticate } from '../plugins/auth.js'
 import { issueTokenPair } from '../services/token-service.js'
 import { setAuthCookies } from '../utils/auth-cookies.js'
@@ -123,14 +124,11 @@ const isSafeRedirectUri = (s: string): boolean => {
   if (!s || s.length > 2048) return false
   if (/[\r\n\t]/.test(s)) return false
   // 1. 相对路径(站内重定向)
-  //    第二字符既不得是 "/" 也不得是 "\\":WHATWG 在 special-scheme 的
-  //    "special authority ignore slashes" 状态里把 "\" 与 "/" 等值处理,`/\evil.com`
-  //    实测解析成 https://evil.com —— 而这一跳带着刚签发的 sso_code,是 code 泄露不是跳转偏好。
-  //    与 apps/web/src/lib/sso-redirect-guard.ts 的 isSameOriginRelative 同一条形状判据(两份实现待下沉)。
-  if (s.startsWith('/')) {
-    const second = s.charAt(1)
-    return second !== '/' && second !== '\\'
-  }
+  //    G-387,2026-10-07(承 G-413 同型残余①):反斜杠这一族由 G-413① 于 2026-10-01 补上;
+  //    2026-10-02 web 侧已把判据本体下沉到 @ihui/shared/auth/sso-core(G-1018194),
+  //    此处"两份实现待下沉"的尾巴一并清偿 —— 服务端签发侧与 web 守卫从此问同一个函数,
+  //    判据(前缀 `/` + 第二字符既非 `/` 也非 `\`)不再两份各写各的。
+  if (isSameOriginRelativePath(s)) return true
   // 2. localhost(cli 本地回调服务器)
   if (isLocalhostUrl(s)) return true
   // 3. 配置化 origins(env SSO_ALLOWED_ORIGINS)

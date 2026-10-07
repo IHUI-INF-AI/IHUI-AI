@@ -68,6 +68,8 @@ export function UploadZone({
 
   const onDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
+    // 指针在子元素间移动也会触发 dragleave:relatedTarget 仍在区域内时不算真正离开
+    if (e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget)) return
     setDragging(false)
   }
 

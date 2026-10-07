@@ -95,6 +95,10 @@ from .agent_checkpoint import (
     get_agent_checkpoint_manager,
 )
 from .agent_deliverables import DeliverablesCollector, save_deliverables
+from .durable_resume import (
+    DURABLE_HORIZON_METADATA_KEY,
+    DURABLE_LAUNCHED_AT_METADATA_KEY,
+)
 from .engine_tool_bridge import capability_equivalent as _capability_equivalent
 
 if TYPE_CHECKING:
@@ -1706,6 +1710,13 @@ class AgentLoopV2:
         # call_tool,于是普通用户在 /api/engine/rpc 上可无阻拦地跑 shell/写文件。
         # 名单唯一真相仍是 `mcp_server._ADMIN_ONLY_TOOLS`,本文件不抄第二份。
         user_role: int = 0,
+        # V3 #84 生产者侧(2026-10-07 立):发起侧耐久视野声明(秒)。非 None 时,本循环
+        # 落的每一行 checkpoint 都在 metadata 里带 `durable_horizon_seconds` 与
+        # `durable_launched_at`(键唯一真源 durable_resume),让 #84 的续期闸
+        # (evaluate_renewal)有"这一行点名要耐久"的判据 —— 此前判据已全量在位,
+        # 唯独没有发起方写这个键,声明了也永远轮空。None(缺省)= 与现状逐零差异,
+        # 不写任何键:不代任何任务决定要活多久。
+        durable_horizon_seconds: int | None = None,
     ):
         """
         Args:
@@ -1982,6 +1993,20 @@ class AgentLoopV2:
             checkpoint_manager
             if checkpoint_manager is not None
             else get_agent_checkpoint_manager()
+        )
+        # V3 #84 生产者侧:发起时刻在**构造时刻**固定(有 time_provider 用它,否则
+        # time.time),不随每次落盘漂移 —— 续期差额要的是"任务几点发起",不是
+        # "这行 checkpoint 几点落"。只声明了视野才计算:未声明路径连一个浮点数
+        # 都不多算(逐零差异)。
+        self._durable_horizon_seconds: int | None = durable_horizon_seconds
+        self._durable_launched_at: float | None = (
+            (
+                time_provider().timestamp()
+                if time_provider is not None
+                else time.time()
+            )
+            if durable_horizon_seconds is not None
+            else None
         )
 
         # L1-1 记忆闭环配置(对标 Hermes Agent 默认在线记忆)
@@ -2461,6 +2486,15 @@ class AgentLoopV2:
             # 1-2:传文件快照引用 → checkpoint metadata.file_versions 有真实内容,
             # restore(rollback_files=true) 可真正回滚本次 run 的文件修改。
             file_snapshots = list(self._run_file_snapshots.values()) or None
+            # V3 #84 生产者侧(2026-10-07):声明了耐久视野的循环,每行 checkpoint
+            # 都自带视野声明与发起时刻(键唯一真源 durable_resume)。**复制合并**,
+            # 不改调用方原 dict(None 造空 dict);未声明时 metadata 原样透传,
+            # 与现状逐零差异 —— 不代没点名的任务决定要活多久。
+            if self._durable_horizon_seconds is not None:
+                merged = dict(metadata) if metadata else {}
+                merged[DURABLE_HORIZON_METADATA_KEY] = self._durable_horizon_seconds
+                merged[DURABLE_LAUNCHED_AT_METADATA_KEY] = self._durable_launched_at
+                metadata = merged
             ckpt_id = await self._checkpoint_manager.save_checkpoint(
                 session_id=session_id,
                 iteration=iteration,
