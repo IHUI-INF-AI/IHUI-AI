@@ -213,4 +213,208 @@ describe('Esc 无层栈协议:三层叠开集成', () => {
     expect(queryByTestId('pane-layer')).not.toBeNull()
   })
 })
+
+/** 双 Dialog 宿主:两个独立 Root 的受控 Dialog,后开者后挂载 → 后注册 → 栈顶。 */
+function TwoDialogHost(props: { log: (layer: string) => void }) {
+  const [outerOpen, setOuterOpen] = React.useState(false)
+  const [innerOpen, setInnerOpen] = React.useState(false)
+  return (
+    <div>
+      <button type="button" onClick={() => setOuterOpen(true)}>
+        open-outer
+      </button>
+      <button type="button" onClick={() => setInnerOpen(true)}>
+        open-inner
+      </button>
+      <Dialog
+        open={outerOpen}
+        onOpenChange={(o) => {
+          if (!o) {
+            props.log('outer')
+            setOuterOpen(false)
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogTitle>outer-dialog-title</DialogTitle>
+          <div data-testid="outer-dialog" />
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={innerOpen}
+        onOpenChange={(o) => {
+          if (!o) {
+            props.log('inner')
+            setInnerOpen(false)
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogTitle>inner-dialog-title</DialogTitle>
+          <div data-testid="inner-dialog" />
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+/** 卸载清理探针宿主:底层自绘遮罩 + 可经按钮(非 Esc 路径)开关的 Dialog。 */
+function UnmountProbeHost(props: { log: (layer: string) => void }) {
+  const [maskOpen, setMaskOpen] = React.useState(false)
+  const [dialogOpen, setDialogOpen] = React.useState(false)
+  return (
+    <div>
+      <button type="button" onClick={() => setMaskOpen(true)}>
+        open-mask
+      </button>
+      <button type="button" onClick={() => setDialogOpen(true)}>
+        open-dialog
+      </button>
+      <button type="button" onClick={() => setDialogOpen(false)}>
+        close-dialog
+      </button>
+      <MaskLayer open={maskOpen} log={props.log} onClose={() => setMaskOpen(false)} />
+      <DialogLayer open={dialogOpen} log={props.log} onClose={() => setDialogOpen(false)} />
+    </div>
+  )
+}
+
+/** 幂等探针宿主:无关状态更新迫使 Dialog 重渲染;open/close 按钮驱动复开循环。 */
+function RerenderProbeHost(props: { log: (layer: string) => void }) {
+  const [dialogOpen, setDialogOpen] = React.useState(false)
+  const [, setBump] = React.useState(0)
+  return (
+    <div>
+      <button type="button" onClick={() => setDialogOpen(true)}>
+        open-dialog
+      </button>
+      <button type="button" onClick={() => setDialogOpen(false)}>
+        close-dialog
+      </button>
+      <button type="button" onClick={() => setBump((n) => n + 1)}>bump</button>
+      <DialogLayer open={dialogOpen} log={props.log} onClose={() => setDialogOpen(false)} />
+    </div>
+  )
+}
+
+/**
+ * Dialog 家族组件级判据(2026-10-07 立,Esc 无层栈协议 L12219 第一格)。
+ *
+ * 票面要求的"三层叠开真机 aria-expanded 断言"需要真机环境,留持有人;此处以
+ * 组件级 jsdom 断言替代,对 ui-react Dialog 内建注册(mergeEscStackRef +
+ * guardEscKeyDown)的语义逐条验收:双 Dialog 叠开互斥 / 单 Dialog Esc 关闭 /
+ * 卸载 pop 清理 / 注册幂等。栈内 id 均为 useId 生成,断言只看条目数与自绘 id。
+ */
+describe('Esc 无层栈协议:Dialog 家族组件级判据(真机 aria 断言的 jsdom 替代)', () => {
+  afterEach(cleanup)
+  beforeEach(() => {
+    __resetOverlayStack()
+  })
+
+  it('① 两个 Dialog 叠开:一次 Esc 只关最上层,下层仍 open', async () => {
+    const events: string[] = []
+    const { getByText, queryByTestId } = render(<TwoDialogHost log={(l) => events.push(l)} />)
+    fireEvent.click(getByText('open-outer'))
+    await waitFor(() => {
+      expect(queryByTestId('outer-dialog')).not.toBeNull()
+    })
+    fireEvent.click(getByText('open-inner'))
+    await waitFor(() => {
+      expect(queryByTestId('inner-dialog')).not.toBeNull()
+    })
+    await waitFor(() => {
+      expect(getOverlayStack()).toHaveLength(2)
+    })
+
+    // 第一次 Esc:内层(后挂载 = 栈顶)关闭;外层被 guardEscKeyDown preventDefault 拦下
+    fireEvent.keyDown(document, { key: 'Escape' })
+    await waitFor(() => {
+      expect(queryByTestId('inner-dialog')).toBeNull()
+    })
+    expect(events).toEqual(['inner'])
+    expect(queryByTestId('outer-dialog')).not.toBeNull()
+    await waitFor(() => {
+      expect(getOverlayStack()).toHaveLength(1)
+    })
+
+    // 第二次 Esc:外层成为栈顶,正常关闭
+    fireEvent.keyDown(document, { key: 'Escape' })
+    await waitFor(() => {
+      expect(queryByTestId('outer-dialog')).toBeNull()
+    })
+    expect(events).toEqual(['inner', 'outer'])
+    expect(getOverlayStack()).toEqual([])
+  })
+
+  it('② 单 Dialog:Esc 正常关闭,栈清空', async () => {
+    const events: string[] = []
+    const { getByText, queryByTestId } = render(<ThreeLayerHost log={(l) => events.push(l)} />)
+    fireEvent.click(getByText('open-dialog'))
+    await waitFor(() => {
+      expect(queryByTestId('dialog-layer')).not.toBeNull()
+    })
+    await waitFor(() => {
+      expect(getOverlayStack()).toHaveLength(1)
+    })
+    fireEvent.keyDown(document, { key: 'Escape' })
+    await waitFor(() => {
+      expect(queryByTestId('dialog-layer')).toBeNull()
+    })
+    expect(events).toEqual(['dialog'])
+    expect(getOverlayStack()).toEqual([])
+  })
+
+  it('③ Dialog 卸载即 pop:被压住的底层恢复消费 Esc', async () => {
+    const events: string[] = []
+    const { getByText, queryByTestId } = render(<UnmountProbeHost log={(l) => events.push(l)} />)
+    fireEvent.click(getByText('open-mask'))
+    await waitFor(() => {
+      expect(getOverlayStack()).toEqual([MASK_ID])
+    })
+    fireEvent.click(getByText('open-dialog'))
+    await waitFor(() => {
+      expect(getOverlayStack()).toHaveLength(2)
+    })
+    expect(isTopOverlay(MASK_ID)).toBe(false)
+
+    // 非 Esc 路径直接卸载 Dialog Content(程序化关闭)→ ref(null) → pop
+    fireEvent.click(getByText('close-dialog'))
+    await waitFor(() => {
+      expect(getOverlayStack()).toEqual([MASK_ID])
+    })
+    expect(events).toEqual([])
+    expect(isTopOverlay(MASK_ID)).toBe(true)
+
+    // 底层恢复栈顶身份:Esc 能关它了
+    fireEvent.keyDown(document, { key: 'Escape' })
+    await waitFor(() => {
+      expect(queryByTestId('mask-layer')).toBeNull()
+    })
+    expect(events).toEqual(['mask'])
+    expect(getOverlayStack()).toEqual([])
+  })
+
+  it('④ 注册幂等:重渲染与复开均不产生重复栈条目', async () => {
+    const events: string[] = []
+    const { getByText } = render(<RerenderProbeHost log={(l) => events.push(l)} />)
+    fireEvent.click(getByText('open-dialog'))
+    await waitFor(() => {
+      expect(getOverlayStack()).toHaveLength(1)
+    })
+    // 宿主无关状态更新迫使 Dialog 重渲染:ref callback 不重跑,栈条目不翻倍
+    fireEvent.click(getByText('bump'))
+    fireEvent.click(getByText('bump'))
+    expect(getOverlayStack()).toHaveLength(1)
+    // 关闭再复开:pop 后重新 push,仍是单条目(useId 稳定,不残留旧 id)
+    fireEvent.click(getByText('close-dialog'))
+    await waitFor(() => {
+      expect(getOverlayStack()).toEqual([])
+    })
+    fireEvent.click(getByText('open-dialog'))
+    await waitFor(() => {
+      expect(getOverlayStack()).toHaveLength(1)
+    })
+    expect(events).toEqual([])
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
