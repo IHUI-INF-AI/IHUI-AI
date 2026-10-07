@@ -65,7 +65,10 @@ const FN = src.slice(startIdx, endIdx);
 function runPs(body, scratch) {
   if (!SHELL) assert.fail('本机取不到 PowerShell ⇒ 未判定，不得当作通过');
   const f = join(scratch, 'case.ps1');
-  writeFileSync(f, body, 'utf8');
+  // 2026-10-07(G-998074):夹具体携带部署脚本原文的中文日志串;BOM 缺席时 PS5.1 把 UTF-8
+  // 按 ANSI/GBK 误读 ⇒ 中文字面量被截成 ParserError,六个用例"没跑"被读成"判了"。
+  // 带 BOM 落盘;pwsh7 对 BOM/无 BOM 同读,两代壳兼容。实测:BOM 后 rc=0、RESULT=False 逐字命中。
+  writeFileSync(f, '\uFEFF' + body, 'utf8');
   const r = spawnSync(SHELL, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', f], {
     encoding: 'utf8',
     timeout: 120000,
@@ -84,6 +87,9 @@ function harness(extraStubs = '', blockers = "'PROJECT_PLAN.md', 'README.md'") {
   assert.ok(liveDecl.length > 0, 'ihui-deploy.ps1 里找不到 $LiveDocPaths 的数组声明(名单形态变了?)');
   return [
     `$ErrorActionPreference='Continue'`,
+    // 2026-10-07(G-998074):重定向下 PS5.1 的 stdout 默认走 OEM 代码页(本机 GBK),node 侧
+    // 按 utf8 解码必成乱码 ⇒ 中文断言全数失明。夹具体内显式收口到 UTF-8(pwsh7 同语句合法)。
+    `try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}`,
     `$script:Logs = New-Object System.Collections.ArrayList`,
     `function Log { param([string]$m) [void]$script:Logs.Add($m) }`,
     `function Ok { param([string]$m) Log $m }`,
