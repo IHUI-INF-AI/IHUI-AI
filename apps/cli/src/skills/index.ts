@@ -788,6 +788,28 @@ function withheldCountLine(withheld: readonly Skill[]): string {
 }
 
 /**
+ * Name of the model-invokable skill tool the prompt section is gated on (G-427,
+ * decided 2026-10-07: copy upstream). Upstream `context/builder.ts:225-228` only
+ * advertises the skills list when this tool is actually present in the tool
+ * table: a prompt that advertises capabilities the real tool surface lacks is a
+ * lie the model will act on. Our repo has no `Skill` tool registered yet, so the
+ * gate is opt-in via {@link SkillsPromptGateOptions.toolTable} until a caller
+ * passes the surface (the only producer call site is commands/agent.ts).
+ */
+export const SKILL_INVOCATION_TOOL_NAME = 'Skill';
+
+/** Optional gate inputs for {@link formatSkillsForPrompt}. */
+export interface SkillsPromptGateOptions {
+  /**
+   * Tool names registered for the agent whose prompt is being built. When
+   * provided and `Skill` is absent, the skills section is withheld and the
+   * omission is recorded via the injection registry (never silently). Omitted
+   * = legacy behavior, byte-identical to before G-427 (no tool-table judgment).
+   */
+  toolTable?: readonly string[];
+}
+
+/**
  * 把 skills 合并为 system prompt 注入段。
  *
  * 委托给 `buildSkillPromptSection`(提示词边界唯一出口):技能正文来自第三方目录,
@@ -798,8 +820,19 @@ function withheldCountLine(withheld: readonly Skill[]): string {
  * 这里只读那一面旗、**不重算白名单** —— 判据住在 `SAFE_FRONTMATTER_KEYS` 与
  * `findUnknownFrontmatterKeys`,两处各写一遍必然漂,而漂的方向一定是"合法技能被静默降权"。
  * 旗缺席(undefined)按可加载处理:降权必须由未知键量出来,不能由"构造方没写过这个字段"推出来。
+ *
+ * G-427 广告门控(拍板 2026-10-07"抄上游"):调用方传入 `toolTable` 且其中没有
+ * `Skill` 工具时,技能段整块不出(走 recordInjectionSkipped 留下可见记过,不静默)——
+ * 广告的能力必须按真实工具表门控。不传 toolTable = 改动前行为逐字不变。
  */
-export function formatSkillsForPrompt(skills: Skill[]): string {
+export function formatSkillsForPrompt(skills: Skill[], gate?: SkillsPromptGateOptions): string {
+  if (gate?.toolTable && !gate.toolTable.includes(SKILL_INVOCATION_TOOL_NAME)) {
+    return recordInjectionSkipped(
+      'skill_list',
+      `skill invocation tool "${SKILL_INVOCATION_TOOL_NAME}" is not in the tool table; `
+        + `the skills section is not advertised (G-427 ad gate)`,
+    );
+  }
   if (skills.length === 0) return recordInjectionSkipped('skill_list', '未发现任何技能');
   const autoLoadable: Skill[] = [];
   const withheld: Skill[] = [];
