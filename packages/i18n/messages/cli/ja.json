@@ -123,6 +123,7 @@
     },
     "goalNotAchieved": "独立検証に合格しなかったため、この実行を完了として報告できません",
     "truncatedByLength": "出力が長さ上限に達して切り詰められました。応答は不完全な可能性があります。分割して続きを求めるか、max_tokens を上げて再試行してください。",
+    "truncatedContinuationExhausted": "自動続行 3 回でも長さ上限に達して切り詰められました。回答は不完全です。max_tokens を上げるか、分割して続きを依頼してください。",
     "partialDoneTitle": "回答が中断されました。以下の内容は不完全な可能性があります",
     "mcpCredentials": {
       "storePlaintext": "MCP 認証情報が {path} に平文で保存されています（このマシンでは平文に降格）",

@@ -40,6 +40,7 @@ import {
   existsSync,
   mkdirSync,
   openSync,
+  readFileSync,
   readSync,
   statSync,
 } from 'node:fs'
@@ -765,6 +766,16 @@ if (hookFailed && commitResult.status !== 0) {
     runGate,
     runGateBaseline,
     foreignStaged,
+    // G-815912:判「远端态」的门(check-push-sync 等)在门源里自声明 [judges-remote-state],
+    // 归因层读这份源码把它们的失败判「未差分」—— 红是同步态读数,不归责提交内容。
+    // 读的是本仓 scripts/ 面(标记跟着门源走);读不到 = 无标记 = 旧口径,不造第二份清单。
+    readGateSource: (script) => {
+      try {
+        return readFileSync(join(repoRoot, 'scripts', script), 'utf8')
+      } catch {
+        return ''
+      }
+    },
   })
   /**
    * 批没跑完 ⇒ 由本脚本自己把守门批跑一遍取证(2026-09-26 立)。

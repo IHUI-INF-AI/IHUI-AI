@@ -26,6 +26,13 @@ export const askSchema = z.object({
 
 export type AskFormValues = z.infer<typeof askSchema>
 
+/**
+ * 问答状态封闭集的键类型(-1 删除 / 0 隐藏 / 1 通过),直接取自 askSchema 的字面量联合
+ * —— 校验与展示共用同一份真相。消费端的「状态→展示」表以此联合为键做**完备 Record**
+ * (G-815966):schema 新增一档而展示表未补 ⇒ tsc 必红,而不是运行时 `?? 兜底` 静默吞掉。
+ */
+export type AskStatus = AskFormValues['status']
+
 export const EMPTY_ASK_FORM: AskFormValues = {
   title: '',
   content: '',

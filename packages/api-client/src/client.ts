@@ -1440,7 +1440,9 @@ export interface StreamChatOptions {
   /** D174(2026-09-29 立):帧级 trace 关联键(小写 32 hex)首次出现时回调一次。
    *  服务端每条帧都带 `traceId`(响应头只有整条响应的一个值,帧内这一份才是"这一轮"的锚),
    *  端上没有出口可取 ⇒ 用户报问题时无法把界面现象与 `llm_call_logs` 里的对账键连起来。
-   *  只回调一次(后续帧同值,重复回调只会让消费侧自己去做去重);值非法(非 32 hex / 全 0)不回调。 */
+   *  只回调一次(后续帧同值,重复回调只会让消费侧自己去做去重);值非法(非 32 hex / 全 0)不回调。
+   *  G-916415 R1(2026-10-07):内部记录与本回调解耦、逐行求值不以此为前提 ——
+   *  帧级 traceId 无论是否注册本回调都会进错误上报体(SSEErrorInfo.traceId);本回调只是可选旁路。 */
   onTraceId?: (traceId: string) => void
   /** 2026-09-13 立,#11 Citations 全链路:knowledge_lookup 工具执行后,
    *  后端在 done 前下发 `event: citations` SSE 事件,前端据此写入 message.citations,
@@ -2266,6 +2268,17 @@ export interface SSEErrorInfo {
   retryAfter?: number
   /** 可恢复标记:true 表示网络错误但已耗尽自动重连次数,前端可显示"网络不稳定,可手动重试" */
   recoverable?: boolean
+  /**
+   * G-916415 R1(2026-10-07 立):帧级 trace 关联键进错误上报体。
+   * 失败前**本轮 attempt** 的流内任一帧带过合法 traceId(readStreamTraceId 判过)⇒
+   * 该值随 onError 的 info 透出,端上错误上报据此把客户端这一轮与 ai-service 日志
+   * 的 trace 串起来(票面"四段串一"的第四段)。只在真见过时携带 —— 缺席 = 无键,
+   * 不得写 `traceId: undefined` 污染上报体;per-attempt 复位见 streamChat 的
+   * onAttemptStart(seenTraceId = null),上一轮的 trace 不记到这一轮头上。
+   * **本接口的字段集就是上报体允许携带的字段白名单**(防把原始 Error 的
+   * stack/用户路径等敏感面整包带出去),镜像锁见 tests/stream-error-report-trace-id.test.ts。
+   */
+  traceId?: string
 }
 
 /**
@@ -4463,14 +4476,18 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         })()
       : null
 
-    // D174:帧级 trace 关联键首次出现即回调一次;不注册则完全不求值(与本包其余 per-field 回调同形)
+    // D174:帧级 trace 关联键首次出现即记录;G-916415 R1(2026-10-07)起**记录与回调解耦** ——
+    // 错误上报体(SSEErrorInfo.traceId)是常驻消费方,不再以"是否注册 onTraceId"为求值前提,
+    // 否则只接 onError 的端在错误上报里永远缺 trace(正是 [[contract-and-view-green-while-parser-drops-fields]]
+    // 那一型:回调全绿而解析面丢字段)。代价 = 每行一次 readStreamTraceId(数据行多一次 JSON.parse,
+    // 换失败轮次可归因);onTraceId 降级为可选旁路,注册了才回调。
     // (D138:seenTraceId 声明上移,由 runResumableSSEStream 的 onAttemptStart 逐次复位)
     const noteFrameTraceId = (raw: string): void => {
-      if (!opts.onTraceId || seenTraceId !== null) return
+      if (seenTraceId !== null) return
       const id = readStreamTraceId(raw)
       if (id !== null) {
         seenTraceId = id
-        opts.onTraceId(id)
+        opts.onTraceId?.(id)
       }
     }
 
@@ -4554,7 +4571,14 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     // 不传 onError 的调用方会把失败当成功(拿到空补全),错误被静默吞掉。
     if (opts.onError) {
       // recoverable=true 标记"网络可重试但已耗尽自动重连次数",前端可显示"网络不稳定,可手动重试"
-      opts.onError(message, { ...info, recoverable: !isBusinessError })
+      // G-916415 R1(2026-10-07):本轮 attempt 见过帧级 traceId ⇒ 进错误上报体(traceId 进上报体,
+      // 端上消费方拍板 = 错误上报)。info 由 getSSEErrorInfo 挑字段构造,这里只追加 traceId 一键 ——
+      // 上报体字段集 = SSEErrorInfo 白名单,不得整包展开原始 Error(镜像锁:stream-error-report-trace-id)。
+      opts.onError(message, {
+        ...info,
+        recoverable: !isBusinessError,
+        ...(seenTraceId !== null ? { traceId: seenTraceId } : {}),
+      })
       return
     }
     throw err
