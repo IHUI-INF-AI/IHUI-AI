@@ -2952,6 +2952,10 @@ class LLMGateway:
             # 循环内累积 delta.tool_calls,流结束前统一以 tool_calls 事件产出。
             litellm_tool_acc: dict[int, dict[str, Any]] = {}
             _guard_fallback = False
+            # G-425(2026-10-07 立,默认档"只提示"):最后一个非空 finish_reason(litellm
+            # 在最终 chunk 的 choices[0].finish_reason 上给 length/stop/tool_calls/…),
+            # 随 done 帧透传给端上判截断;缺席 = 上游没给,不造值。
+            _finish_reason_seen: str | None = None
             try:
                 async for chunk in response:
                     if _is_stream_timeout_guard(chunk):
@@ -2965,6 +2969,10 @@ class LLMGateway:
                         break
                     if hasattr(chunk, "choices") and chunk.choices:
                         delta = chunk.choices[0].delta
+                        # G-425:记最后一个非空 finish_reason(流式末帧才带,usage 帧 choices 可能为空)
+                        _fr = getattr(chunk.choices[0], "finish_reason", None)
+                        if _fr:
+                            _finish_reason_seen = str(_fr)
                         token = getattr(delta, "content", None)
                         if token:
                             accumulated_content += token
@@ -3087,6 +3095,8 @@ class LLMGateway:
                 "model": final_model,
                 "usage": final_usage,
                 "stub": False,
+                # G-425:finish/stop reason 随 done 帧透传(缺席不带键,不造值)
+                **({"finishReason": _finish_reason_seen} if _finish_reason_seen else {}),
                 **({"compaction": compaction_info} if compaction_info is not None else {}),
             }
         except Exception as e:

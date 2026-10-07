@@ -10601,6 +10601,9 @@
     "expiryDate": "有効期限"
   },
   "chat": {
+    "truncation": {
+      "maxLengthNotice": "この回答は最大出力長に達したため切り詰められており、内容が完全ではありません。「続けて」と送信すると生成を再開できます。"
+    },
     "markdownTable": {
       "copy": "表をコピー",
       "downloadCsv": "CSV をダウンロード",
