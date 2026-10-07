@@ -98,6 +98,14 @@ export interface ToolResult {
   /** P1-4 错误类型分级,供调用方/LLM 判断是否需要重试 */
   errorType?: string;
   /**
+   * 「无活动空闲超时」的结构化 context(G-426,只由执行器边界在 budget 代结算时产出):
+   * 上游 subagent/runner 的 reportActivity 语义 —— 墙钟改成"每次活动重排"后,错误必须
+   * 自己说明白"为什么还是被杀了":距最后一次活动多久(idleMs)、总共跑了多久(totalMs)、
+   * 绝对上限是多少(absoluteCapMs),以及调用方能不能恢复/该不该自动重试。
+   * 缺席 = 这条结果不是"空闲超时"代结算,不得由渲染侧从散文里猜。
+   */
+  timeoutContext?: ToolExecTimeoutContext;
+  /**
    * 「为什么被拒」的结构化答复(可诊断化收口票):**只在拒绝路径携带**。
    * 三条闸(权限规则 / 危险工具无确认出口 / 租约摘要漂移)在这里可被测试与上层直接断言
    * (`denial.gate` × `denial.decider`),不依赖任何人读中文短句。参数只落指纹+键名。
@@ -149,6 +157,24 @@ export interface ToolResult {
 
 /** display 投影的自身上限(对齐上游 result-display 的"独立于 provider content 单独限长"):200 KiB。 */
 export const TOOL_RESULT_DISPLAY_LIMIT_BYTES = 200 * 1024;
+
+/**
+ * 「无活动空闲超时」的错误 context(G-426)。三枚数字 + 两枚标记,全部由执行器边界在
+ * 触发那一刻测算后写死进结果(不是渲染侧现算 —— 那会迟到):
+ *   - `idleMs`:距最后一次 `reportExecActivity` 的毫秒数;从未报告过 ⇒ 全程时长(与旧墙钟同语义)。
+ *   - `totalMs`:从执行开始到触发瞬间的总时长。
+ *   - `absoluteCapMs`:绝对上限 = budget × `TOOL_EXEC_BUDGET_ABSOLUTE_FACTOR`(防无限续命的兜底)。
+ *   - `recoverable: true`:调用方已脱身、系统完好,可以继续(例如收窄任务重新派发)。
+ *   - `retryable: false`:**自动**重试等于把同一次挂死再跑一遍(与 `abortedByExecBudget`
+ *     阻断 executeWithRetry 重试的既有纪律同一条理由,见上文字段注)。
+ */
+export interface ToolExecTimeoutContext {
+  idleMs: number;
+  totalMs: number;
+  absoluteCapMs: number;
+  recoverable: boolean;
+  retryable: boolean;
+}
 
 /**
  * display 投影的形状(G-816039):`text` 是有界的人读视图;三枚数字与 `truncated` 结论位
@@ -234,6 +260,15 @@ export const TOOL_EXEC_BUDGET_MAX_MS = 60 * 60_000;
 /** 结算宽限:到点后先 abort,再给 handler 这么多时间自己收尾;仍不 settle 就**停止等待**并代为结算。
  *  语义是"到点之后额外留给清理的时间",不是"把超时推迟"。 */
 export const TOOL_EXEC_BUDGET_SETTLE_GRACE_MS = 5_000;
+
+/**
+ * 绝对上限倍数(G-426):预算改成"每次活动重排"后,必须留一个**从开始计时的总上限**兜底,
+ * 否则一个持续 reportActivity 的死循环能无限续命。取预算 3 倍而不是独立常量:各工具的
+ * 声明档差异极大(默认 30min / 子代理 60min / 测试毫秒档),相对倍数让"多长的执行算滥用"
+ * 与该工具自己声明的合理时长同比例缩放 —— 3 = 名义预算之外再给两整段同额推进余量,
+ * 足以容纳合法的慢长任务,又把无限续命封死在 3 × budget。
+ */
+export const TOOL_EXEC_BUDGET_ABSOLUTE_FACTOR = 3;
 
 /** 逃生舱:总开关(仅应急)。设 off/0/false 时整条预算不生效,行为逐路径回到改前。 */
 const EXEC_BUDGET_DISABLE_ENV = 'IHUI_TOOL_EXEC_BUDGET';
@@ -322,18 +357,34 @@ function execBudgetResult(
   toolName: string,
   kind: 'budget' | 'cancelled',
   budgetMs: number | undefined,
+  timeoutFacts?: { idleMs: number; totalMs: number; absoluteCapMs: number },
 ): ToolResult {
   if (kind === 'budget') {
     const limitLabel = budgetMs === undefined ? 'not-configured' : `${budgetMs}ms`;
+    // G-426:idle/total 只在触发那一刻测算(调用方传入),让错误自己说明"杀的是空闲不是墙钟进度"。
+    const idleLabel = timeoutFacts
+      ? ` No activity for the last ${timeoutFacts.idleMs}ms (total ${timeoutFacts.totalMs}ms, absolute cap ${timeoutFacts.absoluteCapMs}ms).`
+      : '';
     return {
       success: false,
       output: '',
       error:
-        `Tool ${toolName} exceeded its wall-clock execution budget (${limitLabel}) and was aborted. ` +
-        `Side effects MAY already have happened - abort only releases the caller, the handler may still be ` +
-        `running in background. Verify on-disk / remote state before retrying.`,
+        `Tool ${toolName} exceeded its execution budget (${limitLabel}) and was aborted.` +
+        `${idleLabel} Side effects MAY already have happened - abort only releases the caller, ` +
+        `the handler may still be running in background. Verify on-disk / remote state before retrying.`,
       errorType: 'timeout',
       abortedByExecBudget: 'budget',
+      ...(timeoutFacts
+        ? {
+            timeoutContext: {
+              idleMs: timeoutFacts.idleMs,
+              totalMs: timeoutFacts.totalMs,
+              absoluteCapMs: timeoutFacts.absoluteCapMs,
+              recoverable: true,
+              retryable: false,
+            },
+          }
+        : {}),
     };
   }
   return {
@@ -373,15 +424,22 @@ export function normalizeToolResultTruncation(result: ToolResult): ToolResult {
  *
  * @param tool 只需 name + execBudget(hub 路径拿不到本地 Tool 对象,按默认档走)
  * @param ctx  工具上下文,`ctx.signal` 是外层取消的来源
- * @param run  真正的执行体;收到的 signal 是"父取消 ∪ 预算到点"的合成信号,可能为 undefined
+ * @param run  真正的执行体;收到的 signal 是"父取消 ∪ 预算到点"的合成信号,可能为 undefined;
+ *        第二形参 `reportActivity` 是本执行窗的活动上报口(G-426),非空时调用即把空闲窗
+ *        重排回完整 budget(没有工具调用它时行为与旧墙钟逐字同形)
  *
  * 覆盖面如实登记:只包 handler 本身。`confirmDangerous` 的等待发生在 `executeToolCall` 里、
  * 本函数之外 ⇒ 用户思考时间不计入预算(这是对的,否则"用户还没点确认"会被系统判成工具超时)。
+ *
+ * G-426 语义(对齐上游 subagent/runner 的 reportActivity):预算定时器从"单次墙钟"改为
+ * "每次活动重排" —— 仍在推进的慢 handler(典型:子代理 loop)不再被杀,真正卡死的才会超时;
+ * 另设**从开始计时的绝对上限** budget × TOOL_EXEC_BUDGET_ABSOLUTE_FACTOR 兜底,防无限续命。
+ * 从未上报活动的执行与改前完全同形(单次 setTimeout 到点即杀)。
  */
 export async function executeWithinExecBudget(
   tool: Pick<Tool, 'name' | 'execBudget'>,
   ctx: ToolContext,
-  run: (signal: AbortSignal | undefined) => Promise<ToolResult>,
+  run: (signal: AbortSignal | undefined, reportActivity?: () => void) => Promise<ToolResult>,
 ): Promise<ToolResult> {
   const parentSignal = ctx.signal;
   if (parentSignal?.aborted) {
@@ -398,8 +456,12 @@ export async function executeWithinExecBudget(
   const controller = new AbortController();
   const unlinkParent = linkAbortSignal(parentSignal, controller);
   let budgetTimer: NodeJS.Timeout | undefined;
+  let absoluteTimer: NodeJS.Timeout | undefined;
   let graceTimer: NodeJS.Timeout | undefined;
   let trigger: 'budget' | 'cancelled' | undefined;
+  // G-426:活动基线。undefined = 从未上报活动 ⇒ 触发时 idleMs 退化为全程时长(旧墙钟语义)。
+  let lastActivityAt: number | undefined;
+  const startedAt = Date.now();
 
   try {
     return await new Promise<ToolResult>((resolve, reject) => {
@@ -423,22 +485,51 @@ export async function executeWithinExecBudget(
       const enterGrace = (kind: 'budget' | 'cancelled'): void => {
         if (trigger) return;
         trigger = kind;
+        // G-426:idle/total 在触发瞬间定格,随宽限后的代结算结果一起出去
+        const at = Date.now();
+        const timeoutFacts =
+          kind === 'budget' && budgetMs !== undefined
+            ? {
+                idleMs: lastActivityAt === undefined ? at - startedAt : at - lastActivityAt,
+                totalMs: at - startedAt,
+                absoluteCapMs: budgetMs * TOOL_EXEC_BUDGET_ABSOLUTE_FACTOR,
+              }
+            : undefined;
         controller.abort(new Error(`ihui:exec-${kind}:${tool.name}`));
         graceTimer = setTimeout(
-          () => settle(execBudgetResult(tool.name, kind, budgetMs)),
+          () => settle(execBudgetResult(tool.name, kind, budgetMs, timeoutFacts)),
           TOOL_EXEC_BUDGET_SETTLE_GRACE_MS,
         );
       };
-      if (budgetMs !== undefined) budgetTimer = setTimeout(() => enterGrace('budget'), budgetMs);
+      // G-426:活动上报口 —— 每次真实推进(工具调用进度/流式输出)都把空闲窗重排回完整 budget。
+      // trigger/settle 已落定后的一律忽略:宽限期与结算后不存在"续命"。
+      const reportActivity =
+        budgetMs === undefined
+          ? undefined
+          : (): void => {
+              if (trigger !== undefined || settled) return;
+              lastActivityAt = Date.now();
+              if (budgetTimer !== undefined) clearTimeout(budgetTimer);
+              budgetTimer = setTimeout(() => enterGrace('budget'), budgetMs);
+            };
+      if (budgetMs !== undefined) {
+        budgetTimer = setTimeout(() => enterGrace('budget'), budgetMs);
+        // 绝对上限:从开始计时,不随活动重排 —— 持续活动的执行最多活 budget × FACTOR。
+        absoluteTimer = setTimeout(
+          () => enterGrace('budget'),
+          budgetMs * TOOL_EXEC_BUDGET_ABSOLUTE_FACTOR,
+        );
+      }
       // 父取消经 linkAbortSignal 到达本 controller;预算到点也会 abort 本 controller,
       // 但那时 trigger 已被置为 'budget',所以不会二次产出一条"已取消"(归因分叉是这条的坏状态)。
       controller.signal.addEventListener('abort', () => enterGrace('cancelled'), { once: true });
       // 用 async IIFE 包一层:handler **同步抛错**也必须走同一条结算路径,否则 timer 与
       // 父 signal 上的监听器都留在那儿(本函数是 async,同步抛错会直接冒泡,finally 拿不到机会)。
-      void (async () => run(controller.signal))().then(settle, settleReject);
+      void (async () => run(controller.signal, reportActivity))().then(settle, settleReject);
     });
   } finally {
     if (budgetTimer) clearTimeout(budgetTimer);
+    if (absoluteTimer) clearTimeout(absoluteTimer);
     if (graceTimer) clearTimeout(graceTimer);
     unlinkParent();
   }
@@ -484,6 +575,15 @@ export interface ToolContext {
    * 该缺口由守门 `scripts/check-tool-exec-budget.mjs` 的 S2 按 HEAD 棘轮点名,不会静默。
    */
   signal?: AbortSignal;
+  /**
+   * 本执行窗的活动上报口(G-426,由 `executeWithinExecBudget` 注入):长跑 handler(典型:
+   * 子代理 loop)每有一段真实推进 —— 工具调用开始/结束、流式输出块 —— 就调用一次,
+   * 把"无活动空闲超时"的定时器重排回完整预算。仍在推进的慢子代理不再被墙钟杀,
+   * 真正卡死的才会超时;从未调用 ⇒ 行为与旧墙钟逐字同形。
+   * 缺席(undefined)= 当前执行窗没有可重排的定时器(结构性豁免 / 无预算),调用方
+   * 用可选链调用即可,不得假设它总在。
+   */
+  reportExecActivity?: () => void;
 }
 
 const registry = new Map<string, Tool>();
@@ -894,8 +994,13 @@ export async function executeToolCall(
     try {
       // hub 路径同样收进唯一出口:这一支拿不到本地 Tool 对象(可能是 MCP 远端工具),
       // 所以按**默认档**约束 —— 特性开关不得成为绕过墙钟预算的第二条执行路径。
-      return await executeWithinExecBudget({ name: call.name }, ctx, (signal) =>
-        resolver.dispatch(call.name, call.arguments, signal ? { ...ctx, signal } : ctx),
+      // G-426:活动上报口随 ctx 下发,长跑远端工具同样能重排空闲窗(与本地分支同一语义)。
+      return await executeWithinExecBudget({ name: call.name }, ctx, (signal, reportActivity) =>
+        resolver.dispatch(call.name, call.arguments, {
+          ...ctx,
+          ...(signal ? { signal } : {}),
+          ...(reportActivity ? { reportExecActivity: reportActivity } : {}),
+        }),
       );
     } catch (err) {
       if (!(err instanceof ToolNotFoundError)) {
@@ -1005,7 +1110,7 @@ export async function executeToolCall(
   // 无 permissionRequest 钩子 / 钩子失败 / 应答残缺 ⇒ permission 缺省,下方每一格与改前逐字同形。
   let hookApproved = false;
   if (requiresUserConfirmation(tool, leaseContentDrifted)) {
-    const hookRes = runPermissionRequest(tool.name, call.arguments);
+    const hookRes = await runPermissionRequest(tool.name, call.arguments);
     if (!hookRes.proceed) {
       // 仅当用户显式配了 blockOnError 且钩子链失败才走到这:与 preToolCall 阻断同向。
       // 失败不猜成任何应答形状(三态不混流),审计面不伪造 denial 行。
@@ -1213,8 +1318,14 @@ export async function executeWithRetry(
   let lastResult: ToolResult = { success: false, output: '', error: '未执行' };
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const result = await executeWithinExecBudget(tool, ctx, (signal) =>
-        tool.execute(args, signal ? { ...ctx, signal } : ctx),
+      // G-426:活动上报口随 ctx 注入 —— handler 经 `ctx.reportExecActivity?.()` 报告真实推进,
+      // 把本执行窗的空闲定时器重排回完整预算(长跑子代理不再被墙钟误杀)。
+      const result = await executeWithinExecBudget(tool, ctx, (signal, reportActivity) =>
+        tool.execute(args, {
+          ...ctx,
+          ...(signal ? { signal } : {}),
+          ...(reportActivity ? { reportExecActivity: reportActivity } : {}),
+        }),
       );
       if (result.success) return result;
       lastResult = result;
