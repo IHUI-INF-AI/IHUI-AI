@@ -217,6 +217,14 @@ export function LivePlayer({
         <div className="absolute top-2 bottom-2 left-2 right-2 flex flex-col items-center justify-center gap-2 bg-black/70 text-white">
           <AlertCircle className="h-8 w-8 text-red-400" />
           <p className="text-sm">{error}</p>
+          <button
+            type="button"
+            onClick={() => setAttempt((n) => n + 1)}
+            aria-label={t('previewRetryAction')}
+            className="rounded-sm p-1 text-xs underline hover:bg-white/20"
+          >
+            {t('previewRetryAction')}
+          </button>
         </div>
       )}
 
