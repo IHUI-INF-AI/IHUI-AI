@@ -37,12 +37,12 @@ describe('GIT_TOOLS 注册', () => {
     expect(names).toEqual(['gh_issue_create', 'gh_issue_list', 'gh_pr_checkout', 'gh_pr_close', 'gh_pr_comment', 'gh_pr_create', 'gh_pr_list', 'gh_pr_merge', 'gh_pr_reopen', 'gh_pr_review', 'gh_pr_view', 'gh_release_create', 'git_add', 'git_branch_create', 'git_branch_delete', 'git_branch_list', 'git_branch_switch', 'git_commit', 'git_conflict_resolve', 'git_conflict_status', 'git_diff', 'git_log', 'git_merge', 'git_rebase', 'git_remote_add', 'git_remote_list', 'git_stash_list', 'git_stash_pop', 'git_stash_push', 'git_status', 'git_tag_create', 'git_tag_list']);
   });
 
-  it('git_add 危险级别 write,git_commit dangerous,读工具无 dangerLevel', () => {
+  it('git_add 危险级别 write,git_commit dangerous,读工具显式 dangerLevel=read(G-1058647 补档后「没写」不再是合法态)', () => {
     expect(gitAdd.dangerLevel).toBe('write');
     expect(gitCommit.dangerLevel).toBe('dangerous');
-    expect(gitStatus.dangerLevel).toBeUndefined();
-    expect(gitDiff.dangerLevel).toBeUndefined();
-    expect(gitLog.dangerLevel).toBeUndefined();
+    expect(gitStatus.dangerLevel).toBe('read');
+    expect(gitDiff.dangerLevel).toBe('read');
+    expect(gitLog.dangerLevel).toBe('read');
   });
 });
 
