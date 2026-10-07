@@ -15,7 +15,7 @@
  * 2026-09-12 根治(不再依赖"每个生成器自觉注入"):
  *   门禁自身具备**自愈能力** —— 检出缺口后自动 `clean + inject` 回写, 并同步 `git add` 到暂存区,
  *   使"未加水印的文件进入提交"这一状态在结构上不可能发生; 无论文件是被谁(生成器/脚本/sed)改写出来的。
- *   生成器自带注入(如 apps/miniapp-taro/scripts/gen-i18n-compressed.mjs)仍保留, 属"更早一步"的优化,
+ *   生成器自带注入(如 scripts/gen-i18n-compressed.mjs)仍保留, 属"更早一步"的优化,
  *   不再是唯一防线。
  *
  * 判定口径: `watermark.mjs list-uncovered`(载荷损坏 + 残迹 + 未覆盖) ∩ **分母集合**
@@ -34,10 +34,10 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
+import { readWorktreeFile } from './lib/face-reader.mjs'
 import { createExclusionPredicate, LedgerUnavailable } from './lib/third-party-roots.mjs'
 import { coverageFileSet } from './lib/watermark-scope.mjs'
 
@@ -519,10 +519,12 @@ for (const f of scope.indexFiles) {
   if (exclusion.isExcluded(f)) continue
   let text
   try {
-    text = readFileSync(join(REPO_ROOT, f), 'utf8')
+    // 门 118 取材面纪律(2026-10-07):统一走 face-reader 磁盘面读入口;缺文件返 null ⇒ 与旧 ENOENT 同形跳过
+    text = readWorktreeFile(REPO_ROOT, f)
   } catch {
     continue
   }
+  if (text === null) continue
   const n = (text.match(CANON_BANNER) || []).length
   if (n > 1) {
     dupBanner += 1

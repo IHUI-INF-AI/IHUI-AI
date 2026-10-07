@@ -1,0 +1,16 @@
+#EVIDENCE-CMD: pnpm --filter @ihui/miniapp-taro gen:i18n
+#EVIDENCE-LABEL: c-literal: gen:i18n run with mutated input (generator re-pins by design)
+#EVIDENCE-START: 2026-10-07T07:55:31.829Z
+$ node ../../scripts/gen-i18n-compressed.mjs
+[gen:i18n] en: 258.1KB (JSON) → 105.0KB (b64, gzip78.7KB)
+[gen:i18n] ja: 167.6KB (JSON) → 118.1KB (b64, gzip88.6KB)
+[gen:i18n] ko: 169.7KB (JSON) → 112.3KB (b64, gzip84.2KB)
+[gen:i18n] zh-TW: 142.4KB (JSON) → 106.2KB (b64, gzip79.6KB)
+[gen:i18n] 合计: 原始 737.7KB → b64 441.6KB (净省 296.2KB)
+[watermark:inject] apps/miniapp-taro/src/i18n/generated/remote-locales.gen.ts → injected
+[watermark:inject] apps/miniapp-taro/src/i18n/generated/remote-locale-manifest.gen.ts → injected
+[gen:i18n] 已写入 G:\IHUI-AI\apps\miniapp-taro\src\i18n\generated\remote-locales.gen.ts (456920 字节, 含溯源水印)
+[gen:i18n] 已写入 G:\IHUI-AI\apps\miniapp-taro\src\i18n\generated\remote-locale-manifest.gen.ts (5358 字节, 含溯源水印)
+[gen:i18n] 已写入 CDN 载荷 G:\IHUI-AI\apps\miniapp-taro\src\assets\remote-locales/{en,ja,ko,zh-TW}.b64.txt (部署: 整目录拷入 cdn-server.js 的 server-root)
+#EVIDENCE-RC=0
+#EVIDENCE-END: 2026-10-07T07:55:32.842Z
