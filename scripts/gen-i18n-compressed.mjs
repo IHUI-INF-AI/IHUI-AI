@@ -23,7 +23,7 @@
 //      判据,bytes 作下载完整性粗校验。真完整校验靠"b64 字符集 + gunzip + JSON.parse"
 //      结构性校验(解码失败一律回落,不进缓存)。
 
-import { gzipSync, strToU8 } from 'fflate'
+import { createRequire } from 'node:module'
 import { createHash } from 'node:crypto'
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
@@ -34,19 +34,23 @@ import { dirname, resolve } from 'node:path'
 // 所以只改说明符照样红),前置 = 等两台机的分叉裁决定后再搬,避免刚搬完就被并回旧路径。
 // 在这之前这条边**不能撤**:守门 105 的镜像 T14 断言"门与生成器都必须引那份唯一实现",
 // 撤掉即变成两处各算一遍哈希 —— 正是本仓记过两次的漂移成因。
-// arch-exempt: 端内生成器按镜像 T14 必须共用根层那份钉实现,属工具层反向边,非业务依赖 until 2026-12-28
-import { renderPin } from '../../../scripts/lib/generated-input-pin.mjs'
+import { renderPin } from './lib/generated-input-pin.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-// 脚本在 apps/miniapp-taro/scripts/,仓库根在其上 3 级;消息源在 packages/i18n/messages
-const repoRoot = resolve(__dirname, '../../..')
+// 脚本在根 scripts/,仓库根在其上 1 级;消息源在 packages/i18n/messages
+const repoRoot = resolve(__dirname, '..')
+// fflate 从端内依赖面取:pnpm isolated node_modules(shamefully-hoist=false)下,根 scripts/
+// 解析不到端内依赖 —— 用 createRequire 钉在 @ihui/miniapp-taro 的依赖面上,与运行时同一份包。
+const { gzipSync, strToU8 } = createRequire(
+  resolve(repoRoot, 'apps/miniapp-taro/package.json'),
+)('fflate')
 const messagesRoot = resolve(repoRoot, 'packages/i18n/messages')
-const outDir = resolve(__dirname, '../src/i18n/generated')
+const outDir = resolve(repoRoot, 'apps/miniapp-taro/src/i18n/generated')
 const outFile = resolve(outDir, 'remote-locales.gen.ts')
 const manifestFile = resolve(outDir, 'remote-locale-manifest.gen.ts')
 // CDN 部署载荷目录:与 src/assets/remote-images/ 同一镜像约定 —— 目录名即 CDN URL 路径段,
 // 运维把它整体拷进 cdn-server.js 的 server-root 后,载荷即出现在 /remote-locales/<locale>.b64.txt。
-const cdnPayloadDir = resolve(__dirname, '../src/assets/remote-locales')
+const cdnPayloadDir = resolve(repoRoot, 'apps/miniapp-taro/src/assets/remote-locales')
 const GENERATOR_REL = 'apps/miniapp-taro/scripts/gen-i18n-compressed.mjs'
 
 const REMOTE_LOCALES = ['en', 'ja', 'ko', 'zh-TW']

@@ -91,7 +91,7 @@ const LANGS = ['zh-CN', 'zh-TW', 'en', 'ja', 'ko']
 /** 端清单与 check-tool-display-resolvable.mjs:32 同口径(api 不产界面文案,故不在列) */
 const END_DIRS = ['web', 'extension', 'miniapp-taro', 'mobile-rn', 'cli']
 const TARO_GEN = 'apps/miniapp-taro/src/i18n/generated/remote-locales.gen.ts'
-const TARO_GEN_SCRIPT = 'apps/miniapp-taro/scripts/gen-i18n-compressed.mjs'
+const TARO_GEN_SCRIPT = 'scripts/gen-i18n-compressed.mjs'
 const SKIP_ENV = 'HUSKY_SKIP_WORD_TABLE_RESOLVABLE'
 
 const SCAN_ROOTS = [
