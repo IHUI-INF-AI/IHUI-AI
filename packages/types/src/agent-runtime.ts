@@ -1215,17 +1215,32 @@ export type GitHubOperation =
  * executor 接线、`check-agent-event-parity` 只管 SSE 事件名,**这一族成员集合全仓零判据**
  * (取证见 docs/d6-convergence-audit-2026-09-27.md §2.3)。
  *
- * ⚠️ **六个字符串值全部是对外契约,不得改名/删成员/改拼写**(三条独立证据):
+ * ⚠️ **这批字符串值全部是对外契约,不得改名/删成员/改拼写**(三条独立证据):
  *   ① 落库列:`packages/database/src/schema/agent-tasks.ts:31` `varchar('status', {length:20})`
  *      (默认值 `'pending'` 是 legacy 档,由 `LEGACY_STATUS_MAP` 读取时归一);
- *   ② REST 契约:`apps/api/src/routes/agents-kanban.ts:128,151` 两处 `z.enum([...])`
- *      (查询参数与 transition 请求体);
- *   ③ SSE 帧载荷:`apps/api/src/routes/agents-kanban.ts:386,453,473,524` 的
+ *   ② REST 契约:`apps/api/src/routes/agents-kanban.ts` 的 status 过滤与 transition 请求体
+ *      `z.enum`(已改为从本数组派生,端内不再抄第二份成员清单);
+ *   ③ SSE 帧载荷:`apps/api/src/routes/agents-kanban.ts` 的
  *      `broadcastSSEEvent({ type: 'task_*' })` 携带 `status` 字段直推前端。
  * 新增一档的正确顺序 = 改本数组 → 补 `ALLOWED_TRANSITIONS` 边 → 补 `STATUS_VARIANTS` →
  * 补 Python 对齐表(`apps/ai-service/app/services/dag_scheduler.py`)→ **同枚提交**补齐
  * `agents.kanban.<status>` 五语言词表(AGENTS §30:状态词汇是一等契约)。
  * 常驻尺子:`scripts/check-agent-status-vocabulary-parity.mjs`。
+ *
+ * **G-462/G-1038476(2026-10-07 机主拍板,推翻 09-28「维持六档」):六档拆出四个独立终态档**。
+ * 此前 `failed/cancelled/quota_exceeded/preempted` 四档(由 subagent-dispatch 写入 agent_tasks
+ * 的终态)经 `LEGACY_STATUS_MAP` 同落 `blocked`,「被取消(重跑大概率就好)」与「待解阻塞
+ * (要先去解阻塞)」在看板上同形,一条视觉信号指错两个相反的下一步动作;上游
+ * dw/src/engine/errors.ts 的分级判据是「能不能被 catch」而非严重程度,`Interrupted` 类
+ * (进程被杀/被抢占)必须有独立码,否则与「脚本真失败」只能靠 message 文本区分。
+ * 拆分映射(保留 `blocked` 只给真正待解阻塞):
+ *   - `cancelled` → `cancelled`(被取消,重跑即可);
+ *   - `preempted` → `preempted`(被抢占,上游 Interrupted 类,独立码);
+ *   - `quota_exceeded` → `quota_exceeded`(配额超限,上游 ProviderStop 类);
+ *   - `failed` → `execution_failed`(脚本真失败,读 errorMessage 查因)。
+ *     ⚠️ 新档**不能**叫 `failed`:第二域 `WORKSPACE_AGENT_TASK_STATUSES` 已占用该拼写,
+ *     SV2 判「两域成员集合交集必须为空」,故取 `execution_failed`(语义 = 执行失败)。
+ *   四个新档都是终态(合法流转出边为空):它们由 dispatch 侧直接写入,不是看板手动流转的目标。
  */
 export const AGENT_TASK_STATUSES = [
   'triage',
@@ -1233,6 +1248,10 @@ export const AGENT_TASK_STATUSES = [
   'ready',
   'in_progress',
   'blocked',
+  'cancelled',
+  'execution_failed',
+  'quota_exceeded',
+  'preempted',
   'done',
 ] as const
 
@@ -1316,38 +1335,49 @@ export type GoalWireStatus = (typeof GOAL_WIRE_STATUSES)[number]
 // api(transition/admin PUT 校验)与 web(流转按钮禁用)共用,避免两处表漂移。
 // ---------------------------------------------------------------------------
 
-/** Kanban 6 列合法流转图(单一来源) */
+/** Kanban 列合法流转图(单一来源)。四个终态档(G-462 拆分)出边为空:由 dispatch 侧写入,非手动流转目标 */
 export const ALLOWED_TRANSITIONS: Record<AgentTaskStatus, AgentTaskStatus[]> = {
   triage: ['todo', 'blocked', 'done'],
   todo: ['ready', 'blocked', 'done'],
   ready: ['in_progress', 'blocked'],
   in_progress: ['done', 'blocked'],
   blocked: ['todo', 'ready'],
+  cancelled: [],
+  execution_failed: [],
+  quota_exceeded: [],
+  preempted: [],
   done: [],
 }
 
 /**
  * 旧表 status 兼容映射(读取时转换 legacy → Kanban)。
- * cancelled / quota_exceeded / preempted 为 subagent-dispatch 写入的终态,
- * 全部归一为 blocked(原先缺映射导致任务从看板消失)。
+ *
+ * G-462/G-1038476(2026-10-07 机主拍板):四个 dispatch 终态不再同落 `blocked`,各自映射
+ * 独立新档(`cancelled/preempted/quota_exceeded` 逐字同名晋升为在册档;`failed` 因第二域
+ * 占用该拼写而映射到 `execution_failed`)。`blocked` 从此只收真正待解阻塞 ——
+ * 「重跑就好」「读日志查因」「先解阻塞」三种下一步动作在列头上可分。
  */
 export const LEGACY_STATUS_MAP: Record<string, AgentTaskStatus> = {
   pending: 'triage',
   running: 'in_progress',
   completed: 'done',
-  failed: 'blocked',
-  cancelled: 'blocked',
-  quota_exceeded: 'blocked',
-  preempted: 'blocked',
+  failed: 'execution_failed',
+  cancelled: 'cancelled',
+  quota_exceeded: 'quota_exceeded',
+  preempted: 'preempted',
 }
 
-/** 过滤时 Kanban status → DB status 变体(含 legacy) */
+/** 过滤时 Kanban status → DB status 变体(含 legacy)。`execution_failed` 吸收旧写法 `failed` */
 export const STATUS_VARIANTS: Record<AgentTaskStatus, string[]> = {
   triage: ['triage', 'pending'],
   todo: ['todo'],
   ready: ['ready'],
   in_progress: ['in_progress', 'running'],
-  blocked: ['blocked', 'failed', 'cancelled', 'quota_exceeded', 'preempted'],
+  blocked: ['blocked'],
+  cancelled: ['cancelled'],
+  execution_failed: ['execution_failed', 'failed'],
+  quota_exceeded: ['quota_exceeded'],
+  preempted: ['preempted'],
   done: ['done', 'completed'],
 }
 
@@ -1370,13 +1400,21 @@ export function mapStatus(raw: string): AgentTaskStatus {
 }
 
 /**
- * 被 `LEGACY_STATUS_MAP` 折叠进 `blocked` 的四种终态**成因**(2026-09-28 拍板:
- * **不动六档枚举**(那是落库列 + REST 校验 + SSE 载荷 + Python 调度器 + 五语言的对外契约),
- * 只在看板卡片上加一枚次级标记)。
+ * 四种 dispatch 终态的**成因**点名层(2026-09-28 立:当时不动枚举,只加次级标记)。
  *
- * 为什么必须有这一层:这四档与"真的在等解阻塞"在折叠后完全同形,而它们的下一步动作相反 ——
- * 「已取消 / 配额超限 / 被抢占」重跑大概率就好,「待解阻塞」要先去解阻塞,**而「执行失败」要去
- * 读 errorMessage 查因**。用户按同一张脸决定重跑、去解阻塞、还是去查日志,是被状态显示指错了方向。
+ * ⚠️ **2026-10-07(G-462/G-1038476 机主拍板)本层的前提已被推翻、出口保留**:
+ * 上面写的「不动六档枚举」「否掉六档变七档」两条拍板当轮成立,但 G-462 的等拍板票最终
+ * 裁定**采纳拆分** —— 四档经 `LEGACY_STATUS_MAP` 各自映射独立新档(见该表头注),
+ * 不再折叠进 `blocked`。因此本层从"被折叠终态的唯一点名手段"降级为**次级成因标记**:
+ * `terminationOf` 判据(值集 = `COLLAPSED_TERMINATIONS`)、键表、五语言词条与既有用例
+ * 全部原样保留 —— 卡片落在自己的终态列后,标记仍为扁平列表/无障碍读屏点名成因,
+ * 且 `failed` 不得复用 `terminatedCancelled` 文案的那条禁令继续有效。
+ * (成员集与 `LEGACY_STATUS_MAP` 的四个新目标档同名,是刻意的历史连续性,不是第二份真相。)
+ *
+ * 历史立层理由(为什么必须有这一层):这四档与"真的在等解阻塞"在折叠后完全同形,而它们的
+ * 下一步动作相反 ——「已取消 / 配额超限 / 被抢占」重跑大概率就好,「待解阻塞」要先去解阻塞,
+ * **而「执行失败」要去读 errorMessage 查因**。用户按同一张脸决定重跑、去解阻塞、还是去查日志,
+ * 是被状态显示指错了方向。
  *
  * ⚠️ **2026-10-05(G-1018245,用户拍板路 B)`failed` 由"不在册"改为"在册"**:
  * 09-28 首版只收了三种,`failed` 被有意排除,理由写在原 `terminationOf` 注释里 ——
@@ -1385,12 +1423,7 @@ export function mapStatus(raw: string): AgentTaskStatus {
  * 但它成立的方式是"给 failed 一个**独立的**键",而不是"让 failed 落回裸 blocked":
  * 排除出册的实测后果是 **`failed` 是四档里唯一在看板上完全不可点名的** —— 它与
  * 真的·阻塞同形、与三档终态也同形,用户在四张同形的脸里读不到任何成因。
- * 拍板同时否掉的是台账原写的另一条路(「六档变七档」):本轮实测 `agent_tasks.status`
- * 的写侧只有三处(`createTask` 写死 `triage`、transition 的 `z.enum` 六档、admin PUT),
- * `failed`/`cancelled`/`quota_exceeded`/`preempted` **无任何我方生产者**(纯历史/外部写入的
- * 兼容读侧),Python 调度器失败一律 `task.status = "blocked"`(`dag_scheduler.py` 的
- * `is_failed` 判据即此)⇒ 新增第七档会造出一个我方永不写入、只被 legacy 数据点亮的空面,
- * 且要动两处 REST `z.enum` 契约。故维持六档,只把四档成因补齐。
+ * (09-28 当轮同时否掉的「六档变七档」已由 2026-10-07 拍板采纳,见本注释顶部。)
  */
 export const COLLAPSED_TERMINATIONS = [
   'failed',
