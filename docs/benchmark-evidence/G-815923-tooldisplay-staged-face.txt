@@ -1,0 +1,6 @@
+#EVIDENCE-CMD: node scripts/check-tool-display-resolvable.mjs --staged
+#EVIDENCE-LABEL: tool-display gate on staged face (post-commit HEAD state simulation)
+#EVIDENCE-START: 2026-10-07T08:01:45.841Z
+[tool-display-resolvable] ✅ 110 个工具功能名 + 29 个 MCP 措辞键(D83 三层表)在 5 语言 ×(shared + 5 端 + taro 生成物)全部取到值,共比对 4610 项(取材面:索引 blob(本次提交会带走的那一份))
+#EVIDENCE-RC=0
+#EVIDENCE-END: 2026-10-07T08:01:46.172Z

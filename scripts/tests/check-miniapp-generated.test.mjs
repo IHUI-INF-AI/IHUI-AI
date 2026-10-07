@@ -273,7 +273,7 @@ test('T12 --self-test 连跑两次必须同形且都 0(不得被别的调用顶�
 /* ───────────── G-680 生成物自述钉(三例:装车锁 / 单一实现 / 端到端三态) ───────────── */
 
 const PIN = gate.pinKit
-const GEN_REL = 'apps/miniapp-taro/scripts/gen-i18n-compressed.mjs'
+const GEN_REL = 'scripts/gen-i18n-compressed.mjs'
 
 /** 造一份"钉按 pristine 输入算"的离线包夹具(钉永远代表旧的那次生成,磁盘可以是新的) */
 function pinBundleText({ inputs }) {
@@ -325,7 +325,7 @@ test('T14 单一实现:哈希与归一只能有一份,门与生成器都引它(�
   assert.match(libSrc, /\\r\\n/, 'lib 必须做 CRLF 归一')
 })
 
-test('T15 端到端三态:matched 绿 / stale 红并点名 / absent 未判定但不得判红', (t) => {
+test('T15 端到端三态:matched 绿 / stale 红并点名 / absent 未判定但不得判红', (_t) => {
   // ① matched ⇒ exit 0
   const ok = mkScratch('cmg-pin-ok')
   try {

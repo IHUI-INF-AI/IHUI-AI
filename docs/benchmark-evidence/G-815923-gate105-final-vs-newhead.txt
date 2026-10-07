@@ -1,0 +1,10 @@
+#EVIDENCE-CMD: node scripts/check-miniapp-generated.mjs --worktree --group i18n
+#EVIDENCE-LABEL: final: gate105 with products aligned to converged HEAD, expect matched
+#EVIDENCE-START: 2026-10-07T07:59:46.189Z
+[miniapp-generated] 面=worktree(工作树(磁盘)) 扫描源文件 0 个 / 产物文件 0 个 / 注册表键 0 个 / LineIcon 调用点 0 个 / 语言 4 种
+  ✅ 未发现漏生成
+  ◽ 判不了但如实计数:动态资源路径 0 处
+  ◽ LineIcon 调用点逃逸写法(as 断言/尾部 !)存量 0 处 —— 只报数;--staged 面按该文件 HEAD 自身数量锚定,只拦新增(I2)
+  📌 离线包自述钉(G-680):matched —— 1bbd64e8a9da…(commit a7e8a43ee4ca8a408018c5af94dc018ec172c453)
+#EVIDENCE-RC=0
+#EVIDENCE-END: 2026-10-07T07:59:46.363Z

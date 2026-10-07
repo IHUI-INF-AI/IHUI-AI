@@ -1,0 +1,18 @@
+#EVIDENCE-CMD: node scripts/check-word-table-resolvable.mjs --staged
+#EVIDENCE-LABEL: word-table gate on staged face (post-commit HEAD state simulation)
+#EVIDENCE-START: 2026-10-07T08:01:42.145Z
+[word-table-resolvable] 判定面 索引 blob · 候选词表 202 张 → 认定 62 张 / 413 键(未锚定跳过 140 张)· 暂存区含端内/共享包源码(import 归属可能变)→ 全表回归
+  W6 散落取词:扫 1 文件 · 缺键 0 处 / 0 文件(HEAD 存量容忍 0 · 新增 0 文件 / 0 键)
+  ⚠ 落点债 9 条(该端依赖共享包但尚未引用这张表 ⇒ 今天没有界面会回显键名,不计失败;一旦真接入,W3/W4 逐键硬拦):
+   · [W5] packages/shared/src/chat/permission-tier.ts:24#PERMISSION_TIER_WORD_KEYS → (10 个键) @ cli/[zh-CN,zh-TW,en,ja,ko]
+   · [W5] packages/shared/src/utils/error-messages.ts:15#ERROR_CODE_TO_I18N_KEY → (14 个键) @ extension/[zh-CN,zh-TW,en,ja,ko]
+   · [W5] packages/shared/src/utils/error-messages.ts:15#ERROR_CODE_TO_I18N_KEY → (14 个键) @ miniapp-taro/[zh-CN,zh-TW,en,ja,ko]
+   · [W5] packages/shared/src/utils/error-messages.ts:15#ERROR_CODE_TO_I18N_KEY → (14 个键) @ mobile-rn/[zh-CN,zh-TW,en,ja,ko]
+   · [W5] packages/shared/src/utils/error-messages.ts:15#ERROR_CODE_TO_I18N_KEY → (14 个键) @ cli/[zh-CN,zh-TW,en,ja,ko]
+   · [W5] packages/types/src/agent-runtime.ts:1389#TERMINATION_LABEL_KEYS → (4 个键) @ extension/[zh-CN,zh-TW,en,ja,ko]
+   · [W5] packages/types/src/agent-runtime.ts:1389#TERMINATION_LABEL_KEYS → (4 个键) @ miniapp-taro/[zh-CN,zh-TW,en,ja,ko]
+   · [W5] packages/types/src/agent-runtime.ts:1389#TERMINATION_LABEL_KEYS → (4 个键) @ mobile-rn/[zh-CN,zh-TW,en,ja,ko]
+   · [W5] packages/types/src/agent-runtime.ts:1389#TERMINATION_LABEL_KEYS → (4 个键) @ cli/[zh-CN,zh-TW,en,ja,ko]
+  ✅ 每键在 5 语言 × 消费端合并视图 + 小程序离线包全部取到值
+#EVIDENCE-RC=0
+#EVIDENCE-END: 2026-10-07T08:01:45.785Z
