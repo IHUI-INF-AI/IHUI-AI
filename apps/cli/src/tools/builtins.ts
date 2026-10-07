@@ -617,6 +617,7 @@ export const list_dir: Tool = {
     path: { type: 'string', description: '要列出的目录路径(默认 .)' },
   },
   required: [],
+  dangerLevel: 'read',
   async execute(args, ctx): Promise<ToolResult> {
     const dirPath = (args.path as string) || '.';
     const abs = resolvePath(ctx, dirPath);
@@ -701,6 +702,7 @@ export const grep: Tool = {
     glob: { type: 'string', description: '路径通配过滤(如 src/**/*.ts,传给 rg -g)' },
   },
   required: ['pattern'],
+  dangerLevel: 'read',
   async execute(args, ctx): Promise<ToolResult> {
     const pattern = args.pattern as string;
     if (!pattern) return { success: false, output: '', error: '缺少 pattern 参数' };
@@ -756,6 +758,7 @@ export const glob: Tool = {
     pattern: { type: 'string', description: '文件名通配符(* 和 ?)' },
   },
   required: ['pattern'],
+  dangerLevel: 'read',
   async execute(args, ctx): Promise<ToolResult> {
     const pattern = args.pattern as string;
     if (!pattern) return { success: false, output: '', error: '缺少 pattern 参数' };
