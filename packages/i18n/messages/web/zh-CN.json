@@ -10601,6 +10601,9 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "truncation": {
+      "maxLengthNotice": "本条回答在达到最大输出长度时被截断，内容不完整；发送“继续”可接着生成。"
+    },
     "markdownTable": {
       "copy": "复制表格",
       "downloadCsv": "下载 CSV",

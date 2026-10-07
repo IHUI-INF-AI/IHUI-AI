@@ -10611,6 +10611,9 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
+    "truncation": {
+      "maxLengthNotice": "This reply was cut off at the maximum output length and is incomplete; send \"continue\" to keep generating."
+    },
     "markdownTable": {
       "copy": "Copy table",
       "downloadCsv": "Download CSV",
