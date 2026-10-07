@@ -11019,12 +11019,6 @@
     "loginRequiredDesc": "After signing in, you can chat with AI agents, switch models, upload attachments, and enable deep thinking.",
     "loginRequiredTitle": "Sign in to start AI chat",
     "manageModels": "Customize model configurations",
-    "markdownTable": {
-      "copy": "Copy Markdown",
-      "downloadCsv": "Download CSV",
-      "fullscreen": "Fullscreen",
-      "fullscreenTitle": "Table fullscreen"
-    },
     "me": "Me",
     "mentionPopover": {
       "removeLabel": "Remove {label}"

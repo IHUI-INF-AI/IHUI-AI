@@ -11009,12 +11009,6 @@
     "loginRequiredDesc": "登录后即可与 AI 智能体对话,支持多模型切换、附件上传、深度思考等功能",
     "loginRequiredTitle": "登录后开始 AI 对话",
     "manageModels": "自定义配置模型",
-    "markdownTable": {
-      "copy": "复制 Markdown",
-      "downloadCsv": "下载 CSV",
-      "fullscreen": "全屏",
-      "fullscreenTitle": "表格全屏"
-    },
     "me": "我",
     "mentionPopover": {
       "removeLabel": "移除 {label}"
