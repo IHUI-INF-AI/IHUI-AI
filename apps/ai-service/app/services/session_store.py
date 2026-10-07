@@ -38,6 +38,8 @@ from typing import Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
+from .branch_generation import bump_branch_generation
+
 logger = logging.getLogger(__name__)
 
 # ==================== Fork 边界对齐(批58十四,对标 codex thread_rollout_truncation.rs) ====================
@@ -1501,6 +1503,11 @@ class SessionStore:
             if isinstance(source.metadata.get("roleId"), int)
             else None,
         )
+        # G-815974:fork 成功即分支装配出口 —— 提升**来源**线程的分支代数。
+        # 挂在来源会话上的在飞后台任务完成时,经 background_tasks 复校发现旧令牌
+        # 过期 ⇒ 不寄通知、不写历史;fork 出的新线程 key 独立(代数 0 起步),
+        # 自己的任务不会被父分支的代数误杀。
+        bump_branch_generation(thread_id, "fork")
         # 复制前缀 items(<=at_response_id)到新 thread
         with self._tx() as conn:
             rows = conn.execute(
