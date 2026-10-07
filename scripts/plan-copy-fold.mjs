@@ -46,7 +46,7 @@ const git = (a) =>
     maxBuffer: 1 << 28,
     windowsHide: true,
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    stdio: ['ignore', 'pipe', 'pipe'],
+    stdio: ['pipe', 'pipe', 'pipe'],
   }).toString()
 
 const argv = process.argv.slice(2)
@@ -169,6 +169,7 @@ if (APPLY) {
       input: next,
       maxBuffer: 1 << 26,
       windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
     },
   )
     .toString()

@@ -19,7 +19,7 @@
  */
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import { spawnSync, execSync } from 'node:child_process'
+import { spawnSync, execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
@@ -89,10 +89,10 @@ function initGitRepo(root) {
     windowsHide: true,
     timeout: 60_000,
   }
-  execSync('git init -b main', opts)
-  execSync('git config user.email test@test.com', opts)
-  execSync('git config user.name test', opts)
-  execSync('git config commit.gpgsign false', opts)
+  execFileSync('git', ['init', '-b', 'main'], { ...opts, stdio: 'ignore' })
+  execFileSync('git', ['config', 'user.email', 'test@test.com'], { ...opts, stdio: 'ignore' })
+  execFileSync('git', ['config', 'user.name', 'test'], { ...opts, stdio: 'ignore' })
+  execFileSync('git', ['config', 'commit.gpgsign', 'false'], { ...opts, stdio: 'ignore' })
 }
 
 // 完整翻译的 fixture(5 语言 parity + 翻译完整 → exit 0)
@@ -399,7 +399,7 @@ describe('CLI 选项: --quiet / --output / --target / --staged', () => {
       writeAllLangs(root, 'web', FULL_TRANSLATED.base, FULL_TRANSLATED.langs)
       // 只 stage en.json(不 stage zh-CN)
       // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      execSync('git add packages/i18n/messages/web/en.json', { cwd: root, stdio: 'ignore' })
+      execFileSync('git', ['add', 'packages/i18n/messages/web/en.json'], { cwd: root, stdio: 'ignore' })
       const r = runScript(['--staged'], { cwd: root })
       // zh-CN 未 staged → 跳过
       assert.equal(r.status, 0, `zh-CN 未 staged 应跳过 exit 0,实际 ${r.status}`)
@@ -418,7 +418,7 @@ describe('CLI 选项: --quiet / --output / --target / --staged', () => {
       writeAllLangs(root, 'web', FULL_TRANSLATED.base, langs)
       // stage zh-CN.json
       // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      execSync('git add packages/i18n/messages/web/zh-CN.json', { cwd: root, stdio: 'ignore' })
+      execFileSync('git', ['add', 'packages/i18n/messages/web/zh-CN.json'], { cwd: root, stdio: 'ignore' })
       const r = runScript(['--staged'], { cwd: root })
       // zh-CN staged → 正常检测 → 有 missing → exit 1
       assert.equal(r.status, 1, `zh-CN staged + 有 pending 应 exit 1,实际 ${r.status}`)
