@@ -232,8 +232,9 @@ monitoring/alertmanager/alertmanager.rendered.yml
 *.html
 # 例外: miniapp-taro H5 模板文件(构建时 webpack 处理,源文件需 git 追踪)
 !apps/miniapp-taro/src/index.html
-# 例外: assistant(Tauri 2) 的 vite 入口 —— 无它 CI 上 rollup 报 Could not resolve entry module
-!apps/assistant/index.html
+# 2026-10-07 清理:此处原有 `!apps/assistant/index.html`(为 Tauri 2 那端的 vite 入口放行)。
+# apps/assistant 已由 b825ba3180 退休、盘上残留副本移走,`git ls-files apps/assistant` 实测 0 条,
+# 这条负向规则指向的路径不再可能出现在候选面 ⇒ 留着就是一条会替"目录还在"背书的死档,已摘。
 i18n-report*.json
 openapi.json
 # O8(2026-09-21):apps/api 的契约产物**必须入库** —— 它此前被上面这条全局规则顺手
@@ -388,6 +389,12 @@ apps/ai-service/app/skills/koubo_workflow/build_0721.py
 
 # P3-1 向量记忆持久化快照(本地数据,不入库)
 apps/ai-service/.data/
+# 同一族的第二个落点:code_index_consent.py 用**两级** dirname 拼 .data
+# (apps/ai-service/app/services/ → apps/ai-service/app/),所以它写的是 app/.data/,
+# 上面那条差一层挡不住它 ⇒ git check-ignore 实测退出码 1(未忽略),一次 git add -A
+# 就会把这台机的运行态同意表提交进库。该目录由写侧 os.makedirs 自建、读侧按
+# FileNotFoundError 当"首次运行"兜住,忽略它不影响任何运行时行为。
+apps/ai-service/app/.data/
 
 # ============================================================================
 # 临时审计报告 CSV(只保留 JSON 摘要)
