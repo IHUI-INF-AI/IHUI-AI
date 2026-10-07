@@ -1479,6 +1479,13 @@ export interface StreamChatOptions {
    *  静默丢弃 ⇒ 半截回答与完整回答在端上完全同形。收到本帧时已到达正文**有效**,
    *  但必须如实告知用户"回答被截断",不得当作完整回答收束。 */
   onPartialDone?: (event: PartialDoneEvent) => void
+  /**
+   * G-425(2026-10-07 立,默认档"只提示"):done 帧携带的上游 finish/stop reason
+   * (OpenAI 系 `length`/`stop`;Gemini 原生 `STOP`/`MAX_TOKENS`)。与 onMemoryUpdates
+   * 同型:读的是既有 done 帧上新增的可选字段,不新增事件名;未注册回调不解析。
+   * 端上截断提示按 event.finishReason 小写 ∈ {length, max_tokens} 判。
+   */
+  onFinishReason?: (event: FinishReasonEvent) => void
   /** D155 配置告警(2026-09-29 立):生效配置有问题(如 base URL 被覆盖)时下发。
    *  表外 severity 值在解析层回退 'warning',不丢帧。 */
   onConfigWarning?: (event: ConfigWarningEvent) => void
@@ -1884,6 +1891,17 @@ export interface PartialDoneEvent {
   reason: string
   /** 本轮实际使用的模型(可缺省) */
   model?: string
+}
+
+/**
+ * G-425(2026-10-07 立,默认档"只提示"):done 帧的 finish/stop reason 透传事件。
+ * 生产点:ai-service provider 层(gemini/openai 原生适配器)+ llm_gateway LiteLLM 路径,
+ * 经 llm.py /llm/complete/stream 的 done 重建点透传;契约声明见
+ * packages/shared/src/sse/contract.ts 的 done 帧 `finishReason` 字段。
+ */
+export interface FinishReasonEvent {
+  /** 上游原样值(不归一):`length`/`stop`/`tool_calls`/`STOP`/`MAX_TOKENS`/… */
+  finishReason: string
 }
 
 // ---------------------------------------------------------------------------
@@ -3128,6 +3146,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     const hasBudget = typeof opts.onBudget === 'function'
     // G-815976(2026-10-04 收口入契约):流式中断标记帧;未注册回调不解析
     const hasPartialDone = typeof opts.onPartialDone === 'function'
+    // G-425(2026-10-07 立):done 帧携带 finishReason(截断提示数据源;未注册回调不解析)
+    const hasFinishReason = typeof opts.onFinishReason === 'function'
     // D155(2026-09-29 立):下行告警三档;未注册回调不解析(与其余 per-field 同口径)
     const hasConfigWarning = typeof opts.onConfigWarning === 'function'
     const hasDeprecationNotice = typeof opts.onDeprecationNotice === 'function'
@@ -3918,6 +3938,31 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       }
     }
 
+    /** 解析 done 帧的 finish/stop reason(G-425,2026-10-07 立,默认档"只提示")。
+     *  与 tryParseMemoryUpdates 同形:读的是**同一个已存在的 done 帧**上新增的可选字段,
+     *  不新增事件名 ⇒ 不动 SSE 契约两侧 / sse-parse / dispatch 台账(本票文件清单外)。
+     *  原样透传不归一;缺席不带键,回调不触发 —— 不把"没采到"折成"stop"。 */
+    const tryParseFinishReason = (line: string): void => {
+      if (!hasFinishReason) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data) as Record<string, unknown>
+        if (json?.type !== 'done') return
+        const raw = json.finishReason
+        if (typeof raw !== 'string' || raw === '') return
+        opts.onFinishReason!({ finishReason: raw })
+      } catch {
+        /* 非 JSON 或非 done 事件忽略 */
+      }
+    }
+
     /** 解析 usage 帧(D1,2026-09-19 升级):
      *  ① 命名帧 event: usage → data: { type:'usage', messageId, usage:{promptTokens,...},
      *     timing:{firstTokenMs,durationMs}, model, costUsd }(ai-service 流收尾下发);
@@ -4450,6 +4495,16 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         tryParseThinking(line)
       } else if (route === 'usage') {
         tryParseUsage(line)
+        // G-425(2026-10-07 立):ai-service 的 done 帧恒带 usage 对象 ⇒ 被上方
+        // routeLineByType 的 `json.usage ⇒ 'usage'` 判据截走,永远走不到 fallback
+        // 全量链 —— 挂在 done 帧上的可选字段解析器必须在此补调(三个 parser 的
+        // 首道守护都是 `json.type !== 'done'` 即 return,对真 OpenAI usage chunk
+        // 是 no-op)。此前的 memoryUpdates(P1 #27)/reasoningEffort(D130)同样
+        // 只挂在 fallback 链上,生产 done 帧(带 usage)上从未触发过 —— 同根因,
+        // 本票一并接上;行为面收敛到"done 帧字段在带 usage 时也能被读到"。
+        tryParseMemoryUpdates(line)
+        tryParseReasoningEffortNotice(line)
+        tryParseFinishReason(line)
       } else if (route === 'steer') {
         tryParseSteer(line)
       } else if (route === 'budget') {
@@ -4485,6 +4540,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         tryParseUsage(line)
         tryParseMemoryUpdates(line)
         tryParseReasoningEffortNotice(line)
+        tryParseFinishReason(line)
         tryParseTerminalDelta(line)
         tryParseTerminalInteraction(line)
         tryParseGoalUpdate(line)

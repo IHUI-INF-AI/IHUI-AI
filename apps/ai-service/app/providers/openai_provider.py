@@ -102,6 +102,8 @@ class OpenAIProvider(BaseProvider):
         # P1-7: 流式 done 事件兜底标志
         _done_yielded = False
         _errored = False
+        # G-425(2026-10-07 立):最后一个非空 finish_reason(OpenAI length/stop/…)
+        _finish_reason: str | None = None
         try:
             client = get_http_client()
             async with client.stream(
@@ -134,18 +136,27 @@ class OpenAIProvider(BaseProvider):
                     choices = chunk.get("choices") or []
                     if choices:
                         choice = choices[0]
+                        # G-425(2026-10-07 立,默认档"只提示"):记最后一个非空 finish_reason
+                        # (usage 收尾帧 choices 为空,finish_reason 在最后一个内容帧上),
+                        # 随 done 帧透传给端上判截断(length);缺席 = 上游没给,不造值。
+                        _fr = choice.get("finish_reason")
+                        if _fr:
+                            _finish_reason = _fr
                         delta = choice.get("delta", {})
                         if delta.get("content"):
                             yield {"type": "chunk", "content": delta["content"]}
                         if delta.get("tool_calls"):
                             yield {"type": "tool_call", "tool_calls": delta["tool_calls"]}
                     if chunk.get("usage"):
-                        yield {
+                        _done_evt: dict[str, Any] = {
                             "type": "done",
                             "model": chunk.get("model", model),
                             "usage": chunk["usage"],
                             "stub": False,
                         }
+                        if _finish_reason:
+                            _done_evt["finishReason"] = _finish_reason
+                        yield _done_evt
                         _done_yielded = True
         except httpx.HTTPError as e:
             _errored = True
@@ -160,7 +171,10 @@ class OpenAIProvider(BaseProvider):
                 "OpenAI 流式结束但未收到 usage chunk, 发送空 usage done, model=%s",
                 model,
             )
-            yield {"type": "done", "model": model, "usage": {}, "stub": False}
+            _done_evt: dict[str, Any] = {"type": "done", "model": model, "usage": {}, "stub": False}
+            if _finish_reason:
+                _done_evt["finishReason"] = _finish_reason
+            yield _done_evt
 
     async def list_models(self) -> list[dict[str, Any]]:
         data = await self._request("GET", f"{self.base_url}/v1/models", headers=self._headers())
