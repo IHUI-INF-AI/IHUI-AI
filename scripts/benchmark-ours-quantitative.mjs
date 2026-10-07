@@ -6,22 +6,28 @@
 // 每个格子都是对 HEAD 面跑 git grep 得到的真实读数(命中文件数 + 前若干条代表 site),
 // 不凭记忆填表 —— 本线已经吃过"按印象写我方有/没有"的亏(V4 §十二 的六条否证即此类)。
 // 刻意不接提交链(它判清单与代码是否一致,与提交内容无关 ⇒ blocking 即恒红门;同 benchmark-asar-read)。
+//
+// 2026-10-07(G-998191)git 出口收口:本器唯一的 git 派生(`git grep -l`,喂 probe() 共
+// 1 个调用点)由 `execFileSync('git', …)` 裸调用迁到取材层 `scripts/lib/face-reader.mjs` 的
+// `gitRaw` —— 仓内逐文件迁移的存量债(判据在 `scripts/tests/face-reader.test.mjs` 的
+// `BARE_GIT_BASELINE`,只减不增)。行为面对照:
+//   · `-c safe.directory=*`、`-C <root>`(旧调用自拼)与绝对路径 git、windowsHide 由层给足;
+//   · stdio:层在不带 input 时写死 `['ignore','pipe','pipe']`(face-reader.mjs:94),与旧 helper
+//     显式传的那一档逐字相同(EBUSY 根治注释因此原样成立);quotepath 层强制 false,
+//     命中路径(apps|packages 前缀)全 ASCII ⇒ 无可观察差异;
+//   · maxBuffer 旧 `1 << 26` 与层默认(64MB)逐字相同,等价替换;timeout 旧 300_000 显式保留。
+//   · 失败语义:无命中(`e?.status === 1`,层挂 status,face-reader.mjs:121)照旧落"无命中"格,
+//     见 probe() 头注 —— 不把"git 说没有"折叠成"git 没跑成"。
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const git = (args) =>
-  execFileSync('git', ['-c', 'safe.directory=*', '-C', ROOT, ...args], {
-    encoding: 'utf8',
-    windowsHide: true,
-    timeout: 300000,
-    maxBuffer: 1 << 26,
-    // EBUSY 根治(errno -4082):本机会话里 Node 建子进程 stdin 管道确定性失败。
-    // 调用点全是只读 git,不喂 stdin ⇒ stdio[0]='ignore'。
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+/** 全仓 `git grep -l` 的 timeout;与旧调用同值,写出来只为把"数字 timeout"落到本文件可见处。 */
+const GREP_TIMEOUT_MS = 300_000
+const git = (args) => gitRaw(args, ROOT, { timeout: GREP_TIMEOUT_MS })
 
 const ENDS = [
   ['web', 'apps/web/src'],
@@ -43,11 +49,15 @@ const ITEMS = [
 const isTest = (l) => /(^|\/)(tests?|__tests__|e2e)(\/|$)/.test(l) || /\.(test|spec)\./.test(l)
 
 function probe(pattern, path) {
+  /** 2026-10-07(G-998191)迁层后的失败语义:`e?.status === 1` = git grep 无命中(git 的正常
+   *  非零结论,层把 status 挂上,face-reader.mjs:121)⇒ 空串 = "无命中"格,与旧代码落
+   *  `e.stdout ?? ''` 同一结果;其余失败同样落空串(旧行为如此,读数空 ⇒ 该端"无命中",
+   *  由对账表三判读口径第 2 条兜住,不在本器扩权)。 */
   let out = ''
   try {
     out = git(['grep', '-l', '-I', '-E', pattern, 'HEAD', '--', path])
-  } catch (e) {
-    out = String(e.stdout ?? '')
+  } catch {
+    out = ''
   }
   const files = out.split('\n').map((s) => s.replace(/^HEAD:/, '')).filter((s) => s && !isTest(s))
   return files
