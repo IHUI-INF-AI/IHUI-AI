@@ -28,8 +28,9 @@
  *   ---
  *   name: <skill 名>(可选,覆盖文件名 stem)
  *   description: <一句话描述>(可选)
- *   allowed-tools: [tool-a, tool-b](可选,工具白名单)
- *   tools: [tool-c](可选,等价于 allowed-tools,行业兼容字段)
+ *   allowed-tools: [tool-a, tool-b](可选;**仅声明面**:解析+回写,无执行层消费方 ——
+ *     "工具白名单"是名字承诺、实现未兑现,消费面登记见 getAllowedTools 注(G-380,2026-10-07))
+ *   tools: [tool-c](可选,等价于 allowed-tools 的**解析别名**(同不生效),行业兼容字段)
  *   model: <模型名>(可选)
  *   tags: [coding, review](可选,分类标签)
  *   ---
@@ -511,8 +512,14 @@ export function parseSkillDefinition(content: string, filePath: string): SkillDe
 }
 
 /**
- * 获取 skill 的有效工具白名单(合并 allowedTools 和 tools 字段并去重)。
- * 用于消费方读取合并后的工具列表,实现 allowed-tools 与 tools 的向后兼容。
+ * 合并 allowedTools 与 tools 两字段并去重(向后兼容视图)。
+ *
+ * 消费面如实登记(G-380,2026-10-07):本函数**生产零调用方**,当前唯一调用方是测试
+ * (tests/skills.test.ts)。`allowed-tools`/`tools` 两字段在生产面的全部触点只有解析
+ * (parseFrontmatter)与回写(skills/sync.ts 经 serializeSkillsFrontmatter 的同步/打印面)
+ * —— **没有任何执行层按这份清单限制工具**。名字里的"工具白名单"是声明面承诺,不是
+ * 已生效判据;执行层要不要消费它(权限闸落点)属拍板票,在那之前不得把"函数存在"
+ * 读成"白名单已兑现",本注释不得改写成"已实现/已生效"。
  */
 export function getAllowedTools(fm: SkillFrontmatter | undefined): string[] {
   if (!fm) return [];
