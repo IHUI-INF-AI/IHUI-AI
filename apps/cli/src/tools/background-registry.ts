@@ -23,6 +23,9 @@ import { recordHeartbeat, recordTaskSettle, recordTaskStart, type LedgerRecorded
 // 终态播报正文走语言包(AGENTS §30「后台进程的状态词汇是一等契约」+ 守门 70 的硬编码中文棘轮):
 // 新增一档 = 同枚补齐五语言,而不是给文件加豁免或调基线。
 import { t } from '../i18n/index.js';
+// G-816001:分支代际计数器(G-632,零依赖模块)—— 条目代戳的章与唤醒入队面的比对判据
+// 都只出自这里,不在本文件重写第二份"当前分支代"。
+import { currentBranchGeneration, isBranchGenerationCurrent } from '../commands/branch-generation.js';
 
 /**
  * 后台任务的可达状态(G-816025 补最后一档 `lost`)。
@@ -105,6 +108,23 @@ export interface BackgroundTask {
    * 交给等待者的快照不该因为多了一个字段而形状变化。
    */
   notified: boolean;
+  /**
+   * G-816001 **分支代戳**:注册那一刻的分支代(`currentBranchGeneration()`,G-632 计数器)。
+   * 防 rewind/fork 之后旧生命的唤醒被回灌进新分支 —— 上游 `registry.ts:40-130` 的
+   * `branchGeneration` 同名能力。消费点只有一处:`notifySettled` 的播报(唤醒入队)面,
+   * 代数不是当下 ⇒ 通知不进队列,但必须落 `stale_branch_dropped` 审计行(静默丢弃 =
+   * 下一次没人知道丢过什么)。等待者投递面不经此门:等待者属于发起分支,其结果落地
+   * 由 G-632 的落地口作废机制负责,两道门各管一轴。
+   *
+   * **重臂剥继承(G-816002 配套)**:本字段只在 `registerTask`/`registerFailedTask`
+   * 构造时盖章,不存在"复用旧对象"的重臂路径(key 换代没有公开入口,见 `__test__`
+   * 块的论证)—— 任何"重臂"都是走 register 的新对象,天然剥掉旧代戳、重盖当下代,
+   * 绝不把旧生命的分支代带进新生命。
+   *
+   * 刻意**不**进 `BackgroundTaskSnapshot` 的 Pick 清单:与 identity/notified 同族,
+   * 是投递围栏不是任务结果。
+   */
+  branchGeneration: number;
   /** 后台任务关联的 worktree 路径(可选,注册时记录,任务结束自动清理) */
   worktreePath?: string;
   /** worktree 对应的源仓库路径(清理时作为 git 命令工作目录) */
@@ -165,6 +185,8 @@ const removalGuardStats = {
   identityMismatch: 0,
   staleTerminalRejected: 0,
   staleBucketReconciled: 0,
+  /** G-816001:旧分支代的终态通知在唤醒入队面被拒(每一条都伴随 stderr 审计行,不静默)。 */
+  staleBranchDropped: 0,
 };
 
 /** 身份守卫账只读出口(成对用例用它问出"拒绝了几次",而不是只问"有没有抛")。 */
@@ -173,6 +195,7 @@ export function getRemovalGuardStats(): {
   identityMismatch: number;
   staleTerminalRejected: number;
   staleBucketReconciled: number;
+  staleBranchDropped: number;
 } {
   return { ...removalGuardStats };
 }
@@ -436,7 +459,27 @@ function notifySettled(task: BackgroundTask): void {
   // 所以 handlers 里"先 ledgerSettle 再 notifySettled"的既有顺序不受影响(等价性由测试钉住)。
   if (decision.markLost) task.status = 'lost';
   if (decision.consumeClaim) task.notified = true;
-  if (decision.emitNotice && decision.notification !== null) emitTerminalNotice(decision.notification);
+  if (decision.emitNotice && decision.notification !== null) {
+    // G-816001 分支代门(唤醒入队面):条目代戳 ≠ 当下分支代 ⇒ 会话已 rewind/fork,
+    // 这条唤醒属于旧生命,回灌进新分支就是"旧分支的终态通知出现在新分支的对话里"。
+    // 拦的是**播报入队**,不是任务结算本身:状态/台账/claim/等待者投递各走各的既有门。
+    // 拦下必须留痕(上游 background-notifications 同款要求):stderr 审计行 + 计数,
+    // 静默丢弃 = 下一次没人知道丢过什么。
+    if (isBranchGenerationCurrent(task.branchGeneration)) {
+      emitTerminalNotice(decision.notification);
+    } else {
+      removalGuardStats.staleBranchDropped += 1;
+      try {
+        process.stderr.write(
+          `[background-registry] stale_branch_dropped: task ${task.id} registered at branch generation ` +
+            `${task.branchGeneration}, current is ${currentBranchGeneration()}; ` +
+            `terminal notice NOT enqueued (stale branch唤醒不得回灌新分支)\n`,
+        );
+      } catch {
+        /* 审计出口本身抛错不许把终态处理带崩(与播报出口同一条纪律) */
+      }
+    }
+  }
   // 止步于归属 / 幂等 / 跨生产者去重 ⇒ 一律不向等待者投递(迟到快照不得二次投递,原语义保持)。
   if (decision.haltedAt !== null) return;
   // 没有等待者就没有"待投递的东西",也就不该消耗 claim —— 位一旦被一个不存在的接收方
@@ -507,6 +550,9 @@ export function registerTask(
     droppedStderrBytes: 0,
     timedOut: false,
     notified: false,
+    // G-816001:分支代戳 = 注册那一刻的分支代;唤醒入队面按它比对(重臂只能经本函数
+    // 重新盖章,不存在继承旧代戳的路径)。
+    branchGeneration: currentBranchGeneration(),
     worktreePath: opts?.worktreePath,
     worktreeSourcePath: opts?.worktreeSourcePath,
   };
@@ -649,6 +695,8 @@ export function registerFailedTask(command: string, errorMessage: string): strin
     // 它标的是"有没有把终态交给过等待者",不是"是不是终态"—— 两者分开,
     // 单向门与 claim 才各自有牙(见 notifySettled 判据①)。
     notified: false,
+    // G-816001:与 registerTask 同一盖章口径 —— 分支代只来自注册时刻,绝不继承。
+    branchGeneration: currentBranchGeneration(),
   };
   tasks.set(id, task);
   pruneCompleted();
