@@ -24,7 +24,9 @@
  * `plugins/paths.ts` 的 `getIhuiRoot()` = `~/.ihui` —— 这是本端**已有**的跨进程状态根
  * (插件注册表 `installed-plugins/registry.json` 就在那儿),且它已被 §26 的 junction 改道到
  * `D:\DevEnv\cache\userhome\.ihui`,所以不写 C 盘、不进 `os.tmpdir()`。
- * 台账文件:`~/.ihui/background-tasks.jsonl`(JSONL 追加,**最后一行按 id 覆盖前面的状态**)。
+ * 台账文件:`~/.ihui/background-tasks.jsonl`(JSONL 追加,**同一世代(identity)的最后一行
+ * 覆盖前面的状态**;G-1058645 前按 id,同 id 复用后上一代迟到的收尾会盖掉新一代那条)。
+ * 盘上旧格式(无 identity)记录在读到时一次性迁移补齐,字段值零变化。
  *
  * 原子性:走 `apps/cli/src/util/atomic-write.ts` 那一份出口(同目录 tmp + rename +
  * 读后写 stale 校验)。共享工作区里多个 CLI 会话可能同时写这张表,而"整文件重写"这一型
@@ -75,6 +77,13 @@ export type LedgerDisplayState = LedgerTerminalState | LedgerUnsettledState;
 
 export interface BackgroundLedgerRecord {
   readonly id: string;
+  /**
+   * G-1058645 —— 世代身份(记录折叠键):同 id 复用(`pruneCompleted()` 之后是真路径)时,
+   * 每一代各持一枚,折叠按它进行 —— 上一代迟到的结算不得盖到新一代那条账上。
+   * 空串 = 旧格式记录(盘上无此字段):读时迁移按 id 派生占位值补齐(`legacy:<id>`,
+   * 与注册表 `genIdentity()` 的 `gen_` 形态永不相撞)。
+   */
+  readonly identity: string;
   /** 脱敏后的程序名(命令的第一个词),**不是**完整命令行。 */
   readonly kind: string;
   /** 完整命令行的 sha-256 十六进制前 16 位(不可逆,只用于人对照"大概是哪条命令")。 */
@@ -207,7 +216,7 @@ function isNonEmptyString(v: unknown): v is string {
 /** 逐字段验形:坏行**跳过并计数**,不得半收下(收下一个残缺记录就等于替它编状态)。 */
 function parseLedgerRecord(raw: unknown): BackgroundLedgerRecord | null {
   if (!isRecord(raw)) return null;
-  const { id, kind, commandDigest, startedAt, lastSeenAt, terminal, exitCode, host, ownerPid, childPid, note } = raw;
+  const { id, identity, kind, commandDigest, startedAt, lastSeenAt, terminal, exitCode, host, ownerPid, childPid, note } = raw;
   if (!isNonEmptyString(id) || !isNonEmptyString(startedAt) || !isNonEmptyString(lastSeenAt)) return null;
   if (!isNonEmptyString(kind)) return null;
   if (!isNonEmptyString(host)) return null;
@@ -225,6 +234,7 @@ function parseLedgerRecord(raw: unknown): BackgroundLedgerRecord | null {
   if (!childOk) return null;
   return {
     id,
+    identity: typeof identity === 'string' ? identity : '',
     kind,
     commandDigest: typeof commandDigest === 'string' ? commandDigest : '',
     startedAt,
@@ -252,9 +262,66 @@ function oversizeOf(info: LedgerOversizeInfo): LedgerOversizeInfo | null {
   return info.lines > LEDGER_MAX_LINES || info.bytes > LEDGER_MAX_BYTES ? info : null;
 }
 
-/** 折叠:同一个 id 只留最后一条(追加式台账的当前状态)。 */
+/**
+ * G-1058645 —— 旧格式(无 identity 字段)记录的占位世代:按 id 确定性派生、幂等,
+ * 与注册表 `genIdentity()` 的 `gen_` 形态永不相撞。同 id 的旧格式记录彼此折叠
+ * (与"按 id 折叠"的旧视图逐条一致),带真世代号的新一代记录绝不与之相混。
+ */
+function legacyIdentityOf(id: string): string {
+  return `legacy:${id}`;
+}
+
+/** 折叠键:有世代号用世代号;旧格式行按 id 现场派生占位值(迁移写回前后折叠视图不变)。 */
+function foldIdentityOf(record: BackgroundLedgerRecord): string {
+  return record.identity !== '' ? record.identity : legacyIdentityOf(record.id);
+}
+
+/**
+ * G-1058645 盘上旧格式记录的一次性迁移(逐行、无损):只给无 identity 的记录补一枚占位世代,
+ * 其余行(已带世代的、解析不了的坏行、空行)**逐字保留** —— 不删行、不改任何既有字段值。
+ * 返回 null = 没有需要迁移的行。
+ */
+function migrateLegacyIdentities(text: string): string | null {
+  let changed = false;
+  const lines = text.split('\n').map((line) => {
+    if (line.trim().length === 0) return line;
+    const parsed = parseLedgerRecord(tryParseJson(line));
+    if (!parsed || parsed.identity !== '') return line;
+    changed = true;
+    return JSON.stringify({ ...parsed, identity: legacyIdentityOf(parsed.id) });
+  });
+  return changed ? lines.join('\n') : null;
+}
+
+/**
+ * 读台账文本,并在读到旧格式记录时做**读时迁移**:补齐 identity 后原子写回(同目录 tmp +
+ * rename,与追加写同一份出口)。写回是尽力而为:冲突 / IO 失败不丢任何记录 —— `foldRecords`
+ * 对无 identity 行按同一规则现场派生折叠键,读到的视图与写回成败无关,下一次读会再试;
+ * 刻意不进告警队列:迁移不删行、不改字段值,没有东西丢失,告警它等于狼来了。
+ * 超限文件一个字节不动(与 appendRecord 同一口径 —— 迁移不得成为绕过规模闸的写路径)。
+ */
+function readLedgerTextMigrated(): string | null {
+  const text = readLedgerText();
+  if (text === null) return null;
+  const migrated = migrateLegacyIdentities(text);
+  if (migrated === null) return text;
+  if (oversizeOf(measure(migrated)) !== null) return text;
+  try {
+    commitAtomicWrite(captureWriteBaseline(ledgerFilePath()), migrated);
+  } catch {
+    /* 尽力而为:见上 —— 视图不依赖写回成败。 */
+  }
+  return migrated;
+}
+
+/**
+ * 折叠:同一**世代**只留最后一条(追加式台账的当前状态)。
+ * G-1058645 前按 id 折叠 —— 同 id 复用(`pruneCompleted()` 之后是真路径)时,上一代迟到的
+ * 结算会盖掉新一代那条账;现在按世代身份折叠,同 id 不同世代互不覆盖(旧格式行先按
+ * `legacyIdentityOf` 归位,旧文件的折叠视图与旧版逐条一致)。
+ */
 function foldRecords(text: string | null): { records: BackgroundLedgerRecord[]; malformed: number } {
-  const byId = new Map<string, BackgroundLedgerRecord>();
+  const byIdentity = new Map<string, BackgroundLedgerRecord>();
   let malformed = 0;
   if (!text) return { records: [], malformed };
   for (const line of text.split('\n')) {
@@ -264,9 +331,9 @@ function foldRecords(text: string | null): { records: BackgroundLedgerRecord[]; 
       malformed += 1;
       continue;
     }
-    byId.set(parsed.id, parsed);
+    byIdentity.set(foldIdentityOf(parsed), parsed);
   }
-  return { records: [...byId.values()], malformed };
+  return { records: [...byIdentity.values()], malformed };
 }
 
 function writeResult(ok: boolean, code: LedgerWriteCode, message: string, oversize: LedgerOversizeInfo | null = null): LedgerWriteResult {
@@ -283,7 +350,10 @@ function appendRecord(record: BackgroundLedgerRecord): LedgerWriteResult {
   let lastConflict = '';
   for (let attempt = 0; attempt < APPEND_RETRY_LIMIT; attempt++) {
     const current = readLedgerText();
-    const oversize = oversizeOf(measure(current));
+    // G-1058645 追加即迁移:盘上若还有旧格式(无 identity)行,随这次原子写一并补齐占位世代 ——
+    // 迁移与追加是同一次替换落盘,不留"迁移到一半"的中间态;冲突重试时重读重来。
+    const content = current === null ? null : (migrateLegacyIdentities(current) ?? current);
+    const oversize = oversizeOf(measure(content));
     if (oversize) {
       // 规模闸:拒绝自动清理,也拒绝继续把文件撑大。清理只有 pruneLedger({confirm:true})。
       const msg =
@@ -295,7 +365,7 @@ function appendRecord(record: BackgroundLedgerRecord): LedgerWriteResult {
     }
     try {
       const baseline = captureWriteBaseline(file);
-      commitAtomicWrite(baseline, `${current ?? ''}${line}`);
+      commitAtomicWrite(baseline, `${content ?? ''}${line}`);
       return writeResult(true, 'written', `recorded: ${record.id}`);
     } catch (e) {
       if (e instanceof WriteConflictError) {
@@ -317,9 +387,11 @@ function baseRecord(
   command: string,
   childPid: number | null,
   ownerPid: number = process.pid,
+  identity: string = legacyIdentityOf(id),
 ): BackgroundLedgerRecord {
   return {
     id,
+    identity,
     kind: deriveLedgerKind(command),
     commandDigest: deriveCommandDigest(command),
     startedAt: nowIso(),
@@ -341,37 +413,49 @@ function baseRecord(
  */
 export function recordTaskStart(input: {
   id: string;
+  /** G-1058645:世代身份;缺省按 id 派生占位值(旧调用方与既有测试行为不变)。 */
+  identity?: string;
   command: string;
   childPid: number | null;
   ownerPid?: number;
 }): LedgerWriteResult {
-  return appendRecord(baseRecord(input.id, input.command, input.childPid, input.ownerPid));
+  return appendRecord(
+    baseRecord(input.id, input.command, input.childPid, input.ownerPid, input.identity ?? legacyIdentityOf(input.id)),
+  );
 }
 
 /**
  * 任务落终态时记账:保留原 startedAt / kind(读台账里那一份),只标注状态。
  * 找不到原记录也照样写一条(宁可多一条也不留一个无人知道的任务)。
+ *
+ * G-1058645:找账按**世代**找 —— 传了 `identity` 只认同一代的那条,同 id 复用后旧世代的
+ * 结算找不到新一代的账;没传按旧口径(id 派生占位世代)找,旧调用方行为不变。
  */
 export function recordTaskSettle(input: {
   id: string;
+  identity?: string;
   terminal: LedgerRecordedTerminal;
   exitCode: number | null;
   note?: string;
   command?: string;
   childPid?: number | null;
 }): LedgerWriteResult {
-  const existing = foldRecords(readLedgerText()).records.find((r) => r.id === input.id);
+  const wanted = input.identity ?? legacyIdentityOf(input.id);
+  const existing = foldRecords(readLedgerTextMigrated()).records.find(
+    (r) => r.id === input.id && foldIdentityOf(r) === wanted,
+  );
   const stamp = nowIso();
   const record: BackgroundLedgerRecord = existing
     ? {
         ...existing,
+        identity: wanted,
         lastSeenAt: stamp,
         terminal: input.terminal,
         exitCode: input.exitCode,
         note: sanitizeForLedger(input.note ?? existing.note ?? '', NOTE_MAX_CODEPOINTS),
       }
     : {
-        ...baseRecord(input.id, input.command ?? '', input.childPid ?? null),
+        ...baseRecord(input.id, input.command ?? '', input.childPid ?? null, process.pid, wanted),
         startedAt: stamp,
         terminal: input.terminal,
         exitCode: input.exitCode,
@@ -380,15 +464,19 @@ export function recordTaskSettle(input: {
   return appendRecord(record);
 }
 
-/** 心跳(按 id 节流)。没记上账不影响任务本身,但会在告警队列里留痕。 */
-export function recordHeartbeat(id: string): LedgerWriteResult | 'throttled' {
+/** 心跳(按 id 节流)。没记上账不影响任务本身,但会在告警队列里留痕。
+ *  G-1058645:找账按**世代**找 —— 同 id 复用后,旧世代迟到的心跳摸不到新一代的账。 */
+export function recordHeartbeat(id: string, identity?: string): LedgerWriteResult | 'throttled' {
   const now = Date.now();
   const prev = heartbeatsAt.get(id);
   if (prev !== undefined && now - prev < LEDGER_HEARTBEAT_MIN_MS) return 'throttled';
   heartbeatsAt.set(id, now);
-  const existing = foldRecords(readLedgerText()).records.find((r) => r.id === id);
+  const wanted = identity ?? legacyIdentityOf(id);
+  const existing = foldRecords(readLedgerTextMigrated()).records.find(
+    (r) => r.id === id && foldIdentityOf(r) === wanted,
+  );
   if (!existing || existing.terminal !== null) return 'throttled';
-  return appendRecord({ ...existing, lastSeenAt: nowIso() });
+  return appendRecord({ ...existing, identity: wanted, lastSeenAt: nowIso() });
 }
 
 /**
@@ -489,9 +577,10 @@ export function isOutcomeEstablished(state: LedgerDisplayState): boolean {
   return state === 'succeeded' || state === 'failed' || state === 'cancelled';
 }
 
-/** 读台账并出摘要。纯读:不写、不删、不派生。 */
+/** 读台账并出摘要。不删、不派生;唯一会碰盘的是读到旧格式记录时的一次性格式迁移
+ *  (G-1058645:补 identity 原子写回,不增删记录、不改字段值)。 */
 export function summarizeLedger(ctx: { liveIds?: Iterable<string> } = {}): LedgerSummary {
-  const text = readLedgerText();
+  const text = readLedgerTextMigrated();
   const { records, malformed } = foldRecords(text);
   const liveIds: ReadonlySet<string> = new Set(ctx.liveIds ?? []);
   const entries: LedgerEntryView[] = records
@@ -526,7 +615,7 @@ export function pruneLedger(opts: { confirm?: boolean } = {}): PruneResult {
     };
   }
   const file = ledgerFilePath();
-  const text = readLedgerText();
+  const text = readLedgerTextMigrated();
   const { records } = foldRecords(text);
   const terminal = records.filter((r) => r.terminal !== null);
   const retained = records.filter((r) => r.terminal === null);
