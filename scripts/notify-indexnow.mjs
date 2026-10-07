@@ -41,15 +41,6 @@ for (let i = 0; i < args.length; i++) {
   if (args[i] === '--sitemap' && args[i + 1]) sitemapArg = args[i + 1]
 }
 
-if (!INDEXNOW_KEY) {
-  console.error('\n[FAIL] INDEXNOW_KEY 未设置。')
-  console.error('生成 key: node -e "console.log(require(\'crypto\').randomBytes(16).toString(\'hex\'))"')
-  console.error('写入 .env: INDEXNOW_KEY=<key>')
-  console.error('放 key 文件: 把 <key> 字符串写到 apps/web/public/<key>.txt(无换行)')
-  console.error('部署后验证: curl https://aizhs.top/<key>.txt 应返回 key 本身\n')
-  process.exit(1)
-}
-
 async function fetchSitemapUrls(sitemapUrl) {
   console.log(`[INFO] 拉取 sitemap: ${sitemapUrl}`)
   const res = await fetch(sitemapUrl)
@@ -98,6 +89,17 @@ async function pushToEndpoint(endpoint, urls) {
 }
 
 async function main() {
+  // AGENTS §22d 批次 G2:此校验块原在模块作用域(带 5 条 console.error + process.exit(1)),
+  // 被 import 即终止宿主进程 ⇒ 搬进 main 首条,仍先于任何 fetch/推送动作。
+  if (!INDEXNOW_KEY) {
+    console.error('\n[FAIL] INDEXNOW_KEY 未设置。')
+    console.error('生成 key: node -e "console.log(require(\'crypto\').randomBytes(16).toString(\'hex\'))"')
+    console.error('写入 .env: INDEXNOW_KEY=<key>')
+    console.error('放 key 文件: 把 <key> 字符串写到 apps/web/public/<key>.txt(无换行)')
+    console.error('部署后验证: curl https://aizhs.top/<key>.txt 应返回 key 本身\n')
+    process.exit(1)
+  }
+
   let urls
   if (urlsArg) {
     urls = urlsArg
@@ -128,8 +130,19 @@ async function main() {
   console.log('  - IndexNow 状态:https://www.indexnow.org/ 首页查看协议状态')
 }
 
-main().catch((e) => {
-  console.error('[FATAL]', e)
-  process.exit(1)
-})
+import { pathToFileURL } from 'node:url'
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main().catch((e) => {
+    console.error('[FATAL]', e)
+    process.exit(1)
+  })
+}
+
+export const __test__ = {
+  fetchSitemapUrls,
+  buildPayload,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

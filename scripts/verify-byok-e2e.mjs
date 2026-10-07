@@ -51,9 +51,6 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 
-const require = createRequire(import.meta.url)
-const postgres = require('postgres')
-
 const args = argv.slice(2)
 const dryRun = args.includes('--dry-run')
 const live = args.includes('--live') || !!env.API_BYOK_KEY
@@ -217,6 +214,11 @@ async function fetchV1Models(apiKey) {
 // 主流程
 // ============================================================================
 async function main() {
+  // AGENTS §22d/批次 G2:`require('postgres')` 不在模块作用域做,被 import 时零副作用;
+  // 连接本身仍在该函数后面的 try 里创建(错误语义未变),这里只搬解析动作。
+  const require = createRequire(import.meta.url)
+  const postgres = require('postgres')
+
   console.log(`\n========== BYOK 计费链路端到端验证 ${dryRun ? '(DRY-RUN)' : ''} ==========`)
   console.log(`验证目标:BYOK 零成本抽成变现链路(用户自带 key,平台抽 5-20% 服务费)`)
   console.log(`API 地址:${apiUrl}${apiKeyFlag ? ' (带 API Key)' : ' (无 API Key,跳过 /v1/models 验证)'}\n`)
@@ -400,8 +402,21 @@ async function main() {
   process.exit(hasError ? 1 : 0)
 }
 
-main().catch((e) => {
-  console.error('FATAL:', e?.message || e)
-  process.exit(2)
-})
+import { pathToFileURL } from 'node:url'
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main().catch((e) => {
+    console.error('FATAL:', e?.message || e)
+    process.exit(2)
+  })
+}
+
+export const __test__ = {
+  validateServiceExports,
+  validateV1Integration,
+  EXPECTED_EXPORTS,
+  EXPECTED_INTEGRATIONS,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
