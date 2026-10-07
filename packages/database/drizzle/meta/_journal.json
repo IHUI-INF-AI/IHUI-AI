@@ -2192,6 +2192,13 @@
       "when": 1791378631996,
       "tag": "20261007211031_ai_model_config_drop_extra_metadata",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 314,
+      "when": 1791382500000,
+      "tag": "20261007221500_chat_messages_sibling_versions",
+      "breakpoints": true
     }
   ]
 }
