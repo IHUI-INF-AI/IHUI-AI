@@ -367,7 +367,6 @@ async def verify_goal(payload: VerifyIn, request: Request) -> VerifyOut:
     principal: str | None = None
     previous: GoalRoundState | None = None
     ledger_unreadable = False
-    ledger_reason: str | None = None
     #: 四支判别(b76-03 票2):无状态调用没读过账 ⇒ None
     ledger_read_state: str | None = None
     storage = get_store().describe()
@@ -377,7 +376,6 @@ async def verify_goal(payload: VerifyIn, request: Request) -> VerifyOut:
         _assert_state_ownership(read.state, principal)
         previous = read.state
         ledger_unreadable = read.unreadable
-        ledger_reason = read.reason
         ledger_read_state = classify_ledger_read(read)
 
     # —— 收口短路:账本已 blocked 就不再受理下一轮(省一次推理,也不给任何"通过"答复)
