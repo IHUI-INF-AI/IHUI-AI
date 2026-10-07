@@ -214,7 +214,7 @@ def test_reasoning_cases_python_values_match_live_recomputation():
 
         before = len(LIVE_CALL_LOG)
         live = _live_py_estimate(messages)
-        live_blind = _live_py_estimate(_strip_reasoning_keys(messages))
+        _live_py_estimate(_strip_reasoning_keys(messages))  # 返回值弃用;调用本身的记账副作用被下方断言钉住
         assert len(LIVE_CALL_LOG) - before == 2, (
             f"[{case_id}] 未对夹具消息列表现场重算两次(含 reasoning / 摘 reasoning)"
         )
