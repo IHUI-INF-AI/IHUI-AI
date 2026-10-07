@@ -397,7 +397,16 @@ test('parseBatch:非 blob 的头(tree / commit)归 null,且不得把内容当下
 // `◽ 裸 git 存量已降到 81(基线 81)`;若打出别的数字,以现读为准再校。
 // 同轮另有 `◽ 型 B 存量已降到 10(基线 11)` 提示 —— 那是`PATH_BOUND_GIT_BASELINE`
 // 另一条判据的收口提示,归属 G-998191 之外的迁移面(型 B),**本轮不动它**。
-const BARE_GIT_BASELINE = 81
+// 2026-10-07 再迁 3 枚(G-998191 续批:evidence/f5-denominator-probe、benchmark-frame-end-matrix、
+// benchmark-ours-quantitative,各 1 处裸派生,改前改后输出逐字对账过)。基线 81 → 79,账目两条:
+//   ① 并行会话在 2026-10-06 复核**之后**入库了 `scripts/lib/commit-with-private-index.mjs`
+//     (自带 `execFileSync('git', …)` 一处)⇒ 本批开工时 HEAD 面现读已是 **82**,本门当时就红
+//     (82 > 81)—— 这枚不在本批名单,归因与收口票见台账;本批不背它的账,也不替它放宽。
+//   ② 本批 3 枚此刻在工作树、未入库 ⇒ 判据分母里它们仍各算一枚,现读仍 82,提交前本门红
+//     (82 > 79);**3 枚随本批落地入库后**现读 = 82 − 3 = 79 ⇒ 79 ≤ 79 判得过,本棘轮
+//     「只减不增」的下限恰是这一档。提交者落地后复核:`node --test scripts/tests/face-reader.test.mjs`
+//     应打出 `◽ 裸 git 存量已降到 79(基线 79)`;若打出别的数字,以现读为准再校。
+const BARE_GIT_BASELINE = 79
 const PATH_BOUND_GIT_BASELINE = 11
 const SELF_BATCH_BASELINE = 0
 
