@@ -38,6 +38,7 @@ function gitRun(args, opts = {}) {
     GIT_BIN,
     ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', '-C', REPO, ...args],
     {
+      stdio: ['pipe', 'pipe', 'pipe'],
       encoding: 'utf8',
       windowsHide: true,
       timeout: 60000,

@@ -26,7 +26,7 @@ const GUARD = join(ROOT, 'scripts/check-staged-deletions.mjs')
 const GIT = resolveGitBin() || 'git'
 // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
 const gitOpts = { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true, timeout: 60000, maxBuffer: 64 << 20 }
-const runGit = (dir, args) => execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e.local', '-c', 'user.name=e2e', '-C', dir, ...args], gitOpts)
+const runGit = (dir, args) => execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e.local', '-c', 'user.name=e2e', '-C', dir, ...args], { ...gitOpts, stdio: ['ignore', 'pipe', 'pipe'] })
 const runGuard = (dir, extra = []) =>
   // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   spawnSync(process.execPath, [GUARD, '--root', dir, ...extra], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true, timeout: 180000, maxBuffer: 64 << 20 })
