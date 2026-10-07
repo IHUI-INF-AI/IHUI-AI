@@ -10615,6 +10615,16 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
+    "markdownTable": {
+      "copy": "Copy table",
+      "downloadCsv": "Download CSV",
+      "fullscreen": "Fullscreen",
+      "fullscreenTitle": "Table in fullscreen",
+      "empty": "Table is empty",
+      "unsupported": "Your browser does not support this action",
+      "copyFailed": "Copy failed",
+      "csvFailed": "Export failed"
+    },
     "linkPreview": {
       "loading": "Loading link preview...",
       "unavailable": "Unable to read link preview",
