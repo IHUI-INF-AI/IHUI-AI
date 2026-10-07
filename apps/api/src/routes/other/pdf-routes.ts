@@ -12,7 +12,7 @@
  *
  * 实现策略:
  *   - POST 接受 JSON body(Zod 校验),返回 201 + taskId + operation + status:pending
- *   - 真实 PDF 处理逻辑由 services/pdf-tools.js 提供,可通过 taskId 异步执行
+ *   - 任务化响应契约保留;真实处理逻辑内联于本文件,从未接线的 services/pdf-tools.ts 已随 G-1079151 移除
  *   - 保持原 stub 时代的"任务化"响应契约,前端可基于 taskId 轮询结果
  */
 import type { FastifyPluginAsync } from 'fastify'
