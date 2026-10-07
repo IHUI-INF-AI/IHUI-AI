@@ -156,7 +156,6 @@ def _bound_audit_payload(step: dict[str, Any], truncated: bool) -> dict[str, Any
     收紧到底仍超 ⇒ 丢弃 input 原始体(最大自由文本位)。终态保证:
     每项文本 ≤ itemMaxChars、证据数组 ≤ evidenceArrayMaxItems、truncated 位如实可读。
     """
-    item_chars = STEP_RECORD_CAPS["itemMaxChars"]["cap"]
     text_fields = ("input_summary", "result_summary", "decision", "reason", "http_summary")
     guard = 0
     while guard < 64:

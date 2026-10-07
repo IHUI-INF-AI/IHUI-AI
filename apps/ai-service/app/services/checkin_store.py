@@ -367,7 +367,7 @@ def _account_row(row) -> dict[str, Any]:
         "created_at": row["created_at"].isoformat() if row["created_at"] else None,
         "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
     }
-    if "last_created_at" in row.keys():
+    if "last_created_at" in row:
         out["last_record"] = (
             {
                 "ok": row["last_ok"],
