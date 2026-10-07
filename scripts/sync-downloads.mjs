@@ -88,36 +88,9 @@ const helpFlag = process.argv.includes('--help')
 const skipBuild = process.argv.includes('--skip-build')
 const platformFilter = getArg('platform')
 
-if (helpFlag) {
-  console.log(`
-${C.bold}sync-downloads.mjs${C.reset} — 自动化构建同步:复制下载包 + 更新元数据
-
-${C.bold}用法:${C.reset}
-  node scripts/sync-downloads.mjs                    默认:同步所有端
-  node scripts/sync-downloads.mjs --dry-run          预览模式:只输出将要执行的步骤
-  node scripts/sync-downloads.mjs --check            检查模式:对比源/目标差异
-  node scripts/sync-downloads.mjs --platform=desktop 只同步指定端(desktop/extension)
-  node scripts/sync-downloads.mjs --skip-build       跳过构建(本脚本不触发构建,供流水线集成)
-  node scripts/sync-downloads.mjs --help             显示帮助
-
-${C.bold}路径映射:${C.reset}
-  Desktop 源:  apps/desktop/src-tauri/target/release/bundle/{nsis,msi,deb,appimage,dmg}/
-  Desktop 目标: apps/web/public/downloads/desktop/
-  Extension 源: apps/extension/.output/chrome-mv3/
-  Extension 目标: apps/web/public/downloads/extension/
-  Manifest:    apps/web/public/downloads/manifest.json
-`)
-  process.exit(0)
-}
-
+// ─── 参数校验与启动日志的档名(纯字面量,无副作用,留在模块作用域)────
 const validPlatforms = ['desktop', 'extension']
-if (platformFilter && !validPlatforms.includes(platformFilter)) {
-  log('err', `无效的 --platform 值: ${platformFilter}(可选: ${validPlatforms.join(', ')})`)
-  process.exit(2)
-}
-
 const mode = dryRun ? 'dry-run' : checkMode ? 'check' : 'sync'
-log('info', `sync-downloads 启动 → 模式: ${C.bold}${mode}${C.reset}${platformFilter ? ` | 端: ${C.bold}${platformFilter}${C.reset}` : ''}${skipBuild ? ' | skip-build' : ''}`)
 
 // ─── 工具函数 ────────────────────────────────────────────────
 
@@ -657,6 +630,38 @@ function printCheckRow(platform, source, target, status) {
 // ─── 主流程 ──────────────────────────────────────────────────
 
 async function main() {
+  // AGENTS §22d 批次 G2:以下三档(--help 打印 + exit(0) / 无效 --platform 校验 + exit(2) / 启动日志)
+  // 原在模块作用域,被 import 即打印并终止宿主进程 ⇒ 搬进 main 首条,顺序逐字不变,
+  // 且仍先于任何 fs / 构建产物读取。
+  if (helpFlag) {
+    console.log(`
+${C.bold}sync-downloads.mjs${C.reset} — 自动化构建同步:复制下载包 + 更新元数据
+
+${C.bold}用法:${C.reset}
+  node scripts/sync-downloads.mjs                    默认:同步所有端
+  node scripts/sync-downloads.mjs --dry-run          预览模式:只输出将要执行的步骤
+  node scripts/sync-downloads.mjs --check            检查模式:对比源/目标差异
+  node scripts/sync-downloads.mjs --platform=desktop 只同步指定端(desktop/extension)
+  node scripts/sync-downloads.mjs --skip-build       跳过构建(本脚本不触发构建,供流水线集成)
+  node scripts/sync-downloads.mjs --help             显示帮助
+
+${C.bold}路径映射:${C.reset}
+  Desktop 源:  apps/desktop/src-tauri/target/release/bundle/{nsis,msi,deb,appimage,dmg}/
+  Desktop 目标: apps/web/public/downloads/desktop/
+  Extension 源: apps/extension/.output/chrome-mv3/
+  Extension 目标: apps/web/public/downloads/extension/
+  Manifest:    apps/web/public/downloads/manifest.json
+`)
+    process.exit(0)
+  }
+
+  if (platformFilter && !validPlatforms.includes(platformFilter)) {
+    log('err', `无效的 --platform 值: ${platformFilter}(可选: ${validPlatforms.join(', ')})`)
+    process.exit(2)
+  }
+
+  log('info', `sync-downloads 启动 → 模式: ${C.bold}${mode}${C.reset}${platformFilter ? ` | 端: ${C.bold}${platformFilter}${C.reset}` : ''}${skipBuild ? ' | skip-build' : ''}`)
+
   const shouldSyncDesktop = !platformFilter || platformFilter === 'desktop'
   const shouldSyncExtension = !platformFilter || platformFilter === 'extension'
 
@@ -693,12 +698,25 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  const msg = err instanceof Error ? err.message : String(err)
-  log('err', `致命错误: ${msg}`)
-  if (err instanceof Error && err.stack) {
-    console.error(C.dim + err.stack + C.reset)
-  }
-  process.exit(1)
-})
+import { pathToFileURL } from 'node:url'
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main().catch((err) => {
+    const msg = err instanceof Error ? err.message : String(err)
+    log('err', `致命错误: ${msg}`)
+    if (err instanceof Error && err.stack) {
+      console.error(C.dim + err.stack + C.reset)
+    }
+    process.exit(1)
+  })
+}
+
+export const __test__ = {
+  formatBytes,
+  filterByVersion,
+  checkCopyNeeded,
+  checkZipRefreshNeeded,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
