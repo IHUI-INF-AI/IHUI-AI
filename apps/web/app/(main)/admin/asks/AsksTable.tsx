@@ -119,8 +119,9 @@ export function AsksTable({
         size: 110,
         filterFn: (row, _id, value) => String(row.original.status) === String(value),
         cell: ({ row }) => {
-          const meta = STATUS_META[row.original.status] ??
-            STATUS_META[0] ?? { label: 'statusHidden', cls: 'bg-muted text-muted-foreground' }
+          // STATUS_META 是以 AskStatus 封闭集为键的完备 Record(G-815966):
+          // 查表恒命中,不允许也不需要 `?? 默认` 兜底 —— 漏档应在编译期红,而非运行时吞。
+          const meta = STATUS_META[row.original.status]
           return (
             <span
               className={cn(

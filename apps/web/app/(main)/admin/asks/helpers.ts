@@ -4,6 +4,7 @@
 
 import { fetchApi } from '@/lib/api'
 import { ApiError } from '@/lib/api-error'
+import type { AskStatus } from '@ihui/shared/validation/ask-schema'
 import type { AskForm, AskItem, AsksListData } from './types'
 
 export const PAGE_SIZE = 10
@@ -22,7 +23,17 @@ export const EMPTY_FORM: AskForm = {
   isResolved: false,
 }
 
-export const STATUS_META: Record<number, { label: string; cls: string }> = {
+export interface AskStatusMeta {
+  label: string
+  cls: string
+}
+
+/**
+ * 状态→展示**完备表**(G-815966):键集 = `AskStatus` 封闭集(-1/0/1),
+ * 以 union 为键的 `Record` —— schema 新增一档而本表未补 ⇒ 编译失败,
+ * 禁止回退成 `Partial<Record<…>>` + `?? 默认` 的静默兜底形态。
+ */
+export const STATUS_META: Record<AskStatus, AskStatusMeta> = {
   [-1]: { label: 'statusDeleted', cls: 'bg-red-500/10 text-red-600 dark:text-red-400' },
   0: { label: 'statusHidden', cls: 'bg-muted text-muted-foreground' },
   1: { label: 'statusApproved', cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500' },

@@ -9,8 +9,14 @@
  * 自动注入鉴权 token + 401 弹窗),符合 AGENTS.md §3 共享层优先。
  */
 import { fetchApi } from '@/lib/api'
+import type { ProviderHealthStatus } from '../../settings/llm/types-v2'
 
-export type RelayKeyPoolHealthStatus = 'unknown' | 'healthy' | 'degraded' | 'down'
+/**
+ * G-814416 并表(2026-10-07):值域唯一来源是 settings/llm/types-v2.ts 的
+ * ProviderHealthStatus(G-716 封闭联合 unknown/healthy/degraded/down;两域不同表、同档位)。
+ * 此处只留本域别名,不再手抄第二份联合 —— 档位增删只改 types-v2 一处,两侧编译期同源。
+ */
+export type RelayKeyPoolHealthStatus = ProviderHealthStatus
 
 export interface RelayKeyPoolItem {
   id: string
