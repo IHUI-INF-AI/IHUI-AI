@@ -33,9 +33,10 @@ export type { PlatformTemplate, TestResult, UpstreamModel }
  *   - 写入面实测同值:`services/relay-health-check-service.ts:273`('healthy')、
  *     `routes/user-llm-configs-v2.ts:564`(缺省建值 'unknown')、
  *     `routes/relay-monitor-public.ts:108`(`?? 'unknown'`)。
- *   - 同族既有写法:`app/(main)/models/channels/channels-api.ts:13` 的
- *     `RelayKeyPoolHealthStatus` 是同一值域的第二份声明(不同表、同档位)。
- *     **合并成一份是另一票**(动它要连 channels/PageClient 一起改),本票只登记不并表。
+ *   - 同族既有写法:`app/(main)/models/channels/channels-api.ts` 的
+ *     `RelayKeyPoolHealthStatus` 曾是同一值域的第二份手抄联合(不同表、同档位)。
+ *     **G-814416 已并表**:该处改为从本文件 import 的本类型别名,值域声明全仓仅此一份
+ *     (channels/PageClient 的消费面不变,仍从 channels-api 取本域别名)。
  *
  * 词表落在 `llmSettings.v2.health` 下的四档(healthy / degraded / down / unknown,五语言齐)。
  * 刻意**不**复用 `shared` 里 `capabilityMarket.healthy|degraded|unhealthy` 那张表 ——

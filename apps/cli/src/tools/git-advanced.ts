@@ -123,6 +123,7 @@ const git_branch_list: Tool = {
     merged: { type: 'boolean', description: '仅显示已合并分支(--merged)' },
   },
   required: [],
+  dangerLevel: 'read',
   async execute(args, ctx): Promise<ToolResult> {
     const remote = args.remote === true;
     const merged = args.merged === true;
@@ -275,6 +276,7 @@ const git_stash_list: Tool = {
   description: '列出所有暂存条目(git stash list)。',
   parameters: {},
   required: [],
+  dangerLevel: 'read',
   async execute(_args, ctx): Promise<ToolResult> {
     const r = execGit(['stash', 'list'], ctx.workspacePath);
     return formatGitResult(r);
@@ -289,6 +291,7 @@ const git_conflict_status: Tool = {
   description: '检测当前是否有未解决的合并冲突,返回冲突文件列表(git diff --name-only --diff-filter=U)。',
   parameters: {},
   required: [],
+  dangerLevel: 'read',
   async execute(_args, ctx): Promise<ToolResult> {
     const r = execGit(['diff', '--name-only', '--diff-filter=U'], ctx.workspacePath);
     const result = formatGitResult(r);
@@ -385,6 +388,7 @@ const git_tag_list: Tool = {
     pattern: { type: 'string', description: 'glob 匹配模式(如 "v*" 匹配 v 开头标签)' },
   },
   required: [],
+  dangerLevel: 'read',
   async execute(args, ctx): Promise<ToolResult> {
     const pattern = args.pattern as string | undefined;
     const cmdArgs = ['tag', '-l'];
@@ -429,6 +433,7 @@ const git_remote_list: Tool = {
   description: '列出远程仓库及 URL(git remote -v)。',
   parameters: {},
   required: [],
+  dangerLevel: 'read',
   async execute(_args, ctx): Promise<ToolResult> {
     const r = execGit(['remote', '-v'], ctx.workspacePath);
     return formatGitResult(r);

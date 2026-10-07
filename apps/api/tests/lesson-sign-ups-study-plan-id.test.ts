@@ -213,6 +213,48 @@ function row(over: Record<string, unknown> = {}) {
   }
 }
 
+type JournalEntry = { idx: number; when: number; tag: string }
+
+/**
+ * 迁移 journal 的**耐久**判据,返回问题清单(空数组 = 通过)。
+ *
+ * 立因(2026-10-07 实测):本文件原先在这里还写着「本条必须是 journal 最后一条」
+ * (`expect(pos).toBe(entries.length - 1)`),而 journal 是 append-only —— 后面每一票正常追加
+ * 都会让那句必红。当天第 312 条 `20261007100000_llm_call_logs_retryable` 一进来它就红了,
+ * 并把 `CI / lint-typecheck-test (push)` 这条必需检查钉死 ⇒ 全队每次提交只能跳钩子
+ * (AGENTS §12f 记的那一型:与提交者无关的红,结局是全部守门作废)。
+ *
+ * 留下的三条都是"别人正常干活打不破、只有真出事才打破":
+ *  ① 本票那条在 journal 里恰好一条 —— 两份登记 = 同一版本号两份 schema,库不会重放第二份;
+ *  ② 它的 `when` 严格大于**它之前**所有条目 —— 插到别人前面会改变迁移重放顺序;
+ *  ③ 它之后每一条 `when` 都严格大于前一条 —— 单调追加没被人改写。
+ * (绝对 idx 的钉法留在用例里:追加不改既有 idx,改了即说明有人重排历史条目。)
+ */
+function journalProblems(entries: JournalEntry[], tag: string): string[] {
+  const problems: string[] = []
+  const positions = entries.map((e, i) => (e.tag === tag ? i : -1)).filter((i) => i >= 0)
+  if (positions.length !== 1) {
+    problems.push(`tag ${tag} 在 journal 里出现 ${positions.length} 次,应为 1 次`)
+    return problems
+  }
+  const pos = positions[0]
+  const mine = entries[pos]
+  const beforeMax = entries.slice(0, pos).reduce((m, e) => Math.max(m, e.when), -Infinity)
+  if (pos > 0 && !(mine.when > beforeMax)) {
+    problems.push(
+      `本条 when=${mine.when} 未严格大于之前条目最大值 ${beforeMax}(插队会改变重放顺序)`,
+    )
+  }
+  for (let i = pos + 1; i < entries.length; i++) {
+    if (!(entries[i].when > entries[i - 1].when)) {
+      problems.push(
+        `第 ${i} 条 when=${entries[i].when} 未严格大于前一条 ${entries[i - 1].when}(追加序被改写)`,
+      )
+    }
+  }
+  return problems
+}
+
 describe('lesson_sign_ups.study_plan_id 加列票', () => {
   beforeEach(() => {
     dbQueue.items.length = 0
@@ -238,20 +280,39 @@ describe('lesson_sign_ups.study_plan_id 加列票', () => {
       const journal = JSON.parse(
         readFileSync(resolve(REPO_ROOT, 'packages/database/drizzle/meta/_journal.json'), 'utf8'),
       )
-      const entries = journal.entries as { idx: number; when: number; tag: string }[]
+      const entries = journal.entries as JournalEntry[]
       const mine = entries.filter((e) => e.tag === MIG_TAG)
       expect(mine).toHaveLength(1)
       expect(mine[0].idx).toBe(311)
-      // when 严格大于**它自己之前**那些条目的最大值(B3)。
-      // 不能拿"除自己以外全部"的最大值来比 —— journal 是单调追加的,后续票还会继续
-      // 加 idx,那种比法会在别人正常追加迁移时误报红(上一轮 study_plans 那条就踩过)。
-      const whens = entries.map((e) => e.when)
-      const pos = entries.findIndex((e) => e.tag === MIG_TAG)
-      const before = whens.slice(0, pos)
-      expect(before.length).toBeGreaterThan(0)
-      expect(mine[0].when).toBeGreaterThan(Math.max(...before))
-      // 本条是当前最后一条 ⇒ 后面没有别的条目
-      expect(pos).toBe(entries.length - 1)
+      // 追加序与"恰好一条"走同一个判据出口(见 journalProblems 的注释):
+      // 旧形态在这里还写着"本条必须等于 entries.length - 1",那是快照不是不变量。
+      expect(journalProblems(entries, MIG_TAG)).toEqual([])
+      // 本条 idx 与"它下面还有几条"解耦:下面这些是它之后追加的票,一条都不该打破上面的判据。
+      expect(entries.length).toBeGreaterThan(mine[0].idx)
+    })
+
+    it('①b 防回潮:同一把 journal 判据对"正常追加"放过、对"插队/同号两份"必红(变异自证)', () => {
+      const base: JournalEntry[] = [
+        { idx: 1, when: 1_700_000_000_000, tag: 'a_first' },
+        { idx: 2, when: 1_700_000_100_000, tag: MIG_TAG },
+        { idx: 3, when: 1_700_000_200_000, tag: 'c_after' },
+      ]
+      // A 臂:后面还有别人的条目 ⇒ 必须绿。旧断言"本条必须是最后一条"在这一臂会红,
+      //        这一句就是它被换掉的直接理由(而不是"我觉得它没用")。
+      expect(journalProblems(base, MIG_TAG)).toEqual([])
+      // B 臂:后继 when 倒退(有人插队或改写过历史条目)⇒ 必须红。
+      const outOfOrder: JournalEntry[] = base.map((e) => ({ ...e }))
+      outOfOrder[2] = { idx: 3, when: 1_699_999_999_999, tag: 'c_after' }
+      expect(journalProblems(outOfOrder, MIG_TAG).length).toBeGreaterThan(0)
+      // C 臂:同一 tag 两份登记 ⇒ 必须红。
+      const dup: JournalEntry[] = [...base, { idx: 4, when: 1_700_000_300_000, tag: MIG_TAG }]
+      expect(journalProblems(dup, MIG_TAG).length).toBeGreaterThan(0)
+      // D 臂:本条前面塞一条 when 更大的(插到最前)⇒ 必须红。
+      const jumped: JournalEntry[] = [
+        { idx: 1, when: 1_999_000_000_000, tag: 'z_newest' },
+        ...base.slice(1),
+      ]
+      expect(journalProblems(jumped, MIG_TAG).length).toBeGreaterThan(0)
     })
 
     it('加列语句指向 study_plans(id),列名是 study_plan_id', () => {
