@@ -239,6 +239,59 @@ test('T12 alignSharedIndex 删除档·反向:索引里是别人真暂存的内�
   assert.equal(bg.indexBlobOf('a.txt', { root: dir }), bg.writeBlob('v2\n', { root: dir }), '他的 v2 必须原样留着')
 })
 
+// G-1080881(2026-10-07):本层此前**没有**删除档,所以任何"旁路落地要删一个文件"都得像 T11/T12 那样
+// 手搓临时索引 —— 而手搓那份拿不到本函数自己的两条护栏(基底存在性、onTree 落地前校验),删错的形状没人拦。
+// 这三条把删除档钉成契约:正向一次真删,反向两次拒(自相矛盾声明 / 基底里根本没有该路径)。
+test('T12b commitTreeWithIndex 删除档·正向:deleted:true 让路径从树里消失,而其余路径与主索引、工作树一律不动', (t) => {
+  const dir = makeRepo(t)
+  const head = bg.git(['rev-parse', 'HEAD'], { root: dir })
+  const idxBefore = bg.indexBlobOf('a.txt', { root: dir })
+  const { commit, entries } = bg.commitTreeWithIndex({
+    root: dir,
+    parent: head,
+    message: 'obj: delete a.txt + add new.txt',
+    entries: [{ path: 'a.txt', deleted: true }, { path: 'new.txt', text: 'nn\n' }],
+    baseRef: head,
+  })
+  assert.equal(bg.headBlobOf(commit, 'a.txt', { root: dir }), bg.ABSENT, '声明删除的路径必须真从提交树里消失')
+  assert.notEqual(bg.headBlobOf(commit, 'new.txt', { root: dir }), bg.ABSENT, '同一轮的新增不得被删除档连带吞掉')
+  assert.notEqual(bg.headBlobOf(commit, 'sub/keep.txt', { root: dir }), bg.ABSENT, 'read-tree 基底里其余路径不得被吞')
+  const del = entries.find((e) => e.path === 'a.txt')
+  assert.equal(del.deleted, true, '返回面必须如实标出这是一条删除')
+  assert.equal(del.blob, null, '删除项的 blob 必须是 null,不得留着上一次的 oid 让调用方误当"已写入"')
+  assert.equal(bg.indexBlobOf('a.txt', { root: dir }), idxBefore, '主索引必须未被动过(对象空间的定义)')
+  assert.match(readFileSync(join(dir, 'a.txt'), 'utf8'), /v1/, '工作树必须未被动过 —— 删除只发生在对象空间')
+})
+
+test('T12c commitTreeWithIndex 删除档·反向:两种会静默失效的声明必须拒,而不是落一枚"什么都没删"的提交', (t) => {
+  const dir = makeRepo(t)
+  const head = bg.git(['rev-parse', 'HEAD'], { root: dir })
+  assert.throws(
+    () =>
+      bg.commitTreeWithIndex({
+        root: dir,
+        parent: head,
+        message: 'bad',
+        entries: [{ path: 'a.txt', deleted: true, text: 'x\n' }],
+        baseRef: head,
+      }),
+    /自相矛盾/,
+    'deleted 与 text/blob 同时出现 ⇒ 意图不明,必须拒(不能猜"到底删不删")',
+  )
+  assert.throws(
+    () =>
+      bg.commitTreeWithIndex({
+        root: dir,
+        parent: head,
+        message: 'bad2',
+        entries: [{ path: 'no-such-path.txt', deleted: true }],
+        baseRef: head,
+      }),
+    /不在位/,
+    '基底树里没有这条路径 ⇒ 这声明永远不会产生删除;静默落地就等于给调用方一枚假的"已删"',
+  )
+})
+
 // G-628:共用层出口的"返回形状"必须被测试钉住。casUpdateRef 是纯布尔出口(true/false,其余失败照抛),
 // 历史上调用方按 `r.ok` 判成功 ⇒ 对布尔取 .ok 得 undefined ⇒ "落地成功"被读成"CAS 未抢到",再按判据
 // 发现目标路径已变 ⇒ 报"被并发改动"exit 1 —— 同一会话两次同型自伤(O81(a) 与 D158 各一次)。
