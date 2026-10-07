@@ -121,6 +121,11 @@ import { loadMemory, formatMemoryForPrompt, type MemoryEntry } from '../memory/i
 import { auditLog } from '../audit.js';
 import { loadHooks, runSessionStartHooks, runSessionEndHooks, runHook } from '../hooks/index.js';
 import { loadSettings, type SamplerSettings, type Settings } from './settings.js';
+import {
+  createOutputTokenContinuationMessage,
+  classifyOutputTokenContinuation,
+  isOutputTokenLimitFinishReason,
+} from './agent-output-continuation.js';
 import type { Session } from './session.js';
 import { saveSession } from './session.js';
 // G-632:异步解算启动时捕获分支代数 —— 解算期间分支被切换则本轮结果在落地口作废
@@ -263,6 +268,10 @@ export interface AgentResult {
   usage: TokenUsage;
   /** goal 模式的独立校验结论;未声明硬性指标(非 goal 模式)时为 null */
   verification?: GoalVerification | null;
+  /** G-425:最后一次模型响应的 finish_reason(本地 provider 面才有;远端流拿不到 ⇒ 不带) */
+  finishReason?: string;
+  /** G-425:最终一次响应是否仍被输出长度上限截断(续写预算耗尽后仍未说完) */
+  outputTruncated?: boolean;
 }
 
 // ==================== P1-5 Headless 多格式输出(实现在 src/headless-format.ts,此处仅 re-export)====================
@@ -270,7 +279,7 @@ export interface AgentResult {
 // 简化策略(做减法):不引入外部 yaml 库,自实现 30 行极简序列化器(只覆盖常见类型),流式输出不缓冲。
 export type { OutputFormat, HeadlessEvent } from '../headless-format.js'
 export { parseOutputFormat, formatHeadlessEvent } from '../headless-format.js'
-import { formatHeadlessEvent } from '../headless-format.js'
+import { createHeadlessEventGate, formatHeadlessEvent } from '../headless-format.js'
 import type { OutputFormat, HeadlessEvent } from '../headless-format.js'
 
 // ==================== 公共函数 ====================
@@ -487,7 +496,8 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   if (memory.length > 0 && !opts.silent) {
     console.info(chalk.dim(`  🧠 已加载 ${memory.length} 条 memory(/memory 查看)`));
   }
-  const skillsText = formatSkillsForPrompt(skills);
+  // G-427 接线:技能段广告按真实工具表门控(Skill 不在表内 ⇒ 整块不出)
+  const skillsText = formatSkillsForPrompt(skills, { toolTable: tools.map((t) => t.name) });
   const memoryText = formatMemoryForPrompt(memory);
   // AGENTS.md / memory 是**用户仓库与磁盘上的第三方文本**,直接拼进 system prompt 等于让
   // 它们披宿主语气 —— 走登记出口的 reference_data 档(内部过 neutralizeBoundaries 剥冒充标签)。
@@ -1062,6 +1072,13 @@ export interface RunToolLoopResult {
   verification?: GoalVerification | null;
   /** G-632:解算启动时捕获的分支代数 —— 落地前与当前代数比对,不等 ⇒ 结果作废 */
   branchGeneration: number;
+  /** G-425:最后一次模型响应的 finish_reason(本地 provider 面才有;远端流拿不到 ⇒ 不带此字段) */
+  finishReason?: string;
+  /**
+   * G-425:最终一次响应是否仍被输出长度上限截断(true = 有界续写预算耗尽/轮次耗尽后
+   * 仍没说完)。端上据此提示"回复不完整",与 stderr 的 [truncated] 行同源。
+   */
+  outputTruncated?: boolean;
 }
 
 export interface TokenUsage {
@@ -1194,6 +1211,12 @@ export function createTerminalDeltaSink(
 
 interface SampleWithRetryResult {
   error?: string;
+  /**
+   * G-425:最后一次响应的结束原因。本地 provider 面(streamOpenAiCompatible)会把
+   * `choice.finish_reason` 带出来;远端 streamChat 的 SSE 契约今天不携带 stop/finish
+   * reason ⇒ 这一路恒 undefined(截断续写在远端暂不生效,属 ai-service 契约那一格)。
+   */
+  finishReason?: string;
 }
 
 /** 判断错误是否为 provider 不支持原生 tools(auto 探测降级依据) */
@@ -1712,6 +1735,20 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   let goalBlocked = false;
   let goalDeliverUnverified = false;
 
+  /**
+   * G-425(2026-10-07 拍板)输出截断有界续写的三个状态位:
+   * - outputTokenContinuationCount:当前恢复段已用续写次数(正常步归零,≤3 次,判据在
+   *   ./agent-output-continuation.ts,与上游 turn-output-token-continuation.ts 同形);
+   * - pendingOutputContinuationPrompt:待下发的续写补丁。**只进下一轮的 requestMessages
+   *   (每轮从 opts.messages 重建的局部视图),绝不 push 进 opts.messages** —— 这是
+   *   "续写 prompt 排除出持久历史"的承载方式:--resume / 会话落库(saveSession 只收
+   *   messages)/ 压缩历史里结构性不存在这条补丁;
+   * - lastFinishReason:最后一次成功响应的结束原因,终局随 RunToolLoopResult 透传给端上。
+   */
+  let outputTokenContinuationCount = 0;
+  let pendingOutputContinuationPrompt: { role: 'user'; content: string } | null = null;
+  let lastFinishReason: string | undefined;
+
   try {
     for (let i = 0; i < opts.maxIterations; i++) {
       iterations = i + 1;
@@ -1726,7 +1763,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         sessionId: opts.sessionId,
         turnNumber: iterations,
         maxTurns: opts.maxIterations,
-      });
+      }, { signal: opts.signal });
 
       // P0-2 Interject:本轮 LLM 调用前 drain,处理上一轮工具执行期间用户输入的 interjection
       // 让 LLM 本轮看到 tool_result + user interjection,自然响应
@@ -1757,6 +1794,13 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       if (readStateReminder) {
         contextReminderActive = true;
         requestMessages = [...requestMessages, { role: 'user' as const, content: readStateReminder }];
+      }
+      // G-425:上一轮被截断 ⇒ 续写补丁作为最后一条 user 消息进**本轮下发视图**(排在
+      // read-state 提醒之后,保证"接着说"是模型看到的最后一条指令)。下发后立即清空:
+      // 补丁只服务一次请求;若本次续写又被截断,决策点会再放一份新的进来。
+      if (pendingOutputContinuationPrompt !== null) {
+        requestMessages = [...requestMessages, pendingOutputContinuationPrompt];
+        pendingOutputContinuationPrompt = null;
       }
 
       let iterationText = '';
@@ -1835,7 +1879,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         );
 
       // 本地 provider(Ollama/vLLM)单次采样:错误语义与 sampleWithRetry 对齐(不抛出,返回 { error })
-      const sampleOnceLocal = async (withTools: boolean): Promise<{ error?: string }> => {
+      const sampleOnceLocal = async (withTools: boolean): Promise<{ error?: string; finishReason?: string }> => {
         // G-686:本地直连也是"对 provider 的一次尝试",同一把闸门;未启用时 ticket 恒 undefined。
         let localTicket: AdmissionTicket | undefined;
         if (requestAdmission && admissionKey) {
@@ -1907,7 +1951,9 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
          * ⇒ **Ollama/vLLM 这一侧今天只有"限并发"生效,"减 cap"那一半不生效**,已登记为未覆盖格。
          */
         localTicket?.settleFromInput({ ok: !result.error, retryable: false });
-        return result.error ? { error: result.error } : {};
+        // G-425:结束原因必须随采样结果上交 —— 本地 provider 面唯一拿得到 finish_reason
+        // 的出口,截断续写的判据与 result.finishReason 透传都从这里取数。
+        return result.error ? { error: result.error, finishReason: result.finishReason } : { finishReason: result.finishReason };
       };
 
       const sampleOnce = localProvider.kind
@@ -1989,9 +2035,12 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           sessionId: opts.sessionId,
           turnNumber: iterations,
           error: lastErrorMessage,
-        });
+        }, { signal: opts.signal });
         break;
       }
+
+      // G-425:留档最后一次成功响应的结束原因(终局随 result 透传给端上;远端流拿不到 ⇒ undefined)
+      lastFinishReason = samplerResult.finishReason;
 
       // Token 累计:prompt 从压缩后 messages 估算,completion 从 iterationText 估算
       const iterPromptTokens = estimateMessagesTokens(requestMessages);
@@ -2044,7 +2093,39 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         iterationText,
       );
 
+      if (toolCalls.length > 0) {
+        // G-425:模型给出工具调用 ⇒ turn 正常推进,截断恢复段自然结束,续写预算归零
+        // (上游 completeOutputTokenRecovery 同语义)。
+        outputTokenContinuationCount = 0;
+      }
+
       if (toolCalls.length === 0) {
+        /**
+         * G-425(2026-10-07 拍板:抄上游)—— 输出被 max_tokens 截断 ⇒ 有界续写(≤3 次)。
+         *
+         * 走到这里时部分 assistant 文本已在上文照常落历史/assistantText(上游同语义:
+         * partial 照存,用户已流式看到的残句不蒸发)。本步只做续写裁决:
+         * - 'continue':续写补丁挂进 pendingOutputContinuationPrompt(下一轮顶端追加到
+         *   requestMessages,**不进 opts.messages**),计数 +1 后 continue —— 不走 end_turn
+         *   的 goal 校验/interjection 收口,因为"话说一半被上限掐断"不是"模型自宣完成";
+         * - 'exhausted':3 次续写预算用尽仍截断,必须喊出来(静默变短=伪造完整性),
+         *   并随 result.outputTruncated=true 让端上可判;随后照常走 end_turn 收口;
+         * - 'none':本步不是截断(正常 stop / tool_calls / 上游没发),恢复预算归零。
+         */
+        const continuationDecision = classifyOutputTokenContinuation({
+          finishReason: samplerResult.finishReason,
+          toolCallCount: 0,
+          continuationCount: outputTokenContinuationCount,
+        });
+        if (continuationDecision === 'continue') {
+          outputTokenContinuationCount += 1;
+          pendingOutputContinuationPrompt = createOutputTokenContinuationMessage();
+          continue;
+        }
+        if (continuationDecision === 'exhausted') {
+          process.stderr.write(chalk.yellow(`[truncated] ${t('cli.truncatedContinuationExhausted')}\n`));
+        }
+        outputTokenContinuationCount = 0;
         // P0-2 Interject:end_turn 时再 drain 一次,处理 LLM 调用期间用户输入的 interjection
         // 如果有 interjection,不 break,continue 进入下一轮让 LLM 响应
         if (drainAndAppendInterjections()) {
@@ -2087,7 +2168,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
                 `consecutive_failures=${decision.consecutiveFailures}/${decision.maxConsecutiveFailures} ` +
                 `criteria=${decision.verification.criteria.length} ` +
                 `reason=${decision.verification.unavailable_reason ?? '-'}`,
-            });
+            }, { signal: opts.signal });
             if (decision.action === 'continue' && decision.feedback) {
               opts.messages.push({ role: 'user', content: decision.feedback });
               continue;
@@ -2106,7 +2187,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           workspacePath: opts.ctx.workspacePath,
           sessionId: opts.sessionId,
           turnNumber: iterations,
-        });
+        }, { signal: opts.signal });
         break;
       }
 
@@ -2255,7 +2336,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
             sessionId: opts.sessionId,
             subagentId: subId,
             subagentType: subType,
-          });
+          }, { signal: opts.signal });
         }
         // Plugin hooks 入口:preToolCall(若 plugins 存在)
         await runPluginHooks(opts.plugins, 'preToolCall', {
@@ -2312,7 +2393,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
               sessionId: opts.sessionId,
               subagentId: subId,
               reason: result.success ? 'completed' : 'failed',
-            });
+            }, { signal: opts.signal });
           }
           return { call, result, durationMs: Date.now() - startTime };
         }),
@@ -2420,7 +2501,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         workspacePath: opts.ctx.workspacePath,
         sessionId: opts.sessionId,
         turnNumber: iterations,
-      });
+      }, { signal: opts.signal });
     }
   } catch (err) {
     if (opts.signal?.aborted) {
@@ -2435,7 +2516,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         sessionId: opts.sessionId,
         turnNumber: iterations,
         error: msg,
-      });
+      }, { signal: opts.signal });
       await opts.onError?.(msg);
     }
   }
@@ -2528,34 +2609,47 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           `treat_as_complete=${verification.treat_as_complete} ` +
           `criteria=${verification.criteria.length} ` +
           `reason=${verification.unavailable_reason ?? '-'}`,
-      });
+      }, { signal: opts.signal });
     }
     stopReason = applyGoalVerificationToStopReason(stopReason, verification);
   }
 
   if (stopReason === 'error') {
-    runHook('stopFailure', { ...hookCtx, error: lastErrorMessage || 'unknown error' });
-    runHook('notification', { ...hookCtx, notificationText: `Agent 因错误终止: ${lastErrorMessage || 'unknown'}` });
+    runHook('stopFailure', { ...hookCtx, error: lastErrorMessage || 'unknown error' }, { signal: opts.signal });
+    runHook('notification', { ...hookCtx, notificationText: `Agent 因错误终止: ${lastErrorMessage || 'unknown'}` }, { signal: opts.signal });
   } else if (stopReason === 'doom_loop') {
-    runHook('notification', { ...hookCtx, notificationText: `Agent 因死循环检测终止 (连续 2 轮重复工具调用)` });
+    runHook('notification', { ...hookCtx, notificationText: `Agent 因死循环检测终止 (连续 2 轮重复工具调用)` }, { signal: opts.signal });
   } else if (stopReason === 'max_iterations') {
-    runHook('notification', { ...hookCtx, notificationText: `Agent 达到最大迭代数 ${opts.maxIterations}` });
+    runHook('notification', { ...hookCtx, notificationText: `Agent 达到最大迭代数 ${opts.maxIterations}` }, { signal: opts.signal });
   } else if (stopReason === 'budget_limited') {
-    runHook('notification', { ...hookCtx, notificationText: `Agent 因预算上限停止 (cost >= ${opts.maxCostUsd ?? 'N/A'})` });
+    runHook('notification', { ...hookCtx, notificationText: `Agent 因预算上限停止 (cost >= ${opts.maxCostUsd ?? 'N/A'})` }, { signal: opts.signal });
   } else if (stopReason === 'plan_approval_required') {
     // P0-C:plan 待审批通知 — 提示用户用 --auto-approve-plan 或交互模式审批
-    runHook('notification', { ...hookCtx, notificationText: 'Agent 因 plan 待用户审批而暂停 (plan_approval_required)' });
+    runHook('notification', { ...hookCtx, notificationText: 'Agent 因 plan 待用户审批而暂停 (plan_approval_required)' }, { signal: opts.signal });
   }
-  runHook('stop', hookCtx);
+  runHook('stop', hookCtx, { signal: opts.signal });
 
   // P2-4 agent-lifecycle:turnComplete hook(agent 完成所有轮次,与 stop 配对,携带最终 stopReason)
   runHook('turnComplete', {
     ...hookCtx,
     totalTurns: iterations,
     stopReason,
-  });
+  }, { signal: opts.signal });
 
-  return { stopReason, assistantText, iterations, usage, verification, branchGeneration };
+  // G-425:finish_reason 透传。最后一次响应被输出上限截断 ⇒ 端上可据此提示"回复不完整"
+  // (stderr 的 [truncated] 行是人读面,这两个字段是机器面)。远端流拿不到结束原因 ⇒
+  // 两个字段都不带,消费方按"未知"处理,不得读成"未截断"。
+  return {
+    stopReason,
+    assistantText,
+    iterations,
+    usage,
+    verification,
+    branchGeneration,
+    ...(lastFinishReason !== undefined
+      ? { finishReason: lastFinishReason, outputTruncated: isOutputTokenLimitFinishReason(lastFinishReason) }
+      : {}),
+  };
 }
 
 // ==================== Agent 模式(非交互式) ====================
@@ -2566,7 +2660,7 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     workspacePath: opts.workspacePath,
     sessionId: opts.session?.id,
   };
-  const startResult = runSessionStartHooks(hooksConfig, sessionHookCtx);
+  const startResult = runSessionStartHooks(hooksConfig, sessionHookCtx, opts.signal);
   if (!startResult.proceed) {
     const errMsg = startResult.reason ?? 'sessionStart hook blocked';
     if (opts.jsonMode === true) {
@@ -2671,8 +2765,14 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     }
   }
 
-  /** P1-5 统一 emit:按 outputFormat 切换序列化方式,流式输出到 stdout */
+  /**
+   * P1-5 统一 emit:按 outputFormat 切换序列化方式,流式输出到 stdout。
+   * G-814408:出闸判据是本出口唯一放行点 —— 结果行封笔后,普通事件行出不了闸
+   * (停写,不是去重;闸的语义见 headless-format.ts 的 createHeadlessEventGate)。
+   */
+  const headlessEventGate = createHeadlessEventGate();
   const emit = (event: HeadlessEvent): void => {
+    if (!headlessEventGate.canEmit(event)) return;
     const line = formatHeadlessEvent(event, outputFormat);
     if (line) process.stdout.write(line);
   };
@@ -2705,7 +2805,7 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     workspacePath: opts.workspacePath,
     sessionId: opts.session?.id,
     prompt: opts.prompt,
-  });
+  }, { signal: opts.signal });
 
   // P3-2 Telemetry:记录 session 起始时间(用于 finally 块中计算 durationMs)
   const sessionStartTime = Date.now();
@@ -2857,10 +2957,10 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
       const cost = u.estimatedCostUsd > 0 ? `$${u.estimatedCostUsd.toFixed(4)}` : 'plan 套餐';
       console.info(chalk.dim(`📊 tokens: ${u.totalTokens} (prompt ${u.promptTokens} + completion ${u.completionTokens}) — ${cost}\n`));
     }
-    emit({ type: 'complete', stopReason: result.stopReason, iterations: result.iterations, usage: result.usage });
-
     // P3-1 Mermaid 渲染:feature flag 启用时,LLM 输出包含 ```mermaid 块则自动渲染为图片
     // 失败不阻塞主流程(只打印警告)
+    // G-814408:本块在结果行**之前**执行 —— 渲染结果若要出门,必须赶在结果行前
+    // ("结果行之后绝不能再冒出事件行",见下方 detachEvents)。
     if (codegraphSettings.mermaid?.enabled === true && result.assistantText) {
       const mermaidBlocks = extractMermaidBlocks(result.assistantText);
       if (mermaidBlocks.length > 0) {
@@ -2887,11 +2987,26 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
       }
     }
 
+    // G-814408:结果行必须最后写 —— 先停事件订阅(detachEvents),再落结果行
+    // (上游 headless-workflow.ts:329"结果行之后绝不能再冒出事件行"的结构事实)。
+    // 停笔之后闸只放结果行 —— 这是停写,不是去重;事件流单一写者判据见 event-stream-ownership.ts。
+    headlessEventGate.detachEvents();
+    emit({
+      type: 'complete',
+      stopReason: result.stopReason,
+      iterations: result.iterations,
+      usage: result.usage,
+      // G-425:finish_reason 透传给端上(可选字段,远端流拿不到时不带,缺省=未知)
+      ...(result.finishReason !== undefined
+        ? { finishReason: result.finishReason, outputTruncated: result.outputTruncated === true }
+        : {}),
+    });
+
     return result;
   } finally {
     // W10 异常路径也 flush 残留 markdown(重复调用幂等:pending 清空后 flush 返回空)
     flushMdStream();
-    runSessionEndHooks(hooksConfig, sessionHookCtx);
+    runSessionEndHooks(hooksConfig, sessionHookCtx, opts.signal);
     // P1-6 Codegraph 增量索引:退出时持久化缓存(供下次启动加载)
     if (codegraphSettings.codegraphIncremental?.enabled === true) {
       try {
