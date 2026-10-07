@@ -27,11 +27,25 @@
 // 挂 blocking 就是每台每次被逼 `--no-verify`、连带其余全部对账作废(AGENTS §12f)。
 // 文件名不以 check|scan|guard 开头 ⇒ 守门 89 结构上看不见它;不变量由 --self-test 与
 // §22c 镜像测试 scripts/tests/benchmark-frame-end-matrix.test.mjs 钉住。
+//
+// 2026-10-07(G-998191)git 出口收口:本器唯一的 git 派生(`git()` helper,喂 grep/show 共
+// 3 个调用点)由 `execFileSync('git', …)` 裸调用迁到取材层 `scripts/lib/face-reader.mjs` 的
+// `gitRaw` —— 仓内逐文件迁移的存量债(判据在 `scripts/tests/face-reader.test.mjs` 的
+// `BARE_GIT_BASELINE`,只减不增)。行为面对照:
+//   · `-c safe.directory=*`、`-C <root>`(旧调用自拼的两项)与绝对路径 git、windowsHide 由层给足;
+//   · stdio:层在不带 input 时写死 `['ignore','pipe','pipe']`(face-reader.mjs:94),与旧 helper
+//     显式传的那一档逐字相同(EBUSY 根治注释因此原样成立);quotepath 层强制 false,
+//     grep/show 的命中行路径全 ASCII ⇒ 无可观察差异;
+//   · maxBuffer 旧 `1 << 26` 与层默认(64MB)**逐字相同**,等价替换;
+//   · timeout 旧 `GIT_TIMEOUT = 180_000` 显式保留(逐 stem 逐端的全仓 grep,层默认 60s 不够,
+//     与 check-orphan-deletion-refs 保留 90_000 同一理由);
+//   · 失败语义见 makeGrep 头注:无命中(`e?.status === 1`)照旧落空行集,fatal 照旧拒出表。
 
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const OUT_REL = 'docs/benchmark-evidence/2026-09/ours/frame-by-end-matrix.md'
@@ -52,16 +66,7 @@ export const ENDS = [
   ['shared', 'packages/shared/src'],
 ]
 
-const git = (args) =>
-  execFileSync('git', ['-c', 'safe.directory=*', '-C', ROOT, ...args], {
-    encoding: 'utf8',
-    windowsHide: true,
-    timeout: GIT_TIMEOUT,
-    maxBuffer: 1 << 26,
-    // EBUSY 根治(errno -4082):本机交互会话里 Node 建子进程 stdin 管道确定性失败。
-    // 本helper 调用点全是只读 git(ls-tree/ls-files/show/rev-list),不喂 stdin。
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+const git = (args) => gitRaw(args, ROOT, { timeout: GIT_TIMEOUT })
 
 const isTestLine = (l) => /(^|\/)(tests?|__tests__|e2e)(\/|$)/.test(l) || /\.(test|spec)\./.test(l)
 
@@ -132,17 +137,31 @@ export function classifyCell({ dispatchProd, dispatchAll, quotedProd, sample }) 
   return { state: 'absent', sample }
 }
 
+/**
+ * 单格 grep:命中行集,fatal 记进 errors 拒出表(口径 ③)。
+ *
+ * 2026-10-07(G-998191)迁到层 `gitRaw` 后的失败语义对照:
+ *   · `e?.status === 1` = git grep **无命中**(git 的正常非零结论,层把 status 挂上,
+ *     face-reader.mjs:121)—— 与旧代码落 `e.stdout ?? ''`(空串)完全同一结果,只是显式化;
+ *   · 其余失败取首行错误文本:旧代码取 `e.stderr`,层抛的 `Undetermined` 把 git 首行错误包进
+ *     message(`git grep 失败:` 前缀),故按 `e?.stderr ?? e?.message` 兜底 —— 与
+ *     check-orphan-deletion-refs 的 grepCandidates 同一手法。/fatal:/ 判别照旧成立,
+ *     GREP_ERRORS 的拒出表路径不变;
+ *   · 非 fatal 的其它失败(status null,如 timeout)旧代码静默落空行集,新代码同样不记
+ *     errors、落空行集 —— 判定不变。
+ */
 function makeGrep(errors) {
   return function grepAll(pattern, path) {
-    let stdout = ''
     try {
-      stdout = git(['grep', '-n', '-I', '-E', pattern, 'HEAD', '--', path])
+      return git(['grep', '-n', '-I', '-E', pattern, 'HEAD', '--', path])
+        .split('\n')
+        .filter(Boolean)
     } catch (e) {
-      const err = String(e.stderr ?? '')
+      if (e?.status === 1) return [] // 无命中 = 正常空结果,不是报错
+      const err = String(e?.stderr ?? e?.message ?? e)
       if (/fatal:/.test(err)) errors.push(`${pattern} :: ${err.split('\n')[0]}`)
-      stdout = String(e.stdout ?? '')
+      return []
     }
-    return stdout.split('\n').filter(Boolean)
   }
 }
 
