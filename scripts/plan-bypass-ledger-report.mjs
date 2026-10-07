@@ -22,6 +22,22 @@
  *                     阶段落的 sha —— `--no-verify` 跳不掉它)拆三格:本机可疑 / 别机或更早 / 无从分。
  *                     见证**不能单独证明跳门**(跑了门但回显不逐字等值时同样无匹配轮),
  *                     所以这里只产出"该逐枚去读哪几枚"的名单,不产出指控。
+ *   ran-with-self-skip —— (G-1059139 新增第五态)有当轮**批次留痕**(`kind=gate-batch-run`,由
+ *                     `scripts/guardian-runner.mjs` 经 `scripts/lib/attestation-tree-digest.mjs` 落账)
+ *                     且该留痕 `selfSkipped` 非空 ⇒ 这枚"门确实跑过,但有 N 道按名字跳了"。
+ *                     它补的是旧四态答不出的一格:"跑了 214 道、跳了 3 道"与"整批根本没跑"在两行文本上
+ *                     完全同形(都落 unknown)。绑定钥匙是 `treeDigest`(归一只有一份实现):
+ *                     记录侧 `git ls-files --stage -z`(剔 unmerged)↔ 报告侧
+ *                     `git ls-tree -r --full-name -z <sha>`(剥掉 `blob/tree/commit` 类型字段),
+ *                     两侧经同一个 `normalizeGitEntries()` 归一、排序后取 sha256。
+ *                     **批次跑了且 selfSkipped 为空 ⇒ 归 normal(那是一条正证,不是新债)。**
+ *                     三条"宁可少归一类"的边界:同一 digest 命中窗口内多枚 ⇒ 落"无从分"计数
+ *                     (`unknownBatchAmbiguous`,是 unknown 的**第四格**,不吞原有三格);同一 digest 有多条
+ *                     批次留痕而在"有没有自跳"上不一致 ⇒ 不判新态;完全找不到 ⇒ **维持原态**。
+ *                     **能力上限(必须跟读数一起说)**:记录侧取的是**跑门那一刻的索引面**。若 lint-staged
+ *                     改写过暂存内容、或 pre-commit 之后有人又动过索引,那一枚落地的 tree 与批次 digest
+ *                     不等 ⇒ 维持原态(通常仍是 unknown)。这是**正确行为**,不是待修的洞 —— 错归一类等于
+ *                     给一台没跑门的机器发合格证。这一维由 `unboundReasons` 逐档量化并点名。
  *
  * 三条不可动摇的口径:
  *   1. **取不到就说"未判定"并点名原因,绝不用 0 冒充结论**:台账文件不存在(missing)≠ 今天没人绕门;
@@ -42,6 +58,14 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { git } from './lib/bypass-git.mjs'
 import { BYPASS_KIND, readLedgerRecords } from './lib/commit-attestation.mjs'
+// G-1059139:批次留痕(kind=gate-batch-run)的读侧与同一份 treeDigest 归一出口。
+// 刻意不复用 readLedgerRecords —— 它有字段白名单,会整块丢掉本 kind 的 treeDigest/selfSkipped;
+// 台账路径仍只有 `commit-attestation.mjs` 一份出口(本 lib 从它 import ledgerPath)。
+import {
+  GATE_BATCH_KIND,
+  readGateBatchRecords,
+  treeDigestForCommit,
+} from './lib/attestation-tree-digest.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..')
@@ -60,6 +84,11 @@ const DAY_MS = 86_400_000
  * `collectCommits` 的 `coverage` 里,而不是把 limit 调大就当没事。
  */
 const LOG_LIMIT_DEFAULT = 20_000
+/**
+ * 批次留痕的 treeDigest 补算上限(只对"没有任何正证"的枚算)。
+ * 触顶不静默:计进 unboundReasons.capped 并大声报"这一维是下界"。
+ */
+const DIGEST_CAP_DEFAULT = 600
 
 const dayKey = (iso) => String(iso ?? '').slice(0, 10)
 
@@ -163,7 +192,78 @@ export function matchNormalRound(commit, rounds) {
 }
 
 /**
- * 逐枚提交定四态。纯函数:输入 = 提交数组 + 台账索引 + 钩子轮次 + 三个"取不到"开关。
+ * 批次留痕 → 按 treeDigest 的索引(纯函数)。
+ * 没有 digest 的记录单独计数(`noDigest`)并保留原因 —— 它们绑不上任何提交,
+ * 但"有一轮跑了却没绑上"与"根本没有这一轮"是两件事,不得混成 0。
+ */
+export function indexBatchRuns(records = []) {
+  const byDigest = new Map()
+  let noDigest = 0
+  for (const r of records) {
+    if (r.kind !== GATE_BATCH_KIND) continue
+    if (!r.treeDigest) {
+      noDigest++
+      continue
+    }
+    const d = String(r.treeDigest).toLowerCase()
+    const list = byDigest.get(d) || []
+    list.push(r)
+    byDigest.set(d, list)
+  }
+  return { byDigest, noDigest, records: records.length }
+}
+
+/**
+ * 这一枚能否被批次留痕定态?只认**唯一、且结论一致**的绑定。
+ * 返回值 verdict ∈ { 'self-skip' | 'normal' | 'ambiguous' | 'none' }:
+ *   none      —— 没有批次面 / 取不到 digest / 面上找不到 ⇒ **维持原态**(绝不判新态)。
+ *   ambiguous —— 同一 digest 命中窗口内多枚,或同一 digest 的多条留痕在"有没有自跳"上不一致
+ *                ⇒ 落"无从分",既不发合格证也不指控(错归一类的代价 = 给没跑门的机器发证)。
+ * 纯函数:digest 由调用方(run)喂进来,本器不在判据里派生 git。
+ */
+export function decideBatch(commit, batch) {
+  if (!batch || batch.available !== true)
+    return { verdict: 'none', note: batch && batch.state ? `批次台账${batch.state}` : '批次面未提供', records: 0 }
+  const d = batch.digestBySha && batch.digestBySha.get(commit.sha)
+  if (!d)
+    return {
+      verdict: 'none',
+      note: `treeDigest 未取到:${(batch.reasonBySha && batch.reasonBySha.get(commit.sha)) || '不在补算范围'}`,
+      records: 0,
+    }
+  const sameTree = (batch.commitCountByTree && batch.commitCountByTree.get(commit.tree)) || 1
+  if (sameTree > 1)
+    return {
+      verdict: 'ambiguous',
+      why: `同一 treeDigest 命中窗口内 ${sameTree} 枚(同 tree 的多枚提交分不出哪条留痕属于谁)⇒ 无从分`,
+      records: 0,
+    }
+  const recs = (batch.byDigest && batch.byDigest.get(d)) || []
+  if (recs.length === 0)
+    return { verdict: 'none', note: '批次面里没有这一枚的 digest(索引面与落地 tree 不等 ⇒ 按设计不绑)', records: 0 }
+  const empty = recs.filter((r) => (r.selfSkipped || []).length === 0).length
+  if (empty === recs.length)
+    return { verdict: 'normal', note: `批次留痕 ${recs.length} 条、无按名字自跳 ⇒ 正证`, records: recs.length }
+  if (empty === 0) {
+    const names = new Set()
+    for (const r of recs) for (const g of r.selfSkipped || []) names.add(`${g.id}:${g.skipEnv}`)
+    return {
+      verdict: 'self-skip',
+      gateCount: names.size,
+      gates: [...names],
+      note: `${recs.length} 条批次留痕一致:${names.size} 道按名字自跳`,
+      records: recs.length,
+    }
+  }
+  return {
+    verdict: 'ambiguous',
+    why: `同一 digest 的 ${recs.length} 条批次留痕在"有没有自跳"上不一致(空/非空并存)⇒ 不判新态`,
+    records: recs.length,
+  }
+}
+
+/**
+ * 逐枚提交定五态。纯函数:输入 = 提交数组 + 台账索引 + 钩子轮次 + 批次上下文 + 三个"取不到"开关。
  * 返回按日聚合的行与逐枚明细,**任何一维取不到都记进 unknown 并带上原因**(不并桶)。
  */
 export function classifyAll({
@@ -175,6 +275,7 @@ export function classifyAll({
   roundsAvailable = true,
   witness = null,
   firstParty = null,
+  batch = null,
 } = {}) {
   const detail = []
   const byDay = new Map()
@@ -206,12 +307,28 @@ export function classifyAll({
           state = 'normal'
           proof = 'hook-echo'
         } else {
+        // 第五态只在"前三条正证一条都没有"时才问 —— 它绝不抢已有正证,更不会把 unknown 吞掉。
+        const b = decideBatch(c, batch)
+        if (b.verdict === 'self-skip') {
+          state = 'ran-with-self-skip'
+          proof = 'gate-batch-run'
+          why = b.note
+        } else if (b.verdict === 'normal') {
+          // 批次跑了且 selfSkipped 为空 ⇒ 这是一条**正证**,归 normal,不是新债、也不另立一态。
+          state = 'normal'
+          proof = 'gate-batch-run'
+        } else if (b.verdict === 'ambiguous') {
+          state = 'unknown'
+          sub = 'batch-ambiguous'
+          why = `${b.why};这是 unknown 的**第四格**,不并入原有三格`
+        } else {
         state = 'unknown'
         why = !ledgerReadable
           ? `台账取不到(${ledgerState})`
           : !roundsAvailable
             ? '钩子轮次取不到 ⇒ normal 无从正证'
             : '无旁路留痕、无跳门留痕、无逐字等值的零失败钩子轮'
+        why += `;批次绑定:${b.note}`
         // 把 unknown 拆成可行动的两格(第一次)。**措辞刻意不指控**:有见证只说明"这台机发生过一次
         // refs/heads 变更",而"跑了门但文件回显不逐字等值"(并发会话同窗口 staged、lint-staged 改写过
         // 文件)与"根本没跑"在两行文本上同形 ⇒ 只说「可疑」,定它得去读那一枚的钩子日志。
@@ -226,6 +343,7 @@ export function classifyAll({
           why += `;见证文件取不到(${witness.state})⇒ 本机/别机这一维**无从分**,不得读成"全部无见证"`
         }
         }
+        }
       }
     }
     const day = c.day
@@ -233,6 +351,7 @@ export function classifyAll({
       byDay.set(day, {
         day,
         normal: 0,
+        ranWithSelfSkip: 0,
         skipped: 0,
         bypassLanding: 0,
         unknown: 0,
@@ -241,8 +360,10 @@ export function classifyAll({
         unknownWitnessed: 0,
         unknownUnwitnessed: 0,
         unknownUnsplittable: 0,
+        unknownBatchAmbiguous: 0,
         normalByRecord: 0,
         normalByEcho: 0,
+        normalByBatch: 0,
         total: 0,
       })
     const row = byDay.get(day)
@@ -250,12 +371,15 @@ export function classifyAll({
     if (state === 'normal') {
       row.normal++
       if (proof === 'round-record') row.normalByRecord++
+      else if (proof === 'gate-batch-run') row.normalByBatch++
       else row.normalByEcho++
     } else if (state === 'skipped') row.skipped++
+    else if (state === 'ran-with-self-skip') row.ranWithSelfSkip++
     else if (state === 'bypass-landing') row.bypassLanding++
     else {
       row.unknown++
-      if (sub === 'witnessed') row.unknownWitnessed++
+      if (sub === 'batch-ambiguous') row.unknownBatchAmbiguous++
+      else if (sub === 'witnessed') row.unknownWitnessed++
       else if (sub === 'unwitnessed') row.unknownUnwitnessed++
       else if (sub === 'unsplittable') row.unknownUnsplittable++
     }
@@ -480,7 +604,7 @@ export function collectCommits({
   let out
   try {
     out = git(
-      ['log', '-n', String(limit), '--no-merges', '--no-renames', '--format=@%H%x09%P%x09%aI', '--name-only'],
+      ['log', '-n', String(limit), '--no-merges', '--no-renames', '--format=@%H%x09%P%x09%T%x09%aI', '--name-only'],
       { root, timeout: 60_000 },
     )
   } catch (e) {
@@ -491,9 +615,9 @@ export function collectCommits({
   for (const line of String(out).split(/\r?\n/)) {
     if (line.startsWith('@')) {
       if (cur) commits.push(cur)
-      const [sha, parent, iso] = line.slice(1).split('\t')
+      const [sha, parent, tree, iso] = line.slice(1).split('\t')
       const ms = Date.parse(iso)
-      cur = { sha, parent: (parent || '').split(' ')[0], iso, ms: Number.isFinite(ms) ? ms : null, day: dayKey(iso), files: [] }
+      cur = { sha, parent: (parent || '').split(' ')[0], tree: String(tree || '').trim(), iso, ms: Number.isFinite(ms) ? ms : null, day: dayKey(iso), files: [] }
       continue
     }
     const t = line.trim()
@@ -591,7 +715,12 @@ async function run({ argv }) {
   const limit = argv.includes('--limit') ? Number(argv[argv.indexOf('--limit') + 1]) : LOG_LIMIT_DEFAULT
 
   const ledger = readLedgerRecords(root)
-  const index = indexLedger(ledger.records)
+  // G-1059139:批次留痕走它自己的读出口(字段白名单会丢 treeDigest/selfSkipped)。
+  // **不得**把它喂进 indexLedger —— 它没有 headBefore,混进去只会被计入 skipNoParent,
+  // 即把"这一轮门跑过了"的记账读成"一条缺父的跳门留痕"。
+  const batchLedger = readGateBatchRecords(root)
+  const batchRuns = indexBatchRuns(batchLedger.records)
+  const index = indexLedger(ledger.records.filter((r) => r.kind !== GATE_BATCH_KIND))
 
   const hookPath = resolve(root, '.workbuddy', 'hook-logs', 'pre-commit.log')
   const hook = readHookRounds(hookPath)
@@ -608,7 +737,7 @@ async function run({ argv }) {
     return 0
   }
 
-  const { rows, detail } = classifyAll({
+  const passArgs = {
     commits: got.commits,
     index,
     rounds,
@@ -617,16 +746,81 @@ async function run({ argv }) {
     roundsAvailable: hook.ok,
     witness,
     firstParty,
-  })
+  }
+  /**
+   * 两趟定态。第一趟不带批次面,找出"三条正证一条都没有"的枚 —— 只对**这些**枚补算 treeDigest
+   * (全量补算会把这器变成几分钟的 git 派生风暴);第二趟带批次面出终态。
+   * 两趟之间必须把轮次的 consumed 标记复位:匹配器"一轮只给一枚作保"是有状态的,
+   * 不复位会让第二趟把第一趟消费掉的轮当成"没有轮"。
+   */
+  const pass1 = classifyAll(passArgs)
+  const stateByShort = new Map(pass1.detail.map((d) => [d.sha, d.state]))
+  const candidates = got.commits.filter((c) => stateByShort.get(c.sha.slice(0, 11)) === 'unknown')
+  const digestBySha = new Map()
+  const reasonBySha = new Map()
+  const treeCache = new Map()
+  const cap = argv.includes('--digest-cap') ? Number(argv[argv.indexOf('--digest-cap') + 1]) : DIGEST_CAP_DEFAULT
+  let digested = 0
+  let capped = 0
+  const commitCountByTree = new Map()
+  for (const c of got.commits) commitCountByTree.set(c.tree, (commitCountByTree.get(c.tree) || 0) + 1)
+  for (const c of candidates) {
+    if (batchRuns.byDigest.size === 0) {
+      reasonBySha.set(c.sha, '批次面里没有一条带 treeDigest 的留痕(该 kind 是 2026-10-07 才出生的 ⇒ 更早的窗口本就没有)')
+      continue
+    }
+    if (digested >= cap) {
+      capped++
+      reasonBySha.set(c.sha, `补算上限 ${cap} 已用尽 ⇒ 不判新态(这一维是下界,不是"没有")`)
+      continue
+    }
+    let d = treeCache.get(c.tree)
+    if (d === undefined) {
+      const r = treeDigestForCommit({ root, sha: c.sha })
+      d = r.ok ? r.digest : null
+      if (!r.ok) reasonBySha.set(c.sha, r.why)
+      treeCache.set(c.tree, d)
+      if (d) digested++
+    }
+    if (d) digestBySha.set(c.sha, d)
+    else if (!reasonBySha.has(c.sha)) reasonBySha.set(c.sha, 'treeDigest 取不到(未知原因)')
+  }
+  for (const r of rounds) r.consumed = false
+  if (firstParty && Array.isArray(firstParty.rounds)) for (const r of firstParty.rounds) r.consumed = false
+  const batch = {
+    available: batchLedger.ok,
+    state: batchLedger.state,
+    byDigest: batchRuns.byDigest,
+    digestBySha,
+    reasonBySha,
+    commitCountByTree,
+  }
+  const unboundReasons = {
+    candidateCommits: candidates.length,
+    digestedTrees: digested,
+    digestFailed: [...reasonBySha.entries()].filter(([, w]) => !w.includes('补算上限') && !w.includes('批次面里没有')).length,
+    noBatchDigest: [...reasonBySha.entries()].filter(([, w]) => w.includes('批次面里没有')).length,
+    capped,
+    batchRecordsNoDigest: batchRuns.noDigest,
+    batchBadLines: batchLedger.badLines.length,
+    batchLedgerState: batchLedger.state,
+    ambiguousSameTree: 0,
+    noMatch: [...reasonBySha.entries()].filter(([, w]) => w.includes('索引面与落地 tree 不等')).length,
+  }
+  const { rows, detail } = classifyAll({ ...passArgs, batch })
+  unboundReasons.ambiguousSameTree = rows.reduce((a, r) => a + r.unknownBatchAmbiguous, 0)
   const total = rows.reduce((a, r) => a + r.total, 0)
   const sums = {
     normal: rows.reduce((a, r) => a + r.normal, 0),
+    ranWithSelfSkip: rows.reduce((a, r) => a + r.ranWithSelfSkip, 0),
     skipped: rows.reduce((a, r) => a + r.skipped, 0),
     bypassLanding: rows.reduce((a, r) => a + r.bypassLanding, 0),
     unknown: rows.reduce((a, r) => a + r.unknown, 0),
     unknownWitnessed: rows.reduce((a, r) => a + r.unknownWitnessed, 0),
     unknownUnwitnessed: rows.reduce((a, r) => a + r.unknownUnwitnessed, 0),
     unknownUnsplittable: rows.reduce((a, r) => a + r.unknownUnsplittable, 0),
+    unknownBatchAmbiguous: rows.reduce((a, r) => a + r.unknownBatchAmbiguous, 0),
+    normalByBatch: rows.reduce((a, r) => a + r.normalByBatch, 0),
     normalByRecord: rows.reduce((a, r) => a + r.normalByRecord, 0),
     normalByEcho: rows.reduce((a, r) => a + r.normalByEcho, 0),
   }
@@ -687,6 +881,16 @@ async function run({ argv }) {
             refusedMine: index.mine,
           },
           sums,
+          batch: {
+            ok: batchLedger.ok,
+            state: batchLedger.state,
+            records: batchLedger.records.length,
+            withDigest: batchRuns.byDigest.size,
+            noDigest: batchRuns.noDigest,
+            badLines: batchLedger.badLines.length,
+            why: batchLedger.why ?? null,
+          },
+          unboundReasons,
           rows,
           detail,
         },
@@ -709,13 +913,13 @@ async function run({ argv }) {
         }[got.coverage ?? 'empty']
       }`,
     )
-    console.log('  日期          normal  skipped  bypass  unknown')
+    console.log('  日期          normal  跑而自跳  skipped  bypass  unknown')
     for (const r of rows)
       console.log(
-        `  ${r.day}   ${String(r.normal).padStart(5)}  ${String(r.skipped).padStart(7)}  ${String(r.bypassLanding).padStart(6)}  ${String(r.unknown).padStart(7)}`,
+        `  ${r.day}   ${String(r.normal).padStart(5)}  ${String(r.ranWithSelfSkip).padStart(9)}  ${String(r.skipped).padStart(7)}  ${String(r.bypassLanding).padStart(6)}  ${String(r.unknown).padStart(7)}`,
       )
     console.log(
-      `  合计           ${sums.normal}         ${sums.skipped}        ${sums.bypassLanding}        ${sums.unknown}`,
+      `  合计           ${sums.normal}              ${sums.ranWithSelfSkip}         ${sums.skipped}        ${sums.bypassLanding}        ${sums.unknown}`,
     )
     console.log(`  台账:${ledger.ok ? `可读(${ledger.path})记录 ${ledger.records.length} 条 / 坏行 ${ledger.badLines.length}` : `**未判定**(${ledger.state}:${ledger.why})`}`)
     console.log(
@@ -737,7 +941,18 @@ async function run({ argv }) {
       console.log(`  ⚠️ 跳门留痕里 ${index.skipNoParent} 条没有 headBefore ⇒ 绑不到提交,只报数`)
     if (index.mine > 0) console.log(`  ℹ 台账里 ${index.mine} 条 kind=mine 是"拒绝跳门、未落地",不计入任何一态`)
     if (sums.unknown > 0) {
-      console.log(`  ⚠️ unknown=${sums.unknown}:这些枚"没有任何一条正证"。**不得**读成 normal,也不得读成 skipped。`)
+    {
+      const amb = unboundReasons.ambiguousSameTree
+      console.log(
+        `  第五态(ran-with-self-skip)绑定读数:候选 ${unboundReasons.candidateCommits} 枚 / 实算 tree ${unboundReasons.digestedTrees} 棵 / 无匹配 ${unboundReasons.noMatch} / digest 取不到 ${unboundReasons.digestFailed} / 上限截断 ${unboundReasons.capped} / 同 tree 无从分 ${amb} / 无 digest 的批次留痕 ${unboundReasons.batchRecordsNoDigest} 条`,
+      )
+      console.log(
+        '  ⚠️ 能力上限:treeDigest 取的是**跑门那一刻的索引面**;lint-staged 改写过暂存内容、或 pre-commit 之后有人又动过索引时,那一枚落地的 tree 与批次 digest 不等 ⇒ 维持原态(通常仍是 unknown)。这是**正确行为**(宁可少归一类),不是待修的洞。',
+      )
+      if (amb > 0) console.log(`  ⚠️ 同 treeDigest 命中多枚 ${amb} 枚 ⇒ 落"无从分"(unknown 的第四格,不并入原有三格)`)
+      if (unboundReasons.capped > 0) console.log(`  ⚠️ treeDigest 补算触顶 ${unboundReasons.capped} 枚 ⇒ 上面"无匹配/取不到"是**下界**,可调 --digest-cap 重跑`)
+    }
+    console.log(`  ⚠️ unknown=${sums.unknown}:这些枚"没有任何一条正证"。**不得**读成 normal,也不得读成 skipped。`)
       for (const d of detail.filter((x) => x.state === 'unknown').slice(0, 12))
         console.log(`     · ${d.sha} ${d.day} —— ${d.why}`)
       if (detail.filter((x) => x.state === 'unknown').length > 12) console.log('     …(其余逐条见 --json 的 detail)')
