@@ -199,6 +199,47 @@
  *     后续键" —— 尾键本身也落在同族列上时词法不认输(语义复核不归本门);
  *   ⑤ SCAN_DIRS 之外的落点(services/ai-feed-service.ts 等)不进面 —— 覆盖面与 B1-B4 同一张表。
  *
+ * B6(2026-10-07 立,G-815954):jsonb 整列覆盖式 upsert 会吃掉"显式清空"的墓碑 —— onConflictDoUpdate
+ *   的 set 块凡写 jsonb 列,整列覆盖必须**逐列声明写策略**;具名成员合并 / jsonb_set 结构上即绿。
+ *   病灶:agent-runtime/session-store.ts 曾对 metadata/messages 整列覆盖 —— metadata 整列落盘会把
+ *   行内"显式清空(null 墓碑)"与旧版回滚快照字段一并吃掉;已修(提交 adcdceb7f6):metadata 走
+ *   具名成员合并(`t.metadata || <具名成员>::jsonb`)、messages 带逐列声明(全量真相)—— 本判据
+ *   对 HEAD 面该文件必须判绿(镜像测试直接读 HEAD blob 复核,见 scripts/tests/g-815954-*.test.mjs)。
+ *   判据一条:`.onConflictDoUpdate(` 的 set 实参里出现 jsonb 键族的列(词法近似,见
+ *   JSONB_UPSERT_COL_RE 注)——
+ *     - 值为具名成员合并(`||` 且带 `::jsonb` 或 excluded 引用)或 `jsonb_set(` 指定路径 ⇒ 绿
+ *       (缺席不触碰语义,票面正反对的"绿腿");
+ *     - 其余形态(`excluded.<col>` 整块搬入 / 裸赋值 / 纯字符串)⇒ 整列覆盖,键行及其上 3 行内必须有
+ *       逐列策略声明注释 `// <列>:全量真相`(或 `<列>:full-truth` 别名),无声明 ⇒ 违规
+ *       (票面正反对的"红腿":整块 excluded 无声明必红)。
+ *   **棘轮专用维(与 B4/B5 同档,取舍如实登记)**:HEAD 面实存 7 处整列覆盖无声明(registry 同步
+ *   快照 upsert ×6:registry-queries.ts 的 categories/tags/payload,raw.* 与 EXCLUDED.* 各 3;
+ *   im-gateway.ts 凭据回写 ×1),镜像形状与存量词法同形;收窄列族到 0 列会让判据失明,逐处补声明
+ *   又属业务代码改动(不归本门)—— 按票面同款口径"现存违规报数不判红,只拦新增":head 面
+ *   (含 --strict)只报数、永不判红(decide 签名**刻意不收** b6Violations —— 结构锁同 B4/B5,自检
+ *   B6D 钉住);staged 面走「该文件 HEAD 自身 B6 计数」差值棘轮,净新增即红(新文件锚点 0:第一个
+ *   jsonb upsert 第一次就写错必须判红)。棘轮粒度 = 文件 × 判据(无 ack 键;被覆盖的列名已在红点
+ *   字段里点名 —— 同文件换一列再覆盖 = 新增一处,照红,不存在"换列逃逸")。
+ *   **取材三档(各档有名有姓,不与既有判据的取材档混用)**:①结构(set 块定位/键/值 span)在
+ *   **全遮蔽档**(blankStrings=true)—— 注释与字符串里冒充的 onConflictDoUpdate 不进面(N 系同款);
+ *   ②形态(合并/jsonb_set)在**剥注释留字符串**档读 —— `sql`… || …::jsonb`` 的 `||`/`::jsonb` 与
+ *   `jsonb_set(` 活在模板字面量里,全遮蔽档看不见;值若为纯字符串字面量(全遮蔽档剩空白)⇒ 按整列
+ *   覆盖计,字符串冒充绿腿被这一格挡住(自检 B6g 钉住);③声明注释在**原始正文**读(键行及其上
+ *   3 行),且该 token 位置在留字符串档必须**不在**(注释在那一档被剥 ⇒ 同位置还读得到 = 它活在
+ *   字符串里,不配作声明;比 readExemptMarker 的"头查注释符"更准一道,两道都设,自检 B6s 钉住)。
+ *   三份取材 scanFileText 各算一次传下去,判据不二次 maskText(门 118/93 同一条教训)。
+ *   **面**:本维专属枚举 = SCAN_DIRS ∪ services ∪ plugins(JSONB_UPSERT_SCAN_DIRS)—— 票面阳性
+ *   站点 session-store.ts 住在 services,判据必须看得见它才能判绿;B1-B5/V1/V2 的面**一字不动**
+ *   (枚举多一个目录就是给它们添新候选,那是另一个决策)。--files 名单只作用于基础面:services/
+ *   plugins 路径经 --files 递入会按"面外"点名,但 B6 在全量面仍判它(登记,不装看不见)。
+ *   判不了格(如实登记):①"列是否真是 jsonb"靠键族词法近似(刻意**不含 value**:systemConfigs/
+ *   userPreferences 的 value 是 text 列,p3-deep-layer 的 jsonb value 无 upsert 落点,按名收族会把
+ *   6 处 KV 覆盖误判进面);族外 jsonb 列(config/context/prefs 等 HEAD 面无 upsert 覆盖落点)不进
+ *   面,扩族必须同批核对 HEAD 存量,否则恒红门(§12e);②config 非对象字面量(回调式)或无 set 键
+ *   ⇒ 不进面;③合并右值经中间变量在别处拼装 ⇒ 看不见(fail-closed:按整列覆盖计,声明通道可放行);
+ *   ④声明写在键行上方 >3 行 ⇒ 读不到;⑤jsonb_insert( 等其他路径语义函数未列绿腿 ⇒ 按整列覆盖计
+ *   (fail-closed,同 ③ 有声明通道)。
+ *
  * 两份"惯例存量"计数(可见性,不是判据 —— **永不影响退出码**):上面那两个"刻意放过"的形状此前只有
  * 注释里的一句"全仓 257 处"撑着,而那句是人肉量的,下次谁扩面/收面账面没人知道它变了多少。现由本门
  * 每次现读数并报数:
@@ -1656,6 +1697,179 @@ export function findOrderByTailKeySites(relPath, code) {
   return out
 }
 
+/* --------- B6:jsonb upsert 整列覆盖的逐列策略声明(G-815954,2026-10-07) --------- */
+
+/**
+ * B6 的面 = SCAN_DIRS ∪ services ∪ plugins(维度专属枚举;理由见头注 B6 段"面"条)。
+ * 其余判据的面一字不动 —— 扩面是它们的另一个决策。
+ */
+export const JSONB_UPSERT_SCAN_DIRS = [...SCAN_DIRS, 'apps/api/src/services', 'apps/api/src/plugins']
+
+/**
+ * jsonb 列键族(词法近似,判不了格见头注 B6 段①):票面点名的 metadata/messages + HEAD 面
+ * onConflictDoUpdate 实存写过的 jsonb 列(registry 同步快照 payload/categories/tags、im 凭据
+ * credentialsJson)。**刻意不含 value**:systemConfigs/userPreferences 的 value 是 text 列
+ * (packages/database/src/schema/system.ts / user-preferences.ts),按名收族会把 6 处 KV 覆盖
+ * 误判进面;p3-deep-layer 的 jsonb value 无 upsert 落点。族外 jsonb 列(config/context/prefs 等)
+ * 不进面 —— 扩族必须同批核对 HEAD 存量,否则恒红门(§12e)。
+ */
+export const JSONB_UPSERT_COL_RE =
+  /\b(?:metadata|messages|payload|categories|tags|credentialsJson)\b/
+
+/** 绿腿①:jsonb_set 指定路径(未点名的路径不触碰)。模板串内容只在"保留字符串"档可见。 */
+export const JSONB_SET_RE = /\bjsonb_set\s*\(/i
+/**
+ * 绿腿②:具名成员合并。`||` 只在 **sql`` 模板里**才是 SQL 侧的 jsonb 合并 —— JS 层的
+ * `x.enabled || false` 是值运算,产出整颗新值 = 整列覆盖,必须判裸覆盖。所以合并的判定
+ * = 模板标签(sql`)+ `||` 两条同时成立;`::jsonb` 尾缀可有可无(sql 侧 `||` 的两个操作数
+ * 已是 jsonb)。标签恒在值 span 开头,`||`/`::jsonb` 是模板静态文本、只在"保留字符串"档可见。
+ */
+export const JSONB_MERGE_RE = /\|\|/
+/** 具名合并的 sql 模板标签:值以 sql` 片段开头(或经成员取到),\b 防 psql 之类误咬。 */
+export const JSONB_SQL_TAG_RE = /\bsql\s*`/
+/** 红腿标记:excluded.* 整块引用(冲突行的新值整列搬入 = 覆盖,与具名合并的判定词相区分)。 */
+export const EXCLUDED_REF_RE = /\bexcluded\s*\.\s*[A-Za-z_$][\w$]*/i
+
+/**
+ * 逐列策略声明注释(整列覆盖的唯一放行通道):`<列>:全量真相`(session-store 现行写法)、
+ * `<列>:全量覆盖` 或英文别名 `<列>:full-truth`。列名由判据逐列拼入 —— 一条声明只救一列,
+ * 这就是"逐列"的结构含义。
+ */
+export const jsonbPolicyDeclRe = (col) =>
+  new RegExp(`${col}\\s*[:：]\\s*(?:全量真相|全量覆盖|full[-\\s]?truth)`)
+
+/** 声明注释的垂直窗口:键行及其上 3 行(直觉落点;更远读不到,判不了格④)。 */
+const JSONB_DECL_LOOKBACK_LINES = 3
+
+/**
+ * B6(G-815954):判据与判不了格见头注 B6 段。**棘轮专用维**:head 面(含 --strict)对 violations
+ * 只报数、永不判红 —— 拦截发生在 analyze 的 staged 差值棘轮(kind='b6');decide 签名刻意不收
+ * b6Violations(结构锁同 B4/B5)。取材三档:结构=全遮蔽档(maskedCode)、形态=留字符串档
+ * (nonBlankCode)、声明=原始正文(rawText;同位对照 nonBlankCode 挡"字符串冒充注释")。
+ * 三份正文由 scanFileText 各算一次传入,本函数不二次 maskText(§22c:取材只此一份)。
+ */
+export function findJsonbUpsertSites(relPath, rawText, maskedCode, nonBlankCode) {
+  const out = { file: relPath, candidates: [], violations: [] }
+  const re = /\.onConflictDoUpdate\s*\(/g
+  let m
+  while ((m = re.exec(maskedCode)) !== null) {
+    const open = maskedCode.indexOf('(', m.index)
+    const cfgEnd = closeParen(maskedCode, open)
+    if (cfgEnd < 0) continue
+    const cfgStart = open + 1
+    const cfg = maskedCode.slice(cfgStart, cfgEnd - 1)
+    const setM = /(?:^|[,{]\s*)set\s*:\s*\{/.exec(cfg)
+    if (!setM) continue // 判不了格②:config 无对象字面量 set 键 ⇒ 不进面
+    const setIdx = cfgStart + cfg.indexOf('{', setM.index + setM[0].length - 1)
+    const setEnd = closeBrace(maskedCode, setIdx)
+    if (setEnd < 0) continue
+    // 顶层切键(与 splitTopLevelArgs 同一套配平),但**带绝对偏移** —— 值 span 要拿去两张
+    // 遮蔽档上读同位原文,行号也要落在键上(声明注释的垂直窗口靠它)。
+    const setText = maskedCode.slice(setIdx + 1, setEnd - 1)
+    let depth = 0
+    let curStart = -1
+    const entries = []
+    for (let i = 0; i <= setText.length; i++) {
+      const c = setText[i]
+      if (i === setText.length || (c === ',' && depth === 0)) {
+        // 只在 curStart≥0(本段确有非空白内容)时出条目:末尾逗号后全空白/连续逗号时
+        // curStart 已复位 -1,若回落到 0 会把整段 setText 再推一条重复 entry(实测:
+        // `messages: …,` 带尾逗号的 set 块每键出两条,一条还是从 set 行起算的错位点)。
+        if (curStart >= 0) {
+          const seg = setText.slice(curStart, i).trim()
+          if (seg)
+            entries.push({
+              text: seg,
+              start: setIdx + 1 + curStart,
+              // **不 trim 的原始终点**:值 span 必须盖到逗号前全部字节 —— 模板串尾部的
+              // `::jsonb`/`||` 在遮蔽档是空格,按 trim 后长度切会把它们切出 span(假红)。
+              end: setIdx + 1 + i,
+            })
+        }
+        curStart = -1
+        continue
+      }
+      if (curStart < 0 && !/\s/.test(c)) curStart = i
+      if (c === '(' || c === '[' || c === '{') depth++
+      else if (c === ')' || c === ']' || c === '}') depth--
+    }
+    for (const entry of entries) {
+      const km = /^([A-Za-z_$][\w$]*)\s*:\s*/.exec(entry.text)
+      if (!km || !JSONB_UPSERT_COL_RE.test(km[1])) continue
+      const col = km[1]
+      const valStart = entry.start + km[0].length
+      const valLen = entry.end - valStart
+      const valMasked = maskedCode.slice(valStart, valStart + valLen)
+      const valNB = nonBlankCode.slice(valStart, valStart + valLen)
+      // 值为纯字符串/无插值模板字面量 ⇒ 全遮蔽档剩空白:按整列覆盖计,不给绿腿
+      // (字符串里的 `|| …::jsonb`/`jsonb_set(` 冒充不了合并 —— 自检 B6g)。
+      const isPureString = valMasked.trim() === ''
+      let form
+      if (!isPureString && JSONB_SET_RE.test(valNB)) form = 'jsonb-set'
+      else if (!isPureString && JSONB_SQL_TAG_RE.test(valNB) && JSONB_MERGE_RE.test(valNB))
+        form = 'named-merge'
+      else form = EXCLUDED_REF_RE.test(valNB) || /excluded/i.test(valMasked) ? 'excluded' : 'bare'
+      const site = {
+        file: relPath,
+        line: lineAt(maskedCode, entry.start),
+        col,
+        via: 'drizzle',
+        form,
+        setExcerpt: valNB.replace(/\s+/g, ' ').trim().slice(0, 60),
+      }
+      if (form !== 'excluded' && form !== 'bare') {
+        site.disposition = form
+        out.candidates.push(site)
+        continue
+      }
+      // 声明注释:键行及其上 3 行(原始正文)。两道锁:①token 前有注释起始符(readExemptMarker
+      // 同款头查);②该 token 的同位字符在"留字符串"档**不在** —— 注释在那一档被剥成空白,
+      // 还读得到原文 = 它活在字符串/模板里,不配作声明(自检 B6s)。
+      let declared = false
+      let lineStart = maskedCode.lastIndexOf('\n', entry.start - 1) + 1
+      for (let up = 0; up <= JSONB_DECL_LOOKBACK_LINES; up++) {
+        if (up > 0) {
+          if (lineStart <= 0) break
+          lineStart = maskedCode.lastIndexOf('\n', lineStart - 2) + 1
+        }
+        const nl = maskedCode.indexOf('\n', lineStart)
+        const lineEnd = nl < 0 ? maskedCode.length : nl
+        const rawLine = rawText.slice(lineStart, lineEnd)
+        // 逐个匹配试完一整行:键行自己的 `messages:` 会先吃掉一次匹配,
+        // 同行尾注释、上 N 行的声明都不能因此漏看。
+        const lineRe = new RegExp(jsonbPolicyDeclRe(col).source, 'g')
+        let dm
+        while ((dm = lineRe.exec(rawLine)) !== null) {
+          const abs = lineStart + dm.index
+          const tokenLen = dm[0].length
+          // 同位判档:声明 token 只活在注释里 —— 留字符串档把注释剥成空白,同位置还读得到原文
+          // = 它活在字符串/模板里,不配作声明(比头查注释符准一道;两道都设)。
+          const inString = nonBlankCode.slice(abs, abs + tokenLen) === dm[0]
+          if (/(?:^|[^\S\n])(?:\/\/|\/\*|\*)/.test(rawLine.slice(0, dm.index)) && !inString) {
+            declared = true
+            break
+          }
+        }
+        if (declared) break
+      }
+      site.declared = declared
+      if (!declared) {
+        site.disposition = 'violation'
+        site.setWhy =
+          form === 'excluded'
+            ? 'excluded 整块搬入且无逐列策略声明(须 // <列>:全量真相,或改具名成员合并/jsonb_set)'
+            : '整列覆盖且无逐列策略声明(须 // <列>:全量真相,或改具名成员合并/jsonb_set)'
+        out.violations.push(site)
+      } else {
+        site.disposition = 'declared-full-truth'
+      }
+      // 候选 ⊇ 违规(B3/B4 同款口径):绿腿与已声明的处置也在 candidates 里,--explain 可复核。
+      out.candidates.push(site)
+    }
+  }
+  return out
+}
+
 /* ------------------------------- 单文件判据 ------------------------------- */
 
 /** 纯函数:一份文件正文 → 候选与处置。自检与端到面都跑它(判据只此一份实现)。 */
@@ -1713,6 +1927,8 @@ export function scanFileText(relPath, text, opts = {}) {
     b3: { candidates: [], violations: [] },
     b4: { candidates: [], violations: [] },
     b5: { candidates: [], violations: [] },
+    // B6(G-815954)与 B3/B4/B5 同一条教训:壳必须建在 U2 提前 return 之前。
+    b6: { candidates: [], violations: [] },
   }
   if (res.leaks.length) {
     res.undetermined.push({
@@ -1795,6 +2011,9 @@ export function scanFileText(relPath, text, opts = {}) {
   res.b4 = findTerminalStateSites(relPath, code, allChains)
   // B5:orderBy 是读链,allChains(.delete/.update)结构上够不着 ⇒ 用同一遮蔽面自扫一遍(判据只此一份)。
   res.b5 = findOrderByTailKeySites(relPath, code)
+  // B6(G-815954):取材三档全部由本函数已算好的三份正文传入(结构=code 全遮蔽档、形态=nonBlank
+  // 留字符串档、声明=text 原始正文),判据不二次 maskText —— 每多一遍 mask 就是第二套取材。
+  res.b6 = findJsonbUpsertSites(relPath, text, code, nonBlank)
   // 裸 SQL 写链**解析不到**(括号配平失败)那一格:只有当同一函数体里确实有 ack 时,判据的结论
   // 才依赖它 ⇒ 记"未判定"(与 U1/U2 同档,--strict 下拒绝出合格证);体里没有 ack 的解析失败不影响
   // 任何结论,只进 rawSqlUnparsed 可见性桶(报数点名,不冒红也不静默算通过)。
@@ -1862,6 +2081,23 @@ export function listCandidates(root, face) {
     .split('\0')
     .filter(Boolean)
     .filter((p) => FILE_RE.test(p) && !SKIP_RE.test(p))
+}
+
+/**
+ * B6(G-815954)维度专属面的**增量**枚举:JSONB_UPSERT_SCAN_DIRS 里落在基础面(paths)之外的
+ * 文件(services/plugins)。清单与内容同面同轮,与 listCandidates 同一条口径(枚举走 gitRaw,
+ * 不产正文);调用方只许把这些文件的 **b6 结果**并进账,其余判据不得顺带扩面。
+ */
+export function listJsonbUpsertExtraPaths(root, face, basePathnames) {
+  const base = new Set(basePathnames)
+  const out =
+    face === 'head'
+      ? gitRaw(['ls-tree', '-r', '--name-only', '-z', 'HEAD', '--', ...JSONB_UPSERT_SCAN_DIRS], root)
+      : gitRaw(['ls-files', '-z', '--', ...JSONB_UPSERT_SCAN_DIRS], root)
+  return String(out)
+    .split('\0')
+    .filter(Boolean)
+    .filter((p) => FILE_RE.test(p) && !SKIP_RE.test(p) && !base.has(p))
 }
 
 /** 一次 `cat-file --batch` 把同一面全部候选读满(清单与内容同面同轮;取不到即抛,不回落)。 */
@@ -1969,7 +2205,19 @@ export function analyze(root, face, opts = {}) {
     throw new Undetermined(
       `--files 指定的路径没有一个落在本门覆盖面(${SCAN_DIRS.join(' / ')} · ${face} 面)⇒ 判据失效,不计通过(名单:${[...only].join(', ')})`,
     )
-  const per = scanFaceBundle(root, face, scanned, texts, listFacePaths(root, face))
+  const facePaths = listFacePaths(root, face)
+  const per = scanFaceBundle(root, face, scanned, texts, facePaths)
+  // B6(G-815954)专属面增量:JSONB_UPSERT_SCAN_DIRS 比基础面(SCAN_DIRS)多出的 services/plugins
+  // 文件只产 **b6** 结果(头注 B6 段)—— 其余判据不得顺带扩面,所以单独成一份 per、只取它的 b6 键。
+  // --files 定点跑不扩面:名单外的文件一个都不碰(与 outsideScopePaths 同一条纪律)。
+  // base 必须是**基础面枚举(paths)**,不是 facePaths —— listFacePaths 是 B2 取被调用的宽面
+  // (整个 API_SRC_DIR,含 services),拿它当 base 会把 services/plugins 全部过滤掉,专属维
+  // 在 analyze 里整面失明(镜像测试 G-815954 CLI 专属面抓到,棘轮侧 L235x 传 headSet 是对的)。
+  const b6ExtraPaths = only ? [] : listJsonbUpsertExtraPaths(root, face, paths)
+  const b6ExtraTexts = readCandidates(root, face, b6ExtraPaths)
+  const b6OnlyPer = b6ExtraPaths.map((p) =>
+    scanFileText(p, b6ExtraTexts.get(p), { knownPaths: facePaths }),
+  )
   const violations = per.flatMap((r) => r.violations)
   const undetermined = per.flatMap((r) => r.undetermined)
   const b1Violations = per.flatMap((r) => r.b1.violations)
@@ -1980,6 +2228,8 @@ export function analyze(root, face, opts = {}) {
   const b3Violations = per.flatMap((r) => r.b3.violations)
   const b4Violations = per.flatMap((r) => r.b4.violations)
   const b5Violations = per.flatMap((r) => r.b5.violations)
+  // B6(G-815954)的聚合:基础面(per)∪ 专属面增量(b6OnlyPer),两处各算各的、此处只做拼接。
+  const b6Violations = [...per, ...b6OnlyPer].flatMap((r) => r.b6.violations)
   const exempt = ['returning', 'db', 'outlet', 'marker'].reduce(
     (a, k) => ({ ...a, [k]: per.reduce((x, r) => x + r.exempt[k], 0) }),
     {},
@@ -2027,6 +2277,10 @@ export function analyze(root, face, opts = {}) {
     b5Candidates: per.reduce((a, r) => a + r.b5.candidates.length, 0),
     b5Violations: b5Violations.length,
     b5Files: per.filter((r) => r.b5.violations.length > 0).length,
+    // B6(G-815954)自己的键:追加在 b5* 之后,一字不并入既有数(面 = 基础面 ∪ B6 专属面增量)。
+    b6Candidates: [...per, ...b6OnlyPer].reduce((a, r) => a + r.b6.candidates.length, 0),
+    b6Violations: b6Violations.length,
+    b6Files: new Set(b6Violations.map((v) => v.file)).size,
     // 2026-09-27 追加在**最末尾**:布尔 ack 按键分组的现读数(五键恒在位,含 0)。
     // 语义变化必须如实说:`booleanAckSites` / `booleanAckFiles` 自本批改用**键族五键**计数,
     // 所以这两个数的口径比扩面前宽(扩面前只有 `deleted`)—— 它们仍**不参与任何退出码**(X1/R7/R8/M13
@@ -2064,7 +2318,8 @@ export function analyze(root, face, opts = {}) {
       b2Violations.length ||
       b3Violations.length ||
       b4Violations.length ||
-      b5Violations.length)
+      b5Violations.length ||
+      b6Violations.length)
   ) {
     const bucketBy = (list) => {
       const m = new Map()
@@ -2080,6 +2335,7 @@ export function analyze(root, face, opts = {}) {
     const b3ByFile = bucketBy(b3Violations)
     const b4ByFile = bucketBy(b4Violations)
     const b5ByFile = bucketBy(b5Violations)
+    const b6ByFile = bucketBy(b6Violations)
     const files = [
       ...new Set(
         [
@@ -2089,11 +2345,20 @@ export function analyze(root, face, opts = {}) {
           ...b3ByFile.keys(),
           ...b4ByFile.keys(),
           ...b5ByFile.keys(),
+          ...b6ByFile.keys(),
         ].map((k) => k.split('\u0000')[0]),
       ),
     ]
     const headSet = new Set(listCandidates(root, 'head'))
-    const need = files.filter((p) => headSet.has(p))
+    // B6 专属面文件的 HEAD 锚点面:这些文件(services/plugins)不在 headSet,若直接拿 headSet 判存在,
+    // 锚点会错落成 0 ⇒ services 里一笔 HEAD 既有违规在 staged 持平也判红(恒红门同罪)。所以 B6 的
+    // 存在性判定用并集,且这些文件必须真的进 headPer 扫描(取不到即判死,不拿 0 顶替);只有 b6 桶
+    // 非空才多跑这一次 HEAD 枚举。
+    const b6HeadFaceSet = new Set([
+      ...headSet,
+      ...(b6ByFile.size ? listJsonbUpsertExtraPaths(root, 'head', [...headSet]) : []),
+    ])
+    const need = files.filter((p) => b6HeadFaceSet.has(p))
     // B2 的锚点必须也在 HEAD 面把那一跳读完:索引面的 ack 数与 HEAD 面的 ack 数若各自用**自己那一面**
     // 的被调正文,才是"同一把尺子在两个面上量出两个基准"的正解(反之混用就是自洽却错位的尺子)。
     const headPer = need.length
@@ -2113,11 +2378,14 @@ export function analyze(root, face, opts = {}) {
     const headB3By = bucketBy(headPer.flatMap((r) => r.b3.violations))
     const headB4By = bucketBy(headPer.flatMap((r) => r.b4.violations))
     const headB5By = bucketBy(headPer.flatMap((r) => r.b5.violations))
+    const headB6By = bucketBy(headPer.flatMap((r) => r.b6.violations))
     ratcheted = []
-    const pushRatchet = (bucket, headBucket, compositeKey, kind) => {
+    // faceSet:该判据的 HEAD **存在性面**(锚点=0 只该发生在"HEAD 里根本没有这个文件"时)。
+    // 其余判据传空走 headSet;B6 传 b6HeadFaceSet(专属面文件在 headSet 之外)。
+    const pushRatchet = (bucket, headBucket, compositeKey, kind, faceSet) => {
       const [file, key] = compositeKey.split('\u0000')
       let anchor = 0
-      if (headSet.has(file)) {
+      if ((faceSet || headSet).has(file)) {
         if (!headByFile.get(file))
           throw new Undetermined(`HEAD 取不到棘轮锚点文件 ${file} ⇒ 无法判定(不回落、不拿 0 顶替)`)
         anchor = headBucket.get(compositeKey) || 0
@@ -2132,6 +2400,7 @@ export function analyze(root, face, opts = {}) {
     for (const k of b3ByFile.keys()) pushRatchet(b3ByFile, headB3By, k, 'b3')
     for (const k of b4ByFile.keys()) pushRatchet(b4ByFile, headB4By, k, 'b4')
     for (const k of b5ByFile.keys()) pushRatchet(b5ByFile, headB5By, k, 'b5')
+    for (const k of b6ByFile.keys()) pushRatchet(b6ByFile, headB6By, k, 'b6', b6HeadFaceSet)
   }
   const exit = decide({
     face,
@@ -2144,9 +2413,9 @@ export function analyze(root, face, opts = {}) {
     b2Violations,
     b2Undetermined,
     // b3Violations 进 decide(--strict 全量判红,B1/B2 同档);
-    // b4Violations / b5Violations **刻意不传** —— 棘轮专用维,head 面(含 --strict)只报数不判红
-    // (头注 B4/B5 段),"签名即判据"的结构锁:谁想把 B4/B5 接进 --strict,必须先改 decide 签名并
-    // 推翻票面拍板。
+    // b4Violations / b5Violations / b6Violations **刻意不传** —— 棘轮专用维,head 面(含 --strict)
+    // 只报数不判红(头注 B4/B5/B6 段),"签名即判据"的结构锁:谁想把 B4/B5/B6 接进 --strict,必须先
+    // 改 decide 签名并推翻票面拍板。
     b3Violations,
   })
   return {
@@ -2166,6 +2435,9 @@ export function analyze(root, face, opts = {}) {
     b3Violations,
     b4Violations,
     b5Violations,
+    b6Violations,
+    // B6 专属面增量单独成一份(per 不并入 —— 其余判据不得顺带扩面);--explain 消费它。
+    b6OnlyPer,
   }
 }
 
@@ -2180,7 +2452,8 @@ export function analyze(root, face, opts = {}) {
  * 只拦新增"),拦截发生在 staged 的 ratcheted(kind='b4'),head 面(含 --strict)只报数 —— 把 B4 接进
  * --strict 必须先改本签名,那是一步显式动作而不是顺手一个 `||`。**B5 同构(G-815955)**:排序无尾键
  * 同为棘轮专用维,decide 签名同样刻意不收 b5Violations(头注 B5 段),拦截只走 staged 的
- * ratcheted(kind='b5')。而两份**惯例存量**计数
+ * ratcheted(kind='b5')。**B6 再同构(G-815954)**:jsonb 整列覆盖无声明同为棘轮专用维,签名刻意不收
+ * b6Violations(头注 B6 段),拦截只走 staged 的 ratcheted(kind='b6')。而两份**惯例存量**计数
  * (booleanAck* / readQueryCount*)**依旧刻意不在参数里**,所以"把可见性计数接进退出码"这一改法
  * 在结构上就要求改签名,而那一步由 self-test 的 X1/X1b + 镜像 M13 判红(惯例存量是**决策依据**不是**债**)。
  */
@@ -2231,6 +2504,7 @@ export function formatReport(out) {
   const b3v = out.b3Violations || []
   const b4v = out.b4Violations || []
   const b5v = out.b5Violations || []
+  const b6v = out.b6Violations || []
   if (out.ratcheted && out.ratcheted.length) {
     const nLegacy = out.ratcheted.filter((r) => (r.kind || 'count') === 'count').length
     const nB1 = out.ratcheted.filter((r) => r.kind === 'b1').length
@@ -2238,12 +2512,13 @@ export function formatReport(out) {
     const nB3 = out.ratcheted.filter((r) => r.kind === 'b3').length
     const nB4 = out.ratcheted.filter((r) => r.kind === 'b4').length
     const nB5 = out.ratcheted.filter((r) => r.kind === 'b5').length
+    const nB6 = out.ratcheted.filter((r) => r.kind === 'b6').length
     L.push(
-      `❌ 判红:${out.ratcheted.length} 条净新增越线(按 文件×判据;计数自算 ${nLegacy} · B1 假 ack ${nB1} · B2 委托假 ack ${nB2} · B3 回填无界 ${nB3} · B4 终态回退 ${nB4} · B5 排序无尾键 ${nB5};锚点 = 该文件 HEAD 自身同判据计数)`,
+      `❌ 判红:${out.ratcheted.length} 条净新增越线(按 文件×判据;计数自算 ${nLegacy} · B1 假 ack ${nB1} · B2 委托假 ack ${nB2} · B3 回填无界 ${nB3} · B4 终态回退 ${nB4} · B5 排序无尾键 ${nB5} · B6 jsonb 无声明 ${nB6};锚点 = 该文件 HEAD 自身同判据计数)`,
     )
     for (const r of out.ratcheted)
       L.push(
-        `   [${{ b1: 'B1假ack', b2: 'B2委托假ack', b3: 'B3回填无界', b4: 'B4终态回退', b5: 'B5排序无尾键' }[r.kind] || '计数自算'}] ${r.file}${r.key ? `〈ack 键 ${r.key}〉` : ''}:索引 ${r.now} 处 > HEAD ${r.anchor} 处 ⇒ 净新增 ${r.added} 处`,
+        `   [${{ b1: 'B1假ack', b2: 'B2委托假ack', b3: 'B3回填无界', b4: 'B4终态回退', b5: 'B5排序无尾键', b6: 'B6jsonb无声明' }[r.kind] || '计数自算'}] ${r.file}${r.key ? `〈ack 键 ${r.key}〉` : ''}:索引 ${r.now} 处 > HEAD ${r.anchor} 处 ⇒ 净新增 ${r.added} 处`,
       )
     if (nLegacy) {
       L.push(
@@ -2294,9 +2569,17 @@ export function formatReport(out) {
         '   尾键最后一键必须是能唯一定位行的列(主键/唯一列),同值行才不会在两次查询间换座位;这一维按票面拍板只拦新增。',
       )
     }
+    if (nB6) {
+      L.push(
+        '   B6 修法:改具名成员合并(sql`<列> || ${具名成员}::jsonb`)或 jsonb_set 指定路径;',
+      )
+      L.push(
+        '   确为全量真相(内存态即完整转写)的整列覆盖,在 set 键同行或上 3 行内写逐列声明注释 `// <列>:全量真相 —— <理由>`;这一维按票面拍板只拦新增。',
+      )
+    }
   } else if (out.face === 'staged')
     L.push(
-      '✅ 索引面未见新增"批量写自算计数 / B1 假 ack / B2 委托假 ack / B3 回填无界 / B4 终态回退 / B5 排序无尾键"(存量按各文件 HEAD 自身计数豁免,不代裁)。',
+      '✅ 索引面未见新增"批量写自算计数 / B1 假 ack / B2 委托假 ack / B3 回填无界 / B4 终态回退 / B5 排序无尾键 / B6 jsonb 整列覆盖无声明"(存量按各文件 HEAD 自身计数豁免,不代裁)。',
     )
   if (out.face !== 'staged' && c.violations) {
     L.push(
@@ -2360,6 +2643,18 @@ export function formatReport(out) {
       )
     if (c.b5Violations > 40) L.push(`   …另 ${c.b5Violations - 40} 处(--explain 看全量)`)
   }
+  // B6 是**棘轮专用维**(G-815954,与 B4/B5 同档):head 面含 --strict 一律 ⚠️ 只报数 —— 这一行永远
+  // 不出 ❌,拦截只发生在 staged 差值棘轮(kind='b6')。措辞里必须把这句话喊出来。
+  if (out.face !== 'staged' && c.b6Violations) {
+    L.push(
+      `⚠️ 全量档现读 B6 jsonb 整列覆盖无声明 ${c.b6Violations} 处 / ${c.b6Files} 文件(onConflictDoUpdate set 写 jsonb 列而既非具名成员合并、非 jsonb_set 指定路径,又无逐列"全量真相"声明)—— **只报数不判红(--strict 也不判)**:票面拍板"现存违规报数不判红,只拦新增",提交链走差值棘轮,净新增即红;面内共 ${c.b6Candidates ?? 0} 处、其中具名合并/jsonb_set/带声明而放过 ${c.b6Candidates != null ? c.b6Candidates - c.b6Violations : 0} 处`,
+    )
+    for (const v of b6v.slice(0, 40))
+      L.push(
+        `   ${v.file}:${v.line}  (set→${v.setExcerpt} ⇒ ${v.setWhy || v.disposition})(只拦新增,不进 --strict)`,
+      )
+    if (c.b6Violations > 40) L.push(`   …另 ${c.b6Violations - 40} 处(--explain 看全量)`)
+  }
   if (c.undetermined) {
     L.push(`⚠️ 未判定 ${c.undetermined} 处 —— **未判定不等于通过**,下列每一处本门都承认自己看不见:`)
     for (const u of out.undetermined.slice(0, 40)) L.push(`   ${u.file}:${u.line}  ${u.why}`)
@@ -2395,10 +2690,11 @@ export function formatReport(out) {
     !c.b2Undetermined &&
     !c.b3Violations &&
     !c.b4Violations &&
-    !c.b5Violations
+    !c.b5Violations &&
+    !c.b6Violations
   )
     L.push(
-      '✅ 通过:覆盖面内无自算计数、无 B1/B2 假 ack、无 B3 回填无界、无 B4 终态回退、无 B5 排序无尾键,且无未判定项。',
+      '✅ 通过:覆盖面内无自算计数、无 B1/B2 假 ack、无 B3 回填无界、无 B4 终态回退、无 B5 排序无尾键、无 B6 jsonb 整列覆盖无声明,且无未判定项。',
     )
   if (
     out.face === 'staged' &&
@@ -2440,6 +2736,9 @@ export function formatReport(out) {
       // B5(G-815955)与 B4 同构:现读点名 + 把"只拦新增"喊出来。
       `;B5 排序无尾键(判据:违规 ${c.b5Violations ?? 0} 处 / ${c.b5Files ?? 0} 文件,` +
       `候选 ${c.b5Candidates ?? 0};只报数不进 --strict,票面拍板只拦新增,提交链差值棘轮)` +
+      // B6(G-815954)与 B4/B5 同构:现读点名 + 把"只拦新增"喊出来(0 也照喊,"0 处 ≠ 没扫过")。
+      `;B6 jsonb 无声明(判据:违规 ${c.b6Violations ?? 0} 处 / ${c.b6Files ?? 0} 文件,` +
+      `候选 ${c.b6Candidates ?? 0};只报数不进 --strict,票面拍板只拦新增,提交链差值棘轮)` +
       // 逐键点名(2026-09-27):扩键族后"合计 12 处"这句话什么都没说 —— 新那一族可能一处都没有,
       // 也可能全是新那一族。含 0 也照喊,理由与 B1/B2 段同一句("0 处 ≠ 没扫过")。
       // 表由 BOOL_ACK_KEYS 派生:**报表漏键在这里结构上不可能发生**,自检 K0 再用一份独立写死的
@@ -2475,9 +2774,16 @@ const USAGE = `用法: node scripts/${GATE}.mjs [--staged|--worktree] [--strict]
     判不了格如实登记:键经变量/展开传入 ⇒ 不进面;sql\`…\` 模板 ⇒ 遮蔽面读不到,不进面;
     裸 SQL 的 SELECT…ORDER BY 不进池(findRawSqlWriteChains 只认写动词锚);列唯一性是语义问题,词法只认列名族
     **head 面(含 --strict)只报数不判红**(decide 签名刻意不收 b5Violations);staged 差值棘轮净新增即红
+  判据七(B6 jsonb 整列覆盖无声明,2026-10-07 G-815954,**棘轮专用维,与 B4/B5 同构**):onConflictDoUpdate
+    的 set 写 jsonb 列键族(metadata/messages/payload/categories/tags/credentialsJson)而值既非具名成员合并
+    (sql\`… || \${具名}::jsonb\`)、非 jsonb_set 指定路径,又无 \`// <列>:全量真相\` 逐列声明注释 ⇒ 违规
+    放过:具名成员合并 / jsonb_set( / 键行或上 3 行内的全量真相声明(声明必须活在注释里,字符串同形不算;注释写法 \`// <列>:全量真相 —— <理由>\`)
+    判不了格如实登记:config 非对象字面量/值经变量拼装/声明超 3 行窗/jsonb_insert 未列绿腿 ⇒ 不进面
+    扫描面 = 基础面 ∪ services/plugins(其余判据不随此扩面);**head 面(含 --strict)只报数不判红**
+    (decide 签名刻意不收 b6Violations);staged 差值棘轮净新增即红
   只报数不判红(现读惯例存量,写在结论行):布尔 ack(五键按键分组现读,无写链的那一半)与读查询 \`count: X.length\`;--explain 逐条点名
-  六条判据的存量都按「该文件 HEAD 自身同判据计数」差值棘轮:全量档只报数(恒红门=逼人 --no-verify,§12e),
-  提交链档与 --strict 才问责(B4/B5 例外:全量档含 --strict 都只报数,只拦新增)。
+  七条判据的存量都按「该文件 HEAD 自身同判据计数」差值棘轮:全量档只报数(恒红门=逼人 --no-verify,§12e),
+  提交链档与 --strict 才问责(B4/B5/B6 例外:全量档含 --strict 都只报数,只拦新增)。
   紧急跳过:${SELF_SKIP}=1`
 
 function main(argv) {
@@ -2566,6 +2872,13 @@ function main(argv) {
         console.log(
           `  · B5排序 ${s.file}:${s.line} orderBy→${s.orderByExcerpt} ⇒ ${s.disposition}${s.orderByWhy ? ` (${s.orderByWhy})` : ''}(只拦新增,不进 --strict)`,
         )
+    // B6 的逐条处置:候选含"绿"的处置(具名合并/jsonb_set/声明),且**必须带上专属面增量**
+    // (b6OnlyPer 的 services/plugins 文件不在 out.per,漏掉它们 = --explain 复核入口对 B6 失明)。
+    for (const r of [...out.per, ...(out.b6OnlyPer || [])])
+      for (const s of r.b6.candidates)
+        console.log(
+          `  · B6jsonb ${s.file}:${s.line} set→${s.setExcerpt} ⇒ ${s.disposition}${s.setWhy ? ` (${s.setWhy})` : ''}(只拦新增,不进 --strict)`,
+        )
   }
   if (argv.includes('--json')) {
     console.log(
@@ -2587,10 +2900,11 @@ function main(argv) {
           b1NoBody: out.b1NoBody,
           b2Violations: out.b2Violations,
           b2Undetermined: out.b2Undetermined,
-          // G-815953/G-815956/G-815955:继续**追加在末尾**(镜像 M10/M18 同一条契约 —— 只追加不改写)。
+          // G-815953/G-815956/G-815955/G-815954:继续**追加在末尾**(镜像 M10/M18 同一条契约 —— 只追加不改写)。
           b3Violations: out.b3Violations,
           b4Violations: out.b4Violations,
           b5Violations: out.b5Violations,
+          b6Violations: out.b6Violations,
         },
         null,
         2,
@@ -2937,6 +3251,98 @@ const FIX = {
     '  await db.select().from(t).orderBy(sortCol)',
     '  await db.select().from(t).orderBy(sql`sort_order asc`)',
     '  await db.select().from(t).orderBy(asc(t.name))',
+    '}',
+    '',
+  ].join('\n'),
+  // ---- B6(G-815954)夹具:jsonb 整列覆盖无声明的正反例(判据七,棘轮专用维与 B4/B5 同构)----
+  /** 红腿(票面"整块 excluded ⇒ 红"的镜像形状):EXCLUDED.* 整列搬入 —— 别的写入方的具名成员被整笔吃掉。 */
+  b6ExcludedBare: [
+    'import { sql } from "drizzle-orm"',
+    'export async function upsertThing(row: NewThing) {',
+    '  await db.insert(things).values(row).onConflictDoUpdate({',
+    '    target: things.id,',
+    '    set: { payload: sql`EXCLUDED.payload` },',
+    '  })',
+    '}',
+    '',
+  ].join('\n'),
+  /** 绿腿:jsonb_set 指定路径(票面正例;`jsonb_set(` 在模板串静态段,只在"留字符串"档可见)。 */
+  b6JsonbSet: [
+    'import { sql } from "drizzle-orm"',
+    'export async function touchThing(id: string, flag: boolean) {',
+    '  await db.insert(things).values({ id }).onConflictDoUpdate({',
+    '    target: things.id,',
+    "    set: { payload: sql`jsonb_set(${things.payload}, '{a}', ${flag}::jsonb)` },",
+    '  })',
+    '}',
+    '',
+  ].join('\n'),
+  /** 绿腿:具名成员合并(票面正例;`||`/`::jsonb` 都是模板串静态文本,只在"留字符串"档可见)。 */
+  b6NamedMerge: [
+    'import { sql } from "drizzle-orm"',
+    'export async function mergeThing(id: string, patch: Record<string, unknown>) {',
+    '  await db.insert(things).values({ id }).onConflictDoUpdate({',
+    '    target: things.id,',
+    '    set: { metadata: sql`${things.metadata} || ${JSON.stringify(patch)}::jsonb` },',
+    '  })',
+    '}',
+    '',
+  ].join('\n'),
+  /** 绿腿:整列覆盖 + **逐列**声明注释(键行上一行;session-store 现行写法)。 */
+  b6FullDeclared: [
+    'export async function persistSession(session: AgentSession) {',
+    '  await db.insert(agentRuntimeSessions).values(session).onConflictDoUpdate({',
+    '    target: agentRuntimeSessions.id,',
+    '    set: {',
+    '      // messages:全量真相 —— 内存态即完整转写,整列落盘。',
+    '      messages: session.context.messages,',
+    '    },',
+    '  })',
+    '}',
+    '',
+  ].join('\n'),
+  /** 变异对照:上一条**删掉声明注释** ⇒ 必须转红 —— 逐列声明是整列覆盖的唯一放行通道。 */
+  b6FullNoDecl: [
+    'export async function persistSession(session: AgentSession) {',
+    '  await db.insert(agentRuntimeSessions).values(session).onConflictDoUpdate({',
+    '    target: agentRuntimeSessions.id,',
+    '    set: {',
+    '      messages: session.context.messages,',
+    '    },',
+    '  })',
+    '}',
+    '',
+  ].join('\n'),
+  /** 冒充钉子 B6g:纯字符串值里带 `|| …::jsonb` —— 遮蔽档剩空白,冒充不了合并,照红。 */
+  b6StringMerge: [
+    'import { db } from "./db.js"',
+    'export async function upsertKv(key: string) {',
+    '  await db.insert(kv).values({ key }).onConflictDoUpdate({',
+    '    target: kv.key,',
+    '    set: { metadata: "x || y::jsonb" },',
+    '  })',
+    '}',
+    '',
+  ].join('\n'),
+  /** JS 层 `||` 钉子:值运算是 JS 逻辑或、产出整颗新值 = 整列覆盖(无 sql` 标签 ⇒ 非合并),照红。 */
+  b6JsOr: [
+    'import { db } from "./db.js"',
+    'export async function upsertFlag(id: string, enabled: boolean) {',
+    '  await db.insert(things).values({ id }).onConflictDoUpdate({',
+    '    target: things.id,',
+    '    set: { metadata: enabled || false },',
+    '  })',
+    '}',
+    '',
+  ].join('\n'),
+  /** 冒充钉子 B6s:声明字样活在**字符串值**里 ⇒ 同位判档(留字符串档同位读得到)+ 无注释符,拒绝,照红。 */
+  b6StringDecl: [
+    'import { db } from "./db.js"',
+    'export async function upsertKv(key: string) {',
+    '  await db.insert(kv).values({ key }).onConflictDoUpdate({',
+    '    target: kv.key,',
+    '    set: { messages: "messages:全量真相 —— 完整转写" },',
+    '  })',
     '}',
     '',
   ].join('\n'),
@@ -4211,6 +4617,133 @@ function selfTest(argv) {
     })(),
     [true, true, true],
   )
+  // ---- B6(G-815954,2026-10-07):jsonb 整列覆盖无声明。二元组 = [b6候选, b6违规]。
+  //      判据/常量一律取模块导出(§22c),棘轮专用维与 B4/B5 同构。----
+  const b6v = (t) => {
+    const r = v(t)
+    return [r.b6.candidates.length, r.b6.violations.length]
+  }
+  eq('B6 整块 excluded ⇒ 违规 1(票面正反成对的红腿)', b6v(FIX.b6ExcludedBare), [1, 1])
+  eq('B6b jsonb_set 指定路径 ⇒ 放过(候选 1 违规 0,处置 jsonb-set)', b6v(FIX.b6JsonbSet), [1, 0])
+  eq('B6c 具名成员合并(sql`… || …::jsonb`)⇒ 放过(票面正例形态)', b6v(FIX.b6NamedMerge), [1, 0])
+  eq(
+    'B6d 整列覆盖 + 逐列"全量真相"声明 ⇒ 放过(session-store 现行写法,声明在键行上一行)',
+    b6v(FIX.b6FullDeclared),
+    [1, 0],
+  )
+  eq(
+    'B6e 变异对照:B6d 删掉声明注释 ⇒ 必须转红(逐列声明是整列覆盖的唯一放行通道)',
+    b6v(FIX.b6FullNoDecl),
+    [1, 1],
+  )
+  eq(
+    'B6g 字符串冒充绿腿:纯串值里带 `|| …::jsonb` ⇒ 遮蔽档剩空白,冒充不了合并,照红',
+    b6v(FIX.b6StringMerge),
+    [1, 1],
+  )
+  eq(
+    'B6h JS 层 `||` 是值运算不是 SQL 合并(无 sql` 标签)⇒ 裸覆盖,无声明照红',
+    b6v(FIX.b6JsOr),
+    [1, 1],
+  )
+  eq(
+    'B6s 字符串冒充声明:声明字样活在串值里 ⇒ 同位判档拒绝,照红',
+    b6v(FIX.b6StringDecl),
+    [1, 1],
+  )
+  eq(
+    'B6i 红点形态:col/via/form/setExcerpt/setWhy 齐备(镜像测试按字段复核);excluded 与 bare 的 why 各说各话',
+    (() => {
+      const ex = v(FIX.b6ExcludedBare).b6.violations[0]
+      const bare = v(FIX.b6FullNoDecl).b6.violations[0]
+      return [
+        [
+          ex.col,
+          ex.via,
+          ex.form,
+          ex.setExcerpt.includes('EXCLUDED.payload'),
+          /excluded 整块搬入/.test(ex.setWhy || ''),
+        ],
+        [bare.col, bare.form, /整列覆盖/.test(bare.setWhy || '')],
+      ]
+    })(),
+    [
+      ['payload', 'drizzle', 'excluded', true, true],
+      ['messages', 'bare', true],
+    ],
+  )
+  eq(
+    'B6D decide:B6 刻意**不在签名里** —— head+strict 即便有 B6 存量也不判红(与 B4/B5 同构,棘轮专用维);staged 净新增经 ratcheted(kind=b6)照红',
+    [
+      D({ face: 'head', violations: [], undetermined: [], ratcheted: null, strict: true }),
+      D({
+        face: 'staged',
+        violations: [],
+        undetermined: [],
+        ratcheted: [{ file: 'a.ts', kind: 'b6', now: 1, anchor: 0, added: 1 }],
+        strict: false,
+      }),
+    ],
+    [0, 1],
+  )
+  eq(
+    'B6fmt 报告面:B6 行**永远 ⚠️ 只报数**(strict 也不许出 ❌);棘红块 kind 分列点名 B6;结论行 0 也照喊',
+    (() => {
+      const t1 = formatReport({
+        face: 'head',
+        strict: true,
+        ratcheted: null,
+        violations: [],
+        undetermined: [],
+        exempt: { returning: 0, db: 0, outlet: 0, marker: 0 },
+        b1Violations: [],
+        b2Violations: [],
+        b2Undetermined: [],
+        b3Violations: [],
+        b4Violations: [],
+        b5Violations: [],
+        b6Violations: [
+          {
+            file: 'apps/api/src/db/x.ts',
+            line: 9,
+            col: 'payload',
+            via: 'drizzle',
+            form: 'excluded',
+            setExcerpt: 'sql`EXCLUDED.payload`',
+            setWhy: 'excluded 整块搬入且无逐列策略声明',
+          },
+        ],
+        counts: { ...BASE_COUNTS, b6Violations: 1, b6Files: 1, b6Candidates: 1 },
+      }).join('\n')
+      const t2 = formatReport({
+        face: 'staged',
+        strict: false,
+        ratcheted: [{ file: 'c.ts', kind: 'b6', now: 1, anchor: 0, added: 1 }],
+        violations: [],
+        undetermined: [],
+        exempt: { returning: 0, db: 0, outlet: 0, marker: 0 },
+        counts: BASE_COUNTS,
+      }).join('\n')
+      const t3 = formatReport({
+        face: 'head',
+        strict: false,
+        ratcheted: null,
+        violations: [],
+        undetermined: [],
+        exempt: { returning: 0, db: 0, outlet: 0, marker: 0 },
+        counts: BASE_COUNTS,
+      }).join('\n')
+      return [
+        /B6 jsonb 整列覆盖无声明 1 处 \/ 1 文件/.test(t1) &&
+          /只报数不判红/.test(t1) &&
+          !/❌/.test(t1) &&
+          !/✅ 通过/.test(t1),
+        t2.includes('[B6jsonb无声明] c.ts') && /B6 jsonb 无声明 1/.test(t2),
+        /B6 jsonb 无声明\(判据:违规 0 处 \/ 0 文件,候选 0;只报数不进 --strict/.test(t3),
+      ]
+    })(),
+    [true, true, true],
+  )
   eq(
     'S1 词法未闭合 ⇒ 整文件未判定(U2)',
     (() => {
@@ -4637,5 +5170,16 @@ export const __test__ = {
   STATE_LITERAL_KEY_RE,
   RISKY_ORDER_COL_RE,
   ORDER_SINGLE_KEY_RE,
+  // B6(G-815954)同族:判据函数、键族、绿腿/红腿判词、专属面枚举与声明判词工厂都从这里取 ——
+  // 测试里再抄一份 jsonb 键族或声明正则,就成了第二真相(§22c)。
+  findJsonbUpsertSites,
+  JSONB_UPSERT_SCAN_DIRS,
+  JSONB_UPSERT_COL_RE,
+  JSONB_SET_RE,
+  JSONB_MERGE_RE,
+  JSONB_SQL_TAG_RE,
+  EXCLUDED_REF_RE,
+  jsonbPolicyDeclRe,
+  listJsonbUpsertExtraPaths,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
