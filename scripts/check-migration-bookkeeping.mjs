@@ -51,6 +51,35 @@
  *     B8 max(created_at) == max(when)(migrate「不空转」的充要条件)
  *     B9 库内每行 hash 均为合法 sha256(64 位十六进制)且唯一 —— 防再现 2026-09-13 的
  *        污染形态(453 行中含 153 个重复 hash 与 `NOFILE:` / `manual_` 伪值)
+ *     B11 **已应用迁移的内容不可变对账(G-657:判定只认锁内重读的那份账本)**
+ *        立因:drizzle 记进 `__drizzle_migrations.hash` 的是 `sha256(整份 .sql 原文)`
+ *        (`drizzle-orm/migrator.js:23` —— 读文件全文、不切 statement-breakpoint、不改换行),
+ *        所以"某枚已应用的迁移后来被改过"这件事**只有拿这一列对内容才算判过**。B6~B9 只核
+ *        行数 / 时间戳集合 / hash 的形状与唯一性,**一条都不看内容** —— 账目结构合法而内容被
+ *        逐字改写,今天整套判据全绿。
+ *        三条不可漂的写法(本票的增量就住在第 ② 条):
+ *          ① 判定基准取**当前判定面**的那一份正文(head ⇒ HEAD blob / staged ⇒ 索引 blob /
+ *             worktree ⇒ 磁盘),与 B1~B5 同面同轮,不得混面;
+ *          ② 账本必须在**一个带行锁的事务里重读**(`SELECT … FOR UPDATE` 连读两次),
+ *             判据只认锁内那一份;事务外预检(= B6~B9 读的那次)与锁内不同形时**必须明写预检作废**,
+ *             锁内两次不同形 ⇒ 整维判「未判定」—— 那说明账本正在被人写,此时任何结论都是猜的。
+ *             为什么"只在事务外预检"不够:预检与判定之间账本可能已经被 deploy 推进,结论对着
+ *             一份已经不存在的账本打分,而账面读起来像"刚查过";
+ *          ③ 不中集合必须逐枚去**相邻版本**(索引 / HEAD / HEAD^ / 磁盘)作证:某一枚相邻版本的
+ *             内容(原文,或**剥掉水印结构行**之后)的 sha256 恰等于账本 hash ⇒ 记账内容今天仍找得回来,
+ *             而当前判定面与它不同 ⇒ 这就是"已应用迁移被改过",判红 `checksum_mismatch`。
+ *             找不到任何作证份时按正文**有没有水印痕迹**分档:有痕迹 ⇒ 记档那份字节已被零宽水印改写、
+ *             当前面无从还原 ⇒ 落「无从归因」(**逐条点名、不计合规、`--strict` 拒绝出合格证**);
+ *             无痕迹 ⇒ 没有借口,判红。
+ *        为什么不把"不中"一律判红(本仓最高频自伤是恒红门,AGENTS §12e):2026-10-01 实测真库
+ *        账本 286 行 / journal 303 条,逐枚比 sha256 的命中拆成
+ *        **原样中 133 / 不中 152**;而 152 枚不中里,拿四种正文形态(判定面原文、剥水印结构、
+ *        只去零宽、剥水印+只去零宽)加相邻版本**一列都配不上** ⇒ 若直接判红,`--db` 面就是
+ *        与任何提交都无关的恒红,唯一结局是这台机每次跑 `--db` 都被迫忽略它。
+ *        数字一律当次现读(`--json` 的 `b11.states`),不得照本行派单。
+ *        已知判不了的一格(如实登记,不得读成已覆盖):作证份只取**相邻版本**,更早的历史版本不作证
+ *        —— 若有人改完还把它 commit 了多次,本判据会落「无从归因」而不是红(全史扫描另计一票);
+ *        `journal 有条目而账本没有行`的那 18 枚属 B6/B7 的地盘,本维**不判**但仍报数。
  *   旁路(warn 级,**不并入 B1-B5 的判红面**,也不改它们的退出码):
  *     B10 journal 登记表当前是否「无人 in flight」—— 报五路径( journal / 两张 schema /
  *        api 的 chat 路由与查询 )的 git 状态(已暂存 / 仅工作树脏 / 干净),以及
@@ -72,6 +101,13 @@
  *        psql 取自 $IHUI_PSQL,否则 D:\DevEnv\runtimes\pgsql\bin\psql.exe,否则 PATH 上的 psql)
  *       说明:B6~B9 比对的是**库内实时状态**(那是被审对象本身,不是"取哪个面的仓库正文"),
  *       所以这一档的取数方式本票一字未动;它旁边的 journal 一侧随所选判定面走(默认 HEAD)。
+ *       B11 同属这一档(它必须有账本),且额外要求一次带行锁的重读 —— 见上。
+ *   node scripts/check-migration-bookkeeping.mjs --strict      # 问责档:B11 有「无从归因 / 未判定」即 exit 2
+ *       (拒绝出具合格证;默认档不因此改任何既有退出码语义)
+ *   node scripts/check-migration-bookkeeping.mjs --ledger-from <json>  # **取证通道**,只给 --self-test
+ *       与镜像测试用:B11 的账本取自该夹具文件而非 psql(本机 psql 常不可达,而"判据在、无人调"
+ *       正是本仓记过最多次的失明型 —— 没有这条通道,B11 的 CLI 接线无法被端到端证明)。
+ *       用了它,输出行必须逐字带「取证通道:不代表库内实态」,且 B6~B9 仍按 psql 实态判、不受它影响。
  *   node scripts/check-migration-bookkeeping.mjs --self-test   # 成对正反例(临时 git 仓夹具,零副作用于真仓)
  *   node scripts/check-migration-bookkeeping.mjs --root <dir>  # **测试通道**,只给 --self-test 与镜像测试用:
  *       仓库根由脚本自身位置推导之后,靠 cwd 定位夹具的调用**结构上失效**(守门 70 的镜像测试
@@ -79,7 +115,8 @@
  */
 import { readFileSync, readdirSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { dirname, join, resolve } from 'node:path'
+import { createHash } from 'node:crypto'
+import { dirname, join, resolve, isAbsolute } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { resolveGitBin } from './lib/gitdir.mjs'
 // 取材走统一层(守门 118 的判据口径):`catBatch` 取 journal 正文、`readWorktreeFile` 取磁盘面、
@@ -97,6 +134,14 @@ import {
 } from './lib/face-reader.mjs'
 // 临时夹具唯一落点(§26 / 守门 118 实测过两个禁止理由:不得用 os.tmpdir(),不得落仓库树内)
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+// B11 的"剥零宽水印"维必须引这一份实现(唯一实现),不得在本门再抄一份正则:
+// 水印结构行的识别住在 `lib/watermark-lines.mjs`,注入器 / 归档生成器 / 旁路落地器都读它 ——
+// 本门是第四个消费者(§22c:两处各写一遍"哪一行算水印"必然漂开)。
+import {
+  hasAnyWatermarkTrace,
+  stripWatermarkStructure,
+  CANONICAL_BANNER_LINES,
+} from './lib/watermark-lines.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 /** 仓库根:由脚本自身位置推导(§15,不写死盘符也不信 cwd)。 */
@@ -118,6 +163,18 @@ const ROOT = resolveRoot(args)
 const wantDb = args.includes('--db')
 // B10 定级开关:默认 warn(只报不改退出码);--require-idle 才升成判红(供 CI / 巡检问责)
 const requireIdle = args.includes('--require-idle')
+// B11 问责档(G-657):默认档只对"无从归因 / 未判定"报数不改退出码,--strict 才 exit 2 拒绝出合格证。
+// 为什么默认档不能判红:真库现读有 152 枚账本 hash 找不到任何作证份(见文件头 B11 段的实测数),
+// 当场 blocking 就是一台与任何提交都无关的恒红门,唯一结局是每次跑 --db 都被忽略(AGENTS §12e)。
+const b11Strict = args.includes('--strict')
+/** 取证通道:`--ledger-from <json>` 给 B11 喂夹具账本(只为证明"判据有人调",不代表库内实态)。 */
+const ledgerFromPath = (() => {
+  const i = args.indexOf('--ledger-from')
+  if (i < 0) return null
+  const p = args[i + 1]
+  if (!p || p.startsWith('--')) throw new Error('--ledger-from 需要一个 JSON 文件参数')
+  return isAbsolute(p) ? p : resolve(ROOT, p)
+})()
 
 /**
  * 纯函数:argv → 判定面。**默认 `head`**(全量审计判 HEAD blob)。
@@ -146,9 +203,9 @@ export const FACE_TXT = {
  * 单独导出是为了让"三个面各取哪一份"能被构造面钉死,而不是埋在 CLI 流程里。
  */
 export function faceJournalSpec(face) {
-  if (face === 'staged') return `:${JOURNAL_REL}`
-  if (face === 'head') return `HEAD:${JOURNAL_REL}`
-  return null
+  // 面 → 规格 的映射只有一份实现(`faceBlobSpecFor`),这里就是它对 journal 路径的投影。
+  // 曾在这里另写一遍 if 链 —— 那正是"journal 按一个面、.sql 按另一个面"的漂移温床。
+  return faceBlobSpecFor(face, JOURNAL_REL)
 }
 
 /** 纯函数:判定面 → .sql **枚举**用的 git 参数(`--worktree` 给 null,由 readdirSync 列目录)。 */
@@ -243,7 +300,329 @@ export function worktreeOnlyDirtyPaths(rows) {
   return (rows || []).filter((r) => r.xy[0] === ' ' && r.xy[1] !== ' ').map((r) => r.path)
 }
 
-/** 把层里/别的异常折成一句人话(不吞类型:Undetermined 与真红必须能被调用方分开)。 */
+// ════════════════════════════════════════════════════════════════════════════
+// B11(G-657)已应用迁移内容不可变对账 —— 判据层全部是纯函数。
+// 为什么必须整层是纯函数:本维问的是"账本这一行 ↔ 正文这一份字节"配不配,
+// 而真仓的 psql 面在本机长期取不到(实测候选表里没有 C 盘那一条 ⇒ `spawnSync psql ENOENT`)。
+// 若判据只住在 CLI 流程里,它在本机永远只能"跑不到",而 AGENTS 记过两次:
+// **判据失效的表现不是红,是安静**。把判定与取材拆开之后,构造面能证明判据有牙,
+// 而 `--ledger-from` 那条取证通道能证明**有人调它**(守门 70/76/81/115 同族)。
+// ════════════════════════════════════════════════════════════════════════════
+
+/** drizzle 记进 `__drizzle_migrations.hash` 的就是这个式子(migrator.js:23,对**字符串全文**做 sha256)。 */
+export function sha256Hex(text) {
+  return createHash('sha256').update(String(text ?? ''), 'utf8').digest('hex')
+}
+
+/**
+ * 纯函数:一份正文的**全部合法比对照形态** —— 刻意在这里算全,判据层按形态逐个试。
+ * 为什么"剥水印"必须在**本门内部**做一遍而不是改磁盘:零宽水印把不可见载荷写进了 .sql 正文,
+ * 而 drizzle 当年记账时那些字节还不存在 —— 票面那句「需先剥零宽水印」说的就是这一维
+ * (AGENTS §5c 同一条禁令:不得对含载荷文件做文本级批量改写,所以这里只算不写)。
+ * 候选族不是随手列的,是**注入器的逆运算**(逐条对着 `watermark.mjs:394-405` 推):
+ *   `body = shebang + xmlDecl + banner + sep + text`,其中
+ *   `sep = text.startsWith('\n') ? '' : '\n'` ⇒ 剥掉横幅行后会留下一个人工空行;
+ *   `out = body.replace(/\r?\n$/,'') + '\n' + tail + '\n'` ⇒ 末行是隐写行,正文的末尾换行被归一。
+ * 所以还原式至少要有四支:剥结构行本体 / 再去掉那个前导空行 / 各自补回一个末换行。
+ * **两种都留而不是挑一支**:注入时 `sep` 取决于原正文开头有没有换行,而静态判据问不出那一位 ——
+ * 少一支就是把"能配上的"误判成"配不上"(多一分判红),多一支只要 hash 仍要**逐字相等**
+ * 就不可能把改动洗成通过(这一维的安全性来自相等比较,不是来自候选条数)。
+ */
+export function b11ComparableForms(text) {
+  const raw = String(text ?? '')
+  const { text: stripped, removed } = stripWatermarkStructure(raw)
+  const noLead = stripped.replace(/^\n/, '')
+  const set = new Set([raw, stripped, noLead, stripped + '\n', noLead + '\n'])
+  return {
+    raw,
+    stripped,
+    strippedRemovedLines: removed,
+    hasWatermark: hasAnyWatermarkTrace(raw),
+    candidates: [...set],
+  }
+}
+
+/** B11 五档语义(三态绝不并桶:命中 / 判红 / 无从归因,再加"未判定"与"无账本行")。 */
+export const B11_STATES = [
+  'match',
+  'match_stripped',
+  'checksum_mismatch',
+  'unattributable',
+  'no_ledger_row',
+]
+
+/** 人读措辞(唯一一份;CLI 段与 --json 段都从这里取,免得两处各写一遍再漂)。 */
+export const B11_STATE_TXT = {
+  match: '内容逐字未变(原样 sha256 与账本一致)',
+  match_stripped: '剥水印结构后与账本一致(记账早于零宽注入,属正常形态)',
+  checksum_mismatch: 'checksum_mismatch —— 账本 hash 有相邻版本作证而当前判定面与它不同',
+  unattributable: '无从归因 —— 正文带零宽水印痕迹且无任何相邻版本可作证,当前面无从还原',
+  no_ledger_row: 'journal 在册而账本没有这一行(属 B6/B7 的地盘,B11 不判仍报数)',
+}
+
+/**
+ * 纯函数:单枚迁移的 B11 结论。
+ * @param ledgerHash   账本里记的那一份 sha256(null/'' ⇒ no_ledger_row)
+ * @param faceText     **当前判定面**的那一份正文(null ⇒ 这一枚未判定,不得当成通过)
+ * @param attestations 相邻版本(索引 / HEAD / HEAD^ / 磁盘),**不含**被判定面自己那一份;
+ *                     每项 {source, text}。判据拿它们为账本 hash 作证 —— 有作证份而当前面不同,
+ *                     才是"已应用迁移被改过"的可证事实。
+ */
+export function classifyB11Row({ tag, ledgerHash, faceText, attestations = [] }) {
+  const base = { tag, ledgerHash: ledgerHash ?? null }
+  if (!ledgerHash) return { ...base, state: 'no_ledger_row', detail: '', basis: '' }
+  if (typeof faceText !== 'string')
+    return {
+      ...base,
+      state: 'unattributable',
+      detail: '当前判定面取不到正文(未判定,不得读成通过)',
+      basis: '',
+    }
+  const forms = b11ComparableForms(faceText)
+  if (sha256Hex(faceText) === ledgerHash)
+    return { ...base, state: 'match', detail: '', basis: '判定面原文' }
+  if (forms.candidates.some((c) => c !== faceText && sha256Hex(c) === ledgerHash))
+    return {
+      ...base,
+      state: 'match_stripped',
+      detail: `按注入器逆运算还原(剥 ${forms.strippedRemovedLines} 行水印结构${forms.stripped.startsWith('\n') ? ' + 前导空行' : ''})后逐字相等`,
+      basis: '判定面剥水印',
+    }
+  // 相邻版本作证:任一份(任一合法还原形态)的 sha256 恰等于账本 hash
+  const attested = []
+  for (const a of attestations || []) {
+    if (!a || typeof a.text !== 'string') continue
+    const f = b11ComparableForms(a.text)
+    if (f.candidates.some((c) => sha256Hex(c) === ledgerHash)) attested.push(a.source)
+  }
+  if (attested.length)
+    return {
+      ...base,
+      state: 'checksum_mismatch',
+      detail: `账本 hash 由 ${attested.join(' / ')} 作证,而判定面正文不同`,
+      basis: attested.join(' / '),
+    }
+  // 没有作证份 ⇒ 只能按"正文有没有被零宽水印改写过"分档,不得一律判红(恒红门,AGENTS §12e)
+  if (forms.hasWatermark)
+    return { ...base, state: 'unattributable', detail: '无作证份且正文带水印痕迹', basis: '' }
+  return {
+    ...base,
+    state: 'checksum_mismatch',
+    detail: '无水印痕迹、无作证份,却与账本不同 —— 没有任何借口',
+    basis: '',
+  }
+}
+
+/** 纯函数:把逐枚结论汇成各档计数(命中 / 判红 / 无从归因 / 无账本行)。 */
+export function summarizeB11(findings) {
+  const counts = {}
+  for (const s of B11_STATES) counts[s] = 0
+  for (const f of findings || []) if (counts[f.state] !== undefined) counts[f.state] += 1
+  return counts
+}
+
+/** 账本三份读(事务外预检 / 锁内第一次 / 锁内第二次)的序列表述。 */
+function ledgerSeq(rows) {
+  return (rows || [])
+    .map((r) => `${r.createdAt}:${r.hash}`)
+    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+    .join(',')
+}
+
+/**
+ * 纯函数:B11 能不能判(本票增量住在这里)。
+ * 三条前提缺一律落未判定,且**绝不返回一份旧快照去凑结论**:
+ *  ① 锁内两次读必须同形 —— 不同 ⇒ 有人正在写账本,此刻任何结论都是猜的;
+ *  ② 锁内第一次读必须非空 —— 空账本与"psql 没答话"在两形上必须可分,所以空集另说一句;
+ *  ③ 事务外预检只用来**对照**,不是判据的输入(预检与锁内不同形是常态而非事故,那正说明
+ *     只按预检判会判在一份已经不存在的账本上)。
+ */
+export function b11LedgerAgreement({ preCheck, lockedFirst, lockedSecond }) {
+  const l1 = ledgerSeq(lockedFirst)
+  const l2 = ledgerSeq(lockedSecond)
+  const pre = ledgerSeq(preCheck)
+  if (!lockedFirst || lockedFirst.length === 0)
+    return { ok: false, reason: '锁内第一次读为空集(账本空或没答话)——不判', pre, l1, l2 }
+  if (l1 !== l2)
+    return {
+      ok: false,
+      reason: '锁内两次读不同形 ⇒ 账本正被并发写,本次不作判定',
+      pre,
+      l1,
+      l2,
+    }
+  return {
+    ok: true,
+    preStale: pre !== l1,
+    reason: pre !== l1 ? '事务外预检与锁内读不同形 ⇒ 预检作废,判定只用锁内那份' : '',
+    rows: lockedFirst,
+    pre,
+    l1,
+    l2,
+  }
+}
+
+/**
+ * 纯函数:把带标记的 psql 输出按标记切成三份账本读(顺序即语句顺序)。
+ * 每行形状 `<标记>|<created_at>|<hash>`(与 `-t -A -F '|'` 同形);标记不认识的行**忽略但计数**,
+ * 计数由调用方报出(不得把"没解析出来"读成"账本就是这个数")。
+ */
+export function splitLedgerReads(text, marks) {
+  const buckets = Object.fromEntries((marks || []).map((m) => [m, []]))
+  let skipped = 0
+  for (const line of String(text ?? '').split(/\r?\n/)) {
+    const t = line.trim()
+    if (t === '') continue
+    const idx = t.indexOf('|')
+    if (idx < 0) {
+      skipped++
+      continue
+    }
+    const mark = t.slice(0, idx)
+    const rest = t.slice(idx + 1)
+    if (!buckets[mark]) {
+      skipped++
+      continue
+    }
+    const p = rest.indexOf('|')
+    if (p < 0) {
+      skipped++
+      continue
+    }
+    buckets[mark].push({
+      createdAt: Number(rest.slice(0, p).trim()),
+      hash: rest.slice(p + 1).trim(),
+    })
+  }
+  return { buckets, skipped }
+}
+
+/**
+ * 纯函数:锁内重读用的那条 psql 脚本(唯一一份实现,镜像测试按形状锁它)。
+ * `SET LOCAL lock_timeout` 是**护栏而不是装饰**:拿不到行锁必须在 5 秒内失败并落未判定,
+ * 不得让一道只读守门把在跑的 deploy 卡住(§5b 那条"无界挂起"禁令同族)。
+ * 结尾 ROLLBACK:本门一行都不写,加锁只是为了"判定期间账本不会被人推进"。
+ */
+export function b11LockedReadSql(lockTimeoutMs) {
+  const ms = Number.isFinite(lockTimeoutMs) && lockTimeoutMs > 0 ? Math.trunc(lockTimeoutMs) : 5000
+  return [
+    'BEGIN;',
+    `SET LOCAL lock_timeout = '${ms}ms';`,
+    "SELECT 'LOCKED1|' || created_at || '|' || hash FROM drizzle.__drizzle_migrations ORDER BY created_at FOR UPDATE;",
+    "SELECT 'LOCKED2|' || created_at || '|' || hash FROM drizzle.__drizzle_migrations ORDER BY created_at FOR UPDATE;",
+    'ROLLBACK;',
+  ].join('\n')
+}
+
+/**
+ * 纯函数:psql 失败文案的**凭据脱敏**。
+ * 为什么必须动这一格而不是只在 B11 里防:`execFileSync` 抛错时 `e.message` 的第一行是
+ * `Command failed: <完整命令行>`,而命令行里带着 `-d postgresql://user:密码@host/db` ——
+ * B6~B9 那句 catch 会把它原样打进 stdout,而 pre-commit 的 stdout 落进 `.workbuddy/hook-logs/`,
+ * 于是凭据离开仓库(AGENTS §5d「密钥不入仓、不入聊天记录」)。
+ * 只剥 DSN,不吞异常类型:真红与未判定的分流照旧由调用方管。
+ */
+export function psqlFailText(e, dsn) {
+  const raw = String(e?.message ?? e)
+  const first = raw.split(/\r?\n/)[0] ?? ''
+  let s = first
+  if (dsn && dsn.length > 4) s = s.split(dsn).join('postgresql://***@***')
+  // 命令行里 DSN 可能被 shell 引号包过一层,或 psql 把口令 URL 编码后再显 —— 两种都盖住
+  s = s.replace(/postgresql:\/\/[^\s']+/gi, 'postgresql://***@***')
+  return s
+}
+
+/**
+ * 纯函数:B11 的退出码分流(判红 / 未判定 / 通过三态各归其位,严重度优先级不可逆)。
+ * 返回 { exit: 0|1|2, line: 结论行 } —— 有判红就是 1(哪怕同时也有未判定,**不得**被"未判定"洗白,
+ * 镜像 M8 同一条锁);只有未判定/无从归因时,默认档 0(与本门既有 warn 语义同形),
+ * `--strict` 才是 2(拒绝出具合格证)。
+ */
+export function b11ExitOf({ counts, judged, strict, undeterminedReason }) {
+  const c = counts || {}
+  const red = c.checksum_mismatch || 0
+  const unver = c.unattributable || 0
+  if (!judged) {
+    return {
+      exit: strict ? 2 : 0,
+      line: `B11 未判定:${undeterminedReason || '原因未记录'} —— 该行不代表内容不可变已判`,
+    }
+  }
+  if (red > 0)
+    return {
+      exit: 1,
+      line:
+        `B11 ✗ checksum_mismatch ${red} 枚 —— 已应用迁移的内容与账本不符,且账本 hash 有相邻版本作证` +
+        `(无从归因另 ${unver} 枚)`,
+    }
+  if (unver > 0)
+    return {
+      exit: strict ? 2 : 0,
+      line:
+        `B11 默认档:判红 0 / 无从归因 ${unver} 枚(逐条点名,不计合规)` +
+        (strict ? ' ⇒ --strict 拒绝出合格证(exit 2)' : ' ⇒ 问责跑 --strict(exit 2)'),
+    }
+  return { exit: 0, line: `B11 ✓ 账本在册的每一枚内容逐字未变(共 ${(c.match || 0) + (c.match_stripped || 0)} 枚)` }
+}
+
+/**
+ * 纯函数:判定面 → **任意**相对路径正文的 `cat-file --batch` 规格(worktree 档给 null,由磁盘自己读)。
+ * 这是"面 → 规格"映射的**唯一一份实现**:`faceJournalSpec` 与 B11 的 .sql 取材都由它投影 ——
+ * 两处各写一遍必然漂开,而漂开的表现不是报错,是"journal 按 HEAD 取、.sql 按索引取"这种
+ * 自洽却错位的尺子(守门 101/118 各记过一次同型)。
+ */
+export function faceBlobSpecFor(face, rel) {
+  if (face === 'staged') return `:${rel}`
+  if (face === 'head') return `HEAD:${rel}`
+  return null
+}
+
+/**
+ * 纯函数:`--ledger-from` 夹具 JSON → 三份账本读(事务外预检 / 锁内第一次 / 锁内第二次)。
+ * 形状不认 ⇒ 抛错由调用方折成未判定并点名 —— **不得**把"读不懂夹具"当成"账本没问题"。
+ * 每行 `{createdAt, hash}`;也接受 `[createdAt, hash]` 紧凑形态(与本门自测夹具互抄成本最低)。
+ */
+export function parseLedgerFixture(obj) {
+  const norm = (arr, name) => {
+    if (!Array.isArray(arr)) throw new Error(`${name} 不是数组`)
+    return arr.map((r, i) => {
+      if (Array.isArray(r) && r.length === 2) return { createdAt: Number(r[0]), hash: String(r[1]) }
+      if (r && typeof r === 'object' && 'hash' in r)
+        return { createdAt: Number(r.createdAt), hash: String(r.hash) }
+      throw new Error(`${name}[${i}] 形状不认(要 {createdAt,hash} 或 [createdAt,hash])`)
+    })
+  }
+  return {
+    preCheck: norm(obj && obj.preCheck, 'preCheck'),
+    lockedFirst: norm(obj && obj.lockedFirst, 'lockedFirst'),
+    lockedSecond: norm(obj && obj.lockedSecond, 'lockedSecond'),
+  }
+}
+
+/**
+ * 纯函数:判定面 → **相邻版本**的取材规格清单(不含被判定面自己那一份)。
+ * `parentOid` 为空(仓库只有一枚提交 / 不在 git 里)时该档整条缺席 ——
+ * 不得拿解析不到的规格去凑"我读过了"(那会表现为"正文取不到",是另一种颜色);
+ * 也不得把判定面自己那一版当作证份(拿结论证结论)。
+ * 磁盘那份由调用方走 `readWorktreeFile`,不在这张表里(它不是 git 规格)。
+ */
+export function b11AttestSpecs(face, rel, parentOid) {
+  const all = {
+    index: faceBlobSpecFor('staged', rel),
+    head: faceBlobSpecFor('head', rel),
+    parent: parentOid ? `${parentOid}:${rel}` : null,
+  }
+  const judgedKey = face === 'staged' ? 'index' : face === 'head' ? 'head' : null
+  const out = []
+  for (const [key, spec] of Object.entries(all)) {
+    if (!spec || key === judgedKey) continue
+    out.push({ source: key, spec })
+  }
+  return out
+}
+
+/** 把层里/别的异常折成一句人话(不吞类型:Undetermined 与真红必须能被调用方分开)。
+ */
 function faceErrText(e) {
   if (e instanceof Undetermined) return e.message
   return String(e?.message ?? e).split(/\r?\n/)[0]
@@ -739,6 +1118,328 @@ export function runSelfTest() {
     )
   } catch (e) {
     results.push(`❌ 端到面夹具建立失败:${String(e?.message ?? e).split(/\r?\n/)[0]}`)
+  }
+
+  // ── B11(G-657)判据层:成对正反例。**每条 cond 都必须是已求值布尔**(§自检 harness 红线:
+  //    把箭头函数当 cond 传进去 ⇒ `!!fn` 恒真 ⇒ 那条断言从写下起从未求值,账面却一路记 ✅)。
+  {
+    const A = 'SELECT 1;\n'
+    const hA = sha256Hex(A)
+    const mk = (o) => classifyB11Row(o)
+    eq('B1-P0 sha256Hex 与 drizzle 同式(对整份字符串做 sha256)', hA.length, 64)
+    eq(
+      'B1-P1 正文逐字对应 ⇒ match',
+      mk({ tag: 't1', ledgerHash: hA, faceText: A }).state,
+      'match',
+    )
+    eq(
+      // 票面验收本体的纯函数版:账本记的是原样,判定面被改了一个字节,而原样在相邻版本里找得回来
+      'B1-P2 改一字节且原样有相邻版本作证 ⇒ checksum_mismatch(判据有牙)',
+      mk({
+        tag: 't1',
+        ledgerHash: hA,
+        faceText: 'SELECT 7;\n',
+        attestations: [{ source: 'head', text: A }],
+      }).state,
+      'checksum_mismatch',
+    )
+    eq(
+      'B1-P2b 反向对照:同一枚正文没动 ⇒ match(红不是"存在相邻版本"带来的)',
+      mk({
+        tag: 't1',
+        ledgerHash: hA,
+        faceText: A,
+        attestations: [{ source: 'head', text: A }],
+      }).state,
+      'match',
+    )
+    eq(
+      'B1-P3 剥掉零宽水印结构后对上 ⇒ match_stripped(票面"需先剥零宽水印"那一维)',
+      mk({
+        tag: 't1',
+        ledgerHash: hA,
+        faceText: [
+          `-- ${CANONICAL_BANNER_LINES[0]}`,
+          `-- ${CANONICAL_BANNER_LINES[1]}`,
+          '-- [IHUI-AI-PROVENANCE]:​‌‍',
+          '',
+          A,
+        ].join('\n'),
+      }).state,
+      'match_stripped',
+    )
+    eq(
+      'B1-P3b 剥水印只对"没改正文"放行:水印在位而正文被换 ⇒ 仍 checksum_mismatch',
+      mk({
+        tag: 't1',
+        ledgerHash: hA,
+        faceText: [`-- ${CANONICAL_BANNER_LINES[0]}`, '', 'DROP TABLE x;\n'].join('\n'),
+        attestations: [{ source: 'disk', text: A }],
+      }).state,
+      'checksum_mismatch',
+    )
+    eq(
+      'B1-P4 无水印痕迹、也无任何作证份,却与账本不同 ⇒ checksum_mismatch(没有借口那一档)',
+      mk({ tag: 't1', ledgerHash: hA, faceText: 'DROP TABLE x;\n' }).state,
+      'checksum_mismatch',
+    )
+    eq(
+      'B1-P5 带水印痕迹且配不出证据 ⇒ unattributable(**既不判红也不记合规**,防恒红门)',
+      mk({ tag: 't1', ledgerHash: 'f'.repeat(64), faceText: `-- ${CANONICAL_BANNER_LINES[0]}\n${A}` })
+        .state,
+      'unattributable',
+    )
+    eq(
+      'B1-P6 journal 在册而账本没行 ⇒ no_ledger_row(B11 不判,那一格归 B6/B7)',
+      mk({ tag: 't1', ledgerHash: null, faceText: A }).state,
+      'no_ledger_row',
+    )
+    eq(
+      'B1-P7 判定面正文取不到 ⇒ 未判定色并写明原因,绝不冒 match',
+      (() => {
+        const r = mk({ tag: 't1', ledgerHash: hA, faceText: null })
+        return r.state === 'unattributable' && /取不到正文/.test(r.detail)
+      })(),
+      true,
+    )
+    // ②"判定必须落在锁内重读"这一维:四条各有正反
+    eq(
+      'B1-P8 预检与锁内同形 ⇒ 可判、preStale=false',
+      (() => {
+        const rows = [{ createdAt: 1, hash: 'a' }]
+        const d = b11LedgerAgreement({ preCheck: rows, lockedFirst: rows, lockedSecond: rows })
+        return d.ok === true && d.preStale === false
+      })(),
+      true,
+    )
+    eq(
+      'B1-P9 预检过期而锁内自洽 ⇒ 仍判,但判定输入换成锁内那份并声明预检作废',
+      (() => {
+        const locked = [
+          { createdAt: 1, hash: 'a' },
+          { createdAt: 2, hash: 'b' },
+        ]
+        const d = b11LedgerAgreement({ preCheck: [{ createdAt: 1, hash: 'a' }], lockedFirst: locked, lockedSecond: locked })
+        return d.ok === true && d.preStale === true && d.rows.length === 2 && !!d.reason
+      })(),
+      true,
+    )
+    eq(
+      'B1-P10 锁内两次不同形 ⇒ 整维未判定(账本正被并发写时任何结论都是猜的)',
+      b11LedgerAgreement({
+        preCheck: [{ createdAt: 1, hash: 'a' }],
+        lockedFirst: [{ createdAt: 1, hash: 'a' }],
+        lockedSecond: [
+          { createdAt: 1, hash: 'a' },
+          { createdAt: 2, hash: 'b' },
+        ],
+      }).ok,
+      false,
+    )
+    eq(
+      'B1-P11 锁内读到空集 ⇒ 未判定,不读成"账本合法"',
+      /空集/.test(
+        b11LedgerAgreement({ preCheck: [], lockedFirst: [], lockedSecond: [] }).reason,
+      ),
+      true,
+    )
+    eq(
+      'B1-P12 判据真的只用锁内那份(而非预检那份)——两值不同形时结论必须随锁内变',
+      (() => {
+        const d = b11LedgerAgreement({
+          preCheck: [{ createdAt: 7, hash: sha256Hex(A) }],
+          lockedFirst: [{ createdAt: 7, hash: 'e'.repeat(64) }],
+          lockedSecond: [{ createdAt: 7, hash: 'e'.repeat(64) }],
+        })
+        const byWhen = new Map(d.rows.map((r) => [r.createdAt, r.hash]))
+        return (
+          byWhen.get(7) !== sha256Hex(A) &&
+          mk({ tag: 't', ledgerHash: byWhen.get(7), faceText: A }).state === 'checksum_mismatch'
+        )
+      })(),
+      true,
+    )
+    eq(
+      'B1-P13 splitLedgerReads 按标记切两份,不认识的行**计数**而不是静默吞掉',
+      (() => {
+        const p = splitLedgerReads(
+          ['LOCKED1|1|aaa', 'LOCKED1|2|bbb', 'LOCKED2|1|aaa', 'LOCKED2|2|bbb', 'ROLLBACK', 'X|1|z'].join(
+            '\n',
+          ),
+          ['LOCKED1', 'LOCKED2'],
+        )
+        return p.buckets.LOCKED1.length === 2 && p.buckets.LOCKED2.length === 2 && p.skipped === 2
+      })(),
+      true,
+    )
+    eq(
+      'B1-P14 锁内重读脚本形状:BEGIN / SET LOCAL lock_timeout / 两条 FOR UPDATE / ROLLBACK(不得 COMMIT)',
+      (() => {
+        const sql = b11LockedReadSql(5000)
+        return (
+          /^\s*BEGIN;/.test(sql) &&
+          /SET LOCAL lock_timeout = '5000ms';/.test(sql) &&
+          (sql.match(/FOR UPDATE/g) || []).length === 2 &&
+          /ROLLBACK;\s*$/.test(sql) &&
+          !/COMMIT;/.test(sql)
+        )
+      })(),
+      true,
+    )
+    eq(
+      'B1-P14b lock_timeout 非法值 ⇒ 退回 5000ms(不得产出 `NaNms` 那种 psql 直接报错的脚本)',
+      /lock_timeout = '5000ms'/.test(b11LockedReadSql(NaN)),
+      true,
+    )
+    eq(
+      'B1-P15 相邻版本按面推导,且**不含判定面自己**(否则"拿结论证结论")',
+      `${b11AttestSpecs('head', 'p/q.sql', 'abc')
+        .map((x) => x.spec)
+        .join(',')}|${b11AttestSpecs('staged', 'p/q.sql', 'abc')
+        .map((x) => x.spec)
+        .join(',')}`,
+      ':p/q.sql,abc:p/q.sql|HEAD:p/q.sql,abc:p/q.sql',
+    )
+    eq(
+      'B1-P16 仓库只有一枚提交时不得拿 HEAD^ 凑数(解析不到不等于看过了)',
+      b11AttestSpecs('head', 'p/q.sql', '').some((x) => x.source === 'parent'),
+      false,
+    )
+    eq(
+      'B1-P17 取证通道夹具形状不认 ⇒ 抛错(调用方折成未判定,不得当"账本没问题")',
+      (() => {
+        try {
+          parseLedgerFixture({ preCheck: [{ createdAt: 1 }], lockedFirst: [], lockedSecond: [] })
+          return false
+        } catch {
+          return true
+        }
+      })(),
+      true,
+    )
+    // ③凭据与退出码
+    eq(
+      'B1-P18 psql 失败文案必须剥掉 DSN(口令不得进 stdout,而 stdout 会落 hook-logs)',
+      (() => {
+        const dsn = 'postgresql://ihui:SECRET_pw@127.0.0.1:5432/ihui'
+        const s = psqlFailText(
+          new Error(`Command failed: psql.exe -d ${dsn} -t -A -F | -c SELECT 1`),
+          dsn,
+        )
+        return !s.includes('SECRET_pw') && !s.includes(dsn) && /Command failed/.test(s)
+      })(),
+      true,
+    )
+    eq(
+      'B1-P18b 脱敏只剥 DSN,不吞异常本身(ENOENT 那一类原因必须仍能被读到)',
+      psqlFailText(new Error('spawnSync psql ENOENT'), 'postgresql://u:p@h/db'),
+      'spawnSync psql ENOENT',
+    )
+    eq(
+      'B1-P19 只有无从归因 ⇒ 默认档 exit 0(不造恒红),--strict exit 2(不出合格证)',
+      (() => {
+        const c = summarizeB11([{ state: 'match' }, { state: 'unattributable' }])
+        return (
+          b11ExitOf({ counts: c, judged: true, strict: false }).exit === 0 &&
+          b11ExitOf({ counts: c, judged: true, strict: true }).exit === 2
+        )
+      })(),
+      true,
+    )
+    eq(
+      'B1-P20 有判红 ⇒ 两档一律 exit 1(红不得被"另有未判定"降格成 2)',
+      (() => {
+        const c = summarizeB11([{ state: 'checksum_mismatch' }, { state: 'unattributable' }])
+        return (
+          b11ExitOf({ counts: c, judged: true, strict: false }).exit === 1 &&
+          b11ExitOf({ counts: c, judged: true, strict: true }).exit === 1
+        )
+      })(),
+      true,
+    )
+    eq(
+      'B1-P21 未判定的结论行必须自带"不代表内容不可变已判"(把没判写成判过了是本仓最高频失效型)',
+      /不代表内容不可变已判/.test(
+        b11ExitOf({ counts: null, judged: false, strict: false, undeterminedReason: 'psql 未解析到' })
+          .line,
+      ),
+      true,
+    )
+    eq(
+      'B1-P22 全命中 ⇒ exit 0 且结论行报名字(静默绿与"根本没跑"必须可分)',
+      b11ExitOf({ counts: summarizeB11([{ state: 'match' }]), judged: true, strict: true }).exit,
+      0,
+    )
+  }
+
+  // ── B11 端到面:通过 `--ledger-from` 取证通道跑真 CLI,证明**判据真被接在 CLI 上**
+  //    (§守门 70/76/81/115 同一条:函数在、自检过,但 `--db` 流程没调它 = 提交链上一路绿灯。)
+  try {
+    const dir = keep(mkFixtureRepo('g49-b11-e2e', 2))
+    const j = JSON.parse(readFileSync(join(dir, JOURNAL_REL), 'utf8'))
+    const rel0 = `${MIG_DIR_REL}/${j.entries[0].tag}.sql`
+    const rel1 = `${MIG_DIR_REL}/${j.entries[1].tag}.sql`
+    const orig0 = readFileSync(join(dir, rel0), 'utf8')
+    const body1 = readFileSync(join(dir, rel1), 'utf8')
+    const ledgerFile = (name, h0, h1, split = false) => {
+      const rows = [
+        [j.entries[0].when, h0],
+        [j.entries[1].when, h1],
+      ]
+      const p = join(dir, name)
+      writeFileSync(
+        p,
+        JSON.stringify({ preCheck: rows, lockedFirst: rows, lockedSecond: split ? rows.slice(0, 1) : rows }),
+      )
+      return name
+    }
+    // ① 全对上 ⇒ exit 0 并报名字
+    const fOk = ledgerFile('l-ok.json', sha256Hex(orig0), sha256Hex(body1))
+    const g0 = runGateAt(dir, ['--ledger-from', fOk])
+    eq('B1-E0 账本与正文全对上 ⇒ exit 0', String(g0.code), '0')
+    ok('B1-E0b 结论行必须写"逐字未变(共 2 枚)"', /B11 ✓ 账本在册的每一枚内容逐字未变\(共 2 枚\)/.test(g0.out), (g0.out.match(/B11 [^\n]*/) || ['<无>'])[0])
+    ok(
+      'B1-E0c 取证通道必须大声标注"不代表库内实态"(否则夹具档结论会被读成库内结论)',
+      /取证通道/.test(g0.out) && /不代表库内实态/.test(g0.out),
+    )
+    // ② 票面验收本体:改一字节**历史** .sql 并 commit,账本仍记原样 ⇒ 必须报 checksum_mismatch
+    writeFileSync(join(dir, rel0), orig0.replace('SELECT 1;', 'SELECT 7;'))
+    gitIn(dir, ['add', '-A'])
+    gitIn(dir, ['commit', '-q', '--no-verify', '-m', 'G-657 fixture: mutate one byte'])
+    const fStale = ledgerFile('l-stale.json', sha256Hex(orig0), sha256Hex(body1))
+    const g1 = runGateAt(dir, ['--ledger-from', fStale])
+    eq('B1-E1 改一字节历史 .sql ⇒ exit 1', String(g1.code), '1')
+    ok('B1-E1b 且点名 checksum_mismatch 与该 tag', /checksum_mismatch/.test(g1.out + g1.err) && g1.out.includes(j.entries[0].tag), (g1.out.match(/B11[^\n]*/g) || ['<无>']).join(' ⏎ '))
+    const g1s = runGateAt(dir, ['--ledger-from', fStale, '--strict'])
+    eq('B1-E2 判红不得被 --strict 降格成 exit 2(严重度优先级不可逆)', String(g1s.code), '1')
+    // ③ 反向对照:账本更新成改后的正文 ⇒ 同一份改动不再判红 ⇒ 红来自"账本 vs 正文",不是"文件被碰过"
+    const fNew = ledgerFile('l-new.json', sha256Hex(orig0.replace('SELECT 1;', 'SELECT 7;')), sha256Hex(body1))
+    const g2 = runGateAt(dir, ['--ledger-from', fNew])
+    eq('B1-E3 账本就记新正文 ⇒ exit 0(证明 E1 的红由 hash 关系带来)', String(g2.code), '0')
+    // ④ 锁内两次不同形 ⇒ 一条都不判,且绝不得出现合格措辞
+    const fSplit = ledgerFile('l-split.json', sha256Hex(orig0.replace('SELECT 1;', 'SELECT 7;')), sha256Hex(body1), true)
+    const g3 = runGateAt(dir, ['--ledger-from', fSplit])
+    ok(
+      'B1-E4 锁内两次不同形 ⇒ 不判,且不得被读成通过',
+      !/B11 ✓/.test(g3.out) && /B11 未判定/.test(g3.out),
+      (g3.out.match(/B11[^\n]*/g) || ['<无>']).join(' ⏎ '),
+    )
+    // ⑤ 不带 --db 也不带夹具 ⇒ 那一维必须显式"未判定",汇总行不得声称判过
+    const g4 = runGateAt(dir, [])
+    ok(
+      'B1-E5 离线档必须显式写 B11 未判定(而不是安静)',
+      /B11 \*\*未判定\*\*|B11 未判定/.test(g4.out) && /不代表内容不可变已判/.test(g4.out),
+    )
+    // ⑥ 夹具 JSON 坏了 ⇒ 未判定并点名,绝不记绿
+    writeFileSync(join(dir, 'l-bad.json'), '{ nope')
+    const g5 = runGateAt(dir, ['--ledger-from', 'l-bad.json'])
+    ok(
+      'B1-E6 夹具账本读不懂 ⇒ 判据落未判定并点名原因',
+      /取不到\/形状不认|形状不认|不是合法 JSON|Unexpected/.test(g5.out) && !/B11 ✓/.test(g5.out),
+      (g5.out.match(/B11[^\n]*/g) || ['<无>']).join(' ⏎ '),
+    )
+  } catch (e) {
+    results.push(`❌ B11 端到面夹具建立失败:${String(e?.message ?? e).split(/\r?\n/)[0]}`)
   } finally {
     for (const d of cleanup) {
       try {
@@ -930,64 +1631,74 @@ if (isDirectRun) {
    * 把没判写成判过了)。判据一条未改,只把结论行的措辞与实态对齐。
    */
   let dbVerdict = null
+  // B11 要用同一份 DSN 与同一个 psql 解析结果(两处各解析一遍必然漂开,而漂开的那一份会把凭据
+  // 拼进另一条错误路径 —— 见 psqlFailText 的理由)。故这里把 dsn / psql 提到 if(wantDb) 之外。
+  let b11Dsn = process.env.DATABASE_URL || ''
+  if (!b11Dsn) {
+    const envPath = join(ROOT, 'apps/api/.env')
+    if (existsSync(envPath)) {
+      const line = readFileSync(envPath, 'utf8')
+        .split(/\r?\n/)
+        .find((l) => /^\s*DATABASE_URL\s*=/.test(l))
+      if (line)
+        b11Dsn = line
+          .replace(/^\s*DATABASE_URL\s*=\s*/, '')
+          .trim()
+          .replace(/^["']|["']$/g, '')
+    }
+  }
+  const b11PsqlCandidates = [
+    process.env.IHUI_PSQL,
+    'D:\\DevEnv\\runtimes\\pgsql\\bin\\psql.exe',
+    'psql',
+  ].filter(Boolean)
+  const b11Psql = b11PsqlCandidates.find((p) => p === 'psql' || existsSync(p)) || null
+  /** 本门仅有的两处"读机器状态":DSN 与其指向的库实时状态(AGENTS §5d:凭据绝不落日志)。 */
+  function psqlQuery(sqlText, timeoutMs) {
+    return execFileSync(
+      b11Psql,
+      ['-d', b11Dsn, '-t', '-A', '-F', '|', '-c', sqlText],
+      {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+        timeout: timeoutMs,
+        maxBuffer: 16 << 20,
+      },
+    )
+  }
+  /** 事务外预检读到的那一份账本(B6~B9 用它;B11 只拿它做对照,不作判据输入)。 */
+  let preLedgerRows = null
   if (wantDb) {
     console.log(`${C.bold}[迁移记账] 库内 drizzle.__drizzle_migrations 双射${C.reset}`)
-    let dsn = process.env.DATABASE_URL || ''
-    if (!dsn) {
-      const envPath = join(ROOT, 'apps/api/.env')
-      if (existsSync(envPath)) {
-        const line = readFileSync(envPath, 'utf8')
-          .split(/\r?\n/)
-          .find((l) => /^\s*DATABASE_URL\s*=/.test(l))
-        if (line)
-          dsn = line
-            .replace(/^\s*DATABASE_URL\s*=\s*/, '')
-            .trim()
-            .replace(/^["']|["']$/g, '')
-      }
-    }
+    const dsn = b11Dsn
     if (!dsn) {
       wa('B6~B8 跳过:未找到 DATABASE_URL(env 或 apps/api/.env)')
       dbVerdict = '没有 DATABASE_URL 可连(env 与 apps/api/.env 都没给)'
     } else {
-      const psqlCandidates = [
-        process.env.IHUI_PSQL,
-        'D:\\DevEnv\\runtimes\\pgsql\\bin\\psql.exe',
-        'psql',
-      ].filter(Boolean)
-      const psql = psqlCandidates.find((p) => p === 'psql' || existsSync(p))
-      try {
-        const out = execFileSync(
-          psql,
-          [
-            '-d',
-            dsn,
-            '-t',
-            '-A',
-            '-F',
-            '|',
-            '-c',
+      if (!b11Psql) {
+        // 报错形状 ≠ 原因:本仓实测过把 `spawnSync psql ENOENT` 读成"本机没有 PG"并据此把票挂成
+        // "等环境条件"(而 PG 其实在 5432 上跑着)。所以这里**点名试过哪些候选**,不给模糊的 ENOENT。
+        const why = `psql 未解析到,试过的候选 = ${b11PsqlCandidates.join(' | ')}(可用 IHUI_PSQL 指真身)`
+        wa(`B6~B8 跳过:${why}`)
+        dbVerdict = why
+      } else {
+        try {
+          const out = psqlQuery(
             'SELECT created_at, hash FROM drizzle.__drizzle_migrations ORDER BY created_at',
-          ],
-          // 守门 80 同一条禁令:热路径的派生一律带 timeout + windowsHide —— 无界 psql 会把
-          // 整条提交链挂住(本仓实测过一次 80 分钟的 execSync 挂起,而 git status/typecheck 全看不出来)。
-          {
-            encoding: 'utf8',
-            stdio: ['ignore', 'pipe', 'pipe'],
-            windowsHide: true,
-            timeout: Number(process.env.IHUI_B49_PSQL_TIMEOUT_MS) || 120000,
-            maxBuffer: 16 << 20,
-          },
-        )
-        const rows = out
-          .trim()
-          .split(/\r?\n/)
-          .filter((l) => l.trim() !== '')
-          .map((l) => {
+            Number(process.env.IHUI_B49_PSQL_TIMEOUT_MS) || 120000,
+          )
+          const rows = out
+            .trim()
+            .split(/\r?\n/)
+            .filter((l) => l.trim() !== '')
+            .map((l) => {
             const i = l.indexOf('|')
             return { createdAt: Number(l.slice(0, i).trim()), hash: l.slice(i + 1).trim() }
           })
         dbVerdict = 'judged'
+        // 事务外预检那一份:留给 B11 做**对照**,不作 B11 判据的输入(锁内重读才是判据)。
+        preLedgerRows = rows
         const dbWhens = rows.map((r) => r.createdAt).filter((n) => Number.isFinite(n))
         if (dbWhens.length !== whens.length)
           bad(`B6 行数不符: 库 ${dbWhens.length} vs journal ${whens.length}`)
@@ -1032,10 +1743,181 @@ if (isDirectRun) {
           )
         else wa(`B8 journal max(${jMax})> 库内 max(${dbMax})→ 存在待应用迁移(下一轮 deploy 会应用)`)
       } catch (e) {
-        wa(`B6~B8 跳过:psql 执行失败(${String(e.message).split('\n')[0]})`)
-        dbVerdict = `psql 执行失败(${String(e.message).split('\n')[0]})`
+        // 凭据脱敏:execFileSync 的错误首行是 `Command failed: <完整命令行>`,里面带着 `-d <DSN>`
+        // (含口令)。这一句会打进 stdout,而 pre-commit 的 stdout 落进 .workbuddy/hook-logs/ ——
+        // 那就是把口令写进日志(AGENTS §5d「密钥不入仓、不入日志」)。
+        const why = psqlFailText(e, dsn)
+        wa(`B6~B8 跳过:psql 执行失败(${why})`)
+        dbVerdict = `psql 执行失败(${why})`
+        }
       }
     }
+  }
+
+  // ---------- B11: 已应用迁移内容不可变对账(G-657,判定只认锁内重读的那份账本) ----------
+  // 三条口径要点(与 B10 同族,改前三思):
+  //   ① 判据本体全在纯函数层(classifyB11Row / b11LedgerAgreement / b11ExitOf),这一段只做取材;
+  //      理由见纯函数层头注 —— psql 在本机长期取不到,判据若住在 CLI 里就永远"跑不到"。
+  //   ② 刻意**不调用 wa()**:那个计数是 B1-B4 的口径(镜像 T6 钉着"夹具本身零告警")。
+  //      B11 只输出自己的段落,既有输出行逐字不变。
+  //   ③ 判红走 bad()(严重度优先级不可逆:有判红就是 exit 1,不得被"另有未判定"洗掉);
+  //      「无从归因 / 未判定」默认档只报数,`--strict` 才 exit 2 拒绝出合格证。
+  console.log(`${C.bold}[迁移记账] B11 已应用迁移内容不可变对账(锁内重读)${C.reset}`)
+  let b11StrictExit = ''
+  const B11_LOCK_TIMEOUT_MS = Number(process.env.IHUI_B11_LOCK_TIMEOUT_MS) || 5000
+  const B11_PSQL_TIMEOUT_MS = Number(process.env.IHUI_B11_PSQL_TIMEOUT_MS) || 120000
+  let b11Judged = false
+  let b11Reason = ''
+  let b11Counts = null
+  let b11Findings = []
+  let b11LedgerNote = ''
+  {
+    let agreement = null
+    if (ledgerFromPath) {
+      // 取证通道:账本来自夹具文件(只为证明 CLI 真在调这套判据,不代表库内实态)。
+      try {
+        const fx = parseLedgerFixture(JSON.parse(readFileSync(ledgerFromPath, 'utf8')))
+        agreement = b11LedgerAgreement(fx)
+        b11LedgerNote = `取证通道 --ledger-from ${ledgerFromPath}(**不代表库内实态**,不得据此出合格证)`
+        if (!agreement.ok) b11Reason = agreement.reason
+      } catch (e) {
+        b11Reason = `夹具账本取不到/形状不认:${faceErrText(e)}`
+      }
+    } else if (!wantDb) {
+      b11Reason = '本档未开 --db(也没有 --ledger-from 夹具)⇒ 没有账本可比,内容不可变这一维未判定'
+    } else if (!b11Dsn || !b11Psql) {
+      b11Reason = !b11Dsn
+        ? '没有 DATABASE_URL 可连(env 与 apps/api/.env 都没给)'
+        : `psql 未解析到,试过的候选 = ${b11PsqlCandidates.join(' | ')}(可用 IHUI_PSQL 指真身)`
+      b11LedgerNote = '(psql 不可达 ⇒ 本维未判定)'
+    } else {
+      try {
+        const out = psqlQuery(b11LockedReadSql(B11_LOCK_TIMEOUT_MS), B11_PSQL_TIMEOUT_MS)
+        const parsed = splitLedgerReads(out, ['LOCKED1', 'LOCKED2'])
+        agreement = b11LedgerAgreement({
+          preCheck: preLedgerRows,
+          lockedFirst: parsed.buckets.LOCKED1,
+          lockedSecond: parsed.buckets.LOCKED2,
+        })
+        b11LedgerNote =
+          `账本判定来源 = psql 带行锁事务内重读(FOR UPDATE,两次读同形;lock_timeout=${B11_LOCK_TIMEOUT_MS}ms)` +
+          (parsed.skipped ? `,另有 ${parsed.skipped} 行输出没解析出来(不计数)` : '')
+        if (!agreement.ok) b11Reason = agreement.reason
+        else if (agreement.preStale)
+          console.log(
+            `  ${C.yellow}!${C.reset} 事务外预检与锁内读不同形 ⇒ ${agreement.reason}${C.reset}`,
+          )
+      } catch (e) {
+        b11Reason = `锁内重读失败(psql):${psqlFailText(e, b11Dsn)}`
+        b11LedgerNote = '(锁内读没拿到 ⇒ 本维未判定)'
+      }
+    }
+
+    if (agreement && agreement.ok) {
+      // 判定输入 = **锁内那一份**;事务外预检只用来对照(上面已打印它是否作废)。
+      const byCreatedAt = new Map(agreement.rows.map((r) => [r.createdAt, r.hash]))
+      // 取材必须**批量一轮读完**(每枚各起一次 cat-file 在 303 枚上会跑到分钟级,
+      // 而"太慢"的下一种写法是悄悄缩小覆盖面 —— 覆盖面自证比速度重要,所以这里做批量)。
+      let parentOid = ''
+      try {
+        parentOid = gitRaw(['rev-parse', '-q', '--verify', 'HEAD^'], ROOT, { timeout: 15000 }).trim()
+      } catch {
+        parentOid = ''
+      }
+      const relOf = (tag) => `${MIG_DIR_REL}/${tag}.sql`
+      const faceTextByTag = new Map()
+      {
+        const specs = journal.entries
+          .map((e) => faceBlobSpecFor(FACE, relOf(e.tag)))
+          .filter((s) => s !== null)
+        const got = specs.length ? catBatch(ROOT, specs) : new Map()
+        journal.entries.forEach((e, i) => {
+          const spec = faceBlobSpecFor(FACE, relOf(e.tag))
+          faceTextByTag.set(e.tag, spec === null ? readWorktreeFile(ROOT, relOf(e.tag)) : got.get(spec) ?? null)
+        })
+      }
+      // 只有"原样/剥水印都不中"的枚才需要相邻版本作证(把批量读花在真候选上)。
+      const suspects = journal.entries.filter((e) => {
+        const h = byCreatedAt.get(e.when)
+        const t = faceTextByTag.get(e.tag)
+        if (!h || typeof t !== 'string') return false
+        const f = b11ComparableForms(t)
+        return sha256Hex(t) !== h && sha256Hex(f.stripped) !== h
+      })
+      const attestByTag = new Map(suspects.map((e) => [e.tag, []]))
+      {
+        const specs = []
+        const owner = new Map()
+        for (const e of suspects) {
+          for (const a of b11AttestSpecs(FACE, relOf(e.tag), parentOid)) {
+            specs.push(a.spec)
+            if (!owner.has(a.spec)) owner.set(a.spec, [])
+            owner.get(a.spec).push({ tag: e.tag, source: a.source })
+          }
+          // 磁盘份也当相邻版本(worktree 档不适用 —— 它就是判定面自己)
+          if (FACE !== 'worktree') {
+            const disk = readWorktreeFile(ROOT, relOf(e.tag))
+            if (typeof disk === 'string') attestByTag.get(e.tag).push({ source: 'disk', text: disk })
+          }
+        }
+        if (specs.length) {
+          const got = catBatch(ROOT, specs)
+          for (const [spec, owners] of owner.entries()) {
+            const t = got.get(spec)
+            if (typeof t !== 'string') continue
+            for (const o of owners)
+              attestByTag.get(o.tag).push({ source: o.source, text: t })
+          }
+        }
+      }
+      b11Findings = journal.entries.map((e) =>
+        classifyB11Row({
+          tag: e.tag,
+          ledgerHash: byCreatedAt.get(e.when) ?? null,
+          faceText: faceTextByTag.get(e.tag) ?? null,
+          attestations: attestByTag.get(e.tag) || [],
+        }),
+      )
+      b11Counts = summarizeB11(b11Findings)
+      b11Judged = true
+    }
+  }
+  {
+    const decided = b11ExitOf({
+      counts: b11Counts,
+      judged: b11Judged,
+      strict: b11Strict,
+      undeterminedReason: b11Reason,
+    })
+    const named = (state, limit = 10) => {
+      const rows = b11Findings.filter((f) => f.state === state)
+      if (!rows.length) return
+      // 行首必须带**状态字面量**(票面验收要的就是 `checksum_mismatch` 这个词),措辞只从
+      // B11_STATE_TXT 取一份 —— 人在读的和机器判的不得是两套话。
+      console.log(
+        `  ${C.dim}${state}(${B11_STATE_TXT[state]})点名 ${rows.length} 枚(至多列 ${limit}):${rows
+          .slice(0, limit)
+          .map((r) => `${r.tag}${r.detail ? `[${r.detail}]` : ''}`)
+          .join(', ')}${rows.length > limit ? ' …' : ''}${C.reset}`,
+      )
+    }
+    if (b11LedgerNote) console.log(`  ${C.dim}${b11LedgerNote}${C.reset}`)
+    if (decided.exit === 1) {
+      bad(decided.line)
+      named('checksum_mismatch')
+    } else {
+      console.log(`  ${decided.exit === 2 ? C.yellow : C.green}${'·'}${C.reset} ${decided.line}`)
+    }
+    if (b11Judged) {
+      const c = b11Counts
+      console.log(
+        `  ${C.dim}分档:命中 ${c.match} / 剥水印后命中 ${c.match_stripped} / 判红 ${c.checksum_mismatch} / ` +
+          `无从归因 ${c.unattributable} / 无账本行 ${c.no_ledger_row}(journal 在册而账本没行,属 B6/B7 的地盘)${C.reset}`,
+      )
+      named('unattributable')
+      if (c.no_ledger_row) named('no_ledger_row')
+    }
+    b11StrictExit = decided.exit === 2 ? decided.line : ''
   }
 
   // ---------- B10: journal 登记表是否「无人在飞」(warn 级,不并入 B1-B5 判红面) ----------
@@ -1210,6 +2092,10 @@ if (isDirectRun) {
           ? ',库内双射已对照'
           : `,库内双射**未判定**:${dbVerdict || '原因未记录'} —— 该行不代表 B6~B9 通过`
         : '') +
+      // B11 与 B6~B9 是两件事:双射对照过不代表内容不可变判过(反之亦然),两句分开说。
+      (b11Judged
+        ? `;B11 已判(${b11Counts.match + b11Counts.match_stripped} 命中 / ${b11Counts.unattributable} 无从归因)`
+        : `;B11 **未判定**:${b11Reason || '原因未记录'} —— 该行不代表内容不可变已判`) +
       `)${C.reset}`,
   )
 
@@ -1224,6 +2110,21 @@ if (isDirectRun) {
       `${C.dim}  开工前置未满足:等对方的迁移落地/暂存完毕,或把本次动作让给该票持有者。${C.reset}`,
     )
     process.exit(1)
+  }
+
+  // B11 问责档(G-657):默认档那句"无从归因 / 未判定"不改任何既有退出码;只有 --strict 才拒绝出合格证。
+  // 顺序硬要求:这一段**必须排在 fail 的 exit 1 之后** —— 判红不得被"未判定"降格成 exit 2
+  // (镜像 M8 是同一条锁:本枚在册的红不得被"另有未判定"洗掉)。
+  if (b11StrictExit) {
+    const c = b11Counts || {}
+    console.error(
+      `${C.red}${C.bold}[迁移记账] ✗ B11 --strict:拒绝出具合格证${C.reset}`,
+    )
+    console.error(
+      `${C.dim}  分档:判红 ${c.checksum_mismatch ?? 0} / 无从归因 ${c.unattributable ?? 0} / ` +
+        `未判定原因 ${b11Reason || '(账本已判,只是不中集合配不出任何相邻版本证据)'}${C.reset}`,
+    )
+    process.exit(2)
   }
 } // ← if (isDirectRun):镜像测试 import 本模块时只拿判据函数,不跑 CLI(§22d)
 
@@ -1250,5 +2151,20 @@ export const __test__ = {
   FACE_TXT,
   MIG_DIR_REL,
   JOURNAL_REL,
+  // B11(G-657)判据层 —— 镜像测试直接 import 这些,不得在测试里再抄一份 sha256/分档规则(§22c)。
+  sha256Hex,
+  b11ComparableForms,
+  classifyB11Row,
+  summarizeB11,
+  b11LedgerAgreement,
+  splitLedgerReads,
+  b11LockedReadSql,
+  psqlFailText,
+  b11ExitOf,
+  b11AttestSpecs,
+  faceBlobSpecFor,
+  parseLedgerFixture,
+  B11_STATES,
+  B11_STATE_TXT,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
