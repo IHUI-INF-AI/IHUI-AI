@@ -360,7 +360,7 @@ class TestToolDeltaReachesTheWire:
         deltas = _deltas(events)
         assert len(deltas) >= 2, f"跨帧内容只到线 1 帧:{len(deltas)}"
         assert [d["seq"] for d in deltas] == list(range(1, len(deltas) + 1)), "seq 不是从 1 单调递增"
-        for prev, cur in zip(deltas, deltas[1:]):
+        for prev, cur in zip(deltas, deltas[1:], strict=False):  # 相邻滑窗,两侧长度天然差 1
             assert cur["partialText"].startswith(prev["partialText"]), "累积式帧链断了(后帧不是前帧的超集)"
         assert deltas[-1]["partialText"] == content, "末帧未覆盖全部预览文本"
         assert all("truncated" not in d for d in deltas), "未超预算却带上了 truncated"

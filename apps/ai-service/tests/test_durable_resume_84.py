@@ -525,11 +525,14 @@ class TestOwnership:
 
         # permission_mode 是 b76-11 落的权限面字段(与 create/另一条 resume 出口同形),
         # 不是身份自报 —— 本断言锁的是"请求体里没有任何可代充身份的字段"。
+        # durable_horizon_seconds 是 V3 #84 生产者侧(2026-10-07)的耐久视野声明,
+        # 同样不是身份字段 —— 它只决定"这行 checkpoint 要活多久",与"我是谁"无关。
         assert set(AgentSessionResumeRequest.model_fields) == {
             "model",
             "max_iterations",
             "tools",
             "permission_mode",
+            "durable_horizon_seconds",
         }
 
     def test_route_passes_token_principal_not_body(self) -> None:

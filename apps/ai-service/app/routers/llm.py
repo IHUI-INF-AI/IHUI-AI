@@ -34,18 +34,6 @@ from ..core.config import settings
 from ..core.context_compaction import SUMMARY_MARKER, compress_messages_if_needed
 from ..core.llm_gateway import llm_gateway, moa_router
 from ..core.model_naming import to_official_model_name
-# G-403(2026-10-07):usage 帧补发缓存读/写两维 —— 归一层已产出统一键,
-# 发射面此前只写 prompt/completion/total/reasoning 四键,缓存两维断在帧构造。
-from ..core.usage_cache import extract_cache_metrics, has_cache_signals
-
-# V3 #53(2026-09-27):ChatMode × PermissionMode 硬收窄的**唯一判据出口**在
-# core/permission_mode.py(矩阵 + 交集实现 + 被拦文案)。本路由不再自带任何
-# 收窄表或 `in READONLY_TOOLS` 的散写判定 —— 只转发。
-# 只读白名单本身仍是 services/plan_mode.py 的 READONLY_TOOLS 一份真相(由该出口内部取)。
-from ..core.reasoning_effort_pin import (
-    ReasoningEffortPin,
-    reasoning_effort_for_request,
-)
 from ..core.permission_mode import (
     CHAT_MODE_TOOL_AXIS,
     _readonly_tools,
@@ -60,10 +48,23 @@ from ..core.provider_caps import (
     get_provider_cap,
 )
 from ..core.question_parser import QuestionStreamParser
+
+# V3 #53(2026-09-27):ChatMode × PermissionMode 硬收窄的**唯一判据出口**在
+# core/permission_mode.py(矩阵 + 交集实现 + 被拦文案)。本路由不再自带任何
+# 收窄表或 `in READONLY_TOOLS` 的散写判定 —— 只转发。
+# 只读白名单本身仍是 services/plan_mode.py 的 READONLY_TOOLS 一份真相(由该出口内部取)。
+from ..core.reasoning_effort_pin import (
+    ReasoningEffortPin,
+    reasoning_effort_for_request,
+)
+
 # D174:帧级 traceId 注入点只有一份实现,住在 `core/sse_frames.py`(取值经 core/trace_context
 # 的那份投影,载体仍是 middleware 那一个 ContextVar);本路由不解析 traceparent、不自建 trace 上下文。
 from ..core.sse_frames import with_frame_trace_id
-from ..core.trace_context import sse_frame_trace_id
+
+# G-403(2026-10-07):usage 帧补发缓存读/写两维 —— 归一层已产出统一键,
+# 发射面此前只写 prompt/completion/total/reasoning 四键,缓存两维断在帧构造。
+from ..core.usage_cache import extract_cache_metrics, has_cache_signals
 from ..services.agent_events import (
     SSE_CHUNK,
     SSE_CONTENT_BLOCK_DELTA,
@@ -3133,7 +3134,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         # 与 _steer_sessions 同一生命周期、在同一个 finally 里摘除。
         from ..services.agent_events import (
             drain_goal_updates as _drain_goal_updates,
+        )
+        from ..services.agent_events import (
             register_goal_listener as _register_goal_listener,
+        )
+        from ..services.agent_events import (
             unregister_goal_listener as _unregister_goal_listener,
         )
 
@@ -3264,6 +3269,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     _tool_iter = 0
                     # D120:续期计数(0 = 未续期;上限 _ITERATION_EXTEND_LIMIT)
                     _iteration_extensions_used = 0
+                    # D120 判定在轮首读上一轮工具结果;初始化提到 while 前,
+                    # 让首轮的绑定静态可证(此前靠 _tool_iter=0 短路,首轮根本读不到)。
+                    tool_exec_tracker: list[bool] = []
                     while _tool_iter < _iter_budget:
                         # ===== Steer(中途引导)注入点:每轮 LLM 调用前 drain =====
                         # 把流期间用户提交的引导消息注入 messages 尾部(上一轮工具结果之后,
@@ -3682,7 +3690,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 )
                             if len(_prefetch_ids) > 1:
                                 _pf_results = await asyncio.gather(*_prefetch_coros, return_exceptions=True)
-                                for _pf_id, _pf_res in zip(_prefetch_ids, _pf_results):
+                                for _pf_id, _pf_res in zip(_prefetch_ids, _pf_results, strict=True):
                                     if isinstance(_pf_res, BaseException):
                                         # 与主循环 call_tool 的 except 分支同构(失败归一,不让 Exception 流入回灌)
                                         _readonly_prefetch[_pf_id] = {
@@ -3694,7 +3702,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         _readonly_prefetch[_pf_id] = _pf_res
 
                         # ===== 公共工具执行逻辑(两分支汇合,2026-08-29 修复保持不动)=====
-                        tool_exec_tracker: list[bool] = []
+                        tool_exec_tracker = []
                         for tc in tool_calls_raw:
                             fn = tc.get("function", {})
                             tool_name = fn.get("name", "")
