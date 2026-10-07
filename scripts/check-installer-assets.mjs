@@ -527,6 +527,56 @@ export function checkEditInContainerCentered({ uiSrc, genSrc }) {
 }
 
 /**
+ * `!insertmacro <宏名>` **插入行**的行首锚定形状(单一真相源)。
+ *
+ * 为什么提出来:这条形状原本裸在本门判据里(局部箭头函数),而镜像测试
+ * `scripts/tests/check-installer-assets-geo.test.mjs` 做注入回归时要把同一行删掉,只能在测试里
+ * 再写一遍 `/!insertmacro IHUI_WINDOW_RGN[^\n]*\n/` —— 两处各写一遍必漂(AGENTS §22c),守门 191
+ * 现读就是按这一型判命中。这里把**已有实现**提成具名函数并导出,判据与注入都调它,测试不再自带形态。
+ *
+ * 只认**整行就是插入宏**(允许行尾 `; 注释` 与 CRLF),故夹注释、改缩进都不会误判;注释里提到宏名不计。
+ * @returns {number[]} 命中的行首下标(按出现顺序)
+ */
+export function insertmacroLineStarts(src, macro) {
+  const re = new RegExp(
+    `^[ \\t]*!insertmacro[ \\t]+${macro}\\b[ \\t]*(?:;[^\\r\\n]*)?\\r?$`,
+    'gim',
+  )
+  const hits = []
+  let m
+  while ((m = re.exec(src)) !== null) hits.push(m.index)
+  return hits
+}
+
+/**
+ * 红行「重锚分支缺某一枚插入宏」的开头(单一真相源)。
+ * 镜像测试断言"红必须点名缺的是哪一枚宏"时调它取措辞,不在测试里再复述一遍这句话 ——
+ * 措辞两处各写一遍必漂(AGENTS §22c,守门 191 现读命中过这一型)。
+ */
+export const reanchorMissingMacroHead = (macro) => `重装页 DPI 重锚分支缺 !insertmacro ${macro}`
+
+/**
+ * `!macro <宏名>` 的宏体(宏名行之后到 `!macroend` 之前;取不到 = 空串)。单一真相源。
+ *
+ * 宏名后必须紧跟空白/换行:否则改名成 `IHUI_GUIINIT_SIZE_V2` 也会被前缀匹配顺带命中,判据就悄悄瞎了
+ * (变异测试实测到)。原本这条提取式只躺在本门判据里,而镜像测试的确定性矩阵要同一份宏体,只能在测试
+ * 里再写一遍 —— 那正是守门 191 现读命中的形状(AGENTS §22c:判据只许一份)。
+ */
+export function macroBodyOf(src, name) {
+  return (
+    String(src).match(new RegExp(`!macro ${name}[ \\t]*\\r?\\n([\\s\\S]*?)!macroend`)) || []
+  )[1] || ''
+}
+
+/**
+ * `!define <名> <整数>` 的取值(取不到 = NaN)。单一真相源:本门的 IHUI_LOG_W/H 与镜像测试的
+ * 矩阵输入都调这一支,不再各写一遍提取式。
+ */
+export function nsiDefineValue(src, name) {
+  return Number(String(src).match(new RegExp(`!define ${name} (\\d+)`))?.[1])
+}
+
+/**
  * 不变量 G(DPI 重锚定链完整 + 寄存器洁净):重装/升级确认页"进入时重锚"必须走完
  * **整条窗口几何链**,而不是只重摆控件。
  *
@@ -582,7 +632,7 @@ export function checkDpiReanchorCompleteness({ uiSrc, installerSrc }) {
     ]) {
       if (!new RegExp(`!insertmacro\\s+${macro}\\b`).test(branch)) {
         v.push(
-          `重装页 DPI 重锚分支缺 !insertmacro ${macro}(=${what}) —— ` +
+          `${reanchorMissingMacroHead(macro)}(=${what}) —— ` +
             `${macro === 'IHUI_WINDOW_RGN' ? '窗口框放大后旧 region 仍按上一档硬裁,右/下内容被切' : '控件按新档摆、窗口框按旧档留,页面溢出'}` +
             `。必须与 IHUI_GUIINIT_COMMON 同源,不得内联复制换算。`,
         )
@@ -592,18 +642,9 @@ export function checkDpiReanchorCompleteness({ uiSrc, installerSrc }) {
     // IHUI_GUIINIT_SIZE。首轮 SetWindowPos 把窗口挪到目标屏后 per-monitor DPI 才生效,
     // 只跑一轮 = 跨屏搬迁时档位/控件坐标整体错一档(2026-09-19 真机 125%/150% 双屏实锤)。
     // 只数**行首锚定**的插入行(注释里提到宏名不计),故夹注释、改缩进都不会误红。
-    const insertAt = (src, macro) => {
-      const re = new RegExp(
-        `^[ \\t]*!insertmacro[ \\t]+${macro}\\b[ \\t]*(?:;[^\\r\\n]*)?\\r?$`,
-        'gim',
-      )
-      const hits = []
-      let m
-      while ((m = re.exec(src)) !== null) hits.push(m.index)
-      return hits
-    }
-    const sizeAt = insertAt(branch, 'IHUI_GUIINIT_SIZE')
-    const rgnAt = insertAt(branch, 'IHUI_WINDOW_RGN')
+    //   形状本体住在 insertmacroLineStarts(门体导出,镜像测试的注入调同一份 —— §22c 不许两处各写一遍)。
+    const sizeAt = insertmacroLineStarts(branch, 'IHUI_GUIINIT_SIZE')
+    const rgnAt = insertmacroLineStarts(branch, 'IHUI_WINDOW_RGN')
     if (sizeAt.length === 1) {
       v.push(
         '重装页 DPI 重锚分支只跑 1 轮 IHUI_GUIINIT_SIZE,与 IHUI_GUIINIT_COMMON 的两轮口径不一致 —— 首轮 SetWindowPos 把窗口挪到目标屏后 per-monitor DPI 才生效,不复读重算则跨屏搬迁时档位与控件坐标整体错一档(窗口框与 region 一起偏)。必须紧邻补跑第二轮,不得改回单轮。',
@@ -666,15 +707,15 @@ export function checkWorkAreaDownshift({ uiSrc }) {
   const need = (ok, msg) => {
     if (!ok) v.push(msg)
   }
-  // 宏名后必须紧跟空白/换行:否则改名成 IHUI_GUIINIT_SIZE_V2 也会被前缀匹配顺带命中,判据就悄悄瞎了(变异测试实测到)。
-  const size = (uiSrc.match(/!macro IHUI_GUIINIT_SIZE[ 	]*\r?\n([\s\S]*?)!macroend/) || [])[1] || ''
+  // 宏名后必须紧跟空白/换行那一牙住在 macroBodyOf(门体导出的唯一一份,镜像测试调它)。
+  const size = macroBodyOf(uiSrc, 'IHUI_GUIINIT_SIZE')
 
   for (const nm of ['IHUI_LOG_W', 'IHUI_LOG_H']) {
     const defs = [...uiSrc.matchAll(new RegExp(`!define ${nm} (\\d+)`, 'g'))]
     need(defs.length === 1, `${nm} 必须恰好定义一次(现在 ${defs.length} 次)—— 逻辑尺寸单一来源`)
   }
-  const w = Number(uiSrc.match(/!define IHUI_LOG_W (\d+)/)?.[1])
-  const h = Number(uiSrc.match(/!define IHUI_LOG_H (\d+)/)?.[1])
+  const w = nsiDefineValue(uiSrc, 'IHUI_LOG_W')
+  const h = nsiDefineValue(uiSrc, 'IHUI_LOG_H')
   need(Number.isInteger(w) && w > 0 && Number.isInteger(h) && h > 0, 'IHUI_LOG_W/H 解析不到正整数')
   // 对照开关必须"默认开":编出 -DIHUI_WA_FIT=0 的包只用于运行时 A/B 取证,
   // 一旦默认值被改成 0,生产就悄悄不降档了 —— 所以钉死 !ifndef 块里的默认必须是 1。
