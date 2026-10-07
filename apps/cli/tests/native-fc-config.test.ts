@@ -52,6 +52,8 @@ vi.mock('@ihui/api-client', () => ({
   streamChat: streamChatMock,
   setBaseUrl: vi.fn(),
   setTokenProvider: vi.fn(),
+  // G-916940③ 起 agent.ts 还引用容量出口;本面只 mock 网络边界,容量给缺省档语义(128_000)的等值桩
+  getModelContextCapacity: () => 128_000,
   formatSSEError: (err: unknown) => ({
     severity: 'unknown' as const,
     title: 'error',
@@ -91,7 +93,7 @@ const mockTool: Tool = {
 
 /** 注入 settings(模拟 settings.json 内容) */
 function setSettings(s: Settings): void {
-  settingsState.value = s
+  settingsState.value = s as unknown as Record<string, unknown>
 }
 
 describe('runToolLoop + settings.nativeFunctionCalling 持久化配置', () => {
