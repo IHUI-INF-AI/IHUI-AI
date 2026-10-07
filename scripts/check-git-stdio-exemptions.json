@@ -16,6 +16,20 @@
    "reason": "生产面存量:派生 git 未显式接管 stdio(宿主 EBUSY 病灶,2026-10-03 成组对照 30 组定界:不写 stdio 0/30 成功、写即 30/30;间歇性 ⇒ 判断\"是否必要\"必须成组对照)。门判红原话:options 内无 stdio 属性名",
    "owner": "IHUI-AI stdio 治理线(门 189 判红台账)",
    "reviewBy": "2026-10-20"
+  },
+  {
+   "file": "scripts/tests/check-admin-gate-consistency.test.mjs",
+   "line": 367,
+   "reason": "样例字符串自匹配:该行是测试夹具数组里的合成源码样例(execFileSync 调用文本,作被测门的阳性输入),不是真调用 —— maskInert 对带尾随逗号的数组字面量留缝(门自检 L556-561 注释自述同源缝隙)。真调用面无违规",
+   "owner": "IHUI-AI stdio 治理线(门 193 判红台账);maskInert 缝隙修复归 detector 持有人,到期复核",
+   "reviewBy": "2026-11-03"
+  },
+  {
+   "file": "scripts/tests/check-tool-arg-routing-identity.test.mjs",
+   "line": 36,
+   "reason": "真缺 stdio,但该文件此刻由另一会话持有在飞(M,镜像测试真相源改造)⇒ 按 §12 不动他人文件,先以台账豁免保推送畅通;持有人落地或治理线下轮消减",
+   "owner": "IHUI-AI stdio 治理线(门 193 判红台账)",
+   "reviewBy": "2026-10-20"
   }
  ]
 }
