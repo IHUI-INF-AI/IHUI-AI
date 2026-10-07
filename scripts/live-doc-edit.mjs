@@ -65,6 +65,14 @@
  *  ⇒ exit 2 拒绝落地,**绝不退回窄面发号**。非 `PROJECT_PLAN.md`(AGENTS/README)⇒ 归档件不适用,
  *  面 = 该文档自身,与改动前逐字同形。
  *
+ *  千段租约(G-916936 机主拍板,2026-10-07 落地):取号前先问"本机段" —— 台账里本机的
+ *  `〔千段租约〕` 行(done 形态,主键=段尾号)内还有空闲 ⇒ **段内连号**;没有/段满 ⇒ **新占一段**
+ *  (max+1 起共 1000 个),租约行随本块一起落账。段尾号进了占用面 ⇒ 无租约感知的出口
+ *  (next-plan-id 的建议号、旧版令牌消费方)结构上落在所有已占段之外,跨机撞号从"每个号都可能
+ *  撞"收敛为"两侧同刻新占段才可能撞一次,CAS 重试即换下一段"。机器标识 = IHUI_MACHINE_ID env
+ *  > 主机名+仓根指纹(同机双 checkout 各占各段);租约行无日期 ⇒ 归档器"无日期不搬"不会把段
+ *  还回去。不给 machineId(仅测试用)⇒ 逐字保持旧口径。
+ *
  *  号段基准(G-313 出路②,2026-09-28 加):基准 = **max(本地 HEAD 底稿该族 max, 远端那一份该族
  *  max)**。只问 `git ls-remote` + 本机对象库;远端 tip 的对象**本地没有就不 fetch、不写任何 ref**,
  *  如实打印"号段基准未含远端(对象不在本地,原因:…)"后按本地基准落盘。远端**只抬高、不压低**,
@@ -125,6 +133,13 @@ import {
 import { collectIdFace } from './lib/plan-id-face.mjs'
 // G-725:旁路留痕的唯一出口(键名/落点与 safe-commit 那本台账同形,不在本器里另拼 JSON)。
 import { recordBypassLanding } from './lib/commit-attestation.mjs'
+// 千段租约(G-916936,2026-10-07):段判定/行构造/落账并线只有一份实现,本器只是取号出口的接线方。
+import {
+  appendLeaseRows,
+  buildLeaseRow,
+  decideLease,
+  machineIdentity,
+} from './lib/plan-id-lease.mjs'
 
 /**
  * 令牌 `{{NEXT_ID:G}}` ⇒ 落成 `G-<下一个空闲号>`。
@@ -338,37 +353,75 @@ export function idBasisGate({ families = [], remote = null, allowUnaligned = fal
  * 第三参 `remote` 缺省 null ⇒ 只看本地底稿,与改动前逐字同形;传入时远端**只能抬高**游标
  * (`max(本地, 远端)`),永不压低 —— 所以镜像 N2 的"同 max"那一条要求行为与旧版完全一致。
  */
-export function resolveIdTokens(lines, baseContent, remote = null) {
+export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
+  const machineId =
+    typeof opts?.machineId === 'string' && opts.machineId.trim() ? opts.machineId.trim() : null
   const families = idTokenFamilies(lines)
   if (families.length === 0) return { ok: true, lines, assigned: null, basis: [] }
   const cursor = new Map()
   const template = new Map()
   const basis = []
+  // 千段租约(G-916936,2026-10-07):machineId 给定 ⇒ 每族先问租约 —— 自有段有空闲就段内连号,
+  // 没有/段满就新占一段([max+1, max+1000],租约行由 main 随本块落账)。段尾号在占用面 ⇒ 无租约
+  // 感知的 max+1 出口结构上落在段外。不给 machineId ⇒ startAt 与旧口径逐字同形(镜像 N2/N3 的面)。
+  const leaseBounds = new Map()
+  const leaseClaims = []
+  const leaseNotes = []
   for (const f of families) {
     const used = usedIdsOfPrefix(baseContent, f)
     if (used === null) return { ok: false, reason: `no-such-family:${f}` }
     const remoteMax = Number.isFinite(remote?.max?.[f]) ? remote.max[f] : null
     const chosenMax = remoteMax !== null && remoteMax > used.max ? remoteMax : used.max
-    cursor.set(f, chosenMax)
+    let startAt = chosenMax
+    if (machineId) {
+      const cur = decideLease({ baseContent, family: f, used, baseMax: chosenMax, machineId })
+      const lbl = (n) => used.template.replace('%d', String(n))
+      if (cur.mode === 'in-lease') {
+        startAt = cur.next - 1
+        leaseBounds.set(f, cur.lease.end)
+        leaseNotes.push(
+          `号段租约:本机=${machineId} 在自有段 ${lbl(cur.lease.start)}~${lbl(cur.lease.end)} 内连号(本次首号=${lbl(cur.next)})`,
+        )
+      } else {
+        startAt = cur.start - 1
+        leaseBounds.set(f, cur.end)
+        leaseClaims.push({ family: f, template: used.template, start: cur.start, end: cur.end })
+        leaseNotes.push(
+          `号段租约:本机=${machineId} 新占段 ${lbl(cur.start)}~${lbl(cur.end)}(主键=段尾号,随本块落账;段满由后续取号另立下一段)`,
+        )
+      }
+    }
+    cursor.set(f, startAt)
     template.set(f, used.template)
     // 三条读数一起交出:报告里"号段基准"那一行必须能说清号是从哪一侧算出来的,
     // 只印最终值就分不清"远端把这一段顶开了"与"远端压根没参与"。
     basis.push({ family: f, localMax: used.max, remoteMax, chosenMax })
   }
   const got = []
-  // **逐个令牌递增取号**:一条块里登记两件事是常态,若两个令牌都算成 max+1,本器就会自己
-  // 造出它要防的那一型(同号不同标题)。按出现顺序发号,且号只在本次调用内递增。
+  let exhaustedFamily = null
   const out = lines.map((l) =>
     String(l).replace(ID_TOKEN_RE, (_, raw) => {
       const f = raw.toUpperCase()
       const next = cursor.get(f) + 1
       cursor.set(f, next)
+      const bound = leaseBounds.get(f)
+      if (machineId && bound !== undefined && next > bound && exhaustedFamily === null)
+        exhaustedFamily = f
       const id = template.get(f).replace('%d', String(next))
       got.push(id)
       return id
     }),
   )
-  return { ok: true, lines: out, assigned: [...new Set(got)].join(','), basis }
+  if (exhaustedFamily !== null)
+    return { ok: false, reason: `lease-exhausted-mid-edit:${exhaustedFamily}` }
+  return {
+    ok: true,
+    lines: out,
+    assigned: [...new Set(got)].join(','),
+    basis,
+    leaseClaims,
+    leaseNotes,
+  }
 }
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -684,6 +737,9 @@ async function main() {
   }
   const { root, doc, msg, block, anchorLines, replacements } = inputs
   const mode = replacements ? '整行改写' : anchorLines ? '锚点插入' : 'EOF 追加'
+  // 千段租约的机器标识(取号主体):env IHUI_MACHINE_ID > 主机名+仓根指纹。只取一次,
+  // CAS 各轮重算的是"面",标识本身不随轮次变。
+  const machineId = machineIdentity(root)
 
   let landed = ''
   let parentSha = ''
@@ -731,8 +787,15 @@ async function main() {
     // 号段基准**也在每次尝试里重算**:HEAD 会动,远端 tip 也会动(origin 常年被后台 worker 推进)。
     // 提到循环外就等于把"远端那一份"烘成一次性读数 —— 镜像测试 N5 用源码锁钉住这一型。
     const remote = families.length ? readRemoteIdBasis({ root, doc, families }) : null
-    const tok = resolveIdTokens(targetLines, baseContent, remote)
+    const tok = resolveIdTokens(targetLines, baseContent, remote, { machineId })
     if (!tok.ok) {
+      if (String(tok.reason).startsWith('lease-exhausted-mid-edit:')) {
+        console.error(
+          `❌ 千段租约段内容量不足(${tok.reason})⇒ 拒绝落地:单次编辑的取号令牌数超过了段容量(1000),` +
+            `把登记拆成多块再落`,
+        )
+        process.exit(2)
+      }
       console.error(
         `❌ 令牌取号判不出(${tok.reason})⇒ 拒绝落地:该族在这份 HEAD 底稿里一条登记行都没有,` +
           `给 "<族>-1" 就是把"没查到"写成"这是空闲号"`,
@@ -745,6 +808,8 @@ async function main() {
     for (const n of remote?.notes ?? [])
       console.log(`⚠️ 号段基准未含远端(${n})⇒ 仍按本地 HEAD 底稿落号,**未与远端对齐**`)
     for (const b of tok.basis ?? []) console.log(describeIdBasis(b, remote))
+    // 租约读数逐条交出:段内连号还是新占段、段界在哪,报告必须能对上"号为什么是这一个"。
+    for (const n of tok.leaseNotes ?? []) console.log(`ℹ ${n}`)
     {
       const gate = idBasisGate({
         families,
@@ -814,14 +879,21 @@ async function main() {
       )
       process.exit(1)
     }
-    nextCount = built.next.length
+    // 千段租约落账:本块若新占了段,租约行(done 形态,主键=段尾号)必须随本块**同一次提交**进面 ——
+    // 分两次提交会在两枚 commit 之间留下"号已实占而段未登记"的窗口。它必须在畸形判据之前并进
+    // next,让同一批写前守卫看到的就是将要提交的内容;CAS 失败重试时随底稿整批重算,无残留。
+    const nextLines =
+      tok.leaseClaims && tok.leaseClaims.length
+        ? appendLeaseRows(built.next, tok.leaseClaims.map((c) => buildLeaseRow({ ...c, machineId })))
+        : built.next
+    nextCount = nextLines.length
     // 畸形登记编号防线(2026-09-28 立;同一行 D128↔DD128 第四次来回逼出)。
     // 为什么必须在**写 blob 之前**而不是落地之后:内容一旦 commit,再 exit 1 就是把"已入库"谎报成
     // "没落地",而"没落地"的唯一反应就是重跑 —— 那正是本器 G-321 花两档退出码要消灭的混淆。
     // 为什么存量只报数:由他人历史留下的畸形号钉红每一次落地,结局是逼人绕开本器改用 pathspec 硬交,
     // 那是拿一个更危险的出口换一个账面好看(§12e 恒红门同一条)。
     {
-      const mal = newMalformed(baseContent, built.next.join('\n'))
+      const mal = newMalformed(baseContent, nextLines.join('\n'))
       if (mal.added.length > 0) {
         console.error(`❌ 本次要写入的内容里有 ${mal.added.length} 行畸形登记编号(族名在编号段出现两次)⇒ 拒绝落地:`)
         for (const x of mal.added.slice(0, 4)) console.error(`   · ${malformedLine(x)}`)
@@ -836,7 +908,7 @@ async function main() {
           `ℹ 台账存量畸形编号 ${mal.preexisting.length} 行(父提交里已在 ⇒ 只报数不拦,与本次落地无关;逐条清偿另计批)`,
         )
     }
-    const blob = writeBlob(built.next.join('\n'), { root })
+    const blob = writeBlob(nextLines.join('\n'), { root })
     const { commit } = commitTreeWithIndex({
       root,
       parent: head,
