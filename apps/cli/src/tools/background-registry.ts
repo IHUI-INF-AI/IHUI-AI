@@ -212,10 +212,24 @@ function toLedgerTerminal(status: BackgroundTaskStatus, exitCode: number | null 
 /**
  * 落台账。**台账失败不改判任务** —— 它是观测面不是执行面,但失败必须留痕:
  * `background-ledger` 自己把失败压进告警队列,呈现点(`repl` 的 `/bg list`)会把它喊出来。
+ *
+ * G-1058645 世代围栏(写账侧):与 `notifySettled` 的代际归属门**同构** —— 这个 key 上
+ * 如今站着**另一代**登记 ⇒ 手上这条结算是旧世代迟到的 ⇒ 不得写账。没有这道门时,error /
+ * close 两支都直接拿 `task.id` 记账,而同 id 复用(`pruneCompleted()` 之后是真路径)后,
+ * 上一代迟到的收尾会把新一代那条账标成旧世结局 —— "账面说这一代已经结了,而它其实还在跑"。
+ * 判据与投递侧逐字同形(`live && live.identity !== task.identity`):没有在册登记(已被裁掉)
+ * 时照写 —— 那是这一代给自己补账,不是冒名。拦截计入 `staleTerminalRejected`(与投递侧
+ * 同一格:"迟到终态:对象所属世代已被新登记取代")。
  */
 function ledgerSettle(task: BackgroundTask, note: string): void {
+  const live = tasks.get(task.id);
+  if (live && live.identity !== task.identity) {
+    removalGuardStats.staleTerminalRejected += 1;
+    return;
+  }
   recordTaskSettle({
     id: task.id,
+    identity: task.identity,
     terminal: toLedgerTerminal(task.status, task.exitCode),
     exitCode: typeof task.exitCode === 'number' ? task.exitCode : null,
     note,
@@ -500,7 +514,8 @@ export function registerTask(
 
   // 台账先落一条"已开始、无终态"的记录:进程一旦被宿主清掉而没人写终态,
   // 读侧就会把它判成 detached-unknown —— 这是"能被看见"的唯一前提。
-  recordTaskStart({ id, command, childPid: process?.pid ?? null });
+  // G-1058645:账随世代走 —— 台账记录带上本代 identity,折叠按世代进行。
+  recordTaskStart({ id, command, childPid: process?.pid ?? null, identity: task.identity });
 
   if (process) {
     // 双窗口捕获(G-937959):每个流同时维护"头窗"(前 30k,运行中视图)与"尾窗"
@@ -540,7 +555,7 @@ export function registerTask(
       task.totalStdoutChars = w.total;
       task.droppedStdoutBytes = w.dropped;
       if (w.dropped > 0) task.truncated = true;
-      recordHeartbeat(id); // 有输出就是"还活着"的证据(模块内按 30s 节流)
+      recordHeartbeat(id, task.identity); // 有输出就是"还活着"的证据(模块内按 30s 节流;找账按世代,G-1058645)
     });
     process.stderr?.on('data', (chunk: Buffer) => {
       const w = capture(chunk, {
@@ -554,7 +569,7 @@ export function registerTask(
       task.totalStderrChars = w.total;
       task.droppedStderrBytes = w.dropped;
       if (w.dropped > 0) task.truncated = true;
-      recordHeartbeat(id);
+      recordHeartbeat(id, task.identity);
     });
     process.on('error', () => {
       // 终态单向门(G-814418 判据②):已经终态的条目不许被**迟到的快照**改写。
@@ -638,8 +653,10 @@ export function registerFailedTask(command: string, errorMessage: string): strin
   tasks.set(id, task);
   pruneCompleted();
   // 占位任务从未有过进程,但同样要进台账:否则"沙盒拒绝"这一类任务在重启后彻底查无此事。
+  // G-1058645:账随世代走。
   recordTaskSettle({
     id,
+    identity: task.identity,
     terminal: 'failed',
     exitCode: null,
     note: errorMessage,
@@ -1484,5 +1501,11 @@ export const __test__ = {
   notifySettled,
   setTerminalNoticeSink,
   toLedgerTerminal,
+  /**
+   * G-1058645:写账入口与投递入口(`notifySettled`)同权暴露 —— 迟到旧世代的结算只能从
+   * handlers 携带的活对象进来,而 key 换代没有任何公开入口(同 G-816002 块头的论证),
+   * 测试从这枚口喂"同一枚 key + 旧世代号"的载体。
+   */
+  ledgerSettle,
 };
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
