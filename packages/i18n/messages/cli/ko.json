@@ -123,6 +123,7 @@
     },
     "goalNotAchieved": "독립 검증에 통과하지 못해 이 실행을 완료로 보고할 수 없습니다",
     "truncatedByLength": "출력이 길이 상한에 도달해 잘렸으며 응답은 불완전할 수 있습니다. 나눠서 계속 요청하거나 max_tokens를 높인 뒤 다시 시도하세요.",
+    "truncatedContinuationExhausted": "자동 이어쓰기 3번 후에도 길이 상한에 도달해 응답이 불완전합니다. max_tokens를 높이거나 나눠서 계속 요청하세요.",
     "partialDoneTitle": "응답이 중단되었습니다. 아래 내용은 불완전할 수 있습니다",
     "mcpCredentials": {
       "storePlaintext": "MCP 자격 증명이 {path}에 평문으로 저장되어 있습니다(이 기기에서는 평문으로 강등)",
