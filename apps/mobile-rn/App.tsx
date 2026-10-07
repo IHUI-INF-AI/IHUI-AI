@@ -27,12 +27,40 @@ import {
 } from './src/lib/oauth-deeplink'
 import { rnAuthStore } from './src/stores/auth-store'
 import { tokens } from './src/theme/active-tokens'
+import type { RnThemeTokens } from '@ihui/design-tokens'
 import { isVideoImmersive, subscribeVideoImmersive } from './src/lib/video-immersive'
 import type { LoginResult } from '@ihui/api-client'
 import { GlobalFloatBox } from './src/components/GlobalFloatBox'
 import { PrivacyPolicyModal } from './src/components/PrivacyPolicyModal'
 import { PRIVACY_POLICY_STORAGE_KEY } from './src/constants/privacyPolicy'
 import './src/lib/web-shell'
+
+/**
+ * 根底色与页面底色不同档的路由(2026-10-07 全面审计)。
+ *
+ * 状态栏 inset 带 + 全局 OfflineBanner 行由本组件根 View 绘制,默认取 surface.bg
+ * (与全站 shell 同档);下列路由的页面根容器另取了档,带色不跟随就会在顶部露出
+ * 两截颜色。值是页面根容器的**同一份取色**(逐屏审计见 .ihui-agent/tmp/audit-root-bg.mjs),
+ * 不是新造的档;包装层自带 surface.bg 壳的页(AigcList/ModelPlaza/RankingDetail 等)
+ * 带色已与壳一致,不入表。 Recruitment 首屏是整幅 bgImage,带色对不齐图片属固有形态,不收。
+ */
+const ROUTE_ROOT_BG: Record<string, (t: RnThemeTokens, dark: boolean) => string> = {
+  Login: (t) => t.surface.card,
+  ChatTools: (t, dark) => (dark ? t.gray[900] : t.surface.light),
+  WebView: (t, dark) => (dark ? t.gray[900] : t.surface.light),
+  Note: (t) => t.surface.light,
+  BankCard: (t) => t.surface.light,
+  AiGroup: (t) => t.surface.light,
+  VipTrader: (t) => t.surface.light,
+  AigcCover: (t) => t.surface.light,
+  AigcPublish: (t) => t.surface.light,
+  BusinessLicense: (t) => t.surface.muted,
+  ModelRecord: (t) => t.surface.muted,
+  ProfileEdit: (t) => t.surface.muted,
+  CoursePlanet: (t) => t.brandAccent.light,
+  // 更多课程页:对齐历史 MoreCourse.vue 的渐变中间色(#93D2F3/#93D2E2/#9bd1d1 取中),两主题同值
+  MoreCourse: () => '#93D2E2',
+}
 
 /**
  * 全局默认字体:阿里妈妈方圆体(对齐 D 盘 uniapp Ai-WXMiniVue 的 App.vue 全局字体)。
@@ -192,8 +220,17 @@ function AppContent() {
   // 只等订阅回调会让首帧带色停在浅色。
   const [videoImmersive, setVideoImmersive] = useState(isVideoImmersive)
   useEffect(() => subscribeVideoImmersive(setVideoImmersive), [])
+  // Login 页(共享层)页面底取 surface.card(暗 #1A1A1A),与全站 shell 的 surface.bg 不同档;
+  // 带色不跟随就会在状态栏与断网横幅两处露出一截 #242424(2026-10-07 用户点名)。
+  // 其余根底色 ≠ surface.bg 的路由同批收进 ROUTE_ROOT_BG(2026-10-07 全面审计,
+  // 取材 .ihui-agent/tmp/audit-root-bg.mjs;包装层自带 surface.bg 壳的页不入表)。
+  const routeBgEntry = focusedRoute ? ROUTE_ROOT_BG[focusedRoute] : undefined
   const rootBackground =
-    videoImmersive || focusedRoute === 'VideoPlayer' ? tokens.gray.black : tokens.surface.bg
+    videoImmersive || focusedRoute === 'VideoPlayer'
+      ? tokens.gray.black
+      : routeBgEntry
+        ? routeBgEntry(tokens, resolvedTheme === 'dark')
+        : tokens.surface.bg
 
   return (
     // backgroundColor 兜底:悬浮 TabBar 留边/根节点透明的屏(ProfileScreen 等 Fragment 根)
