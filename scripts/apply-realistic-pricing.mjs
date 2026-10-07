@@ -26,13 +26,9 @@
  *   node scripts/apply-realistic-pricing.mjs --dry-run  # 预览
  */
 import { createRequire } from 'node:module'
-const require = createRequire(import.meta.url)
-const postgres = require('postgres')
 
 const args = process.argv.slice(2)
 const dryRun = args.includes('--dry-run')
-
-const sql = postgres(process.env.DATABASE_URL || 'postgresql://ihui:ihui_dev_d6412937d5e397bc@127.0.0.1:5432/ihui', { max: 4, prepare: false })
 
 // ============================================================================
 // 模型定价分级(基于模型名 pattern 匹配,大小写不敏感)
@@ -182,6 +178,11 @@ function classifyModel(modelId) {
 }
 
 async function main() {
+  // AGENTS §22d/批次 G2:建库连接只在 CLI 真正执行时发生,被 import 时零副作用。
+  const require = createRequire(import.meta.url)
+  const postgres = require('postgres')
+  const sql = postgres(process.env.DATABASE_URL || 'postgresql://ihui:ihui_dev_d6412937d5e397bc@127.0.0.1:5432/ihui', { max: 4, prepare: false })
+
   console.log('========== 模型定价修复脚本 ==========')
   console.log(`模式: ${dryRun ? 'DRY-RUN(预览)' : 'EXECUTE(执行)'}`)
   console.log()
@@ -305,10 +306,22 @@ async function main() {
   await sql.end()
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((e) => {
-    console.error('FATAL:', e?.message || e)
-    process.exit(2)
-  })
+// AGENTS §22d:CLI 直跑与被 import 双形态必须隔离副作用,Windows 反斜杠路径要经 pathToFileURL 归一。
+import { pathToFileURL } from 'node:url'
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main()
+    .then(() => process.exit(0))
+    .catch((e) => {
+      console.error('FATAL:', e?.message || e)
+      process.exit(2)
+    })
+}
+
+export const __test__ = {
+  classifyModel,
+  PRICING_RULES,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
