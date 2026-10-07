@@ -630,19 +630,20 @@ git branch -d hotfix/v1.2.4
 桌面端基于 Tauri 2 `tauri-plugin-updater` 实现应用内自动更新,发布/更新链路**已全部配置完毕**:
 
 - 前端更新逻辑:[use-updater.ts](../apps/web/src/hooks/use-updater.ts)(web 端 Tauri WebView 内运行)+ Rust 端 `restart_app` 命令
-- [tauri.conf.json](../apps/desktop/src-tauri/tauri.conf.json):`bundle.createUpdaterArtifacts: true` 已启用,updater 配的是**两个端点按序回退**:
-  1. `https://aizhs.top/desktop-feed.json` —— **主端点**,是 Next App Route
+- [tauri.conf.json](../apps/desktop/src-tauri/tauri.conf.json):`bundle.createUpdaterArtifacts: true` 已启用,updater 配的是**单端点**(2026-10-05 机主拍板定稿,原 GitHub 兜底端点已随枚 ea7616fecf 删除):
+  1. `https://aizhs.top/desktop-feed.json` —— **唯一端点**,是 Next App Route
      (`apps/web/app/desktop-feed.json/route.ts`,`force-static`),数据来自入库快照
      `apps/web/src/config/desktop-feed.generated.ts`(由 `resolve-desktop-download.mjs` 在
-     `release-desktop.yml` 与每日 `sync-downloads.yml` 两处刷新);Windows 包直链走 **Gitee 国内发行**;
-  2. `https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-updater-feed/latest.json` —— **回退端点**,挂在固定 feed tag 上
-     (用固定 feed tag 而非 `releases/latest`,避免被 nightly-ios 等其他 release 漂移占用导致 404)。
+     `release-desktop.yml` 与每日 `sync-downloads.yml` 两处刷新);Windows 包直链走 **Gitee 国内发行**。
+     (原第 2 条 GitHub `desktop-updater-feed/latest.json` 回退端点已删除——它只由 CI 维护、
+     本机发版通道无 GH_TOKEN,属"看似有兜底、实际随发布路径分叉"的假能力。)
 
   > ⚠️ **2026-09-24 实测纠偏**:上面"已全部配置完毕"当时并不成立。回退端点的 git ref
   > `refs/tags/desktop-updater-feed` **在 origin 上已不存在**(`git ls-remote` 与 `GET` 双双 404,而 Release 对象还在、
   > 资产还被 CI 正常更新),即第 2 条整条是死的。已把 feed tag 归位到它原本的目标提交(不前移)并复验:
   > 回退端点 `GET=200`、`version 0.1.44`、平台数 4。判据提示:**端点是否活着只能靠 HTTP 实测 + `git ls-remote` 双向核**,
   > 不能读文档、也不能看 CI 绿灯 —— `Publish Updater JSON` job 全程 success,而它的产物当时 404。
+  > (2026-10-05 后记:该回退端点已随单端点定稿整体删除,本段实测口径成为历史记录。)
   >
   > 🔴 **"两个端点按序回退"这句话本身也是错的(2026-09-24 读 crate 源码实证)**:
   > `tauri-plugin-updater` 的端点循环**只要某个端点返回 200 且 JSON 能反序列化就 `break`**,
@@ -695,10 +696,10 @@ git push origin desktop-v0.1.15
 > - GitHub Actions 页面:Release Desktop → Run workflow → `ref=main` + 输入 `tag=desktop-vX.Y.Z`(workflow 内部用 `inputs.tag` 定位 Release)
 > - 或 API 触发:`POST /repos/IHUI-INF-AI/IHUI-AI/actions/workflows/release-desktop.yml/dispatches`,body `{"ref":"main","inputs":{"tag":"desktop-vX.Y.Z"}}`,需要 GitHub 凭据 token(`git credential fill` 提取 `gho_` token);HTTP 204 = 触发成功,随后到 Actions 页确认新 run 的 4 平台均为 in_progress(无早期失败)
 
-3. `release-desktop.yml` 自动执行:4 平台(windows-x64 / macos-arm64 / macos-x64 / linux-x64)构建 → 上传安装包 + `.sig` 签名包到 Release → `publish-updater-json` 聚合全部平台生成 `latest.json`(上传到发版 Release + 固定 feed tag `desktop-updater-feed`)→ `sync-downloads` 把产物同步到 `apps/web/public/downloads/` 并自动提交回 main
+3. `release-desktop.yml` 自动执行:4 平台(windows-x64 / macos-arm64 / macos-x64 / linux-x64)构建 → 上传安装包 + `.sig` 签名包到 Release → `publish-updater-json` 聚合全部平台生成 `latest.json`(仅上传到发版 Release;原"固定 feed tag `desktop-updater-feed`"上传已随 2026-10-05 兜底端点删除移除)→ `sync-downloads` 把产物同步到 `apps/web/public/downloads/` 并自动提交回 main
    - **注意**:桌面安装包 ~230MB,超过 GitHub 单文件 100MB 限制,`sync-downloads` 提交时**不包含** exe/msi(`apps/web/public/downloads/desktop/` 已 gitignore)。
 4. `sync-downloads` job 同时运行 `scripts/resolve-desktop-download.mjs`,从 GitHub Releases API **动态解析**最新 `desktop-v*` release 的安装包(URL/大小/版本/发布日期),刷新 `apps/web/src/config/desktop-feed.generated.ts` 入库快照并随提交回 main。Web 下载页(`/download/desktop`)构建期读取该快照渲染下载按钮——**发版后下载页自动更新,无需手动改任何 URL / 大小 / 版本号**。
-5. 用户端:应用启动时 `checkForUpdate()` 拉固定 feed 的 `latest.json` → 比对版本 → 下载签名包 → `downloadAndInstall()` 验签安装 → 重启
+5. 用户端:应用启动时 `checkForUpdate()` 拉唯一端点(`https://aizhs.top/desktop-feed.json`)的 `latest.json` → 比对版本 → 下载签名包 → `downloadAndInstall()` 验签安装 → 重启
 
 > 手动刷新快照(CI 失败兜底 / 本地调试):`node scripts/resolve-desktop-download.mjs`(有差异才写);`--check` 仅对比(有差异退出码 1);`--offline` 仅查看本地快照。
 
