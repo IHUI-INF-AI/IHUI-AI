@@ -10601,6 +10601,9 @@
     "expiryDate": "만료 날짜"
   },
   "chat": {
+    "truncation": {
+      "maxLengthNotice": "이 답변은 최대 출력 길이에 도달하여 잘렸으며 내용이 불완전합니다. \"계속\"을 보내면 이어서 생성됩니다."
+    },
     "markdownTable": {
       "copy": "표 복사",
       "downloadCsv": "CSV 다운로드",
