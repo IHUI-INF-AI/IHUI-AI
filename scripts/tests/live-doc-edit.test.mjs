@@ -89,6 +89,107 @@ function runLive(
 
 const DOC_BASE = ['# 标题', '段落一', '@@ANCHOR@@', '段落二', '']
 
+// ── 取号读数:只从**同一次运行的 stdout** 里取回(不预测、不复算)────────────────────────
+// 为什么不 import 工具里的 `resolveIdTokens` / `decideLease` 去"算出这一枚应该等于几":那等于用
+// 被测实现自己的结论来断言它(§22c「镜像测试只复读实现,它就只是复读机」)。这里只做一件事 ——
+// 把工具**自己宣布**的三行读数取回来(号段基准 / 号段租约 / 令牌取号),再断言三者互相自洽。
+// 三条出口一律"取不到即红":报告版式漂了本文件必须当场喊,绝不把"没读到"折叠成"这一维不用读"
+// (本仓最高频失效型就是把没判写成判过了)。
+//
+// 换掉字面量的理由(不是"为了变绿"):千段租约(G-916936)之后"下一个空闲号 = 该族 max+1"这个
+// 前提**不再成立** —— 新占段起点由机器标识派生的偏移抬高(leaseCursor 的 claim 支),自有段内
+// 连号更可以远小于占用面 max(段尾号只是租约行的主键,不是实号)。所以能钉住的只有关系:
+//  ① 落地的号 == 这一次租约读数宣布的那一枚;
+//  ② claim 支:号 > 当次基准的本地 max(远端参与时还要 > 远端 max)—— 这就是 G-313 的"让号"语义;
+//  ③ in-lease 支:号落在自己段内且 < 段尾,并且严格大于上一次发出的号(绝不再发同一枚)。
+const ID_TOKEN_SHAPE = /^[A-Z]+-?\d+$/
+
+/** 从 `G-299` / `O4` 这类号里取出数字部分;取不出就是报告形状漂了,不当"没超标"放过。 */
+function idNum(id, where = '取号读数') {
+  const s = String(id)
+  assert.ok(ID_TOKEN_SHAPE.test(s), `${where}:号的外形读不出数字(${JSON.stringify(s)})⇒ 族书写形状或报告版式漂了`)
+  return Number(s.match(/(\d+)$/)[1])
+}
+
+/** CAS 成功行里的 `/ 令牌取号(由该次 HEAD 底稿现算)=G-299`(同族多枚以逗号分隔)。 */
+function assignedIdsFrom(stdout, where) {
+  const m = String(stdout).match(/令牌取号\(由该次 HEAD 底稿现算\)=([A-Z]+-?\d+(?:,[A-Z]+-?\d+)*)/)
+  assert.ok(
+    m,
+    `${where}:本次运行的报告里没有"令牌取号"读数 ⇒ 无法证明落地用的号是这一次算出来的:\n${stdout}`,
+  )
+  return m[1].split(',')
+}
+
+/**
+ * 租约读数行宣布"这一次该取哪一枚",并交出段界:
+ *  - 自有段还有空闲 ⇒ `在自有段 A~B 内连号(本次首号=X)`   ⇒ mode=in-lease, id=X, start=A, end=B
+ *  - 没有 / 段满     ⇒ `新占段 A~B(主键=段尾号,随本块落账…)` ⇒ mode=claim,  id=A(段首), start=A, end=B
+ */
+function leaseReadoutFrom(stdout, where) {
+  const line = String(stdout).match(/号段租约:[^\n]*/)
+  assert.ok(
+    line,
+    `${where}:本次运行的报告里没有"号段租约"读数 ⇒ 无从核对落地的号是不是租约宣布的那一枚:\n${stdout}`,
+  )
+  const bounds = line[0].match(/(?:在自有段|新占段) ([A-Z]+-?\d+)~([A-Z]+-?\d+)/)
+  assert.ok(bounds, `${where}:租约行读不出段界 ⇒ 版式漂了:\n${line[0]}`)
+  const inLease = line[0].match(/内连号\(本次首号=([A-Z]+-?\d+)\)/)
+  if (inLease)
+    return { mode: 'in-lease', id: inLease[1], start: bounds[1], end: bounds[2], line: line[0] }
+  return { mode: 'claim', id: bounds[1], start: bounds[1], end: bounds[2], line: line[0] }
+}
+
+/**
+ * 基准行:`   号段基准:G=9(本地 HEAD 该族 max=3 / 远端 refs/heads/main max=9 ⇒ 取较大,…)`。
+ * 离线支写的是 `远端未参与:…` ⇒ 读不出 remoteMax,返回 **null**(含义是"这一维没参与本次取号",
+ * 不是"判不出"—— 上一行那条 ⚠️ 已经把不可问的原因喊出来了,两档刻意不并桶)。
+ */
+function basisFrom(stdout, where) {
+  const m = String(stdout).match(
+    /号段基准:([A-Z]+)=(\d+)\(本地 HEAD 该族 max=(\d+)(?: \/ 远端 \S+ max=(\d+))?/,
+  )
+  assert.ok(
+    m,
+    `${where}:本次运行的报告里没有"号段基准"读数 ⇒ 无法把落地的号钉回它所依据的那份底稿:\n${stdout}`,
+  )
+  // 远端那一段是 `(?: … max=(\d+))` —— 外层非捕获 ⇒ 那个数字是组 **4**;按 m[5] 取会永远拿到
+  // undefined,于是"远端参与了本次取号"被静默读成"远端没参与"(N4 的抬号支就此失去立票理由,
+  // 而账面只有一句 remoteMax: null)。
+  return {
+    family: m[1],
+    chosenMax: Number(m[2]),
+    localMax: Number(m[3]),
+    remoteMax: m[4] === undefined ? null : Number(m[4]),
+  }
+}
+
+/** 一次取号运行的三行读数(号 / 租约 / 基准)一起交出,断言写在用例里,便于逐条看清钉的是哪一型。 */
+function readNumbering(stdout, where) {
+  const ids = assignedIdsFrom(stdout, where)
+  const lease = leaseReadoutFrom(stdout, where)
+  const basis = basisFrom(stdout, where)
+  assert.equal(
+    ids[0],
+    lease.id,
+    `${where}:落地的号(${ids.join(',')})与同一次运行的租约读数宣布的那一枚(${lease.id})不是同一个 ⇒ ` +
+      `报告在替一个没有发生的取号背书(租约行:\n${lease.line})`,
+  )
+  assert.ok(
+    idNum(lease.id, `${where}·租约宣布的号`) >= idNum(lease.start, `${where}·段首`) &&
+      idNum(lease.id, `${where}·租约宣布的号`) < idNum(lease.end, `${where}·段尾`),
+    `${where}:取到的号 ${lease.id} 不在自有段 ${lease.start}~${lease.end} 的实号空间内` +
+      '(段尾号是租约行的主键、不是实号 ⇒ 取号必须严格小于段尾;落在段外就是发一枚别人也认为空闲的号)',
+  )
+  return { ids, id: ids[0], lease, basis }
+}
+
+/** 文档里那一行 `**<号> <题>**`(号是运行时算出的,必须转义;label 只用汉字,无元字符)。 */
+function idRowRe(id, label) {
+  const esc = String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`\\*\\*${esc} ${label}\\*\\*`)
+}
+
 test('T1 §22c 导出面:判据纯函数必须在 __test__ 里', () => {
   for (const k of [
     'readInputs',
@@ -305,27 +406,24 @@ test('T10c 顺序替换的自咬防护:一项 before 等于另一项 after ⇒ c
 test('T11 端到端·整行改写:落地后旧形态逐条为零、其余行逐字原位、主索引对齐', (t) => {
   const src = ['# 标题', '段落一', '- [ ] **D1 待办**:说明。', '段落二', '']
   const { dir, inputs } = makeDocRepo(t, src.join('\n'))
+  // 〔收口:枚 <sha>〕在 T11 里只是"改写后的行长什么样"的装饰,本用例判的是改写三不变量。
+  // 但工具的 sha 可解析性判据(G-1079146)会当场把**新增**的那枚指针问一遍(`git rev-parse --verify
+  // <token>^{commit}`,root = LIVE_ROOT 即本夹具仓),答"问不到"就拒落该行。旧夹具写的 `abc1234`
+  // 是凭空的七位 hex,在任何仓里都不存在 ⇒ 与判据对撞。这里用**夹具仓真有的那枚 commit**(而不是
+  // 该判据的应急旗 LIVE_SHA_ALLOW):判据答"可解析"⇒ 照原样落地,三条不变量一条未减,且这一写法
+  // 在"有 sha 判据"与"无 sha 判据"两个面上都成立(不依赖被测工具此刻带不带那一维)。
+  const realSha = norm(runGit(dir, ['rev-parse', 'HEAD'])).trim()
+  assert.match(realSha, /^[0-9a-f]{7,40}$/, `夹具的 HEAD  sha 形状不对:${realSha}`)
+  const after = `- [x] ✅(2026-09-27) **D1 待办**:说明。 〔收口:枚 ${realSha}〕`
   const rep = join(inputs, 'rep.json')
-  writeFileSync(
-    rep,
-    JSON.stringify([
-      { before: src[2], after: '- [x] ✅(2026-09-27) **D1 待办**:说明。 〔收口:枚 abc1234〕' },
-    ]),
-    'utf8',
-  )
+  writeFileSync(rep, JSON.stringify([{ before: src[2], after }]), 'utf8')
   const r = runLive(dir, { replaceFile: rep })
   assert.equal(r.status, 0, `应成功:${r.stdout}|${r.stderr}`)
   assert.match(r.stdout, /旧形态整行归零/)
   const now = norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true })).split('\n')
   assert.deepEqual(
     now,
-    [
-      '# 标题',
-      '段落一',
-      '- [x] ✅(2026-09-27) **D1 待办**:说明。 〔收口:枚 abc1234〕',
-      '段落二',
-      '',
-    ],
+    ['# 标题', '段落一', after, '段落二', ''],
     '除声明行外不得有任何位移',
   )
   assert.equal(indexBlobOf('DOC.md', { root: dir }), headBlobOf('HEAD', 'DOC.md', { root: dir }))
@@ -443,9 +541,30 @@ test('T15 端到端:带令牌的块落地后 HEAD 含算出的号且不含令牌
   )
   const r = runLive(dir, { blockFile })
   assert.equal(r.status, 0, `落地应成功,实得 ${r.status}\n${r.stdout}\n${r.stderr}`)
-  assert.match(r.stdout, /令牌取号\(由该次 HEAD 底稿现算\)=G-4/, `输出没报名取到的号:\n${r.stdout}`)
+  // 原断言钉 `=G-4`(= 该族 max+1)。千段租约(G-916936)之后那句前提已经不成立 —— 新占段起点
+  // 还带一个由机器标识派生的偏移(G-815400,两机同 floor 时让占段分开)。所以改钉**同一次运行
+  // 的三行读数自洽**:落地的号必须恰是这一次租约宣布的那一枚(readNumbering 内已断言),
+  // 并且 claim 支必须站在当次底稿之上 —— 这三条一起比"等于 G-4"更强:字面量只排除了别的号,
+  // 而它既没规定"号必须来自租约读数"、也没规定"号必须 > 占用面 max"。
+  const run = readNumbering(r.stdout, 'T15')
+  assert.equal(
+    run.ids.length,
+    1,
+    `一块只放了一枚令牌,取号读数却给了 ${run.ids.length} 枚:${run.ids.join(',')}`,
+  )
+  assert.equal(run.lease.mode, 'claim', `夹具是新建的临时仓,不可能有自有段:\n${r.stdout}`)
+  assert.equal(run.basis.family, 'G', `族名从报告里读出来不是 G:${JSON.stringify(run.basis)}`)
+  assert.equal(
+    run.basis.localMax,
+    3,
+    `夹具底稿只有 G-3 ⇒ 基准行的本地 max 必须是 3(不是 3 就是本用例的底稿被改动过,后面的关系断言全部失去意义):\n${r.stdout}`,
+  )
+  assert.ok(
+    idNum(run.id, 'T15·落地的号') > run.basis.localMax,
+    `新占段必须站在当次底稿之上:号 ${run.id} ≤ 本地 max ${run.basis.localMax} 就是发一枚已被占的号`,
+  )
   const now = norm(runGit(dir, ['show', 'HEAD:DOC.md']))
-  assert.match(now, /\*\*G-4 取号落地\*\*/, `HEAD 里没有算出的号:\n${now}`)
+  assert.match(now, idRowRe(run.id, '取号落地'), `HEAD 里没有同一次运行算出的那个号:\n${now}`)
   assert.doesNotMatch(now, /NEXT_ID/, '令牌本身绝不能留在文档里')
 })
 
@@ -465,8 +584,26 @@ test('T16 整行改写档支持令牌:after 里的号由 HEAD 底稿现算', (t)
   )
   const r = runLive(dir, { replaceFile: repl })
   assert.equal(r.status, 0, `落地应成功,实得 ${r.status}\n${r.stdout}\n${r.stderr}`)
+  // 同 T15:原断言钉 `G-6`(= max+1)⇒ 与千段租约漂移。改写档的语义是"after 里那枚号必须来自
+  // 这一次对 HEAD 底稿的取号",所以钉三行读数的自洽 + 号 > 当次底稿 max,而不钉具体号。
+  const run = readNumbering(r.stdout, 'T16')
+  assert.equal(
+    run.ids.length,
+    1,
+    `改写档只有一枚令牌,取号读数给了 ${run.ids.length} 枚:${run.ids.join(',')}`,
+  )
+  assert.equal(run.lease.mode, 'claim', `新建临时仓没有自有段,不该走连号支:\n${r.stdout}`)
+  assert.equal(
+    run.basis.localMax,
+    5,
+    `夹具底稿只有 G-5 ⇒ 基准行的本地 max 必须是 5(否则本用例的底稿被换过,关系断言无意义):\n${r.stdout}`,
+  )
+  assert.ok(
+    idNum(run.id, 'T16·落地的号') > run.basis.localMax,
+    `让号后的新号必须比当次底稿 max(${run.basis.localMax}) 大,实得 ${run.id}`,
+  )
   const now = norm(runGit(dir, ['show', 'HEAD:DOC.md']))
-  assert.match(now, /\*\*G-6 让号后\*\*/, `改写后的行没拿到算出的号:\n${now}`)
+  assert.match(now, idRowRe(run.id, '让号后'), `改写后的行没拿到同一次运行算出的号:\n${now}`)
   assert.doesNotMatch(now, /NEXT_ID|G-5 旧标题/, '令牌与旧形态都必须消失')
 })
 
@@ -771,9 +908,27 @@ test('N4 端到端·真实 ls-remote(夹具 origin,file:// 零网络):自补救 
     ),
     `实得:\n${r1.stdout}`,
   )
-  assert.match(r1.stdout, /令牌取号\(由该次 HEAD 底稿现算\)=G-10/)
+  // 原断言钉 `=G-10`(= chosenMax+1)。千段租约之后 claim 支的段首是 `floor+1+off`
+  // (off 由机器标识派生,G-815400)⇒ 字面量必然漂。本用例立票的语义是**关系**,不是那个数:
+  //  ① 落地的号必须恰是同一次租约读数宣布的那一枚(readNumbering 内已断言,含"号在段内且 < 段尾");
+  //  ② 远端那份必须真的参与(localMax=3 / remoteMax=9 从同一行读数里核);
+  //  ③ 发出来的号必须**站到远端已占那段之上** —— 这才是 G-313 要堵的那一型(对面占了 4..9),
+  //     它比"等于 G-10"严格更强:≤9 的任何一枚都判红,而字面量只排除了"G-10 以外的一个具体值"。
+  const run1 = readNumbering(r1.stdout, 'N4·自补救 fetch 抬号支')
+  assert.equal(
+    run1.ids.length,
+    1,
+    `一块只有一枚令牌,取号读数给了 ${run1.ids.length} 枚:${run1.ids.join(',')}`,
+  )
+  assert.equal(run1.lease.mode, 'claim', `B 从未见过 A 那枚 commit,不可能有自有段:\n${r1.stdout}`)
+  assert.equal(run1.basis.localMax, 3, `本地底稿应只有 G-3:\n${r1.stdout}`)
+  assert.equal(run1.basis.remoteMax, 9, `远端那一份没参与本次取号 ⇒ 抬号支测的是别的事:\n${r1.stdout}`)
+  assert.ok(
+    idNum(run1.id, 'N4·抬号支') > run1.basis.remoteMax,
+    `远端已占 4..9 ⇒ 本次号必须严格大于远端 max(9),实得 ${run1.id}`,
+  )
   const docNow = norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true }))
-  assert.match(docNow, /\*\*G-10 新条目\*\*/, `HEAD 里必须是跳过远端段后的号:\n${docNow}`)
+  assert.match(docNow, idRowRe(run1.id, '新条目'), `HEAD 里必须是同一次运行算出的那个号:\n${docNow}`)
   assert.doesNotMatch(
     docNow,
     /\*\*G-4 新条目\*\*/,
@@ -793,7 +948,27 @@ test('N4 端到端·真实 ls-remote(夹具 origin,file:// 零网络):自补救 
     r2.stdout.includes('号段基准未含远端(远端不可问') && r2.stdout.includes('未与远端对齐'),
     `离线那一支必须明写未对齐,不得静默:\n${r2.stdout}`,
   )
-  assert.match(r2.stdout, /令牌取号\(由该次 HEAD 底稿现算\)=G-11/)
+  // 原断言钉 `=G-11`。此刻占用面里已经有租约行的主键(段尾号),所以"按本地底稿落号"不再等于
+  // max+1,而是**在本机自有段内往后连**——语义翻成关系:走 in-lease 支、号是同一次宣布的那一枚、
+  // 且严格大于第一次发出的号(绝不再发同一枚)。注意这里刻意**不**要求号 > 基准 max:
+  // 基准里那个 max 含租约行主键(段尾号),它不是实号空间(leaseCursor 注释 + 镜像 T3 钉着)。
+  const run2 = readNumbering(r2.stdout, 'N4·离线降级支')
+  assert.equal(run2.basis.remoteMax, null, `离线那一支的基准行不该读出远端 max:\n${r2.stdout}`)
+  assert.equal(
+    run2.lease.mode,
+    'in-lease',
+    `第一次已为本机占过段 ⇒ 第二次应在自有段内连号,实得:\n${run2.lease.line}`,
+  )
+  assert.ok(
+    idNum(run2.id, 'N4·离线降级支') > idNum(run1.id, 'N4·抬号支'),
+    `同仓第二次取号必须严格大于第一次(${run1.id}),实得 ${run2.id} ⇒ 同一枚号被发了两次就是撞主键`,
+  )
+  const doc2 = norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true }))
+  assert.match(
+    doc2,
+    idRowRe(run2.id, '第二条'),
+    `第二次跑落地后 HEAD 应含它自己那一次算出的号:\n${doc2}`,
+  )
 })
 
 test('N5 反向锁:号段基准(含远端那一份)必须在 CAS 循环体内重算 —— 提到循环外本条必须翻红', () => {
@@ -1064,17 +1239,56 @@ test('I6 端到端·带取号令牌的块第二次跑:展开后的号不同 ⇒ 
   )
   const r1 = g321Run(dir, inputs)
   assert.equal(r1.status, 0, `第一次必须落地:${r1.stdout}|${r1.stderr}`)
-  assert.match(r1.stdout, /令牌取号\(由该次 HEAD 底稿现算\)=G-4/)
+  const run1 = readNumbering(r1.stdout, 'I6·第一次')
+  assert.equal(run1.lease.mode, 'claim', `新建临时仓没有自有段:\n${r1.stdout}`)
+  assert.equal(run1.basis.localMax, 3, `夹具底稿只有 G-3 ⇒ 基准的本地 max 必须是 3:\n${r1.stdout}`)
+  assert.ok(
+    idNum(run1.id, 'I6·第一次') > run1.basis.localMax,
+    `第一次的号必须站在当次底稿之上,实得 ${run1.id} / max ${run1.basis.localMax}`,
+  )
   const h1 = git(['rev-parse', 'HEAD'], { root: dir })
   const r2 = g321Run(dir, inputs)
   assert.equal(r2.status, 0, `号不同也必须认出"已在位":${r2.stdout}|${r2.stderr}`)
   assert.match(r2.stdout, /本块已在位/)
   assert.match(r2.stdout, /编号位按族形状视作可变段\(G 族/)
   assert.doesNotMatch(r2.stdout, /令牌取号\(/, '已在位这一支不产生提交 ⇒ 不该报"取了号"')
+  // "第二次展开后的号不同"是本用例的**前提**,不是结论 —— 前提必须可观察,否则 I6 就退化成
+  // I4(同内容幂等)而账面仍然全绿。已在位那一支在 CAS 行之前退出,所以号只出现在租约读数的
+  // `本次首号=` 上:把它取回来,才能证明这一支确实"若是落地就会发另一枚号"。
+  // 原写法是拿 `=G-4` 与文档里不得出现 `G-5` 间接表达这件事;千段租约之后两个都是漂移的字面量。
+  const lease2 = leaseReadoutFrom(r2.stdout, 'I6·第二次')
+  assert.equal(
+    lease2.mode,
+    'in-lease',
+    `第一次已为本机占段 ⇒ 第二次必须走自有段连号支,否则"号不同"这一前提不是本用例在测的形状:\n${lease2.line}`,
+  )
+  assert.notEqual(
+    lease2.id,
+    run1.id,
+    `第二次若与第一次取同一枚号(${run1.id}),那"号不同仍认得出同一块"这一维根本没被跑到`,
+  )
+  assert.ok(
+    idNum(lease2.id, 'I6·第二次宣布的号') > idNum(run1.id, 'I6·第一次落地的号'),
+    `第二次宣布的号必须严格大于第一次落地的号(实得 ${lease2.id} vs ${run1.id})`,
+  )
   assert.equal(git(['rev-parse', 'HEAD'], { root: dir }), h1, '第二次绝不许产生新提交')
   const doc = norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true }))
-  assert.equal((doc.match(/幂等落地/g) ?? []).length, 1, '逐字等值判据在这一型上必然漏掉 ⇒ 会多出 G-5 那一份')
-  assert.doesNotMatch(doc, /G-5/, '第二次跑若真落地就会产出 G-5 重复段')
+  assert.equal(
+    (doc.match(/幂等落地/g) ?? []).length,
+    1,
+    '逐字等值判据在这一型上必然漏掉 ⇒ 会多出第二份',
+  )
+  assert.match(doc, idRowRe(run1.id, '幂等落地'), `在位的那一份必须是第一次落地的那一枚号:\n${doc}`)
+  // 旧断言 `doesNotMatch(doc, /G-5/)` 只排除"下一枚恰好叫 G-5"这一种;按号钉之后**任何**一枚不同
+  // 的号都被排除(租约之后下一枚根本不叫 G-5,旧字面量会把真事故读成通过)。
+  const foreign = doc
+    .split('\n')
+    .filter((l) => l.includes('幂等落地') && !l.includes(run1.id))
+  assert.deepEqual(
+    foreign,
+    [],
+    `第二次跑若真落地,产出的是"另一枚号 + 同一题"那一行 ⇒ 凡带"幂等落地"的行都必须恰是第一次那一枚号`,
+  )
 })
 
 test('I7 端到端·落地成功而索引未对齐 ⇒ 退出码 0(不冒充失败)+ 点名 sha 与原因', (t) => {
@@ -1428,4 +1642,187 @@ test('H4 G-816708 触发条件单位锁:LIVE_DOC 只有逐字等于台账才成�
   assert.equal(landsLedger(['AGENTS.md']), false, 'AGENTS 也是活文档,但不是那本台账')
   assert.equal(landsLedger(['README.md']), false)
   assert.equal(landsLedger(['docs/PROJECT_PLAN.md']), false, '子目录里那份不是台账')
+})
+
+// ---------------------------------------------------------------------------
+// G-1079146 登记入口取值(2026-10-08):新行里的 sha 形态指针落库前当场问一次。
+// 判据一律从 `__test__` import(§22c —— 禁止在测试里抄第二份抽取/形状/放过规则);
+// 端到端四臂只打在 mkScratch 临时仓上,绝不碰真仓台账。
+// ---------------------------------------------------------------------------
+
+const SHA_BAD = 'deadcafe12' // 10 位、含字母(全数字会被权威门判 ambiguous,那不是本型的样本)
+
+/** 往临时仓落一行(锚点插入档),返回 spawnSync 结果。 */
+function landLine(t, line, extraEnv = {}, anchorText = `${G321_ANCHOR}\n`) {
+  const { dir, inputs } = makeDocRepo(t, G321_BASE.join('\n'))
+  writeFileSync(join(inputs, 'anchor.txt'), anchorText)
+  writeFileSync(join(inputs, 'block.txt'), `${line}\n`)
+  return { dir, r: runLive(dir, { anchorFile: join(inputs, 'anchor.txt'), blockFile: join(inputs, 'block.txt'), extraEnv }) }
+}
+
+test('SH1 §22c 导出面:取值判据必须从 __test__ 出去(测试不得抄第二份判据)', () => {
+  for (const k of [
+    'judgeNewLineShas',
+    'shaPassReason',
+    'rewriteEntryOf',
+    'parseShaAllow',
+    'makeShaProber',
+    'shaGateReport',
+    'shaProbeCommand',
+  ])
+    assert.equal(typeof __test__[k], 'function', `__test__.${k} 缺失 ⇒ 判据只能被抄进测试`)
+})
+
+test('SH2 端到端臂①:新行含**可解析**短 sha ⇒ 照旧落地(exit 0)并报名取值通过', (t) => {
+  const { dir, inputs } = makeDocRepo(t, G321_BASE.join('\n'))
+  const sha = git(['rev-parse', '--short', 'HEAD'], { root: dir })
+  writeFileSync(join(inputs, 'anchor.txt'), `${G321_ANCHOR}\n`)
+  writeFileSync(join(inputs, 'block.txt'), `- 登记甲:落地 ${sha} 那枚\n`)
+  // 刻意写成多行对象形态(与本文件其余 5 处 runLive 同形):单行形态与该文件某个祖先
+  // (5f58242ab)里的行逐字相同,会被旁路落地器的"行级复活"判据读成"把已被删的行搬回来"而拒落。
+  const r = runLive(dir, {
+    anchorFile: join(inputs, 'anchor.txt'),
+    blockFile: join(inputs, 'block.txt'),
+  })
+  assert.equal(r.status, 0, `可解析就该落:${r.stdout}|${r.stderr}`)
+  assert.match(r.stdout, /✅ 取值/)
+  const doc = norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true }))
+  assert.ok(doc.includes(`落地 ${sha}`), '行必须真进了 HEAD')
+})
+
+test('SH3 端到端臂②:新行含问不到的 sha 形态 token ⇒ exit 1 并打印 token/形状/判据命令/建议', (t) => {
+  const { dir, r } = landLine(t, `- 登记乙:提交 \`${SHA_BAD}\` 那枚`)
+  assert.equal(r.status, 1, `不解析必须拒落,实得 ${r.status}:\n${r.stdout}|${r.stderr}`)
+  const out = `${r.stdout}\n${r.stderr}`
+  assert.match(out, /拒绝落该行/)
+  assert.match(out, new RegExp(SHA_BAD))
+  assert.match(out, /git rev-parse --verify \S+\^\{commit\}/, '必须给出真跑的那条判据命令')
+  assert.match(out, /建议/)
+  assert.match(out, /禁止.*挑一枚|那是编造/, '不得留下"从同段挑一枚看起来对的"这条路')
+  const doc = norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true }))
+  assert.ok(!doc.includes(SHA_BAD), '拒绝 ⇒ HEAD 不得被写过(不是"落了再说")')
+})
+
+test('SH4 端到端臂③:文件名 / 设备号 / 分支连字符三型 ⇒ 一律不误伤(exit 0,零探测)', (t) => {
+  for (const line of [
+    '- 丙:产物 apps/web/dist/6f7a8b9c.chunk.mjs 已重建,另有 dist/273.x.mjs',
+    '- 丁:adb 设备 serial=d1f8e3a7b9 的读数',
+    '- 戊:分支 workbuddy/main-6f7a8b9c 已并,workbuddy/main-x 是旧名',
+    '- 已:远端 refs/heads/6f7a8b9c01 那条镜像',
+  ]) {
+    const { r } = landLine(t, line)
+    assert.equal(r.status, 0, `放过形态不得拦(${line}):\n${r.stdout}|${r.stderr}`)
+    assert.doesNotMatch(r.stdout, /✅ 取值/, '一条都没判时不得打印"全部可解析"(把没判写成判过了)')
+  }
+})
+
+test('SH5 端到端臂④:同一行 + 带原因的 LIVE_SHA_ALLOW ⇒ 放行且打印留痕', (t) => {
+  const { r } = landLine(t, `- 登记乙:提交 \`${SHA_BAD}\` 那枚`, {
+    LIVE_SHA_ALLOW: `${SHA_BAD}=外部仓 revision,不在本机对象库`,
+  })
+  assert.equal(r.status, 0, `带原因的应急出口必须真放行:\n${r.stdout}|${r.stderr}`)
+  assert.match(r.stdout, /取值放行留痕/)
+  assert.match(r.stdout, /外部仓 revision/, '原因不得被吞掉(放行要可追责)')
+})
+
+test('SH6 应急出口的形状:无原因 ⇒ 不放行(照旧拦);放行只对逐字等值的那枚 token 生效', (t) => {
+  const a = landLine(t, `- 登记乙:提交 \`${SHA_BAD}\` 那枚`, { LIVE_SHA_ALLOW: SHA_BAD })
+  assert.equal(a.r.status, 1, `只有 token 没有原因 ⇒ 不收录,实得 ${a.r.status}`)
+  const b = landLine(t, `- 登记乙:提交 \`${SHA_BAD}\` 那枚`, {
+    LIVE_SHA_ALLOW: `othertoken=别的 token 的原因不该救这一枚`,
+  })
+  assert.equal(b.r.status, 1, `放行范围不得扩散到整档`)
+})
+
+test('SH7 只吃新行:整行改写携带的存量 sha 不重判(否则三周前的指针钉红今天的结清动作)', (t) => {
+  const base = `- [ ] G-90 落地 ${SHA_BAD} 待办`
+  const { dir, inputs } = makeDocRepo(t, `${base}\n`)
+  const rep = join(inputs, 'replace.json')
+  writeFileSync(
+    rep,
+    JSON.stringify([{ before: base, after: `- [x] ✅(2026-10-08) G-90 落地 ${SHA_BAD} 已完成(补 deadbeef99)` }]),
+    'utf8',
+  )
+  const r = runLive(dir, { doc: 'DOC.md', replaceFile: rep })
+  const out = `${r.stdout}\n${r.stderr}`
+  assert.equal(r.status, 1, `新写进去的那枚问不到 ⇒ 仍须拦:\n${out}`)
+  assert.match(out, /deadbeef99/, '拦的是新增那枚')
+  assert.ok(
+    !out.includes(`· token=${SHA_BAD}(形状`),
+    '携带的存量那枚不得被算成本次的红(逐字等值判,不拿正则撞括号)',
+  )
+  assert.match(out, /携带存量 sha 1 枚/, '携带必须点名报出来,不能静默放过')
+})
+
+test('SH8 不回扫全文:文档里**别人已入库**的坏 sha 不得让本次落地失败', (t) => {
+  const { dir, inputs } = makeDocRepo(t, `- 别人三周前落的:提交 \`${SHA_BAD}\`\n${G321_ANCHOR}\n`)
+  writeFileSync(join(inputs, 'anchor.txt'), `${G321_ANCHOR}\n`)
+  writeFileSync(join(inputs, 'block.txt'), '- 本次新增:一条不含指针的登记\n')
+  // 刻意写成多行对象形态(与本文件其余 5 处 runLive 同形):单行形态与该文件某个祖先
+  // (5f58242ab)里的行逐字相同,会被旁路落地器的"行级复活"判据读成"把已被删的行搬回来"而拒落。
+  const r = runLive(dir, {
+    anchorFile: join(inputs, 'anchor.txt'),
+    blockFile: join(inputs, 'block.txt'),
+  })
+  assert.equal(r.status, 0, `存量不在射程:\n${r.stdout}|${r.stderr}`)
+})
+
+test('SH9 保命分支:未判定 ⇒ 放行(这一条是"恒挡台账"的最后一道,变异必读红)', () => {
+  const probe = () => ({ state: 'undetermined', why: 'git 派生未拿到结论' })
+  const v = __test__.judgeNewLineShas([{ text: `- 落地 ${SHA_BAD}` }], { probe })
+  assert.equal(v.blocked.length, 0, '把"没判"折成"坏" = 挡死全队台账写入')
+  assert.equal(v.undetermined.length, 1, '未判定必须逐条点名')
+  assert.match(__test__.shaGateReport(v).map((l) => l.text).join('\n'), /未判定.*放行/s)
+})
+
+test('SH10 真 git 档的未判定:root 不是仓库 ⇒ pre-flight 不过,整档放行而非全判坏', () => {
+  const notRepo = mkScratch('lde-norepo-')
+  try {
+    const probe = __test__.makeShaProber({ root: notRepo })
+    const v = __test__.judgeNewLineShas([{ text: `- 落地 ${SHA_BAD}` }], { probe })
+    assert.equal(v.blocked.length, 0, `仓库问不到时不得判红,实得 ${JSON.stringify(v.blocked)}`)
+    assert.equal(v.undetermined.length, 1)
+    assert.equal(probe(SHA_BAD).state, 'undetermined')
+  } finally {
+    rmScratch(notRepo)
+  }
+})
+
+test('SH11 形状判据只有一份:门那一份判 ambiguous 的,本器不得自己判成候选', () => {
+  for (const tok of ['20260926', '97fef424f841ab997b161bc4ead93cbe', '12345']) {
+    const v = __test__.judgeNewLineShas([{ text: `窗口 ${tok} 的读数` }], {
+      probe: () => ({ state: 'bad', status: 128 }),
+    })
+    assert.equal(v.probed, 0, `${tok} 应由权威门的形状档摘掉,不该派生 git`)
+  }
+})
+
+test('SH12 落地文案里给出的命令 = 真跑的 args(出路不得跑不通)', () => {
+  assert.equal(__test__.shaProbeCommand(SHA_BAD), `git rev-parse --verify ${SHA_BAD}^{commit}`)
+})
+
+test('SH13 形状判据只有一份(源码锁):抽取/形状必须 import 权威门,不得在工具里再抄一条 hex 正则', () => {
+  const src = readFileSync(join(HERE, '..', 'live-doc-edit.mjs'), 'utf8')
+  assert.match(
+    src,
+    /from '\.\/check-plan-sha-resolvable\.mjs'/,
+    '没有从权威门 import ⇒ 两份形状判据必然漂开(§22c)',
+  )
+  assert.match(src, /import\s*\{[^}]*classifyShape[^}]*\extractFromLine[^}]*\}\s*from/)
+  // 反向锁:工具内不得出现"自己数 hex 位"的抽取式(那正是第二份真相的形状)
+  assert.doesNotMatch(
+    src,
+    /\/\^?\[0-9a-f\]\{7,/,
+    '本器内出现 [0-9a-f]{7,…} 的自建抽取式 ⇒ 与权威门各写一遍,必然漂开',
+  )
+})
+
+test('SH14 派生 git 走层(源码锁):取值那一步不得自拼 execFileSyncstdio', () => {
+  const src = readFileSync(join(HERE, '..', 'live-doc-edit.mjs'), 'utf8')
+  assert.match(src, /import\s*\{\s*gitRaw\s*\}\s*from '\.\/lib\/face-reader\.mjs'/)
+  assert.doesNotMatch(
+    src,
+    /execFileSync\([\s\S]{0,40}rev-parse/,
+    '自拼派生 ⇒ 丢掉层的 stdio/timeout/maxBuffer 纪律(本机不写 stdio 是稳定 EBUSY)',
+  )
 })
