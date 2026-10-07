@@ -11009,12 +11009,6 @@
     "loginRequiredDesc": "로그인 후 AI 에이전트와 대화하고, 모델 전환, 첨부 업로드, 깊은 사고 등 기능을 사용할 수 있습니다.",
     "loginRequiredTitle": "로그인 후 AI 대화 시작",
     "manageModels": "사용자 지정 모델 구성",
-    "markdownTable": {
-      "copy": "Markdown 복사",
-      "downloadCsv": "CSV 다운로드",
-      "fullscreen": "전체 화면",
-      "fullscreenTitle": "표 전체 화면"
-    },
     "me": "나",
     "mentionPopover": {
       "removeLabel": "{label} 제거"
