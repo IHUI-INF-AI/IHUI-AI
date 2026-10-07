@@ -23,9 +23,11 @@
  *     这一条让 T3 可以只对"名字命中"的真面取 blob(同判据、成本从 2839 枚降到个位数)。
  *  T3 存量对账(真仓 HEAD apps/web 全量在册名 + 命中面的真 blob):FAIL 类必须为 0(门体此刻绿的这一处),
  *     真 WARN 面逐枚在场、真 import 面不得在场;再删掉真 PASS 面那行共享包 import ⇒ 必须立刻翻 WARN(有牙)。
- *  T4 findTsxFiles 取景面:扩展名口径由门体自己回答;依赖目录不进;**`__tests__` 实际是进的**,
- *     而 `.vscode` 名义上写在 ALLOWED_DOT_DIRS 放行名单里、实际被通用 EXCLUDE_DIRS 先挡掉
- *     (三项目录里只有 `.github` 真正生效)—— 这两条都钉现读行为而不钉注释意图,差值进交付报告。
+ *  T4 findTsxFiles 取景面:扩展名口径由门体自己回答;依赖目录不进;[G-1059141 2026-10-07]
+ *     EXCLUDE_DIRS(tests/__tests__/e2e/scripts)已增量接线进 findTsxFiles,`__tests__` 不再进
+ *     (接线前进,当时 280 枚 *.test.tsx 全是零命中噪声,差值进交付报告);`.vscode` 名义上写在
+ *     ALLOWED_DOT_DIRS 放行名单里、实际被通用 EXCLUDE_DIRS 先挡掉(.github 放行逻辑有效,
+ *     但真仓三个扫描根下今日均无该目录)—— 一律钉现读行为而不钉注释意图,差值进交付报告。
  *  T5 toRel 正反:仓内给正斜杠相对路径,仓外必须带 `..` 而不是伪装成仓内。
  *  T6 CLI 装车(临时仓):FAIL 面 exit 1 / 同一面补共享包 import exit 0 / WARN 面默认档 exit 0 且
  *     --strict 档 exit 1 —— 定级差异必须由判据自己说出来。
@@ -258,13 +260,16 @@ describe('check-ui-react-usage · §22c 镜像测试(判据一律走门体导出
     },
   )
 
-  it('T4 findTsxFiles 取景面:扩展名口径由门体回答,依赖目录不进,而 __tests__ 实际进、.vscode 实际被挡', () => {
+  it('T4 findTsxFiles 取景面:扩展名口径由门体回答,依赖目录不进,[G-1059141] tests/__tests__/e2e/scripts 接线后不进、.vscode 实际被挡', () => {
     const scratch = mkScratch('ihui-ui-react-usage-t4-')
     try {
       const root = join(scratch, WEB_REL)
       const layout = [
         ['src/components/ai/goal-card.tsx', head(WARN_HIT_REL)],
         ['src/components/__tests__/Switch.test.tsx', head(TESTS_DIR_REL)],
+        ['src/tests/Other.test.tsx', 'export const x = 1\n'],
+        ['src/e2e/Login.e2e.tsx', 'export const x = 1\n'],
+        ['src/scripts/Tool.tsx', 'export const x = 1\n'],
         ['src/components/.hidden/Secret.tsx', 'export const x = 1\n'],
         ['src/.github/Inner.tsx', 'export const x = 1\n'],
         ['src/.vscode/Excluded.tsx', 'export const x = 1\n'],
@@ -278,9 +283,12 @@ describe('check-ui-react-usage · §22c 镜像测试(判据一律走门体导出
       const got = gate.findTsxFiles(root).map((p) => toFwd(relative(root, p)))
       assert.ok(got.includes('src/components/ai/goal-card.tsx'), '真面路径应被收进取景面')
       assert.ok(
-        got.includes('src/components/__tests__/Switch.test.tsx'),
-        '现读:__tests__ 里的 .tsx 会被收 —— 门体那句 EXCLUDE_DIRS(tests/__tests__/e2e/scripts)从未被 findTsxFiles 消费,本断言钉现读行为而不是钉注释意图',
+        !got.some((p) => p.includes('__tests__/')),
+        '[G-1059141 2026-10-07] EXCLUDE_DIRS(tests/__tests__/e2e/scripts) 已增量接线进 findTsxFiles:__tests__ 里的 .tsx 不再被收(接线前本断言钉的是旧漏接行为、现读是收;280 枚 *.test.tsx 曾全是零命中空扫)',
       )
+      assert.ok(!got.some((p) => p.includes('/tests/')), '[G-1059141] tests 名单目录接线后必须被挡')
+      assert.ok(!got.some((p) => p.includes('/e2e/')), '[G-1059141] e2e 名单目录接线后必须被挡')
+      assert.ok(!got.some((p) => p.includes('/scripts/')), '[G-1059141] scripts 名单目录接线后必须被挡')
       assert.ok(!got.some((p) => p.includes('.hidden/')), '点目录默认不进(ALLOWED_DOT_DIRS 之外)')
       assert.ok(
         got.includes('src/.github/Inner.tsx'),
