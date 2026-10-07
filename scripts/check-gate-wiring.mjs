@@ -375,6 +375,14 @@ export function isNegatedWiringSentence(sent) {
   return sawVerb
 }
 
+/**
+ * 形状锁的单一真相源:R1(`extractHeaderClaims`)与 R2(`findAgentsClaims`)都必须**调用**上面那一枚
+ * 结构否定判据,不得各自再写一套否定逻辑。本门自检 N7 与镜像测试 T26 都从这里取这两个形状 ——
+ * 两处各写一遍必然漂开(AGENTS §22c:判据只许一份,镜像测试不得复制源判据)。
+ */
+export const R1_NEGATION_CALL_SHAPE_RE = /isNegatedWiringSentence\(win\)/
+export const R2_NEGATION_CALL_SHAPE_RE = /isNegatedWiringSentence\(sent\)/
+
 /** 从 git ls-tree 输出里挑出被测守门脚本(纯函数,全集口径) */
 export function filterGatePaths(lsTreeOut) {
   return (
@@ -2185,8 +2193,8 @@ function runSelfTest() {
     'N7 R2 与 R1 共用结构否定判据,且否定词必须紧邻动词',
     findAgentsClaims(['- `scripts/check-y.mjs`:未接入 runner,仅手动跑'], 'check-y.mjs')
       .length === 0 &&
-      /isNegatedWiringSentence\(sent\)/.test(findAgentsClaims.toString()) &&
-      /isNegatedWiringSentence\(win\)/.test(extractHeaderClaims.toString()) &&
+      R2_NEGATION_CALL_SHAPE_RE.test(findAgentsClaims.toString()) &&
+      R1_NEGATION_CALL_SHAPE_RE.test(extractHeaderClaims.toString()) &&
       isNegatedWiringSentence('不阻塞 commit') === false &&
       isNegatedWiringSentence('集成位置: .husky/pre-commit 已接入') === false &&
       isNegatedWiringSentence('集成位置: 未接入 runner') === true,
@@ -3044,6 +3052,9 @@ export const __test__ = {
   HEADER_CLAIM_PATTERNS,
   CLAIM_NEGATION_RE,
   isNegatedWiringSentence,
+  // §22c:R1/R2 共用否定判据的**形状锁**只许一份(自检 N7 与镜像测试 T26 同取这两个出口)
+  R1_NEGATION_CALL_SHAPE_RE,
+  R2_NEGATION_CALL_SHAPE_RE,
   WIRING_VERB_RE,
   NEGATOR_RE,
   ARCHIVE_RE,
