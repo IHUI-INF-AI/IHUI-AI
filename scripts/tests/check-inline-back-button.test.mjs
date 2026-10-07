@@ -136,7 +136,9 @@ test('T6 端到端双向锁:注入一处新私接必红;本次无射程内文件
     const blob = g(['hash-object', '-w', '--stdin']).trim()
     const injected = execFileSync(GIT, ['-c', 'safe.directory=*', 'hash-object', '-w', '--stdin'], {
       cwd: REPO,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      // stdin 喂 input 的调用 stdio[0] 必须是 'pipe':显式 'ignore' 会压过 input 选项,
+      // 喂进去的内容被静默丢弃(hash-object 拿到空串)⇒ 注入变空 blob,门读 0 命中(2026-10-07 T6 实测)。
+      stdio: ['pipe', 'pipe', 'pipe'],
       input: `${head}\nfunction __probe46(){ router.back() }\n`,
       encoding: 'utf8',
       windowsHide: true,
