@@ -490,7 +490,6 @@
     "mute": "靜音",
     "unmute": "取消靜音",
     "refresh": "重新整理",
-    "removeAttachment": "移除附件",
     "addAttachment": "添加附件（圖片/視頻/文件）",
     "breadcrumb": "麵包屑導航",
     "searchOption": "搜索選項",
@@ -499,10 +498,7 @@
     "copyCode": "複製代碼",
     "collapse": "收起",
     "expand": "展開",
-    "more": "更多",
     "close": "關閉",
-    "copy": "複製",
-    "copyResponse": "複製回覆",
     "barChart": "柱狀圖",
     "heatmap": "熱力圖",
     "lineChart": "折線圖",
@@ -510,15 +506,11 @@
     "radarChart": "雷達圖",
     "slashCommand": "斜線命令",
     "mentionFile": "提及檔案",
-    "openCustomerService": "聯絡客服",
-    "minimize": "最小化",
-    "send": "發送",
     "closeTag": "關閉標籤",
     "closeAlert": "關閉提示",
     "menu": "選單",
     "showPassword": "顯示密碼",
     "hidePassword": "隱藏密碼",
-    "uploadAvatar": "上傳頭像",
     "streamAnnounceStart": "AI 開始回覆",
     "streamAnnounceProgress": "AI 正在回覆,已輸出 {n} 字",
     "streamAnnounceDone": "AI 回覆完成,共 {n} 字",
@@ -10329,12 +10321,6 @@
     "accountPlaceholder": "請輸入賬號/手機號/郵箱",
     "agreePrefix": "我已閱讀並同意",
     "agreeRequired": "請先同意用戶協議",
-    "agreementNoticeAgree": "同意並繼續",
-    "agreementNoticeDesc": "為了保障您的帳號安全,請閱讀並同意以下協議後繼續登入",
-    "agreementNoticeDisagree": "不同意",
-    "agreementNoticeEnterHint": "點擊\"同意並繼續\"表示您已閱讀並同意以上協議",
-    "agreementNoticeSafe": "我們重視您的隱私安全",
-    "agreementNoticeTitle": "用戶協議",
     "alipayLogin": "支付寶",
     "and": "和",
     "appLogin": "App 掃碼",
@@ -10456,7 +10442,13 @@
     "twoFactorTitle": "兩步驗證",
     "username": "使用者名",
     "usernamePlaceholder": "請輸入使用者名",
-    "wechatLogin": "微信"
+    "wechatLogin": "微信",
+    "agreementNoticeAgree": "同意並繼續",
+    "agreementNoticeDesc": "為了保障您的帳號安全,請閱讀並同意以下協議後繼續登入",
+    "agreementNoticeDisagree": "不同意",
+    "agreementNoticeEnterHint": "點擊\"同意並繼續\"表示您已閱讀並同意以上協議",
+    "agreementNoticeSafe": "我們重視您的隱私安全",
+    "agreementNoticeTitle": "用戶協議"
   },
   "behavior": {
     "createdAt": "記錄時間",
@@ -12448,41 +12440,6 @@
     }
   },
   "course": {
-    "chapters": {
-      "empty": "暫無章節",
-      "sectionCount": "{count} 節"
-    },
-    "interaction": {
-      "favorite": "收藏",
-      "like": "點贊"
-    },
-    "tabs": {
-      "anonymous": "匿名用戶",
-      "certAcquired": "恭喜完成課程學習，已獲得結業證書",
-      "certNo": "證書編號：{no}",
-      "certPending": "完成全部課程學習並通過考核後，將獲得結業證書",
-      "certPreview": "證書預覽",
-      "certStudent": "學員姓名",
-      "certTitle": "結業證書",
-      "certificate": "證書",
-      "comments": "評論",
-      "homework": "作業",
-      "instructor": "講師信息",
-      "intro": "課程簡介",
-      "noComments": "暫無評論",
-      "noHomework": "暫無作業",
-      "noIntro": "暫無簡介",
-      "noRating": "暫無評分",
-      "objectives": "學習目標",
-      "overview": "概覽",
-      "ratersCount": "{count} 人評分",
-      "rating": "評分",
-      "scoreUnit": "分"
-    },
-    "video": {
-      "cover": "課程封面",
-      "selectChapter": "選擇章節開始學習"
-    },
     "studentCount": "{count} 名學生",
     "empty": "暫無課程",
     "free": "免費",
@@ -16097,16 +16054,6 @@
       "wholeWord": "全字",
       "wholeWordTitle": "全字匹配"
     },
-    "terminalSessionList": {
-      "closeTerminalAria": "關閉終端",
-      "empty": "暫無終端會話",
-      "loading": "加載中...",
-      "newTerminalAria": "新建終端",
-      "statusActive": "運行中",
-      "statusClosed": "已關閉",
-      "statusExited": "已退出",
-      "title": "終端會話"
-    },
     "terminalTabBar": {
       "closeTerminalAria": "關閉終端",
       "connectType": "連接類型",
@@ -19477,55 +19424,6 @@
       "more": "更多",
       "tenK": "萬",
       "title": "熱門資訊"
-    },
-    "integral": {
-      "all": "全部",
-      "currentPoints": "當前積分",
-      "mall": "積分商城",
-      "myRank": "我的排名",
-      "recentRecords": "最近明細",
-      "title": "積分中心",
-      "weeklyGain": "本週新增"
-    },
-    "messageSystem": {
-      "messageCenterAria": "消息中心",
-      "noNewMessages": "暫無新消息",
-      "title": "消息中心",
-      "unreadCount": "{count} 條未讀",
-      "viewAll": "查看全部"
-    },
-    "rightModule": {
-      "defaultEntries": {
-        "help": {
-          "description": "使用指南",
-          "label": "幫助中心"
-        },
-        "invite": {
-          "description": "賺積分",
-          "label": "邀請好友"
-        },
-        "mall": {
-          "description": "兌換好禮",
-          "label": "積分商城"
-        },
-        "vip": {
-          "description": "尊享特權",
-          "label": "會員中心"
-        }
-      },
-      "defaultTags": {
-        "agent": "智能體",
-        "backend": "後端",
-        "frontend": "前端",
-        "llm": "AI 大模型",
-        "opensource": "開源",
-        "rag": "RAG",
-        "tutorial": "教程"
-      },
-      "hotTags": "熱門標簽",
-      "more": "更多",
-      "promotion": "推廣",
-      "quickEntries": "快捷入口"
     }
   },
   "operationLogs": {
