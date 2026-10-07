@@ -222,7 +222,8 @@ test('T7 真仓阳性对照:账本确已清空,且派生+委托两形态是本�
     throw new Error('schema 声明文字不是派生态 ⇒ 注册表新增一类会静默地不被模型看见')
   }
   const proseSource = inputs[PY_MCP]
-  if (/_bg_task_types_prose\s*\(/.test(proseSource) === false) {
+  // 判据从门体取(§22c):派生出口的调用形态只住一份,本文件不再抄第二份
+  if (parity.BG_TASK_TYPES_PROSE_CALL_RE.test(proseSource) === false) {
     throw new Error('派生出口在 mcp_server 里不存在(P6 的 derived 判定就成了读不到东西的默认真)')
   }
 })

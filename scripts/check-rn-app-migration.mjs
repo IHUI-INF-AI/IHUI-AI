@@ -24,6 +24,10 @@
  *   - profileContentTypes.ts — 数据文件(非 screen 组件,导出 ProfileScreen 4 Tab 内容类型定义)
  *   - SharedDemoScreen.tsx   — 共享组件集成验证页(本身用于展示 @ihui/rn-app 组件)
  *
+ * [G-1059141 2026-10-07] 上列 5 条中的 DevEnterScreen/SharedDemoScreen 已随清账移出白名单
+ * (HEAD 面已有真实共享层 import,逐条证据见 WHITELIST 处的清账注释);完整白名单以
+ * WHITELIST 常量为准,本段是立票时的历史叙述。
+ *
  * CLI 用法:
  *   node scripts/check-rn-app-migration.mjs [--staged] [--help]
  *
@@ -58,38 +62,44 @@ const C = {
 /**
  * 白名单:允许独立实现的 RN 独占 screen 文件名。
  * 新增登记需在此处附理由注释,严格审批。
+ *
+ * [G-1059141 2026-10-07 清账] 移除 13 条冗余豁免 —— 这些 screen 在 HEAD 面上已有真实
+ * `import … from '@ihui/rn-app'` 语句(门体判据即"1 条 import = 已迁移"),白名单登记
+ * 纯属掩盖。逐条证据(HEAD 面 file:line,`git show HEAD:<path>` 实测,2026-10-07):
+ *   - SharedDemoScreen.tsx      L7  AboutScreen/ProfileScreen/SettingsScreen/VipCard/UserInfoCard/BusinessCard/AgentCard/CourseCard/tokens(L18 另有 SharedMenuSection 等 4 个 type)
+ *   - CourseScreen.tsx          L27 CourseTabScreen + type CourseTabScreenProps
+ *   - PlazaScreen.tsx           L43 PlazaScreen as SharedPlazaScreen + CategoryDropdown + type CategoryItem/PlazaScreenProps
+ *   - StudyPublishScreen.tsx    L12 StudyPublishScreen as SharedStudyPublishScreen + type StudyPublishScreenProps/StudyCategory
+ *   - StudyIndexScreen.tsx      L63 SearchInput + CategoryInlineBar + MoreLink
+ *   - DevEnterScreen.tsx        L46 SearchInput
+ *   - CircleIndexScreen.tsx     L35 CategoryInlineBar
+ *   - TopicListScreen.tsx       L34 TextField + CategoryInlineBar
+ *   - ChatToolsScreen.tsx       L32 BackChevron(判据性质:门体判据是 1 条 import 即判迁移)
+ *   - KnowledgeRagScreen.tsx    L34 BackChevron(同上)
+ *   - WebViewScreen.tsx         L17 BackChevron(同上)
+ *   - ImageGenCreateScreen.tsx  L18 BackChevron(同上)
+ *   - PdfToolsScreen.tsx        L15 BackChevron(同上)
+ * 另:DebugScreen/SquareScreen 两面(HEAD/工作树)均不存在,浅克隆无删除历史判不出,
+ * 一律留在账上(SquareScreen 有 Square→News 改名痕迹,DebugScreen 无痕迹)。
  */
 const WHITELIST = new Set([
   'DebugScreen.tsx', // 开发调试屏:平台信息展示 + 清缓存/清存储/复制日志,RN 端独占工具
-  'DevEnterScreen.tsx', // 开发者入驻申请表单:RN 端独占,字段稳定,无跨端需求
-  'SharedDemoScreen.tsx', // 共享组件集成验证页:本身用于展示 @ihui/rn-app 组件
   'profileMenuData.ts', // 数据文件:非 screen 组件,导出菜单配置数组
   'profileContentTypes.ts', // 数据文件:非 screen 组件,导出 ProfileScreen 4 Tab 内容类型定义
   // ── RN 独占 screen(无跨端需求,深度依赖 RN 特定 API/组件) ──
-  'AiAssistantN8nScreen.tsx', // N8n 工作流 AI 助手:streamChat SSE + VoiceInput + ModelConfigDialog + Drawer 历史对话,RN 端独占流式对话交互
-  'CourseScreen.tsx', // 课程 Tab 页:CourseCarousel/PopularCourses 等 RN 专属组件 + getStudyStatistics 数据流,Web/Miniapp 有独立实现
-  'PlazaScreen.tsx', // AI 需求广场:双列卡片 + 状态 chips + 悬浮发布按钮 + Drawer 侧滑,RN 端独占交互模式
+  'AiAssistantN8nScreen.tsx', // N8n 工作流 AI 助手:streamChat SSE + VoiceInput + ModelConfigDialog + Drawer 历史对话,RN 端独占流式对话交互(L30 的"复用 @ihui/rn-app Drawer"仅是 doc comment,非 import)
   'SquareScreen.tsx', // AI 资讯页:FlatList 资讯流 + SingleTypeBar 分类 + 返回顶部 + Drawer,RN 端独占资讯阅读体验
-  'StudyIndexScreen.tsx', // AI 视频页:三态切换(index/model/study) + TipBanner 滚动 + ModelList 预览 + FloatingActionButton,RN 端独占视频浏览
-  'StudyPublishScreen.tsx', // 课程发布页:expo-image-picker 选图/选视频 + VideoPlayer 预览 + 双态表单(group/video),RN 端独占发布能力
   'CoursePlanetScreen.tsx', // 课程星球:Carousel + KnowledgePlanet + MoreTitles,RN 端独占课程浏览交互
   'MoreCourseScreen.tsx', // 更多课程:KnowledgePlanet + BottomFigure + CommissionFloatingIcon,RN 端独占课程列表
   'CarteScreen.tsx', // 社群宣传卡纯静态页:无 JS 逻辑,CDN 图片展示,对齐 Uniapp pagesA/carte/index.vue,无跨端需求
   'DeveloperScreen.tsx', // 开发者空间页:标题+三功能入口+开发者信息占位,对齐 Uniapp pagesA/plaza/developer.vue,无跨端需求
   'RecruitmentScreen.tsx', // 操盘手计划宣传页:全屏背景+底部卡片+二维码,对齐 Uniapp pagesA/recruitment/index.vue,无跨端需求
-  'KnowledgeRagScreen.tsx', // 知识库 RAG 屏:RN WebView 桥接 + webview-portal-config 注入,RN 端独占 webview 容器
   'SubagentsScreen.tsx', // 子智能体屏:RN 独占 FlatList 队列交互 + api-client subagents 流,Web 端有独立实现
   'WebPortalScreen.tsx', // Web 门户屏:RN WebView 全屏容器加载 web portal,RN 端独占 webview 壳
-  'ChatToolsScreen.tsx', // AI 对话/工具屏:P2-4 WebView 复用 web /chat,RN 端独占 webview 壳 + SSO 会话打通 + Android 返回键
   'CartScreen.tsx', // 购物车页:RN 端独占 WeChat 支付流程 + Native Stack 导航,Web/Miniapp 有独立 cart 实现
-  'CircleIndexScreen.tsx', // 圈子广场:RN 端独占 FlatList 社区流 + Image 预览 + FAB 发布,Web/Miniapp 有独立实现
   'TopicDetailScreen.tsx', // 话题详情:RN 端独占关注翻转 + 时间相对化 + 帖子详情流,Web/Miniapp 有独立实现
-  'TopicListScreen.tsx', // 话题列表:RN 端独占搜索 + 三 Tab 筛选 + FlatList 分页,Web/Miniapp 有独立实现
   // ── 2026-09-14 全量守门清零批:RN 独占能力/产品定稿回退,无跨端复用需求 ──
   'AboutScreen.tsx', // 关于页:2026-09-05 产品定稿恢复历史合规跳转列表(对齐 Uniapp about.vue),7 条目跳转 RN 端合规屏集合(Agreement/Privacy/AppPermission/UsageRules/BusinessLicense/IcpRecord/ModelRecord);共享层 app-info 卡版 UI 不适用,曾接 SharedAboutScreen 后有意移除
-  'WebViewScreen.tsx', // 通用 WebView 壳:generateSsoCode SSO 会话打通 + Android 返回键拦截,与已豁免 WebPortalScreen/ChatToolsScreen/KnowledgeRagScreen 同类 RN 独占容器
-  'ImageGenCreateScreen.tsx', // AI 生图创建:expo-file-system + expo-media-library 原生相册保存深度耦合,RN 端独占发布能力
-  'PdfToolsScreen.tsx', // PDF 工具:expo-document-picker + expo-file-system + Share 原生文件选择/分享能力,RN 端独占工具屏
 ])
 
 /** 检查文件内容是否 import from '@ihui/rn-app' */
