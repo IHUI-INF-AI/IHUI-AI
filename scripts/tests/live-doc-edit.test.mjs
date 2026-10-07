@@ -16,7 +16,7 @@
 // git 写操作只发生在 scratch-dir 临时仓内,绝不碰真仓。
 
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, utimesSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { test } from 'node:test'
@@ -823,9 +823,9 @@ test('N5 反向锁:号段基准(含远端那一份)必须在 CAS 循环体内重
   )
   assert.ok(
     TOOL_SRC.slice(loopStart, loopEnd).includes(
-      'resolveIdTokens(targetLines, baseContent, remote)',
+      'resolveIdTokens(targetLines, baseContent, remote',
     ),
-    '取号必须吃到本轮的远端基准,而不是上一轮的',
+    '取号必须吃到本轮的远端基准,而不是上一轮的(前缀锁:第三位必须是本轮 remote;第四位的租约参数属 G-916936 扩展,不得挪出循环)',
   )
 })
 
