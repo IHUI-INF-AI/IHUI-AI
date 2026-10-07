@@ -26,17 +26,14 @@ const token = process.env.GITHUB_TOKEN
 const repo = process.env.GITHUB_REPOSITORY
 const tag = process.env.RELEASE_TAG
 
-if (!token || !repo || !tag) {
-  console.error('Missing required env: GITHUB_TOKEN, GITHUB_REPOSITORY, RELEASE_TAG')
-  process.exit(1)
-}
-
-// 从 tag 提取版本号(desktop-v0.1.14 → 0.1.14)
-const version = tag.replace(/^desktop-v/, '')
-if (!version || version === tag) {
-  console.error(`Cannot extract version from tag: ${tag}`)
-  process.exit(1)
-}
+// AGENTS §22d 批次 G2:原先这两段 env/tag 校验(各带 console.error + process.exit(1))与
+// `const version = tag.replace(/^desktop-v/, '')` 都在模块作用域 ⇒ 被 import 即打印并终止宿主进程。
+// 三段已搬进 main() 首条,相对顺序逐字不变,且仍先于任何 GitHub API 调用。version 必须跟着搬:
+// 校验一搬走,顶层就失去"tag 非空"的前提,留在顶层会让 import 时刻 `tag.replace` 直接抛
+// TypeError(比原缺陷更糟)。上面三行 env 读取与下面的 apiHeaders 是**无副作用的纯声明**
+// (读 process.env / 拼对象,不抛不 IO),按规格 §1 留在模块作用域 —— 搬它们需把
+// token/repo/apiHeaders 逐层塞进 githubApi(含自身递归)/ waitForRelease /
+// collectUpdaterEntries / uploadLatestJson 四个模块作用域函数,属改签名,另计一票。
 
 const apiHeaders = {
   Authorization: `Bearer ${token}`,
@@ -161,6 +158,18 @@ async function collectUpdaterEntries(release) {
 }
 
 async function main() {
+  if (!token || !repo || !tag) {
+    console.error('Missing required env: GITHUB_TOKEN, GITHUB_REPOSITORY, RELEASE_TAG')
+    process.exit(1)
+  }
+
+  // 从 tag 提取版本号(desktop-v0.1.14 → 0.1.14)
+  const version = tag.replace(/^desktop-v/, '')
+  if (!version || version === tag) {
+    console.error(`Cannot extract version from tag: ${tag}`)
+    process.exit(1)
+  }
+
   // 1. 等待 release assets 全部上传完成(防止竞态条件)
   console.log('Waiting for release assets to be ready...')
   const release = await waitForRelease(tag)
