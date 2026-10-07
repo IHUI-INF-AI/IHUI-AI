@@ -17,13 +17,19 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-commit-loss-guard.mjs')
 // ─── 辅助:创建临时 git 仓库(含初始 commit) ──────────────
 function createTempRepo() {
   const dir = mkScratch('ihui-loss-')
-  execSync('git init -b main', { cwd: dir, stdio: 'pipe' })
-  execSync('git config user.email test@test.com', { cwd: dir, stdio: 'pipe' })
-  execSync('git config user.name test', { cwd: dir, stdio: 'pipe' })
-  execSync('git config commit.gpgsign false', { cwd: dir, stdio: 'pipe' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git init -b main', { cwd: dir, stdio: 'ignore' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git config user.email test@test.com', { cwd: dir, stdio: 'ignore' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git config user.name test', { cwd: dir, stdio: 'ignore' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git config commit.gpgsign false', { cwd: dir, stdio: 'ignore' })
   writeFileSync(join(dir, 'README.md'), '# init\n')
-  execSync('git add README.md', { cwd: dir, stdio: 'pipe' })
-  execSync('git commit -m "init"', { cwd: dir, stdio: 'pipe' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git add README.md', { cwd: dir, stdio: 'ignore' })
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  execSync('git commit -m "init"', { cwd: dir, stdio: 'ignore' })
   return dir
 }
 
@@ -32,7 +38,8 @@ function runScript(args = [], opts = {}) {
   return spawnSync('node', [SCRIPT_PATH, ...args], {
     cwd: opts.cwd || process.cwd(),
     encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-04:子进程必须给 stdio(留管道取输出),否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, ...opts.env },
   })
 }
@@ -152,8 +159,10 @@ test('检测: reflog 含 reset: moving to HEAD~ → 命中(stdout 报告 reset)'
   const dir = createTempRepo()
   try {
     // 创建第二个 commit,然后 reset 撤销 → reflog 记录 reset
-    execSync('git commit --allow-empty -m "temp-commit"', { cwd: dir, stdio: 'pipe' })
-    execSync('git reset HEAD~1', { cwd: dir, stdio: 'pipe' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git commit --allow-empty -m "temp-commit"', { cwd: dir, stdio: 'ignore' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git reset HEAD~1', { cwd: dir, stdio: 'ignore' })
     const r = runScript([], { cwd: dir })
     assert.match(r.stdout, /reset/, 'stdout 应提及 reset')
     assert.match(r.stdout, /检测到.*reset|reset 操作/, '应报告检测到 reset')
@@ -175,8 +184,10 @@ test('检测: reflog 不含 reset → 不报告 reset(干净仓库)', () => {
 test('检测: reset + --blocking → exit 1(阻塞模式)', () => {
   const dir = createTempRepo()
   try {
-    execSync('git commit --allow-empty -m "temp"', { cwd: dir, stdio: 'pipe' })
-    execSync('git reset HEAD~1', { cwd: dir, stdio: 'pipe' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git commit --allow-empty -m "temp"', { cwd: dir, stdio: 'ignore' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git reset HEAD~1', { cwd: dir, stdio: 'ignore' })
     const r = runScript(['--blocking'], { cwd: dir })
     assert.equal(r.status, 1, `reset + blocking 应 exit 1,实际 ${r.status}`)
     assert.match(r.stdout, /阻塞 commit|commit 丢失风险/)
@@ -191,10 +202,14 @@ test('检测: fsck 悬空 commit(分支删除) → 命中', () => {
   const dir = createTempRepo()
   try {
     // 在临时分支上创建 commit,然后删除分支 → commit 悬空
-    execSync('git checkout -b temp-branch', { cwd: dir, stdio: 'pipe' })
-    execSync('git commit --allow-empty -m "dangling-commit"', { cwd: dir, stdio: 'pipe' })
-    execSync('git checkout main', { cwd: dir, stdio: 'pipe' })
-    execSync('git branch -D temp-branch', { cwd: dir, stdio: 'pipe' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git checkout -b temp-branch', { cwd: dir, stdio: 'ignore' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git commit --allow-empty -m "dangling-commit"', { cwd: dir, stdio: 'ignore' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git checkout main', { cwd: dir, stdio: 'ignore' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git branch -D temp-branch', { cwd: dir, stdio: 'ignore' })
     const r = runScript([], { cwd: dir })
     // 悬空 commit 应被检测到(可能被 tag 备份规则处理,但应出现在报告中)
     assert.match(r.stdout, /悬空 commit|dangling|unreachable|未.*备份/, '应提及悬空 commit')
@@ -208,7 +223,8 @@ test('检测: fsck 悬空 commit(分支删除) → 命中', () => {
 test('检测: lost-commit/* tag 存在 → stdout 列出', () => {
   const dir = createTempRepo()
   try {
-    execSync('git tag lost-commit/test-backup HEAD', { cwd: dir, stdio: 'pipe' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git tag lost-commit/test-backup HEAD', { cwd: dir, stdio: 'ignore' })
     const r = runScript([], { cwd: dir })
     assert.match(r.stdout, /lost-commit\/test-backup/, '应列出 lost-commit/test-backup tag')
   } finally {
@@ -219,7 +235,8 @@ test('检测: lost-commit/* tag 存在 → stdout 列出', () => {
 test('检测: backup/* tag 存在 → stdout 列出', () => {
   const dir = createTempRepo()
   try {
-    execSync('git tag backup/snapshot-1 HEAD', { cwd: dir, stdio: 'pipe' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git tag backup/snapshot-1 HEAD', { cwd: dir, stdio: 'ignore' })
     const r = runScript([], { cwd: dir })
     assert.match(r.stdout, /backup\/snapshot-1/, '应列出 backup/snapshot-1 tag')
   } finally {
@@ -233,8 +250,10 @@ test('多规则: reset + 悬空 commit 同时 → 综合报告 + blocking exit 1
   const dir = createTempRepo()
   try {
     // commit B,然后 reset HEAD~1 → reset 记录 + B 悬空
-    execSync('git commit --allow-empty -m "will-be-lost"', { cwd: dir, stdio: 'pipe' })
-    execSync('git reset HEAD~1', { cwd: dir, stdio: 'pipe' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git commit --allow-empty -m "will-be-lost"', { cwd: dir, stdio: 'ignore' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git reset HEAD~1', { cwd: dir, stdio: 'ignore' })
     const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
     assert.equal(r.status, 1, `reset + 悬空 + blocking 应 exit 1,实际 ${r.status}`)
     // stdout 应同时提及 reset 和悬空 commit
@@ -251,13 +270,19 @@ test('备份: 悬空 commit 已 tag 备份 → 非 blocking(已保护)', () => {
   const dir = createTempRepo()
   try {
     // 创建悬空 commit
-    execSync('git checkout -b temp', { cwd: dir, stdio: 'pipe' })
-    execSync('git commit --allow-empty -m "backed-up-commit"', { cwd: dir, stdio: 'pipe' })
-    const hash = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8' }).trim()
-    execSync('git checkout main', { cwd: dir, stdio: 'pipe' })
-    execSync('git branch -D temp', { cwd: dir, stdio: 'pipe' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git checkout -b temp', { cwd: dir, stdio: 'ignore' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git commit --allow-empty -m "backed-up-commit"', { cwd: dir, stdio: 'ignore' })
+    // 2026-10-04:子进程必须给 stdio(留管道取输出),否则本机报 spawnSync EBUSY
+    const hash = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git checkout main', { cwd: dir, stdio: 'ignore' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git branch -D temp', { cwd: dir, stdio: 'ignore' })
     // 为悬空 commit 创建 lost-commit tag 备份
-    execSync(`git tag lost-commit/backed-up ${hash}`, { cwd: dir, stdio: 'pipe' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync(`git tag lost-commit/backed-up ${hash}`, { cwd: dir, stdio: 'ignore' })
     const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
     // 已备份的悬空 commit 不应导致 blocking(exit 0,因为已保护)
     // 注:可能因 lost-commit tag 仅本地(未 push)而 warn,但不 blocking
@@ -275,9 +300,12 @@ test('filter-stash: stash-like 悬空 commit 被过滤(不报告为丢失)', () 
   try {
     // 创建一个 stash,然后 drop 使其悬空
     writeFileSync(join(dir, 'file.txt'), 'content\n')
-    execSync('git add file.txt', { cwd: dir, stdio: 'pipe' })
-    execSync('git stash', { cwd: dir, stdio: 'pipe' })
-    execSync('git stash drop', { cwd: dir, stdio: 'pipe' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git add file.txt', { cwd: dir, stdio: 'ignore' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git stash', { cwd: dir, stdio: 'ignore' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git stash drop', { cwd: dir, stdio: 'ignore' })
     // 用 --filter-stash 运行 → stash-like 悬空 commit 应被过滤
     const r = runScript(['--filter-stash'], { cwd: dir })
     assert.equal(r.status, 0, `filter-stash 过滤 stash-like 后应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
