@@ -1317,4 +1317,62 @@ test('G-1058649-7 锁⑤:块边界认的是首行字面量 + 缩进形态,不是
   assert.deepEqual(r4.kept, ['✖ x'], '块内空行不得把块腰斩')
 })
 
+// ── 态⓪:G-815912(2026-10-07)—— 判「远端态」的门不进差分、不归责内容 ──────────────
+// 现场:check-push-sync(门 29)判的是"本地 HEAD 领先 origin 多少个提交"。刚提交完它必然红,
+// 而基线面(HEAD 检出)上也一样红 ⇒ 旧差分把它判"存量"(假绿,没人被指去 push)或在差分
+// 可用面上判"你引入"(假红,零风险改动被死锁)。修法:门源自声明 [judges-remote-state],
+// 归因层经 readGateSource 读到标记 ⇒ 一进"复跑仍红"就落「未差分」,不进差分四态。
+test('态⓪:判远端态的门(自声明 [judges-remote-state])⇒ 未差分,不进差分四态', () => {
+  const { classifyHookFailure, verdictLine, REMOTE_STATE_MARK, SUMMARY, FAIL_29, MY_FILES } = __test__
+  const text = SUMMARY + FAIL_29
+  const seen = []
+  const reader = (script) => {
+    seen.push(script)
+    return `/** 注入夹具:带 ${REMOTE_STATE_MARK} 标记的门源 */`
+  }
+  // 臂 1:基线绿 + 门输出含本次文件 —— 双重"假红诱饵"都不得改变结论(分支刻意排在点名判据前:
+  // 对同步态门,点名不构成内容因果;放后面会在列了本次文件时被误判 mine ⇒ 假红复活)
+  const v1 = classifyHookFailure({
+    text,
+    stagedFiles: MY_FILES,
+    runGate: () => ({ status: 1, output: '本地领先 origin/main 1 个提交(scripts/foo.mjs)' }),
+    runGateBaseline: () => ({ ran: true, status: 0, output: 'HEAD 面绿', why: null }),
+    readGateSource: reader,
+  })
+  assert.equal(v1.kind, 'undetermined-red', `实得 ${v1.kind}:${v1.reason}`)
+  assert.equal(v1.delta?.remoteState, 1, '这一态必须可机读计数(与其余未差分亚型分开)')
+  assert.match(v1.detail.join('\n'), /未差分/, '明细必须落「未差分」标签')
+  assert.deepEqual(seen, ['check-push-sync.mjs'], 'reader 必须按门脚本名现读门源')
+  const line1 = verdictLine(v1)
+  assert.ok(!/不在本次提交内容里/.test(line1), '反向锁:未差分不得声称红与本次无关')
+  assert.match(line1, /远端态|同步态/, '措辞必须点名这一型的真实成因(修法=推送)')
+
+  // 臂 2(方向锁):同一现场摘掉标记 ⇒ 旧口径完整回归:未点名 + 基线绿 ⇒ 引入红照样拒跳
+  const v2 = classifyHookFailure({
+    text,
+    stagedFiles: MY_FILES,
+    runGate: () => ({ status: 1, output: 'y apps/web/src/other.tsx:1 违规' }),
+    runGateBaseline: () => ({ ran: true, status: 0, output: 'HEAD 面绿', why: null }),
+    readGateSource: () => '/* 无标记的门源 */',
+  })
+  assert.equal(v2.kind, 'mine', '无标记门的差分结论必须照旧成立(标记分支不得吃掉差分)')
+
+  // 臂 3:不注入 reader ⇒ 识别整体关闭,旧调用方(A1 自测面)行为逐字不变
+  const v3 = classifyHookFailure({
+    text,
+    stagedFiles: MY_FILES,
+    runGate: () => ({ status: 1, output: '本地领先 origin/main 1 个提交' }),
+    runGateBaseline: () => ({ ran: true, status: 0, output: '', why: null }),
+  })
+  assert.equal(v3.kind, 'mine', '无 reader 注入时,点名/差分旧判据必须原样生效')
+
+  // 臂 4(装车证明,守门 64/70/76 同型教训):两侧都要真接上
+  assert.match(safeCommitSource, /readGateSource/, 'safe-commit 未注入 readGateSource ⇒ 识别永不生效')
+  const pushSyncSource = readFileSync(join(here, '..', 'check-push-sync.mjs'), 'utf8')
+  assert.ok(
+    pushSyncSource.includes(REMOTE_STATE_MARK),
+    'check-push-sync.mjs 源里必须带 [judges-remote-state] 自声明(标记跟着门走,不归因层抄)',
+  )
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

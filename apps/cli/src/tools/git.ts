@@ -30,6 +30,7 @@ const git_status: Tool = {
     porcelain: { type: 'boolean', description: '使用 --porcelain 精简格式输出' },
   },
   required: [],
+  dangerLevel: 'read',
   async execute(args, ctx): Promise<ToolResult> {
     const porcelain = args.porcelain === true;
     const cmdArgs = ['status'];
@@ -51,6 +52,7 @@ const git_diff: Tool = {
     ref: { type: 'string', description: '对比的提交引用(如 HEAD~1、分支名)' },
   },
   required: [],
+  dangerLevel: 'read',
   async execute(args, ctx): Promise<ToolResult> {
     const staged = args.staged === true;
     const filePath = args.path as string | undefined;
@@ -81,6 +83,7 @@ const git_log: Tool = {
     path: { type: 'string', description: '仅显示影响此路径的提交' },
   },
   required: [],
+  dangerLevel: 'read',
   async execute(args, ctx): Promise<ToolResult> {
     const count = typeof args.count === 'number' ? args.count : 10;
     const oneline = args.oneline === true;
