@@ -9,6 +9,7 @@ import { buildServer } from './server.js'
 import { startWorkers } from './workers/index.js'
 import { startSchedulerWorker } from './workers/scheduler-worker.js'
 import { initOtel } from './plugins/otel.js'
+import { ensurePaymentMockGateway, isPaymentMockEnabled } from './services/payment-mock-gateway.js'
 
 /**
  * Worker 独立进程入口。
@@ -33,6 +34,19 @@ async function startWorkerProcess(): Promise<void> {
 
   const workers: Worker[] = startWorkers(server)
   const schedulerWorker: Worker = startSchedulerWorker(server)
+
+  // 票 G-998162:本地真 HTTP mock 支付网关(联调验证档)。仅 IHUI_PAY_MOCK=1 时启动,
+  // 不设环境变量时零影响。provider baseURL 注入走 WX_API_BASE(??= origin,显式配置优先);
+  // 生产代码路径与联调完全一致,联调时删掉 IHUI_PAY_MOCK 开关即可。
+  if (isPaymentMockEnabled()) {
+    const gateway = await ensurePaymentMockGateway()
+    if (gateway) {
+      server.log.info(
+        { origin: gateway.origin, external: gateway.external },
+        'IHUI_PAY_MOCK payment mock gateway ready',
+      )
+    }
+  }
 
   // 最小 HTTP /health 端点(端口 8804)供 docker healthcheck 探活
   // 不引入 fastify,用 node:http 极简实现,避免增加 worker 进程负担
