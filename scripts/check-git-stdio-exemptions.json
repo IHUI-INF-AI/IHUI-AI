@@ -30,6 +30,20 @@
    "reason": "真缺 stdio,但该文件此刻由另一会话持有在飞(M,镜像测试真相源改造)⇒ 按 §12 不动他人文件,先以台账豁免保推送畅通;持有人落地或治理线下轮消减",
    "owner": "IHUI-AI stdio 治理线(门 193 判红台账)",
    "reviewBy": "2026-10-20"
+  },
+  {
+   "file": "scripts/lib/plan-collide-renumber-blob.mjs",
+   "line": 72,
+   "reason": "真缺 stdio,但该文件此刻由持有人持有在飞(M,其 in-flight diff 正是该文件的 GIT_STDIO 修复,尚未含这两处)⇒ §12 不动他人文件,台账豁免保推送畅通,持有人落地时自然消减",
+   "owner": "plan-collide-renumber-blob 持有人 + IHUI-AI stdio 治理线(门 193 判红台账)",
+   "reviewBy": "2026-10-20"
+  },
+  {
+   "file": "scripts/lib/plan-collide-renumber-blob.mjs",
+   "line": 82,
+   "reason": "真缺 stdio,但该文件此刻由持有人持有在飞(M,其 in-flight diff 正是该文件的 GIT_STDIO 修复,尚未含这两处)⇒ §12 不动他人文件,台账豁免保推送畅通,持有人落地时自然消减",
+   "owner": "plan-collide-renumber-blob 持有人 + IHUI-AI stdio 治理线(门 193 判红台账)",
+   "reviewBy": "2026-10-20"
   }
  ]
 }
