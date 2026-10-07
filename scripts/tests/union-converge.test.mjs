@@ -1560,3 +1560,73 @@ test('R-U 装车锁(源码级):折叠判据必须先过"是不是同一件事"�
   assert.match(src, /if \(sim < SIM_THRESHOLD\) continue/, '相似度闸不得被摘掉')
   assert.match(src, /from '\.\/lib\/live-doc-similarity\.mjs'/, '阈值与 Jaccard 必须复用那一份实现,不得在门里再写第二把尺子')
 })
+
+test('G-977960 ②:对侧删除 ∧ 本侧相对基底未动 ⇒ 删除随合并传播(合并树里没有它、逐路径点名、零丢失自证过)', () => {
+  const { dir, run } = fixture()
+  try {
+    writeFileSync(join(dir, 'orphan.ts'), 'O\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'base(带零引用路径)')
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), 'a\nb\nours\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'ours(不碰 orphan.ts)')
+    const ours = run('rev-parse', 'HEAD')
+    run('checkout', '-q', 'HEAD~1')
+    run('rm', '-q', 'orphan.ts')
+    run('add', '-A')
+    run('commit', '-qm', 'theirs(删零引用路径)')
+    const theirs = run('rev-parse', 'HEAD')
+    run('update-ref', 'refs/heads/main', ours)
+    run('checkout', '-q', 'main')
+
+    const p = U.plan(ours, theirs, dir)
+    const paths = new Set(U.listPaths(p.tree, dir))
+    assert.equal(p.bad.length, 0, `零丢失自证必须过:${p.bad.slice(0, 3).join(' / ')}`)
+    assert.ok(!paths.has('orphan.ts'), '删除必须随合并生效:合并树里不得再有它(旧写法会把它折回)')
+    assert.ok(
+      p.propagatedDeletes.includes('orphan.ts'),
+      `必须逐路径点名:${JSON.stringify(p.propagatedDeletes)}`,
+    )
+    assert.ok(!p.skippedDeletes.includes('orphan.ts'), '本侧未动 ⇒ 不得再进"不传播"清单')
+    const sha = run('commit-tree', p.tree, '-p', ours, '-p', theirs, '-m', 'union(删除传播)')
+    assert.equal(auditOne(sha, dir).lost.length, 0, '产物必须过它自己那道 A1(A1 只立罪新增)')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('G-977960 ② 反向锁:对侧删除 ∧ 本侧改过 ⇒ 不传播(modify/delete 分叉,处置权归改写方)', () => {
+  const { dir, run } = fixture()
+  try {
+    writeFileSync(join(dir, 'conflict-del.ts'), 'O\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'base')
+    writeFileSync(join(dir, 'conflict-del.ts'), 'O-OURS-EDIT\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'ours(改了它)')
+    const ours = run('rev-parse', 'HEAD')
+    run('checkout', '-q', 'HEAD~1')
+    run('rm', '-q', 'conflict-del.ts')
+    run('add', '-A')
+    run('commit', '-qm', 'theirs(删了它)')
+    const theirs = run('rev-parse', 'HEAD')
+    run('update-ref', 'refs/heads/main', ours)
+    run('checkout', '-q', 'main')
+
+    const p = U.plan(ours, theirs, dir)
+    const paths = new Set(U.listPaths(p.tree, dir))
+    assert.equal(p.bad.length, 0, `不得判红:${p.bad.slice(0, 3).join(' / ')}`)
+    assert.ok(paths.has('conflict-del.ts'), '本侧改过 ⇒ 文件不得被对侧的删除带走')
+    assert.equal(
+      U.blobOf(p.tree, 'conflict-del.ts', dir),
+      U.blobOf(ours, 'conflict-del.ts', dir),
+      '留下必须是本侧改过的那份字节',
+    )
+    assert.ok(
+      p.skippedDeletes.includes('conflict-del.ts') && !p.propagatedDeletes.includes('conflict-del.ts'),
+      `必须留在"不传播"清单里点名,不得混进传播清单:${JSON.stringify([p.skippedDeletes, p.propagatedDeletes])}`,
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})

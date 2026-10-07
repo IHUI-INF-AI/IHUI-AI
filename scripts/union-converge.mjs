@@ -984,6 +984,8 @@ export function buildUnion(
     const tookTheirs = []
     const mergedClean = []
     const skippedDeletes = []
+    // 票 G-977960 ②(用户拍板):「删除活不过合并」的对症格 —— 本轮**随合并生效**的对侧删除,逐路径点名。
+    const propagatedDeletes = []
     const needHuman = []
     const generatedDeferred = [] // 生成物冲突:不判人工、不选边,登记"待重生成"(见 G-814415)
     const keptOurs = []
@@ -998,7 +1000,13 @@ export function buildUnion(
       if (LIVE_DOCS.includes(p)) continue
       const theirsBlob = blobOf(theirs, p, cwd)
       const oursBlob = blobOf(ours, p, cwd)
-      if (oursBlob === theirsBlob) continue
+      if (oursBlob === theirsBlob) {
+        // 两侧同删(p 能进本循环说明 theirsBlob===null ⇒ 基底必有它):删除无争议地活着,
+        // 但仍要点名 —— 票 G-977960 ② 的"逐路径报名"要求报告能完整回答
+        // "这轮合并里哪些路径因删除而消失",静默的存活等于下一次还要重新取证一遍。
+        if (theirsBlob === null) propagatedDeletes.push(p)
+        continue
+      }
       if (theirsBlob === null) {
         /**
          * **影子 .js 的删除要传播**,这一条是对"对侧删除不随合并传播"那条通则的**刻意例外**。
@@ -1016,7 +1024,19 @@ export function buildUnion(
           shadowDeletes.push({ path: p, twin: twin.path })
           continue
         }
-        skippedDeletes.push(p) // 对侧删除不随合并传播,否则本工具的产物会被守门 100 判红
+        // 票 G-977960 ②(2026-10-07 落地):「该路径的删除已是合并结果的祖先 ∧ 两侧相对删除点都未改动过它」
+        // ⇒ 传播删除 —— 这正是 git 三方合并自身的语义,可证不丢内容:被删掉的字节就是基底那一份,
+        // 本侧从未改过它(逐字同一 blob)⇒ 删除方对这一路径的处置权成立,不再默认折回。
+        // 本侧**改过**的(modify/delete 分叉)照旧不传播:处置权归改写方 —— 删除是旧信息,改写是新工作。
+        // 两种处置都必须像影子 .js 那一格一样逐路径报名,绝不静默。
+        // 失效方向:取不到基底 ⇒ 不传播(多留一份,复核可再删);绝不反向(误删别人的工作不可恢复)。
+        const delBase = base ? blobOf(base, p, cwd) : null
+        if (delBase && (oursBlob === null || oursBlob === delBase)) {
+          if (oursBlob !== null) run(['update-index', '--force-remove', p])
+          propagatedDeletes.push(p)
+          continue
+        }
+        skippedDeletes.push(p) // 对侧删除 ∧ 本侧对该路径有独有改动 ⇒ 不传播(处置权归改写方),仍逐条点名
         continue
       }
       // 本侧未动(或本侧已删 ⇒ 删除同样不传播,与"对侧删除"对称)⇒ 整文件取对侧,语义与改前逐字一致
@@ -1191,6 +1211,7 @@ export function buildUnion(
       acceptedGrowth,
       mergedClean,
       skippedDeletes,
+      propagatedDeletes,
       shadowDeletes,
       shadowRestores,
       needHuman,
@@ -1267,6 +1288,17 @@ export function verifyUnion(
         `${p} 的字节由 ${twin.path} 同一个 blob(${String(oid).slice(0, 9)})承载 ⇒ 合并结果不含它属收口,不是丢失`,
       )
       continue
+    }
+    // 票 G-977960 ② 的对称豁免:对侧相对基底删除了它 ∧ 本侧那份逐字等于基底 ⇒ 删除随合并传播,
+    // 处置权归删除方。与下面 theirsLost 环里早已有的「本侧已移动或删除;对侧相对基底未改动 ⇒ 处置权归本侧」
+    // 是同一条内容寻址证明的另一半 —— 被删的字节就是基底字节,没有任何一侧的独有工作消失。
+    // 取不到基底 ⇒ 豁免不成立,照旧判红(失效方向 = 多拦,绝不把真吞并洗成传播)。
+    if (base) {
+      const delBaseOid = blobOf(base, p, cwd)
+      if (delBaseOid && delBaseOid === oid && blobOf(theirs, p, cwd) === null) {
+        moved.push(`${p}(对侧已删除;本侧相对基底未改动这一路径 ⇒ 删除随合并传播,零丢失由逐字同一 blob 证明)`)
+        continue
+      }
     }
     bad.push(`合并树丢了本侧路径 ${p}`)
   }
@@ -1669,12 +1701,18 @@ function selfTest() {
     const paths = new Set(listPaths(p.tree, dir))
     ok('本侧独有新增不得丢', paths.has('mine.ts'))
     ok('对侧独有新增照收', paths.has('theirs.ts'))
+    // 票 G-977960 ②(用户拍板):这一格的语义已从"删除不传播"改为"传播删除" ——
+    // 对侧删 ∧ 本侧未动 ⇒ 合并树里不该再有它,且必须逐路径点名(不是静默吞掉)。
     ok(
-      '对侧的删除不随合并传播(合并之后显式删才算)',
-      paths.has('keep.ts'),
-      'keep.ts 被顺手删了 ⇒ 与"取某一侧"无区别',
+      '② 对侧删除 ∧ 本侧未动 ⇒ 删除随合并生效(合并树里没有它,且逐路径点名)',
+      !paths.has('keep.ts') && (p.propagatedDeletes || []).includes('keep.ts'),
+      `paths.has(keep.ts)=${paths.has('keep.ts')} propagated=${JSON.stringify(p.propagatedDeletes)}`,
     )
-    ok('对侧删除项如实报数', p.skippedDeletes.includes('keep.ts'), JSON.stringify(p.skippedDeletes))
+    ok(
+      'modify/delete 分叉之外不得再进"不传播"清单(keep.ts 不在其中的点名)',
+      !p.skippedDeletes.includes('keep.ts'),
+      JSON.stringify(p.skippedDeletes),
+    )
     // 本侧 mv 走的那条路径:旧路径在合并树里消失,但内容以同一 blob 活在新路径上。
     // 这一类若按"吞并"判红,收敛就永远落不了地(2026-09-25 实测:门自己把一次合法改名拦成了死局);
     // 若不打勾点名,它又会变成任何人掩盖吞并的借口 —— 所以两头都要:放行 + 吼出来。
@@ -2701,6 +2739,82 @@ function selfTest() {
           shadowTwinIsIdentical('a/b.ts', 'oid1', { 'a/b.js': 'oid1' }) === null,
       )
     }
+    // ── 票 G-977960 ②(用户拍板):「删除活不过合并」的对症格 —— 传播删除 ──
+    {
+      const d7 = mkScratch('ihui-union-del-')
+      const g7 = (...a) => git(a, d7)
+      try {
+        g7('init', '-q', '-b', 'main')
+        g7('config', 'user.email', 't@t')
+        g7('config', 'user.name', 't')
+        g7('config', 'core.autocrlf', 'false')
+        // 四个基底路径:orph1(对侧删 ∧ 本侧未动 ⇒ 传播)、orph2(本侧改 ∧ 对侧删 ⇒ modify/delete 分叉,
+        // 不传播)、orph3(两侧同删 ⇒ 结果里也不该有)、orph4(本侧删 ∧ 对侧未动 ⇒ 本来就活,钉住不折回)。
+        writeFileSync(join(d7, 'orph1.ts'), 'O1\n', 'utf8')
+        writeFileSync(join(d7, 'orph2.ts'), 'O2\n', 'utf8')
+        writeFileSync(join(d7, 'orph3.ts'), 'O3\n', 'utf8')
+        writeFileSync(join(d7, 'orph4.ts'), 'O4\n', 'utf8')
+        writeFileSync(join(d7, 'PROJECT_PLAN.md'), 'a\nb\n', 'utf8')
+        g7('add', '-A')
+        g7('commit', '-qm', 'base(带四条零引用路径)')
+        const base7 = g7('rev-parse', 'HEAD').trim()
+
+        g7('checkout', '-q', '-b', 'theirs', base7)
+        g7('rm', '-q', 'orph1.ts')
+        g7('rm', '-q', 'orph2.ts')
+        g7('rm', '-q', 'orph3.ts')
+        writeFileSync(join(d7, 'PROJECT_PLAN.md'), 'a\nb\ntheirs-line\n', 'utf8')
+        g7('add', '-A')
+        g7('commit', '-qm', 'theirs 删三条')
+        const theirs7 = g7('rev-parse', 'HEAD').trim()
+
+        g7('checkout', '-q', '-B', 'main', base7)
+        writeFileSync(join(d7, 'orph2.ts'), 'O2-OURS-EDIT\n', 'utf8')
+        g7('rm', '-q', 'orph3.ts')
+        g7('rm', '-q', 'orph4.ts')
+        writeFileSync(join(d7, 'PROJECT_PLAN.md'), 'a\nb\nours-line\n', 'utf8')
+        g7('add', '-A')
+        g7('commit', '-qm', 'ours 改 orph2、删 orph3/orph4')
+        const ours7 = g7('rev-parse', 'HEAD').trim()
+
+        const pd = plan(ours7, theirs7, d7)
+        const paths7 = new Set(listPaths(pd.tree, d7))
+        ok(
+          '② 端到端:对侧删除 ∧ 本侧未动 ⇒ 删除随合并传播(合并树里没有它,且逐路径点名)',
+          !paths7.has('orph1.ts') &&
+            (pd.propagatedDeletes || []).includes('orph1.ts') &&
+            pd.bad.length === 0,
+          JSON.stringify([paths7.has('orph1.ts'), pd.propagatedDeletes, pd.skippedDeletes, pd.bad.slice(0, 2)]),
+        )
+        ok(
+          '② 反向锁:对侧删除 ∧ 本侧改过 ⇒ 不传播(modify/delete 分叉,处置权归改写方,本侧内容照旧在)',
+          paths7.has('orph2.ts') &&
+            blobOf(pd.tree, 'orph2.ts', d7) === blobOf(ours7, 'orph2.ts', d7) &&
+            !(pd.propagatedDeletes || []).includes('orph2.ts') &&
+            pd.skippedDeletes.length === 1 &&
+            pd.skippedDeletes[0] === 'orph2.ts',
+          JSON.stringify([pd.propagatedDeletes, pd.skippedDeletes, pd.bad.slice(0, 2)]),
+        )
+        ok(
+          '② 两侧同删 ⇒ 合并结果里也不该有,且一样点名(不得静默)',
+          !paths7.has('orph3.ts') && (pd.propagatedDeletes || []).includes('orph3.ts'),
+          JSON.stringify([pd.propagatedDeletes, pd.bad.slice(0, 2)]),
+        )
+        ok(
+          '② 另一半:本侧删 ∧ 对侧未动 ⇒ 已删路径不得被合并折回(处置权归本侧,老规矩)',
+          !paths7.has('orph4.ts') && !pd.bad.some((b) => b.includes('orph4')),
+          JSON.stringify([paths7.has('orph4.ts'), pd.bad.slice(0, 2)]),
+        )
+        const sha7 = g7('commit-tree', pd.tree, '-p', ours7, '-p', theirs7, '-m', 'union(删除传播)')
+        ok(
+          '② 传播删除的产物经守门 100 复核 0 丢失(A1 只立罪新增,不管删除)',
+          auditOne(sha7, d7).lost.length === 0,
+          JSON.stringify(auditOne(sha7, d7).lost),
+        )
+      } finally {
+        rmScratch(d7, { bestEffort: true })
+      }
+    }
   } finally {
     rmScratch(dir, { bestEffort: true })
   }
@@ -2787,10 +2901,17 @@ async function main() {
     )
   const p = plan(t.head, t.theirs, ROOT, takeOurs, resolutions, takeTheirs, accepted)
   console.log(
-    `[union-converge] ${apply ? 'APPLY' : 'CHECK ONLY'} base=${p.base.slice(0, 11)} ours=${t.head.slice(0, 11)} theirs=${t.theirs.slice(0, 11)} / 取对侧 ${p.tookTheirs.length} 路径 / 两侧同改三方归并 ${p.mergedClean.length} / 需人工 ${p.needHuman.length} / 对侧删除不传播 ${p.skippedDeletes.length} / 影子 .js 随合并删掉 ${p.shadowDeletes?.length ?? 0} / 影子 .js 未恢复 ${p.shadowRestores?.length ?? 0} / 活文档行 union`,
+    `[union-converge] ${apply ? 'APPLY' : 'CHECK ONLY'} base=${p.base.slice(0, 11)} ours=${t.head.slice(0, 11)} theirs=${t.theirs.slice(0, 11)} / 取对侧 ${p.tookTheirs.length} 路径 / 两侧同改三方归并 ${p.mergedClean.length} / 需人工 ${p.needHuman.length} / 对侧删除不传播 ${p.skippedDeletes.length} / 删除随合并传播 ${p.propagatedDeletes?.length ?? 0} / 影子 .js 随合并删掉 ${p.shadowDeletes?.length ?? 0} / 影子 .js 未恢复 ${p.shadowRestores?.length ?? 0} / 活文档行 union`,
   )
   for (const d of p.skippedDeletes)
-    console.log(`  · 对侧删除不随合并生效:${d}(确要删请在合并之后显式 git rm)`)
+    console.log(
+      `  · 对侧删除 ∧ 本侧在该路径有独有改动 ⇒ 不随合并生效:${d}(处置权归改写方;确要删请在合并之后显式 git rm)`,
+    )
+  // 票 G-977960 ②:删除传播必须逐路径报名 —— 静默生效的例外等于没写判据(与影子 .js 两格同一留痕纪律)。
+  for (const d of p.propagatedDeletes || [])
+    console.log(
+      `  · 删除随合并传播:${d}(对侧相对基底删除 ∧ 本侧相对基底未改动 ⇒ 处置权归删除方,零丢失由逐字同一 blob 证明)`,
+    )
   // 移动放行必须吼出来:它放的是"本侧把文件 mv 走了"这一类,不是"对侧新增被吞了"那一类。
   // 不点名的话,这条通道就会变成任何人掩盖吞并的借口。
   for (const mv of p.movedPaths || [])
@@ -2860,6 +2981,11 @@ async function main() {
       ? `;人工归并回灌(已过两侧丢行断言): ${p.humanResolved.join(' ')}`
       : '') +
     (p.keptOurs?.length ? `;取本侧(已声明+可复核): ${p.keptOurs.join(' ')}` : '') +
+    // 票 G-977960 ② 的留痕:删除传播不再走"默认折回",后来人只读 git log 也必须看得出
+    // **这条不在旧通则里**(对侧删除本来是刻意不传播的),以及它是按什么证明零丢失的。
+    (p.propagatedDeletes?.length
+      ? `;删除随合并传播(对侧相对基底删除 ∧ 本侧相对基底未改动,零丢失由逐字同一 blob 证明): ${p.propagatedDeletes.join(' ')}`
+      : '') +
     // 影子 .js 两格的留痕:这一型是"删除被传播 / 回归被拦住",零损失由 blob oid 逐字相等证明,
     // 但后来人只读 git log 也必须能看出**这两条不在默认通则里**(对侧删除本来是刻意不传播的)。
     (p.shadowDeletes?.length
