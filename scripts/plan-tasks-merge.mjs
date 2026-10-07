@@ -60,8 +60,10 @@ import {
   auditPlan,
   countMergeNotes,
   compositeKeyOf,
+  findPrefixNestedCopies,
   keyOfRow,
   parseTaskRows,
+  planPrefixNestedPointer,
   titleOf,
 } from './lib/plan-task-index.mjs'
 // F3「归档反查出口」的**面判据**直接取守门 13c 那一份实现(A2/A3 问的就是"归档件真在被审面上吗",
@@ -2701,6 +2703,128 @@ export function healAndLand() {
 }
 
 /**
+ * G-814403 ②(2026-10-07 接线):`--heal --match-prefix-holder "<持有行原文片段>"`。
+ *
+ * F4c(同主键前缀套叠副本)的唯一出口。为什么是独立支线而不是并进 `healAndLand`:
+ *  - `--heal --commit` 是 post-commit **自动档**,而"指定持有行"是人工裁决 —— 自动档结构上
+ *    不可能带一个必须由人给的片段;并进去就等于给机器留了一条"按长度猜正本"的后门。
+ *  - `healAndLand` 的早退判据不认 F4c(前缀套叠不在 F1-F10 任何一维),族存在而其他维全零时
+ *    那条路直接报"无状态分叉"走人 —— 判据有牙而无人调度的失效型,本仓见得太多了。
+ *
+ * 语义(全部来自库侧 `planPrefixNestedPointer`,本函数只做 CLI 装配):
+ *  - 片段必须**唯一定位**被审面上的一行,否则拒绝执行(0 命中/多命中/holder 已带指针/无主键
+ *    都是大声失败,退出码 2 —— 静默退化成"这一族没配上"是本仓最高频的失效型);
+ *  - 命中后:其余同主键前缀套叠副本只加「重复登记副本」指针、**绝不动勾选**(F4 口径,
+ *    复用 `rewriteDup` 那一份幂等构造,指针写内容锚点不写行号);
+ *  - 持有行与未触行逐字不动;落地后该族**清零复验**(指针打破 startsWith,结构上必清零,
+ *    不是靠一道会被人误读成"过滤"的隐式规则 —— 镜像 C7 钉的就是这一条)。
+ *
+ * 默认只出报告;`--commit` 在场才走与 `healAndLand` 同一枚 CAS 骨架(临时索引 + commit-tree +
+ * CAS update-ref,绝不碰共享工作树)。
+ */
+function healWithPrefixHolder(holderFragment, { commit }) {
+  const stamp = Date.now()
+  const head0 = gitIn(null, ['rev-parse', 'HEAD'])
+  const spec = `HEAD:${PLAN_REL}`
+  const src = catBatch(ROOT, [spec], { maxBuffer: 1 << 28 }).get(spec)
+  if (src === null || src === undefined) {
+    console.log('⚠️ 无法判定 —— HEAD 取不到 PROJECT_PLAN.md')
+    return 2
+  }
+  const res = planPrefixNestedPointer(src, holderFragment)
+  if (!res.ok) {
+    console.log(`❌ ${res.reason}`)
+    return 2
+  }
+  if (!res.pointered.length) {
+    console.log(`✅ 持有行 L${res.holderLine} 的同主键前缀套叠族已全部带指针(F4c 清零),不动任何东西`)
+    return 0
+  }
+  const today = new Date().toISOString().slice(0, 10)
+  const lines = src.split('\n')
+  const touched = new Map(res.pointered.map((p) => [p.line, p.key]))
+  const changed = []
+  const out = lines.map((line, i) => {
+    const key = touched.get(i + 1)
+    if (key === undefined) return line
+    const after = rewriteDup(line, key, today)
+    changed.push({ line: i + 1, kind: 'F4c前缀套叠指针', before: line, after })
+    return after
+  })
+  const text = out.join('\n')
+  // 零损失三条(就地):行数不变 / 未触行逐字不变 / 触行是纯行尾追加且带派单口径认得的指针字面
+  const bad = []
+  if (out.length !== lines.length) bad.push(`行数不等 ${lines.length}→${out.length}`)
+  for (const c of changed) {
+    if (c.before === c.after) bad.push(`L${c.line} 写入前后相等(空动作却报了改写)`)
+    else if (!c.after.startsWith(c.before)) bad.push(`L${c.line} 产物不是原行的纯追加`)
+    else if (!DUP_POINTER_RE.test(c.after)) bad.push(`L${c.line} 产物不含派单口径认得的副本指针字面`)
+  }
+  lines.forEach((l, i) => {
+    if (!touched.has(i + 1) && l !== out[i]) bad.push(`L${i + 1} 未登记却被改动`)
+  })
+  // 清零复验(票面③):人工指定持有行加指针 ⇒ 该族清零;仍剩对子 = 判据或构造漂了,当场红
+  const left = findPrefixNestedCopies(text).pairs.filter(
+    (p) => touched.has(p.short.line) || touched.has(p.long.line),
+  )
+  if (left.length) bad.push(`加指针后仍有 ${left.length} 对未清零`)
+  if (bad.length) {
+    console.log(`❌ 前缀套叠指针档停手:${bad.join(' / ')} —— 现场保留,交人工`)
+    return 1
+  }
+  console.log(
+    `拟给 ${changed.length} 行前缀套叠副本加「重复登记副本」指针(持有行 L${res.holderLine} 与未触行逐字不动,勾选一律不动):`,
+  )
+  for (const c of changed) console.log(`  - L${c.line}: ${c.before.slice(0, 60)} → 行尾追加指针`)
+  if (!commit) {
+    console.log('ℹ️ 未加 --commit:只出报告,一行未改。确认后再跑 --heal --match-prefix-holder "<片段>" --commit')
+    return 0
+  }
+  const scratch = mkScratch(`plan-prefix-holder-${stamp}`)
+  const tmp = path.join(scratch, 'pp.md')
+  const msgFile = path.join(scratch, 'msg.txt')
+  const idx = path.join(scratch, 'index')
+  writeFileSync(tmp, text, 'utf8')
+  writeFileSync(
+    msgFile,
+    [
+      'fix(plan): --heal --match-prefix-holder 前缀套叠副本指定持有行加指针(G-814403②)',
+      '',
+      `人工指定持有行 L${res.holderLine};同主键前缀套叠副本 ${changed.length} 行只加「重复登记副本」指针、不动勾选(F4 口径),一行不删不增。`,
+      '判据复用 findPrefixNestedCopies/compositeKeyOf 唯一实现;出口 planPrefixNestedPointer 大声失败(0 命中/多命中/holder 已带指针/无主键一律拒绝执行)。',
+      '零损失:行数不变/未触行逐字不变/触行纯行尾追加;落地后该族清零复验通过。',
+    ].join('\n'),
+    'utf8',
+  )
+  try {
+    gitIn(idx, ['read-tree', head0])
+    const blob = gitIn(idx, ['hash-object', '-w', tmp])
+    gitIn(idx, ['update-index', '--add', '--cacheinfo', `100644,${blob},${PLAN_REL}`])
+    const tree = gitIn(idx, ['write-tree'])
+    const commitSha = gitIn(idx, ['commit-tree', tree, '-p', head0, '-F', msgFile])
+    gitIn(null, ['update-ref', 'HEAD', commitSha, head0])
+    if (gitIn(null, ['rev-parse', 'HEAD']) !== commitSha) {
+      console.log('❌ CAS 失败(HEAD 被并发抢进),本次放弃 —— 重新取面再跑')
+      return 1
+    }
+    attestLanding({
+      source: 'plan-tasks-merge:prefix-holder',
+      landedSha: commitSha,
+      headBefore: head0,
+      root: ROOT,
+    })
+    const landedText = gitIn(null, ['show', `${commitSha}:${PLAN_REL}`], { encoding: 'utf8' })
+    const leftAfter = findPrefixNestedCopies(landedText).pairs.length
+    console.log(
+      `✅ 前缀套叠指针落地 ${commitSha.slice(0, 11)}:加指针 ${changed.length} 行(持有行 L${res.holderLine});落地面全仓 F4c 报数 ${leftAfter} 对(存量其他族按设计只报数,不判红)`,
+    )
+    return 0
+  } finally {
+    rmScratch(scratch)
+  }
+}
+
+/**
  * 块级重复(F6)的收口落地。与 healAndLand 同一条安全骨架,但**每次 CAS 前重新现读 HEAD
  * 重新算块** —— 行号在任何一次 append 后都会挪位(§1 规矩 3 的同一条理由),复用旧行号
  * 就等于按一张过期地图删行。CAS 输了就整轮重算,绝不拿上一轮的行号再试一次。
@@ -3832,6 +3956,46 @@ function selfTest() {
     '合法路径必须放行(否则本校验变成永拒)',
   )
   ok(flagValue(['--all'], '--write-to').present === false, '旗标缺席时不得判成"值为空"')
+  // ── G-814403 ②:--match-prefix-holder 出口(planPrefixNestedPointer)三条反向对照 ──
+  const pSrc = [
+    '- [ ] **G-701. 前缀套叠登记**:完整的那一份,包含全部细节与最新证据。',
+    '- [ ] **G-701. 前缀套叠登记**:完整的那一份',
+    '- [ ] **G-702. 别的事**:无关行。',
+  ].join('\n')
+  // ① 前缀关系不成立时不得计入:G-702 无关行永不进 targets;片段按"L1 独有正文"唯一定位
+  //   (同主键两行共享题面,拿题面当片段会多命中被拒 —— 这本身就是②要钉的形状)
+  const pr1 = planPrefixNestedPointer(pSrc, '包含全部细节与最新证据')
+  ok(
+    pr1.ok && pr1.holderLine === 1 && pr1.pointered.length === 1 && pr1.pointered[0].line === 2,
+    `前缀族应恰指 L2(精确前缀),实测 ${JSON.stringify(pr1)}`,
+  )
+  // ② holder 不在被审面 ⇒ 大声失败,不得静默退化成"这一族没配上"
+  const pr2 = planPrefixNestedPointer(pSrc, 'G-999 不存在的片段')
+  ok(!pr2.ok && pr2.reason.includes('0 命中'), `holder 0 命中必须大声失败,实测 ${JSON.stringify(pr2)}`)
+  // ③ 成对:加一行新前缀副本 ⇒ 报数上升(三层 754⊂1372⊂1767 按库定义产 3 对,逐层各一);
+  //   指定持有行加指针 ⇒ 该族清零(指针打破 startsWith)
+  const pBefore = findPrefixNestedCopies(pSrc).pairs.length
+  const pGrown = `${pSrc}\n- [ ] **G-701. 前缀套叠登记**:完整的那`
+  const pAfter0 = findPrefixNestedCopies(pGrown).pairs.length
+  ok(
+    pBefore === 1 && pAfter0 === 3,
+    `前缀套叠按逐层各一对计:一层 1 对 ⇒ 三层 3 对,实测 ${pBefore}→${pAfter0}`,
+  )
+  const pr3 = planPrefixNestedPointer(pGrown, '包含全部细节与最新证据')
+  const pGrownLines = pGrown.split('\n')
+  const pLines = pGrownLines.map((l, i) => {
+    const t0 = pr3.ok && pr3.pointered.find((p) => p.line === i + 1)
+    return t0 ? rewriteDup(l, t0.key, '2026-10-07') : l
+  })
+  ok(pr3.ok && pr3.pointered.length === 2, `三层套叠应恰报 2 份副本待指,实测 ${JSON.stringify(pr3)}`)
+  ok(
+    findPrefixNestedCopies(pLines.join('\n')).pairs.length === 0,
+    `副本加指针后该族必须清零,实测仍报 ${findPrefixNestedCopies(pLines.join('\n')).pairs.length} 对`,
+  )
+  ok(
+    pLines[0] === pGrownLines[0] && DUP_POINTER_RE.test(pLines[1]) && DUP_POINTER_RE.test(pLines[3]),
+    '持有行逐字不动、两份被指副本各带派单口径指针(L3 无关行不得被误加)',
+  )
   console.log(`\n自检:${pass} 通过 / ${fail} 失败`)
   return fail ? 1 : 0
 }
@@ -3909,6 +4073,7 @@ export const KNOWN_FLAGS = [
   '--restore-terminals',
   '--json',
   '--match',
+  '--match-prefix-holder',
   '--max-rows',
   '--rounds',
   '--allow-mass',
@@ -3919,7 +4084,7 @@ export const KNOWN_FLAGS = [
 ]
 
 /** 吃"紧邻下一个 token 作为值"的旗标 —— inspectArgs 与各处 flagValue 共用这一份名单。 */
-export const VALUE_FLAGS = ['--write-to', '--match', '--max-rows', '--rounds']
+export const VALUE_FLAGS = ['--write-to', '--match', '--match-prefix-holder', '--max-rows', '--rounds']
 
 /** @returns {{unknown:string[], notes:string[]}} unknown 非空即必须拒绝执行 */
 export function inspectArgs(list) {
@@ -3957,6 +4122,7 @@ function printHelp() {
       '',
       '常用档(默认一律只出报告,加 --commit 才走对象空间落地:临时索引 + commit-tree + CAS,**绝不碰共享工作树**):',
       '  --heal                F1/F2/F3/F4 归并落账(只改行内状态与注记,一行不删)',
+      '  --match-prefix-holder "<片段>"  F4c 前缀套叠副本:人工指定持有行,其余同主键前缀副本只加「重复登记副本」指针、不动勾选(0 命中/多命中 ⇒ 拒绝执行)',
       '  --dedupe-blocks       连续 ≥3 行的逐字相同登记块,只删第 2..N 份(F6)',
       '  --dedupe-rows         已完成(- [x])的逐字相同单行,只删第 2..N 份',
       '  --dedupe-open-rows    未勾选(- [ ])且已带「【归并】重复登记副本」指针的逐字相同单行(八条零损失断言)',
@@ -4198,6 +4364,21 @@ function main() {
       return 0
     }
     return twinFoldAndLand()
+  }
+  // G-814403 ②:--match-prefix-holder 走独立支线(人工裁决出口),绝不混进 post-commit 自动档
+  const mph = flagValue(argv, '--match-prefix-holder')
+  if (mph.present) {
+    if (!has('--heal')) {
+      console.log('❌ --match-prefix-holder 需与 --heal 同给(它是指定持有行后加指针的出口,不是独立档)')
+      return 2
+    }
+    if (!mph.valid) {
+      console.log(
+        `❌ --match-prefix-holder 需要一个非旗标值(实得 ${JSON.stringify(mph.token)})—— 把空值当"没指定"会退化成"这一族没配上",方向反了。`,
+      )
+      return 2
+    }
+    return healWithPrefixHolder(mph.value, { commit: has('--commit') })
   }
   if (has('--heal') && has('--commit')) return healAndLand()
   if (has('--heal')) {
@@ -4714,5 +4895,6 @@ export const __test__ = {
   planOpenRowChunks,
   parsePositiveInt,
   VALUE_FLAGS,
+  healWithPrefixHolder,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
