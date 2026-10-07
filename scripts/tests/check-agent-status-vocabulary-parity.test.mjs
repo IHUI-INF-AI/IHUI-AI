@@ -20,6 +20,9 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { __test__ as gate } from '../check-agent-status-vocabulary-parity.mjs'
+//  runner 注册条目的形状由守门 89(check-gate-wiring)那一份解析器裁定 —— 本文件不再手写
+//  `script: '<门名>'` 形态(§22c:同料两份必漂,而那条形状的真值是它,不是本测试)。
+import { __test__ as wiring } from '../check-gate-wiring.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const SRC_NAME = 'check-agent-status-vocabulary-parity.mjs'
@@ -135,8 +138,11 @@ test('T7 装车成套性:头注声明必须与 runner 现读一致;已注册则�
   const headGate = gitShow(`HEAD:scripts/${SRC_NAME}`)
   assert.ok(headGate, `HEAD 面取不到 scripts/${SRC_NAME} ⇒ 本用例空转`)
   const runner = gitShow('HEAD:scripts/guardian-runner.mjs')
-  const SCRIPT_RE = new RegExp(`script: '${SRC_NAME.replace(/\./g, '\\.')}'`)
-  const registered = !!runner && SCRIPT_RE.test(runner)
+  // 注册与否由门体导出的解析器裁定:parseRunnerRegistrations 只把**真有 script 字段**的条目入账
+  //   (`script:` 缺字段 ⇒ 不进 byScript ⇒ 这里读不到 ⇒ 不认已装车),故原「仅路径字符串不构成
+  //   装车」那一牙不丢;形状本身不再在本文件里写第二遍(§22c)。
+  const { byScript } = wiring.parseRunnerRegistrations(runner || '')
+  const registered = !!runner && (byScript.get(SRC_NAME) || []).length > 0
 
   // ⚠️ 原未注册分支是 assert.doesNotMatch(head, /已接 pre-commit|CI 必跑|第 \d+ 项/)。
   //   普查报它"字面量略宽、可收紧"只说对了一半 —— 真病是**锚错了对象**:
@@ -157,13 +163,15 @@ test('T7 装车成套性:头注声明必须与 runner 现读一致;已注册则�
   )
   if (!registered) return
 
-  const at = runner.search(SCRIPT_RE)
-  assert.ok(at >= 0, 'runner 注册块缺 script 字段(仅路径字符串不构成装车)')
+  // 注册块边界:以**门自己声明的应急跳过名**为锚(该值逐门唯一 ⇒ 窗口不会跨进邻门;
+  //   `script:` 那一形状归 89 号门的解析器管,本文件不重写)。
+  const skipAt = runner.indexOf(`skipEnv: '${gate.SELF_SKIP}'`)
+  assert.ok(skipAt >= 0, `runner 注册块缺 skipEnv 字段(本门应带 ${gate.SELF_SKIP})`)
   // ⚠️ 原来取 `at ± 900` 的**窗口**判 mode/skipEnv,实测无牙:窗口跨进邻门,邻门的
   // `mode:'blocking'` 替本门交差(把本门自己翻成 warn 后断言仍绿)。改按**注册块边界**取本门那条。
-  const start = runner.lastIndexOf('\n  {', at)
-  const next = runner.indexOf('\n    script:', at + 10)
-  const entry = runner.slice(start < 0 ? at : start, next > 0 ? next : runner.length)
+  const start = runner.lastIndexOf('\n  {', skipAt)
+  const next = runner.indexOf('\n    script:', skipAt + 10)
+  const entry = runner.slice(start < 0 ? skipAt : start, next > 0 ? next : runner.length)
   assert.match(entry, /mode:\s*'blocking'/)
   assert.match(
     entry,

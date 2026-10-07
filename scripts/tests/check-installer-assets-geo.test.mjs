@@ -177,26 +177,43 @@ function mutateReanchorBranch(uiSrc, fn) {
 
 test('注入违规:重锚分支丢掉裁剪区域重算(窗口框跟了、region 仍按旧档硬裁)必须被拦', () => {
   const mutated = mutateReanchorBranch(ui, (branch) => {
-    const next = branch.replace(/!insertmacro IHUI_WINDOW_RGN[^\n]*\n/, '')
-    assert.notEqual(next, branch, '注入失败:重锚分支里没有 !insertmacro IHUI_WINDOW_RGN')
+    // 插入行的形状取自门体导出的那一份定位器,本文件不再写第二遍 `!insertmacro …` 形态(§22c)。
+    const hits = insertmacroLineStarts(branch, 'IHUI_WINDOW_RGN')
+    assert.ok(hits.length >= 1, '注入失败:重锚分支里没有 !insertmacro IHUI_WINDOW_RGN')
+    const lineEnd = branch.indexOf('\n', hits[0])
+    const next = branch.slice(0, hits[0]) + branch.slice(lineEnd < 0 ? branch.length : lineEnd + 1)
+    assert.notEqual(next, branch, '注入失败:删掉的那一行与原文相同')
     return next
   })
   const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
   assert.notEqual(r.code, 0, r.text.slice(-600))
-  assert.match(r.text, /重锚分支缺 !insertmacro IHUI_WINDOW_RGN/)
+  assert.ok(
+    r.text.includes(reanchorMissingMacroHead('IHUI_WINDOW_RGN')),
+    '红行必须点名缺的是哪一枚插入宏(措辞取自门体导出的那一份)',
+  )
 })
 
 test('注入违规:重锚分支退回只定档不定窗(旧敞口原样)必须被拦', () => {
   const mutated = mutateReanchorBranch(ui, (branch) => {
     // 全局删:基线是两轮(与 GUIINIT 同口径),留一轮会命中"只跑 1 轮"那条判据,
     // 就不是在测"缺定窗宏"了 —— 本例要钉的是 count===0 那一支。
-    const next = branch.replace(/!insertmacro IHUI_GUIINIT_SIZE[^\r\n]*\r?\n/g, '')
-    assert.notEqual(next, branch, '注入失败:重锚分支里没有 !insertmacro IHUI_GUIINIT_SIZE')
+    // 插入行的形状同样取自门体导出的定位器(§22c:一行形状不许在两边各写一遍)。
+    const hits = insertmacroLineStarts(branch, 'IHUI_GUIINIT_SIZE')
+    assert.ok(hits.length >= 1, '注入失败:重锚分支里没有 !insertmacro IHUI_GUIINIT_SIZE')
+    let next = branch
+    for (const at of [...hits].reverse()) {
+      const lineEnd = next.indexOf('\n', at)
+      next = next.slice(0, at) + next.slice(lineEnd < 0 ? next.length : lineEnd + 1)
+    }
+    assert.notEqual(next, branch, '注入失败:删掉的插入行与原文相同')
     return next
   })
   const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
   assert.notEqual(r.code, 0, r.text.slice(-600))
-  assert.match(r.text, /重锚分支缺 !insertmacro IHUI_GUIINIT_SIZE/)
+  assert.ok(
+    r.text.includes(reanchorMissingMacroHead('IHUI_GUIINIT_SIZE')),
+    '红行必须点名缺的是哪一枚插入宏(措辞取自门体导出的那一份)',
+  )
 })
 
 // ─── ②b 收敛轮数与顺序(重锚 vs GUIINIT 同口径)的注入回归 ────────────
@@ -297,16 +314,29 @@ test('不误伤:与重锚链无关的真实改动(改顶档 DPI 阈值 + 分支�
 // 跨屏异 DPI 分支在单机永远取不到像素(取证禁令),所以这里用**确定性矩阵**代替:
 // 从 .nsi 解析出常量与公式,自己跑 72 组合。解析不到判据所需结构时必须**主动拒绝**,
 // 不能把"没解析到"当成"没有违规"(那是恒绿判据的成因)。
-import { checkWorkAreaDownshift } from '../check-installer-assets.mjs'
+// 判据本体一律 import 门体那一份(§22c:测试里再写一遍形态 = 两份真相必然漂移)。
+//   checkWorkAreaDownshift    = 第 8 条不变量的算式判据;
+//   insertmacroLineStarts     = `!insertmacro <宏>` 插入行的行首锚定形状,本文件的注入回归用它**定位**要删的那一行;
+//   reanchorMissingMacroHead  = 红行「重锚分支缺哪一枚宏」的措辞,本文件用它核对报告点名;
+//   macroBodyOf / nsiDefineValue = 宏体与 `!define` 取值的提取式,本文件的确定性矩阵用它俩取输入。
+import {
+  checkWorkAreaDownshift,
+  insertmacroLineStarts,
+  reanchorMissingMacroHead,
+  macroBodyOf,
+  nsiDefineValue,
+} from '../check-installer-assets.mjs'
 
 const uiSrc = readFileSync(join(W, 'ihui-ui.nsi'), 'utf8')
 
 /** 解析 IHUI_GUIINIT_SIZE 的算式,返回 (dpi, 工作区) → {x,y,W,H} ;结构缺失即抛 */
 function parseGuiInit(src) {
-  const body = (src.match(/!macro IHUI_GUIINIT_SIZE[ \t]*\r?\n([\s\S]*?)!macroend/) || [])[1] || ''
+  // 宏体与 !define 取值都调门体导出的那一份提取式(§22c:同一条解析在测试里再写一遍必漂);
+  // floors / axes 是本用例自己搭矩阵要的,门体没有对应判据 ⇒ 留在测试里,不冒充"门的导出口"。
+  const body = macroBodyOf(src, 'IHUI_GUIINIT_SIZE')
   const cap = Number(src.match(/!define IHUI_DPI_CAP (\d+)/)?.[1])
-  const lw = Number(src.match(/!define IHUI_LOG_W (\d+)/)?.[1])
-  const lh = Number(src.match(/!define IHUI_LOG_H (\d+)/)?.[1])
+  const lw = nsiDefineValue(src, 'IHUI_LOG_W')
+  const lh = nsiDefineValue(src, 'IHUI_LOG_H')
   const floors = [...body.matchAll(/\$\{If\} \$IHUIDPIW < (\d+)/g)].map((m) => Number(m[1]))
   const axes = [
     ...body.matchAll(/IntOp \$R9 \$R\d - \$R\d[\s\S]{0,90}?\/ \$\{IHUI_LOG_([WH])\}/g),
