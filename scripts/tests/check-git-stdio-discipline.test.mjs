@@ -48,7 +48,7 @@ const SRC = join(REPO, 'scripts', 'check-git-stdio-discipline.mjs')
 // id 189:注册前实测 `id:` 已用集合的最大值是 188(已被 check-authorization-column-isolation 占用),
 // 189..215 空闲。刻意不沿用"最大 id + 1"的想当然 —— 188 就是这么被占的,
 // 而撞号会把 skipEnv 语义与"哪道门失败"的归因搅在一起(runner 自身的 id 唯一性自检已记过这件事)。
-const GATE_ID = '189'
+const GATE_ID = '193' // 2026-10-07 现读对齐:runner 里本门现行编号 193(曾为 189,门重编号后镜像测试未跟上,T1 失步)
 
 function runNode(args, timeout = 600000) {
   // ⚠️ `stdio` 不是可选的:本机派生面 EBUSY 病灶(不写 stdio ⇒ 0/30 成功)对 **node 自身**同样成立。

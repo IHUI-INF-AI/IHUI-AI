@@ -180,6 +180,7 @@ const headRunner = () => {
   try {
     return execFileSync(GIT, ['-C', ROOT, 'show', 'HEAD:scripts/guardian-runner.mjs'], {
       encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
       maxBuffer: 1 << 26,
       timeout: GIT_TIMEOUT_MS,
       windowsHide: true,
@@ -265,7 +266,7 @@ test('T4 端到端双向锁:注入未入库模块必红并点名,补齐文件后
   const s = mkScratch('pyland-e2e')
   try {
     const repo = join(s, 'repo')
-    execFileSync(GIT, ['-C', s, 'init', '-q', 'repo'], { timeout: GIT_TIMEOUT_MS, windowsHide: true })
+    execFileSync(GIT, ['-C', s, 'init', '-q', 'repo'], { timeout: GIT_TIMEOUT_MS, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
     const gatePath = join(repo, 'scripts', 'check-python-import-landed.mjs')
     copyScriptClosure(GATE, gatePath)
     const run = () =>
