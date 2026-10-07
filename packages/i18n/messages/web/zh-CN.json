@@ -10615,6 +10615,16 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "markdownTable": {
+      "copy": "复制表格",
+      "downloadCsv": "下载 CSV",
+      "fullscreen": "全屏",
+      "fullscreenTitle": "表格全屏预览",
+      "empty": "内容为空",
+      "unsupported": "当前浏览器不支持该操作",
+      "copyFailed": "复制失败",
+      "csvFailed": "导出失败"
+    },
     "linkPreview": {
       "loading": "正在加载链接预览...",
       "unavailable": "无法读取链接预览",
