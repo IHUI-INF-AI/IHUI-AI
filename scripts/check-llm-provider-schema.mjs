@@ -12,7 +12,8 @@
  * ProviderConfig schema(apps/ai-service/app/core/provider_config.py),
  * 提前发现 JSON 格式错 / 字段类型错 / 未知 provider,避免运行时 ValidationError。
  *
- * 校验规则(7 条):JSON 解析 / 顶层对象 / provider 白名单(条数以 PROVIDER_WHITELIST 现值为准) /
+ * 校验规则(7 条):JSON 解析 / 顶层对象 / provider 白名单(名单由服务端能力清单单向投影,
+ *   条数以投影现值为准,手抄名单已消灭) /
  *   字段类型(api_key=str / api_base=str|null / enabled=bool / models=str[] /
  *   default_model=str|null) / 未知字段透传 / 空值检查 / 重复 provider 检测。
  *
@@ -22,91 +23,177 @@
  * 用法:
  *   node scripts/check-llm-provider-schema.mjs [--env-file <path>] [--strict] [--json] [-h|--help]
  */
-import { readFileSync, existsSync } from 'node:fs'
-import { resolve, relative } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { readFileSync, existsSync, readdirSync } from 'node:fs'
+import { dirname, join, resolve, relative } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const C = {
   red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m',
   cyan: '\x1b[36m', dim: '\x1b[2m', bold: '\x1b[1m', reset: '\x1b[0m',
 }
 
-// provider name 白名单 —— 条数现读 `PROVIDER_WHITELIST.size`,勿在注释里写死。
+// provider name 白名单 —— **机器源单向投影**(G-354族/G-393/G-762 拍板②,2026-10-07 落地)。
 //
-// 下文 §A/§B 各条注释里的 `llm_gateway.py:N` 一律指 **apps/ai-service/app/core/llm_gateway.py**
-// (core 层,不是 services/ —— 写全路径是为了不让下一个人按 services/ 去找而扑空)。
+// 拍板前本名单是手抄副本("`.env` 里出现过的 provider name 的并集",39 条),与 config.py
+// "新增 provider 零代码改动、自动识别"的设计语义相反:每来一个新 provider 都要人肉同步这里,
+// 漏同步就把合法 provider 判成"未知"(票面现读:7 个 `.env` 实配 provider 被判未知)。
+// 拍板后:名单 = **服务端能力清单的单向投影**,本文件不再手抄任何 provider 名。三个机器源:
+//   ① apps/ai-service/app/services/free_provider_registry.py 的 `provider_code=` 条目(现读 92 个)
+//   ② apps/ai-service/app/services/model_availability.py 的 `_PROVIDER_CODE_TO_LLM_PROVIDERS_NAME`
+//      映射表(provider_code → LLM_PROVIDERS name,现读 5 条,如 cloudflare_workers_ai→cloudflare)
+//   ③ apps/ai-service/app/core/llm_gateway.py 的 `_FREE_PROVIDER_ENDPOINT_RESOLVERS` 值元组首元素
+//      (prefix→provider_code,现读 12 键)∪ 全 app 树字面 `get_provider_config('<name>')` 读取点
+// 三源并集经 ② 投影成 name 集合。**判定语义不变**:名单内条目从不判红,名单外判黄(--strict 升
+// error)。新增 provider 的正解 = 进 registry(或 resolver 表/字面读取点),本门零改动自动识别;
+// 消灭的正是"第二份手抄名单"这一格,不是规则 3 本身 —— **不得**为让 warning 归零去删判据。
 //
-// 名单为什么长这样(2026-10-06 逐条落实「凭什么算数」):
-//   本名单**不是**"审核过的合法 provider 全集",而是"`.env` 里出现过的 provider name 的并集"。
-//   判据形态是「名单外判黄」(见下方 validateJsonField),名单内条目从不判红——所以名单里的
-//   §B 条目不制造任何红,裁剪属产品口径(见 §B),不是本门该动的。
-//
-//   可投影的机器源**确实存在**(旧注释断言"没有"是错的,已更正):
-//     apps/ai-service/app/services/free_provider_registry.py 的 `provider_code=` 条目(92 个 uniq),
-//     经 apps/ai-service/app/services/model_availability.py:328 `_to_llm_providers_name()`
-//     (映射表 :313,含 cloudflare_workers_ai→cloudflare 等 5 条)投影到 .env 的 LLM_PROVIDERS name,
-//     再由 :421-422 / :955-956 `settings.get_provider_config(cfg_name)` 真正读 api_key。
-//     实测:registry 92 个 provider_code 里有 14 个能在 .env 命中已配 api_key 的 name。
-//   故新增 provider 的正解是同步 free_provider_registry + .env;本名单是**兜底副本**,不是唯一真源。
-//   收口方向(另计一票):由 registry 投影出本名单,或让 ai-service 暴露名单出口
-//   (routers/llm.py:2636 GET /llm/providers/availability 已返回 providers[],是现成出口);
-//   在此之前新增 provider 必须同步这里,不得为消红删判据。
-const PROVIDER_WHITELIST = new Set([
-  // ── §A 有生产代码在用(.env 实配 15 个;§B 的 24 条另有代码调用点但未配 key)──
-  // 依据:.env LLM_PROVIDERS 实配 + 下列生产代码位置。删掉任一条 ⇒ 对应模型重新 502。
-  //
-  // 「真 provider」vs「模型名前缀/别称」—— 7 条**全是真 provider**(每个都有 get_provider_config
-  // 读取点,即真的 key 载体),但其中 4 条**同时兼任裸模型名前缀规则**,这一身二职必须如实标注:
-  //   A1 纯 provider 身份,只经带斜杠的 vendor 路径可达(不靠"猜裸名"):
-  'ihui_relay',   // llm_gateway.py:1823 get_provider_config + :277 "ihui/"→ihui_relay;api_base 由 :109
-                  //   _detect_ihui_relay_base() 国内/海外竞速自动检测;free_provider_registry.py:266。
-                  //   解的是:中转模型列表可选、一调用即 502。
-                  //   注意 model_availability.py:108 的 ("ihui/", "ihui_relay") 是前缀→code,不是 name 映射。
-  'hf_qwen',      // 真 provider,但**只经 vendor 路径**可达: llm_gateway.py:311 "hf-qwen/"→hf_qwen,
-                  //   且 :1262 _FREE_PROVIDER_ENDPOINT_RESOLVERS["hf-qwen/"] 自带免 key 公网端点
-                  //   (HF Victor,端点生命周期短)。key 由 :1856-1858 循环 `get_provider_config(code)` 读,
-                  //   是**间接**消费(不像 ihui_relay 那样字面出现在调用里)。
-                  //   ⚠ 7 条里**唯一**不在 free_provider_registry 的 provider —— 因为它是免 key 端点。
-  'siliconflow',  // 真 provider,消费路径**经 availability 而非网关内联**: llm_gateway.py:377-378
-                  //   "siliconcloud/"与"siliconflow/"两个前缀都→siliconflow;
-                  //   key 由 model_availability.py:421-422 经 _to_llm_providers_name('siliconflow')
-                  //   → get_provider_config('siliconflow') 读;free_provider_registry.py:1093 有条目。
-                  //   ⚠ 全仓无字面 get_provider_config("siliconflow") —— 别按"网关内联"判它不存在。
-  // ── A2 provider key **兼任**裸模型名前缀(名字可无斜杠出现,故必须与 A1 区分)──
-  // 这 4 条的生产修复同源: 模型选择器发的是裸 id(/llm/models 的 m.id),不带 vendor 前缀,
-  // 落到末尾 openai 默认分支 → LiteLLM "LLM Provider NOT provided" 502。
-  'deepseek',     // llm_gateway.py:1871 字面 get_provider_config + :295 "deepseek-" 裸前缀兜底;
-                  //   model_pricing.py:115 有计价条目;registry 有条目。裸 deepseek-chat/reasoner 靠这条。
-  'zhipu',        // llm_gateway.py:1876 字面 get_provider_config + :291 "glm-" 裸前缀(智谱 id 无斜杠);
-                  //   model_pricing.py:116 计价;registry :135。裸 glm-4-plus/glm-5 靠这条。
-  'qwen',         // llm_gateway.py:1884 字面 get_provider_config + :278 "qwen" / :279 "qwen-" 裸前缀;
-                  //   registry 有条目(与 bailian 同端点,见 registry notes)。
-                  //   ⚠ 名字双重含义:既是 provider key,也是阿里 dashscope 的裸模型名前缀。
-  'mimo',         // llm_gateway.py:1892 字面 get_provider_config + :283 "mimo" / :284 "mimo-" 裸前缀;
-                  //   小米公网端点 https://api.xiaomimimo.com/v1 写死在代码里(.env 只配了 api_key)。
-                  //   ⚠ 归属有例外: llm_gateway.py:529-530 记载 mimo-v2.5-free 在库里只挂在
-                  //   provider_code='opencode_zen' 名下,故 mimo 归属以 DB 实证优先(见 :536 三级判定)。
+// 失效方向(必须响):任一机器源读不到/解析为空 ⇒ 打 warning 点名该源,名单照常投影(绝不静默
+// 变成空名单把所有 provider 判未知,也绝不退回手抄兜底 —— 那是本拍板要消灭的东西)。
+const PROJECTION_SOURCES = {
+  registry: 'apps/ai-service/app/services/free_provider_registry.py',
+  availability: 'apps/ai-service/app/services/model_availability.py',
+  gateway: 'apps/ai-service/app/core/llm_gateway.py',
+}
+const GATE_DIR = dirname(fileURLToPath(import.meta.url))
+const REPO_ROOT_FROM_GATE = resolve(GATE_DIR, '..')
 
-  // ── §B 有生产调用点、但 `.env` 未配 api_key 的条目(24 条)────────────────
-  // ⚠ **措辞更正(2026-10-06)**:本节此前写作"当前无生产调用点的闲置条目",**那是错的**。
-  //   逐条机读核验(`app/core/llm_gateway.py`)结果:
-  //   24 条**全部有代码调用点,零调用点为 0**,分两类 ——
-  //     A 类 16 条:字面 `get_provider_config('<name>')` 读取点;
-  //     B 类  8 条:走 _FREE_PROVIDER_ENDPOINT_RESOLVERS 查表
-  //                 (:1249 建表,:1856 循环消费)—— github/vercel/opencode/modal/
-  //                 inference_net/nlp_cloud/scaleway/alibaba_intl。
-  //   它们与 `.env` 实配的 15 个**零交集** ⇒ 裁掉不判红,但那是**没配 key**,不是不可达:
-  //   配了 key 就能用。判它"闲置"会把"待配 key"误报成"死代码",后者才是不可达的终态。
-  //   本轮**不裁**(机主 2026-10-06 拍板):裁剪属产品口径,且名单内条目从不判红,留着无害。
-  //   它们仍会让名单虚高、掩盖"名单外=真未知"的信号;将来要裁,判据是"是否仍无 key"。
-  'anthropic', 'github', 'vercel', 'opencode', 'modal', 'inference_net', 'nlp_cloud', 'scaleway',
-  'alibaba_intl', 'cerebras', 'mistral', 'cohere', 'huggingface', 'zai', 'kilo', 'pollinations',
-  'llm7', 'ovh', 'aihorde', 'reka', 'routeway', 'bazaarlink', 'ainative', 'token6688',
+/** 从 free_provider_registry.py 源码抽 `provider_code="X"` 条目(单引号/双引号都认)。 */
+export function parseRegistryProviderCodes(src) {
+  const out = new Set()
+  for (const m of String(src ?? '').matchAll(/provider_code\s*[:=]\s*["']([a-z0-9_]+)["']/g))
+    out.add(m[1])
+  return out
+}
 
-  // ── §C .env 实配且有生产代码在用的既有条目(本轮未动,补注释以保持名单可读)──
-  'openai', 'groq', 'gemini', 'openrouter', 'agnes', 'stepfun',
-  'cloudflare', 'nvidia',
-])
+/** 从 model_availability.py 抽 `_PROVIDER_CODE_TO_LLM_PROVIDERS_NAME` 映射块。 */
+export function parseCodeToNameMapping(src) {
+  const out = {}
+  const block = String(src ?? '').match(
+    /_PROVIDER_CODE_TO_LLM_PROVIDERS_NAME[^=]*=\s*\{([\s\S]*?)\}/,
+  )
+  if (!block) return out
+  for (const m of block[1].matchAll(/["']([a-z0-9_]+)["']\s*:\s*["']([a-z0-9_]+)["']/g))
+    out[m[1]] = m[2]
+  return out
+}
+
+/** 从 llm_gateway.py 抽 `_FREE_PROVIDER_ENDPOINT_RESOLVERS` 每行值元组的 provider_code。 */
+export function parseResolverCodes(src) {
+  const out = new Set()
+  for (const line of String(src ?? '').split(/\r?\n/)) {
+    const m = /^\s*"[^"]+"\s*:\s*\(\s*["']([a-z0-9_]+)["']/.exec(line)
+    if (m) out.add(m[1])
+  }
+  return out
+}
+
+/** 从 Python 源码抽字面 `get_provider_config('<name>')` 读取点(只收单实参字符串字面量)。 */
+export function parseLiteralReadNames(src) {
+  const out = new Set()
+  for (const m of String(src ?? '').matchAll(/get_provider_config\(\s*["']([a-z0-9_]+)["']/g))
+    out.add(m[1])
+  return out
+}
+
+/** 递归收集目录下全部 .py 路径(跳 __pycache__;字面读取点扫描用)。 */
+function collectPyFiles(dir, out = []) {
+  let entries
+  try {
+    entries = readdirSync(dir, { withFileTypes: true })
+  } catch {
+    return out
+  }
+  for (const e of entries) {
+    const p = join(dir, e.name)
+    if (e.isDirectory()) {
+      if (e.name === '__pycache__') continue
+      collectPyFiles(p, out)
+    } else if (e.name.endsWith('.py')) out.push(p)
+  }
+  return out
+}
+
+/**
+ * 三源并集投影。入参全部可注入(镜像测试喂构造源,CLI 运行时读真文件)。
+ * 返回 { set, notes:[{source, kind, detail}] }:kind ∈ 'ok'|'missing'|'empty'。
+ */
+export function projectProviderWhitelist({
+  registrySrc = '',
+  availabilitySrc = '',
+  gatewaySrc = '',
+  literalSrcs = [],
+} = {}) {
+  const notes = []
+  const codes = parseRegistryProviderCodes(registrySrc)
+  notes.push({
+    source: 'free_provider_registry.provider_code',
+    kind: codes.size > 0 ? 'ok' : 'empty',
+    count: codes.size,
+  })
+  const mapping = parseCodeToNameMapping(availabilitySrc)
+  notes.push({
+    source: '_PROVIDER_CODE_TO_LLM_PROVIDERS_NAME',
+    kind: Object.keys(mapping).length > 0 ? 'ok' : 'empty',
+    count: Object.keys(mapping).length,
+  })
+  const resolverCodes = parseResolverCodes(gatewaySrc)
+  notes.push({
+    source: '_FREE_PROVIDER_ENDPOINT_RESOLVERS',
+    kind: resolverCodes.size > 0 ? 'ok' : 'empty',
+    count: resolverCodes.size,
+  })
+  const literals = new Set()
+  for (const s of literalSrcs) for (const n of parseLiteralReadNames(s)) literals.add(n)
+  notes.push({
+    source: 'get_provider_config 字面读取点',
+    kind: literals.size > 0 ? 'ok' : 'empty',
+    count: literals.size,
+  })
+  const applyMap = (c) => mapping[c] ?? c
+  const set = new Set()
+  for (const c of codes) set.add(applyMap(c))
+  for (const c of resolverCodes) set.add(applyMap(c))
+  for (const c of literals) set.add(c)
+  return { set, notes }
+}
+
+let whitelistCache = null
+/** CLI 运行时入口:读真机器源投影,缓存一次。 */
+export function getProviderWhitelist() {
+  if (whitelistCache) return whitelistCache
+  const readSrc = (rel) => {
+    try {
+      return readFileSync(resolve(REPO_ROOT_FROM_GATE, rel), 'utf8')
+    } catch {
+      return null
+    }
+  }
+  const registrySrc = readSrc(PROJECTION_SOURCES.registry)
+  const availabilitySrc = readSrc(PROJECTION_SOURCES.availability)
+  const gatewaySrc = readSrc(PROJECTION_SOURCES.gateway)
+  const literalSrcs = collectPyFiles(resolve(REPO_ROOT_FROM_GATE, 'apps/ai-service/app')).map(
+    (p) => {
+      try {
+        return readFileSync(p, 'utf8')
+      } catch {
+        return ''
+      }
+    },
+  )
+  const projected = projectProviderWhitelist({ registrySrc, availabilitySrc, gatewaySrc, literalSrcs })
+  const notes = projected.notes.map((n) => ({
+    ...n,
+    kind:
+      (n.source === 'free_provider_registry.provider_code' && registrySrc === null) ||
+      (n.source === '_PROVIDER_CODE_TO_LLM_PROVIDERS_NAME' && availabilitySrc === null) ||
+      (n.source === '_FREE_PROVIDER_ENDPOINT_RESOLVERS' && gatewaySrc === null)
+        ? 'missing'
+        : n.kind,
+  }))
+  whitelistCache = { set: projected.set, notes }
+  return whitelistCache
+}
+
 const KNOWN_FIELDS = new Set(['api_key', 'api_base', 'enabled', 'models', 'default_model'])
 const DEFAULT_ENV_FILE = 'apps/ai-service/.env'
 
@@ -156,7 +243,7 @@ function printHelp() {
 
 校验规则(7 条):
   1. JSON 解析必须合法  2. 顶层必须是对象
-  3. provider name 不在白名单(条数见 PROVIDER_WHITELIST) → warning(--strict 升级为 error)
+  3. provider name 不在白名单(由服务端能力清单单向投影) → warning(--strict 升级为 error)
   4. 字段类型:api_key=str / api_base=str|null / enabled=bool /
               models=str[] / default_model=str|null
   5. 未知字段:允许(透传到 extra),info 提示
@@ -256,7 +343,7 @@ function validateProviderConfig(name, cfg, source, issues) {
   }
 }
 
-function validateJsonField(rawValue, fieldName, isStrict, seenProviderNames) {
+function validateJsonField(rawValue, fieldName, isStrict, seenProviderNames, whitelist) {
   const issues = []
   if (rawValue === '' || rawValue === null || rawValue === undefined) return issues
   let parsed
@@ -279,9 +366,9 @@ function validateJsonField(rawValue, fieldName, isStrict, seenProviderNames) {
     } else {
       seenProviderNames.add(name)
     }
-    if (!PROVIDER_WHITELIST.has(name)) {
+    if (!whitelist.has(name)) {
       issues.push({ level: isStrict ? 'error' : 'warning', provider: name, field: '(root)',
-        message: `未知 provider name: "${name}"(不在 ${PROVIDER_WHITELIST.size} 个白名单内)`, source: fieldName })
+        message: `未知 provider name: "${name}"(不在 ${whitelist.size} 个白名单内)`, source: fieldName })
     }
     validateProviderConfig(name, cfg, fieldName, issues)
   }
@@ -397,12 +484,23 @@ async function main() {
   }
 
   // 收集两个字段(LLM_PROVIDERS_JSON 优先,但都校验)
+  // 名单 = 服务端能力清单单向投影;投影源缺/空 ⇒ warning 点名该源(名单照常投影,
+  // 绝不静默变空名单,也绝不回退手抄 —— G-354族/G-393/G-762 拍板②)。
+  const wl = getProviderWhitelist()
   const seenProviderNames = new Set()
   const allIssues = []
+  for (const note of wl.notes) {
+    if (note.kind === 'ok') continue
+    allIssues.push({
+      level: 'warning', provider: '(root)', field: '(whitelist)',
+      message: `provider 名单投影源不可用(kind=${note.kind}): ${note.source}(${note.detail ?? `实读条数 ${note.count ?? 0}`});名单仍按其余源投影,不回退手抄`,
+      source: 'provider-whitelist-projection',
+    })
+  }
   allIssues.push(...validateJsonField(
-    envVars.LLM_PROVIDERS_JSON?.value ?? '', 'LLM_PROVIDERS_JSON', args.strict, seenProviderNames))
+    envVars.LLM_PROVIDERS_JSON?.value ?? '', 'LLM_PROVIDERS_JSON', args.strict, seenProviderNames, wl.set))
   allIssues.push(...validateJsonField(
-    envVars.LLM_PROVIDERS?.value ?? '', 'LLM_PROVIDERS', args.strict, seenProviderNames))
+    envVars.LLM_PROVIDERS?.value ?? '', 'LLM_PROVIDERS', args.strict, seenProviderNames, wl.set))
 
   if (args.json) outputJson(allIssues)
   else outputHuman(envFile, envVars, allIssues)
@@ -428,7 +526,6 @@ if (isDirectRun) {
 
 // 判据单元出口(§22c 唯一真源):镜像测试 import 这份,不得再自抄实现/名单
 export const __test__ = {
-  PROVIDER_WHITELIST,
   KNOWN_FIELDS,
   FIELD_CHECKS,
   DEFAULT_ENV_FILE,
@@ -439,5 +536,13 @@ export const __test__ = {
   validateProviderConfig,
   validateJsonField,
   providerNames,
+  // G-354族/G-393/G-762:名单投影族出口(手抄 PROVIDER_WHITELIST 已消灭,勿再引旧名)
+  PROJECTION_SOURCES,
+  parseRegistryProviderCodes,
+  parseCodeToNameMapping,
+  parseResolverCodes,
+  parseLiteralReadNames,
+  projectProviderWhitelist,
+  getProviderWhitelist,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
