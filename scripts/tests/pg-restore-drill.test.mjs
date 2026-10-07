@@ -327,26 +327,26 @@ test('renderHuman:public 数对 public 数;全模式数必须另立并标明口�
 // 所以接线到 §15b 唯一外置根出口(`seal-c-root-stray.mjs` 的 `devEnvRoot()`,与
 // `re-home-junctions.mjs` / `check-c-drive-pollution.mjs` 同源)并让文案与实现同形。
 
+const REPO_FROM_TEST = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
+
 /**
  * 期望值 oracle **刻意不 import 被测出口**(import 它来证明它 = 拿实现给自己发合格证,§22c)。
- * 这里按 `gitdir.mjs` / `scratch-dir.mjs` 同一套盘根锚定独立算一遍,并把"改前那个数层式"
- * 与它在当前布局下逐字等值一起判 —— 那正是本票的核心验收"真值逐字不变"。
+ * 2026-10-05 按出口现行契约(G-814433 后双形态推导)独立重算:env 覆盖 > 仓内 .DevEnv(存在才选) > 盘根。
+ * —— 分支次序按出口文档重写,不引用其实现;老机器(无仓内 .DevEnv)自动落回盘根形态,两代布局都判得动。
  */
-const REPO_FROM_TEST = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
-const DRIVE_ANCHORED_DEVENV = join(parse(REPO_FROM_TEST).root, 'DevEnv')
-const OLD_DEPTH_BASED_DEVENV = join(resolve(REPO_FROM_TEST, '..', '..'), 'DevEnv')
+const EXPECTED_DEVENV = existsSync(join(REPO_FROM_TEST, '.DevEnv'))
+  ? join(REPO_FROM_TEST, '.DevEnv')
+  : join(parse(REPO_FROM_TEST).root, 'DevEnv')
 
-test('P-落点1 真值不变:共用出口与"改前数层式"在真仓逐字同值(盘根锚定为 oracle)', () => {
-  assert.equal(
-    OLD_DEPTH_BASED_DEVENV,
-    DRIVE_ANCHORED_DEVENV,
-    '本用例的 oracle 前提:仓在 <盘>:/<仓名> 布局下,数两级与盘根锚定同值 —— 不成立则下面的断言不构成"真值不变"证明',
-  )
-  assert.equal(D.pgBinDir(), join(DRIVE_ANCHORED_DEVENV, 'runtimes', 'pgsql', 'bin'))
-  assert.equal(D.backupPgDir(), join(DRIVE_ANCHORED_DEVENV, 'backups', 'pg'))
+test('P-落点1 真值不变:共用出口真值与"双形态 oracle"在真仓逐字同值(优先级按文档独立重算)', () => {
+  // 本用例的原断言(2026-09-28):盘根锚定 = 数层式。G-814433(2026-09-30)把 DevEnv 搬入仓内后,
+  // 出口升级为双形态;oracle 相应改为按"env > 仓内 > 盘根"独立重算 —— 真值断言的强度不降:
+  // 仍然要求 pgBinDir/backupPgDir 与 oracle 逐字同值,且 env 覆盖必须赢过任何推导。
+  assert.equal(D.pgBinDir(), join(EXPECTED_DEVENV, 'runtimes', 'pgsql', 'bin'))
+  assert.equal(D.backupPgDir(), join(EXPECTED_DEVENV, 'backups', 'pg'))
   // 显式 env 覆盖仍然优先(接线共用出口不得把那条逃生舱挤掉)
   const saved = process.env.IHUI_BACKUP_PG_DIR
-  process.env.IHUI_BACKUP_PG_DIR = join(DRIVE_ANCHORED_DEVENV, 'somewhere', 'else')
+  process.env.IHUI_BACKUP_PG_DIR = join(EXPECTED_DEVENV, 'somewhere', 'else')
   try {
     assert.equal(D.backupPgDir(), process.env.IHUI_BACKUP_PG_DIR, 'IHUI_BACKUP_PG_DIR 必须赢过任何推导')
   } finally {
@@ -402,7 +402,171 @@ test('P-落点3 反向对照与边界:落点与 process.cwd() 无关;私有数�
   assert.match(sealSrc, /countScratchSegments\(repoRoot\)\s*>\s*0/, '夹具闸必须在(没有它,"盘根 + DevEnv"会落进夹具里)')
   // 行为对照,不接受"注释说关了":把一条真夹具路径喂给出口 ⇒ 必须抛错点名,而不是安静返回。
   assert.throws(() => devEnvRoot(deep), /scratch 夹具/, '把工作树喂成夹具内路径时必须拒绝推导 —— 这条就是当年那格未被关闭的判据')
-  // 反向对照:真仓根仍要推得出盘根档位(否则上面的"拒绝"就成了把正常路径一起打死)
-  assert.equal(devEnvRoot(resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')), join(parse(resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')).root, 'DevEnv'), '真仓根必须照常推出 <盘>:\\DevEnv')
+  // 反向对照:真仓根仍要推得出落点 —— 按"env > 仓内 .DevEnv(存在才选) > 盘根"双形态 oracle
+  // 独立重算(G-814433 搬迁后本机命中仓内形态;老机器无仓内 .DevEnv 自动落回盘根形态)。
+  assert.equal(
+    devEnvRoot(resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')),
+    EXPECTED_DEVENV,
+    '真仓根必须照常推出当前布局的 DevEnv 落点(仓内形态或盘根形态)',
+  )
+})
+
+// ─────────── 拍板①(2026-10-05)路径 B:--pre-extended 档与活库统计判据 ───────────
+
+test('CLI:--pre-extended 只许与 --apply 同给;给对了才带 preExtended 键(默认档不许多出键)', () => {
+  assert.match(D.parseCliArgs(['--pre-extended']).error, /只能与 --apply 同给/)
+  assert.match(D.parseCliArgs(['--check', '--pre-extended']).error, /只能与 --apply 同给/)
+  assert.deepEqual(D.parseCliArgs(['--apply', '--pre-extended']), { mode: '--apply', json: false, preExtended: true })
+  // 反向锁:不带该旗标时,返回对象必须保持两键原形(既有 deepEqual 契约不破)
+  assert.deepEqual(D.parseCliArgs(['--apply']), { mode: '--apply', json: false })
+})
+
+test('①pre-extended 计划构造:无 create,写只剩 restore/drop;exists 探针直连演练库并查扩展', () => {
+  const ctx = { bins: { psql: '/x/psql.exe', pgRestore: '/x/pg_restore.exe' }, conn: { host: 'h', port: '5432', user: 'u', prodDb: 'ihui_dev' }, dumpPath: '/x/d.dump', targetDb: TARGET, preExtended: true }
+  const plan = D.buildPlan(ctx)
+  assert.equal(plan.length, 8, '普通档 9 条,路径 B 少一条 create')
+  assert.equal(plan.some((s) => s.id === 'create'), false, '路径 B 绝不派生 CREATE(建库是人工超管的事)')
+  const exists = plan.find((s) => s.id === 'exists')
+  assert.ok(exists.argv.includes(TARGET), 'exists 探针必须直连演练库(连不上=库不存在=中止)')
+  const existsSql = exists.argv[exists.argv.length - 1]
+  assert.match(existsSql, /pg_extension/, '预检必须点名 vector 扩展')
+  assert.match(existsSql, /pg_tables/, '预检必须确认空库')
+  const writes = plan.filter((s) => s.kind === 'write')
+  assert.equal(writes.length, 2, '路径 B 写只剩 restore + drop(阳性对照)')
+  assert.ok(writes.every((s) => s.argv.some((a) => String(a).includes(TARGET))), '写全部只打演练库')
+})
+
+function makeEnvPreExt(opts = {}) {
+  const e = makeEnv({ role: opts.role ?? 'ihui|t|f', ...opts })
+  const inner = e.deps.run
+  e.deps.run = (step, o) => {
+    const j = step.argv.map(String).join(' ')
+    if (j.includes('pg_extension')) {
+      if (opts.preExtRc !== undefined) return { rc: opts.preExtRc, stdout: '', stderr: opts.preExtErr ?? 'psql: FATAL: database does not exist' }
+      return { rc: 0, stdout: opts.preExtProbe ?? '0|1', stderr: '' }
+    }
+    return inner(step, o)
+  }
+  return e
+}
+
+test('③--apply --pre-extended(预建库干净+有vector):restore→核对→DROP 全链;写恰两条且只打演练库', () => {
+  const e = makeEnvPreExt({})
+  try {
+    const r = D.main(['--apply', '--pre-extended'], e.deps)
+    assert.equal(r.code, 0, r.out.verdict)
+    const writes = e.calls.filter((c) => /CREATE DATABASE|DROP DATABASE/.test(c.joined) || (c.joined.includes('pg_restore') && c.argv.includes('-d')))
+    assert.equal(writes.length, 2, '恰好 restore + drop 两条写(无 CREATE)')
+    assert.ok(e.calls.every((c) => !/CREATE DATABASE/.test(c.joined)), '路径 B 不许出现 CREATE DATABASE')
+    assert.ok(writes.every((c) => c.joined.includes(TARGET)), '写全部只打演练库名')
+    assert.match(r.out.verdict, /在线演练成功/)
+  } finally {
+    e.cleanup()
+  }
+})
+
+test('③--apply --pre-extended(扩展缺失 0|0):中止且零写;不替人装扩展', () => {
+  const e = makeEnvPreExt({ preExtProbe: '0|0' })
+  try {
+    const r = D.main(['--apply', '--pre-extended'], e.deps)
+    assert.equal(r.code, 1)
+    assert.match(r.out.verdict, /0\|1/)
+    assert.ok(e.calls.every((c) => !/pg_restore.* -d|DROP DATABASE|CREATE DATABASE/.test(c.joined)), '预检不过,一条写都不许派发')
+  } finally {
+    e.cleanup()
+  }
+})
+
+test('③--apply --pre-extended(库非空 3|1):同判中止 —— 复用不干净的库=违反"只动今天那一个"', () => {
+  const e = makeEnvPreExt({ preExtProbe: '3|1' })
+  try {
+    const r = D.main(['--apply', '--pre-extended'], e.deps)
+    assert.equal(r.code, 1)
+    assert.match(r.out.verdict, /0\|1/)
+    assert.ok(e.calls.every((c) => !/pg_restore.* -d|DROP DATABASE/.test(c.joined)))
+  } finally {
+    e.cleanup()
+  }
+})
+
+test('③--apply --pre-extended(连不上演练库):中止且零写', () => {
+  const e = makeEnvPreExt({ preExtRc: 2 })
+  try {
+    const r = D.main(['--apply', '--pre-extended'], e.deps)
+    assert.equal(r.code, 1)
+    assert.match(r.out.verdict, /连不上演练库/)
+    assert.ok(e.calls.every((c) => !/pg_restore.* -d|DROP DATABASE/.test(c.joined)))
+  } finally {
+    e.cleanup()
+  }
+})
+
+// 活库判据(G-269④ 预留口径):tables/reltuples 硬等;db_size 漂移按活写基线宽容,
+// 不可解释缩库(< -1MB)与超尺度异动(> +200MB)才停。
+function makeEnvStatsDrift(secondDbSize) {
+  const e = makeEnv({ role: 'ihui|t|f' })
+  const inner = e.deps.run
+  // STATS 在一躺 --apply 里被读三次:第1次是 conn 层探测(prodStats),第2/3次才是计划内
+  // pre-stats / post-stats —— 漂移判据比的是计划那一对,桩必须按这次序给数。
+  let statsSeen = 0
+  e.deps.run = (step, o) => {
+    const j = step.argv.map(String).join(' ')
+    if (j.includes('db_size=') && j.includes(D.STATS_SQL)) {
+      statsSeen++
+      const size = statsSeen === 3 ? secondDbSize : 644617919
+      return { rc: 0, stdout: `db_size=${size}\nreltuples=923285\ntables=720`, stderr: '' }
+    }
+    return inner(step, o)
+  }
+  return e
+}
+
+test('活库判据:db_size 漂移 +100KB(活写基线内)不拦路,演练照常成功', () => {
+  const e = makeEnvStatsDrift(644617919 + 102400)
+  try {
+    const r = D.main(['--apply'], e.deps)
+    assert.equal(r.code, 0, r.out.verdict)
+    assert.equal(r.out.statsCompare.dbSizeDrift, 102400)
+    assert.equal(r.out.statsCompare.tablesEqual, true)
+  } finally {
+    e.cleanup()
+  }
+})
+
+test('活库判据:db_size 漂移 +300MB(超尺度异动)⇒ 停,不 DROP,保留演练库', () => {
+  const e = makeEnvStatsDrift(644617919 + 314572800)
+  try {
+    const r = D.main(['--apply'], e.deps)
+    assert.equal(r.code, 1)
+    assert.match(r.out.verdict, /统计比对异常/)
+    assert.ok(e.calls.every((c) => !/DROP DATABASE/.test(c.joined)), '判异动还 DROP = 毁灭证据')
+    assert.equal(r.out.statsCompare.dbSizeDrift, 314572800)
+  } finally {
+    e.cleanup()
+  }
+})
+
+test('活库判据:reltuples 行数估计前后不一致 ⇒ 停(表数 -1 同判)', () => {
+  const e = makeEnv({ role: 'ihui|t|f' })
+  const inner = e.deps.run
+  let statsSeen = 0
+  e.deps.run = (step, o) => {
+    const j = step.argv.map(String).join(' ')
+    if (j.includes('db_size=') && j.includes(D.STATS_SQL)) {
+      statsSeen++
+      return statsSeen === 3
+        ? { rc: 0, stdout: 'db_size=644617919\nreltuples=923285\ntables=719', stderr: '' }
+        : { rc: 0, stdout: STATS, stderr: '' }
+    }
+    return inner(step, o)
+  }
+  try {
+    const r = D.main(['--apply'], e.deps)
+    assert.equal(r.code, 1)
+    assert.match(r.out.verdict, /统计比对异常/)
+    assert.equal(r.out.statsCompare.tablesEqual, false)
+  } finally {
+    e.cleanup()
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
