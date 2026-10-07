@@ -71,7 +71,8 @@ const ALLOWED = new Set([
  * desktop-feed(2026-09-17 立):桌面端 updater feed 的"真源分支"——GitHub 侧
  * desktop-feed 分支承载 latest.json feed,Gitee/GitCode 镜像自动携带。属发布管线
  * 数据通道,非功能开发分支;见 commit 359a782d3be(desktop-feed 真源化 GitHub),
- * 其 updater 端点链为 Gitee raw → GitHub raw/desktop-feed → desktop-updater-feed release。
+ * 其 updater 端点自 2026-10-05 定稿为单端点 https://aizhs.top/desktop-feed.json,
+ * 原 desktop-updater-feed release 兜底端点已删除(数据链仍为 Gitee raw → GitHub raw/desktop-feed)。
  * 该分支由 CI/发版脚本写入,人工严禁在此分支做功能开发。
  */
 const SANCTIONED_RELEASE_BRANCHES = new Set([
