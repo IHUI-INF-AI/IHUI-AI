@@ -155,7 +155,7 @@ export function WebWorkPanel() {
   const uiTabs: WorkPanelTabItem[] = React.useMemo(
     () =>
       tabs.map((t) => ({ id: t.id, title: t.title || t.url || tw('untitledTab'), type: t.type })),
-    [tabs],
+    [tabs, tw],
   )
 
   const handleOpenExternal = React.useCallback(() => {
@@ -196,14 +196,14 @@ export function WebWorkPanel() {
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
-  }, [isProxyMode, onEmbedNavigation, onFailed, newTab])
+  }, [isProxyMode, onEmbedNavigation, onFailed, newTab, tw])
 
   // 代理 iframe 加载超时兜底:20s 未 onLoad(强反爬挑战页/网络挂起)→ 降级 CDP
   React.useEffect(() => {
     if (!isProxyMode || status !== 'loading') return
     const timer = window.setTimeout(() => onFailed(tw('embedProxyTimeout')), 20000)
     return () => window.clearTimeout(timer)
-  }, [isProxyMode, status, onFailed, proxyUrl])
+  }, [isProxyMode, status, onFailed, proxyUrl, tw])
 
   // 收藏切换
   const isFavorite = favorites.some((f) => f.url === url)

@@ -682,6 +682,9 @@ export function MessageInput({
       }
       requestAnimationFrame(() => inputCoreRef.current?.focus())
     }
+    // 体内的 submitAndDismissLinkPreview 只是 submit 的薄包装(每次渲染新建)。把它放进依赖会让
+    // 本效果每次渲染都重跑 —— 那会把"草稿自动发送"触发第二次;依赖里已有的 submit 就是它唯一的输入。
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- submitAndDismissLinkPreview 无独立输入,submit 已在依赖
   }, [draftInput, clearDraftInput, draftAutoSend, clearDraftAutoSend, submit])
 
   // 权限模式可发现性增强(2026-07-25 深化,深度对标 Codex CLI /help):

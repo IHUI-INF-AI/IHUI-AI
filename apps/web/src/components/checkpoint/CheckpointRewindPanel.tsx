@@ -89,7 +89,7 @@ export default function CheckpointRewindPanel({
     } finally {
       setLoading(false)
     }
-  }, [sessionId, t])
+  }, [sessionId, scope, t])
 
   useEffect(() => {
     void load()
