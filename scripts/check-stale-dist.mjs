@@ -157,17 +157,37 @@ const C = {
  * 入参是**已从被审面取到的源码文本**,不是路径 —— 取内容由调用方经 face-reader 完成,
  * 于是"面取不到"与"文件里没有 export"是两件不同事,不会被折成后者(那正是假绿的形状)。
  */
+/**
+ * 剥掉"export 清单大括号内部"的注释,给下面两把提取式在**按逗号切之前**用。
+ *
+ * 立因(2026-10-07 实测,不是假想):`packages/context-compaction/src/index.ts` 的
+ * `export { … } from './token-estimate.js'` 里夹了两行中文注释,而注释正文中有一个**半角逗号**
+ * (`只公开其一,消费方就会去复用另一条`)⇒ 按 ASCII 逗号切出来的那一段是"注释尾 + 下一个真名"
+ * 的整体。旧写法只判"段首是不是 //"(`!final.startsWith('//')`),于是把整段丢掉:
+ * `projectVisibleBody` 这个**源码与 dist 两边都真实存在的 export 在两侧都读不到**,
+ * 而两侧残留的垃圾段又因缩进不同(tsc 重排过注释)字符串不相等 ⇒ 门把"自己看不见"报成
+ * "dist 缺失 export",于是一道 blocking 门在**干净 HEAD** 上恒红,每次提交只能 --no-verify
+ * (当天实测两枚提交因此整批跳门 ≈ 链上 190 道守门对它们作废,§12e/§12f 同型)。
+ *
+ * 这不是放宽判据:先剥注释再切逗号,认得出的名字**只多不少**,真缺的 export 照旧点名。
+ * 已知限制(如实登记,不在本笔动):捕获用的是 `[^}]+`,若注释正文里出现右花括号会截断该块。
+ */
+function stripListComments(text) {
+  return String(text)
+    .split('\n')
+    .filter((l) => !l.trim().startsWith('//'))
+    .join('\n')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+}
+
 function extractSourceExports(srcText) {
-  // 与 extractDistExports 同病同治(2026-10-07):src 的 export { } 清单里同样会写行注释
-  // (esbuild 把它们原样带进 dist 才暴露这一型),不剥则 src 侧 projectVisibleBody 也是
-  // 脏名,与 dist 侧的干净名对不上 ⇒ 永远"缺失"。只剥**行首** //,行中(URL)不在射程。
-  const src = String(srcText).replace(/^[ \t]*\/\/[^\n]*/gm, '')
+  const src = String(srcText)
   const names = new Set()
 
   // export type { ... } [from '...']  — 纯类型 re-export,先标记后排除
   const typeOnlyNames = new Set()
   for (const m of src.matchAll(/export\s+type\s*\{([^}]+)\}\s*(?:from\s*['"][^'"]+['"])?/g)) {
-    for (const name of m[1].split(',').map((s) => s.trim()).filter(Boolean)) {
+    for (const name of stripListComments(m[1]).split(',').map((s) => s.trim()).filter(Boolean)) {
       const final = name.split(/\s+as\s+/).pop().trim()
       if (final) typeOnlyNames.add(final)
     }
@@ -177,7 +197,7 @@ function extractSourceExports(srcText) {
   // 注意:ES2024 inline type 修饰符 `export { type T, value }` 中 `type T` 是纯类型,
   // 编译后被擦除,不应计入 value exports,否则 dist 永远 "缺失" 该 export(false positive)
   for (const m of src.matchAll(/export\s*\{([^}]+)\}\s*(?:from\s*['"][^'"]+['"])?/g)) {
-    for (const name of m[1].split(',').map((s) => s.trim()).filter(Boolean)) {
+    for (const name of stripListComments(m[1]).split(',').map((s) => s.trim()).filter(Boolean)) {
       // 跳过 inline type 修饰符: `type Foo` / `type { Foo }`
       if (/^type\s+/.test(name)) continue
       const final = name.split(/\s+as\s+/).pop().trim()
@@ -214,12 +234,14 @@ function extractSourceExports(srcText) {
  *       export function a() / export const a = / export class A / export default
  */
 function extractDistExports(distPath) {
-  // 编译器(esbuild/tsc)会把源码里 export 清单内的**行注释**原样带进 dist:注释行夹在
-  // `{` 与 `}` 之间时,`[^}]+` 会把"注释文本+换行+下一个导出名"粘成一个脏名 ⇒ 干净的
-  // export 被判"dist 缺失"(假红)。2026-10-07 实测:@ihui/context-compaction 的
-  // projectVisibleBody(G-816015 那两条注释进清单)。只剥**行首**注释 —— 行中 `//`
-  // (如 URL 字面量)与字符串内容不在射程,不会误伤。
-  const dist = readFileSync(distPath, 'utf8').replace(/^[ \t]*\/\/[^\n]*/gm, '')
+  return extractDistExportsFromText(readFileSync(distPath, 'utf8'))
+}
+
+/**
+ * 上面那把的路径参数只做一件事:读文件。判据本身住在这里,自检与镜像测试才能拿**构造文本**喂它 ——
+ * 否则"注释里带逗号"这一型只能靠真仓那一枚包来证,而那枚包一改写法锁就跟着漂(§22c 同一条理由)。
+ */
+function extractDistExportsFromText(dist) {
   const names = new Set()
 
   // CommonJS: exports.a = ... / Object.defineProperty(exports, 'a', ...)
@@ -232,7 +254,7 @@ function extractDistExports(distPath) {
 
   // ESM: export { a, b, c }
   for (const m of dist.matchAll(/export\s*\{([^}]+)\}/g)) {
-    for (const name of m[1].split(',').map((s) => s.trim()).filter(Boolean)) {
+    for (const name of stripListComments(m[1]).split(',').map((s) => s.trim()).filter(Boolean)) {
       const final = name.split(/\s+as\s+/).pop().trim()
       if (final && !final.startsWith('//')) names.add(final)
     }
@@ -1088,6 +1110,37 @@ function runSelfTest() {
     extractSourceExports('').has('__wildcard__') === false,
   )
 
+  // ⑥ 2026-10-07 恒红事故的成对锁:注释里带半角逗号的 export 清单。
+  //    文本形态逐字取自 packages/context-compaction/src/index.ts(不是自造夹具)——
+  //    §22c 那条"镜像/自检的输入必须取自真实文件形态"在此门的提取式上同样成立。
+  {
+    const srcWithComment =
+      "export {\n  estimateMessagesTokens,\n  // 两条投影必须同时公开:可见正文投影(不含 reasoning)与估算面投影(含 reasoning)。\n  // 只公开其一,消费方就会去复用另一条 —— 票 G-816015 的成因正是\"估算复用了可见正文投影\"。\n  projectVisibleBody,\n  projectForEstimation,\n} from './token-estimate.js';\n"
+    const s = extractSourceExports(srcWithComment)
+    check('S6 注释含半角逗号时,注释后那个真名必须仍被认出(源码侧)', s.has('projectVisibleBody'))
+    const distWithComment = srcWithComment.replace(/^  /gm, '')
+    const d = extractDistExportsFromText(distWithComment)
+    check('S6b 同一形态在 dist 侧也必须被认出(两侧同形,不因缩进差而互相顶红)', d.has('projectVisibleBody'))
+    check(
+      'S6c 旧缺陷形状不得复活:整段"注释尾+真名"不得被当成一个名字存进集合',
+      [...s].every((n) => /^[A-Za-z_$][\w$]*$/.test(n)) &&
+        [...d].every((n) => /^[A-Za-z_$][\w$]*$/.test(n)),
+    )
+    // 反向对照 ⇒ 判据没被放宽:真把名字从 dist 去掉时,缺失仍要点名
+    const distMissing = distWithComment.replace('projectVisibleBody,', '')
+    const diff = [...s].filter((n) => !extractDistExportsFromText(distMissing).has(n))
+    check('S6d 反向:dist 侧真的少了这个名 ⇒ 仍判缺失(剥注释不等于放行)', diff.includes('projectVisibleBody'))
+    check(
+      'S6e 别名形态 `export { a as b }` 取的是 b(剥注释这一步不得破坏 as 处理)',
+      extractSourceExports('export { a as b } from "./x.js";\n').has('b') &&
+        !extractSourceExports('export { a as b } from "./x.js";\n').has('a'),
+    )
+    check(
+      'S6f 块注释里带逗号也不粘连(/* , */ 之后的名字须独立成段)',
+      extractSourceExports('export { a, /* x, y */ b } from "./x.js";\n').has('b'),
+    )
+  }
+
   // ── D 维(声明对账)── 成对用例。全部用**构造面**,不碰仓库瞬时状态(§22c:判据的对象是
   // 形态时用构造输入,而"取材面这类行为只能用纯函数+构造面"是守门 103 记过的课)。
   const mkAgg = (t) => aggregateDeclarations([{ label: 'x.ts', text: t }])
@@ -1214,8 +1267,10 @@ function runSelfTest() {
 export const __test__ = {
   declaredDistEntries,
   pickMissing,
+  stripListComments,
   extractSourceExports,
   extractDistExports,
+  extractDistExportsFromText,
   isConsumedFromSource,
   // D 维(声明对账)—— 镜像测试直接 import 这些源实现,禁止在测试里再抄一份判据(§22c)
   extractTypeDeclarations,
