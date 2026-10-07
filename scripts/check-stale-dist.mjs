@@ -158,7 +158,10 @@ const C = {
  * 于是"面取不到"与"文件里没有 export"是两件不同事,不会被折成后者(那正是假绿的形状)。
  */
 function extractSourceExports(srcText) {
-  const src = String(srcText)
+  // 与 extractDistExports 同病同治(2026-10-07):src 的 export { } 清单里同样会写行注释
+  // (esbuild 把它们原样带进 dist 才暴露这一型),不剥则 src 侧 projectVisibleBody 也是
+  // 脏名,与 dist 侧的干净名对不上 ⇒ 永远"缺失"。只剥**行首** //,行中(URL)不在射程。
+  const src = String(srcText).replace(/^[ \t]*\/\/[^\n]*/gm, '')
   const names = new Set()
 
   // export type { ... } [from '...']  — 纯类型 re-export,先标记后排除
@@ -211,7 +214,12 @@ function extractSourceExports(srcText) {
  *       export function a() / export const a = / export class A / export default
  */
 function extractDistExports(distPath) {
-  const dist = readFileSync(distPath, 'utf8')
+  // 编译器(esbuild/tsc)会把源码里 export 清单内的**行注释**原样带进 dist:注释行夹在
+  // `{` 与 `}` 之间时,`[^}]+` 会把"注释文本+换行+下一个导出名"粘成一个脏名 ⇒ 干净的
+  // export 被判"dist 缺失"(假红)。2026-10-07 实测:@ihui/context-compaction 的
+  // projectVisibleBody(G-816015 那两条注释进清单)。只剥**行首**注释 —— 行中 `//`
+  // (如 URL 字面量)与字符串内容不在射程,不会误伤。
+  const dist = readFileSync(distPath, 'utf8').replace(/^[ \t]*\/\/[^\n]*/gm, '')
   const names = new Set()
 
   // CommonJS: exports.a = ... / Object.defineProperty(exports, 'a', ...)
