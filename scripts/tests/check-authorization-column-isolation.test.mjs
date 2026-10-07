@@ -113,7 +113,9 @@ function sh(cmd, args, cwd) {
     cwd,
     encoding: 'utf8',
     windowsHide: true,
-    stdio: 'pipe',
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    // （返回的 stdout 要被调用方吃，故 stdout 仍留 pipe；只把 stdin 断开）
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
@@ -157,7 +159,9 @@ function runGate(dir, extra = []) {
       cwd: dir,
       encoding: 'utf8',
       windowsHide: true,
-      stdio: 'pipe',
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      // （out 要被 return 出去，故 stdout 仍留 pipe；只把 stdin 断开）
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     return { rc: 0, out }
   } catch (e) {
@@ -283,7 +287,9 @@ test('F8 应急跳过开关生效,且跳过时不冒充合格证', () => {
       cwd: dir,
       encoding: 'utf8',
       windowsHide: true,
-      stdio: 'pipe',
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      // （out 要被下面的 assert.match 吃，故 stdout 仍留 pipe；只把 stdin 断开）
+      stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, HUSKY_SKIP_AUTHZ_COLUMN_ISOLATION: '1' },
     })
     assert.match(out, /HUSKY_SKIP_AUTHZ_COLUMN_ISOLATION=1 应急跳过/)

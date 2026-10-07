@@ -208,7 +208,13 @@ test('T10 未登记族仍入账并给默认存活期(新门加的族不得隐身
 
 test('T11 基线是合法账本:日期有效、额度非负整数、族都已登记(清单腐烂即红)', () => {
   const b = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'))
-  assert.match(String(b.grandfatherUntil), /^20\d{2}-\d{2}-\d{2}$/, '宽限截止日必须是有效日期')
+  // 日期形状取自门体导出的唯一真相 gate.DATE_RE(§22c:判据材料不得在本文件里再抄一遍),
+  // 两侧夹上 ^…$ 后与原来的整串匹配同形 —— 只是把"抄"换成"引"。
+  assert.match(
+    String(b.grandfatherUntil),
+    new RegExp(`^${gate.DATE_RE.source}$`),
+    '宽限截止日必须是有效日期',
+  )
   assert.ok(Object.keys(b.undatedCounts).length > 0, '空账本意味着建门时没量存量')
   const bad = Object.entries(b.undatedCounts).filter(
     ([k, v]) => !/::[a-z0-9-]+$/.test(k) || !Number.isInteger(v) || v < 1,
