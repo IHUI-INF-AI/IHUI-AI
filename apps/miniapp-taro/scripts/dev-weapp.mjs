@@ -117,7 +117,7 @@ async function refreshGenerated() {
     for (const f of staleFindings) console.log(`           · ${f.detail}`)
     let genError = null
     try {
-      execFileSync(process.execPath, [join(here, 'gen-i18n-compressed.mjs')], {
+      execFileSync(process.execPath, [join(repoRoot, 'scripts', 'gen-i18n-compressed.mjs')], {
         cwd: appDir,
         encoding: 'utf8',
         windowsHide: true,
