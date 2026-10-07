@@ -27,6 +27,7 @@
     "lint": "turbo run lint",
     "lint:strict": "turbo run lint -- --max-warnings 0",
     "test": "turbo run test",
+    "test:real": "pnpm --filter @ihui/api run test:real",
     "test:scripts": "node scripts/run-script-tests.mjs",
     "test:e2e": "turbo run test:e2e",
     "check:pytest": "pnpm --filter @ihui/ai-service run test:py",
