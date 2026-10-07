@@ -25,13 +25,14 @@ import logging
 import os
 import time
 import urllib.parse
+from collections.abc import Callable
 from contextvars import ContextVar, Token
 from dataclasses import dataclass, field
-from collections.abc import Callable
 from typing import Any, cast
 
 import httpx
 
+from app.core.exec_env import resolve_stdio_command
 from app.core.tunables import DEFAULT_PROTOCOL_VERSION, SUPPORTED_PROTOCOL_VERSIONS
 from app.services import mcp_quality, mcp_status
 from app.services.command_streamer import (
@@ -134,7 +135,7 @@ class MCPClient:
         # 默认 None ⇒ 没有观察者时本类行为与改动前逐字相同。
         self._on_status: Callable[[str, dict[str, Any]], None] | None = None
 
-    def set_status_hook(self, hook: "Callable[[str, dict[str, Any]], None] | None") -> None:
+    def set_status_hook(self, hook: Callable[[str, dict[str, Any]], None] | None) -> None:
         """挂/摘状态观察者(生产面唯一入口是 `MCPClientManager.register`)。"""
         self._on_status = hook
 
@@ -400,8 +401,21 @@ class MCPClient:
         try:
             proc_env = dict(os.environ)
             proc_env.update(self._config.env)
+            # G-998139(拍板:要):stdio 命令显式候选序解析 + 找不到大声喊 ——
+            # 不拿裸名直接 spawn 冒充"已解析"。上游同型事故:服务由非交互 shell 启动,
+            # PATH 只剩系统目录 ⇒ spawn("npx") 找不到 Homebrew/NVM 里的入口,只剩一句
+            # FileNotFoundError;解析器找不到时带回完整"试过候选"列表,报错可定位。
+            resolution = resolve_stdio_command(self._config.command, proc_env)
+            if not resolution.ok:
+                logger.error(
+                    "stdio 连接失败:命令解析不到(%s),试过候选:%s",
+                    self._config.command,
+                    ", ".join(resolution.tried) or "(无候选)",
+                )
+                self._connected = False
+                return False
             self._process = await asyncio.create_subprocess_exec(
-                self._config.command,
+                resolution.resolved,
                 *self._config.args,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
