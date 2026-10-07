@@ -325,4 +325,83 @@ test('M12 换行清 lastWord:行首斜杠不得被上一行的行尾关键字带
     0,
   )
 })
+
+test('M13 模板插值栈:嵌套反引号不再切碎模板串,`${}` 是表达式位置(G-1059136 续篇)', () => {
+  // 病灶:模板串里的嵌套反引号(`\`${u.key}\`` 型)被旧串走法当成"本串在此闭合",真串被
+  // 切碎、后文按代码误读(gen-doc-numbers.mjs 实证,门 194 未判定三枚之一)。
+  const src = 'const t = `x ${ c ? `(` : `)` } y`\n'
+  const strs = scanSpans(src).filter((s) => s.kind === 'string')
+  assert.equal(strs.length, 1, '顶层模板必须是一枚 span;插值内的嵌套模板只消费不产 span')
+  assert.equal(strs[0].closed, true, '模板串必须走到真闭合反引号')
+  assert.equal(strs[0].isTemplate, true)
+  const bal = (x) => (x.match(/\(/g) || []).length - (x.match(/\)/g) || []).length
+  assert.equal(bal(maskCommentsStringsAndRegex(src)), 0, '() 都在模板串区间内,掩码面必须配平')
+  // 插值是表达式位:插值内的嵌套 `{}`(对象字面量)不得把模板提前闭合 —— `${` 开栏、
+  // 深度归 0 回模板体;插值内的正则/串只消费不产 span(顶层模板始终一枚,区间面与旧同形)
+  const interp = scanSpans('const t = `${ { a: 1 } }`\n')
+  assert.equal(interp.length, 1)
+  assert.equal(interp[0].closed, true, '插值内的嵌套 `}` 不得把模板串提前闭合')
+  assert.equal(interp[0].body, '${ { a: 1 } }')
+  // 插值内的嵌套模板/串不产额外 span,插值外的串照旧
+  const nested = scanSpans('const t = `${ { a: `(` } }` + "tail"\n')
+  assert.equal(
+    nested.filter((s) => s.kind === 'string').length,
+    2,
+    '顶层模板一枚 + 插值外 "tail" 一枚',
+  )
+})
+
+test('M13 以空格开头的正则字面量必须被识别(G-1059136 续篇,去"下一字符非空格"守卫)', () => {
+  // `/ {4}x = f\(/g` 是真语法:旧守卫拒认它,闭合 `/` 反被当成新正则起点吞掉真 `)`
+  // (check-desktop-event-wiring / check-tool-contract-declared 各实证一枚)。
+  const src = 'const re = / {4}x = f\\(/g\n'
+  assert.equal(
+    scanSpans(src).filter((s) => s.kind === 'regex').length,
+    1,
+    '空格开头的正则字面量必须被识别成一枚 span',
+  )
+  assert.ok(
+    !maskCommentsStringsAndRegex(src).includes('x = f'),
+    '正则体必须被遮(里面的 f\\( 是模式,不是调用)',
+  )
+  // 兼容档仍不认(regex:false 无正则档,历史形态):体留在代码面 —— 两档分界钉住
+  assert.ok(maskCommentsAndStrings(src).includes('x = f'))
+})
+
+test('M13 postfix 保守:`++ /`、`-- /` 按除法(去守卫的代价兜底)', () => {
+  const src = 'const q = a++ / 2 / 3\nconst r = b-- / c\n'
+  assert.equal(
+    scanSpans(src).filter((s) => s.kind === 'regex').length,
+    0,
+    '自增/自减之后的 `/` 是除法,判成正则就吞掉真 token',
+  )
+  // 保守代价(已档化,全语料零实证):带空格的 `+ /re/` 同样按除法 —— 少遮(可能多报)
+  // 的方向是安全的,吞真 token 的方向才致命
+  assert.equal(
+    scanSpans('const q = x + /re/.test(y)\n').filter((s) => s.kind === 'regex').length,
+    0,
+  )
+  // 但 return 之后的正则照认(与 M12 同面,守卫去除不得波及关键字起始位)
+  assert.equal(scanSpans('if (x) return /re/\n').filter((s) => s.kind === 'regex').length, 1)
+})
+
+test('M13 兼容档的历史边界:反引号整串走、不感知插值(M1 字节级同形的构成面)', () => {
+  const src = 'const t = `a ${ `(` } b`\n'
+  const legacy = scanSpans(src, { regex: false }).filter((s) => s.kind === 'string')
+  assert.equal(
+    legacy.length,
+    2,
+    '兼容档嵌套反引号把模板串切碎(十几道门的读数钉着,不得变)',
+  )
+  assert.equal(legacy[0].body, 'a ${ ', '第一枚在嵌套反引号处提前闭合(真串被切碎)')
+  assert.equal(
+    legacy[1].body,
+    ' } b',
+    '第二枚从嵌套反引号开到闭,`(` 落在两枚 span 之间成可见代码(历史走法)',
+  )
+  // 正则档同一输入:一枚闭合模板 —— 两档分界就是"插值感知"这一层
+  const main = scanSpans(src).filter((s) => s.kind === 'string')
+  assert.equal(main.length, 1)
+  assert.equal(main[0].closed, true)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
