@@ -2178,6 +2178,13 @@
       "when": 1791091800000,
       "tag": "20261004150000_lesson_sign_ups_study_plan_id",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 312,
+      "when": 1791338400000,
+      "tag": "20261007100000_llm_call_logs_retryable",
+      "breakpoints": true
     }
   ]
 }

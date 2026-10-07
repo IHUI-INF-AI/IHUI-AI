@@ -14,6 +14,8 @@ import {
   index,
   bigint,
   boolean,
+  smallint,
+  check,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 import { users } from './users.js'
@@ -54,6 +56,15 @@ export const llmCallLogs = pgTable(
     latencyMs: integer('latency_ms').default(0).notNull(),
     status: varchar('status', { length: 20 }).default('success').notNull(),
     errorMessage: text('error_message'),
+    /**
+     * G-815957(2026-10-07 立):"这次失败算不算可重试"落成**列**,值域由 DB 封闭,
+     * 不能只活在进程里(上游 session-store 三张用量表同型:`retryable integer not null
+     * default 0 check (retryable in (0,1))`,与 error 组成组落库)。本表是计费/失败流水账,
+     * status='error' 的行由此列给出重试档位,读侧不再各处猜。
+     * 默认档 = 0(不可重试):尚不知此列的写入口走 DEFAULT 落保守档 ——
+     * `retryable boolean default true` 那种"把默认值当结论"是票面点名的反例形态。
+     */
+    retryable: smallint('retryable').default(0).notNull(),
     conversationId: varchar('conversation_id', { length: 100 }),
     metadata: jsonb('metadata').default({}),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -120,6 +131,11 @@ export const llmCallLogs = pgTable(
     providerIdx: index('llm_call_logs_provider_idx').on(t.providerCode),
     clientIpIdx: index('llm_call_logs_client_ip_idx').on(t.clientIp),
     httpStatusIdx: index('llm_call_logs_http_status_idx').on(t.httpStatus),
+    /**
+     * G-815957:值域在 DB 层封闭(0=不可重试 / 1=可重试),越界值当场被拒,
+     * 不靠读侧兜底 —— 票面正反成对的"带 CHECK ⇒ 绿"落在这条(迁移 20261007100000 同批)。
+     */
+    retryableChk: check('llm_call_logs_retryable_check', sql`${t.retryable} in (0, 1)`),
     /**
      * D172:按 trace id 反查"这一轮调用"的入口(排查时人手里只有编号,没有 userId/时间窗)。
      *
