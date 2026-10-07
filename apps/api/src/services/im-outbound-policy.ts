@@ -45,9 +45,11 @@ export const OUTBOUND_MAX_SEGMENTS_PER_SEND = 10
 /** 硬切接缝处附加在**左段末尾**的标记(有标记才允许硬切,禁止静默截断)。 */
 export const OUTBOUND_HARD_CUT_MARK = t('apiOutbound.hardCutMark')
 
-/** 折叠时追加在最后一段末尾的告知模板(把"剩余没发"这件事说给用户,不静默丢尾)。 */
-export function outboundFoldNotice(omittedSegmentCount: number): string {
-  return t('apiOutbound.foldNotice', { count: omittedSegmentCount })
+/** 折叠时追加在最后一段末尾的告知模板(把"剩余没发"这件事说给用户,不静默丢尾)。
+ *  G-1058621:locale 由调用方按目标订阅用户语言传入;缺省(undefined)仍渲染 zh-CN,
+ *  与改造前逐字同值 —— 界下零行为变化。 */
+export function outboundFoldNotice(omittedSegmentCount: number, locale?: string): string {
+  return t('apiOutbound.foldNotice', { count: omittedSegmentCount }, locale)
 }
 
 /**
@@ -664,15 +666,20 @@ export interface OutboundPlan<T> {
  */
 export function planOutboundMessages<T extends ImOutboundMessageLike>(
   message: T,
-  opts: { maxChars?: number; maxSegments?: number } = {},
+  opts: { maxChars?: number; maxSegments?: number; locale?: string } = {},
 ): OutboundPlan<T> {
   const maxChars = opts.maxChars ?? OUTBOUND_MAX_CHARS_PER_SEGMENT
   const isPlainText = message.messageType === 'text' && typeof message.text === 'string'
   if (!isPlainText || !message.text || message.text.length <= maxChars) {
     return { items: [message], rendered: null }
   }
+  // G-1058621:硬切标记与折叠告知都嵌进**出站正文**,必须按目标用户语言取词;
+  // locale 缺省时两次取词与模块常量 OUTBOUND_HARD_CUT_MARK/outboundFoldNotice 同键同参
+  // ⇒ 渲染值逐字相同(界下零行为变化,由测试钉住)。
   const rendered = renderOutboundSegments(planTextSegments(message.text, maxChars), {
     maxSegments: opts.maxSegments,
+    hardCutMark: t('apiOutbound.hardCutMark', undefined, opts.locale),
+    notice: (omitted) => outboundFoldNotice(omitted, opts.locale),
   })
   // 展开 + 覆盖 text 的结果就是 T 本身(只有正文字段被换掉),这里的一次断言是给泛型用的,
   // 不是给"字段可能不匹配"用的。
