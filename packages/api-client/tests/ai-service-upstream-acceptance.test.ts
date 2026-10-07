@@ -117,6 +117,18 @@ describe('三条上行通道的接受性(200 不等于被接受)', () => {
   }
 })
 
+/**
+ * G-593 判定结论(2026-10-07 事实核查,拍板①"行为在 ⇒ 守卫锁现行形状,保留行为断言"):
+ * 本文件 + 同族 tests/tool-approval-response-acceptance.test.ts 现跑 21/21 全绿。
+ * 立案时的红因 = 2026-09-28 HEAD(7baa8ab0e7)上两枚提交(17a81f58e7/d4029af58d)把三条上行
+ * 重写成不读包体 ok 的形状;现读工作树该形状已被"共用出口"实现取代并入库 —— client.ts 里
+ * `not accepted:` 恰好 1 处(assertAiServiceAccepted),三条腿各自从该出口取值;
+ * 行为断言"回传未送达喊一次"由 streamChat 解析层 delegate 回调 catch 里的
+ * console.error('[streamChat] tool-delegate 回传未送达(后端将等到超时):', …) 满足
+ * ⇒ **不是静默吞,真回归不存在,四条断言判据一字未改**。
+ * 变异对照由断言自身承担:删出口(0 命中即红)/摘任一条腿(缺 assertAiServiceAccepted 即红)/
+ * 删诊断(喊 0 次即红),守卫对下一轮重构不哑。
+ */
 describe('判据只允许有一份实现', () => {
   const src = readFileSync(CLIENT_SRC, 'utf8')
 

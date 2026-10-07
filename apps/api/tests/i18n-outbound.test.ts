@@ -14,12 +14,14 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   OUTBOUND_HARD_CUT_MARK,
+  OUTBOUND_MAX_CHARS_PER_SEGMENT,
   applyFoldToOutcome,
   classifyTransportError,
   interpretPlatformResponse,
   outboundFoldNotice,
+  planOutboundMessages,
 } from '../src/services/im-outbound-policy.js'
-import { t } from '../src/services/i18n-outbound.js'
+import { normalizeOutboundLocale, t } from '../src/services/i18n-outbound.js'
 
 const LOCALES = ['zh-CN', 'zh-TW', 'en', 'ja', 'ko'] as const
 
@@ -131,6 +133,75 @@ describe('G-1058621 ④ 取词出口正向:真实 locale 必须取到该语言(�
     expect(bogus).toBe(zhCn)
     // 但**合法 locale 必须真的不同**:这一条才有意义 —— 若两句都回落,上面那组正向测试就全红了
     expect(t('apiOutbound.foldNotice', { count: 1 }, 'ja')).not.toBe(zhCn)
+  })
+})
+
+/**
+ * ⑤ locale 归一化 + 出站分段按用户语言渲染(G-1058621 拍板①「按用户语言」的落地判据)。
+ *
+ * 上一组(④)只证明 t() 收到合法 locale 时能取对词;这一组钉的是**真实调用方链路**:
+ *  - `normalizeOutboundLocale` 把 user_preferences 里自由格式的 language 值归一到词包语言面,
+ *    认不出一律 zh-CN(与 t() 的缺键回退同一条禁令,见 `:128` 对 `jp` 的判定);
+ *  - `planOutboundMessages` 是硬切标记/折叠告知进入**出站正文**的唯一通道,locale 必须真的
+ *    影响正文渲染;且不传 locale 时与旧实现逐字同值(界下零行为变化)。
+ */
+describe('G-1058621 ⑤ locale 归一化 + 出站分段按用户语言渲染', () => {
+  it('normalizeOutboundLocale:精确命中(大小写/连接符不敏感)', () => {
+    expect(normalizeOutboundLocale('ja')).toBe('ja')
+    expect(normalizeOutboundLocale('JA')).toBe('ja')
+    expect(normalizeOutboundLocale('zh_TW')).toBe('zh-TW')
+    expect(normalizeOutboundLocale('zh-cn')).toBe('zh-CN')
+  })
+
+  it('normalizeOutboundLocale:主子标签前缀命中(en-US → en)', () => {
+    expect(normalizeOutboundLocale('en-US')).toBe('en')
+    expect(normalizeOutboundLocale('ja-JP')).toBe('ja')
+    expect(normalizeOutboundLocale('ko-KR')).toBe('ko')
+    expect(normalizeOutboundLocale('zh')).toBe('zh-CN')
+  })
+
+  it('normalizeOutboundLocale:认不出/空值一律 zh-CN(防拼错 locale 静默变成错语言)', () => {
+    expect(normalizeOutboundLocale('jp')).toBe('zh-CN')
+    expect(normalizeOutboundLocale('fr-FR')).toBe('zh-CN')
+    expect(normalizeOutboundLocale('')).toBe('zh-CN')
+    expect(normalizeOutboundLocale('   ')).toBe('zh-CN')
+    expect(normalizeOutboundLocale(null)).toBe('zh-CN')
+    expect(normalizeOutboundLocale(undefined)).toBe('zh-CN')
+  })
+
+  it('planOutboundMessages 传 locale:硬切标记按该语言渲染进正文,不得静默回落 zh-CN', () => {
+    const text = '长'.repeat(OUTBOUND_MAX_CHARS_PER_SEGMENT * 2)
+    const { rendered } = planOutboundMessages({ messageType: 'text', text }, { locale: 'ja' })
+    expect(rendered).not.toBeNull()
+    expect(rendered!.hardCutCount).toBe(1)
+    const markJa = renderWith(rawTemplate('ja', 'apiOutbound.hardCutMark'), {})
+    const markZh = renderWith(rawTemplate('zh-CN', 'apiOutbound.hardCutMark'), {})
+    expect(markJa).not.toBe(markZh)
+    // 第 2 段与第 1 段之间是硬切接缝 ⇒ 左段(第 2 段)末尾带**本语言**硬切标记
+    expect(rendered!.messages[1]!.endsWith(markJa)).toBe(true)
+    expect(rendered!.messages[1]!.endsWith(markZh)).toBe(false)
+  })
+
+  it('planOutboundMessages 传 locale:折叠告知按该语言渲染(出站文案 = 用户收到的正文)', () => {
+    const text = '字'.repeat(OUTBOUND_MAX_CHARS_PER_SEGMENT * 3)
+    const { rendered } = planOutboundMessages({ messageType: 'text', text }, { maxSegments: 2, locale: 'ko' })
+    expect(rendered).not.toBeNull()
+    expect(rendered!.omittedSegmentCount).toBe(1)
+    const noticeKo = renderWith(rawTemplate('ko', 'apiOutbound.foldNotice'), { count: 1 })
+    expect(rendered!.messages.at(-1)!.endsWith(noticeKo)).toBe(true)
+    // 防静默回落冒充通过:同一条正文在 zh-CN 下的结尾必须**不同**
+    const noticeZh = renderWith(rawTemplate('zh-CN', 'apiOutbound.foldNotice'), { count: 1 })
+    expect(noticeKo).not.toBe(noticeZh)
+  })
+
+  it('planOutboundMessages 不传 locale:与旧实现逐字同值(界下零行为变化)', () => {
+    const text = '长'.repeat(OUTBOUND_MAX_CHARS_PER_SEGMENT * 3)
+    const { rendered } = planOutboundMessages({ messageType: 'text', text }, { maxSegments: 2 })
+    expect(rendered).not.toBeNull()
+    // 硬切标记 = 模块常量 OUTBOUND_HARD_CUT_MARK(旧实现同源);折叠告知 = outboundFoldNotice
+    // (旧实现同一函数)—— 不传 locale 时渲染值必须与二者逐字相同。
+    expect(rendered!.messages[1]).toContain(OUTBOUND_HARD_CUT_MARK)
+    expect(rendered!.messages.at(-1)!.endsWith(outboundFoldNotice(1))).toBe(true)
   })
 })
 

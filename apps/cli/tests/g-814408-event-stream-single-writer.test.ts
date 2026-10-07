@@ -18,6 +18,9 @@
  *     这一组缺席,出口就可以是一台没人调用的判据(本仓记过多次"造好没装车":守门 64/70/81/115)。
  *  ③ 源码形状锁 —— 证明角色只在**一处**决定、attach 只经出口、旧裸订阅形态没有回潮通道。
  *     这一组不可替代:①② 只证明"函数会被正确使用",接线被摘线时它们一路报绿。
+ *  ④ NDJSON 出口(headless-format.ts + commands/agent.ts)—— 上游 `headless-workflow.ts:329`
+ *     "结果行之后绝不能再冒出事件行"的结构事实在本出口成立:结果行写出**前**先 detachEvents,
+ *     停笔后闸只放结果行(停写,不是去重);mermaid 的事件行排在结果行之前,信息不丢。
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
@@ -36,6 +39,7 @@ import {
   StreamWriterConflictError,
   StreamWriterRuleError,
 } from '../src/event-stream-ownership.js';
+import { createHeadlessEventGate, type HeadlessEvent } from '../src/headless-format.js';
 import { connectToServer, type TuiClient } from '../src/client/tui-client.js';
 import { sendUnified } from '../src/client/remote-adapter.js';
 import type { AgentEvent } from '../src/server/agent-core.js';
@@ -553,6 +557,59 @@ describe('G-814408 ③ 源码形状锁(角色只在一处决定)', () => {
     const code = maskComments(readSrc('event-stream-ownership.ts'));
     // 本模块唯一的"丢弃"动作是被拒的 attach 自己回收名额;不允许任何按事件身份丢重复行的逻辑
     expect(code).not.toMatch(/\b(dedup|dedupe|seenEvent|eventIds)\b/i);
+  });
+});
+
+// ==================== ④ NDJSON 出口:结果行封笔(headless-format.ts + agent.ts) ====================
+
+function completeEvent(): HeadlessEvent {
+  return {
+    type: 'complete',
+    stopReason: 'end_turn',
+    iterations: 1,
+    usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, estimatedCostUsd: 0 },
+  };
+}
+
+describe('G-814408 ④ NDJSON 出口:结果行之前先停订阅,之后不冒事件行', () => {
+  it('未停笔:普通事件与结果行都放行(闸不改变既有行为)', () => {
+    const gate = createHeadlessEventGate();
+    expect(gate.canEmit({ type: 'message_delta', text: 'x' })).toBe(true);
+    expect(gate.canEmit({ type: 'tool_result', name: 'x', success: true, output: '' })).toBe(true);
+    expect(gate.canEmit(completeEvent())).toBe(true);
+  });
+
+  it('detachEvents 之后:普通事件被拦,结果行(complete)仍放行 —— 先停订阅、再写结果行', () => {
+    const gate = createHeadlessEventGate();
+    gate.detachEvents();
+    expect(gate.canEmit({ type: 'tool_result', name: 'late', success: true, output: '' })).toBe(false);
+    expect(gate.canEmit({ type: 'error', message: 'late' })).toBe(false);
+    expect(gate.canEmit({ type: 'iteration', count: 1, max: 1 })).toBe(false);
+    // 结果行是停笔后唯一还能出门的一行 —— 否则"先停订阅"会把结果行自己一并吞掉
+    expect(gate.canEmit(completeEvent())).toBe(true);
+  });
+
+  it('停写不是去重:同一条事件在未停笔时两次都放行(没有按 id 抹平的第二通道)', () => {
+    const gate = createHeadlessEventGate();
+    const ev: HeadlessEvent = { type: 'tool_call', name: 'x', arguments: {} };
+    expect(gate.canEmit(ev)).toBe(true);
+    expect(gate.canEmit(ev)).toBe(true); // 闸只认"停没停笔",不认"这条事件来过没有"
+  });
+
+  it('形状锁:agent.ts 真的接闸,且先 detachEvents、mermaid 事件行排在结果行之前', () => {
+    const code = maskComments(readSrc('commands/agent.ts'));
+    expect(code).toMatch(/createHeadlessEventGate\(/);
+    expect(code).toMatch(/canEmit\(/);
+    const idxDetach = code.indexOf('headlessEventGate.detachEvents()');
+    const idxComplete = code.indexOf("type: 'complete'");
+    const idxMermaid = code.indexOf("'mermaid_render'");
+    expect(idxDetach, '结果行输出前必须先 detachEvents(锚点丢失时 indexOf 会自洽却错位)').toBeGreaterThan(-1);
+    expect(idxComplete, '结果行(complete)必须仍在位').toBeGreaterThan(-1);
+    expect(idxMermaid, 'mermaid 渲染结果事件必须仍在位(信息不丢)').toBeGreaterThan(-1);
+    expect(idxDetach).toBeLessThan(idxComplete);
+    // 旧形态:mermaid 的 tool_result 冒在 complete 之后 —— 正是上游 headless-workflow.ts:329
+    // "结果行之后绝不能再冒出事件行"所禁的那一型
+    expect(idxMermaid).toBeLessThan(idxComplete);
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
