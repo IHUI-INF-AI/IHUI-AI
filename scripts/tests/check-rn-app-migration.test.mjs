@@ -238,6 +238,21 @@ describe('check-rn-app-migration · §22c 镜像测试(判据一律走门体导�
         const violations = notMigrated.filter((b) => !stripped.has(b))
         assert.ok(violations.includes(EXEMPT_BASE), '抽掉豁免后仍不判违规 = 白名单是装饰,不是判据')
         assert.ok(violations.length < notMigrated.length, '其余未迁移屏仍应被白名单解释掉(抽一枚不该整族翻红)')
+
+        // [G-1059141 2026-10-07] 死账回潮钉:白名单任何条目都不得落在 HEAD 面"已迁移"集合里。
+        // 2026-10-07 清账移出了 13 条此类冗余豁免(DevEnterScreen/SharedDemoScreen/CourseScreen/
+        // PlazaScreen/StudyIndexScreen/StudyPublishScreen/CircleIndexScreen/TopicListScreen/
+        // ChatToolsScreen/KnowledgeRagScreen/WebViewScreen/ImageGenCreateScreen/PdfToolsScreen,
+        // 逐条 import 证据见门体 WHITELIST 处清账注释);再登记已迁移屏 = 白名单重新开始掩盖。
+        const migratedNames = new Set(
+          HEAD_SCREENS.rels.map((rel) => rel.split('/').pop()).filter((b) => !notMigrated.includes(b)),
+        )
+        const deadEntries = [...gate.WHITELIST].filter((b) => migratedNames.has(b))
+        assert.deepEqual(
+          deadEntries,
+          [],
+          `白名单仍登记着 HEAD 面已迁移(有共享层 import)的 screen:${deadEntries.join(', ')}`,
+        )
       } finally {
         rmScratch(scratch, { bestEffort: true })
       }
