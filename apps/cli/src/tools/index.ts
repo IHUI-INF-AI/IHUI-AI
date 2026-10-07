@@ -29,10 +29,16 @@ import {
   resolveToolArgValidationMode,
   shadowValidateToolArguments,
 } from './argument-validation-telemetry.js';
-import { formatValidationErrorsLine } from './argument-validator.js';
+import { formatValidationErrorsLine, resolveSchemaOrThrow, validateToolArguments } from './argument-validator.js';
+// G-916424:确认窗的 permissionRequest 钩子应答出口(deny/allow/ask/modify 四形状)。
+import { runPermissionRequest } from '../hooks/index.js';
 import { noteDangerousApproval } from './danger-gate.js';
 import { recordApprovedInvocation } from './permission-lease.js';
 import { leaseWorkspaceIdOf } from '../utils/permission-lease-flag.js';
+// G-710:失败码判定的唯一出口(守门 162 OUTLET_REQUIREMENTS)—— 结构化码先决,文本只兜底且计数。
+import { classifyFailureText, RETRYABLE_FAILURE_CODES, ToolError, type FailureCode } from './failure-classification.js';
+// G-710:ToolError 由工具主模块递出,handler 与消费侧共享同一个构造函数(守门 162 出口契约)。
+export { ToolError };
 import {
   auditToolDenial,
   buildToolDenial,
@@ -130,6 +136,32 @@ export interface ToolResult {
    * 三条口径见 `packages/types/src/tool-contract.ts` 的 `ToolResultTruncationRecord`。
    */
   truncation?: ToolResultTruncationRecord;
+  /**
+   * 「给人看的」有界投影(G-816039 三投影拆分)。三投影各自有界且互不代替:
+   * 给模型的 = `output`(字节语义一字不动);落库账目 = `truncation`(四数);
+   * 给人看的 = 本字段 —— **只在结果被预算裁剪时产出**(未裁剪时三投影本就同文,不造重复载荷)。
+   * 它保存被 `output` 裁掉的那一段(受自身上限 `TOOL_RESULT_DISPLAY_LIMIT_BYTES` 管),
+   * 超限置 `truncated` 并按上限截断 —— 全文不得借 display 之名整块进 metadata。
+   * display 不是 output 的替代品:把喂模型的换成 display 正是上游注释点名要避免的方向。
+   */
+  display?: ToolResultDisplay;
+}
+
+/** display 投影的自身上限(对齐上游 result-display 的"独立于 provider content 单独限长"):200 KiB。 */
+export const TOOL_RESULT_DISPLAY_LIMIT_BYTES = 200 * 1024;
+
+/**
+ * display 投影的形状(G-816039):`text` 是有界的人读视图;三枚数字与 `truncated` 结论位
+ * 与上游 tool-part-metadata 存的 serialization 四数(truncated/originalBytes/returnedBytes/
+ * budgetStrategy)同形 —— 一次裁剪的两本账(`truncation` 管模型侧、本记录管 display 侧)各自成立。
+ */
+export interface ToolResultDisplay {
+  text: string;
+  /** display 自身被截断的结论位(只置 true,不写 false 噪音 —— 与 `truncation.truncated` 同一口径) */
+  truncated?: true;
+  originalBytes: number;
+  returnedBytes: number;
+  budgetStrategy: 'truncate';
 }
 
 /**
@@ -757,7 +789,18 @@ export function applyToolResultBudget(
     returnedBytes: keptBytes,
     budgetStrategy: 'truncate',
   });
-  const next: ToolResult = { ...result, output: `${note}\n${text}` };
+  // G-816039:display 投影的唯一生产点。保存的是**被 output 裁掉的那一段**(受自身上限管,
+  // 不吃 resultBudget),`output` 的拼装一字未动 —— 给模型的字节语义与引入前逐字节同形。
+  const displayText = clipByBytes(original, TOOL_RESULT_DISPLAY_LIMIT_BYTES, 'head');
+  const displayReturned = Buffer.byteLength(displayText, 'utf8');
+  const display: ToolResultDisplay = {
+    text: displayText,
+    originalBytes: totalBytes,
+    returnedBytes: displayReturned,
+    budgetStrategy: 'truncate',
+    ...(displayReturned < totalBytes ? { truncated: true as const } : {}),
+  };
+  const next: ToolResult = { ...result, output: `${note}\n${text}`, display };
   return account ? { ...next, truncation: account } : next;
 }
 
@@ -946,8 +989,102 @@ export async function executeToolCall(
   // 批准闸:四条"必须问"的判据集中在 `requiresUserConfirmation()` 一处(唯一实现,不在这里再抄一遍)。
   // 走到这一行时权限规则**已经放行**(上面 deny 已 return),所以 alwaysAsk 结构上
   // 不可能把一次静态拒绝变成"问一次再放行" —— 那条规格写在 tool-contract.ts:200。
+  //
+  // G-916424 批准闸旁路:确认窗先交 permissionRequest 钩子应答(四形状 deny/allow/ask/modify)。
+  // 无 permissionRequest 钩子 / 钩子失败 / 应答残缺 ⇒ permission 缺省,下方每一格与改前逐字同形。
+  let hookApproved = false;
   if (requiresUserConfirmation(tool, leaseContentDrifted)) {
-    const allowed = ctx.confirmDangerous ? await ctx.confirmDangerous(tool, call.arguments) : false;
+    const hookRes = runPermissionRequest(tool.name, call.arguments);
+    if (!hookRes.proceed) {
+      // 仅当用户显式配了 blockOnError 且钩子链失败才走到这:与 preToolCall 阻断同向。
+      // 失败不猜成任何应答形状(三态不混流),审计面不伪造 denial 行。
+      return {
+        success: false,
+        output: '',
+        error: `permissionRequest 钩子执行失败，本次调用被阻断: ${hookRes.reason ?? '未取到结果'}`,
+        errorType: 'permission_denied',
+      };
+    }
+    if (hookRes.permission === 'deny') {
+      // deny 是输出协议(钩子明确说"不"),与钩子失败严格分流;tool-denial 的 decider
+      // 闭集没有"钩子拒绝"这一档(该文件不在本票射程),故不伪造审计行,事实进错误串。
+      return {
+        success: false,
+        output: '',
+        error: `钩子 "${hookRes.permissionSource ?? '-'}" 拒绝了本次调用${hookRes.reason ? `: ${hookRes.reason}` : ''}`,
+        errorType: 'permission_denied',
+      };
+    }
+    if (hookRes.permission === 'modify' && hookRes.modifiedInput !== undefined) {
+      const modified = hookRes.modifiedInput;
+      // ① 二次 schema 校验(上游 :423-428 同型):失败 ⇒ 不执行,错误带 hook 上下文
+      //   (钩子名 + 违规清单),模型看到的是"钩子改坏了"而不是裸 schema error。
+      let recheck: ReturnType<typeof validateToolArguments> | undefined;
+      try {
+        recheck = validateToolArguments(modified, resolveSchemaOrThrow(tool));
+      } catch {
+        // schema 缺席/畸形:与首过 shadow 校验的 fail-open 同向(不因钩子改写引入第二套
+        // 缺席语义),原路径继续 —— 语义是"无从校验",不是"校验通过"。
+        recheck = undefined;
+      }
+      if (recheck && !recheck.valid) {
+        return {
+          success: false,
+          output: '',
+          error: `钩子 "${hookRes.permissionSource ?? '-'}" 改写后的输入未通过参数校验，本次调用不执行。violations -> ${formatValidationErrorsLine(recheck.errors)}`,
+          errorType: 'invalid_arguments',
+        };
+      }
+      // ② 改后必须按改后内容重判权限(上游 permission-flow.ts:249 原话"修改后的输入不能沿用
+      //    修改前的权限结果")。规则面用改后内容重跑;租约槽位摘要按 invocationContent 绑定 ⇒
+      //    改后内容与旧批准摘要不符自动落 content-drifted —— 反向锁在我方的结构落点。
+      let driftedAfterModify = false;
+      if (ctx.permissions) {
+        const lease = activePermissionLease();
+        const perm2 = lease
+          ? checkRulesWithLease(
+              call.name,
+              ctx.permissions,
+              tool.dangerLevel ?? 'write',
+              lease,
+              JSON.stringify(modified ?? null),
+            )
+          : checkPermission(call.name, ctx.permissions);
+        if (!perm2.allowed) {
+          // 规则拒绝是真实"说不":gate/decider 与首过同形,审计行如实可记。
+          const denial = buildToolDenial({
+            gate: 'permission-rule',
+            decider: 'rule-deny',
+            tool: call.name,
+            args: modified,
+          });
+          auditToolDenial(denial);
+          const ruleMsg = perm2.reason ?? `工具 ${call.name} 被权限规则拒绝`;
+          return {
+            success: false,
+            output: '',
+            error: `${ruleMsg}\n${denialErrorSuffix(denial)}`,
+            errorType: 'permission_denied',
+            denial,
+          };
+        }
+        driftedAfterModify = 'approvalState' in perm2 && perm2.approvalState === 'content-drifted';
+      }
+      // ③ 待判格④(上游 permission-input-recheck.ts:71-83 对"重判得 ask 但非 project-rule"
+      //    选择不回问/静默放行,其注释未声明是否故意):我方**禁止抄这一格的静默** ——
+      //    重判后是否仍须人批,一律以 requiresUserConfirmation(工具契约 + 改后漂移面)为准:
+      //    须批 ⇒ 回人工确认窗(人在窗里看到的就是改后输入),无确认渠道 ⇒ 拒,两个方向都不静默。
+      call.arguments = recheck && recheck.coercedFields.length > 0 ? recheck.coerced : { ...modified };
+      leaseContentDrifted = driftedAfterModify;
+      // modify ≠ allow(反向锁):改写不改授权,是否还要窗由下方用改后状态重判决定。
+    } else if (hookRes.permission === 'allow') {
+      // 钩子替人应答确认窗(票意:"测试环境自动 allow")。放行仍走下方披露记账路径,可追溯。
+      hookApproved = true;
+    }
+    // 'ask' / 无应答 ⇒ 落回原人工窗(下方,逐字不变)。
+  }
+  if (requiresUserConfirmation(tool, leaseContentDrifted)) {
+    const allowed = hookApproved || (ctx.confirmDangerous ? await ctx.confirmDangerous(tool, call.arguments) : false);
     // 披露面(L7905 收口):只记账不改判定 —— 放行路径(会话级 flag / 回调自批)可追溯
     if (allowed) {
       noteDangerousApproval(ctx.allowDangerous === true, tool.name);
@@ -1078,6 +1215,8 @@ export async function executeWithRetry(
         success: false,
         output: '',
         error: err instanceof Error ? err.message : String(err),
+        // G-710:抛出方给码(ToolError)⇒ 码直进 errorType,文本档只在该码缺席时兜底(下方 ?? 链)。
+        ...(err instanceof ToolError ? { errorType: err.code } : {}),
       };
     }
     // P1-4 仅对可重试错误类型进行重试,避免对 permission/unknown 等无效重试
@@ -1096,63 +1235,27 @@ export async function executeWithRetry(
 
 // ==================== P1-4 Error classification ====================
 
-export type ErrorType =
-  | 'rate_limited'
-  | 'timeout'
-  | 'permission'
-  | 'not_found'
-  | 'network'
-  | 'unknown';
+/**
+ * 错误分级词表(G-710 收口后与 `failure-classification.ts` 的失败码闭集对齐):
+ * 六档既有档逐字保留;新增档(cancelled/driver/context_limit/client_error/parse)只来自
+ * 抛出方显式给码(`ToolError`),文本兜底不会产出它们。
+ */
+export type ErrorType = FailureCode;
 
-/** 根据错误文本启发式分类错误类型(大小写不敏感)。 */
+/**
+ * G-710:classifyError 降级为**只在无码时兜底**的文本档 —— 判据字面量全部搬进
+ * `failure-classification.ts` 的数据表(逐字未变),且每一次兜底使用都按站点计数报名
+ * (站点 'tools/classifyError',台账见 `getFailureFallbackStats`)。
+ * 有码路径不经本函数:handler 抛 `ToolError` ⇒ 码直进 errorType(见 executeWithRetry),
+ * handler 自报 errorType ⇒ `??` 短路同样不经本函数。
+ */
 export function classifyError(error?: string | null): ErrorType {
-  const e = (error ?? '').toLowerCase();
-  if (
-    e.includes('rate limit') ||
-    e.includes('限流') ||
-    e.includes('too many requests') ||
-    e.includes('429')
-  )
-    return 'rate_limited';
-  if (
-    e.includes('timeout') ||
-    e.includes('timed out') ||
-    e.includes('超时') ||
-    e.includes('etimedout')
-  )
-    return 'timeout';
-  if (
-    e.includes('permission denied') ||
-    e.includes('access forbidden') ||
-    e.includes('权限不足') ||
-    e.includes('操作被拒绝') ||
-    e.includes('eacces') ||
-    e.includes('eperm')
-  )
-    return 'permission';
-  if (
-    e.includes('not found') ||
-    e.includes('enoent') ||
-    e.includes('不存在') ||
-    e.includes('no such file')
-  )
-    return 'not_found';
-  if (
-    e.includes('network error') ||
-    e.includes('econnreset') ||
-    e.includes('econnrefused') ||
-    e.includes('fetch failed') ||
-    e.includes('连接被拒绝') ||
-    e.includes('enotfound') ||
-    e.includes('epipe')
-  )
-    return 'network';
-  return 'unknown';
+  return classifyFailureText(error, 'tools/classifyError').code;
 }
 
-/** 判断错误类型是否可重试(network/timeout/rate_limited)。 */
+/** 判断错误类型是否可重试(network/timeout/rate_limited)—— 口径逐字未变,改读闭集(G-710)。 */
 export function isRetryableErrorType(errorType: string | undefined): boolean {
-  return errorType === 'network' || errorType === 'timeout' || errorType === 'rate_limited';
+  return errorType !== undefined && RETRYABLE_FAILURE_CODES.has(errorType as FailureCode);
 }
 
 /** 判断错误类型是否为致命错误(仅 permission)。 */
