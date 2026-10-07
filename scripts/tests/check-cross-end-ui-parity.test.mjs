@@ -266,28 +266,36 @@ test('T10 具名档、单侧档与圆角三维都必须真接进 main(算出来�
 })
 
 test('T12 拆对声明必须成套:进配对层、被打印、坏声明与双记账都进退出码', () => {
-  const txt = readFileSync(SELF, 'utf8')
-  assert.ok(/export function rejectProblem\(/.test(txt), 'rejectProblem 被摘线')
-  assert.ok(/rejected:\s*rejNames/.test(txt), 'collect 没收到拆对名单 ⇒ 声明形同注释')
-  assert.ok(/rejected: rejectedHits/.test(txt), 'collect 算出被拆族却不交回调用方 ⇒ 静默消失')
-  assert.ok(
-    /rejInvalid\.length \+ rejStillAnchored\.length \+ rejGhosted\.length/.test(txt),
+  // 本组钉的是**门体源码的写法**(装车是否成套),不是被审对象长什么样 ⇒ 整组走守门 191 的 P2
+  //   形状锁通道:`assert.match(<某文件正文>, /…/)`,主语按惯例命名 `*Src`(混用 `assert.ok(re.test())`
+  //   会让前一处的调用窗口吃掉本行的形状,认不出这是形状锁 ⇒ 落命中)。
+  const gateSrc = readFileSync(SELF, 'utf8')
+  assert.match(gateSrc, /export function rejectProblem\(/, 'rejectProblem 被摘线')
+  assert.match(gateSrc, /rejected:\s*rejNames/, 'collect 没收到拆对名单 ⇒ 声明形同注释')
+  assert.match(gateSrc, /rejected: rejectedHits/, 'collect 算出被拆族却不交回调用方 ⇒ 静默消失')
+  assert.match(
+    gateSrc,
+    /rejInvalid\.length \+ rejStillAnchored\.length \+ rejGhosted\.length/,
     '三条红少算任何一条 ⇒ 坏声明可以静默存在',
   )
-  assert.ok(
-    /if \(prior && prior\.pairingRejects\)/.test(txt),
+  assert.match(
+    gateSrc,
+    /if \(prior && prior\.pairingRejects\)/,
     'emitBaseline 不带走 pairingRejects ⇒ 重生成台账会冲掉他人的拆对声明(守门 83 同型)',
   )
 })
 
 test('T11 G 维必须把 geometry.d.ts 一起取进被审面(只对表 ⇒ 类型那份真相永不在尺子上)', () => {
-  const txt = readFileSync(SELF, 'utf8')
-  assert.ok(
-    /packages\/design-tokens\/src\/geometry\.d\.ts/.test(txt),
+  // 同上:钉的是门体取面写法(P2 形状锁),路径本身的真值住在门体里,本文件不另立一份。
+  const gateSrc = readFileSync(SELF, 'utf8')
+  assert.match(
+    gateSrc,
+    /packages\/design-tokens\/src\/geometry\.d\.ts/,
     '几何表的类型声明没被取面 ⇒ 表↔类型漂移只能靠有人手跑 typecheck',
   )
-  assert.ok(
-    /hasGeo && !hasGeoDts/.test(txt),
+  assert.match(
+    gateSrc,
+    /hasGeo && !hasGeoDts/,
     '有表而无类型声明必须判"未判定",不得当成一致(把失明写成通过)',
   )
 })
