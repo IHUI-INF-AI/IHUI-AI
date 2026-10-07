@@ -619,6 +619,10 @@ export function ChatScreen() {
         const title = conversationMetaLedger.titleFor(item.id, item.title)
         return title === item.title ? item : { ...item, title }
       }),
+    // broadcastMetaVersion 是账本(外部 store)的递增凭证:本体经 conversationMetaLedger.titleFor
+    // 读它,而这条判据只看标识符有没有出现在体内,看不见跨模块的 store 读。
+    // 删掉它 ⇒ 另一端改完标题,本端抽屉不重算(D153b 的呈现面就没了)。
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 外部 store 版本作失效凭证,理由见上三行
     [drawerConversations, broadcastMetaVersion],
   )
 
@@ -1954,6 +1958,7 @@ export function ChatScreen() {
       handleLongPressMessage,
       rateMessage,
       retryLastTurn,
+      workspaceTier,
       t,
     ],
   )

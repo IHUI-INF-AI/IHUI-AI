@@ -332,7 +332,6 @@ export function ScanLoginDialog({
       cancelTaskIfNotScanned()
       cancelPrewarm()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   React.useEffect(() => {
@@ -889,6 +888,7 @@ export function ScanLoginDialog({
               {qrUrl ? (
                 // 二维码由后端截取登录页后逐帧更新(qr_updated_at 变一次取一帧);
                 // 用 blob 而不是裸 URL,是因为 /qr 那一口要带 Authorization。
+                // eslint-disable-next-line @next/next/no-img-element -- 后端逐帧截屏、带鉴权 fetch 取回的 blob 二维码,next/image 需要可优化 URL 与固定尺寸,均不适用
                 <img
                   src={qrUrl}
                   alt={t('accounts.scanLoginQrAlt')}

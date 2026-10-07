@@ -301,11 +301,14 @@ export function ToolApprovalDialog() {
   stateRef.current = state
 
   // 把"现在正等谁决策"发布给同页订阅者(D71 徽章的 waitingConfirm)。
+  // 先取成变量再进依赖:`[state.current]` 是成员表达式,判据认不出它是渲染期算出的值,
+  // 会连 `state` 整块要进去(那会让 queue/sending 的变化也重发一次审批状态)。
+  const pendingApproval = state.current
   // 卸载时必须清一次:弹窗被路由切换摘掉而审批还没答完时,留着旧值会让徽章永远显示
   // "等你确认" —— 那比"看不见"更糟,因为它是个假事实。
   React.useEffect(() => {
-    publishToolApprovalPending(state.current)
-  }, [state.current])
+    publishToolApprovalPending(pendingApproval)
+  }, [pendingApproval])
   React.useEffect(
     () => () => {
       publishToolApprovalPending(null)
