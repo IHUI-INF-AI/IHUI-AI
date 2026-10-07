@@ -92,7 +92,7 @@ miniapp-taro / mobile-rn / cli / extension / api 各包:  ide.topBar 均不存�
 web 取词按 `apps/web/src/i18n/request.ts` 做 `mergeMessages(shared, web)`(端覆盖 shared),
 两侧都有 `topBar` **顶层**块与 `ide.topBar` 是不同路径,删除 `ide.topBar.<leaf>` 不触碰它们。
 
-离线包:`apps/miniapp-taro/scripts/gen-i18n-compressed.mjs` :54-56 的取材是
+离线包:`scripts/gen-i18n-compressed.mjs` :106 的取材是(G-815923 搬迁后锚定根 scripts/,行号随迁已核)
 `mergeMessages(loadJson('shared', …), loadJson('miniapp-taro', …))` — **不含 web 包**;
 且五个包都没有 `ide` 块 ⇒ 本票删除结构上不可能改写 `src/i18n/generated/remote-locales.gen.ts`,
 **无需 `pnpm --filter @ihui/miniapp-taro gen:i18n`**(根 `package.json` 里没有 `gen:i18n`,端内脚本名才是它)。

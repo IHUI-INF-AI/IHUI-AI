@@ -228,7 +228,7 @@ $ git grep -c "searchWithQuery"   HEAD -- apps packages | grep -v packages/i18n 
 3. 五语**同一对象层**逐语删同名键(禁只删 zh-CN;守门 2/2b–2e 会打 parity/字形/残留)。
    注意同层重复键(守门 `2e-dupns`)。
 4. 重生成小程序离线包:**权威入口实测为 `pnpm --filter @ihui/miniapp-taro gen:i18n`**
-   (= `apps/miniapp-taro/scripts/gen-i18n-compressed.mjs`,自带水印注入;根 `package.json`
+   (= `scripts/gen-i18n-compressed.mjs`,G-815923 搬迁后锚定根 scripts/,自带水印注入;根 `package.json`
    **没有** `gen:i18n` 这个脚本 —— 实测取键得 `(absent)`,别按文档里的裸 `pnpm gen:i18n` 跑,
    那条在本机跑不通)。缺这一步守门 56 `check-tool-display-resolvable` 的 W4 会红。
 5. 该跑的门(逐条取退出码,勿用管道 `$?`):

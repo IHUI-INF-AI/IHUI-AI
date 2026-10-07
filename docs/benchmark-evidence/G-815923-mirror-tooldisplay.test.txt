@@ -1,0 +1,40 @@
+#EVIDENCE-CMD: node --test scripts/tests/check-tool-display-resolvable.test.mjs
+#EVIDENCE-LABEL: mirror tests: check-tool-display-resolvable.test.mjs
+#EVIDENCE-START: 2026-10-07T08:00:38.298Z
+✔ mergeMessages 保留仅存在于 override 的顶层命名空间(CLI 踩过的坑) (1.0714ms)
+✔ extractDisplayKeys 只认词表对象字面量里的映射行 (0.2274ms)
+✔ remoteLocaleList 从生成器源码取远程语言(离线包不含 zh-CN) (0.1935ms)
+✔ decodeTaroBundle 认裸键与加引号键,并对坏载荷返回 null(不假装通过) (1.2108ms)
+✔ extractMcpActivityKeys 只认 toolMcp 前缀的登记键,并对结构变更显式抛错 (0.4345ms)
+✖ 装车证明:真仓 MCP 三层表的每个登记键都在 5 语言 shared taskStatus 取到值 (150.6443ms)
+✔ F1 faceFromArgv 默认必须是 head,四态齐全(把默认面改回磁盘的那一刻本条必红) (0.2407ms)
+✔ F2 readFaceInputs 三面各读各的:索引坏 / 磁盘好 / HEAD 好 ⇒ 三份内容互异 (671.1395ms)
+✔ F3 CLI 三面各判各的:索引漂而磁盘好 ⇒ 默认绿、--staged 红、--worktree 绿;两面旗同给 ⇒ exit 2 (1101.9159ms)
+✔ F4 形状锁:门本体不得再按磁盘读仓库内容,取材必须走共用层 (1.0864ms)
+✔ F5a failureTargetRel:三种 where 前缀各映射到裸仓根相对路径,认不出 ⇒ null(不猜) (1.0394ms)
+✔ F5b 端到端:真红输出经铰链导出判据可点名本枚文件,且不误伤别人(点名而非巧合) (572.6909ms)
+✔ F5c 形状锁:失败行输出必须带"违规"字样(铰链结论行正则认它)与裸 rel 后缀 (0.3493ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 12
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2611.7065
+
+✖ failing tests:
+
+test at scripts\tests\check-tool-display-resolvable.test.mjs:140:1
+✖ 装车证明:真仓 MCP 三层表的每个登记键都在 5 语言 shared taskStatus 取到值 (150.6443ms)
+  Error: HEAD blob(全量审计) 取不到必需输入 scripts/gen-i18n-compressed.mjs ⇒ 无法判定(不记为通过)
+      at readFaceInputs (file:///G:/IHUI-AI/scripts/check-tool-display-resolvable.mjs:120:11)
+      at TestContext.<anonymous> (file:///G:/IHUI-AI/scripts/tests/check-tool-display-resolvable.test.mjs:141:18)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+#EVIDENCE-RC=1
+#EVIDENCE-END: 2026-10-07T08:00:40.956Z
