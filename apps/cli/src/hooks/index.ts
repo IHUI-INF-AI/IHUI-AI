@@ -158,8 +158,10 @@ export interface HookResult {
  *  - skipped    被信任门跳过(根本没执行)
  *  - timed-out  超时被杀,进程没写完退出码
  *  - no-result  没跑到 / 拿不到结果(spawn 失败、条目无载体、响应解析不出来)
+ *  - cancelled  被父级取消信号打断(G-424,2026-10-07 拍板"抄上游")—— 取消与
+ *               超时/失败不再同形;精确档落在下方事件层的 'Cancelled'
  */
-export type HookExecOutcome = 'ran' | 'skipped' | 'timed-out' | 'no-result';
+export type HookExecOutcome = 'ran' | 'skipped' | 'timed-out' | 'no-result' | 'cancelled';
 
 interface HookExecResult {
   exitCode: number;
@@ -229,6 +231,11 @@ export function classifyHookTerminal(
   blockOnError: boolean,
 ): HookTerminalState {
   if (outcome === 'skipped') return 'skipped';
+  // cancelled(G-424):被打断的钩子没有可引用的完成结果。冻结的 6 态值域不扩
+  // (tests/hook-terminal-states.test.ts 把 HOOK_TERMINAL_STATES 钉在 6),投影到
+  // result_unknown —— §30 的禁令是"不得渲染成完成",cancelled 天然满足;精确档
+  // 由事件层 HookRunOutcome='Cancelled' 承载,两层各有其职。
+  if (outcome === 'cancelled') return 'result_unknown';
   if (outcome === 'no-result') return 'result_unknown';
   if (exitCode === 0) return 'succeeded';
   if (outcome === 'timed-out') return 'timed_out';
@@ -248,6 +255,148 @@ const TERMINAL_SEVERITY: Readonly<Record<HookTerminalState, number>> = {
 function worseTerminal(a: HookTerminalState, b: HookTerminalState): HookTerminalState {
   return TERMINAL_SEVERITY[b] > TERMINAL_SEVERITY[a] ? b : a;
 }
+
+// ============================================================================
+// 钩子运行事件层(G-424,2026-10-07 拍板"抄上游")
+// 上游 hooks/runner-helpers.ts:78 分 TimedOut/Cancelled/Failed/Blocked,
+// runner.ts:186-232 每个钩子必发 started + 一个终态事件,runner.ts:334-379
+// 用 linkAbortSignal 把父 signal 接进超时。我方对应物(本段一处实现):
+//   - 事件:onHookRunEvent 订阅;dispatchHookEntry(见 runHookEntry 之后)是唯一
+//     派发收口,保证"每条**派发的**钩子恰好一对 started/terminal"(成功也不例外;
+//     被取消而不再派发的余下条目不发 —— 它们从未执行)。
+//   - 终态枚举:HookRunOutcome = 上游四档 + Succeeded + 我方 Skipped/Unknown 两档
+//     (信任门跳过与"没跑到"必须有诚实档位,否则不变量在全部路径上不成立)。
+//   - 取消:linkAbortSignal 把父 signal 与该条钩子的超时并进同一个 AbortController;
+//     取消的钩子落 'Cancelled',不再与超时/失败同形,且取消后余下条目不再派发。
+// 与 2026-09-29 终态层(HookTerminalState,冻结 6 态)的分界:那一层管"呈现侧完成
+// 判定",本层管"机器可读的逐条事件流";cancelled 在旧层投影为 result_unknown
+// (§30:不得渲染成完成),精确档只在本层。
+// ============================================================================
+
+/** 上游四档(TimedOut/Cancelled/Failed/Blocked)+ Succeeded,另加我方 Skipped/Unknown 两档(见上注)。 */
+export const HOOK_RUN_OUTCOMES = [
+  'Succeeded',
+  'TimedOut',
+  'Cancelled',
+  'Failed',
+  'Blocked',
+  'Skipped',
+  'Unknown',
+] as const;
+
+export type HookRunOutcome = (typeof HOOK_RUN_OUTCOMES)[number];
+
+/** 一次钩子派发的 started 事件:执行前发,只报身份不报结果。 */
+export interface HookRunStartedEvent {
+  type: 'started';
+  /** 所属钩子事件名(preToolCall/turnStart/…) */
+  hookEvent: string;
+  /** 钩子名(hooks.json 的 name) */
+  hook: string;
+}
+
+/** 一次钩子派发的终态事件:outcome 是机器可判档位,exitCode 是执行面原始观察。 */
+export interface HookRunTerminalEvent {
+  type: 'terminal';
+  hookEvent: string;
+  hook: string;
+  outcome: HookRunOutcome;
+  exitCode: number;
+}
+
+export type HookRunEvent = HookRunStartedEvent | HookRunTerminalEvent;
+export type HookRunListener = (event: HookRunEvent) => void;
+
+const hookRunListeners = new Set<HookRunListener>();
+
+/**
+ * 订阅钩子运行事件流(started/terminal 成对)。返回退订函数。
+ * 监听器抛错只吞不传导 —— 事件面是观察者不是判定者,它的故障不得改写钩子终态。
+ */
+export function onHookRunEvent(listener: HookRunListener): () => void {
+  hookRunListeners.add(listener);
+  return () => {
+    hookRunListeners.delete(listener);
+  };
+}
+
+function emitHookRunEvent(event: HookRunEvent): void {
+  for (const listener of hookRunListeners) {
+    try {
+      listener(event);
+    } catch {
+      // 吞掉:见 onHookRunEvent 注
+    }
+  }
+}
+
+/** 终态事件 outcome 的唯一判据(与 classifyHookTerminal 同一输入;Cancelled 是事件层精确档)。 */
+function runOutcomeOfExec(r: HookExecResult, blockOnError: boolean): HookRunOutcome {
+  if (r.outcome === 'cancelled') return 'Cancelled';
+  switch (classifyHookTerminal(r.outcome, r.exitCode, blockOnError)) {
+    case 'succeeded':
+      return 'Succeeded';
+    case 'timed_out':
+      return 'TimedOut';
+    case 'blocked':
+      return 'Blocked';
+    case 'non_blocking_error':
+      return 'Failed';
+    case 'skipped':
+      return 'Skipped';
+    case 'result_unknown':
+      return 'Unknown';
+  }
+}
+
+/**
+ * 上游 runner.ts:334-379 的 linkAbortSignal:把**父级取消信号**与**终止时限**并进同一个
+ * AbortController —— 父级取消与到时谁先到都走同一个 signal,执行面据此打断/分类。
+ *  - 父级已取消:立即返回已 abort 的 signal(不起定时器);
+ *  - 父级后取消:以父级原因 abort,并清掉时限定时器;
+ *  - 到时先到:以超时原因 abort(我方调用面把它当兜底,见 HOOK_ABORT_BACKSTOP_MS);
+ *  - 正常结束:调用方**必须** dispose()(清定时器 + 摘父级监听,不泄漏不挂进程)。
+ */
+export interface LinkedAbortSignal {
+  signal: AbortSignal;
+  dispose(): void;
+}
+
+const HOOK_ABORT_TIMEOUT_REASON = 'hook-timeout';
+
+export function linkAbortSignal(parent: AbortSignal | undefined, timeoutMs: number): LinkedAbortSignal {
+  const controller = new AbortController();
+  if (parent?.aborted) {
+    controller.abort(parent.reason);
+    return { signal: controller.signal, dispose() {} };
+  }
+  const timer = setTimeout(() => controller.abort(new Error(HOOK_ABORT_TIMEOUT_REASON)), timeoutMs);
+  const onParentAbort = () => {
+    clearTimeout(timer);
+    controller.abort(parent?.reason);
+  };
+  const onSettled = () => {
+    clearTimeout(timer);
+    parent?.removeEventListener('abort', onParentAbort);
+  };
+  controller.signal.addEventListener('abort', onSettled, { once: true });
+  parent?.addEventListener('abort', onParentAbort, { once: true });
+  return {
+    signal: controller.signal,
+    dispose() {
+      clearTimeout(timer);
+      parent?.removeEventListener('abort', onParentAbort);
+    },
+  };
+}
+
+/**
+ * link 定时器的兜底余量。派发面把 `entry.timeout + 本余量` 传给 linkAbortSignal:
+ * spawnSync 自带的原生 timeout 仍是主杀机制(到时给 ETIMEDOUT ⇒ timed-out),
+ * link 的到时只在原生机制没能收场时兜底 —— 两个计时器同值会在边界上竞速,
+ * 把"纯超时"误报成"取消",余量消掉这条竞态。
+ */
+const HOOK_ABORT_BACKSTOP_MS = 250;
 
 export interface SessionHookContext {
   workspacePath: string;
@@ -607,7 +756,7 @@ function extractWebhookVars(env: Record<string, string>): Record<string, string>
   };
 }
 
-function runWebhookSync(entry: HookEntry, env: Record<string, string>): HookExecResult {
+function runWebhookSync(entry: HookEntry, env: Record<string, string>, signal?: AbortSignal): HookExecResult {
   const timeout = entry.timeout ?? 10_000;
   const cfg = {
     url: entry.webhook,
@@ -617,14 +766,22 @@ function runWebhookSync(entry: HookEntry, env: Record<string, string>): HookExec
     timeout,
   };
   // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  // G-424:signal 由派发面经 linkAbortSignal 合成(父级取消 ∪ 兜底时限)。
   const result = spawnSync(process.execPath, ['-e', WEBHOOK_SCRIPT], {
     env: { ...buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS), ...env, IHUI_WEBHOOK_CFG: JSON.stringify(cfg) },
     encoding: 'utf-8',
     timeout: timeout + 3000,
     windowsHide: true,
     stdio: ['ignore', 'pipe', 'pipe'],
+    signal,
   });
   if (result.error && spawnErrorCode(result.error) !== 'ETIMEDOUT') {
+    // 父级取消杀掉承载进程(ABORT_ERR):取消 ≠ 失败,不能折成 no-result(那会把
+    // "没跑到"与"被取消"重新折回同形)。同线程阻塞期信号进不来,这一支只接
+    // "取消先于派发 / 取消落在收尾边界"两格;mid-run 打断是 spawnSync 的物理限制。
+    if (spawnErrorCode(result.error) === 'ABORT_ERR' && signal?.aborted) {
+      return { exitCode: 124, stdout: '', stderr: 'webhook 被父级取消信号打断', outcome: 'cancelled' };
+    }
     // 承载进程自己没起来 ⇒ "根本没跑到",不是"钩子失败"。旧写法把它折成 exit 1(与脚本
     // 主动非零退出同形),终态层落地后它是 result_unknown。ETIMEDOUT(超时杀)归下一支。
     return { exitCode: 1, stdout: '', stderr: `webhook 执行失败: ${result.error.message}`, outcome: 'no-result' };
@@ -728,6 +885,7 @@ function spawnErrorCode(err: Error | undefined): string | undefined {
 function runHookEntry(
   entry: HookEntry,
   env: Record<string, string>,
+  signal?: AbortSignal,
 ): HookExecResult {
   // 两种形态过**同一道**门:判据只写一份。webhook 的外泄面不比 command 小 ——
   // IHUI_TOOL_INPUT / IHUI_TOOL_OUTPUT 会被原样 POST 到配置里的外部 URL
@@ -746,6 +904,16 @@ function runHookEntry(
       outcome: 'no-result',
     };
   }
+  // 取消先于一切外部副作用(信任门/子进程):父级已取消就不再派发(G-424 拍板
+  // "取消打断")。exitCode 0 ⇒ 不会触发 blockOnError 的阻断语义;精确档由事件层报。
+  if (signal?.aborted) {
+    return {
+      exitCode: 0,
+      stdout: '',
+      stderr: '父级取消信号已到,钩子未执行',
+      outcome: 'cancelled',
+    };
+  }
   const skipReason = hookTrustSkipReason(entry);
   if (skipReason) {
     // 跳过 ≠ 失败:exitCode 必须给 0。返回非 0 会让 blockOnError 的钩子反过来
@@ -759,7 +927,7 @@ function runHookEntry(
     return { exitCode: 0, stdout: '', stderr: skipReason, outcome: 'skipped' };
   }
   if (entry.webhook) {
-    return runWebhookSync(entry, env);
+    return runWebhookSync(entry, env, signal);
   }
   const result = spawnSync(entry.command!, {
     shell: true,
@@ -769,8 +937,20 @@ function runHookEntry(
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
+    // G-424:父级取消 ∪ 兜底时限合成信号(linkAbortSignal);原生 timeout 仍是主杀机制。
+    signal,
   });
   if (result.error && spawnErrorCode(result.error) !== 'ETIMEDOUT') {
+    // 父级取消(ABORT_ERR)≠ 启动失败:不能折成 no-result。status 必为 null
+    // (进程被杀,没写退出码),与下一支的"没写完退出码"同一观察面。
+    if (spawnErrorCode(result.error) === 'ABORT_ERR' && signal?.aborted) {
+      return {
+        exitCode: 124,
+        stdout: typeof result.stdout === 'string' ? result.stdout.trim() : '',
+        stderr: '钩子被父级取消信号打断',
+        outcome: 'cancelled',
+      };
+    }
     // spawn 层面就没起来(ENOENT/EPERM 这类)⇒ 钩子脚本从未执行,"未取到结果"。
     // 旧写法折成 exit 1,与"脚本跑了并失败"同形。ETIMEDOUT 不在这支:那是"跑起来了
     // 但被超时杀掉"(本机实测 Windows shell 形态三件套:error.code=ETIMEDOUT + signal
@@ -787,6 +967,18 @@ function runHookEntry(
   // signal==='SIGTERM' 且把 error 分支让位给"失败",换杀法/换平台就退回假形;
   // 按"没写完退出码"判更准,且 124 的既有映射逐字保留。
   if (result.status === null) {
+    // 取消优先于超时(取消先落在收尾边界时,父级原因才是"为什么没写完退出码"的答案;
+    // 事件层据此报 'Cancelled' 而不是 'TimedOut' —— 拍板点名的同形拆分就在这一格)。
+    if (signal?.aborted) {
+      return {
+        exitCode: 124,
+        stdout: typeof result.stdout === 'string' ? result.stdout.trim() : '',
+        stderr: typeof result.stderr === 'string' && result.stderr.trim() !== ''
+          ? result.stderr.trim()
+          : '钩子在写下退出码前被父级取消信号打断',
+        outcome: 'cancelled',
+      };
+    }
     return {
       exitCode: 124,
       stdout: typeof result.stdout === 'string' ? result.stdout.trim() : '',
@@ -800,6 +992,54 @@ function runHookEntry(
     stderr: typeof result.stderr === 'string' ? result.stderr.trim() : '',
     outcome: 'ran',
   };
+}
+
+/** dispatchHookEntry 的产出:执行观察 + 旧终态层投影 + 事件层精确档。 */
+interface DispatchedHook {
+  result: HookExecResult;
+  /** 旧终态层(cancelled 投影为 result_unknown)—— 呈现侧完成判定继续走这一层 */
+  state: HookTerminalState;
+  /** 事件层精确档(cancelled → 'Cancelled') */
+  outcome: HookRunOutcome;
+}
+
+/**
+ * 单条钩子的**派发收口**(G-424):started 事件 → 执行 → 终态分类 → terminal 事件。
+ * 全部 run* 入口(pre/postToolCall、sessionStart/End、runHook)都只经这一个函数派发,
+ * "每条派发的钩子恰好一对 started/terminal"由结构保证,不靠各调用点自觉。
+ *
+ * parentSignal 非空时经 linkAbortSignal 并入本条时限(父级取消 ∪ 兜底时限),用毕立即
+ * dispose;原生 timeout 仍是主杀机制,link 到时只兜底(HOOK_ABORT_BACKSTOP_MS)。
+ * matchTool 过滤掉的条目**不算派发**:不执行也不发事件 —— 事件流计的就是真跑过的钩子。
+ */
+function dispatchHookEntry(
+  hookEvent: string,
+  entry: HookEntry,
+  env: Record<string, string>,
+  blockOnError: boolean,
+  parentSignal?: AbortSignal,
+): DispatchedHook {
+  emitHookRunEvent({ type: 'started', hookEvent, hook: entry.name });
+  const link =
+    parentSignal === undefined
+      ? undefined
+      : linkAbortSignal(parentSignal, (entry.timeout ?? 10_000) + HOOK_ABORT_BACKSTOP_MS);
+  let result: HookExecResult;
+  try {
+    result = runHookEntry(entry, env, link?.signal);
+  } finally {
+    link?.dispose();
+  }
+  const state = classifyHookTerminal(result.outcome, result.exitCode, blockOnError);
+  const outcome = runOutcomeOfExec(result, blockOnError);
+  emitHookRunEvent({
+    type: 'terminal',
+    hookEvent,
+    hook: entry.name,
+    outcome,
+    exitCode: result.exitCode,
+  });
+  return { result, state, outcome };
 }
 
 /** 钩子文本(阻断 reason 与回传 feedback 共用的**唯一**上限常量,上一票立的原样保留)。 */
@@ -897,20 +1137,25 @@ function feedbackForEntry(
   });
 }
 
-export function runPreToolCall(toolName: string, input: unknown): HookResult {
+export function runPreToolCall(toolName: string, input: unknown, signal?: AbortSignal): HookResult {
   const config = loadHooks();
   const hooks = config.preToolCall ?? [];
   const feedbackLines: string[] = [];
   let worst: HookTerminalState = 'succeeded';
   for (const entry of hooks) {
     if (!matchesTool(entry, toolName)) continue;
-    const r = runHookEntry(entry, {
-      IHUI_HOOK_TYPE: 'preToolCall',
-      IHUI_TOOL: toolName,
-      IHUI_TOOL_INPUT: JSON.stringify(input ?? {}),
-    });
     const blockOnError = entry.blockOnError ?? true;
-    const state = classifyHookTerminal(r.outcome, r.exitCode, blockOnError);
+    const { result: r, state } = dispatchHookEntry(
+      'preToolCall',
+      entry,
+      {
+        IHUI_HOOK_TYPE: 'preToolCall',
+        IHUI_TOOL: toolName,
+        IHUI_TOOL_INPUT: JSON.stringify(input ?? {}),
+      },
+      blockOnError,
+      signal,
+    );
     if (state !== 'succeeded') {
       worst = worseTerminal(worst, state);
       feedbackLines.push(feedbackForEntry('preToolCall', entry, state, r));
@@ -925,24 +1170,31 @@ export function runPreToolCall(toolName: string, input: unknown): HookResult {
         feedback: joinHookFeedback(feedbackLines),
       };
     }
+    // 取消打断(G-424):父级已取消,余下条目不再派发 —— 不再等每条的完整超时。
+    if (signal?.aborted) break;
   }
   return { proceed: true, terminal: worst, feedback: joinHookFeedback(feedbackLines) };
 }
 
-export function runPostToolCall(toolName: string, output: unknown): HookResult {
+export function runPostToolCall(toolName: string, output: unknown, signal?: AbortSignal): HookResult {
   const config = loadHooks();
   const hooks = config.postToolCall ?? [];
   const feedbackLines: string[] = [];
   let worst: HookTerminalState = 'succeeded';
   for (const entry of hooks) {
     if (!matchesTool(entry, toolName)) continue;
-    const r = runHookEntry(entry, {
-      IHUI_HOOK_TYPE: 'postToolCall',
-      IHUI_TOOL: toolName,
-      IHUI_TOOL_OUTPUT: JSON.stringify(output ?? {}),
-    });
     const blockOnError = entry.blockOnError ?? false;
-    const state = classifyHookTerminal(r.outcome, r.exitCode, blockOnError);
+    const { result: r, state } = dispatchHookEntry(
+      'postToolCall',
+      entry,
+      {
+        IHUI_HOOK_TYPE: 'postToolCall',
+        IHUI_TOOL: toolName,
+        IHUI_TOOL_OUTPUT: JSON.stringify(output ?? {}),
+      },
+      blockOnError,
+      signal,
+    );
     if (state !== 'succeeded') {
       worst = worseTerminal(worst, state);
       feedbackLines.push(feedbackForEntry('postToolCall', entry, state, r));
@@ -955,22 +1207,28 @@ export function runPostToolCall(toolName: string, output: unknown): HookResult {
         feedback: joinHookFeedback(feedbackLines),
       };
     }
+    if (signal?.aborted) break;
   }
   return { proceed: true, terminal: worst, feedback: joinHookFeedback(feedbackLines) };
 }
 
-export function runSessionStartHooks(config: HooksConfig | null, ctx: SessionHookContext): HookResult {
+export function runSessionStartHooks(config: HooksConfig | null, ctx: SessionHookContext, signal?: AbortSignal): HookResult {
   if (!config?.sessionStart) return { proceed: true };
   const feedbackLines: string[] = [];
   let worst: HookTerminalState = 'succeeded';
   for (const entry of config.sessionStart) {
-    const r = runHookEntry(entry, {
-      IHUI_HOOK_TYPE: 'sessionStart',
-      IHUI_WORKSPACE: ctx.workspacePath,
-      IHUI_SESSION_ID: ctx.sessionId ?? '',
-    });
     const blockOnError = entry.blockOnError ?? true;
-    const state = classifyHookTerminal(r.outcome, r.exitCode, blockOnError);
+    const { result: r, state } = dispatchHookEntry(
+      'sessionStart',
+      entry,
+      {
+        IHUI_HOOK_TYPE: 'sessionStart',
+        IHUI_WORKSPACE: ctx.workspacePath,
+        IHUI_SESSION_ID: ctx.sessionId ?? '',
+      },
+      blockOnError,
+      signal,
+    );
     if (state !== 'succeeded') {
       worst = worseTerminal(worst, state);
       feedbackLines.push(feedbackForEntry('sessionStart', entry, state, r));
@@ -983,20 +1241,27 @@ export function runSessionStartHooks(config: HooksConfig | null, ctx: SessionHoo
         feedback: joinHookFeedback(feedbackLines),
       };
     }
+    if (signal?.aborted) break;
   }
   return { proceed: true, terminal: worst, feedback: joinHookFeedback(feedbackLines) };
 }
 
-export function runSessionEndHooks(config: HooksConfig | null, ctx: SessionHookContext): void {
+export function runSessionEndHooks(config: HooksConfig | null, ctx: SessionHookContext, signal?: AbortSignal): void {
   if (!config?.sessionEnd) return;
   for (const entry of config.sessionEnd) {
     try {
-      const r = runHookEntry(entry, {
-        IHUI_HOOK_TYPE: 'sessionEnd',
-        IHUI_WORKSPACE: ctx.workspacePath,
-        IHUI_SESSION_ID: ctx.sessionId ?? '',
-      });
-      const state = classifyHookTerminal(r.outcome, r.exitCode, entry.blockOnError ?? false);
+      const blockOnError = entry.blockOnError ?? false;
+      const { result: r, state } = dispatchHookEntry(
+        'sessionEnd',
+        entry,
+        {
+          IHUI_HOOK_TYPE: 'sessionEnd',
+          IHUI_WORKSPACE: ctx.workspacePath,
+          IHUI_SESSION_ID: ctx.sessionId ?? '',
+        },
+        blockOnError,
+        signal,
+      );
       if (state !== 'succeeded') {
         // sessionEnd 今天没有返回面 —— 终态只能喊在 stderr 上,静默吞掉正是 §30 那一型。
         warnOnce(
@@ -1004,6 +1269,7 @@ export function runSessionEndHooks(config: HooksConfig | null, ctx: SessionHookC
             ` ${feedbackForEntry('sessionEnd', entry, state, r)}`,
         );
       }
+      if (signal?.aborted) break;
     } catch (err) {
       // sessionEnd 失败不阻塞退出,但"没取到结果"必须落一个明确终态并喊出来。
       const note = err instanceof Error ? err.message : String(err);
@@ -1055,7 +1321,14 @@ function buildHookEnv(event: HookEvent, ctx: HookContext): Record<string, string
  * "渲染成完成":外层异常与"条目没载体"都落 result_unknown,并同时喊在 stderr 与
  * feedback 行上(§30"钩子无终态不得渲染成'完成'"的落点)。
  */
-export function runHook(event: HookEvent, ctx: HookContext): HookResult {
+/** runHook 的可选面(G-424):父级取消信号从这里进,逐条经 linkAbortSignal 并入时限。 */
+export interface RunHookOptions {
+  /** 父级取消信号:取消后余下条目不再派发,被打断的钩子落事件层 'Cancelled'。 */
+  signal?: AbortSignal;
+}
+
+export function runHook(event: HookEvent, ctx: HookContext, options?: RunHookOptions): HookResult {
+  const signal = options?.signal;
   try {
     const config = loadHooks();
     const hooks = config[event] ?? [];
@@ -1064,9 +1337,8 @@ export function runHook(event: HookEvent, ctx: HookContext): HookResult {
     let worst: HookTerminalState = 'succeeded';
     for (const entry of hooks) {
       if (isToolEvent(event) && ctx.toolName && !matchesTool(entry, ctx.toolName)) continue;
-      const r = runHookEntry(entry, env);
       const blockOnError = entry.blockOnError ?? defaultBlockOnError(event);
-      const state = classifyHookTerminal(r.outcome, r.exitCode, blockOnError);
+      const { result: r, state } = dispatchHookEntry(event, entry, env, blockOnError, signal);
       if (state !== 'succeeded') {
         worst = worseTerminal(worst, state);
         feedbackLines.push(feedbackForEntry(event, entry, state, r));
@@ -1080,6 +1352,8 @@ export function runHook(event: HookEvent, ctx: HookContext): HookResult {
           feedback: joinHookFeedback(feedbackLines),
         };
       }
+      // 取消打断(G-424):同 runPreToolCall。
+      if (signal?.aborted) break;
     }
     return { proceed: true, terminal: worst, feedback: joinHookFeedback(feedbackLines) };
   } catch (err) {
