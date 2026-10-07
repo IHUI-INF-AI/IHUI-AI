@@ -46,6 +46,21 @@ export function isSameOriginRelative(target: string): boolean {
 const SAFE_NAVIGATION_PROTOCOLS = new Set(['http:', 'https:'])
 
 /**
+ * env `SSO_ALLOWED_DEEP_LINK_SCHEMES` 对账入口(G-387,2026-10-07,承 G-413 同型残余③)。
+ * 深链 scheme 白名单的权威登记表在服务端 `apps/api/src/routes/auth-sso.ts`(env 缺席时默认
+ * `ihui`)—— 这里读**同一份 env 名**,不复制清单字面量(登记表必然腐烂的教训见下)。
+ * env 未配置 / 空串 / 纯逗号 ⇒ undefined(= 默认档判据逐字不变:只判协议族 + host)。
+ * 每次调用现读、不模块顶缓存:测试与部署侧改 env 立即生效,不引入加载顺序坑。
+ * 浏览器端非 NEXT_PUBLIC env 恒为 undefined ⇒ 客户端永远走默认档,行为与本对账落地前逐字相同。
+ */
+function allowedDeepLinkSchemesFromEnv(): readonly string[] | undefined {
+  const raw = process.env.SSO_ALLOWED_DEEP_LINK_SCHEMES
+  if (!raw) return undefined
+  const schemes = raw.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
+  return schemes.length > 0 ? schemes : undefined
+}
+
+/**
  * "会在本站源里执行代码 / 取回本地字节"的那一族协议。
  * 单独列一份而不是"凡非 http(s) 即拒",是因为 `allowDeepLink` 这一档要放行**未知**自定义 scheme
  * (深链回 App),而这一族无论如何都不能放行 —— 两个集合不分开就会互相顶掉。
@@ -67,8 +82,9 @@ export interface SafeNavigationOptions {
    * 为什么需要开关:/sso/login 与 /sso/register 的回跳落点按设计含深链(generateCodeAndRedirect
    * 的 isCustomScheme 分支 + AGENTS.md §9 的 scheme 契约),对它们只能判"会不会在本站执行",
    * 不能判"是不是 http(s)" —— 后者会砍断 desktop/mobile 的 SSO 闭环。
-   * 深链**格式**的权威白名单(env `SSO_ALLOWED_DEEP_LINK_SCHEMES` + 必须有 host)在服务端
-   * `apps/api/src/routes/auth-sso.ts`,本开关刻意不复制那张表(登记表必然腐烂),只判协议族 + host。
+   * 深链 scheme 的权威白名单(env `SSO_ALLOWED_DEEP_LINK_SCHEMES`,默认 `ihui`)在服务端
+   * `apps/api/src/routes/auth-sso.ts`;本开关不复制那张表,而是经 `allowedDeepLinkSchemesFromEnv`
+   * 对账同一份 env(G-387,2026-10-07):env 在且非空 ⇒ scheme 必须命中清单;env 缺席 ⇒ 只判协议族 + host。
    */
   allowDeepLink?: boolean
   /**
@@ -124,7 +140,13 @@ export function isSafeNavigationTarget(target: string, options?: SafeNavigationO
     return origins === undefined || origins.includes(parsed.origin)
   }
   // 深链必须有 host(ihui:// 裸 scheme 打不开任何 App),与 auth-sso.ts 的深链校验同一条形状判据
-  return options?.allowDeepLink === true && Boolean(parsed.host)
+  if (options?.allowDeepLink !== true || !parsed.host) return false
+  // G-387,2026-10-07(承 G-413 同型残余③):此前这一格只判协议族 + host,与 env 白名单不对账,
+  // `evil://sso` 这类未登记 scheme 会被放行成深链落点。现在:env 在且非空 ⇒ scheme 必须命中
+  // `SSO_ALLOWED_DEEP_LINK_SCHEMES`;env 缺席 ⇒ 上一行的判据即全部(现行默认档逐字不变)。
+  const schemes = allowedDeepLinkSchemesFromEnv()
+  if (schemes === undefined) return true
+  return schemes.includes(parsed.protocol.replace(/:$/, '').toLowerCase())
 }
 
 /**
