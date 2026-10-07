@@ -3527,6 +3527,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     accumulated["model"] = evt.get("model", req.model)
                                     accumulated["usage"] = evt.get("usage")
                                     accumulated["stub"] = evt.get("stub", False)
+                                    # G-425(2026-10-07 立,默认档"只提示"):finish/stop
+                                    # reason 一并接住,流收尾随 done 帧下发;缺席不带键。
+                                    if evt.get("finishReason"):
+                                        accumulated["finishReason"] = evt["finishReason"]
                                 elif _evt_type == "fallback":
                                     # P4-2(2026-09-19 修复):llm_gateway 主模型失败切换备用
                                     # 模型时 yield {"type":"fallback",...};此前本循环只认
@@ -3591,6 +3595,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     "stub": accumulated["stub"],
                                     "memoryUpdates": _mem_updates,
                                 }
+                                # G-425:finishReason 透传(缺席不带键,不造值)
+                                if accumulated.get("finishReason"):
+                                    done_event["finishReason"] = accumulated["finishReason"]
                                 if req.metadata:
                                     done_event["metadata"] = req.metadata
                                 # W1(2026-09-12 立):最终回答前发一次 plan 快照(全部步骤已完成)
@@ -3690,6 +3697,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         "usage": evt.get("usage"),
                                         "stub": evt.get("stub", False),
                                     }
+                                    # G-425:finish/stop reason 一并接住(与第一轮同口径)
+                                    if evt.get("finishReason"):
+                                        complete_result["finishReason"] = evt["finishReason"]
                                 elif _evt_type == "fallback":
                                     # P4-2(2026-09-19 修复):同第一轮 —— 此前后续轮次的
                                     # fallback 事件同样被静默丢弃,原样转发给前端。
@@ -3742,6 +3752,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 accumulated["model"] = complete_result.get("model", req.model)
                                 accumulated["usage"] = complete_result.get("usage", {})
                                 accumulated["stub"] = complete_result.get("stub", False)
+                                # G-425:finishReason 随轮次结果拷进 accumulated(流收尾透传)
+                                if complete_result.get("finishReason"):
+                                    accumulated["finishReason"] = complete_result["finishReason"]
                                 # P1 #27(2026-09-16 立):done 前同步提炼本轮长期记忆,
                                 # 条目经 done.memoryUpdates 回传,前端渲染「已记住」提示条。
                                 _mem_updates = await _extract_memory_updates(
@@ -3761,6 +3774,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     "stub": accumulated["stub"],
                                     "memoryUpdates": _mem_updates,
                                 }
+                                # G-425:finishReason 透传(缺席不带键,不造值)
+                                if accumulated.get("finishReason"):
+                                    done_event["finishReason"] = accumulated["finishReason"]
                                 if req.metadata:
                                     done_event["metadata"] = req.metadata
                                 # W1(2026-09-12 立):最终回答前发一次 plan 快照(全部步骤已完成)
