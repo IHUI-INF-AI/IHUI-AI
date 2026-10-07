@@ -1,5 +1,0 @@
-INFO started
-ERROR db timeout
-WARN slow query
-ERROR cache miss
-INFO done
