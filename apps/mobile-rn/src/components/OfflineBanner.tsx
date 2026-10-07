@@ -6,7 +6,7 @@
 
 import { StyleSheet, Text, View } from 'react-native'
 import { WifiOff } from 'lucide-react-native'
-import { rnTokens, rnRadius } from '@ihui/design-tokens'
+import { rnTokens } from '@ihui/design-tokens'
 
 /**
  * 离线 Banner 组件(2026-07-22 P0 Round 5 鲁棒性加固)。
@@ -32,16 +32,12 @@ export function OfflineBanner({ isOnline }: OfflineBannerProps) {
 
 const styles = StyleSheet.create({
   wrapper: { alignItems: 'center', paddingVertical: 8 },
+  // 2026-10-07 用户定稿:不要胶囊底色/描边,直接在页面主背景上排图标 + 文字
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: rnTokens.error.bg,
-    borderColor: 'rgba(255, 51, 51, 0.35)',
-    borderWidth: 1,
-    borderRadius: rnRadius.md,
     paddingHorizontal: 16,
-    paddingVertical: 8,
   },
   text: { color: rnTokens.error.text, fontSize: 14, fontWeight: '500' },
 })
