@@ -67,6 +67,7 @@ function git(args, env) {
 function gitStdin(args, env, input) {
   return execFileSync('git', ['-c', 'safe.directory=*', ...args], {
     cwd: REPO,
+    stdio: ['pipe', 'pipe', 'pipe'],
     encoding: 'utf8',
     input,
     maxBuffer: 1 << 28,
