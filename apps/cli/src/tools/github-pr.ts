@@ -194,6 +194,7 @@ const gh_pr_list: Tool = {
     limit: { type: 'number', description: '最大返回数(默认 20)' },
   },
   required: [],
+  dangerLevel: 'read',
   async execute(args, ctx): Promise<ToolResult> {
     const state = (args.state as string) || 'open';
     const limit = typeof args.limit === 'number' ? args.limit : 20;
@@ -217,6 +218,7 @@ const gh_pr_view: Tool = {
     number: { type: 'number', description: 'PR 编号' },
   },
   required: ['number'],
+  dangerLevel: 'read',
   async execute(args, ctx): Promise<ToolResult> {
     const number = args.number;
     if (typeof number !== 'number') return { success: false, output: '', error: '缺少 number 参数(PR 编号)' };
@@ -452,6 +454,7 @@ const gh_issue_list: Tool = {
     assignee: { type: 'string', description: '指派人过滤' },
   },
   required: [],
+  dangerLevel: 'read',
   async execute(args, ctx): Promise<ToolResult> {
     const state = (args.state as string) || 'open';
     const labels = args.labels as string | undefined;
