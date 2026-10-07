@@ -20,13 +20,9 @@
  */
 import { createRequire } from 'node:module'
 import { normalizeModelId } from './lib/model-names.mjs'
-const require = createRequire(import.meta.url)
-const postgres = require('postgres')
 
 const args = process.argv.slice(2)
 const dryRun = args.includes('--dry-run')
-
-const sql = postgres(process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/ihui', { max: 4, prepare: false })
 
 // ============================================================================
 // 所有主流模型厂商 + 最新模型清单(2025-2026)
@@ -481,6 +477,11 @@ const PROVIDERS = [
 // ============================================================================
 
 async function main() {
+  // AGENTS §22d/批次 G2:建库连接只在 CLI 真正执行时发生,被 import 时零副作用。
+  const require = createRequire(import.meta.url)
+  const postgres = require('postgres')
+  const sql = postgres(process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/ihui', { max: 4, prepare: false })
+
   console.log(`\n========== 批量添加所有主流模型厂商 ${dryRun ? '(DRY-RUN)' : ''} ==========`)
   console.log(`待添加 ${PROVIDERS.length} 个厂商,共 ${PROVIDERS.reduce((s, p) => s + p.models.length, 0)} 个模型\n`)
 
@@ -557,10 +558,19 @@ async function main() {
   await sql.end()
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((e) => {
-    console.error('FATAL:', e?.message || e)
-    process.exit(2)
-  })
+import { pathToFileURL } from 'node:url'
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main()
+    .then(() => process.exit(0))
+    .catch((e) => {
+      console.error('FATAL:', e?.message || e)
+      process.exit(2)
+    })
+}
+
+// 该文件无判据单元(只有 PROVIDERS 数据表 + main 编排),按批次 G §2 规则 4 留空对象。
+export const __test__ = {}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
