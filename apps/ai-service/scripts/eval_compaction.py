@@ -53,7 +53,7 @@ import subprocess
 import sys
 from dataclasses import dataclass, field
 from datetime import date
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -105,7 +105,7 @@ class EvalConfigError(Exception):
     """评测集结构或语义不合法。"""
 
 
-class Verdict(str, Enum):
+class Verdict(StrEnum):
     """回答判定三态。"""
 
     PASS = "通过"
@@ -690,7 +690,7 @@ def build_report(
     lines.append(f"- 运行模式: {mode}")
     lines.append(f"- 状态: {status}")
     lines.append(f"- 压缩管线: {PIPELINE_LABEL}")
-    lines.append(f"- 管线参数: trigger=0.88 / target=0.60 / keep_recent=6(取生产模块现行默认值)")
+    lines.append("- 管线参数: trigger=0.88 / target=0.60 / keep_recent=6(取生产模块现行默认值)")
     lines.append(f"- LLM 通道: {llm_desc}")
     lines.append(f"- 任务数: {len(tasks)}(黄金集冻结于 compaction_eval/tasks.json)")
     lines.append("")

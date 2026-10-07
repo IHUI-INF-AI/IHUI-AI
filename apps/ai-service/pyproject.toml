@@ -156,7 +156,12 @@ ignore = [
 # 2026-09-10:bench golden fixtures 的 import 分节是刻意的人为布局(golden 参考实现
 # 的可读性优先),且 local ruff 与 CI ruff 对其 I001 判定曾出现环境性摇摆,
 # 显式豁免以消除双端口径分歧。
-"bench/fixtures_golden/**" = ["I001"]
+# 2026-10-07 追加:bench 评测夹具是**刻意的坏代码教具**,不是仓内代码 ——
+# fixture_convo-review-code-smells 的 bare except 就是"待发现的异味"本体;
+# fixture_convo-tools-test-scaffold 的 add/mul 未定义名是"让人补测试"的题目本体。
+# 对教具执行 lint 等于把教学内容当缺陷修,显式豁免。
+"bench/fixtures/**" = ["E722", "F821"]
+"bench/fixtures_golden/**" = ["E722", "F821", "I001"]
 
 # 2026-07-26 立:mypy 集成 typecheck:full CI(从 informational 升级为 blocking)
 # 2026-07-27 升级:strict=true(全库 0 errors 已达成,正式启用 strict 模式)
