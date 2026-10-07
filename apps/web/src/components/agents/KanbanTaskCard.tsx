@@ -41,13 +41,19 @@ export const STATUS_BADGE_CLASS: Record<AgentTaskStatus, string> = {
   ready: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400',
   in_progress: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
   blocked: 'bg-red-500/15 text-red-600 dark:text-red-400',
+  // G-462 拆档(2026-10-07 拍板):四终态脱离 blocked 独立成档,视觉必须与 blocked(红)可分 ——
+  // 「已取消/被抢占/配额超限」重跑大概率就好,「待解阻塞」要先解阻塞;「执行失败」看 errorMessage。
+  cancelled: 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
+  execution_failed: 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
+  quota_exceeded: 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
+  preempted: 'bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-400',
   done: 'bg-green-500/15 text-green-600 dark:text-green-400',
 }
 
 /**
  * "未识别"档的取样(独立呈现):刻意不复用任何已知档的颜色 ——
  * 借 done/blocked 的语义色就等于替一个没人认得的值判定成功或失败。
- * 中性灰只表达一件事:库里这个状态串不在六档内。
+ * 中性灰只表达一件事:库里这个状态串不在枚举档内。
  */
 export const UNRECOGNIZED_BADGE_CLASS = 'bg-muted text-muted-foreground'
 
@@ -99,7 +105,7 @@ export function KanbanTaskCard({ task, onSelect }: KanbanTaskCardProps) {
   const t = useTranslations('agents.kanban')
   const locale = useLocale()
   const level = getPriorityLevel(task.priority)
-  // 未识别档:原始状态串不在六档内(api 侧只在未识别时挂 rawStatus)。
+  // 未识别档:原始状态串不在枚举档内(api 侧只在未识别时挂 rawStatus)。
   // 这一档必须独立呈现:既不能落进 STATUS_BADGE_CLASS 的某个已知档(那才是"静默当成已知"),
   // 也不能把 rawStatus 当文案渲染(它是外部可写的值 —— 界面文案位就是注入面)。
   const unrecognized = isUnrecognizedKanbanTask(task)
@@ -134,10 +140,8 @@ export function KanbanTaskCard({ task, onSelect }: KanbanTaskCardProps) {
             >
               {unrecognized ? t(UNRECOGNIZED_LABEL_LEAF) : t(task.status)}
             </span>
-            {/* 2026-09-28 拍板:六档状态枚举不动,但被折叠成 blocked 的三种终态要能点名 ——
-                「已取消 / 配额超限 / 被抢占」重跑大概率就好,「待解阻塞」要先去解阻塞;
-                两者同形会把用户的下一步动作指错方向。文案键取自 @ihui/types 那一张表,
-                不在端内抄第二份名字表(§3 共享层优先)。 */}
+            {/* 2026-09-28 拍板:被折叠成 blocked 的终态要能点名;2026-10-07 拍板(G-462)四终态
+                已独立成档,本标记保留 —— 历史行(库里存 blocked+termination)与新档并存时仍能点名。 */}
             {task.termination && (
               <Tooltip content={t(terminationLabelSegment(task.termination))}>
                 <span
