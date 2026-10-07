@@ -160,11 +160,22 @@ export type HookActionConfig =
   | NotifyWebhookActionConfig
   | LogActionConfig
 
-/** Hook 动作 */
-export interface HookAction {
-  type: HookActionType
-  config: HookActionConfig
-}
+/**
+ * Hook 动作(G-1059133,2026-10-07):外层按 `type` 判别,五族 config 一一绑定各自 type。
+ *
+ * G-675 只守住了"config 内部不自相矛盾"(五族 `?: never`),外层此前仍是平铺的
+ * `{type: HookActionType; config: HookActionConfig}` —— config 单独合法即可整体合法,
+ * `{type:'script', config:{url}}` / `{type:'notify', config:{command}}` /
+ * `{type:'webhook', config:{message}}` 这类跨档错配全部编译通过。本票把外层补上:
+ * type 与 config 必须同族,错配在构造点即 TS2322。五族形状与 `?: never` 原样不动,
+ * 兼容面不缩(`config` 仍允许 `{}`;notify 的 webhook 渠道仍单列一形态)。
+ */
+export type HookAction =
+  | { type: 'webhook'; config: WebhookActionConfig }
+  | { type: 'script'; config: ScriptActionConfig }
+  // notify 绑两族:渠道非 webhook 走 NotifyActionConfig,channel='webhook' 走 NotifyWebhookActionConfig
+  | { type: 'notify'; config: NotifyActionConfig | NotifyWebhookActionConfig }
+  | { type: 'log'; config: LogActionConfig }
 
 /** 全部合法动作类型(用于 Zod enum + 前端下拉) */
 export const HOOK_ACTION_TYPES: readonly HookActionType[] = [
