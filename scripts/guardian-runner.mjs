@@ -4698,6 +4698,23 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 事务体内取消探测对账(db.transaction 回调体内不得 throwIfAborted/signal.aborted)(1 项,blocking)---
+  {
+    id: '195',
+    label:
+      '事务体内取消探测对账(db.transaction 回调体内不得 throwIfAborted/signal.aborted)',
+    script: 'check-txn-cancel-boundary.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_TXN_CANCEL_BOUNDARY',
+    stagedTriggers: ['apps/,packages/'],
+    onFailHint: [
+      '',
+      '取消检查必须落在事务边界外;紧急跳过 HUSKY_SKIP_TXN_CANCEL_BOUNDARY=1(跳过即放弃 G-815960 那格不变量,须在提交信息写明理由)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
