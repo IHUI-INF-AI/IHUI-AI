@@ -2045,19 +2045,18 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       marginHorizontal: 12,
     },
     // 2026-08-04:删除 thirdPartyTitle(冗余,分隔线"或"已足够分隔)
-    // 自适应居中网格:不同平台登录方式数量不同(国内安卓4/国内iOS5/国际版2),
-    // 用 justifyContent center + gap 让按钮居中排列,自动换行
-    // 6 平台一行约束:6×50 + 5×12 = 360 < 400 可用宽,不换行
+    // 单行约束(2026-10-07 用户定稿:快捷登录图标必须一行,不得换行孤挂):
+    // 6×48 + 5×8 = 328,360dp 窄屏(Redmi c12617d 实测可用 ~336)也放得下
     thirdPartyGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
       justifyContent: 'center',
-      gap: 12,
+      gap: 8,
     },
-    // 按钮容器:固定宽度 50(适配 36×36 大图标 + padding),不再用百分比
+    // 按钮容器:固定宽度 48(适配 36×36 大图标 + padding)
     thirdPartyBtn: {
-      width: 50,
-      height: 50,
+      width: 48,
+      height: 48,
       alignItems: 'center',
       justifyContent: 'center',
     },
