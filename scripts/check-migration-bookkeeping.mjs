@@ -98,7 +98,11 @@
  *   node scripts/check-migration-bookkeeping.mjs --require-idle # B10 由「只报」升为「判红」(CI / 巡检)
  *   node scripts/check-migration-bookkeeping.mjs --db          # 追加库校验
  *       (DSN 取自 $DATABASE_URL,否则读 apps/api/.env 的 DATABASE_URL;
- *        psql 取自 $IHUI_PSQL,否则 D:\DevEnv\runtimes\pgsql\bin\psql.exe,否则 PATH 上的 psql)
+ *        psql 候选序(G-815987,2026-10-07 起,共用层 lib/psql-client-locate.mjs):
+ *        $IHUI_PSQL → $PG_CLIENT_DIR/psql.exe → 自动探测
+ *        C:/Program Files/PostgreSQL/<版本>/bin/psql.exe(版本号数值取最大在位者)→
+ *        D:\DevEnv\runtimes\pgsql\bin\psql.exe → PATH;全落空时逐条报告试过的候选,
+ *        结论句明说"不代表本机没有 PostgreSQL 服务")
  *       说明:B6~B9 比对的是**库内实时状态**(那是被审对象本身,不是"取哪个面的仓库正文"),
  *       所以这一档的取数方式本票一字未动;它旁边的 journal 一侧随所选判定面走(默认 HEAD)。
  *       B11 同属这一档(它必须有账本),且额外要求一次带行锁的重读 —— 见上。
@@ -134,6 +138,9 @@ import {
 } from './lib/face-reader.mjs'
 // 临时夹具唯一落点(§26 / 守门 118 实测过两个禁止理由:不得用 os.tmpdir(),不得落仓库树内)
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+// psql 客户端定位的唯一实现(G-815987,2026-10-07):与 check-migration-from-zero 门共用,
+// 两处各写一份候选表必然漂开 —— 本门正是漂掉了"C 盘自动探测"档,才把在位的 PG18 报成 ENOENT。
+import { locatePsqlClient, psqlLocateMissText } from './lib/psql-client-locate.mjs'
 // B11 的"剥零宽水印"维必须引这一份实现(唯一实现),不得在本门再抄一份正则:
 // 水印结构行的识别住在 `lib/watermark-lines.mjs`,注入器 / 归档生成器 / 旁路落地器都读它 ——
 // 本门是第四个消费者(§22c:两处各写一遍"哪一行算水印"必然漂开)。
@@ -530,6 +537,22 @@ export function psqlFailText(e, dsn) {
   // 命令行里 DSN 可能被 shell 引号包过一层,或 psql 把口令 URL 编码后再显 —— 两种都盖住
   s = s.replace(/postgresql:\/\/[^\s']+/gi, 'postgresql://***@***')
   return s
+}
+
+/**
+ * G-815987,2026-10-07:psql 客户端定位的唯一实现住在 `lib/psql-client-locate.mjs`
+ * (与 check-migration-from-zero 门共用)。本门只留这一层薄封装:命中给路径;全落空给
+ * "试过的候选 + 结论句"(结论句逐字含「未找到 psql 客户端(不代表本机没有 PostgreSQL 服务)」,
+ * 不许让 ENOENT 替服务缺席背书)。镜像测试从这里进:env / opts 全部可注入,fixture 造假
+ * bin 结构即可证明候选序与全落空清单,不必赌本机装没装 PG。
+ */
+export function resolveB11Psql(env = process.env, opts = {}) {
+  const r = locatePsqlClient(env, opts)
+  return {
+    psql: r.psql,
+    candidates: r.tried,
+    missText: r.psql ? '' : psqlLocateMissText(r.tried),
+  }
 }
 
 /**
@@ -1647,12 +1670,14 @@ if (isDirectRun) {
           .replace(/^["']|["']$/g, '')
     }
   }
-  const b11PsqlCandidates = [
-    process.env.IHUI_PSQL,
-    'D:\\DevEnv\\runtimes\\pgsql\\bin\\psql.exe',
-    'psql',
-  ].filter(Boolean)
-  const b11Psql = b11PsqlCandidates.find((p) => p === 'psql' || existsSync(p)) || null
+  // G-815987,2026-10-07:psql 候选表抽到共用层 lib/psql-client-locate.mjs(from-zero 门同一份)。
+  // 候选序:$IHUI_PSQL → $PG_CLIENT_DIR/psql.exe → 自动探测 C:/Program Files/PostgreSQL/<版本>/bin
+  // (版本号数值取最大在位者)→ D:\DevEnv\runtimes\pgsql\bin\psql.exe → PATH(实探,探不中不算命中)。
+  // 此前缺自动探测档,本机 PG18 客户端在位却 `spawnSync psql ENOENT`,那句被下游当成
+  // "本机没有 PostgreSQL"的存在性结论;现在全落空的结论句明说"不代表本机没有 PostgreSQL 服务"。
+  const b11PsqlLocated = resolveB11Psql()
+  const b11Psql = b11PsqlLocated.psql
+  const b11PsqlMissText = b11PsqlLocated.missText
   /** 本门仅有的两处"读机器状态":DSN 与其指向的库实时状态(AGENTS §5d:凭据绝不落日志)。 */
   function psqlQuery(sqlText, timeoutMs) {
     return execFileSync(
@@ -1678,8 +1703,9 @@ if (isDirectRun) {
     } else {
       if (!b11Psql) {
         // 报错形状 ≠ 原因:本仓实测过把 `spawnSync psql ENOENT` 读成"本机没有 PG"并据此把票挂成
-        // "等环境条件"(而 PG 其实在 5432 上跑着)。所以这里**点名试过哪些候选**,不给模糊的 ENOENT。
-        const why = `psql 未解析到,试过的候选 = ${b11PsqlCandidates.join(' | ')}(可用 IHUI_PSQL 指真身)`
+        // "等环境条件"(而 PG 其实在 5432 上跑着)。所以这里**点名试过哪些候选**,结论句由
+        // 共用层出(G-815987):逐字含「未找到 psql 客户端(不代表本机没有 PostgreSQL 服务)」。
+        const why = b11PsqlMissText
         wa(`B6~B8 跳过:${why}`)
         dbVerdict = why
       } else {
@@ -1788,7 +1814,7 @@ if (isDirectRun) {
     } else if (!b11Dsn || !b11Psql) {
       b11Reason = !b11Dsn
         ? '没有 DATABASE_URL 可连(env 与 apps/api/.env 都没给)'
-        : `psql 未解析到,试过的候选 = ${b11PsqlCandidates.join(' | ')}(可用 IHUI_PSQL 指真身)`
+        : b11PsqlMissText
       b11LedgerNote = '(psql 不可达 ⇒ 本维未判定)'
     } else {
       try {
@@ -1831,7 +1857,7 @@ if (isDirectRun) {
           .map((e) => faceBlobSpecFor(FACE, relOf(e.tag)))
           .filter((s) => s !== null)
         const got = specs.length ? catBatch(ROOT, specs) : new Map()
-        journal.entries.forEach((e, i) => {
+        journal.entries.forEach((e) => {
           const spec = faceBlobSpecFor(FACE, relOf(e.tag))
           faceTextByTag.set(e.tag, spec === null ? readWorktreeFile(ROOT, relOf(e.tag)) : got.get(spec) ?? null)
         })
