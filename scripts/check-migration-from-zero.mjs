@@ -40,10 +40,17 @@
  */
 import { spawnSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+// G-815987,2026-10-07:psql 客户端定位抽到共用层(与 check-migration-bookkeeping 门同一份实现,
+// 两处各写一份候选表必然漂开)。本门只消费"客户端在哪"这一格,取材/判定面不动。
+import { locatePsqlClient, psqlLocateMissText } from './lib/psql-client-locate.mjs'
+// 守门 118 取材面纪律(2026-10-07,与 bookkeeping 门同一取向):本门正文读取一律经统一层
+// readWorktreeFile(磁盘面),不再散写 readFileSync + 仓库锚点。readdirSync/statSync/existsSync
+// 是枚举/存在性探测,不取内容,不在该判据面内。
+import { readWorktreeFile } from './lib/face-reader.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const DRIZZLE_DIR = join(ROOT, 'packages/database/drizzle')
@@ -51,8 +58,6 @@ const JOURNAL_PATH = join(DRIZZLE_DIR, 'meta/_journal.json')
 const SCHEMA_SRC_DIR = join(ROOT, 'packages/database/src/schema')
 const API_ENV_PATH = join(ROOT, 'apps/api/.env')
 const DB_PKG_JSON = join(ROOT, 'packages/database/package.json')
-/** psql 客户端目录(Windows 本机 PG18);非 win32 走 PATH(CI service container)。 */
-const DEFAULT_PG_CLIENT_DIR = 'C:/Program Files/PostgreSQL/18/bin'
 /** 迁移链之外合法存在于库中、但 drizzle schema 不定义的对象(簿记/扩展自管)。 */
 const IGNORED_MIGRATED_TABLES = new Set(['__migrations'])
 /**
@@ -350,8 +355,7 @@ function resolveBaseUrl() {
   const fromEnv = process.env.DATABASE_URL ?? ''
   const source = fromEnv ? 'process.env.DATABASE_URL' : 'apps/api/.env'
   let raw = fromEnv
-  if (!raw && existsSync(API_ENV_PATH))
-    raw = readEnvValue(readFileSync(API_ENV_PATH, 'utf8'), 'DATABASE_URL')
+  if (!raw) raw = readEnvValue(readWorktreeFile(ROOT, 'apps/api/.env'), 'DATABASE_URL')
   if (!raw) fail(`未找到 DATABASE_URL(env 与 ${API_ENV_PATH} 均为空),无法派生临时库连接串`)
   let url
   try {
@@ -370,11 +374,17 @@ function fail(message) {
 
 class MigrationCheckAborted extends Error {}
 
-function psqlBin() {
-  if (process.platform === 'win32') {
-    const candidate = join(process.env.PG_CLIENT_DIR ?? DEFAULT_PG_CLIENT_DIR, 'psql.exe')
-    if (existsSync(candidate)) return candidate
-    console.warn(`${C.yellow}!${C.reset} 未找到 ${candidate},回退 PATH 上的 psql`)
+/**
+ * psql 客户端定位:win32 交共用层 lib/psql-client-locate.mjs(G-815987,2026-10-07,
+ * 候选序与 bookkeeping 门同一份);非 win32 直接走 PATH(CI service container)。
+ * env / opts / platform 全部可注入,镜像测试用构造面证明,不赌本机装没装 PG。
+ * 全落空时仍按裸 'psql' 续跑(与旧行为同形),真实报错留给 spawn,结论句不再由它背书。
+ */
+export function psqlBin(env = process.env, opts = {}) {
+  if ((opts.platform ?? process.platform) === 'win32') {
+    const r = locatePsqlClient(env, opts)
+    if (r.psql) return r.psql
+    console.warn(`${C.yellow}!${C.reset} ${psqlLocateMissText(r.tried)}`)
   }
   return 'psql'
 }
@@ -612,7 +622,9 @@ async function main() {
   const skipFull = argv.includes('--skip-full')
   const keep = argv.includes('--keep')
 
-  const entries = parseJournalEntries(readFileSync(JOURNAL_PATH, 'utf8'))
+  // 取材走统一层(守门 118):journal 正文经 readWorktreeFile 按磁盘面取,文件缺失时返回 null,
+  // parseJournalEntries 对 null 解析出空 entries ⇒ 走下一行的既有 fail 分支(与旧 ENOENT 同形)。
+  const entries = parseJournalEntries(readWorktreeFile(ROOT, 'packages/database/drizzle/meta/_journal.json'))
   if (entries.length === 0) fail(`_journal.json 解析不到任何迁移(${JOURNAL_PATH})`)
 
   const { url, source, password } = resolveBaseUrl()
@@ -741,6 +753,7 @@ export const __test__ = {
   redactSecrets,
   readEnvValue,
   quoteIdent,
+  psqlBin,
   MigrationCheckAborted,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
