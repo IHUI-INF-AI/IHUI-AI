@@ -86,6 +86,10 @@ import { blankStrings } from './lib/code-mask.mjs'
 // heal-worktree-tracked 都 import 兄弟门的导出),且被 import 的这两个函数都是**纯函数**、
 // 该模块 import 时零副作用(实测 import 后无任何输出、不读基线、不派生 git)。
 import { scanFile as scanExemptionLedger, __test__ as expiryKit } from './check-exemption-expiry.mjs'
+// G-406,2026-10-07:缺陷②(--changed/staged 触发面不沿反向依赖)的加宽引擎只有这一份实现
+// (scripts/lib/import-graph.mjs,2026-10-04 G-406 ② 在 check-typecheck 先落了消费先例)。
+// 本门只**消费** buildFileGraph / widenOverDependents,不自己再写一遍边判定 —— 两处实现必漂移。
+import { buildFileGraph, widenOverDependents } from './lib/import-graph.mjs'
 
 const ROOT = pResolve(pDirname(fileURLToPath(import.meta.url)), '..')
 const POLICY_REL = 'config/architecture-policy.yaml'
@@ -1100,6 +1104,59 @@ export function planStagedScope(srcPathsInFace, stagedSet, opts = {}) {
   return { mode: 'full', paths: [], keep: headSrcPaths.filter((p) => !dropped.has(p)), droppedDeleted }
 }
 
+// ── G-406,2026-10-07:缺陷② —— 暂存触发面沿反向依赖闭包加宽(改契约要红 importer)────────
+// 病根(与票面同族):planStagedScope 的暂存面 = **暂存路径本身**(路径清单口径)。当本次暂存了
+// 契约表 config/architecture-policy.yaml(且同时暂存了源文件 ⇒ 窄口径生效)时,收口/改表会改变
+// **未改动 importer** 的 D1/D2/D3/D4 判定 —— 而 importer 不在暂存集里,判定面看不到它们
+// ⇒ 改契约不红 importer,净零逃逸。
+//
+// 为什么触发条件钉在「契约表被暂存」:importer 的判定输入只有两样 —— 它自己的内容与这张声明表。
+//   · 内容面不是 HEAD 的文件必在暂存集里(已判);
+//   · 表**未**暂存时,未改动 importer 的判定与 HEAD 全量档逐字同形(全量档本就审它)⇒ 加宽零增益,
+//     只白付一次建图成本(实测 index 面建图 ~4.7s / 9039 顶点)且每次提交都付 —— 那是把另一类
+//     恒慢换本票的绿,顺手扩触发面正是 §12e 要防的动作;
+//   · 表被暂存 ⇒ 表变了 ⇒ 未改动 importer 的旧判定不再可信 —— 这正是「改契约」。
+//   (暂存集只有表、没有源文件时 planStagedScope 已回退全量,importer 天然在审,无需加宽。)
+//
+// 三条边界(沿用 check-typecheck widenScopeOverDependents 的同款教训):
+//   1. 图面 = **index**,与暂存档内容面同面 —— 闭包按 HEAD 建图却按索引判责,两套面互相对不上
+//      是本仓最高频假绿源(门 103 自己的头注记过)。
+//   2. 建图/闭包失败**不静默、也不崩**:退回未加宽的暂存面(= 改前的逐字行为)并给可见 reason,
+//      由调用方打 ⚠️。既不假装加宽成功,也不把环境故障升级成提交硬拦。
+//   3. `buildGraph` 是**唯一的测试缝**(默认 = import-graph 的 buildFileGraph):建图只认真仓且
+//      秒级耗时,单元测试不许真建一次图。生产调用不传该参 —— 缝只开在"怎么建图"这一层。
+// @param {string[]} seedPaths 窄口径暂存源文件(已过 SRC_RE)
+// @returns {{paths:string[], added:string[], widened:boolean, reason:string}}
+export function widenStagedScopeOverDependents(seedPaths, { buildGraph = buildFileGraph, root = ROOT } = {}) {
+  const seeds = [...new Set(seedPaths)]
+  if (seeds.length === 0) {
+    return { paths: [], added: [], widened: false, reason: '暂存源文件为空,无需加宽' }
+  }
+  let closure
+  try {
+    const graph = buildGraph({ face: 'index', root })
+    closure = widenOverDependents(seeds, graph)
+  } catch (e) {
+    return {
+      paths: seeds,
+      added: [],
+      widened: false,
+      reason: `建图/闭包失败(${(e && e.message) || e})—— 退回未加宽暂存面(=改前行为)`,
+    }
+  }
+  // 闭包 ⊇ 种子(图外种子原样保留);闭包侧只收本门射程内的源文件 —— 图顶点含 .d.ts 等
+  // planStagedScope 口径之外的路径,把它们读进来只是白付 catBatch。并集去重后排序,
+  // 顺序不稳定会让结论行与红清单在两次运行间抖动。
+  const seedSet = new Set(seeds)
+  const paths = [...new Set([...seeds, ...closure.closure.filter((p) => SRC_RE.test(p))])].sort()
+  return {
+    paths,
+    added: paths.filter((p) => !seedSet.has(p)),
+    widened: true,
+    reason: '契约表在本次暂存集里:未改动 importer 的判定不再可信,已沿反向依赖闭包纳入',
+  }
+}
+
 /**
  * 策略表取材面的提示语 —— **只在真的错位时喊**(2026-09-25 修第二处缺陷)。
  *
@@ -1247,8 +1304,22 @@ function main(argv) {
       const headSrcAll = treePaths('HEAD').filter((p) => SRC_RE.test(p))
       const scope = planStagedScope(srcAll, staged, { headSrcPaths: headSrcAll, deletedSet: deleted })
       if (scope.mode === 'staged') {
-        files = readFace('', scope.paths)
-        faceDesc = `索引 blob(暂存源文件 ${files.size} 个;表自洽性按全索引面判)`
+        // G-406,2026-10-07:缺陷② —— 契约表被暂存时,未改动 importer 的判定不再可信,
+        // 触发面沿反向依赖闭包加宽(引擎与边界见 widenStagedScopeOverDependents 的头注)。
+        let judgedPaths = scope.paths
+        let widenNote = ''
+        if (staged.has(POLICY_REL)) {
+          const widened = widenStagedScopeOverDependents(scope.paths)
+          if (widened.widened) {
+            judgedPaths = widened.paths
+            widenNote = `,反向依赖加宽 +${widened.added.length} 个未暂存 importer(G-406 ②)`
+          } else {
+            // 加宽失败必须可见:既不冒充加宽成功,也不静默吞掉(判据增强失败 ≠ 判据失效)
+            console.error(`[arch-policy] ⚠️ G-406 ②:反向依赖加宽未生效 —— ${widened.reason}`)
+          }
+        }
+        files = readFace('', judgedPaths)
+        faceDesc = `索引 blob(暂存源文件 ${files.size} 个${widenNote};表自洽性按全索引面判)`
       } else {
         // 暂存集为空 ⇒ 回退全量(HEAD blob)。不回退就等于"审 0 个文件却记绿"(守门 70 同型)。
         // 策略表本身**仍按 --staged 档的索引优先**取材(见 policyFaceOrder)—— 内容面与表面
@@ -1850,7 +1921,7 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { parseYaml, loadPolicy, analyze, auditPolicy, auditDeclarations, resolveEntrypoint, moduleContractArtifacts, declarationContext, extractSpecs, globToRe, mkMatcher, matchEntrypoint, relFrom, pickPolicySource, policyFaceOrder, planStagedScope, policyFaceNotice, registrationOf, unusedExceptions, validUntil, undatedExceptionIds, mayHaveSuppression, suppressionCount, auditExceptionExpiry, RULES, ALWAYS_RED, POLICY_REL, SUPPRESS_PREFILTER, UNTIL_RE,
+export const __test__ = { parseYaml, loadPolicy, analyze, auditPolicy, auditDeclarations, resolveEntrypoint, moduleContractArtifacts, declarationContext, extractSpecs, globToRe, mkMatcher, matchEntrypoint, relFrom, pickPolicySource, policyFaceOrder, planStagedScope, widenStagedScopeOverDependents, policyFaceNotice, registrationOf, unusedExceptions, validUntil, undatedExceptionIds, mayHaveSuppression, suppressionCount, auditExceptionExpiry, RULES, ALWAYS_RED, POLICY_REL, SUPPRESS_PREFILTER, UNTIL_RE,
   // ── 三面取材 + 参数闸门(2026-09-29 补 `--worktree` 时新增的出口)──
   // 镜像测试必须**import 这些判据**,不得在测试里再抄一份(§22c:两份真相必然漂移)。
   // `listFacePaths` / `readFaceDetailed` 带 root 形参,是为了让取证在**临时 git 仓**里造
