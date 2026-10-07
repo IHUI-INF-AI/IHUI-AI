@@ -172,10 +172,16 @@ export function writeBlobOfWorktree(path, { root }) {
 export const REPO_GIT_IDENTITY_ARGS = ['-c', 'user.name=智汇AGI社区', '-c', 'user.email=ok502319984@gmail.com']
 
 /**
- * 临时索引提交:read-tree <baseRef> → 逐条 update-index --cacheinfo → write-tree → commit-tree。
+ * 临时索引提交:read-tree <baseRef> → 逐条 update-index --cacheinfo(或 --force-remove)→ write-tree → commit-tree。
  * 全程不触碰共享主索引、不触碰工作树(GIT_INDEX_FILE 只挂在本函数派生上)。
  * entries:[{path, blob}] 或 [{path, text}](text 走 writeBlob);也兼容单路径 {treePath, text|blob}。
- * 返回 { tree, commit, entries:[{path,blob}] };传 onTree 时另可返回 { rejected }。
+ * 删除档(G-1080881,2026-10-07 补):entries 里写 `{path, deleted:true}` ⇒ 该路径从结果树里消失。
+ *   这条出口此前不存在,所以每一次"旁路落地要删文件"都得像本层镜像测试 T11/T12 那样手搓临时索引,
+ *   而手搓那份不会带上本函数的两条护栏(基底存在性、onTree 落地前校验)⇒ 删错的形状没人拦。
+ *   硬要求两条:① deleted 项不得同时带 text/blob(带了就是自相矛盾,拒);② 该路径必须在 baseRef
+ *   的树里**真的在位**(不在 ⇒ 拒)。第 ② 条是"声明的路径必须可被回读证明"这条仓规在删除侧的镜像:
+ *   少它则一个拼错的路径会静默落成一枚"什么都没删"的提交,而调用方随后按声明去证明存在性时才发现扑空。
+ * 返回 { tree, commit, entries:[{path,blob,deleted}] }(删除项 blob 为 null);传 onTree 时另可返回 { rejected }。
  *
  * onTree(tree) ⇒ 在 commit-tree **之前**拿树做校验的钩子(G-815985)。返回非空字符串即放弃提交,
  *   返回 { tree, commit: '', entries, rejected: <该字符串> }。放这里的理由是硬性的:
@@ -184,27 +190,40 @@ export const REPO_GIT_IDENTITY_ARGS = ['-c', 'user.name=智汇AGI社区', '-c', 
  *   埋一颗"下次提交必须先把这枚悬空 commit 备份成 tag"的地雷。树/blob 不在它的判据面内。
  */
 export function commitTreeWithIndex({ root, parent, message, entries, treePath, text, blob, baseRef = 'HEAD', mode = '100644', onTree }) {
-  const list = entries
-    ? entries.map((e) => ({ path: e.path, blob: e.blob ?? writeBlob(e.text, { root }), mode: e.mode ?? mode }))
-    : [{ path: treePath, blob: blob ?? writeBlob(text, { root }), mode }]
+  const norm = (e) => (e.deleted ? { path: e.path, deleted: true } : { path: e.path, blob: e.blob ?? writeBlob(e.text, { root }), mode: e.mode ?? mode })
+  const list = entries ? entries.map(norm) : [{ path: treePath, blob: blob ?? writeBlob(text, { root }), mode }]
+  // 删除档的两条护栏(头注):自相矛盾的声明一律拒,不猜调用方想干什么。
+  for (const e of entries || []) {
+    if (e.deleted && (e.text !== undefined || e.blob !== undefined)) {
+      throw new Error(`commitTreeWithIndex:删除项 ${e.path} 同时带了 text/blob ⇒ 自相矛盾,拒`)
+    }
+    if (e.deleted && headBlobOf(baseRef, e.path, { root }) === ABSENT) {
+      throw new Error(`commitTreeWithIndex:删除项 ${e.path} 在基底 ${baseRef} 的树里不在位 ⇒ 落地会静默变成"什么都没删",拒`)
+    }
+  }
   const dir = mkScratch('bypass-idx-')
   try {
     const idx = join(dir, 'index')
     const env = { GIT_INDEX_FILE: idx }
     git(['read-tree', baseRef], { root, env })
     for (const e of list) {
+      if (e.deleted) {
+        git(['update-index', '--force-remove', '--', e.path], { root, env })
+        continue
+      }
       git(['update-index', '--add', '--cacheinfo', `${e.mode},${e.blob},${e.path}`], { root, env })
     }
     const tree = git(['write-tree'], { root, env })
+    const outEntries = list.map((e) => ({ path: e.path, blob: e.deleted ? null : e.blob, deleted: !!e.deleted }))
     if (typeof onTree === 'function') {
       const rejected = onTree(tree)
       if (typeof rejected === 'string' && rejected !== '') {
         // 只留下 unreachable tree/blob(30a 不判这两类),不产生任何 commit 对象。
-        return { tree, commit: '', entries: list.map((e) => ({ path: e.path, blob: e.blob })), rejected }
+        return { tree, commit: '', entries: outEntries, rejected }
       }
     }
     const commit = git([...REPO_GIT_IDENTITY_ARGS, 'commit-tree', tree, '-p', parent, '-m', message], { root, env })
-    return { tree, commit, entries: list.map((e) => ({ path: e.path, blob: e.blob })) }
+    return { tree, commit, entries: outEntries }
   } finally {
     rmScratch(dir)
   }
