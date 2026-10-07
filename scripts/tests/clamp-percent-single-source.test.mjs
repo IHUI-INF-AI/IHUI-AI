@@ -105,6 +105,7 @@ function candidateLines(pattern) {
   try {
     return execFileSync('git', ['-C', ROOT, 'grep', '-n', '-E', pattern, 'HEAD', '--', 'apps', 'packages'], {
       encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
       maxBuffer: 64 * 1024 * 1024,
       timeout: 120_000,
     })

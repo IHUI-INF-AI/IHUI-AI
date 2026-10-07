@@ -136,6 +136,7 @@ test('T6 端到端双向锁:注入一处新私接必红;本次无射程内文件
     const blob = g(['hash-object', '-w', '--stdin']).trim()
     const injected = execFileSync(GIT, ['-c', 'safe.directory=*', 'hash-object', '-w', '--stdin'], {
       cwd: REPO,
+      stdio: ['ignore', 'pipe', 'pipe'],
       input: `${head}\nfunction __probe46(){ router.back() }\n`,
       encoding: 'utf8',
       windowsHide: true,

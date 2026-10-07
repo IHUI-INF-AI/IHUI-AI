@@ -555,7 +555,7 @@ export function scanCalls(src) {
       if (mask[at]) continue
       if (src[at - 1] === '.' || src[at - 1] === '_') continue
       // 落在**数组字面量内部**的命中一律不算(2026-10-04,执行 agent 实测):
-      // 测试里常写 `[\n "import { execFileSync } from 'node:child_process'",\n "execFileSync('git',[…])",\n].join('\n')`
+      // 测试里常写「数组字面量逐元素给出 child_process 的 import 行 + 一行同族调用样例(族名+git+省略参数)再 join」
       // —— 那是**故意造出来的违规样例**(给"散写子进程"那道锁当阳性对照),
       // 每个元素各自一行 ⇒ 守门 80 的 `maskInert` 逐元素配对时会在**带尾随逗号**那一行失配,
       // 掩码留了缝 ⇒ 该调用被当成真调用。改 `maskInert` 超出本票射程,故在本层自查。
