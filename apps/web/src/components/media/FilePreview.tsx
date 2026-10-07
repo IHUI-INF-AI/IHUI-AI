@@ -52,6 +52,16 @@ export interface ImagePreviewItem {
   name?: string
 }
 
+// G-856,2026-10-07:画廊内逐项判定 video。媒体画廊是图片/视频混合的,判定只能按 item
+// 做,不能按整组做 —— 对位上游 image-preview-dialog 的 activeItemIsVideo。
+const GALLERY_VIDEO_EXTENSIONS: readonly string[] = ['mp4', 'webm', 'ogv', 'ogg', 'mov', 'm4v']
+
+function isVideoSource(url: string): boolean {
+  const path = url.split(/[?#]/)[0] ?? ''
+  const ext = path.split('.').pop()?.toLowerCase() ?? ''
+  return ext !== '' && GALLERY_VIDEO_EXTENSIONS.includes(ext)
+}
+
 interface FilePreviewProps {
   url: string
   type?: 'pdf' | 'office' | 'image' | 'text' | '3d' | 'auto'
@@ -144,9 +154,7 @@ function TextPreview({ url, className }: { url: string; className?: string }) {
 
   // D163 五态·tooLarge:内容超 PREVIEW_MAX_BYTES —— 重试无意义,给"打开原文"
   if (feed.notice === 'too-large')
-    return (
-      <PreviewTooLargeState copy={copy} onOpenSource={openSource} className={className} />
-    )
+    return <PreviewTooLargeState copy={copy} onOpenSource={openSource} className={className} />
 
   // 什么都没读到、也没有任何历史记录可展示:明说"没有可预览内容"并给出刷新这一步
   if (feed.notice === 'no-content')
@@ -244,6 +252,27 @@ function ImagePreview({
     [active, total, isControlled, onGalleryIndexChange],
   )
 
+  // ---- G-856:video 分支(单个持久 <video> 元素 + 切项复位/暂停) --------------------------
+  // 对位上游 image-preview-dialog:切到别的 item 就 pause()(:222-228);loading/unsupported
+  // 三态里解码失败只收口当前 item(:477-478),不能关闭预览或影响相邻媒体。
+  const currentIsVideo = isVideoSource(current.url)
+  const videoRef = React.useRef<HTMLVideoElement | null>(null)
+  const [videoState, setVideoState] = React.useState<'loading' | 'ready' | 'unsupported'>('loading')
+
+  React.useEffect(() => {
+    // 切项即复位三态:上一项的解码失败不连坐下一项(每项独立收口)。
+    setVideoState('loading')
+  }, [active, current.url])
+
+  React.useEffect(() => {
+    // 先把当前元素抓进闭包,cleanup 里再暂停:即使切到图片项导致 <video> 卸载、
+    // ref 已被 React 置空,闭包里的引用仍然有效(分离的媒体元素在浏览器里会继续发声)。
+    const el = videoRef.current
+    return () => {
+      el?.pause()
+    }
+  }, [active, current.url])
+
   const [zoom, setZoom] = React.useState<number>(1)
   const zoomBy = (direction: 'in' | 'out') => setZoom((prev) => zoomStep(prev, direction))
   const zoomPercent = `${Math.round(zoom * 100)}%`
@@ -290,7 +319,8 @@ function ImagePreview({
     if (!target || typeof target.releasePointerCapture !== 'function') return
     // hasPointerCapture 存在时先问一次:对不活跃的 pointerId 调 release 会抛 DOMException,
     // 而这一步只是收尾,绝不能因为收尾失败把手势卡在"还在拖"。
-    if (typeof target.hasPointerCapture === 'function' && !target.hasPointerCapture(pointerId)) return
+    if (typeof target.hasPointerCapture === 'function' && !target.hasPointerCapture(pointerId))
+      return
     try {
       target.releasePointerCapture(pointerId)
     } catch {
@@ -305,7 +335,9 @@ function ImagePreview({
     const box = viewportRef.current
     if (box) {
       const geometry = measurePanGeometry()
-      setPanReady(geometry === null ? false : imagePreviewPanApplies({ offsetX: 0, offsetY: 0, ...geometry }))
+      setPanReady(
+        geometry === null ? false : imagePreviewPanApplies({ offsetX: 0, offsetY: 0, ...geometry }),
+      )
     }
     // 卸载出口:票面引的上游注释直说"残留 capture 会让 hover/click 继续命中视口而不是浮层按钮",
     // 所以 pointerup / pointercancel / **卸载** 三个出口都要显式释放,少一个就是留一根幽灵捕获。
@@ -462,7 +494,7 @@ function ImagePreview({
       */}
       <div
         ref={viewportRef}
-        className="flex min-h-0 flex-1 items-center justify-center overflow-hidden"
+        className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden"
         style={{ touchAction: panReady ? 'none' : 'auto' }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -472,23 +504,55 @@ function ImagePreview({
         data-image-pan-x={offset.x}
         data-image-pan-y={offset.y}
       >
-        <Image
-          src={current.url}
-          alt={current.name ?? 'preview'}
-          width={800}
-          height={600}
-          unoptimized
-          className="h-auto w-auto min-h-0 max-h-full max-w-full flex-1 object-contain"
-          style={{
-            transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
-            transformOrigin: 'center',
-          }}
-          data-testid="image-preview-img"
-          data-image-zoom={zoomPercent}
-        />
+        {/* G-856,2026-10-07:video 分支 —— 单个持久 <video> 元素(切项不换节点,只换 src),
+            loading/ready/unsupported 三态;解码失败只收口当前画廊项,预览壳与翻页不塌。 */}
+        {currentIsVideo ? (
+          videoState === 'unsupported' ? (
+            <p role="alert" className="px-6 text-center text-sm text-muted-foreground">
+              {t('videoLoadFailed')}
+            </p>
+          ) : (
+            <>
+              {videoState === 'loading' ? (
+                <p role="status" className="text-sm text-muted-foreground">
+                  {t('loading')}
+                </p>
+              ) : null}
+              <video
+                controls
+                playsInline
+                className={cn(
+                  'h-auto w-auto min-h-0 max-h-full max-w-full flex-1 rounded-md object-contain',
+                  videoState === 'loading' && 'invisible absolute',
+                )}
+                data-testid="image-preview-video"
+                onError={() => setVideoState('unsupported')}
+                onLoadedMetadata={() => setVideoState('ready')}
+                ref={videoRef}
+                src={current.url}
+              />
+            </>
+          )
+        ) : (
+          <Image
+            src={current.url}
+            alt={current.name ?? 'preview'}
+            width={800}
+            height={600}
+            unoptimized
+            className="h-auto w-auto min-h-0 max-h-full max-w-full flex-1 object-contain"
+            style={{
+              transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
+              transformOrigin: 'center',
+            }}
+            data-testid="image-preview-img"
+            data-image-zoom={zoomPercent}
+          />
+        )}
       </div>
 
-      {/* 控件条:多图才给翻页;缩放与保存/复制恒给(单图同样需要)。全部走判定层键。 */}
+      {/* 控件条:多图才给翻页;缩放与保存/复制是图片专属,G-856 起 video 项不渲染
+          (对位上游 !activeItemIsVideo 才给下载 —— 不给出注定失败的复制/缩放路径)。 */}
       <div
         className="flex flex-wrap items-center gap-1 px-1 py-1 text-[11px] text-muted-foreground"
         data-image-toolbar="true"
@@ -520,72 +584,78 @@ function ImagePreview({
             {te(counter.labelKey, counter.values)}
           </span>
         ) : null}
-        <button
-          type="button"
-          className={toolBtn}
-          onClick={() => zoomBy('out')}
-          aria-label={te('imagePreview.zoomOut')}
-          data-image-zoom-btn="out"
-        >
-          <ZoomOut className="h-3.5 w-3.5" aria-hidden />
-        </button>
-        <span className="tabular-nums" data-image-zoom-label="true">
-          {zoomPercent}
-        </span>
-        <button
-          type="button"
-          className={toolBtn}
-          onClick={() => zoomBy('in')}
-          aria-label={te('imagePreview.zoomIn')}
-          data-image-zoom-btn="in"
-        >
-          <ZoomIn className="h-3.5 w-3.5" aria-hidden />
-        </button>
-        <div className="ml-auto flex items-center gap-1">
-          <span
-            aria-live="polite"
-            data-image-transfer={transfer ? `${transfer.kind}-${transfer.result}` : 'idle'}
-            className={cn(
-              'truncate',
-              transfer?.result === 'failed'
-                ? 'text-red-600 dark:text-red-500'
-                : 'text-emerald-600 dark:text-emerald-500',
-            )}
-          >
-            {transferLabel ?? ''}
-          </span>
-          <button
-            type="button"
-            className={toolBtn}
-            onClick={() => void handleSave()}
-            aria-label={te('imagePreview.save')}
-            data-image-transfer-btn="save"
-          >
-            <Download className="h-3.5 w-3.5" aria-hidden />
-          </button>
-          {/* G-816000:仅「保存失败」态给兜底出口(成功态不渲染,否则每次成功都多一个按钮)。
-              出口只交链接、不改 transfer,故不会把失败洗成 success。 */}
-          {transfer?.kind === 'save' && transfer.result === 'failed' ? (
+        {!currentIsVideo ? (
+          <>
             <button
               type="button"
               className={toolBtn}
-              onClick={handleSaveFallback}
-              aria-label={t('download')}
-              data-image-transfer-btn="save-fallback"
+              onClick={() => zoomBy('out')}
+              aria-label={te('imagePreview.zoomOut')}
+              data-image-zoom-btn="out"
             >
-              <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+              <ZoomOut className="h-3.5 w-3.5" aria-hidden />
             </button>
-          ) : null}
-          <button
-            type="button"
-            className={toolBtn}
-            onClick={() => void handleCopy()}
-            aria-label={te('imagePreview.copy')}
-            data-image-transfer-btn="copy"
-          >
-            <Copy className="h-3.5 w-3.5" aria-hidden />
-          </button>
-        </div>
+            <span className="tabular-nums" data-image-zoom-label="true">
+              {zoomPercent}
+            </span>
+            <button
+              type="button"
+              className={toolBtn}
+              onClick={() => zoomBy('in')}
+              aria-label={te('imagePreview.zoomIn')}
+              data-image-zoom-btn="in"
+            >
+              <ZoomIn className="h-3.5 w-3.5" aria-hidden />
+            </button>
+          </>
+        ) : null}
+        {!currentIsVideo ? (
+          <div className="ml-auto flex items-center gap-1">
+            <span
+              aria-live="polite"
+              data-image-transfer={transfer ? `${transfer.kind}-${transfer.result}` : 'idle'}
+              className={cn(
+                'truncate',
+                transfer?.result === 'failed'
+                  ? 'text-red-600 dark:text-red-500'
+                  : 'text-emerald-600 dark:text-emerald-500',
+              )}
+            >
+              {transferLabel ?? ''}
+            </span>
+            <button
+              type="button"
+              className={toolBtn}
+              onClick={() => void handleSave()}
+              aria-label={te('imagePreview.save')}
+              data-image-transfer-btn="save"
+            >
+              <Download className="h-3.5 w-3.5" aria-hidden />
+            </button>
+            {/* G-816000:仅「保存失败」态给兜底出口(成功态不渲染,否则每次成功都多一个按钮)。
+                出口只交链接、不改 transfer,故不会把失败洗成 success。 */}
+            {transfer?.kind === 'save' && transfer.result === 'failed' ? (
+              <button
+                type="button"
+                className={toolBtn}
+                onClick={handleSaveFallback}
+                aria-label={t('download')}
+                data-image-transfer-btn="save-fallback"
+              >
+                <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className={toolBtn}
+              onClick={() => void handleCopy()}
+              aria-label={te('imagePreview.copy')}
+              data-image-transfer-btn="copy"
+            >
+              <Copy className="h-3.5 w-3.5" aria-hidden />
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   )
