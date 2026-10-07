@@ -46,7 +46,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { execSync } from 'node:child_process'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import * as OpenCC from 'opencc-js'
 import { I18N_MESSAGE_FACES, faceMessageRelPath, isKnownFace } from './lib/i18n-message-faces.mjs'
 import { properNounSetFromRaw } from './lib/i18n-script-families.mjs'
@@ -511,5 +511,30 @@ function main() {
   process.exit(failed ? 1 : 0)
 }
 
-main()
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+// main 是同步函数 ⇒ §22d 规定的 try/catch 形(不得写成 main().catch)
+if (isDirectRun) {
+  try {
+    main()
+  } catch (e) {
+    console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
+    process.exit(2)
+  }
+}
+
+export const __test__ = {
+  decodeJson,
+  parseArgs,
+  isFileStaged,
+  isWhitelistedBrand,
+  scanZhTw,
+  scanCharRange,
+  scanWarnOnly,
+  scanJoyo,
+  scanMarkdown,
+  joyoSet,
+  joyoSuspects,
+  properNounValue,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
