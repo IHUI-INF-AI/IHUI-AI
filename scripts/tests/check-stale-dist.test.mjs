@@ -174,6 +174,7 @@ test('T5 §22c:源 export 锚点必须齐,缺一条即"镜像漂移"', () => {
     'listDistDts',
     'srcFilesForDir',
     'setRoot',
+    'extractDistExports',
   ]) {
     assert.equal(typeof __test__[k], 'function', `__test__ 缺导出:${k}`)
   }
@@ -210,6 +211,42 @@ test('D5 type 别名 RHS 窗口不得吞后续声明(立项实测假阳回归,�
   const a = agg("export type Level = 'low' | 'high'\nconst TAB = { low: 1, high: 2 }\nexport interface Tail { z: number }")
   assert.equal(a.agg.get('Level').size, 0)
   assert.ok(a.agg.has('Tail'))
+})
+
+test('V0 dist export 清单内夹行注释不得把下一个导出名粘成脏名(2026-10-07 实测假红回归)', () => {
+  // esbuild/tsc 会把 src 里 export { } 清单内的行注释原样带进 dist:解析器若不剥,
+  // `[^}]+` 吞到 `}` 为止,注释文本+换行+下一个导出名粘成一个脏名 ⇒ 干净 export 被
+  // 判"dist 缺失"(实测:@ihui/context-compaction projectVisibleBody,G-816015 那两条
+  // 注释进清单)。剥注释只许剥**行首** //:行中(URL)不在射程。
+  const scratch = mkScratch('ihui-stale-dist-v0-')
+  try {
+    const p = join(scratch, 'index.js')
+    writeFileSync(
+      p,
+      "export { A, B,\n" +
+        "// 清单内注释:注释尾巴不得与下一个名字粘连。\n" +
+        "projectVisibleBody, } from './x.js'\n" +
+        "export const DEFAULT_R = 0.88 // 行中注释/URL 形态 https://x 不得被当注释剥掉后破坏解析\n",
+    )
+    const got = __test__.extractDistExports(p)
+    assert.ok(got.has('A') && got.has('B'), '清单前段照常解析')
+    assert.ok(got.has('projectVisibleBody'), '注释后的导出名必须是干净名字,不得与注释文本粘连')
+    assert.ok(got.has('DEFAULT_R'), '行中 // 所在行的 export 仍须解析出')
+    assert.equal(got.size, 4, '注释文本不得被当成导出名入账')
+    // src 侧同病同治:src 清单里同样会写行注释,不剥则 src 名字也是脏名,与 dist 干净名
+    // 永远对不上 ⇒ "缺失"恒红。两侧判据必须对称。
+    const srcGot = __test__.extractSourceExports(
+      "export { A, B,\n" +
+        "// 清单内注释:src 侧同样不得粘连。\n" +
+        "projectVisibleBody, } from './x.js'\n" +
+        "// export interface GhostComment { b: 1 }\nexport interface Real { d: 1 }\n",
+    )
+    assert.ok(srcGot.has('projectVisibleBody'), 'src 侧注释后的导出名同样必须是干净名字')
+    assert.ok(srcGot.has('A') && srcGot.has('B'), '清单前段照常解析')
+    assert.ok(!srcGot.has('GhostComment'), '行首注释里的声明形态照旧不得入账(D3 口径不回退)')
+  } finally {
+    rmScratch(scratch, { bestEffort: true })
+  }
 })
 
 test('D6 re-export 名单两侧同形 ⇒ 零落后;空 export {} 不产幽灵名', () => {
