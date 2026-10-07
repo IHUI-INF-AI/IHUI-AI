@@ -1,6 +1,0 @@
-[
-  { "step": 1, "action": "collect" },
-  { "step": 2, "action": "verify" },
-  { "step": 3, "action": "transform" },
-  { "step": 4, "action": "publish" }
-]
