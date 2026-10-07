@@ -581,4 +581,77 @@ test('T18 新判据成套接线:三条规则标签互不撞名、自检真跑到
   for (const k of ['X1/X2 例外寿命', 'DC lint 抑制棘轮']) assert.ok(st.out.includes(k), `自检汇总段没点名「${k}」⇒ 新判据可能只是写了函数没人调用(判据存在而永不调用 = 没有)`)
   assert.doesNotMatch(st.out, /❌/, '自检里出现 ❌ 就说明某条判据已与实现脱节')
 })
+
+// ── G-406,2026-10-07(棘轮锚点把量值编进指纹 + --changed 不沿反向依赖)──────────────────
+test('T19 G-406 ①:DC 锚点数量涨落不换身份 —— 同一文件的涨落仍是同一格锚点,不同文件才换身份', () => {
+  // 锚点口径(本门 DC):**该文件锚点面自身的处数**。身份 = (规则, 文件),数量只住在读数里 ——
+  // 同一违规从 3 涨到 5(或 401 行涨到 500 行那一族)不得变成"另一条新违规"。
+  const P = gate.loadPolicy(gate.parseYaml(policyText(), 'real'))
+  const mod = 'packages/shared'
+  assert.equal(P.modules.get(mod)?.managed, true, `夹具失效:${mod} 不再是 managed:true ⇒ 请换一个纳管块重写本条,不得删判据`)
+  const f = `${mod}/src/anchor-quantity.ts`
+  const mk = (n) => new Map([[f, `${'// @ts-ignore\n'.repeat(n)}export const a = 1`]]) // -- T19 夹具:字符串构造面喂 analyze,非真抑制 until 2026-12-31
+  // 正面:同一文件 3 → 5,涨 2 ⇒ 恰 1 条红,身份仍是 (DC, 同一文件),读数写明 +2
+  const up = gate.analyze(P, mk(5), { suppressionAnchors: new Map([[f, 3]]) })
+  assert.equal(up.red.length, 1, `同文件涨 2 处应恰 1 条红,实得 ${up.red.length}`)
+  assert.equal(up.red[0].rule, 'lint-suppression-growth')
+  assert.equal(up.red[0].file, f, '涨落必须落在同一格锚点(同文件)上,不得换身份')
+  assert.match(up.red[0].msg, /本次 \+2/, '红的消息必须如实报涨落量')
+  // 同文件 3 → 3(不涨)与 3 → 1(减债)都不红
+  assert.equal(gate.analyze(P, mk(3), { suppressionAnchors: new Map([[f, 3]]) }).red.length, 0, '数量持平不得红(存量不转嫁)')
+  assert.equal(gate.analyze(P, mk(1), { suppressionAnchors: new Map([[f, 3]]) }).red.length, 0, '减债不得红')
+  // 反向对照:涨落落在**另一个**文件(锚点 0)⇒ 红必须换到那个文件头上 —— 身份必须变
+  const g = `${mod}/src/other-quantity.ts`
+  const other = gate.analyze(P, new Map([[g, '// @ts-ignore\nexport const b = 2']]), { suppressionAnchors: new Map() }) // -- T19 反向对照夹具:同上,非真抑制 until 2026-12-31
+  assert.equal(other.red.length, 1, '锚点 0 的文件出现违规必须红(反向对照:判据不是摆设)')
+  assert.equal(other.red[0].file, g, '不同文件的锚点是不同身份,红必须跟着文件走')
+})
+
+test('T20 G-406 ②:暂存触发面沿反向依赖闭包加宽 —— 改契约要红 importer', () => {
+  // 测试缝:buildGraph 可注入(建图秒级且只认真仓,单元测试不许真建一次图 —— 与 check-typecheck 同一边界)
+  const seed = 'packages/shared/src/contract.ts'
+  const importer = 'apps/web/src/uses-contract.ts'
+  const unrelated = 'apps/cli/src/unrelated.ts'
+  const w = gate.widenStagedScopeOverDependents([seed], {
+    buildGraph: () => ({ reverse: new Map([[seed, new Set([importer])]]) }),
+  })
+  assert.equal(w.widened, true, `加宽未生效:${w.reason}`)
+  assert.ok(w.paths.includes(seed), '闭包 ⊇ 种子(种子不得丢)')
+  assert.ok(w.paths.includes(importer), '直接 import 了暂存契约的 importer 必须进判定面(改契约要红 importer)')
+  assert.ok(!w.paths.includes(unrelated), '反向对照:与种子无依赖关系的文件不得被拉进判定面(不得顺手扩成全仓面)')
+  assert.deepEqual(w.added, [importer])
+  // 传递闭包:A→B→种子,B(二跳)也必须进来
+  const mid = 'packages/app/src/mid.ts'
+  const w2 = gate.widenStagedScopeOverDependents([seed], {
+    buildGraph: () => ({ reverse: new Map([[seed, new Set([importer])], [importer, new Set([mid])]]) }),
+  })
+  assert.ok(w2.paths.includes(mid), '间接 import(二跳)也必须进来(闭包是传递的)')
+  // 图外种子原样保留(丢掉它 = 把闭包判据退化成"按暂存清单判")
+  const w3 = gate.widenStagedScopeOverDependents(['docs/gone.ts'], { buildGraph: () => ({ reverse: new Map() }) })
+  assert.deepEqual(w3.paths, ['docs/gone.ts'])
+  // 建图失败:退回未加宽(= 改前逐字行为)+ 可见理由;不得崩、不得冒充加宽成功
+  const boom = gate.widenStagedScopeOverDependents([seed], { buildGraph: () => { throw new Error('git 炸了') } })
+  assert.equal(boom.widened, false, '建图失败不得冒充加宽成功')
+  assert.deepEqual(boom.paths, [seed], '失败回退必须等于改前行为')
+  assert.match(boom.reason, /建图\/闭包失败/, '失败理由必须可见')
+  // 空种子:无事可判,不得为空集建图
+  assert.equal(gate.widenStagedScopeOverDependents([], { buildGraph: () => ({ reverse: new Map() }) }).widened, false)
+  // 真引擎烟测:默认 buildGraph = import-graph 的 buildFileGraph(face=index),判据不能只用假图自证。
+  // 种子取真仓被广泛引用的共享入口。(变异自证:把实现退回 `paths: seeds` 旧形态,下面两条立刻红。)
+  const real = gate.widenStagedScopeOverDependents(['packages/shared/src/index.ts'])
+  assert.equal(real.widened, true, `真仓建图失败:${real.reason}`)
+  assert.ok(real.added.length > 10, `真仓闭包只有 ${real.added.length} 个新增 importer ⇒ 引擎没认出反向边`)
+})
+
+test('T20b 加宽必须真的接在暂存分支上且由「契约表被暂存」驱动(判据存在而永不调用 = 没有)', () => {
+  const src = readFileSync(SCRIPT, 'utf8')
+  const wired = (text) =>
+    /if \(staged\.has\(POLICY_REL\)\) \{[\s\S]{0,200}?widenStagedScopeOverDependents\(scope\.paths\)/.test(text)
+  assert.ok(wired(src), 'widenStagedScopeOverDependents 必须在暂存窄口径分支里由 staged.has(POLICY_REL) 驱动')
+  // 变异自证(= 把判据退回旧形态):调用点换回直读窄口径(scope.paths),同一把尺子必须失聪 ——
+  // 否则本条在"判据被摘线"之后依然报绿,等于在装样子。
+  const mutated = src.replace('widenStagedScopeOverDependents(scope.paths)', 'scope.paths /* 变异:退回未加宽旧形态 */')
+  assert.notEqual(mutated, src, '变异没落到结构位上(等于没测)')
+  assert.ok(!wired(mutated), '变异后仍判"已接线" ⇒ 本断言恒真,在装样子')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
