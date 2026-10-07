@@ -42,6 +42,18 @@ export interface WebSocketLike {
 const WS_CONNECTING = 0
 const WS_OPEN = 1
 
+/**
+ * G-816007:关掉过期代际的 socket(幂等 —— 对已关闭的 socket 调 close 无害)。
+ * 过期代际必须真的把 socket 关掉,"忽略回调"不算处理完。
+ */
+function disposeStaleSocket(ws: WebSocketLike): void {
+  try {
+    ws.close()
+  } catch {
+    // ignore
+  }
+}
+
 export interface WebSocketClientOptions<TMessage> {
   /** 构建 WS URL(接收当前 token) */
   urlBuilder: (token: string) => string
@@ -106,8 +118,11 @@ export class WebSocketClient<TMessage = WSNotification> {
   // 在 closedByUser=false 时调度一次多余的 scheduleReconnect,与 updateToken
   // 立即发起的新连接竞争,造成双连接/重连风暴。
   private generation = 0
-  // 换取 WS ticket 的进行中标志:防止 connect 并发触发多次 ticket 请求
-  private _connecting = false
+  // 换取 WS ticket 的进行中标志:防止 connect 并发触发多次 ticket 请求。
+  // G-816007:按代际去重 —— updateToken 在旧建连的 ticket await 窗口内递增代际后,
+  // 它触发的 connect() 不得被旧代际的在飞标志吞掉(否则旧建连过期退出后,新代际
+  // 连接永远无人发起,修复孤儿连接反而变成整体断线)。
+  private _connectingGeneration: number | null = null
 
   constructor(
     private readonly options: WebSocketClientOptions<TMessage>,
@@ -120,14 +135,22 @@ export class WebSocketClient<TMessage = WSNotification> {
 
   /** 连接 WebSocket(若已连接则忽略)。ticketProvider 存在时先异步换 ticket 再建连 */
   connect(): void {
-    if (this._connecting) return
-    this._connecting = true
+    // G-816007:同代际去重;换代后(ticket await 窗口内的 updateToken)允许并发建连
+    if (this._connectingGeneration === this.generation) return
+    const myGeneration = this.generation
+    this._connectingGeneration = myGeneration
     void this.connectInternal().finally(() => {
-      this._connecting = false
+      // 只有仍占着本代际在飞标志时才清 —— 换代后的新建连不受旧建连 finally 影响
+      if (this._connectingGeneration === myGeneration) {
+        this._connectingGeneration = null
+      }
     })
   }
 
   private async connectInternal(): Promise<void> {
+    // G-816007:入口捕获建连代际(原先在 this.ws = ws 之后才捕获,换代后旧建连
+    // 会错拿新代际号,回调守卫全部失效)。ticket await 窗口内可能发生 updateToken。
+    const myGeneration = this.generation
     const token = this.options.tokenProvider()
     if (!token || this.closedByUser) return
     // 提供了 webSocketFactory 时跳过全局 WebSocket 检查(factory 可能不依赖全局 WebSocket)
@@ -145,8 +168,10 @@ export class WebSocketClient<TMessage = WSNotification> {
       } catch {
         connectToken = token
       }
-      // 换取期间被 disconnect,放弃本次建连
-      if (this.closedByUser) return
+      // 换取期间被 disconnect 或换代(G-816007:原只判 closedByUser,漏了代际比对
+      // ⇒ 换代发生在 await 窗口内时,这次建连照旧接管 this.ws,旧 socket 被顶出
+      // 后再无 close 路径,成为服务端可见的孤儿连接),放弃本次建连
+      if (this.closedByUser || myGeneration !== this.generation) return
     }
 
     let ws: WebSocketLike
@@ -158,11 +183,26 @@ export class WebSocketClient<TMessage = WSNotification> {
       this.handlers.onError?.(e instanceof Error ? e.message : 'WebSocket 连接失败')
       return
     }
+    // G-816007:接管 this.ws 之前的最后一道重验 —— await 窗口内换代时,刚建的
+    // socket 必须**真的 close**(不是"忽略回调"就算完),然后放弃接管;否则它一旦
+    // 被新连接顶出 this.ws 就没有任何路径会 close 它。
+    if (this.closedByUser || myGeneration !== this.generation) {
+      try {
+        ws.close()
+      } catch {
+        // ignore
+      }
+      return
+    }
     this.ws = ws
-    const myGeneration = this.generation
 
+    // G-816007:过期代际的 socket 有事件进来就立刻关掉(幂等)—— "忽略回调"不等于
+    // 处理完,socket 还开着就是孤儿连接。onclose 例外:socket 已关,无需再 close。
     ws.onopen = () => {
-      if (myGeneration !== this.generation) return
+      if (myGeneration !== this.generation) {
+        disposeStaleSocket(ws)
+        return
+      }
       this.reconnectAttempt = 0
       this._isConnected = true
       this.handlers.onOpen?.()
@@ -172,7 +212,10 @@ export class WebSocketClient<TMessage = WSNotification> {
     // WebSocket onmessage 在 DOM(MessageEvent)和 RN(WebSocketMessageEvent)类型不同,
     // 用 WebSocketLike 的 { data: unknown } 统一签名兼容跨端(web/RN/desktop/extension)
     ws.onmessage = (event: { data: unknown }) => {
-      if (myGeneration !== this.generation) return
+      if (myGeneration !== this.generation) {
+        disposeStaleSocket(ws)
+        return
+      }
       const raw = event?.data
       if (raw === 'pong' || raw === '"pong"') return
       if (typeof raw !== 'string') return
@@ -196,7 +239,10 @@ export class WebSocketClient<TMessage = WSNotification> {
     }
 
     ws.onerror = () => {
-      if (myGeneration !== this.generation) return
+      if (myGeneration !== this.generation) {
+        disposeStaleSocket(ws)
+        return
+      }
       this.handlers.onError?.('WebSocket 连接错误')
     }
   }
