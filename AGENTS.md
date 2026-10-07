@@ -494,7 +494,7 @@ tail -20 .workbuddy/git-guardian.log        # 自愈审计流水(健康时不写
   ```
 
   - 用 `process.execPath` + 绝对路径,**不要**裸 `node` / `spawn('node')`(依赖 PATH,服务/CI 下会失败)。
-  - 参考实现:`apps/miniapp-taro/scripts/gen-i18n-compressed.mjs`。
+  - 参考实现:`scripts/gen-i18n-compressed.mjs`。
   - 事故:该生成器此前不写横幅 → 产物 `src/i18n/generated/remote-locales.gen.ts` 长期缺载,使 `check-watermark-coverage` 对已跟踪文件恒红,提交只能靠 `HUSKY_SKIP_WATERMARK_GUARD=1` 绕过。
 
 - **禁止对含载荷文件做文本级批量改写**(reflow、空白归一、正则替换、`sed -i`、编码往返、批量重写):`U+200B`/`U+200C`/`U+200D`/`U+2060` 属 Unicode **Cf 类**不可见字符,会被这类操作静默改写。
