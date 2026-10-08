@@ -441,11 +441,6 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
             { role: 'user' as const, content: task },
           ];
 
-          // G-426 无活动空闲超时:子 loop 的每一段真实推进(流式输出块/工具调用开始/工具结果)
-          // 都回报给外层执行窗,把 `executeWithinExecBudget` 的预算定时器重排回完整预算 ——
-          // 仍在推进的慢子代理不再被墙钟杀,真正卡死的才会超时(错误带 idleMs/recoverable);
-          // outerCtx.reportExecActivity 缺席(无预算窗)时三个钩子全为 no-op,与改前逐字等价。
-          // (钩子写在 runToolLoop 块内,注释留块外:守门 123 的 S1e 对该块有 800 字符窗口。)
           const result = await runToolLoop({
             modelId,
             messages,
@@ -455,9 +450,6 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
             // `runToolLoop` 把它同时喂给采样调用 ⇒ provider 挂起时这一枚子 loop 不再无限等。
             // 传 undefined 时与改前逐字等价(runToolLoop 的 signal 本来就是可选形参)。
             signal: outerCtx.signal,
-            onDelta: () => outerCtx.reportExecActivity?.(),
-            onToolCall: () => outerCtx.reportExecActivity?.(),
-            onToolResult: () => outerCtx.reportExecActivity?.(),
           });
 
           const text = result.assistantText.trim();
@@ -602,11 +594,7 @@ export function createSpawnParallelTool(parentOpts: SubagentParentOptions): Tool
               description: '隔离模式(默认 none)',
             },
             maxIterations: { type: 'number', description: '最大迭代数(可选)' },
-            timeoutSeconds: {
-              type: 'number',
-              // 净增 0 行的中文文案(守门 70 棘轮):一行写完,语义细节见 worker-pool 头注 G-426 条
-              description: '无活动超时秒数(可选,默认 300;每次任务活动重排,总上限 3 倍,真正卡死才触发)',
-            },
+            timeoutSeconds: { type: 'number', description: '超时秒数(可选,默认 300)' },
           },
           required: ['persona', 'task'],
         },

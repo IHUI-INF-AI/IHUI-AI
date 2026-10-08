@@ -10,9 +10,9 @@
 //   行为层:真跑 ai-panel store —— 全屏为会话级开关;persist merge 强制复位:
 //           localStorage 旧残留 workAreaFullscreen:true ⇒ rehydrate 后回 false
 //           (open/floatMinimized 同被强制,width 用户拖拽偏好仍保留);
-//   锚点层:宿主 ai-side-panel.tsx 消费点(头部动作组 role=group+组名 / 全屏按钮双态 aria /
-//           门槛隐藏(无会话不渲染,能用才显示) / display:none 让位工作面 + createPortal 退出键 /
-//           draft:true 请求体) + API 侧 draft 透传链(schema 可选布尔 + GitHubClient POST body);
+//   锚点层:宿主 ai-side-panel.tsx 消费点(头部动作组 role=group+组名 / 全屏按钮三态 aria /
+//           门槛 disabled / display:none 让位工作面 + createPortal 退出键 / draft:true 请求体)
+//           + API 侧 draft 透传链(schema 可选布尔 + GitHubClient POST body);
 //   词包层:aiChat.headerActions 五语言直锁。
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -76,12 +76,12 @@ describe('D182 锚点层:头部动作组/全屏按钮/门槛态/portal 退出键
     expect(host).toContain('data-testid="ai-panel-header-actions-group"')
   })
 
-  it('全屏按钮:进入/退出双态 aria-label + 门槛隐藏(无活动会话=任务未开始时整钮不渲染)', () => {
+  it('全屏按钮:进入/退出双态 aria-label + 门槛态 disabled(无活动会话=任务未开始)', () => {
     expect(host).toContain('data-testid="ai-panel-workspace-fullscreen"')
     expect(host).toContain("tc('headerActions.enterWorkspaceFullscreen')")
     expect(host).toContain("tc('headerActions.exitWorkspaceFullscreen')")
-    expect(host).toContain('{!floatMode && !workspaceUnavailable && (')
-    expect(host).not.toContain('disabled={workspaceUnavailable}')
+    expect(host).toContain("tc('headerActions.workspaceUnavailable')")
+    expect(host).toContain('disabled={workspaceUnavailable}')
     expect(host).toContain('const workspaceUnavailable = !storeConversationId')
   })
 
@@ -102,8 +102,6 @@ describe('D183 锚点层:一键 Draft PR(前端头部按钮 + 后端 draft 透�
     expect(host).toContain("tc('headerActions.createDraftPullRequest')")
     expect(host).toContain("tc('headerActions.createDraftPullRequestOk')")
     expect(host).toContain("tc('headerActions.createDraftPullRequestFailed')")
-    // 门槛隐藏:无活动会话时整钮不渲染(创建中例外保留转圈反馈)
-    expect(host).toContain('{!floatMode && (!workspaceUnavailable || creatingDraftPR) && (')
   })
 
   it('后端路由:createPRSchema 接受可选 draft 布尔(缺省不破坏既有调用方)', () => {
@@ -120,6 +118,7 @@ describe('D182/D183 词包五语言直锁(aiChat.headerActions)', () => {
   const EXPECTED: Record<(typeof LOCALES)[number], HeaderActions> = {
     'zh-CN': {
       panelGroupButtons: '面板组按钮',
+      workspaceUnavailable: '开始任务后可打开审阅工作面',
       enterWorkspaceFullscreen: '全屏显示工作面',
       exitWorkspaceFullscreen: '退出工作面全屏',
       createDraftPullRequest: '创建 Draft PR',
@@ -128,6 +127,7 @@ describe('D182/D183 词包五语言直锁(aiChat.headerActions)', () => {
     },
     'zh-TW': {
       panelGroupButtons: '面板組按鈕',
+      workspaceUnavailable: '開始任務後可開啟審閱工作面',
       enterWorkspaceFullscreen: '全螢幕顯示工作面',
       exitWorkspaceFullscreen: '退出工作面全螢幕',
       createDraftPullRequest: '建立 Draft PR',
@@ -136,6 +136,7 @@ describe('D182/D183 词包五语言直锁(aiChat.headerActions)', () => {
     },
     en: {
       panelGroupButtons: 'Panel action buttons',
+      workspaceUnavailable: 'Start a task to open the review workspace',
       enterWorkspaceFullscreen: 'Enter workspace fullscreen',
       exitWorkspaceFullscreen: 'Exit workspace fullscreen',
       createDraftPullRequest: 'Create Draft PR',
@@ -144,6 +145,7 @@ describe('D182/D183 词包五语言直锁(aiChat.headerActions)', () => {
     },
     ja: {
       panelGroupButtons: 'パネルアクションボタン',
+      workspaceUnavailable: 'タスクを開始するとレビューワークスペースを開けます',
       enterWorkspaceFullscreen: 'ワークスペースを全画面表示',
       exitWorkspaceFullscreen: 'ワークスペースの全画面を終了',
       createDraftPullRequest: 'Draft PR を作成',
@@ -152,6 +154,7 @@ describe('D182/D183 词包五语言直锁(aiChat.headerActions)', () => {
     },
     ko: {
       panelGroupButtons: '패널 작업 버튼',
+      workspaceUnavailable: '작업을 시작하면 검토 작업 공간을 열 수 있습니다',
       enterWorkspaceFullscreen: '작업 공간 전체 화면 표시',
       exitWorkspaceFullscreen: '작업 공간 전체 화면 종료',
       createDraftPullRequest: 'Draft PR 만들기',
@@ -160,7 +163,7 @@ describe('D182/D183 词包五语言直锁(aiChat.headerActions)', () => {
     },
   }
 
-  it('五语言六键逐一逐字一致(防某包漏插/翻译机踩键)', () => {
+  it('五语言七键逐一逐字一致(防某包漏插/翻译机踩键)', () => {
     for (const locale of LOCALES) {
       expect(readLocale(locale).aiChat.headerActions, locale).toEqual(EXPECTED[locale])
     }
