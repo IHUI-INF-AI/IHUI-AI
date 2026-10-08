@@ -112,13 +112,12 @@ describe('hookBlockReason — 截断必须留痕且不得劈开码点', () => {
 });
 
 describe('hookBlockReason — 装车面', () => {
-  it('五处 reason 全部走这一出口:源码里裸插值只允许出现在函数体内一次', () => {
+  it('四处 reason 全部走这一出口:源码里裸插值只允许出现在函数体内一次', () => {
     const src = readFileSync(SOURCE, 'utf8');
     const bare = [...src.matchAll(/r\.stderr \|\| r\.stdout/g)].length;
     expect(bare, `裸插值应只剩出口里那 1 处,实得 ${bare}`).toBe(1);
     const calls = [...src.matchAll(/reason: hookBlockReason\(/g)].length;
-    // G-916424 增补第 5 处:runPermissionRequest 的 blockOnError 阻断 reason 同走唯一成形出口。
-    expect(calls, `应有 5 处 reason 走出口,实得 ${calls}`).toBe(5);
+    expect(calls, `应有 4 处 reason 走出口,实得 ${calls}`).toBe(4);
   });
 
   it('函数体内不得再建第二套脱敏正则(唯一出口纪律)', () => {
