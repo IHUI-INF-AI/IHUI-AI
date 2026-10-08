@@ -24,24 +24,13 @@ import {
   History,
   Loader2,
   ScrollText,
+  Search,
 } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import { Input } from '@ihui/ui-react'
 import { Label } from '@ihui/ui-react'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@ihui/ui-react'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@ihui/ui-react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ihui/ui-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 import {
   POLL_INTERVAL_MS,
@@ -66,7 +55,8 @@ import {
 } from './helpers'
 import type { GetPhoneForm, MessageData, PhoneHistoryItem, SendSmsForm, UsedRecord } from './types'
 
-type Phase = 'idle' | 'polling' | 'received' | 'timeout'
+// waiting=手动模式已取号,等待用户点「查询验证码」(不自动轮询);polling=自动筛新号的 5s 轮询
+type Phase = 'idle' | 'waiting' | 'polling' | 'received' | 'timeout'
 
 /** 自动筛新号轮次上限:防止全是已注册号时无限烧钱(每个验证码约 0.45 元) */
 const MAX_AUTO_ROUNDS = 20
@@ -92,6 +82,8 @@ export default function SmsReceivePage() {
   // ── 取号表单 + 持有号码 ──
   const [form, setForm] = React.useState<GetPhoneForm>(EMPTY_GET_PHONE_FORM)
   const [getting, setGetting] = React.useState(false)
+  // 手动查询验证码进行中(点「查询验证码」按钮时置位)
+  const [querying, setQuerying] = React.useState(false)
   const [phone, setPhone] = React.useState<string | null>(null)
   const [keyWord, setKeyWord] = React.useState('')
   const [phase, setPhase] = React.useState<Phase>('idle')
@@ -168,7 +160,8 @@ export default function SmsReceivePage() {
       const hist = await fetchPhoneHistory(p).catch(() => [])
       const localLogin = hist.some((h) => h.usageKind === 'login')
       const usedHits = localLogin ? [] : await lookupUsedHistory(p).catch(() => [])
-      const related = localLogin || usedHits.length > 0 ? [] : await fetchRelatedMsgs(p).catch(() => [])
+      const related =
+        localLogin || usedHits.length > 0 ? [] : await fetchRelatedMsgs(p).catch(() => [])
       const recent = countRecentRecords(related)
       if (localLogin) {
         try {
@@ -355,11 +348,19 @@ export default function SmsReceivePage() {
       setKeyWord(form.keyWord.trim())
       pendingKey.current = { phone: p, keyWord: form.keyWord.trim() }
       setSms(null)
-      deadline.current = Date.now() + POLL_TIMEOUT_MS
-      setPhase('polling')
-      setPollSeed((s) => s + 1)
+      if (autoMode) {
+        // 自动筛新号:轮询是机制必需(收码→判定注册/登录→自动拉黑换号)
+        deadline.current = Date.now() + POLL_TIMEOUT_MS
+        setPhase('polling')
+        setPollSeed((s) => s + 1)
+      } else {
+        // 手动模式:不自动轮询(省频率计费),由用户发完短信后点「查询验证码」
+        setPhase('waiting')
+      }
       toast.success(
-        autoMode ? `已取号 ${p}(第 ${autoRoundRef.current} 轮),请去平台用它发送验证码` : `已取号 ${p},开始等待短信`,
+        autoMode
+          ? `已取号 ${p}(第 ${autoRoundRef.current} 轮),请去平台用它发送验证码`
+          : `已取号 ${p},去平台发送验证码后点「查询验证码」`,
       )
       void refreshPhoneHistory(p)
       void refreshRelatedStats(p)
@@ -367,6 +368,25 @@ export default function SmsReceivePage() {
       toast.error((e as Error).message)
     } finally {
       setGetting(false)
+    }
+  }
+
+  /** 手动查询验证码:点一次查一次(pending 可再点),不自动轮询 */
+  async function handleQueryOnce() {
+    if (!phone) return
+    setQuerying(true)
+    try {
+      const d = await fetchMessage(phone, keyWord)
+      setSms(d)
+      if (d.status === 'received') {
+        setPhase('received')
+      } else {
+        setPhase('waiting') // 尚未收到,可再点
+      }
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setQuerying(false)
     }
   }
 
@@ -441,7 +461,8 @@ export default function SmsReceivePage() {
           短信接码
         </h1>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          余额:{balanceLoading ? (
+          余额:
+          {balanceLoading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : balance !== null ? (
             <span className="font-mono font-semibold text-foreground">{balance}</span>
@@ -464,7 +485,8 @@ export default function SmsReceivePage() {
               取号与收码
             </CardTitle>
             <CardDescription>
-              关键词填短信黑括号里的名字,如【毛竹】验证码9876 → 填「毛竹」;不填可能收不到被屏蔽的短信
+              关键词填短信黑括号里的名字,如【毛竹】验证码9876 →
+              填「毛竹」;不填可能收不到被屏蔽的短信
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -483,7 +505,9 @@ export default function SmsReceivePage() {
                   <Label>卡类型</Label>
                   <Select
                     value={form.cardType}
-                    onValueChange={(v) => setForm({ ...form, cardType: v as GetPhoneForm['cardType'] })}
+                    onValueChange={(v) =>
+                      setForm({ ...form, cardType: v as GetPhoneForm['cardType'] })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -527,7 +551,7 @@ export default function SmsReceivePage() {
                     if (e.target.checked) setForm((f) => ({ ...f, phone: '' }))
                   }}
                   className="h-4 w-4"
-                  disabled={phase === 'polling'}
+                  disabled={phase === 'polling' || phase === 'waiting'}
                 />
                 自动筛新号(遇到已注册号自动拉黑换号,最多 {MAX_AUTO_ROUNDS} 轮)
               </label>
@@ -572,11 +596,32 @@ export default function SmsReceivePage() {
                     </div>
                     {autoRound > 0 && (
                       <div className="rounded-md border border-sky-500/30 bg-sky-500/10 p-2 text-sm text-sky-600">
-                        自动筛新号:第 {autoRound} 轮 · 已拉黑 {autoBlocked} 个 ·
-                        请用 <span className="font-mono font-bold">{phone}</span> 去「{keyWord}
+                        自动筛新号:第 {autoRound} 轮 · 已拉黑 {autoBlocked} 个 · 请用{' '}
+                        <span className="font-mono font-bold">{phone}</span> 去「{keyWord}
                         」平台发送验证码
                       </div>
                     )}
+                  </div>
+                )}
+                {phase === 'waiting' && (
+                  <div className="space-y-2">
+                    <div className="text-sm text-muted-foreground">
+                      已取号 <span className="font-mono font-bold">{phone}</span>,去「{keyWord}
+                      」平台发送验证码后点下方按钮查询(手动查询,不自动轮询)
+                    </div>
+                    {sms?.status === 'pending' && (
+                      <div className="rounded-md border border-amber-500/30 bg-amber-500/15 p-2 text-sm text-amber-600">
+                        尚未收到短信,稍后再试
+                      </div>
+                    )}
+                    <Button size="sm" disabled={querying} onClick={() => void handleQueryOnce()}>
+                      {querying ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Search className="h-4 w-4" />
+                      )}
+                      查询验证码
+                    </Button>
                   </div>
                 )}
                 {phase === 'timeout' && (
@@ -656,7 +701,12 @@ export default function SmsReceivePage() {
                     placeholder="最长 500 字符"
                   />
                 </div>
-                <Button type="submit" variant="outline" className="w-full" disabled={sending || !phone}>
+                <Button
+                  type="submit"
+                  variant="outline"
+                  className="w-full"
+                  disabled={sending || !phone}
+                >
                   {sending && <Loader2 className="h-4 w-4 animate-spin" />}
                   发送
                 </Button>
@@ -671,9 +721,7 @@ export default function SmsReceivePage() {
                 <History className="h-4 w-4" />
                 历史记录
               </CardTitle>
-              <CardDescription>
-                平台限频 1 次/分钟,返回最近 24 小时最多 100 条
-              </CardDescription>
+              <CardDescription>平台限频 1 次/分钟,返回最近 24 小时最多 100 条</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <Button
@@ -682,7 +730,11 @@ export default function SmsReceivePage() {
                 onClick={() => void handleFetchUsed()}
                 disabled={usedLoading || cooldown > 0}
               >
-                {usedLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                {usedLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
                 {cooldown > 0 ? `冷却中 ${cooldown}s` : '查询历史'}
               </Button>
               {usedItems.length > 0 && (
@@ -750,7 +802,9 @@ export default function SmsReceivePage() {
                         <span className="font-mono text-xs text-muted-foreground">
                           {new Date(h.receivedAt).toLocaleString('zh-CN', { hour12: false })}
                         </span>
-                        {h.platform && <span className="text-xs font-semibold">【{h.platform}】</span>}
+                        {h.platform && (
+                          <span className="text-xs font-semibold">【{h.platform}】</span>
+                        )}
                         <UsageTag kind={h.usageKind} />
                         {h.smsCode && (
                           <span className="font-mono font-bold text-primary">{h.smsCode}</span>
@@ -772,8 +826,8 @@ export default function SmsReceivePage() {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        API 文档:https://www.d1jiema.com/api.html · 频率计费:同一账号或 IP 每请求 1000 次扣
-        0.01~0.2 元 · Token 配置于服务端 D1JIEMA_TOKEN
+        API 文档:https://www.d1jiema.com/api.html · 频率计费:同一账号或 IP 每请求 1000 次扣 0.01~0.2
+        元 · Token 配置于服务端 D1JIEMA_TOKEN
       </p>
     </div>
   )
@@ -782,7 +836,9 @@ export default function SmsReceivePage() {
 /** 台账用途小标签:注册=新号首次接码 / 登录=该号已注册过该平台 */
 function UsageTag({ kind }: { kind: PhoneHistoryItem['usageKind'] }) {
   if (kind === 'register')
-    return <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-xs text-emerald-600">注册</span>
+    return (
+      <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-xs text-emerald-600">注册</span>
+    )
   if (kind === 'login')
     return (
       <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-xs text-amber-600">
