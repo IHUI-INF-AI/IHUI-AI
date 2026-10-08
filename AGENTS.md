@@ -574,6 +574,7 @@ pnpm turbo build typecheck lint test          # 全量验证(必须全绿)
 pnpm --filter @ihui/api typecheck             # 单独验证后端
 pnpm --filter @ihui/web typecheck             # 单独验证前端
 cd apps/ai-service && mypy app --ignore-missing-imports --strict   # Python 类型(app 源码路径 apps/ai-service/app,继承 pyproject.toml [tool.mypy])
+pnpm check:pytest                          # Python 用例唯一入口(= apps/ai-service 的 test:py → scripts/run-ai-service-tests.mjs):缺省档实跑、--collect-only 证收集面;收集到 0 条 / 取不到 venv 解释器 / 输出无可解析总结 ⇒ 非零并点名,绝不得读成"通过"。透传参数走 `pnpm check:pytest -- tests/test_x.py`
 pnpm dev                                       # 启动所有服务(web + api + ai-service,端口见 docs/port-management.md)
 ```
 
