@@ -4,7 +4,14 @@
 
 /** 短信接码页面常量与 API 封装 */
 import { adminApi } from '@/lib/admin/api'
-import type { CardType, GetPhoneForm, MessageData, PhoneHistoryItem, RelatedMsgItem } from './types'
+import type {
+  CardType,
+  GetPhoneForm,
+  MessageData,
+  PhoneHistoryItem,
+  RelatedMsgItem,
+  UsedRecord,
+} from './types'
 
 export const API_BASE = '/api/admin/sms-receive'
 
@@ -47,10 +54,10 @@ export async function fetchPhone(form: GetPhoneForm): Promise<string> {
 }
 
 export async function fetchMessage(phone: string, keyWord: string): Promise<MessageData> {
-  return adminApi<MessageData>(
-    `${API_BASE}/message`,
-    { method: 'POST', body: JSON.stringify({ phone, keyWord }) },
-  )
+  return adminApi<MessageData>(`${API_BASE}/message`, {
+    method: 'POST',
+    body: JSON.stringify({ phone, keyWord }),
+  })
 }
 
 export async function releasePhone(phone: string) {
@@ -74,17 +81,42 @@ export async function sendSms(phone: string, toPhone: string, content: string) {
   })
 }
 
-export async function fetchUsed(): Promise<string[]> {
-  const d = await adminApi<{ items: string[] }>(`${API_BASE}/used`)
+export async function fetchUsed(): Promise<UsedRecord[]> {
+  const d = await adminApi<{ items: UsedRecord[] }>(`${API_BASE}/used`)
   return d.items
 }
 
-/** 查某号码的本地接码台账(收码即记,不受平台 24h/100 条限制) */
-export async function fetchPhoneHistory(phone: string): Promise<PhoneHistoryItem[]> {
-  const d = await adminApi<{ items: PhoneHistoryItem[] }>(
+// used 平台限频 1 次/分钟 → 客户端 60s 缓存:自动筛新号连续换号时预筛查询全部走缓存,
+// 不打爆平台限频(缓存为空期间查询失败返回 null,fail-open 视为无记录)
+let usedCache: { at: number; items: UsedRecord[] } | null = null
+
+/** 取本账号 24h 流水(60s 缓存);缓存过期且查询失败时返回 null(fail-open) */
+export async function fetchUsedCached(): Promise<UsedRecord[] | null> {
+  if (usedCache && Date.now() - usedCache.at < USED_COOLDOWN_SECONDS * 1000) return usedCache.items
+  try {
+    const items = await fetchUsed()
+    usedCache = { at: Date.now(), items }
+    return items
+  } catch {
+    return usedCache ? usedCache.items : null // 过期缓存也胜过没有:429 冷却期内沿用旧数据
+  }
+}
+
+/** 预筛:该号码是否出现在本账号 24h 流水里(出现过=近期被本机用过,不是新号) */
+export async function lookupUsedHistory(phone: string): Promise<UsedRecord[]> {
+  const items = await fetchUsedCached()
+  if (!items) return []
+  return items.filter((u) => u.phone === phone)
+}
+
+/** 查某号码的本地接码台账(items=最近 20 条流水,total=全量条数即本机累计使用次数) */
+export async function fetchPhoneHistory(
+  phone: string,
+): Promise<{ items: PhoneHistoryItem[]; total: number }> {
+  const d = await adminApi<{ items: PhoneHistoryItem[]; total: number }>(
     `${API_BASE}/phone-history?phone=${encodeURIComponent(phone)}`,
   )
-  return d.items
+  return { items: d.items, total: d.total }
 }
 
 /** 查平台「号码相关短信」全局时间线(免费、全局号码维度;该号被所有买家收码的记录) */

@@ -35,6 +35,7 @@ vi.mock('jose', () => ({ decodeJwt: vi.fn(() => ({ type: 'access' })) }))
 vi.mock('../../db/sms-receive-queries.js', () => ({
   recordSmsReceived: vi.fn().mockResolvedValue(undefined),
   getPhoneHistory: vi.fn().mockResolvedValue([]),
+  getPhoneHistoryCount: vi.fn().mockResolvedValue(0),
 }))
 
 import smsReceiveRoutes from '../admin/sms-receive.js'
@@ -83,7 +84,10 @@ describe('Admin SMS Receive — d1jiema 对接', () => {
     mockConfig.D1JIEMA_ACCT = 'test-acct'
     mockConfig.D1JIEMA_PASSWORD = 'test-pwd'
     // 默认兜底 stub:防止个别用例漏 stub 时真实请求打到 d1jiema 平台
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('ERROR:no-mock', { status: 200 })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('ERROR:no-mock', { status: 200 })),
+    )
   })
 
   it('无 auth 返回 401', async () => {
@@ -162,11 +166,16 @@ describe('Admin SMS Receive — d1jiema 对接', () => {
 
   it('phone 连续 5 次脱敏号返回 502(防死循环烧号)', async () => {
     mockFetchText([
-      '165****7249', '释放成功',
-      '165****7249', '释放成功',
-      '165****7249', '释放成功',
-      '165****7249', '释放成功',
-      '165****7249', '释放成功',
+      '165****7249',
+      '释放成功',
+      '165****7249',
+      '释放成功',
+      '165****7249',
+      '释放成功',
+      '165****7249',
+      '释放成功',
+      '165****7249',
+      '释放成功',
     ])
     const res = await app.inject({
       method: 'POST',
@@ -270,15 +279,37 @@ describe('Admin SMS Receive — d1jiema 对接', () => {
     expect(res.json().code).toBe(400)
   })
 
-  it('used 冷却期内返回 429(限频 1 次/分钟)', async () => {
-    mockFetchText(['record-1\nrecord-2'])
+  it('used 返回结构化解析(号码/扣费/平台/用途/原文),冷却期内 429', async () => {
+    mockFetchText([
+      [
+        '16512345678\t0.45\t【trae】验证码058967,用于手机验证码登录,5分钟内有效。',
+        '19251705122\t0.45\t【trae】验证码207163,用于注册,5分钟内有效。',
+        'bad-line-without-tabs',
+        '13800000000\t', // 缺第三段,解析失败应跳过
+      ].join('\n'),
+    ])
     const first = await app.inject({
       method: 'GET',
       url: '/api/admin/sms-receive/used',
       headers: AUTH_HEADERS,
     })
     expect(first.statusCode).toBe(200)
-    expect(first.json().data.items).toEqual(['record-1', 'record-2'])
+    expect(first.json().data.items).toEqual([
+      {
+        phone: '16512345678',
+        fee: '0.45',
+        platform: 'trae',
+        usageKind: 'login',
+        text: '【trae】验证码058967,用于手机验证码登录,5分钟内有效。',
+      },
+      {
+        phone: '19251705122',
+        fee: '0.45',
+        platform: 'trae',
+        usageKind: 'register',
+        text: '【trae】验证码207163,用于注册,5分钟内有效。',
+      },
+    ])
     const second = await app.inject({
       method: 'GET',
       url: '/api/admin/sms-receive/used',
