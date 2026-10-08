@@ -641,7 +641,7 @@
       "path": "packages/desktop/src",
       "status": "windowed",
       "files": 265,
-      "read": 96,
+      "read": 98,
       "notes": "host 11/47、main a-m 19/104、main n-z+browserView 27/84、index.ts+遥测族 14/14(W3-4 全读完该切片)。剩余 processResource*/resourceManager* ≈25、cua*/windows* ≈20、chromeCookie*/browserData* ≈8、desktopMainIpc* 3、autoUpdater/forceUpdate* ≈5。",
       "tickets": ["G-379"],
       "evidence": [
@@ -662,6 +662,14 @@
         {
           "p": "packages/desktop/src/main/appLaunchGate.ts",
           "lines": 14
+        },
+        {
+          "p": "packages/desktop/src/scheduler/manualClaimRelease.ts",
+          "lines": 38
+        },
+        {
+          "p": "packages/desktop/src/scheduler/offPeakDispatchSettlement.ts",
+          "lines": 85
         },
         {
           "p": "packages/desktop/src/main/browserView/browserPlaywrightTimeout.ts",
@@ -697,7 +705,7 @@
       "path": "packages/shared/src",
       "status": "windowed",
       "files": 226,
-      "read": 172,
+      "read": 173,
       "notes": "协议 v4 28/69、散件 a-m 48/48、散件 m-z 15/108。未读大头:validation(1305 行)、zcode-task-types-core(1187)、platform(982)、test-ids(732)、task-realtime-core(523)、usage-stats(462)、mcp(374)、permission-request-preview(366)、remote*/workspace-hook* 族。",
       "evidence": [
         "packages/shared/src/permission-request-preview.ts:19-37",
@@ -712,6 +720,10 @@
         {
           "p": "packages/shared/src/background-task-control-merge.ts",
           "lines": 12
+        },
+        {
+          "p": "packages/shared/src/memoryDiagnostics.ts",
+          "lines": 200
         },
         {
           "p": "packages/shared/src/browser-use/backend.ts",
@@ -1027,7 +1039,7 @@
       "path": "packages/ui/src",
       "status": "windowed",
       "files": 1492,
-      "read": 353,
+      "read": 357,
       "notes": "lib n-z 16、lib a-m 46(W2-5 整文件读完 46/90)、settings 17、v4 10(W2-8)、ToolCallBlocks+app-shell+store+root+mentions 18(W3-9)、components+hooks 6(W3-5);W4 四路新增整文件读到体 115:hooks 28/98、components/ai-elements 32/46、components 其余 +13、ToolCallBlocks+chat-input-toolbar +8、store/workspace +12、v4 +6、顶层散件 6/138、quickpick 5/7、git-graph 3/6、presentation 2/6。⚠️ read=191 是【下界】:W3 旧登记的 24 个(ToolCallBlocks/store/root/mentions 18 + components/hooks 6)按目录判定全部落在 W4 集合内,而 W4 内部 components 与 components/ai-elements 至多重叠 13 —— 交集无法从台账推出,真实区间 [191,228];派单请跑 `node scripts/zcode-absorption-matrix.mjs` 看末行现值,不得照本字段做减法核账。⚠️ 口径更正:旧 notes 写的『ui 根 44』与现量不同口径 —— 顶层散件按 `git ls-files packages/ui/src` 行级过滤现量为 138(`*` 通配会递归,那是另一个口径,第一版据此量出 1492)。这是最大的一块未闭合面。;W6-67(2026-09-29)两路只读取证:core 余量 45 份/8,935 行、ui 行为核心 5 份/2,439 行,去重后入账 5 份(core 42/ui 5),3 份与既有清单同路径已按\"下界\"少报(interaction-auto-resolution / permission-grant-recovery / permission-grant-resume);W6-68(2026-09-29)只读取证 22 份,去重后可入账 22 份,行数逐条 wc 复核、锚点逐条 awk 回读;批次73(2026-09-29)四路只读取证入账:D 路一整段(ui/lib 首段),代理报 64 份,逐条对克隆 29628c9 blob 现量核行,去重后入账 +63 份(readFiles 逐条 {p,lines}),排除 1 份已逐条报名,票候选见台账第六十四批",
       "remaining": "message 渲染族与 messageTelemetry 后半 1300 行、workflow-timeline 39、v4 余 197、hooks 余 70、components 余 140、ToolCallBlocks 余 67、store 余 30、顶层散件余 132;quickpick 余 TaskFindDialog.tsx 389、git-graph 余 Pane/Dialog/CommitDetail 620、presentation 余 elementModel/pptxEngine/pdfPrintExport/textSelection 988。DeveloperToolsPane.tsx 与 App.tsx 仅段读,不计 read。 ｜09-29 第十九轮回填:本轮具名整读到体 5 枚,其中 5 枚带可核验指针(其余仅按代理逐文件清单计,要问责就先要求补指针) ｜09-29 第二十轮回填:本轮具名整读到体 5 枚,指针 5 枚按克隆面 basename 解析后核验通过(路径漂移已就地更正) ｜09-29 第二十一轮回填:供应商设置面与用量面板报告具名 13 枚、新指针 8 枚可兑现 ｜09-29 第三十三批回填:UI 两大块整读到体 message.tsx **1670 行**(1-340/341-680/681-1020/1021-1340/1341-1670)、markdown-table.tsx 1420(1-360/361-720/721-1080/1081-1420)。**行数更正:台账旧文写 1516 是错的**,现按 wc -l 取 1670。**路径更正**:真实前缀是「packages/ui/src/components/ai-elements/」,不是「apps/zcode-cli/packages/ui/src/components/」。残余:prompt-input 753、diagram-preview-dialog 702、image-preview-dialog 564、code-block 550 未整读。 ｜09-29 第三十四批回填:prompt-input.tsx 753(段接 1-400/401-753)、code-block.tsx 550(1-300/301-550)整读到体。残余:文件尾 :744-753 的四个 re-export 兄弟件(prompt-input-buttons/actions/textarea/primitives)与「code-viewer.js」(shiki 渲染本体)未读。 ｜09-29 第三十六批回填:prompt-input.tsx 文件尾 :744-753 四条 export * 指向的兄弟件整读到体 —— buttons 120 / actions 209 / textarea 131 / primitives 180(合计 640 行,真实交互面在这里,此前 A 组结论确曾因此估偏)。残余:本体 :1-743 里的 usePromptInputAttachments / useOptionalPromptInputController(机制\"粘贴转附件\"与\"Backspace 删附件\"的状态所有者)、../ui/input-group.js、@/lib/utils.js 的 cn 未读。 ｜09-29 第三十八批回填:diagram-preview-dialog.tsx 702(1-220/221-460/461-702)、image-preview-dialog.tsx 564(1-180/181-390/391-564)整读到体,7 条新指针逐条 b<=wc -l 兑现。残余(仍零读,不得当已证事实):packages/ui/src/lib/diagramViewport.ts 90 行(抄矢量预览族的前置)、@/hooks/usePlatform.js 的 saveFile 契约实现、@/components/ui/dialog.tsx(Esc 之外的焦点归还,决定弹层升格时行为)、ControlHintTooltip、logger/IntlProvider。 ｜09-29 第六十四批复量回填:主会话 wc -l 逐份现量后具名整读到体 +19(代理报 19 枚候选,跳过 0 枚重叠/取不到);新立票 5 枚(G-815964…G-815968),每票的我方侧命中数由主会话在 HEAD 面重跑。 | W6-67 后本区余量:core 约 155-165 份未读(下一刀 subagent.ts+background-tasks.ts+task-output*/task-stop,再 compact.ts+compact-selection+context-usage+media-budget,后转 mcp/memory/workflow 整域);ui 约 1545 份/324,983 行未读(下一刀 packages/ui/src/v4 下 *.ts 非 .tsx:实测 60 份/约 9,100 行) | W6-68 后 ui 余约 1523 份/322,099 行未读;下一刀 v4 的 windowControllerTaskListRegistry.ts 余 131-尾 + conversationSharePreflightCache 同族长尾,以及 settings/ 215 份/54,122 行(绝大多数是展示件,性价比低)",
       "evidence": [
@@ -1350,6 +1362,22 @@
         {
           "p": "packages/ui/src/v4/ackActivationBarrier.ts",
           "lines": 145
+        },
+        {
+          "p": "packages/ui/src/logger.ts",
+          "lines": 112
+        },
+        {
+          "p": "packages/ui/src/store/taskQueryCacheStore.ts",
+          "lines": 1020
+        },
+        {
+          "p": "packages/ui/src/store/tabWorkspaceIdentity.ts",
+          "lines": 38
+        },
+        {
+          "p": "packages/ui/src/TaskListRemoteSyncHint.tsx",
+          "lines": 13
         },
         {
           "p": "packages/ui/src/v4/agentConversationTransportWorkflowRuns.ts",
