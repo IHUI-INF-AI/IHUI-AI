@@ -51,6 +51,9 @@ const LOCK_RELEASE_OUTCOME_VALUES = [
   'todo',
   'ready',
   'blocked',
+  // G-462(2026-10-07):kanban 域拆出四个独立终态档;cancelled/preempted/quota_exceeded
+  // 与 dispatch 域同拼写(表内已有),execution_failed 是新拼写,必须同枚进表
+  'execution_failed',
   'done',
   'deleted',
 ] as const satisfies readonly LockReleaseOutcome[]

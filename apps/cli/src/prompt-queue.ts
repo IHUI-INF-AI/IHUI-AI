@@ -36,6 +36,57 @@ import { applyQueueEdit, reorderQueue } from '@ihui/shared/chat/queue-interactio
 /** 队列项状态 */
 export type PromptQueueItemStatus = 'pending' | 'running' | 'completed' | 'cancelled';
 
+/**
+ * 队列条目的类型轴(G-815994):按上游 command-queue 的两组切,**不抄它的 priority 三档**
+ * —— 上游全快照 `priority: "now"/"later"` 零写入,那是没人写的装饰;真正的轴是 kind。
+ * 两组的持久化与取消语义不同:
+ *  - 请求-应答组(上游带 resolve/reject):必须独占一个回合,user 消息插不进
+ *    assistant tool_use 与 tool_result 之间(排序契约,不是特例);
+ *  - 通知组(上游带 branchGeneration):可被运行中的回合 inline 吸收,成批也只认通知型。
+ */
+export type PromptQueueKind =
+  // 请求-应答组(3 种)
+  | 'prompt'
+  | 'target-continuation'
+  | 'target-continuation-loop'
+  // 通知组(3 种)
+  | 'task-notification'
+  | 'subagent-message'
+  | 'control-only-turn';
+
+/** 通知组判据(成批只认这一组 —— `dequeueNextBatch` 的唯一准入)。 */
+export const PROMPT_QUEUE_NOTIFICATION_KINDS = [
+  'task-notification',
+  'subagent-message',
+  'control-only-turn',
+] as const;
+
+export type PromptQueueNotificationKind = (typeof PROMPT_QUEUE_NOTIFICATION_KINDS)[number];
+
+export function isNotificationKind(kind: PromptQueueKind): kind is PromptQueueNotificationKind {
+  return (PROMPT_QUEUE_NOTIFICATION_KINDS as readonly string[]).includes(kind);
+}
+
+/**
+ * 可被运行中回合 inline 吸收的通知。`control-only-turn` 虽属通知组,但它是排序契约的
+ * break 点(上游 active-loop 遇它即 break),**不可吸收** —— 否则回合边界会被吞掉。
+ */
+export function isInlineableKind(kind: PromptQueueKind): boolean {
+  return kind === 'task-notification' || kind === 'subagent-message';
+}
+
+const PROMPT_QUEUE_KINDS: readonly string[] = [
+  'prompt',
+  'target-continuation',
+  'target-continuation-loop',
+  ...PROMPT_QUEUE_NOTIFICATION_KINDS,
+];
+
+/** 持久化读侧的合法性闸:六值闭集之外的串(含旧文件缺字段)一律落 'prompt'。 */
+export function isPromptQueueKind(value: unknown): value is PromptQueueKind {
+  return typeof value === 'string' && PROMPT_QUEUE_KINDS.includes(value);
+}
+
 /** 队列项 */
 export interface PromptQueueItem {
   /** 唯一 id(自增 + 时间戳,便于 cancel 单条) */
@@ -44,6 +95,8 @@ export interface PromptQueueItem {
   prompt: string;
   /** 状态 */
   status: PromptQueueItemStatus;
+  /** 类型轴(G-815994):缺席按 `'prompt'` 读 —— 旧持久化文件与旧调用方零迁移。 */
+  kind: PromptQueueKind;
   /** 入队时间戳(ms) */
   enqueuedAt: number;
   /** 开始执行时间戳(ms) */
@@ -87,8 +140,8 @@ export class PromptQueue extends EventEmitter {
     return `q-${Date.now().toString(36)}-${this.counter.toString(36)}`;
   }
 
-  /** 入队提示词,返回新队列项 */
-  enqueue(prompt: string): PromptQueueItem {
+  /** 入队提示词,返回新队列项。kind 缺省 'prompt'(请求-应答组,行为与加轴前逐字同形)。 */
+  enqueue(prompt: string, kind: PromptQueueKind = 'prompt'): PromptQueueItem {
     const trimmed = prompt.trim();
     if (!trimmed) {
       throw new Error('prompt 不能为空');
@@ -97,6 +150,7 @@ export class PromptQueue extends EventEmitter {
       id: this.nextId(),
       prompt: trimmed,
       status: 'pending',
+      kind,
       enqueuedAt: Date.now(),
     };
     this.items.push(item);
@@ -112,6 +166,50 @@ export class PromptQueue extends EventEmitter {
     next.startedAt = Date.now();
     this.emit('dequeued', next);
     return next;
+  }
+
+  /**
+   * 成批出队(G-815994):把队首一段**通知型** pending 一次取走,供运行中的回合 inline 吸收。
+   *
+   * 三条排序契约(各有正反成对测试钉住):
+   *  - 成批判据只认通知组:队首是请求-应答型 ⇒ 单条出队,不成批;
+   *  - 吸收循环遇**不可 inline** 的 kind 即 `break`(**不是 continue** —— 写成 continue 会
+   *    把"普通引导之后的通知"也吸进来,等于恢复上游点名要避免的错法;
+   *    `control-only-turn` 是排序契约的 break 点,队首时单独出队,吸收中途遇到则留在队列里);
+   *  - 全是通知型时照常成批(防做成"永不成批")。
+   *
+   * @param max 单批上限(缺省 8:一次吸收的通知在 prompt 里占位,给个保守档)。
+   */
+  dequeueNextBatch(max = 8): PromptQueueItem[] {
+    const head = this.items.find((it) => it.status === 'pending');
+    if (!head) return [];
+    if (!isNotificationKind(head.kind)) {
+      // 请求-应答型:必须独占回合,单条出队(与 dequeue 同形)
+      head.status = 'running';
+      head.startedAt = Date.now();
+      this.emit('dequeued', head);
+      return [head];
+    }
+    if (!isInlineableKind(head.kind)) {
+      // 队首即 control-only-turn(排序契约 break 点):单独出队,绝不吸收它后面的
+      head.status = 'running';
+      head.startedAt = Date.now();
+      this.emit('dequeued', head);
+      return [head];
+    }
+    const batch: PromptQueueItem[] = [];
+    for (const it of this.items) {
+      if (it.status !== 'pending') continue; // 跳过非 pending 是"跳过",不算吸收
+      if (!isInlineableKind(it.kind)) break; // 不可 inline ⇒ break(不是 continue;head 已是可 inline,命中即吸收边界)
+      batch.push(it);
+      if (batch.length >= max) break;
+    }
+    for (const it of batch) {
+      it.status = 'running';
+      it.startedAt = Date.now();
+      this.emit('dequeued', it);
+    }
+    return batch;
   }
 
   /**
@@ -275,11 +373,12 @@ export class PromptQueue extends EventEmitter {
     for (const item of parsed.pending) {
       if (!item || typeof item.id !== 'string' || typeof item.prompt !== 'string') continue;
       if (existingIds.has(item.id)) continue;
-      // 重置为 pending 状态(即使原状态可能被篡改)
+      // 重置为 pending 状态(即使原状态可能被篡改);kind 缺席按 'prompt' 读(旧文件零迁移,G-815994)
       const restored: PromptQueueItem = {
         id: item.id,
         prompt: item.prompt,
         status: 'pending',
+        kind: isPromptQueueKind(item.kind) ? item.kind : 'prompt',
         enqueuedAt: typeof item.enqueuedAt === 'number' ? item.enqueuedAt : Date.now(),
       };
       this.items.push(restored);

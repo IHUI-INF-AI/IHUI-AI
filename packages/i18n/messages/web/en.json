@@ -7115,6 +7115,7 @@
     "kanban": {
       "blocked": "Blocked",
       "cancel": "Cancel",
+      "cancelled": "Cancelled",
       "confirm": "Confirm",
       "created": "Created",
       "delete": "Delete",
@@ -7122,12 +7123,15 @@
       "done": "Done",
       "duration": "Duration",
       "empty": "No tasks",
+      "execution_failed": "Failed",
       "in_progress": "In Progress",
       "lockConflict": "Workspace lock conflict",
       "lockFree": "Free",
       "lockStatus": "Lock status",
       "locked": "Locked",
+      "preempted": "Preempted",
       "priority": "Priority",
+      "quota_exceeded": "Quota exceeded",
       "ready": "Ready",
       "reason": "Reason",
       "reasonRequired": "Please enter a reason",
@@ -9112,7 +9116,6 @@
     "expandConversation": "Expand Conversation",
     "headerActions": {
       "panelGroupButtons": "Panel action buttons",
-      "workspaceUnavailable": "Start a task to open the review workspace",
       "enterWorkspaceFullscreen": "Enter workspace fullscreen",
       "exitWorkspaceFullscreen": "Exit workspace fullscreen",
       "createDraftPullRequest": "Create Draft PR",
@@ -10607,6 +10610,9 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
+    "truncation": {
+      "maxLengthNotice": "This reply was cut off at the maximum output length and is incomplete; send \"continue\" to keep generating."
+    },
     "markdownTable": {
       "copy": "Copy table",
       "downloadCsv": "Download CSV",
@@ -27845,9 +27851,7 @@
     "hintSelect": "select",
     "hintConfirm": "confirm",
     "hintClose": "close",
-    "clearAriaLabel": "Clear search",
-    "followupDismiss": "Dismiss suggestions",
-    "followupRowLabel": "Try these"
+    "clearAriaLabel": "Clear search"
   },
   "statusPage": {
     "incidentsUnavailable": "Incident data for the last 30 days is temporarily unavailable"
