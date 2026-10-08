@@ -5918,7 +5918,9 @@
       "refresh": "Refresh",
       "loadFailed": "Failed to load",
       "installerHint": "GitHub-side actor id (not a platform user)"
-    }
+    },
+    "smsReceive": "SMS Verification",
+    "sms": "SMS Templates"
   },
   "connectors": {
     "title": "Chinese Connectors",
@@ -19230,7 +19232,9 @@
     "home": "Home",
     "settings": "Settings",
     "adminDeployDiagnosis": "Deployment Diagnosis",
-    "githubApp": "GitHub App"
+    "githubApp": "GitHub App",
+    "smsReceive": "SMS Verification",
+    "sms": "SMS Templates"
   },
   "news": {
     "allCategories": "All Categories",

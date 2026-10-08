@@ -137,6 +137,27 @@ redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', tonumber(ARGV[1]))
 return redis.call('ZCARD', KEYS[1])
 `.trim()
 
+/**
+ * QUARANTINE-WRITE(G-998089):把一条隔离记录落进租约侧的共享 hash(字段 = slot token,
+ * 值 = 调用方序列化的 JSON)。stop-failed(子资源未终态、保锁待人工收口)的持有方写,
+ * 接管方(下一个拿到槽的进程)读 —— "前一个持有者为什么死在半路"必须跨进程可读,
+ * 只留在失败方进程内存里的记录对接管者等于不存在。
+ */
+export const MERGE_SEMAPHORE_QUARANTINE_WRITE_LUA = `
+redis.call('HSET', KEYS[1], ARGV[1], ARGV[2])
+return 1
+`.trim()
+
+/** QUARANTINE-READ(G-998089):回全部隔离记录(HGETALL,拍平成 [field,value,...])。 */
+export const MERGE_SEMAPHORE_QUARANTINE_READ_LUA = `
+return redis.call('HGETALL', KEYS[1])
+`.trim()
+
+/** 隔离记录键:租约键的姊妹键(同前缀同环境段,互不串)。 */
+export function resolveUploadMergeQuarantineKey(slotsKey: string): string {
+  return `${slotsKey}:quarantine`
+}
+
 export interface AcquireResult {
   /** 是否占到槽(1=granted)。 */
   readonly granted: boolean
@@ -152,6 +173,10 @@ export interface RedisMergeSemaphore {
   renew(owner: string): Promise<boolean>
   release(owner: string): Promise<void>
   count(): Promise<number>
+  /** G-998089:stop-failed 隔离记录写入(字段=slot token;值=调用方序列化的 JSON 串)。 */
+  quarantine(owner: string, payloadJson: string): Promise<void>
+  /** G-998089:读全部隔离记录(字段=slot token → 值=JSON 串);空对象 = 无记录。 */
+  readQuarantines(): Promise<Record<string, string>>
 }
 
 function toNumber(v: unknown): number {
@@ -201,6 +226,24 @@ export function createRedisMergeSemaphore(opts: {
     async count(): Promise<number> {
       const res = await redis.eval(MERGE_SEMAPHORE_COUNT_LUA, 1, key, String(now()))
       return toNumber(res)
+    },
+    async quarantine(owner: string, payloadJson: string): Promise<void> {
+      await redis.eval(
+        MERGE_SEMAPHORE_QUARANTINE_WRITE_LUA,
+        1,
+        resolveUploadMergeQuarantineKey(key),
+        owner,
+        payloadJson,
+      )
+    },
+    async readQuarantines(): Promise<Record<string, string>> {
+      const res = await redis.eval(MERGE_SEMAPHORE_QUARANTINE_READ_LUA, 1, resolveUploadMergeQuarantineKey(key))
+      const out: Record<string, string> = {}
+      if (Array.isArray(res)) {
+        // HGETALL 拍平回复:[field1, value1, field2, value2, ...]
+        for (let i = 0; i + 1 < res.length; i += 2) out[String(res[i])] = String(res[i + 1])
+      }
+      return out
     },
   }
 }

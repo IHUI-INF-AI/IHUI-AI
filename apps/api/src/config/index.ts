@@ -316,6 +316,17 @@ const envSchema = z.object({
   // 锁最多滞留本时长即自愈(正常收口路径由 onResponse 主动删键,不等 TTL)。
   // 只影响"带了 Idempotency-Key 且能力目录 idempotencyRequired=true"的请求,其余不受任何影响。
   IDEMPOTENCY_TTL_SECONDS: z.coerce.number().int().min(60).max(86_400).default(600),
+
+  // d1jiema 接码平台 API Token(C 类可选第三方,2026-10-08 立,管理员短信接码 /admin/sms-receive)。
+  // 留空 = 未配置:d1jiema-service 消费点显式报"未配置"错误,不影响启动。
+  // 创建入口:平台网页版 个人中心 → API对接中心 → 创建 API Token(一次创建长期使用,勿频繁更换)。
+  D1JIEMA_TOKEN: z.string().default(''),
+
+  // d1jiema 平台网页版账密(C 类可选第三方,2026-10-09 立,不入 git,apps/api/.env 本地保存)。
+  // 仅用于网页版「号码相关短信」全局时间线(trsCode=relatedMsgs,自动筛新号热度过滤数据源)。
+  // 留空 = 热度查询不可用:消费点显式报"未配置",不影响启动。
+  D1JIEMA_ACCT: z.string().default(''),
+  D1JIEMA_PASSWORD: z.string().default(''),
 })
 
 const parsed = envSchema.safeParse(process.env)

@@ -9,6 +9,7 @@ import { describe, it, expect } from 'vitest'
 import {
   createLayeredUploadMergeGate,
   UPLOAD_MERGE_ENV_KEY,
+  UploadMergeStopFailedError,
   type UploadMergeNotice,
 } from '../src/services/upload-merge-gate.js'
 import {
@@ -17,20 +18,32 @@ import {
   MERGE_SEMAPHORE_RENEW_LUA,
   MERGE_SEMAPHORE_RELEASE_LUA,
   MERGE_SEMAPHORE_COUNT_LUA,
+  MERGE_SEMAPHORE_QUARANTINE_WRITE_LUA,
+  MERGE_SEMAPHORE_QUARANTINE_READ_LUA,
   type MergeSemaphoreRedis,
 } from '../src/services/upload-merge-redis-semaphore.js'
 
 const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
-/** 内存假 Redis:对四条 Lua 脚本各实现其 ZSET 语义。业务判额逻辑只活在被测的脚本常量里,
- *  假 Redis 不重抄"要不要给槽"的判断,只按传入的 now/ttl/limit/token 演算 sorted-set。 */
+/** 内存假 Redis:对六条 Lua 脚本各实现其语义(ZSET 五条 + 隔离记录 hash 两条共用 eval 通道)。
+ *  业务判额逻辑只活在被测的脚本常量里,假 Redis 不重抄"要不要给槽"的判断,
+ *  只按传入的 now/ttl/limit/token 演算 sorted-set。 */
 function makeFakeRedis(): MergeSemaphoreRedis & { size(key: string): number } {
   const store = new Map<string, Map<string, number>>() // key -> (token -> expireAtScore)
+  const hashes = new Map<string, Map<string, string>>() // key -> (field -> value)
   const set = (key: string): Map<string, number> => {
     let m = store.get(key)
     if (!m) {
       m = new Map()
       store.set(key, m)
+    }
+    return m
+  }
+  const setHash = (key: string): Map<string, string> => {
+    let m = hashes.get(key)
+    if (!m) {
+      m = new Map()
+      hashes.set(key, m)
     }
     return m
   }
@@ -41,6 +54,17 @@ function makeFakeRedis(): MergeSemaphoreRedis & { size(key: string): number } {
     size: (key: string) => store.get(key)?.size ?? 0,
     async eval(_script: string, _numKeys: number, ...args: Array<string | number>): Promise<unknown> {
       const key = String(args[0])
+      if (_script === MERGE_SEMAPHORE_QUARANTINE_WRITE_LUA) {
+        // G-998089:HSET(field=slot token, value=JSON 隔离记录)
+        setHash(key).set(String(args[1]), String(args[2]))
+        return 1
+      }
+      if (_script === MERGE_SEMAPHORE_QUARANTINE_READ_LUA) {
+        // G-998089:HGETALL 拍平成 [field, value, ...]
+        const out: string[] = []
+        for (const [f, v] of hashes.get(key) ?? []) out.push(f, v)
+        return out
+      }
       const m = set(key)
       if (_script === MERGE_SEMAPHORE_ACQUIRE_LUA) {
         const now = Number(args[1])
@@ -222,6 +246,92 @@ describe('⑤ env=0 ⇒ 两层都报 unlimited 且各有喊话', () => {
     expect(f.layerReason).toBe('redis-bypassed-unlimited')
     // Redis 侧一份没被占(unlimited 不判额、不取槽)。
     expect(fake.size('ihui:upload-merge:test:slots')).toBe(0)
+  })
+})
+
+describe('⑥ G-998089 stop-failed:临界区失败但自有子资源未终态 ⇒ 先收口自有资源才放锁', () => {
+  it('抛 UploadMergeStopFailedError ⇒ (a)租约仍在(第二进程拿不到)、(b)状态=stop-failed 终态而非 released;资源终态收口 ⇒ 释放成功且接管者读到隔离记录', async () => {
+    const fake = makeFakeRedis()
+    const notices: UploadMergeNotice[] = []
+    // 第二个参与方(procA):在临界区内抛错,且它本次拉起的子资源尚未终态
+    // ⇒ 释放前置条件(子资源终态 ∧ 通道已关)不成立 ⇒ 保锁不放。
+    const gateA = createLayeredUploadMergeGate({
+      env: { [UPLOAD_MERGE_ENV_KEY]: '1', NODE_ENV: 'test' },
+      redis: fake,
+      pollIntervalMs: 4,
+      leaseMs: 60_000,
+      ownerToken: 'procA',
+      notify: (n) => notices.push(n),
+    })
+    const pending = ['core', 'control-server']
+    await expect(
+      gateA.runExclusive('merge', async () => {
+        throw new UploadMergeStopFailedError(pending, '启动装配失败:core 未终态 ∧ control 通道未关')
+      }),
+    ).rejects.toBeInstanceOf(UploadMergeStopFailedError)
+
+    // (a) 锁/租约仍在:第二个进程此刻拿不到槽(limit=1,A 未收口 ⇒ B 必满)。
+    const semB = createRedisMergeSemaphore({
+      redis: fake,
+      key: 'ihui:upload-merge:test:slots',
+      limit: 1,
+      leaseMs: 60_000,
+    })
+    expect((await semB.acquire('procB:1')).granted).toBe(false)
+
+    // (b) 状态字段是"待人工收口"类终态,而不是 released。
+    const recA = gateA.facts().stopFailedRecords
+    expect(recA).toHaveLength(1)
+    expect(recA[0]?.state).toBe('stop-failed')
+    expect(recA[0]?.state).not.toBe('released')
+    expect(recA[0]?.pendingResources).toEqual(pending)
+    expect(recA[0]?.owner).toBe('procA')
+    expect(recA[0]?.label).toBe('merge')
+    // 失败必须响:首次 stop-failed 立即 warn,不得静默保锁。
+    const sf = notices.filter((n) => n.event === 'stop-failed')
+    expect(sf).toHaveLength(1)
+    expect(sf[0]?.level).toBe('warn')
+
+    // 随后资源终态 ⇒ 人工收口:释放成功,状态推进为 released。
+    expect(await gateA.closeoutStopFailed()).toBe(1)
+    const after = gateA.facts().stopFailedRecords
+    expect(after[0]?.state).toBe('released')
+    expect(after[0]?.releasedAtMs).not.toBeNull()
+
+    // 收口后接管者拿得到槽,且**跨进程**能读到前者的隔离记录(在共享 Redis 侧,不是失败方内存)。
+    expect((await semB.acquire('procB:1')).granted).toBe(true)
+    const quarantines = await semB.readQuarantines()
+    const q = JSON.parse(quarantines['procA:1'] ?? 'null') as {
+      owner: string
+      label: string
+      pendingResources: string[]
+      state: string
+    } | null
+    expect(q).not.toBeNull()
+    expect(q?.owner).toBe('procA')
+    expect(q?.pendingResources).toEqual(pending)
+    expect(q?.state).toBe('released')
+  })
+
+  it('对照:子资源已全部终态的正常失败(普通 Error)⇒ 照旧放锁,不留 stop-failed 记录', async () => {
+    const fake = makeFakeRedis()
+    const gate = createLayeredUploadMergeGate({
+      env: { [UPLOAD_MERGE_ENV_KEY]: '1', NODE_ENV: 'test' },
+      redis: fake,
+      pollIntervalMs: 4,
+      leaseMs: 60_000,
+      ownerToken: 'procC',
+    })
+    await expect(gate.runExclusive('m', async () => { throw new Error('普通失败') })).rejects.toThrow('普通失败')
+    expect(gate.facts().stopFailedRecords).toHaveLength(0)
+    // 槽已放:下一个进程拿得到。
+    const semNext = createRedisMergeSemaphore({
+      redis: fake,
+      key: 'ihui:upload-merge:test:slots',
+      limit: 1,
+      leaseMs: 60_000,
+    })
+    expect((await semNext.acquire('procD:1')).granted).toBe(true)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
