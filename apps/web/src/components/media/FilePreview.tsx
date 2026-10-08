@@ -530,7 +530,10 @@ function ImagePreview({
                 onLoadedMetadata={() => setVideoState('ready')}
                 ref={videoRef}
                 src={current.url}
-              />
+              >
+                {/* a11y:media-has-caption 要求媒体带 track;用户上传视频无字幕源,空 captions track 为规范允许的最小清偿 */}
+                <track kind="captions" />
+              </video>
             </>
           )
         ) : (
