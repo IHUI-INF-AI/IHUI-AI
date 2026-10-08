@@ -23,6 +23,15 @@ import { recordHeartbeat, recordTaskSettle, recordTaskStart, type LedgerRecorded
 // 终态播报正文走语言包(AGENTS §30「后台进程的状态词汇是一等契约」+ 守门 70 的硬编码中文棘轮):
 // 新增一档 = 同枚补齐五语言,而不是给文件加豁免或调基线。
 import { t } from '../i18n/index.js';
+
+// G-816003:终止词汇的**唯一真相源**在跨端契约包里(一张表 × 每消费面一列)。
+// 本文件不再自拼任何一份同值字符串清单 —— 播报/名册/事件帧都从同一行取词。
+import {
+  BACKGROUND_TERMINATION_VOCAB,
+  backgroundTerminationRowOf,
+  type BackgroundResumeStance,
+  type BackgroundTerminationVocabRow,
+} from '@ihui/types';
 // G-816001:分支代际计数器(G-632,零依赖模块)—— 条目代戳的章与唤醒入队面的比对判据
 // 都只出自这里,不在本文件重写第二份"当前分支代"。
 import { currentBranchGeneration, isBranchGenerationCurrent } from '../commands/branch-generation.js';
@@ -1041,29 +1050,104 @@ function hasObservableOutcome(t: BackgroundTask): boolean {
 }
 
 /**
- * 终态播报正文(状态事实行 + 两个正文节)。
+ * 终态播报的**取词入参**(G-816003)。刻意只收**已落盘的字段**:
+ *  - `timedOut` 只认 deadline 持有者在发信号**之前**显式置位的那一个值(G-896416);
+ *  - `stopInitiator` 只认 `killTask` 落盘的那一个值(G-816026)。
+ * **signal / 退出码 / 时序一律不是入参** —— 谁停的是另一条轴,按 signal 形状反推
+ * 就是把"用户手停"和"外部 OOM 杀"折成一档(本文件 :647 那条纪律的同一条)。
+ */
+export interface TerminalNoticeVocabFacts {
+  timedOut?: boolean | null;
+  stopInitiator?: 'user' | 'model' | null;
+}
+
+export interface TerminalNoticeVocab {
+  /** 表里那一行(注册表/播报/事件帧四列都在它身上)。 */
+  row: BackgroundTerminationVocabRow;
+  /** 发起方轴是否真的落到了表里某一行;`false` = 未记录,已落 `unknown` 中性档。 */
+  resolved: boolean;
+  /** 未记录/未知时调用方要登记的那个原值(不猜、不折成 user)。 */
+  unresolvedReason: string | null;
+  /** 播报进 `cli.bgNoticeStatus` 的 `{status}` 槽的那一列。 */
+  notificationToken: string;
+  /** 该档的补充指引 i18n 键(用户可见文案唯一通道;空串 = 这一档没有额外句子)。 */
+  guidanceKey: string;
+  /** 文案分支判据:这一档能不能被暗示"还可以继续/重跑"。 */
+  resumeStance: BackgroundResumeStance;
+}
+
+/**
+ * 一行查表 —— 播报与呈现面的**唯一**取词出口(纯函数:不读注册表、不读进程)。
+ *
+ * 分支次序即语义,不可重排:
+ *  ① `timedOut === true` ⇒ `timed-out`(它压过发起方轴 —— 超时是被"预算杀"停的,
+ *     与"谁按的停"是两件事,而它的句子早就有档 `cli.bgNoticeTimedOut`,不另立新句);
+ *  ② 否则按落盘的 `stopInitiator` 查表;
+ *  ③ 查不到(缺席/未记录)⇒ `unknown` 行,**中性档**:既不劝 resume 也不禁 resume,
+ *     并把原值回传成 `unresolvedReason` 供调用方报名(绝不默认成 `user`)。
+ */
+export function backgroundTerminationVocabFor(facts: TerminalNoticeVocabFacts): TerminalNoticeVocab {
+  const rawReason = facts.timedOut === true ? 'timed-out' : (facts.stopInitiator ?? null);
+  const { row, resolved } = backgroundTerminationRowOf(rawReason);
+  return {
+    row,
+    resolved,
+    unresolvedReason: resolved ? null : String(rawReason),
+    notificationToken: row.notification,
+    guidanceKey: row.guidanceKey,
+    resumeStance: row.resumeStance,
+  };
+}
+
+/**
+ * 把某一档的补充指引取成人话。`t()` 取不到键时**原样回显键名**(见 `src/i18n/index.ts`),
+ * 而播报里出现键名等于把没做完的事冒充成做完了 ⇒ 这里判"取回的是不是键本身",
+ * 取不到就返回空串并由调用方计一格"文案未落地"(见 terminalNoticeOf)。
+ */
+function resolveNoticeGuidance(key: string): string | null {
+  if (!key) return null;
+  const text = t(key);
+  return text === key ? null : text;
+}
+
+/**
+ * 今天有哪些档的补充指引还没进五语言词表(测试与巡检用它把"未做"说成未做,
+ * 而不是让播报悄悄少一行)。CLI 侧不硬编码任何中文句子。
+ */
+export function pendingNoticeGuidanceKeys(): string[] {
+  return BACKGROUND_TERMINATION_VOCAB.map((row) => row.guidanceKey).filter((k) => !!k && resolveNoticeGuidance(k) === null);
+}
+
+/**
+ * 终态播报正文(状态事实行 + 两个正文节 + 该档的指引节)。
  *
  * 与 `builtins.ts` 的 `wait_command` 那段状态行同形而**不是它的一份副本**:那一段是
  * "模型问一次、当场答一次"的工具结果(带 `timed-out-unknown` 等等待侧才有的档位),
  * 这一段是"没人问也喊一声"的播报。两者合并需要改 `builtins.ts` 与 `repl.ts`(不在本票面),
  * 差异已登记在交付报告里,不在这里顺手统一措辞。
+ *
+ * G-816003:状态词与指引**都由表给**(`backgroundTerminationVocabFor`),不再在这里
+ * 逐字写 `outcome === 'lost' ? 'lost' : task.status` 那类折叠 —— 上游 `notificationStatus`
+ * 的立论正是"runStatus 讲真话、通用词折起来",折的动作住进表,不住进文案。
  */
 function terminalNoticeOf(task: BackgroundTask, outcome: TerminalSettlementOutcome): SettledTaskNotificationInput {
-  const lines = [
-    t('cli.bgNoticeStatus', {
-      id: task.id,
-      status: outcome === 'lost' ? 'lost' : task.status,
-      exitCode: task.exitCode ?? '-',
-    }),
-  ];
+  const vocab = backgroundTerminationVocabFor({ timedOut: task.timedOut, stopInitiator: task.stopInitiator });
+  // `lost` 是"结果拿不回来"这件事本身,它讲的就是状态轴,所以状态槽仍写 `lost`
+  // (G-816025 判据①:补了档位而事件仍静默 = 把静默换个名字);发起方轴的词叠在指引里。
+  const statusToken = outcome === 'lost' ? 'lost' : vocab.notificationToken;
+  const lines = [t('cli.bgNoticeStatus', { id: task.id, status: statusToken, exitCode: task.exitCode ?? '-' })];
   if (task.timedOut) lines.push(t('cli.bgNoticeTimedOut'));
   if (outcome === 'lost') {
     lines.push(t('cli.bgNoticeNoObservableSource'));
   }
+  // 指引节进 `guidance` 槽而不是正文:总截断先斩指引、保住 result/error(段序即斩序)。
+  // `timed-out` 那一档的句子已由上面 `bgNoticeTimedOut` 带过,不重复推一遍。
+  const guidance = vocab.row.stopReason === 'timed-out' ? null : resolveNoticeGuidance(vocab.guidanceKey);
   return {
     status: lines.join('\n'),
     result: task.stdoutBuf.trim() ? `[stdout]\n${task.stdoutBuf.trimEnd()}` : undefined,
     error: task.stderrBuf.trim() ? `[stderr]\n${task.stderrBuf.trimEnd()}` : undefined,
+    guidance: guidance ?? undefined,
   };
 }
 
@@ -1555,5 +1639,12 @@ export const __test__ = {
    * 测试从这枚口喂"同一枚 key + 旧世代号"的载体。
    */
   ledgerSettle,
+  /**
+   * G-816003:播报正文的构造器同权暴露 —— "按停止发起方分支"这件事只能在**文本面**被问出
+   * (user 档不得含任何"可继续/重跑"的暗示、model/被取代档不得反过来劝"别重跑"、
+   * 未知档必须中性),而默认出口是 stderr,靠抓 stderr 断言会把测试绑在控制台编码上(§26)。
+   * 只给换构造器、不给换判据:分支次序住在 `backgroundTerminationVocabFor`,那张表是唯一真相源。
+   */
+  terminalNoticeOf,
 };
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -5,6 +5,10 @@
   "cli": {
     "bgNoticeStatus": "任务 {id}  状态: {status}  exitCode: {exitCode}",
     "bgNoticeTimedOut": "[任务超时]",
+    "bgNoticeStoppedByUser": "[已由用户停止] 这一条是人为停下的,系统不会自动重发。",
+    "bgNoticeStoppedByModel": "[由模型停止] 模型主动结束了这一条;任务还没做完的话,可以重新发起。",
+    "bgNoticeStoppedBySuperseded": "[已被取代] 这一条被更新的一次运行取代而停止;还需要它的话,可以重新发起。",
+    "bgNoticeStopInitiatorUnknown": "[停止发起方未记录] 这一条是被停下的,但谁停的没有落盘 —— 不作推断。",
     "bgNoticeNoObservableSource": "[无可观察源] 进程已不在、输出与退出码都没有留下、当场也没有等待者接得住 —— 这条终态的结果拿不回来。不得读成成功,也不得据此重跑同一条命令(重跑是另一个决定,不是恢复结果的手段)。",
     "custom": {
       "unknown": "未找到自定义命令 /{name}。在自定义命令目录 {dir} 下新建 {name}.md 即可添加(正文用 $ARGUMENTS 接收全部输入,或用 $1、$2 接收位置参数)。内置命令请用 /help 查看。",
