@@ -25,7 +25,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { writeFileSync, readFileSync } from 'node:fs'
+import { writeFileSync, readFileSync, mkdirSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -44,6 +44,13 @@ import {
   gitIn,
   fixtureTagOf,
   FIXTURE_WATCH_OTHERS,
+  // B12(G-1058522)同名 .sql 跨目录并存 —— 判据**直接 import 源脚本那一份**,
+  // §22c 红线:测试里不得再抄第二份分组/点名字串逻辑。
+  sqlUniverseListArgs,
+  sqlPathsFromListing,
+  sqlDupAcrossDirs,
+  b12FindingLine,
+  b12Outcome,
 } from '../check-migration-bookkeeping.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -460,4 +467,173 @@ test('W4 两面旗同给 ⇒ exit 2(端到面,不只是纯函数层)', () => {
     rmScratch(dir)
   }
 })
+
+// ════════════════════════════════════════════════════════════════════════════
+// X1–X6 = B12「同一份 .sql 跨目录并存」(G-1058522,2026-10-09 立)。
+// 四条成对用例按票面要求逐条落地面:① 两目录同名 ⇒ 必红且点名两处(X1)② 只有一处 ⇒ 必绿(X2)
+// ③ 同目录内多份不同名 ⇒ 必绿(X3)④ 面取不到 ⇒ 未判定且不得 exit 0 冒充通过(X4)。
+// 夹具与 spawn 仍**委托源脚本导出的那一份实现**(§22c),本文件只写断言,不写第二份判据。
+// ════════════════════════════════════════════════════════════════════════════
+
+/** 权威面那一侧的目录(票面那对路径的右侧:manual-sql 是权威面,drizzle 里那枚才是多出来的副本)。 */
+const MANUAL_SQL_DIR = 'packages/database/scripts/manual-sql'
+
+/**
+ * 复刻票面事故形态:一份已登记在 `drizzle/` 的迁移,在 `scripts/manual-sql/` 又长出一份同名件。
+ * `variant`:
+ *   - `dup`(缺省)⇒ 两份**同名**,应判红
+ *   - `unique`    ⇒ manual-sql 那一份换了别的名字(只有一处含该 basename),应判绿
+ *   - `samedir`   ⇒ manual-sql 目录里放**两枚不同名**的 .sql,应判绿(不判同目录的正常文件)
+ */
+function mkB12Repo(prefix, variant = 'dup') {
+  const dir = mkFixtureRepo(prefix, 2)
+  const j = JSON.parse(readFileSync(join(dir, JOURNAL_REL), 'utf8'))
+  const tag = j.entries[0].tag
+  const side = join(dir, MANUAL_SQL_DIR)
+  mkdirSync(side, { recursive: true })
+  if (variant === 'dup') writeFileSync(join(side, `${tag}.sql`), 'SELECT 1;\n')
+  else if (variant === 'unique') writeFileSync(join(side, 'standalone_manual.sql'), 'SELECT 1;\n')
+  else {
+    writeFileSync(join(side, 'one.sql'), 'SELECT 1;\n')
+    writeFileSync(join(side, 'two.sql'), 'SELECT 2;\n')
+  }
+  gitIn(dir, ['add', '-A'])
+  gitIn(dir, ['commit', '-q', '--no-verify', '-m', `B12 fixture: ${variant}`])
+  return { dir, tag }
+}
+
+test('X1 ①两目录同名 .sql ⇒ 判红并逐条点名两处路径(端到面 + 纯判据层成对)', () => {
+  const { dir, tag } = mkB12Repo('gate49-x1')
+  try {
+    const r = runGate(dir)
+    assert.equal(r.code, 1, `双份同名必须判红,实得 ${r.code}:\n${r.out}${r.err}`)
+    const all = r.out + r.err
+    assert.match(all, /B12 同一份 \.sql 跨目录并存/)
+    // 两处路径**都要**点名 —— 只点一处就等于让人去猜哪一份是多的那一份。
+    assert.ok(all.includes(`${MIG_DIR_REL}/${tag}.sql`), '缺 drizzle/ 那一份的路径')
+    assert.ok(all.includes(`${MANUAL_SQL_DIR}/${tag}.sql`), '缺 manual-sql/ 那一份的路径')
+    assert.match(all, /字节数差 [^\n]*B/)
+    // --staged 档(索引面)必须同样看得见这一型,否则提交链上会漏。
+    const s = runGate(dir, ['--staged'])
+    assert.equal(s.code, 1, `索引面同样必须判红,实得 ${s.code}`)
+    assert.ok((s.out + s.err).includes(`${MANUAL_SQL_DIR}/${tag}.sql`))
+
+    // 纯判据层与端到面**同一份实现**:构造面证明分组与点名字串的口径。
+    const groups = sqlDupAcrossDirs([`${MIG_DIR_REL}/${tag}.sql`, `${MANUAL_SQL_DIR}/${tag}.sql`])
+    assert.equal(groups.length, 1)
+    assert.deepEqual(groups[0].dirs, [`${MANUAL_SQL_DIR}`, MIG_DIR_REL].sort())
+    assert.equal(b12Outcome({ paths: sqlPathsFromListing(`${MIG_DIR_REL}/${tag}.sql\0${MANUAL_SQL_DIR}/${tag}.sql\0`), error: '' }).state, 'dup')
+    assert.match(b12FindingLine(groups[0], () => 10), /字节数差 0 B/)
+    assert.match(b12FindingLine(groups[0], () => null), /字节数差 未取到\(不影响判红\)/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('X2 ②只有 manual-sql 一处 ⇒ 必绿(权威面那一份不是错)', () => {
+  const dir = mkB12Repo('gate49-x2', 'unique').dir
+  try {
+    const r = runGate(dir)
+    assert.equal(r.code, 0, `只有一处含该 basename 不得判红,实得 ${r.code}:\n${r.out}${r.err}`)
+    assert.match(r.out, /✓ B12 无同名 \.sql 跨目录并存/)
+    assert.match(r.out, /B12 已判\(扫 \d+ 个 \.sql,无跨目录同名\)/)
+    assert.ok(!/B12 未判定|B12 \*\*未判定\*\*/.test(r.out), '判净不得被写成未判定')
+    // 纯判据层同一口径:单目录 ⇒ 0 组
+    assert.deepEqual(sqlDupAcrossDirs([`${MANUAL_SQL_DIR}/only.sql`]), [])
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('X3 ③同目录内多份不同名 ⇒ 必绿(本维只数目录,不数文件)', () => {
+  const dir = mkB12Repo('gate49-x3', 'samedir').dir
+  try {
+    const r = runGate(dir)
+    assert.equal(r.code, 0, `同目录两枚不同名不得判红,实得 ${r.code}:\n${r.out}${r.err}`)
+    assert.match(r.out, /✓ B12 无同名 \.sql 跨目录并存/)
+    assert.equal(sqlDupAcrossDirs(['d/a.sql', 'd/b.sql']).length, 0)
+    // 同目录**同名**在 git 里不可能存在;被喂重复项也只算 1 个目录 ⇒ 仍不判红(宁窄不误伤)。
+    assert.equal(sqlDupAcrossDirs(['d/a.sql', 'd/a.sql']).length, 0)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('X4 ④面取不到 ⇒ 未判定,且绝不 exit 0 冒充通过(也不出现 B12 的绿结论)', () => {
+  const dir = mkScratch('gate49-x4')
+  try {
+    writeGateFixture(dir, 2) // 刻意不 git init ⇒ HEAD/索引两面都问不到
+    const h = runGate(dir)
+    const s = runGate(dir, ['--staged'])
+    for (const [name, r] of [['head', h], ['staged', s]]) {
+      assert.notEqual(r.code, 0, `${name} 档面取不到却 exit 0 = 把没判写成判过了`)
+      assert.ok(!/✓ B12/.test(r.out), `${name} 档不得出现 B12 的绿结论`)
+      assert.ok(!/全部通过/.test(r.out + r.err), `${name} 档判死不得被读成通过`)
+    }
+    assert.equal(h.code, 2, `既有口径:面取不到 ⇒ exit 2(本门不回落磁盘面),实得 ${h.code}`)
+    // 纯判据层:error 与空枚举都落未判定,且结论行自带"不代表已判"。
+    const u = b12Outcome({ paths: null, error: 'git 问不到' })
+    assert.equal(u.state, 'undetermined')
+    assert.match(u.line, /未判定/)
+    assert.match(u.line, /不代表/)
+    assert.equal(b12Outcome({ paths: [], error: '' }).state, 'undetermined', '空枚举不得记绿')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('X5 取材面纪律形状锁:三面各取哪一份互不相同,而 worktree 档必须是 null(本维不读工作树)', () => {
+  assert.deepEqual(sqlUniverseListArgs('head'), ['ls-tree', '-r', '--name-only', '-z', 'HEAD'])
+  assert.deepEqual(sqlUniverseListArgs('staged'), ['ls-files', '-z'])
+  // 全仓枚举在磁盘档**没有安全的清单可取**(递归扫盘要逐条判重解析点,§26)⇒ 只能是 null,
+  // 由调用方落未判定。若有人把它改成"顺手 readdirSync 全仓",这条先红 —— 那正是 B12 立项要防的混面。
+  assert.equal(sqlUniverseListArgs('worktree'), null)
+  // 与 B1 的枚举面刻意**不同**:B1 只有 drizzle/ 恰好一层,而本维问的是"有没有第二处"。
+  // 两条命令必须各自仍在位,谁被"统一"成一条就等于把 B12 做瞎(立因正是 B1 看不见第二处)。
+  assert.notDeepEqual(sqlUniverseListArgs('head'), faceSqlListArgs('head'))
+  const dir = mkB12Repo('gate49-x5').dir
+  try {
+    const w = runGate(dir, ['--worktree'])
+    assert.match(w.out, /B12 未判定/)
+    assert.ok(!/✓ B12|B12 已判/.test(w.out), '未判定不得被写成通过')
+    assert.match(w.out, /B12 \*\*未判定\*\*[^\n]*不代表/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('X6 反向锁:新增这一维不得改动 B1–B5 的任何结论行(改弱既有判据必须被看见)', () => {
+  const clean = mkCleanRepo('gate49-x6a')
+  const dup = mkB12Repo('gate49-x6b').dir
+  try {
+    const a = b15Lines(runGate(clean).out)
+    const b = b15Lines(runGate(dup).out)
+    assert.ok(a.length >= 5, `夹具的 B1-B5 结论行不足 5 条,判据失效:${a}`)
+    assert.deepEqual(b, a, 'B12 的红不得顺手改动 B1-B5;两份的 B1-B5 结论必须逐字一致')
+    // 而 B12 的红确实只来自新维:失败项恰好 1 条,且**只有一个违规站点**
+    // (末尾那条 `   - B12 …` 是同一结论的汇总复述,不带 ✗ 前缀,所以按前缀计数)。
+    const r = runGate(dup)
+    assert.match(r.err, /✗ 1 项失败/)
+    assert.equal((r.out.match(/✗ B12 同一份 \.sql 跨目录并存/g) || []).length, 1)
+    assert.ok(/✓ B1 双向一一对应/.test(r.out), 'B1 必须仍然绿(副本没破坏 journal↔drizzle 的配对)')
+  } finally {
+    rmScratch(clean)
+    rmScratch(dup)
+  }
+})
+
+test('X7 §22c 身份锁:B12 的判据在测试里只有 import 的那一份(不得抄第二份分组逻辑)', () => {
+  assert.equal(GATE49.sqlDupAcrossDirs, sqlDupAcrossDirs)
+  assert.equal(GATE49.b12Outcome, b12Outcome)
+  assert.equal(GATE49.b12FindingLine, b12FindingLine)
+  assert.equal(GATE49.sqlUniverseListArgs, sqlUniverseListArgs)
+  assert.equal(GATE49.sqlPathsFromListing, sqlPathsFromListing)
+  // 本文件内不得再出现"自己算目录数"的实现 —— 有第二份就早晚漂开。
+  const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+  const own = src.split(/\r?\n/).filter(
+    (l) => /dirs\.length\s*>=\s*2/.test(l) && !l.trim().startsWith('//') && !l.trim().startsWith('*'),
+  )
+  assert.deepEqual(own, [], `镜像测试里出现了第二份红条件:${own}`)
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
