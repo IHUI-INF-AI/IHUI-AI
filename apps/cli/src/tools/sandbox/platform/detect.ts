@@ -17,6 +17,8 @@
 import { execFile } from 'node:child_process';
 import { platform } from 'node:os';
 import { promisify } from 'node:util';
+// 探测与执行共用同一引擎解析口(pwsh 优先),两处不得分叉
+import { resolvePowerShellPath } from './windows.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -73,13 +75,17 @@ export async function detectPlatformCapabilities(): Promise<PlatformCapabilities
   const plat = platform();
 
   if (plat === 'win32') {
-    // Windows:Node 无受限令牌/JOB 对象原生 API,采用 PowerShell Start-Process 方案
-    const psOk = await probeCommand('powershell.exe', ['-NoProfile', '-Command', '$PSVersionTable.PSVersion.Major']);
+    // Windows:Node 无受限令牌/JOB 对象原生 API,采用 PowerShell Start-Process 方案。
+    // 探测与执行共用 windows.ts 的 resolvePowerShellPath(pwsh 优先 —— WDAC/应用控制
+    // 策略可能拦截 node 派生的 powershell.exe(5.1)报 EPERM,本仓开发机实证;
+    // 两处算同一件事必漂移是本仓记过最多次的失败型,故探测口不再自写候选)。
+    const psPath = resolvePowerShellPath();
+    const psOk = psPath !== null && (await probeCommand(psPath, ['-NoProfile', '-Command', '$PSVersionTable.PSVersion.Major']));
     available['restricted-token'] = psOk;
     notes.push(
       psOk
         ? 'Windows: 通过 PowerShell Start-Process -NoNewWindow 启动(降级:环境变量过滤 + 超时/输出限制,非内核级隔离)'
-        : 'Windows: 未检测到 PowerShell,后端降级为 plain(仅策略层过滤)',
+        : 'Windows: 未检测到 PowerShell(pwsh 7 / powershell.exe 候选均缺席),后端降级为 plain(仅策略层过滤)',
     );
     const backend: SandboxBackend = psOk ? 'restricted-token' : 'plain';
     cached = { platform: plat, backend, available, notes };
