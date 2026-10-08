@@ -24,12 +24,18 @@ import { normalizeMcpInput, validateMcpConfig } from '../src/commands/mcp-config
 
 // mock @ihui/api-client(参考 tests/native-fc-config.test.ts):
 //   避免真实网络调用与 opentelemetry 等重依赖在 worker 内加载导致 OOM。
-vi.mock('@ihui/api-client', () => ({
-  streamChat: vi.fn(async () => {}),
-  setBaseUrl: vi.fn(),
-  setTokenProvider: vi.fn(),
-  formatSSEError: (e: Error) => ({ severity: 'unknown', message: e.message, title: '', rawMessage: e.message }),
-}))
+import type * as ApiClient from '@ihui/api-client'
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  // 部分 mock:保留本文件自己列出的桩(真发网络/真写盘的那几个),其余导出走真实实现。
+  const actual = await importOriginal<typeof ApiClient>()
+  return {
+    ...actual,
+    streamChat: vi.fn(async () => {}),
+    setBaseUrl: vi.fn(),
+    setTokenProvider: vi.fn(),
+    formatSSEError: (e: Error) => ({ severity: 'unknown', message: e.message, title: '', rawMessage: e.message }),
+  }
+})
 
 // ==================== resolveProvider ====================
 
