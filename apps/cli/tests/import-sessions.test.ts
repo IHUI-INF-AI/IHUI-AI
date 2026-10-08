@@ -36,12 +36,18 @@ const { parseMock, commitMock, historyMock } = vi.hoisted(() => ({
   historyMock: vi.fn<HistoryFn>(),
 }));
 
-vi.mock('@ihui/api-client', () => ({
-  fetchApi: vi.fn(),
-  parseConversationImport: parseMock,
-  commitConversationImport: commitMock,
-  getConversationImportHistory: historyMock,
-}));
+import type * as ApiClient from '@ihui/api-client'
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  // 部分 mock:保留本文件自己列出的桩(真发网络/真写盘的那几个),其余导出走真实实现。
+  const actual = await importOriginal<typeof ApiClient>()
+  return {
+    ...actual,
+    fetchApi: vi.fn(),
+    parseConversationImport: parseMock,
+    commitConversationImport: commitMock,
+    getConversationImportHistory: historyMock,
+  }
+});
 
 import {
   buildCommitPayload,

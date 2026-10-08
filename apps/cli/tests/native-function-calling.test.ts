@@ -47,20 +47,26 @@ const { streamChatMock } = vi.hoisted(() => ({
   streamChatMock: vi.fn<StreamChatFn>(),
 }))
 
-vi.mock('@ihui/api-client', () => ({
-  streamChat: streamChatMock,
-  setBaseUrl: vi.fn(),
-  setTokenProvider: vi.fn(),
-  // G-916940③ 起 agent.ts 还引用容量出口;本面只 mock 网络边界,容量给缺省档语义(128_000)的等值桩
-  getModelContextCapacity: () => 128_000,
-  formatSSEError: (err: unknown) => ({
-    severity: 'unknown' as const,
-    title: 'error',
-    message: err instanceof Error ? err.message : String(err),
-    rawMessage: err instanceof Error ? err.message : String(err),
-    requireReauth: false,
-  }),
-}))
+import type * as ApiClient from '@ihui/api-client'
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  // 部分 mock:保留本文件自己列出的桩(真发网络/真写盘的那几个),其余导出走真实实现。
+  const actual = await importOriginal<typeof ApiClient>()
+  return {
+    ...actual,
+    streamChat: streamChatMock,
+    setBaseUrl: vi.fn(),
+    setTokenProvider: vi.fn(),
+    // G-916940③ 起 agent.ts 还引用容量出口;本面只 mock 网络边界,容量给缺省档语义(128_000)的等值桩
+    getModelContextCapacity: () => 128_000,
+    formatSSEError: (err: unknown) => ({
+      severity: 'unknown' as const,
+      title: 'error',
+      message: err instanceof Error ? err.message : String(err),
+      rawMessage: err instanceof Error ? err.message : String(err),
+      requireReauth: false,
+    }),
+  }
+})
 
 vi.mock('../src/audit.js', () => ({
   auditLog: vi.fn(),

@@ -32,22 +32,28 @@ type StreamChatOpts = {
 
 const { streamChatMock } = vi.hoisted(() => ({ streamChatMock: vi.fn() }));
 
-vi.mock('@ihui/api-client', () => ({
-  streamChat: streamChatMock,
-  setBaseUrl: vi.fn(),
-  setTokenProvider: vi.fn(),
-  // 86A 起 agent.ts 还 import 这两个出口(审计上报)。本套件刻意 getToken=null
-  // (未登录即跳过上报),让既有用例只测账本接线、不掺上报路径。
-  fetchApi: vi.fn(async () => ({ success: true, data: { recorded: 0, failed: 0 } })),
-  getToken: () => null,
-  formatSSEError: (err: unknown) => ({
-    severity: 'unknown' as const,
-    title: 'error',
-    message: err instanceof Error ? err.message : String(err),
-    rawMessage: err instanceof Error ? err.message : String(err),
-    requireReauth: false,
-  }),
-}));
+import type * as ApiClient from '@ihui/api-client'
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  // 部分 mock:保留本文件自己列出的桩(真发网络/真写盘的那几个),其余导出走真实实现。
+  const actual = await importOriginal<typeof ApiClient>()
+  return {
+    ...actual,
+    streamChat: streamChatMock,
+    setBaseUrl: vi.fn(),
+    setTokenProvider: vi.fn(),
+    // 86A 起 agent.ts 还 import 这两个出口(审计上报)。本套件刻意 getToken=null
+    // (未登录即跳过上报),让既有用例只测账本接线、不掺上报路径。
+    fetchApi: vi.fn(async () => ({ success: true, data: { recorded: 0, failed: 0 } })),
+    getToken: () => null,
+    formatSSEError: (err: unknown) => ({
+      severity: 'unknown' as const,
+      title: 'error',
+      message: err instanceof Error ? err.message : String(err),
+      rawMessage: err instanceof Error ? err.message : String(err),
+      requireReauth: false,
+    }),
+  }
+});
 
 vi.mock('../src/audit.js', () => ({ auditLog: vi.fn() }));
 
