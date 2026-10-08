@@ -54,10 +54,10 @@ export async function fetchPhone(form: GetPhoneForm): Promise<string> {
 }
 
 export async function fetchMessage(phone: string, keyWord: string): Promise<MessageData> {
-  return adminApi<MessageData>(
-    `${API_BASE}/message`,
-    { method: 'POST', body: JSON.stringify({ phone, keyWord }) },
-  )
+  return adminApi<MessageData>(`${API_BASE}/message`, {
+    method: 'POST',
+    body: JSON.stringify({ phone, keyWord }),
+  })
 }
 
 export async function releasePhone(phone: string) {
@@ -109,12 +109,14 @@ export async function lookupUsedHistory(phone: string): Promise<UsedRecord[]> {
   return items.filter((u) => u.phone === phone)
 }
 
-/** 查某号码的本地接码台账(收码即记,不受平台 24h/100 条限制) */
-export async function fetchPhoneHistory(phone: string): Promise<PhoneHistoryItem[]> {
-  const d = await adminApi<{ items: PhoneHistoryItem[] }>(
+/** 查某号码的本地接码台账(items=最近 20 条流水,total=全量条数即本机累计使用次数) */
+export async function fetchPhoneHistory(
+  phone: string,
+): Promise<{ items: PhoneHistoryItem[]; total: number }> {
+  const d = await adminApi<{ items: PhoneHistoryItem[]; total: number }>(
     `${API_BASE}/phone-history?phone=${encodeURIComponent(phone)}`,
   )
-  return d.items
+  return { items: d.items, total: d.total }
 }
 
 /** 查平台「号码相关短信」全局时间线(免费、全局号码维度;该号被所有买家收码的记录) */
