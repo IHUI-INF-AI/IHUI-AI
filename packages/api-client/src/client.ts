@@ -32,10 +32,6 @@ import { recordStreamFrame } from './stream-frame-log.js'
 // b76-13 票1:帧水位与纪元读环判据(唯一语义出口在 @ihui/shared 的 agent-events,
 // 本包零依赖不得反向 import,此为逐字同形移植,漂移由 frame-watermark-parity 测试钉住)
 import { isFrameGap, readFrameWatermark, type FrameWatermarkCursor } from './frame-watermark.js'
-// G-816030:帧归属屏障 —— 本包零依赖边界下的同形移植(判据源在 shared,对账测试钉住);
-// 溢出错误(FrameBarrierOverflowError)由屏障 activate 命中溢出记录时构造抛出,
-// reason/droppedCount 以屏障内记录为准,本侧不重复构造。
-import { createFrameOwnershipBarrier, type BarrierFrame } from './frame-ownership-barrier.js'
 import type { DeviceFingerprintCollector } from '@ihui/types'
 // D152(2026-09-29):goal 状态的合法值集是**运行时判据**(解析帧时要验 status),
 // 故按值导入而非 type-only —— 单一来源仍是 @ihui/types 的 GOAL_WIRE_STATUSES。
@@ -1479,13 +1475,6 @@ export interface StreamChatOptions {
    *  静默丢弃 ⇒ 半截回答与完整回答在端上完全同形。收到本帧时已到达正文**有效**,
    *  但必须如实告知用户"回答被截断",不得当作完整回答收束。 */
   onPartialDone?: (event: PartialDoneEvent) => void
-  /**
-   * G-425(2026-10-07 立,默认档"只提示"):done 帧携带的上游 finish/stop reason
-   * (OpenAI 系 `length`/`stop`;Gemini 原生 `STOP`/`MAX_TOKENS`)。与 onMemoryUpdates
-   * 同型:读的是既有 done 帧上新增的可选字段,不新增事件名;未注册回调不解析。
-   * 端上截断提示按 event.finishReason 小写 ∈ {length, max_tokens} 判。
-   */
-  onFinishReason?: (event: FinishReasonEvent) => void
   /** D155 配置告警(2026-09-29 立):生效配置有问题(如 base URL 被覆盖)时下发。
    *  表外 severity 值在解析层回退 'warning',不丢帧。 */
   onConfigWarning?: (event: ConfigWarningEvent) => void
@@ -1891,17 +1880,6 @@ export interface PartialDoneEvent {
   reason: string
   /** 本轮实际使用的模型(可缺省) */
   model?: string
-}
-
-/**
- * G-425(2026-10-07 立,默认档"只提示"):done 帧的 finish/stop reason 透传事件。
- * 生产点:ai-service provider 层(gemini/openai 原生适配器)+ llm_gateway LiteLLM 路径,
- * 经 llm.py /llm/complete/stream 的 done 重建点透传;契约声明见
- * packages/shared/src/sse/contract.ts 的 done 帧 `finishReason` 字段。
- */
-export interface FinishReasonEvent {
-  /** 上游原样值(不归一):`length`/`stop`/`tool_calls`/`STOP`/`MAX_TOKENS`/… */
-  finishReason: string
 }
 
 // ---------------------------------------------------------------------------
@@ -2965,26 +2943,6 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   // b76-13 票2:字段级结构不变量的 typed fault 计数(读环侧;shared 侧同表
   // 判据见 SSE_FRAME_SCHEMAS —— 丢帧必须留痕,不冒充解析成功)
   let _sseFrameSchemaFaults = 0
-  // G-816030:帧归属屏障 —— ACK(本 attempt 首个 ok 水位帧)之前,undetermined 帧
-  // 有界暂存不投递(上游 ackActivationBarrier:通知先于 RPC 响应抵达时,半截批次
-  // 不得被当完整快照投影);ACK 时按原序冲刷;越界整批清空并显式失败。
-  // 首游标未立基线(frameWatermarkRef.current === null)时 undetermined 帧照常放行,
-  // 旧生产端(从未下发水位)零行为变化。
-  const frameBarrier = createFrameOwnershipBarrier<string>()
-  const FRAME_BARRIER_TOPIC = 'chat-stream'
-  const FRAME_BARRIER_PENDING_SUBSCRIPTION = 'pending-ack'
-  let frameBarrierAckedThisAttempt = false
-  let _frameBarrierFlush: BarrierFrame<string>[] = []
-  // ok 水位帧 = ACK:确立本 attempt 的订阅所有权,并收回 ACK 前暂存的帧
-  // (冲刷由 processLine 在水位闸后按原序消费 _frameBarrierFlush)。
-  const ackFrameBarrier = (subscriptionId: string): void => {
-    if (frameBarrierAckedThisAttempt) return
-    frameBarrierAckedThisAttempt = true
-    _frameBarrierFlush = frameBarrier.activate({
-      subscriptionId,
-      topics: [FRAME_BARRIER_TOPIC],
-    })
-  }
   // 水位闸:帧带**完整**水位字段时才判(读不出 ⇒ undetermined 原样放行,生产端
   // 未下发水位的旧帧零行为变化);gap/死帧 ⇒ 丢弃且计数 —— 不进渲染、不推进游标,
   // 重连后从服务端快照重建,绝不把残帧算成"已应用"。
@@ -2999,28 +2957,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       return false
     }
     const read = readFrameWatermark(parsed)
-    if (read.verdict === 'undetermined') {
-      // G-816030:本 attempt 尚未 ACK(还没见过 ok 水位帧)且手上已有水位基线 ⇒
-      // 这帧的所有权未确认,有界暂存、不投递;溢出 ⇒ 整批已清,经伪订阅 activate
-      // 抛出携带 reason/droppedCount 的 FrameBarrierOverflowError —— onLine 抛错
-      // 视同本次尝试失败,runner 重连后 onAttemptStart 复位屏障重建(与上游
-      // "越界整批清空并让 subscribe 明确失败"同形)。
-      if (frameBarrierAckedThisAttempt || frameWatermarkRef.current === null) return false
-      const verdict = frameBarrier.offer({
-        topic: FRAME_BARRIER_TOPIC,
-        subscriptionId: FRAME_BARRIER_PENDING_SUBSCRIPTION,
-        byteSize: line.length,
-        frame: line,
-      })
-      if (verdict === 'overflow') {
-        frameBarrier.activate({
-          subscriptionId: FRAME_BARRIER_PENDING_SUBSCRIPTION,
-          topics: [],
-        })
-        return false // 不可达:activate 命中溢出记录必抛
-      }
-      return verdict === 'staged'
-    }
+    if (read.verdict === 'undetermined') return false
     if (read.verdict === 'invalid') {
       _frameGapDropped++
       return true
@@ -3033,22 +2970,14 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         logEpoch: read.watermark.logEpoch,
         seq: read.watermark.toSeq,
       }
-      // G-816030:首个 ok 水位帧 = ACK,冲刷 ACK 前暂存的帧
-      ackFrameBarrier(read.watermark.subscriptionId)
       return false
     }
     const gap = isFrameGap(cursor, read.watermark)
     if (gap !== null) {
-      // G-816030:所有权未确立(本 attempt 未 ACK)时,gap 说明暂存帧可能属于
-      // 旧代际 —— 与被丢的 gap 帧同批清空,不得投递("整批清空"防半截批次投影)。
-      if (!frameBarrierAckedThisAttempt) frameBarrier.reset()
       _frameGapDropped++
       return true
     }
     frameWatermarkRef.current = { ...cursor, seq: read.watermark.toSeq }
-    // G-816030:重连续传后首个 ok 帧可能直接走连续路径(游标已立基线,不经过
-    // cursor===null 分支),ACK 同样要在此发生(ackFrameBarrier 幂等)。
-    ackFrameBarrier(read.watermark.subscriptionId)
     return false
   }
   const token = tokenProvider.getToken()
@@ -3146,8 +3075,6 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     const hasBudget = typeof opts.onBudget === 'function'
     // G-815976(2026-10-04 收口入契约):流式中断标记帧;未注册回调不解析
     const hasPartialDone = typeof opts.onPartialDone === 'function'
-    // G-425(2026-10-07 立):done 帧携带 finishReason(截断提示数据源;未注册回调不解析)
-    const hasFinishReason = typeof opts.onFinishReason === 'function'
     // D155(2026-09-29 立):下行告警三档;未注册回调不解析(与其余 per-field 同口径)
     const hasConfigWarning = typeof opts.onConfigWarning === 'function'
     const hasDeprecationNotice = typeof opts.onDeprecationNotice === 'function'
@@ -3938,31 +3865,6 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       }
     }
 
-    /** 解析 done 帧的 finish/stop reason(G-425,2026-10-07 立,默认档"只提示")。
-     *  与 tryParseMemoryUpdates 同形:读的是**同一个已存在的 done 帧**上新增的可选字段,
-     *  不新增事件名 ⇒ 不动 SSE 契约两侧 / sse-parse / dispatch 台账(本票文件清单外)。
-     *  原样透传不归一;缺席不带键,回调不触发 —— 不把"没采到"折成"stop"。 */
-    const tryParseFinishReason = (line: string): void => {
-      if (!hasFinishReason) return
-      if (!line || line.startsWith(':')) return
-      let data = line
-      if (line.startsWith('data:')) {
-        data = line.slice(5).replace(/^\s/, '')
-      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
-        return
-      }
-      if (!data || data === '[DONE]') return
-      try {
-        const json = JSON.parse(data) as Record<string, unknown>
-        if (json?.type !== 'done') return
-        const raw = json.finishReason
-        if (typeof raw !== 'string' || raw === '') return
-        opts.onFinishReason!({ finishReason: raw })
-      } catch {
-        /* 非 JSON 或非 done 事件忽略 */
-      }
-    }
-
     /** 解析 usage 帧(D1,2026-09-19 升级):
      *  ① 命名帧 event: usage → data: { type:'usage', messageId, usage:{promptTokens,...},
      *     timing:{firstTokenMs,durationMs}, model, costUsd }(ai-service 流收尾下发);
@@ -4495,16 +4397,6 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         tryParseThinking(line)
       } else if (route === 'usage') {
         tryParseUsage(line)
-        // G-425(2026-10-07 立):ai-service 的 done 帧恒带 usage 对象 ⇒ 被上方
-        // routeLineByType 的 `json.usage ⇒ 'usage'` 判据截走,永远走不到 fallback
-        // 全量链 —— 挂在 done 帧上的可选字段解析器必须在此补调(三个 parser 的
-        // 首道守护都是 `json.type !== 'done'` 即 return,对真 OpenAI usage chunk
-        // 是 no-op)。此前的 memoryUpdates(P1 #27)/reasoningEffort(D130)同样
-        // 只挂在 fallback 链上,生产 done 帧(带 usage)上从未触发过 —— 同根因,
-        // 本票一并接上;行为面收敛到"done 帧字段在带 usage 时也能被读到"。
-        tryParseMemoryUpdates(line)
-        tryParseReasoningEffortNotice(line)
-        tryParseFinishReason(line)
       } else if (route === 'steer') {
         tryParseSteer(line)
       } else if (route === 'budget') {
@@ -4540,7 +4432,6 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         tryParseUsage(line)
         tryParseMemoryUpdates(line)
         tryParseReasoningEffortNotice(line)
-        tryParseFinishReason(line)
         tryParseTerminalDelta(line)
         tryParseTerminalInteraction(line)
         tryParseGoalUpdate(line)
@@ -4603,24 +4494,12 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     // ===== D138(承 V4 #96):逐行处理体(原内联读环的行处理,原样搬为闭包)=====
     // 读环、行缓冲、id: 游标捕获、读超时、重连/退避全部下沉 runResumableSSEStream;
     // 本闭包只负责"一行已到"之后的解析与分发(id: 行由 runner 捕获游标后照常递出)。
-    const processLine = async (line: string, alreadyCaptured = false): Promise<void> => {
-      // D116:原始帧采集(关闭时零开销);G-816030:屏障冲刷重放时已采集过,不双记
-      if (!alreadyCaptured) {
-        recordStreamFrame(line)
-        noteFrameTraceId(line)
-      }
+    const processLine = async (line: string): Promise<void> => {
+      // D116:原始帧采集(关闭时零开销)
+      recordStreamFrame(line)
+      noteFrameTraceId(line)
       // b76-13 票1:水位闸 —— gap/死帧丢弃且计数,不进下游解析与渲染
       if (shouldDropByWatermark(line)) return
-      // G-816030:ACK 帧(本 attempt 首个 ok 水位帧)到达 ⇒ 先按原序交付 ACK 之前
-      // 暂存的帧,再处理 ACK 帧本身 —— "ACK 前的帧按原序交付"由此成立。
-      // 冲刷帧都是 undetermined(未带水位)且此刻已 ACK,不会再被暂存,无递归环。
-      if (_frameBarrierFlush.length > 0) {
-        const flush = _frameBarrierFlush
-        _frameBarrierFlush = []
-        for (const stagedFrame of flush) {
-          await processLine(stagedFrame.frame, true)
-        }
-      }
       await dispatchTryParse(line)
       // P4-2: 优先检查 fallback 事件,命中即触发回调跳过 parseStreamLine
       if (hasFallback) {
@@ -4666,10 +4545,6 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         agentDedupeBuffer.clear()
         seenTraceId = null
         debugChunkTimer?.reset()
-        // G-816030:每 attempt 复位帧归属屏障 —— 重连后重新 ACK;溢出重连由此重建
-        frameBarrierAckedThisAttempt = false
-        _frameBarrierFlush = []
-        frameBarrier.reset()
       },
       onLine: (line) => processLine(line),
       onReconnect: (retryAttempt, delayMs) => opts.onReconnect?.(retryAttempt, delayMs),
