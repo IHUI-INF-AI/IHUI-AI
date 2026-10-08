@@ -10,7 +10,7 @@
  *   顶层未知键 ⇒ 保留(随 hydrated 值透传)。
  * 版本号必须有消费者:未知/缺席版本 ⇒ 单独的 `version` 档(不是混在 invalid 里)。
  * 非本族形状的 toolState 条目 ⇒ untouched(不误伤其他用途)。
- * 双读侧接线(subagents/state-store.decodeStateRow + sessions/state-store.load)
+ * 双读侧接线(subagents/state-store.decodeStateRow + sessions/state-store.loadSession)
  * 用真夹具端到端:降级条目剥 display 后**整行照常读出**,行为不变量不破。
  * 全程零生产目录(IHUI_SUBAGENT_STATE_DIR / 会话目录都指临时夹具)。
  */
@@ -22,7 +22,7 @@ import * as path from 'node:path'
 import { afterEach, beforeEach, describe, it } from 'vitest'
 import { hydratePersistedToolPart, hydrateToolStateMap } from '../src/sessions/tool-part-hydration.js'
 import { readSubagentState } from '../src/subagents/state-store.js'
-import { load as _loadSession } from '../src/sessions/state-store.js'
+import { loadSession } from '../src/sessions/state-store.js'
 
 const V1_PAYLOAD = {
   schemaVersion: 1,
@@ -92,13 +92,18 @@ describe('hydrateToolStateMap —— 整表水合', () => {
 
 describe('双读侧接线端到端(真夹具)', () => {
   let tmpDir = ''
+  let sessionDir = ''
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'g719-state-'))
+    sessionDir = fs.mkdtempSync(path.join(os.tmpdir(), 'g719-session-'))
     process.env.IHUI_SUBAGENT_STATE_DIR = tmpDir
+    process.env.IHUI_SESSION_STATE_DIR = sessionDir
   })
   afterEach(() => {
     delete process.env.IHUI_SUBAGENT_STATE_DIR
+    delete process.env.IHUI_SESSION_STATE_DIR
     fs.rmSync(tmpDir, { recursive: true, force: true })
+    fs.rmSync(sessionDir, { recursive: true, force: true })
   })
 
   it('decodeStateRow:toolState 带非法 display 的元数据 ⇒ 行照常读出,display 被剥', () => {
@@ -140,6 +145,34 @@ describe('双读侧接线端到端(真夹具)', () => {
     assert.equal(r.stateKnown, true)
     const toolState = (r.state as { toolState?: Record<string, unknown> }).toolState
     assert.deepEqual(toolState?.['good'], V1_PAYLOAD)
+  })
+
+  it('loadSession:sessions/state-store 读侧接线 —— 非法 display 被剥、合法条目透传、整份会话照常读出', () => {
+    const state = {
+      id: 'sess-hydration',
+      sessionId: 'sess-hydration',
+      createdAt: '2026-10-03T00:00:00Z',
+      updatedAt: '2026-10-03T00:00:00Z',
+      messages: [],
+      status: 'completed',
+      toolState: {
+        bad: { ...V1_PAYLOAD, display: { kind: 'text', text: 'x', ghost: 2 } },
+        good: V1_PAYLOAD,
+      },
+    }
+    fs.writeFileSync(path.join(sessionDir, 'sess-hydration.json'), JSON.stringify(state))
+    const loaded = loadSession('sess-hydration')
+    assert.ok(loaded)
+    const toolState = loaded.toolState as Record<string, unknown>
+    // 降级条目:display 被剥,外层 passthrough 字段保留(与子代理读侧同一不变量)
+    assert.equal('display' in (toolState['bad'] as Record<string, unknown>), false)
+    assert.equal((toolState['bad'] as Record<string, unknown>)['toolName'], 'edit_file')
+    assert.equal((toolState['bad'] as Record<string, unknown>)['toolCallId'], 'call_1')
+    // 合法条目:原样透传
+    assert.deepEqual(toolState['good'], V1_PAYLOAD)
+    // 整份会话照常读出(降级不吞行)
+    assert.equal(loaded.status, 'completed')
+    assert.deepEqual(loaded.messages, [])
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
