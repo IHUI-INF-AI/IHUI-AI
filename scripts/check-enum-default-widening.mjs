@@ -18,44 +18,59 @@
  * Python 侧同语法锚点必须一起认(守门 117 那一课:漏一种语法 = 该语言整型隐身):
  * `match/case` 的 `case _`、`.get(key, 宽档)`、`X or 宽档`。
  *
- * 判据(唯一一条,不放宽):只有当兜底/默认值**落在权限或能力的宽档集合内**才判红。
- * 宽档集合**由被审面的类型定义现读推导**,门内不写第二份档名清单(清单必然腐烂):
- *  · 档名来自 `packages/types/src/permission-mode.ts` 的 `PERMISSION_MODES` /
- *    `PERMISSION_MODE_ALIASES` / `PERMISSION_MODE_WIRE` 与
- *    `apps/ai-service/app/core/permission_mode.py` 的 `PERMISSION_MODES` 元组;
- *  · "宽"这条性质也来自同一张面:`POLICY_BY_MODE` 里策略名含 `auto-approve` 的档,
- *    且必须与 Python 侧 `skips_approval_permission_mode()` 的成员元组**逐字相等** ——
- *    两侧推导冲突 ⇒ 整个集合判「未判定」,绝不各取一侧。
- *  · ToolClass / ApprovalClass / ChatMode 的字面量**不参与判红**:被审面只给了工具轴的
- *    严重度表(`_TOOLS_SEVERITY`),审批轴没有;而 'all' 与 'none' 在两轴同名反极
- *    (工具轴 'all'=全开最宽,审批轴 'all'=逐个审批最严),同一字面量在两面之间无从判定
- *    ⇒ 落「未判定」并点名。这不是偷懒,是拒绝在门里补一份"哪个档更宽"的手抄结论。
- *  · 集合推导不出来 ⇒ 判「未判定」并点名原因,绝不记为通过(--strict 下 exit 2)。
+ * 判据(唯一一条,不放宽):只有当兜底/默认值**落在某条轴的宽端**才判红。词表与宽严序
+ * **一律由被审面现读推导**,门内不写第二份档名清单(清单必然腐烂)。
  *
- * G-816027 补账(2026-10-05 现读 7 处未判定的逐条定性,结论写在这里以便下次复跑对得上):
- *  · (b) 正当形态 1 处 —— `apps/cli/src/commands/agent.ts:2961` `stopReasonToExitCode()` 的
- *    `default: return 1`:兜底值是**数字**退出码,而本门四份词表全部由字符串字面量推导,
- *    数字在集合构造上不可能被含进;该槽位(switch 主表达式 `reason`)也不踩权限轴。
- *    ⇒ 判据里给了这条绿路(见 `classify()` 内注释),它从"未判定"移到"放过(带理由)"。
- *    边界一并钉死:权限轴槽位上的数字兜底(`switch (permissionMode) { default: return 0 }`)
- *    仍是未判定 —— 那要读消费方才知道 0 是宽是严(成对锁 ES29)。
- *  · (c) 判不出 6 处 —— 形态都已经被认到,缺的是"这一处的档名是不是那个它"之外的知识,
- *    而且它不在本门的判据形状里(本门只答"缺席取到的那个值是不是宽档"):
- *      ① `permission_mode.py:361` `or "build"`(ChatMode 轴两极:工具轴全开 / 审批轴不放宽);
- *      ② `agent.ts:2271` `?? 'read'`(dangerLevel 词表声明在 `tools/index.ts:156`,射程外;
- *        而真正的宽严住在 `tools/permissions.ts` 的 mode 矩阵里 —— "取最窄档名 ⇒ 消费方给免批"
- *        这一条不在本门的形状里,补它要把消费方读进来,属另一型 ⇒ 留未判定,不代主会话落槌);
- *      ③ `agent.ts:1575` `?? 'auto'`(需要 `Settings.nativeFunctionCalling` 的声明类型,射程外);
- *      ④ `precedence.ts:212` `?? 'none'`(隔离轴 'none'=从不隔离最宽,与工具轴 'none' 同名反极);
- *      ⑤ `worker-entry.ts:197` `?? 'default'`(modelId 是路由键,词表在别的包);
- *      ⑥ `permission-mode.ts:150` `?? 'unknown'`(展示层哨兵,要读它的消费方才知道会不会被当档用)。
- *    六处一律保留未判定并逐条点名;`--strict` 因此仍出 exit 2。**没有**为了归零去猜档名或塞白名单。
- *  · (a) 判据盲区:7 处未判定本身都不是形态盲区(它们全是已认到的 `??` / `default:` 写法)。
- *    但形态盲区确实存在,只是它不体现在未判定计数里(**没入候选的站点根本不计数**):
- *    解构默认值、JS 形参默认值、Python `def` 形参默认值这三型 HEAD 面 0 落点、全仓 958 个产品文件
- *    仅 5 处正当写法(实测见探针),旧版一条都不认 ⇒ 本次一并补锚(形态②b)+ 成对自检 ES21–ES27。
- *    仍**未**补的两型如实登记:三元 else 支(`cfg ? cfg.mode : '宽档'` —— 条件是不是"在场测试"要读
- *    上半句才能知道,收进来必带假红)与 `Object.assign` 默认对象(方向决定语义,写反了就不是缺席)。
+ * ── 轴模型(G-816027 收尾:把"档词表推导面"从两文件扩到七条轴)────────────────
+ * 每条轴 = 词表(声明处现读)+ **可选的**声明型宽严序源。序源只认三种,按可靠性排:
+ *  ① 该轴自己的**整型序表** —— 工具轴 `ToolClass` ← `permission_mode.py:_TOOLS_SEVERITY`;
+ *  ② **投影**到① —— 聊天轴 `ChatMode` ← `CHAT_MODE_TOOL_AXIS`(py 与 ts 两份互证)→ ToolClass;
+ *  ③ 面声明的"免批"性质 —— PermissionMode 轴 ← `POLICY_BY_MODE` 含 auto-approve ∩
+ *     `skips_approval_permission_mode()` 元组(两侧冲突 ⇒ 整个集合判未判定,绝不各取一侧)。
+ * **两种被明令拒绝的"序源"**(这是本门全部克制所在,也是它不会自己造出判反的原因):
+ *  · **联合类型的声明序**:被审面里 `DangerLevel = 'read'|'write'|'dangerous'`(声明序 = 由窄到宽)
+ *    与 `ToolApprovalDangerLevel = 'high'|'medium'|'low'`(声明序 = 由宽到窄)**方向相反**,
+ *    借声明序必把其中一轴判反;票面取证那条也白纸黑字写着"不硬编码 read<write<dangerous"。
+ *  · **跨轴借序**:`'none'`/`'all'` 同时是工具轴与审批轴的档,而两轴里它们是**相反两极**
+ *    (工具轴 'all'=全开最宽 / 审批轴 'none'=免审批最宽),并成一张表等于把一轴的最宽当另一轴的最窄。
+ * 因此一条轴没有①②③任何一项时,落在它上面的兜底一律「未判定」并点名"该轴无声明型序源"——
+ * **不冒红、也绝不静默放过**(把没判写成判过了是本仓最高频失效型)。成对锁:自检 ES33/ES34/ES35/ES37
+ * + 镜像 T13/T14;三条变异(把无序改成放过 / 把声明序当序 / 让审批轴借工具轴的序)各自翻红。
+ *
+ * 七条轴的现读定义点(= `MEASURE_FILES`,**只读词表、不当被扫面**):
+ *  · PermissionMode:`packages/types/src/permission-mode.ts` ∩ `apps/ai-service/app/core/permission_mode.py`;
+ *  · ToolClass / ApprovalClass / ChatMode:同上两文件的 `TOOL_CLASSES`/`APPROVAL_CLASSES`/`ToolClass`/
+ *    `ApprovalClass`/`CHAT_MODES`/`CHAT_MODE_IDS`/`ChatModeId` + `CHAT_MODE_TOOL_AXIS`(两份互证);
+ *  · DangerLevel:`packages/types/src/agent-runtime.ts` + `apps/api/src/services/clawdbot/permission-guard.ts`
+ *    + `apps/ai-service/app/types/api_client.py`(三处同集合且同序,但无序表 ⇒ 该轴不参与宽严);
+ *  · ToolApprovalDangerLevel:`packages/types/src/ai.ts`;
+ *  · IsolationMode:`apps/cli/src/subagents/precedence.ts` 与 `api_client.py` 两份 —— 现读**成员集不同**
+ *    (三档 vs 两档),这条不自洽由轴自己报名。
+ *
+ * G-816027 补账(收尾这一笔把候选 11 处的读数从「判红 0 / 放过 5 / 未判定 6」推到
+ * 「判红 1 / 放过 5 / 未判定 5」—— 少的那个未判定不是被吞掉,是**新读出了它的序源**;
+ * 逐条定性如下,证据一律用内容锚点,不写行号):
+ *  · 正当形态 1 处 —— `stopReasonToExitCode()` 的 `default: return 1`:兜底是**数字**退出码,
+ *    各轴词表全由字符串字面量推导,数字在构造上装不进去;该槽位(switch 主表达式 `reason`)
+ *    也归不到任何一条轴 ⇒ 「放过(带理由)」,边界钉死:权限档槽位上的数字兜底仍是未判定(ES29)。
+ *  · **本轮由"未判定"移到"判红" 1 处** —— `resolve_mode_policy()` 里 `normalize_chat_mode(...) or "build"`:
+ *    聊天轴的序经 `CHAT_MODE_TOOL_AXIS → _TOOLS_SEVERITY` 现读投影得出,'build' 与该面里名次相同
+ *    (与 'spec' 并列最宽)⇒ 枚举认不出时**能力端落到最宽档**。这是扩面新量到的一格,不是把措辞
+ *    改硬:持有人若裁定"这是有意默认",出路是登记该站点并说明理由,**不是**放宽投影判据。
+ *    同一函数里紧邻的 `or "default"`(权限档槽位)按 ③ 判"非免批档" ⇒ 放过,一字未动。
+ *  · 仍判不出 5 处(每条都点名归到哪条轴、缺的是哪一件东西,**没有**为了归零去猜档名或塞白名单):
+ *    ① `?? 'read'`(工具危险档轴:词表三处声明已现读,缺的是该轴的声明型序源 —— 要判它得读
+ *      `tools/permissions.ts` 的 mode 矩阵,那是"取窄档 ⇒ 消费方给免批"的另一型,票面已另计一票);
+ *    ② `?? 'none'`(隔离轴:两处成员集互不一致且无序源;与工具轴 'none' 同名反极 ⇒ 不借序);
+ *    ③ `?? 'auto'`(nativeFunctionCalling 三态)与 ④ `?? 'default'`(model 槽)—— 档名跨词表撞名:
+ *      槽位归不到任何一条轴 ⇒ 不冒红也不放过;
+ *    ⑤ `?? 'unknown'`(展示层哨兵,不在任何一条现读轴的词表里 —— 这条 catch-all 保留是**如实**:
+ *      它的词表声明处确实不在量具面,而不是我把"没读到"写成了"没有宽档")。
+ *  · 计数读法:`--strict` 下有未判定即拒绝出合格证(exit 2),这一维现在由 `exitCodeFor()` 一份算法
+ *    钉住并在构造面成对取证(ES38 / 镜像 T9)—— 真仓此刻**有 1 条判红**,所以 strict 走的是 1 而不是 2;
+ *    判红在 warn 定级下不改默认面退出码(仍 0),否则就是一台与任何提交都无关的恒红门(§12e)。
+ *  · 形态盲区(与上轮同一格,仍未补):三元 else 支(`cfg ? cfg.mode : '宽档'` —— 条件是不是"在场
+ *    测试"要读上半句才判得出,收进来必带假红)与 `Object.assign` 默认对象(方向决定语义)。
  *
  * 与既有门的分工(不得重叠计账,守门 83 那格写过:同一处两门各计一次会让两份基线互相顶掉):
  *  · `scripts/check-credential-presence-bypass.mjs`(G-459)判的是**按凭据在场即放行**
@@ -90,11 +105,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
-import {
-  maskedSpans,
-  maskScriptComments,
-  scanScriptCommentSpans,
-} from './lib/code-mask.mjs'
+import { maskedSpans, maskScriptComments, scanScriptCommentSpans } from './lib/code-mask.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GIT_TIMEOUT_MS = 120_000
@@ -118,7 +129,30 @@ const SCAN_DIRS = ['apps/cli/src/subagents']
 const TS_REGISTRY = 'packages/types/src/permission-mode.ts'
 const PY_REGISTRY = 'apps/ai-service/app/core/permission_mode.py'
 const REAL_SITE_FILE = 'apps/cli/src/commands/agent.ts'
+/**
+ * **量具面(只读词表,不当被扫面)** —— G-816027 收尾扩的正是这一层。
+ * 每条轴的定义点在这里登记的是「从哪读」(文件 + 声明名),**不是档名清单**;
+ * 档名一律由 `deriveAxes()` 从这些文件的现读内容里取。加一条轴必须同笔加它的定义点,
+ * 否则那条轴读不出 ⇒ 落在它上面的兜底只能报"判不出"(不会静默放过)。
+ * 刻意**不把这些文件加进 SCAN_TARGETS**:扫描面答"哪儿有兜底写法",量具面答"这个词表与序住在哪儿",
+ * 两者混同会让一个纯类型文件里的无关三元/兜底被顺手扫进来(噪声,且与本门立项无关)。
+ */
+const DANGER_TS = 'packages/types/src/agent-runtime.ts'
+const DANGER_API = 'apps/api/src/services/clawdbot/permission-guard.ts'
+const DANGER_PY = 'apps/ai-service/app/types/api_client.py'
+const APPROVAL_DANGER_TS = 'packages/types/src/ai.ts'
+const ISOLATION_CLI = 'apps/cli/src/subagents/precedence.ts'
+const MEASURE_FILES = [
+  TS_REGISTRY,
+  PY_REGISTRY,
+  DANGER_TS,
+  DANGER_API,
+  DANGER_PY,
+  APPROVAL_DANGER_TS,
+  ISOLATION_CLI,
+]
 const REGISTRY_FILES = [TS_REGISTRY, PY_REGISTRY]
+// precedence.ts 已被 SCAN_DIRS 覆盖,不再单列(重叠 pathspec 会让同一文件被枚举两次)
 const SCAN_TARGETS = [...SCAN_DIRS, ...REGISTRY_FILES, REAL_SITE_FILE]
 const SCAN_EXTS = /\.(ts|mts|js|mjs|cjs|py)$/
 const TESTISH = /(\.test\.|\.spec\.|__tests__|[/\\]tests[/\\])/
@@ -205,9 +239,8 @@ function dictPairs(src, name) {
   const body = src.slice(m.index + m[0].length, i)
   const pairs = []
   for (const line of body.split('\n')) {
-    const e = /^\s*(?:['"]([^'"]+)['"]|([A-Za-z_$][\w$]*))\s*:\s*(['"])((?:(?!\3)[^\\]|\\.)*)\3/.exec(
-      line,
-    )
+    const e =
+      /^\s*(?:['"]([^'"]+)['"]|([A-Za-z_$][\w$]*))\s*:\s*(['"])((?:(?!\3)[^\\]|\\.)*)\3/.exec(line)
     if (e) pairs.push({ key: e[1] ?? e[2], value: e[4] })
   }
   return pairs
@@ -229,11 +262,44 @@ function pySkipsApproval(src) {
   return vals.length ? vals : null
 }
 
+/**
+ * 取 `NAME = { k: 3, ... }` 的**整型**映射 —— 它是"声明型宽严序"的唯一可机读形态。
+ * G-816027 收尾新增的这一把尺子,存在的理由就一条:**联合类型的声明序不能当宽严序用**。
+ * 实测被审面同形状声明方向相反:`DangerLevel = 'read'|'write'|'dangerous'(声明序 = 由窄到宽)`
+ * 而 `ToolApprovalDangerLevel = 'high'|'medium'|'low`(声明序 = 由宽到窄)——
+ * 拿声明序当序,两轴里必有一轴被判反(而判反的表现不是报错,是"该红的绿/不该红的红")。
+ * 只有面上**自带整型序表**(如 `_TOOLS_SEVERITY`)或**能投影到有这样的表**的轴,才允许有宽严序。
+ */
+function intMap(src, name) {
+  const re = new RegExp(`\\b${name}\\b[^{=]*=\\s*\\{`, 'm')
+  const m = re.exec(src)
+  if (!m) return null
+  let depth = 0
+  let i = m.index + m[0].length - 1
+  for (; i < src.length; i++) {
+    if (src[i] === '{') depth++
+    else if (src[i] === '}') {
+      depth--
+      if (depth === 0) break
+    }
+  }
+  const body = src.slice(m.index + m[0].length, i)
+  // 逐行匹配会把**写成一行**的表(`{"none": 0, "readonly": 1, "all": 2}`)整张读成空 ——
+  // 那正是"读不到"伪装成"该轴没有序源"的形态,所以按全局扫描取对,不押书写形状。
+  const out = []
+  for (const e of body.matchAll(/(?:['"]([^'"]+)['"]|([A-Za-z_$][\w$]*))\s*:\s*(-?\d+)(?![\d.])/g))
+    out.push({ key: e[1] ?? e[2], value: Number(e[3]) })
+  return out.length ? out : null
+}
+
 /** 驼峰 + 蛇形 + 中划线拆词,并去一个尾 's'(modes→mode、classes→class)。 */
 export function tokensOf(text) {
   const out = new Set()
   for (const piece of String(text ?? '').split(/[^A-Za-z0-9]+/)) {
-    for (const w of piece.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase().split(/\s+/)) {
+    for (const w of piece
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+      .toLowerCase()
+      .split(/\s+/)) {
       if (!w || w.length < 3) continue
       out.add(w.length > 3 && w.endsWith('s') ? w.slice(0, -1) : w)
     }
@@ -242,14 +308,28 @@ export function tokensOf(text) {
 }
 
 /**
- * 从两侧注册表推导档名宇宙。返回:
- *  `{ok, reason, wide, narrow, classes, chat, axisTokens, nameTokens, evidence}`
+ * 从**量具面**(MEASURE_FILES 定义的各声明点)推导档名宇宙与每条轴的宽严序。
+ * 入参 `sources` 是 `{ 相对路径: 该面文本 | null }`;返回
+ *  `{ok, reason, wide, narrow, classes, chat, nameTokens, axisTokens, ids, axes, evidence}`。
  * `ok:false` 时**所有**候选一律落未判定(推导不出集合 ≠ 集合为空)。
+ *
+ * 轴(axis)= 一条独立的能力/权限阶梯。设计前提三条,都是这条判据的全部价值所在:
+ *  ① **词表**从声明处现读,门内不抄档名;
+ *  ② **宽严序**只认"声明型序源":该轴自带的整型序表(intMap),或能投影到有这样的表的轴
+ *     (ChatMode → CHAT_MODE_TOOL_AXIS → ToolClass → _TOOLS_SEVERITY)。
+ *     **联合类型的声明序一律不当序源** —— 被审面里 `'read'|'write'|'dangerous'` 与
+ *     `'high'|'medium'|'low'` 的声明序方向相反,借声明序就等于对其中一轴判反;
+ *  ③ 两轴的档**不得并成一张表**:同名(如 'none' 同时是工具轴的"无工具"与审批轴的"免审批")
+ *     在两轴里是**相反两极**,并表即把一个轴的最宽当另一个轴的最窄。因此每条轴各自带
+ *     `keyTokens`(它自己的声明名里最具区分度的词)用于把"这一处兜底"归到某条轴上。
  */
-export function deriveUniverse(tsRaw, pyRaw) {
+export function deriveUniverse(sources = {}) {
   const evidence = []
   const failures = []
+  const text = (rel) => (typeof sources[rel] === 'string' ? sources[rel] : null)
   // 注册表自身的散文不是判据面:先剥注释(字符串留着 —— 档名就住在字符串里)。
+  const tsRaw = text(TS_REGISTRY)
+  const pyRaw = text(PY_REGISTRY)
   const ts = typeof tsRaw === 'string' ? maskScriptCommentsGuard(tsRaw, 'js') : ''
   const py = typeof pyRaw === 'string' ? maskScriptComments(pyRaw, 'sh') : ''
 
@@ -308,9 +388,12 @@ export function deriveUniverse(tsRaw, pyRaw) {
   // wire 表的键就是规范档 ⇒ 宽严跟着**键**判,值(kebab 拼写)只是多一个面具。
   for (const w of tsWireMap ?? []) addSpell(wideIds.has(w.key) ? wide : narrow, w.value)
 
-  const classes = new Set(
-    [...(tsToolClasses ?? []), ...(pyToolClasses ?? []), ...(tsApprovalClasses ?? []), ...(pyApprovalClasses ?? [])],
-  )
+  const classes = new Set([
+    ...(tsToolClasses ?? []),
+    ...(pyToolClasses ?? []),
+    ...(tsApprovalClasses ?? []),
+    ...(pyApprovalClasses ?? []),
+  ])
   const chat = new Set([...(tsChatIds ?? []), ...(pyChatIds ?? [])])
   for (const v of [...wide]) narrow.delete(v)
 
@@ -327,9 +410,28 @@ export function deriveUniverse(tsRaw, pyRaw) {
   // (写第二份清单就是本票明令禁止的那件事)。
   const axisTokens = nameTokens
 
+  const axes = deriveAxes({
+    text,
+    ts,
+    py,
+    ids: allIds,
+    wide,
+    narrow,
+    wideIds,
+    toolTuple: arrayMembers(py, 'TOOL_CLASSES'),
+    tsToolClasses,
+    pyToolClasses,
+    approvalTuple: arrayMembers(py, 'APPROVAL_CLASSES'),
+    tsApprovalClasses,
+    pyApprovalClasses,
+    tsChatIds,
+    pyChatIds,
+  })
+
   evidence.push(
     `宽档集合由 ${TS_REGISTRY}(POLICY_BY_MODE 含 auto-approve)+ ${PY_REGISTRY}(skips_approval 元组)现读推导`,
   )
+  for (const a of axes) evidence.push(a.evidence)
   return {
     ok: failures.length === 0,
     reason: failures.join(';') || null,
@@ -340,8 +442,242 @@ export function deriveUniverse(tsRaw, pyRaw) {
     nameTokens,
     axisTokens,
     ids: allIds,
+    axes,
     evidence,
   }
+}
+
+/** 集合相同、顺序可不同:返回两侧差异描述(null = 同集合)。 */
+function setDiff(a, b) {
+  const x = [...new Set(a ?? [])]
+  const y = [...new Set(b ?? [])]
+  const onlyA = x.filter((v) => !y.includes(v))
+  const onlyB = y.filter((v) => !x.includes(v))
+  return onlyA.length === 0 && onlyB.length === 0
+    ? null
+    : `仅前者:${onlyA.join('/') || '无'} / 仅后者:${onlyB.join('/') || '无'}`
+}
+
+/** 把"轴名"压成该轴最具区分度的槽位词(取声明类型名里的核心词,不取档名)。 */
+function axisKeyTokens(tokens) {
+  const out = new Set()
+  for (const t of tokens) if (!GENERIC_TOKENS.has(t) && t !== 'class' && t !== 'axis') out.add(t)
+  return out
+}
+
+/**
+ * 逐轴推导。每条轴的形态:`{id,label,keyTokens:Set,tiers:Set,wide:Set|null,rank:Map|null,
+ * problem:string|null,evidence:string,orderSource:string|null}`。
+ * `wide`/`rank` 至多一个非空(都没有 ⇒ 该轴无声明型序源 ⇒ 落在它上面的兜底只能报"判不出")。
+ */
+function deriveAxes(ctx) {
+  const { text, ts, py } = ctx
+  const masked = (rel, lang) => {
+    const raw = text(rel)
+    if (typeof raw !== 'string') return null
+    return lang === 'py' ? maskScriptComments(raw, 'sh') : maskScriptCommentsGuard(raw, 'js')
+  }
+  const axes = []
+
+  // ── 轴①PermissionMode:宽 = 面声明的"免批"性质(POLICY_BY_MODE ∩ skips_approval)────────
+  const permWide = new Set([...ctx.wideIds])
+  const permTiers = new Set([...ctx.ids, ...ctx.wide, ...ctx.narrow])
+  axes.push({
+    id: 'permission-mode',
+    label: 'PermissionMode(审批轴)',
+    keyTokens: axisKeyTokens(['permission']),
+    tiers: permTiers,
+    wide: permWide,
+    rank: null,
+    orderSource: `${TS_REGISTRY}:POLICY_BY_MODE(auto-approve) ∩ ${PY_REGISTRY}:skips_approval 元组`,
+    problem: ctx.wideIds.size === 0 ? '免批档集合为空 ⇒ 该轴无宽端可判' : null,
+    evidence: `轴①PermissionMode:现读 ${ctx.ids.length} 个规范档 + 别名/wire 拼写,免批端现读 ${[...permWide].join('/') || '空'}`,
+  })
+
+  // ── 轴②ToolClass:唯一带整型序表的轴(序源 = _TOOLS_SEVERITY),并核 TOOL_CLASSES 声明序单调 ──
+  const toolRankRows = intMap(py, '_TOOLS_SEVERITY')
+  const toolTuple = arrayMembers(py, 'TOOL_CLASSES')
+  const toolTiers = new Set([
+    ...(toolTuple ?? []),
+    ...(ctx.pyToolClasses ?? []),
+    ...(ctx.tsToolClasses ?? []),
+  ])
+  let toolRank = null
+  let toolProblem = null
+  if (!toolRankRows || !toolRankRows.length) {
+    toolProblem = `${PY_REGISTRY} 的 _TOOLS_SEVERITY 整型序表读不出 ⇒ 该轴无宽严序`
+  } else if (!toolTiers.size) {
+    toolProblem = 'ToolClass 词表读不出(TOOL_CLASSES / py Literal / ts 联合三处都空)'
+  } else {
+    const d1 = setDiff(toolTuple, ctx.pyToolClasses)
+    const d2 = setDiff(toolTuple, ctx.tsToolClasses)
+    if (d1) toolProblem = `py TOOL_CLASSES 与 py ToolClass 联合不同集合:${d1}`
+    else if (d2) toolProblem = `py TOOL_CLASSES 与 ts ToolClass(${TS_REGISTRY})不同集合:${d2}`
+    else {
+      const m = new Map(toolRankRows.map((r) => [r.key, r.value]))
+      const missing = [...toolTiers].filter((t) => !m.has(t))
+      const extra = [...m.keys()].filter((k) => !toolTiers.has(k))
+      if (missing.length || extra.length)
+        toolProblem = `_TOOLS_SEVERITY 与词表不闭合(缺:${missing.join('/') || '无'} / 多:${extra.join('/') || '无'})`
+      else {
+        const seq = (toolTuple ?? []).map((t) => m.get(t))
+        const monotone = seq.every((v, i) => i === 0 || v > seq[i - 1])
+        if (!monotone)
+          toolProblem = `TOOL_CLASSES 的声明序与 _TOOLS_SEVERITY 不单调同向(${(toolTuple ?? []).join('/')} → ${seq.join('/')})⇒ 序源自相矛盾`
+        else toolRank = m
+      }
+    }
+  }
+  axes.push({
+    id: 'tool',
+    label: 'ToolClass(工具能力轴)',
+    keyTokens: axisKeyTokens(['tool']),
+    tiers: toolTiers,
+    wide: null,
+    rank: toolRank,
+    orderSource: toolRank
+      ? `${PY_REGISTRY}:_TOOLS_SEVERITY(整型序表,且与 TOOL_CLASSES 声明序单调同向)`
+      : null,
+    problem: toolProblem,
+    evidence: toolRank
+      ? `轴②ToolClass:词表 ${[...toolTiers].join('/')} · 序源 _TOOLS_SEVERITY = ${[...toolRank.entries()].map(([k, v]) => `${k}:${v}`).join('/')}`
+      : `轴②ToolClass:序源不可用 —— ${toolProblem}`,
+  })
+
+  // ── 轴③ApprovalClass:词表读得出,但被审面**没有**它的整型序表 ⇒ 该轴无宽严序(不借工具轴的)──
+  const approvalTiers = new Set([
+    ...(arrayMembers(py, 'APPROVAL_CLASSES') ?? []),
+    ...(ctx.pyApprovalClasses ?? []),
+    ...(ctx.tsApprovalClasses ?? []),
+  ])
+  axes.push({
+    id: 'approval',
+    label: 'ApprovalClass(审批轴)',
+    keyTokens: axisKeyTokens(['approval']),
+    tiers: approvalTiers,
+    wide: null,
+    rank: null,
+    orderSource: null,
+    problem: approvalTiers.size
+      ? '该轴在被审面上没有声明型宽严序源(工具轴有 _TOOLS_SEVERITY,审批轴没有),而它与工具轴存在同名反极档 ⇒ 不跨轴借序'
+      : 'ApprovalClass 词表读不出',
+    evidence: `轴③ApprovalClass:词表 ${[...approvalTiers].join('/') || '读不出'} · 无整型序表 ⇒ 该轴不参与"宽/窄"结论(与轴②刻意不并表)`,
+  })
+
+  // ── 轴④ChatMode:序由**投影**得到(chat → CHAT_MODE_TOOL_AXIS → ToolClass → 轴②的 rank)──
+  const chatTiers = new Set([...(ctx.tsChatIds ?? []), ...(ctx.pyChatIds ?? [])])
+  const pyChatMap = dictPairs(py, 'CHAT_MODE_TOOL_AXIS')
+  const tsChatMap = dictPairs(ts, 'CHAT_MODE_TOOL_AXIS')
+  let chatRank = null
+  let chatProblem = null
+  if (!chatTiers.size)
+    chatProblem = 'ChatMode 词表读不出(CHAT_MODES / CHAT_MODE_IDS / ChatModeId 都空)'
+  else if (!pyChatMap || !pyChatMap.length)
+    chatProblem = `${PY_REGISTRY} 的 CHAT_MODE_TOOL_AXIS 投影表读不出`
+  else if (!tsChatMap || !tsChatMap.length)
+    chatProblem = `${TS_REGISTRY} 的 CHAT_MODE_TOOL_AXIS 读不出 ⇒ 两侧投影无法互证(不取单侧)`
+  else {
+    const d = setDiff(
+      pyChatMap.map((p) => `${p.key}=${p.value}`),
+      tsChatMap.map((p) => `${p.key}=${p.value}`),
+    )
+    if (d) chatProblem = `两侧 CHAT_MODE_TOOL_AXIS 不一致:${d}`
+    else if (!toolRank) chatProblem = '投影的终点(轴②ToolClass)自己没有可用序源 ⇒ 投影不出宽严'
+    else {
+      const m = new Map()
+      const holes = []
+      for (const t of chatTiers) {
+        const hit = pyChatMap.find((p) => p.key === t)
+        if (!hit || !toolRank.has(hit.value)) holes.push(t)
+        else m.set(t, toolRank.get(hit.value))
+      }
+      const unmapped = pyChatMap.filter((p) => !chatTiers.has(p.key)).map((p) => p.key)
+      if (holes.length || unmapped.length)
+        chatProblem = `CHAT_MODE_TOOL_AXIS 与词表不闭合(词表里没投影:${holes.join('/') || '无'} / 投影里多出的键:${unmapped.join('/') || '无'})`
+      else chatRank = m
+    }
+  }
+  axes.push({
+    id: 'chat-mode',
+    label: 'ChatMode(模式轴)',
+    keyTokens: axisKeyTokens(['chat']),
+    tiers: chatTiers,
+    wide: null,
+    rank: chatRank,
+    orderSource: chatRank
+      ? `投影链 ${PY_REGISTRY}:CHAT_MODE_TOOL_AXIS(与 ${TS_REGISTRY} 同面互证)→ ToolClass → _TOOLS_SEVERITY`
+      : null,
+    problem: chatProblem,
+    evidence: chatRank
+      ? `轴④ChatMode:词表 ${[...chatTiers].join('/')} · 能力档经 CHAT_MODE_TOOL_AXIS 投影 = ${[...chatRank.entries()].map(([k, v]) => `${k}:${v}`).join('/')}(注意:这一序**只**说工具能力,审批侧另是一条轴,不在此序内)`
+      : `轴④ChatMode:序不可推导 —— ${chatProblem}`,
+  })
+
+  // ── 轴⑤DangerLevel 与轴⑥ToolApprovalDangerLevel:词表可读,**声明序方向相反** ⇒ 一律无序 ──
+  const dangerDecls = [
+    { file: DANGER_TS, src: masked(DANGER_TS, 'js'), name: 'DangerLevel' },
+    { file: DANGER_API, src: masked(DANGER_API, 'js'), name: 'DangerLevel' },
+    { file: DANGER_PY, src: masked(DANGER_PY, 'py'), name: 'DangerLevel' },
+  ].map((d) => ({ ...d, members: d.src ? unionMembers(d.src, d.name) : null }))
+  const dangerReadable = dangerDecls.filter((d) => d.members && d.members.length)
+  const dangerTiers = new Set(dangerReadable.flatMap((d) => d.members))
+  const dangerOrderAgrees =
+    dangerReadable.length >= 2 &&
+    dangerReadable.every(
+      (d) => d.members.join('\u0000') === dangerReadable[0].members.join('\u0000'),
+    )
+  axes.push({
+    id: 'danger-level',
+    label: 'DangerLevel(工具危险档轴)',
+    keyTokens: axisKeyTokens(['danger', 'level']),
+    tiers: dangerTiers,
+    wide: null,
+    rank: null,
+    orderSource: null,
+    problem: dangerTiers.size
+      ? `该轴词表已在 ${dangerReadable.map((d) => d.file).join(' + ')} 现读到(同集合${dangerOrderAgrees ? '且同序' : '但序不同'}),但被审面上没有它的整型序表/投影链;而另一条轴 ToolApprovalDangerLevel 的声明序方向**相反** ⇒ 借声明序必判反其中一轴 ⇒ 本轴不产宽严结论`
+      : `DangerLevel 词表在 ${DANGER_TS}/${DANGER_API}/${DANGER_PY} 都读不出`,
+    evidence: `轴⑤DangerLevel:词表 ${[...dangerTiers].join('/') || '读不出'}(${dangerReadable.length} 处声明)· 无声明型序源 ⇒ 不参与宽严`,
+  })
+
+  const adSrc = masked(APPROVAL_DANGER_TS, 'js')
+  const adTiers = adSrc ? new Set(unionMembers(adSrc, 'ToolApprovalDangerLevel') ?? []) : new Set()
+  axes.push({
+    id: 'approval-danger-level',
+    label: 'ToolApprovalDangerLevel(审批流危险等级轴)',
+    keyTokens: axisKeyTokens(['approval', 'danger']),
+    tiers: adTiers,
+    wide: null,
+    rank: null,
+    orderSource: null,
+    problem: adTiers.size
+      ? `该轴成员 ${[...adTiers].join('/')} 与轴⑤${[...dangerTiers].join('/')} **同词不同义**,且两轴声明序方向相反(高→低 vs 读→危险);同形状的高/中/低阶梯在被审面还至少服务于工单优先级、风险分档、图片质量等无关轴 ⇒ 既不并表也不借序`
+      : `${APPROVAL_DANGER_TS} 的 ToolApprovalDangerLevel 读不出`,
+    evidence: `轴⑥ToolApprovalDangerLevel:成员 ${[...adTiers].join('/') || '读不出'} · 无整型序表且与轴⑤不得并表 ⇒ 不参与宽严`,
+  })
+
+  // ── 轴⑦IsolationMode:两处声明成员不同 ⇒ 词表本身不自洽(如实报名),更谈不上序 ──
+  const isoCli = masked(ISOLATION_CLI, 'js')
+  const isoPy = masked(DANGER_PY, 'py')
+  const isoCliTiers = isoCli ? arrayMembers(isoCli, 'ISOLATION_MODES') : null
+  const isoPyTiers = isoPy ? unionMembers(isoPy, 'IsolationMode') : null
+  const isoTiers = new Set([...(isoCliTiers ?? []), ...(isoPyTiers ?? [])])
+  const isoDiff = isoCliTiers && isoPyTiers ? setDiff(isoCliTiers, isoPyTiers) : null
+  axes.push({
+    id: 'isolation-mode',
+    label: 'IsolationMode(隔离轴)',
+    keyTokens: axisKeyTokens(['isolation']),
+    tiers: isoTiers,
+    wide: null,
+    rank: null,
+    orderSource: null,
+    problem: isoTiers.size
+      ? `${ISOLATION_CLI} 声明 ${JSON.stringify(isoCliTiers ?? null)} 而 ${DANGER_PY} 声明 ${JSON.stringify(isoPyTiers ?? null)}${isoDiff ? ` —— 两处成员集不一致(${isoDiff}),词表本身不自洽` : ''};且该轴没有声明型序源 ⇒ 判不出宽严`
+      : 'IsolationMode 词表两处都读不出',
+    evidence: `轴⑦IsolationMode:成员 ${[...isoTiers].join('/') || '读不出'}${isoDiff ? ' · **两处声明不同集合**' : ''} · 无序源 ⇒ 不参与宽严`,
+  })
+
+  return axes
 }
 
 /** JS/TS 的注释遮噪用同一份 lib 的 maskComments 语义,但**保长度**(偏移要对得上原文)。 */
@@ -374,23 +710,27 @@ export function classify(expr, slotText, u, keyText = '') {
    * 两侧同尺,不在宽档一侧冒红、在窄档一侧静默放过。
    */
   const slotKey = keyText || slotText
-  const axisHit = [...tokensOf(slotKey)].some((t) => u.axisTokens.has(t))
+  const slotTok = tokensOf(slotKey)
+  const axisHit = [...slotTok].some((t) => u.axisTokens.has(t))
   /**
-   * G-816027 定性第 (b) 类(正当形态)的落槌处:HEAD 面 7 处未判定里,
-   * `apps/cli/src/commands/agent.ts:2961` 的 `stopReasonToExitCode()` 里 `default: return 1`
+   * G-816027 定性第 (b) 类(正当形态)的落槌处:`stopReasonToExitCode()` 里 `default: return 1`
    * 是**这一档**。为什么它不属本型(写在判据旁边而不是只写在报告里):
-   *  · 本门的四份词表(wide / narrow / classes / chat)全部由**字符串字面量**现读推导 ——
-   *    纯数字字面量在集合构造上就不可能被含进任何一份,这不是"猜它不是档",是推导器给的界;
-   *  · 该处"缺席"取的是**退出码**(给 CI/脚本读的返回值),与展示名/颜色/排序键同族,
-   *    它放大或收窄的不是权限,是"这次运行算不算失败"。
-   * 只在槽位**没踩到权限轴**(axisHit 为假)时这样放过:`switch (permissionMode) { default: return 0 }`
-   * 那一型("消费方把 0 读成允许")仍落未判定 —— 要读消费方才知道 0 是宽是严,不在本门射程。
-   * 收窄的是这一处的形态,不是宽严判据本身:默认返回宽档仍是红(ES1/ES29 成对钉着)。
+   *  · 各轴词表全部由**字符串字面量**现读推导 —— 纯数字字面量在集合构造上不可能被含进任何一份,
+   *    这不是"猜它不是档",是推导器给的界;
+   *  · 该处"缺席"取的是**退出码**(给 CI/脚本读的返回值),它放大或收窄的不是权限,
+   *    是"这次运行算不算失败"。
+   * 只在槽位**既没被归到任何一条轴、也不像权限/能力档**时这样放过:
+   * `switch (permissionMode) { default: return 0 }` 那一型("消费方把 0 读成允许")仍落未判定 ——
+   * 要读消费方才知道 0 是宽是严,不在本门射程。
+   * 收窄的是这一处的形态,不是宽严判据本身:兜底落在某条轴的最宽档仍是红(ES1/ES29/ES31 成对钉着)。
    */
-  if (!axisHit && /^\s*-?\d[\d_]*\s*$/.test(body))
+  const slotAxes = (u.axes ?? []).filter(
+    (a) => a.keyTokens && [...a.keyTokens].some((t) => slotTok.has(t)),
+  )
+  if (!axisHit && slotAxes.length === 0 && /^\s*-?\d[\d_]*\s*$/.test(body))
     return {
       kind: 'green',
-      why: `兜底值 ${body.trim()} 是数字字面量(退出码/计数一类的数值),不可能落在任何由字符串档名推导出的集合里;且槽位(${clip(slotKey, 40)})未踩权限轴 ⇒ 该处"缺席"取的不是档,不属本型`,
+      why: `兜底值 ${body.trim()} 是数字字面量(退出码/计数一类的数值),不可能落在任何由字符串档名推导出的集合里;且槽位(${clip(slotKey, 40)})既未归到任何一条现读轴、也不像权限/能力档 ⇒ 该处"缺席"取的不是档,不属本型`,
     }
   const lit = stringLiteralOf(body)
   if (lit === null) {
@@ -399,39 +739,96 @@ export function classify(expr, slotText, u, keyText = '') {
       why: `兜底值 ${expr.trim().slice(0, 40) || '(空)'} 不是档名字面量(变量/表达式),无法证明它不落在宽档集合`,
     }
   }
-  if (u.wide.has(lit)) {
-    if (!axisHit)
-      return {
-        kind: 'undetermined',
-        why: `回落值 '${lit}' 是现读推导出的免批档拼写,但该兜底槽位(${clip(slotKey, 40)})不像权限/能力档 ⇒ 同名跨词表,判不出它此处指权限档还是别的枚举 ⇒ 不冒红也不放过`,
-      }
-    return {
-      kind: 'red',
-      why: `回落档 '${lit}' 属免审批/自动放行档(由被审面的 POLICY_BY_MODE + skips_approval 元组现读推导)⇒ 枚举缺席即放大权限`,
-    }
-  }
-  if (u.classes.has(lit))
+  /**
+   * **归轴**(G-816027 收尾扩的面):档名会跨词表撞名('none' 既是工具轴的"无工具可执行"、
+   * 又是审批轴的"免审批",两轴里是**相反两极**;`'auto'` 既是 acceptEdits 的历史拼写、又是
+   * `nativeFunctionCalling` 的三态档)。集合-membership 只回答"这个名字是不是宽档",
+   * 回答不了"这一处的它是不是那个它"。所以先用槽位证据把这一处归到**一条**轴,再问该轴有没有
+   * 声明型宽严序 —— 两侧同尺:不在宽档一侧冒红、在窄档一侧静默放过,也不在归不出轴时硬判。
+   */
+  const containing = (u.axes ?? []).filter((a) => a.tiers && a.tiers.has(lit))
+  const matched = slotAxes.filter((a) => a.tiers.has(lit))
+  if (matched.length > 1)
     return {
       kind: 'undetermined',
-      why: `回落值 '${lit}' 落在 ToolClass/ApprovalClass 两轴同名而宽严相反的字面量集里,被审面没有可推导的审批轴严重度表 ⇒ 判不出属于哪一轴`,
+      why: `回落值 '${lit}' 同时落在槽位(${clip(slotKey, 40)})指向的多条轴的词表里(${matched.map((a) => a.id).join(' + ')})⇒ 同名跨轴,判不出这一处指哪条轴 ⇒ 不并表、不冒红也不放过`,
     }
-  if (u.chat.has(lit))
-    return {
-      kind: 'undetermined',
-      why: `回落值 '${lit}' 是 ChatMode 档:工具轴给它全开、审批轴不放宽,两轴结论相反 ⇒ 判不出宽严`,
-    }
-  if (u.narrow.has(lit)) {
-    if (!axisHit)
+  let axis = matched.length === 1 ? matched[0] : null
+  if (!axis && containing.length === 1 && axisHit) axis = containing[0]
+  if (!axis) {
+    if (!containing.length)
       return {
         kind: 'undetermined',
-        why: `回落值 '${lit}' 是权限档名,但该槽位(${clip(slotKey, 40)})不像权限/能力档 ⇒ 同名跨词表,判不出它此处指什么`,
+        why: `回落值 '${lit}' 不在被审面可推导的任何档词表内(${(u.axes ?? []).map((a) => a.id).join('/')} 都不含它;该枚举的词表声明处不在量具面)⇒ 无从判定宽严`,
       }
-    return { kind: 'green', why: `回落档 '${lit}' 在被审面上不收窄审批(非免批档),不属本型` }
+    return {
+      kind: 'undetermined',
+      why: `回落值 '${lit}' 是 ${containing.map((a) => a.label).join(' / ')} 的档,但该兜底槽位(${clip(slotKey, 40)})未被归到任何一条现读轴 ⇒ 同名跨词表,判不出它此处指哪条轴 ⇒ 不冒红也不放过`,
+    }
   }
+  return decideOnAxis(axis, lit)
+}
+
+/**
+ * 在**已归好的那条轴上**判这一处。入参只有"轴 + 档名"两个 —— 槽位证据在 `classify` 的
+ * **归轴**那一步就用完了,这里再收一份槽位文本等于给同一件事留第二个判点(必漂)。
+ * 三种结局:
+ *  · 轴有 `wide`(面声明的"免批"性质)⇒ 落在 wide 上红,否则绿;
+ *  · 轴有 `rank`(整型序表或经互证的投影链)⇒ 落在该轴最大 rank 上红,否则绿(理由里带序源与该档名次);
+ *  · 两者都没有 ⇒ **未判定**,并点名"这条轴的宽严序在被审面上没有声明型序源" ——
+ *    这一支是本门拒绝的事:`'read'|'write'|'dangerous'` 与 `'high'|'medium'|'low'` 的声明序方向
+ *    相反,借序就会把其中一轴判反(AGENTS §12e 同一条:宁可少判,不可把没判写成判过了)。
+ */
+export function decideOnAxis(axis, lit) {
+  if (axis.wide) {
+    if (axis.wide.has(lit))
+      return {
+        kind: 'red',
+        why: `回落档 '${lit}' 属 ${axis.label} 的免审批/自动放行档(序源:${axis.orderSource})⇒ 枚举缺席即放大权限`,
+      }
+    if (axis.problem)
+      return {
+        kind: 'undetermined',
+        why: `回落值 '${lit}' 归到 ${axis.label},但该轴存在自相矛盾:${axis.problem} ⇒ 不据残缺集合放过`,
+      }
+    return {
+      kind: 'green',
+      why: `回落档 '${lit}' 在 ${axis.label} 上不是免批档(序源:${axis.orderSource}),不属本型`,
+    }
+  }
+  if (axis.rank) {
+    const max = Math.max(...[...axis.rank.values()])
+    const mine = axis.rank.get(lit)
+    if (mine === undefined)
+      return { kind: 'undetermined', why: `${axis.label} 的序表里没有 '${lit}' ⇒ 判不出名次` }
+    if (mine === max)
+      return {
+        kind: 'red',
+        why: `回落档 '${lit}' 是 ${axis.label} 现读序里的**最宽档**(名次 ${mine},序源:${axis.orderSource})⇒ 枚举缺席即落到能力/权限的最宽端`,
+      }
+    return {
+      kind: 'green',
+      why: `回落档 '${lit}' 在 ${axis.label} 的现读序里名次 ${mine} < 最宽 ${max}(序源:${axis.orderSource})⇒ 不是"缺席即取宽档";注意:这不等于该处无风险 —— 消费方可能把低名次档读成免批(那是"取窄档⇒免批"的另一型,要读消费方才判得出,不在本门形状内)`,
+    }
+  }
+  // **没有声明型序源**这条路径必须是有牙的活路径,不是靠 `problem` 早退代劳的兜底:
+  // 否则一旦某轴"词表干净但没有序"(没有 problem),它就掉到别处去 —— 变异取证(m1)实测过这一格。
   return {
     kind: 'undetermined',
-    why: `回落值 '${lit}' 不在被审面可推导的任何档词表内(该枚举的词表声明处不在射程)⇒ 无从判定宽严`,
+    why: `回落值 '${lit}' 已归到 ${axis.label}(词表 ${[...axis.tiers].join('/') || '空'} 现读自该轴声明处),但这条轴在被审面上**没有声明型宽严序源**(既没有整型序表、也没有可互证的投影链)⇒ 判不出宽严;借别的轴的序、或把联合类型的声明序当序,都会把其中一条轴判反${axis.problem ? `;该轴另有自相矛盾处:${axis.problem}` : ''}`,
   }
+}
+
+/**
+ * 候选**入队**用的档名判据:值是不是某一条现读轴的词表成员。
+ * 这里刻意"跨轴并查"—— 入队只回答"这个词像不像某条轴的档",
+ * **判**宽严时才分轴(见 `classify` 的归轴 + `decideOnAxis`),两件事不得混成一个集合。
+ */
+export function anyAxisHasTier(u, lit) {
+  for (const a of u?.axes ?? []) if (a.tiers && a.tiers.has(lit)) return true
+  return (
+    (u?.wide?.has(lit) || u?.narrow?.has(lit) || u?.classes?.has(lit) || u?.chat?.has(lit)) === true
+  )
 }
 
 /** 报告里的证据文本要短要单行(整行源码进结论会把一条未判定写成一首诗)。 */
@@ -448,7 +845,9 @@ function clip(text, n) {
  * 无关标识符顶掉(实测 `settings.nativeFunctionCalling ?? 'auto'` 那行的 `'tools'` 就来自上一行)。
  */
 function keyBeforeOp(text, opIdx) {
-  const left = String(text ?? '').slice(0, opIdx).replace(/[ \t]+$/, '')
+  const left = String(text ?? '')
+    .slice(0, opIdx)
+    .replace(/[ \t]+$/, '')
   const call = /([A-Za-z_$][\w$]*)\s*\([^()]*\)\s*$/.exec(left)
   if (call) return call[1]
   const prop = /([A-Za-z_$][\w$]*)\s*(?:\?\.|\.)?\s*$/.exec(left)
@@ -520,7 +919,9 @@ export function scanSource(rel, src, u) {
       file: rel,
       line: lineOf(off),
       form,
-      expr: String(expr ?? '').trim().slice(0, 60),
+      expr: String(expr ?? '')
+        .trim()
+        .slice(0, 60),
       kind: c.kind,
       why: c.why,
     })
@@ -615,9 +1016,8 @@ export function scanSource(rel, src, u) {
           mentionsSlot = true
           break
         }
-      const isTierName =
-        u.wide.has(lit) || u.narrow.has(lit) || u.classes.has(lit) || u.chat.has(lit)
-      // 候选的**入队**条件放宽(槽位提到注册表词表里的词,或回落值本身就是档名),
+      const isTierName = anyAxisHasTier(u, lit)
+      // 候选的**入队**条件放宽(槽位提到注册表词表里的词,或回落值本身就是任一现读轴的档名),
       // 但只收"像档名"的字面量:空串与散文(`?? '上下文已超出模型窗口…'`)不是枚举档,
       // 收进来只会把 12 条信号淹成 30 条噪声。收窄的是**形态**,不是宽严判据。
       const tierShaped = /^[A-Za-z][\w.:-]{0,48}$/.test(lit)
@@ -654,7 +1054,9 @@ export function scanSource(rel, src, u) {
       const grp = m[1]
       if (!grp) continue
       const gStart = m.index + m[0].indexOf(grp)
-      for (const d of grp.matchAll(/(?:^|[{,(])\s*([A-Za-z_$][\w$]*)\s*=\s*(['"])((?:(?!\2)[^\\]|\\.)*)\2/g)) {
+      for (const d of grp.matchAll(
+        /(?:^|[{,(])\s*([A-Za-z_$][\w$]*)\s*=\s*(['"])((?:(?!\2)[^\\]|\\.)*)\2/g,
+      )) {
         const off = gStart + d.index + d[0].indexOf(d[2])
         // 遮噪判定取**等号那一位**,不取引号那一位:maskedSpans 的串区间含引号本身,
         // 拿引号位去问 isCode 会把自己刚认出来的合法形态判成"写在串里"(ES21 第一版就栽在这)。
@@ -672,8 +1074,8 @@ export function scanSource(rel, src, u) {
             mentionsSlot = true
             break
           }
-        const isTierName =
-          u.wide.has(lit) || u.narrow.has(lit) || u.classes.has(lit) || u.chat.has(lit)
+        const isTierName = anyAxisHasTier(u, lit)
+
         const tierShaped = /^[A-Za-z][\w.:-]{0,48}$/.test(lit)
         if (u.ok && !(tierShaped && mentionsSlot) && !isTierName) continue
         push(off, `'${lit}'`, slot, 'default-param', keyText)
@@ -710,7 +1112,9 @@ function firstClauseEdge(rest) {
 }
 /** 取 default/`case _` 体里**真正落槌**的那个表达式(先 return,再赋值,再整段)。 */
 function decisiveExpr(body) {
-  const t = String(body ?? '').trim().slice(0, 300)
+  const t = String(body ?? '')
+    .trim()
+    .slice(0, 300)
   // 抛错族整段留给 classify(它认 `^\s*(throw|raise)`),否则关键字被剥掉就成了"表达式取不到档"。
   if (/^(?:throw|raise)\b/.test(t)) return t
   const r = /\breturn\b([^;\n]*)/.exec(t)
@@ -767,9 +1171,9 @@ export function analyze({ face, root = ROOT } = {}) {
     throw new Error(`文件清单取不到:${String(e?.message ?? e).split('\n')[0]}`)
   }
   const pre = face === 'staged' ? ':' : 'HEAD:'
-  // 注册表**总是**进同一批读取:它是量具,不能因为"本次暂存集里没有它"就取不到
-  // (取不到量具 = 整门未判定,那是环境问题伪装成业务结论)。清单与正文仍同面同轮。
-  const wantList = [...new Set([...files, ...REGISTRY_FILES])]
+  // 量具面**总是**进同一批读取:它们是尺子,不能因为"本次暂存集里没有它们"就取不到
+  // (取不到尺子 = 未判定,那是环境问题伪装成业务结论)。清单与正文仍同面同轮。
+  const wantList = [...new Set([...files, ...REGISTRY_FILES, ...MEASURE_FILES])]
   const specs = wantList.map((p) => `${pre}${p}`)
   let contents
   try {
@@ -787,14 +1191,23 @@ export function analyze({ face, root = ROOT } = {}) {
     }
     return contents.get(`${pre}${rel}`) ?? null
   }
-  const registry = {}
+  const sources = {}
   const unreadableRegistries = []
+  const unreadableMeasure = []
   for (const rel of REGISTRY_FILES) {
     const t = read(rel)
     if (typeof t !== 'string') unreadableRegistries.push(rel)
-    registry[rel] = t
+    sources[rel] = t
   }
-  const u = deriveUniverse(registry[TS_REGISTRY] ?? '', registry[PY_REGISTRY] ?? '')
+  // 其余量具面取不到 ⇒ **不**把整门判死(注册表已经能推出主集合),但那条轴必须报名 ——
+  // 让"量具缺一块"表现为"这条轴判不出",而不是"这条轴没有档"(那会把未判定写成放过)。
+  for (const rel of MEASURE_FILES) {
+    if (rel in sources) continue
+    const t = read(rel)
+    if (typeof t !== 'string') unreadableMeasure.push(rel)
+    sources[rel] = t
+  }
+  const u = deriveUniverse(sources)
   // 注册表在本面取不到 ⇒ 集合根本无从推导 ⇒ 整门判「无法判定」(exit 2),既不冒红也绝不记绿,
   // 并且**不回落另一个面**(口径同 70/77/83/98/101)。
   if (unreadableRegistries.length)
@@ -805,7 +1218,16 @@ export function analyze({ face, root = ROOT } = {}) {
       fatal: `注册表在本面取不到:${unreadableRegistries.join(' ')} ⇒ 档名集合无法推导(未判定,不回落另一个面)`,
     }
   const candidates = []
-  const unreadable = []
+  const unreadable = [...unreadableMeasure]
+  if (unreadableMeasure.length)
+    candidates.push({
+      file: '(量具面)',
+      line: 0,
+      form: 'measure-face',
+      expr: unreadableMeasure.join(' '),
+      kind: 'undetermined',
+      why: `量具面在本面取不到:${unreadableMeasure.join(' ')} ⇒ 落在这些声明点上的轴只能报"判不出",绝不把"没读到词表"写成"没有宽档"`,
+    })
   for (const rel of files) {
     const src = read(rel)
     if (typeof src !== 'string') {
@@ -822,7 +1244,20 @@ export function analyze({ face, root = ROOT } = {}) {
     }
     candidates.push(...scanSource(rel, src, u))
   }
-  return { files, universe: u, candidates, unreadable, registry, fatal: null }
+  return { files, universe: u, candidates, unreadable, sources, fatal: null }
+}
+
+/**
+ * 退出码的**唯一**算法(定级契约住在这里,不散在 main 的 if 链里):
+ *  · 判红 > 0:warn 面(非 strict)⇒ 0,问责面(strict)⇒ 1;
+ *  · 判红 = 0 但仍有未判定 且 strict ⇒ **2 —— 拒绝出具合格证**,绝不因为"红是 0"就报通过;
+ *  · 其余 ⇒ 0。
+ * 三条各有成对自检(ES32),因为"把没判写成判过了"是本仓最高频的失效型。
+ */
+export function exitCodeFor({ strict = false, redCount = 0, undeterminedCount = 0 } = {}) {
+  if (redCount > 0) return strict ? 1 : 0
+  if (strict && undeterminedCount > 0) return 2
+  return 0
 }
 
 // ─── 自检(成对:必须有牙,且证明牙咬在推导得出的集合上)──────────────────────
@@ -853,21 +1288,40 @@ export function selfTest(root = ROOT) {
   const NARROW = [...u.narrow][0]
   t('EA3 宽档集合非空(否则本门对"落宽档"整型失明)', u.wide.size > 0, `wide=${u.wide.size}`)
   t('EA4 宽窄两集不得交叠', ![...u.wide].some((v) => u.narrow.has(v)))
-  const sw = (body) => `function f(permissionMode){\n  switch (permissionMode) {\n    case 'plan': return 'ask';\n    default: ${body}\n  }\n}`
+  const sw = (body) =>
+    `function f(permissionMode){\n  switch (permissionMode) {\n    case 'plan': return 'ask';\n    default: ${body}\n  }\n}`
   const s = (src, lang = 'ts') => scanSource(`a.${lang}`, src, u)
   const reds = (r) => r.filter((x) => x.kind === 'red')
   const unds = (r) => r.filter((x) => x.kind === 'undetermined')
 
   // ① 票面验收第一条:default 返回更宽档 ⇒ 红
-  t('ES1 default 返回宽档必须判红', reds(s(sw(`return '${WIDE}';`))).length === 1, JSON.stringify(s(sw(`return '${WIDE}';`))))
+  t(
+    'ES1 default 返回宽档必须判红',
+    reds(s(sw(`return '${WIDE}';`))).length === 1,
+    JSON.stringify(s(sw(`return '${WIDE}';`))),
+  )
   // ② default 显式抛错 / 返回最窄档 ⇒ 绿
-  t('ES2 default 抛错必须放过', s(sw('throw new Error("unknown permissionMode");')).every((x) => x.kind === 'green'), JSON.stringify(s(sw('throw new Error("x");'))))
-  t('ES3 default 返回非宽档(推导出的窄档)必须放过', s(sw(`return '${NARROW}';`)).every((x) => x.kind === 'green'), JSON.stringify(s(sw(`return '${NARROW}';`))))
+  t(
+    'ES2 default 抛错必须放过',
+    s(sw('throw new Error("unknown permissionMode");')).every((x) => x.kind === 'green'),
+    JSON.stringify(s(sw('throw new Error("x");'))),
+  )
+  t(
+    'ES3 default 返回非宽档(推导出的窄档)必须放过',
+    s(sw(`return '${NARROW}';`)).every((x) => x.kind === 'green'),
+    JSON.stringify(s(sw(`return '${NARROW}';`))),
+  )
   // ③ 集合推导失败 ⇒ 未判定,绝不记为通过
   const broken = { ...u, ok: false, reason: '夹具:成员表读不出' }
   const r3 = s(sw(`return '${WIDE}';`), 'ts')
   const brokenRes = scanSource('a.ts', sw(`return '${WIDE}';`), broken)
-  t('ES4 集合推导失败 ⇒ 一律未判定(不得记绿也不得记红)', brokenRes.length > 0 && brokenRes.every((x) => x.kind === 'undetermined') && reds(r3).length === 1, JSON.stringify(brokenRes))
+  t(
+    'ES4 集合推导失败 ⇒ 一律未判定(不得记绿也不得记红)',
+    brokenRes.length > 0 &&
+      brokenRes.every((x) => x.kind === 'undetermined') &&
+      reds(r3).length === 1,
+    JSON.stringify(brokenRes),
+  )
   // ④ 注释与字符串里的形态不得命中(遮噪方向:判代码形态 ⇒ 注释/串都遮)
   const inComment = `// default: return '${WIDE}' 是错的写法\n/* const mode = ctx.permissionMode ?? '${WIDE}'; */\nconst x = 1;`
   t('ES5 注释里的该形态不得计入', s(inComment).length === 0, JSON.stringify(s(inComment)))
@@ -875,30 +1329,72 @@ export function selfTest(root = ROOT) {
   t('ES6 字符串里的该形态不得计入', s(inString).length === 0, JSON.stringify(s(inString)))
   // Python 侧同语法锚点:漏一条 = 该语言整型隐身(守门 117 那一课)
   const pyCase = `def resolve(permission_mode: object) -> str:\n    match permission_mode:\n        case "plan":\n            return "ask"\n        case _:\n            return "${WIDE}"\n`
-  t('ES7 Python `case _` 返回宽档必须判红', reds(s(pyCase, 'py')).length === 1, JSON.stringify(s(pyCase, 'py')))
+  t(
+    'ES7 Python `case _` 返回宽档必须判红',
+    reds(s(pyCase, 'py')).length === 1,
+    JSON.stringify(s(pyCase, 'py')),
+  )
   const pyGet = `def pick(cfg):\n    return cfg.get("permission_mode", "${WIDE}")\n`
-  t('ES8 Python `.get(key, 宽档)` 必须判红', reds(s(pyGet, 'py')).length === 1, JSON.stringify(s(pyGet, 'py')))
+  t(
+    'ES8 Python `.get(key, 宽档)` 必须判红',
+    reds(s(pyGet, 'py')).length === 1,
+    JSON.stringify(s(pyGet, 'py')),
+  )
   const pyOr = `def pick(permission_mode):\n    mode = permission_mode or "${WIDE}"\n    return mode\n`
-  t('ES9 Python `x or 宽档` 必须判红', reds(s(pyOr, 'py')).length === 1, JSON.stringify(s(pyOr, 'py')))
+  t(
+    'ES9 Python `x or 宽档` 必须判红',
+    reds(s(pyOr, 'py')).length === 1,
+    JSON.stringify(s(pyOr, 'py')),
+  )
   const pyComment = `# cfg.get("permission_mode", "${WIDE}") 是错的\n`
-  t('ES10 Python 注释里的该形态不得计入', s(pyComment, 'py').length === 0, JSON.stringify(s(pyComment, 'py')))
+  t(
+    'ES10 Python 注释里的该形态不得计入',
+    s(pyComment, 'py').length === 0,
+    JSON.stringify(s(pyComment, 'py')),
+  )
   // 与凭据门不得重叠计账:同一处两门各计一次会让两份基线互相顶掉
   const credShape = `async function h(request, reply){\n  if (request.headers['x-internal-service-token']) return\n  if (!verifyCsrfToken(a, b)) return reply.status(403).send(1)\n}`
-  t('ES11 凭据在场即放行的形态不属本型(与 check-credential-presence-bypass 分工,不双计)', s(credShape).length === 0, JSON.stringify(s(credShape)))
+  t(
+    'ES11 凭据在场即放行的形态不属本型(与 check-credential-presence-bypass 分工,不双计)',
+    s(credShape).length === 0,
+    JSON.stringify(s(credShape)),
+  )
   // 票面点名的我方真站点:必须入候选,且按判据落未判定(集合推不到 dangerLevel 词表)
   const REAL = "          const dangerLevel = tool?.dangerLevel ?? 'read';"
   const rReal = s(REAL)
   t('ES12 agent.ts 真站点形态必须入候选', rReal.length === 1, JSON.stringify(rReal))
-  t('ES13 该处必须落未判定并点名词表(不代主会话落槌,也不静默放过)', rReal.length === 1 && rReal[0].kind === 'undetermined', JSON.stringify(rReal))
+  t(
+    'ES13 该处必须落未判定并点名词表(不代主会话落槌,也不静默放过)',
+    rReal.length === 1 && rReal[0].kind === 'undetermined',
+    JSON.stringify(rReal),
+  )
+  // ES13b(G-816027 收尾新增的可见差别):该处的原因**不再是**"词表读不出"这张万能 catch-all ——
+  // 词表已经现读到(read/write/dangerous 三处声明同集合),缺的是"这一轴的宽严序源"。
+  // 这一格钉的是"扩面确实扩到了",不是措辞好看:推导面退回原状时它会红。
+  t(
+    'ES13b 该处未判定的原因必须点名到具体轴(证明词表已现读,而不是仍走"不在任何词表内"的 catch-all)',
+    rReal.length === 1 &&
+      /DangerLevel/.test(rReal[0].why) &&
+      !/不在被审面可推导的任何档词表内/.test(rReal[0].why),
+    JSON.stringify(rReal),
+  )
   // 兜底不是档名也不是枚举槽位 ⇒ 不入候选(否则噪声淹信号)
   const noiseF = `const s = String(text ?? '')\nconst n = budget ?? 4\nconst arr = xs ?? []\n`
   t('ES14 非档名/非枚举槽位的兜底不得入候选', s(noiseF).length === 0, JSON.stringify(s(noiseF)))
   // default 返回变量(上游 parentMode 那一型):无法证明不落在宽档 ⇒ 未判定
   const rVar = s(sw('return parentMode;'))
-  t('ES15 default 返回变量必须落未判定(不得读成干净,也不得凭空判红)', rVar.length === 1 && rVar[0].kind === 'undetermined', JSON.stringify(rVar))
+  t(
+    'ES15 default 返回变量必须落未判定(不得读成干净,也不得凭空判红)',
+    rVar.length === 1 && rVar[0].kind === 'undetermined',
+    JSON.stringify(rVar),
+  )
   // 扫描面在位(空枚举判死,不记绿)
   t(`ES16 HEAD 面必须扫到射程内文件(现读 ${a.files.length} 个)`, a.files.length > 0)
-  t('ES17 注册表两文件必须在扫描面内', REGISTRY_FILES.every((f) => a.files.includes(f)), JSON.stringify(a.files))
+  t(
+    'ES17 注册表两文件必须在扫描面内',
+    REGISTRY_FILES.every((f) => a.files.includes(f)),
+    JSON.stringify(a.files),
+  )
   // ES18/ES19 是现量逼出来的两格精度锁(HEAD 面第一版把 `'auto'` 那处读成了判红):
   //  ① 档名会跨词表撞名(`'auto'` 既是 acceptEdits 的历史别名拼写,也是 nativeFunctionCalling
   //     的三态档)⇒ 槽位不像权限/能力档时**不冒红**,落未判定并点名;
@@ -925,30 +1421,231 @@ export function selfTest(root = ROOT) {
   // ES21–ES26:G-816027 补的"缺席才生效"三道锚(解构默认值 / JS 形参默认值 / Python def 形参默认值)。
   // 成对方向都各给正反两例:新锚必须咬住推导出的宽档,同形的正当写法必须一条不收。
   const dParam = `function f(permissionMode = '${WIDE}') {\n  return permissionMode\n}`
-  t('ES21 JS 形参默认值落宽档必须判红(旧版整型隐身)', reds(s(dParam)).length === 1, JSON.stringify(s(dParam)))
+  t(
+    'ES21 JS 形参默认值落宽档必须判红(旧版整型隐身)',
+    reds(s(dParam)).length === 1,
+    JSON.stringify(s(dParam)),
+  )
   const dArrow = `const g = (a, permissionMode = '${WIDE}') => a + permissionMode`
-  t('ES22 箭头形参默认值同锚必须命中(不只在 function 形态上有牙)', reds(s(dArrow)).length === 1, JSON.stringify(s(dArrow)))
+  t(
+    'ES22 箭头形参默认值同锚必须命中(不只在 function 形态上有牙)',
+    reds(s(dArrow)).length === 1,
+    JSON.stringify(s(dArrow)),
+  )
   const dDestruct = `const { permissionMode = '${WIDE}' } = ctx`
   t('ES23 解构默认值落宽档必须判红', reds(s(dDestruct)).length === 1, JSON.stringify(s(dDestruct)))
   const dPyDef = `def resolve(permission_mode="${WIDE}"):\n    return permission_mode\n`
-  t('ES24 Python def 形参默认值落宽档必须判红', reds(s(dPyDef, 'py')).length === 1, JSON.stringify(s(dPyDef, 'py')))
+  t(
+    'ES24 Python def 形参默认值落宽档必须判红',
+    reds(s(dPyDef, 'py')).length === 1,
+    JSON.stringify(s(dPyDef, 'py')),
+  )
   // 逐字取自全仓实测的 5 处正当写法(形参默认值写死 host/包名/展示串),它们都不是枚举档 ⇒ 一条不得入候选
   const legitDef = `function openBrowser(host = '127.0.0.1', errorType = 'unknown') {\n  return host\n}\nconst label = (packageName = '@ihui/cli') => packageName\n`
-  t('ES25 成对:同形但兜底不是档名的形参默认值不得入候选(正当样本不被扫进)', s(legitDef).length === 0, JSON.stringify(s(legitDef)))
+  t(
+    'ES25 成对:同形但兜底不是档名的形参默认值不得入候选(正当样本不被扫进)',
+    s(legitDef).length === 0,
+    JSON.stringify(s(legitDef)),
+  )
   const legitDestruct = `const { permissionMode = '${NARROW}' } = ctx`
-  t('ES26 成对:解构默认值落非免批档 ⇒ 放过(既不得冒红也不得整条消失)', s(legitDestruct).length === 1 && s(legitDestruct)[0].kind === 'green', JSON.stringify(s(legitDestruct)))
+  t(
+    'ES26 成对:解构默认值落非免批档 ⇒ 放过(既不得冒红也不得整条消失)',
+    s(legitDestruct).length === 1 && s(legitDestruct)[0].kind === 'green',
+    JSON.stringify(s(legitDestruct)),
+  )
   // 无条件写死不是"缺席即取档":关键字实参必须留在门外(否则本门侵占别的判据地盘并造出假红)
   const kwArg = `def build():\n    return dict(permission_mode="${WIDE}")\n`
-  t('ES27 成对:Python 关键字实参(无条件写死)不属本型,不得入候选', s(kwArg, 'py').length === 0, JSON.stringify(s(kwArg, 'py')))
+  t(
+    'ES27 成对:Python 关键字实参(无条件写死)不属本型,不得入候选',
+    s(kwArg, 'py').length === 0,
+    JSON.stringify(s(kwArg, 'py')),
+  )
   // ES28–ES30:G-816027 定性 (b) —— `default: return 1` 这一档从"未判定"移到"放过"。
   // 夹具逐字取自 HEAD:apps/cli/src/commands/agent.ts:2940-2964(stopReasonToExitCode)。
   const exitCode = `export function stopReasonToExitCode(reason: AgentStopReason): number {\n  switch (reason) {\n    case 'error':\n      return 1;\n    default:\n      return 1;\n  }\n}`
   const rExit = s(exitCode)
-  t('ES28 数字兜底且槽位不踩权限轴 ⇒ 放过(退出码不是档)', rExit.length === 1 && rExit[0].kind === 'green', JSON.stringify(rExit))
+  t(
+    'ES28 数字兜底且槽位不踩权限轴 ⇒ 放过(退出码不是档)',
+    rExit.length === 1 && rExit[0].kind === 'green',
+    JSON.stringify(rExit),
+  )
   const rAxisNum = s(sw('return 0;'))
-  t('ES29 成对:同一数字兜底写在权限轴槽位上仍落未判定(不得把"数字"当成一律干净)', rAxisNum.length === 1 && unds(rAxisNum).length === 1, JSON.stringify(rAxisNum))
+  t(
+    'ES29 成对:同一数字兜底写在权限轴槽位上仍落未判定(不得把"数字"当成一律干净)',
+    rAxisNum.length === 1 && unds(rAxisNum).length === 1,
+    JSON.stringify(rAxisNum),
+  )
   const rAxisWide = s(sw(`return '${WIDE}';`))
-  t('ES30 成对:加了数字这条绿路之后,default 返回宽档依旧是红(判据没被放宽)', reds(rAxisWide).length === 1, JSON.stringify(rAxisWide))
+  t(
+    'ES30 成对:加了数字这条绿路之后,default 返回宽档依旧是红(判据没被放宽)',
+    reds(rAxisWide).length === 1,
+    JSON.stringify(rAxisWide),
+  )
+
+  // ── ES31–ES38:G-816027 收尾扩的"档词表推导面"(轴模型)。───────────────────
+  // 每一格都成对给正反例,并且**档名一律从推导出的轴里取**,不在自检里抄第二份清单 ——
+  // 抄了就等于:轴腐烂时自检还绿着(§22c"镜像只复读实现就是复读机"同一条禁令的自检版)。
+  const axisById = new Map((u.axes ?? []).map((a) => [a.id, a]))
+  const ranked = (id) => {
+    const a = axisById.get(id)
+    if (!a || !a.rank || a.problem) return null
+    const entries = [...a.rank.entries()]
+    const max = Math.max(...entries.map(([, v]) => v))
+    const min = Math.min(...entries.map(([, v]) => v))
+    return {
+      axis: a,
+      widest: entries.filter(([, v]) => v === max).map(([k]) => k),
+      narrowest: entries.filter(([, v]) => v === min).map(([k]) => k),
+    }
+  }
+  // ES31 轴②ToolClass:序源 = 面上现读的整型序表(_TOOLS_SEVERITY)。阳性对照必须钉在"最宽档"上。
+  const toolR = ranked('tool')
+  t(
+    'ES31 工具轴(整型序表现读推导):default 返回该轴最宽档必红、最窄档与显式抛错必绿',
+    !!toolR &&
+      reds(
+        s(
+          `function f(toolClass){\n  switch (toolClass) {\n    default: return '${toolR.widest[0]}';\n  }\n}`,
+        ),
+      ).length === 1 &&
+      s(
+        `function f(toolClass){\n  switch (toolClass) {\n    default: return '${toolR.narrowest[0]}';\n  }\n}`,
+      ).every((x) => x.kind === 'green') &&
+      s(
+        `function f(toolClass){\n  switch (toolClass) {\n    default: throw new Error('unknown tool class');\n  }\n}`,
+      ).every((x) => x.kind === 'green'),
+    JSON.stringify(
+      toolR && { widest: toolR.widest, narrowest: toolR.narrowest, problem: toolR.axis.problem },
+    ),
+  )
+  // ES32 轴④ChatMode:序不是它自己的,而是**投影**出来的(chat → CHAT_MODE_TOOL_AXIS → 工具轴整型序),
+  // 两侧投影表必须同面互证;这里同时钉"投影链给了它红端与绿端",不是只换了措辞。
+  const chatR = ranked('chat-mode')
+  t(
+    'ES32 聊天轴(投影序源):default 返回投影出的最宽模式必红、最窄模式必绿',
+    !!chatR &&
+      reds(
+        s(
+          `function f(chatMode){\n  switch (chatMode) {\n    default: return '${chatR.widest[0]}';\n  }\n}`,
+        ),
+      ).length === 1 &&
+      s(
+        `function f(chatMode){\n  switch (chatMode) {\n    default: return '${chatR.narrowest[0]}';\n  }\n}`,
+      ).every((x) => x.kind === 'green'),
+    JSON.stringify(
+      chatR && { widest: chatR.widest, narrowest: chatR.narrowest, problem: chatR.axis.problem },
+    ),
+  )
+  // ES33 **两轴不并表**的正面证明:同一个字面量(同时是工具轴与审批轴的档)在一轴有结论、
+  // 在另一轴必须**没有**结论(审批轴无声明型序源)。并表的话两条断言不可能同时成立。
+  const shared = [...axisById.get('tool').tiers].filter((v) =>
+    axisById.get('approval').tiers.has(v),
+  )
+  const sharedWide = shared.filter(
+    (v) => toolR && toolR.axis.rank.get(v) === Math.max(...[...toolR.axis.rank.values()]),
+  )
+  t(
+    'ES33 同一字面量在工具轴判红、在审批轴判不出 ⇒ 两轴未被并成一张表(并表即一视同仁)',
+    shared.length > 0 &&
+      sharedWide.length > 0 &&
+      reds(
+        s(
+          `function f(toolClass){\n  switch (toolClass) {\n    default: return '${sharedWide[0]}';\n  }\n}`,
+        ),
+      ).length === 1 &&
+      unds(
+        s(
+          `function f(approvalClass){\n  switch (approvalClass) {\n    default: return '${sharedWide[0]}';\n  }\n}`,
+        ),
+      ).length === 1,
+    JSON.stringify({ shared, sharedWide }),
+  )
+  // ES34 **声明序不得当宽严序用**(票面对 DangerLevel 明令"不硬编码 read<write<dangerous"):
+  //  声明序最末那一档在工具危险档轴上既不得判红、也不得判绿,只能点名"该轴无序源"。
+  const danger = axisById.get('danger-level')
+  const dangerLast = [...(danger?.tiers ?? [])].slice(-1)[0]
+  const rDanger = dangerLast
+    ? s(
+        `function f(dangerLevel){\n  switch (dangerLevel) {\n    default: return '${dangerLast}';\n  }\n}`,
+      )
+    : []
+  t(
+    'ES34 工具危险档轴:词表已现读、但声明序不作序源 ⇒ 最末一档既不红也不绿,且必须点名归到哪条轴',
+    !!danger &&
+      danger.tiers.size > 0 &&
+      !danger.rank &&
+      !danger.wide &&
+      rDanger.length === 1 &&
+      rDanger[0].kind === 'undetermined' &&
+      rDanger[0].why.includes(danger.label),
+    JSON.stringify(rDanger),
+  )
+  // ES35 第二条危险等级阶梯(审批流)是**另一条轴**:成员与轴⑤同词不同义,归轴后各自报名。
+  const ad = axisById.get('approval-danger-level')
+  const adFirst = [...(ad?.tiers ?? [])][0]
+  const rAd = adFirst
+    ? s(
+        `function f(approvalDangerLevel){\n  switch (approvalDangerLevel) {\n    default: return '${adFirst}';\n  }\n}`,
+      )
+    : []
+  t(
+    'ES35 ToolApprovalDangerLevel 与 DangerLevel 各归各轴:两侧点名到各自的轴,不互相借序',
+    !!ad &&
+      ad.tiers.size > 0 &&
+      ![...ad.tiers].some((v) => danger.tiers.has(v)) &&
+      rAd.length === 1 &&
+      rAd[0].kind === 'undetermined' &&
+      /ToolApprovalDangerLevel/.test(rAd[0].why),
+    JSON.stringify({ tiers: [...(ad?.tiers ?? [])], danger: [...(danger?.tiers ?? [])], hit: rAd }),
+  )
+  // ES36 覆盖面自证:量具面上一条轴都读不出词表时,该轴必须带 problem 报名,
+  //  绝不允许"轴没了/词表空"被当成"这一族没有宽档"(那才是把没判写成判过了)。
+  t(
+    'ES36 覆盖面自证:每条轴要么有词表、要么带 problem 报名;轴数不得少于登记的定义点族',
+    (u.axes ?? []).length >= 7 && (u.axes ?? []).every((a) => a.tiers.size > 0 || a.problem),
+    JSON.stringify(
+      (u.axes ?? []).map((a) => ({ id: a.id, tiers: a.tiers.size, problem: a.problem })),
+    ),
+  )
+  const starved = deriveUniverse({
+    [TS_REGISTRY]:
+      'export const PERMISSION_MODES = ["plan", "manual"] as const\nexport const PERMISSION_MODE_ALIASES: Record<string,string> = { readonly: "plan" }\nconst POLICY_BY_MODE: Record<string,string> = { plan: "readonly", manual: "ask" }\n',
+    [PY_REGISTRY]:
+      'PERMISSION_MODES = ("plan", "manual")\nPERMISSION_MODE_ALIASES = {"readonly": "plan"}\ndef skips_approval_permission_mode(mode):\n    return mode in ("plan",)\n',
+  })
+  t(
+    'ES37 量具面残缺(只有两轴读得出)时:残缺轴点名,且绝不因"推不出"就记通过',
+    starved.axes.length === 7 &&
+      starved.axes.filter((a) => a.problem).length >= 5 &&
+      starved.axes.find((a) => a.id === 'chat-mode')?.problem ===
+        'ChatMode 词表读不出(CHAT_MODES / CHAT_MODE_IDS / ChatModeId 都空)' &&
+      starved.axes.every((a) => !a.rank),
+    JSON.stringify(starved.axes.map((a) => ({ id: a.id, problem: a.problem }))),
+  )
+  // ES38 退出码契约(唯一算法 exitCodeFor):**有未判定而无判红时 strict 必须是 2** ——
+  //  这一格是"拒绝出合格证"的性质本身;真仓此刻有判红,所以性质只能在构造面上钉。
+  t(
+    'ES38 退出码三态成对:无判红+有未判定 strict⇒2(拒出合格证);有判红 strict⇒1、warn 面⇒0;两者皆无⇒0',
+    exitCodeFor({ strict: true, redCount: 0, undeterminedCount: 5 }) === 2 &&
+      exitCodeFor({ strict: true, redCount: 1, undeterminedCount: 5 }) === 1 &&
+      exitCodeFor({ strict: false, redCount: 1, undeterminedCount: 5 }) === 0 &&
+      exitCodeFor({ strict: true, redCount: 0, undeterminedCount: 0 }) === 0,
+    JSON.stringify([
+      exitCodeFor({ strict: true, redCount: 0, undeterminedCount: 5 }),
+      exitCodeFor({ strict: true, redCount: 1 }),
+      exitCodeFor({ strict: false, redCount: 1 }),
+    ]),
+  )
+  // ES39 真仓对照的**形状**锁(不钉具体数字,免得台账腐烂):每一条判红都必须点名它的序源,
+  //  每一条未判定都必须点名它归到哪条轴或"不在任何词表内" —— 两者都不许是空原因。
+  const liveDec = decide(a.candidates)
+  t(
+    'ES39 真仓每条判红都必须带现读序源、每条未判定都必须点名归轴结果(不得出现无原因结论)',
+    liveDec.red.every((c) => /最宽档|免审批/.test(c.why)) &&
+      liveDec.undetermined.every((c) => /轴|词表|序源|不是档名字面量|取不到/.test(c.why)) &&
+      liveDec.green.every((c) => /轴|数字字面量|抛错/.test(c.why)),
+    JSON.stringify([...liveDec.red, ...liveDec.undetermined].map((c) => c.why.slice(0, 40))),
+  )
   return { pass, fail, fatal: false, live: a }
 }
 
@@ -1047,7 +1744,9 @@ function main(argv) {
     for (const c of d.red)
       console.log(`  ${C.red}❌ ${c.file}:${c.line} [${c.form}] ${c.expr} —— ${c.why}${C.reset}`)
     for (const c of d.undetermined)
-      console.log(`  ${C.yellow}ℹ 未判定 ${c.file}:${c.line} [${c.form}] ${c.expr} —— ${c.why}${C.reset}`)
+      console.log(
+        `  ${C.yellow}ℹ 未判定 ${c.file}:${c.line} [${c.form}] ${c.expr} —— ${c.why}${C.reset}`,
+      )
     for (const c of d.green)
       console.log(`  ${C.green}✅ ${c.file}:${c.line} [${c.form}] ${c.expr} —— ${c.why}${C.reset}`)
     if (d.red.length === 0 && d.undetermined.length === 0)
@@ -1057,9 +1756,7 @@ function main(argv) {
         `${C.green}✅ 无判红;另有 ${d.undetermined.length} 处未判定(不等于通过)。${C.reset}`,
       )
   }
-  if (d.red.length > 0) return strict ? 1 : 0
-  if (strict && d.undetermined.length > 0) return 2
-  return 0
+  return exitCodeFor({ strict, redCount: d.red.length, undeterminedCount: d.undetermined.length })
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
@@ -1074,7 +1771,11 @@ if (isDirectRun) {
 
 export const __test__ = {
   deriveUniverse,
+  deriveAxes,
   classify,
+  decideOnAxis,
+  anyAxisHasTier,
+  exitCodeFor,
   scanSource,
   decide,
   analyze,
@@ -1082,13 +1783,22 @@ export const __test__ = {
   tokensOf,
   arrayMembers,
   dictPairs,
+  intMap,
   unionMembers,
   pySkipsApproval,
+  setDiff,
+  axisKeyTokens,
   maskScriptCommentsGuard,
   SCAN_TARGETS,
   REGISTRY_FILES,
+  MEASURE_FILES,
   TS_REGISTRY,
   PY_REGISTRY,
   REAL_SITE_FILE,
+  DANGER_TS,
+  DANGER_API,
+  DANGER_PY,
+  APPROVAL_DANGER_TS,
+  ISOLATION_CLI,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
