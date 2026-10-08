@@ -18892,6 +18892,7 @@
     "jwtExpired": "JWT 已过期",
     "jwtExpiresSoon": "JWT 将于 {days} 天内过期",
     "jwtUpdated": "JWT 已更新",
+    "cooldownUntil": "冷却至 {time}",
     "loadMore": "加载更多",
     "schedulerDisabled": "自动签到未开启",
     "schedulerEnabled": "自动签到已开启",
