@@ -34,7 +34,6 @@ from pydantic import BaseModel, Field
 from app.core.config import settings
 from app.core.llm_gateway import llm_gateway
 from app.core.logging import get_logger
-from app.services.async_gen_close import aclose_async_gen
 
 logger = get_logger(__name__)
 
@@ -98,12 +97,8 @@ class AiWritingService:
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
-        # 借来的异步生成器:被弃路径(消费者提前收流 / 循环中途抛错)必须显式 aclose,
-        # 否则其内部 finally 要等 GC + loop.shutdown_asyncgens 才跑,上游连接会停在
-        # 半读态。形状与理由见 app/services/async_gen_close.py 头注(唯一出口)。
-        gen = llm_gateway.astream(messages, model=self._model)
         try:
-            async for event in gen:
+            async for event in llm_gateway.astream(messages, model=self._model):
                 etype = event.get("type")
                 if etype == "chunk":
                     chunk = event.get("content", "")
@@ -111,10 +106,6 @@ class AiWritingService:
                         yield chunk
         except Exception as e:
             logger.warning("[ai_assistant] astream failed: %s", e)
-        finally:
-            # 关停自身的失败不得吃掉上面那条已落的 warning:出口内部吞错并留日志,
-            # 且对已耗尽的生成器是合法 no-op(正常耗尽不会被"二次回滚")。
-            await aclose_async_gen(gen, label="publish.ai_assistant._astream")
 
     # ===== 标题生成 =====
 
