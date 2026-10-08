@@ -37,7 +37,12 @@ import {
   extractVerifyCode,
   classifySmsUsage,
 } from '../../services/d1jiema-service.js'
-import { recordSmsReceived, getPhoneHistory, getPhoneHistoryCount } from '../../db/sms-receive-queries.js'
+import {
+  recordSmsReceived,
+  getPhoneHistory,
+  getPhoneHistoryCount,
+  getPhoneHistoryPlatformStats,
+} from '../../db/sms-receive-queries.js'
 
 // 平台取号返回的是脱敏号(如 193****6470),回传类端点(message/release/block/phone-history/send)
 // 必须放行 *;发短信的目标号码 toPhone 是真实全号,保持纯数字
@@ -156,12 +161,14 @@ const smsReceiveRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     try {
-      // items 截断最近 20 条;total 是全量条数(本机累计使用次数,不受 24h/100 条限制)
-      const [items, total] = await Promise.all([
+      // items 截断最近 20 条;total 是全量条数(本机累计使用次数,不受 24h/100 条限制);
+      // platformStats 是「平台 × 用途」全量计数(2026-10-09 机主要求:分平台显示登录/注册具体数)
+      const [items, total, platformStats] = await Promise.all([
         getPhoneHistory(parsed.data.phone, 20),
         getPhoneHistoryCount(parsed.data.phone),
+        getPhoneHistoryPlatformStats(parsed.data.phone),
       ])
-      return reply.send(success({ items, total }))
+      return reply.send(success({ items, total, platformStats }))
     } catch (e) {
       const r = toErrorResponse(e)
       return reply.status(r.status).send(r.body)
