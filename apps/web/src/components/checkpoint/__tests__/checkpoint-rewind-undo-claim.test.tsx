@@ -95,6 +95,8 @@ vi.mock('next-intl', async () => {
         // 字面量必须内联:vi.mock 工厂被提升到文件顶部,引用模块级 const 会 TDZ 报错
         '../../../../../../packages/i18n/messages/web/zh-CN.json',
       ),
+      // 显式 'utf8':缺省走 Buffer 返回重载 ⇒ JSON.parse(Buffer) 报 TS2345 NonSharedBuffer→string(2026-10-08 CI Build 首曝)
+      'utf8',
     ),
   ) as unknown as { aiChat?: Record<string, unknown> }
   const ns = parsed.aiChat
