@@ -938,14 +938,14 @@ export default function SmsReceivePage() {
 function UsageTag({ kind }: { kind: PhoneHistoryItem['usageKind'] }) {
   if (kind === 'register')
     return (
-      <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-xs text-emerald-600">注册</span>
+      <span className="rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-xs text-emerald-600">注册</span>
     )
   if (kind === 'login')
     return (
-      <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-xs text-amber-600">
+      <span className="rounded-md bg-amber-500/15 px-1.5 py-0.5 text-xs text-amber-600">
         登录(已注册过)
       </span>
     )
-  return <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">其他</span>
+  return <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">其他</span>
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
