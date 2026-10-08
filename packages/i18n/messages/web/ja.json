@@ -7115,7 +7115,6 @@
     "kanban": {
       "blocked": "ブロック",
       "cancel": "キャンセル",
-      "cancelled": "キャンセル済み",
       "confirm": "確認",
       "created": "作成済み",
       "delete": "削除",
@@ -7123,15 +7122,12 @@
       "done": "完了",
       "duration": "所要時間",
       "empty": "タスクがありません",
-      "execution_failed": "実行失敗",
       "in_progress": "進行中",
       "lockConflict": "ワークスペースロック競合",
       "lockFree": "空き",
       "lockStatus": "ロック状態",
       "locked": "ロック中",
-      "preempted": "プリエンプト",
       "priority": "優先度",
-      "quota_exceeded": "割り当て超過",
       "ready": "準備完了",
       "reason": "理由",
       "reasonRequired": "理由を入力してください",
@@ -9106,6 +9102,7 @@
     "expandConversation": "会話を展開",
     "headerActions": {
       "panelGroupButtons": "パネルアクションボタン",
+      "workspaceUnavailable": "タスクを開始するとレビューワークスペースを開けます",
       "enterWorkspaceFullscreen": "ワークスペースを全画面表示",
       "exitWorkspaceFullscreen": "ワークスペースの全画面を終了",
       "createDraftPullRequest": "Draft PR を作成",
@@ -10600,9 +10597,6 @@
     "expiryDate": "有効期限"
   },
   "chat": {
-    "truncation": {
-      "maxLengthNotice": "この回答は最大出力長に達したため切り詰められており、内容が完全ではありません。「続けて」と送信すると生成を再開できます。"
-    },
     "markdownTable": {
       "copy": "表をコピー",
       "downloadCsv": "CSV をダウンロード",
@@ -27841,7 +27835,9 @@
     "hintSelect": "選択",
     "hintConfirm": "確定",
     "hintClose": "閉じる",
-    "clearAriaLabel": "検索をクリア"
+    "clearAriaLabel": "検索をクリア",
+    "followupDismiss": "候補を閉じる",
+    "followupRowLabel": "これらを試す"
   },
   "statusPage": {
     "incidentsUnavailable": "直近 30 日間のインシデント情報は一時的に取得できません"

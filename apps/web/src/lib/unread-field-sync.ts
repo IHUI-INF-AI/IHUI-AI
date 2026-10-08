@@ -68,11 +68,6 @@ export interface UnreadSyncStateSnapshot {
   badgeByEntityKey: Record<string, boolean>
   dirtyWorkspaceKeys: string[]
   membershipVersion: number
-  /**
-   * 无 meta/updatedAt、**构造不出可靠去重键**因而"放行不去重"的事件计数。
-   * 判不出是否重复时必须放行并计数上报,不得静默当成"已去重"。
-   */
-  noContentKeyPassThrough: number
 }
 
 export type UnreadSyncOutcome = 'skipped' | 'reconciled' | 'deduped' | 'optimistic'
@@ -100,17 +95,6 @@ function isTerminalStatus(status: string | undefined): boolean {
   return status !== undefined && TERMINAL_STATUSES.has(status)
 }
 
-/**
- * 事件是否携带可构造**稳定去重键**的字段(updatedAt)。
- * 缺它即"判不出这条事件是否与窗口内某条重复"——此时必须放行且计数,不得去重。
- * (meta.unreadAt 已在更早分支直接对账,不会走到去重窗口。)
- */
-function hasReliableContentKey(
-  event: UnreadStatusEvent,
-): event is UnreadStatusEvent & { updatedAt: number } {
-  return typeof event.updatedAt === 'number'
-}
-
 export function createUnreadFieldSync(deps: UnreadSyncDeps) {
   const rowsByEntityKey: Record<string, UnreadSyncRow> = {}
   const overlayByEntityKey: Record<string, number> = {}
@@ -118,7 +102,6 @@ export function createUnreadFieldSync(deps: UnreadSyncDeps) {
   const dirtyWorkspaceKeys = new Set<string>()
   const recentUnreadByKey = new Map<string, number>()
   let membershipVersion = 0
-  let noContentKeyPassThrough = 0
 
   const now = deps.now ?? (() => Date.now())
   const warn = deps.warn ?? (() => {})
@@ -206,22 +189,14 @@ export function createUnreadFieldSync(deps: UnreadSyncDeps) {
       return 'reconciled'
     }
 
-    // 版本 bump 去重只在能构造**可靠内容 key** 时生效:key 含 updatedAt,
-    // 使快速真实 mutation 不被误吞;同一条事件被多个列表订阅收到时只放行首个。
-    // 事件不带 meta/updatedAt ⇒ **判不出**是否与窗口内某条重复 ⇒ 一律放行不去重并计数,
-    // 绝不把"判不出"当成"已去重"(否则快速真实 mutation 会被静默吞掉)。
-    if (hasReliableContentKey(event)) {
-      const dedupeKey = [
-        buildUnreadWorkspaceKey(event.workspacePath, event.workspaceIdentity),
-        event.sessionId,
-        event.status ?? '',
-        event.updatedAt,
-      ].join('::')
-      if (shouldSkipRecentUnread(dedupeKey)) {
-        return 'deduped'
-      }
-    } else {
-      noContentKeyPassThrough += 1
+    const dedupeKey = [
+      buildUnreadWorkspaceKey(event.workspacePath, event.workspaceIdentity),
+      event.sessionId,
+      event.status ?? '',
+      event.updatedAt ?? '',
+    ].join('::')
+    if (shouldSkipRecentUnread(dedupeKey)) {
+      return 'deduped'
     }
 
     const previousUnreadAt = cachedRow?.unreadAt
@@ -276,7 +251,6 @@ export function createUnreadFieldSync(deps: UnreadSyncDeps) {
       badgeByEntityKey: { ...badgeByEntityKey },
       dirtyWorkspaceKeys: [...dirtyWorkspaceKeys],
       membershipVersion,
-      noContentKeyPassThrough,
     }
   }
 

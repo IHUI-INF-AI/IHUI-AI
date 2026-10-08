@@ -58,7 +58,7 @@ const COLUMN_STATUSES = AGENT_TASK_STATUSES
 /**
  * "未识别"档的文案键末段(2026-09-28 立)。键名住在 @ihui/types,端内只取末段 ——
  * 在这里再抄一份裸字面量当键名就是第二份真相(它漂移时界面只显示键名)。
- * 这一档刻意**不进 COLUMN_STATUSES**:枚举是对外契约,未识别项也不得被塞进任何已知列,
+ * 这一档刻意**不进 COLUMN_STATUSES**:六档是对外契约,未识别项也不得被塞进任何已知列,
  * 它只以一枚计数存在(AGENTS §30「没有终态就写已完成是本仓最高频的失效型」)。
  */
 const UNRECOGNIZED_LABEL_LEAF = i18nLeafKey(UNRECOGNIZED_STATUS_LABEL_KEY)

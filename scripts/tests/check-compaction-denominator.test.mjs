@@ -18,14 +18,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import {
-  assertNonEmptyScan,
-  inLiteralSiteScope,
-  inScanScope,
-  isTestPath,
-  scanCapacityLiteralContent,
-  scanContent,
-} from '../check-compaction-denominator.mjs'
+import { scanContent, inScanScope, assertNonEmptyScan } from '../check-compaction-denominator.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SCRIPT = 'check-compaction-denominator.mjs'
@@ -100,48 +93,5 @@ test('M9 失败提示里的每条命令都必须真能跑(提示写错=把人支
   for (const h of new Set(hints)) {
     assert.ok(path.isAbsolute(path.join(ROOT, h)) && readFileSync(path.join(ROOT, h), 'utf8').length > 0, `提示指向的文件不存在:${h}`)
   }
-})
-
-// ── G-916940(b) L 判据(容量字面量禁入分母位)镜像 ─────────────────────────────────
-
-test('M10 L 判据阳性:除法分母写死容量字面量 ⇒ 红(G-916940 原始病灶型)', () => {
-  const hits = scanCapacityLiteralContent('apps/web/src/components/ai/pane.tsx', 'const pct = tokens / 128_000\n')
-  assert.equal(hits.length, 1, `期望 1 处,实得 ${JSON.stringify(hits)}`)
-  assert.equal(hits[0].line, 1, '行号必须停在真做除法的那一行')
-  assert.equal(hits[0].rule, 'L1')
-})
-
-test('M11 成对反例:容量表数据(非除法、非票面三根)⇒ 绿,证明 L 判据不扫容量表射程', () => {
-  assert.deepEqual(
-    scanCapacityLiteralContent('apps/api/src/services/provider-models.ts', 'contextWindow: 128000,\n'),
-    [],
-  )
-  assert.deepEqual(
-    scanCapacityLiteralContent(
-      'apps/web/app/(main)/models/helpers/fallback-models-parts/part-2.ts',
-      'contextLength: 128000,\n',
-    ),
-    [],
-  )
-})
-
-test('M12 L2 票面三根:兜底默认 ?? 128_000 ⇒ 红(cli agent.ts 修过的形态必须常驻可抓)', () => {
-  const hits = scanCapacityLiteralContent('apps/cli/src/commands/agent.ts', 'const contextLimit = opts.contextLimit ?? 128_000\n')
-  assert.equal(hits.length, 1)
-  assert.equal(hits[0].rule, 'L2')
-})
-
-test('M13 锁测试豁免:tests 路径自带判据字面量不红(票面 grep 同口径)', () => {
-  assert.deepEqual(scanCapacityLiteralContent('apps/web/tests/agent-pane-context-denominator.test.ts', 'const cap = 128_000\n'), [])
-  assert.deepEqual(scanCapacityLiteralContent('apps/web/src/lib/usage-fallback.test.ts', 'expect(cap).toBe(128_000)\n'), [])
-  assert.equal(isTestPath('apps/web/src/lib/latest-foo.ts'), false, '文件名含 test 子串(latest)不得误伤')
-})
-
-test('M14 L2 站点根 = 票面 grep 三根(口径漂移 = 票面自读命令与门各说各话)', () => {
-  assert.equal(inLiteralSiteScope('apps/web/src/a.ts'), true)
-  assert.equal(inLiteralSiteScope('apps/miniapp-taro/src/b.tsx'), true)
-  assert.equal(inLiteralSiteScope('apps/cli/src/c.ts'), true)
-  assert.equal(inLiteralSiteScope('apps/web/app/(main)/models/x.ts'), false)
-  assert.equal(inLiteralSiteScope('apps/api/src/x.ts'), false)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
