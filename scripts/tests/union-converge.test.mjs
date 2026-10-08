@@ -1630,3 +1630,150 @@ test('G-977960 ② 反向锁:对侧删除 ∧ 本侧改过 ⇒ 不传播(modify/
     rmScratch(dir)
   }
 })
+
+// ═══ 台账票 G-383 最后一格:union-converge 的行级复活对账(R1r 同款形态,2026-10-07)══════════
+// 判据本体住在 lib/stale-content-analysis.mjs(与守门 84 R1r、落地器共用一份,这里绝不另立尺子);
+// 本组测试钉的是**接线**:活文档归并结果相对本侧量复活、与本侧自身存量比差值棘轮、
+// 默认全档只报数(推送链零风险)、--resurrect-block 才让"新增强"折进落地闸。
+
+/** 捕获 U.plan 期间的 stdout(点名断言 + 不把归并报告刷进测试输出)。 */
+function captureLogs(fn) {
+  const logs = []
+  const orig = console.log
+  console.log = (...xs) => {
+    logs.push(xs.join(' '))
+  }
+  try {
+    return [fn(), logs]
+  } finally {
+    console.log = orig
+  }
+}
+
+test('G-383 最后一格:滞后台账副本把 HEAD 已删、祖先写过的行带回归并结果 ⇒ 复活对账点名(默认只报数,不拦落地闸)', () => {
+  const { dir, run } = fixture()
+  try {
+    const ROW = '- [ ] G-383 旧任务行(祖先写过、后来删掉的那一行)'
+    // 旧行诞生 ⇒ 基底把它删掉(此后"本侧没有这一行"由基底继承)⇒ 本侧只加自己的行
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), `a\nb\n${ROW}\n`, 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', '旧行诞生')
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), 'a\nb\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', '基底(删掉旧行)')
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), 'a\nb\nours-new\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'ours')
+    const ours = run('rev-parse', 'HEAD')
+    run('checkout', '-q', 'HEAD~1')
+    // 对侧 = 一份滞后的台账副本:把早已删掉的旧行原样搬回,另带一行真新工作
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), `a\nb\n${ROW}\ntheirs-new\n`, 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'theirs(滞后的台账副本)')
+    const theirs = run('rev-parse', 'HEAD')
+    run('update-ref', 'refs/heads/main', ours)
+    run('checkout', '-q', 'main')
+
+    const [p, logs] = captureLogs(() => U.plan(ours, theirs, dir))
+    const r = (p.resurrect || []).find((x) => x.doc === 'PROJECT_PLAN.md')
+    assert.ok(r, '活文档必须有复活对账记录(判据存在而永不调用 = 没有)')
+    assert.equal(r.status, 'judged', `必须量到数,不得落未判定:${r.reason || ''}`)
+    assert.equal(r.grade, 'red', `旧行被并集带回且本侧零存量 ⇒ 新增强:${JSON.stringify(r)}`)
+    assert.equal(r.count, 1, `只认那一行旧行,对侧真新工作 theirs-new 不得跟着算账:${JSON.stringify(r)}`)
+    assert.equal(r.anchor, 0, '本侧自身存量必须为 0(基底已删,本侧没复活任何行)')
+    assert.ok(
+      p.bad.every((b) => !String(b).includes('复活')),
+      `默认全档只报数,复活对账不得折进落地闸:${p.bad.slice(0, 3).join(' / ')}`,
+    )
+    assert.ok(
+      logs.some((l) => l.includes('[R1r 复活对账]') && l.includes('PROJECT_PLAN.md') && l.includes('新增强')),
+      `归并报告必须点名复活对账:${JSON.stringify(logs.filter((l) => l.includes('复活对账')))}`,
+    )
+    // 显式旗标(--resurrect-block 的接线,main 里经 applyResurrectBlock):仅"新增强"折进落地闸
+    U.applyResurrectBlock(p)
+    assert.equal(p.bad.length, 1, `新增强在显式旗标下必须参与退出码:${JSON.stringify(p.bad)}`)
+    assert.ok(p.bad[0].includes('行级复活新增强') && p.bad[0].includes('PROJECT_PLAN.md'), `点名到路径:${p.bad[0]}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('G-383 最后一格·存量只报数:复活行数 ≤ 本侧自身存量(差值棘轮)⇒ 只点名,旗标也不拦', () => {
+  const { dir, run } = fixture()
+  try {
+    const S1 = 'S1(祖先写过的一行台账)'
+    const S2 = 'S2(祖先写过的另一行)'
+    // 两行旧行都诞生于基底之前;基底把两行都删掉
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), `a\nb\n${S1}\n${S2}\n`, 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', '两行旧行诞生')
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), 'a\nb\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', '基底(两行都删)')
+    // 本侧自己复活了 S2(存量债 1 行,是本侧历史欠的,不是本次归并带进来的)
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), `a\nb\n${S2}\n`, 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'ours(自己复活了 S2)')
+    const ours = run('rev-parse', 'HEAD')
+    run('checkout', '-q', 'HEAD~1')
+    // 对侧滞后台账把 S1 搬回
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), `a\nb\n${S1}\ntheirs-new\n`, 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'theirs(滞后的台账副本)')
+    const theirs = run('rev-parse', 'HEAD')
+    run('update-ref', 'refs/heads/main', ours)
+    run('checkout', '-q', 'main')
+
+    const [p, logs] = captureLogs(() => U.plan(ours, theirs, dir))
+    const r = (p.resurrect || []).find((x) => x.doc === 'PROJECT_PLAN.md')
+    assert.ok(r, '活文档必须有复活对账记录')
+    assert.equal(r.status, 'judged', `必须量到数:${r.reason || ''}`)
+    assert.equal(r.grade, 'stock', `复活 1 行 ≤ 本侧自身存量 1 行 ⇒ 存量只报数:${JSON.stringify(r)}`)
+    assert.equal(r.count, 1)
+    assert.equal(r.anchor, 1)
+    assert.ok(
+      p.bad.every((b) => !String(b).includes('复活')),
+      `存量不得进落地闸:${p.bad.slice(0, 3).join(' / ')}`,
+    )
+    assert.ok(
+      logs.some((l) => l.includes('存量只报数') && l.includes('PROJECT_PLAN.md')),
+      `存量档必须当着报告点名:${JSON.stringify(logs.filter((l) => l.includes('复活对账')))}`,
+    )
+    // 差值棘轮的关键:存量档连显式旗标都不拦(拦存量 = 恒红门,§12e/§12f)
+    const before = p.bad.length
+    U.applyResurrectBlock(p)
+    assert.equal(p.bad.length, before, '存量档在任何档位都不拦')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('G-383 最后一格·反向锁:对侧在分叉后真新写的行不得判成复活(祖先窗口只取本侧,牙不在对侧新工作上)', () => {
+  const { dir, run } = fixture()
+  try {
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), 'a\nb\nours-new\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'ours')
+    const ours = run('rev-parse', 'HEAD')
+    run('checkout', '-q', 'HEAD~1')
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), 'a\nb\ntheirs-brand-new(对侧真新工作的一行)\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'theirs(真新工作)')
+    const theirs = run('rev-parse', 'HEAD')
+    run('update-ref', 'refs/heads/main', ours)
+    run('checkout', '-q', 'main')
+
+    const [p, logs] = captureLogs(() => U.plan(ours, theirs, dir))
+    const r = (p.resurrect || []).find((x) => x.doc === 'PROJECT_PLAN.md')
+    assert.ok(r, '活文档必须有复活对账记录(判据跑了,哪怕结论是干净)')
+    assert.equal(r.status, 'judged', `必须判过:${r.reason || ''}`)
+    assert.equal(r.count, 0, `对侧新行不在本侧历史里 ⇒ 结构上不是复活:${JSON.stringify(r)}`)
+    assert.equal(r.grade, null)
+    assert.ok(
+      logs.every((l) => !l.includes('复活对账')),
+      `判过且 0 行、窗口未尽 ⇒ 不刷屏:${JSON.stringify(logs.filter((l) => l.includes('复活对账')))}`,
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})

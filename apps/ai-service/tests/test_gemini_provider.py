@@ -582,6 +582,52 @@ async def test_astream_yields_chunks_and_done():
     assert done["usage"] == {"totalTokenCount": 5}
 
 
+async def test_astream_done_carries_finish_reason():
+    """G-425(2026-10-07 立,默认档"只提示"):astream 的 done 帧透传原生
+    finishReason —— MAX_TOKENS(=OpenAI length)是端上截断提示的触发值。"""
+    p = GeminiProvider(api_key="k")
+
+    evt1 = {"candidates": [{"content": {"parts": [{"text": "partial"}]}}]}
+    evt2 = {
+        "candidates": [{"finishReason": "MAX_TOKENS", "content": {"parts": []}}],
+        "usageMetadata": {"totalTokenCount": 9},
+    }
+    lines = [
+        f"data: {json.dumps(evt1)}",
+        f"data: {json.dumps(evt2)}",
+    ]
+    resp = _make_stream_resp(lines)
+    fake_client = MagicMock()
+    fake_client.stream = MagicMock(return_value=_FakeStreamCtx(resp))
+
+    with _patch_http_client(fake_client):
+        events = [e async for e in p.astream([{"role": "user", "content": "x"}], "gemini-1.5-pro")]
+
+    done = next(e for e in events if e["type"] == "done")
+    assert done["finishReason"] == "MAX_TOKENS"
+    # SAFETY 拦截语义不变:非空文本 + MAX_TOKENS 不触发 error 帧
+    assert not any(e["type"] == "error" for e in events)
+
+
+async def test_astream_done_without_finish_reason_omits_key():
+    """G-425:上游没给 finishReason ⇒ done 帧不带该键(不造值)。"""
+    p = GeminiProvider(api_key="k")
+
+    evt = {
+        "candidates": [{"content": {"parts": [{"text": "hello"}]}}],
+        "usageMetadata": {"totalTokenCount": 5},
+    }
+    resp = _make_stream_resp([f"data: {json.dumps(evt)}"])
+    fake_client = MagicMock()
+    fake_client.stream = MagicMock(return_value=_FakeStreamCtx(resp))
+
+    with _patch_http_client(fake_client):
+        events = [e async for e in p.astream([{"role": "user", "content": "x"}], "gemini-1.5-pro")]
+
+    done = next(e for e in events if e["type"] == "done")
+    assert "finishReason" not in done
+
+
 async def test_astream_safety_block_yields_error():
     """流式 SAFETY 拦截(无 chunk) yield error。"""
     p = GeminiProvider(api_key="k")
