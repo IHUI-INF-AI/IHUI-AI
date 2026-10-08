@@ -111,11 +111,6 @@ function kanbanKind(status: string): UnifiedKind {
   if (status === 'in_progress') return 'running'
   if (status === 'done') return 'done'
   if (status === 'blocked') return 'blocked'
-  // G-462 拆档(2026-10-07 拍板):执行失败归 error;可重试终态(被取消/被抢占/配额超限)
-  // 归 blocked —— 与 dispatchKind 的 cancelled/paused → blocked 先例一致
-  if (status === 'execution_failed') return 'error'
-  if (status === 'cancelled' || status === 'preempted' || status === 'quota_exceeded')
-    return 'blocked'
   return 'pending' // triage / todo / ready
 }
 

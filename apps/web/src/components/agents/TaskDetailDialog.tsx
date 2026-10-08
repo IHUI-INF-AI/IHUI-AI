@@ -21,7 +21,6 @@ import { CenteredText } from '@/components/common/CenteredText'
 import { TruncatedText } from '@/components/common/TruncatedText'
 import { transitionKanbanTask, deleteKanbanTask, fetchWorkspaceLock } from '@/lib/agent-kanban-api'
 import type { KanbanApiError, WorkspaceLockInfo } from '@/lib/agent-kanban-api'
-import { AGENT_TASK_STATUSES } from '@ihui/types'
 import type { AgentTaskStatus, KanbanTask } from '@ihui/types'
 import {
   STATUS_BADGE_CLASS,
@@ -37,11 +36,14 @@ import { extractSessionDeliverables, mergeFilesChanged } from '@/types/agent-del
 import type { TaskDeliverables } from '@/types/agent-delivery'
 import { DeliveryReviewPanel, DeliveryFileChangeList } from './DeliveryReviewPanel'
 
-/**
- * 手动流转候选 = 全枚举派生(G-462 拆档后十档,不再抄字面量副本)。
- * 终态无出边 → legalTargets 过滤后天然不可选,无需在此另维护一份"终态表"。
- */
-const ALL_STATUSES: AgentTaskStatus[] = [...AGENT_TASK_STATUSES]
+const ALL_STATUSES: AgentTaskStatus[] = [
+  'triage',
+  'todo',
+  'ready',
+  'in_progress',
+  'blocked',
+  'done',
+]
 
 /** D27:详情弹窗 tab 键(概览/交付清单/代码变更) */
 const DETAIL_TABS = ['overview', 'delivery', 'changes'] as const

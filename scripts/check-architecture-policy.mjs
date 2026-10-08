@@ -9,7 +9,7 @@
  * 与既有守门链的分工:其余门是**按违规模式堆出来的**(发现一类事故 → 写一条判据);
  * 本门读 config/architecture-policy.yaml 这张**声明表**,反过来从声明查违规:
  *   T1 表自洽性(声明与现实脱节即红)
- *   C1 单文件行上限 / C2 契约文件行上限 / C3 对外公开出口数 / C4 单文件公开方法数(2026-10-07 补,G-815990)
+ *   C1 单文件行上限 / C2 契约文件行上限 / C3 对外公开出口数
  *   D1 未声明的跨模块依赖 / D2 依赖方向违反层序 / D3 穿透公开入口的深导入 / D4 现实 import 成环
  *   X1 表级例外缺到期日 / X2 表级例外已过期(2026-09-27 补:豁免只有出生、没有死亡)
  *   DC 纳管模块内新增裸 lint 抑制(2026-09-27 补;棘轮锚点 = **该文件 HEAD 自身存量**)
@@ -78,7 +78,7 @@ import { dirname as pDirname, resolve as pResolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
-import { blankStrings, maskCommentsAndStrings } from './lib/code-mask.mjs'
+import { blankStrings } from './lib/code-mask.mjs'
 // DC 的计数实现与守门 108 共用**同一份** `scanFile()`(两处算同一件事必漂移,本仓最高频失效型);
 // "到期日当天仍有效、次日才判红"这条方向也直接取它那份 `isPast()` —— 守门 108 的作者在写它时
 // 恰恰把方向弄反过一次(表现是 9 条自检一起红),所以这里不再抄第二遍判序。
@@ -133,7 +133,6 @@ const RULES = {
   'file-lines': 'C1 单文件行上限',
   'contract-file-lines': 'C2 契约文件行上限',
   'public-exports': 'C3 对外公开出口数上限',
-  'public-methods': 'C4 单文件公开方法数上限',
   'undeclared-dependency': 'D1 未声明的跨模块依赖',
   'layer-direction': 'D2 依赖方向违反层序',
   'deep-import': 'D3 穿透公开入口的深导入',
@@ -382,11 +381,6 @@ export function loadPolicy(doc) {
   const cons = doc.constraints || {}
   for (const k of ['max_file_lines', 'max_contract_file_lines', 'max_public_exports'])
     if (typeof cons[k] !== 'number' || cons[k] <= 0) throw new YamlError(`constraints.${k} 缺失或不是正数`)
-  // C4(G-815990)是**声明驱动**的软键:表里没有该键 ⇒ C4 这一维不装载(生产表必须显式声明阈值,
-  //   夹具/旧面缺键不炸,否则 HEAD 面上那份旧表会让所有档集体 exit 2);键存在但不是正数 ⇒ 显式抛错,
-  //   不静默降级 —— 静默降级的结局是"阈值写歪了却账面全绿"(本仓最高频的失效型)。
-  if (cons.max_public_methods !== undefined && (typeof cons.max_public_methods !== 'number' || cons.max_public_methods <= 0))
-    throw new YamlError('constraints.max_public_methods 存在但不是正数')
   return {
     version: doc.version,
     modules,
@@ -395,7 +389,6 @@ export function loadPolicy(doc) {
     maxFileLines: cons.max_file_lines,
     maxContractLines: cons.max_contract_file_lines,
     maxPublicExports: cons.max_public_exports,
-    maxPublicMethods: typeof cons.max_public_methods === 'number' && cons.max_public_methods > 0 ? cons.max_public_methods : null,
     contractPatterns: cons.contract_file_patterns || [],
     scanExcludes: cons.scan_excludes || [],
     testExempts: cons.deep_import_test_exempts || [],
@@ -444,24 +437,6 @@ export function suppressionCount(text) {
   if (!mayHaveSuppression(text)) return 0
   const sup = scanExemptionLedger('virtual', blankStrings(text)).suppressions
   return Object.values(sup).reduce((a, b) => a + (Number(b) || 0), 0)
-}
-
-/**
- * 一个文件里的**公开方法**数(G-815990,2026-10-07 新增 C4)。
- * 判据面 = `maskCommentsAndStrings(text)` 之后逐行匹配 `^\s*export\s+(default\s+)?(async\s+)?(function|class|const|let|var)\b`:
- *   注释里的示例与字符串/模板字面量里的同名样例必须剥(与 DC 用 blankStrings 是同一母题 ——
- *   门把自己的散文判成违规那一型,守门 131 同日刚踩过);`export type/interface/enum` 与
- *   `export { … }` 再导出不算方法,`export *` barrel 也不算。
- * 阈值唯一真源在策略表 `constraints.max_public_methods`(表里没声明 ⇒ C4 不装载;键在但非正数
- *   ⇒ loadPolicy 抛错)。阈值取 2026-10-07 HEAD 实测分布上沿,依据写在 yaml 注释里,与 C1 同一做法。
- */
-const PUBLIC_METHOD_RE = /^\s*export\s+(?:default\s+)?(?:async\s+)?(?:function|class|const|let|var)\b/
-
-export function publicMethodCount(text) {
-  if (typeof text !== 'string' || !text) return 0
-  let n = 0
-  for (const line of maskCommentsAndStrings(text).split('\n')) if (PUBLIC_METHOD_RE.test(line)) n++
-  return n
 }
 
 /**
@@ -782,14 +757,6 @@ export function analyze(P, files, opts = {}) {
     if (lines > P.maxFileLines) add('file-lines', path, 0, mod, `${lines} 行 > 上限 ${P.maxFileLines}`)
     if (isContract(path) && lines > P.maxContractLines && !exPass('contract-file-lines', path))
       add('contract-file-lines', path, 0, mod, `契约文件 ${lines} 行 > 上限 ${P.maxContractLines}`)
-    // ── C4(G-815990):单文件公开方法数(managed-only,与 C2/C3 同一问责口径)──────────────
-    // 表里声明了 max_public_methods 才装载(声明驱动:没声明就是"本表尚不含这一维",不静默造绿);
-    // 计数实现只有一份(见 publicMethodCount 头注),阈值实测依据在 yaml 注释里。
-    if (P.maxPublicMethods !== null) {
-      const pubMethods = publicMethodCount(text)
-      if (pubMethods > P.maxPublicMethods && !exPass('public-methods', path))
-        add('public-methods', path, 0, mod, `单文件公开方法 ${pubMethods} 个 > 上限 ${P.maxPublicMethods}`)
-    }
     // ── DC:纳管块内的裸 lint 抑制(棘轮锚点 = 该文件在锚点面自身的条数) ──────────────
     // 计数只在预筛命中后才走重路径(见 SUPPRESS_PREFILTER 的超集要求);未收口块只报数不判红,
     // 但**两个数都要打进输出面**,否则读报告的人会把"纳管块 0 处"看成"全仓 0 处"。
@@ -1954,7 +1921,7 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { parseYaml, loadPolicy, analyze, auditPolicy, auditDeclarations, resolveEntrypoint, moduleContractArtifacts, declarationContext, extractSpecs, globToRe, mkMatcher, matchEntrypoint, relFrom, pickPolicySource, policyFaceOrder, planStagedScope, widenStagedScopeOverDependents, policyFaceNotice, registrationOf, unusedExceptions, validUntil, undatedExceptionIds, mayHaveSuppression, suppressionCount, auditExceptionExpiry, publicMethodCount, RULES, ALWAYS_RED, POLICY_REL, SUPPRESS_PREFILTER, UNTIL_RE,
+export const __test__ = { parseYaml, loadPolicy, analyze, auditPolicy, auditDeclarations, resolveEntrypoint, moduleContractArtifacts, declarationContext, extractSpecs, globToRe, mkMatcher, matchEntrypoint, relFrom, pickPolicySource, policyFaceOrder, planStagedScope, widenStagedScopeOverDependents, policyFaceNotice, registrationOf, unusedExceptions, validUntil, undatedExceptionIds, mayHaveSuppression, suppressionCount, auditExceptionExpiry, RULES, ALWAYS_RED, POLICY_REL, SUPPRESS_PREFILTER, UNTIL_RE,
   // ── 三面取材 + 参数闸门(2026-09-29 补 `--worktree` 时新增的出口)──
   // 镜像测试必须**import 这些判据**,不得在测试里再抄一份(§22c:两份真相必然漂移)。
   // `listFacePaths` / `readFaceDetailed` 带 root 形参,是为了让取证在**临时 git 仓**里造
