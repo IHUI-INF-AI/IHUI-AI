@@ -12,7 +12,7 @@
 // 本用例钉三条不变量(渲染**真 App.tsx**,映射写在 AppContent 内,替身渲染即测接线本身):
 //  ① VideoPlayer 聚焦 ⇒ 根 View 实落底色 = gray.black(#000,与共享层 video-player 容器同源同值,
 //     不新增第二个色源 —— 守门 97 S1);
-//  ② 其余路由聚焦 ⇒ 仍 surface.bg(#F5F5F5)—— 其他屏底色一格未动;
+//  ② 常规屏聚焦 ⇒ 仍 surface.bg(#F5F5F5);ByRoute 分档屏(Login 等)按 App.tsx ROUTE_ROOT_BG 取色;
 //  ③ 路由切换经 navigation-ref 的 ready/state 订阅驱动底色翻转(冷启动未就绪时回落 surface.bg)。
 // 断言读的是**落到根 div 元素上的实算 backgroundColor**,不是读 styles 对象(同 fenlei-overlay 取证法)。
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -129,13 +129,23 @@ describe('O57 App 根 View 底色按聚焦路由条件化(状态栏带单点修�
     expect(css(tokens.gray.black)).toBe('rgb(0, 0, 0)')
   })
 
-  it('其余路由聚焦 ⇒ 根底色仍 surface.bg(其他屏一格不动)', () => {
-    for (const route of ['Home', 'Profile', 'Settings', 'Login', 'Chat']) {
+  // 实现按聚焦路由分档(App.tsx ROUTE_ROOT_BG):Login 页面底取 surface.card,
+  // 其余常规屏仍 surface.bg。逐路由钉真实值,表镜像 App.tsx 的 ROUTE_ROOT_BG(未导出)。
+  it('逐路由聚焦 ⇒ 根底色按 ROUTE_ROOT_BG 分档(Login=surface.card,常规屏=surface.bg)', () => {
+    const expectedByRoute: Record<string, string> = {
+      Home: tokens.surface.bg,
+      Profile: tokens.surface.bg,
+      Settings: tokens.surface.bg,
+      Login: tokens.surface.card, // ROUTE_ROOT_BG.Login ⇒ surface.card
+      Chat: tokens.surface.bg,
+    }
+    for (const [route, expected] of Object.entries(expectedByRoute)) {
       env.route = route
       const { container } = render(<App />)
-      expect(rootBackgroundOf(container)).toBe(css(tokens.surface.bg))
+      expect(rootBackgroundOf(container)).toBe(css(expected))
     }
     expect(css(tokens.surface.bg)).toBe('rgb(245, 245, 245)')
+    expect(css(tokens.surface.card)).toBe('rgb(255, 255, 255)')
   })
 
   it('导航未就绪(冷启动)⇒ 回落 surface.bg,ready 事件到达后翻黑', () => {
