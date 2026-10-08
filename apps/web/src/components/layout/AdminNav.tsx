@@ -270,6 +270,7 @@ interface AdminNavItem {
     | 'adminSkillBatch'
     | 'deployDiagnosis'
     | 'githubApp'
+    | 'smsReceive'
   icon: React.ComponentType<{ className?: string }>
   dynamicLabel?: string
 }
@@ -316,6 +317,8 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/developer', labelKey: 'developer', icon: Code2 },
   { href: '/admin/dict', labelKey: 'dict', icon: BookMarked },
   { href: '/admin/sms', labelKey: 'sms', icon: MessageSquareReply },
+  // 2026-10-08 管理员短信接码(d1jiema 平台对接)
+  { href: '/admin/sms-receive', labelKey: 'smsReceive', icon: Smartphone },
   { href: '/admin/notification-channels', labelKey: 'notificationChannels', icon: BellRing },
   {
     href: '/admin/notification-preferences',
@@ -952,6 +955,7 @@ const NAV_LABEL_KEY: Record<AdminNavItem['labelKey'], string> = {
   developer: 'nav.developer',
   dict: 'nav.dict',
   sms: 'nav.sms',
+  smsReceive: 'nav.smsReceive',
   notificationChannels: 'nav.notificationChannels',
   notificationPreferences: 'nav.notificationPreferences',
   notificationLogs: 'nav.notificationLogs',
