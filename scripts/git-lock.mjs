@@ -77,7 +77,9 @@ import { pathToFileURL } from 'node:url'
 // 抢占产生的 `.stale-*` 目录**绝不**留在 .git 里,更不落工作区根或盘根。
 import { gitArchiveDir } from './lib/gitdir.mjs'
 // 抢占算法的唯一实现(2026-09-26 合并:本脚本与 deploy-lock.mjs 曾各写一份 claimStaleLock)。
-import { claimStaleLockCore } from './lib/stale-lock-claim.mjs'
+// G-998104(2026-10-08):锁实例观察器也单源在这份 lib —— 观察者按 (路径, stat) 区分
+// 「同一锁文件被反复重建」的多次实例,使"锁抖动"与"一次长持有"在观测上是两个形状。
+import { claimStaleLockCore, createLockInstanceObserver } from './lib/stale-lock-claim.mjs'
 // 锁目录「写全再原子可见」初始化的唯一实现(2026-09-29 立,G-814425)—— 本脚本与
 // deploy-lock.mjs 共用同一份,禁止各写一遍"mkdir 正式路径 + 补写 meta"(那两步之间,
 // 一把还没初始化完的空锁目录就对外可见,竞争者按 absent/残留判死就能把它抢走)。
@@ -660,13 +662,18 @@ async function acquire({
   // 镜像测试注入 dir/桩时一个字都不落真账本。
   const t0 = Date.now()
   let polls = 0
+  // G-998104(观察级,2026-10-08 立):一次等待里"看到的锁实例换了几个"。观察器按
+  // (inode 或 mtimeMs, pid, ts) 全等划分实例,实现单源在 scripts/lib/stale-lock-claim.mjs。
+  // 只报数不判红:instances 只进 wait 账本行,判据面一字未动(超时即终态、不升级为抢占)。
+  const observeLockInstance = createLockInstanceObserver()
+  let instancesSeen = 0
   const recordWait = (outcome) => {
     if (!metricsFile || polls === 0) return
     try {
       mkdirSync(dirname(metricsFile), { recursive: true })
       appendFileSync(
         metricsFile,
-        `${JSON.stringify({ ts: new Date().toISOString(), kind: 'wait', outcome, unitId: unitId ?? '', waitMs: Date.now() - t0, polls })}\n`,
+        `${JSON.stringify({ ts: new Date().toISOString(), kind: 'wait', outcome, unitId: unitId ?? '', waitMs: Date.now() - t0, polls, instances: instancesSeen })}\n`,
       )
     } catch {
       /* 记账失败不得影响锁语义 */
@@ -713,6 +720,17 @@ async function acquire({
       polls++
       // 锁已存在:检查可重入 / stale
       const meta = readMeta(dir)
+      // G-998104:每轮对 readMeta/statSync 结果计一个 lock instance(抖动维度,观察级)。
+      // "锁被反复抢占又重建"与"一个持有者长期占着"在账本上从此是两个形状;instances
+      // 只进 wait 账本行,不参与下面任何判读。目录 stat 拿不到 ⇒ 该轮按"无实例在位"计。
+      let lockStat = null
+      try {
+        const st = statSync(dir)
+        lockStat = { ino: st.ino, mtimeMs: st.mtimeMs, pid: meta?.pid, ts: meta?.ts }
+      } catch {
+        lockStat = null
+      }
+      instancesSeen = Math.max(instancesSeen, observeLockInstance(dir, lockStat, Date.now()))
       if (meta && unitId && meta.unitId === unitId) {
         // 同一写操作单元(如 safe-commit → post-commit 链路)可重入
         recordWait('reentrant')

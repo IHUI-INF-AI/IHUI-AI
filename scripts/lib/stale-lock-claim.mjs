@@ -110,6 +110,63 @@ export function claimStaleLockCore(dir, judged, why, { archiveRoot = null, suffi
 }
 
 /**
+ * 锁实例观察器(G-998104,2026-10-08 立;机制对标上游 lockInstanceObserver.ts:3-20 的
+ * `ObserveLockInstance = (lockPath, lockStat, observedAt) => number`)。
+ *
+ * 要补的那一半观测:一次等待里"看到的锁实例换了几个"此前没有观测量 —— 等待全程
+ * 路径是同一个,按路径计数恒为 1,于是"锁被反复抢占又重建"与"一个持有者长期占着"
+ * 在等待 P95 上同形。观察者按 (路径, stat) 区分「同一锁文件被反复重建」的多次实例,
+ * "锁抖动"与"一次长持有"在观测上从此是两个形状。
+ *
+ * 实例划分 = 指纹**全等**,不做任何时间容差判断 —— 时间容错沿用本仓既有词汇,不另造:
+ * 时刻由调用方注入(`observedAt` 按机制签名保留,测试固定注入,不跟真实时钟漂),
+ * 时刻**不参与**指纹划分(时刻入指纹会把同一实例的逐轮观察劈成两份)。
+ *   指纹 = (inode 或 mtimeMs, pid, ts):inode 在则用 inode,Windows 下目录 inode 常
+ *   不可靠 ⇒ mtimeMs 一并入指纹兜底;pid/ts 取自当轮 meta(与 `sameLock` 同一套
+ *   "是不是我刚看的那把"词汇)。于是:
+ *   - 同一指纹连续在位 ⇒ 同一实例,序数不变;
+ *   - 指纹变了 ⇒ 锁被重建(心跳重写 meta.ts 也换指纹 —— 这是观察口径,不是判据);
+ *   - `lockStat = null`(路径此刻观察不到)⇒ 当前实例已不在位,返回 0;下一份"在位"
+ *     观察按新实例计 —— 哪怕指纹与之前全等(目录可能被整只重建过,inode 可能被复用)。
+ *
+ * 返回:该路径迄今见过的实例序数(1 起);路径不在位 ⇒ 0。不同路径各记各的账。
+ *
+ * 本观察器**只报数**:不判断、不阻塞、不抢占 —— 判据面(超时即终态、不升级为抢占)
+ * 仍归调用方既有实现,本函数一字不碰;也保持本 lib 纪律:无 console、不派生子进程、不碰 git。
+ *
+ * @returns {(lockPath:string,
+ *   lockStat:{ino?:number,mtimeMs?:number,pid?:number|string,ts?:number|string}|null,
+ *   observedAt:number)=>number}
+ */
+export function createLockInstanceObserver() {
+  // 每路径一份观察状态:当前在位实例的指纹 / 是否在位 / 迄今见过的实例数。
+  const byPath = new Map()
+  return function observeLockInstance(lockPath, lockStat, observedAt) {
+    let st = byPath.get(lockPath)
+    if (!st) {
+      st = { fp: null, present: false, count: 0 }
+      byPath.set(lockPath, st)
+    }
+    if (!lockStat) {
+      // 路径此刻观察不到:当前实例已不在位(下一份"在位"观察按新实例计)。
+      st.present = false
+      return 0
+    }
+    // 指纹:stat 身份(inode 或 mtimeMs)+ meta 身份(pid, ts)。全等才认作同一实例。
+    const statId =
+      (Number(lockStat.ino) > 0 ? `i${lockStat.ino}` : '') +
+      (Number.isFinite(lockStat.mtimeMs) ? `m${lockStat.mtimeMs}` : '')
+    const fp = `${statId}|${lockStat.pid ?? ''}|${lockStat.ts ?? ''}`
+    if (!st.present || fp !== st.fp) {
+      st.present = true
+      st.fp = fp
+      st.count++
+    }
+    return st.count
+  }
+}
+
+/**
  * 防复发判据(测试支撑出口,供 scripts/tests 的镜像/防回归测试调用,不在测试里另抄一份):
  * 两个调用方的源码面不得再出现第二份抢占实现 —— 每处顶层 `function claimStaleLock`
  * 必须是**委托**(体内调 `claimStaleLockCore(`)且**不得含改名核心**(`renameSync(`)。
