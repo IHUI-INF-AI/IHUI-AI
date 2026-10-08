@@ -26,18 +26,6 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..', '..')
 const GIT_TIMEOUT = 120000
 const GIT = gitBinary()
-
-/**
- * 本模块三处 spawnSync 一律**不消费 stdin**(水印器收文件路径参数、git 收临时件路径,
- * 都没有 input / --stdin / --batch),而 Windows 交互会话下 Node 给子进程**创建 stdin 管道**
- * 确定性 EBUSY(`spawnSync ... EBUSY`,status=null + errno=-4082)。失败形态极具误导性:
- * hash-object 报出来的是空 message(脚本层表现为 `hash-object 失败:` 后面什么都没有),
- * 真实病因在派生层而不在判据层。
- * `['ignore','pipe','pipe']` 绕开 stdin 管道(铁律,同 bypass-git.mjs / union-converge.mjs 族);
- * 实测单加 `windowsHide:true` 不足以治 —— 三处早已带 windowsHide,仍照样 EBUSY。
- */
-const GIT_STDIO = /** @type {const} */ (['ignore', 'pipe', 'pipe'])
-
 const firstLine = (e) =>
   String(e?.message ?? e ?? '')
     .split(/\r?\n/)[0]
@@ -57,7 +45,6 @@ function runWatermark(root, args, label) {
     cwd: root,
     windowsHide: true,
     timeout: GIT_TIMEOUT,
-    stdio: GIT_STDIO,
   })
   // 「完好」只认退出码 —— 汇总行里没有"完好"二字(把措辞当判据踩过的那一型)。
   if (r.status !== 0)
@@ -85,13 +72,10 @@ export function hashBlob(text, { root, rel, watermark = false }) {
       // 地说一句它真在位。少了这一步,"注入成功"就只是"注入器没抛错",不是"水印完好"。
       runWatermark(root, ['verify', f], rel)
     }
-    // `--no-filters` 是本仓 hash-object 铁律:台账/归档件字节含 CR(逐行保留纪律),
-    // 不加它 clean 过滤器(autocrlf)会把 CR 剥掉,回读比对当场红(2026-10-07 实测差 8 字节)。
-    const out = spawnSync(GIT, ['-c', 'safe.directory=*', '-C', root, 'hash-object', '-w', '--no-filters', f], {
+    const out = spawnSync(GIT, ['-c', 'safe.directory=*', '-C', root, 'hash-object', '-w', f], {
       encoding: 'utf8',
       windowsHide: true,
       timeout: GIT_TIMEOUT,
-      stdio: GIT_STDIO,
     })
     if (out.status !== 0)
       throw new Error(`hash-object 失败:${String(out.stderr || out.stdout || '').slice(0, 200)}`)
@@ -103,7 +87,6 @@ export function hashBlob(text, { root, rel, watermark = false }) {
       windowsHide: true,
       timeout: GIT_TIMEOUT,
       maxBuffer: 1 << 28,
-      stdio: GIT_STDIO,
     })
     if (back.status !== 0) throw new Error(`blob 回读失败:${firstLine(back.stderr)}`)
     const written = readFileSync(f, 'utf8')

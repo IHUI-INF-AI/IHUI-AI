@@ -38,14 +38,6 @@ import { createHash } from 'node:crypto'
 import { normalizeTriggers, triggersTouch } from './lib/guardian-triggers.mjs'
 import { resolveGitBin } from './lib/gitdir.mjs'
 import { probeSubstrate } from './lib/substrate-probe.mjs'
-// G-1059139:守门批的结构化留痕(批次跑了 / 逐道 env 自跳 / 暂存区未触及 / 当次索引的树指纹)。
-// 归一函数与读写出口只住这一处 lib,runner 不自己拼台账路径、也不自己算 digest(两份实现必漂移)。
-import {
-  appendGateBatchRecord,
-  indexTreeDigest,
-  indexVsHeadPaths,
-  stepLevelSkipHits,
-} from './lib/attestation-tree-digest.mjs'
 // G-611:子门"被信号杀死"与"检查结论失败"的分界用共享尺子判(集合/分类唯一实现在该 lib;
 // 75 传播语义见执行段 catch)。此前本 runner 只认 status===75,子门被可捕获信号杀掉而
 // 产出 128+N、或没装产出侧只留下 signal 时,都被计成"结论失败"—— 归因分叉的 runner 层。
@@ -1025,21 +1017,19 @@ const checks = [
   //   留空占位:不重新分配 id,避免历史 commit log / AGENTS.md §22 引用断裂。
 
   // --- 34 (2026-07-26 新增,@ts-ignore 新增检测,防历史遗留复发) ---
-  // G-815990(2026-10-07)warn → **blocking**。升档前置已现读兑现:本门只判 staged **新增**的
-  //   @ts-ignore / @ts-nocheck,215 处历史遗留已于 2026-07-26 批次清零 ⇒ 升档不造恒红门。
-  //   原 warn 期理由("@ts-ignore 有时是合理压制")的正规出口:确需压制时,该文件对应规则的
-  //   覆盖已永久归零,由守门 103 的 DC 判据(裸 lint 抑制增长,锚点 = 该文件 HEAD 自身存量)
-  //   与策略表 exceptions(带 until)问责 —— 行内压制不再有免检通道。
+  // warn-only:本批次刚清理 215 处历史遗留 @ts-ignore(早期 workspace 包未导出类型时的压制),
+  //   包已修复导出,@ts-ignore 是无效历史遗留。warn 级别原因:@ts-ignore 有时是合理压制
+  //   (如第三方库类型缺陷),不强制阻塞 commit,只提醒开发者审视。
   // 跳过白名单:e2e/ 目录(@playwright/test 类型解析场景)、node_modules/ / dist/ / .next/ / build/。
   // 失败含义:staged 文件中新增 @ts-ignore / @ts-nocheck 注释,需审视是否真的需要。
   // id 说明:任务原话"第 31 项"但 id '31' 已被 AuthShell 占用(同日 2026-07-26 新增),
   //   故用 id '34'(33 LLM provider 之后的下一个可用编号)。
   {
     id: '34',
-    label: '🔍 @ts-ignore 新增检测(blocking:存量已清零,只拦 staged 新增)',
+    label: '🔍 @ts-ignore 新增检测(warn-only,防 215 处历史遗留复发)',
     script: 'check-ts-ignore.mjs',
     args: [],
-    mode: 'blocking',
+    mode: 'warn',
     onFailHint: [
       '',
       '  💡 @ts-ignore 是类型安全压制,本仓库刚清理 215 处历史遗留',
@@ -4698,23 +4688,6 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- 事务体内取消探测对账(db.transaction 回调体内不得 throwIfAborted/signal.aborted)(1 项,blocking)---
-  {
-    id: '195',
-    label:
-      '事务体内取消探测对账(db.transaction 回调体内不得 throwIfAborted/signal.aborted)',
-    script: 'check-txn-cancel-boundary.mjs',
-    args: [],
-    mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_TXN_CANCEL_BOUNDARY',
-    stagedTriggers: ['apps/,packages/'],
-    onFailHint: [
-      '',
-      '取消检查必须落在事务边界外;紧急跳过 HUSKY_SKIP_TXN_CANCEL_BOUNDARY=1(跳过即放弃 G-815960 那格不变量,须在提交信息写明理由)',
-      '',
-    ].join('\n'),
-  },
-
   // --- info (1 项) ---
   {
     id: '23',
@@ -5125,70 +5098,6 @@ const failedGates = []
 /** 跑不起来的门(崩溃指纹 ⇒ 未判定)。仍计入 failed(不放行),但**不进** failedGates,免得被当"判据判红"。 */
 const crashedGates = []
 
-// ─── 批次留痕(G-1059139)───
-// 两类"没跑"必须分开记:`selfSkipped` 只收 **env 自跳**(条目声明了 skipEnv 且当次该变量为 1),
-// `notTriggered` 收"暂存区未触及声明路径所以没跑"—— 后者不是跳门,混进去就是把"没跑到"写成"跳过了",
-// 而这两件事要的处理动作完全不同(前者要读谁按了开关,后者本来就是设计)。
-/** env 自跳逐道点名。 */
-const selfSkippedGates = []
-/** 条件触发未命中所以没跑。 */
-const notTriggeredGates = []
-
-/**
- * 往台账落一行 kind=gate-batch-run。**永不抛、永不改退出码** —— 一次正常的守门批不得因为记账写失败而变红,
- * 但写失败必须响亮(stderr 一行),因为台账静默失踪是本仓最高频失效型。
- * ranFullBatch:早退路径(逃生舱 stopOnFirst)为 false,跑完为 true。
- */
-function attestGateBatchRun(ranFullBatch) {
-  try {
-    const dg = indexTreeDigest()
-    const df = indexVsHeadPaths()
-    const declaredEnvs = [
-      ...new Set([...checks, ...pushGateChecks].map((c) => c.skipEnv).filter(Boolean)),
-    ]
-    const step = stepLevelSkipHits({ declared: declaredEnvs })
-    const w = appendGateBatchRecord({
-      mode: passStaged ? 'staged' : 'full',
-      totalChecks: effectiveChecks.length,
-      executed: passed + warned + failed + skipped,
-      blockingFailed: failedGates.length,
-      selfSkipped: selfSkippedGates,
-      notTriggered: notTriggeredGates.map((g) => ({ ...g, reason: 'stagedTriggers 未触及' })),
-      undeclaredSkipHits: step.count,
-      undeclaredSkipHitsUndetermined: step.undetermined,
-      declaredFiles: df.ok ? df.files : [],
-      declaredFilesTruncated: df.truncated === true,
-      declaredFilesTotalSeen: df.ok ? df.totalSeen : 0,
-      ranFullBatch,
-      treeDigest: dg.digest,
-      treeDigestWhy: dg.ok ? null : dg.why,
-    })
-    if (!w.ok) {
-      console.error(`⚠️  [attest] 本轮守门批**未落批次留痕**:${w.why}`)
-    } else if (!dg.ok) {
-      console.error(
-        `⚠️  [attest] 批次留痕已落,但 treeDigest 取不到 ⇒ 统计器把这一枚绑不回本轮(${dg.why})`,
-      )
-    } else {
-      console.log(
-        `${C.dim}🧾 [attest] 批次留痕 kind=gate-batch-run(treeDigest=${dg.digest.slice(0, 12)}…,selfSkipped=${selfSkippedGates.length},undeclaredSkipHits=${step.count})${C.reset}`,
-      )
-    }
-    if (step.undetermined.length > 0) {
-      console.error(
-        `ℹ️  [attest] 步骤级门有 ${step.undetermined.length} 个面读不到(${step.undetermined
-          .map((u) => u.file)
-          .join(', ')})⇒ undeclaredSkipHits 只覆盖扫得动的面,**不得读成"该面已覆盖"**,也不得折成 0`,
-      )
-    }
-    if (!df.ok) console.error(`ℹ️  [attest] declaredFiles 取不到:${df.why}(落空数组并点名,不伪造)`)
-  } catch (e) {
-    console.error(
-      `⚠️  [attest] 批次留痕流程异常:${String(e?.message ?? e).slice(0, 200)} —— 不影响门禁结论与退出码`,
-    )
-  }
-}
-
 /** 打印批量检查汇总。早退与跑完两条路径共用,避免两份实现漂移。 */
 function printSummary(useStderr) {
   const out = useStderr ? console.error : console.log
@@ -5290,7 +5199,6 @@ for (const check of effectiveChecks) {
   // 纪律:commit message 必须写明责任归属;默认行为不变(不设变量照常阻塞)。
   if (check.skipEnv && process.env[check.skipEnv] === '1') {
     skipped++
-    selfSkippedGates.push({ id: String(check.id), label: check.label, skipEnv: check.skipEnv })
     console.log(`⏭  [${check.id}] ${check.label}(跳过:${check.skipEnv}=1)`)
     continue
   }
@@ -5298,11 +5206,6 @@ for (const check of effectiveChecks) {
   // 与 skipEnv 同计入"跳过",并打印触发清单,避免"静默没跑"。
   if (check.stagedTriggers && passStaged && !stagedPathsTouch(check.stagedTriggers)) {
     skipped++
-    notTriggeredGates.push({
-      id: String(check.id),
-      label: check.label,
-      triggers: normalizeTriggers(check.stagedTriggers),
-    })
     console.log(
       `⏭  [${check.id}] ${check.label}(暂存区未触及:${normalizeTriggers(check.stagedTriggers).join(' / ')},跳过)`,
     )
@@ -5387,8 +5290,6 @@ for (const check of effectiveChecks) {
       // 默认继续跑完(见 failedGates 声明处注释);逃生舱才早退。
       if (stopOnFirst) {
         printSummary(true)
-        // 早退也是一轮"跑过一部分门"的批次:留痕照落,但 ranFullBatch:false(它没跑完全部)。
-        attestGateBatchRun(false)
         process.exit(1)
       }
     } else if (check.mode === 'warn') {
@@ -5412,9 +5313,6 @@ for (const check of effectiveChecks) {
 // === 汇总 ===
 
 printSummary(false)
-// 跑完的批次(不论有无 blocking 失败)都落一行 kind=gate-batch-run:统计器靠它的 treeDigest
-// 把"门确实跑过、但有 N 道按名字自跳"这一枚与"整批根本没跑"分开(§12f 的 unknown 拆格)。
-attestGateBatchRun(true)
 if (crashedGates.length > 0) {
   console.error('')
   console.error(

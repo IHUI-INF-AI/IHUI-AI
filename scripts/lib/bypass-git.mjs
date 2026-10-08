@@ -32,46 +32,25 @@
  * (本文件头注那三条漂移实例之一正是"同一规矩两份实现")。
  *
  * 纪律(与本仓既有共用层同规):
- *  - git 一律**绝对路径**候选解析(AGENTS §5b"git 调用不得依赖环境";2026-10-08 起二进制取数走
- *    scripts/lib/face-reader.mjs 的 gitBinary(),与其同一条兜底链,不再抄第三份候选表)。
+ *  - git 一律**绝对路径**候选解析(AGENTS §5b"git 调用不得依赖环境";复用 scripts/lib/gitdir.mjs 的 resolveGitBin,
+ *    与 scripts/lib/face-reader.mjs 同一条兜底链,不再抄第三份候选表)。
  *  - 每次派生带 `-c safe.directory=*` + windowsHide:true + 数字 timeout + 64MB maxBuffer(守门 52 / 80 的口径)。
  *  - `git()` 默认剥 GIT_INDEX_FILE —— 临时索引只许调用方显式经 opts.env 挂入,绝不允许从 caller shell 漏进来
  *    (漏进来就会把"对齐共享主索引"写成别人的临时索引,或反之)。
  *  - 临时索引/临时内容文件一律落 scripts/lib/scratch-dir.mjs(§26 唯一夹具落点),不写 os.tmpdir()、不落仓库树内。
  */
 
-// 2026-10-08(gitRaw 型 B 批)git 出口收口(部分):本层两处自拼派生,`isAncestor()` 一处迁取材层
-// scripts/lib/face-reader.mjs 的 `gitRaw`;`git()` 保留自拼(不可迁依据逐字见下)。行为面对照:
-//  · isAncestor():二进制同一兜底链(层内 `resolveGitBin() || 'git'`,与本层旧 GIT_BIN 恒等);-C <root> 同;
-//    旧 win32 附加的 `-c core.protectNTFS=false` 只作用于路径面(index/checkout 的路径校验),
-//    merge-base --is-ancestor 只读提交图、无路径输入输出 ⇒ 无可观察输出面,随迁省去(层另带
-//    core.quotepath=false,对本命令同样无涉);stdio 旧 'ignore'(三口全弃)→ 层无 input 态
-//    ['ignore','pipe','pipe'](face-reader.mjs gitRaw 两态规则),stderr 由层收进异常消息、不外漏,
-//    本命令无 stdout 消费 ⇒ 同面;timeout 旧 180s 显式保留(层默认 60s);maxBuffer 旧默认 1MB →
-//    层 64MB(放宽;本命令 stdout 为空,判定面不变)。三态语义一字未动:rc=0 → true;rc=1 → false
-//    (层把退出码带到 Undetermined.status);128 取不到对象 / 超时(signal 杀、status=null)/
-//    派生故障(无 status)→ null —— 与旧 r.error/r.signal 分支同语义。层另带 EBUSY 兜底(净收益;
-//    本调用无 stdin 管道,病窗两形态本就不发病)。
-//  · git() 不迁(gitRaw 层盖不住的两条,逐字依据):① env 维度 —— 本函数默认剥 GIT_INDEX_FILE
-//    (caller shell 残留的幽灵索引不得改变取材面,镜像测试 T2 钉此条)且显式注入调用方 env
-//    (commitTreeWithIndex 的临时索引只许经 opts.env 挂入,绝不允许从 caller shell 漏进来),
-//    而 gitRaw 的 opts 只有 {input,timeout,maxBuffer,binary},无 env 形态;② win32
-//    `-c core.protectNTFS=false` 为 hash-object -w <scratch 路径> / update-index --cacheinfo 的
-//    路径面所需,层不带此 -c。派生形态(execFileSync + stdio ['ignore','pipe','pipe'] + timeout
-//    180s + 64MB maxBuffer)与失败语义一字未动。
-//  · GIT_BIN 取数改走层 gitBinary()(返回值恒等 `resolveGitBin() || 'git'`,同一兜底链)——本文件
-//    由此脱离型 B 判据(scripts/tests/face-reader.test.mjs 的 PATH_BOUND_GIT_BASELINE)。
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, statSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
-import { gitBinary, gitRaw } from './face-reader.mjs'
+import { resolveGitBin } from './gitdir.mjs'
 import { mkScratch, rmScratch } from './scratch-dir.mjs'
 // G-816708:旁路落地后补跑台账自愈的**唯一派生出口**(命令行形状、派生参数、失败臂措辞都在那一份里,
 // 与 git-sync-converge / union-converge 用的是同一个器物 —— 不另发明第二套调用协议)。
 import { postMergeLedgerSync } from './post-merge-ledger-sync.mjs'
 
-const GIT_BIN = gitBinary()
+const GIT_BIN = resolveGitBin() || 'git'
 const DEFAULT_TIMEOUT_MS = 180_000
 const GIT_MAX_BUFFER = 64 << 20
 export const ABSENT = 'ABSENT'
@@ -127,16 +106,23 @@ export function git(args, opts = {}) {
 export function isAncestor(a, b, { root }) {
   if (!root) throw new Error('isAncestor() 必须显式传 root(不猜调用方位置)')
   if (!a || !b) return null
-  // 2026-10-08 迁 gitRaw(逐处行为对照见文件头"gitRaw 型 B 批"注)。三态语义一字未动:
-  // rc=0 不抛 ⇒ true;rc=1 ⇒ false(层把退出码带到 Undetermined.status);128 取不到对象 /
-  // 超时(signal 杀、status=null)/ 派生故障(无 status)⇒ null —— 与旧 r.error/r.signal 分支同语义。
+  const full = ['-c', 'safe.directory=*']
+  if (process.platform === 'win32') full.push('-c', 'core.protectNTFS=false')
+  let r
   try {
-    gitRaw(['merge-base', '--is-ancestor', a, b], root, { timeout: DEFAULT_TIMEOUT_MS })
-    return true
-  } catch (e) {
-    if (e?.status === 1) return false
+    r = spawnSync(GIT_BIN, [...full, '-C', root, 'merge-base', '--is-ancestor', a, b], {
+      windowsHide: true,
+      timeout: DEFAULT_TIMEOUT_MS,
+      stdio: 'ignore',
+      encoding: 'utf8',
+    })
+  } catch {
     return null
   }
+  if (r.error || r.signal) return null
+  if (r.status === 0) return true
+  if (r.status === 1) return false
+  return null
 }
 
 /** 某 ref 下路径的 blob oid;取不到(路径不在该提交/该提交不存在)= ABSENT。 */
@@ -186,16 +172,10 @@ export function writeBlobOfWorktree(path, { root }) {
 export const REPO_GIT_IDENTITY_ARGS = ['-c', 'user.name=智汇AGI社区', '-c', 'user.email=ok502319984@gmail.com']
 
 /**
- * 临时索引提交:read-tree <baseRef> → 逐条 update-index --cacheinfo(或 --force-remove)→ write-tree → commit-tree。
+ * 临时索引提交:read-tree <baseRef> → 逐条 update-index --cacheinfo → write-tree → commit-tree。
  * 全程不触碰共享主索引、不触碰工作树(GIT_INDEX_FILE 只挂在本函数派生上)。
  * entries:[{path, blob}] 或 [{path, text}](text 走 writeBlob);也兼容单路径 {treePath, text|blob}。
- * 删除档(G-1080881,2026-10-07 补):entries 里写 `{path, deleted:true}` ⇒ 该路径从结果树里消失。
- *   这条出口此前不存在,所以每一次"旁路落地要删文件"都得像本层镜像测试 T11/T12 那样手搓临时索引,
- *   而手搓那份不会带上本函数的两条护栏(基底存在性、onTree 落地前校验)⇒ 删错的形状没人拦。
- *   硬要求两条:① deleted 项不得同时带 text/blob(带了就是自相矛盾,拒);② 该路径必须在 baseRef
- *   的树里**真的在位**(不在 ⇒ 拒)。第 ② 条是"声明的路径必须可被回读证明"这条仓规在删除侧的镜像:
- *   少它则一个拼错的路径会静默落成一枚"什么都没删"的提交,而调用方随后按声明去证明存在性时才发现扑空。
- * 返回 { tree, commit, entries:[{path,blob,deleted}] }(删除项 blob 为 null);传 onTree 时另可返回 { rejected }。
+ * 返回 { tree, commit, entries:[{path,blob}] };传 onTree 时另可返回 { rejected }。
  *
  * onTree(tree) ⇒ 在 commit-tree **之前**拿树做校验的钩子(G-815985)。返回非空字符串即放弃提交,
  *   返回 { tree, commit: '', entries, rejected: <该字符串> }。放这里的理由是硬性的:
@@ -204,40 +184,27 @@ export const REPO_GIT_IDENTITY_ARGS = ['-c', 'user.name=智汇AGI社区', '-c', 
  *   埋一颗"下次提交必须先把这枚悬空 commit 备份成 tag"的地雷。树/blob 不在它的判据面内。
  */
 export function commitTreeWithIndex({ root, parent, message, entries, treePath, text, blob, baseRef = 'HEAD', mode = '100644', onTree }) {
-  const norm = (e) => (e.deleted ? { path: e.path, deleted: true } : { path: e.path, blob: e.blob ?? writeBlob(e.text, { root }), mode: e.mode ?? mode })
-  const list = entries ? entries.map(norm) : [{ path: treePath, blob: blob ?? writeBlob(text, { root }), mode }]
-  // 删除档的两条护栏(头注):自相矛盾的声明一律拒,不猜调用方想干什么。
-  for (const e of entries || []) {
-    if (e.deleted && (e.text !== undefined || e.blob !== undefined)) {
-      throw new Error(`commitTreeWithIndex:删除项 ${e.path} 同时带了 text/blob ⇒ 自相矛盾,拒`)
-    }
-    if (e.deleted && headBlobOf(baseRef, e.path, { root }) === ABSENT) {
-      throw new Error(`commitTreeWithIndex:删除项 ${e.path} 在基底 ${baseRef} 的树里不在位 ⇒ 落地会静默变成"什么都没删",拒`)
-    }
-  }
+  const list = entries
+    ? entries.map((e) => ({ path: e.path, blob: e.blob ?? writeBlob(e.text, { root }), mode: e.mode ?? mode }))
+    : [{ path: treePath, blob: blob ?? writeBlob(text, { root }), mode }]
   const dir = mkScratch('bypass-idx-')
   try {
     const idx = join(dir, 'index')
     const env = { GIT_INDEX_FILE: idx }
     git(['read-tree', baseRef], { root, env })
     for (const e of list) {
-      if (e.deleted) {
-        git(['update-index', '--force-remove', '--', e.path], { root, env })
-        continue
-      }
       git(['update-index', '--add', '--cacheinfo', `${e.mode},${e.blob},${e.path}`], { root, env })
     }
     const tree = git(['write-tree'], { root, env })
-    const outEntries = list.map((e) => ({ path: e.path, blob: e.deleted ? null : e.blob, deleted: !!e.deleted }))
     if (typeof onTree === 'function') {
       const rejected = onTree(tree)
       if (typeof rejected === 'string' && rejected !== '') {
         // 只留下 unreachable tree/blob(30a 不判这两类),不产生任何 commit 对象。
-        return { tree, commit: '', entries: outEntries, rejected }
+        return { tree, commit: '', entries: list.map((e) => ({ path: e.path, blob: e.blob })), rejected }
       }
     }
     const commit = git([...REPO_GIT_IDENTITY_ARGS, 'commit-tree', tree, '-p', parent, '-m', message], { root, env })
-    return { tree, commit, entries: outEntries }
+    return { tree, commit, entries: list.map((e) => ({ path: e.path, blob: e.blob })) }
   } finally {
     rmScratch(dir)
   }

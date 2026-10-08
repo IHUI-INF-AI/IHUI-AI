@@ -65,7 +65,7 @@ export function checkContract(files) {
 
   // ② 桶文件:barrel 必须把 agent-runtime 再导出(`export * from './agent-runtime'`)。
   //    `export *` 目标不可枚举是守门 98 放过的那一型,所以这里点名这一条具体链路。
-  if (!/export\s*\*\s*from\s*['"]\.\/agent-runtime(\.js)?['"]/.test(barrel)) {
+  if (!/export\s*\*\s*from\s*['"]\.\/agent-runtime['"]/.test(barrel)) {
     violations.push("types/src/index.ts 不再 `export * from './agent-runtime'`(导出链路断裂)")
   }
 
@@ -130,7 +130,7 @@ test('反向对照:barrel 摘掉 export * 链路 ⇒ 必判违规(桶文件断�
   const detached = {
     ...face,
     barrel: face.barrel.replace(
-      /export \* from '\.\/agent-runtime(\.js)?'/g,
+      /export \* from '\.\/agent-runtime'/g,
       "export * from './agent-runtime-old'",
     ),
   }

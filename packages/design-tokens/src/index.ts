@@ -104,14 +104,11 @@ export {
 } from './close-button.js'
 
 // 图标按钮统一样式 token — 全项目图标按钮尺寸单一真相源,
-// 唯一尺寸(32×32),ui-react IconButton 组件 + 标题栏/工具栏散装图标按钮全部引用;
-// 主行动档(发送/停止/Steer)尺寸同源本文件(2026-10-08 收编)。
+// 唯一尺寸(32×32),ui-react IconButton 组件 + 标题栏/工具栏散装图标按钮全部引用。
 export {
   ICON_BUTTON_SIZE,
   ICON_BUTTON_ICON_SIZE,
   ICON_BUTTON_BASE_CLASS,
-  ICON_BUTTON_ACTION_BASE_CLASS,
-  ICON_BUTTON_ACTION_DISABLED_CLASS,
   iconButtonClasses,
   iconButtonIconClasses,
 } from './icon-button.js'
