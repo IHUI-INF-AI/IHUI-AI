@@ -146,6 +146,7 @@ const { fakeState, fakeDb, reset } = vi.hoisted(() => {
         values: () => self,
         set: () => self,
         returning: () => self,
+        for: () => self, // O82 续四:regenerateConversationMessages 事务内 SELECT ... FOR UPDATE 锁行,fake 层 no-op
         then: (onf, onr) => Promise.resolve(selectRows(fields, kind)).then(onf, onr),
       }
       return self
