@@ -9106,7 +9106,6 @@
     "expandConversation": "会話を展開",
     "headerActions": {
       "panelGroupButtons": "パネルアクションボタン",
-      "workspaceUnavailable": "タスクを開始するとレビューワークスペースを開けます",
       "enterWorkspaceFullscreen": "ワークスペースを全画面表示",
       "exitWorkspaceFullscreen": "ワークスペースの全画面を終了",
       "createDraftPullRequest": "Draft PR を作成",
@@ -27902,9 +27901,7 @@
     "hintSelect": "選択",
     "hintConfirm": "確定",
     "hintClose": "閉じる",
-    "clearAriaLabel": "検索をクリア",
-    "followupDismiss": "候補を閉じる",
-    "followupRowLabel": "これらを試す"
+    "clearAriaLabel": "検索をクリア"
   },
   "statusPage": {
     "incidentsUnavailable": "直近 30 日間のインシデント情報は一時的に取得できません"
