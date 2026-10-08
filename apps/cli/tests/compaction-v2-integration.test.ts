@@ -38,18 +38,24 @@ const { compressContextV2Mock, compressContextIfNeededMock } = vi.hoisted(() => 
   compressContextIfNeededMock: vi.fn(),
 }));
 
-vi.mock('@ihui/api-client', () => ({
-  streamChat: streamChatMock,
-  setBaseUrl: vi.fn(),
-  setTokenProvider: vi.fn(),
-  formatSSEError: (err: unknown) => ({
-    severity: 'unknown' as const,
-    title: 'error',
-    message: err instanceof Error ? err.message : String(err),
-    rawMessage: err instanceof Error ? err.message : String(err),
-    requireReauth: false,
-  }),
-}));
+import type * as ApiClient from '@ihui/api-client'
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  // 部分 mock:保留本文件自己列出的桩(真发网络/真写盘的那几个),其余导出走真实实现。
+  const actual = await importOriginal<typeof ApiClient>()
+  return {
+    ...actual,
+    streamChat: streamChatMock,
+    setBaseUrl: vi.fn(),
+    setTokenProvider: vi.fn(),
+    formatSSEError: (err: unknown) => ({
+      severity: 'unknown' as const,
+      title: 'error',
+      message: err instanceof Error ? err.message : String(err),
+      rawMessage: err instanceof Error ? err.message : String(err),
+      requireReauth: false,
+    }),
+  }
+});
 
 vi.mock('../src/compaction-v2.js', () => ({
   compressContextV2: compressContextV2Mock,
