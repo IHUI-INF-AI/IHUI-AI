@@ -41,7 +41,6 @@ import {
   CARD_TYPES,
   EMPTY_GET_PHONE_FORM,
   HOT_MIN_RECORDS,
-  HOT_WINDOW_MS,
   fetchBalance,
   fetchPhone,
   fetchMessage,
@@ -157,11 +156,11 @@ export default function SmsReceivePage() {
     }
   }, [])
 
-  // 自动筛新号零成本预筛(本地台账 + 平台流水 + 全局热度,全部免费):
+  // 自动筛新号零成本预筛(本地台账 + 平台流水 + 全局使用次数,全部免费):
   // ①本地台账有「登录码」记录 = 确认注册过 → 直接拉黑换下一个(防号池复用二次扣费);
   // ②本账号 24h 流水(GET /used,原文未打码)命中该号 = 近期已被本机消费过 → 不是新号,拉黑;
-  // ③平台全局时间线显示近 30 分钟被收码 ≥3 条 = 号池正被高频流转(超热门号),
-  //   已被他人注册过目标平台的概率高 → 释放跳过换下一个。
+  // ③平台全局时间线该号被接码总数 ≥HOT_MIN_RECORDS = 被使用多次 → 不是新号,拉黑换下一个
+  //   (2026-10-08 机主拍板:多次被用直接拉黑,不再「释放跳过」——释放会回池被反复取到)
   // 任何查询失败都视为无命中,不阻断流程(fail-open)
   const acquireAutoPhone = React.useCallback(async (): Promise<string> => {
     for (;;) {
@@ -171,7 +170,7 @@ export default function SmsReceivePage() {
       const usedHits = localLogin ? [] : await lookupUsedHistory(p).catch(() => [])
       const related =
         localLogin || usedHits.length > 0 ? [] : await fetchRelatedMsgs(p).catch(() => [])
-      const recent = countRecentRecords(related)
+      const totalUsed = related.length
       if (localLogin) {
         try {
           await blockPhone(p)
@@ -189,23 +188,24 @@ export default function SmsReceivePage() {
         } catch {
           // 拉黑失败也不阻断换号
         }
-      } else if (recent < HOT_MIN_RECORDS) {
+      } else if (totalUsed < HOT_MIN_RECORDS) {
         return p
       } else {
         try {
-          await releasePhone(p)
+          await blockPhone(p)
+          setAutoBlocked((n) => n + 1)
           toast.info(
-            `${p} 号池流转过热(近 ${HOT_WINDOW_MS / 60000} 分钟 ${recent} 条收码记录),已释放跳过`,
+            `${p} 全局被接码 ${totalUsed} 次(≥${HOT_MIN_RECORDS}),已被使用多次,零成本拉黑换号`,
           )
         } catch {
-          // 释放失败不阻断换号
+          // 拉黑失败也不阻断换号
         }
       }
       autoRoundRef.current += 1
       setAutoRound(autoRoundRef.current)
       if (autoRoundRef.current >= MAX_AUTO_ROUNDS) {
         throw new Error(
-          `已连续筛选 ${MAX_AUTO_ROUNDS} 轮(本地台账/热度过滤全部命中),已停止(防余额耗尽)`,
+          `已连续筛选 ${MAX_AUTO_ROUNDS} 轮(本地台账/流水/使用次数过滤全部命中),已停止(防余额耗尽)`,
         )
       }
     }
@@ -562,7 +562,7 @@ export default function SmsReceivePage() {
                   className="h-4 w-4"
                   disabled={phase === 'polling' || phase === 'waiting'}
                 />
-                自动筛新号(遇到已注册号自动拉黑换号,最多 {MAX_AUTO_ROUNDS} 轮)
+                自动筛新号(遇到已注册/被使用多次的号自动拉黑换号,最多 {MAX_AUTO_ROUNDS} 轮)
               </label>
               <Button type="submit" className="w-full" disabled={getting || phase === 'polling'}>
                 {getting && <Loader2 className="h-4 w-4 animate-spin" />}
