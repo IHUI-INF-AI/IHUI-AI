@@ -18,11 +18,12 @@
  *    被折成 0 / '' / false 这类肯定结论(contract.ts 的 reasoningTokens 在解析位保持可分)
  */
 
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   AGENT_TASK_EVENTS,
   AGENT_TASK_EVENT_NAMES,
   isAgentTaskEventName,
+  isAgentTaskWireEnvelope,
   parseSelfHealEvent,
   parseThinkingEvent,
   parsePlanStepEvent,
@@ -33,9 +34,13 @@ import {
   parseMessageSendEvent,
   parseToolApprovalEvent,
   parseAgentTaskEvent,
+  sseFieldFaultCounts,
+  resetSseFieldTelemetry,
 } from '../agent-events'
 // G-721:usage 帧的 reasoningTokens 三值分工住在契约里,断言要拿真类型而不是自造形状
 import { type SSEEventPayload } from '../contract'
+// G-896418:信封错型的拒帧要落 G-816042 计数(不静默),断言要读同一份计数快照
+import { unknownSseEventCounts, resetUnknownSseEventTelemetry } from '../unknown-event-telemetry'
 
 // ============ 1. 事件名常量集合 ============
 
@@ -573,6 +578,69 @@ describe('G-721 字段缺席与显式 null 的分工', () => {
       usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3, reasoningTokens: 7 },
     }
     expect(usageOf(valued).reasoningTokens).toBe(7)
+  })
+})
+
+// ============ 7. G-896418:信封层去 as,显式校验 + 拒帧计数 ============
+
+describe('G-896418 信封显式校验(JSON.parse 去 as)', () => {
+  beforeEach(() => {
+    resetUnknownSseEventTelemetry()
+    resetSseFieldTelemetry()
+  })
+
+  it('isAgentTaskWireEnvelope:合法信封(含字段缺席)放行,声明键错型/数组/原始值拒绝', () => {
+    expect(isAgentTaskWireEnvelope({})).toBe(true)
+    expect(isAgentTaskWireEnvelope({ type: 'thinking', session_id: 's1', payload: {} })).toBe(true)
+    // 声明键缺席是合法(全可选)
+    expect(isAgentTaskWireEnvelope({ payload: { content: 'x' } })).toBe(true)
+    // 错型逐键拒绝
+    expect(isAgentTaskWireEnvelope({ type: 123 })).toBe(false)
+    expect(isAgentTaskWireEnvelope({ session_id: 456 })).toBe(false)
+    expect(isAgentTaskWireEnvelope({ payload: 'not-an-object' })).toBe(false)
+    expect(isAgentTaskWireEnvelope({ payload: null })).toBe(false)
+    expect(isAgentTaskWireEnvelope({ payload: [1, 2] })).toBe(false)
+    // 非对象整体拒绝
+    expect(isAgentTaskWireEnvelope('hello')).toBe(false)
+    expect(isAgentTaskWireEnvelope(42)).toBe(false)
+    expect(isAgentTaskWireEnvelope([1, 2])).toBe(false)
+    expect(isAgentTaskWireEnvelope(null)).toBe(false)
+  })
+
+  it('反例①:信封顶层字段错型 ⇒ 拒帧且落 G-816042 解析失败计数(不静默)', () => {
+    const raw = JSON.stringify({ type: 'thinking', session_id: 456, payload: { content: 'x' } })
+    expect(parseThinkingEvent(raw)).toBeNull()
+    expect(unknownSseEventCounts()['<envelope-invalid>']).toBeGreaterThanOrEqual(1)
+  })
+
+  it('反例②:payload 错型(非对象)⇒ 拒帧且计数,不得静默放行', () => {
+    const raw = JSON.stringify({ type: 'thinking', payload: 'oops' })
+    expect(parseThinkingEvent(raw)).toBeNull()
+    expect(unknownSseEventCounts()['<envelope-invalid>']).toBeGreaterThanOrEqual(1)
+  })
+
+  it('反例③:payload 内声明字段错型 ⇒ 走既有 zod 路由闸拒帧并落 field-rejected 计数', () => {
+    // content 声明为 string.min(1),喂 number ⇒ 路由闸拒,计数进 sseFieldFaultCounts
+    const raw = JSON.stringify({ type: 'thinking', payload: { content: 123 } })
+    expect(parseThinkingEvent(raw)).toBeNull()
+    expect(sseFieldFaultCounts()[AGENT_TASK_EVENTS.THINKING]?.['content']).toBeGreaterThanOrEqual(1)
+    // 信封本身合法 ⇒ 不得误记信封失败
+    expect(unknownSseEventCounts()['<envelope-invalid>']).toBeUndefined()
+  })
+
+  it('反向锁:合法信封 + 合法载荷照常解析,不产生任何计数', () => {
+    const evt = parseThinkingEvent(
+      JSON.stringify({ type: 'thinking', session_id: 's1', payload: { content: 'hello' } }),
+    )
+    expect(evt).not.toBeNull()
+    expect(evt!.content).toBe('hello')
+    expect(unknownSseEventCounts()['<envelope-invalid>']).toBeUndefined()
+    expect(Object.keys(sseFieldFaultCounts())).toHaveLength(0)
+  })
+
+  it('非 JSON 字符串仍返回 null(既有行为),不进信封计数(它不是错型帧)', () => {
+    expect(parseThinkingEvent('not-json')).toBeNull()
+    expect(unknownSseEventCounts()['<envelope-invalid>']).toBeUndefined()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
