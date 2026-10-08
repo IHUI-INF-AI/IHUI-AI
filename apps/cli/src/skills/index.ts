@@ -174,8 +174,21 @@ function parseFrontmatterField(front: string, key: string): string | undefined {
   return m[1]!.replace(/^["']|["']$/g, '').trim();
 }
 
-/** 从 frontmatter 文本中解析数组字段(支持 inline [a,b,c] 和 block `- a\n- b`) */
-function parseFrontmatterArray(front: string, key: string): string[] | undefined {
+/** 从 frontmatter 文本中解析数组字段(支持 inline [a,b,c] 和 block `- a`)。
+ *
+ * Tri-state return (G-428, decided 2026-10-07): a key that can widen the
+ * permission surface must never be folded. Values are distinguishable:
+ *   - `string[]`  — parsed list, INCLUDING the explicit empty list `key: []` => []
+ *   - `null`      — block mapping form (`key:` followed by an indented `k: v`
+ *     line) is ILLEGAL, mirroring upstream subagent/profile-frontmatter.ts:76-80
+ *     ("a block mapping is not a name list; it must not be swallowed into an
+ *     empty array and thereby widen the child MCP scope"). Folding it into []
+ *     or into "absent" makes "declared a constraint" indistinguishable from
+ *     "said nothing" on the consumer side.
+ *   - `undefined` — key absent (including a bare `key:` line with no indented
+ *     lines after it)
+ */
+function parseFrontmatterArray(front: string, key: string): string[] | null | undefined {
   const inlineRe = new RegExp(`^${escapeForRegExp(key)}:\\s*\\[([^\\]]*)\\]\\s*$`, 'm');
   const inlineMatch = front.match(inlineRe);
   if (inlineMatch) {
@@ -193,6 +206,15 @@ function parseFrontmatterArray(front: string, key: string): string[] | undefined
       .filter((m): m is RegExpMatchArray => m !== null)
       .map((m) => m[1]!.replace(/^["']|["']$/g, '').trim());
   }
+  // Block-mapping detection: a bare `key:` line whose first following non-blank
+  // line is indented but NOT a `- item` list entry. Checked AFTER the two valid
+  // forms so valid lists are never misjudged; ordered last so `key: []` and
+  // block lists keep their existing semantics byte-for-byte.
+  const mappingRe = new RegExp(
+    `^${escapeForRegExp(key)}:[ \\t]*$\\n(?:[ \\t]*\\n)*[ \\t]+(?!-[ \\t])\\S`,
+    'm',
+  );
+  if (mappingRe.test(front)) return null;
   return undefined;
 }
 
@@ -254,6 +276,12 @@ const SKILL_FRONTMATTER_KEYS = {
   version: ['version'],
   license: ['license'],
   source: ['source'],
+  // G-428: permissionMode becomes a parsed key (single spelling, the one upstream
+  // profile.ts reads). Being parsed means it also leaves the conservative
+  // unknown-key demotion: the protection moves to the load-origin split in
+  // readSkillFile (project-source skills drop the value outright), which is the
+  // upstream profile.ts:183-185 shape.
+  permissionMode: ['permissionMode'],
   relatedSkills: ['related-skills', 'relatedSkills'],
   progressiveDisclosure: ['progressive-disclosure', 'progressiveDisclosure'],
   prerequisites: ['prerequisites'],
@@ -438,13 +466,16 @@ function parseFrontmatter(front: string): SkillFrontmatter {
   if (name) fm.name = name;
   const description = parseFrontmatterFieldAny(front, K.description);
   if (description) fm.description = description;
-  // 单拼写的数组键走 `parseFrontmatterArray` 而不是 `…ArrayAny`:后者要求"首个非空命中",
-  // 会把 `allowed-tools: []` 这种**显式空值**从"解析出空数组"改成"字段缺席" —— 那是本票之外的
-  // 语义变更(空 allowlist 若将来被消费,"没有工具"与"没说工具"是两回事)。键名仍取自同一张表。
+  // Single-spelling array keys go through `parseFrontmatterArray` (not `…ArrayAny`):
+  // the latter demands "first non-empty hit" and would turn an explicit
+  // `allowed-tools: []` from "parsed empty list" into "field absent". G-428
+  // additionally requires the null (illegal block mapping) state to land on the
+  // object verbatim, so the mount check is `!== undefined`, not truthiness —
+  // a falsy `null` must NOT be silently dropped back to "absent".
   const allowedTools = parseFrontmatterArray(front, K.allowedTools[0]!);
-  if (allowedTools) fm.allowedTools = allowedTools;
+  if (allowedTools !== undefined) fm.allowedTools = allowedTools;
   const tools = parseFrontmatterArray(front, K.tools[0]!);
-  if (tools) fm.tools = tools;
+  if (tools !== undefined) fm.tools = tools;
   const model = parseFrontmatterFieldAny(front, K.model);
   if (model) fm.model = model;
   const tags = parseFrontmatterArray(front, K.tags[0]!);
@@ -459,6 +490,11 @@ function parseFrontmatter(front: string): SkillFrontmatter {
   if (sourceRaw && SKILL_SOURCE_VALUES.has(sourceRaw)) {
     fm.source = sourceRaw as SkillSource;
   }
+  // G-428: raw declared string, deliberately NOT validated here — value
+  // normalization is the (future) consumer's job via permission-mode.ts. The
+  // load-origin split (project drops / user keeps) lives in readSkillFile.
+  const permissionMode = parseFrontmatterFieldAny(front, K.permissionMode);
+  if (permissionMode) fm.permissionMode = permissionMode;
   const relatedSkills = parseFrontmatterArrayAny(front, K.relatedSkills);
   if (relatedSkills) fm.relatedSkills = relatedSkills;
   const progressiveDisclosure = parseFrontmatterBool(front, K.progressiveDisclosure);
@@ -514,6 +550,12 @@ export function parseSkillDefinition(content: string, filePath: string): SkillDe
 /**
  * 合并 allowedTools 与 tools 两字段并去重(向后兼容视图)。
  *
+ * 三值透传(G-428,2026-10-07 拍板):视图绝不折叠权限面的键 ——
+ *   - `undefined` —— frontmatter 整体缺席,或两键都没写("什么都没说");
+ *   - `null`      —— 任一字段是块状 mapping(判非法),原样上浮,吞成空表就是
+ *                    上游"被空数组吞掉后扩大 scope"的事故重演;
+ *   - `string[]`  —— 合并去重结果(显式空表仍是 [])。
+ *
  * 消费面如实登记(G-380,2026-10-07):本函数**生产零调用方**,当前唯一调用方是测试
  * (tests/skills.test.ts)。`allowed-tools`/`tools` 两字段在生产面的全部触点只有解析
  * (parseFrontmatter)与回写(skills/sync.ts 经 serializeSkillsFrontmatter 的同步/打印面)
@@ -521,13 +563,25 @@ export function parseSkillDefinition(content: string, filePath: string): SkillDe
  * 已生效判据;执行层要不要消费它(权限闸落点)属拍板票,在那之前不得把"函数存在"
  * 读成"白名单已兑现",本注释不得改写成"已实现/已生效"。
  */
-export function getAllowedTools(fm: SkillFrontmatter | undefined): string[] {
-  if (!fm) return [];
+export function getAllowedTools(fm: SkillFrontmatter | undefined): string[] | null | undefined {
+  if (!fm) return undefined;
+  if (fm.allowedTools === null || fm.tools === null) return null;
+  if (fm.allowedTools === undefined && fm.tools === undefined) return undefined;
   const set = new Set<string>();
   for (const t of fm.allowedTools ?? []) set.add(t);
   for (const t of fm.tools ?? []) set.add(t);
   return Array.from(set);
 }
+
+/**
+ * Where a skill file was discovered. `project` = inside the repo (cwd or repo
+ * root scan roots), `user` = the user home directory. G-428 (mirroring upstream
+ * subagent/profile.ts:183-185): repo input must never escalate the runtime, so
+ * `permissionMode` is dropped for project-origin skills and kept only for
+ * user-origin ones. This is the LOADER's origin, deliberately unrelated to the
+ * frontmatter `source:` declaration field (SkillSource builtin/user/auto/hub).
+ */
+type SkillLoadOrigin = 'project' | 'user';
 
 /**
  * 读取一份技能文件并归一成 Skill。取不到/解析失败/被拒载 ⇒ 返回 null,由调用方跳过。
@@ -543,6 +597,7 @@ function readSkillFile(
   fullPath: string,
   fallbackName: string,
   priority: number,
+  origin: SkillLoadOrigin,
   onNotice: (message: string) => void,
 ): Skill | null {
   try {
@@ -581,6 +636,13 @@ function readSkillFile(
       priority,
     };
     if (def.hasFrontmatter) {
+      // G-428 (upstream profile.ts:183-185 shape): a project (repo) source must
+      // never raise the runtime's permission floor, so the declared value is
+      // dropped here — not merely ignored by consumers. `fm` is a fresh object
+      // from parseFrontmatter for this file, so mutating it is safe.
+      if (origin === 'project' && fm.permissionMode !== undefined) {
+        delete fm.permissionMode;
+      }
       skill.frontmatter = fm;
     }
     // —— 保守档:未知键 ⇒ 不进自动加载面,并当场留一条可见诊断 ——
@@ -648,7 +710,12 @@ function isReparseLink(p: string): boolean {
  *  - 只下钻一层、且只认 `SKILL.md` 这一个文件名:再深就是别人的资源目录
  *    (`references/`、`scripts/`、`assets/`),把它们当技能读会污染提示词。
  */
-function scanDir(dir: string, priority: number, onNotice: (message: string) => void): Skill[] {
+function scanDir(
+  dir: string,
+  priority: number,
+  origin: SkillLoadOrigin,
+  onNotice: (message: string) => void,
+): Skill[] {
   // G-408③:此前"不跟随链接"是 Dirent.isFile()/isDirectory() 对重解析点恰好返回 false 的
   // **偶然行为** —— 无注释、无判据,libuv 的 dtype 映射哪天变了,这里就静默变成跨根穿透。
   // 现把"一律不跟随符号链接/junction"落成三粒度的显式拒绝(根、子项候选、技能文件本体),
@@ -682,7 +749,7 @@ function scanDir(dir: string, priority: number, onNotice: (message: string) => v
     }
     const key = realKey(file);
     if (seen.has(key)) return;
-    const skill = readSkillFile(file, fallbackName, priority, onNotice);
+    const skill = readSkillFile(file, fallbackName, priority, origin, onNotice);
     if (!skill) return;
     seen.add(key);
     skills.push(skill);
@@ -723,25 +790,25 @@ export function loadSkills(opts: LoadSkillsOptions): Skill[] {
   const repoRoot = opts.repoRoot ?? findRepoRoot(cwd);
   const home = os.homedir();
 
-  const scanLocations: Array<{ dir: string; priority: number }> = [];
+  const scanLocations: Array<{ dir: string; priority: number; origin: SkillLoadOrigin }> = [];
 
   let priority = 0;
   for (const sub of SKILL_DIRS) {
-    scanLocations.push({ dir: path.join(cwd, sub), priority });
+    scanLocations.push({ dir: path.join(cwd, sub), priority, origin: 'project' });
     priority++;
   }
   if (repoRoot !== cwd) {
     for (const sub of SKILL_DIRS) {
-      scanLocations.push({ dir: path.join(repoRoot, sub), priority });
+      scanLocations.push({ dir: path.join(repoRoot, sub), priority, origin: 'project' });
       priority++;
     }
   }
-  scanLocations.push({ dir: path.join(home, USER_SKILL_DIR), priority });
+  scanLocations.push({ dir: path.join(home, USER_SKILL_DIR), priority, origin: 'user' });
 
   const onNotice = opts.onNotice ?? ((m: string) => console.warn(m));
   const all: Skill[] = [];
   for (const loc of scanLocations) {
-    all.push(...scanDir(loc.dir, loc.priority, onNotice));
+    all.push(...scanDir(loc.dir, loc.priority, loc.origin, onNotice));
   }
 
   // 按优先级去重(低 priority 值 = 高优先级,覆盖高 priority 值)
