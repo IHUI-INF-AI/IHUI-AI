@@ -148,15 +148,20 @@ class OpenAIProvider(BaseProvider):
                         if delta.get("tool_calls"):
                             yield {"type": "tool_call", "tool_calls": delta["tool_calls"]}
                     if chunk.get("usage"):
-                        _done_evt: dict[str, Any] = {
+                        # 类型修复(守门 35,2026-10-08):上游给了 usage 的那一条 done 帧。
+                        # 与下面"没给 usage 的兜底 done 帧"原本是**同一个变量名各声明一次**
+                        # (`_done_evt: dict[str, Any]` × 2)⇒ mypy 判 no-redef;两处语义本就
+                        # 不同(一条带真 usage、一条是空 usage 兜底),所以拆成两个名字而不
+                        # 是让第二处复用第一处的声明。yield 的内容与顺序一字未改。
+                        _usage_done_evt: dict[str, Any] = {
                             "type": "done",
                             "model": chunk.get("model", model),
                             "usage": chunk["usage"],
                             "stub": False,
                         }
                         if _finish_reason:
-                            _done_evt["finishReason"] = _finish_reason
-                        yield _done_evt
+                            _usage_done_evt["finishReason"] = _finish_reason
+                        yield _usage_done_evt
                         _done_yielded = True
         except httpx.HTTPError as e:
             _errored = True
@@ -171,10 +176,15 @@ class OpenAIProvider(BaseProvider):
                 "OpenAI 流式结束但未收到 usage chunk, 发送空 usage done, model=%s",
                 model,
             )
-            _done_evt: dict[str, Any] = {"type": "done", "model": model, "usage": {}, "stub": False}
+            _fallback_done_evt: dict[str, Any] = {
+                "type": "done",
+                "model": model,
+                "usage": {},
+                "stub": False,
+            }
             if _finish_reason:
-                _done_evt["finishReason"] = _finish_reason
-            yield _done_evt
+                _fallback_done_evt["finishReason"] = _finish_reason
+            yield _fallback_done_evt
 
     async def list_models(self) -> list[dict[str, Any]]:
         data = await self._request("GET", f"{self.base_url}/v1/models", headers=self._headers())
