@@ -699,7 +699,7 @@ export default function SmsReceivePage() {
                     >
                       {relatedStats.total === 0 ? '未被接码' : `${relatedStats.total} 次`}
                     </div>
-                    <div className="text-xs text-muted-foreground">全局被接码(共)</div>
+                    <div className="text-xs text-muted-foreground">全局被接码(≤12条)</div>
                   </div>
                   <div className="rounded-md bg-muted/60 px-1 py-2">
                     <div className="text-lg font-bold leading-tight text-amber-600">
@@ -717,7 +717,7 @@ export default function SmsReceivePage() {
                 <p className="text-xs text-muted-foreground">
                   {relatedStats.total === 0
                     ? '全局零记录=纯新号强信号;本机=本地台账全量,从功能上线起累积'
-                    : '全局=平台「号码相关短信」时间线全部记录(所有买家收码,内容打码);本机=本地台账全量'}
+                    : '全局=平台仅保留该号最近 12 条滚动记录(实测上限,热门号不足 1 小时即被冲掉,远不足 24h);本机=本地台账全量,唯一超越平台限制的历史'}
                 </p>
               </div>
             )}
