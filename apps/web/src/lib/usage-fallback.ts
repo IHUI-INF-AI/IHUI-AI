@@ -93,24 +93,6 @@ export function buildUsageFromUpdate(params: BuildUsageFromUpdateParams): Contex
   return usageWithRetainedBreakdown
 }
 
-/**
- * 真实上下文分母的模型来源(G-1101879):优先取**用量帧回带的 model** ——
- * 后端 `model=='auto'` 会按可用性自动路由到别的厂商,会话当前选中模型与实际运行的
- * 窗口不一致(选 auto/32K 却路由到 200K 时占用率整体偏小),拿会话模型当分母会算偏;
- * 用量帧缺席(或空串)时回落会话当前模型。容量出口 `getModelContextCapacity` 由调用方
- * 按返回的 id 另取 —— 本函数只决定"用哪个模型 id 算分母"。
- */
-export function resolveContextDenominatorModel(params: {
-  /** 用量帧回带的实际计费模型(MessageUsage.model);缺席/空串 = 还没收到用量帧 */
-  usageModel?: string | null
-  /** 会话当前选中模型(回落用) */
-  sessionModel?: string | null
-}): string {
-  const fromFrame = params.usageModel?.trim()
-  if (fromFrame) return fromFrame
-  return params.sessionModel?.trim() ?? ''
-}
-
 export interface BuildUsageFromPromptCompletionParams {
   currentUsage: ContextUsageSnapshot | null | undefined
   currentContextWindow?: number | null

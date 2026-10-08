@@ -197,9 +197,8 @@ describe('装车面 — 通道只有一条', () => {
     expect(src).not.toContain('frameSystemReminder');
   });
 
-  it('既有阻断出口形状不变:五处 reason 仍全部走 hookBlockReason', () => {
-    // G-916424 增补第 5 处:runPermissionRequest 的 blockOnError 阻断 reason 同走唯一成形出口。
-    expect([...src.matchAll(/reason: hookBlockReason\(/g)].length).toBe(5);
+  it('既有阻断出口形状不变:四处 reason 仍全部走 hookBlockReason', () => {
+    expect([...src.matchAll(/reason: hookBlockReason\(/g)].length).toBe(4);
     expect([...src.matchAll(/r\.stderr \|\| r\.stdout/g)].length).toBe(1);
   });
 });

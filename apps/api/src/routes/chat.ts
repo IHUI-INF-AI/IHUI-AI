@@ -1236,9 +1236,8 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /conversations/:id/regenerate - 重新生成
-  // 2026-08-30 立;票59(2026-10-07)改 sibling 语义:不再物理删除 —— 目标 AI 消息保留为
-  // 版本族根,返回 rootId/nextSiblingIndex 供后续新回复以 sibling 身份入族
-  // (createMessage 已放通 parentMessageId/siblingIndex),版本切换由前端复用 CanvasVersionMenu 交互(2/3、3/3)。
+  // 2026-08-30 立:删除指定 AI 消息及其之后的所有消息(事务),前端截断历史后重新发送前一条用户问题。
+  // 不删除该 AI 消息之前的内容 —— 重新生成 = 保留上下文,重新生成目标回复。
   server.post('/conversations/:id/regenerate', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return

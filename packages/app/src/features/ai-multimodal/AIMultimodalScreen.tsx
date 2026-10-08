@@ -4,8 +4,16 @@
 import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { TextField } from '../../components/TextField'
+import {
+  ActivityIndicator,
+  FlatList,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AIMultimodalScreenProps, AiMultimodalMode } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
@@ -111,7 +119,7 @@ export function AIMultimodalScreen({
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       <View style={styles.inputRow}>
-        <TextField colorScheme={colorScheme}
+        <TextInput
           style={styles.input}
           value={input}
           onChangeText={onInputChange}
