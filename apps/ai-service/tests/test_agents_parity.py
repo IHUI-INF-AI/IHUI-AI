@@ -292,6 +292,17 @@ async def test_resume_endpoint_resumes_from_checkpoint(monkeypatch):
 
     与 execute/stream 的 v2 分支使用同一套 AgentLoopV2 构造
     (_make_loop_v2_llm / enable_checkpoint=True),rebuild 后调 resume_from_checkpoint。
+
+    **属主这一维必须自带(G-1058610③,2026-10-05 机主拍板)**:两级都判不出属主的
+    checkpoint 一律 409「不自动放行续跑」—— 旧口径"只剩登录地板即放行"并顺手把会话
+    登记给请求者,等于让第一个按下续跑的人无声取得归属。所以本用例现在:
+      ① 造 checkpoint 的 loop 带 `user_id=OWNER`(⇒ `save_checkpoint` 落
+         `metadata.owner_user_id`,这是跨进程可判定的那一级),且 `enable_memory=False`
+         —— 主体只用来盖章归属,不许顺带把记忆闭环(真 DB/网络)拉进这条冒烟;
+      ② 端点直调必须显式传 `current_user=OWNER`。它是 `Depends(require_request_user_id)`
+         形参,函数被直接调用时 FastAPI 不解析它 —— 不传就等于把那个 Depends 对象当
+         主体去比归属,那不是"测了放行",那是"没测"。
+    两条一起才让"续跑成功"这个结论站在真路径上。
     """
     import uuid
 
@@ -299,6 +310,7 @@ async def test_resume_endpoint_resumes_from_checkpoint(monkeypatch):
     from app.services.agent_loop_v2 import AgentLoopV2
 
     session_id = f"resume-smoke-{uuid.uuid4().hex}"
+    owner = f"owner-{uuid.uuid4().hex}"
     call = {"n": 0}
 
     async def fake_complete(messages, model=None, **kwargs):
@@ -316,6 +328,8 @@ async def test_resume_endpoint_resumes_from_checkpoint(monkeypatch):
         session_id=session_id,
         max_iterations=8,
         enable_checkpoint=True,
+        user_id=owner,
+        enable_memory=False,
     )
     res_a = await loop_a.run([{"role": "user", "content": "任务开始"}])
     assert res_a.success is True
@@ -332,11 +346,26 @@ async def test_resume_endpoint_resumes_from_checkpoint(monkeypatch):
     resp = await resume_agent_execute(
         AgentResumeRequest(checkpoint_id=cp_id, model="smoke-model"),
         fake_request,  # type: ignore[arg-type]
+        current_user=owner,
     )
     assert resp["code"] == 0
     assert resp["data"]["checkpoint_id"] == cp_id
     assert resp["data"]["success"] is True
     assert resp["data"]["stop_reason"] in ("completed", "max_iterations")
+
+    # 3) 归属这一维有牙:换一个主体来续跑同一条 checkpoint 必须是 403,
+    #    而不是"传谁都行"—— 上面那条绿的读数只有配上这一条才证明 owner 真被读了。
+    import pytest
+
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as exc_info:
+        await resume_agent_execute(
+            AgentResumeRequest(checkpoint_id=cp_id, model="smoke-model"),
+            SimpleNamespace(state=SimpleNamespace(role_id=1)),  # type: ignore[arg-type]
+            current_user=f"not-{owner}",
+        )
+    assert exc_info.value.status_code == 403
 
 
 async def test_resume_endpoint_404_for_missing_checkpoint(monkeypatch):

@@ -35,6 +35,11 @@ from app.core import provider_caps
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 HEAD_SNAPSHOT_PATH = "apps/ai-service/app/core/provider_capability_snapshot.py"
+# 对照基线的**出处**,不是 HEAD。G-649 已经入库(`5cf78e1a0c`),所以"HEAD 就是改动前
+# 那份"这个前提在入库那一刻起就失效了 —— 拿 HEAD 当基线,判据量的是"新版 vs 新版",
+# 一条空转的同形比对却长得像通过(本仓把这条写成规矩:阳性对照钉出处不钉 HEAD)。
+# `^` 取的是那枚落地提交的父版本 = 改动前的真身。
+BASELINE_REF = "5cf78e1a0c^"
 GIT_BIN = shutil.which("git")
 
 
@@ -274,20 +279,33 @@ def test_bare_string_provider_scope_is_rejected_not_guessed():
 
 
 # ---------------------------------------------------------------------------
-# 判据 ②:不抛 ⇒ 与「改动前那份实现(HEAD blob)」逐字同形
+# 判据 ②:不抛 ⇒ 与「改动前那份实现(按出处 `BASELINE_REF` 锚定,不是 HEAD)」逐字同形
 # ---------------------------------------------------------------------------
 
 
 def _load_head_implementation(tmp_path: Path):
-    """从 HEAD 取改动前那份实现,原样落临时文件后 import(对照尺子必须是旧实现本身)。"""
+    """从**出处**取改动前那份实现,原样落临时文件后 import(对照尺子必须是旧实现本身)。
+
+    锚点换过(见文件头 `BASELINE_REF` 那条):此前取的是 `HEAD:<path>`,而 G-649 一入库,
+    HEAD 就同时是"改动前"与"改动后"两份里的后者 —— 同形判据于是量的是新版对自己,
+    恒真、恒绿、恒空转。下面那道 `not hasattr(...ENTITLEMENT_FAIL_CLOSED_KEY)` 的护栏
+    正是为了在这种情况下喊红,它喊到了(2026-10-08 实测:`AssertionError: 对照模块里已有
+    G-649 常量`),所以本文件从来没有把这件事读成绿 —— 红的是锚点,不是产品。
+    """
     proc = subprocess.run(
-        [GIT_BIN, "-C", str(REPO_ROOT), "show", f"HEAD:{HEAD_SNAPSHOT_PATH}"],
-        capture_output=True,
+        [GIT_BIN, "-C", str(REPO_ROOT), "show", f"{BASELINE_REF}:{HEAD_SNAPSHOT_PATH}"],
+        # 本机(node/WorkBuddy 宿主 + Windows)派生 git 不显式接管 stdio 会稳定 EBUSY
+        # (AGENTS §12g:成组对照 30 组实测,不写 stdio 0/30 成功)。三档写死,
+        # 不再用 `capture_output=`(它与显式 stdout/stderr 互斥)。
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        creationflags=(0x08000000 if sys.platform == "win32" else 0),
     )
     assert proc.returncode == 0, proc.stderr.decode("utf-8", "replace")
     # 两道"取到的确实是那份源码"的对账(不是 `git show <path>` 打出的 commit 正文,
     # 也不是被并发会话推进后的"新版"):结构位 + 本票新增常量必须缺席。
-    assert b"class ProviderCapabilitySnapshotBoard" in proc.stdout, "HEAD 取回的不是那份模块源码"
+    assert b"class ProviderCapabilitySnapshotBoard" in proc.stdout, "取回的不是那份模块源码"
     target = tmp_path / "provider_capability_snapshot_head_g649.py"
     target.write_bytes(proc.stdout)
     spec = importlib.util.spec_from_file_location("pcs_head_g649", str(target))

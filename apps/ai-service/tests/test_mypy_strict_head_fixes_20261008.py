@@ -473,10 +473,24 @@ async def test_account_row_projection_is_key_only_and_never_leaks_secrets():
 
 
 async def test_ensure_tables_conn_runs_all_four_statements_on_given_conn(fake_pool):
-    """连接参数钉成 asyncpg.Connection 后,裸连接入口仍必须只摸给它的这一条连接。"""
+    """连接参数钉成 asyncpg.Connection 后,裸连接入口仍必须只摸给它的这一条连接。
+
+    函数名里的 "four" 是历史读数(写这条时建表面是 3 表 + 1 索引)。签到助手 Phase1c/1d
+    (枚 a05e4df089)给 `publish/checkin_accounts` 加了 `account_group` 的**幂等加列**语句,
+    建表面涨到五条 —— 按旧名去把产品改回四条就是回退那枚功能票。
+    这里**不再数条数**,改成逐字钉"应当执行的就是这五段 DDL、按这个顺序、一条不多一条
+    不少":数条数在涨到 6 时会再次失真,而按模块自己的 DDL 常量对账既抓得住"建表面被摘",
+    也抓得住"顺序换了 / 塞进一条别的语句"。
+    """
     from app.services import checkin_store
 
     conn = _FakeConn(status="CREATE TABLE")
     await checkin_store.ensure_tables_conn(conn)  # 假连接:与 asyncpg.Connection 同一条 execute 协议
-    assert len(conn.executed) == 4, "三张表 + 索引四条语句,少一条就是建表面被摘"
+    assert [sql for sql, _args in conn.executed] == [
+        checkin_store._CREATE_ACCOUNTS_SQL,
+        checkin_store._CREATE_RECORDS_SQL,
+        checkin_store._CREATE_ERROR_COUNTS_SQL,
+        checkin_store._ALTER_ACCOUNTS_GROUP_SQL,
+        checkin_store._CREATE_INDEXES_SQL,
+    ], "建表面被摘/被替换/被加料 —— 裸连接入口必须逐段执行这五份 DDL"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
