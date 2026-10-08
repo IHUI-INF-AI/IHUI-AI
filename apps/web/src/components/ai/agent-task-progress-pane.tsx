@@ -32,6 +32,7 @@ import {
 } from 'lucide-react'
 import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import { cn } from '@/lib/utils'
+import { resolveContextDenominatorModel } from '@/lib/usage-fallback'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 
 /**
@@ -913,12 +914,27 @@ export function AgentTaskProgressPane() {
    * 用户没有任何线索去怀疑它。同一件事在发送侧早就走这个出口了(`resume-stream.ts` 的
    * `contextLimit: getModelContextCapacity(store.currentModel)`),两处算同一个分母必漂,
    * 所以这里改成引用同一份出口。
-   * 已知残留(如实登记):这里取的是**会话当前选中模型**;若这一轮被后端自动路由到了别的厂商
-   * (`model=='auto'` 分支),真实容量仍以用量帧回带的 model 为准 —— 那一半需要 usage 帧的 model
-   * 进到本面板的状态里,已在台账另立一票,不在本次修范围内。
+   *
+   * G-1101879(2026-10-08):分母的**模型来源**改为"用量帧回带的 model"优先 —— 后端
+   * `model=='auto'` 会按可用性自动路由到别的厂商,拿会话当前选中模型当分母与实际窗口不一致
+   * (选 auto/32K 却路由到 200K 时占用率整体偏小)。用量帧缺席时回落会话当前模型,
+   * 选择逻辑收在 `resolveContextDenominatorModel` 一份实现里。
    */
   const currentModel = useChatStore((s) => s.currentModel)
-  const capacity = getModelContextCapacity(currentModel)
+  const messages = useChatStore((s) => s.messages)
+  const usageByMessageId = useChatStore((s) => s.usageByMessageId)
+  const usageFrameModel = React.useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const msg = messages[i]
+      if (!msg || msg.role !== 'assistant') continue
+      const model = usageByMessageId[msg.id]?.model
+      if (model) return model
+    }
+    return ''
+  }, [messages, usageByMessageId])
+  const capacity = getModelContextCapacity(
+    resolveContextDenominatorModel({ usageModel: usageFrameModel, sessionModel: currentModel }),
+  )
   const contextUsage = totalTokens > 0 && capacity > 0 ? Math.min(100, (totalTokens / capacity) * 100) : 0
 
   // v10: completedCount + progressPct 用 useMemo 缓存
