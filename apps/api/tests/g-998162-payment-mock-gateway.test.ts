@@ -25,7 +25,9 @@ import {
  * ③ 不设 IHUI_PAY_MOCK(关 mock)后,同一测试用例代码改指真环境,不改代码。
  */
 
-type WechatPayModule = typeof import('../src/services/wechat-pay.js')
+// consistent-type-imports 禁 `import()` 类型注解 ⇒ 改 import type namespace(类型等值,用法点不变)
+import type * as _wechatPayNs from '../src/services/wechat-pay.js'
+type WechatPayModule = typeof _wechatPayNs
 
 const V3_KEY = '0123456789abcdef0123456789abcdef' // 32 字节(aes-256-gcm)
 const ENV_KEYS = [
