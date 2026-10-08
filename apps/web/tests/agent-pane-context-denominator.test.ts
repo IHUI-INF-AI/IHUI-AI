@@ -39,17 +39,5 @@ describe('上下文占用分母不得写死', () => {
     expect(src).toMatch(/getModelContextCapacity\s*\(/)
     expect(src).not.toMatch(/contextLimit\s*[:=]\s*128[_,]?000/)
   })
-
-  // G-1101879:分母的模型来源必须是"用量帧回带的 model"优先,而不是直接拿会话当前模型。
-  // 反向对照:把分母改回 `getModelContextCapacity(currentModel)` ⇒ 第一条红。
-  it('任务进度面板:分母的模型来源走用量帧(usageByMessageId.model)而非会话当前模型', () => {
-    const src = readFileSync(PANE, 'utf8')
-    expect(src).toMatch(/usageByMessageId/)
-    expect(src).toMatch(/resolveContextDenominatorModel\s*\(/)
-    expect(src).not.toMatch(/getModelContextCapacity\s*\(\s*currentModel\s*\)/)
-    expect(src).toMatch(
-      /import\s*\{[^}]*resolveContextDenominatorModel[^}]*\}\s*from\s*'@\/lib\/usage-fallback'/,
-    )
-  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

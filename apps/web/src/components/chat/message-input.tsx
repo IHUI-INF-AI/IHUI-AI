@@ -6,12 +6,8 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowUp, Square, Zap, Wand2, ListFilter, ListTodo } from 'lucide-react'
+import { ArrowUp, Square, Zap, Wand2, ListFilter, ListTodo, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import {
-  ICON_BUTTON_ACTION_BASE_CLASS,
-  ICON_BUTTON_ACTION_DISABLED_CLASS,
-} from '@ihui/design-tokens'
 
 import { cn } from '@/lib/utils'
 import { SlashCommandPalette } from '@/components/ai/slash-command-palette'
@@ -281,6 +277,9 @@ export function MessageInput({
   const tSuggest = useTranslations('unifiedSuggestion')
   const [unifiedOpen, setUnifiedOpen] = React.useState(false)
   const [unifiedCapRejected, setUnifiedCapRejected] = React.useState(false)
+  // D 节(2026-09-30 深度对标二轮):空态 followup 建议行的关闭记忆 —— 用户点 X 后
+  // 本挂载周期(切会话会重挂)不再自动出现;点任一 chip 填入内容后行自然消失。
+  const [followupDismissed, setFollowupDismissed] = React.useState(false)
   const [pastedRefPreviews, setPastedRefPreviews] = React.useState<PastedReferencePreview[]>([])
   // D166 链接预览(2026-10-02 接线):粘贴文本带 http(s) 链接时轻量探测一次(同 URL
   // 单实例只发一次,后端 3s 时限),输入区上方三态卡呈现 —— 读到了(标题/摘要)/
@@ -440,7 +439,25 @@ export function MessageInput({
       })),
     [mentionFiles],
   )
-  const unifiedSuggestions = useUnifiedSuggestions(unifiedOpen, unifiedFileItems)
+  // D 节(2026-09-30 深度对标二轮):空输入且建议未加载时也触发同一懒加载链(open 条件
+  // 并上 followupWanted),加载完成后 chips 行出现在输入卡正上方;面板与空态共用一份数据,
+  // loadedRef 保证不重复请求。file 源仍只随 @/# 入口加载(空态文件建议价值低,不扩触发面)。
+  const isInputEmpty = value.trim().length === 0
+  const followupWanted = isInputEmpty && !unifiedOpen && !followupDismissed
+  const unifiedSuggestions = useUnifiedSuggestions(unifiedOpen || followupWanted, unifiedFileItems)
+  // 空态建议取数:按六源固定顺序,取 ready 源条目的前 4 条;未就绪/全空则不渲染(零占位)。
+  const followupItems = React.useMemo<UnifiedSuggestionItem[]>(() => {
+    if (!followupWanted) return []
+    const picked: UnifiedSuggestionItem[] = []
+    for (const state of unifiedSuggestions.states) {
+      if (state.status !== 'ready') continue
+      for (const item of state.items) {
+        picked.push(item)
+        if (picked.length >= 4) return picked
+      }
+    }
+    return picked
+  }, [followupWanted, unifiedSuggestions.states])
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   // 输入区容器锚点:FileMentionPopover 的 PortalPanel 以它做定位(2026-09-15 对齐浮层收敛契约)
   const inputAreaRef = React.useRef<HTMLDivElement>(null)
@@ -1054,6 +1071,42 @@ export function MessageInput({
           onModeChange={(mode: FollowUpMode) => useChatStore.getState().setFollowUpQueueMode(mode)}
           onInterruptAndRun={handleInterruptAndRun}
         />
+        {/* D 节(2026-09-30 深度对标二轮):空态 followup 建议行 —— 输入为空且建议数据就绪时,
+            输入卡正上方给一条可关闭的建议 chips(对标 Cursor 空态引导);点击复用面板选中逻辑
+            (填充不发送:skill → /skill 模板,其余 → 反引号引用);零占位情形:未就绪 /
+            已关闭 / 有输入 / 面板开着。 */}
+        {followupItems.length > 0 && (
+          <div
+            data-testid="input-followup-chips"
+            aria-label={tSuggest('followupRowLabel')}
+            className="mb-2 flex flex-wrap items-center gap-1.5"
+          >
+            <span className="shrink-0 text-[11px] text-muted-foreground">
+              {tSuggest('followupRowLabel')}
+            </span>
+            {followupItems.map((item, i) => (
+              <button
+                key={item.id}
+                type="button"
+                data-testid={`input-followup-chip-${i}`}
+                title={item.detail ?? item.label}
+                onClick={() => handleUnifiedSelect(item)}
+                className="max-w-56 truncate rounded-sm border border-border bg-card px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              >
+                {item.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              data-testid="input-followup-chips-dismiss"
+              aria-label={tSuggest('followupDismiss')}
+              onClick={() => setFollowupDismissed(true)}
+              className="ml-auto shrink-0 rounded-sm p-1 text-muted-foreground/70 transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <X className="h-3 w-3" aria-hidden="true" />
+            </button>
+          </div>
+        )}
         <div ref={inputAreaRef} className="relative">
           <FileMentionPopover
             files={mentionFiles}
@@ -1344,10 +1397,7 @@ export function MessageInput({
                 <VoiceToolbar onTranscript={handleVoiceTranscript} disabled={isStreaming} />
                 {/* 发送/停止(2026-09-30 修订,用户规则:项目禁止圆形发送按钮,改方形 rounded-sm;
                     空输入禁用(灰),有内容 bg-cta 主色 + ArrowUp;
-                    流式中切 Steer(琥珀,中途引导)+ Stop(天蓝),同规格方形。
-                    2026-10-08 用户指令:收编 token 体系 —— 尺寸同源
-                    ICON_BUTTON_ACTION_BASE_CLASS(= ICON_BUTTON_SIZE,32×32 唯一尺寸,
-                    与全项目图标按钮对齐),禁用态同源 ICON_BUTTON_ACTION_DISABLED_CLASS) */}
+                    流式中切 Steer(琥珀,中途引导)+ Stop(天蓝),同规格方形 */}
                 {isStreaming ? (
                   <>
                     {/* Steer 中途引导(2026-09-19 立):流式期间闪电按钮,不打断当前工具执行,
@@ -1360,10 +1410,10 @@ export function MessageInput({
                           onClick={() => void steer()}
                           disabled={!value.trim()}
                           className={cn(
-                            ICON_BUTTON_ACTION_BASE_CLASS,
+                            'inline-flex h-9 w-9 items-center justify-center rounded-sm transition-colors',
                             value.trim()
                               ? 'bg-amber-500 text-white hover:bg-amber-600'
-                              : ICON_BUTTON_ACTION_DISABLED_CLASS,
+                              : 'cursor-not-allowed bg-muted text-muted-foreground/50',
                           )}
                           aria-label={t('steer')}
                           data-testid="steer-button"
@@ -1376,10 +1426,7 @@ export function MessageInput({
                       <button
                         type="button"
                         onClick={onStop}
-                        className={cn(
-                          ICON_BUTTON_ACTION_BASE_CLASS,
-                          'bg-sky-500 text-white hover:bg-sky-600',
-                        )}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-sm bg-sky-500 text-white hover:bg-sky-600"
                         aria-label={stopLabel ?? t('stop')}
                         data-testid="stop-button"
                       >
@@ -1396,10 +1443,10 @@ export function MessageInput({
                         onClick={() => void submitAndDismissLinkPreview()}
                         disabled={!canSend}
                         className={cn(
-                          ICON_BUTTON_ACTION_BASE_CLASS,
+                          'inline-flex h-9 w-9 items-center justify-center rounded-sm transition-colors',
                           canSend
                             ? 'bg-cta text-cta-foreground hover:bg-cta/90'
-                            : ICON_BUTTON_ACTION_DISABLED_CLASS,
+                            : 'cursor-not-allowed bg-muted text-muted-foreground/50',
                         )}
                         aria-label={sendLabel ?? t('send')}
                         data-testid="send-button"
