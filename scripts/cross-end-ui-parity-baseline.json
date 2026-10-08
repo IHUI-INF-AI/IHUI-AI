@@ -58,10 +58,7 @@
   },
   "webRadiusCounts": {
     "AgentRuntimePanel": 1,
-    "Avatar": 1,
     "CategoryBar": 0,
-    "ConfirmDialog": 2,
-    "CountdownTimer": 1,
     "EmptyState": 1,
     "ProgressBar": 0,
     "SearchBar": 2,
@@ -139,18 +136,6 @@
       "reason": "web 面板本体刻意无壳:卡片圆角由消费页外包,现读 `git grep -n \"rounded-lg\" HEAD:\"apps/web/app/(main)/agents/[id]/PageClient.tsx\"` 命中 :375(=8,与小程序根容器 :28 ui-card rounded-lg 同档),而组件文件自身 rounded 计数 小程序 1 / web 0 ⇒ 差的是档值住在哪个文件,不是取值分叉。禁止为凑集合给 web 组件根补圆角(会和消费页壳叠两层)。",
       "until": "2027-03-30"
     },
-    "Avatar": {
-      "reason": "8 只来自小程序独有的 square 分支(现读 HEAD:apps/miniapp-taro/src/components/Avatar.tsx:31 `shape === \"circle\" ? rounded-md : rounded-lg`);web 侧按其头注刻意无此分支(统一 rounded-md),circle 分支两端同为 md(6)。改任何一端都是替对方删形态。",
-      "until": "2027-03-30"
-    },
-    "ConfirmDialog": {
-      "reason": "读数来自尺子没跟到的那一层:web 侧两档住在被 import 的包文件里 —— 现读 `git grep -n \"rounded-xl\" HEAD:packages/ui-react/src/components/dialog.tsx` 命中 :89(=12)、`git grep -n \"rounded-sm\" HEAD:packages/ui-react/src/components/button.tsx` 命中 :30(=4),与小程序 :35 rnRadiusFor.panel(=12)/:49,:57 rounded-sm(=4) 逐值同 ⇒ 真实差集为空。正解是 web 腿跟一跳包 import(扩取材后本族读数应自己归零),不得为凑集合给 web 组件文件补数字。",
-      "until": "2027-03-30"
-    },
-    "CountdownTimer": {
-      "reason": "小程序渲染 chip 容器(现读 HEAD:.../CountdownTimer.tsx:50 rounded-md,与 RADIUS_ROLES chip→md 同档),web 端同组件渲染裸文本(HEAD:apps/web/src/components/publish/CountdownTimer.tsx 代码面 rounded 计数 0,无 bg/无内边距)⇒ 差的是\"有没有这层元素\",不是同元素取不同档;要不要给 web 补 chip 壳属全端观感决策,不归本门。",
-      "until": "2027-03-30"
-    },
     "EmptyState": {
       "reason": "web 空态是聊天流专属三层件(logo + 标题 + 模板 chips;现读 HEAD:apps/web/src/components/chat/message-list/EmptyState.tsx:47 56px logo rounded-xl,唯一消费点 MessageList.tsx:31),小程序同名件是通用一行文字空态、结构上没有 logo 层 ⇒ 单侧多元素,非档位分叉。",
       "until": "2027-03-30"
@@ -160,21 +145,11 @@
       "until": "2027-03-30"
     }
   },
-  "ledgerVersion": "2026-09-27 票⑭:配对源纳入 packages/app/src/features/**,同侧多候选按\"平台后缀 > 出口指向 > 目录序\"选腿(判据 = 包入口/端组件桶的 re-export 链按名解到的那一份,不是猜),进审候选在 --json 与人读报告双面点名",
+  "ledgerVersion": "2026-10-08 票G-978049③:守门128 web腿加装端入口可达性剔除(双侧判据+逐条点名+可选端挂起语义);僵尸对 Avatar/ConfirmDialog/CountdownTimer(小程序侧文件已死、web活)的 webRadiusCounts 锚点与 webWaivers 豁免随之手编清除;Loading/VoiceInput 两条 web 腿拆对声明撤除改由机制接管。上一版:2026-09-27 票⑭:配对源纳入 packages/app/src/features/**,同侧多候选按\"平台后缀 > 出口指向 > 目录序\"选腿(判据 = 包入口/端组件桶的 re-export 链按名解到的那一份,不是猜),进审候选在 --json 与人读报告双面点名",
   "pairingRejects": {
     "FloatBox": {
       "reason": "同名不同物:小程序端是右下角悬浮功能盒(赚米/客服/反馈三按钮,right 20rpx、收起推到 -240rpx),RN 端是顶部悬浮消息提示 toast(TOP_OFFSET 居中、duration 3000ms、4 种 type、多实例由 Toast Portal 堆叠)—— 两端头注逐字读自 HEAD,不是同一个界面元素",
       "until": "2027-03-27"
-    },
-    "Loading": {
-      "reason": "仅拆 web 腿:小程序这份 apps/miniapp-taro/src/components/Loading.tsx 在 HEAD 面零 import 方,主腿已按\"端入口不可达\"自报剔除(现读 `node scripts/check-cross-end-ui-parity.mjs` 首行 ⊘ Loading);web 腿尚未接可达性剔除 ⇒ 配的是死副本,端上不渲染,红与绿都不算数。正解是给 web 腿补端入口剔除,不是给死副本写豁免。",
-      "until": "2027-03-30",
-      "legs": ["web"]
-    },
-    "VoiceInput": {
-      "reason": "仅拆 web 腿:两侧同名件都是零消费者副本(小程序侧主腿已 ⊘ VoiceInput;web 被配的 ai/voice-input.tsx 全仓无 import 方,现役语音 UI 在 chat/voice-toolbar.tsx,与 VoiceInput 不同名 ⇒ 按名配不到)。现读 `git grep -n \"VoiceInput\" HEAD -- apps packages` 除自身与注释外仅命中 chat/voice-toolbar.tsx 引的另一份。",
-      "until": "2027-03-30",
-      "legs": ["web"]
     }
   },
   "aliases": {
