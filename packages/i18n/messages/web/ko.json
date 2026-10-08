@@ -5918,7 +5918,9 @@
       "refresh": "새로 고침",
       "loadFailed": "불러오기 실패",
       "installerHint": "GitHub 측 작업자 id(플랫폼 사용자 아님)"
-    }
+    },
+    "smsReceive": "SMS 인증번호",
+    "sms": "SMS 템플릿"
   },
   "connectors": {
     "title": "중국 커넥터",
@@ -19215,7 +19217,9 @@
     "home": "홈",
     "settings": "설정",
     "adminDeployDiagnosis": "배포 진단",
-    "githubApp": "GitHub App"
+    "githubApp": "GitHub App",
+    "smsReceive": "SMS 인증번호",
+    "sms": "SMS 템플릿"
   },
   "news": {
     "allCategories": "All categories",

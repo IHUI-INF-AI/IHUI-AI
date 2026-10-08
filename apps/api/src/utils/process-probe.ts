@@ -8,7 +8,9 @@
  *
  * 本模块是「红线协议」的可测落点,不是真探针:exec 与 /proc 读取全部可注入,
  * 单测不真跑系统进程。红线(与上游逐字同判据):
- * - 外部进程白名单只有 `ps`、`tasklist` 与 `powershell`(win32 CIM 全表取径),每次采样最多一次调用;
+ * - 外部进程白名单只有 `ps`、`tasklist`、`powershell` 与 `pwsh`(win32 CIM 全表取径),定型后每
+ *   次采样最多一次调用;定型样本(实例首个采样)在候选 spawn 即时失败(WDAC/策略报 EPERM、
+ *   未装 PS7 报 ENOENT)时可在同一预算内回退下一候选(至多两次派生),超时/非零退出不回退;
  * - Linux 一律读 `/proc`,不启动任何进程;
  * - 每次采样 1 秒硬超时,超时或失败一律视为「本次无样本」,不重试、不排队;
  * - 连续 3 次失败后本实例停用,直到调用方显式 reset()(上报窗口切换时调用);
@@ -27,9 +29,9 @@ export const PROC_READ_BATCH_SIZE = 64
 
 /**
  * 外部进程白名单(性能红线:白名单外命令一律拒绝,不 spawn)。
- * powershell 供 win32 的 CIM 全表取径——白名单与取径同笔扩(b76-09a 票2),两处口径不得分叉。
+ * powershell/pwsh 供 win32 的 CIM 全表取径——白名单与取径同笔扩(b76-09a 票2),两处口径不得分叉。
  */
-export const PROBE_EXTERNAL_COMMANDS: readonly string[] = ['ps', 'tasklist', 'powershell']
+export const PROBE_EXTERNAL_COMMANDS: readonly string[] = ['ps', 'tasklist', 'powershell', 'pwsh']
 
 export function isProbeCommandAllowed(command: string): boolean {
   return PROBE_EXTERNAL_COMMANDS.includes(command)
@@ -44,7 +46,7 @@ const defaultProbeExecFile: ProbeExecFile = (file, args) =>
       // AGENTS §5b:派生子进程一律 windowsHide;shell:false。兜底超时只防僵尸泄漏,
       // 红线级 1s 弃样本由调用方 raceProbeTimeout 收口。
       // stdin 一律 ignore(本仓 EBUSY 实证根治范式:不消费 stdin 的派生不给 stdin 管道;
-      // ps/tasklist/powershell -NonInteractive 均不读 stdin)。
+      // ps/tasklist/powershell/pwsh -NonInteractive 均不读 stdin)。
       timeout: 15_000,
       shell: false,
       windowsHide: true,
@@ -117,7 +119,7 @@ export interface ProcessProbe {
   sampleProcessTrees(
     rootPids: readonly number[],
   ): Promise<ReadonlyMap<number, readonly ProcessProbeSample[]> | undefined>
-  /** 白名单外部命令采样(ps/tasklist/powershell);白名单外命令拒绝并计一次失败。 */
+  /** 白名单外部命令采样(ps/tasklist/powershell/pwsh);白名单外命令拒绝并计一次失败。 */
   sampleExternalCommand(command: string, args: readonly string[]): Promise<string | undefined>
   /** 上报窗口切换时清零连续失败计数,让被停用的探针重新可用。 */
   reset(): void
@@ -227,8 +229,13 @@ function buildProcessTrees<T extends { pid: number; parentPid: number }>(
   return result
 }
 
-/** win32 CIM 外部命令(白名单内,与 PROBE_EXTERNAL_COMMANDS 同笔扩)。 */
-const WIN_CIM_EXTERNAL_COMMAND = 'powershell'
+/**
+ * win32 CIM 外部命令偏好序(候选均在白名单内,与 PROBE_EXTERNAL_COMMANDS 同笔扩)。
+ * pwsh(PS7)优先:部分 Windows 主机的 WDAC/应用控制策略拦截 node 派生的 powershell.exe(5.1)
+ * 而放行 PS7(本仓开发机实证:node spawnSync powershell.exe → EPERM,pwsh.exe → 退出码 0);
+ * powershell 兜底覆盖未安装 PS7 的常规镜像(spawn pwsh → ENOENT 即时失败,同采样内回退)。
+ */
+const WIN_CIM_COMMAND_PREFERENCE: readonly string[] = ['pwsh', 'powershell']
 
 /** .NET DateTime ticks(100ns)→ Unix epoch 的差值:0001-01-01T00:00:00Z = 621355968000000000 ticks。 */
 const CIM_EPOCH_TICKS = BigInt('621355968000000000')
@@ -288,6 +295,8 @@ export function createProcessProbe(options: ProcessProbeOptions = {}): ProcessPr
   const readProcFile = options.readProcFile ?? ((path: string) => readFile(path, 'utf8'))
   const execFile = options.execFile ?? defaultProbeExecFile
   let consecutiveFailures = 0
+  /** win32 CIM 取径的定型命令(实例内缓存:定型后每样本仍至多一次派生,不再试错)。 */
+  let cimCommand: string | undefined
 
   const reportFailure = (reason: string): undefined => {
     consecutiveFailures += 1
@@ -332,15 +341,46 @@ export function createProcessProbe(options: ProcessProbeOptions = {}): ProcessPr
       if (roots.length === 0) return new Map()
       if (platform === 'win32') {
         // Windows 11 24H2 及部分 Win10 镜像不再提供 WMIC;Windows 10+ 统一使用 PowerShell/CIM。
-        // 红线同承:每次采样最多一次外部派生(powershell 全表),超时即弃样本,失败预算由
-        // sampleExternalCommand 内的 sampleWithinBudget 统一收口。
-        const stdout = await this.sampleExternalCommand(WIN_CIM_EXTERNAL_COMMAND, [
+        // 红线同承:定型后每次采样最多一次外部派生,超时即弃样本,失败预算由 sampleWithinBudget
+        // 统一收口。定型样本(实例首个采样)按偏好序试错:仅当候选 spawn 即时失败(WDAC 拦截
+        // powershell.exe 报 EPERM、未装 PS7 报 ENOENT)才在同一预算内回退下一候选;
+        // 超时/非零退出/超缓冲一律不回退(红线:1s 硬超时,外层 race 对整段链生效)。
+        const cimArgs = [
           '-NoProfile',
           '-NonInteractive',
           '-Command',
           WIN_CIM_PROCESS_LIST_SCRIPT,
-        ])
+        ] as const
+        if (cimCommand !== undefined) {
+          const stdout = await this.sampleExternalCommand(cimCommand, cimArgs)
+          if (stdout === undefined) return undefined
+          return buildProcessTrees(parseCimProcessList(stdout), roots)
+        }
+        let chosen: string | undefined
+        const stdout = await sampleWithinBudget(async () => {
+          for (const command of WIN_CIM_COMMAND_PREFERENCE) {
+            if (!isProbeCommandAllowed(command)) {
+              throw new ProcessProbeFailure(
+                `win32 CIM 命令 ${command} 不在白名单 ${PROBE_EXTERNAL_COMMANDS.join('/')}`,
+              )
+            }
+            try {
+              const output = await execFile(command, cimArgs)
+              chosen = command
+              return output
+            } catch (error) {
+              const code =
+                error instanceof Error ? (error as NodeJS.ErrnoException).code : undefined
+              if (code === 'EPERM' || code === 'ENOENT' || code === 'EACCES') continue
+              throw error
+            }
+          }
+          throw new ProcessProbeFailure(
+            `win32 CIM 取径全部不可用(${WIN_CIM_COMMAND_PREFERENCE.join('/')})`,
+          )
+        })
         if (stdout === undefined) return undefined
+        if (chosen !== undefined) cimCommand = chosen
         return buildProcessTrees(parseCimProcessList(stdout), roots)
       }
       if (platform !== 'linux') {
