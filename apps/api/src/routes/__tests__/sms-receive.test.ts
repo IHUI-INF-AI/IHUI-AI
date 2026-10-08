@@ -35,6 +35,7 @@ vi.mock('jose', () => ({ decodeJwt: vi.fn(() => ({ type: 'access' })) }))
 vi.mock('../../db/sms-receive-queries.js', () => ({
   recordSmsReceived: vi.fn().mockResolvedValue(undefined),
   getPhoneHistory: vi.fn().mockResolvedValue([]),
+  getPhoneHistoryCount: vi.fn().mockResolvedValue(0),
 }))
 
 import smsReceiveRoutes from '../admin/sms-receive.js'
@@ -83,7 +84,10 @@ describe('Admin SMS Receive — d1jiema 对接', () => {
     mockConfig.D1JIEMA_ACCT = 'test-acct'
     mockConfig.D1JIEMA_PASSWORD = 'test-pwd'
     // 默认兜底 stub:防止个别用例漏 stub 时真实请求打到 d1jiema 平台
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('ERROR:no-mock', { status: 200 })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('ERROR:no-mock', { status: 200 })),
+    )
   })
 
   it('无 auth 返回 401', async () => {
@@ -162,11 +166,16 @@ describe('Admin SMS Receive — d1jiema 对接', () => {
 
   it('phone 连续 5 次脱敏号返回 502(防死循环烧号)', async () => {
     mockFetchText([
-      '165****7249', '释放成功',
-      '165****7249', '释放成功',
-      '165****7249', '释放成功',
-      '165****7249', '释放成功',
-      '165****7249', '释放成功',
+      '165****7249',
+      '释放成功',
+      '165****7249',
+      '释放成功',
+      '165****7249',
+      '释放成功',
+      '165****7249',
+      '释放成功',
+      '165****7249',
+      '释放成功',
     ])
     const res = await app.inject({
       method: 'POST',
