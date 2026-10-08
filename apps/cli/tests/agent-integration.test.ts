@@ -13,6 +13,7 @@
  *   5. 不传 planMachine → 行为不变(向后兼容,现有测试通过)
  */
 import { describe, expect, it, beforeEach, vi } from 'vitest'
+import type * as ApiClient from '@ihui/api-client'
 import {
   registerTools,
   clearTools,
@@ -41,7 +42,7 @@ const { streamChatMock } = vi.hoisted(() => ({
 // "No 'getModelContextCapacity' export is defined on the mock",即 runToolLoop 每多依赖
 // api-client 的一个出口,本文件就得跟着改一次;而 CI 在 1e01edab7c 上正是这样红的。
 vi.mock('@ihui/api-client', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@ihui/api-client')>()
+  const actual = await importOriginal<typeof ApiClient>()
   return {
     ...actual,
     streamChat: streamChatMock,
