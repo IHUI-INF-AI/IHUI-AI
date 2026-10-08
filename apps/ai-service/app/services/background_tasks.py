@@ -33,6 +33,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import threading
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -40,6 +41,11 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, Final
 
+from .branch_generation import (
+    capture_branch_generation,
+    is_branch_generation_current,
+    record_superseded_branch_result,
+)
 from .message_bus import ChannelType, Message, message_bus
 from .task_executors import (
     IMPLEMENTED_TASK_TYPES,
@@ -99,6 +105,10 @@ _TERMINAL_STATES: Final[frozenset[TaskState]] = frozenset(
     {TaskState.SUCCEEDED, TaskState.FAILED, TaskState.TIMEOUT, TaskState.CANCELLED}
 )
 
+# G-815973:终态名额互斥锁。临界区内无 await;锁只服务"真实线程侧 cancel()"的
+# 串行化(与 agent_loop_v2._approval_settle_lock 同形,事件循环内本可省)。
+_TERMINAL_CLAIM_LOCK = threading.Lock()
+
 
 def _now() -> datetime:
     """当前 UTC 时间(带时区,用于 started_at/finished_at)。"""
@@ -142,6 +152,31 @@ class TaskRecord:
     # 传输层注入缝(测试/离线部署用):只替换 socket 那一层,executor 判据不复制。
     llm_call: LlmCall | None = field(default=None, repr=False)
     http_get: HttpGetter | None = field(default=None, repr=False)
+    # G-815973:终态名额(first-writer-wins)。并发原语,不是业务字段 —— 与
+    # agent_loop_v2._ApprovalEntry._settlement_claimed 同律:不参与相等性比较、不进 repr。
+    _terminal_claimed: bool = field(default=False, repr=False, compare=False)
+    # G-815974:任务入队时按所属会话 capture 的分支代际令牌(session 为 None 则不盖章)。
+    # 复校一律以 branch_generation 注册表当前值为准,本字段只是令牌携带面;
+    # 与终态名额同律:不参与相等性比较、不进 repr、不进 to_dict。
+    branch_generation_token: int | None = field(default=None, repr=False, compare=False)
+
+    def claim_terminal(self, state: TaskState) -> bool:
+        """取走本记录的**唯一**终态名额:第一次 True(同时把 state 落为该值),此后一律 False。
+
+        G-815973(first-writer-wins 闩锁,照 agent_loop_v2.claim_settlement 的形状):
+        `_run` 的成功/超时/取消/异常四条出口与 `cancel()` 全部改经此处落终态 ——
+        谁先拿到名额谁写终态,后到者不再变更。修的病:成功分支此前无条件写
+        SUCCEEDED(仅取消分支单侧护栏),通知 await 期间 cancel() 到达会把状态
+        改写成 CANCELLED 并 handle.cancel(),成功通知被掐断或事后被"已取消"反悔。
+        临界区内只有"读标志→置标志→写状态"且无 await/可让出点 ⇒ 单事件循环内
+        不可能双写;真实线程侧由 `_TERMINAL_CLAIM_LOCK` 串行化。
+        """
+        with _TERMINAL_CLAIM_LOCK:
+            if self._terminal_claimed:
+                return False
+            self._terminal_claimed = True
+            self.state = state
+            return True
 
     def to_dict(self) -> dict[str, Any]:
         """序列化为可 JSON 化的状态字典。"""
@@ -252,6 +287,9 @@ class BackgroundTaskManager:
             timeout_s=timeout_s,
         )
         self._tasks[task_id] = record
+        # G-815974:任务入队即按所属会话盖章(分支代际令牌),供完成时复校。
+        if record.session_id:
+            record.branch_generation_token = capture_branch_generation(record.session_id)
         # 立即建任务,不 await 完成 —— 这是「后台」语义的核心
         handle = asyncio.create_task(self._run(task_id, coro_factory))
         self._handles[task_id] = handle
@@ -277,21 +315,24 @@ class BackgroundTaskManager:
             coro = coro_factory()
             result = await asyncio.wait_for(coro, timeout=record.timeout_s)
             record.result = self._summarize(result)
-            record.state = TaskState.SUCCEEDED
+            # G-815973:终态名额先到先得。此处与 await 返回之间无让出点,
+            # 正常完成必然 claim 成功(行为逐字不变);claim 失败仅可能来自
+            # 未来新增的并发入口,届时以先到终态为准。
+            record.claim_terminal(TaskState.SUCCEEDED)
         except TimeoutError:
-            record.state = TaskState.TIMEOUT
+            record.claim_terminal(TaskState.TIMEOUT)
             logger.warning(
                 "[BackgroundTask] 超时 task_id=%s timeout_s=%s", task_id, record.timeout_s
             )
         except asyncio.CancelledError:
-            # 任务被取消:cancel() 已把状态写成 CANCELLED;其余情况(进程关闭)
-            # 保留原状态不写终态,允许安静退出。
-            if record.state is not TaskState.CANCELLED:
-                record.state = TaskState.CANCELLED
-                record.error = record.error or "任务被取消"
+            # 任务被取消:cancel() 已先经 claim_terminal 落 CANCELLED(G-815973),
+            # 此处 claim 只是进程关闭等"无人 claim 的取消"的兜底;claim 失败 ⇒
+            # 终态已被先写,不再变更(执行侧自己跳过,防二次改写)。
+            record.claim_terminal(TaskState.CANCELLED)
+            record.error = record.error or "任务被取消"
             raise
         except Exception as e:  # noqa: BLE001 — 必须兜底,否则后台任务异常会污染事件循环
-            record.state = TaskState.FAILED
+            record.claim_terminal(TaskState.FAILED)
             record.error = _truncate(str(e), _ERROR_TRUNCATE)
             logger.warning("[BackgroundTask] 执行异常 task_id=%s error=%s", task_id, record.error)
         finally:
@@ -303,6 +344,9 @@ class BackgroundTaskManager:
             if (
                 record.state in _TERMINAL_STATES
                 and record.notify_on_done
+                # G-815974 复校点①:结果落地(寄通知)前查分支代数当前值 ——
+                # 任务在飞期间会话被恢复/fork ⇒ 旧令牌过期,不寄通知、不写历史。
+                and not self._result_superseded(record)
             ):
                 await self._notify(record)
 
@@ -321,8 +365,44 @@ class BackgroundTaskManager:
     # 完成通知(经 message_bus 的 IM 通道)
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _result_superseded(record: TaskRecord) -> bool:
+        """G-815974:任务结果是否已被分支栅栏作废(命中即留可诊断日志并返回 True)。
+
+        对齐上游纪律"查注册表**当前值**,不信任务自带的那份":branch_generation_token
+        只是入队时 capture 的令牌,判定一律以 branch_generation 注册表当前值为准。
+        无 session(未盖章)的任务恒为 False —— 栅栏对既有行为零影响。
+        """
+        if (
+            record.session_id
+            and record.branch_generation_token is not None
+            and not is_branch_generation_current(
+                record.session_id, record.branch_generation_token
+            )
+        ):
+            logger.warning(
+                "%s",
+                record_superseded_branch_result(
+                    record.session_id,
+                    record.branch_generation_token,
+                    detail={
+                        "taskId": record.task_id,
+                        "taskName": record.name,
+                        "state": record.state.value,
+                    },
+                ),
+            )
+            return True
+        return False
+
     async def _notify(self, record: TaskRecord) -> None:
         """经 message_bus 的 IM 通道推送完成通知;失败仅降级 log,不抛异常。"""
+        # G-815974 复校点②:通知构建到 publish 之间存在 await 缝(异步投影/投递),
+        # 寄出前再查一次注册表当前值 —— 两点之间代数可能又被 bump。本仓后台任务
+        # 结果无独立的会话历史回灌路径,此栅栏即同时闩死"通知寄出"与"结果落任何
+        # 下游"两类消费;若未来新增历史回灌路径,必须同样先过 _result_superseded。
+        if self._result_superseded(record):
+            return
         if not record.user_id:
             return
         try:
@@ -431,6 +511,10 @@ class BackgroundTaskManager:
         cancel_event: asyncio.Event,
     ) -> dict[str, Any]:
         """在**无 await** 的临界区内建任务并登记 —— 幂等去重的前提。"""
+        # G-815974:typed 提交与 resume 续跑统一在此盖章 —— 续跑重盖即取当前代,
+        # 旧令牌随之作废,续跑结果按新代复校(不会被上一轮的陈旧代数误杀)。
+        if record.session_id:
+            record.branch_generation_token = capture_branch_generation(record.session_id)
         handle = asyncio.create_task(self._run(record.task_id, self._typed_factory(record, cancel_event)))
         self._handles[record.task_id] = handle
         handle.add_done_callback(lambda _t: self._handles.pop(record.task_id, None))
@@ -504,6 +588,9 @@ class BackgroundTaskManager:
                 if existing.state in _RESUMABLE_STATES:
                     existing.attempt_count += 1
                     existing.state = TaskState.PENDING
+                    # G-815973:复用同一记录续跑 ⇒ 终态名额一并复位,
+                    # 否则本轮跑完 claim 不到名额,任务永远落不了新终态。
+                    existing._terminal_claimed = False
                     existing.error = None
                     existing.finished_at = None
                     existing.started_at = None
@@ -583,6 +670,8 @@ class BackgroundTaskManager:
             }
         record.attempt_count += 1
         record.state = TaskState.PENDING
+        # G-815973:同 submit_typed 续跑分支 —— 终态名额复位。
+        record._terminal_claimed = False
         record.error = None
         record.started_at = None
         record.finished_at = None
@@ -594,15 +683,26 @@ class BackgroundTaskManager:
         return ack
 
     async def cancel(self, task_id: str) -> dict[str, Any]:
-        """取消:置协作信号 → kill 子进程 → cancel asyncio 任务。已落 checkpoint 不丢。"""
+        """取消:先取终态名额 → 置协作信号 → kill 子进程 → cancel asyncio 任务。
+
+        G-815973:终态名额先到先得 —— 已落终态(含成功且通知寄完)的任务上打
+        cancel() 回"不再变更",不再改写状态、不再 cancel 句柄(防"成功通知
+        已寄出后又补一条已取消"或通知被掐断双向吞没)。已落 checkpoint 不丢。
+        """
         record = self._tasks.get(task_id)
         if record is None:
             return {"ok": False, "error": f"任务不存在: {task_id}"}
+        if not record.claim_terminal(TaskState.CANCELLED):
+            return {
+                "ok": False,
+                "task_id": task_id,
+                "state": record.state.value,
+                "message": "任务已落终态,不再变更",
+            }
         ev = self._cancel_events.get(task_id)
         if ev is not None:
             ev.set()
         killed = kill_processes_for(task_id)
-        record.state = TaskState.CANCELLED
         record.error = record.error or "任务被取消"
         handle = self._handles.get(task_id)
         if handle is not None and not handle.done():
