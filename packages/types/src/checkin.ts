@@ -9,7 +9,8 @@
  * 的行序列化形态(snake_case,裸 JSON 直返,无 {code,data} 包装)。
  *
  * 脱敏纪律:CheckinAccount 绝不含 jwt / jwt_enc 字段 —— 后端 _account_row 只出脱敏
- * dict,本类型是它的镜像;jwt 只在录入请求(CreateCheckinAccountIn)里出现一次。
+ * dict,本类型是它的镜像;jwt 本体只在录入请求(CreateCheckinAccountIn)与更新请求
+ * (UpdateCheckinAccountJwtIn)里出现,对外仅暴露解析出的到期时间 jwt_exp。
  */
 
 /** 账号最近一次签到记录摘要(list_accounts LEFT JOIN 聚合,无记录时为 null) */
@@ -26,10 +27,16 @@ export interface CheckinLastRecordSummary {
 export interface CheckinAccount {
   id: number
   name: string
+  /** 账号分组(Phase1d;空串 = 未分组) */
+  group: string
   /** 设备指纹 map(引擎可原位补齐缺失标识) */
   device_map: Record<string, unknown>
   /** 停用后每日调度跳过,手动签到仍可用 */
   enabled: boolean
+  /** JWT 到期时间,ISO 8601 或 null(后端从 jwt 解析,仅到期时间不含凭证本体) */
+  jwt_exp: string | null
+  /** 冷却截止时间,ISO 8601 或 null(未来时间表示处于签到冷却) */
+  cooldown_until: string | null
   /** ISO 8601 字符串或 null */
   created_at: string | null
   /** ISO 8601 字符串或 null */
@@ -78,11 +85,23 @@ export interface CreateCheckinAccountIn {
   jwt: string
   /** 可选设备指纹(缺省空对象,引擎会原位补齐) */
   device_map?: Record<string, unknown>
+  /** 可选分组(Phase1d;缺省空串 = 未分组) */
+  group?: string
 }
 
 /** PATCH /accounts/{id}/enabled 请求体 */
 export interface SetCheckinAccountEnabledIn {
   enabled: boolean
+}
+
+/** PATCH /accounts/{id}/jwt 请求体(重录凭证,jwt 加密落库) */
+export interface UpdateCheckinAccountJwtIn {
+  jwt: string
+}
+
+/** PATCH /accounts/{id}/group 请求体(Phase1d;空串 = 移出分组) */
+export interface UpdateCheckinAccountGroupIn {
+  group: string
 }
 
 // ===================== 响应类型 =====================
@@ -107,6 +126,31 @@ export interface CheckinSetEnabledResponse {
   ok: boolean
   id: number
   enabled: boolean
+}
+
+/** PATCH /accounts/{id}/jwt 响应 */
+export interface CheckinJwtUpdateResponse {
+  ok: boolean
+  id: number
+  /** 更新后解析出的 JWT 到期时间,ISO 8601 或 null */
+  jwt_exp: string | null
+}
+
+/** PATCH /accounts/{id}/group 响应(Phase1d) */
+export interface CheckinGroupUpdateResponse {
+  ok: boolean
+  id: number
+  group: string
+}
+
+/** GET /scheduler/status 响应 */
+export interface CheckinSchedulerStatusResponse {
+  /** 调度总开关 */
+  enabled: boolean
+  /** 调度循环是否已启动 */
+  started: boolean
+  /** 下次执行时间,ISO 8601 或 null */
+  next_run: string | null
 }
 
 /** POST /accounts/{id}/checkin 响应(本次签到记录) */

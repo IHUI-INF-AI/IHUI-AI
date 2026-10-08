@@ -18867,7 +18867,22 @@
     "retry": "재시도",
     "submit": "제출",
     "submitting": "제출 중…",
-    "totalCreditsDelta": "합계 +{delta} 포인트"
+    "totalCreditsDelta": "합계 +{delta} 포인트",
+    "boardEmpty": "적립 데이터가 없습니다. 첫 출석 후 대시보드가 생성됩니다",
+    "boardRankingTitle": "포인트 랭킹",
+    "boardTab": "포인트 대시보드",
+    "boardTodayGain": "오늘 추가 +{delta}",
+    "checkinAllProgress": "출석 중 {done}/{total}",
+    "colGroup": "그룹",
+    "editGroup": "그룹 설정",
+    "editGroupDescription": "그룹 이름을 입력하면 일괄 관리와 필터링에 도움이 됩니다. 비우면 그룹에서 제외됩니다",
+    "editGroupTitle": "그룹 설정",
+    "filterGroupAll": "전체 그룹",
+    "groupLabel": "그룹(선택)",
+    "groupPlaceholder": "예: 메인 / 예비",
+    "groupUpdated": "그룹이 업데이트되었습니다",
+    "groupUngrouped": "그룹 없음",
+    "skippedToday": "오늘 이미 출석한 {count}개 계정을 건너뛰었습니다"
   },
   "nav": {
     "checkin": "출석",

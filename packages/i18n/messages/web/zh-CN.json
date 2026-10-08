@@ -18867,7 +18867,22 @@
     "retry": "重试",
     "submit": "提交",
     "submitting": "提交中…",
-    "totalCreditsDelta": "本次合计 +{delta} 积分"
+    "totalCreditsDelta": "本次合计 +{delta} 积分",
+    "boardEmpty": "暂无积分数据，完成首次签到后生成看板",
+    "boardRankingTitle": "积分排行",
+    "boardTab": "积分看板",
+    "boardTodayGain": "今日新增 +{delta}",
+    "checkinAllProgress": "签到中 {done}/{total}",
+    "colGroup": "分组",
+    "editGroup": "设置分组",
+    "editGroupDescription": "输入分组名便于批量管理与筛选;留空则移出分组",
+    "editGroupTitle": "设置分组",
+    "filterGroupAll": "全部分组",
+    "groupLabel": "分组(可选)",
+    "groupPlaceholder": "如:主力 / 备用",
+    "groupUpdated": "分组已更新",
+    "groupUngrouped": "未分组",
+    "skippedToday": "已跳过 {count} 个今日已签账号"
   },
   "nav": {
     "checkin": "签到助手",
