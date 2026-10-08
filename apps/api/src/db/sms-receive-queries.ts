@@ -8,7 +8,7 @@
  * "这个号接过哪些平台的码/是否已注册过"(register=新号,login=已注册过)。
  */
 
-import { desc, eq } from 'drizzle-orm'
+import { count, desc, eq } from 'drizzle-orm'
 import { db } from './index.js'
 import { smsReceiveHistory, type SmsReceiveHistory } from '@ihui/database'
 
@@ -45,5 +45,14 @@ export async function getPhoneHistory(phone: string, limit = 20): Promise<SmsRec
     .where(eq(smsReceiveHistory.phone, phone))
     .orderBy(desc(smsReceiveHistory.receivedAt))
     .limit(Math.min(Math.max(limit, 1), 100))
+}
+
+/** 查某号码的本地台账全量条数(不受最近 N 条截断,用于「本机累计使用 K 次」) */
+export async function getPhoneHistoryCount(phone: string): Promise<number> {
+  const rows = await db
+    .select({ n: count() })
+    .from(smsReceiveHistory)
+    .where(eq(smsReceiveHistory.phone, phone))
+  return rows[0]?.n ?? 0
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
