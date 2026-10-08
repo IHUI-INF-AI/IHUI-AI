@@ -24,11 +24,17 @@ const { streamChatMock } = vi.hoisted(() => ({
   streamChatMock: vi.fn<StreamChatFn>(),
 }))
 
-vi.mock('@ihui/api-client', () => ({
-  streamChat: streamChatMock,
-  setBaseUrl: vi.fn(),
-  setTokenProvider: vi.fn(),
-}))
+import type * as ApiClient from '@ihui/api-client'
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  // 部分 mock:保留本文件自己列出的桩(真发网络/真写盘的那几个),其余导出走真实实现。
+  const actual = await importOriginal<typeof ApiClient>()
+  return {
+    ...actual,
+    streamChat: streamChatMock,
+    setBaseUrl: vi.fn(),
+    setTokenProvider: vi.fn(),
+  }
+})
 
 vi.mock('../src/audit.js', () => ({
   auditLog: vi.fn(),

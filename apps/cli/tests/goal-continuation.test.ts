@@ -26,21 +26,27 @@ type StreamChatFn = (opts: StreamChatOpts) => Promise<void>;
 
 const { streamChatMock } = vi.hoisted(() => ({ streamChatMock: vi.fn<StreamChatFn>() }));
 
-vi.mock('@ihui/api-client', () => ({
-  streamChat: streamChatMock,
-  setBaseUrl: vi.fn(),
-  setTokenProvider: vi.fn(),
-  // goal-verification.ts 的缺省出口;本套用例一律走 requestGoalVerification 注入,
-  // 但模块求值要求这个名字存在 —— 缺了它,装车证明就跑不起来而不是少测一条。
-  fetchAiServiceJson: vi.fn(),
-  formatSSEError: (err: unknown) => ({
-    severity: 'unknown' as const,
-    title: 'error',
-    message: err instanceof Error ? err.message : String(err),
-    rawMessage: err instanceof Error ? err.message : String(err),
-    requireReauth: false,
-  }),
-}));
+import type * as ApiClient from '@ihui/api-client'
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  // 部分 mock:保留本文件自己列出的桩(真发网络/真写盘的那几个),其余导出走真实实现。
+  const actual = await importOriginal<typeof ApiClient>()
+  return {
+    ...actual,
+    streamChat: streamChatMock,
+    setBaseUrl: vi.fn(),
+    setTokenProvider: vi.fn(),
+    // goal-verification.ts 的缺省出口;本套用例一律走 requestGoalVerification 注入,
+    // 但模块求值要求这个名字存在 —— 缺了它,装车证明就跑不起来而不是少测一条。
+    fetchAiServiceJson: vi.fn(),
+    formatSSEError: (err: unknown) => ({
+      severity: 'unknown' as const,
+      title: 'error',
+      message: err instanceof Error ? err.message : String(err),
+      rawMessage: err instanceof Error ? err.message : String(err),
+      requireReauth: false,
+    }),
+  }
+});
 
 vi.mock('../src/audit.js', () => ({ auditLog: vi.fn() }));
 
