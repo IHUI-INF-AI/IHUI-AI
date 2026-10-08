@@ -18,6 +18,8 @@
  *
  * 可注入:deps.inspect / deps.runKill / deps.isAlive,测试成对钉死判据时不派生任何真实进程。
  * Windows 上没有 ps:经 `Get-CimInstance Win32_Process -Filter "ProcessId=<pid>"` 取身份;
+ * 探针命令 pwsh(PS7)优先、powershell.exe 绝对路径兜底 —— WDAC/应用控制策略主机拦截
+ * node 派生的 powershell.exe(5.1)报 EPERM(本仓开发机实证),见 winProbeCommandCandidates;
  * 派生一律 windowsHide + timeout(AGENTS §5b / 守门 52、80)。
  *
  * G-998132(2026-09-30 立项):杀完的终态按 OS 事实判 —— 命令派发成功 ≠ killed:true。
@@ -28,7 +30,8 @@
  * 终局一律以 OS 存活复核结算。存活复核口异常 ⇒ 保守按"仍在"处理,不装成功。
  */
 import { execFile } from 'node:child_process'
-import { readFileSync, readlinkSync } from 'node:fs'
+import { existsSync, readFileSync, readlinkSync } from 'node:fs'
+import { join } from 'node:path'
 import { platform } from 'node:os'
 
 export interface ProcIdentitySnapshot {
@@ -184,7 +187,29 @@ export function parseProcProbeOutput(raw: string): ProcIdentitySnapshot | null {
   return seen ? { executablePath, commandLine, creationUtcUs } : null
 }
 
-function runPowerShellProbe(pid: number): Promise<string> {
+/**
+ * win32 CIM 探针命令偏好序(全部绝对路径 —— 本探针参与"杀进程前身份复核"安全链,
+ * PATH 解析可被顶替 ⇒ 身份比对可被伪造,故不落 PATH 短名)。pwsh(PS7)优先:
+ * 部分 Windows 主机的 WDAC/应用控制策略拦截 node 派生的 powershell.exe(5.1)而
+ * 放行 PS7(本仓开发机实证 spawn EPERM;mcp-credentials.ts 的 DPAPI 引擎链同款结论);
+ * powershell.exe 绝对路径兜底覆盖未装 PS7 的常规镜像。存在性预筛 + 仅 spawn 即时
+ * 失败(EPERM/ENOENT/EACCES)回退下一候选;超时/非零退出不回退 —— 探针失败 ⇒
+ * 未判定 ⇒ 不杀(宁可不杀也不误杀),也不放大单 pid 探针时长。
+ */
+function winProbeCommandCandidates(): string[] {
+  const list: string[] = []
+  const localAppData = process.env['LOCALAPPDATA'] ?? ''
+  for (const candidate of [
+    'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
+    localAppData === '' ? '' : join(localAppData, 'Microsoft', 'WindowsApps', 'pwsh.exe'),
+  ]) {
+    if (candidate !== '' && existsSync(candidate)) list.push(candidate)
+  }
+  list.push('C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe')
+  return list
+}
+
+async function runPowerShellProbe(pid: number): Promise<string> {
   // G-998126:补一发 CreationDate.Ticks 归一的微秒串 —— 秒级 StartTime 分辨不了
   // "同一秒内被复用"的进程,tick/微秒量纲才可分辨(机制对标上游 processTreeSnapshot.ts)。
   // .NET Ticks(100ns,自 0001-01-01)减去纪元差后整串留在 PowerShell 侧算,
@@ -197,14 +222,25 @@ function runPowerShellProbe(pid: number): Promise<string> {
     `'IHUI-EP='+[string]$p.ExecutablePath;` +
     `'IHUI-CL='+[string]$p.CommandLine;` +
     `if($null -ne $p.CreationDate){'IHUI-CU=windows-utc-us:'+([long](([long]$p.CreationDate.Ticks - ${NET_TICKS_TO_UNIX})/10))}}`
-  return new Promise((resolvePromise, rejectPromise) => {
-    execFile(
-      'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
-      ['-NoProfile', '-NonInteractive', '-Command', script],
-      { timeout: 15_000, shell: false, windowsHide: true, maxBuffer: 1 << 20 },
-      (err, out) => (err ? rejectPromise(err) : resolvePromise(out)),
-    )
-  })
+  let lastError: unknown = new Error('win32 CIM 探针命令偏好序为空')
+  for (const command of winProbeCommandCandidates()) {
+    try {
+      return await new Promise<string>((resolvePromise, rejectPromise) => {
+        execFile(
+          command,
+          ['-NoProfile', '-NonInteractive', '-Command', script],
+          { timeout: 15_000, shell: false, windowsHide: true, maxBuffer: 1 << 20 },
+          (err, out) => (err ? rejectPromise(err) : resolvePromise(out)),
+        )
+      })
+    } catch (error) {
+      lastError = error
+      const code = error instanceof Error ? (error as NodeJS.ErrnoException).code : undefined
+      if (code === 'EPERM' || code === 'ENOENT' || code === 'EACCES') continue
+      throw error
+    }
+  }
+  throw lastError
 }
 
 /** 默认探针:win32 走 Get-CimInstance;linux 走 /proc;其余平台量不到 ⇒ null(未判定)。 */
@@ -253,7 +289,9 @@ const defaultKillExecutor: KillExecutor = (bin, argv) =>
           err
             ? `${String(err.message)}\n${String(out)}\n${String(errOut)}`
             : String(out || errOut || 'done')
-        ).trim().slice(-1000)
+        )
+          .trim()
+          .slice(-1000)
         // G-998132:err 不再折进输出字符串 —— ok 维必须显式交给结算层
         resolvePromise({ ok: !err, output: text })
       },
