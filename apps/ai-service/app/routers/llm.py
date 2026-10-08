@@ -1335,6 +1335,11 @@ def _collect_citations(tool_calls_history: list[dict[str, Any]]) -> list[dict[st
     seen: set[tuple[str, str]] = set()
     out: list[dict[str, str]] = []
     for tc in tool_calls_history:
+        # 无效记录(字符串/None 等非 dict 条目)直接跳过:同一个入参在
+        # _build_tool_calls_payload 那一侧是被"过滤"掉的,而这里原先会 AttributeError
+        # 把整条回调落库路径崩掉 —— 两处算同一个"什么算有效条目"必须同形。
+        if not isinstance(tc, dict):
+            continue
         if tc.get("toolName") != "knowledge_lookup" or tc.get("isError"):
             continue
         result = tc.get("result")
