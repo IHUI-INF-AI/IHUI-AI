@@ -31,23 +31,25 @@ import {
   releasePhone,
   blockPhone,
   sendSms,
-  queryUsed,
+  queryUsedDetailed,
   getRelatedMsgs,
   extractPlatform,
   extractVerifyCode,
   classifySmsUsage,
 } from '../../services/d1jiema-service.js'
-import { recordSmsReceived, getPhoneHistory } from '../../db/sms-receive-queries.js'
+import { recordSmsReceived, getPhoneHistory, getPhoneHistoryCount } from '../../db/sms-receive-queries.js'
 
 // 平台取号返回的是脱敏号(如 193****6470),回传类端点(message/release/block/phone-history/send)
 // 必须放行 *;发短信的目标号码 toPhone 是真实全号,保持纯数字
-const phoneSchema = z.string().regex(/^[\d*]{5,20}$/, '手机号格式不正确(5-20 位数字,支持平台脱敏号)')
+const phoneSchema = z
+  .string()
+  .regex(/^[\d*]{5,20}$/, '手机号格式不正确(5-20 位数字,支持平台脱敏号)')
 const toPhoneSchema = z.string().regex(/^\d{5,20}$/, '目标手机号格式不正确(5-20 位纯数字)')
 
 const getPhoneBodySchema = z.object({
-  keyWord: z.transform((v) => (typeof v === 'string' ? v.trim() : v)).pipe(
-    z.string().min(1, '关键词不能为空').max(64, '关键词最多 64 字符').optional(),
-  ),
+  keyWord: z
+    .transform((v) => (typeof v === 'string' ? v.trim() : v))
+    .pipe(z.string().min(1, '关键词不能为空').max(64, '关键词最多 64 字符').optional()),
   phone: phoneSchema.optional(),
   province: z.string().trim().max(32).optional(),
   cardType: z.enum(['实卡', '虚卡', '全部']).optional(),
@@ -154,8 +156,12 @@ const smsReceiveRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     try {
-      const items = await getPhoneHistory(parsed.data.phone, 20)
-      return reply.send(success({ items }))
+      // items 截断最近 20 条;total 是全量条数(本机累计使用次数,不受 24h/100 条限制)
+      const [items, total] = await Promise.all([
+        getPhoneHistory(parsed.data.phone, 20),
+        getPhoneHistoryCount(parsed.data.phone),
+      ])
+      return reply.send(success({ items, total }))
     } catch (e) {
       const r = toErrorResponse(e)
       return reply.status(r.status).send(r.body)
@@ -219,7 +225,7 @@ const smsReceiveRoutes: FastifyPluginAsync = async (server) => {
     }
     lastQueryUsedAt = now
     try {
-      const items = await queryUsed()
+      const items = await queryUsedDetailed()
       return reply.send(success({ items }))
     } catch (e) {
       const r = toErrorResponse(e)

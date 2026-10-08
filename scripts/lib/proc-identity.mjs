@@ -24,7 +24,7 @@
  * 并且带缓存与超时;派生一律 `windowsHide`(§5b 弹窗根治)与 `timeout`(守门 52 / 80)。
  */
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { hostname } from 'node:os'
 
 /** 同一 pid 的现测结果缓存时长:心跳与巡检会反复问同一个进程。 */
@@ -44,11 +44,50 @@ export const START_TOLERANCE_SEC = 2
 
 const cache = new Map()
 
-/** PowerShell 可执行文件候选(本机 powershell.exe 实测已是 7.6.2,但仍按系统版路径取)。 */
-function powershellBin() {
-  return process.platform === 'win32'
-    ? 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe'
-    : 'powershell'
+/**
+ * PowerShell 引擎候选(全部绝对路径,win32):pwsh(PS7)在前 —— WDAC/应用控制策略
+ * 可能拦截 node 派生的 powershell.exe(5.1)而放行 PS7(本仓开发机实证 spawn EPERM;
+ * apps/api kill-verified.ts 与 mcp-credentials.ts 的 DPAPI 引擎链同款结论),
+ * powershell.exe 兜底覆盖未装 PS7 的常规镜像。存在性预筛;非 win32 走 PATH 短名。
+ */
+function powershellBins() {
+  if (process.platform !== 'win32') return ['pwsh', 'powershell']
+  const list = []
+  const localAppData = process.env.LOCALAPPDATA ?? ''
+  for (const candidate of [
+    'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
+    localAppData === '' ? '' : `${localAppData}\\Microsoft\\WindowsApps\\pwsh.exe`,
+  ]) {
+    if (candidate !== '' && existsSync(candidate)) list.push(candidate)
+  }
+  list.push('C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe')
+  return list
+}
+
+/**
+ * 偏好序上的同步执行口:Get-Process / CIM 两档探针共用。仅 spawn 即时失败
+ * (WDAC 拦截 EPERM / 未装 ENOENT / 无权 EACCES)回退下一候选;超时/非零退出
+ * 原样抛(调用方按 unverifiable 处理,不得放大采样时长)。
+ */
+function runPowerShellSync(script) {
+  let lastError
+  for (const bin of powershellBins()) {
+    try {
+      return execFileSync(bin, ['-NoProfile', '-NonInteractive', '-Command', script], {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 15_000,
+        maxBuffer: 1 << 20,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      })
+    } catch (e) {
+      lastError = e
+      const code = e?.code
+      if (code === 'EPERM' || code === 'ENOENT' || code === 'EACCES') continue
+      throw e
+    }
+  }
+  throw lastError
 }
 
 /** 从 PowerShell 输出里解出 epoch 秒;解不出 ⇒ null(不是 0,0 会被当成合法时间)。 */
@@ -100,20 +139,25 @@ export function parseStatStartTicks(text) {
  * `highPrecision: true` 走高精度档(默认 run 换成 CIM Ticks/stat field 22 的
  * 带前缀取值);返回值多带 `precise`(字符串,量不到为 null)。
  */
-export function processStartEpoch(pid, { run = defaultRun, highPrecision = false, now = Date.now() } = {}) {
+export function processStartEpoch(pid, { run, highPrecision = false, now = Date.now() } = {}) {
   const n = Number(pid)
   if (!Number.isFinite(n) || n <= 0) return { epoch: null, why: `pid 不可用(${pid})`, precise: null }
+  // highPrecision 档的默认 run 必须随档切换(文档承诺"默认 run 换成 CIM Ticks/stat
+  // field 22");此前实现漏了这一步 —— 不注入 run 的调用方 highPrecision=true 依旧跑
+  // 秒级 Get-Process,parsePreciseStart 恒 null ⇒ 精确档在生产从未生效(测试靠注入
+  // run 才绿,盖住了这 bug)。显式注入的 run 仍最高优先,供测试/特殊调用方钉死。
+  const effectiveRun = run ?? (highPrecision ? defaultPreciseRun : defaultRun)
   // 缓存**只服务真实测量**:键里带上"哪一次注入"结构上做不对(注入的 run 是调用方的桩),
   // 而把桩的结果留在按 pid 建的缓存里,下一个拿不同桩来的调用方会读到**别人的**答案 ——
   // 表现是"判据按夹具给的结论走",比报错更难查。真测才缓存,注入一律现测。
   // 高精度档与秒级档的答案形状不同 ⇒ 缓存键必须分档,否则两档互相顶掉。
-  const cacheable = run === defaultRun || run === defaultPreciseRun
+  const cacheable = effectiveRun === defaultRun || effectiveRun === defaultPreciseRun
   const key = `${n}|${highPrecision ? 'precise' : 'sec'}`
   if (cacheable) {
     const hit = cache.get(key)
     if (hit && now - hit.at < CACHE_MS) return hit.res
   }
-  const res = highPrecision ? measurePrecise(n, run) : measure(n, run)
+  const res = highPrecision ? measurePrecise(n, effectiveRun) : measure(n, effectiveRun)
   if (cacheable) cache.set(key, { at: now, res })
   return res
 }
@@ -151,16 +195,22 @@ function measurePrecise(pid, run) {
 
 function defaultRun(pid) {
   // 只取 StartTime 的 Unix 秒;进程不存在时 PowerShell 报错 ⇒ 走 catch ⇒ unverifiable。
+  // win32 与 defaultPreciseRun 同源走 CIM CreationDate.Ticks:Get-Process 的 StartTime
+  // 在 PS7 下 Kind 标注与值不一致(实测恒偏 -28800s ⇒ 跨引擎比对会出假 mismatch ⇒
+  // 误抢占),Get-Date -UFormat %s 同样按引擎/时区解释漂移。Ticks 纪元差是纯 UTC
+  // 数学,引擎无关。非 win32 才走 Get-Process(pwsh/linux 下 Kind 正确,且无 CIM)。
+  if (process.platform === 'win32') {
+    const script =
+      `$ErrorActionPreference='Stop';` +
+      `$p=Get-CimInstance Win32_Process -Filter "ProcessId=${pid}";` +
+      `if($null -eq $p){throw New-Object System.Exception('no such process')}` +
+      `[string][long](($p.CreationDate.Ticks - 621355968000000000)/10000000)`
+    return runPowerShellSync(script)
+  }
   const script =
     `$ErrorActionPreference='Stop';$p=Get-Process -Id ${pid} -ErrorAction Stop;` +
-    '[int][double]::Parse((Get-Date $p.StartTime.ToUniversalTime() -UFormat %s))'
-  return execFileSync(powershellBin(), ['-NoProfile', '-NonInteractive', '-Command', script], {
-    encoding: 'utf8',
-    windowsHide: true,
-    timeout: 15_000,
-    maxBuffer: 1 << 20,
-    stdio: ['ignore', 'pipe', 'ignore'],
-  })
+    '[long](($p.StartTime.ToUniversalTime().Ticks - 621355968000000000)/10000000)'
+  return runPowerShellSync(script)
 }
 
 /** .NET DateTime(0001-01-01)与 Unix 纪元之间的 Ticks 差(100ns 单位)。 */
@@ -178,13 +228,7 @@ function defaultPreciseRun(pid) {
       `$t=[long]$p.CreationDate.Ticks - ${NET_TICKS_TO_UNIX};` +
       `'windows-utc-us:'+([long]($t/10));` +
       `[string][long]($t/10000000)`
-    return execFileSync(powershellBin(), ['-NoProfile', '-NonInteractive', '-Command', script], {
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 15_000,
-      maxBuffer: 1 << 20,
-      stdio: ['ignore', 'pipe', 'ignore'],
-    })
+    return runPowerShellSync(script)
   }
   // Linux:field 22(starttime,boot tick)精度高于 ps lstart 的秒级时间。
   const stat = readFileSync(`/proc/${pid}/stat`, 'utf8')
