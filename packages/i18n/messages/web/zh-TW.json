@@ -18882,7 +18882,20 @@
     "groupPlaceholder": "如:主力 / 備用",
     "groupUpdated": "分組已更新",
     "groupUngrouped": "未分組",
-    "skippedToday": "已跳過 {count} 個今日已簽帳號"
+    "skippedToday": "已跳過 {count} 個今日已簽帳號",
+    "checkinAll": "一鍵全部簽到",
+    "colMessage": "資訊",
+    "editJwt": "更新 JWT",
+    "editJwtDescription": "貼上新抓取的 JWT，校驗通過後加密入庫。",
+    "editJwtTitle": "更新 JWT",
+    "filterAll": "全部帳號",
+    "jwtExpired": "JWT 已過期",
+    "jwtExpiresSoon": "JWT 將於 {days} 天內過期",
+    "jwtUpdated": "JWT 已更新",
+    "loadMore": "載入更多",
+    "schedulerDisabled": "自動簽到未開啟",
+    "schedulerEnabled": "自動簽到已開啟",
+    "schedulerNextRun": "下次 {time}"
   },
   "nav": {
     "checkin": "簽到助手",

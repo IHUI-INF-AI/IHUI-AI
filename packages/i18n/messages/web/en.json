@@ -18897,7 +18897,20 @@
     "groupPlaceholder": "e.g. Main / Backup",
     "groupUpdated": "Group updated",
     "groupUngrouped": "Ungrouped",
-    "skippedToday": "Skipped {count} account(s) already checked in today"
+    "skippedToday": "Skipped {count} account(s) already checked in today",
+    "checkinAll": "Check in All",
+    "colMessage": "Message",
+    "editJwt": "Update JWT",
+    "editJwtDescription": "Paste a freshly captured JWT. It is validated and stored encrypted.",
+    "editJwtTitle": "Update JWT",
+    "filterAll": "All accounts",
+    "jwtExpired": "JWT expired",
+    "jwtExpiresSoon": "JWT expires in {days} days",
+    "jwtUpdated": "JWT updated",
+    "loadMore": "Load more",
+    "schedulerDisabled": "Auto check-in off",
+    "schedulerEnabled": "Auto check-in on",
+    "schedulerNextRun": "Next {time}"
   },
   "nav": {
     "checkin": "Check-in",
