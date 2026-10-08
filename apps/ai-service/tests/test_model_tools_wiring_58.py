@@ -23,8 +23,23 @@ def test_new_tools_registered_in_builtin_list() -> None:
 
 
 def test_builders_dict_has_all_builtin_names() -> None:
-    # builders dict 在 _builtin_tool_definitions 内构造;用最小 thread 桩逐个构造
-    _eng = engine_mod.AgentEngine.__new__(engine_mod.AgentEngine)  # 构造即断言:该用例的判据在后续 thread 侧
+    """每个登记在 `BUILTIN_ENGINE_TOOLS` 的内置名都必须**真能构造出来**。
+
+    函数名里的 "builders dict" 是历史形态。V3 #47 第一格(枚 7582cfd25b)把那张
+    "内置名 -> 绑定方法"的 14 条 dict **删掉了**:它才是 `_builtin_tool_definitions`
+    真正构造定义时用的键集,而 `BUILTIN_ENGINE_TOOLS` 只是名单 —— 两张表一旦分叉
+    (加名字只改一处),表现不是报错而是"某个内置名永远构造不出来"。现在构造函数由
+    **命名约定** `_{name}_tool` 单向推导(见 `_builtin_tool_builder` 头注)。
+
+    所以本用例的判据从"在那段源码里找引号包着的名字"换成**真的走构造路径** ——
+    这不是放宽,恰恰相反:静态找字符串在"名字写在别的函数里/写在注释里"时会给假绿,
+    而逐名构造+逐名比姓名,任何一处分叉都当场现形。三条各自有牙:
+      ① 构造出的定义**姓名多重集**与名单逐字相等(少一个/多一个/名字漂了都红);
+      ② 每个名字解析到的构造函数就是 `_{name}_tool`(约定即唯一真相,不得再有第二张表);
+      ③ 反向对照:名单里有名而没有 `_{name}_tool` 方法 ⇒ 必须 fail-fast 并点名该名字
+         —— 这一条就是"尺子不是空转"的证明,摘掉它 ① ② 都可能对着一台瞎掉的尺子报绿。
+    """
+    eng = engine_mod.AgentEngine.__new__(engine_mod.AgentEngine)
     thread = engine_mod.EngineThread.__new__(engine_mod.EngineThread)
     thread.thread_id = "t"
     thread.deny_tools = set()
@@ -33,13 +48,30 @@ def test_builders_dict_has_all_builtin_names() -> None:
     thread.touch = lambda: None
     thread.emit = None
     thread.loop = None
-    builders_source = None
-    import inspect
 
-    src = inspect.getsource(engine_mod.AgentEngine._builtin_tool_definitions)
+    # ① 真构造:与生产同一入口,不做任何静态文本比对
+    definitions = eng._builtin_tool_definitions(thread)
+    built = [getattr(d, "name", None) for d in definitions]
+    assert built == list(engine_mod.BUILTIN_ENGINE_TOOLS), (
+        "构造出的内置工具集与名单分叉(少一件/多一件/姓名漂了)"
+        f"\n名单={list(engine_mod.BUILTIN_ENGINE_TOOLS)}\n实得={built}"
+    )
+
+    # ② 名字→构造函数只能由约定给,不得存在第二张登记表
     for name in engine_mod.BUILTIN_ENGINE_TOOLS:
-        assert f'"{name}"' in src, f"builder missing for {name}"
-    assert builders_source is None  # 占位:仅静态检查
+        builder = eng._builtin_tool_builder(name)
+        assert getattr(builder, "__name__", "") == f"_{name}_tool", (
+            f"{name!r} 的构造函数不是约定的 _{name}_tool,实得 {builder!r}"
+        )
+
+    # ③ 反向对照:有名字、没构造函数 ⇒ fail-fast 且点名
+    boom = None
+    try:
+        eng._builtin_tool_builder("definitely_not_a_builtin_tool")
+    except RuntimeError as exc:
+        boom = str(exc)
+    assert boom is not None, "名单与实现分叉时不 fail-fast ⇒ 本用例判的是一张空表"
+    assert "definitely_not_a_builtin_tool" in boom, f"fail-fast 没点名分叉的那个名字: {boom}"
 
 
 def test_new_context_exec_sets_flag() -> None:

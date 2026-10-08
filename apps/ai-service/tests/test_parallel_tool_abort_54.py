@@ -69,6 +69,26 @@ def _make_loop(monkeypatch: pytest.MonkeyPatch, events: _FakeEvents) -> AgentLoo
     # "未鉴权/未声明角色"同档(fail-closed);本文件的工具名(t / t_ok / good)都不在
     # _ADMIN_ONLY_TOOLS,所以角色闸对它们不介入,断言语义不变。
     loop._user_role = 0
+    # V3 #53(2026-09-27)同款滞后(本夹具绕过 __init__,产品新增的实例属性必须同步补,
+    # 否则 _execute_single 读 self._mode_policy 直接 AttributeError)。以下三组取值一律
+    # 走被测模块自己那一份实现 —— 不在测试里手搓第二份 ModePolicy、也不抄第二份默认值,
+    # 更不给判定加 fallback(那等于把真缺属性洗成绿)。
+    from app.services.agent_loop_v2 import (
+        _resolve_mode_policy,
+        _tool_call_trace_enabled_from_env,
+    )
+
+    # __init__: `_mode_policy = _resolve_mode_policy(None, self._permission_mode)` 逐字同源
+    loop._mode_policy = _resolve_mode_policy(None, loop._permission_mode)
+    # 批58 接线:__init__ 默认 off 时挂 enabled=False + 记录器 None,
+    # _execute_tools 读到 None 即零副作用。
+    loop._executed_tool_calls_enabled = False
+    loop._executed_tool_calls = None
+    loop._tool_call_trace_enabled = _tool_call_trace_enabled_from_env()
+    # G-998120 轮次负向面:空 frozenset = 本轮无 turn-scoped 禁用,与 __init__ 对
+    # 非 automation 轮的默认逐字同值。HEAD 面尚未读该属性(置空不介入任何判定),
+    # 在飞的 turn-scoped denylist 版本会读它 —— 两种面下本夹具结论同一。
+    loop._effective_denylist = frozenset()
     loop._hook_runtime = None
     loop._llm_complete = None
     loop._model_params = {}
