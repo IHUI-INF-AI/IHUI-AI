@@ -87,6 +87,8 @@ export type UploadMergeNoticeEvent =
   | 'queue-admission'
   /** 跨进程层首次不可用/抛错 ⇒ 回落进程内闸(每次回落首次立即 warn,不静默)。 */
   | 'degraded-to-in-process'
+  /** G-998089:临界区失败但本次拉起的子资源未终态 ⇒ 保锁写隔离记录,等人工收口(首次立即 warn)。 */
+  | 'stop-failed'
 
 export interface UploadMergeNotice {
   level: 'info' | 'warn'
@@ -135,6 +137,42 @@ export interface UploadMergeGateFacts {
   readonly redisFailures: number
   /** Redis 侧当前占用读数(跨进程真值);不在 redis 层时为 null。 */
   readonly crossProcessActive: number | null
+  /**
+   * G-998089:stop-failed(待人工收口)记录快照;空数组 = 无待收口。
+   * 状态字段 `state` 在收口放锁前是 **'stop-failed' 终态**,不是 'released'。
+   */
+  readonly stopFailedRecords: readonly UploadMergeStopFailedRecord[]
+}
+
+/**
+ * G-998089:一条 stop-failed 隔离记录 —— 释放资格 = 本次拉起的子资源全部终态(∧ 通道已关),
+ * 任一不成立就保锁并留这条记录等人工收口;收口放锁后 `state` 推进为 'released'。
+ */
+export interface UploadMergeStopFailedRecord {
+  /** 持有者 owner token 前缀(哪个闸实例/进程)。 */
+  readonly owner: string
+  /** 失败发生时正在跑的临界区标签。 */
+  readonly label: string
+  /** 尚未终态的子资源清单(调用方抛 UploadMergeStopFailedError 时声明)。 */
+  readonly pendingResources: readonly string[]
+  readonly failedAtMs: number
+  /** 'stop-failed' = 待人工收口(终态);收口成功放锁后 = 'released'。 */
+  readonly state: 'stop-failed' | 'released'
+  readonly releasedAtMs: number | null
+}
+
+/**
+ * G-998089:临界区失败、但本次拉起的自有子资源尚未终态的失败形态。
+ * 抛出它 ⇒ 跨进程租约**不放**(心跳继续续租、槽位保留),写隔离记录等人工收口;
+ * 资源全部终态后由持有方走 `closeoutStopFailed()` 显式放锁。
+ */
+export class UploadMergeStopFailedError extends Error {
+  readonly pendingResources: readonly string[]
+  constructor(pendingResources: readonly string[], message = '启动/装配失败:自有子资源未全部终态,租约保锁待人工收口') {
+    super(message)
+    this.name = 'UploadMergeStopFailedError'
+    this.pendingResources = [...pendingResources]
+  }
 }
 
 interface Waiter {
@@ -283,6 +321,9 @@ export function createUploadMergeGate(opts: CreateUploadMergeGateOptions = {}): 
       layerReason: 'redis-unconfigured',
       redisFailures: 0,
       crossProcessActive: null,
+      // 进程内闸这一层没有跨进程租约,也就没有 stop-failed 保锁面(该维度的落点是租约的
+      // 释放条件,见层叠闸);恒空数组,读 facts 的人不需要分叉判空。
+      stopFailedRecords: [],
     }
   }
 
@@ -346,9 +387,18 @@ function sleep(ms: number): Promise<void> {
  *   降级时的排队原语(notify 置空,避免双重喊话)。任何一次 Redis 取用抛错 ⇒ 落降级闩,
  *   本次及之后回落内层,并首次立即 warn 点名原因(§5e「失败必须响」、守门「未判定不得记绿」同族)。
  */
+/**
+ * 层叠闸的完整形态:闸契约之上多一个 G-998089 人工收口出口 —— stop-failed 保锁的槽,
+ * 只能从这里显式放(释放资格 = 子资源全部终态),runExclusive 自己绝不抢先放。
+ */
+export interface LayeredUploadMergeGate extends UploadMergeGate {
+  /** 对每条 stop-failed 记录执行收口放锁,返回本次实际放锁条数。 */
+  closeoutStopFailed(): Promise<number>
+}
+
 export function createLayeredUploadMergeGate(
   opts: CreateLayeredUploadMergeGateOptions = {},
-): UploadMergeGate {
+): LayeredUploadMergeGate {
   const resolved = resolveUploadMergeLimit(opts.env ?? process.env)
   const leaseMs = opts.leaseMs ?? resolveUploadMergeLease(opts.env ?? process.env).leaseMs
   const renewIntervalMs = Math.max(
@@ -387,6 +437,22 @@ export function createLayeredUploadMergeGate(
   let semaphoreInit: Promise<RedisMergeSemaphore | null> | null = null
   /** 每次占用一个单调递增后缀,与 owner 前缀拼成全局唯一的租约成员名。 */
   let tokenSeq = 0
+
+  /** stop-failed 台账的内部形态:公开快照字段 + 收口所需的运行时句柄(心跳/token)。 */
+  interface StopFailedLedgerEntry extends UploadMergeStopFailedRecord {
+    /** 收口后把状态推进为 'released'(公开快照侧仍是只读 —— 只能经收口出口推进)。 */
+    state: 'stop-failed' | 'released'
+    releasedAtMs: number | null
+    /** 保锁期间继续续租的心跳;收口放锁时停掉。 */
+    heartbeat: ReturnType<typeof setInterval> | undefined
+    /** 该记录对应的租约成员名(隔离记录在 Redis 侧的字段名)。 */
+    token: string
+  }
+  /** G-998089:stop-failed(待人工收口)台账 —— 保锁不放的槽都登记在这里,收口出口逐条放。 */
+  const stopFailedLedger: StopFailedLedgerEntry[] = []
+  /** 台账 → facts 快照(拷贝,调用方拿不到内部句柄)。 */
+  const stopFailedSnapshots = (): UploadMergeStopFailedRecord[] =>
+    stopFailedLedger.map(({ heartbeat: _hb, token: _tk, ...snap }) => ({ ...snap, pendingResources: [...snap.pendingResources] }))
 
   function outerShout(event: UploadMergeNoticeEvent, level: 'info' | 'warn', message: string, fields: Record<string, unknown>): void {
     const led = noticeLedger.get(event) ?? { count: 0, lastAtMs: 0 }
@@ -523,17 +589,59 @@ export function createLayeredUploadMergeGate(
       const maybeUnref = heartbeat as unknown as { unref?: () => void }
       if (typeof maybeUnref.unref === 'function') maybeUnref.unref()
     }
+    // G-998089:释放资格 = 本次拉起的子资源全部终态(∧ 通道已关),不是"任务返回了就放"。
+    // 临界区抛 UploadMergeStopFailedError ⇒ 子资源未终态 ⇒ **保锁不放**(心跳继续续租、
+    // 槽位留在 Redis 侧),写隔离记录等人工收口(closeoutStopFailed);其余失败与成功路径
+    // 照旧在 finally 放锁 —— 租约到期即可被抢这一既有语义不变,变的是"我们自己不再抢先放"。
+    let holdSlotPendingCloseout = false
     try {
-      return await task({ waitMs })
+      const result = await task({ waitMs })
+      return result
+    } catch (err) {
+      if (err instanceof UploadMergeStopFailedError) {
+        holdSlotPendingCloseout = true
+        const record: StopFailedLedgerEntry = {
+          owner,
+          label,
+          pendingResources: [...err.pendingResources],
+          failedAtMs: now(),
+          state: 'stop-failed',
+          releasedAtMs: null,
+          heartbeat,
+          token: slotToken,
+        }
+        stopFailedLedger.push(record)
+        // 隔离记录落 Redis 侧(字段=slot token):接管者(下一个拿到槽的进程)能读到
+        // 前一个持有者为什么死在半路 —— 只留在失败方内存里的记录对接管者等于不存在。
+        try {
+          await sem.quarantine(
+            slotToken,
+            JSON.stringify({ owner, label, pendingResources: record.pendingResources, failedAtMs: record.failedAtMs, state: 'stop-failed' }),
+          )
+        } catch {
+          /* 隔离记录落盘失败不掩盖原错误;本实例台账( facts.stopFailedRecords)仍有这条 */
+        }
+        outerShout(
+          'stop-failed',
+          'warn',
+          `合并临界区失败但自有子资源未终态(${err.pendingResources.join('、')})⇒ 租约保锁待人工收口(状态=stop-failed,非 released)`,
+          { slotToken, pendingResources: [...err.pendingResources] },
+        )
+      }
+      throw err
     } finally {
-      if (heartbeat) clearInterval(heartbeat)
-      outerActive -= 1
-      try {
-        await sem.release(slotToken)
-        crossProcessActive = await sem.count().catch(() => crossProcessActive)
-      } catch (err) {
-        // release 失败不改变本次任务结果:槽会因租约到期被回收,绝不会永久占位。
-        degradeFromError(err)
+      // 保锁路径(stop-failed)心跳**必须继续续租** —— 那正是"保锁"的本体;
+      // 它的停由收口出口(closeoutStopFailed)负责,不在这里停。
+      if (heartbeat && !holdSlotPendingCloseout) clearInterval(heartbeat)
+      if (!holdSlotPendingCloseout) {
+        outerActive -= 1
+        try {
+          await sem.release(slotToken)
+          crossProcessActive = await sem.count().catch(() => crossProcessActive)
+        } catch (err) {
+          // release 失败不改变本次任务结果:槽会因租约到期被回收,绝不会永久占位。
+          degradeFromError(err)
+        }
       }
       if (waitMs > 0 && log) {
         log.warn({ gate: 'upload-merge', activeLayer: 'redis', waitMs }, `${label}: 跨进程合并槽排队 ${waitMs}ms`)
@@ -551,6 +659,7 @@ export function createLayeredUploadMergeGate(
         layerReason: !hasProvider ? 'redis-unconfigured' : degradeReason || 'redis-degraded',
         redisFailures,
         crossProcessActive: null,
+        stopFailedRecords: stopFailedSnapshots(),
       }
     }
     // 已配置 provider 且未降级,但尚未跑过任何 redis 取用(启动即读 facts):仍报 redis 层待命。
@@ -572,10 +681,57 @@ export function createLayeredUploadMergeGate(
       layerReason: resolved.unlimited ? 'redis-bypassed-unlimited' : 'redis-active',
       redisFailures,
       crossProcessActive,
+      stopFailedRecords: stopFailedSnapshots(),
     }
   }
 
-  return { runExclusive, facts }
+  /**
+   * G-998089 人工收口出口:本次拉起的子资源已全部终态(∧ 通道已关)后由持有方调用。
+   * 对每条 stop-failed 记录:停心跳 → release 槽位 → 状态推进为 'released' 并同步
+   * Redis 侧隔离记录。返回本次实际放锁的条数;release 抛错的那条保持 stop-failed
+   * (落降级闩,与 runExclusive 的 release 失败同一处置),不假装收口成功。
+   */
+  async function closeoutStopFailed(): Promise<number> {
+    let releasedCount = 0
+    for (const record of stopFailedLedger) {
+      if (record.state !== 'stop-failed') continue
+      if (record.heartbeat) {
+        clearInterval(record.heartbeat)
+        record.heartbeat = undefined
+      }
+      try {
+        if (semaphore) await semaphore.release(record.token)
+      } catch (err) {
+        degradeFromError(err)
+        continue
+      }
+      record.state = 'released'
+      record.releasedAtMs = now()
+      outerActive = Math.max(0, outerActive - 1)
+      releasedCount += 1
+      // Redis 侧隔离记录同步终态:接管者读到的是"收口已完成"的记录,不是半路尸检报告。
+      try {
+        if (semaphore) {
+          await semaphore.quarantine(
+            record.token,
+            JSON.stringify({
+              owner: record.owner,
+              label: record.label,
+              pendingResources: record.pendingResources,
+              failedAtMs: record.failedAtMs,
+              state: 'released',
+              releasedAtMs: record.releasedAtMs,
+            }),
+          )
+        }
+      } catch {
+        /* 状态回写失败不改变放锁事实;槽位已释放,记录留在 stop-failed 态可容忍 */
+      }
+    }
+    return releasedCount
+  }
+
+  return { runExclusive, facts, closeoutStopFailed }
 }
 
 // =============================================================================
