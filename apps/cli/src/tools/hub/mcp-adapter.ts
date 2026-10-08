@@ -16,7 +16,7 @@
  *   - 调用失败转 ToolResult.errorType='unknown',不抛异常(对齐 mcpToolToTool 行为)
  */
 
-import { callMcpServer, mcpToolName, type McpConnection, type McpToolDef } from '../mcp-runtime.js';
+import { callMcpServer, type McpConnection, type McpToolDef } from '../mcp-runtime.js';
 import type { ToolContext, ToolResult } from '../index.js';
 import type { ToolHandle, ToolRegistry } from './registry.js';
 
@@ -69,7 +69,7 @@ export function adaptMcpToolToHubTool(
   mcpConnection: McpConnection,
   enableDangerous = false,
 ): ToolHandle {
-  const id = mcpToolName(serverName, schema.name);
+  const id = `mcp__${serverName}__${schema.name}`;
   return {
     id,
     describe() {

@@ -875,8 +875,8 @@ const SETTLEMENT_FACE = [
   'process',
 ] as const;
 
-/** 身份面(我方真实存在的那一半):键与登记自身的属性。票面的 agentId/parentToolCallId/turnId/description **我方无此字段**,故不参与分域。G-816001:分支代戳与 identity 同域 —— 注册时刻盖章、只活在注册表内部、不进对外快照。 */
-const IDENTITY_FACE = ['id', 'identity', 'command', 'startedAt', 'worktreePath', 'worktreeSourcePath', 'branchGeneration'] as const;
+/** 身份面(我方真实存在的那一半):键与登记自身的属性。票面的 agentId/parentToolCallId/turnId/description **我方无此字段**,故不参与分域。 */
+const IDENTITY_FACE = ['id', 'identity', 'command', 'startedAt', 'worktreePath', 'worktreeSourcePath'] as const;
 
 // 编译期半边:"分域"必须是一句有牙齿的话 —— 两域不相交且合起来覆盖 `BackgroundTask` 每一个键。
 // 新增字段没归面,下面两行就类型报错,而不是让"逐字段"悄悄变窄。

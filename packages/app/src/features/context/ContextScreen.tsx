@@ -4,8 +4,16 @@
 import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View, type TextStyle, type ViewStyle } from 'react-native'
-import { TextField } from '../../components/TextField'
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native'
 import type { TFunction } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
@@ -167,7 +175,7 @@ export function ContextScreen({
         {/* 提及检索 */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>{t('context.mentionsSearch')}</Text>
-          <TextField colorScheme={colorScheme}
+          <TextInput
             value={query}
             onChangeText={onQueryChange}
             placeholder={t('context.mentionsPlaceholder')}
