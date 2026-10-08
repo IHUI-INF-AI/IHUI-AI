@@ -5918,7 +5918,9 @@
       "refresh": "刷新",
       "loadFailed": "加载失败",
       "installerHint": "GitHub 侧操作者 id，非平台用户"
-    }
+    },
+    "smsReceive": "短信接码",
+    "sms": "短信模板"
   },
   "connectors": {
     "title": "中文连接器",
@@ -19215,7 +19217,9 @@
     "home": "首页",
     "settings": "设置",
     "adminDeployDiagnosis": "部署诊断",
-    "githubApp": "GitHub App"
+    "githubApp": "GitHub App",
+    "smsReceive": "短信接码",
+    "sms": "短信模板"
   },
   "news": {
     "allCategories": "全部分类",
