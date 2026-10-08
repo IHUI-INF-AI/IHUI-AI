@@ -60,63 +60,6 @@ export interface SandboxOptions {
   blockedEnvVars?: string[];
 }
 
-/**
- * G-465 凭据形态模式表(2026-10-06 立为"只报名不拦"的报名面;2026-10-08 机主拍板升格进 deny 表)。
- *
- * 历史:deny 表四个后缀族(`*_API_KEY/*_SECRET/*_TOKEN/*_PASSWORD`)盖不到单数 `*_KEY`、
- * `*_SENDKEY`、`*_TOKEN_ID`、`*_AUTH_PAYLOAD_FILE`、`*_TOKEN_PATH` 等形态,
- * LIBTV_ACCESS_KEY / SERVERCHAN_SENDKEY / TUNNEL_SERVICE_TOKEN_ID / QODER_SDK_AUTH_PAYLOAD_FILE /
- * TRAE_JWT_TOKEN_PATH 一类第三方凭据原样漏进子进程。10-06 先立本表只报名(宁窄不误伤:
- * 宽 deny 当时顾虑打断交互终端里靠 env 工作的 aws/gcloud 类第三方 CLI)。
- *
- * **10-08 拍板采纳扩展**:子进程 env 从「只剥我方凭据」扩到「一切凭据形态」,MCP/hook
- * 子进程改白名单透传(默认全剥)作逃生门 —— 本表自此与 deny 表**同源共享**:deny 用它
- * 扩宽剥离面(经 CREDENTIAL_SHAPE_BLOCKED_PATTERNS),剥离侧报名
- * (detectStrippedSuspiciousEnvVars)用它做形态归因。
- *
- * 匹配顺序即形态归因序:更具体的形态在前,宽后缀 `*_KEY` 收尾兜底。
- * (定义在 SANDBOX_PROFILES 之前:profile 的 blockedEnvVars 在模块求值期展开本表。)
- */
-export const SUSPICIOUS_CREDENTIAL_ENV_PATTERNS: readonly string[] = [
-  '*_SENDKEY', // 推送服务 sendkey(SERVERCHAN_SENDKEY;更具体,先于 *_KEY 归因)
-  '*_AUTH_PAYLOAD_FILE', // 指向凭据载荷文件的路径(QODER_SDK_AUTH_PAYLOAD_FILE)—— 路径型也是敞口
-  '*_TOKEN_ID', // token 标识符(TUNNEL_SERVICE_TOKEN_ID)
-  '*_SECRET_ID', // secret 标识符(腾讯云 SECRET_ID 族)
-  '*_KEY_ID', // key 标识符(AWS_ACCESS_KEY_ID 族)
-  '*_TOKEN_PATH', // 指向 token 文件的路径(TRAE_JWT_TOKEN_PATH)
-  '*_TOKEN_FILE', // 同上(AWS_WEB_IDENTITY_TOKEN_FILE 族)
-  '*_KEY_PATH', // 指向 key 文件的路径(SSH_KEY_PATH 族)
-  '*_KEY_FILE', // 同上(GIT_SSH_KEY_FILE 族)
-  '*_KEY', // 单数 KEY 后缀兜底(LIBTV_ACCESS_KEY / *_ACCESS_KEY / *_SECRET_KEY …)
-];
-
-/**
- * G-465 10-08 拍板的凭据形态 deny 集:窄四族 + 上表十种扩展形态 —— **唯一源**。
- * DEFAULT_BLOCKED_ENV_VARS 与各 sandbox profile 的 blockedEnvVars 都从这里拼,
- * 任何消费点不得再抄一份(两处清单必漂移是本仓记过最多次的失败型)。
- */
-export const CREDENTIAL_SHAPE_BLOCKED_PATTERNS: readonly string[] = [
-  '*_API_KEY',
-  '*_SECRET',
-  '*_TOKEN',
-  '*_PASSWORD',
-  ...SUSPICIOUS_CREDENTIAL_ENV_PATTERNS,
-];
-
-/** 默认屏蔽的环境变量(匹配 key,大小写不敏感,支持后缀通配如 *_API_KEY)。
- *  10-08 拍板起即"一切凭据形态"宽表:我方具名凭据 + 全部凭据形态模式。 */
-export const DEFAULT_BLOCKED_ENV_VARS = [
-  'IHUI_API_KEY',
-  'IHUI_AUDIT',
-  'STEPFUN_API_KEY',
-  'AGNES_API_KEY',
-  'AI_CALLBACK_SECRET',
-  'CREDENTIALS_ENCRYPTION_KEY',
-  // 机器凭据清单:通配 `*_API_KEY`/`*_SECRET`/`*_TOKEN` 都盖不到复数 KEYS 结尾
-  'IHUI_SERVE_MACHINE_KEYS',
-  ...CREDENTIAL_SHAPE_BLOCKED_PATTERNS,
-];
-
 export type FolderTrustLevel = 'trusted' | 'read-only' | 'forbidden';
 
 /**
@@ -184,8 +127,7 @@ export const SANDBOX_PROFILES: Record<SandboxProfile, SandboxProfileConfig> = {
     description: '受限:仅白名单命令(默认 node/npm/pnpm/git/rg/tsc/eslint/vitest),保护 API key',
     overrides: {
       commandAllowlist: ['node', 'npm', 'npx', 'pnpm', 'git', 'rg', 'tsc', 'eslint', 'vitest', 'tsx'],
-      // G-465 10-08 拍板:profile 的 env 档与默认表同源(一切凭据形态),不得各自抄窄表
-      blockedEnvVars: [...CREDENTIAL_SHAPE_BLOCKED_PATTERNS, 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY'],
+      blockedEnvVars: ['*_API_KEY', '*_SECRET', '*_TOKEN', '*_PASSWORD', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY'],
       timeoutMs: 60_000,
       maxOutputBytes: 10 * 1024 * 1024,
     },
@@ -194,7 +136,7 @@ export const SANDBOX_PROFILES: Record<SandboxProfile, SandboxProfileConfig> = {
     description: '信任:限工作区路径,白名单命令,保护 API key(默认推荐)',
     overrides: {
       commandAllowlist: ['node', 'npm', 'npx', 'pnpm', 'git', 'rg', 'tsc', 'eslint', 'vitest', 'tsx', 'cat', 'ls', 'echo'],
-      blockedEnvVars: [...CREDENTIAL_SHAPE_BLOCKED_PATTERNS],
+      blockedEnvVars: ['*_API_KEY', '*_SECRET', '*_TOKEN', '*_PASSWORD'],
       timeoutMs: 120_000,
       maxOutputBytes: 50 * 1024 * 1024,
     },
@@ -202,7 +144,7 @@ export const SANDBOX_PROFILES: Record<SandboxProfile, SandboxProfileConfig> = {
   open: {
     description: '开放:全本地访问,不限命令,仍保护 API key',
     overrides: {
-      blockedEnvVars: [...CREDENTIAL_SHAPE_BLOCKED_PATTERNS],
+      blockedEnvVars: ['*_API_KEY', '*_SECRET', '*_TOKEN', '*_PASSWORD'],
       timeoutMs: 300_000,
       maxOutputBytes: 100 * 1024 * 1024,
     },
@@ -276,48 +218,69 @@ export interface SandboxResult {
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_OUTPUT_BYTES = 1024 * 1024;
 
-/** 一条报名:点名"疑似凭据形态"变量名与命中模式(语义随喂入集合:生产路径喂被剥键集 ⇒ 即被剥凭据名单)。 */
+/** 默认屏蔽的环境变量(匹配 key,大小写不敏感,支持后缀通配如 *_API_KEY) */
+export const DEFAULT_BLOCKED_ENV_VARS = [
+  'IHUI_API_KEY',
+  'IHUI_AUDIT',
+  'STEPFUN_API_KEY',
+  'AGNES_API_KEY',
+  'AI_CALLBACK_SECRET',
+  'CREDENTIALS_ENCRYPTION_KEY',
+  // 机器凭据清单:通配 `*_API_KEY`/`*_SECRET`/`*_TOKEN` 都盖不到复数 KEYS 结尾
+  'IHUI_SERVE_MACHINE_KEYS',
+  '*_API_KEY',
+  '*_SECRET',
+  '*_TOKEN',
+  '*_PASSWORD',
+];
+
+/**
+ * G-465 报名面(只报名,**不剥、不拦**)—— 与上方 deny 表(buildFilteredEnv 消费的那份)
+ * 是两回事:deny 表决定"什么不进子进程",本表决定"什么进子进程但要喊一声"。
+ *
+ * 现量(2026-10-06 用真实现直测):deny 表四个后缀族(`*_API_KEY/*_SECRET/*_TOKEN/*_PASSWORD`)
+ * 盖不到单数 `*_KEY`、`*_SENDKEY`、`*_TOKEN_ID`、`*_AUTH_PAYLOAD_FILE`、`*_TOKEN_PATH` 等形态,
+ * LIBTV_ACCESS_KEY / SERVERCHAN_SENDKEY / TUNNEL_SERVICE_TOKEN_ID / QODER_SDK_AUTH_PAYLOAD_FILE /
+ * TRAE_JWT_TOKEN_PATH 一类第三方凭据原样漏进子进程。
+ *
+ * 为什么只报名不拦(机主拍板,与 tests/child-env-boundary.test.ts"宁窄不误伤"同向):
+ * 宽 deny 会打断交互终端里**靠 env 工作**的第三方 CLI(aws/gcloud 这类),是用户可见回归。
+ * 本表把敞口变成可见的报名(log + 结构化审计字段,点名变量名与命中模式),
+ * 拦不拦由后续按"对 MCP+hook 子进程改白名单"那一型单独拍板。
+ *
+ * 纪律:本表**不得**被 buildFilteredEnv 或任何剥离路径消费 —— 它不是 deny 表。
+ * 匹配顺序即报名的模式归因序:更具体的形态在前,宽后缀 `*_KEY` 收尾兜底。
+ */
+export const SUSPICIOUS_CREDENTIAL_ENV_PATTERNS: readonly string[] = [
+  '*_SENDKEY', // 推送服务 sendkey(SERVERCHAN_SENDKEY;更具体,先于 *_KEY 归因)
+  '*_AUTH_PAYLOAD_FILE', // 指向凭据载荷文件的路径(QODER_SDK_AUTH_PAYLOAD_FILE)—— 路径型也是敞口
+  '*_TOKEN_ID', // token 标识符(TUNNEL_SERVICE_TOKEN_ID)
+  '*_SECRET_ID', // secret 标识符(腾讯云 SECRET_ID 族)
+  '*_KEY_ID', // key 标识符(AWS_ACCESS_KEY_ID 族)
+  '*_TOKEN_PATH', // 指向 token 文件的路径(TRAE_JWT_TOKEN_PATH)
+  '*_TOKEN_FILE', // 同上(AWS_WEB_IDENTITY_TOKEN_FILE 族)
+  '*_KEY_PATH', // 指向 key 文件的路径(SSH_KEY_PATH 族)
+  '*_KEY_FILE', // 同上(GIT_SSH_KEY_FILE 族)
+  '*_KEY', // 单数 KEY 后缀兜底(LIBTV_ACCESS_KEY / *_ACCESS_KEY / *_SECRET_KEY …)
+];
+
+/** 一条报名:子进程将继承的"疑似凭据形态"变量,点名变量名与命中模式。 */
 export interface SuspiciousEnvVarReport {
-  /** 变量名(剥离侧报名:被 buildFilteredEnv 剥掉的键 —— 幸存侧已无凭据形态敞口)。 */
+  /** 变量名(经 deny 表过滤后的**幸存者** —— 它真的会进子进程 env)。 */
   name: string;
-  /** 命中的报名模式(纯分类器走 SUSPICIOUS_CREDENTIAL_ENV_PATTERNS;剥离侧报名走完整 deny 形态集)。 */
+  /** 命中的报名模式(来自 SUSPICIOUS_CREDENTIAL_ENV_PATTERNS,首个命中者)。 */
   pattern: string;
 }
 
 /**
- * 凭据形态识别(纯函数):对给定 env 逐键过 SUSPICIOUS_CREDENTIAL_ENV_PATTERNS,返回全部命中。
- * 生产路径喂"被剥掉的键集"(见 detectStrippedSuspiciousEnvVars)⇒ 产出剥离侧报名;
- * 喂任意键集即纯分类器(测试用)。
+ * 报名面识别(纯函数):对**将要交给子进程的 env**(即 buildFilteredEnv 产物)逐键过
+ * SUSPICIOUS_CREDENTIAL_ENV_PATTERNS,返回全部幸存的疑似凭据变量。
+ * 输入必须是过滤后的 env:被 deny 表剥掉的键不报名(它们没进子进程,无敞口)。
  */
 export function detectSuspiciousEnvVars(env: NodeJS.ProcessEnv): SuspiciousEnvVarReport[] {
   const reports: SuspiciousEnvVarReport[] = [];
   for (const name of Object.keys(env)) {
     const pattern = SUSPICIOUS_CREDENTIAL_ENV_PATTERNS.find((p) => matchPattern(name, p));
-    if (pattern) reports.push({ name, pattern });
-  }
-  return reports;
-}
-
-/**
- * 剥离侧报名(10-08 拍板后的生产形态):对 raw(父进程侧原 env)与 filtered(剥离产物)的
- * 差集做凭据形态归因 —— 点名"这个子进程被剥掉了哪些疑似凭据变量"。
- * 归因词表用**完整 deny 形态集**(CREDENTIAL_SHAPE_BLOCKED_PATTERNS,含窄四族):
- * 取证要的是完整名单,凡被剥的凭据形态键都该有名字。这是"aws/gcloud 突然不工作"
- * 一类问题的直接取证出口:stderr 报名与审计字段都从这里出。
- * (具名 deny 条目如 IHUI_SERVE_MACHINE_KEYS 不属形态,不在归因词表 —— 它被剥但无模式可点。)
- */
-export function detectStrippedSuspiciousEnvVars(
-  raw: NodeJS.ProcessEnv,
-  filtered: NodeJS.ProcessEnv,
-): SuspiciousEnvVarReport[] {
-  const stripped: NodeJS.ProcessEnv = {};
-  for (const [name, value] of Object.entries(raw)) {
-    if (value === undefined) continue;
-    if (filtered[name] === undefined) stripped[name] = value;
-  }
-  const reports: SuspiciousEnvVarReport[] = [];
-  for (const name of Object.keys(stripped)) {
-    const pattern = CREDENTIAL_SHAPE_BLOCKED_PATTERNS.find((p) => matchPattern(name, p));
     if (pattern) reports.push({ name, pattern });
   }
   return reports;
@@ -422,18 +385,13 @@ export function evaluateCommandAllowlist(
  * 这是本仓**唯一**一份 env 过滤实现:沙箱执行与所有第三方边界(MCP stdio 子进程、
  * hook 命令、交互终端里跑的 shell)都必须经这里,不得在别处再抄一张 deny 表 ——
  * 两处清单必漂移是本项目记过最多次的失败型。
- *
- * G-465 10-08 拍板:`blocked` 默认即宽表(DEFAULT_BLOCKED_ENV_VARS 含一切凭据形态);
- * `allowed` 是白名单透传逃生门 —— 显式点名的键(精确名或通配模式)越过 deny 幸存,
- * 供 MCP/hook 子进程"默认全剥 + 白名单重注"以免误伤 aws/gcloud 类第三方 CLI。
- * 缺省时行为与旧版逐字节一致。
  */
-export function buildFilteredEnv(blocked: string[], allowed?: readonly string[]): NodeJS.ProcessEnv {
+export function buildFilteredEnv(blocked: string[]): NodeJS.ProcessEnv {
   const env = { ...process.env };
   for (const key of Object.keys(env)) {
-    if (!blocked.some((p) => matchPattern(key, p))) continue;
-    if (allowed && allowed.some((p) => matchPattern(key, p))) continue;
-    delete env[key];
+    if (blocked.some((p) => matchPattern(key, p))) {
+      delete env[key];
+    }
   }
   return env;
 }
@@ -518,7 +476,7 @@ export interface SandboxAuditEntry {
   failureKind?: SandboxFailureKind | null;
   /** failureKind==='fs_exhausted' 时点名的维度。 */
   fsExhaustion?: SandboxFsExhaustion;
-  /** G-465 剥离侧报名:本次子进程被剥掉的"疑似凭据形态"变量(点名变量名与命中模式);空缺=无命中。 */
+  /** G-465 报名面:本次子进程将继承的"疑似凭据形态"变量(只报名,不剥不拦);空缺=无命中。 */
   suspiciousEnvVars?: SuspiciousEnvVarReport[];
   durationMs: number;
 }
@@ -880,10 +838,10 @@ export function runSandboxed(commandLine: string, opts: SandboxOptions): Sandbox
     }
   }
 
-  // G-465 剥离侧报名:先算出真正交给子进程的 env,再对"被剥掉的键"做凭据形态归因
-  // (只报名,不恢复;剥离仍由 buildFilteredEnv + blockedEnvVars 一家独管,两表同源不混抄)。
+  // G-465 报名面:先算出真正交给子进程的 env,对幸存者做疑似凭据报名(只报名,不剥不拦;
+  // 剥离仍由 buildFilteredEnv + blockedEnvVars 一家独管,两表不得混用)。
   const filteredEnv = buildFilteredEnv(blockedEnvVars);
-  const suspiciousEnvVars = detectStrippedSuspiciousEnvVars(process.env, filteredEnv);
+  const suspiciousEnvVars = detectSuspiciousEnvVars(filteredEnv);
   reportSuspiciousEnvVars(suspiciousEnvVars);
 
   const spawnOpts: SpawnSyncOptions = {
@@ -1003,10 +961,10 @@ export function runSandboxedAsync(commandLine: string, opts: SandboxOptions): Sa
     };
   }
 
-  // G-465 剥离侧报名:与同步路径同一出口(对"被剥掉的键"做凭据形态归因;precheck 拒绝分支
-  // 没拉起子进程,没有 env 交接,不报名)。
+  // G-465 报名面:与同步路径同一出口(只报名,不剥不拦;precheck 拒绝分支没拉起子进程,
+  // 没有 env 交接,不报名)。
   const filteredEnv = buildFilteredEnv(blockedEnvVars);
-  const suspiciousEnvVars = detectStrippedSuspiciousEnvVars(process.env, filteredEnv);
+  const suspiciousEnvVars = detectSuspiciousEnvVars(filteredEnv);
   reportSuspiciousEnvVars(suspiciousEnvVars);
 
   const spawnOpts: SpawnOptions = {

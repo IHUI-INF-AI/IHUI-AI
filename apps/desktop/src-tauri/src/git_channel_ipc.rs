@@ -23,8 +23,8 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use crate::git_local_status::{
-    git_binary_candidates, local_status, resolve_git_binary, summarize, verify_root, Config,
-    EngineOutcome, ProcessRunner, RequestSpec, DEFAULT_TIMEOUT_MS, ENV_GIT_BASES, MAX_TIMEOUT_MS,
+    git_binary_candidates, local_status, resolve_git_binary, summarize, Config, EngineOutcome,
+    ProcessRunner, RequestSpec, DEFAULT_TIMEOUT_MS, ENV_GIT_BASES, MAX_TIMEOUT_MS,
 };
 use crate::git_status_core::{ChangeKind, StatusEntry};
 
@@ -243,33 +243,19 @@ pub fn git_authorize_workspace(
             ))
         }
     };
-    // 票72③(2026-10-07)：授权只跑 root 证明（verify_root：bases 边界 + rev-parse
-    // --show-toplevel 双证），不再顺带执行完整 status。旧实现走 local_status，
-    // >MAX_REPORTED_ENTRIES(5000) 条变更的仓库被判 Budget ⇒ state 永远到不了
-    // facts ⇒ 大仓永远无法授权 —— 授权不该取决于仓库有多大（verify_root 立口的
-    // 同一句话）。失败路径（拒/判不了/命令失败）经 StatusReply::from 原样上线，
-    // state 均非 "facts"，不会写入 authorized_root。
-    let reply = match verify_root(&cfg, &candidate, Some(&binary), &ProcessRunner) {
-        Ok(binary_used) => {
-            let mut slot = state
-                .authorized_root
-                .lock()
-                .unwrap_or_else(|poisoned| poisoned.into_inner());
-            *slot = Some(candidate.clone());
-            StatusReply {
-                state: "facts".into(),
-                verdict: "clean".into(),
-                reason: "root 授权证明成立；本命令不执行 status、不产出变更清单，工作区状态请调 git_workspace_status".into(),
-                root: candidate,
-                git_binary: binary_used,
-                scope: None,
-                total: 0,
-                by_kind: Vec::new(),
-                entries: Vec::new(),
-            }
-        }
-        Err(outcome) => StatusReply::from(&outcome),
+    let req = RequestSpec {
+        root: candidate.clone(),
+        scope: None,
     };
+    let outcome = local_status(&cfg, &req, Some(&binary), &ProcessRunner);
+    let reply = StatusReply::from(&outcome);
+    if reply.state == "facts" {
+        let mut slot = state
+            .authorized_root
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        *slot = Some(candidate);
+    }
     Ok(reply)
 }
 

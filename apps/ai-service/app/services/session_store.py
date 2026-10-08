@@ -38,8 +38,6 @@ from typing import Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
-from .branch_generation import bump_branch_generation
-
 logger = logging.getLogger(__name__)
 
 # ==================== Fork 边界对齐(批58十四,对标 codex thread_rollout_truncation.rs) ====================
@@ -529,7 +527,6 @@ class Thread(BaseModel):
     fork_point_seq: int | None = None
     fork_mode: ForkMode | None = None
     archived: bool = False
-    archived_at: float | None = None
     item_count: int = 0
     last_seq: int | None = None
 
@@ -729,11 +726,6 @@ def _row_opt_str(row: sqlite3.Row, key: str) -> str | None:
     return None if v is None else str(v)
 
 
-def _row_opt_float(row: sqlite3.Row, key: str) -> float | None:
-    v = row[key]
-    return None if v is None else float(v)
-
-
 def _json_dict(raw: str) -> dict[str, Any]:
     data = json.loads(raw)
     return data if isinstance(data, dict) else {}
@@ -763,7 +755,6 @@ def _row_to_thread(row: sqlite3.Row) -> Thread:
         fork_point_seq=_row_opt_int(row, "fork_point_seq"),
         fork_mode=cast(ForkMode | None, _row_opt_str(row, "fork_mode")),
         archived=bool(row["archived"]),
-        archived_at=_row_opt_float(row, "archived_at"),
     )
 
 
@@ -804,7 +795,7 @@ def _row_to_item(row: sqlite3.Row) -> ItemBase:
 class SessionStore:
     """Codex 级会话持久化引擎。"""
 
-    SCHEMA_VERSION = 4  # v1=基线, v2=FTS5, v3=跨会话接力摘要, v4=threads.archived_at 归档时刻
+    SCHEMA_VERSION = 3  # v1=基线, v2=FTS5, v3=跨会话接力摘要
 
     def __init__(
         self,
@@ -877,24 +868,12 @@ class SessionStore:
             self._conn.executescript(_RELAY_DDL)
             if not self._has_version(3):
                 self._add_version(3, "relay_summaries: cross-session relay summary")
-            # v4: 归档时刻墓碑列(G-815919)。删除动作留下的是可恢复的标记,
-            # 不是行的消失 —— 归档进迁移、进行类型、进编解码,三格缺一不可。
-            if not self._has_column("threads", "archived_at"):
-                self._conn.execute("ALTER TABLE threads ADD COLUMN archived_at REAL")
-            if not self._has_version(4):
-                self._add_version(
-                    4, "threads.archived_at: tombstone timestamp (G-815919)"
-                )
 
     def _has_version(self, version: int) -> bool:
         row = self._conn.execute(
             "SELECT 1 AS x FROM schema_version WHERE version = ?", (version,)
         ).fetchone()
         return row is not None
-
-    def _has_column(self, table: str, column: str) -> bool:
-        rows = self._conn.execute(f"PRAGMA table_info({table})").fetchall()
-        return any(_row_str(r, "name") == column for r in rows)
 
     def _add_version(self, version: int, description: str) -> None:
         self._conn.execute(
@@ -958,19 +937,11 @@ class SessionStore:
             fork_mode=fork_mode,
         )
 
-    def get_thread(
-        self, thread_id: str, *, include_archived: bool = False
-    ) -> Thread | None:
-        """按业务读路径取线程(G-815919):已归档(墓碑)的行默认不可读。
-
-        include_archived=True 是恢复面的专用读(对标上游 codec 把 time_archived
-        映射出来那一格);普通业务读不得把墓碑当活会话。
-        """
+    def get_thread(self, thread_id: str) -> Thread | None:
         with self._lock:
-            sql = "SELECT * FROM threads WHERE thread_id = ?"
-            if not include_archived:
-                sql += " AND archived = 0"
-            row = self._conn.execute(sql, (thread_id,)).fetchone()
+            row = self._conn.execute(
+                "SELECT * FROM threads WHERE thread_id = ?", (thread_id,)
+            ).fetchone()
             if row is None:
                 return None
             cnt = self._conn.execute(
@@ -989,42 +960,11 @@ class SessionStore:
             线程是否存在并被更新。
         """
         with self._lock, self._tx() as conn:
-            flag = 1 if archived else 0
-            now = _now()
-            # 归档时刻与布尔标记同写同清(G-815919:标记必须带时刻,两路写入口不漂移):
-            # 置档 → 首次时刻(COALESCE 保留);恢复 → 墓碑清空。
             cur = conn.execute(
-                "UPDATE threads SET archived = ?,"
-                " archived_at = CASE WHEN ? = 1 THEN COALESCE(archived_at, ?) ELSE NULL END,"
-                " updated_at = max(updated_at, ?) WHERE thread_id = ?",
-                (flag, flag, now, now, thread_id),
+                "UPDATE threads SET archived = ?, updated_at = max(updated_at, ?) WHERE thread_id = ?",
+                (1 if archived else 0, _now(), thread_id),
             )
             return cur.rowcount > 0
-
-    def archive_thread(
-        self, thread_id: str, *, archived_at: float | None = None
-    ) -> int:
-        """把线程归档成墓碑(G-815919):删除动作留下可恢复的标记,不是行的消失。
-
-        行保留(items/turns 一并保留,"这条会话当时是什么状态"问库不问备份),
-        archived=1 + archived_at=首次归档时刻;业务读路径(get_thread /
-        list_threads)从此不可见。仅对未归档行生效(WHERE archived = 0):
-        重复归档返回 0,保住 thread/delete 的幂等契约(第二次删返回
-        deleted=False,对标 delete_threads 对 ThreadNotFound 静默)。
-
-        Returns:
-            被归档的线程数(0 或 1)。
-        """
-        ts = _now() if archived_at is None else archived_at
-        with self._lock, self._tx() as conn:
-            cur = conn.execute(
-                "UPDATE threads SET archived = 1,"
-                " archived_at = COALESCE(archived_at, ?),"
-                " updated_at = max(updated_at, ?)"
-                " WHERE thread_id = ? AND archived = 0",
-                (ts, ts, thread_id),
-            )
-            return cur.rowcount
 
     def set_thread_name(self, thread_id: str, name: str) -> bool:
         """设置线程名称(2026-09-20 批 45,对标 Codex thread/name/set +
@@ -1561,11 +1501,6 @@ class SessionStore:
             if isinstance(source.metadata.get("roleId"), int)
             else None,
         )
-        # G-815974:fork 成功即分支装配出口 —— 提升**来源**线程的分支代数。
-        # 挂在来源会话上的在飞后台任务完成时,经 background_tasks 复校发现旧令牌
-        # 过期 ⇒ 不寄通知、不写历史;fork 出的新线程 key 独立(代数 0 起步),
-        # 自己的任务不会被父分支的代数误杀。
-        bump_branch_generation(thread_id, "fork")
         # 复制前缀 items(<=at_response_id)到新 thread
         with self._tx() as conn:
             rows = conn.execute(
