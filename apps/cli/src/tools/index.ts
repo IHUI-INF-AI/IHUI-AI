@@ -227,6 +227,15 @@ export interface Tool extends ToolContractMount {
    */
   registrationOwner?: string;
   /**
+   * 工具改名前的旧名(改名安全:allow/deny 需**新旧两名并查**)。
+   *
+   * 立因:MCP 工具从裸名 `web_search` 改为两轴名 `mcp__<server>__web_search` 后,
+   * 用户升级前保存的 `--disallowed-tools web_search` 记的是**旧名** —— 权限判定若只查
+   * 新名,那条黑名单会**静默失效并放行**(与上游 "改名时新旧两名并查 allow/deny" 同型)。
+   * 内建工具无改名历史,省略。
+   */
+  nameAliases?: string[];
+  /**
    * 逐工具 strict 声明位(G-464:provider 约束解码**资格**,不是命令)。
    * 语义对齐上游 contracts/tools/contract.ts:174-180:声明了也只是"有资格走 provider 的
    * 结构化/约束解码";是否真带 strict 下发由 adapter 按 provider/model 决定,strict 面
@@ -1071,8 +1080,9 @@ export async function executeToolCall(
           tool.dangerLevel ?? 'write',
           lease,
           JSON.stringify(call.arguments ?? null),
+          tool.nameAliases,
         )
-      : checkPermission(call.name, ctx.permissions);
+      : checkPermission(call.name, ctx.permissions, tool.nameAliases);
     if (!perm.allowed) {
       // 可诊断化收口:原错误串逐字保留(既有回归以 `toContain` 断言它),其后追加 ASCII 出路行;
       // 三问(哪道闸/出路/参数摘要)以结构化字段在返回体可断言。判定本身一个字节都没动。
@@ -1164,8 +1174,9 @@ export async function executeToolCall(
               tool.dangerLevel ?? 'write',
               lease,
               JSON.stringify(modified ?? null),
+              tool.nameAliases,
             )
-          : checkPermission(call.name, ctx.permissions);
+          : checkPermission(call.name, ctx.permissions, tool.nameAliases);
         if (!perm2.allowed) {
           // 规则拒绝是真实"说不":gate/decider 与首过同形,审计行如实可记。
           const denial = buildToolDenial({
