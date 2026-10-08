@@ -155,7 +155,10 @@ function show(rev, p, cwd) {
 
 function blobOf(rev, p, cwd) {
   try {
-    return git(['rev-parse', `${rev}:${p}`], cwd)
+    // 必须带 --verify --quiet:裸 rev-parse 对解析不了的参数(<rev>:<path> 路径不存在时)
+    // 会**原样回显且退出码 0**(2026-10-07 实测抓到:远端树没有 PageClient.tsx,
+    // blobOf 回显了 "<sha>:<path>" 整串 ⇒ 被当 blob 塞进 --cacheinfo ⇒ 整轮收敛崩)。
+    return git(['rev-parse', '--verify', '--quiet', `${rev}:${p}`], cwd)
   } catch {
     return null
   }
