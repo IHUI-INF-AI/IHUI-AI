@@ -69,11 +69,25 @@ export function extractPlatform(raw: string): string | undefined {
   return m?.[1]?.trim() || undefined
 }
 
+/** 短信用途的词汇表**只在这里定义一次**:分类器产出它、台账列(varchar(16))读回来也归一到它。 */
+export const SMS_USAGE_KINDS = ['register', 'login', 'other'] as const
+export type SmsUsageKind = (typeof SMS_USAGE_KINDS)[number]
+
 /** 短信用途判定:含「注册」=新号注册,含「登录」=该号已注册过(登录码),其余 other */
-export function classifySmsUsage(raw: string): 'register' | 'login' | 'other' {
+export function classifySmsUsage(raw: string): SmsUsageKind {
   if (raw.includes('注册')) return 'register'
   if (raw.includes('登录') || raw.includes('登陆')) return 'login'
   return 'other'
+}
+
+/**
+ * 把库里的 varchar 值收回词汇表。列是自由文本(历史值/手工改库都可能落进别的字符串),
+ * 而统计接口的返回类型是联合 —— 不收回就直接 TS2322,收回用 `as` 又是把没验的值当验过。
+ */
+export function toSmsUsageKind(value: string): SmsUsageKind {
+  return (SMS_USAGE_KINDS as readonly string[]).includes(value)
+    ? (value as SmsUsageKind)
+    : 'other'
 }
 
 /** 统一平台调用:返回纯文本正文(已 trim),ERROR: 前缀归一为 D1jiemaError */
