@@ -2836,28 +2836,45 @@ class LLMGateway:
                 # 2026-08-29 修复:tool_calls 分片累积(此前把分片事件直接透传,
                 # 调用方拿不到完整参数)。分片不透传,循环结束后统一 yield。
                 native_tool_acc: dict[int, dict[str, Any]] = {}
-                async for evt in astream_iter:
-                    if (
-                        isinstance(evt, dict)
-                        and evt.get("type") == "error"
-                        and not native_sent_content
-                    ):
-                        async for fb_evt in self._astream_fallback_events(
-                            trimmed_messages,
-                            used_model,
-                            str(evt.get("message", "")) or "native provider stream failed",
+                # 借来的异步生成器必须"谁借谁关":下面 error→fallback 分支那句
+                # `yield …; return` 就是把 astream_iter 弃在半路的一型 —— 它此刻仍停在
+                # provider 的 `async with client.stream(...)` 内部(见
+                # app/providers/anthropic_provider.py 的 astream),不显式 aclose 就只能等
+                # GC + loop.shutdown_asyncgens 才走它的 finally,连接留在半读态。
+                # 唯一关停出口见 app/services/async_gen_close.py(幂等 + 绝不掩盖原异常)。
+                # 函数级 import 是刻意的:core 不得模块级依赖 services(同 executor_switch.py
+                # 的"红线 2"写法),否则 app.services/__init__ 反 import 本模块成环。
+                from app.services.async_gen_close import aclose_async_gen
+
+                try:
+                    async for evt in astream_iter:
+                        if (
+                            isinstance(evt, dict)
+                            and evt.get("type") == "error"
+                            and not native_sent_content
                         ):
-                            yield fb_evt
-                        return
-                    if isinstance(evt, dict) and evt.get("type") == "tool_call":
-                        # 2026-08-29 修复:tool_call 分片按 index 累积,不透传
-                        self._accumulate_tool_calls(
-                            native_tool_acc, evt.get("tool_calls") or []
-                        )
-                        continue
-                    if isinstance(evt, dict) and evt.get("type") in ("chunk", "reasoning"):
-                        native_sent_content = True
-                    yield evt
+                            async for fb_evt in self._astream_fallback_events(
+                                trimmed_messages,
+                                used_model,
+                                str(evt.get("message", "")) or "native provider stream failed",
+                            ):
+                                yield fb_evt
+                            return
+                        if isinstance(evt, dict) and evt.get("type") == "tool_call":
+                            # 2026-08-29 修复:tool_call 分片按 index 累积,不透传
+                            self._accumulate_tool_calls(
+                                native_tool_acc, evt.get("tool_calls") or []
+                            )
+                            continue
+                        if isinstance(evt, dict) and evt.get("type") in ("chunk", "reasoning"):
+                            native_sent_content = True
+                        yield evt
+                finally:
+                    # return / 正常耗尽 / 消费者提前收流(GeneratorExit)三条出口都走这里;
+                    # 已耗尽时 aclose 是合法 no-op,不会对正常完成路径做"二次回滚"。
+                    await aclose_async_gen(
+                        astream_iter, label="llm_gateway.astream native provider"
+                    )
                 # 2026-08-29 修复:流结束前统一产出累积后的完整 tool_calls(按 index 排序)
                 if native_tool_acc:
                     yield {
