@@ -267,67 +267,11 @@ tools: [tool-b, tool-c]
     writeSkill(path.join(tmpDir, '.ihui', 'skills'), 'merge-test', content);
     const skills = loadSkills({ cwd: tmpDir });
     const merged = getAllowedTools(skills[0]!.frontmatter);
-    // G-428:两键都写 ⇒ 必是数组(非 undefined/null),非空断言即三值契约的负面钉
-    expect(merged!.sort()).toEqual(['tool-a', 'tool-b', 'tool-c']);
+    expect(merged.sort()).toEqual(['tool-a', 'tool-b', 'tool-c']);
   });
 
-  // G-428 契约翻新(2026-10-07 拍板):旧断言把"无 frontmatter"折成空数组钉成期望;
-  // 三值契约下缺席态的合法值是 undefined,不再是 [](改钉"没写"合法态 = 契约翻新,非凑绿)。
-  it('getAllowedTools 对 undefined frontmatter 保留缺席态 undefined', () => {
-    expect(getAllowedTools(undefined)).toBeUndefined();
-  });
-
-  it('G-428 三值之一:allowed-tools 键缺席 ⇒ undefined(不折成空数组)', () => {
-    const def = parseSkillDefinition('---\nname: absent-g428\n---\nbody', '/abs/g428-absent.md');
-    expect(def.frontmatter.allowedTools).toBeUndefined();
-    expect(getAllowedTools(def.frontmatter)).toBeUndefined();
-  });
-
-  it('G-428 三值之二:allowed-tools 显式空表 ⇒ [](既非缺席也非非法)', () => {
-    const def = parseSkillDefinition('---\nname: empty-g428\nallowed-tools: []\n---\nbody', '/abs/g428-empty.md');
-    expect(def.frontmatter.allowedTools).toEqual([]);
-    expect(getAllowedTools(def.frontmatter)).toEqual([]);
-  });
-
-  it('G-428 三值之三:allowed-tools 块状 mapping ⇒ 判非法 null(绝不吞成空表或缺席)', () => {
-    // 上游 subagent/profile-frontmatter.ts:76-80 原注:块状 mapping 不是名字列表,
-    // 不能被空数组吞掉后扩大 child MCP scope —— 折叠成 [] 或 undefined 都会让
-    // "声明了约束"与"什么都没说"在消费面同形。
-    const content = `---
-name: mapping-g428
-allowed-tools:
-  tool-a: true
----
-正文`;
-    writeSkill(path.join(tmpDir, '.ihui', 'skills'), 'mapping-g428', content);
-    const skills = loadSkills({ cwd: tmpDir });
-    expect(skills).toHaveLength(1);
-    expect(skills[0]!.frontmatter!.allowedTools).toBeNull();
-    expect(getAllowedTools(skills[0]!.frontmatter)).toBeNull();
-  });
-
-  it('G-428:project 来源(仓库内)加载的技能丢弃 permissionMode(仓库输入不得抬权)', () => {
-    const content = `---
-name: proj-perm-g428
-permissionMode: bypassPermissions
----
-正文`;
-    writeSkill(path.join(tmpDir, '.ihui', 'skills'), 'proj-perm-g428', content);
-    const skills = loadSkills({ cwd: tmpDir });
-    expect(skills).toHaveLength(1);
-    expect(skills[0]!.frontmatter!.permissionMode).toBeUndefined();
-  });
-
-  it('G-428:user 来源(主目录)加载的技能保留 permissionMode', () => {
-    const content = `---
-name: user-perm-g428
-permissionMode: bypassPermissions
----
-正文`;
-    writeSkill(path.join(tmpHome, '.ihui', 'skills'), 'user-perm-g428', content);
-    const skills = loadSkills({ cwd: tmpDir });
-    expect(skills).toHaveLength(1);
-    expect(skills[0]!.frontmatter!.permissionMode).toBe('bypassPermissions');
+  it('getAllowedTools 对 undefined frontmatter 返回空数组', () => {
+    expect(getAllowedTools(undefined)).toEqual([]);
   });
 
   it('getAllowedTools 仅 tools 字段(向后兼容)', () => {

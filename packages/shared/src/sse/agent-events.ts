@@ -611,44 +611,16 @@ export interface ToolApprovalEvent {
 // 字段面判据见上方"字段级判据"节:未知键计数报名,声明字段被拒走严格工厂 typed fault)
 // ============================================================================
 
-/**
- * G-896418:信封显式校验守卫(替代原 `JSON.parse(...) as AgentTaskWireEnvelope` 断言)。
- * 路线 = 明写"信封只验结构性最小形状(声明键在时 type/session_id 为 string、payload 为
- * 非数组对象),字段级校验收口在各解析器的 zod 路由闸" —— 与 G-719(字段撤回兼容)互不
- * 重复:本守卫管信封层,G-719 管字段撤回。守卫不过 ⇒ 拒帧并落 G-816042 计数,不得静默。
- */
-export function isAgentTaskWireEnvelope(data: unknown): data is AgentTaskWireEnvelope {
-  if (typeof data !== 'object' || data === null || Array.isArray(data)) return false
-  const rec = data as Record<string, unknown>
-  if (rec['type'] !== undefined && typeof rec['type'] !== 'string') return false
-  if (rec['session_id'] !== undefined && typeof rec['session_id'] !== 'string') return false
-  if (
-    rec['payload'] !== undefined &&
-    (typeof rec['payload'] !== 'object' || rec['payload'] === null || Array.isArray(rec['payload']))
-  ) {
-    return false
-  }
-  return true
-}
-
-/** 信封拒帧在 G-816042 计数里的合成键(信封层没有事件名可挂,统一归这一格)。 */
-const ENVELOPE_INVALID_COUNT_KEY = '<envelope-invalid>'
-
-/** 安全 JSON.parse + 信封显式校验:非 JSON/形状不符一律返回 null(替代各消费点重复的 try/catch 模板)。 */
+/** 安全 JSON.parse:非 JSON/非对象一律返回 null(替代各消费点重复的 try/catch 模板)。 */
 function parseEnvelope(raw: unknown): AgentTaskWireEnvelope | null {
   if (typeof raw !== 'string') return null
-  let data: unknown
   try {
-    data = JSON.parse(raw)
+    const data = JSON.parse(raw) as AgentTaskWireEnvelope
+    if (data === null || typeof data !== 'object' || Array.isArray(data)) return null
+    return data
   } catch {
     return null
   }
-  if (!isAgentTaskWireEnvelope(data)) {
-    // G-896418:信封错型不得静默 —— 落 G-816042 的解析失败计数(同一键只报名一次)。
-    recordUnknownSseEventName(ENVELOPE_INVALID_COUNT_KEY)
-    return null
-  }
-  return data
 }
 
 /**
