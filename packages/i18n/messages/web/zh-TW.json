@@ -5918,7 +5918,9 @@
       "refresh": "重新整理",
       "loadFailed": "載入失敗",
       "installerHint": "GitHub 側操作者 id，非平臺使用者"
-    }
+    },
+    "smsReceive": "簡訊接碼",
+    "sms": "簡訊範本"
   },
   "connectors": {
     "title": "中文連接器",
@@ -19215,7 +19217,9 @@
     "home": "首頁",
     "settings": "設定",
     "adminDeployDiagnosis": "部署診斷",
-    "githubApp": "GitHub App"
+    "githubApp": "GitHub App",
+    "smsReceive": "簡訊接碼",
+    "sms": "簡訊範本"
   },
   "news": {
     "allCategories": "全部分類",

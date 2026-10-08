@@ -129,6 +129,10 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   const { default: authSmsTempRoutes } = await import('./admin/auth-sms-temp.js')
   await server.register(authSmsTempRoutes)
 
+  // 2026-10-08 管理员短信接码(d1jiema 平台对接,/admin/sms-receive 前端页面用)
+  const { default: smsReceiveRoutes } = await import('./admin/sms-receive.js')
+  await server.register(smsReceiveRoutes)
+
   const { default: userRolesRoutes } = await import('./admin/user-roles.js')
   await server.register(userRolesRoutes)
 
