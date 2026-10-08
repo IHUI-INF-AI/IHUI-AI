@@ -277,6 +277,7 @@ const relayDiscoveryRoutes: FastifyPluginAsync = async (server) => {
             isRelayPublic: true,
             relayPriceMultiplier: parsed.data.relayPriceMultiplier ?? '1.0000',
             relayDisplayName: parsed.data.relayDisplayName ?? null,
+            extraMetadata: { discoveredFrom: discovery.id, capabilities: discovery.capabilities },
           })
           .returning({ id: aiModelConfigModels.id })
         approvedModelRowId = inserted!.id

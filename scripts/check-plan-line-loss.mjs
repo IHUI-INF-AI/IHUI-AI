@@ -88,7 +88,7 @@ import { execFileSync, spawn } from 'node:child_process'
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { catBatch, FACE_LABEL, gitBinary, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { catBatch, FACE_LABEL, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 // 取证夹具唯一落点(§26:既不得往 os.tmpdir() 写,也不得落在仓库树内)
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 // G-307(看守侧):归并器合法翻勾会在行上留注记 —— legacy 形态把注记**前置**在正文之前,
@@ -102,29 +102,23 @@ import { stripForkPrefix } from './lib/plan-merge-annotation.mjs'
 import { findMalformedIds, newMalformed, malformedLine } from './lib/plan-task-index.mjs'
 
 const GIT_TIMEOUT = 60000
-/**
- * 2026-10-08 gitRaw 型 B 批:`const GIT = process.env.IHUI_GIT_BIN || 'git'` ⇒ 兜底改走取材层
- * `gitBinary()`(恒等 `resolveGitBin() || 'git'` —— 同一兜底链的绝对路径优先,正是型 B 要治的
- * "服务账户/GUI 宿主下 PATH 不通")。`IHUI_GIT_BIN` 逃生舱**优先级与语义一字未动**(仍居首),
- * 本文件由此脱离型 B 判据(scripts/tests/face-reader.test.mjs 的 PATH_BOUND_GIT_BASELINE)。
- */
-const GIT = process.env.IHUI_GIT_BIN || gitBinary()
+const GIT = process.env.IHUI_GIT_BIN || 'git'
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PLAN = 'PROJECT_PLAN.md'
 const MIN_LEN = 40
 
-/**
- * 统一 git 派生(2026-10-08 迁取材层 gitRaw)。行为面**逐字不变**:-c safe.directory=* 同;
- * cwd 参数与层 `-C <root>` 同面(层另带 core.quotepath=false,对本文件全命令——rev-parse /
- * rev-list / show / hash-object,无路径输出——无涉);stdio 旧 'ignore' 态 = 层无 input 态
- * `['ignore','pipe','pipe']`;encoding utf8 / windowsHide 同;maxBuffer 旧 256MB 显式保留
- * (层默认 64MB,由 opts 抬升);timeout 旧无 ⇒ 取本文件既有的 `GIT_TIMEOUT`(60s,与文件内
- * 其余 gitRaw 调用同档,且各命令均为亚秒级)。返回值同面(未 trim 的 stdout,调用方自行 trim)。
- * 失败语义:Node 的 `Command failed:` ⇒ 层 `Undetermined`(仍带 .status),本文件各调用方
- * 一律 catch 住派生失败并按"无法判定"处置,不 parse 异常文本。
- */
 const git = (args, cwd = ROOT) =>
-  gitRaw(args, cwd, { timeout: GIT_TIMEOUT, maxBuffer: 256 * 1024 * 1024 })
+  execFileSync(GIT, ['-c', 'safe.directory=*', ...args], {
+    cwd,
+    encoding: 'utf8',
+    maxBuffer: 256 * 1024 * 1024,
+    windowsHide: true,
+    // EBUSY 根治(errno -4082):本机会话里 Node 建子进程 stdin 管道确定性失败。
+    // 本门自检夹具确实写对象库(`hash-object -w <临时文件>` / `write-tree` / `commit-tree`),
+    // 但**一律走文件通道、零 input** —— 与"stdin 喂数据会静默产空 blob"那次事故相反,
+    // 这里 stdio[0]='ignore' 是安全且必需的。
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
 
 /**
  * 新两族(裸编号复选任务行 / 批次标题行)的标记 = **编号 + 紧随的短标题**:
@@ -2360,14 +2354,6 @@ function heal(commit) {
   const parent = git(['rev-parse', 'HEAD']).trim()
   const idx = path.join(ROOT, '.ihui-agent/tmp', `index-plan-heal-${Date.now()}`)
   const env2 = { ...process.env, GIT_INDEX_FILE: idx }
-  /**
-   * 2026-10-08 **刻意不迁 gitRaw**(与 scripts/lib/bypass-git.mjs 的 `git()` 同一条不可迁账):
-   * 本函数(及紧邻的 commit-tree)必须把 `GIT_INDEX_FILE` 经 opts.env **显式注入**派生 ——
-   * 临时索引提交的落地通道,绝不允许从 caller shell 漏进来;而 gitRaw 的 opts 只有
-   * {input,timeout,maxBuffer,binary},无 env 形态。派生形态(execFileSync + stdio
-   * ['ignore','pipe','pipe'] + 各自 maxBuffer + timeout 缺省)一字未动;二进制取数已随
-   * 上方 GIT 绑定改走层 gitBinary()。
-   */
   const g2 = (a, o = {}) =>
     execFileSync(GIT, ['-c', 'safe.directory=*', ...a], {
       cwd: ROOT,
