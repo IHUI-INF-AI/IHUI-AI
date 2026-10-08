@@ -24,7 +24,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import * as path from 'node:path';
 import chalk from 'chalk';
 import ora from 'ora';
-import { streamChat, setBaseUrl, setTokenProvider, formatSSEError, getModelContextCapacity, type StreamChatOptions, type SSEErrorInfo, type SSEErrorSeverity, type PlanUpdateEvent, type TerminalDeltaEvent, type ToolDeltaEvent } from '@ihui/api-client';
+import { streamChat, setBaseUrl, setTokenProvider, formatSSEError, type StreamChatOptions, type SSEErrorInfo, type SSEErrorSeverity, type PlanUpdateEvent, type TerminalDeltaEvent, type ToolDeltaEvent } from '@ihui/api-client';
 // L1-4(2026-07-25 立):doom_loop 反思沉淀 procedural memory,需 loadConfig 拿 ai-service URL
 import { loadConfig } from '../config/index.js';
 // 2026-09-27:doom_loop pattern 外发前过一次脱敏兜底(防原文字段流入服务端落库)
@@ -577,7 +577,7 @@ export interface RunToolLoopOptions {
   onTerminalDelta?: NonNullable<StreamChatOptions['onTerminalDelta']>;
   /** D151 命令等待键盘输入(terminal_interaction) — 透传 api-client 的 onTerminalInteraction,未传时零开销(同上) */
   onTerminalInteraction?: NonNullable<StreamChatOptions['onTerminalInteraction']>;
-  /** 模型上下文窗口大小(tokens)。达 85% 自动压缩到 60%,默认取当前模型容量 getModelContextCapacity(modelId)(G-916940③④:引用唯一容量出口,不再写字面量)。 */
+  /** 模型上下文窗口大小(tokens)。达 85% 自动压缩到 60%,默认 128_000(与 @ihui/api-client DEFAULT_CONTEXT_CAPACITY 跨端一致)。 */
   contextLimit?: number;
   /** 是否启用 plan 强制阻断(配合 planApproved 控制) */
   planFirst?: boolean;
@@ -1581,9 +1581,8 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   const settings = loadSettings();
 
   // ===== WP-2 三道守卫 + WP-3 已读状态:一次运行一个实例 =====
-  // G-916940③:兜底默认改引用唯一容量出口 —— 用户没传 contextLimit 就按当前模型取容量;
-  // 未知/空模型 id 时出口自身回落 DEFAULT_CONTEXT_CAPACITY,兜底语义("没传就用默认")不变。
-  const guardContextLimit = opts.contextLimit ?? getModelContextCapacity(opts.modelId);
+  // 默认 128K:与 @ihui/api-client DEFAULT_CONTEXT_CAPACITY 跨端一致
+  const guardContextLimit = opts.contextLimit ?? 128_000;
   const contextGuards = opts.contextGuards ?? new ContextGuards({ contextLimit: guardContextLimit });
   /** 已读文件跟踪器:压缩后重建提醒的数据源(信封落盘时也由它记账) */
   const readState = new ReadStateTracker();
@@ -1665,7 +1664,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
     const tool = getTool(toolName);
     if (!tool || tool.dangerLevel !== 'read') return false;
     const mode = opts.ctx.permissionMode ?? 'default';
-    return checkPermission(toolName, opts.ctx.permissions, mode, tool.dangerLevel, undefined, tool.nameAliases) === 'allow';
+    return checkPermission(toolName, opts.ctx.permissions, mode, tool.dangerLevel) === 'allow';
   };
   /**
    * 提前发起一次只读执行;抛错原样上送,由账本记成 ok=false。
@@ -2351,7 +2350,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           const startTime = Date.now();
           const tool = getTool(call.name);
           const dangerLevel = tool?.dangerLevel ?? 'read';
-          const decision = checkPermission(call.name, opts.ctx.permissions, mode, dangerLevel, undefined, tool?.nameAliases);
+          const decision = checkPermission(call.name, opts.ctx.permissions, mode, dangerLevel);
           if (decision === 'deny') {
             return {
               call,
@@ -2466,13 +2465,13 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
 
       // P1-2 Reminders:工具结果后自动注入系统提醒(context budget / iteration progress)
       // 灵感来源:参考行业 Agent 框架的 reminders 设计,让 LLM 被动接收关键状态信息
-      // 默认分母引用唯一容量出口 getModelContextCapacity(opts.modelId)(G-916940④;旧写死值 8000 会在 ~7k token 就触发 88% 自动压缩)
+      // 默认 128K:与 @ihui/api-client DEFAULT_CONTEXT_CAPACITY 跨端一致,旧值 8000 会在 ~7k token 就触发 88% 自动压缩
       const reminders = generateReminders({
         iterations,
         maxIterations: opts.maxIterations,
         totalPromptTokens,
         totalCompletionTokens,
-        contextLimit: opts.contextLimit ?? getModelContextCapacity(opts.modelId),
+        contextLimit: opts.contextLimit ?? 128_000,
         injected: reminderInjected,
       });
       for (const r of reminders) {

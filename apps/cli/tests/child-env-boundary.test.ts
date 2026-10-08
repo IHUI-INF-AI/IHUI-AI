@@ -18,7 +18,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-import { buildFilteredEnv, CREDENTIAL_SHAPE_BLOCKED_PATTERNS, DEFAULT_BLOCKED_ENV_VARS } from '../src/sandbox/index.js';
+import { buildFilteredEnv, DEFAULT_BLOCKED_ENV_VARS } from '../src/sandbox/index.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -69,24 +69,31 @@ describe('子进程 env 边界', () => {
   });
 
   /**
-   * 原残留名单(2026-09-29 拍板先钉名单不拦;**2026-10-08 拍板采纳扩展后全部收编进 deny**)。
+   * 残留名单(2026-09-29 拍板:**先钉名单,不拦**)。
    *
    * 根因:`matchPattern` 只认 `endsWith` 的后缀族(`*_API_KEY`/`*_SECRET`/`*_TOKEN`/`*_PASSWORD`),
    * 所以单数 `*_KEY`、`*_SENDKEY`、`*_TOKEN_ID`,以及任何不带这四个后缀的凭据名,一律盖不住。
-   * 10-08 机主拍板:子进程 env 从「只剥我方凭据」扩到「一切凭据形态」,MCP/hook 子进程改
-   * 白名单透传(默认全剥)作逃生门 —— 下面这批键自此全部被宽 deny 剥除,本 describe 反转成
-   * "收编对账":名单里的键一个都不许再漏进子进程;deny 形态集逐字钉死,增删必须显式裁决。
+   *
+   * 为什么不顺手放宽:宽 deny 会打断交互终端里**靠 env 工作**的第三方 CLI(`aws`/`gcloud` 这类),
+   * 那是用户可见回归,与上面"保留未列入清单的第三方变量(宁窄不误伤)"是同一条口径。
+   * 要拦得先按"对 MCP+hook 子进程改白名单"那一型单独拍板,不属本票。
+   *
+   * 本例断言的是**分区结果**,不是"某个变量存在":名单里少一项(将来真去拦它)或多一项
+   * (判据放宽后又盖住了别的东西)都会翻红,逼那一次改动显式改这张清单并写下理由。
    */
-  describe('凭据形态收编(2026-10-08 拍板:原残留名单全部进 deny)', () => {
-    // 原 RESIDUAL_LEDGER 四键 + 复测新增的 TOKEN_PATH 形态:今天必须全部被剥
-    const ONCE_RESIDUAL: string[] = [
+  describe('残留名单:今天盖不住的凭据形态(报名不拦)', () => {
+    const RESIDUAL_LEDGER: string[] = [
+      // 第三方服务凭据,单数 _KEY 后缀
       'LIBTV_ACCESS_KEY',
+      // 推送服务的 sendkey(名字以 SENDKEY 结尾,不是 SECRET)
       'SERVERCHAN_SENDKEY',
+      // 隧道服务的 token id:_TOKEN 后面还挂着 _ID
       'TUNNEL_SERVICE_TOKEN_ID',
+      // 这一条比前三条更该拦:它不是凭据值而是**指向凭据载荷文件的路径**,
+      // 子进程拿到路径就能自己去读那份文件。仍按同一口径只报名。
       'QODER_SDK_AUTH_PAYLOAD_FILE',
-      'TRAE_JWT_TOKEN_PATH',
     ];
-    // 对照组:同形且一直被既有后缀族盖住的,必须一个都不漏
+    // 对照组:同形但今天确实被既有后缀族盖住的,必须一个都不漏
     const BLOCKED_CONTROLS: string[] = [
       'IHUI_API_KEY',
       'STEPFUN_API_KEY',
@@ -95,11 +102,9 @@ describe('子进程 env 边界', () => {
       'DB_PASSWORD',
       'IHUI_SERVE_MACHINE_KEYS',
     ];
-    // 反对照组:非凭据形态,宽 deny 也不许碰(宁窄不误伤的现行口径)
-    const NEGATIVE_CONTROLS: string[] = ['SOME_VENDOR_PROFILE', 'G465_PLAIN_FLAG'];
-    const CANDIDATES = [...ONCE_RESIDUAL, ...BLOCKED_CONTROLS];
+    const CANDIDATES = [...RESIDUAL_LEDGER, ...BLOCKED_CONTROLS];
 
-    it('原残留名单 + 对照组全部被剥(值不进子进程 env)', () => {
+    it('分区与名单逐字相等 —— 名单一旦变化(收紧或漏项)本例即红,要求显式裁决', () => {
       const previous = new Map<string, string | undefined>();
       try {
         for (const k of CANDIDATES) {
@@ -107,8 +112,10 @@ describe('子进程 env 边界', () => {
           process.env[k] = 'sentinel-value-not-a-real-credential';
         }
         const filtered = buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS);
-        for (const k of CANDIDATES) {
-          expect(filtered[k], `${k} 应当被宽 deny 剥除`).toBeUndefined();
+        const survivors = CANDIDATES.filter((k) => filtered[k] !== undefined);
+        expect(survivors.slice().sort()).toEqual(RESIDUAL_LEDGER.slice().sort());
+        for (const k of BLOCKED_CONTROLS) {
+          expect(filtered[k], `${k} 应当被既有后缀族盖住`).toBeUndefined();
         }
       } finally {
         for (const [k, v] of previous) {
@@ -118,87 +125,19 @@ describe('子进程 env 边界', () => {
       }
     });
 
-    it('反对照组幸存:非凭据形态不误伤(宁窄不误伤的现行口径)', () => {
+    it('阳性对照:给 deny 加一条 *_KEY,名单必须立刻缩小(证明上面那条等值不是恒真)', () => {
       const previous = new Map<string, string | undefined>();
-      try {
-        for (const k of NEGATIVE_CONTROLS) {
-          previous.set(k, process.env[k]);
-          process.env[k] = 'keep-me';
-        }
-        const filtered = buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS);
-        for (const k of NEGATIVE_CONTROLS) {
-          expect(filtered[k], `${k} 不是凭据形态,不得被剥`).toBe('keep-me');
-        }
-      } finally {
-        for (const [k, v] of previous) {
-          if (v === undefined) delete process.env[k];
-          else process.env[k] = v;
-        }
-      }
-    });
-
-    it('deny 形态集逐字钉死 —— 增删模式必须显式改本例并写下理由', () => {
-      expect([...CREDENTIAL_SHAPE_BLOCKED_PATTERNS]).toEqual([
-        '*_API_KEY',
-        '*_SECRET',
-        '*_TOKEN',
-        '*_PASSWORD',
-        '*_SENDKEY',
-        '*_AUTH_PAYLOAD_FILE',
-        '*_TOKEN_ID',
-        '*_SECRET_ID',
-        '*_KEY_ID',
-        '*_TOKEN_PATH',
-        '*_TOKEN_FILE',
-        '*_KEY_PATH',
-        '*_KEY_FILE',
-        '*_KEY',
-      ]);
-      // 默认表必须包含全部形态模式(同源拼装,不得漏拼)
-      expect(DEFAULT_BLOCKED_ENV_VARS).toEqual(expect.arrayContaining([...CREDENTIAL_SHAPE_BLOCKED_PATTERNS]));
-    });
-
-    it('变异自证:把 *_KEY 模式从 deny 里摘掉,LIBTV_ACCESS_KEY 必须幸存(证明剥除非恒真)', () => {
       const SENTINEL = 'sentinel-value-not-a-real-credential';
-      const previous = process.env.LIBTV_ACCESS_KEY;
       try {
-        process.env.LIBTV_ACCESS_KEY = SENTINEL;
-        const narrowed = buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS.filter((p) => p !== '*_KEY'));
-        expect(narrowed.LIBTV_ACCESS_KEY).toBe(SENTINEL);
-        const current = buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS);
-        expect(current.LIBTV_ACCESS_KEY).toBeUndefined();
-      } finally {
-        if (previous === undefined) delete process.env.LIBTV_ACCESS_KEY;
-        else process.env.LIBTV_ACCESS_KEY = previous;
-      }
-    });
-  });
-
-  describe('白名单透传(G-465 10-08 拍板:buildFilteredEnv 第二参逃生门)', () => {
-    it('精确名白名单越过 deny 幸存;无白名单时保持全剥', () => {
-      const previous = process.env.LIBTV_ACCESS_KEY;
-      try {
-        process.env.LIBTV_ACCESS_KEY = 'sentinel-value-not-a-real-credential';
-        const filtered = buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS, ['LIBTV_ACCESS_KEY']);
-        expect(filtered.LIBTV_ACCESS_KEY).toBe('sentinel-value-not-a-real-credential');
-        expect(buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS).LIBTV_ACCESS_KEY).toBeUndefined();
-      } finally {
-        if (previous === undefined) delete process.env.LIBTV_ACCESS_KEY;
-        else process.env.LIBTV_ACCESS_KEY = previous;
-      }
-    });
-
-    it('通配模式白名单只放行命中键,其余凭据形态照剥', () => {
-      const previous = new Map<string, string | undefined>();
-      try {
-        for (const k of ['LIBTV_ACCESS_KEY', 'SERVERCHAN_SENDKEY', 'G465_PLAIN_FLAG']) {
+        for (const k of CANDIDATES) {
           previous.set(k, process.env[k]);
-          process.env[k] = 'sentinel-value-not-a-real-credential';
+          process.env[k] = SENTINEL;
         }
-        const filtered = buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS, ['LIBTV_*']);
-        expect(filtered.LIBTV_ACCESS_KEY).toBe('sentinel-value-not-a-real-credential');
-        expect(filtered.SERVERCHAN_SENDKEY).toBeUndefined();
-        expect(filtered.G465_PLAIN_FLAG).toBe('sentinel-value-not-a-real-credential');
+        // 同一份生产实现,只多一条后缀 ⇒ 单数 _KEY 那一条必须从"存活"翻到"被盖住"
+        const widened = buildFilteredEnv([...DEFAULT_BLOCKED_ENV_VARS, '*_KEY']);
+        expect(widened.LIBTV_ACCESS_KEY).toBeUndefined();
+        const current = buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS);
+        expect(current.LIBTV_ACCESS_KEY).toBe(SENTINEL);
       } finally {
         for (const [k, v] of previous) {
           if (v === undefined) delete process.env[k];
