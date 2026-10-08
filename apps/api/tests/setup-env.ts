@@ -13,7 +13,30 @@ import { existsSync } from 'node:fs'
 const envTestPath = existsSync(resolve(process.cwd(), '.env.test'))
   ? resolve(process.cwd(), '.env.test')
   : resolve(process.cwd(), 'apps/api/.env.test')
-dotenvConfig({ path: envTestPath })
+const dotenvResult = dotenvConfig({ path: envTestPath })
+
+// G-1105298(2026-10-09 诊断票)补的失败可见性 —— **不改任何取值、不放宽任何校验**。
+// 现读事实(当轮量到):本机 `apps/api/.env.test` 不存在(该文件受 .gitignore,只在个别机器上),
+// dotenv 因此返回 `{ parsed: undefined, error: ENOENT }` 并注入 0 条,而旧代码把返回值整个丢掉。
+// 后果不是"这次跑不过",而是"下一次跑不过时无人知道值从哪来":此时全套件吃的都是下面几行的
+// 兜底值,任一兜底值不合法 ⇒ `apps/api/src/config/index.ts` 的 envSchema 在**每个用例文件的
+// import 链里** logger.error + process.exit(1),而 vitest 报出来的只有一帧用例文件顶层行。
+// 已实测的对照:真正抛在 setup-env.ts 里的错,vitest 会如实打成 `tests/setup-env.ts:<行>:<列>`
+// (探针 `undefined.config` → `❯ tests/setup-env.ts:13:18`)⇒ 反过来,"帧落在用例文件"
+// 本身就是"抛错发生在 import 链而不在本文件"的证据。这一行把缺的是哪一份 env、由此谁兜底,
+// 一次(每个 worker 进程一条)喊出来,下次同类事故不再需要靠猜。
+if ((dotenvResult.error || !dotenvResult.parsed) && !process.env.IHUI_SETUP_ENV_WARNED) {
+  process.env.IHUI_SETUP_ENV_WARNED = '1'
+  console.error(
+    `[setup-env] .env.test 未生效:${String(dotenvResult.error ?? 'dotenv 未返回 parsed')}` +
+      ` (cwd=${process.cwd()} , 试过的两个落点=${resolve(process.cwd(), '.env.test')} / ${resolve(
+        process.cwd(),
+        'apps/api/.env.test',
+      ) })⇒ DATABASE_URL / JWT_SECRET / CREDENTIALS_ENCRYPTION_KEY / REDIS_URL ` +
+      '取的是本文件兜底值;若收集期出现 config 相关 TypeError 或 "Invalid environment variables",' +
+      ' 先核对这些兜底值能否过 apps/api/src/config/index.ts 的 envSchema。',
+  )
+}
 
 // 测试专用 DB URL 兜底:防止 .env.test 加载失败时连接到开发库
 process.env.DATABASE_URL ??= 'postgresql://postgres:postgres@localhost:8810/ihui_test'
