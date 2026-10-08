@@ -22,9 +22,9 @@ export const POLL_TIMEOUT_MS = 180_000
 /** 历史记录冷却(秒),平台限频 1 次/分钟 */
 export const USED_COOLDOWN_SECONDS = 60
 
-/** 热度过滤:近期统计窗口(ms),只统计该窗口内平台全局时间线的收码记录 */
+/** 近 30 分钟热度统计窗口(ms),台账卡「近 30 分钟热度」格展示用 */
 export const HOT_WINDOW_MS = 30 * 60 * 1000
-/** 热度过滤:统计窗口内收码记录数下限,达到即视为超热门号(号池正被高频流转) */
+/** 自动筛新号预筛阈值:全局被接码次数(平台 ≤12 条滚动窗口)≥该值 = 被使用多次 → 拉黑换号 */
 export const HOT_MIN_RECORDS = 3
 
 export const CARD_TYPES: CardType[] = ['全部', '实卡', '虚卡']
@@ -128,10 +128,10 @@ export async function fetchRelatedMsgs(phone: string): Promise<RelatedMsgItem[]>
 }
 
 /**
- * 热度过滤:统计近期窗口(HOT_WINDOW_MS)内的收码记录数。
- * 平台时间线只给 HH:MM 无日期,跨日记录按「解析出未来时间=昨日」归位;
- * 超热门号(近 30 分钟被收码 ≥HOT_MIN_RECORDS 条)已被他人注册过目标平台的
- * 概率更高,自动筛新号据此免费释放跳过,省 0.45/条的试错短信费。
+ * 近 30 分钟热度统计(HOT_WINDOW_MS 窗口内的收码记录数),台账卡「近 30 分钟热度」格展示用。
+ * 平台时间线只给 HH:MM 无日期,跨日记录按「解析出未来时间=昨日」归位。
+ * 注:自动筛新号预筛的「被使用多次→拉黑」判据已改用全局窗口总数(related.length ≥HOT_MIN_RECORDS),
+ * 不再走本函数——近 30 分钟 ≥3 的号必然总数 ≥3,拉黑规则完整覆盖旧「释放跳过」规则。
  */
 export function countRecentRecords(items: RelatedMsgItem[]): number {
   const now = Date.now()
