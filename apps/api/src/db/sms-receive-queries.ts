@@ -55,4 +55,34 @@ export async function getPhoneHistoryCount(phone: string): Promise<number> {
     .where(eq(smsReceiveHistory.phone, phone))
   return rows[0]?.n ?? 0
 }
+
+/** 平台 × 用途计数行(group-by 全量,不受最近 20 条截断) */
+export interface PhonePlatformStatRow {
+  platform: string | null
+  usageKind: 'register' | 'login' | 'other'
+  count: number
+}
+
+/**
+ * 查某号码本地台账的「平台 × 用途」计数(2026-10-09 机主要求:分平台显示登录/注册具体数)。
+ * 全量 group-by:台账 items 只回最近 20 条,直接在前端数会漏历史,统计必须在 SQL 层做。
+ */
+export async function getPhoneHistoryPlatformStats(
+  phone: string,
+): Promise<PhonePlatformStatRow[]> {
+  const rows = await db
+    .select({
+      platform: smsReceiveHistory.platform,
+      usageKind: smsReceiveHistory.usageKind,
+      n: count(),
+    })
+    .from(smsReceiveHistory)
+    .where(eq(smsReceiveHistory.phone, phone))
+    .groupBy(smsReceiveHistory.platform, smsReceiveHistory.usageKind)
+  return rows.map((r) => ({
+    platform: r.platform,
+    usageKind: r.usageKind,
+    count: Number(r.n),
+  }))
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
