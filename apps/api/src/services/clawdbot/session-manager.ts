@@ -6,7 +6,6 @@ import { EventEmitter } from 'node:events'
 import { eq, and, type SQL } from 'drizzle-orm'
 import { logger } from './logger.js'
 import { clawdbotSessions, type ClawdbotSession, type Database } from '@ihui/database'
-import { coerceKnownOr } from '@ihui/types'
 
 export type SessionStatus = 'active' | 'paused' | 'closed'
 export type CliSessionStatus = 'running' | 'completed' | 'failed' | 'cancelled'
@@ -64,10 +63,7 @@ function toSession(row: ClawdbotSession): Session {
     id: row.id,
     botId: row.botId,
     userId: row.userId,
-    // G-815963:读侧列值过 coerceKnownOr 收敛(全集内联以满足守门 R4b 的可判形状):
-    // 未知/未来值兜到终态 'closed' —— closed 对 resume/pause/appendMessage 一律抛错,
-    // 即"不再产生副作用"那一档;禁兜 'active' 初始态(那会把已终态行放回可写集合)。
-    status: coerceKnownOr(row.status, ['active', 'paused', 'closed'], 'closed'),
+    status: row.status as SessionStatus,
     context: { botId: row.botId, userId: row.userId, messages, metadata: meta },
     createdAt: row.createdAt.getTime(),
     lastActiveAt: (row.lastMessageAt ?? row.updatedAt).getTime(),
