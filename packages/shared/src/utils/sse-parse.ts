@@ -132,13 +132,6 @@ export interface SSEEvent {
   }
   /** done 事件携带的模型名 */
   model?: string
-  /**
-   * G-425(2026-10-07 立,默认档"只提示"):done 帧携带的上游 finish/stop reason
-   * 原样透传(OpenAI 系 `length`/`stop`;Gemini 原生 `STOP`/`MAX_TOKENS`)。判据与
-   * shared sse contract 的 done 帧同口径:缺席 = 上游没给(**不是**"正常结束"),
-   * 截断判定按小写 ∈ {length, max_tokens},语义解释不在本解析层。
-   */
-  finishReason?: string
   // ===== W5 新增事件负载(类型复用 @ihui/api-client / @ihui/types) =====
   /** fallback 事件:主模型失败切换到备用模型 */
   fallback?: FallbackEvent
@@ -667,10 +660,6 @@ function parseLineEvent(line: string): SSEEvent | null {
         type: 'done',
         usage,
         model: typeof json.model === 'string' ? json.model : undefined,
-        // G-425:finish/stop reason 原样透传;缺席不带键(不写空串/null)
-        ...(typeof json.finishReason === 'string' && json.finishReason
-          ? { finishReason: json.finishReason }
-          : {}),
       }
     }
     if (typeof json?.sessionId === 'string') {
