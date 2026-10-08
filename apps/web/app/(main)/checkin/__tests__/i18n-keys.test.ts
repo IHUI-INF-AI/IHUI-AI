@@ -24,7 +24,8 @@ const pageSrc = readFileSync(
 
 const usedKeys = new Set<string>();
 for (const m of pageSrc.matchAll(/\bt\(\s*'([A-Za-z0-9_.]+)'/g)) {
-  usedKeys.add(m[1]);
+  const key = m[1];
+  if (key !== undefined) usedKeys.add(key);
 }
 
 const langs = ["zh-CN", "zh-TW", "en", "ja", "ko"] as const;
