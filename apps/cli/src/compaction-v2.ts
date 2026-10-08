@@ -26,9 +26,6 @@ import {
   type ChatMessage,
   type CompressionResult,
 } from './context.js';
-// G-710:失败码判定的唯一出口(tools/failure-classification.ts)—— 结构化码先决,
-// 文案只兜底且按站点计数;本文件不再持有任何文本判据字面量。
-import { resolveFailureCode, isTransientFailureCode, compactionLabelOf } from './tools/failure-classification.js';
 // 内部 import 的 type 不会自动对外可见;测试与调用方按本模块取词,故显式转导出。
 export type { ChatMessage, CompressionResult, CompactionDecisionReason };
 // 阈值常量从共享包引用(跨端统一 0.88,与 context.ts / API / ai-service 一致)
@@ -182,16 +179,32 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * 错误分类(G-710):结构化码先决 —— `ToolError`/errno/HTTP status 有码时读码不读措辞;
- * 无码才落**被计数的**文案表(站点 'compaction-sampling',字面量住在
- * `tools/failure-classification.ts` 的数据里)。口径纪律:只换判据来源,不改判据强度 ——
- * 瞬态集合与 `[label]` 词汇逐字沿用改前行为(5xx→driver、4xx→client_error 的历史标签见
- * `compactionLabelOf`);抛出方给码后 `cancelled`/`context_limit` 由此拿到"不重试"的正确结论。
- */
+/** 错误分类:瞬态(可重试)vs 确定性(不重试) */
 function classifyError(err: Error): { transient: boolean; label: string } {
-  const { code } = resolveFailureCode(err, 'compaction-sampling');
-  return { transient: isTransientFailureCode(code), label: compactionLabelOf(code) };
+  const msg = err.message.toLowerCase();
+  if (msg.includes('timeout') || msg.includes('timed out')) {
+    return { transient: true, label: 'timeout' };
+  }
+  if (
+    msg.includes('network') ||
+    msg.includes('econnreset') ||
+    msg.includes('econnrefused') ||
+    msg.includes('fetch failed') ||
+    msg.includes('socket hang up')
+  ) {
+    return { transient: true, label: 'network' };
+  }
+  if (/\b5\d{2}\b/.test(msg) || msg.includes('server error') || msg.includes('bad gateway') || msg.includes('service unavailable')) {
+    return { transient: true, label: '5xx' };
+  }
+  if (/\b4\d{2}\b/.test(msg) || msg.includes('bad request') || msg.includes('unauthorized') || msg.includes('forbidden') || msg.includes('not found')) {
+    return { transient: false, label: '4xx' };
+  }
+  if (msg.includes('parse') || msg.includes('json') || msg.includes('invalid response')) {
+    return { transient: false, label: 'parse' };
+  }
+  // 默认瞬态(保守重试)
+  return { transient: true, label: 'unknown' };
 }
 
 // ==================== 核心函数 ====================

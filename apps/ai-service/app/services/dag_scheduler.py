@@ -348,21 +348,7 @@ import os as _os
 import uuid as _uuid
 from typing import Literal
 
-# G-462/G-1038476(2026-10-07 机主拍板):kanban 六档拆出四个 dispatch 终态独立档。
-# `failed` 在 TS 侧不能作为 kanban 档名(第二域 WORKSPACE_AGENT_TASK_STATUSES 占用该拼写,
-# SV2 判两域交集为空),故映射目标为 `execution_failed`;本 Literal 与下方对齐表必须同笔。
-AgentTaskStatus = Literal[
-    "triage",
-    "todo",
-    "ready",
-    "in_progress",
-    "blocked",
-    "cancelled",
-    "execution_failed",
-    "quota_exceeded",
-    "preempted",
-    "done",
-]
+AgentTaskStatus = Literal["triage", "todo", "ready", "in_progress", "blocked", "done"]
 
 # ---------------------------------------------------------------------------
 # 跨语言状态词汇对齐表(D6/G3 收口,2026-09-27 立)
@@ -388,10 +374,6 @@ KANBAN_TASK_STATUSES: tuple[str, ...] = (
     "ready",
     "in_progress",
     "blocked",
-    "cancelled",
-    "execution_failed",
-    "quota_exceeded",
-    "preempted",
     "done",
 )
 

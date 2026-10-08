@@ -92,7 +92,6 @@ from ..services.agent_events import (
     SSE_TOOL_RESULT,
     SSE_USAGE,
 )
-from ..services.async_gen_close import aclose_async_gen
 from ..services.context_recall import context_recall
 from ..services.decision_chain import apply_decision_chain
 from ..services.mcp_server import (
@@ -164,71 +163,10 @@ _DELEGATE_TIMEOUT = 60  # 秒
 # Steer(中途引导,2026-09-19 立)session 队列:
 # 流式对话进行期间,用户经 POST /llm/complete/stream/{session_id}/steer 提交引导文本,
 # 入队本 dict;tool loop 每轮 LLM 调用前 drain 注入 messages(不打断当前工具执行),
-# 并发 event: steer(phase=injected) 通知前端换 badge。每项 {text, queuedAt ISO, kind};
+# 并发 event: steer(phase=injected) 通知前端换 badge。每项 {text, queuedAt ISO};
 # 流结束(gen 的 finally)统一清理,与 _delegate_sessions 生命周期一致。
-# G-815975:条目带 kind 类型轴 —— 吸收循环遇不可 inline 的 kind 必须停下
-# (break 不是 continue);收口时未消费的条目逐条发 steer(phase=dropped) 显式回报,
-# 不再静默丢弃(客户端早已拿到"入队成功"ACK,必须有下文)。
 _steer_sessions: dict[str, list[dict[str, Any]]] = {}
 _STEER_QUEUE_LIMIT = 8  # 单流引导队列上限,超限 steer 端点返回 429(防刷)
-
-# G-815975:steer 条目 kind 枚举。
-# - guide:普通引导,可 inline 注入当前轮(既有语义,缺省档);
-# - control:控制轮条目(GUI「配置」的设置轮)。它会改变后续轮语义 —— 它之后
-#   入队的条目说的是它刚记下的新状态,模型必须先读到「设置已调整、新 run 是谁」,
-#   再读到新状态下的进展。所以吸收在它面前停,它**之后**的普通引导同样不得被
-#   吸收(把 break 写成 continue 等于把顺序恢复成原来的错法),留给收口回报。
-STEER_KINDS = frozenset({"guide", "control"})
-_STEER_INLINE_KINDS = frozenset({"guide"})
-
-
-def _drain_inlineable_steers(session_id: str | None) -> list[dict[str, Any]]:
-    """G-815975:带类型轴的引导吸收 —— 只吸收队首连续的可 inline 条目。
-
-    遇到第一条不可 inline 的 kind(control)即停(break,不是 continue 跳过):
-    该条目与其后的所有条目都留在队列,由流收口的 `_report_dropped_steers`
-    显式回报。全部消费完返回空列表时调用方不发任何 dropped 帧。
-    """
-    if not session_id:
-        return []
-    queue = _steer_sessions.get(session_id)
-    if not queue:
-        return []
-    consumed: list[dict[str, Any]] = []
-    while queue and str(queue[0].get("kind") or "guide") in _STEER_INLINE_KINDS:
-        consumed.append(queue.pop(0))
-    return consumed
-
-
-def _steer_dropped_frame(item: dict[str, Any]) -> dict[str, Any]:
-    """G-815975:为一条未消费引导构 steer(phase=dropped) 帧(点名该条目)。
-
-    复用既有 steer 帧(sse_contract 已登记 phase/text/timestamp/messageId;
-    kind 为新增可选字段),不另开事件名。
-    """
-    frame: dict[str, Any] = {
-        "type": SSE_STEER,
-        "phase": "dropped",
-        "text": str(item.get("text", "")),
-        "kind": str(item.get("kind") or "guide"),
-        "reason": "stream_closed_unconsumed",
-    }
-    if item.get("queuedAt"):
-        frame["timestamp"] = item["queuedAt"]
-    return frame
-
-
-def _report_dropped_steers(session_id: str | None) -> list[dict[str, Any]]:
-    """G-815975:流收口时整桶摘除未消费引导并逐条构 dropped 帧。
-
-    空桶返回空列表 —— 全部消费完 ⇒ 一帧不发(防做成"每条都喊")。
-    发帧由调用方在生成器收尾处 yield;GeneratorExit/客户端断开路径不允许
-    yield,调用方只落 warning 日志留痕。
-    """
-    if not session_id:
-        return []
-    remaining = _steer_sessions.pop(session_id, None) or []
-    return [_steer_dropped_frame(item) for item in remaining]
 
 # =============================================================================
 # V3 #58(2026-09-26 立):主对话流工具审批门(语义对齐 agent_loop_v2 tool_approval)
@@ -262,63 +200,6 @@ _PREVIEW_MAX_CHARS = 32 * 1024
 # 续期次数有限(默认 2,env LLM_ITERATION_EXTEND_LIMIT 可调,0 = 关闭),每次
 # 续 +max_iterations 轮;成本守门(预算门/扣费)不因续期绕过。
 _ITERATION_EXTEND_LIMIT = max(0, int(os.getenv("LLM_ITERATION_EXTEND_LIMIT", "2")))
-
-# G-815971(2026-10-07):限额/配额收口 ⇒ 禁止续期。D120 的方向是"接近上限主动
-# 注入续跑轮";但"本轮因限额/配额收口"时,任何"会重新打开模型请求"的续跑通道
-# 都必须关死 —— 用户看到"额度用完了"后面又跑一轮,而额度正是在这轮里继续被烧。
-# 判据唯一出口:`_is_budget_exhaustion_error`(码面白名单 + 消息面模式)。
-_BUDGET_EXHAUSTED_ERROR_CODES = frozenset({
-    "BUDGET_EXHAUSTED",        # 网关 hard 中断(apps/api checkTokenBudget,errorCode 透传)
-    "TRIAL_QUOTA_EXCEEDED",    # 本文件试用额度门(423/429)
-    "PROVIDER_QUOTA_EXHAUSTED",  # llm_gateway 额度耗尽稳定码(批次 60)
-    "QUOTA_EXCEEDED",
-    "RATE_LIMITED",
-    "RATE_LIMIT_EXCEEDED",
-    "PAYMENT_REQUIRED",
-})
-_BUDGET_EXHAUSTED_MESSAGE_PATTERNS = (
-    "429", "quota", "rate limit", "insufficient", "payment required",
-    "额度", "配额", "余额不足", "限额",
-)
-
-
-def _is_budget_exhaustion_error(error_code: Any, message: Any = "") -> bool:
-    """判"这个错误是不是限额/配额收口"(G-815971 判据唯一出口)。
-
-    码面精确命中白名单,或消息面含限额/配额模式(大小写不敏感)。
-    判宽不判窄:误报的代价只是少续一期(保守方向),漏报的代价是
-    额度收口后继续烧钱。
-    """
-    code = str(error_code or "").strip().upper()
-    if code in _BUDGET_EXHAUSTED_ERROR_CODES:
-        return True
-    text = str(message or "").strip().lower()
-    return bool(text) and any(p in text for p in _BUDGET_EXHAUSTED_MESSAGE_PATTERNS)
-
-
-def _d120_should_extend(
-    *,
-    tool_iter: int,
-    iter_budget: int,
-    extensions_used: int,
-    tool_executed_last_round: bool,
-    budget_exhausted: bool,
-) -> bool:
-    """D120 续期判定唯一出口(G-815971)。
-
-    触发条件(全部满足):env 开关启用 / 非首轮 / 下一轮即触及上限 / 续期次数
-    未用尽 / 上一轮确实执行了工具 —— 且**本轮未因限额/配额收口**(排除条款:
-    budget_exhausted=True 一票否决,续期与 hook 注入条目一并归零)。
-    """
-    if budget_exhausted:
-        return False
-    return bool(
-        _ITERATION_EXTEND_LIMIT > 0
-        and tool_iter > 0
-        and tool_iter + 1 >= iter_budget
-        and extensions_used < _ITERATION_EXTEND_LIMIT
-        and tool_executed_last_round
-    )
 
 
 def _file_edit_preview_text(tool_name: str, args: dict[str, Any]) -> str | None:
@@ -3290,13 +3171,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         # 执行过则 messages 已归一化且工具循环结束,generic astream 不再带 tools;
         # 未执行(generic 路径)则透传请求体的 tools/tool_choice 给 astream。
         _agent_tool_loop_ran = False
-        # G-815975:生成器是否正被"无消费者"地关闭(GeneratorExit/客户端断开取消)。
-        # 此时 finally 不允许 yield,dropped 显式回报降级为日志留痕。
-        _stream_exiting = False
-        # 借来的异步生成器(本流下方 astream)的句柄:先置 None,让末尾 finally 在
-        # "尚未创建生成器"的路径上也能安全引用 —— llm_gateway 里记过一次同型
-        # UnboundLocalError(except/finally 引用了只在 try 内赋值的局部量)。
-        _native_fc_stream: AsyncIterator[dict[str, Any]] | None = None
         try:
             # 若发生压缩(或压缩已撞到上限),通过 SSE 首事件通知调用方
             _compaction_sse = _compaction_frame(compaction_info)
@@ -3395,9 +3269,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     _tool_iter = 0
                     # D120:续期计数(0 = 未续期;上限 _ITERATION_EXTEND_LIMIT)
                     _iteration_extensions_used = 0
-                    # G-815971:本轮(整条流)是否已因限额/配额收口 —— 一次命中,
-                    # 整轮闩死(续期与 hook 注入一并排除,防"额度在这轮里被烧")。
-                    _budget_exhausted_this_turn = False
                     # D120 判定在轮首读上一轮工具结果;初始化提到 while 前,
                     # 让首轮的绑定静态可证(此前靠 _tool_iter=0 短路,首轮根本读不到)。
                     tool_exec_tracker: list[bool] = []
@@ -3419,11 +3290,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 if _goal_payload.get(_goal_key) is not None:
                                     _goal_evt[_goal_key] = _goal_payload[_goal_key]
                             yield _sse("goal_updated", _goal_evt)
-                        # G-815975:吸收改走类型轴 —— 只吸收队首连续的可 inline 条目;
-                        # 遇 control(设置轮)条目即停,它之后的条目(哪怕 kind=guide)
-                        # 本轮同样不得被吸收,留给收口回报路径按序处理。
                         if session_id and _steer_sessions.get(session_id):
-                            for _st in _drain_inlineable_steers(session_id):
+                            _drained_steers = _steer_sessions[session_id]
+                            _steer_sessions[session_id] = []
+                            for _st in _drained_steers:
                                 _steer_text = str(_st.get("text", "")).strip()
                                 if not _steer_text:
                                     continue
@@ -3448,22 +3318,18 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 )
                                 _iter_budget += 1
                         # ===== D120(2026-09-27,G-234):轮次预算弹性续跑 =====
-                        # 判定收敛到唯一出口 _d120_should_extend(条件与原内联逐项一致):
-                        # env 开关启用 / 非首轮 / 下一轮即触及上限 / 续期次数未用尽 /
-                        # 上一轮确实执行了工具(tool_exec_tracker 为上一轮结果 ——
-                        # while 内 for 前重置,此处读到的是上一轮值)。
-                        # G-815971 追加排除条款:本轮因限额/配额收口(budget_exhausted)
-                        # ⇒ 一票否决,续期与 hook 注入条目一并归零 —— 上限命中后只允许
-                        # 这一轮纯文本说明,不得把已收口的 turn 延长成新的恢复循环。
+                        # 触发条件(全部满足):env 开关启用 / 非首轮 / 下一轮即触及上限 /
+                        # 续期次数未用尽 / 上一轮确实执行了工具(tool_exec_tracker 为上一轮
+                        # 结果 —— while 内 for 前重置,此处读到的是上一轮值)。
                         # 动作:注入进度交代消息(天然随对话上下文持久化,回放可见) +
                         # _iter_budget += max_iterations(与 steer 的预算延长同一机制)+
                         # injection_applied 帧(kind=iteration_extension,开放字符串枚举)。
-                        if _d120_should_extend(
-                            tool_iter=_tool_iter,
-                            iter_budget=_iter_budget,
-                            extensions_used=_iteration_extensions_used,
-                            tool_executed_last_round=bool(tool_exec_tracker),
-                            budget_exhausted=_budget_exhausted_this_turn,
+                        if (
+                            _ITERATION_EXTEND_LIMIT > 0
+                            and _tool_iter > 0
+                            and _tool_iter + 1 >= _iter_budget
+                            and _iteration_extensions_used < _ITERATION_EXTEND_LIMIT
+                            and tool_exec_tracker
                         ):
                             _iteration_extensions_used += 1
                             _iter_budget += max_iterations
@@ -3498,15 +3364,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             ):
                                 _evt_type = evt.get("type", "")
                                 _note_retry(retry_notices, evt)
-                                # G-815971:网关内部重试(httpStatus=429)与额度等效降级
-                                # (reason=quota*)都是"限额命中且循环继续"的信号 ——
-                                # 本轮续期通道一并闩死,防额度在续期轮里继续被烧。
-                                if _evt_type == "retry_scheduled" and evt.get("httpStatus") == 429:
-                                    _budget_exhausted_this_turn = True
-                                elif _evt_type == "fallback" and str(
-                                    evt.get("reason") or ""
-                                ).startswith("quota"):
-                                    _budget_exhausted_this_turn = True
                                 if _evt_type == "chunk":
                                     # 逐 token 透传 + 提问标记解析(与 1144-1146 行格式一致)
                                     clean_text, questions = question_parser.feed(evt.get("content", ""))
@@ -3532,10 +3389,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     accumulated["model"] = evt.get("model", req.model)
                                     accumulated["usage"] = evt.get("usage")
                                     accumulated["stub"] = evt.get("stub", False)
-                                    # G-425(2026-10-07 立,默认档"只提示"):finish/stop
-                                    # reason 一并接住,流收尾随 done 帧下发;缺席不带键。
-                                    if evt.get("finishReason"):
-                                        accumulated["finishReason"] = evt["finishReason"]
                                 elif _evt_type == "fallback":
                                     # P4-2(2026-09-19 修复):llm_gateway 主模型失败切换备用
                                     # 模型时 yield {"type":"fallback",...};此前本循环只认
@@ -3548,11 +3401,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     yield _sse(SSE_FALLBACK, evt)
                                 elif _evt_type == "error":
                                     # 流式错误(与 1113-1119 行一致)
-                                    # G-815971:限额/配额收口 ⇒ 本轮续期通道闩死
-                                    if _is_budget_exhaustion_error(
-                                        evt.get("errorCode"), evt.get("message")
-                                    ):
-                                        _budget_exhausted_this_turn = True
                                     err_evt = {
                                         "type": "error",
                                         "message": evt.get("message", "LLM 调用失败"),
@@ -3600,9 +3448,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     "stub": accumulated["stub"],
                                     "memoryUpdates": _mem_updates,
                                 }
-                                # G-425:finishReason 透传(缺席不带键,不造值)
-                                if accumulated.get("finishReason"):
-                                    done_event["finishReason"] = accumulated["finishReason"]
                                 if req.metadata:
                                     done_event["metadata"] = req.metadata
                                 # W1(2026-09-12 立):最终回答前发一次 plan 快照(全部步骤已完成)
@@ -3666,15 +3511,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             ):
                                 _evt_type = evt.get("type", "")
                                 _note_retry(retry_notices, evt)
-                                # G-815971:网关内部重试(httpStatus=429)与额度等效降级
-                                # (reason=quota*)都是"限额命中且循环继续"的信号 ——
-                                # 本轮续期通道一并闩死,防额度在续期轮里继续被烧。
-                                if _evt_type == "retry_scheduled" and evt.get("httpStatus") == 429:
-                                    _budget_exhausted_this_turn = True
-                                elif _evt_type == "fallback" and str(
-                                    evt.get("reason") or ""
-                                ).startswith("quota"):
-                                    _budget_exhausted_this_turn = True
                                 if _evt_type == "chunk":
                                     clean_text, questions = question_parser.feed(evt.get("content", ""))
                                     for q in questions:
@@ -3702,9 +3538,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         "usage": evt.get("usage"),
                                         "stub": evt.get("stub", False),
                                     }
-                                    # G-425:finish/stop reason 一并接住(与第一轮同口径)
-                                    if evt.get("finishReason"):
-                                        complete_result["finishReason"] = evt["finishReason"]
                                 elif _evt_type == "fallback":
                                     # P4-2(2026-09-19 修复):同第一轮 —— 此前后续轮次的
                                     # fallback 事件同样被静默丢弃,原样转发给前端。
@@ -3714,11 +3547,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     yield _sse(SSE_FALLBACK, evt)
                                 elif _evt_type == "error":
                                     # 流式错误(与第一轮一致)
-                                    # G-815971:限额/配额收口 ⇒ 本轮续期通道闩死
-                                    if _is_budget_exhaustion_error(
-                                        evt.get("errorCode"), evt.get("message")
-                                    ):
-                                        _budget_exhausted_this_turn = True
                                     err_evt = {
                                         "type": "error",
                                         "message": evt.get("message", "LLM 调用失败"),
@@ -3757,9 +3585,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 accumulated["model"] = complete_result.get("model", req.model)
                                 accumulated["usage"] = complete_result.get("usage", {})
                                 accumulated["stub"] = complete_result.get("stub", False)
-                                # G-425:finishReason 随轮次结果拷进 accumulated(流收尾透传)
-                                if complete_result.get("finishReason"):
-                                    accumulated["finishReason"] = complete_result["finishReason"]
                                 # P1 #27(2026-09-16 立):done 前同步提炼本轮长期记忆,
                                 # 条目经 done.memoryUpdates 回传,前端渲染「已记住」提示条。
                                 _mem_updates = await _extract_memory_updates(
@@ -3779,9 +3604,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     "stub": accumulated["stub"],
                                     "memoryUpdates": _mem_updates,
                                 }
-                                # G-425:finishReason 透传(缺席不带键,不造值)
-                                if accumulated.get("finishReason"):
-                                    done_event["finishReason"] = accumulated["finishReason"]
                                 if req.metadata:
                                     done_event["metadata"] = req.metadata
                                 # W1(2026-09-12 立):最终回答前发一次 plan 快照(全部步骤已完成)
@@ -5028,9 +4850,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 if isinstance(inner, dict) and inner.get("errorCode"):
                                     err_code = inner.get("errorCode", err_code)
                                     err_detail = inner.get("error", err_detail)
-                                # G-815971:工具侧限额/配额失败且循环将继续 ⇒ 本轮续期闩死
-                                if _is_budget_exhaustion_error(err_code, err_detail):
-                                    _budget_exhausted_this_turn = True
                                 result_json = (
                                     f"TOOL EXECUTION FAILED. errorCode={err_code}. error={err_detail}. "
                                     f"You MUST tell the user the tool failed. Do NOT claim success. "
@@ -5193,19 +5012,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             # 会往流里插一条"抱歉,未能生成有效回复"假文案,被 CLI 存入 assistant 消息回传 provider,污染上下文。
             _native_fc_emitted_tools = False
 
-            _native_fc_stream = llm_gateway.astream(
+            async for event in llm_gateway.astream(
                 messages, model=req.model, owner_uuid=owner_uuid, **_native_fc_kwargs
-            )
-            async for event in _native_fc_stream:
+            ):
                 if await request.is_disconnected():
                     logger.info("SSE client disconnected, stopping stream")
-                    # 被弃路径就地关停:break 之后本流还要走完半截落库 / 空回复兜底 /
-                    # 计量帧,而 provider 侧此刻仍停在 `async with client.stream(...)`
-                    # 的半读态 —— 拖到函数 finally(更差是 GC)才关,已经太晚。
-                    await aclose_async_gen(
-                        _native_fc_stream,
-                        label="routers.llm astream (client disconnected)",
-                    )
                     break
                 event_type = event.get("type", "message")
                 _note_retry(retry_notices, event)
@@ -5307,13 +5118,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             _fallback_evt = {"type": "chunk", "content": _fallback}
                             yield _sse(SSE_CHUNK, _fallback_evt)
                 yield _sse(event_type, event)
-        except GeneratorExit:
-            # G-815975:客户端断开 ⇒ 生成器被 aclose,finally 里不允许 yield,
-            # dropped 回报降级为日志留痕(先置位再放行)。
-            _stream_exiting = True
-            raise
         except asyncio.CancelledError:
-            _stream_exiting = True
             logger.info("SSE generator cancelled by client disconnect")
             raise
         except Exception as e:
@@ -5333,26 +5138,6 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             yield _sse(SSE_ERROR, err)
             return
         finally:
-            # 借来的异步生成器兜底关停:覆盖"流中途抛错 / GeneratorExit"两条被弃路径
-            # (客户端断开那条已在 break 之前就关)。正常耗尽时 aclose 是合法 no-op,
-            # 不构成二次回滚;出口自身吞错,绝不用关停异常掩盖正在传播的原异常。
-            # **必须 shield + 只吞本行等待**:这段 finally 会在"任务被取消"的作用域里执行,而它后面
-            # 还挂着 MCP 取消闭环 / 委托 session / 表单待决 / 引导队列四项清理。站点跑在
-            # uvicorn + anyio 上,而 anyio 的取消是**持续投递**的(作用域内每一处 await 都会再点燃
-            # CancelledError)⇒ 裸 await 在这里可能把那四项整批跳过(与本文件既有的"取消仅 fire 不
-            # await"同一条理由)。shield 让关停任务脱离本次取消跑完(资源真的关掉),except 只吞
-            # "这一行的等待":外层正在传播的取消 / GeneratorExit 仍随 finally 结束后照常向外传播。
-            try:
-                await asyncio.shield(
-                    aclose_async_gen(
-                        _native_fc_stream, label="routers.llm astream (stream finally)"
-                    )
-                )
-            except BaseException as close_err:  # noqa: BLE001 - 兜底关停不得越过后四项清理
-                logger.warning(
-                    "[stream] 兜底关停未在此处等待完成(已交 shield 接管) err=%r",
-                    close_err,
-                )
             # MCP 工具调用取消闭环:流收尾(正常 done / error / 客户端断开取消
             # /GeneratorExit)统一 cancel 本流仍 in-flight 的工具任务,切断孤儿链路。
             # 正常完成路径任务已被 await 且经完成回调移出集合,此处天然 no-op;
@@ -5366,24 +5151,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             # 桶不删,后续同名 session 的端点仍能查到条目却永远等不到被 await 的 Event。
             if session_id:
                 _form_sessions.pop(session_id, None)
-            # Steer(2026-09-19 立):清理引导队列(始终执行)。G-815975:未消费的
-            # 引导不再随流结束静默丢弃 —— 收口时逐条发 steer(phase=dropped) 显式
-            # 回报(客户端早已拿到"入队成功"ACK,必须有下文);全部消费完 ⇒
-            # 一帧不发。GeneratorExit/客户端断开路径不允许 yield,降级为日志留痕;
-            # 端点此后对本 session 返回 404 的语义不变。
+            # Steer(2026-09-19 立):清理引导队列(始终执行;未消费的引导随流结束丢弃,
+            # 端点此后对本 session 返回 404)
             if session_id:
-                _dropped_steer_frames = _report_dropped_steers(session_id)
-                if _dropped_steer_frames:
-                    logger.warning(
-                        "[steer] session=%s 流收口时 %d 条引导未消费,显式回报 dropped",
-                        session_id,
-                        len(_dropped_steer_frames),
-                    )
-                    if not _stream_exiting:
-                        for _drop_evt in _dropped_steer_frames:
-                            if message_id:
-                                _drop_evt["messageId"] = message_id
-                            yield _sse(SSE_STEER, _drop_evt)
+                _steer_sessions.pop(session_id, None)
             # 审批授权缓存(V3 #58,2026-09-28 两次改):收尾**只收本轮桶**。
             # 改前这里无条件 pop session_id,当时所有桶都是本轮的(网关每轮换 id),
             # 所以那一行同时干了"声明的寿命"与"内存回收"两件事。归属升成会话级之后
@@ -5825,21 +5596,13 @@ async def post_steer_message(session_id: str, body: dict[str, Any] = Body(...)) 
 
     文本入队 _steer_sessions[session_id];tool loop 每轮 LLM 调用前 drain 注入
     messages 并发 event: steer(phase=injected),不打断当前工具执行。
-    G-815975:body.kind 选条目类型(缺省 guide;control=设置轮,不可 inline,
-    吸收循环在它面前停,收口未消费时发 steer(phase=dropped) 显式回报)。
-    状态码:422 text 缺失/为空或 kind 非法;404 流不存在或已结束;429 队列满;200 入队成功。
+    状态码:422 text 缺失/为空;404 流不存在或已结束;429 队列满;200 入队成功。
     """
     text = str(body.get("text", "")).strip()
     if not text:
         return JSONResponse(
             status_code=422,
             content={"ok": False, "error": "text required"},
-        )
-    kind = str(body.get("kind") or "guide").strip()
-    if kind not in STEER_KINDS:
-        return JSONResponse(
-            status_code=422,
-            content={"ok": False, "error": f"kind must be one of {sorted(STEER_KINDS)}"},
         )
     queue = _steer_sessions.get(session_id)
     if queue is None:
@@ -5855,9 +5618,8 @@ async def post_steer_message(session_id: str, body: dict[str, Any] = Body(...)) 
     queue.append({
         "text": text[:4000],  # 截断防超长注入撑爆上下文
         "queuedAt": datetime.now(UTC).isoformat(),
-        "kind": kind,  # G-815975:类型轴(control 不可 inline,吸收在它面前停)
     })
-    return {"ok": True, "queued": len(queue), "kind": kind}
+    return {"ok": True, "queued": len(queue)}
 
 
 # =============================================================================

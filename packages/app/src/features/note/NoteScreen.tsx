@@ -3,8 +3,17 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, FlatList, RefreshControl, Modal, ActivityIndicator, StyleSheet } from 'react-native'
-import { TextField } from '../../components/TextField'
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  RefreshControl,
+  Modal,
+  ActivityIndicator,
+  StyleSheet,
+} from 'react-native'
 import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { NoteItem, NoteScreenProps } from '../../types'
@@ -135,14 +144,14 @@ export function NoteScreen({
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>{editing ? t('note.edit') : t('note.add')}</Text>
-            <TextField colorScheme={colorScheme}
+            <TextInput
               style={styles.titleInput}
               value={title}
               onChangeText={onTitleChange}
               placeholder={t('note.titlePlaceholder')}
               placeholderTextColor={tk.text.tertiary}
             />
-            <TextField colorScheme={colorScheme}
+            <TextInput
               style={styles.contentInput}
               value={content}
               onChangeText={onContentChange}
