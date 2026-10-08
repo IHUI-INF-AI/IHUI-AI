@@ -402,7 +402,9 @@ class TestMcpServerCoverageFileEdit:
         isfile_calls: list = []
         monkeypatch.setattr(
             "app.services.mcp_server._validate_path_in_workspace",
-            lambda p: (False, "路径不在工作区白名单内"),
+            # 生产签名 = (path, extra_roots=None)(D201 会话级附加目录集);
+            # 写路径经 _validate_write_path_in_workspace 以两参转调,桩必须同形。
+            lambda p, extra_roots=None: (False, "路径不在工作区白名单内"),
         )
         monkeypatch.setattr(
             "os.path.isfile", lambda p: isfile_calls.append(p) or False
@@ -428,7 +430,7 @@ class TestMcpServerCoverageFileEdit:
         target = tmp_path / "missing.py"
         monkeypatch.setattr(
             "app.services.mcp_server._validate_path_in_workspace",
-            lambda p: (True, str(target)),
+            lambda p, extra_roots=None: (True, str(target)),
         )
 
         out = await _tool_file_edit({
@@ -451,7 +453,7 @@ class TestMcpServerCoverageFileEdit:
         target.write_text("foo\nfoo\nbar\n", encoding="utf-8")
         monkeypatch.setattr(
             "app.services.mcp_server._validate_path_in_workspace",
-            lambda p: (True, str(target)),
+            lambda p, extra_roots=None: (True, str(target)),
         )
 
         out = await _tool_file_edit({
@@ -475,7 +477,7 @@ class TestMcpServerCoverageFileEdit:
         target.write_text("hello world\n", encoding="utf-8")
         monkeypatch.setattr(
             "app.services.mcp_server._validate_path_in_workspace",
-            lambda p: (True, str(target)),
+            lambda p, extra_roots=None: (True, str(target)),
         )
 
         out = await _tool_file_edit({
@@ -500,7 +502,7 @@ class TestMcpServerCoverageFileEdit:
         target.write_bytes(b"def foo():\n    return 1\n")
         monkeypatch.setattr(
             "app.services.mcp_server._validate_path_in_workspace",
-            lambda p: (True, str(target)),
+            lambda p, extra_roots=None: (True, str(target)),
         )
 
         out = await _tool_file_edit({
@@ -530,7 +532,7 @@ class TestMcpServerCoverageFileEdit:
         target.write_bytes(b"foo\nfoo\nfoo\n")
         monkeypatch.setattr(
             "app.services.mcp_server._validate_path_in_workspace",
-            lambda p: (True, str(target)),
+            lambda p, extra_roots=None: (True, str(target)),
         )
 
         out = await _tool_file_edit({
@@ -557,7 +559,7 @@ class TestMcpServerCoverageFileEdit:
         target.write_bytes(b"\x00\x01\x02foo\x00")
         monkeypatch.setattr(
             "app.services.mcp_server._validate_path_in_workspace",
-            lambda p: (True, str(target)),
+            lambda p, extra_roots=None: (True, str(target)),
         )
 
         out = await _tool_file_edit({
