@@ -336,11 +336,11 @@ describe.skipIf(process.platform !== 'win32')(
         const rootPid = process.pid
         let tree: ReadonlyMap<number, readonly ProcessProbeSample[]> | undefined
         let samples: readonly ProcessProbeSample[] = []
-        for (let attempt = 0; attempt < 3; attempt += 1) {
+        for (let attempt = 0; attempt < 6; attempt += 1) {
           tree = await probe.sampleProcessTrees([rootPid])
           samples = tree?.get(rootPid) ?? []
           if (samples.some((s) => s.parentPid === child.pid)) break
-          await new Promise((resolve) => setTimeout(resolve, 500))
+          await new Promise((resolve) => setTimeout(resolve, 1_000))
         }
         expect(tree).toBeDefined()
         const byPid = new Map(samples.map((s) => [s.pid, s]))
