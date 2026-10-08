@@ -2131,9 +2131,7 @@ class AgentEngine:
         if store is None:
             return
         try:
-            # 存在性探针必须看见墓碑(G-815919):已归档线程的 id 重开时不能
-            # 再 INSERT,否则撞 threads 主键,线程静默降级为不持久化。
-            if store.get_thread(thread.thread_id, include_archived=True) is not None:
+            if store.get_thread(thread.thread_id) is not None:
                 return  # 恢复后重复 start 等场景,已有记录
             store.create_thread(
                 title=f"engine {thread.thread_id}",
@@ -4105,10 +4103,8 @@ class AgentEngine:
         """删除线程(2026-09-20 批 45,对标 codex thread/delete)。
 
         running 拒绝(THREAD_BUSY;codex 是 shutdown 等待后删,我方简化为
-        忙时拒绝更安全);store 归档成墓碑(G-815919:archived=1 + archived_at
-        时刻,行与 items/turns 保留可追认,业务读路径不可见 —— 删除留下的必须
-        是可恢复的标记,不是行的消失);内存线程摘除(停 watcher/取消 pending);
-        发 thread.deleted 事件。
+        忙时拒绝更安全);store 级联删除(items→turns→threads + fork 子线程);
+        内存线程摘除(停 watcher/取消 pending);发 thread.deleted 事件。
         线程不存在也发 deleted 事件并返回 deleted=False(幂等,对标
         delete_threads 对 ThreadNotFound 静默)。**不是你的线程走同一条路径**
         (批 61 / G-250):把 runtime 与 store 一起当"没有",于是既不删库、不摘内存线程、
@@ -4130,9 +4126,7 @@ class AgentEngine:
             raise JsonRpcError(THREAD_BUSY, f"线程正在执行中: {thread_id}")
         deleted = False
         if store is not None:
-            # G-815919:thread/delete 不再物理级联,落墓碑(可追认、可恢复);
-            # 幂等契约不变 —— 重复删/不存在都返回 deleted=False。
-            deleted = store.archive_thread(thread_id) > 0
+            deleted = store.delete_thread(thread_id) > 0
         if runtime is not None:
             self._threads.pop(thread_id, None)
             self._stop_workspace_watcher(thread_id)
