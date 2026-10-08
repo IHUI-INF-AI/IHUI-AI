@@ -8,6 +8,9 @@
 手动签到(mock checkin_engine,不打外网)→ 记录/积分流水回显 → 删除,
 外加调度器冷却累积语义(Server 连击 3 次触发冷却 + 成功清零)。
 
+Phase1c 增强(2026-10-08):PATCH jwt(成功/404/400/属主隔离)、
+列表 jwt_exp + cooldown_until 字段、GET scheduler/status 三字段形态。
+
 DB 隔离:仓库无 PG testcontainer fixture,按 conftest 既有惯例
 (monkeypatch 仓储层)把 checkin_store 的全部 DB 函数换成进程内假实现;
 checkin_engine.checkin_account 用假实现替换,绝无真实网络 IO。
@@ -23,8 +26,10 @@ from typing import Any
 
 import pytest
 
+from app.core.jwt_auth import require_request_user_id
 from app.services import checkin_scheduler as checkin_scheduler_mod
 from app.services import checkin_store
+from app.services.checkin_engine import get_jwt_exp
 
 # ---------------------------------------------------------------------------
 # 工具:构造可解析的假 JWT(不校验签名,引擎只 base64 解 payload)
@@ -58,7 +63,7 @@ class FakeStore:
 
     # --- 账号 ---
 
-    async def create_account(self, owner, name, jwt, device_map):
+    async def create_account(self, owner, name, jwt, device_map, account_group=""):
         for acc in self.accounts.values():
             if acc["owner_user_id"] == owner and acc["name"] == name:
                 raise ValueError(f"账号名已存在: {name}")
@@ -70,6 +75,7 @@ class FakeStore:
             "name": name,
             "jwt": jwt,
             "device_map": dict(device_map),
+            "group": account_group,
             "enabled": True,
             "created_at": datetime.now(UTC),
             "updated_at": datetime.now(UTC),
@@ -95,6 +101,22 @@ class FakeStore:
         if acc is None or acc["owner_user_id"] != owner:
             return False
         acc["enabled"] = enabled
+        return True
+
+    async def update_jwt(self, account_id, owner, jwt):
+        acc = self.accounts.get(account_id)
+        if acc is None or acc["owner_user_id"] != owner:
+            return False
+        acc["jwt"] = jwt
+        acc["updated_at"] = datetime.now(UTC)
+        return True
+
+    async def update_group(self, account_id, owner, group):
+        acc = self.accounts.get(account_id)
+        if acc is None or acc["owner_user_id"] != owner:
+            return False
+        acc["group"] = group
+        acc["updated_at"] = datetime.now(UTC)
         return True
 
     async def get_decrypted_jwt(self, account_id, owner):
@@ -203,13 +225,16 @@ class FakeStore:
     # --- 输出投影 ---
 
     def _account_out(self, acc):
+        exp_dt, _remaining = get_jwt_exp(acc["jwt"])
         return {
             "id": acc["id"],
             "name": acc["name"],
+            "group": acc.get("group", ""),
             "device_map": dict(acc["device_map"]),
             "enabled": acc["enabled"],
             "created_at": acc["created_at"].isoformat(),
             "updated_at": acc["updated_at"].isoformat(),
+            "jwt_exp": exp_dt.isoformat() if exp_dt is not None else None,
         }
 
     def _record_out(self, rec):
@@ -229,6 +254,8 @@ def fake_store(monkeypatch):
         "list_accounts",
         "delete_account",
         "set_enabled",
+        "update_jwt",
+        "update_group",
         "get_decrypted_jwt",
         "list_enabled_accounts",
         "save_device_map",
@@ -379,6 +406,184 @@ async def test_set_enabled_and_delete(client, fake_store, mock_engine_success):
     resp = await client.delete(f"/api/checkin/accounts/{account_id}")
     assert resp.status_code == 404
     assert await fake_store.list_accounts("dev-anonymous") == []
+
+
+
+async def test_update_jwt_roundtrip(client, fake_store):
+    """PATCH jwt 成功:响应含 ok/jwt_exp,store 里 jwt 已换新。"""
+    resp = await client.post("/api/checkin/accounts", json={"name": "主号", "jwt": make_jwt()})
+    assert resp.status_code == 200
+    account_id = resp.json()["id"]
+    old_jwt = fake_store.accounts[account_id]["jwt"]
+
+    new_jwt = make_jwt(user_id="u-2002", exp_offset_seconds=7200)
+    resp = await client.patch(f"/api/checkin/accounts/{account_id}/jwt", json={"jwt": new_jwt})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ok"] is True
+    assert body["id"] == account_id
+    exp_dt, _ = get_jwt_exp(new_jwt)
+    assert body["jwt_exp"] == exp_dt.isoformat()
+    assert fake_store.accounts[account_id]["jwt"] == new_jwt
+    assert old_jwt != new_jwt
+
+
+
+async def test_update_jwt_not_found(client, fake_store):
+    resp = await client.patch("/api/checkin/accounts/9999/jwt", json={"jwt": make_jwt()})
+    assert resp.status_code == 404
+    assert "账号不存在" in resp.json()["detail"]
+
+
+
+async def test_update_jwt_rejects_unparseable(client, fake_store):
+    """无法解析的 jwt → 400,且不得落库。"""
+    resp = await client.post("/api/checkin/accounts", json={"name": "主号", "jwt": make_jwt()})
+    account_id = resp.json()["id"]
+    original_jwt = fake_store.accounts[account_id]["jwt"]
+
+    resp = await client.patch(f"/api/checkin/accounts/{account_id}/jwt", json={"jwt": "not-a-jwt"})
+    assert resp.status_code == 400
+    assert fake_store.accounts[account_id]["jwt"] == original_jwt
+
+
+
+async def test_update_jwt_owner_isolation(client, fake_store):
+    """属主隔离:换身份 PATCH 别人的账号 → 404,jwt 不被改动。"""
+    from app.main import fastapi_app  # client fixture 已触发惰性导入,此处仅取引用
+
+    resp = await client.post("/api/checkin/accounts", json={"name": "mine", "jwt": make_jwt()})
+    account_id = resp.json()["id"]
+    original_jwt = fake_store.accounts[account_id]["jwt"]
+
+    fastapi_app.dependency_overrides[require_request_user_id] = lambda: "user-other"
+    try:
+        resp = await client.patch(
+            f"/api/checkin/accounts/{account_id}/jwt", json={"jwt": make_jwt(user_id="u-evil")}
+        )
+        assert resp.status_code == 404
+        assert fake_store.accounts[account_id]["jwt"] == original_jwt
+    finally:
+        fastapi_app.dependency_overrides.pop(require_request_user_id, None)
+
+
+
+async def test_list_accounts_jwt_exp_and_cooldown_until(client, fake_store):
+    """列表增强:jwt_exp 与该账号 jwt 的 exp 一致;cooldown_until 无冷却为 null、
+    有未来冷却记录时合并进行内,且 jwt/jwt_enc 依旧不出现。"""
+    jwt = make_jwt()
+    resp = await client.post("/api/checkin/accounts", json={"name": "主号", "jwt": jwt})
+    account_id = resp.json()["id"]
+
+    resp = await client.get("/api/checkin/accounts")
+    assert resp.status_code == 200
+    acc = resp.json()["accounts"][0]
+    exp_dt, _ = get_jwt_exp(jwt)
+    assert acc["jwt_exp"] == exp_dt.isoformat()
+    assert "jwt" not in acc
+    assert "jwt_enc" not in acc
+    assert acc["cooldown_until"] is None
+
+    # 写入一条未来冷却记录 → 列表行合并出 cooldown_until
+    cd = datetime.now(UTC) + timedelta(hours=1)
+    fake_store.records[9001] = {"id": 9001, "account_id": account_id, "cooldown_until": cd}
+    resp = await client.get("/api/checkin/accounts")
+    acc = resp.json()["accounts"][0]
+    assert acc["cooldown_until"] == cd.isoformat()
+
+
+
+async def test_group_create_list_and_patch(client, fake_store):
+    """Phase1d 分组:创建带 group → 列表回吐;PATCH 换组/清空(空串)均生效。"""
+    resp = await client.post(
+        "/api/checkin/accounts",
+        json={"name": "主号", "jwt": make_jwt(), "group": "主力"},
+    )
+    assert resp.status_code == 200
+    account_id = resp.json()["id"]
+    assert resp.json()["group"] == "主力"
+
+    resp = await client.get("/api/checkin/accounts")
+    assert resp.json()["accounts"][0]["group"] == "主力"
+
+    resp = await client.patch(
+        f"/api/checkin/accounts/{account_id}/group", json={"group": "备用"}
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body == {"ok": True, "id": account_id, "group": "备用"}
+    assert fake_store.accounts[account_id]["group"] == "备用"
+
+    # 空串 = 移出分组
+    resp = await client.patch(
+        f"/api/checkin/accounts/{account_id}/group", json={"group": ""}
+    )
+    assert resp.status_code == 200
+    assert fake_store.accounts[account_id]["group"] == ""
+
+    # 不带 group 的创建回落空串
+    resp = await client.post("/api/checkin/accounts", json={"name": "散号", "jwt": make_jwt()})
+    assert resp.status_code == 200
+    assert resp.json()["group"] == ""
+
+
+async def test_update_group_not_found(client, fake_store):
+    resp = await client.patch("/api/checkin/accounts/9999/group", json={"group": "x"})
+    assert resp.status_code == 404
+    assert "账号不存在" in resp.json()["detail"]
+
+
+async def test_update_group_owner_isolation(client, fake_store):
+    """属主隔离:换身份 PATCH 别人的账号分组 → 404,原分组不被改动。"""
+    from app.main import fastapi_app
+
+    resp = await client.post("/api/checkin/accounts", json={"name": "mine", "jwt": make_jwt()})
+    account_id = resp.json()["id"]
+
+    fastapi_app.dependency_overrides[require_request_user_id] = lambda: "user-other"
+    try:
+        resp = await client.patch(
+            f"/api/checkin/accounts/{account_id}/group", json={"group": "入侵"}
+        )
+        assert resp.status_code == 404
+        assert fake_store.accounts[account_id]["group"] == ""
+    finally:
+        fastapi_app.dependency_overrides.pop(require_request_user_id, None)
+
+
+async def test_scheduler_status_shape(client, monkeypatch):
+    """GET /scheduler/status:三字段形态(测试进程无 lifespan → 未启动,next_run 为 null)。"""
+    monkeypatch.setenv("CHECKIN_CRON_ENABLED", "true")
+    resp = await client.get("/api/checkin/scheduler/status")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["enabled"] is True
+    assert body["started"] is False
+    assert body["next_run"] is None
+
+
+
+def test_scheduler_status_next_run_when_started(monkeypatch):
+    """status():started 单例 + job.next_run_time → 带时区 ISO8601;未启动三字段缺省。"""
+    monkeypatch.setenv("CHECKIN_CRON_ENABLED", "false")
+    sched = checkin_scheduler_mod.CheckinScheduler()
+    assert sched.status() == {"enabled": False, "started": False, "next_run": None}
+
+    nrt = datetime(2026, 10, 9, 8, 5, tzinfo=checkin_scheduler_mod._CN_TZ)
+
+    class _FakeJob:
+        next_run_time: datetime | None = nrt
+
+    class _FakeApscheduler:
+        def get_job(self, job_id: str) -> _FakeJob | None:
+            return _FakeJob() if job_id == checkin_scheduler_mod._JOB_ID else None
+
+    sched._scheduler = _FakeApscheduler()  # 模拟已 start 的单例,不真起事件循环调度
+    sched._started = True
+    st = sched.status()
+    assert st["started"] is True
+    assert st["enabled"] is False
+    assert st["next_run"] == "2026-10-09T08:05:00+08:00"
 
 
 

@@ -12,8 +12,9 @@ Pydantic Settings 默认大小写不敏感匹配环境变量,因此小写字段�
 import json
 import os
 import re
+from collections.abc import Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Mapping
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 from pydantic_settings import BaseSettings
@@ -371,6 +372,10 @@ def _sync_env_file_to_os() -> None:
             # FIM 补全专用档位(2026-09-14):routers/fim.py 以 os.environ.get 直读,
             # 不在白名单则 .env 配置静默失效 → 选型恒回退 auto
             "FIM_PREFERRED_MODEL",
+            # 签到助手每日调度开关(2026-10-08):checkin_scheduler 以 os.environ.get
+            # 直读 CHECKIN_CRON_ENABLED(lifespan 启动期)。不进白名单 → .env 里写了
+            # true 也读不到 → 调度恒 off(与 DB_SYNC_*/COOKIE_REFRESH_* 同一型静默失效)。
+            "CHECKIN_CRON_ENABLED",
             # 内部服务令牌 + AI 全量操控桥接六键(2026-09-20):api_tools_bridge /
             # ui_action_bridge / mcp_server._edu_internal_headers 均以 os.environ.get
             # 直读。AI_CALLBACK_SECRET 不在白名单时 .env 配置静默失效 → 出站请求

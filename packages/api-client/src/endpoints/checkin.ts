@@ -11,9 +11,11 @@
  *   GET    /accounts              列表(jwt 永不出库,含最近一次记录摘要)
  *   DELETE /accounts/{id}         删除(级联 records / error_counts)
  *   PATCH  /accounts/{id}/enabled 启用/停用
+ *   PATCH  /accounts/{id}/jwt     更新 JWT(重录凭证,响应含新 jwt_exp)
  *   POST   /accounts/{id}/checkin 手动签到(无视冷却)
  *   GET    /records               签到记录倒序分页
  *   GET    /credits/history       积分流水
+ *   GET    /scheduler/status      调度器状态(enabled/started/next_run)
  * 响应为裸 JSON(无 {code,data} 包装),走 fetchAiServiceJson。
  * 类型契约见 @ihui/types(checkin.ts,镜像 checkin_store.py 序列化形态)。
  */
@@ -23,12 +25,17 @@ import type {
   CheckinCreditsHistoryItem,
   CheckinCreditsHistoryResponse,
   CheckinDeleteResponse,
+  CheckinGroupUpdateResponse,
+  CheckinJwtUpdateResponse,
   CheckinRecord,
   CheckinRecordsResponse,
+  CheckinSchedulerStatusResponse,
   CheckinSetEnabledResponse,
   CreateCheckinAccountIn,
   CreateCheckinAccountResponse,
   ManualCheckinResponse,
+  UpdateCheckinAccountGroupIn,
+  UpdateCheckinAccountJwtIn,
 } from '@ihui/types'
 import { fetchAiServiceJson } from '../client.js'
 
@@ -80,6 +87,34 @@ export async function setCheckinAccountEnabled(
   )
 }
 
+/** 更新账号 JWT(重录凭证,jwt 加密落库,响应含新解析的 jwt_exp) */
+export async function updateCheckinAccountJwt(
+  accountId: number,
+  jwt: string,
+): Promise<CheckinJwtUpdateResponse> {
+  const body: UpdateCheckinAccountJwtIn = { jwt }
+  return unwrap<CheckinJwtUpdateResponse>(
+    await fetchAiServiceJson<CheckinJwtUpdateResponse>(
+      `/api/checkin/accounts/${encodeURIComponent(String(accountId))}/jwt`,
+      { method: 'PATCH', body: JSON.stringify(body) },
+    ),
+  )
+}
+
+/** 更新账号分组(Phase1d;空串 = 移出分组) */
+export async function updateCheckinAccountGroup(
+  accountId: number,
+  group: string,
+): Promise<CheckinGroupUpdateResponse> {
+  const body: UpdateCheckinAccountGroupIn = { group }
+  return unwrap<CheckinGroupUpdateResponse>(
+    await fetchAiServiceJson<CheckinGroupUpdateResponse>(
+      `/api/checkin/accounts/${encodeURIComponent(String(accountId))}/group`,
+      { method: 'PATCH', body: JSON.stringify(body) },
+    ),
+  )
+}
+
 /** 手动触发签到:无视冷却,结果照写 records */
 export async function manualCheckinAccount(accountId: number): Promise<ManualCheckinResponse> {
   return unwrap<ManualCheckinResponse>(
@@ -120,5 +155,18 @@ export async function listCheckinCreditsHistory(options?: {
   )
 }
 
-export type { CheckinAccount, CheckinCreditsHistoryItem, CheckinRecord }
+/** 调度器状态(enabled+started → 每日自动签到运行中) */
+export async function getCheckinSchedulerStatus(): Promise<CheckinSchedulerStatusResponse> {
+  return unwrap<CheckinSchedulerStatusResponse>(
+    await fetchAiServiceJson<CheckinSchedulerStatusResponse>('/api/checkin/scheduler/status'),
+  )
+}
+
+export type {
+  CheckinAccount,
+  CheckinCreditsHistoryItem,
+  CheckinJwtUpdateResponse,
+  CheckinRecord,
+  CheckinSchedulerStatusResponse,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
