@@ -45,41 +45,8 @@ function getAuditLogPath(): string {
   return path.join(os.homedir(), '.ihui', 'audit.jsonl');
 }
 
-/**
- * 一次截断的读数(对照组 `tools/mcp-runtime.ts` 的 bytesRead/sizeBytes 形态,G-814409):
- * 四个字段**全是真实量值**,没有一个是恒真 —— `truncated` 由 `bytesRead > sizeBytes` 比较得出
- * (而不是写死 true/false),所以"超长时标 (truncated)、量值可信"这条判据有牙,
- * 恒真标注会被用例咬出来。
- */
-export interface AuditTruncationReading {
-  /** 输入总字符数(**含**被截掉的那部分) */
-  bytesRead: number;
-  /** 实际保留进审计日志的字符数 */
-  sizeBytes: number;
-  /** 保留文本(截断时自带 `...(truncated bytesRead/sizeBytes)` 标注) */
-  text: string;
-  /** 真的截断过(= bytesRead > sizeBytes) */
-  truncated: boolean;
-}
-
-/**
- * 唯一截断出口:截断时**自报丢了多少**(`...(truncated bytesRead/sizeBytes)`),
- * 不再只留一句不带量的 `...(truncated)`(G-814409:裁剪必须自报丢了多少)。
- */
-export function truncateWithReading(text: string, max = 500): AuditTruncationReading {
-  const bytesRead = text.length;
-  const sizeBytes = Math.min(max, bytesRead);
-  const truncated = bytesRead > sizeBytes;
-  return {
-    bytesRead,
-    sizeBytes,
-    text: truncated ? text.slice(0, max) + `...(truncated ${bytesRead}/${sizeBytes})` : text,
-    truncated,
-  };
-}
-
 function truncate(text: string, max = 500): string {
-  return truncateWithReading(text, max).text;
+  return text.length > max ? text.slice(0, max) + '...(truncated)' : text;
 }
 
 export function auditLog(entry: AuditEntry): void {
