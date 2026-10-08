@@ -36,18 +36,26 @@ const { streamChatMock } = vi.hoisted(() => ({
   streamChatMock: vi.fn<StreamChatFn>(),
 }))
 
-vi.mock('@ihui/api-client', () => ({
-  streamChat: streamChatMock,
-  setBaseUrl: vi.fn(),
-  setTokenProvider: vi.fn(),
-  formatSSEError: (err: unknown) => ({
-    severity: 'unknown' as const,
-    title: 'error',
-    message: err instanceof Error ? err.message : String(err),
-    rawMessage: err instanceof Error ? err.message : String(err),
-    requireReauth: false,
-  }),
-}))
+// 部分 mock:只替换会真发网络请求/真写盘的三个出口,其余保持真实实现。
+// 整模块工厂(`() => ({...})`)会把没列出的导出一起变成 undefined —— 那时报错是
+// "No 'getModelContextCapacity' export is defined on the mock",即 runToolLoop 每多依赖
+// api-client 的一个出口,本文件就得跟着改一次;而 CI 在 1e01edab7c 上正是这样红的。
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ihui/api-client')>()
+  return {
+    ...actual,
+    streamChat: streamChatMock,
+    setBaseUrl: vi.fn(),
+    setTokenProvider: vi.fn(),
+    formatSSEError: (err: unknown) => ({
+      severity: 'unknown' as const,
+      title: 'error',
+      message: err instanceof Error ? err.message : String(err),
+      rawMessage: err instanceof Error ? err.message : String(err),
+      requireReauth: false,
+    }),
+  }
+})
 
 vi.mock('../src/audit.js', () => ({
   auditLog: vi.fn(),
