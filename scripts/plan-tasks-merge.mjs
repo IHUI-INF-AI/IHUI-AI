@@ -53,6 +53,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Undetermined, catBatch, gitRaw, selectFace } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import {
+  CLAIM_SOURCE,
   DUP_POINTER_RE,
   POINTER_FAMILIES,
   POINTER_NO_AUTO_REPAIR,
@@ -1328,31 +1329,99 @@ export function verifyBlockDedupe(srcText, outText, deletedCount) {
  * 台账里天然成对的短行会成百地冒出来,噪声淹信号)。于是"同一件事被写成两份、每份都是单行"
  * 恰好落在缝里,而 F1/F2/F4 也不计它 —— 四条判据里"待办副本"要求未勾形态,两份都已 `[x]` ⇒ 账面全 0。
  *
- * 这一档只补那一种形态,判据苛刻到四条件同时成立才动手:
+ * 这一档只补那一种形态,判据苛刻到**五条件**同时成立才动手:
  *  ① 行首是**已完成**形态 `- [x]`(未勾行的两份是"两件待办",不是副本,机器无权折);
  *  ② 整行长度 ≥40 字符(短行噪声阈,与 F6 同一取向);
  *  ③ 两份以上**逐字节相同**(有任何一字不同就是"漂移副本",自动折半即有损 ⇒ 交人工);
- *  ④ 是顶层行(不以空白缩进开头)—— 缩进行属于某个块的续行,归 F6 那条尺子管。
+ *  ④ 是顶层行(不以空白缩进开头)—— 缩进行属于某个块的续行,归 F6 那条尺子管;
+ *  ⑤ **行内没有认领牌** `（进行中…）`(G-761 补的第五维)—— 那是别人正开着的活,删它等于
+ *     替人释放租约;守门 109 判的是租约的寿命,从不判"这一行能不能被删掉",所以这一维
+ *     只能由删除侧自己守住。判据源只引尺子那一份 `CLAIM_SOURCE`,不在本器另拼正则。
  * 只删第 2..N 份,保留首次出现;落地前后都跑一次同一把尺子,归并注记与 F 维一律不得变差。
+ *
+ * 为什么第⑤条必须进**取组函数**而不是只在落地前补一条断言:`auditPlan().counts.claimed`
+ * 与 `claimable` 是两个口径 —— 带牌行**不进派单口径**,所以"删掉一张认领牌"在 ⑥(活数不变)
+ * 那一维上完全静默;而 `open` 减量与声明删除数逐字吻合(⑦)同样成立,因为它删的确实是 `- [ ]` 行。
+ * 也就是说现有八条断言**没有一条**拦得住"把别人的认领删了",这正是本票在真仓 HEAD 面量到的
+ * 缺口(现读入口:`node scripts/plan-tasks-merge.mjs --dedupe-open-rows` 的租约报名行)。
  */
 const ROW_MIN_LEN = 40
 const ROW_DONE_RE = /^- \[x\]/
+/** 未勾选行的行首形态(与已完成档同位、同窄度,只差这一个字符)。 */
+const ROW_OPEN_RE = /^- \[ \]/
+/**
+ * 认领牌(租约)判据。**只引 `CLAIM_SOURCE` 那一份源**(lib/plan-task-index.mjs:34)——
+ * 与守门 109 判的是同一枚标记;在本器再写一遍 `（进行中` 字面量,就是"两处算同一件事必漂移"
+ * 的本家形态(§22c),而漂开的表现是"某一天 109 换了词族、这里的硬跳过静默失效"。
+ */
+const ROW_LEASE_RE = new RegExp(CLAIM_SOURCE)
 /** 单批拟删行数上限:超过它 ⇒ 拒落并给出"逐批 --match"的出路(与归档器的大批量阀门同一取向)。 */
 const ROW_MASS_LIMIT = 25
 
-/** @returns {Array<{line:string, copies:number, at:number[]}>} 按首次出现行号排序 */
-export function findRowTwins(content) {
-  const lines = String(content).split('\n')
+/** 这一行是不是别人持有中的认领(租约)?带牌 ⇒ 任何删除档一份都不许动。 */
+export function isLeasedRow(line) {
+  return ROW_LEASE_RE.test(String(line ?? ''))
+}
+
+/**
+ * 单行等值副本的**唯一取组实现**(两档共用,含租约硬跳过)。
+ *
+ * 为什么必须收成一份:`findRowTwins` 与 `findOpenRowTwins` 的差别只有"行首取哪一态"和
+ * "要不要已带副本指针",而它们喂进 `verifyRowDedupeCore` 的第⑤条幂等判据是**同一个函数**。
+ * 两处各写一遍过滤条件,就会出现"某一档的取组规则与它的幂等复核规则不同形" —— 那不是少删,
+ * 是"账面说本档清零了、其实还留着一批"的自洽假绿(本仓记过最多次的失效型)。
+ *
+ * @param {string} content
+ * @param {{stateRe:RegExp, needPointer?:boolean, needNoPointer?:boolean, includeLeased?:boolean}} opt
+ *   `includeLeased:true` **只给报名用**(findLeasedTwinRefusals / findOpenRowRefusals);
+ *   两个删除档一律走缺省(false)。`needNoPointer:true` 是"没带副本指针"那一族(出口是 --heal)。
+ * @returns {Array<{line:string, copies:number, at:number[]}>} 按首次出现行号排序
+ */
+function collectRowTwinGroups(content, opt) {
+  const { stateRe, needPointer = false, needNoPointer = false, includeLeased = false } = opt
+  const lines = String(content ?? '').split('\n')
   const seen = new Map()
   lines.forEach((l, i) => {
-    if (!ROW_DONE_RE.test(l)) return
+    if (!stateRe.test(l)) return
     if (l.length < ROW_MIN_LEN) return
+    if (needPointer && !DUP_POINTER_RE.test(l)) return
+    if (needNoPointer && DUP_POINTER_RE.test(l)) return
+    if (!includeLeased && isLeasedRow(l)) return
     if (!seen.has(l)) seen.set(l, [])
     seen.get(l).push(i + 1)
   })
   const groups = []
   for (const [line, at] of seen) if (at.length > 1) groups.push({ line, copies: at.length, at })
   return groups.sort((a, b) => a.at[0] - b.at[0])
+}
+
+/** @returns {Array<{line:string, copies:number, at:number[]}>} 按首次出现行号排序 */
+export function findRowTwins(content) {
+  return collectRowTwinGroups(content, { stateRe: ROW_DONE_RE })
+}
+
+/**
+ * **租约报名出口**:与两档取组同一口径,唯一区别是这次把带牌的行放进来,供报告逐条点名。
+ *
+ * 为什么它必须存在并且必须被打印(而不是"跳过了就跳过"):判据失效的表现永远是安静 ——
+ * 一个静默跳过别人认领的删除档,读报告的人会把它当成"这一族没有活账",于是那批孪生永久
+ * 留在账上而无人知道它为什么清不掉。三态分明的出口只有两个:拟删 / 带理由报名。
+ * @returns {Array<{arm:'done'|'open',line:string,copies:number,at:number[]}>}
+ */
+export function findLeasedTwinRefusals(content) {
+  const out = []
+  for (const [arm, opt] of [
+    ['done', { stateRe: ROW_DONE_RE }],
+    ['open', { stateRe: ROW_OPEN_RE, needPointer: true }],
+  ]) {
+    const allowed = new Set(collectRowTwinGroups(content, opt).map((g) => g.line))
+    for (const g of collectRowTwinGroups(content, { ...opt, includeLeased: true })) {
+      // 只报"否则会被本档认领"的那些组:同文无牌行已被取组规则放行,不必重复点名
+      if (allowed.has(g.line)) continue
+      out.push({ arm, line: g.line, copies: g.copies, at: g.at })
+    }
+  }
+  return out.sort((a, b) => a.at[0] - b.at[0])
 }
 
 export function buildRowDedupe(content, match = null) {
@@ -1397,14 +1466,9 @@ export function verifyRowDedupe(srcText, outText, deletedCount, match = null) {
   return verifyRowDedupeCore(srcText, outText, deletedCount, match, findRowTwins)
 }
 
-export function verifyRowDedupeCore(
-  srcText,
-  outText,
-  deletedCount,
-  match,
-  findTwins,
-  scopeLines = null,
-) {
+// 形状锁(R5)按单行签名钉死两档共用核,折行会让锁判不出(HEAD 存量红的清偿),故下一行保形不折:
+// prettier-ignore
+export function verifyRowDedupeCore(srcText, outText, deletedCount, match, findTwins, scopeLines = null) {
   const problems = []
   const a = String(srcText).split('\n')
   const b = String(outText).split('\n')
@@ -1472,6 +1536,79 @@ export function verifyRowDedupeCore(
     : findTwins(outText).filter((g) => !match || g.line.includes(match))
   if (deletedCount > 0 && left.length > 0)
     problems.push(`删了 ${deletedCount} 行而仍有 ${left.length} 组等值副本未清 ⇒ 不闭合,交人工`)
+  // ⑥(G-761)**被删的那些行自己必须仍是注册行,且两态各自对账得上**。
+  //    被删集合不从调用方取(它传的 deletedCount 只是"我自己说我删了几行"),而是从
+  //    「输入多重集 ⊖ 产物多重集」直接算 —— 这才是"删的确实是我说的那些行"的独立证据。
+  //    三条分判:① 不得有非注册行被吃掉(标题/正文/归档占位都不在本档射程,§1 禁止无声删除);
+  //    ② `- [ ]` 与 `- [x]` 各自的减量必须等于该态被删份数(公共核此前只由未勾档在 ⑦ 里单方面
+  //    对账 `open`,已完成档那一侧连这一维都没有);③ 减量只能来自被删行本身,不得"顺带"。
+  const stateOf = (l) => (ROW_OPEN_RE.test(l) ? 'open' : ROW_DONE_RE.test(l) ? 'done' : null)
+  const cut = { open: 0, done: 0, other: 0 }
+  for (const [line, n] of ca) {
+    const gone = n - (cb.get(line) ?? 0)
+    if (gone <= 0) continue
+    const st = stateOf(line)
+    if (st === null) cut.other += gone
+    else cut[st] += gone
+  }
+  if (cut.other > 0)
+    problems.push(
+      `产物比输入少掉 ${cut.other} 行**不是任务登记行**的形态(本档只许删 \`- [ ]\`/\`- [x]\` 单行副本)⇒ 整批不落`,
+    )
+  const ap0 = auditPlan(srcText)
+  const ap1 = auditPlan(outText)
+  const cnt0 = ap0.counts
+  const cnt1 = ap1.counts
+  if (cnt1.open !== cnt0.open - cut.open)
+    problems.push(
+      `未勾选行数 ${cnt0.open}→${cnt1.open} 与被删的未勾份数 ${cut.open} 不吻合(尺子现算,不信声明)`,
+    )
+  // 注:已勾选份数住在 auditPlan() 的**顶层** `doneRows`(= 注册行总数 − 未勾行数),不在 `counts` 里。
+  //     写成 `counts.doneRows` 会拿到 undefined,而 `undefined !== undefined - 0` 为 false ⇒
+  //     这条断言**恒红**(第一版就是这么写着的,由本文件 --self-test 当场抓出;红得毫无道理,
+  //     但比恒绿好 —— 它至少喊了。判据拿错字段的表现通常是"静默通过",这里侥幸相反)。
+  if (ap1.doneRows !== ap0.doneRows - cut.done)
+    problems.push(
+      `已勾选行数 ${ap0.doneRows}→${ap1.doneRows} 与被删的已勾份数 ${cut.done} 不吻合(两态都不许缩水)`,
+    )
+  if (cut.open + cut.done + cut.other !== deletedCount)
+    problems.push(
+      `按多重集算出的被删份数 ${cut.open + cut.done + cut.other} ≠ 声明删除数 ${deletedCount} ⇒ 有一边在自说自话,整批不落`,
+    )
+  // ⑦(G-761)**认领牌不缩水**:租约行不在派单口径里,所以"活数不变"那条(⑥/未勾档)对它
+  //    结构上失明 —— 删掉一张在飞的认领,账面读起来与"删掉一份死副本"一模一样。
+  if (cnt1.claimed !== cnt0.claimed)
+    problems.push(
+      `认领牌(租约)行数由 ${cnt0.claimed} 掉到 ${cnt1.claimed} ⇒ 删到了别人正开着的活(§16 越权),整批不落`,
+    )
+  // ⑧(G-761)**复合主键族不丢终端代表**:本档删的每一份都与幸存份逐字相同 ⇒ 同键、同指针形态,
+  //    族的可判定性不可能变差;若真变差,只可能是取组/落地有一边漂了(而漂开的表现正是"某个族的
+  //    账从此无人可见",比留一份副本严重)。尺子用现成的 auditPointerTerminals,不另写第二份分组。
+  const pt0 = auditPointerTerminals(srcText)
+  const pt1 = auditPointerTerminals(outText)
+  if (pt1.families > pt0.families || pt1.hiddenFamilies > pt0.hiddenFamilies)
+    problems.push(
+      `主键族终端代表受损:无终端 ${pt0.families}→${pt1.families} 族 / 真隐形 ${pt0.hiddenFamilies}→${pt1.hiddenFamilies} 族` +
+        ` —— 删除档不得让任何一族变得更不可见,整批不落`,
+    )
+  // ⑨(G-761)**删除集只许来自"本档取组判据亲手认领的逐字相同副本"**。
+  //    前三条证的都是"删得干净"(幸存份、多重集、行数),没有一条把"被删的行"回绑到"被判据认领的组"上:
+  //    一次行号错位(并发会话在落地前推进了台账 ⇒ 行号全体挪位,§1 判据 3 禁的就是拿行号当证据)
+  //    会删掉"另一族的第一份",而那一族的幸存份照样在位、行数差照样等于 deletedCount、
+  //    F 维照样不涨 —— 三条一起绿。这里按**当次输入**重算取组判据自己认领的行数,与声明数硬对账。
+  const claimedGroups = scopeLines
+    ? findTwins(srcText).filter((g) => scopeSetOf(scopeLines).has(g.line))
+    : findTwins(srcText).filter((g) => !match || g.line.includes(match))
+  const claimedRows = claimedGroups.reduce((s, g) => s + Math.max(0, g.copies - 1), 0)
+  // **只在真删了东西的时候判**:`(src, src, 0)` 是合法的空档调用(报告档、以及"本轮没活干"的
+  // 端到端对照都这么调),对它判红等于把"账上还有副本没清"说成"这次删除违法" —— 那是两件事,
+  // 前者由 ⑤ 幂等与各档报告负责。第一版没加这个前提,被既有镜像测试 R6 当场抓回
+  // (`verifyOpenRowDedupe(src, src, 0, null, null)` 期望 [],实得"认领 4 / 声明 0")。
+  if (deletedCount > 0 && claimedRows !== deletedCount)
+    problems.push(
+      `本档取组判据认领 ${claimedRows} 行副本,而声明删除 ${deletedCount} 行 ⇒ 删除集不完全来自"逐字相同副本"` +
+        `(行号错位是这一条的典型成因),整批不落`,
+    )
   return problems
 }
 
@@ -1581,10 +1718,7 @@ export function rowsDedupeAndLand(match = null, maxAttempts = 8) {
   return 1
 }
 
-// ── 未勾单行等值副本档(G-741,2026-09-29 立)─────────────────────────
-/** 未勾选行的行首形态(与已完成档的 `ROW_DONE_RE` 同位、同窄度,只差这一个字符)。 */
-const ROW_OPEN_RE = /^- \[ \]/
-
+// ── 未勾单行等值副本档(G-741,2026-09-29 立;租约硬跳过那一维由 G-761 补)────────
 /**
  * 已完成那一族已由 `--dedupe-rows` 收口,但**未勾选**的逐字孪生行到今天仍然没有任何出口。
  *
@@ -1597,17 +1731,19 @@ const ROW_OPEN_RE = /^- \[ \]/
  *  - 守门 71 防"丢行",从不防"重行"。
  * 后果不是难看,是**功能被卡死**:台账里任何按该行内容定位的自动动作(
  * `scripts/live-doc-edit.mjs`、自建锚点脚本)都按"锚点命中≠1 不猜"拒绝插入 ——
- * 派单口径已经把它们逐出 claimable(现读 dupPointerRows 1725 / claimable 490),
- * 而"这一行有两份"这件事永久无人可清。真仓现读:顶层 ≥40 字符的未勾选逐字孪生 **220 组 /
- * 可删份数 1148**,其中 6 组带租约 `（进行中@…）`。
+ * 派单口径已经把它们逐出 claimable,而"这一行有两份"这件事永久无人可清。
+ * ⚠️ 上面那段里的**读数已全部作废**(2026-09-29 写下的快照,台账每天在动):真仓组数/份数/
+ * 带租约组数一律跑 `node scripts/plan-tasks-merge.mjs --dedupe-open-rows` 看末行现值,
+ * 不得照本段数字派单 —— 那正是 §1 判据 3 与 AGENTS 反复禁止的"把一次现读当不变量"。
  *
- * 判据比已完成档**更窄一档**,五条件同时成立才动手:
+ * 判据比已完成档**更窄一档**,六条件同时成立才动手:
  *  ① 行首 `- [ ]`(未勾选);
  *  ② 整行 ≥40 字符(与 F6/已完成档同一噪声阈);
  *  ③ 顶层行(不以空白缩进开头)—— 缩进续行归 F6 那把尺子;
  *  ④ 两份以上**逐字节相同**(含行尾空白/BOM/CRLF:差一个字就是漂移副本,机器折半即有损 ⇒
  *     一份不动并逐条点名交人工);
- *  ⑤ **该行已带 `【归并】重复登记副本` 指针**。
+ *  ⑤ **该行已带 `【归并】重复登记副本` 指针**;
+ *  ⑥ **行内没有认领牌** `（进行中…）`(G-761)。
  *
  * 第⑤条是本档全部安全论据的落点,也是"复用尺子、不另写一份什么算重复"的实现方式:
  * 尺子(auditPlan 的 claimable 排除)早已把带该指针的行算作**同一条活的副本**,所以删掉第 2..N 份
@@ -1615,21 +1751,42 @@ const ROW_OPEN_RE = /^- \[ \]/
  * **没带指针**的逐字孪生则是 F4/F4b 的当次活账,那一族的出口是 `--heal` 加注记(一行不删);
  * 本档若去删它,等于替人做出"这条待办没人要了"的判断 ⇒ 一律点名、一份不删(见 findOpenRowRefusals)。
  *
+ * 第⑥条(G-761)的安全论据**与⑤不同源,也不能互相顶替**:带牌行**本来就不进派单口径**
+ * (`claimed` 与 `claimable` 是两个集合),所以删掉一张认领牌时 ⑥"活数一枚不少"照样成立、
+ * ⑦"open 减量=声明删除数"照样成立 —— 现有八条断言**没有一条**拦得住"把别人的认领删了"。
+ * 所以这一维必须由取组函数自己拦(见 collectRowTwinGroups),并由公共核的"认领牌不缩水"
+ * 那条断言当场反证(它是**第二道**闸,不是唯一闸:唯一闸失效方向是静默少删,而报名让这一族
+ * 永远可见)。守门 109 判租约的寿命与自相矛盾,从不判"这一行能不能被删"。
+ *
+/**
  * 幸存者取**首次出现**(与已完成档同形;两份逐字节相同 ⇒ 保留哪一份不影响内容)。
  */
 export function findOpenRowTwins(content) {
-  const lines = String(content).split('\n')
-  const seen = new Map()
-  lines.forEach((l, i) => {
-    if (!ROW_OPEN_RE.test(l)) return
-    if (l.length < ROW_MIN_LEN) return
-    if (!DUP_POINTER_RE.test(l)) return
-    if (!seen.has(l)) seen.set(l, [])
-    seen.get(l).push(i + 1)
-  })
-  const groups = []
-  for (const [line, at] of seen) if (at.length > 1) groups.push({ line, copies: at.length, at })
-  return groups.sort((a, b) => a.at[0] - b.at[0])
+  return collectRowTwinGroups(content, { stateRe: ROW_OPEN_RE, needPointer: true })
+}
+
+/**
+ * 租约报名的**打印口径**(两档共用一份,G-761)。
+ *
+ * 为什么两档的报告都必须打这一行,而不是只在代码里跳过:跳过是**少删**,而少删在账面上与
+ * "这一族不存在"同形 —— 下一个人跑同一档看到 `0 组` 会登记"已清完"。本仓对这一型的既定口径是
+ * "只报数不判红**且必须打印**"(守门 70/76/81/118 同族),所以这里逐条点名到行号。
+ * @param {string} content
+ * @param {'done'|'open'} arm
+ */
+export function leasedTwinNote(content, arm) {
+  const all = findLeasedTwinRefusals(content).filter((g) => g.arm === arm)
+  if (!all.length) return `租约硬跳过(G-761 第⑥维):本档 0 组`
+  const rows = all.reduce((s, g) => s + g.copies - 1, 0)
+  return (
+    `租约硬跳过(G-761 第⑥维):${all.length} 组 / 若不跳过将删 ${rows} 行 —— 那些是别人持有中的认领,` +
+    `本档一份不删;逐条 @ L${all
+      .slice(0, 6)
+      .map((g) => g.at.join('/'))
+      .join(
+        ' / ',
+      )}${all.length > 6 ? ` …另 ${all.length - 6} 组(--all 见 findLeasedTwinRefusals)` : ''}`
+  )
 }
 
 /**
@@ -1638,21 +1795,18 @@ export function findOpenRowTwins(content) {
  *  - `drifted` :同复合主键下 ≥2 条未勾选而正文已漂开 ⇒ 交人工。取组一律喂**尺子自己的**
  *    `auditPlan().dupOpen`(findForks 的产物),本档不重写"什么算同题"—— 重写的那一份迟早与
  *    判据漂开,而漂开的表现是"这一族没人看见"而不是"报错"。
+ * 取组**走同一份 collectRowTwinGroups**(G-761):此前这里自己写了一遍过滤循环,于是
+ * "整行等值 vs 前缀等值"这类放宽会在删除档与报名档之间给出相反答案 —— 变异取证见
+ * `scripts/tests/plan-tasks-merge-twin-dedupe.test.mjs` E 组。带认领牌的行不在本出口报名
+ * (那一族由 findLeasedTwinRefusals 点名),两条通道不重叠,免得同一族被算成两笔账。
  * @returns {{noPointer:Array<{line:string,copies:number,at:number[]}>,drifted:Array<{key:string,copies:number,at:number[]}>}}
  */
 export function findOpenRowRefusals(content) {
-  const lines = String(content).split('\n')
-  const seen = new Map()
-  lines.forEach((l, i) => {
-    if (!ROW_OPEN_RE.test(l)) return
-    if (l.length < ROW_MIN_LEN) return
-    if (DUP_POINTER_RE.test(l)) return
-    if (!seen.has(l)) seen.set(l, [])
-    seen.get(l).push(i + 1)
+  const noPointer = collectRowTwinGroups(content, {
+    stateRe: ROW_OPEN_RE,
+    needNoPointer: true,
+    includeLeased: true,
   })
-  const noPointer = []
-  for (const [line, at] of seen) if (at.length > 1) noPointer.push({ line, copies: at.length, at })
-  noPointer.sort((a, b) => a.at[0] - b.at[0])
   const drifted = []
   for (const g of auditPlan(content).dupOpen) {
     const texts = new Set(g.open.map((r) => r.raw))
@@ -1774,14 +1928,9 @@ export function verifyOpenRowDedupe(
   droppedLines = null,
   scopeLines = null,
 ) {
-  const problems = verifyRowDedupeCore(
-    srcText,
-    outText,
-    deletedCount,
-    match,
-    findOpenRowTwins,
-    scopeLines,
-  )
+  // R5 要求 open 臂调用单行可配(与上一处同一形状锁),故下一行保形不折:
+  // prettier-ignore
+  const problems = verifyRowDedupeCore(srcText, outText, deletedCount, match, findOpenRowTwins, scopeLines)
   if (droppedLines) {
     const expect = String(srcText)
       .split('\n')
@@ -2686,7 +2835,10 @@ export function healAndLand() {
     )
     const postUnmerged =
       adjudicationProblems({ forks: audit(landedText).forks }, landAdj).problems.length +
-      after.voidRows + after.rotatedAuto + after.dupOpenCopies + after.verbatimDupCopies
+      after.voidRows +
+      after.rotatedAuto +
+      after.dupOpenCopies +
+      after.verbatimDupCopies
     if (postUnmerged > 0) {
       console.log('   ⚠️ 落地面仍有未归并项 —— 上面就是现读数字,不得当"已清零"引用。')
       return 1
@@ -2737,7 +2889,9 @@ function healWithPrefixHolder(holderFragment, { commit }) {
     return 2
   }
   if (!res.pointered.length) {
-    console.log(`✅ 持有行 L${res.holderLine} 的同主键前缀套叠族已全部带指针(F4c 清零),不动任何东西`)
+    console.log(
+      `✅ 持有行 L${res.holderLine} 的同主键前缀套叠族已全部带指针(F4c 清零),不动任何东西`,
+    )
     return 0
   }
   const today = new Date().toISOString().slice(0, 10)
@@ -2758,7 +2912,8 @@ function healWithPrefixHolder(holderFragment, { commit }) {
   for (const c of changed) {
     if (c.before === c.after) bad.push(`L${c.line} 写入前后相等(空动作却报了改写)`)
     else if (!c.after.startsWith(c.before)) bad.push(`L${c.line} 产物不是原行的纯追加`)
-    else if (!DUP_POINTER_RE.test(c.after)) bad.push(`L${c.line} 产物不含派单口径认得的副本指针字面`)
+    else if (!DUP_POINTER_RE.test(c.after))
+      bad.push(`L${c.line} 产物不含派单口径认得的副本指针字面`)
   }
   lines.forEach((l, i) => {
     if (!touched.has(i + 1) && l !== out[i]) bad.push(`L${i + 1} 未登记却被改动`)
@@ -2777,7 +2932,9 @@ function healWithPrefixHolder(holderFragment, { commit }) {
   )
   for (const c of changed) console.log(`  - L${c.line}: ${c.before.slice(0, 60)} → 行尾追加指针`)
   if (!commit) {
-    console.log('ℹ️ 未加 --commit:只出报告,一行未改。确认后再跑 --heal --match-prefix-holder "<片段>" --commit')
+    console.log(
+      'ℹ️ 未加 --commit:只出报告,一行未改。确认后再跑 --heal --match-prefix-holder "<片段>" --commit',
+    )
     return 0
   }
   const scratch = mkScratch(`plan-prefix-holder-${stamp}`)
@@ -2980,7 +3137,9 @@ export function healStopReasons(srcText, merged, changed, refusedCount, adj = nu
     bodyBroken ? '有翻勾行未逐字保留正文(剥注记后必须相等)' : null,
     twinLeft ? `折叠维未闭合:折完仍有 ${twinLeft} 行"同题不同编号"可折` : null,
     ...(adjudicationProblems({ forks: audit(merged).forks }, adj).problems.length ||
-      after.voidRows || after.rotatedAuto || after.dupOpenCopies
+    after.voidRows ||
+    after.rotatedAuto ||
+    after.dupOpenCopies
       ? ['归并后未归零']
       : []),
     pointerVisibilityRegression(srcText, merged),
@@ -3122,9 +3281,7 @@ export function loadAdjudications(root, today) {
       if (!Array.isArray(parsed.items)) throw new Error('items 不是数组')
       adj.items = parsed.items
     } catch (e) {
-      const err = new Error(
-        `裁决账 ${ADJ_REL} 判不出:${e?.message ?? e} ⇒ exit 2(不冒红也不记绿)`,
-      )
+      const err = new Error(`裁决账 ${ADJ_REL} 判不出:${e?.message ?? e} ⇒ exit 2(不冒红也不记绿)`)
       err.adjUndetermined = true
       throw err
     }
@@ -3971,7 +4128,10 @@ function selfTest() {
   )
   // ② holder 不在被审面 ⇒ 大声失败,不得静默退化成"这一族没配上"
   const pr2 = planPrefixNestedPointer(pSrc, 'G-999 不存在的片段')
-  ok(!pr2.ok && pr2.reason.includes('0 命中'), `holder 0 命中必须大声失败,实测 ${JSON.stringify(pr2)}`)
+  ok(
+    !pr2.ok && pr2.reason.includes('0 命中'),
+    `holder 0 命中必须大声失败,实测 ${JSON.stringify(pr2)}`,
+  )
   // ③ 成对:加一行新前缀副本 ⇒ 报数上升(三层 754⊂1372⊂1767 按库定义产 3 对,逐层各一);
   //   指定持有行加指针 ⇒ 该族清零(指针打破 startsWith)
   const pBefore = findPrefixNestedCopies(pSrc).pairs.length
@@ -3987,13 +4147,18 @@ function selfTest() {
     const t0 = pr3.ok && pr3.pointered.find((p) => p.line === i + 1)
     return t0 ? rewriteDup(l, t0.key, '2026-10-07') : l
   })
-  ok(pr3.ok && pr3.pointered.length === 2, `三层套叠应恰报 2 份副本待指,实测 ${JSON.stringify(pr3)}`)
+  ok(
+    pr3.ok && pr3.pointered.length === 2,
+    `三层套叠应恰报 2 份副本待指,实测 ${JSON.stringify(pr3)}`,
+  )
   ok(
     findPrefixNestedCopies(pLines.join('\n')).pairs.length === 0,
     `副本加指针后该族必须清零,实测仍报 ${findPrefixNestedCopies(pLines.join('\n')).pairs.length} 对`,
   )
   ok(
-    pLines[0] === pGrownLines[0] && DUP_POINTER_RE.test(pLines[1]) && DUP_POINTER_RE.test(pLines[3]),
+    pLines[0] === pGrownLines[0] &&
+      DUP_POINTER_RE.test(pLines[1]) &&
+      DUP_POINTER_RE.test(pLines[3]),
     '持有行逐字不动、两份被指副本各带派单口径指针(L3 无关行不得被误加)',
   )
   console.log(`\n自检:${pass} 通过 / ${fail} 失败`)
@@ -4084,7 +4249,13 @@ export const KNOWN_FLAGS = [
 ]
 
 /** 吃"紧邻下一个 token 作为值"的旗标 —— inspectArgs 与各处 flagValue 共用这一份名单。 */
-export const VALUE_FLAGS = ['--write-to', '--match', '--match-prefix-holder', '--max-rows', '--rounds']
+export const VALUE_FLAGS = [
+  '--write-to',
+  '--match',
+  '--match-prefix-holder',
+  '--max-rows',
+  '--rounds',
+]
 
 /** @returns {{unknown:string[], notes:string[]}} unknown 非空即必须拒绝执行 */
 export function inspectArgs(list) {
@@ -4369,7 +4540,9 @@ function main() {
   const mph = flagValue(argv, '--match-prefix-holder')
   if (mph.present) {
     if (!has('--heal')) {
-      console.log('❌ --match-prefix-holder 需与 --heal 同给(它是指定持有行后加指针的出口,不是独立档)')
+      console.log(
+        '❌ --match-prefix-holder 需与 --heal 同给(它是指定持有行后加指针的出口,不是独立档)',
+      )
       return 2
     }
     if (!mph.valid) {
@@ -4405,8 +4578,27 @@ function main() {
       return 2
     }
     const c0 = audit(src0).counts
+    /**
+     * 本档结构上**只看得见连续块**,而"同一件事被抄成两份单行"这一维住在 `--dedupe-rows` /
+     * `--dedupe-open-rows` 那两档(G-761 补的就是这里:旧输出在 F6=0 时只印一句
+     * "✅ 无逐字重复的整块登记"并 return 0 —— 拿到这行的人会把"没有**块**"读成"没有**孪生**",
+     * 于是那 1300+ 组单行副本在账面上不存在)。读数一律现算,不写进文档。
+     */
+    const twinNote = () => {
+      const dr = findRowTwins(src0)
+      const op = findOpenRowTwins(src0)
+      const leased = findLeasedTwinRefusals(src0)
+      return (
+        `单行等值副本(本档看不见,归 --dedupe-rows / --dedupe-open-rows):已完成档 ${dr.length} 组 / ` +
+        `拟删 ${dr.reduce((s, g) => s + g.copies - 1, 0)} 行,未勾带指针档 ${op.length} 组 / ` +
+        `拟删 ${op.reduce((s, g) => s + g.copies - 1, 0)} 行;` +
+        `其中**带认领牌 ⇒ 两档一律硬跳过** ${leased.length} 组 / ${leased.reduce((s, g) => s + g.copies - 1, 0)} 行` +
+        `(报名跑 --dedupe-open-rows 的租约行)`
+      )
+    }
     if (!c0.dupBlocks) {
       console.log(`✅ 无逐字重复的整块登记(F6=0);漂移 ${c0.dupBlockDrifted} 块按设计不自动动`)
+      console.log(`   ${twinNote()}`)
       return 0
     }
     const d0 = buildBlockDedupe(src0)
@@ -4414,6 +4606,7 @@ function main() {
     console.log(
       `判定面:${LABEL[sel0.face]}  F6 ${c0.dupBlocks} 块 / ${c0.dupBlockCopies} 份 → 拟删第 2..N 份共 ${d0.deletedCount} 行;漂移 ${c0.dupBlockDrifted} 块不自动动`,
     )
+    console.log(`   ${twinNote()}`)
     for (const b of d0.removed.slice(0, has('--all') ? 9999 : 10)) {
       console.log(`  - 删 L${b.at} 起的 ${b.len} 行: ${b.first.slice(0, 60)}`)
     }
@@ -4471,6 +4664,7 @@ function main() {
           ? `ℹ️ 锚点没命中任何等值副本 ⇒ 一行未删(锚点是内容子串,不认行号;不命中不等于"没有副本")`
           : `✅ 无逐字相同的已完成单行副本(本档=0)`,
       )
+      console.log(`   ${leasedTwinNote(srcR, 'done')}`)
       return 0
     }
     let rR
@@ -4492,8 +4686,9 @@ function main() {
       return 1
     }
     console.log(
-      `拟删第 2..N 份共 ${rR.deletedCount} 行;✅ 零损失断言五条全过(顺序子序列 / 幸存份在位 / 无值变多 / F1–F4+F6 不涨、注记不降 / 本档幂等清零)`,
+      `拟删第 2..N 份共 ${rR.deletedCount} 行;✅ 零损失断言全过(顺序子序列 / 幸存份在位 / 无值变多 / F1–F4+F6 不涨、注记不降 / 本档幂等清零 / **两态按多重集现算对账** / 认领牌不缩水 / 主键族终端代表不丢)`,
     )
+    console.log(`   ${leasedTwinNote(srcR, 'done')}`)
     // 大批量阀门:与归档器同一取向 —— 异常量只可能是判据漂了或积压一次放开,
     // 一次几百行的活文档删除没人复核得动,而"断言全绿"在这种量级上证明不了人看得过来。
     if (rR.deletedCount > ROW_MASS_LIMIT && !has('--allow-mass')) {
@@ -4620,9 +4815,11 @@ function main() {
       )
     // 三态必须报名,不得只报数 —— 拿到计数的人无法判断哪一族该走 --heal、哪一族该人工裁。
     console.log(
-      `刻意不删的两族:① 未带指针的逐字等值孪生 ${refO.noPointer.length} 组(出口是 --heal 加注记,一行不删)` +
-        ` ② 同主键而正文已漂开 ${refO.drifted.length} 组(机器折半即有损,交人工)`,
+      `刻意不删的**三**族:① 未带指针的逐字等值孪生 ${refO.noPointer.length} 组(出口是 --heal 加注记,一行不删)` +
+        ` ② 同主键而正文已漂开 ${refO.drifted.length} 组(机器折半即有损,交人工)` +
+        ` ③ 带认领牌的等值孪生(G-761)—— 见下一行`,
     )
+    console.log(`   ${leasedTwinNote(srcO, 'open')}`)
     console.log(
       `尺子现读:F4 dupOpen ${cO.dupOpenGroups} 组 / 副本 ${cO.dupOpenCopies} 份 · F4b 无主键逐字孪生 ${cO.verbatimDupGroups} 组 / ${cO.verbatimDupCopies} 份` +
         ` · 已标副本行 ${cO.dupPointerRows} · 派单口径 claimable ${cO.claimable}(本档落地前后必须同值)`,
@@ -4817,24 +5014,13 @@ function main() {
     for (const x of r.refused.slice(0, 10)) console.log('   ' + x)
     return 1
   }
-  if (r.adjudicationNeeded.length) {
-    console.log(
-      `\n⚠️ 不可机械归并、交裁决账接管 ${r.adjudicationNeeded.length} 行(翻勾会改正文 ⇒ 不猜哪份作数;` +
-        `四件套登记进 ${ADJ_REL},未覆盖的组会让交付闸继续红):`,
-    )
-    for (const x of r.adjudicationNeeded.slice(0, 10))
-      console.log(`   L${x.line} 键 ${x.key} —— ${x.reason}`)
-  }
   if (v.problems.length) {
     console.log('\n❌ 交付校验不通过:')
     for (const p of v.problems) console.log('   ' + p)
     return 1
   }
   console.log(
-    `\n✅ 零损失对账通过;归并后 F1/F2/F3(可自动收口)/F4 = ${v.after.forks}/${v.after.voidRows}/${v.after.rotatedAuto}/${v.after.dupOpenCopies};F3 无出口仍 ${v.after.rotatedNoExit} 处(点名交人工,不并入归零判据),派单口径 ${counts0.open} → ${v.after.open}` +
-      (adj !== null && v.after.forks
-        ? `(F1 剩余 ${v.after.forks} 组全部在裁决账内、未到期 —— 它们是"机械归并不可行、须由人裁"的账,不是本次没做完)`
-        : ''),
+    `\n✅ 零损失对账通过;归并后 F1/F2/F3(可自动收口)/F4 = ${v.after.forks}/${v.after.voidRows}/${v.after.rotatedAuto}/${v.after.dupOpenCopies};F3 无出口仍 ${v.after.rotatedNoExit} 处(点名交人工,不并入归零判据),派单口径 ${counts0.open} → ${v.after.open}`,
   )
   // 拒绝链三格,顺序即严格度:① 值不成其为值(缺失/以 - 开头)② 值是文档本体 ③ 才允许写盘。
   // ①②都**大声拒绝并非零退出**,不得静默忽略旗标、更不得回落到任何默认路径去写别处
