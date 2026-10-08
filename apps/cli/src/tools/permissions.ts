@@ -77,14 +77,27 @@ export function parseToolList(raw: string | undefined): string[] | undefined {
 }
 
 /**
+ * 新旧两名并查:任一名字命中即算命中。
+ *
+ * 改名安全(MCP 从裸名 → `mcp__<server>__<tool>`):用户升级前保存的 allow/deny 记的是旧名,
+ * 只查新名 = 那条规则静默失效。`aliases` 即旧名(见 `Tool.nameAliases`)。
+ * 只做"是否命中"的并查,不改 deny > allow > ask 的相对优先级。
+ */
+function anyNameMatches(list: readonly string[] | undefined, names: readonly string[]): boolean {
+  if (!list || list.length === 0) return false;
+  return list.some((n) => names.includes(n));
+}
+
+/**
  * 仅规则匹配(向后兼容,2 参数 checkPermission 使用)。
  * 返回 allowed/reason,不走 mode 矩阵。
  */
-function matchRulesOnly(toolName: string, rules?: PermissionRules): PermissionDecision {
+function matchRulesOnly(toolName: string, rules?: PermissionRules, aliases?: readonly string[]): PermissionDecision {
   if (!rules) return 'allow';
-  if (rules.deny?.includes(toolName)) return 'deny';
-  if (rules.ask?.includes(toolName)) return 'ask';
-  if (rules.allow && rules.allow.length > 0 && !rules.allow.includes(toolName)) return 'deny';
+  const names = aliases && aliases.length > 0 ? [toolName, ...aliases] : [toolName];
+  if (anyNameMatches(rules.deny, names)) return 'deny';
+  if (anyNameMatches(rules.ask, names)) return 'ask';
+  if (rules.allow && rules.allow.length > 0 && !anyNameMatches(rules.allow, names)) return 'deny';
   return 'allow';
 }
 
@@ -119,13 +132,15 @@ function decideWithMode(
   mode: PermissionMode,
   dangerLevel: 'read' | 'write' | 'dangerous',
   permissionAxis?: EffectScopeCarrier,
+  aliases?: readonly string[],
 ): PermissionDecision {
-  // 1. 规则优先级高于 mode:deny > allow > ask
-  if (rules?.deny?.includes(toolName)) return 'deny';
-  if (rules?.allow?.includes(toolName)) return 'allow';
-  if (rules?.ask?.includes(toolName)) return 'ask';
-  // 白名单非空但工具不在白名单 → deny(规则优先)
-  if (rules?.allow && rules.allow.length > 0 && !rules.allow.includes(toolName)) return 'deny';
+  // 1. 规则优先级高于 mode:deny > allow > ask(新旧两名并查,见 anyNameMatches)
+  const names = aliases && aliases.length > 0 ? [toolName, ...aliases] : [toolName];
+  if (anyNameMatches(rules?.deny, names)) return 'deny';
+  if (anyNameMatches(rules?.allow, names)) return 'allow';
+  if (anyNameMatches(rules?.ask, names)) return 'ask';
+  // 白名单非空但工具(含旧名)不在白名单 → deny(规则优先)
+  if (rules?.allow && rules.allow.length > 0 && !anyNameMatches(rules.allow, names)) return 'deny';
 
   // 2. 无规则匹配,按 mode 矩阵决策
   let decision: PermissionDecision
@@ -150,31 +165,41 @@ function decideWithMode(
   return decision === 'allow' && humanApprovalMandated(permissionAxis) ? 'ask' : decision;
 }
 
-export function checkPermission(toolName: string, rules?: PermissionRules): PermissionCheckResult;
+export function checkPermission(
+  toolName: string,
+  rules?: PermissionRules,
+  aliases?: readonly string[],
+): PermissionCheckResult;
 export function checkPermission(
   toolName: string,
   rules: PermissionRules | undefined,
   mode: PermissionMode,
   dangerLevel: 'read' | 'write' | 'dangerous',
   permissionAxis?: EffectScopeCarrier,
+  aliases?: readonly string[],
 ): PermissionDecision;
 export function checkPermission(
   toolName: string,
   rules?: PermissionRules,
-  mode?: PermissionMode,
+  // 第 3 参在两档重载里同格复用:4 参档是 mode,2 参档是**旧名别名**(实现签名取并集,
+  // 按类型分流)。这样 2 参档可在不改 4 参调用点的前提下把新旧两名并查带进来。
+  mode?: PermissionMode | readonly string[],
   dangerLevel?: 'read' | 'write' | 'dangerous',
   permissionAxis?: EffectScopeCarrier,
+  aliases?: readonly string[],
 ): PermissionCheckResult | PermissionDecision {
+  const modeAliases = mode !== undefined && typeof mode !== 'string' ? mode : undefined;
   // 4 参数重载:mode-aware 决策
-  if (mode !== undefined && dangerLevel !== undefined) {
-    return decideWithMode(toolName, rules, mode, dangerLevel, permissionAxis);
+  if (typeof mode === 'string' && dangerLevel !== undefined) {
+    return decideWithMode(toolName, rules, mode, dangerLevel, permissionAxis, aliases);
   }
-  // 2 参数重载:仅规则匹配(向后兼容)
-  const decision = matchRulesOnly(toolName, rules);
+  // 2 参数重载(可选旧名别名):仅规则匹配(向后兼容)
+  const decision = matchRulesOnly(toolName, rules, modeAliases);
   if (decision === 'deny') {
+    const names = modeAliases && modeAliases.length > 0 ? [toolName, ...modeAliases] : [toolName];
     return {
       allowed: false,
-      reason: rules?.deny?.includes(toolName)
+      reason: anyNameMatches(rules?.deny, names)
         ? `工具 ${toolName} 在 --disallowed-tools 黑名单中`
         : `工具 ${toolName} 不在 --tools 白名单中`,
     };
@@ -262,17 +287,19 @@ export function checkRulesWithLease(
   dangerLevel: 'read' | 'write' | 'dangerous',
   lease?: PermissionLease | null,
   invocationContent?: string | null,
+  aliases?: readonly string[],
 ): LeaseAwareCheckResult {
   // 无租约 ⇒ 直接交回旧实现,返回体形状与改造前逐字相同(默认档不变的第一道保证)
-  if (!lease) return checkPermission(toolName, rules);
-  const base = matchRulesOnly(toolName, rules);
+  if (!lease) return checkPermission(toolName, rules, aliases);
+  const base = matchRulesOnly(toolName, rules, aliases);
   const applied = applyLeaseToDecision(base, toolName, dangerLevel, lease, invocationContent);
   const decision = applied.decision;
   if (decision === 'deny') {
+    const names = aliases && aliases.length > 0 ? [toolName, ...aliases] : [toolName];
     return {
       allowed: false,
       requiresApproval: false,
-      reason: rules?.deny?.includes(toolName)
+      reason: anyNameMatches(rules?.deny, names)
         ? `工具 ${toolName} 在 --disallowed-tools 黑名单中`
         : `工具 ${toolName} 不在 --tools 白名单中`,
     };
