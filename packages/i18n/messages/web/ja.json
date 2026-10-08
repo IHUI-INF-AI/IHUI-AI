@@ -18897,6 +18897,7 @@
     "jwtExpired": "JWT が期限切れ",
     "jwtExpiresSoon": "JWT は {days} 日以内に期限切れ",
     "jwtUpdated": "JWT を更新しました",
+    "cooldownUntil": "{time} までクールダウン",
     "loadMore": "さらに読み込む",
     "schedulerDisabled": "自動チェックイン オフ",
     "schedulerEnabled": "自動チェックイン オン",

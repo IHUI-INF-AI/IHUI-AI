@@ -18907,6 +18907,7 @@
     "jwtExpired": "JWT expired",
     "jwtExpiresSoon": "JWT expires in {days} days",
     "jwtUpdated": "JWT updated",
+    "cooldownUntil": "Cooldown until {time}",
     "loadMore": "Load more",
     "schedulerDisabled": "Auto check-in off",
     "schedulerEnabled": "Auto check-in on",
