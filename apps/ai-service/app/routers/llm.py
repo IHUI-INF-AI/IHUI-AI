@@ -92,6 +92,7 @@ from ..services.agent_events import (
     SSE_TOOL_RESULT,
     SSE_USAGE,
 )
+from ..services.async_gen_close import aclose_async_gen
 from ..services.context_recall import context_recall
 from ..services.decision_chain import apply_decision_chain
 from ..services.mcp_server import (
@@ -3292,6 +3293,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         # G-815975:生成器是否正被"无消费者"地关闭(GeneratorExit/客户端断开取消)。
         # 此时 finally 不允许 yield,dropped 显式回报降级为日志留痕。
         _stream_exiting = False
+        # 借来的异步生成器(本流下方 astream)的句柄:先置 None,让末尾 finally 在
+        # "尚未创建生成器"的路径上也能安全引用 —— llm_gateway 里记过一次同型
+        # UnboundLocalError(except/finally 引用了只在 try 内赋值的局部量)。
+        _native_fc_stream: AsyncIterator[dict[str, Any]] | None = None
         try:
             # 若发生压缩(或压缩已撞到上限),通过 SSE 首事件通知调用方
             _compaction_sse = _compaction_frame(compaction_info)
@@ -5188,11 +5193,19 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             # 会往流里插一条"抱歉,未能生成有效回复"假文案,被 CLI 存入 assistant 消息回传 provider,污染上下文。
             _native_fc_emitted_tools = False
 
-            async for event in llm_gateway.astream(
+            _native_fc_stream = llm_gateway.astream(
                 messages, model=req.model, owner_uuid=owner_uuid, **_native_fc_kwargs
-            ):
+            )
+            async for event in _native_fc_stream:
                 if await request.is_disconnected():
                     logger.info("SSE client disconnected, stopping stream")
+                    # 被弃路径就地关停:break 之后本流还要走完半截落库 / 空回复兜底 /
+                    # 计量帧,而 provider 侧此刻仍停在 `async with client.stream(...)`
+                    # 的半读态 —— 拖到函数 finally(更差是 GC)才关,已经太晚。
+                    await aclose_async_gen(
+                        _native_fc_stream,
+                        label="routers.llm astream (client disconnected)",
+                    )
                     break
                 event_type = event.get("type", "message")
                 _note_retry(retry_notices, event)
@@ -5320,6 +5333,26 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             yield _sse(SSE_ERROR, err)
             return
         finally:
+            # 借来的异步生成器兜底关停:覆盖"流中途抛错 / GeneratorExit"两条被弃路径
+            # (客户端断开那条已在 break 之前就关)。正常耗尽时 aclose 是合法 no-op,
+            # 不构成二次回滚;出口自身吞错,绝不用关停异常掩盖正在传播的原异常。
+            # **必须 shield + 只吞本行等待**:这段 finally 会在"任务被取消"的作用域里执行,而它后面
+            # 还挂着 MCP 取消闭环 / 委托 session / 表单待决 / 引导队列四项清理。站点跑在
+            # uvicorn + anyio 上,而 anyio 的取消是**持续投递**的(作用域内每一处 await 都会再点燃
+            # CancelledError)⇒ 裸 await 在这里可能把那四项整批跳过(与本文件既有的"取消仅 fire 不
+            # await"同一条理由)。shield 让关停任务脱离本次取消跑完(资源真的关掉),except 只吞
+            # "这一行的等待":外层正在传播的取消 / GeneratorExit 仍随 finally 结束后照常向外传播。
+            try:
+                await asyncio.shield(
+                    aclose_async_gen(
+                        _native_fc_stream, label="routers.llm astream (stream finally)"
+                    )
+                )
+            except BaseException as close_err:  # noqa: BLE001 - 兜底关停不得越过后四项清理
+                logger.warning(
+                    "[stream] 兜底关停未在此处等待完成(已交 shield 接管) err=%r",
+                    close_err,
+                )
             # MCP 工具调用取消闭环:流收尾(正常 done / error / 客户端断开取消
             # /GeneratorExit)统一 cancel 本流仍 in-flight 的工具任务,切断孤儿链路。
             # 正常完成路径任务已被 await 且经完成回调移出集合,此处天然 no-op;
