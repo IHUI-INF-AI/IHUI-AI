@@ -350,9 +350,11 @@ export default function SmsReceivePage() {
       autoFormRef.current = f
       autoRoundRef.current = 1
       setAutoRound(1)
+      // 拉黑计数在筛选开始时清零(会话内累计)——不能放在 await 之后,否则会把
+      // acquireAutoPhone 过程中累积的计数在落号瞬间抹掉(2026-10-08 E2E 实证 bug)
+      setAutoBlocked(0)
       // 自动模式走零成本预筛取号:本地台账命中已注册直接拉黑重取,轮次在其上累加
       const p = autoMode ? await acquireAutoPhone() : await fetchPhone(f)
-      setAutoBlocked(0)
       setPhone(p)
       setKeyWord(form.keyWord.trim())
       pendingKey.current = { phone: p, keyWord: form.keyWord.trim() }
