@@ -16,7 +16,8 @@
 // 颜色值必须逐字比,jsdom 会把 '#000000' 归一成 'rgb(0, 0, 0)',拿它当判据就得先归一化两边,
 // 而那层归一化本身会成为新的失明点。
 
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createElement } from 'react'
@@ -249,40 +250,74 @@ describe('RN 裸 TextInput 普查锁(G-978007 口径)', () => {
     'apps/mobile-rn/src/screens/ImageGenCreateScreen.tsx':
       'nativewind className 描边:内联 RESTING_BORDER 会与类档描边互相覆盖,无视觉通道验证不迁',
     'apps/mobile-rn/src/screens/KnowledgeRagScreen.tsx': '同上(className 描边)',
-    'apps/mobile-rn/src/components/SingleTypeBar.tsx': '他人在飞未跟踪新文件,按 §12 只报不动',
   }
-  it('凡 value 导入 TextInput 且有 JSX 站点的文件,必须带 onFocus/focused 处理', () => {
-    const here = dirname(fileURLToPath(import.meta.url))
-    const repo = join(here, '../../..') // tests → packages/app → packages → 仓根
+  const SCAN_ROOTS = ['packages/app/src', 'apps/mobile-rn/src']
+
+  const repoRoot = () => join(dirname(fileURLToPath(import.meta.url)), '../../..')
+  const git = (args: string[], input?: Buffer): Buffer =>
+    execFileSync(process.env.GIT_BIN || 'git', ['-c', 'safe.directory=*', ...args], {
+      cwd: repoRoot(),
+      stdio: input === undefined ? ['ignore', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+      timeout: 120_000,
+      maxBuffer: 128 * 1024 * 1024,
+      input,
+    })
+
+  // 普查面 = 提交树(HEAD),不是磁盘。此前按磁盘 readdirSync 判,于是"这台机上此刻有什么"决定了结论:
+  // 别人在飞的未跟踪文件会被算进本仓债务,只能往白名单里补一条指向"只存在于某一台机"的路径;
+  // 而 CI 的干净检出里没有那个文件 ⇒ 白名单自证那条(existsSync)当场判红。一台机绿、另一台机红,
+  // 而红的既不是仓库内容也不是改动者的错。口径同守门 77/83/98:全量判 HEAD blob。
+  function census() {
+    const paths = git(['ls-tree', '-r', '--name-only', 'HEAD', '--', ...SCAN_ROOTS])
+      .toString('utf8')
+      .split('\n')
+      .filter((line) => line.endsWith('.tsx'))
+    // 预筛:三条判据都要求文件里出现字面量 TextInput,所以 git grep 的命中集是判据的**严格超集**,
+    // 拿它筛面不会漏 offender(同守门 102 对"预筛必须是判据字面量超集"的对账)。不这么筛的话,
+    // 490 个文件要派 490 次 git show,这条用例会变成整轮测试里的最慢项。
+    const candidates = new Set(
+      git(['grep', '-l', '--fixed-string', 'TextInput', 'HEAD', '--', ...SCAN_ROOTS])
+        .toString('utf8')
+        .split('\n')
+        .map((line) => line.replace(/^HEAD:/, ''))
+        .filter((line) => line.endsWith('.tsx')),
+    )
+    const unreadable: string[] = []
     const offenders: string[] = []
-    const walk = (dir: string) => {
-      for (const e of readdirSync(dir, { withFileTypes: true })) {
-        const p = join(dir, e.name)
-        if (e.isDirectory()) {
-          walk(p)
-          continue
-        }
-        if (!e.name.endsWith('.tsx')) continue
-        const text = readFileSync(p, 'utf8')
-        // 只盯 value 导入(import type 的 TextInput 是纯类型位,不渲染)
-        if (!new RegExp("import \\{[^}]*\\bTextInput\\b[^}]*\\} from 'react-native'").test(text)) continue
-        if (!/<TextInput\b/.test(text)) continue
-        if (/onFocus|focused/i.test(text)) continue
-        const rel = p.replaceAll('\\', '/').slice(repo.length + 1)
-        if (Object.hasOwn(ALLOWED, rel)) continue
-        offenders.push(rel)
+    for (const rel of paths) {
+      if (!candidates.has(rel)) continue
+      let text
+      try {
+        text = git(['show', `HEAD:${rel}`]).toString('utf8')
+      } catch {
+        unreadable.push(rel)
+        continue
       }
+      // 只盯 value 导入(import type 的 TextInput 是纯类型位,不渲染)
+      if (!new RegExp("import \\{[^}]*\\bTextInput\\b[^}]*\\} from 'react-native'").test(text)) continue
+      if (!/<TextInput\b/.test(text)) continue
+      if (/onFocus|focused/i.test(text)) continue
+      if (Object.hasOwn(ALLOWED, rel)) continue
+      offenders.push(rel)
     }
-    walk(join(repo, 'packages/app/src'))
-    walk(join(repo, 'apps/mobile-rn/src'))
+    return { paths, candidates, offenders, unreadable }
+  }
+
+  it('凡 value 导入 TextInput 且有 JSX 站点的文件,必须带 onFocus/focused 处理', () => {
+    const { paths, candidates, offenders, unreadable } = census()
+    // 枚举到 0 个 .tsx 就是尺子根本没跑到,不得被读成"都没违规"
+    expect(paths.length, 'HEAD 面上没枚举到任何 .tsx ⇒ 普查未生效').toBeGreaterThan(0)
+    // 预筛集为空同样等于"没跑到":那会让 offender 恒空,把尺子失效伪装成通过
+    expect(candidates.size, 'git grep 预筛一个候选都没命中 ⇒ 预筛失效,不得当作合规').toBeGreaterThan(0)
+    expect(unreadable, '有文件正文取不到 ⇒ 那一格是未判定,不许记为通过').toEqual([])
     expect(offenders).toEqual([])
   })
 
-  it('白名单文件必须真实存在(防陈旧条目空转)', () => {
-    const here = dirname(fileURLToPath(import.meta.url))
-    const repo = join(here, '../../..') // 同上,仓根
+  it('白名单条目必须落在普查面上(防陈旧条目空转)', () => {
+    const face = new Set(census().paths)
     for (const rel of Object.keys(ALLOWED)) {
-      expect(existsSync(join(repo, rel)), rel).toBe(true)
+      expect(face.has(rel), `${rel} 不在 HEAD 的普查面里 ⇒ 这条白名单是空转的`).toBe(true)
     }
   })
 })
