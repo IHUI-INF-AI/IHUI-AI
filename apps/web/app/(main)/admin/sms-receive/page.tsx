@@ -25,6 +25,8 @@ import {
   Loader2,
   ScrollText,
   Search,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import { Input } from '@ihui/ui-react'
@@ -95,6 +97,9 @@ export default function SmsReceivePage() {
   const [autoBlocked, setAutoBlocked] = React.useState(0)
   // pollSeed:自动换号后强制重启轮询 effect(phase 仍为 polling 时 setPhase 同值不会重跑)
   const [pollSeed, setPollSeed] = React.useState(0)
+
+  // ── 弱化工具区折叠(发送短信+平台历史,默认收起) ──
+  const [toolsOpen, setToolsOpen] = React.useState(false)
 
   // ── 发送短信 ──
   const [sendForm, setSendForm] = React.useState<SendSmsForm>({ toPhone: '', content: '' })
@@ -673,174 +678,190 @@ export default function SmsReceivePage() {
           </CardContent>
         </Card>
 
-        <div className="space-y-4">
-          {/* 发送短信 */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Send className="h-4 w-4" />
-                发送短信
-              </CardTitle>
-              <CardDescription>
-                以当前持有号码发送;不能向个人手机号发送,发送垃圾信息平台会封号
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSend} className="space-y-3">
-                <div className="space-y-1">
-                  <Label htmlFor="toPhone">接收号码(1069 等非个人号码)</Label>
-                  <Input
-                    id="toPhone"
-                    value={sendForm.toPhone}
-                    onChange={(e) => setSendForm({ ...sendForm, toPhone: e.target.value })}
-                    placeholder="1069xxxxxxxx"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="content">发送内容</Label>
-                  <Input
-                    id="content"
-                    value={sendForm.content}
-                    onChange={(e) => setSendForm({ ...sendForm, content: e.target.value })}
-                    placeholder="最长 500 字符"
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  variant="outline"
-                  className="w-full"
-                  disabled={sending || !phone}
-                >
-                  {sending && <Loader2 className="h-4 w-4 animate-spin" />}
-                  发送
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-
-          {/* 历史记录 */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <History className="h-4 w-4" />
-                历史记录
-              </CardTitle>
-              <CardDescription>平台限频 1 次/分钟,返回最近 24 小时最多 100 条</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void handleFetchUsed()}
-                disabled={usedLoading || cooldown > 0}
-              >
-                {usedLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4" />
-                )}
-                {cooldown > 0 ? `冷却中 ${cooldown}s` : '查询历史'}
-              </Button>
-              {usedItems.length > 0 && (
-                <div className="max-h-48 space-y-1 overflow-auto">
-                  {usedItems.map((u, i) => (
-                    <div key={`${u.phone}-${i}`} className="rounded-md bg-muted p-2 text-xs">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-mono font-semibold">{u.phone}</span>
-                        <span className="text-muted-foreground">扣费 {u.fee}</span>
-                        {u.platform && <span className="font-semibold">【{u.platform}】</span>}
-                        <UsageTag kind={u.usageKind} />
-                      </div>
-                      <p className="mt-1 truncate text-muted-foreground" title={u.text}>
-                        {u.text}
-                      </p>
+        {/* 号码接码台账(本地留痕,收码即记) — 与取号并列为两大主区 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ScrollText className="h-4 w-4" />
+              号码接码台账
+            </CardTitle>
+            <CardDescription>
+              本地留痕,不受平台 24h/100 条限制;「登录」=该号已注册过对应平台
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {phone && relatedStats && (
+              <div className="space-y-1.5 rounded-md border p-3">
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-md bg-muted/60 px-1 py-2">
+                    <div
+                      className={`text-lg font-bold leading-tight ${relatedStats.total === 0 ? 'text-emerald-600' : 'text-amber-600'}`}
+                    >
+                      {relatedStats.total === 0 ? '未被接码' : `${relatedStats.total} 次`}
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* 号码接码台账(本地留痕,收码即记) */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ScrollText className="h-4 w-4" />
-                号码接码台账
-              </CardTitle>
-              <CardDescription>
-                本地留痕,不受平台 24h/100 条限制;「登录」=该号已注册过对应平台
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {phone && relatedStats && (
-                <div className="space-y-1.5 rounded-md border p-3">
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    <div className="rounded-md bg-muted/60 px-1 py-2">
-                      <div
-                        className={`text-lg font-bold leading-tight ${relatedStats.total === 0 ? 'text-emerald-600' : 'text-amber-600'}`}
-                      >
-                        {relatedStats.total === 0 ? '未被接码' : `${relatedStats.total} 次`}
-                      </div>
-                      <div className="text-xs text-muted-foreground">全局被接码(共)</div>
-                    </div>
-                    <div className="rounded-md bg-muted/60 px-1 py-2">
-                      <div className="text-lg font-bold leading-tight text-amber-600">
-                        {relatedStats.recent} 次
-                      </div>
-                      <div className="text-xs text-muted-foreground">近 30 分钟热度</div>
-                    </div>
-                    <div className="rounded-md bg-muted/60 px-1 py-2">
-                      <div className="text-lg font-bold leading-tight text-primary">
-                        {phoneHistoryTotal} 次
-                      </div>
-                      <div className="text-xs text-muted-foreground">本机累计使用</div>
-                    </div>
+                    <div className="text-xs text-muted-foreground">全局被接码(≤12条)</div>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    {relatedStats.total === 0
-                      ? '全局零记录=纯新号强信号;本机=本地台账全量,从功能上线起累积'
-                      : '全局=平台「号码相关短信」时间线全部记录(所有买家收码,内容打码);本机=本地台账全量'}
-                  </p>
-                </div>
-              )}
-              {!phone ? (
-                <p className="text-sm text-muted-foreground">取号后自动展示该号码的历史接码记录</p>
-              ) : phoneHistory.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  {historyLoading
-                    ? '查询中…'
-                    : '该号码暂无本地台账记录(首次使用,通常是没接过码的新号)'}
-                </p>
-              ) : (
-                <div className="max-h-64 space-y-2 overflow-auto">
-                  {phoneHistory.map((h) => (
-                    <div key={h.id} className="rounded-md border p-2 text-sm">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-mono text-xs text-muted-foreground">
-                          {new Date(h.receivedAt).toLocaleString('zh-CN', { hour12: false })}
-                        </span>
-                        {h.platform && (
-                          <span className="text-xs font-semibold">【{h.platform}】</span>
-                        )}
-                        <UsageTag kind={h.usageKind} />
-                        {h.smsCode && (
-                          <span className="font-mono font-bold text-primary">{h.smsCode}</span>
-                        )}
-                        {h.keyword && (
-                          <span className="text-xs text-muted-foreground">关键词:{h.keyword}</span>
-                        )}
-                      </div>
-                      <p className="mt-1 truncate text-xs text-muted-foreground" title={h.smsRaw}>
-                        {h.smsRaw}
-                      </p>
+                  <div className="rounded-md bg-muted/60 px-1 py-2">
+                    <div className="text-lg font-bold leading-tight text-amber-600">
+                      {relatedStats.recent} 次
                     </div>
-                  ))}
+                    <div className="text-xs text-muted-foreground">近 30 分钟热度</div>
+                  </div>
+                  <div className="rounded-md bg-muted/60 px-1 py-2">
+                    <div className="text-lg font-bold leading-tight text-primary">
+                      {phoneHistoryTotal} 次
+                    </div>
+                    <div className="text-xs text-muted-foreground">本机累计使用</div>
+                  </div>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  {relatedStats.total === 0
+                    ? '全局零记录=纯新号强信号;本机=本地台账全量,从功能上线起累积'
+                    : '全局=平台仅保留该号最近 12 条滚动记录(实测上限,热门号不足 1 小时即被冲掉,远不足 24h);本机=本地台账全量,唯一超越平台限制的历史'}
+                </p>
+              </div>
+            )}
+            {!phone ? (
+              <p className="text-sm text-muted-foreground">取号后自动展示该号码的历史接码记录</p>
+            ) : phoneHistory.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {historyLoading
+                  ? '查询中…'
+                  : '该号码暂无本地台账记录(首次使用,通常是没接过码的新号)'}
+              </p>
+            ) : (
+              <div className="max-h-64 space-y-2 overflow-auto">
+                {phoneHistory.map((h) => (
+                  <div key={h.id} className="rounded-md border p-2 text-sm">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {new Date(h.receivedAt).toLocaleString('zh-CN', { hour12: false })}
+                      </span>
+                      {h.platform && (
+                        <span className="text-xs font-semibold">【{h.platform}】</span>
+                      )}
+                      <UsageTag kind={h.usageKind} />
+                      {h.smsCode && (
+                        <span className="font-mono font-bold text-primary">{h.smsCode}</span>
+                      )}
+                      {h.keyword && (
+                        <span className="text-xs text-muted-foreground">关键词:{h.keyword}</span>
+                      )}
+                    </div>
+                    <p className="mt-1 truncate text-xs text-muted-foreground" title={h.smsRaw}>
+                      {h.smsRaw}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 弱化工具区:发送短信 + 平台历史(低频辅助功能,默认收起) */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <button
+              type="button"
+              onClick={() => setToolsOpen((o) => !o)}
+              aria-expanded={toolsOpen}
+              className="flex w-full items-center justify-between gap-2 text-left"
+            >
+              <div className="space-y-1.5">
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquareMore className="h-4 w-4" />
+                  更多工具:发送短信 · 平台历史
+                </CardTitle>
+                <CardDescription>低频辅助功能,默认收起;发送垃圾信息平台会封号</CardDescription>
+              </div>
+              {toolsOpen ? (
+                <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
               )}
+            </button>
+          </CardHeader>
+          {toolsOpen && (
+            <CardContent className="grid gap-4 md:grid-cols-2">
+              <section className="space-y-3">
+                <h3 className="flex items-center gap-2 text-sm font-semibold">
+                  <Send className="h-4 w-4" />
+                  发送短信
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  以当前持有号码发送;不能向个人手机号发送,发送垃圾信息平台会封号
+                </p>
+                <form onSubmit={handleSend} className="space-y-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="toPhone">接收号码(1069 等非个人号码)</Label>
+                    <Input
+                      id="toPhone"
+                      value={sendForm.toPhone}
+                      onChange={(e) => setSendForm({ ...sendForm, toPhone: e.target.value })}
+                      placeholder="1069xxxxxxxx"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="content">发送内容</Label>
+                    <Input
+                      id="content"
+                      value={sendForm.content}
+                      onChange={(e) => setSendForm({ ...sendForm, content: e.target.value })}
+                      placeholder="最长 500 字符"
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    variant="outline"
+                    className="w-full"
+                    disabled={sending || !phone}
+                  >
+                    {sending && <Loader2 className="h-4 w-4 animate-spin" />}
+                    发送
+                  </Button>
+                </form>
+              </section>
+              <section className="space-y-3">
+                <h3 className="flex items-center gap-2 text-sm font-semibold">
+                  <History className="h-4 w-4" />
+                  平台历史(24h 最多 100 条,限频 1 次/分钟)
+                </h3>
+                <div className="space-y-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleFetchUsed()}
+                    disabled={usedLoading || cooldown > 0}
+                  >
+                    {usedLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4" />
+                    )}
+                    {cooldown > 0 ? `冷却中 ${cooldown}s` : '查询历史'}
+                  </Button>
+                  {usedItems.length > 0 && (
+                    <div className="max-h-48 space-y-1 overflow-auto">
+                      {usedItems.map((u, i) => (
+                        <div key={`${u.phone}-${i}`} className="rounded-md bg-muted p-2 text-xs">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-mono font-semibold">{u.phone}</span>
+                            <span className="text-muted-foreground">扣费 {u.fee}</span>
+                            {u.platform && <span className="font-semibold">【{u.platform}】</span>}
+                            <UsageTag kind={u.usageKind} />
+                          </div>
+                          <p className="mt-1 truncate text-muted-foreground" title={u.text}>
+                            {u.text}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </section>
             </CardContent>
-          </Card>
-        </div>
+          )}
+        </Card>
       </div>
 
       <p className="text-xs text-muted-foreground">
