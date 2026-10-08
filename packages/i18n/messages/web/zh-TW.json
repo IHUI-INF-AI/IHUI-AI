@@ -18867,7 +18867,22 @@
     "retry": "重試",
     "submit": "送出",
     "submitting": "送出中…",
-    "totalCreditsDelta": "本次合計 +{delta} 點數"
+    "totalCreditsDelta": "本次合計 +{delta} 點數",
+    "boardEmpty": "暫無積分資料，完成首次簽到後產生看板",
+    "boardRankingTitle": "積分排行",
+    "boardTab": "積分看板",
+    "boardTodayGain": "今日新增 +{delta}",
+    "checkinAllProgress": "簽到中 {done}/{total}",
+    "colGroup": "分組",
+    "editGroup": "設定分組",
+    "editGroupDescription": "輸入分組名便於批量管理與篩選;留空則移出分組",
+    "editGroupTitle": "設定分組",
+    "filterGroupAll": "全部分組",
+    "groupLabel": "分組(可選)",
+    "groupPlaceholder": "如:主力 / 備用",
+    "groupUpdated": "分組已更新",
+    "groupUngrouped": "未分組",
+    "skippedToday": "已跳過 {count} 個今日已簽帳號"
   },
   "nav": {
     "checkin": "簽到助手",

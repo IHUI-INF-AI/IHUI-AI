@@ -18,13 +18,15 @@
 
 挂载方式与 news_scheduler / ab_test_scheduler 一致:lifespan 启动时
 await checkin_scheduler.start()(由 CHECKIN_CRON_ENABLED 控制开关,默认
-false),shutdown steps 里 await stop()。
+false),shutdown steps 里 await stop()。status() 供
+GET /api/checkin/scheduler/status 只读暴露运行状态(Phase1c)。
 """
 
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime, timedelta, timezone
+import os
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -58,6 +60,11 @@ def _cooldown_end(cooldown_seconds: int | None) -> datetime | None:
     return datetime.now(UTC) + timedelta(seconds=cooldown_seconds)
 
 
+def _cron_enabled() -> bool:
+    """CHECKIN_CRON_ENABLED 是否为 "true";start() 与 status() 共用同一读取,防漂移。"""
+    return os.environ.get("CHECKIN_CRON_ENABLED", "false").lower() == "true"
+
+
 class CheckinScheduler:
     """签到助手每日调度器(单例)。"""
 
@@ -74,11 +81,7 @@ class CheckinScheduler:
         """
         if self._started:
             return
-        import os
-
-        enabled = (
-            os.environ.get("CHECKIN_CRON_ENABLED", "false").lower() == "true"
-        )
+        enabled = _cron_enabled()
         if not enabled:
             logger.info("[checkin_scheduler] CHECKIN_CRON_ENABLED=false, 不启动每日签到调度")
             return
@@ -108,6 +111,23 @@ class CheckinScheduler:
                 logger.warning("[checkin_scheduler] shutdown 失败(忽略): %s", e)
         self._scheduler = None
         self._started = False
+
+    def status(self) -> dict[str, Any]:
+        """运行状态(公开只读视图,供 GET /api/checkin/scheduler/status)。
+
+        enabled 与 start() 读同一环境变量(_cron_enabled 单一来源);started
+        为本单例是否已 start;next_run 仅已启动时有值(APScheduler job 的
+        next_run_time,带 Asia/Shanghai 时区的 ISO8601),未启动为 None。
+        """
+        next_run: str | None = None
+        if self._started and self._scheduler is not None:
+            job = self._scheduler.get_job(_JOB_ID)
+            if job is not None:
+                # apscheduler 无 py.typed ⇒ job 是 Any;next_run_time 钉真类型,
+                # isoformat 的产出才有 str 看守(同 checkin_store :269 的钉法)。
+                next_run_time: datetime | None = job.next_run_time
+                next_run = next_run_time.isoformat() if next_run_time is not None else None
+        return {"enabled": _cron_enabled(), "started": self._started, "next_run": next_run}
 
     # ===== 每日任务 =====
 
