@@ -467,6 +467,10 @@ export default function HistoryPage() {
     }
     // 时间倒序打底 + 置顶优先(唯一排序出口 orderHistoryRows,页面内不再写第二处 sort)
     return orderHistoryRows(arr)
+    // metaVersion 是账本(外部 store)的递增凭证:本体经 overlayBroadcastTitles → ledger.titleFor
+    // 读它,而这条判据只看标识符有没有出现在体内,看不见跨函数的 store 读。
+    // 删掉它 ⇒ 另一端改完标题,本页列表不重算(D153b 的呈现面就没了)。
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 外部 store 版本作失效凭证,理由见上三行
   }, [list, activeFilter, keyword, metaVersion])
 
   const visible = useMemo(() => filtered.slice(0, page * PAGE_SIZE), [filtered, page])

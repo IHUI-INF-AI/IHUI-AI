@@ -518,6 +518,8 @@ function ImagePreview({
                   {t('loading')}
                 </p>
               ) : null}
+              {/* eslint-disable-next-line jsx-a11y/media-has-caption -- 画廊里的视频是用户或模型产出的
+                  外部文件,项目内没有任何字幕数据可生成;缺 track 是内容缺失,不是可在此补的 UI 缺陷 */}
               <video
                 controls
                 playsInline
