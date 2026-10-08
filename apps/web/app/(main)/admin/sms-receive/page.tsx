@@ -54,7 +54,14 @@ import {
   lookupUsedHistory,
   copyText,
 } from './helpers'
-import type { GetPhoneForm, MessageData, PhoneHistoryItem, SendSmsForm, UsedRecord } from './types'
+import type {
+  GetPhoneForm,
+  MessageData,
+  PhoneHistoryItem,
+  PhonePlatformStat,
+  SendSmsForm,
+  UsedRecord,
+} from './types'
 
 // waiting=手动模式已取号,等待用户点「查询验证码」(不自动轮询);polling=自动筛新号的 5s 轮询
 type Phase = 'idle' | 'waiting' | 'polling' | 'received' | 'timeout'
@@ -114,6 +121,8 @@ export default function SmsReceivePage() {
   const [historyLoading, setHistoryLoading] = React.useState(false)
   // 本机累计使用次数(台账全量条数,不受最近 20 条截断)
   const [phoneHistoryTotal, setPhoneHistoryTotal] = React.useState(0)
+  // 平台 × 用途全量计数(2026-10-09 机主要求:分平台显示登录/注册具体数)
+  const [platformStats, setPlatformStats] = React.useState<PhonePlatformStat[]>([])
   // ── 平台接码热度(relatedMsgs 全局维度:该号被所有买家收码的次数) ──
   const [relatedStats, setRelatedStats] = React.useState<{ total: number; recent: number } | null>(
     null,
@@ -121,9 +130,10 @@ export default function SmsReceivePage() {
   const refreshPhoneHistory = React.useCallback(async (p: string) => {
     setHistoryLoading(true)
     try {
-      const { items, total } = await fetchPhoneHistory(p)
+      const { items, total, platformStats: stats } = await fetchPhoneHistory(p)
       setPhoneHistory(items)
       setPhoneHistoryTotal(total)
+      setPlatformStats(stats)
     } catch (e) {
       toast.error((e as Error).message)
     } finally {
@@ -138,6 +148,28 @@ export default function SmsReceivePage() {
       setRelatedStats(null) // 查询失败不显示热度(fail-open)
     }
   }, [])
+
+  // 平台用途分布行(2026-10-09 机主要求):trae/腾讯科技 恒显示,台账里出现过的其他平台追加在后
+  const platformBreakdown = React.useMemo(() => {
+    const acc = new Map<string, { login: number; register: number; other: number }>()
+    for (const s of platformStats) {
+      const key = s.platform?.trim() || '其他'
+      const e = acc.get(key) ?? { login: 0, register: 0, other: 0 }
+      if (s.usageKind === 'login') e.login += s.count
+      else if (s.usageKind === 'register') e.register += s.count
+      else e.other += s.count
+      acc.set(key, e)
+    }
+    const rows: Array<{ platform: string; login: number; register: number; other: number }> = []
+    for (const p of ['trae', '腾讯科技']) {
+      const v = acc.get(p) ?? { login: 0, register: 0, other: 0 }
+      rows.push({ platform: p, ...v })
+    }
+    for (const [k, v] of acc) {
+      if (k !== 'trae' && k !== '腾讯科技') rows.push({ platform: k, ...v })
+    }
+    return rows
+  }, [platformStats])
 
   const pollTimer = React.useRef<ReturnType<typeof setInterval> | null>(null)
   const deadline = React.useRef(0)
@@ -721,6 +753,34 @@ export default function SmsReceivePage() {
                     ? '全局零记录=纯新号强信号;本机=本地台账全量,从功能上线起累积'
                     : '全局=平台仅保留该号最近 12 条滚动记录(实测上限,热门号不足 1 小时即被冲掉,远不足 24h);本机=本地台账全量,唯一超越平台限制的历史'}
                 </p>
+              </div>
+            )}
+            {/* 平台用途分布(2026-10-09 机主要求:trae/腾讯科技 分平台显示登录/注册具体数,本机台账全量口径) */}
+            {phone && (
+              <div className="space-y-1.5 rounded-md border p-3">
+                <div className="text-xs font-semibold text-muted-foreground">
+                  平台用途分布(本机台账全量;「登录」=该号已注册过对应平台)
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {platformBreakdown.map((row) => {
+                    const allZero = row.login === 0 && row.register === 0 && row.other === 0
+                    return (
+                      <div
+                        key={row.platform}
+                        className={`rounded-md px-2 py-1.5 text-sm ${allZero ? 'bg-muted/60 text-muted-foreground' : 'bg-primary/10'}`}
+                      >
+                        <span className="font-semibold">【{row.platform}】</span>
+                        登录 <span className="font-mono font-bold">{row.login}</span> · 注册{' '}
+                        <span className="font-mono font-bold">{row.register}</span>
+                        {row.other > 0 && (
+                          <>
+                            {' '}· 其他 <span className="font-mono">{row.other}</span>
+                          </>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             )}
             {!phone ? (

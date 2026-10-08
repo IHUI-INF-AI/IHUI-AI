@@ -38,6 +38,13 @@ export interface PhoneHistoryItem {
   receivedAt: string
 }
 
+/** 本机台账「平台 × 用途」计数(GET /phone-history platformStats,SQL 全量 group-by) */
+export interface PhonePlatformStat {
+  platform: string | null
+  usageKind: 'register' | 'login' | 'other'
+  count: number
+}
+
 export interface OkData {
   ok: boolean
   result?: string

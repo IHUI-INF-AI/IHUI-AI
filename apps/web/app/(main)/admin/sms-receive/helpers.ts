@@ -9,6 +9,7 @@ import type {
   GetPhoneForm,
   MessageData,
   PhoneHistoryItem,
+  PhonePlatformStat,
   RelatedMsgItem,
   UsedRecord,
 } from './types'
@@ -109,14 +110,16 @@ export async function lookupUsedHistory(phone: string): Promise<UsedRecord[]> {
   return items.filter((u) => u.phone === phone)
 }
 
-/** 查某号码的本地接码台账(items=最近 20 条流水,total=全量条数即本机累计使用次数) */
+/** 查某号码的本地接码台账(items=最近 20 条流水,total=全量条数即本机累计使用次数,platformStats=平台×用途全量计数) */
 export async function fetchPhoneHistory(
   phone: string,
-): Promise<{ items: PhoneHistoryItem[]; total: number }> {
-  const d = await adminApi<{ items: PhoneHistoryItem[]; total: number }>(
-    `${API_BASE}/phone-history?phone=${encodeURIComponent(phone)}`,
-  )
-  return { items: d.items, total: d.total }
+): Promise<{ items: PhoneHistoryItem[]; total: number; platformStats: PhonePlatformStat[] }> {
+  const d = await adminApi<{
+    items: PhoneHistoryItem[]
+    total: number
+    platformStats: PhonePlatformStat[]
+  }>(`${API_BASE}/phone-history?phone=${encodeURIComponent(phone)}`)
+  return { items: d.items, total: d.total, platformStats: d.platformStats ?? [] }
 }
 
 /** 查平台「号码相关短信」全局时间线(免费、全局号码维度;该号被所有买家收码的记录) */
