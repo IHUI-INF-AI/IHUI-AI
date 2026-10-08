@@ -318,7 +318,12 @@ async def test_tool_read_file_not_found():
 async def test_tool_write_file_success(tmp_path, monkeypatch):
     f = tmp_path / "out.txt"
     # 绕过工作区白名单校验(tmp_path 是 pytest 临时目录,不在白名单内)
-    monkeypatch.setattr("app.services.mcp_server._validate_path_in_workspace", lambda p: (True, str(p)))
+    # 写路径经 _validate_write_path_in_workspace 以 (path, extra_roots) 两参转调校验器,
+    # 桩签名必须与生产同形(D201 会话级附加目录集)。
+    monkeypatch.setattr(
+        "app.services.mcp_server._validate_path_in_workspace",
+        lambda p, extra_roots=None: (True, str(p)),
+    )
     out = await _tool_write_file({"path": str(f), "content": "data"})
     assert out["ok"] is True
     assert out["bytes_written"] == 4
@@ -530,9 +535,17 @@ async def test_tool_analyze_code_default_language():
 
 
 async def test_tool_analyze_code_empty():
+    """空代码必须诚实拒绝:ok=False + 原因,不得伪造一份全 0 的 metrics 冒充分析过。
+
+    现行契约(V3 #50 桩转正;同一契约由 tests/test_tool_stub_graduation.py::
+    test_analyze_code_empty_code_rejected 从"不得返回空壳成功"一侧钉住)。
+    """
     out = await _tool_analyze_code({"code": ""})
-    assert out["metrics"]["lines"] == 0
-    assert out["metrics"]["chars"] == 0
+    assert out["tool"] == "analyze_code"
+    assert out["ok"] is False
+    assert "不能为空" in out["error"]
+    # 关键负向:没有真做过统计,就不许出现 metrics 字段
+    assert "metrics" not in out
 
 
 async def test_tool_analyze_code_comment_styles():
@@ -546,16 +559,75 @@ async def test_tool_analyze_code_comment_styles():
 # 工具实现: generate_test
 # =============================================================================
 
-async def test_tool_generate_test_template():
+# 占位模板(test_placeholder)已于 V3 #50「桩转正」整体废除:generate_test 必须由
+# LLM 真实生成,LLM 不可用时诚实 ok=False。因此本组用例一律注入假网关响应
+# (镜像 tests/test_tool_stub_graduation.py::_patch_llm 的做法),绝不触发真实网络。
+
+_FAKE_PYTEST_TEST_CODE = '''\
+from source import f
+
+
+def test_f_returns_one():
+    assert f() == 1
+
+
+def test_f_is_not_none():
+    assert f() is not None
+'''
+
+_FAKE_UNITTEST_TEST_CODE = '''\
+import unittest
+
+from source import helper
+
+
+class TestHelper(unittest.TestCase):
+    def test_helper(self):
+        self.assertTrue(callable(helper))
+'''
+
+
+def _patch_llm(monkeypatch, response):
+    """注入假 llm_gateway.complete,绝不触发真实网络。"""
+    from app.core.llm_gateway import llm_gateway
+
+    async def fake_complete(messages, model=None, **kwargs):
+        return response
+
+    monkeypatch.setattr(llm_gateway, "complete", fake_complete)
+
+
+async def test_tool_generate_test_template(monkeypatch):
+    """Python 缺省框架 = pytest,且 LLM 真实产物原样进返回体(占位模板不得复存)。"""
+    _patch_llm(
+        monkeypatch,
+        {"content": _FAKE_PYTEST_TEST_CODE, "model": "fake/test-model", "stub": False},
+    )
     out = await _tool_generate_test({"code": "def f():\n    return 1", "language": "python"})
     assert out["tool"] == "generate_test"
     assert out["language"] == "python"
     assert out["framework"] == "pytest"
-    assert "def test_placeholder" in out["test_code"]
-    assert "def f()" in out["test_code"]
+    assert out["ok"] is True
+    assert "def test_f_returns_one" in out["test_code"]
+    # 被测源码的符号经 prompt 交给模型,产物按约定从 source 引入
+    assert "from source import f" in out["test_code"]
+    # 关键回归:占位模板绝不允许再出现在产物里
+    assert "test_placeholder" not in out["test_code"]
+    if out.get("executed"):
+        # pytest 真跑:两条用例都应通过
+        assert out["execution"]["runner"] == "pytest"
+        assert out["execution"]["passed"] == 2
+    else:
+        # 执行环境缺失时的降级必须如实标注,不得冒充"已执行"
+        assert out["execution"]["runner"].startswith("syntax-check")
 
 
-async def test_tool_generate_test_custom_framework():
+async def test_tool_generate_test_custom_framework(monkeypatch):
+    """显式指定 framework 必须被尊重(不被 pytest 缺省值覆盖),且产物来自 LLM。"""
+    _patch_llm(
+        monkeypatch,
+        {"content": _FAKE_UNITTEST_TEST_CODE, "model": "fake/test-model", "stub": False},
+    )
     out = await _tool_generate_test({"code": "x", "framework": "unittest"})
     assert out["framework"] == "unittest"
     assert "unittest" in out["test_code"]
