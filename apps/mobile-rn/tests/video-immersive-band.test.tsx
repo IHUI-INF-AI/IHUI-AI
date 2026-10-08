@@ -283,10 +283,16 @@ describe('② 带位仍由 App 根 View 单点绘制(全屏态不得有第二层
 
   it('其余路由且不在全屏态 ⇒ 底色一格未动(非全屏页面外观不得被顺手改掉)', () => {
     expect(css(tokens.surface.bg)).toBe('rgb(245, 245, 245)')
+    expect(css(tokens.surface.card)).toBe('rgb(255, 255, 255)')
+    // 权威取色表是 App.tsx 的 ROUTE_ROOT_BG(2026-10-07 用户点名「登录页状态栏露出一截浅灰」后
+    // 按路由分档:Login 页面底取 surface.card,不是 surface.bg;该表未导出,逐路由真实值另由
+    // app-root-background-focused-route.test.tsx 钉住)。本用例锁的是"非全屏态 ⇒ 底色等于该路由
+    // 自己那一档",所以不得整片回落到 surface.bg —— 那会把 10-07 那次修复当成缺陷改回去。
+    const EXPECTED_ROOT_BG: Record<string, string> = { Login: css(tokens.surface.card) }
     for (const route of ['Home', 'Profile', 'Settings', 'Login', 'Chat', 'CourseDetail']) {
       env.route = route
       const { container } = render(<App />)
-      expect(rootBackgroundOf(container)).toBe(css(tokens.surface.bg))
+      expect(rootBackgroundOf(container)).toBe(EXPECTED_ROOT_BG[route] ?? css(tokens.surface.bg))
     }
   })
 
