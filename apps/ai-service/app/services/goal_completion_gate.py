@@ -41,6 +41,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from typing import Any, Final, Literal, Protocol
 
+from app.core.turn_stop_reason import TurnStopReason
 from app.core.tunables import (
     GOAL_RUN_DIGEST_MAX_CHARS,
     GOAL_VERIFICATION_MAX_CONSECUTIVE_FAILURES,
@@ -83,16 +84,22 @@ GoalStatus = Literal[
 ]
 
 #: done 帧里覆盖 stop_reason 的三个新取值(仅在声明了硬性指标时才可能出现)
-STOP_VERIFICATION_NOT_ACHIEVED: Final = "verification_not_achieved"
-STOP_VERIFICATION_UNDETERMINED: Final = "verification_undetermined"
-STOP_GOAL_BLOCKED: Final = "goal_blocked"
+#: G-815977:取值改引回合终态封闭集(单一真相源),不再各写一份字面量;
+#: StrEnum 成员即 str 值,对 done 帧 wire 值逐零差异。
+STOP_VERIFICATION_NOT_ACHIEVED: Final = TurnStopReason.VERIFICATION_NOT_ACHIEVED
+STOP_VERIFICATION_UNDETERMINED: Final = TurnStopReason.VERIFICATION_UNDETERMINED
+STOP_GOAL_BLOCKED: Final = TurnStopReason.GOAL_BLOCKED
 
 #: 循环自身的"预算/轮次耗尽"类终止原因 —— 这些档下不跑校验,也绝不判达成
 BUDGET_STOP_REASONS: Final[frozenset[str]] = frozenset(
-    {"budget_exceeded", "budget_limited", "max_iterations"}
+    {
+        TurnStopReason.BUDGET_EXCEEDED,
+        TurnStopReason.BUDGET_LIMITED,
+        TurnStopReason.MAX_ITERATIONS,
+    }
 )
 #: 轮次耗尽语义等同 §8 红线的"单目标最大自动迭代超出" → blocked
-ITERATION_EXHAUSTION_REASONS: Final[frozenset[str]] = frozenset({"max_iterations"})
+ITERATION_EXHAUSTION_REASONS: Final[frozenset[str]] = frozenset({TurnStopReason.MAX_ITERATIONS})
 
 #: 工具名:执行循环里唯一能产出"命令退出码 / 测试通过数"这种机器结论的一族
 COMMAND_TOOL_NAMES: Final[frozenset[str]] = frozenset({"run_command", "shell", "bash"})

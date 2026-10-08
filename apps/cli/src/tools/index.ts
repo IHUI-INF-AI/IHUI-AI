@@ -29,10 +29,16 @@ import {
   resolveToolArgValidationMode,
   shadowValidateToolArguments,
 } from './argument-validation-telemetry.js';
-import { formatValidationErrorsLine } from './argument-validator.js';
+import { formatValidationErrorsLine, resolveSchemaOrThrow, validateToolArguments } from './argument-validator.js';
+// G-916424:确认窗的 permissionRequest 钩子应答出口(deny/allow/ask/modify 四形状)。
+import { runPermissionRequest } from '../hooks/index.js';
 import { noteDangerousApproval } from './danger-gate.js';
 import { recordApprovedInvocation } from './permission-lease.js';
 import { leaseWorkspaceIdOf } from '../utils/permission-lease-flag.js';
+// G-710:失败码判定的唯一出口(守门 162 OUTLET_REQUIREMENTS)—— 结构化码先决,文本只兜底且计数。
+import { classifyFailureText, RETRYABLE_FAILURE_CODES, ToolError, type FailureCode } from './failure-classification.js';
+// G-710:ToolError 由工具主模块递出,handler 与消费侧共享同一个构造函数(守门 162 出口契约)。
+export { ToolError };
 import {
   auditToolDenial,
   buildToolDenial,
@@ -92,6 +98,14 @@ export interface ToolResult {
   /** P1-4 错误类型分级,供调用方/LLM 判断是否需要重试 */
   errorType?: string;
   /**
+   * 「无活动空闲超时」的结构化 context(G-426,只由执行器边界在 budget 代结算时产出):
+   * 上游 subagent/runner 的 reportActivity 语义 —— 墙钟改成"每次活动重排"后,错误必须
+   * 自己说明白"为什么还是被杀了":距最后一次活动多久(idleMs)、总共跑了多久(totalMs)、
+   * 绝对上限是多少(absoluteCapMs),以及调用方能不能恢复/该不该自动重试。
+   * 缺席 = 这条结果不是"空闲超时"代结算,不得由渲染侧从散文里猜。
+   */
+  timeoutContext?: ToolExecTimeoutContext;
+  /**
    * 「为什么被拒」的结构化答复(可诊断化收口票):**只在拒绝路径携带**。
    * 三条闸(权限规则 / 危险工具无确认出口 / 租约摘要漂移)在这里可被测试与上层直接断言
    * (`denial.gate` × `denial.decider`),不依赖任何人读中文短句。参数只落指纹+键名。
@@ -130,6 +144,50 @@ export interface ToolResult {
    * 三条口径见 `packages/types/src/tool-contract.ts` 的 `ToolResultTruncationRecord`。
    */
   truncation?: ToolResultTruncationRecord;
+  /**
+   * 「给人看的」有界投影(G-816039 三投影拆分)。三投影各自有界且互不代替:
+   * 给模型的 = `output`(字节语义一字不动);落库账目 = `truncation`(四数);
+   * 给人看的 = 本字段 —— **只在结果被预算裁剪时产出**(未裁剪时三投影本就同文,不造重复载荷)。
+   * 它保存被 `output` 裁掉的那一段(受自身上限 `TOOL_RESULT_DISPLAY_LIMIT_BYTES` 管),
+   * 超限置 `truncated` 并按上限截断 —— 全文不得借 display 之名整块进 metadata。
+   * display 不是 output 的替代品:把喂模型的换成 display 正是上游注释点名要避免的方向。
+   */
+  display?: ToolResultDisplay;
+}
+
+/** display 投影的自身上限(对齐上游 result-display 的"独立于 provider content 单独限长"):200 KiB。 */
+export const TOOL_RESULT_DISPLAY_LIMIT_BYTES = 200 * 1024;
+
+/**
+ * 「无活动空闲超时」的错误 context(G-426)。三枚数字 + 两枚标记,全部由执行器边界在
+ * 触发那一刻测算后写死进结果(不是渲染侧现算 —— 那会迟到):
+ *   - `idleMs`:距最后一次 `reportExecActivity` 的毫秒数;从未报告过 ⇒ 全程时长(与旧墙钟同语义)。
+ *   - `totalMs`:从执行开始到触发瞬间的总时长。
+ *   - `absoluteCapMs`:绝对上限 = budget × `TOOL_EXEC_BUDGET_ABSOLUTE_FACTOR`(防无限续命的兜底)。
+ *   - `recoverable: true`:调用方已脱身、系统完好,可以继续(例如收窄任务重新派发)。
+ *   - `retryable: false`:**自动**重试等于把同一次挂死再跑一遍(与 `abortedByExecBudget`
+ *     阻断 executeWithRetry 重试的既有纪律同一条理由,见上文字段注)。
+ */
+export interface ToolExecTimeoutContext {
+  idleMs: number;
+  totalMs: number;
+  absoluteCapMs: number;
+  recoverable: boolean;
+  retryable: boolean;
+}
+
+/**
+ * display 投影的形状(G-816039):`text` 是有界的人读视图;三枚数字与 `truncated` 结论位
+ * 与上游 tool-part-metadata 存的 serialization 四数(truncated/originalBytes/returnedBytes/
+ * budgetStrategy)同形 —— 一次裁剪的两本账(`truncation` 管模型侧、本记录管 display 侧)各自成立。
+ */
+export interface ToolResultDisplay {
+  text: string;
+  /** display 自身被截断的结论位(只置 true,不写 false 噪音 —— 与 `truncation.truncated` 同一口径) */
+  truncated?: true;
+  originalBytes: number;
+  returnedBytes: number;
+  budgetStrategy: 'truncate';
 }
 
 /**
@@ -168,6 +226,26 @@ export interface Tool extends ToolContractMount {
    * (否则 MCP 重连会留下一条指向已死连接的旧工具,那比原来的静默顶掉更糟)。
    */
   registrationOwner?: string;
+  /**
+   * 工具改名前的旧名(改名安全:allow/deny 需**新旧两名并查**)。
+   *
+   * 立因:MCP 工具从裸名 `web_search` 改为两轴名 `mcp__<server>__web_search` 后,
+   * 用户升级前保存的 `--disallowed-tools web_search` 记的是**旧名** —— 权限判定若只查
+   * 新名,那条黑名单会**静默失效并放行**(与上游 "改名时新旧两名并查 allow/deny" 同型)。
+   * 内建工具无改名历史,省略。
+   */
+  nameAliases?: string[];
+  /**
+   * 逐工具 strict 声明位(G-464:provider 约束解码**资格**,不是命令)。
+   * 语义对齐上游 contracts/tools/contract.ts:174-180:声明了也只是"有资格走 provider 的
+   * 结构化/约束解码";是否真带 strict 下发由 adapter 按 provider/model 决定,strict 面
+   * 表达不了的关键字(值约束一类)由消费方折进 description 后剥离。
+   * 唯一消费方:`toolsToProviderSchema()`(与本位**同笔**引入 —— 有声明零消费者是守门 121
+   * 禁的型)。收窄位置:全局资格开关 `useNativeTools`(commands/agent)之上的**逐工具**收窄,
+   * 全局没开原生 tools 时本位无效果;开了也只影响显式声明的这一枚。
+   * 缺省(省略)= 现状逐字不变。
+   */
+  strictSchema?: boolean;
   execute(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult>;
 }
 
@@ -191,6 +269,15 @@ export const TOOL_EXEC_BUDGET_MAX_MS = 60 * 60_000;
 /** 结算宽限:到点后先 abort,再给 handler 这么多时间自己收尾;仍不 settle 就**停止等待**并代为结算。
  *  语义是"到点之后额外留给清理的时间",不是"把超时推迟"。 */
 export const TOOL_EXEC_BUDGET_SETTLE_GRACE_MS = 5_000;
+
+/**
+ * 绝对上限倍数(G-426):预算改成"每次活动重排"后,必须留一个**从开始计时的总上限**兜底,
+ * 否则一个持续 reportActivity 的死循环能无限续命。取预算 3 倍而不是独立常量:各工具的
+ * 声明档差异极大(默认 30min / 子代理 60min / 测试毫秒档),相对倍数让"多长的执行算滥用"
+ * 与该工具自己声明的合理时长同比例缩放 —— 3 = 名义预算之外再给两整段同额推进余量,
+ * 足以容纳合法的慢长任务,又把无限续命封死在 3 × budget。
+ */
+export const TOOL_EXEC_BUDGET_ABSOLUTE_FACTOR = 3;
 
 /** 逃生舱:总开关(仅应急)。设 off/0/false 时整条预算不生效,行为逐路径回到改前。 */
 const EXEC_BUDGET_DISABLE_ENV = 'IHUI_TOOL_EXEC_BUDGET';
@@ -279,18 +366,34 @@ function execBudgetResult(
   toolName: string,
   kind: 'budget' | 'cancelled',
   budgetMs: number | undefined,
+  timeoutFacts?: { idleMs: number; totalMs: number; absoluteCapMs: number },
 ): ToolResult {
   if (kind === 'budget') {
     const limitLabel = budgetMs === undefined ? 'not-configured' : `${budgetMs}ms`;
+    // G-426:idle/total 只在触发那一刻测算(调用方传入),让错误自己说明"杀的是空闲不是墙钟进度"。
+    const idleLabel = timeoutFacts
+      ? ` No activity for the last ${timeoutFacts.idleMs}ms (total ${timeoutFacts.totalMs}ms, absolute cap ${timeoutFacts.absoluteCapMs}ms).`
+      : '';
     return {
       success: false,
       output: '',
       error:
-        `Tool ${toolName} exceeded its wall-clock execution budget (${limitLabel}) and was aborted. ` +
-        `Side effects MAY already have happened - abort only releases the caller, the handler may still be ` +
-        `running in background. Verify on-disk / remote state before retrying.`,
+        `Tool ${toolName} exceeded its execution budget (${limitLabel}) and was aborted.` +
+        `${idleLabel} Side effects MAY already have happened - abort only releases the caller, ` +
+        `the handler may still be running in background. Verify on-disk / remote state before retrying.`,
       errorType: 'timeout',
       abortedByExecBudget: 'budget',
+      ...(timeoutFacts
+        ? {
+            timeoutContext: {
+              idleMs: timeoutFacts.idleMs,
+              totalMs: timeoutFacts.totalMs,
+              absoluteCapMs: timeoutFacts.absoluteCapMs,
+              recoverable: true,
+              retryable: false,
+            },
+          }
+        : {}),
     };
   }
   return {
@@ -330,15 +433,22 @@ export function normalizeToolResultTruncation(result: ToolResult): ToolResult {
  *
  * @param tool 只需 name + execBudget(hub 路径拿不到本地 Tool 对象,按默认档走)
  * @param ctx  工具上下文,`ctx.signal` 是外层取消的来源
- * @param run  真正的执行体;收到的 signal 是"父取消 ∪ 预算到点"的合成信号,可能为 undefined
+ * @param run  真正的执行体;收到的 signal 是"父取消 ∪ 预算到点"的合成信号,可能为 undefined;
+ *        第二形参 `reportActivity` 是本执行窗的活动上报口(G-426),非空时调用即把空闲窗
+ *        重排回完整 budget(没有工具调用它时行为与旧墙钟逐字同形)
  *
  * 覆盖面如实登记:只包 handler 本身。`confirmDangerous` 的等待发生在 `executeToolCall` 里、
  * 本函数之外 ⇒ 用户思考时间不计入预算(这是对的,否则"用户还没点确认"会被系统判成工具超时)。
+ *
+ * G-426 语义(对齐上游 subagent/runner 的 reportActivity):预算定时器从"单次墙钟"改为
+ * "每次活动重排" —— 仍在推进的慢 handler(典型:子代理 loop)不再被杀,真正卡死的才会超时;
+ * 另设**从开始计时的绝对上限** budget × TOOL_EXEC_BUDGET_ABSOLUTE_FACTOR 兜底,防无限续命。
+ * 从未上报活动的执行与改前完全同形(单次 setTimeout 到点即杀)。
  */
 export async function executeWithinExecBudget(
   tool: Pick<Tool, 'name' | 'execBudget'>,
   ctx: ToolContext,
-  run: (signal: AbortSignal | undefined) => Promise<ToolResult>,
+  run: (signal: AbortSignal | undefined, reportActivity?: () => void) => Promise<ToolResult>,
 ): Promise<ToolResult> {
   const parentSignal = ctx.signal;
   if (parentSignal?.aborted) {
@@ -355,8 +465,12 @@ export async function executeWithinExecBudget(
   const controller = new AbortController();
   const unlinkParent = linkAbortSignal(parentSignal, controller);
   let budgetTimer: NodeJS.Timeout | undefined;
+  let absoluteTimer: NodeJS.Timeout | undefined;
   let graceTimer: NodeJS.Timeout | undefined;
   let trigger: 'budget' | 'cancelled' | undefined;
+  // G-426:活动基线。undefined = 从未上报活动 ⇒ 触发时 idleMs 退化为全程时长(旧墙钟语义)。
+  let lastActivityAt: number | undefined;
+  const startedAt = Date.now();
 
   try {
     return await new Promise<ToolResult>((resolve, reject) => {
@@ -380,22 +494,51 @@ export async function executeWithinExecBudget(
       const enterGrace = (kind: 'budget' | 'cancelled'): void => {
         if (trigger) return;
         trigger = kind;
+        // G-426:idle/total 在触发瞬间定格,随宽限后的代结算结果一起出去
+        const at = Date.now();
+        const timeoutFacts =
+          kind === 'budget' && budgetMs !== undefined
+            ? {
+                idleMs: lastActivityAt === undefined ? at - startedAt : at - lastActivityAt,
+                totalMs: at - startedAt,
+                absoluteCapMs: budgetMs * TOOL_EXEC_BUDGET_ABSOLUTE_FACTOR,
+              }
+            : undefined;
         controller.abort(new Error(`ihui:exec-${kind}:${tool.name}`));
         graceTimer = setTimeout(
-          () => settle(execBudgetResult(tool.name, kind, budgetMs)),
+          () => settle(execBudgetResult(tool.name, kind, budgetMs, timeoutFacts)),
           TOOL_EXEC_BUDGET_SETTLE_GRACE_MS,
         );
       };
-      if (budgetMs !== undefined) budgetTimer = setTimeout(() => enterGrace('budget'), budgetMs);
+      // G-426:活动上报口 —— 每次真实推进(工具调用进度/流式输出)都把空闲窗重排回完整 budget。
+      // trigger/settle 已落定后的一律忽略:宽限期与结算后不存在"续命"。
+      const reportActivity =
+        budgetMs === undefined
+          ? undefined
+          : (): void => {
+              if (trigger !== undefined || settled) return;
+              lastActivityAt = Date.now();
+              if (budgetTimer !== undefined) clearTimeout(budgetTimer);
+              budgetTimer = setTimeout(() => enterGrace('budget'), budgetMs);
+            };
+      if (budgetMs !== undefined) {
+        budgetTimer = setTimeout(() => enterGrace('budget'), budgetMs);
+        // 绝对上限:从开始计时,不随活动重排 —— 持续活动的执行最多活 budget × FACTOR。
+        absoluteTimer = setTimeout(
+          () => enterGrace('budget'),
+          budgetMs * TOOL_EXEC_BUDGET_ABSOLUTE_FACTOR,
+        );
+      }
       // 父取消经 linkAbortSignal 到达本 controller;预算到点也会 abort 本 controller,
       // 但那时 trigger 已被置为 'budget',所以不会二次产出一条"已取消"(归因分叉是这条的坏状态)。
       controller.signal.addEventListener('abort', () => enterGrace('cancelled'), { once: true });
       // 用 async IIFE 包一层:handler **同步抛错**也必须走同一条结算路径,否则 timer 与
       // 父 signal 上的监听器都留在那儿(本函数是 async,同步抛错会直接冒泡,finally 拿不到机会)。
-      void (async () => run(controller.signal))().then(settle, settleReject);
+      void (async () => run(controller.signal, reportActivity))().then(settle, settleReject);
     });
   } finally {
     if (budgetTimer) clearTimeout(budgetTimer);
+    if (absoluteTimer) clearTimeout(absoluteTimer);
     if (graceTimer) clearTimeout(graceTimer);
     unlinkParent();
   }
@@ -441,6 +584,15 @@ export interface ToolContext {
    * 该缺口由守门 `scripts/check-tool-exec-budget.mjs` 的 S2 按 HEAD 棘轮点名,不会静默。
    */
   signal?: AbortSignal;
+  /**
+   * 本执行窗的活动上报口(G-426,由 `executeWithinExecBudget` 注入):长跑 handler(典型:
+   * 子代理 loop)每有一段真实推进 —— 工具调用开始/结束、流式输出块 —— 就调用一次,
+   * 把"无活动空闲超时"的定时器重排回完整预算。仍在推进的慢子代理不再被墙钟杀,
+   * 真正卡死的才会超时;从未调用 ⇒ 行为与旧墙钟逐字同形。
+   * 缺席(undefined)= 当前执行窗没有可重排的定时器(结构性豁免 / 无预算),调用方
+   * 用可选链调用即可,不得假设它总在。
+   */
+  reportExecActivity?: () => void;
 }
 
 const registry = new Map<string, Tool>();
@@ -757,7 +909,18 @@ export function applyToolResultBudget(
     returnedBytes: keptBytes,
     budgetStrategy: 'truncate',
   });
-  const next: ToolResult = { ...result, output: `${note}\n${text}` };
+  // G-816039:display 投影的唯一生产点。保存的是**被 output 裁掉的那一段**(受自身上限管,
+  // 不吃 resultBudget),`output` 的拼装一字未动 —— 给模型的字节语义与引入前逐字节同形。
+  const displayText = clipByBytes(original, TOOL_RESULT_DISPLAY_LIMIT_BYTES, 'head');
+  const displayReturned = Buffer.byteLength(displayText, 'utf8');
+  const display: ToolResultDisplay = {
+    text: displayText,
+    originalBytes: totalBytes,
+    returnedBytes: displayReturned,
+    budgetStrategy: 'truncate',
+    ...(displayReturned < totalBytes ? { truncated: true as const } : {}),
+  };
+  const next: ToolResult = { ...result, output: `${note}\n${text}`, display };
   return account ? { ...next, truncation: account } : next;
 }
 
@@ -840,8 +1003,13 @@ export async function executeToolCall(
     try {
       // hub 路径同样收进唯一出口:这一支拿不到本地 Tool 对象(可能是 MCP 远端工具),
       // 所以按**默认档**约束 —— 特性开关不得成为绕过墙钟预算的第二条执行路径。
-      return await executeWithinExecBudget({ name: call.name }, ctx, (signal) =>
-        resolver.dispatch(call.name, call.arguments, signal ? { ...ctx, signal } : ctx),
+      // G-426:活动上报口随 ctx 下发,长跑远端工具同样能重排空闲窗(与本地分支同一语义)。
+      return await executeWithinExecBudget({ name: call.name }, ctx, (signal, reportActivity) =>
+        resolver.dispatch(call.name, call.arguments, {
+          ...ctx,
+          ...(signal ? { signal } : {}),
+          ...(reportActivity ? { reportExecActivity: reportActivity } : {}),
+        }),
       );
     } catch (err) {
       if (!(err instanceof ToolNotFoundError)) {
@@ -912,8 +1080,9 @@ export async function executeToolCall(
           tool.dangerLevel ?? 'write',
           lease,
           JSON.stringify(call.arguments ?? null),
+          tool.nameAliases,
         )
-      : checkPermission(call.name, ctx.permissions);
+      : checkPermission(call.name, ctx.permissions, tool.nameAliases);
     if (!perm.allowed) {
       // 可诊断化收口:原错误串逐字保留(既有回归以 `toContain` 断言它),其后追加 ASCII 出路行;
       // 三问(哪道闸/出路/参数摘要)以结构化字段在返回体可断言。判定本身一个字节都没动。
@@ -946,8 +1115,103 @@ export async function executeToolCall(
   // 批准闸:四条"必须问"的判据集中在 `requiresUserConfirmation()` 一处(唯一实现,不在这里再抄一遍)。
   // 走到这一行时权限规则**已经放行**(上面 deny 已 return),所以 alwaysAsk 结构上
   // 不可能把一次静态拒绝变成"问一次再放行" —— 那条规格写在 tool-contract.ts:200。
+  //
+  // G-916424 批准闸旁路:确认窗先交 permissionRequest 钩子应答(四形状 deny/allow/ask/modify)。
+  // 无 permissionRequest 钩子 / 钩子失败 / 应答残缺 ⇒ permission 缺省,下方每一格与改前逐字同形。
+  let hookApproved = false;
   if (requiresUserConfirmation(tool, leaseContentDrifted)) {
-    const allowed = ctx.confirmDangerous ? await ctx.confirmDangerous(tool, call.arguments) : false;
+    const hookRes = await runPermissionRequest(tool.name, call.arguments);
+    if (!hookRes.proceed) {
+      // 仅当用户显式配了 blockOnError 且钩子链失败才走到这:与 preToolCall 阻断同向。
+      // 失败不猜成任何应答形状(三态不混流),审计面不伪造 denial 行。
+      return {
+        success: false,
+        output: '',
+        error: `permissionRequest 钩子执行失败，本次调用被阻断: ${hookRes.reason ?? '未取到结果'}`,
+        errorType: 'permission_denied',
+      };
+    }
+    if (hookRes.permission === 'deny') {
+      // deny 是输出协议(钩子明确说"不"),与钩子失败严格分流;tool-denial 的 decider
+      // 闭集没有"钩子拒绝"这一档(该文件不在本票射程),故不伪造审计行,事实进错误串。
+      return {
+        success: false,
+        output: '',
+        error: `钩子 "${hookRes.permissionSource ?? '-'}" 拒绝了本次调用${hookRes.reason ? `: ${hookRes.reason}` : ''}`,
+        errorType: 'permission_denied',
+      };
+    }
+    if (hookRes.permission === 'modify' && hookRes.modifiedInput !== undefined) {
+      const modified = hookRes.modifiedInput;
+      // ① 二次 schema 校验(上游 :423-428 同型):失败 ⇒ 不执行,错误带 hook 上下文
+      //   (钩子名 + 违规清单),模型看到的是"钩子改坏了"而不是裸 schema error。
+      let recheck: ReturnType<typeof validateToolArguments> | undefined;
+      try {
+        recheck = validateToolArguments(modified, resolveSchemaOrThrow(tool));
+      } catch {
+        // schema 缺席/畸形:与首过 shadow 校验的 fail-open 同向(不因钩子改写引入第二套
+        // 缺席语义),原路径继续 —— 语义是"无从校验",不是"校验通过"。
+        recheck = undefined;
+      }
+      if (recheck && !recheck.valid) {
+        return {
+          success: false,
+          output: '',
+          error: `钩子 "${hookRes.permissionSource ?? '-'}" 改写后的输入未通过参数校验，本次调用不执行。violations -> ${formatValidationErrorsLine(recheck.errors)}`,
+          errorType: 'invalid_arguments',
+        };
+      }
+      // ② 改后必须按改后内容重判权限(上游 permission-flow.ts:249 原话"修改后的输入不能沿用
+      //    修改前的权限结果")。规则面用改后内容重跑;租约槽位摘要按 invocationContent 绑定 ⇒
+      //    改后内容与旧批准摘要不符自动落 content-drifted —— 反向锁在我方的结构落点。
+      let driftedAfterModify = false;
+      if (ctx.permissions) {
+        const lease = activePermissionLease();
+        const perm2 = lease
+          ? checkRulesWithLease(
+              call.name,
+              ctx.permissions,
+              tool.dangerLevel ?? 'write',
+              lease,
+              JSON.stringify(modified ?? null),
+              tool.nameAliases,
+            )
+          : checkPermission(call.name, ctx.permissions, tool.nameAliases);
+        if (!perm2.allowed) {
+          // 规则拒绝是真实"说不":gate/decider 与首过同形,审计行如实可记。
+          const denial = buildToolDenial({
+            gate: 'permission-rule',
+            decider: 'rule-deny',
+            tool: call.name,
+            args: modified,
+          });
+          auditToolDenial(denial);
+          const ruleMsg = perm2.reason ?? `工具 ${call.name} 被权限规则拒绝`;
+          return {
+            success: false,
+            output: '',
+            error: `${ruleMsg}\n${denialErrorSuffix(denial)}`,
+            errorType: 'permission_denied',
+            denial,
+          };
+        }
+        driftedAfterModify = 'approvalState' in perm2 && perm2.approvalState === 'content-drifted';
+      }
+      // ③ 待判格④(上游 permission-input-recheck.ts:71-83 对"重判得 ask 但非 project-rule"
+      //    选择不回问/静默放行,其注释未声明是否故意):我方**禁止抄这一格的静默** ——
+      //    重判后是否仍须人批,一律以 requiresUserConfirmation(工具契约 + 改后漂移面)为准:
+      //    须批 ⇒ 回人工确认窗(人在窗里看到的就是改后输入),无确认渠道 ⇒ 拒,两个方向都不静默。
+      call.arguments = recheck && recheck.coercedFields.length > 0 ? recheck.coerced : { ...modified };
+      leaseContentDrifted = driftedAfterModify;
+      // modify ≠ allow(反向锁):改写不改授权,是否还要窗由下方用改后状态重判决定。
+    } else if (hookRes.permission === 'allow') {
+      // 钩子替人应答确认窗(票意:"测试环境自动 allow")。放行仍走下方披露记账路径,可追溯。
+      hookApproved = true;
+    }
+    // 'ask' / 无应答 ⇒ 落回原人工窗(下方,逐字不变)。
+  }
+  if (requiresUserConfirmation(tool, leaseContentDrifted)) {
+    const allowed = hookApproved || (ctx.confirmDangerous ? await ctx.confirmDangerous(tool, call.arguments) : false);
     // 披露面(L7905 收口):只记账不改判定 —— 放行路径(会话级 flag / 回调自批)可追溯
     if (allowed) {
       noteDangerousApproval(ctx.allowDangerous === true, tool.name);
@@ -1065,8 +1329,14 @@ export async function executeWithRetry(
   let lastResult: ToolResult = { success: false, output: '', error: '未执行' };
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const result = await executeWithinExecBudget(tool, ctx, (signal) =>
-        tool.execute(args, signal ? { ...ctx, signal } : ctx),
+      // G-426:活动上报口随 ctx 注入 —— handler 经 `ctx.reportExecActivity?.()` 报告真实推进,
+      // 把本执行窗的空闲定时器重排回完整预算(长跑子代理不再被墙钟误杀)。
+      const result = await executeWithinExecBudget(tool, ctx, (signal, reportActivity) =>
+        tool.execute(args, {
+          ...ctx,
+          ...(signal ? { signal } : {}),
+          ...(reportActivity ? { reportExecActivity: reportActivity } : {}),
+        }),
       );
       if (result.success) return result;
       lastResult = result;
@@ -1078,6 +1348,8 @@ export async function executeWithRetry(
         success: false,
         output: '',
         error: err instanceof Error ? err.message : String(err),
+        // G-710:抛出方给码(ToolError)⇒ 码直进 errorType,文本档只在该码缺席时兜底(下方 ?? 链)。
+        ...(err instanceof ToolError ? { errorType: err.code } : {}),
       };
     }
     // P1-4 仅对可重试错误类型进行重试,避免对 permission/unknown 等无效重试
@@ -1096,63 +1368,27 @@ export async function executeWithRetry(
 
 // ==================== P1-4 Error classification ====================
 
-export type ErrorType =
-  | 'rate_limited'
-  | 'timeout'
-  | 'permission'
-  | 'not_found'
-  | 'network'
-  | 'unknown';
+/**
+ * 错误分级词表(G-710 收口后与 `failure-classification.ts` 的失败码闭集对齐):
+ * 六档既有档逐字保留;新增档(cancelled/driver/context_limit/client_error/parse)只来自
+ * 抛出方显式给码(`ToolError`),文本兜底不会产出它们。
+ */
+export type ErrorType = FailureCode;
 
-/** 根据错误文本启发式分类错误类型(大小写不敏感)。 */
+/**
+ * G-710:classifyError 降级为**只在无码时兜底**的文本档 —— 判据字面量全部搬进
+ * `failure-classification.ts` 的数据表(逐字未变),且每一次兜底使用都按站点计数报名
+ * (站点 'tools/classifyError',台账见 `getFailureFallbackStats`)。
+ * 有码路径不经本函数:handler 抛 `ToolError` ⇒ 码直进 errorType(见 executeWithRetry),
+ * handler 自报 errorType ⇒ `??` 短路同样不经本函数。
+ */
 export function classifyError(error?: string | null): ErrorType {
-  const e = (error ?? '').toLowerCase();
-  if (
-    e.includes('rate limit') ||
-    e.includes('限流') ||
-    e.includes('too many requests') ||
-    e.includes('429')
-  )
-    return 'rate_limited';
-  if (
-    e.includes('timeout') ||
-    e.includes('timed out') ||
-    e.includes('超时') ||
-    e.includes('etimedout')
-  )
-    return 'timeout';
-  if (
-    e.includes('permission denied') ||
-    e.includes('access forbidden') ||
-    e.includes('权限不足') ||
-    e.includes('操作被拒绝') ||
-    e.includes('eacces') ||
-    e.includes('eperm')
-  )
-    return 'permission';
-  if (
-    e.includes('not found') ||
-    e.includes('enoent') ||
-    e.includes('不存在') ||
-    e.includes('no such file')
-  )
-    return 'not_found';
-  if (
-    e.includes('network error') ||
-    e.includes('econnreset') ||
-    e.includes('econnrefused') ||
-    e.includes('fetch failed') ||
-    e.includes('连接被拒绝') ||
-    e.includes('enotfound') ||
-    e.includes('epipe')
-  )
-    return 'network';
-  return 'unknown';
+  return classifyFailureText(error, 'tools/classifyError').code;
 }
 
-/** 判断错误类型是否可重试(network/timeout/rate_limited)。 */
+/** 判断错误类型是否可重试(network/timeout/rate_limited)—— 口径逐字未变,改读闭集(G-710)。 */
 export function isRetryableErrorType(errorType: string | undefined): boolean {
-  return errorType === 'network' || errorType === 'timeout' || errorType === 'rate_limited';
+  return errorType !== undefined && RETRYABLE_FAILURE_CODES.has(errorType as FailureCode);
 }
 
 /** 判断错误类型是否为致命错误(仅 permission)。 */
@@ -1200,12 +1436,81 @@ export interface ProviderToolSchema {
   function: {
     name: string;
     description: string;
+    /**
+     * G-464:仅 `Tool.strictSchema === true` 的工具产出 —— 资格在本面(OpenAI 兼容)可表达
+     * ⇒ 命令化落点。未声明的工具不产这个键,线上形态与引入前逐字节同形。
+     */
+    strict?: boolean;
     parameters: {
       type: 'object';
       properties: Record<string, unknown>;
       required: string[];
     };
   };
+}
+
+// ==================== 逐工具 strict 资格位 → 严格解码面改造(G-464,与声明位同笔)====================
+
+/** strict 结构化解码不解释、只能折进 description 的值约束关键字(provider 拒不认识的关键字,留着会被整单拒)。 */
+const STRICT_INEXPRESSIBLE_KEYS: readonly string[] = [
+  'minimum',
+  'maximum',
+  'minLength',
+  'maxLength',
+  'pattern',
+];
+
+function isStrictRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+/** 把一条"线上表达不了"的事实折进该节点 description —— 信息不丢,只是改走散文通道。 */
+function foldStrictNote(node: Record<string, unknown>, note: string): void {
+  const base = typeof node.description === 'string' && node.description !== '' ? `${node.description} ` : '';
+  node.description = `${base}(strict-schema 折入: ${note})`;
+}
+
+/**
+ * 把一份已投影的 parameters **就地**改造成 strict 解码面可接受的形态(三件事,其余逐键不动):
+ *   ① 值约束关键字(`STRICT_INEXPRESSIBLE_KEYS`)剥离,原样折进本节点 description;
+ *   ② 每个 object 层收成 `additionalProperties: false`(strict 面要求显式闭集;true/子 schema 形无法表达);
+ *   ③ 未列于 required 的属性并入 required(strict 面要求全属性 required),"可省略"语义折进该属性 description。
+ * 只被 `strictSchema === true` 的工具走到;缺省路径一次都不进,现状逐字不变。
+ */
+function conditionSchemaForStrict(node: unknown, path: string): void {
+  if (!isStrictRecord(node)) return;
+  for (const key of STRICT_INEXPRESSIBLE_KEYS) {
+    if (key in node) {
+      foldStrictNote(node, `${key}=${JSON.stringify(node[key])}`);
+      delete node[key];
+    }
+  }
+  if (isStrictRecord(node.items)) conditionSchemaForStrict(node.items, `${path}.items`);
+  if (node.type === 'object' && isStrictRecord(node.properties)) {
+    const props = node.properties;
+    for (const [name, child] of Object.entries(props)) {
+      conditionSchemaForStrict(child, `${path}.properties.${name}`);
+    }
+    const required = new Set(
+      Array.isArray(node.required)
+        ? node.required.filter((r): r is string => typeof r === 'string')
+        : [],
+    );
+    for (const [name, child] of Object.entries(props)) {
+      if (!required.has(name) && isStrictRecord(child)) {
+        required.add(name);
+        foldStrictNote(child, '本参数可省略(strict 面要求全属性 required,以本声明为准)');
+      }
+    }
+    node.required = [...required];
+    const ap = node.additionalProperties;
+    if (ap !== false) {
+      if (ap !== undefined) {
+        foldStrictNote(node, `additionalProperties=${JSON.stringify(ap)} 无法表达,已收为 false`);
+      }
+      node.additionalProperties = false;
+    }
+  }
 }
 
 /**
@@ -1220,16 +1525,28 @@ export interface ProviderToolSchema {
  * `apps/cli/node_modules/.bin/tsx .ihui-agent/tmp/a13-baseline/ab-equality.mts`
  * → 覆盖 158 个真工具对象(含 factory 产出的多实例),**158/158 线字节相同 + 属性名集合相同 +
  * required 集合相同**,归一化账本零动作。数字会随仓库推进漂移,复测请按上面命令跑。
+ *
+ * 逐工具 strict 分叉(G-464):`strictSchema === true` 的工具先经 `conditionSchemaForStrict`
+ * 改造成严格解码面形态,再落 `function.strict = true`(资格 → 命令的唯一落点);其余工具
+ * 与该分支引入前逐字同形。全局资格(`useNativeTools`,commands/agent)不开时本函数根本不会被调,
+ * 本位在其之上只做逐工具收窄。
  */
 export function toolsToProviderSchema(tools: Tool[]): ProviderToolSchema[] {
-  return tools.map((t) => ({
-    type: 'function' as const,
-    function: {
-      name: t.name,
-      description: t.description,
-      parameters: projectToolInputSchema(t.parameters, t.required),
-    },
-  }));
+  return tools.map((tool) => {
+    const entry: ProviderToolSchema = {
+      type: 'function' as const,
+      function: {
+        name: tool.name,
+        description: tool.description,
+        parameters: projectToolInputSchema(tool.parameters, tool.required),
+      },
+    };
+    if (tool.strictSchema === true) {
+      conditionSchemaForStrict(entry.function.parameters, '$');
+      entry.function.strict = true;
+    }
+    return entry;
+  });
 }
 
 /** 解析 arguments 字段:JSON 字符串 / 对象 / 非法值 → {} */

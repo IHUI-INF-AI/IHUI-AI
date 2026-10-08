@@ -19,6 +19,8 @@
  *   node scripts/plan-tasks.mjs --void           # F2 带作废声明却未落账
  *   node scripts/plan-tasks.mjs --pointers       # F3 行号指针已腐烂
  *   node scripts/plan-tasks.mjs --gate [--strict] # 判据档(默认存量只报数;--strict 判红)
+ *   node scripts/plan-tasks.mjs --reopened-flips --since=YYYY-MM-DD [--max-commits=N]
+ *                                                 # F10 翻勾回写候选(只报数,**必须显式窗口**;见 scanReopenedFlipEvidence 头注)
  *   node scripts/plan-tasks.mjs --next-id G      # 取号出口:下一个空闲的 G- 编号(登记新条目前问一次,别手抄)
  *   node scripts/plan-tasks.mjs --json | --self-test | --staged | --worktree
  *
@@ -36,6 +38,8 @@ import {
   auditPlan,
   compositeKeyOf,
   dispositionOf,
+  findReopenedFlipCandidates,
+  FLIPPED_ROW_RE,
   isDeclarationRow,
   nextTaskIdLabel,
   parseTaskRows,
@@ -46,6 +50,9 @@ import { headAges } from './lib/plan-line-age.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PLAN_REL = 'PROJECT_PLAN.md'
+/** F10 史证遍历的默认提交上限:实测每枚提交一次 `git show` 读 7MB blob,900 枚 ≈ 210s(Windows 进程派生占大头)。
+ *  必须**显式截断并如实报出是否截断** —— 把"没扫到那么早"写成"整段历史没有"是本仓最高频失效型。 */
+const F10_DEFAULT_MAX_COMMITS = 900
 /** 真实形态样本钉在"首次归并的前一版"上 —— 清偿之后当前 HEAD 不再含那批行(见 selfTest 注释)。 */
 const SAMPLE_REV = '0bc0af653df^'
 const LABEL = { head: 'HEAD blob', staged: '索引 blob', worktree: '工作树(人工逃生舱)' }
@@ -64,6 +71,16 @@ export function parseArgs(argv) {
     const v = argv[niIdx + 1]
     nextId = v !== undefined && !v.startsWith('-') ? v : ''
   }
+  // F10 `--reopened-flips` 的**显式窗口**参数。窗口必须有:取证要遍历提交 diff,无窗口无法定界
+  // (见 scanReopenedFlipEvidence 头注)。`--since` 与 `--max-commits` 都收等号与空格两种写法。
+  const sinceEq = argv.find((x) => x.startsWith('--since='))
+  const sinceIdx = argv.indexOf('--since')
+  const sinceRaw = sinceEq !== undefined ? sinceEq.slice('--since='.length) : sinceIdx >= 0 ? argv[sinceIdx + 1] : null
+  const since = typeof sinceRaw === 'string' && sinceRaw !== '' && !sinceRaw.startsWith('-') ? sinceRaw : null
+  const mcEq = argv.find((x) => x.startsWith('--max-commits='))
+  const mcIdx = argv.indexOf('--max-commits')
+  const mcRaw = mcEq !== undefined ? mcEq.slice('--max-commits='.length) : mcIdx >= 0 ? argv[mcIdx + 1] : null
+  const maxCommits = Number.isFinite(Number(mcRaw)) && Number(mcRaw) > 0 ? Number(mcRaw) : F10_DEFAULT_MAX_COMMITS
   return {
     json: has('--json'),
     nextIdRequested,
@@ -72,6 +89,9 @@ export function parseArgs(argv) {
     forks: has('--forks'),
     void: has('--void'),
     pointers: has('--pointers'),
+    reopenedFlips: has('--reopened-flips'),
+    since,
+    maxCommits,
     gate: has('--gate'),
     strict: has('--strict'),
     stale: has('--stale'),
@@ -162,6 +182,52 @@ function enrichStale(a, root) {
   return a
 }
 
+/**
+ * F10「翻勾回写候选」的**史证取证**:遍历 git 历史里**新增过** `- [x] ✅(日期)…` 行的提交 diff。
+ *
+ * 为什么要**显式窗口 + 上限**(票面定级:单次取证 > 60s ⇒ 只做"显式窗口/显式提交范围"档):
+ * 本仓台账提交量极大(现读近 30 天 **4468** 枚触及 PROJECT_PLAN.md),而每枚都要
+ * `git show --unified=0` 读一遍 7MB blob ⇒ 实测 900 枚 ≈ 210s(Windows 进程派生占大头)。
+ * 全窗口遍历单次远 > 60s、且它要进的是 post-commit 链 ⇒ 结构上不能压在默认档上。
+ * 故本档**必须**由调用方给 `--since` 定界、在 `--max-commits` 处截断,并**如实报出是否截断**。
+ *
+ * 结论面与扫描面**同一瞬间**取:调用方先 `rev-parse HEAD` 钉住 sha,再用 `<sha>:PROJECT_PLAN.md`
+ * 取结论面(不得先扫历史、再另开一次 HEAD —— 那之间别人的 post-commit 自愈层会把勾带回来,
+ * 报出来的候选早已不存在;本仓"消红前先复测"同型)。
+ *
+ * @param root 仓根
+ * @param since `git log --since` 的窗口起点(YYYY-MM-DD)
+ * @param maxCommits 只扫最新的 N 枚(超出截断,读数里报出)
+ * @param headSha 钉住的 HEAD sha(扫描面与结论面必须同一枚)
+ * @returns {{flipped:Array<{raw:string,sha:string,day:?string}>, commits:number}}
+ */
+function scanReopenedFlipEvidence(root, { since, maxCommits, headSha }) {
+  const shas = gitRaw(['log', headSha, `--since=${since}`, '--format=%H', '--', PLAN_REL], root)
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .slice(0, maxCommits)
+  const flipped = []
+  for (const sha of shas) {
+    let diff = ''
+    try {
+      diff = gitRaw(['show', '--format=', '--unified=0', sha, '--', PLAN_REL], root, {
+        maxBuffer: 512 << 20,
+      })
+    } catch {
+      // 单枚取不到 ⇒ 跳过,靠调用方报出的"扫了几枚"暴露(不静默当作"这枚没翻过")
+      continue
+    }
+    for (const line of diff.split(/\r?\n/)) {
+      if (line[0] !== '+' || line.startsWith('+++')) continue
+      const raw = line.slice(1)
+      if (!FLIPPED_ROW_RE.test(raw)) continue
+      const d = /✅\((\d{4}-\d{2}-\d{2})\)/.exec(raw)
+      flipped.push({ raw, sha: sha.slice(0, 11), day: d ? d[1] : null })
+    }
+  }
+  return { flipped, commits: shas.length }
+}
+
 function report(a, face) {
   const c = a.counts
   console.log(`判定面:${LABEL[face]}`)
@@ -223,6 +289,16 @@ function report(a, face) {
           (f9Mal.length > 6 ? ` (另 ${f9Mal.length - 6} 个见 --json 的 malformedMasquerade)` : '') +
           `;逐行原文与修复出口见 F9b(counts.malformedIds)`
         : ''),
+  )
+  // ── F10 翻勾回写候选(守门 130 维度落地的**报数档**)──
+  // 只报数、**永不判红**,两条结构性理由:① 它是**瞬时**读数(post-commit 自愈层会把勾带回来),
+  // 接 blocking = 与任何提交无关的恒红门(§12e);② 取证要遍历提交 diff,实测 900 枚 ≈ 210s
+  // ⇒ 结构上不能压在默认档上。所以默认档**只印"没扫"**——把"没量"与"量到 0"分开(本仓最高频失效型)。
+  console.log(
+    `  F10 翻勾回写候选(只报数、永不判红): ` +
+      (typeof c.reopenedFlips === 'number'
+        ? `${c.reopenedFlips} 个(其中未判定 ${c.reopenedFlipUndetermined} 个 / 史证主键 ${c.reopenedFlipSweptKeys} 个 / 扫 ${c.reopenedFlipCommits} 枚提交${c.reopenedFlipCapped ? ',已截断' : ''})`
+        : '未扫描 —— 取证要遍历提交 diff,须显式跑 `--reopened-flips --since=<日期>`(见该旗标头注)'),
   )
   console.log(`派单口径 —— 真·无人认领: ${c.claimable} 行`)
   console.log(
@@ -562,6 +638,9 @@ export function buildJsonFace(a, clip) {
       short: { raw: p.short?.raw, line: p.short?.line },
       long: { raw: p.long?.raw, line: p.long?.line },
     })),
+    // F10 翻勾回写候选名单(只报数、永不判红)。`null` = **本次没扫**(须显式窗口),不是"扫了且为零"
+    // —— 这两件事同形就是本仓最高频失效型"把没量写成量到了 0"。
+    reopenedFlips: a.reopenedFlips ?? null,
   }
 }
 
@@ -1903,6 +1982,53 @@ function selfTest() {
     tw.length === 2 && tw.every((x) => x.autoFixable === true),
     `有逐字孪生的无主键行必须可自动收口(实测 ${JSON.stringify(tw.map((x) => x.autoFixable))})`,
   )
+  // ── F10 翻勾回写候选(守门 130 缺的那个维度)──
+  // 红 / 绿 / **未判定**三例各一,缺一条就分不出"回写型"与"有意重开"(票面:`候选 ≠ 结论`)。
+  // 史证行取**真实形态**:历史提交里新增的 `- [x] ✅(日期) **编号 标题**…`(经 FLIPPED_ROW_RE 认)。
+  const f10Ev = (raw, sha = 'deadbeef000', day = '2026-09-29') => ({ raw, sha, day })
+  const f10Flip = '- [x] ✅(2026-09-29) **D99 复合主键正例**:说明文字。'
+  const f10OpenSame = '- [ ] **D99 复合主键正例**:说明文字。'
+  const f10Red = findReopenedFlipCandidates(f10OpenSame, [f10Ev(f10Flip)])
+  ok(
+    f10Red.candidates.length === 1 &&
+      f10Red.candidates[0].id === 'D99' &&
+      f10Red.candidates[0].verdict === 'rewrite',
+    `F10 红例:已勾份数为 0 而仍有未勾行、且与首次翻勾行逐字同句 ⇒ 回写型候选,实测 ${JSON.stringify(f10Red.candidates)}`,
+  )
+  ok(
+    f10Red.candidates[0].openLines.length === 1 &&
+      f10Red.candidates[0].firstDay === '2026-09-29' &&
+      f10Red.candidates[0].key.includes('#'),
+    'F10 候选必须带未勾行号 / 首次翻勾日期 / 复合主键(只报数不报名就是没人能定位的数)',
+  )
+  // 绿例:结论面该主键**还有已勾份** ⇒ 属 F1 射程,本维不得重复判债(否则与 F1 顶结论)。
+  const f10Green = findReopenedFlipCandidates(`${f10Flip}\n${f10OpenSame}`, [f10Ev(f10Flip)])
+  ok(
+    f10Green.candidates.length === 0,
+    `F10 绿例:既有已勾份又未勾 ⇒ 归 F1,本维不得点名,实测 ${f10Green.candidates.length}`,
+  )
+  // 未判定例:未勾行措辞与首次翻勾行不同(多半带了重开说明)⇒ 落 undetermined 交人工,**绝不自动翻勾**。
+  const f10Undet = findReopenedFlipCandidates(
+    '- [ ] **D99 复合主键正例**:〔已复核,证据更新,有意重开〕',
+    [f10Ev(f10Flip)],
+  )
+  ok(
+    f10Undet.candidates.length === 1 &&
+      f10Undet.candidates[0].verdict === 'undetermined' &&
+      f10Undet.undetermined === 1,
+    `F10 未判定例:措辞已变必须落 undetermined(不是 rewrite),实测 ${JSON.stringify(f10Undet.candidates.map((c) => c.verdict))}`,
+  )
+  // 反向锁:没有史证(flippedRows 空)时**恒不成候选** —— 否则本维会退化成"凡未勾者皆可疑"。
+  ok(
+    findReopenedFlipCandidates(f10OpenSame, []).candidates.length === 0,
+    'F10 无史证时不得点名(本维的前提是"历史上确实翻过勾",没史证就是没量到)',
+  )
+  // 结构性防线:本维绝不许进 probe 差值棘轮 —— 瞬时读数 + 210s 取证 ⇒ 恒红门(§12e)。
+  // 与 F4c 那条同一纪律(见其自测注释):"把出口拆掉仍绿"的变异必须被咬住。
+  ok(
+    !probe({ counts: {} }).some(([k]) => k === 'F10'),
+    'F10 绝不许进 probe 差值棘轮(会变成与任何提交无关的恒红门,§12e/§12f)',
+  )
   console.log(`\n自检:${pass} 通过 / ${fail} 失败`)
   return fail ? 1 : 0
 }
@@ -1910,6 +2036,8 @@ function selfTest() {
 function main() {
   const argv = process.argv.slice(2)
   const o = parseArgs(argv)
+  // F10 判定面锚定的那枚提交(结论面与史证扫描面必须同一枚,见 scanReopenedFlipEvidence 头注)
+  let f10HeadSha = null
   if (o.selfTest) return selfTest()
   if (o.faceError) {
     console.log(`⚠️ 无法判定 —— ${o.faceError}`)
@@ -1982,7 +2110,45 @@ function main() {
     }
   }
   if (preBefore) a.counts.newUndisposed = countNewUndisposed(a, preBefore)
-  // ⚠ 基线取的是**当次当面的实测数**,换一次提交就会变。所以它只能由人工在清偿之后刷,
+  // ── F10 翻勾回写候选(仅在显式旗标下跑:取证要遍历提交 diff,≈210s/900 枚,绝不压在默认档)──
+  if (o.reopenedFlips) {
+    if (!o.since) {
+      console.log(
+        '❌ 用法错 —— --reopened-flips 必须给**显式窗口** `--since=YYYY-MM-DD`:' +
+          '取证要遍历提交 diff,无窗口无法定界(全窗口近 30 天 4468 枚 ≈ 17min,不可接受)。' +
+          '\n   例:`node scripts/plan-tasks.mjs --reopened-flips --since=2026-09-08 --max-commits=900`',
+      )
+      return 2
+    }
+    let conclusionFace
+    try {
+      // 结论面与扫描面**同一瞬间**取:先钉 sha,再用 `<sha>:PROJECT_PLAN.md` —— 不得先扫历史再另开 HEAD。
+      f10HeadSha = gitRaw(['rev-parse', 'HEAD'], o.root).trim()
+      conclusionFace = gitRaw(['show', `${f10HeadSha}:${PLAN_REL}`], o.root, { maxBuffer: 512 << 20 })
+    } catch (e) {
+      console.log(`⚠️ 无法判定 —— F10 结论面取不到:${e instanceof Undetermined ? e.message : String(e?.message ?? e).split('\n')[0]}`)
+      return 2
+    }
+    const t0 = Date.now()
+    let scanned
+    try {
+      scanned = scanReopenedFlipEvidence(o.root, { since: o.since, maxCommits: o.maxCommits, headSha: f10HeadSha })
+    } catch (e) {
+      console.log(`⚠️ 无法判定 —— F10 史证遍历失败:${e instanceof Undetermined ? e.message : String(e?.message ?? e).split('\n')[0]}`)
+      return 2
+    }
+    const res = findReopenedFlipCandidates(conclusionFace, scanned.flipped)
+    a.reopenedFlips = res.candidates
+    a.counts.reopenedFlips = res.candidates.length
+    a.counts.reopenedFlipUndetermined = res.undetermined
+    a.counts.reopenedFlipSweptKeys = res.sweptKeys
+    a.counts.reopenedFlipUnkeyable = res.unkeyable
+    a.counts.reopenedFlipCommits = scanned.commits
+    a.counts.reopenedFlipCapped = scanned.commits >= o.maxCommits
+    a.counts.reopenedFlipPerfMs = Date.now() - t0
+    a.counts.reopenedFlipSince = o.since
+  }
+  // ⚠ 基线取的是**当次当面的实测数**,换一次提交就会变。所以它只能由人工在清偿之后刷新,
   // 且只允许在全量档执行 —— 从索引/工作树面刷基线等于把别人未提交的中间态冻进台账。
   if (o.updateBaseline) {
     if (o.face !== 'head') {
@@ -2116,6 +2282,34 @@ function main() {
   if (o.pointers) {
     console.log(`── F3 指针腐烂:${a.rotated.length} 处 ──`)
     for (const r of a.rotated) console.log(`  L${r.line} → L${r.target}  ${r.reason}`)
+    return 0
+  }
+  if (o.reopenedFlips) {
+    // F10 候选清单(只报数、**绝不自动翻勾**)。分流只有一档机器可判:未勾行与**首次翻勾行**逐字等值
+    // ⇒ 回写型;措辞已变 ⇒ 未判定交人工。自动动作最多做到"当场再核一次是否仍未勾",绝不补翻。
+    const c = a.counts
+    const rewrite = (a.reopenedFlips ?? []).filter((x) => x.verdict === 'rewrite').length
+    console.log(
+      `── F10 翻勾回写候选 ${c.reopenedFlips} 个(窗口 since=${c.reopenedFlipSince} / 扫 ${c.reopenedFlipCommits} 枚提交 / ` +
+        `耗时 ${(c.reopenedFlipPerfMs / 1000).toFixed(1)}s / 史证复合主键 ${c.reopenedFlipSweptKeys} 个,其中无主键史证 ${c.reopenedFlipUnkeyable} 条)──`,
+    )
+    if (c.reopenedFlipCapped)
+      console.log(
+        `   ⚠ 本次**已截断**(上限 ${o.maxCommits} 枚):更早的提交没扫,别把这里的名单当"整段历史的全集"`,
+      )
+    console.log(
+      `   其中 回写型 ${rewrite} 个 / 未判定(与首次翻勾行措辞已变,交人工)${c.reopenedFlipUndetermined} 个` +
+        ` —— 判定面:${LABEL[o.face]} 所锚的那枚提交(${(f10HeadSha ?? '').slice(0, 11)})`,
+    )
+    for (const x of a.reopenedFlips ?? [])
+      console.log(
+        `   候选 ${x.id}  判定=${x.verdict === 'rewrite' ? '回写型' : '未判定'}  首次翻勾 ${x.firstSha ?? '?'}/${x.firstDay ?? '?'}  ` +
+          `未勾行@${x.openLines.join(',')}  复合主键 ${x.key}`,
+      )
+    console.log(
+      '   候选 ≠ 结论:本清单**只报数、绝不自动翻勾** —— "被回写"与"有人复核后有意重开"同形,' +
+        '凭一次扫描补翻就是替别人否决判断(§16 越权同型);且本判据是**瞬时**读数,复核请重跑本命令。',
+    )
     return 0
   }
   report(a, o.face)
