@@ -5,11 +5,12 @@
 /**
  * D35 投影断点 **删除段**(O82续四·投影删除段①)回归。
  *
- * 这一票要消灭的形态:四条删除类写入路径(regenerateConversationMessages /
- * editMessageAndTruncateAfter / deleteMessage / clearMessages)不碰投影断点,
- * 于是删除之后断点仍指着已经消失的轮次。
+ * 这一票原判四条删除类写入路径(regenerateConversationMessages /
+ * editMessageAndTruncateAfter / deleteMessage / clearMessages)不碰投影断点。
+ * 2026-10-07 起 regenerate 改 **sibling 分支语义**(票59 消息级版本切换 1/3):不再物理
+ * 删除、不做投影 reset,删除段判据剩三条(见本文件尾段 regenerate 的分支语义 describe)。
  *
- * 语义结论(四条一律 reset,不做"回退到不超过现存最大轮"),判据在本文件
+ * 语义结论(删除路径一律 reset,不做"回退到不超过现存最大轮"),判据在本文件
  * describe('为什么只能是 reset') 两组用例里,不在注释里自证:
  *  1. 投影状态是 { ordinal 断点, 字节累计 } 一对,字节累计的定义就是"断点及之前所有轮次
  *     的字节和"。单独把 ordinal 调小而不动字节量,下一次 roll 的取数窗口
@@ -57,6 +58,7 @@ interface Chain {
   values(v: unknown): Chain
   set(obj: Row): Chain
   returning(): Chain
+  for(lock?: unknown): Chain // drizzle 的 SELECT ... FOR UPDATE 行锁;fake 层 no-op
   then(
     onfulfilled: ((value: Row[]) => unknown) | undefined,
     onrejected?: ((reason: unknown) => unknown) | undefined,
@@ -124,6 +126,14 @@ const { fakeState, fakeDb, reset } = vi.hoisted(() => {
         .filter((v): v is number => typeof v === 'number')
       return [{ maxTurn: ords.length > 0 ? Math.max(...ords) : null }]
     }
+    if (fields && 'maxIdx' in fields) {
+      // 分支语义的 max(sibling_index):fake 不解析 where,约定:用例只在版本族行上落
+      // siblingIndex,其余行一律 null ⇒ 全表数值 max 等价族内 max
+      const idxs = state.messages
+        .map((m) => m.siblingIndex)
+        .filter((v): v is number => typeof v === 'number')
+      return [{ maxIdx: idxs.length > 0 ? Math.max(...idxs) : null }]
+    }
     if (fields && 'count' in fields) return [{ count: state.messages.length }]
     // 投影器要的 { turnOrdinal, content } / deleteMessage 要的 { conversationId } /
     // lastMessageAt 要的 { createdAt } / findMessageById 的整行 —— 一律按数组顺序给全量
@@ -146,6 +156,7 @@ const { fakeState, fakeDb, reset } = vi.hoisted(() => {
         values: () => self,
         set: () => self,
         returning: () => self,
+        for: () => self, // O82 续四:regenerateConversationMessages 事务内 SELECT ... FOR UPDATE 锁行,fake 层 no-op
         then: (onf, onr) => Promise.resolve(selectRows(fields, kind)).then(onf, onr),
       }
       return self
@@ -289,8 +300,15 @@ const slice = (turnOrdinal: number, byteLength: number): HistoryTurnSlice => ({
 const bytes = (...texts: string[]): number =>
   texts.reduce((sum, t) => sum + Buffer.byteLength(t, 'utf8'), 0)
 
-/** 一条已分轮的消息行;id 供 deletePlan 挑选,ordinal/role/content 供投影与断言 */
-const msg = (id: string, turnOrdinal: number, role: string, content: string): Row => ({
+/** 一条已分轮的消息行;id 供 deletePlan 挑选,ordinal/role/content 供投影与断言;
+ * parentMessageId/siblingIndex 默认 null(对齐真库可空列,分支语义判据依赖严格 === null)。 */
+const msg = (
+  id: string,
+  turnOrdinal: number,
+  role: string,
+  content: string,
+  extra: Row = {},
+): Row => ({
   id,
   conversationId: CONV_ID,
   role,
@@ -300,6 +318,9 @@ const msg = (id: string, turnOrdinal: number, role: string, content: string): Ro
   metadata: null,
   createdAt: new Date(Date.UTC(2026, 0, 1, 0, turnOrdinal)),
   turnOrdinal,
+  parentMessageId: null,
+  siblingIndex: null,
+  ...extra,
 })
 
 /** 旧断点形态:删除前已经推进过的存量 */
@@ -351,7 +372,7 @@ describe('为什么只能是 reset(回退断点而保留字节累计 = 重复累
   })
 })
 
-describe('regenerateConversationMessages:删尾部后断点不得越过现存轮次', () => {
+describe('regenerateConversationMessages:分支语义(2026-10-07 起)不删行不动断点', () => {
   beforeEach(() => {
     reset()
     // messages[0] = 目标(t3 的 assistant 回复),其余按轮次铺开
@@ -367,27 +388,38 @@ describe('regenerateConversationMessages:删尾部后断点不得越过现存轮
     fakeState.conversation.historyProjectionState = legacyState(12, 3)
   })
 
-  it('删掉 t3a 与 t4u 后:断点回落到重算值(3→2),字节量按剩余行集 8B 而非旧累计 12B', async () => {
-    keepOnly('t1u', 't1a', 't2u', 't2a', 't3u')
+  it('不再物理删除:现存行集与投影断点均原样(不删行 ⇒ 不做投影 reset,旧 12B/轮 3 依旧指向现存轮次)', async () => {
     const result = await regenerateConversationMessages(CONV_ID, 't3a')
-    expect(result.remainingCount).toBe(5)
-
-    const next = await readStoredState()
-    expect(next?.nextRolloutOrdinal).toBe(2)
-    expect(next?.nextRolloutByteOffset).toBe(bytes('u1', 'a1', 'u2', 'a2'))
-    expect(next?.nextRolloutByteOffset).toBe(8)
-    // 确实经由一次 UPDATE chat_conversations 落库
-    expect(projectionWrites()).toHaveLength(1)
+    expect(result.remainingCount).toBe(7) // 旧契约字段保留:本路径已不删行,读数即全量现存
+    expect(await readStoredState()).toEqual(legacyState(12, 3))
+    expect(projectionWrites()).toHaveLength(0)
   })
 
-  it('删到只剩一轮:无收口轮次是结论 ⇒ 断点写回 null,而不是留在越过现存轮次的旧值', async () => {
-    keepOnly('t1u', 't1a')
-    await regenerateConversationMessages(CONV_ID, 't3a')
+  it('首次 regenerate:root 即目标自身 ⇒ 补 siblingIndex=0(经 UPDATE 落库),nextSiblingIndex = 族内最大 + 1 = 1', async () => {
+    const result = await regenerateConversationMessages(CONV_ID, 't3a')
+    expect(result.rootId).toBe('t3a')
+    expect(result.nextSiblingIndex).toBe(1)
+    // root 序号 0 必须经 UPDATE chat_messages 落库,不是只在内存标记
+    expect(fakeState.updates).toContainEqual({ siblingIndex: 0 })
+  })
 
-    expect(await readStoredState()).toBeNull()
-    // 关键反证:不发 UPDATE 的实现也会读到 null 吗?不会 —— 存量还挂在会话行上。
-    // 所以"写过一次"必须单独断言,否则这条判据会退化成为恒真的读侧检查。
-    expect(projectionWrites()).toHaveLength(1)
+  it('目标已是再生版本 ⇒ root 沿 parentMessageId 回根,nextSiblingIndex = 族内最大 + 1;已标记族不再补 root 序号', async () => {
+    fakeState.messages = [
+      msg('t3a2', 3, 'assistant', 'a3-v2', { parentMessageId: 't3u', siblingIndex: 1 }),
+      msg('t3u', 3, 'user', 'u3', { siblingIndex: 0 }),
+    ]
+    const result = await regenerateConversationMessages(CONV_ID, 't3a2')
+    expect(result.rootId).toBe('t3u')
+    expect(result.nextSiblingIndex).toBe(2)
+    expect(fakeState.updates.filter((u) => 'siblingIndex' in u)).toHaveLength(0)
+  })
+
+  it('消息不存在 ⇒ 抛错(路由层转 404),不给任何会话留写入痕迹', async () => {
+    fakeState.messages = []
+    await expect(regenerateConversationMessages(CONV_ID, 'missing-1')).rejects.toThrow(
+      '消息不存在或不属于该对话',
+    )
+    expect(fakeState.updates).toHaveLength(0)
   })
 })
 
