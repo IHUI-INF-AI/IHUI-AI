@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process'
 import { mkdtempSync, writeFileSync, statSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { ToolResult } from '../src/tools/index.js'
+import type { ToolResult } from '../src/index.js'
 
 /**
  * 票 07-B 端到端:按范围提交必须走临时索引,禁止整体替换真实索引。
