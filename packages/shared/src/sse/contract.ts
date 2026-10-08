@@ -477,6 +477,14 @@ export type SSEEventPayload =
       usage?: Record<string, unknown>
       model?: string
       stub?: boolean
+      /**
+       * G-425(2026-10-07 立,默认档"只提示"):上游 finish/stop reason 原样透传
+       * (OpenAI 系 `length`/`stop`/`tool_calls`/…;Gemini 原生 `STOP`/`MAX_TOKENS`/…)。
+       * 消费方判"输出被 max_tokens 截断"按小写归一后 ∈ {length, max_tokens} 判,
+       * 不在解析层解释语义。**缺席 = 上游没给**(旧服务端/老 provider),不是"正常结束"
+       * —— 绝不把"没采到"折成"stop"。
+       */
+      finishReason?: string
       /** P1 #27(2026-09-16 立)记忆更新可视化:本轮新增写入长期记忆(LTM)的条目摘要。
        *  由 llm.py 在 done 前同步提炼(超时/异常降级为空数组),经网关原样透传到前端,
        *  MessageItem 据此渲染「已记住」提示条(MemoryNoticeBar)。空数组/缺省表示本轮无新记忆。 */
