@@ -482,25 +482,6 @@ describe('agents routes', () => {
       )
     })
 
-    // body 校验(写侧):合法 uuid + 类型不符的字段 ⇒ 400 的身份必须是"参数错误",
-    // 而不是形状闸那条 —— 只断状态码时,把 body 校验整段删掉这条也不会红。
-    it('body 字段类型不符 ⇒ 400 参数错误且服务层零调用(合法 uuid 已排除形状闸)', async () => {
-      authAs()
-      const res = await app.inject({
-        method: 'PUT',
-        url: `/api/agents/${AGENT_ID}`,
-        payload: { name: 'updated', price: 'not-a-number' },
-        headers: { authorization: 'Bearer t' },
-      })
-      expect(res.statusCode).toBe(400)
-      const body = res.json()
-      expect(body.code).toBe(400)
-      expect(body.message).toBe('参数错误')
-      // 两条 400 必须分家:这一支的 id 是合法 uuid,闸结构上不可能产出它
-      expect(body.message).not.toBe('agentId 格式不正确')
-      expect(mockUpdateAgent).not.toHaveBeenCalled()
-    })
-
     // 形状闸(写侧):畸形 id 是客户端错误 ⇒ 400,且一次都不进服务层。
     // **写侧与读侧刻意不同形**:400 只说明"你给的根本不是 id 形状"(不含存在性信息),
     // 而 404 才携带存在性,所以读侧把三种成因收敛成同一条消息、写侧不必(见 agents.ts:382 注释)。

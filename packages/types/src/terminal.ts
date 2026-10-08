@@ -23,9 +23,9 @@ export interface TerminalSshParams {
   port?: number
   /** 登录用户名 */
   username: string
-  /** 密码认证(运行时要求与 privateKey 至少提供其一,二者可同时给——服务端按认证方式依次尝试) */
+  /** 密码认证(与 privateKey 二选一) */
   password?: string
-  /** 私钥认证(PEM 格式字符串;运行时要求与 password 至少提供其一,加密私钥配 passphrase 解密) */
+  /** 私钥认证(PEM 格式字符串) */
   privateKey?: string
   /** 私钥口令(加密私钥时需要) */
   passphrase?: string
