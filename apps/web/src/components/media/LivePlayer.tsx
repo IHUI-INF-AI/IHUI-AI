@@ -113,7 +113,8 @@ export function LivePlayer({
                 retryCount.current += 1
                 retryTimer.current = setTimeout(
                   () => {
-                    hls.startLoad()
+                    // 换 attempt 走 effect 重挂载(destroy 旧实例 + 清空旧失败态),对齐上方注释的意图
+                    setAttempt((a) => a + 1)
                   },
                   Math.min(1000 * Math.pow(2, retryCount.current), 8000),
                 )
@@ -217,14 +218,6 @@ export function LivePlayer({
         <div className="absolute top-2 bottom-2 left-2 right-2 flex flex-col items-center justify-center gap-2 bg-black/70 text-white">
           <AlertCircle className="h-8 w-8 text-red-400" />
           <p className="text-sm">{error}</p>
-          <button
-            type="button"
-            onClick={() => setAttempt((n) => n + 1)}
-            aria-label={t('previewRetryAction')}
-            className="rounded-sm p-1 text-xs underline hover:bg-white/20"
-          >
-            {t('previewRetryAction')}
-          </button>
         </div>
       )}
 
