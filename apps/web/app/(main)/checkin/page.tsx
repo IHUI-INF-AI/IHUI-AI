@@ -12,6 +12,8 @@
 // + 调度状态徽章 + 一键全部签到(跳过今日已签 + 进度)
 // + Tabs(签到记录 | 积分历史 | 积分看板,按账号过滤/加载更多)+ 录入/更新JWT/分组对话框。
 
+import { rnRadius } from '@ihui/design-tokens'
+
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import {
@@ -435,7 +437,7 @@ export default function CheckinPage() {
       aria-label={t('filterAll')}
       value={value ?? 'all'}
       onChange={(e) => onChange(e.target.value === 'all' ? null : Number(e.target.value))}
-      className="h-8 rounded-md border bg-background px-2 text-xs"
+      className="h-8 rounded-sm border bg-background px-2 text-xs"
     >
       <option value="all">{t('filterAll')}</option>
       {accounts.map((account) => (
@@ -601,7 +603,7 @@ export default function CheckinPage() {
                     aria-label={t('filterGroupAll')}
                     value={groupFilter}
                     onChange={(e) => setGroupFilter(e.target.value)}
-                    className="h-8 rounded-md border bg-background px-2 text-xs"
+                    className="h-8 rounded-sm border bg-background px-2 text-xs"
                   >
                     <option value="all">{t('filterGroupAll')}</option>
                     {distinctGroups.map((g) => (
@@ -871,7 +873,7 @@ export default function CheckinPage() {
                             {
                               type: 'bar',
                               data: board.ranked.map((r) => r.credits),
-                              itemStyle: { borderRadius: 4 },
+                              itemStyle: { borderRadius: rnRadius.sm },
                             },
                           ],
                         }}
