@@ -125,10 +125,25 @@ export interface UpdateMenuInput {
   remark?: string
 }
 
+// G-998153:写库前先问「到底有没有变」。同值二次提交不得推进 updatedAt ——
+// 该列是增量读的消费源(routes/tasks.ts 的 since 补拉、admin-extended 的 gte 窗口),
+// 空写污染会把"没变"伪装成"变过"。语义:先取现值、按键比较,只有真变化的字段进 set;
+// 无变化则不发 UPDATE、不盖 updatedAt、原记录原样返回(id 不存在返回 undefined,不发 UPDATE)。
 export async function updateMenu(id: string, data: UpdateMenuInput): Promise<SysMenu | undefined> {
+  const current = await db.select().from(sysMenus).where(eq(sysMenus.id, id))
+  const existing = current[0]
+  if (!existing) return undefined
+  const changed: Partial<UpdateMenuInput> = {}
+  for (const [key, value] of Object.entries(data)) {
+    if (value === undefined) continue
+    if ((existing as unknown as Record<string, unknown>)[key] !== value) {
+      ;(changed as Record<string, unknown>)[key] = value
+    }
+  }
+  if (Object.keys(changed).length === 0) return existing
   const rows = await db
     .update(sysMenus)
-    .set({ ...data, updatedAt: new Date() })
+    .set({ ...changed, updatedAt: new Date() })
     .where(eq(sysMenus.id, id))
     .returning()
   return rows[0]
