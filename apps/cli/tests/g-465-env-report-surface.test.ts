@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * G-465:子进程 env 边界的"报名面"(只报名,不剥、不拦)验收用例。
+ * G-465:子进程 env 边界的凭据形态面验收用例。
  *
  * 病灶(票面 + 2026-10-06 真实现直测复测):`matchPattern` 的 deny 后缀族
  * (`*_API_KEY/*_SECRET/*_TOKEN/*_PASSWORD`)盖不到单数 `*_KEY`、`*_SENDKEY`、
@@ -11,14 +11,15 @@
  * LIBTV_ACCESS_KEY / SERVERCHAN_SENDKEY / TUNNEL_SERVICE_TOKEN_ID /
  * QODER_SDK_AUTH_PAYLOAD_FILE / TRAE_JWT_TOKEN_PATH 原样漏进子进程。
  *
- * 机主拍板的出路:先只报名不拦 —— 不扩大剥离范围(宁窄不误伤,与
- * child-env-boundary.test.ts 的既有承诺同向),而是把识别面扩宽并对"将进子进程
- * 的疑似凭据变量"逐次产出报名(stderr 一行 + 审计日志结构化字段,点名变量名与命中模式)。
+ * 2026-10-06 机主拍板的出路:先只报名不拦(宁窄不误伤)。**2026-10-08 机主拍板采纳扩展**:
+ * 子进程 env 从「只剥我方凭据」扩到「一切凭据形态」,MCP/hook 子进程改白名单透传
+ * (默认全剥)作逃生门 —— 报名面自此反转为**剥离侧报名**:点名"这个子进程被剥掉了哪些
+ * 疑似凭据变量",作为第三方 CLI 突然拿不到凭据时的直接取证出口。
  *
  * 本套件钉三件事:
- *   ① 报名命中票面残留键(分区等值,名单变化必须显式裁决);
- *   ② 报名 ≠ 剥离:残留键的值原样幸存,deny 表行为零变化;
- *   ③ 两条 spawn 站点(同步/异步)真的装了车 —— 审计条目带 suspiciousEnvVars。
+ *   ① 凭据形态模式表逐字钉死,且与 deny 形态集**同源**(10-08 拍板升格进 deny);
+ *   ② 剥离对账:原残留名单全部被剥 + 被剥离侧报名点名,非凭据形态不误伤;
+ *   ③ 两条 spawn 站点(同步/异步)真的装了车 —— 审计条目带 suspiciousEnvVars(被剥凭据名单)。
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import * as fs from 'node:fs';
@@ -27,7 +28,9 @@ import * as path from 'node:path';
 
 import {
   buildFilteredEnv,
+  CREDENTIAL_SHAPE_BLOCKED_PATTERNS,
   DEFAULT_BLOCKED_ENV_VARS,
+  detectStrippedSuspiciousEnvVars,
   detectSuspiciousEnvVars,
   reportSuspiciousEnvVars,
   runSandboxed,
@@ -81,23 +84,24 @@ describe('G-465 报名面识别(detectSuspiciousEnvVars)', () => {
     ]);
   });
 
-  it('两表不得混用:报名模式清单与 deny 表零交集', () => {
+  it('表须同源:deny 形态集必须包含全部报名模式(2026-10-08 拍板升格,报名面即剥离面)', () => {
     for (const p of SUSPICIOUS_CREDENTIAL_ENV_PATTERNS) {
-      expect(DEFAULT_BLOCKED_ENV_VARS, `报名模式 ${p} 不得混进 deny 表`).not.toContain(p);
+      expect(CREDENTIAL_SHAPE_BLOCKED_PATTERNS, `报名模式 ${p} 必须在 deny 形态集里`).toContain(p);
     }
   });
 });
 
-describe('G-465 报名 ≠ 剥离(对真 env 的分区对账)', () => {
+describe('G-465 剥离侧对账(2026-10-08 拍板:原"报名不拦"反转为"拦了报名给你看")', () => {
   // 逐键 set/delete,不做 process.env 整体替换(与 child-env-boundary.test.ts 同一既有形态)
-  const RESIDUAL_LEDGER: string[] = [
+  // 原残留名单五键:今天必须全部被剥,且被剥离侧报名点名
+  const STRIPPED_EXPECTED: string[] = [
     'LIBTV_ACCESS_KEY',
     'SERVERCHAN_SENDKEY',
     'TUNNEL_SERVICE_TOKEN_ID',
     'QODER_SDK_AUTH_PAYLOAD_FILE',
     'TRAE_JWT_TOKEN_PATH',
   ];
-  // 对照组:同形但被既有 deny 后缀族盖住的,必须一个都不出现在报名里
+  // 对照组:一直被既有后缀族盖住的凭据,同样被剥 + 被点名(剥离侧报名对所有被剥凭据形态生效)
   const BLOCKED_CONTROLS: string[] = [
     'IHUI_API_KEY',
     'STEPFUN_API_KEY',
@@ -106,11 +110,11 @@ describe('G-465 报名 ≠ 剥离(对真 env 的分区对账)', () => {
     'DB_PASSWORD',
     'IHUI_SERVE_MACHINE_KEYS',
   ];
-  // 反对照组:既不该剥也不该报
+  // 反对照组:非凭据形态,既不该剥也不该报
   const NEGATIVE_CONTROLS: string[] = ['G465_VENDOR_PROFILE', 'G465_PLAIN_FLAG'];
-  const CANDIDATES = [...RESIDUAL_LEDGER, ...BLOCKED_CONTROLS, ...NEGATIVE_CONTROLS];
+  const CANDIDATES = [...STRIPPED_EXPECTED, ...BLOCKED_CONTROLS, ...NEGATIVE_CONTROLS];
 
-  it('分区等值:残留键全部报名且值原样幸存;deny 盖住的不报名;报名模式清单不在 deny 表里', () => {
+  it('原残留五键 + 对照键全部被剥且被剥离侧报名点名;反对照组幸存不报名', () => {
     const previous = new Map<string, string | undefined>();
     try {
       for (const k of CANDIDATES) {
@@ -118,22 +122,36 @@ describe('G-465 报名 ≠ 剥离(对真 env 的分区对账)', () => {
         process.env[k] = 'sentinel-value-not-a-real-credential';
       }
       const filtered = buildFilteredEnv(DEFAULT_BLOCKED_ENV_VARS);
-      const reports = detectSuspiciousEnvVars(filtered);
-      const reportedCandidates = CANDIDATES.filter((k) => reports.some((r) => r.name === k));
-      // 残留名单逐字相等:多报(判据放宽盖到别人)或少报(漏了残留)都翻红
-      expect(reportedCandidates.slice().sort()).toEqual(RESIDUAL_LEDGER.slice().sort());
-      // 报名 ≠ 剥离:被点名的变量,值必须原样进子进程 env
-      for (const k of RESIDUAL_LEDGER) {
-        expect(filtered[k], `${k} 只报名不剥离,值必须幸存`).toBe('sentinel-value-not-a-real-credential');
+      // 剥离:原残留名单一个不剩(2026-10-08 拍板的核心翻转)
+      for (const k of STRIPPED_EXPECTED) {
+        expect(filtered[k], `${k} 应当被宽 deny 剥除`).toBeUndefined();
       }
-      // deny 表照旧:对照键一个不剩
+      // 对照键照旧:一个不剩
       for (const k of BLOCKED_CONTROLS) {
         expect(filtered[k], `${k} 应当被既有后缀族盖住`).toBeUndefined();
       }
-      // 反对照组:幸存且不报名
+      // 反对照组:幸存
       for (const k of NEGATIVE_CONTROLS) {
         expect(filtered[k]).toBe('sentinel-value-not-a-real-credential');
       }
+      // 剥离侧报名:被剥的凭据形态键全部被点名(归因词表 = 完整 deny 形态集,窄四族在前);
+      // IHUI_SERVE_MACHINE_KEYS 属具名 deny 条目而非形态模式,被剥但无模式可点,不出现。
+      const reports = detectStrippedSuspiciousEnvVars(process.env, filtered);
+      const expectedReported = [
+        ...STRIPPED_EXPECTED,
+        'IHUI_API_KEY',
+        'STEPFUN_API_KEY',
+        'AI_CALLBACK_SECRET',
+        'IHUI_AGENT_TOKEN',
+        'DB_PASSWORD',
+      ].sort();
+      const reportedCandidates = CANDIDATES.filter((k) => reports.some((r) => r.name === k));
+      expect(reportedCandidates.slice().sort()).toEqual(expectedReported);
+      const byName = new Map(reports.map((r) => [r.name, r.pattern]));
+      expect(byName.get('SERVERCHAN_SENDKEY')).toBe('*_SENDKEY');
+      expect(byName.get('TUNNEL_SERVICE_TOKEN_ID')).toBe('*_TOKEN_ID');
+      expect(byName.get('DB_PASSWORD')).toBe('*_PASSWORD');
+      expect(byName.get('LIBTV_ACCESS_KEY')).toBe('*_KEY');
     } finally {
       for (const [k, v] of previous) {
         if (v === undefined) delete process.env[k];
