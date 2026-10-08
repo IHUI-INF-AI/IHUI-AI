@@ -17,7 +17,7 @@ import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
-import { auditClaimStaleLockSource } from '../lib/stale-lock-claim.mjs'
+import { auditClaimStaleLockSource, createLockInstanceObserver } from '../lib/stale-lock-claim.mjs'
 import { __test__ as gl } from '../git-lock.mjs'
 
 const DEAD_PID = 999000 // 实测不存在的 pid;下面第 0 条先把它自己验一遍,不靠假设
@@ -231,6 +231,124 @@ test('⑥防复发:git-lock/deploy-lock 都不得再出现第二份 claimStaleLo
   ].join('\n')
   const flagged2 = auditClaimStaleLockSource(replaced, 'mutation-fixture-2')
   assert.equal(flagged2.length, 3, `同名回退必须三条判据各自点名,实得 ${JSON.stringify(flagged2)}`)
+})
+
+// ── 7. G-998104:锁实例抖动维度(按实例计数而非按路径计数,观察级)────────────
+// 票面机制:`ObserveLockInstance = (lockPath, lockStat, observedAt) => number` —— 观察者
+// 按 (路径, stat) 区分「同一锁文件被反复重建」的多次实例,使"锁抖动"与"一次长持有"
+// 在观测上是两个形状(不再在等待 P95 上同形)。只报数不判红:纯函数单源在
+// scripts/lib/stale-lock-claim.mjs,接线在 acquire 等待环(每轮 readMeta/statSync 结果
+// 计一个 instance),真实出口是 wait 账本行的 `instances=<k>`;判据面一字未动。
+test('⑦纯函数:同指纹在位 ⇒ 1;两次重建 ⇒ 3;路径消失再现在位 ⇒ 新实例;inode 缺失走 mtimeMs 兜底', () => {
+  const observe = createLockInstanceObserver()
+  const P = 'C:\\fixture\\ihui-git-write.lock'
+  const gen1 = { ino: 11, mtimeMs: 1000, pid: 4100, ts: 1_700_000_000_000 }
+  // 同一实例连续在位(单持有者不动):序数不涨,恒 1 —— 这是"一次长持有"的观测形状
+  assert.equal(observe(P, gen1, 100), 1)
+  assert.equal(observe(P, gen1, 400), 1)
+  // 第 1 次 meta 重写(重建):pid 不变 ts 变 ⇒ 新实例
+  assert.equal(observe(P, { ...gen1, ts: 1_700_000_000_350 }, 700), 2)
+  // 第 2 次 meta 重写 ⇒ 3(首 + 两次重建)—— 这是"锁抖动"的观测形状
+  assert.equal(observe(P, { ...gen1, ts: 1_700_000_000_700 }, 1000), 3)
+  // 路径此刻观察不到 ⇒ 0;再现在位 ⇒ 新实例(哪怕指纹与之前全等 —— 目录可能被整只重建)
+  assert.equal(observe(P, null, 1100), 0)
+  assert.equal(observe(P, gen1, 1400), 4)
+  // 不同路径各记各的账((路径, stat) 才是身份,不是 stat 一己)
+  assert.equal(observe('C:\\fixture\\other.lock', gen1, 1500), 1)
+  // Windows 下目录 inode 常不可靠(0)⇒ 指纹退化到 mtimeMs 仍可分辨("inode 或 mtimeMs")
+  const noIno = createLockInstanceObserver()
+  assert.equal(noIno(P, { ino: 0, mtimeMs: 5000, pid: 4100, ts: 1 }, 10), 1)
+  assert.equal(noIno(P, { ino: 0, mtimeMs: 5000, pid: 4100, ts: 1 }, 310), 1)
+  assert.equal(noIno(P, { ino: 0, mtimeMs: 5000, pid: 4200, ts: 2 }, 610), 2)
+})
+
+// ⑦b 票面断言(抖动夹具):acquire --unit t --timeout 3000 的夹具形态,注入「两次 meta 重写」
+// ⇒ wait 账本行须含 instances=3(首 + 两次重建)。持有者全程活着(ts 逐次刷新)⇒ 判据面
+// 既不判死也不抢占 —— 顺带反证"观察不判红":instances 不授权任何判死,归档出口零现场。
+test('⑦b抖动夹具:两次 meta 重写 ⇒ 账本行 instances=3;全程零抢占(观察不判红)', async (t) => {
+  const { scratch, dir, archive } = mkFixture(t)
+  const metricsFile = join(scratch, 'git-lock-metrics.jsonl')
+  mkdirSync(dir, { recursive: true })
+  const writeHolderMeta = () =>
+    writeFileSync(
+      join(dir, 'meta.json'),
+      JSON.stringify({ unitId: 'unit-甲', pid: process.pid, ts: Date.now() }),
+      'utf8',
+    )
+  writeHolderMeta()
+  // 注入两次 meta 重写:350ms / 700ms 各一次(都在 300ms 轮询间隙里,每个世代至少被
+  // 一轮观察看到);1500ms 释放锁,等待者随即拿到。观察器只认指纹,不参与任何判读。
+  const rewrite1 = setTimeout(() => {
+    if (existsSync(dir)) writeHolderMeta()
+  }, 350)
+  const rewrite2 = setTimeout(() => {
+    if (existsSync(dir)) writeHolderMeta()
+  }, 700)
+  const releaseTimer = setTimeout(() => rmLockDir(dir), 1500)
+  t.after(() => {
+    for (const x of [rewrite1, rewrite2, releaseTimer]) clearTimeout(x)
+  })
+  const got = await gl.acquire({
+    unitId: 't',
+    timeoutMs: 3000,
+    dir,
+    cleanIndexLocks: false,
+    claimArchiveRoot: archive,
+    metricsFile,
+    log: () => {},
+  })
+  assert.equal(got, true, '等待环必须在持有者释放后拿到锁')
+  const acquired = gl
+    .readMetricsLines(metricsFile)
+    .filter((r) => r.kind === 'wait' && r.outcome === 'acquired')
+  assert.equal(acquired.length, 1, `acquired 的 wait 行恰一条,实得 ${acquired.length}`)
+  assert.equal(
+    acquired[0].instances,
+    3,
+    `首 + 两次重建 ⇒ instances=3,实得 ${JSON.stringify(acquired[0])}`,
+  )
+  assert.ok(acquired[0].polls >= 4, 'instances 须真的来自等待环逐轮观察(polls≥4)')
+  assert.ok(
+    readFileSync(metricsFile, 'utf8').includes('"instances":3'),
+    '账本行须含 instances=3 的字面字段(票面:输出行须含 instances=3)',
+  )
+  assert.equal(leftoverStale(dir), 0, '观察不得附带任何抢占痕迹(.stale-* 不得留在锁旁)')
+  assert.equal(existsSync(archive), false, '全程零抢占:归档出口不得被建出(观察不判红)')
+})
+
+// ⑦c 票面断言(单持有者夹具):meta 全程不动 ⇒ 账本行 instances=1 —— 与 ⑦b 的 3 在
+// 账本上是两个形状,这正是本票要补的观测(同一 P95 下,"抖动"与"长持有"从此可分辨)。
+test('⑦c单持有者夹具:meta 全程不动 ⇒ 账本行 instances=1', async (t) => {
+  const { scratch, dir, archive } = mkFixture(t)
+  const metricsFile = join(scratch, 'git-lock-metrics.jsonl')
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(
+    join(dir, 'meta.json'),
+    JSON.stringify({ unitId: 'unit-乙', pid: process.pid, ts: Date.now() }),
+    'utf8',
+  )
+  const releaseTimer = setTimeout(() => rmLockDir(dir), 1000)
+  t.after(() => clearTimeout(releaseTimer))
+  const got = await gl.acquire({
+    unitId: 't',
+    timeoutMs: 3000,
+    dir,
+    cleanIndexLocks: false,
+    claimArchiveRoot: archive,
+    metricsFile,
+    log: () => {},
+  })
+  assert.equal(got, true, '等待环必须在持有者释放后拿到锁')
+  const acquired = gl
+    .readMetricsLines(metricsFile)
+    .filter((r) => r.kind === 'wait' && r.outcome === 'acquired')
+  assert.equal(acquired.length, 1, `acquired 的 wait 行恰一条,实得 ${acquired.length}`)
+  assert.equal(
+    acquired[0].instances,
+    1,
+    `单持有者不动 ⇒ instances=1,实得 ${JSON.stringify(acquired[0])}`,
+  )
+  assert.equal(existsSync(archive), false, '全程零抢占(观察不判红)')
 })
 
 // ── 工具 ───────────────────────────────────────────────────────────────────
