@@ -1,0 +1,17 @@
+{
+  "$schemaNote": "票 G-1079146 的非提交 sha 台账(check-plan-sha-form.mjs 唯一豁免通道)。逐条必须 token+kind+reason+reviewBy 四字段:缺任一 / reviewBy 非法或过期 / token 在被审面(PROJECT_PLAN.md 的 candidate 形态 token)没命中(清单腐烂)/ token 重复,一律判红。**刻意不给行内豁免**:正文里写 `-exempt:` 标记不构成放行(该族已同笔进守门 108 的 FAMILY_LIFETIME_DAYS,行内标记照样被门体判红)。加条目的前提是逐条核实过『它为什么不是本仓 commit 指针』并写明依据,不得为消红而填。",
+  "entries": [
+    {
+      "token": "29628c9",
+      "kind": "external-revision",
+      "reason": "ZCode 上游 v3.14.3 冻结 revision 的 7 位缩写;全量 40 位在受版本控制的 config/zcode-absorption.json 的 upstream.revision(29628c9acdb81b703bbd4080c207a0e7ce5e276e,逐字前缀核符)。本仓对象库结构上不含上游对象,量算尺的『取不到』对它不构成出处腐烂。",
+      "reviewBy": "2026-11-07"
+    },
+    {
+      "token": "29628c9ac",
+      "kind": "external-revision",
+      "reason": "同上:ZCode 上游冻结 revision 的 9 位缩写(@29628c9ac 形态),全量值在 config/zcode-absorption.json 的 upstream.revision。上游移动时本条随之过期,须重新现量 git ls-remote 后改写。",
+      "reviewBy": "2026-11-07"
+    }
+  ]
+}
