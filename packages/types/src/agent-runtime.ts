@@ -1319,9 +1319,41 @@ export function workspaceAgentTaskStatusLabelKey(status: string): string | null 
  * ⚠️ 同一词不同义:本表**不得**并置进任何 barrel 去顶掉 `AGENT_TASK_STATUSES`
  * (AGENTS §27 那条"同词不同义的两张名单不得并置"的教训就在这儿)。
  */
-export const BACKGROUND_STOP_REASONS = ['user', 'model', 'superseded', 'timed-out', 'unknown'] as const
+export const BACKGROUND_STOP_REASONS = [
+  'user',
+  'model',
+  'superseded',
+  'timed-out',
+  'unknown',
+] as const
 
 export type BackgroundStopReason = (typeof BACKGROUND_STOP_REASONS)[number]
+
+/**
+ * 第五个域(G-815977,2026-10-08):ai-service **回合终态**(done 帧 `stop_reason`)
+ * 的封闭集。Python 侧单一真相源 = `apps/ai-service/app/core/turn_stop_reason.py` 的
+ * `TurnStopReason`(StrEnum);本表是跨语言对齐表(AGENTS §3 共享类型单一源),
+ * 等值由守门 151 的 SV5 判 —— 没有门看守的登记表必然腐烂(§4 教训)。
+ *
+ * 与上面 `BACKGROUND_STOP_REASONS` 是**两条轴**:那边答"谁让后台任务停的",
+ * 这边答"回合以哪一档收口"。`cancelled` / `canceled` 两式刻意同档收编
+ * (V1 消费端对旧客户端的兼容契约),收口不得清零任何一式。
+ */
+export const AGENT_TURN_STOP_REASONS = [
+  'completed',
+  'cancelled',
+  'canceled',
+  'paused',
+  'error',
+  'max_iterations',
+  'budget_exceeded',
+  'budget_limited',
+  'verification_not_achieved',
+  'verification_undetermined',
+  'goal_blocked',
+] as const
+
+export type AgentTurnStopReason = (typeof AGENT_TURN_STOP_REASONS)[number]
 
 /**
  * `resumeStance` 是**文案分支的判据**,不是一段中文的缩写:
@@ -1408,9 +1440,8 @@ export const BACKGROUND_TERMINATION_VOCAB: readonly BackgroundTerminationVocabRo
 ] as const
 
 /** 主键 → 行。按主键建表时顺手生成,不在第二处重列成员。 */
-const BACKGROUND_TERMINATION_ROW_BY_KEY: ReadonlyMap<string, BackgroundTerminationVocabRow> = new Map(
-  BACKGROUND_TERMINATION_VOCAB.map((row) => [row.stopReason as string, row]),
-)
+const BACKGROUND_TERMINATION_ROW_BY_KEY: ReadonlyMap<string, BackgroundTerminationVocabRow> =
+  new Map(BACKGROUND_TERMINATION_VOCAB.map((row) => [row.stopReason as string, row]))
 
 /** 发起方未记录时的兜底行 —— 中性档,**绝不**默认成 `user`。 */
 export const BACKGROUND_TERMINATION_UNKNOWN_ROW: BackgroundTerminationVocabRow =
@@ -1421,13 +1452,18 @@ export const BACKGROUND_TERMINATION_UNKNOWN_ROW: BackgroundTerminationVocabRow =
  * (`resolved:false`),让调用方能把它登记成"未判定"而不是悄悄折成 user/model
  * (AGENTS §5c「按 signal 猜」那一型就是靠这种静默折叠活下来的)。
  */
-export function backgroundTerminationRowOf(
-  stopReason: string | null | undefined,
-): { row: BackgroundTerminationVocabRow; resolved: boolean } {
-  const row = stopReason === null || stopReason === undefined ? undefined : BACKGROUND_TERMINATION_ROW_BY_KEY.get(stopReason)
-  return row ? { row, resolved: true } : { row: BACKGROUND_TERMINATION_UNKNOWN_ROW, resolved: false }
+export function backgroundTerminationRowOf(stopReason: string | null | undefined): {
+  row: BackgroundTerminationVocabRow
+  resolved: boolean
+} {
+  const row =
+    stopReason === null || stopReason === undefined
+      ? undefined
+      : BACKGROUND_TERMINATION_ROW_BY_KEY.get(stopReason)
+  return row
+    ? { row, resolved: true }
+    : { row: BACKGROUND_TERMINATION_UNKNOWN_ROW, resolved: false }
 }
-
 
 /**
  * D152(2026-09-29 立,用户拍板「六态」):会话内「目标(goal)」状态机的封闭集 ——
