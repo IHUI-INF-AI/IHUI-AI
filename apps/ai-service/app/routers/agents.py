@@ -62,9 +62,11 @@ from ..services.agent_run_control import (
 
 # V3 #84 生产者侧(2026-10-07):视野硬上限唯一真源,Field(le=) 直接引它,不抄第二份数字。
 from ..services.durable_resume import DURABLE_HORIZON_MAX_SECONDS
+from ..core.turn_stop_reason import ensure_turn_stop_reason
 from ..services.goal_completion_gate import (
     GoalCriterionSpec,
     GoalCriterionSpecError,
+    STOP_VERIFICATION_UNDETERMINED,
     gate_goal_completion,
     validate_specs,
 )
@@ -1468,7 +1470,7 @@ async def execute_agent_stream(
                         except Exception as exc:  # noqa: BLE001 - 判不了就等于没达成
                             logger.exception("goal 独立校验闸门调用失败(按未判定处理)")
                             frame_success = False
-                            frame_stop_reason = "verification_undetermined"
+                            frame_stop_reason = STOP_VERIFICATION_UNDETERMINED
                             verification_payload = {
                                 "status": "not_run",
                                 "goal_status": "undetermined",
@@ -1491,6 +1493,11 @@ async def execute_agent_stream(
                                 frame_success = False
                                 if decision.stop_reason:
                                     frame_stop_reason = decision.stop_reason
+                    # G-815977 回合终态值域闭合判据:done 帧的 stop_reason 只允许封闭集
+                    # 内的档位(上游 turn-machine.transition() 对非法相位 throw 的同构
+                    # 落点)。今天全部生产者的取值都在集内 ⇒ 逐零差异;未来任何一处直接
+                    # 写裸字面量而不先登记,在此抛错点名,而不是静默放行第 4 份档位。
+                    frame_stop_reason = ensure_turn_stop_reason(frame_stop_reason)
                     # 结果事件(唯一 done,含 success/stop_reason/output)
                     # 2026-09-17 修复:去掉 [:2000] 截断——长回复被静默截断,
                     # 前端拿不到完整 final_response;SSE 行大小由网关层保证。
