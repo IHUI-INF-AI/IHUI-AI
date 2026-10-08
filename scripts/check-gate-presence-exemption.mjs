@@ -521,13 +521,15 @@ function runSelfTest() {
     ok(`阳性对照:修复前的「凭据存在即豁免」被点名(line ${named ? named.line : '—'})`, !!named)
     if (named) console.log(`   ↳ 命中输出行:${named.line}: ${named.text}`)
   }
-  // 反向对照:当前 HEAD 的 csrf.ts —— 注释里的旧写法不计红,验证调用行记 passed,x-goog-api-key 仍是存量命中
+  // 反向对照:当前 HEAD 的 csrf.ts —— 注释里的旧写法不计红,验证调用行记 passed;
+  // x-goog-api-key 那处存量已于 c824c12070(G-1018280/G-373)改为查库验真路径 ⇒ 现读不再是命中,
+  // 反向对照随之翻成"不得再呈存在性豁免命中"(判据的牙由夹具 P1-P20 与历史 blob 阳性对照承担,不靠这一条)。
   const headCsrf = readFace([CSRF_PATH], 'head').get(CSRF_PATH)
   if (typeof headCsrf === 'string') {
     const r = findPresenceExemptions(headCsrf)
     ok('反向对照:HEAD csrf.ts 不得把注释里的 x-internal-service-token 判成命中', !r.hits.some((h) => h.text.includes(PREFIX_NEEDLE)))
     ok('反向对照:HEAD csrf.ts 的 isVerifiedInternalMachineCall 行进 passed(放过)', r.passed.some((p) => p.text.includes(FIXED_NEEDLE)))
-    ok('反向对照:HEAD csrf.ts 的 x-goog-api-key 是如实登记的存量命中(不装作看不见)', r.hits.some((h) => h.text.includes(HEAD_NEEDLE)))
+    ok('反向对照:HEAD csrf.ts 的 x-goog-api-key 已改验真路径(c824c12070),不得再呈存在性豁免命中', !r.hits.some((h) => h.text.includes(HEAD_NEEDLE)))
   } else {
     ok('反向对照:HEAD csrf.ts 取不到 ⇒ 无法取证(判失败,不静默)', false)
   }
@@ -552,9 +554,10 @@ function runSelfTest() {
   ok('暂存档里有射程内文件 ⇒ 绝不回退(回退=把本次改动放过去)', !shouldRetreatToHead({ face: 'staged', hasOnlyFiles: false, stagedInScopeCount: 1 }))
   ok('显式 --files ⇒ 不回退', !shouldRetreatToHead({ face: 'staged', hasOnlyFiles: true, stagedInScopeCount: 0 }))
   ok('全量档 0 候选仍是判死,不是改判成别的面', !shouldRetreatToHead({ face: 'head', hasOnlyFiles: false, stagedInScopeCount: -1 }))
-  // 真仓 HEAD 端到端:看得见存量 + 不因存量判红(恒红防线)
+  // 真仓 HEAD 端到端:存量清零(c824c12070 修掉 5 处真漏洞后现读为 0)+ 不因存量判红(恒红防线);
+  // 存量回潮(新增无标记的存在性豁免)会让这一条变红 —— 端到端 tripwire,牙与夹具同源。
   const head = analyze('head')
-  ok(`真仓 HEAD 阳性对照:判据看得见存量(实得命中 ${head.hits} / 放过 ${head.passed} / 判不出 ${head.undetermined})`, head.hits >= 1)
+  ok(`真仓 HEAD 对照:存量清零、回潮即红(实得命中 ${head.hits} / 放过 ${head.passed} / 判不出 ${head.undetermined})`, head.hits === 0)
   ok('HEAD 全量档不得因存量判红(锚点=该文件自身;当场判红就是恒红门,§12e)', head.exit === 0)
   ok(
     'strict 档语义:有命中即 1、有判不出优先落 2(拒绝出合格证)',
