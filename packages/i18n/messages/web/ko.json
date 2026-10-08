@@ -7115,7 +7115,6 @@
     "kanban": {
       "blocked": "차단됨",
       "cancel": "취소",
-      "cancelled": "취소됨",
       "confirm": "확인",
       "created": "생성됨",
       "delete": "삭제",
@@ -7123,15 +7122,12 @@
       "done": "완료",
       "duration": "소요 시간",
       "empty": "작업이 없습니다",
-      "execution_failed": "실행 실패",
       "in_progress": "진행 중",
       "lockConflict": "워크스페이스 잠금 충돌",
       "lockFree": "유휴",
       "lockStatus": "잠금 상태",
       "locked": "잠김",
-      "preempted": "선점됨",
       "priority": "우선순위",
-      "quota_exceeded": "할당량 초과",
       "ready": "준비됨",
       "reason": "사유",
       "reasonRequired": "사유를 입력해 주세요",
@@ -9106,6 +9102,7 @@
     "expandConversation": "대화 펼치기",
     "headerActions": {
       "panelGroupButtons": "패널 작업 버튼",
+      "workspaceUnavailable": "작업을 시작하면 검토 작업 공간을 열 수 있습니다",
       "enterWorkspaceFullscreen": "작업 공간 전체 화면 표시",
       "exitWorkspaceFullscreen": "작업 공간 전체 화면 종료",
       "createDraftPullRequest": "Draft PR 만들기",
@@ -10600,9 +10597,6 @@
     "expiryDate": "만료 날짜"
   },
   "chat": {
-    "truncation": {
-      "maxLengthNotice": "이 답변은 최대 출력 길이에 도달하여 잘렸으며 내용이 불완전합니다. \"계속\"을 보내면 이어서 생성됩니다."
-    },
     "markdownTable": {
       "copy": "표 복사",
       "downloadCsv": "CSV 다운로드",
@@ -27830,7 +27824,9 @@
     "hintSelect": "선택",
     "hintConfirm": "확인",
     "hintClose": "닫기",
-    "clearAriaLabel": "검색 지우기"
+    "clearAriaLabel": "검색 지우기",
+    "followupDismiss": "추천 닫기",
+    "followupRowLabel": "이렇게 시작해 보세요"
   },
   "statusPage": {
     "incidentsUnavailable": "최근 30일 이벤트 데이터를 일시적으로 가져올 수 없습니다"

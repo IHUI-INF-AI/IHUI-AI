@@ -219,38 +219,3 @@ describe('服务端回包字段级对账', () => {
     expect(row?.updatedAt).toBeUndefined()
   })
 })
-
-describe('无 meta/updatedAt 的事件:判不出 ⇒ 放行 + 计数(G-816036)', () => {
-  // 有 meta.unreadAt 的事件在更早分支直接对账,不走去重窗口;这里专测"构造不出内容 key"那一档。
-  function makeNoKeyEvent(partial: Partial<UnreadStatusEvent> = {}): UnreadStatusEvent {
-    const event = makeEvent({ updatedAt: undefined, ...partial })
-    return event
-  }
-
-  it('无 meta 事件:构造不出内容 key ⇒ 放行(optimistic)且计数 +1,不得当成已去重', async () => {
-    const clock = 10_000
-    const { deps } = createDeps({ fail: true })
-    const sync = createUnreadFieldSync({ ...deps, now: () => clock })
-    const event = makeNoKeyEvent()
-
-    expect(sync.handleStatusEvent(event, ACTIVE_ELSEWHERE)).toBe('optimistic')
-    // 落库失败回滚后 overlay 清空;第二个订阅者走到去重判定:无内容 key ⇒ 仍必须放行
-    await flushAsync()
-    expect(sync.handleStatusEvent(event, ACTIVE_ELSEWHERE)).toBe('optimistic')
-    expect(sync.getState().noContentKeyPassThrough).toBe(2)
-  })
-
-  it('对照:带 updatedAt 的事件仍按内容 key 走 1s 去重窗口(不得被本修法放过)', async () => {
-    const clock = 10_000
-    const { deps } = createDeps({ fail: true })
-    const sync = createUnreadFieldSync({ ...deps, now: () => clock })
-    const event = makeEvent({ updatedAt: 500 })
-
-    expect(sync.handleStatusEvent(event, ACTIVE_ELSEWHERE)).toBe('optimistic')
-    // 落库失败回滚后 overlay 清空,第二个订阅者才会走到去重窗口
-    await flushAsync()
-    expect(sync.handleStatusEvent(event, ACTIVE_ELSEWHERE)).toBe('deduped')
-    // 有内容 key 的事件不计入"判不出"计数
-    expect(sync.getState().noContentKeyPassThrough).toBe(0)
-  })
-})

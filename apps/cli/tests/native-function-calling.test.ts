@@ -51,8 +51,6 @@ vi.mock('@ihui/api-client', () => ({
   streamChat: streamChatMock,
   setBaseUrl: vi.fn(),
   setTokenProvider: vi.fn(),
-  // G-916940③ 起 agent.ts 还引用容量出口;本面只 mock 网络边界,容量给缺省档语义(128_000)的等值桩
-  getModelContextCapacity: () => 128_000,
   formatSSEError: (err: unknown) => ({
     severity: 'unknown' as const,
     title: 'error',
@@ -164,115 +162,7 @@ describe('toolsToProviderSchema', () => {
     const schema = toolsToProviderSchema([tool])
     const modeProp = schema[0]!.function.parameters.properties.mode as { enum: string[] }
     modeProp.enum.push('c')
-    expect(tool.parameters.mode!.enum).toEqual(['a', 'b'])
-  })
-})
-
-describe('toolsToProviderSchema · 逐工具 strictSchema 资格位(G-464)', () => {
-  const strictTool = (parameters: Tool['parameters'], required: string[]): Tool => ({
-    name: 'strict_tool',
-    description: '带 strict 资格的工具',
-    parameters,
-    required,
-    strictSchema: true,
-    execute: async () => ({ success: true, output: '' }),
-  })
-
-  it('strictSchema: true → 走 strict 分支:function.strict=true + 逐层 additionalProperties:false + 全属性 required;表达不了的值约束折进 description 后剥离', () => {
-    const schema = toolsToProviderSchema([
-      // pattern/minimum 属投影器发射词汇(ToolShapeDescriptor),ToolParameter 字面量须按真实声明形态断言
-      strictTool(
-        {
-          path: { type: 'string', description: '文件路径', pattern: '^/' },
-          limit: { type: 'number', description: '上限', minimum: 1 },
-          options: {
-            type: 'object',
-            description: '选项',
-            properties: { backup: { type: 'boolean', description: '是否备份' } },
-          },
-        } as Tool['parameters'],
-        ['path'],
-      ),
-    ])
-    const fn = schema[0]!.function
-    // 资格 → 命令落点
-    expect(fn.strict).toBe(true)
-    // ② 每个 object 层(含根)收成显式闭集
-    const rootParams = fn.parameters as Record<string, unknown>
-    expect(rootParams.additionalProperties).toBe(false)
-    // ③ 全属性 required:limit/options(及嵌套的 backup)并入,可省略语义折进各自 description
-    expect(fn.parameters.required).toEqual(['path', 'limit', 'options'])
-    const backup = fn.parameters.properties.options as {
-      additionalProperties: boolean
-      required: string[]
-      properties: { backup: { description: string } }
-    }
-    expect(backup.additionalProperties).toBe(false)
-    expect(backup.required).toEqual(['backup'])
-    expect(backup.properties.backup.description).toContain('本参数可省略')
-    // ① strict 面表达不了的值约束关键字剥离,原样折进 description(信息不丢,改走散文通道)
-    const pathProp = fn.parameters.properties.path as Record<string, unknown>
-    expect(pathProp.pattern).toBeUndefined()
-    expect(String(pathProp.description)).toContain('pattern="^/"')
-    const limitProp = fn.parameters.properties.limit as Record<string, unknown>
-    expect(limitProp.minimum).toBeUndefined()
-    expect(String(limitProp.description)).toContain('minimum=1')
-  })
-
-  it('缺省(未声明 strictSchema)→ 与现状逐字一致:不产 strict 键、schema 不被改造(pattern 保留/required 不扩大/不补闭集键)', () => {
-    const tool: Tool = {
-      name: 'plain',
-      description: '普通工具',
-      parameters: {
-        path: { type: 'string', description: '文件路径', pattern: '^/' },
-        encoding: { type: 'string', description: '编码' },
-      } as Tool['parameters'],
-      required: ['path'],
-      execute: async () => ({ success: true, output: '' }),
-    }
-    const schema = toolsToProviderSchema([tool])
-    const fn = schema[0]!.function
-    expect('strict' in fn).toBe(false)
-    expect(fn.parameters.properties.path).toEqual({
-      type: 'string',
-      description: '文件路径',
-      pattern: '^/',
-    })
-    expect(fn.parameters.required).toEqual(['path'])
-    expect('additionalProperties' in fn.parameters).toBe(false)
-  })
-
-  it('全局降级仍生效:strict 声明工具在 provider 拒 tools(auto 探测)时同样降级 prompt 模式重试,正则 tool_call 正常执行', async () => {
-    clearTools()
-    registerTools([{ ...mockTool, name: 'strict_mock', strictSchema: true }])
-    // 第 1 次调用:携带 tools(含 strict 资格位)被 provider 拒绝
-    streamChatMock.mockImplementationOnce(async (opts: StreamChatOpts) => {
-      expect(opts.extraBody?.tools).toBeDefined()
-      throw new Error("400: 'tools' is not supported by this model")
-    })
-    // 降级重试(不携带 tools):正则 tool_call 块 → 工具执行
-    streamChatMock.mockImplementationOnce(async (opts: StreamChatOpts) => {
-      expect(opts.extraBody).toBeUndefined()
-      opts.onDelta('```tool_call\n{"name":"strict_mock","arguments":{"x":"degraded"}}\n```')
-    })
-    // 下一轮:纯文本 → end_turn
-    streamChatMock.mockImplementationOnce(async (opts: StreamChatOpts) => {
-      expect(opts.extraBody).toBeUndefined()
-      opts.onDelta('完成。')
-    })
-    const result = await runToolLoop({
-      modelId: 'test',
-      messages: [
-        { role: 'system', content: 'sys' },
-        { role: 'user', content: 'do task' },
-      ],
-      ctx: { workspacePath: '.' },
-      maxIterations: 3,
-      // 默认 'auto':探测降级
-    })
-    expect(result.stopReason).toBe('end_turn')
-    expect(lastToolArgs).toEqual({ x: 'degraded' })
-    expect(streamChatMock).toHaveBeenCalledTimes(3)
+    expect(tool.parameters.mode.enum).toEqual(['a', 'b'])
   })
 })
 

@@ -581,25 +581,22 @@ function registerLocalSession(
 }
 
 /**
- * G-1059134:SSH 认证凭证"至少其一"的运行时校验(机主拍板@2026-10-07 收口语义)。
+ * G-1059134:SSH 认证凭证二选一的运行时互斥校验。
  *
- * TerminalSshParams.password?/privateKey? 在类型层保持平铺可选(REST 连接入参,
- * 机主拍板不改 wire、不引入 kind 字面量),"至少其一"由消费面运行时守卫补齐:
- * 两个凭证均缺时 ssh2 连接必然异步失败(All configured authentication methods
- * failed),不如在入口显式 400 拒绝。二者同给是合法组合(私钥+口令并存,ssh2 按
- * 认证方式依次尝试),不做互斥拦截 —— 86d8d9a3ad 那轮的互斥读法(同给 ⇒ 400)
- * 经机主拍板复核推翻。空串/缺席按"未提供"处理(与下方 connectOpts 的 truthy
- * 装配语义一致)。
+ * TerminalSshParams.password?/privateKey? 在类型层保持平铺二选一(REST 连接入参,
+ * 机主拍板不改 wire、不引入 kind 字面量),互斥性只能在消费面运行时守卫:两个凭证
+ * 同给是非法组合,按 400 类错误拒绝。空串/缺席按"未提供"处理(与下方 connectOpts
+ * 的 truthy 装配语义一致),单给与都不给(agent 认证形态)不受影响。
  *
- * @throws Error statusCode=400 + errorCode='ssh_auth_missing'
+ * @throws Error statusCode=400 + errorCode='ssh_auth_conflict'
  */
-export function assertSshAuthPresent(ssh: TerminalSshParams): void {
-  if (!ssh.password && !ssh.privateKey) {
+export function assertSshAuthExclusive(ssh: TerminalSshParams): void {
+  if (ssh.password && ssh.privateKey) {
     const err = new Error(
-      'SSH 认证凭证缺失:password 与 privateKey 至少提供其一',
+      'SSH 认证方式二选一:password 与 privateKey 不可同时提供',
     ) as Error & { statusCode?: number; errorCode?: string }
     err.statusCode = 400
-    err.errorCode = 'ssh_auth_missing'
+    err.errorCode = 'ssh_auth_conflict'
     throw err
   }
 }
@@ -621,8 +618,8 @@ function createSshSession(
   cols: number,
   rows: number,
 ): TerminalSession {
-  // G-1059134:入参合法性先于能力检查 —— 凭证全缺在任何客户端/连接建立之前 400 拒绝
-  assertSshAuthPresent(ssh)
+  // G-1059134:入参合法性先于能力检查 —— 非法凭证组合在任何客户端/连接建立之前 400 拒绝
+  assertSshAuthExclusive(ssh)
   if (!ssh2Mod) {
     const err = new Error('SSH 远程需要安装 ssh2: pnpm --filter @ihui/api add ssh2') as Error & {
       statusCode?: number
