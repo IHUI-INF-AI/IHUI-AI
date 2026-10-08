@@ -181,7 +181,8 @@ async def test_archive_foreign_is_refused_and_flag_untouched(tmp_path) -> None:
         engine, "thread.archive", {"threadId": alice_tid, "archived": True}, principal="alice"
     )
     assert ok["result"]["updated"] is True
-    assert store.get_thread(alice_tid).archived is True
+    # G-815919:归档后该行退出业务读路径,标记走恢复面专用读(include_archived)
+    assert store.get_thread(alice_tid, include_archived=True).archived is True
 
 
 # ---------------------------------------------------------------------------
