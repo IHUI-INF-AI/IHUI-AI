@@ -21,11 +21,22 @@
  * 退出码:0 = 跑完并给出分解(即便有"真丢");2 = 任一面取不到 / 搬运感知取不到归档件 ⇒ **无法判定**,
  * 绝不把"没判"写成"判过了"。本器刻意**不判红也不拦任何人** —— 裁决 F5 语义属落地闸持有人。
  */
-import { execFileSync } from 'node:child_process'
+// 2026-10-07(G-998191 第四批)git 出口收口:本器两处裸 git 派生(gitShow / gitMergeBase)由
+// `execFileSync('git', …)` 迁到取材层 `scripts/lib/face-reader.mjs` 的 `gitRaw`(与已在用的
+// `resolveRemoteHead` 同层)—— 仓内逐文件迁移的存量债(判据在
+// `scripts/tests/face-reader.test.mjs` 的 `BARE_GIT_BASELINE`,只减不增)。行为面对照:
+//   · 绝对路径 git + `-c safe.directory=*`(旧两处已自带)+ windowsHide + EBUSY 兜底由层给足;
+//     旧的 `cwd: ROOT` 由层的 `-C <ROOT>`(并同值设 cwd)替代,取材基准与本器 ROOT 同源;
+//   · gitShow:maxBuffer 旧 512MB、timeout 旧 120_000 都不同于层默认,逐字显式保留;quotepath
+//     旧已显式 false,层同值;stdio 旧 ignore/pipe/pipe 与层不带 input 的两态逐字相同;
+//   · gitMergeBase:timeout 旧 60_000 与层默认(60s)逐字相同,不另显式传;maxBuffer 旧默认
+//     1MB → 层 64MB(净收益;输出是 40 位 sha,量纲下无观察面);
+//   · 失败语义一字不动:两处 catch 折 null 的兜底照旧 —— 层把 git 首行错误包进 Undetermined 抛出,
+//     catch 不分型仍回 null(面取不到 ⇒ 未判定,与旧行为同)。
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { MERGE_NOTE_RE, DUP_POINTER_RE } from './lib/plan-task-index.mjs'
-import { resolveRemoteHead } from './lib/face-reader.mjs'
+import { gitRaw, resolveRemoteHead } from './lib/face-reader.mjs'
 import { __test__ as U } from './union-converge.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -92,15 +103,7 @@ export function classifyGap({ tBase, tOurs, tTheirs, tMerged, suppress, occPerLi
 
 function gitShow(rev, path) {
   try {
-    return execFileSync('git', ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', 'show', `${rev}:${path}`], {
-      cwd: ROOT,
-      encoding: 'utf8',
-      maxBuffer: 512 * 1048576,
-      timeout: 120000,
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe']
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    })
+    return gitRaw(['show', `${rev}:${path}`], ROOT, { maxBuffer: 512 * 1048576, timeout: 120000 })
   } catch {
     return null
   }
@@ -160,14 +163,7 @@ const count = (t) => {
 
 function gitMergeBase(ours, theirs) {
   try {
-    return execFileSync('git', ['-c', 'safe.directory=*', 'merge-base', ours, theirs], {
-      cwd: ROOT,
-      encoding: 'utf8',
-      timeout: 60000,
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe']
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    }).trim()
+    return gitRaw(['merge-base', ours, theirs], ROOT).trim()
   } catch {
     return null
   }
