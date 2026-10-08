@@ -8053,7 +8053,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - [ ] **G-222 `TOOL_MODE_UNAVAILABLE` 的用户可见指引文案待产品定稿(工程侧按可验证事实落了,不是收口)**:`e41d84257` 给这枚码写的五语动作行是"改用等价的本地工具 / Use an equivalent local tool"等,依据是后端事实(`llm.py:3310` 拦的是 `_DELEGATE_ONLY_TOOLS` 在无 `workspace_context` 时的调用)且**"浏览器工作区"这个词在 web 五语词包里 0 命中** —— 不能替用户发明一个界面上不存在的入口名。但 `llm.py:3350` 那句给用户看的 plan 收尾文本写的是"需浏览器工作区",所以产品若想引导"去网页端 / 绑定工作区",这两条动作行要一起改口径(五语 + 后端文本同一处),属文案决策不属缺陷。
 <!-- 已归档(2026-10-08:✅(2026-10-07) 59. 消息级版本切换 ← 1/3 →(regenerate 改为新增 sibling 而非,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-08_auto-archive.md -->
 - [ ] 60. 真并行多窗格(store 从 `conversationId` 单例改为 `Map<paneId, State>`;独立 SSE/abort;服务端 fork 路由下放)
-- [ ] 71. chat 多端/多标签实时同步(**V2 #23 未交付,本轮重列**;先定 SSE 与 WS 双通道的「同一消息 patch 幂等」契约)（进行中@2026-10-08/W1-C）
+- [ ] 71. chat 多端/多标签实时同步(**V2 #23 未交付,本轮重列**;先定 SSE 与 WS 双通道的「同一消息 patch 幂等」契约)〔半程@2026-10-08:契约先行切片已落地=92ae2d566c(判据内核 packages/types/src/chat-sync-contract.ts + 回归 10 例 RC=0 + 契约正本 docs/chat-sync-contract.md,typecheck/lint 绿,水印已注;(messageId,rev) 幂等主键/duplicate·stale·gap 四态裁定/sse-ws 同键判等/created 重放不覆盖已收 patch);未接通道,exports 未挂,余面=通道接线/resync 传输/terminal 帧/meta 结构位(与票64 sibling 共面)/与 shared sse contract 帧名收敛,见 doc §7;chat.ts 与 shared/sse/contract.ts 登记时点被并发会话持有故零触碰〕
 <!-- 已归档(2026-10-07:✅(2026-10-06) 73. `apps/miniapp-taro` AI 对话页(移植 `packages/ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-07_auto-archive.md -->
 - [ ] 77. Goal-driven 自评估闭环 + My Quests 跨 workspace 全局看板(依赖 51)
 - [ ] 78. Experts 多智能体并行子模式(专家模板产品化 + 同文件写冲突治理:串行化或 worktree 隔离)
