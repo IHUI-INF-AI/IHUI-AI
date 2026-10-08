@@ -18882,7 +18882,22 @@
     "retry": "Retry",
     "submit": "Submit",
     "submitting": "Submitting…",
-    "totalCreditsDelta": "Total +{delta} credits"
+    "totalCreditsDelta": "Total +{delta} credits",
+    "boardEmpty": "No credits data yet. The dashboard appears after the first check-in.",
+    "boardRankingTitle": "Credits Ranking",
+    "boardTab": "Dashboard",
+    "boardTodayGain": "Today +{delta}",
+    "checkinAllProgress": "Checking in {done}/{total}",
+    "colGroup": "Group",
+    "editGroup": "Set group",
+    "editGroupDescription": "Enter a group name to organize and filter accounts. Leave empty to remove from the group.",
+    "editGroupTitle": "Set Group",
+    "filterGroupAll": "All groups",
+    "groupLabel": "Group (optional)",
+    "groupPlaceholder": "e.g. Main / Backup",
+    "groupUpdated": "Group updated",
+    "groupUngrouped": "Ungrouped",
+    "skippedToday": "Skipped {count} account(s) already checked in today"
   },
   "nav": {
     "checkin": "Check-in",
