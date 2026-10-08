@@ -11,7 +11,6 @@
 
 import { eq, desc, sql, type SQL, and } from 'drizzle-orm'
 import { agentRuntimeSessions, type Database } from '@ihui/database'
-import { coerceKnownOr } from '@ihui/types'
 import type { Session, SessionStatus } from '../clawdbot/session-manager.js'
 
 type DbHandle = Database
@@ -44,9 +43,7 @@ function toSession(row: typeof agentRuntimeSessions.$inferSelect): Session {
     id: row.id,
     botId: row.botId,
     userId: row.userId,
-    // G-815963:与 session-manager.toSession 同型收敛 —— 未知/未来值兜到终态 'closed',
-    // 全集内联(守门 R4b 可判形状),禁 as 直转。
-    status: coerceKnownOr(row.status, ['active', 'paused', 'closed'], 'closed'),
+    status: row.status as SessionStatus,
     context: {
       botId: row.botId,
       userId: row.userId,

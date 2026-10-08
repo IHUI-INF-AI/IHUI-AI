@@ -13,6 +13,7 @@ import {
   Share,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
@@ -33,7 +34,7 @@ import * as FileSystem from 'expo-file-system'
 import * as ImagePicker from 'expo-image-picker'
 import * as MediaLibrary from 'expo-media-library'
 import { tokens } from '../theme/active-tokens'
-import { CategoryInlineBar, ProfileScreen as SharedProfileScreen, TextField } from '@ihui/rn-app'
+import { CategoryInlineBar, ProfileScreen as SharedProfileScreen } from '@ihui/rn-app'
 import type { CategoryItem, SharedMenuSection } from '@ihui/rn-app'
 import type { UserInfo } from '@ihui/types'
 import {
@@ -726,7 +727,6 @@ function EditProfileModal({
   onClose,
   onSaved,
 }: EditProfileModalProps): React.JSX.Element {
-  const { resolvedTheme } = useTheme()
   const [nickname, setNickname] = useState(user.nickname ?? user.username ?? '')
   const [avatarHint, setAvatarHint] = useState('')
   const [avatarUpdating, setAvatarUpdating] = useState(false)
@@ -853,8 +853,7 @@ function EditProfileModal({
           {/* 昵称(可编辑) */}
           <View style={styles.editProfileField}>
             <Text style={styles.editProfileLabel}>昵称</Text>
-            <TextField
-              colorScheme={resolvedTheme}
+            <TextInput
               style={styles.editProfileInput}
               value={nickname}
               onChangeText={setNickname}
@@ -867,8 +866,7 @@ function EditProfileModal({
           {/* 邮箱(只读) */}
           <View style={styles.editProfileField}>
             <Text style={styles.editProfileLabel}>邮箱</Text>
-            <TextField
-              colorScheme={resolvedTheme}
+            <TextInput
               style={[styles.editProfileInput, styles.editProfileInputReadOnly]}
               value={user.email ?? '未绑定'}
               editable={false}
@@ -879,8 +877,7 @@ function EditProfileModal({
           {/* 手机号(只读) */}
           <View style={styles.editProfileField}>
             <Text style={styles.editProfileLabel}>手机号</Text>
-            <TextField
-              colorScheme={resolvedTheme}
+            <TextInput
               style={[styles.editProfileInput, styles.editProfileInputReadOnly]}
               value={user.phone ?? '未绑定'}
               editable={false}

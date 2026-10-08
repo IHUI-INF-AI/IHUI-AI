@@ -369,45 +369,23 @@ def load_ttl_records(
     # 先记下校验前的条数,好把"校验丢弃"与"过期/环形丢弃"分别算清 —— 两者都触发回写,
     # 但日志里要能分辨是数据坏了还是数据过期了。
     before = len(raw)
-    # 类型收窄按**实际形态**判,不再用 shape 三目(守门 35 的三条红 :374 union-attr /
-    # :382 两条 arg-type 根因同一个 —— `Mapping | list` 联合从这里到 sweeper 一路没被
-    # 收窄过,mypy 只能看见联合)。这样改与原判据**逐条等价**:上方结构闸(355-366)已保证
-    # shape 与 raw 的形态一一对应 —— ``shape == "mapping"`` 而 raw 不是 Mapping 时早已带
-    # warning 返回空值,``shape`` 为其它值而 raw 不是 list 时同理。走到这里 ⇒
-    # ``isinstance(raw, Mapping)`` ⟺ ``shape == "mapping"``。
-    # 禁止用 ``cast`` / ``Any`` 把联合糊掉:那等于宣布"这处类型检查我不想要了"。
     if validate is not None:
-        if isinstance(raw, Mapping):
-            raw = {k: v for k, v in raw.items() if validate(v)}
-        else:
-            raw = [v for v in raw if validate(v)]
+        raw = (
+            {k: v for k, v in raw.items() if validate(v)}
+            if shape == "mapping"
+            else [v for v in raw if validate(v)]
+        )
     invalid = before - len(raw)
 
-    # 清扫器同样按形态分派(与上面同一条等价性依据)。file_mtime 仍只求值一次:
-    # 两条分支互斥,不会各摸一次磁盘。
-    # 联合在分支**之前**声明:sweep_mapping 回 dict、sweep_sequence 回 list,而两条分支
-    # 对 mypy 是同一次绑定的两个来源 —— 不先写出来,它按第一条分支把 cleaned 钉成 dict,
-    # 第二条分支的 list 就报 assignment(本票修 :374/:382 时新暴露的那一条,不是掩盖:
-    # 这里交代的正是"这一份数据的形态由存档形态决定"的事实)。
-    cleaned: dict[Any, Any] | list[Any]
-    if isinstance(raw, Mapping):
-        cleaned, expired = sweep_mapping(
-            raw,
-            retention_days=retention_days,
-            mtime=file_mtime(path),
-            max_items=max_items,
-            now=now,
-            fields=fields,
-        )
-    else:
-        cleaned, expired = sweep_sequence(
-            raw,
-            retention_days=retention_days,
-            mtime=file_mtime(path),
-            max_items=max_items,
-            now=now,
-            fields=fields,
-        )
+    sweeper = sweep_mapping if shape == "mapping" else sweep_sequence
+    cleaned, expired = sweeper(
+        raw,
+        retention_days=retention_days,
+        mtime=file_mtime(path),
+        max_items=max_items,
+        now=now,
+        fields=fields,
+    )
     if invalid:
         logger.warning("TTL JSON 有 %d 条记录结构不合法已剔除: %s", invalid, path)
 

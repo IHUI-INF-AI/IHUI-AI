@@ -84,29 +84,6 @@
  *   1 = 错误(读写失败 / 被审面读不到正文 / 零损失断言拒绝落地 / 写通道不可用 / 落地回读不符)
  *   2 = 脚本自身异常(main 抛出未捕获错误;与 §22d 的"业务失败 vs 脚本异常"退出码约定一致)
  */
-// 2026-10-08(gitRaw 第五批)git 出口收口:工作树档 --auto-commit 分支的 4 处自拼 git 派生
-// (add -f / diff --cached / restore --staged / commit --no-verify)由 `execFileSync(GIT_BIN,…)`
-// 迁到取材层 scripts/lib/face-reader.mjs 的 `gitRaw` —— 仓内逐文件迁移的存量债(判据在
-// scripts/tests/face-reader.test.mjs 的 BARE_GIT_BASELINE,只减不增)。行为面对照:
-//   · 绝对路径 git + `-c safe.directory=*`(旧 gitQ 自拼,随迁入层)+ `-C <ROOT>`(旧只靠 cwd,
-//     层两者都给)+ windowsHide + EBUSY 兜底 + utf8 由层给足;层另加 core.quotepath=false,
-//     对本支仅有的 ASCII pathspec 无观察差;
-//   · timeout 旧 120s > 层 60s ⇒ 四处全部显式保留;maxBuffer 旧默认 1MB < 层 64MB(净收益:
-//     add/restore 无输出、diff 输出仅两行路径,1MB 从未是真约束);stdio 旧 'ignore' /
-//     ['ignore','pipe','pipe'] → 层两态(不带 input ⇒ ['ignore','pipe','pipe']),失败文本由
-//     "Command failed: …"换源为层 Undetermined 消息(含 git stderr 首行)——各 catch 的折值
-//     (stagedOk=false → 回滚 / catch{} 吞掉 / 外层"自动 commit 失败")一字不动;
-//   · commit 的 `env:{…,IHUI_ARCHIVE_COMMIT:'1'}` 不在层 opts 契约({input,timeout,maxBuffer,
-//     binary})内,直接迁会把防递归标记静默丢掉 ⇒ 等价实现:同步派生窗口内临时置 process.env、
-//     finally 还原 —— execFileSync/gitRaw 都阻塞事件循环,窗口内无并发 JS 可读 env,子进程
-//     继承面与旧快照逐字相同;抛错时 finally 先还原再传播,外层 catch 折值不变;
-//   · **刻意保留两处不迁**:① GIT_BIN 探针(--version):那是二进制解析器,不是仓内取材,
-//     候选表与 IHUI_GIT_BIN 逃生舱是本脚本自有契约;② writeChannelProbe 的 rev-parse:
-//     镜像例 scripts/tests/archive-completed-tasks.test.mjs「回滚分支必须真被执行过」靠
-//     IHUI_GIT_BIN=必败可执行文件驱动"写通道坏了"分支,而 gitRaw 的二进制是层 import 时
-//     解析的绝对路径、不认该 env,迁了探针即断镜像例(同款取舍先例:lib/bypass-git.mjs 头注
-//     "GIT_BIN 取数改走层 gitBinary()" —— env 覆写随迁失效是层收口的已知代价,本文件把
-//     逃生舱留在还没收口的最后一格)。writeChannelProbe 的失败折值 {ok:false,why:<首行>} 形态照旧。
 import { existsSync, mkdirSync, appendFileSync, writeFileSync, readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { execFileSync } from 'node:child_process'
@@ -114,7 +91,7 @@ import { pathToFileURL, fileURLToPath } from 'node:url'
 // 底稿取的是**被审面**(HEAD blob),不是磁盘副本 —— 取正文只有取材层这一条路(守门 118 判的
 // 正是"门脚本绕过这层自己派生 git 读内容");`readWorktreeFile` 只服务于"工作树档"那一支
 // (非 git 夹具 / 显式 --plan-face worktree)与落地后的磁盘对齐前置比较。
-import { catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
+import { catBatch, readWorktreeFile } from './lib/face-reader.mjs'
 // 水印结构行的识别与注入器共用**同一份**实现(scripts/lib/watermark-lines.mjs):
 // 切片会把计划文档自己的尾部隐写行搬进归档正文,而"哪一行属于水印"这句话不许有两个答案。
 import { stripWatermarkStructure } from './lib/watermark-lines.mjs'
@@ -564,8 +541,6 @@ function readWorktreeFileOrNull(root) {
 /** 写通道自检:落任何东西之前,先用**本脚本解析出的 git 二进制**问一次 HEAD。 */
 function writeChannelProbe(root) {
   try {
-    // 2026-10-08(第五批)刻意不走 gitRaw:本点的 IHUI_GIT_BIN 覆写是镜像例的注入点(见文件头
-    // 收口注记②),其余参数(utf8/30s/8MB/stdio 两态)保持原样,一个字都不动。
     const out = execFileSync(
       GIT_BIN,
       ['-c', 'safe.directory=*', '-C', root, 'rev-parse', '--verify', '--quiet', 'HEAD'],
@@ -1615,8 +1590,7 @@ async function main() {
       // 这段代码从没真跑过。**修好匹配式的同一条提交里必须一起修它**,否则"让它能用"就等于"引爆它"。
       const planRel = 'PROJECT_PLAN.md'
       const archiveRel = `.ihui-agent/archive/PROJECT_PLAN_${today}_auto-archive.md`
-      // 2026-10-08(第五批):`-c safe.directory=*` 随迁入层(gitRaw 自带,另加 quotepath=false)
-      // ⇒ gitQ 自拼前缀删;派生层见下面各调用点的 gitRaw。
+      const gitQ = ['-c', 'safe.directory=*'] // §5b:不得依赖环境
       // `-f` + 事务性核验 —— 2026-09-25 实测:归档器**第一次真跑**就死在这里。归档目录被
       // .gitignore 的 `.ihui-agent/` 整目录忽略 ⇒ `git add` 拒绝该路径 ⇒ 自动 commit 失败 ⇒
       // 计划文档的改写以"已 staged 未提交"挂在**共享索引**里(别人一次不带 pathspec 的提交就把它
@@ -1624,13 +1598,26 @@ async function main() {
       // `!.ihui-agent/archive/` 让锚点默认可入库;`-f` 是防"将来又被人加回忽略"的兜底。
       let stagedOk = false
       try {
-        // 第五批迁 gitRaw:-C/windowsHide/EBUSY 兜底由层给足;timeout 120s > 层 60s ⇒ 显式保留;
-        // stdio 旧 'ignore' → 层两态(不带 input ⇒ ['ignore','pipe','pipe']),失败文本换源见文件头注记。
-        gitRaw(['add', '-f', '--', planRel, archiveRel], ROOT, { timeout: 120_000 })
+        execFileSync(GIT_BIN, [...gitQ, 'add', '-f', '--', planRel, archiveRel], {
+          cwd: ROOT,
+          // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+          stdio: 'ignore',
+          windowsHide: true,
+          timeout: 120_000,
+        })
         const staged = new Set(
-          gitRaw(['diff', '--cached', '--name-only', '--', planRel, archiveRel], ROOT, {
-            timeout: 120_000,
-          })
+          execFileSync(
+            GIT_BIN,
+            [...gitQ, 'diff', '--cached', '--name-only', '--', planRel, archiveRel],
+            {
+              // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+              stdio: ['ignore', 'pipe', 'pipe'],
+              cwd: ROOT,
+              encoding: 'utf8',
+              windowsHide: true,
+              timeout: 120_000,
+            },
+          )
             .split('\n')
             .map((s) => s.trim())
             .filter(Boolean),
@@ -1652,8 +1639,13 @@ async function main() {
         // 还原:**绝不留"内容已从计划里搬走、但没有任何版本记住它"的中间态**。
         // 先按 §12d 的形态逐路径撤销暂存,再把工作树写回搬运前的原文(内存里那份 content)。
         try {
-          // 第五批迁 gitRaw(参数账同上);catch{} 的吞错语义一字不动:撤销失败也要继续还原工作树。
-          gitRaw(['restore', '--staged', '--', planRel, archiveRel], ROOT, { timeout: 120_000 })
+          execFileSync(GIT_BIN, [...gitQ, 'restore', '--staged', '--', planRel, archiveRel], {
+            cwd: ROOT,
+            // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+            stdio: 'ignore',
+            windowsHide: true,
+            timeout: 120_000,
+          })
         } catch {
           /* 撤销失败也要继续还原工作树,不在此处再抛 */
         }
@@ -1666,21 +1658,18 @@ async function main() {
         process.exit(1)
       }
       const msg = `chore(auto): 归档 ${toArchive.length} 个已完成任务条目至 .ihui-agent/archive/`
-      // 第五批迁 gitRaw。env 透传不在层 opts 契约({input,timeout,maxBuffer,binary})内,直接迁会把
-      // 防递归标记 IHUI_ARCHIVE_COMMIT 静默丢掉 ⇒ 等价实现(账见文件头收口注记):同步派生窗口内
-      // 临时置 process.env、finally 还原 —— execFileSync/gitRaw 都阻塞事件循环,窗口内无并发 JS 可读
-      // env,子进程继承面与旧 `env:{...process.env, IHUI_ARCHIVE_COMMIT:'1'}` 快照逐字相同;
-      // 抛错时 finally 先还原再传播,外层 catch 的"自动 commit 失败"折值一字不动。
-      const prevArchiveEnv = process.env.IHUI_ARCHIVE_COMMIT
-      process.env.IHUI_ARCHIVE_COMMIT = '1'
-      try {
-        gitRaw(['commit', '--no-verify', '-m', msg, '--', planRel, archiveRel], ROOT, {
+      execFileSync(
+        GIT_BIN,
+        [...gitQ, 'commit', '--no-verify', '-m', msg, '--', planRel, archiveRel],
+        {
+          cwd: ROOT,
+          // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+          stdio: 'ignore',
+          windowsHide: true,
+          env: { ...process.env, IHUI_ARCHIVE_COMMIT: '1' },
           timeout: 120_000,
-        })
-      } finally {
-        if (prevArchiveEnv === undefined) delete process.env.IHUI_ARCHIVE_COMMIT
-        else process.env.IHUI_ARCHIVE_COMMIT = prevArchiveEnv
-      }
+        },
+      )
       console.log(`${C.green}✅ 归档 commit 已创建(IHUI_ARCHIVE_COMMIT=1 防递归)${C.reset}`)
     } catch (e) {
       console.error(`${C.red}❌ 自动 commit 失败: ${e.message}${C.reset}`)

@@ -7115,7 +7115,6 @@
     "kanban": {
       "blocked": "阻塞",
       "cancel": "取消",
-      "cancelled": "已取消",
       "confirm": "确认",
       "created": "已创建",
       "delete": "删除",
@@ -7123,15 +7122,12 @@
       "done": "已完成",
       "duration": "耗时",
       "empty": "暂无任务",
-      "execution_failed": "执行失败",
       "in_progress": "进行中",
       "lockConflict": "工作区锁冲突",
       "lockFree": "空闲",
       "lockStatus": "锁状态",
       "locked": "已锁定",
-      "preempted": "被抢占",
       "priority": "优先级",
-      "quota_exceeded": "配额超限",
       "ready": "就绪",
       "reason": "原因",
       "reasonRequired": "请输入原因",
@@ -9106,6 +9102,7 @@
     "expandConversation": "展开对话",
     "headerActions": {
       "panelGroupButtons": "面板组按钮",
+      "workspaceUnavailable": "开始任务后可打开审阅工作面",
       "enterWorkspaceFullscreen": "全屏显示工作面",
       "exitWorkspaceFullscreen": "退出工作面全屏",
       "createDraftPullRequest": "创建 Draft PR",
@@ -10600,9 +10597,6 @@
     "expiryDate": "到期日期"
   },
   "chat": {
-    "truncation": {
-      "maxLengthNotice": "本条回答在达到最大输出长度时被截断，内容不完整；发送“继续”可接着生成。"
-    },
     "markdownTable": {
       "copy": "复制表格",
       "downloadCsv": "下载 CSV",
@@ -27818,7 +27812,9 @@
     "hintSelect": "选择",
     "hintConfirm": "确认",
     "hintClose": "关闭",
-    "clearAriaLabel": "清空搜索"
+    "clearAriaLabel": "清空搜索",
+    "followupDismiss": "关闭建议",
+    "followupRowLabel": "试试这些"
   },
   "statusPage": {
     "incidentsUnavailable": "最近 30 天的事件数据暂时取不到"
