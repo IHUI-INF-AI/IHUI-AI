@@ -61,9 +61,10 @@ import {
   fetchPhoneHistory,
   fetchRelatedMsgs,
   countRecentRecords,
+  lookupUsedHistory,
   copyText,
 } from './helpers'
-import type { GetPhoneForm, MessageData, PhoneHistoryItem, SendSmsForm } from './types'
+import type { GetPhoneForm, MessageData, PhoneHistoryItem, SendSmsForm, UsedRecord } from './types'
 
 type Phase = 'idle' | 'polling' | 'received' | 'timeout'
 
@@ -108,13 +109,17 @@ export default function SmsReceivePage() {
   const [sending, setSending] = React.useState(false)
 
   // ── 历史记录 ──
-  const [usedItems, setUsedItems] = React.useState<string[]>([])
+  const [usedItems, setUsedItems] = React.useState<UsedRecord[]>([])
   const [usedLoading, setUsedLoading] = React.useState(false)
   const [cooldown, setCooldown] = React.useState(0)
 
   // ── 号码台账(本地 sms_receive_history:这号接过什么码/是否注册过,不受平台 24h/100 条限制) ──
   const [phoneHistory, setPhoneHistory] = React.useState<PhoneHistoryItem[]>([])
   const [historyLoading, setHistoryLoading] = React.useState(false)
+  // ── 平台接码热度(relatedMsgs 全局维度:该号被所有买家收码的次数) ──
+  const [relatedStats, setRelatedStats] = React.useState<{ total: number; recent: number } | null>(
+    null,
+  )
   const refreshPhoneHistory = React.useCallback(async (p: string) => {
     setHistoryLoading(true)
     try {
@@ -123,6 +128,14 @@ export default function SmsReceivePage() {
       toast.error((e as Error).message)
     } finally {
       setHistoryLoading(false)
+    }
+  }, [])
+  const refreshRelatedStats = React.useCallback(async (p: string) => {
+    try {
+      const related = await fetchRelatedMsgs(p)
+      setRelatedStats({ total: related.length, recent: countRecentRecords(related) })
+    } catch {
+      setRelatedStats(null) // 查询失败不显示热度(fail-open)
     }
   }, [])
 
@@ -143,19 +156,40 @@ export default function SmsReceivePage() {
     }
   }, [])
 
-  // 自动筛新号零成本预筛(本地台账 + 平台热度,全部免费):
+  // 自动筛新号零成本预筛(本地台账 + 平台流水 + 全局热度,全部免费):
   // ①本地台账有「登录码」记录 = 确认注册过 → 直接拉黑换下一个(防号池复用二次扣费);
-  // ②平台全局时间线显示近 30 分钟被收码 ≥3 条 = 号池正被高频流转(超热门号),
+  // ②本账号 24h 流水(GET /used,原文未打码)命中该号 = 近期已被本机消费过 → 不是新号,拉黑;
+  // ③平台全局时间线显示近 30 分钟被收码 ≥3 条 = 号池正被高频流转(超热门号),
   //   已被他人注册过目标平台的概率高 → 释放跳过换下一个。
   // 任何查询失败都视为无命中,不阻断流程(fail-open)
   const acquireAutoPhone = React.useCallback(async (): Promise<string> => {
     for (;;) {
       const p = await fetchPhone({ ...autoFormRef.current, phone: '' })
       const hist = await fetchPhoneHistory(p).catch(() => [])
-      if (!hist.some((h) => h.usageKind === 'login')) {
-        const related = await fetchRelatedMsgs(p).catch(() => [])
-        const recent = countRecentRecords(related)
-        if (recent < HOT_MIN_RECORDS) return p
+      const localLogin = hist.some((h) => h.usageKind === 'login')
+      const usedHits = localLogin ? [] : await lookupUsedHistory(p).catch(() => [])
+      const related = localLogin || usedHits.length > 0 ? [] : await fetchRelatedMsgs(p).catch(() => [])
+      const recent = countRecentRecords(related)
+      if (localLogin) {
+        try {
+          await blockPhone(p)
+          setAutoBlocked((n) => n + 1)
+          toast.info(`${p} 本地台账已确认注册过,零成本拉黑换号`)
+        } catch {
+          // 拉黑失败也不阻断换号
+        }
+      } else if (usedHits.length > 0) {
+        try {
+          await blockPhone(p)
+          setAutoBlocked((n) => n + 1)
+          const kinds = [...new Set(usedHits.map((u) => u.usageKind))]
+          toast.info(`${p} 平台 24h 流水显示近期已被本机使用(${kinds.join('/')}),零成本拉黑换号`)
+        } catch {
+          // 拉黑失败也不阻断换号
+        }
+      } else if (recent < HOT_MIN_RECORDS) {
+        return p
+      } else {
         try {
           await releasePhone(p)
           toast.info(
@@ -163,14 +197,6 @@ export default function SmsReceivePage() {
           )
         } catch {
           // 释放失败不阻断换号
-        }
-      } else {
-        try {
-          await blockPhone(p)
-          setAutoBlocked((n) => n + 1)
-          toast.info(`${p} 本地台账已确认注册过,零成本拉黑换号`)
-        } catch {
-          // 拉黑失败也不阻断换号
         }
       }
       autoRoundRef.current += 1
@@ -223,6 +249,7 @@ export default function SmsReceivePage() {
           setPhone(p)
           // 换号后刷新台账卡片:否则仍展示上一轮号码的接码记录(收码前不会自刷)
           void refreshPhoneHistory(p)
+          void refreshRelatedStats(p)
           pendingKey.current = { phone: p, keyWord: f.keyWord.trim() }
           setSms(null)
           deadline.current = Date.now() + POLL_TIMEOUT_MS
@@ -237,7 +264,7 @@ export default function SmsReceivePage() {
         autoAdvancingRef.current = false
       }
     },
-    [refreshPhoneHistory, acquireAutoPhone],
+    [refreshPhoneHistory, refreshRelatedStats, acquireAutoPhone],
   )
 
   // 轮询取码:5s 间隔,3 分钟超时自动停(防忘停空烧计费);收到短信立即停
@@ -335,6 +362,7 @@ export default function SmsReceivePage() {
         autoMode ? `已取号 ${p}(第 ${autoRoundRef.current} 轮),请去平台用它发送验证码` : `已取号 ${p},开始等待短信`,
       )
       void refreshPhoneHistory(p)
+      void refreshRelatedStats(p)
     } catch (e) {
       toast.error((e as Error).message)
     } finally {
@@ -658,9 +686,21 @@ export default function SmsReceivePage() {
                 {cooldown > 0 ? `冷却中 ${cooldown}s` : '查询历史'}
               </Button>
               {usedItems.length > 0 && (
-                <pre className="max-h-48 overflow-auto rounded-md bg-muted p-3 text-xs leading-relaxed">
-                  {usedItems.join('\n')}
-                </pre>
+                <div className="max-h-48 space-y-1 overflow-auto">
+                  {usedItems.map((u, i) => (
+                    <div key={`${u.phone}-${i}`} className="rounded-md bg-muted p-2 text-xs">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono font-semibold">{u.phone}</span>
+                        <span className="text-muted-foreground">扣费 {u.fee}</span>
+                        {u.platform && <span className="font-semibold">【{u.platform}】</span>}
+                        <UsageTag kind={u.usageKind} />
+                      </div>
+                      <p className="mt-1 truncate text-muted-foreground" title={u.text}>
+                        {u.text}
+                      </p>
+                    </div>
+                  ))}
+                </div>
               )}
             </CardContent>
           </Card>
@@ -677,6 +717,23 @@ export default function SmsReceivePage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
+              {phone && relatedStats && (
+                <div className="flex flex-wrap items-center gap-2 rounded-md border p-2 text-sm">
+                  <span className="font-medium">平台接码热度:</span>
+                  {relatedStats.total === 0 ? (
+                    <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-xs text-emerald-600">
+                      未被接码(纯新号强信号)
+                    </span>
+                  ) : (
+                    <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-xs text-amber-600">
+                      被接码 {relatedStats.total} 次(近 30 分钟 {relatedStats.recent} 次)
+                    </span>
+                  )}
+                  <span className="text-xs text-muted-foreground">
+                    全局所有买家的收码记录(免费查询,内容平台打码)
+                  </span>
+                </div>
+              )}
               {!phone ? (
                 <p className="text-sm text-muted-foreground">取号后自动展示该号码的历史接码记录</p>
               ) : phoneHistory.length === 0 ? (

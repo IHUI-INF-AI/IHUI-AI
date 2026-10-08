@@ -31,7 +31,7 @@ import {
   releasePhone,
   blockPhone,
   sendSms,
-  queryUsed,
+  queryUsedDetailed,
   getRelatedMsgs,
   extractPlatform,
   extractVerifyCode,
@@ -219,7 +219,7 @@ const smsReceiveRoutes: FastifyPluginAsync = async (server) => {
     }
     lastQueryUsedAt = now
     try {
-      const items = await queryUsed()
+      const items = await queryUsedDetailed()
       return reply.send(success({ items }))
     } catch (e) {
       const r = toErrorResponse(e)
