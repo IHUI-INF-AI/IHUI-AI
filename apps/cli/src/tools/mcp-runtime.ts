@@ -823,8 +823,11 @@ export async function resolveMcpAuthHeaders(server: McpServer): Promise<Record<s
  * `*_API_KEY`/`*_SECRET`/`*_TOKEN`/`*_PASSWORD`,G-465 已量到 `*_KEY`/`*_SENDKEY`/
  * `*_TOKEN_ID` 一律盖不住 —— 即"**新增任何密钥名默认进入每个第三方子进程**"。
  * 白名单把默认方向反过来:**没被基底点名、也没被该 server 显式声明的键,默认不可达**。
- * 其它通道(交互终端 / hook)刻意**不动**它们的黑名单 —— 白名单化会打断 `aws`/`gcloud`
- * 这类靠 env 工作的第三方 CLI,那属于用户可见回归,不在本票射程。
+ * 其它通道(交互终端 / hook)在票B当时刻意保留黑名单 —— 白名单化会打断 `aws`/`gcloud`
+ * 这类靠 env 工作的第三方 CLI。**G-465 10-08 拍板后格局更新**:deny 表已扩到一切凭据形态
+ * (全通道默认全剥,经共享宽表自动生效),MCP 的"基底白名单 + server.env 单键重注"即本拍板
+ * MCP 侧形态,无需再改;hook 子进程的白名单透传接线(buildFilteredEnv 第二参)随在飞 hook
+ * 重构同落(台账 G-465 半程注记)。
  *
  * 基底取值依据(本机实测 2026-09-28,勿照抄别机):裸 node 运行时在空 env 下也能起
  * (os.homedir()/os.tmpdir() 走 Win32/POSIX API 兜底),但 **stdio MCP server 的实际生态**
