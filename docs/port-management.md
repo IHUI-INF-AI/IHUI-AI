@@ -82,9 +82,10 @@
 
 | 端口 | 服务 | 端 | 配置文件 | strictPort |
 |------|------|------|----------|------------|
+| 8861 | 桌面端「加载本地 web 构建」时窗口指向的本地 devUrl(刻意不用 8801,避免与生产 web 构建互踩) | apps/desktop | `apps/desktop/README.md` §开发态覆盖配方写的 `tauri dev --config .ihui-agent/tmp/desktop-dev-override.json` | ❌(不 bind,由调用方自备本地 web 服务) |
 | 8877 | 桌面遮罩 e2e 的私有 dev server(刻意不用 8801,避免与生产构建互踩) | apps/web | `apps/web/e2e/desktop-window-controls-dim.spec.ts` 头注跑法 `next dev --turbopack -p 8877` | ❌(手动起的临时 dev) |
 
-**为什么是"认领"而不是"豁免"**:这一处是真会 bind 宿主端口的用法(写在 spec 头注的跑法里),按 §3.1 走"填端口 + 服务名 + 配置文件 + 同 commit 更新本文件"才是正解;把它塞进 `EXEMPT_PORTS` 等于给 8877 开一张全仓通行证,以后谁真在 8877 上起服务都不会被拦。8850-8899 其余槽位仍为预留。
+**为什么是"认领"而不是"豁免"**:这两处都是文档里真会指向宿主 88xx 端口的用法(一处在 spec 头注的跑法里,一处在 README 的 dev-override 配方里),按 §3.1 走"填端口 + 服务名 + 配置文件 + 同 commit 更新本文件"才是正解;把它塞进 `EXEMPT_PORTS` 等于给整个段开一张全仓通行证,以后谁真在这些端口上起服务都不会被拦。8850-8899 其余槽位仍为预留。
 
 ---
 
