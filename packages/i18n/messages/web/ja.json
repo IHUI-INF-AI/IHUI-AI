@@ -18872,7 +18872,22 @@
     "retry": "再試行",
     "submit": "送信",
     "submitting": "送信中…",
-    "totalCreditsDelta": "合計 +{delta} ポイント"
+    "totalCreditsDelta": "合計 +{delta} ポイント",
+    "boardEmpty": "データがありません。初回チェックイン後にダッシュボードが生成されます",
+    "boardRankingTitle": "ポイントランキング",
+    "boardTab": "ポイントダッシュボード",
+    "boardTodayGain": "本日の追加 +{delta}",
+    "checkinAllProgress": "チェックイン中 {done}/{total}",
+    "colGroup": "グループ",
+    "editGroup": "グループ設定",
+    "editGroupDescription": "グループ名を入力すると整理や絞り込みができます。空欄でグループから外れます",
+    "editGroupTitle": "グループ設定",
+    "filterGroupAll": "すべてのグループ",
+    "groupLabel": "グループ(任意)",
+    "groupPlaceholder": "例:メイン / 予備",
+    "groupUpdated": "グループを更新しました",
+    "groupUngrouped": "未分類",
+    "skippedToday": "本日チェックイン済みの{count}件をスキップしました"
   },
   "nav": {
     "checkin": "チェックイン",
