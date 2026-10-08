@@ -12,8 +12,21 @@
  * - 浅色优雅风,圆角守门(无 rounded-full);无分割线(gap 间距)
  */
 import { useMemo } from 'react'
-import { ActivityIndicator, FlatList, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, type ImageStyle, type TextStyle, type ViewStyle } from 'react-native'
-import { TextField } from '../../components/TextField'
+import {
+  ActivityIndicator,
+  FlatList,
+  Image,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type ImageStyle,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 import { ChevronRight, Settings } from 'lucide-react-native'
@@ -193,7 +206,7 @@ export function AiAssistantN8nScreen({
 
       {/* 输入区 */}
       <View style={styles.inputWrap}>
-        <TextField colorScheme={colorScheme}
+        <TextInput
           style={styles.input}
           value={searchInput}
           onChangeText={onSearchInputChange}
