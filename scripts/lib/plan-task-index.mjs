@@ -522,6 +522,97 @@ export function findForks(content) {
 }
 
 /**
+ * 史证行的唯一正则:diff 里**新增**的一枚 `- [x] ✅(日期)…` 行(调用方须先剥掉 diff 的 `+` 前缀)。
+ * 这里是唯一一份 —— plan-tasks 的历史遍历拿它判"这行是翻勾行",自测拿它构造史证;
+ * 两处各写一份必然漂开(而有史证这一条是 F10 全部判据的前提,漂开即整维失明)。
+ */
+export const FLIPPED_ROW_RE = /^\s*- \[x\] ✅\(\d{4}-\d{2}-\d{2}\)/
+
+/**
+ * F10「翻勾回写候选」(2026-10-08 立,补守门 130 缺的那个维度)。
+ *
+ * ## 它补的是哪一格
+ * F1(`findForks`)判的是"同一复合主键下 `- [x]` 与 `- [ ]` 并存",前提是**至少有一份已勾幸存**。
+ * 而"翻勾被整块写回旧态"那一型**已勾份数 = 0**,F1 结构上看不见(同日亲历两次:G-814406/407/796
+ * 的 ✅ 被并发回写顶回未勾,靠人肉逐张发现;事后一次性尺子又扫出 8 个同类候选)。
+ *
+ * ## 三条同时成立才成候选(缺一不可)
+ *   ① **有史证**:历史上某枚提交确实**加过**该复合主键的 `- [x] ✅(日期)…` 行
+ *      (`flippedRows` 由调用方遍历 git 历史 diff 取得 —— 本函数**不碰 git**,只吃证据);
+ *   ② 结论面该主键**已勾份数 = 0**(有已勾份就是 F1 的射程,不归本维);
+ *   ③ 该主键在结论面**仍有未勾行**。
+ *
+ * ## 为什么产出是候选而不是结论(分流口径)
+ * "被回写"与"有人复核后有意重开"在**未勾行的文本**上同形。唯一线索是与**首次翻勾行**逐字比措辞:
+ *  - 逐字等值 ⇒ 只是勾选被抹回同一句 ⇒ `verdict='rewrite'`(回写型);
+ *  - 措辞已变(多半带了重开说明)⇒ `verdict='undetermined'`(未判定,交人工)。
+ * **绝不允许据此自动翻勾** —— 自动翻勾 = 替别人否决判断(§16 越权同型)。
+ *
+ * ## 分流必须走**复合主键**(编号 + 标题前缀逐字等值)
+ * 裸编号分组会串味:同编号不同题的并存撞号(如同一号下既有"二进制出口"又有"首页轮播")会让
+ * "按编号数已勾份数"把两个不同议题并成一件事。故本族一律复用 `compositeKeyOf`(它内部已含
+ * `titleOf` 归一),不在此处另抄一份"什么算同一件事"。
+ *
+ * ## 瞬时性纪律
+ * 本判据的候选集是**瞬时**的(post-commit 自愈层会把勾带回来),所以 `content`(结论面)与
+ * `flippedRows`(扫描面)**必须同轮取**:不得先扫一遍历史、再另开一次 git 取结论面,
+ * 否则报出来的候选早已被别人修掉(本仓"消红前先复测"同型)。
+ *
+ * @param content 当次台账面全文(调用方钉住的 HEAD blob)
+ * @param flippedRows 史证数组:`{ raw, sha?, day? }`(raw = 历史上**新增**的 `- [x] ✅…` 行,前导 `+` 已剥)
+ * @returns {{candidates:Array<{key:string,id:string,firstSha:?string,firstDay:?string,openLines:number[],verdict:'rewrite'|'undetermined'}>, sweptKeys:number, unkeyable:number, undetermined:number}}
+ */
+export function findReopenedFlipCandidates(content, flippedRows) {
+  // 同一主键可能被多次翻勾(每次记**首次**,票面口径:"与首次翻勾行逐字比措辞")
+  const evidence = new Map()
+  let unkeyable = 0
+  for (const f of flippedRows ?? []) {
+    const raw = typeof f === 'string' ? f : f?.raw
+    if (typeof raw !== 'string') continue
+    const k = compositeKeyOf(raw)
+    // 史证行**给不出复合主键**(退化题面/无编号)⇒ 分不出它属于哪件事,只能落"无主键史证"计数:
+    // 把它硬塞进某个键就是拿一个会误配的键去做事(与 compositeKeyOf 头注同一条禁令)。
+    if (!k) {
+      unkeyable += 1
+      continue
+    }
+    if (!evidence.has(k)) evidence.set(k, { raw, body: bodyOfRow(raw) ?? '', sha: f?.sha ?? null, day: f?.day ?? null })
+  }
+  const groups = new Map()
+  for (const r of parseTaskRows(content)) {
+    const k = compositeKeyOf(r.raw)
+    if (!k) continue
+    if (!groups.has(k)) groups.set(k, { done: 0, open: [] })
+    const g = groups.get(k)
+    if (r.state === 'done') g.done += 1
+    else g.open.push(r)
+  }
+  const candidates = []
+  for (const [key, ev] of evidence) {
+    const g = groups.get(key)
+    if (!g) continue // 结论面连该主键都没有 ⇒ 连未勾行都没有(整行可能被删)⇒ 不成候选
+    if (g.done !== 0) continue // 仍有已勾份 ⇒ F1 射程,本维不重复判债
+    if (!g.open.length) continue // 没有未勾行 ⇒ 不是"翻勾被顶回未勾"
+    const openBodies = new Set(g.open.map((r) => bodyOfRow(r.raw) ?? ''))
+    candidates.push({
+      key,
+      id: key.split('#')[0],
+      firstSha: ev.sha,
+      firstDay: ev.day,
+      openLines: g.open.map((r) => r.line),
+      verdict: openBodies.has(ev.body) ? 'rewrite' : 'undetermined',
+    })
+  }
+  candidates.sort((x, y) => (x.key < y.key ? -1 : x.key > y.key ? 1 : 0))
+  return {
+    candidates,
+    sweptKeys: evidence.size,
+    unkeyable,
+    undetermined: candidates.filter((c) => c.verdict !== 'rewrite').length,
+  }
+}
+
+/**
  * F4:同一复合主键下 **≥2 条未勾选** —— 同一件事被两批各登记一次,派单会把同一件活派两遍。
  * 这与 F1 是两种病:F1 是"做完了还挂着",F4 是"一件事两个待办"。此前只有 `dupOpenGroups`
  * 一个组数在报告里飘,没有任何判据拿它当账,`claimable` 还把副本各算一条 —— 用户问的
