@@ -108,6 +108,8 @@ export default function SmsReceivePage() {
   // ── 号码台账(本地 sms_receive_history:这号接过什么码/是否注册过,不受平台 24h/100 条限制) ──
   const [phoneHistory, setPhoneHistory] = React.useState<PhoneHistoryItem[]>([])
   const [historyLoading, setHistoryLoading] = React.useState(false)
+  // 本机累计使用次数(台账全量条数,不受最近 20 条截断)
+  const [phoneHistoryTotal, setPhoneHistoryTotal] = React.useState(0)
   // ── 平台接码热度(relatedMsgs 全局维度:该号被所有买家收码的次数) ──
   const [relatedStats, setRelatedStats] = React.useState<{ total: number; recent: number } | null>(
     null,
@@ -115,7 +117,9 @@ export default function SmsReceivePage() {
   const refreshPhoneHistory = React.useCallback(async (p: string) => {
     setHistoryLoading(true)
     try {
-      setPhoneHistory(await fetchPhoneHistory(p))
+      const { items, total } = await fetchPhoneHistory(p)
+      setPhoneHistory(items)
+      setPhoneHistoryTotal(total)
     } catch (e) {
       toast.error((e as Error).message)
     } finally {
@@ -157,7 +161,7 @@ export default function SmsReceivePage() {
   const acquireAutoPhone = React.useCallback(async (): Promise<string> => {
     for (;;) {
       const p = await fetchPhone({ ...autoFormRef.current, phone: '' })
-      const hist = await fetchPhoneHistory(p).catch(() => [])
+      const hist = (await fetchPhoneHistory(p).catch(() => ({ items: [], total: 0 }))).items
       const localLogin = hist.some((h) => h.usageKind === 'login')
       const usedHits = localLogin ? [] : await lookupUsedHistory(p).catch(() => [])
       const related =
@@ -770,20 +774,34 @@ export default function SmsReceivePage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {phone && relatedStats && (
-                <div className="flex flex-wrap items-center gap-2 rounded-md border p-2 text-sm">
-                  <span className="font-medium">平台接码热度:</span>
-                  {relatedStats.total === 0 ? (
-                    <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-xs text-emerald-600">
-                      未被接码(纯新号强信号)
-                    </span>
-                  ) : (
-                    <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-xs text-amber-600">
-                      被接码 {relatedStats.total} 次(近 30 分钟 {relatedStats.recent} 次)
-                    </span>
-                  )}
-                  <span className="text-xs text-muted-foreground">
-                    全局所有买家的收码记录(免费查询,内容平台打码)
-                  </span>
+                <div className="space-y-1.5 rounded-md border p-3">
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-md bg-muted/60 px-1 py-2">
+                      <div
+                        className={`text-lg font-bold leading-tight ${relatedStats.total === 0 ? 'text-emerald-600' : 'text-amber-600'}`}
+                      >
+                        {relatedStats.total === 0 ? '未被接码' : `${relatedStats.total} 次`}
+                      </div>
+                      <div className="text-xs text-muted-foreground">全局被接码(共)</div>
+                    </div>
+                    <div className="rounded-md bg-muted/60 px-1 py-2">
+                      <div className="text-lg font-bold leading-tight text-amber-600">
+                        {relatedStats.recent} 次
+                      </div>
+                      <div className="text-xs text-muted-foreground">近 30 分钟热度</div>
+                    </div>
+                    <div className="rounded-md bg-muted/60 px-1 py-2">
+                      <div className="text-lg font-bold leading-tight text-primary">
+                        {phoneHistoryTotal} 次
+                      </div>
+                      <div className="text-xs text-muted-foreground">本机累计使用</div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {relatedStats.total === 0
+                      ? '全局零记录=纯新号强信号;本机=本地台账全量,从功能上线起累积'
+                      : '全局=平台「号码相关短信」时间线全部记录(所有买家收码,内容打码);本机=本地台账全量'}
+                  </p>
                 </div>
               )}
               {!phone ? (
