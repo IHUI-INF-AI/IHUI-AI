@@ -1257,7 +1257,7 @@ function selfTest() {
   const ptrFix = auditPlan(
     [
       '- [ ]（进行中@2026-09-27/someone） **62 ChatSearchBar 持有行**:带租约的那条。',
-      '- [ ] 副本指针(编号 62)：同主键第二份未勾选副本,只加指针不动勾选;当前状态见带 v3wave3 租约的那条(该条写明 ChatSearchBar 前提被推翻与 use-chat-search 投影现场)。',
+      ptrRow,
       '- [ ] **D96 无关真活票**:不含指针标记。',
     ].join('\n'),
   )
