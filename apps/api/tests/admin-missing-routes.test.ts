@@ -1061,7 +1061,11 @@ describe('admin-missing-routes', () => {
       expect(res.statusCode).toBe(400)
     })
 
-    it('PUT /auth-info body 非法字段返回 400', async () => {
+    // G-739③(2026-10-08):只断状态码时,把 body 校验整段删掉这条也不会红——
+    // uuid 形状闸与 body schema 的 400 在状态码上同形,必须同时钉死错误身份。
+    // 实现侧 error() 信封只有 {code,message},无结构化 errorCode;字段路径内嵌在
+    // zod 的 error.message(JSON 序列化的 issue 数组)里,按其真实结构逐字断言。
+    it('PUT /auth-info body 非法字段返回 400(invalid_type/phone,body 校验产出)', async () => {
       mockAdmin()
       const res = await server.inject({
         method: 'PUT',
@@ -1070,6 +1074,14 @@ describe('admin-missing-routes', () => {
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(400)
+      const body = res.json()
+      expect(body.code).toBe(400)
+      // 夹具 id 是合法 uuid,形状闸(auth-info.ts:78)结构上产不出这条 400
+      expect(body.message).not.toBe('id 格式不正确')
+      const issues = JSON.parse(body.message) as Array<{ code: string; path: string[] }>
+      expect(issues).toHaveLength(1)
+      expect(issues[0].code).toBe('invalid_type')
+      expect(issues[0].path).toEqual(['phone'])
     })
 
     it('POST /auth-vip-level 缺少 levelName 返回 400', async () => {
@@ -1083,7 +1095,7 @@ describe('admin-missing-routes', () => {
       expect(res.statusCode).toBe(400)
     })
 
-    it('PUT /auth-vip-level levelName 空字符串返回 400', async () => {
+    it('PUT /auth-vip-level levelName 空字符串返回 400(too_small/levelName,body 校验产出)', async () => {
       mockAdmin()
       const res = await server.inject({
         method: 'PUT',
@@ -1092,6 +1104,14 @@ describe('admin-missing-routes', () => {
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(400)
+      const body = res.json()
+      expect(body.code).toBe(400)
+      // 夹具 id 是合法 uuid,形状闸(auth-vip-level.ts:72)结构上产不出这条 400
+      expect(body.message).not.toBe('id 格式不正确')
+      const issues = JSON.parse(body.message) as Array<{ code: string; path: string[] }>
+      expect(issues).toHaveLength(1)
+      expect(issues[0].code).toBe('too_small')
+      expect(issues[0].path).toEqual(['levelName'])
     })
 
     it('POST /auth-sms-temp 缺少 code 返回 400', async () => {
