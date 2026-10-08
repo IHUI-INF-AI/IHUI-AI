@@ -158,6 +158,8 @@ export * from './knowledge-card.js'
 export * from './user-automations.js'
 // 浏览历史(2026-10-04 新增,/member/history 页的载体;targetId 是 varchar 因 doc 走 slug)
 export * from './user-browse-history.js'
+// 短信接码历史台账(2026-10-08 新增,管理员短信接码 /admin/sms-receive 收码流水)
+export * from './sms-receive-history.js'
 export * from './agent-event-triggers.js'
 export * from './llm-call-logs.js'
 export * from './wechat-pay-contracts.js'
