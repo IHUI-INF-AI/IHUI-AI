@@ -69,7 +69,7 @@
  *   现由 `isDirectRun` 守卫执行,判定单元经 `export const __test__` 供测试取用。
  */
 import { pathToFileURL } from 'node:url'
-import { batchExecFileSync, catBatch, gitBinary, gitErrText, gitRaw, Undetermined } from './lib/face-reader.mjs'
+import { batchExecFileSync, catBatchOids, gitBinary, gitErrText, gitRaw, Undetermined } from './lib/face-reader.mjs'
 
 /**
  * 判定对象 = **当前工作目录所在的仓库**,不是脚本自己所在的那个仓库。
@@ -188,25 +188,28 @@ function gitText(args, opts = {}) {
 /**
  * 一批 commit oid → `Map<commit, tree oid>`。
  *
- * 原实现把 `<oid>^{tree}` 喂给 `cat-file --batch-check=%(objectname)`;层只暴露内容版的
- * `catBatch`,而 commit 对象的**第一行就是 `tree <oid>`** ⇒ 用同一条批量通道问一次即可,
- * 既不必新增第二处自拼派生,也不必逐对象 `rev-parse`(4500 枚 = 4500 次进程创建)。
- * 批量体量:4.5k 个 commit ≈ 2MB,远在层的 64MB 缓冲之内。
+ * ⚠️ 为什么必须是层的 `catBatchOids`(`<oid>^{tree}` 规格出口)而**不能**用内容版 `catBatch`
+ * (G-1018289② 门内静默失效的根因,2026-10-08 实证):`catBatch` 是 **blob-only 契约** ——
+ * 其头解析正则 `HASH_RE` 只认 `<oid> blob <size>`,commit 对象的头是 `<oid> commit <size>`
+ * 匹配不上 ⇒ 按层"非 blob 一律 null"的语义返回 null。用错出口时**没有任何报错**,
+ * 表现就是"tree 全部取不到 ⇒ 白名单/树等价两段放行静默失效,恒红"。
+ * `catBatchOids` 不做类型过滤(其注释明说专为 `<oid>^{tree}` 这类规格服务),missing 归 null,
+ * 与旧写法 `cat-file --batch-check` 的对齐解析逐字同构。
  *
- * 与旧写法的唯一结论差(如实登记):备份 tag 若指向**非 commit**(tree/blob),旧写法经
- * `^{tree}` 剥出树 oid 计入"已备份树"集合,现在不计 ⇒ 方向是"更难放行",丢失防护只会更严;
- * 而本仓 lost-commit/* 与 backup/* 全部指向 commit,实测两侧结论相同。
- * 旧写法对"对象缺失"那行取首 token(= 输入的 commit oid)当成树 oid 收进集合,本实现跳过 ——
- * 那个 token 永远不可能等于任何真树 oid,两种写法对判定无影响。
+ * 批量体量:4.5k 个 commit ≈ 2MB 的规格清单,远在层的 64MB 缓冲之内;且不必逐对象
+ * `rev-parse`(4500 枚 = 4500 次进程创建)。
+ *
+ * 结论口径(与最老写法对齐):`^{tree}` 对 commit / annotated tag / tree 一律剥出树 oid
+ * 计入;对象缺失(`missing`)归 null 不入 map —— 那个键永远不可能等于任何真树 oid。
  */
 function treesForCommits(oids) {
   const out = new Map()
   const list = [...new Set(oids.filter((h) => /^[0-9a-f]{40}$/.test(String(h) || '')))]
   if (list.length === 0) return out
-  const got = catBatch(ROOT, list)
+  const got = catBatchOids(ROOT, list.map((h) => `${h}^{tree}`))
   for (const h of list) {
-    const m = /^tree ([0-9a-f]{40})/.exec(got.get(h) || '')
-    if (m) out.set(h, m[1])
+    const tree = got.get(`${h}^{tree}`)
+    if (tree) out.set(h, tree)
   }
   return out
 }
@@ -376,6 +379,34 @@ function parseUnreachableCommitLines(stdout) {
     .filter((l) => l.startsWith(UNREACHABLE_COMMIT_PREFIX))
     .map((l) => l.replace(UNREACHABLE_COMMIT_LINE_RE, ''))
     .filter(Boolean)
+}
+
+/**
+ * `git log --all --format=%T%x09%s` 的 stdout → 「树 hash \t subject」键集(**纯函数**,不派生 git)。
+ *
+ * 这是同内容副本白名单(G-1018289②,2026-10-08 立)的取材出口:并发会话 amend/rebase
+ * 重写后,被换下来的旧 commit 以「悬空」形态滞留对象库,而它的**内容**(树 hash 与题)在
+ * 可达历史里有一份逐字同的活体 —— 这类对象被 gc 吃掉不丢任何内容,把它算作"本次提交
+ * 引入的丢失风险"正是台账 G-1018289② 登记的那格:"没有任何判据区分『本次引入的悬空』
+ * 与『并发重写留下的同内容副本』"。判据刻意取**树+题两元同时相等**(而非仅树相等):
+ * 只比树会把"同内容但不同语义"的空提交/样板提交全部放行,只比题又会被 rebase 改题绕过。
+ *
+ * 取不到/解析失败由调用方表达(null ⇒ 白名单整体失效,fail-safe 朝红),这里只管纯解析:
+ * 每行第一段是树 hash,其后至第二个 \t 之间保留(题里再含 \t 时按原样并入 subject),
+ * 缺 \t 的行(空输出首尾、异常行)跳过。
+ */
+function parseTreeSubjectIndex(stdout) {
+  const keys = new Set()
+  for (const line of String(stdout ?? '').split('\n')) {
+    const t1 = line.indexOf('\t')
+    if (t1 <= 0) continue
+    const t2 = line.indexOf('\t', t1 + 1)
+    const tree = line.slice(0, t1)
+    const subject = t2 === -1 ? line.slice(t1 + 1) : line.slice(t2 + 1)
+    if (!tree || !subject) continue
+    keys.add(`${tree}\t${subject}`)
+  }
+  return keys
 }
 
 /**
@@ -970,8 +1001,8 @@ async function main() {
       }
       const hashes = collectBackupCommitHashes(refOut, backedUp)
       try {
-        // 旧写法把 `<oid>^{tree}` 喂 `cat-file --batch-check=%(objectname)`;层没有那条批量
-        // 通道,改由层的 catBatch 读 commit 内容首行的 `tree <oid>`(仍是一次批量派生)。
+        // 旧写法把 `<oid>^{tree}` 喂 `cat-file --batch-check=%(objectname)`;改由层的
+        // catBatchOids 规格出口同答(`treesForCommits` 内,仍是一次批量派生)。
         for (const tree of treesForCommits([...hashes]).values()) backedTrees.add(tree)
       } catch {
         /* 批量失败时安全降级:backedTrees 为空,退回 hash/subject 判定 */
@@ -979,7 +1010,14 @@ async function main() {
     }
     // 性能:批量取 subject(同 filterStashLike 的 --no-walk 分批法),
     // 再对仍未放行者一次批量取 tree,避免逐 commit 派生.
-    const unbacked = (() => {
+    // ③ 同内容副本白名单(G-1018289②,2026-10-08)也在这条链里:经过 ①② 仍未放行的悬空
+    // commit 中,有一型是"并发会话 amend/rebase 重写后滞留的旧对象" —— 它的树与题在
+    // **可达历史**里有一份逐字同的活体,gc 吃掉它不丢任何内容。旧判据把这一型也算
+    // "未备份悬空"压到本次提交头上,是台账 G-1018289② 登记的那格恒红温床。判据 =
+    // `git log --all` 的 (树,题) 键集两元同时相等;索引取不到(log 派生失败/空读数)
+    // ⇒ 白名单整体失效,维持 blocking(fail-safe 朝红,绝不朝绿)。
+    // 白名单放行**不静默**:逐条点名打在 stdout(见下方 whitelistedSameContent 打印)。
+    const { unbacked, whitelistedSameContent, subjectByHash } = (() => {
       const candidates = unreachable.filter((c) => !backedUp.has(c))
       // ① subject 内嵌原 hash 匹配(stash-like 指向已备份 base)
       const BATCH = 50
@@ -1003,23 +1041,61 @@ async function main() {
         if (origHash && backedUp.has(origHash)) continue
         survivors.push(c)
       }
-      if (survivors.length === 0) return survivors
+      const whitelistedSameContent = []
+      if (survivors.length === 0)
+        return { unbacked: survivors, whitelistedSameContent, subjectByHash }
       // ② tree 等价放行(stash WIP/index commit 树与 base 恒等)
       const treeByCommit = new Map()
       try {
         // 旧写法:把 `<oid>^{tree}` 喂 `cat-file --batch-check`(argv 直调,消除 shell 对
-        // %(objectname) 的破坏)。层没有那条批量通道 ⇒ 改由层的 catBatch 读 commit 内容首行
-        // 的 `tree <oid>`,按 commit oid 关联(旧写法按**位置**关联,--batch-check 保序才成立;
-        // 键控版本不依赖保序,更稳)。批量失败时安全降级:无 tree 映射,退回 hash/subject 判定。
+        // %(objectname) 的破坏)。现由层的 catBatchOids 规格出口同答(键控解析不依赖保序,
+        // 见 treesForCommits 注释里的 blob-only 教训)。批量失败时安全降级:无 tree 映射,
+        // 退回 hash/subject 判定。
         for (const [commit, tree] of treesForCommits(survivors)) treeByCommit.set(commit, tree)
       } catch {
         /* 批量失败时安全降级:无 tree 映射,退回 hash/subject 判定 */
       }
-      return survivors.filter((c) => {
+      let rest = survivors.filter((c) => {
         const tree = treeByCommit.get(c)
         return !(tree && backedTrees.has(tree))
       })
+      if (rest.length > 0) {
+        let reachableKeys = null
+        try {
+          const logOut = gitText(['log', '--all', '--format=%T%x09%s'], {
+            allowFail: true,
+            timeout: LOCAL_GIT_TIMEOUT_MS,
+          })
+          // 空读数与失败同判:索引缺位时白名单不生效(fail-safe 朝红)。
+          reachableKeys = logOut ? parseTreeSubjectIndex(logOut) : null
+        } catch {
+          reachableKeys = null
+        }
+        if (reachableKeys && reachableKeys.size > 0) {
+          rest = rest.filter((c) => {
+            const tree = treeByCommit.get(c)
+            const subject = subjectByHash.get(c)
+            if (tree && subject && reachableKeys.has(`${tree}\t${subject}`)) {
+              whitelistedSameContent.push(c)
+              return false
+            }
+            return true
+          })
+        }
+      }
+      return { unbacked: rest, whitelistedSameContent, subjectByHash }
     })()
+    if (whitelistedSameContent.length > 0) {
+      console.log(
+        `  ${C.dim}↳ 同内容副本放行 ${whitelistedSameContent.length} 个(树+题与可达历史逐字同:并发重写留下的旧对象,非丢失风险):${C.reset}`,
+      )
+      for (const c of whitelistedSameContent.slice(0, 10)) {
+        const subj = subjectByHash.get(c) || ''
+        console.log(
+          `  ${C.dim}   ↳ 放行:${C.cyan}${c.slice(0, SHORT_HASH_LEN)}${C.reset} ${C.dim}${subj.slice(0, 80)}${C.reset}`,
+        )
+      }
+    }
     if (unbacked.length > 0) {
       issues.push(
         `${unbacked.length} 个悬空 commit 未 tag 备份(运行 git tag lost-commit/<name> <hash> 备份)`,
@@ -1035,7 +1111,7 @@ async function main() {
       if (unbacked.length > 10)
         console.log(`  ${C.dim}   ↳ …另有 ${unbacked.length - 10} 个未显示${C.reset}`)
       blocking = true
-    } else {
+    } else if (unreachable.length > 0) {
       issues.push(`${unreachable.length} 个悬空 commit 已全部 tag 备份(防止 git gc 清理)`)
     }
   }
@@ -1206,6 +1282,7 @@ export const __test__ = {
   UNREACHABLE_COMMIT_PREFIX,
   UNREACHABLE_COMMIT_LINE_RE,
   parseUnreachableCommitLines,
+  parseTreeSubjectIndex,
   isStashSubject,
   extractOriginalHashFromStash,
   // tag 可达性 / 集合比对读取
