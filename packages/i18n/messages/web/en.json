@@ -9116,7 +9116,6 @@
     "expandConversation": "Expand Conversation",
     "headerActions": {
       "panelGroupButtons": "Panel action buttons",
-      "workspaceUnavailable": "Start a task to open the review workspace",
       "enterWorkspaceFullscreen": "Enter workspace fullscreen",
       "exitWorkspaceFullscreen": "Exit workspace fullscreen",
       "createDraftPullRequest": "Create Draft PR",
@@ -27912,9 +27911,7 @@
     "hintSelect": "select",
     "hintConfirm": "confirm",
     "hintClose": "close",
-    "clearAriaLabel": "Clear search",
-    "followupDismiss": "Dismiss suggestions",
-    "followupRowLabel": "Try these"
+    "clearAriaLabel": "Clear search"
   },
   "statusPage": {
     "incidentsUnavailable": "Incident data for the last 30 days is temporarily unavailable"
