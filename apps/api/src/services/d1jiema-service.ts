@@ -172,6 +172,40 @@ export async function queryUsed(): Promise<string[]> {
     .filter(Boolean)
 }
 
+/** queryUsed 单条记录解析项(平台行格式实测 2026-10-09:号码\t扣费\t短信原文) */
+export interface UsedRecord {
+  phone: string
+  /** 平台扣费金额(原样字符串,如 0.45) */
+  fee: string
+  /** 从短信原文【】提取的平台名(extractPlatform) */
+  platform?: string
+  /** 短信用途分类(classifySmsUsage):register=新号 / login=已注册过 / other */
+  usageKind: 'register' | 'login' | 'other'
+  /** 短信原文(完整,未打码——queryUsed 是本账号自己的流水) */
+  text: string
+}
+
+/** 解析单行「号码\t扣费\t短信原文」;格式不合(空段/缺段)返回 null 跳过 */
+function parseUsedLine(line: string): UsedRecord | null {
+  const idx1 = line.indexOf('\t')
+  if (idx1 <= 0) return null
+  const phone = line.slice(0, idx1)
+  const rest = line.slice(idx1 + 1)
+  const idx2 = rest.indexOf('\t')
+  if (idx2 < 0) return null
+  const fee = rest.slice(0, idx2)
+  const text = rest.slice(idx2 + 1)
+  if (!phone || !fee || !text) return null
+  return { phone, fee, platform: extractPlatform(text), usageKind: classifySmsUsage(text), text }
+}
+
+/** 查询历史并结构化解析(本账号 24h 流水,短信原文未打码 → 可精确判定注册状态) */
+export async function queryUsedDetailed(): Promise<UsedRecord[]> {
+  return (await queryUsed())
+    .map(parseUsedLine)
+    .filter((r): r is UsedRecord => r !== null)
+}
+
 /** 「号码相关短信」全局时间线记录项(内容对非收取者打码,只透出时间与标记) */
 export interface RelatedMsgRecord {
   /** 记录时间(HH:MM,平台时间线原样,无日期) */

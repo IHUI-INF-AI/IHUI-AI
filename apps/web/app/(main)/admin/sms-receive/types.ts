@@ -43,8 +43,17 @@ export interface OkData {
   result?: string
 }
 
+/** 平台历史记录单条(GET /used,本账号 24h 流水;后端已解析「号码\t扣费\t短信原文」) */
+export interface UsedRecord {
+  phone: string
+  fee: string
+  platform?: string
+  usageKind: 'register' | 'login' | 'other'
+  text: string
+}
+
 export interface UsedData {
-  items: string[]
+  items: UsedRecord[]
 }
 
 /** 平台「号码相关短信」全局时间线记录项(GET /related-msgs,内容打码只透出时间+标记) */
