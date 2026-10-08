@@ -33,20 +33,27 @@ const execFileAsync = promisify(execFile)
 const DEFAULT_TIMEOUT_MS = 60_000
 
 /**
- * 解析 powershell.exe 绝对路径。
+ * 解析 PowerShell 引擎绝对路径(pwsh 优先),detect.ts 探测与本文件执行口共用,
+ * 两处不得分叉。
  *
  * Windows 默认 PATH 不含 `System32\WindowsPowerShell\v1.0\`(系统靠 App Paths
  * 注册让 cmd 能敲 `powershell`,但 Node spawn 不走 App Paths)——直接 spawn
  * 'powershell.exe' 会 ENOENT 且子进程无任何输出(表现为 exit 1 空 stderr)。
- * 因此优先按 %SystemRoot% 绝对路径解析,回退 PATH 逐目录探测。
+ * 因此一律按绝对路径逐候选解析。pwsh(PS7)候选在前:WDAC/应用控制策略可能
+ * 拦截 node 派生的 powershell.exe(5.1)而放行 PS7(本仓开发机实证 spawn EPERM;
+ * mcp-credentials.ts 的 DPAPI 引擎链同款结论),powershell.exe 兜底覆盖未装
+ * PS7 的镜像(Start-Process/WaitForExit/taskkill 等封装脚本构造 PS7 全兼容)。
  */
-function resolvePowerShellPath(): string | null {
+export function resolvePowerShellPath(): string | null {
   const systemRoot = process.env.SystemRoot ?? process.env.SYSTEMROOT ?? 'C:\\Windows'
+  const localAppData = process.env.LOCALAPPDATA ?? ''
   const candidates = [
+    'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
+    localAppData === '' ? '' : path.join(localAppData, 'Microsoft', 'WindowsApps', 'pwsh.exe'),
     path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
     path.join(systemRoot, 'Sysnative', 'WindowsPowerShell', 'v1.0', 'powershell.exe'), // 32 位进程访问 64 位 System32 的桥
     'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
-  ]
+  ].filter((c) => c !== '')
   for (const c of candidates) {
     if (existsSync(c)) return c
   }
@@ -135,7 +142,7 @@ export async function runSandboxedWindows(
         signal: null,
         stdout: '',
         stderr:
-          'powershell.exe not found: System32\\WindowsPowerShell\\v1.0 missing from system and PATH',
+          'PowerShell 引擎未找到(pwsh 7 与 System32\\WindowsPowerShell\\v1.0 候选均缺席)',
         timedOut: false,
         truncated: false,
         refused: true,
