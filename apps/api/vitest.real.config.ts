@@ -4,6 +4,10 @@
 
 import { defineConfig } from 'vitest/config'
 
+// 归属与前置(2026-10-07 台账拍板):本配置只服务 *.real.test.ts 真实 DB 集成测试面,
+// 归属 = 机主侧真环境执行。前置:真环境变量(.env.test 指向 ihui_test 真测试库 + 真凭据);
+// 不得在 CI 跑,也从不进日常默认测试面(默认面已在 vitest.config.ts exclude 里排除 *.real.test.ts)。
+// 显式入口:`pnpm --filter @ihui/api run test:real`(根包 test:real 转发到这)。
 export default defineConfig({
   test: {
     // 加载 .env.test(指向 ihui_test 库) + 全局 beforeEach 清理业务表

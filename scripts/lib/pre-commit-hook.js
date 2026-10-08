@@ -185,9 +185,12 @@ auditStagingFiles()
 // ⚠️ 认指纹 ≠ 吞错误:重试耗尽后照样 exit 1(见调用点),只是把"这是 EBUSY 形态、已重试几次、
 //    怎么绕"写成人能直接照做的诊断,而不是让人对着一句 git error 猜。
 const LINT_STAGED_CMD = 'npx lint-staged --max-arg-length 4096 --no-stash'
-// 递增退避 200/600/1500ms:EBUSY 是负载相关的间歇病(本机空载复现率低、并发时升高),
+// 递增退避 250/750/2000/5000ms:EBUSY 是负载相关的间歇病(本机空载复现率低、并发时升高),
 // 给它几拍重试通常第二三次就通了。间隔递增是为了不给本机已经很忙的进程面再加压。
-const LINT_STAGED_EBUSY_BACKOFF_MS = [200, 600, 1500]
+// 2026-10-08 由 [200,600,1500] 加厚到 4 档:当日多 agent 并发提交峰值期实测 5/5 连败 ——
+// 拥塞窗口(残留 git.exe 被杀毒/索引扫描钉锁)寿命长于原 2.3s 总退避,探针在窗口消散后
+// 12/20/1 全绿,故拉长梯尾扛窗口;仍保持同步 Atomics.wait 退避,不再加压进程面。
+const LINT_STAGED_EBUSY_BACKOFF_MS = [250, 750, 2000, 5000]
 // lint-staged 自己的 git 步骤失败指纹(全部出自 node_modules/lint-staged/lib/messages.js
 // 与 gitWorkflow.js,逐字对齐;含 17.3.0 的原文拼写错误 "hude")。
 const LINT_STAGED_GIT_STEP_FINGERPRINTS = [
@@ -261,8 +264,12 @@ function runLintStaged() {
     }
   }
   // 重试耗尽:仍然 exit 1(见调用点)。这里只负责把"为什么"讲清楚。
-  console.error(`❌ lint-staged 失败,提交已阻止(EBUSY 形态,已重试 ${LINT_STAGED_EBUSY_BACKOFF_MS.length} 次仍失败)`)
-  console.error(`   形态:lint-staged 的 git 步骤没跑完 —— git.exe 子进程起不来(errno -4082 EBUSY / status=null)。`)
+  console.error(
+    `❌ lint-staged 失败,提交已阻止(EBUSY 形态,已重试 ${LINT_STAGED_EBUSY_BACKOFF_MS.length} 次仍失败)`,
+  )
+  console.error(
+    `   形态:lint-staged 的 git 步骤没跑完 —— git.exe 子进程起不来(errno -4082 EBUSY / status=null)。`,
+  )
   console.error(
     `   判据:命中 git 步骤失败指纹或 spawn EBUSY 特征,**不是** lint 规则不通过(真 lint 报错不带这些指纹)。`,
   )
@@ -273,10 +280,30 @@ function runLintStaged() {
     `   已做:已给钩子这条 spawn 补 stdio 兜底 + ${LINT_STAGED_EBUSY_BACKOFF_MS.length} 次递增退避重试;仍未通过说明当前是持续句柄争用。`,
   )
   console.error(`   怎么绕(按代价从低到高):`)
-  console.error(`     1) 查并发面:tasklist | findstr /i "git node" —— 杀掉残留的 git/node 进程再 commit;`)
-  console.error(`     2) 原样手工复跑一次(EBUSY 是间歇病,单独跑通常就通):npx lint-staged --max-arg-length 4096 --no-stash`)
-  console.error(`     3) 仍红则先看 lint-staged 自己的 git 步骤是否真有问题(别把这句 git error 当 lint 报错):`)
+  console.error(
+    `     1) 查并发面:tasklist | findstr /i "git node" —— 杀掉残留的 git/node 进程再 commit;`,
+  )
+  console.error(
+    `     2) 原样手工复跑一次(EBUSY 是间歇病,单独跑通常就通):npx lint-staged --max-arg-length 4096 --no-stash`,
+  )
+  console.error(
+    `     3) 仍红则先看 lint-staged 自己的 git 步骤是否真有问题(别把这句 git error 当 lint 报错):`,
+  )
   console.error(`        npx lint-staged --max-arg-length 4096 --no-stash --debug`)
+  // ⚠️ 同款指纹的第二种病(2026-10-08 探针实证,勿再误诊):「Failed to stage changes from tasks」
+  //    也可能是 pathspec/--only 提交形态 —— `git commit -- <路径>` 在钩子运行期间父 git 持有
+  //    .git/index.lock(GIT_INDEX_FILE=next-index-*.lock),而本薄壳 unset 了 GIT_INDEX_FILE ⇒
+  //    lint-staged 的 git add 落在真实索引上必然失败:任务全绿仍死在 staging 步,重试无效
+  //    (与负载无关;探针实测 --only 钩子期 LOCK-HELD / plain 提交 NO-LOCK)。它的错误同样被
+  //    吞进 lint-staged 的 debugLog,只剩指纹文案,于是被上面当成 EBUSY 反复退避。
+  if (last && last.stderrText && last.stderrText.includes('Failed to stage changes from tasks')) {
+    console.error(
+      `   ⚠ 若本次提交带了路径参数(git commit -m ... -- <路径>):这是 --only 持锁病,不是 EBUSY ——`,
+    )
+    console.error(
+      `     改用普通提交(git commit -m ...,不带路径参数;先确认暂存区只剩本笔文件),其余守门照常跑,勿再重试。`,
+    )
+  }
   if (last && last.stderrText) {
     console.error(`   ---- lint-staged stderr 原文 ----`)
     console.error(last.stderrText.trimEnd())

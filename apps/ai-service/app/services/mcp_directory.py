@@ -5,9 +5,12 @@
 """内置 MCP Server 目录(MCP 应用商店种子数据)。
 
 提供官方/社区常用 MCP Server 的预置配置,供前端"MCP 商店"展示与一键注册:
-- 纯数据(零依赖、零网络、零副作用),只读
+- 目录本体纯数据(零网络、零副作用),只读
 - 格式对齐 `MCPClientConfig`(name/transport/command/args/url/env)
 - 注册复用现有 `POST /api/mcp/external/servers`(本模块只提供 `to_client_config` 转换)
+- G-998139:`to_client_config` 转换时对裸名命令(npx)做显式候选序解析
+  (候选序 = PATH 各目录 + POSIX bootstrap 集;找到 ⇒ 绝对路径,全找不到 ⇒
+  大声报错并列出试过候选,不回落裸名 spawn),仅依赖 stdlib 的 exec_env
 
 内置清单(8 个,官方 servers 为主 + 常用社区):
 - filesystem / git / fetch / memory / sequential-thinking / time(官方,stdio)
@@ -17,11 +20,35 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-# 官方 MCP servers 的 npx 入口
+from app.core.exec_env import resolve_stdio_command
+
+# 官方 MCP servers 的 npx 入口(目录数据保持裸名形态;
+# 注册转换时由 to_client_config 经显式候选序解析成绝对路径 —— G-998139)
 _NPX = "npx"
+
+
+class McpDirectoryCommandError(RuntimeError):
+    """目录条目命令解析不到(G-998139 拍板:大声喊 —— 文案必须带完整"试过候选"列表)。"""
+
+
+def resolve_directory_command(command: str, env: Mapping[str, str] | None = None) -> str:
+    """显式候选序解析目录条目命令(候选序 = PATH 各目录 + POSIX bootstrap 集)。
+
+    找到 ⇒ 返回绝对路径(结果+出处成对出口的"结果"侧);全找不到 ⇒ 抛
+    :class:`McpDirectoryCommandError` 列出全部试过候选 —— **绝不**返回空字符串/
+    裸名冒充已解析(§5d/守门 103:候选序解析器必须同时提供出处出口)。
+    """
+    resolution = resolve_stdio_command(command, env)
+    if resolution.resolved is None:
+        raise McpDirectoryCommandError(
+            f"目录条目命令解析不到: {command}(不回落裸名 spawn),"
+            f"试过候选: {', '.join(resolution.tried) or '(无候选)'}"
+        )
+    return resolution.resolved
 
 
 @dataclass
@@ -154,6 +181,7 @@ def to_client_config(
     *,
     env_overrides: dict[str, str] | None = None,
     workspace_path: str = "/path/to/workspace",
+    env: Mapping[str, str] | None = None,
 ) -> dict[str, Any] | None:
     """把目录条目转换为 MCPClientConfig 兼容 dict(供一键注册)。
 
@@ -161,9 +189,16 @@ def to_client_config(
         key: 目录条目 key
         env_overrides: 用户提供的环境变量覆盖(如 DATABASE_URL / PAT)
         workspace_path: filesystem 类 server 的工作目录参数
+        env: 命令解析所用的进程环境(默认取 os.environ);测试注入受控 PATH 用
 
     Returns:
-        MCPClientConfig 兼容 dict;key 不存在返回 None
+        MCPClientConfig 兼容 dict;key 不存在返回 None。
+        command 为显式候选序解析出的绝对路径(G-998139);必需环境变量缺失时
+        原样早退(`_missing_env` 非空,不做解析 —— 缺 env 是更可操作的错误,
+        且保持调用方 400 契约与真机是否装有 npx 解耦)。
+
+    Raises:
+        McpDirectoryCommandError: 裸名命令解析不到(文案带完整"试过候选"列表)。
     """
     entry = get_entry(key)
     if not entry:
@@ -173,16 +208,23 @@ def to_client_config(
         # args 形如 ["-y", "@modelcontextprotocol/server-filesystem", "<默认路径>"],
         # 替换尾部路径参数,保留 -y 前缀
         args = [args[0], args[1], workspace_path] if len(args) >= 2 else args
-    env = dict(entry.env_default)
+    server_env = dict(entry.env_default)
     if env_overrides:
-        env.update({k: v for k, v in env_overrides.items() if v})
-    missing = [v for v in entry.env_required if not env.get(v)]
+        server_env.update({k: v for k, v in env_overrides.items() if v})
+    missing = [v for v in entry.env_required if not server_env.get(v)]
+    if missing or not entry.command:
+        # 缺必需 env(或无命令的 sse 条目):不解析,原样交还由调用方裁决
+        command = entry.command
+    else:
+        # G-998139:裸名命令(npx)走显式候选序解析,找到 ⇒ 绝对路径;
+        # 全找不到 ⇒ 大声报错并列出试过候选,绝不回落裸名 spawn
+        command = resolve_directory_command(entry.command, env)
     return {
         "name": f"mcp:{key}",
         "transport": entry.transport,
-        "command": entry.command,
+        "command": command,
         "args": args,
         "url": entry.url,
-        "env": env,
+        "env": server_env,
         "_missing_env": missing,  # 提示缺哪些必需环境变量(注册方可选拦截)
     }

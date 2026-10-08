@@ -5,6 +5,10 @@
   "cli": {
     "bgNoticeStatus": "작업 {id}  상태: {status}  exitCode: {exitCode}",
     "bgNoticeTimedOut": "[작업 시간 초과]",
+    "bgNoticeStoppedByUser": "[사용자 중지] 사람이 이 작업을 중단시켰습니다. 자동으로 다시 실행되지 않습니다.",
+    "bgNoticeStoppedByModel": "[모델 중지] 모델이 스스로 이 작업을 끝냈습니다. 작업이 아직 끝나지 않았다면 다시 요청하세요.",
+    "bgNoticeStoppedBySuperseded": "[후속 작업에 대체됨] 더 새로운 실행에 밀려 중단되었습니다. 여전히 필요다면 다시 요청하세요.",
+    "bgNoticeStopInitiatorUnknown": "[중지 주체 미기록] 이 작업은 중단되었지만 누가 중단했는 기록되지 않았습니다 — 추정하지 않습니다.",
     "bgNoticeNoObservableSource": "[관찰 가능한 출처 없음] 프로세스가 종료되어 출력도 종료 코드도 남지 않았고 그때 받아 갈 대기자도 없었습니다 — 이 종료 상태의 결과는 되돌릴 수 없습니다. 성공으로 해석하지 마시고 같은 명령을 다시 실행하지 마세요(재실행은 별도의 결정이며 결과를 복구하는 수단이 아닙니다).",
     "custom": {
       "unknown": "커스텀 명령어 /{name} 이 정의되지 않았습니다. {dir} 에 {name}.md 파일을 만들면 추가할 수 있습니다(본문에서 $ARGUMENTS 로 전체 입력을 받고, $1 이나 $2 로 위치 인자를 받습니다). 내장 명령어는 /help 에서 확인해 주세요.",
@@ -119,7 +123,7 @@
       "fsProbeUnavailable": "명령이 출력 없이 {status}(으)로 종료했지만 파일 시스템 상태를 조회할 수 없습니다({why})—— 미판정: \"공간/inode 고갈\"로도, \"아무 일도 일어나지 않은 것\"으로도 간주하지 않습니다.",
       "fsExhaustedSpace": "원인 진단: 명령이 출력 없이 {status}(으)로 종료했지만 {cwd}가 있는 파일 시스템의 여유 공간이 고갈된 것으로 측정되었습니다(bavail×bsize≈{availMB}MB, 10MB 진단 임계값 미만)—— 디스크 공간 부족으로 출력/쓰기가 실패했을 가능성이 높습니다. 디스크 공간을 정리한 뒤 다시 시도하세요.",
       "fsExhaustedInodes": "원인 진단: 명령이 출력 없이 {status}(으)로 종료했지만 {cwd}가 있는 파일 시스템의 inode가 고갈된 것으로 측정되었습니다(ffree={freeInodes}, 1000 진단 임계값 미만)—— 디렉터리 항목이 가득 찼습니다. 작은 파일/디렉터리를 정리하거나 파일 시스템의 inode 할당량을 확인한 뒤 다시 시도하세요.",
-      "envCredentialReport": "자식 프로세스가 자격 증명으로 보이는 형태의 환경 변수를 상속합니다(보고만 하며 차단하지 않음): {vars} — 제거 여부는 별도로 결정해야 합니다. 동일한 목록은 샌드박스 감사 로그(IHUI_SANDBOX_AUDIT_LOG)에 구조화되어 기록됩니다."
+      "envCredentialReport": "자격 증명으로 보이는 형태의 환경 변수를 자식 프로세스 env에서 제거했습니다(기본 전면 제거; 화이트리스트 통과는 MCP server.env / hook 설정 경유): {vars} — 동일한 목록은 샌드박스 감사 로그(IHUI_SANDBOX_AUDIT_LOG)에 구조화되어 기록되며, 서드파티 CLI가 갑자기 자격 증명을 잃었을 때의 직접적인 증거 경로입니다."
     },
     "goalNotAchieved": "독립 검증에 통과하지 못해 이 실행을 완료로 보고할 수 없습니다",
     "truncatedByLength": "출력이 길이 상한에 도달해 잘렸으며 응답은 불완전할 수 있습니다. 나눠서 계속 요청하거나 max_tokens를 높인 뒤 다시 시도하세요.",
