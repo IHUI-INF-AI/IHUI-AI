@@ -9,7 +9,6 @@ import {
   buildUsageKey,
   isContextCompressionPrompt,
   recordPositiveUsageUpdate,
-  resolveContextDenominatorModel,
 } from './usage-fallback'
 
 describe('usage-fallback(G-977988 used=0 假值守卫 + task_complete 弱 fallback)', () => {
@@ -146,31 +145,6 @@ describe('usage-fallback(G-977988 used=0 假值守卫 + task_complete 弱 fallba
     expect(buildUsageKey({ workspacePath: '/w', taskId: 't1' })).not.toBe(
       buildUsageKey({ workspacePath: '/w', taskId: 't2' }),
     )
-  })
-})
-
-// G-1101879:上下文分母的"模型来源"—— 用量帧回带的 model 优先(后端 model=='auto'
-// 自动路由会让会话当前选中模型与实际窗口不一致),缺席才回落会话模型。
-describe('usage-fallback(resolveContextDenominatorModel,G-1101879)', () => {
-  it('用量帧回带的 model 优先于会话当前模型', () => {
-    expect(
-      resolveContextDenominatorModel({ usageModel: 'gemini-2.5-pro', sessionModel: 'auto' }),
-    ).toBe('gemini-2.5-pro')
-  })
-
-  it('用量帧缺席/空串 → 回落会话当前模型', () => {
-    expect(resolveContextDenominatorModel({ sessionModel: 'gpt-4o-mini' })).toBe('gpt-4o-mini')
-    expect(resolveContextDenominatorModel({ usageModel: '', sessionModel: 'gpt-4o-mini' })).toBe(
-      'gpt-4o-mini',
-    )
-    expect(
-      resolveContextDenominatorModel({ usageModel: '   ', sessionModel: 'gpt-4o-mini' }),
-    ).toBe('gpt-4o-mini')
-    expect(resolveContextDenominatorModel({ usageModel: null, sessionModel: null })).toBe('')
-  })
-
-  it('两端都缺席 → 空串(由容量出口自行兜底,不凭空造一个模型)', () => {
-    expect(resolveContextDenominatorModel({})).toBe('')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

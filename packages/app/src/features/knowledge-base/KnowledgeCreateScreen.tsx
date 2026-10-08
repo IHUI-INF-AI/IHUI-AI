@@ -4,8 +4,16 @@
 import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View, type TextStyle, type ViewStyle } from 'react-native'
-import { TextField } from '../../components/TextField'
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native'
 import type { TFunction } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
@@ -74,7 +82,7 @@ export function KnowledgeCreateScreen({
 
       <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
         <Text style={styles.label}>{t('knowledgeCreate.titleLabel')}</Text>
-        <TextField colorScheme={colorScheme}
+        <TextInput
           value={title}
           onChangeText={onTitleChange}
           placeholder={t('knowledgeCreate.titlePlaceholder')}
@@ -83,7 +91,7 @@ export function KnowledgeCreateScreen({
           style={[styles.input, styles.titleInput]}
         />
         <Text style={styles.label}>{t('knowledgeCreate.textLabel')}</Text>
-        <TextField colorScheme={colorScheme}
+        <TextInput
           value={text}
           onChangeText={onTextChange}
           placeholder={t('knowledgeCreate.textPlaceholder')}
