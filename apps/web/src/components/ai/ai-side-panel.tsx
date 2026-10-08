@@ -1728,20 +1728,16 @@ export function AISidePanel() {
                   </IconButton>
                 </Tooltip>
                 {/* D183 一键创建 Draft PR 写动作(仅 docked 显图标钮;与头部其余动作同簇):
-                  与环境信息 popover 的只读 PR 状态互补;创建中转 Loader2,无活动会话时门槛禁用 */}
-                {!floatMode && (
-                  <Tooltip
-                    content={
-                      workspaceUnavailable
-                        ? tc('headerActions.workspaceUnavailable')
-                        : tc('headerActions.createDraftPullRequest')
-                    }
-                  >
+                  与环境信息 popover 的只读 PR 状态互补;创建中转 Loader2。
+                  无活动会话(任务未开始)时整钮不渲染 —— 能用才显示,不留置灰占位;
+                  创建中例外保留(转圈反馈不凭空消失,结果由 toast 兜底) */}
+                {!floatMode && (!workspaceUnavailable || creatingDraftPR) && (
+                  <Tooltip content={tc('headerActions.createDraftPullRequest')}>
                     <IconButton
                       onClick={() => void handleCreateDraftPR()}
-                      disabled={workspaceUnavailable || creatingDraftPR}
+                      disabled={creatingDraftPR}
                       aria-label={tc('headerActions.createDraftPullRequest')}
-                      aria-disabled={workspaceUnavailable || undefined}
+                      aria-disabled={creatingDraftPR || undefined}
                       data-testid="ai-panel-create-draft-pr"
                     >
                       {creatingDraftPR ? <Loader2 className="animate-spin" /> : <GitPullRequest />}
@@ -1749,26 +1745,22 @@ export function AISidePanel() {
                   </Tooltip>
                 )}
                 {/* D182 工作面全屏切换(仅 docked;浮窗本身已是独立小窗,再全屏工作面无意义):
-                  门槛态 = 无活动会话(任务未开始)时 disabled,Tooltip 改示 workspaceUnavailable 文案 */}
-                {!floatMode && (
+                  无活动会话(任务未开始)时整钮不渲染 —— 能用才显示,不留置灰占位 */}
+                {!floatMode && !workspaceUnavailable && (
                   <Tooltip
                     content={
-                      workspaceUnavailable
-                        ? tc('headerActions.workspaceUnavailable')
-                        : workAreaFullscreen
-                          ? tc('headerActions.exitWorkspaceFullscreen')
-                          : tc('headerActions.enterWorkspaceFullscreen')
+                      workAreaFullscreen
+                        ? tc('headerActions.exitWorkspaceFullscreen')
+                        : tc('headerActions.enterWorkspaceFullscreen')
                     }
                   >
                     <IconButton
                       onClick={() => setWorkAreaFullscreen(!workAreaFullscreen)}
-                      disabled={workspaceUnavailable}
                       aria-label={
                         workAreaFullscreen
                           ? tc('headerActions.exitWorkspaceFullscreen')
                           : tc('headerActions.enterWorkspaceFullscreen')
                       }
-                      aria-disabled={workspaceUnavailable || undefined}
                       data-testid="ai-panel-workspace-fullscreen"
                       className={cn(workAreaFullscreen && 'bg-accent text-accent-foreground')}
                     >
