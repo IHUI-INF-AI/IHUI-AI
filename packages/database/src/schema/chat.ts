@@ -113,13 +113,6 @@ export const chatMessages = pgTable(
     // assistant/system 沿用当前轮。null = 存量未回填(第二段处理),
     // turn 分片查询对 NULL 行不可见,不影响既有消息级 keyset 分页。
     turnOrdinal: integer('turn_ordinal'),
-    // 票59(消息级版本切换 1/3,2026-10-07):sibling 版本族存储 —— regenerate 从
-    // 物理删除改"新增 sibling"。parentMessageId = 版本族根(被再生发改的原始 AI 消息)id,
-    // null = 不属于任何版本族(存量行与普通消息);siblingIndex = 族内版本序号,
-    // 0 = 根自身,≥1 = 第 n 个再生版本,null = 同"不属于版本族"。两列皆可空 ⇒
-    // 存量行零回填、既有读写路径零感知;迁移 20261007221500_chat_messages_sibling_versions 同批落库。
-    parentMessageId: uuid('parent_message_id'),
-    siblingIndex: integer('sibling_index'),
   },
   (t) => ({
     // 2026-09-06 P0:按会话取消息/计数为热路径,缺 conversation_id 索引全表扫描

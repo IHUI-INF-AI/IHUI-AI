@@ -88,8 +88,6 @@ export type {
   BudgetEvent,
   // G-815976(2026-10-04 收口入契约):流式中断标记事件(llm_gateway astream 异常中断帧)
   PartialDoneEvent,
-  // G-425(2026-10-07 立,默认档"只提示"):done 帧的 finish/stop reason 透传事件
-  FinishReasonEvent,
   // G-998168 票5(2026-10-05 立):首帧耗时分段归因 —— 挂在首帧数据载荷的顶层可选字段
   // openTiming 上随流回传,**回传不落库(机主拍板⑥)**;端内经 extractOpenTiming 提取。
   StreamOpenTiming,

@@ -89,9 +89,6 @@ export type HookEvent =
   | 'stopFailure'
   | 'postToolUseFailure'
   | 'permissionDenied'
-  // G-916424:PermissionRequest 应答面 —— 确认窗弹出前派发,钩子可产出 deny/allow/ask/
-  // modify 四形状应答(与 permissionDenied 不同:那只是事后通知,本事件是事前裁决输入)。
-  | 'permissionRequest'
   | 'subagentStart'
   | 'subagentStop'
   // P2-4 agent-lifecycle Turn 级事件(4 种):
@@ -117,8 +114,6 @@ export interface HooksConfig {
   stopFailure?: HookEntry[];
   postToolUseFailure?: HookEntry[];
   permissionDenied?: HookEntry[];
-  /** G-916424:确认窗应答钩子(四形状 deny/allow/ask/modify),经 runPermissionRequest 消费。 */
-  permissionRequest?: HookEntry[];
   subagentStart?: HookEntry[];
   subagentStop?: HookEntry[];
   // P2-4 Turn 级事件(4 种,粒度细于 sessionStart/sessionEnd)
@@ -149,24 +144,7 @@ export interface HookResult {
    * 不得执行、也不得据其中的自述改写终态。
    */
   feedback?: string;
-  /**
-   * G-916424:permissionRequest 事件的四形状应答(仅该事件面产出,其余事件恒缺省 ⇒
-   * 旧调用方的返回对象键集不变,G-638 的"无改写通道"形态锁对 pre/postToolCall 依旧成立)。
-   *  - deny  钩子直接拒绝本次调用(输出协议,不是"钩子失败"—— 三态不混流);
-   *  - allow 钩子替人应答确认窗(票意:测试环境自动 allow);
-   *  - ask   钩子要求仍走人工窗;
-   *  - modify 钩子改写输入(modifiedInput),消费方**必须**二次 schema 校验 + 按改后
-   *          内容重判权限(反向锁:改后输入不得沿用改前的权限结论)。
-   */
-  permission?: PermissionHookDecision;
-  /** 胜出应答的钩子名(错误上下文与披露面用)。 */
-  permissionSource?: string;
-  /** modify 形状的改后输入;解析面已保证它是普通对象。 */
-  modifiedInput?: Record<string, unknown>;
 }
-
-/** PermissionRequest 钩子的应答形状(上游 tool/executor hook-flow 的四形状,值域照抄)。 */
-export type PermissionHookDecision = 'deny' | 'allow' | 'ask' | 'modify';
 
 // ============================================================================
 // 终态层(一处实现 —— 2026-09-29 拆终态票)
@@ -466,7 +444,6 @@ const HOOK_EVENT_KEYS: Array<keyof HooksConfig> = [
   'preToolCall', 'postToolCall', 'sessionStart', 'sessionEnd',
   'userPromptSubmit', 'preCompact', 'postCompact', 'notification',
   'stop', 'stopFailure', 'postToolUseFailure', 'permissionDenied',
-  'permissionRequest',
   'subagentStart', 'subagentStop',
   // P2-4 Turn 级事件
   'turnStart', 'turnEnd', 'turnError', 'turnComplete',
@@ -1197,143 +1174,6 @@ export function runPreToolCall(toolName: string, input: unknown, signal?: AbortS
     if (signal?.aborted) break;
   }
   return { proceed: true, terminal: worst, feedback: joinHookFeedback(feedbackLines) };
-}
-
-// ============================================================================
-// PermissionRequest 应答面(G-916424):确认窗弹出前钩子可产出 deny/allow/ask/modify。
-// ============================================================================
-
-/**
- * 四形状应答的合并严重度。上游只钉了 deny>ask>allow(output.ts:145-152);
- * modify 插在 ask 与 allow 之间:它要过"改后重判"(可能仍回人工窗),比
- * "无条件放行"保守、比"交给人"激进 —— 多钩子分歧时取最保守者。
- */
-const PERMISSION_DECISION_SEVERITY: Readonly<Record<PermissionHookDecision, number>> = {
-  deny: 4,
-  ask: 3,
-  modify: 2,
-  allow: 1,
-};
-
-/** 应答解析产出:ok=识别到合法应答;error=残缺应答的原因(按"无应答"处理前先喊出来)。 */
-type ParsedPermissionAnswer =
-  | { ok: true; decision: PermissionHookDecision; reason?: string; modifiedInput?: Record<string, unknown> }
-  | { ok: false; error?: string };
-
-/**
- * 应答协议的**唯一**解析出口:钩子 stdout = JSON,形如
- *   {"decision":"deny"} / {"decision":"allow"} / {"decision":"ask"}
- *   {"decision":"modify","modifiedInput":{...}}
- * deny 是输出协议(与上游 hooks/output.ts 同名能力对齐),不是退出码语义:
- * 非零退出/超时/没跑到**永远**不产生应答(三态不混流 —— 失败折成 deny 会把
- * "钩子坏了"变成"钩子说不",折成 allow 则更糟)。
- */
-function parsePermissionAnswer(stdout: string): ParsedPermissionAnswer {
-  const parsed = tryParseJson(stdout);
-  if (!isRecord(parsed)) {
-    return { ok: false, error: 'stdout 不是 JSON 对象,permissionRequest 应答不可解析,按无应答处理' };
-  }
-  const decision = parsed.decision;
-  if (decision !== 'deny' && decision !== 'allow' && decision !== 'ask' && decision !== 'modify') {
-    return { ok: false, error: 'decision 不在 deny/allow/ask/modify 闭集内,按无应答处理' };
-  }
-  if (decision === 'modify') {
-    const modified = parsed.modifiedInput;
-    if (!isRecord(modified)) {
-      // 残缺的 modify 不能猜成 allow/deny:改写意图无处承载,按无应答处理并留痕。
-      return { ok: false, error: 'decision=modify 但 modifiedInput 不是对象,按无应答处理' };
-    }
-    return { ok: true, decision, ...(typeof parsed.reason === 'string' ? { reason: parsed.reason } : {}), modifiedInput: modified };
-  }
-  return { ok: true, decision, ...(typeof parsed.reason === 'string' ? { reason: parsed.reason } : {}) };
-}
-
-/**
- * 确认窗的钩子应答出口(G-916424):派发 permissionRequest 事件,解析四形状应答,
- * 多钩子分歧按 PERMISSION_DECISION_SEVERITY 取最保守者。
- *
- * 与 runPreToolCall 的关键差异:
- *  - blockOnError **默认 false**(失败/超时只进 terminal/feedback 遥测,不阻断主流程,
- *    也不产生任何应答 —— 调用方落回人工窗;三态不混流);
- *  - 应答只从**成功退出**(state=succeeded)的 stdout JSON 解析;其余一律不产生应答。
- */
-export interface RunPermissionRequestOptions {
-  signal?: AbortSignal;
-}
-
-export function runPermissionRequest(
-  toolName: string,
-  input: unknown,
-  options?: RunPermissionRequestOptions,
-): HookResult {
-  const signal = options?.signal;
-  try {
-    const config = loadHooks();
-    const hooks = config.permissionRequest ?? [];
-    const env = buildHookEnv('permissionRequest', { toolName, toolArgs: input });
-    const feedbackLines: string[] = [];
-    let worst: HookTerminalState = 'succeeded';
-    let best:
-      | { decision: PermissionHookDecision; reason?: string; modifiedInput?: Record<string, unknown>; source: string }
-      | undefined;
-    for (const entry of hooks) {
-      if (!matchesTool(entry, toolName)) continue;
-      const blockOnError = entry.blockOnError ?? false;
-      const { result: r, state } = dispatchHookEntry('permissionRequest', entry, env, blockOnError, signal);
-      if (state !== 'succeeded') {
-        worst = worseTerminal(worst, state);
-        feedbackLines.push(feedbackForEntry('permissionRequest', entry, state, r));
-      }
-      if (blockOnError && r.exitCode !== 0) {
-        return {
-          proceed: false,
-          terminal: state,
-          reason: hookBlockReason(`permissionRequest 钩子 "${entry.name}" 阻断`, r),
-          feedback: joinHookFeedback(feedbackLines),
-        };
-      }
-      if (state === 'succeeded' && r.exitCode === 0 && r.stdout !== '') {
-        const parsed = parsePermissionAnswer(r.stdout);
-        if (parsed.ok) {
-          if (!best || PERMISSION_DECISION_SEVERITY[parsed.decision] > PERMISSION_DECISION_SEVERITY[best.decision]) {
-            best = {
-              decision: parsed.decision,
-              // 钩子文本进错误/模型上下文前过唯一成形出口(脱敏→中和→截断),与阻断 reason 同规。
-              ...(parsed.reason !== undefined ? { reason: redactThenClip(parsed.reason) } : {}),
-              ...(parsed.modifiedInput !== undefined ? { modifiedInput: parsed.modifiedInput } : {}),
-              source: entry.name,
-            };
-          }
-        } else if (parsed.error) {
-          // 残缺应答不静默丢弃(§30 精神):喊在 feedback 上,但不折叠成任何形状的应答。
-          feedbackLines.push(
-            buildHookFeedback({ event: 'permissionRequest', hookName: entry.name, state: 'succeeded', note: parsed.error }),
-          );
-        }
-      }
-      if (signal?.aborted) break;
-    }
-    return {
-      proceed: true,
-      terminal: worst,
-      feedback: joinHookFeedback(feedbackLines),
-      ...(best
-        ? {
-            permission: best.decision,
-            permissionSource: best.source,
-            ...(best.reason !== undefined ? { reason: best.reason } : {}),
-            ...(best.modifiedInput !== undefined ? { modifiedInput: best.modifiedInput } : {}),
-          }
-        : {}),
-    };
-  } catch (err) {
-    // 与 runHook 同一收口姿势:proceed 语义不因执行链故障多拦一次,但终态必须落
-    // result_unknown 并被喊出来 —— 无应答 ⇒ 调用方落回人工窗,绝不折成 deny/allow。
-    const note = err instanceof Error ? err.message : String(err);
-    const fb = buildHookFeedback({ event: 'permissionRequest', state: 'result_unknown', note });
-    warnOnce(`⚠ runPermissionRequest 在执行链中断,未取到最终结果(${describeHookTerminal('result_unknown')}):${fb}`);
-    return { proceed: true, terminal: 'result_unknown', feedback: fb };
-  }
 }
 
 export function runPostToolCall(toolName: string, output: unknown, signal?: AbortSignal): HookResult {
