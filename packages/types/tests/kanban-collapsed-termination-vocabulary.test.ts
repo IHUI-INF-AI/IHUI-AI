@@ -25,7 +25,14 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
-import { COLLAPSED_TERMINATIONS, TERMINATION_LABEL_KEYS, terminationOf } from '../src/agent-runtime'
+import {
+  AGENT_TASK_STATUSES,
+  ALLOWED_TRANSITIONS,
+  COLLAPSED_TERMINATIONS,
+  LEGACY_STATUS_MAP,
+  TERMINATION_LABEL_KEYS,
+  terminationOf,
+} from '../src/agent-runtime'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..', '..', '..')
@@ -149,6 +156,37 @@ describe('反向锁:三道判据都必须对"缺一条/撞一条"有牙(构造�
     const table: Record<string, string> = Object.fromEntries(termEntries)
     for (const lang of LANGS) {
       expect(unresolvedKeys(table, readLocale(lang))).toEqual([])
+    }
+  })
+})
+
+describe('G-462 拆档(2026-10-07 拍板):塌缩出口退役后的映射矩阵', () => {
+  it('LEGACY_STATUS_MAP:四遗留终态各自映射独立新档,不再同落 blocked', () => {
+    expect(LEGACY_STATUS_MAP.failed).toBe('execution_failed')
+    expect(LEGACY_STATUS_MAP.cancelled).toBe('cancelled')
+    expect(LEGACY_STATUS_MAP.quota_exceeded).toBe('quota_exceeded')
+    expect(LEGACY_STATUS_MAP.preempted).toBe('preempted')
+    // blocked 纯化:映射值集里不得再出现 blocked —— 若有人把四档改回同落 blocked,本行判红
+    expect(Object.values(LEGACY_STATUS_MAP)).not.toContain('blocked')
+  })
+
+  it('四新终态出边为空(终态无流转;done 同为终态)', () => {
+    for (const st of [
+      'cancelled',
+      'execution_failed',
+      'quota_exceeded',
+      'preempted',
+      'done',
+    ] as const) {
+      expect(ALLOWED_TRANSITIONS[st]).toEqual([])
+    }
+  })
+
+  it('映射矩阵封闭:值的都是枚举成员,同名归一键才允许键值同串', () => {
+    const statuses = new Set<string>(AGENT_TASK_STATUSES)
+    for (const [legacy, modern] of Object.entries(LEGACY_STATUS_MAP)) {
+      expect(statuses.has(modern), `${legacy} → ${modern} 必须是枚举成员`).toBe(true)
+      expect(statuses.has(legacy)).toBe(modern === legacy)
     }
   })
 })

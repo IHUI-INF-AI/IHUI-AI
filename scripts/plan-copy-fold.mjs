@@ -25,10 +25,24 @@
  * 四条硬自证见 audit():行数不变 / 只动未勾且无租约的行 / 新行以 `- [x] ✅(日) `+原正文逐字开头 /
  * 未勾选必下降且逐字重复多重集不上升。任一不成立 ⇒ 抛错退出,不落盘。
  */
-import { execFileSync } from 'node:child_process'
+// 2026-10-07(G-998191 第四批)git 出口收口:本器两处裸 git 派生(`git()` helper 喂
+// `show HEAD:PROJECT_PLAN.md`,与 `--apply` 档的 `hash-object -w --stdin`)由
+// `execFileSync('git', …)` 迁到取材层 `scripts/lib/face-reader.mjs` 的 `gitRaw`
+// —— 仓内逐文件迁移的存量债(判据在 `scripts/tests/face-reader.test.mjs` 的
+// `BARE_GIT_BASELINE`,只减不增)。行为面对照:
+//   · 绝对路径 git + `-c safe.directory=*` + `-C <ROOT>`(旧自拼)+ windowsHide + EBUSY 兜底由层给足;
+//   · stdio:层在不带 input 时写死 `['ignore','pipe','pipe']`(face-reader.mjs:94);旧 helper 显式传
+//     的是三管道档,但其调用点(`git show`)不读 stdin ⇒ 两态无可观察差异;
+//   · maxBuffer 旧 `1 << 28`(256MB)> 层默认(64MB),显式保留;timeout 旧无上界 → 层 60s(净收益);
+//   · `--apply` 的 hash-object:层在带 input 时强制 `['pipe','pipe','pipe']` 并把 stdin 真正送达
+//     (face-reader.mjs:94 两态规则)。旧调用显式写 `stdio[0]='ignore'` 与 `input` 并存,实测 Node
+//     会**静默丢弃 input**(2026-10-07 实测:同段输入旧形态回空 blob sha e69de29,管道形态回内容
+//     sha)—— 层的两态正是本仓 `cat-file --batch` 族老陷阱的根治形态,落地清单里的 blob 从此是
+//     折叠后台账的真实哈希(层定形态;DRY 档不经过这一支,输出面无涉)。
 import { writeFileSync } from 'node:fs'
 import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { gitRaw } from './lib/face-reader.mjs'
 import { compositeKeyOf, parseTaskRows } from './lib/plan-task-index.mjs'
 
 /**
@@ -41,13 +55,7 @@ const ROOT = TEST_ROOT ? resolve(TEST_ROOT) : resolve(dirname(fileURLToPath(impo
 const TICK = String.fromCodePoint(0x2705)
 const SELF_DECL = /〔[^〕]*(重复登记副本|派单以那条为准|本行不再单独派单)[^〕]*〕/
 const CLAIM = /（进行中/
-const git = (a) =>
-  execFileSync('git', ['-c', 'safe.directory=*', '-C', ROOT, ...a], {
-    maxBuffer: 1 << 28,
-    windowsHide: true,
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    stdio: ['pipe', 'pipe', 'pipe'],
-  }).toString()
+const git = (a) => gitRaw(a, ROOT, { maxBuffer: 1 << 28 })
 
 const argv = process.argv.slice(2)
 const flag = (n, d) => {
@@ -162,18 +170,9 @@ if (!APPLY) {
   process.exit(0)
 }
 if (APPLY) {
-  const blob = execFileSync(
-    'git',
-    ['-c', 'safe.directory=*', '-C', ROOT, 'hash-object', '-w', '--stdin'],
-    {
-      input: next,
-      maxBuffer: 1 << 26,
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    },
-  )
-    .toString()
-    .trim()
+  // 层按 opts.input 有无定 stdio 两态:带 input ⇒ ['pipe','pipe','pipe'] 且 stdin 真正送达(见文件头注)。
+  // maxBuffer 旧 `1 << 26` 与层默认(64MB)逐字相同,等价省略;timeout 旧无上界 → 层 60s(净收益)。
+  const blob = gitRaw(['hash-object', '-w', '--stdin'], ROOT, { input: next }).trim()
   const manifest = join(ROOT, '.ihui-agent/tmp/plan-copy-fold.blob.json')
   writeFileSync(
     resolve(ROOT, manifest),
