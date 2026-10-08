@@ -100,6 +100,19 @@ jobs:
       - name: Prepare WXT types (extension)
         id: prepare-wxt
         run: pnpm --filter @ihui/extension exec wxt prepare
+      # 类型包前置构建(2026-10-09 立,补本 job 与 ci.yml 的那道差):
+      # @ihui/types 的 main/types/exports 全指向 ./dist/* 且产物不入库,而 `pnpm install`
+      # 从不构建 workspace 包 ⇒ 本 job 的 `pnpm run typecheck` 结构上拿不到它的类型声明。
+      # 实测形态:typecheck job 138× TS2307 "Cannot find module '@ihui/types'"(含 2× 子路径
+      # /permission-mode)+ 连带 10× TS7006 / 1× TS7053 —— 后两类不是独立缺陷,是类型推不出来。
+      # 本机 A/B 同形复现(取证 .ihui-agent/tmp/census-ab/ac-without.log 与 ac-with.log):
+      #   把 packages/types/dist 挪开 ⇒ RC=2、87× TS2307 + 8× TS7006 + 1× TS7053;原样放回 ⇒ RC=0、0 错。
+      # 选择器 `@ihui/api-client...` = 该包**连同其 workspace 依赖**拓扑构建,与 ci.yml 的
+      # build-api-client 步骤逐字同源(openapi-check.yml:77 是同一条先例)。手工点名"要先建哪几个包"
+      # 必然落后于新增依赖(ci.yml:78 那段 2026-09-27 的教训),所以这里用闭包形式而不是只建 types。
+      - name: Build type-consumable workspace deps (topological closure, prerequisite of typecheck)
+        id: build-types-deps
+        run: pnpm --filter "@ihui/api-client..." run build
       - name: Typecheck
         id: typecheck
         run: pnpm run typecheck
@@ -112,10 +125,11 @@ jobs:
         if: failure()
         env:
           TRIAGE_WORKFLOW_FILE: .github/workflows/ci-monorepo.yml
-          TRIAGE_IDS: checkout install prepare-wxt typecheck typecheck-e2e
+          TRIAGE_IDS: checkout install prepare-wxt build-types-deps typecheck typecheck-e2e
           O_CHECKOUT: ${{ steps.checkout.outcome }}
           O_INSTALL: ${{ steps.install.outcome }}
           O_PREPARE_WXT: ${{ steps.prepare-wxt.outcome }}
+          O_BUILD_TYPES_DEPS: ${{ steps.build-types-deps.outcome }}
           O_TYPECHECK: ${{ steps.typecheck.outcome }}
           O_TYPECHECK_E2E: ${{ steps.typecheck-e2e.outcome }}
         run: bash scripts/ci-failure-triage.sh
