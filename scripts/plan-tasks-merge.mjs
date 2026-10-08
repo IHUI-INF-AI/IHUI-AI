@@ -155,6 +155,66 @@ export function loadArchivedIndex(root, face) {
 const LABEL = { head: 'HEAD blob', staged: '索引 blob', worktree: '工作树(逃生舱)' }
 
 /**
+ * G-341 —— 本次运行的**判定面**(由 CLI 与落地档各点名一次;纯函数调用方没点名 ⇒ 读出"未判定")。
+ * 为什么是运行级单值而不是每个调用点传参:与上面 `ARCHIVED_KEYS` 同一条理由 —— 读数口径只要有
+ * 两处来源,同一轮里就会给出两个数(本票立项现读:抬头喊"可自动收口 2"、交付校验喊 4)。
+ */
+let RUN_FACE = null
+export function setRunFace(face) {
+  RUN_FACE = face ?? null
+}
+export function runFaceLabel() {
+  return RUN_FACE ? (LABEL[RUN_FACE] ?? `未知判定面(${RUN_FACE})`) : '未判定'
+}
+
+/**
+ * G-341:F3「可自动收口」读数的**唯一出口**。一次运行只经这一处算,抬头行与交付校验行读
+ * 返回的**同一份结果**里的同一个字段 `auto`。
+ *
+ * 立项凭据:`--heal`(纯报告档)在同一次运行里,抬头喊 `F3 220 处(其中可自动收口 2 …)`,末行
+ * 交付校验拒绝落地时喊 `F3(可自动收口)未归零:4 处` —— 因为两处**各算一遍**:前者算
+ * `audit(输入面)`、后者算 `audit(归并后)`,同一个名字给两个数,而落地闸用的是后一个。读者拿到
+ * 抬头那个数会去找一个并不存在的出口,而账面什么都看不出来。
+ *
+ * 三条不可漂的写法:
+ *  1. **闸判什么数,报告就喊什么数**:`auto` 恒等于落地闸所判的那一档(归并后的
+ *     `rotatedAuto`)。归并前那份仍交出(`before`),但它只以「归并前基线」的名义出现,
+ *     不得再顶着"可自动收口"这个名字被读第二遍。
+ *  2. **禁止放宽闸**:`auto` 非零时 `gateProblem()` 照旧产出那一条红 —— 本票只把两个数并成
+ *     一个数,既不删那道闸,也不把阈值改成 0。
+ *  3. **判定面随读数一起交出**:任何渲染都带 `faceLabel`(HEAD blob / 索引 blob / 工作树),
+ *     与本仓其它台账器口径一致;调用方没点名 ⇒ 老实说"未判定",绝不冒充某个面。
+ */
+export function f3Reading(srcText, mergedText) {
+  const beforeAudit = audit(String(srcText ?? ''))
+  const afterAudit = audit(String(mergedText ?? ''))
+  const before = beforeAudit.counts
+  const after = afterAudit.counts
+  const faceLabel = runFaceLabel()
+  const r = {
+    face: RUN_FACE,
+    faceLabel,
+    beforeAudit,
+    afterAudit,
+    before,
+    after,
+    /** 唯一的对外读数 = 落地闸所判那一档(归并后) */
+    auto: after.rotatedAuto,
+    noExit: after.rotatedNoExit,
+    pointers: after.rotatedPointers,
+    archived: after.rotatedArchived,
+    /** 抬头行那一档:数字与 `gateProblem()` 同源(都取 `r.auto`),并点名判定面。 */
+    headClause: () =>
+      `F3 ${r.pointers} 处(可自动收口 ${r.auto} 处 = 面内 ${r.auto - r.archived} + 归档反查 ${r.archived};` +
+      `无出口交人工 ${r.noExit};判定面:${r.faceLabel}·归并后 = 落地闸所判,归并前基线 ${before.rotatedAuto} 处)`,
+    /** 交付校验那一档:非零即红,措辞与阈值一字未放宽(只是补上了判定面)。 */
+    gateProblem: () =>
+      r.auto ? `F3(可自动收口)未归零:${r.auto} 处(判定面:${r.faceLabel}·归并后)` : null,
+  }
+  return r
+}
+
+/**
  * 旁路落地留痕的**一处**包装 —— 本器六个落地站点共用(G-800)。
  *
  * 为什么要有这一层,而不是六处各调一次出口:reason 文案与"写失败只喊一行"写六遍必漂,而
@@ -2709,6 +2769,9 @@ function gitIn(idx, args) {
 
 export function healAndLand() {
   const stamp = Date.now()
+  // G-341:落地档读的就是 HEAD 面 ⇒ 判定面必须在本轮任何读数之前点名,否则唯一出口只能报"未判定"
+  // (它不冒充某个面是设计,不是缺陷;而落地档确实知道自己在判哪个面)。
+  setRunFace('head')
   const head = gitIn(null, ['rev-parse', 'HEAD'])
   const spec = `HEAD:${PLAN_REL}`
   const src = catBatch(ROOT, [spec], { maxBuffer: 1 << 28 }).get(spec)
@@ -3114,7 +3177,12 @@ export function healStopReasons(srcText, merged, changed, refusedCount, adj = nu
   const a0 = String(srcText).split('\n')
   const a1 = String(merged).split('\n')
   const touched = new Set(changed.map((c) => c.line))
-  const after = audit(merged).counts
+  /**
+   * G-341:F3 读数与报告档(`verifyMerge`)共用唯一出口 `f3Reading()` —— 两道闸各算一遍就是
+   * 本票的病根(同一个名字两个数)。这里只取它的 `auto` 与 `after`,红条件一字未动。
+   */
+  const f3 = f3Reading(srcText, merged)
+  const after = f3.after
   /**
    * F10 折叠维的闭合断言写在**这里**,不在调用方的自觉里:谁都能忘记调 verifyTwinFold,
    * 而"忘记调"在账面上一律表现为绿。算得出可折行 ⇒ 本枚没把这一维做完 ⇒ 停手。
@@ -3136,9 +3204,9 @@ export function healStopReasons(srcText, merged, changed, refusedCount, adj = nu
     a0.some((l, i) => !touched.has(i + 1) && l !== a1[i]) ? '有未登记行被改动' : null,
     bodyBroken ? '有翻勾行未逐字保留正文(剥注记后必须相等)' : null,
     twinLeft ? `折叠维未闭合:折完仍有 ${twinLeft} 行"同题不同编号"可折` : null,
-    ...(adjudicationProblems({ forks: audit(merged).forks }, adj).problems.length ||
+    ...(adjudicationProblems({ forks: f3.afterAudit.forks }, adj).problems.length ||
     after.voidRows ||
-    after.rotatedAuto ||
+    f3.auto ||
     after.dupOpenCopies
       ? ['归并后未归零']
       : []),
@@ -3317,15 +3385,22 @@ export function verifyMerge(original, merged, changed, adj = null) {
         `行 ${c.line}(${c.kind})翻勾把正文改了:剥掉复选框与本工具注记后两侧必须逐字相等(截断/整行替换都不许落地)`,
       )
   }
-  const after = audit(merged)
+  /**
+   * G-341:F3 的读数只经唯一出口 `f3Reading()` 算一次 —— 报告侧(抬头行)与本交付校验侧
+   * 读的是**同一份结果**里的同一个字段,所以同一次运行不可能再出现两个"可自动收口"。
+   * 阈值与红条件一字未放宽:`auto` 非零照旧产出一条红并参与退出码。
+   */
+  const f3 = f3Reading(original, merged)
+  const after = f3.afterAudit
   problems.push(...adjudicationProblems(after, adj).problems)
   if (after.counts.voidRows) problems.push(`F2 未归零:${after.counts.voidRows} 行`)
-  if (after.counts.rotatedAuto) problems.push(`F3(可自动收口)未归零:${after.counts.rotatedAuto} 处`)
+  const f3Problem = f3.gateProblem()
+  if (f3Problem) problems.push(f3Problem)
   if (after.counts.dupOpenCopies)
     problems.push(`F4 未归零:${after.counts.dupOpenCopies} 行同题待办副本仍挂着`)
   const ptrProblem = pointerVisibilityRegression(original, merged)
   if (ptrProblem) problems.push(ptrProblem)
-  return { problems, after: after.counts }
+  return { problems, after: after.counts, f3 }
 }
 
 function selfTest() {
@@ -4945,6 +5020,9 @@ function main() {
     console.log(`⚠️ 无法判定 —— ${sel.error}`)
     return 2
   }
+  // G-341:判定面在**任何读数之前**点名 —— 唯一出口 `f3Reading()` 把这个名字随读数一起交出,
+  // 于是抬头、交付校验、✅ 结论三处喊的是同一个数、同一个面,读者不必猜"这是哪一个的读数"。
+  setRunFace(sel.face)
   let src
   let counts0
   try {
@@ -4980,15 +5058,20 @@ function main() {
     ROOT,
   )
   console.log(`baseBlob=${baseBlob} —— 落地时必须对这一枚做 CAS:它一挪,行号就不再指向我审过的内容`)
+  // G-341:两行分开喊,免得同一轮里"可自动收口"再长出第二个含义 ——
+  //   第一行是**归并前基线**(输入面上有什么),第二行是**落地闸所判**(归并后那一面还剩什么),
+  //   而"可自动收口"这个名字自始至终只出现在第二行,数字取自唯一出口 `f3Reading()` 的 `auto`。
   console.log(
-    `判定面:${LABEL[sel.face]}  现读:F1 ${counts0.forks} 组 / F2 ${counts0.voidRows} 行 / F3 ${counts0.rotatedPointers} 处(其中此刻有出口可收 ${counts0.rotatedAuto} 处 = 面内 ${counts0.rotatedAuto - counts0.rotatedArchived} + 归档反查 ${counts0.rotatedArchived};无出口交人工 ${counts0.rotatedNoExit})/ F4 ${counts0.dupOpenCopies} 副本 / 未勾选 ${counts0.open}`,
+    `判定面:${LABEL[sel.face]}  现读(归并前基线):F1 ${counts0.forks} 组 / F2 ${counts0.voidRows} 行 / F3 ${v.f3.before.rotatedPointers} 处(归并前可收 ${v.f3.before.rotatedAuto} 处 = 面内 ${v.f3.before.rotatedAuto - v.f3.before.rotatedArchived} + 归档反查 ${v.f3.before.rotatedArchived};无出口交人工 ${v.f3.before.rotatedNoExit})/ F4 ${counts0.dupOpenCopies} 副本 / 未勾选 ${counts0.open}`,
   )
+  console.log(`落地闸所判:${v.f3.headClause()}`)
   console.log(
-    `  F3 口径说明:rotatedPointers=${counts0.rotatedPointers} 是**全部**腐烂指针;rotatedAuto=${counts0.rotatedAuto} 是**此刻有出口能收**的。${
-      ARCH_NOTE?.unavailable
-        ? `本轮归档面**未判定**(${ARCH_NOTE.unavailable})⇒ 归档反查未参与,上面的 auto 数是旧口径,不得当"没出口"读。`
-        : `归档索引来自被审面 ${ARCH_NOTE.files} 件、认得 ${ARCH_NOTE.size} 条已归档登记${ARCH_NOTE.undetermined.length ? `;${ARCH_NOTE.undetermined.length} 件正文取不到(那一层未判定)` : ''}。`
-    }`,
+    `  F3 口径说明:rotatedPointers=${v.f3.pointers} 是**归并后**面上全部的腐烂指针;可自动收口=${v.f3.auto} 是**此刻有出口能收**的那一档 —— 抬头行与交付校验读的就是这一个数(` +
+      `G-341:此前两处各算一遍,同轮喊出 2 与 4 两个"可自动收口",而落地闸用的是后者)。归并前基线 ${v.f3.before.rotatedAuto} 处只是输入面读数,不得当结论。${
+        ARCH_NOTE?.unavailable
+          ? `本轮归档面**未判定**(${ARCH_NOTE.unavailable})⇒ 归档反查未参与,上面的 auto 数是旧口径,不得当"没出口"读。`
+          : `归档索引来自被审面 ${ARCH_NOTE.files} 件、认得 ${ARCH_NOTE.size} 条已归档登记${ARCH_NOTE.undetermined.length ? `;${ARCH_NOTE.undetermined.length} 件正文取不到(那一层未判定)` : ''}。`
+      }`,
   )
   console.log(
     `拟改写 ${r.changed.length} 行(${r.changed
@@ -5020,7 +5103,7 @@ function main() {
     return 1
   }
   console.log(
-    `\n✅ 零损失对账通过;归并后 F1/F2/F3(可自动收口)/F4 = ${v.after.forks}/${v.after.voidRows}/${v.after.rotatedAuto}/${v.after.dupOpenCopies};F3 无出口仍 ${v.after.rotatedNoExit} 处(点名交人工,不并入归零判据),派单口径 ${counts0.open} → ${v.after.open}`,
+    `\n✅ 零损失对账通过;归并后 F1/F2/F3(可自动收口)/F4 = ${v.after.forks}/${v.after.voidRows}/${v.f3.auto}/${v.after.dupOpenCopies};F3 无出口仍 ${v.f3.noExit} 处(点名交人工,不并入归零判据),判定面:${v.f3.faceLabel}(归并后,与抬头行同一个数同一个面),派单口径 ${counts0.open} → ${v.after.open}`,
   )
   // 拒绝链三格,顺序即严格度:① 值不成其为值(缺失/以 - 开头)② 值是文档本体 ③ 才允许写盘。
   // ①②都**大声拒绝并非零退出**,不得静默忽略旗标、更不得回落到任何默认路径去写别处
