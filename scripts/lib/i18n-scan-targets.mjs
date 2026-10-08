@@ -52,7 +52,17 @@ export const TARGETS = {
     // `resolveWaitingText()`,真正拼键(`waiting.<象限>.<阶段>.<下标>` 与 `waiting.vividTail`)
     // 发生在 packages/shared/src/chat/waiting-pool.ts;端 scanTargets 不含它 ⇒ 76 枚 waiting.* 恒被判死。
     // 窄口径:只加 chat,不加 packages/app(照 extension 那条实测教训)。
-    scanTargets: ['apps/cli/src', 'packages/shared/src/chat'],
+    // 2026-10-09 补 `packages/types/src`(同一失效型第二次发生,不是新机制):后台任务终止词汇表
+    // `BACKGROUND_TERMINATION_VOCAB` 按 §3「跨端类型住 packages/types」搬进
+    // `packages/types/src/agent-runtime.ts`,其中 4 枚 `guidanceKey`(cli.bgNoticeStoppedByUser /
+    // ByModel / BySuperseded / StopInitiatorUnknown)是**真被消费**的 ——
+    // `apps/cli/src/tools/background-registry.ts:1097/1145` 逐行把 `row.guidanceKey` 喂给
+    // `resolveNoticeGuidance()`,:1118 还拿它做"词汇表与语料不得分叉"的自证;但字面量住在 types 侧,
+    // 端 scanTargets 不含它 ⇒ CI 的 i18n Dead Key Audit 在干净检出上判这 4 枚为死键并 exit 1
+    // (本机同判,因为两侧都不是在飞改动:语言包与 agent-runtime.ts 此刻都 clean)。
+    // 先实测窄口径:加 `packages/types/src` 后被"救回"的键**恰好只有这 4 枚**(改前后差集实测写在
+    // 台账该行),即没有把别端专属键倒灌成本端假 wire;真正没人引用的键照旧判死。
+    scanTargets: ['apps/cli/src', 'packages/shared/src/chat', 'packages/types/src'],
   },
   extension: {
     localeDir: 'packages/i18n/messages/extension',
