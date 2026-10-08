@@ -21,6 +21,9 @@
 from __future__ import annotations
 
 import json
+import os
+import stat
+import sys
 
 import pytest
 from fastapi import FastAPI
@@ -32,6 +35,29 @@ from app.services import mcp_server, mcp_stdio_bridge, mcp_store
 # =============================================================================
 # fixtures
 # =============================================================================
+
+
+@pytest.fixture
+def fake_npx_on_path(tmp_path, monkeypatch):
+    """把 PATH 收窄到临时目录,并在其中自造一个 npx 入口。
+
+    为什么要它:G-998139 起,商店安装在注册时就**显式候选序解析**裸名命令,
+    持久化与热挂载拿到的都是解析出的绝对路径(解析不到则大声报错,绝不回落裸名
+    spawn)。若沿用真机 PATH,记录里的绝对路径随机器变(本机是
+    `C:\\Program Files\\nodejs\\npx.CMD`),断言就不是在验契约而是在复述这台机。
+    自造入口 ⇒ 判定确定,且不依赖本机装没装 node(镜像
+    tests/test_mcp_directory.py::_fake_npx_env 的做法)。
+    """
+    bin_dir = tmp_path / "fakebin"
+    bin_dir.mkdir()
+    name = "npx.cmd" if sys.platform == "win32" else "npx"
+    entry = bin_dir / name
+    entry.write_text("", encoding="utf-8")
+    entry.chmod(entry.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    monkeypatch.setenv("PATH", str(bin_dir))
+    if sys.platform == "win32":
+        monkeypatch.setenv("PATHEXT", ".COM;.EXE;.BAT;.CMD")
+    return str(entry)
 
 
 @pytest.fixture
@@ -114,7 +140,7 @@ def test_store_list_initial(api_client):
 # =============================================================================
 
 
-def test_install_success_persists(api_client, store_path, bridge_mock, clean_registry):
+def test_install_success_persists(api_client, store_path, bridge_mock, clean_registry, fake_npx_on_path):
     """安装成功:热挂载调用参数正确 + 持久化记录 + GET store 反映 installed。
 
     git 声明 command_exec/repo_write 高危能力(安全分 55/high),2026-09-12
@@ -137,7 +163,12 @@ def test_install_success_persists(api_client, store_path, bridge_mock, clean_reg
     assert rec["name"] == "git"
     assert rec["key"] == "git"
     assert rec["transport"] == "stdio"
-    assert rec["command"] == "npx"
+    # G-998139:裸名 npx 在注册时经显式候选序解析,持久化落的是**解析出的绝对路径**
+    # (解析不到则大声报错,绝不回落裸名 spawn)—— 记录即热挂载实际执行的命令。
+    # normcase:Windows 侧解析器按 PATHEXT 补出的是大写扩展名(.CMD),而文件系统不区分
+    # 大小写 —— 这里比的是"同一个入口",不是"同一串字节的大小写"。
+    assert os.path.normcase(rec["command"]) == os.path.normcase(fake_npx_on_path)
+    assert os.path.isabs(rec["command"])
     assert rec["args"] == ["-y", "@modelcontextprotocol/server-git"]
     assert rec["installed"] is True
     assert rec["enabled"] is True
@@ -145,10 +176,11 @@ def test_install_success_persists(api_client, store_path, bridge_mock, clean_reg
     assert rec["last_error"] == ""
     assert "installed_at" in rec
 
-    # 热挂载调用参数
+    # 热挂载调用参数(与持久化记录必须是同一份解析结果,否则"记录说的"和"实际跑的"分叉)
     assert len(bridge_mock["add"]) == 1
     assert bridge_mock["add"][0]["name"] == "git"
-    assert bridge_mock["add"][0]["command"] == "npx"
+    assert os.path.normcase(bridge_mock["add"][0]["command"]) == os.path.normcase(fake_npx_on_path)
+    assert bridge_mock["add"][0]["command"] == rec["command"]
 
     # GET store 反映 installed
     body2 = api_client.get("/api/mcp/store").json()
