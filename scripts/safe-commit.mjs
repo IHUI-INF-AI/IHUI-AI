@@ -64,6 +64,22 @@ import {
   snapshotStagedDeleteIntent,
 } from './lib/staged-delete-intent.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+// G-1079146 剩余半格(2026-10-08):活文档 intake 取值。判据**只有 live-doc-edit 那一份** ——
+// 本器 import 它已导出的六个出口,不在这里抄第二条 hex 正则、也不自己 split 做行差集(§22c:
+// 两处算同一件事必漂移,而漂了的那一份会替腐烂发合格证)。该模块顶层有 §22d `isDirectRun` 守卫,
+// import 零副作用(实测 `import()` 154ms,不跑 main、不写盘、不派生 git)。
+import {
+  judgeNewLineShas,
+  makeShaProber,
+  parseShaAllow,
+  rewriteEntryOf,
+  shaGateReport,
+} from './live-doc-edit.mjs'
+// 行差集与行多重集同样只有一份:门 84 / object-space-land 用的就是这两个出口,本器不得再算一遍。
+import { lineDeltaMaps, tallyLines } from './lib/stale-content-analysis.mjs'
+// git 派生走层的唯一 transport(绝对路径 + 显式 stdio + windowsHide + 数字 timeout + maxBuffer);
+// 在本器里自拼 execFileSync 就是守门 118 定性的"半接线"—— 管子没共用,面也就没共用。
+import { gitRaw } from './lib/face-reader.mjs'
 
 // 本脚本所在仓的根(AGENTS §15:由自身位置推导,不得写死盘符)
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -475,6 +491,150 @@ if (liveDocsStaged.length && process.env.IHUI_SKIP_LIVE_DOC_CHECK !== '1') {
   }
 } else if (liveDocsStaged.length) {
   log('warn', `已跳过活文档对账(IHUI_SKIP_LIVE_DOC_CHECK=1)—— 本枚提交可能把别人的行写回旧态`)
+}
+
+// ─── 3f. 活文档新增行的 sha 取值(G-1079146 剩余半格,2026-10-08)─────────────
+// 票面原话:「优先做的不是新门,是掐住成因 —— 给 live-doc-edit.mjs / **safe-commit.mjs** 的活文档
+// 写入路径加一步"现读取值":新行含 sha 形态串且 `git rev-parse --verify <tok>^{commit}` 不通过
+// ⇒ 打印该提交的全量 40 位并**拒绝落该行**;不需要存量清单、也不造恒红面。」
+// live-doc-edit 那一半已在 `a1764c9c5` 落地;本步是 safe-commit 这一半。
+//
+// **为什么 safe-commit 有落点(它不重写内容,只是把磁盘副本交上去)**:
+//   实测(2026-10-08 临时 git 仓,先 stage `lineINDEX` 再把磁盘改成 `lineWORKTREE`,然后
+//   `git commit -- PROJECT_PLAN.md`):落库的是 `lineWORKTREE` ⇒ `git commit -- <pathspec>` 取的是
+//   **工作树**版本,而 Step 2 的 `git add -A -- <声明文件>` 刚把工作树字节灌进索引 ⇒ 在 Step 3
+//   这一刻"暂存内容 == 磁盘副本"。所以本器确实不产出行,但它是**整条"按 pathspec 交磁盘副本"
+//   通道的入口** —— AGENTS §12 记的一夜三次自伤走的正是这条路,而 live-doc-edit 那一步只管得住
+//   "经它落地"的写入。不接这一格,结论就是"绕过 live-doc-edit 直接改磁盘 + safe-commit 提交 =
+//   零看守",那正好把票面要掐的成因留在原处。可判对象 = 暂存内容与 HEAD 的行差集里、
+//   **HEAD 侧原本没有的那批新增行**(所以存量 sha 不会被回判,默认档不产生恒红面)。
+//
+// 三条与 live-doc-edit 侧同形的语义(不得漂):
+//  ① 判据**只有那一份**:抽取/形状/三条放过/探测三态/报告措辞全部 import `./live-doc-edit.mjs`
+//     已导出的出口;行差集与行多重集 import `./lib/stale-content-analysis.mjs` 的
+//     `lineDeltaMaps / tallyLines`(门 84 与 object-space-land 用的就是这两个)。本器内不出现
+//     第二条 hex 正则、不自己 split 做差 —— 由镜像测试的源码锁钉住(§22c)。
+//  ② **git 问不到 ⇒ 未判定 ⇒ 放行**并点名原因。把"没判成"折成"这就是坏",产出的是一台恒挡的
+//     尺子,而它挡的是**全队提交**(§12e:恒挡的唯一出路是绕回裸 `git commit` 跳门,连带
+//     该枚提交上全部守门作废)。未判定的成因四种:两面正文任一取不到 / 行差集算不出 /
+//     探测器 pre-flight 不过 / 本次行差集大到"整档扫描会挂死"那一级(见下面的实测)。
+//  ③ 应急出口只有 `LIVE_SHA_ALLOW=<token>=<原因>` —— 与 live-doc-edit **同一个 env、同一个
+//     `parseShaAllow`**:无原因不收录,每条收录都打印留痕。本步不新增开关,也**不**被
+//     `IHUI_SKIP_LIVE_DOC_CHECK` 放行 —— 那是 3e 那条"整份文档有意重写"的出路,与"新行里的
+//     出处指针兑现不了"是两笔不同形态的债,一道闸不该替另一道闸作主。
+//
+// 一条刻意与 live-doc-edit 不同的口径(如实登记,别读成"两处漏了一处"):
+//   本步的"携带存量"只认 ①同一行文本在 HEAD 里已存在(重复登记副本)②本次**消失行**里已有的
+//   token(改写携带),**不扫全文**。原因不是省事而是实测:把 4,134,660 B 的整份 HEAD 当"一行"
+//   喂进抽取式,一次调用 **284,198ms**(权威门 `extractFromLine` 的 `lineText` 字段按
+//   `[...line.trim()]` 展开整行,每命中一次全展开一遍 ⇒ 代价 = 命中数 × 行长,平方级)。
+//   扫全文会把一次提交变成 5 分钟挂死;按行喂则同一函数是 0–1ms 量级(200KB 单行 1ms 实测)。
+//   因此"整档行数超闸"这一格也一律落**未判定 ⇒ 放行**,不冒红也不静默通过。
+//   闸值是常量,**不是开关** —— 本步不给"关掉这一步"留任何 env 出口(git 问不到时它自己就放行,
+//   而那已经是唯一需要的那一档;能调小的旋钮等于能关掉的旋钮)。
+const SHA_INTAKE_LINE_CAP = 5000
+
+/**
+ * 从"暂存面 ⊖ HEAD 面"的行差集里挑出**本次真的新写的行**,并给每行带上"存量 token 携带集"。
+ * 纯取材 + 纯差集,不派生 git 探测(探测归调用方),这样每一条 unjudged 的成因都能被点名。
+ * @returns {Array<{file:string, entries:Array, undetermined:string[], carried:number}>}
+ */
+function liveDocIntakePlan({ root, files }) {
+  const out = []
+  for (const f of files) {
+    const rec = { file: f, entries: [], undetermined: [], carried: 0 }
+    out.push(rec)
+    let staged = null
+    let head = null
+    try {
+      staged = gitRaw(['show', `:${f}`], root)
+    } catch (e) {
+      rec.undetermined.push(
+        `${f}:暂存面正文取不到(该路径未入索引 / 已暂存删除 / git 不可问)⇒ 本步不判(${String(
+          e?.message ?? e,
+        ).slice(0, 160)})`,
+      )
+      continue
+    }
+    try {
+      head = gitRaw(['show', `HEAD:${f}`], root)
+    } catch (e) {
+      // 首次入库(HEAD 里没有这份文档)与"仓库不可问"在文本上同形,而按形状判据去分辨就是
+      // 把结论建立在错误消息字符串上(本仓明令禁止)⇒ 两种都落未判定,不许折成"全是新增"。
+      rec.undetermined.push(
+        `${f}:HEAD 面正文取不到(文档首次入库,或仓库/git 不可问)⇒ 本步不判(${String(
+          e?.message ?? e,
+        ).slice(0, 160)})`,
+      )
+      continue
+    }
+    const delta = lineDeltaMaps(head, staged)
+    if (!delta) {
+      rec.undetermined.push(`${f}:行差集算不出(两侧正文有一侧不是字符串)⇒ 本步不判`)
+      continue
+    }
+    const lines = delta.added.size + delta.removed.size
+    if (lines > SHA_INTAKE_LINE_CAP) {
+      rec.undetermined.push(
+        `${f}:本次行差集 ${lines} 行 > 闸 ${SHA_INTAKE_LINE_CAP} ⇒ 本步不判(整档逐行扫描会把一次提交拖成分钟级挂死;` +
+          `这一格是未判定,不是"确认没有坏指针")`,
+      )
+      continue
+    }
+    // ① 改写携带:before 侧消失的行里本来就有这些 token ⇒ 本次只是把整行改写法,不是新写指针。
+    //    走 live-doc-edit 导出的那一份 `rewriteEntryOf`(不在此重抄"什么算候选")。
+    const skip = new Set()
+    for (const gone of delta.removed.keys())
+      for (const tok of rewriteEntryOf(gone, '').skip) skip.add(tok)
+    // ② 重复副本:同一行文本在 HEAD 里本来就存在 ⇒ 与 live-doc-edit 的 carriedOver 同义,不回判。
+    const headTally = tallyLines(head)
+    for (const [line, count] of delta.added) {
+      if ((headTally.get(line) ?? 0) > 0) {
+        rec.carried += count
+        continue
+      }
+      // 逐行判 ⇒ 每次 `extractFromLine` 只吃一行(实测短行 0–1ms);entries 与文件一一对应,
+      // 报告才能点名是哪个文档。
+      for (let i = 0; i < count; i++) rec.entries.push({ text: line, skip })
+    }
+  }
+  return out
+}
+
+if (liveDocsStaged.length) {
+  const shaProbe = makeShaProber({ root: repoRoot })
+  const shaAllow = parseShaAllow(process.env.LIVE_SHA_ALLOW)
+  for (const rec of liveDocIntakePlan({ root: repoRoot, files: liveDocsStaged })) {
+    for (const w of rec.undetermined)
+      log('warn', `取值未判定 ⇒ **放行**:${w}(判不出 ≠ 坏;这一步挡的是全队提交)`)
+    if (rec.carried > 0)
+      log(
+        'info',
+        `取值:${rec.file} 有 ${rec.carried} 行是 HEAD 里已存在的同一行文本 ⇒ 按重复副本处理,不回判`,
+      )
+    if (rec.entries.length === 0) continue
+    const v = judgeNewLineShas(rec.entries, { probe: shaProbe, allow: shaAllow })
+    for (const l of shaGateReport(v))
+      log(l.kind === 'error' ? 'err' : l.kind === 'warn' ? 'warn' : 'info', l.text)
+    if (v.blocked.length === 0) continue
+    log(
+      'err',
+      `活文档取值判红来自:${C.cyan}${rec.file}${C.reset}(本步只吃"暂存面 ⊖ HEAD 面"的新增行,存量不回判)。`,
+    )
+    log(
+      'err',
+      `拒绝提交本票声明的 ${C.cyan}${expectedFiles.length}${C.reset} 个文件(G-1079146:登记这一刻问才不会留腐烂)。\n` +
+        `   出口只有三条:① 该对象在本机确能解析 ⇒ 写**全量 40 位**;② 换内容锚点(编号 + 标题原文);` +
+        `③ 确非 commit(设备号 / contenthash / ref 名片段 / 外部仓 revision)⇒ ` +
+        `${C.cyan}LIVE_SHA_ALLOW=<token>=<一句话原因>${C.reset} 重跑(逐 token、必须带原因、会打留痕)。`,
+    )
+    log(
+      'err',
+      `   **禁止**从同段挑一枚"看起来对的 sha"自动补进去(§1 / G-191:那是编造,不是找回);` +
+        `也**禁止**用 ${C.cyan}IHUI_SKIP_LIVE_DOC_CHECK=1${C.reset} 绕本步 —— 那一道闸管的是 3e 的整文档对账,不是这一型。`,
+    )
+    process.exit(1)
+  }
 }
 
 // 3d. commit message 加 agent 标识前缀(若未指定)

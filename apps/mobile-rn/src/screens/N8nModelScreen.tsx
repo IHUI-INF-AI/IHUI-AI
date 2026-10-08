@@ -10,7 +10,6 @@ import {
   Modal,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native'
@@ -25,11 +24,12 @@ import {
 } from '@ihui/api-client'
 import {
   N8nModelScreen as SharedN8nModelScreen,
+  TextField,
   type N8nModelItem,
   type N8nModelTab,
 } from '@ihui/rn-app'
 import { Zap, PauseCircle } from 'lucide-react-native'
-import { tokens } from '../theme/active-tokens'
+import { tokens, currentRnTheme } from '../theme/active-tokens'
 import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
 import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
@@ -324,7 +324,8 @@ function WorkflowFormModal({
         <View style={styles.modalCard}>
           <Text style={styles.modalTitle}>{title}</Text>
           <Text style={styles.modalLabel}>{t('n8nModel.nameLabel')}</Text>
-          <TextInput
+          <TextField
+            colorScheme={currentRnTheme()}
             style={styles.modalInput}
             value={name}
             onChangeText={onChangeName}
@@ -332,7 +333,8 @@ function WorkflowFormModal({
             placeholderTextColor={tokens.text.tertiary}
           />
           <Text style={styles.modalLabel}>{t('n8nModel.descLabel')}</Text>
-          <TextInput
+          <TextField
+            colorScheme={currentRnTheme()}
             style={[styles.modalInput, styles.modalInputMultiline]}
             value={desc}
             onChangeText={onChangeDesc}
