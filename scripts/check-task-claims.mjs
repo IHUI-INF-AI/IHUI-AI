@@ -1191,6 +1191,12 @@ if (isDirectRun) {
   main()
 }
 
+// G-1102638 批3(2026-10-08):租约过期语义的**唯一出口** —— plan-copy-row-purge 的批3档复用
+// 本门的 scanTasks / analyzeLeases / resolveTtlHours / TTL_ENV 判「租约已过期」,
+// 不自拼第二份 72h 公式(同一规矩两份实现必漂,本仓三条头注都记过这一型事故)。
+// 纯增量导出:零行为面变化(main / self-test / __test__ 一字未动)。
+export { scanTasks, analyzeLeases, resolveTtlHours, TTL_ENV }
+
 export const __test__ = {
   scanTasks,
   findClosedTwins,
