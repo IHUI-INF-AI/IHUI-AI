@@ -49,6 +49,10 @@ import {
   buildRestoreTerminals,
   verifyRestoreTerminals,
   pointerVisibilityRegression,
+  // G-341:读数出口与判定面点名一起进镜像测试 —— 测试不得自己再算一遍(§22c)
+  verifyMerge,
+  setRunFace,
+  runFaceLabel,
   __test__,
 } from '../plan-tasks-merge.mjs'
 import { forkPreserved } from '../lib/plan-merge-annotation.mjs'
@@ -1073,4 +1077,141 @@ test('T25 stripMergeNotes:嵌套同种括号配平、尾随作者正文逐字保
   )
   if (verifyRestoreTerminals(bad.text, bad.text.replace('G-903. 活。', 'G-903. 活了'), bad.edits).problems.length === 0)
     throw new Error('零损失对账必须拒绝"顺手改正文"')
+})
+
+/**
+ * T26 G-341 —— 同一次运行里,抬头读数与交付校验读数必须是**同一个数**,且结论行点名判定面。
+ *
+ * 立因(票面原文):`--heal`(纯报告档)曾在同一次运行、同一个判定面(HEAD blob)上喊出两个
+ * "可自动收口"—— 抬头 `F3 220 处(其中可自动收口 2 …)`,末行交付校验拒绝落地时
+ * `F3(可自动收口)未归零:4 处`,而落地闸用的是后一个。成因是两处**各算一遍**:报告侧算
+ * `audit(输入面)`、校验侧算 `audit(归并后)`,同一个名字挂了两把尺子。
+ *
+ * 为什么这条用例必须住在镜像而不是只住在 `--self-test`:§22c —— 提交链与 CI 跑的是
+ * `node --test`,只锁自检档等于"revert 掉本次修复也能过 CI"。
+ *
+ * 钉住的不变量(四条,缺一不可,少任何一条这条用例就退化成恒真):
+ *  ① 夹具必须**真的发散**:归并前 `rotatedAuto` ≠ 归并后 —— 否则"两个数相等"可以由"两个 0"冒充;
+ *  ② 抬头那一行报的"可自动收口"数字 === 落地闸所判的那个数字(`verifyMerge().f3.auto`),
+ *     两者都取自唯一出口 `f3Reading()` 返回的**同一份结果**;
+ *  ③ 交付校验那条红(非零时)报的数字与抬头同源 —— 用"归并后仍有 1 处"的那一档量,
+ *     使两处都被迫读同一个字段才可能相等;
+ *  ④ 判定面必须随读数一起喊出来:点了面 ⇒ 逐字带那个名字;没点面 ⇒ 老实说"未判定",
+ *     绝不冒充某个面(与本仓其它台账器同一条口径)。
+ */
+test('T26 G-341 抬头读数与交付校验读数必须相等,且结论行点名判定面', () => {
+  // 夹具逐字取自本文件 T11 那条已验牙的形态:指针行与它指向的行**同复合主键**(可自动收口那一型),
+  // 另带一条"无出口"的 ref 族行(不得被自动改),使归并后 auto 归零而 noExit 仍在。
+  const dupLine =
+    '- [ ] **D7 甲事**:还没人做。 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记在 L4,派单以那条为准。〕'
+  const src = [
+    '# 计划',
+    '',
+    dupLine,
+    '- [ ] **D7 甲事**:还没人做。',
+    '- [ ] **D8 乙事**:说明。 〔另见 L9 的那一条。〕',
+    '',
+  ].join('\n')
+  setRunFace('head')
+  try {
+    const r = buildMerge(src, '2026-09-28')
+    const v = verifyMerge(src, r.text, r.changed)
+    // ① 发散前提:归并前 1 处、归并后 0 处。夹具若不再发散,②就失去对象 —— 当场点名而不是沉默。
+    if (v.f3.before.rotatedAuto !== 1 || v.f3.auto !== 0)
+      throw new Error(
+        `夹具不再发散(归并前 auto=${v.f3.before.rotatedAuto}、归并后 auto=${v.f3.auto})⇒ 本用例退化成"两个 0 相等"的恒真式,换形态而不是删断言`,
+      )
+    // ② 抬头那一行的数字必须等于落地闸所判的那个数字
+    const head = v.f3.headClause()
+    const m = /可自动收口\s*(\d+)\s*处/.exec(head)
+    if (!m)
+      throw new Error(
+        `抬头行不再报"可自动收口 N 处"这一档 ⇒ 本用例失去对象(改名要同步本锁):${head.slice(0, 160)}`,
+      )
+    if (Number(m[1]) !== v.f3.auto)
+      throw new Error(
+        `同一次运行给出两个"可自动收口":抬头 ${m[1]} 处 / 交付校验 ${v.f3.auto} 处 —— 正是 G-341 的病根,读数必须出自 f3Reading() 的同一份结果`,
+      )
+    // ②b 反方向:归并已把可收口那一族修完 ⇒ 那道红**不得**响。它响了就等于闸读回了输入面
+    // (与②同一条不变量的另一侧 —— 只测一侧,把读数换成 before 也能"看起来相等"地糊过去)。
+    if (v.problems.some((x) => /F3\(可自动收口\)/.test(x)))
+      throw new Error(
+        `正当归并已把可收口族修完(auto=${v.f3.auto}),交付校验却仍报 F3 红:${JSON.stringify(v.problems)}`,
+      )
+    // 归并前那份仍要在(信息不藏),但它只能顶着"归并前基线"的名字出现
+    if (!/归并前基线 1 处/.test(head))
+      throw new Error(`归并前那一份读数被藏掉了(不得为了凑相等而少报):${head.slice(0, 200)}`)
+    // ③ 交付校验那条红的数字与抬头同源:换一档"归并后仍剩 1 处"(merged=src,即什么都没修)来量
+    const stuck = verifyMerge(src, src, [])
+    const gp = stuck.problems.find((x) => x.includes('F3(可自动收口)未归零'))
+    if (!gp)
+      throw new Error(
+        `归并后仍有 1 处时交付校验必须产出那条红(闸被放宽成 0 就是拆安全闸):${JSON.stringify(stuck.problems)}`,
+      )
+    const g = /(\d+)\s*处/.exec(gp)
+    if (!g || Number(g[1]) !== stuck.f3.auto)
+      throw new Error(`交付校验行的数字与出口读数不同源:红="${gp}" auto=${stuck.f3.auto}`)
+    if (!/判定面:HEAD blob/.test(gp))
+      throw new Error(`交付校验结论行没点名判定面:"${gp}" —— 读者无从知道这判的是哪一面`)
+    const hm = /可自动收口\s*(\d+)\s*处/.exec(stuck.f3.headClause())
+    if (!hm || Number(hm[1]) !== stuck.f3.auto)
+      throw new Error(
+        `同一份结果的抬头与闸不同数:head="${stuck.f3.headClause().slice(0, 120)}" auto=${stuck.f3.auto}`,
+      )
+    // ④ 调用方没点判定面 ⇒ 出口只能老实说"未判定",绝不冒充
+    setRunFace(null)
+    const naked = verifyMerge(src, r.text, r.changed).f3
+    if (!naked.headClause().includes('判定面:未判定'))
+      throw new Error(`没点面却报出了某个面名(冒充 ⇒ 台账器口径)：${naked.headClause().slice(0, 200)}`)
+    if (runFaceLabel() !== '未判定') throw new Error('runFaceLabel 未随 setRunFace(null) 归位')
+  } finally {
+    setRunFace(null)
+  }
+})
+
+/**
+ * T27 G-341 端到端(独立仓)—— 把 ② 从"两个函数返回值"提到"同一次运行的 stdout 上那两个数"。
+ * 为什么必须再跑一次 CLI:报告侧的抬头行住在 `main()`,交付校验行住在 `verifyMerge()`,
+ * 只测出口函数会漏掉"有人在 main 里自己再算一遍"这一型(那正是立项时发生的形态)。
+ * 夹具与 T26 同一份(归并前 1 处 / 归并后 0 处),所以改动前那两行必然给出 1 与 0。
+ */
+test('T27 G-341 端到端:同一次 --heal 的抬头行与结论行必须报同一个"可自动收口"', () => {
+  const dupLine =
+    '- [ ] **D7 甲事**:还没人做。 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记在 L4,派单以那条为准。〕'
+  const plan = [
+    '# 计划',
+    '',
+    dupLine,
+    '- [ ] **D7 甲事**:还没人做。',
+    '- [ ] **D8 乙事**:说明。 〔另见 L9 的那一条。〕',
+    '',
+  ].join('\n')
+  const env = fixtureRepo(plan, 'fixture: 一条可自动收口的行号指针')
+  try {
+    const cli = runCli(env, ['--heal'])
+    const head = /可自动收口\s*(\d+)\s*处/.exec(cli.out)
+    const concl = /F3\(可自动收口\)\/F4 = \d+\/\d+\/(\d+)\/\d+/.exec(cli.out)
+    if (!head)
+      throw new Error(
+        `报告没有报出"可自动收口 N 处"(抬头形态变了,本锁需同步):${cli.out.trim().slice(0, 300)}`,
+      )
+    if (!concl)
+      throw new Error(
+        `交付校验结论行没报 F3(可自动收口) 那一档 ⇒ 闸被删或结论形态变了:${cli.out.trim().slice(0, 400)}`,
+      )
+    if (head[1] !== concl[1])
+      throw new Error(
+        `同一次运行给出两个"可自动收口":抬头 ${head[1]} 处 / 交付校验 ${concl[1]} 处(G-341 复发)`,
+      )
+    // 发散前提:这一轮归并前确实有 1 处 —— 否则"相等"可以由"两个 0"冒充
+    if (!/归并前可收 1 处/.test(cli.out))
+      throw new Error(
+        `夹具没发散(归并前那一份读数不见了):${cli.out.trim().slice(0, 300)}`,
+      )
+    // 结论行必须点名判定面(独立仓判的就是 HEAD blob)
+    if (!/判定面:HEAD blob/.test(cli.out))
+      throw new Error(`结论行未点名判定面:${cli.out.trim().slice(0, 300)}`)
+  } finally {
+    rmScratch(env.dir)
+  }
 })
