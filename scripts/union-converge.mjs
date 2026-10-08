@@ -73,6 +73,12 @@
  *   node scripts/union-converge.mjs --self-test      # 真临时仓取证(含"选边必判失败"反向对照)
  *   node scripts/union-converge.mjs --move-aware-detail
  *       # 把"因搬运感知而未取回"的行**逐行**打印(默认只按条目块给计数 + 出处归档件路径)。
+ *   node scripts/union-converge.mjs --resurrect-block
+ *       # 行级复活对账(G-383 最后一格,2026-10-07):活文档归并结果相对本侧(HEAD 侧)量
+ *       # "HEAD 已删、祖先版本写过"的行,与本侧自身存量比(差值棘轮,守门 84 R1r 同款定级)。
+ *       # **默认全档只报数**(stdout 点名,不参与退出码)—— 推送链零风险;本旗标显式声明后,
+ *       # 仅"新增强"(复活行数 > 本侧自身存量)才折进落地闸。存量与未判定在任何档位都不拦:
+ *       # 拦存量 = 恒红门(§12e/§12f);拦"没判成"会把一次 git 抖动读成内容裁决。
  * 退出码:0 = 无需合并或已落地且复核干净;1 = 判据不过/两侧同改冲突需人工/CAS 失败;
  *        2 = 脚本自身异常,**或"本器没资格判"**(取不到远端当次真值 / 目标对象不在本机)——
  *        后者走 `unreachableObjectGuidance` 打印三条出口并落 `UNDETERMINED 未判定`,
@@ -106,6 +112,10 @@ import {
   archivedLineSuppressions,
   subtractSuppressed,
 } from './lib/ledger-move-aware.mjs'
+// 行级复活判据(2026-10-07,台账票 G-383 最后一格):与落地器(object-space-land.mjs)和守门 84
+// 的 R1r 共用**这一份**实现 —— 本器不再抄第二条"什么算一行复活"(两处算同一件事必漂移,
+// 是本仓记过最多次的失败型;判据本体与它的三态语义见该库头注,本文件只做取材与定级)。
+import { resurrectAnalysis } from './lib/stale-content-analysis.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 // git 可执行一律经 §5b 唯一出口解析(候选链 + 探活;§5b 明写"脚本一律不得依赖环境取 git")。
@@ -898,6 +908,191 @@ function moveAwareCached(cache, doc, oursText, theirsText, oursRev, cwd) {
   return r
 }
 
+/* ══ 行级复活对账(R1r 同款形态,台账票 G-383 最后一格,2026-10-07)══════════════════════
+ * 归并器对「HEAD 已删、祖先版本写过」的行是结构性失明的:unionLines 只做重数运算,一行只要
+ * "对侧相对基底多出"就会被带回 —— 哪怕它根本不是对侧的新工作,而是某份滞后台账副本把本侧
+ * 早已删掉的旧行原样搬回。搬运感知那一维(上面 moveAwareForDoc)只看得见有 `已归档` 占位代表
+ * 的那一代;**没有占位的删除**(手工删、非归档流的清理)归它管不到 —— 那一型的尺子就是
+ * 行级复活判据(`lib/stale-content-analysis.mjs` 的 resurrectAnalysis,守门 84 R1r 与落地器
+ * 共用的这一份):一行同时满足 ①不在基准 blob ②在落地内容里 ③该路径某个祖先版本写过。
+ *
+ * 取材面(判据的牙在这里,错一面就是自洽却错位的尺子):
+ *  - **主量测**:base = 本侧(HEAD 侧)文本,new = 归并结果,祖先 = **本侧历史**里动过该路径的
+ *    提交(窗口从 ours 派生,不从字面 HEAD —— buildUnion 的 ours 在测试夹具里未必是 HEAD)。
+ *    窗口刻意只取本侧:对侧在分叉后真新写的行不在本侧历史里 ⇒ 结构上不可能判成复活
+ *    (把对侧的新工作读成复活 = 灾难级假阳,与"少带一行"同罪)。
+ *  - **棘轮锚点**(存量):同一把尺子量**本侧自身** —— base = 分叉基底,new = 本侧,窗口剔掉
+ *    本侧与基底两枚(不剔,"本侧自己新加的行"会被本侧自己的正文喂回锚点 ⇒ 棘轮被自己喂饱,
+ *    那是最隐蔽的假绿;守门 84 R1r 第④步同一条纪律,逐字照搬,不自立第二套)。
+ *    判级只看差值:复活行数 > 本侧自身存量 ⇒ 新增强;≤ ⇒ 存量只报数(拦存量 = 恒红门,§12e/§12f)。
+ *  - 成本:窗口深 `RESURRECT_UNION_WINDOW` 枚(+1 枚探针如实判"窗口是否用尽",G-806 那条
+ *    "预算截断必须报名"的同款)。收敛器不是 pre-commit,但一次合并把 5.7MB 的台账读 400 遍
+ *    一样是白付钱;窗口浅只会**少认**复活行 ⇒ 偏保守(可能漏判红,绝不凭空造红),且用尽必报名。
+ *  - 尺寸护栏取 8MB(同守门 84 的门档值,不是 lib 那道落地器 2MB):三本活文档里台账
+ *    实测 5.7MB,沿 2MB 整族落"未覆盖"= 尺子立在离案发现场最远的那条路上。
+ *
+ * 处置档(G-383 红线:行为对推送链零风险):**默认全档只报数** —— 记录随 buildUnion 返回、
+ * 报告行打 stdout,不进 violations/bad;`--resurrect-block` 显式声明后,仅"新增强"经
+ * `applyResurrectBlock` 折进落地闸。存量与未判定在任何档位都不拦(理由见文件头用法注)。
+ */
+const RESURRECT_UNION_WINDOW = 12
+const RESURRECT_UNION_MAX_BLOB_BYTES = 8 << 20
+
+/**
+ * 对一份活文档的归并结果做行级复活对账。输入由调用方取好(纯判据层不读 git 的纪律在这里
+ * 由"祖先正文一次 catBatch 取满"落实)。返回记录(`p.resurrect` 的一元):
+ * `{ doc, status:'judged'|'undetermined'|'out-of-scope', grade:'red'|'stock'|null,
+ *    count, anchor, sample, commits, reason, windowUsed, windowTotal, windowExhausted }`。
+ */
+export function resurrectWatchForDoc(doc, { oursText, mergedText, baseText, baseRev, oursRev, cwd = ROOT }) {
+  const firstLine = (e) => String(e?.message ?? e ?? '').split('\n')[0]
+  let shas
+  try {
+    shas = git(['log', `--max-count=${RESURRECT_UNION_WINDOW + 1}`, '--format=%H', oursRev, '--', doc], cwd)
+      .split('\n')
+      .filter(Boolean)
+  } catch (e) {
+    return {
+      doc,
+      status: 'undetermined',
+      grade: null,
+      count: null,
+      anchor: null,
+      sample: [],
+      commits: [],
+      reason: `祖先提交清单取不到(git log 未能运行):${firstLine(e)}`,
+      windowUsed: 0,
+      windowTotal: 0,
+      windowExhausted: false,
+    }
+  }
+  const windowExhausted = shas.length > RESURRECT_UNION_WINDOW
+  const window = shas.slice(0, RESURRECT_UNION_WINDOW)
+  const win = { windowUsed: window.length, windowTotal: shas.length, windowExhausted }
+  let texts
+  try {
+    texts = catBatch(cwd, window.map((c) => `${c}:${doc}`))
+  } catch (e) {
+    return {
+      doc,
+      status: 'undetermined',
+      grade: null,
+      count: null,
+      anchor: null,
+      sample: [],
+      commits: [],
+      reason: `祖先正文批量读取失败:${firstLine(e)}`,
+      ...win,
+    }
+  }
+  const ancestors = window.map((c) => ({ commit: c.slice(0, 9), text: texts.get(`${c}:${doc}`) ?? null }))
+  const main = resurrectAnalysis({
+    baseText: oursText,
+    newText: mergedText,
+    ancestors,
+    maxBlobBytes: RESURRECT_UNION_MAX_BLOB_BYTES,
+  })
+  if (main.status !== 'judged')
+    return { doc, status: main.status, grade: null, count: null, anchor: null, sample: [], commits: [], reason: main.reason, ...win }
+  if (main.count === 0) {
+    if (windowExhausted)
+      // 量到 0 行但窗口用尽 ⇒ 更早的版本没看,这是一个更弱的结论,不得与"用满窗口判过且干净"混成一色
+      // (把"少看了"写成"看过了"= 本仓最高频失效型;G-806 在守门 84 的同款出口,照搬)。
+      return {
+        doc,
+        status: 'out-of-scope',
+        grade: null,
+        count: 0,
+        anchor: null,
+        sample: [],
+        commits: [],
+        reason:
+          `复活 0 行,但祖先窗口(${RESURRECT_UNION_WINDOW} 枚)已用尽(该路径动过的提交 ≥ ${RESURRECT_UNION_WINDOW + 1} 枚)` +
+          '⇒ 更早的版本未取,覆盖不全,不是"判过且干净"',
+        ...win,
+      }
+    return { doc, status: 'judged', grade: null, count: 0, anchor: null, sample: [], commits: [], reason: null, ...win }
+  }
+  // 棘轮锚点:同一把尺子量本侧自身(剔掉本侧与基底两枚,理由见函数头注)。
+  // 基底侧没有该路径 ⇒ 存量无从对齐 ⇒ 按守门 84 R1r 的同一处置:不计红也不计绿,点名原因。
+  let anchor
+  if (typeof baseText !== 'string')
+    anchor = {
+      status: 'undetermined',
+      reason: '分叉基底侧没有该路径 ⇒ 本侧自身存量无从对齐',
+      count: null,
+      sample: [],
+      commits: [],
+    }
+  else {
+    const older = window
+      .filter((c) => c !== oursRev && c !== baseRev)
+      .map((c) => ({ commit: c.slice(0, 9), text: texts.get(`${c}:${doc}`) ?? null }))
+    anchor =
+      older.length === 0
+        ? { status: 'judged', count: 0, sample: [], commits: [] }
+        : resurrectAnalysis({
+            baseText,
+            newText: oursText,
+            ancestors: older,
+            maxBlobBytes: RESURRECT_UNION_MAX_BLOB_BYTES,
+          })
+  }
+  if (anchor.status !== 'judged')
+    return {
+      doc,
+      status: 'undetermined',
+      grade: null,
+      count: main.count,
+      anchor: null,
+      sample: main.sample,
+      commits: main.commits,
+      reason: `复活 ${main.count} 行,但本侧自身存量未判定:${anchor.reason ?? '(无原因)'} ⇒ 不计红也不计绿`,
+      ...win,
+    }
+  return {
+    doc,
+    status: 'judged',
+    grade: main.count > anchor.count ? 'red' : 'stock',
+    count: main.count,
+    anchor: anchor.count,
+    sample: main.sample,
+    commits: main.commits,
+    reason: null,
+    ...win,
+  }
+}
+
+/** R1r 复活对账的报告行(点名 stdout)。judged 且 0 行、窗口未尽 ⇒ 干净,不刷屏(与守门 84 R1r 同款)。 */
+export function renderResurrectWatch(r) {
+  if (r.status === 'judged' && r.count === 0) return []
+  const winNote = r.windowExhausted ? ` [祖先窗口 ${RESURRECT_UNION_WINDOW} 枚已用尽,更早未取]` : ''
+  const by = `出自祖先 ${(r.commits || []).slice(0, 3).join(', ') || '未点名'}`
+  if (r.status === 'judged' && r.grade === 'red')
+    return [
+      `   ❌ [R1r 复活对账] ${r.doc}:归并结果相对本侧复活 ${r.count} 行 > 本侧自身存量 ${r.anchor} 行 ⇒ 新增强` +
+        `(默认只报数;--resurrect-block 才参与退出码);样本:${r.sample.slice(0, 2).join(' | ') || '—'};${by}${winNote}`,
+    ]
+  if (r.status === 'judged' && r.grade === 'stock')
+    return [
+      `   ℹ️ [R1r 复活对账·存量只报数] ${r.doc}:复活 ${r.count} 行 ≤ 本侧自身存量 ${r.anchor} 行` +
+        `(存量债不是本次归并带进来的 ⇒ 当场判红就是恒红门);${by}${winNote}`,
+    ]
+  if (r.status === 'out-of-scope') return [`   ℹ️ [R1r 复活对账·未覆盖] ${r.doc}:${r.reason}(未覆盖 ≠ 通过)`]
+  return [`   ❓ [R1r 复活对账·未判定] ${r.doc}:${r.reason}(不是"查过且干净")`]
+}
+
+/** --resurrect-block 的接线点(main 专供、导出供测):只把"新增强"折进落地闸;存量与未判定在任何档位都不拦。 */
+export function applyResurrectBlock(p) {
+  for (const r of p.resurrect || [])
+    if (r.grade === 'red')
+      p.bad.push(
+        `${r.doc} 行级复活新增强(--resurrect-block):归并结果相对本侧复活 ${r.count} 行 > 本侧自身存量 ${r.anchor} 行` +
+          `(出自祖先 ${(r.commits || []).slice(0, 3).join(', ') || '未点名'})`,
+      )
+  return p.bad
+}
+
 
 /** 构造合并树。临时索引走 §26 的夹具唯一落点 `mkScratch` ——
  *  硬编码 `cwd/.ihui-agent/tmp` 会在"对临时仓库做取证"时直接 ENOENT(自检第一轮即如此),
@@ -945,6 +1140,8 @@ export function buildUnion(
     // 1) 活文档:三方行 union(对侧相对基底的**独有行**必须存活;本侧就地改写的行不得被旧副本复活;
     //    本侧已有 `已归档` 占位代表的行不得再从对侧取回 —— 见 lib/ledger-move-aware.mjs 头注)
     const liveDocs = []
+    // 行级复活对账记录(G-383 最后一格):每份活文档归并后逐条登记,随返回值交 plan/main 呈报。
+    const resurrect = []
     for (const p of LIVE_DOCS) {
       const a = show(ours, p, cwd)
       const b = show(theirs, p, cwd)
@@ -952,11 +1149,36 @@ export function buildUnion(
       const bt = base ? show(base, p, cwd) : null
       const ma = moveAwareCached(moveAwareCache, p, a, b, ours, cwd)
       liveDocs.push(ma)
-      const mergedText = unionLines(a, b, bt, ma.suppress)
+      let mergedText = unionLines(a, b, bt, ma.suppress)
+      // 根治(2026-10-08):--resolve 对活文档的支持。LIVE_DOCS 走 unionLines 直接 union,
+      // 永远不会经过 mergeThreeBlobs,所以 --resolve 在第 2) 阶段完全无效。
+      // 这里在第 1) 阶段循环中补上:若 resolutions 有该路径,直接读 resolve 文件内容
+      //(让号器产出的让号后正文),覆盖 mergedText,下游 writeBlob / resurrectWatchForDoc /
+      // planStateRegressions 全部使用让号后内容。
+      const resolved = resolutions.get(p)
+      if (resolved) {
+        const resolvedContent = readFileSync(resolved, 'utf8')
+        mergedText = resolvedContent
+      }
       // 根治(2026-09-30):--stdin 通道要求真 stdin 管道(本会话建管道必 EBUSY)⇒ 改走
       // writeBlob 临时文件通道,同 --path 语义、同 blob SHA(该函数头注有 CRLF 等价实证)。
       const oid = writeBlob(mergedText, p, cwd)
       run(['update-index', '--add', '--cacheinfo', `100644,${oid},${p}`])
+      // 行级复活对账(R1r 同款,台账票 G-383 最后一格):归并结果相对**本侧(HEAD 侧)**量
+      // "HEAD 已删、祖先版本写过"的行,与本侧自身存量比(差值棘轮)。判据与本侧历史窗口的
+      // 纪律见 resurrectWatchForDoc 头注;**默认全档只报数**(报告行打 stdout,记录随返回值走),
+      // --resurrect-block 显式声明后仅"新增强"折进落地闸(main 里经 applyResurrectBlock)。
+      // 基底侧有没有该路径必须问 blob 而不是信 show 的 ''(取不到与空文件是两件事,show 分不出)。
+      const __rw = resurrectWatchForDoc(p, {
+        oursText: a,
+        mergedText,
+        baseText: base && blobOf(base, p, cwd) ? bt : null,
+        baseRev: base,
+        oursRev: ours,
+        cwd,
+      })
+      resurrect.push(__rw)
+      for (const __line of renderResurrectWatch(__rw)) console.log(__line)
       /**
        * 状态分叉判据**必须挂在这条路上**,而不是挂在下面 2) 的 `mergedClean` 循环里 ——
        * 2) 开头就有 `if (LIVE_DOCS.includes(p)) continue`,而台账正是活文档,所以那条循环
@@ -1225,6 +1447,7 @@ export function buildUnion(
       violations,
       caps,
       liveDocs,
+      resurrect,
     }
   } finally {
     rmScratch(scratch, { bestEffort: true })
@@ -2881,6 +3104,10 @@ async function main() {
   }
   // --move-aware-detail:把"因搬运感知而未取回"的行**逐行**打印(默认只按条目块报计数)。
   const moveAwareDetail = argv.includes('--move-aware-detail')
+  // --resurrect-block(G-383 最后一格):行级复活对账的"新增强"参与退出码。缺省只报数 ——
+  // 推送链零风险:对侧一份滞后台账副本就能让每一次收敛判红,那等于把收敛器自己变成恒红门
+  // (§12e/§12f:被恒红逼出来的放行开关,连事故那一型也一起放行)。存量与未判定任何档位都不拦。
+  const resurrectBlock = argv.includes('--resurrect-block')
   const t = resolveTargets(ti >= 0 ? argv[ti + 1] : '')
   if (t.skip) {
     console.log(`[union-converge] ${t.skip} ⇒ 无需合并`)
@@ -2956,6 +3183,8 @@ async function main() {
   ])
   for (const line of capRows) console.log(line)
   const capDropped = (p.caps || []).reduce((s, c) => s + (c.capped?.reduce((a, e) => a + e.dropped, 0) ?? 0), 0)
+  // 显式旗标才把"新增强"折进落地闸(缺省只报数;存量/未判定永远不折,见 --resurrect-block 的用法注)。
+  if (resurrectBlock) applyResurrectBlock(p)
   if (p.bad.length) {
     console.log(`❌ 落地闸不过 ${p.bad.length} 处:`)
     for (const b of p.bad.slice(0, 15)) console.log(`   ${b}`)
@@ -3089,6 +3318,9 @@ export const __test__ = {
   moveAwareForDoc,
   formatMoveAwareReport,
   formatPointerCapReport,
+  resurrectWatchForDoc,
+  renderResurrectWatch,
+  applyResurrectBlock,
   LIVE_DOCS,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
