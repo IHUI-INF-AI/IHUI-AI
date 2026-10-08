@@ -100,6 +100,7 @@ const readHeadPlan = () =>
     cwd: REPO,
     maxBuffer: 1 << 28,
     windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
   }).toString()
 
 const seedRepo = (dir, text) => {
@@ -107,6 +108,7 @@ const seedRepo = (dir, text) => {
     execFileSync('git', ['-c', 'safe.directory=*', '-C', dir, ...a], {
       windowsHide: true,
       encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
   git(['init', '-q', '.'])
   git(['config', 'user.email', 'g761@example.invalid'])
@@ -120,6 +122,7 @@ const headOf = (dir) =>
     windowsHide: true,
     maxBuffer: 1 << 26,
     encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 const planTasksJson = (dir, extra) =>
   JSON.parse(
