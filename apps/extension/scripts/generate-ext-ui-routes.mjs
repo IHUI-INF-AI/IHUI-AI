@@ -182,10 +182,12 @@ function main() {
     process.exit(1)
   }
 
-  console.log(
+  // 产物生成器的收尾信息一律 console.info:extension 的 lint 跑 `--max-warnings 0`
+  // 而 no-console 只放行 warn/error/info —— 用 console.log 会把 main 的 CI 直接判红。
+  console.info(
     `[gen:ui-routes] 路由 ${paths.length} 条(含兼容重定向;排除 \`*\` 通配 ${wildcard} 条、动态路径 ${dynamic} 条)。`,
   )
-  console.log(`[gen:ui-routes] 已写入 ${outFile}`)
+  console.info(`[gen:ui-routes] 已写入 ${outFile}`)
 }
 
 main()
