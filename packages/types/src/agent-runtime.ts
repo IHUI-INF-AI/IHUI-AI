@@ -1301,6 +1301,135 @@ export function workspaceAgentTaskStatusLabelKey(status: string): string | null 
 }
 
 /**
+ * 第四个域(G-816003,2026-10-08):后台任务**终止**的词汇 —— 一次终止同时投影成
+ * 每个消费面各自的那一列词,而不是让每个消费面各自拼字符串。
+ *
+ * **它问的是另一条轴。** `BackgroundTaskStatus`(apps/cli 注册表)答的是"进程怎么没的"
+ * (exited/killed/error/lost);本表答的是"**谁让它停的、这一档该不该被再发起**"。
+ * 上游同构:`packages/ui/src/v4` 的 `notificationStatus` 把一次终止折成
+ * registry / notification / subagent-event / background-event 四列 —— **runStatus 讲真话,
+ * 通用词折起来**。本表是那张表在本仓的落点。
+ *
+ * 与 `AGENT_TASK_STATUSES` / `WORKSPACE_AGENT_TASK_STATUSES` 刻意**不相交**:
+ * 那两个是落库列 + REST `z.enum` + SSE 载荷的对外契约(G-816025/G-816026 已定,动它等于改契约);
+ * 本表值一律 kebab-case,所以守门 151 的 SV2"两域交集必须为空"照旧成立、SV3 也不会把本表
+ * 的成员当成 Kanban 抄本。**本表不进守门 151 的 SV1/SV2 射程**(它判的是 Kanban 那一族四处副本);
+ * 它的常驻尺子在 `apps/cli/tests/g-816003-termination-vocab.test.ts`(行集闭合 + 按发起方分支 + 成对反向锁)。
+ *
+ * ⚠️ 同一词不同义:本表**不得**并置进任何 barrel 去顶掉 `AGENT_TASK_STATUSES`
+ * (AGENTS §27 那条"同词不同义的两张名单不得并置"的教训就在这儿)。
+ */
+export const BACKGROUND_STOP_REASONS = ['user', 'model', 'superseded', 'timed-out', 'unknown'] as const
+
+export type BackgroundStopReason = (typeof BACKGROUND_STOP_REASONS)[number]
+
+/**
+ * `resumeStance` 是**文案分支的判据**,不是一段中文的缩写:
+ *  - `forbid-implication` ⇒ 呈现面**不得**出现任何"可继续/可重跑/resume"的暗示(用户手停);
+ *  - `open` ⇒ 呈现面**不得**反过来劝"别重跑"(模型自停/被取代 —— 重发是正当下一步);
+ *  - `neutral` ⇒ 两边都不说(发起方未记录,不猜)。
+ * 反向锁由测试钉住:只判"含不含某个词"会把两档折成一档。
+ */
+export type BackgroundResumeStance = 'forbid-implication' | 'open' | 'neutral'
+
+export interface BackgroundTerminationVocabRow {
+  /** 主键:停止发起方轴。值域 = `BACKGROUND_STOP_REASON` 封闭集。 */
+  stopReason: BackgroundStopReason
+  /** 列① registry —— 注册表/台账侧的稳定机器词(落盘、可 diff,不随措辞变)。 */
+  registry: string
+  /** 列② notification —— 播报里进 `cli.bgNoticeStatus` 的 `{status}` 槽的词。 */
+  notification: string
+  /** 列③ subagent-event —— 子代理事件帧的 status 词(该面接线见交付报告残余①)。 */
+  subagentEvent: string
+  /** 列④ background-event —— 后台事件/名册投影的 status 词(同上,残余①)。 */
+  backgroundEvent: string
+  /** 该档的补充指引 i18n 键(用户可见文案唯一通道);空串 = 这一档今天没有额外句子。 */
+  guidanceKey: string
+  /** 分支判据(见类型注释)。 */
+  resumeStance: BackgroundResumeStance
+}
+
+/**
+ * 一张表 × 每消费面一列 —— **唯一真相源**。端内(播报、名册、事件帧、面板)
+ * **不得**再各自写一份同值字符串清单(守门 121/115 判的"声明无消费者"与本仓"两处算同一件事必漂移"
+ * 是同一条禁令的两面)。取值一律经 `backgroundTerminationRowOf()` 查,不许散写。
+ *
+ * `timed-out` 那行的 `guidanceKey` 是**既有键** `cli.bgNoticeTimedOut`(那句话早就在播报里,
+ * 不另立新句、也不许把它复制成第二份文本);`superseded` 那一档今天 CLI 侧**还没有生产者**
+ * (`killTask` 的 initiator 值域是 `'user' | 'model' | null`,G-816026 已交付、本票不动它),
+ * 行先立在表里是为了第二发起方落地时**只改入参**、不在别处再抄一遍分支。
+ */
+export const BACKGROUND_TERMINATION_VOCAB: readonly BackgroundTerminationVocabRow[] = [
+  {
+    stopReason: 'user',
+    registry: 'killed-by-user',
+    notification: 'stopped-by-user',
+    subagentEvent: 'user_cancelled',
+    backgroundEvent: 'stopped-by-user',
+    guidanceKey: 'cli.bgNoticeStoppedByUser',
+    resumeStance: 'forbid-implication',
+  },
+  {
+    stopReason: 'model',
+    registry: 'killed-by-model',
+    notification: 'stopped-by-model',
+    subagentEvent: 'model_cancelled',
+    backgroundEvent: 'stopped-by-model',
+    guidanceKey: 'cli.bgNoticeStoppedByModel',
+    resumeStance: 'open',
+  },
+  {
+    stopReason: 'superseded',
+    registry: 'killed-as-superseded',
+    notification: 'superseded-by-newer-run',
+    subagentEvent: 'superseded',
+    backgroundEvent: 'superseded',
+    guidanceKey: 'cli.bgNoticeStoppedBySuperseded',
+    resumeStance: 'open',
+  },
+  {
+    stopReason: 'timed-out',
+    registry: 'killed-by-deadline',
+    notification: 'timed-out',
+    subagentEvent: 'timeout',
+    backgroundEvent: 'timed-out',
+    guidanceKey: 'cli.bgNoticeTimedOut',
+    resumeStance: 'neutral',
+  },
+  {
+    stopReason: 'unknown',
+    registry: 'stop-initiator-unrecorded',
+    notification: 'stopped-cause-unknown',
+    subagentEvent: 'unknown',
+    backgroundEvent: 'stopped-cause-unknown',
+    guidanceKey: 'cli.bgNoticeStopInitiatorUnknown',
+    resumeStance: 'neutral',
+  },
+] as const
+
+/** 主键 → 行。按主键建表时顺手生成,不在第二处重列成员。 */
+const BACKGROUND_TERMINATION_ROW_BY_KEY: ReadonlyMap<string, BackgroundTerminationVocabRow> = new Map(
+  BACKGROUND_TERMINATION_VOCAB.map((row) => [row.stopReason as string, row]),
+)
+
+/** 发起方未记录时的兜底行 —— 中性档,**绝不**默认成 `user`。 */
+export const BACKGROUND_TERMINATION_UNKNOWN_ROW: BackgroundTerminationVocabRow =
+  BACKGROUND_TERMINATION_ROW_BY_KEY.get('unknown')!
+
+/**
+ * 取某一档的行。**只认已落盘的发起方值**,未知/缺席 ⇒ 落 `unknown` 行并原样把传入值回传
+ * (`resolved:false`),让调用方能把它登记成"未判定"而不是悄悄折成 user/model
+ * (AGENTS §5c「按 signal 猜」那一型就是靠这种静默折叠活下来的)。
+ */
+export function backgroundTerminationRowOf(
+  stopReason: string | null | undefined,
+): { row: BackgroundTerminationVocabRow; resolved: boolean } {
+  const row = stopReason === null || stopReason === undefined ? undefined : BACKGROUND_TERMINATION_ROW_BY_KEY.get(stopReason)
+  return row ? { row, resolved: true } : { row: BACKGROUND_TERMINATION_UNKNOWN_ROW, resolved: false }
+}
+
+
+/**
  * D152(2026-09-29 立,用户拍板「六态」):会话内「目标(goal)」状态机的封闭集 ——
  * **第三个域**,与上面两个刻意不相交、也不得并集:
  *  · `AGENT_TASK_STATUSES` 是 Kanban 任务卡的六列(triage/todo/ready/in_progress/blocked/done),

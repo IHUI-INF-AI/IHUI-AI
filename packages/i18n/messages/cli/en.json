@@ -5,6 +5,10 @@
   "cli": {
     "bgNoticeStatus": "Task {id}  status: {status}  exitCode: {exitCode}",
     "bgNoticeTimedOut": "[task timed out]",
+    "bgNoticeStoppedByUser": "[stopped by the user] A person stopped this run; it will not be re-issued on its own.",
+    "bgNoticeStoppedByModel": "[stopped by the model] The model ended this run itself; if the task is still unfinished, re-issue it.",
+    "bgNoticeStoppedBySuperseded": "[superseded] This run was stopped because a newer run took its place; re-issue it if you still need it.",
+    "bgNoticeStopInitiatorUnknown": "[stop initiator unrecorded] This run was stopped, but who stopped it was never written down — no inference is made.",
     "bgNoticeNoObservableSource": "[no observable source] The process is gone, neither output nor exit code was recorded, and no waiter was there to take it — the result of this terminal state cannot be recovered. Do not read it as success, and do not re-run the same command because of it (re-running is a separate decision, not a way to recover a result).",
     "custom": {
       "unknown": "Custom command /{name} is not defined. Add it by creating {name}.md inside the custom command folder {dir} (use $ARGUMENTS for the whole input, or $1 and $2 for positional arguments). Run /help to see the built-in commands.",

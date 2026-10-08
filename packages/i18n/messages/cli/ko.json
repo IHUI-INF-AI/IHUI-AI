@@ -5,6 +5,10 @@
   "cli": {
     "bgNoticeStatus": "작업 {id}  상태: {status}  exitCode: {exitCode}",
     "bgNoticeTimedOut": "[작업 시간 초과]",
+    "bgNoticeStoppedByUser": "[사용자 중지] 사람이 이 작업을 중단시켰습니다. 자동으로 다시 실행되지 않습니다.",
+    "bgNoticeStoppedByModel": "[모델 중지] 모델이 스스로 이 작업을 끝냈습니다. 작업이 아직 끝나지 않았다면 다시 요청하세요.",
+    "bgNoticeStoppedBySuperseded": "[후속 작업에 대체됨] 더 새로운 실행에 밀려 중단되었습니다. 여전히 필요다면 다시 요청하세요.",
+    "bgNoticeStopInitiatorUnknown": "[중지 주체 미기록] 이 작업은 중단되었지만 누가 중단했는 기록되지 않았습니다 — 추정하지 않습니다.",
     "bgNoticeNoObservableSource": "[관찰 가능한 출처 없음] 프로세스가 종료되어 출력도 종료 코드도 남지 않았고 그때 받아 갈 대기자도 없었습니다 — 이 종료 상태의 결과는 되돌릴 수 없습니다. 성공으로 해석하지 마시고 같은 명령을 다시 실행하지 마세요(재실행은 별도의 결정이며 결과를 복구하는 수단이 아닙니다).",
     "custom": {
       "unknown": "커스텀 명령어 /{name} 이 정의되지 않았습니다. {dir} 에 {name}.md 파일을 만들면 추가할 수 있습니다(본문에서 $ARGUMENTS 로 전체 입력을 받고, $1 이나 $2 로 위치 인자를 받습니다). 내장 명령어는 /help 에서 확인해 주세요.",
