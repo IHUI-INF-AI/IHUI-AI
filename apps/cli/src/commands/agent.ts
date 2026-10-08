@@ -1665,7 +1665,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
     const tool = getTool(toolName);
     if (!tool || tool.dangerLevel !== 'read') return false;
     const mode = opts.ctx.permissionMode ?? 'default';
-    return checkPermission(toolName, opts.ctx.permissions, mode, tool.dangerLevel) === 'allow';
+    return checkPermission(toolName, opts.ctx.permissions, mode, tool.dangerLevel, undefined, tool.nameAliases) === 'allow';
   };
   /**
    * 提前发起一次只读执行;抛错原样上送,由账本记成 ok=false。
@@ -2351,7 +2351,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           const startTime = Date.now();
           const tool = getTool(call.name);
           const dangerLevel = tool?.dangerLevel ?? 'read';
-          const decision = checkPermission(call.name, opts.ctx.permissions, mode, dangerLevel);
+          const decision = checkPermission(call.name, opts.ctx.permissions, mode, dangerLevel, undefined, tool?.nameAliases);
           if (decision === 'deny') {
             return {
               call,
