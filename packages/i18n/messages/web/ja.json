@@ -14412,22 +14412,6 @@
       "title": "音声通話"
     }
   },
-  "eduCertificatesPage": {
-    "backToList": "証明書一覧に戻る",
-    "certificateNo": "証明書番号：{no}",
-    "completed": "完了",
-    "download": "証明書をダウンロード",
-    "downloadFailed": "ダウンロード失敗（{status}）",
-    "issuanceText": "学習および評価に合格したため、本証明書を授与します",
-    "issuedAt": "発行日：{date}",
-    "loading": "読み込み中...",
-    "notFound": "証明書が見つかりません",
-    "print": "印刷",
-    "status": {
-      "revoked": "失効済み",
-      "valid": "有効"
-    }
-  },
   "eduCourseLearnPage": {
     "backToDetail": "コース詳細に戻る",
     "loadFailed": "読み込みに失敗しました",
@@ -23721,24 +23705,6 @@
   "magazine": {
     "title": "ニュース"
   },
-  "defaultEntries": {
-    "mall": {
-      "label": "モール",
-      "description": "お得な商品をお買い物"
-    },
-    "vip": {
-      "label": "会員",
-      "description": "会員登録で専属特典を享受"
-    },
-    "invite": {
-      "label": "招待",
-      "description": "友達を招待して報酬を獲得"
-    },
-    "help": {
-      "label": "ヘルプ",
-      "description": "よくある質問と利用ガイドを見る"
-    }
-  },
   "analytics": {
     "totalPublished": "累計投稿",
     "successRate": "成功率",
@@ -24731,15 +24697,6 @@
     "ctaSecondary": "詳細を見る",
     "miniappBtn": "微信ミニアプリ"
   },
-  "defaultTags": {
-    "llm": "大規模言語モデル",
-    "tutorial": "チュートリアル",
-    "rag": "ナレッジベース",
-    "agent": "エージェント",
-    "frontend": "フロントエンド",
-    "backend": "バックエンド",
-    "opensource": "オープンソース"
-  },
   "device": {
     "title": "端末管理",
     "lastLoginLabel": "最終ログイン",
@@ -25111,16 +25068,6 @@
     "confirmDelete": "削除してよろしいですか？",
     "confirm": "確定",
     "cancel": "キャンセル"
-  },
-  "terminalSessionList": {
-    "statusActive": "実行中",
-    "statusExited": "終了",
-    "statusClosed": "クローズ",
-    "title": "ターミナルセッション",
-    "newTerminalAria": "新しいターミナル",
-    "loading": "読み込み中…",
-    "empty": "セッションなし",
-    "closeTerminalAria": "ターミナルを閉じる"
   },
   "pricing": {
     "title": "料金プラン"
@@ -27474,13 +27421,6 @@
     "subtitle": "取得したすべての証明書を見る",
     "title": "マイ証明書",
     "view": "表示"
-  },
-  "eduCourses": {
-    "backToCourses": "コース一覧に戻る",
-    "chaptersTitle": "セクション目次",
-    "detail": "詳細",
-    "notFound": "コースが見つかりません",
-    "studentsCount": "{count} 人が受講中"
   },
   "eduStudyPlan": {
     "add": "追加",

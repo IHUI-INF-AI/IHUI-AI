@@ -165,7 +165,10 @@ function show(rev, p, cwd) {
 
 function blobOf(rev, p, cwd) {
   try {
-    return git(['rev-parse', `${rev}:${p}`], cwd)
+    // 必须带 --verify --quiet:裸 rev-parse 对解析不了的参数(<rev>:<path> 路径不存在时)
+    // 会**原样回显且退出码 0**(2026-10-07 实测抓到:远端树没有 PageClient.tsx,
+    // blobOf 回显了 "<sha>:<path>" 整串 ⇒ 被当 blob 塞进 --cacheinfo ⇒ 整轮收敛崩)。
+    return git(['rev-parse', '--verify', '--quiet', `${rev}:${p}`], cwd)
   } catch {
     return null
   }
@@ -1146,7 +1149,17 @@ export function buildUnion(
       const bt = base ? show(base, p, cwd) : null
       const ma = moveAwareCached(moveAwareCache, p, a, b, ours, cwd)
       liveDocs.push(ma)
-      const mergedText = unionLines(a, b, bt, ma.suppress)
+      let mergedText = unionLines(a, b, bt, ma.suppress)
+      // 根治(2026-10-08):--resolve 对活文档的支持。LIVE_DOCS 走 unionLines 直接 union,
+      // 永远不会经过 mergeThreeBlobs,所以 --resolve 在第 2) 阶段完全无效。
+      // 这里在第 1) 阶段循环中补上:若 resolutions 有该路径,直接读 resolve 文件内容
+      //(让号器产出的让号后正文),覆盖 mergedText,下游 writeBlob / resurrectWatchForDoc /
+      // planStateRegressions 全部使用让号后内容。
+      const resolved = resolutions.get(p)
+      if (resolved) {
+        const resolvedContent = readFileSync(resolved, 'utf8')
+        mergedText = resolvedContent
+      }
       // 根治(2026-09-30):--stdin 通道要求真 stdin 管道(本会话建管道必 EBUSY)⇒ 改走
       // writeBlob 临时文件通道,同 --path 语义、同 blob SHA(该函数头注有 CRLF 等价实证)。
       const oid = writeBlob(mergedText, p, cwd)
