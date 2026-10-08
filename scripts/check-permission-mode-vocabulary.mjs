@@ -46,7 +46,11 @@ const AGENT_LOOP = 'apps/ai-service/app/services/agent_loop_v2.py'
  * (只许规范成员);wire = 该处比较/声明的是**对外拼写**(kebab 等别名合法)。
  */
 const CONSUMER_PROFILES = [
-  { file: 'apps/ai-service/app/services/agent_loop_v2.py', vars: ['permission_mode'], kind: 'canonical' },
+  {
+    file: 'apps/ai-service/app/services/agent_loop_v2.py',
+    vars: ['permission_mode'],
+    kind: 'canonical',
+  },
   { file: 'apps/ai-service/app/routers/agent_runtime.py', vars: ['mode'], kind: 'canonical' },
   { file: 'apps/ai-service/app/routers/agents.py', vars: ['permission_mode'], kind: 'wire' },
   { file: 'apps/api/src/routes/workspace-permissions.ts', vars: ['mode'], kind: 'wire' },
@@ -59,7 +63,11 @@ const CONSUMER_PROFILES = [
     vars: ['mode'],
     kind: 'wire',
   },
-  { file: 'apps/cli/src/tools/permissions.ts', vars: ['permissionMode', 'mode'], kind: 'canonical' },
+  {
+    file: 'apps/cli/src/tools/permissions.ts',
+    vars: ['permissionMode', 'mode'],
+    kind: 'canonical',
+  },
   { file: 'apps/cli/src/commands/settings.ts', vars: ['permissionMode'], kind: 'canonical' },
   { file: 'apps/cli/src/commands/repl.ts', vars: ['permissionMode'], kind: 'canonical' },
   { file: 'apps/cli/src/commands/status-cmd.ts', vars: ['permissionMode'], kind: 'canonical' },
@@ -95,9 +103,7 @@ export function parseTsRegistry(src) {
   if (!aliasBlock) throw new Error('未找到 TS PERMISSION_MODE_ALIASES 对象声明')
   const aliases = {}
   // 键允许两种写法:'accept-edits'(带引号)与 acceptedits(合法标识符,归一化键恒小写)
-  for (
-    const m of aliasBlock[1].matchAll(/(?:'([^']+)'|([A-Za-z_][\w-]*))\s*:\s*'([^']+)'/g)
-  ) {
+  for (const m of aliasBlock[1].matchAll(/(?:'([^']+)'|([A-Za-z_][\w-]*))\s*:\s*'([^']+)'/g)) {
     aliases[m[1] ?? m[2]] = m[3]
   }
   return { members, aliases }
@@ -132,25 +138,28 @@ export function collectConsumerLiterals(relPath, src, profile) {
   const found = []
   const lineOf = (index) => src.slice(0, index).split('\n').length
   const canonicalOnly = profile?.kind === 'canonical'
-  const push = (value, index, why) =>
-    found.push({ value, line: lineOf(index), why, canonicalOnly })
+  const push = (value, index, why) => found.push({ value, line: lineOf(index), why, canonicalOnly })
 
   // ① 比较位:只抓档案里登记的变量名 —— 通用 `mode ==` 会把 MoA 的 debate/vote/critique
   //    这类无关档位一起咬进来(上一版实测 3 处误报),判据一宽就没人信。
   for (const varName of profile?.vars ?? []) {
-    for (const m of src.matchAll(new RegExp(`${varName}\\s*===?\\s*(["'])([^"']+)\\1`, 'g'))) {
+    for (const m of src.matchAll(
+      new RegExp(`(?<!typeof\\s+)${varName}\\s*===?\\s*(["'])([^"']+)\\1`, 'g'),
+    )) {
       push(m[2], m.index, `${varName} 比较字面量`)
     }
   }
 
   // ② 声明位:zod 枚举(键名含 permission/mode)
-  for (
-    const m of src.matchAll(/\b(?:permission|mode)[A-Za-z_]*\s*[:=]\s*z\.enum\(\[([\s\S]*?)\]/g)
-  ) {
+  for (const m of src.matchAll(
+    /\b(?:permission|mode)[A-Za-z_]*\s*[:=]\s*z\.enum\(\[([\s\S]*?)\]/g,
+  )) {
     for (const lit of m[1].matchAll(/'([^']+)'/g)) push(lit[1], m.index, 'zod 权限枚举成员')
   }
   // ③ 声明位:TS 类型联合 export type XxxPermissionMode = 'a' | 'b'
-  for (const m of src.matchAll(/export type \w*PermissionMode\s*=\s*((?:'[^']+'(?:\s*\|\s*)?)+)/g)) {
+  for (const m of src.matchAll(
+    /export type \w*PermissionMode\s*=\s*((?:'[^']+'(?:\s*\|\s*)?)+)/g,
+  )) {
     for (const lit of m[1].matchAll(/'([^']+)'/g)) push(lit[1], m.index, 'TS 权限模式联合')
   }
   // ④ 声明位:对外文档的参数表行
@@ -168,9 +177,7 @@ export function checkMirror(ts, py) {
   const problems = []
   const eq = (a, b) => a.length === b.length && a.every((x, i) => x === b[i])
   if (!eq([...ts.members].sort(), [...py.members].sort())) {
-    problems.push(
-      `R1 成员集不一致 TS=[${ts.members.join(',')}] Python=[${py.members.join(',')}]`,
-    )
+    problems.push(`R1 成员集不一致 TS=[${ts.members.join(',')}] Python=[${py.members.join(',')}]`)
   }
   const tsKeys = Object.keys(ts.aliases).sort()
   const pyKeys = Object.keys(py.aliases).sort()
@@ -323,7 +330,10 @@ export function checkWireMirrors(read, wireValues) {
       problems.push(`R5 ${relPath}: 找不到 PromptMode = Literal[...] 声明(镜像被删?`)
       continue
     }
-    const got = [...m[1].matchAll(/["']([^"']+)["']/g)].map((x) => x[1]).sort().join(',')
+    const got = [...m[1].matchAll(/["']([^"']+)["']/g)]
+      .map((x) => x[1])
+      .sort()
+      .join(',')
     if (got !== want) {
       problems.push(
         `R5 ${relPath}: PromptMode 镜像与 TS wire 清单不一致 期望[${want}] 实际[${got}]` +
@@ -454,7 +464,9 @@ export function checkAxisMirror(ts, py, permissionMembers) {
     problems.push(`R6 沙箱轴成员集不一致 TS=[${ts.sandboxModes}] Python=[${py.sandboxModes}]`)
   }
   if (!eq(ts.approvalPolicies, py.approvalPolicies)) {
-    problems.push(`R6 审批轴成员集不一致 TS=[${ts.approvalPolicies}] Python=[${py.approvalPolicies}]`)
+    problems.push(
+      `R6 审批轴成员集不一致 TS=[${ts.approvalPolicies}] Python=[${py.approvalPolicies}]`,
+    )
   }
   dictEq(ts.sandboxAliases, py.sandboxAliases, '沙箱别名')
   dictEq(ts.approvalAliases, py.approvalAliases, '审批别名')
@@ -554,7 +566,19 @@ export function strictVerdict(problems, unjudged) {
 function censusSignaled(root) {
   const res = spawnSync(
     'git',
-    ['-C', root, 'grep', '-I', '-l', '-i', '-E', 'permission[-_]?mode', '--', ':/', ':!.ihui-agent'],
+    [
+      '-C',
+      root,
+      'grep',
+      '-I',
+      '-l',
+      '-i',
+      '-E',
+      'permission[-_]?mode',
+      '--',
+      ':/',
+      ':!.ihui-agent',
+    ],
     {
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,
@@ -563,7 +587,11 @@ function censusSignaled(root) {
       stdio: ['ignore', 'pipe', 'pipe'],
     },
   )
-  if (res.status === 0) return res.stdout.split('\n').map((s) => s.trim()).filter(Boolean)
+  if (res.status === 0)
+    return res.stdout
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
   if (res.status === 1) return [] // git grep 无命中
   throw new Error(`git grep exit ${res.status}: ${String(res.stderr).slice(0, 200)}`)
 }
@@ -635,10 +663,9 @@ function selfTest() {
   )
   t(
     'R1 咬住同一别名两侧目标不同',
-    checkMirror(
-      { ...baseTs, aliases: { ...baseTs.aliases, auto: 'plan' } },
-      basePy,
-    ).some((p) => p.startsWith('R1 别名 auto')),
+    checkMirror({ ...baseTs, aliases: { ...baseTs.aliases, auto: 'plan' } }, basePy).some((p) =>
+      p.startsWith('R1 别名 auto'),
+    ),
   )
   t(
     'R2 咬住别名指向未知成员',
@@ -699,14 +726,48 @@ function selfTest() {
   t(
     'R3 不吃模型名 auto(非权限位)',
     checkConsumers(
-      [{ relPath: 'docs/developer/api/agents.md', src: 'const m = llm.complete(model="whatever")\n' }],
+      [
+        {
+          relPath: 'docs/developer/api/agents.md',
+          src: 'const m = llm.complete(model="whatever")\n',
+        },
+      ],
       baseTs,
     ).length === 0,
   )
   t(
+    'R3 不吃 typeof 类型守卫(G-422 实测:typeof mode === "string" 不是取值比较)',
+    checkConsumers(
+      [
+        {
+          relPath: 'apps/cli/src/tools/permissions.ts',
+          src: "if (typeof mode === 'string' && dangerLevel !== undefined) { decideWithMode() }\n",
+        },
+      ],
+      baseTs,
+    ).length === 0,
+  )
+  t(
+    'R3 仍咬真取值比较(typeof 例外不放宽判据)',
+    checkConsumers(
+      [
+        {
+          relPath: 'apps/cli/src/tools/permissions.ts',
+          src: "if (mode === 'yolo') throw new Error()\n",
+        },
+      ],
+      baseTs,
+    ).some((p) => p.includes('yolo')),
+  )
+  t(
     'R3 不吃 MoA 聚合档 debate(档案未登记该变量名)',
     checkConsumers(
-      [{ relPath: 'apps/ai-service/app/routers/agents.py', src: 'if mode == "debate":\n    pass\n' }],
+      [
+        {
+          relPath: 'apps/ai-service/app/routers/agents.py',
+          src: 'if mode == "debate":\n    pass\n',
+        },
+      ],
       baseTs,
     ).length === 0,
   )
@@ -818,9 +879,11 @@ function selfTest() {
   const basePyAxis = parsePyAxisRegistry(readFileSync(join(ROOT, PY_AXIS_REGISTRY), 'utf8'))
   t(
     'R6 咬住沙箱轴成员漂移',
-    checkAxisMirror(baseTsAxis, { ...basePyAxis, sandboxModes: [...basePyAxis.sandboxModes, 'unrestricted'] }, baseTs.members).some(
-      (p) => p.startsWith('R6 沙箱轴成员集'),
-    ),
+    checkAxisMirror(
+      baseTsAxis,
+      { ...basePyAxis, sandboxModes: [...basePyAxis.sandboxModes, 'unrestricted'] },
+      baseTs.members,
+    ).some((p) => p.startsWith('R6 沙箱轴成员集')),
   )
   t(
     'R6 咬住审批轴别名漂移(只加在 Python 侧)',
@@ -842,7 +905,10 @@ function selfTest() {
     'R6 咬住 Legacy 映射漂移(acceptEdits 的 null 被伪造映射)',
     checkAxisMirror(
       baseTsAxis,
-      { ...basePyAxis, toAxis: { ...basePyAxis.toAxis, acceptEdits: ['workspace-write', 'on-request'] } },
+      {
+        ...basePyAxis,
+        toAxis: { ...basePyAxis.toAxis, acceptEdits: ['workspace-write', 'on-request'] },
+      },
       baseTs.members,
     ).some((p) => p.startsWith('R6 Legacy 映射.acceptEdits')),
   )
@@ -891,13 +957,22 @@ function selfTest() {
           relPath: 'apps/cli/src/tools/permissions.ts',
           src: 'if (!PERMISSION_MODES.includes(permissionMode)) throw new Error()\n',
         },
-        { relPath: AGENT_LOOP, src: 'if permission_mode not in PERMISSION_MODES:\n    raise ValueError()\n' },
+        {
+          relPath: AGENT_LOOP,
+          src: 'if permission_mode not in PERMISSION_MODES:\n    raise ValueError()\n',
+        },
         {
           relPath: 'apps/api/src/routes/workspace.ts',
           src: 'if (!PERMISSION_MODE_WIRE_VALUES.includes(mode)) return\n',
         },
-        { relPath: 'apps/ai-service/app/services/agent_loop_v2.py', src: 'if (mode in (PERMISSION_MODES)) apply(mode)\n' },
-        { relPath: 'apps/ai-service/app/services/agent_loop_v2.py', src: 'clean = normalize_permission_mode(raw)\n' },
+        {
+          relPath: 'apps/ai-service/app/services/agent_loop_v2.py',
+          src: 'if (mode in (PERMISSION_MODES)) apply(mode)\n',
+        },
+        {
+          relPath: 'apps/ai-service/app/services/agent_loop_v2.py',
+          src: 'clean = normalize_permission_mode(raw)\n',
+        },
       ],
       baseTs,
       wireValues,
@@ -922,8 +997,11 @@ function selfTest() {
   )
   t(
     'R7 未判定档:登记面外的信号文件计未判定(只报不红)',
-    collectUnjudged(['apps/other/pkg/x.ts', 'packages/types/src/permission-mode.ts', KNOWN_CONSUMERS[0]]).join(',') ===
+    collectUnjudged([
       'apps/other/pkg/x.ts',
+      'packages/types/src/permission-mode.ts',
+      KNOWN_CONSUMERS[0],
+    ]).join(',') === 'apps/other/pkg/x.ts',
   )
   t(
     'R7 --strict:未判定非空 ⇒ 拒绝出合格证;零未判定且零违规 ⇒ 出合格证',
