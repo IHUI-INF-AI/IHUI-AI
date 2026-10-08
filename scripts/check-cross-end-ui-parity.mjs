@@ -876,19 +876,33 @@ export function rejectLegs(r) {
  * 再导出一起求值,但求值 ≠ 有人在渲染** —— 本门要的是后者,所以再导出按**名字**路由:只有真被上游
  * import 点到的那个名字,才把它指向的源文件带进可达集。这不是完整 resolver,只回答"可达否"。
  */
-const SEED_FILES = { miniapp: ['apps/miniapp-taro/src/app.tsx'], rn: ['apps/mobile-rn/App.tsx'] }
-const SEED_DIRS = { miniapp: [], rn: ['apps/mobile-rn/src/navigation'] }
+const SEED_FILES = {
+  miniapp: ['apps/miniapp-taro/src/app.tsx'],
+  rn: ['apps/mobile-rn/App.tsx'],
+  web: [],
+}
+const SEED_DIRS = { miniapp: [], rn: ['apps/mobile-rn/src/navigation'], web: ['apps/web/app'] }
 /** 小程序的路由表在 `app.config.ts` 的**数据**里(不是 import),必须单独喂进种子。 */
-const PAGE_MANIFEST = { miniapp: 'apps/miniapp-taro/src/app.config.ts', rn: null }
-/** 遍历面:两端源码 + `packages/`。apps/web·api·cli 不可能被这两端 import,不取。 */
-const REACH_ROOTS = ['apps/miniapp-taro', 'apps/mobile-rn', 'packages']
+const PAGE_MANIFEST = { miniapp: 'apps/miniapp-taro/src/app.config.ts', rn: null, web: null }
+/**
+ * 遍历面:两端源码 + `packages/` + web 腿源码(台账 G-978049③ 起 web 腿也做端入口剔除)。
+ * apps/api·cli 不会被这三端 import,仍不取。
+ */
+const REACH_ROOTS = ['apps/miniapp-taro', 'apps/mobile-rn', 'packages', 'apps/web']
+/**
+ * web 腿的入口 = `apps/web/app` 的页面/布局层(Next app router:每个 page/layout 都是框架真渲染
+ * 的入口,等价于另一端的路由表)。它是**次腿加判**:种子缺席(自检夹具仓/只含主腿的早期面)时
+ * web 这一维整维挂起并留痕,绝不打死主腿判定 —— 主腿(miniapp↔rn)才是本门的存在理由。
+ */
+const REACH_SIDES_OPTIONAL = new Set(['web'])
 const REACH_SRC_RE = /\.(?:tsx|jsx|ts|js|mjs|cjs)$/
 const TEST_PATH_RE = /(^|\/)(?:tests?|__tests__|__mocks__|e2e)\//
 const TEST_FILE_RE = /\.(?:test|spec)\.[cm]?[jt]sx?$/
-/** `@/` 实测只有两处来源:miniapp 的 tsconfig 声明 `@/* -> ./src/*`,mobile-rn 同构(全仓仅一处)。 */
+/** `@/` 别名按宿主前缀映射(与各端 tsconfig paths 同源):miniapp/mobile-rn/web 三处。 */
 const SLASH_ALIAS = {
   'apps/miniapp-taro/': 'apps/miniapp-taro/src/',
   'apps/mobile-rn/': 'apps/mobile-rn/src/',
+  'apps/web/': 'apps/web/src/',
 }
 const EXT_CANDIDATES = [
   '',
@@ -1381,16 +1395,12 @@ export function pruneUnreachableLegs(repoRoot, face, scanned, opts = {}) {
    * RN 侧那一份副本就被"另一端"走亮了 —— 而本门问的从来是"在**它自己那一端**的屏幕上有没有人用"。
    */
   const seedsBySide = {}
-  for (const side of Object.keys(SEED_FILES)) {
+  const suspendedSides = []
+  /** 单端种子收集:失败返回 `{suspend:原因}`,由调用方按"该端可选与否"决定判死还是挂起。 */
+  const collectSeeds = (side) => {
     const seeds = []
     for (const f of SEED_FILES[side]) {
-      if (!files.has(f))
-        return {
-          pairs: scanned,
-          unreachable: [],
-          undetermined: [],
-          reason: `种子入口不在被审面上(${f})`,
-        }
+      if (!files.has(f)) return { suspend: `种子入口不在被审面上(${f})` }
       seeds.push(f)
     }
     for (const dir of SEED_DIRS[side]) {
@@ -1401,41 +1411,17 @@ export function pruneUnreachableLegs(repoRoot, face, scanned, opts = {}) {
           !TEST_PATH_RE.test(p) &&
           !TEST_FILE_RE.test(p),
       )
-      if (!hits.length)
-        return {
-          pairs: scanned,
-          unreachable: [],
-          undetermined: [],
-          reason: `种子目录里没有源码(${dir})`,
-        }
+      if (!hits.length) return { suspend: `种子目录里没有源码(${dir})` }
       seeds.push(...hits)
     }
     const manifest = PAGE_MANIFEST[side]
     if (manifest) {
-      if (!files.has(manifest))
-        return {
-          pairs: scanned,
-          unreachable: [],
-          undetermined: [],
-          reason: `路由表不在被审面上(${manifest})`,
-        }
+      if (!files.has(manifest)) return { suspend: `路由表不在被审面上(${manifest})` }
       const src = texts.get(manifest)
-      if (src === undefined)
-        return {
-          pairs: scanned,
-          unreachable: [],
-          undetermined: [],
-          reason: `${FACE_TXT[face]}取不到路由表 ${manifest}`,
-        }
+      if (src === undefined) return { suspend: `${FACE_TXT[face]}取不到路由表 ${manifest}` }
       const pageDir = manifest.split('/').slice(0, -1).join('/')
       const { pages, unresolved } = readTaroPages(src, pageDir)
-      if (!pages.length)
-        return {
-          pairs: scanned,
-          unreachable: [],
-          undetermined: [],
-          reason: `${manifest} 里读不到任何页面 ⇒ 判据失明`,
-        }
+      if (!pages.length) return { suspend: `${manifest} 里读不到任何页面 ⇒ 判据失明` }
       for (const p of unresolved)
         extraUndet.push({ from: manifest, spec: p, reason: '路由表里拼出来的页路径' })
       for (const p of pages) {
@@ -1450,11 +1436,30 @@ export function pruneUnreachableLegs(repoRoot, face, scanned, opts = {}) {
       }
       seeds.push(manifest)
     }
-    seedsBySide[side] = seeds
+    return { seeds }
+  }
+  for (const side of Object.keys(SEED_FILES)) {
+    const got = collectSeeds(side)
+    if (got.suspend) {
+      // 可选端(web 次腿)种子缺席 ⇒ 该端可达性整维挂起并留痕,不打死主腿;必选端维持原判死。
+      if (!REACH_SIDES_OPTIONAL.has(side))
+        return {
+          pairs: scanned,
+          unreachable: [],
+          undetermined: [],
+          reason: got.suspend,
+        }
+      suspendedSides.push(`${side}: ${got.suspend}`)
+      seedsBySide[side] = null
+      continue
+    }
+    seedsBySide[side] = got.seeds
   }
   const usedBySide = {}
   const undet = [...extraUndet]
   for (const side of Object.keys(seedsBySide)) {
+    const seeds = seedsBySide[side]
+    if (!seeds) continue // 挂起的可选端:usedBySide 不留该端 ⇒ 下面的剔除对该端不判(并留痕)
     const ctx = {
       face,
       files,
@@ -1463,16 +1468,21 @@ export function pruneUnreachableLegs(repoRoot, face, scanned, opts = {}) {
       reached: new Set(),
       read: (f) => (texts.has(f) ? texts.get(f) : null),
     }
-    const { undetermined } = buildReach(seedsBySide[side], ctx)
+    const { undetermined } = buildReach(seeds, ctx)
     undet.push(...undetermined)
     // 一端一个文件都没走到 = 种子/清单本身错了(不是"这份没被用"),必须判死而非把整端剔光。
-    if (!ctx.reached.size)
+    if (!ctx.reached.size) {
+      if (REACH_SIDES_OPTIONAL.has(side)) {
+        suspendedSides.push(`${side}: 端入口一个文件都没走到`)
+        continue
+      }
       return {
         pairs: scanned,
         unreachable: [],
         undetermined: undet,
         reason: `${side} 端入口一个文件都没走到 ⇒ 判据失明`,
       }
+    }
     usedBySide[side] = ctx.reached
   }
   const unreachable = []
@@ -1538,6 +1548,37 @@ export function pruneUnreachableLegs(repoRoot, face, scanned, opts = {}) {
       reason: bad.map((s) => `${cur[s]} 从端入口不可达`).join(';'),
     })
   }
+  /**
+   * web 腿剔除(台账 G-978049③):与主腿同一句判据 —— 配对的两条腿都得**各自从自己那一端**
+   * 的入口可达。web 侧文件必须从 web 入口(apps/web/app 页面/布局层)走到;miniapp 侧复用上面
+   * 同一份可达集(主腿判过的事不对 web 腿再判一遍,但配对前提相同:小程序那份死了,配对同样不成立)。
+   * web 可达性挂起(种子缺席)时只按 miniapp 侧判,web 侧不猜 —— 挂起本身留痕返回。
+   * 剔除逐条点名,与主腿同一要求:静默删族 = 判据输入被改而没人知道。
+   */
+  const webScanned = opts.webPairs ?? []
+  const webKept = []
+  const webUnreachable = []
+  const legFile = (p, side) => (side === 'web' ? p.rn : p.miniapp)
+  const sideLabel = (side) => (side === 'web' ? 'web' : '小程序')
+  for (const p of webScanned) {
+    const bad = []
+    for (const side of ['miniapp', 'web']) {
+      const reach = usedBySide[side]
+      const f = legFile(p, side)
+      // 该端可达性在判(未挂起)且文件内容取得到,才作"不可达"判定;否则不猜。
+      if (reach && !missing.has(f) && !reach.has(f)) bad.push(side)
+    }
+    if (!bad.length) {
+      webKept.push(p)
+      continue
+    }
+    webUnreachable.push({
+      name: p.name,
+      side: bad[0],
+      legs: bad.map((s) => legFile(p, s)),
+      reason: bad.map((s) => `${legFile(p, s)} 从${sideLabel(s)}端入口不可达`).join(';'),
+    })
+  }
   // 全被剔除不再是"判据失明"(小夹具本就可能只剩一份死副本),但必须喊出来 —— 覆盖面掉了要看得见。
   const note =
     scanned.pairs.length && !kept.length
@@ -1554,6 +1595,9 @@ export function pruneUnreachableLegs(repoRoot, face, scanned, opts = {}) {
     reason: null,
     note,
     fallbacks,
+    webPairs: webKept,
+    webUnreachable,
+    webReachSuspended: suspendedSides.length ? suspendedSides.join('; ') : null,
   }
 }
 
@@ -1663,15 +1707,21 @@ export function collect(
   let undeterminedEdges = []
   let coverageNote = null
   let fallbacks = []
+  let webUnreachableLegs = []
+  let webReachNote = null
   if (pairAll) pairs = { ...pairs, pairAll: true }
   else {
-    const pruned = pruneUnreachableLegs(repoRoot, face, pairs, { preferMaps: exit.maps })
+    const pruned = pruneUnreachableLegs(repoRoot, face, pairs, { preferMaps: exit.maps, webPairs })
     if (pruned.reason) throw new Undetermined(`端入口可达性判据无法成立:${pruned.reason}`)
     pairs = pruned.pairs
     unreachable = pruned.unreachable
     undeterminedEdges = pruned.undetermined
     coverageNote = pruned.note ?? null
     fallbacks = pruned.fallbacks ?? []
+    // web 腿剔除与主腿同一轮完成(G-978049③):剔除后的配对才是进各维读数的那一份。
+    webPairs = pruned.webPairs ?? webPairs
+    webUnreachableLegs = pruned.webUnreachable ?? []
+    webReachNote = pruned.webReachSuspended ?? null
   }
   const need = [
     ...new Set([
@@ -1830,6 +1880,8 @@ export function collect(
     webPairs,
     webRejected,
     webBlocked,
+    webUnreachableLegs,
+    webReachNote,
     text,
     styles,
     blindClasses,
@@ -1941,9 +1993,8 @@ export function rootSlotRadiiOf(src, table) {
    * 这两种都必须**如实报**,不得当成"这个组件根上没有圆角"。
    */
   const after = code.slice(defAt).replace(/^\s*export\s+default\s+/, '')
-  const isFnBody = /^(?:async\s+)?(?:function\b|class\b|\(\s*[^)]*\)\s*=>|[A-Za-z_$][\w$]*\s*=>)/.test(
-    after,
-  )
+  const isFnBody =
+    /^(?:async\s+)?(?:function\b|class\b|\(\s*[^)]*\)\s*=>|[A-Za-z_$][\w$]*\s*=>)/.test(after)
   const bodyOpen = isFnBody ? code.indexOf('{', defAt) : -1
   if (bodyOpen < 0) return { anchored: true, indirect: true, tiers: null }
   // 组件体顶层 return:只在**函数体第一层**找,嵌套函数/回调里的 return 不是根槽位。
@@ -1956,7 +2007,12 @@ export function rootSlotRadiiOf(src, table) {
     else if (c === '}') {
       depth--
       if (depth === 0) break
-    } else if (depth === 1 && c === 'r' && body.startsWith('return', i) && !/[\w$]/.test(body[i - 1] ?? ''))
+    } else if (
+      depth === 1 &&
+      c === 'r' &&
+      body.startsWith('return', i) &&
+      !/[\w$]/.test(body[i - 1] ?? '')
+    )
       if (!/[\w$]/.test(body[i + 6] ?? '')) {
         retAt = i
         break
@@ -2001,7 +2057,8 @@ export function rootSlotRadiiOf(src, table) {
    * ⇒ 真正渲染出来的那个盒在它的定义里,本文的根槽位对它零判据。
    * 宿主元素(`View` / `div` / `Text` / `Image` …)不在本地声明表里 ⇒ 就是根槽位本身。
    */
-  if (isLocallyDeclaredComponent(code, tagName)) return { anchored: true, indirect: true, tiers: null }
+  if (isLocallyDeclaredComponent(code, tagName))
+    return { anchored: true, indirect: true, tiers: null }
   if (!table) return { anchored: true, indirect: false, tiers: null }
   /**
    * 取材走**未遮字符串的原文**:圆角档就写在 `className="rounded-lg"` 的**引号内**,
@@ -2065,11 +2122,17 @@ export function rootSlotAudit(pairs, text, table, styles = {}) {
     const ra = rootSlotRadiiOf(a, table)
     const rb = rootSlotRadiiOf(b, table)
     if (!ra.anchored || !rb.anchored) {
-      undetermined.push({ name: p.name, why: `export default 锚不到(${!ra.anchored ? 'miniapp' : 'rn'}侧)⇒ 根槽位这一维没看,不当"一致"记` })
+      undetermined.push({
+        name: p.name,
+        why: `export default 锚不到(${!ra.anchored ? 'miniapp' : 'rn'}侧)⇒ 根槽位这一维没看,不当"一致"记`,
+      })
       continue
     }
     if (ra.tiers === null || rb.tiers === null) {
-      undetermined.push({ name: p.name, why: '根槽位读不出(间接 return / HOC 包裹 / 根由子组件代渲染)⇒ 未判定,不得记成"两端根上都无档"' })
+      undetermined.push({
+        name: p.name,
+        why: '根槽位读不出(间接 return / HOC 包裹 / 根由子组件代渲染)⇒ 未判定,不得记成"两端根上都无档"',
+      })
       continue
     }
     // 两侧都空 = 这一族根本没在根上声明过圆角 ⇒ 本维零判据,不报(报它等于把"没声明"叫成"分叉")。
@@ -2756,13 +2819,23 @@ export function main(argv, repoRoot = ROOT) {
     (n) =>
       (baseline[WEB_LEDGER.radius]?.[n] ?? 0) > 0 || (baseline[WEB_LEDGER.counts]?.[n] ?? 0) > 0,
   )
+  // 同样在 `--json` 分支之前算好(TDZ 纪律同 webPriorKeys):json 的 webUnreachable 字段要用。
+  const wPrunedJson = (collected.webUnreachableLegs ?? []).map((u) => ({
+    name: u.name,
+    legs: u.legs,
+  }))
   /**
    * ── RS 根槽位维(台账 G-629)读数 ─────────────────────────────────
    * 同样**必须在 `--json` 分支之前算好**:json 要暴露 `rootSlot`,退出码要折 `rsRed`。
    * 放在分支之后 = json 少一个字段而退出码少一条判红,两者都不报错 —— 那一维就成了
    * "有判据而没人调度"的状态,账面读起来仍全绿(自检 KU 就是钉这一点的)。
    */
-  const rs = rootSlotAudit(collected.pairs, collected.text, collected.radius, collected.styles ?? {})
+  const rs = rootSlotAudit(
+    collected.pairs,
+    collected.text,
+    collected.radius,
+    collected.styles ?? {},
+  )
   let rsRed = []
   if (rs.findings.length && face !== 'head') {
     const base = collect(repoRoot, 'head', { pairAll, aliases })
@@ -2837,7 +2910,11 @@ export function main(argv, repoRoot = ROOT) {
          * `undetermined` 必须一起进 json:空 `findings` 有两个来源(真的一致 / 判据瞎了),
          * 只给 `findings` 这两者在机器面上分不开。
          */
-        rootSlot: { findings: rs.findings, undetermined: rs.undetermined, red: rsRed.map((x) => x.name) },
+        rootSlot: {
+          findings: rs.findings,
+          undetermined: rs.undetermined,
+          red: rsRed.map((x) => x.name),
+        },
         // web 腿也要能被机器读:只有人读面的话,下一票(把 web 的几何也纳进来)就得抄终端输出当数据源。
         web: {
           pairCount: web.findings.length,
@@ -2861,6 +2938,9 @@ export function main(argv, repoRoot = ROOT) {
             miniapp: x.miniapp,
             web: x.rn,
           })),
+          // 被端入口可达性剔掉的 web 腿配对也要能被机器读(与主腿 unreachable 同一条要求)。
+          webUnreachable: wPrunedJson,
+          webReachSuspended: collected.webReachNote ?? null,
           ghostRed: webPriorKeys.length && !web.findings.length ? webPriorKeys : [],
         },
       }),
@@ -3007,10 +3087,20 @@ export function main(argv, repoRoot = ROOT) {
         const mark = webVerdict.red.some((r) => r.name === f.name) ? '×' : '·'
         wlines.push(`  ${mark} WD ${f.name} ${bits.join(' | ')}`)
       }
+      const wPruned = collected.webUnreachableLegs ?? []
       console.log(
-        `web 腿(RD 量纲,配对 ${web.findings.length} 对;几何 / 元素名 / 图标载体**未判**,不是"已确认相同")` +
+        `web 腿(RD 量纲,配对 ${web.findings.length} 对` +
+          (wPruned.length ? `,另剔 ${wPruned.length} 对死腿` : '') +
+          `;几何 / 元素名 / 图标载体**未判**,不是"已确认相同")` +
           `→ 判红 ${webVerdict.red.length} / 台账外新增 0 时才算收口 / 带理由豁免 ${webVerdict.waived.length} / 未判定 ${web.undetermined.length}`,
       )
+      // 挂起不得静默:web 可达性没在判(种子缺席)时,这一维"没剔"与"都活着"在账面上长得一样。
+      if (collected.webReachNote)
+        console.log(
+          `  ? WD 可达性挂起:${collected.webReachNote} —— web 侧本轮**未做端入口剔除**,不得读成"已确认活着"`,
+        )
+      // 剔除逐条点名,与主腿 ⊘ 同一要求:静默删族 = 判据输入被改而没人知道(G-978049③)。
+      for (const o of wPruned) console.log(`  ⊘ WD ${o.name} —— ${o.reason}`)
       // 豁免不得静默:每条都要把理由与它的两个读数打在报告上(与主腿 PAIR/ALIAS 同一取向) ——
       // 只写"已豁免 N"会替下一个人做出"这一族已被想过"的判断,而理由能不能复核全靠这一行。
       for (const wv of webVerdict.waived) {
@@ -3186,7 +3276,8 @@ export function main(argv, repoRoot = ROOT) {
         `其"无差异"不得读成"两端根上同档"`,
     )
     for (const u of rs.undetermined.slice(0, 6)) console.log(`     · ${u.name} —— ${u.why}`)
-    if (rs.undetermined.length > 6) console.log(`     · 其余 ${rs.undetermined.length - 6} 条同上(不静默省略计数)`)
+    if (rs.undetermined.length > 6)
+      console.log(`     · 其余 ${rs.undetermined.length - 6} 条同上(不静默省略计数)`)
   }
   /*
    * ── PAIR 拆对声明对账 ───────────────────────────────────────────
@@ -3306,7 +3397,15 @@ export function main(argv, repoRoot = ROOT) {
     return 1
   }
   if (aliasRed) return 1
-  return rotRed + res.red.length + icRed.length + slRed.length + rejRed + (geoRed ? 1 : 0) + rsRed.length ? 1 : 0
+  return rotRed +
+    res.red.length +
+    icRed.length +
+    slRed.length +
+    rejRed +
+    (geoRed ? 1 : 0) +
+    rsRed.length
+    ? 1
+    : 0
 }
 
 /**
@@ -3340,6 +3439,23 @@ function FIXTURE_BASE({ rn }) {
     // 这一组用例红的原因就不是判据,而是夹具缺件。
     'packages/shared/src/ui/foo-spec.ts': 'export const FOO_BOX_PX = 24\n',
   }
+}
+
+/**
+ * 档位表夹具(逐条目一行 —— objectEntries 按行取条目,单行对象会解析为 null,见 KW 注)。
+ * web 腿用例(㉗b/㉗c)的组件用了 `rounded-md` ⇒ 圆角维要求表在面,缺件会让红的原因错位。
+ */
+function radiusFixtureTable() {
+  return [
+    'export const RADIUS_STEPS = {',
+    '  xs: 2,',
+    '  md: 6,',
+    '  lg: 8,',
+    '  xl: 12,',
+    "  '2xl': 16,",
+    '}',
+    '',
+  ].join('\n')
 }
 
 /** 造夹具仓:写文件 → init → add → commit(--no-verify + 自带身份,不碰任何全局钩子)。 */
@@ -4146,6 +4262,90 @@ function runSelfTest() {
     })(),
   )
   t(
+    '㉗b web 腿阳性对照:web 侧同名件没人用 ⇒ web 配对必须按"从web端入口不可达"剔除(真临时 git 仓)',
+    (() => {
+      const fx = {
+        ...FIXTURE_BASE({
+          rn: "import { Bar, Foo } from '@ihui/rn-app'\nexport function RootNavigator() { return null }\n",
+        }),
+        // web 入口(page)不 import 任何组件 ⇒ web 侧 Foo 是死副本;miniapp 侧活着。
+        'apps/web/app/page.tsx':
+          "export default function P() { return <div className='rounded-sm' /> }\n",
+        'apps/web/src/components/Foo.tsx':
+          'export function Foo() { return <div className="rounded-md" /> }\n',
+      }
+      // 档位表必须随夹具走:collect 对"表取不到而组件在用圆角"判失明(同 KW 注)。
+      fx['packages/design-tokens/src/radius.js'] = radiusFixtureTable()
+      const dir = makeFixtureRepo(fx)
+      try {
+        const r = collect(dir, 'head')
+        return (
+          r.webUnreachableLegs.length === 1 &&
+          r.webUnreachableLegs[0].name === 'Foo' &&
+          r.webUnreachableLegs[0].legs.join('|') === 'apps/web/src/components/Foo.tsx' &&
+          /从web端入口不可达/.test(r.webUnreachableLegs[0].reason) &&
+          r.webPairs.length === 0
+        )
+      } catch (e) {
+        return `抛错:${e?.message ?? e}`
+      } finally {
+        rmScratch(dir)
+      }
+    })(),
+    '真仓 web 腿可达性判据在临时仓上没跑通',
+  )
+  t(
+    '㉗c 反向对照:同一 web 组件被入口链上 import ⇒ web 配对必须保留(证明 ㉗b 的红不是恒红)',
+    (() => {
+      const fx = {
+        ...FIXTURE_BASE({
+          rn: "import { Bar, Foo } from '@ihui/rn-app'\nexport function RootNavigator() { return null }\n",
+        }),
+        'apps/web/app/page.tsx':
+          "import { Foo } from '@/components/Foo'\nexport default function P() { return <Foo /> }\n",
+        'apps/web/src/components/Foo.tsx':
+          'export function Foo() { return <div className="rounded-md" /> }\n',
+      }
+      fx['packages/design-tokens/src/radius.js'] = radiusFixtureTable()
+      const dir = makeFixtureRepo(fx)
+      try {
+        const r = collect(dir, 'head')
+        return (
+          r.webUnreachableLegs.length === 0 &&
+          r.webPairs.length === 1 &&
+          r.webPairs[0].name === 'Foo' &&
+          r.webPairs[0].rn === 'apps/web/src/components/Foo.tsx'
+        )
+      } catch (e) {
+        return `抛错:${e?.message ?? e}`
+      } finally {
+        rmScratch(dir)
+      }
+    })(),
+  )
+  t(
+    '㉗d web 可达性挂起不得静默:夹具没有 web 种子 ⇒ 挂起留痕,web 配对不被误剔也不装"已确认活着"',
+    (() => {
+      const dir = makeFixtureRepo(
+        FIXTURE_BASE({
+          rn: "import { Bar, Foo } from '@ihui/rn-app'\nexport function RootNavigator() { return null }\n",
+        }),
+      )
+      try {
+        const r = collect(dir, 'head')
+        return (
+          typeof r.webReachNote === 'string' &&
+          /web/.test(r.webReachNote) &&
+          r.webUnreachableLegs.length === 0
+        )
+      } catch (e) {
+        return `抛错:${e?.message ?? e}`
+      } finally {
+        rmScratch(dir)
+      }
+    })(),
+  )
+  t(
     '㉘ IC:字形名解析 —— lucide 导入按 PascalCase→kebab,小程序按 LineIcon name,两者可逐名比',
     (() => {
       const rn = iconGlyphs("import { ChevronLeft, Mic as MicIcon } from 'lucide-react-native'\n")
@@ -4551,7 +4751,7 @@ function runSelfTest() {
     '㊽ 装车锁:拆对的红必须折进退出码(只打印不拦提交 = 声明坏了没人知道)',
     (() => {
       const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
-      return /\+ slRed\.length \+ rejRed \+ \(geoRed \? 1 : 0\)/.test(src)
+      return /\+\s*slRed\.length\s*\+\s*rejRed\s*\+\s*\(geoRed \? 1 : 0\)/.test(src)
     })(),
   )
   t(
@@ -4633,7 +4833,7 @@ function runSelfTest() {
       return (
         /× 台账腐烂:\$\{res\.rot\.join/.test(src) &&
         /const rotRed = res\.rot\.length \? 1 : 0/.test(src) &&
-        /rotRed \+ res\.red\.length \+ icRed\.length/.test(src)
+        /rotRed\s*\+\s*res\.red\.length\s*\+\s*icRed\.length/.test(src)
       )
     })(),
   )
@@ -5314,7 +5514,9 @@ function runSelfTest() {
         ) &&
         /exitPreferMaps\(repoRoot, face, probe\.multiCandidates \?\? \[\]\)/.test(flat) &&
         /scan\(lists\.miniapp, lists\.rn, aliases, exit\.maps\)/.test(flat) &&
-        /\{ preferMaps: exit\.maps \}/.test(flat) &&
+        /\{ preferMaps: exit\.maps, webPairs \}/.test(flat) &&
+        /pruned\.webPairs \?\? webPairs/.test(flat) &&
+        /webUnreachable: wPrunedJson/.test(flat) &&
         /multiCandidates: collected\.pairs\?\.multiCandidates \?\? \[\]/.test(flat) &&
         /exitNotes: collected\.exitNotes \?\? \[\]/.test(flat) &&
         /同侧多候选/.test(flat) &&
@@ -5488,12 +5690,12 @@ function runSelfTest() {
       'json 必须暴露 rootSlot —— 缺一条就是"有判据而没人调度",而账面读起来仍全绿',
     (() => {
       const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
-      const at = src.indexOf('const rs = rootSlotAudit(collected.pairs')
+      const at = src.search(/const rs = rootSlotAudit\(\s*collected\.pairs/)
       return (
         at >= 0 &&
         at < src.indexOf("if (argv.includes('--json'))") &&
-        /rootSlot: \{ findings: rs\.findings/.test(src) &&
-        /\+ \(geoRed \? 1 : 0\) \+ rsRed\.length \? 1 : 0/.test(src) &&
+        /rootSlot: \{\s*findings: rs\.findings/.test(src) &&
+        /\+\s*\(geoRed \? 1 : 0\)\s*\+\s*rsRed\.length\s*\?\s*1\s*:\s*0/.test(src) &&
         /rootSlotDelta\(rs\.findings, baseRs\.findings\)/.test(src)
       )
     })(),
