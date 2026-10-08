@@ -11,12 +11,14 @@
 import { count, desc, eq } from 'drizzle-orm'
 import { db } from './index.js'
 import { smsReceiveHistory, type SmsReceiveHistory } from '@ihui/database'
+// 用途词汇表的唯一持有者是分类器所在的服务层;这里只 import 它,不再抄第二份字面量联合。
+import { toSmsUsageKind, type SmsUsageKind } from '../services/d1jiema-service.js'
 
 export interface RecordSmsReceivedInput {
   phone: string
   keyword?: string
   platform?: string
-  usageKind: 'register' | 'login' | 'other'
+  usageKind: SmsUsageKind
   smsCode?: string
   smsRaw: string
 }
@@ -59,7 +61,7 @@ export async function getPhoneHistoryCount(phone: string): Promise<number> {
 /** 平台 × 用途计数行(group-by 全量,不受最近 20 条截断) */
 export interface PhonePlatformStatRow {
   platform: string | null
-  usageKind: 'register' | 'login' | 'other'
+  usageKind: SmsUsageKind
   count: number
 }
 
@@ -81,7 +83,7 @@ export async function getPhoneHistoryPlatformStats(
     .groupBy(smsReceiveHistory.platform, smsReceiveHistory.usageKind)
   return rows.map((r) => ({
     platform: r.platform,
-    usageKind: r.usageKind,
+    usageKind: toSmsUsageKind(r.usageKind),
     count: Number(r.n),
   }))
 }
