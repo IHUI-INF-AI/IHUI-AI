@@ -179,8 +179,18 @@ async def test_registry_admin_tool_forwards_role_to_call_tool(
 
     seen: list[dict[str, Any]] = []
 
-    async def spy(name: str, args: dict[str, Any], *, user_role: int = 0) -> dict[str, Any]:
-        seen.append({"name": name, "user_role": user_role})
+    # D201(2026-10-02)签名滞后:`_build_loop_v2_tools` 的执行器现在把宿主事实
+    # session_id 一并过桥给 call_tool(`agents.py` 的 `_exec`),桩不收就等于在测
+    # "签名没改过"。本用例判的仍是**角色**,session_id 只记录不新增断言 ——
+    # 加了断言就成了替另一条链路(G-371/工作区覆盖层)背书。
+    async def spy(
+        name: str,
+        args: dict[str, Any],
+        *,
+        user_role: int = 0,
+        session_id: str | None = None,
+    ) -> dict[str, Any]:
+        seen.append({"name": name, "user_role": user_role, "session_id": session_id})
         return {"ok": True}
 
     monkeypatch.setattr(mcp_server.mcp_server, "call_tool", spy)
@@ -271,7 +281,14 @@ async def test_search_tool_forwards_zero_without_special_casing(
 
     seen: list[int] = []
 
-    async def spy(name: str, args: dict[str, Any], *, user_role: int = 0) -> dict[str, Any]:
+    # 同上一条:D201 起执行器还会带 session_id 过桥,桩必须收得下(本用例只判角色)。
+    async def spy(
+        name: str,
+        args: dict[str, Any],
+        *,
+        user_role: int = 0,
+        session_id: str | None = None,
+    ) -> dict[str, Any]:
         seen.append(user_role)
         return {"ok": True}
 

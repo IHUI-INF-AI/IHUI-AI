@@ -226,8 +226,15 @@ def test_daemon_site_old_credential_enters_history_and_foreign_keys_survive() ->
                                "extra": json.dumps(_FOREIGN, ensure_ascii=False)})
     rec = _Recorder()
     _run_daemon_refresh(conn, rec)
-    assert len(conn.executed) == 1, "回写必须是一条 UPDATE(密文与 extra 同语句)"
-    sql, args = conn.executed[0]
+    # 2026-09-29 起保活成功还会**另外**发一条 `last_verified_at` 健康度戳
+    # (`cookie_refresh_daemon._stamp_verified`),它与凭证回写是两件事,不该被算进
+    # "回写被拆成了几条"。本用例命名的那条不变量是:**凭证回写必须是一条 UPDATE,
+    # 且密文与 extra 同语句** ⇒ 按"这条语句动没动 credentials_enc"筛。
+    # 筛而不是数总条数并没有变弱:真把回写拆成两条(先写密文、再补 extra)时,
+    # 两条都会命中 credentials_enc ⇒ 这里读到 2 ⇒ 照样红。
+    write_backs = [e for e in conn.executed if "credentials_enc=" in e[0]]
+    assert len(write_backs) == 1, "回写必须是一条 UPDATE(密文与 extra 同语句)"
+    sql, args = write_backs[0]
     assert "credentials_enc=$1" in sql and "extra=$" in sql
     assert args[0] == "ENC-ROTATED" and args[1] == 12
     written = _written_extra(args)
