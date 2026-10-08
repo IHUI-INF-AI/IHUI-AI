@@ -14412,22 +14412,6 @@
       "title": "实时语音通话"
     }
   },
-  "eduCertificatesPage": {
-    "backToList": "返回证书列表",
-    "certificateNo": "证书编号：{no}",
-    "completed": "已完成",
-    "download": "下载证书",
-    "downloadFailed": "下载失败（{status}）",
-    "issuanceText": "学习并通过考核，特发此证",
-    "issuedAt": "颁发日期：{date}",
-    "loading": "加载中...",
-    "notFound": "证书不存在",
-    "print": "打印",
-    "status": {
-      "revoked": "已撤销",
-      "valid": "有效"
-    }
-  },
   "eduCourseLearnPage": {
     "backToDetail": "返回课程详情",
     "loadFailed": "加载失败",
@@ -23698,24 +23682,6 @@
   "magazine": {
     "title": "资讯"
   },
-  "defaultEntries": {
-    "mall": {
-      "label": "商城",
-      "description": "选购各类优惠商品"
-    },
-    "vip": {
-      "label": "会员",
-      "description": "开通会员享专属权益"
-    },
-    "invite": {
-      "label": "邀请",
-      "description": "邀请好友赢取奖励"
-    },
-    "help": {
-      "label": "帮助",
-      "description": "查看常见问题与使用指南"
-    }
-  },
   "analytics": {
     "totalPublished": "累计发布",
     "successRate": "成功率",
@@ -24708,15 +24674,6 @@
     "ctaSecondary": "了解更多",
     "miniappBtn": "微信小程序"
   },
-  "defaultTags": {
-    "llm": "大模型",
-    "tutorial": "教程",
-    "rag": "知识库",
-    "agent": "智能体",
-    "frontend": "前端",
-    "backend": "后端",
-    "opensource": "开源"
-  },
   "device": {
     "title": "设备管理",
     "lastLoginLabel": "最近登录",
@@ -25088,16 +25045,6 @@
     "confirmDelete": "确定删除？",
     "confirm": "确定",
     "cancel": "取消"
-  },
-  "terminalSessionList": {
-    "statusActive": "运行中",
-    "statusExited": "已退出",
-    "statusClosed": "已关闭",
-    "title": "终端会话",
-    "newTerminalAria": "新建终端",
-    "loading": "加载中…",
-    "empty": "暂无会话",
-    "closeTerminalAria": "关闭终端"
   },
   "pricing": {
     "title": "价格方案"
@@ -27451,13 +27398,6 @@
     "subtitle": "查看已获得的全部证书",
     "title": "我的证书",
     "view": "查看"
-  },
-  "eduCourses": {
-    "backToCourses": "返回课程列表",
-    "chaptersTitle": "章节目录",
-    "detail": "详情",
-    "notFound": "课程不存在",
-    "studentsCount": "{count} 人学习"
   },
   "eduStudyPlan": {
     "add": "添加",
