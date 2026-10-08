@@ -70,7 +70,11 @@ async def test_build_loop_v2_tools_passes_role_into_call_tool(
     seen: list[tuple[str, int]] = []
 
     async def spy_call_tool(
-        name: str, args: dict[str, Any], *, user_role: int = 0
+        name: str,
+        args: dict[str, Any],
+        *,
+        user_role: int = 0,
+        session_id: str | None = None,
     ) -> dict[str, Any]:
         seen.append((name, user_role))
         return {"ok": True, "name": name}
@@ -99,8 +103,8 @@ async def test_build_loop_v2_tools_passes_role_into_call_tool(
 
 
 # ---------------------------------------------------------------- ③ 构造点结构锁
-def _loop_call_sites_from_source(src: str) -> list[str]:
-    """用 AST 取每个 `AgentLoopV2(...)` **代码**调用点及其源码片段。
+def _loop_call_sites_from_source(src: str, fname: str = "AgentLoopV2") -> list[str]:
+    """用 AST 取每个 `fname(...)` **代码**调用点及其源码片段。
 
     为什么走 AST 而不是正则扫文本:本文件自己第一次就被打了脸 —— `agents.py` 的散文里
     写着「默认启用 AgentLoopV2(完整 ReAct 循环 + checkpoint 续跑…」,正则把它读成第二个
@@ -114,15 +118,15 @@ def _loop_call_sites_from_source(src: str) -> list[str]:
         if isinstance(node, ast.Call):
             fn = node.func
             name = fn.id if isinstance(fn, ast.Name) else getattr(fn, "attr", "")
-            if name == "AgentLoopV2":
+            if name == fname:
                 seg = ast.get_source_segment(src, node)
                 if seg is not None:
                     out.append(seg)
     return out
 
 
-def _loop_call_sites(path: Path) -> list[str]:
-    return _loop_call_sites_from_source(path.read_text(encoding="utf-8"))
+def _loop_call_sites(path: Path, fname: str = "AgentLoopV2") -> list[str]:
+    return _loop_call_sites_from_source(path.read_text(encoding="utf-8"), fname)
 
 
 def test_every_agent_loop_construction_threads_role() -> None:
@@ -130,11 +134,38 @@ def test_every_agent_loop_construction_threads_role() -> None:
 
     反向对照在下面那条:同一个尺子喂一段"漏传角色"的代码必须报违规 —— 否则本断言
     可能只是"尺子根本没找到构造点"。
+
+    **构造点个数这一维的量纲换过(2026-09-29 D144③ / cbe9443995)**:本用例立项时
+    (06b6eaca5b)agents.py 里 execute/stream/resume 三条链**各抄一份**构造,所以当时
+    写的是 `len(sites) >= 2`,拿"找到 ≥2 个"当"尺子没瞎"的证据。后来那三处被收进唯一
+    构造入口 `_new_v2_loop`(原文注释:「唯一构造入口,三处调用点共用这一份」),构造点
+    于是恰好 1 个 —— 照旧文执行会去把已归一的构造再拆回三处,那正是这票要防的第四个真相。
+    所以"尺子没瞎"的证据**换了载体但没有变弱**:现在同时钉三条,任一条不成立都红 ——
+      ① 构造点 ≥1(尺子找到了东西);
+      ② 构造点 **恰为 1**(有人重新手抄第二份构造 = 归一被回退,当场现形);
+      ③ `_new_v2_loop` 的调用点 ≥3(三链确实共用这一份;归并成了"唯一入口但只有一链
+         在用"同样是失效,而 ① ② 看不见这一型)。
+    ①②③ 全过之后再逐点判 `user_role=`,与旧口径覆盖的性质逐条等价,不减少任何一格。
     """
     sites = _loop_call_sites(ROUTERS)
-    assert len(sites) >= 2, f"只找到 {len(sites)} 个构造点,尺子大概失效了"
+    assert len(sites) >= 1, f"一个构造点都没找到,尺子大概失效了(agents.py): {len(sites)}"
+    assert len(sites) == 1, (
+        f"agents.py 出现 {len(sites)} 个 AgentLoopV2 构造点 —— D144③ 已把三条链收进"
+        "唯一构造入口 `_new_v2_loop`,再长出第二个就是回退成多份真相"
+    )
     for call in sites:
         assert "user_role=" in call, f"AgentLoopV2 构造点漏传角色:\n{call[:200]}"
+
+    callers = _loop_call_sites_from_source(
+        ROUTERS.read_text(encoding="utf-8"), "_new_v2_loop"
+    )
+    # 定义行本身不是调用点(AST 只收 ast.Call),所以这里量到的就是真实调用处。
+    assert len(callers) >= 3, (
+        f"`_new_v2_loop` 只有 {len(callers)} 处调用点 —— execute/stream/resume 三链"
+        "应当共用这一份构造;少于 3 处说明有链没走唯一入口"
+    )
+    for call in callers:
+        assert "user_role=" in call, f"_new_v2_loop 调用点漏传角色:\n{call[:200]}"
 
     engine_sites = _loop_call_sites(ROUTERS.parent / "engine.py")
     assert len(engine_sites) >= 1, "engine.py 没找到构造点"
