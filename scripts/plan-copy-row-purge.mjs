@@ -95,6 +95,7 @@ import {
   alignSharedIndex,
   casUpdateRef,
   commitTreeWithIndex,
+  git,
   resolveHeadRef,
   writeBlob,
 } from './lib/bypass-git.mjs'
