@@ -16,10 +16,6 @@
  * 消费方式:
  * - React:import { IconButton } from '@ihui/ui-react'
  * - 仅要类名:import { ICON_BUTTON_SIZE, ICON_BUTTON_ICON_SIZE } from '@ihui/design-tokens'
- *
- * 主行动档(2026-10-08 用户指令):发送/停止/Steer 等 CTA 图标按钮收编本文件,
- * 尺寸同源 ICON_BUTTON_SIZE(32×32 唯一尺寸,无第二种);差异仅保留
- * rounded-sm 方形(2026-09-30 用户规则:禁止圆形发送按钮)与状态配色块(消费点给)。
  */
 
 /** 图标按钮容器类名(唯一尺寸,32×32) */
@@ -31,13 +27,6 @@ export const ICON_BUTTON_ICON_SIZE = 'h-4 w-4'
 /** 图标按钮基础类名(尺寸之外共享的视觉) */
 export const ICON_BUTTON_BASE_CLASS =
   'inline-flex shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50'
-
-/** 主行动图标按钮(发送/停止/Steer)基础类名 — 尺寸同源 ICON_BUTTON_SIZE,方形 CTA 档 */
-export const ICON_BUTTON_ACTION_BASE_CLASS = `inline-flex ${ICON_BUTTON_SIZE} items-center justify-center rounded-sm transition-colors`
-
-/** 主行动图标按钮禁用态(空输入等不可发送时置灰) */
-export const ICON_BUTTON_ACTION_DISABLED_CLASS =
-  'cursor-not-allowed bg-muted text-muted-foreground/50'
 
 /** 完整容器类名(基础 + 唯一尺寸) */
 export function iconButtonClasses(): string {
