@@ -144,10 +144,6 @@
       "types": "./src/hooks/*.ts",
       "import": "./src/hooks/*.ts"
     },
-    "./jobs/*": {
-      "types": "./src/jobs/*.ts",
-      "import": "./src/jobs/*.ts"
-    },
     "./validation": {
       "types": "./src/validation/index.ts",
       "import": "./src/validation/index.ts"

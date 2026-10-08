@@ -8,14 +8,9 @@
 - 目录条目完整(8 个,含 key/name/description/source/transport)
 - get_entry 命中与未命中
 - to_client_config 转换(filesystem 工作区参数注入 / postgres 环境变量校验)
-- G-998139:命令显式候选序解析(找到 ⇒ 绝对路径;解析用受控 env,不依赖真机 PATH)
 - 必需环境变量缺失提示
 - 端点:GET /api/mcp/directory / POST 一键注册(缺 env 400 / 未知 key 404)
 """
-
-import os
-import stat
-import sys
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -26,18 +21,6 @@ from app.services.mcp_directory import get_directory, get_entry, to_client_confi
 app = FastAPI()
 app.include_router(mcp.router, prefix="/api")
 client = TestClient(app)
-
-
-def _fake_npx_env(tmp_path) -> dict[str, str]:
-    """临时目录自造 npx 入口(不依赖真机 PATH,镜像 test_exec_env_bootstrap 的做法)。"""
-    name = "npx.cmd" if sys.platform == "win32" else "npx"
-    p = tmp_path / name
-    p.write_text("", encoding="utf-8")
-    p.chmod(p.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-    env = {"PATH": str(tmp_path)}
-    if sys.platform == "win32":
-        env["PATHEXT"] = ".COM;.EXE;.BAT;.CMD"
-    return env
 
 
 class TestDirectory:
@@ -59,23 +42,15 @@ class TestDirectory:
         assert get_entry("filesystem") is not None
         assert get_entry("no_such") is None
 
-    def test_to_client_config_filesystem_workspace(self, tmp_path):
-        env = _fake_npx_env(tmp_path)
-        cfg = to_client_config("filesystem", workspace_path="G:/ihui", env=env)
+    def test_to_client_config_filesystem_workspace(self):
+        cfg = to_client_config("filesystem", workspace_path="G:/ihui")
         assert cfg is not None
         assert cfg["name"] == "mcp:filesystem"
-        # G-998139:命令走显式候选序解析 ⇒ 绝对路径(带出处),不再是裸 "npx"
-        assert os.path.isabs(cfg["command"])
-        assert os.path.basename(cfg["command"]).lower().startswith("npx")
+        assert cfg["command"] == "npx"
         assert cfg["args"][-1] == "G:/ihui"
 
-    def test_to_client_config_postgres_env(self, tmp_path):
-        env = _fake_npx_env(tmp_path)
-        cfg = to_client_config(
-            "postgres",
-            env_overrides={"DATABASE_URL": "postgres://u:p@h/db"},
-            env=env,
-        )
+    def test_to_client_config_postgres_env(self):
+        cfg = to_client_config("postgres", env_overrides={"DATABASE_URL": "postgres://u:p@h/db"})
         assert cfg is not None
         assert cfg["_missing_env"] == []
         assert cfg["env"]["DATABASE_URL"] == "postgres://u:p@h/db"
