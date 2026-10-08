@@ -36,11 +36,16 @@ vi.mock('../../db/sms-receive-queries.js', () => ({
   recordSmsReceived: vi.fn().mockResolvedValue(undefined),
   getPhoneHistory: vi.fn().mockResolvedValue([]),
   getPhoneHistoryCount: vi.fn().mockResolvedValue(0),
+  getPhoneHistoryPlatformStats: vi.fn().mockResolvedValue([]),
 }))
 
 import smsReceiveRoutes from '../admin/sms-receive.js'
 import { verifyAccessToken } from '@ihui/auth'
-import { recordSmsReceived, getPhoneHistory } from '../../db/sms-receive-queries.js'
+import {
+  recordSmsReceived,
+  getPhoneHistory,
+  getPhoneHistoryPlatformStats,
+} from '../../db/sms-receive-queries.js'
 
 const AUTH_HEADERS = { authorization: 'Bearer mock-admin-token' }
 
@@ -357,7 +362,7 @@ describe('Admin SMS Receive — d1jiema 对接', () => {
     )
   })
 
-  it('phone-history 返回本地台账流水', async () => {
+  it('phone-history 返回本地台账流水 + 平台×用途全量计数', async () => {
     vi.mocked(getPhoneHistory).mockResolvedValueOnce([
       {
         id: '0b8f9a1e-1111-4111-8111-111111111111',
@@ -370,17 +375,27 @@ describe('Admin SMS Receive — d1jiema 对接', () => {
         receivedAt: new Date('2026-10-08T12:00:00Z'),
       },
     ])
+    vi.mocked(getPhoneHistoryPlatformStats).mockResolvedValueOnce([
+      { platform: 'trae', usageKind: 'login', count: 2 },
+      { platform: '腾讯科技', usageKind: 'register', count: 1 },
+    ])
     const res = await app.inject({
       method: 'GET',
       url: '/api/admin/sms-receive/phone-history?phone=16512345678',
       headers: AUTH_HEADERS,
     })
     expect(res.statusCode).toBe(200)
-    const items = res.json().data.items
+    const body = res.json().data
+    const items = body.items
     expect(items).toHaveLength(1)
     expect(items[0].platform).toBe('trae')
     expect(items[0].usageKind).toBe('login')
     expect(vi.mocked(getPhoneHistory)).toHaveBeenCalledWith('16512345678', 20)
+    expect(body.platformStats).toEqual([
+      { platform: 'trae', usageKind: 'login', count: 2 },
+      { platform: '腾讯科技', usageKind: 'register', count: 1 },
+    ])
+    expect(vi.mocked(getPhoneHistoryPlatformStats)).toHaveBeenCalledWith('16512345678')
   })
 
   it('phone-history 参数错误返回 400(非法手机号)', async () => {
