@@ -9106,7 +9106,6 @@
     "expandConversation": "展开对话",
     "headerActions": {
       "panelGroupButtons": "面板组按钮",
-      "workspaceUnavailable": "开始任务后可打开审阅工作面",
       "enterWorkspaceFullscreen": "全屏显示工作面",
       "exitWorkspaceFullscreen": "退出工作面全屏",
       "createDraftPullRequest": "创建 Draft PR",
@@ -27879,9 +27878,7 @@
     "hintSelect": "选择",
     "hintConfirm": "确认",
     "hintClose": "关闭",
-    "clearAriaLabel": "清空搜索",
-    "followupDismiss": "关闭建议",
-    "followupRowLabel": "试试这些"
+    "clearAriaLabel": "清空搜索"
   },
   "statusPage": {
     "incidentsUnavailable": "最近 30 天的事件数据暂时取不到"
