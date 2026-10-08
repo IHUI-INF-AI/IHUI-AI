@@ -8,6 +8,7 @@ import { execSync, execFileSync, spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { __test__ } from '../check-commit-loss-guard.mjs'
 import { fileURLToPath } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
@@ -213,6 +214,60 @@ test('检测: fsck 悬空 commit(分支删除) → 命中', () => {
     const r = runScript([], { cwd: dir })
     // 悬空 commit 应被检测到(可能被 tag 备份规则处理,但应出现在报告中)
     assert.match(r.stdout, /悬空 commit|dangling|unreachable|未.*备份/, '应提及悬空 commit')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── 同内容副本白名单(G-1018289②:区分"本次引入的悬空"与"并发重写留下的同内容副本") ──
+// 判据面:树 hash 与 subject **两元同时相等**才放行;索引取不到 ⇒ 白名单失效,朝红不朝绿。
+
+test('纯函数: parseTreeSubjectIndex 解析 %T%x09%s 行(题内 tab 并入 subject,畸形行跳过)', () => {
+  const keys = __test__.parseTreeSubjectIndex(
+    ['abc\tinit', 'def\tsome\tsubject\twith\ttabs', 'no-tab-line', '', '\t', 'ghi\t'].join('\n'),
+  )
+  assert.ok(keys.has('abc\tinit'), '正常行应入集')
+  assert.ok(keys.has('def\tsubject\twith\ttabs'), '题内再含 tab 应整段并入 subject')
+  assert.equal(keys.size, 2, '畸形行(无 tab/空段)不得入集')
+  assert.equal(__test__.parseTreeSubjectIndex('').size, 0, '空读数 → 空集')
+  assert.equal(__test__.parseTreeSubjectIndex(null).size, 0, 'null → 空集')
+})
+
+test('同内容副本: amend 重写留下的旧对象(树+题与可达历史逐字同) → 放行不阻塞且点名', () => {
+  const dir = createTempRepo()
+  try {
+    execSync('git commit --allow-empty -m "work-in-progress"', { cwd: dir, stdio: 'ignore' })
+    // amend 生成新 commit(同树同题;空提交须带 --allow-empty),旧 commit 成悬空。
+    // --date 刻意换作者时间:同一秒内 amend 会产出与旧对象**逐字相同**的 commit hash
+    // (没有新对象、没有悬空),阳性对照就根本不会出现 —— 尺子必须先确认有对象可判。
+    execSync('git commit --amend --no-edit --allow-empty --date="2020-01-01T00:00:00 +08:00"', {
+      cwd: dir,
+      stdio: 'ignore',
+    })
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(
+      r.status,
+      0,
+      `同内容副本应放行 exit 0,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.stdout, /同内容副本放行/, '白名单放行必须点名,不得静默')
+    assert.match(r.stdout, /work-in-progress/, '放行明细应带 subject')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('同内容副本: 树同而题不同 → 仍判 blocking(白名单不放宽到仅树相等)', () => {
+  const dir = createTempRepo()
+  try {
+    // 分支删除造悬空(不走 reset,避免混入 reset 判据):空树与 init 相同,题唯一
+    execSync('git checkout -b temp', { cwd: dir, stdio: 'ignore' })
+    execSync('git commit --allow-empty -m "unique-subject-XYZ"', { cwd: dir, stdio: 'ignore' })
+    execSync('git checkout main', { cwd: dir, stdio: 'ignore' })
+    execSync('git branch -D temp', { cwd: dir, stdio: 'ignore' })
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(r.status, 1, `题不同不得放行,应 exit 1,实际 ${r.status}`)
+    assert.doesNotMatch(r.stdout, /同内容副本放行/, '不得出现白名单放行点名')
   } finally {
     rmScratch(dir)
   }
