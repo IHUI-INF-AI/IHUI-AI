@@ -66,6 +66,7 @@ import { getConversation, getMessages } from '@ihui/api-client'
 import type { ChatMode } from '@ihui/types'
 import { parsePendingQuestion } from '@/lib/pending-question'
 import { fetchApi } from '@/lib/api'
+import { judgePageAdvance } from '@/lib/pagination-stall'
 import {
   findPendingResume,
   autoResumeAfterHistory,
@@ -928,6 +929,23 @@ export function AISidePanel() {
         content: m.content,
         createdAt: new Date(m.createdAt).getTime(),
       }))
+      // G-816010 分页结果双重复核:响应游标 == 请求游标 ⇒ 本次没有任何前进信息,收下它与
+      // replay 不可区分(下次上翻发同一个游标、拿回同一页,账面每次加载都成功而更早的历史
+      // 永远读不到)⇒ 停止补拉并按可重试失败上报,不当"成功且没有更多",也不静默。
+      // 窗口首行权威复核需要"请求前/响应后对权威侧两段重读"通道,本仓今天没有 ⇒ 不传
+      // windowFront,判据落 undetermined 按报名处理(模块头注约定),不默认"首行没动"。
+      const advance = judgePageAdvance({
+        requestCursor: cursor,
+        responseCursor: res.data.nextCursor,
+        responseHasMore: res.data.hasMore,
+        rows: older,
+      })
+      if (advance.retryable) {
+        // stopPaging:带着同一游标再发就是 replay;复位 hasMore 防止滚动反复触发同一次失败。
+        setHasMoreHistory(false)
+        toast.error(tcommon('loadFailed'))
+        return
+      }
       if (older.length === 0) {
         setHasMoreHistory(false)
         oldestCursorRef.current = null
@@ -947,7 +965,8 @@ export function AISidePanel() {
     } finally {
       setLoadingMoreHistory(false)
     }
-  }, [loadingMoreHistory, hasMoreHistory])
+    // tcommon 是 next-intl 取词函数,按本文件既有口径不进依赖(与上方 loadHistory effect 同形)。
+  }, [loadingMoreHistory, hasMoreHistory]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleNewChat = React.useCallback(() => {
     clearMessages()
