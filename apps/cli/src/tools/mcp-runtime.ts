@@ -1308,13 +1308,30 @@ export function mcpToolResultToToolResult(
   return { success: false, output: r.output, error: r.error, errorType: 'mcp_tool_error' };
 }
 
+/**
+ * MCP 工具两轴注册名的**唯一**格式出口:`mcp__<serverName>__<toolName>`。
+ *
+ * 为什么必须只此一份:hub/mcp-adapter.ts 与 mcp-runtime.ts 两个注册路径都要生成同一个 id,
+ * 两处各写一次格式串,哪天改命名就会漂移出"同名工具在两条路径下注册名不同"的分裂。
+ *
+ * 为什么要两轴名(而不是裸名):两台 MCP 服务器都暴露 `web_search` 时,裸名会让后到者
+ * 静默顶掉先到者,调用悄悄路由到另一台。带上 server 轴后两者是不同的注册名。
+ */
+export function mcpToolName(serverName: string, toolName: string): string {
+  return `mcp__${serverName}__${toolName}`;
+}
+
 export function mcpToolToTool(conn: McpConnection, mcpTool: McpToolDef): Tool {
   const params = convertSchema(mcpTool.inputSchema);
   const required = mcpTool.inputSchema.required ?? [];
   const serverName = conn.server.name;
 
   return {
-    name: mcpTool.name,
+    name: mcpToolName(serverName, mcpTool.name),
+    // 改名安全:升级前用户保存的黑名单/白名单里记的是**裸名**(旧命名),改名后只查新名会
+    // 让那份 --disallowed-tools 静默失效并放行。故把路由用的裸名登记成别名,权限判定新旧两名并查
+    // (消费点见 tools/permissions.ts 的 matchRulesOnly/decideWithMode)。
+    nameAliases: [mcpTool.name],
     // 注册归属:同名冲突时要点名"是哪一台服务器"(见 tools/index.ts 的 registrationOwner)
     registrationOwner: `mcp:${serverName}`,
     description: mcpTool.description ?? `MCP 工具 (${serverName})`,
