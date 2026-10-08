@@ -46,6 +46,15 @@
  * 双保险)。F5 判据退役照常收口(基线 F5=0 + absFloor),台账清理的真尾巴 = 剩余同键多行逐组裁决
  * (另批)。
  *
+ * 批3(--expired-lease,2026-10-08):**六判据联用档** —— 机主硬约束「处理过期租约副本时,仅删除
+ * 自述副本行(自述副本/不带落账注记/无租约/有接收方/非F9撞号/非F1分叉六条全过),保留带落账注记
+ * 的副本行和租约在飞的副本行」。判据③由「无 claim」收窄为「无**有效**租约」:claim 缺失(批1剩余面)
+ * 或租约已过期。过期语义**唯一出口** = 租约门 check-task-claims 的 analyzeLeases(72h 阈值,
+ * env IHUI_CLAIM_LEASE_TTL_HOURS 可调;legacy/形态不可辨/有持有者无日期一律视为有效,只保留不判)——
+ * 不自拼第二份公式。本器只清过期租约行里的**自述副本**;过期租约的**任务行本体**绝不代摘
+ * (CL1 棘轮语义:存量归各行持有者清账/续租/翻勾),删行只是把「过期租约+自述副本」的行从
+ * 两者交集里请出账面,主键信息在幸存者行完整保留。批2/批3 两档互斥(①与②的取舍方向相反)。
+ *
  * 安全阀(全机器核,不靠人眼;仿 plan-tasks-merge 的四条 + 归档器的对象空间通道):
  *   - 行数对账:new = old − deleted;未删行按行号对齐**逐字不变**;
  *   - 复跑 auditPlan(newContent):F1 必须 === 0;dupPointerRows 必须下降;mergeNotes 必须不变
@@ -64,6 +73,8 @@
  *   node scripts/plan-copy-row-purge.mjs --apply                      # 批1档对象空间 CAS 真落
  *   node scripts/plan-copy-row-purge.mjs --include-settled --dry-run  # 批2档预演(清落账注记行)
  *   node scripts/plan-copy-row-purge.mjs --include-settled --apply    # 批2档真落
+ *   node scripts/plan-copy-row-purge.mjs --expired-lease --dry-run    # 批3档预演(过期租约自述副本)
+ *   node scripts/plan-copy-row-purge.mjs --expired-lease --apply      # 批3档真落
  *   node scripts/plan-copy-row-purge.mjs --self-test                  # 判据纯函数自检(零派生、零副作用)
  */
 
@@ -87,6 +98,8 @@ import {
   resolveHeadRef,
   writeBlob,
 } from './lib/bypass-git.mjs'
+// 批3:租约过期语义唯一出口(头注「批3」段)—— 不自拼 72h 公式。
+import { analyzeLeases, resolveTtlHours, scanTasks, TTL_ENV } from './check-task-claims.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
@@ -107,16 +120,22 @@ const hasSettledNote = (raw) => new RegExp(MERGE_NOTE_RE.source).test(raw)
 
 /**
  * 删除判定(纯函数,self-test 直测):给定全行集合,返回删除行索引集合与逐行理由。
- * 判据见文件头注 —— 这里是唯一实现,--dry-run/--apply/--self-test 三档共用。
+ * 判据见文件头注 —— 这里是唯一实现,--dry-run/--apply/--self-test 各档共用。
  *
- * 两档(G-1102638 三批路线):
+ * 三档(G-1102638 三批路线):
  *  - 批1(缺省):①行自述副本 ∧ ②不带落账注记 —— 清干净的自述副本行;
  *  - 批2(includeSettled):②反转 —— **只**清带〔【归并】…落账:复测…〕注记的行,①不再强制
  *    (注记本身就是副本自述,不必再是「副本指针/重复登记」形态);③租约/④接收方/⑤F9/⑥F1 不变,
  *    由调用方(main 的 candidates filter)与函数内共同承担。
+ *  - 批3(expiredLease):六判据联用 —— ①②同批1;③收窄为「无**有效**租约」:
+ *    claim 缺失放行,claim 在但行号 ∈ staleLeaseLines(租约门 analyzeLeases 判的过期集)放行,
+ *    租约在飞(claim 在但不在过期集)一律保留。staleLeaseLines 由 main 传入(纯函数不派生);
+ *    includeSettled 与 expiredLease 互斥,同传即抛(①与②的取舍方向相反,混档=判据自相矛盾)。
  */
 export function selectCopyRowsToPurge(rows, opts = {}) {
   const includeSettled = Boolean(opts.includeSettled)
+  const expiredLease = Boolean(opts.expiredLease)
+  if (includeSettled && expiredLease) throw new Error('批2(--include-settled)与批3(--expired-lease)两档互斥,拒')
   const openRows = rows.filter((r) => r.state === 'open')
   // 组账:复合主键 → open 行(幸存者判定用)
   const byKey = new Map()
@@ -143,7 +162,7 @@ export function selectCopyRowsToPurge(rows, opts = {}) {
       if (!hasCopyMark(r.raw)) continue // ①
       if (hasSettledNote(r.raw)) continue // ② 批2对象
     }
-    if (r.claim) continue // ③
+    if (r.claim && !(expiredLease && opts.staleLeaseLines?.has(r.line))) continue // ③(批3收窄:claim 在但已过期 ⇒ 放行;租约在飞 ⇒ 保留)
     const pointed = COPY_POINTER_ROW_RE.test(r.raw) ? pointedIdOf(r.raw) : null
     if (pointed) {
       // ④a 行首指针族:指向编号仍有 open 行(非本行)
@@ -151,22 +170,28 @@ export function selectCopyRowsToPurge(rows, opts = {}) {
       if (!targets.length) continue
       deletes.push({
         row: r,
-        family: includeSettled ? 'pointer-note' : 'pointer-row',
+        family: includeSettled ? 'pointer-note' : expiredLease ? 'pointer-lease' : 'pointer-row',
         key: pointed,
         survivorLine: targets[0].line,
       })
     } else {
-      // ④b 【归并】族:同复合主键组内存在幸存者
+      // ④b 【归并】族:同复合主键组内存在幸存者。批3语义收窄:幸存者允许持**已过期**租约
+      // (主行本体留在账面不代摘,租约清账归持有者;登记信息不丢 ⇒ 接收方成立);
+      // 在飞租约幸存者仍挡(宁可漏删不可误删)。批1/批2 expiredLease=false ⇒ 逐字原判。
       const k = r.key ?? compositeKeyOf(r.raw)
       if (!k) continue
       const group = byKey.get(k) ?? []
       const survivor = group.find(
-        (x) => x.line !== r.line && !hasCopyMark(x.raw) && !hasSettledNote(x.raw) && !x.claim,
+        (x) =>
+          x.line !== r.line &&
+          !hasCopyMark(x.raw) &&
+          !hasSettledNote(x.raw) &&
+          (!x.claim || (expiredLease && opts.staleLeaseLines?.has(x.line))),
       )
       if (!survivor) continue
       deletes.push({
         row: r,
-        family: includeSettled ? 'settled-note' : 'merge-note',
+        family: includeSettled ? 'settled-note' : expiredLease ? 'merge-lease' : 'merge-note',
         key: k,
         survivorLine: survivor.line,
       })
@@ -256,6 +281,78 @@ function selfTest() {
     { includeSettled: true },
   )
   ok(d.length === 0, '批2:组内无幸存者(全带注记)整组保留,宁可漏删')
+  // —— 批3档(expiredLease):六判据联用,③收窄为「无有效租约」——
+  // mk 夹具的 claim 形态只判真值;过期集由 main 经租约门 analyzeLeases 算好后传行号集(纯函数不派生),
+  // 这里用行号集直陈「该行租约已过期」的判定结果。
+  d = selectCopyRowsToPurge(
+    [
+      mk(1, '- [ ] **G-60 题** 主行正文', { key: 'G-60' }),
+      mk(2, '- [ ] **G-60 题** 同题副本(进行中@2026-09-29/某人) - 【归并】重复登记副本,派单以主行为准', { key: 'G-60', claim: { holder: '某人' } }),
+    ],
+    { expiredLease: true, staleLeaseLines: new Set([2]) },
+  )
+  ok(d.length === 1 && d[0].row.line === 2 && d[0].family === 'merge-lease', '批3:过期租约的自述副本行应删(merge-lease 族)')
+  d = selectCopyRowsToPurge(
+    [
+      mk(1, '- [ ] **G-61 题** 主行正文', { key: 'G-61' }),
+      mk(2, '- [ ] **G-61 题** 同题副本(进行中@2026-10-08/某人) - 【归并】重复登记副本,派单以主行为准', { key: 'G-61', claim: { holder: '某人' } }),
+    ],
+    { expiredLease: true, staleLeaseLines: new Set() },
+  )
+  ok(d.length === 0, '批3:租约在飞(未过期)的副本行仍不删 —— 「保留租约在飞的副本行」硬约束')
+  d = selectCopyRowsToPurge(
+    [
+      // 主行必须传显式 key:openById 组账只收 r.key 非 null 的行(与批2 G-51 用例同一陷阱)
+      mk(1, '- [ ] G-62 主行', { key: 'G-62' }),
+      mk(2, '- [ ] 副本指针(编号 G-62)：同主键第二份未勾选副本,只加指针不动勾选;当前状态见 G-62 那条。', { claim: { holder: '某人' } }),
+    ],
+    { expiredLease: true, staleLeaseLines: new Set([2]) },
+  )
+  ok(d.length === 1 && d[0].family === 'pointer-lease', '批3:过期租约的行首指针行应删(pointer-lease 族,指向仍在)')
+  d = selectCopyRowsToPurge(
+    [
+      mk(1, '- [ ] G-63 主行'),
+      mk(2, '- [ ] G-63 同题副本 - 〔【归并】G-63 落账:复测 2026-10-01: 取证〕'),
+    ],
+    { expiredLease: true, staleLeaseLines: new Set([2]) },
+  )
+  ok(d.length === 0, '批3:带落账注记的过期租约副本行仍不删 —— 「保留带落账注记的副本行」硬约束')
+  d = selectCopyRowsToPurge([mk(1, '- [ ] G-64 孤行 - 【归并】重复登记副本,派单以主行为准')], { expiredLease: true, staleLeaseLines: new Set() })
+  ok(d.length === 0, '批3:无接收方的孤行不删(④不变)')
+  // ④b 批3收窄:幸存者持**过期**租约 ⇒ 接收方成立(主行本体保留在账,只清副本);
+  // 幸存者持**在飞**租约 ⇒ 仍挡。
+  d = selectCopyRowsToPurge(
+    [
+      mk(1, '- [ ] **G-66 题** 主行(进行中@2026-09-29/某人)', { key: 'G-66', claim: { holder: '某人' } }),
+      mk(2, '- [ ] **G-66 题** 同题副本 - 【归并】重复登记副本,派单以主行为准', { key: 'G-66' }),
+    ],
+    { expiredLease: true, staleLeaseLines: new Set([1]) },
+  )
+  ok(d.length === 1 && d[0].row.line === 2 && d[0].survivorLine === 1, '批3:幸存者为过期租约主行,副本应删(主行不代摘)')
+  d = selectCopyRowsToPurge(
+    [
+      mk(1, '- [ ] **G-67 题** 主行(进行中@2026-10-08/某人)', { key: 'G-67', claim: { holder: '某人' } }),
+      mk(2, '- [ ] **G-67 题** 同题副本 - 【归并】重复登记副本,派单以主行为准', { key: 'G-67' }),
+    ],
+    { expiredLease: true, staleLeaseLines: new Set() },
+  )
+  ok(d.length === 0, '批3:幸存者为在飞租约主行,副本仍不删(宁可漏删)')
+  // 批1/批2 档下幸存者判据逐字原状:持任何租约的主行都不能当幸存者
+  d = selectCopyRowsToPurge(
+    [
+      mk(1, '- [ ] **G-68 题** 主行(进行中@2026-09-29/某人)', { key: 'G-68', claim: { holder: '某人' } }),
+      mk(2, '- [ ] **G-68 题** 同题副本 - 【归并】重复登记副本,派单以主行为准', { key: 'G-68' }),
+    ],
+    { staleLeaseLines: new Set([1]) },
+  )
+  ok(d.length === 0, '批1档:幸存者持租约(哪怕行号在过期集)仍不作数 —— 收窄只在批3档生效')
+  let threwBatchClash = false
+  try {
+    selectCopyRowsToPurge([mk(1, '- [ ] G-65 x')], { includeSettled: true, expiredLease: true })
+  } catch {
+    threwBatchClash = true
+  }
+  ok(threwBatchClash, '批3:两档同传必须抛(互斥)')
   if (fail) {
     console.error(`self-test ${fail} 项红`)
     return 1
@@ -269,6 +366,11 @@ function main() {
   if (args.includes('--self-test')) process.exit(selfTest())
   const apply = args.includes('--apply')
   const includeSettled = args.includes('--include-settled') // 批2档:清落账注记行
+  const expiredLease = args.includes('--expired-lease') // 批3档:过期租约自述副本
+  if (includeSettled && expiredLease) {
+    console.error('批2(--include-settled)与批3(--expired-lease)两档互斥,拒')
+    process.exit(2)
+  }
   if (!apply && !args.includes('--dry-run')) {
     console.error('缺 --apply / --dry-run(默认只读不猜)')
     process.exit(2)
@@ -289,20 +391,41 @@ function main() {
   const f9 = f9Faces(content)
   const f9Keys = new Set(f9.collisions.map((g) => g.key))
 
-  const candidates = selectCopyRowsToPurge(rows, { includeSettled }).filter((d) => {
+  // 批3:过期租约集 —— 语义唯一出口 = 租约门 analyzeLeases(同一条 TTL 规则,不自拼第二份)。
+  // TTL 解析只认 env/默认(门旗标属于门自己的 CLI);legacy/形态不可辨/有持有者无日期一律不在
+  // 过期集里 ⇒ 对应行仍按「租约在飞」保留(判据不猜,与门同口径)。
+  let staleLeaseLines = null
+  let ttl = null
+  let staleLeaseTotal = 0
+  if (expiredLease) {
+    ttl = resolveTtlHours(null, process.env[TTL_ENV])
+    const { inProgress } = scanTasks(content)
+    const lease = analyzeLeases(inProgress, { nowMs: Date.now(), ttlHours: ttl.ttlHours })
+    staleLeaseLines = new Set(lease.stale.map((v) => v.line))
+    staleLeaseTotal = lease.stale.length
+  }
+  const candidates = selectCopyRowsToPurge(rows, { includeSettled, expiredLease, staleLeaseLines }).filter((d) => {
     if (forkOpenLines.has(d.row.line)) return false // ⑥
-    // ⑤ 撞号组"同主键"语义被污染,只辖同键组判定(④b);行首指针族走指向判定不查 F9
-    if ((d.family === 'merge-note' || d.family === 'settled-note') && f9Keys.has(d.key)) return false
+    // ⑤ 撞号组"同主键"语义被污染,只辖同键组判定(④b);行首指针族(family 前缀 pointer-*)走指向判定不查 F9
+    if (!d.family.startsWith('pointer') && f9Keys.has(d.key)) return false
     return true
   })
 
-  const batchLabel = includeSettled ? '批2(--include-settled)' : '批1'
+  const batchLabel = includeSettled ? '批2(--include-settled)' : expiredLease ? '批3(--expired-lease)' : '批1'
   const before = { openRows: rows.filter((r) => r.state === 'open').length }
   console.log(`判定面:HEAD(${headRef}) 未勾 ${before.openRows} 行 [${batchLabel}]`)
   console.log(`候选删除 ${candidates.length} 行(${candidates.map((d) => d.family).filter((f, i, a) => a.indexOf(f) === i).join(' / ') || '无'})`)
   for (const d of candidates.slice(0, 12))
     console.log(`  L${d.row.line} [${d.family}] → 幸存/指向 L${d.survivorLine} ${d.row.raw.slice(0, 80)}`)
   if (candidates.length > 12) console.log(`  … 其余 ${candidates.length - 12} 行见留痕 md`)
+  if (expiredLease) {
+    const withClaim = candidates.filter((d) => d.row.claim).length
+    console.log(
+      `租约门语义(TTL=${ttl.ttlHours}h,来源:${ttl.source}):面上过期租约 ${staleLeaseTotal} 处;` +
+        `其中自述副本候选 ${withClaim} 行 + 批1剩余无租约候选 ${candidates.length - withClaim} 行;` +
+        `过期租约的任务行本体 ${staleLeaseTotal - withClaim} 处**不代摘**(归各行持有者清账/续租/翻勾)`,
+    )
+  }
 
   if (!candidates.length) {
     console.log('无可删行(幂等出口)')
@@ -367,7 +490,7 @@ function main() {
   const newKeys = new Set(after.filter((r) => r.key).map((r) => r.key))
   const newFaceMissing = []
   for (const d of candidates) {
-    const id = d.family === 'pointer-row' || d.family === 'pointer-note' ? d.key : d.row.key
+    const id = d.family.startsWith('pointer') ? d.key : d.row.key
     if (id && !newKeys.has(id)) newFaceMissing.push(`L${d.row.line} ${id}`)
   }
   if (newFaceMissing.length) throw new Error(`门71模拟红(编号判活悬空)⇒ 拒绝落地:${newFaceMissing.slice(0, 10).join(';')}`)
@@ -403,8 +526,11 @@ function main() {
   const batchDesc = includeSettled
     ? `批2 落账注记行清偿 — 删 ${candidates.length} 行(注记 ${beforeMergeNotes}→${afterMergeNotes};` +
       `F5 差值棘轮随基线退役 plan-task-state-baseline F5=0,存续性同批改 0;`
-    : `批1 同主键副本行物理归并 — 删 ${candidates.length} 行` +
-      `(机主拍板〔拍板@2026-10-08 机主:真删+立即执行〕;幸存者规则与F4同向;落账注记行保留待批2;`
+    : expiredLease
+      ? `批3 过期租约副本行清偿 — 删 ${candidates.length} 行(六判据联用:自述副本/无落账注记/无有效租约` +
+        `[TTL=${ttl.ttlHours}h,面上过期 ${staleLeaseTotal} 处]/有接收方/非F9/非F1;租约在飞行与带注记行保留,任务行本体不代摘;`
+      : `批1 同主键副本行物理归并 — 删 ${candidates.length} 行` +
+        `(机主拍板〔拍板@2026-10-08 机主:真删+立即执行〕;幸存者规则与F4同向;落账注记行保留待批2;`
   const msg =
     `chore(plan): G-1102638 ${batchDesc}` +
     `复跑auditPlan对账F1=0/F9不增;逐行留痕 ${trailRel})`
@@ -420,7 +546,11 @@ function main() {
   const okCas = casUpdateRef(committed.commit, headRef, { root: ROOT })
   if (!okCas) throw new Error(`CAS 失败:HEAD 已被推进(${headRef.slice(0, 11)} 不再是当前值)⇒ 不重试,重读面后再跑(幂等)`)
   console.log(`✅ CAS 成功 ${headRef.slice(0, 11)} → ${committed.commit.slice(0, 11)}(删 ${candidates.length} 行,行数 ${lines.length}→${kept.length})`)
-  const aligned = alignSharedIndex({ root: ROOT, paths: [LEDGER, trailRel], parentRef: headRef })
+  // parentRef 必须传**父提交 sha 字面量**:headRef 是 ref 名,CAS 推进后再解析就指到新提交,
+  // 「索引==父提交态」的判据会把自家该动的路径误判成"别人已暂存"而 skip(2026-10-08 批3 实证
+  // skipped=2;批2 同型事故同修法)。用新提交的父提交 sha,判据面回到 CAS 前那一格。
+  const parentShaLiteral = git(['rev-parse', `${committed.commit}^`], { root: ROOT })
+  const aligned = alignSharedIndex({ root: ROOT, paths: [LEDGER, trailRel], parentRef: parentShaLiteral })
   console.log(`✅ 共享索引对齐 moved=${aligned.moved.length} already=${aligned.already.length} skipped=${aligned.skipped.length}(工作树滞后一格,收尾由调用方对齐)`)
 }
 
