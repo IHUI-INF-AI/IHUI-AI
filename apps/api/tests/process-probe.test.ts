@@ -52,10 +52,12 @@ describe('parseLinuxStat:comm 以 lastIndexOf(")") 切分(防空格崩解析)', 
 })
 
 describe('readProcInBatches:分批 64 条 + isExpired 中止', () => {
-  const makeReaders = (overrides: Partial<{
-    isExpired: () => boolean
-    readProcFile: (path: string) => Promise<string>
-  }> = {}) => ({
+  const makeReaders = (
+    overrides: Partial<{
+      isExpired: () => boolean
+      readProcFile: (path: string) => Promise<string>
+    }> = {},
+  ) => ({
     isExpired: overrides.isExpired ?? (() => false),
     listProcDirectory: async () => ['1', '2', '3'],
     readProcFile: overrides.readProcFile ?? (async () => 'x'),
@@ -93,10 +95,14 @@ describe('readProcInBatches:分批 64 条 + isExpired 中止', () => {
     }
     let reads = 0
     await expect(
-      readProcInBatches(readers, Array.from({ length: 200 }, (_, i) => i + 1), async () => {
-        reads += 1
-        return reads
-      }),
+      readProcInBatches(
+        readers,
+        Array.from({ length: 200 }, (_, i) => i + 1),
+        async () => {
+          reads += 1
+          return reads
+        },
+      ),
     ).rejects.toBeInstanceOf(ProcessProbeFailure)
     expect(reads).toBe(64) // 只有第一批被读完
   })
@@ -133,7 +139,8 @@ describe('createProcessProbe:1s 硬超时 / 失败=无样本 / 连续 3 次停�
         if (listBroken) throw new Error('proc 不可读')
         return ['42']
       },
-      readProcFile: async (path) => (path === '/proc/42/stat' ? '42 (worker) S 1 1 0 0 0 0 0 0 0 0 3 4' : 'nope'),
+      readProcFile: async (path) =>
+        path === '/proc/42/stat' ? '42 (worker) S 1 1 0 0 0 0 0 0 0 0 3 4' : 'nope',
     })
 
     // 前 3 次:失败=无样本不重试,每次只发起一次采样
@@ -302,7 +309,12 @@ describe('createProcessProbe:外部进程白名单红线', () => {
     expect(cimTicksToEpochMs('-5')).toBeUndefined()
     // 正常行:Name 居尾含空格不破坏解析
     const row = parseCimProcessRow('4242\t100\t621355968010000000\tWindows Service (x64)')
-    expect(row).toEqual({ pid: 4242, comm: 'Windows Service (x64)', parentPid: 100, createdAtMs: 1000 })
+    expect(row).toEqual({
+      pid: 4242,
+      comm: 'Windows Service (x64)',
+      parentPid: 100,
+      createdAtMs: 1000,
+    })
     // 畸形行:缺列 / pid 非法 / ticks 非法 / 空名
     expect(parseCimProcessRow('4242\t100\t621355968100000000')).toBeUndefined()
     expect(parseCimProcessRow('0\t100\t621355968100000000\tx')).toBeUndefined()
@@ -311,7 +323,9 @@ describe('createProcessProbe:外部进程白名单红线', () => {
   })
 
   it('parseCimProcessList:空行跳过、坏行丢弃(与 /proc 扫描同口径,不重试)', () => {
-    const samples = parseCimProcessList('\r\n10\t0\t621355968000000000\ta.exe\r\nbad\r\n11\t10\t621355968000000000\tb.exe\r\n')
+    const samples = parseCimProcessList(
+      '\r\n10\t0\t621355968000000000\ta.exe\r\nbad\r\n11\t10\t621355968000000000\tb.exe\r\n',
+    )
     expect(samples.map((s) => s.pid)).toEqual([10, 11])
   })
 })
@@ -319,58 +333,59 @@ describe('createProcessProbe:外部进程白名单红线', () => {
 describe.skipIf(process.platform !== 'win32')(
   'b76-09a 票2(G-998131) 验收:本机 Windows 真跑 CIM 建树(依赖 cmd.exe/CIM,Linux 上结构性不可跑)',
   () => {
-  it(
-    'spawn 活口子进程(其下再一层孙),sampleProcessTrees([root pid]) 含 root+child+grandchild 的 pid/parentPid/创建时间三元组',
-    { timeout: 60_000 },
-    async () => {
-      const { spawn } = await import('node:child_process')
-      // root = 本测试进程;child = cmd(其内再拉起 ping 作孙),windowsHide 纪律(AGENTS §5b)。
-      const child = spawn('cmd.exe', ['/c', 'ping -n 30 127.0.0.1 > NUL'], {
-        windowsHide: true,
-        stdio: 'ignore',
-      })
-      try {
-        // 给 cmd 拉起孙进程留出窗口;探针超时给足(CIM 全表 + PowerShell 冷启动可超红线 1s,
-        // 红线默认值本身已被上方注入测试覆盖,此处只验建树正确性)。
-        const probe = createProcessProbe({ platform: 'win32', sampleTimeoutMs: 30_000 })
-        const rootPid = process.pid
-        let tree: ReadonlyMap<number, readonly ProcessProbeSample[]> | undefined
-        let samples: readonly ProcessProbeSample[] = []
-        for (let attempt = 0; attempt < 3; attempt += 1) {
-          tree = await probe.sampleProcessTrees([rootPid])
-          samples = tree?.get(rootPid) ?? []
-          if (samples.some((s) => s.parentPid === child.pid)) break
-          await new Promise((resolve) => setTimeout(resolve, 500))
-        }
-        expect(tree).toBeDefined()
-        const byPid = new Map(samples.map((s) => [s.pid, s]))
-        // root:本进程自身在树内,带创建时间且不晚于当下
-        const root = byPid.get(rootPid)!
-        expect(root.createdAtMs).toBeTypeOf('number')
-        expect(root.createdAtMs!).toBeLessThanOrEqual(Date.now())
-        // child:ppid === root pid,创建时间晚于 root
-        const childSample = byPid.get(child.pid)!
-        expect(childSample.parentPid).toBe(rootPid)
-        expect(childSample.createdAtMs!).toBeGreaterThan(root.createdAtMs!)
-        // grandchild:存在 ppid === child.pid 的孙,创建时间不早于 child
-        const grandchildren = samples.filter((s) => s.parentPid === child.pid)
-        expect(grandchildren.length).toBeGreaterThan(0)
-        for (const g of grandchildren) {
-          expect(g.createdAtMs).toBeTypeOf('number')
-          expect(g.createdAtMs!).toBeGreaterThanOrEqual(childSample.createdAtMs!)
-        }
-      } finally {
-        // 终清:整树杀(cmd 与 ping),不留活口
-        await new Promise<void>((resolve) => {
-          const killer = spawn('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], {
-            windowsHide: true,
-            stdio: 'ignore',
-          })
-          killer.on('exit', () => resolve())
-          killer.on('error', () => resolve())
+    it(
+      'spawn 活口子进程(其下再一层孙),sampleProcessTrees([root pid]) 含 root+child+grandchild 的 pid/parentPid/创建时间三元组',
+      { timeout: 60_000 },
+      async () => {
+        const { spawn } = await import('node:child_process')
+        // root = 本测试进程;child = cmd(其内再拉起 ping 作孙),windowsHide 纪律(AGENTS §5b)。
+        const child = spawn('cmd.exe', ['/c', 'ping -n 30 127.0.0.1 > NUL'], {
+          windowsHide: true,
+          stdio: 'ignore',
         })
-      }
-    },
-  )
-})
+        try {
+          // 给 cmd 拉起孙进程留出窗口;探针超时给足(CIM 全表 + PowerShell 冷启动可超红线 1s,
+          // 红线默认值本身已被上方注入测试覆盖,此处只验建树正确性)。
+          const probe = createProcessProbe({ platform: 'win32', sampleTimeoutMs: 30_000 })
+          const rootPid = process.pid
+          let tree: ReadonlyMap<number, readonly ProcessProbeSample[]> | undefined
+          let samples: readonly ProcessProbeSample[] = []
+          for (let attempt = 0; attempt < 6; attempt += 1) {
+            tree = await probe.sampleProcessTrees([rootPid])
+            samples = tree?.get(rootPid) ?? []
+            if (samples.some((s) => s.parentPid === child.pid)) break
+            await new Promise((resolve) => setTimeout(resolve, 1_000))
+          }
+          expect(tree).toBeDefined()
+          const byPid = new Map(samples.map((s) => [s.pid, s]))
+          // root:本进程自身在树内,带创建时间且不晚于当下
+          const root = byPid.get(rootPid)!
+          expect(root.createdAtMs).toBeTypeOf('number')
+          expect(root.createdAtMs!).toBeLessThanOrEqual(Date.now())
+          // child:ppid === root pid,创建时间晚于 root
+          const childSample = byPid.get(child.pid)!
+          expect(childSample.parentPid).toBe(rootPid)
+          expect(childSample.createdAtMs!).toBeGreaterThan(root.createdAtMs!)
+          // grandchild:存在 ppid === child.pid 的孙,创建时间不早于 child
+          const grandchildren = samples.filter((s) => s.parentPid === child.pid)
+          expect(grandchildren.length).toBeGreaterThan(0)
+          for (const g of grandchildren) {
+            expect(g.createdAtMs).toBeTypeOf('number')
+            expect(g.createdAtMs!).toBeGreaterThanOrEqual(childSample.createdAtMs!)
+          }
+        } finally {
+          // 终清:整树杀(cmd 与 ping),不留活口
+          await new Promise<void>((resolve) => {
+            const killer = spawn('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], {
+              windowsHide: true,
+              stdio: 'ignore',
+            })
+            killer.on('exit', () => resolve())
+            killer.on('error', () => resolve())
+          })
+        }
+      },
+    )
+  },
+)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
