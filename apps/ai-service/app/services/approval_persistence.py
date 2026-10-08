@@ -455,8 +455,15 @@ def list_keys(kind: str) -> list[str]:
     return keys
 
 
-def list_grant_rows(kinds: Sequence[str]) -> list[dict]:
+def list_grant_rows(kinds: Sequence[str]) -> list[dict[str, Any]]:
     """只读投影:按 kind 集合取 grant 行明细(cache_key/scope/created_at/expires_at)。
+
+    返回类型补全泛型参数(守门 35 :458 判 "Missing type arguments for generic type
+    ``dict``"):裸 ``dict`` 在 mypy 眼里是 ``dict[Any, Any]``,等于把"这张行的键都是列名
+    (str)"这一事实扔掉 —— 调用方(llm.py 的 grants 面板)按 ``row["cache_key"]`` 这类
+    字符串键取值,所以键侧是 **str**,值侧是 sqlite3 的原生列值(int/str/None 混合,时间列
+    以文本落库且可为 NULL),故取 ``dict[str, Any]`` 而不是编一个假精确的值类型。
+    与本文件 ``stats() -> dict[str, Any]`` 同一套投影口径,不新开第三种写法。
 
     从 llm.py 路由层收编进持久层(2026-10-03):裸 SQL 留在非 sqlite3 文件里会被
     schema_check 的"按驱动判"规则当成 Postgres 表(approval_grants 在 CI 报
