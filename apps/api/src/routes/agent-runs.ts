@@ -288,16 +288,6 @@ export function createAgentRunRoutes(deps: AgentRunRoutesDeps): FastifyPluginAsy
           await store.put(record)
           return record
         },
-        // G-734③ 引用局部性断言(提交前 + 重放前各跑一次)。这张事实唯一的外部交叉引用就是它所属的人,
-        // child 集合就是这条槽的归属(`user:` + 令牌主体)。
-        // 为什么这一格必须在这儿断言而不是"由 create 自己保证":`create()` 只在本路径**新建**时
-        // 被调用,而**重放**路径上的值是上一轮写进 KV 的 —— 内核把它 `as T` 交回来,路由紧接着
-        // 用它签句柄(`toPublicRunView(result.value, ownerKey, …)`)。那一侧一条引用都不查。
-        // 于是"槽位里躺着的其实是别人的 run"会产出一条**签给请求方、却永远解析不回 200** 的句柄:
-        // `/resolve/:handle` 第 382 行有这道兜(`record.ownerUserId !== ownerUserId ⇒ 404`),
-        // 而 POST 这一侧原来一道都没有 —— 同一个面里两条路径对同一个不变量的严格度不一致,
-        // 而松的那一条正是把越权读成"重放成功"。补齐它,不是新加一层。
-        locality: { refsOf: (record) => [`user:${record.ownerUserId}`] },
       })
 
       if (!result.ok) {

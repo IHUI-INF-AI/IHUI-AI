@@ -249,19 +249,12 @@ class GeminiProvider(BaseProvider):
                             "message": f"内容被 Gemini 安全策略拦截(finishReason={finish_reason}),请调整提问方式",
                         }
                     if event.get("usageMetadata"):
-                        # G-425(2026-10-07 立,默认档"只提示"):把原生 finishReason
-                        # (STOP/MAX_TOKENS/SAFETY/...) 随 done 帧透传,端上据此在
-                        # MAX_TOKENS(=OpenAI length)时渲染截断提示;缺席 = 上游没给,
-                        # 不造值。SAFETY 拦截仍走上方 error 帧,不因本字段改变语义。
-                        _done_evt: dict[str, Any] = {
+                        yield {
                             "type": "done",
                             "model": real_model,
                             "usage": event["usageMetadata"],
                             "stub": False,
                         }
-                        if finish_reason:
-                            _done_evt["finishReason"] = finish_reason
-                        yield _done_evt
         except httpx.HTTPError as e:
             yield {"type": "error", "message": f"Gemini 流式网络异常: {e}"}
         except ProviderError as e:
