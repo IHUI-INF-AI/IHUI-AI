@@ -156,7 +156,9 @@ CREATE TABLE chat_messages (
   metadata jsonb DEFAULT '{}'::jsonb,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   reasoning text,
-  turn_ordinal integer
+  turn_ordinal integer,
+  parent_message_id uuid,
+  sibling_index integer
 );
 CREATE INDEX ix_chat_messages_conversation ON chat_messages (conversation_id);
 CREATE INDEX idx_chat_messages_by_turn ON chat_messages (conversation_id, turn_ordinal);
