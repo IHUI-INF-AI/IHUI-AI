@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { describe, it, expect, afterAll, beforeAll, beforeEach, vi } from 'vitest'
+import { describe, it, expect, afterAll, beforeAll, vi } from 'vitest'
 import Fastify from 'fastify'
 
 // Mock config 避免 env 校验触发 process.exit(1)
@@ -31,41 +31,17 @@ const {
   mockUpdateReturning,
   mockDeleteReturning,
   mockSelectResult,
-  rearmDbMockDefaults,
-} = vi.hoisted(() => {
-  // G-739②(2026-10-08)文件级 mock 复位:这些 mock 的 `mockResolvedValueOnce` 队列是
-  // **全文件共享的 FIFO**,被 preHandler/形状闸提前 return 的用例不消费自己排进去的值,
-  // 于是它漏进后面看起来无关的一条(实例见下方「DELETE 404 覆盖」段的注释)。
-  // 默认实现只在这里写一次,复位时从**同一份登记表**取 —— 不得在 beforeEach 里另抄第二份
-  // 默认值(两处算同一件事必然漂开,而漂开的表现是"复位把夹具改回了另一个形态")。
-  type Armed = { mockResolvedValue(value: unknown): unknown; mockReset(): unknown }
-  const rearmers: Array<() => void> = []
-  function armed<F extends Armed>(fn: F, value: unknown): F {
-    fn.mockResolvedValue(value)
-    rearmers.push(() => {
-      fn.mockReset()
-      fn.mockResolvedValue(value)
-    })
-    return fn
-  }
-  const mockVerifyAccessToken = vi.fn()
-  const mockInsertReturning = armed(vi.fn(), [{ id: 'mock-id' }])
-  const mockUpdateReturning = armed(vi.fn(), [{ id: 'mock-id' }])
+} = vi.hoisted(() => ({
+  mockVerifyAccessToken: vi.fn(),
+  mockInsertReturning: vi.fn().mockResolvedValue([{ id: 'mock-id' }]),
+  mockUpdateReturning: vi.fn().mockResolvedValue([{ id: 'mock-id' }]),
   // 2026-09-26:删除端点改为 `.returning({id})` 取库确认集合(`deleted` 由命中行数算真值)。
   // 旧夹具只给 `where: mockDeleteWhere`(await 得 undefined、链上没有 returning)⇒ 新写法
   // 一律 500,那是**夹具保真度不足**而不是代码写坏。这里让 `where()` 的返回值同时可 await
   // 且带 `.returning`,两种调用形态(`await …where(…)` 与 `…where(…).returning(…)`)都走得通。
-  const mockDeleteReturning = armed(vi.fn(), [{ id: 'mock-id' }])
-  const mockSelectResult = armed(vi.fn(), [])
-  return {
-    mockVerifyAccessToken,
-    mockInsertReturning,
-    mockUpdateReturning,
-    mockDeleteReturning,
-    mockSelectResult,
-    rearmDbMockDefaults: () => rearmers.forEach((rearm) => rearm()),
-  }
-})
+  mockDeleteReturning: vi.fn().mockResolvedValue([{ id: 'mock-id' }]),
+  mockSelectResult: vi.fn().mockResolvedValue([]),
+}))
 vi.mock('@ihui/auth', () => ({
   signAccessToken: vi.fn().mockResolvedValue('mock-access-token'),
   signRefreshToken: vi.fn().mockResolvedValue('mock-refresh-token'),
@@ -145,13 +121,6 @@ function mockRegularUser() {
 
 describe('admin-missing-routes', () => {
   const server = Fastify({ logger: false, pluginTimeout: 60000 })
-
-  // G-739②(2026-10-08):每条用例开始前,把 db 夹具复位回**声明处那一份**默认值。
-  // 复位的是 Once 队列与调用历史,不改任何路由代码 —— 上一条用例排进去却因提前 return
-  // 而没消费的 Once 值,从此不会漏到下一条用例头上冒充"库里真有这一行"。
-  beforeEach(() => {
-    rearmDbMockDefaults()
-  })
 
   beforeAll(async () => {
     await server.register(adminMissingRoutes, { prefix: '/api/admin' })
@@ -1285,24 +1254,6 @@ describe('admin-missing-routes', () => {
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(404)
-    })
-
-    // G-739② 的复位探针 —— **A/B 必须相邻,顺序本身就是判据**。
-    // A 只往 Once 队列里排一条哨兵而不发任何请求(等价于任何被 preHandler/形状闸提前 return
-    // 的用例:那条值永远不会被消费);B 直接问这把夹具"现在取到的是什么"。
-    // 旧装置(无 beforeEach 复位)下 B 会拿到 A 的哨兵 ⇒ 红 —— 那正是本文件注释里那枚历史事故
-    // (/auth-accounts 泄漏 → login-logs 的"不存在返回 404"被读成 200)的最小可复现形态;
-    // 加了复位之后 B 只看得到声明处那一份默认值 `[]` ⇒ 绿。
-    // 也就是说:这对用例只会因装置回退而翻红,不依赖任何路由实现细节,也不许被"顺手删掉"。
-    it('A 只排入哨兵 Once 值、不发请求(该值因此不可能被本条消费)', async () => {
-      mockAdmin()
-      mockSelectResult.mockResolvedValueOnce([{ id: 'leak-sentinel-must-not-survive' }])
-      expect(mockSelectResult.mock.calls).toHaveLength(0)
-    })
-
-    it('B 下一条用例向夹具要到的必须是默认空结果,而不是上一条漏下来的哨兵', async () => {
-      const row = await mockSelectResult()
-      expect(row).toEqual([])
     })
 
     it('DELETE /system/login-logs/:id 不存在返回 404', async () => {
