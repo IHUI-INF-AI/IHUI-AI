@@ -24,7 +24,7 @@ import base64
 import json
 import os
 import secrets
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -32,6 +32,7 @@ from cryptography.fernet import Fernet, InvalidToken
 
 from app.core.db_pool import get_shared_pool
 from app.core.logging import get_logger
+from app.services.checkin_engine import get_jwt_exp
 
 if TYPE_CHECKING:
     # 只为标注 ensure_tables_conn 的连接参数而引;本文件有 `from __future__ import
@@ -40,6 +41,11 @@ if TYPE_CHECKING:
     import asyncpg
 
 logger = get_logger(__name__)
+
+# 引擎的 get_jwt_exp 是上游平移的**无类型**函数(mypy strict 下直接调用报
+# no-untyped-call,routers/checkin.py:54 的存量同因)。untyped callable 可赋给
+# 精确签名,给调用点钉上真类型:jwt_exp 要进列表响应,返回值不能渗 Any。
+_get_jwt_exp: Callable[[str], tuple[datetime | None, float | None]] = get_jwt_exp
 
 _KEY_ENV = "CHECKIN_FERNET_KEY"
 _KEY_FILE = os.path.join("data", "checkin_fernet_key")
@@ -95,11 +101,19 @@ CREATE INDEX IF NOT EXISTS idx_checkin_records_cooldown
     WHERE cooldown_until IS NOT NULL;
 """
 
+# Phase1d(2026-10-08)加列:账号分组。PG 里 group 是保留字,列名用 account_group;
+# ADD COLUMN IF NOT EXISTS 幂等,存量表在 ensure_tables_conn 里补齐(ensure_tables
+# 与 CI 裸连接两条建表路径共用该函数,一处加列两边生效)。
+_ALTER_ACCOUNTS_GROUP_SQL = """
+ALTER TABLE checkin_accounts
+    ADD COLUMN IF NOT EXISTS account_group text NOT NULL DEFAULT ''
+"""
+
 _ensure_failed = False
 
 
 async def ensure_tables_conn(conn: asyncpg.Connection) -> None:
-    """在给定连接上幂等建表(三张表 + 查询索引)。
+    """在给定连接上幂等建表(三张表 + account_group 幂等加列 + 查询索引)。
 
     与 ensure_tables 的区别:不经过共享连接池。CI 的 ensure 步骤在同一进程里
     连续多次 asyncio.run(前者各自持有已关闭 loop 的残留池),共享池的跨 loop
@@ -110,12 +124,13 @@ async def ensure_tables_conn(conn: asyncpg.Connection) -> None:
     await conn.execute(_CREATE_ACCOUNTS_SQL)
     await conn.execute(_CREATE_RECORDS_SQL)
     await conn.execute(_CREATE_ERROR_COUNTS_SQL)
+    await conn.execute(_ALTER_ACCOUNTS_GROUP_SQL)
     await conn.execute(_CREATE_INDEXES_SQL)
     _ensure_failed = False
 
 
 async def ensure_tables() -> None:
-    """幂等建表(三张表 + 查询索引)。失败抛出,由调用方决定 fail-open/fail-closed。"""
+    """幂等建表(三张表 + account_group 幂等加列 + 查询索引)。失败抛出,由调用方决定 fail-open/fail-closed。"""
     pool = await get_shared_pool()
     async with pool.acquire() as conn:
         await ensure_tables_conn(conn)
@@ -207,7 +222,11 @@ def generate_fernet_key_b64() -> str:
 
 
 async def create_account(
-    owner_user_id: str, name: str, jwt: str, device_map: dict[str, Any]
+    owner_user_id: str,
+    name: str,
+    jwt: str,
+    device_map: dict[str, Any],
+    account_group: str = "",
 ) -> dict[str, Any]:
     """录入账号(jwt 加密落库)。同名账号已存在时抛 ValueError。"""
     pool = await get_shared_pool()
@@ -217,15 +236,16 @@ async def create_account(
             row = await conn.fetchrow(
                 """
                 INSERT INTO checkin_accounts
-                    (owner_user_id, name, jwt_enc, device_map, enabled)
-                VALUES ($1, $2, $3, $4::jsonb, true)
-                RETURNING id, owner_user_id, name, device_map, enabled,
+                    (owner_user_id, name, jwt_enc, device_map, enabled, account_group)
+                VALUES ($1, $2, $3, $4::jsonb, true, $5)
+                RETURNING id, owner_user_id, name, device_map, enabled, account_group,
                           created_at, updated_at
                 """,
                 owner_user_id,
                 name,
                 jwt_enc,
                 json.dumps(device_map, ensure_ascii=False),
+                account_group,
             )
         except Exception as e:
             # asyncpg 唯一约束冲突 → 23505
@@ -236,12 +256,16 @@ async def create_account(
 
 
 async def list_accounts(owner_user_id: str) -> list[dict[str, Any]]:
-    """列出 owner 的账号(jwt 永不出库),附最近一次签到记录摘要。"""
+    """列出 owner 的账号(jwt 明文不出库),附最近一次签到记录摘要。
+
+    SELECT 带 jwt_enc 仅供 _account_row 派生 jwt_exp(Phase1c 列表增强),
+    响应不回吐任何 jwt / jwt_enc 字段。
+    """
     pool = await get_shared_pool()
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
-            SELECT a.id, a.owner_user_id, a.name, a.device_map, a.enabled,
+            SELECT a.id, a.owner_user_id, a.name, a.account_group, a.jwt_enc, a.device_map, a.enabled,
                    a.created_at, a.updated_at,
                    r.ok        AS last_ok,
                    r.action    AS last_action,
@@ -295,6 +319,43 @@ async def set_enabled(account_id: int, owner_user_id: str, enabled: bool) -> boo
             account_id,
             owner_user_id,
             enabled,
+        )
+    return tag == "UPDATE 1"
+
+
+async def update_jwt(account_id: int, owner_user_id: str, jwt: str) -> bool:
+    """更换账号 jwt(重加密落库)。返回是否命中行(属主校验并入 WHERE)。"""
+    pool = await get_shared_pool()
+    jwt_enc = _encrypt_jwt(jwt)
+    async with pool.acquire() as conn:
+        # 同 :269:asyncpg 状态文本钉成 str,Bool 判定才有人看守。
+        tag: str = await conn.execute(
+            """
+            UPDATE checkin_accounts
+            SET jwt_enc = $3, updated_at = now()
+            WHERE id = $1 AND owner_user_id = $2
+            """,
+            account_id,
+            owner_user_id,
+            jwt_enc,
+        )
+    return tag == "UPDATE 1"
+
+
+async def update_group(account_id: int, owner_user_id: str, group: str) -> bool:
+    """更新账号分组(空串 = 移出分组)。返回是否命中行(属主校验并入 WHERE)。"""
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        # 同 :269:asyncpg 状态文本钉成 str,Bool 判定才有人看守。
+        tag: str = await conn.execute(
+            """
+            UPDATE checkin_accounts
+            SET account_group = $3, updated_at = now()
+            WHERE id = $1 AND owner_user_id = $2
+            """,
+            account_id,
+            owner_user_id,
+            group,
         )
     return tag == "UPDATE 1"
 
@@ -365,8 +426,18 @@ async def save_device_map(account_id: int, device_map: dict[str, Any]) -> None:
         )
 
 
+def _account_jwt_exp(jwt_enc: bytes) -> str | None:
+    """解密账号 jwt 并解析 exp → ISO8601;解密/解析失败一律 None(单账号异常不炸整表)。"""
+    try:
+        jwt = _decrypt_jwt(jwt_enc)
+    except ValueError:
+        return None
+    exp_dt, _remaining = _get_jwt_exp(jwt)
+    return exp_dt.isoformat() if exp_dt is not None else None
+
+
 def _account_row(row: Mapping[str, Any]) -> dict[str, Any]:
-    """账号行 → 脱敏 dict(绝不含 jwt / jwt_enc 字段)。"""
+    """账号行 → 脱敏 dict(绝不含 jwt / jwt_enc 字段;行上带 jwt_enc 时派生 jwt_exp)。"""
     device_map = row["device_map"]
     if isinstance(device_map, str):
         device_map = json.loads(device_map or "{}")
@@ -375,11 +446,14 @@ def _account_row(row: Mapping[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {
         "id": row["id"],
         "name": row["name"],
+        "group": row["account_group"] if "account_group" in row else "",
         "device_map": device_map,
         "enabled": row["enabled"],
         "created_at": row["created_at"].isoformat() if row["created_at"] else None,
         "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
     }
+    if "jwt_enc" in row:
+        out["jwt_exp"] = _account_jwt_exp(row["jwt_enc"])
     if "last_created_at" in row:
         out["last_record"] = (
             {
