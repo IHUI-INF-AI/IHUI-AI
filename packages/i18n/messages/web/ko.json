@@ -18882,7 +18882,20 @@
     "groupPlaceholder": "예: 메인 / 예비",
     "groupUpdated": "그룹이 업데이트되었습니다",
     "groupUngrouped": "그룹 없음",
-    "skippedToday": "오늘 이미 출석한 {count}개 계정을 건너뛰었습니다"
+    "skippedToday": "오늘 이미 출석한 {count}개 계정을 건너뛰었습니다",
+    "checkinAll": "전체 출석",
+    "colMessage": "메시지",
+    "editJwt": "JWT 업데이트",
+    "editJwtDescription": "새로 캡처한 JWT를 붙여넣으면 검증 후 암호화되어 저장됩니다.",
+    "editJwtTitle": "JWT 업데이트",
+    "filterAll": "전체 계정",
+    "jwtExpired": "JWT 만료됨",
+    "jwtExpiresSoon": "JWT가 {days}일 내 만료됩니다",
+    "jwtUpdated": "JWT가 업데이트되었습니다",
+    "loadMore": "더 불러오기",
+    "schedulerDisabled": "자동 출석 꺼짐",
+    "schedulerEnabled": "자동 출석 켜짐",
+    "schedulerNextRun": "다음 {time}"
   },
   "nav": {
     "checkin": "출석",

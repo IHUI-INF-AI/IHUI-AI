@@ -18882,7 +18882,20 @@
     "groupPlaceholder": "如:主力 / 备用",
     "groupUpdated": "分组已更新",
     "groupUngrouped": "未分组",
-    "skippedToday": "已跳过 {count} 个今日已签账号"
+    "skippedToday": "已跳过 {count} 个今日已签账号",
+    "checkinAll": "一键全部签到",
+    "colMessage": "信息",
+    "editJwt": "更新 JWT",
+    "editJwtDescription": "粘贴新抓取的 JWT，校验通过后加密落库。",
+    "editJwtTitle": "更新 JWT",
+    "filterAll": "全部账号",
+    "jwtExpired": "JWT 已过期",
+    "jwtExpiresSoon": "JWT 将于 {days} 天内过期",
+    "jwtUpdated": "JWT 已更新",
+    "loadMore": "加载更多",
+    "schedulerDisabled": "自动签到未开启",
+    "schedulerEnabled": "自动签到已开启",
+    "schedulerNextRun": "下次 {time}"
   },
   "nav": {
     "checkin": "签到助手",

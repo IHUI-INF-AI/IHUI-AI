@@ -18887,7 +18887,20 @@
     "groupPlaceholder": "例:メイン / 予備",
     "groupUpdated": "グループを更新しました",
     "groupUngrouped": "未分類",
-    "skippedToday": "本日チェックイン済みの{count}件をスキップしました"
+    "skippedToday": "本日チェックイン済みの{count}件をスキップしました",
+    "checkinAll": "すべてチェックイン",
+    "colMessage": "メッセージ",
+    "editJwt": "JWT を更新",
+    "editJwtDescription": "取得したばかりの JWT を貼り付けると、検証後に暗号化して保存します。",
+    "editJwtTitle": "JWT を更新",
+    "filterAll": "すべてのアカウント",
+    "jwtExpired": "JWT が期限切れ",
+    "jwtExpiresSoon": "JWT は {days} 日以内に期限切れ",
+    "jwtUpdated": "JWT を更新しました",
+    "loadMore": "さらに読み込む",
+    "schedulerDisabled": "自動チェックイン オフ",
+    "schedulerEnabled": "自動チェックイン オン",
+    "schedulerNextRun": "次回 {time}"
   },
   "nav": {
     "checkin": "チェックイン",
