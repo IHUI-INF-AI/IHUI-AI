@@ -62,7 +62,10 @@ export function hashBlob(text, { root, rel, watermark = false }) {
     // 临时件**必须带真扩展名**:`watermark.mjs inject` 按类型判 skip-type,叫 blob.tmp 就被整个跳过,
     // 于是"过了水印"这句话是空的(实测第一次 --apply 就红在这里,而不是静默通过 —— 这次是运气)。
     const f = join(dir, 'blob' + extname(rel || ''))
-    writeFileSync(f, text, 'utf8')
+    // 统一规范化为 \n:buildArchiveAppend 在 Windows 上产 \r\n,watermark inject --reseat-tail
+    // 会剥末行 \r,hash-object 与 readFileSync 读到的 EOL 就不一致(实测 24107 vs 24115,差 8 字节)。
+    const normalized = text.replace(/\r\n/g, '\n')
+    writeFileSync(f, normalized, 'utf8')
     if (watermark) {
       runWatermark(root, ['inject', '--reseat-tail', f], rel)
       // 追加型写入会把末行的隐写载荷顶走 —— `--reseat-tail` 负责请回,`verify` 负责**只认退出码**
