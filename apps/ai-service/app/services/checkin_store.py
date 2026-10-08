@@ -24,13 +24,20 @@ import base64
 import json
 import os
 import secrets
+from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from cryptography.fernet import Fernet, InvalidToken
 
 from app.core.db_pool import get_shared_pool
 from app.core.logging import get_logger
+
+if TYPE_CHECKING:
+    # 只为标注 ensure_tables_conn 的连接参数而引;本文件有 `from __future__ import
+    # annotations`,该注解在运行时不求值 ⇒ 不新增任何导入期代价。asyncpg 未发布
+    # py.typed(AGENTS §3 例外①:第三方库无类型声明),所以这里标**真名**而不是 Any。
+    import asyncpg
 
 logger = get_logger(__name__)
 
@@ -91,7 +98,7 @@ CREATE INDEX IF NOT EXISTS idx_checkin_records_cooldown
 _ensure_failed = False
 
 
-async def ensure_tables_conn(conn) -> None:
+async def ensure_tables_conn(conn: asyncpg.Connection) -> None:
     """在给定连接上幂等建表(三张表 + 查询索引)。
 
     与 ensure_tables 的区别:不经过共享连接池。CI 的 ensure 步骤在同一进程里
@@ -261,7 +268,12 @@ async def delete_account(account_id: int, owner_user_id: str) -> bool:
     """删除账号(records / error_counts 级联)。返回是否确实删除了行。"""
     pool = await get_shared_pool()
     async with pool.acquire() as conn:
-        tag = await conn.execute(
+        # asyncpg 的 execute() 回的是**状态文本**(如 "DELETE 1"),不是行数对象;
+        # 这里显式钉成 str(守门 35 :269 判 "Returning Any from function declared to
+        # return bool" 的根因:asyncpg 无 py.typed ⇒ conn 是 Any ⇒ tag 是 Any ⇒
+        # `Any == "…"` 整式是 Any,Bool 侧的判定就没人看守了)。声明在赋值位而不是
+        # `bool(...)` 包一层:后者只是把洞盖住,前者交代了这行的真类型。
+        tag: str = await conn.execute(
             "DELETE FROM checkin_accounts WHERE id = $1 AND owner_user_id = $2",
             account_id,
             owner_user_id,
@@ -273,7 +285,8 @@ async def set_enabled(account_id: int, owner_user_id: str, enabled: bool) -> boo
     """启用/停用账号。返回是否命中行。"""
     pool = await get_shared_pool()
     async with pool.acquire() as conn:
-        tag = await conn.execute(
+        # 同 :269:asyncpg 状态文本钉成 str,Bool 判定才有人看守(守门 35 :286)。
+        tag: str = await conn.execute(
             """
             UPDATE checkin_accounts
             SET enabled = $3, updated_at = now()
@@ -352,7 +365,7 @@ async def save_device_map(account_id: int, device_map: dict[str, Any]) -> None:
         )
 
 
-def _account_row(row) -> dict[str, Any]:
+def _account_row(row: Mapping[str, Any]) -> dict[str, Any]:
     """账号行 → 脱敏 dict(绝不含 jwt / jwt_enc 字段)。"""
     device_map = row["device_map"]
     if isinstance(device_map, str):
@@ -512,7 +525,7 @@ async def credits_history(
     ]
 
 
-def _record_row(row) -> dict[str, Any]:
+def _record_row(row: Mapping[str, Any]) -> dict[str, Any]:
     cd = row["cooldown_until"]
     return {
         "id": row["id"],
@@ -564,7 +577,12 @@ async def bump_error_count(account_id: int, column: str) -> int:
             """,
             account_id,
         )
-    return row[column]
+    # 钉成 int 再回(守门 35 :567 "Returning Any from function declared to return int"):
+    # server_errors / client_errors 两列在 _CREATE_ERROR_COUNTS_SQL 里都是 `int NOT NULL`,
+    # RETURNING 取的就是它自己 ⇒ 真类型是 int;而 asyncpg 无 py.typed ⇒ row 是 Any,
+    # 原样 return 等于把 Any 递给声明了 -> int 的调用方(计数进冷却判定,不是装饰)。
+    count: int = row[column]
+    return count
 
 
 async def reset_error_count(account_id: int, column: str) -> None:
