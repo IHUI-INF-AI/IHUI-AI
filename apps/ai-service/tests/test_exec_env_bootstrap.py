@@ -126,6 +126,23 @@ def test_resolve_npx_found_gives_provenance(tmp_path):
     assert out.tried, "命中也必须带候选序(出处出口)"
 
 
+def test_resolve_non_executable_file_is_not_resolved(tmp_path):
+    """X_OK 判据的另一半:存在但**不可执行**的文件不得算解析到(POSIX x 位语义)。
+
+    Windows 没有 POSIX x 位(常规文件 X_OK 恒真,与 accessSync 在 Windows 的
+    语义一致),不可执行档只在 POSIX 分支可验 ⇒ win32 显式跳过,不装作已验证。
+    """
+    if sys.platform == "win32":
+        pytest.skip("Windows 无 POSIX x 位语义:常规文件 X_OK 恒真(对齐 accessSync)")
+    plain = tmp_path / "plain-bin"
+    plain.write_text("", encoding="utf-8")
+    plain.chmod(0o644)
+    assert exec_env._is_executable_file(str(plain)) is False
+    out = exec_env.resolve_stdio_command("plain-bin", {"PATH": str(tmp_path)})
+    assert out.resolved is None and out.resolved != ""
+    assert str(plain) in out.tried, "不可执行候选也要进 tried(出处出口完整)"
+
+
 def test_resolve_explicit_path_branch(tmp_path):
     """显式路径:存在且可执行 ⇒ 解析为自身;不存在 ⇒ None + 候选=自身(不猜相对基准)。"""
     real = _mk_executable(tmp_path, "real-bin")
