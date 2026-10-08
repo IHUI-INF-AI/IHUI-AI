@@ -406,7 +406,15 @@ class MCPClient:
             # PATH 只剩系统目录 ⇒ spawn("npx") 找不到 Homebrew/NVM 里的入口,只剩一句
             # FileNotFoundError;解析器找不到时带回完整"试过候选"列表,报错可定位。
             resolution = resolve_stdio_command(self._config.command, proc_env)
-            if not resolution.ok:
+            # 类型修复(守门 35,:418 把 str|None 交给 create_subprocess_exec 的可执行路径位):
+            # 判空必须是**对值本身判**,而不是过 `resolution.ok` 那个属性 —— `ok` 的定义正是
+            # ``self.resolved is not None``,运行时等价,但 mypy 无法顺着属性把
+            # ``resolution.resolved`` 收窄成 str,于是解析成功的那一条分支照样被判成"可能
+            # spawn None"(静默的类型洞,不是静默的运行时洞)。取局部量再判 None:收窄落在
+            # 局部变量上,尺子看得见;拿不到可执行文件仍然走上面同一条**大声喊**的路径
+            # (带完整候选列表报错 + return False),绝不静默回落裸名 spawn、也不 `or ""` 兜底。
+            resolved_command = resolution.resolved
+            if resolved_command is None:
                 logger.error(
                     "stdio 连接失败:命令解析不到(%s),试过候选:%s",
                     self._config.command,
@@ -415,7 +423,7 @@ class MCPClient:
                 self._connected = False
                 return False
             self._process = await asyncio.create_subprocess_exec(
-                resolution.resolved,
+                resolved_command,
                 *self._config.args,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
