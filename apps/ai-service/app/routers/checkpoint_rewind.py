@@ -44,6 +44,7 @@ from ..services.agent_checkpoint import (
     CheckpointSessionMismatchError,
     get_agent_checkpoint_manager,
 )
+from ..services.branch_generation import bump_branch_generation
 
 router = APIRouter(prefix="/checkpoints", tags=["checkpoints"])
 logger = logging.getLogger(__name__)
@@ -237,6 +238,12 @@ async def restore_checkpoint(
     except CheckpointSessionMismatchError as e:
         _record_restore_unavailable(session_id, checkpoint_id, str(e))
         raise HTTPException(status_code=400, detail=str(e)) from None
+
+    # G-815974:恢复成功即分支装配出口 —— 该会话分支代数 +1。挂在同一会话上的
+    # 在飞后台任务完成时,经 background_tasks 的复校点发现旧令牌过期:
+    # 不寄通知、不写历史,只留一条可诊断日志(注:impact 预览端点同调 manager.restore
+    # 但属只读预览,不 bump)。
+    bump_branch_generation(session_id, "checkpoint-restore")
 
     # 按 scope 决定回退范围:
     # - conversation / both:同步恢复后的消息历史到会话运行时存储(用户可感知的核心闭环)
