@@ -14412,22 +14412,6 @@
       "title": "음성 통화"
     }
   },
-  "eduCertificatesPage": {
-    "backToList": "자격증 목록으로 돌아가기",
-    "certificateNo": "자격증 번호: {no}",
-    "completed": "이수 완료",
-    "download": "자격증 다운로드",
-    "downloadFailed": "다운로드 실패({status})",
-    "issuanceText": "학습 및 평가를 통과하여 본 증서를 수여합니다",
-    "issuedAt": "발급일: {date}",
-    "loading": "불러오는 중...",
-    "notFound": "자격증이 존재하지 않습니다",
-    "print": "인쇄",
-    "status": {
-      "revoked": "취소됨",
-      "valid": "유효"
-    }
-  },
   "eduCourseLearnPage": {
     "backToDetail": "강의 상세로 돌아가기",
     "loadFailed": "불러오기 실패",
@@ -23710,24 +23694,6 @@
   "magazine": {
     "title": "뉴스"
   },
-  "defaultEntries": {
-    "mall": {
-      "label": "몰",
-      "description": "할인 상품 구경하기"
-    },
-    "vip": {
-      "label": "멤버십",
-      "description": "가입 시 전용 혜택 이용"
-    },
-    "invite": {
-      "label": "초대",
-      "description": "친구 초대하고 보상 받기"
-    },
-    "help": {
-      "label": "도움말",
-      "description": "자주 묻는 질문과 이용 가이드 보기"
-    }
-  },
   "analytics": {
     "totalPublished": "누적 게시",
     "successRate": "성공률",
@@ -24720,15 +24686,6 @@
     "ctaSecondary": "자세히 보기",
     "miniappBtn": "위챗 미니앱"
   },
-  "defaultTags": {
-    "llm": "대형 모델",
-    "tutorial": "튜토리얼",
-    "rag": "지식베이스",
-    "agent": "에이전트",
-    "frontend": "프론트엔드",
-    "backend": "백엔드",
-    "opensource": "오픈소스"
-  },
   "device": {
     "title": "기기 관리",
     "lastLoginLabel": "최근 로그인",
@@ -25100,16 +25057,6 @@
     "confirmDelete": "삭제하시겠습니까?",
     "confirm": "확인",
     "cancel": "취소"
-  },
-  "terminalSessionList": {
-    "statusActive": "실행 중",
-    "statusExited": "종료됨",
-    "statusClosed": "닫힘",
-    "title": "터미널 세션",
-    "newTerminalAria": "새 터미널",
-    "loading": "로딩 중…",
-    "empty": "세션이 없습니다",
-    "closeTerminalAria": "터미널 닫기"
   },
   "pricing": {
     "title": "요금제"
@@ -27463,13 +27410,6 @@
     "subtitle": "획득한 모든 자격증 보기",
     "title": "내 자격증",
     "view": "보기"
-  },
-  "eduCourses": {
-    "backToCourses": "강좌 목록으로 돌아가기",
-    "chaptersTitle": "섹션 목차",
-    "detail": "상세",
-    "notFound": "강좌가 존재하지 않습니다",
-    "studentsCount": "학습자 {count}명"
   },
   "eduStudyPlan": {
     "add": "추가",
