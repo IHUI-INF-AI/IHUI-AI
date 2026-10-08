@@ -57,6 +57,16 @@
 //     ⇒ 未判定 exit 2;--staged 档的判红同样套"该 token 在 HEAD 面已红 ⇒ 存量只报名"的棘轮
 //     (与 SV3 同一条 §12e 防恒红规矩)。wire 值不归本门判(动值域属另一票)。
 //
+//   SV5(G-815977,2026-10-08 补)回合终态封闭集:done 帧 stop_reason 的跨语言值域挂进
+//     本门的域表(不另立一门)。声明面 = TS AGENT_TURN_STOP_REASONS ≡ TS 派生联合
+//     AgentTurnStopReason ≡ Py TURN_STOP_REASON_VALUES(TurnStopReason StrEnum 的静态
+//     解析投影,enum≡tuple 由 pytest 钉);成员集合等值判法与 SV1 同型。端内第二份
+//     stop_reason 成员清单与 SV3 同型,但候选面按 `stop_reason`/`stopReason` **标识符**
+//     预筛 —— 成员词全是常见英文词(completed/error),全仓扫会把数千文件拉进候选池,
+//     判据不可运营;锚标识符后是几十个文件的量级。声明面整份缺席(门与源码同枚提交
+//     前的窗口)⇒ note 不判(不记绿也不冒红);面在而解析不到 ⇒ 未判定 exit 2;
+//     --staged 档套与 SV3 同型的棘轮(HEAD 面已红 ⇒ 存量只报名)。
+//
 // 三态绝不并桶:输入取不到 / 声明解析不到 / 表体有解析不进的行 / 候选枚举到 0 ⇒ 未判定
 // exit 2(既不冒红也绝不记绿)。定级:默认档违规只报数 exit 0,--strict 才判红 —— 与本次
 // 提交无关的恒红门唯一结局是逼人 --no-verify、连带废掉全部守门(AGENTS §12e)。
@@ -88,6 +98,7 @@ export const SELF_SKIP = 'HUSKY_SKIP_STATUS_VOCABULARY_PARITY'
 export const FILES = {
   tsTypes: 'packages/types/src/agent-runtime.ts',
   pyScheduler: 'apps/ai-service/app/services/dag_scheduler.py',
+  pyStopReason: 'apps/ai-service/app/core/turn_stop_reason.py',
 }
 
 /**
@@ -128,10 +139,26 @@ export const SYMBOLS = {
   pyTable: 'KANBAN_TASK_STATUSES',
   pyLiteral: 'AgentTaskStatus',
   wsArray: 'WORKSPACE_AGENT_TASK_STATUSES',
+  // G-815977:回合终态(done 帧 stop_reason)封闭集 —— 挂进本门的域表,不另立一门
+  tsStopArray: 'AGENT_TURN_STOP_REASONS',
+  tsStopUnion: 'AgentTurnStopReason',
+  pyStopValues: 'TURN_STOP_REASON_VALUES',
+  pyStopEnum: 'TurnStopReason',
 }
 
 /** SV3 的引用豁免:代码面出现其中任一标识符 ⇒ 该文件算"引用同一份"而不是凭空自立一份 */
 export const CANONICAL_REFS = [SYMBOLS.tsArray, SYMBOLS.pyTable, SYMBOLS.tsUnion]
+
+/**
+ * SV5 的引用豁免(与 SV3 的 CANONICAL_REFS 分列:判据按域取 refs,避免跨域互豁 ——
+ * 一个文件引了 Kanban canonical 不代表它没抄一份 stop_reason 值域,反之亦然)。
+ */
+export const STOP_CANONICAL_REFS = [
+  SYMBOLS.tsStopArray,
+  SYMBOLS.tsStopUnion,
+  SYMBOLS.pyStopEnum,
+  SYMBOLS.pyStopValues,
+]
 
 /** 一个文件出现 ≥N 个不同成员字面量才算"整表抄了一份"(低于该阈值会把单点判断全数成百地报出来) */
 export const COPY_THRESHOLD = 4
@@ -331,7 +358,7 @@ function eqSets(name, a, b, labelA, labelB, violations) {
  * canonical 标识符 ⇒ 违规。已知边界:只按**类型**引用 canonical、运行时另抄一份数组的形态
  * (apps/api 的 `z.enum([...])`)被算作合规 —— 那一格没有判据,不得读成"抄本都已对账"。
  */
-export function judgeCopy(codeMaskedSrc, rawSrc, memberSet) {
+export function judgeCopy(codeMaskedSrc, rawSrc, memberSet, refs = CANONICAL_REFS) {
   void codeMaskedSrc
   const rawLines = rawSrc.split('\n')
   const flags = codeFlags(rawSrc)
@@ -352,7 +379,7 @@ export function judgeCopy(codeMaskedSrc, rawSrc, memberSet) {
     return { candidate: false, violation: false, members, commentOnly }
   }
   const codeFace = rawLines.filter((_, i) => flags[i]).join('\n')
-  const hasRef = CANONICAL_REFS.some((r) => codeFace.includes(r))
+  const hasRef = refs.some((r) => codeFace.includes(r))
   return { candidate: true, violation: !hasRef, members }
 }
 
@@ -739,7 +766,48 @@ export function decide(inputs) {
     }
   }
 
+  // ---- SV5 回合终态封闭集(G-815977):done 帧 stop_reason 的跨语言值域 ----
+  // 三态分流:声明面整份缺席(门与源码同枚提交入库前的窗口)⇒ note 不判(不记绿也不
+  // 冒红,SV4 同型);面在而解析不到/枚举到 0 ⇒ 未判定(不带着半张表比对);面齐 ⇒
+  // TS 数组 ≡ TS 派生联合 ≡ Py 对齐表逐字等值(SV1 同型判法)。
+  const stopPy = inputs[FILES.pyStopReason] ?? inputs.pyStopReason ?? null
+  let stop = null // { members:Set, pyCount } | null
+  if (typeof stopPy !== 'string' || stopPy.length === 0) {
+    notes.push(
+      `SV5 回合终态声明面未就绪(${FILES.pyStopReason} 取不到)⇒ 本轮不判该维(不记绿也不冒红;声明面与本门同枚提交后自动激活)`,
+    )
+  } else {
+    try {
+      const sArr = parseArraySet(ts, SYMBOLS.tsStopArray, `TS ${SYMBOLS.tsStopArray}`)
+      const sUnion = parseTsUnion(ts, SYMBOLS.tsStopUnion, `TS type ${SYMBOLS.tsStopUnion}`)
+      const sPyV = parseArraySet(stopPy, SYMBOLS.pyStopValues, `Py ${SYMBOLS.pyStopValues}`)
+      if (sUnion.derivedFrom && sUnion.derivedFrom !== SYMBOLS.tsStopArray)
+        undetermined.push(
+          `SV5 TS 联合派生自 ${sUnion.derivedFrom} 而非 ${SYMBOLS.tsStopArray} —— 第二份真相的形态,本门不认(不猜它等不等于清单)`,
+        )
+      const SA = dedupe(sArr.items)
+      const SU = dedupe(sUnion.items)
+      const SP = dedupe(sPyV.items)
+      if (SA.set.size === 0) undetermined.push(`TS ${SYMBOLS.tsStopArray} 枚举到 0 ⇒ 判死(不带着半张表比对)`)
+      if (SP.set.size === 0) undetermined.push(`Py ${SYMBOLS.pyStopValues} 枚举到 0 ⇒ 判死(不带着半张表比对)`)
+      if (sArr.residual > 0)
+        undetermined.push(`TS ${SYMBOLS.tsStopArray} 体内 ${sArr.residual} 行解析不进判据(不猜)`)
+      if (sPyV.residual > 0)
+        undetermined.push(`Py ${SYMBOLS.pyStopValues} 体内 ${sPyV.residual} 行解析不进判据(不猜)`)
+      if (undetermined.length === 0) {
+        if (!sUnion.derivedFrom)
+          eqSets('SV5', SA.set, SU.set, `TS ${SYMBOLS.tsStopArray}`, `type ${SYMBOLS.tsStopUnion}`, violations)
+        eqSets('SV5', SA.set, SP.set, `TS ${SYMBOLS.tsStopArray}`, `Py ${SYMBOLS.pyStopValues}`, violations)
+        stop = { members: SA.set, pyCount: SP.set.size }
+      }
+    } catch (e) {
+      if (e instanceof Undetermined) undetermined.push(`SV5 ${e.message}`)
+      else throw e
+    }
+  }
+
   const candidates = []
+  const stopCand = []
   const buildTables = () => ({
     members: [...A.set].sort(),
     count: A.set.size,
@@ -750,6 +818,11 @@ export function decide(inputs) {
     variantsCount: V.set.size,
     wsMembers: [...W.set].sort(),
     candidateFiles: candidates.length,
+    // SV5(G-815977):回合终态封闭集的成员面;声明面缺席时为 null(不判 ≠ 判过)
+    stopMembers: stop ? [...stop.members].sort() : null,
+    stopCount: stop ? stop.members.size : null,
+    pyStopCount: stop ? stop.pyCount : null,
+    stopCandidateFiles: stopCand.length,
     sv4: sv4
       ? {
           advertisedBad: sv4.bad.advertised,
@@ -763,18 +836,47 @@ export function decide(inputs) {
       : null,
   })
 
+  // ---- SV5 端内第二份 stop_reason 成员清单(与 SV3 同型的三态分流)----
+  // 候选缺席 = 预读轮只取成员集合,不判该维;空数组 = 枚举跑完一个都没有 ⇒ 判死。
+  // refs 用 STOP_CANONICAL_REFS(按域取豁免名单,不与 Kanban 互豁)。
+  // 位置纪律:必须在 SV3 的**提前 return 之前** —— 预读轮只带 stopCandidates 不带
+  // candidates,放后面就永远走不到(S8/S10/S11 三例当初红就红在这)。
+  if (!Array.isArray(inputs.stopCandidates)) {
+    if (stop)
+      notes.push('SV5 本轮未提供 stop 候选清单(仅取回合终态成员集合,不代表全仓无副本)')
+  } else if (!stop) {
+    if (inputs.stopCandidates.length > 0)
+      notes.push('SV5 声明面未就绪,stop 候选本轮不判(不记绿也不冒红)')
+  } else if (inputs.stopCandidates.length === 0) {
+    undetermined.push('SV5 stop 候选枚举到 0 个文件 ⇒ 判死(扫描面/预筛漂了,不得当成"没有副本")')
+  } else {
+    for (const c of inputs.stopCandidates) {
+      if (typeof c.src !== 'string' || c.src.length === 0) {
+        undetermined.push(`SV5 候选取不到内容:${c.path}`)
+        continue
+      }
+      const j = judgeCopy(mask(c.src), c.src, stop.members, STOP_CANONICAL_REFS)
+      if (!j.candidate) continue
+      stopCand.push({ path: c.path, members: j.members, violation: j.violation })
+      if (j.violation)
+        violations.push(
+          `SV5 端内第二份 stop_reason 成员清单:${c.path}(${j.members.length} 个成员字面量,未引用回合终态 canonical)`,
+        )
+    }
+  }
+
   // ---- SV3 端内第二份成员清单 ----
   // candidates **缺席**(未提供)= 调用方只取成员集合的预读轮,不判该维、也不算判死;
   // candidates **空数组** = 枚举跑完真的一个候选都没有 ⇒ 判死(扫描面/预筛漂了)。
   // 两者必须分开,否则 runAudit 的预读轮会把自己判成"无法判定"而永远出不来成员集合。
   if (!Array.isArray(inputs.candidates)) {
     notes.push('SV3 本轮未提供候选清单(仅取 canonical 成员集合,不代表全仓无副本)')
-    return { violations, notes, undetermined, candidates, tables: buildTables() }
+    return { violations, notes, undetermined, candidates, stopCandidates: stopCand, tables: buildTables() }
   }
   const candList = inputs.candidates
   if (candList.length === 0) {
     undetermined.push('SV3 候选枚举到 0 个文件 ⇒ 判死(扫描面/预筛漂了,不得当成"没有副本")')
-    return { violations, notes, undetermined, tables: null, candidates }
+    return { violations, notes, undetermined, tables: null, candidates, stopCandidates: stopCand }
   }
   for (const c of candList) {
     if (typeof c.src !== 'string' || c.src.length === 0) {
@@ -797,6 +899,7 @@ export function decide(inputs) {
     notes,
     undetermined,
     candidates,
+    stopCandidates: stopCand,
     tables: buildTables(),
   }
 }
@@ -841,6 +944,32 @@ function grepCandidates(root, face, members) {
     if (e instanceof Undetermined && e.status === 1) return []
     throw new Undetermined(`SV3 预筛派生失败(${face} 面):${e.message}`)
   }
+  return pruneScan(out)
+}
+
+/**
+ * SV5(G-815977)stop 域候选预筛:按 `stop_reason`/`stopReason` **标识符**找候选文件,
+ * 再对每个候选数"封闭集成员字面量 ≥阈值 且未引用回合终态 canonical"。
+ * 不按成员词全仓扫的理由(与 SV3 的差别):成员词全是常见英文词(completed/error),
+ * `-e completed` 会把数千文件拉进候选池,读面+判定都不可运营;锚标识符后是几十个量级。
+ */
+function grepStopCandidates(root, face) {
+  const args = ['grep', '-l', '-I', '--no-color', '-e', 'stop_reason', '-e', 'stopReason']
+  if (face === 'staged') args.push('--cached')
+  else args.push('HEAD')
+  args.push('--', 'apps', 'packages', 'scripts')
+  let out
+  try {
+    out = gitRaw(args, root)
+  } catch (e) {
+    if (e instanceof Undetermined && e.status === 1) return []
+    throw new Undetermined(`SV5 预筛派生失败(${face} 面):${e.message}`)
+  }
+  return pruneScan(out)
+}
+
+/** 两条预筛共用的候选修剪(SKIP_RE/自豁免/目录前缀/扩展名 —— 过滤规则只此一份) */
+function pruneScan(out) {
   return out
     .split('\n')
     .map((l) => l.replace(/^HEAD:/, '').trim())
@@ -910,7 +1039,30 @@ export function runAudit({ root = ROOT, face } = {}) {
     }
   }
   const candidates = candPaths.map((p) => ({ path: p, src: candContents[p] }))
-  const res = decide({ ...canonical, ...sv4Contents, candidates })
+  // SV5(G-815977)stop 候选与它的 HEAD 锚点(--staged 档棘轮,与 SV3 同型):
+  // 只拦"本次改动新引入的第二份";HEAD 面已经是第二份的算存量、只报名(§12e 防恒红)。
+  let stopCandidates = []
+  let stopHeadState = null
+  if (pre.tables && pre.tables.stopMembers) {
+    const stopPaths = grepStopCandidates(root, sel.face).filter(
+      (p) => !Object.values(FILES).includes(p),
+    )
+    const stopContents = readContents(root, sel.face, stopPaths)
+    if (sel.face === 'staged') {
+      const hs = readContents(root, 'head', stopPaths)
+      stopHeadState = {}
+      for (const p of stopPaths) {
+        const src = hs[p]
+        stopHeadState[p] =
+          typeof src === 'string' && src.length > 0
+            ? judgeCopy(mask(src), src, new Set(pre.tables.stopMembers), STOP_CANONICAL_REFS)
+                .violation
+            : null
+      }
+    }
+    stopCandidates = stopPaths.map((p) => ({ path: p, src: stopContents[p] }))
+  }
+  const res = decide({ ...canonical, ...sv4Contents, candidates, stopCandidates })
   // 棘轮:只拦"本次改动新引入的第二份";HEAD 已经是第二份的,算存量、只报名。
   let ratcheted = res.violations
   let inherited = []
@@ -921,6 +1073,20 @@ export function runAudit({ root = ROOT, face } = {}) {
     ratcheted = res.violations.filter((v) => {
       const m = /^SV3 端内第二份成员清单:(\S+)/.exec(v)
       return !m || keep.has(m[1])
+    })
+  }
+  // SV5 棘轮(与 SV3 同型,正则按域分列 —— SV3 的 regex 不匹配 SV5 文案,互不误伤):
+  // HEAD 面同一文件已是"第二份 stop_reason 成员清单"⇒ 存量只报名;新文件必红。
+  let sv5Inherited = []
+  if (res.tables && res.tables.stopMembers && stopHeadState) {
+    const newlyStop = res.stopCandidates.filter((c) => stopHeadState[c.path] !== true)
+    sv5Inherited = res.stopCandidates
+      .filter((c) => stopHeadState[c.path] === true)
+      .map((c) => c.path)
+    const keepStop = new Set(newlyStop.map((c) => c.path))
+    ratcheted = ratcheted.filter((v) => {
+      const m = /^SV5 端内第二份 stop_reason 成员清单:(\S+)/.exec(v)
+      return !m || keepStop.has(m[1])
     })
   }
   // SV4 棘轮(token 粒度):被审面里"注册表解析不到"的名字,若 HEAD 面同一个名字已红 ⇒ 存量报名;
@@ -962,7 +1128,8 @@ export function runAudit({ root = ROOT, face } = {}) {
     violations: ratcheted,
     sv3Inherited: inherited,
     sv4Inherited,
-    fileCount: Object.keys(canonical).length + candidates.length,
+    sv5Inherited,
+    fileCount: Object.keys(canonical).length + candidates.length + stopCandidates.length,
   }
 }
 
@@ -989,6 +1156,8 @@ export const LEGACY_STATUS_MAP: Record<string, AgentTaskStatus> = {
 }
 export const WORKSPACE_AGENT_TASK_STATUSES = ['w1', 'w2'] as const
 export type WorkspaceAgentTaskStatus = (typeof WORKSPACE_AGENT_TASK_STATUSES)[number]
+export const AGENT_TURN_STOP_REASONS = ['sa', 'sb', 'sc', 'sd'] as const
+export type AgentTurnStopReason = (typeof AGENT_TURN_STOP_REASONS)[number]
 `
 const FIXTURE_PY = `
 AgentTaskStatus = Literal["aa", "bb", "cc", "dd"]
@@ -1009,6 +1178,22 @@ export const COLS = ['aa', 'bb', 'cc', 'dd']
 const FIXTURE_COPY_COMMENT = `
 // 逐条列出只是说明:'aa' 'bb' 'cc' 'dd' —— 注释不是代码
 const A = 1
+`
+// SV5(G-815977)夹具:回合终态声明面(合成档 sa-sd,与真仓成员无交集)与抄本正反形。
+const FIXTURE_STOP_PY = `
+TURN_STOP_REASON_VALUES: tuple[str, ...] = (
+    "sa",
+    "sb",
+    "sc",
+    "sd",
+)
+`
+const FIXTURE_STOP_COPY_OK = `
+import { AgentTurnStopReason } from '@ihui/types'
+export const COLS = ['sa', 'sb', 'sc', 'sd'] as AgentTurnStopReason[]
+`
+const FIXTURE_STOP_COPY_BAD = `
+export const COLS = ['sa', 'sb', 'sc', 'sd']
 `
 
 // ---- SV4 夹具(D145①;档位名全是合成词,与真仓六态/真 agent 名无交集) ----
@@ -1212,7 +1397,12 @@ function selfTest() {
   const cases = []
   const t = (name, ok) => cases.push({ name, ok })
   const D = (o = {}) =>
-    decide({ [FILES.tsTypes]: FIXTURE_TS, [FILES.pyScheduler]: FIXTURE_PY, ...o })
+    decide({
+      [FILES.tsTypes]: FIXTURE_TS,
+      [FILES.pyScheduler]: FIXTURE_PY,
+      [FILES.pyStopReason]: FIXTURE_STOP_PY,
+      ...o,
+    })
   const py = (s) => D({ [FILES.pyScheduler]: s })
   const ts = (s) => D({ [FILES.tsTypes]: s })
   const cd = (p, s) => D({ candidates: [{ path: p, src: s }] })
@@ -1382,6 +1572,59 @@ function selfTest() {
       d4({ [SV4_FILES.pyMcp]: mutSnap.s }).tables.sv4.expansionBad.includes('get_full_tool_schema'),
   )
 
+  // ---- SV5(G-815977)回合终态封闭集:构造面正反成对(合成档 sa-sd,与六态无交集) ----
+  t(
+    'S1 SV5 绿形:三张声明面同形 ⇒ 回合终态零违规且成员数可见',
+    D().violations.filter((v) => v.startsWith('SV5')).length === 0 &&
+      D().tables.stopCount === 4 &&
+      D().tables.pyStopCount === 4,
+  )
+  const s1 = mu(FIXTURE_STOP_PY, '\n    "sd",', '\n    "sd",\n    "se",')
+  t('S2 SV5 有牙:Py 对齐表多一档点名', s1.c && V(D({ [FILES.pyStopReason]: s1.s }), 'SV5', 'se'))
+  const s2 = mu(FIXTURE_STOP_PY, '\n    "sd",', '\n')
+  t('S3 SV5 有牙:Py 对齐表少一档点名', s2.c && V(D({ [FILES.pyStopReason]: s2.s }), 'SV5', '=[sd]'))
+  const s3 = mu(
+    FIXTURE_TS,
+    'export type AgentTurnStopReason = (typeof AGENT_TURN_STOP_REASONS)[number]',
+    "export type AgentTurnStopReason = 'sa' | 'sb' | 'sc' | 'sd' | 'se'",
+  )
+  t('S4 SV5 有牙:TS 联合改回字面量并多一档点名', s3.c && V(D({ [FILES.tsTypes]: s3.s }), 'SV5', 'se'))
+  const s4 = mu(
+    FIXTURE_TS,
+    'export type AgentTurnStopReason = (typeof AGENT_TURN_STOP_REASONS)[number]',
+    'export type AgentTurnStopReason = (typeof OTHER)[number]',
+  )
+  t('S5 SV5 联合派生自别的名字 ⇒ 未判定', s4.c && U(D({ [FILES.tsTypes]: s4.s }), 'OTHER'))
+  const s5 = mu(
+    FIXTURE_STOP_PY,
+    'TURN_STOP_REASON_VALUES: tuple[str, ...] = (',
+    'TURN_STOP_WORDS: tuple[str, ...] = (',
+  )
+  t(
+    'S6 面在而声明改名 ⇒ 未判定(不静默放过;解析不到声明,不猜)',
+    s5.c && U(D({ [FILES.pyStopReason]: s5.s }), 'SV5') && U(D({ [FILES.pyStopReason]: s5.s }), '解析不到声明'),
+  )
+  const s6 = D({ [FILES.pyStopReason]: '' })
+  t(
+    'S7 声明面缺席 ⇒ note 不判(不记绿也不冒红),Kanban 面照常出表',
+    s6.tables !== null &&
+      s6.tables.stopMembers === null &&
+      N(s6, 'SV5 回合终态声明面未就绪') &&
+      s6.undetermined.length === 0,
+  )
+  const scBad = D({ stopCandidates: [{ path: 'stopcopy.ts', src: FIXTURE_STOP_COPY_BAD }] })
+  t(
+    'S8 SV5 抄本有牙:未引用回合终态 canonical 的成员清单必红并点名文件',
+    V(scBad, 'SV5 端内第二份', 'stopcopy.ts'),
+  )
+  const scGood = D({ stopCandidates: [{ path: 'stopref.ts', src: FIXTURE_STOP_COPY_OK }] })
+  t(
+    'S9 SV5 抄本反向:引用了 canonical 的清单不判红(判据不得过宽)',
+    !scGood.violations.some((v) => v.startsWith('SV5')),
+  )
+  t('S10 stop 候选枚举到 0 ⇒ 判死(不记绿)', U(D({ stopCandidates: [] }), 'SV5'))
+  t('S11 stop 候选缺席 ⇒ note(预读轮形态,不判也不装判过)', N(D(), 'SV5 本轮未提供 stop 候选'))
+
   // 真仓对照跑工作树面:单一真相源与本门同枚提交落地,HEAD 面在落地前必然读不到
   // AGENT_TASK_STATUSES ⇒ 判未判定(A14 已钉"取不到 ⇒ 未判定、不记绿")。由此一条硬要求:
   // **本门必须与源码改动同枚提交入库**,否则干净检出上提交链里它一路喊未判定。
@@ -1393,9 +1636,12 @@ function selfTest() {
   }
   const tb = real && !real.error ? real.tables : null
   const rv = (real && real.violations) || []
-  const sv12 = rv.filter((v) => !v.startsWith('SV3'))
-  t('B0 真仓:两侧读得出且 SV1/SV2 零分叉', !!tb && tb.count >= 4 && sv12.length === 0)
+  // SV5 的端内抄本(存量)不进本断言 —— B0 判的是**声明面**零分叉,抄本由棘轮问责
+  // (真仓今天在 agent_loop_v2 等生产者里就有未改引 canonical 的存量,落地后按 --staged 棘轮收)。
+  const sv12 = rv.filter((v) => !v.startsWith('SV3') && !v.startsWith('SV5 端内第二份'))
+  t('B0 真仓:两侧读得出且 SV1/SV2/SV5 声明零分叉', !!tb && tb.count >= 4 && sv12.length === 0)
   t('B1 真仓:SV3 候选看得见(空扫=尺子漂)', !!tb && tb.candidateFiles >= 1)
+  t('B3 真仓:SV5 回合终态封闭集三面就绪且跨语言等值', !!tb && !!tb.stopMembers && tb.stopCount >= 4 && tb.pyStopCount === tb.stopCount)
   t('B1b 真仓:译文键不得被算成抄本', !rv.some((v) => v.includes('i18n/messages')))
   t(
     'B1d 自豁免方向锁:候选里不得有本门文件',
@@ -1486,6 +1732,10 @@ function main() {
         console.log(
           `   SV4:注册表现读 ${tb.sv4.registryCount} 档 | persona ${tb.sv4.personaCount} 个 | 广告面字面名 ${tb.sv4.advertisedLiteralCount} 个 | SV4③ 已核产出面 [${tb.sv4.expansionChecked.join(',')}] | 解析不到 广告=[${tb.sv4.advertisedBad.join(',')}] persona=[${tb.sv4.personaBad.join(',')}] 未接出口=[${tb.sv4.expansionBad.join(',')}]`,
         )
+      if (tb.stopMembers)
+        console.log(
+          `   SV5:回合终态封闭集 ${tb.stopCount} 档 | Py 对齐表 ${tb.pyStopCount} 条 | stop 候选 ${tb.stopCandidateFiles} 文件`,
+        )
     }
     for (const n of res.notes) console.log(`   · ${n}`)
     if (showAll && res.candidates.length > 0) {
@@ -1498,6 +1748,10 @@ function main() {
     if (res.sv4Inherited && res.sv4Inherited.length > 0)
       console.log(
         `   SV4 存量(HEAD 面已解析不到的名字,按棘轮只报名;修复未入库窗口内不得逼跳门 §12e):${res.sv4Inherited.join(', ')}`,
+      )
+    if (res.sv5Inherited && res.sv5Inherited.length > 0)
+      console.log(
+        `   SV5 存量(HEAD 面已经是第二份 stop_reason 清单,按棘轮只报名):${res.sv5Inherited.join(', ')}`,
       )
   }
   if (res.undetermined.length > 0) {
@@ -1524,7 +1778,10 @@ function main() {
       '改法:成员集合的单一真相源 = packages/types/src/agent-runtime.ts 的 AGENT_TASK_STATUSES;\n' +
         '     端内一律 import 它(或由它派生),Python 侧改 KANBAN_TASK_STATUSES + Literal 两处同笔。\n' +
         '     六态值是落库/REST/SSE 三重对外契约 —— 不得改名、不得删成员、不得为变绿放宽判据、\n' +
-        '     也不得写豁免清单消账(登记表必然腐烂)。新增一档必须同枚提交补齐 agents.kanban.* 五语言(AGENTS §30)。',
+        '     也不得写豁免清单消账(登记表必然腐烂)。新增一档必须同枚提交补齐 agents.kanban.* 五语言(AGENTS §30)。\n' +
+        '     回合终态封闭集(G-815977/SV5):TS AGENT_TURN_STOP_REASONS ≡ Py TurnStopReason\n' +
+        '     (apps/ai-service/app/core/turn_stop_reason.py);done 帧 stop_reason 只允许集内档位,\n' +
+        '     新增档必须两侧同笔登记;cancelled/canceled 两式是刻意兼容契约,不得清零任何一式。',
     )
   }
   process.exit(strict ? 1 : 0)
@@ -1548,6 +1805,9 @@ export const __test__ = {
   FIXTURE_COPY_OK,
   FIXTURE_COPY_BAD,
   FIXTURE_COPY_COMMENT,
+  FIXTURE_STOP_PY,
+  FIXTURE_STOP_COPY_OK,
+  FIXTURE_STOP_COPY_BAD,
   FIXTURE_ORCH,
   FIXTURE_MCP_DYNAMIC,
   FIXTURE_MCP_DEFER_SNAPSHOT,
