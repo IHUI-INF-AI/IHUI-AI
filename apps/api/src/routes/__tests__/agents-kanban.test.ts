@@ -11,8 +11,7 @@
  * 3. teamId 过滤:非成员 403 / 成员 200 / admin 放行(不查成员表)
  * 4. transition 进 in_progress:锁获取成功(token 入 payload,lockedBy 审计,P0-1 启动心跳)/ 被占 409+持有者
  * 5. transition 离开 in_progress:P0-2 统一释放原语(releaseLockToken)/ 无 token 时 stopLockHeartbeat
- * 6. P0-3 状态映射:四遗留终态各自独立成档(G-462 拆档;failed→execution_failed,
- *    其余三档同名独立),终态无出边;blocked 纯化(+ termination 点名)
+ * 6. P0-3 状态映射:failed/cancelled/quota_exceeded/preempted → blocked 列(+ termination 点名)
  * 7. P0-4 团队过滤:默认视图非 admin 仅见所属团队 / :id 越权 404
  * 8. DELETE:P0-2 删除前 releaseTaskLockByTaskId 统一释放
  * 9. PATCH 改名/改描述(D25 统一任务看板):审计写入 / 至少一项约束 / 404
@@ -263,7 +262,6 @@ import {
   terminationOf,
   TERMINATION_LABEL_KEYS,
 } from '../../services/agent-task-status.js'
-import { AGENT_TASK_STATUSES } from '@ihui/types'
 
 // ─────────────────────────────────────────────────────────────
 // 测试数据
@@ -620,26 +618,22 @@ describe('Agent Kanban 路由(2-2 工作区锁 + 团队任务板)', () => {
   })
 
   // ───────────────────────────────────────────────────────────
-  // 7. P0-3 状态映射:四遗留终态各自独立成档(G-462 2026-10-07 拆档拍板)
+  // 7. P0-3 状态映射:failed/cancelled/quota_exceeded/preempted → blocked
   // ───────────────────────────────────────────────────────────
   describe('P0-3 状态映射', () => {
-    it('mapStatus:四遗留终态各自映射独立新档,不得再塌缩进 blocked', () => {
-      expect(mapStatus('cancelled')).toBe('cancelled')
-      expect(mapStatus('quota_exceeded')).toBe('quota_exceeded')
-      expect(mapStatus('preempted')).toBe('preempted')
-      expect(mapStatus('failed')).toBe('execution_failed')
+    it('mapStatus:遗留终态全部映射进 blocked', () => {
+      expect(mapStatus('cancelled')).toBe('blocked')
+      expect(mapStatus('quota_exceeded')).toBe('blocked')
+      expect(mapStatus('preempted')).toBe('blocked')
+      expect(mapStatus('failed')).toBe('blocked')
       expect(mapStatus('running')).toBe('in_progress')
       expect(mapStatus('completed')).toBe('done')
     })
 
-    it('STATUS_VARIANTS:blocked 纯化不再吞终态,四新档各自覆盖自己的遗留别名(?status= 过滤数据源)', () => {
-      expect(STATUS_VARIANTS.blocked).toEqual(['blocked'])
-      expect(STATUS_VARIANTS.execution_failed).toEqual(
-        expect.arrayContaining(['execution_failed', 'failed']),
+    it('STATUS_VARIANTS.blocked 覆盖全部遗留终态(?status=blocked 过滤数据源)', () => {
+      expect(STATUS_VARIANTS.blocked).toEqual(
+        expect.arrayContaining(['blocked', 'failed', 'cancelled', 'quota_exceeded', 'preempted']),
       )
-      expect(STATUS_VARIANTS.cancelled).toEqual(expect.arrayContaining(['cancelled']))
-      expect(STATUS_VARIANTS.quota_exceeded).toEqual(expect.arrayContaining(['quota_exceeded']))
-      expect(STATUS_VARIANTS.preempted).toEqual(expect.arrayContaining(['preempted']))
     })
 
     /**
@@ -656,16 +650,15 @@ describe('Agent Kanban 路由(2-2 工作区锁 + 团队任务板)', () => {
       expect(isTransitionAllowedFromRaw('TRIAGE', 'todo')).toBe(false)
       // 正常档一档不少(legacy 别名须先归一再判,这是 mapStatus 的既有职责)
       expect(isTransitionAllowedFromRaw('triage', 'todo')).toBe(true)
-      // G-462 拆档后 cancelled/execution_failed 是终态(出边为空):不得再放行
-      expect(isTransitionAllowedFromRaw('cancelled', 'todo')).toBe(false)
-      expect(isTransitionAllowedFromRaw('execution_failed', 'todo')).toBe(false)
+      expect(isTransitionAllowedFromRaw('cancelled', 'todo')).toBe(true)
       expect(isTransitionAllowedFromRaw('running', 'done')).toBe(true)
       expect(isTransitionAllowedFromRaw('done', 'todo')).toBe(false)
     })
 
     it('isTransitionAllowedFromRaw 与 isTransitionAllowed 逐档同判(两个出口不得漂移)', () => {
-      for (const from of AGENT_TASK_STATUSES) {
-        for (const to of AGENT_TASK_STATUSES) {
+      const six = ['triage', 'todo', 'ready', 'in_progress', 'blocked', 'done'] as const
+      for (const from of six) {
+        for (const to of six) {
           expect(isTransitionAllowedFromRaw(from, to)).toBe(isTransitionAllowed(from, to))
         }
       }
@@ -733,58 +726,25 @@ describe('Agent Kanban 路由(2-2 工作区锁 + 团队任务板)', () => {
       expect(isTransitionAllowed('ready', 'in_progress')).toBe(true)
     })
 
-    it('GET /:id 返回 cancelled 行 → status 归一为独立档 cancelled(不丢卡也不误判阻塞)', async () => {
+    it('GET /:id 返回 cancelled 行 → status 归一为 blocked(不丢卡)', async () => {
       store.pushSelect([makeRow({ status: 'cancelled', teamId: null })])
       const res = await app.inject({ method: 'GET', url: `/api/agents/kanban/tasks/${ID_A}` })
       expect(res.statusCode).toBe(200)
-      expect(res.json().data.status).toBe('cancelled')
+      expect(res.json().data.status).toBe('blocked')
     })
 
-    it('transition 遗留 cancelled 行(归一为终态 cancelled)→ todo 判 409(终态无出边)', async () => {
+    it('transition 从 blocked(遗留 cancelled 行)→ todo 放行', async () => {
       store.pushSelect([makeRow({ status: 'cancelled' })])
+      store.pushUpdate([makeRow({ status: 'todo' })])
       const res = await app.inject({
         method: 'POST',
         url: `/api/agents/kanban/tasks/${ID_A}/transition`,
         payload: { taskId: ID_A, toStatus: 'todo' },
       })
-      expect(res.statusCode).toBe(409)
-      expect(res.json().data.allowed).toBe(false)
-    })
-
-    it('zod 枚举接受新档:GET /tasks?status=execution_failed 通过 parse;未知值仍 400', async () => {
-      authState.roleId = 1
-      store.pushSelect([makeRow({ status: 'failed', teamId: null })])
-      const ok = await app.inject({
-        method: 'GET',
-        url: '/api/agents/kanban/tasks?status=execution_failed',
-      })
-      expect(ok.statusCode).toBe(200)
-      const bad = await app.inject({
-        method: 'GET',
-        url: '/api/agents/kanban/tasks?status=nonsense',
-      })
-      expect(bad.statusCode).toBe(400)
-    })
-
-    it('看板分组不含塌缩:四遗留终态行各落独立列,blocked 列不被污染', async () => {
-      authState.roleId = 1
-      store.pushSelect([
-        makeRow({ status: 'cancelled', teamId: null }),
-        makeRow({ status: 'failed', teamId: null }),
-        makeRow({ status: 'quota_exceeded', teamId: null }),
-        makeRow({ status: 'preempted', teamId: null }),
-        makeRow({ status: 'blocked', teamId: null }),
-      ])
-      const res = await app.inject({ method: 'GET', url: '/api/agents/kanban' })
       expect(res.statusCode).toBe(200)
-      const columns = res.json().data as Array<{ status: string; tasks: unknown[] }>
-      expect(columns).toHaveLength(AGENT_TASK_STATUSES.length)
-      const countBy = Object.fromEntries(columns.map((c) => [c.status, c.tasks.length]))
-      expect(countBy.cancelled).toBe(1)
-      expect(countBy.execution_failed).toBe(1)
-      expect(countBy.quota_exceeded).toBe(1)
-      expect(countBy.preempted).toBe(1)
-      expect(countBy.blocked).toBe(1) // 真阻塞独占自己列,未被终态污染
+      expect(res.json().data.allowed).toBe(true)
+      const set = store.updateSets[0] as Record<string, unknown>
+      expect(set.errorMessage).toBeNull() // 从 blocked 恢复清除错误信息
     })
   })
 
@@ -799,7 +759,7 @@ describe('Agent Kanban 路由(2-2 工作区锁 + 团队任务板)', () => {
       const res = await app.inject({ method: 'GET', url: '/api/agents/kanban' })
       expect(res.statusCode).toBe(200)
       const columns = res.json().data as Array<{ status: string; tasks: unknown[] }>
-      expect(columns).toHaveLength(10)
+      expect(columns).toHaveLength(6)
       const todo = columns.find((c) => c.status === 'todo')
       expect(todo?.tasks).toHaveLength(1)
     })

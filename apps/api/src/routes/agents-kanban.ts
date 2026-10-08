@@ -43,9 +43,6 @@ import {
   countUnrecognizedTasks,
   statusOrUnrecognized,
 } from '../services/agent-task-status.js'
-// G-462(2026-10-07):列定义与两处 z.enum 的成员清单改为从单一真相源**派生** ——
-// 这里曾各抄一份六档字面量,拆分终态档时必须三处同笔,漏一处就是"接口收新档、看板没列"的分叉。
-import { AGENT_TASK_STATUSES } from '@ihui/types'
 import type {
   KanbanTask,
   KanbanColumn,
@@ -55,11 +52,16 @@ import type {
 } from '@ihui/types'
 
 // ---------------------------------------------------------------------------
-// Kanban 列定义(列序与成员 = AGENT_TASK_STATUSES,派生不抄)
+// Kanban 6 列定义
 // ---------------------------------------------------------------------------
-const KANBAN_COLUMNS: { status: AgentTaskStatus; titleKey: string }[] = AGENT_TASK_STATUSES.map(
-  (status) => ({ status, titleKey: `agents.kanban.${status}` }),
-)
+const KANBAN_COLUMNS: { status: AgentTaskStatus; titleKey: string }[] = [
+  { status: 'triage', titleKey: 'agents.kanban.triage' },
+  { status: 'todo', titleKey: 'agents.kanban.todo' },
+  { status: 'ready', titleKey: 'agents.kanban.ready' },
+  { status: 'in_progress', titleKey: 'agents.kanban.in_progress' },
+  { status: 'blocked', titleKey: 'agents.kanban.blocked' },
+  { status: 'done', titleKey: 'agents.kanban.done' },
+]
 
 // ---------------------------------------------------------------------------
 // agent_tasks 行 → KanbanTask 映射
@@ -111,7 +113,7 @@ function toKanbanTask(row: AgentTaskRow): KanbanTask {
 }
 
 // ---------------------------------------------------------------------------
-// 构建 Kanban 列(列数 = AGENT_TASK_STATUSES,G-462 拆档后十列;按 priority 降序)— 供 admin 端点复用
+// 构建 Kanban 6 列(按 priority 降序)— 供 admin 端点复用
 // visibleTeamIds: 传入数组时仅返回"无团队 + 这些团队"的任务(P0-4 团队过滤;
 // undefined 表示不过滤,admin 全量视图用)
 // ---------------------------------------------------------------------------
@@ -149,8 +151,7 @@ export async function buildKanbanColumns(visibleTeamIds?: string[]): Promise<Kan
 const idParamSchema = z.object({ id: z.uuid() })
 
 const statusFilterSchema = z.object({
-  // 成员清单派生自 AGENT_TASK_STATUSES(G-462 拆分终态档同枚生效,不再抄字面量)
-  status: z.enum([...AGENT_TASK_STATUSES]).optional(),
+  status: z.enum(['triage', 'todo', 'ready', 'in_progress', 'blocked', 'done']).optional(),
   teamId: z.uuid().optional(),
 })
 
@@ -173,9 +174,7 @@ const createTaskSchema = z.object({
 
 const transitionSchema = z.object({
   taskId: z.uuid(),
-  // 成员清单派生自 AGENT_TASK_STATUSES;新终态档(parse 可过)能否真流转仍由
-  // isTransitionAllowedFromRaw 按 ALLOWED_TRANSITIONS 判(四个终态出边为空 ⇒ 409)
-  toStatus: z.enum([...AGENT_TASK_STATUSES]),
+  toStatus: z.enum(['triage', 'todo', 'ready', 'in_progress', 'blocked', 'done']),
   operatedBy: z.string().optional(),
   reason: z.string().optional(),
 })
