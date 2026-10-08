@@ -14422,22 +14422,6 @@
       "title": "Voice Call"
     }
   },
-  "eduCertificatesPage": {
-    "backToList": "Back to certificates",
-    "certificateNo": "Certificate No.: {no}",
-    "completed": "Completed",
-    "download": "Download certificate",
-    "downloadFailed": "Download failed ({status})",
-    "issuanceText": "Has completed the course and passed the assessment. This certificate is hereby awarded.",
-    "issuedAt": "Issued on: {date}",
-    "loading": "Loading...",
-    "notFound": "Certificate not found",
-    "print": "Print",
-    "status": {
-      "revoked": "Revoked",
-      "valid": "Valid"
-    }
-  },
   "eduCourseLearnPage": {
     "backToDetail": "Back to course details",
     "loadFailed": "Failed to load",
@@ -23731,24 +23715,6 @@
   "magazine": {
     "title": "News"
   },
-  "defaultEntries": {
-    "mall": {
-      "label": "Mall",
-      "description": "Browse discounted products"
-    },
-    "vip": {
-      "label": "VIP",
-      "description": "Upgrade to get exclusive benefits"
-    },
-    "invite": {
-      "label": "Invite",
-      "description": "Invite friends to earn rewards"
-    },
-    "help": {
-      "label": "Help",
-      "description": "View FAQs and user guides"
-    }
-  },
   "analytics": {
     "totalPublished": "Total published",
     "successRate": "Success rate",
@@ -24741,15 +24707,6 @@
     "ctaSecondary": "Learn more",
     "miniappBtn": "WeChat MiniApp"
   },
-  "defaultTags": {
-    "llm": "LLM",
-    "tutorial": "Tutorial",
-    "rag": "Knowledge Base",
-    "agent": "Agent",
-    "frontend": "Frontend",
-    "backend": "Backend",
-    "opensource": "Open Source"
-  },
   "device": {
     "title": "Device Management",
     "lastLoginLabel": "Last login",
@@ -25121,16 +25078,6 @@
     "confirmDelete": "Are you sure you want to delete?",
     "confirm": "Confirm",
     "cancel": "Cancel"
-  },
-  "terminalSessionList": {
-    "statusActive": "Active",
-    "statusExited": "Exited",
-    "statusClosed": "Closed",
-    "title": "Terminal Sessions",
-    "newTerminalAria": "New terminal",
-    "loading": "Loading…",
-    "empty": "No sessions",
-    "closeTerminalAria": "Close terminal"
   },
   "pricing": {
     "title": "Pricing"
@@ -27484,13 +27431,6 @@
     "subtitle": "View all earned certificates",
     "title": "My Certificates",
     "view": "View"
-  },
-  "eduCourses": {
-    "backToCourses": "Back to courses",
-    "chaptersTitle": "Sections",
-    "detail": "Details",
-    "notFound": "Course not found",
-    "studentsCount": "{count} learners"
   },
   "eduStudyPlan": {
     "add": "Add",
