@@ -25,7 +25,8 @@
  */
 
 import { execFile, spawn, type ChildProcess, type StdioOptions } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import * as os from 'node:os'
 // G-695:等 close 的站点必须走补发器 —— once('close') 挂在已 fire 的 EventEmitter 上永不触发。
 import { createCloseEventController, type CloseEvent } from './close-event.js'
@@ -232,9 +233,32 @@ export async function captureRootCreationIdentity(
 }
 
 /**
+ * win32 CIM 创建身份探针的引擎候选(全部绝对路径 —— 该身份参与回收时 fail-closed
+ * 击杀对账,PATH 解析可被顶替 ⇒ 身份可被伪造,故不落 PATH 短名)。pwsh(PS7)优先:
+ * WDAC/应用控制策略可能拦截 node 派生的 powershell.exe(5.1)而放行 PS7(本仓开发机
+ * 实证 spawn EPERM;apps/api kill-verified.ts 与 mcp-credentials.ts 引擎链同款结论);
+ * powershell.exe 绝对路径兜底覆盖未装 PS7 的常规镜像。存在性预筛。
+ */
+function creationIdentityProbeCandidates(): string[] {
+  const list: string[] = []
+  const localAppData = process.env['LOCALAPPDATA'] ?? ''
+  for (const candidate of [
+    'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
+    localAppData === '' ? '' : join(localAppData, 'Microsoft', 'WindowsApps', 'pwsh.exe'),
+  ]) {
+    if (candidate !== '' && existsSync(candidate)) list.push(candidate)
+  }
+  list.push('C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe')
+  return list
+}
+
+/**
  * 默认创建标识探针。win32:PowerShell CIM CreationDate(DMTF 串,含微秒档);
  * linux:/proc/<pid>/stat 第 22 字段 starttime;其余平台 ⇒ null(未判定)。
  * 探针自身永不 reject(失败折成 null),stdio 按 EBUSY 纪律 stdin 用 'ignore'。
+ * win32 引擎 pwsh(PS7)优先、powershell.exe 绝对路径兜底 —— WDAC/应用控制策略
+ * 主机拦截 node 派生的 powershell.exe(5.1)报 EPERM(本仓开发机实证),见
+ * creationIdentityProbeCandidates;仅 spawn 即时失败回退下一候选,其余失败仍折 null。
  */
 export const defaultCreationIdentityProbe: CreationIdentityProbe = async (pid) => {
   const osPlatform = os.platform()
@@ -244,25 +268,40 @@ export const defaultCreationIdentityProbe: CreationIdentityProbe = async (pid) =
       `$p=Get-CimInstance Win32_Process -Filter "ProcessId=${pid}";` +
       `if($null -eq $p){'${CREATION_IDENTITY_NONE}'}else{` +
       `'${CREATION_IDENTITY_PFX}'+[System.Management.ManagementDateTimeConverter]::ToDmtfDateTime($p.CreationDate)}`
-    return await new Promise<string | null>((resolve) => {
-      execFile(
-        'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
-        ['-NoProfile', '-NonInteractive', '-Command', script],
-        { timeout: 5_000, shell: false, windowsHide: true, maxBuffer: 1 << 20 },
-        (err, out) => {
-          if (err) return resolve(null)
-          for (const line of String(out).split(/\r?\n/)) {
-            const l = line.trim()
-            if (l === CREATION_IDENTITY_NONE) return resolve(null)
-            if (l.startsWith(CREATION_IDENTITY_PFX)) {
-              const v = l.slice(CREATION_IDENTITY_PFX.length).trim()
-              return resolve(v === '' ? null : v)
+    const attemptOnce = (command: string): Promise<string | null> =>
+      new Promise<string | null>((resolve, reject) => {
+        execFile(
+          command,
+          ['-NoProfile', '-NonInteractive', '-Command', script],
+          { timeout: 5_000, shell: false, windowsHide: true, maxBuffer: 1 << 20 },
+          (err, out) => {
+            if (err) {
+              // spawn 即时失败(WDAC 拦截 EPERM / 未装 ENOENT / 无权 EACCES)⇒ reject 让
+              // 外层回退下一候选;超时/非零退出不回退(不放大时长),仍折 null(fail closed)。
+              const code = (err as NodeJS.ErrnoException).code
+              if (code === 'EPERM' || code === 'ENOENT' || code === 'EACCES') return reject(err)
+              return resolve(null)
             }
-          }
-          return resolve(null)
-        },
-      )
-    })
+            for (const line of String(out).split(/\r?\n/)) {
+              const l = line.trim()
+              if (l === CREATION_IDENTITY_NONE) return resolve(null)
+              if (l.startsWith(CREATION_IDENTITY_PFX)) {
+                const v = l.slice(CREATION_IDENTITY_PFX.length).trim()
+                return resolve(v === '' ? null : v)
+              }
+            }
+            return resolve(null)
+          },
+        )
+      })
+    for (const command of creationIdentityProbeCandidates()) {
+      try {
+        return await attemptOnce(command)
+      } catch {
+        continue
+      }
+    }
+    return null
   }
   if (osPlatform === 'linux') {
     try {
