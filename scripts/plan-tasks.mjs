@@ -869,18 +869,8 @@ export function replaceTopLevelJsonValueText(text, key, valueText) {
   return text.slice(0, i) + valueText + text.slice(end)
 }
 
-/**
- * 差值棘轮纯函数:两把同形读数(候选面 vs 基准面)只比"变多"。
- *
- * 第三参 absFloor(G-1102638 批2,2026-10-08):F5 维的**绝对下限豁免**。落账注记行随物理
- * 归并专项真删是拍板过的合法清偿,但"注记被合法清掉"与"被一次旧计划文档整文件提交抹掉"
- * 在差值面上长得一模一样,差值尺自己分不出来 —— 豁免下限从基线文件的 F5 维读(gate 调用点
- * 传 base?.F5),缺省不传 = 旧行为逐字不变(任何下跌都红)。判红条件 now < min(b5, absFloor):
- * absFloor 只能把下限放宽到基线水位,不得反向比旧行为更紧。批2 清偿后基线 F5=0 ⇒ 差值 F5
- * 随专项退役(注记形态在新账面不再增长,登记行防丢归门 71,留痕在归档 md 豁免面);要恢复
- * 看守力把基线 F5 抬回非零即可,判据无须再动。
- */
-export function grewViolations(now, before, absFloor) {
+/** 差值棘轮纯函数:两把同形读数(候选面 vs 基准面)只比"变多"。 */
+export function grewViolations(now, before) {
   const items = probe(now)
   const prev = new Map(probe(before).map(([k, label, n]) => [k, { label, n }]))
   const out = items
@@ -889,8 +879,7 @@ export function grewViolations(now, before, absFloor) {
   // F5 方向相反(只许增不许减),**不塞进上面那个"比变多"的循环** —— 一把尺子对同一维
   // 既判涨又判跌,读的人就无法知道哪个方向是坏。
   const b5 = before?.counts?.mergeNotes
-  const floor = typeof absFloor === 'number' ? Math.min(b5, absFloor) : b5
-  if (typeof b5 === 'number' && now.counts.mergeNotes < floor)
+  if (typeof b5 === 'number' && now.counts.mergeNotes < b5)
     out.push(
       `F5 归并落账注记由 ${b5} 条掉到 ${now.counts.mergeNotes} 条(被一次旧计划文档整文件提交抹掉了)`,
     )
@@ -945,8 +934,7 @@ export function gate(a, strict, root, before, beforeErr) {
   // 而它恰恰是那层"别人跳门把增长塞进 HEAD"唯一的看守者,所以这里按**无法判定**处理(exit 2)。
   const f9b = f9Ratchet(base, a)
   if (before) {
-    // F5 豁免水位取基线文件(G-1102638 批2):基线 F5=0 ⇒ 差值 F5 退役;缺省/非数字 ⇒ 旧行为。
-    const grew = grewViolations(a, before, base?.F5)
+    const grew = grewViolations(a, before)
     if (grew.length) {
       console.log(`❌ 差值棘轮:本次改动让状态分叉变多 —— ${grew.join(';')}`)
       // F9 上涨 ⇒ 逐组点名"编号 G-x 被 N 个不同标题共用"(票面要求的报名形态;只报数不点名
@@ -1257,7 +1245,7 @@ function selfTest() {
   const ptrFix = auditPlan(
     [
       '- [ ]（进行中@2026-09-27/someone） **62 ChatSearchBar 持有行**:带租约的那条。',
-      ptrRow,
+      '- [ ] 副本指针(编号 62)：同主键第二份未勾选副本,只加指针不动勾选;当前状态见带 v3wave3 租约的那条(该条写明 ChatSearchBar 前提被推翻与 use-chat-search 投影现场)。',
       '- [ ] **D96 无关真活票**:不含指针标记。',
     ].join('\n'),
   )
@@ -1390,20 +1378,6 @@ function selfTest() {
   ok(
     loss.some((x) => x.includes('F5') && x.includes('掉到')),
     `注记被抹掉必须判红,实测 ${JSON.stringify(loss)}`,
-  )
-  // absFloor 绝对下限豁免(G-1102638 批2)三向:未跌破水位不红(合法清偿)/跌破仍红(不是关闸)/
-  // 水位高于实际值时 min 归位旧行为(只能放宽不能反向收紧)。noted=2 → unnoted=0。
-  ok(
-    !grewViolations(unnoted, noted, 0).some((x) => x.startsWith('F5')),
-    'absFloor=0(基线退役水位)时注记全清不得判红 —— 物理归并专项的合法清偿出口',
-  )
-  ok(
-    grewViolations(unnoted, noted, 5).some((x) => x.startsWith('F5')),
-    '跌破 absFloor 水位仍必须判红(豁免不得写成关闸)',
-  )
-  ok(
-    grewViolations(unnoted, noted, 99).some((x) => x.startsWith('F5')),
-    'absFloor 高于实际值时 min 归位旧行为(2→0 仍红,不得反向比旧行为更松)',
   )
   ok(auditPlan('').counts.mergeNotes === 0, '空面不得凭空数出注记')
   // F6 块级重复:行级四条(F1–F4)对"整块被追加两遍"完全失明,所以这一组必须自成一把尺子。
