@@ -177,9 +177,16 @@ def resolve_stdio_command(command: str, env: Mapping[str, str] | None = None) ->
         return ExecutableResolution(command, None, ())
     env_map: dict[str, str] = dict(env) if env is not None else dict(os.environ)
     if os.sep in command or "/" in command or "\\" in command:
-        # 显式路径:候选即自身(解析器只核可执行性,不替调用方猜相对基准)
-        tried = (command,)
-        return ExecutableResolution(command, command if _is_executable_file(command) else None, tried)
+        # 显式路径:候选即自身(解析器只核可执行性,不替调用方猜相对基准)。
+        # 类型修复(守门 35,2026-10-08):这一支的"试过候选"只有一项,与下面 PATH 搜索
+        # 逐条累加的 ``tried: list[str]`` 是**两件事**,此前共用一个名字 ⇒ mypy 把 tried
+        # 绑成 tuple[str],于是 :191 判 no-redef、:198/:201 判 "tuple[str] has no attribute
+        # append" —— 尺子看不见累加逻辑,而运行时靠"这一支立刻 return"侥幸不相撞。
+        # 拆成两个名字让类型与意图同形(行为一字未动:该支返回的 tried 仍是 (command,))。
+        explicit_tried: tuple[str, ...] = (command,)
+        return ExecutableResolution(
+            command, command if _is_executable_file(command) else None, explicit_tried
+        )
 
     path_value = _get_env_value_ci(env_map, "PATH")[1] or ""
     dir_sep = ";" if sys.platform == "win32" else ":"

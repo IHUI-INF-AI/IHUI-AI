@@ -12,7 +12,6 @@ import {
   sql,
   lt,
   gt,
-  gte,
   lte,
   isNull,
   isNotNull,
@@ -1142,6 +1141,10 @@ export interface CreateMessageInput {
   reasoning?: string
   tokens?: number
   metadata?: unknown
+  // 票59(消息级版本切换 1/3):regenerate 的后续落新回复以 (rootId, next) 传两字段,
+  // 使新回复以 sibling 身份入族;不传 = 普通消息(存量行为分毫不变)。
+  parentMessageId?: string
+  siblingIndex?: number
 }
 
 /**
@@ -1180,6 +1183,9 @@ export async function createMessage(input: CreateMessageInput): Promise<ChatMess
         tokens: input.tokens,
         metadata: input.metadata as Record<string, unknown> | null,
         turnOrdinal,
+        // 票59:sibling 版本族挂接(undefined 时 Drizzle 落默认 null,与存量行为一致)
+        parentMessageId: input.parentMessageId,
+        siblingIndex: input.siblingIndex,
       })
       .returning()
     const row = rows[0]
@@ -1309,53 +1315,69 @@ export async function clearMessages(conversationId: string): Promise<string[]> {
 // =============================================================================
 
 /**
- * 重新生成:删除指定 AI 消息及其之后的所有消息(事务)。
- * 保留该 AI 消息之前的所有消息,供前端"截断到该消息之前 + 重新发送前一条用户问题"。
- * 同步更新 conversation.lastMessageAt 为剩余消息中最晚一条(无则置 null)。
- * 返回 { regeneratedFrom: messageId, remainingCount } 由路由层包装。
+ * 重新生成(票59 消息级版本切换 1/3,2026-10-07 起 sibling 分支语义):
+ * **不再物理删除** —— 目标 AI 消息保留,新旧回复共存为同一版本族,本函数只负责"开分支":
+ *   · root 判定:目标自身已是再生版本(parentMessageId 非空)⇒ root = 其 parentMessageId;
+ *     否则 root = 目标自身(原始消息即根);
+ *   · root 标记:原始消息首次被 regenerate 时补 siblingIndex = 0(幂等,已标记则不动);
+ *   · 返回 nextSiblingIndex = 族内现存最大序号 + 1,后续落新回复以
+ *     (parentMessageId = rootId, siblingIndex = next) 写入(createMessage 已放通两字段),
+ *     版本切换由前端复用 CanvasVersionMenu 交互(2/3、3/3)。
+ * 并发纪律(O82 同款):先锁会话行 FOR UPDATE 再读 max(sibling_index) —— 同会话的
+ * regenerate 与 createMessage 按会话行粒度串行,分支序号不撞号。
+ * 不删消息 ⇒ 不动 lastMessageAt、不做投影 reset(现存行集未变,断点仍指向现存轮次)。
+ * 返回 { regeneratedFrom, remainingCount, rootId, nextSiblingIndex } 由路由层包装。
  */
 export async function regenerateConversationMessages(
   conversationId: string,
   messageId: string,
-): Promise<{ regeneratedFrom: string; remainingCount: number }> {
+): Promise<{
+  regeneratedFrom: string
+  remainingCount: number
+  rootId: string
+  nextSiblingIndex: number
+}> {
   const target = await findMessageById(messageId)
   if (!target || target.conversationId !== conversationId) {
     throw new Error('消息不存在或不属于该对话')
   }
 
   return db.transaction(async (tx) => {
-    // 删除目标消息及之后的所有消息(createdAt >= target.createdAt)
+    // O82 同款:会话行锁粒度串行,"读 max 再 +1"不再面对并发双插撞号
     await tx
-      .delete(chatMessages)
-      .where(
-        and(
-          eq(chatMessages.conversationId, conversationId),
-          gte(chatMessages.createdAt, target.createdAt),
-        ),
-      )
-
-    // 同步 lastMessageAt 到最后一条剩余消息(或 null)
-    const last = await tx
-      .select({ createdAt: chatMessages.createdAt })
-      .from(chatMessages)
-      .where(eq(chatMessages.conversationId, conversationId))
-      .orderBy(desc(chatMessages.createdAt))
-      .limit(1)
-    const lastMessageAt = last[0]?.createdAt ?? null
-    await tx
-      .update(chatConversations)
-      .set({ lastMessageAt, updatedAt: new Date() })
+      .select({ id: chatConversations.id })
+      .from(chatConversations)
       .where(eq(chatConversations.id, conversationId))
+      .for('update')
 
-    // D35 删除段:本路径删的是"目标消息及其之后",现存最大轮次必然变小(或整段清空),
-    // 旧断点因此可能已越过现存轮次;按 reset 语义以现存行集重算 —— 见 rollHistoryProjection 注释。
-    await rollHistoryProjection(tx, conversationId, { reset: true })
+    // 版本族根:目标已是再生版本 ⇒ 沿 parent 回根;否则目标自身即根
+    const rootId = target.parentMessageId ?? target.id
 
+    // 原始消息首次被 regenerate:补 root 序号 0(幂等:已标记的行不动)
+    if (target.parentMessageId === null && target.siblingIndex === null) {
+      await tx
+        .update(chatMessages)
+        .set({ siblingIndex: 0 })
+        .where(eq(chatMessages.id, target.id))
+    }
+
+    const maxRows = await tx
+      .select({ maxIdx: sql<number | null>`max(${chatMessages.siblingIndex})` })
+      .from(chatMessages)
+      .where(eq(chatMessages.parentMessageId, rootId))
+    const nextSiblingIndex = Number(maxRows[0]?.maxIdx ?? 0) + 1
+
+    // remainingCount 为路由层旧契约字段保留:本路径已不删行,读数即全量现存
     const remaining = await tx
       .select({ count: sql<number>`COUNT(*)::int` })
       .from(chatMessages)
       .where(eq(chatMessages.conversationId, conversationId))
-    return { regeneratedFrom: messageId, remainingCount: Number(remaining[0]?.count ?? 0) }
+    return {
+      regeneratedFrom: messageId,
+      remainingCount: Number(remaining[0]?.count ?? 0),
+      rootId,
+      nextSiblingIndex,
+    }
   })
 }
 

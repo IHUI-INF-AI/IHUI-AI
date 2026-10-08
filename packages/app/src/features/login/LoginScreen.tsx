@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useEffect, useMemo, useState, type ComponentProps, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   ActivityIndicator,
   Image,
@@ -10,12 +10,12 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native'
 import { AlertTriangle, Check, ChevronDown, Eye, EyeOff, QrCode, X } from 'lucide-react-native'
-import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { getTokens, type AppThemeMode, type AppThemeTokens } from '../../theme/tokens'
+import { TextField } from '../../components/TextField'
 import {
   OAUTH_BRAND_COLORS,
   OAUTH_BUTTON_FOREGROUND,
@@ -36,36 +36,6 @@ import type {
   ThirdPartyLoginOption,
   ThirdPartyPlatform,
 } from '@ihui/types'
-
-type FocusInputProps = ComponentProps<typeof TextInput> & {
-  styles: StyleSet
-  /** 聚焦时追加的差异化样式(排在 inputFocused 之后,用于覆盖通用聚焦边框) */
-  focusedStyle?: ComponentProps<typeof TextInput>['style']
-}
-
-/**
- * 带聚焦高亮的输入框 — App 原生端默认无聚焦视觉反馈,web 端浏览器默认
- * outline 已在 mobile-rn 的 web-shell 压掉(避免与边框叠加成双圈),
- * 这里统一补一圈品牌色聚焦边框(浅色主题=黑,深色=白,随主题反转)。
- * style 由内部与 styles.input 合并,调用方只需传差异样式(如 codeInput)。
- */
-function FocusInput({ styles, onFocus, onBlur, style, focusedStyle, ...rest }: FocusInputProps) {
-  const [focused, setFocused] = useState(false)
-  return (
-    <TextInput
-      {...rest}
-      style={[styles.input, style, focused && styles.inputFocused, focused && focusedStyle]}
-      onFocus={(e) => {
-        setFocused(true)
-        onFocus?.(e)
-      }}
-      onBlur={(e) => {
-        setFocused(false)
-        onBlur?.(e)
-      }}
-    />
-  )
-}
 
 /**
  * 登录共享屏 — RN 端 4-tab 完整版(2026-07-30 重做)。
@@ -172,6 +142,8 @@ interface TabContentBaseProps {
   t: TFunction
   styles: StyleSet
   tk: AppThemeTokens
+  /** 主题档(必填透传):TextField 的 colorScheme 是必填 prop,类型层强制传主题 */
+  colorScheme: AppThemeMode
   loading: boolean
   agreed: boolean
   onAgreedChange: (v: boolean) => void
@@ -590,6 +562,7 @@ function EmailTabContent({
   t,
   styles,
   tk,
+  colorScheme,
   email,
   emailCode,
   sending,
@@ -617,9 +590,10 @@ function EmailTabContent({
       <View style={styles.field}>
         <Text style={styles.label}>{t('auth.email')}</Text>
         <View>
-          <FocusInput
-            styles={styles}
+          <TextField
+            colorScheme={colorScheme}
             style={styles.input}
+            focusedStyle={styles.inputFocused}
             value={email}
             onChangeText={onEmailChange}
             placeholder={t('auth.emailPlaceholder')}
@@ -649,9 +623,10 @@ function EmailTabContent({
       <View style={styles.field}>
         <Text style={styles.label}>{t('auth.code')}</Text>
         <View style={styles.codeRow}>
-          <FocusInput
-            styles={styles}
+          <TextField
+            colorScheme={colorScheme}
             style={[styles.input, styles.codeInput]}
+            focusedStyle={styles.inputFocused}
             value={emailCode}
             onChangeText={(text) => onEmailCodeChange?.(text.replace(/\D/g, '').slice(0, 6))}
             placeholder={t('auth.codePlaceholder')}
@@ -700,6 +675,7 @@ function PhoneTabContent({
   t,
   styles,
   tk,
+  colorScheme,
   phone,
   phoneCode,
   sending,
@@ -761,8 +737,8 @@ function PhoneTabContent({
                 <Text style={styles.areaText}>{phoneHead}</Text>
                 <ChevronDown size={10} color={tk.text.tertiary} style={{ marginLeft: 6 }} />
               </Pressable>
-              <FocusInput
-                styles={styles}
+              <TextField
+                colorScheme={colorScheme}
                 style={[styles.input, styles.phoneInputWithArea]}
                 focusedStyle={styles.phoneInputFocused}
                 value={phone}
@@ -816,9 +792,10 @@ function PhoneTabContent({
         ) : phonePrefixNode ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             {phonePrefixNode}
-            <FocusInput
-              styles={styles}
+            <TextField
+              colorScheme={colorScheme}
               style={[styles.input, { flex: 1 }]}
+              focusedStyle={styles.inputFocused}
               value={phone}
               onChangeText={(text) => onPhoneChange?.(text.replace(/\D/g, '').slice(0, 11))}
               placeholder={t('auth.phonePlaceholder')}
@@ -829,9 +806,10 @@ function PhoneTabContent({
             />
           </View>
         ) : (
-          <FocusInput
-            styles={styles}
+          <TextField
+            colorScheme={colorScheme}
             style={styles.input}
+            focusedStyle={styles.inputFocused}
             value={phone}
             onChangeText={(text) => onPhoneChange?.(text.replace(/\D/g, '').slice(0, 11))}
             placeholder={t('auth.phonePlaceholder')}
@@ -845,9 +823,10 @@ function PhoneTabContent({
       <View style={styles.field}>
         <Text style={styles.label}>{t('auth.code')}</Text>
         <View style={styles.codeRow}>
-          <FocusInput
-            styles={styles}
+          <TextField
+            colorScheme={colorScheme}
             style={[styles.input, styles.codeInput]}
+            focusedStyle={styles.inputFocused}
             value={phoneCode}
             onChangeText={(text) => onPhoneCodeChange?.(text.replace(/\D/g, '').slice(0, 6))}
             placeholder={t('auth.codePlaceholder')}
@@ -896,6 +875,7 @@ function PasswordTabContent({
   t,
   styles,
   tk,
+  colorScheme,
   account,
   password,
   onAccountChange,
@@ -926,9 +906,10 @@ function PasswordTabContent({
       <View style={styles.field}>
         <Text style={styles.label}>{t('auth.account')}</Text>
         <View>
-          <FocusInput
-            styles={styles}
+          <TextField
+            colorScheme={colorScheme}
             style={styles.input}
+            focusedStyle={styles.inputFocused}
             value={account}
             onChangeText={onAccountChange}
             placeholder={t('auth.accountPlaceholder')}
@@ -969,9 +950,10 @@ function PasswordTabContent({
           ) : null}
         </View>
         <View style={styles.passwordRow}>
-          <FocusInput
-            styles={styles}
+          <TextField
+            colorScheme={colorScheme}
             style={[styles.input, styles.passwordInput]}
+            focusedStyle={styles.inputFocused}
             value={password}
             onChangeText={onPasswordChange}
             placeholder={t('auth.passwordPlaceholder')}
@@ -1403,6 +1385,7 @@ export function LoginScreen(props: LoginScreenProps) {
             t={t}
             styles={styles}
             tk={tk}
+            colorScheme={colorScheme}
             email={email ?? ''}
             emailCode={emailCode ?? ''}
             sending={emailCodeSending ?? false}
@@ -1428,6 +1411,7 @@ export function LoginScreen(props: LoginScreenProps) {
             t={t}
             styles={styles}
             tk={tk}
+            colorScheme={colorScheme}
             phone={phone ?? ''}
             phoneCode={phoneCode ?? ''}
             sending={phoneCodeSending ?? false}
@@ -1460,6 +1444,7 @@ export function LoginScreen(props: LoginScreenProps) {
             t={t}
             styles={styles}
             tk={tk}
+            colorScheme={colorScheme}
             account={account}
             password={password}
             onAccountChange={onAccountChange}

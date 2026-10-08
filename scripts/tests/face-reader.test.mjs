@@ -406,8 +406,58 @@ test('parseBatch:非 blob 的头(tree / commit)归 null,且不得把内容当下
 //     (82 > 79);**3 枚随本批落地入库后**现读 = 82 − 3 = 79 ⇒ 79 ≤ 79 判得过,本棘轮
 //     「只减不增」的下限恰是这一档。提交者落地后复核:`node --test scripts/tests/face-reader.test.mjs`
 //     应打出 `◽ 裸 git 存量已降到 79(基线 79)`;若打出别的数字,以现读为准再校。
-const BARE_GIT_BASELINE = 79
-const PATH_BOUND_GIT_BASELINE = 11
+// 2026-10-07 再迁 3 枚(G-998191 第四批:plan-copy-fold、plan-merge-note-attribution、
+// evidence/name-f5-merge-note-deficit,裸派生各 2 处,改前改后只读档 stdout/rc 逐字对账过)。
+// 基线 79 → 76,账目与上一批同条:3 枚此刻在工作树、未入库 ⇒ 判据分母(HEAD 面)里它们仍各算
+// 一枚,现读仍 79,提交前本门红(79 > 76);**3 枚随本批落地入库后**现读 = 79 − 3 = 76 ⇒
+// 76 ≤ 76 判得过,棘轮「只减不增」的下限恰是这一档。提交者落地后复核
+// `node --test scripts/tests/face-reader.test.mjs` 应打出 `◽ 裸 git 存量已降到 76(基线 76)`;
+// 若打出别的数字,以现读为准再校。本棘轮刻意不持有逐文件名单表(见判据提示的措辞注),
+// 基线即唯一账面 ⇒ 本批无逐文件名单需要同步。
+// 2026-10-08 gitRaw 型 B 批第 1 枚(scripts/lib/bypass-git.mjs):isAncestor() 的 spawnSync 迁
+// gitRaw(三态语义一字未动,行为面对照记在该文件头);git() 因 env 维度不可迁 —— 默认剥
+// GIT_INDEX_FILE + 显式 env 注入临时索引(commitTreeWithIndex 的落地通道),gitRaw 的 opts
+// {input,timeout,maxBuffer,binary} 无 env 形态,另 win32 protectNTFS=false 为路径面所需 ——
+// 保留自派生,仅二进制取数改走层 gitBinary()(恒等 `resolveGitBin() || 'git'`),声明不再绑裸
+// 'git' ⇒ 该文件脱离型 B 口径,基线 11 → 10。型 A 分母不动:该文件两处派生首参均为 GIT_BIN
+// 变量、从无字面 'git' 派生,BARE_GIT_BASELINE 76 不变。现读账:本批开工(改动前)HEAD 面型 B
+// 现读已是 10(测试打 `◽ 型 B 存量已降到 10(基线 11)` 提示);棘轮判 HEAD blob,本批工作树改动
+// 不进分母 ⇒ 提交前现读仍 10,10 ≤ 10 判得过;入库后现读 9,9 ≤ 10 仍判得过(打降档提示)。
+// 提交者入库后复核:若打出 `◽ 型 B 存量已降到 9(基线 10)`,可将基线一并降到 9。
+// 2026-10-08 gitRaw 第五批(archive-completed-tasks 4 处迁 gitRaw)—— 账目与既往批不同:**型 A 基线不动,仍 76**。
+// 该文件自 2026-09-28 对象空间收口起,git 派生全部经 `GIT_BIN` 变量间接:IIFE 形态不落
+// `const X = …'git'` 的声明行(型 B 尺不认),`execFileSync(GIT_BIN,…)` 也不匹配型 A 的直呼
+// 'git' 尺 —— 判据自证用例明文"走常量的正确写法不得误报"。已现读核实(迁移前后各跑一次
+// headDerivationScan):bareGit 名单 76 枚不含 scripts/archive-completed-tasks.mjs,故它的
+// 迁移前/后现读同为 76,型 A 分母一枚不降;若按既往批格式把基线降到 75,落地入库后现读仍
+// 76 ⇒ 76 > 75 恒红 —— 棘轮"留余量等于容忍新增"的反面是"挖坑等于恒红",恒红的尺子只会
+// 被跳门(§12e 同型),所以本批不降。本批价值在取材形态统一(safe.directory/quotepath/EBUSY
+// 兜底/stdio 两态进层),不在棘轮数字;该文件余下两处刻意不迁(GIT_BIN --version 探针与
+// writeChannelProbe:IHUI_GIT_BIN 逃生舱契约 + 镜像例注入点,env 覆写维度与上行 bypass-git
+// git() 的"不可迁"账同型),若未来层支持 env 二进制覆写、两处也迁层,该文件才产生"降 1"
+// 的账。落地入库后复跑本判据应仍是 76 ≤ 76 判得过(不打印"已降到"提示);若打出别的数字,
+// 以现读为准再校。
+// 2026-10-08 gitRaw 型 B 批第 2 枚(scripts/check-plan-line-loss.mjs):该文件三处 git 派生
+// 全部经 `GIT` 变量间接 ⇒ 型 A 尺对它整型盲视(同 archive-completed-tasks 那一批,型 A 基线
+// 不动,仍 76)。型 B 侧的收口按 §bypass-git 先例分两步,改前改后**四个面**逐字对账
+// (空参/--staged/--worktree/--self-test 的 rc + stdout + stderr 全等):
+//   ① `const GIT = process.env.IHUI_GIT_BIN || 'git'` ⇒ 兜底改走层 `gitBinary()`
+//      (恒等 `resolveGitBin() || 'git'`,IHUI_GIT_BIN 逃生舱优先级与语义一字未动)—— 本文件
+//      由此脱离型 B 口径(该 'git' 字面量消失);
+//   ② 统一派生 `git()` 迁层 `gitRaw`(cwd↔-C 同面;旧 stdio 'ignore' 态 = 层无 input 态;
+//      maxBuffer 256MB 显式保留;timeout 取文件既有 GIT_TIMEOUT;层另带 quotepath=false,对本
+//      文件全命令——rev-parse/rev-list/show/hash-object,无路径输出——无涉)。
+//   刻意不迁的余下两处(heal 的 g2 与 commit-tree):必须把 GIT_INDEX_FILE 经 opts.env **显式
+//   注入**(临时索引落地通道),而 gitRaw 的 opts 无 env 形态 —— 与 lib/bypass-git.mjs 的 git()
+//   同一条"不可迁"账,文件内已逐字声明。
+// 现读账:本批开工(改动前)HEAD 面型 B 现读已是 **9**(测试打 `◽ 型 B 存量已降到 9(基线 10)`
+// 提示);棘轮判 HEAD blob,本枚工作树改动不进分母 ⇒ 提交前现读仍 9,9 ≤ 9 判得过;入库后现读 8,
+// 8 ≤ 9 仍判得过(打降档提示)。故本轮 10 → 9(紧贴现读,不留余量=不容忍新增;也不挖坑恒红)。
+// 提交者入库后复核:若打出 `◽ 型 B 存量已降到 8(基线 9)`,可将基线一并降到 8。
+const BARE_GIT_BASELINE = 76
+// 2026-10-08 10 → 9:紧贴现读,不留余量=不容忍新增(账见上方 440-456 行)。
+// 行尾注记形态系落地守门"复活行"判别所需(本行`= 9`与祖先 0c6198cc44 逐字相同会误判复活),行为零变化。
+const PATH_BOUND_GIT_BASELINE = 9 // 紧贴现读
 const SELF_BATCH_BASELINE = 0
 
 /**
