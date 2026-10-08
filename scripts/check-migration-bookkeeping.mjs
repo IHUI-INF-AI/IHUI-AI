@@ -45,6 +45,22 @@
  *     B3 when 严格递增且唯一
  *     B4 idx 唯一(idx 断号仅告警 —— drizzle 按 tag 配对 SQL、按 when 排序,idx 只是元数据)
  *     B5 journal 结构完整(version / dialect / entries 数组,entry 必含 idx/tag/when)
+ *     B12 **同一份 .sql 跨目录并存对账(G-1058522:全仓同名 .sql 只许住一个目录)**
+ *        立因:同一份迁移曾同时躺在 `packages/database/scripts/manual-sql/` 与
+ *        `packages/database/drizzle/`(20261003103000_chat_messages_created_at_idx_CONCURRENTLY.sql),
+ *        而 B1 的枚举面**只有 drizzle/ 恰好一层** —— 于是 B1 报的是"那枚副本没登记",
+ *        而不是"同一份 .sql 现在有两处";副本人肉删掉后,**union 的「对侧删除不随合并传播」会把整文件取回**,
+ *        该循环已复发 4 次。缺口是**没有一条判据专门拦跨目录同名 .sql**,不是"还有人手工删"。
+ *        红条件只有一个口径:**同一个 basename 出现在 ≥2 个不同目录** ⇒ 判红并逐条点名两处路径 + 字节数差
+ *        (git 里同目录同 basename 就是同一条路径,所以按目录数判与按出现次数判同值,而前者不误导重构)。
+ *        三条不可漂:① 清单与字节**同面同轮**(head ⇒ `ls-tree -r --name-only HEAD` / staged ⇒ `ls-files`,
+ *        尺寸向同一面 `cat-file --batch-check` 现问),**不读工作树**;② 权威面是 `scripts/manual-sql/`
+ *        那一侧 —— 错的是"又长出一份副本",所以出路是删多余那份或改名,**不得**把它挪进 drizzle/
+ *        补 journal 登记(那是 B1 的地盘,也是另一条路);③ 三态不并桶:面取不到 / 枚举到 0 个 /
+ *        `--worktree` 档(递归扫盘要判重解析点,§26;提交链从不走这一档)⇒ 一律落「未判定」,
+ *        大声点名原因且**跟着汇总行一起说**,既不冒红也绝不记绿。
+ *        零容忍、**无基线、无行内豁免通道**的依据:现读 HEAD 面全仓同名 .sql 跨目录并存 **0 组**
+ *        (`git ls-tree -r --name-only HEAD` 的 basename 重项为空)⇒ 接线不产生恒红面(AGENTS §12e)。
  *   在线(--db):
  *     B6 库内行数 == journal 条目数
  *     B7 库内 created_at 集合 == journal when 集合(严格双射)
@@ -131,6 +147,7 @@ import {
   Undetermined,
   assertRepoRoot,
   catBatch,
+  catBatchSizes,
   gitRaw,
   readWorktreeFile,
   selectFace,
@@ -305,6 +322,152 @@ export function parsePorcelainZ(text) {
  */
 export function worktreeOnlyDirtyPaths(rows) {
   return (rows || []).filter((r) => r.xy[0] === ' ' && r.xy[1] !== ' ').map((r) => r.path)
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// B12(G-1058522)同一份 .sql 跨目录并存对账 —— 判据层全部是纯函数(§22c:镜像测试直接
+// import 这一份,不得在测试里抄第二遍集合运算)。
+// 立因(票面实测,不是假想):同一份迁移曾**同时**躺在
+//   packages/database/scripts/manual-sql/20261003103000_chat_messages_created_at_idx_CONCURRENTLY.sql
+//   packages/database/drizzle/20261003103000_chat_messages_created_at_idx_CONCURRENTLY.sql
+// 而记账器 B1 判的是「journal tag 集合 ↔ **drizzle/*.sql** 的 basename 集合双向一一对应」——
+// 它的枚举面只有 `drizzle/` 恰好一层(见 sqlBasenamesFromListing),所以"权威面那一份"根本不在
+// B1 的视野里:面内 .sql 数 309 对 journal 308 ⇒ B1 报的是**那枚副本没登记**,而不是
+// 「同一份 .sql 现在有两处」。副本已由人肉删除(枚 5a3696714f),但让它可以复发的机制一个字没改
+// —— union 收敛的「对侧删除不随合并传播」会把整文件取回,该循环已复发过 4 次。
+// ⇒ 缺口是**判据维度**,不是"还有人手工删":全仓没有任何一条判据专门拦跨目录同名 .sql。
+//
+// 三条不可漂的写法:
+//   ① 枚举与内容**同面同轮**:路径清单按被审面取(head ⇒ `ls-tree -r --name-only HEAD` /
+//      staged ⇒ `ls-files`),字节数只在**确有双份**时才由同一个面的 `cat-file --batch-check`
+//      现问 —— 不得读工作树(拿磁盘判会把别人在飞的副本算成本枚提交的账,AGENTS §12e)。
+//   ② 红条件只看**目录数**:同一个 basename 出现在 ≥2 个不同目录 ⇒ 判红,并逐条点名两处路径 +
+//      字节数差。**不判**同目录内的正常文件(git 里同目录同路径不可能重名,所以目录数是唯一量纲),
+//      也**不把 `scripts/manual-sql/` 一侧一律当错** —— 那一侧是权威面,错的是"又长出一份副本",
+//      所以处置动作是「删掉多出来的那一份 / 改名」,不是「把它挪进 drizzle/ 并补 journal 登记」
+//      (后者会让 B1 立刻判红,是另一条路)。
+//   ③ 三态绝不并桶:命中(dup)⇒ 判红进 `fail`;判净(clean)⇒ 绿;**未判定**(面取不到 / 枚举到
+//      0 个 / worktree 档刻意不判)⇒ 大声报名字与原因,既不冒红也绝不记绿,并且汇总行必须带着这句
+//      (把没判写成判过了是本仓最高频失效型)。
+//
+// 为什么可以零容忍、不需要基线:现读全仓(HEAD 面)**没有任何同名 .sql 跨目录并存**
+// (`git ls-tree -r --name-only HEAD` 的 basename 重项实测为空),所以上线不产生恒红面。
+// 无行内豁免通道 —— 这一型的正解只有"删掉多余那一份或改名",给它开一条"标一下跳过"的口子
+// 等于把本票要拦的形态重新变成合法。
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * 纯函数:判定面 → **全仓**(不是只有 `drizzle/` 那一层).sql 路径枚举用的 git 参数。
+ * `worktree` 档给 `null` —— 本维在磁盘档**不判**:全仓枚举要递归扫盘,而 §26 明令任何递归枚举
+ * 前必须逐条判重解析点(junction 穿透一次就替别人把真实目录读成"我们的双份"),而 `--worktree`
+ * 只是人工逃生舱、提交链从不走它。调用方据 null 落「未判定」并点名原因,绝不静默跳过。
+ * 与 `faceSqlListArgs` 一样单独导出:三面各取哪一份必须能被构造面钉死,不能埋在 CLI 流程里。
+ */
+export function sqlUniverseListArgs(face) {
+  if (face === 'staged') return ['ls-files', '-z']
+  if (face === 'head') return ['ls-tree', '-r', '--name-only', '-z', 'HEAD']
+  return null
+}
+
+/**
+ * 纯函数:git 路径清单(`-z` 输出,也容忍换行输出)→ 归一后的**全仓 .sql 相对路径**数组(升序)。
+ * 分隔符 NUL 与换行都收的理由同 `sqlBasenamesFromListing`:万一某台 git 不认 `-z`,换行输出
+ * 也必须仍被读成清单,而不是被当成一整个怪路径 ⇒ "枚举到 0 个"那种指错方向的假无法判定。
+ */
+export function sqlPathsFromListing(zLines) {
+  const seen = new Set()
+  const out = []
+  for (const raw of String(zLines ?? '').split(/[\0\n]/)) {
+    const p = raw.trim().replace(/\\/g, '/')
+    if (!p || p.includes('\0')) continue
+    if (!p.endsWith('.sql')) continue
+    if (seen.has(p)) continue
+    seen.add(p)
+    out.push(p)
+  }
+  return out.sort()
+}
+
+/**
+ * 纯函数:.sql 路径数组 → **同名出现在 ≥2 个不同目录**的分组(按名字升序,输出确定)。
+ * 只数目录、不数出现次数:git 里"同目录同 basename"就是同一条路径,所以按目录判与"红条件只看
+ * 目录数"这条口径一致,也不会把 `dirs` 相同的两组误合成一组。
+ * @returns {Array<{name:string, dirs:string[], paths:string[]}>}
+ */
+export function sqlDupAcrossDirs(paths) {
+  const byName = new Map()
+  for (const p of paths || []) {
+    const i = p.lastIndexOf('/')
+    const name = i < 0 ? p : p.slice(i + 1)
+    const dir = i < 0 ? '' : p.slice(0, i)
+    if (!name.endsWith('.sql')) continue
+    if (!byName.has(name)) byName.set(name, { name, dirs: [], paths: [] })
+    const g = byName.get(name)
+    g.paths.push(p)
+    if (!g.dirs.includes(dir)) g.dirs.push(dir)
+  }
+  return [...byName.values()]
+    .filter((g) => g.dirs.length >= 2)
+    .map((g) => ({ name: g.name, dirs: [...g.dirs].sort(), paths: [...g.paths].sort() }))
+    .sort((a, b) => (a.name === b.name ? 0 : a.name < b.name ? -1 : 1))
+}
+
+/**
+ * 纯函数:一组双份 → 点名字串(两处路径逐条列出 + 字节数差)。
+ * `sizeOf(path)` 返回字节数或 null;尺寸取不到**不降级判红**(红条件只由清单成立),但必须写
+ * "未取到" —— 否则读报告的人会以为两份字节相同。
+ */
+export function b12FindingLine(group, sizeOf) {
+  const sizes = (group.paths || []).map((p) =>
+    typeof sizeOf === 'function' ? sizeOf(p) : null,
+  )
+  const parts = group.paths.map((p, i) =>
+    Number.isFinite(sizes[i]) ? `${p} (${sizes[i]} B)` : `${p} (字节数未取到)`,
+  )
+  const known = sizes.filter((s) => Number.isFinite(s))
+  const diff =
+    known.length === group.paths.length
+      ? `字节数差 ${Math.max(...known) - Math.min(...known)} B`
+      : '字节数差 未取到(不影响判红)'
+  return (
+    `B12 同一份 .sql 跨目录并存:${group.name} 在 ${group.dirs.length} 个目录里各有一份 —— ` +
+    `${parts.join(' ↔ ')};${diff}`
+  )
+}
+
+/**
+ * 纯函数:B12 的三态结论(命中 / 判净 / 未判定),**不派生、不判红、不改退出码** —— 退出码归调用方。
+ * `error` 与空枚举都落未判定:把"没看清"写成"没有问题"是本仓最贵的那一类假绿。
+ * @returns {{state:'dup'|'clean'|'undetermined', groups:Array, scanned:number, reason:string, line:string}}
+ */
+export function b12Outcome({ paths, error }) {
+  if (error)
+    return {
+      state: 'undetermined',
+      groups: [],
+      scanned: 0,
+      reason: String(error),
+      line: `B12 未判定:${error} —— 该行不代表"全仓无同名 .sql 跨目录并存"已判`,
+    }
+  const list = Array.isArray(paths) ? paths : []
+  if (list.length === 0)
+    return {
+      state: 'undetermined',
+      groups: [],
+      scanned: 0,
+      reason: '判定面枚举到 0 个 .sql —— 空扫不记绿(B12 不据此判"没有双份")',
+      line: 'B12 未判定:判定面枚举到 0 个 .sql —— 空扫不记绿(B12 不据此判"没有双份")',
+    }
+  const groups = sqlDupAcrossDirs(list)
+  if (groups.length)
+    return {
+      state: 'dup',
+      groups,
+      scanned: list.length,
+      reason: '',
+      line: `B12 ✗ ${groups.length} 组同名 .sql 跨目录并存(扫 ${list.length} 个 .sql)`,
+    }
+  return { state: 'clean', groups: [], scanned: list.length, reason: '', line: '' }
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1395,6 +1558,171 @@ export function runSelfTest() {
     )
   }
 
+  // ── B12(G-1058522)同名 .sql 跨目录并存:构造面成对正反例 + 真临时仓端到面。
+  //    每条 cond 都必须是**已求值布尔**(§自检 harness 红线:把箭头函数当 cond 传进去 ⇒
+  //    `!!fn` 恒真 ⇒ 那条断言从写下起从未求值,账面却一路记 ✅)。
+  {
+    const A = 'packages/database/drizzle/20261003103000_x_idx_CONCURRENTLY.sql'
+    const B = 'packages/database/scripts/manual-sql/20261003103000_x_idx_CONCURRENTLY.sql'
+    const C2 = 'packages/database/drizzle/20261003110000_y.sql'
+    const dup = sqlDupAcrossDirs([A, B])
+    eq('B12-Q1 两目录同名 ⇒ 1 组(目录数 = 2)', `${dup.length}|${dup[0]?.dirs.length}`, '1|2')
+    // `g0` 兜一个空分组:红条件被人放宽时 `dup` 会是空集,那应当落成 **❌ 那一条用例**,
+    // 而不是让整台自检抛 TypeError 退场 —— 栈trace 会把其余 100 余条用例的结论一起吞掉
+    // (变异取证时就是这样:Q1b 崩了,后面所有 B12/别的维度的读数一行都没打出来)。
+    const g0 = dup[0] || { name: '<无分组:红条件已失效>', paths: [], dirs: [] }
+    ok(
+      'B12-Q1b 点名字串必须同时含两处完整路径',
+      b12FindingLine(g0, () => 100).includes(A) && b12FindingLine(g0, () => 100).includes(B),
+      b12FindingLine(g0, () => 100),
+    )
+    eq(
+      'B12-Q1c 字节数差必须被量出来(100 vs 160 ⇒ 60 B)',
+      /字节数差 60 B/.test(b12FindingLine(g0, (p) => (p === A ? 100 : 160))),
+      'true',
+    )
+    ok(
+      'B12-Q1d 尺寸取不到 ⇒ 写"未取到"而**不降级、不消失**(红条件只由清单成立)',
+      /字节数差 未取到/.test(b12FindingLine(g0, () => null)) &&
+        b12FindingLine(g0, () => null).includes(A),
+    )
+    eq('B12-Q2 只有 manual-sql 一处 ⇒ 0 组(权威面那一份不是错)', sqlDupAcrossDirs([B]).length, 0)
+    eq(
+      'B12-Q3 同目录内多份不同名 ⇒ 0 组(不判同目录的正常文件)',
+      sqlDupAcrossDirs([A, C2]).length,
+      0,
+    )
+    eq(
+      'B12-Q3b 同目录内**同名**不可能存在(git 唯一路径),但即便被喂重复项也只算 1 个目录 ⇒ 不判红',
+      sqlDupAcrossDirs([A, A]).length,
+      0,
+    )
+    eq('B12-Q4 面取不到 ⇒ 未判定(不冒红)', b12Outcome({ paths: null, error: 'git 问不到' }).state, 'undetermined')
+    ok(
+      'B12-Q4b 未判定的结论行必须自带"不代表已判"(把没判写成判过了是本仓最高频失效型)',
+      /未判定/.test(b12Outcome({ paths: null, error: 'X' }).line) &&
+        /不代表/.test(b12Outcome({ paths: null, error: 'X' }).line),
+      b12Outcome({ paths: null, error: 'X' }).line,
+    )
+    eq(
+      'B12-Q5 枚举到 0 个 .sql ⇒ 未判定(空扫不得读成"没有双份")',
+      b12Outcome({ paths: [], error: '' }).state,
+      'undetermined',
+    )
+    eq(
+      'B12-Q6 有清单且无重复 ⇒ clean 并报扫描面大小',
+      `${b12Outcome({ paths: [A, B.replace('_x_', '_z_')], error: '' }).state}|${b12Outcome({ paths: [A, B], error: '' }).state}`,
+      'clean|dup',
+    )
+    // 三面各取哪一份必须能被钉死:head=HEAD 树 / staged=索引 / worktree=不判(给 null)。
+    eq(
+      'B12-Q7 三面的**全仓**枚举命令互不相同(worktree 档必须是 null)',
+      JSON.stringify([
+        sqlUniverseListArgs('head'),
+        sqlUniverseListArgs('staged'),
+        sqlUniverseListArgs('worktree'),
+      ]),
+      JSON.stringify([
+        ['ls-tree', '-r', '--name-only', '-z', 'HEAD'],
+        ['ls-files', '-z'],
+        null,
+      ]),
+    )
+    eq(
+      'B12-Q8 清单解析:NUL 与换行都收、非 .sql 剔除、重复项去重(不认 -z 的 git 不得退化成 0 个)',
+      sqlPathsFromListing(
+        [
+          'b/y.sql',
+          'a/x.sql',
+          'readme.md',
+          'a/x.sql',
+          'packages\\win\\z.sql',
+          '',
+        ].join('\n') + '\0c/w.sql\0',
+      ).join(','),
+      'a/x.sql,b/y.sql,c/w.sql,packages/win/z.sql',
+    )
+    eq('B12-Q8b 空输入 ⇒ 0 个(由 b12Outcome 折成未判定)', sqlPathsFromListing('').length, 0)
+
+    // 端到面 A:真临时仓里**确有**两份同名 .sql(逐字复刻票面那两目录) ⇒ 必须 exit 1 并点名两处,
+    // 而同一个夹具的 B1 仍然绿 ⇒ 证明"新增一维没有改弱既有判据、也没有替别人制造红"。
+    try {
+      const dA = keep(mkFixtureRepo('g49-b12-dup'))
+      const jA = JSON.parse(readFileSync(join(dA, JOURNAL_REL), 'utf8'))
+      const tagA = jA.entries[0].tag
+      const sideA = 'packages/database/scripts/manual-sql'
+      mkdirSync(join(dA, sideA), { recursive: true })
+      writeFileSync(join(dA, sideA, `${tagA}.sql`), 'SELECT 1;\n')
+      gitIn(dA, ['add', '-A'])
+      gitIn(dA, ['commit', '-q', '--no-verify', '-m', 'B12 fixture: copy beside drizzle/'])
+      const gA = runGateAt(dA)
+      const gAs = runGateAt(dA, ['--staged'])
+      eq('B12-E1 两份同名 .sql 已入库 ⇒ 默认(HEAD)档 exit 1', String(gA.code), '1')
+      ok(
+        'B12-E1b 且逐条点名两处完整路径',
+        /B12 同一份 \.sql 跨目录并存/.test(gA.err + gA.out) &&
+          (gA.err + gA.out).includes(`${MIG_DIR_REL}/${tagA}.sql`) &&
+          (gA.err + gA.out).includes(`${sideA}/${tagA}.sql`),
+        ((gA.err + gA.out).match(/B12[^\n]*/g) || ['<无 B12 行>']).join(' ⏎ '),
+      )
+      ok(
+        'B12-E1c B1 必须仍然绿(红只来自新维:证明没顺手改弱既有判据)',
+        /✓ B1 双向一一对应/.test(gA.out) && /✗ 1 项失败/.test(gA.err),
+        (gA.err.match(/项失败[^\n]*/) || ['<无>'])[0],
+      )
+      eq('B12-E1d --staged 档同样判红(索引面也看得见那两份)', String(gAs.code), '1')
+
+      // 端到面 B:把多余那一份删掉(唯一出路)⇒ 必须回到 exit 0 并显式报"已判"。
+      gitIn(dA, ['rm', '-q', '-f', '--', `${sideA}/${tagA}.sql`])
+      gitIn(dA, ['commit', '-q', '--no-verify', '-m', 'B12 fixture: copy removed'])
+      const gB = runGateAt(dA)
+      eq('B12-E2 只剩一处 ⇒ exit 0(权威面那一份不是错)', String(gB.code), '0')
+      ok('B12-E2b 且报"✓ B12 无同名 .sql 跨目录并存"', /✓ B12 无同名 \.sql 跨目录并存/.test(gB.out))
+      ok(
+        'B12-E2c 汇总行必须带着 B12 已判(绿要能说出它量了什么)',
+        /B12 已判\(扫 \d+ 个 \.sql,无跨目录同名\)/.test(gB.out),
+        (gB.out.match(/全部通过[^\n]*/) || ['<无汇总行>'])[0],
+      )
+
+      // 端到面 C:同目录内多份不同名 ⇒ 不判(git 里正常形态)
+      const dC = keep(mkFixtureRepo('g49-b12-samedir'))
+      const sideC = 'packages/database/scripts/manual-sql'
+      mkdirSync(join(dC, sideC), { recursive: true })
+      writeFileSync(join(dC, sideC, 'one.sql'), 'SELECT 1;\n')
+      writeFileSync(join(dC, sideC, 'two.sql'), 'SELECT 2;\n')
+      gitIn(dC, ['add', '-A'])
+      gitIn(dC, ['commit', '-q', '--no-verify', '-m', 'B12 fixture: two distinct names in one dir'])
+      const gC = runGateAt(dC)
+      eq('B12-E3 同目录多份不同名 ⇒ exit 0(不判同目录的正常文件)', String(gC.code), '0')
+
+      // 端到面 D:`--worktree` 档本维**不判** ⇒ 必须大声落未判定,且汇总行不得声称 B12 已判
+      const gD = runGateAt(dC, ['--worktree'])
+      ok(
+        'B12-E4 worktree 档 ⇒ 未判定被点名,且绝不被写成"✓ B12"/"B12 已判"',
+        /B12 未判定/.test(gD.out) && !/✓ B12/.test(gD.out) && !/B12 已判/.test(gD.out),
+        (gD.out.match(/B12[^\n]*/g) || ['<无 B12 行>']).join(' ⏎ '),
+      )
+
+      // 端到面 E:面取不到(无 git 提交/根本不在 git 里)⇒ 该维未判定,**不得 exit 0 冒充通过**
+      const dE = keep(mkScratch('g49-b12-nogit'))
+      writeGateFixture(dE, 2) // 刻意不 git init
+      const gE = runGateAt(dE)
+      const gEs = runGateAt(dE, ['--staged'])
+      ok(
+        'B12-E5 面取不到 ⇒ 退出码不得是 0(未判定 ≠ 通过)',
+        gE.code !== 0 && gEs.code !== 0,
+        `head=${gE.code} staged=${gEs.code}`,
+      )
+      ok(
+        'B12-E5b 且不得出现任何 B12 的绿结论或"全部通过"',
+        !/✓ B12/.test(gE.out + gEs.out) && !/全部通过/.test(gE.out + gE.err + gEs.out),
+        ((gE.out + gE.err).match(/B12[^\n]*/g) || ['<无 B12 行>']).join(' ⏎ '),
+      )
+    } catch (e) {
+      results.push(`❌ B12 端到面夹具建立失败:${String(e?.message ?? e).split(/\r?\n/)[0]}`)
+    }
+  }
+
   // ── B11 端到面:通过 `--ledger-from` 取证通道跑真 CLI,证明**判据真被接在 CLI 上**
   //    (§守门 70/76/81/115 同一条:函数在、自检过,但 `--db` 流程没调它 = 提交链上一路绿灯。)
   try {
@@ -1600,6 +1928,55 @@ if (isDirectRun) {
     // 三档各有一行自证:点名本面之外还躺着什么,并明写**不据此判红**。
     const selfProof = faceSelfProof(ROOT, FACE, sqls)
     for (const line of selfProof) console.log(`  ${C.dim}${line}${C.reset}`)
+  }
+
+  // ---------- B12: 同一份 .sql 跨目录并存(G-1058522) ----------
+  // 枚举与 B1 的 journal/.sql 同面(由 FACE 决定),字节数只在**确有双份**时才向同一个面现问。
+  // 刻意**不调 wa()**:那个「N 条告警」计数是 B1-B4 的口径(镜像 T6 钉着"夹具本身零告警"),
+  // 与 B10/B11 同一条规矩 —— B12 只新增自己的段落 + 一句汇总尾巴,既有输出行逐字不变。
+  console.log(`${C.bold}[迁移记账] B12 全仓同名 .sql 对账${C.reset}`)
+  let b12 = { state: 'clean', groups: [], scanned: 0, reason: '' }
+  {
+    const listArgs = sqlUniverseListArgs(FACE)
+    let b12Paths = null
+    let b12Error = ''
+    if (!listArgs) {
+      b12Error =
+        `${FACE_TXT.worktree} 档不做全仓枚举(递归扫盘要逐条判重解析点,§26),` +
+        '而本维没有安全的那一份磁盘清单可取 ⇒ 这一格未判定'
+    } else {
+      try {
+        assertRepoRoot(ROOT, `B12(${FACE})`)
+        b12Paths = sqlPathsFromListing(gitRaw(listArgs, ROOT, { timeout: 60000 }))
+      } catch (e) {
+        b12Error = `${FACE_LABEL[FACE]} 全仓 .sql 清单取不到:${faceErrText(e)}`
+      }
+    }
+    b12 = b12Outcome({ paths: b12Paths, error: b12Error })
+    if (b12.state === 'dup') {
+      // 字节数取自**同一个判定面、同一轮**(`cat-file --batch-check`,只问大小不回内容)。
+      // 问不到也照常判红 —— 红条件只由清单成立,尺寸是诊断不是判据。
+      let sizeOf = () => null
+      if (listArgs) {
+        try {
+          const specs = b12.groups.flatMap((g) => g.paths.map((p) => faceBlobSpecFor(FACE, p)))
+          const sizes = catBatchSizes(ROOT, specs, { timeout: 60000 })
+          sizeOf = (p) => sizes.get(faceBlobSpecFor(FACE, p)) ?? null
+        } catch {
+          sizeOf = () => null
+        }
+      }
+      for (const g of b12.groups) bad(b12FindingLine(g, sizeOf))
+      console.log(
+        `  ${C.dim}  出路:删掉多出来的那一份(或改名)。不得把它挪进 ${MIG_DIR_REL}/ 并补 journal 登记 ` +
+          `—— 那会让 B1 立刻判红,是另一条路。本维无行内豁免通道。${C.reset}`,
+      )
+    } else if (b12.state === 'clean') {
+      ok(`B12 无同名 .sql 跨目录并存(扫 ${b12.scanned} 个 .sql)`)
+    } else {
+      // 未判定:报名字与原因,既不冒红也不记绿(绝不静默省掉这一行)。
+      console.log(`  ${C.yellow}! ${b12.line}${C.reset}`)
+    }
   }
 
   // ---------- B2: tag 唯一 ----------
@@ -2122,6 +2499,11 @@ if (isDirectRun) {
       (b11Judged
         ? `;B11 已判(${b11Counts.match + b11Counts.match_stripped} 命中 / ${b11Counts.unattributable} 无从归因)`
         : `;B11 **未判定**:${b11Reason || '原因未记录'} —— 该行不代表内容不可变已判`) +
+      // B12 同理:"记账结构合法"不代表"全仓没有第二份同名 .sql",所以这一维的实态必须跟着
+      // 汇总行一起说 —— 否则一句"✓ 全部通过"会把"这一格没判"读成"这一格是干净的"。
+      (b12.state === 'clean'
+        ? `;B12 已判(扫 ${b12.scanned} 个 .sql,无跨目录同名)`
+        : `;B12 **未判定**:${b12.reason || '原因未记录'} —— 该行不代表"无跨目录同名 .sql"已判`) +
       `)${C.reset}`,
   )
 
@@ -2167,6 +2549,12 @@ export const __test__ = {
   parsePorcelainZ,
   worktreeOnlyDirtyPaths,
   faceSelfProof,
+  // B12(G-1058522)判据层 —— 镜像测试直接 import 这些,不得在测试里再抄一份分组/点名字串(§22c)。
+  sqlUniverseListArgs,
+  sqlPathsFromListing,
+  sqlDupAcrossDirs,
+  b12FindingLine,
+  b12Outcome,
   runSelfTest,
   writeGateFixture,
   mkFixtureRepo,
