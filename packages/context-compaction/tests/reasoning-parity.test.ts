@@ -363,6 +363,17 @@ function pythonEstimatorMentionsReasoningKeys(): string[] {
   return found
 }
 
+// ── 全树扫描**只量一次**(2026-10-09,修 CI 恒超时)──────────────────────────
+// 这两把尺子扫的是同一棵 `apps/ai-service/app` 树,与"哪一条 reasoning 用例"无关,
+// 但此前在每个 it() 里各调一次(哨兵那条还一次调两遍)。本地快盘 warm cache 约 1.2s/次,
+// CI 实测 9.6s ⇒ vitest 默认 5000ms 直接 "Test timed out in 5000ms",main 的 CI 一红
+// 就把整条 PR 通道堵住(AGENTS §9b)。提到模块顶层量一次,断言一字未改。
+// 反向锁在文件末「哨兵自证」组:它验的是"改树必读红"的载体还在,不是这条缓存本身。
+const PY_WRITE_POINTS = scanPythonReasoningMessageWrites()
+const PY_ESTIMATOR_REASONING_KEYS = pythonEstimatorMentionsReasoningKeys()
+/** 那次扫描究竟打开了多少个 .py —— 供下面的"覆盖面自证"用,空扫不得冒充"写入点为 0"。 */
+const PY_SCANNED_PY_FILE_COUNT = listPyFiles(PY_APP_DIR).length
+
 // ==================== 反向锁:不含 reasoning / 不含 CJK 的既有夹具逐值不变 ====================
 
 describe('G-1058650 反向锁:既有 parity 夹具不含 reasoning,数值不动', () => {
@@ -481,7 +492,7 @@ describe('G-1058650:带 reasoning 的消息在双端夹具里逐值钉死(判定
       })
 
       it('登记项 pyCountsReasoning 与可达性证据必须自洽(哨兵)', () => {
-        const writePoints = scanPythonReasoningMessageWrites()
+        const writePoints = PY_WRITE_POINTS
         if (c.pyCountsReasoning) {
           // 翻 true 的唯一合法前提:生产面真出现了带 reasoning 的消息写入点,且届时两端必须同值。
           expect(writePoints.length).toBeGreaterThan(0)
@@ -489,8 +500,8 @@ describe('G-1058650:带 reasoning 的消息在双端夹具里逐值钉死(判定
         } else {
           expect(writePoints).toEqual([])
           // 源码证据:Python 估算面至今不认识任何 reasoning 键名
-          expect(pythonEstimatorMentionsReasoningKeys()).toEqual([])
-          expect(scanPythonReasoningMessageWrites().length).toBe(
+          expect(PY_ESTIMATOR_REASONING_KEYS).toEqual([])
+          expect(PY_WRITE_POINTS.length).toBe(
             fixture.reasoningCases.reachabilitySentinel
               .pythonReasoningMessageWritePointsAtAuthoringTime,
           )
@@ -632,8 +643,15 @@ describe('G-1058650 可达性哨兵自证(变异样例,不碰生产源码)', () 
   })
 
   it('真实 app 树当前的写入点数 = 0(与夹具登记一致;若将来非 0,上面各用例翻红)', () => {
-    expect(scanPythonReasoningMessageWrites()).toEqual([])
-    expect(scanPythonReasoningMessageWrites().length).toBe(0)
+    expect(PY_WRITE_POINTS).toEqual([])
+    expect(PY_WRITE_POINTS.length).toBe(0)
+  })
+
+  // 缓存不能变成"恒空的自证":上面三条全部读 PY_WRITE_POINTS,如果那次扫描其实一个文件
+  // 都没打开,它们会一起绿而什么都没说(本仓"空扫不记绿"同一条禁令)。所以把**扫描面本身**
+  // 也钉一条:树里真读到过 .py 文件,且数量与哨兵登记的量纲同侧(只下限,不钉死具体值)。
+  it('覆盖面自证:顶层那次扫描真的打开了 app 树里的 .py(不是空扫冒充"写入点为 0")', () => {
+    expect(PY_SCANNED_PY_FILE_COUNT).toBeGreaterThan(500)
   })
 })
 
