@@ -654,4 +654,61 @@ test('T20b 加宽必须真的接在暂存分支上且由「契约表被暂存」
   assert.notEqual(mutated, src, '变异没落到结构位上(等于没测)')
   assert.ok(!wired(mutated), '变异后仍判"已接线" ⇒ 本断言恒真,在装样子')
 })
+
+test('T21 C4 公开方法数上限(G-815990):计数只有一份、声明驱动装载、managed 取向成对、出生即绿', () => {
+  // ① 计数纯函数:6 个算数 + 7 个不算(类型/再导出/barrel/字符串与注释里的同名样例)
+  const sample = [
+    'export function a() {}',
+    'export async function b() {}',
+    'export default function c() {}',
+    'export class D {}',
+    'export const e = 1',
+    '  export const f = () => {}',
+    'export type T = 1',
+    'export interface I {}',
+    'export enum E {}',
+    "export * from './x'",
+    'export { a as b }',
+    "const s = 'export const ghost = 1'",
+    '// export const commented = 1',
+  ].join('\n')
+  assert.equal(gate.publicMethodCount(sample), 6, `计数实现脱节:实得 ${gate.publicMethodCount(sample)}`)
+  assert.equal(gate.publicMethodCount(''), 0, '空文件必须算 0')
+  assert.equal(gate.publicMethodCount(undefined), 0, '非字符串不得炸(取材面偶有 null 文件的防线)')
+  // ② 构造面成对:同一段代码,只有阈值不同 ⇒ 3 导出在阈值 2 下红、在阈值 3 下绿(判据有牙且方向正确)
+  const code = new Map([['packages/i18n/src/x.ts', 'export const a = 1\nexport const b = 2\nexport const c = 3']])
+  const withThreshold = (v, tag) => gate.loadPolicy(gate.parseYaml(policyText().replace(/max_public_methods: \d+/, `max_public_methods: ${v}`), tag))
+  const hit = gate.analyze(withThreshold(2, 'c4-low'), code)
+  assert.equal(hit.violations.filter((v) => v.rule === 'public-methods').length, 1, '超阈值必须报出')
+  assert.equal(hit.red.filter((v) => v.rule === 'public-methods').length, 1, 'managed:true 模块的 C4 必须进判红清单(否则只有报数 = 没牙)')
+  assert.equal(gate.analyze(withThreshold(3, 'c4-high'), code).violations.filter((v) => v.rule === 'public-methods').length, 0, '等于阈值不得红(> 才算)')
+  // ③ managed:false 成对侧:与 T8 同一把构造法(i18n 恰好置 false)⇒ 只报数不判红
+  const offP = gate.loadPolicy(
+    gate.parseYaml(
+      policyText()
+        .replace(/max_public_methods: \d+/, 'max_public_methods: 2')
+        .replace(/(- id: 'packages\/i18n'(?:.|\n)*?\n    managed: )true/, '$1false'),
+      'c4-off-constructed',
+    ),
+  )
+  assert.equal(offP.modules.get('packages/i18n').managed, false, '构造失败 ⇒ 下面的断言退化成测真表现状')
+  const off = gate.analyze(offP, code)
+  assert.equal(off.violations.filter((v) => v.rule === 'public-methods').length, 1, '只报数不等于不报')
+  assert.equal(off.red.length, 0, 'managed:false 不得判红(渐进收口的定义)')
+  // ④ 声明驱动装载:真表缺键 ⇒ 维不装载(与②的红构成成对:同一份代码,键的有无决定判不判);
+  //   键在但非正数 ⇒ loadPolicy 抛错(不静默降级成"账面全绿")
+  const noKey = policyText().replace(/  max_public_methods: \d+\n/, '')
+  const P0 = gate.loadPolicy(gate.parseYaml(noKey, 'c4-no-key'))
+  assert.equal(P0.maxPublicMethods, null, '缺键必须落成 null(维不装载),不得落成 undefined 混进比较')
+  assert.equal(gate.analyze(P0, code).violations.filter((v) => v.rule === 'public-methods').length, 0, '缺键 ⇒ C4 不判(与②成对)')
+  assert.throws(
+    () => gate.loadPolicy(gate.parseYaml(noKey.replace('  max_public_exports: 300\n', '  max_public_exports: 300\n  max_public_methods: 0\n'), 'c4-bad-key')),
+    /max_public_methods/,
+    '键在但非正数必须显式抛错,不静默降级',
+  )
+  // ⑤ 出生即绿:真表(400)> HEAD 实测最大 274 ⇒ 全量档不得出现 C4 判红。
+  //   若这里红了,说明现实已长过阈值 —— 正确出路是拆文件或按程序抬阈值并留实测依据,不是本测试让路。
+  const full = runCLI([])
+  assert.ok(!redTags(full.out).includes('C4'), `全量档出现 C4 判红 = 阈值低于现实,判据出生即红(自造跳门机):${full.out.slice(-400)}`)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

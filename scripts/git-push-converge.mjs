@@ -55,9 +55,25 @@
  */
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { pushStateProvenance } from './lib/push-attempt-triage.mjs'
+import { resolveGitBin } from './lib/gitdir.mjs'
+
+/**
+ * 仓根与 git 二进制都必须**由本文件自身位置/唯一出口**定,不能跟着调用方的终端走
+ * (台账 G-1018289 ③,2026-10-08 收口)。改动前两处各自依赖调用环境:
+ *  - push-state 与 guard 脚本路径按 `process.cwd()`/相对路径解析,
+ *  - git 调用按裸 `'git'`(PATH)且不传 `cwd`,
+ * 于是从别的目录跑这一把时,**报告里混的是两个不同仓的事实**:HEAD/ls-remote 读的是
+ * "调用方那一棵树",而 `.workbuddy/push-state.json` 与 `scripts/git-push-guard.mjs` 也按
+ * 调用方 cwd 找 —— 一旦那一棵树不是本仓,读数就是本仓 HEAD 配别人家的推送状态。
+ * 现在三处一律钉在同一个 ROOT(本文件上一级即仓根,AGENTS §15「路径推导用脚本自身位置」),
+ * git 一律走 `resolveGitBin()`(AGENTS §5b「脚本不得依赖环境取 git」;钩子/计划任务不继承 shell env)。
+ */
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const GIT_BIN = resolveGitBin() || 'git'
 
 // ─── 参数 ───
 const args = process.argv.slice(2)
@@ -74,7 +90,7 @@ const TIMEOUT_MS = Number(getArg('timeout', '180000'))
 // ─── git 执行(带超时,失败返回 null) ───
 function git(argsArr, { timeout = TIMEOUT_MS } = {}) {
   try {
-    return execFileSync('git', argsArr, { encoding: 'utf8', timeout, // 根治:stdin 设 ignore 避开本会话 Node 建子进程 stdin 管道 EBUSY(git 不吃 stdin)
+    return execFileSync(GIT_BIN, argsArr, { cwd: ROOT, encoding: 'utf8', timeout, // 根治:stdin 设 ignore 避开本会话 Node 建子进程 stdin 管道 EBUSY(git 不吃 stdin)
       stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true }).trim()
   } catch {
     return null
@@ -88,9 +104,10 @@ function git(argsArr, { timeout = TIMEOUT_MS } = {}) {
  * 历史读数可以当"真因"——那正是本票要修的账面失真(拿历史读数冒充本次结论)。
  * 取不到文本时如实给空串,调用方必须写"未取到本次输出(未判定)",不得空着当"没问题"。
  */
-function gitWithOutput(argsArr, cmd = 'git', { timeout = TIMEOUT_MS, env } = {}) {
+function gitWithOutput(argsArr, cmd = GIT_BIN, { timeout = TIMEOUT_MS, env } = {}) {
   try {
     const r = execFileSync(cmd, argsArr, {
+      cwd: ROOT,
       encoding: 'utf8',
       timeout,
       // 根治:本会话 Node 建子进程 stdin 管道会 EBUSY;本助手不传 input,stdin 设 ignore 安全。
@@ -139,7 +156,7 @@ console.log(`本地 HEAD: ${localHead.slice(0, 11)} (branch=${branch})`)
 //     而不说 guard 已经判过,读的人还会再去试一趟推送(那正是本次修复要断掉的循环)。
 function readPushState() {
   try {
-    return JSON.parse(readFileSync(resolve(process.cwd(), '.workbuddy/push-state.json'), 'utf8'))
+    return JSON.parse(readFileSync(resolve(ROOT, '.workbuddy/push-state.json'), 'utf8'))
   } catch {
     return null
   }
