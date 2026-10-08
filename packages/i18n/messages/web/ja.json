@@ -5918,7 +5918,9 @@
       "refresh": "更新",
       "loadFailed": "読み込みに失敗しました",
       "installerHint": "GitHub 側の操作者 id(プラットフォームユーザーではありません)"
-    }
+    },
+    "smsReceive": "SMS認証コード",
+    "sms": "SMSテンプレート"
   },
   "connectors": {
     "title": "中文コネクタ",
@@ -19220,7 +19222,9 @@
     "home": "ホーム",
     "settings": "設定",
     "adminDeployDiagnosis": "デプロイ診断",
-    "githubApp": "GitHub App"
+    "githubApp": "GitHub App",
+    "smsReceive": "SMS認証コード",
+    "sms": "SMSテンプレート"
   },
   "news": {
     "allCategories": "All categories",
