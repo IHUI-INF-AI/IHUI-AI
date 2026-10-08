@@ -108,7 +108,7 @@ describe('两轴合取在执行入口的行为(三条各一条反例)', () => {
     registerTools([tool])
     const confirm = vi.fn(async () => false)
     const r = await executeToolCall(
-      { name: tool.name, arguments: {} },
+      { name: 'both_axes_ok', arguments: {} },
       ctxWith({ confirmDangerous: confirm }),
     )
     expect(confirm).not.toHaveBeenCalled()
@@ -129,12 +129,12 @@ describe('两轴合取在执行入口的行为(三条各一条反例)', () => {
       return true
     })
     const r = await executeToolCall(
-      { name: tool.name, arguments: {} },
-      ctxWith({ permissions: { allow: [tool.name] }, confirmDangerous: confirm }),
+      { name: 'readonly_but_openworld', arguments: {} },
+      ctxWith({ permissions: { allow: ['readonly_but_openworld'] }, confirmDangerous: confirm }),
     )
     expect(confirm).toHaveBeenCalledTimes(1)
     // 断言"问的就是这一只工具":用被捕获的实参,而不是 mock.calls 的元组下标
-    expect(seen).toEqual([tool.name])
+    expect(seen).toEqual(['readonly_but_openworld'])
     expect(r.success).toBe(true)
     expect(handler).toHaveBeenCalledTimes(1)
   })
@@ -147,8 +147,8 @@ describe('两轴合取在执行入口的行为(三条各一条反例)', () => {
     registerTools([tool])
     const confirm = vi.fn(async () => true)
     const r = await executeToolCall(
-      { name: tool.name, arguments: {} },
-      ctxWith({ permissions: { allow: [tool.name] }, confirmDangerous: confirm }),
+      { name: 'closedworld_but_write', arguments: {} },
+      ctxWith({ permissions: { allow: ['closedworld_but_write'] }, confirmDangerous: confirm }),
     )
     expect(confirm).toHaveBeenCalledTimes(1)
     expect(r.success).toBe(true)
@@ -160,7 +160,7 @@ describe('两轴合取在执行入口的行为(三条各一条反例)', () => {
     registerTools([tool])
     const confirm = vi.fn(async () => true)
     const r = await executeToolCall(
-      { name: tool.name, arguments: {} },
+      { name: 'axes_unreported', arguments: {} },
       ctxWith({ confirmDangerous: confirm }),
     )
     expect(confirm).toHaveBeenCalledTimes(1)
@@ -173,7 +173,7 @@ describe('两轴合取在执行入口的行为(三条各一条反例)', () => {
     registerTools([tool])
     const confirm = vi.fn(async () => false)
     const r = await executeToolCall(
-      { name: tool.name, arguments: {} },
+      { name: 'axes_declined', arguments: {} },
       ctxWith({ confirmDangerous: confirm }),
     )
     expect(confirm).toHaveBeenCalledTimes(1)
@@ -191,8 +191,8 @@ describe('两轴合取在执行入口的行为(三条各一条反例)', () => {
     registerTools([tool])
     const confirm = vi.fn(async () => true)
     const r = await executeToolCall(
-      { name: tool.name, arguments: {} },
-      ctxWith({ permissions: { deny: [tool.name] }, confirmDangerous: confirm }),
+      { name: 'axes_denied', arguments: {} },
+      ctxWith({ permissions: { deny: ['axes_denied'] }, confirmDangerous: confirm }),
     )
     expect(confirm).not.toHaveBeenCalled()
     expect(r.success).toBe(false)

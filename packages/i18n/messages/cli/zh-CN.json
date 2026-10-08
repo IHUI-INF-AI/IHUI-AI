@@ -5,10 +5,6 @@
   "cli": {
     "bgNoticeStatus": "任务 {id}  状态: {status}  exitCode: {exitCode}",
     "bgNoticeTimedOut": "[任务超时]",
-    "bgNoticeStoppedByUser": "[已由用户停止] 这一条是人为停下的,系统不会自动重发。",
-    "bgNoticeStoppedByModel": "[由模型停止] 模型主动结束了这一条;任务还没做完的话,可以重新发起。",
-    "bgNoticeStoppedBySuperseded": "[已被取代] 这一条被更新的一次运行取代而停止;还需要它的话,可以重新发起。",
-    "bgNoticeStopInitiatorUnknown": "[停止发起方未记录] 这一条是被停下的,但谁停的没有落盘 —— 不作推断。",
     "bgNoticeNoObservableSource": "[无可观察源] 进程已不在、输出与退出码都没有留下、当场也没有等待者接得住 —— 这条终态的结果拿不回来。不得读成成功,也不得据此重跑同一条命令(重跑是另一个决定,不是恢复结果的手段)。",
     "custom": {
       "unknown": "未找到自定义命令 /{name}。在自定义命令目录 {dir} 下新建 {name}.md 即可添加(正文用 $ARGUMENTS 接收全部输入,或用 $1、$2 接收位置参数)。内置命令请用 /help 查看。",
@@ -123,7 +119,7 @@
       "fsProbeUnavailable": "命令空输出且以 {status} 退出,但文件系统状态无法查询({why})—— 未判定:既未定为\"空间/inode 已尽\",也未当作\"什么都没发生\"。",
       "fsExhaustedSpace": "根因诊断:命令空输出且以 {status} 退出,而 {cwd} 所在文件系统实测空间已尽(bavail×bsize≈{availMB}MB,低于 10MB 诊断阈)—— 大概率是磁盘写满导致输出/落盘失败;请清理磁盘空间后重试。",
       "fsExhaustedInodes": "根因诊断:命令空输出且以 {status} 退出,而 {cwd} 所在文件系统实测 inode 已尽(ffree={freeInodes},低于 1000 诊断阈)—— 目录项已满;请清理大量小文件/目录,或检查该文件系统的 inode 配额后重试。",
-      "envCredentialReport": "已按凭据形态从子进程 env 剥离以下疑似凭据变量(默认全剥;白名单透传经 MCP server.env / hook 配置):{vars} —— 同一名单随沙盒审计日志(IHUI_SANDBOX_AUDIT_LOG)结构化留档,是第三方 CLI 突然拿不到凭据时的直接取证出口。"
+      "envCredentialReport": "子进程将继承疑似凭据形态的环境变量(仅报名,不拦截):{vars} —— 是否收窄属后续单独拍板;同一名单随沙盒审计日志(IHUI_SANDBOX_AUDIT_LOG)结构化留档。"
     },
     "goalNotAchieved": "独立校验未通过:本次运行不得宣布完成",
     "truncatedByLength": "本轮输出已达长度上限被截断,回复可能不完整;可让我分次继续,或调高 max_tokens 后重试。",

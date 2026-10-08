@@ -5,10 +5,6 @@
   "cli": {
     "bgNoticeStatus": "Task {id}  status: {status}  exitCode: {exitCode}",
     "bgNoticeTimedOut": "[task timed out]",
-    "bgNoticeStoppedByUser": "[stopped by the user] A person stopped this run; it will not be re-issued on its own.",
-    "bgNoticeStoppedByModel": "[stopped by the model] The model ended this run itself; if the task is still unfinished, re-issue it.",
-    "bgNoticeStoppedBySuperseded": "[superseded] This run was stopped because a newer run took its place; re-issue it if you still need it.",
-    "bgNoticeStopInitiatorUnknown": "[stop initiator unrecorded] This run was stopped, but who stopped it was never written down — no inference is made.",
     "bgNoticeNoObservableSource": "[no observable source] The process is gone, neither output nor exit code was recorded, and no waiter was there to take it — the result of this terminal state cannot be recovered. Do not read it as success, and do not re-run the same command because of it (re-running is a separate decision, not a way to recover a result).",
     "custom": {
       "unknown": "Custom command /{name} is not defined. Add it by creating {name}.md inside the custom command folder {dir} (use $ARGUMENTS for the whole input, or $1 and $2 for positional arguments). Run /help to see the built-in commands.",
@@ -123,7 +119,7 @@
       "fsProbeUnavailable": "Command exited with status {status} and no output, but the filesystem state could not be queried ({why}) — undetermined: treated neither as \"space/inodes exhausted\" nor as \"nothing happened\".",
       "fsExhaustedSpace": "Root-cause diagnosis: the command exited with status {status} and no output, and the filesystem holding {cwd} measured exhausted free space (bavail×bsize≈{availMB}MB, below the 10MB diagnostic threshold) — most likely the disk filled up and the output/write failed. Free up disk space and retry.",
       "fsExhaustedInodes": "Root-cause diagnosis: the command exited with status {status} and no output, and the filesystem holding {cwd} measured exhausted inodes (ffree={freeInodes}, below the 1000 diagnostic threshold) — the directory-entry table is full. Delete many small files/directories, or check this filesystem's inode quota, then retry.",
-      "envCredentialReport": "The following credential-shaped environment variables were stripped from the child process env (default deny-all; whitelist passthrough via MCP server.env / hook config): {vars} — the same list is recorded structurally in the sandbox audit log (IHUI_SANDBOX_AUDIT_LOG) as the forensic trail for third-party CLIs that suddenly lose their credentials."
+      "envCredentialReport": "The child process will inherit environment variables that look like credentials (report-only, not blocked): {vars} — whether to strip them is a separate decision; the same list is recorded structurally in the sandbox audit log (IHUI_SANDBOX_AUDIT_LOG)."
     },
     "goalNotAchieved": "Independent verification did not pass: this run must not be reported as complete",
     "truncatedByLength": "Output hit the length limit and was truncated; the reply may be incomplete. Ask me to continue in parts, or raise max_tokens and retry.",
