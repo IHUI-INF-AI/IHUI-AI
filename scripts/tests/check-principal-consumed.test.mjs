@@ -315,4 +315,86 @@ test('T10 反向锁:本门不得被"顺手"接进第二个调度器(注册只此
   assert.match(src, /scripts\/guardian-runner\.mjs/, '头注必须如实指向唯一调度点')
   assert.ok(!/pre-push|\.github\/workflows/.test(src), '本门头注若声称接了第二个调度点,那里必须真有线 —— 现状是只有 runner')
 })
+
+/* ---------------------------- 结论通道锁(G-1108372) ---------------------------- */
+
+/**
+ * 派生调用**丢弃 stdout**(标量 `'ignore'` / 数组第二格 `'ignore'` 或 `'inherit'`),而同一文件里
+ * 又去读那个结果变量的 `.stdout` ⇒ 该调用的结论恒为 null,门把"没拿到"读成"不可解析"。
+ * 立因不是假想:2026-10-04 为治本机 EBUSY 给上百处派生统一补 `stdio: 'ignore'`,把本门喂尺子那一路
+ * 的结论通道一起抹掉 ⇒ 守门 152 在提交链上自那天起**恒落"机器态未判定"**(见台账 G-1108372)。
+ * 判据写成纯函数、只在本测试里有一份:生产代码没有对应的"自审函数",所以这不构成第二份真相;
+ * 若将来出现仓级同型判据,应把这里改成 import 它,而不是留着两处各判。
+ */
+function findBlindOutputSpawns(text) {
+  const body = text.replace(/^[ \t]*\/\/.*$/gm, '')
+  // 作用域 = 最内层函数体(`function …{` 与箭头 `=> {`)。**必须**限定作用域:本仓调用点普遍把
+  // 结果命名为 `r`,按整文件找 `r.stdout` 会让 resolvePython 那种"不吃输出的 stdio:'ignore'"被
+  // runRuler 的读取点顶成违规 —— 假阳会指使下一个人去"修"没坏的东西,并把这条锁的口径说歪。
+  const blocks = []
+  for (const bm of body.matchAll(/(?:function\s+[\w$]*\s*\([^)]*\)|=>)\s*\{/g)) {
+    let j = bm.index + bm[0].length,
+      bd = 1
+    while (j < body.length && bd > 0) {
+      if (body[j] === '{') bd++
+      else if (body[j] === '}') bd--
+      j++
+    }
+    if (bd === 0) blocks.push([bm.index, j])
+  }
+  const DECL = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:spawnSync|execFileSync|execFile|spawn|execSync)\s*\(/g
+  const out = []
+  let m
+  while ((m = DECL.exec(body))) {
+    const varName = m[1]
+    let i = m.index + m[0].length,
+      depth = 1
+    while (i < body.length && depth > 0) {
+      if (body[i] === '(') depth++
+      else if (body[i] === ')') depth--
+      i++
+    }
+    if (depth !== 0) continue // 括号配不平 ⇒ 判不出,不猜(宁漏不误报)
+    const call = body.slice(m.index + m[0].length, i - 1)
+    const stdioProp = call.match(/stdio\s*:\s*(\[[^\]]*\]|'[^']*'|"[^"]*")/)
+    if (!stdioProp) continue
+    // 标量写法对三个通道同时生效;数组第二格才是 stdout。简写属性(`stdio,`)读不出取值 ⇒ 判不出,跳过。
+    const spec = stdioProp[1].trim()
+    const channels = spec.startsWith('[') ? spec.slice(1, -1).split(',').map((s) => s.trim()) : [spec, spec, spec]
+    const stdoutCh = channels[1]
+    if (!stdoutCh) continue
+    const discards = ["'ignore'", '"ignore"', "'inherit'", '"inherit"'].includes(stdoutCh)
+    if (!discards) continue
+    const enclosing = blocks
+      .filter(([s, e]) => s <= m.index && m.index < e)
+      .sort((a, b) => a[1] - a[0] - (b[1] - b[0]))[0]
+    if (!enclosing) continue // 不在任何函数体内(顶层/对象字面量里)⇒ 判不出,跳过并如实由覆盖面自证兜住
+    const reader = new RegExp(`\\b${varName}\\s*\\.\\s*(?:stdout|output)\\b|JSON\\.parse\\s*\\(\\s*${varName}\\b`)
+    if (reader.test(body.slice(enclosing[0], enclosing[1]))) out.push(`${varName}@${body.slice(0, m.index).split('\n').length}`)
+  }
+  return out
+}
+
+test('T11 结论通道锁:喂尺子那路派生不得丢掉 stdout —— 三臂(现值绿 / 钉住的坏出处红 / 只改回通道即绿)', () => {
+  // ① 现值必须干净。
+  assert.deepEqual(findBlindOutputSpawns(readFileSync(SRC, 'utf8')), [], '本门不得再有"丢弃 stdout 却读它"的派生(G-1108372)')
+  // ② 阳性对照**钉出处不钉 HEAD**:这一枚提交里 runRuler 的 stdio 是标量 'ignore'。
+  //    修好之后 HEAD 上再也量不到坏形态,按 HEAD 取正对照的断言会在账还清那天变成"要求门红在一条不存在的账上"。
+  const BLIND_REF = 'cca84689d0574e324f6c04bd537de419b7b76c07'
+  const blind = gitIn(REPO, ['show', `${BLIND_REF}:scripts/${GATE_REL}`])
+  const flagged = findBlindOutputSpawns(blind)
+  assert.ok(
+    flagged.some((s) => String(s).startsWith('r@')),
+    `阳性对照失效:${BLIND_REF} 那版 runRuler 的结论通道没被判成丢弃 ⇒ 这条锁没牙(实得 ${JSON.stringify(flagged)})`,
+  )
+  // ③ 反向对照:同一份文本**只**把 runRuler 那一处 stdio 换成管道,其余一字不动 ⇒ 该处必须不再命中。
+  //    这一臂证明红是被那个选项引出的,而不是被"文件里存在 r.stdout"这种恒真形状引出的。
+  //    定位靠"紧跟其后的 `if (r.error)`"而不是第一次出现 —— resolvePython 那处 `stdio:'ignore'` 是**对的**(它不吃输出)。
+  const repaired = blind.replace(/stdio: 'ignore',(?=[\s\S]{0,40}?if \(r\.error\))/, "stdio: ['ignore', 'pipe', 'pipe'],")
+  assert.notEqual(repaired, blind, '替换没命中 ⇒ 第三臂什么都没测')
+  assert.ok(
+    !findBlindOutputSpawns(repaired).some((s) => String(s).startsWith('r@')),
+    '改回管道后仍被点名 ⇒ 判据在看形状而不是看通道,会误伤正当写法',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
