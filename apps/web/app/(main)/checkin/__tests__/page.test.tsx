@@ -22,6 +22,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 import CheckinPage from '../page'
+import {
+  checkinOneClickReset,
+  checkinGetPublicIp,
+  checkinSnapshotList,
+} from '@/lib/tauri-bridge'
+import { useTauriIpcReady } from '@/hooks/use-desktop'
 import type { CheckinAccount, CheckinRecord, CheckinCreditsHistoryItem } from '@ihui/api-client'
 
 const { listAccounts, listRecords, listCredits, createAccount, deleteAccount, setEnabled, manualCheckin, updateJwt, updateGroup, schedulerStatus } =
@@ -68,6 +74,9 @@ vi.mock('next-intl', () => ({
       if (values && 'days' in values) return `${key}:${values.days}`
       if (values && 'time' in values) return `${key}:${values.time}`
       if (values && 'delta' in values) return `${key}:${values.delta}`
+      if (values && 'ok' in values) return `${key}:${values.ok}/${values.total}`
+      if (values && 'ip' in values) return `${key}:${values.ip}`
+      if (values && 'hours' in values) return `${key}:${values.hours}`
       return key
     },
 }))
@@ -91,12 +100,14 @@ vi.mock('lucide-react', () => {
 // 桌面端通道(WP-C):测试环境无 __TAURI_INTERNALS__,useTauriIpcReady 恒 false;
 // 桥接函数 mock 成具名 vi.fn,浏览器路径下不应被调用。
 vi.mock('@/hooks/use-desktop', () => ({
-  useTauriIpcReady: () => false,
+  useTauriIpcReady: vi.fn(() => false),
 }))
 vi.mock('@/lib/tauri-bridge', () => ({
   checkinDetectTraeDir: vi.fn(),
   checkinCaptureJwts: vi.fn(),
   checkinResetDeviceIds: vi.fn(),
+  checkinOneClickReset: vi.fn(),
+  checkinGetPublicIp: vi.fn(),
   checkinSnapshotBackup: vi.fn(),
   checkinSnapshotRestore: vi.fn(),
   checkinSnapshotList: vi.fn(),
@@ -595,6 +606,75 @@ describe('签到助手页面 · 桌面端专属入口(WP-C)', () => {
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
     expect(screen.queryByText('captureTitle')).toBeNull()
     expect(screen.queryByText('maintTitle')).toBeNull()
+  })
+})
+
+// ── 一键解决风控向导(2026-10-10):3 步状态机 + busy 双闸 ──
+
+const wizardLayer = (i: number) => ({ layer: i, name: `L${i}`, ok: true, detail: 'ok' })
+
+describe('签到助手页面 · 一键解决风控向导', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    // mockReset 清 implementation:防前测的 mockResolvedValueOnce 序列泄漏到后测
+    // (useTauriIpcReady 的工厂实现不受 clearAllMocks 影响,无需重置)
+    checkinOneClickReset.mockReset()
+    checkinGetPublicIp.mockReset()
+    checkinSnapshotList.mockResolvedValue([])
+    mockLoadSuccess()
+  })
+  afterEach(() => cleanup())
+
+  async function openMaint() {
+    useTauriIpcReady.mockReturnValue(true)
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('maintTitle'))
+    await waitFor(() => expect(screen.getByText('wizardTitle')).toBeTruthy())
+  }
+
+  it('全流程:一键重置 → 显示基准 IP → 换网验证通过 → 冷却完成态+重新开始', async () => {
+    await openMaint()
+    checkinOneClickReset.mockResolvedValue({ layers: Array.from({ length: 14 }, (_, i) => wizardLayer(i)) })
+    checkinGetPublicIp
+      .mockResolvedValueOnce({ ip: '1.2.3.4', location: '中国 吉林 长春 电信' })
+      .mockResolvedValueOnce({ ip: '5.6.7.8', location: '' })
+    fireEvent.click(screen.getByText('wizardStart'))
+    // Step2:重置完成报告 + 基准 IP 渲染
+    await waitFor(() => expect(screen.getByText(/wizardIpBefore/)).toBeTruthy())
+    expect(checkinOneClickReset).toHaveBeenCalledTimes(1)
+    expect(screen.getByText(/1\.2\.3\.4/)).toBeTruthy()
+    expect(screen.getByText(/wizardResetDone/)).toBeTruthy()
+    // Step3:换网后 IP 变化 → 完成态
+    fireEvent.click(screen.getByText('wizardVerify'))
+    await waitFor(() => expect(screen.getByText(/wizardIpChanged/)).toBeTruthy())
+    expect(screen.getByText(/5\.6\.7\.8/)).toBeTruthy()
+    expect(screen.getByText('wizardRestart')).toBeTruthy()
+    // 重新开始:全部归零回到 Step0
+    fireEvent.click(screen.getByText('wizardRestart'))
+    await waitFor(() => expect(screen.getByText('wizardStart')).toBeTruthy())
+    expect(screen.queryByText('wizardRestart')).toBeNull()
+  })
+
+  it('IP 未变时不进入完成态,红字提示重拔', async () => {
+    await openMaint()
+    checkinOneClickReset.mockResolvedValue({ layers: [wizardLayer(0)] })
+    checkinGetPublicIp.mockResolvedValue({ ip: '1.2.3.4', location: '' })
+    fireEvent.click(screen.getByText('wizardStart'))
+    await waitFor(() => expect(screen.getByText('wizardVerify')).toBeTruthy())
+    fireEvent.click(screen.getByText('wizardVerify'))
+    await waitFor(() => expect(screen.getByText(/wizardIpUnchanged/)).toBeTruthy())
+    expect(screen.queryByText('wizardRestart')).toBeNull()
+  })
+
+  it('busy 双闸:向导执行中 wizardStart 与手动 maintReset 同时禁用', async () => {
+    await openMaint()
+    checkinOneClickReset.mockReturnValue(new Promise(() => {}))
+    fireEvent.click(screen.getByText('wizardStart'))
+    await waitFor(() => {
+      expect((screen.getByText('wizardStart') as HTMLButtonElement).disabled).toBe(true)
+      expect((screen.getByText('maintReset') as HTMLButtonElement).disabled).toBe(true)
+    })
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
