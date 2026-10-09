@@ -1506,6 +1506,22 @@ export async function checkinResetDeviceIds(
   })
 }
 
+/** 一键解决风控(傻瓜式向导主入口):全 14 层全开(MachineGuid 自动备份后改写),
+ *  可选层环境不允许时降级记录不拦流程。 */
+export async function checkinOneClickReset(): Promise<CheckinResetReport> {
+  requireTauri()
+  return await invokeIpc<CheckinResetReport>('checkin_one_click_reset')
+}
+
+/** 当前直连公网出口 IP + 归属地(一键向导 Step2 换网络验证用)。 */
+export async function checkinGetPublicIp(): Promise<{
+  ip: string
+  location: string
+}> {
+  requireTauri()
+  return await invokeIpc<{ ip: string; location: string }>('checkin_get_public_ip')
+}
+
 /** 备份指定账号的 9 类 TRAE 现场文件到应用数据目录快照区。 */
 export async function checkinSnapshotBackup(userId: string): Promise<CheckinBackupReport> {
   requireTauri()
