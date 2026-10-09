@@ -350,15 +350,32 @@ def normalize_chat_mode(raw: object) -> ChatModeId | None:
     return None
 
 
+def _is_absent(value: object) -> bool:
+    """「没传」的判据(None 与空白串同档)—— 与「传了但认不出」必须分开,见 resolve_mode_policy。"""
+    return value is None or (isinstance(value, str) and not value.strip())
+
+
 def resolve_mode_policy(chat_mode: object, permission_mode: object) -> ModePolicy:
     """(ChatMode, PermissionMode) → 该组合下的工具档与审批档(唯一出口)。
 
-    两个入参都接受任意拼写:先各自归一,认不出才落到**保守兜底** ——
-    chat 未知按 'build'(与 `_resolve_chat_mode` 返回 None 的既有默认一致),
-    permission 未知按 'default'(审批档最严,即逐个高危审批,**不是**免批)。
-    兜底方向刻意保守:把"没人认识这个值"读成"放宽"就是 fail-open。
+    两个入参都接受任意拼写,但**「没传」与「传了却谁也不认识」是两件事**:
+      · chat 缺席(None / 空串)→ 用产品默认档 'build',与 `_resolve_chat_mode`
+        返回 None 的既有默认一致(这一档不改,改了等于改默认产品行为);
+      · chat 是**非空但不认识的拼写** → 取能力最窄档 'ask'。
+        原来这里写的是 `normalize_chat_mode(...) or "build"`,把两件事折成一件事:
+        客户端把 chat_mode 打错一个字母,拿到的就是 `build` —— 现读序里 build 与 spec
+        并列最宽(名次 2),即"没人认识这个值"被读成了"放宽"。守门「枚举兜底不得取宽档」
+        量到的那条判红就是这个形状(它判 `X or 宽档` 这个**形态**,所以修法必须换形态,
+        而不是在旧形态后面补一句注释)。
+      · permission 缺席/认不出都取 'default'(审批轴最严:逐个高危审批,**不是**免批)。
     """
-    chat = normalize_chat_mode(chat_mode) or "build"
+    normalized_chat = normalize_chat_mode(chat_mode)
+    if normalized_chat is not None:
+        chat: ChatModeId = normalized_chat
+    elif _is_absent(chat_mode):
+        chat = "build"
+    else:
+        chat = "ask"
     perm = normalize_permission_mode(permission_mode) or "default"
     return {
         "chat_mode": chat,

@@ -193,10 +193,26 @@ def test_ask_mode_blocks_everything_including_whitelisted_reads() -> None:
 
 
 def test_unknown_inputs_fall_back_conservatively() -> None:
-    """认不出的值不得被读成"放宽":chat 未知 → build,permission 未知 → default(逐个审批)。"""
+    """**认不出**的拼写不得被读成"放宽":chat 未知 → ask(能力最窄档),permission 未知 → default。
+
+    旧断言写的是 chat 未知 → build,而 build 在现读的能力序里与 spec 并列最宽 ——
+    那条测试把"打错一个字母就拿到最宽工具档"当契约钉住了(守门「枚举兜底不得取宽档」判红的就是它)。
+    改判据不削守卫、也不留半红:缺席与认不出现在分两档,两档各有一条断言。
+    """
     p = resolve_mode_policy("bogus-mode", "bogus-perm")
-    assert (p["chat_mode"], p["permission_mode"]) == ("build", "default")
-    assert p["approval"] == "all"
+    assert (p["chat_mode"], p["permission_mode"]) == ("ask", "default")
+    assert tool_allowed_by_policy(p, "write_file") is False
+
+
+def test_absent_chat_mode_keeps_the_product_default_contrast() -> None:
+    """反向对照(防我把"收窄"做成 blanket):**没传** chat_mode 仍取既有默认档 build。
+
+    只有"传了但没人认识"才降级;否则这条改动等于悄悄改掉全站默认聊天能力档。
+    """
+    for absent in (None, "", "   "):
+        assert resolve_mode_policy(absent, "default")["chat_mode"] == "build"
+    # 认得出的拼写照旧逐字生效,不被兜底逻辑碰。
+    assert resolve_mode_policy("plan", "default")["chat_mode"] == "plan"
 
 
 def test_build_mode_write_tool_is_allowed_contrast() -> None:
