@@ -44,6 +44,7 @@
  * 定级:本模块是**出口不是判据**,刻意不接提交链(不改 guardian-runner / package.json / .husky /
  * pre-commit-hook,注册表类共享文件归主会话单写者),因此没有紧急跳过变量。
  */
+import { delimiter as PATH_DELIM } from 'node:path'
 
 /** 归一失败时挂在返回对象上的「未判定」原因(用 Symbol ⇒ 不进 Object.keys,不会被递给子进程)。 */
 export const PATH_ENV_UNDETERMINED = Symbol.for('ihui.pathEnv.undetermined')
@@ -177,6 +178,53 @@ export function normalizePathEnvKey(env, opts = {}) {
   return out
 }
 
+/**
+ * 站点写法出口:把**一个目录前置进子环境的 PATH**,且只留一种拼写。
+ *
+ * 为什么要有它而不是让每个站点自己写两步(G-1105300):文件头规则 2 的后果是
+ * 「归一之后再显式赋值一次」,而"再赋值那一步"一旦漏掉,症状不是崩溃而是
+ * **短 patch 被继承值吃掉** —— 站点存在的理由(把 git 所在目录送进子进程)静默失效,
+ * 于是"尺子跑不动"又被读成"仓里没有违规"(AGENTS §12e 那一族)。两步是一个动作的两半,
+ * 所以只许有一份实现;各站点抄一遍必漏一半(§"两处算同一件事必漂移"同一条禁令)。
+ *
+ * 两条边界:
+ *  - **不拆分现值**:只做 `dir + 分隔符 + 现值`,绝不按分隔符拆开后重拼。POSIX 的分隔符是 `:`,
+ *    按它拆会把现值里每一段当成独立条目再拼回去 —— 看似等价,实则在含 `::` 或空段的现值上改了内容。
+ *  - **分隔符取 `node:path` 的 `delimiter`,不取 `process.delimiter`**(2026-10-10 本机实测):
+ *    Node 24 已不再暴露 `process.delimiter`/`process.sep`(`typeof` 均为 `undefined`,而
+ *    `path.delimiter === ';'`)。写 `[…].join(process.delimiter)` 不会报错,而是按 `Array.join`
+ *    的缺省行为用**逗号**拼 PATH ⇒ 整条环境路径变成一个非法条目;站点自述的"把目录送进子环境"
+ *    静默失效,症状恰好长成"尺子跑不动 ⇒ 未判定"(正是本出口要治的那一族的第三个实例)。
+ *  - 归一判不出(全部变体非字符串)时**仍前置**:目录可见性是调用方要的结果,不该被
+ *    "继承那份读不准"连带否决;判不出的原因仍挂在 `PATH_ENV_UNDETERMINED` 上,不静默。
+ *    唯独入参本身不是对象(`action:'rejected'`)时不发明值 —— 那种情况下整个 env 都是垃圾,
+ *    造一个只剩该目录的 PATH 等于把一次调用形状错伪装成"干净环境"。
+ *
+ * @param {object} env 待处理的 env 副本(通常是 `{ ...process.env }`)
+ * @param {string} dir 要前置的目录(空串/非字符串 ⇒ 退化成纯归一,不产出前导分隔符)
+ * @param {{ processPath?: string|null, processAvailable?: boolean }} [opts] 测试通道,同 `normalizePathEnvKey`
+ * @returns {object} 新对象(入参逐字不变)
+ */
+export function prependPathDir(env, dir, opts = {}) {
+  const out = normalizePathEnvKey(env, opts)
+  const choice = out[PATH_ENV_CHOICE]
+  if (choice && choice.action === 'rejected') return out
+  const d = typeof dir === 'string' ? dir.trim() : ''
+  if (!d) return out
+  const cur = typeof out[PATH_UPPER] === 'string' ? out[PATH_UPPER] : ''
+  out[PATH_UPPER] = cur === '' ? d : `${d}${PATH_DELIM}${cur}`
+  out[PATH_ENV_CHOICE] = { ...(choice || {}), prependedDir: d, hadInheritedPath: cur !== '' }
+  return out
+}
+
 // §22c:判据一律从本文件导出给测试用,测试不得再抄一份实现。
-export const __test__ = { normalizePathEnvKey, variantsOfPathKey, pickPathVariant, readProcessPath, PATH_ENV_CHOICE, PATH_ENV_UNDETERMINED }
+export const __test__ = {
+  normalizePathEnvKey,
+  prependPathDir,
+  variantsOfPathKey,
+  pickPathVariant,
+  readProcessPath,
+  PATH_ENV_CHOICE,
+  PATH_ENV_UNDETERMINED,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
