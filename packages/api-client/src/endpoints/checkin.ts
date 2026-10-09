@@ -22,8 +22,10 @@
 import type {
   CheckinAccount,
   CheckinAccountsResponse,
+  CheckinCreditsDailyResponse,
   CheckinCreditsHistoryItem,
   CheckinCreditsHistoryResponse,
+  CheckinCreditsQueryResponse,
   CheckinDeleteResponse,
   CheckinGroupUpdateResponse,
   CheckinJwtUpdateResponse,
@@ -162,9 +164,34 @@ export async function getCheckinSchedulerStatus(): Promise<CheckinSchedulerStatu
   )
 }
 
+/** 手动查询账号积分余额并落当日快照(失败返回 ok:false + error,不抛栈) */
+export async function queryCheckinAccountCredits(
+  accountId: number,
+): Promise<CheckinCreditsQueryResponse> {
+  return unwrap<CheckinCreditsQueryResponse>(
+    await fetchAiServiceJson<CheckinCreditsQueryResponse>(
+      `/api/checkin/accounts/${accountId}/query_credits`,
+      { method: 'POST' },
+    ),
+  )
+}
+
+/** 积分每日快照三线序列(total/gained/consumed,按日升序) */
+export async function listCheckinCreditsDaily(options?: {
+  days?: number
+}): Promise<CheckinCreditsDailyResponse> {
+  return unwrap<CheckinCreditsDailyResponse>(
+    await fetchAiServiceJson<CheckinCreditsDailyResponse>('/api/checkin/credits/daily', {
+      params: { days: options?.days },
+    }),
+  )
+}
+
 export type {
   CheckinAccount,
+  CheckinCreditsDailyResponse,
   CheckinCreditsHistoryItem,
+  CheckinCreditsQueryResponse,
   CheckinJwtUpdateResponse,
   CheckinRecord,
   CheckinSchedulerStatusResponse,

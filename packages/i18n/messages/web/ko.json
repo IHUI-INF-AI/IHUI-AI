@@ -12992,6 +12992,15 @@
       "scopeModels": "모델 목록",
       "scopeEmbeddings": "임베딩",
       "scopeImages": "이미지 생성",
+    "recharge": "충전",
+    "rechargeTitle": "{name} 충전",
+    "walletBalance": "지갑 잔액",
+    "rechargeAmountLabel": "금액(위안)",
+    "rechargeAmountPlaceholder": "예: 10.00",
+    "rechargeHint": "지갑에서 이 API 키 잔액으로 이동합니다.",
+    "rechargeOk": "충전 완료",
+    "rechargeInvalid": "양수 금액을 입력하세요",
+    "rechargeConfirm": "충전 확인",
       "scopeAudio": "음성",
       "scopeVideos": "영상 생성",
       "unlimitedQuota": "무제한",
@@ -18871,6 +18880,11 @@
     "boardEmpty": "적립 데이터가 없습니다. 첫 출석 후 대시보드가 생성됩니다",
     "boardRankingTitle": "포인트 랭킹",
     "boardTab": "포인트 대시보드",
+    "boardTrendTitle": "크레딧 추이(합계/획득/소비)",
+    "refreshCredits": "크레딧 스냅샷 새로고침",
+    "boardLineTotal": "합계",
+    "boardLineGained": "획득",
+    "boardLineConsumed": "소비",
     "boardTodayGain": "오늘 추가 +{delta}",
     "checkinAllProgress": "출석 중 {done}/{total}",
     "colGroup": "그룹",
@@ -18884,6 +18898,9 @@
     "groupUngrouped": "그룹 없음",
     "skippedToday": "오늘 이미 출석한 {count}개 계정을 건너뛰었습니다",
     "skippedExpired": "JWT가 만료된 계정 {count}개를 건너뛰었습니다",
+    "checkinSelected": "선택한 계정 체크인({count})",
+    "selectAllVisible": "목록 전체 선택",
+    "selectAccount": "계정 {name} 선택",
     "checkinAll": "전체 출석",
     "colMessage": "메시지",
     "editJwt": "JWT 업데이트",
@@ -27870,3 +27887,5 @@
     "incidentsUnavailable": "최근 30일 이벤트 데이터를 일시적으로 가져올 수 없습니다"
   }
 }
+
+
