@@ -70,6 +70,13 @@
  *       #   从而绕过本工具全部断言 —— 只判不修的门逼人绕过,这条对工具自己同样成立。
  *       # 它与 --take-ours 的区别是本条的安全前提:喂进来的**整份内容**照样跑
  *       #   "两侧独有行重数不得减少"的断言,少哪一侧就当场 bad ⇒ 它不是选边的别名。
+ *   node scripts/union-converge.mjs --union-capped '<path>=<内容文件>' [--union-capped ...]
+ *       # 与 --resolve 同一个入口,只多一件事:入库前先把**每一行的重数**收回到
+ *       #   max(本侧, 对侧)(G-585,2026-10-08)。为什么单开一条出口而不是让 --resolve 顺手封顶:
+ *       #   并集只判了"少",没判"多"(实测 2026-09-28 一次 `git merge-file --union` 手解比两侧多
+ *       #   187 行、其中 186 行是多余副本,而零损失断言一路报绿)。台账类路径判红时,人工出路只有
+ *       #   "手删重复行"(可能删多 = 丢内容)或绕开本器做裸 git 手术 ⇒ 只判不修逼人绕过。
+ *       #   封顶保留先出现的份、按原序只丢多余那几份,封顶后的内容**仍过同一条零损失断言**。
  *   node scripts/union-converge.mjs --self-test      # 真临时仓取证(含"选边必判失败"反向对照)
  *   node scripts/union-converge.mjs --move-aware-detail
  *       # 把"因搬运感知而未取回"的行**逐行**打印(默认只按条目块给计数 + 出处归档件路径)。
@@ -168,6 +175,7 @@ function blobOf(rev, p, cwd) {
     // 必须带 --verify --quiet:裸 rev-parse 对解析不了的参数(<rev>:<path> 路径不存在时)
     // 会**原样回显且退出码 0**(2026-10-07 实测抓到:远端树没有 PageClient.tsx,
     // blobOf 回显了 "<sha>:<path>" 整串 ⇒ 被当 blob 塞进 --cacheinfo ⇒ 整轮收敛崩)。
+    // (2026-10-08 本会话复原:在飞 G-585 快照系 402293ac8c 落地前的陈旧底稿,把此修复整格带丢了。)
     return git(['rev-parse', '--verify', '--quiet', `${rev}:${p}`], cwd)
   } catch {
     return null
@@ -637,6 +645,75 @@ export function lostAddedLines(baseText, sideText, otherText, mergedText) {
   // 会让一个元数据把不相干的断言顶红,那等于用工具自己的形状去制造假红(镜像 R-L2 钉死这条)。
   Object.defineProperty(out, 'pointerCapped', { value: capped, enumerable: false })
   return out
+}
+/**
+ * G-585:并集的**另一半**判据 —— 「丢行」只防"少",这一条防"多"。
+ *
+ * 为什么必须单独有一条:人工解冲突最省事的出口 `git merge-file --union` 的语义就是"两侧新增都保留",
+ * 而两侧各自追加的那一行**常常是同一条被两个会话各归档/登记一次**(台账 F4/F6 防的正是这一型)⇒
+ * 并集当场造出多余副本。2026-09-28 实测:一份归档件用 `--union` 手解后比两侧都多 187 行,
+ * 其中 **186 行是非空内容行的多余副本**(含 `---` ×1009 这类分隔行与整条登记行的重复),
+ * 而当时 `--resolve` 的零损失断言只判"两侧独有行不得减少" ⇒ 这批脏数据无声入库。
+ *
+ * 判据:**每一行的重数不得超过两侧各自的重数最大值**(`max(本侧, 对侧)`)。超过即"合并凭空造出来的
+ * 份数"。自动并集路径**不吃**这条判据(它的产物按定义就是"两侧新增都保留",拿这条去判它等于
+ * 给每次正常合并造恒红)—— 只有人工整份回灌的 `--resolve` / `--union-capped` 走这里。
+ */
+export function excessAddedLines(baseText, oursText, theirsText, mergedText) {
+  void baseText // 界取"两侧最大值",与基底无关;留参数是为了与 `lostAddedLines` 同形,禁止两处各写一份取材口径
+  const co = counter(oursText)
+  const ct = counter(theirsText)
+  const cm = counter(mergedText)
+  const out = []
+  for (const [l, have] of cm) {
+    if (l.trim() === '') continue // 空行不参与:与 liveDocExpectedCounts / lostAddedLines 同一条规矩
+    const bound = Math.max(co.get(l) || 0, ct.get(l) || 0)
+    // 两侧都没有的这一行**不算多余副本**:那是人工新写的一行(合并注记/归并说明)。本判据只管
+    // "同一行被造出更多份",不管"凭空多一行" —— 后者要问的是另一条判据,不由本器代裁。
+    if (bound === 0) continue
+    if (have > bound) out.push({ line: l, have, bound, excess: have - bound })
+  }
+  return out
+}
+
+/**
+ * G-585 的修复出口(机械封顶,不是"删行"):把每一行的重数收回到 `max(本侧, 对侧)`,
+ * **保留先出现的份**、按原顺序只丢弃多余的那几份。可证零损失:一条行只要任一侧有过它,
+ * 封顶后仍 ≥1 份 ⇒ 「两侧独有行不得减少」的断言在封顶之后照样必须过(过不了就是封顶写错了,
+ * 不是仓库少了东西 —— 这一条由镜像测试反向钉住)。
+ */
+export function capAddedDuplicates(baseText, oursText, theirsText, mergedText) {
+  void baseText
+  const co = counter(oursText)
+  const ct = counter(theirsText)
+  const limit = new Map()
+  for (const [l, have] of counter(mergedText)) {
+    const bound = Math.max(co.get(l) || 0, ct.get(l) || 0)
+    // 与 `excessAddedLines` 同一条界:两侧都没有的行不封顶、不删;空行同样原样保留 ——
+    // 本出口收的是"同一行的多余份数",不是格式。
+    limit.set(l, bound === 0 || l.trim() === '' ? have : bound)
+  }
+  const seen = new Map()
+  const removed = []
+  const keep = []
+  for (const line of String(mergedText ?? '').split('\n')) {
+    const cap = limit.get(line) ?? 0
+    const n = (seen.get(line) || 0) + 1
+    seen.set(line, n)
+    if (cap < n) {
+      removed.push({ line, dropped: 1 })
+      continue
+    }
+    keep.push(line)
+  }
+  return { text: keep.join('\n'), removed }
+}
+
+/** 严格档路径判定:登记行文本那一族 ⇒ 多余副本判红;其余 ⇒ 放过(见 `excessAddedLines` 头注)。 */
+export function isDupCapStrictPath(p) {
+  const path = String(p ?? '')
+  if (LIVE_DOCS.includes(path)) return true
+  return /(^|\/)PROJECT_PLAN[^/]*\.md$/.test(path)
 }
 /** 把"因副本指针有意少带份数"这一桶排成人读行。入参固定为 **`{line, dropped}` 数组**
  *  (即 `lost.pointerCapped` 或 `liveDocPointerCaps()` 的返回值)—— 不接"带该属性的行数组",
@@ -1149,17 +1226,7 @@ export function buildUnion(
       const bt = base ? show(base, p, cwd) : null
       const ma = moveAwareCached(moveAwareCache, p, a, b, ours, cwd)
       liveDocs.push(ma)
-      let mergedText = unionLines(a, b, bt, ma.suppress)
-      // 根治(2026-10-08):--resolve 对活文档的支持。LIVE_DOCS 走 unionLines 直接 union,
-      // 永远不会经过 mergeThreeBlobs,所以 --resolve 在第 2) 阶段完全无效。
-      // 这里在第 1) 阶段循环中补上:若 resolutions 有该路径,直接读 resolve 文件内容
-      //(让号器产出的让号后正文),覆盖 mergedText,下游 writeBlob / resurrectWatchForDoc /
-      // planStateRegressions 全部使用让号后内容。
-      const resolved = resolutions.get(p)
-      if (resolved) {
-        const resolvedContent = readFileSync(resolved, 'utf8')
-        mergedText = resolvedContent
-      }
+      const mergedText = unionLines(a, b, bt, ma.suppress)
       // 根治(2026-09-30):--stdin 通道要求真 stdin 管道(本会话建管道必 EBUSY)⇒ 改走
       // writeBlob 临时文件通道,同 --path 语义、同 blob SHA(该函数头注有 CRLF 等价实证)。
       const oid = writeBlob(mergedText, p, cwd)
@@ -1322,7 +1389,11 @@ export function buildUnion(
         // 绕过本工具的全部断言。"只判不修"的门逼人绕过,这条对**工具自己**同样成立。
         // 出口是 `--resolve <path>=<文件>`:人工写好的整份内容。**但它不是选边的别名** ——
         // 喂进去的内容照样过"两侧独有行不得减少"的断言,少了哪一侧就当场 violations。
-        const viaFile = resolutions.get(p)
+        // G-585:`--resolve` 现在收两种值 —— 裸文件路径(整份内容照收,不封顶)与
+        // `--union-capped <path>=<文件>`(先按两侧最大值机械封顶多余副本再入库)。
+        const via = resolutions.get(p)
+        const viaFile = typeof via === 'string' ? via : via?.file
+        const capFirst = via !== null && typeof via === 'object' && via.capped === true
         if (!viaFile) {
           /**
            * 生成物路径(G-814415):两侧各自从各自词源重生成 ⇒ 独有行是**互斥的同形替代**,
@@ -1352,29 +1423,52 @@ export function buildUnion(
           needHuman.push({
             path: p,
             kind: 'resolve-unreadable',
-            detail: `--resolve 的文件读不到:${viaFile}(${String(e.message).split('\n')[0]})`,
+            detail: `--resolve/--union-capped 的文件读不到:${viaFile}(${String(e.message).split('\n')[0]})`,
           })
           continue
         }
-        const buf = Buffer.from(text.replace(/\r\n/g, '\n'), 'utf8')
-        const oid = writeBlob(buf, p, cwd)
-        if (oid !== oursBlob)
-          run(['update-index', '--add', '--cacheinfo', `${mode},${oid},${p}`])
-        mergedClean.push(p)
-        humanResolved.push(p)
         const [baseText, oursText, theirsText] = [
           blobText(baseBlob, cwd),
           blobText(oursBlob, cwd),
           blobText(theirsBlob, cwd),
         ]
+        // 「防少」与「防多」必须在同一处落定 —— 先算多余、再决定写哪一份;若先写完再封顶,
+        // 被断言的就已经不是入库的那一份了。
+        let finalText = text
+        const excess = excessAddedLines(baseText, oursText, theirsText, text)
+        if (excess.length && capFirst) {
+          const capped = capAddedDuplicates(baseText, oursText, theirsText, text)
+          finalText = capped.text
+          caps.push({ label: `${p} 人工按两侧最大值封顶多余副本`, capped: capped.removed })
+          console.log(
+            `      · 已按两侧最大值封顶 ${capped.removed.length} 行多余副本(${p})`,
+          )
+        } else if (excess.length && isDupCapStrictPath(p)) {
+          violations.push(
+            `${p} 人工归并结果造出 ${excess.length} 行多余副本` +
+              `(重数超过两侧最大值:${excess
+                .slice(0, 3)
+                .map((e) => `多 ${e.excess} 份×「${String(e.line).trim().slice(0, 40)}」`)
+                .join('、')})` +
+              " —— 修复出口:改用 --union-capped '<path>=<文件>'(机械封顶,一条行都不删干净)",
+          )
+        }
+        // 其余路径**刻意不判也不报**:它们的判据按"登记行文本"这一族才有意义,拿同一条去判普通源码
+        // 文件会把"两侧各自加了一行相同的注释/闭合括号"读成多余副本 ⇒ 假阳;而假阳的代价是逼人绕出口。
+        const buf = Buffer.from(finalText.replace(/\r\n/g, '\n'), 'utf8')
+        const oid = writeBlob(buf, p, cwd)
+        if (oid !== oursBlob)
+          run(['update-index', '--add', '--cacheinfo', `${mode},${oid},${p}`])
+        mergedClean.push(p)
+        humanResolved.push(p)
         recordSideLosses(
-          lostAddedLines(baseText, oursText, theirsText, text),
+          lostAddedLines(baseText, oursText, theirsText, finalText),
           `${p} 人工归并结果丢本侧独有行`,
           violations,
           caps,
         )
         recordSideLosses(
-          lostAddedLines(baseText, theirsText, oursText, text),
+          lostAddedLines(baseText, theirsText, oursText, finalText),
           `${p} 人工归并结果丢对侧独有行`,
           violations,
           caps,
@@ -2244,6 +2338,47 @@ function selfTest() {
       '丢行判据:重数下降也算丢失',
       lostAddedLines('a\n', 'a\nn\nn\n', 'a\n', 'a\nn\n').join() === 'n',
     )
+    // ── 多余副本判据(G-585):并集只判"少"不判"多",这一族补的是另一半 ──────────────
+    // 立因实测:2026-09-28 一份归档件用 `git merge-file --union` 手解后比两侧多 187 行,
+    // 其中 186 行是多余副本,而当时零损失断言一路报绿 ⇒ 脏数据无声入库。
+    ok(
+      '多余判据:同一行超过两侧最大值 ⇒ 点名并给出多几份',
+      (() => {
+        const r = excessAddedLines('base\n', 'base\nx\n', 'base\nx\n', 'base\nx\nx\nx\n')
+        return r.length === 1 && r[0].line === 'x' && r[0].excess === 2 && r[0].bound === 1
+      })(),
+    )
+    ok(
+      '多余判据的界:两侧都没有的一行不算多余(只管份数,不管凭空多一行)',
+      excessAddedLines('base\n', 'base\n', 'base\n', 'base\nz\nz\n').length === 0,
+    )
+    ok(
+      '多余判据:空行不参与(否则段落空行的增减会被整族读成副本)',
+      excessAddedLines('\n', '\n\n', '\n\n', '\n\n\n').length === 0,
+    )
+    ok(
+      '封顶出口:收回最大值、保留先出现的份,且封顶后仍过"不得减少"断言(不是删干净)',
+      (() => {
+        const c = capAddedDuplicates('b\n', 'b\nx\n', 'b\nx\n', 'b\nx\nx\n\ny\n')
+        return (
+          c.text === 'b\nx\n\ny\n' &&
+          c.removed.length === 1 &&
+          c.removed[0].line === 'x' &&
+          c.removed[0].dropped === 1 &&
+          lostAddedLines('b\n', 'b\nx\n', 'b\nx\n', c.text).length === 0 &&
+          lostAddedLines('b\n', 'b\nx\n', 'b\nx\n', c.text).pointerCapped.length === 0
+        )
+      })(),
+    )
+    ok(
+      '严格档边界:只按台账族路径判红,普通源码路径不判(把"两侧各写一行同样的注释"挡在判据之外)',
+      isDupCapStrictPath('PROJECT_PLAN.md') &&
+        isDupCapStrictPath('apps/web/PROJECT_PLAN.md') &&
+        isDupCapStrictPath('.ihui-agent/archive/PROJECT_PLAN_selftest.md') &&
+        !isDupCapStrictPath('src/NOT_PROJECT_PLAN.md') &&
+        !isDupCapStrictPath('apps/cli/src/tools/index.ts') &&
+        !isDupCapStrictPath(undefined),
+    )
     // ── 副本指针 cap(G-814386):少带份数合法,少带信息非法 ──────────────────────────
     // 三对正反例都必须"同一对输入、只差指针字样",否则例外一旦写宽,普通行的丢失也会被一起放过。
     const PTR = '〔【归并】重复登记副本(2026-09-26):同主键另一条,派单以那条为准。〕'
@@ -3070,16 +3205,23 @@ async function main() {
     if (argv[i] === '--take-theirs' && argv[i + 1]) takeTheirs.add(argv[++i])
   // --resolve <path>=<文件>(可重复):人工判完冲突后的**回灌出口**。与 --take-ours 的关键区别:
   //   它不选边 —— 喂进来的整份内容照样过"两侧独有行不得减少"的断言,少哪一侧当场 violations。
+  // --union-capped <path>=<文件>(可重复,G-585):同一个入口,但先按"两侧最大值"机械封顶多余副本
+  //   再入库。它的存在理由:并集的**另一半**判据(防"多")在台账类路径上判红时,人工要么手删重复行
+  //   (可能删多 = 丢内容),要么被迫绕过本器去做裸 git 手术。封顶出口让"收回份数"这一步由代码做,
+  //   且封顶后的内容仍过同一条零损失断言 ⇒ 少一条行就当场红,不是静默。
   const resolutions = new Map()
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
-    if (a !== '--resolve' || !argv[i + 1]) continue
+    const capped = a === '--union-capped'
+    if (a !== '--resolve' && !capped) continue
+    if (!argv[i + 1]) continue
     const eq = argv[++i].indexOf('=')
     if (eq <= 0) {
-      console.log(`❌ --resolve 需要 <path>=<内容文件>,得到的是:${argv[i]}`)
+      console.log(`❌ ${a} 需要 <path>=<内容文件>,得到的是:${argv[i]}`)
       process.exit(2)
     }
-    resolutions.set(argv[i].slice(0, eq), argv[i].slice(eq + 1))
+    const file = argv[i].slice(eq + 1)
+    resolutions.set(argv[i].slice(0, eq), capped ? { file, capped: true } : file)
   }
   // --accept-state-growth <维>=<理由>(可重复):并集天然放大的三条量纲(F1 / F4 / F3-rotatedAuto)
   //   的**声明式出口**。它不是"关掉判据" —— 每条都必须带理由,两个读数与理由一起打印,并写进
@@ -3310,6 +3452,9 @@ export const __test__ = {
   blobOf,
   diffNames,
   lostAddedLines,
+  excessAddedLines,
+  capAddedDuplicates,
+  isDupCapStrictPath,
   planStateRegressions,
   mergeNoteCrossLineCaliber,
   mergeThreeBlobs,
