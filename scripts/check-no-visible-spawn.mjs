@@ -32,6 +32,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // 判定面取材的唯一出口(2026-09-26 迁):git 绝对路径 / stdio[0]=pipe / 一次 batch 读一批 /
 // maxBuffer 给足,这五件事各门自己写必错 —— 见 scripts/lib/face-reader.mjs 头注。
 import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+// 正则字面量位置只从这一份取(2026-10-04):本门自带的分词器不认正则,含引号的正则
+// (如 `/['"]--stdin['"]/`)会让引号配对失同步 ⇒ 其后**每一个**字符串字面量都可能被读成代码,
+// 于是别的门的自检夹具被当生产违规 → 干净 HEAD 恒红。逐字形说明见 maskInert 头注。
+// ⚠️ 只借"哪些区间是正则体"这一维;模板插值里是真实代码,本门仍要保持不掩(见下)。
+import { scanSpans } from './lib/code-mask.mjs'
 
 /** ROOT 由脚本自身位置推导(§15,不得写死盘符);此前依赖 process.cwd(),换 cwd 即静默扫不到文件。 */
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -116,11 +121,34 @@ export function skipQuoted(src, start, quote) {
  *
  * 模板插值 `${…}` 里是**真实代码**,必须保持不掩 —— 否则 `spawn(\`…${execFileSync('git', a)}\`)`
  * 这类真调用会被一起放过,判据就变松了。
+ *
+ * ── 正则字面量这一维为什么必须补(2026-10-04 实测,本门在干净 HEAD 上恒红)────────────
+ * 上面这层分词只认注释与三种引号,**不认正则**。而正则里出现引号是常事,本仓实载:
+ *   `scripts/check-spawn-stdio.mjs:90` `/\bstdin\s*:\s*['"]pipe['"]/`
+ *   `scripts/check-spawn-stdio.mjs:92` `/['"]--stdin['"]/`
+ * 分词器走到 `['"]` 的 `'` 就当成字符串开头,再遇下一个 `'` 闭合 ⇒ **引号全局错位**,
+ * 于是该文件里 `check-spawn-stdio.mjs:719/724` 两行**自检夹具的字符串字面量**
+ * (`'const proc = spawnSync("node", …)'`)被读成真实代码 → 本门全量档 rc=1。
+ * 那是别的门的**故意构造的判据字符串**,与"生产代码漏 windowsHide"无关;本门此前已为
+ * `check-git-read-timeout.mjs` 的同型夹具修过一次(头注 L114 记着),但那次只补了那一处夹具,
+ * 没补"分词器认不认正则"这个根因,于是换一个含引号正则的文件就复发 ——
+ * **同一根因第二次复发,说明修的是落点不是判据**。
+ * 修法:正则区间的识别**只从 `lib/code-mask.mjs` 的 `scanSpans` 取**(§22c 不得另写一份分词器)。
+ * 方向锁:正则体是**模式不是代码**,掩掉它只会让判据更准、不会放过真调用 ⇒ 这一维**只紧不松**。
  */
 export function maskInert(src) {
   const mask = new Uint8Array(src.length)
+  // 正则体(含定界符与 flags)先掩:它内部的引号/括号是模式,不是代码 token。
+  for (const sp of scanSpans(src)) {
+    if (sp.kind !== 'regex') continue
+    for (let k = sp.start; k < sp.end; k++) mask[k] = 1
+  }
   let i = 0
   while (i < src.length) {
+    if (mask[i]) {
+      i++
+      continue
+    }
     const ch = src[i]
     const nx = src[i + 1]
     if (ch === '/' && nx === '/') {
@@ -427,6 +455,50 @@ export function passesFilter(f) {
   )
 }
 
+/**
+ * 「这一份内容是不是来自被审面」的归属判据(G-1058606)。
+ *
+ * 全量档刻意把未跟踪文件也扫进来(见 `listCandidates`),但它们的正文只能来自**磁盘** ——
+ * 旧实现在这种路径上照样记进"生产代码",而结论行仍印 `判定面:HEAD blob`,
+ * 于是别人未提交的在飞脚本被报成本仓的存量违规。现在按"该路径在不在被审面的树里"分桶:
+ *  - 在 ⇒ `tracked`,参与退出码;
+ *  - 不在 ⇒ `inflight`,**只报数、逐条点名、不进生产代码计数**(它不是任何人的欠账,
+ *    也不是"已确认没问题" —— 报数就是它唯一的正当去向)。
+ * 两桶都来自同一遍扫描 ⇒ 不存在"为了措辞干净把 --others 那一支删掉"的问题(票面②)。
+ *
+ * @param trackedPaths 被审面(HEAD 树 / 索引)里的路径全集;`--worktree` 档传 null ⇒ 全部算 tracked
+ */
+export function splitByFace(files, trackedPaths) {
+  if (trackedPaths === null) return { tracked: [...files], inflight: [] }
+  const tracked = []
+  const inflight = []
+  for (const f of files) (trackedPaths.has(f) ? tracked : inflight).push(f)
+  return { tracked, inflight }
+}
+
+/** 被审面的路径全集:全量档 = HEAD 树,`--staged` = 索引;`--worktree` 没有"面"可言 ⇒ 返回 null。 */
+export function facePathSet(root, face) {
+  if (face === 'worktree') return null
+  const args =
+    face === 'staged'
+      ? ['diff', '--cached', '--name-only', '--diff-filter=ACMR']
+      : ['ls-tree', '-r', '--name-only', '-z', 'HEAD']
+  const out = gitRaw(args, root, { encoding: 'utf8' })
+  if (out === null) throw new Undetermined(`${face === 'staged' ? '索引' : 'HEAD'} 面路径清单取不到`)
+  return new Set(
+    out
+      .split(face === 'staged' ? '\n' : '\0')
+      .map((s) => s.trim())
+      .filter(Boolean),
+  )
+}
+
+/** 结论行的面名必须与实际取材一致:掺了在飞副本就不能再一律印 HEAD blob。 */
+export function faceLabel(face, inflightCount) {
+  const base = FACE_LABEL_SHORT[face]
+  return inflightCount > 0 && face !== 'worktree' ? `${base} ⊕ 在飞未入库` : base
+}
+
 /** 待扫文件清单。
  *  全量模式必须并上"未被 .gitignore 忽略的未跟踪文件" —— 只跑 git ls-files 时,
  *  新建但还没 git add 的脚本(如 scripts/ensure-silent-tasks.mjs 曾长期如此)完全不在视野内。
@@ -524,6 +596,31 @@ function selfTest() {
       want: 0,
     },
     // --- 盲区 2:未跟踪文件纳入扫描(判据在 listCandidates,详见 tests 镜像用例) ---
+    // --- 正则字面量档(2026-10-04)---
+    // 这组四条是"含引号正则 ⇒ 引号配对失同步 ⇒ 其后字符串夹具全被读成代码"的钉子。
+    // 载体是本仓真实形态 `scripts/check-spawn-stdio.mjs:90/92` 的 `['"]` 写法,不是构造的新形状。
+    {
+      name: 'R1 含引号正则之后的字符串夹具不判红(缺陷形态,真仓 2026-10-04 恒红根因)',
+      src: `const RE = /['"]--stdin['"]/\nconst c = 'spawnSync("node", ["-e", "s"], { })'`,
+      want: 0,
+    },
+    {
+      name: 'R2 正则体里写着类调用形态 ⇒ 不判红(模式不是代码)',
+      src: `const PAT = /execFileSync\\("git"/`,
+      want: 0,
+    },
+    {
+      // 反向锁:正则档只紧不松 —— 模板插值里是**真实代码**,必须仍然判红。
+      name: 'R3 反向锁:模板插值内真实 git 派生调用仍判红(正则档不得让判据变松)',
+      src: 'const h = `${execFileSync("git", ["rev-parse"], { encoding: "utf8" })}`',
+      want: 1,
+    },
+    {
+      // 防越界:`/` 在除法位置不得被当成正则起点,否则其后的真调用会被误掩放过。
+      name: 'R4 除法表达式后的真实调用仍判红(正则起点判定不越界)',
+      src: `const q = total / count / 2\nconst r = spawnSync('git', ['x'], {})`,
+      want: 1,
+    },
   ]
   // ihui:selftest-samples:end
   let bad = 0
@@ -583,6 +680,29 @@ function selfTest() {
         }
       })(),
     },
+    // --- G-1058606(2026-10-10):在飞未入库必须单独成档,不参与"生产代码"计数与退出码 ---
+    {
+      name: '取材面⑥:同一形态分两桶 —— 不在被审面的路径进"在飞",绝不进"生产代码"(两桶不得互顶)',
+      pass:
+        (() => {
+          const r = splitByFace(['a.mjs', 'b.mjs'], new Set(['a.mjs']))
+          return r.tracked.length === 1 && r.tracked[0] === 'a.mjs' && r.inflight.length === 1 && r.inflight[0] === 'b.mjs'
+        })(),
+    },
+    {
+      name: '取材面⑦:掺了在飞副本时结论行必须改名(旧写法一律印 HEAD blob = 把磁盘读数写成被审面读数)',
+      pass:
+        faceLabel('head', 1) !== FACE_LABEL_SHORT.head &&
+        faceLabel('head', 1).includes('在飞') &&
+        faceLabel('head', 0) === FACE_LABEL_SHORT.head,
+    },
+    {
+      name: '取材面⑧反向锁:--worktree 档没有"被审面"可言 ⇒ 不得凭空造出在飞档(那会替人免检)',
+      pass: (() => {
+        const r = splitByFace(['a.mjs', 'b.mjs'], null)
+        return r.inflight.length === 0 && r.tracked.length === 2
+      })(),
+    },
   ]
   for (const c of faceCases) {
     if (!c.pass) bad++
@@ -605,10 +725,11 @@ async function main() {
     console.error(`❌ [check-no-visible-spawn] 无法判定(exit 2): ${error}`)
     process.exit(2)
   }
-  const mode = `${face === 'staged' ? '--staged' : face === 'worktree' ? '--worktree' : '全量'}(判定面:${FACE_LABEL_SHORT[face]})`
   let files
   let texts
+  let trackedPaths
   try {
+    trackedPaths = facePathSet(ROOT, face)
     files = listCandidates(face === 'staged')
     texts = readFaceContent(ROOT, face, files)
   } catch (e) {
@@ -617,11 +738,19 @@ async function main() {
     if (!(e instanceof Undetermined)) console.error(e?.stack ?? '')
     process.exit(2)
   }
+  // 分桶(G-1058606):不在被审面里的路径只能按工作树判 ⇒ 它们既不是"仓库违规"也不是"已确认干净"。
+  const { tracked, inflight } = splitByFace(files, trackedPaths)
+  const faceMode = `${face === 'staged' ? '--staged' : face === 'worktree' ? '--worktree' : '全量'}(判定面:${faceLabel(face, inflight.length)})`
   const prod = []
   const test = []
-  for (const f of files) {
+  const inflightHits = []
+  for (const f of tracked) {
     const found = scanSource(texts.get(f), f)
     if (found.length) (TEST_PATH.test(f) ? test : prod).push(...found)
+  }
+  for (const f of inflight) {
+    if (TEST_PATH.test(f)) continue
+    inflightHits.push(...scanSource(texts.get(f), f))
   }
   const HINTS = {
     'visible-spawn': '   修复:在该调用 options 里加 `windowsHide: true`(无 options 则补 `{ windowsHide: true }`)。',
@@ -630,6 +759,7 @@ async function main() {
       '   正确写法:先用 `Get-CimInstance Win32_Process` 拿 `ExecutablePath`,按**本仓 target 目录前缀**筛出 pid,\n' +
       '   再 `taskkill /PID <pid> /F`;筛不出 pid 或问不到路径时**一个都不杀**并大声报原因。',
   }
+  const mode = faceMode
   for (const kind of ['visible-spawn', 'name-kill']) {
     const group = prod.filter((v) => (v.kind ?? 'visible-spawn') === kind)
     if (!group.length) continue
@@ -644,7 +774,18 @@ async function main() {
       `⚠️  [check-no-visible-spawn ${mode}] 测试代码 ${test.length} 处(warn-only:测试由终端 runner 派生,子进程继承已有控制台,不新分配窗口)`,
     )
   }
-  if (!prod.length) console.log(`✅ [check-no-visible-spawn ${mode}] 扫描 ${files.length} 文件,生产代码 0 违规`)
+  if (inflightHits.length) {
+    console.log(
+      `ℹ️  [check-no-visible-spawn ${mode}] 在飞未入库 ${inflightHits.length} 处(路径不在被审面,内容只能按工作树判 ⇒ 只报数、不参与退出码,由持有者自己收口):`,
+    )
+    for (const v of inflightHits.slice(0, 40)) console.log(`   ${v.file}:${v.line}  ${v.snippet}`)
+    if (inflightHits.length > 40) console.log(`   ... 其余 ${inflightHits.length - 40} 处`)
+  }
+  if (!prod.length)
+    console.log(
+      `✅ [check-no-visible-spawn ${mode}] 扫描 ${files.length} 文件,生产代码 0 违规` +
+        (inflight.length ? `(另有 ${inflight.length} 个在飞未入库路径只报数)` : ''),
+    )
   process.exit(prod.length ? 1 : 0)
 }
 
@@ -656,6 +797,9 @@ export const __test__ = {
   isConsoleTarget,
   listCandidates,
   readFaceContent,
+  splitByFace,
+  facePathSet,
+  faceLabel,
   CONSOLE_LITERALS,
   stripSelfTestRegions,
   SELFTEST_BEGIN,
