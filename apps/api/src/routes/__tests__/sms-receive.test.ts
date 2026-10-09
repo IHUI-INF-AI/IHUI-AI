@@ -330,8 +330,18 @@ describe('Admin SMS Receive — d1jiema 对接', () => {
     // 快照累积:窗口解析项逐条抄进本地,响应带并集总数(攻破 24h/100 条上限)
     expect(vi.mocked(snapshotUsedRecords)).toHaveBeenCalledTimes(1)
     expect(vi.mocked(snapshotUsedRecords).mock.calls[0]?.[0]).toEqual([
-      expect.objectContaining({ phone: '16512345678', fee: '0.45', platform: 'trae', usageKind: 'login' }),
-      expect.objectContaining({ phone: '19251705122', fee: '0.45', platform: 'trae', usageKind: 'register' }),
+      expect.objectContaining({
+        phone: '16512345678',
+        fee: '0.45',
+        platform: 'trae',
+        usageKind: 'login',
+      }),
+      expect.objectContaining({
+        phone: '19251705122',
+        fee: '0.45',
+        platform: 'trae',
+        usageKind: 'register',
+      }),
     ])
     expect(vi.mocked(getUsedUnionCount)).toHaveBeenCalledTimes(1)
     expect(first.json().data.totalUnion).toBe(0)
@@ -348,7 +358,8 @@ describe('Admin SMS Receive — d1jiema 对接', () => {
   it('used-union 返回本地累积流水与并集总数(纯本地读,无平台无限频)', async () => {
     vi.mocked(getUsedUnionItems).mockResolvedValueOnce([
       {
-        id: 1,
+        // id 列是 uuid(`packages/database/src/schema/sms-used-snapshots.ts`),不是自增整型。
+        id: '0f0c1e6a-2b3d-4e5f-8a9b-0c1d2e3f4a5b',
         phone: '16512345678',
         fee: '0.45',
         platform: 'trae',
@@ -370,7 +381,12 @@ describe('Admin SMS Receive — d1jiema 对接', () => {
     const data = res.json().data
     expect(data.total).toBe(128)
     expect(data.items).toHaveLength(1)
-    expect(data.items[0]).toMatchObject({ phone: '16512345678', fee: '0.45', platform: 'trae', usageKind: 'login' })
+    expect(data.items[0]).toMatchObject({
+      phone: '16512345678',
+      fee: '0.45',
+      platform: 'trae',
+      usageKind: 'login',
+    })
   })
 
   it('used-union limit 越界返回 400', async () => {
