@@ -89,6 +89,21 @@ export const PixelRatio = {
   roundToNearestPixel: (size: number) => size,
 }
 /**
+ * 设备指纹采集器读 `I18nManager.getConstants().localeIdentifier` 作为语言段(它比 `Intl` 更接近
+ * RN 真机上实际生效的那份 locale;而 `I18nManager.localeIdentifier` 这个直写属性在 RN 的 .d.ts
+ * 里根本不存在,写它编译不过)。同上一条规矩:ESM 下 import 一个替身没有的出口不是拿到 undefined,
+ * 而是 **整个模块加载失败** ⇒ 凡真身用到的 API 一律在这里补齐,不在各套件里各自 vi.mock。
+ */
+export const I18nManager = {
+  localeIdentifier: 'en-US',
+  isRTL: false,
+  doLeftAndRightSwapInRTL: true,
+  allowRTL: (_allow: boolean) => {},
+  forceRTL: (_force: boolean) => {},
+  swapLeftAndRightInRTL: (_flip: boolean) => {},
+  getConstants: () => ({ isRTL: false, doLeftAndRightSwapInRTL: true, localeIdentifier: 'en-US' }),
+}
+/**
  * src/theme/active-tokens.ts 在**模块求值时**调 Appearance.getColorScheme(),
  * 并在 release 下靠 DevSettings 之外的路径落盘。stub 缺这两个导出时,
  * 任何 transitively import 主题层的测试文件都会以 "No 'Appearance' export is
@@ -227,6 +242,7 @@ const ReactNative = {
   useWindowDimensions,
   StyleSheet,
   Dimensions,
+  I18nManager,
   Animated,
   BackHandler,
 }

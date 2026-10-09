@@ -19,16 +19,19 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { __test__ } from '../check-single-branch.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const GATE_SRC = readFileSync(join(HERE, '..', 'check-single-branch.mjs'), 'utf8')
 const RUNNER_SRC = readFileSync(join(HERE, '..', 'guardian-runner.mjs'), 'utf8')
 
-const { branchTipTimes, inFlightExempt, mirrorRemoteSet, nonLocalExempt } = __test__
+const { branchTipTimes, inFlightExempt, mirrorRemoteSet, nonLocalExempt, remoteHeadNames, staleExempt } =
+  __test__
 const HOUR = 3600000
 const NOW = 1_800_000_000_000
 
@@ -197,4 +200,202 @@ function selfTestReturnsZero() {
   })
   return r.status === 0 ? 0 : 1
 }
+
+// ---------------------------------------------------------------------------
+// 2026-10-09 第三类豁免 stale（本机挂着远程跟踪引用、远端已无该分支）
+// ---------------------------------------------------------------------------
+
+/**
+ * 纯解析器：`git ls-remote --heads` 的文本里**只有 refs/heads 行算分支**。
+ * 这条不是形式主义 —— 本仓真出现过"远端已删分支、但三枚 backup tag 仍指着那个 commit"
+ * 的现场（`backup/cleanup-20261002-wip-collect` 等）。若解析器吃得下 `refs/tags/...`，
+ * 一条被删的旁支会因为它的备份 tag 而被判"远端还在" ⇒ 豁免失效、恒红回来；
+ * 反过来若把 tag 名当分支名比较，则永远匹配不上 ⇒ 真分支被当成 stale 放走。两个方向都红。
+ */
+test('T14 解析器形状锁：ls-remote 文本里 tag 行不得算分支，空输入不得算"全都没有"', () => {
+  const heads = remoteHeadNames(
+    [
+      'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678\trefs/heads/main',
+      'b74ad5a64b2351da23dee3f649d1c41c8fa65c69\trefs/heads/wip/collect-2026-09-30',
+      'cecaca0000000000000000000000000000000000\trefs/tags/backup/cleanup-20261002-wip-collect',
+      'deadbeef\trefs/heads/',
+      '',
+    ].join('\n'),
+  )
+  assert.deepEqual(
+    [...heads].sort(),
+    ['main', 'wip/collect-2026-09-30'],
+    '必须只收 refs/heads/ 下的非空分支名（tag 行与空段都算噪声）',
+  )
+  // 空输入 ⇒ 空集；调用方据此判"问不到"，不得由解析器自己伪造一个"有清单"的结果
+  assert.equal(remoteHeadNames('').size, 0)
+  assert.equal(remoteHeadNames(null).size, 0)
+})
+
+test('T15 stale 判据四向：远端无⇒豁免 / 远端有⇒仍判 / 问不到⇒不豁免 / 本地分支永不归这一档', () => {
+  const heads = remoteHeadNames('aaaa\trefs/heads/main\nbbbb\trefs/heads/wip/real\n')
+  const q = { remoteHeads: heads, remoteQueryable: true }
+  assert.equal(staleExempt('origin/wip/gone', q), 'stale')
+  assert.equal(staleExempt('upstream/wip/gone', q), 'stale', 'origin 的历史别名问的是同一上游')
+  assert.equal(staleExempt('origin/wip/real', q), null, '远端真有的滞留旁支必须仍判（§9b 拦的就是它）')
+  assert.equal(staleExempt('origin/main', q), null)
+  assert.equal(staleExempt('wip/gone', q), null, '本地分支永远要判')
+  assert.equal(staleExempt('gitee/wip/gone', q), null, '镜像远端归 mirror 档，不得由 stale 抢')
+  assert.equal(staleExempt('origin/wip/gone', { remoteHeads: heads, remoteQueryable: false }), null)
+  assert.equal(staleExempt('origin/wip/gone', { remoteQueryable: true }), null, '没给集合⇒不豁免')
+})
+
+/**
+ * 装车锁：判据写在文件里而主流程没调用 = 提交链上一路绿灯（守门 70/76/81/102 同型，
+ * 本仓为这一条写过不止一次反向测试）。这里要的是**结构**证据：
+ * stale 必须出现在"决定违规清单"的那一段，而不是只活在 self-test 里。
+ */
+test('T16 装车锁：stale 判据必须接进主流程的违规清单，且只在"本来要判红"时才联网', () => {
+  const mainBody = GATE_SRC.slice(GATE_SRC.indexOf('function main()'), GATE_SRC.indexOf('export function selfTest'))
+  assert.ok(mainBody.includes('staleExempt('), '主流程没调用 staleExempt ⇒ 这一档豁免结构上不存在')
+  assert.ok(mainBody.includes('probeRemoteHeads('), '主流程没问远端真值 ⇒ staleExempt 永远拿不到集合')
+  assert.ok(mainBody.includes('exempt.stale.push('), '判出的 stale 必须进豁免清单并报名')
+  // 成本方向：这道门挂在每次提交上，无条件联网会把全队提交拖慢（§12e 的成本口径同门 195）。
+  const callSite = mainBody.slice(mainBody.indexOf('probeRemoteHeads(') - 260, mainBody.indexOf('probeRemoteHeads('))
+  assert.match(callSite, /if\s*\(\s*illegal\.length/, 'ls-remote 必须只在有候选红的路径上调用')
+})
+
+test('T17 出路锁：修复提示必须给出 prune 这条正解，并明写 push --delete 对该型无效', () => {
+  // 本门当时的失效方式不是"多放"，而是**给一条必然失败的出路** —— 对它跑 push --delete 报
+  // "remote ref does not exist"，人于是认定门坏了，走 --no-verify（当天 safe-commit 的归因行就是这么写的）。
+  assert.match(GATE_SRC, /git fetch origin --prune/, '失败提示里没有唯一正解 ⇒ 等于没有出路')
+  assert.match(GATE_SRC, /push --delete[^\n]*必然失败|对一条远端不存在的分支/, '必须点名旧出路对这一型不成立')
+  assert.match(GATE_SRC, /远端已无此分支/, '报名行要能让人认出这是哪一型，而不是含糊的"幻影"')
+})
+
+/** 造一份真 git 现场：bare origin + 推送方 A + 只读过一次远端的 B（B 留着陈旧的远程跟踪引用）。 */
+function makeStalenessFixture(t) {
+  const dir = mkScratch('single-branch-stale')
+  t.after(() => rmScratch(dir))
+  const git = (cwd, args, env = {}) => {
+    const r = spawnSync('git', ['-c', 'safe.directory=*', '-c', 'user.email=t@e.t', '-c', 'user.name=T', ...args], {
+      cwd,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120000,
+      env: { ...process.env, ...env },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    assert.equal(r.status, 0, `git ${args.join(' ')} 失败：${(r.stderr || r.stdout || '').slice(0, 400)}`)
+    return r.stdout
+  }
+  const origin = join(dir, 'origin.git')
+  mkdirSync(origin, { recursive: true })
+  git(origin, ['init', '--bare', '-q', '.'])
+  const a = join(dir, 'a')
+  mkdirSync(a, { recursive: true })
+  git(a, ['init', '-q', '-b', 'main', '.'])
+  writeFileSync(join(a, 'f.txt'), 'x\n')
+  git(a, ['add', 'f.txt'])
+  git(a, ['commit', '-q', '-m', 'init'], { GIT_AUTHOR_DATE: OLD_DATE, GIT_COMMITTER_DATE: OLD_DATE })
+  git(a, ['remote', 'add', 'origin', origin])
+  git(a, ['push', '-q', 'origin', 'main'])
+  git(a, ['branch', 'wip/gone'])
+  git(a, ['push', '-q', 'origin', 'wip/gone'])
+  // B 在分支还存在的时刻取过一次快照 ⇒ 它手上有对象、也有跟踪引用
+  const b = join(dir, 'b')
+  git(dir, ['clone', '-q', origin, b])
+  // A 把远端分支删掉（本机跟踪引用随之消失，但 B 的那份留着 —— 正是 2026-10-09 那台机的形态）
+  git(a, ['push', '-q', 'origin', '--delete', 'wip/gone'])
+  const shown = git(b, ['branch', '-a'])
+  assert.match(shown, /remotes\/origin\/wip\/gone/, '夹具没造出"远端已无、本机仍挂"的形态（后续断言全部无效）')
+  // 对象在 B 里必须**仍可解析** —— 否则这一型会落进 phantom 档，本测试测的就不是 stale
+  const resolvable = spawnSync('git', ['-C', b, 'rev-parse', '--verify', 'refs/remotes/origin/wip/gone^{commit}'], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 30000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  assert.equal(resolvable.status, 0, '夹具里那条 ref 的 sha 必须可解析，否则测的是 phantom 而不是 stale')
+  // 把门体连它的 import 闭包拷进 B（ROOT 由脚本自身位置推导 ⇒ 落在 B 的仓根）
+  const copied = copyScriptWithClosure(join(HERE, '..'), 'check-single-branch.mjs', join(b, 'scripts'), [
+    'lib/face-reader.mjs',
+  ])
+  assert.ok(copied.includes('check-single-branch.mjs'), '门体没拷进去')
+  return { dir, origin, a, b, gate: join(b, 'scripts', 'check-single-branch.mjs') }
+}
+
+const OLD_DATE = '2020-01-01T00:00:00 +0000'
+
+test('T18 端到端正向：远端已无、本机仍挂 ⇒ 判绿并逐条点名（旧写法在这里是无解的恒红）', (t) => {
+  const { b, gate } = makeStalenessFixture(t)
+  const r = spawnSync(process.execPath, [gate], {
+    cwd: b,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 180000,
+    env: { ...process.env, IHUI_SINGLE_BRANCH_GRACE_HOURS: '0' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  const out = `${r.stdout || ''}${r.stderr || ''}`
+  assert.equal(r.status, 0, `远端已无该分支时本门必须放行，实得 rc=${r.status}\n${out.slice(0, 1200)}`)
+  assert.match(out, /origin\/wip\/gone/, '豁免必须报名，静默放行等于没有这一维')
+  assert.match(out, /git fetch origin --prune/, '报告里要给出唯一正解')
+})
+
+test('T19 端到端反向：远端真有的超窗旁支必须仍判红（开了豁免不等于关掉判据）', (t) => {
+  const { origin, b, gate } = makeStalenessFixture(t)
+  // 在 B 里造一条**远端确实存在**的旁支：先推上去，再把 B 的本地分支删掉只留跟踪引用，
+  // 使候选面里出现 origin/wip/real（提交时刻压到 2020 年，保证超出任何在飞窗口）。
+  spawnSync('git', ['-C', b, 'push', '-q', 'origin', 'refs/remotes/origin/main:refs/heads/wip/real'], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 120000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  spawnSync('git', ['-C', b, 'fetch', '-q', 'origin'], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 120000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  const r = spawnSync(process.execPath, [gate], {
+    cwd: b,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 180000,
+    env: { ...process.env, IHUI_SINGLE_BRANCH_GRACE_HOURS: '0' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  const out = `${r.stdout || ''}${r.stderr || ''}`
+  assert.equal(r.status, 1, `远端真在的旁支必须判红，实得 rc=${r.status}\n${out.slice(0, 1200)}`)
+  assert.match(out, /origin\/wip\/real/, '红点必须点名那条真分支')
+  assert.ok(!/不判但如实报数:1 个"远端已无此分支"/.test(out) || out.includes('origin/wip/real'),
+    '真分支不得被 stale 档吞掉（吞掉的那条会从报告里消失，而不是变成红）')
+  // 夹具自证：origin 里确实有那条分支（否则 T19 只是在测一条空规则）
+  const ls = spawnSync('git', ['-C', b, 'ls-remote', '--heads', origin], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 120000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  assert.match(ls.stdout, /refs\/heads\/wip\/real/, '夹具反向对照的前提')
+})
+
+test('T20 端到端失效方向：远端问不到 ⇒ 不豁免，照旧判红（失效方向必须是多拦）', (t) => {
+  const { b, gate } = makeStalenessFixture(t)
+  // 把 B 的 origin 指到一个不存在的目录：ls-remote 必失败，而那条陈旧跟踪引用仍在。
+  spawnSync('git', ['-C', b, 'remote', 'set-url', 'origin', join(b, 'no-such-origin.git')], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 60000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  const r = spawnSync(process.execPath, [gate], {
+    cwd: b,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 180000,
+    env: { ...process.env, IHUI_SINGLE_BRANCH_GRACE_HOURS: '0' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  const out = `${r.stdout || ''}${r.stderr || ''}`
+  assert.equal(r.status, 1, `问不到远端时必须回到原判据，实得 rc=${r.status}\n${out.slice(0, 1200)}`)
+  assert.match(out, /取不到/, '必须喊出"远端清单取不到"，不得静默按"都没有"处理')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
