@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils'
 import { getBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { PortalPanel } from '@/components/feedback/portal-panel'
+import { isTopOverlay } from '@/lib/overlay-stack'
 import { useSearchMentions } from '@/hooks/use-context-mention'
 import { useMentionTranslator } from '@/hooks/use-mention-dimension-label'
 import { viewOfDimensionId } from '@/components/chat/mention/dimension-views'
@@ -34,6 +35,10 @@ import {
   type MentionDimension,
   type MentionSelection,
 } from '@ihui/shared/chat/mention-engine'
+
+/** 层栈 id(见 @/lib/overlay-stack):@ 提及浮层 open 期间为一层,自有 Esc 只在栈顶消费
+ *  (同一 id 传给 PortalPanel 后由其统一 push/pop,两层 Esc 共用同一 isTopOverlay 判定) */
+const FILE_MENTION_POPOVER_OVERLAY_ID = 'file-mention-popover'
 
 interface MentionFile {
   id: string
@@ -291,6 +296,7 @@ export function FileMentionPopover({
       const current = allItems[activeIndex]
       if (current) pick(current)
     } else if (e.key === 'Escape') {
+      if (!isTopOverlay(FILE_MENTION_POPOVER_OVERLAY_ID)) return
       e.preventDefault()
       onClose()
     }
@@ -320,6 +326,7 @@ export function FileMentionPopover({
       side="top"
       align="start"
       gap={8}
+      overlayId={FILE_MENTION_POPOVER_OVERLAY_ID}
       testId="file-mention-popover"
       className="flex w-72 flex-col overflow-hidden rounded-xl border border-border bg-popover shadow-md"
     >
