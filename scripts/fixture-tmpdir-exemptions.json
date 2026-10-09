@@ -25,6 +25,21 @@
       "file": "scripts/tests/visible-window-probe.test.mjs",
       "reason": "HEAD:104 唯一的 tmpdir( 出现在**正则字面量** /tmpdir()/ 里:T3 形状锁用它断言被测对象(§5b 的可见窗口探针 scripts/visible-window-probe.mjs)不得取临时目录 —— 本测试文件自己不调 os.tmpdir(),其夹具走 mkScratch(可复核:该文件 import 的是 ../lib/scratch-dir.mjs,且 106 行另有一条 rawSource() 面上的 doesNotMatch(/from 'node:os'/) 锁)。本门的遮罩只抹注释与字符串、不抹正则(maskCommentsAndStrings 的既定语义),于是把「锁别人」的判据字样读成「自己用了」。既没有真实取 TEMP 的动作可迁,也不得为了让这一档变绿去改写那条断言的写法 —— 改了写法形状锁就失去它锁的东西。自清通道照本表口径:若日后把正则纳入遮罩面,本文件 rawHits 归 0 ⇒ 门按 rot 判红,届时删行(挂着腐烂的行比没有行更糟)。",
       "reviewBy": "2026-12-31"
+    },
+    {
+      "file": "scripts/check-temp-landing.mjs",
+      "reason": "HEAD:195 与 HEAD:366 两处 `tmpdir(` 都是**取这台机器活进程实得的 TEMP 值当判据输入**,不是造夹具:195 是 `liveProcessReadings({ env, tmp = tmpdir(), tiers, registryByKey })` 的默认实参,该函数头注明写「只报数,这一层的任何不等都不进 verdict」,用途正是让人看见\"要重开哪些宿主才真生效\";366 在同一轮里把 `opts.tmp || tmpdir()` 喂给它。可复核口径(本会话实跑):该文件 `grep -cE \"mkdtempSync|mkdirSync|rmSync\"` = **0** —— 全文件不建任何目录,故两处 `tmpdir(` 无一是落点。与已登记的 scripts/check-c-drive-pollution.mjs(490/594 同为取值对账)同型。迁成 mkScratch 或换成 HEAD 档常量 ⇒ 门看不见自己要量的运行时状态,§26 的 TEMP 漂移哨兵静默失效。到期重看条件:全机 TEMP 漂移消失(注册表与活进程同值)后,195 的默认实参可改显式注入,届时删本行。",
+      "reviewBy": "2027-03-31"
+    },
+    {
+      "file": "scripts/tests/check-button-text-wrap.test.mjs",
+      "reason": "HEAD:129(该文件唯一一处含 `tmpdir(` 的行,行内两次)出现在**反向断言**里:`!gate.TMP_DIR.startsWith(resolve(tmpdir())) && !gate.TMP_DIR.startsWith(tmpdir())`,消息文本即「取证落点不得跟着进程 TEMP 走(§15b:TEMP 可能仍钉在别的盘)」—— 它断言的恰好是\"不落 TEMP\",与本门红线同向。与已登记的 scripts/tests/visible-window-probe.test.mjs 同型(那条是判据字样被读成调用)。为让这一档变绿去改写这条断言的写法,等于让形状锁失去它所锁的东西;该文件自身夹具不走 TEMP,无迁移对象。",
+      "reviewBy": "2026-12-31"
+    },
+    {
+      "file": "scripts/typecheck-full.mjs",
+      "reason": "HEAD:198 `const _lockDir = join(tmpdir(), 'ihui-typecheck-full.lock')` 是**进程锁落点**而非用完即删的夹具,且该文件 190-197 行注释给出否证依据:锁放仓内会触发宿主 safe-delete shim 的批量守卫(SAFE_DELETE_BULK_GUARD_ERROR)⇒ tsc 根本没起来 ⇒ 守门报「退出码非 0 但未解析到任何报错文件路径」,重试无用只能跳门;注释另称 `_lockDir` 是单一常量、建/读/清 stale/exit 清五处全由它派生。**如实登记复核边界(不得读成已核实)**:注释点名的 `node-safe-delete-shim.cjs` / `OS_TMP_DIRS` 不在本仓 `node_modules`(本会话实跑 `find node_modules -maxdepth 4 -name \"*safe-delete*\"` 零命中,仓内除该 3 行注释外无第二处引用),即依据在宿主全局层、本面无从复核。真要收口须先在本机实测\"把锁挪进仓内会不会撞批量守卫\",属另票;留台账而不动代码,是因为盲迁会重新引入那个自锁式死锁。",
+      "reviewBy": "2026-12-31"
     }
   ]
 }
