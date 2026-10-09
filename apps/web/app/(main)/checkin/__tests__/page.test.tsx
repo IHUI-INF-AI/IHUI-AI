@@ -434,6 +434,25 @@ describe('签到助手页面 · 更新JWT/徽章/调度/过滤/加载更多', ()
     await waitFor(() => expect(screen.getByText('skippedToday')).toBeTruthy())
   })
 
+  it('一键全部签到:跳过 JWT 已过期账号并提示,不对其调用签到', async () => {
+    const expired = makeAccount({
+      id: 2,
+      name: '过期号',
+      jwt_exp: new Date(Date.now() - 60_000).toISOString(),
+    })
+    const fresh = makeAccount({ id: 3, name: '有效号' })
+    mockLoadSuccess({ accounts: [accountFixture, expired, fresh] })
+    render(<CheckinPage />)
+    const btn = await waitFor(() => screen.getByText('checkinAll'))
+    fireEvent.click(btn)
+    await waitFor(() => expect(manualCheckin).toHaveBeenCalledTimes(2))
+    // 过期号(id=2)不被调用,仅有效账号执行
+    expect(manualCheckin).toHaveBeenCalledWith(1)
+    expect(manualCheckin).toHaveBeenCalledWith(3)
+    expect(manualCheckin).not.toHaveBeenCalledWith(2)
+    await waitFor(() => expect(screen.getByText('skippedExpired')).toBeTruthy())
+  })
+
   it('积分看板 tab:有数据时渲染排行/趋势面板', async () => {
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getByText('boardTab')).toBeTruthy())
