@@ -31,19 +31,29 @@ import {
 import { useTauriIpcReady } from '@/hooks/use-desktop'
 import type { CheckinAccount, CheckinRecord, CheckinCreditsHistoryItem } from '@ihui/api-client'
 
-const { listAccounts, listRecords, listCredits, createAccount, deleteAccount, setEnabled, manualCheckin, updateJwt, updateGroup, schedulerStatus } =
-  vi.hoisted(() => ({
-    listAccounts: vi.fn(),
-    listRecords: vi.fn(),
-    listCredits: vi.fn(),
-    createAccount: vi.fn(),
-    deleteAccount: vi.fn(),
-    setEnabled: vi.fn(),
-    manualCheckin: vi.fn(),
-    updateJwt: vi.fn(),
-    updateGroup: vi.fn(),
-    schedulerStatus: vi.fn(),
-  }))
+const {
+  listAccounts,
+  listRecords,
+  listCredits,
+  createAccount,
+  deleteAccount,
+  setEnabled,
+  manualCheckin,
+  updateJwt,
+  updateGroup,
+  schedulerStatus,
+} = vi.hoisted(() => ({
+  listAccounts: vi.fn(),
+  listRecords: vi.fn(),
+  listCredits: vi.fn(),
+  createAccount: vi.fn(),
+  deleteAccount: vi.fn(),
+  setEnabled: vi.fn(),
+  manualCheckin: vi.fn(),
+  updateJwt: vi.fn(),
+  updateGroup: vi.fn(),
+  schedulerStatus: vi.fn(),
+}))
 
 // 残留审计基线报告(无残留)。vi.hoisted 提前:vi.mock 工厂在 import 期就要用它做默认值。
 const { cleanAudit } = vi.hoisted(() => ({
@@ -85,21 +95,18 @@ vi.mock('@/components/charts/EChart', () => ({
 }))
 
 vi.mock('next-intl', () => ({
-  useTranslations:
-    () =>
-    (key: string, values?: Record<string, unknown>) => {
-      if (values && 'name' in values) return `${key}:${values.name}`
-      if (values && 'days' in values) return `${key}:${values.days}`
-      if (values && 'time' in values) return `${key}:${values.time}`
-      if (values && 'delta' in values) return `${key}:${values.delta}`
-      if (values && 'ok' in values) return `${key}:${values.ok}/${values.total}`
-      if (values && 'ip' in values) return `${key}:${values.ip}`
-      if (values && 'hours' in values) return `${key}:${values.hours}`
-      if (values && 'n' in values) return `${key}:${values.n}`
-      if (values && 'files' in values)
-        return `${key}:${values.files}/${values.mb}/${values.sites}`
-      return key
-    },
+  useTranslations: () => (key: string, values?: Record<string, unknown>) => {
+    if (values && 'name' in values) return `${key}:${values.name}`
+    if (values && 'days' in values) return `${key}:${values.days}`
+    if (values && 'time' in values) return `${key}:${values.time}`
+    if (values && 'delta' in values) return `${key}:${values.delta}`
+    if (values && 'ok' in values) return `${key}:${values.ok}/${values.total}`
+    if (values && 'ip' in values) return `${key}:${values.ip}`
+    if (values && 'hours' in values) return `${key}:${values.hours}`
+    if (values && 'n' in values) return `${key}:${values.n}`
+    if (values && 'files' in values) return `${key}:${values.files}/${values.mb}/${values.sites}`
+    return key
+  },
 }))
 
 vi.mock('lucide-react', () => {
@@ -136,9 +143,23 @@ vi.mock('@/lib/tauri-bridge', () => ({
   checkinSnapshotDelete: vi.fn(),
 }))
 
+// 下面这五个是从「被 mock 的模块」直接 import 进来的,类型是**真实模块签名**
+// (如 `() => Promise<CheckinResetReport>`),不是 `Mock`。于是直接调 `.mockReset()` /
+// `.mockResolvedValue()` 一律 TS2339 —— 而 `next build` 会把测试文件也过一遍 type check,
+// 于是**整个生产构建红在这里**:部署循环 4 次重试全红于这些行,2026-10-10 01:07 起连续失败
+// 3h45m。净面干净可复现地把它抓了出来(红的是 HEAD 本身,不是环境或未提交污染)。
+// `vi.mocked` 是 vitest 官方的类型侧收窄:运行期返回同一个对象,不改 identity、不改行为,
+// 只让 TS 看见 `MockedFunction`。写法与本仓既有惯例一致
+// (apps/web/src/components/agents/__tests__/unified-task-dashboard.test.tsx:24)。
+// 与本文件上方 `vi.hoisted` 那批的区别:那批是自建 vi.fn,天生 Mock 类型,不需要这一步。
+const mCheckinOneClickReset = vi.mocked(checkinOneClickReset)
+const mCheckinGetPublicIp = vi.mocked(checkinGetPublicIp)
+const mCheckinAuditTraeResidual = vi.mocked(checkinAuditTraeResidual)
+const mCheckinSnapshotList = vi.mocked(checkinSnapshotList)
+const mUseTauriIpcReady = vi.mocked(useTauriIpcReady)
+
 vi.mock('@ihui/ui-react', () => {
-  const Passthrough =
-    (tag: string, testId?: string) =>
+  const Passthrough = (tag: string, testId?: string) =>
     function Passthrough({ children, ...rest }: React.PropsWithChildren<Record<string, unknown>>) {
       return (
         <div data-testid={testId ?? tag} {...rest}>
@@ -338,9 +359,7 @@ describe('签到助手页面 · 账号列表与记录', () => {
 
   it('删除:确认对话框中确认后调用删除端点', async () => {
     render(<CheckinPage />)
-    const delBtn = await waitFor(() =>
-      screen.getByRole('button', { name: 'delete' }),
-    )
+    const delBtn = await waitFor(() => screen.getByRole('button', { name: 'delete' }))
     fireEvent.click(delBtn)
     expect(screen.getByText('deleteTitle')).toBeTruthy()
     expect(screen.getByText('deleteDescription:主账号')).toBeTruthy()
@@ -420,7 +439,9 @@ describe('签到助手页面 · 更新JWT/徽章/调度/过滤/加载更多', ()
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
     expect(screen.getByText('jwtExpired')).toBeTruthy()
-    expect(screen.getByText(`cooldownUntil:${cooldownIso.slice(5, 16).replace('T', ' ')}`)).toBeTruthy()
+    expect(
+      screen.getByText(`cooldownUntil:${cooldownIso.slice(5, 16).replace('T', ' ')}`),
+    ).toBeTruthy()
     expect(screen.getByText('jwtExpiresSoon:3')).toBeTruthy()
     expect(screen.getByText(normalIso.slice(0, 10))).toBeTruthy()
   })
@@ -550,7 +571,10 @@ describe('签到助手页面 · 更新JWT/徽章/调度/过滤/加载更多', ()
 
   it('分组筛选:选择分组后账号表只显示该组账号(下拉 option 不受影响)', async () => {
     mockLoadSuccess({
-      accounts: [makeAccount({ id: 1, group: '主力' }), makeAccount({ id: 2, name: '小号', group: '' })],
+      accounts: [
+        makeAccount({ id: 1, group: '主力' }),
+        makeAccount({ id: 2, name: '小号', group: '' }),
+      ],
     })
     render(<CheckinPage />)
     const select = (await waitFor(() => screen.getByTestId('group-filter'))) as HTMLSelectElement
@@ -587,9 +611,7 @@ describe('签到助手页面 · 更新JWT/徽章/调度/过滤/加载更多', ()
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
     const select = screen.getByTestId('record-filter') as HTMLSelectElement
     fireEvent.change(select, { target: { value: '1' } })
-    await waitFor(() =>
-      expect(listRecords).toHaveBeenLastCalledWith({ accountId: 1, limit: 100 }),
-    )
+    await waitFor(() => expect(listRecords).toHaveBeenLastCalledWith({ accountId: 1, limit: 100 }))
     expect(listAccounts).toHaveBeenCalledTimes(2)
   })
 
@@ -640,18 +662,18 @@ describe('签到助手页面 · 一键解决风控向导', () => {
     vi.clearAllMocks()
     // mockReset 清 implementation:防前测的 mockResolvedValueOnce 序列泄漏到后测
     // (useTauriIpcReady 的工厂实现不受 clearAllMocks 影响,无需重置)
-    checkinOneClickReset.mockReset()
-    checkinGetPublicIp.mockReset()
+    mCheckinOneClickReset.mockReset()
+    mCheckinGetPublicIp.mockReset()
     // mockReset 会清掉工厂里的默认实现,必须显式补回默认报告
-    checkinAuditTraeResidual.mockReset()
-    checkinAuditTraeResidual.mockResolvedValue({ ...cleanAudit })
-    checkinSnapshotList.mockResolvedValue([])
+    mCheckinAuditTraeResidual.mockReset()
+    mCheckinAuditTraeResidual.mockResolvedValue({ ...cleanAudit })
+    mCheckinSnapshotList.mockResolvedValue([])
     mockLoadSuccess()
   })
   afterEach(() => cleanup())
 
   async function openMaint() {
-    useTauriIpcReady.mockReturnValue(true)
+    mUseTauriIpcReady.mockReturnValue(true)
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
     fireEvent.click(screen.getByText('maintTitle'))
@@ -660,8 +682,10 @@ describe('签到助手页面 · 一键解决风控向导', () => {
 
   it('全流程:一键重置 → 显示基准 IP → 换网验证通过 → 冷却完成态+重新开始', async () => {
     await openMaint()
-    checkinOneClickReset.mockResolvedValue({ layers: Array.from({ length: 14 }, (_, i) => wizardLayer(i)) })
-    checkinGetPublicIp
+    mCheckinOneClickReset.mockResolvedValue({
+      layers: Array.from({ length: 14 }, (_, i) => wizardLayer(i)),
+    })
+    mCheckinGetPublicIp
       .mockResolvedValueOnce({ ip: '1.2.3.4', location: '中国 吉林 长春 电信' })
       .mockResolvedValueOnce({ ip: '5.6.7.8', location: '' })
     fireEvent.click(screen.getByText('wizardStart'))
@@ -683,8 +707,8 @@ describe('签到助手页面 · 一键解决风控向导', () => {
 
   it('IP 未变时不进入完成态,红字提示重拔', async () => {
     await openMaint()
-    checkinOneClickReset.mockResolvedValue({ layers: [wizardLayer(0)] })
-    checkinGetPublicIp.mockResolvedValue({ ip: '1.2.3.4', location: '' })
+    mCheckinOneClickReset.mockResolvedValue({ layers: [wizardLayer(0)] })
+    mCheckinGetPublicIp.mockResolvedValue({ ip: '1.2.3.4', location: '' })
     fireEvent.click(screen.getByText('wizardStart'))
     await waitFor(() => expect(screen.getByText('wizardVerify')).toBeTruthy())
     fireEvent.click(screen.getByText('wizardVerify'))
@@ -694,7 +718,7 @@ describe('签到助手页面 · 一键解决风控向导', () => {
 
   it('busy 双闸:向导执行中 wizardStart 与手动 maintReset 同时禁用', async () => {
     await openMaint()
-    checkinOneClickReset.mockReturnValue(new Promise(() => {}))
+    mCheckinOneClickReset.mockReturnValue(new Promise(() => {}))
     fireEvent.click(screen.getByText('wizardStart'))
     await waitFor(() => {
       expect((screen.getByText('wizardStart') as HTMLButtonElement).disabled).toBe(true)
@@ -704,8 +728,8 @@ describe('签到助手页面 · 一键解决风控向导', () => {
 
   it('重置成功后自动跑一次残留审计,并显示"无残留"结论', async () => {
     await openMaint()
-    checkinOneClickReset.mockResolvedValue({ layers: [wizardLayer(0)] })
-    checkinGetPublicIp.mockResolvedValue({ ip: '1.2.3.4', location: '' })
+    mCheckinOneClickReset.mockResolvedValue({ layers: [wizardLayer(0)] })
+    mCheckinGetPublicIp.mockResolvedValue({ ip: '1.2.3.4', location: '' })
     fireEvent.click(screen.getByText('wizardStart'))
     await waitFor(() => expect(screen.getByText('wizardAuditClean')).toBeTruthy())
     expect(checkinAuditTraeResidual).toHaveBeenCalledTimes(1)
@@ -714,9 +738,9 @@ describe('签到助手页面 · 一键解决风控向导', () => {
 
   it('审计发现残留:显示残留条数并列出命中文件', async () => {
     await openMaint()
-    checkinOneClickReset.mockResolvedValue({ layers: [wizardLayer(0)] })
-    checkinGetPublicIp.mockResolvedValue({ ip: '1.2.3.4', location: '' })
-    checkinAuditTraeResidual.mockResolvedValue({
+    mCheckinOneClickReset.mockResolvedValue({ layers: [wizardLayer(0)] })
+    mCheckinGetPublicIp.mockResolvedValue({ ip: '1.2.3.4', location: '' })
+    mCheckinAuditTraeResidual.mockResolvedValue({
       ...cleanAudit,
       ok: false,
       hard_hits: 3,
@@ -733,8 +757,8 @@ describe('签到助手页面 · 一键解决风控向导', () => {
 
   it('点「重新检测残留」会再跑一次审计(累计 2 次)', async () => {
     await openMaint()
-    checkinOneClickReset.mockResolvedValue({ layers: [wizardLayer(0)] })
-    checkinGetPublicIp.mockResolvedValue({ ip: '1.2.3.4', location: '' })
+    mCheckinOneClickReset.mockResolvedValue({ layers: [wizardLayer(0)] })
+    mCheckinGetPublicIp.mockResolvedValue({ ip: '1.2.3.4', location: '' })
     fireEvent.click(screen.getByText('wizardStart'))
     await waitFor(() => expect(checkinAuditTraeResidual).toHaveBeenCalledTimes(1))
     const rerun = await waitFor(() => screen.getByText('wizardAuditRerun'))
