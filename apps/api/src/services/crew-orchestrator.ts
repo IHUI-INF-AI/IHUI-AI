@@ -17,7 +17,7 @@
  */
 
 import { randomUUID } from 'node:crypto'
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, ne, desc } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { crewSession, crewTask, crewMessage, crewArtifact, type CrewSession } from '@ihui/database'
 import { agentRegistry, type AgentRoleConfig } from './crew-agent-registry.js'
@@ -189,7 +189,16 @@ class CrewOrchestrator {
     if (!session) return { success: false, error: '会话不存在' }
     if (session.status === 'running') return { success: false, error: '会话正在执行中' }
 
-    await db.update(crewSession).set({ status: 'running' }).where(eq(crewSession.id, sessionId))
+    // G-787(2026-10-09):状态写收进条件写口(order-queries 同族模式,2026-08-02 P0 修复成例)。
+    // 原写法 where 只按 id,先读后写的预检是 TOCTOU:并发双启动都能过预检,迟到的 running
+    // 还能把 completed/failed 洗回 running。DB 级条件 = status <> 'running',双启动只有一份
+    // 写得进,.returning() 空 ⇒ 直接拒绝,不再依赖应用层预检。
+    const startedRows = await db
+      .update(crewSession)
+      .set({ status: 'running' })
+      .where(and(eq(crewSession.id, sessionId), ne(crewSession.status, 'running')))
+      .returning({ id: crewSession.id })
+    if (startedRows.length === 0) return { success: false, error: '会话正在执行中' }
 
     const config = (session.config ?? {}) as SessionConfig
     this.initUsage(sessionId) // G7: 初始化 usage 累计
@@ -233,7 +242,16 @@ class CrewOrchestrator {
       return
     }
 
-    await db.update(crewSession).set({ status: 'running' }).where(eq(crewSession.id, sessionId))
+    // G-787:同 executeSession,DB 级条件写拦截并发双启动(预检只是快速路径)。
+    const startedRows = await db
+      .update(crewSession)
+      .set({ status: 'running' })
+      .where(and(eq(crewSession.id, sessionId), ne(crewSession.status, 'running')))
+      .returning({ id: crewSession.id })
+    if (startedRows.length === 0) {
+      yield { type: 'error', content: '会话正在执行中' }
+      return
+    }
 
     const config = (session.config ?? {}) as SessionConfig
     this.initUsage(sessionId) // G7: 初始化 usage 累计
@@ -658,7 +676,12 @@ class CrewOrchestrator {
     const set: Record<string, unknown> = { status }
     if (result !== undefined) set.outputMessage = result
     if (status === 'completed' || status === 'failed') set.completedAt = new Date()
-    await db.update(crewSession).set(set).where(eq(crewSession.id, sessionId))
+    // G-787:终态写(completed/failed/cancelled)只允许从 running 出发,DB 级拒绝
+    // 「迟到的终态写洗掉新一轮的 running」与终态↔终态互洗;调用面全部在 set running 之后。
+    await db
+      .update(crewSession)
+      .set(set)
+      .where(and(eq(crewSession.id, sessionId), eq(crewSession.status, 'running')))
   }
 
   private async logMessage(
