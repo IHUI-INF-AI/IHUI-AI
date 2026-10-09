@@ -7,6 +7,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
+import { createRequire } from 'node:module'
 import { gzipSync } from 'node:zlib'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -445,5 +446,213 @@ test('T20 I2 装车锁:判据必须真挂在 runCheck 的 icons 组上(函数在
   }
   // 注释剥离必须先于调用点扫描:注释里提 <LineIcon 不得被当成调用点(假用量,守门 R6 同型教训)
   assert.ok(body.includes('stripJsComments('), '调用点扫描必须吃剥过注释的源码')
+})
+
+/* ───────────── G-816040 写回挂点(2026-10-10):四端 ui-routes 自动写回 ─────────────
+ * 立因:`apps/web/app/…/page.tsx` 被别人改了并入库,而没有任何环节重跑生成器 ⇒ 自述钉落后 ⇒
+ * 本门 G5 在**干净 HEAD** 上恒红 ⇒ 每次提交被迫 --no-verify。修法=把四端生成器挂进
+ * `scripts/lib/pre-commit-hook.js` 的 TOKEN_SYNC_TARGETS(§4:端内派生副本的唯一自动写回表),
+ * 写回出口 = 本门的 --heal-ui-routes 档,复核门 = 本门自己(同表第 5 行的形态)。
+ * 这四例分别锁:① 行真在表上且触发面盖得住真输入;② 写回真的能进这一次提交(快照协同);
+ * ③ 别人在飞副本不被门覆盖;④ 修不了时仍红(不静默记绿)。
+ */
+
+const HOOK_REL = 'scripts/lib/pre-commit-hook.js'
+const WEB_ART_REL = 'apps/web/src/lib/ui-routes.generated.ts'
+const WEB_PAGE_REL = 'apps/web/app/(main)/x/page.tsx'
+const GEN_WEB_REL = 'apps/web/scripts/generate-ui-routes.mjs'
+const CONSUMER_WEB_REL = 'apps/web/src/lib/ui-action-registry.ts'
+/** 演练仓要把门与它的依赖整套装进去:跑的就是仓库里那一份生成器与那一份取材层,不复制判据 */
+const KIT_RELS = [
+  'scripts/check-miniapp-generated.mjs',
+  'scripts/lib/face-reader.mjs',
+  'scripts/lib/scratch-dir.mjs',
+  'scripts/lib/generated-input-pin.mjs',
+  GEN_WEB_REL,
+]
+const HEAL_CMD = 'node scripts/check-miniapp-generated.mjs --heal-ui-routes --staged'
+
+const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+function installKit(dir, { withGenerator = true } = {}) {
+  for (const rel of KIT_RELS) {
+    if (rel === GEN_WEB_REL && !withGenerator) continue
+    const src = readFileSync(join(ROOT, rel), 'utf8')
+    assert.ok(src.length > 0, `${rel} 读出来是空的,夹具会骗人`)
+    put(dir, rel, src)
+  }
+  put(
+    dir,
+    CONSUMER_WEB_REL,
+    "import { UI_ROUTES } from './ui-routes.generated'\nexport const R = UI_ROUTES // 消费方引用 ui-routes.generated\n",
+  )
+}
+
+/** 建一个"HEAD 自洽(钉=现算)"的 web 演练仓,然后把输入改掉并只暂存输入 —— 就是本票的现场 */
+function makeStaleWebRepo(dir, { staged = true } = {}) {
+  git(dir, ['init', '-q', '-b', 'main'])
+  installKit(dir)
+  const oldText = 'export default function OLD() {\n  return null\n}\n'
+  put(dir, WEB_PAGE_REL, oldText)
+  const pin = PIN.renderPin({
+    generator: GEN_WEB_REL,
+    sourceCommit: 'cafebabe',
+    inputs: [{ rel: WEB_PAGE_REL, text: oldText }],
+    generatedAt: '2026-01-01T00:00:00.000Z',
+  }).join('\n')
+  put(
+    dir,
+    WEB_ART_REL,
+    `// GENERATED\n${pin}\nexport const UI_ROUTES: { path: string; param: boolean; group: string }[] = [\n  { path: '/x', param: false, group: 'x' },\n]\n`,
+  )
+  git(dir, ['add', '-A'])
+  git(dir, ['commit', '-q', '-m', 'init'])
+  const clean = runGuard(['--root', dir, '--group', 'ui-routes'])
+  assert.equal(clean.code, 0, `夹具起点必须自洽(HEAD 面),实际 ${clean.code}:${clean.out || clean.err}`,)
+  put(dir, WEB_PAGE_REL, 'export default function NEW() {\n  return null\n}\n')
+  if (staged) git(dir, ['add', '--', WEB_PAGE_REL])
+  const red = runGuard(['--root', dir, '--group', 'ui-routes', '--staged'])
+  assert.equal(red.code, 1, `改输入而钉没跟必须先判红(否则后面的例子都在空转),实际 ${red.code}:${red.out}`,)
+  return dir
+}
+
+/** 取登记表里某一 file 的行(按 label/file/cmd/trigger/pathTrigger/failMode/check 的字面顺序) */
+function hookRow(hookSrc, fileRel) {
+  const re = new RegExp(
+    `label: '[^']*',\\s*\\n\\s*file: '${escRe(fileRel)}',\\s*\\n\\s*cmd: '([^']+)',\\s*\\n` +
+      "\\s*trigger: '([^']+)',\\s*\\n\\s*pathTrigger: '([^']+)',\\s*\\n\\s*failMode: '([^']+)',\\s*\\n\\s*check: '([^']+)'",
+  )
+  return re.exec(hookSrc)
+}
+
+test('T21 装车锁:四端写回行真在登记表上,且每行的触发面盖得住判定面上的真输入清单', () => {
+  const hook = readFileSync(join(ROOT, HOOK_REL), 'utf8')
+  const rows = gate.UI_ROUTES_ARTIFACTS.map((art) => {
+    const m = hookRow(hook, art.rel)
+    assert.ok(m, `TOKEN_SYNC_TARGETS 里找不到 ${art.rel} 的写回行(或字段顺序漂了/漏登记)`)
+    return { art, cmd: m[1], trigger: m[2], pathTrigger: m[3], failMode: m[4], check: m[5] }
+  })
+  for (const r of rows) {
+    assert.equal(r.cmd, HEAL_CMD, `${r.art.rel} 的写回出口必须指向本门的 --heal-ui-routes 档`)
+    assert.equal(r.check, 'check-miniapp-generated.mjs', `${r.art.rel} 的复核门 = 本门(写回与复核同一尺子)`,)
+    assert.equal(r.failMode, 'block', `${r.art.rel} 必须 block:warn 等于"写回失败也照提交"`)
+    assert.equal(r.trigger, 'v3-src', `${r.art.rel} 的粗触发只能是 125 认得的枚举值(warn:精确面在 pathTrigger)`,)
+  }
+  // 真输入清单逐条必须落在该行的 pathTrigger 之下:漏一条 = 那一端改了输入而行不触发 = 恒红复现
+  const reader = gate.makeReader('head', ROOT)
+  reader.prefetch([
+    ...gate.UI_ROUTES_ARTIFACTS.map((a) => a.rel),
+    gate.TARO_APP_CONFIG,
+    gate.RN_NAVIGATOR,
+    gate.RN_LINKING,
+    gate.EXT_SIDEPANEL,
+  ])
+  for (const r of rows) {
+    const rels = r.art.inputRels(reader)
+    assert.ok(rels.length > 0, `${r.art.rel} 在 HEAD 面列不出输入(夹具或判据坏了)`)
+    const prefixes = r.pathTrigger.split(' ').filter(Boolean)
+    for (const rel of rels) {
+      assert.ok(prefixes.some((p) => rel.startsWith(p)), `${r.art.rel} 的输入 ${rel} 不在触发面「${r.pathTrigger}」之内 ⇒ 这一行永不触发`,)
+    }
+  }
+  // 精确面必须 ⊆ 粗触发,否则第二道筛永远到不了(死行)。
+  // 粗触发的取值面 = END_SRC_DIRS,而它是 `[...V3_USAGE_DIRS, 'apps/web/', 'apps/extension/']` ——
+  // 展开段没有字面量,所以两个 const 都要读,只读 END_SRC_DIRS 会把展开掉的那三端当成不在面内。
+  const endConst = /const END_SRC_DIRS = \[([^\]]*)\]/.exec(hook)
+  const v3Const = /const V3_USAGE_DIRS = \[([^\]]*)\]/.exec(hook)
+  assert.ok(endConst && v3Const, "找不到 END_SRC_DIRS / V3_USAGE_DIRS(粗触发 'v3-src' 的取值面)—— 扩容写法漂了",)
+  assert.match(endConst[1], /\.\.\.V3_USAGE_DIRS/, 'END_SRC_DIRS 必须展开 V3_USAGE_DIRS(一份清单两处用,不复制第二份)',)
+  const coarseDirs = [
+    ...[...v3Const[1].matchAll(/'([^']+)'/g)].map((x) => x[1]),
+    ...[...endConst[1].matchAll(/'([^']+)'/g)].map((x) => x[1]),
+  ]
+  for (const r of rows) {
+    for (const p of r.pathTrigger.split(' ').filter(Boolean)) {
+      assert.ok(coarseDirs.some((d) => p.startsWith(d)), `${r.art.rel} 的精确面 ${p} 不在粗触发 ${coarseDirs.join(', ')} 之内 ⇒ 死行`,)
+    }
+  }
+  // 原有各行的有效面一字不改:守门 125 的枚举没被放宽,粗触发扩容的代价不得由 ALPHA_USAGE 付。
+  // 这一行必须用**引用**把自己的面钉回原来那三端(字面量抄一份就是第二份真相,必漂)。
+  assert.match(hook, /TOKEN_SYNC_TARGETS\.filter\(\(t\) => triggersOn\[t\.trigger\]\)/, '第一道筛的写法是别处按字面读的锚(sync-rn-global-css T8),不得顺手改形',)
+  const alpha =
+    /label: 'ALPHA_USAGE 用量表',\s*\n\s*file: '[^']+',\s*\n\s*cmd: '[^']+',\s*\n\s*trigger: '([^']+)',\s*\n\s*pathTrigger: ([^,\n]+),/.exec(
+      hook,
+    )
+  assert.ok(alpha, 'ALPHA_USAGE 行必须带 pathTrigger(把面钉回原来那三端)')
+  assert.equal(alpha[1], 'v3-src', "ALPHA_USAGE 的粗触发保持 'v3-src'(125 的枚举没被放宽)")
+  assert.equal(alpha[2].trim(), "V3_USAGE_DIRS.join(' ')", 'ALPHA_USAGE 的精确面必须按引用等于 V3_USAGE_DIRS(一份清单两处用,不复制第二份)',)
+  assert.deepEqual([...v3Const[1].matchAll(/'([^']+)'/g)].map((x) => x[1]).sort(), ['apps/miniapp-taro/src/', 'apps/mobile-rn/src/', 'packages/app/src/'].sort(), 'V3_USAGE_DIRS 必须还是立项那三端(扩容粗触动的不是这里)',)
+})
+
+test('T22 端到端(真临时 git 仓 · --staged 面):写回 + 快照协同 ⇒ 进得了这次提交,同面复检到绿', (_t) => {
+  const dir = mkScratch('cmg-heal-land')
+  try {
+    makeStaleWebRepo(dir)
+    const require_ = createRequire(import.meta.url)
+    const snapLib = require_(join(ROOT, 'scripts/lib/staging-snapshot.js'))
+    // 1) pre-commit 入口快照:此刻索引里只有提交者自己暂存的输入(产物不在里面)
+    const snapshot = snapLib.takeStagingSnapshot({ cwd: dir })
+    assert.deepEqual([...snapshot], [WEB_PAGE_REL], '快照必须只含提交者暂存的输入')
+    // 2) 登记表的写回出口跑起来(表里的 cmd 原文,只是把 cwd 换到演练仓)
+    const heal = runGuard(['--root', dir, '--heal-ui-routes', '--staged'])
+    assert.equal(heal.code, 0, `写回档不该因为"正常写回"退非 0,实际 ${heal.code}:${heal.out || heal.err}`,)
+    assert.match(heal.out, /已写回 1/, `必须报出写了 1 份,实际:${heal.out}`)
+    assert.ok(heal.out.includes(WEB_ART_REL), `必须点名是哪份产物,实际:${heal.out}`)
+    // 3) 表的落地三步(git add + 把新路径登记进快照)—— 少第 3 步就会被 restoreStaging 摘掉
+    git(dir, ['add', '--', WEB_ART_REL])
+    snapshot.add(WEB_ART_REL)
+    const restored = snapLib.restoreStaging(snapshot, { cwd: dir, silent: true })
+    assert.deepEqual(restored.restored, [], `写回的产物必须活过 hook 退出前的还原,实际被摘掉:${restored.restored}`,)
+    // 4) 复检:同一个面(--staged 判索引 blob)、同一轮口径 ⇒ 绿
+    const judged = runGuard(['--root', dir, '--group', 'ui-routes', '--staged'])
+    assert.equal(judged.code, 0, `写回后同面复检必须 0,实际 ${judged.code}:${judged.out || judged.err}`,)
+    assert.match(judged.out, /apps\/web\/src\/lib\/ui-routes\.generated\.ts: matched/, `复检必须真判到 matched:${judged.out}`,)
+    // 5) 幂等:再跑一次写回档必须"无需写回",一个字节都不动(登记表 failMode=block 的前置依据)
+    const bytes = readFileSync(join(dir, WEB_ART_REL), 'utf8')
+    const again = runGuard(['--root', dir, '--heal-ui-routes', '--staged'])
+    assert.match(again.out, /已写回 0/, `第二次必须不再写,实际:${again.out}`)
+    assert.equal(readFileSync(join(dir, WEB_ART_REL), 'utf8'), bytes, '第二次跑后产物必须逐字节不动',)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T23 在飞副本闸:产物的工作树副本 ≠ 索引副本 ⇒ 拒绝写回、字节不动、判定侧仍红(不替别人背书)', (_t) => {
+  const dir = mkScratch('cmg-heal-inflight')
+  try {
+    makeStaleWebRepo(dir)
+    // 另一会话正拿着这份产物的**未提交**改动:索引里还是那份陈旧带钉的,工作树已被人改过
+    put(dir, WEB_ART_REL, '// 别人的在飞版本,门不得覆盖\nexport const UI_ROUTES = []\n')
+    const before = readFileSync(join(dir, WEB_ART_REL), 'utf8')
+    const heal = runGuard(['--root', dir, '--heal-ui-routes', '--staged'])
+    assert.equal(heal.code, 0, `拒绝写回不是故障,期望 0,实际 ${heal.code}:${heal.err}`)
+    assert.match(heal.out, /已写回 0/, `有在飞副本时必须一份都不写,实际:${heal.out}`)
+    assert.match(heal.out, /工作树副本 ≠/, `拒绝理由必须点名"工作树副本 ≠ 面副本",实际:${heal.out}`)
+    assert.equal(readFileSync(join(dir, WEB_ART_REL), 'utf8'), before, '别人的在飞字节一个都不许动')
+    const judged = runGuard(['--root', dir, '--group', 'ui-routes', '--staged'])
+    assert.equal(judged.code, 1, `门不背书 ⇒ 红点必须还在(不得静默记绿),实际 ${judged.code}:${judged.out}`,)
+    assert.match(judged.out, /\[G5\]/, `红点仍须是 G5:${judged.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T24 生成器修不了那一半:面上没有生成器 ⇒ 拒绝写回并点名,判定侧仍红(挂点不产出绿)', (_t) => {
+  const dir = mkScratch('cmg-heal-nogen')
+  try {
+    makeStaleWebRepo(dir)
+    git(dir, ['rm', '-q', '-f', '--', GEN_WEB_REL])
+    const before = readFileSync(join(dir, WEB_ART_REL), 'utf8')
+    const heal = runGuard(['--root', dir, '--heal-ui-routes', '--staged'])
+    assert.equal(heal.code, 0, `生成器不在位是"拒绝写回"而不是本档崩溃,期望 0,实际 ${heal.code}:${heal.err}`,)
+    assert.match(heal.out, /已写回 0/, `生成器没了绝不能报"已写回",实际:${heal.out}`)
+    assert.match(heal.out, /生成器不可用/, `必须点名生成器不可用,实际:${heal.out}`)
+    assert.equal(readFileSync(join(dir, WEB_ART_REL), 'utf8'), before, '拒绝写回时产物字节不得动(不许半修)',)
+    const judged = runGuard(['--root', dir, '--group', 'ui-routes', '--staged'])
+    assert.equal(judged.code, 1, `修不了就还是红 —— 期望 1,实际 ${judged.code}:${judged.out}`)
+    assert.match(judged.out, /\[G5\]/, `红点必须是 G5:${judged.out}`)
+  } finally {
+    rmScratch(dir)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
