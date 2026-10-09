@@ -34,15 +34,24 @@
  * 取证结论(2026-10-06 本机 Git Bash 宿主 / Windows 11 26200 / node v24.19.0,可重跑):
  *  - `Object.keys(process.env)` 里 PATH 族只有一种拼写 `PATH`(且 Node **确实保留**环境块原始大小写 ——
  *    同一份清单里 `CommonProgramFiles(x86)`、`PSModulePath` 都是混合大小写,所以这不是枚举归一化的假象),
- *    ⇒ 本机的 spread 复制根本产不出第二份键,三个候选站点(票面点名的两处 + 一处测试夹具)在
- *    **现取环境下不可达**;子进程侧实测 childPathCount=1、前置目录可见。
+ *    ⇒ 在该宿主上 spread 复制产不出第二份键;子进程侧实测 childPathCount=1、前置目录可见。
  *  - 双键的**破坏方向**只在构造面上被证实(构造 `{Path:A, PATH:B}` 派生真子进程 ⇒ 子进程只读到
- *    `["PATH"]` 且值 = B,A 那份整块消失)。构造面只证明"机制成立",不证明"我方站点会产出双键"。
- *  - 因此本票**只落纯函数 + 镜像测试,不改任何调用点**;而"其它宿主形状(钩子进程 / nssm 服务身份 /
- *    CI)下环境块是否写成 `Path`"在本会话不可实测 ⇒ 那一格是**未判定**,不得读成"不存在"。
- *
- * 定级:本模块是**出口不是判据**,刻意不接提交链(不改 guardian-runner / package.json / .husky /
- * pre-commit-hook,注册表类共享文件归主会话单写者),因此没有紧急跳过变量。
+ *    `["PATH"]`,另一份整块消失;值留哪一份由 Node 的大小写不敏感去重决定,不保证是后写的那份)。
+ *    构造面只证明"机制成立",不证明"我方站点会产出双键"。
+ *  - **宿主那一格已于 2026-10-10 实测掉(不再是未判定)**:`Start-Process cmd -UseNewEnvironment` 起一个
+ *    由注册表组合出来的登录环境块,块内 PATH 族拼写是 **`Path`**(且**没有** `SYSTEMROOT` —— 这就是
+ *    "在这种宿主里直接起 node 会当场 abort `ncrypto::CSPRNG(nullptr, 0)`"的原因),node 与它的子进程
+ *    两侧都只看到 `Path`。对照:`reg query HKCU\Environment` 里就是 `Path`,而 HKLM 的 System 块根本没有
+ *    PATH 族条目 ⇒ **"继承会话的宿主"= `PATH`、"重新组合环境块的宿主"(计划任务 / Explorer 派生)= `Path`**,
+ *    两种拼写在同一台机上真实并存。
+ *  - 由这次实测翻转的结论:**危险方向不是"读不到",而是"站点写死一种拼写"**。`apps/cli/benchmarks/runner.ts`
+ *    原句 `env.Path = [gitBin, env.Path ?? ''].join(';')` 在 `PATH` 宿主上(= 本仓绝大多数派生场景)
+ *    正好产出上面那个双键对象,子进程拿到的是继承值 ⇒ "前置 Git\bin 屏蔽 WSL bash 桩"静默失效,
+ *    而 typecheck / lint / 其余门全都不响。该站点与一处测试夹具已改为**写回宿主实际那一种拼写**
+ *    (出口 `prependPathEntry`,见 `apps/cli/tests/bench-path-prepend.test.ts` 的 P1–P6,
+ *    其中 P6 是"旧写法确实产出两份且前置丢失"的阳性对照)。本模块的"收口"操作与之互补:
+ *    那条治"已经两份了",这条治"别产出第二份";工具层(`scripts/**`)按包名解析不到 workspace 链接,
+ *    所以两处各留一份是环境限制而非疏漏,**不得**在端内再抄第三种取值裁决。
  */
 import { delimiter as PATH_DELIM } from 'node:path'
 
