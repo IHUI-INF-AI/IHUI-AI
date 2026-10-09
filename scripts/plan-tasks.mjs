@@ -20,7 +20,10 @@
  *   node scripts/plan-tasks.mjs --pointers       # F3 行号指针已腐烂
  *   node scripts/plan-tasks.mjs --open --dispatchable --conflicts
  *                                                # 派单叠层:逐行点名"这行点名的文件此刻正被他在飞改动占着"
- *                                                # (默认档不打 —— 下游有按行解析这份输出的消费者)
+ *   node scripts/plan-tasks.mjs --open --dispatchable --exclude-inflight
+ *                                                # 同上一档的判据,但把那些行**暂移**出出单面(对方收口后自动回来;
+ *                                                # 不判完成、不改勾选、"核验不了"档一律不剔)
+ *                                                # (默认档不打扰 —— 下游有按行解析这份输出的消费者)
  *   node scripts/plan-tasks.mjs --gate [--strict] # 判据档(默认存量只报数;--strict 判红)
  *   node scripts/plan-tasks.mjs --reopened-flips --since=YYYY-MM-DD [--max-commits=N]
  *                                                 # F10 翻勾回写候选(只报数,**必须显式窗口**;见 scanReopenedFlipEvidence 头注)
@@ -106,6 +109,7 @@ export function parseArgs(argv) {
     undisposed: has('--undisposed'),
     dispatchable: has('--dispatchable'),
     conflicts: has('--conflicts'),
+    excludeInflight: has('--exclude-inflight'),
     selfTest: has('--self-test'),
     updateBaseline: has('--update-baseline'),
     face: sel.face,
@@ -225,6 +229,21 @@ function repoToplevel(root) {
   } catch {
     return null
   }
+}
+
+/**
+ * 把"点名文件当前不干净"的行**暂移**出派单面(纯函数)。
+ *
+ * 只吃 `conflictList` —— `absentList`(路径两头都找不到)一律保留:核验不了 ≠ 在飞,
+ * 拿"没看清"去剔掉一件真活,就是"把没做的记成做过的"的反向版本(§1 同一条禁令)。
+ * 也不动已勾/指针行等其它维度,这里只回答"这一行现在会不会和别人撞同一个文件"。
+ */
+export function excludeInflightRows(rows, cf) {
+  const bad = new Set((cf?.conflictList ?? []).map((c) => c.line))
+  const kept = []
+  const dropped = []
+  for (const r of rows || []) (bad.has(r.line) ? dropped : kept).push(r)
+  return { kept, dropped }
 }
 
 /** 只读一条文档。整面取不到 ⇒ 抛 Undetermined(调用方转 exit 2),绝不静默换面。 */
@@ -2426,29 +2445,49 @@ function main() {
         if (sid.pairs.length > 12) console.log(`    …另 ${sid.pairs.length - 12} 对见 --json 的 counts.sameIdDonePairs`)
       }
     }
-    // 文件归属叠层只在显式旗标下打印 —— 默认派单口径的输出面已有下游按行解析(归并器/自检),
-    // 把新维度塞进默认档就等于替别人改契约;要叠层的人显式要。
-    if (o.conflicts) {
+    // 文件归属叠层只在显式旗标下生效 —— 默认派单口径的输出面已有下游按行解析(归并器/自检),
+    // 把新维度塞进默认档等于替别人改契约;要叠层/要剔活的人显式要。
+    let rowsOut = rows
+    if (o.conflicts || o.excludeInflight) {
       const dirtySet = collectDirtyPaths(o.root)
       const headSet = collectHeadPaths(o.root)
       if (!dirtySet || !headSet) {
-        console.log('  ⚠️ 文件归属叠层**未判定**:git status / HEAD 树取不到 ⇒ 不读成"没有在飞的路径"')
+        console.log(
+          '  ⚠️ 文件归属叠层**未判定**:git status / HEAD 树取不到 ⇒ 既不读成"没有在飞的路径",' +
+            '`--exclude-inflight` 也一律照派(拿"量不到"去剔真活就是反向的"把没做的记成做过的")',
+        )
       } else {
         const cf = fileConflictOverlay({ rows, dirtySet, headSet })
-        console.log(
-          `  文件归属叠层:${cf.rowsWithConflict} / ${cf.rowsTotal} 行点名了**当前不干净**的路径` +
-            `(点名 ${cf.refsTotal} 处:冲突 ${cf.conflictRefs} / 干净 ${cf.cleanRefs} / 核验不了 ${cf.absent})`,
-        )
-        for (const c of cf.conflictList) {
-          const shown = c.paths.slice(0, 6).join(', ')
-          console.log(`    L${c.line} 在飞:${shown}${c.paths.length > 6 ? ` …另 ${c.paths.length - 6} 条` : ''}`)
+        if (o.conflicts) {
+          console.log(
+            `  文件归属叠层:${cf.rowsWithConflict} / ${cf.rowsTotal} 行点名了**当前不干净**的路径` +
+              `(点名 ${cf.refsTotal} 处:冲突 ${cf.conflictRefs} / 干净 ${cf.cleanRefs} / 核验不了 ${cf.absent})`,
+          )
+          for (const c of cf.conflictList) {
+            const shown = c.paths.slice(0, 6).join(', ')
+            console.log(
+              `    L${c.line} 在飞:${shown}${c.paths.length > 6 ? ` …另 ${c.paths.length - 6} 条` : ''}`,
+            )
+          }
+          for (const a of cf.absentList) {
+            console.log(
+              `    L${a.line} 点名的路径在 HEAD 与在飞集合里都找不到:${a.key}(不判冲突,也不判干净)`,
+            )
+          }
         }
-        for (const a of cf.absentList) {
-          console.log(`    L${a.line} 点名的路径在 HEAD 与在飞集合里都找不到:${a.key}(不判冲突,也不判干净)`)
+        if (o.excludeInflight) {
+          const { kept, dropped } = excludeInflightRows(rows, cf)
+          const who = dropped.slice(0, 10).map((r) => 'L' + r.line).join(' / ')
+          console.log(
+            `  --exclude-inflight:暂移 ${dropped.length} 行(点名的文件此刻正被在飞改动占着)⇒ 出单 ${kept.length} 行` +
+              `(对方收口后自动回来;这不是判"做完",也不改勾选)` +
+              (dropped.length ? ` —— ${who}${dropped.length > 10 ? ` …另 ${dropped.length - 10} 行` : ''}` : ''),
+          )
+          rowsOut = kept
         }
       }
     }
-    listRows(rows, o.face)
+    listRows(rowsOut, o.face)
     return 0
   }
   if (o.undisposed) {
