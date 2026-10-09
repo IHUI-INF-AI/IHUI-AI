@@ -39,6 +39,9 @@ vi.mock('../../db/sms-receive-queries.js', () => ({
   getPhoneHistoryPlatformStats: vi.fn().mockResolvedValue([]),
   snapshotRelatedMsgs: vi.fn().mockResolvedValue(0),
   getRelatedUnionCount: vi.fn().mockResolvedValue(0),
+  snapshotUsedRecords: vi.fn().mockResolvedValue(0),
+  getUsedUnionCount: vi.fn().mockResolvedValue(0),
+  getUsedUnionItems: vi.fn().mockResolvedValue([]),
 }))
 
 import smsReceiveRoutes from '../admin/sms-receive.js'
@@ -49,6 +52,9 @@ import {
   getPhoneHistoryPlatformStats,
   snapshotRelatedMsgs,
   getRelatedUnionCount,
+  snapshotUsedRecords,
+  getUsedUnionCount,
+  getUsedUnionItems,
 } from '../../db/sms-receive-queries.js'
 
 const AUTH_HEADERS = { authorization: 'Bearer mock-admin-token' }
@@ -289,6 +295,8 @@ describe('Admin SMS Receive — d1jiema 对接', () => {
   })
 
   it('used 返回结构化解析(号码/扣费/平台/用途/原文),冷却期内 429', async () => {
+    vi.mocked(snapshotUsedRecords).mockClear()
+    vi.mocked(getUsedUnionCount).mockClear()
     mockFetchText([
       [
         '16512345678\t0.45\t【trae】验证码058967,用于手机验证码登录,5分钟内有效。',
@@ -319,12 +327,59 @@ describe('Admin SMS Receive — d1jiema 对接', () => {
         text: '【trae】验证码207163,用于注册,5分钟内有效。',
       },
     ])
+    // 快照累积:窗口解析项逐条抄进本地,响应带并集总数(攻破 24h/100 条上限)
+    expect(vi.mocked(snapshotUsedRecords)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(snapshotUsedRecords).mock.calls[0]?.[0]).toEqual([
+      expect.objectContaining({ phone: '16512345678', fee: '0.45', platform: 'trae', usageKind: 'login' }),
+      expect.objectContaining({ phone: '19251705122', fee: '0.45', platform: 'trae', usageKind: 'register' }),
+    ])
+    expect(vi.mocked(getUsedUnionCount)).toHaveBeenCalledTimes(1)
+    expect(first.json().data.totalUnion).toBe(0)
     const second = await app.inject({
       method: 'GET',
       url: '/api/admin/sms-receive/used',
       headers: AUTH_HEADERS,
     })
     expect(second.statusCode).toBe(429)
+    // 冷却期 429 不触发平台查询,也不重复落快照
+    expect(vi.mocked(snapshotUsedRecords)).toHaveBeenCalledTimes(1)
+  })
+
+  it('used-union 返回本地累积流水与并集总数(纯本地读,无平台无限频)', async () => {
+    vi.mocked(getUsedUnionItems).mockResolvedValueOnce([
+      {
+        id: 1,
+        phone: '16512345678',
+        fee: '0.45',
+        platform: 'trae',
+        usageKind: 'login',
+        text: '【trae】验证码058967,用于手机验证码登录,5分钟内有效。',
+        textHash: 'a'.repeat(64),
+        firstSeenAt: new Date('2026-10-09T01:00:00Z'),
+      },
+    ])
+    vi.mocked(getUsedUnionCount).mockResolvedValueOnce(128)
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/admin/sms-receive/used-union',
+      headers: AUTH_HEADERS,
+    })
+    expect(res.statusCode).toBe(200)
+    // 未传 limit → 透传 undefined,由查询函数默认 50
+    expect(vi.mocked(getUsedUnionItems)).toHaveBeenCalledWith(undefined)
+    const data = res.json().data
+    expect(data.total).toBe(128)
+    expect(data.items).toHaveLength(1)
+    expect(data.items[0]).toMatchObject({ phone: '16512345678', fee: '0.45', platform: 'trae', usageKind: 'login' })
+  })
+
+  it('used-union limit 越界返回 400', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/admin/sms-receive/used-union?limit=9999',
+      headers: AUTH_HEADERS,
+    })
+    expect(res.statusCode).toBe(400)
   })
 
   it('message received(登录文案)落台账:platform=trae usageKind=login', async () => {

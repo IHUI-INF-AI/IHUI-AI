@@ -44,6 +44,9 @@ import {
   getPhoneHistoryPlatformStats,
   snapshotRelatedMsgs,
   getRelatedUnionCount,
+  snapshotUsedRecords,
+  getUsedUnionCount,
+  getUsedUnionItems,
 } from '../../db/sms-receive-queries.js'
 
 // 平台取号返回的是脱敏号(如 193****6470),回传类端点(message/release/block/phone-history/send)
@@ -70,6 +73,9 @@ const messageBodySchema = z.object({
 const phoneOnlyBodySchema = z.object({ phone: phoneSchema })
 
 const phoneOnlyQuerySchema = z.object({ phone: phoneSchema })
+const usedUnionQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+})
 
 const sendBodySchema = z.object({
   phone: phoneSchema,
@@ -223,7 +229,10 @@ const smsReceiveRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /used - 历史记录(平台限频 1 次/分钟;本地 60s 冷却,超频返回 429)
-  server.get('/sms-receive/used', async (_request, reply) => {
+  // 2026-10-09 快照累积:每次查询把流水逐条抄进本地 sms_used_snapshots(幂等去重),
+  // totalUnion=跨快照并集总数,随时间单调增长 —— 攻破平台 24h+100 条上限。
+  // 快照/并集 fail-open:写库失败只降级(totalUnion=null),绝不阻断平台查询。
+  server.get('/sms-receive/used', async (request, reply) => {
     const now = Date.now()
     const elapsed = now - lastQueryUsedAt
     if (elapsed < QUERY_USED_COOLDOWN_MS) {
@@ -235,7 +244,33 @@ const smsReceiveRoutes: FastifyPluginAsync = async (server) => {
     lastQueryUsedAt = now
     try {
       const items = await queryUsedDetailed()
-      return reply.send(success({ items }))
+      let totalUnion: number | null = null
+      try {
+        await snapshotUsedRecords(items)
+        totalUnion = await getUsedUnionCount()
+      } catch (e) {
+        request.log.warn({ err: e }, 'used 快照累积失败(降级旧口径)')
+      }
+      return reply.send(success({ items, totalUnion }))
+    } catch (e) {
+      const r = toErrorResponse(e)
+      return reply.status(r.status).send(r.body)
+    }
+  })
+
+  // GET /used-union - 快照累积流水(纯本地库读,无平台调用无限频):
+  // items=按入库时间倒序最近 limit 条,total=全量条数。攻破 24h+100 条的读出口。
+  server.get('/sms-receive/used-union', async (request, reply) => {
+    const parsed = usedUnionQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      const [items, total] = await Promise.all([
+        getUsedUnionItems(parsed.data.limit),
+        getUsedUnionCount(),
+      ])
+      return reply.send(success({ items, total }))
     } catch (e) {
       const r = toErrorResponse(e)
       return reply.status(r.status).send(r.body)
