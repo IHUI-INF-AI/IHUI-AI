@@ -4,6 +4,7 @@
 
 // 平台特有:依赖 React Native API(Platform / Dimensions / PixelRatio / I18nManager),不适合共享
 import { Dimensions, I18nManager, PixelRatio, Platform } from 'react-native'
+import { modelId as deviceModelId } from 'expo-device'
 import { createDeviceFingerprintCollector, type DeviceFingerprintInput } from '@ihui/types'
 
 /**
@@ -16,8 +17,9 @@ import { createDeviceFingerprintCollector, type DeviceFingerprintInput } from '@
  *
  * 补采口径(不新增依赖,AGENTS §3):
  * - `platform`:Android 用 `Brand-Model-android-APILevel`(`Platform.constants` 内建即有);
- *   iOS 无内建机型 API(要 `react-native-device-info`),退到 `ios-<osVersion>` 并由 `screen`
- *   段承担机型区分 —— 这是**刻意不假装**能拿到机型,拿不到的段就不填(契约允许按可用性采集)。
+ *   iOS 用 `expo-device` 的 `modelId` 拼成 `ios-<model>-<osVersion>`(expo-device 是本端既有依赖,
+ *   src/hooks/use-push.ts 已在用)。取不到机型(模拟器 / web / 原生未就绪)就**不填机型段**,
+ *   退回 `ios-<osVersion>` 并由 `screen` 段承担机型区分 —— 拿不到的段就不填(契约允许按可用性采集)。
  * - `screen`:物理像素 = dp × `PixelRatio`,`colorDepth` 用 `pixelRatio * 8` 估算 —— **与 miniapp
  *   的 `taroDeviceFingerprintCollector` 同一估算口径**(契约里已登记该口径与 web 端不同源)。
  * - `timezone` / `language`:走 `Intl` 与 `I18nManager`,取不到就跳过。
@@ -35,6 +37,12 @@ function readAndroidModel(): string | null {
   return api ? `${brand}-${model}-android-${api}` : `${brand}-${model}-android`
 }
 
+function readIosModel(): string | null {
+  // modelId 是厂商机型标识(iPhone16,2),用户改设备名不影响它;modelName 会变 ⇒ 指纹取 modelId
+  const raw: unknown = deviceModelId
+  return typeof raw === 'string' && raw.trim() ? raw.trim() : null
+}
+
 function readPlatformToken(): string {
   if (Platform.OS === 'android') {
     const model = readAndroidModel()
@@ -42,6 +50,10 @@ function readPlatformToken(): string {
   }
   const version =
     typeof Platform.Version === 'number' ? String(Platform.Version) : String(Platform.Version ?? '')
+  if (Platform.OS === 'ios') {
+    const model = readIosModel()
+    if (model) return version ? `${Platform.OS}-${model}-${version}` : `${Platform.OS}-${model}`
+  }
   return version ? `${Platform.OS}-${version}` : Platform.OS
 }
 
