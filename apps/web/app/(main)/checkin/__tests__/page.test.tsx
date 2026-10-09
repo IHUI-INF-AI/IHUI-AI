@@ -23,6 +23,7 @@ import React from 'react'
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 import CheckinPage from '../page'
 import {
+  checkinAuditTraeResidual,
   checkinOneClickReset,
   checkinGetPublicIp,
   checkinSnapshotList,
@@ -43,6 +44,23 @@ const { listAccounts, listRecords, listCredits, createAccount, deleteAccount, se
     updateGroup: vi.fn(),
     schedulerStatus: vi.fn(),
   }))
+
+// 残留审计基线报告(无残留)。vi.hoisted 提前:vi.mock 工厂在 import 期就要用它做默认值。
+const { cleanAudit } = vi.hoisted(() => ({
+  cleanAudit: {
+    ok: true,
+    message: '',
+    blacklist_size: 12,
+    scanned_files: 100,
+    scanned_mb: 8.5,
+    sites_present: 3,
+    hard_hits: 0,
+    hard_hit_files: [] as { file: string; count: number; sample: string }[],
+    suspect_hits: 0,
+    registry: [] as string[],
+    hardware: [] as string[],
+  },
+}))
 
 vi.mock('@ihui/api-client', () => ({
   listCheckinAccounts: listAccounts,
@@ -77,6 +95,9 @@ vi.mock('next-intl', () => ({
       if (values && 'ok' in values) return `${key}:${values.ok}/${values.total}`
       if (values && 'ip' in values) return `${key}:${values.ip}`
       if (values && 'hours' in values) return `${key}:${values.hours}`
+      if (values && 'n' in values) return `${key}:${values.n}`
+      if (values && 'files' in values)
+        return `${key}:${values.files}/${values.mb}/${values.sites}`
       return key
     },
 }))
@@ -108,6 +129,7 @@ vi.mock('@/lib/tauri-bridge', () => ({
   checkinResetDeviceIds: vi.fn(),
   checkinOneClickReset: vi.fn(),
   checkinGetPublicIp: vi.fn(),
+  checkinAuditTraeResidual: vi.fn(async () => ({ ...cleanAudit })),
   checkinSnapshotBackup: vi.fn(),
   checkinSnapshotRestore: vi.fn(),
   checkinSnapshotList: vi.fn(),
@@ -620,6 +642,9 @@ describe('签到助手页面 · 一键解决风控向导', () => {
     // (useTauriIpcReady 的工厂实现不受 clearAllMocks 影响,无需重置)
     checkinOneClickReset.mockReset()
     checkinGetPublicIp.mockReset()
+    // mockReset 会清掉工厂里的默认实现,必须显式补回默认报告
+    checkinAuditTraeResidual.mockReset()
+    checkinAuditTraeResidual.mockResolvedValue({ ...cleanAudit })
     checkinSnapshotList.mockResolvedValue([])
     mockLoadSuccess()
   })
@@ -675,6 +700,47 @@ describe('签到助手页面 · 一键解决风控向导', () => {
       expect((screen.getByText('wizardStart') as HTMLButtonElement).disabled).toBe(true)
       expect((screen.getByText('maintReset') as HTMLButtonElement).disabled).toBe(true)
     })
+  })
+
+  it('重置成功后自动跑一次残留审计,并显示"无残留"结论', async () => {
+    await openMaint()
+    checkinOneClickReset.mockResolvedValue({ layers: [wizardLayer(0)] })
+    checkinGetPublicIp.mockResolvedValue({ ip: '1.2.3.4', location: '' })
+    fireEvent.click(screen.getByText('wizardStart'))
+    await waitFor(() => expect(screen.getByText('wizardAuditClean')).toBeTruthy())
+    expect(checkinAuditTraeResidual).toHaveBeenCalledTimes(1)
+    expect(screen.getByText('wizardAuditScope:100/8.5/3')).toBeTruthy()
+  })
+
+  it('审计发现残留:显示残留条数并列出命中文件', async () => {
+    await openMaint()
+    checkinOneClickReset.mockResolvedValue({ layers: [wizardLayer(0)] })
+    checkinGetPublicIp.mockResolvedValue({ ip: '1.2.3.4', location: '' })
+    checkinAuditTraeResidual.mockResolvedValue({
+      ...cleanAudit,
+      ok: false,
+      hard_hits: 3,
+      hard_hit_files: [
+        { file: 'storage.json', count: 2, sample: 'abc123' },
+        { file: 'state.vscdb', count: 1, sample: 'def456' },
+      ],
+    })
+    fireEvent.click(screen.getByText('wizardStart'))
+    await waitFor(() => expect(screen.getByText('wizardAuditResidual:3')).toBeTruthy())
+    expect(screen.getByText(/storage\.json ×2 abc123/)).toBeTruthy()
+    expect(screen.getByText(/state\.vscdb ×1 def456/)).toBeTruthy()
+  })
+
+  it('点「重新检测残留」会再跑一次审计(累计 2 次)', async () => {
+    await openMaint()
+    checkinOneClickReset.mockResolvedValue({ layers: [wizardLayer(0)] })
+    checkinGetPublicIp.mockResolvedValue({ ip: '1.2.3.4', location: '' })
+    fireEvent.click(screen.getByText('wizardStart'))
+    await waitFor(() => expect(checkinAuditTraeResidual).toHaveBeenCalledTimes(1))
+    const rerun = await waitFor(() => screen.getByText('wizardAuditRerun'))
+    expect((rerun as HTMLButtonElement).disabled).toBe(false)
+    fireEvent.click(rerun)
+    await waitFor(() => expect(checkinAuditTraeResidual).toHaveBeenCalledTimes(2))
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
