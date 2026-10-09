@@ -1180,7 +1180,10 @@ describe('admin-missing-routes', () => {
       expect(res.statusCode).toBe(400)
     })
 
-    it('PUT /member/permissions name 空字符串返回 400', async () => {
+    // G-739③ 收尾(2026-10-09):同段另两枚 PUT 400 此前仍只断状态码 —— 与上面两枚同理,
+    // 夹具补正为合法 uuid 后 400 由 body 校验产出,但裸状态码分不出"参数错误"/形状闸/
+    // 别的 400,删掉 body 校验这段仍可能被别的 400 蒙混;故同样按真实结构钉死错误身份。
+    it('PUT /member/permissions name 空字符串返回 400(too_small/name,body 校验产出)', async () => {
       mockAdmin()
       const res = await server.inject({
         method: 'PUT',
@@ -1189,9 +1192,18 @@ describe('admin-missing-routes', () => {
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(400)
+      const body = res.json()
+      expect(body.code).toBe(400)
+      // 夹具 id 是合法 uuid,形状闸(member-permissions.ts:65)结构上产不出这条 400
+      expect(body.message).not.toBe('id 格式不正确')
+      expect(body.message).not.toBe('参数错误')
+      const issues = JSON.parse(body.message) as Array<{ code: string; path: string[] }>
+      expect(issues).toHaveLength(1)
+      expect(issues[0].code).toBe('too_small')
+      expect(issues[0].path).toEqual(['name'])
     })
 
-    it('PUT /auth-role name 类型错误返回 400', async () => {
+    it('PUT /auth-role name 类型错误返回 400(invalid_type/name,body 校验产出)', async () => {
       mockAdmin()
       const res = await server.inject({
         method: 'PUT',
@@ -1200,6 +1212,15 @@ describe('admin-missing-routes', () => {
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(400)
+      const body = res.json()
+      expect(body.code).toBe(400)
+      // 夹具 id 是合法 uuid,形状闸(auth-role.ts:67)结构上产不出这条 400
+      expect(body.message).not.toBe('id 格式不正确')
+      expect(body.message).not.toBe('参数错误')
+      const issues = JSON.parse(body.message) as Array<{ code: string; path: string[] }>
+      expect(issues).toHaveLength(1)
+      expect(issues[0].code).toBe('invalid_type')
+      expect(issues[0].path).toEqual(['name'])
     })
   })
 
