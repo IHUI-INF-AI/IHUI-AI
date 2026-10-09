@@ -146,6 +146,7 @@ export default function CheckinPage() {
   const [maintOpen, setMaintOpen] = React.useState(false)
   const [maintBusy, setMaintBusy] = React.useState(false)
   const [maintIncludeGuid, setMaintIncludeGuid] = React.useState(false)
+  const [maintIncludeBrowser, setMaintIncludeBrowser] = React.useState(false)
   const [maintReport, setMaintReport] = React.useState<string[]>([])
   const [maintError, setMaintError] = React.useState<string | null>(null)
   const [maintUserId, setMaintUserId] = React.useState('')
@@ -315,7 +316,7 @@ export default function CheckinPage() {
 
   const resetDeviceIds = () =>
     runMaintAction(async () => {
-      const report = await checkinResetDeviceIds(maintIncludeGuid)
+      const report = await checkinResetDeviceIds(maintIncludeGuid, maintIncludeBrowser)
       return report.layers.map((l) => `[${l.ok ? 'OK' : 'FAIL'}] L${l.layer} ${l.name}: ${l.detail}`)
     })
 
@@ -1503,6 +1504,14 @@ export default function CheckinPage() {
                     onChange={(e) => setMaintIncludeGuid(e.target.checked)}
                   />
                   {t('maintIncludeGuid')}
+                </label>
+                <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={maintIncludeBrowser}
+                    onChange={(e) => setMaintIncludeBrowser(e.target.checked)}
+                  />
+                  {t('maintIncludeBrowser')}
                 </label>
                 <Button variant="outline" size="sm" disabled={maintBusy} onClick={() => void backupSnapshot()}>
                   {t('maintBackup')}

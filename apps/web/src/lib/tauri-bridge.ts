@@ -1484,12 +1484,17 @@ export async function checkinCaptureJwts(): Promise<CapturedTraeAccount[]> {
   return await invokeIpc<CapturedTraeAccount[]>('checkin_capture_jwts')
 }
 
-/** 六层设备标识重置;includeMachineGuid=true 时额外尝试注册表 MachineGuid(需 UAC)。 */
+/** 七层设备标识重置;includeMachineGuid=true 额外尝试注册表 MachineGuid(需 UAC);
+ *  cleanBrowserCookies=true 额外清理 Chrome/Edge 中 TRAE 域 Cookie(浏览器运行中该层会失败并报告)。 */
 export async function checkinResetDeviceIds(
   includeMachineGuid: boolean,
+  cleanBrowserCookies: boolean,
 ): Promise<CheckinResetReport> {
   requireTauri()
-  return await invokeIpc<CheckinResetReport>('checkin_reset_device_ids', { includeMachineGuid })
+  return await invokeIpc<CheckinResetReport>('checkin_reset_device_ids', {
+    includeMachineGuid,
+    cleanBrowserCookies,
+  })
 }
 
 /** 备份指定账号的 9 类 TRAE 现场文件到应用数据目录快照区。 */
