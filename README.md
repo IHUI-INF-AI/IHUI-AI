@@ -5462,6 +5462,7 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 >   逐字同形，字段声明收敛进 `@ihui/types` 的 `ToolCall.partialDiff`，端内归并层一律纯函数
 >   (web `createToolDeltaHandler` / 扩展 `lib/tool-call-frames.ts` / 小程序 `cards/types.ts` /
 >   RN `chat-render-model.ts`)，接线由各自的源码级锁 + 真实帧端到端用例钉住。
+>   - **更正(G-816035，2026-10-08)**：以上"载荷 `partialText` 是**累积文本**、按 `toolCallId` 整帧覆盖、`seq` 不参与判断"为**历史口径**。机主 2026-10-07 拍板"契约定增量"，本笔收口为：每帧 `partialText` **只含本批新增行**，六消费端 + CLI 本地 store 一律**按 toolCallId 以 seq 收敛追加**（`seq` 升格为收敛判据，乱序/重传按 seq 收敛丢弃陈旧帧）；parity 门 `scripts/check-agent-event-parity.mjs` 对这一维仍零判据。
 ## 运维与生产监控工具(2026-09-27 起)
 这台机由一支 agent 运维班组常驻值守(5 个班次:每小时巡检 / 每 30 分钟版本核验 / 每日 04:00 自愈 / 每日 05:30 备份核验 / 每周一体检邮件)。下面这几件是它们共用的出口,都不在提交链上,判的是**机器状态**——挂进提交链就会变成与任何提交都无关的恒红门,唯一结局是逼人 `--no-verify` 连带全部检查作废。
 | 工具 | 干什么 | 为什么必须有它 |
@@ -5486,6 +5487,7 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 >   逐字同形，字段声明收敛进 `@ihui/types` 的 `ToolCall.partialDiff`，端内归并层一律纯函数
 >   (web `createToolDeltaHandler` / 扩展 `lib/tool-call-frames.ts` / 小程序 `cards/types.ts` /
 >   RN `chat-render-model.ts`)，接线由各自的源码级锁 + 真实帧端到端用例钉住。
+>   - **更正(G-816035，2026-10-08)**：以上"载荷 `partialText` 是**累积文本**、按 `toolCallId` 整帧覆盖、`seq` 不参与判断"为**历史口径**（本段其余描述的三端收帧事实不变）。机主 2026-10-07 拍板"契约定增量"，本笔收口为：每帧 `partialText` **只含本批新增行**，六消费端 + CLI 本地 store 一律**按 toolCallId 以 seq 收敛追加**（`seq` 升格为收敛判据，乱序/重传按 seq 收敛丢弃陈旧帧）；parity 门 `scripts/check-agent-event-parity.mjs` 对这一维仍零判据。
   - `useUpdater` 状态机(idle → checking → available → downloading → installing → done);退出更新守卫与全屏遮罩已于 2026-09-27 整条移除(两处实测缺陷:监听注册晚于异步 IPC 注入 ⇒ "正在退出..." 永久转圈,遮罩从不回报有没有更新)
 - **关闭行为可配置(2026-09-28 起)**:托盘图标显隐、关闭窗口动作(隐藏到托盘 / 直接退出 / 每次询问)、开机自启与静默启动、托盘菜单项与未读徽标,六项集中在「设置 → 桌面端行为」并可跨设备漫游;判定与超时兜底住在 Rust 侧,不依赖 WebView 是否活着
 | `scripts/pg-backup-cadence-audit.mjs` | 只读审计每日备份的**节拍与完整性**:逐日在位、每份 `complete/truncated/undetermined` 三态、0 字节与体积塌陷、异地腿缺口 | 自定义格式的 TOC 在文件**尾部**,`pg_dump` 中途死掉留下的文件大小看着完全正常 —— 只看大小与 `ls` 判不出"这份根本恢复不了" |
