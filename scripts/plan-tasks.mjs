@@ -18,6 +18,9 @@
  *   node scripts/plan-tasks.mjs --forks          # F1 同主键两态并存
  *   node scripts/plan-tasks.mjs --void           # F2 带作废声明却未落账
  *   node scripts/plan-tasks.mjs --pointers       # F3 行号指针已腐烂
+ *   node scripts/plan-tasks.mjs --open --dispatchable --conflicts
+ *                                                # 派单叠层:逐行点名"这行点名的文件此刻正被他在飞改动占着"
+ *                                                # (默认档不打 —— 下游有按行解析这份输出的消费者)
  *   node scripts/plan-tasks.mjs --gate [--strict] # 判据档(默认存量只报数;--strict 判红)
  *   node scripts/plan-tasks.mjs --reopened-flips --since=YYYY-MM-DD [--max-commits=N]
  *                                                 # F10 翻勾回写候选(只报数,**必须显式窗口**;见 scanReopenedFlipEvidence 头注)
@@ -34,6 +37,11 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+// 派单叠层要问的两件事,本仓已各有一把尺子,禁止在这里再抄一份解析:
+//   · "这一行点名了哪些文件" ← 守门 184 的 `extractRefs`(只认反引号内,已剥行号/fragment/glob);
+//   · "哪些文件此刻不干净"   ← 守门 54 的 `parsePorcelainZ`(`git status --porcelain -z` 记录格式)。
+import { extractRefs } from './check-live-doc-references.mjs'
+import { parsePorcelainZ } from './check-uncommitted-age.mjs'
 import {
   auditPlan,
   compositeKeyOf,
@@ -97,12 +105,93 @@ export function parseArgs(argv) {
     stale: has('--stale'),
     undisposed: has('--undisposed'),
     dispatchable: has('--dispatchable'),
+    conflicts: has('--conflicts'),
     selfTest: has('--self-test'),
     updateBaseline: has('--update-baseline'),
     face: sel.face,
     faceError: sel.error,
     root: has('--root') ? path.resolve(argv[argv.indexOf('--root') + 1]) : ROOT,
   }
+}
+
+/**
+ * ── 派单叠层:一行活点名的文件,此刻是不是正被别人握着(在飞、未入库) ──
+ *
+ * 立因:`--open --dispatchable` 答的是"这件事归谁、在等什么",它**不看文件**。
+ * 而本机常年有数百个路径停在他席的未提交态(2026-10-09 值守现读 700+ 条 porcelain 记录),
+ * 于是两件都"可做"的活一旦点名同一个文件,两个 agent 就会在同一份在飞副本上互相写回 ——
+ * 这正是机主要禁掉的"打架重复做同一件任务"。本叠层不猜"谁在写",只陈述可核的事实:
+ * **该行点名的路径当前不干净**(索引或工作树与 HEAD 不一致,含未跟踪新文件)。
+ *
+ * 三态绝不并桶:
+ *  - 冲突  点名路径在 status 里 ⇒ 派单人避让,或等对方收口后再领;
+ *  - 干净  路径在 HEAD 树里且不在 status ⇒ 此刻无人改动它;
+ *  - 核验不了  两头都找不到 ⇒ 该行点名的路径本身不可核(拼错 / 已搬家),
+ *    **既不记成"没人碰",也不据此判冲突**,逐条报名。
+ * 纯函数:两个集合由调用方注入,自检不碰 git(§22b 同源取向)。
+ */
+export function fileConflictOverlay({ rows, dirtySet, headSet }) {
+  const hasAnyUnder = (set, key) => {
+    const pre = key + '/'
+    for (const p of set) if (p === key || p.startsWith(pre)) return true
+    return false
+  }
+  const list = []
+  const absentList = []
+  let refsTotal = 0
+  let cleanRefs = 0
+  let conflictRefs = 0
+  for (const r of rows || []) {
+    const refs = extractRefs(String(r.raw || ''), 'PROJECT_PLAN.md')
+    const hits = new Set()
+    for (const [key, rec] of refs) {
+      refsTotal += 1
+      const dirty = rec.form === 'dir' ? hasAnyUnder(dirtySet, key) : dirtySet.has(key)
+      if (dirty) {
+        hits.add(key)
+        continue
+      }
+      const inHead = rec.form === 'dir' ? hasAnyUnder(headSet, key) : headSet.has(key)
+      if (inHead) {
+        cleanRefs += 1
+        continue
+      }
+      absentList.push({ line: r.line, key })
+    }
+    if (hits.size > 0) {
+      conflictRefs += hits.size
+      list.push({ line: r.line, paths: [...hits].sort() })
+    }
+  }
+  return {
+    rowsTotal: (rows || []).length,
+    rowsWithConflict: list.length,
+    refsTotal,
+    cleanRefs,
+    conflictRefs,
+    absent: absentList.length,
+    conflictList: list,
+    absentList,
+  }
+}
+
+/**
+ * 在飞路径集合(索引/工作树与 HEAD 不一致 + 未跟踪新文件)。
+ * 取不到 ⇒ 返回 null,由调用方喊"未判定" —— 把没量到写成"都没有在飞"就是替打架发合格证。
+ */
+export function collectDirtyPaths(root) {
+  const raw = gitRaw(['status', '--porcelain', '-z', '--untracked-files=all'], root)
+  if (typeof raw !== 'string') return null
+  const set = new Set()
+  for (const e of parsePorcelainZ(raw)) set.add(e.path)
+  return set
+}
+
+/** HEAD 树路径全集(用来区分"干净"与"点名的路径根本不在面上")。取不到 ⇒ null。 */
+export function collectHeadPaths(root) {
+  const raw = gitRaw(['ls-tree', '-r', '--name-only', '-z', 'HEAD'], root)
+  if (typeof raw !== 'string') return null
+  return new Set(raw.split('\0').filter(Boolean))
 }
 
 /** 只读一条文档。整面取不到 ⇒ 抛 Undetermined(调用方转 exit 2),绝不静默换面。 */
@@ -2284,6 +2373,28 @@ function main() {
           `  另有 ${a.counts.selfDedispatchRows} 行自述"本行不再单独派单/派单一律走持有行"(未勾、不重复派单):`,
         )
         for (const r of sd) console.log(`    L${r.line}  ${r.title}`)
+      }
+    }
+    // 文件归属叠层只在显式旗标下打印 —— 默认派单口径的输出面已有下游按行解析(归并器/自检),
+    // 把新维度塞进默认档就等于替别人改契约;要叠层的人显式要。
+    if (o.conflicts) {
+      const dirtySet = collectDirtyPaths(o.root)
+      const headSet = collectHeadPaths(o.root)
+      if (!dirtySet || !headSet) {
+        console.log('  ⚠️ 文件归属叠层**未判定**:git status / HEAD 树取不到 ⇒ 不读成"没有在飞的路径"')
+      } else {
+        const cf = fileConflictOverlay({ rows, dirtySet, headSet })
+        console.log(
+          `  文件归属叠层:${cf.rowsWithConflict} / ${cf.rowsTotal} 行点名了**当前不干净**的路径` +
+            `(点名 ${cf.refsTotal} 处:冲突 ${cf.conflictRefs} / 干净 ${cf.cleanRefs} / 核验不了 ${cf.absent})`,
+        )
+        for (const c of cf.conflictList) {
+          const shown = c.paths.slice(0, 6).join(', ')
+          console.log(`    L${c.line} 在飞:${shown}${c.paths.length > 6 ? ` …另 ${c.paths.length - 6} 条` : ''}`)
+        }
+        for (const a of cf.absentList) {
+          console.log(`    L${a.line} 点名的路径在 HEAD 与在飞集合里都找不到:${a.key}(不判冲突,也不判干净)`)
+        }
       }
     }
     listRows(rows, o.face)
