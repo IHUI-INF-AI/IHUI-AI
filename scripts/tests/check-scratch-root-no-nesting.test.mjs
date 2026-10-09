@@ -350,6 +350,17 @@ test('端到端(G-1105304):文件**不吃条目预算** —— 海量文件而�
   }
 })
 
+test('地平线下限锁(G-1105304):DEFAULT_MAX_DEPTH 不得低于真机制所在深度,否则门判 ok 而东西在射程外', () => {
+  // 真机制实测在第 3 层(`<夹具>/DevEnv/Temp/ihui-scratch/victim`),取 4 留一层余量。
+  // 这条比"跑一次看看"强:把默认值改回 2 时,端到端注入用例仍然绿(它自己的夹具比地平线浅),
+  // 而真实机器上的二阶根会静默不可见 —— 只有钉住常量才能拦住"为了跑得快把地平线收窄"。
+  const m = CODE.match(/const DEFAULT_MAX_DEPTH\s*=\s*(\d+)/)
+  assert.ok(m, '找不到 DEFAULT_MAX_DEPTH 常量(改名了就要同批改本锁,不得让它静默失配)')
+  assert.ok(Number(m[1]) >= 3, `地平线必须 ≥3(真机制所在深度),实得 ${String(m[1])}`)
+  // 预算也不许退回"只算文件"的旧口径:那会让正常使用量级直接耗尽 ⇒ 恒 undetermined。
+  assert.match(CODE, /res\.scannedFiles \+= 1[\s\S]{0,400}?if \(res\.scannedEntries >= budget\)/)
+})
+
 test('--json 必须可 parse 且带 state/code/findings(报告口径不能只活在人读面)', () => {
   const fix = mkScratch('g286-json-')
   try {
