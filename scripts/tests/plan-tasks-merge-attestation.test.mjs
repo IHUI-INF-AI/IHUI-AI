@@ -216,7 +216,7 @@ function cutTableEntry(src, fnName) {
 
 test('A3 站点表少一站 ⇒ 结构判据必红;现读站点数与表内条数必须等值(变异对照)', () => {
   const real = landingAttestationStructure(MERGE_SRC())
-  assert.deepEqual(real.bad, [], `真源码必须六站成套:${JSON.stringify(real.bad)}`)
+  assert.deepEqual(real.bad, [], `真源码必须让每个登记站点成套:${JSON.stringify(real.bad)}`)
   assert.deepEqual(real.unwired, [], `不得有未接留痕的落地站点:${JSON.stringify(real.unwired)}`)
   assert.deepEqual(landingSiteTableProblems(), [], '判据表自身必须成套')
   assert.equal(
@@ -224,7 +224,23 @@ test('A3 站点表少一站 ⇒ 结构判据必红;现读站点数与表内条�
     BYPASS_LANDING_SITES.length,
     '判据读到的站点数与表内条数必须现读等值(不写死常量)',
   )
-  assert.equal(BYPASS_LANDING_SITES.length, 6, '六个落地站点(四处 lib CAS + 两处裸 update-ref)')
+  // 原来这里写死 `=== 6`(“六个落地站点”)。字面量条数不是不变量:第 7 站(prefix-holder,
+  // G-1111919)经逐站核过语义后登记进表,那个 6 就从"防漏登记的哨兵"变成"禁止合规"。
+  // 真正要守的是**防缩水**,所以改成钉住六个历史站点必须仍在册(新增站不触发它,删站/改名必红),
+  // 而"表与调用点等值"那一维由上一条 `real.counts.sites === BYPASS_LANDING_SITES.length` 把守。
+  const REGISTERED = [
+    'plan-tasks-merge:restore-terminals',
+    'plan-tasks-merge:dedupe-rows',
+    'plan-tasks-merge:dedupe-open-rows',
+    'plan-tasks-merge:fold-twins',
+    'plan-tasks-merge:dedupe-blocks',
+    'plan-tasks-merge:heal',
+  ]
+  for (const src of REGISTERED)
+    assert.ok(
+      BYPASS_LANDING_SITES.some((s) => s.source === src),
+      `原六站中的 ${src} 从判据表里消失了 —— 表缩水等于关掉那一站的次序判据`,
+    )
   // 每档的 source 名必须**恰好出现在两处**:判据表里一次(锚点)、调用点一次(留痕)。
   // "调用点恰好一处"这一维由上面 `real.bad` 空替我把关(生产侧判据在函数体内数 attestLanding 次数),
   // 这里数的是"名字有没有被写丢"—— 一处不多一处不少,多了就是有人又抄了一份表项。
@@ -307,15 +323,36 @@ test('A4 heal 档"无回退分支"是**声明**而非漏填,其余五档的回�
     '自愈档的 rollback 必须显式声明为 null(漏填与"确无回退"是两件事)',
   )
   const src = MERGE_SRC()
-  const hs = src.indexOf('export function healAndLand(')
-  assert.ok(hs >= 0, 'healAndLand 必须还在(改名 ⇒ 本判据失明,而不是它合规)')
-  const he = src.indexOf('\nexport function', hs + 1)
-  const healBody = src.slice(hs, he < 0 ? src.length : he)
+  const bodyOf = (name) => {
+    // 两种声明形态都要认:`export function X(` 与裸 `function X(`(第 7 站 healWithPrefixHolder
+    // 就是非导出的内部函数)。只认导出形态会让"函数在、判据读不到"表现为**本用例红**,
+    // 而那红会被误读成"站点被改名"—— 误红的代价和漏判一样:它会诱导人去改代码而不是修判据。
+    const hs = src.search(new RegExp(`^(?:export )?function ${name}\\(`, 'm'))
+    assert.ok(hs >= 0, `${name} 必须还在(改名 ⇒ 本判据失明,而不是它合规)`)
+    const rest = src.slice(hs + 1)
+    const nxt = rest.search(/^(?:export )?function /m)
+    return nxt < 0 ? rest : rest.slice(0, nxt)
+  }
+  /**
+   * 「确无回退分支」的站点(必须与表里 `rollback: null` 的集合**逐名等值**)。
+   * 为什么用集合而不是只放行 healAndLand:第 7 站 prefix-holder(G-1111919)与 heal 档同形 ——
+   * CAS 抢输即 return,复验(rev-parse 等值回读)只决定退出码、从不撤回已成的提交。
+   * 这一维守的不是"允许 null",而是**"漏填"与"确无"必须是两件事**:
+   * 表里声明 null 的,函数体里就不许藏着回退分支;反过来,谁给这些档加了回退分支却没登记表,这里必须红。
+   */
+  const NO_ROLLBACK = new Set(['healAndLand', 'healWithPrefixHolder'])
+  assert.deepEqual(
+    BYPASS_LANDING_SITES.filter((s) => s.rollback === null).map((s) => s.fn).sort(),
+    [...NO_ROLLBACK].sort(),
+    '表里 rollback:null 的集合必须与本用例核过的"确无回退"集合等值(多一个是漏填,少一个是有人加了回退分支没登记)',
+  )
   for (const s of BYPASS_LANDING_SITES) {
-    if (s.fn === 'healAndLand') {
+    if (NO_ROLLBACK.has(s.fn)) {
       assert.ok(
-        !/casUpdateRef\(parent,|'update-ref', 'HEAD', head, commit/.test(healBody),
-        'healAndLand 若新增了回退分支,必须同步把表里的 rollback 填上(本断言即这一同步的看门)',
+        !/casUpdateRef\(parent,|'update-ref', 'HEAD', head, commit|'update-ref', 'HEAD', head0, commitSha/.test(
+          bodyOf(s.fn),
+        ),
+        `${s.fn} 若新增了回退分支,必须同步把表里的 rollback 填上(本断言即这一同步的看门)`,
       )
       continue
     }
