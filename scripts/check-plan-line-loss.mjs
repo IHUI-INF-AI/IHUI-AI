@@ -331,6 +331,40 @@ export function registrationSlots(src) {
  * 变红,只把"同一编号多行登记、被吞其中一行"从盲区里捞出来 —— 存量安全性的现读证明在
  * `--self-test` 的成对用例与交付报告的全量档读数里,不靠这里的措辞。
  */
+
+/**
+ * 摘号指针豁免(2026-10-09,F9 批⑤复活竞态根治,归因见 STATE.md 与台账 G-580/D173/G-1058623 组):
+ * 台账治理按 §1 把"同号多题"的残行**合法摘号**——整行改写成
+ *   `- [ ]〔【归并】重复登记副本·残行摘号(…):…〕<原正文(编号位被摘)> …`
+ * 正文逐字保留、只换掉编号位。旧判定把"基线里带编号的行"与"新面里不再以编号开头"简单对账,
+ * 于是每一次合法摘号都被判成"行被抹掉"而自动回捞旧态,摘号治理与自愈互搏永不收敛
+ * (2026-10-09 实测连发 5 轮:0→3→0→3…,回捞提交 5d0b2392bc/a3276cdb0da)。
+ *
+ * 豁免判据(从严,不是"见到指针行就放过"):对每条 absent 条目,取基线行剥复选框、剥行首
+ * 编号(含粗体包裹)后的**正文指纹**(去空白前 20 字,≥8 字才生效),在被审面的摘号指针行
+ * (剥掉前置指针段之后)中查找;命中才算"这行是合法摘号,不是被吞"。真删行(指针行也不存在)
+ * 照旧判丢;正当改写(编号行仍在)走原有 slack 名额,不受影响。指纹 20 字撞车概率可忽略,
+ * 且同指纹 ⇒ 同题 ⇒ 一起豁免本就是台账治理语义。
+ */
+export function mergePointerBodyOf(line) {
+  const cb = checkboxBody(line)
+  if (cb === null) return null
+  if (!cb.startsWith('〔【归并】重复登记副本')) return null
+  const stripped = cb.replace(/^〔【归并】重复登记副本[^〕]*〕/, '')
+  return stripped
+}
+
+/** 基线登记行 → 剥编号后的正文指纹(去空白前 20 字;不足 8 字返回 '' 防误配)。 */
+export function lossFingerprintOf(line) {
+  const cb = checkboxBody(line)
+  if (cb === null) return ''
+  // 编号两族都要剥:G-580(连字符)与 D173/D1047(D 族无连字符)——只剥连字符形态会让
+  // D 族指纹带着编号,而摘号行的正文里没有编号 ⇒ 指纹永远匹配不上,豁免对 D 族整族失效。
+  const noId = cb.replace(/^\*{0,2}[A-Z]{1,3}-?\d+[A-Za-z]?\*{0,2}\s*/, '').replace(/^\*+/, '')
+  const fp = noId.replace(/\s+/g, '').slice(0, 20)
+  return fp.length >= 8 ? fp : ''
+}
+
 export function resolveRegistrationLoss(entries, targetSrc) {
   const groups = new Map()
   const textOnly = []
@@ -350,7 +384,21 @@ export function resolveRegistrationLoss(entries, targetSrc) {
   }
   const lost = new Set()
   const multiSlot = new Set()
-  for (const e of textOnly) if (!targetSrc.includes(e.marker)) lost.add(e.marker)
+  // 摘号指针豁免的语料:被审面全部摘号指针行的正文(剥指针段后)拼接,一次构建
+  const pointerCorpus = targetSrc
+    .split(/\r?\n/)
+    .map((l) => mergePointerBodyOf(l))
+    .filter((b) => b !== null)
+    .join('\n')
+    .replace(/\s+/g, '')
+  const pointerExempt = (e) => {
+    if (!e.line) return false
+    const fp = lossFingerprintOf(e.line)
+    return fp !== '' && pointerCorpus.includes(fp)
+  }
+  // textOnly 档同样要豁免:批⑤的四行真实形态(`- [ ] **G-580 …` 粗体头带空格)headIdOf 给 null,
+  // 全走 textOnly —— 只豁免带 id 的组循环等于对这批真实事故行不生效(2026-10-09 端到端探针实证)。
+  for (const e of textOnly) if (!targetSrc.includes(e.marker) && !pointerExempt(e)) lost.add(e.marker)
   const slots = registrationSlots(targetSrc)
   for (const [key, group] of groups) {
     const slot = slots.get(key)
@@ -360,6 +408,7 @@ export function resolveRegistrationLoss(entries, targetSrc) {
     let present = 0
     for (const { e } of group) {
       if (head.has(e.marker)) present += 1
+      else if (pointerExempt(e)) continue // 合法摘号(正文指纹在被审面指针行中)⇒ 不判丢、不点名、不回捞
       else absent.push(e)
     }
     // 名额优先解释"组内靠前的"缺席条目(它们来自较新的历史版本,更可能是被改写而不是被吞)
@@ -2634,6 +2683,8 @@ export const __test__ = {
   archivedCopy,
   archiveExemptFor,
   headingLosses,
+  mergePointerBodyOf,
+  lossFingerprintOf,
   missingFrom,
   // G-816708:自愈的三目标面(同一把尺子多喂一面)与三档点名的渲染出口
   healLegs,
