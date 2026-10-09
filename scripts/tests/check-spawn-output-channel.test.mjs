@@ -121,8 +121,10 @@ test('M5 端到端双向锁:索引注入必红 / 只写进注释必绿 / 不吃�
     const red = runGate(dir, ['--staged'])
     assert.equal(red.code, 1, `索引面注入违规必须判红:\n${red.out}`)
     assert.ok(/scripts\/target\.mjs/.test(red.out), '红必须点名被注入的文件')
-    // 同一形态只写进注释 ⇒ 必须不红(遮罩改松就是假阳的来源)
-    writeFileSync(join(dir, 'scripts/target.mjs'), `// ${BLIND}`, 'utf8')
+    // 同一形态**整份**写进注释 ⇒ 必须不红(遮罩改松就是假阳的来源)。
+    // 逐行加前缀是必须的:`// ` 只盖第一行时,其余三行是真代码 ⇒ 这一臂会"因为别的原因"而绿/红,
+    // 而测的其实是"注释遮不遮得住"。上一版就是踩在这一格上(它绿的原因是顶层那处当时判不出,不是遮住了)。
+    writeFileSync(join(dir, 'scripts/target.mjs'), BLIND.split('\n').map((l) => `// ${l}`).join('\n'), 'utf8')
     gitIn(dir, ['add', '--', 'scripts/target.mjs'])
     const green = runGate(dir, ['--staged'])
     assert.equal(green.code, 0, `注释里的该形态不得计入(门不得给自己立项的叙述判红):\n${green.out}`)
@@ -136,16 +138,42 @@ test('M5 端到端双向锁:索引注入必红 / 只写进注释必绿 / 不吃�
   }
 })
 
-test('M6 未判定不得记绿也不得记红:顶层作用域界不定 ⇒ 逐条点名,--strict 拒绝出合格证', () => {
+test('M6 未判定不得记绿也不得记红:取值写成变量的 stdio ⇒ 逐条点名,--strict 拒绝出合格证', () => {
   const dir = mkScratch('soc-und-')
   try {
-    makeRepo(dir, TOPLEVEL)
+    // `stdio` 是简写属性、值在别处 ⇒ 判不出。这一格必须**既不冒红也不记绿**:
+    // 默认档 exit 0 但逐条点名,--strict exit 2(拒绝出具合格证)。
+    makeRepo(dir, "function f(){\n  const stdio = 'ignore'\n  const r = spawnSync(py, args, { stdio })\n  return JSON.parse(r.stdout)\n}\n")
     const r = runGate(dir, ['--json'])
     assert.equal(r.code, 0, `默认档不得因"判不出"判红(恒红门唯一结局是跳门):\n${r.out}`)
     const j = JSON.parse(r.out.slice(r.out.indexOf('{')))
-    assert.deepEqual(j.hits, [], '顶层调用必须落未判定而不是命中')
-    assert.ok(j.undetermined.some((s) => /作用域/.test(String(s))), `未判定必须点名原因:${JSON.stringify(j.undetermined)}`)
+    assert.deepEqual(j.hits, [], '取值判不出的调用不得被当成命中')
+    assert.ok(j.undetermined.length >= 1, `未判定必须逐条点名:\n${JSON.stringify(j.undetermined)}`)
     assert.equal(runGate(dir, ['--strict']).code, 2, '--strict 下有未判定必须 exit 2(拒绝出具合格证)')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('M6b 顶层调用现在判得出:活区右界生效 ⇒ 命中判红,同名再赋值之后的读取不得借来定罪', () => {
+  const dir = mkScratch('soc-top-')
+  try {
+    // ① 顶层那处 `stdio:'ignore'` 之后紧跟 `r.stdout` ⇒ 有右界就有结论,必须红(旧口径在这里挂"未判定",
+    //    把 22 处本可判定的站点长期留在判不出档)。
+    makeRepo(dir, TOPLEVEL)
+    const red = runGate(dir, [])
+    assert.equal(red.code, 1, `顶层调用 + 活区内读取必须判红:\n${red.out}`)
+    // ② 读取点在同名再赋值**之后** ⇒ 属于后一次绑定,前一处的坏通道不能被它定罪。
+    const dir2 = mkScratch('soc-top2-')
+    try {
+      makeRepo(dir2, "let r = spawnSync(py, args, { stdio: 'ignore' })\nr = spawnSync(py, args, { stdio: ['ignore', 'pipe', 'pipe'] })\nconsole.log(JSON.parse(r.stdout))\n")
+      const g = runGate(dir2, ['--json'])
+      const j = JSON.parse(g.out.slice(g.out.indexOf('{')))
+      assert.deepEqual(j.hits, [], `越过活区右界的读取不得定罪:\n${g.out}`)
+      assert.deepEqual(j.undetermined, [], '这一格是"判过了且干净",不得伪装成未判定,也不得反过来判红')
+    } finally {
+      rmScratch(dir2)
+    }
   } finally {
     rmScratch(dir)
   }
