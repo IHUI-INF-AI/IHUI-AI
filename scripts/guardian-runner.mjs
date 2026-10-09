@@ -4718,6 +4718,27 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 派生结论通道对账(1 项,blocking)---
+  {
+    id: '199',
+    label:
+      '派生把 stdout 丢掉/直通终端、同一作用域却又读它 ⇒ 结论恒 null,门把"没拿到"写成"机器态未判定"并 exit 0(立因 G-1108372)',
+    script: 'check-spawn-output-channel.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_SPAWN_OUTPUT_CHANNEL',
+    stagedTriggers: ['scripts/'],
+    onFailHint: [
+      '',
+      '  ❌ 本门拦的是**反极性**:标量 stdio:"ignore" 对三个通道同时生效,而该调用靠 stdout 拿结论。',
+      '     改法 = stdio: ["ignore","pipe","pipe"](stdin 关掉、输出收),不是给"不吃输出"的调用加豁免。',
+      '  💡 与 check-git-stdio-discipline / check-spawn-stdio 的分工:那两道判"缺 stdio / 写 pipe 也算病";',
+      '     本门只问"stdout 通道被丢了却还有人读"。并进去会把正当写法判红(AGENTS §12e 恒红门同型)。',
+      '  📖 判据唯一实现 scripts/lib/spawn-output-channel.mjs;本型**没有行内豁免通道也没有基线**。',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
