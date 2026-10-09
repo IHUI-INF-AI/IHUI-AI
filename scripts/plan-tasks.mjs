@@ -258,6 +258,8 @@ export function auditFace(root, face) {
   const a = auditPlan(content)
   // 宽口径读数必须留在面上(只报数不判红):收窄不是"看不见",报告里必须能说"摘掉了几个标题"
   a.counts.f9WideGroups = (a.collisions ?? []).length
+  // 派单面的"F1 看不见的那一型"计数(逐对清单只打人读面,不进 json 以免把整行正文带出去)
+  a.counts.sameIdDonePairs = (a.sameIdDone?.pairs ?? []).length
   return narrowF9Face(a, content)
 }
 
@@ -2406,6 +2408,22 @@ function main() {
           `  另有 ${a.counts.selfDedispatchRows} 行自述"本行不再单独派单/派单一律走持有行"(未勾、不重复派单):`,
         )
         for (const r of sd) console.log(`    L${r.line}  ${r.title}`)
+      }
+      // 同编号、题面被改写的"一勾一未勾":F1 按复合主键看不见它,派单人就会把做完的事再派一次。
+      // 只点名不剔除也不判红 —— 同编号不同题面在本仓合法存在(D30①/D30② 那一族),
+      // 按基号剔除等于把别人没做完的活记成做过的(§1 F4 同一条禁令),交人工逐对判。
+      const sid = a.sameIdDone ?? { pairs: [], pointerRows: 0, disclaimedRows: 0 }
+      if (sid.pairs.length > 0) {
+        console.log(
+          `  同编号而题面被改写的"一勾一未勾"成对 ${sid.pairs.length} 对(F1 看不见 ⇒ 只点名、不剔除、不判红;` +
+            `另有 ${sid.pointerRows} 行带归并指针、${sid.disclaimedRows} 行自述不再派单,本就不进派单面):`,
+        )
+        for (const p of sid.pairs.slice(0, 12)) {
+          console.log(
+            `    ${p.id} 未勾 L${p.openLine}「${p.openTitle}」 ⇄ 已勾 L${p.doneLine}「${p.doneTitle}」`,
+          )
+        }
+        if (sid.pairs.length > 12) console.log(`    …另 ${sid.pairs.length - 12} 对见 --json 的 counts.sameIdDonePairs`)
       }
     }
     // 文件归属叠层只在显式旗标下打印 —— 默认派单口径的输出面已有下游按行解析(归并器/自检),
