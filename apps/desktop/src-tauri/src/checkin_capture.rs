@@ -15,7 +15,7 @@
 //!
 //! 能力面：TRAE 数据目录 6 级回退探测；Cookies（Chromium v10 AES-256-GCM，密钥走
 //! DPAPI）+ leveldb 明文扫描双通道提取 JWT（按 `data.id` 去重，不验签——只出候选）；
-//! 设备标识 10 层重置(⑦浏览器 Cookie/⑧⑨⑩深度重置,均默认关、UI 显式开启)；9 类快照对称备份/恢复。
+//! 设备标识 10 层重置(⑦浏览器 Cookie/⑧⑨⑩深度重置=现场整清等效重装,均默认关、UI 显式开启)；9 类快照对称备份/恢复。
 
 use crate::IpcError;
 use serde::Serialize;
@@ -858,52 +858,31 @@ fn reset_layer_browser_cookies() -> ResetLayerReport {
 }
 
 // ── 层⑧⑨⑩：深度重置(不卸载达到"重装级"干净) ──
-// 立因(2026-10-09 用户诉求):不想卸载 TRAE 也要彻底根治。卸载才会被清掉、而普通重置
-// 漏掉的三处残留 = ①TRAE 内嵌 webview 的 Cookies 库本体(L6 只删三个子目录,Cookies
-// 数据库文件还在,登录态就在里面——这正是"要卸载才能彻底"的主因);②state.vscdb
-// (VSCode 系的第二身份数据库:ItemTable 里还有 telemetry.*/aha.*/secret:// 加密凭据/
-// authentication 键);③日志与缓存目录(logs 里也有带机器码的遥测日志)。
+// 立因(2026-10-09 用户两轮实测反馈:「深度还不够,重置不彻底」):第一版深度档只删
+// webview Cookies 本体+vscdb 四类键前缀,但对照快照 9 类(SNAPSHOT_ENTRIES=参考项目
+// 实证的重置现场全集)还有 6 处漏网:aha/ 整目录(aha.device.device_id 的老家)、
+// 根级 Local Storage/leveldb(**恰好是捕获 JWT 的第一扫描位=登录态残留铁证**)、
+// 根级 Network/(根级 Cookies 在捕获候选里)、根级 Session Storage/、Preferences 与
+// Local State(Chromium 层设备/遥测,AES 密钥就从 Local State 读)、icube 爬虫分区。
+// 且 vscdb 的身份键前缀不可穷尽(trae.*/icube.* 等都可能有)。
+// **翻新:深度档语义收紧为"等效重装"——快照 9 类里除 storage.json 外全部整删**
+// (vscdb 也整删,不再依赖键前缀枚举;反正有快照可恢复,重装态=这些路径不存在)。
 
-/// 层⑧:TRAE 内嵌 webview 的 Cookies 库本体(按 COOKIES_DB_CANDIDATES 逐个连伴生文件删除)。
-fn reset_layer_trae_webview_cookies(trae_dir: &Path) -> ResetLayerReport {
-    let mut removed: Vec<String> = Vec::new();
-    let mut errors: Vec<String> = Vec::new();
-    for rel in COOKIES_DB_CANDIDATES {
-        let db = trae_dir.join(rel);
-        if !db.is_file() {
-            continue;
-        }
-        match std::fs::remove_file(&db)
-            .map_err(|e| e.to_string())
-            .and_then(|()| {
-                // 伴生文件删除失败不影响主文件结论,但记进明细
-                let n = remove_sqlite_family_wal_shm(&db);
-                Ok(n)
-            }) {
-            Ok(_) => removed.push(rel.to_string()),
-            Err(e) => errors.push(format!("{rel}: {e}")),
-        }
-    }
-    if errors.is_empty() {
-        ResetLayerReport {
-            layer: 8,
-            name: "trae_webview_cookies",
-            ok: true,
-            detail: if removed.is_empty() {
-                "无 Cookies 库(本就不在)".into()
-            } else {
-                format!("已删: {}", removed.join(", "))
-            },
-        }
-    } else {
-        ResetLayerReport {
-            layer: 8,
-            name: "trae_webview_cookies",
-            ok: false,
-            detail: format!("{};已删: {}", errors.join("; "), removed.join(", ")),
-        }
-    }
-}
+/// 深度档要整删的目录(相对 TRAE 数据目录)。与 SNAPSHOT_ENTRIES 的现场全集对齐:
+/// local_storage_dir/session_storage_dir/network_dir/partitions/aha_dir + IndexedDB。
+pub const DEEP_RESET_DIRS: [&str; 7] = [
+    "Local Storage",
+    "Session Storage",
+    "Network",
+    "IndexedDB",
+    "aha",
+    "Partitions/trae-webview",
+    "Partitions/icube-web-crawler-shared-session-v1.0",
+];
+
+/// 深度档要整删的文件(相对 TRAE 数据目录):Chromium 层的偏好与 Local State
+/// (捕获时的 AES 密钥就出自 Local State 的 os_crypt.encrypted_key——它同样携带设备痕迹)。
+pub const DEEP_RESET_FILES: [&str; 2] = ["Preferences", "Local State"];
 
 /// 主文件已删后清 -wal/-shm/-journal 伴生(失败容忍)。
 fn remove_sqlite_family_wal_shm(db: &Path) -> usize {
@@ -921,18 +900,57 @@ fn remove_sqlite_family_wal_shm(db: &Path) -> usize {
     n
 }
 
-/// state.vscdb 的 ItemTable 里属于设备身份/凭据的键的判据(与 storage.json 的
-/// TRAE_DOTTED_KEYS 同一身份域:vscdb 是第二份会落 telemetry 的地方)。
-fn is_device_or_secret_key(key: &str) -> bool {
-    key.starts_with("telemetry.")
-        || key.starts_with("aha.")
-        || key.starts_with("secret://")
-        || key.starts_with("authentication")
+/// 层⑧:现场目录/文件整删(等效重装:重装态=这些路径不存在)。存在才删,不存在记"本就不在"。
+fn reset_layer_deep_site_data(trae_dir: &Path) -> ResetLayerReport {
+    let mut removed: Vec<String> = Vec::new();
+    let mut errors: Vec<String> = Vec::new();
+    for rel in DEEP_RESET_DIRS {
+        let path = trae_dir.join(rel);
+        if path.is_dir() {
+            match std::fs::remove_dir_all(&path) {
+                Ok(()) => removed.push(rel.to_string()),
+                Err(e) => errors.push(format!("{rel}: {e}")),
+            }
+        }
+    }
+    for rel in DEEP_RESET_FILES {
+        let path = trae_dir.join(rel);
+        if path.is_file() {
+            match std::fs::remove_file(&path) {
+                Ok(()) => removed.push(rel.to_string()),
+                Err(e) => errors.push(format!("{rel}: {e}")),
+            }
+        }
+    }
+    if errors.is_empty() {
+        ResetLayerReport {
+            layer: 8,
+            name: "deep_site_data",
+            ok: true,
+            detail: if removed.is_empty() {
+                "无(本就不在,已是重装态)".into()
+            } else {
+                format!("已整删: {}", removed.join(", "))
+            },
+        }
+    } else {
+        ResetLayerReport {
+            layer: 8,
+            name: "deep_site_data",
+            ok: false,
+            detail: format!(
+                "{};已删: {}",
+                errors.join("; "),
+                removed.join(", ")
+            ),
+        }
+    }
 }
 
-/// 层⑨:User/globalStorage/state.vscdb 的 ItemTable 清设备身份与加密凭据键
-/// (telemetry.* / aha.* / secret://* / authentication*)——**只删这些前缀**,窗口状态等
-/// 功能键一律保留;库不存在视为"本就不在"(新装态)。
+/// 层⑨:state.vscdb 整删(+ -wal/-shm/-journal 伴生)。第一版按键前缀精准清
+/// (telemetry.%/aha.%/secret://%/authentication%),但身份键前缀不可穷尽
+/// (trae.*/icube.* 等内部域都可能藏设备指纹),用户实测仍不彻底 ⇒ 深度档改为整删:
+/// 等效重装态=该库不存在,TRAE 首启从零重建;快照可恢复。
 fn reset_layer_state_vscdb(trae_dir: &Path) -> ResetLayerReport {
     let db = trae_dir.join("User/globalStorage/state.vscdb");
     if !db.is_file() {
@@ -940,41 +958,41 @@ fn reset_layer_state_vscdb(trae_dir: &Path) -> ResetLayerReport {
             layer: 9,
             name: "state.vscdb",
             ok: true,
-            detail: "无 state.vscdb(本就不在)".into(),
+            detail: "无 state.vscdb(本就不在,已是重装态)".into(),
         };
     }
-    let deleted = (|| -> Result<usize, String> {
-        let conn = rusqlite::Connection::open(&db)
-            .map_err(|e| format!("打不开(TRAE 运行中需完全退出后重试?): {e}"))?;
-        let n = conn
-            .execute(
-                "DELETE FROM ItemTable WHERE key LIKE 'telemetry.%' OR key LIKE 'aha.%' \
-                 OR key LIKE 'secret://%' OR key LIKE 'authentication%'",
-                [],
-            )
-            .map_err(|e| format!("删除失败: {e}"))?;
-        let _ = conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
-        Ok(n)
-    })();
-    match deleted {
-        Ok(n) => ResetLayerReport {
-            layer: 9,
-            name: "state.vscdb",
-            ok: true,
-            detail: format!("清 {n} 个身份/凭据键(telemetry.*/aha.*/secret://*/authentication*)"),
-        },
+    match std::fs::remove_file(&db) {
+        Ok(()) => {
+            let extra = remove_sqlite_family_wal_shm(&db);
+            ResetLayerReport {
+                layer: 9,
+                name: "state.vscdb",
+                ok: true,
+                detail: format!("已整删(含 {extra} 个伴生文件);TRAE 首启从零重建"),
+            }
+        }
         Err(e) => ResetLayerReport {
             layer: 9,
             name: "state.vscdb",
             ok: false,
-            detail: e,
+            detail: format!("删除失败(TRAE 运行中需完全退出后重试?): {e}"),
         },
     }
 }
 
-/// 层⑩:日志与缓存目录(logs 里的遥测日志含机器码;缓存删了自动重建,无功能影响)。
+/// 层⑩:日志与缓存目录(logs 遥测含机器码;Crashpad 崩溃报告含机器信息;
+/// Dawn*/GPU/Cache 是纯缓存,删了自动重建,无功能影响)。
 fn reset_layer_logs_cache(trae_dir: &Path) -> ResetLayerReport {
-    const DIRS: [&str; 4] = ["logs", "Cache", "GPUCache", "CachedData"];
+    const DIRS: [&str; 8] = [
+        "logs",
+        "Cache",
+        "GPUCache",
+        "CachedData",
+        "Crashpad",
+        "DawnCache",
+        "DawnGraphiteCache",
+        "DawnWebGPUCache",
+    ];
     let mut removed: Vec<&str> = Vec::new();
     let mut errors: Vec<String> = Vec::new();
     for rel in DIRS {
@@ -1044,7 +1062,7 @@ pub fn reset_device_ids(
     // 层⑧⑨⑩(深度重置)默认 skip:webview Cookies 库本体/state.vscdb 身份键/日志缓存,
     // 是"不卸载达到重装级干净"的补全——动的是 TRAE 登录态与凭据,同样由用户显式选择。
     layers.push(if deep_reset {
-        reset_layer_trae_webview_cookies(trae_dir)
+        reset_layer_deep_site_data(trae_dir)
     } else {
         ResetLayerReport {
             layer: 8,
@@ -1695,58 +1713,47 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    // ── 9b. 深度重置三层（隔离临时目录,验证判据与删除面）──
+    // ── 9b. 深度重置三层（隔离临时目录,验证"现场整清=等效重装"的删面与保留面）──
 
     #[test]
-    fn deep_reset_layers_clear_webview_cookies_vscdb_and_logs() {
+    fn deep_reset_layers_clear_entire_site_data_vscdb_and_logs() {
         let dir = scratch("deep-reset");
-        // ①webview Cookies 库 + 伴生文件
-        let cookies = dir.join("Partitions/trae-webview/Network/Cookies");
-        std::fs::create_dir_all(cookies.parent().unwrap()).unwrap();
-        std::fs::write(&cookies, "fake").unwrap();
-        std::fs::write(dir.join("Partitions/trae-webview/Network/Cookies-wal"), "w").unwrap();
-        // ②state.vscdb:插身份键与功能键,断言只删前者
+        // 造"重装前的完整现场":快照 9 类里除 storage.json 外全部 + logs
+        for rel in DEEP_RESET_DIRS {
+            let p = dir.join(rel);
+            std::fs::create_dir_all(p.join("inner")).unwrap();
+            std::fs::write(p.join("inner/data"), "stale").unwrap();
+        }
+        for rel in DEEP_RESET_FILES {
+            std::fs::write(dir.join(rel), "{}").unwrap();
+        }
         let vscdb = dir.join("User/globalStorage/state.vscdb");
         std::fs::create_dir_all(vscdb.parent().unwrap()).unwrap();
-        {
-            let conn = rusqlite::Connection::open(&vscdb).unwrap();
-            conn.execute_batch(
-                "CREATE TABLE ItemTable (key TEXT PRIMARY KEY, value BLOB);
-                 INSERT INTO ItemTable (key, value) VALUES
-                   ('telemetry.machineId', x'00'), ('aha.device.device_id', x'00'),
-                   ('secret://credentials', x'00'), ('authentication.session', x'00'),
-                   ('workbench.activity', x'00'), ('windowsState', x'00');",
-            )
-            .unwrap();
-        }
-        // ③logs 目录
+        std::fs::write(&vscdb, "fake-sqlite").unwrap();
+        std::fs::write(dir.join("User/globalStorage/state.vscdb-wal"), "w").unwrap();
         std::fs::create_dir_all(dir.join("logs")).unwrap();
         std::fs::write(dir.join("logs/x.log"), "machine=abc").unwrap();
+        // storage.json 必须幸存(L2/L3 要改写设备键,骨架不能删)
+        std::fs::create_dir_all(dir.join("User/globalStorage")).unwrap();
+        std::fs::write(dir.join("User/globalStorage/storage.json"), r#"{"keep":1}"#).unwrap();
 
-        let r8 = reset_layer_trae_webview_cookies(&dir);
-        assert!(r8.ok && r8.detail.contains("Partitions/trae-webview/Network/Cookies"), "{r8:?}");
-        assert!(!cookies.exists(), "Cookies 库本体必须被删");
-        assert!(
-            !dir.join("Partitions/trae-webview/Network/Cookies-wal").exists(),
-            "伴生 -wal 必须一并删"
-        );
+        let r8 = reset_layer_deep_site_data(&dir);
+        assert!(r8.ok, "{r8:?}");
+        for rel in DEEP_RESET_DIRS {
+            assert!(!dir.join(rel).exists(), "深度档必须整删 {rel}");
+        }
+        for rel in DEEP_RESET_FILES {
+            assert!(!dir.join(rel).exists(), "深度档必须整删 {rel}");
+        }
+        assert!(dir.join("User/globalStorage/storage.json").exists(), "storage.json 骨架必须保留");
 
         let r9 = reset_layer_state_vscdb(&dir);
         assert!(r9.ok, "{r9:?}");
-        let conn = rusqlite::Connection::open(&vscdb).unwrap();
-        let kept: Vec<String> = conn
-            .prepare("SELECT key FROM ItemTable")
-            .unwrap()
-            .query_map([], |r| r.get::<_, String>(0))
-            .unwrap()
-            .collect::<Result<_, _>>()
-            .unwrap();
-        assert_eq!(
-            kept,
-            vec!["windowsState".to_string(), "workbench.activity".to_string()],
-            "只许清身份/凭据键,功能键必须保留: {kept:?}"
+        assert!(!vscdb.exists(), "state.vscdb 必须整删(等效重装:键前缀枚举不可穷尽)");
+        assert!(
+            !dir.join("User/globalStorage/state.vscdb-wal").exists(),
+            "伴生 -wal 必须一并删"
         );
-        drop(conn);
 
         let r10 = reset_layer_logs_cache(&dir);
         assert!(r10.ok && r10.detail.contains("logs"), "{r10:?}");
