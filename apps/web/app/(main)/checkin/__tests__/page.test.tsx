@@ -79,12 +79,29 @@ vi.mock('lucide-react', () => {
     CheckCheck: Icon,
     FolderPen: Icon,
     KeyRound: Icon,
+    Laptop: Icon,
     Loader2: Icon,
     Plus: Icon,
     RefreshCw: Icon,
     Trash2: Icon,
+    Wrench: Icon,
   }
 })
+
+// 桌面端通道(WP-C):测试环境无 __TAURI_INTERNALS__,useTauriIpcReady 恒 false;
+// 桥接函数 mock 成具名 vi.fn,浏览器路径下不应被调用。
+vi.mock('@/hooks/use-desktop', () => ({
+  useTauriIpcReady: () => false,
+}))
+vi.mock('@/lib/tauri-bridge', () => ({
+  checkinDetectTraeDir: vi.fn(),
+  checkinCaptureJwts: vi.fn(),
+  checkinResetDeviceIds: vi.fn(),
+  checkinSnapshotBackup: vi.fn(),
+  checkinSnapshotRestore: vi.fn(),
+  checkinSnapshotList: vi.fn(),
+  checkinSnapshotDelete: vi.fn(),
+}))
 
 vi.mock('@ihui/ui-react', () => {
   const Passthrough =
@@ -467,7 +484,7 @@ describe('签到助手页面 · 更新JWT/徽章/调度/过滤/加载更多', ()
       screen.getAllByRole('checkbox', { name: /^selectAccount:/ }),
     )
     // 两行各有勾选框;勾选第一行(账号 1)
-    fireEvent.click(rowCheckboxes[0])
+    fireEvent.click(rowCheckboxes[0]!)
     const selectedBtn = await waitFor(() => screen.getByText('checkinSelected'))
     fireEvent.click(selectedBtn)
     await waitFor(() => expect(manualCheckin).toHaveBeenCalledTimes(1))
@@ -564,6 +581,20 @@ describe('签到助手页面 · 更新JWT/徽章/调度/过滤/加载更多', ()
     )
     await waitFor(() => expect(screen.getByText('msg150')).toBeTruthy())
     expect(screen.queryByText('loadMore')).toBeNull()
+  })
+})
+
+describe('签到助手页面 · 桌面端专属入口(WP-C)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockLoadSuccess()
+  })
+
+  it('浏览器环境(IPC 未注入)不渲染本机捕获/维护入口', async () => {
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    expect(screen.queryByText('captureTitle')).toBeNull()
+    expect(screen.queryByText('maintTitle')).toBeNull()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
