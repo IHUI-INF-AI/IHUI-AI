@@ -24,7 +24,6 @@
 //      结构性校验(解码失败一律回落,不进缓存)。
 
 import { createRequire } from 'node:module'
-import { createHash } from 'node:crypto'
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -34,7 +33,7 @@ import { dirname, resolve } from 'node:path'
 // 所以只改说明符照样红),前置 = 等两台机的分叉裁决定后再搬,避免刚搬完就被并回旧路径。
 // 在这之前这条边**不能撤**:守门 105 的镜像 T14 断言"门与生成器都必须引那份唯一实现",
 // 撤掉即变成两处各算一遍哈希 —— 正是本仓记过两次的漂移成因。
-import { renderPin } from './lib/generated-input-pin.mjs'
+import { renderPin, sha256Hex } from './lib/generated-input-pin.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 // 脚本在根 scripts/,仓库根在其上 1 级;消息源在 packages/i18n/messages
@@ -124,11 +123,12 @@ console.log(
 )
 
 // 运行时清单:version = 载荷 sha256(storage 缓存 key 与失效判据),bytes = 载荷字节数
-// (下载完整性粗校验)。sha256 只在生成期(node crypto)算,运行时只做字符串比较,不带依赖进主包。
+// (下载完整性粗校验)。哈希一律经 lib/generated-input-pin.mjs 的 sha256Hex(唯一实现,
+// 与守门 105 的自述钉同值),只在生成期算,运行时只做字符串比较,不带依赖进主包。
 const REMOTE_LOCALE_MANIFEST = {}
 for (const locale of REMOTE_LOCALES) {
   REMOTE_LOCALE_MANIFEST[locale] = {
-    version: createHash('sha256').update(REMOTE_LOCALE_B64[locale], 'utf8').digest('hex'),
+    version: sha256Hex(REMOTE_LOCALE_B64[locale]),
     bytes: REMOTE_LOCALE_B64[locale].length,
   }
 }
