@@ -18,7 +18,7 @@
  *   B. fork 池 `SubagentWorkerPool`(apps/cli/src/subagents/worker-pool.ts):
  *      B1 持续 stdout 活动 ⇒ 过了 timeoutSeconds 也不 SIGTERM(旧墙钟行为会杀);
  *      B2 真空闲 ⇒ 空闲窗耗尽 SIGTERM,错误带 idleMs 与 recoverable/retryable;
- *      B3 持续活动跑到窗口×3 ⇒ 绝对上限兜底 SIGTERM。
+ *      B3 绝对上限到点且仍在推进 ⇒ 不杀,自动转后台(detached_idle),终态经 awaitResult 回收。
  *
  * 时钟一律 vi.useFakeTimers,fork mock 成 EventEmitter(形态对齐 subagent-idle-timeout.test.ts),
  * 断言全部打在生产出口(spawn 响应 / executeWithinExecBudget 返回值)上,测试内不内联超时判定。
@@ -29,6 +29,7 @@ import type { ChildProcess } from 'node:child_process';
 import type { SubagentSpawnResponse } from '@ihui/types';
 
 import { executeWithinExecBudget, type ToolContext, type ToolResult } from '../src/tools/index.js';
+import { SUBAGENT_STATUS_DETACHED_IDLE, isSubagentTerminalStatus } from '../src/subagents/types.js';
 
 // ───────────────────────── A 面:in-process 执行器边界 ─────────────────────────
 
@@ -211,24 +212,33 @@ describe('B: SubagentWorkerPool taskTimeout 无活动空闲窗(G-426)', () => {
     expect(proc.kill).toHaveBeenCalledWith('SIGTERM');
   });
 
-  it('B3 持续活动跑到窗口×3 ⇒ 绝对上限兜底 SIGTERM(防无限续命)', async () => {
+  it('B3 绝对上限到点且仍在推进 ⇒ 不 SIGTERM,自动转后台(detached_idle),真终态经 awaitResult 回收', async () => {
     const pool = new SubagentWorkerPool(defaultWorkerPoolConfig({ maxWorkers: 1, taskTimeoutSeconds: 60 }));
     let resolved: SubagentSpawnResponse | undefined;
     void pool.spawn({ persona: 'coder', task: '永动机' }).then((r) => {
       resolved = r;
     });
     const proc = lastProc();
-    // 19 × 10s = 190s > 60s × 3 = 180s 绝对上限,每 10s 都有真实任务事件
+    // 19 × 10s = 190s > 60s × 3 = 180s 绝对上限,每 10s 都有真实任务事件:
+    // G-426 拍板第三件套 —— 能活到总上限的执行一路有真实活动,该收口的是"前台等待"不是
+    // 任务:spawn Promise 以 wire 既有档 'running' 提前 resolve,进程不被 SIGTERM。
     for (let i = 0; i < 19; i++) {
       await vi.advanceTimersByTimeAsync(10_000);
       sendHeartbeat(proc);
       emitTaskOutput(proc, `tick${i}`);
     }
     expect(resolved).toBeDefined();
-    expect(resolved!.status).toBe('failed');
-    expect(resolved!.error).toContain('absolute cap');
-    expect(resolved!.error).toContain('idleMs=');
-    expect(proc.kill).toHaveBeenCalledWith('SIGTERM');
+    expect(resolved!.status).toBe('running');
+    expect(proc.kill).not.toHaveBeenCalled();
+    // 转后台 = 显式中间态 detached_idle,不是任何终态;条目仍在池内被跟踪
+    expect(pool.getLifecycleStatus(resolved!.subagentId)).toBe(SUBAGENT_STATUS_DETACHED_IDLE);
+    expect(isSubagentTerminalStatus(SUBAGENT_STATUS_DETACHED_IDLE)).toBe(false);
+    expect(pool.activeSubagentIds()).toContain(resolved!.subagentId);
+    // 自然退出 ⇒ 真终态不丢:awaitResult 取回 completed(转后台 ≠ 失败,不设 timedOut)
+    proc.emit('exit', 0, null);
+    const final = await pool.awaitResult(resolved!.subagentId);
+    expect(final.status).toBe('completed');
+    expect(pool.getLifecycleStatus(resolved!.subagentId)).toBe('completed');
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
