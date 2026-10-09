@@ -2270,6 +2270,15 @@ function main() {
           `(剔除:待人拍板 ${a.counts.dispWaitingHuman} / 等条件 ${a.counts.dispWaitingEnv} / 归他人 ${a.counts.dispOwnedElsewhere};` +
           `剔除按正文推导,拿不准的**留在清单里**而不是踢掉)──`,
       )
+      // 行内自述"不再单独派单/走持有行"的副本:勾选一字未动(§1 F4 口径),但不再占派单名额。
+      // 必须报名而不只报数 —— 拿数字的人会去 grep【归并】字面并据此判定"这一族不存在"。
+      const sd = a.counts.selfDedispatchList || []
+      if (sd.length > 0) {
+        console.log(
+          `  另有 ${a.counts.selfDedispatchRows} 行自述"本行不再单独派单/派单一律走持有行"(未勾、不重复派单):`,
+        )
+        for (const r of sd) console.log(`    L${r.line}  ${r.title}`)
+      }
     }
     listRows(rows, o.face)
     return 0
