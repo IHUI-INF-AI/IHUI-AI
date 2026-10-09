@@ -36,6 +36,8 @@ import { gitRaw } from '../lib/face-reader.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import {
   countNewUndisposed,
+  collectDirtyPaths,
+  collectHeadPaths,
   fileConflictOverlay,
   f9GroupLine,
   f9KeySetOf,
@@ -1850,5 +1852,34 @@ test('MC6 取不到集合不得被读成"没有在飞":null 走未判定分支(�
   if (!/未判定\*\*:git status \/ HEAD 树取不到/.test(CODE))
     throw new Error('取不到时必须大声喊"未判定",不得静默跳过(静默=读成没有在飞)')
   if (!/return null/.test(CODE)) throw new Error('collectDirtyPaths/collectHeadPaths 取不到要返回 null 而非空集合 —— 空集合会被下游当成"确实干净"')
+})
+
+test('MC7 git 不可问时必须落"未判定",不得把空 HEAD 树读成"路径都不在面上"(2026-10-09 抽取目录实测的自伤)', () => {
+  // 阳性对照:无 .git 的临时目录里 git 会失败,旧写法得到的是**空集合**而非 null,
+  // 于是叠层把每一条点名都判成"核验不了"、干净 0,读数看起来像结论而一句未判定都没喊。
+  const sc = mkScratch('plan-tasks-mc7')
+  try {
+    if (collectHeadPaths(sc) !== null) throw new Error('git 不可问 ⇒ collectHeadPaths 必须 null(空集合等于伪造结论)')
+    const dirty = collectDirtyPaths(sc)
+    // dirty 在这一档可以是空集合(它本身分不清"干净"与"问不到"),防误读的责任在调用方的次序上:
+    // 必须先证明 headSet 取到了,才准把空 status 读成"没有在飞"。
+    if (dirty !== null) throw new Error('git 不可问 ⇒ collectDirtyPaths 也必须给 null;空 Set 会被读成"确实没有在飞",正是要防的那一型')
+    const CODE = readFileSync(new URL('../plan-tasks.mjs', import.meta.url), 'utf8')
+    if (!/if \(!dirtySet \|\| !headSet\)/.test(CODE)) throw new Error('调用方必须先问 headSet 在不在,再解读空 dirty')
+  } finally {
+    rmScratch(sc)
+  }
+  // 覆盖面自证:真仓 HEAD 树若只量出个位数,说明尺子根本没跑,不得拿它当"路径都找不到"的依据。
+  const head = collectHeadPaths(ROOT)
+  if (!head) throw new Error('真仓取不到 HEAD 树 ⇒ 本用例无从判定')
+  if (head.size < 1000) throw new Error(`HEAD 树只量到 ${head.size} 条 —— 覆盖面自证不成立,判据在假装工作`)
+  // 第三条臂:从仓内的**子目录**发起也必须锚到 toplevel。`git -C <子目录> ls-tree HEAD` 打的是
+  // 相对该目录的树(在子目录里就是空集),旧写法把空集当"HEAD 里没这些文件"用 ⇒ 全部点名掉进
+  // "核验不了"、干净 0,读数看着像结论。
+  const fromSub = collectHeadPaths(path.join(ROOT, 'scripts'))
+  if (!fromSub) throw new Error('从 scripts/ 子目录发起时 HEAD 树必须仍取到(锚 toplevel),实得 null')
+  if (fromSub.size < 1000) throw new Error(`子目录发起只量到 ${fromSub.size} 条 ⇒ 没锚到仓根`)
+  const dirtySub = collectDirtyPaths(path.join(ROOT, 'scripts'))
+  if (!dirtySub) throw new Error('子目录发起时在飞集合应取到(可能为空,但必须是 Set 而不是 null)')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
