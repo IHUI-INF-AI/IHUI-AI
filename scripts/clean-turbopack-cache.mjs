@@ -43,6 +43,7 @@
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { spawnSync } from 'node:child_process'
 
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
@@ -176,20 +177,63 @@ if (args.check) {
 
 if (args.force || sizeMB > args.thresholdMB) {
   console.log(`[turbopack-cache] 超出阈值,清理 ${sizeMB.toFixed(0)} MB ...`)
+  let cleaned = false
   try {
     await fs.rm(TARGET, { recursive: true, force: true })
+    cleaned = true
     console.log('[turbopack-cache] 清理完成')
   } catch (err) {
-    // 文件被占用(如另一窗口/并行会话的 next dev 正在运行)时 Windows 抛 EPERM/EBUSY。
-    // 2026-09-03 强化:原来只 warn 不阻塞 → next dev 带 40GB 缓存启动,会话内所有路由
-    // 退化到 15~19s(用户实测"根本没做到极致"的真因)。现改为:清理失败时 exit 1,
-    // 阻断 next dev 启动(&& 短路),强制开发者先停掉占用进程再启动,避免带病缓存。
-    // 注意:仅当缓存已超阈值(8GB)时阻塞;健康态(<阈值)不受影响,保持零摩擦启动。
-    console.error(`[turbopack-cache] 清理失败(进程占用缓存文件): ${err.message}`)
-    console.error('[turbopack-cache] 缓存已超阈值但被占用,阻断启动以杜绝"带病缓存导致全站慢"。')
-    console.error('[turbopack-cache] 解决:① 停掉所有 next dev 进程(pwsh scripts/start-dev.ps1 -Clean);')
-    console.error('[turbopack-cache]       ② 或手动 node scripts/clean-turbopack-cache.mjs --force 后重启。')
-    process.exit(1)
+    // 文件被占用时 Windows 抛 EPERM/EBUSY。
+    // 2026-09-03 强化:清理失败 exit 1 阻断 next dev,避免带病 40GB 缓存(全站 15~19s/页)。
+    // 2026-10-09 根治(宿主被杀事故实证):宿主应用退出连带杀 dev 进程后,句柄残留/幻影
+    // 会让首次 rm 失败 ⇒ 每次宿主重启后 web 都起不来,必须手工 --force。现加自愈:
+    // 先用 CIM 查有无存活的 next/turbopack node 进程 ——
+    //   ① 无活持有者 ⇒ 句柄陈旧,退避重试 3 次后走 `rd /s /q` 兜底,清掉就放行;
+    //   ② 有活持有者 ⇒ 真占用,维持阻断(避免"next dev 运行中清缓存"铁律被绕),
+    //     并打印持有者 PID/命令行,开发者一眼看到该停谁;
+    //   ③ 判不出(查询失败) ⇒ 维持阻断(fail-closed),不冒带病缓存风险。
+    console.error(`[turbopack-cache] 首次清理失败: ${err.message}`)
+    const ps = spawnSync(
+      'powershell.exe',
+      ['-NoProfile', '-Command',
+        "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.CommandLine -match 'next|turbopack' } | ForEach-Object { \"$($_.ProcessId)|$($_.CommandLine)\" }"],
+      { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true, timeout: 20_000 },
+    )
+    const holders = ps.status === 0
+      ? ps.stdout.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+      : null
+    if (holders !== null && holders.length === 0) {
+      console.log('[turbopack-cache] 无存活 next/turbopack 进程 ⇒ 句柄陈旧,重试自愈 ...')
+      for (let i = 1; i <= 3 && !cleaned; i++) {
+        await new Promise((r) => setTimeout(r, 2000))
+        try {
+          await fs.rm(TARGET, { recursive: true, force: true })
+          cleaned = true
+        } catch {}
+      }
+      if (!cleaned) {
+        const rd = spawnSync(
+          'cmd.exe',
+          ['/d', '/s', '/c', `rd /s /q "${TARGET}"`],
+          { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, timeout: 120_000 },
+        )
+        cleaned = rd.status === 0
+      }
+      if (cleaned) {
+        console.log('[turbopack-cache] 清理完成(陈旧句柄自愈:退避重试 + rd 兜底)')
+      }
+    } else if (holders !== null && holders.length > 0) {
+      console.error('[turbopack-cache] 检测到存活 next/turbopack 进程(真占用,须先停掉):')
+      for (const h of holders) console.error(`[turbopack-cache]   PID|cmd = ${h}`)
+    } else {
+      console.error('[turbopack-cache] 持有者查询失败(未判定),维持阻断(fail-closed)。')
+    }
+    if (!cleaned) {
+      console.error('[turbopack-cache] 缓存已超阈值但无法清理,阻断启动以杜绝"带病缓存导致全站慢"。')
+      console.error('[turbopack-cache] 解决:① 停掉上面列出的 next dev 进程(pwsh scripts/start-dev.ps1 -Clean);')
+      console.error('[turbopack-cache]       ② 或手动 node scripts/clean-turbopack-cache.mjs --force 后重启。')
+      process.exit(1)
+    }
   }
 } else {
   console.log('[turbopack-cache] 健康,无需清理')
