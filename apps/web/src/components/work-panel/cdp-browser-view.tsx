@@ -317,6 +317,7 @@ export function CdpBrowserView({
     }
     ws.addEventListener('message', onResult)
     ws.send(JSON.stringify({ type: 'execute', script }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- next-intl 4.13.4 的 t 每次渲染换新引用(实测 same=false),补进依赖会让本 effect 每渲染重跑
   }, [jsCode])
 
   // 回调 ref(避免 effect 依赖变化导致 WebSocket 重连)
@@ -441,6 +442,7 @@ export function CdpBrowserView({
       ws.close()
       wsRef.current = null
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- next-intl 4.13.4 的 t 每次渲染换新引用(实测 same=false),补进依赖会让本 effect 每渲染重跑
   }, [sessionId, syncViewport])
 
   // 坐标转换:canvas 显示坐标 → 设备坐标(后端 Chromium 视口)
@@ -685,6 +687,7 @@ export function CdpBrowserView({
       })
     }
     return items
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- next-intl 4.13.4 的 t 每次渲染换新引用(实测 same=false),补进依赖会让本 effect 每渲染重跑
   }, [onBack, onForward, onReload, onOpenExternal, currentUrl, copied, handleCopyUrl])
 
   return (
