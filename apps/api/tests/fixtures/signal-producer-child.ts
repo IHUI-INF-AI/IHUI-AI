@@ -51,7 +51,9 @@ if (arm === 'emit-once') {
   process.emit('SIGTERM')
   process.emit('SIGTERM')
 } else if (arm === 'selfterm-once' || arm === 'selfterm-twice') {
-  console.log('ready')
+  // 握手行必须走 **stdout**(父进程读的就是 stdout);console.info 走 stderr 会把握手打断,
+  // 所以这里不经 console 直接写 stdout —— 既守 no-console,也保住"ready"这条进程间协议。
+  process.stdout.write('ready\n')
   process.kill(process.pid, 'SIGTERM')
   if (arm === 'selfterm-twice') process.kill(process.pid, 'SIGTERM')
   // 保持存活等投递(装了监听器 ⇒ 默认动作已被抑制)
