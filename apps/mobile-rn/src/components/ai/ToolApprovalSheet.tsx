@@ -3,13 +3,14 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native'
-import { ShieldAlert } from 'lucide-react-native'
+import { Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native'
+import { ShieldAlert, ShieldCheck } from 'lucide-react-native'
 import type { ToolApprovalEvent } from '@ihui/api-client'
 import { postToolApprovalResponse } from '@ihui/api-client'
 import { rnRadius } from '@ihui/design-tokens'
 import type { ToolApprovalScope } from '@ihui/types'
-import { tokens } from '../../theme/active-tokens'
+import { TextField } from '@ihui/rn-app'
+import { currentRnTheme, tokens } from '../../theme/active-tokens'
 import { useI18n } from '../../i18n'
 import { rpx } from '../../utils/rpx'
 
@@ -39,6 +40,12 @@ import { rpx } from '../../utils/rpx'
  *     这两条真存在的路上,造第三个按钮就是对用户撒谎。
  *
  * 平台特有:依赖 react-native Modal / lucide-react-native,不适合共享层。
+ *
+ * G-978066(2026-10-10 补):web 审批门上的**原因输入**与 **grantRule 规则编辑器**搬到本面板。
+ * 规则编辑器只出现在这里,不出现在 `ChatDisclosure.ToolApprovalRow` —— 那条行走
+ * `sendToolApprovalResponse`(网关 /ai/agent/approval-response),其 schema 会静默丢弃
+ * `grant_rule`(web 侧同一判据,见 tool-approval-dialog.tsx 的 showGrantRule),
+ * 在那儿摆一个开关就是"看起来有、其实没装车"。本面板走 chat-stream 端点,字段有人接。
  */
 
 /** 一条审批在端内的两种终局:待决(pending)/ 已回答(answered)。 */
@@ -62,11 +69,60 @@ const SCOPE_OPTIONS: ReadonlyArray<{ value: ToolApprovalScope; labelKey: string 
   { value: 'always', labelKey: 'toolApproval.scopeAlways' },
 ]
 
+/** 第四档上送的固定口径:按 argv 前 2 个 token 落前缀规则(与 web/后端预填同值)。 */
+const GRANT_RULE_TOKENS = 2
+
+/** 高危命令片段最小表:命令全文命中任一片段 ⇒ 勾选第四档时先二次确认(与 web 同表)。 */
+const DANGEROUS_COMMAND_PATTERNS: readonly string[] = [
+  'rm -rf',
+  'rm -fr',
+  'mkfs',
+  'dd if=',
+  'shutdown',
+  'reboot',
+  'halt',
+  'del /f',
+  'rd /s',
+  ':(){',
+]
+
+/** 原因输入上限(与 web textarea 的 maxLength 同值)。 */
+const REASON_MAX_LENGTH = 500
+
+/** 从 argsPreview(JSON,可能被 200 字符截断)尽力还原 run_command 的 argv。 */
+function extractRunCommandArgv(argsPreview: string): string[] {
+  try {
+    const parsed: unknown = JSON.parse(argsPreview)
+    if (parsed && typeof parsed === 'object') {
+      const argv = (parsed as { argv?: unknown }).argv
+      if (Array.isArray(argv)) {
+        const argvTokens = argv.filter((x): x is string => typeof x === 'string' && x.trim() !== '')
+        if (argvTokens.length > 0) return argvTokens
+      }
+      const command = (parsed as { command?: unknown }).command
+      if (typeof command === 'string' && command.trim() !== '') {
+        return command.trim().split(/\s+/)
+      }
+    }
+  } catch {
+    // 截断的 JSON 落到这里,退回原文按空白切词兜底
+  }
+  const text = argsPreview.trim()
+  return text === '' ? [] : text.split(/\s+/)
+}
+
+function isDangerousCommand(argv: readonly string[]): boolean {
+  const cmdline = argv.join(' ').toLowerCase()
+  return DANGEROUS_COMMAND_PATTERNS.some((p) => cmdline.includes(p))
+}
+
 export function useToolApprovalQueue(): UseToolApprovalQueueResult {
   const { t } = useI18n()
   const [entries, setEntries] = useState<ApprovalEntry[]>([])
   const [panelOpen, setPanelOpen] = useState(false)
   const [scope, setScope] = useState<ToolApprovalScope>('once')
+  const [reason, setReason] = useState('')
+  const [grantRule, setGrantRule] = useState(false)
   const [sending, setSending] = useState(false)
   /** 上一条决策回传失败的 approval id:必须显式挂在面板上,不得静默当"已处理"。 */
   const [failedId, setFailedId] = useState<string | null>(null)
@@ -96,17 +152,22 @@ export function useToolApprovalQueue(): UseToolApprovalQueueResult {
   const answered = useMemo(() => entries.filter((e) => e.decided !== null), [entries])
   const current = pending[0] ?? null
 
-  // 新请求入栈时重置作用域,避免上一条的授权范围串到下一条(与 web 同一条 effect 语义)。
+  // 新请求入栈时重置作用域/原因/规则勾选,避免上一条的授权范围串到下一条(与 web 同一条 effect 语义)。
   const currentId = current?.event.approvalId ?? null
   useEffect(() => {
-    if (currentId !== null) setScope('once')
+    if (currentId !== null) {
+      setScope('once')
+      setReason('')
+      setGrantRule(false)
+    }
   }, [currentId])
 
   const decide = useCallback(
-    async (decision: 'approve' | 'reject') => {
+    async (decision: 'approve' | 'reject', withGrantRule = false) => {
       const target = current
       if (!target || sendingRef.current) return
       const approvalId = target.event.approvalId
+      const trimmedReason = reason.trim()
       sendingRef.current = true
       setSending(true)
       try {
@@ -117,8 +178,16 @@ export function useToolApprovalQueue(): UseToolApprovalQueueResult {
           decision,
           // 作用域仅批准时有意义;once 显式传,防后端缺省意外放大(照抄 web 那条注释的理由)
           ...(decision === 'approve' ? { scope } : {}),
+          // 空原因不携带键:「没说原因」与「说了个空原因」是两件事(与 web 同)
+          ...(trimmedReason !== '' ? { reason: trimmedReason } : {}),
+          // 第四档随 approve 一并上送,与三档 scope 正交;拒绝永不携带
+          ...(decision === 'approve' && withGrantRule
+            ? { grantRule: { kind: 'exec_prefix' as const, tokens: GRANT_RULE_TOKENS } }
+            : {}),
         })
-        setEntries((prev) => prev.map((e) => (e.event.approvalId === approvalId ? { ...e, decided: decision } : e)))
+        setEntries((prev) =>
+          prev.map((e) => (e.event.approvalId === approvalId ? { ...e, decided: decision } : e)),
+        )
       } catch {
         // 失败必须响:不回退成"看起来已处理"。条目留在待决队列,面板上点名发送失败。
         setFailedId(approvalId)
@@ -127,8 +196,32 @@ export function useToolApprovalQueue(): UseToolApprovalQueueResult {
         setSending(false)
       }
     },
-    [current, scope],
+    [current, scope, reason],
   )
+
+  // 规则编辑器只在 run_command 上出现(与前缀展示同源:argv 从 argsPreview 尽力还原)。
+  const grantArgv = useMemo(
+    () => extractRunCommandArgv(current?.event.argsPreview ?? ''),
+    [current?.event.argsPreview],
+  )
+  const grantPrefix = grantArgv.slice(0, GRANT_RULE_TOKENS).join(' ')
+  const showGrantRule = current?.event.toolName === 'run_command'
+  const grantDangerous = isDangerousCommand(grantArgv)
+
+  const requestApprove = useCallback(() => {
+    if (showGrantRule && grantRule && grantDangerous) {
+      Alert.alert(
+        t('toolApproval.grantRuleConfirmTitle'),
+        t('toolApproval.grantRuleConfirmContent', { prefix: grantPrefix }),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('toolApproval.approve'), onPress: () => void decide('approve', true) },
+        ],
+      )
+      return
+    }
+    void decide('approve', showGrantRule && grantRule)
+  }, [showGrantRule, grantRule, grantDangerous, grantPrefix, decide, t])
 
   const dismissAnswered = useCallback(() => {
     setEntries((prev) => prev.filter((e) => e.decided === null))
@@ -215,6 +308,46 @@ export function useToolApprovalQueue(): UseToolApprovalQueueResult {
                     })}
                   </View>
                 </View>
+                {showGrantRule ? (
+                  <View style={styles.field}>
+                    <Pressable
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: grantRule }}
+                      testID="tool-approval-grant-rule"
+                      style={[
+                        grantRule ? styles.scopeOptionActive : styles.scopeOption,
+                        styles.chipRow,
+                      ]}
+                      onPress={() => setGrantRule((v) => !v)}
+                    >
+                      <ShieldCheck
+                        size={14}
+                        color={grantRule ? tokens.text.primary : tokens.text.secondary}
+                      />
+                      <Text style={grantRule ? styles.scopeTextActive : styles.scopeText}>
+                        {t('toolApproval.grantRuleToggle')}
+                      </Text>
+                    </Pressable>
+                    <Text style={styles.meta}>
+                      {t('toolApproval.grantRuleDesc', { prefix: grantPrefix })}
+                    </Text>
+                  </View>
+                ) : null}
+                <View style={styles.field}>
+                  <Text style={styles.fieldLabel}>{t('editor.toolApproval.reasonLabel')}</Text>
+                  <TextField
+                    testID="tool-approval-reason"
+                    accessibilityLabel={t('editor.toolApproval.reasonLabel')}
+                    colorScheme={currentRnTheme()}
+                    multiline
+                    maxLength={REASON_MAX_LENGTH}
+                    value={reason}
+                    onChangeText={setReason}
+                    placeholder={t('editor.toolApproval.reasonPlaceholder')}
+                    placeholderTextColor={tokens.text.tertiary}
+                    style={styles.reasonInput}
+                  />
+                </View>
                 <View style={styles.actions}>
                   <Pressable
                     accessibilityRole="button"
@@ -230,7 +363,7 @@ export function useToolApprovalQueue(): UseToolApprovalQueueResult {
                     testID="tool-approval-approve"
                     disabled={sending}
                     style={styles.approveBtn}
-                    onPress={() => void decide('approve')}
+                    onPress={requestApprove}
                   >
                     <Text style={styles.approveText}>{t('toolApproval.approve')}</Text>
                   </Pressable>
@@ -252,12 +385,18 @@ export function useToolApprovalQueue(): UseToolApprovalQueueResult {
           {answered.map((e) => (
             <Text key={e.event.approvalId} style={styles.trayRow}>
               {`${e.event.toolName} · ${
-                e.decided === 'approve' ? t('toolApproval.approve') : t('toolApproval.rejectedBadge')
+                e.decided === 'approve'
+                  ? t('toolApproval.approve')
+                  : t('toolApproval.rejectedBadge')
               }`}
               {e.decided === 'reject' ? ` — ${t('toolApproval.rejectedNextNote')}` : ''}
             </Text>
           ))}
-          <Pressable accessibilityRole="button" testID="tool-approval-clear-history" onPress={dismissAnswered}>
+          <Pressable
+            accessibilityRole="button"
+            testID="tool-approval-clear-history"
+            onPress={dismissAnswered}
+          >
             <Text style={styles.meta}>{t('toolApproval.clearHistory')}</Text>
           </Pressable>
         </View>
@@ -298,9 +437,13 @@ function EnvironmentFacts({
             {env.inSandbox ? t('toolApproval.envInSandbox') : t('toolApproval.envOutsideSandbox')}
           </Text>
           {env.backend ? (
-            <Text style={styles.envValue}>{t('toolApproval.envBackend', { backend: env.backend })}</Text>
+            <Text style={styles.envValue}>
+              {t('toolApproval.envBackend', { backend: env.backend })}
+            </Text>
           ) : null}
-          {env.degraded ? <Text style={styles.envValue}>{t('toolApproval.envDegraded')}</Text> : null}
+          {env.degraded ? (
+            <Text style={styles.envValue}>{t('toolApproval.envDegraded')}</Text>
+          ) : null}
         </>
       )}
       <Text style={styles.envValue}>
@@ -425,6 +568,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     color: tokens.text.primary,
+  },
+  // 规则开关复用档位 chip 的半径/描边,只加行内排布(不另立一份控件档圆角)
+  chipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: rpx(8),
+  },
+  // 输入控件档 = rnRadius.sm;常态描边取 border.light(墨档只允许出现在聚焦态,
+  // 而聚焦态由 @ihui/rn-app 的 TextField 内部给出,端内不再手写第二份聚焦状态)
+  reasonInput: {
+    minHeight: rpx(88),
+    paddingHorizontal: rpx(16),
+    paddingVertical: rpx(10),
+    borderRadius: rnRadius.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.inputBg,
+    color: tokens.text.primary,
+    fontSize: 13,
+    textAlignVertical: 'top',
   },
   actions: {
     flexDirection: 'row',
