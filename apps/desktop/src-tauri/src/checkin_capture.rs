@@ -15,7 +15,7 @@
 //!
 //! 能力面：TRAE 数据目录 6 级回退探测；Cookies（Chromium v10 AES-256-GCM，密钥走
 //! DPAPI）+ leveldb 明文扫描双通道提取 JWT（按 `data.id` 去重，不验签——只出候选）；
-//! 设备标识 6 层重置；9 类快照对称备份/恢复。
+//! 设备标识 7 层重置(第⑦层=Chrome/Edge 的 TRAE 域 Cookie,默认关、UI 显式开启)；9 类快照对称备份/恢复。
 
 use crate::IpcError;
 use serde::Serialize;
@@ -544,7 +544,7 @@ pub fn capture_local_jwts(trae_dir: &Path) -> Vec<CapturedAccount> {
     out
 }
 
-// ================== 执行层：设备标识 6 层重置 ==================
+// ================== 执行层：设备标识 7 层重置 ==================
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ResetLayerReport {
@@ -768,8 +768,101 @@ fn reset_layer_partitions(trae_dir: &Path) -> ResetLayerReport {
     }
 }
 
-/// 6 层重置入口。MachineGuid 层受 `include_machine_guid` 控制，false 时记 skip。
-pub fn reset_device_ids(trae_dir: &Path, include_machine_guid: bool) -> ResetReport {
+// ── 层⑦：系统浏览器(Chrome/Edge)的 TRAE 域 Cookie ──
+// 立因(2026-10-09 用户实战经验):只重置 TRAE 本体不够彻底,浏览器里 trae.cn 的登录态
+// cookie 必须一并清掉才算完整重置。做法:直接对 Chrome/Edge 各 profile 的 Cookies 库
+// 执行限定域的 DELETE——只动 host_key 含 trae.cn/trae.com 的行,其余 cookie 一律不碰。
+// 浏览器运行中库被锁:拷副本改没有意义(改的不是真库),必须直接开原库,失败就让层报告
+// 明说"关闭浏览器后重试"。该层默认关闭、由 UI 显式勾选才执行(用户自己掌握关浏览器的时机)。
+
+/// 浏览器 Cookies 库候选:`User Data/<profile>/Network/Cookies`(新布局)或 `<profile>/Cookies`(旧布局)。
+/// 只认 Chrome 与 Edge 两家(本机主流),profile 目录靠「目录下存在 Cookies 库」识别,不猜名字。
+fn browser_cookie_db_candidates() -> Vec<(String, PathBuf)> {
+    let Ok(local) = std::env::var("LOCALAPPDATA") else {
+        return Vec::new();
+    };
+    let local = PathBuf::from(local);
+    let mut out: Vec<(String, PathBuf)> = Vec::new();
+    for (browser, vendor) in [("Chrome", "Google/Chrome"), ("Edge", "Microsoft/Edge")] {
+        let user_data = local.join(vendor).join("User Data");
+        let Ok(rd) = std::fs::read_dir(&user_data) else {
+            continue;
+        };
+        for entry in rd.flatten() {
+            let net = entry.path().join("Network").join("Cookies");
+            let old = entry.path().join("Cookies");
+            let db = if net.is_file() {
+                net
+            } else if old.is_file() {
+                old
+            } else {
+                continue;
+            };
+            out.push((browser.to_string(), db));
+        }
+    }
+    out
+}
+
+/// 对单个 Cookies 库执行限定域删除,返回删除行数。
+fn delete_trae_cookies(db: &Path) -> Result<usize, String> {
+    let conn =
+        rusqlite::Connection::open(db).map_err(|e| format!("打不开(浏览器运行中需关闭后重试?): {e}"))?;
+    let n = conn
+        .execute(
+            "DELETE FROM cookies WHERE host_key LIKE '%trae.cn%' OR host_key LIKE '%trae.com%'",
+            [],
+        )
+        .map_err(|e| format!("删除失败: {e}"))?;
+    // 尽量回收 WAL,失败不影响删除结论(库是 Chromium 的,不追求事务洁癖)
+    let _ = conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
+    Ok(n)
+}
+
+fn reset_layer_browser_cookies() -> ResetLayerReport {
+    let dbs = browser_cookie_db_candidates();
+    if dbs.is_empty() {
+        return ResetLayerReport {
+            layer: 7,
+            name: "browser_cookies",
+            ok: true,
+            detail: "未发现 Chrome/Edge Cookie 库(可能未安装)".into(),
+        };
+    }
+    let mut parts: Vec<String> = Vec::new();
+    let mut deleted = 0usize;
+    let mut failed = 0usize;
+    for (browser, path) in &dbs {
+        match delete_trae_cookies(path) {
+            Ok(n) => {
+                deleted += n;
+                parts.push(format!("{browser}:删 {n} 条"));
+            }
+            Err(e) => {
+                failed += 1;
+                parts.push(format!("{browser}:{e}"));
+            }
+        }
+    }
+    ResetLayerReport {
+        layer: 7,
+        name: "browser_cookies",
+        ok: failed == 0,
+        detail: format!(
+            "共 {} 个库,删 {} 条 TRAE Cookie;{}",
+            dbs.len(),
+            deleted,
+            parts.join("; ")
+        ),
+    }
+}
+
+/// 7 层重置入口。MachineGuid/浏览器 Cookie 两层受 flag 控制，false 时记 skip。
+pub fn reset_device_ids(
+    trae_dir: &Path,
+    include_machine_guid: bool,
+    clean_browser_cookies: bool,
+) -> ResetReport {
     let mut layers = vec![reset_layer_machineid(trae_dir)];
     let (r2, r3) = reset_layer_storage_json(trae_dir);
     layers.push(r2);
@@ -786,6 +879,17 @@ pub fn reset_device_ids(trae_dir: &Path, include_machine_guid: bool) -> ResetRep
         }
     });
     layers.push(reset_layer_partitions(trae_dir));
+    // 层⑦默认 skip:动系统浏览器的 cookie 必须用户显式选择(浏览器运行中会被锁,时机由用户掌握)
+    layers.push(if clean_browser_cookies {
+        reset_layer_browser_cookies()
+    } else {
+        ResetLayerReport {
+            layer: 7,
+            name: "browser_cookies",
+            ok: true,
+            detail: "skipped(clean_browser_cookies=false)".into(),
+        }
+    });
     ResetReport { layers }
 }
 
@@ -1022,9 +1126,12 @@ pub fn checkin_capture_jwts() -> Result<Vec<CapturedAccount>, IpcError> {
 }
 
 #[tauri::command]
-pub fn checkin_reset_device_ids(include_machine_guid: bool) -> Result<ResetReport, IpcError> {
+pub fn checkin_reset_device_ids(
+    include_machine_guid: bool,
+    clean_browser_cookies: bool,
+) -> Result<ResetReport, IpcError> {
     let dir = require_trae_dir()?;
-    Ok(reset_device_ids(&dir, include_machine_guid))
+    Ok(reset_device_ids(&dir, include_machine_guid, clean_browser_cookies))
 }
 
 #[tauri::command]
@@ -1129,7 +1236,9 @@ mod tests {
     #[test]
     fn extract_jwt_strings_finds_token_in_noise() {
         let jwt = make_jwt(r#"{"data":{"id":"42"}}"#);
-        let noise = format!("xx\x00\u{FF}{jwt}yy");
+        // 右侧噪声必须用非 token 字节(! 不在 [A-Za-z0-9-_.] 内):token 字节会黏进第三段
+        // 连成一个更长的"JWT",提取行为本身是对的(真实 cookie 里 JWT 后是 ; 或引号)
+        let noise = format!("xx\x00\u{FF}|{jwt}!yy");
         assert_eq!(extract_jwt_strings(noise.as_bytes()), vec![jwt]);
     }
 
@@ -1163,7 +1272,9 @@ mod tests {
         let nonce = [9u8; 12];
         let plain = b"eyJhbGciOi.payload.sig";
         let cipher = Aes256Gcm::new_from_slice(&key).unwrap();
-        let ct = cipher.encrypt(Nonce::from_slice(&nonce), plain).unwrap();
+        // aes-gcm 0.10 的 encrypt 收 `impl Into<Payload>`:定长数组引用 &[u8;N] 没有实现,
+        // 必须 as_slice() 降为 &[u8](cargo check 不编译 test target,此错此前被掩盖)
+        let ct = cipher.encrypt(Nonce::from_slice(&nonce), plain.as_slice()).unwrap();
         let mut blob = Vec::new();
         blob.extend_from_slice(b"v10");
         blob.extend_from_slice(&nonce);
@@ -1377,21 +1488,64 @@ mod tests {
         let _ = std::fs::remove_dir_all(&app);
     }
 
-    // ── 9. 全 6 层重置编排（不含层⑤提权：flag=false 走 skip 记录）──
+    // ── 9. 全 7 层重置编排（层⑤提权与层⑦浏览器均 flag=false 走 skip 记录,不碰真库）──
 
     #[test]
-    fn reset_device_ids_reports_six_layers_and_skips_machine_guid_by_flag() {
+    fn reset_device_ids_reports_seven_layers_and_skips_machine_guid_and_browser_by_flag() {
         let dir = scratch("reset-all");
         std::fs::create_dir_all(dir.join("User/globalStorage")).unwrap();
         std::fs::write(dir.join("machineid"), "old").unwrap();
         std::fs::write(dir.join("User/globalStorage/storage.json"), r#"{}"#).unwrap();
-        let report = reset_device_ids(&dir, false);
+        let report = reset_device_ids(&dir, false, false);
         let layers: Vec<u8> = report.layers.iter().map(|l| l.layer).collect();
-        assert_eq!(layers, vec![1, 2, 3, 4, 5, 6]);
+        assert_eq!(layers, vec![1, 2, 3, 4, 5, 6, 7]);
         let l5 = report.layers.iter().find(|l| l.layer == 5).unwrap();
         assert!(l5.ok && l5.detail.contains("skipped"), "flag=false 必须显式记 skip");
+        let l7 = report.layers.iter().find(|l| l.layer == 7).unwrap();
+        assert!(
+            l7.ok && l7.name == "browser_cookies" && l7.detail.contains("skipped"),
+            "浏览器层 flag=false 也必须显式记 skip,单元测试绝不碰真实浏览器库: {report:?}"
+        );
         assert!(report.layers.iter().filter(|l| l.layer != 5).all(|l| l.ok),
             "1/2/3/4/6 层在可写的临时目录里必须全 ok: {report:?}");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // ── 10. 层⑦浏览器 Cookie 清理（隔离临时库,只验域限定判据）──
+
+    #[test]
+    fn delete_trae_cookies_removes_only_trae_hosts() {
+        let dir = scratch("browser-cookies");
+        let db = dir.join("Cookies");
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE cookies (host_key TEXT NOT NULL, encrypted_value BLOB);
+             INSERT INTO cookies (host_key, encrypted_value) VALUES
+               ('.trae.cn', x'00'), ('api.trae.cn', x'00'), ('.trae.com', x'00'),
+               ('.example.com', x'00'), ('github.com', x'00');",
+        )
+        .unwrap();
+        drop(conn);
+
+        let n = delete_trae_cookies(&db).unwrap();
+        assert_eq!(n, 3, "只删 trae.cn/trae.com 域的三行");
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        let left: usize = conn
+            .query_row("SELECT count(*) FROM cookies", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(left, 2, "非 TRAE 域 cookie 必须原样保留");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn browser_layer_reports_ok_when_no_browsers_found_in_sandbox() {
+        // 候选发现依赖 LOCALAPPDATA,本测试只验「无库时显式 ok + 说明」分支的形状;
+        // 若测试机上真装了 Chrome/Edge,该函数会真删 TRAE 域 cookie —— 因此编排层单测
+        // 恒传 clean_browser_cookies=false(见 reset_device_ids_reports_seven_layers…),
+        // 本用例仅在「候选为空」时才安全,否则跳过断言只验证不 panic。
+        if browser_cookie_db_candidates().is_empty() {
+            let r = reset_layer_browser_cookies();
+            assert!(r.ok && r.detail.contains("未发现"));
+        }
     }
 }
