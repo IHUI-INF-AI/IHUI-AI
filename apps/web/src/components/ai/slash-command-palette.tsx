@@ -12,6 +12,11 @@ import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 // 2026-09-15 治理:定位/portal/Escape/外点关闭统一收敛到 PortalPanel(全项目浮层一套逻辑)
 import { PortalPanel } from '@/components/feedback/portal-panel'
+import { isTopOverlay } from '@/lib/overlay-stack'
+
+/** 层栈 id(见 @/lib/overlay-stack):斜杠命令面板 open 期间为一层,自有 Esc 只在栈顶消费
+ *  (同一 id 传给 PortalPanel 后由其统一 push/pop,两层 Esc 共用同一 isTopOverlay 判定) */
+const SLASH_COMMAND_PALETTE_OVERLAY_ID = 'slash-command-palette'
 
 /** 命令分组(2026-07-29 立,按重要性排序)
  * 2026-07-29 二次深化:新增 skill 分组(AI 技能,从 /api/ai-skills 拉取)
@@ -256,6 +261,7 @@ export function SlashCommandPalette({
         }
       }
     } else if (e.key === 'Escape') {
+      if (!isTopOverlay(SLASH_COMMAND_PALETTE_OVERLAY_ID)) return
       e.preventDefault()
       if (argMode) {
         // 参数补全模式 ESC 返回命令列表(不关闭弹窗)
@@ -533,6 +539,7 @@ export function SlashCommandPalette({
         side="top"
         align="end"
         gap={8}
+        overlayId={SLASH_COMMAND_PALETTE_OVERLAY_ID}
         className="w-96 overflow-hidden rounded-xl border border-border bg-popover p-0 shadow-md"
       >
         {content}

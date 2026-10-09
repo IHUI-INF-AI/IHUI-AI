@@ -21,17 +21,21 @@ request.state.user_id,解析不到且全局鉴权未启用时回落 dev 身份)�
 
 Phase1c(2026-10-08)增:jwt 更换 / 列表 jwt_exp + cooldown_until / scheduler status。
 Phase1d(2026-10-08)增:账号分组(创建带 group / PATCH /accounts/{id}/group / 列表回吐 group)。
+WP-B(2026-10-09)增:POST /accounts/{id}/query_credits(查余额并落当日快照)、
+GET /credits/daily(每日快照三线序列:total/gained/consumed)。
 """
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.core.jwt_auth import require_request_user_id
+from app.services import checkin_credits
 from app.services import checkin_scheduler as checkin_scheduler_mod
 from app.services import checkin_store
 from app.services.checkin_engine import extract_user_id, get_jwt_exp
@@ -40,6 +44,12 @@ router = APIRouter(prefix="/api/checkin", tags=["checkin"])
 
 _RECORDS_LIMIT_DEFAULT = 50
 _RECORDS_LIMIT_MAX = 200
+
+_DAILY_DAYS_DEFAULT = 30
+_DAILY_DAYS_MAX = 365
+
+# 每日快照的日界与调度器同一时区(08:05 签到 / 08:10 快照均为 Asia/Shanghai)
+_CN_TZ = ZoneInfo("Asia/Shanghai")
 
 
 class CreateAccountIn(BaseModel):
@@ -212,6 +222,69 @@ async def scheduler_status(
 ) -> dict[str, Any]:
     """调度器运行状态(经 CheckinScheduler.status() 公开方法,路由不摸私有属性)。"""
     return checkin_scheduler_mod.checkin_scheduler.status()
+
+
+@router.post("/accounts/{account_id}/query_credits")
+async def query_credits(
+    account_id: int, current_user: str = Depends(require_request_user_id)
+) -> dict[str, Any]:
+    """手动查询账号积分余额:调 Trae ide_user_ent_usage,成功则 upsert 当日快照。
+
+    属主校验走 get_decrypted_jwt(owner 并入 WHERE,不命中 404);
+    查询失败不抛栈,返回 {"ok": false, "error": 明确描述} 且不落快照。
+    """
+    account = await checkin_store.get_decrypted_jwt(account_id, current_user)
+    if account is None:
+        raise HTTPException(status_code=404, detail=f"账号不存在: {account_id}")
+    result = await checkin_credits.query_remaining_credits(account["jwt"])
+    error = result.get("error")
+    if error is not None:
+        return {"ok": False, "error": str(error)}
+    remaining = result.get("remaining")
+    if not isinstance(remaining, int):
+        return {"ok": False, "error": "积分余额解析结果异常"}
+    day = datetime.now(_CN_TZ).date().isoformat()
+    gained = await checkin_store.sum_credits_delta_for_day(account_id, current_user, day)
+    await checkin_store.upsert_credits_daily(account_id, current_user, day, remaining, gained)
+    return {"ok": True, "remaining": remaining}
+
+
+@router.get("/credits/daily")
+async def credits_daily(
+    days: int = Query(default=_DAILY_DAYS_DEFAULT, ge=1, le=_DAILY_DAYS_MAX),
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """积分每日快照三线序列(最近 days 天,Asia/Shanghai 日界,按日升序)。
+
+    consumed 按参考项目公式 |total[i] − gained[i] − total[i−1]|:
+    首日有快照时 consumed=0;某日无快照则该日 total/consumed 置 null(前端断线);
+    gained 缺失视为 0(当日无签到 delta)。
+    """
+    rows = await checkin_store.get_credits_daily_range(current_user, days)
+    by_day = {r["day"]: r for r in rows}
+    today = datetime.now(_CN_TZ).date()
+    day_list = [(today - timedelta(days=days - 1 - i)).isoformat() for i in range(days)]
+
+    totals: list[int | None] = []
+    gains: list[int] = []
+    consumed: list[int | None] = []
+    prev_total: int | None = None
+    for i, day in enumerate(day_list):
+        row = by_day.get(day)
+        total = row["total"] if row else None
+        gained = row["gained"] if row else None
+        totals.append(total)
+        gains.append(gained if gained is not None else 0)
+        if total is None:
+            consumed.append(None)
+        elif i == 0:
+            consumed.append(0)
+        elif prev_total is None:
+            consumed.append(None)  # 前一日 total 缺失,公式无意义
+        else:
+            consumed.append(abs(total - gains[i] - prev_total))
+        prev_total = total
+    return {"days": day_list, "series": {"total": totals, "gained": gains, "consumed": consumed}}
 
 # ⁠[IHUI-AI-PROVENANCE-TAIL]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
