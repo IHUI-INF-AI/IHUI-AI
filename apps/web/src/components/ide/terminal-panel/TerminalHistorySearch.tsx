@@ -9,6 +9,10 @@ import { cn } from '@/lib/utils'
 import type { TerminalHistoryEntry } from '@ihui/types'
 import { X } from 'lucide-react'
 import { SearchInput } from '@ihui/ui-react'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
+
+/** 层栈 id(见 @/lib/overlay-stack):Ctrl+R 历史搜索条(挂载即为一层) */
+const TERMINAL_HISTORY_SEARCH_OVERLAY_ID = 'terminal-history-search'
 
 interface TerminalHistorySearchProps {
   query: string
@@ -35,6 +39,13 @@ export function TerminalHistorySearch({
   inputRef,
 }: TerminalHistorySearchProps) {
   const t = useTranslations('ide')
+
+  // 层栈:本组件挂载即"历史搜索条"这一层(卸载即出栈),Esc 只在栈顶时消费
+  React.useEffect(() => {
+    pushOverlay(TERMINAL_HISTORY_SEARCH_OVERLAY_ID)
+    return () => popOverlay(TERMINAL_HISTORY_SEARCH_OVERLAY_ID)
+  }, [])
+
   return (
     <div className="absolute left-1/2 top-2 z-30 w-96 -translate-x-1/2 overflow-hidden rounded-md border border-border bg-popover shadow-lg">
       <div className="flex items-center gap-1.5 px-2 py-1.5">
@@ -55,6 +66,7 @@ export function TerminalHistorySearch({
               e.preventDefault()
               setIndex((prev) => Math.max(prev - 1, 0))
             } else if (e.key === 'Escape') {
+              if (!isTopOverlay(TERMINAL_HISTORY_SEARCH_OVERLAY_ID)) return
               e.preventDefault()
               onClose()
             }
