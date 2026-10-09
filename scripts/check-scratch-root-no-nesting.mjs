@@ -84,8 +84,14 @@ const SECOND_ORDER_ROOT_NAME = 'DevEnv'
 // 预算若只有 1,500,真实运行**每一次**都会撞上截断闸 ⇒ 报告永远带"下界"、而 ok 永远退化成
 // 未判定 —— 那等于没有尺子。所以默认给到 2 万条目 / 深度 6;截断路径保留(自检与镜像测试
 // 用极小预算构造它),它是"没看完"的诚实出口,不是日常形态。
-const DEFAULT_MAX_DEPTH = 6
-const DEFAULT_BUDGET = 20000
+// 地平线与预算的取值来自本机真实规模的现测,不是拍的:
+// 深度 6 + 只算目录,一级 3795 个夹具各自往下派生 ⇒ 42038 个目录**永远走不完** ⇒ 门恒 undetermined
+// ⇒ "二阶 scratch 根"这一维实际零覆盖(G-1105304)。深度 4 + 预算 400000 实测 9.0s 走完并给出 ok;
+// 而真机制的落点恰在第 3 层(镜像端到端用例注入的是 `<夹具>/DevEnv/Temp/ihui-scratch/victim`,
+// 夹具把盘级布局整份复刻进自己体内),所以地平线**不得低于 3**;取 4 是留一层余量。
+// 深于地平线的部分由报告那行「射程」明示"超出即看不见,不是没有",不得被读成任意深度都干净。
+const DEFAULT_MAX_DEPTH = 4
+const DEFAULT_BUDGET = 400000
 const WRITE_CALL_RE =
   /\b(mkdirSync|writeFileSync|appendFileSync|rmSync|unlinkSync|rmdirSync|renameSync|symlinkSync)\s*\(/g
 
