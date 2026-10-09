@@ -267,12 +267,18 @@ export default function CheckinPage() {
     const today = localDateStr(new Date())
     const targets = accounts.filter((account) => account.enabled)
     if (targets.length === 0) return
+    // 对齐参考项目「跳过已签/过期」:JWT 已过期的账号直接跳过(带过期 JWT 签到只会中途 401 报错)
+    const now = Date.now()
+    const expiredCount = targets.filter(
+      (account) => !!account.jwt_exp && new Date(account.jwt_exp).getTime() <= now,
+    ).length
     const pending = targets.filter((account) => {
+      if (account.jwt_exp && new Date(account.jwt_exp).getTime() <= now) return false
       const last = account.last_record
       if (!last || last.ok !== true || !last.created_at) return true
       return localDateStr(new Date(last.created_at)) !== today
     })
-    const skipped = targets.length - pending.length
+    const skipped = targets.length - expiredCount - pending.length
     setAllChecking(true)
     setActionError(null)
     setBatchNotice(null)
@@ -284,7 +290,11 @@ export default function CheckinPage() {
         done += 1
         setAllProgress({ done, total: pending.length })
       }
-      if (skipped > 0) setBatchNotice(t('skippedToday', { count: skipped }))
+      const notices = [
+        skipped > 0 ? t('skippedToday', { count: skipped }) : null,
+        expiredCount > 0 ? t('skippedExpired', { count: expiredCount }) : null,
+      ].filter((part): part is string => !!part)
+      if (notices.length > 0) setBatchNotice(notices.join('；'))
     } catch (e) {
       setActionError((e as Error).message)
     } finally {
