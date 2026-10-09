@@ -2,63 +2,48 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// start-dev.ps1 的启动包装:根治「会话 PATH 陈旧 ⇒ 解析不到 pwsh ⇒ dev:safe 直接断」。
-// 2026-10-09 实证:机器装着 PowerShell 7.6.4,但旧会话进程继承的 PATH 快照没有
-// `C:\Program Files\PowerShell\7`,pnpm dev:safe 第一步就失败,排障拖了 40 分钟。
-// 解析顺序:PATH(where.exe)→ 标准安装位置 → 明确报错(不静默)。
-// stdin 显式 ignore:本仓有「Node 子进程 stdin 管道 EBUSY」病灶族,凡不吃 stdin
-// 的子进程一律 stdio:['ignore','pipe','pipe']。
+// run-start-dev 回归测试:钉三件事 ——
+// ① findPwsh 在本机(任何 PATH 状态)都交出一个真实存在的 pwsh.exe 绝对路径;
+// ② 该路径指向的确实是 PowerShell 7(-v 输出以 7. 开头);
+// ③ 导出面稳定:repoRoot/scriptPath 指向仓库内真实文件,main 是函数(可测性契约)。
+// 跑法:node --test scripts/tests/run-start-dev.test.mjs
+
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import path from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-export const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-export const scriptPath = path.join(repoRoot, 'scripts', 'start-dev.ps1')
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
-export function findPwsh() {
-  const probe = spawnSync('where.exe', ['pwsh'], { stdio: ['ignore', 'pipe', 'pipe'] })
-  if (probe.status === 0) {
-    const hit = probe.stdout
-      .toString()
-      .split(/\r?\n/)
-      .map((l) => l.trim())
-      .find((l) => l && l.toLowerCase().endsWith('pwsh.exe'))
-    if (hit) return hit
-  }
-  const standardLocations = [
-    'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
-    path.join(process.env.LOCALAPPDATA || '', 'Microsoft', 'powershell', 'pwsh.exe'),
-  ]
-  return standardLocations.find((p) => p && existsSync(p)) || null
-}
+test('findPwsh 交出真实存在的 pwsh.exe 绝对路径(含 PATH 陈旧场景的 fallback 契约)', async () => {
+  const { findPwsh } = await import('../run-start-dev.mjs')
+  const found = findPwsh()
+  assert.ok(typeof found === 'string' && found.length > 0, 'findPwsh 返回空 ⇒ dev:safe 会断在第一步')
+  assert.ok(found.toLowerCase().endsWith('pwsh.exe'), `解析结果不是 pwsh.exe: ${found}`)
+  assert.ok(existsSync(found), `解析结果在磁盘上不存在: ${found}`)
+})
 
-export function main(argv = process.argv.slice(2)) {
-  const pwsh = findPwsh()
-  if (!pwsh) {
-    console.error(
-      '[run-start-dev] 未找到 PowerShell 7(pwsh)。已尝试 PATH 与标准安装位置。\n' +
-        '修复:安装 PowerShell 7(x64),或把 C:\\Program Files\\PowerShell\\7 加入 PATH。',
-    )
-    return 2
-  }
+test('解析出的 pwsh 确实是 PowerShell 7+(-v 输出 7.x)', async () => {
+  const { findPwsh } = await import('../run-start-dev.mjs')
+  const found = findPwsh()
+  // 不吃 stdin 的子进程一律 stdio:['ignore','pipe','pipe'](EBUSY 病灶族)
+  const v = spawnSync(found, ['-NoProfile', '-Command', '$PSVersionTable.PSVersion.ToString()'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 30_000,
+  })
+  assert.equal(v.status, 0, `pwsh -v 探针失败: ${v.stderr || v.error?.message}`)
+  assert.match(v.stdout.trim(), /^7\./, `版本不是 7.x: ${v.stdout}`)
+})
 
-  const spawned = spawnSync(
-    pwsh,
-    ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, ...argv],
-    { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true },
-  )
-
-  if (spawned.stdout && spawned.stdout.length) process.stdout.write(spawned.stdout)
-  if (spawned.stderr && spawned.stderr.length) process.stderr.write(spawned.stderr)
-  if (spawned.error) {
-    console.error(`[run-start-dev] 启动失败: ${spawned.error.message}`)
-    return 1
-  }
-  return spawned.status ?? 1
-}
-
-// 仅直接运行时执行(被测试 import 时不触发 spawn)
-const invoked = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
-if (invoked) process.exit(main())
+test('导出面稳定:scriptPath 指向仓库内真实启动脚本', async () => {
+  const mod = await import('../run-start-dev.mjs')
+  assert.ok(existsSync(mod.scriptPath), `scriptPath 不存在: ${mod.scriptPath}`)
+  assert.ok(mod.scriptPath.includes(join('scripts', 'start-dev.ps1')))
+  assert.equal(typeof mod.main, 'function', 'main 必须是可导出函数(可测性契约)')
+  assert.ok(existsSync(join(ROOT, 'package.json')), 'repoRoot 解析错位')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
