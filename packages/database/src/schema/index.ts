@@ -160,6 +160,8 @@ export * from './user-automations.js'
 export * from './user-browse-history.js'
 // 短信接码历史台账(2026-10-08 新增,管理员短信接码 /admin/sms-receive 收码流水)
 export * from './sms-receive-history.js'
+// relatedMsgs 快照累积(2026-10-09 新增,超越平台 12 条滚动窗口的全局热度口径)
+export * from './sms-related-snapshots.js'
 export * from './agent-event-triggers.js'
 export * from './llm-call-logs.js'
 export * from './wechat-pay-contracts.js'

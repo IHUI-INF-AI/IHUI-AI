@@ -42,6 +42,8 @@ import {
   getPhoneHistory,
   getPhoneHistoryCount,
   getPhoneHistoryPlatformStats,
+  snapshotRelatedMsgs,
+  getRelatedUnionCount,
 } from '../../db/sms-receive-queries.js'
 
 // 平台取号返回的是脱敏号(如 193****6470),回传类端点(message/release/block/phone-history/send)
@@ -242,7 +244,11 @@ const smsReceiveRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /related-msgs - 平台网页版「号码相关短信」全局时间线(免费、全局号码维度):
   // 该号码在平台被所有买家收码的记录(时间+标记,内容打码)。自动筛新号取号后先查,
-  // 近期被高频流转的超热门号已被他人注册过目标平台的概率更高 → 前端释放跳过(免费)
+  // 近期被高频流转的超热门号已被他人注册过目标平台的概率更高 → 前端拉黑换号(免费)。
+  // 2026-10-09 快照累积:平台只回最近 12 条滚动窗口(服务端硬截断),每次查询把窗口
+  // 逐条抄进本地 sms_related_snapshots(幂等去重),totalUnion=跨快照并集总数,
+  // 随时间单调增长 —— 唯一能超越平台 12 条上限的全局热度口径。快照/并集 fail-open:
+  // 写库失败只降级为旧口径(union=null),绝不阻断平台查询主流程。
   server.get('/sms-receive/related-msgs', async (request, reply) => {
     const parsed = phoneOnlyQuerySchema.safeParse(request.query)
     if (!parsed.success) {
@@ -250,7 +256,14 @@ const smsReceiveRoutes: FastifyPluginAsync = async (server) => {
     }
     try {
       const items = await getRelatedMsgs(parsed.data.phone)
-      return reply.send(success({ items }))
+      let totalUnion: number | null = null
+      try {
+        await snapshotRelatedMsgs(parsed.data.phone, items)
+        totalUnion = await getRelatedUnionCount(parsed.data.phone)
+      } catch (e) {
+        request.log.warn({ err: e }, 'related-msgs 快照累积失败(降级旧口径)')
+      }
+      return reply.send(success({ items, totalUnion }))
     } catch (e) {
       const r = toErrorResponse(e)
       return reply.status(r.status).send(r.body)

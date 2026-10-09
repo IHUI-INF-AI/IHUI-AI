@@ -50,6 +50,7 @@ import {
   fetchUsed,
   fetchPhoneHistory,
   fetchRelatedMsgs,
+  fetchRelatedMsgsWithUnion,
   countRecentRecords,
   lookupUsedHistory,
   copyText,
@@ -124,9 +125,12 @@ export default function SmsReceivePage() {
   // 平台 × 用途全量计数(2026-10-09 机主要求:分平台显示登录/注册具体数)
   const [platformStats, setPlatformStats] = React.useState<PhonePlatformStat[]>([])
   // ── 平台接码热度(relatedMsgs 全局维度:该号被所有买家收码的次数) ──
-  const [relatedStats, setRelatedStats] = React.useState<{ total: number; recent: number } | null>(
-    null,
-  )
+  // totalUnion=本地快照累积并集(2026-10-09,可>12;null=快照失败降级旧口径)
+  const [relatedStats, setRelatedStats] = React.useState<{
+    total: number
+    recent: number
+    totalUnion: number | null
+  } | null>(null)
   const refreshPhoneHistory = React.useCallback(async (p: string) => {
     setHistoryLoading(true)
     try {
@@ -142,8 +146,12 @@ export default function SmsReceivePage() {
   }, [])
   const refreshRelatedStats = React.useCallback(async (p: string) => {
     try {
-      const related = await fetchRelatedMsgs(p)
-      setRelatedStats({ total: related.length, recent: countRecentRecords(related) })
+      const d = await fetchRelatedMsgsWithUnion(p)
+      setRelatedStats({
+        total: d.items.length,
+        recent: countRecentRecords(d.items),
+        totalUnion: d.totalUnion ?? null,
+      })
     } catch {
       setRelatedStats(null) // 查询失败不显示热度(fail-open)
     }
@@ -729,11 +737,13 @@ export default function SmsReceivePage() {
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div className="rounded-md bg-muted/60 px-1 py-2">
                     <div
-                      className={`text-lg font-bold leading-tight ${relatedStats.total === 0 ? 'text-emerald-600' : 'text-amber-600'}`}
+                      className={`text-lg font-bold leading-tight ${(relatedStats.totalUnion ?? relatedStats.total) === 0 ? 'text-emerald-600' : 'text-amber-600'}`}
                     >
-                      {relatedStats.total === 0 ? '未被接码' : `${relatedStats.total} 次`}
+                      {(relatedStats.totalUnion ?? relatedStats.total) === 0
+                        ? '未被接码'
+                        : `${relatedStats.totalUnion ?? relatedStats.total} 次`}
                     </div>
-                    <div className="text-xs text-muted-foreground">全局被接码(≤12条)</div>
+                    <div className="text-xs text-muted-foreground">全局被接码(累积)</div>
                   </div>
                   <div className="rounded-md bg-muted/60 px-1 py-2">
                     <div className="text-lg font-bold leading-tight text-amber-600">
@@ -749,9 +759,9 @@ export default function SmsReceivePage() {
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {relatedStats.total === 0
+                  {(relatedStats.totalUnion ?? relatedStats.total) === 0
                     ? '全局零记录=纯新号强信号;本机=本地台账全量,从功能上线起累积'
-                    : '全局=平台仅保留该号最近 12 条滚动记录(实测上限,热门号不足 1 小时即被冲掉,远不足 24h);本机=本地台账全量,唯一超越平台限制的历史'}
+                    : '累积=每次查询把平台 12 条滚动窗口抄进本地快照并去重累计,随时间增长、可超越平台 12 条上限(2026-10-09 起);近 30 分钟热度与预筛判据仍用平台单次窗口口径'}
                 </p>
               </div>
             )}

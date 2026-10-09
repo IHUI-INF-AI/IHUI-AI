@@ -11,6 +11,7 @@ import type {
   PhoneHistoryItem,
   PhonePlatformStat,
   RelatedMsgItem,
+  RelatedMsgsData,
   UsedRecord,
 } from './types'
 
@@ -128,6 +129,19 @@ export async function fetchRelatedMsgs(phone: string): Promise<RelatedMsgItem[]>
     `${API_BASE}/related-msgs?phone=${encodeURIComponent(phone)}`,
   )
   return d.items
+}
+
+/**
+ * 查平台时间线 + 本地快照累积并集(2026-10-09)。
+ * items=平台单次窗口(≤12条,预筛判据口径);totalUnion=跨快照并集总数
+ * (可>12,展示口径;快照写库失败=null 降级旧口径,fail-open)。
+ */
+export async function fetchRelatedMsgsWithUnion(
+  phone: string,
+): Promise<RelatedMsgsData> {
+  return adminApi<RelatedMsgsData>(
+    `${API_BASE}/related-msgs?phone=${encodeURIComponent(phone)}`,
+  )
 }
 
 /**
