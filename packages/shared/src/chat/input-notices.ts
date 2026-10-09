@@ -298,6 +298,31 @@ function assertNeverDeniedAction(action: never): never {
   throw new Error(`unhandled queue denied action: ${String(action)}`)
 }
 
+/**
+ * 拒绝原因 → 具体条件文案键(G-937950,D162 ①):`denied.<action>` 只说"不能做什么",
+ * 这一份说"为什么不能"。取词与 `deniedNotice` 同一条通道(`denied.*` 相对键,
+ * 渲染层在 D69 命名空间下加 `queue.` 前缀消费,即 `ai.pane.inputNotices.queue.denied.cause.*`,
+ * 与五份词包键逐字同形)。
+ *
+ * switch 穷尽 QUEUE_DENY_REASONS 三因、**无 default**:漏一个因 ⇒ `reason` 收窄不成
+ * `never`,assertNeverDeniedCause 处编译失败(新增拒因必须同步补键,构建拦截)。
+ */
+export function deniedCauseNotice(reason: QueueDenyReason): string {
+  switch (reason) {
+    case 'streaming':
+      return 'denied.cause.streaming'
+    case 'emptyQueue':
+      return 'denied.cause.emptyQueue'
+    case 'runtimeNoInterject':
+      return 'denied.cause.runtimeNoInterject'
+  }
+  return assertNeverDeniedCause(reason)
+}
+
+function assertNeverDeniedCause(reason: never): never {
+  throw new Error(`unhandled queue deny reason: ${String(reason)}`)
+}
+
 // ---------------------------------------------------------------------------
 
 /**
