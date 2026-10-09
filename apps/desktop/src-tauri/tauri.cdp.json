@@ -1,0 +1,30 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "智汇AI",
+        "url": "https://aizhs.top/agents",
+        "width": 2700,
+        "height": 900,
+        "minWidth": 1100,
+        "minHeight": 720,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true,
+        "theme": "Dark",
+        "dragDropEnabled": true,
+        "alwaysOnTop": false,
+        "skipTaskbar": false,
+        "maximized": false,
+        "decorations": false,
+        "titleBarStyle": "Overlay",
+        "backgroundColor": "#242424",
+        "shadow": true,
+        "visible": false,
+        "additionalBrowserArgs": "--remote-debugging-port=9333 --disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required"
+      }
+    ]
+  }
+}
