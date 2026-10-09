@@ -21,8 +21,9 @@ from __future__ import annotations
 import base64
 import json
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -58,6 +59,7 @@ class FakeStore:
         self.accounts: dict[int, dict[str, Any]] = {}
         self.records: dict[int, dict[str, Any]] = {}
         self.counts: dict[int, dict[str, int]] = {}
+        self.credits_daily: dict[tuple[int, str], dict[str, Any]] = {}
         self.next_account_id = 1
         self.next_record_id = 1
 
@@ -222,6 +224,76 @@ class FakeStore:
     async def ensure_tables(self) -> None:
         return None
 
+    # --- 积分每日快照(WP-B) ---
+
+    async def upsert_credits_daily(self, account_id, owner_user_id, day, remaining, gained):
+        key = (account_id, day)
+        row = self.credits_daily.get(key)
+        if row is None:
+            self.credits_daily[key] = {
+                "account_id": account_id,
+                "owner_user_id": owner_user_id,
+                "day": day,
+                "remaining": remaining,
+                "gained": gained,
+            }
+            return None
+        if remaining is not None:  # remaining None 不覆盖旧值
+            row["remaining"] = remaining
+        row["gained"] = gained
+        return None
+
+    async def get_credits_daily_range(self, owner_user_id, days):
+        """稀疏行:仅含有数据的日子(与真实现的 UNION 聚合语义一致)。"""
+        cn = ZoneInfo("Asia/Shanghai")
+        start = datetime.now(cn).date() - timedelta(days=days - 1)
+        out: dict[str, dict[str, Any]] = {}
+        for row in self.credits_daily.values():
+            if row["owner_user_id"] != owner_user_id:
+                continue
+            if date.fromisoformat(row["day"]) < start:
+                continue
+            agg = out.setdefault(row["day"], {"day": row["day"], "total": None, "gained": None})
+            if row["remaining"] is not None:
+                agg["total"] = (agg["total"] or 0) + row["remaining"]
+        owned = {a["id"] for a in self.accounts.values() if a["owner_user_id"] == owner_user_id}
+        for r in self.records.values():
+            if r["account_id"] not in owned or r["credits_delta"] is None:
+                continue
+            day = r["created_at"].astimezone(cn).date().isoformat()
+            if date.fromisoformat(day) < start:
+                continue
+            agg = out.setdefault(day, {"day": day, "total": None, "gained": None})
+            agg["gained"] = (agg["gained"] or 0) + r["credits_delta"]
+        return [out[k] for k in sorted(out)]
+
+    async def sum_credits_delta_for_day(self, account_id, owner_user_id, day):
+        acc = self.accounts.get(account_id)
+        if acc is None or acc["owner_user_id"] != owner_user_id:
+            return 0
+        cn = ZoneInfo("Asia/Shanghai")
+        target = date.fromisoformat(day)
+        return sum(
+            r["credits_delta"]
+            for r in self.records.values()
+            if r["account_id"] == account_id
+            and r["credits_delta"] is not None
+            and r["created_at"].astimezone(cn).date() == target
+        )
+
+    async def list_enabled_accounts_full(self):
+        return [
+            {
+                "id": a["id"],
+                "owner_user_id": a["owner_user_id"],
+                "name": a["name"],
+                "jwt": a["jwt"],
+                "device_map": dict(a["device_map"]),
+            }
+            for a in self.accounts.values()
+            if a["enabled"]
+        ]
+
     # --- 输出投影 ---
 
     def _account_out(self, acc):
@@ -268,6 +340,10 @@ def fake_store(monkeypatch):
         "reset_all_error_counts",
         "get_active_cooldowns",
         "ensure_tables",
+        "upsert_credits_daily",
+        "get_credits_daily_range",
+        "sum_credits_delta_for_day",
+        "list_enabled_accounts_full",
     ]:
         monkeypatch.setattr(checkin_store, name, getattr(store, name))
     return store
@@ -664,5 +740,150 @@ async def test_daily_run_skips_cooldown_account(fake_store, mock_engine_success)
     }
     await checkin_scheduler_mod.checkin_scheduler._daily_run()
     assert mock_engine_success == []  # 冷却中被跳过,未打引擎
+
+
+# ---------------------------------------------------------------------------
+# WP-B(2026-10-09)积分每日快照
+# ---------------------------------------------------------------------------
+
+
+def _make_packs_result(remaining: int) -> dict[str, Any]:
+    return {
+        "remaining": remaining,
+        "packs": [{"limit": 200, "used": 200 - remaining, "expire_time": None, "charge_amount": 0}],
+        "error": None,
+    }
+
+
+async def test_query_credits_success_writes_snapshot(client, fake_store, monkeypatch):
+    """query_credits 成功:返回 ok/remaining,且落当日快照(gained 取当日 delta 合计)。"""
+    from app.services import checkin_credits
+
+    async def fake_query(jwt):
+        return _make_packs_result(150)
+
+    monkeypatch.setattr(checkin_credits, "query_remaining_credits", fake_query)
+
+    resp = await client.post("/api/checkin/accounts", json={"name": "主号", "jwt": make_jwt()})
+    account_id = resp.json()["id"]
+
+    resp = await client.post(f"/api/checkin/accounts/{account_id}/query_credits")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ok"] is True
+    assert body["remaining"] == 150
+
+    day = datetime.now(ZoneInfo("Asia/Shanghai")).date().isoformat()
+    row = fake_store.credits_daily[(account_id, day)]
+    assert row["remaining"] == 150
+    assert row["gained"] == 0
+
+    # 当日已有签到 delta 时,gained 合计进快照
+    await fake_store.insert_record(
+        account_id,
+        ok=True,
+        action="claim_ok",
+        http_status=200,
+        code=0,
+        message="签到成功",
+        classified_error=None,
+        cooldown_until=None,
+        credits=20,
+        credits_delta=20,
+    )
+    resp = await client.post(f"/api/checkin/accounts/{account_id}/query_credits")
+    assert resp.status_code == 200
+    assert fake_store.credits_daily[(account_id, day)]["gained"] == 20
+    assert fake_store.credits_daily[(account_id, day)]["remaining"] == 150  # 旧值不丢
+
+
+async def test_query_credits_owner_isolation_404(client, fake_store, monkeypatch):
+    """属主隔离:换身份查别人的账号 → 404,不落任何快照。"""
+    from app.main import fastapi_app
+    from app.services import checkin_credits
+
+    async def fake_query(jwt):
+        return _make_packs_result(999)
+
+    monkeypatch.setattr(checkin_credits, "query_remaining_credits", fake_query)
+
+    resp = await client.post("/api/checkin/accounts", json={"name": "mine", "jwt": make_jwt()})
+    account_id = resp.json()["id"]
+
+    fastapi_app.dependency_overrides[require_request_user_id] = lambda: "user-other"
+    try:
+        resp = await client.post(f"/api/checkin/accounts/{account_id}/query_credits")
+        assert resp.status_code == 404
+        assert "账号不存在" in resp.json()["detail"]
+    finally:
+        fastapi_app.dependency_overrides.pop(require_request_user_id, None)
+    assert fake_store.credits_daily == {}
+
+
+async def test_query_credits_error_no_snapshot(client, fake_store, monkeypatch):
+    """查询失败:error 透传且不落快照,不抛栈(200 + ok=false)。"""
+    from app.services import checkin_credits
+
+    async def fake_query(jwt):
+        return {"remaining": None, "packs": [], "error": "积分余额接口 HTTP 401: expired"}
+
+    monkeypatch.setattr(checkin_credits, "query_remaining_credits", fake_query)
+
+    resp = await client.post("/api/checkin/accounts", json={"name": "主号", "jwt": make_jwt()})
+    account_id = resp.json()["id"]
+
+    resp = await client.post(f"/api/checkin/accounts/{account_id}/query_credits")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ok"] is False
+    assert "401" in body["error"]
+    assert fake_store.credits_daily == {}
+
+
+async def test_credits_daily_series_and_consumed_formula(client, fake_store):
+    """credits/daily 聚合形状:total/gained/consumed 三线,consumed 公式
+    |total[i] − gained[i] − total[i−1]|,首日 0,断档日 null。"""
+    cn = ZoneInfo("Asia/Shanghai")
+    today = datetime.now(cn).date()
+    d_minus2 = (today - timedelta(days=2)).isoformat()
+    d_minus1 = (today - timedelta(days=1)).isoformat()
+    today_iso = today.isoformat()
+
+    resp = await client.post("/api/checkin/accounts", json={"name": "主号", "jwt": make_jwt()})
+    account_id = resp.json()["id"]
+
+    # 前天快照 160;昨天快照 140;今天快照 100 + 当日签到 delta 20(相邻日构成公式链)
+    await fake_store.upsert_credits_daily(account_id, "dev-anonymous", d_minus2, 160, 0)
+    await fake_store.upsert_credits_daily(account_id, "dev-anonymous", d_minus1, 140, 0)
+    await fake_store.upsert_credits_daily(account_id, "dev-anonymous", today_iso, 100, 0)
+    await fake_store.insert_record(
+        account_id,
+        ok=True,
+        action="claim_ok",
+        http_status=200,
+        code=0,
+        message="签到成功",
+        classified_error=None,
+        cooldown_until=None,
+        credits=20,
+        credits_delta=20,
+    )
+
+    resp = await client.get("/api/checkin/credits/daily", params={"days": 3})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["days"] == [d_minus2, d_minus1, today_iso]
+    series = body["series"]
+    assert series["total"] == [160, 140, 100]
+    assert series["gained"] == [0, 0, 20]
+    # consumed = |total[i] − gained[i] − total[i−1]|,首日 0
+    assert series["consumed"] == [0, abs(140 - 0 - 160), abs(100 - 20 - 140)]
+
+    # 窗口拉长到 5 天:前两天无数据 → total/consumed 置 null(断档断线)
+    resp = await client.get("/api/checkin/credits/daily", params={"days": 5})
+    series = resp.json()["series"]
+    assert series["total"] == [None, None, 160, 140, 100]
+    assert series["gained"] == [0, 0, 0, 0, 20]
+    assert series["consumed"] == [None, None, None, 20, 60]
 # ⁠[IHUI-AI-PROVENANCE-TAIL]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
