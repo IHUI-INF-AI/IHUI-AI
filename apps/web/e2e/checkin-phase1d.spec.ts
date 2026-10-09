@@ -32,7 +32,6 @@ let storageStatePath = ''
 
 test.describe.serial('签到助手 · 登录态全流程', () => {
   let apiContext: import('@playwright/test').APIRequestContext
-  let createdId: number | null = null
 
   test.beforeAll(async ({ playwright, baseURL }) => {
     // fixture 的 storageState 由 authenticatedPage 惰性建立;这里直接用同一凭据做 API 上下文,
@@ -110,10 +109,6 @@ test.describe.serial('签到助手 · 登录态全流程', () => {
     const groupFilter = authenticatedPage.getByTestId('group-filter')
     await expect(groupFilter).toBeVisible()
     await expect(groupFilter.locator('option', { hasText: '未分组' })).toHaveCount(1)
-    // 记住创建的账号 id 供 afterAll 清理兜底
-    const list = await apiContext.get('/api/checkin/accounts')
-    const body = await list.json().catch(() => null)
-    createdId = body?.accounts?.[0]?.id ?? null
   })
 
   test('分组筛选:切到未分组后账号行隐藏,切回全部分组恢复', async ({ authenticatedPage }) => {
