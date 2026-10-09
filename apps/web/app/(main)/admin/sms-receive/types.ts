@@ -61,6 +61,24 @@ export interface UsedRecord {
 
 export interface UsedData {
   items: UsedRecord[]
+  /** 本地快照累积总数(2026-10-09 攻破 24h+100 条;快照失败=null 降级) */
+  totalUnion?: number | null
+}
+
+/** 快照累积流水项(GET /used-union,firstSeenAt=入库时间口径,非短信到达时刻) */
+export interface UsedSnapItem {
+  id: string
+  phone: string
+  fee: string
+  platform?: string | null
+  usageKind: 'register' | 'login' | 'other'
+  text: string
+  firstSeenAt: string
+}
+
+export interface UsedUnionData {
+  items: UsedSnapItem[]
+  total: number
 }
 
 /** 平台「号码相关短信」全局时间线记录项(GET /related-msgs,内容打码只透出时间+标记) */

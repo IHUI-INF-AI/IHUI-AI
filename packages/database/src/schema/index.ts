@@ -162,6 +162,8 @@ export * from './user-browse-history.js'
 export * from './sms-receive-history.js'
 // relatedMsgs 快照累积(2026-10-09 新增,超越平台 12 条滚动窗口的全局热度口径)
 export * from './sms-related-snapshots.js'
+// 平台查询历史快照累积(2026-10-09 新增,攻破 queryUsed 24h+100 条上限)
+export * from './sms-used-snapshots.js'
 export * from './agent-event-triggers.js'
 export * from './llm-call-logs.js'
 export * from './wechat-pay-contracts.js'
