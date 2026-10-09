@@ -738,6 +738,7 @@ export function BatchScanLoginDialog({
                 <>
                   {/* 二维码由后端截取登录页后逐帧更新(qr_updated_at 变一次取一帧),
                       经 fetchScanLoginQr 取字节(该口要带 Authorization)后直接显示在本弹窗内 */}
+                  {/* eslint-disable-next-line @next/next/no-img-element -- 二维码是带 Authorization 取回后转成的 blob: 地址,不走 next/image 优化链路(换成 Image 会直接渲染不出来) */}
                   <img
                     src={qrUrl}
                     alt={t('accounts.scanLoginQrAlt')}
