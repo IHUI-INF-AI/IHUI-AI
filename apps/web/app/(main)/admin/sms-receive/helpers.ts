@@ -12,7 +12,9 @@ import type {
   PhonePlatformStat,
   RelatedMsgItem,
   RelatedMsgsData,
+  UsedData,
   UsedRecord,
+  UsedUnionData,
 } from './types'
 
 export const API_BASE = '/api/admin/sms-receive'
@@ -84,8 +86,16 @@ export async function sendSms(phone: string, toPhone: string, content: string) {
 }
 
 export async function fetchUsed(): Promise<UsedRecord[]> {
-  const d = await adminApi<{ items: UsedRecord[] }>(`${API_BASE}/used`)
+  const d = await adminApi<UsedData>(`${API_BASE}/used`)
   return d.items
+}
+
+/**
+ * 查快照累积流水(2026-10-09 攻破 24h+100 条;纯本地库读,无限频)。
+ * items=按入库时间倒序最近 limit 条,total=全量累积条数。
+ */
+export async function fetchUsedUnion(limit = 50): Promise<UsedUnionData> {
+  return adminApi<UsedUnionData>(`${API_BASE}/used-union?limit=${limit}`)
 }
 
 // used 平台限频 1 次/分钟 → 客户端 60s 缓存:自动筛新号连续换号时预筛查询全部走缓存,

@@ -2,110 +2,33 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-/** 短信接码页面类型定义(对接 /api/admin/sms-receive/*) */
+import { index, pgTable, timestamp, unique, uuid, varchar, text } from 'drizzle-orm/pg-core'
 
-export type CardType = '实卡' | '虚卡' | '全部'
+/**
+ * 平台「查询历史」快照累积(2026-10-09)。
+ * 平台 queryUsed 只回本账号 24h 内最多 100 条且限频 1 次/分钟;每次查询把流水
+ * 逐条抄进本表按唯一键幂等去重,本地视野随时间单调增长,攻破 24h+100 条上限。
+ * text_hash = sha256(phone\nfee\ntext) —— 短信原文含一次性验证码,天然唯一。
+ */
+export const smsUsedSnapshots = pgTable(
+  'sms_used_snapshots',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    phone: varchar('phone', { length: 20 }).notNull(), // 接码手机号
+    fee: varchar('fee', { length: 16 }).notNull(), // 平台扣费金额原样(如 0.45)
+    platform: varchar('platform', { length: 64 }), // 从短信原文【】提取的平台名
+    usageKind: varchar('usage_kind', { length: 16 }).notNull().default('other'), // register/login/other
+    text: text('text').notNull(), // 短信原文(本账号自己的流水,未打码)
+    textHash: varchar('text_hash', { length: 64 }).notNull(), // sha256(phone\nfee\ntext)
+    firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).defaultNow().notNull(), // 本系统首次见到时刻(入库时间口径)
+  },
+  (t) => ({
+    phoneTextUnique: unique('sms_used_snapshots_phone_text_unique').on(t.phone, t.textHash),
+    phoneSeenIdx: index('sms_used_snapshots_phone_idx').on(t.phone, t.firstSeenAt),
+    platformIdx: index('sms_used_snapshots_platform_idx').on(t.platform),
+  }),
+)
 
-export interface BalanceData {
-  balance: string
-}
-
-export interface PhoneData {
-  phone: string
-}
-
-export type MessageData =
-  | {
-      status: 'received'
-      code?: string
-      raw: string
-      /** 从短信原文【】提取的平台名(后端 extractPlatform),如 trae */
-      platform?: string
-      /** 短信用途:register=新号注册 / login=该号已注册过(登录码) / other */
-      usageKind?: 'register' | 'login' | 'other'
-    }
-  | { status: 'pending'; raw: string }
-
-/** 号码接码台账项(GET /phone-history,本地 sms_receive_history 表流水) */
-export interface PhoneHistoryItem {
-  id: string
-  phone: string
-  keyword?: string | null
-  platform?: string | null
-  usageKind: 'register' | 'login' | 'other'
-  smsCode?: string | null
-  smsRaw: string
-  receivedAt: string
-}
-
-/** 本机台账「平台 × 用途」计数(GET /phone-history platformStats,SQL 全量 group-by) */
-export interface PhonePlatformStat {
-  platform: string | null
-  usageKind: 'register' | 'login' | 'other'
-  count: number
-}
-
-export interface OkData {
-  ok: boolean
-  result?: string
-}
-
-/** 平台历史记录单条(GET /used,本账号 24h 流水;后端已解析「号码\t扣费\t短信原文」) */
-export interface UsedRecord {
-  phone: string
-  fee: string
-  platform?: string
-  usageKind: 'register' | 'login' | 'other'
-  text: string
-}
-
-export interface UsedData {
-  items: UsedRecord[]
-  /** 本地快照累积总数(2026-10-09 攻破 24h+100 条;快照失败=null 降级) */
-  totalUnion?: number | null
-}
-
-/** 快照累积流水项(GET /used-union,firstSeenAt=入库时间口径,非短信到达时刻) */
-export interface UsedSnapItem {
-  id: string
-  phone: string
-  fee: string
-  platform?: string | null
-  usageKind: 'register' | 'login' | 'other'
-  text: string
-  firstSeenAt: string
-}
-
-export interface UsedUnionData {
-  items: UsedSnapItem[]
-  total: number
-}
-
-/** 平台「号码相关短信」全局时间线记录项(GET /related-msgs,内容打码只透出时间+标记) */
-export interface RelatedMsgItem {
-  /** 记录时间(HH:MM,平台时间线原样,无日期) */
-  time: string
-  /** 平台可见性标记(Y/N,语义未公开,原样透传) */
-  flag: string
-}
-
-/** related-msgs 响应:items=平台单次窗口(≤12条);totalUnion=本地快照累积并集(可>12,快照失败=null 降级) */
-export interface RelatedMsgsData {
-  items: RelatedMsgItem[]
-  totalUnion?: number | null
-}
-
-/** 取号表单状态 */
-export interface GetPhoneForm {
-  keyWord: string
-  phone: string
-  province: string
-  cardType: CardType
-}
-
-/** 发送短信表单状态 */
-export interface SendSmsForm {
-  toPhone: string
-  content: string
-}
+export type SmsUsedSnapshot = typeof smsUsedSnapshots.$inferSelect
+export type NewSmsUsedSnapshot = typeof smsUsedSnapshots.$inferInsert
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
