@@ -928,7 +928,13 @@ export function absoluteLayerBlocks({ strict, before }) {
 }
 
 /** 导出给自检与镜像测试用(§22c):判据的红/绿两向都必须能拿构造面证明,不能只靠 CLI 跑真仓。 */
-export function gate(a, strict, root, before, beforeErr) {
+/**
+ * `baseOverride` 是**测试通道**(G-1105306):镜像要证的是"键集锚在给定基线下的四臂行为",
+ * 而 `readBaseline(root)` 只会去读实盘那份 —— 夹具的键集不在实盘基线里时,九组会被全算成"新键",
+ * 那条"同键多挂一行不得拦提交"的臂就永远过不去(它量的根本不是自己的行为)。
+ * 缺省 `null` ⇒ 一行都不变:提交链、CLI、converge 全部照旧从实盘取基线。
+ */
+export function gate(a, strict, root, before, beforeErr, baseOverride = null) {
   const items = probe(a)
   const nonZero = items.filter(([, , n]) => n > 0)
   // F9 存量只报数、**--strict 也不判红**(定级理由见 lib findIdCollisions 头注:存量绝大多数是
@@ -936,7 +942,7 @@ export function gate(a, strict, root, before, beforeErr) {
   const strictNonZero = nonZero.filter(([k]) => k !== 'F9')
   let base = null
   try {
-    base = readBaseline(root)
+    base = baseOverride ?? readBaseline(root)
   } catch (e) {
     console.log(`⚠️ 无法判定 —— ${e.message}`)
     return 2
