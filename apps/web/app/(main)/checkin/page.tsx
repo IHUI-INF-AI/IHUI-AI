@@ -22,10 +22,12 @@ import {
   CheckCheck,
   FolderPen,
   KeyRound,
+  Laptop,
   Loader2,
   Plus,
   RefreshCw,
   Trash2,
+  Wrench,
 } from 'lucide-react'
 import {
   Button,
@@ -67,6 +69,18 @@ import {
   type CheckinRecord,
 } from '@ihui/api-client'
 import { EChart } from '@/components/charts/EChart'
+import { useTauriIpcReady } from '@/hooks/use-desktop'
+import {
+  checkinCaptureJwts,
+  checkinDetectTraeDir,
+  checkinResetDeviceIds,
+  checkinSnapshotBackup,
+  checkinSnapshotDelete,
+  checkinSnapshotList,
+  checkinSnapshotRestore,
+  type CapturedTraeAccount,
+  type CheckinSnapshotSummary,
+} from '@/lib/tauri-bridge'
 
 // 分页步长与上限(records 后端 limit le=200,credits 后端 le=1000)。
 const RECORDS_LIMIT_STEP = 100
@@ -117,6 +131,25 @@ export default function CheckinPage() {
   const [groupValue, setGroupValue] = React.useState('')
   const [groupSubmitting, setGroupSubmitting] = React.useState(false)
   const [groupFormError, setGroupFormError] = React.useState<string | null>(null)
+
+  // 本机捕获(桌面端专属,WP-C):useTauriIpcReady 抗 IPC 异步注入竞态 + 免水合不一致
+  const desktop = useTauriIpcReady()
+  const [captureOpen, setCaptureOpen] = React.useState(false)
+  const [capturing, setCapturing] = React.useState(false)
+  const [captured, setCaptured] = React.useState<CapturedTraeAccount[]>([])
+  const [capturedSelected, setCapturedSelected] = React.useState<Set<string>>(new Set())
+  const [captureError, setCaptureError] = React.useState<string | null>(null)
+  const [importing, setImporting] = React.useState(false)
+  const [traeDir, setTraeDir] = React.useState<string | null>(null)
+
+  // 本机 TRAE 维护(设备重置 + 快照管理,桌面端专属)
+  const [maintOpen, setMaintOpen] = React.useState(false)
+  const [maintBusy, setMaintBusy] = React.useState(false)
+  const [maintIncludeGuid, setMaintIncludeGuid] = React.useState(false)
+  const [maintReport, setMaintReport] = React.useState<string[]>([])
+  const [maintError, setMaintError] = React.useState<string | null>(null)
+  const [maintUserId, setMaintUserId] = React.useState('')
+  const [snapshots, setSnapshots] = React.useState<CheckinSnapshotSummary[]>([])
 
   // 更新 JWT 对话框
   const [jwtTarget, setJwtTarget] = React.useState<CheckinAccount | null>(null)
@@ -185,6 +218,141 @@ export default function CheckinPage() {
       await loadAll()
     } finally {
       setRefreshingCredits(false)
+    }
+  }
+
+  // ================== 本机捕获(桌面端专属,WP-C) ==================
+
+  const openCapture = async () => {
+    setCaptureOpen(true)
+    setCaptureError(null)
+    setCaptured([])
+    setCapturedSelected(new Set())
+    try {
+      setTraeDir(await checkinDetectTraeDir())
+    } catch (e) {
+      setCaptureError((e as Error).message)
+    }
+  }
+
+  const runCapture = async () => {
+    setCapturing(true)
+    setCaptureError(null)
+    try {
+      const found = await checkinCaptureJwts()
+      setCaptured(found)
+      setCapturedSelected(new Set(found.map((a) => a.user_id)))
+      if (found.length === 0) setCaptureError(t('captureEmpty'))
+    } catch (e) {
+      setCaptureError((e as Error).message)
+    } finally {
+      setCapturing(false)
+    }
+  }
+
+  // 逐个入库:勾选账号同步为服务端账号;group 沿用当前筛选(非 all 时)
+  const importCaptured = async () => {
+    const picked = captured.filter((a) => capturedSelected.has(a.user_id))
+    if (picked.length === 0) return
+    setImporting(true)
+    setCaptureError(null)
+    let okCount = 0
+    const failures: string[] = []
+    for (const item of picked) {
+      try {
+        await createCheckinAccount({
+          name: `本机-${item.user_id}`,
+          jwt: item.jwt,
+          device_map: {},
+          group: groupFilter !== 'all' ? groupFilter : '',
+        })
+        okCount += 1
+      } catch (e) {
+        failures.push(`${item.user_id}: ${(e as Error).message}`)
+      }
+    }
+    setImporting(false)
+    if (failures.length > 0) {
+      setCaptureError(failures.join('；'))
+    } else {
+      setCaptureOpen(false)
+      setBatchNotice(t('captureImported', { count: okCount }))
+      await loadAll()
+    }
+  }
+
+  // ================== 本机 TRAE 维护(桌面端专属,WP-C) ==================
+
+  const refreshSnapshots = async () => {
+    try {
+      setSnapshots(await checkinSnapshotList())
+    } catch (e) {
+      setMaintError((e as Error).message)
+    }
+  }
+
+  const openMaint = async () => {
+    setMaintOpen(true)
+    setMaintError(null)
+    setMaintReport([])
+    setMaintUserId('')
+    await refreshSnapshots()
+  }
+
+  // 统一 busy 闸门:动作抛错归一为 maintError,成功行进 maintReport
+  const runMaintAction = async (action: () => Promise<string[]>) => {
+    setMaintBusy(true)
+    setMaintError(null)
+    setMaintReport([])
+    try {
+      setMaintReport(await action())
+    } catch (e) {
+      setMaintError((e as Error).message)
+    } finally {
+      setMaintBusy(false)
+    }
+  }
+
+  const resetDeviceIds = () =>
+    runMaintAction(async () => {
+      const report = await checkinResetDeviceIds(maintIncludeGuid)
+      return report.layers.map((l) => `[${l.ok ? 'OK' : 'FAIL'}] L${l.layer} ${l.name}: ${l.detail}`)
+    })
+
+  const backupSnapshot = () =>
+    runMaintAction(async () => {
+      const uid = maintUserId.trim()
+      if (!uid) throw new Error(t('maintUserIdRequired'))
+      const report = await checkinSnapshotBackup(uid)
+      await refreshSnapshots()
+      return [
+        t('maintBackupDone', { count: report.copied.length, missing: report.missing.length }),
+        ...report.copied,
+      ]
+    })
+
+  const restoreSnapshot = (uid: string) =>
+    runMaintAction(async () => {
+      const report = await checkinSnapshotRestore(uid)
+      return [
+        t('maintRestoreDone', {
+          count: report.restored.length,
+          missing: report.missing_in_backup.length,
+        }),
+        ...report.restored,
+      ]
+    })
+
+  const deleteSnapshot = async (uid: string) => {
+    setMaintBusy(true)
+    setMaintError(null)
+    try {
+      await checkinSnapshotDelete(uid)
+      await refreshSnapshots()
+    } catch (e) {
+      setMaintError((e as Error).message)
+    } finally {
+      setMaintBusy(false)
     }
   }
 
@@ -637,6 +805,18 @@ export default function CheckinPage() {
             <Plus className="h-4 w-4" />
             {t('addAccount')}
           </Button>
+          {desktop && (
+            <>
+              <Button variant="outline" size="sm" onClick={() => void openCapture()}>
+                <Laptop className="mr-1 h-4 w-4" />
+                {t('captureTitle')}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => void openMaint()}>
+                <Wrench className="mr-1 h-4 w-4" />
+                {t('maintTitle')}
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -1225,6 +1405,156 @@ export default function CheckinPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 本机捕获对话框(桌面端专属,WP-C) */}
+      {desktop && (
+        <Dialog open={captureOpen} onOpenChange={setCaptureOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('captureTitle')}</DialogTitle>
+              <DialogDescription>
+                {traeDir ? t('captureDirFound', { dir: traeDir }) : t('captureDirMissing')}
+              </DialogDescription>
+            </DialogHeader>
+            {captureError && (
+              <p role="alert" className="text-sm text-destructive">
+                {captureError}
+              </p>
+            )}
+            {captured.length > 0 && (
+              <div className="max-h-60 space-y-2 overflow-y-auto">
+                {captured.map((item) => (
+                  <label
+                    key={item.user_id}
+                    className="flex items-center gap-2 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      aria-label={`captureAccount:${item.user_id}`}
+                      checked={capturedSelected.has(item.user_id)}
+                      onChange={(e) => {
+                        setCapturedSelected((prev) => {
+                          const next = new Set(prev)
+                          if (e.target.checked) next.add(item.user_id)
+                          else next.delete(item.user_id)
+                          return next
+                        })
+                      }}
+                    />
+                    <span className="font-mono">{item.user_id}</span>
+                    <span className="truncate text-xs text-muted-foreground">{item.source}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" size="sm" disabled={capturing} onClick={() => void runCapture()}>
+                {capturing ? (
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-1 h-4 w-4" />
+                )}
+                {t('captureScan')}
+              </Button>
+              <Button
+                size="sm"
+                disabled={capturing || importing || capturedSelected.size === 0}
+                onClick={() => void importCaptured()}
+              >
+                {importing && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                {t('captureImport', { count: capturedSelected.size })}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* 本机 TRAE 维护对话框(桌面端专属,WP-C) */}
+      {desktop && (
+        <Dialog open={maintOpen} onOpenChange={setMaintOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('maintTitle')}</DialogTitle>
+              <DialogDescription>{t('maintDescription')}</DialogDescription>
+            </DialogHeader>
+            {maintError && (
+              <p role="alert" className="text-sm text-destructive">
+                {maintError}
+              </p>
+            )}
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="checkin-maint-user-id">{t('maintUserIdLabel')}</Label>
+                <Input
+                  id="checkin-maint-user-id"
+                  value={maintUserId}
+                  onChange={(e) => setMaintUserId(e.target.value)}
+                  placeholder="user_id"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="destructive" size="sm" disabled={maintBusy} onClick={() => void resetDeviceIds()}>
+                  {t('maintReset')}
+                </Button>
+                <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={maintIncludeGuid}
+                    onChange={(e) => setMaintIncludeGuid(e.target.checked)}
+                  />
+                  {t('maintIncludeGuid')}
+                </label>
+                <Button variant="outline" size="sm" disabled={maintBusy} onClick={() => void backupSnapshot()}>
+                  {t('maintBackup')}
+                </Button>
+              </div>
+              {maintReport.length > 0 && (
+                <pre className="max-h-40 overflow-y-auto rounded bg-muted p-2 text-xs">
+                  {maintReport.join('\n')}
+                </pre>
+              )}
+              <div>
+                <p className="mb-1 text-sm font-medium">{t('snapshotsTitle')}</p>
+                {snapshots.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">{t('snapshotsEmpty')}</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {snapshots.map((s) => (
+                      <li key={s.user_id} className="flex items-center justify-between gap-2 text-sm">
+                        <span className="truncate font-mono text-xs">{s.user_id}</span>
+                        <span className="text-xs text-muted-foreground">{s.kinds.length}</span>
+                        <span className="flex shrink-0 gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={maintBusy}
+                            onClick={() => void restoreSnapshot(s.user_id)}
+                          >
+                            {t('maintRestore')}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={maintBusy}
+                            onClick={() => void deleteSnapshot(s.user_id)}
+                          >
+                            {t('maintDelete')}
+                          </Button>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" size="sm" onClick={() => setMaintOpen(false)}>
+                {t('maintClose')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }
