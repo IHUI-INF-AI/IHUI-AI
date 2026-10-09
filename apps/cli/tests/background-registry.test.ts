@@ -855,7 +855,7 @@ describe('G-937959 输出投影(运行中读头、终态读尾、省略量入账
  * 本块每一步登记都会写台账,不许落到真实 `~/.ihui`。
  */
 
-/** 结算面(票面点名、且我方真实存在的那一半):终态与结果本身。票面的 `resultText`→`stdoutBuf`、`pid`→`process`。 */
+/** 结算面(票面点名、且我方真实存在的那一半):终态与结果本身。票面的 `resultText`→`stdoutBuf`、`pid`→`process`。G-816029:`settledBy` 归本面 —— 它是"这次终态谁收的场"的结算事实,重臂/迟到终态不许改写它(与 `notified` 同一条逐字段回读)。 */
 const SETTLEMENT_FACE = [
   'status',
   'exitCode',
@@ -872,11 +872,12 @@ const SETTLEMENT_FACE = [
   'truncated',
   'droppedStdoutBytes',
   'droppedStderrBytes',
+  'settledBy',
   'process',
 ] as const;
 
-/** 身份面(我方真实存在的那一半):键与登记自身的属性。票面的 agentId/parentToolCallId/turnId/description **我方无此字段**,故不参与分域。G-816001:分支代戳与 identity 同域 —— 注册时刻盖章、只活在注册表内部、不进对外快照。 */
-const IDENTITY_FACE = ['id', 'identity', 'command', 'startedAt', 'worktreePath', 'worktreeSourcePath', 'branchGeneration'] as const;
+/** 身份面(我方真实存在的那一半):键与登记自身的属性。票面的 agentId/parentToolCallId/turnId/description **我方无此字段**,故不参与分域。G-816001:分支代戳与 identity 同域 —— 注册时刻盖章、只活在注册表内部、不进对外快照。G-816029:`ownerAgentId` 同为登记时刻盖章且终生不改(登记事实),故归本面 —— 它与 `identity` 的差别只在**进不进对外快照**(归属要给等待者读,代际号不外传)。 */
+const IDENTITY_FACE = ['id', 'identity', 'command', 'startedAt', 'worktreePath', 'worktreeSourcePath', 'branchGeneration', 'ownerAgentId'] as const;
 
 // 编译期半边:"分域"必须是一句有牙齿的话 —— 两域不相交且合起来覆盖 `BackgroundTask` 每一个键。
 // 新增字段没归面,下面两行就类型报错,而不是让"逐字段"悄悄变窄。
