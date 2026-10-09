@@ -185,8 +185,10 @@ function runRuler(faceDir, pyExe) {
     timeout: SPAWN_TIMEOUT_MS,
     maxBuffer: MAX_BUFFER,
     windowsHide: true,
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    stdio: 'ignore',
+    // ⚠️ stdout **必须**是 pipe:本函数把 `r.stdout` 当唯一结论载体,`stdio:'ignore'` 会让
+    // 三通道全丢弃 ⇒ JSON.parse(null) 抛、门恒落"输出不可解析",账面读起来像"这台机没跑成"
+    // 而实际是门自己把尺子的输出扔了(G-1108372)。stdin 仍 'ignore'(本机 EBUSY 那一型,尺子不吃输入)。
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   if (r.error) return { ok: false, reason: `尺子派生失败:${r.error.message}` }
   if (r.status !== 0 && r.status !== 1) {
