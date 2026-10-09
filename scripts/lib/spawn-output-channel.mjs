@@ -27,8 +27,11 @@
  * ## 作用域是这个判据的全部难点(整文件找 `r.stdout` 会产出七处假阳)
  *
  * 本仓调用点普遍把结果命名为 `r`。普查 8 处候选里 7 处的"读取点"属于**同一个文件里的另一个 `r`**。
- * 所以判据必须把读取点限制在**最内层函数体**内;取不到最内层函数体(顶层语句)时退回整文件,
- * 并把这一格单独计数(`topLevelScoped`)—— 它不是"判过了",是"用更宽的口径判的"。
+ * 所以读取点要落在**这一处绑定的活区**里:左界是调用自身,右界是同名变量的下一个绑定/再赋值点
+ * (`bindingOffsets` 认声明、解构、`for…of/in`、形参位、裸再赋值五种形态),函数体内再套一层
+ * "最内层函数体"的界。顶层调用不再退回整文件,也不是一律判"未判定"—— 它有明确右界,判得出。
+ * 少认一种绑定形态 ⇒ 借别人的读取点多判一处红;多认一处 ⇒ 只是把活区切短、可能漏判。
+ * 本判据的取舍方向固定是后者(假阳比漏报更贵:它指使人去"修"没坏的东西)。
  *
  * ## 三态,绝不并桶
  *
@@ -75,6 +78,30 @@ function balanceParens(text, startAfterOpen) {
 }
 
 const lineOf = (text, index) => text.slice(0, index).split('\n').length
+
+/**
+ * 某个名字的**全部绑定/再赋值点**(用于切活区)。覆盖:
+ *  `const|let|var NAME`、解构 `const {NAME}` / `const [NAME]`、`for (NAME of|in …)`、
+ *  形参位 `function f(NAME…)` / `(NAME…) =>`,以及裸再赋值 `NAME =`。
+ *
+ * 为什么这些都要算:**读取点必须能追溯到它属于哪一次绑定**,否则顶层那处 `const r = spawnSync(…)`
+ * 会借到同文件里另一个 `r` 的读取点(普查 8 处候选里 7 处就是这个形状)。
+ * 少认一种绑定形态的后果是**多判一处红**(拿别人的读取点给自己定罪),
+ * 而多认一处的后果只是把活区切短、可能漏判 —— 本判据的取舍方向一直是后者。
+ */
+function bindingOffsets(body, varName) {
+  const n = varName.replace(/\$/g, '\\$')
+  const pats = [
+    new RegExp(`\\b(?:const|let|var)\\s+${n}\\b`, 'g'),
+    new RegExp(`\\b(?:const|let|var)\\s*[\\[{][^\\]}\\n]*\\b${n}\\b`, 'g'),
+    new RegExp(`\\b${n}\\s*(?:of|in)\\b`, 'g'),
+    new RegExp(`\\(\\s*[^()\\n]*\\b${n}\\b[^()\\n]*\\)\\s*(?:=>|\\{)`, 'g'),
+    new RegExp(`\\b${n}\\s*=[^=>]`, 'g'),
+  ]
+  const at = []
+  for (const re of pats) for (const mm of body.matchAll(re)) at.push(mm.index)
+  return at.sort((a, b) => a - b)
+}
 
 /**
  * 找出「把 stdout 丢掉/直通终端、却在同一作用域里读它」的派生调用。
@@ -126,15 +153,13 @@ export function findBlindOutputSpawns(text) {
       continue
     }
     const enclosing = blocks.filter(([s, e]) => s <= m.index && m.index < e).sort((a, b) => a[1] - a[0] - (b[1] - b[0]))[0]
-    if (!enclosing) {
-      // 顶层调用界定不出作用域 ⇒ **未判定**,绝不退回"整文件"。
-      // 实测教训:本仓 `scripts/desktop-dev-saas.mjs` 有四个不同的 `const r = …`,其中
-      // 顶层那处只读 `r.status`;整文件找 `r.stdout` 会借到别的功能里的读取点 ⇒ 假阳。
-      // 假阳比漏报更贵:它指使人去"修"没坏的东西,还会把这条判据的口径说歪成"仓里到处有病"。
-      undetermined.push({ line: lineOf(body, m.index), reason: '顶层调用,作用域界定不了(整文件找同名变量会借别人的读取点造假阳)' })
-      continue
-    }
-    const scope = body.slice(enclosing[0], enclosing[1])
+    // 活区右界:同名变量的下一个绑定/再赋值点。越过它的读取点属于**另一个**绑定,
+    // 借来定罪就是假阳(普查 8 处候选里 7 处是这个形状)。
+    // 起点必须是**本次调用之后**:`const r = spawnSync(…` 里的 `r =` 自身就是一个绑定点,
+    // 按 `> m.index` 切会把活区切成零长 ⇒ 整条判据静默失去命中能力(第一版就是这么把 3 条自检判红的)。
+    const nextBinding = bindingOffsets(body, varName).find((o) => o > balanced.end)
+    const liveEnd = nextBinding === undefined ? body.length : nextBinding
+    const scope = enclosing ? body.slice(enclosing[0], Math.min(enclosing[1], liveEnd)) : body.slice(m.index, liveEnd)
     const reader = new RegExp(`\\b${varName}\\s*\\.\\s*(?:stdout|output)\\b|JSON\\.parse\\s*\\(\\s*${varName}\\b`)
     if (!reader.test(scope)) continue // 正当写法:这个调用不吃输出
     hits.push({ varName, line: lineOf(body, m.index), channel: bare })
