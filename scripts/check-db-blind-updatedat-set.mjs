@@ -60,7 +60,7 @@ function readFace() {
   const r = spawnSync(
     'git',
     ['grep', '-n', PATTERN, 'HEAD', '--', SCAN_DIR],
-    { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
+    { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true },
   )
   if (r.status !== 0 && r.status !== 1) {
     throw new Error(`git grep 失败: status=${r.status} errno=${r.errno} ${r.stderr}`)
@@ -182,7 +182,7 @@ function stagedRun(asJson) {
   const r = spawnSync(
     'git',
     ['diff', '--cached', '--name-only', '--diff-filter=d', '--', SCAN_DIR],
-    { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
+    { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true },
   )
   if (r.status !== 0) {
     console.log(`[盲写棘轮] ⚠️ 未判定:git diff --cached 失败 status=${r.status}(不判红,§12e 恒红门纪律)`)
@@ -192,12 +192,17 @@ function stagedRun(asJson) {
   const files = (r.stdout || '').split('\n').filter(Boolean)
   const offenders = []
   for (const f of files) {
-    const idx = spawnSync('git', ['show', `:${f}`], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+    const idx = spawnSync('git', ['show', `:${f}`], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
     if (idx.status !== 0) continue // 已删除/取不到:不判
     const stagedHits = idx.stdout.split('\n').map((l, i) => ({ line: i + 1, text: l })).filter((h) => judgeLine(h.text))
     if (!stagedHits.length) continue
     const head = spawnSync('git', ['grep', '-c', '\\.set({ .*updatedAt: new Date()', 'HEAD', '--', f], {
-      cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+      cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true,
     })
     // 出口豁免在 HEAD 计数里也该扣掉:粗口径用宽计数即可(只会多算 HEAD 存量 ⇒ 更难红,不误伤)
     const headCount = head.status === 0 ? Number((head.stdout || '').split(':').pop()?.trim() || 0) : 0
