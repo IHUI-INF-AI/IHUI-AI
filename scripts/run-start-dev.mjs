@@ -17,7 +17,7 @@ export const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)
 export const scriptPath = path.join(repoRoot, 'scripts', 'start-dev.ps1')
 
 export function findPwsh() {
-  const probe = spawnSync('where.exe', ['pwsh'], { stdio: ['ignore', 'pipe', 'pipe'] })
+  const probe = spawnSync('where.exe', ['pwsh'], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
   if (probe.status === 0) {
     const hit = probe.stdout
       .toString()

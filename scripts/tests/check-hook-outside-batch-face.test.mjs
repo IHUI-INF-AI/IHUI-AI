@@ -137,7 +137,16 @@ const GATES = [
         'apps/miniapp-taro/src/stores/storage-adapter.ts': mk('createTaroStorageTransport'),
         'apps/extension/src/stores/storage-adapter.ts': mk('createChromeStorageTransport'),
         'packages/shared/src/stores/auth-store.ts':
-          "userPersistKey = 'ihui-auth-user'\nPick<AuthStoreState<TUser>, 'user' | 'isAuthenticated'>\n",
+          // 必须写成**今天的契约形状**(partialize 返回一份 Pick 收窄的落盘键集),不是旧的门所要求的裸字面串。
+          // 门 2026-09-28/29 两度改判据(G-456 收严键集、G-601 把键集绑到 partialize 的返回值上)之后,
+          // 这份桩就一直"找不到 partialize" ⇒ F-A 的 good 面本身不合规,那一条绿永远拿不到,
+          // 而它要证的"索引干净而磁盘脏 ⇒ --staged 不得红"就从此没被证明过。
+          "userPersistKey = 'ihui-auth-user'\n" +
+          'export interface AuthStoreState<TUser> { user: TUser | null; token: string | null }\n' +
+          'export function buildAuthStorePersistOptions<TUser>() { return { partialize: (state: AuthStoreState<TUser>) => {\n' +
+          "  const persisted: Pick<AuthStoreState<TUser>, 'user'> = { user: state.user }\n" +
+          '  return persisted\n' +
+          '} } }\n',
       }
     })(),
     bad: {
