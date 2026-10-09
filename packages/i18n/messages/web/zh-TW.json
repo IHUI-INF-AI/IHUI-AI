@@ -18916,6 +18916,7 @@
     "maintIncludeGuid": "同時重置登錄檔 MachineGuid（需系統管理員授權）",
     "maintIncludeBrowser": "同時清理 Chrome/Edge 中的 TRAE Cookie（請先關閉瀏覽器）",
     "maintDeepReset": "深度重置（自動關閉 TRAE 進程並清空全部現場數據，等效重裝）",
+    "maintIncludeMac": "同時改寫實體網卡 MAC 位址（硬體指紋層，需管理員權限，網路會閃斷數秒）",
     "maintBackup": "備份現場快照",
     "maintBackupDone": "已備份 {count} 個檔案（缺失 {missing} 個）",
     "maintRestore": "恢復",
