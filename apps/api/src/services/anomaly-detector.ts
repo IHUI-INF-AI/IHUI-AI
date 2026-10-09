@@ -23,6 +23,7 @@
 import { randomBytes } from 'node:crypto'
 import type { Redis } from 'ioredis'
 import { logger } from '../utils/logger.js'
+import { isDegenerateLegacyFingerprint } from '../utils/legacy-device-fingerprint.js'
 import {
   calculateBehaviorScore,
   isBotUserAgent,
@@ -313,6 +314,13 @@ export class AnomalyDetector {
     ctx: AnomalyContext,
   ): Promise<{ name: string; score: number }> {
     if (!ctx.userId || !ctx.deviceFingerprint) return { name: 'device-fingerprint', score: 0 }
+    // v1 的 RN 采集器只喂 platform ⇒ 全网 iOS 共用一个值、全网 Android 共用另一个。把那种值
+    // 计进"新设备"等于给同机型所有人记同一台机器,而补采上线后每台 RN 设备都会从它迁走 ⇒
+    // 迁移本身会被读成一次新设备。退化名一律不入集合、不计分(豁免面由生产摘要实现重算,
+    // 不是抄一份 hash 清单 —— 清单必然腐烂)。
+    if (await isDegenerateLegacyFingerprint(ctx.deviceFingerprint)) {
+      return { name: 'device-fingerprint', score: 0 }
+    }
     const key = K_DEVICES(ctx.userId)
     const ttlSec = Math.floor(WINDOW_1H_MS / 1000)
 
