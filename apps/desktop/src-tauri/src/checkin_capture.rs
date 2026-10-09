@@ -946,7 +946,14 @@ fn reset_layer_browser_cookies() -> ResetLayerReport {
 
 /// 深度档要整删的目录(相对 TRAE 数据目录)。与 SNAPSHOT_ENTRIES 的现场全集对齐:
 /// local_storage_dir/session_storage_dir/network_dir/partitions/aha_dir + IndexedDB。
-pub const DEEP_RESET_DIRS: [&str; 7] = [
+/// 深度档整删目录(相对 TRAE 数据目录)。2026-10-10 真机残留盘点大幅扩面:
+/// 风控仍命中 ⇒ 三现场逐条目比对,以下是漏网指纹源(全部实测存在过):
+/// - ahanet:字节 ttNet 网络层(server.json/tt_net_config 含设备指纹配置)
+/// - monitor:parfait 遥测 SDK 缓冲(崩溃/异常事件含设备信息)
+/// - machineid.traereset_bak_* / storage.json.traereset_bak_*:参考工具备份文件,
+///   含**全部旧机器码/旧遥测 ID**(sweep 见层⑧内 traereset_bak 通配清扫)
+pub const DEEP_RESET_DIRS: [&str; 23] = [
+    // webview 会话/存储(原 7 项)
     "Local Storage",
     "Session Storage",
     "Network",
@@ -954,11 +961,36 @@ pub const DEEP_RESET_DIRS: [&str; 7] = [
     "aha",
     "Partitions/trae-webview",
     "Partitions/icube-web-crawler-shared-session-v1.0",
+    // 真机盘点扩面
+    "ahanet",
+    "monitor",
+    "Backups",
+    "CachedProfilesData",
+    "CachedConfigurations",
+    "CachedExtensionVSIXs",
+    "ModularData",
+    "SharedStorage",
+    "WebStorage",
+    "blob_storage",
+    "Shared Dictionary",
+    "Service Worker",
+    "Code Cache",
+    "shared_proto_db",
+    "User/globalStorage/cloudide.icube-im-bridge",
+    "User/globalStorage/.mcp_gallery_cache",
 ];
 
 /// 深度档要整删的文件(相对 TRAE 数据目录):Chromium 层的偏好与 Local State
 /// (捕获时的 AES 密钥就出自 Local State 的 os_crypt.encrypted_key——它同样携带设备痕迹)。
-pub const DEEP_RESET_FILES: [&str; 2] = ["Preferences", "Local State"];
+/// 2026-10-10 扩面:state.vscdb.backup 含旧登录密钥库(层⑨只删本体);DIPS(+wal) 是
+/// 字节设备数据库。
+pub const DEEP_RESET_FILES: [&str; 5] = [
+    "Preferences",
+    "Local State",
+    "User/globalStorage/state.vscdb.backup",
+    "DIPS",
+    "DIPS-wal",
+];
 
 /// 主文件已删后清 -wal/-shm/-journal 伴生(失败容忍)。
 fn remove_sqlite_family_wal_shm(db: &Path) -> usize {
@@ -998,6 +1030,37 @@ fn reset_layer_deep_site_data(trae_dirs: &[PathBuf]) -> ResetLayerReport {
                 match std::fs::remove_file(&path) {
                     Ok(()) => removed.push(rel.to_string()),
                     Err(e) => errors.push(format!("{rel}: {e}")),
+                }
+            }
+        }
+        // 2026-10-10 扩面:参考工具(machineid.traereset_bak_*)与历史重置留下的
+        // 旧身份备份文件——machineid/storage.json 的 *_bak 变体含**重置前全部旧值**,
+        // 是最直接的旧指纹残留。通配清扫:根目录与 User/globalStorage 下凡文件名含
+        // "traereset_bak" 或形如 machineid.* (非本体) 一律删。
+        for scan_dir in [trae_dir.to_path_buf(), trae_dir.join("User/globalStorage")] {
+            let rd = match std::fs::read_dir(&scan_dir) {
+                Ok(rd) => rd,
+                Err(_) => continue,
+            };
+            for entry in rd.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                let is_stale_bak = name.contains("traereset_bak")
+                    || (name.starts_with("machineid.") && name != "machineid");
+                if !is_stale_bak {
+                    continue;
+                }
+                let p = entry.path();
+                let r = if p.is_dir() {
+                    std::fs::remove_dir_all(&p)
+                } else {
+                    std::fs::remove_file(&p)
+                };
+                match r {
+                    Ok(()) => removed.push(format!(
+                        "{} (旧身份备份)",
+                        p.strip_prefix(trae_dir).unwrap_or(&p).display()
+                    )),
+                    Err(e) => errors.push(format!("{}: {e}", p.display())),
                 }
             }
         }
@@ -1378,15 +1441,129 @@ fn reset_layer_local_cache() -> ResetLayerReport {
     }
 }
 
-/// 13 层重置入口(L0 进程清扫/L11 注册表/L12 本地缓存为第三轮实测扩面)。
-/// include_machine_guid / clean_browser_cookies / deep_reset / kill_running 受 flag 控制,
-/// false 时对应层记 skip——单测必须传 kill_running=false,绝不真杀进程。
+/// 层⑬:物理网卡 MAC 地址改写(2026-10-10 新增,flag reset_mac 控制默认关)。
+/// 动机:machineid/MachineGuid/storage.json 全翻新后,**MAC 地址是仍可能把新旧设备
+/// 串联起来的硬件指纹**(风控可读本机网卡)。只动「已连接的物理网卡」(排除虚拟/
+/// VPN/TAP),旧 MAC 先备份到 %TEMP%\ihui-mac-backup-<ts>.txt 可还原。
+/// 新 MAC 取本地管理位(第二 hex 位 ∈ {2,6,A,E}),不与真实厂商 OUI 冲突。
+/// 写注册表 NetworkAddress 后 Restart-NetAdapter 生效(网络会闪断数秒);
+/// 网卡重启失败(权限/驱动不支持)时降级记「重启系统后生效」,不算失败。
+#[cfg(windows)]
+fn reset_layer_mac_addresses() -> ResetLayerReport {
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let backup_path = std::env::var("TEMP")
+        .map(|t| format!("{t}\\ihui-mac-backup-{ts}.txt"))
+        .unwrap_or_else(|_| format!("C:\\Windows\\Temp\\ihui-mac-backup-{ts}.txt"));
+    let script = r#"
+$ErrorActionPreference = 'Continue'
+$backup = New-Object System.Collections.Generic.List[string]
+$script:changed = 0
+$script:failed = 0
+$adapters = Get-NetAdapter | Where-Object {
+    $_.Status -eq 'Up' -and
+    $_.InterfaceDescription -notmatch 'Virtual|VPN|TAP|Loopback|WAN Miniport|Microsoft Kernel'
+}
+foreach ($a in $adapters) {
+    try {
+        $backup.Add("$($a.Name)|$($a.InterfaceDescription)|$($a.MacAddress)")
+        $rnd = -join ((1..10) | ForEach-Object { '{0:x}' -f (Get-Random -Max 16) })
+        $mac = '0' + ('2','6','A','E' | Get-Random) + $rnd
+        $base = 'HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}'
+        $key = Get-ChildItem $base | Where-Object {
+            (Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue).DriverDesc -eq $a.InterfaceDescription
+        } | Select-Object -First 1
+        if ($key) {
+            Set-ItemProperty -Path $key.PSPath -Name NetworkAddress -Value $mac -Force -ErrorAction Stop
+            Restart-NetAdapter -Name $a.Name -Confirm:$false -ErrorAction SilentlyContinue
+            $script:changed++
+        } else {
+            $script:failed++
+        }
+    } catch {
+        $script:failed++
+    }
+}
+$backup | Set-Content -Path '__BACKUP_PATH__' -Encoding utf8
+Write-Output "RESULT changed=$($script:changed) failed=$($script:failed) adapters=$($adapters.Count)"
+"#.replace("__BACKUP_PATH__", &backup_path);
+    match std::process::Command::new("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+        .output()
+    {
+        Ok(out) => {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            let line = stdout.lines().find(|l| l.starts_with("RESULT ")).unwrap_or("");
+            let changed = line
+                .split_whitespace()
+                .find(|p| p.starts_with("changed="))
+                .and_then(|p| p.strip_prefix("changed="))
+                .and_then(|v| v.parse::<u32>().ok())
+                .unwrap_or(0);
+            let failed = line
+                .split_whitespace()
+                .find(|p| p.starts_with("failed="))
+                .and_then(|p| p.strip_prefix("failed="))
+                .and_then(|v| v.parse::<u32>().ok())
+                .unwrap_or(0);
+            if out.status.success() && failed == 0 {
+                ResetLayerReport {
+                    layer: 13,
+                    name: "mac_addresses",
+                    ok: true,
+                    detail: format!(
+                        "已改写 {changed} 块物理网卡 MAC(旧值备份 {backup_path});网卡已重启生效"
+                    ),
+                }
+            } else if changed > 0 {
+                ResetLayerReport {
+                    layer: 13,
+                    name: "mac_addresses",
+                    ok: true,
+                    detail: format!(
+                        "已改写 {changed} 块(失败 {failed});部分网卡需重启系统生效;旧值备份 {backup_path}"
+                    ),
+                }
+            } else {
+                ResetLayerReport {
+                    layer: 13,
+                    name: "mac_addresses",
+                    ok: false,
+                    detail: format!("降级 skip(无网卡被改写,需管理员权限?): {}", line),
+                }
+            }
+        }
+        Err(e) => ResetLayerReport {
+            layer: 13,
+            name: "mac_addresses",
+            ok: false,
+            detail: format!("降级 skip(无法启动 powershell: {e})"),
+        },
+    }
+}
+
+#[cfg(not(windows))]
+fn reset_layer_mac_addresses() -> ResetLayerReport {
+    ResetLayerReport {
+        layer: 13,
+        name: "mac_addresses",
+        ok: true,
+        detail: "非 Windows 平台跳过".into(),
+    }
+}
+
+/// 14 层重置入口(L0 进程清扫/L11 注册表/L12 本地缓存/L13 MAC 硬件指纹为实测扩面)。
+/// include_machine_guid / clean_browser_cookies / deep_reset / kill_running / reset_mac
+/// 受 flag 控制,false 时对应层记 skip——单测必须传 kill_running=false,绝不真杀进程。
 pub fn reset_device_ids(
     trae_dir: &Path,
     include_machine_guid: bool,
     clean_browser_cookies: bool,
     deep_reset: bool,
     kill_running: bool,
+    reset_mac: bool,
 ) -> ResetReport {
     // 全部存在的 TRAE 数据目录候选(APPDATA 与 LOCALAPPDATA 两侧的 TRAE SOLO CN / TRAE):
     // 双版本装过的机器只清 detect 到的那一份会漏,深度档必须全清。
@@ -1496,6 +1673,18 @@ pub fn reset_device_ids(
             name: "localappdata_temp_cache",
             ok: true,
             detail: "skipped(deep_reset=false)".into(),
+        }
+    });
+    // 层⑬(硬件指纹,默认 skip):MAC 地址是最后一块能串联新旧设备的本地指纹,
+    // 动它网络会闪断且需管理员权限,必须用户显式勾选。
+    layers.push(if reset_mac {
+        reset_layer_mac_addresses()
+    } else {
+        ResetLayerReport {
+            layer: 13,
+            name: "mac_addresses",
+            ok: true,
+            detail: "skipped(reset_mac=false)".into(),
         }
     });
     ResetReport { layers }
@@ -1738,10 +1927,19 @@ pub fn checkin_reset_device_ids(
     include_machine_guid: bool,
     clean_browser_cookies: bool,
     deep_reset: bool,
+    reset_mac: Option<bool>,
 ) -> Result<ResetReport, IpcError> {
     let dir = require_trae_dir()?;
     // kill_running 恒 true:用户点重置=授权自动关闭 TRAE(2026-10-09 用户指令「别让用户操作」)
-    Ok(reset_device_ids(&dir, include_machine_guid, clean_browser_cookies, deep_reset, true))
+    // reset_mac 向后兼容:已部署生产页不传 ⇒ None ⇒ 默认关(层⑬记 skip)
+    Ok(reset_device_ids(
+        &dir,
+        include_machine_guid,
+        clean_browser_cookies,
+        deep_reset,
+        true,
+        reset_mac.unwrap_or(false),
+    ))
 }
 
 #[tauri::command]
@@ -2113,18 +2311,18 @@ mod tests {
         let _ = std::fs::remove_dir_all(&app);
     }
 
-    // ── 9. 全 10 层重置编排（⑤⑦⑧⑨⑩均 flag=false 走 skip 记录,不碰真库/真浏览器）──
+    // ── 9. 全 14 层重置编排（⑤⑦⑧⑨⑩⑫⑬均 flag=false 走 skip 记录,不碰真库/真浏览器/真网卡）──
 
     #[test]
-    fn reset_device_ids_reports_thirteen_layers_and_skips_flagged_layers() {
+    fn reset_device_ids_reports_fourteen_layers_and_skips_flagged_layers() {
         let dir = scratch("reset-all");
         std::fs::create_dir_all(dir.join("User/globalStorage")).unwrap();
         std::fs::write(dir.join("machineid"), "old").unwrap();
         std::fs::write(dir.join("User/globalStorage/storage.json"), r#"{}"#).unwrap();
-        let report = reset_device_ids(&dir, false, false, false, false);
+        let report = reset_device_ids(&dir, false, false, false, false, false);
         let layers: Vec<u8> = report.layers.iter().map(|l| l.layer).collect();
-        assert_eq!(layers, vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
-        for expect_skip in [0u8, 5, 7, 8, 9, 10, 11, 12] {
+        assert_eq!(layers, vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
+        for expect_skip in [0u8, 5, 7, 8, 9, 10, 11, 12, 13] {
             let l = report.layers.iter().find(|l| l.layer == expect_skip).unwrap();
             assert!(
                 l.ok && l.detail.contains("skipped"),
@@ -2361,9 +2559,9 @@ mod tests {
         std::thread::sleep(std::time::Duration::from_millis(800));
         assert!(child.try_wait().unwrap().is_none(), "仿真进程应存活");
 
-        // ---- 真跑 13 层(guid/browser 两 flag=false:避开 UAC 与真浏览器库)----
-        let report = reset_device_ids(&sim_a, false, false, true, true);
-        assert_eq!(report.layers.len(), 13, "层报告数应为 13: {report:?}");
+        // ---- 真跑 14 层(guid/browser/mac 三 flag=false:避开 UAC、真浏览器库与真网卡)----
+        let report = reset_device_ids(&sim_a, false, false, true, true, false);
+        assert_eq!(report.layers.len(), 14, "层报告数应为 14: {report:?}");
         for l in &report.layers {
             assert!(l.ok, "层{}({}) 必须 ok: {}", l.layer, l.name, l.detail);
         }
@@ -2460,27 +2658,31 @@ mod tests {
         let pre_b = std::fs::read_to_string(dir_b.join("machineid")).ok();
         eprintln!("[real] pre machineid A={} B={:?}", pre_a.as_deref().unwrap_or("<none>").trim(), pre_b.as_deref().map(str::trim));
 
-        // 真跑:UI 按钮同款。guid/browser 两 flag 可用环境变量打开
-        // (IHUI_RESET_GUID=1 / IHUI_RESET_BROWSER=1,默认关:避开 UAC 与真浏览器库)。
+        // 真跑:UI 按钮同款。guid/browser/mac 三 flag 可用环境变量打开
+        // (IHUI_RESET_GUID=1 / IHUI_RESET_BROWSER=1 / IHUI_RESET_MAC=1,默认关:
+        //  避开 UAC、真浏览器库与网卡改写)。
         // MachineGuid 改写前必须已有 HKLM 备份(护栏:备份目录下 MachineGuid-backup.txt)。
         let reset_guid =
             std::env::var("IHUI_RESET_GUID").map(|v| v == "1").unwrap_or(false);
         let reset_browser =
             std::env::var("IHUI_RESET_BROWSER").map(|v| v == "1").unwrap_or(false);
+        let reset_mac = std::env::var("IHUI_RESET_MAC").map(|v| v == "1").unwrap_or(false);
         if reset_guid {
             assert!(
                 backup.join("MachineGuid-backup.txt").is_file(),
                 "要开 MachineGuid 层必须先备份 HKLM MachineGuid 到备份目录 MachineGuid-backup.txt"
             );
         }
-        eprintln!("[real] flags: guid={reset_guid} browser={reset_browser} deep=true kill=true");
-        let report = checkin_reset_device_ids(reset_guid, reset_browser, true).expect("胶水调用失败");
-        assert_eq!(report.layers.len(), 13, "层报告数应为 13");
+        eprintln!("[real] flags: guid={reset_guid} browser={reset_browser} deep=true kill=true mac={reset_mac}");
+        let report =
+            checkin_reset_device_ids(reset_guid, reset_browser, true, Some(reset_mac))
+                .expect("胶水调用失败");
+        assert_eq!(report.layers.len(), 14, "层报告数应为 14");
         for l in &report.layers {
             eprintln!("[real] L{:02} {:26} ok={} {}", l.layer, l.name, l.ok, l.detail);
-            // L5/L7 是环境敏感可选层(UAC 被拒/浏览器运行中锁库会记 FAIL,属正常降级),
-            // 结果照实记录但不拦测试;其余层硬断言。
-            if l.layer == 5 || l.layer == 7 {
+            // L5/L7/L13 是环境敏感可选层(UAC 被拒/浏览器运行中锁库/测试进程无管理员权限
+            // 会记 FAIL,属正常降级),结果照实记录但不拦测试;其余层硬断言。
+            if l.layer == 5 || l.layer == 7 || l.layer == 13 {
                 eprintln!("[real] 可选层{}(不拦测试): ok={} {}", l.layer, l.ok, l.detail);
             } else {
                 assert!(l.ok, "层{}({}) 实测失败: {}", l.layer, l.name, l.detail);
