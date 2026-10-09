@@ -1425,4 +1425,100 @@ export async function gitChannelInfo(): Promise<GitChannelInfoReply> {
   requireTauri()
   return await invokeIpc<GitChannelInfoReply>('git_channel_info')
 }
+// ================== 签到助手本地通道(2026-10-09 WP-C 立) ==================
+// 对齐参考项目(Trae-workbuddyAssistant)的桌面专属能力:本机 JWT 捕获 / 设备重置 / 快照管理。
+// Rust 侧实现在 apps/desktop/src-tauri/src/checkin_capture.rs,字段名 serde snake_case 原样投影。
+
+/** 本机捕获到的 TRAE 账号(与 Rust `CapturedAccount` 逐字段对齐)。 */
+export interface CapturedTraeAccount {
+  user_id: string
+  jwt: string
+  /** 人类可读出处:`cookies:<host>(<相对路径>)` / `leveldb:<文件名>`。 */
+  source: string
+}
+
+/** 设备重置单层结果(与 Rust `ResetLayerReport` 对齐)。 */
+export interface CheckinResetLayerReport {
+  layer: number
+  name: string
+  ok: boolean
+  detail: string
+}
+
+/** 设备重置总报告(与 Rust `ResetReport` 对齐)。 */
+export interface CheckinResetReport {
+  layers: CheckinResetLayerReport[]
+}
+
+/** 快照备份结果(与 Rust `BackupReport` 对齐)。 */
+export interface CheckinBackupReport {
+  user_id: string
+  /** 已备份的相对路径(TRAE 数据目录坐标)。 */
+  copied: string[]
+  /** TRAE 现场不存在而跳过的相对路径。 */
+  missing: string[]
+}
+
+/** 快照恢复结果(与 Rust `RestoreReport` 对齐)。 */
+export interface CheckinRestoreReport {
+  user_id: string
+  restored: string[]
+  missing_in_backup: string[]
+}
+
+/** 快照概要(与 Rust `SnapshotSummary` 对齐;kinds 是 9 类里完整存在的 kind 名)。 */
+export interface CheckinSnapshotSummary {
+  user_id: string
+  kinds: string[]
+}
+
+/** 探测本机 TRAE 数据目录;未找到返回 null。非 Tauri 环境抛错(调用方须先 isTauri())。 */
+export async function checkinDetectTraeDir(): Promise<string | null> {
+  requireTauri()
+  return await invokeIpc<string | null>('checkin_detect_trae_dir')
+}
+
+/** 从本机 TRAE 数据目录捕获 JWT(DPAPI 解 Cookies + leveldb 扫描),按 user_id 去重。 */
+export async function checkinCaptureJwts(): Promise<CapturedTraeAccount[]> {
+  requireTauri()
+  return await invokeIpc<CapturedTraeAccount[]>('checkin_capture_jwts')
+}
+
+/** 七层设备标识重置;includeMachineGuid=true 额外尝试注册表 MachineGuid(需 UAC);
+ *  cleanBrowserCookies=true 额外清理 Chrome/Edge 中 TRAE 域 Cookie(浏览器运行中该层会失败并报告)。 */
+export async function checkinResetDeviceIds(
+  includeMachineGuid: boolean,
+  cleanBrowserCookies: boolean,
+): Promise<CheckinResetReport> {
+  requireTauri()
+  return await invokeIpc<CheckinResetReport>('checkin_reset_device_ids', {
+    includeMachineGuid,
+    cleanBrowserCookies,
+  })
+}
+
+/** 备份指定账号的 9 类 TRAE 现场文件到应用数据目录快照区。 */
+export async function checkinSnapshotBackup(userId: string): Promise<CheckinBackupReport> {
+  requireTauri()
+  return await invokeIpc<CheckinBackupReport>('checkin_snapshot_backup', { userId })
+}
+
+/** 从快照区恢复指定账号的现场文件(覆盖 TRAE 现有同名)。 */
+export async function checkinSnapshotRestore(userId: string): Promise<CheckinRestoreReport> {
+  requireTauri()
+  return await invokeIpc<CheckinRestoreReport>('checkin_snapshot_restore', { userId })
+}
+
+/** 列出现有快照(按 user_id)。 */
+export async function checkinSnapshotList(): Promise<CheckinSnapshotSummary[]> {
+  requireTauri()
+  return await invokeIpc<CheckinSnapshotSummary[]>('checkin_snapshot_list')
+}
+
+/** 删除指定账号的快照目录。 */
+export async function checkinSnapshotDelete(userId: string): Promise<void> {
+  requireTauri()
+  await invokeIpc('checkin_snapshot_delete', { userId })
+}
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

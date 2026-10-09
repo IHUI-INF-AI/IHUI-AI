@@ -12,6 +12,7 @@
 // + 调度状态徽章 + 一键全部签到(跳过今日已签 + 进度)
 // + Tabs(签到记录 | 积分历史 | 积分看板,按账号过滤/加载更多)+ 录入/更新JWT/分组对话框。
 
+import type { CheckinCreditsDailyResponse } from '@ihui/types'
 import { rnRadius } from '@ihui/design-tokens'
 
 import * as React from 'react'
@@ -21,10 +22,12 @@ import {
   CheckCheck,
   FolderPen,
   KeyRound,
+  Laptop,
   Loader2,
   Plus,
   RefreshCw,
   Trash2,
+  Wrench,
 } from 'lucide-react'
 import {
   Button,
@@ -53,9 +56,11 @@ import {
   deleteCheckinAccount,
   getCheckinSchedulerStatus,
   listCheckinAccounts,
+  listCheckinCreditsDaily,
   listCheckinCreditsHistory,
   listCheckinRecords,
   manualCheckinAccount,
+  queryCheckinAccountCredits,
   setCheckinAccountEnabled,
   updateCheckinAccountGroup,
   updateCheckinAccountJwt,
@@ -64,6 +69,18 @@ import {
   type CheckinRecord,
 } from '@ihui/api-client'
 import { EChart } from '@/components/charts/EChart'
+import { useTauriIpcReady } from '@/hooks/use-desktop'
+import {
+  checkinCaptureJwts,
+  checkinDetectTraeDir,
+  checkinResetDeviceIds,
+  checkinSnapshotBackup,
+  checkinSnapshotDelete,
+  checkinSnapshotList,
+  checkinSnapshotRestore,
+  type CapturedTraeAccount,
+  type CheckinSnapshotSummary,
+} from '@/lib/tauri-bridge'
 
 // 分页步长与上限(records 后端 limit le=200,credits 后端 le=1000)。
 const RECORDS_LIMIT_STEP = 100
@@ -104,10 +121,36 @@ export default function CheckinPage() {
 
   // 分组(Phase1d):账号表筛选 + 分组编辑对话框
   const [groupFilter, setGroupFilter] = React.useState<string>('all')
+  // 勾选批量:对齐参考项目「按分组/手动勾选」——勾选后可只签勾选账号(配合分组筛选即"按组签")
+  const [selectedIds, setSelectedIds] = React.useState<Set<number>>(new Set())
+
+  // 积分每日快照(WP-B):三线趋势数据 + 手动刷新全部账号余额
+  const [creditsDaily, setCreditsDaily] = React.useState<CheckinCreditsDailyResponse | null>(null)
+  const [refreshingCredits, setRefreshingCredits] = React.useState(false)
   const [groupTarget, setGroupTarget] = React.useState<CheckinAccount | null>(null)
   const [groupValue, setGroupValue] = React.useState('')
   const [groupSubmitting, setGroupSubmitting] = React.useState(false)
   const [groupFormError, setGroupFormError] = React.useState<string | null>(null)
+
+  // 本机捕获(桌面端专属,WP-C):useTauriIpcReady 抗 IPC 异步注入竞态 + 免水合不一致
+  const desktop = useTauriIpcReady()
+  const [captureOpen, setCaptureOpen] = React.useState(false)
+  const [capturing, setCapturing] = React.useState(false)
+  const [captured, setCaptured] = React.useState<CapturedTraeAccount[]>([])
+  const [capturedSelected, setCapturedSelected] = React.useState<Set<string>>(new Set())
+  const [captureError, setCaptureError] = React.useState<string | null>(null)
+  const [importing, setImporting] = React.useState(false)
+  const [traeDir, setTraeDir] = React.useState<string | null>(null)
+
+  // 本机 TRAE 维护(设备重置 + 快照管理,桌面端专属)
+  const [maintOpen, setMaintOpen] = React.useState(false)
+  const [maintBusy, setMaintBusy] = React.useState(false)
+  const [maintIncludeGuid, setMaintIncludeGuid] = React.useState(false)
+  const [maintIncludeBrowser, setMaintIncludeBrowser] = React.useState(false)
+  const [maintReport, setMaintReport] = React.useState<string[]>([])
+  const [maintError, setMaintError] = React.useState<string | null>(null)
+  const [maintUserId, setMaintUserId] = React.useState('')
+  const [snapshots, setSnapshots] = React.useState<CheckinSnapshotSummary[]>([])
 
   // 更新 JWT 对话框
   const [jwtTarget, setJwtTarget] = React.useState<CheckinAccount | null>(null)
@@ -135,13 +178,15 @@ export default function CheckinPage() {
     setLoading(true)
     setLoadError(null)
     try {
-      const [accountsRes, recordsRes, creditsRes] = await Promise.all([
+      const [accountsRes, recordsRes, creditsRes, dailyRes] = await Promise.all([
         listCheckinAccounts(),
         listCheckinRecords({ accountId: recordFilter ?? undefined, limit: RECORDS_LIMIT_STEP }),
         listCheckinCreditsHistory({
           accountId: creditFilter ?? undefined,
           limit: CREDITS_LIMIT_STEP,
         }),
+        // 三线序列非关键数据:失败静默降级为本地累计趋势
+        listCheckinCreditsDaily({ days: 30 }).catch(() => null),
       ])
       setAccounts(accountsRes.accounts)
       setRecords(recordsRes.records)
@@ -149,12 +194,168 @@ export default function CheckinPage() {
       setCredits(creditsRes.history)
       setCreditHasMore(creditsRes.history.length >= CREDITS_LIMIT_STEP)
       setCreditsTotal(creditsRes.total_credits_delta)
+      setCreditsDaily(dailyRes)
     } catch (e) {
       setLoadError((e as Error).message)
     } finally {
       setLoading(false)
     }
   }, [recordFilter, creditFilter])
+
+  // 手动刷新全部启用账号的积分快照(逐个查询,单个失败不中断;WP-B)
+  const refreshCreditsSnapshots = async () => {
+    const targets = accounts.filter((a) => a.enabled)
+    if (targets.length === 0 || refreshingCredits) return
+    setRefreshingCredits(true)
+    setActionError(null)
+    try {
+      for (const account of targets) {
+        try {
+          await queryCheckinAccountCredits(account.id)
+        } catch {
+          // 单账号查询失败(网络/JWT 失效)不阻断其余账号
+        }
+      }
+      await loadAll()
+    } finally {
+      setRefreshingCredits(false)
+    }
+  }
+
+  // ================== 本机捕获(桌面端专属,WP-C) ==================
+
+  const openCapture = async () => {
+    setCaptureOpen(true)
+    setCaptureError(null)
+    setCaptured([])
+    setCapturedSelected(new Set())
+    try {
+      setTraeDir(await checkinDetectTraeDir())
+    } catch (e) {
+      setCaptureError((e as Error).message)
+    }
+  }
+
+  const runCapture = async () => {
+    setCapturing(true)
+    setCaptureError(null)
+    try {
+      const found = await checkinCaptureJwts()
+      setCaptured(found)
+      setCapturedSelected(new Set(found.map((a) => a.user_id)))
+      if (found.length === 0) setCaptureError(t('captureEmpty'))
+    } catch (e) {
+      setCaptureError((e as Error).message)
+    } finally {
+      setCapturing(false)
+    }
+  }
+
+  // 逐个入库:勾选账号同步为服务端账号;group 沿用当前筛选(非 all 时)
+  const importCaptured = async () => {
+    const picked = captured.filter((a) => capturedSelected.has(a.user_id))
+    if (picked.length === 0) return
+    setImporting(true)
+    setCaptureError(null)
+    let okCount = 0
+    const failures: string[] = []
+    for (const item of picked) {
+      try {
+        await createCheckinAccount({
+          name: `本机-${item.user_id}`,
+          jwt: item.jwt,
+          device_map: {},
+          group: groupFilter !== 'all' ? groupFilter : '',
+        })
+        okCount += 1
+      } catch (e) {
+        failures.push(`${item.user_id}: ${(e as Error).message}`)
+      }
+    }
+    setImporting(false)
+    if (failures.length > 0) {
+      setCaptureError(failures.join('；'))
+    } else {
+      setCaptureOpen(false)
+      setBatchNotice(t('captureImported', { count: okCount }))
+      await loadAll()
+    }
+  }
+
+  // ================== 本机 TRAE 维护(桌面端专属,WP-C) ==================
+
+  const refreshSnapshots = async () => {
+    try {
+      setSnapshots(await checkinSnapshotList())
+    } catch (e) {
+      setMaintError((e as Error).message)
+    }
+  }
+
+  const openMaint = async () => {
+    setMaintOpen(true)
+    setMaintError(null)
+    setMaintReport([])
+    setMaintUserId('')
+    await refreshSnapshots()
+  }
+
+  // 统一 busy 闸门:动作抛错归一为 maintError,成功行进 maintReport
+  const runMaintAction = async (action: () => Promise<string[]>) => {
+    setMaintBusy(true)
+    setMaintError(null)
+    setMaintReport([])
+    try {
+      setMaintReport(await action())
+    } catch (e) {
+      setMaintError((e as Error).message)
+    } finally {
+      setMaintBusy(false)
+    }
+  }
+
+  const resetDeviceIds = () =>
+    runMaintAction(async () => {
+      const report = await checkinResetDeviceIds(maintIncludeGuid, maintIncludeBrowser)
+      return report.layers.map((l) => `[${l.ok ? 'OK' : 'FAIL'}] L${l.layer} ${l.name}: ${l.detail}`)
+    })
+
+  const backupSnapshot = () =>
+    runMaintAction(async () => {
+      const uid = maintUserId.trim()
+      if (!uid) throw new Error(t('maintUserIdRequired'))
+      const report = await checkinSnapshotBackup(uid)
+      await refreshSnapshots()
+      return [
+        t('maintBackupDone', { count: report.copied.length, missing: report.missing.length }),
+        ...report.copied,
+      ]
+    })
+
+  const restoreSnapshot = (uid: string) =>
+    runMaintAction(async () => {
+      const report = await checkinSnapshotRestore(uid)
+      return [
+        t('maintRestoreDone', {
+          count: report.restored.length,
+          missing: report.missing_in_backup.length,
+        }),
+        ...report.restored,
+      ]
+    })
+
+  const deleteSnapshot = async (uid: string) => {
+    setMaintBusy(true)
+    setMaintError(null)
+    try {
+      await checkinSnapshotDelete(uid)
+      await refreshSnapshots()
+    } catch (e) {
+      setMaintError((e as Error).message)
+    } finally {
+      setMaintBusy(false)
+    }
+  }
 
   React.useEffect(() => {
     void loadAll()
@@ -263,9 +464,11 @@ export default function CheckinPage() {
 
   // 一键全部签到:对 enabled 账号顺序执行(不并发轰炸);
   // 跳过今日已成功签到(last_record 为今日且 ok)的账号,实时汇报进度,结束后统一刷新
-  const runCheckinAll = async () => {
+  const runCheckinAll = async (scope?: Set<number>) => {
     const today = localDateStr(new Date())
-    const targets = accounts.filter((account) => account.enabled)
+    const targets = accounts.filter(
+      (account) => account.enabled && (!scope || scope.has(account.id)),
+    )
     if (targets.length === 0) return
     // 对齐参考项目「跳过已签/过期」:JWT 已过期的账号直接跳过(带过期 JWT 签到只会中途 401 报错)
     const now = Date.now()
@@ -300,6 +503,7 @@ export default function CheckinPage() {
     } finally {
       setAllChecking(false)
       setAllProgress(null)
+      setSelectedIds(new Set())
       await loadAll()
     }
   }
@@ -474,6 +678,26 @@ export default function CheckinPage() {
     [accounts, groupFilter],
   )
 
+  // 勾选辅助:单行勾选 + 表头全选当前列表(配合分组筛选 = 按组签)
+  const toggleSelected = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+  const allVisibleSelected =
+    visibleAccounts.length > 0 && visibleAccounts.every((a) => selectedIds.has(a.id))
+  const toggleSelectAllVisible = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (allVisibleSelected) visibleAccounts.forEach((a) => next.delete(a.id))
+      else visibleAccounts.forEach((a) => next.add(a.id))
+      return next
+    })
+  }
+
   // 积分看板:排行(按最近积分)+ 累计趋势 + 今日新增
   const board = React.useMemo(() => {
     const ranked = visibleAccounts
@@ -499,6 +723,10 @@ export default function CheckinPage() {
     })
     return { ranked, trend, todayGain, hasData: ranked.length > 0 || trend.length > 0 }
   }, [visibleAccounts, credits])
+
+  // 是否有三线快照数据(任一日 total 非空即启用三线图,否则降级本地累计)
+  const hasDailySeries =
+    !!creditsDaily && creditsDaily.series.total.some((v) => v !== null)
 
   const renderGroupBadge = (group: string) =>
     group ? (
@@ -559,10 +787,37 @@ export default function CheckinPage() {
                 })
               : t('checkinAll')}
           </Button>
+          {selectedIds.size > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={allChecking || checkingId !== null}
+              onClick={() => void runCheckinAll(selectedIds)}
+            >
+              {allChecking ? (
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              ) : (
+                <CheckCheck className="mr-1 h-4 w-4" />
+              )}
+              {t('checkinSelected', { count: selectedIds.size })}
+            </Button>
+          )}
           <Button size="sm" onClick={() => setAddOpen(true)}>
             <Plus className="h-4 w-4" />
             {t('addAccount')}
           </Button>
+          {desktop && (
+            <>
+              <Button variant="outline" size="sm" onClick={() => void openCapture()}>
+                <Laptop className="mr-1 h-4 w-4" />
+                {t('captureTitle')}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => void openMaint()}>
+                <Wrench className="mr-1 h-4 w-4" />
+                {t('maintTitle')}
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -629,6 +884,15 @@ export default function CheckinPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-8">
+                      <input
+                        type="checkbox"
+                        aria-label={t('selectAllVisible')}
+                        checked={allVisibleSelected}
+                        onChange={toggleSelectAllVisible}
+                        className="h-3.5 w-3.5 accent-primary"
+                      />
+                    </TableHead>
                     <TableHead>{t('colName')}</TableHead>
                     <TableHead>{t('colEnabled')}</TableHead>
                     <TableHead>{t('colLastCheckin')}</TableHead>
@@ -639,6 +903,15 @@ export default function CheckinPage() {
                 <TableBody>
                   {visibleAccounts.map((account) => (
                     <TableRow key={account.id}>
+                      <TableCell>
+                        <input
+                          type="checkbox"
+                          aria-label={t('selectAccount', { name: account.name })}
+                          checked={selectedIds.has(account.id)}
+                          onChange={() => toggleSelected(account.id)}
+                          className="h-3.5 w-3.5 accent-primary"
+                        />
+                      </TableCell>
                       <TableCell>
                         <div className="font-medium">{account.name}</div>
                         <div className="mt-1 flex flex-wrap items-center gap-1">
@@ -890,25 +1163,78 @@ export default function CheckinPage() {
                       />
                     </div>
                     <div className="rounded-xl border p-3">
-                      <p className="mb-2 text-sm font-medium">
-                        {t('boardTodayGain', { delta: board.todayGain })}
-                      </p>
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <p className="text-sm font-medium">
+                          {hasDailySeries
+                            ? t('boardTrendTitle')
+                            : t('boardTodayGain', { delta: board.todayGain })}
+                        </p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={refreshingCredits || allChecking}
+                          onClick={() => void refreshCreditsSnapshots()}
+                          aria-label={t('refreshCredits')}
+                        >
+                          {refreshingCredits ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4" />
+                          )}
+                          {t('refreshCredits')}
+                        </Button>
+                      </div>
                       <EChart
                         height={260}
-                        option={{
-                          tooltip: { trigger: 'axis' },
-                          grid: { left: 8, right: 16, top: 8, bottom: 8, containLabel: true },
-                          xAxis: { type: 'category', data: board.trend.map((p) => p.day) },
-                          yAxis: { type: 'value' },
-                          series: [
-                            {
-                              type: 'line',
-                              data: board.trend.map((p) => p.cumulative),
-                              smooth: true,
-                              areaStyle: { opacity: 0.15 },
-                            },
-                          ],
-                        }}
+                        option={
+                          hasDailySeries
+                            ? {
+                                // 三线:总数/获得/消耗(消耗=|今日总-获得-昨日总|,对齐参考项目)
+                                tooltip: { trigger: 'axis' },
+                                legend: { top: 0 },
+                                grid: { left: 8, right: 16, top: 28, bottom: 8, containLabel: true },
+                                xAxis: { type: 'category', data: creditsDaily!.days },
+                                yAxis: { type: 'value' },
+                                series: [
+                                  {
+                                    name: t('boardLineTotal'),
+                                    type: 'line',
+                                    data: creditsDaily!.series.total,
+                                    smooth: true,
+                                    connectNulls: false,
+                                  },
+                                  {
+                                    name: t('boardLineGained'),
+                                    type: 'line',
+                                    data: creditsDaily!.series.gained,
+                                    smooth: true,
+                                    areaStyle: { opacity: 0.15 },
+                                  },
+                                  {
+                                    name: t('boardLineConsumed'),
+                                    type: 'line',
+                                    data: creditsDaily!.series.consumed,
+                                    smooth: true,
+                                    connectNulls: false,
+                                  },
+                                ],
+                              }
+                            : {
+                                // 无快照数据时降级:本地签到记录累计趋势
+                                tooltip: { trigger: 'axis' },
+                                grid: { left: 8, right: 16, top: 8, bottom: 8, containLabel: true },
+                                xAxis: { type: 'category', data: board.trend.map((p) => p.day) },
+                                yAxis: { type: 'value' },
+                                series: [
+                                  {
+                                    type: 'line',
+                                    data: board.trend.map((p) => p.cumulative),
+                                    smooth: true,
+                                    areaStyle: { opacity: 0.15 },
+                                  },
+                                ],
+                              }
+                        }
                       />
                     </div>
                   </div>
@@ -1080,6 +1406,164 @@ export default function CheckinPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 本机捕获对话框(桌面端专属,WP-C) */}
+      {desktop && (
+        <Dialog open={captureOpen} onOpenChange={setCaptureOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('captureTitle')}</DialogTitle>
+              <DialogDescription>
+                {traeDir ? t('captureDirFound', { dir: traeDir }) : t('captureDirMissing')}
+              </DialogDescription>
+            </DialogHeader>
+            {captureError && (
+              <p role="alert" className="text-sm text-destructive">
+                {captureError}
+              </p>
+            )}
+            {captured.length > 0 && (
+              <div className="max-h-60 space-y-2 overflow-y-auto">
+                {captured.map((item) => (
+                  <label
+                    key={item.user_id}
+                    className="flex items-center gap-2 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      aria-label={`captureAccount:${item.user_id}`}
+                      checked={capturedSelected.has(item.user_id)}
+                      onChange={(e) => {
+                        setCapturedSelected((prev) => {
+                          const next = new Set(prev)
+                          if (e.target.checked) next.add(item.user_id)
+                          else next.delete(item.user_id)
+                          return next
+                        })
+                      }}
+                    />
+                    <span className="font-mono">{item.user_id}</span>
+                    <span className="truncate text-xs text-muted-foreground">{item.source}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" size="sm" disabled={capturing} onClick={() => void runCapture()}>
+                {capturing ? (
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-1 h-4 w-4" />
+                )}
+                {t('captureScan')}
+              </Button>
+              <Button
+                size="sm"
+                disabled={capturing || importing || capturedSelected.size === 0}
+                onClick={() => void importCaptured()}
+              >
+                {importing && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                {t('captureImport', { count: capturedSelected.size })}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* 本机 TRAE 维护对话框(桌面端专属,WP-C) */}
+      {desktop && (
+        <Dialog open={maintOpen} onOpenChange={setMaintOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('maintTitle')}</DialogTitle>
+              <DialogDescription>{t('maintDescription')}</DialogDescription>
+            </DialogHeader>
+            {maintError && (
+              <p role="alert" className="text-sm text-destructive">
+                {maintError}
+              </p>
+            )}
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="checkin-maint-user-id">{t('maintUserIdLabel')}</Label>
+                <Input
+                  id="checkin-maint-user-id"
+                  value={maintUserId}
+                  onChange={(e) => setMaintUserId(e.target.value)}
+                  placeholder="user_id"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="destructive" size="sm" disabled={maintBusy} onClick={() => void resetDeviceIds()}>
+                  {t('maintReset')}
+                </Button>
+                <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={maintIncludeGuid}
+                    onChange={(e) => setMaintIncludeGuid(e.target.checked)}
+                  />
+                  {t('maintIncludeGuid')}
+                </label>
+                <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={maintIncludeBrowser}
+                    onChange={(e) => setMaintIncludeBrowser(e.target.checked)}
+                  />
+                  {t('maintIncludeBrowser')}
+                </label>
+                <Button variant="outline" size="sm" disabled={maintBusy} onClick={() => void backupSnapshot()}>
+                  {t('maintBackup')}
+                </Button>
+              </div>
+              {maintReport.length > 0 && (
+                <pre className="max-h-40 overflow-y-auto rounded bg-muted p-2 text-xs">
+                  {maintReport.join('\n')}
+                </pre>
+              )}
+              <div>
+                <p className="mb-1 text-sm font-medium">{t('snapshotsTitle')}</p>
+                {snapshots.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">{t('snapshotsEmpty')}</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {snapshots.map((s) => (
+                      <li key={s.user_id} className="flex items-center justify-between gap-2 text-sm">
+                        <span className="truncate font-mono text-xs">{s.user_id}</span>
+                        <span className="text-xs text-muted-foreground">{s.kinds.length}</span>
+                        <span className="flex shrink-0 gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={maintBusy}
+                            onClick={() => void restoreSnapshot(s.user_id)}
+                          >
+                            {t('maintRestore')}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={maintBusy}
+                            onClick={() => void deleteSnapshot(s.user_id)}
+                          >
+                            {t('maintDelete')}
+                          </Button>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" size="sm" onClick={() => setMaintOpen(false)}>
+                {t('maintClose')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

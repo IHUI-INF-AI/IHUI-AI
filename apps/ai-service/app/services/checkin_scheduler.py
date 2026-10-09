@@ -34,12 +34,14 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from app.core.logging import get_logger
+from app.services import checkin_credits
 from app.services import checkin_store
 from app.services.checkin_engine import checkin_account
 
 logger = get_logger(__name__)
 
 # 每日签到时刻:08:05 Asia/Shanghai(用 zoneinfo;APScheduler 3.x 接受 stdlib tzinfo)
+# 积分快照 job 错开到 08:10(避开签到 job 的整轮网络窗口)
 _CN_TZ = ZoneInfo("Asia/Shanghai")
 
 # Server / Client 错误触发冷却的连击阈值(与桌面端一致)
@@ -49,6 +51,7 @@ _ERROR_COOLDOWN_THRESHOLD = 3
 _PERMANENT_COOLDOWN_DAYS = 3650
 
 _JOB_ID = "checkin_daily"
+_CREDITS_JOB_ID = "checkin_credits_daily"
 
 
 def _cooldown_end(cooldown_seconds: int | None) -> datetime | None:
@@ -97,9 +100,16 @@ class CheckinScheduler:
             id=_JOB_ID,
             replace_existing=True,
         )
+        # WP-B(2026-10-09):每日积分快照 job,与签到 job 同一启用开关
+        self._scheduler.add_job(
+            self._daily_credits_snapshot,
+            trigger=CronTrigger(hour=8, minute=10, timezone=_CN_TZ),
+            id=_CREDITS_JOB_ID,
+            replace_existing=True,
+        )
         self._scheduler.start()
         self._started = True
-        logger.info("[checkin_scheduler] 已启动每日签到调度(08:05 Asia/Shanghai)")
+        logger.info("[checkin_scheduler] 已启动每日调度(08:05 签到 / 08:10 积分快照, Asia/Shanghai)")
 
     async def stop(self) -> None:
         if not self._started:
@@ -164,6 +174,51 @@ class CheckinScheduler:
                     "[checkin_scheduler] 账号 %s 签到异常(继续下一个): %s", acc.get("name"), e
                 )
         logger.info("[checkin_scheduler] 本轮签到完成: 共 %d 个账号,成功 %d", len(accounts), ok_count)
+
+    async def _daily_credits_snapshot(self) -> None:
+        """每日积分快照:遍历 enabled 账号逐个查余额并 upsert 当日快照。
+
+        单账号失败(网络/解析/落库)只告警不中断整轮;收尾一行汇总日志。
+        """
+        try:
+            accounts = await checkin_store.list_enabled_accounts_full()
+        except Exception as e:
+            logger.warning("[checkin_scheduler] 读取签到账号失败(积分快照本轮放弃): %s", e)
+            return
+        day = datetime.now(_CN_TZ).date().isoformat()
+        ok_count = 0
+        fail_count = 0
+        for acc in accounts:
+            try:
+                result = await checkin_credits.query_remaining_credits(acc["jwt"])
+                if result.get("error") is not None or not isinstance(
+                    result.get("remaining"), int
+                ):
+                    fail_count += 1
+                    logger.warning(
+                        "[checkin_scheduler] 账号 %s 积分查询失败: %s",
+                        acc.get("name"),
+                        result.get("error"),
+                    )
+                    continue
+                gained = await checkin_store.sum_credits_delta_for_day(
+                    acc["id"], acc["owner_user_id"], day
+                )
+                await checkin_store.upsert_credits_daily(
+                    acc["id"], acc["owner_user_id"], day, result["remaining"], gained
+                )
+                ok_count += 1
+            except Exception as e:
+                fail_count += 1
+                logger.warning(
+                    "[checkin_scheduler] 账号 %s 积分快照异常(继续下一个): %s", acc.get("name"), e
+                )
+        logger.info(
+            "[checkin_scheduler] 本轮积分快照完成: 共 %d 个账号,成功 %d,失败 %d",
+            len(accounts),
+            ok_count,
+            fail_count,
+        )
 
     # ===== 单账号执行 =====
 
