@@ -348,7 +348,7 @@ describe('Admin SMS Receive — d1jiema 对接', () => {
   it('used-union 返回本地累积流水与并集总数(纯本地读,无平台无限频)', async () => {
     vi.mocked(getUsedUnionItems).mockResolvedValueOnce([
       {
-        id: 1,
+        id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
         phone: '16512345678',
         fee: '0.45',
         platform: 'trae',
