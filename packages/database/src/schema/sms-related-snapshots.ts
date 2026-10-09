@@ -2,92 +2,35 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-/** 短信接码页面类型定义(对接 /api/admin/sms-receive/*) */
+import { date, index, pgTable, timestamp, unique, uuid, varchar } from 'drizzle-orm/pg-core'
 
-export type CardType = '实卡' | '虚卡' | '全部'
+/**
+ * 平台「号码相关短信」快照累积(2026-10-09)。
+ * 平台 relatedMsgs 只回最近 12 条滚动窗口(服务端硬截断,翻页参数实测被无视),
+ * 每次查询把窗口逐条抄进本表按唯一键幂等去重,本地视野随时间单调增长。
+ * rec_date 是归位日期:平台只给 HH:MM,记录时刻晚于快照当前时刻 = 昨日。
+ */
+export const smsRelatedSnapshots = pgTable(
+  'sms_related_snapshots',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    phone: varchar('phone', { length: 20 }).notNull(), // 接码手机号
+    recDate: date('rec_date').notNull(), // 归位日期(未来时刻=昨日)
+    recTime: varchar('rec_time', { length: 8 }).notNull(), // 平台原始 HH:MM
+    flag: varchar('flag', { length: 1 }).notNull(), // 平台 Y/N 原样(语义未公开)
+    firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    phoneRecUnique: unique('sms_related_snapshots_phone_rec_unique').on(
+      t.phone,
+      t.recDate,
+      t.recTime,
+      t.flag,
+    ),
+    phoneIdx: index('sms_related_snapshots_phone_idx').on(t.phone),
+  }),
+)
 
-export interface BalanceData {
-  balance: string
-}
-
-export interface PhoneData {
-  phone: string
-}
-
-export type MessageData =
-  | {
-      status: 'received'
-      code?: string
-      raw: string
-      /** 从短信原文【】提取的平台名(后端 extractPlatform),如 trae */
-      platform?: string
-      /** 短信用途:register=新号注册 / login=该号已注册过(登录码) / other */
-      usageKind?: 'register' | 'login' | 'other'
-    }
-  | { status: 'pending'; raw: string }
-
-/** 号码接码台账项(GET /phone-history,本地 sms_receive_history 表流水) */
-export interface PhoneHistoryItem {
-  id: string
-  phone: string
-  keyword?: string | null
-  platform?: string | null
-  usageKind: 'register' | 'login' | 'other'
-  smsCode?: string | null
-  smsRaw: string
-  receivedAt: string
-}
-
-/** 本机台账「平台 × 用途」计数(GET /phone-history platformStats,SQL 全量 group-by) */
-export interface PhonePlatformStat {
-  platform: string | null
-  usageKind: 'register' | 'login' | 'other'
-  count: number
-}
-
-export interface OkData {
-  ok: boolean
-  result?: string
-}
-
-/** 平台历史记录单条(GET /used,本账号 24h 流水;后端已解析「号码\t扣费\t短信原文」) */
-export interface UsedRecord {
-  phone: string
-  fee: string
-  platform?: string
-  usageKind: 'register' | 'login' | 'other'
-  text: string
-}
-
-export interface UsedData {
-  items: UsedRecord[]
-}
-
-/** 平台「号码相关短信」全局时间线记录项(GET /related-msgs,内容打码只透出时间+标记) */
-export interface RelatedMsgItem {
-  /** 记录时间(HH:MM,平台时间线原样,无日期) */
-  time: string
-  /** 平台可见性标记(Y/N,语义未公开,原样透传) */
-  flag: string
-}
-
-/** related-msgs 响应:items=平台单次窗口(≤12条);totalUnion=本地快照累积并集(可>12,快照失败=null 降级) */
-export interface RelatedMsgsData {
-  items: RelatedMsgItem[]
-  totalUnion?: number | null
-}
-
-/** 取号表单状态 */
-export interface GetPhoneForm {
-  keyWord: string
-  phone: string
-  province: string
-  cardType: CardType
-}
-
-/** 发送短信表单状态 */
-export interface SendSmsForm {
-  toPhone: string
-  content: string
-}
+export type SmsRelatedSnapshot = typeof smsRelatedSnapshots.$inferSelect
+export type NewSmsRelatedSnapshot = typeof smsRelatedSnapshots.$inferInsert
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

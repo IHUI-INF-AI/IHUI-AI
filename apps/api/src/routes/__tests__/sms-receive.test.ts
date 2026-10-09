@@ -37,6 +37,8 @@ vi.mock('../../db/sms-receive-queries.js', () => ({
   getPhoneHistory: vi.fn().mockResolvedValue([]),
   getPhoneHistoryCount: vi.fn().mockResolvedValue(0),
   getPhoneHistoryPlatformStats: vi.fn().mockResolvedValue([]),
+  snapshotRelatedMsgs: vi.fn().mockResolvedValue(0),
+  getRelatedUnionCount: vi.fn().mockResolvedValue(0),
 }))
 
 import smsReceiveRoutes from '../admin/sms-receive.js'
@@ -45,6 +47,8 @@ import {
   recordSmsReceived,
   getPhoneHistory,
   getPhoneHistoryPlatformStats,
+  snapshotRelatedMsgs,
+  getRelatedUnionCount,
 } from '../../db/sms-receive-queries.js'
 
 const AUTH_HEADERS = { authorization: 'Bearer mock-admin-token' }
@@ -435,6 +439,10 @@ describe('Admin SMS Receive — d1jiema 对接', () => {
       { time: '17:36', flag: 'Y' },
       { time: '16:44', flag: 'N' },
     ])
+    // 快照累积:窗口逐条抄进本地,响应带并集总数
+    expect(vi.mocked(snapshotRelatedMsgs)).toHaveBeenCalledWith('19138172097', items)
+    expect(vi.mocked(getRelatedUnionCount)).toHaveBeenCalledWith('19138172097')
+    expect(res.json().data.totalUnion).toBe(0)
     // 走网页版 trsCode 体系,p 参数按 phoneNo\nacct\npassword 传递
     const calledUrl = String(fetchMock.mock.calls[0]?.[0] ?? '')
     expect(calledUrl).toContain('trsCode=relatedMsgs')
@@ -450,6 +458,19 @@ describe('Admin SMS Receive — d1jiema 对接', () => {
     })
     expect(res.statusCode).toBe(200)
     expect(res.json().data.items).toEqual([])
+  })
+
+  it('related-msgs 快照写库失败 fail-open:200 + totalUnion=null(不阻断平台查询)', async () => {
+    mockFetchText(['17:38 N ***内容打码***'])
+    vi.mocked(snapshotRelatedMsgs).mockRejectedValueOnce(new Error('db down'))
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/admin/sms-receive/related-msgs?phone=16512345678',
+      headers: AUTH_HEADERS,
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data.items).toHaveLength(1)
+    expect(res.json().data.totalUnion).toBeNull()
   })
 
   it('related-msgs 平台 ERROR: 前缀归一为 502', async () => {
