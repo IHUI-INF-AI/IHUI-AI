@@ -10845,3 +10845,31 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 <!-- 已归档(2026-10-09:✅(2026-10-09) G-1105305 **派单口径补认"行尾自述不再派单"这一族副本(判据 SELF_DEDI,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
 <!-- 已归档(2026-10-09:✅(2026-10-09) G-1105306 **`scripts/tests/plan-tasks.test.mjs,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
 <!-- 已归档(2026-10-09:✅(2026-10-09) G-1105307 **派单口径不看文件,于是两件"可做"的活会撞在同一份在飞副本上(202,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) page_* 动词的**跨端登记**未做:web / miniapp-taro / RN /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **RN「记住密码」把账号+密码明文写进 AsyncStorage,而它正是票#20 那条自,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-815991 **"空契约"这一型判不了,如实登记而不是假装已覆盖**(上游 `pack,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **RN「记住密码」把账号+密码明文写进 AsyncStorage,而它正是票#20 那条自,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **RN「记住密码」把账号+密码明文写进 AsyncStorage,而它正是票#20 那条自,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) page_* 动词的**跨端登记**未做:web / miniapp-taro / RN /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-998157 票5：复合键的构造与解析成对导出在协议层（观察）（出处 b76-12d）：,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1079148 **门 2 `check-i18n-keys` 对运行时拼键静态失明:同,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1103636 **CI Build 存量红登记(归属判定完毕·登记不越界):G-107,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-815949 **同一批五张票在 HEAD 面各有一份短副本登记(G-815413/41,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-815995 **发给 provider 的面与落库的面必须是两次投影,恢复脚手架不得进,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
+<!-- 已归档(2026-10-09:✅(2026-09-25) page_* 动词的**跨端登记**未做:web / miniapp-taro / RN /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1079148 **门 2 `check-i18n-keys` 对运行时拼键静态失明:同,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-815971 **限额/配额收口的那一轮,禁止再触发任何"会重新打开模型请求"的续跑通道,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-815975 **队列吸收要有"类型轴":遇到会改变后续语义的那类条目必须停在这里;未消,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
