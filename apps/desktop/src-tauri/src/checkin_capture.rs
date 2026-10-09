@@ -1017,16 +1017,25 @@ fn reset_layer_deep_site_data(trae_dirs: &[PathBuf]) -> ResetLayerReport {
         let trae_dir = trae_dir.as_path();
         for rel in DEEP_RESET_DIRS {
             let path = trae_dir.join(rel);
+            // 目录/文件双形态:真机实测 SharedStorage 曾以 4096 字节**文件**形态残留
+            // (旧版本安装残留),只认 is_dir() 会静默漏删——终验断言当场抓住。
             if path.is_dir() {
                 match std::fs::remove_dir_all(&path) {
                     Ok(()) => removed.push(rel.to_string()),
+                    Err(e) => errors.push(format!("{rel}: {e}")),
+                }
+            } else if path.symlink_metadata().is_ok() {
+                // 非目录但存在(文件/符号链接/悬空链接)一律按文件删
+                match std::fs::remove_file(&path) {
+                    Ok(()) => removed.push(format!("{rel}(文件形态)")),
                     Err(e) => errors.push(format!("{rel}: {e}")),
                 }
             }
         }
         for rel in DEEP_RESET_FILES {
             let path = trae_dir.join(rel);
-            if path.is_file() {
+            // symlink_metadata:符号链接本身也算目标(不跟随链接)
+            if path.symlink_metadata().is_ok() {
                 match std::fs::remove_file(&path) {
                     Ok(()) => removed.push(rel.to_string()),
                     Err(e) => errors.push(format!("{rel}: {e}")),
@@ -2380,6 +2389,31 @@ mod tests {
         assert!(r10.ok && r10.detail.contains("logs"), "{r10:?}");
         assert!(!dir.join("logs").exists());
 
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// 2026-10-10 真机实证钉住:DEEP_RESET_DIRS 里的条目可能以**文件**形态残留
+    /// (真机 SharedStorage=4096 字节文件,旧版本安装残留),只认 is_dir() 会静默漏删。
+    #[test]
+    fn deep_reset_deletes_dirs_list_entries_in_file_form() {
+        let dir = scratch("deep-fileform");
+        // 取清单里两个真名,分别造文件形态与悬空符号链接形态
+        let file_rel = DEEP_RESET_DIRS[0];
+        std::fs::write(dir.join(file_rel), b"stale-file-form").unwrap();
+        let link_rel = DEEP_RESET_DIRS[1];
+        #[cfg(windows)]
+        {
+            let target = dir.join("link-target.txt");
+            std::fs::write(&target, b"x").unwrap();
+            let _ = std::os::windows::fs::symlink_file(&target, dir.join(link_rel));
+        }
+        let r = reset_layer_deep_site_data(&[dir.clone()]);
+        assert!(r.ok && !r.detail.contains("错误"), "{r:?}");
+        assert!(
+            !dir.join(file_rel).exists(),
+            "文件形态的 {file_rel} 必须被整删(真机实证漏删点)"
+        );
+        assert!(!dir.join(link_rel).exists(), "链接形态的 {link_rel} 必须被摘除");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
