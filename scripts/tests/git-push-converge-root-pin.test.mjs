@@ -14,8 +14,7 @@
  * 例数一律以命令末行为准,文档不钉数字。
  */
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { writeFileSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
@@ -23,6 +22,7 @@ import assert from 'node:assert/strict'
 
 import { maskComments } from '../lib/code-mask.mjs'
 import { resolveGitBin } from '../lib/gitdir.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const GIT = resolveGitBin() || 'git'
 
@@ -42,7 +42,7 @@ function headOf(dir) {
 }
 
 function mkTempRepo() {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-converge-cwd-'))
+  const dir = mkScratch('ihui-converge-cwd-')
   const run = (args) =>
     execFileSync(GIT, ['-c', 'safe.directory=*', ...args], {
       cwd: dir,
@@ -137,6 +137,6 @@ test('T6 guard 自愈分支的相对脚本路径,靠 cwd:ROOT 才成立(证明�
 })
 
 test.after(() => {
-  if (tempDir) rmSync(tempDir, { recursive: true, force: true, maxRetries: 3 })
+  if (tempDir) rmScratch(tempDir)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
