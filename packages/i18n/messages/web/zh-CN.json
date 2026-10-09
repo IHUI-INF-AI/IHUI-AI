@@ -12992,6 +12992,15 @@
       "scopeModels": "模型列表",
       "scopeEmbeddings": "向量",
       "scopeImages": "图片生成",
+    "recharge": "充值",
+    "rechargeTitle": "充值 {name}",
+    "walletBalance": "钱包余额",
+    "rechargeAmountLabel": "金额(元)",
+    "rechargeAmountPlaceholder": "例如 10.00",
+    "rechargeHint": "款项从钱包划转至该 API Key 余额,调用按量扣费。",
+    "rechargeOk": "充值成功",
+    "rechargeInvalid": "请输入正数金额",
+    "rechargeConfirm": "确认充值",
       "scopeAudio": "语音",
       "scopeVideos": "视频生成",
       "unlimitedQuota": "无限额度",
@@ -18871,6 +18880,11 @@
     "boardEmpty": "暂无积分数据，完成首次签到后生成看板",
     "boardRankingTitle": "积分排行",
     "boardTab": "积分看板",
+    "boardTrendTitle": "积分趋势（总数/获得/消耗）",
+    "refreshCredits": "刷新积分快照",
+    "boardLineTotal": "总数",
+    "boardLineGained": "获得",
+    "boardLineConsumed": "消耗",
     "boardTodayGain": "今日新增 +{delta}",
     "checkinAllProgress": "签到中 {done}/{total}",
     "colGroup": "分组",
@@ -18884,6 +18898,9 @@
     "groupUngrouped": "未分组",
     "skippedToday": "已跳过 {count} 个今日已签账号",
     "skippedExpired": "已跳过 {count} 个 JWT 已过期账号",
+    "checkinSelected": "签到勾选账号（{count}）",
+    "selectAllVisible": "全选当前列表",
+    "selectAccount": "选中账号 {name}",
     "checkinAll": "一键全部签到",
     "colMessage": "信息",
     "editJwt": "更新 JWT",
@@ -27858,3 +27875,5 @@
     "incidentsUnavailable": "最近 30 天的事件数据暂时取不到"
   }
 }
+
+
