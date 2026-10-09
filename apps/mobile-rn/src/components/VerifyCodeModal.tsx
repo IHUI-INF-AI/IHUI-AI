@@ -175,6 +175,10 @@ export function VerifyCodeModal({
                   </View>
                 )
               })}
+              {/* G-978007:此 TextInput 是隐藏的键盘接收器(1×1、opacity 0,见头注),
+                  永不产生可见描边,聚焦视觉由上方 6 个格子的 isFocused 档承担
+                  (boxFocused 已对齐墨档);故不改套共享 TextField —— 套了也没有
+                  任何像素可见,反而给注册表添一个假输入框。 */}
               <TextInput
                 ref={hiddenInputRef}
                 value={fullCode}
@@ -293,7 +297,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   boxFocused: {
-    borderColor: tokens.brandAccent.deep,
+    // G-978007:聚焦档取墨档(tokens.brand.DEFAULT = 亮纯黑/暗纯白,与共享 TextField
+    // 的 focusedStyle 通道同一出处 @ihui/design-tokens brand.DEFAULT),并对齐验收判据
+    // borderWidth 1→2;此前取 brandAccent.deep 是灰蓝强调档,不是聚焦墨档。
+    borderColor: tokens.brand.DEFAULT,
+    borderWidth: 2,
   },
   boxFilled: {
     borderColor: tokens.border.medium,
