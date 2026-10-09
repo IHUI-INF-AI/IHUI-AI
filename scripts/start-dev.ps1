@@ -266,7 +266,11 @@ function Start-ServiceProcess {
   $argList = $ScriptArgs | ForEach-Object {
     if ($_ -match '\s') { '"' + $_ + '"' } else { $_ }
   }
-  $cmdLine = "$Cmd " + ($argList -join ' ')
+  # 2026-10-09 根治:dev 服务一律不需要 stdin,显式接 NUL。
+  # 背景(当日实证):tsx watch 在 stdin 无绑定的隐藏窗口 / 管道 stdio 环境下
+  # 会静默挂起(零日志、不监听);本仓另有「Node 子进程 stdin 管道 EBUSY」病灶族。
+  # < NUL 让整条 pnpm→node 子进程链的 stdin 落到设备空端,斩断该族病根。
+  $cmdLine = "$Cmd " + ($argList -join ' ') + ' < NUL'
 
   # 3. 准备日志
   if (-not (Test-Path $LogDir)) {

@@ -18931,6 +18931,7 @@
     "maintIncludeGuid": "Also reset registry MachineGuid (requires admin approval)",
     "maintIncludeBrowser": "Also clear TRAE cookies in Chrome/Edge (close the browser first)",
     "maintDeepReset": "Deep reset (auto-kill TRAE processes and wipe all site data, equivalent to reinstall)",
+    "maintIncludeMac": "Also rewrite physical NIC MAC addresses (hardware fingerprint layer, needs admin, network blips for seconds)",
     "maintBackup": "Back up snapshot",
     "maintBackupDone": "Backed up {count} files ({missing} missing)",
     "maintRestore": "Restore",

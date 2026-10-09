@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
+    "dev:cdp": "tauri dev --config src-tauri/tauri.cdp.json",
     "build": "tauri build && node ../../scripts/desktop-artifact-single.mjs",
     "tauri": "tauri",
     "build:debug": "tauri build --debug",
