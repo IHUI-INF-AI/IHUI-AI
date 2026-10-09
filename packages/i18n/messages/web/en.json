@@ -18930,7 +18930,7 @@
     "maintReset": "Reset device IDs",
     "maintIncludeGuid": "Also reset registry MachineGuid (requires admin approval)",
     "maintIncludeBrowser": "Also clear TRAE cookies in Chrome/Edge (close the browser first)",
-    "maintDeepReset": "Deep reset (clear TRAE built-in cookies / identity DB / logs cache, equivalent to reinstall)",
+    "maintDeepReset": "Deep reset (auto-kill TRAE processes and wipe all site data, equivalent to reinstall)",
     "maintBackup": "Back up snapshot",
     "maintBackupDone": "Backed up {count} files ({missing} missing)",
     "maintRestore": "Restore",
