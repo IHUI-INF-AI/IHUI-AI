@@ -47,15 +47,20 @@ export interface DeviceFingerprintCollector {
   get: () => Promise<DeviceFingerprintResult>
   refresh: () => Promise<DeviceFingerprintResult>
 }
-export function createDeviceFingerprintCollector(_impl: {
+export function createDeviceFingerprintCollector(impl: {
   collect: () => DeviceFingerprintInput | Promise<DeviceFingerprintInput>
 }): DeviceFingerprintCollector {
+  // 真身会把采集到的输入原样回显在 `source` 上;替身此前把它写死成 `{}`,于是"采集器到底喂了
+  // 几个字段"这件事在端内测试面上**不可见** —— 而那正是 v1 退化指纹(只喂 platform)能在
+  // RN 端长期存活的形态。这里只回显输入、不模拟摘要(fingerprint 仍是固定值),
+  // 所以任何依赖 'mock-fp' 字面量的既有用例逐字不受影响。
+  const collect = async (): Promise<DeviceFingerprintInput> => await impl.collect()
   return {
     async get() {
-      return { fingerprint: 'mock-fp', source: {}, collectedAt: Date.now() }
+      return { fingerprint: 'mock-fp', source: await collect(), collectedAt: Date.now() }
     },
     async refresh() {
-      return { fingerprint: 'mock-fp', source: {}, collectedAt: Date.now() }
+      return { fingerprint: 'mock-fp', source: await collect(), collectedAt: Date.now() }
     },
   }
 }
