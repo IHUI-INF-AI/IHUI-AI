@@ -248,14 +248,29 @@ const SERVICES = [
     required: false,
     probe: 'tcp',
     describe: 'Expo Web 预览(浏览器打开手机 App,可选,API 走 8807 反代到生产)',
-    start: () =>
-      launchDetached(
+    start: () => {
+      const child = launchDetached(
         NODE_EXE,
         [EXPO_ENTRY, 'start', '--web', '--port', '8806'],
         RN_DIR,
         'web-preview',
         { EXPO_PUBLIC_API_BASE_URL: 'http://localhost:8807' },
-      ),
+      );
+      // 自动刷新看守(台账 G-977963 第②半):订阅 Metro 的 /hot 重编译事件,改动后经
+      // /message 广播 reload 让预览页整页重载。桥自带单实例(pid 文件判重),
+      // web-preview 反复重启也不会堆积;拉起失败不阻塞主服务。
+      try {
+        launchDetached(
+          NODE_EXE,
+          [path.join(ROOT, 'scripts', 'web-preview-live-reload.mjs'), '--port', '8806'],
+          ROOT,
+          'web-preview-reload',
+        );
+      } catch {
+        /* 桥起不来由 check-web-preview-live-reload.mjs 的 E 轴点名 */
+      }
+      return child;
+    },
     hint: '浏览器打开 http://localhost:8806(微信 SDK / 闪验 / 本地推送等平台独占能力会降级,真机仍需另验),看 .tmp-sync/dev-stack-web-preview.log',
   },
 ];
