@@ -1962,7 +1962,7 @@ fn ensure_machine_guid_backup() -> Result<String, String> {
         $d=\"$env:USERPROFILE\\.trae-proxy\"; \
         New-Item -ItemType Directory -Force -Path $d | Out-Null; \
         $p=\"$d\\MachineGuid-backup.txt\"; \
-        if (!(Test-Path $p)) { Set-Content -Path $p -Value $v -Encoding utf8 }; \
+        if (!(Test-Path $p)) { Set-Content -Path $p -Value $v -Encoding ascii }; \
         Write-Output $v; exit 0 } catch { exit 1 }";
     let mut cmd = std::process::Command::new("powershell");
     cmd.args(["-NoProfile", "-NonInteractive", "-Command", script]);
@@ -2888,6 +2888,35 @@ mod tests {
             assert!(!dir.join(rel).exists(), "真机深度清空失败: {} 仍存在", rel);
         }
         eprintln!("[real] DONE:13 层全 ok,双现场等效重装(备份在 G:/trae-real-test-backup)");
+    }
+
+    // ── 9e. 一键重置真机实测(#[ignore]):UI「一键彻底重置」按钮完全同路径,
+    // 含 ensure_machine_guid_backup 自动备份链路。备份产物断言=~/.trae-proxy。
+    #[cfg(windows)]
+    #[test]
+    #[ignore]
+    fn traereal_one_click_reset_glue() {
+        let dir = detect_trae_dir().expect("本机必须能探测到 TRAE 现场目录");
+        eprintln!("[oneclick] detected = {}", dir.display());
+        let report = checkin_one_click_reset().expect("一键重置胶水调用失败");
+        assert_eq!(report.layers.len(), 14, "层报告数应为 14");
+        for l in &report.layers {
+            eprintln!("[oneclick] L{:02} {:26} ok={} {}", l.layer, l.name, l.ok, l.detail);
+            // 环境敏感可选层(5 UAC/7 浏览器锁/13 无提权)不拦;其余硬断言
+            if l.layer == 5 || l.layer == 7 || l.layer == 13 {
+                continue;
+            }
+            assert!(l.ok, "层{}({}) 失败: {}", l.layer, l.name, l.detail);
+        }
+        // 自动备份安全网断言:MachineGuid 旧值必须已落盘(ascii 无 BOM;容忍历史
+        // utf8 备份残留的 BOM 前缀)
+        let home = std::env::var("USERPROFILE").expect("USERPROFILE 必须存在");
+        let backup = PathBuf::from(home).join(".trae-proxy/MachineGuid-backup.txt");
+        assert!(backup.is_file(), "自动备份缺失: {}", backup.display());
+        let saved = std::fs::read_to_string(&backup).expect("备份可读");
+        let saved = saved.trim_start_matches('\u{feff}').trim().to_string();
+        assert_eq!(saved.chars().count(), 36, "MachineGuid 应为 36 位 GUID 形态");
+        eprintln!("[oneclick] DONE:一键 14 层执行完毕,自动备份在 {}", backup.display());
     }
 
 }
