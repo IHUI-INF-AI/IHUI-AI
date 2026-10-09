@@ -138,12 +138,14 @@ test('M5 端到端双向锁:索引注入必红 / 只写进注释必绿 / 不吃�
   }
 })
 
-test('M6 未判定不得记绿也不得记红:取值写成变量的 stdio ⇒ 逐条点名,--strict 拒绝出合格证', () => {
+test('M6 未判定不得记绿也不得记红:取值在同文件追溯不到的 stdio ⇒ 逐条点名,--strict 拒绝出合格证', () => {
   const dir = mkScratch('soc-und-')
   try {
-    // `stdio` 是简写属性、值在别处 ⇒ 判不出。这一格必须**既不冒红也不记绿**:
+    // `stdio` 是简写属性而**本文件根本没有这个声明** ⇒ 判不出。这一格必须既不冒红也不记绿:
     // 默认档 exit 0 但逐条点名,--strict exit 2(拒绝出具合格证)。
-    makeRepo(dir, "function f(){\n  const stdio = 'ignore'\n  const r = spawnSync(py, args, { stdio })\n  return JSON.parse(r.stdout)\n}\n")
+    // (2026-10-10 票 G-1111918 档②落地后,夹具改掉了"同文件有声明"那一种 —— 那种现在判得出,
+    //  由 M6c 钉住;留着它就会变成"要求门判不出它已经判得出的东西",与恒红门同罪。)
+    makeRepo(dir, "function f(){\n  const r = spawnSync(py, args, { stdio })\n  return JSON.parse(r.stdout)\n}\n")
     const r = runGate(dir, ['--json'])
     assert.equal(r.code, 0, `默认档不得因"判不出"判红(恒红门唯一结局是跳门):\n${r.out}`)
     const j = JSON.parse(r.out.slice(r.out.indexOf('{')))
@@ -153,6 +155,24 @@ test('M6 未判定不得记绿也不得记红:取值写成变量的 stdio ⇒ �
   } finally {
     rmScratch(dir)
   }
+})
+
+test('M6c 简写属性能追溯到唯一字面量声明 ⇒ 判得出就判(档②的装车证明,不得退回未判定)', () => {
+  const mk = (body) => {
+    const dir = mkScratch('soc-trace-')
+    try {
+      makeRepo(dir, body)
+      return runGate(dir, ['--json'])
+    } finally {
+      rmScratch(dir)
+    }
+  }
+  const bad = mk("function f(){\n  const stdio = 'ignore'\n  const r = spawnSync(py, args, { stdio })\n  return JSON.parse(r.stdout)\n}\n")
+  assert.equal(bad.code, 1, `简写属性回溯到坏通道必须判红:\n${bad.out}`)
+  const good = mk("function f(){\n  const stdio = ['ignore', 'pipe', 'pipe']\n  const r = spawnSync(py, args, { stdio })\n  return JSON.parse(r.stdout)\n}\n")
+  assert.equal(good.code, 0, `回溯到合规值必须放过,且不得留下未判定:\n${good.out}`)
+  const gj = JSON.parse(good.out.slice(good.out.indexOf('{')))
+  assert.deepEqual(gj.undetermined, [], '合规回溯不得仍挂未判定(挂上就是"把已判写成没判"的反向)')
 })
 
 test('M6b 顶层调用现在判得出:活区右界生效 ⇒ 命中判红,同名再赋值之后的读取不得借来定罪', () => {
@@ -171,6 +191,31 @@ test('M6b 顶层调用现在判得出:活区右界生效 ⇒ 命中判红,同名
       const j = JSON.parse(g.out.slice(g.out.indexOf('{')))
       assert.deepEqual(j.hits, [], `越过活区右界的读取不得定罪:\n${g.out}`)
       assert.deepEqual(j.undetermined, [], '这一格是"判过了且干净",不得伪装成未判定,也不得反过来判红')
+    } finally {
+      rmScratch(dir2)
+    }
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('M6d 夹具字符串里的假调用(含配不平的括号)整条不进射程 ⇒ 零命中零未判定(票 G-1111918 档①装车证明)', () => {
+  const dir = mkScratch('soc-strmask-')
+  try {
+    // 文档字符串里写着一句假调用与半截括号;真代码那一处是合规的。旧口径按原文配平
+    // ⇒ 那半句让整文件落"未判定",于是 --strict 恒 rc=2 变成一台**拒绝出合格证却没有可清偿路径**
+    // 的尺子(票面①的立因)。结构遍改走"连字符串也遮"那一档后,它必须既不命中也不报名。
+    const doc = 'const doc = "const r = spawnSync(a, b, { stdio: \'ignore\' }) \\n"\n'
+    const good = "function f(){\n  const r = spawnSync(py, args, { stdio: ['ignore', 'pipe', 'pipe'] })\n  return JSON.parse(r.stdout)\n}\n"
+    makeRepo(dir, doc + good)
+    const r = runGate(dir, ['--strict'])
+    assert.equal(r.code, 0, `字符串里的假调用不得进任何一档(既不算命中也不算未判定):\n${r.out}`)
+    // 反向:同一文件里若真有一处坏通道,仍然必须红(遮罩不得把判据一起遮掉)。
+    const dir2 = mkScratch('soc-strmask2-')
+    try {
+      const bad = "function f(){\n  const rr = spawnSync(py, args, { stdio: 'ignore' })\n  return JSON.parse(rr.stdout)\n}\n"
+      makeRepo(dir2, doc + bad)
+      assert.equal(runGate(dir2, []).code, 1, '真代码里的坏通道必须仍然判红(否则遮罩就是把判据遮掉)')
     } finally {
       rmScratch(dir2)
     }
