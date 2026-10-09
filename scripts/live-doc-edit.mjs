@@ -126,6 +126,16 @@
  *  应急出口只有一条且必须带原因:`LIVE_SHA_ALLOW=<token>=<一句话原因>`(多条以 `;` 或换行分隔,
  *  无原因不放行),放行会打印留痕 —— 它是应急通道不是常规路径,不得拿它当常态把整块放行清账。
  *
+ * 主键唯一性闸(掐台账写放大的成因):本次带进来的 `- [ ]` 行,若其**复合主键**(编号 + 题面前缀,
+ *  判据取自 `lib/plan-task-index.mjs` 的 `compositeKeyOf`,本器不得再抄一份)在 HEAD 底稿里已有同一件事
+ *  的待办行 ⇒ 拒绝写盘,因为正解是**就地更新已有那一行**(整行改写档),而不是再抄第二份 ——
+ *  14 天实测未勾 165 → 1241,其中 785 行是"重复登记副本"指针行(209 族、每族 4 份),而"完成的是不是
+ *  被写回未勾"这条反向假设已否证(三张历史快照 1582/1031/1278 行 `- [x]`,今日仍是未勾的 0 行)。
+ *  三条放过:① 新行自带归并指针(作者承认这是副本,与 F4 同形);② 取不出主键 ⇒ 未判定并放行;
+ *  ③ 逐键声明 `LIVE_LEDGER_DUP_OK=<复合主键>=<一句话原因>`(`;` 分隔,无原因不算)。
+ *  存量不担:只判 next 相对 base 的**多重集差**,别人历史留下的同题副本只报数,否则每一次翻勾都会被
+ *  他人欠的账钉红(§12e 恒挡同罪)。租约行是 `- [x]` 形态,天然不在射程。
+ *
  * ⚠️ 头注不写"已接 pre-commit/CI"字样(守门 89 R1/R2 判"声称已接线而零命中")。
  */
 
@@ -155,6 +165,8 @@ import {
   malformedLine,
 } from './lib/plan-task-index.mjs'
 import { collectIdFace } from './lib/plan-id-face.mjs'
+// 复合主键判据的唯一实现(台账层与归并器共用同一份;本器不得再抄一份 —— 两处算同一个键必漂移)。
+import { compositeKeyOf } from './lib/plan-task-index.mjs'
 // G-725:旁路留痕的唯一出口(键名/落点与 safe-commit 那本台账同形,不在本器里另拼 JSON)。
 import { recordBypassLanding } from './lib/commit-attestation.mjs'
 // G-1079146(2026-10-08):git 派生的唯一 transport(绝对路径 + 显式 stdio + windowsHide + 数字 timeout
@@ -1038,6 +1050,148 @@ export function shaGateReport(v) {
   return lines
 }
 
+// ── 登记入口的复合主键唯一性闸 ────────────────────────────────────────────
+/**
+ * 立因是本轮实测(不是推测):14 天内未勾行 165 → 1241,其中 **785 行是「重复登记副本」指针行**,
+ * 指针族 209 组、每组 4 份。反向假设先否证掉:**不是复活** —— 取 T-7/T-12/T-13 三张历史快照
+ * (当时分别有 1582 / 1031 / 1278 行 `- [x]`),剥掉复选框与认领牌后与今日未勾行逐字比对,
+ * 命中 **0 行**。真因是**并发把同一件事往台账末尾各抄一份**:事后判据(F1/F4)只能标注不能删除
+ * (正文漂开的副本机器折半即有损,§1 又禁止无声删除),于是膨胀单调累积。
+ * 所以能掐住的地方只有**写入那一刻**,而不是再多一道事后门。
+ * 与 sha 闸同一条差值语义:只判本次带进来的行,别人历史留下的存量副本只报数,
+ * 否则每一次翻勾都被别人欠的账钉红(§12e 恒挡同罪,唯一结局是绕开本器改用 pathspec 硬交)。
+ */
+export const OPEN_ROW_RE = /^- \[ \]/
+/** 作者自己承认"这是同一件事的副本"的形态 ⇒ 放过并计数(归并器 F4 的产物同形,不得被本闸禁掉)。 */
+export const DUP_ACK_RE = /【归并】重复登记副本|\[归并\]/
+
+/** 多重集差:next 里相对 base 多出来的行(重复行按次数配平,不靠"这行在不在"判)。 */
+export function linesIntroducedBy(baseLines, nextLines) {
+  const left = new Map()
+  for (const l of baseLines) left.set(l, (left.get(l) || 0) + 1)
+  const addedRows = []
+  for (const l of nextLines) {
+    const c = left.get(l) || 0
+    if (c > 0) left.set(l, c - 1)
+    else addedRows.push(l)
+  }
+  return addedRows
+}
+
+/** 应急出口只有这一条:`LIVE_LEDGER_DUP_OK=<复合主键>=<一句话原因>`(; 分隔多条)。无原因的声明不算。 */
+export function parseDupAllow(raw = '') {
+  const m = new Map()
+  for (const part of String(raw).split(';').map((s) => s.trim()).filter(Boolean)) {
+    const i = part.indexOf('=')
+    if (i <= 0) continue
+    const key = part.slice(0, i).trim()
+    const reason = part.slice(i + 1).trim()
+    if (key && reason) m.set(key, reason)
+  }
+  return m
+}
+
+/** 主键的唯一实现复用台账层那一份(`lib/plan-task-index.mjs` 的 compositeKeyOf),本器不得再抄一份。 */
+export function judgeNewLineDupes({ baseLines = [], newLines = [], removedLines = [], allow = new Map() } = {}) {
+  const existing = new Map()
+  let openBase = 0
+  for (const l of baseLines) {
+    if (!OPEN_ROW_RE.test(l)) continue
+    openBase++
+    const k = compositeKeyOf(l)
+    if (k && !existing.has(k)) existing.set(k, l)
+  }
+  // **就地改写的额度 = 被本次操作换掉的同键行数**。§1 的正解就是"更新已有那一行 / 在其上追加注记",
+  // 不减这一档等于把建议的修法判成违规(实测代价:本闸初版按"新增行逐条判",当场把镜像 T13 的
+  // 追加注记型改写钉红了)。额度从**前**扣:先出现的算改写,后面多出来的才是第二次登记。
+  const quota = new Map()
+  for (const l of removedLines) {
+    if (!OPEN_ROW_RE.test(l)) continue
+    const k = compositeKeyOf(l)
+    if (k) quota.set(k, (quota.get(k) || 0) + 1)
+  }
+  const blocked = []
+  const allowed = []
+  const acknowledged = []
+  const undetermined = []
+  const rewritten = []
+  let passed = 0
+  for (const l of newLines) {
+    if (!OPEN_ROW_RE.test(l)) continue
+    const k = compositeKeyOf(l)
+    // 取不出主键(无编号 / 题面退化)⇒ 未判定,既不冒红也不记绿:F1/F4 对这一族本来也失明,
+    // 拿"看不清"当"重复"会把正当新登记钉红,当"没问题"则把这一族留在写放大里。
+    if (!k) {
+      undetermined.push({ lineText: l.slice(0, 90) })
+      continue
+    }
+    if (!existing.has(k)) {
+      passed++
+      continue
+    }
+    if (DUP_ACK_RE.test(l)) {
+      acknowledged.push({ key: k, lineText: l.slice(0, 90) })
+      continue
+    }
+    const left = quota.get(k) || 0
+    if (left > 0) {
+      quota.set(k, left - 1)
+      rewritten.push({ key: k, lineText: l.slice(0, 90) })
+      continue
+    }
+    const reason = allow.get(k)
+    if (reason) {
+      allowed.push({ key: k, reason, lineText: l.slice(0, 90) })
+      continue
+    }
+    blocked.push({ key: k, lineText: l.slice(0, 90), existingText: existing.get(k).slice(0, 90) })
+  }
+  return { blocked, allowed, acknowledged, undetermined, rewritten, passed, openBase }
+}
+
+export function dupGateReport(v) {
+  const lines = []
+  for (const a of v.allowed)
+    lines.push({
+      kind: 'warn',
+      text: `⚠️ 同主键第二次登记已由作者声明放行(LIVE_LEDGER_DUP_OK):${a.key} ⇒ 原因:${a.reason}`,
+    })
+  for (const u of v.undetermined)
+    lines.push({
+      kind: 'warn',
+      text: `⚠️ 主键未判定:${u.lineText} ⇒ 取不出"编号 + 题面前缀"⇒ **放行**(看不清不等于重复;这一族的归并出口按 §1 交人工)`,
+    })
+  if (v.rewritten.length)
+    lines.push({
+      kind: 'info',
+      text: `ℹ 同主键就地改写 ${v.rewritten.length} 行(§1 的正解:更新已有那一行,而不是再抄一份)⇒ 不计第二次登记`,
+    })
+  if (v.acknowledged.length)
+    lines.push({
+      kind: 'info',
+      text: `ℹ 作者自认副本(带归并指针)${v.acknowledged.length} 行:放过,但它们是账面噪声的主要来源(本器不删别人的行)`,
+    })
+  if (v.blocked.length === 0 && v.passed > 0)
+    lines.push({ kind: 'info', text: `✅ 新登记主键唯一性:${v.passed} 行无一与已有待办撞同题(存量待办 ${v.openBase} 行不担)` })
+  if (v.blocked.length > 0) {
+    lines.push({
+      kind: 'error',
+      text: `❌ 本次要新增 ${v.blocked.length} 行「同一件事的第二次登记」(复合主键 = 编号 + 题面前缀,与台账层同一份判据)⇒ 拒绝落该行。**这才是台账只增不减的成因**:同一件事被并发各抄一份,事后判据只能标注不能删除。`,
+    })
+    for (const b of v.blocked.slice(0, 6)) {
+      lines.push({ kind: 'error', text: `   · 主键:${b.key}` })
+      lines.push({ kind: 'error', text: `     新增行:${b.lineText}` })
+      lines.push({ kind: 'error', text: `     已有行:${b.existingText}` })
+    }
+    lines.push({
+      kind: 'error',
+      text: `   出路只有三条:① 用整行改写档(LIVE_REPLACE_FILE)就地更新**已有那一行**,不要再抄第二份;② 确属另一件事 ⇒ 把题面写到取不出同一个前缀(主键含题面,不是编号);③ 应急逐键声明 LIVE_LEDGER_DUP_OK=<主键>=<一句话原因>(无原因不算,且必须逐键,不给整片放行)。`,
+    })
+    lines.push({ kind: 'error', text: `   **禁止**为了变绿去改本闸的判据或把主键判据换成"只看编号" —— 那会把不同议题并成一件事,归并器就敢把别人的未完成任务翻成已完成。` })
+  }
+  return lines
+}
+
 async function main() {
   const inputs = readInputs()
   if (inputs.error) {
@@ -1240,6 +1394,22 @@ async function main() {
       }
       if (v.blocked.length > 0) process.exit(1)
     }
+    // 主键唯一性闸(与 sha 闸同一位置、同一条差值语义:必须在 writeBlob 之前,因为内容一旦
+    // commit,再 exit 1 就是把"已入库"谎报成"没落地")。只吃本次带进来的行,存量不担。
+    {
+      const introduced = linesIntroducedBy(baseLines, nextLines)
+      const dv = judgeNewLineDupes({
+        baseLines,
+        newLines: introduced,
+        removedLines: linesIntroducedBy(nextLines, baseLines),
+        allow: parseDupAllow(process.env.LIVE_LEDGER_DUP_OK ?? ''),
+      })
+      for (const l of dupGateReport(dv)) {
+        if (l.kind === 'error') console.error(l.text)
+        else console.log(l.text)
+      }
+      if (dv.blocked.length > 0) process.exit(1)
+    }
     const blob = writeBlob(nextLines.join('\n'), { root })
     const { commit } = commitTreeWithIndex({
       root,
@@ -1376,6 +1546,13 @@ export const __test__ = {
   newMalformed,
   MALFORMED_ID_RE,
   MALFORMED_BODY_RE,
+  // 主键唯一性闸:判据从这里出去(镜像测试禁止再抄一份,§22c)。
+  linesIntroducedBy,
+  parseDupAllow,
+  judgeNewLineDupes,
+  dupGateReport,
+  OPEN_ROW_RE,
+  DUP_ACK_RE,
   // G-1079146 取值档:判据全部从这里出去(镜像测试禁止再抄一份,§22c)。
   judgeNewLineShas,
   shaPassReason,
