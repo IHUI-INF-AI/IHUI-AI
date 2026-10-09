@@ -4,6 +4,9 @@
 
 // 2026-09-17 薄壳化配套:线上前端自动刷新 + 断网兜底守卫(详见模块文档)
 mod auto_refresh;
+// 2026-10-09 立(WP-C 第一步):签到账号本地捕获——TRAE 目录探测/JWT 提取/设备标识重置/9 类快照。
+// 分层同 desktop_prefs.rs:判据纯函数 + 执行层 + 薄胶水,测试在模块内真跑。
+mod checkin_capture;
 // 2026-09-28 立:托盘/关窗/启动/角标的「行为偏好」——判定与持久化都在模块内,本文件只做接线。
 mod desktop_prefs;
 // 本地 git/diff 通道（2026-09-27）：纯判据 / 执行层 / tauri 胶水三件套。
@@ -3313,7 +3316,15 @@ pub fn run() {
             set_desktop_prefs,
             resolve_close_choice,
             set_desktop_badge,
-            take_pending_deep_links
+            take_pending_deep_links,
+            // 2026-10-09 签到捕获(WP-C):7 条命令,判据与执行都在 checkin_capture.rs,这里只注册。
+            checkin_capture::checkin_detect_trae_dir,
+            checkin_capture::checkin_capture_jwts,
+            checkin_capture::checkin_reset_device_ids,
+            checkin_capture::checkin_snapshot_backup,
+            checkin_capture::checkin_snapshot_restore,
+            checkin_capture::checkin_snapshot_list,
+            checkin_capture::checkin_snapshot_delete
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {
