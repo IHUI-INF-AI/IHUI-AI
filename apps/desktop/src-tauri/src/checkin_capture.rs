@@ -2319,6 +2319,10 @@ fn run_ps_capture(script: &str, timeout: std::time::Duration) -> Result<Vec<Stri
     std::thread::spawn(move || {
         let mut cmd = std::process::Command::new("powershell");
         cmd.args(["-NoProfile", "-NonInteractive", "-Command", &owned]);
+        // `creation_flags_if_windows` 本身是 #[cfg(windows)] 的 —— 本函数未按平台拆分,
+        // 故这行必须自带 cfg 门,否则 Linux/macOS 编译单元里找不到它(E0425)。
+        // 2026-10-10 真教训:本地 Windows `cargo test` 全绿,CI 三平台才炸。
+        #[cfg(windows)]
         creation_flags_if_windows(&mut cmd, 0x0800_0000);
         let _ = tx.send(cmd.output());
     });
