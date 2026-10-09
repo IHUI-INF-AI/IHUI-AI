@@ -75,6 +75,29 @@ const PROBE_CHUNK = 400
 const HEX_RUN_RE = /(^|[^0-9a-zA-Z_])([0-9a-f]{7,64})(?=($|[^0-9a-zA-Z_]))/g
 
 /**
+ * 消歧标注档(G-1079146 存量清偿配套,2026-10-10):行内 `〔sha消歧:…〕` / `〔sha无从找回:…〕`
+ * 注记**逐一列名**本行被消歧的 token(`〔sha消歧:c12617dd=adb设备序列号,非commit〕`),
+ * 只有**被列名的 token** 归第四态 `disambigued`(不探测、不计腐不计未判) —— 列名制而非行级制:
+ * 同一行可能同时有可解析的真 sha(L4890 实证),行级判定会把它们误挪出"可解析"。
+ * 标注未列名的 token 一律照旧探测;未标注的行照旧 —— 宁多报不漏报。
+ */
+const DISAMBIG_NOTE_RE = /〔sha(?:消歧|无从找回)[:：]([^\〕]*)〕/g
+
+/** 抽一行内消歧注记列名的 token 集合。 */
+export function disambigTokensOf(line) {
+  const ids = new Set()
+  DISAMBIG_NOTE_RE.lastIndex = 0
+  let m
+  while ((m = DISAMBIG_NOTE_RE.exec(line)) !== null) {
+    const body = m[1]
+    const hex = /[0-9a-f]{7,40}/g
+    let h
+    while ((h = hex.exec(body)) !== null) ids.add(h[0])
+  }
+  return ids
+}
+
+/**
  * 形态登记表。`sample` 逐字取自 HEAD 面台账，`token` 是该片段里应当被抽出的那一枚，
  * `form`（省略 = 与键名同）是抽取式应当给出的归类；`full40` 按**长度档**而非句法位置归类，故 form:null。
  */
@@ -147,6 +170,7 @@ export function formOf(before, after) {
 /** 从一行文本抽出全部 sha 形态候选。@param {number} lineNo 1-based */
 export function extractFromLine(line, lineNo) {
   const out = []
+  const disambigIds = disambigTokensOf(line)
   HEX_RUN_RE.lastIndex = 0
   let m
   while ((m = HEX_RUN_RE.exec(line)) !== null) {
@@ -161,6 +185,8 @@ export function extractFromLine(line, lineNo) {
       shape: classifyShape(token, { precededByHash: before.endsWith('#') }),
       // 报告用：所在行原文前 60 字（按码点截，中文不按字节）
       lineText: [...line.trim()].slice(0, 60).join(''),
+      // 消歧标注档(G-1079146):本 token 是否被本行消歧注记列名
+      disambig: disambigIds.has(token),
     })
   }
   return out
@@ -198,6 +224,7 @@ export function summarize(candidates, statusOf) {
     undetermined: [],
     shapeAmbiguous: [],
     probeAmbiguous: [],
+    disambigued: [],
   }
   const byToken = new Map()
   for (const c of candidates) {
@@ -206,6 +233,11 @@ export function summarize(candidates, statusOf) {
   }
   res.tokens = byToken.size
   for (const [tok, occ] of byToken) {
+    // 消歧标注档(G-1079146):全部出现行都带标注 ⇒ 人已裁过,不探测不计腐(部分带 ⇒ 照旧探测)
+    if (occ.every((c) => c.disambig)) {
+      res.disambigued.push({ token: tok, occurrences: occ })
+      continue
+    }
     if (occ[0].shape.kind === 'ambiguous') {
       res.shapeAmbiguous.push({ token: tok, reason: occ[0].shape.reason, occurrences: occ })
       continue
@@ -301,7 +333,7 @@ function printReport(res, root, face, topN) {
   console.log(`sha 形态候选：出现 ${res.occurrences} 次 / 去重 ${res.tokens} 枚（${root}/${PLAN_PATH}）`)
   console.log(
     `三态：可解析 ${res.resolvable.length} · **取不到(腐烂) ${res.unresolvable.length}** · ` +
-      `判不出(未判定) ${res.undetermined.length}` +
+      `未判定 ${res.undetermined.length} · 已消歧(标注档) ${res.disambigued.length}` +
       `（形状歧义 ${res.shapeAmbiguous.length} / 短前缀歧义 ${res.probeAmbiguous.length}）`,
   )
   const occSum = (arr) => arr.reduce((a, r) => a + r.occurrences.length, 0)
@@ -331,6 +363,20 @@ function printReport(res, root, face, topN) {
     }
     console.log(`  （共 ${res.undetermined.length} 枚 / ${occSum(res.undetermined)} 次出现）`)
     console.log('  ⚠️ 这一格既不是"通过"也不是"腐烂"。--strict 下有它就不出合格证。')
+  }
+  if (res.disambigued.length) {
+    console.log(`\n—— 已消歧(标注档) top ${Math.min(topN, res.disambigued.length)}（G-1079146:人已裁,不参与探测与腐烂计数）——`)
+    let n = 0
+    for (const r of res.disambigued) {
+      if (n >= topN) break
+      n++
+      const o = r.occurrences[0]
+      console.log(`  ${String(n).padStart(3)}. ${o.token}  L${o.line}`)
+      console.log(`       行原文: ${o.lineText}`)
+      if (r.occurrences.length > 1)
+        console.log(`       另见 ${r.occurrences.slice(1).map((x) => 'L' + x.line).join(' ')}`)
+    }
+    console.log(`  （共 ${res.disambigued.length} 枚去重 / ${occSum(res.disambigued)} 次出现）`)
   }
 }
 
@@ -440,6 +486,34 @@ function selfTest() {
       `${r.resolvable.length}/${r.unresolvable.length}/${r.undetermined.length}`)
     ok('M2 未判定的形状歧义子因单独计数（不得混进腐烂清单）',
       r.shapeAmbiguous.length === 1 && r.probeAmbiguous.length === 0)
+  }
+  // 5b) 消歧标注档(G-1079146,列名制)
+  {
+    const st = new Map([['aaaaaaa', 'unresolvable']])
+    const marked = extractFromLine('真机 c12617dd 连着 〔sha消歧:c12617dd=adb设备序列号,非commit〕', 1)
+    const r1 = summarize(marked, st)
+    ok('M3 标注列名的 token ⇒ 归已消歧档,不探测不计腐烂',
+      marked.length === 2 && marked.every((c) => c.disambig === true) &&
+      r1.disambigued.length === 1 && r1.unresolvable.length === 0,
+      `cands=${marked.length} dis=${r1.disambigued.length}/rot=${r1.unresolvable.length}`)
+    // 同 token 两行:一行带标注一行不带 ⇒ 部分消歧不算,照旧探测(保守方向:少消歧)
+    const markedSame = extractFromLine('真机 aaaaaaa 连着 〔sha消歧:aaaaaaa=adb设备序列号,非commit〕', 1)
+    const plain = extractFromLine('见 commit aaaaaaa 与后续', 2)
+    const r2 = summarize([...markedSame, ...plain], st)
+    ok('M4 部分行带标注 ⇒ 不算消歧,照旧进腐烂(宁多报不漏报)',
+      r2.disambigued.length === 0 && r2.unresolvable.length === 1,
+      `dis=${r2.disambigued.length}/rot=${r2.unresolvable.length}`)
+    const forgiven = extractFromLine('枚 aaaaaaa 落地 〔sha无从找回:aaaaaaa=对象库不含,明写无从找回〕', 3)
+    const r3 = summarize(forgiven, st)
+    ok('M5 sha无从找回 标注同样进消歧档(两族标注一档)',
+      r3.disambigued.length === 1 && r3.unresolvable.length === 0)
+    // M6 列名制的关键反例:同行另一枚未列名的 token 不得被捎带消歧(L4890 实证型)
+    const mixed = extractFromLine('拼的 194f1949955 不是真对象,真值五枚 b36ba44a06 在案 〔sha消歧:194f1949955=凭记忆假串,非commit〕', 4)
+    const r4 = summarize(mixed, new Map([['194f1949955', 'unresolvable'], ['b36ba44a06', 'resolvable']]))
+    ok('M6 列名制:同行未列名 token 照常走探测(b36ba44a06 计可解析,194f1949955 计消歧)',
+      r4.disambigued.length === 1 && r4.disambigued[0].token === '194f1949955' &&
+      r4.resolvable.length === 1 && r4.resolvable[0].token === 'b36ba44a06',
+      `dis=${r4.disambigued.map((x) => x.token)}/res=${r4.resolvable.map((x) => x.token)}`)
   }
   // 6) 退出码决策
   ok('X1 全量档：有腐烂也 exit 0（warn 级）', decideExit({ scanned: 1, found: 5, unresolvable: 3, undetermined: 0, strict: false }) === 0)
