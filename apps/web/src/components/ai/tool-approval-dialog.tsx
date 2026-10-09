@@ -305,6 +305,7 @@ export function ToolApprovalDialog() {
   // "等你确认" —— 那比"看不见"更糟,因为它是个假事实。
   React.useEffect(() => {
     publishToolApprovalPending(state.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 依赖刻意取 state.current(值本身),把整个 ref 对象列进依赖等于每渲染一次就重发一次
   }, [state.current])
   React.useEffect(
     () => () => {
