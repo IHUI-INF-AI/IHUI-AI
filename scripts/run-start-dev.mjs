@@ -11,13 +11,12 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const scriptPath = path.join(repoRoot, 'scripts', 'start-dev.ps1')
-const args = process.argv.slice(2)
+export const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+export const scriptPath = path.join(repoRoot, 'scripts', 'start-dev.ps1')
 
-function findPwsh() {
+export function findPwsh() {
   const probe = spawnSync('where.exe', ['pwsh'], { stdio: ['ignore', 'pipe', 'pipe'] })
   if (probe.status === 0) {
     const hit = probe.stdout
@@ -34,26 +33,32 @@ function findPwsh() {
   return standardLocations.find((p) => p && existsSync(p)) || null
 }
 
-const pwsh = findPwsh()
-if (!pwsh) {
-  console.error(
-    '[run-start-dev] 未找到 PowerShell 7(pwsh)。已尝试 PATH 与标准安装位置。\n' +
-      '修复:安装 PowerShell 7(x64),或把 C:\\Program Files\\PowerShell\\7 加入 PATH。',
+export function main(argv = process.argv.slice(2)) {
+  const pwsh = findPwsh()
+  if (!pwsh) {
+    console.error(
+      '[run-start-dev] 未找到 PowerShell 7(pwsh)。已尝试 PATH 与标准安装位置。\n' +
+        '修复:安装 PowerShell 7(x64),或把 C:\\Program Files\\PowerShell\\7 加入 PATH。',
+    )
+    return 2
+  }
+
+  const spawned = spawnSync(
+    pwsh,
+    ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, ...argv],
+    { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true },
   )
-  process.exit(2)
+
+  if (spawned.stdout && spawned.stdout.length) process.stdout.write(spawned.stdout)
+  if (spawned.stderr && spawned.stderr.length) process.stderr.write(spawned.stderr)
+  if (spawned.error) {
+    console.error(`[run-start-dev] 启动失败: ${spawned.error.message}`)
+    return 1
+  }
+  return spawned.status ?? 1
 }
 
-const spawned = spawnSync(
-  pwsh,
-  ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, ...args],
-  { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true },
-)
-
-if (spawned.stdout && spawned.stdout.length) process.stdout.write(spawned.stdout)
-if (spawned.stderr && spawned.stderr.length) process.stderr.write(spawned.stderr)
-if (spawned.error) {
-  console.error(`[run-start-dev] 启动失败: ${spawned.error.message}`)
-  process.exit(1)
-}
-process.exit(spawned.status ?? 1)
+// 仅直接运行时执行(被测试 import 时不触发 spawn)
+const invoked = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (invoked) process.exit(main())
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
