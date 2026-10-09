@@ -22,7 +22,7 @@
  * - AGENTS.md §3:禁 any,onModelConfigChange 用 unknown 类型
  */
 import { useEffect, useRef } from 'react'
-import { tokens } from '../theme/active-tokens'
+import { tokens, currentRnTheme } from '../theme/active-tokens'
 import {
   ActivityIndicator,
   Alert,
@@ -31,7 +31,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
   type ImageStyle,
   type StyleProp,
@@ -40,6 +39,7 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useI18n } from '../i18n'
+import { TextField } from '@ihui/rn-app'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import { AddPanel, PlusButton } from './AddPanel'
 import {
@@ -577,8 +577,12 @@ function ChatInputBar(props: BottomActionBarProps) {
           </Pressable>
         ) : null}
 
-        <TextInput
+        {/* G-978007:TextInput → 共享 TextField(聚焦墨档描边,亮纯黑/暗纯白);focusedStyle
+            对齐 LoginScreen 参照:聚焦 borderWidth 1→2;onFocus/onBlur 事件透传保持不变 */}
+        <TextField
+          colorScheme={currentRnTheme()}
           style={styles.input}
+          focusedStyle={{ borderWidth: 2 }}
           value={prompt}
           onChangeText={onPromptChange}
           onFocus={onInputFocus}
