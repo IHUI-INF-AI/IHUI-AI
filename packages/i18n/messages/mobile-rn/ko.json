@@ -28,7 +28,11 @@
     "envNetworkOpen": "이번에는 네트워크 접근이 허용됩니다",
     "envNetworkOff": "이번에는 네트워크를 사용할 수 없습니다",
     "envNetworkBlocked": "차단된 네트워크 대상",
-    "envNetworkBlockedOne": "{host}:{port} (사유: {reason})"
+    "envNetworkBlockedOne": "{host}:{port} (사유: {reason})",
+    "grantRuleToggle": "승인하고 이런 명령 허용에 추가",
+    "grantRuleDesc": "명령 접두사 \"{prefix}…\" 범위의 허용 규칙을 만듭니다. 90일 후 자동 만료되며, 웹 앱의 허용 규칙 패널에서 철회할 수 있습니다.",
+    "grantRuleConfirmTitle": "고위험 명령을 허용하시겠습니까?",
+    "grantRuleConfirmContent": "명령 \"{prefix}…\"은(는) 고위험 작업에 해당합니다. 허용하면 90일 동안 유사한 명령은 다시 묻지 않으며, 사용에 따른 위험은 본인이 부담합니다."
   },
   "nav": {
     "profile": "마이",
