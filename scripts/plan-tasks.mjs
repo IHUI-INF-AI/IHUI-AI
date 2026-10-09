@@ -178,20 +178,53 @@ export function fileConflictOverlay({ rows, dirtySet, headSet }) {
 /**
  * 在飞路径集合(索引/工作树与 HEAD 不一致 + 未跟踪新文件)。
  * 取不到 ⇒ 返回 null,由调用方喊"未判定" —— 把没量到写成"都没有在飞"就是替打架发合格证。
+ * ⚠ 空集合在这里是**合法值**(整仓干净就会为空),因此它只能与"非 null 的 headSet"搭配解读:
+ *   调用方必须先确认 HEAD 树取到了(git 可问),才能把空 status 读成"确实没有在飞"。
+ * ⚠ 必须锚到 git 的 toplevel 再问:`git -C <子目录> status` 输出的是**相对该目录**的路径,
+ *   拿它和台账里写的仓根相对路径比,会把全部点名读成"核验不了"(2026-10-09 在无 .git 的
+ *   HEAD 抽取目录里实测到,当时读成"干净 0 / 核验不了 176",像结论而其实什么都没量到)。
  */
 export function collectDirtyPaths(root) {
-  const raw = gitRaw(['status', '--porcelain', '-z', '--untracked-files=all'], root)
-  if (typeof raw !== 'string') return null
-  const set = new Set()
-  for (const e of parsePorcelainZ(raw)) set.add(e.path)
-  return set
+  const top = repoToplevel(root)
+  if (!top) return null
+  try {
+    const raw = gitRaw(['status', '--porcelain', '-z', '--untracked-files=all'], top)
+    if (typeof raw !== 'string') return null
+    const set = new Set()
+    for (const e of parsePorcelainZ(raw)) set.add(e.path)
+    return set
+  } catch {
+    return null
+  }
 }
 
 /** HEAD 树路径全集(用来区分"干净"与"点名的路径根本不在面上")。取不到 ⇒ null。 */
 export function collectHeadPaths(root) {
-  const raw = gitRaw(['ls-tree', '-r', '--name-only', '-z', 'HEAD'], root)
+  const top = repoToplevel(root)
+  if (!top) return null
+  let raw
+  try {
+    raw = gitRaw(['ls-tree', '-r', '--name-only', '-z', 'HEAD'], top)
+  } catch {
+    return null
+  }
   if (typeof raw !== 'string') return null
-  return new Set(raw.split('\0').filter(Boolean))
+  const set = new Set(raw.split('\0').filter(Boolean))
+  // 空集合**不是**"HEAD 里没有文件",而是 git 不可问或问错了面 —— 正常仓的 HEAD 树必有上千条路径。
+  if (set.size === 0) return null
+  return set
+}
+
+/** git 的仓库根;问不到(不是仓 / git 不可用 / 输出为空)⇒ null,调用方一律落"未判定"。 */
+function repoToplevel(root) {
+  try {
+    const out = String(gitRaw(['rev-parse', '--show-toplevel'], root) ?? '')
+      .trim()
+      .replace(/\r/g, '')
+    return out === '' ? null : out.replace(/\\/g, '/')
+  } catch {
+    return null
+  }
 }
 
 /** 只读一条文档。整面取不到 ⇒ 抛 Undetermined(调用方转 exit 2),绝不静默换面。 */
