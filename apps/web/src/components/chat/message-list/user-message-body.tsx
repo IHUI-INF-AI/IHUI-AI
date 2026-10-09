@@ -82,6 +82,7 @@ export function UserMessageBody({ content, testId }: UserMessageBodyProps) {
           onClick={() => openImageSource(im.url, 'user-attachment-image')}
           className="block max-w-full overflow-hidden rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
         >
+          {/* eslint-disable-next-line @next/next/no-img-element -- 用户附件图是任意来源 URL(点开走 openImageSource 看原图),next/image 需要逐 host 配远程域名白名单,不属本处范围 */}
           <img
             data-testid="user-message-image"
             src={im.url}

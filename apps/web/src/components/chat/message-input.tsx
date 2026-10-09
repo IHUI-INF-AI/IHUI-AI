@@ -665,6 +665,7 @@ export function MessageInput({
       }
       requestAnimationFrame(() => inputCoreRef.current?.focus())
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- submitAndDismissLinkPreview 是每次渲染新建的箭头,补进依赖会让这段键盘监听每渲染重挂一次
   }, [draftInput, clearDraftInput, draftAutoSend, clearDraftAutoSend, submit])
 
   // 权限模式可发现性增强(2026-07-25 深化,深度对标 Codex CLI /help):
