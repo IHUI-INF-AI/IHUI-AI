@@ -207,6 +207,9 @@ class ApprovalGenerationCas:
             if veto is not None:
                 state = entry.state if entry is not None else "missing"
                 return SettlementOutcome(False, state, veto.reason_code)
+            # validate 放行 ⇒ entry 必非 None(validate 对缺失 request_id 必返
+            # REASON_SUPERSEDED);assert 是契约窄化,不是新行为面。
+            assert entry is not None
             # CAS:pending → resolved,只有一个决策生效
             entry.state = STATE_RESOLVED
             entry.decision = str(decision)
