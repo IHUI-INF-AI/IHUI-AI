@@ -59,6 +59,8 @@ fn main() {
             "checkin_detect_trae_dir",
             "checkin_capture_jwts",
             "checkin_reset_device_ids",
+            "checkin_get_public_ip",
+            "checkin_one_click_reset",
             "checkin_snapshot_backup",
             "checkin_snapshot_restore",
             "checkin_snapshot_list",
