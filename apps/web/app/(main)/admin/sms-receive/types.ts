@@ -71,6 +71,12 @@ export interface RelatedMsgItem {
   flag: string
 }
 
+/** related-msgs 响应:items=平台单次窗口(≤12条);totalUnion=本地快照累积并集(可>12,快照失败=null 降级) */
+export interface RelatedMsgsData {
+  items: RelatedMsgItem[]
+  totalUnion?: number | null
+}
+
 /** 取号表单状态 */
 export interface GetPhoneForm {
   keyWord: string
