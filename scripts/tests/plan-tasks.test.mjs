@@ -1383,7 +1383,7 @@ test('M18 F9 键集锚四臂:基线含全部现键⇒绿 / 新键⇒红且点名
   if (inj.kind !== 'red' || inj.added.join() !== 'Z-3120927')
     throw new Error(`注入新键必须只点名 Z-3120927,实测 ${JSON.stringify(inj)}`)
   const red = capture(() =>
-    gate(f9face([...BASE_KEYS.map((k) => gOf(k)), gOf('Z-3120927', 2)]), false, ROOT, null, null),
+    gate(f9face([...BASE_KEYS.map((k) => gOf(k)), gOf('Z-3120927', 2)]), false, ROOT, null, null, { F9: BASE_KEYS }),
   )
   if (red.rc !== 1) throw new Error(`基线里没有的键必须拦下,实测 exit ${red.rc}`)
   if (!red.cap.some((x) => x.includes('基线新增撞号') && x.includes('Z-3120927')))
@@ -1397,7 +1397,7 @@ test('M18 F9 键集锚四臂:基线含全部现键⇒绿 / 新键⇒红且点名
   const extraRow = f9face([...BASE_KEYS.map((k) => gOf(k)), gOf(BASE_KEYS[0], 3)])
   if (f9Ratchet({ F9: BASE_KEYS }, extraRow).kind !== 'ok')
     throw new Error('同一撞号编号上再多挂一个标题不得移动基线读数(那是 F1/F4 的病,不是新撞号)')
-  const stillGreen = capture(() => gate(extraRow, false, ROOT, null, null))
+  const stillGreen = capture(() => gate(extraRow, false, ROOT, null, null, { F9: BASE_KEYS }))
   if (stillGreen.rc !== 0)
     throw new Error(`同键多挂一行不得拦提交,实测 exit ${stillGreen.rc}:${JSON.stringify(stillGreen.cap.slice(-2))}`)
   // (c2) 等量换键:去掉一个基线键 + 新撞一个非基线键 ⇒ **组数与基线键数相等**,
@@ -1439,7 +1439,7 @@ test('M18 F9 键集锚四臂:基线含全部现键⇒绿 / 新键⇒红且点名
   if (!line.includes('K-1 标题甲') || !line.includes('K-1 标题乙') || !line.includes('被 2 个不同标题共用'))
     throw new Error(`f9GroupLine 没带出两侧标题 ⇒ 逐组点名退化成只报编号:${line}`)
   // 反向对照:同一份面换回键集形状基线 ⇒ 必须不是 exit 2(否则 (d) 只是"恒 2"的空锁)
-  const okShape = capture(() => gate(f9face(BASE_KEYS.map((k) => gOf(k))), false, ROOT, null, null))
+  const okShape = capture(() => gate(f9face(BASE_KEYS.map((k) => gOf(k))), false, ROOT, null, null, { F9: BASE_KEYS }))
   if (okShape.rc !== 0) throw new Error(`键集形状基线 + 全部键在册 ⇒ 必须 exit 0,实测 ${okShape.rc}`)
   // blind 态:有组数却没带逐组明细 ⇒ 未判定,不记通过
   const blind = f9Ratchet({ F9: BASE_KEYS }, { counts: { collisionGroups: 3 } })
