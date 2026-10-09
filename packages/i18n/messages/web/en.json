@@ -13002,6 +13002,15 @@
       "scopeModels": "Model List",
       "scopeEmbeddings": "Embeddings",
       "scopeImages": "Image Generation",
+    "recharge": "Top up",
+    "rechargeTitle": "Top up {name}",
+    "walletBalance": "Wallet balance",
+    "rechargeAmountLabel": "Amount (CNY)",
+    "rechargeAmountPlaceholder": "e.g. 10.00",
+    "rechargeHint": "Funds move from wallet to this API key balance.",
+    "rechargeOk": "Top-up successful",
+    "rechargeInvalid": "Enter a positive amount",
+    "rechargeConfirm": "Confirm",
       "scopeAudio": "Audio",
       "scopeVideos": "Video Generation",
       "unlimitedQuota": "Unlimited",
@@ -18886,6 +18895,11 @@
     "boardEmpty": "No credits data yet. The dashboard appears after the first check-in.",
     "boardRankingTitle": "Credits Ranking",
     "boardTab": "Dashboard",
+    "boardTrendTitle": "Credits trend (total/gained/consumed)",
+    "refreshCredits": "Refresh credit snapshots",
+    "boardLineTotal": "Total",
+    "boardLineGained": "Gained",
+    "boardLineConsumed": "Consumed",
     "boardTodayGain": "Today +{delta}",
     "checkinAllProgress": "Checking in {done}/{total}",
     "colGroup": "Group",
@@ -18899,6 +18913,9 @@
     "groupUngrouped": "Ungrouped",
     "skippedToday": "Skipped {count} account(s) already checked in today",
     "skippedExpired": "Skipped {count} accounts with expired JWT",
+    "checkinSelected": "Check selected ({count})",
+    "selectAllVisible": "Select all visible",
+    "selectAccount": "Select account {name}",
     "checkinAll": "Check in All",
     "colMessage": "Message",
     "editJwt": "Update JWT",
@@ -27891,3 +27908,5 @@
     "incidentsUnavailable": "Incident data for the last 30 days is temporarily unavailable"
   }
 }
+
+
