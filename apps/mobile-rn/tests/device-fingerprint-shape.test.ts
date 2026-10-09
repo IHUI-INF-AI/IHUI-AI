@@ -1,0 +1,48 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * RN 设备指纹采集器的采集形状回归。
+ *
+ * 这枚文件钉的不是"hash 长什么样"(摘要实现的真伪由 apps/api/tests/legacy-device-fingerprint.test.ts
+ * 用生产实现证),而是**采集器到底喂了几个字段** —— v1 只喂 `platform`,于是全网 iOS 塌成同一个值,
+ * 而该值是 user_devices 的唯一键、被支付/审计/异常检测当设备标识用。替身此前把 `source` 写死成 `{}`,
+ * 所以这件事在端内测试面上根本不可见;本次把替身改成回显输入,才谈得上有证据。
+ *
+ * 三条断言各有分工:
+ *  1. 交出的输入**多于一个字段**(platform 之外至少有 screen / language / timezone 之一)——
+ *     反向对照:把采集器退回"只喂 platform"时这条必红。
+ *  2. 在共享替身环境下**不抛**(Platform 没有 constants / Version 时仍要能出串)。
+ *  3. 缺字段就**不填**该段,不得把 undefined 拼成字符串 —— 拼进去会让"取不到"与"取到 undefined"
+ *     同形,而后者才是把设备画像写歪的那一种。
+ */
+import { describe, expect, it } from 'vitest'
+import { mobileRnDeviceFingerprintCollector } from '../src/lib/device-fingerprint'
+
+describe('mobileRnDeviceFingerprintCollector 采集形状', () => {
+  it('除 platform 之外至少再交出一段(退化指纹的反命题)', async () => {
+    const { source } = await mobileRnDeviceFingerprintCollector.get()
+    const keys = Object.keys(source).filter((k) => source[k as keyof typeof source] !== undefined)
+    expect(keys.length).toBeGreaterThan(1)
+    expect(keys).toContain('platform')
+    expect(keys).toContain('screen')
+  })
+
+  it('替身环境下不抛,且 platform 段拿不到机型时退回 Platform.OS', async () => {
+    const { source } = await mobileRnDeviceFingerprintCollector.get()
+    expect(typeof source.platform).toBe('string')
+    expect(source.platform && source.platform.length > 0).toBe(true)
+    // 共享替身的 Platform 只有 OS:'web',既没有 constants 也没有 Version ⇒ 不得出现 "undefined" 字样
+    expect(source.platform).not.toContain('undefined')
+  })
+
+  it('取不到的段一律缺席,不得写成字符串 "undefined"', async () => {
+    const { source } = await mobileRnDeviceFingerprintCollector.get()
+    for (const [k, v] of Object.entries(source)) {
+      expect(v, `字段 ${k} 不得是 undefined/空串`).not.toBeUndefined()
+      if (typeof v === 'string') expect(v.trim().length, `字段 ${k} 不得为空串`).toBeGreaterThan(0)
+    }
+  })
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
