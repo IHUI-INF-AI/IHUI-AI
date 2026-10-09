@@ -255,7 +255,13 @@ function shRun(exe, args, opt = {}) {
     env: { ...process.env, PGCONNECT_TIMEOUT: '5' },
     // opt.quiet ⇒ 完全不创建管道:pg_ctl start 的后端子进程会**继承**管道句柄,
     // 于是 spawnSync 等到超时才返回(第一次探针就卡在这上面,现象是"启动挂死")。
-    ...(opt.quiet ? { stdio: 'ignore' } : { encoding: 'utf8', maxBuffer: opt.maxBuffer ?? 64 * 1024 * 1024 }),
+    // 非 quiet 路径(2026-10-09 补):不写 stdio = 三通道全管道,stdin 照样建管道
+    // ⇒ 高负载下 spawnSync 对原生 exe 报 EBUSY(errno=-4082,status=null),
+    // 实证打在 initdb 上(同文件 :133 探针早有 stdio,唯独这里漏了)。
+    // 本函数不消费 stdin ⇒ 按仓纪律一律 ['ignore','pipe','pipe'](stdout 仍 pipe,返回值不变)。
+    ...(opt.quiet
+      ? { stdio: 'ignore' }
+      : { encoding: 'utf8', maxBuffer: opt.maxBuffer ?? 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] }),
   })
   if (r.error) return { status: 1, stdout: '', stderr: String(r.error.message ?? r.error), spawnFailed: true }
   return { status: r.status ?? 1, stdout: (r.stdout || '').trim(), stderr: (r.stderr || '').trim() }
