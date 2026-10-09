@@ -18915,7 +18915,7 @@
     "maintReset": "重置设备标识",
     "maintIncludeGuid": "同时重置注册表 MachineGuid（需管理员授权）",
     "maintIncludeBrowser": "同时清理 Chrome/Edge 中的 TRAE Cookie（请先关闭浏览器）",
-    "maintDeepReset": "深度重置（清 TRAE 内置 Cookie/身份数据库/日志缓存，等效重装）",
+    "maintDeepReset": "深度重置（自动关闭 TRAE 进程并清空全部现场数据，等效重装）",
     "maintBackup": "备份现场快照",
     "maintBackupDone": "已备份 {count} 个文件（缺失 {missing} 个）",
     "maintRestore": "恢复",
