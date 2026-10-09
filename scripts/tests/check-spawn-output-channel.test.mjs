@@ -26,9 +26,7 @@ import { findBlindOutputSpawns } from '../lib/spawn-output-channel.mjs'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SCRIPTS_DIR = resolve(HERE, '..')
 const REPO = resolve(SCRIPTS_DIR, '..')
-const RUNNER = join(SCRIPTS_DIR, 'guardian-runner.mjs')
 const GATE_REL = 'check-spawn-output-channel.mjs'
-const SRC = join(SCRIPTS_DIR, GATE_REL)
 const GIT = process.env.GIT_BIN || 'git'
 
 const gitIn = (dir, args) =>
@@ -83,23 +81,27 @@ test('M1 装车证明:HEAD 面 runner 必须有本门注册块,且 blocking + sk
   assert.match(block, /skipEnv:\s*'HUSKY_SKIP_SPAWN_OUTPUT_CHANNEL'/, '缺应急跳过变量 = 文档写了跑不通的出路(§16 同型)')
 })
 
+/* ---------------------------- 唯一实现与接线 ---------------------------- */
+
 test('M2 方向锁:摘掉 script 行后,M1 那种"已装车"结论不得成立', () => {
-  const src = readFileSync(RUNNER, 'utf8')
+  // 与 M1 同侧取材:注册块是旁路落地进 HEAD 的,共享工作树那份常年滞后(按磁盘判就把"已装车"读成"没装")。
+  const src = gitIn(REPO, ['show', 'HEAD:scripts/guardian-runner.mjs'])
   const at = src.indexOf(`script: '${GATE_REL}'`)
-  assert.ok(at > 0, '本臂的前置:runner 里得有本门(与 M1 同一条事实,不另建假设)')
-  const removed = src.slice(0, at) + src.slice(at).replace(`script: '${GATE_REL}'`, "script: 'placeholder-not-this-gate.mjs'")
+  assert.ok(at > 0, '本臂的前置:HEAD 面 runner 里得有本门(与 M1 同一条事实,不另建假设)')
+  const removed = src.slice(0, at) + src.slice(at).replace(`script: '${GATE_REL}'`, `script: '${GATE_REL.replace('check-', 'check-ZZ-')}'`)
   assert.ok(removed.indexOf(`script: '${GATE_REL}'`) < 0, '替换没命中 ⇒ 这条反向锁没牙')
-  assert.ok(!/script:\s*'placeholder-not-this-gate\.mjs'/.test(src), '不得在真 runner 里留下占位名')
 })
 
 test('M3 唯一实现锁:门与测试都不得自带第二份通道判据', () => {
-  const src = readFileSync(SRC, 'utf8')
+  const src = gitIn(REPO, ['show', `HEAD:scripts/${GATE_REL}`])
   assert.match(src, /from '\.\/lib\/spawn-output-channel\.mjs'/, '判据必须从 lib import')
-  assert.ok(!/function findBlindOutputSpawns/.test(src), '门里出现了第二份判据实现')
+  // 断言里的"函数声明"形态要**拼出来**:直接写 `function findBlindOutputSpawns` 会让本文件
+  // 成为自己判据的命中点(§22c 那条"说明性文字也带执行性字符"同型)。
+  const decl = new RegExp('function\\s+' + 'findBlind' + 'OutputSpawns\\s*\\(')
+  assert.ok(!decl.test(src), '门里出现了第二份判据实现')
   const t = readFileSync(join(HERE, 'check-spawn-output-channel.test.mjs'), 'utf8')
-  assert.ok(!/function findBlindOutputSpawns/.test(t), '镜像测试里出现了第二份判据(§22c 明令禁止)')
+  assert.ok(!decl.test(t), '镜像测试里出现了第二份判据(§22c 明令禁止)')
 })
-
 test('M4 真仓阳性对照:HEAD 面必须能看见整面(看不见存量不算通过),且当前零命中', () => {
   const r = runGate(REPO, ['--json'])
   assert.equal(r.code, 0, `真仓 HEAD 面不得判红(存量已清 ⇒ 接线不新增恒红面):\n${r.out.slice(0, 800)}`)
@@ -149,31 +151,36 @@ test('M6 未判定不得记绿也不得记红:顶层作用域界不定 ⇒ 逐�
   }
 })
 
-test('M7 判死边界:两面旗同给 exit 2;空枚举 exit 2(不得读成通过)', () => {
+test('M7 判死边界:两面旗同给 exit 2;枚举到 0 个源码脚本 exit 2(不得读成通过)', () => {
   const both = runGate(REPO, ['--staged', '--worktree'])
   assert.equal(both.code, 2, `两面旗同给必须 exit 2:\n${both.out}`)
   const dir = mkScratch('soc-empty-')
   try {
-    // 只拷门与 lib,不放任何被审脚本 ⇒ 枚举到 0 个必须判死
+    // 门与 lib 拷进临时仓但**不提交**;提交里只有一份非源码文件 ⇒
+    // 被审面(HEAD 树)枚举到 0 个源码脚本。空扫必须判死,不得报"零命中"就 exit 0。
     copyScriptWithClosure(SCRIPTS_DIR, GATE_REL, join(dir, 'scripts'), ['lib/spawn-output-channel.mjs'])
+    writeFileSync(join(dir, 'scripts', 'note.md'), '# 只占位,不是源码\n', 'utf8')
     gitIn(dir, ['init', '-q', '.'])
     gitIn(dir, ['config', 'user.email', 't@example.invalid'])
     gitIn(dir, ['config', 'user.name', 'mirror test'])
-    gitIn(dir, ['add', '-A', '--'])
+    gitIn(dir, ['add', '--', 'scripts/note.md'])
     gitIn(dir, ['commit', '-q', '-m', 'base'])
     const empty = runGate(dir, [])
-    assert.equal(empty.code, 2, `枚举到 0 个脚本必须判死,不得报"零命中"就 exit 0:\n${empty.out}`)
+    assert.equal(empty.code, 2, `HEAD 面枚举到 0 个源码脚本必须判死:\n${empty.out}`)
+    assert.match(empty.out, /判死/, '必须喊出"判死"而不是静默 0')
   } finally {
     rmScratch(dir)
   }
 })
 
 test('M8 无豁免通道:这一型只有"改回管道"一条正解', () => {
-  const src = readFileSync(SRC, 'utf8')
-  assert.ok(!/exempt/i.test(src), '门里出现了豁免通道 ⇒ 本型禁止"标一下跳过"')
-  assert.ok(!/baseline/i.test(src), '门里出现了基线台账 ⇒ 存量已在 M4 证明为零,留台账就是给腐烂留门')
+  const src = gitIn(REPO, ['show', `HEAD:scripts/${GATE_REL}`])
+  // 注意区分:**自豁免门自身文件**(判据必含违例形态的文本,否则门给自己立项那一型判红)
+  // 与"给站点留跳过通道"是两件事。后者在本型里禁止。
+  assert.ok(!/[\w-]-exempt/.test(src), '门里出现了行内豁免标记 ⇒ 本型禁止"标一下跳过"')
+  assert.ok(!/exemptions?\.(json|js)\b/.test(src), '门里出现了豁免/基线台账读取')
+  assert.ok(!/baseline/i.test(src), '门里出现了基线台账字样 ⇒ 存量已在 M4 证明为零,留台账就是给腐烂留门')
 })
-
 test('M9 形状判据有牙:同一函数体内三个通道写法各判一次(构造面,不依赖仓库瞬时状态)', () => {
   assert.equal(findBlindOutputSpawns(BLIND).hits.length, 1, "标量 'ignore' 必须命中")
   assert.equal(findBlindOutputSpawns(CLEAN).hits.length, 0, '数组第二格 pipe 必须放过')
