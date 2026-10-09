@@ -317,6 +317,14 @@ function writeIn(dir, rel, text) {
 const R4_PROBE =
   'export function readStatus(row: { status: unknown }) {\n  return row.status as ChatMessageStatus\n}\n'
 
+/**
+ * R4a **判红行**的结构形态,不是 "R4a" 这个标签串。
+ * 2026-10-10 把 R4b 的射程与 R4a 分开印之后,摘要行永久带 "R4a" 字样(它现在要说清两个数各出自
+ * 哪棵树)。若继续用 /R4a/ 做子串断言:`assert.match` 会被摘要行满足而变成恒真(注入没咬住也说咬住),
+ * `assert.doesNotMatch` 会变成恒红(合规也被判成违规)。⇒ 装载证明一律钉判据产出的那句原文。
+ */
+const R4A_FINDING = /R4a \S+ 把外部值直转成枚举档/
+
 test('R4a 端到端双向锁:注入 as ChatMessageStatus 到索引 ⇒ --staged 判红并点名,而 HEAD 面不得被牵连', () => {
   const dir = fixture()
   try {
@@ -324,7 +332,7 @@ test('R4a 端到端双向锁:注入 as ChatMessageStatus 到索引 ⇒ --staged 
     git(dir, 'add', '-A') // 只进索引,不进 HEAD ⇒ 锚点 0
     const staged = run(dir, ['--staged'])
     assert.equal(staged.status, 1, `索引里有一处直转必须拦:${staged.stdout}${staged.stderr}`)
-    assert.match(staged.stderr, /R4a/)
+    assert.match(staged.stderr, R4A_FINDING)
     assert.match(staged.stderr, /r4-probe\.ts/)
     assert.match(staged.stderr, /ChatMessageStatus/)
     // 反向对照:HEAD 面上还没有这一族站点 ⇒ 全量档不得被别人未提交的索引内容牵连
@@ -350,7 +358,7 @@ test('R4a 反向对照:同一形态只写在注释里 ⇒ --staged 必绿(门不
     git(dir, 'add', '-A')
     const r = run(dir, ['--staged'])
     assert.equal(r.status, 0, `注释形态不得计入站点:${r.stdout}${r.stderr}`)
-    assert.doesNotMatch(`${r.stdout}${r.stderr}`, /R4a/)
+    assert.doesNotMatch(`${r.stdout}${r.stderr}`, R4A_FINDING)
   } finally {
     rmScratch(dir)
   }
@@ -373,9 +381,48 @@ test('R4a 棘轮的两个方向:站点进了 HEAD ⇒ 只报数不判红;在此�
     git(dir, 'add', '-A')
     const stagedMore = run(dir, ['--staged'])
     assert.equal(stagedMore.status, 1, `站点数超过该文件 HEAD 自身存量必须红:${stagedMore.stdout}`)
-    assert.match(stagedMore.stderr, /R4a/)
+    assert.match(stagedMore.stderr, R4A_FINDING)
   } finally {
     rmScratch(dir)
+  }
+})
+
+/**
+ * R4b 的射程端到端锁(G-815963 续,2026-10-10)。
+ * 为什么必须有这一条而不是只留门内那条构造面用例:构造面证明的是 `collectCoerceFiles` 会取宽清单,
+ * 而**"宽清单真的一路喂到判据、并且只在宽面上喂"**只有在临时 git 仓里端到端才量得到 ——
+ * 本仓反复吃过"函数在、自检过、调用点没接"(守门 70/76/81/150)这一型。
+ * 两臂各钉一件事:A 臂 = services 里的坏安全档必须被咬(旧窄面在这里恒绿);
+ * B 臂 = 同一份内容放在两棵窄树与 services 之外必须不被咬(证明红来自"射程"而不是"整仓扫")。
+ */
+const R4B_BAD =
+  "export function readState(row: { status: unknown }) {\n" +
+  "  return coerceKnownOr(row.status, ['active', 'closed'], 'unknown-state')\n}\n"
+const R4B_FINDING = /R4b \S+ 的安全档 'unknown-state' 不在它自己的全集/
+
+test('R4b 端到端:services 里的坏安全档必被咬,而射程外同名文件不咬(射程=判据,不是顺手多扫)', () => {
+  const inside = fixture()
+  const outside = fixture()
+  try {
+    writeIn(inside, 'apps/api/src/services/r4b-probe.ts', R4B_BAD)
+    git(inside, 'add', '-A')
+    const red = run(inside, ['--staged'])
+    assert.equal(red.status, 1, `services 必须进 R4b 射程:${red.stdout}${red.stderr}`)
+    assert.match(red.stderr, R4B_FINDING)
+    assert.match(red.stderr, /r4b-probe\.ts/)
+
+    writeIn(outside, 'apps/web/src/r4b-probe.ts', R4B_BAD)
+    git(outside, 'add', '-A')
+    const green = run(outside, ['--staged'])
+    assert.equal(
+      green.status,
+      0,
+      `射程外不得被 R4b 判红(否则本门变成整仓扫,而 R4a 的窄口径也就没了):${green.stdout}${green.stderr}`,
+    )
+    assert.doesNotMatch(`${green.stdout}${green.stderr}`, R4B_FINDING)
+  } finally {
+    rmScratch(inside)
+    rmScratch(outside)
   }
 })
 
