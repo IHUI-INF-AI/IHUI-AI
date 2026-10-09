@@ -4,11 +4,11 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { execSync, spawnSync } from 'node:child_process'
+import { execSync, execFileSync, spawnSync } from 'node:child_process'
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -1534,3 +1534,230 @@ test('DRIFT-2 --strict 才把漂移判死(问责档),且判死那一趟不得打
     rmScratch(root)
   }
 })
+
+// ─── FL:G-1079148 键流追踪(t(变量) 与"键作为值穿过 helper"两型)────────────
+// 票面要求的是三条成对用例 + 变异锁。这里额外把"归属不猜"那一格也钉住,因为它是本门
+// 唯一可能把"没判"写成"判过了"的新地方。真实形态取自 HEAD 面(§22c 的取材口径),
+// 不用工作树副本 —— 该文件此刻由他席持有(` M`),按磁盘取会让断言随别人在飞改动漂动。
+const REPO_ROOT_FOR_FL = join(__dirname, '..', '..')
+const TOOLBAR_REL = 'apps/web/src/components/ai/markdown-table-toolbar.tsx'
+function toolbarFromHead() {
+  // 2026-10-04 本机纪律:派生 git 必须显式 stdio;取整面必须带 maxBuffer
+  return execFileSync('git', ['-C', REPO_ROOT_FOR_FL, 'show', `HEAD:${TOOLBAR_REL}`], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    maxBuffer: 64 * 1024 * 1024,
+  }).toString('utf8')
+}
+// 把 chat.markdownTable.<leaf> 铺进五语言(保持 parity 干净,让红只能来自"缺键"这一维)
+function webMsgsToolbar(leaves) {
+  const out = {}
+  for (const [lang, base] of Object.entries(PARITY_OK)) {
+    const mt = {}
+    for (const leaf of leaves) mt[leaf] = `${lang}/${leaf}`
+    out[lang] = { ...base, chat: { markdownTable: mt } }
+  }
+  return out
+}
+const FLOW_SRC = [
+  "const t = useTranslations('chat')",
+  "const [notice, setNotice] = React.useState('')",
+  'const flashNotice = React.useCallback((key) => { setNotice(key) }, [])',
+  "flashNotice('markdownTable.empty')",
+  "return <div>{notice ? <span>{t(notice)}</span> : null}{t('markdownTable.copy')}</div>",
+].join('\n')
+
+function webFlowCase(root, src, leaves) {
+  writeWebMessages(root, webMsgsToolbar(leaves))
+  const srcDir = join(root, 'apps', 'web', 'src')
+  mkdirSync(srcDir, { recursive: true })
+  writeFileSync(join(srcDir, 'flow-case.tsx'), src)
+}
+
+test('FL-1 流进的键不在包里必须点名(旧版只认字面量实参 ⇒ 该键整型隐身)', () => {
+  const root = createTempProject()
+  try {
+    webFlowCase(root, FLOW_SRC, ['copy'])
+    const r = runScript(['--target=web'], { cwd: root })
+    assert.equal(r.status, 1, `流键缺失必须判红,实得 ${r.status}:\n${r.stdout}`)
+    assert.match(r.stdout, /markdownTable\.empty/, `必须点名那个流进来的键:\n${r.stdout}`)
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('FL-2 同一份源码补齐流键后 exit 0(判据有牙但不误报)', () => {
+  const root = createTempProject()
+  try {
+    webFlowCase(root, FLOW_SRC, ['copy', 'empty'])
+    const r = runScript(['--target=web'], { cwd: root })
+    assert.equal(r.status, 0, `补齐后不应误报,实得 ${r.status}:\n${r.stdout}${r.stderr}`)
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('FL-3 lib 的汇点语义钉成规格:喂 setter 命中 4 键,喂源函数名必须为空', async () => {
+  // 这一条钉的是接线时最容易静默失效的那一步(2026-10-09 接线前置实测 ②):
+  // 名字喂错不报错,只返回空 ⇒ 门对着同一个文件继续报绿。所以"喂错=空"必须是规格而不是意外。
+  const { traceKeyFlow } = await import(
+    pathToFileURL(join(REPO_ROOT_FOR_FL, 'scripts', 'lib', 'i18n-key-flow.mjs')).href
+  )
+  const src = toolbarFromHead()
+  const right = traceKeyFlow(src, ['setNotice'])
+  const wrong = traceKeyFlow(src, ['flashNotice'])
+  assert.equal(
+    right.undetermined.length,
+    0,
+    `真汇点不应留下未判定:${JSON.stringify(right.undetermined)}`,
+  )
+  const got = right.keys.map((k) => k.key).sort()
+  assert.deepEqual(
+    got,
+    [
+      'markdownTable.copyFailed',
+      'markdownTable.csvFailed',
+      'markdownTable.empty',
+      'markdownTable.unsupported',
+    ],
+    `汇点喂对必须命中票面那 4 个键,实得 ${JSON.stringify(got)}`,
+  )
+  assert.deepEqual(
+    wrong.keys,
+    [],
+    `喂源函数名必须为空 —— 这条若翻绿,说明 lib 语义变了,本门的派生逻辑要重审`,
+  )
+})
+
+test('FL-4 state 没被任何翻译变量用作整实参 ⇒ 不产流键也不报名(不误报)', () => {
+  const root = createTempProject()
+  try {
+    const src = [
+      "const t = useTranslations('chat')",
+      'const [open, setOpen] = React.useState(false)',
+      'setOpen(true)',
+      "return <div>{t('markdownTable.copy')}</div>",
+    ].join('\n')
+    webFlowCase(root, src, ['copy'])
+    const r = runScript(['--target=web'], { cwd: root })
+    assert.equal(r.status, 0, `布尔位不该被算成流键,实得 ${r.status}:\n${r.stdout}`)
+    assert.doesNotMatch(
+      r.stdout,
+      /键流未判定/,
+      `没有流键站点却报名 = 把"与翻译无关"读成"判不出":\n${r.stdout}`,
+    )
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('FL-5 同一 reader 被两个翻译变量用作整实参 ⇒ 只点名不猜归属;--strict 才拒出合格证', () => {
+  const root = createTempProject()
+  try {
+    const src = [
+      "const t = useTranslations('chat')",
+      "const t2 = useTranslations('nav')",
+      "const [notice, setNotice] = React.useState('')",
+      'const flashNotice = React.useCallback((key) => { setNotice(key) }, [])',
+      "flashNotice('markdownTable.mystery')",
+      "return <div>{t(notice)}{t2(notice)}{t('markdownTable.copy')}</div>",
+    ].join('\n')
+    webFlowCase(root, src, ['copy'])
+    const warn = runScript(['--target=web'], { cwd: root })
+    assert.equal(
+      warn.status,
+      0,
+      `归属判不出不得冒红(恒红门,§12e),实得 ${warn.status}:\n${warn.stdout}`,
+    )
+    assert.match(warn.stdout, /键流未判定 1 处/, `必须点名那一处未判定:\n${warn.stdout}`)
+    assert.doesNotMatch(
+      warn.stdout,
+      /markdownTable\.mystery.*缺失|缺失.*markdownTable\.mystery/s,
+      `不得替人挑一个命名空间把未判定洗成结论:\n${warn.stdout}`,
+    )
+    const strict = runScript(['--target=web', '--strict'], { cwd: root })
+    assert.equal(
+      strict.status,
+      2,
+      `问责档下有未判定必须拒出合格证,实得 ${strict.status}:\n${strict.stdout}`,
+    )
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('FL-6 真实形态阳性对照:HEAD 那份组件在包齐时读到 8 键(不是旧版的 4)', () => {
+  const root = createTempProject()
+  try {
+    writeWebMessages(
+      root,
+      webMsgsToolbar([
+        'copy',
+        'downloadCsv',
+        'fullscreen',
+        'fullscreenTitle',
+        'empty',
+        'unsupported',
+        'copyFailed',
+        'csvFailed',
+      ]),
+    )
+    const srcDir = join(root, 'apps', 'web', 'src')
+    mkdirSync(srcDir, { recursive: true })
+    writeFileSync(join(srcDir, 'markdown-table-toolbar.tsx'), toolbarFromHead())
+    const r = runScript(['--target=web'], { cwd: root })
+    assert.equal(r.status, 0, `包齐时不得判红,实得 ${r.status}:\n${r.stdout}${r.stderr}`)
+    assert.match(
+      r.stdout,
+      /1 文件, 8 键/,
+      `票面那句"8 而不是 4"必须能在真实形态上量到:\n${r.stdout}`,
+    )
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('FL-8 形状锁:汇点派生只能引 lib 那一份,门内不得再抄一个同名函数', () => {
+  // 本票接线当天真实踩到的自伤:门里抄了一份写窄的 useState 正则 ⇒ `useState` 整族不匹配 ⇒
+  // 门继续报 4 键而账面一切正常。判据行为已被 FL-6/FL-7 钉住,这一条只是让"再抄一份"这件事
+  // 在提交时就红,而不是等到下一个人重新踩。
+  const gate = readFileSync(SCRIPT_PATH, 'utf8')
+  assert.match(
+    gate,
+    /import\s*\{[^}]*deriveStatePairs[^}]*\}\s*from\s*'\.\/lib\/i18n-key-flow\.mjs'/,
+  )
+  assert.doesNotMatch(
+    gate,
+    /^function deriveStatePairs\b/m,
+    '门内重新声明同名函数 = 第二个真相(§22c:两处算同一件事必然漂开)',
+  )
+})
+
+test('FL-7 变异锁:真实形态里摘掉那一个流键必须翻红并点名(证明并集真进了判定面,不只进计数)', () => {
+  const root = createTempProject()
+  try {
+    writeWebMessages(
+      root,
+      webMsgsToolbar([
+        'copy',
+        'downloadCsv',
+        'fullscreen',
+        'fullscreenTitle',
+        'unsupported',
+        'copyFailed',
+        'csvFailed',
+      ]),
+    )
+    const srcDir = join(root, 'apps', 'web', 'src')
+    mkdirSync(srcDir, { recursive: true })
+    writeFileSync(join(srcDir, 'markdown-table-toolbar.tsx'), toolbarFromHead())
+    const r = runScript(['--target=web'], { cwd: root })
+    assert.equal(r.status, 1, `摘掉流键必须判红,实得 ${r.status}:\n${r.stdout}`)
+    assert.match(r.stdout, /markdownTable\.empty/, `必须点名被摘的那个流键:\n${r.stdout}`)
+    // 计数仍是 8 —— 被引用而包里缺,不等于"没被引用"。这一条同时钉住两件事:
+    // 判定与计数来自同一份并集(不是各算一遍),而"缺键"这一红只能由包侧缺叶造成。
+    assert.match(r.stdout, /1 文件, 8 键/, `引用计数不得因包里缺叶而掉:\n${r.stdout}`)
+  } finally {
+    rmScratch(root)
+  }
+})
+
