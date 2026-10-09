@@ -25,20 +25,22 @@
 ```bash
 pnpm install                                            # ① 安装依赖(全 workspace)
 pnpm --filter @ihui/database db:push                    # ② 初始化数据库 schema(Drizzle,首次)
-pwsh -File scripts/start-dev.ps1                        # ③ 启动默认组 web + api(ai-service 见下)
+pnpm dev:safe                                           # ③ 启动默认组 web + api(ai-service 见下)
 ```
+
+`pnpm dev:safe` 经 `scripts/run-start-dev.mjs` 包装启动:自动定位 PowerShell 7(PATH 找不到时回退标准安装位置),会话 PATH 陈旧也不影响。等价的直接调用方式:`node scripts/run-start-dev.mjs`。
 
 ai-service 单独启动(Python 侧,默认组不含):
 
-```powershell
-pwsh -File scripts/start-dev.ps1 -Services web,api,ai-service
+```bash
+node scripts/run-start-dev.mjs -Services web,api,ai-service
 ```
 
 启动后打开 http://localhost:8801 注册账号即可使用。状态/停止:
 
-```powershell
-pwsh -File scripts/start-dev.ps1 -Status   # 查看各端健康状态
-pwsh -File scripts/start-dev.ps1 -Stop     # 停止全部
+```bash
+pnpm dev:safe:status   # 查看各端健康状态
+pnpm dev:safe:stop     # 停止全部
 ```
 
 日志:`.ihui-agent/tmp/dev-logs/<service>.log`;端口冲突加 `-Force`。
@@ -64,10 +66,10 @@ MCP 能力:`/mcp-store` 一键注册外部 MCP Server;`/capability-market` 启�
 
 ## 5. 常见问题
 
-- **pwsh 脚本被拒绝**:用了 Windows PowerShell 5.1。所有 .ps1 必须 PowerShell 7+(脚本头 `#requires -Version 7` 守门)。
+- **pwsh 脚本被拒绝**:用了 Windows PowerShell 5.1。所有 .ps1 必须 PowerShell 7+(脚本头 `#requires -Version 7` 守门)。经 `pnpm dev:safe` 启动可自动定位 PowerShell 7,无需手动配 PATH。
 - **8803 起不来**:ai-service 用 `uv` 管理,首次先 `cd apps/ai-service && uv sync`;健康检查 240s 超时(UV 首次装依赖较慢)。
 - **api 报数据库连接失败**:确认 PostgreSQL 18 已启动且 `apps/api/.env.local` 中连接串正确;JWT_SECRET 三端(web/api/ai-service)必须一致,禁止各端自生成。
-- **端口被占**:`pwsh -File scripts/start-dev.ps1 -Clean` 清理全部 IHUI 端口后重启,或 `-Force` 强制 kill。
+- **端口被占**:`pnpm dev:safe:clean`(已含 `-Force`)清理全部 IHUI 端口后重启。
 - **web 请求 404 /api/xxx**:部分路由直连 ai-service 8803(next.config.ts rewrites),确认 ai-service 已启动。
-- **微信/桌面端**:桌面端 `pnpm --filter @ihui/desktop tauri dev`(自带 web 8801,与 web 服务互斥);小程序 `pwsh -File scripts/start-dev.ps1 -All` 后按 Taro 文档构建。
+- **微信/桌面端**:桌面端 `pnpm --filter @ihui/desktop tauri dev`(自带 web 8801,与 web 服务互斥);小程序 `pnpm dev:safe:all` 后按 Taro 文档构建。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
