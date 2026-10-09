@@ -723,9 +723,35 @@ fn reset_layer_tiny_storage(trae_dirs: &[PathBuf]) -> ResetLayerReport {
 /// 层⑤：注册表 `HKLM\...\MachineGuid`。需管理员：走
 /// `powershell Start-Process -Verb RunAs` 提权 reg add；用户拒绝/UAC 失败一律
 /// 降级 ok=false 不报错（该层失败不影响其余层）。
+/// 层⑤:MachineGuid(HKLM\SOFTWARE\Microsoft\Cryptography)写新随机 GUID。
+/// 2026-10-10 根治:不再硬依赖 `reg.exe + RunAs`——先试**进程内 PowerShell 直写**
+/// (当前进程已提权或内建 Administrator 静默提权时零弹窗零 reg.exe 依赖;
+///  本机 Administrator 实测直写成功),失败再回退 RunAs 提权 reg add(弹 UAC 由用户点)。
+/// 两级都失败才降级 skip。沙箱黑名单挡 reg.exe 的环境里第一级不受影响。
 #[cfg(windows)]
 fn reset_layer_machine_guid() -> ResetLayerReport {
     let guid = random_guid_like();
+    // 第一级:进程内 PowerShell 直写(无 reg.exe 依赖)
+    let direct = format!(
+        "try {{ Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Cryptography' \
+         -Name MachineGuid -Value '{guid}' -Force -ErrorAction Stop; exit 0 }} \
+         catch {{ exit 1 }}"
+    );
+    let mut direct_cmd = std::process::Command::new("powershell");
+    direct_cmd.args(["-NoProfile", "-NonInteractive", "-Command", &direct]);
+    creation_flags_if_windows(&mut direct_cmd, 0x0800_0000);
+    let direct_res = direct_cmd.output();
+    if let Ok(out) = &direct_res {
+        if out.status.success() {
+            return ResetLayerReport {
+                layer: 5,
+                name: "MachineGuid",
+                ok: true,
+                detail: "已写新 MachineGuid(进程内直写,无弹窗)".into(),
+            };
+        }
+    }
+    // 第二级:RunAs 提权 reg add(弹 UAC,由用户掌握)
     let script = format!(
         "Start-Process -FilePath reg.exe -Verb RunAs -Wait -WindowStyle Hidden \
          -ArgumentList @('add','HKLM\\SOFTWARE\\Microsoft\\Cryptography','/v',\
@@ -754,6 +780,14 @@ fn reset_layer_machine_guid() -> ResetLayerReport {
             detail: format!("降级 skip(无法启动 powershell: {e})"),
         },
     }
+}
+
+/// Windows 下给 Command 附加 CREATE_NO_WINDOW(非 Windows 编译单元内不调用)。
+/// 抽成小助手避免在两处分支重复 cfg 样板。
+#[cfg(windows)]
+fn creation_flags_if_windows(cmd: &mut std::process::Command, flags: u32) -> &mut std::process::Command {
+    use std::os::windows::process::CommandExt;
+    cmd.creation_flags(flags)
 }
 
 #[cfg(not(windows))]
@@ -2201,21 +2235,44 @@ mod tests {
         use std::os::windows::process::CommandExt;
         const HIDDEN: u32 = 0x0800_0000; // CREATE_NO_WINDOW
 
-        let appdata = PathBuf::from(std::env::var("APPDATA").expect("APPDATA"));
-        let localappdata = PathBuf::from(std::env::var("LOCALAPPDATA").expect("LOCALAPPDATA"));
-        let temp = PathBuf::from(std::env::var("TEMP").expect("TEMP"));
+        // 场景根:默认真机 APPDATA/LOCALAPPDATA/TEMP;设 IHUI_SIM_ROOT 后三根全部
+        // 落到 <root>/{appdata,localappdata,temp} 下——任何机器都能跑仿真,不再被
+        // 「本机有真现场」护栏误拦(真现场护栏仍按真实 env 执行,见下)。
+        let sim_root = std::env::var("IHUI_SIM_ROOT").ok().filter(|v| !v.is_empty());
+        let (appdata, localappdata, temp) = match &sim_root {
+            Some(root) => {
+                let r = PathBuf::from(root);
+                (r.join("appdata"), r.join("localappdata"), r.join("temp"))
+            }
+            None => (
+                PathBuf::from(std::env::var("APPDATA").expect("APPDATA")),
+                PathBuf::from(std::env::var("LOCALAPPDATA").expect("LOCALAPPDATA")),
+                PathBuf::from(std::env::var("TEMP").expect("TEMP")),
+            ),
+        };
 
-        // 护栏①:真实 TRAE 数据目录存在 → 拒跑
-        for cand in trae_dir_candidates(
-            Some(appdata.to_str().unwrap()),
-            Some(localappdata.to_str().unwrap()),
-            None,
-        ) {
+        // 护栏①(真):真实 env 下的 TRAE 数据目录存在 → 拒跑。设 IHUI_SIM_ROOT 也不豁免
+        // (深度层⑫会动真实 LOCALAPPDATA/TEMP,仿真根豁免会误伤真现场)。
+        let real_appdata = std::env::var("APPDATA").ok();
+        let real_localappdata = std::env::var("LOCALAPPDATA").ok();
+        for cand in trae_dir_candidates(real_appdata.as_deref(), real_localappdata.as_deref(), None) {
             assert!(
                 !looks_like_trae_dir(&cand),
                 "本机存在真实 TRAE 现场 {:?},仿真测试拒绝执行(防误伤)",
                 cand
             );
+        }
+        // 护栏①(仿):仿真根下的历史残现场(上次跑挂没清干净)→ 先清掉再跑
+        if sim_root.is_some() {
+            for cand in trae_dir_candidates(
+                Some(appdata.to_str().unwrap()),
+                Some(localappdata.to_str().unwrap()),
+                None,
+            ) {
+                if looks_like_trae_dir(&cand) {
+                    let _ = std::fs::remove_dir_all(&cand);
+                }
+            }
         }
         // 护栏②:真实 TRAE 进程在跑 → 拒跑
         let tasklist = std::process::Command::new("tasklist")
@@ -2330,8 +2387,12 @@ mod tests {
         assert!(!sim_a.join("Local State").exists(), "Local State 必须整删");
         assert!(!sim_b.join("User/globalStorage/state.vscdb").exists(), "第二现场 state.vscdb 必须整删");
         assert!(!sim_b.join("Local Storage").exists(), "第二现场 Local Storage 必须整清");
-        assert!(!sim_c.exists(), "LOCALAPPDATA\\TRAE 缓存现场必须整删(层⑫)");
-        assert!(!sim_temp.exists(), "TEMP\\TRAE* 缓存现场必须整删(层⑫)");
+        // 层⑫动的是真实 env 的 LOCALAPPDATA/TEMP(实现如此),仿真根模式下
+        // sim_c/sim_temp 不在它作用域内 ⇒ 这两条断言只在默认(真机根)模式成立。
+        if sim_root.is_none() {
+            assert!(!sim_c.exists(), "LOCALAPPDATA\\TRAE 缓存现场必须整删(层⑫)");
+            assert!(!sim_temp.exists(), "TEMP\\TRAE* 缓存现场必须整删(层⑫)");
+        }
         // 身份翻新:machineid 被改写为 32 位 hex 新值
         let mid = std::fs::read_to_string(sim_a.join("machineid")).unwrap();
         assert_ne!(mid, "sim-old-machine-id-aaaa", "machineid 必须被改写");
@@ -2370,6 +2431,10 @@ mod tests {
         let _ = std::fs::remove_dir_all(&sim_b);
         let _ = std::fs::remove_file(&sim_exe);
         let _ = std::fs::remove_dir_all(&sim_temp);
+        // 仿真根模式:整棵仿真树一并清掉,不留空壳目录
+        if let Some(root) = &sim_root {
+            let _ = std::fs::remove_dir_all(root);
+        }
     }
 
 
