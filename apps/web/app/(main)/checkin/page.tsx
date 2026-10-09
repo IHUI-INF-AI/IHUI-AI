@@ -153,12 +153,22 @@ export default function CheckinPage() {
   const [maintIncludeMac, setMaintIncludeMac] = React.useState(false)
 
   // 一键解决风控向导(傻瓜式 3 步:重置 → 换网络 → 冷却提醒)
-  const [wizardStep, setWizardStep] = React.useState<0 | 1 | 2 | 3>(0)
+  const [wizardStep, setWizardStep] = React.useState<0 | 2 | 3>(0)
   const [wizardIpBefore, setWizardIpBefore] = React.useState('')
   const [wizardIpLoc, setWizardIpLoc] = React.useState('')
   const [wizardIpNow, setWizardIpNow] = React.useState('')
   const [wizardBusy, setWizardBusy] = React.useState(false)
   const [wizardMsg, setWizardMsg] = React.useState<string[]>([])
+  // 上次一键重置时间(冷却提醒用):24h 内再登录会续期风控
+  const [lastResetAt, setLastResetAt] = React.useState<number | null>(null)
+  React.useEffect(() => {
+    try {
+      const v = localStorage.getItem('checkin-oneclick-at')
+      if (v) setLastResetAt(Number(v))
+    } catch {
+      /* 隐私模式降级:无提醒 */
+    }
+  }, [])
   const [maintReport, setMaintReport] = React.useState<string[]>([])
   const [maintError, setMaintError] = React.useState<string | null>(null)
   const [maintUserId, setMaintUserId] = React.useState('')
@@ -298,7 +308,8 @@ export default function CheckinPage() {
 
   const refreshSnapshots = async () => {
     try {
-      setSnapshots(await checkinSnapshotList())
+      // 防御:后端异常通道返回 undefined 时按空数组处理,不让列表渲染崩整树
+      setSnapshots((await checkinSnapshotList()) ?? [])
     } catch (e) {
       setMaintError((e as Error).message)
     }
@@ -337,7 +348,8 @@ export default function CheckinPage() {
       return report.layers.map((l) => `[${l.ok ? 'OK' : 'FAIL'}] L${l.layer} ${l.name}: ${l.detail}`)
     })
 
-  // 一键解决风控 Step1:全 14 层彻底重置,完成后记录出口 IP 进入换网络引导
+  // 一键解决风控 Step1:全 14 层彻底重置,成功即进 Step2(IP 采集失败不回退,
+  // 防止"重置已完成却显示可再点按钮"引发二次重置;基准 IP 可在 Step2 内重取)
   const startOneClickReset = async () => {
     setWizardBusy(true)
     setWizardMsg([])
@@ -351,13 +363,21 @@ export default function CheckinPage() {
       ])
       try {
         localStorage.setItem('checkin-oneclick-at', String(Date.now()))
+        setLastResetAt(Date.now())
       } catch {
         /* 隐私模式下 localStorage 不可用,冷却提醒仅当次会话有效 */
       }
-      const before = await checkinGetPublicIp()
-      setWizardIpBefore(before.ip)
-      setWizardIpLoc(before.location)
       setWizardStep(2)
+      try {
+        const before = await checkinGetPublicIp()
+        setWizardIpBefore(before.ip)
+        setWizardIpLoc(before.location)
+        if (!before.location) {
+          setWizardMsg((m) => [t('wizardNoLoc'), ...m])
+        }
+      } catch {
+        setWizardMsg((m) => [t('wizardIpFetchFail'), ...m])
+      }
     } catch (e) {
       setMaintError((e as Error).message)
     } finally {
@@ -369,9 +389,18 @@ export default function CheckinPage() {
   const verifyIpChanged = async () => {
     setWizardBusy(true)
     try {
+      // 基准 IP 缺失(Step1 采集失败)时,此次采集先补基准——重置本身不动网络,
+      // 用户尚未换出口前采集到的仍是"重置前出口"
+      if (!wizardIpBefore) {
+        const base = await checkinGetPublicIp()
+        setWizardIpBefore(base.ip)
+        setWizardIpLoc(base.location)
+        setWizardMsg((m) => [t('wizardRefetch', { ip: base.ip }), ...m])
+        return
+      }
       const now = await checkinGetPublicIp()
       setWizardIpNow(now.ip)
-      if (wizardIpBefore && now.ip !== wizardIpBefore) {
+      if (now.ip !== wizardIpBefore) {
         setWizardStep(3)
       } else {
         setWizardMsg((m) => [t('wizardIpUnchanged'), ...m])
@@ -381,6 +410,15 @@ export default function CheckinPage() {
     } finally {
       setWizardBusy(false)
     }
+  }
+
+  // 向导状态归零(Step3 完成后的重新开始入口)
+  const restartWizard = () => {
+    setWizardStep(0)
+    setWizardIpBefore('')
+    setWizardIpLoc('')
+    setWizardIpNow('')
+    setWizardMsg([])
   }
 
   const backupSnapshot = () =>
@@ -1533,9 +1571,15 @@ export default function CheckinPage() {
         </Dialog>
       )}
 
-      {/* 本机 TRAE 维护对话框(桌面端专属,WP-C) */}
+      {/* 本机 TRAE 维护对话框(桌面端专属,WP-C);busy 中禁止关闭防中途失控 */}
       {desktop && (
-        <Dialog open={maintOpen} onOpenChange={setMaintOpen}>
+        <Dialog
+          open={maintOpen}
+          onOpenChange={(open) => {
+            if (!open && (maintBusy || wizardBusy)) return
+            setMaintOpen(open)
+          }}
+        >
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{t('maintTitle')}</DialogTitle>
@@ -1552,6 +1596,16 @@ export default function CheckinPage() {
                 <p className="text-sm font-medium">{t('wizardTitle')}</p>
                 {wizardStep === 0 && (
                   <>
+                    {lastResetAt && Date.now() - lastResetAt < 24 * 3600_000 && (
+                      <p className="text-xs text-amber-700 dark:text-amber-400">
+                        {t('wizardCooldownActive', {
+                          hours: Math.max(
+                            1,
+                            Math.ceil((24 * 3600_000 - (Date.now() - lastResetAt)) / 3600_000),
+                          ),
+                        })}
+                      </p>
+                    )}
                     <p className="text-xs text-muted-foreground">{t('wizardIntro')}</p>
                     <Button
                       variant="destructive"
@@ -1566,11 +1620,21 @@ export default function CheckinPage() {
                 )}
                 {wizardStep === 2 && (
                   <>
-                    <p className="text-xs text-muted-foreground">
-                      {t('wizardIpBefore', { ip: wizardIpBefore, location: wizardIpLoc })}
-                    </p>
+                    {wizardIpBefore ? (
+                      <p className="text-xs text-muted-foreground">
+                        {wizardIpLoc
+                          ? t('wizardIpBefore', { ip: wizardIpBefore, location: wizardIpLoc })
+                          : t('wizardIpBeforeNoLoc', { ip: wizardIpBefore })}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">{t('wizardRefetchHint')}</p>
+                    )}
                     <p className="text-xs text-muted-foreground">{t('wizardGuide')}</p>
-                    <Button size="sm" disabled={wizardBusy} onClick={() => void verifyIpChanged()}>
+                    <Button
+                      size="sm"
+                      disabled={wizardBusy || maintBusy}
+                      onClick={() => void verifyIpChanged()}
+                    >
                       {wizardBusy && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
                       {t('wizardVerify')}
                     </Button>
@@ -1582,6 +1646,9 @@ export default function CheckinPage() {
                       {t('wizardIpChanged', { ip: wizardIpNow })}
                     </p>
                     <p className="text-xs text-muted-foreground">{t('wizardCooldown')}</p>
+                    <Button variant="ghost" size="sm" onClick={restartWizard}>
+                      {t('wizardRestart')}
+                    </Button>
                   </>
                 )}
                 {wizardMsg.length > 0 && (
@@ -1589,7 +1656,7 @@ export default function CheckinPage() {
                     {wizardMsg.join('\n')}
                   </pre>
                 )}
-                {wizardStep >= 1 && wizardStep < 3 && (
+                {wizardStep === 2 && (
                   <p className="text-xs text-muted-foreground">{t('wizardOptionalNote')}</p>
                 )}
               </div>
@@ -1603,12 +1670,18 @@ export default function CheckinPage() {
                 />
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <Button variant="destructive" size="sm" disabled={maintBusy} onClick={() => void resetDeviceIds()}>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={maintBusy || wizardBusy}
+                  onClick={() => void resetDeviceIds()}
+                >
                   {t('maintReset')}
                 </Button>
                 <label className="flex items-center gap-1 text-xs text-muted-foreground">
                   <input
                     type="checkbox"
+                    disabled={maintBusy || wizardBusy}
                     checked={maintIncludeGuid}
                     onChange={(e) => setMaintIncludeGuid(e.target.checked)}
                   />
@@ -1617,6 +1690,7 @@ export default function CheckinPage() {
                 <label className="flex items-center gap-1 text-xs text-muted-foreground">
                   <input
                     type="checkbox"
+                    disabled={maintBusy || wizardBusy}
                     checked={maintIncludeBrowser}
                     onChange={(e) => setMaintIncludeBrowser(e.target.checked)}
                   />
@@ -1625,6 +1699,7 @@ export default function CheckinPage() {
                 <label className="flex items-center gap-1 text-xs text-muted-foreground">
                   <input
                     type="checkbox"
+                    disabled={maintBusy || wizardBusy}
                     checked={maintDeepReset}
                     onChange={(e) => setMaintDeepReset(e.target.checked)}
                   />
@@ -1633,6 +1708,7 @@ export default function CheckinPage() {
                 <label className="flex items-center gap-1 text-xs text-muted-foreground">
                   <input
                     type="checkbox"
+                    disabled={maintBusy || wizardBusy}
                     checked={maintIncludeMac}
                     onChange={(e) => setMaintIncludeMac(e.target.checked)}
                   />
