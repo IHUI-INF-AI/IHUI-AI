@@ -446,7 +446,10 @@ function readPushGateMarker() {
   }
 }
 
-const existingState = readPushState()
+// 2026-10-09 改 let + 自愈后刷新:下方 GUARD_ASYNC 分支要靠它识别「同 HEAD 的
+// worker 刚失败」并回退同步推送 —— const 版本在自愈改写文件后仍持旧值(running),
+// 导致下一轮照旧 spawn 必死的 worker(沙箱 job-object 清树场景实测连死 4 只)。
+let existingState = readPushState()
 
 // ─── 3.0b watchdog 自愈巡检(2026-09-19 猝死根治第二层)──
 // 背景:worker 被 job-object 清树强杀时连 JS 退出钩子都不跑(终态兜底无法覆盖硬杀),
@@ -523,6 +526,7 @@ if (existingState && existingState.status === 'running' && !isPidAlive(existingS
     kind: 'dead-worker-self-heal',
     reason: `残留 running 的持有者 pid ${existingState.pid} 已死,本进程只负责把它改成终态`,
   })
+  existingState = readPushState()
 }
 
 if (isWorkerMode) {
@@ -641,11 +645,23 @@ if (isWorkerMode) {
       `上次后台推送失败(HEAD ${String(existingState.headSha).slice(0, 7)}),本次随新提交一并重推`,
     )
   }
+  // 2026-10-10 根治(沙箱/受限宿主实测:detached worker 被 job-object 清树连死 4 只):
+  // 同一枚 HEAD 的 worker 10 分钟内刚 failed ⇒ detached 环境不可用,再 spawn 一只还是死。
+  // 直接不走异步派发,落到底部同步推送(前台跑完本次调用周期;watchdog 自愈同款语义)。
+  const recentSameHeadWorkerFailure =
+    existingState &&
+    existingState.status === 'failed' &&
+    existingState.headSha === localHead &&
+    Date.now() - existingState.ts < 10 * 60 * 1000
+  if (recentSameHeadWorkerFailure) {
+    log('warn', '上一只后台 worker 刚失败(同 HEAD,10 分钟内)⇒ 本次改同步推送,不再 spawn 必死的 worker')
+  }
   // 磁盘水位自检(主模式):满盘直接拒绝,不 spawn worker(它会无声崩死)
-  if (!assertDiskOk()) {
+  if (!recentSameHeadWorkerFailure && !assertDiskOk()) {
     process.exit(1)
   }
-  writePushState('running', localHead)
+  if (!recentSameHeadWorkerFailure) {
+    writePushState('running', localHead)
   const logFile = resolve(process.cwd(), '.workbuddy/git-push-guard-async.log')
   let spawned = false
   try {
@@ -712,7 +728,9 @@ if (isWorkerMode) {
     log('ok', `推送已转入后台(HEAD ${localShort});核验: node scripts/git-push-converge.mjs`)
     process.exit(0)
   }
-  // spawn 失败 → 不退出,继续走下方同步推送(此时状态已是 running,推送完写 done/failed)
+  }
+  // spawn 失败,或 recentSameHeadWorkerFailure(环境不利,不再派 worker)→ 都不退出,
+  // 继续走下方同步推送(此时状态已是 running,推送完写 done/failed)
 }
 
 // 检查 ahead/behind
