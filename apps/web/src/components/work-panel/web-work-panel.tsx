@@ -155,6 +155,7 @@ export function WebWorkPanel() {
   const uiTabs: WorkPanelTabItem[] = React.useMemo(
     () =>
       tabs.map((t) => ({ id: t.id, title: t.title || t.url || tw('untitledTab'), type: t.type })),
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- next-intl 4.13.4 的 t 每次渲染换新引用(实测 same=false),补进依赖会让本 effect 每渲染重跑
     [tabs],
   )
 
@@ -196,6 +197,7 @@ export function WebWorkPanel() {
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- next-intl 4.13.4 的 t 每次渲染换新引用(实测 same=false),补进依赖会让本 effect 每渲染重跑
   }, [isProxyMode, onEmbedNavigation, onFailed, newTab])
 
   // 代理 iframe 加载超时兜底:20s 未 onLoad(强反爬挑战页/网络挂起)→ 降级 CDP
@@ -203,6 +205,7 @@ export function WebWorkPanel() {
     if (!isProxyMode || status !== 'loading') return
     const timer = window.setTimeout(() => onFailed(tw('embedProxyTimeout')), 20000)
     return () => window.clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- next-intl 4.13.4 的 t 每次渲染换新引用(实测 same=false),补进依赖会让本 effect 每渲染重跑
   }, [isProxyMode, status, onFailed, proxyUrl])
 
   // 收藏切换
