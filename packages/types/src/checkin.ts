@@ -169,4 +169,25 @@ export interface CheckinCreditsHistoryResponse {
   /** 本次返回集内 credits_delta 之和 */
   total_credits_delta: number
 }
+
+/** GET /credits/daily 响应(每日快照三线序列,按日升序) */
+export interface CheckinCreditsDailyResponse {
+  /** ISO 日期序列(最近 N 天,Asia/Shanghai 日界) */
+  days: string[]
+  series: {
+    /** 各账号剩余积分之和;当日无快照为 null(前端断线) */
+    total: (number | null)[]
+    /** 当日签到获得(credits_delta 求和,缺失按 0) */
+    gained: number[]
+    /** |total[i] − gained[i] − total[i−1]|;首日或前一日缺失为 null */
+    consumed: (number | null)[]
+  }
+}
+
+/** POST /accounts/{id}/query_credits 响应 */
+export interface CheckinCreditsQueryResponse {
+  ok: boolean
+  remaining: number | null
+  error: string | null
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -11,6 +11,7 @@
  * §5c 溯源水印：本文件受 `scripts/watermark.mjs` 管理。
  */
 import path from 'node:path'
+import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
@@ -27,6 +28,8 @@ import {
   findIdCollisions,
   findRotatedPointers,
   keyOfRow,
+  parseTaskRows,
+  sameIdDonePairs,
   titleIsDegenerate,
   titleOf,
   usedIdsOfPrefix,
@@ -36,6 +39,9 @@ import { gitRaw } from '../lib/face-reader.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import {
   countNewUndisposed,
+  collectDirtyPaths,
+  collectHeadPaths,
+  excludeInflightRows,
   fileConflictOverlay,
   f9GroupLine,
   f9KeySetOf,
@@ -1850,5 +1856,133 @@ test('MC6 取不到集合不得被读成"没有在飞":null 走未判定分支(�
   if (!/未判定\*\*:git status \/ HEAD 树取不到/.test(CODE))
     throw new Error('取不到时必须大声喊"未判定",不得静默跳过(静默=读成没有在飞)')
   if (!/return null/.test(CODE)) throw new Error('collectDirtyPaths/collectHeadPaths 取不到要返回 null 而非空集合 —— 空集合会被下游当成"确实干净"')
+})
+
+test('MC7 git 不可问时必须落"未判定",不得把空 HEAD 树读成"路径都不在面上"(2026-10-09 抽取目录实测的自伤)', () => {
+  // 阳性对照:无 .git 的临时目录里 git 会失败,旧写法得到的是**空集合**而非 null,
+  // 于是叠层把每一条点名都判成"核验不了"、干净 0,读数看起来像结论而一句未判定都没喊。
+  const sc = mkScratch('plan-tasks-mc7')
+  try {
+    if (collectHeadPaths(sc) !== null) throw new Error('git 不可问 ⇒ collectHeadPaths 必须 null(空集合等于伪造结论)')
+    const dirty = collectDirtyPaths(sc)
+    // dirty 在这一档可以是空集合(它本身分不清"干净"与"问不到"),防误读的责任在调用方的次序上:
+    // 必须先证明 headSet 取到了,才准把空 status 读成"没有在飞"。
+    if (dirty !== null) throw new Error('git 不可问 ⇒ collectDirtyPaths 也必须给 null;空 Set 会被读成"确实没有在飞",正是要防的那一型')
+    const CODE = readFileSync(new URL('../plan-tasks.mjs', import.meta.url), 'utf8')
+    if (!/if \(!dirtySet \|\| !headSet\)/.test(CODE)) throw new Error('调用方必须先问 headSet 在不在,再解读空 dirty')
+  } finally {
+    rmScratch(sc)
+  }
+  // 覆盖面自证:真仓 HEAD 树若只量出个位数,说明尺子根本没跑,不得拿它当"路径都找不到"的依据。
+  const head = collectHeadPaths(ROOT)
+  if (!head) throw new Error('真仓取不到 HEAD 树 ⇒ 本用例无从判定')
+  if (head.size < 1000) throw new Error(`HEAD 树只量到 ${head.size} 条 —— 覆盖面自证不成立,判据在假装工作`)
+  // 第三条臂:从仓内的**子目录**发起也必须锚到 toplevel。`git -C <子目录> ls-tree HEAD` 打的是
+  // 相对该目录的树(在子目录里就是空集),旧写法把空集当"HEAD 里没这些文件"用 ⇒ 全部点名掉进
+  // "核验不了"、干净 0,读数看着像结论。
+  const fromSub = collectHeadPaths(path.join(ROOT, 'scripts'))
+  if (!fromSub) throw new Error('从 scripts/ 子目录发起时 HEAD 树必须仍取到(锚 toplevel),实得 null')
+  if (fromSub.size < 1000) throw new Error(`子目录发起只量到 ${fromSub.size} 条 ⇒ 没锚到仓根`)
+  const dirtySub = collectDirtyPaths(path.join(ROOT, 'scripts'))
+  if (!dirtySub) throw new Error('子目录发起时在飞集合应取到(可能为空,但必须是 Set 而不是 null)')
+})
+
+// ── SD 族:同编号而题面被改写的"一勾一未勾"(G-815949 那一型,F1 按复合主键看不见) ──
+const sdFace = (rows) => parseTaskRows(rows.join('\n')).filter(Boolean)
+
+test('SD1 同编号、题面不等、一勾一未勾 ⇒ 必须成对点名(派单人看得见的只有行号与两侧题面)', () => {
+  const r = sameIdDonePairs(
+    sdFace([
+      '- [x] ✅(2026-10-01) G-900101 **甲方案:把 X 收进唯一出口** —— 已落地并复验。',
+      '- [ ] G-900101 **甲方案改名为把 X 收进单一源并补测** —— 同一件事换了措辞的旧副本。',
+    ]),
+  )
+  if (r.pairs.length !== 1) throw new Error(`应点名 1 对,实得 ${r.pairs.length}`)
+  const p = r.pairs[0]
+  if (p.id !== 'G-900101' || p.openLine !== 2 || p.doneLine !== 1)
+    throw new Error('成对必须给未勾行与已勾行两个行号:' + JSON.stringify(p))
+})
+
+test('SD2 反向对照:题面逐字等值那一型归 F1 管,本维不得重复计账(两处各计一次会让两份基线互顶)', () => {
+  const same = '- [ ] G-900102 **同一句话的副本** —— 正文逐字相同。'
+  const r = sameIdDonePairs(sdFace(['- [x] G-900102 **同一句话的副本** —— 正文逐字相同。', same]))
+  if (r.pairs.length !== 0) throw new Error('题面等值不得进本维(F1 的地盘):' + JSON.stringify(r.pairs))
+})
+
+test('SD3 已经不在派单面上的两类不得混进 pairs:带归并指针的行、自述不再派单的行各自计数', () => {
+  const rows = sdFace([
+    '- [x] G-900103 **正事** —— 正本已落地。',
+    '- [ ] G-900103 **正事的短抄** —— 〔【归并】重复登记副本(2026-10-02):派单以持有行为准,本行不再单独派单。〕',
+  ])
+  const r = sameIdDonePairs(rows)
+  if (r.pairs.length !== 0 || r.pointerRows !== 1)
+    throw new Error(`指针行只计数不配对:pairs=${r.pairs.length} pointerRows=${r.pointerRows}`)
+})
+
+test('SD4 没有已勾副本时不产对(同编号多未勾是 F9 撞号的地盘,本维不抢它的读数)', () => {
+  const r = sameIdDonePairs(
+    sdFace([
+      '- [ ] G-900104 **A 事** —— 未做。',
+      '- [ ] G-900104 **B 事** —— 也未做。',
+    ]),
+  )
+  if (r.pairs.length !== 0) throw new Error('无已勾 twin 不得配对:' + JSON.stringify(r.pairs))
+})
+
+test('SD5 本维只点名不剔除:派单口径不得因为"同编号有已勾副本"就把行踢掉', () => {
+  // 同编号不同题面在本仓合法存在(D30①/D30② 那一族各是一件事),按基号剔除 = 把没做完的记成做过的。
+  const CODE = readFileSync(new URL('../plan-tasks.mjs', import.meta.url), 'utf8')
+  const LIB = readFileSync(new URL('../lib/plan-task-index.mjs', import.meta.url), 'utf8')
+  if (/isClaimable[\s\S]{0,600}sameIdDonePairs/.test(LIB))
+    throw new Error('剔除判据被接进了派单面 —— 本维的设计前提是只点名不剔除')
+  if (!/不剔除、不判红/.test(CODE)) throw new Error('人读面必须写明本维不剔除也不判红')
+})
+
+// ── EF 族:派单面按"点名的文件此刻在飞"暂移活(防撞车),只吃冲突档 ──
+test('EF1 冲突行被暂移,其余原样保留(顺序不变 ⇒ 派单人能逐行对照)', () => {
+  const rows = [{ line: 3 }, { line: 7 }, { line: 9 }]
+  const cf = { conflictList: [{ line: 7, paths: ['apps/web/a.tsx'] }], absentList: [] }
+  const { kept, dropped } = excludeInflightRows(rows, cf)
+  if (kept.map((r) => r.line).join(',') !== '3,9') throw new Error('kept 应为 3,9 且保序:' + kept.map((r) => r.line).join(','))
+  if (dropped.length !== 1 || dropped[0].line !== 7) throw new Error('dropped 应恰为那一行:' + JSON.stringify(dropped))
+})
+
+test('EF2 "核验不了"不得变成剔活依据:只报名不占名额(否则没看清的行人就找不到了)', () => {
+  const rows = [{ line: 3 }, { line: 7 }]
+  const cf = { conflictList: [], absentList: [{ line: 7, key: 'scripts/不存在.mjs' }] }
+  const { kept, dropped } = excludeInflightRows(rows, cf)
+  if (dropped.length !== 0 || kept.length !== 2) throw new Error('absent 档必须全量保留')
+})
+
+test('EF3 旗标默认关,且取不到 git 面时一律照派(不得拿"量不到"剔真活)', () => {
+  if (parseArgs(['--open', '--dispatchable']).excludeInflight !== false) throw new Error('不带旗标必须关')
+  if (parseArgs(['--exclude-inflight']).excludeInflight !== true) throw new Error('带旗标必须开')
+  const CODE = readFileSync(new URL('../plan-tasks.mjs', import.meta.url), 'utf8')
+  const und = CODE.indexOf('git status / HEAD 树取不到')
+  const assign = CODE.indexOf('rowsOut = kept')
+  if (und < 0 || assign < 0) throw new Error('未判定分支或剔活动作不见了(判据被拆了)')
+  if (assign > und && assign - und < 1600 && CODE.slice(und, assign).includes('rowsOut = kept'))
+    throw new Error('未判定那一支里出现了剔活赋值 ⇒ 把没量到写成了有权剔活')
+})
+
+test('EF4 真仓面对账:被暂移的行数必须恰等于叠层点名的冲突行数', () => {
+  // 被审面取 HEAD blob(与生产 `--open` 同一档),不读磁盘副本 —— 磁盘那份常年滞后/属别人在飞。
+  const content = execFileSync('git', ['show', 'HEAD:PROJECT_PLAN.md'], {
+    maxBuffer: 1 << 28,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  }).replace(/\r\n/g, '\n')
+  const a = auditPlan(content)
+  const dirty = collectDirtyPaths(ROOT)
+  const head = collectHeadPaths(ROOT)
+  if (!dirty || !head) throw new Error('git 面取不到 ⇒ 本用例无从判定(不得记为通过)')
+  const cf = fileConflictOverlay({ rows: a.claimableRows, dirtySet: dirty, headSet: head })
+  const { kept, dropped } = excludeInflightRows(a.claimableRows, cf)
+  if (kept.length + dropped.length !== a.claimableRows.length) throw new Error('剔+留必须等于原行数(守恒)')
+  if (dropped.length !== cf.conflictList.length)
+    throw new Error(`剔活数 ${dropped.length} 与叠层点名 ${cf.conflictList.length} 不等 ⇒ 两份判据在互相顶掉`)
+  if (dropped.length === a.claimableRows.length)
+    throw new Error('把整个派单面剔空 = 判据失效的表现,不当通过')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
