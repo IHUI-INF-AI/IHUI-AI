@@ -1826,3 +1826,161 @@ test('SH14 派生 git 走层(源码锁):取值那一步不得自拼 execFileSync
     '自拼派生 ⇒ 丢掉层的 stdio/timeout/maxBuffer 纪律(本机不写 stdio 是稳定 EBUSY)',
   )
 })
+
+// ── DU 族:登记入口的复合主键唯一性闸 ──────────────────────────────────────
+// 立因是实测(不是推测):14 天内未勾 165 → 1241 行,其中 785 行是「重复登记副本」指针行(209 族、
+// 每族 4 份);而"完成的被写回未勾"这一反向假设已被否证(三张历史快照 1582/1031/1278 行 `- [x]`,
+// 今日仍是未勾的 0 行)。所以膨胀的成因是**并发各抄一份**,事后判据只能标注不能删除 ⇒ 只能掐在写入时。
+// 判据一律走生产出口(§22c:本文件不得再抄一份主键实现);主键取自 `lib/plan-task-index.mjs` 那一份。
+import { compositeKeyOf } from '../lib/plan-task-index.mjs'
+
+const LED = __test__
+const KEY = (line) => compositeKeyOf(line)
+// 题面在第一个 `.` 处截断(实测,不是设想):所以"同一件事的两份副本"必须共享 `.` 之前的题面,
+// 而"两件不同的事"必须让 `.` 之前也不同 —— 造夹具时用这条,别按肉眼判断同不同题。
+const ROW_700 = '- [ ] G-900700 端到端题面. 同一件事只该有一行当前状态'
+const ROW_700_DUP = '- [ ] G-900700 端到端题面. 被第二席又抄了一份'
+const ROW_701 = '- [ ] G-900701 另一件不相干的事. 说明'
+const ROW_701_ANNOT = ROW_701 + ' 〔复测 2026-10-09:注记仍落在同一行〕'
+const ROW_701_DUP = '- [ ] G-900701 另一件不相干的事. 第二席又抄了一份'
+const ROW_702 = '- [ ] G-900702 第三件事. 全新登记'
+const ROW_702_DUP = '- [ ] G-900702 第三件事. 换了一种措辞的第二份'
+const ROW_NOCODE = '- [ ] 没有编号也没有可取题面的一件事'
+
+test('DU-0 夹具自证:同题/异题/无编号三种形态的主键确实如断言所用', () => {
+  assert.equal(KEY(ROW_700), KEY(ROW_700_DUP), '夹具没造出"同一件事的两份"')
+  assert.notEqual(KEY(ROW_700), KEY(ROW_701), '夹具把两件不同的事并成了一件事')
+  assert.equal(KEY(ROW_NOCODE), null)
+})
+
+test('DU-1 同主键第二次登记必判 blocked(单元)', () => {
+  const v = LED.judgeNewLineDupes({ baseLines: [ROW_700], newLines: [ROW_700_DUP] })
+  assert.equal(v.blocked.length, 1, `同题第二次登记必须拦住,实得 ${v.blocked.length}`)
+  assert.match(v.blocked[0].existingText, /G-900700/, '必须点名已有那一行(内容锚点,不是行号)')
+  assert.ok(LED.dupGateReport(v).some((l) => l.kind === 'error' && /第二次登记/.test(l.text)))
+})
+
+test('DU-2 题面不同 ⇒ 放过(不许拿"编号相邻"当同一件事)', () => {
+  const v = LED.judgeNewLineDupes({ baseLines: [ROW_700], newLines: [ROW_701] })
+  assert.equal(v.blocked.length, 0, '不同题面不得判重复')
+  assert.equal(v.passed, 1)
+})
+
+test('DU-3 作者自认副本(带归并指针)⇒ 放过并计数', () => {
+  const v = LED.judgeNewLineDupes({
+    baseLines: [ROW_700],
+    newLines: [ROW_700_DUP + ' 〔【归并】重复登记副本:本行与同标题登记并存〕'],
+  })
+  assert.equal(v.blocked.length, 0, 'F4 的产物形态不得被本闸禁掉')
+  assert.equal(v.acknowledged.length, 1)
+})
+
+test('DU-4 应急出口必须逐键带原因;无原因不算', () => {
+  const key = KEY(ROW_700)
+  assert.equal(LED.parseDupAllow(`${key}`).size, 0, '无原因的声明不放行')
+  assert.equal(LED.parseDupAllow(`${key}=确实是另一轮取证留下的第二议题`).get(key), '确实是另一轮取证留下的第二议题')
+  const v = LED.judgeNewLineDupes({
+    baseLines: [ROW_700],
+    newLines: [ROW_700_DUP],
+    allow: LED.parseDupAllow(`${key}=逐键理由`),
+  })
+  assert.equal(v.blocked.length, 0)
+  assert.equal(v.allowed.length, 1)
+  assert.ok(LED.dupGateReport(v).some((l) => /放行/.test(l.text) && /逐键理由/.test(l.text)), '放行必须打印留痕,不得静默')
+})
+
+test('DU-5 取不出主键 ⇒ 未判定并放行(把看不清判成重复会钉红正当新登记)', () => {
+  const v = LED.judgeNewLineDupes({ baseLines: [ROW_700], newLines: [ROW_NOCODE, ROW_701] })
+  assert.equal(v.undetermined.length, 1)
+  assert.equal(v.blocked.length, 0)
+  assert.ok(LED.dupGateReport(v).some((l) => l.kind === 'warn' && /未判定/.test(l.text)))
+})
+
+test('DU-6 只判多重集差:存量副本不替本次担账', () => {
+  const base = [ROW_700, ROW_700, ROW_701]
+  const next = [ROW_700, ROW_700, ROW_701, ROW_700]
+  assert.deepEqual(LED.linesIntroducedBy(base, next), [ROW_700], '三条同文本 ⇒ 只有多出来的那一条算新增')
+  const v = LED.judgeNewLineDupes({ baseLines: base, newLines: [ROW_700_DUP] })
+  assert.equal(v.blocked.length, 1, '新增这一条确实撞已有待办 ⇒ 拦(存量那两条另计人工)')
+  assert.equal(v.openBase, 3)
+})
+
+test('DU-7 端到端四臂(装车证明):同题插入必 rc=1 / 新题必 rc=0 / 无旗必 rc=1 / 带原因放行 rc=0', (t) => {
+  const { dir, inputs } = makeDocRepo(t, ['# 标题', '', ROW_700, '', ROW_701, '', '段落', ''].join('\n'))
+  // headBlobOf 返回的是 oid,不是正文 —— 要判"哪一行落没落"必须取 blob 内容,别拿 oid 做 includes
+  // (那会恒不等,把"没拦住"读成"拦住了"。)
+  const docAtHead = () => {
+    const r = git(['show', 'HEAD:DOC.md'], { root: dir, allowFail: true })
+    return r === null ? '' : String(r)
+  }
+  const bf = join(inputs, 'b.txt')
+  const af = join(inputs, 'a.txt')
+  writeFileSync(af, '段落\n')
+  writeFileSync(bf, ROW_700_DUP + '\n')
+  const dup = runLive(dir, { blockFile: bf, anchorFile: af })
+  assert.equal(dup.status, 1, `同主键第二次登记必须拦住,rc=${dup.status} out=${String(dup.stdout + dup.stderr).slice(0, 260)}`)
+  assert.match(`${dup.stdout}${dup.stderr}`, /第二次登记/, '拒绝理由必须点名这一型')
+  assert.equal(docAtHead().includes('被第二席又抄了一份'), false, '拦下后一行都不许落')
+  writeFileSync(bf, ROW_702 + '\n')
+  const fresh = runLive(dir, { blockFile: bf, anchorFile: af })
+  assert.equal(fresh.status, 0, `全新题面必须放行,rc=${fresh.status} out=${String(fresh.stdout + fresh.stderr).slice(0, 260)}`)
+  assert.equal((docAtHead().match(/G-900702/g) || []).length, 1)
+  // 逐字重复同一块 = G-321 的幂等档(不算新增,原样 no-op)。它与本闸互补:同一行不会因重跑而放大,
+  // 所以这里断言的是"仍只有一份",而不是 rc=1 —— 拿 rc=1 当期望就是把幂等档当缺陷。
+  const rerun = runLive(dir, { blockFile: bf, anchorFile: af })
+  assert.equal(rerun.status, 0, `同内容重跑必须幂等放行,rc=${rerun.status} out=${String(rerun.stdout + rerun.stderr).slice(0, 260)}`)
+  assert.equal((docAtHead().match(/G-900702/g) || []).length, 1, '幂等档不得把同一行插第二遍')
+  writeFileSync(bf, ROW_702_DUP + '\n')
+  const again = runLive(dir, { blockFile: bf, anchorFile: af })
+  assert.equal(again.status, 1, '换了措辞的第二份,不带旗仍须拦(与上一臂唯一变量是措辞/旗)')
+  assert.equal((docAtHead().match(/G-900702/g) || []).length, 1, '拦下后不得落该行')
+  const allowed = runLive(dir, {
+    blockFile: bf,
+    anchorFile: af,
+    extraEnv: { LIVE_LEDGER_DUP_OK: `${KEY(ROW_702)}=本轮确属第二次取证` },
+  })
+  assert.equal(allowed.status, 0, `逐键带原因必须放行,rc=${allowed.status} out=${String(allowed.stdout + allowed.stderr).slice(0, 260)}`)
+  assert.match(`${allowed.stdout}${allowed.stderr}`, /放行留痕|声明放行/, '放行要留痕,不得静默')
+  assert.equal((docAtHead().match(/G-900702/g) || []).length, 2, '放行后两份都在(本闸只拦未声明的新增,不删存量)')
+})
+
+test('DU-9 追加注记型改写(同键)不算第二次登记 —— §1 的正解不得被本闸判红', () => {
+  const before = ROW_701
+  const after = ROW_701 + ' 〔复测 2026-10-09:注记落在同一行上〕'
+  const v = LED.judgeNewLineDupes({
+    baseLines: [before],
+    newLines: LED.linesIntroducedBy([before], [after]),
+    removedLines: LED.linesIntroducedBy([after], [before]),
+  })
+  assert.equal(v.blocked.length, 0, `就地改写被判成重复登记了:净新增才是写放大(实得 ${v.blocked.length})`)
+  assert.equal(v.rewritten.length, 1)
+  assert.ok(LED.dupGateReport(v).some((l) => /就地改写/.test(l.text)))
+})
+
+test('DU-10 净新增仍有牙:同一枚提交里既改写已有行、又多抄一份 ⇒ 只拦多出来那一份', () => {
+  const base = [ROW_701]
+  const next = [ROW_701_ANNOT, ROW_701_DUP]
+  const v = LED.judgeNewLineDupes({
+    baseLines: base,
+    newLines: LED.linesIntroducedBy(base, next),
+    removedLines: LED.linesIntroducedBy(next, base),
+  })
+  assert.equal(v.rewritten.length, 1, '注记型改写应占掉那份额度')
+  assert.equal(v.blocked.length, 1, '第二份必须拦住(放过这一型就是闸没牙)')
+  assert.match(v.blocked[0].lineText, /第二席又抄了一份/, '拦的必须是真副本,不是被改写那一行')
+})
+
+test('DU-8 接线锁:主键判据只认 lib 那一份,且闸必须真挂在写盘之前', () => {
+  const src = readFileSync(join(HERE, '..', 'live-doc-edit.mjs'), 'utf8')
+  assert.match(
+    src,
+    /import\s*\{\s*compositeKeyOf\s*\}\s*from '\.\/lib\/plan-task-index\.mjs'/,
+    '必须复用台账层那一份主键(两处算同一个键必漂移)',
+  )
+  const at = src.indexOf('judgeNewLineDupes({')
+  assert.ok(at > 0, 'main 里必须真的调用本闸(函数在而无人调 = 提交链上一路绿灯)')
+  const blob = src.indexOf('writeBlob(nextLines')
+  assert.ok(blob > at, '闸必须在 writeBlob 之前:内容一旦 commit,再 exit 1 就是把已入库谎报成没落地')
+})
+
+
