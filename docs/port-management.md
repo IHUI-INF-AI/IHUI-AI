@@ -32,7 +32,7 @@
 | 8803 | AI Service(FastAPI) | apps/ai-service | `apps/ai-service/.env` `PORT=8803` | ✅ |
 | 8804 | 小程序 Taro H5 | apps/miniapp-taro | `apps/miniapp-taro/config/dev.ts` `port: 8804` | ✅ `strictPort:true` |
 | 8805 | Metro Bundler(RN/App) | apps/mobile-rn | `apps/mobile-rn/package.json` `--port 8805` | ✅ |
-| 8806 | ~~Desktop(Vite+Tauri)~~ 已废弃(A 薄壳:Desktop 的 `tauri.conf.json` `devUrl:8801` 只在**开发期**加载 web dev server;打包态**不内嵌前端产物** —— `beforeBuildCommand` 为空、`frontendDist` = `src-tauri/shell` 占位页、窗口 `url` 直指线上站点,2026-09-17 `f10258c8f6`「终极薄壳」定稿,详见 D148/G-723。因此不再需要独立 Vite 端口。启动:`pwsh -File scripts/start-dev.ps1 -Desktop` = api+ai-service+desktop,desktop 自带 web 8801,脚本自动注入 cargo PATH,与 web 互斥)| apps/desktop | `apps/desktop/src-tauri/tauri.conf.json` `devUrl: http://localhost:8801` | — |
+| 8806 | ~~Desktop(Vite+Tauri)~~ 已废弃(A 薄壳:Desktop 的 `tauri.conf.json` `devUrl:8801` 只在**开发期**加载 web dev server;打包态**不内嵌前端产物** —— `beforeBuildCommand` 为空、`frontendDist` = `src-tauri/shell` 占位页、窗口 `url` 直指线上站点,2026-09-17 `f10258c8f6`「终极薄壳」定稿,详见 D148/G-723。因此不再需要独立 Vite 端口。启动:`node scripts/run-start-dev.mjs -Desktop`(经包装器,自动定位 PowerShell 7)= api+ai-service+desktop,desktop 自带 web 8801,脚本自动注入 cargo PATH,与 web 互斥)| apps/desktop | `apps/desktop/src-tauri/tauri.conf.json` `devUrl: http://localhost:8801` | — |
 | 8807 | 网页预览→生产 CORS 注入反代(`scripts/dev-prod-proxy.mjs`,127.0.0.1:8807 → `https://aizhs.top`,由 dev-stack 作为可选服务托管) | scripts | `scripts/dev-port-registry.json` `prod-proxy.port: 8807` | ✅ 仅绑 127.0.0.1 |
 | 8808 | Extension(预留) | apps/extension | — | — |
 | 8809 | API 私有验证实例(O17 外部 Agent 接入端到端证明,临时只读探测用;库指向隔离 `ihui_e2e`、Redis 走 db12,不占 `apps/api/.env`) | apps/api | 启动时环境变量 `PORT=8809` | ✅ |
