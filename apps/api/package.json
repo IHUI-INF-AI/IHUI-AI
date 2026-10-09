@@ -6,7 +6,7 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "node --watch --import tsx src/index.ts",
     "build": "tsc -p tsconfig.json && node scripts/copy-assets.mjs",
     "start": "node dist/index.js",
     "lint": "eslint .",
