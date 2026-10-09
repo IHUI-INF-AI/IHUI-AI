@@ -327,6 +327,29 @@ test('端到端:预算闸真的会落下 —— 极小预算把有内容的树�
   }
 })
 
+test('端到端(G-1105304):文件**不吃条目预算** —— 海量文件而无二阶根必须判 ok,不得因预算耗尽停在 undetermined', () => {
+  const fix = mkScratch('g286-filebudget-')
+  try {
+    mkdirSync(join(fix, '夹具甲'), { recursive: true })
+    mkdirSync(join(fix, '夹具乙'), { recursive: true })
+    // 正常使用量级的夹具:目录很少、文件很多(旧口径下 3795 一级条目 + 派生文件把 20000 预算耗光,
+    // 于是这一维恒 undetermined = 零覆盖,而账面看起来"尺子在跑")。
+    for (let i = 0; i < 120; i += 1) writeFileSync(join(fix, '夹具甲', `f${i}.txt`), 'x\n')
+    const r = runGate(['--root', fix, '--budget', '50', '--json'])
+    assert.equal(r.code, 0)
+    const j = JSON.parse(r.out)
+    assert.equal(j.truncated, false, '文件不得计入预算:只有 2 个目录的树,预算 50 必须扫得完')
+    assert.equal(j.state, 'ok', `应为 ok,实得 ${String(j.state)}`)
+    // 同一份夹具:目录仍然计预算 —— 预算 1 必须把树判成未判定(证明上面那条不是"预算被删掉了")
+    const r2 = runGate(['--root', fix, '--budget', '1', '--json'])
+    const j2 = JSON.parse(r2.out)
+    assert.equal(j2.truncated, true, '目录仍须吃预算,否则预算闸形同废弃')
+    assert.equal(j2.state, 'undetermined')
+  } finally {
+    rmScratch(fix)
+  }
+})
+
 test('--json 必须可 parse 且带 state/code/findings(报告口径不能只活在人读面)', () => {
   const fix = mkScratch('g286-json-')
   try {

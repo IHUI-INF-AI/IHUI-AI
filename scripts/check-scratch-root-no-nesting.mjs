@@ -30,7 +30,9 @@
  * 递归纪律(票一要求先答的那一句:「任何递归枚举会不会顺着自己造出的嵌套无限深入」):
  *   ① `dirent.isSymbolicLink()` 一律跳过并计数 —— Windows junction 在 Node 侧同样报 true,
  *      顺着它枚举会把改道目标(真实数据)算进本树的账,顺着它删更是清空(§26 实测事故);
- *   ② 深度上限 + 条目预算,耗尽即置 `truncated` ⇒ 结论降为 undetermined。因此即便二阶树
+ *   ② 深度上限 + **目录**条目预算(文件不计,2026-10-09 由 G-1105304 修正:旧口径让文件也吃预算,
+ *      于是正常使用量级的夹具就能把预算耗光 ⇒ 门恒 undetermined ⇒ 这一维实际零覆盖),
+ *      耗尽即置 `truncated` ⇒ 结论降为 undetermined。因此即便二阶树
  *      在被扫的树里继续长,本枚举也在预算处硬停,不可能不收敛;
  *   ③ 判定过程自己不产出任何目录 ⇒ 不存在「枚举 → 产出 → 再枚举」的正反馈。
  *
@@ -144,6 +146,7 @@ export function scanScratchRoot(root, opts = {}) {
     rootIsDir: false,
     findings: [],
     scannedEntries: 0,
+    scannedFiles: 0,
     truncated: false,
     unreadable: [],
     skippedReparse: 0,
@@ -180,11 +183,6 @@ export function scanScratchRoot(root, opts = {}) {
       return
     }
     for (const d of entries) {
-      if (res.scannedEntries >= budget) {
-        res.truncated = true
-        return
-      }
-      res.scannedEntries += 1
       const q = join(parent, d.name)
       if (d.isSymbolicLink()) {
         res.skippedReparse += 1
@@ -197,7 +195,19 @@ export function scanScratchRoot(root, opts = {}) {
         res.unreadable.push(`${q} :: ${e && e.code ? e.code : String(e)}`)
         continue
       }
-      if (!ds.isDirectory()) continue
+      if (!ds.isDirectory()) {
+        // 文件不携带"二阶根"这一信号(信号在**目录名**上),所以它们不得吃条目预算。
+        // 旧写法在 `scannedEntries += 1` 之后才 `continue`,于是正常使用量级的夹具(一级 3795 条、
+        // 每个夹具自己还在往下派生文件)会把 20000 的预算耗光 ⇒ 门恒 `undetermined` ⇒
+        // "二阶 scratch 根"这一维实际零覆盖,而账面看起来"这把尺子在跑"(G-1105304)。
+        res.scannedFiles += 1
+        continue
+      }
+      if (res.scannedEntries >= budget) {
+        res.truncated = true
+        return
+      }
+      res.scannedEntries += 1
       const lower = d.name.toLowerCase()
       if (lower === SCRATCH_DIR_NAME.toLowerCase() && countScratchSegments(q) > 1) {
         const m = measure(q)
@@ -282,7 +292,8 @@ export function formatLines(res, state) {
   }
   if (state === 'ok') {
     out.push(
-      `✅ ok:扫过 ${res.scannedEntries} 项(深度 ≤ ${res.maxDepth},跳过重解析点 ${res.skippedReparse})` +
+      `✅ ok:扫过 ${res.scannedEntries} 个目录 / ${res.scannedFiles} 个文件` +
+        `(深度 ≤ ${res.maxDepth},跳过重解析点 ${res.skippedReparse})` +
         ',未发现二阶 scratch 根 / 二阶盘级落点。',
     )
     limits()
