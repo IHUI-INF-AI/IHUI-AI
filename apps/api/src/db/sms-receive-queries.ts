@@ -10,7 +10,7 @@
 
 import { count, desc, eq } from 'drizzle-orm'
 import { db } from './index.js'
-import { smsReceiveHistory, type SmsReceiveHistory } from '@ihui/database'
+import { smsReceiveHistory, smsRelatedSnapshots, type SmsReceiveHistory } from '@ihui/database'
 // 用途词汇表的唯一持有者是分类器所在的服务层;这里只 import 它,不再抄第二份字面量联合。
 import { toSmsUsageKind, type SmsUsageKind } from '../services/d1jiema-service.js'
 
@@ -86,5 +86,50 @@ export async function getPhoneHistoryPlatformStats(
     usageKind: toSmsUsageKind(r.usageKind),
     count: Number(r.n),
   }))
+}
+
+// ── 平台 relatedMsgs 快照累积(2026-10-09):唯一能超越平台 12 条滚动窗口的全局热度口径 ──
+
+/** 平台时间线记录的查询层最小形态(与服务层 RelatedMsgRecord 同形,避免跨层依赖) */
+export interface RelatedSnapshotInput {
+  time: string
+  flag: string
+}
+
+/**
+ * 把一次 relatedMsgs 查询的窗口快照逐条抄进本地(幂等,冲突忽略)。
+ * 归位规则:平台只给 HH:MM 无日期,记录时刻晚于当前时刻 = 昨日(跨日滚动窗口连续化)。
+ * 返回本次新入库条数(0 = 全部已在库,窗口无新增)。
+ */
+export async function snapshotRelatedMsgs(
+  phone: string,
+  records: RelatedSnapshotInput[],
+): Promise<number> {
+  if (records.length === 0) return 0
+  const now = new Date()
+  const nowHHMM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+  const today = now.toISOString().slice(0, 10)
+  const yesterday = new Date(now.getTime() - 86_400_000).toISOString().slice(0, 10)
+  const values = records.map((r) => ({
+    phone,
+    recDate: r.time > nowHHMM ? yesterday : today,
+    recTime: r.time,
+    flag: r.flag,
+  }))
+  const inserted = await db
+    .insert(smsRelatedSnapshots)
+    .values(values)
+    .onConflictDoNothing()
+    .returning({ id: smsRelatedSnapshots.id })
+  return inserted.length
+}
+
+/** 查某号码快照累积的全局被接码总数(跨快照并集,单调不减,可超越平台 12 条) */
+export async function getRelatedUnionCount(phone: string): Promise<number> {
+  const rows = await db
+    .select({ n: count() })
+    .from(smsRelatedSnapshots)
+    .where(eq(smsRelatedSnapshots.phone, phone))
+  return rows[0]?.n ?? 0
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
