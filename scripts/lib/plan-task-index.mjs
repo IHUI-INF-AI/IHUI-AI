@@ -668,6 +668,34 @@ export function isClaimExcludedPointer(raw) {
   return DUP_POINTER_RE.test(raw) || COPY_POINTER_ROW_RE.test(raw)
 }
 
+/**
+ * 行**自己声明**"别把我当一条活待办派出去"的措辞族 —— 派单口径专用(2026-10-09 立)。
+ *
+ * 病:`isClaimExcludedPointer` 认的是"被别处标注成副本"的行(【归并】/`副本指针(编号 …)` 两族行首
+ * 形态),而台账里另有一族是**行内自述**的:归并席位量到"与同题另一条前缀逐字相同而信息更少"之后,
+ * 按 §1 F4 口径写的是「本行不再单独派单」与「派单一律走持有行」—— 既不带【归并】字面,也不是
+ * `副本指针(编号 …)` 行首形态,于是三道副本判据全部看不见它,该行仍以"活待办"身份进派单清单。
+ * 后果与 G-1058653 那一族同型:派单人照着虚高的数字把同一件事再派一次,而账面看起来已经处理过了。
+ *
+ * **HEAD 面实测(两把都要有出处,不是设计意图)**:命中 3 行 —— 两条「本行不再单独派单」(区段头
+ * 「更多」折行票、P1-① 扩共享层首批票)与一条「派单一律走持有行」(`/api/agent/goal-verify` 无
+ * 消费方那行,其正文另写明"要恢复须按历史版本逐字取回,归台账找回线")。
+ *
+ * **刻意不收的第二种措辞(这一条是本判据的假阳线,不得被"顺手放宽")**:`勿照本行…`
+ * —— HEAD 面命中 4 行,其中 G-631「派单前先看现量,勿照本行数字」与 2026-10-07 立的那条
+ * 「现读值一律跑该门自己,勿照本行取字面数字」说的是**数字**不可照抄,**活仍要做**。把这一族
+ * 并进来等于把三条真待办静默踢出派单口径 —— 那比原病更响(§1:把没做的记成做过的)。
+ *
+ * **为什么不并进 `VOID_MARK_RE`**:那一维是 F2「闭合/作废声明」,有 `findVoidRows` 之外的消费方,
+ * 且 `plan-tasks-merge.mjs` 的改写规则族表与它配对(镜像测试钉"族表与修复规则必须同集")。本判据
+ * 只减派单名额、不改勾选、不参与归并改写,所以**并列导出、只在 `isClaimable` 一处消费** —— 与
+ * G-1058653 给 `COPY_POINTER_ROW_RE` 定下的取舍同形(影响面 = 少派 N 行,其余判据逐字不变)。
+ */
+export const SELF_DEDISPATCH_RE = /本行不再单独派单|派单一律走持有行/
+export function isSelfDeDisclaimed(raw) {
+  return SELF_DEDISPATCH_RE.test(raw)
+}
+
 export function findDupOpenCopies(dupOpen) {
   const copies = []
   for (const g of dupOpen) {
@@ -2205,7 +2233,8 @@ export function auditPlan(content, { archivedKeys = null } = {}) {
     !forkOpenLines.has(r.line) &&
     !voidLines.has(r.line) &&
     !dupCopyLines.has(r.line) &&
-    !isClaimExcludedPointer(r.raw)
+    !isClaimExcludedPointer(r.raw) &&
+    !isSelfDeDisclaimed(r.raw)
   const claimableRows = unclaimedRows.filter(isClaimable)
   // F7b(G-1058610 病①,2026-10-05 立):同一份分层在**派单口径**上再算一遍。
   // 上面的基数 unclaimedRows 里混着两千多行"已标副本指针 / 当次算出的同题副本",所以它那组
@@ -2297,6 +2326,13 @@ export function auditPlan(content, { archivedKeys = null } = {}) {
       // 已写明"重复登记副本"的未勾选行:它们与 dupOpenCopies 是两件事 —— 副本是**当次**算出来的,
       // 标过指针的是历史上已归并过的。派单口径两条都扣,所以报告里必须分列,否则读者对不上账。
       dupPointerRows: openRows.filter((r) => DUP_POINTER_RE.test(r.raw)).length,
+      // 行内自述"不再单独派单/走持有行"的未勾选行(派单口径已扣,勾选未动)。与 `dupPointerRows`
+      // 分列是因为两族措辞互不含(见 SELF_DEDISPATCH_RE 头注),并成一栏就会有人按【归并】字面
+      // 去 grep 而判"这一族不存在"。真活票不受影响:`勿照本行…数字` 一族刻意不认,亦计入本行。
+      selfDedispatchRows: openRows.filter((r) => SELF_DEDISPATCH_RE.test(r.raw)).length,
+      selfDedispatchList: openRows
+        .filter((r) => SELF_DEDISPATCH_RE.test(r.raw))
+        .map((r) => ({ line: r.line, title: String(r.title || r.raw || '').slice(0, 46) })),
       // 内容级存续性证据(只许增不许减,方向与四条状态判据相反 ⇒ 单独一把尺子,别塞进同一个 ratchet)
       mergeNotes: noteUnits.lineAttributable,
       // 跨行书写的注记:落地闸**只报名不判红**(与 lineAttributable 不同量纲,见 mergeNoteUnits 头注)
