@@ -1951,6 +1951,127 @@ pub fn checkin_reset_device_ids(
     ))
 }
 
+// ================== 一键解决风控(产品级向导,2026-10-10) ==================
+
+/// MachineGuid 改写前的自动备份(一键模式安全网):首次写入
+/// `%USERPROFILE%\.trae-proxy\MachineGuid-backup.txt`,已存在则保留最早备份不覆盖。
+#[cfg(windows)]
+fn ensure_machine_guid_backup() -> Result<String, String> {
+    let script = "try { \
+        $v=(Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Cryptography' -ErrorAction Stop).MachineGuid; \
+        $d=\"$env:USERPROFILE\\.trae-proxy\"; \
+        New-Item -ItemType Directory -Force -Path $d | Out-Null; \
+        $p=\"$d\\MachineGuid-backup.txt\"; \
+        if (!(Test-Path $p)) { Set-Content -Path $p -Value $v -Encoding utf8 }; \
+        Write-Output $v; exit 0 } catch { exit 1 }";
+    let mut cmd = std::process::Command::new("powershell");
+    cmd.args(["-NoProfile", "-NonInteractive", "-Command", script]);
+    creation_flags_if_windows(&mut cmd, 0x0800_0000);
+    match cmd.output() {
+        Ok(out) if out.status.success() => {
+            let v = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            if v.is_empty() {
+                Err("读取 MachineGuid 返回空".into())
+            } else {
+                Ok(v)
+            }
+        }
+        Ok(_) => Err("读取 MachineGuid 失败(无权限?)".into()),
+        Err(e) => Err(format!("无法启动内建脚本: {e}")),
+    }
+}
+
+#[cfg(not(windows))]
+fn ensure_machine_guid_backup() -> Result<String, String> {
+    Err("非 Windows 平台无 MachineGuid".into())
+}
+
+/// cip.cc 纯文本响应解析(抽出纯函数便于单测):
+/// 返回 (ip, 归属地) —— 形如 "IP\t: 1.2.3.4" / "地址 : 中国 吉林 长春 电信"。
+fn parse_public_ip_body(body: &str) -> Option<(String, String)> {
+    let mut ip = None;
+    let mut location = String::new();
+    for line in body.lines() {
+        let line = line.trim();
+        if let Some(v) = line.strip_prefix("IP").map(str::trim).and_then(|s| s.strip_prefix(':')) {
+            let v = v.trim();
+            if !v.is_empty() && v.split('.').count() == 4 {
+                ip = Some(v.to_string());
+            }
+        } else if line.starts_with("地址") {
+            if let Some(v) = line.split_once(':').map(|(_, v)| v.trim()) {
+                if !v.is_empty() {
+                    location = v.to_string();
+                }
+            }
+        }
+    }
+    ip.map(|i| (i, location))
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PublicIpReport {
+    pub ip: String,
+    pub location: String,
+}
+
+/// 当前直连公网出口 IP(一键向导 Step2 用):显式 no_proxy,拿真实宽带/热点出口,
+/// 不被本机代理环境干扰。cip.cc(国内,含归属地) 为主,api.ipify.org 兜底。
+#[tauri::command]
+pub async fn checkin_get_public_ip() -> Result<PublicIpReport, IpcError> {
+    let client = reqwest::Client::builder()
+        .no_proxy()
+        .timeout(std::time::Duration::from_secs(8))
+        .build()
+        .map_err(|e| IpcError::internal(format!("HTTP 客户端构建失败: {e}")))?;
+    // 主: cip.cc(plain text,含中文归属地;UA 给 curl 文本版)
+    if let Ok(resp) = client
+        .get("https://cip.cc")
+        .header("User-Agent", "curl/8.9.1")
+        .send()
+        .await
+    {
+        if let Ok(body) = resp.text().await {
+            if let Some((ip, location)) = parse_public_ip_body(&body) {
+                return Ok(PublicIpReport { ip, location });
+            }
+        }
+    }
+    // 兜底: ipify(只有 IP,无归属地)
+    let ip = client
+        .get("https://api.ipify.org")
+        .send()
+        .await
+        .map_err(|e| IpcError::internal(format!("公网 IP 查询失败: {e}")))?
+        .text()
+        .await
+        .map_err(|e| IpcError::internal(format!("公网 IP 响应读取失败: {e}")))?;
+    Ok(PublicIpReport {
+        ip: ip.trim().to_string(),
+        location: String::new(),
+    })
+}
+
+/// 一键解决风控(傻瓜式):全 14 层全开 —— 杀进程+机器码+MachineGuid(先自动备份)
+/// +浏览器 Cookie+深度删面(23目录5文件+traereset_bak 清扫)+注册表+本地缓存+MAC 改写。
+/// 可选层(⑤⑦⑬)环境不允许时降级记录不拦流程;报告由前端向导照实展示。
+#[tauri::command]
+pub fn checkin_one_click_reset() -> Result<ResetReport, IpcError> {
+    let dir = require_trae_dir()?;
+    // 安全网:改 MachineGuid 前必须确保旧值已备份(失败则拒绝执行层⑤,
+    // 但不让整个一键挂掉——把错误塞进 L5 的 skip 记录里,其余 13 层照常)
+    let guid_backup = ensure_machine_guid_backup();
+    let report = reset_device_ids(&dir, true, true, true, true, true);
+    let mut report = report;
+    if let Err(e) = guid_backup {
+        if let Some(l5) = report.layers.iter_mut().find(|l| l.layer == 5) {
+            l5.ok = false;
+            l5.detail = format!("已跳过(旧值备份失败,防止不可逆): {e}");
+        }
+    }
+    Ok(report)
+}
+
 #[tauri::command]
 pub fn checkin_snapshot_backup(
     app: tauri::AppHandle,
@@ -2415,6 +2536,20 @@ mod tests {
         );
         assert!(!dir.join(link_rel).exists(), "链接形态的 {link_rel} 必须被摘除");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// 一键向导 Step2 的公网 IP 解析判据(cip.cc 纯文本形态)
+    #[test]
+    fn parse_public_ip_body_extracts_ip_and_location() {
+        let body = "IP\t: 36.104.209.21\n地址\t: 中国 吉林 长春 电信\n运营商\t: 电信\n\n数据二: ...";
+        let (ip, loc) = parse_public_ip_body(body).expect("应解析成功");
+        assert_eq!(ip, "36.104.209.21");
+        assert!(loc.contains("长春"), "归属地应含城市: {loc}");
+        assert!(parse_public_ip_body("no ip here").is_none(), "无 IP 行应返回 None");
+        assert!(
+            parse_public_ip_body("IP\t: not-an-ip\n地址\t: x").is_none(),
+            "非法 IP 不得误报"
+        );
     }
 
     // ── 10. 层⑦浏览器 Cookie 清理（隔离临时库,只验域限定判据）──

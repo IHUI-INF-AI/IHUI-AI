@@ -73,6 +73,8 @@ import { useTauriIpcReady } from '@/hooks/use-desktop'
 import {
   checkinCaptureJwts,
   checkinDetectTraeDir,
+  checkinGetPublicIp,
+  checkinOneClickReset,
   checkinResetDeviceIds,
   checkinSnapshotBackup,
   checkinSnapshotDelete,
@@ -149,6 +151,14 @@ export default function CheckinPage() {
   const [maintIncludeBrowser, setMaintIncludeBrowser] = React.useState(false)
   const [maintDeepReset, setMaintDeepReset] = React.useState(false)
   const [maintIncludeMac, setMaintIncludeMac] = React.useState(false)
+
+  // 一键解决风控向导(傻瓜式 3 步:重置 → 换网络 → 冷却提醒)
+  const [wizardStep, setWizardStep] = React.useState<0 | 1 | 2 | 3>(0)
+  const [wizardIpBefore, setWizardIpBefore] = React.useState('')
+  const [wizardIpLoc, setWizardIpLoc] = React.useState('')
+  const [wizardIpNow, setWizardIpNow] = React.useState('')
+  const [wizardBusy, setWizardBusy] = React.useState(false)
+  const [wizardMsg, setWizardMsg] = React.useState<string[]>([])
   const [maintReport, setMaintReport] = React.useState<string[]>([])
   const [maintError, setMaintError] = React.useState<string | null>(null)
   const [maintUserId, setMaintUserId] = React.useState('')
@@ -326,6 +336,52 @@ export default function CheckinPage() {
       )
       return report.layers.map((l) => `[${l.ok ? 'OK' : 'FAIL'}] L${l.layer} ${l.name}: ${l.detail}`)
     })
+
+  // 一键解决风控 Step1:全 14 层彻底重置,完成后记录出口 IP 进入换网络引导
+  const startOneClickReset = async () => {
+    setWizardBusy(true)
+    setWizardMsg([])
+    try {
+      const report = await checkinOneClickReset()
+      const okCount = report.layers.filter((l) => l.ok).length
+      const fails = report.layers.filter((l) => !l.ok)
+      setWizardMsg([
+        t('wizardResetDone', { ok: okCount, total: report.layers.length }),
+        ...fails.map((l) => `${l.name}: ${l.detail}`),
+      ])
+      try {
+        localStorage.setItem('checkin-oneclick-at', String(Date.now()))
+      } catch {
+        /* 隐私模式下 localStorage 不可用,冷却提醒仅当次会话有效 */
+      }
+      const before = await checkinGetPublicIp()
+      setWizardIpBefore(before.ip)
+      setWizardIpLoc(before.location)
+      setWizardStep(2)
+    } catch (e) {
+      setMaintError((e as Error).message)
+    } finally {
+      setWizardBusy(false)
+    }
+  }
+
+  // 一键解决风控 Step2:验证用户已换网络出口(IP 必须真的变了)
+  const verifyIpChanged = async () => {
+    setWizardBusy(true)
+    try {
+      const now = await checkinGetPublicIp()
+      setWizardIpNow(now.ip)
+      if (wizardIpBefore && now.ip !== wizardIpBefore) {
+        setWizardStep(3)
+      } else {
+        setWizardMsg((m) => [t('wizardIpUnchanged'), ...m])
+      }
+    } catch (e) {
+      setMaintError((e as Error).message)
+    } finally {
+      setWizardBusy(false)
+    }
+  }
 
   const backupSnapshot = () =>
     runMaintAction(async () => {
@@ -1491,6 +1547,52 @@ export default function CheckinPage() {
               </p>
             )}
             <div className="space-y-3">
+              {/* 一键解决风控向导(傻瓜式主入口,2026-10-10) */}
+              <div className="space-y-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3">
+                <p className="text-sm font-medium">{t('wizardTitle')}</p>
+                {wizardStep === 0 && (
+                  <>
+                    <p className="text-xs text-muted-foreground">{t('wizardIntro')}</p>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={wizardBusy || maintBusy}
+                      onClick={() => void startOneClickReset()}
+                    >
+                      {wizardBusy && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                      {t('wizardStart')}
+                    </Button>
+                  </>
+                )}
+                {wizardStep === 2 && (
+                  <>
+                    <p className="text-xs text-muted-foreground">
+                      {t('wizardIpBefore', { ip: wizardIpBefore, location: wizardIpLoc })}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{t('wizardGuide')}</p>
+                    <Button size="sm" disabled={wizardBusy} onClick={() => void verifyIpChanged()}>
+                      {wizardBusy && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                      {t('wizardVerify')}
+                    </Button>
+                  </>
+                )}
+                {wizardStep === 3 && (
+                  <>
+                    <p className="text-xs text-green-600 dark:text-green-400">
+                      {t('wizardIpChanged', { ip: wizardIpNow })}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{t('wizardCooldown')}</p>
+                  </>
+                )}
+                {wizardMsg.length > 0 && (
+                  <pre className="max-h-24 overflow-y-auto rounded bg-muted p-2 text-xs">
+                    {wizardMsg.join('\n')}
+                  </pre>
+                )}
+                {wizardStep >= 1 && wizardStep < 3 && (
+                  <p className="text-xs text-muted-foreground">{t('wizardOptionalNote')}</p>
+                )}
+              </div>
               <div>
                 <Label htmlFor="checkin-maint-user-id">{t('maintUserIdLabel')}</Label>
                 <Input
