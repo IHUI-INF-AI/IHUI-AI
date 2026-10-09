@@ -20,7 +20,10 @@
  *   node scripts/plan-tasks.mjs --pointers       # F3 行号指针已腐烂
  *   node scripts/plan-tasks.mjs --open --dispatchable --conflicts
  *                                                # 派单叠层:逐行点名"这行点名的文件此刻正被他在飞改动占着"
- *                                                # (默认档不打 —— 下游有按行解析这份输出的消费者)
+ *   node scripts/plan-tasks.mjs --open --dispatchable --exclude-inflight
+ *                                                # 同上一档的判据,但把那些行**暂移**出出单面(对方收口后自动回来;
+ *                                                # 不判完成、不改勾选、"核验不了"档一律不剔)
+ *                                                # (默认档不打扰 —— 下游有按行解析这份输出的消费者)
  *   node scripts/plan-tasks.mjs --gate [--strict] # 判据档(默认存量只报数;--strict 判红)
  *   node scripts/plan-tasks.mjs --reopened-flips --since=YYYY-MM-DD [--max-commits=N]
  *                                                 # F10 翻勾回写候选(只报数,**必须显式窗口**;见 scanReopenedFlipEvidence 头注)
@@ -106,6 +109,7 @@ export function parseArgs(argv) {
     undisposed: has('--undisposed'),
     dispatchable: has('--dispatchable'),
     conflicts: has('--conflicts'),
+    excludeInflight: has('--exclude-inflight'),
     selfTest: has('--self-test'),
     updateBaseline: has('--update-baseline'),
     face: sel.face,
@@ -178,20 +182,68 @@ export function fileConflictOverlay({ rows, dirtySet, headSet }) {
 /**
  * 在飞路径集合(索引/工作树与 HEAD 不一致 + 未跟踪新文件)。
  * 取不到 ⇒ 返回 null,由调用方喊"未判定" —— 把没量到写成"都没有在飞"就是替打架发合格证。
+ * ⚠ 空集合在这里是**合法值**(整仓干净就会为空),因此它只能与"非 null 的 headSet"搭配解读:
+ *   调用方必须先确认 HEAD 树取到了(git 可问),才能把空 status 读成"确实没有在飞"。
+ * ⚠ 必须锚到 git 的 toplevel 再问:`git -C <子目录> status` 输出的是**相对该目录**的路径,
+ *   拿它和台账里写的仓根相对路径比,会把全部点名读成"核验不了"(2026-10-09 在无 .git 的
+ *   HEAD 抽取目录里实测到,当时读成"干净 0 / 核验不了 176",像结论而其实什么都没量到)。
  */
 export function collectDirtyPaths(root) {
-  const raw = gitRaw(['status', '--porcelain', '-z', '--untracked-files=all'], root)
-  if (typeof raw !== 'string') return null
-  const set = new Set()
-  for (const e of parsePorcelainZ(raw)) set.add(e.path)
-  return set
+  const top = repoToplevel(root)
+  if (!top) return null
+  try {
+    const raw = gitRaw(['status', '--porcelain', '-z', '--untracked-files=all'], top)
+    if (typeof raw !== 'string') return null
+    const set = new Set()
+    for (const e of parsePorcelainZ(raw)) set.add(e.path)
+    return set
+  } catch {
+    return null
+  }
 }
 
 /** HEAD 树路径全集(用来区分"干净"与"点名的路径根本不在面上")。取不到 ⇒ null。 */
 export function collectHeadPaths(root) {
-  const raw = gitRaw(['ls-tree', '-r', '--name-only', '-z', 'HEAD'], root)
+  const top = repoToplevel(root)
+  if (!top) return null
+  let raw
+  try {
+    raw = gitRaw(['ls-tree', '-r', '--name-only', '-z', 'HEAD'], top)
+  } catch {
+    return null
+  }
   if (typeof raw !== 'string') return null
-  return new Set(raw.split('\0').filter(Boolean))
+  const set = new Set(raw.split('\0').filter(Boolean))
+  // 空集合**不是**"HEAD 里没有文件",而是 git 不可问或问错了面 —— 正常仓的 HEAD 树必有上千条路径。
+  if (set.size === 0) return null
+  return set
+}
+
+/** git 的仓库根;问不到(不是仓 / git 不可用 / 输出为空)⇒ null,调用方一律落"未判定"。 */
+function repoToplevel(root) {
+  try {
+    const out = String(gitRaw(['rev-parse', '--show-toplevel'], root) ?? '')
+      .trim()
+      .replace(/\r/g, '')
+    return out === '' ? null : out.replace(/\\/g, '/')
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 把"点名文件当前不干净"的行**暂移**出派单面(纯函数)。
+ *
+ * 只吃 `conflictList` —— `absentList`(路径两头都找不到)一律保留:核验不了 ≠ 在飞,
+ * 拿"没看清"去剔掉一件真活,就是"把没做的记成做过的"的反向版本(§1 同一条禁令)。
+ * 也不动已勾/指针行等其它维度,这里只回答"这一行现在会不会和别人撞同一个文件"。
+ */
+export function excludeInflightRows(rows, cf) {
+  const bad = new Set((cf?.conflictList ?? []).map((c) => c.line))
+  const kept = []
+  const dropped = []
+  for (const r of rows || []) (bad.has(r.line) ? dropped : kept).push(r)
+  return { kept, dropped }
 }
 
 /** 只读一条文档。整面取不到 ⇒ 抛 Undetermined(调用方转 exit 2),绝不静默换面。 */
@@ -225,6 +277,8 @@ export function auditFace(root, face) {
   const a = auditPlan(content)
   // 宽口径读数必须留在面上(只报数不判红):收窄不是"看不见",报告里必须能说"摘掉了几个标题"
   a.counts.f9WideGroups = (a.collisions ?? []).length
+  // 派单面的"F1 看不见的那一型"计数(逐对清单只打人读面,不进 json 以免把整行正文带出去)
+  a.counts.sameIdDonePairs = (a.sameIdDone?.pairs ?? []).length
   return narrowF9Face(a, content)
 }
 
@@ -2374,30 +2428,66 @@ function main() {
         )
         for (const r of sd) console.log(`    L${r.line}  ${r.title}`)
       }
+      // 同编号、题面被改写的"一勾一未勾":F1 按复合主键看不见它,派单人就会把做完的事再派一次。
+      // 只点名不剔除也不判红 —— 同编号不同题面在本仓合法存在(D30①/D30② 那一族),
+      // 按基号剔除等于把别人没做完的活记成做过的(§1 F4 同一条禁令),交人工逐对判。
+      const sid = a.sameIdDone ?? { pairs: [], pointerRows: 0, disclaimedRows: 0 }
+      if (sid.pairs.length > 0) {
+        console.log(
+          `  同编号而题面被改写的"一勾一未勾"成对 ${sid.pairs.length} 对(F1 看不见 ⇒ 只点名、不剔除、不判红;` +
+            `另有 ${sid.pointerRows} 行带归并指针、${sid.disclaimedRows} 行自述不再派单,本就不进派单面):`,
+        )
+        for (const p of sid.pairs.slice(0, 12)) {
+          console.log(
+            `    ${p.id} 未勾 L${p.openLine}「${p.openTitle}」 ⇄ 已勾 L${p.doneLine}「${p.doneTitle}」`,
+          )
+        }
+        if (sid.pairs.length > 12) console.log(`    …另 ${sid.pairs.length - 12} 对见 --json 的 counts.sameIdDonePairs`)
+      }
     }
-    // 文件归属叠层只在显式旗标下打印 —— 默认派单口径的输出面已有下游按行解析(归并器/自检),
-    // 把新维度塞进默认档就等于替别人改契约;要叠层的人显式要。
-    if (o.conflicts) {
+    // 文件归属叠层只在显式旗标下生效 —— 默认派单口径的输出面已有下游按行解析(归并器/自检),
+    // 把新维度塞进默认档等于替别人改契约;要叠层/要剔活的人显式要。
+    let rowsOut = rows
+    if (o.conflicts || o.excludeInflight) {
       const dirtySet = collectDirtyPaths(o.root)
       const headSet = collectHeadPaths(o.root)
       if (!dirtySet || !headSet) {
-        console.log('  ⚠️ 文件归属叠层**未判定**:git status / HEAD 树取不到 ⇒ 不读成"没有在飞的路径"')
+        console.log(
+          '  ⚠️ 文件归属叠层**未判定**:git status / HEAD 树取不到 ⇒ 既不读成"没有在飞的路径",' +
+            '`--exclude-inflight` 也一律照派(拿"量不到"去剔真活就是反向的"把没做的记成做过的")',
+        )
       } else {
         const cf = fileConflictOverlay({ rows, dirtySet, headSet })
-        console.log(
-          `  文件归属叠层:${cf.rowsWithConflict} / ${cf.rowsTotal} 行点名了**当前不干净**的路径` +
-            `(点名 ${cf.refsTotal} 处:冲突 ${cf.conflictRefs} / 干净 ${cf.cleanRefs} / 核验不了 ${cf.absent})`,
-        )
-        for (const c of cf.conflictList) {
-          const shown = c.paths.slice(0, 6).join(', ')
-          console.log(`    L${c.line} 在飞:${shown}${c.paths.length > 6 ? ` …另 ${c.paths.length - 6} 条` : ''}`)
+        if (o.conflicts) {
+          console.log(
+            `  文件归属叠层:${cf.rowsWithConflict} / ${cf.rowsTotal} 行点名了**当前不干净**的路径` +
+              `(点名 ${cf.refsTotal} 处:冲突 ${cf.conflictRefs} / 干净 ${cf.cleanRefs} / 核验不了 ${cf.absent})`,
+          )
+          for (const c of cf.conflictList) {
+            const shown = c.paths.slice(0, 6).join(', ')
+            console.log(
+              `    L${c.line} 在飞:${shown}${c.paths.length > 6 ? ` …另 ${c.paths.length - 6} 条` : ''}`,
+            )
+          }
+          for (const a of cf.absentList) {
+            console.log(
+              `    L${a.line} 点名的路径在 HEAD 与在飞集合里都找不到:${a.key}(不判冲突,也不判干净)`,
+            )
+          }
         }
-        for (const a of cf.absentList) {
-          console.log(`    L${a.line} 点名的路径在 HEAD 与在飞集合里都找不到:${a.key}(不判冲突,也不判干净)`)
+        if (o.excludeInflight) {
+          const { kept, dropped } = excludeInflightRows(rows, cf)
+          const who = dropped.slice(0, 10).map((r) => 'L' + r.line).join(' / ')
+          console.log(
+            `  --exclude-inflight:暂移 ${dropped.length} 行(点名的文件此刻正被在飞改动占着)⇒ 出单 ${kept.length} 行` +
+              `(对方收口后自动回来;这不是判"做完",也不改勾选)` +
+              (dropped.length ? ` —— ${who}${dropped.length > 10 ? ` …另 ${dropped.length - 10} 行` : ''}` : ''),
+          )
+          rowsOut = kept
         }
       }
     }
-    listRows(rows, o.face)
+    listRows(rowsOut, o.face)
     return 0
   }
   if (o.undisposed) {

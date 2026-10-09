@@ -25,8 +25,9 @@ import json
 import os
 import secrets
 from collections.abc import Callable, Mapping
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
+from zoneinfo import ZoneInfo
 
 from cryptography.fernet import Fernet, InvalidToken
 
@@ -93,6 +94,20 @@ CREATE TABLE IF NOT EXISTS checkin_error_counts (
 )
 """
 
+# WP-B 后端半(2026-10-09)积分每日快照:每账号每天一行,remaining 为当日查得的
+# 余额(gained 从 checkin_records 按日聚合,不在此冗余存亦行,落列便于单表出序列)。
+_CREATE_CREDITS_DAILY_SQL = """
+CREATE TABLE IF NOT EXISTS checkin_credits_daily (
+    account_id    bigint NOT NULL REFERENCES checkin_accounts(id) ON DELETE CASCADE,
+    owner_user_id text NOT NULL,
+    day           date NOT NULL,
+    remaining     int,
+    gained        int NOT NULL DEFAULT 0,
+    updated_at    timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (account_id, day)
+)
+"""
+
 _CREATE_INDEXES_SQL = """
 CREATE INDEX IF NOT EXISTS idx_checkin_records_account_created
     ON checkin_records (account_id, created_at DESC);
@@ -113,7 +128,10 @@ _ensure_failed = False
 
 
 async def ensure_tables_conn(conn: asyncpg.Connection) -> None:
-    """在给定连接上幂等建表(三张表 + account_group 幂等加列 + 查询索引)。
+    """在给定连接上幂等建表(四张表 + account_group 幂等加列 + 查询索引)。
+
+    四张表 = 签到三表(accounts / records / error_counts)+ 积分每日快照表
+    (checkin_credits_daily,WP-B 后端半)。
 
     与 ensure_tables 的区别:不经过共享连接池。CI 的 ensure 步骤在同一进程里
     连续多次 asyncio.run(前者各自持有已关闭 loop 的残留池),共享池的跨 loop
@@ -124,6 +142,7 @@ async def ensure_tables_conn(conn: asyncpg.Connection) -> None:
     await conn.execute(_CREATE_ACCOUNTS_SQL)
     await conn.execute(_CREATE_RECORDS_SQL)
     await conn.execute(_CREATE_ERROR_COUNTS_SQL)
+    await conn.execute(_CREATE_CREDITS_DAILY_SQL)
     await conn.execute(_ALTER_ACCOUNTS_GROUP_SQL)
     await conn.execute(_CREATE_INDEXES_SQL)
     _ensure_failed = False
@@ -704,5 +723,127 @@ async def get_active_cooldowns() -> dict[int, datetime]:
             datetime.now(UTC),
         )
     return {r["account_id"]: r["cooldown_until"] for r in rows}
+
+
+# ---------------------------------------------------------------------------
+# 积分每日快照(WP-B 后端半,2026-10-09)
+# ---------------------------------------------------------------------------
+
+
+async def upsert_credits_daily(
+    account_id: int, owner_user_id: str, day: str, remaining: int | None, gained: int
+) -> None:
+    """写入/更新某账号某日的积分快照;remaining 为 None 时不覆盖旧值。"""
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO checkin_credits_daily (account_id, owner_user_id, day, remaining, gained)
+            VALUES ($1, $2, $3::date, $4, $5)
+            ON CONFLICT (account_id, day) DO UPDATE SET
+                remaining = COALESCE(EXCLUDED.remaining, checkin_credits_daily.remaining),
+                gained = EXCLUDED.gained,
+                updated_at = now()
+            """,
+            account_id,
+            owner_user_id,
+            day,
+            remaining,
+            gained,
+        )
+
+
+async def get_credits_daily_range(owner_user_id: str, days: int) -> list[dict[str, Any]]:
+    """最近 days 天(Asia/Shanghai 日界)按日聚合:Σremaining(快照表)+ Σgained(credits_delta)。
+
+    返回按日升序的稀疏行(仅含有数据的日子):[{day, total, gained}]。
+    total / gained 可各自为 None(该日只有另一侧数据),窗口补齐与断线由路由层处理。
+    """
+    start_day = datetime.now(ZoneInfo("Asia/Shanghai")).date() - timedelta(days=days - 1)
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            WITH rem AS (
+                SELECT day, SUM(remaining) AS total
+                FROM checkin_credits_daily
+                WHERE owner_user_id = $1 AND day >= $2
+                GROUP BY day
+            ),
+            gn AS (
+                SELECT (r.created_at AT TIME ZONE 'Asia/Shanghai')::date AS day,
+                       SUM(r.credits_delta) AS gained
+                FROM checkin_records r
+                JOIN checkin_accounts a ON a.id = r.account_id
+                WHERE a.owner_user_id = $1
+                  AND r.credits_delta IS NOT NULL
+                  AND (r.created_at AT TIME ZONE 'Asia/Shanghai')::date >= $2
+                GROUP BY 1
+            )
+            SELECT to_char(d.day, 'YYYY-MM-DD') AS day, rem.total, gn.gained
+            FROM (SELECT day FROM rem UNION SELECT day FROM gn) AS d
+            LEFT JOIN rem ON rem.day = d.day
+            LEFT JOIN gn ON gn.day = d.day
+            ORDER BY d.day
+            """,
+            owner_user_id,
+            start_day,
+        )
+    return [{"day": r["day"], "total": r["total"], "gained": r["gained"]} for r in rows]
+
+
+async def sum_credits_delta_for_day(account_id: int, owner_user_id: str, day: str) -> int:
+    """某账号某日(Asia/Shanghai 日界)的 credits_delta 合计(query_credits 落快照时用)。"""
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT COALESCE(SUM(r.credits_delta), 0) AS gained
+            FROM checkin_records r
+            JOIN checkin_accounts a ON a.id = r.account_id
+            WHERE r.account_id = $1
+              AND a.owner_user_id = $2
+              AND r.credits_delta IS NOT NULL
+              AND (r.created_at AT TIME ZONE 'Asia/Shanghai')::date = $3::date
+            """,
+            account_id,
+            owner_user_id,
+            day,
+        )
+    # 钉真类型再回(同 bump_error_count 的守门理由):SUM/COALESCE 产出确为 int。
+    gained: int = row["gained"]
+    return gained
+
+
+async def list_enabled_accounts_full() -> list[dict[str, Any]]:
+    """积分快照调度用:所有 enabled 账号(含 owner_user_id,已解密 jwt)。
+
+    与 list_enabled_accounts 的差异仅是多回 owner_user_id —— 快照落表需要
+    属主列;不改动既有方法,避免影响每日签到 job 的既有调用面。
+    """
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT id, owner_user_id, name, jwt_enc, device_map
+            FROM checkin_accounts
+            WHERE enabled = true
+            ORDER BY id
+            """
+        )
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        out.append(
+            {
+                "id": r["id"],
+                "owner_user_id": r["owner_user_id"],
+                "name": r["name"],
+                "jwt": _decrypt_jwt(r["jwt_enc"]),
+                "device_map": json.loads(r["device_map"] or "{}")
+                if isinstance(r["device_map"], str)
+                else dict(r["device_map"] or {}),
+            }
+        )
+    return out
 # ⁠[IHUI-AI-PROVENANCE-TAIL]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

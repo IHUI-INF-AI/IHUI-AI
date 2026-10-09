@@ -48,6 +48,13 @@ import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 // 判定面取材的唯一出口(2026-09-26 迁)。语言包是这道门唯一的"内容输入",
 // 清单与正文必须经同一面、同一次取材拿到 —— 各写一遍必然不同形(守门 118 的 half-wired 档)。
 import { catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
+// G-1079148(2026-10-09):键流追踪的唯一实现层。本门原先只认 `t('字面量')`,所以"键作为一个值
+// 穿过 helper、存进 state、再由渲染处 `t(变量)` 取用"这一族整族隐身(票面那 4 个键即此型:
+// 组件真实消费 8 个键而门只报 4 个,并且 UI 上真的显示了裸键名而门一路报绿)。
+// ⚠ traceKeyFlow 要吃的是**汇点**(state setter `setX`)而不是源函数名(`flashNotice`)——
+// 喂错不报错,只会永远返回空,于是门对着同一个文件继续报绿。所以汇点由本门从源码自己派生,
+// 不留给调用方手传(2026-10-09 接线前置实测 ② 的原文)。
+import { traceKeyFlow, deriveStatePairs } from './lib/i18n-key-flow.mjs'
 
 const ROOT = process.cwd()
 // 2026-09:解析端内 lib/*.ts 的 messagesZhCN TS 对象字面量。
@@ -770,6 +777,21 @@ function extractKeysByVar(src, varName) {
   return [...keys]
 }
 
+// 2026-10-09 G-1079148:汇点(reader/sink)对的派生**不在本门重写** —— 用 lib 的
+// deriveStatePairs。本票接线当天在门里抄了一份写窄的同名函数(`use` 与 `State` 之间漏了
+// `(?:…)?`,于是最常见的 `useState` 整族不匹配),门对着同一个文件继续报 4 键 —— 恰好复现
+// 了本票立项的那一型。教训照抄:**同一件事只许有一份实现**(§22c 同一条理由)。
+
+// 该翻译变量是否以"整个实参恰为 reader"的形态被调用:`t(notice)` / `t.rich(notice)`。
+// 只认整实参:`t(`a.${notice}`)` 与 `t('x' + notice)` 都属于"拼接型",本票不猜其键名(动态前缀
+// 那一维另有 extractDynamicPrefixes 管),把它们算成流键的汇点会凭空造出归属。
+function varConsumesReader(src, varName, reader) {
+  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(
+    `\\b${esc(varName)}(?:\\.(?:rich|raw|format|has))?\\(\\s*${esc(reader)}\\s*[,)]`,
+  ).test(src)
+}
+
 function hasKey(msg, ns, key) {
   // 2026-07-30: ns='' 表示根 namespace(useTranslations() 无参数调用)
   // 原 bug:getNested(msg, '') 返回 undefined(''.split('.')=[''],msg 无 '' key),
@@ -1133,6 +1155,9 @@ function pushMissingKeyIssue(issue) {
 
 let checkedFiles = 0
 let checkedKeys = 0
+// G-1079148:键流族里"看得见站点但判不出归属/来源"的那些 —— 逐条报名,既不冒红也不记绿,
+// 更不得被读成"这一族已覆盖"(§12e:把没量到写成量到了是本仓最高频失效型)。
+const flowUndetermined = []
 // 该面取不到的源文件数(清单来自面 ⇒ 正文也应来自面;读不到不再假装扫过,末行如实报数)。
 let sourceUnread = 0
 if (sourceFiles.length > 0) {
@@ -1209,6 +1234,38 @@ for (const file of sourceFiles) {
 
   // 动态(模板/拼接)键的静态前缀可达性:与字面量键彼此独立,故放在 usedKeys 早退之前
   const srcNoComment = stripComments(src)
+
+  // G-1079148:键流追踪族 —— 与字面量族取**并集**,不替换任何一条既有判据。
+  // 归属规则(刻意保守):reader 恰好被一个翻译变量当整实参 ⇒ 记在那个 var 的 namespace 上,
+  // 之后与字面量键走同一条严格/宽松检查;被 ≥2 个 var 用 ⇒ 落 flowUndetermined 报名(多 ns 时猜
+  // 一个归属会把别人命名空间里的同键算成"这里在用",那是造假账);没有任何 var 用 ⇒ 该 state 与
+  // 翻译无关(如 copied/fullscreen 这类布尔位),按定义不是流键,不报名也不计。
+  for (const { reader, sink } of deriveStatePairs(srcNoComment)) {
+    const owners = nsPairs.filter(({ varName }) => varConsumesReader(srcNoComment, varName, reader))
+    if (owners.length === 0) continue
+    if (owners.length > 1) {
+      flowUndetermined.push(
+        `${relative(REPO_ROOT, file)} | state ${reader} 同时被 ${owners
+          .map((o) => o.varName)
+          .join(' / ')} 当整实参用,流键归属不猜`,
+      )
+      continue
+    }
+    const varName = owners[0].varName
+    const traced = traceKeyFlow(src, [sink])
+    for (const item of traced.keys) {
+      const dedupe = `${varName}::${item.key}`
+      if (seen.has(dedupe)) continue
+      seen.add(dedupe)
+      usedKeys.push({ key: item.key, varName })
+    }
+    for (const u of traced.undetermined) {
+      flowUndetermined.push(
+        `${relative(REPO_ROOT, file)}:${u.line ?? '?'} [${u.kind ?? 'flow'}] ${u.why ?? u.snippet ?? ''}`.trim(),
+      )
+    }
+  }
+
   let fileHasDynamicFindings = false
   for (const { varName } of nsPairs) {
     for (const prefix of extractDynamicPrefixes(srcNoComment, varName)) {
@@ -1273,6 +1330,19 @@ for (const file of sourceFiles) {
 
 const label = isStaged ? 'ERROR' : 'WARNING'
 const color = isStaged ? C.red : C.yellow
+// G-1079148:键流族的「未判定」必须响 —— 它不是红(多 ns 归属不能猜),但"没判"与"判过了"
+// 在账面上必须不同形。放在循环刚结束处,使它在后续任何退出路径上都已被打印。
+if (flowUndetermined.length > 0) {
+  console.log(
+    `${C.yellow}[i18n 键检查] ⚠ 键流未判定 ${flowUndetermined.length} 处(站点看得见、归属或来源判不出;默认档只点名,问责跑 --strict):${C.reset}`,
+  )
+  for (const l of flowUndetermined.slice(0, 20)) console.log(`${C.yellow}   · ${l}${C.reset}`)
+  if (flowUndetermined.length > 20)
+    console.log(
+      `${C.yellow}   · …其余 ${flowUndetermined.length - 20} 条(同一口径逐条计)${C.reset}`,
+    )
+  console.log('')
+}
 
 if (parityIssues.length > 0) {
   console.log(`${color}[i18n 键检查] Parity 问题(${parityIssues.length}个) [${label}]:${C.reset}`)
@@ -1617,7 +1687,9 @@ if (FACE === 'index') {
     }
   }
   const specs = [...headNames].map((n) => `HEAD:${relDir}/${n}`)
-  const headTexts = specs.length ? catBatch(REPO_ROOT, specs, { maxBuffer: 1 << 29, timeout: 120000 }) : new Map()
+      const headTexts = specs.length
+        ? catBatch(REPO_ROOT, specs, { maxBuffer: 1 << 29, timeout: 120000 })
+        : new Map()
   for (const name of [...headNames].sort()) {
     const rel = `${relDir}/${name}`
     const headText = headTexts.get(`HEAD:${rel}`)
@@ -1645,7 +1717,9 @@ if (FACE === 'index') {
       )
   }
   if (ledgerProblem)
-    console.log(`${C.yellow}  ⓘ KR:${ledgerProblem}(不因此判红,但"没有声明"不等于"没有丢键")${C.reset}`)
+        console.log(
+          `${C.yellow}  ⓘ KR:${ledgerProblem}(不因此判红,但"没有声明"不等于"没有丢键")${C.reset}`,
+        )
   }
  } catch (e) {
   // git 问不到时**不得**以未捕获异常 exit 1 冒充判据红(守门 94 那一型),也不得静默当成"没丢键"。
@@ -1670,7 +1744,8 @@ if (removalIssues.length) {
     `${C.red}[i18n 键检查] ❌ 发现 ${removalIssues.length} 处**语言包相对其父提交丢键**(五语言一致缩水时 parity 完全看不见):${C.reset}`,
   )
   for (const line of removalIssues.slice(0, 12)) console.log(`  ${C.yellow}${line}${C.reset}`)
-  if (removalIssues.length > 12) console.log(`  ${C.yellow}… 还有 ${removalIssues.length - 12} 处${C.reset}`)
+  if (removalIssues.length > 12)
+    console.log(`  ${C.yellow}… 还有 ${removalIssues.length - 12} 处${C.reset}`)
   console.log(
     `${C.yellow}两条出口(不得靠削判据):① 把键补回该语言包;② 确属有意清理 ⇒ 在 ${KR_LEDGER_REL} 按文件逐条声明 file+keys+reason+until${C.reset}`,
   )
@@ -1747,6 +1822,15 @@ if (unreadablePacks.length) {
   for (const u of unreadablePacks.slice(0, 8)) console.error(`   · ${u.file} — ${u.why}`)
   console.error(`判定面:${FACE_LABEL[FACE]}`)
   process.exit(1)
+}
+// G-1079148:键流族的「未判定」在循环结束处已逐条点名;这里只在问责档拒绝出合格证。
+// 刻意排在"通过"之前、也只在其它判据都不红时生效 —— 真有缺失键时那条 exit 1 更该先被看到。
+if (isStrictFlag && flowUndetermined.length > 0) {
+  console.error(
+    `${C.red}[i18n 键检查] ❌ --strict:键流未判定 ${flowUndetermined.length} 处 ⇒ 拒绝出具"引用键已全部覆盖"的合格证${C.reset}`,
+  )
+  console.log(`判定面:${FACE_LABEL[FACE]}`)
+  process.exit(2)
 }
 console.log(
   `${C.green}[i18n 键检查] ${targetLabel}通过,${parityScope}, ${langNames.length} 语言 parity OK${C.reset}`,
