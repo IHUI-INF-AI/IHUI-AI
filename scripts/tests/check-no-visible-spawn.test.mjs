@@ -388,3 +388,51 @@ test('剥引号只许一份实现:isConsoleTarget 与 callProgramName 必须共�
     assert.ok(!/\.match\(\/\^\(\?:/.test(fnBody(name)), `${name} 不得再自己写一份剥引号正则(两处必漂移)`)
   }
 })
+
+// ── G-1058606:在飞未入库必须单独归类,且覆盖面那一维不得被顺手删掉 ──────────────
+const BAD_FORM = `spawnSync('git', ['ls-files'], { cwd: ROOT, encoding: 'utf8' })`
+
+test('成对锁:同一份违规形态只因"在不不在被审面"而分桶不同(不得互顶)', () => {
+  const hits = src.scanSource(BAD_FORM, 'scripts/new-gate.mjs')
+  assert.equal(hits.length, 1, '形态本身必须真违规(否则两臂都是假对照)')
+  // A 臂:只在磁盘上(未 add)⇒ 不在被审面 ⇒ 进"在飞",绝不进"生产代码"
+  const a = src.splitByFace(['scripts/new-gate.mjs'], new Set(['scripts/other.mjs']))
+  assert.deepEqual(a.inflight, ['scripts/new-gate.mjs'], '未入库那份必须在飞档')
+  assert.deepEqual(a.tracked, [], '未入库那份绝不得算进生产代码档(那会把别人的在飞交付记成本仓欠账)')
+  // B 臂:同一份已入库 ⇒ 进"生产代码"
+  const b = src.splitByFace(['scripts/new-gate.mjs'], new Set(['scripts/new-gate.mjs']))
+  assert.deepEqual(b.tracked, ['scripts/new-gate.mjs'], '已入库那份在生产代码档')
+  assert.deepEqual(b.inflight, [], '已入库那份不得躲进在飞档(那是免检通道)')
+})
+
+test('--worktree 档不得凭空造出在飞桶(没有"被审面"可言)', () => {
+  const w = src.splitByFace(['scripts/new-gate.mjs'], null)
+  assert.deepEqual(w.tracked, ['scripts/new-gate.mjs'])
+  assert.deepEqual(w.inflight, [], '人工取证档把一切算 tracked,不得给人一个"只报数"的免检位')
+})
+
+test('面名必须诚实:掺了在飞副本就不能再一律印 HEAD blob', () => {
+  const bare = src.faceLabel('head', 0)
+  assert.ok(!bare.includes('在飞'), '没掺就不许声称掺了')
+  const mixed = src.faceLabel('head', 2)
+  assert.ok(mixed.startsWith(bare) && mixed.includes('在飞'), '掺了必须改名(旧写法把磁盘读数写成被审面读数)')
+  assert.equal(src.faceLabel('worktree', 3), src.faceLabel('worktree', 0), '人工档不随在飞数改名')
+})
+
+test('被审面路径集:head 取自 HEAD 树、worktree 档返回 null', () => {
+  const root = fileURLToPath(new URL('../../', import.meta.url)) // 仓库根:URL 相对基准是文件所在目录,再上两级
+  const head = src.facePathSet(root, 'head')
+  assert.ok(head instanceof Set && head.size > 100, 'HEAD 树清单必须真取到(取不到应当抛而不是给空集)')
+  assert.ok(head.has('scripts/check-no-visible-spawn.mjs'), '本门自身在 HEAD 面上')
+  assert.equal(src.facePathSet(root, 'worktree'), null, '--worktree 没有面 ⇒ null,不得当空集(空集会把所有文件判成在飞)')
+})
+
+test('形状锁:listCandidates 全量档必须仍并上 --others(票面②:不得为措辞干净删掉那一支)', () => {
+  const self = readFileSync(new URL('../check-no-visible-spawn.mjs', import.meta.url), 'utf8')
+  const i = self.indexOf('export function listCandidates(')
+  assert.ok(i > 0, '缺少 listCandidates')
+  const body = self.slice(i, self.indexOf('\n}', i))
+  assert.ok(body.includes("'--others'"), '未跟踪新脚本那一支不得摘掉 —— 摘掉 = 覆盖面缩水而账面照样绿')
+  assert.ok(body.includes("'--exclude-standard'"), '必须带 --exclude-standard,否则把构建产物全扫进来')
+  assert.ok(body.includes('ls-files'), '跟踪面与未跟踪面都要在')
+})
