@@ -36,6 +36,7 @@ import { gitRaw } from '../lib/face-reader.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import {
   countNewUndisposed,
+  fileConflictOverlay,
   f9GroupLine,
   f9KeySetOf,
   f9Ratchet,
@@ -1776,5 +1777,78 @@ test('M-ABS 绝对层只在问责档判红,提交链(差值档)只报数;差值�
   want('全量档(无 before)必须仍判红', rcAbsOnlyFull, 1)
   want('差值棘轮必须照拦(链上真正的拦点)', rcDiffGrew, 1)
   want('本次提交让 F1 变多必须 exit 1', rcGrewWithBefore, 1)
+})
+
+// ── MC 族:派单叠层「这行点名的文件此刻正被别的会话占着」(2026-10-09 立) ──
+// 判据本体是纯函数(集合注入),所以这四臂完全不碰 git —— 真仓那条读数由 CLI 冒烟另证。
+test('MC1 冲突命中:行内点名的路径在飞 ⇒ 该行进叠层并逐条报名', () => {
+  const rows = [{ line: 7, raw: '- [ ] 修 `apps/web/app/page.tsx` 的返回键' }]
+  const r = fileConflictOverlay({
+    rows,
+    dirtySet: new Set(['apps/web/app/page.tsx']),
+    headSet: new Set(['apps/web/app/page.tsx']),
+  })
+  if (r.rowsWithConflict !== 1) throw new Error(`应命中 1 行,实得 ${r.rowsWithConflict}`)
+  if (r.conflictRefs !== 1 || r.cleanRefs !== 0 || r.absent !== 0)
+    throw new Error(`三态并桶了:冲突 ${r.conflictRefs} / 干净 ${r.cleanRefs} / 核验不了 ${r.absent}`)
+  if (r.conflictList[0].line !== 7 || r.conflictList[0].paths[0] !== 'apps/web/app/page.tsx')
+    throw new Error('叠层必须点名是哪一行、哪条路径')
+})
+
+test('MC2 反向对照:同一路径此刻没人改 ⇒ 记干净而不记冲突(判据不得逢点名即红)', () => {
+  const rows = [{ line: 7, raw: '- [ ] 修 `apps/web/app/page.tsx` 的返回键' }]
+  const r = fileConflictOverlay({
+    rows,
+    dirtySet: new Set(['apps/other/file.ts']),
+    headSet: new Set(['apps/web/app/page.tsx']),
+  })
+  if (r.rowsWithConflict !== 0) throw new Error('干净路径不得进叠层')
+  if (r.cleanRefs !== 1) throw new Error(`应记 1 处干净,实得 ${r.cleanRefs}`)
+})
+
+test('MC3 核验不了不得伪装成"没有冲突":两头都找不到的路径单独一档并逐条报名', () => {
+  const rows = [{ line: 9, raw: '按 `scripts/早就搬家.mjs` 的口径改' }]
+  const r = fileConflictOverlay({ rows, dirtySet: new Set(), headSet: new Set(['docs/x.md']) })
+  if (r.rowsWithConflict !== 0) throw new Error('路径不可核 ⇒ 不得判冲突')
+  if (r.absent !== 1 || r.cleanRefs !== 0)
+    throw new Error(`absent/clean 必须分档:absent=${r.absent} clean=${r.cleanRefs}`)
+  if (r.absentList[0].line !== 9 || r.absentList[0].key !== 'scripts/早就搬家.mjs')
+    throw new Error('这一格必须能报出是哪一行点名的哪个路径,否则下一个人无法清偿')
+})
+
+test('MC4 目录形态跟得到:脏路径落在点名目录之下 ⇒ 命中(不跟就等于对整族失明)', () => {
+  const rows = [
+    { line: 11, raw: '把 `packages/shared/` 里的 hook 收进工厂' },
+    { line: 12, raw: '`docs/` 下没有任何在飞改动' },
+  ]
+  const r = fileConflictOverlay({
+    rows,
+    dirtySet: new Set(['packages/shared/src/hooks/use-x.ts']),
+    headSet: new Set(['docs/a.md', 'packages/shared/src/hooks/use-x.ts']),
+  })
+  if (r.rowsWithConflict !== 1 || r.conflictList[0].line !== 11)
+    throw new Error('目录点名必须能命中其下在飞路径,而"该目录在 HEAD 有内容而没在飞"的那行不得算冲突')
+  if (r.cleanRefs !== 1) throw new Error(`目录落在 HEAD 而在飞集合无其下路径 ⇒ 应记 1 处干净,实得 ${r.cleanRefs}`)
+})
+
+test('MC5 叠层只在显式旗标下生效,且判据不另抄第二份解析(默认派单面是别人的契约)', () => {
+  if (parseArgs(['--open', '--dispatchable']).conflicts !== false)
+    throw new Error('不带 --conflicts 时叠层必须关着:默认输出面已有按行解析它的消费者')
+  if (parseArgs(['--open', '--dispatchable', '--conflicts']).conflicts !== true)
+    throw new Error('带旗标必须开')
+  const CODE = readFileSync(new URL('../plan-tasks.mjs', import.meta.url), 'utf8')
+  if (!/from '\.\/check-live-doc-references\.mjs'/.test(CODE) || !/extractRefs\(/.test(CODE))
+    throw new Error('路径点名必须复用守门 184 的 extractRefs,不得在本器里再写一份反引号/行号剥离')
+  if (!/from '\.\/check-uncommitted-age\.mjs'/.test(CODE) || !/parsePorcelainZ\(/.test(CODE))
+    throw new Error('在飞清单必须复用守门 54 的 parsePorcelainZ,不得再抄一份 porcelain 解析')
+  if (!/if \(o\.conflicts\)/.test(CODE)) throw new Error('打印必须挂在显式旗标分支内')
+})
+
+test('MC6 取不到集合不得被读成"没有在飞":null 走未判定分支(把没量写成量过是本仓最贵的失效型)', () => {
+  const CODE = readFileSync(new URL('../plan-tasks.mjs', import.meta.url), 'utf8')
+  if (!/if \(!dirtySet \|\| !headSet\)/.test(CODE)) throw new Error('叠层必须先问集合在不在,再算冲突')
+  if (!/未判定\*\*:git status \/ HEAD 树取不到/.test(CODE))
+    throw new Error('取不到时必须大声喊"未判定",不得静默跳过(静默=读成没有在飞)')
+  if (!/return null/.test(CODE)) throw new Error('collectDirtyPaths/collectHeadPaths 取不到要返回 null 而非空集合 —— 空集合会被下游当成"确实干净"')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
