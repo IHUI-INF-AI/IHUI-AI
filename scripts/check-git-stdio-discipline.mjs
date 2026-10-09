@@ -39,9 +39,15 @@
  *     结论行仍单独报出 lib 的计数,免得"覆盖了 lib"只存在于本注释里。
  *  2. **取不到内容必须报「未判定」并 exit 2**,绝不折成"0 处违规"当绿。本仓铁律:
  *     **少扫不等于没有违规**。少了文件还报绿,比不报更坏(它替人做出"这一格已被看过"的判断)。
- *  3. **只判 `stdio` 作为属性名出现,不判取值**(`/(^|[{,\s])stdio\s*:/`)。理由:
+ *  3. **只判 `stdio` 作为属性名出现,不判取值**
+ *     (`/(^|[{,\s])stdio\s*:|(?:^|[{,])\s*stdio\s*[,}]/`,两支:显式属性 + ES6 **属性简写**)。理由:
  *     `['pipe','pipe','pipe']`(喂 stdin 的 batch 族,见 `scripts/lib/face-reader.mjs:94`
  *     的两态)与 `['ignore','pipe','pipe']` **都合规**;判取值会把前者误伤成红。
+ *     ⚠️ 第二支不是"名字里出现 stdio 就算",而是**两端**都要求对象字面量的键位边界:
+ *     前端必须是 `{`/`,`、后端必须是 `,`/`}`,于是 `{ encoding: stdio }`(值位置)、`{ stdioX }`、
+ *     `xstdio:` / `my_stdio:` 一律仍判红。**漏掉第二支的实测代价**:真仓
+ *     `scripts/git-heal-broken-links.mjs` 的 `git()` 包装器 options 里写的是简写 `stdio,`,
+ *     旧形态把它误报成「options 内无 stdio 属性名」—— 门把已合规的调用判红,逼人去改没坏的代码。
  *  4. **判据落在该次调用的 options 内**,不能落"这个文件有没有 stdio"。理由:
  *     `scripts/check-root-dir-clean.mjs` 现存该形态 —— :265/:281 合规而 :75 裸奔,
  *     按文件判会被另一处合规调用**洗白**。自检 `同一文件内合规调用不得洗白裸奔调用` 钉这一条。
@@ -177,8 +183,22 @@ export const CALLER_IDENT = new RegExp(`\\b(${FN})\\s*\\(\\s*([A-Za-z_$][\\w$]*)
  * `stdio` 是否**作为属性名**出现。只判属性名、**不判取值** —— 见文件头口径第 3 条。
  * 形状要求属性名前是行首/`{`/`,`/空白,避免把 `xstdio:` / `my_stdio:` / 对象键 `"stdio":`(字符串键)
  * 之外的东西算进来。
+ *
+ * ⚠️ **两支,而不是只认冒号**(2026-10-10 实测误判修正):
+ *   ① `/(^|[{,\s])stdio\s*:/` —— 显式属性,**原判据一字未改**(变异自证就是把它退回这一支);
+ *   ② `/(?:^|[{,])\s*stdio\s*[,}]/` —— ES6 **属性简写** `{ stdio }` / `{ stdio, cwd }` / `{ cwd, stdio }`。
+ * 漏掉②的实测代价:真仓 `scripts/git-heal-broken-links.mjs` 的 `git()` 包装器 options 里写的是
+ * `stdio,`(值先算好再简写),门把它报成「options 内无 stdio 属性名」—— **误判已合规的调用**。
+ * 而简写形态恰恰满足本门自己的意图(口径第 3 条:只判 `stdio` 作为**属性名**是否出现),所以
+ * 那是判据失明,不是缺陷在别处。
+ *
+ * ⚠️ **第②支为什么两端都收紧**(收紧到"对象字面量的键位边界"而不是"名字是 stdio"):
+ *  - 前端只认 `{` / `,`(不是任意空白,更不是 `:`):`{ encoding: stdio }` 是**值位置**上恰好叫
+ *    `stdio` 的变量,不是属性名 —— 把它算合规会把一格失明静默洗成绿。
+ *  - 后端必须紧跟 `,` 或 `}`:`{ stdioX: 1 }` 的属性名是 `stdioX`,不是 `stdio`。
+ *  这样 `xstdio:` / `my_stdio:` / `mystdio,` 全部仍判红(前端字符就不是 `{`/`,`),**原判据的牙一点没卸**。
  */
-export const STDIO_PROP = /(^|[{,\s])stdio\s*:/
+export const STDIO_PROP = /(^|[{,\s])stdio\s*:|(?:^|[{,])\s*stdio\s*[,}]/
 
 /** `shell: true` / `shell: 'cmd.exe'` —— 经 cmd.exe 的另一副面孔,同源同修法。 */
 export const SHELL_PROP = /(^|[{,\s])shell\s*:\s*(?:true\b|['"`])/
@@ -759,6 +779,62 @@ function selfTest() {
     if (a.verdict !== 'ok') throw new Error(`ignore 档应合规:${a.verdict}`)
     if (b.verdict !== 'ok') throw new Error(`带 input 的 pipe 档应合规:${b.verdict}`)
   })
+  t('ES6 属性简写(非冒号形态)也算已接管 stdio —— 真仓 git-heal-broken-links.mjs 同型', () => {
+    // 这不是"再加一个宽松口子",而是补上判据的第二支:简写 `stdio` 是**名为 stdio 的属性名**,
+    // 与口径第 3 条("只判 stdio 作为属性名出现")完全同形。旧形态只认冒号 ⇒ 把已合规的调用判红。
+    const shapes = [
+      `{ ${S_STDIO} }`,
+      `{ ${S_STDIO}, cwd: R }`,
+      `{ cwd: R, ${S_STDIO} }`,
+      `{ cwd: R,\n    ${S_STDIO},\n    input: opts.input,\n  }`,
+    ]
+    for (const opts of shapes) {
+      const v = j(`const a = ${EF}(${S_GIT}, ['ls-files'], ${opts})`)
+      if (v.verdict !== 'ok') throw new Error(`简写形态 ${JSON.stringify(opts)} 被误判红:${v.verdict}`)
+    }
+    // 折行后的简写同样合规(本门第一原则:配平取整体 ⇒ prettier 折行不改判据)
+    const folded = [
+      `const a = ${EF}(`,
+      `  ${S_GIT},`,
+      `  ['ls-files'],`,
+      `  {`,
+      `    cwd: R,`,
+      `    ${S_STDIO},`,
+      `  },`,
+      `)`,
+    ].join('\n')
+    if (scanSource(folded).misses.length !== 0) throw new Error('折行后的简写形态被误判红')
+  })
+  t('反向对照:名字里带 stdio 但不是 stdio 属性名的,一律仍判红(证明判据没被放成恒绿)', () => {
+    // 这一例是上一例的**牙**:接住简写不得顺带把 `xstdio` / `my_stdio` / 值位置 / `stdioX` 放过。
+    const bads = [
+      `{ x${S_STDIO}: 1 }`, // 前缀粘住
+      `{ my_${S_STDIO}: 1 }`, // 下划线粘住
+      `{ my${S_STDIO}: 1 }`, // 驼峰粘住
+      `{ ${S_STDIO}X: 1 }`, // 后缀粘住(且是冒号形态)
+      `{ ${S_STDIO}X }`, // 后缀粘住的简写
+      `{ ${S_STDIO}X, y: 1 }`,
+      `{ encoding: ${S_STDIO} }`, // 值位置,不是属性名
+      `{ env: { A: ${S_STDIO} }, cwd: R }`, // 嵌套值位置
+      `{ NOTE: '${S_STDIO}', cwd: R }`, // 字符串里的 stdio(遮罩只吃注释,不吃字符串)
+      `{ cwd: R, A: [${S_STDIO}] }`, // 数组元素位置,不是属性名
+    ]
+    for (const opts of bads) {
+      const v = j(`const a = ${EF}(${S_GIT}, ['ls-files'], ${opts})`)
+      if (v.verdict !== 'noStdio') {
+        throw new Error(`${JSON.stringify(opts)} 竟判成 ${v.verdict}(简写支不得放宽成恒绿)`)
+      }
+    }
+    // 简写形态的 `stdio` 落在**调用文本之外**(前一个调用里)也不得洗白本次调用
+    const twoCalls = [
+      `const a = ${EF}(${S_GIT}, ['ls-files'], { ${S_STDIO} })`,
+      `const b = ${EF}(${S_GIT}, ['status'], { encoding: 'utf8' })`,
+    ].join('\n')
+    const r = scanSource(twoCalls)
+    if (r.misses.length !== 1 || r.misses[0].line !== 2) {
+      throw new Error(`简写合规调用洗白了第 2 行裸奔:${JSON.stringify(r.misses)}`)
+    }
+  })
   t('C 类(变量/绝对路径形态)与 A 类同判 —— 绝对路径不是豁免', () => {
     for (const bin of [
       'GIT_BIN',
@@ -1132,6 +1208,8 @@ function run(argv) {
       '     `[\x27ignore\x27,\x27pipe\x27,\x27pipe\x27]`(不带 input)与',
       '     `[\x27pipe\x27,\x27pipe\x27,\x27pipe\x27]`(喂 stdin 的 batch 族,见 scripts/lib/face-reader.mjs:94)。',
       '     判据只认属性名、不认取值 —— 判取值会把喂 stdin 的那一族误伤成红。',
+      '     **ES6 属性简写也合规**:`{ stdio }` / `{ stdio, cwd }` / `{ cwd, stdio }`(= 已接管 stdio)。',
+      '     但值位置的 `stdio`(`{ encoding: stdio }`)不算,`xstdio:` / `my_stdio:` / `{ stdioX }` 也不算。',
       '  ⚠️ 判据落在**该次调用的 options 内**,不按文件判:同一文件里另一处合规调用',
       '     (如 scripts/check-root-dir-clean.mjs:265/:281)不得洗白本文件的裸奔处(:75)。',
       '  豁免只能进具名数据文件 `' + EXEMPTIONS_FILE + '`(字段 file/reason/owner/reviewBy),',
