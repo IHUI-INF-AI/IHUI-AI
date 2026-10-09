@@ -122,7 +122,31 @@ function selfTest() {
   t('S7 注释里的该形态不得计入(等长遮罩、行号不变)', findBlindOutputSpawns(`function f(){\n  // const r = spawnSync(py, s, { stdio: 'ignore' })\n  const r = spawnSync(py, s, { stdio: ['ignore', 'pipe', 'pipe'] })\n  return JSON.parse(r.stdout)\n}\n`).hits.length === 0)
   t('S8 括号配不平 ⇒ 未判定而非静默', findBlindOutputSpawns('function f(){ const r = spawnSync(a, b, { stdio: \'ignore\' \n return r.stdout }\n').undetermined.length >= 1)
   const s9 = findBlindOutputSpawns("function f(){\n  const stdio = 'ignore'\n  const r = spawnSync(a, b, { stdio })\n  return JSON.parse(r.stdout)\n}\n")
-  t('S9 stdio 是简写属性 ⇒ 未判定(既不冒红也不记绿)', s9.hits.length === 0 && s9.undetermined.length === 1)
+  t(
+    'S9 stdio 是简写属性且同文件取得到唯一字面量 ⇒ **判得出命中**(票 G-1111918 档②:能判了就判,不得继续挂未判定)',
+    s9.hits.length === 1 && s9.undetermined.length === 0,
+  )
+  const s9b = findBlindOutputSpawns(
+    "function f(){\n  const stdio = ['ignore', 'pipe', 'pipe']\n  const r = spawnSync(a, b, { stdio })\n  return JSON.parse(r.stdout)\n}\n",
+  )
+  t('S9b 简写属性回溯到合规值 ⇒ 不命中也不是未判定(回溯不得只会定罪)', s9b.hits.length === 0 && s9b.undetermined.length === 0)
+  const s9c = findBlindOutputSpawns("function f(){\n  const r = spawnSync(a, b, { stdio })\n  return JSON.parse(r.stdout)\n}\n")
+  t('S9c 简写属性而同文件根本没有声明 ⇒ 仍未判定(取不到就报名,不猜)', s9c.hits.length === 0 && s9c.undetermined.length === 1)
+  const s9d = findBlindOutputSpawns(
+    "function g(){\n  const doc = \"const r = spawnSync(a, b, { stdio: 'ignore' })\"\n  const r2 = spawnSync(a, b, { stdio: ['ignore','pipe','pipe'] })\n  return r2.stdout\n}\n",
+  )
+  t(
+    'S9d 夹具字符串里那半句假调用(含配不平的括号)不得进射程 ⇒ 零命中零未判定(票档①:结构遍走遮字符串那一档)',
+    s9d.hits.length === 0 && s9d.undetermined.length === 0,
+  )
+  const s9e = findBlindOutputSpawns(
+    "function f(){\n  const r = spawnSync(a, b, { stdio: q ? ['ignore','ignore','pipe'] : ['ignore','ignore','pipe'] })\n  return JSON.parse(r.stdout)\n}\n",
+  )
+  t('S9e 三元两支同形(都丢掉 stdout)⇒ 命中不因条件式而逃逸', s9e.hits.length === 1 && s9e.undetermined.length === 0)
+  const s9f = findBlindOutputSpawns(
+    "function f(){\n  const r = spawnSync(a, b, { stdio: q ? ['pipe','ignore','pipe'] : ['pipe','pipe','pipe'] })\n  return JSON.parse(r.stdout)\n}\n",
+  )
+  t('S9f 三元两支不同形 ⇒ 未判定(有意开关 ⇒ 既不冒红也不替它担保)', s9f.hits.length === 0 && s9f.undetermined.length === 1)
   const s15a = findBlindOutputSpawns("const r = spawnSync(a, b, { stdio: 'ignore' })\nconsole.log(r.stdout)\n")
   t('S15a 顶层调用 + 活区内有读取点 ⇒ 命中(有右界就判得出,不再一律挂未判定)', s15a.hits.length === 1 && s15a.undetermined.length === 0)
   const s15b = findBlindOutputSpawns("let r = spawnSync(a, b, { stdio: 'ignore' })\nr = execFileSync(c, d, { stdio: ['ignore', 'pipe', 'pipe'] })\nconsole.log(r.stdout)\n")
