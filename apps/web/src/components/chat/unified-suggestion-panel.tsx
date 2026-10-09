@@ -19,6 +19,7 @@ import { Bot, Cable, FileText, ListTodo, Loader2, Puzzle, Sparkles, X } from 'lu
 import { SearchInput } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { PortalPanel } from '@/components/feedback/portal-panel'
+import { isTopOverlay } from '@/lib/overlay-stack'
 
 import {
   aggregateUnifiedSuggestions,
@@ -32,6 +33,10 @@ import {
   type SuggestionSourceState,
   type UnifiedSuggestionItem,
 } from './unified-suggestion-sources'
+
+/** 层栈 id(见 @/lib/overlay-stack):统一建议面板 open 期间为一层,自有 Esc 只在栈顶消费
+ *  (同一 id 传给 PortalPanel 后由其统一 push/pop,两层 Esc 共用同一 isTopOverlay 判定) */
+const UNIFIED_SUGGESTION_PANEL_OVERLAY_ID = 'unified-suggestion-panel'
 
 /** 每源固定 lucide 图标(禁止 emoji;顺序与 SUGGESTION_SOURCE_KINDS 同形) */
 const SOURCE_ICON: Record<SuggestionSourceKind, React.ComponentType<{ className?: string }>> = {
@@ -155,6 +160,7 @@ export function UnifiedSuggestionPanel({
         onSelect(current.item)
       }
     } else if (e.key === 'Escape') {
+      if (!isTopOverlay(UNIFIED_SUGGESTION_PANEL_OVERLAY_ID)) return
       e.preventDefault()
       onClose()
     }
@@ -198,6 +204,7 @@ export function UnifiedSuggestionPanel({
       side="top"
       align="start"
       gap={8}
+      overlayId={UNIFIED_SUGGESTION_PANEL_OVERLAY_ID}
       testId="unified-suggestion-panel"
       className="flex w-96 flex-col overflow-hidden rounded-xl border border-border bg-popover shadow-md"
     >
