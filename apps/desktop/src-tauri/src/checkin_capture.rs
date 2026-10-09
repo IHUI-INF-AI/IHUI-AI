@@ -2395,12 +2395,31 @@ mod tests {
         let pre_b = std::fs::read_to_string(dir_b.join("machineid")).ok();
         eprintln!("[real] pre machineid A={} B={:?}", pre_a.as_deref().unwrap_or("<none>").trim(), pre_b.as_deref().map(str::trim));
 
-        // 真跑:UI 按钮同款(guid/browser 两 flag=false 避开 UAC 与真浏览器)
-        let report = checkin_reset_device_ids(false, false, true).expect("胶水调用失败");
+        // 真跑:UI 按钮同款。guid/browser 两 flag 可用环境变量打开
+        // (IHUI_RESET_GUID=1 / IHUI_RESET_BROWSER=1,默认关:避开 UAC 与真浏览器库)。
+        // MachineGuid 改写前必须已有 HKLM 备份(护栏:备份目录下 MachineGuid-backup.txt)。
+        let reset_guid =
+            std::env::var("IHUI_RESET_GUID").map(|v| v == "1").unwrap_or(false);
+        let reset_browser =
+            std::env::var("IHUI_RESET_BROWSER").map(|v| v == "1").unwrap_or(false);
+        if reset_guid {
+            assert!(
+                backup.join("MachineGuid-backup.txt").is_file(),
+                "要开 MachineGuid 层必须先备份 HKLM MachineGuid 到备份目录 MachineGuid-backup.txt"
+            );
+        }
+        eprintln!("[real] flags: guid={reset_guid} browser={reset_browser} deep=true kill=true");
+        let report = checkin_reset_device_ids(reset_guid, reset_browser, true).expect("胶水调用失败");
         assert_eq!(report.layers.len(), 13, "层报告数应为 13");
         for l in &report.layers {
             eprintln!("[real] L{:02} {:26} ok={} {}", l.layer, l.name, l.ok, l.detail);
-            assert!(l.ok, "层{}({}) 实测失败: {}", l.layer, l.name, l.detail);
+            // L5/L7 是环境敏感可选层(UAC 被拒/浏览器运行中锁库会记 FAIL,属正常降级),
+            // 结果照实记录但不拦测试;其余层硬断言。
+            if l.layer == 5 || l.layer == 7 {
+                eprintln!("[real] 可选层{}(不拦测试): ok={} {}", l.layer, l.ok, l.detail);
+            } else {
+                assert!(l.ok, "层{}({}) 实测失败: {}", l.layer, l.name, l.detail);
+            }
         }
 
         // 断言:双现场 machineid 全部翻新为 32 位 hex 新值
