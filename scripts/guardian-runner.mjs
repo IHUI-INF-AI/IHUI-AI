@@ -1026,7 +1026,10 @@ const checks = [
 
   // --- 34 (2026-07-26 新增,@ts-ignore 新增检测,防历史遗留复发) ---
   // G-815990(2026-10-07)warn → **blocking**。升档前置已现读兑现:本门只判 staged **新增**的
-  //   @ts-ignore / @ts-nocheck,215 处历史遗留已于 2026-07-26 批次清零 ⇒ 升档不造恒红门。
+  //   裸 @ts-ignore / @ts-nocheck 共 215 处,历史遗留已于 2026-07-26 批次清零 ⇒ 升档不造恒红门。
+  //   ⚠️ 这一段散文里出现过字面量 `@ts-ignore`,若把它排到行首(注释正文以该指令开头),
+  //   eslint 的 ban-ts-comment 会把**这句说明**当成真指令判红 —— 2026-10-10 实测:
+  //   同段里以「---」或「原」开头的两行都不报,只有以该 token 开头的这一行报,闸因此长期误红。
   //   原 warn 期理由("@ts-ignore 有时是合理压制")的正规出口:确需压制时,该文件对应规则的
   //   覆盖已永久归零,由守门 103 的 DC 判据(裸 lint 抑制增长,锚点 = 该文件 HEAD 自身存量)
   //   与策略表 exceptions(带 until)问责 —— 行内压制不再有免检通道。
@@ -5020,8 +5023,8 @@ const pushGateChecks = [
       '  豁免只能进具名数据文件 scripts/check-git-stdio-exemptions.json',
       '     (字段 file/reason/owner/reviewBy);**行内注释不是豁免通道**。',
       '  单独复验:node scripts/check-git-stdio-discipline.mjs [--staged|--worktree]',
-      '     自检:node scripts/check-git-stdio-discipline.mjs --self-test(21 例,含折行不改判据命门例)',
-      '     镜像:node --test scripts/tests/check-git-stdio-discipline.test.mjs(14 例)',
+      '     自检:node scripts/check-git-stdio-discipline.mjs --self-test(23 例,含折行不改判据命门例 + ES6 属性简写族)',
+      '     镜像:node --test scripts/tests/check-git-stdio-discipline.test.mjs(16 例;T13 可能因 AD 态文件在环境性红)',
       '  紧急跳过(不推荐):HUSKY_SKIP_GIT_STDIO_DISCIPLINE=1 git commit ...',
       '',
     ].join('\n'),
