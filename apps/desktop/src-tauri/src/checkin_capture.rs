@@ -1931,7 +1931,7 @@ pub fn checkin_capture_jwts() -> Result<Vec<CapturedAccount>, IpcError> {
     Ok(capture_local_jwts(&dir))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn checkin_reset_device_ids(
     include_machine_guid: bool,
     clean_browser_cookies: bool,
@@ -2037,7 +2037,7 @@ pub async fn checkin_get_public_ip() -> Result<PublicIpReport, IpcError> {
             }
         }
     }
-    // 兜底: ipify(只有 IP,无归属地)
+    // 兜底: ipify(只有 IP,无归属地;空响应视为失败,防止前端拿到空串后 IP 对比逻辑失效)
     let ip = client
         .get("https://api.ipify.org")
         .send()
@@ -2046,8 +2046,14 @@ pub async fn checkin_get_public_ip() -> Result<PublicIpReport, IpcError> {
         .text()
         .await
         .map_err(|e| IpcError::internal(format!("公网 IP 响应读取失败: {e}")))?;
+    let ip = ip.trim().to_string();
+    if ip.is_empty() || ip.split('.').count() != 4 {
+        return Err(IpcError::internal(format!(
+            "公网 IP 响应异常: {ip:?}"
+        )));
+    }
     Ok(PublicIpReport {
-        ip: ip.trim().to_string(),
+        ip,
         location: String::new(),
     })
 }
@@ -2055,14 +2061,14 @@ pub async fn checkin_get_public_ip() -> Result<PublicIpReport, IpcError> {
 /// 一键解决风控(傻瓜式):全 14 层全开 —— 杀进程+机器码+MachineGuid(先自动备份)
 /// +浏览器 Cookie+深度删面(23目录5文件+traereset_bak 清扫)+注册表+本地缓存+MAC 改写。
 /// 可选层(⑤⑦⑬)环境不允许时降级记录不拦流程;报告由前端向导照实展示。
-#[tauri::command]
+/// 硬安全网:MachineGuid 旧值备份失败 ⇒ 层⑤【真跳过】(include_machine_guid=false),
+/// 决不允许无备份的不可逆改写(2026-10-10 审查修正:旧实现事后改报告是假安全网)。
+#[tauri::command(async)]
 pub fn checkin_one_click_reset() -> Result<ResetReport, IpcError> {
     let dir = require_trae_dir()?;
-    // 安全网:改 MachineGuid 前必须确保旧值已备份(失败则拒绝执行层⑤,
-    // 但不让整个一键挂掉——把错误塞进 L5 的 skip 记录里,其余 13 层照常)
     let guid_backup = ensure_machine_guid_backup();
-    let report = reset_device_ids(&dir, true, true, true, true, true);
-    let mut report = report;
+    let include_guid = guid_backup.is_ok();
+    let mut report = reset_device_ids(&dir, include_guid, true, true, true, true);
     if let Err(e) = guid_backup {
         if let Some(l5) = report.layers.iter_mut().find(|l| l.layer == 5) {
             l5.ok = false;
