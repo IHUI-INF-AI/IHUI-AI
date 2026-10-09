@@ -53,6 +53,16 @@ import { currentBranchGeneration, isBranchGenerationCurrent } from '../commands/
  */
 export type BackgroundTaskStatus = 'running' | 'exited' | 'killed' | 'error' | 'lost';
 
+/**
+ * G-816029 级联结算的**原因档**(与上游 `sealBackgroundTaskNotifications` 的 reason 同值域):
+ *  - `subagent_cancelled`:子代理被停(父级 abort 落下 / 子代理落 cancelled);
+ *  - `subagent_terminal` :子代理没正常完成就结束了(failed)—— task_id 只在它自己的
+ *    context 里,父级拿不到,不清就是孤儿。
+ * 只有这两档;「正常完成」不进本类型(那一支根本不级联,由 `resolveSubagentCascadeReason`
+ * 的 undefined 档表达 —— 级联写成无条件清账就是把长跑任务杀了)。
+ */
+export type BackgroundCascadeReason = 'subagent_cancelled' | 'subagent_terminal';
+
 export interface BackgroundTask {
   id: string;
   /**
@@ -103,6 +113,22 @@ export interface BackgroundTask {
    * undefined;超时档只能由 deadline 持有者显式置 `timedOut=true`,绝不按 signal 形状反推。
    */
   stopInitiator?: 'user' | 'model' | null;
+  /**
+   * G-816029 **归属**:这枚任务是替哪个 agent 派生的(子代理 = 它自己的 subagentId;
+   * REPL/主会话派生的任务**不带此字段** —— 无归属永远不参与级联,那是"级联不是清全场"
+   * 的载体)。只在 `registerTask` 时由调用方给出,登记后不再改写:归属是登记事实,
+   * 不是运行时可迁移的状态。**刻意进快照** —— 等待者要能读到"这是替谁派生的"。
+   */
+  ownerAgentId?: string;
+  /**
+   * G-816029 **谁替它收的场**:只有 `settleTasksOwnedByAgent` 在**发信号之前**落这一档
+   * (与 `stopInitiator` 同一条"写在 abort 之前"判据 —— close 是异步的,晚写就读不到)。
+   * 台账 note(`settled by <reason>`)与终态快照都从它取词,于是"级联收的"与"外部 OOM 杀"
+   * 在账面上不同形。已经终态的条目**不贴**这一档 —— 那是把"它自己跑完了"改写成
+   * "我替它收的"(终态单向门的同一条,见 settleTasksOwnedByAgent 的 ⑦ 用例)。
+   * **进快照**:等待者据此分辨"这条终态是级联发出的,档位是哪一档"。
+   */
+  settledBy?: BackgroundCascadeReason;
   /**
    * 「已投递」位 —— 终态快照有没有已经交给过等待者(G-814418 判据①)。
    *
@@ -287,7 +313,7 @@ function isTerminalStatus(status: BackgroundTaskStatus): boolean {
 export type BackgroundTaskSnapshot = Readonly<
   Pick<
     BackgroundTask,
-    'id' | 'command' | 'startedAt' | 'exitedAt' | 'exitCode' | 'status' | 'stdoutBuf' | 'stderrBuf' | 'stdoutHead' | 'stderrHead' | 'totalStdoutChars' | 'totalStderrChars' | 'truncated' | 'droppedStdoutBytes' | 'droppedStderrBytes' | 'timedOut' | 'stopInitiator'
+    'id' | 'command' | 'startedAt' | 'exitedAt' | 'exitCode' | 'status' | 'stdoutBuf' | 'stderrBuf' | 'stdoutHead' | 'stderrHead' | 'totalStdoutChars' | 'totalStderrChars' | 'truncated' | 'droppedStdoutBytes' | 'droppedStderrBytes' | 'timedOut' | 'stopInitiator' | 'ownerAgentId' | 'settledBy'
   >
 >;
 
@@ -310,6 +336,8 @@ function toSnapshot(t: BackgroundTask): BackgroundTaskSnapshot {
     droppedStderrBytes: t.droppedStderrBytes,
     timedOut: t.timedOut,
     stopInitiator: t.stopInitiator,
+    ownerAgentId: t.ownerAgentId,
+    settledBy: t.settledBy,
   });
 }
 
@@ -534,11 +562,13 @@ function notifySettled(task: BackgroundTask): void {
  * @param opts.worktreePath 可选 — 任务关联的 worktree 路径(Worktree 并行隔离层),
  *                          记录在任务上,任务结束(error/close)时自动清理
  * @param opts.worktreeSourcePath 可选 — worktree 对应的源仓库路径(默认 process.cwd())
+ * @param opts.ownerAgentId 可选(G-816029) — 派生该任务的 agent 归属;只有登记时给得出
+ *                          (task_id 与归属同处一个 context),缺席 ⇒ 无归属 ⇒ 永不参与级联。
  */
 export function registerTask(
   process: ChildProcess | null,
   command: string,
-  opts?: { worktreePath?: string; worktreeSourcePath?: string },
+  opts?: { worktreePath?: string; worktreeSourcePath?: string; ownerAgentId?: string },
 ): string {
   const id = genId();
   const task: BackgroundTask = {
@@ -564,6 +594,7 @@ export function registerTask(
     branchGeneration: currentBranchGeneration(),
     worktreePath: opts?.worktreePath,
     worktreeSourcePath: opts?.worktreeSourcePath,
+    ownerAgentId: opts?.ownerAgentId,
   };
   tasks.set(id, task);
 
@@ -670,7 +701,17 @@ export function registerTask(
       // 任务结束,自动清理关联 worktree
       cleanupTaskWorktree(task);
       pruneCompleted();
-      ledgerSettle(task, signal ? `closed by signal ${signal}` : 'closed');
+      // G-816029:级联收的场,账面要写"是谁替它收的"(`settled by <reason>`)—— 否则
+      // "子代理被停 ⇒ 宿主级联结算"与"外部 OOM 杀"在台账上同形,谁都查不出孤儿去哪了。
+      // 档是 settleTasksOwnedByAgent 在发信号之前落的,这里只读不猜(同 stopInitiator 纪律)。
+      ledgerSettle(
+        task,
+        task.settledBy
+          ? `settled by ${task.settledBy}`
+          : signal
+            ? `closed by signal ${signal}`
+            : 'closed',
+      );
       notifySettled(task);
     });
   }
@@ -1413,6 +1454,58 @@ export async function killTask(
         ? 'SIGKILL 已发送,但任务记录在确认前被清理,终态未确认'
         : 'SIGKILL 已发送,但等待窗口内未观察到终态(未确认退出,不等于已退出)',
   };
+}
+
+/** G-816029 级联结算的结论形状:**三类各报各的**,不许塌成一个布尔或一个数。 */
+export interface AgentCascadeSettleReport {
+  /** 入口时刻该 agent 名下**在飞**的任务数(级联只结算这一批;窗口内新派生的不在此列 —— 与 settleAllInFlight ① 同判)。 */
+  inFlightAtEntry: number;
+  /** 窗口内**观察到终态确认**的任务 id(唯一的"结束了"凭据)。 */
+  settled: string[];
+  /** 入口时刻已终态(自己跑完 / 已被别处结算)—— 一律不动、不贴 settledBy、不二次封口。 */
+  alreadyTerminal: string[];
+  /** 发了信号但没等到终态确认(含无进程引用)—— 未确认不等于已结束,逐名报名,绝不并进 settled。 */
+  unknown: string[];
+}
+
+/**
+ * G-816029 **级联结算**:子代理被停/异常结束时,把它自己派生的在飞后台任务收进终态,
+ * 不留孤儿(上游同族 = `sealBackgroundTaskNotifications` + `cancelRunningRuntimeBackgroundTasks`)。
+ *
+ * 四条判据(每条都有对应用例,见 `apps/cli/tests/subagent-cascade-background.test.ts`):
+ *  ① **只结算同名归属**:无归属(undefined)或空串一律零命中 —— "级联不是清全场",
+ *     REPL/用户自己起的长跑任务、别的 agent 的任务都在此列;
+ *  ② **已终态的不碰**:终态单向门的同一条 —— 把"它自己跑完了"改写成"我替它收的"是伪造账面;
+ *  ③ **档先落盘、信号后发**:与 killTask 的 stopInitiator 同一判据(close 是异步的),
+ *     台账 note 由 close 处理器读 `settledBy` 写 `settled by <reason>`;
+ *  ④ **确认才进 settled**:信号发出去与进程结束是两件事,没等到终态的逐名进 unknown
+ *     (复用 killTask 的 SIGTERM→SIGKILL 升级与"未确认退出,不等于已退出"三态)。
+ */
+export async function settleTasksOwnedByAgent(
+  agentId: string | undefined,
+  reason: BackgroundCascadeReason,
+): Promise<AgentCascadeSettleReport> {
+  const report: AgentCascadeSettleReport = { inFlightAtEntry: 0, settled: [], alreadyTerminal: [], unknown: [] };
+  // 归属缺席/空串 ⇒ 零命中(①)。空串必须显式拒:它与"给了一个不存在的 agent"同形,
+  // 但绝不能落进 `t.ownerAgentId === undefined` 那种"按缺省值相等"的盲匹配。
+  if (typeof agentId !== 'string' || agentId === '') return report;
+
+  const inFlight: BackgroundTask[] = [];
+  for (const t of tasks.values()) {
+    if (t.ownerAgentId !== agentId) continue; // ① 只结算同名归属
+    if (isTerminalStatus(t.status)) report.alreadyTerminal.push(t.id); // ② 已终态不碰
+    else inFlight.push(t);
+  }
+  report.inFlightAtEntry = inFlight.length;
+
+  for (const t of inFlight) {
+    // ③ 档先落盘(发信号之前):close 处理器读它写台账 note 与快照 settledBy。
+    t.settledBy = reason;
+    const outcome = await killTask(t.id, null);
+    if (outcome.exitConfirmed) report.settled.push(t.id);
+    else report.unknown.push(t.id); // ④ 未确认逐名报名,不洗成"已结算"
+  }
+  return report;
 }
 
 /** 清理已完成任务,保留最近 MAX_COMPLETED_TASKS 个。 */
