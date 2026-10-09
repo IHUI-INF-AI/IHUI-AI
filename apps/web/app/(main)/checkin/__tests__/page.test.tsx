@@ -640,18 +640,18 @@ describe('签到助手页面 · 一键解决风控向导', () => {
     vi.clearAllMocks()
     // mockReset 清 implementation:防前测的 mockResolvedValueOnce 序列泄漏到后测
     // (useTauriIpcReady 的工厂实现不受 clearAllMocks 影响,无需重置)
-    checkinOneClickReset.mockReset()
-    checkinGetPublicIp.mockReset()
+    vi.mocked(checkinOneClickReset).mockReset()
+    vi.mocked(checkinGetPublicIp).mockReset()
     // mockReset 会清掉工厂里的默认实现,必须显式补回默认报告
-    checkinAuditTraeResidual.mockReset()
-    checkinAuditTraeResidual.mockResolvedValue({ ...cleanAudit })
-    checkinSnapshotList.mockResolvedValue([])
+    vi.mocked(checkinAuditTraeResidual).mockReset()
+    vi.mocked(checkinAuditTraeResidual).mockResolvedValue({ ...cleanAudit })
+    vi.mocked(checkinSnapshotList).mockResolvedValue([])
     mockLoadSuccess()
   })
   afterEach(() => cleanup())
 
   async function openMaint() {
-    useTauriIpcReady.mockReturnValue(true)
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
     fireEvent.click(screen.getByText('maintTitle'))
@@ -660,8 +660,8 @@ describe('签到助手页面 · 一键解决风控向导', () => {
 
   it('全流程:一键重置 → 显示基准 IP → 换网验证通过 → 冷却完成态+重新开始', async () => {
     await openMaint()
-    checkinOneClickReset.mockResolvedValue({ layers: Array.from({ length: 14 }, (_, i) => wizardLayer(i)) })
-    checkinGetPublicIp
+    vi.mocked(checkinOneClickReset).mockResolvedValue({ layers: Array.from({ length: 14 }, (_, i) => wizardLayer(i)) })
+    vi.mocked(checkinGetPublicIp)
       .mockResolvedValueOnce({ ip: '1.2.3.4', location: '中国 吉林 长春 电信' })
       .mockResolvedValueOnce({ ip: '5.6.7.8', location: '' })
     fireEvent.click(screen.getByText('wizardStart'))
@@ -683,8 +683,8 @@ describe('签到助手页面 · 一键解决风控向导', () => {
 
   it('IP 未变时不进入完成态,红字提示重拔', async () => {
     await openMaint()
-    checkinOneClickReset.mockResolvedValue({ layers: [wizardLayer(0)] })
-    checkinGetPublicIp.mockResolvedValue({ ip: '1.2.3.4', location: '' })
+    vi.mocked(checkinOneClickReset).mockResolvedValue({ layers: [wizardLayer(0)] })
+    vi.mocked(checkinGetPublicIp).mockResolvedValue({ ip: '1.2.3.4', location: '' })
     fireEvent.click(screen.getByText('wizardStart'))
     await waitFor(() => expect(screen.getByText('wizardVerify')).toBeTruthy())
     fireEvent.click(screen.getByText('wizardVerify'))
@@ -694,7 +694,7 @@ describe('签到助手页面 · 一键解决风控向导', () => {
 
   it('busy 双闸:向导执行中 wizardStart 与手动 maintReset 同时禁用', async () => {
     await openMaint()
-    checkinOneClickReset.mockReturnValue(new Promise(() => {}))
+    vi.mocked(checkinOneClickReset).mockReturnValue(new Promise(() => {}))
     fireEvent.click(screen.getByText('wizardStart'))
     await waitFor(() => {
       expect((screen.getByText('wizardStart') as HTMLButtonElement).disabled).toBe(true)
@@ -704,8 +704,8 @@ describe('签到助手页面 · 一键解决风控向导', () => {
 
   it('重置成功后自动跑一次残留审计,并显示"无残留"结论', async () => {
     await openMaint()
-    checkinOneClickReset.mockResolvedValue({ layers: [wizardLayer(0)] })
-    checkinGetPublicIp.mockResolvedValue({ ip: '1.2.3.4', location: '' })
+    vi.mocked(checkinOneClickReset).mockResolvedValue({ layers: [wizardLayer(0)] })
+    vi.mocked(checkinGetPublicIp).mockResolvedValue({ ip: '1.2.3.4', location: '' })
     fireEvent.click(screen.getByText('wizardStart'))
     await waitFor(() => expect(screen.getByText('wizardAuditClean')).toBeTruthy())
     expect(checkinAuditTraeResidual).toHaveBeenCalledTimes(1)
@@ -714,9 +714,9 @@ describe('签到助手页面 · 一键解决风控向导', () => {
 
   it('审计发现残留:显示残留条数并列出命中文件', async () => {
     await openMaint()
-    checkinOneClickReset.mockResolvedValue({ layers: [wizardLayer(0)] })
-    checkinGetPublicIp.mockResolvedValue({ ip: '1.2.3.4', location: '' })
-    checkinAuditTraeResidual.mockResolvedValue({
+    vi.mocked(checkinOneClickReset).mockResolvedValue({ layers: [wizardLayer(0)] })
+    vi.mocked(checkinGetPublicIp).mockResolvedValue({ ip: '1.2.3.4', location: '' })
+    vi.mocked(checkinAuditTraeResidual).mockResolvedValue({
       ...cleanAudit,
       ok: false,
       hard_hits: 3,
@@ -733,8 +733,8 @@ describe('签到助手页面 · 一键解决风控向导', () => {
 
   it('点「重新检测残留」会再跑一次审计(累计 2 次)', async () => {
     await openMaint()
-    checkinOneClickReset.mockResolvedValue({ layers: [wizardLayer(0)] })
-    checkinGetPublicIp.mockResolvedValue({ ip: '1.2.3.4', location: '' })
+    vi.mocked(checkinOneClickReset).mockResolvedValue({ layers: [wizardLayer(0)] })
+    vi.mocked(checkinGetPublicIp).mockResolvedValue({ ip: '1.2.3.4', location: '' })
     fireEvent.click(screen.getByText('wizardStart'))
     await waitFor(() => expect(checkinAuditTraeResidual).toHaveBeenCalledTimes(1))
     const rerun = await waitFor(() => screen.getByText('wizardAuditRerun'))
