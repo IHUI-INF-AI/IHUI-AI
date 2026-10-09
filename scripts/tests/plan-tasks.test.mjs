@@ -11,6 +11,7 @@
  * §5c 溯源水印：本文件受 `scripts/watermark.mjs` 管理。
  */
 import path from 'node:path'
+import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
@@ -40,6 +41,7 @@ import {
   countNewUndisposed,
   collectDirtyPaths,
   collectHeadPaths,
+  excludeInflightRows,
   fileConflictOverlay,
   f9GroupLine,
   f9KeySetOf,
@@ -1934,5 +1936,53 @@ test('SD5 本维只点名不剔除:派单口径不得因为"同编号有已勾�
   if (/isClaimable[\s\S]{0,600}sameIdDonePairs/.test(LIB))
     throw new Error('剔除判据被接进了派单面 —— 本维的设计前提是只点名不剔除')
   if (!/不剔除、不判红/.test(CODE)) throw new Error('人读面必须写明本维不剔除也不判红')
+})
+
+// ── EF 族:派单面按"点名的文件此刻在飞"暂移活(防撞车),只吃冲突档 ──
+test('EF1 冲突行被暂移,其余原样保留(顺序不变 ⇒ 派单人能逐行对照)', () => {
+  const rows = [{ line: 3 }, { line: 7 }, { line: 9 }]
+  const cf = { conflictList: [{ line: 7, paths: ['apps/web/a.tsx'] }], absentList: [] }
+  const { kept, dropped } = excludeInflightRows(rows, cf)
+  if (kept.map((r) => r.line).join(',') !== '3,9') throw new Error('kept 应为 3,9 且保序:' + kept.map((r) => r.line).join(','))
+  if (dropped.length !== 1 || dropped[0].line !== 7) throw new Error('dropped 应恰为那一行:' + JSON.stringify(dropped))
+})
+
+test('EF2 "核验不了"不得变成剔活依据:只报名不占名额(否则没看清的行人就找不到了)', () => {
+  const rows = [{ line: 3 }, { line: 7 }]
+  const cf = { conflictList: [], absentList: [{ line: 7, key: 'scripts/不存在.mjs' }] }
+  const { kept, dropped } = excludeInflightRows(rows, cf)
+  if (dropped.length !== 0 || kept.length !== 2) throw new Error('absent 档必须全量保留')
+})
+
+test('EF3 旗标默认关,且取不到 git 面时一律照派(不得拿"量不到"剔真活)', () => {
+  if (parseArgs(['--open', '--dispatchable']).excludeInflight !== false) throw new Error('不带旗标必须关')
+  if (parseArgs(['--exclude-inflight']).excludeInflight !== true) throw new Error('带旗标必须开')
+  const CODE = readFileSync(new URL('../plan-tasks.mjs', import.meta.url), 'utf8')
+  const und = CODE.indexOf('git status / HEAD 树取不到')
+  const assign = CODE.indexOf('rowsOut = kept')
+  if (und < 0 || assign < 0) throw new Error('未判定分支或剔活动作不见了(判据被拆了)')
+  if (assign > und && assign - und < 1600 && CODE.slice(und, assign).includes('rowsOut = kept'))
+    throw new Error('未判定那一支里出现了剔活赋值 ⇒ 把没量到写成了有权剔活')
+})
+
+test('EF4 真仓面对账:被暂移的行数必须恰等于叠层点名的冲突行数', () => {
+  // 被审面取 HEAD blob(与生产 `--open` 同一档),不读磁盘副本 —— 磁盘那份常年滞后/属别人在飞。
+  const content = execFileSync('git', ['show', 'HEAD:PROJECT_PLAN.md'], {
+    maxBuffer: 1 << 28,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  }).replace(/\r\n/g, '\n')
+  const a = auditPlan(content)
+  const dirty = collectDirtyPaths(ROOT)
+  const head = collectHeadPaths(ROOT)
+  if (!dirty || !head) throw new Error('git 面取不到 ⇒ 本用例无从判定(不得记为通过)')
+  const cf = fileConflictOverlay({ rows: a.claimableRows, dirtySet: dirty, headSet: head })
+  const { kept, dropped } = excludeInflightRows(a.claimableRows, cf)
+  if (kept.length + dropped.length !== a.claimableRows.length) throw new Error('剔+留必须等于原行数(守恒)')
+  if (dropped.length !== cf.conflictList.length)
+    throw new Error(`剔活数 ${dropped.length} 与叠层点名 ${cf.conflictList.length} 不等 ⇒ 两份判据在互相顶掉`)
+  if (dropped.length === a.claimableRows.length)
+    throw new Error('把整个派单面剔空 = 判据失效的表现,不当通过')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
