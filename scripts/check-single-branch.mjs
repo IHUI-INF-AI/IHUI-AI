@@ -38,6 +38,18 @@
  *      —— `git rev-parse --verify` 两条均失败,即"3 个非法分支"里 0 个是真分支。
  *   ③ ROOT 由脚本自身位置推导:原 `process.cwd()` 在 pnpm 切 cwd 下会让 `git branch -a`
  *      直接失败 → 走 catch 打一行警告后**恒绿**(与守门 70 的 ROOT 教训同型,静默失效)。
+ *
+ * 2026-10-09 补 ② 的**孪生空档**(同一型故障的另一种形态,本机实测烧掉当天每一枚提交):
+ *   ④ **远端已无此分支、本机跟踪引用还留着(stale)⇒ 不判,但如实报数**。② 认的是"sha 取不到",
+ *      而这一型的 sha **完全可解析**(对象还在本机,常还有远端 backup tag 指着它),所以 ② 结构上
+ *      认不出它。实测 `origin/wip/collect-2026-09-30`:`git ls-remote origin 'refs/heads/wip/*'`
+ *      零命中(远端早在 10-02 前就被删过,并留了三枚 `backup/cleanup-*-wip-collect` tag),而
+ *      `refs/remotes/origin/wip/collect-2026-09-30` 仍在 `packed-refs` 里(8286 行)⇒ 本门每次提交
+ *      判红,而它当时给的出路是 `git push origin --delete <分支>`,**对一条远端不存在的分支必然失败**
+ *      —— 无解的恒红挂在全队每次提交上,结局就是各会话 `--no-verify`,连带链上全部守门对每次提交作废
+ *      (§12e/§12f 同型;当天 safe-commit 的归因层如实写着"HEAD 面亦红 ⇒ 存量/机器态,非本次引入")。
+ *      唯一正解是 §9b 那句"fetch + prune 是日常"。两条设计约束:**只在本来要判红时才联网问远端**
+ *      (happy path 不派进程、不联网 —— 这道门挂在每次提交上);**问不到就一律不豁免**(失效方向是多拦)。
  */
 import { execFileSync, execSync } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
@@ -216,6 +228,71 @@ export function nonLocalExempt(entry, { mirrorRemotes, unresolvable }) {
   return mirrorRemotes.has(remote) ? 'mirror' : unresolvable.has(b) ? 'phantom' : null
 }
 
+/**
+ * `git ls-remote --heads origin` 原文 → 远端真实分支短名集合(纯解析,可被镜像测试直接喂)。
+ * 一行形如 `<sha>\trefs/heads/<name>`;非 refs/heads/ 行(如带 tag)一律丢掉 —— 拿 tag 当分支
+ * 会让"这条分支远端还在"得出假肯定,而那方向是**多判红**,不是放行。
+ */
+export function remoteHeadNames(raw) {
+  const out = new Set()
+  for (const line of String(raw ?? '').split(/\r?\n/)) {
+    const tab = line.indexOf('\t')
+    if (tab < 0) continue
+    const ref = line.slice(tab + 1).trim()
+    if (!ref.startsWith('refs/heads/')) continue
+    const name = ref.slice('refs/heads/'.length)
+    if (!name) continue // `refs/heads/`(空段)不是分支:收进来会让"远端有这条"的判定多一个幽灵成员
+    out.add(name)
+  }
+  return out
+}
+
+/**
+ * 纯判据(2026-10-09 新增第三类豁免 `stale`):**本机还挂着、远端已经没有的那条远程跟踪引用**。
+ * 它和 phantom 的区别是关键:phantom 是 sha 取不到(对象没了),stale 的 sha **完全可解析**,
+ * 因为内容还在本机对象库里 —— 远端分支早被删过(常常是另一台机/另一路会话删的,而
+ * `git push origin --delete` 只清发起方的本地跟踪 ref),于是本机的 `packed-refs` 一直留着一条
+ * 指向"确实存在但上游已无"的对象的引用。本门的旧修复提示教的是
+ * `git push origin --delete <分支>`,对这一型**必然失败**(远端没有它),于是这条红无解 ——
+ * 而它红在每一枚提交上,结局就是各会话 `--no-verify`,连带链上全部守门对每次提交作废(§12e/§12f)。
+ * 失效方向刻意是"多判红":remoteQueryable=false(取不到远端清单)或该分支真在远端 ⇒ 一律 null。
+ */
+export function staleExempt(name, { remoteHeads, remoteQueryable } = {}) {
+  if (!remoteQueryable || !(remoteHeads instanceof Set)) return null // 没问到真值 ⇒ 不据此豁免
+  if (typeof name !== 'string') return null
+  const rest = name.startsWith('origin/')
+    ? name.slice('origin/'.length)
+    : name.startsWith('upstream/')
+      ? name.slice('upstream/'.length) // origin 的历史别名(§9b),问的是同一个上游
+      : null
+  if (rest === null) return null // 本地分支永远判;镜像远端由 mirror 那一档管
+  return remoteHeads.has(rest) ? null : 'stale'
+}
+
+/**
+ * 问一次远端真值(§5b:git ls-remote 为远端真值唯一来源)。**只在"本来要判红"那条路径上调用**,
+ * 所以 happy path 一个进程都不多派、不联网 —— 这道门挂在每次提交上,给它加一次网络往返就是把
+ * 全队的提交拖慢(§12e 的成本口径同门 195 那条)。
+ */
+function probeRemoteHeads() {
+  try {
+    const raw = execFileSync('git', ['-C', ROOT, 'ls-remote', '--heads', 'origin'], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 20000,
+      maxBuffer: 16 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    // 一条 refs/heads 都没有 ⇒ 网络半通 / 空仓 / 输出形态解不出,三种都不配当"远端没这些分支"的证据
+    if (!/\trefs\/heads\//.test(raw)) {
+      return { heads: new Set(), queryable: false, reason: '远端清单里没有任何 refs/heads 行' }
+    }
+    return { heads: remoteHeadNames(raw), queryable: true, reason: '' }
+  } catch (e) {
+    return { heads: new Set(), queryable: false, reason: (e && e.message) || 'ls-remote 派生失败' }
+  }
+}
+
 /** sha 不可解析的远程跟踪引用(§5b 宿主清 nested ref 后的幻影)。 */
 function unresolvableSet(names) {
   const bad = new Set()
@@ -286,7 +363,7 @@ function main() {
         `mirrors=${[...mirrorRemotes].join(',')} unresolvable=${[...unresolvable].join(',')}`,
     )
   }
-  const exempt = { mirror: [], phantom: [], 'in-flight': [], backup: [] }
+  const exempt = { mirror: [], phantom: [], 'in-flight': [], backup: [], stale: [] }
   /** 分支尖端提交时刻(一次 for-each-ref,不逐个起进程);取不到 ⇒ 空表 ⇒ 在飞豁免整段失效并如实喊出 */
   let tipTimes = new Map()
   let tipTimesOk = true
@@ -336,6 +413,33 @@ function main() {
     })
     .map((e) => e.name)
 
+  /**
+   * 第三类豁免的落点:只在"已经有候选红"时才联网(2026-10-09)。
+   * 这里补的是 phantom 的**反向**空档 —— phantom 认的是 sha 取不到,而"远端删了分支、本机跟踪
+   * 引用还留着"那条 ref 的 sha 完全解析得出(内容仍在对象库),于是它被当合法违规判红,而本门给的
+   * 出路(`git push origin --delete <分支>`)对一条远端根本不存在的分支**必然失败** ⇒ 无解的恒红,
+   * 而它挂在每次提交上(§12f:一道红在干净 HEAD 上的门 = 全队合法跳门 = 链上全部守门作废)。
+   * 失效方向:远端清单问不到 / 问到了但那是空清单 ⇒ 一律不豁免,照旧判红(宁误拦,不静默放行)。
+   */
+  let illegalFinal = illegal
+  if (illegal.length && illegal.some((b) => b.startsWith('origin/') || b.startsWith('upstream/'))) {
+    const { heads, queryable, reason } = probeRemoteHeads()
+    if (!queryable) {
+      console.error(
+        `${C.yellow}⚠️ 远端分支清单取不到(${reason})⇒ "远端已无此分支"这一豁免本轮整体失效,` +
+          `候选旁支按原判据计红(失效方向是多拦,不是放行)${C.reset}`,
+      )
+    } else {
+      illegalFinal = []
+      for (const b of illegal) {
+        if (staleExempt(b, { remoteHeads: heads, remoteQueryable: true }) === 'stale') {
+          exempt.stale.push(b)
+        } else illegalFinal.push(b)
+      }
+    }
+  }
+  const illegalList = illegalFinal
+
   /** 豁免面必须可见:只豁免不报数,和漏判不可区分(门 79/80 同取向) */
   function reportExempt() {
     if (exempt.mirror.length) {
@@ -349,6 +453,13 @@ function main() {
         `${C.dim}ℹ️ 不判但如实报数:${exempt.phantom.length} 个幻影远程跟踪引用(${exempt.phantom.join(', ')})` +
           ` —— sha 不可解析(§5b:宿主清 depth≥2 的 refs/remotes/**,而 refs-heal 会按旧清单重建,` +
           `prune 只是治标)${C.reset}`,
+      )
+    }
+    if (exempt.stale.length) {
+      console.log(
+        `${C.dim}ℹ️ 不判但如实报数:${exempt.stale.length} 个"远端已无此分支"的陈旧远程跟踪引用` +
+          `(${exempt.stale.join(', ')}) —— sha 仍可解析(内容还在本机对象库),所以 phantom 那一档认不出它;` +
+          `唯一正解是 git fetch origin --prune(§9b「fetch + prune 是日常」),不是 push --delete${C.reset}`,
       )
     }
     if (!tipTimesOk) {
@@ -371,27 +482,30 @@ function main() {
     }
   }
 
-  if (illegal.length === 0) {
+  if (illegalList.length === 0) {
     console.log(`${C.green}✅ 单分支检查通过:仅存在 main(及 goal/ 合法豁免分支)${C.reset}`)
     reportExempt()
     process.exit(0)
   }
 
   console.error(
-    `${C.red}🛡️ 单分支守门失败:检测到 ${illegal.length} 个非法分支,提交已阻塞${C.reset}`,
+    `${C.red}🛡️ 单分支守门失败:检测到 ${illegalList.length} 个非法分支,提交已阻塞${C.reset}`,
   )
   reportExempt()
-  for (const b of illegal) {
+  for (const b of illegalList) {
     console.error(`  ${C.red}✗ ${b}${C.reset}`)
   }
   console.error(`
 ${C.yellow}💡 AGENTS.md §9b(2026-09-28 口径):main 已受分支保护,改动经"分支 + PR"入库;本门只拦**超在飞窗口(${graceHours}h)仍滞留**的旁支。${C.reset}
-   修复(三选一):
+   修复(四选一):
      A. 已合并 → 删除:git branch -d <分支>(本地)+ git push origin --delete <分支>(远程)
      B. 未合并但内容已在 main → 确认后删除:git branch -D <分支>
         (删除未合并分支前先 tag 备份:git tag backup/cleanup-<date>-<branch> <branch>)
      C. 确为 goal 模式临时分支 → 在 .ihui-agent/goal-runtime/STATE.md 标注 active 后重试
         (goal/* 完成后必须立即删除)
+     D. 远端其实已经没有这条分支(上面「不判但如实报数」把它列过,或因取不到远端清单而没能豁免)
+        → 那是本机的陈旧远程跟踪引用,唯一正解是:git fetch origin --prune
+        ⚠️ 对它跑 A 里的 push --delete 必然失败(远端没有它),别按 A 试。
 `)
   process.exit(1)
 }
@@ -456,6 +570,60 @@ export function selfTest() {
   })
   t('反向对照:未配进 git remote 的第三类远端且可解析 → 仍判(宁误拦)', () => {
     return nonLocalExempt(e('zzz/work'), ctx({ mirrorRemotes: new Set() })) === null
+  })
+  // ---- 2026-10-09 新增第三类豁免 stale:本机挂着、远端已无的远程跟踪引用(sha 仍可解析,
+  //      所以 phantom 那一档结构上认不出它)。四条各有分工:正例认得出来 / 真在远端必须仍判 /
+  //      没问到远端清单必须不豁免 / ls-remote 文本里 tag 行不得被读成"分支还在"。
+  const heads = remoteHeadNames(
+    [
+      'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678\trefs/heads/main',
+      'b74ad5a64b2351da23dee3f649d1c41c8fa65c69\trefs/heads/wip/collect-2026-09-30',
+      'cecaca00\trefs/tags/backup/cleanup-20261002-wip-collect',
+      '',
+    ].join('\n'),
+  )
+  t('stale:ls-remote 文本解析只吃 refs/heads/ 行(tag 行不得算分支)', () => {
+    return (
+      heads.has('main') &&
+      heads.has('wip/collect-2026-09-30') &&
+      ![...heads].some((x) => x.includes('tags/')) &&
+      heads.size === 2
+    )
+  })
+  t('stale 正例:origin/<名字> 而远端没有该名 ⇒ 判 stale(这才是不用 push --delete 的那一型)', () => {
+    return (
+      staleExempt('origin/wip/gone-over-there', { remoteHeads: heads, remoteQueryable: true }) ===
+        'stale' &&
+      // origin 的历史别名 upstream 问的是同一个上游
+      staleExempt('upstream/wip/gone-over-there', { remoteHeads: heads, remoteQueryable: true }) ===
+        'stale'
+    )
+  })
+  t('反向对照:远端真有的分支必须仍判(豁免不得吞掉§9b 要拦的那种滞留旁支)', () => {
+    return (
+      staleExempt('origin/wip/collect-2026-09-30', {
+        remoteHeads: heads,
+        remoteQueryable: true,
+      }) === null && staleExempt('origin/main', { remoteHeads: heads, remoteQueryable: true }) === null
+    )
+  })
+  t('反向对照:远端清单问不到 ⇒ 一律不豁免(失效方向是多拦,绝不静默放行)', () => {
+    const notQueryable = { remoteHeads: new Set(), remoteQueryable: false }
+    return (
+      staleExempt('origin/wip/collect-2026-09-30', notQueryable) === null &&
+      staleExempt('origin/whatever', notQueryable) === null &&
+      // 集合本身没给 / 给了非 Set 同样不豁免(不得把"判据输入坏了"读成"全都豁免")
+      staleExempt('origin/whatever', { remoteQueryable: true }) === null &&
+      staleExempt('origin/whatever', { remoteHeads: ['main'], remoteQueryable: true }) === null
+    )
+  })
+  t('反向对照:本地分支与镜像远端不归 stale 这一档(归本地判 / 归 mirror 档)', () => {
+    const q = { remoteHeads: heads, remoteQueryable: true }
+    return (
+      staleExempt('feat/local-thing', q) === null &&
+      staleExempt('wip/no-slash-name', q) === null &&
+      staleExempt('gitee/desktop-feed', q) === null
+    )
   })
   // ---- 2026-09-28 新增:在飞窗口 + 备份引用。豁免类判据最大的风险是"把该拦的放过去",
   //      所以每条正例都配一条反向对照(超窗仍判 / 取不到时刻不豁免 / backup 不看时刻)。
@@ -523,5 +691,14 @@ if (isDirectRun) {
   main()
 }
 
-export const __test__ = { mirrorRemoteSet, nonLocalExempt, branchTipTimes, inFlightExempt }
+export const __test__ = {
+  mirrorRemoteSet,
+  nonLocalExempt,
+  branchTipTimes,
+  inFlightExempt,
+  // 2026-10-09 第三类豁免(stale)的两个纯判据 —— 镜像测试必须调它们,不得在本文件复制一份
+  // 解析式/比较式(§22c:复制的那份必然跟着漂,而漂开的表现是"测试绿、判据红着别的形态")。
+  remoteHeadNames,
+  staleExempt,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
