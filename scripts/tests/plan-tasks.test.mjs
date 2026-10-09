@@ -1329,9 +1329,14 @@ test('M18 F3 对"门自己产出的指针措辞"必须有牙(族表两条各一�
  * 说不出是哪几组;而它还有第二种失明的形状是**等量换键**(清一组 + 新撞一组 ⇒ 组数不变),
  * 与守门 134"锚点粒度不够细 ⇒ 换个写法就净零逃逸"同族。四臂成对,一臂都不能少。
  */
-const BASE_KEYS = JSON.parse(
-  readFileSync(new URL('../../scripts/plan-task-state-baseline.json', import.meta.url), 'utf8'),
-).F9
+// G-1105306(2026-10-09):夹具的**键集**必须由测试自己构造,不得再从当今天台账借现值。
+// 上一版把"数目不能写死"落地成只让上限走夹具、键集仍读 `plan-task-state-baseline.json` 的 `F9`;
+// 等基线被人工刷到空数组(存量清偿完)那一刻,`BASE_KEYS.length = 0` 就让 M18 的"新键⇒红"臂与
+// M20 的"由基线 N-1 涨到 N"文案臂**结构上无法成立** ⇒ 两条红挂在干净 HEAD 上,每次跑该文件都带着
+// (对照跑法见该票:未含改动的工作树同样 fail 2)。空夹具还有第二种害法 —— `[].every()` 恒真,
+// 所以先钉"夹具不得为空",再谈四臂。
+const BASE_KEYS = ['Z-700001', 'Z-700002', 'Z-700003', 'Z-700004', 'Z-700005', 'Z-700006', 'Z-700007', 'Z-700008', 'Z-700009']
+if (BASE_KEYS.length < 2) throw new Error('F9 夹具键集不得为空/单元素:那会让四臂退化成恒真断言')
 const gOf = (key, n = 2) => ({
   key,
   titleCount: n,
@@ -1404,7 +1409,10 @@ test('M18 F9 键集锚四臂:基线含全部现键⇒绿 / 新键⇒红且点名
   if (swapped.kind !== 'red' || swapped.added.join() !== 'Z-3120927')
     throw new Error(`等量换键必须被键集锚抓到(计数锚对它恒绿),实测 ${JSON.stringify(swapped)}`)
   // (d) 基线还是整数 ⇒ 大声"形状未迁移"并按无法判定处理,绝不静默放行
-  const oldShape = f9Ratchet({ F9: 59 }, f9face(BASE_KEYS.map((k) => gOf(k))))
+  const oldShape = f9Ratchet(
+    { F9: BASE_KEYS.length - 1 },
+    f9face(BASE_KEYS.map((k) => gOf(k))),
+  )
   if (oldShape.kind !== 'unmigrated' || !oldShape.message.includes('形状'))
     throw new Error(`整数旧值必须判"形状未迁移",实测 ${JSON.stringify(oldShape)}`)
   const dir = mkScratch('plan-g312-shape')
@@ -1511,8 +1519,9 @@ test('M20 粗尺与不变量:两参调用方(converge)照旧判 F9,而非 F9 各
   //   人工刷一次,硬写的数字就红一次(M20 在 2026-09-29 就是这样从"71"变成"73"的 —— 那枚红与
   //   任何提交内容无关,正是本仓禁止的"把仓库瞬时状态当恒定前提")。本条要钉的是模板与判序,
   //   数字由同一份夹具给出,所以它既不是恒真也没有放过模板漂移。
-  const oldTxt = ratchetViolations({ F9: 59 }, probe(f9face(BASE_KEYS.map((k) => gOf(k)))))
-  if (oldTxt.join() !== `F9 撞号:同编号挂多个不同标题(组) 由基线 59 涨到 ${BASE_KEYS.length}`)
+  const oldBase = BASE_KEYS.length - 1
+  const oldTxt = ratchetViolations({ F9: oldBase }, probe(f9face(BASE_KEYS.map((k) => gOf(k)))))
+  if (oldTxt.join() !== `F9 撞号:同编号挂多个不同标题(组) 由基线 ${oldBase} 涨到 ${BASE_KEYS.length}`)
     throw new Error(`旧形状文案漂了(两参消费者跟着变):${JSON.stringify(oldTxt)}`)
   // 非 F9 各维:与迁移前同一份文案模板(逐字)
   const f = f9face([])
