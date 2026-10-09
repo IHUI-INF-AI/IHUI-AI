@@ -15,7 +15,7 @@
 //!
 //! 能力面：TRAE 数据目录 6 级回退探测；Cookies（Chromium v10 AES-256-GCM，密钥走
 //! DPAPI）+ leveldb 明文扫描双通道提取 JWT（按 `data.id` 去重，不验签——只出候选）；
-//! 设备标识 7 层重置(第⑦层=Chrome/Edge 的 TRAE 域 Cookie,默认关、UI 显式开启)；9 类快照对称备份/恢复。
+//! 设备标识 10 层重置(⑦浏览器 Cookie/⑧⑨⑩深度重置,均默认关、UI 显式开启)；9 类快照对称备份/恢复。
 
 use crate::IpcError;
 use serde::Serialize;
@@ -857,11 +857,162 @@ fn reset_layer_browser_cookies() -> ResetLayerReport {
     }
 }
 
-/// 7 层重置入口。MachineGuid/浏览器 Cookie 两层受 flag 控制，false 时记 skip。
+// ── 层⑧⑨⑩：深度重置(不卸载达到"重装级"干净) ──
+// 立因(2026-10-09 用户诉求):不想卸载 TRAE 也要彻底根治。卸载才会被清掉、而普通重置
+// 漏掉的三处残留 = ①TRAE 内嵌 webview 的 Cookies 库本体(L6 只删三个子目录,Cookies
+// 数据库文件还在,登录态就在里面——这正是"要卸载才能彻底"的主因);②state.vscdb
+// (VSCode 系的第二身份数据库:ItemTable 里还有 telemetry.*/aha.*/secret:// 加密凭据/
+// authentication 键);③日志与缓存目录(logs 里也有带机器码的遥测日志)。
+
+/// 层⑧:TRAE 内嵌 webview 的 Cookies 库本体(按 COOKIES_DB_CANDIDATES 逐个连伴生文件删除)。
+fn reset_layer_trae_webview_cookies(trae_dir: &Path) -> ResetLayerReport {
+    let mut removed: Vec<String> = Vec::new();
+    let mut errors: Vec<String> = Vec::new();
+    for rel in COOKIES_DB_CANDIDATES {
+        let db = trae_dir.join(rel);
+        if !db.is_file() {
+            continue;
+        }
+        match std::fs::remove_file(&db)
+            .map_err(|e| e.to_string())
+            .and_then(|()| {
+                // 伴生文件删除失败不影响主文件结论,但记进明细
+                let n = remove_sqlite_family_wal_shm(&db);
+                Ok(n)
+            }) {
+            Ok(_) => removed.push(rel.to_string()),
+            Err(e) => errors.push(format!("{rel}: {e}")),
+        }
+    }
+    if errors.is_empty() {
+        ResetLayerReport {
+            layer: 8,
+            name: "trae_webview_cookies",
+            ok: true,
+            detail: if removed.is_empty() {
+                "无 Cookies 库(本就不在)".into()
+            } else {
+                format!("已删: {}", removed.join(", "))
+            },
+        }
+    } else {
+        ResetLayerReport {
+            layer: 8,
+            name: "trae_webview_cookies",
+            ok: false,
+            detail: format!("{};已删: {}", errors.join("; "), removed.join(", ")),
+        }
+    }
+}
+
+/// 主文件已删后清 -wal/-shm/-journal 伴生(失败容忍)。
+fn remove_sqlite_family_wal_shm(db: &Path) -> usize {
+    let name = db.file_name().and_then(|x| x.to_str()).unwrap_or("");
+    if name.is_empty() {
+        return 0;
+    }
+    let mut n = 0;
+    for sfx in ["-wal", "-shm", "-journal"] {
+        let p = db.with_file_name(format!("{name}{sfx}"));
+        if p.is_file() && std::fs::remove_file(&p).is_ok() {
+            n += 1;
+        }
+    }
+    n
+}
+
+/// state.vscdb 的 ItemTable 里属于设备身份/凭据的键的判据(与 storage.json 的
+/// TRAE_DOTTED_KEYS 同一身份域:vscdb 是第二份会落 telemetry 的地方)。
+fn is_device_or_secret_key(key: &str) -> bool {
+    key.starts_with("telemetry.")
+        || key.starts_with("aha.")
+        || key.starts_with("secret://")
+        || key.starts_with("authentication")
+}
+
+/// 层⑨:User/globalStorage/state.vscdb 的 ItemTable 清设备身份与加密凭据键
+/// (telemetry.* / aha.* / secret://* / authentication*)——**只删这些前缀**,窗口状态等
+/// 功能键一律保留;库不存在视为"本就不在"(新装态)。
+fn reset_layer_state_vscdb(trae_dir: &Path) -> ResetLayerReport {
+    let db = trae_dir.join("User/globalStorage/state.vscdb");
+    if !db.is_file() {
+        return ResetLayerReport {
+            layer: 9,
+            name: "state.vscdb",
+            ok: true,
+            detail: "无 state.vscdb(本就不在)".into(),
+        };
+    }
+    let deleted = (|| -> Result<usize, String> {
+        let conn = rusqlite::Connection::open(&db)
+            .map_err(|e| format!("打不开(TRAE 运行中需完全退出后重试?): {e}"))?;
+        let n = conn
+            .execute(
+                "DELETE FROM ItemTable WHERE key LIKE 'telemetry.%' OR key LIKE 'aha.%' \
+                 OR key LIKE 'secret://%' OR key LIKE 'authentication%'",
+                [],
+            )
+            .map_err(|e| format!("删除失败: {e}"))?;
+        let _ = conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
+        Ok(n)
+    })();
+    match deleted {
+        Ok(n) => ResetLayerReport {
+            layer: 9,
+            name: "state.vscdb",
+            ok: true,
+            detail: format!("清 {n} 个身份/凭据键(telemetry.*/aha.*/secret://*/authentication*)"),
+        },
+        Err(e) => ResetLayerReport {
+            layer: 9,
+            name: "state.vscdb",
+            ok: false,
+            detail: e,
+        },
+    }
+}
+
+/// 层⑩:日志与缓存目录(logs 里的遥测日志含机器码;缓存删了自动重建,无功能影响)。
+fn reset_layer_logs_cache(trae_dir: &Path) -> ResetLayerReport {
+    const DIRS: [&str; 4] = ["logs", "Cache", "GPUCache", "CachedData"];
+    let mut removed: Vec<&str> = Vec::new();
+    let mut errors: Vec<String> = Vec::new();
+    for rel in DIRS {
+        let path = trae_dir.join(rel);
+        if path.is_dir() {
+            match std::fs::remove_dir_all(&path) {
+                Ok(()) => removed.push(rel),
+                Err(e) => errors.push(format!("{rel}: {e}")),
+            }
+        }
+    }
+    if errors.is_empty() {
+        ResetLayerReport {
+            layer: 10,
+            name: "logs_cache",
+            ok: true,
+            detail: if removed.is_empty() {
+                "无(本就不在)".into()
+            } else {
+                format!("已删: {}", removed.join(", "))
+            },
+        }
+    } else {
+        ResetLayerReport {
+            layer: 10,
+            name: "logs_cache",
+            ok: false,
+            detail: errors.join("; "),
+        }
+    }
+}
+
+/// 10 层重置入口。MachineGuid/浏览器 Cookie/深度三层受 flag 控制，false 时记 skip。
 pub fn reset_device_ids(
     trae_dir: &Path,
     include_machine_guid: bool,
     clean_browser_cookies: bool,
+    deep_reset: bool,
 ) -> ResetReport {
     let mut layers = vec![reset_layer_machineid(trae_dir)];
     let (r2, r3) = reset_layer_storage_json(trae_dir);
@@ -888,6 +1039,38 @@ pub fn reset_device_ids(
             name: "browser_cookies",
             ok: true,
             detail: "skipped(clean_browser_cookies=false)".into(),
+        }
+    });
+    // 层⑧⑨⑩(深度重置)默认 skip:webview Cookies 库本体/state.vscdb 身份键/日志缓存,
+    // 是"不卸载达到重装级干净"的补全——动的是 TRAE 登录态与凭据,同样由用户显式选择。
+    layers.push(if deep_reset {
+        reset_layer_trae_webview_cookies(trae_dir)
+    } else {
+        ResetLayerReport {
+            layer: 8,
+            name: "trae_webview_cookies",
+            ok: true,
+            detail: "skipped(deep_reset=false)".into(),
+        }
+    });
+    layers.push(if deep_reset {
+        reset_layer_state_vscdb(trae_dir)
+    } else {
+        ResetLayerReport {
+            layer: 9,
+            name: "state.vscdb",
+            ok: true,
+            detail: "skipped(deep_reset=false)".into(),
+        }
+    });
+    layers.push(if deep_reset {
+        reset_layer_logs_cache(trae_dir)
+    } else {
+        ResetLayerReport {
+            layer: 10,
+            name: "logs_cache",
+            ok: true,
+            detail: "skipped(deep_reset=false)".into(),
         }
     });
     ResetReport { layers }
@@ -1129,9 +1312,10 @@ pub fn checkin_capture_jwts() -> Result<Vec<CapturedAccount>, IpcError> {
 pub fn checkin_reset_device_ids(
     include_machine_guid: bool,
     clean_browser_cookies: bool,
+    deep_reset: bool,
 ) -> Result<ResetReport, IpcError> {
     let dir = require_trae_dir()?;
-    Ok(reset_device_ids(&dir, include_machine_guid, clean_browser_cookies))
+    Ok(reset_device_ids(&dir, include_machine_guid, clean_browser_cookies, deep_reset))
 }
 
 #[tauri::command]
@@ -1488,26 +1672,86 @@ mod tests {
         let _ = std::fs::remove_dir_all(&app);
     }
 
-    // ── 9. 全 7 层重置编排（层⑤提权与层⑦浏览器均 flag=false 走 skip 记录,不碰真库）──
+    // ── 9. 全 10 层重置编排（⑤⑦⑧⑨⑩均 flag=false 走 skip 记录,不碰真库/真浏览器）──
 
     #[test]
-    fn reset_device_ids_reports_seven_layers_and_skips_machine_guid_and_browser_by_flag() {
+    fn reset_device_ids_reports_ten_layers_and_skips_flagged_layers() {
         let dir = scratch("reset-all");
         std::fs::create_dir_all(dir.join("User/globalStorage")).unwrap();
         std::fs::write(dir.join("machineid"), "old").unwrap();
         std::fs::write(dir.join("User/globalStorage/storage.json"), r#"{}"#).unwrap();
-        let report = reset_device_ids(&dir, false, false);
+        let report = reset_device_ids(&dir, false, false, false);
         let layers: Vec<u8> = report.layers.iter().map(|l| l.layer).collect();
-        assert_eq!(layers, vec![1, 2, 3, 4, 5, 6, 7]);
-        let l5 = report.layers.iter().find(|l| l.layer == 5).unwrap();
-        assert!(l5.ok && l5.detail.contains("skipped"), "flag=false 必须显式记 skip");
-        let l7 = report.layers.iter().find(|l| l.layer == 7).unwrap();
-        assert!(
-            l7.ok && l7.name == "browser_cookies" && l7.detail.contains("skipped"),
-            "浏览器层 flag=false 也必须显式记 skip,单元测试绝不碰真实浏览器库: {report:?}"
-        );
+        assert_eq!(layers, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+        for expect_skip in [5u8, 7, 8, 9, 10] {
+            let l = report.layers.iter().find(|l| l.layer == expect_skip).unwrap();
+            assert!(
+                l.ok && l.detail.contains("skipped"),
+                "层{expect_skip} flag=false 必须显式记 skip: {report:?}"
+            );
+        }
         assert!(report.layers.iter().filter(|l| l.layer != 5).all(|l| l.ok),
             "1/2/3/4/6 层在可写的临时目录里必须全 ok: {report:?}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // ── 9b. 深度重置三层（隔离临时目录,验证判据与删除面）──
+
+    #[test]
+    fn deep_reset_layers_clear_webview_cookies_vscdb_and_logs() {
+        let dir = scratch("deep-reset");
+        // ①webview Cookies 库 + 伴生文件
+        let cookies = dir.join("Partitions/trae-webview/Network/Cookies");
+        std::fs::create_dir_all(cookies.parent().unwrap()).unwrap();
+        std::fs::write(&cookies, "fake").unwrap();
+        std::fs::write(dir.join("Partitions/trae-webview/Network/Cookies-wal"), "w").unwrap();
+        // ②state.vscdb:插身份键与功能键,断言只删前者
+        let vscdb = dir.join("User/globalStorage/state.vscdb");
+        std::fs::create_dir_all(vscdb.parent().unwrap()).unwrap();
+        {
+            let conn = rusqlite::Connection::open(&vscdb).unwrap();
+            conn.execute_batch(
+                "CREATE TABLE ItemTable (key TEXT PRIMARY KEY, value BLOB);
+                 INSERT INTO ItemTable (key, value) VALUES
+                   ('telemetry.machineId', x'00'), ('aha.device.device_id', x'00'),
+                   ('secret://credentials', x'00'), ('authentication.session', x'00'),
+                   ('workbench.activity', x'00'), ('windowsState', x'00');",
+            )
+            .unwrap();
+        }
+        // ③logs 目录
+        std::fs::create_dir_all(dir.join("logs")).unwrap();
+        std::fs::write(dir.join("logs/x.log"), "machine=abc").unwrap();
+
+        let r8 = reset_layer_trae_webview_cookies(&dir);
+        assert!(r8.ok && r8.detail.contains("Partitions/trae-webview/Network/Cookies"), "{r8:?}");
+        assert!(!cookies.exists(), "Cookies 库本体必须被删");
+        assert!(
+            !dir.join("Partitions/trae-webview/Network/Cookies-wal").exists(),
+            "伴生 -wal 必须一并删"
+        );
+
+        let r9 = reset_layer_state_vscdb(&dir);
+        assert!(r9.ok, "{r9:?}");
+        let conn = rusqlite::Connection::open(&vscdb).unwrap();
+        let kept: Vec<String> = conn
+            .prepare("SELECT key FROM ItemTable")
+            .unwrap()
+            .query_map([], |r| r.get::<_, String>(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(
+            kept,
+            vec!["windowsState".to_string(), "workbench.activity".to_string()],
+            "只许清身份/凭据键,功能键必须保留: {kept:?}"
+        );
+        drop(conn);
+
+        let r10 = reset_layer_logs_cache(&dir);
+        assert!(r10.ok && r10.detail.contains("logs"), "{r10:?}");
+        assert!(!dir.join("logs").exists());
+
         let _ = std::fs::remove_dir_all(&dir);
     }
 
