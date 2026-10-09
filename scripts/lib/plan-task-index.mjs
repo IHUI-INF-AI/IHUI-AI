@@ -621,6 +621,61 @@ export function findReopenedFlipCandidates(content, flippedRows) {
  * 其余副本由 `plan-tasks-merge.mjs` 就地写明"与哪条同题",**一行不删**(§1 禁止无声删除)。
  */
 export const DUP_POINTER_RE = /【归并】重复登记副本/
+/**
+ * ── 同编号、题面被改写 ⇒ 一勾一未勾的"F1 看不见的那一型"(2026-10-09 接 G-815949)──
+ *
+ * F1 的判据是**复合主键**(编号 + 剥状态后的题面前缀)逐字等值。这正对着本仓的登记习惯:
+ * 同一件事被不同批次抄两份,措辞会漂(加 `✅(日期)`、加粗、破折号、追加注记)。
+ * 一旦漂过题面截断点,两条就落到**两个不同主键**上 —— 于是"已勾一份 + 未勾一份"同编号并存,
+ * F1 不响,派单人照旧把**已经做过的事**再派一次(G-815949 量的就是这个形态)。
+ *
+ * 为什么不顺手把它接进 F1 的判红、也不在派单口径里直接剔除:
+ *  - 同编号 + 不同题面**合法地**存在于本仓的命名惯例里(`D30①`/`D30②`/`O81 票㉑` 一族各是
+ *    一件事,却共用基号);按基号剔除等于**把别人没做完的活记成做过的** —— 那比原病更响(§1 F4 同条理由)。
+ *  - 所以本维只**点名成对的两行**(未勾那行 + 与之同编号、题面不等的已勾行),交人判是"改写"还是"两件事";
+ *    这与票面写的处置一致("标题不等时只报数并点名两行,交人工判")。
+ *  - 已经在派单面被排除的两类(带 `【归并】` 指针的行、自述"不再单独派单"的行)不构成重复派单风险,
+ *    分开计数而不混进 pairs —— 混进来会把一个已经不存在的风险报成大数。
+ */
+export function sameIdDonePairs(rows) {
+  const byId = new Map()
+  for (const r of rows || []) {
+    if (!r || !r.key) continue
+    let g = byId.get(r.key)
+    if (!g) {
+      g = { open: [], done: [] }
+      byId.set(r.key, g)
+    }
+    g[r.state === 'open' ? 'open' : 'done'].push(r)
+  }
+  const pairs = []
+  let pointerRows = 0
+  let disclaimedRows = 0
+  for (const [id, g] of byId) {
+    if (g.open.length === 0 || g.done.length === 0) continue
+    for (const o of g.open) {
+      if (DUP_POINTER_RE.test(o.raw)) {
+        pointerRows += 1
+        continue
+      }
+      if (isSelfDeDisclaimed(o.raw)) {
+        disclaimedRows += 1
+        continue
+      }
+      const openTitle = String(o.body ?? '')
+      const twin = g.done.find((d) => String(d.body ?? '') !== openTitle)
+      if (!twin) continue // 题面逐字等值那一型归 F1 管,不得两处各计一次
+      pairs.push({
+        id,
+        openLine: o.line,
+        openTitle: openTitle.slice(0, 40),
+        doneLine: twin.line,
+        doneTitle: String(twin.body ?? '').slice(0, 40),
+      })
+    }
+  }
+  return { pairs, pointerRows, disclaimedRows }
+}
 
 /**
  * **派单口径专用**的第二个副本指针形态(2026-10-06立,G-1058653)。
@@ -2270,6 +2325,8 @@ export function auditPlan(content, { archivedKeys = null } = {}) {
     prefixNested,
     dupBlocks,
     collisions,
+    /** 同编号而题面被改写的"一勾一未勾"成对(只点名不判红,理由见 sameIdDonePairs 头注) */
+    sameIdDone: sameIdDonePairs(rows),
     // F9 三档(G-460):判据输入 / 只报数的引用图 / 单独点名的畸形号
     f9Declared,
     f9References: f9.references,

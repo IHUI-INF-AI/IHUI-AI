@@ -27,6 +27,8 @@ import {
   findIdCollisions,
   findRotatedPointers,
   keyOfRow,
+  parseTaskRows,
+  sameIdDonePairs,
   titleIsDegenerate,
   titleOf,
   usedIdsOfPrefix,
@@ -1881,5 +1883,56 @@ test('MC7 git 不可问时必须落"未判定",不得把空 HEAD 树读成"路�
   if (fromSub.size < 1000) throw new Error(`子目录发起只量到 ${fromSub.size} 条 ⇒ 没锚到仓根`)
   const dirtySub = collectDirtyPaths(path.join(ROOT, 'scripts'))
   if (!dirtySub) throw new Error('子目录发起时在飞集合应取到(可能为空,但必须是 Set 而不是 null)')
+})
+
+// ── SD 族:同编号而题面被改写的"一勾一未勾"(G-815949 那一型,F1 按复合主键看不见) ──
+const sdFace = (rows) => parseTaskRows(rows.join('\n')).filter(Boolean)
+
+test('SD1 同编号、题面不等、一勾一未勾 ⇒ 必须成对点名(派单人看得见的只有行号与两侧题面)', () => {
+  const r = sameIdDonePairs(
+    sdFace([
+      '- [x] ✅(2026-10-01) G-900101 **甲方案:把 X 收进唯一出口** —— 已落地并复验。',
+      '- [ ] G-900101 **甲方案改名为把 X 收进单一源并补测** —— 同一件事换了措辞的旧副本。',
+    ]),
+  )
+  if (r.pairs.length !== 1) throw new Error(`应点名 1 对,实得 ${r.pairs.length}`)
+  const p = r.pairs[0]
+  if (p.id !== 'G-900101' || p.openLine !== 2 || p.doneLine !== 1)
+    throw new Error('成对必须给未勾行与已勾行两个行号:' + JSON.stringify(p))
+})
+
+test('SD2 反向对照:题面逐字等值那一型归 F1 管,本维不得重复计账(两处各计一次会让两份基线互顶)', () => {
+  const same = '- [ ] G-900102 **同一句话的副本** —— 正文逐字相同。'
+  const r = sameIdDonePairs(sdFace(['- [x] G-900102 **同一句话的副本** —— 正文逐字相同。', same]))
+  if (r.pairs.length !== 0) throw new Error('题面等值不得进本维(F1 的地盘):' + JSON.stringify(r.pairs))
+})
+
+test('SD3 已经不在派单面上的两类不得混进 pairs:带归并指针的行、自述不再派单的行各自计数', () => {
+  const rows = sdFace([
+    '- [x] G-900103 **正事** —— 正本已落地。',
+    '- [ ] G-900103 **正事的短抄** —— 〔【归并】重复登记副本(2026-10-02):派单以持有行为准,本行不再单独派单。〕',
+  ])
+  const r = sameIdDonePairs(rows)
+  if (r.pairs.length !== 0 || r.pointerRows !== 1)
+    throw new Error(`指针行只计数不配对:pairs=${r.pairs.length} pointerRows=${r.pointerRows}`)
+})
+
+test('SD4 没有已勾副本时不产对(同编号多未勾是 F9 撞号的地盘,本维不抢它的读数)', () => {
+  const r = sameIdDonePairs(
+    sdFace([
+      '- [ ] G-900104 **A 事** —— 未做。',
+      '- [ ] G-900104 **B 事** —— 也未做。',
+    ]),
+  )
+  if (r.pairs.length !== 0) throw new Error('无已勾 twin 不得配对:' + JSON.stringify(r.pairs))
+})
+
+test('SD5 本维只点名不剔除:派单口径不得因为"同编号有已勾副本"就把行踢掉', () => {
+  // 同编号不同题面在本仓合法存在(D30①/D30② 那一族各是一件事),按基号剔除 = 把没做完的记成做过的。
+  const CODE = readFileSync(new URL('../plan-tasks.mjs', import.meta.url), 'utf8')
+  const LIB = readFileSync(new URL('../lib/plan-task-index.mjs', import.meta.url), 'utf8')
+  if (/isClaimable[\s\S]{0,600}sameIdDonePairs/.test(LIB))
+    throw new Error('剔除判据被接进了派单面 —— 本维的设计前提是只点名不剔除')
+  if (!/不剔除、不判红/.test(CODE)) throw new Error('人读面必须写明本维不剔除也不判红')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
