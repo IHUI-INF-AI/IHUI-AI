@@ -3323,6 +3323,7 @@ pub fn run() {
             checkin_capture::checkin_reset_device_ids,
             checkin_capture::checkin_get_public_ip,
             checkin_capture::checkin_one_click_reset,
+            checkin_capture::checkin_audit_trae_residual,
             checkin_capture::checkin_snapshot_backup,
             checkin_capture::checkin_snapshot_restore,
             checkin_capture::checkin_snapshot_list,

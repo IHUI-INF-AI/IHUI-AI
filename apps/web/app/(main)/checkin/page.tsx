@@ -71,6 +71,7 @@ import {
 import { EChart } from '@/components/charts/EChart'
 import { useTauriIpcReady } from '@/hooks/use-desktop'
 import {
+  checkinAuditTraeResidual,
   checkinCaptureJwts,
   checkinDetectTraeDir,
   checkinGetPublicIp,
@@ -81,6 +82,7 @@ import {
   checkinSnapshotList,
   checkinSnapshotRestore,
   type CapturedTraeAccount,
+  type CheckinResidualAuditReport,
   type CheckinSnapshotSummary,
 } from '@/lib/tauri-bridge'
 
@@ -159,6 +161,10 @@ export default function CheckinPage() {
   const [wizardIpNow, setWizardIpNow] = React.useState('')
   const [wizardBusy, setWizardBusy] = React.useState(false)
   const [wizardMsg, setWizardMsg] = React.useState<string[]>([])
+  // 残留指纹审计(2026-10-10 立):重置后拿旧身份黑名单回扫 TRAE 现场,把
+  // "到底干净了没有"变成面板上可读的结论,而不是靠用户猜。
+  const [wizardAudit, setWizardAudit] = React.useState<CheckinResidualAuditReport | null>(null)
+  const [wizardAuditing, setWizardAuditing] = React.useState(false)
   // 上次一键重置时间(冷却提醒用):24h 内再登录会续期风控
   const [lastResetAt, setLastResetAt] = React.useState<number | null>(null)
   React.useEffect(() => {
@@ -348,6 +354,24 @@ export default function CheckinPage() {
       return report.layers.map((l) => `[${l.ok ? 'OK' : 'FAIL'}] L${l.layer} ${l.name}: ${l.detail}`)
     })
 
+  // 残留指纹审计:与"重置"解耦的独立动作,失败只在向导消息里落一行,不拦流程
+  // (审计是**取证**不是**处置**,扫不动不代表重置没做)。
+  const runResidualAudit = async () => {
+    setWizardAuditing(true)
+    try {
+      const report = await checkinAuditTraeResidual()
+      setWizardAudit(report)
+      setWizardMsg((m) => [
+        report.ok ? t('wizardAuditClean') : t('wizardAuditResidual', { n: report.hard_hits }),
+        ...m,
+      ])
+    } catch {
+      setWizardMsg((m) => [t('wizardAuditFail'), ...m])
+    } finally {
+      setWizardAuditing(false)
+    }
+  }
+
   // 一键解决风控 Step1:全 14 层彻底重置,成功即进 Step2(IP 采集失败不回退,
   // 防止"重置已完成却显示可再点按钮"引发二次重置;基准 IP 可在 Step2 内重取)
   const startOneClickReset = async () => {
@@ -378,6 +402,8 @@ export default function CheckinPage() {
       } catch {
         setWizardMsg((m) => [t('wizardIpFetchFail'), ...m])
       }
+      // 重置完就地验证:常态自动跑一次审计,用户不必另找入口确认"是否彻底"
+      await runResidualAudit()
     } catch (e) {
       setMaintError((e as Error).message)
     } finally {
@@ -1638,6 +1664,15 @@ export default function CheckinPage() {
                       {wizardBusy && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
                       {t('wizardVerify')}
                     </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={wizardBusy || wizardAuditing || maintBusy}
+                      onClick={() => void runResidualAudit()}
+                    >
+                      {wizardAuditing && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                      {t('wizardAuditRerun')}
+                    </Button>
                   </>
                 )}
                 {wizardStep === 3 && (
@@ -1646,8 +1681,22 @@ export default function CheckinPage() {
                       {t('wizardIpChanged', { ip: wizardIpNow })}
                     </p>
                     <p className="text-xs text-muted-foreground">{t('wizardCooldown')}</p>
-                    <Button variant="ghost" size="sm" onClick={restartWizard}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={wizardBusy || wizardAuditing || maintBusy}
+                      onClick={restartWizard}
+                    >
                       {t('wizardRestart')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={wizardBusy || wizardAuditing || maintBusy}
+                      onClick={() => void runResidualAudit()}
+                    >
+                      {wizardAuditing && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                      {t('wizardAuditRerun')}
                     </Button>
                   </>
                 )}
@@ -1655,6 +1704,67 @@ export default function CheckinPage() {
                   <pre className="max-h-24 overflow-y-auto rounded bg-muted p-2 text-xs">
                     {wizardMsg.join('\n')}
                   </pre>
+                )}
+                {/* 残留指纹审计面板:只在真的扫过之后出现(未扫过时 wizardAudit 为 null) */}
+                {wizardAudit && (
+                  <div className="space-y-1 rounded border border-border/60 bg-background/40 p-2">
+                    <p className="text-xs font-medium">{t('wizardAuditTitle')}</p>
+                    {wizardAuditing && (
+                      <p className="text-xs text-muted-foreground">{t('wizardAuditScanning')}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {t('wizardAuditScope', {
+                        files: wizardAudit.scanned_files,
+                        mb: Math.round(wizardAudit.scanned_mb * 10) / 10,
+                        sites: wizardAudit.sites_present,
+                      })}
+                    </p>
+                    {wizardAudit.blacklist_size === 0 ? (
+                      <p className="text-xs text-muted-foreground">{t('wizardAuditNoHistory')}</p>
+                    ) : wizardAudit.ok ? (
+                      <p className="text-xs text-green-600 dark:text-green-400">
+                        {t('wizardAuditClean')}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-amber-600 dark:text-amber-400">
+                        {t('wizardAuditResidual', { n: wizardAudit.hard_hits })}
+                      </p>
+                    )}
+                    {wizardAudit.hard_hit_files.length > 0 && (
+                      <ul className="space-y-0.5 text-xs">
+                        {wizardAudit.hard_hit_files.slice(0, 8).map((hit) => (
+                          <li key={hit.file} className="truncate font-mono">
+                            {hit.file} ×{hit.count} {hit.sample}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {wizardAudit.suspect_hits > 0 && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400">
+                        {t('wizardAuditSuspect', { n: wizardAudit.suspect_hits })}
+                      </p>
+                    )}
+                    {wizardAudit.registry.length > 0 && (
+                      <details className="text-xs">
+                        <summary className="cursor-pointer text-muted-foreground">
+                          {t('wizardAuditRegistry')}
+                        </summary>
+                        <pre className="max-h-24 overflow-y-auto rounded bg-muted p-2">
+                          {wizardAudit.registry.join('\n')}
+                        </pre>
+                      </details>
+                    )}
+                    {wizardAudit.hardware.length > 0 && (
+                      <details className="text-xs">
+                        <summary className="cursor-pointer text-muted-foreground">
+                          {t('wizardAuditHardware')}
+                        </summary>
+                        <pre className="max-h-24 overflow-y-auto rounded bg-muted p-2">
+                          {wizardAudit.hardware.join('\n')}
+                        </pre>
+                      </details>
+                    )}
+                  </div>
                 )}
                 {wizardStep === 2 && (
                   <p className="text-xs text-muted-foreground">{t('wizardOptionalNote')}</p>
