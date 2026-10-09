@@ -333,6 +333,14 @@ export function hydrateHistoryMessage(row: HistoryMessageRecord): ChatMessage {
     // D33(G-39,2026-09-26 立):排队侧问快照挂消息字段(与 fallback 同形态)——
     // 经既有 hydrateHistoryMessages 调用点即达生产面,渲染位消费侧待后续格。
     queueItems: readQueueItemsFromMetadata(meta?.queueItems),
+    // G-1104168(2026-10-10 立):中断痕迹读回 —— 数据侧(conversation.py)只在有正文
+    // 的取消路径落 metadata.interrupted,零字符取消不落泡;interrupted 非 true 一律
+    // 缺席(不渲染半截标注),reason 只收字符串。
+    interrupted: meta?.interrupted === true || undefined,
+    interruptReason:
+      typeof meta?.interrupt_reason === 'string' && meta.interrupt_reason
+        ? meta.interrupt_reason
+        : undefined,
   }
 }
 
