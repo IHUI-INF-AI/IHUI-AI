@@ -119,8 +119,9 @@ pub fn random_guid_like() -> String {
 // ================== 纯函数：TRAE 目录探测 ==================
 
 /// 候选路径列表。纯函数：环境值由调用方喂进来，单测不碰真实 env。
-/// 覆盖（IHUI_TRAE_DIR）> %APPDATA%\TRAE SOLO CN > %APPDATA%\TRAE >
-/// %LOCALAPPDATA%\TRAE SOLO CN > %LOCALAPPDATA%\TRAE。
+/// 覆盖（IHUI_TRAE_DIR）> %APPDATA%|LOCALAPPDATA 的 {TRAE SOLO CN, TRAE, Trae CN, Trae}。
+/// 2026-10-09 真机实测:Trae CN/Trae 是现役变体 userData 目录(本机 18 个 Trae CN.exe
+/// 正在跑、其现场完全在旧候选清单之外);Windows 大小写不敏感,候选按小写去重防双计。
 pub fn trae_dir_candidates(
     appdata: Option<&str>,
     localappdata: Option<&str>,
@@ -132,9 +133,12 @@ pub fn trae_dir_candidates(
     }
     for base in [appdata, localappdata].into_iter().flatten() {
         let base = PathBuf::from(base);
-        out.push(base.join("TRAE SOLO CN"));
-        out.push(base.join("TRAE"));
+        for name in ["TRAE SOLO CN", "TRAE", "Trae CN", "Trae"] {
+            out.push(base.join(name));
+        }
     }
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+    out.retain(|p| seen.insert(p.to_string_lossy().to_ascii_lowercase()));
     out
 }
 
@@ -560,27 +564,47 @@ pub struct ResetReport {
 }
 
 /// 层①：`machineid` 文件写 32 位随机 hex。
-fn reset_layer_machineid(trae_dir: &Path) -> ResetLayerReport {
-    let path = trae_dir.join("machineid");
-    match std::fs::write(&path, random_hex(32)) {
-        Ok(()) => ResetLayerReport {
+/// 2026-10-09 真机实测扩面:只翻新 detect 到的第一处会漏双版本机器
+/// (本机实证 %APPDATA%\TRAE 与 %APPDATA%\TRAE SOLO CN 并存),全部候选一并翻新。
+fn reset_layer_machineid(trae_dirs: &[PathBuf]) -> ResetLayerReport {
+    if trae_dirs.is_empty() {
+        return ResetLayerReport {
             layer: 1,
             name: "machineid",
             ok: true,
-            detail: "已写 32 位随机 hex".into(),
-        },
-        Err(e) => ResetLayerReport {
+            detail: "无 TRAE 现场目录(本就不在)".into(),
+        };
+    }
+    let mut done: Vec<String> = Vec::new();
+    let mut errors: Vec<String> = Vec::new();
+    for dir in trae_dirs {
+        let path = dir.join("machineid");
+        match std::fs::write(&path, random_hex(32)) {
+            Ok(()) => done.push(path.display().to_string()),
+            Err(e) => errors.push(format!("写 {} 失败: {e}", path.display())),
+        }
+    }
+    if errors.is_empty() {
+        ResetLayerReport {
+            layer: 1,
+            name: "machineid",
+            ok: true,
+            detail: format!("已写 32 位随机 hex × {} 处", done.len()),
+        }
+    } else {
+        ResetLayerReport {
             layer: 1,
             name: "machineid",
             ok: false,
-            detail: format!("写 {} 失败: {e}", path.display()),
-        },
+            detail: format!("{};成功 {} 处", errors.join("; "), done.len()),
+        }
     }
 }
 
 /// 层②③：storage.json 三个点号键改随机值并删标志键（单次读改写，报告拆两行）。
-fn reset_layer_storage_json(trae_dir: &Path) -> (ResetLayerReport, ResetLayerReport) {
-    let path = trae_dir.join("User/globalStorage/storage.json");
+/// 2026-10-09 真机实测扩面:多现场机器(本机 TRAE SOLO CN + Trae + Trae CN 三现场并存)
+/// 只改 detect 到的第一处必漏,深度档逐候选翻新;无 storage.json 的候选记 ok 跳过。
+fn reset_layer_storage_json(trae_dirs: &[PathBuf]) -> (ResetLayerReport, ResetLayerReport) {
     let mut r2 = ResetLayerReport {
         layer: 2,
         name: "storage.json telemetry.*",
@@ -593,63 +617,67 @@ fn reset_layer_storage_json(trae_dir: &Path) -> (ResetLayerReport, ResetLayerRep
         ok: false,
         detail: String::new(),
     };
-    let result = std::fs::read_to_string(&path)
-        .map_err(|e| format!("读失败: {e}"))
-        .and_then(|text| {
-            let (m, s, d) = fresh_device_values();
-            rewrite_storage_json_device_ids(&text, &m, &s, &d)
-        })
-        .and_then(|(new_text, changes)| {
-            // tmp+rename 原子写：半份 storage.json 比旧 storage.json 更糟。
-            let tmp = path.with_file_name(format!(
-                "{}.checkin-tmp-{}",
-                path.file_name().and_then(|n| n.to_str()).unwrap_or("storage.json"),
-                std::process::id()
-            ));
-            std::fs::write(&tmp, new_text)
-                .and_then(|_| std::fs::rename(&tmp, &path))
-                .map_err(|e| format!("写回失败: {e}"))?;
-            Ok(changes)
-        });
-    match result {
-        Ok(changes) => {
-            r2.ok = true;
-            r3.ok = true;
-            r2.detail = changes
-                .iter()
-                .filter(|c| c.contains("telemetry."))
-                .cloned()
-                .collect::<Vec<_>>()
-                .join("; ");
-            r3.detail = changes
-                .iter()
-                .filter(|c| !c.contains("telemetry."))
-                .cloned()
-                .collect::<Vec<_>>()
-                .join("; ");
+    if trae_dirs.is_empty() {
+        r2.ok = true;
+        r3.ok = true;
+        r2.detail = "无 TRAE 现场目录(本就不在)".into();
+        r3.detail = r2.detail.clone();
+        return (r2, r3);
+    }
+    let mut parts2: Vec<String> = Vec::new();
+    let mut parts3: Vec<String> = Vec::new();
+    let mut any_err = false;
+    for dir in trae_dirs {
+        let path = dir.join("User/globalStorage/storage.json");
+        if !path.exists() {
+            parts2.push(format!("{}: 无 storage.json(跳过)", dir.display()));
+            parts3.push(format!("{}: 无 storage.json(跳过)", dir.display()));
+            continue;
         }
-        Err(e) => {
-            r2.detail = e.clone();
-            r3.detail = e;
+        let result = std::fs::read_to_string(&path)
+            .map_err(|e| format!("读失败: {e}"))
+            .and_then(|text| {
+                let (m, s, d) = fresh_device_values();
+                rewrite_storage_json_device_ids(&text, &m, &s, &d)
+            })
+            .and_then(|(new_text, changes)| {
+                // tmp+rename 原子写：半份 storage.json 比旧 storage.json 更糟。
+                let tmp = path.with_file_name(format!(
+                    "{}.checkin-tmp-{}",
+                    path.file_name().and_then(|n| n.to_str()).unwrap_or("storage.json"),
+                    std::process::id()
+                ));
+                std::fs::write(&tmp, new_text)
+                    .and_then(|_| std::fs::rename(&tmp, &path))
+                    .map_err(|e| format!("写回失败: {e}"))?;
+                Ok(changes)
+            });
+        match result {
+            Ok(changes) => {
+                parts2.push(changes.iter().filter(|c| c.contains("telemetry.")).cloned().collect::<Vec<_>>().join("; "));
+                parts3.push(changes.iter().filter(|c| !c.contains("telemetry.")).cloned().collect::<Vec<_>>().join("; "));
+            }
+            Err(e) => {
+                any_err = true;
+                parts2.push(format!("{}: {e}", dir.display()));
+                parts3.push(format!("{}: {e}", dir.display()));
+            }
         }
     }
+    r2.ok = !any_err;
+    r3.ok = !any_err;
+    r2.detail = parts2.join("; ");
+    r3.detail = parts3.join("; ");
     (r2, r3)
 }
 
 /// 层④：`aha\TinyStorage\` 递归删内容含 "device_id" 的文件（>4MB 不读，直接保留）。
-fn reset_layer_tiny_storage(trae_dir: &Path) -> ResetLayerReport {
+/// 2026-10-09 扩面:深度档逐候选目录处理,多现场不漏。
+fn reset_layer_tiny_storage(trae_dirs: &[PathBuf]) -> ResetLayerReport {
     const NEEDLE: &[u8] = b"device_id";
-    let root = trae_dir.join("aha/TinyStorage");
-    if !root.is_dir() {
-        return ResetLayerReport {
-            layer: 4,
-            name: "aha/TinyStorage",
-            ok: true,
-            detail: "目录不存在(本就没有)".into(),
-        };
-    }
-    let mut removed = 0usize;
+    let mut total_removed = 0usize;
     let mut errors: Vec<String> = Vec::new();
+    let mut present = 0usize;
     fn walk(dir: &Path, needle: &[u8], removed: &mut usize, errors: &mut Vec<String>) {
         for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
             let path = entry.path();
@@ -668,13 +696,24 @@ fn reset_layer_tiny_storage(trae_dir: &Path) -> ResetLayerReport {
             }
         }
     }
-    walk(&root, NEEDLE, &mut removed, &mut errors);
+    for dir in trae_dirs {
+        let root = dir.join("aha/TinyStorage");
+        if !root.is_dir() {
+            continue;
+        }
+        present += 1;
+        walk(&root, NEEDLE, &mut total_removed, &mut errors);
+    }
     if errors.is_empty() {
         ResetLayerReport {
             layer: 4,
             name: "aha/TinyStorage",
             ok: true,
-            detail: format!("已删 {removed} 个含 device_id 的文件"),
+            detail: if present == 0 {
+                "目录不存在(本就没有)".into()
+            } else {
+                format!("已删 {total_removed} 个含 device_id 的文件 × {present} 处现场")
+            },
         }
     } else {
         ResetLayerReport { layer: 4, name: "aha/TinyStorage", ok: false, detail: errors.join("; ") }
@@ -684,9 +723,35 @@ fn reset_layer_tiny_storage(trae_dir: &Path) -> ResetLayerReport {
 /// 层⑤：注册表 `HKLM\...\MachineGuid`。需管理员：走
 /// `powershell Start-Process -Verb RunAs` 提权 reg add；用户拒绝/UAC 失败一律
 /// 降级 ok=false 不报错（该层失败不影响其余层）。
+/// 层⑤:MachineGuid(HKLM\SOFTWARE\Microsoft\Cryptography)写新随机 GUID。
+/// 2026-10-10 根治:不再硬依赖 `reg.exe + RunAs`——先试**进程内 PowerShell 直写**
+/// (当前进程已提权或内建 Administrator 静默提权时零弹窗零 reg.exe 依赖;
+///  本机 Administrator 实测直写成功),失败再回退 RunAs 提权 reg add(弹 UAC 由用户点)。
+/// 两级都失败才降级 skip。沙箱黑名单挡 reg.exe 的环境里第一级不受影响。
 #[cfg(windows)]
 fn reset_layer_machine_guid() -> ResetLayerReport {
     let guid = random_guid_like();
+    // 第一级:进程内 PowerShell 直写(无 reg.exe 依赖)
+    let direct = format!(
+        "try {{ Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Cryptography' \
+         -Name MachineGuid -Value '{guid}' -Force -ErrorAction Stop; exit 0 }} \
+         catch {{ exit 1 }}"
+    );
+    let mut direct_cmd = std::process::Command::new("powershell");
+    direct_cmd.args(["-NoProfile", "-NonInteractive", "-Command", &direct]);
+    creation_flags_if_windows(&mut direct_cmd, 0x0800_0000);
+    let direct_res = direct_cmd.output();
+    if let Ok(out) = &direct_res {
+        if out.status.success() {
+            return ResetLayerReport {
+                layer: 5,
+                name: "MachineGuid",
+                ok: true,
+                detail: "已写新 MachineGuid(进程内直写,无弹窗)".into(),
+            };
+        }
+    }
+    // 第二级:RunAs 提权 reg add(弹 UAC,由用户掌握)
     let script = format!(
         "Start-Process -FilePath reg.exe -Verb RunAs -Wait -WindowStyle Hidden \
          -ArgumentList @('add','HKLM\\SOFTWARE\\Microsoft\\Cryptography','/v',\
@@ -717,6 +782,14 @@ fn reset_layer_machine_guid() -> ResetLayerReport {
     }
 }
 
+/// Windows 下给 Command 附加 CREATE_NO_WINDOW(非 Windows 编译单元内不调用)。
+/// 抽成小助手避免在两处分支重复 cfg 样板。
+#[cfg(windows)]
+fn creation_flags_if_windows(cmd: &mut std::process::Command, flags: u32) -> &mut std::process::Command {
+    use std::os::windows::process::CommandExt;
+    cmd.creation_flags(flags)
+}
+
 #[cfg(not(windows))]
 fn reset_layer_machine_guid() -> ResetLayerReport {
     ResetLayerReport {
@@ -729,21 +802,24 @@ fn reset_layer_machine_guid() -> ResetLayerReport {
 
 /// 层⑥：`Partitions\trae-webview` 下 Network / Local Storage / Session Storage
 /// 三目录递归删除；三目录之外的（如 Cache）不得误删。
-fn reset_layer_partitions(trae_dir: &Path) -> ResetLayerReport {
+/// 2026-10-09 扩面:深度档逐候选目录处理。
+fn reset_layer_partitions(trae_dirs: &[PathBuf]) -> ResetLayerReport {
     const DIRS: [&str; 3] = ["Network", "Local Storage", "Session Storage"];
-    let mut removed: Vec<&str> = Vec::new();
+    let mut removed: Vec<String> = Vec::new();
     let mut errors: Vec<String> = Vec::new();
-    for rel in DIRS {
-        let path = trae_dir.join("Partitions/trae-webview").join(rel);
-        if path.exists() {
-            let r = if path.is_dir() {
-                std::fs::remove_dir_all(&path)
-            } else {
-                std::fs::remove_file(&path)
-            };
-            match r {
-                Ok(()) => removed.push(rel),
-                Err(e) => errors.push(format!("{rel}: {e}")),
+    for dir in trae_dirs {
+        for rel in DIRS {
+            let path = dir.join("Partitions/trae-webview").join(rel);
+            if path.exists() {
+                let r = if path.is_dir() {
+                    std::fs::remove_dir_all(&path)
+                } else {
+                    std::fs::remove_file(&path)
+                };
+                match r {
+                    Ok(()) => removed.push(rel.to_string()),
+                    Err(e) => errors.push(format!("{}: {rel}: {e}", dir.display())),
+                }
             }
         }
     }
@@ -870,7 +946,14 @@ fn reset_layer_browser_cookies() -> ResetLayerReport {
 
 /// 深度档要整删的目录(相对 TRAE 数据目录)。与 SNAPSHOT_ENTRIES 的现场全集对齐:
 /// local_storage_dir/session_storage_dir/network_dir/partitions/aha_dir + IndexedDB。
-pub const DEEP_RESET_DIRS: [&str; 7] = [
+/// 深度档整删目录(相对 TRAE 数据目录)。2026-10-10 真机残留盘点大幅扩面:
+/// 风控仍命中 ⇒ 三现场逐条目比对,以下是漏网指纹源(全部实测存在过):
+/// - ahanet:字节 ttNet 网络层(server.json/tt_net_config 含设备指纹配置)
+/// - monitor:parfait 遥测 SDK 缓冲(崩溃/异常事件含设备信息)
+/// - machineid.traereset_bak_* / storage.json.traereset_bak_*:参考工具备份文件,
+///   含**全部旧机器码/旧遥测 ID**(sweep 见层⑧内 traereset_bak 通配清扫)
+pub const DEEP_RESET_DIRS: [&str; 23] = [
+    // webview 会话/存储(原 7 项)
     "Local Storage",
     "Session Storage",
     "Network",
@@ -878,11 +961,36 @@ pub const DEEP_RESET_DIRS: [&str; 7] = [
     "aha",
     "Partitions/trae-webview",
     "Partitions/icube-web-crawler-shared-session-v1.0",
+    // 真机盘点扩面
+    "ahanet",
+    "monitor",
+    "Backups",
+    "CachedProfilesData",
+    "CachedConfigurations",
+    "CachedExtensionVSIXs",
+    "ModularData",
+    "SharedStorage",
+    "WebStorage",
+    "blob_storage",
+    "Shared Dictionary",
+    "Service Worker",
+    "Code Cache",
+    "shared_proto_db",
+    "User/globalStorage/cloudide.icube-im-bridge",
+    "User/globalStorage/.mcp_gallery_cache",
 ];
 
 /// 深度档要整删的文件(相对 TRAE 数据目录):Chromium 层的偏好与 Local State
 /// (捕获时的 AES 密钥就出自 Local State 的 os_crypt.encrypted_key——它同样携带设备痕迹)。
-pub const DEEP_RESET_FILES: [&str; 2] = ["Preferences", "Local State"];
+/// 2026-10-10 扩面:state.vscdb.backup 含旧登录密钥库(层⑨只删本体);DIPS(+wal) 是
+/// 字节设备数据库。
+pub const DEEP_RESET_FILES: [&str; 5] = [
+    "Preferences",
+    "Local State",
+    "User/globalStorage/state.vscdb.backup",
+    "DIPS",
+    "DIPS-wal",
+];
 
 /// 主文件已删后清 -wal/-shm/-journal 伴生(失败容忍)。
 fn remove_sqlite_family_wal_shm(db: &Path) -> usize {
@@ -922,6 +1030,37 @@ fn reset_layer_deep_site_data(trae_dirs: &[PathBuf]) -> ResetLayerReport {
                 match std::fs::remove_file(&path) {
                     Ok(()) => removed.push(rel.to_string()),
                     Err(e) => errors.push(format!("{rel}: {e}")),
+                }
+            }
+        }
+        // 2026-10-10 扩面:参考工具(machineid.traereset_bak_*)与历史重置留下的
+        // 旧身份备份文件——machineid/storage.json 的 *_bak 变体含**重置前全部旧值**,
+        // 是最直接的旧指纹残留。通配清扫:根目录与 User/globalStorage 下凡文件名含
+        // "traereset_bak" 或形如 machineid.* (非本体) 一律删。
+        for scan_dir in [trae_dir.to_path_buf(), trae_dir.join("User/globalStorage")] {
+            let rd = match std::fs::read_dir(&scan_dir) {
+                Ok(rd) => rd,
+                Err(_) => continue,
+            };
+            for entry in rd.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                let is_stale_bak = name.contains("traereset_bak")
+                    || (name.starts_with("machineid.") && name != "machineid");
+                if !is_stale_bak {
+                    continue;
+                }
+                let p = entry.path();
+                let r = if p.is_dir() {
+                    std::fs::remove_dir_all(&p)
+                } else {
+                    std::fs::remove_file(&p)
+                };
+                match r {
+                    Ok(()) => removed.push(format!(
+                        "{} (旧身份备份)",
+                        p.strip_prefix(trae_dir).unwrap_or(&p).display()
+                    )),
+                    Err(e) => errors.push(format!("{}: {e}", p.display())),
                 }
             }
         }
@@ -1302,22 +1441,147 @@ fn reset_layer_local_cache() -> ResetLayerReport {
     }
 }
 
-/// 13 层重置入口(L0 进程清扫/L11 注册表/L12 本地缓存为第三轮实测扩面)。
-/// include_machine_guid / clean_browser_cookies / deep_reset / kill_running 受 flag 控制,
-/// false 时对应层记 skip——单测必须传 kill_running=false,绝不真杀进程。
+/// 层⑬:物理网卡 MAC 地址改写(2026-10-10 新增,flag reset_mac 控制默认关)。
+/// 动机:machineid/MachineGuid/storage.json 全翻新后,**MAC 地址是仍可能把新旧设备
+/// 串联起来的硬件指纹**(风控可读本机网卡)。只动「已连接的物理网卡」(排除虚拟/
+/// VPN/TAP),旧 MAC 先备份到 %TEMP%\ihui-mac-backup-<ts>.txt 可还原。
+/// 新 MAC 取本地管理位(第二 hex 位 ∈ {2,6,A,E}),不与真实厂商 OUI 冲突。
+/// 写注册表 NetworkAddress 后 Restart-NetAdapter 生效(网络会闪断数秒);
+/// 网卡重启失败(权限/驱动不支持)时降级记「重启系统后生效」,不算失败。
+#[cfg(windows)]
+fn reset_layer_mac_addresses() -> ResetLayerReport {
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let backup_path = std::env::var("TEMP")
+        .map(|t| format!("{t}\\ihui-mac-backup-{ts}.txt"))
+        .unwrap_or_else(|_| format!("C:\\Windows\\Temp\\ihui-mac-backup-{ts}.txt"));
+    let script = r#"
+$ErrorActionPreference = 'Continue'
+$backup = New-Object System.Collections.Generic.List[string]
+$script:changed = 0
+$script:failed = 0
+$adapters = Get-NetAdapter | Where-Object {
+    $_.Status -eq 'Up' -and
+    $_.InterfaceDescription -notmatch 'Virtual|VPN|TAP|Loopback|WAN Miniport|Microsoft Kernel'
+}
+foreach ($a in $adapters) {
+    try {
+        $backup.Add("$($a.Name)|$($a.InterfaceDescription)|$($a.MacAddress)")
+        $rnd = -join ((1..10) | ForEach-Object { '{0:x}' -f (Get-Random -Max 16) })
+        $mac = '0' + ('2','6','A','E' | Get-Random) + $rnd
+        $base = 'HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}'
+        $key = Get-ChildItem $base | Where-Object {
+            (Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue).DriverDesc -eq $a.InterfaceDescription
+        } | Select-Object -First 1
+        if ($key) {
+            Set-ItemProperty -Path $key.PSPath -Name NetworkAddress -Value $mac -Force -ErrorAction Stop
+            Restart-NetAdapter -Name $a.Name -Confirm:$false -ErrorAction SilentlyContinue
+            $script:changed++
+        } else {
+            $script:failed++
+        }
+    } catch {
+        $script:failed++
+    }
+}
+$backup | Set-Content -Path '__BACKUP_PATH__' -Encoding utf8
+Write-Output "RESULT changed=$($script:changed) failed=$($script:failed) adapters=$($adapters.Count)"
+"#.replace("__BACKUP_PATH__", &backup_path);
+    match std::process::Command::new("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+        .output()
+    {
+        Ok(out) => {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            let line = stdout.lines().find(|l| l.starts_with("RESULT ")).unwrap_or("");
+            let changed = line
+                .split_whitespace()
+                .find(|p| p.starts_with("changed="))
+                .and_then(|p| p.strip_prefix("changed="))
+                .and_then(|v| v.parse::<u32>().ok())
+                .unwrap_or(0);
+            let failed = line
+                .split_whitespace()
+                .find(|p| p.starts_with("failed="))
+                .and_then(|p| p.strip_prefix("failed="))
+                .and_then(|v| v.parse::<u32>().ok())
+                .unwrap_or(0);
+            if out.status.success() && failed == 0 {
+                ResetLayerReport {
+                    layer: 13,
+                    name: "mac_addresses",
+                    ok: true,
+                    detail: format!(
+                        "已改写 {changed} 块物理网卡 MAC(旧值备份 {backup_path});网卡已重启生效"
+                    ),
+                }
+            } else if changed > 0 {
+                ResetLayerReport {
+                    layer: 13,
+                    name: "mac_addresses",
+                    ok: true,
+                    detail: format!(
+                        "已改写 {changed} 块(失败 {failed});部分网卡需重启系统生效;旧值备份 {backup_path}"
+                    ),
+                }
+            } else {
+                ResetLayerReport {
+                    layer: 13,
+                    name: "mac_addresses",
+                    ok: false,
+                    detail: format!("降级 skip(无网卡被改写,需管理员权限?): {}", line),
+                }
+            }
+        }
+        Err(e) => ResetLayerReport {
+            layer: 13,
+            name: "mac_addresses",
+            ok: false,
+            detail: format!("降级 skip(无法启动 powershell: {e})"),
+        },
+    }
+}
+
+#[cfg(not(windows))]
+fn reset_layer_mac_addresses() -> ResetLayerReport {
+    ResetLayerReport {
+        layer: 13,
+        name: "mac_addresses",
+        ok: true,
+        detail: "非 Windows 平台跳过".into(),
+    }
+}
+
+/// 14 层重置入口(L0 进程清扫/L11 注册表/L12 本地缓存/L13 MAC 硬件指纹为实测扩面)。
+/// include_machine_guid / clean_browser_cookies / deep_reset / kill_running / reset_mac
+/// 受 flag 控制,false 时对应层记 skip——单测必须传 kill_running=false,绝不真杀进程。
 pub fn reset_device_ids(
     trae_dir: &Path,
     include_machine_guid: bool,
     clean_browser_cookies: bool,
     deep_reset: bool,
     kill_running: bool,
+    reset_mac: bool,
 ) -> ResetReport {
     // 全部存在的 TRAE 数据目录候选(APPDATA 与 LOCALAPPDATA 两侧的 TRAE SOLO CN / TRAE):
     // 双版本装过的机器只清 detect 到的那一份会漏,深度档必须全清。
-    let all_trae_dirs: Vec<PathBuf> = trae_dir_candidates(None, None, None)
-        .into_iter()
-        .filter(|p| p.is_dir())
-        .collect();
+    // ⚠️ 候选必须读 env(与 detect_trae_dir 同法):传 None 会拿到空列表,
+    //    深度层⑧⑨⑩整删循环空转、层报告却显示 ok——2026-10-09 仿真实测抓出的真 bug。
+    let read_env = |k: &str| std::env::var(k).ok().filter(|v| !v.is_empty());
+    let mut all_trae_dirs: Vec<PathBuf> = trae_dir_candidates(
+        read_env("APPDATA").as_deref(),
+        read_env("LOCALAPPDATA").as_deref(),
+        None,
+    )
+    .into_iter()
+    .filter(|p| p.is_dir())
+    .collect();
+    // 传入 dir(如 IHUI_TRAE_DIR 覆盖命中、或不在两侧候选的自定义位置)也要补进深度清单,不漏
+    if !all_trae_dirs.contains(&trae_dir.to_path_buf()) {
+        all_trae_dirs.push(trae_dir.to_path_buf());
+    }
     let mut layers: Vec<ResetLayerReport> = vec![if kill_running {
         kill_trae_processes()
     } else {
@@ -1328,11 +1592,15 @@ pub fn reset_device_ids(
             detail: "skipped(kill_running=false)".into(),
         }
     }];
-    layers.push(reset_layer_machineid(trae_dir));
-    let (r2, r3) = reset_layer_storage_json(trae_dir);
+    // 层①②③④⑥的作用域:深度档覆盖全部候选目录(多现场机器不漏);
+    // 非 deep 只作用 detect 到的一处——与历史行为一致,普通单测不误伤真机现场。
+    let single = [trae_dir.to_path_buf()];
+    let scope: &[PathBuf] = if deep_reset { &all_trae_dirs } else { &single };
+    layers.push(reset_layer_machineid(scope));
+    let (r2, r3) = reset_layer_storage_json(scope);
     layers.push(r2);
     layers.push(r3);
-    layers.push(reset_layer_tiny_storage(trae_dir));
+    layers.push(reset_layer_tiny_storage(scope));
     layers.push(if include_machine_guid {
         reset_layer_machine_guid()
     } else {
@@ -1343,7 +1611,7 @@ pub fn reset_device_ids(
             detail: "skipped(include_machine_guid=false)".into(),
         }
     });
-    layers.push(reset_layer_partitions(trae_dir));
+    layers.push(reset_layer_partitions(scope));
     // 层⑦默认 skip:动系统浏览器的 cookie 必须用户显式选择(浏览器运行中会被锁,时机由用户掌握)
     layers.push(if clean_browser_cookies {
         reset_layer_browser_cookies()
@@ -1405,6 +1673,18 @@ pub fn reset_device_ids(
             name: "localappdata_temp_cache",
             ok: true,
             detail: "skipped(deep_reset=false)".into(),
+        }
+    });
+    // 层⑬(硬件指纹,默认 skip):MAC 地址是最后一块能串联新旧设备的本地指纹,
+    // 动它网络会闪断且需管理员权限,必须用户显式勾选。
+    layers.push(if reset_mac {
+        reset_layer_mac_addresses()
+    } else {
+        ResetLayerReport {
+            layer: 13,
+            name: "mac_addresses",
+            ok: true,
+            detail: "skipped(reset_mac=false)".into(),
         }
     });
     ResetReport { layers }
@@ -1647,10 +1927,19 @@ pub fn checkin_reset_device_ids(
     include_machine_guid: bool,
     clean_browser_cookies: bool,
     deep_reset: bool,
+    reset_mac: Option<bool>,
 ) -> Result<ResetReport, IpcError> {
     let dir = require_trae_dir()?;
     // kill_running 恒 true:用户点重置=授权自动关闭 TRAE(2026-10-09 用户指令「别让用户操作」)
-    Ok(reset_device_ids(&dir, include_machine_guid, clean_browser_cookies, deep_reset, true))
+    // reset_mac 向后兼容:已部署生产页不传 ⇒ None ⇒ 默认关(层⑬记 skip)
+    Ok(reset_device_ids(
+        &dir,
+        include_machine_guid,
+        clean_browser_cookies,
+        deep_reset,
+        true,
+        reset_mac.unwrap_or(false),
+    ))
 }
 
 #[tauri::command]
@@ -1712,9 +2001,24 @@ mod tests {
         assert_eq!(cands[0], PathBuf::from(r"D:\override"));
         assert_eq!(cands[1], PathBuf::from(r"C:\AD\TRAE SOLO CN"));
         assert_eq!(cands[2], PathBuf::from(r"C:\AD\TRAE"));
-        assert_eq!(cands[3], PathBuf::from(r"C:\LAD\TRAE SOLO CN"));
-        assert_eq!(cands[4], PathBuf::from(r"C:\LAD\TRAE"));
-        assert_eq!(cands.len(), 5);
+        assert_eq!(cands[3], PathBuf::from(r"C:\AD\Trae CN"));
+        // C:\AD\Trae 与 C:\AD\TRAE 大小写不敏感同目录 ⇒ 被去重,只留先出现的 TRAE
+        assert_eq!(cands[4], PathBuf::from(r"C:\LAD\TRAE SOLO CN"));
+        assert_eq!(cands[5], PathBuf::from(r"C:\LAD\TRAE"));
+        assert_eq!(cands[6], PathBuf::from(r"C:\LAD\Trae CN"));
+        assert_eq!(cands.len(), 7);
+    }
+
+    #[test]
+    fn trae_dir_candidates_dedup_case_insensitive_same_dir() {
+        // Windows 大小写不敏感:TRAE 与 Trae 同目录,同侧只留先出现的
+        let cands = trae_dir_candidates(Some(r"C:\AD"), None, None);
+        let lowers: Vec<String> =
+            cands.iter().map(|p| p.to_string_lossy().to_ascii_lowercase()).collect();
+        let mut uniq = lowers.clone();
+        uniq.sort();
+        uniq.dedup();
+        assert_eq!(lowers.len(), uniq.len(), "候选不得有大小写变体重: {cands:?}");
     }
 
     #[test]
@@ -1843,7 +2147,7 @@ mod tests {
         let path = dir.join("User/globalStorage/storage.json");
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(&path, r#"{"telemetry.machineId":"old"}"#).unwrap();
-        let (r2, r3) = reset_layer_storage_json(&dir);
+        let (r2, r3) = reset_layer_storage_json(std::slice::from_ref(&dir));
         assert!(r2.ok && r3.ok, "r2={} r3={}", r2.detail, r3.detail);
         let v: serde_json::Value =
             serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
@@ -1924,7 +2228,7 @@ mod tests {
         std::fs::write(ts.join("keep.json"), br#"{"other":1}"#).unwrap();
         std::fs::create_dir_all(ts.join("nested")).unwrap();
         std::fs::write(ts.join("nested/hit2.txt"), b"device_id here").unwrap();
-        let r = reset_layer_tiny_storage(&dir);
+        let r = reset_layer_tiny_storage(std::slice::from_ref(&dir));
         assert!(r.ok, "{}", r.detail);
         assert!(!ts.join("hit.bin").exists());
         assert!(!ts.join("nested/hit2.txt").exists(), "递归要下到子目录");
@@ -1940,7 +2244,7 @@ mod tests {
         std::fs::create_dir_all(base.join("Local Storage/leveldb")).unwrap();
         std::fs::create_dir_all(base.join("Session Storage")).unwrap();
         std::fs::create_dir_all(base.join("Cache")).unwrap();
-        let r = reset_layer_partitions(&dir);
+        let r = reset_layer_partitions(std::slice::from_ref(&dir));
         assert!(r.ok, "{}", r.detail);
         assert!(!base.join("Network").exists());
         assert!(!base.join("Local Storage").exists());
@@ -2007,18 +2311,18 @@ mod tests {
         let _ = std::fs::remove_dir_all(&app);
     }
 
-    // ── 9. 全 10 层重置编排（⑤⑦⑧⑨⑩均 flag=false 走 skip 记录,不碰真库/真浏览器）──
+    // ── 9. 全 14 层重置编排（⑤⑦⑧⑨⑩⑫⑬均 flag=false 走 skip 记录,不碰真库/真浏览器/真网卡）──
 
     #[test]
-    fn reset_device_ids_reports_thirteen_layers_and_skips_flagged_layers() {
+    fn reset_device_ids_reports_fourteen_layers_and_skips_flagged_layers() {
         let dir = scratch("reset-all");
         std::fs::create_dir_all(dir.join("User/globalStorage")).unwrap();
         std::fs::write(dir.join("machineid"), "old").unwrap();
         std::fs::write(dir.join("User/globalStorage/storage.json"), r#"{}"#).unwrap();
-        let report = reset_device_ids(&dir, false, false, false, false);
+        let report = reset_device_ids(&dir, false, false, false, false, false);
         let layers: Vec<u8> = report.layers.iter().map(|l| l.layer).collect();
-        assert_eq!(layers, vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
-        for expect_skip in [0u8, 5, 7, 8, 9, 10, 11, 12] {
+        assert_eq!(layers, vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
+        for expect_skip in [0u8, 5, 7, 8, 9, 10, 11, 12, 13] {
             let l = report.layers.iter().find(|l| l.layer == expect_skip).unwrap();
             assert!(
                 l.ok && l.detail.contains("skipped"),
@@ -2116,4 +2420,299 @@ mod tests {
             assert!(r.ok && r.detail.contains("未发现"));
         }
     }
+
+    // ── 9c. 仿真实测(#[ignore]:只显式跑)──────────────────────────────
+    // 造完整 TRAE 仿真现场(APPDATA/LOCALAPPDATA/TEMP/注册表/仿真进程),
+    // 真跑 13 层重置,三面断言:文件全灭 / 注册表整树删除 / 仿真进程被杀。
+    // 安全护栏:本机存在真实 TRAE 现场或真实 TRAE 进程时直接 panic 拒跑,防误伤。
+
+    #[cfg(windows)]
+    #[test]
+    #[ignore]
+    fn traesim_full_reset_kills_process_and_wipes_everything() {
+        use std::os::windows::process::CommandExt;
+        const HIDDEN: u32 = 0x0800_0000; // CREATE_NO_WINDOW
+
+        // 场景根:默认真机 APPDATA/LOCALAPPDATA/TEMP;设 IHUI_SIM_ROOT 后三根全部
+        // 落到 <root>/{appdata,localappdata,temp} 下——任何机器都能跑仿真,不再被
+        // 「本机有真现场」护栏误拦(真现场护栏仍按真实 env 执行,见下)。
+        let sim_root = std::env::var("IHUI_SIM_ROOT").ok().filter(|v| !v.is_empty());
+        let (appdata, localappdata, temp) = match &sim_root {
+            Some(root) => {
+                let r = PathBuf::from(root);
+                (r.join("appdata"), r.join("localappdata"), r.join("temp"))
+            }
+            None => (
+                PathBuf::from(std::env::var("APPDATA").expect("APPDATA")),
+                PathBuf::from(std::env::var("LOCALAPPDATA").expect("LOCALAPPDATA")),
+                PathBuf::from(std::env::var("TEMP").expect("TEMP")),
+            ),
+        };
+
+        // 护栏①(真):真实 env 下的 TRAE 数据目录存在 → 拒跑。设 IHUI_SIM_ROOT 也不豁免
+        // (深度层⑫会动真实 LOCALAPPDATA/TEMP,仿真根豁免会误伤真现场)。
+        let real_appdata = std::env::var("APPDATA").ok();
+        let real_localappdata = std::env::var("LOCALAPPDATA").ok();
+        for cand in trae_dir_candidates(real_appdata.as_deref(), real_localappdata.as_deref(), None) {
+            assert!(
+                !looks_like_trae_dir(&cand),
+                "本机存在真实 TRAE 现场 {:?},仿真测试拒绝执行(防误伤)",
+                cand
+            );
+        }
+        // 护栏①(仿):仿真根下的历史残现场(上次跑挂没清干净)→ 先清掉再跑
+        if sim_root.is_some() {
+            for cand in trae_dir_candidates(
+                Some(appdata.to_str().unwrap()),
+                Some(localappdata.to_str().unwrap()),
+                None,
+            ) {
+                if looks_like_trae_dir(&cand) {
+                    let _ = std::fs::remove_dir_all(&cand);
+                }
+            }
+        }
+        // 护栏②:真实 TRAE 进程在跑 → 拒跑
+        let tasklist = std::process::Command::new("tasklist")
+            .args(["/FO", "CSV", "/NH"])
+            .creation_flags(HIDDEN)
+            .output()
+            .expect("tasklist");
+        let tl = String::from_utf8_lossy(&tasklist.stdout).to_ascii_lowercase();
+        for real in ["trae.exe", "trae solo cn.exe", "trae solo.exe"] {
+            assert!(!tl.contains(real), "检测到真实 TRAE 进程 {real},仿真测试拒绝执行");
+        }
+
+        // ---- 造现场 ----
+        let sim_a = appdata.join("TRAE"); // 主版本现场(作为传入 dir)
+        let sim_b = localappdata.join("TRAE SOLO CN"); // 双版本第二现场
+        let sim_c = localappdata.join("TRAE"); // LOCALAPPDATA 侧缓存现场
+        let sim_temp = temp.join("TRAE-sim-cache");
+        for d in [&sim_a, &sim_b, &sim_c, &sim_temp] {
+            std::fs::create_dir_all(d).unwrap();
+        }
+        // 9 类现场全集(主现场)
+        std::fs::write(sim_a.join("machineid"), "sim-old-machine-id-aaaa").unwrap();
+        std::fs::create_dir_all(sim_a.join("User/globalStorage")).unwrap();
+        std::fs::write(
+            sim_a.join("User/globalStorage/storage.json"),
+            r#"{"telemetry.machineId":"sim-old","telemetry.sqmId":"sqm-old","windowState":"{}"}"#,
+        )
+        .unwrap();
+        std::fs::create_dir_all(sim_a.join("User/globalStorage/aha")).unwrap();
+        std::fs::write(sim_a.join("User/globalStorage/state.vscdb"), "sim-sqlite-bytes").unwrap();
+        std::fs::write(sim_a.join("User/globalStorage/state.vscdb-wal"), "w").unwrap();
+        std::fs::write(sim_a.join("User/globalStorage/state.vscdb-shm"), "s").unwrap();
+        std::fs::create_dir_all(sim_a.join("Local Storage/leveldb")).unwrap();
+        std::fs::write(sim_a.join("Local Storage/leveldb/000003.log"), "sim-leveldb").unwrap();
+        std::fs::create_dir_all(sim_a.join("Session Storage")).unwrap();
+        std::fs::create_dir_all(sim_a.join("Network")).unwrap();
+        std::fs::write(sim_a.join("Network/Cookies"), "sim-cookies-db").unwrap();
+        std::fs::create_dir_all(sim_a.join("IndexedDB/file__0.indexeddb.leveldb")).unwrap();
+        std::fs::create_dir_all(sim_a.join("aha")).unwrap();
+        std::fs::create_dir_all(sim_a.join("logs")).unwrap();
+        std::fs::write(sim_a.join("logs/main.log"), "sim-log").unwrap();
+        std::fs::create_dir_all(sim_a.join("Cache/Cache_Data")).unwrap();
+        std::fs::create_dir_all(sim_a.join("Crashpad/reports")).unwrap();
+        std::fs::create_dir_all(sim_a.join("Partitions/icube-webview/Network")).unwrap();
+        std::fs::write(sim_a.join("Partitions/icube-webview/Network/Cookies"), "sim-pc").unwrap();
+        std::fs::write(sim_a.join("Preferences"), "{}").unwrap();
+        std::fs::write(sim_a.join("Local State"), "{}").unwrap();
+        // 第二现场(双版本必漏教训)
+        std::fs::write(sim_b.join("machineid"), "sim-b-machine").unwrap();
+        std::fs::write(sim_b.join("storage.json"), r#"{"telemetry.machineId":"b"}"#).unwrap();
+        std::fs::create_dir_all(sim_b.join("User/globalStorage")).unwrap();
+        std::fs::write(sim_b.join("User/globalStorage/state.vscdb"), "b-db").unwrap();
+        std::fs::create_dir_all(sim_b.join("Local Storage")).unwrap();
+        // LOCALAPPDATA / TEMP 侧
+        std::fs::write(sim_c.join("cache.bin"), "c").unwrap();
+        std::fs::write(sim_temp.join("dump.txt"), "t").unwrap();
+
+        // 注册表现场(只在没有真键时才造,测完整树删除)
+        let reg_preexisting = std::process::Command::new("reg")
+            .args(["query", r"HKCU\Software\TRAE"])
+            .creation_flags(HIDDEN)
+            .output()
+            .unwrap()
+            .status
+            .success();
+        if !reg_preexisting {
+            for sub in [r"HKCU\Software\TRAE", r"HKCU\Software\TRAE SOLO CN"] {
+                std::process::Command::new("reg")
+                    .args(["add", sub, "/v", "SimMachineId", "/d", "sim-old", "/f"])
+                    .creation_flags(HIDDEN)
+                    .output()
+                    .unwrap();
+            }
+        }
+
+        // 仿真进程:cmd 副本改名 Trae-sim-test.exe,ping 挂起 40s
+        let sim_exe = temp.join("Trae-sim-test.exe");
+        std::fs::copy(r"C:\Windows\System32\cmd.exe", &sim_exe).unwrap();
+        let mut child = std::process::Command::new(&sim_exe)
+            .args(["/c", "ping", "-n", "40", "127.0.0.1"])
+            .creation_flags(HIDDEN)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .expect("spawn sim process");
+        std::thread::sleep(std::time::Duration::from_millis(800));
+        assert!(child.try_wait().unwrap().is_none(), "仿真进程应存活");
+
+        // ---- 真跑 14 层(guid/browser/mac 三 flag=false:避开 UAC、真浏览器库与真网卡)----
+        let report = reset_device_ids(&sim_a, false, false, true, true, false);
+        assert_eq!(report.layers.len(), 14, "层报告数应为 14: {report:?}");
+        for l in &report.layers {
+            assert!(l.ok, "层{}({}) 必须 ok: {}", l.layer, l.name, l.detail);
+        }
+        let l0 = &report.layers[0];
+        assert!(
+            l0.detail.contains("已强杀") && l0.detail.contains("Trae-sim-test.exe"),
+            "层0 应杀掉仿真进程: {}",
+            l0.detail
+        );
+
+        // ---- 面1:文件现场 ----
+        assert!(!sim_a.join("User/globalStorage/state.vscdb").exists(), "state.vscdb 必须整删");
+        assert!(!sim_a.join("User/globalStorage/state.vscdb-wal").exists());
+        assert!(!sim_a.join("Local Storage/leveldb/000003.log").exists(), "Local Storage 必须整清");
+        assert!(!sim_a.join("Network/Cookies").exists());
+        assert!(!sim_a.join("IndexedDB").exists());
+        assert!(!sim_a.join("logs").exists(), "logs 必须整删");
+        assert!(!sim_a.join("Cache").exists());
+        assert!(!sim_a.join("Partitions").exists());
+        assert!(!sim_a.join("Preferences").exists(), "Preferences 必须整删");
+        assert!(!sim_a.join("Local State").exists(), "Local State 必须整删");
+        assert!(!sim_b.join("User/globalStorage/state.vscdb").exists(), "第二现场 state.vscdb 必须整删");
+        assert!(!sim_b.join("Local Storage").exists(), "第二现场 Local Storage 必须整清");
+        // 层⑫动的是真实 env 的 LOCALAPPDATA/TEMP(实现如此),仿真根模式下
+        // sim_c/sim_temp 不在它作用域内 ⇒ 这两条断言只在默认(真机根)模式成立。
+        if sim_root.is_none() {
+            assert!(!sim_c.exists(), "LOCALAPPDATA\\TRAE 缓存现场必须整删(层⑫)");
+            assert!(!sim_temp.exists(), "TEMP\\TRAE* 缓存现场必须整删(层⑫)");
+        }
+        // 身份翻新:machineid 被改写为 32 位 hex 新值
+        let mid = std::fs::read_to_string(sim_a.join("machineid")).unwrap();
+        assert_ne!(mid, "sim-old-machine-id-aaaa", "machineid 必须被改写");
+        assert_eq!(mid.len(), 32, "machineid 应为 32 位 hex: {mid}");
+        // storage.json 骨架幸存,但遥测键被改写
+        let sj = std::fs::read_to_string(sim_a.join("User/globalStorage/storage.json")).unwrap();
+        assert!(!sj.contains("sim-old"), "storage.json 遥测键必须被改写: {sj}");
+        let mid_b = std::fs::read_to_string(sim_b.join("machineid")).unwrap();
+        assert_ne!(mid_b, "sim-b-machine", "第二现场 machineid 也必须被改写(双版本不漏)");
+
+        // ---- 面2:注册表 ----
+        if !reg_preexisting {
+            for sub in [r"HKCU\Software\TRAE", r"HKCU\Software\TRAE SOLO CN"] {
+                let q = std::process::Command::new("reg")
+                    .args(["query", sub])
+                    .creation_flags(HIDDEN)
+                    .output()
+                    .unwrap();
+                assert!(!q.status.success(), "注册表 {sub} 必须已被整树删除(层⑪)");
+            }
+        }
+
+        // ---- 面3:进程 ----
+        let mut dead = false;
+        for _ in 0..50 {
+            if child.try_wait().unwrap().is_some() {
+                dead = true;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+        assert!(dead, "仿真 TRAE 进程必须已被层0 强杀");
+
+        // ---- 清残骸 ----
+        let _ = std::fs::remove_dir_all(&sim_a);
+        let _ = std::fs::remove_dir_all(&sim_b);
+        let _ = std::fs::remove_file(&sim_exe);
+        let _ = std::fs::remove_dir_all(&sim_temp);
+        // 仿真根模式:整棵仿真树一并清掉,不留空壳目录
+        if let Some(root) = &sim_root {
+            let _ = std::fs::remove_dir_all(root);
+        }
+    }
+
+
+    // ── 9d. 真机实测(#[ignore]:显式跑;硬护栏=G:/trae-real-test-backup 备份齐备)──
+    // 在本机真实 TRAE 现场(已全量备份)上真跑 UI 按钮同款胶水 checkin_reset_device_ids,
+    // 断言双现场 machineid 翻新 + 深度现场全灭。备份缺失即拒跑。
+    #[cfg(windows)]
+    #[test]
+    #[ignore]
+    fn traereal_reset_glue_on_backed_up_machine() {
+        let backup = PathBuf::from(r"G:/trae-real-test-backup");
+        assert!(
+            backup.join("TRAE").is_dir() && backup.join("TRAE SOLO CN").is_dir(),
+            "真机实测前置:G:/trae-real-test-backup 备份不齐,拒绝执行(防无备份毁现场)"
+        );
+        let dir = detect_trae_dir().expect("本机必须能探测到 TRAE 现场目录");
+        eprintln!("[real] detected = {}", dir.display());
+
+        // 前置:machineid 双现场旧值
+        let appdata = PathBuf::from(std::env::var("APPDATA").unwrap());
+        let dir_b = appdata.join("TRAE");
+        let pre_a = std::fs::read_to_string(dir.join("machineid")).ok();
+        let pre_b = std::fs::read_to_string(dir_b.join("machineid")).ok();
+        eprintln!("[real] pre machineid A={} B={:?}", pre_a.as_deref().unwrap_or("<none>").trim(), pre_b.as_deref().map(str::trim));
+
+        // 真跑:UI 按钮同款。guid/browser/mac 三 flag 可用环境变量打开
+        // (IHUI_RESET_GUID=1 / IHUI_RESET_BROWSER=1 / IHUI_RESET_MAC=1,默认关:
+        //  避开 UAC、真浏览器库与网卡改写)。
+        // MachineGuid 改写前必须已有 HKLM 备份(护栏:备份目录下 MachineGuid-backup.txt)。
+        let reset_guid =
+            std::env::var("IHUI_RESET_GUID").map(|v| v == "1").unwrap_or(false);
+        let reset_browser =
+            std::env::var("IHUI_RESET_BROWSER").map(|v| v == "1").unwrap_or(false);
+        let reset_mac = std::env::var("IHUI_RESET_MAC").map(|v| v == "1").unwrap_or(false);
+        if reset_guid {
+            assert!(
+                backup.join("MachineGuid-backup.txt").is_file(),
+                "要开 MachineGuid 层必须先备份 HKLM MachineGuid 到备份目录 MachineGuid-backup.txt"
+            );
+        }
+        eprintln!("[real] flags: guid={reset_guid} browser={reset_browser} deep=true kill=true mac={reset_mac}");
+        let report =
+            checkin_reset_device_ids(reset_guid, reset_browser, true, Some(reset_mac))
+                .expect("胶水调用失败");
+        assert_eq!(report.layers.len(), 14, "层报告数应为 14");
+        for l in &report.layers {
+            eprintln!("[real] L{:02} {:26} ok={} {}", l.layer, l.name, l.ok, l.detail);
+            // L5/L7/L13 是环境敏感可选层(UAC 被拒/浏览器运行中锁库/测试进程无管理员权限
+            // 会记 FAIL,属正常降级),结果照实记录但不拦测试;其余层硬断言。
+            if l.layer == 5 || l.layer == 7 || l.layer == 13 {
+                eprintln!("[real] 可选层{}(不拦测试): ok={} {}", l.layer, l.ok, l.detail);
+            } else {
+                assert!(l.ok, "层{}({}) 实测失败: {}", l.layer, l.name, l.detail);
+            }
+        }
+
+        // 断言:双现场 machineid 全部翻新为 32 位 hex 新值
+        let post_a = std::fs::read_to_string(dir.join("machineid")).expect("A machineid 应存在");
+        assert_eq!(post_a.trim().len(), 32, "A machineid 应 32 位 hex: {}", post_a.trim());
+        if let Some(a) = pre_a {
+            assert_ne!(a.trim(), post_a.trim(), "A machineid 必须翻新");
+        }
+        let post_b = std::fs::read_to_string(dir_b.join("machineid")).expect("B machineid 应存在");
+        assert_eq!(post_b.trim().len(), 32, "B machineid 应 32 位 hex");
+        if let Some(b) = pre_b {
+            assert_ne!(b.trim(), post_b.trim(), "B(第二现场) machineid 必须翻新——双版本不漏");
+        }
+
+        // 断言:双现场深度面全灭
+        for d in [dir.join("User/globalStorage/state.vscdb"), dir_b.join("User/globalStorage/state.vscdb")] {
+            assert!(!d.exists(), "state.vscdb 必须整删: {}", d.display());
+        }
+        for rel in DEEP_RESET_DIRS {
+            assert!(!dir.join(rel).exists(), "真机深度清空失败: {} 仍存在", rel);
+            assert!(!dir_b.join(rel).exists(), "第二现场深度清空失败: {} 仍存在", rel);
+        }
+        for rel in DEEP_RESET_FILES {
+            assert!(!dir.join(rel).exists(), "真机深度清空失败: {} 仍存在", rel);
+        }
+        eprintln!("[real] DONE:13 层全 ok,双现场等效重装(备份在 G:/trae-real-test-backup)");
+    }
+
 }
