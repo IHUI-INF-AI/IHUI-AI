@@ -9,8 +9,14 @@
  */
 
 import { count, desc, eq } from 'drizzle-orm'
+import { createHash } from 'node:crypto'
 import { db } from './index.js'
-import { smsReceiveHistory, smsRelatedSnapshots, type SmsReceiveHistory } from '@ihui/database'
+import {
+  smsReceiveHistory,
+  smsRelatedSnapshots,
+  smsUsedSnapshots,
+  type SmsReceiveHistory,
+} from '@ihui/database'
 // 用途词汇表的唯一持有者是分类器所在的服务层;这里只 import 它,不再抄第二份字面量联合。
 import { toSmsUsageKind, type SmsUsageKind } from '../services/d1jiema-service.js'
 
@@ -131,5 +137,55 @@ export async function getRelatedUnionCount(phone: string): Promise<number> {
     .from(smsRelatedSnapshots)
     .where(eq(smsRelatedSnapshots.phone, phone))
   return rows[0]?.n ?? 0
+}
+
+// ── 平台 queryUsed 快照累积(2026-10-09):攻破 24h + 100 条上限,与 relatedMsgs 同一打法 ──
+
+/** /used 流水的查询层最小形态(与服务层 UsedRecord 同形,避免跨层依赖) */
+export interface UsedSnapshotInput {
+  phone: string
+  fee: string
+  platform?: string
+  usageKind: 'register' | 'login' | 'other'
+  text: string
+}
+
+/**
+ * 把一次 /used 查询的流水逐条抄进本地(幂等,冲突忽略)。
+ * 去重键 text_hash = sha256(phone\nfee\ntext):短信原文含一次性验证码,天然唯一;
+ * 平台行无时间字段,first_seen_at 即"本系统首次见到"的入库时间。
+ * 返回本次新入库条数(0 = 全部已在库)。
+ */
+export async function snapshotUsedRecords(items: UsedSnapshotInput[]): Promise<number> {
+  if (items.length === 0) return 0
+  const values = items.map((u) => ({
+    phone: u.phone,
+    fee: u.fee,
+    platform: u.platform ?? null,
+    usageKind: u.usageKind,
+    text: u.text,
+    textHash: createHash('sha256').update(`${u.phone}\n${u.fee}\n${u.text}`).digest('hex'),
+  }))
+  const inserted = await db
+    .insert(smsUsedSnapshots)
+    .values(values)
+    .onConflictDoNothing()
+    .returning({ id: smsUsedSnapshots.id })
+  return inserted.length
+}
+
+/** 查快照累积的全账号流水总数(跨快照并集,单调不减,可超越 24h/100 条) */
+export async function getUsedUnionCount(): Promise<number> {
+  const rows = await db.select({ n: count() }).from(smsUsedSnapshots)
+  return rows[0]?.n ?? 0
+}
+
+/** 查快照累积流水(按入库时间倒序,默认最近 50 条) */
+export async function getUsedUnionItems(limit = 50) {
+  return db
+    .select()
+    .from(smsUsedSnapshots)
+    .orderBy(desc(smsUsedSnapshots.firstSeenAt))
+    .limit(Math.min(Math.max(limit, 1), 200))
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
