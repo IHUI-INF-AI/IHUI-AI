@@ -24,6 +24,8 @@ import { setBaseUrl, setTokenProvider } from '@ihui/api-client';
 import { setupAgentTools, runToolLoop } from '../commands/agent.js';
 import type { Tool, ToolResult } from './index.js';
 import { createAuditedDangerGate } from './danger-gate-audit.js';
+// G-816029:子代理被停/异常结束时,级联结算它自己派生的在飞后台任务(孤儿任务的唯一出口)
+import { settleTasksOwnedByAgent, type BackgroundCascadeReason } from './background-registry.js';
 import { listTools, clearTools, registerTools } from './index.js';
 import { runHook } from '../hooks/index.js';
 import {
@@ -41,6 +43,8 @@ import { createWorktree, createWorktreeWithFallback, removeWorktree } from '../s
 // Worktree 并行隔离层:可选注入,提供后 worktree 隔离走统一的 WorktreeManager(agent-wt-* 分支)
 import { type WorktreeManager } from './worktree.js';
 import { PERSONAS_CONTRACTS, type JSONSchema } from '../personas/index.js';
+// G-426 拍板第三件套「超阈值自动后台化」:转后台落档用的中间态词汇,只引用唯一声明处
+import { SUBAGENT_STATUS_DETACHED_IDLE } from '../subagents/types.js';
 import type { SubagentPersona, CapabilityMode, IsolationMode } from '@ihui/types';
 import { resolveEffectiveOverrides } from '../subagents/precedence.js';
 import type {
@@ -163,11 +167,70 @@ export const CAPABILITY_WHITELISTS: Record<Exclude<CapabilityMode, 'all'>, strin
 export function applyCapabilityMode(tools: Tool[], mode: CapabilityMode | undefined): Tool[] {
   if (!mode || mode === 'all') return tools;
   const whitelist = CAPABILITY_WHITELISTS[mode];
-  if (!whitelist) return tools;
+  // G-816027 fail-closed:mode 是"给了值但不在声明集合内"的未声明枚举 ⇒ 收口到**最窄**档
+  // (read-only),不再原样返回未过滤的 tools。旧写法 `if (!whitelist) return tools` 的
+  // 实际后果是"没人认识的 capabilityMode 拿到了 'all'"—— 档位名读起来最窄、给到的权限
+  // 最宽,而 typecheck / lint / 其余门全都不会红(能力档只在这一处生效)。
+  // 刻意不抛:抛会把整枚 dispatch 打成异常结果,而"降档 + 大声一行"既守住最小权限,
+  // 又让模型这一轮仍能只读地干活(诊断出口必须响,不许静默降档)。
+  if (!whitelist) {
+    try {
+      process.stderr.write(
+        `[subagent] 未声明的 capabilityMode "${String(mode).slice(0, 80)}" ⇒ 按最窄档 read-only 收口(不再默认给全集工具)\n`,
+      );
+    } catch {
+      /* 诊断出口自身抛错不得把收口带崩 */
+    }
+    return tools.filter((t) => READ_ONLY_TOOLS.includes(t.name));
+  }
   return tools.filter((t) => {
     if (mode === 'execute' && t.name.startsWith('git_')) return true;
     return whitelist.includes(t.name);
   });
+}
+
+/**
+ * 子代理结束时要不要级联结算它的后台任务(G-816029)—— 判据唯一出口。
+ *
+ * 单独成函数的理由不是整洁:走完整条 `dispatch_subagent` 才能验这一格,那种测试会断在
+ * 第一处无关依赖上(API / 工具注册 / hooks),证不了判据本身。
+ *
+ * 三档结论:
+ *  - `subagent_cancelled`:父级取消信号已落(`aborted`)或子代理落 `cancelled` 终态。
+ *  - `subagent_terminal` :子代理**没正常完成**就结束了(failed)—— task_id 只在它自己的
+ *    context 里,父级拿不到,不清就是孤儿。
+ *  - `undefined`:正常完成 ⇒ **不动**在飞任务(长跑任务是用户的,不是孤儿)。
+ */
+export function resolveSubagentCascadeReason(input: {
+  stopReason: 'completed' | 'failed' | 'cancelled';
+  aborted?: boolean;
+}): BackgroundCascadeReason | undefined {
+  if (input.aborted === true || input.stopReason === 'cancelled') return 'subagent_cancelled';
+  if (input.stopReason === 'completed') return undefined;
+  return 'subagent_terminal';
+}
+
+/**
+ * G-426 拍板第三件套「超阈值自动后台化 detachParent」的判据唯一出口(纯函数)。
+ *
+ * 与 resolveSubagentCascadeReason 同一条立论:走完整条 dispatch_subagent 才能验这一格,
+ * 那种测试会断在第一处无关依赖上,证不了判据本身 —— 所以判据单独成函数,接线另测。
+ *
+ * 入参是子代理自己的活动台账:exec-budget 到点时,`距最后一次真实推进的毫秒数`(idleMs)
+ * 与名义预算(budgetMs)比较 ——
+ *  - `idleMs < budgetMs` ⇒ 到点只可能是**绝对上限**(预算×3)触发,子代理仍在推进 ⇒
+ *    `'detach'`:不杀,解除父级取消联动转后台,loop 继续跑到自然终态;
+ *  - `idleMs >= budgetMs` ⇒ 空闲窗整段耗尽,真正卡死 ⇒ `'abort'`:照旧中止
+ *    (前台照旧拿到带 idleMs/recoverable 的 timeout 结果 —— "无活动的照旧超时")。
+ * 边界取等号归 abort:整段预算内没有任何推进 = 判据口径下的卡死,不是"慢"。
+ */
+export type SubagentTimeoutAction = 'detach' | 'abort';
+
+export function resolveSubagentTimeoutAction(input: {
+  idleMs: number;
+  budgetMs: number;
+}): SubagentTimeoutAction {
+  return input.idleMs < input.budgetMs ? 'detach' : 'abort';
 }
 
 export interface SubagentParentOptions {
@@ -380,6 +443,9 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
       beginAskUserEscalationBudget();
       let stopReason: 'completed' | 'failed' | 'cancelled' = 'completed';
       let stopError: string | undefined;
+      // G-426:exec-budget 到点且仍在推进 ⇒ 转后台(置位见下方 onOuterAbort);
+      // 外层 finally 的级联判据与完成通知都要读它,所以声明必须在这一层(跨过内层 try)。
+      let detachedToBackground = false;
       try {
         setBaseUrl(parentOpts.apiUrl);
         if (parentOpts.apiKey) {
@@ -445,19 +511,66 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
           // 都回报给外层执行窗,把 `executeWithinExecBudget` 的预算定时器重排回完整预算 ——
           // 仍在推进的慢子代理不再被墙钟杀,真正卡死的才会超时(错误带 idleMs/recoverable);
           // outerCtx.reportExecActivity 缺席(无预算窗)时三个钩子全为 no-op,与改前逐字等价。
-          // (钩子写在 runToolLoop 块内,注释留块外:守门 123 的 S1e 对该块有 800 字符窗口。)
+          // (钩子定义在 runToolLoop 块外,注释留块外:守门 123 的 S1e 对该块有 800 字符窗口。)
+          //
+          // G-426 拍板第三件套「超阈值自动后台化 detachParent」:子 loop 的取消通道收进自持的
+          // loopAbort,外层 signal 只经 onOuterAbort 转发。exec-budget 到点(reason 前缀
+          // `ihui:exec-budget:`,唯一生成处在 tools/index.ts enterGrace;若前缀漂移则按父取消
+          // 处理,行为退回改前的"到点即杀",fail-safe)且活动台账显示仍在推进 ⇒ 判据出口判
+          // 'detach':解绑外层监听(此后前台取消再无通道能到达 loopAbort —— 前台取消不再杀它)、
+          // 状态落 detached_idle、loop 继续跑到自然终态(状态库/subagentStop hook 回收,
+          // 前台已由预算窗代结算出 recoverable 的 timeout 结果);真无活动或父级真取消 ⇒ 照旧
+          // 中止,与改前逐字同形。
+          const loopAbort = new AbortController();
+          let lastSubagentActivityAt = Date.now();
+          const touchSubagentActivity = (): void => {
+            lastSubagentActivityAt = Date.now();
+            outerCtx.reportExecActivity?.();
+          };
+          const onOuterAbort = (): void => {
+            const reason: unknown = outerCtx.signal?.reason;
+            const budgetFired =
+              reason instanceof Error && reason.message.startsWith('ihui:exec-budget:');
+            const action = budgetFired
+              ? resolveSubagentTimeoutAction({
+                  idleMs: Date.now() - lastSubagentActivityAt,
+                  budgetMs: SUBAGENT_EXEC_BUDGET_MS,
+                })
+              : 'abort';
+            if (action === 'detach') {
+              detachedToBackground = true;
+              outerCtx.signal?.removeEventListener('abort', onOuterAbort);
+              const runningState = loadSubagentState(subagentId);
+              if (runningState) {
+                runningState.status = SUBAGENT_STATUS_DETACHED_IDLE;
+                saveSubagentState(runningState);
+              }
+              process.stderr.write(
+                `[subagent ${subagentId}] exec budget exhausted while still progressing; detached to background` +
+                  ` (foreground cancel no longer kills it; final state lands in the subagent state store)\n`,
+              );
+              return;
+            }
+            loopAbort.abort(reason instanceof Error ? reason : new Error('ihui:subagent-cancelled'));
+          };
+          if (outerCtx.signal) {
+            // 已在窗内被 abort(如预算到点早于本段执行)⇒ abort 事件不会再派发,必须当场
+            // 走一遍同一判据,否则取消永远到不了子 loop(旧直传 signal 的写法没有这个洞)。
+            if (outerCtx.signal.aborted) onOuterAbort();
+            else outerCtx.signal.addEventListener('abort', onOuterAbort, { once: true });
+          }
           const result = await runToolLoop({
             modelId,
             messages,
             ctx,
             maxIterations: effectiveMaxIterations,
-            // 取消下发:外层预算/父取消经 `executeWithinExecBudget` 合成的 signal 从这里进子 loop,
+            // 取消下发:父取消/exec-budget 到点经 onOuterAbort 转发进自持 loopAbort(见上),
             // `runToolLoop` 把它同时喂给采样调用 ⇒ provider 挂起时这一枚子 loop 不再无限等。
-            // 传 undefined 时与改前逐字等价(runToolLoop 的 signal 本来就是可选形参)。
-            signal: outerCtx.signal,
-            onDelta: () => outerCtx.reportExecActivity?.(),
-            onToolCall: () => outerCtx.reportExecActivity?.(),
-            onToolResult: () => outerCtx.reportExecActivity?.(),
+            // 无外层 signal 时传 undefined,与改前逐字等价(signal 本就是可选形参)。
+            signal: outerCtx.signal ? loopAbort.signal : undefined,
+            onDelta: touchSubagentActivity,
+            onToolCall: touchSubagentActivity,
+            onToolResult: touchSubagentActivity,
           });
 
           const text = result.assistantText.trim();
@@ -532,6 +645,47 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
           reason: stopReason,
           error: stopError,
         });
+
+        // G-426:转后台子代理的自然终态必须出声回收 —— 前台早在预算到点时拿到了
+        // recoverable 的 timeout 结果,这里的是"后来跑完了"的唯一通知面(状态库已落
+        // 真终态,resumeFrom=<id> 可续;ASCII 文案,守门 70 棘轮不新增中文行)。
+        if (detachedToBackground) {
+          process.stderr.write(
+            `[subagent ${subagentId}] detached subagent settled: stopReason=${stopReason}` +
+              ` (foreground already returned a recoverable timeout; final state persisted under id ${subagentId})\n`,
+          );
+        }
+
+        // G-816029:子代理**没有正常完成**时,它自己派生的在飞后台任务由宿主级联结算。
+        // 为什么必须在这里做:子代理与父级 context 隔离,`run_command background` 拿到的
+        // task_id 只写在子代理自己的 transcript 里 ⇒ 父级既不知道有这些任务、也没有别的
+        // 入口去停它们;不结算就是注册表里没人认领的孤儿(上游同族机制是
+        // `cancelRunningRuntimeBackgroundTasks`)。正常完成一律不动 —— 把级联写成无条件
+        // 清账,等于杀掉用户让子代理起的长跑构建/服务(反向用例见
+        // `apps/cli/tests/subagent-cascade-background.test.ts`)。
+        // G-426:exec-budget 到点会 abort 外层合成 signal,但转后台(detachedToBackground)
+        // 的子代理并没有被取消 —— 外层 signal 的 aborted 对它只是"前台已放手",不得当作
+        // 取消归因,否则自然完成的转后台子代理会被误清账(与"正常完成一律不动"同一条)。
+        const cascadeReason = resolveSubagentCascadeReason({
+          stopReason,
+          aborted: outerCtx.signal?.aborted === true && !detachedToBackground,
+        });
+        if (cascadeReason) {
+          try {
+            const report = await settleTasksOwnedByAgent(subagentId, cascadeReason);
+            // "发了信号但没等到终态"必须喊出来:未确认不等于已结束(与 killTask 三态同口径)
+            if (report.unknown.length > 0) {
+              process.stderr.write(
+                `[subagent] 级联结算(${cascadeReason})有 ${report.unknown.length}/${report.inFlightAtEntry} 枚未确认终态: ${report.unknown.join(', ')} —— 未确认不等于已结束\n`,
+              );
+            }
+          } catch (err) {
+            // 结算失败不得把子代理的收尾整块带崩(worktree 清理与状态落库还在后面),但必须响
+            process.stderr.write(
+              `[subagent] 级联结算其后台任务失败(${cascadeReason}): ${err instanceof Error ? err.message : String(err)}\n`,
+            );
+          }
+        }
 
         if (worktreeCreated && isolation === 'worktree') {
           if (stopReason === 'completed' && !keepWorktree) {
