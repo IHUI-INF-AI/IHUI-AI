@@ -69,7 +69,7 @@ windows-sys = { version = "0.52", features = ["Win32_UI_Shell"] }
 winreg = "0.55"
 # 2026-10-09 签到捕获:DPAPI 解 Local State 的 os_crypt.encrypted_key。
 # 0.61 已在依赖树中(tauri 插件引用),按同版本加 feature,不添新副本。
-windows = { version = "0.61", features = ["Win32_Foundation", "Win32_Security_Cryptography"] }
+windows = { version = "0.61", features = ["Win32_Foundation", "Win32_Security_Cryptography", "Win32_System_Diagnostics_ToolHelp", "Win32_System_Threading", "Win32_System_Registry"] }
 
 [profile.release]
 panic = "abort"

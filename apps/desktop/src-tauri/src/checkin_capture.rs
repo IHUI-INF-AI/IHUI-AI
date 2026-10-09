@@ -901,24 +901,28 @@ fn remove_sqlite_family_wal_shm(db: &Path) -> usize {
 }
 
 /// 层⑧:现场目录/文件整删(等效重装:重装态=这些路径不存在)。存在才删,不存在记"本就不在"。
-fn reset_layer_deep_site_data(trae_dir: &Path) -> ResetLayerReport {
+/// 对传入的全部 TRAE 数据目录执行(双版本装过的机器必须全清,不能只清 detect 到的那份)。
+fn reset_layer_deep_site_data(trae_dirs: &[PathBuf]) -> ResetLayerReport {
     let mut removed: Vec<String> = Vec::new();
     let mut errors: Vec<String> = Vec::new();
-    for rel in DEEP_RESET_DIRS {
-        let path = trae_dir.join(rel);
-        if path.is_dir() {
-            match std::fs::remove_dir_all(&path) {
-                Ok(()) => removed.push(rel.to_string()),
-                Err(e) => errors.push(format!("{rel}: {e}")),
+    for trae_dir in trae_dirs {
+        let trae_dir = trae_dir.as_path();
+        for rel in DEEP_RESET_DIRS {
+            let path = trae_dir.join(rel);
+            if path.is_dir() {
+                match std::fs::remove_dir_all(&path) {
+                    Ok(()) => removed.push(rel.to_string()),
+                    Err(e) => errors.push(format!("{rel}: {e}")),
+                }
             }
         }
-    }
-    for rel in DEEP_RESET_FILES {
-        let path = trae_dir.join(rel);
-        if path.is_file() {
-            match std::fs::remove_file(&path) {
-                Ok(()) => removed.push(rel.to_string()),
-                Err(e) => errors.push(format!("{rel}: {e}")),
+        for rel in DEEP_RESET_FILES {
+            let path = trae_dir.join(rel);
+            if path.is_file() {
+                match std::fs::remove_file(&path) {
+                    Ok(()) => removed.push(rel.to_string()),
+                    Err(e) => errors.push(format!("{rel}: {e}")),
+                }
             }
         }
     }
@@ -951,6 +955,44 @@ fn reset_layer_deep_site_data(trae_dir: &Path) -> ResetLayerReport {
 /// (telemetry.%/aha.%/secret://%/authentication%),但身份键前缀不可穷尽
 /// (trae.*/icube.* 等内部域都可能藏设备指纹),用户实测仍不彻底 ⇒ 深度档改为整删:
 /// 等效重装态=该库不存在,TRAE 首启从零重建;快照可恢复。
+fn reset_layer_state_vscdb_multi(trae_dirs: &[PathBuf]) -> ResetLayerReport {
+    let mut removed = 0usize;
+    let mut errors: Vec<String> = Vec::new();
+    for trae_dir in trae_dirs {
+        let db = trae_dir.join("User/globalStorage/state.vscdb");
+        if !db.is_file() {
+            continue;
+        }
+        match std::fs::remove_file(&db) {
+            Ok(()) => {
+                removed += 1;
+                let _ = remove_sqlite_family_wal_shm(&db);
+            }
+            Err(e) => errors.push(format!("{}: {e}", db.display())),
+        }
+    }
+    if errors.is_empty() {
+        ResetLayerReport {
+            layer: 9,
+            name: "state.vscdb",
+            ok: true,
+            detail: if removed == 0 {
+                "无 state.vscdb(本就不在,已是重装态)".into()
+            } else {
+                format!("已整删 {removed} 个库(+伴生);TRAE 首启从零重建")
+            },
+        }
+    } else {
+        ResetLayerReport {
+            layer: 9,
+            name: "state.vscdb",
+            ok: false,
+            detail: errors.join("; "),
+        }
+    }
+}
+
+#[allow(dead_code)]
 fn reset_layer_state_vscdb(trae_dir: &Path) -> ResetLayerReport {
     let db = trae_dir.join("User/globalStorage/state.vscdb");
     if !db.is_file() {
@@ -982,7 +1024,7 @@ fn reset_layer_state_vscdb(trae_dir: &Path) -> ResetLayerReport {
 
 /// 层⑩:日志与缓存目录(logs 遥测含机器码;Crashpad 崩溃报告含机器信息;
 /// Dawn*/GPU/Cache 是纯缓存,删了自动重建,无功能影响)。
-fn reset_layer_logs_cache(trae_dir: &Path) -> ResetLayerReport {
+fn reset_layer_logs_cache_multi(trae_dirs: &[PathBuf]) -> ResetLayerReport {
     const DIRS: [&str; 8] = [
         "logs",
         "Cache",
@@ -993,14 +1035,16 @@ fn reset_layer_logs_cache(trae_dir: &Path) -> ResetLayerReport {
         "DawnGraphiteCache",
         "DawnWebGPUCache",
     ];
-    let mut removed: Vec<&str> = Vec::new();
+    let mut removed: Vec<String> = Vec::new();
     let mut errors: Vec<String> = Vec::new();
-    for rel in DIRS {
-        let path = trae_dir.join(rel);
-        if path.is_dir() {
-            match std::fs::remove_dir_all(&path) {
-                Ok(()) => removed.push(rel),
-                Err(e) => errors.push(format!("{rel}: {e}")),
+    for trae_dir in trae_dirs {
+        for rel in DIRS {
+            let path = trae_dir.join(rel);
+            if path.is_dir() {
+                match std::fs::remove_dir_all(&path) {
+                    Ok(()) => removed.push(rel.to_string()),
+                    Err(e) => errors.push(format!("{rel}: {e}")),
+                }
             }
         }
     }
@@ -1025,14 +1069,266 @@ fn reset_layer_logs_cache(trae_dir: &Path) -> ResetLayerReport {
     }
 }
 
-/// 10 层重置入口。MachineGuid/浏览器 Cookie/深度三层受 flag 控制，false 时记 skip。
+// ── 层⓪ 进程清扫 + 层⑪ 注册表 + 层⑫ 本地缓存(2026-10-09 第三轮实测反馈扩面) ──
+// 用户指令:「点击按钮后自己杀一遍 trae 进程,别让用户操作」+「重置程度还是不够」。
+// 新增三处残留源:①运行中的 TRAE 进程(占着文件锁,不杀则 machineid/Cookies 删了也会
+// 被运行中的它写回);②注册表 HKCU\\Software\\TRAE*(VSCode 系会把安装/遥测信息写进去);
+// ③%LOCALAPPDATA% 与 %TEMP% 侧的 TRAE 目录(Electron 的部分缓存/更新器/崩溃转储不在
+// %APPDATA% userData 里)。
+
+/// 判定进程映像名是否属于 TRAE(大小写不敏感;名字里含 "trae" 即命中——
+/// TRAE.exe / Trae SOLO CN.exe / TRAE SOLO.exe 全族都覆盖,不会误伤 ihui)。
+pub fn is_trae_process_image(image_name: &str) -> bool {
+    let lower = image_name.to_ascii_lowercase();
+    lower.contains("trae") && lower.ends_with(".exe")
+}
+
+/// 层⓪:枚举并强杀全部 TRAE 进程(ToolHelp 快照枚举 + TerminateProcess)。
+/// 返回层报告:杀了几只、各自映像名。杀完 sleep 1.5s 等文件锁释放。
+#[cfg(windows)]
+fn kill_trae_processes() -> ResetLayerReport {
+    use windows::Win32::Foundation::CloseHandle;
+    use windows::Win32::System::Diagnostics::ToolHelp::{
+        CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
+        TH32CS_SNAPPROCESS,
+    };
+    use windows::Win32::System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE};
+
+    let mut killed: Vec<String> = Vec::new();
+    let mut errors: Vec<String> = Vec::new();
+    unsafe {
+        let snap = match CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) {
+            Ok(h) => h,
+            Err(e) => {
+                return ResetLayerReport {
+                    layer: 0,
+                    name: "kill_trae_processes",
+                    ok: false,
+                    detail: format!("进程快照失败: {e}"),
+                }
+            }
+        };
+        let mut entry = PROCESSENTRY32W {
+            dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
+            ..Default::default()
+        };
+        if Process32FirstW(snap, &mut entry).is_ok() {
+            loop {
+                let image = String::from_utf16_lossy(
+                    &entry.szExeFile[..entry.szExeFile.iter().position(|&c| c == 0).unwrap_or(0)],
+                );
+                if is_trae_process_image(&image) {
+                    match OpenProcess(PROCESS_TERMINATE, false, entry.th32ProcessID) {
+                        Ok(h) => {
+                            if TerminateProcess(h, 1).is_ok() {
+                                killed.push(format!("{}({})", image, entry.th32ProcessID));
+                            } else {
+                                errors.push(format!("{}: 终止失败", image));
+                            }
+                            let _ = CloseHandle(h);
+                        }
+                        Err(e) => errors.push(format!("{}: 打开失败({e})", image)),
+                    }
+                }
+                if Process32NextW(snap, &mut entry).is_err() {
+                    break;
+                }
+            }
+        }
+        let _ = CloseHandle(snap);
+    }
+    if killed.is_empty() {
+        // 没杀到=TRAE 没在跑,属正常路径(ok)
+        let detail = if errors.is_empty() {
+            "无运行中的 TRAE 进程".to_string()
+        } else {
+            format!("无进程被杀但有异常: {}", errors.join("; "))
+        };
+        ResetLayerReport { layer: 0, name: "kill_trae_processes", ok: errors.is_empty(), detail }
+    } else {
+        std::thread::sleep(std::time::Duration::from_millis(1500));
+        ResetLayerReport {
+            layer: 0,
+            name: "kill_trae_processes",
+            ok: errors.is_empty(),
+            detail: format!("已强杀 {} 个 TRAE 进程: {};{}", killed.len(), killed.join(", "), errors.join("; ")),
+        }
+    }
+}
+
+#[cfg(not(windows))]
+fn kill_trae_processes() -> ResetLayerReport {
+    ResetLayerReport {
+        layer: 0,
+        name: "kill_trae_processes",
+        ok: true,
+        detail: "非 Windows 平台跳过".into(),
+    }
+}
+
+/// 层⑪:注册表 HKCU\Software\{TRAE, TRAE SOLO CN, TRAE SOLO} 整树删除
+/// (VSCode 系安装器/更新器会在这里写安装信息与遥测配置;只动 HKCU 的 TRAE 族键,
+///  不碰 HKLM——那是 MachineGuid 层的职权且需要提权)。
+#[cfg(windows)]
+fn reset_layer_registry() -> ResetLayerReport {
+    use windows::Win32::System::Registry::{RegDeleteTreeW, RegOpenKeyExW, HKEY, HKEY_CURRENT_USER, KEY_READ};
+    use windows::core::PCWSTR;
+
+    const SUBKEYS: [&str; 3] = ["Software\\TRAE", "Software\\TRAE SOLO CN", "Software\\TRAE SOLO"];
+    let mut deleted: Vec<&str> = Vec::new();
+    let mut errors: Vec<String> = Vec::new();
+    unsafe {
+        for sk in SUBKEYS {
+            let wide: Vec<u16> = sk.encode_utf16().chain(std::iter::once(0)).collect();
+            // 先探测存在性(不存在=本就不在,记 ok 不报错)
+            let mut hk = HKEY::default();
+            let open = RegOpenKeyExW(HKEY_CURRENT_USER, PCWSTR(wide.as_ptr()), Some(0), KEY_READ, &mut hk);
+            if open.is_err() {
+                continue;
+            }
+            let _ = windows::Win32::System::Registry::RegCloseKey(hk);
+            let del = RegDeleteTreeW(HKEY_CURRENT_USER, PCWSTR(wide.as_ptr()));
+            // windows 0.61 的 RegDeleteTreeW 返回 WIN32_ERROR(非 Result);成功=ERROR_SUCCESS
+            if del == windows::Win32::Foundation::ERROR_SUCCESS {
+                deleted.push(sk);
+            } else {
+                errors.push(format!("{sk}: win32 error {}", del.0));
+            }
+        }
+    }
+    let _ = HKEY::default();
+    if errors.is_empty() {
+        ResetLayerReport {
+            layer: 11,
+            name: "registry_hkcu_trae",
+            ok: true,
+            detail: if deleted.is_empty() {
+                "无 TRAE 注册表键(本就不在)".into()
+            } else {
+                format!("已整树删除: {}", deleted.join(", "))
+            },
+        }
+    } else {
+        ResetLayerReport {
+            layer: 11,
+            name: "registry_hkcu_trae",
+            ok: false,
+            detail: format!("{};已删: {}", errors.join("; "), deleted.join(", ")),
+        }
+    }
+}
+
+#[cfg(not(windows))]
+fn reset_layer_registry() -> ResetLayerReport {
+    ResetLayerReport {
+        layer: 11,
+        name: "registry_hkcu_trae",
+        ok: true,
+        detail: "非 Windows 平台跳过".into(),
+    }
+}
+
+/// 层⑫:%LOCALAPPDATA% 侧的 TRAE 目录与 %TEMP% 下的 TRAE* 条目整删
+/// (Electron 部分缓存/更新器/崩溃转储不在 %APPDATA% userData 里)。
+#[cfg(windows)]
+fn reset_layer_local_cache() -> ResetLayerReport {
+    let mut targets: Vec<PathBuf> = Vec::new();
+    for base in [std::env::var("LOCALAPPDATA"), std::env::var("TEMP")].into_iter().flatten() {
+        let base = PathBuf::from(base);
+        if base == PathBuf::from("TEMP") {
+            continue;
+        }
+        if base.ends_with("Temp") {
+            // TEMP 下所有 TRAE 开头的条目
+            if let Ok(rd) = std::fs::read_dir(&base) {
+                for e in rd.flatten() {
+                    let name = e.file_name().to_string_lossy().to_ascii_lowercase();
+                    if name.starts_with("trae") {
+                        targets.push(e.path());
+                    }
+                }
+            }
+        } else {
+            targets.push(base.join("TRAE SOLO CN"));
+            targets.push(base.join("TRAE"));
+        }
+    }
+    let mut removed: Vec<String> = Vec::new();
+    let mut errors: Vec<String> = Vec::new();
+    for p in &targets {
+        let label = p.display().to_string();
+        let is_dir = p.is_dir();
+        let is_file = p.is_file();
+        let r = if is_dir {
+            std::fs::remove_dir_all(p)
+        } else if is_file {
+            std::fs::remove_file(p)
+        } else {
+            continue;
+        };
+        match r {
+            Ok(()) => removed.push(label),
+            Err(e) => errors.push(format!("{label}: {e}")),
+        }
+    }
+    if errors.is_empty() {
+        ResetLayerReport {
+            layer: 12,
+            name: "localappdata_temp_cache",
+            ok: true,
+            detail: if removed.is_empty() {
+                "无 LOCALAPPDATA/TEMP 残留(本就不在)".into()
+            } else {
+                format!("已删 {} 项", removed.len())
+            },
+        }
+    } else {
+        ResetLayerReport {
+            layer: 12,
+            name: "localappdata_temp_cache",
+            ok: false,
+            detail: errors.join("; "),
+        }
+    }
+}
+
+#[cfg(not(windows))]
+fn reset_layer_local_cache() -> ResetLayerReport {
+    ResetLayerReport {
+        layer: 12,
+        name: "localappdata_temp_cache",
+        ok: true,
+        detail: "非 Windows 平台跳过".into(),
+    }
+}
+
+/// 13 层重置入口(L0 进程清扫/L11 注册表/L12 本地缓存为第三轮实测扩面)。
+/// include_machine_guid / clean_browser_cookies / deep_reset / kill_running 受 flag 控制,
+/// false 时对应层记 skip——单测必须传 kill_running=false,绝不真杀进程。
 pub fn reset_device_ids(
     trae_dir: &Path,
     include_machine_guid: bool,
     clean_browser_cookies: bool,
     deep_reset: bool,
+    kill_running: bool,
 ) -> ResetReport {
-    let mut layers = vec![reset_layer_machineid(trae_dir)];
+    // 全部存在的 TRAE 数据目录候选(APPDATA 与 LOCALAPPDATA 两侧的 TRAE SOLO CN / TRAE):
+    // 双版本装过的机器只清 detect 到的那一份会漏,深度档必须全清。
+    let all_trae_dirs: Vec<PathBuf> = trae_dir_candidates(None, None, None)
+        .into_iter()
+        .filter(|p| p.is_dir())
+        .collect();
+    let mut layers: Vec<ResetLayerReport> = vec![if kill_running {
+        kill_trae_processes()
+    } else {
+        ResetLayerReport {
+            layer: 0,
+            name: "kill_trae_processes",
+            ok: true,
+            detail: "skipped(kill_running=false)".into(),
+        }
+    }];
+    layers.push(reset_layer_machineid(trae_dir));
     let (r2, r3) = reset_layer_storage_json(trae_dir);
     layers.push(r2);
     layers.push(r3);
@@ -1062,7 +1358,7 @@ pub fn reset_device_ids(
     // 层⑧⑨⑩(深度重置)默认 skip:webview Cookies 库本体/state.vscdb 身份键/日志缓存,
     // 是"不卸载达到重装级干净"的补全——动的是 TRAE 登录态与凭据,同样由用户显式选择。
     layers.push(if deep_reset {
-        reset_layer_deep_site_data(trae_dir)
+        reset_layer_deep_site_data(&all_trae_dirs)
     } else {
         ResetLayerReport {
             layer: 8,
@@ -1072,7 +1368,7 @@ pub fn reset_device_ids(
         }
     });
     layers.push(if deep_reset {
-        reset_layer_state_vscdb(trae_dir)
+        reset_layer_state_vscdb_multi(&all_trae_dirs)
     } else {
         ResetLayerReport {
             layer: 9,
@@ -1082,11 +1378,31 @@ pub fn reset_device_ids(
         }
     });
     layers.push(if deep_reset {
-        reset_layer_logs_cache(trae_dir)
+        reset_layer_logs_cache_multi(&all_trae_dirs)
     } else {
         ResetLayerReport {
             layer: 10,
             name: "logs_cache",
+            ok: true,
+            detail: "skipped(deep_reset=false)".into(),
+        }
+    });
+    layers.push(if deep_reset {
+        reset_layer_registry()
+    } else {
+        ResetLayerReport {
+            layer: 11,
+            name: "registry_hkcu_trae",
+            ok: true,
+            detail: "skipped(deep_reset=false)".into(),
+        }
+    });
+    layers.push(if deep_reset {
+        reset_layer_local_cache()
+    } else {
+        ResetLayerReport {
+            layer: 12,
+            name: "localappdata_temp_cache",
             ok: true,
             detail: "skipped(deep_reset=false)".into(),
         }
@@ -1333,7 +1649,8 @@ pub fn checkin_reset_device_ids(
     deep_reset: bool,
 ) -> Result<ResetReport, IpcError> {
     let dir = require_trae_dir()?;
-    Ok(reset_device_ids(&dir, include_machine_guid, clean_browser_cookies, deep_reset))
+    // kill_running 恒 true:用户点重置=授权自动关闭 TRAE(2026-10-09 用户指令「别让用户操作」)
+    Ok(reset_device_ids(&dir, include_machine_guid, clean_browser_cookies, deep_reset, true))
 }
 
 #[tauri::command]
@@ -1693,15 +2010,15 @@ mod tests {
     // ── 9. 全 10 层重置编排（⑤⑦⑧⑨⑩均 flag=false 走 skip 记录,不碰真库/真浏览器）──
 
     #[test]
-    fn reset_device_ids_reports_ten_layers_and_skips_flagged_layers() {
+    fn reset_device_ids_reports_thirteen_layers_and_skips_flagged_layers() {
         let dir = scratch("reset-all");
         std::fs::create_dir_all(dir.join("User/globalStorage")).unwrap();
         std::fs::write(dir.join("machineid"), "old").unwrap();
         std::fs::write(dir.join("User/globalStorage/storage.json"), r#"{}"#).unwrap();
-        let report = reset_device_ids(&dir, false, false, false);
+        let report = reset_device_ids(&dir, false, false, false, false);
         let layers: Vec<u8> = report.layers.iter().map(|l| l.layer).collect();
-        assert_eq!(layers, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-        for expect_skip in [5u8, 7, 8, 9, 10] {
+        assert_eq!(layers, vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+        for expect_skip in [0u8, 5, 7, 8, 9, 10, 11, 12] {
             let l = report.layers.iter().find(|l| l.layer == expect_skip).unwrap();
             assert!(
                 l.ok && l.detail.contains("skipped"),
@@ -1737,7 +2054,7 @@ mod tests {
         std::fs::create_dir_all(dir.join("User/globalStorage")).unwrap();
         std::fs::write(dir.join("User/globalStorage/storage.json"), r#"{"keep":1}"#).unwrap();
 
-        let r8 = reset_layer_deep_site_data(&dir);
+        let r8 = reset_layer_deep_site_data(&[dir.clone()]);
         assert!(r8.ok, "{r8:?}");
         for rel in DEEP_RESET_DIRS {
             assert!(!dir.join(rel).exists(), "深度档必须整删 {rel}");
@@ -1747,7 +2064,7 @@ mod tests {
         }
         assert!(dir.join("User/globalStorage/storage.json").exists(), "storage.json 骨架必须保留");
 
-        let r9 = reset_layer_state_vscdb(&dir);
+        let r9 = reset_layer_state_vscdb_multi(&[dir.clone()]);
         assert!(r9.ok, "{r9:?}");
         assert!(!vscdb.exists(), "state.vscdb 必须整删(等效重装:键前缀枚举不可穷尽)");
         assert!(
@@ -1755,7 +2072,7 @@ mod tests {
             "伴生 -wal 必须一并删"
         );
 
-        let r10 = reset_layer_logs_cache(&dir);
+        let r10 = reset_layer_logs_cache_multi(&[dir.clone()]);
         assert!(r10.ok && r10.detail.contains("logs"), "{r10:?}");
         assert!(!dir.join("logs").exists());
 

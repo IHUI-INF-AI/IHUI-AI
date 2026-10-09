@@ -18920,7 +18920,7 @@
     "maintReset": "デバイス ID をリセット",
     "maintIncludeGuid": "レジストリの MachineGuid もリセット（管理者権限が必要）",
     "maintIncludeBrowser": "Chrome/Edge の TRAE Cookie も同時に削除（先にブラウザを閉じてください）",
-    "maintDeepReset": "ディープリセット（TRAE 内蔵 Cookie/識別 DB/ログキャッシュを消去、再インストール相当）",
+    "maintDeepReset": "ディープリセット（TRAE プロセスを自動終了し全データを消去、再インストール相当）",
     "maintBackup": "スナップショットをバックアップ",
     "maintBackupDone": "{count} 件のファイルをバックアップしました（欠落 {missing} 件）",
     "maintRestore": "復元",
