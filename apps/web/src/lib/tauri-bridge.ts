@@ -1484,20 +1484,25 @@ export async function checkinCaptureJwts(): Promise<CapturedTraeAccount[]> {
   return await invokeIpc<CapturedTraeAccount[]>('checkin_capture_jwts')
 }
 
-/** 十层设备标识重置;includeMachineGuid=true 额外尝试注册表 MachineGuid(需 UAC);
+/** 十四层设备标识重置;includeMachineGuid=true 额外尝试注册表 MachineGuid(需 UAC);
  *  cleanBrowserCookies=true 额外清理 Chrome/Edge 中 TRAE 域 Cookie(浏览器运行中该层会失败并报告);
- *  deepReset=true 额外执行深度三层(TRAE webview Cookies 库本体/state.vscdb 身份凭据键/日志缓存)
- *  ——这是"不卸载达到重装级干净"的补全,执行前须完全退出 TRAE。 */
+ *  deepReset=true 额外执行深度扩面层(TRAE webview Cookies 库本体/state.vscdb 身份凭据键/日志缓存/
+ *  ahanet·monitor 等指纹目录/traereset_bak 旧备份)
+ *  ——这是"不卸载达到重装级干净"的补全,执行前须完全退出 TRAE;
+ *  resetMac=true 额外改写物理网卡 MAC 地址(硬件指纹层,需管理员权限,网络会闪断数秒,
+ *  旧 MAC 自动备份到 %TEMP%\ihui-mac-backup-*.txt 可还原)。 */
 export async function checkinResetDeviceIds(
   includeMachineGuid: boolean,
   cleanBrowserCookies: boolean,
   deepReset: boolean,
+  resetMac?: boolean,
 ): Promise<CheckinResetReport> {
   requireTauri()
   return await invokeIpc<CheckinResetReport>('checkin_reset_device_ids', {
     includeMachineGuid,
     cleanBrowserCookies,
     deepReset,
+    resetMac: resetMac ?? false,
   })
 }
 

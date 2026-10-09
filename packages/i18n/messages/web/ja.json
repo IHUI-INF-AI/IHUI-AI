@@ -18921,6 +18921,7 @@
     "maintIncludeGuid": "レジストリの MachineGuid もリセット（管理者権限が必要）",
     "maintIncludeBrowser": "Chrome/Edge の TRAE Cookie も同時に削除（先にブラウザを閉じてください）",
     "maintDeepReset": "ディープリセット（TRAE プロセスを自動終了し全データを消去、再インストール相当）",
+    "maintIncludeMac": "物理 NIC の MAC アドレスも書き換え（ハードウェア指紋層、管理者権限が必要、数秒間ネットワークが一時切断）",
     "maintBackup": "スナップショットをバックアップ",
     "maintBackupDone": "{count} 件のファイルをバックアップしました（欠落 {missing} 件）",
     "maintRestore": "復元",

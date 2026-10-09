@@ -18916,6 +18916,7 @@
     "maintIncludeGuid": "레지스트리 MachineGuid도 재설정(관리자 권한 필요)",
     "maintIncludeBrowser": "Chrome/Edge의 TRAE 쿠키도 함께 정리(먼저 브라우저를 닫으세요)",
     "maintDeepReset": "딥 리셋(TRAE 프로세스 자동 종료 후 전체 데이터 삭제, 재설치에 준함)",
+    "maintIncludeMac": "물리 NIC MAC 주소도 재작성(하드웨어 지문 계층, 관리자 권한 필요, 네트워크 수초 끊김)",
     "maintBackup": "스냅샷 백업",
     "maintBackupDone": "파일 {count}개를 백업했습니다(누락 {missing}개)",
     "maintRestore": "복원",
