@@ -28,7 +28,11 @@
     "envNetworkOpen": "本次允許存取網路",
     "envNetworkOff": "本次不開放網路",
     "envNetworkBlocked": "已被攔截的網路目標",
-    "envNetworkBlockedOne": "{host}:{port}(原因:{reason})"
+    "envNetworkBlockedOne": "{host}:{port}(原因:{reason})",
+    "grantRuleToggle": "批准並把這類命令加入放行",
+    "grantRuleDesc": "以命令前綴「{prefix}…」為作用域產生放行規則,90 天後自動過期,可在網頁端的放行規則中撤銷",
+    "grantRuleConfirmTitle": "確認放行高風險命令?",
+    "grantRuleConfirmContent": "命令「{prefix}…」命中高風險操作。放行後 90 天內同類命令將不再詢問,使用風險需自行承擔。"
   },
   "nav": {
     "profile": "我的",
