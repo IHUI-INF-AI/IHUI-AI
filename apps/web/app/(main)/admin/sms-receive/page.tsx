@@ -48,6 +48,7 @@ import {
   blockPhone,
   sendSms,
   fetchUsed,
+  fetchUsedUnion,
   fetchPhoneHistory,
   fetchRelatedMsgs,
   fetchRelatedMsgsWithUnion,
@@ -61,6 +62,7 @@ import type {
   PhoneHistoryItem,
   PhonePlatformStat,
   SendSmsForm,
+  UsedUnionData,
   UsedRecord,
 } from './types'
 
@@ -115,6 +117,8 @@ export default function SmsReceivePage() {
   // ── 历史记录 ──
   const [usedItems, setUsedItems] = React.useState<UsedRecord[]>([])
   const [usedLoading, setUsedLoading] = React.useState(false)
+  // 快照累积流水(2026-10-09 攻破 24h+100 条):纯本地库读,无平台限频
+  const [usedUnion, setUsedUnion] = React.useState<UsedUnionData | null>(null)
   const [cooldown, setCooldown] = React.useState(0)
 
   // ── 号码台账(本地 sms_receive_history:这号接过什么码/是否注册过,不受平台 24h/100 条限制) ──
@@ -495,6 +499,7 @@ export default function SmsReceivePage() {
     setUsedLoading(true)
     try {
       setUsedItems(await fetchUsed())
+      setUsedUnion(await fetchUsedUnion())
       setCooldown(USED_COOLDOWN_SECONDS)
     } catch (e) {
       toast.error((e as Error).message)
@@ -502,6 +507,20 @@ export default function SmsReceivePage() {
       setUsedLoading(false)
     }
   }
+
+  // 快照累积流水(2026-10-09 攻破 24h+100 条):工具卡展开时加载一次,查询历史后刷新
+  React.useEffect(() => {
+    if (!toolsOpen) return
+    let cancelled = false
+    fetchUsedUnion()
+      .then((d) => {
+        if (!cancelled) setUsedUnion(d)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [toolsOpen])
 
   return (
     <div className="space-y-4 px-4 py-4">
@@ -897,6 +916,11 @@ export default function SmsReceivePage() {
                 <h3 className="flex items-center gap-2 text-sm font-semibold">
                   <History className="h-4 w-4" />
                   平台历史(24h 最多 100 条,限频 1 次/分钟)
+                  {usedUnion && (
+                    <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary">
+                      本地累积 {usedUnion.total} 条
+                    </span>
+                  )}
                 </h3>
                 <div className="space-y-3">
                   <Button
@@ -927,6 +951,37 @@ export default function SmsReceivePage() {
                           </p>
                         </div>
                       ))}
+                    </div>
+                  )}
+                  {usedUnion && usedUnion.items.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">
+                        累积记录(最近 {usedUnion.items.length} 条/共 {usedUnion.total}
+                        条,按入库时间;每次查询历史自动把平台 24h 窗口抄进本地,超越 24h+100 条上限)
+                      </p>
+                      <div className="max-h-48 space-y-1 overflow-auto">
+                        {usedUnion.items.map((u) => (
+                          <div
+                            key={u.id}
+                            className="rounded-md border border-primary/20 bg-primary/5 p-2 text-xs"
+                          >
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-mono font-semibold">{u.phone}</span>
+                              <span className="text-muted-foreground">扣费 {u.fee}</span>
+                              {u.platform && (
+                                <span className="font-semibold">【{u.platform}】</span>
+                              )}
+                              <UsageTag kind={u.usageKind} />
+                              <span className="text-muted-foreground">
+                                {new Date(u.firstSeenAt).toLocaleString('zh-CN', { hour12: false })}
+                              </span>
+                            </div>
+                            <p className="mt-1 truncate text-muted-foreground" title={u.text}>
+                              {u.text}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
