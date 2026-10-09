@@ -467,6 +467,7 @@ export default function HistoryPage() {
     }
     // 时间倒序打底 + 置顶优先(唯一排序出口 orderHistoryRows,页面内不再写第二处 sort)
     return orderHistoryRows(arr)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- metaVersion 是「置顶/分组等元数据变更」的失效计数器:排序出口 orderHistoryRows 只吃 arr,不写这个计数就看不到新的置顶态
   }, [list, activeFilter, keyword, metaVersion])
 
   const visible = useMemo(() => filtered.slice(0, page * PAGE_SIZE), [filtered, page])
