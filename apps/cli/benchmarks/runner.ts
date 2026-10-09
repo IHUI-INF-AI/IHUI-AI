@@ -164,6 +164,31 @@ export function resolveShell(): string {
 /** 无需 POSIX shell 的验证命令（纯 node/python 调用），Windows 下直接执行，避免 WSL bash 桩干扰。 */
 const NO_SHELL_RE = /^\s*(node|python|python3|py)(\s|$)/i;
 
+/**
+ * 把目录前置进 env 对象里的 PATH —— **写回已有的那一种拼写**,不新增第二种。
+ *
+ * 为什么需要这个出口(G-1105300 站点接线):Windows 环境块里 PATH 族的拼写**不止一种**。本机实测:
+ * 从 Git Bash / 已登录会话继承的宿主给出 `PATH`,而**由注册表组合出来的登录环境块**
+ * (计划任务 / Explorer 派生 / `Start-Process -UseNewEnvironment`)给出 `Path`,且该块内没有 `SYSTEMROOT`
+ * —— 后者正是"在这种宿主里直接起 node 会当场 abort(`ncrypto::CSPRNG(nullptr, 0)`)"的原因。
+ * 旧写法无条件 `env.Path = ...`,在 `PATH` 拼写的宿主上会让同一个对象里并存 `PATH`(未加目录)与
+ * `Path`(加了目录)两份;Node 给 CreateProcess 拼环境块时按大小写不敏感去重,**留下的是继承来的那份**,
+ * 于是"前置 Git\\bin 以屏蔽 WSL bash 桩"整句静默失效(实测子进程 `gitVisible:false`)。
+ * 与 `scripts/lib/normalize-path-env.mjs`(把**已经**双拼的对象收口成一种)是两个不同操作:
+ * 那条是"收口",这条是"不产生第二份";工具层无法被端内 import(根 node_modules 解析不到 workspace 链接),
+ * 所以这里只维持"至多一种拼写"这一条不变量,不重做取值裁决。
+ */
+export function prependPathEntry(
+  env: Record<string, string | undefined>,
+  dir: string,
+  delimiter = ';',
+): Record<string, string | undefined> {
+  const key = Object.keys(env).find((k) => k.toUpperCase() === 'PATH') ?? 'PATH';
+  const current = env[key];
+  env[key] = current ? [dir, current].join(delimiter) : dir;
+  return env;
+}
+
 export function verifyTask(ws: string, task: BenchTask): { exitCode: number | null; outputTail: string; error?: string } {
   const env: Record<string, string | undefined> = {
     ...process.env,
@@ -184,8 +209,7 @@ export function verifyTask(ws: string, task: BenchTask): { exitCode: number | nu
       env.MSYS_NO_PATHCONV = '1';
       env.MSYS2_ARG_CONV_EXCL = '*';
       delete env.PATH_LOCAL;
-      const gitBin = dirname(resolveShell());
-      env.Path = [gitBin, env.Path ?? ''].join(';');
+      prependPathEntry(env, dirname(resolveShell()));
     }
     cmd = resolveShell();
     args = ['-c', task.verifyCmd];
