@@ -42,6 +42,10 @@ vi.mock('@ihui/api-client', () => ({
   listCheckinAccounts: listAccounts,
   listCheckinRecords: listRecords,
   listCheckinCreditsHistory: listCredits,
+  listCheckinCreditsDaily: vi.fn(async () => ({
+    days: [],
+    series: { total: [], gained: [], consumed: [] },
+  })),
   createCheckinAccount: createAccount,
   deleteCheckinAccount: deleteAccount,
   setCheckinAccountEnabled: setEnabled,
@@ -49,6 +53,7 @@ vi.mock('@ihui/api-client', () => ({
   updateCheckinAccountJwt: updateJwt,
   updateCheckinAccountGroup: updateGroup,
   getCheckinSchedulerStatus: schedulerStatus,
+  queryCheckinAccountCredits: vi.fn(async () => ({ ok: false, remaining: null, error: 'mock' })),
 }))
 
 vi.mock('@/components/charts/EChart', () => ({
@@ -451,6 +456,23 @@ describe('签到助手页面 · 更新JWT/徽章/调度/过滤/加载更多', ()
     expect(manualCheckin).toHaveBeenCalledWith(3)
     expect(manualCheckin).not.toHaveBeenCalledWith(2)
     await waitFor(() => expect(screen.getByText('skippedExpired')).toBeTruthy())
+  })
+
+  it('勾选批量:勾选单个账号后仅对其调用签到', async () => {
+    const second = makeAccount({ id: 2, name: '二号' })
+    mockLoadSuccess({ accounts: [accountFixture, second] })
+    render(<CheckinPage />)
+    const rowCheckboxes = await waitFor(() =>
+      // mock 的 t('selectAccount', { name }) 返回 "selectAccount:名字"
+      screen.getAllByRole('checkbox', { name: /^selectAccount:/ }),
+    )
+    // 两行各有勾选框;勾选第一行(账号 1)
+    fireEvent.click(rowCheckboxes[0])
+    const selectedBtn = await waitFor(() => screen.getByText('checkinSelected'))
+    fireEvent.click(selectedBtn)
+    await waitFor(() => expect(manualCheckin).toHaveBeenCalledTimes(1))
+    expect(manualCheckin).toHaveBeenCalledWith(1)
+    expect(manualCheckin).not.toHaveBeenCalledWith(2)
   })
 
   it('积分看板 tab:有数据时渲染排行/趋势面板', async () => {

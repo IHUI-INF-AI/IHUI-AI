@@ -12,6 +12,7 @@
 // + 调度状态徽章 + 一键全部签到(跳过今日已签 + 进度)
 // + Tabs(签到记录 | 积分历史 | 积分看板,按账号过滤/加载更多)+ 录入/更新JWT/分组对话框。
 
+import type { CheckinCreditsDailyResponse } from '@ihui/types'
 import { rnRadius } from '@ihui/design-tokens'
 
 import * as React from 'react'
@@ -53,9 +54,11 @@ import {
   deleteCheckinAccount,
   getCheckinSchedulerStatus,
   listCheckinAccounts,
+  listCheckinCreditsDaily,
   listCheckinCreditsHistory,
   listCheckinRecords,
   manualCheckinAccount,
+  queryCheckinAccountCredits,
   setCheckinAccountEnabled,
   updateCheckinAccountGroup,
   updateCheckinAccountJwt,
@@ -104,6 +107,12 @@ export default function CheckinPage() {
 
   // 分组(Phase1d):账号表筛选 + 分组编辑对话框
   const [groupFilter, setGroupFilter] = React.useState<string>('all')
+  // 勾选批量:对齐参考项目「按分组/手动勾选」——勾选后可只签勾选账号(配合分组筛选即"按组签")
+  const [selectedIds, setSelectedIds] = React.useState<Set<number>>(new Set())
+
+  // 积分每日快照(WP-B):三线趋势数据 + 手动刷新全部账号余额
+  const [creditsDaily, setCreditsDaily] = React.useState<CheckinCreditsDailyResponse | null>(null)
+  const [refreshingCredits, setRefreshingCredits] = React.useState(false)
   const [groupTarget, setGroupTarget] = React.useState<CheckinAccount | null>(null)
   const [groupValue, setGroupValue] = React.useState('')
   const [groupSubmitting, setGroupSubmitting] = React.useState(false)
@@ -135,13 +144,15 @@ export default function CheckinPage() {
     setLoading(true)
     setLoadError(null)
     try {
-      const [accountsRes, recordsRes, creditsRes] = await Promise.all([
+      const [accountsRes, recordsRes, creditsRes, dailyRes] = await Promise.all([
         listCheckinAccounts(),
         listCheckinRecords({ accountId: recordFilter ?? undefined, limit: RECORDS_LIMIT_STEP }),
         listCheckinCreditsHistory({
           accountId: creditFilter ?? undefined,
           limit: CREDITS_LIMIT_STEP,
         }),
+        // 三线序列非关键数据:失败静默降级为本地累计趋势
+        listCheckinCreditsDaily({ days: 30 }).catch(() => null),
       ])
       setAccounts(accountsRes.accounts)
       setRecords(recordsRes.records)
@@ -149,12 +160,33 @@ export default function CheckinPage() {
       setCredits(creditsRes.history)
       setCreditHasMore(creditsRes.history.length >= CREDITS_LIMIT_STEP)
       setCreditsTotal(creditsRes.total_credits_delta)
+      setCreditsDaily(dailyRes)
     } catch (e) {
       setLoadError((e as Error).message)
     } finally {
       setLoading(false)
     }
   }, [recordFilter, creditFilter])
+
+  // 手动刷新全部启用账号的积分快照(逐个查询,单个失败不中断;WP-B)
+  const refreshCreditsSnapshots = async () => {
+    const targets = accounts.filter((a) => a.enabled)
+    if (targets.length === 0 || refreshingCredits) return
+    setRefreshingCredits(true)
+    setActionError(null)
+    try {
+      for (const account of targets) {
+        try {
+          await queryCheckinAccountCredits(account.id)
+        } catch {
+          // 单账号查询失败(网络/JWT 失效)不阻断其余账号
+        }
+      }
+      await loadAll()
+    } finally {
+      setRefreshingCredits(false)
+    }
+  }
 
   React.useEffect(() => {
     void loadAll()
@@ -263,9 +295,11 @@ export default function CheckinPage() {
 
   // 一键全部签到:对 enabled 账号顺序执行(不并发轰炸);
   // 跳过今日已成功签到(last_record 为今日且 ok)的账号,实时汇报进度,结束后统一刷新
-  const runCheckinAll = async () => {
+  const runCheckinAll = async (scope?: Set<number>) => {
     const today = localDateStr(new Date())
-    const targets = accounts.filter((account) => account.enabled)
+    const targets = accounts.filter(
+      (account) => account.enabled && (!scope || scope.has(account.id)),
+    )
     if (targets.length === 0) return
     // 对齐参考项目「跳过已签/过期」:JWT 已过期的账号直接跳过(带过期 JWT 签到只会中途 401 报错)
     const now = Date.now()
@@ -300,6 +334,7 @@ export default function CheckinPage() {
     } finally {
       setAllChecking(false)
       setAllProgress(null)
+      setSelectedIds(new Set())
       await loadAll()
     }
   }
@@ -474,6 +509,26 @@ export default function CheckinPage() {
     [accounts, groupFilter],
   )
 
+  // 勾选辅助:单行勾选 + 表头全选当前列表(配合分组筛选 = 按组签)
+  const toggleSelected = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+  const allVisibleSelected =
+    visibleAccounts.length > 0 && visibleAccounts.every((a) => selectedIds.has(a.id))
+  const toggleSelectAllVisible = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (allVisibleSelected) visibleAccounts.forEach((a) => next.delete(a.id))
+      else visibleAccounts.forEach((a) => next.add(a.id))
+      return next
+    })
+  }
+
   // 积分看板:排行(按最近积分)+ 累计趋势 + 今日新增
   const board = React.useMemo(() => {
     const ranked = visibleAccounts
@@ -499,6 +554,10 @@ export default function CheckinPage() {
     })
     return { ranked, trend, todayGain, hasData: ranked.length > 0 || trend.length > 0 }
   }, [visibleAccounts, credits])
+
+  // 是否有三线快照数据(任一日 total 非空即启用三线图,否则降级本地累计)
+  const hasDailySeries =
+    !!creditsDaily && creditsDaily.series.total.some((v) => v !== null)
 
   const renderGroupBadge = (group: string) =>
     group ? (
@@ -559,6 +618,21 @@ export default function CheckinPage() {
                 })
               : t('checkinAll')}
           </Button>
+          {selectedIds.size > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={allChecking || checkingId !== null}
+              onClick={() => void runCheckinAll(selectedIds)}
+            >
+              {allChecking ? (
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              ) : (
+                <CheckCheck className="mr-1 h-4 w-4" />
+              )}
+              {t('checkinSelected', { count: selectedIds.size })}
+            </Button>
+          )}
           <Button size="sm" onClick={() => setAddOpen(true)}>
             <Plus className="h-4 w-4" />
             {t('addAccount')}
@@ -629,6 +703,15 @@ export default function CheckinPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-8">
+                      <input
+                        type="checkbox"
+                        aria-label={t('selectAllVisible')}
+                        checked={allVisibleSelected}
+                        onChange={toggleSelectAllVisible}
+                        className="h-3.5 w-3.5 accent-primary"
+                      />
+                    </TableHead>
                     <TableHead>{t('colName')}</TableHead>
                     <TableHead>{t('colEnabled')}</TableHead>
                     <TableHead>{t('colLastCheckin')}</TableHead>
@@ -639,6 +722,15 @@ export default function CheckinPage() {
                 <TableBody>
                   {visibleAccounts.map((account) => (
                     <TableRow key={account.id}>
+                      <TableCell>
+                        <input
+                          type="checkbox"
+                          aria-label={t('selectAccount', { name: account.name })}
+                          checked={selectedIds.has(account.id)}
+                          onChange={() => toggleSelected(account.id)}
+                          className="h-3.5 w-3.5 accent-primary"
+                        />
+                      </TableCell>
                       <TableCell>
                         <div className="font-medium">{account.name}</div>
                         <div className="mt-1 flex flex-wrap items-center gap-1">
@@ -890,25 +982,78 @@ export default function CheckinPage() {
                       />
                     </div>
                     <div className="rounded-xl border p-3">
-                      <p className="mb-2 text-sm font-medium">
-                        {t('boardTodayGain', { delta: board.todayGain })}
-                      </p>
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <p className="text-sm font-medium">
+                          {hasDailySeries
+                            ? t('boardTrendTitle')
+                            : t('boardTodayGain', { delta: board.todayGain })}
+                        </p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={refreshingCredits || allChecking}
+                          onClick={() => void refreshCreditsSnapshots()}
+                          aria-label={t('refreshCredits')}
+                        >
+                          {refreshingCredits ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4" />
+                          )}
+                          {t('refreshCredits')}
+                        </Button>
+                      </div>
                       <EChart
                         height={260}
-                        option={{
-                          tooltip: { trigger: 'axis' },
-                          grid: { left: 8, right: 16, top: 8, bottom: 8, containLabel: true },
-                          xAxis: { type: 'category', data: board.trend.map((p) => p.day) },
-                          yAxis: { type: 'value' },
-                          series: [
-                            {
-                              type: 'line',
-                              data: board.trend.map((p) => p.cumulative),
-                              smooth: true,
-                              areaStyle: { opacity: 0.15 },
-                            },
-                          ],
-                        }}
+                        option={
+                          hasDailySeries
+                            ? {
+                                // 三线:总数/获得/消耗(消耗=|今日总-获得-昨日总|,对齐参考项目)
+                                tooltip: { trigger: 'axis' },
+                                legend: { top: 0 },
+                                grid: { left: 8, right: 16, top: 28, bottom: 8, containLabel: true },
+                                xAxis: { type: 'category', data: creditsDaily!.days },
+                                yAxis: { type: 'value' },
+                                series: [
+                                  {
+                                    name: t('boardLineTotal'),
+                                    type: 'line',
+                                    data: creditsDaily!.series.total,
+                                    smooth: true,
+                                    connectNulls: false,
+                                  },
+                                  {
+                                    name: t('boardLineGained'),
+                                    type: 'line',
+                                    data: creditsDaily!.series.gained,
+                                    smooth: true,
+                                    areaStyle: { opacity: 0.15 },
+                                  },
+                                  {
+                                    name: t('boardLineConsumed'),
+                                    type: 'line',
+                                    data: creditsDaily!.series.consumed,
+                                    smooth: true,
+                                    connectNulls: false,
+                                  },
+                                ],
+                              }
+                            : {
+                                // 无快照数据时降级:本地签到记录累计趋势
+                                tooltip: { trigger: 'axis' },
+                                grid: { left: 8, right: 16, top: 8, bottom: 8, containLabel: true },
+                                xAxis: { type: 'category', data: board.trend.map((p) => p.day) },
+                                yAxis: { type: 'value' },
+                                series: [
+                                  {
+                                    type: 'line',
+                                    data: board.trend.map((p) => p.cumulative),
+                                    smooth: true,
+                                    areaStyle: { opacity: 0.15 },
+                                  },
+                                ],
+                              }
+                        }
                       />
                     </div>
                   </div>
