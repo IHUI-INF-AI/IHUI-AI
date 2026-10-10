@@ -279,26 +279,32 @@ export function appSourcePaths(paths) {
  * 物化目录里**真实存在**的 `app/` 源路径清单 —— 与面内清单同口径,用来求集合差。
  * 为什么必须现读盘而不能只信 `written`:`written = paths.length - missing.length` 统计的是
  * "从面上取到了内容",证不了"落到了盘上"(Windows 上写失败的形态有多种)。集合差才是漏物化的凭据。
+ * 2026-10-10 G-1117437:返回值改成 `{ paths, unreadable }` —— 旧写法把"某一层 readdir 失败"只留给
+ * 调用方靠集合差去猜,那是把"目录树读不出"这一格静默吞掉;现在逐条报名,遮蔽轴据此判"判不出"。
  */
 export function listDiskAppSources(scratchDir) {
   const base = join(scratchDir, 'apps', 'ai-service', 'app')
-  const out = []
+  const paths = []
+  const unreadable = []
   const walk = (absDir, relDir) => {
     let entries
     try {
       entries = readdirSync(absDir, { withFileTypes: true })
     } catch {
-      return // 整层取不到 ⇒ 由调用方的集合差暴露(面内有、盘上没有 ⇒ state 'missing'),不静默
+      // 整层读不出 ⇒ 点名到层(面内有、盘上没有的那些仍会由调用方的集合差暴露,两格各说各的)
+      unreadable.push(relDir)
+      return
     }
     for (const e of entries) {
       const abs = join(absDir, e.name)
       const rel = `${relDir}/${e.name}`
       if (e.isDirectory()) walk(abs, rel)
-      else if (MYPY_SOURCE_EXTS.some((x) => e.name.endsWith(x))) out.push(rel)
+      else if (MYPY_SOURCE_EXTS.some((x) => e.name.endsWith(x))) paths.push(rel)
     }
   }
-  if (existsSync(base)) walk(base, `${AI_PREFIX}app`)
-  return out
+  if (!existsSync(base)) unreadable.push(`${AI_PREFIX}app`)
+  else walk(base, `${AI_PREFIX}app`)
+  return { paths, unreadable }
 }
 
 /** mypy `keyfunc` 的同 stem 排序契约:目录(无扩展名) < .pyi < .py。 */
@@ -309,12 +315,57 @@ function stemRank(name) {
 }
 
 /**
+ * 「谁把谁挤掉了、按什么规则判的」里那条**规则**的出处(逐字对齐上方 G-1117435 注释块里现读的 mypy 口径)。
+ * 2026-10-10 G-1117437:出处必须挂在每一条被遮蔽记录**自己身上**,不能只写在头部说明里 ——
+ * 「`app/types/api_client.py` 的类型口径由同名 `api_client.pyi` 决定」这一判要的正是"哪一份赢、凭什么赢",
+ * 一条只说"被占位"的记录没有出处,下游机器无从引用。
+ */
+export const SHADOW_RULES = {
+  'pkg-dir':
+    'mypy 2.3.1 mypy/find_sources.py:110-136(同一目录清单里命中"其内有源"的目录即 seen.add(目录名),同名 .py 走 if stem not in seen 被跳过)',
+  stub:
+    'mypy 2.3.1 mypy/find_sources.py:110-136 + :58-64(keyfunc 排序契约 foo < foo.pyi < foo.py ⇒ 同 stem 时 .pyi 先占位,同名 .py 被跳过)',
+}
+
+/**
  * 复现 mypy 的"同目录同 stem 只留一个"(依据见上方注释块 :110-136 / :58-64)。
- * 返回 `{ counted, dropped }`:counted = 该面应有的 BuildSource 清单(与 checked 同一条口径),
- * dropped = 被同目录同名条目占掉位置的文件,逐条带 `by`(占位者)与 `kind`('pkg-dir' | 'stub')。
+ * 返回 `{ counted, dropped, conflicts, unenumerable }`:
+ *   counted      = 该面应有的 BuildSource 清单(与 checked 同一条口径),
+ *   dropped      = 被同目录同名条目占掉位置的文件,逐条带 `by`(挤掉它的那一份)、`kind`
+ *                  ('pkg-dir' | 'stub')与 `rule`(判这条占位所依据的 mypy 口径出处;G-1117437),
+ *   conflicts    = 同一次遍历里数出来的"同目录同 stem 争位"对数(Σ 每个位置上的争位者数 − 1),
+ *                  用来**自证**遮蔽清单有没有把枚举到的冲突一条不漏地列出来;
+ *   unenumerable = 判不出的那一格,逐条 `{subject, reason}`(取不到面 / 枚举到 0 个源),
+ *                  枚举失败时 conflicts = null(说不清就是说不清,不得当成 0)。
  * 输入只有路径清单(不碰磁盘、不起 mypy),所以能用构造面证明,也不会随 mypy 版本漂成哑巴。
  */
 export function stemDedupSources(sourcePaths) {
+  if (!Array.isArray(sourcePaths)) {
+    return {
+      counted: [],
+      dropped: [],
+      conflicts: null,
+      unenumerable: [
+        {
+          subject: '面内 app/ 源清单',
+          reason: `枚举结果取不到(拿到的是 ${String(sourcePaths)})⇒ 遮蔽轴只能判"判不出",不得读成"没有遮蔽"`,
+        },
+      ],
+    }
+  }
+  if (sourcePaths.length === 0) {
+    return {
+      counted: [],
+      dropped: [],
+      conflicts: null,
+      unenumerable: [
+        {
+          subject: '面内 app/ 源清单',
+          reason: '枚举到 0 个 app/ 源 ⇒ 尺子失效,遮蔽轴没有可判的对象(判不出,不是"无遮蔽")',
+        },
+      ],
+    }
+  }
   const entriesByParent = new Map()
   const pushEntry = (parent, entry) => {
     if (!entriesByParent.has(parent)) entriesByParent.set(parent, [])
@@ -339,6 +390,7 @@ export function stemDedupSources(sourcePaths) {
   }
   const counted = []
   const dropped = []
+  let conflicts = 0
   for (const [, list] of entriesByParent) {
     const ordered = list
       .slice()
@@ -347,60 +399,129 @@ export function stemDedupSources(sourcePaths) {
           stemRank(a.name) - stemRank(b.name) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0),
       )
     const held = new Map() // stem -> 占住该位置的条目
+    const contested = new Map() // stem -> 这个位置上有几条同名争位者(与 dropped 同一次遍历数出来 ⇒ 遮蔽清单的自证尺子)
     for (const e of ordered) {
       if (e.kind === 'dir') {
-        if (e.hasSources && !held.has(e.name)) held.set(e.name, e)
+        // mypy 只对"其内有源"的目录 seen.add(名字);空目录不占位、也不参与争位(find_sources.py:129-131)。
+        if (!e.hasSources) continue
+        contested.set(e.name, (contested.get(e.name) || 0) + 1)
+        if (!held.has(e.name)) held.set(e.name, e)
         continue
       }
       const stem = e.name.replace(/\.(?:pyi|py)$/, '')
+      contested.set(stem, (contested.get(stem) || 0) + 1)
       const winner = held.get(stem)
       if (winner) {
+        const kind = winner.kind === 'dir' ? 'pkg-dir' : 'stub'
         dropped.push({
           path: e.path,
           by: winner.path,
-          kind: winner.kind === 'dir' ? 'pkg-dir' : 'stub',
+          kind,
+          rule: SHADOW_RULES[kind],
         })
       } else {
         held.set(stem, e)
         counted.push(e.path)
       }
     }
+    for (const n of contested.values()) if (n > 1) conflicts += n - 1
   }
-  return { counted, dropped }
+  return { counted, dropped, conflicts, unenumerable: [] }
 }
 
 /**
- * 覆盖面账目(纯函数):两侧集合 + mypy 读数 ⇒ 该打印什么。
- *   state 'closed'     —— 差集为空且 checked == 面内 app/ 下的 .py 数 ⇒ 什么都不印
+ * 覆盖面账目(纯函数):两侧集合 + mypy 读数 ⇒ 该打印什么。**门里只有这一份覆盖面判据**(§22c)。
+ *   state 'closed'     —— 差集为空且 checked == 面内 app/ 下的 .py 数 ⇒ 计数轴什么都不印
  *   state 'missing'    —— 差集非空(面内有、物化目录没有)⇒ **逐条点名**,这才是"漏物化"
  *   state 'count-only' —— 差集为空但计数不等 ⇒ 明说「计数口径不等但差集为空」,再给口径账
  * 两档各自出声、绝不并桶:计数相等时**只**点名差集(不出口径账那种噪声);计数不等时才出口径账;
  * 差集为空 + 计数相等时一个字都不多说(把口径差喊成漏检就是这一档的失效形态)。
  * `closure`:'exact' = 差额被同目录同 stem 去重完全解释(逐条点名 + 对账等式);
  *            'partial' = 解释不完 ⇒ 把没解释掉的差额原样报出来,绝不静默、也绝不冒红。
+ *
+ * 2026-10-10 G-1117437 —— **遮蔽轴**(shadowState / shadowItems / shadowConflicts / shadowClosure /
+ * shadowUndetermined)。计数轴有一个自己掩缺陷的形态,真仓已经撞上:`app/types/api_client.py` 被同名
+ * 存根 `api_client.pyi` 占位是"净 +1 −1",单独成对时 `checked === facePy`,于是计数轴在
+ * `if (checked === facePy) return v` 那一格直接收口,**"被遮蔽"这件事一个字都不说** —— 而"类型口径
+ * 由 `.pyi` 决定、两者可能漂移"恰恰只写在头部注释里,读数上读不出"谁把谁挤掉了、按什么规则判的"。
+ * 所以出处被补成一条**不依赖 mypy 读数**的独立结论,三态绝不并桶:
+ *   'none'         无遮蔽 —— 枚举成功且没有争位(不出声,但字段可机读)
+ *   'shadowed'     被遮蔽 —— 逐条点名 `被挤掉 → 挤掉者(kind)+ rule(依据)`
+ *   'undetermined' 判不出 —— 取不到面 / 枚举到 0 个源 / 目录树读不出 / 清单与枚举对不上:
+ *                   逐条报名并给原因,**绝不静默成"没有遮蔽"**
+ * `shadowClosure`:'exact' = 遮蔽清单条数 == 同一次遍历数到的争位对数,且面内每条源都归了位;
+ *                 'unclosed' = 对不上 ⇒ 喊"不闭合",而不是报 0;'unknown' = 枚举本身取不到。
  * 本函数**不产出退出码**(退出码语义留在主流程那句"刻意不因不等而改退出码")。
  */
-export function coverageVerdict({ checked, faceSources, diskSources }) {
-  const faceSet = new Set(faceSources)
-  const diskSet = new Set(diskSources)
-  const onlyOnFace = faceSources.filter((p) => !diskSet.has(p))
-  const onlyOnDisk = diskSources.filter((p) => !faceSet.has(p))
-  const facePy = faceSources.filter((p) => p.endsWith('.py')).length
-  const facePyi = faceSources.length - facePy
-  const { counted, dropped } = stemDedupSources(faceSources)
+export function coverageVerdict({ checked, faceSources, diskSources, diskUnreadable }) {
+  const faceList = Array.isArray(faceSources) ? faceSources : null
+  const faceSeen = faceList || []
+  const diskList = Array.isArray(diskSources) ? diskSources : []
+  const faceSet = new Set(faceSeen)
+  const diskSet = new Set(diskList)
+  const onlyOnFace = faceSeen.filter((p) => !diskSet.has(p))
+  const onlyOnDisk = diskList.filter((p) => !faceSet.has(p))
+  const facePy = faceSeen.filter((p) => p.endsWith('.py')).length
+  const facePyi = faceSeen.length - facePy
+  const { counted, dropped, conflicts, unenumerable } = stemDedupSources(faceSources)
   const v = {
     state: 'closed',
     closure: 'exact',
     checked,
     facePy,
     facePyi,
-    faceSourceCount: faceSources.length,
-    diskSourceCount: diskSources.length,
+    faceSourceCount: faceList === null ? null : faceSeen.length,
+    diskSourceCount: diskList.length,
     onlyOnFace,
     onlyOnDisk,
     dropped,
     predicted: counted.length,
+    shadowState: 'none',
+    shadowItems: dropped,
+    shadowConflicts: conflicts,
+    shadowClosure: 'unknown',
+    shadowUndetermined: [...unenumerable],
     lines: [],
+  }
+  // —— 遮蔽轴:先算、先出声(它不吃 mypy 读数,所以读数缺席时也照样点名)——
+  for (const d of Array.isArray(diskUnreadable) ? diskUnreadable : []) {
+    v.shadowUndetermined.push({
+      subject: `物化目录 ${d}`,
+      reason: '目录树读不出(readdir 失败)⇒ 遮蔽清单无法与盘面对自证,这一格是"判不出"',
+    })
+  }
+  if (conflicts === null) v.shadowClosure = 'unknown'
+  else if (dropped.length !== conflicts || faceSeen.length !== counted.length + dropped.length)
+    v.shadowClosure = 'unclosed'
+  else v.shadowClosure = 'exact'
+  if (v.shadowClosure !== 'exact' || v.shadowUndetermined.length > 0) v.shadowState = 'undetermined'
+  else if (dropped.length > 0) v.shadowState = 'shadowed'
+  const itemLines = dropped.map((d) => {
+    const what = d.kind === 'pkg-dir' ? '包目录' : '.pyi 存根'
+    return `     · 被挤掉:${d.path} ⇐ 挤掉者:${d.by}(同目录同名的${what},kind=${d.kind})—— 依据:${d.rule}`
+  })
+  if (v.shadowState === 'shadowed') {
+    v.lines.push(
+      `⚠️ 同目录同 stem 遮蔽(三态=被遮蔽):面内枚举到同名争位 ${conflicts} 处、遮蔽清单 ${dropped.length} 条(一条不漏 ⇒ 自证闭合);逐条"被谁挤掉 + 依据"如下 —— 判"漂移发生在 .py 那一侧还是 .pyi/包目录那一侧"吃的就是这一格,计数相等时它也必须出声:`,
+    )
+    v.lines.push(...itemLines)
+    v.lines.push(
+      '     注:不占 BuildSource ≠ 内容没被读过 —— 同名 .pyi 存根**就是**该模块对外生效的类型口径(同名 .py 写了什么不改变这一条);被同名包目录占位的 .py 仍会经 import 跟踪进入解析(取证行见上方注释块)。',
+    )
+  } else if (v.shadowState === 'undetermined') {
+    v.lines.push(
+      '⚠️ 同目录同 stem 遮蔽**判不出**(三态=判不出;不得读成"没有遮蔽"),逐条报名 + 原因:',
+    )
+    for (const u of v.shadowUndetermined) v.lines.push(`     - ${u.subject} —— ${u.reason}`)
+    if (v.shadowClosure === 'unclosed') {
+      v.lines.push(
+        `     - 遮蔽清单与枚举不自证(不闭合)—— 同一次遍历数到同名争位 ${conflicts} 处,清单只列出 ${dropped.length} 条(差 ${conflicts - dropped.length});宁可不闭合,也绝不报 0/"无遮蔽"`,
+      )
+    }
+    if (itemLines.length > 0) {
+      v.lines.push('     已枚举到的部分(不保证一条不漏 ⇒ 仍算判不出):')
+      v.lines.push(...itemLines)
+    }
   }
   if (checked === null || checked === undefined) return v
   if (onlyOnFace.length > 0 || onlyOnDisk.length > 0) {
@@ -422,23 +543,13 @@ export function coverageVerdict({ checked, faceSources, diskSources }) {
   if (v.state === 'closed') v.state = 'count-only'
   if (v.state === 'count-only') {
     v.lines.push(
-      `⚠️ 计数口径不等但差集为空:mypy 实检 ${checked} vs 面内 app/**/*.py ${facePy}(面内 app/ 源 ${faceSources.length} 个已逐条核到物化目录,集合差为空 ⇒ **不是漏物化**)`,
+      `⚠️ 计数口径不等但差集为空:mypy 实检 ${checked} vs 面内 app/**/*.py ${facePy}(面内 app/ 源 ${faceSeen.length} 个已逐条核到物化目录,集合差为空 ⇒ **不是漏物化**)`,
     )
   }
   if (v.predicted === checked) {
     v.closure = 'exact'
     v.lines.push(
       `     口径账:${facePy}(app/**/*.py)+ ${facePyi}(app/**/*.pyi)− ${dropped.length}(同目录同 stem 被 mypy 目录扫描去重)= ${v.predicted} = mypy 实检 ${checked}(闭合)`,
-    )
-    v.lines.push(
-      `     依据 mypy 2.3.1 mypy/find_sources.py:110-136(同目录同 stem 只留一个)+ :58-64(排序契约 foo < foo.pyi < foo.py);以下 ${dropped.length} 个不占 BuildSource,逐条点名:`,
-    )
-    for (const d of dropped) {
-      const what = d.kind === 'pkg-dir' ? '包目录' : '.pyi 存根'
-      v.lines.push(`     · ${d.path} —— 被同目录同名的${what} ${d.by} 占了位(kind=${d.kind})`)
-    }
-    v.lines.push(
-      '     注:不占 BuildSource ≠ 内容没被读过 —— 同名 .pyi 存根代表该模块的类型口径;被同名包目录占位的 .py 仍会经 import 跟踪进入解析(取证行见上方注释块)。',
     )
   } else {
     v.closure = 'partial'
@@ -648,6 +759,10 @@ function main() {
       // 所以"请人工确认不是漏物化"被换成**点名到底是哪些文件、为什么少**(依据与对账见
       // coverageVerdict 上方注释块)。退出码语义一字未改:Success 但实检 0 个仍 exit 2,
       // 差集非空/计数不等仍只是黄字警示。
+      // 2026-10-10 G-1117437:同一份判据里补上**遮蔽轴**(无遮蔽 / 被遮蔽(逐条"被谁挤掉 + 依据")/
+      // 判不出(逐条报名给原因))。它不吃 mypy 读数,所以"同名 .pyi 占位但净 +1 −1"那种**计数相等**
+      // 的形态不再一片太平 —— 真仓的 app/types/api_client.py 正是被这一格掩掉的。判据仍只有一份,
+      // 实检文件数与退出码一字未改。
       if (face !== 'worktree' && checked === 0) {
         console.log(
           `${C.red}${C.bold}❌ mypy 守门无法判定(exit 2):Success 但实检 0 个源文件 —— 空扫不得当合格证${C.reset}`,
@@ -657,10 +772,12 @@ function main() {
       console.log(`${C.green}${C.bold}✅ mypy 守门通过(0 errors, ${elapsed}s)${C.reset}`)
       console.log(`${C.dim}   判定面=${faceLabelOf(face)},mypy 实检 ${checked ?? '?'} 个源文件${C.reset}`)
       if (face !== 'worktree' && materialized?.dir) {
+        const onDisk = listDiskAppSources(materialized.dir)
         const verdict = coverageVerdict({
           checked,
           faceSources: appSourcePaths(facePaths),
-          diskSources: listDiskAppSources(materialized.dir),
+          diskSources: onDisk.paths,
+          diskUnreadable: onDisk.unreadable,
         })
         for (const line of verdict.lines) console.log(`${C.yellow}   ${line}${C.reset}`)
       }
@@ -752,6 +869,7 @@ export const __test__ = {
   resolveMypy,
   spawnMypy,
   MYPY_SOURCE_EXTS,
+  SHADOW_RULES,
   appSourcePaths,
   listDiskAppSources,
   stemDedupSources,
