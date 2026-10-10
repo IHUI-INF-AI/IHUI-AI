@@ -81,7 +81,7 @@ test('T6 端到端装车证明:CLI 真跑 --self-test 必须全绿且 rc=0(例�
     windowsHide: true,
     timeout: 300_000,
     maxBuffer: 32 << 20,
-    stdio: ['ignore', 'pipe', 'pipe']
+    stdio: ['ignore', 'pipe', 'pipe'],
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
   const m = /run-evidence --self-test:(\d+)\/(\d+) 通过/.exec(out)
@@ -257,7 +257,7 @@ test('T12 --verify --expect-cwd=<同值> ⇒ complete / exit 0,且原样报出 C
         windowsHide: true,
         timeout: 120_000,
         encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'pipe']
+        stdio: ['ignore', 'pipe', 'pipe'],
         // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
       },
     )
@@ -295,7 +295,7 @@ test('T13 --verify --expect-cwd=<不同值> ⇒ truncated / exit 3(取证面错�
           windowsHide: true,
           timeout: 120_000,
           encoding: 'utf8',
-          stdio: ['ignore', 'pipe', 'pipe']
+          stdio: ['ignore', 'pipe', 'pipe'],
           // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
         },
       )
@@ -378,7 +378,7 @@ test('T-新 CLI 层:逃逸路径 exit 2 且**一个字节都不写**(拒绝必�
     execFileSync(
       process.execPath,
       [TOOL, '../evidence-escape-should-not-exist.txt', '--', process.execPath, '-e', '0'],
-// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
       { encoding: 'utf8', windowsHide: true, timeout: 30_000, stdio: ['ignore', 'pipe', 'pipe'] },
     )
   } catch (e) {
@@ -627,4 +627,53 @@ test('T21 CLI 层正向对照:等值形态 --cwd= 必须真的换到那个目录
   rmSync(file, { force: true })
   assert.ok(txt.includes(target), '被包装命令必须跑在指定目录')
   assert.match(txt, /#EVIDENCE-CWD=/, '证据里必须留下 cwd 行,否则读侧无从知道跑在哪一面')
+})
+
+test('T22 CLI 层:--verify 一份根本不存在的证据 ⇒ exit 3(不得把"没有取证"读成"取证且成功")', () => {
+  const ghost = resolve(ROOT, '.ihui-agent', 'tmp', 'mirror-ghost-evidence.md')
+  rmSync(ghost, { force: true })
+  let status = 0
+  let out = ''
+  try {
+    out = execFileSync(process.execPath, [TOOL, '--verify', ghost], {
+      cwd: ROOT,
+      windowsHide: true,
+      encoding: 'utf8',
+      timeout: 120_000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+  } catch (e) {
+    status = e.status
+    out = `${e.stdout ?? ''}${e.stderr ?? ''}`
+  }
+  assert.equal(
+    status,
+    3,
+    `missing-file 必须落 INCOMPLETE(3),实得 ${status};输出:${out.slice(-200)}`,
+  )
+  assert.match(out, /INCOMPLETE\(missing-file\)/, '必须点名是"文件不存在",不得只给一个码')
+  // 反向对照:同一取法在真存在的成功件上必须仍是 0 —— 否则本条只是"verify 永远 3"。
+  const real = resolve(ROOT, '.ihui-agent', 'tmp', 'mirror-real-evidence.md')
+  rmSync(real, { force: true })
+  execFileSync(process.execPath, [TOOL, real, '--', process.execPath, '-e', 'process.exit(0)'], {
+    cwd: ROOT,
+    windowsHide: true,
+    encoding: 'utf8',
+    timeout: 120_000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  let okStatus = 0
+  try {
+    execFileSync(process.execPath, [TOOL, '--verify', real], {
+      cwd: ROOT,
+      windowsHide: true,
+      encoding: 'utf8',
+      timeout: 120_000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+  } catch (e) {
+    okStatus = e.status
+  }
+  rmSync(real, { force: true })
+  assert.equal(okStatus, 0, `真存在的成功证据必须仍 exit 0,实得 ${okStatus}`)
 })
