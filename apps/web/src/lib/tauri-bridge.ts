@@ -1484,6 +1484,38 @@ export async function checkinCaptureJwts(): Promise<CapturedTraeAccount[]> {
   return await invokeIpc<CapturedTraeAccount[]>('checkin_capture_jwts')
 }
 
+/** 本机捕获到的 Qoder 会话(与 Rust `CapturedQoderSession` 逐字段对齐,2026-10-10)。
+ *  token 从 `%APPDATA%` 下 `com.qoder[cn].app.*` 目录的 auth.v1.dat 解密
+ *  (v10 AES-GCM,密钥走 Local State + DPAPI,需同一 Windows 用户);
+ *  refreshToken 用于服务端自刷新;machine_* 字段组装引擎所需的
+ *  Cosy-* 风控头(录账时整体并入 device_map)。 */
+export interface CapturedQoderSession {
+  app_dir: string
+  /** "cn" | "intl" */
+  edition: string
+  uid: string
+  /** Qoder accessToken(录入时填进 jwt 字段;引擎按 Bearer 头使用) */
+  access_token: string
+  refreshToken: string
+  /** 客户端声明的过期(epoch 秒,缺失 0) */
+  expires_at: number
+  /** JWT payload exp(epoch 秒,缺失 0) */
+  jwt_exp: number
+  machine_id: string
+  machine_os: string
+  machine_hostname: string
+  version: string
+  machine_token: string
+  machine_code: string
+  machine_type: string
+}
+
+/** 从本机 Qoder 客户端捕获会话(解密 auth.v1.dat),多目录命中按 uid 去重。 */
+export async function checkinCaptureQoder(): Promise<CapturedQoderSession[]> {
+  requireTauri()
+  return await invokeIpc<CapturedQoderSession[]>('checkin_capture_qoder')
+}
+
 /** 十四层设备标识重置;includeMachineGuid=true 额外尝试注册表 MachineGuid(需 UAC);
  *  cleanBrowserCookies=true 额外清理 Chrome/Edge 中 TRAE 域 Cookie(浏览器运行中该层会失败并报告);
  *  deepReset=true 额外执行深度扩面层(TRAE webview Cookies 库本体/state.vscdb 身份凭据键/日志缓存/

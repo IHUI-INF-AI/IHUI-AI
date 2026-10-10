@@ -73,6 +73,7 @@ import { useTauriIpcReady } from '@/hooks/use-desktop'
 import {
   checkinAuditTraeResidual,
   checkinCaptureJwts,
+  checkinCaptureQoder,
   checkinDetectTraeDir,
   checkinGetPublicIp,
   checkinOneClickReset,
@@ -81,6 +82,7 @@ import {
   checkinSnapshotDelete,
   checkinSnapshotList,
   checkinSnapshotRestore,
+  type CapturedQoderSession,
   type CapturedTraeAccount,
   type CheckinResidualAuditReport,
   type CheckinSnapshotSummary,
@@ -145,6 +147,17 @@ export default function CheckinPage() {
   const [captureError, setCaptureError] = React.useState<string | null>(null)
   const [importing, setImporting] = React.useState(false)
   const [traeDir, setTraeDir] = React.useState<string | null>(null)
+
+  // Qoder 本机捕获(2026-10-10 平台化):复用 capturing/importing/captureError,
+  // 对话框与 TRAE 捕获互斥(同一时间只开一个)
+  const [qoderCaptureOpen, setQoderCaptureOpen] = React.useState(false)
+  const [qoderCaptured, setQoderCaptured] = React.useState<CapturedQoderSession[]>([])
+  const [qoderCapturedSelected, setQoderCapturedSelected] = React.useState<Set<string>>(new Set())
+
+  // 平台筛选(平台化,2026-10-10):'all' | 'trae' | 'qoder'
+  const [platformFilter, setPlatformFilter] = React.useState<'all' | 'trae' | 'qoder'>('all')
+  // 录入对话框的平台选择(默认 trae 与存量语义一致)
+  const [addPlatform, setAddPlatform] = React.useState<'trae' | 'qoder'>('trae')
 
   // 本机 TRAE 维护(设备重置 + 快照管理,桌面端专属)
   const [maintOpen, setMaintOpen] = React.useState(false)
@@ -309,6 +322,82 @@ export default function CheckinPage() {
       setCaptureError(failures.join('；'))
     } else {
       setCaptureOpen(false)
+      setBatchNotice(t('captureImported', { count: okCount }))
+      await loadAll()
+    }
+  }
+
+  // ================== Qoder 本机捕获(桌面端专属,2026-10-10) ==================
+
+  // qoder 会话去重键(uid 空时退回 app_dir)
+  const qoderKey = (s: CapturedQoderSession) => s.uid || s.app_dir
+
+  // 会话 → 录入 device_map(Qoder 引擎契约:refresh_token / expires_at / cosy 风控头)
+  const qoderDeviceMap = (s: CapturedQoderSession): Record<string, unknown> => {
+    const dm: Record<string, unknown> = {}
+    if (s.refreshToken) dm.refresh_token = s.refreshToken
+    if (s.expires_at > 0) dm.expires_at = s.expires_at
+    const cosy: Record<string, string> = { client_type: '10' }
+    if (s.machine_id) cosy.machine_id = s.machine_id
+    if (s.machine_os) cosy.machine_os = s.machine_os
+    if (s.machine_hostname) cosy.machine_hostname = s.machine_hostname
+    if (s.machine_token) cosy.machine_token = s.machine_token
+    if (s.machine_code) cosy.machine_code = s.machine_code
+    if (s.machine_type) cosy.machine_type = s.machine_type
+    if (s.version) cosy.version = s.version
+    dm.cosy = cosy
+    return dm
+  }
+
+  const openQoderCapture = () => {
+    setQoderCaptureOpen(true)
+    setCaptureError(null)
+    setQoderCaptured([])
+    setQoderCapturedSelected(new Set())
+  }
+
+  const runQoderCapture = async () => {
+    setCapturing(true)
+    setCaptureError(null)
+    try {
+      const found = await checkinCaptureQoder()
+      setQoderCaptured(found)
+      setQoderCapturedSelected(new Set(found.map(qoderKey)))
+      if (found.length === 0) setCaptureError(t('captureQoderEmpty'))
+    } catch (e) {
+      setCaptureError((e as Error).message)
+    } finally {
+      setCapturing(false)
+    }
+  }
+
+  // 逐个入库:platform='qoder',jwt 字段=accessToken,refresh_token 进 device_map
+  const importQoderCaptured = async () => {
+    const picked = qoderCaptured.filter((s) => qoderCapturedSelected.has(qoderKey(s)))
+    if (picked.length === 0) return
+    setImporting(true)
+    setCaptureError(null)
+    let okCount = 0
+    const failures: string[] = []
+    for (const item of picked) {
+      try {
+        await createCheckinAccount({
+          name: `Qoder-${item.edition}-${item.uid || '本机'}`,
+          jwt: item.access_token,
+          device_map: qoderDeviceMap(item),
+          group: groupFilter !== 'all' ? groupFilter : '',
+          platform: 'qoder',
+        })
+        okCount += 1
+      } catch (e) {
+        failures.push(`${item.uid || item.app_dir}: ${(e as Error).message}`)
+      }
+    }
+    setImporting(false)
+    if (failures.length > 0) {
+      setCaptureError(failures.join('；'))
+    } else {
+      setQoderCaptureOpen(false)
       setBatchNotice(t('captureImported', { count: okCount }))
       await loadAll()
     }
@@ -554,6 +643,7 @@ export default function CheckinPage() {
         jwt: trimmedJwt,
         device_map: deviceMap,
         group: groupText.trim(),
+        platform: addPlatform,
       })
       setAddOpen(false)
       setName('')
@@ -824,10 +914,12 @@ export default function CheckinPage() {
   )
   const visibleAccounts = React.useMemo(
     () =>
-      groupFilter === 'all'
-        ? accounts
-        : accounts.filter((a) => (a.group ?? '') === groupFilter),
-    [accounts, groupFilter],
+      accounts.filter(
+        (a) =>
+          (groupFilter === 'all' ? true : (a.group ?? '') === groupFilter) &&
+          (platformFilter === 'all' ? true : (a.platform ?? 'trae') === platformFilter),
+      ),
+    [accounts, groupFilter, platformFilter],
   )
 
   // 勾选辅助:单行勾选 + 表头全选当前列表(配合分组筛选 = 按组签)
@@ -879,6 +971,19 @@ export default function CheckinPage() {
   // 是否有三线快照数据(任一日 total 非空即启用三线图,否则降级本地累计)
   const hasDailySeries =
     !!creditsDaily && creditsDaily.series.total.some((v) => v !== null)
+
+  // 平台徽章(品牌名不进 i18n):qoder 紫 / trae 橙,与分组徽章同形态
+  const renderPlatformBadge = (platform: string | undefined) => (
+    <span
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+        platform === 'qoder'
+          ? 'border-purple-500/40 bg-purple-500/10 text-purple-600'
+          : 'border-orange-500/40 bg-orange-500/10 text-orange-600'
+      }`}
+    >
+      {platform === 'qoder' ? 'Qoder' : 'TRAE'}
+    </span>
+  )
 
   const renderGroupBadge = (group: string) =>
     group ? (
@@ -964,6 +1069,10 @@ export default function CheckinPage() {
                 <Laptop className="mr-1 h-4 w-4" />
                 {t('captureTitle')}
               </Button>
+              <Button variant="outline" size="sm" onClick={openQoderCapture}>
+                <Laptop className="mr-1 h-4 w-4" />
+                {t('captureQoderButton')}
+              </Button>
               <Button variant="outline" size="sm" onClick={() => void openMaint()}>
                 <Wrench className="mr-1 h-4 w-4" />
                 {t('maintTitle')}
@@ -1012,9 +1121,20 @@ export default function CheckinPage() {
             </div>
           ) : (
             <>
-              {/* 分组筛选(有分组才显示) */}
-              {distinctGroups.length > 0 && (
-                <div className="mb-3">
+              {/* 平台筛选(恒显)+ 分组筛选(有分组才显示) */}
+              <div className="mb-3 flex items-center gap-2">
+                <select
+                  data-testid="platform-filter"
+                  aria-label={t('platformAll')}
+                  value={platformFilter}
+                  onChange={(e) => setPlatformFilter(e.target.value as 'all' | 'trae' | 'qoder')}
+                  className="h-8 rounded-sm border bg-background px-2 text-xs"
+                >
+                  <option value="all">{t('platformAll')}</option>
+                  <option value="trae">{t('platformTrae')}</option>
+                  <option value="qoder">{t('platformQoder')}</option>
+                </select>
+                {distinctGroups.length > 0 && (
                   <select
                     data-testid="group-filter"
                     aria-label={t('filterGroupAll')}
@@ -1030,8 +1150,8 @@ export default function CheckinPage() {
                     ))}
                     <option value="">{t('groupUngrouped')}</option>
                   </select>
-                </div>
-              )}
+                )}
+              </div>
               <div className="rounded-xl border">
               <Table>
                 <TableHeader>
@@ -1067,6 +1187,7 @@ export default function CheckinPage() {
                       <TableCell>
                         <div className="font-medium">{account.name}</div>
                         <div className="mt-1 flex flex-wrap items-center gap-1">
+                          {renderPlatformBadge(account.platform)}
                           {renderGroupBadge(account.group)}
                           {renderJwtBadge(account.jwt_exp)}
                           {renderCooldownBadge(account.cooldown_until)}
@@ -1406,6 +1527,19 @@ export default function CheckinPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
+              <Label htmlFor="checkin-platform">{t('platformLabel')}</Label>
+              <select
+                id="checkin-platform"
+                data-testid="platform-select"
+                value={addPlatform}
+                onChange={(e) => setAddPlatform(e.target.value as 'trae' | 'qoder')}
+                className="h-9 w-full rounded-sm border bg-background px-2 text-sm"
+              >
+                <option value="trae">{t('platformTrae')}</option>
+                <option value="qoder">{t('platformQoder')}</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
               <Label htmlFor="checkin-name">{t('name')}</Label>
               <Input
                 id="checkin-name"
@@ -1616,6 +1750,71 @@ export default function CheckinPage() {
               >
                 {importing && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
                 {t('captureImport', { count: capturedSelected.size })}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* 本机 Qoder 捕获对话框(桌面端专属,2026-10-10 平台化) */}
+      {desktop && (
+        <Dialog open={qoderCaptureOpen} onOpenChange={setQoderCaptureOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('captureQoderTitle')}</DialogTitle>
+              <DialogDescription>{t('captureQoderDescription')}</DialogDescription>
+            </DialogHeader>
+            {captureError && (
+              <p role="alert" className="text-sm text-destructive">
+                {captureError}
+              </p>
+            )}
+            {qoderCaptured.length > 0 && (
+              <div className="max-h-60 space-y-2 overflow-y-auto">
+                {qoderCaptured.map((item) => {
+                  const key = qoderKey(item)
+                  return (
+                    <label key={key} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        aria-label={`captureQoderAccount:${key}`}
+                        checked={qoderCapturedSelected.has(key)}
+                        onChange={(e) => {
+                          setQoderCapturedSelected((prev) => {
+                            const next = new Set(prev)
+                            if (e.target.checked) next.add(key)
+                            else next.delete(key)
+                            return next
+                          })
+                        }}
+                      />
+                      <span className="font-mono">{item.uid || '本机会话'}</span>
+                      <span className="truncate text-xs text-muted-foreground">
+                        {item.edition}
+                        {item.version ? ` · v${item.version}` : ''}
+                        {item.machine_id ? ` · ${item.machine_id}` : ''}
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" size="sm" disabled={capturing} onClick={() => void runQoderCapture()}>
+                {capturing ? (
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-1 h-4 w-4" />
+                )}
+                {t('captureQoderScan')}
+              </Button>
+              <Button
+                size="sm"
+                disabled={capturing || importing || qoderCapturedSelected.size === 0}
+                onClick={() => void importQoderCaptured()}
+              >
+                {importing && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                {t('captureImport', { count: qoderCapturedSelected.size })}
               </Button>
             </DialogFooter>
           </DialogContent>
