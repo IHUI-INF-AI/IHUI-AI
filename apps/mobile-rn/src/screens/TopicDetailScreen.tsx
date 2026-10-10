@@ -36,6 +36,7 @@ import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
+import { NavChrome } from '../components/NavChrome'
 
 type Route = RouteProp<RootStackParamList, 'TopicDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -229,7 +230,9 @@ export function TopicDetailScreen() {
 
   return (
     <View style={styles.container}>
-      <NavBar title={t('topic.detail.pageTitle')} onBack={() => navigation.goBack()} />
+      <NavChrome>
+        <NavBar title={t('topic.detail.pageTitle')} onBack={() => navigation.goBack()} />
+      </NavChrome>
       {topic.name ? (
         <View style={styles.header}>
           <View style={styles.headerInfo}>

@@ -166,6 +166,7 @@ import {
   type TerminalTaskItem,
   type ToolCallItem,
 } from '../utils/chat-render-model'
+import { NavChrome } from '../components/NavChrome'
 
 /**
  * 操控本端界面的工具族闸门(2026-09-21 立,agent-control RN 侧)。
@@ -1900,11 +1901,13 @@ export default function AiAssistantN8nScreen() {
 
   return (
     <View style={styles.root}>
-      <NavBar
-        title={navTitle}
-        onBack={() => navigation.goBack()}
-        rightActions={[{ icon: '≡', label: '', onPress: () => setDrawerVisible(true) }]}
-      />
+      <NavChrome>
+        <NavBar
+          title={navTitle}
+          onBack={() => navigation.goBack()}
+          rightActions={[{ icon: '≡', label: '', onPress: () => setDrawerVisible(true) }]}
+        />
+      </NavChrome>
       {/* 智汇值卡(对齐 Uniapp ai_assistant_n8n.vue 顶部 intelligent-assistant:
           小方欢迎卡 + 剩余智汇值 + 充值;余额接 getTokenBalance,加载失败保持 0,充值入口可用) */}
       <View style={styles.valueCardWrap}>
