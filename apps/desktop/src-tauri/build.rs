@@ -66,6 +66,10 @@ fn main() {
             "checkin_snapshot_restore",
             "checkin_snapshot_list",
             "checkin_snapshot_delete",
+            "workbuddy_reset_probe",
+            "workbuddy_reset_maintenance",
+            "workbuddy_reset_logout",
+            "workbuddy_reset_factory",
         ])),
     )
     .expect("failed to run tauri-build");

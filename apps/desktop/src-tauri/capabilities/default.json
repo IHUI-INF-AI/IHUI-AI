@@ -93,6 +93,10 @@
     "allow-checkin-snapshot-backup",
     "allow-checkin-snapshot-restore",
     "allow-checkin-snapshot-list",
-    "allow-checkin-snapshot-delete"
+    "allow-checkin-snapshot-delete",
+    "allow-workbuddy-reset-probe",
+    "allow-workbuddy-reset-maintenance",
+    "allow-workbuddy-reset-logout",
+    "allow-workbuddy-reset-factory"
   ]
 }
