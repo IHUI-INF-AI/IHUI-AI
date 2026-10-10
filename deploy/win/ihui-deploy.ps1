@@ -82,8 +82,16 @@ $CleanBuildEnabled = ($env:IHUI_DEPLOY_CLEAN_BUILD -ne '0')
 # (重装服务 / nssm 配置回滚 / 换机 / 别人照抄旧配置),它就自动在仓库里长出一个 3.4 GB 的净面,
 # 且该目录被 .gitignore 吞掉 ⇒ 用户在仓库里"又看到一个 clean build",而配环境变量那一步只治了
 # 有环境变量的那台机器。改成仓外专用根后,回落也回不到仓库里 —— 这才是根因那一半。
-# 硬编码 D:\DevEnv\... 与本文件既有风格一致($BackupDir = 'D:\DevEnv\backups\deploy')。
-$CleanBuildRootDefault = 'D:\DevEnv\Temp\ihui-deploy-build'
+# 再搬一层、搬出 TEMP 根(同日第二处根治):第一处把它放到了 D:\DevEnv\Temp\ihui-deploy-build,
+# 而 `D:\DevEnv\Temp` 正是**本机的系统 TEMP 根**(HKCU TEMP 现读值,scripts/build-next-prod.ps1:51
+# 与 scripts/check-temp-landing.mjs:10 两处独立确认)。净面是 3~6 GB 的**长期**构建缓存、跨部署轮次
+# 复用(每轮只 `checkout --detach --force`,不重装依赖),把它放在一个"契约就是用来被清空"的目录里,
+# 等于把长期状态寄放在临时区 —— 宿主清理层一旦扫到就整目录删掉,下一轮部署再原样重建
+# (本仓 §5b 已记"实测本机 .git 与工作区目录都曾被啃"),用户看到的正是"这目录怎么又出现了"。
+# 现落在 D:\DevEnv\ihui-deploy-build:与 $BackupDir('D:\DevEnv\backups\deploy')同属 D:\DevEnv\ 这一
+# **非临时**根,清理脚本(c-drive-auto-maintain.ps1 只扫 C 盘产物、盘根与若干具名目录)够不着它。
+# 硬编码 D:\DevEnv\... 与本文件既有风格一致($BackupDir 即在此根下)。
+$CleanBuildRootDefault = 'D:\DevEnv\ihui-deploy-build'
 $CleanBuildWt = if ($env:IHUI_DEPLOY_CLEAN_WT) { $env:IHUI_DEPLOY_CLEAN_WT } else { "$CleanBuildRootDefault\clean-build-wt" }
 # 净面的一切 git 调用都必须带这一串:服务身份是 **SYSTEM**,而净面目录由交互账户创建,
 # git 会判"dubious ownership"直接 exit 128(2026-09-29 17:38:56 实测,`[clean-out] fatal:
