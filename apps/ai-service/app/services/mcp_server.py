@@ -5696,10 +5696,10 @@ async def _image_generate_once(
     elif provider == "agnes":
         cfg = settings.get_provider_config("agnes")
         api_key = cfg.api_key
-        api_base = cfg.api_base or "https://apihub.agnes-ai.com/v1"
+        api_base = cfg.api_base or "https://api.agnes-ai.cn/v1"
         # 2026-09-20 修复:原硬编码 "agnes-image-v1" 是无效模型 ID,agnes 生图必失败。
         # Agnes 实际生图模型(/v1/models 实测): agnes-image-2.5-flash(最新,默认,
-        # 已实测出图)/ agnes-image-2.1-flash / agnes-image-2.0-flash;
+        # 已实测出图)/ agnes-image-2.1-flash(2026-10-10:2.0-flash 已下架);
         # 支持 arguments.model 覆盖 + AGNES_IMAGE_MODEL env 配置
         model = (
             str(arguments.get("model") or "").strip()

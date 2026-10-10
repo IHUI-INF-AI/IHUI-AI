@@ -248,16 +248,17 @@ _REGISTRY: list[FreeProvider] = [
         signup_url="https://agnes-ai.com",
         free_quota="plan 套餐(已配置)",
         rate_limit="无限制(plan 套餐)",
-        default_base_url="https://apihub.agnes-ai.com/v1",
+        # 2026-10-10:境外 apihub.agnes-ai.com 不可达,切国内域名(A/B 实测 200/401)
+        default_base_url="https://api.agnes-ai.cn/v1",
         key_env_vars=["AGNES_API_KEY"],
         # 2026-08-02 修复:agnes 是自有模型平台(非 OpenAI 中转),
         # /v1/models 实测支持 agnes-2.5-flash / agnes-2.5-pro 等(不支持 gpt-4o / step-3.7-flash)
         # 2026-09-20 补充:追加生图模型(OpenAI images 协议 /v1/images/generations)
         # 2026-09-20 实测:agnes-image-2.5-flash 已成功出图(data[0].url)
+        # 2026-10-10 对齐 /v1/models 现存清单:agnes-image-2.0-flash 已下架(上游 503 model_not_found),移除
         default_models=[
             "agnes/agnes-2.5-flash", "agnes/agnes-2.5-pro",
             "agnes/agnes-image-2.5-flash", "agnes/agnes-image-2.1-flash",
-            "agnes/agnes-image-2.0-flash",
         ],
         docs_url="https://agnes-ai.com/docs",
         notes="项目已配置 plan 套餐 key,自有模型平台,支持 agnes-2.5-flash / agnes-2.5-pro",
