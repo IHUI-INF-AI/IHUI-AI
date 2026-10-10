@@ -12994,15 +12994,15 @@
       "scopeModels": "模型列表",
       "scopeEmbeddings": "向量",
       "scopeImages": "图片生成",
-    "recharge": "充值",
-    "rechargeTitle": "充值 {name}",
-    "walletBalance": "钱包余额",
-    "rechargeAmountLabel": "金额(元)",
-    "rechargeAmountPlaceholder": "例如 10.00",
-    "rechargeHint": "款项从钱包划转至该 API Key 余额,调用按量扣费。",
-    "rechargeOk": "充值成功",
-    "rechargeInvalid": "请输入正数金额",
-    "rechargeConfirm": "确认充值",
+      "recharge": "充值",
+      "rechargeTitle": "充值 {name}",
+      "walletBalance": "钱包余额",
+      "rechargeAmountLabel": "金额(元)",
+      "rechargeAmountPlaceholder": "例如 10.00",
+      "rechargeHint": "款项从钱包划转至该 API Key 余额,调用按量扣费。",
+      "rechargeOk": "充值成功",
+      "rechargeInvalid": "请输入正数金额",
+      "rechargeConfirm": "确认充值",
       "scopeAudio": "语音",
       "scopeVideos": "视频生成",
       "unlimitedQuota": "无限额度",
@@ -27934,5 +27934,3 @@
     "incidentsUnavailable": "最近 30 天的事件数据暂时取不到"
   }
 }
-
-
