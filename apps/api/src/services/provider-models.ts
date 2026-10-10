@@ -29,7 +29,7 @@ const PROVIDER_CONFIG: Record<string, { apiBase: string; apiKeyEnv: string }> = 
     apiKeyEnv: 'STEPFUN_API_KEY',
   },
   agnes: {
-    apiBase: process.env.AGNES_API_BASE || 'https://apihub.agnes-ai.com/v1',
+    apiBase: process.env.AGNES_API_BASE || 'https://api.agnes-ai.cn/v1',
     apiKeyEnv: 'AGNES_API_KEY',
   },
   groq: { apiBase: 'https://api.groq.com/openai/v1', apiKeyEnv: 'GROQ_API_KEY' },
