@@ -205,7 +205,11 @@ beforeEach(() => {
   verifyAccessToken.mockImplementation(async (token: string) => {
     // 真实 jose 对非 JWT 串(如 `ihui_` 形态的 API Key)必然验签失败 —— 桩必须复刻这点,
     // 否则"表外路由带 key 仍被拒"的断言会被假绿掩盖。
-    if (token === 'bad' || token.startsWith('ihui_')) throw new Error('Invalid or expired token')
+    // 票 G-396 收紧后,"没验成"(无名异常)与"验了但确实无效"分道:这里复刻的是 jose 的
+    // ERR_JWS_INVALID(真无效),而不是一个无身份标识的异常 —— 后者在生产里代表驱动/依赖故障。
+    if (token === 'bad' || token.startsWith('ihui_')) {
+      throw Object.assign(new Error('Invalid or expired token'), { code: 'ERR_JWS_INVALID' })
+    }
     return { userId: 'human-1', phone: '', familyId: 'f1', roleId: 0 }
   })
   decodeJwt.mockReturnValue({ type: 'access' })

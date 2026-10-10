@@ -15,6 +15,7 @@ import { decodeJwt } from 'jose'
 import { verifyAccessToken, type JWTPayload } from '@ihui/auth'
 import type { AuthenticatedApiKey } from '@ihui/types'
 import { config } from '../config/index.js'
+import { AppError } from '../errors/AppError.js'
 import { getUserStatus } from '../db/usercenter-queries.js'
 import { error } from '../utils/response.js'
 import { hasApiKeyCredential } from '../utils/capability-guard.js'
@@ -70,12 +71,36 @@ export async function authenticate(request: FastifyRequest): Promise<JWTPayload>
     // catch 因此一次性安全,不必逐处打补丁。
     if (typeof err.statusCode !== 'number') {
       request.log.error({ err }, 'authenticate 内部异常(已脱敏为通用鉴权失败)')
-      const safe = new Error('操作失败,请稍后重试') as Error & { statusCode: number }
-      safe.statusCode = 401
-      throw safe
+      // 机主拍板 2026-10-07(票 G-396 / G-765 / G-357):"没查明原因"不是会话死亡。
+      // 这里此前盖 401,而全仓约百处 `(e).statusCode ?? 401` 的双通道 catch 于是把 DB /
+      // 依赖服务故障一路读成"你要重新登录"。改 502 + 独立 errorCode 之后,那些兜底点不必
+      // 逐处打补丁就各自落到正确状态码;带显式 statusCode 的鉴权结论(401/403)仍原样抛。
+      throw new AppError('操作失败,请稍后重试', 502, 'AUTH_BACKEND_UNAVAILABLE')
     }
     throw err
   }
+}
+
+/**
+ * jose 抛出的"签名 / 过期 / claim"类错误 code。这些是真鉴权结论,收紧之后仍必须走 401 ——
+ * 否则真过期的 token 会变成 502,用户永远等不到"请重新登录"那一屏(比原缺陷更坏)。
+ */
+const JOSE_SESSION_CODES = new Set([
+  'ERR_JWT_EXPIRED',
+  'ERR_JWT_INVALID',
+  'ERR_JWT_CLAIM_INVALID',
+  'ERR_JWS_INVALID',
+  'ERR_JWS_VERIFICATION_FAILED',
+  'ERR_JWS_SIGNATURE_VERIFICATION_FAILED',
+  'ERR_JWS_SIGNATURE_INVALID',
+])
+
+/** 归一为面向人的 401 结论:自带 statusCode 的原样抛(文案逐字不变),jose 抛的换通用文案。 */
+function asSessionRejection(inner: Error & { statusCode?: number }): Error & { statusCode: number } {
+  if (typeof inner.statusCode === 'number') return inner as Error & { statusCode: number }
+  const err = new Error('Invalid or expired token') as Error & { statusCode: number }
+  err.statusCode = 401
+  return err
 }
 
 async function authenticateInner(request: FastifyRequest): Promise<JWTPayload> {
@@ -127,10 +152,19 @@ async function authenticateInner(request: FastifyRequest): Promise<JWTPayload> {
   let payload: JWTPayload
   try {
     payload = await verifyAccessToken(token)
-  } catch {
-    const err = new Error('Invalid or expired token')
-    ;(err as Error & { statusCode: number }).statusCode = 401
-    throw err
+  } catch (e) {
+    // 机主拍板 2026-10-07(票 G-396 / G-765 / G-357):"没验成"与"验了但确实失效"必须分离。
+    // 这里此前对所有抛出统一盖 401「Invalid or expired token」,于是驱动 / 依赖 / 配置故障
+    // 会被端上读成"你要重新登录"(而真实原因是服务端)。分离口径三条:
+    //   ① 带显式 statusCode 的是 verifyAccessToken 自己给的鉴权结论 ⇒ 原样抛(行为逐字不变);
+    //   ② jose 的签名/过期/claim 类 code 也是鉴权结论 ⇒ 仍 401,收紧不得把真会话失效改掉;
+    //   ③ 其余(无名异常)⇒ 502 + 独立 errorCode,原文只进日志,不进响应体。
+    const inner = e as Error & { statusCode?: number; code?: string }
+    if (typeof inner.statusCode === 'number' || JOSE_SESSION_CODES.has(inner.code ?? '')) {
+      throw asSessionRejection(inner)
+    }
+    request.log.error({ err: e }, 'verifyAccessToken 异常(非鉴权结论,已脱敏为 502)')
+    throw new AppError('操作失败,请稍后重试', 502, 'AUTH_BACKEND_UNAVAILABLE')
   }
 
   // 2FA 安全加固(Wave 10, 2026-07-22):拒绝 challenge token 用作普通 access token。
@@ -150,7 +184,14 @@ async function authenticateInner(request: FastifyRequest): Promise<JWTPayload> {
   // 封禁(status=0)/注销(status=3)用户在 access token 15 分钟有效期内仍可调用全部业务接口。
   // 现在:验签后查一次用户状态(主键索引查询,毫秒级),封禁 403 / 注销 401 / 不存在 401。
   // 内部系统凭证路径不受影响(不走本函数,见 internal-service-token 中间件)。
-  const userStatus = await getUserStatus(payload.userId)
+  let userStatus: number | undefined
+  try {
+    userStatus = await getUserStatus(payload.userId)
+  } catch (e) {
+    // 同 verifyAccessToken 那一条:查状态失败是"没查成",不是账号语义结论。
+    request.log.error({ err: e }, 'authenticate 查用户状态失败(已脱敏为 502)')
+    throw new AppError('操作失败,请稍后重试', 502, 'ACCOUNT_STATE_CHECK_FAILED')
+  }
   if (userStatus === undefined) {
     const err = new Error('用户不存在')
     ;(err as Error & { statusCode: number }).statusCode = 401
@@ -276,7 +317,16 @@ export async function requireActiveUser(request: FastifyRequest): Promise<void> 
     ;(err as Error & { statusCode: number }).statusCode = 401
     throw err
   }
-  const status = await getUserStatus(userId)
+  let status: number | undefined
+  try {
+    status = await getUserStatus(userId)
+  } catch (e) {
+    // 同 authenticate 的那一条:查状态失败(DB / 驱动 / 依赖)不是"账号语义结论"。
+    // 让它原样上抛会被约百处 `statusCode ?? 401` 的兜底 catch 读成会话死亡,
+    // 所以在这里就地标成 502 + 独立 errorCode(原文只进日志,不进响应体)。
+    request.log.error({ err: e }, 'requireActiveUser 查用户状态失败(已脱敏为 502)')
+    throw new AppError('操作失败,请稍后重试', 502, 'ACCOUNT_STATE_CHECK_FAILED')
+  }
   if (status === undefined) {
     const err = new Error('User not found')
     ;(err as Error & { statusCode: number }).statusCode = 401
