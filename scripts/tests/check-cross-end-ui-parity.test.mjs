@@ -515,11 +515,15 @@ test('T21 RE 射程边界必须报名且不得进退出码(覆盖面不是违规
 test('T22 圆角按元素归属的解析只许一份实现(遮罩/豁免在别处再写一遍必然漂移)', () => {
   const gate = readFileSync(SELF, 'utf8')
   // 锁按归一化文本比:长 import 会被 prettier 折成多行,而这条锁在乎的是"从共享 lib 引"这一事实。
-  const radiusImport = (/import \{([^}]*)\} from '\.\/lib\/radius-tokens\.mjs'/).exec(flat(gate))
-  assert.ok(radiusImport, '门不再从 radius-tokens 引实现 ⇒ 圆角解析退回各写一套')
+  // 取该模块**全部** import 语句的说明符并集(2026-10-11):符号分两条语句写是合法书写,
+  // 只取第一条会把"另起一行导"读成"不再由 lib 供给"⇒ 形状锁必须钉不变量,不能钉语句条数。
+  const specifiers = [...flat(gate).matchAll(/import \{([^}]*)\} from '\.\/lib\/radius-tokens\.mjs'/g)]
+    .map((m) => m[1])
+    .join(',')
+  assert.ok(specifiers.length > 0, '门不再从 radius-tokens 引实现 ⇒ 圆角解析退回各写一套')
   for (const sym of ['radiusEntriesOf', 'radiusSetOf', 'bareRoundedOccurrences'])
     assert.ok(
-      new RegExp(`\\b${sym}\\b`).test(radiusImport[1]),
+      new RegExp(`\\b${sym}\\b`).test(specifiers),
       `${sym} 不再由 lib 供给 ⇒ 同一处写法一边认一边漏(裸档识别尤其如此)`,
     )
   assert.ok(
