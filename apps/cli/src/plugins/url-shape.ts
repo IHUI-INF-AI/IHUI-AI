@@ -101,7 +101,6 @@ function previewOf(value: unknown): string {
   const raw = typeof value === 'string' ? value : String(value);
   const stripped = raw
     .replace(/\/\/[^/@\s]*@/, '//***@')
-    // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u001f\u007f]/g, '?');
   return stripped.length > 80 ? `${stripped.slice(0, 80)}…` : stripped;
 }
@@ -224,7 +223,6 @@ export function evaluateGitRef(raw: unknown): GitRefVerdict {
   if (typeof raw !== 'string') return { ok: false, reasonCode: 'refNotString', detail: previewOf(raw) };
   if (raw.length === 0) return { ok: true, present: false };
   if (raw.startsWith('-')) return { ok: false, reasonCode: 'refLeadingDash', detail: previewOf(raw) };
-  // eslint-disable-next-line no-control-regex
   if (/[\u0000-\u001f\u007f\s]/.test(raw)) return { ok: false, reasonCode: 'refControlChar', detail: previewOf(raw) };
   return { ok: true, present: true };
 }
