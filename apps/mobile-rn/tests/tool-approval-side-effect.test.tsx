@@ -43,7 +43,9 @@ vi.mock('react-native', async (importOriginal) => {
   const { createElement: ce } = await import('react')
   const Modal = (props: Record<string, unknown>) => {
     h.modal = props
-    return props.visible === true ? ce('div', { 'data-modal-open': '1' }, props.children as ReactNode) : null
+    return props.visible === true
+      ? ce('div', { 'data-modal-open': '1' }, props.children as ReactNode)
+      : null
   }
   return { ...(mod as Record<string, unknown>), Modal }
 })
@@ -154,6 +156,67 @@ describe('D136 ⑥ 副作用:拒绝 ⇒ 高危工具执行桩零调用(不只看
     expect(h.executeTool).toHaveBeenCalledTimes(1)
     expect(h.executeTool).toHaveBeenCalledWith('session')
     expect(h.calls[0]).toMatchObject({ decision: 'approve', scope: 'session' })
+  })
+})
+
+// 批准这一档必须被"送到服务端"证成:上面那条只证 session 落得下去,这里逐名钉 once / always
+// 两档的 wire 载荷,并钉"批准只结自己那一条"——队列里另一条既不能被顺手标成已回答,
+// 也不能继承上一条的 always 授权(两条同时待决是 D136④ 那条"先后到达"没覆盖的形态)。
+describe('D136 ⑦ 正向对照:批准的 wire 形状(scope 逐档送达 + 只结自己那条)', () => {
+  it('不动档位直接批准:载荷 scope=once(最小特权显式送出,不留给后端缺省放大)', async () => {
+    const { send, tap } = mount()
+    send(event({ approvalId: 'ap-once' }))
+    tap(realText('toolApproval.approve'))
+    await act(async () => {})
+    expect(h.calls).toHaveLength(1)
+    expect(h.calls[0]).toMatchObject({
+      decision: 'approve',
+      scope: 'once',
+      approvalId: 'ap-once',
+      sessionId: 'sess-risk',
+    })
+    expect(h.executeTool).toHaveBeenCalledTimes(1)
+    expect(h.executeTool).toHaveBeenCalledWith('once')
+  })
+
+  it('选 always 后批准:载荷 scope=always(授权档真的回传到底,不是只换个高亮)', async () => {
+    const { send, tap } = mount()
+    send(event({ approvalId: 'ap-always', toolName: 'write_file' }))
+    tap(realText('toolApproval.scopeAlways'))
+    tap(realText('toolApproval.approve'))
+    await act(async () => {})
+    expect(h.calls).toHaveLength(1)
+    expect(h.calls[0]).toMatchObject({
+      decision: 'approve',
+      scope: 'always',
+      approvalId: 'ap-always',
+    })
+    expect(h.executeTool).toHaveBeenCalledTimes(1)
+    expect(h.executeTool).toHaveBeenCalledWith('always')
+  })
+
+  it('两条同时待决:批准第一条只送出第一条的决议,第二条仍待决且不继承 always', async () => {
+    const { send, tap, text } = mount()
+    send(event({ approvalId: 'ap-x', toolName: 'run_command' }))
+    send(event({ approvalId: 'ap-y', toolName: 'write_file' }))
+    tap(realText('toolApproval.scopeAlways'))
+    tap(realText('toolApproval.approve'))
+    await act(async () => {})
+
+    // 服务端此刻只收到一条决议,且 approvalId 是被批的那条
+    expect(h.calls).toHaveLength(1)
+    expect(h.calls[0]).toMatchObject({ approvalId: 'ap-x', decision: 'approve', scope: 'always' })
+    expect(h.executeTool).toHaveBeenCalledTimes(1)
+    // 已回答记录卡只点名 ap-x;ap-y 没被顺手结掉(它成为当前待决项,记录里没有它的"批准"行)
+    expect(text()).toContain(`run_command · ${realText('toolApproval.approve')}`)
+    expect(text()).not.toContain(`write_file · ${realText('toolApproval.approve')}`)
+    expect(text()).toContain('write_file')
+
+    tap(realText('toolApproval.approve'))
+    await act(async () => {})
+    expect(h.calls).toHaveLength(2)
+    expect(h.calls[1]).toMatchObject({ approvalId: 'ap-y', decision: 'approve', scope: 'once' })
+    expect(h.executeTool).toHaveBeenLastCalledWith('once')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
