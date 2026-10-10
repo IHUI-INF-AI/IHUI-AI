@@ -86,6 +86,13 @@ export function buildBypassRecord({
     batchSelfRun: false,
     selfRunOk: false,
     blockerBeforeBatch: null,
+    // G-1058649 态⑤ 那三键在 safe-commit 那一本里后来加上了。旁路留痕**结构上没有**这些事实
+    // (它不跑批、不做归因降级、也没有"哪一步环境性失败"),所以取"无从有"的字面值而不是省略键:
+    // 同一本台账只许有一种形状 —— 少写一键,统计器读到的就是两种 schema,而"哪一格没记"与
+    // "那一格为假"在 JSONL 上长得一模一样(与本仓"把没判写成判过了"同一条禁令)。
+    envStep: null,
+    envFingerprint: null,
+    downgradedFromMine: false,
   }
 }
 

@@ -1777,3 +1777,262 @@ test('G-383 最后一格·反向锁:对侧在分叉后真新写的行不得判�
     rmScratch(dir)
   }
 })
+
+/* ── G585-A…E:「并集防多」那一半的镜像覆盖(票 G-585 剩余的正是这一格)────────────────
+ * 票面写得很具体:`--resolve` 的零损失断言只判"两侧独有行不得减少"(防少),而人工最省事的
+ * `git merge-file --union` 语义是"两侧新增都保留" ⇒ 同一条被两个会话各登记一次的行会被造出
+ * **多余副本**(2026-09-28 实测 186 行)。实现侧已由别席入库(`excessAddedLines` /
+ * `capAddedDuplicates` / `--union-capped`,枚 2c05603424),本块按票面补的两条变异自证是:
+ *   ① 摘掉封顶(= 只走 `--resolve` 那一支)⇒ 多余副本断言必翻红  → G585-E 臂一
+ *   ② 封顶写成 min / 全局去重 ⇒ "两侧独有行不得减少"必翻红      → G585-A(语义面)+ G585-E 臂二
+ * 两条都做成**同夹具内的臂或对偶断言**,不靠人工改源码再还原 —— 恒绿的形状锁与"没跑过"的
+ * 自述在本仓是同一条禁令(§22c / 门 150 票㉛),所以每条 cond 都是已求值布尔。 */
+
+/** 界 = max(本侧重数, 对侧重数);夹具故意让"只在单侧出现的行"与"单侧合法持有 2 份的行"同时在场,
+ *  min 变异会掉前者,全局去重变异会掉后者的第二份 —— 两种改法在同一份输入上给出不同答案。 */
+const G585_BASE = '台账头\n'
+const G585_OURS = '台账头\n只有本侧的一行\n'
+const G585_THEIRS = '台账头\n对侧一行\n对侧一行\n'
+const G585_MERGED = '台账头\n只有本侧的一行\n对侧一行\n对侧一行\n对侧一行\n'
+
+test('G585-A 封顶的界是 max 不是 min/全局去重:单侧独有行一份不许少,另一侧合法 2 份也不许被压成 1', () => {
+  const ex = U.excessAddedLines(G585_BASE, G585_OURS, G585_THEIRS, G585_MERGED)
+  assert.deepEqual(
+    ex.map((e) => [e.line, e.have, e.bound, e.excess]),
+    [['对侧一行', 3, 2, 1]],
+    `只应点名"被造出更多份"的那一行(重数 3 对界 2),实际:${JSON.stringify(ex)}`,
+  )
+
+  const capped = U.capAddedDuplicates(G585_BASE, G585_OURS, G585_THEIRS, G585_MERGED)
+  const lines = capped.text.split('\n')
+  // 专杀 min:max(1,0)=1 保住它,min(1,0)=0 会让本侧独有行整条消失 ⇒ 这一条当场翻红
+  assert.equal(
+    lines.filter((l) => l === '只有本侧的一行').length,
+    1,
+    `封顶不得把"只在一侧出现过"的行压没(min 变异会在这里翻红):\n${capped.text}`,
+  )
+  // 专杀全局去重:界取 max(0,2)=2 ⇒ 对侧合法的两份都得留;写成"每行只留一份"会在这里翻红
+  assert.equal(
+    lines.filter((l) => l === '对侧一行').length,
+    2,
+    `对侧自己合法持有两份 ⇒ 封顶只能收到 2,不得去重成 1:\n${capped.text}`,
+  )
+  assert.equal(
+    capped.removed.length,
+    1,
+    `丢弃的必须恰好是超出界的那一份:${JSON.stringify(capped.removed)}`,
+  )
+  // 封顶之后这条判据必须不再报任何东西(否则出口没把内容收进界内)
+  assert.deepEqual(
+    U.excessAddedLines(G585_BASE, G585_OURS, G585_THEIRS, capped.text),
+    [],
+    `封顶后的内容仍被报多余副本 ⇒ 出口没生效:${JSON.stringify(U.excessAddedLines(G585_BASE, G585_OURS, G585_THEIRS, capped.text))}`,
+  )
+})
+
+test('G585-B 人工新写的一行(两侧都没有)不是"多余副本",封顶一律不碰', () => {
+  // 判据只管"同一行被造出更多份",不管"凭空多一行" —— 后者是另一条判据的事,本器不代裁。
+  // 实现里 `if (bound === 0) continue` 这一句一旦被删,合并注记/归并说明这类整行会被封顶吃掉,
+  // 而那正好把"防多"变成"丢内容"(与票面"不得为此放宽丢行断言"是同一条纪律的反方向)。
+  const merged = `${G585_MERGED}归并说明:两侧同改按人工裁决取改写形态\n`
+  assert.deepEqual(
+    U.excessAddedLines(G585_BASE, G585_OURS, G585_THEIRS, merged).map((e) => e.line),
+    ['对侧一行'],
+    '两侧都没有的那一行不得进多余副本桶',
+  )
+  const capped = U.capAddedDuplicates(G585_BASE, G585_OURS, G585_THEIRS, merged)
+  assert.ok(
+    capped.text.split('\n').includes('归并说明:两侧同改按人工裁决取改写形态'),
+    `封顶不得删人工新写的行:\n${capped.text}`,
+  )
+})
+
+test('G585-C 空行不参与封顶(与 lostAddedLines / liveDocExpectedCounts 同一条口径)', () => {
+  // 归档件里 `---` 与空行成百,把它们计进"多余副本"会让判据在真仓上一路喊红 ——
+  // 那等于把这条判据变成第二台恒红门,唯一结局是没人用它。
+  const ex = U.excessAddedLines('\n', '\n\n', '\n\n', '\n\n\n\n')
+  assert.deepEqual(ex, [], `空行不得算多余副本:${JSON.stringify(ex)}`)
+  const capped = U.capAddedDuplicates('b\n', 'b\nx\n', 'b\nx\n', 'b\nx\nx\n\n\n')
+  assert.equal(
+    capped.text.split('\n').filter((l) => l.trim() === '').length,
+    'b\nx\nx\n\n\n'.split('\n').filter((l) => l.trim() === '').length,
+    `空行必须原样保留(本出口收的是同一行的多余份数,不是格式):\n${JSON.stringify(capped.text)}`,
+  )
+  assert.equal(capped.removed.length, 1, '只应收掉 x 的第三份')
+})
+
+test('G585-D 严格档只吃台账那一族:源码文件里的同形重复不判红(假阳比漏报更贵)', () => {
+  for (const doc of U.LIVE_DOCS) {
+    assert.equal(
+      U.isDupCapStrictPath(doc),
+      true,
+      `活文档必须在严格档里(否则"防多"对它整族失明):${doc}`,
+    )
+  }
+  assert.equal(U.isDupCapStrictPath('PROJECT_PLAN.md'), true)
+  assert.equal(
+    U.isDupCapStrictPath('.ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md'),
+    true,
+    '归档件同名族必须在射程内 —— 票面立因就是那份 186 行重复的归档件',
+  )
+  assert.equal(
+    U.isDupCapStrictPath('apps/api/src/routes/chat.ts'),
+    false,
+    '普通源码文件里"两侧各加了一行相同的闭合括号"是正当形态,判红就是逼人绕出口',
+  )
+  assert.equal(U.isDupCapStrictPath(undefined), false, '取不出路径一律不判,不得默认成严格档')
+})
+
+test('G585-E 端到端三臂(真临时仓):--resolve 必翻红 / --union-capped 封顶且零损失仍过 / 非严格档不判', () => {
+  // 载体刻意用**归档件**而不是 PROJECT_PLAN.md:活文档走"每行重数取 max"的行 union,结构上
+  // 不产生冲突 ⇒ 永远走不到人工回灌那一支;而票面立因(186 行多余副本)正是归档件 ——
+  // `isDupCapStrictPath` 比 LIVE_DOCS 宽出 `PROJECT_PLAN*.md` 那一族,就是为了覆盖这一格。
+  const DOC = '.ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md'
+  const { dir, run } = fixture()
+  try {
+    // 夹具目录在 `git checkout` 换到不含该文件的提交时会被 git 连带删空,所以每次写之前都要重建
+    // —— 只在开头 mkdir 一次会让第二臂 ENOENT(实测踩过)。
+    const writeDoc = (content) => {
+      mkdirSync(dirname(join(dir, DOC)), { recursive: true })
+      writeFileSync(join(dir, DOC), content, 'utf8')
+    }
+    run('checkout', '-q', '-b', 'ours-side')
+    writeDoc('台账头\n只有本侧的一行\n')
+    writeFileSync(join(dir, 'app.ts'), 'x\nA\nA\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'ours')
+    const ours = run('rev-parse', 'HEAD')
+
+    run('checkout', '-q', '-b', 'theirs-side', `${ours}~1`)
+    writeDoc('台账头\n对侧一行\n对侧一行\n')
+    writeFileSync(join(dir, 'app.ts'), 'x\nA\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'theirs')
+    const theirs = run('rev-parse', 'HEAD')
+    run('checkout', '-q', 'ours-side')
+
+    // 两侧都动了同一区域 ⇒ 真三方必冲突 ⇒ 只有人工回灌出口能走(夹具自证,不接受"其实没冲突")
+    const bare = U.plan(ours, theirs, dir)
+    assert.ok(
+      bare.needHuman.some((h) => h.path === DOC),
+      `夹具必须真造出冲突,否则后面两臂测的是空气:${JSON.stringify(bare.needHuman.map((h) => h.path))}`,
+    )
+    assert.ok(
+      bare.needHuman.some((h) => h.path === 'app.ts'),
+      '非活文档路径也必须冲突(臂三要判的是"同一形状在严格档外不红")',
+    )
+
+    const hand = join(dir, 'hand-content.md')
+    writeFileSync(hand, '台账头\n只有本侧的一行\n对侧一行\n对侧一行\n对侧一行\n', 'utf8')
+    const handApp = join(dir, 'hand-app.ts')
+    writeFileSync(handApp, 'x\nA\nA\nA\n', 'utf8')
+
+    // ── 臂一:不封顶(旧行为)⇒ 多余副本必须翻红,并给出 --union-capped 这条修复出口。
+    //    这一臂就是票面要的"摘掉封顶 ⇒ 断言必翻红":`else if (excess.length && isDupCapStrictPath)`
+    //    那一句一旦被删或把 strict 档改成 false,本臂立刻红。
+    const uncapped = U.plan(ours, theirs, dir, new Set(), new Map([[DOC, hand]]))
+    const redText = (uncapped.violations || []).join('\n')
+    assert.ok(
+      redText.includes('多余副本'),
+      `整份回灌造出 1 行多余副本而 violations 没点名 ⇒ 判据被摘线:${JSON.stringify(uncapped.violations)}\nneedHuman=${JSON.stringify(uncapped.needHuman.map((h) => h.path))}`,
+    )
+    assert.ok(
+      redText.includes('--union-capped'),
+      `判红必须同时给出可执行的修复出口(只判不修的门逼人绕工具):\n${redText}`,
+    )
+
+    // ── 臂二:封顶出口 ⇒ 同一份内容不再判红,且"两侧独有行不得减少"在封顶之后仍成立。
+    //    min / 全局去重两种写法都会让"只有本侧的一行"或"对侧合法的两份"少掉,
+    //    于是 bad 或下面的逐行计数当场翻红 —— 这就是票面第二条变异自证。
+    const capped = U.plan(
+      ours,
+      theirs,
+      dir,
+      new Set(),
+      new Map([[DOC, { file: hand, capped: true }]]),
+    )
+    assert.ok(
+      !(capped.violations || []).join('\n').includes('多余副本'),
+      `封顶后仍报多余副本 ⇒ 断言看的不是入库那一份:${JSON.stringify(capped.violations)}`,
+    )
+    assert.ok(
+      (capped.caps || []).some((c) => String(c.label).includes('封顶多余副本')),
+      `封顶必须当着落地点名(例外不得只活在内存里):${JSON.stringify(capped.caps)}`,
+    )
+    assert.ok(
+      capped.bad.every((b) => !String(b).includes(DOC)),
+      `封顶后的内容必须同时过"防少"断言 —— 该路径留下的任何一条红(min 变异会造出"丢本侧独有行")都在这里翻红:${JSON.stringify(capped.bad)}`,
+    )
+    assert.ok(
+      capped.bad.some((b) => String(b).includes('app.ts')),
+      '反向对照:未回灌的另一路径仍须判需人工(封顶出口不得顺手替别人裁决)',
+    )
+    const doc = U.show(capped.tree, DOC, dir)
+    assert.equal(doc.split('\n').filter((l) => l === '对侧一行').length, 2, `界取 max:\n${doc}`)
+    assert.ok(
+      doc.split('\n').includes('只有本侧的一行'),
+      `本侧独有行一份都不许少(min 变异在这一格翻红):\n${doc}`,
+    )
+
+    // ── 臂三:同样的"份数超过界"发生在非严格档路径 ⇒ 既不判红也不报名(假阳防线)。
+    const src = U.plan(
+      ours,
+      theirs,
+      dir,
+      new Set(),
+      new Map([
+        [DOC, { file: hand, capped: true }],
+        ['app.ts', handApp],
+      ]),
+    )
+    assert.ok(
+      !(src.violations || []).some((v) => String(v).includes('app.ts')),
+      `源码文件里的同形重复不得判红(它会把"两侧各加一行相同闭合括号"读成脏数据):${JSON.stringify(src.violations)}`,
+    )
+    assert.ok(
+      !(src.caps || []).some((c) => String(c.label).includes('app.ts')),
+      `非严格档路径也不得被封顶悄悄改内容:${JSON.stringify(src.caps)}`,
+    )
+    assert.equal(
+      U.show(src.tree, 'app.ts', dir),
+      'x\nA\nA\nA',
+      'app.ts 必须逐字节是人工交上来的那份(不封顶、不改写)',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('G585-F 形状锁:防少与防多两条断言必须跑在同一份 finalText 上', () => {
+  // 票面点名:"把 lostAddedLines 两条断言改跑在封顶后的 finalText 上"。这一句是整条出口的可信度所在:
+  // 先写完再封顶 ⇒ 被断言的内容与入库的内容不是同一份,账面两条断言都过而树里躺着没验的文本。
+  const src = readFileSync(new URL('../union-converge.mjs', import.meta.url), 'utf8')
+  const masked = maskComments(src)
+  const calls = [
+    ...masked.matchAll(
+      /lostAddedLines\(\s*baseText,\s*(oursText|theirsText),\s*(theirsText|oursText),\s*([A-Za-z_$][\w$]*)\s*\)/g,
+    ),
+  ]
+  assert.ok(calls.length >= 2, `人工回灌路径应同时有"本侧/对侧"两条断言,读到 ${calls.length} 条`)
+  for (const m of calls) {
+    if (m[3] === 'text') {
+      // 只允许"生成物延迟登记"那一支用未封顶的 text(它根本不进封顶出口);
+      // 判据是:同一作用域里存在 excessAddedLines/capAddedDuplicates ⇒ 必须落 finalText。
+      continue
+    }
+    assert.ok(
+      m[3] === 'finalText' || m[3] === 'mergedText' || m[3] === 'union',
+      `断言的取材量必须是被写进树的那一份,读到 ${m[3]}`,
+    )
+  }
+  assert.match(
+    masked,
+    /excess\.length\s*&&\s*capFirst/,
+    '封顶分支必须在位(摘掉它 = 回到票面"只判一半"的形态)',
+  )
+  assert.match(
+    masked,
+    /excess\.length\s*&&\s*isDupCapStrictPath/,
+    '严格档判红分支必须在位(摘掉它 = 防多这一半对台账又失明)',
+  )
+})

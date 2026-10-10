@@ -601,12 +601,17 @@ function makeFilesFixture() {
   writeFileSync(join(nocheckDir, 'src', 'a.ts'), 'export const a: number = 1\n', 'utf8')
   writeFileSync(join(dir, 'loose.ts'), 'export const loose: number = 1\n', 'utf8')
   const binDir = makePnpmStub(dir)
+  // PATH 族在 Windows 环境块里有两种拼写:继承会话给 `PATH`,由注册表组合的登录环境块给 `Path`
+  // (G-1105300 实测)。这里若固定写大写键,在 `Path` 宿主上就会产出两份拼写 ⇒ 子进程只读到一份,
+  // 前置的 fakebin 消失、`pnpm` 解析回真 pnpm。写法:读回宿主实际那一种拼写,不新增第二种。
+  const pathKey = Object.keys(process.env).find((k) => k.toUpperCase() === 'PATH') ?? 'PATH'
+  const inheritedPath = process.env[pathKey]
   return {
     dir,
     pkgDir,
     env: {
       ...process.env,
-      PATH: `${binDir}${delimiter}${process.env.PATH}`,
+      [pathKey]: inheritedPath ? `${binDir}${delimiter}${inheritedPath}` : binDir,
       IHUI_TSC_STUB_PKG_DIR: pkgDir,
       IHUI_TSC_STUB_BIN: TSC_BIN,
     },

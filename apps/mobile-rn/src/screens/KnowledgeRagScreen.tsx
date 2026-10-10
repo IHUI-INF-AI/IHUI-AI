@@ -8,7 +8,6 @@ import {
   FlatList,
   RefreshControl,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native'
@@ -31,7 +30,7 @@ import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { BackChevron } from '@ihui/rn-app'
+import { BackChevron, TextField } from '@ihui/rn-app'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -200,7 +199,11 @@ export function KnowledgeRagScreen() {
 
   const renderSearchBar = () => (
     <View className="flex-row items-center px-4 pb-3">
-      <TextInput
+      {/* G-978007:TextInput → 共享 TextField(聚焦墨档描边,亮纯黑/暗纯白);focusedStyle
+          对齐 LoginScreen 参照:聚焦 borderWidth 1→2 */}
+      <TextField
+        colorScheme={resolvedTheme}
+        focusedStyle={{ borderWidth: 2 }}
         value={query}
         onChangeText={setQuery}
         placeholder={t('common.searchPlaceholder')}

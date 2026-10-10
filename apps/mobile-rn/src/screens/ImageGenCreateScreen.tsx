@@ -4,7 +4,7 @@
 import { rnRadius } from '@ihui/design-tokens'
 
 import { useState } from 'react'
-import { Alert, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { Alert, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import * as FileSystem from 'expo-file-system'
@@ -15,7 +15,7 @@ import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { BackChevron } from '@ihui/rn-app'
+import { BackChevron, TextField } from '@ihui/rn-app'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -111,7 +111,11 @@ export function ImageGenCreateScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
-        <TextInput
+        {/* G-978007:TextInput → 共享 TextField(聚焦墨档描边,亮纯黑/暗纯白);focusedStyle
+            对齐 LoginScreen 参照:聚焦 borderWidth 1→2 */}
+        <TextField
+          colorScheme={resolvedTheme}
+          focusedStyle={{ borderWidth: 2 }}
           value={prompt}
           onChangeText={setPrompt}
           placeholder={t('imageGen.promptPlaceholder')}

@@ -32,7 +32,7 @@
 export const QUEUE_OPS_NAMESPACE = 'ai.pane.queueOps' as const
 
 import type { QueueInteractionPerms, QueueDeniedAction, QueueDenyReason } from './input-notices'
-import { deniedNotice, queueReasonKey } from './input-notices'
+import { deniedCauseNotice, deniedNotice, queueReasonKey } from './input-notices'
 
 // ---------------------------------------------------------------------------
 // ① 交互动词五种 + 交互描述类型
@@ -149,26 +149,10 @@ function assertNeverDeniedAction(action: never): never {
  *   reorder → denied.reorder / undo,edit → denied.undo / interruptAndRun → denied.interject
  */
 /**
- * 具体条件文案键(D162 ①):`denied.<action>` 只说"不能做什么",这一份说"为什么不能"。
- * 穷尽 switch、无 default —— 漏一个因 ⇒ `reason` 收窄不成 `never`,编译期就红(与本文件
- * `denyReasonFor` 同一条纪律)。键名与五份词包里的 `queue.denied.cause.*` 逐字同形。
+ * 具体条件文案键(D162 ①,G-937950):`denied.<action>` 只说"不能做什么",这一份说
+ * "为什么不能"。唯一本体是 D69 `input-notices.ts` 的 `deniedCauseNotice`
+ * (穷尽 switch + assertNever),本文件只消费不复制 —— 端内不得再抄第二张 reason→键表。
  */
-function deniedCauseKey(reason: QueueDenyReason): string {
-  switch (reason) {
-    case 'streaming':
-      return 'denied.cause.streaming'
-    case 'emptyQueue':
-      return 'denied.cause.emptyQueue'
-    case 'runtimeNoInterject':
-      return 'denied.cause.runtimeNoInterject'
-  }
-  return assertNeverDenyReason(reason)
-}
-
-function assertNeverDenyReason(reason: never): never {
-  throw new Error(`unhandled queue deny reason: ${String(reason)}`)
-}
-
 export function interactionAllowed(
   kind: QueueInteractionKind,
   perms: QueueInteractionPerms,
@@ -188,8 +172,8 @@ export function interactionAllowed(
     allowed: false,
     deniedKey: deniedNotice(d69Action, reason),
     // D162 ①:"不能做什么"之外必须同时给出"为什么不能"。原因只由本文件的 denyReasonFor 判一次,
-    // 端内不得再抄一张 reason→文案 的表(两处算同一件事必漂移)。
-    causeKey: deniedCauseKey(reason),
+    // 键由 D69 deniedCauseNotice 从同一个 reason 派生(端内不抄第二张 reason→文案表,必漂移)。
+    causeKey: deniedCauseNotice(reason),
   }
 }
 
