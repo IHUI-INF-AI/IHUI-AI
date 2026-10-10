@@ -392,6 +392,46 @@ export function radiusSetOf(src, table) {
 }
 
 /**
+ * **裸档取用的清点(G-978049②)——只报名,不进任何判据。**
+ *
+ * 上面那把尺子(`radiusItemsInLine`)的类名一支只认 `rounded-(xs|sm|md|lg|xl|2xl)`,
+ * 所以**裸写 `rounded`**(以及 CSS 侧 `var(--radius)`,两者都等于档位表的 `DEFAULT`)整族
+ * 读不出来。表现不是"少算一处",而是**凭空造出跨端分叉**:一端写裸档、另一端写具名档时,
+ * RD/RE 两条维都会把写裸档那一侧读成"那一端没写档"(本轮 Tooltip 一族就是这么被读窄的)。
+ *
+ * 为什么这一版只报数、不改 `radiusItemsInLine`:补认裸档会**同时移动三本账** —— 守门 77 的
+ * HEAD 棘轮、守门 150 的角色档台账、守门 128 的三维锚点,而票面(§1 的重锚口径)明令
+ * "三处读数必须在同一枚提交里各自重锚",且 77/150 的台账不在本票文件清单内。
+ * 在只有 128 重锚的状态下放宽提取式,等于把别人钉着的锚顶成"新增红" —— 那是两把尺子互相
+ * 改基准,本仓记过最贵的一类事故。所以这里把"什么算裸档"收成**唯一一份实现**,
+ * 由调用方按自己的口径决定报数还是判档:三本账同批重锚之后,那一步只需把
+ * `bareRoundedOccurrences` 并进 `radiusItemsInLine`,不必再有人重新定义裸档。
+ *
+ * 遮噪与 RD 维同一条口径(走本文件唯一的 `maskComments`),所以注释里逐字写出的
+ * `rounded` 不会算成站点(写进注释必不计,写进代码必计 —— 成对用例钉的就是这一条)。
+ *
+ * @param {string} src 源码原文(未遮噪由本函数自己处理)
+ * @param {{DEFAULT?: number}|null} table 档位表;取不到 `DEFAULT` 时 `px` 落 null 并如实报名
+ * @returns {{count: number, defaultPx: number|null, samples: Array<{line: number, raw: string, px: number|null}>}}
+ */
+export function bareRoundedOccurrences(src, table) {
+  const defaultPx = table && Number.isFinite(table.DEFAULT) ? table.DEFAULT : null
+  const lines = maskComments(src || '').split('\n')
+  const samples = []
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i]
+    if (!t || !t.trim()) continue
+    // 裸 `rounded`:后面不得接 `-`(那是已认的档位/任意值/full/none)也不得接标识符字符。
+    for (const m of t.matchAll(/(?<![\w$-])rounded(?![\w$-])/g))
+      samples.push({ line: i + 1, raw: m[0], px: defaultPx })
+    // CSS 侧的默认档变量:`var(--radius)`,而 `var(--radius-lg)` 那族早已被读到,不重复计。
+    for (const m of t.matchAll(/var\(\s*--radius\s*\)/g))
+      samples.push({ line: i + 1, raw: m[0], px: defaultPx })
+  }
+  return { count: samples.length, defaultPx, samples }
+}
+
+/**
  * 一行源码里圆角**归属于哪个元素名**:区分 JS 对象键与 CSS 选择器两种书写语言。
  *
  * CSS 选择器必须**按逗号分组、每组取最后一个类名** —— 后代选择器 `.a__item .a__label { … }`
