@@ -25,6 +25,7 @@ import {
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SCREEN_SOURCE = readFileSync(join(HERE, '../src/screens/ChatScreen.tsx'), 'utf8')
+const N8N_SOURCE = readFileSync(join(HERE, '../src/screens/AiAssistantN8nScreen.tsx'), 'utf8')
 const LEDGER = JSON.parse(
   readFileSync(join(HERE, '../../../scripts/data/sse-dispatch-coverage.json'), 'utf8'),
 ) as { missing: Record<string, Record<string, unknown>> }
@@ -179,21 +180,7 @@ describe('applyAssistantExecutionFrame(D135 折叠档:纯函数 + 穷尽判别�
 })
 
 describe('ChatScreen 屏侧接线(源码级,23 缺口逐名在回调表)', () => {
-  const streamChatBlock = ((): string => {
-    const start = SCREEN_SOURCE.indexOf('await streamChat({')
-    if (start < 0) throw new Error('找不到 streamChat 调用点')
-    let depth = 0
-    let index = SCREEN_SOURCE.indexOf('{', start)
-    for (; index < SCREEN_SOURCE.length; index += 1) {
-      const char = SCREEN_SOURCE[index]
-      if (char === '{') depth += 1
-      else if (char === '}') {
-        depth -= 1
-        if (depth === 0) break
-      }
-    }
-    return SCREEN_SOURCE.slice(start, index + 1)
-  })()
+  const streamChatBlock = streamChatBlockOf(SCREEN_SOURCE)
 
   const registered = (name: string): boolean =>
     new RegExp(`^\\s{6}${name}:`, 'm').test(streamChatBlock)
@@ -246,7 +233,9 @@ describe('ChatScreen 屏侧接线(源码级,23 缺口逐名在回调表)', () =>
     expect(SCREEN_SOURCE).toMatch(
       /import \{ TaskStatusBar \} from '\.\.\/components\/ai\/TaskStatusBar'/,
     )
-    expect(SCREEN_SOURCE).toMatch(/<TaskStatusBar[\s\S]{0,240}?planSteps=\{planViz\?\.planSteps \?\? \[\]\}/)
+    expect(SCREEN_SOURCE).toMatch(
+      /<TaskStatusBar[\s\S]{0,240}?planSteps=\{planViz\?\.planSteps \?\? \[\]\}/,
+    )
     expect(SCREEN_SOURCE).toMatch(/toolCalls=\{planViz\?\.toolCalls\}/)
     expect(SCREEN_SOURCE).toMatch(/isStreaming=\{isStreaming\}/)
   })
@@ -271,6 +260,29 @@ describe('ChatScreen 屏侧接线(源码级,23 缺口逐名在回调表)', () =>
   })
 })
 
+// D136 三格里留给本屏的那两格之一:立因复跑(改前)`git grep -c 'ToolApproval|toolApproval' HEAD --
+// …/AiAssistantN8nScreen.tsx` = 0 ⇒ 这一屏的 streamChat 回调表里根本没有 onToolApproval 这一格,
+// 而审批帧在解析层(api-client tryParseToolApproval)是统一投影的 ⇒ 收到询问时屏幕上什么都不发生。
+// 判据面与上面 ChatScreen 那节同形(接帧必须在回调表这个对象字面量里),只是属性位缩进多一级(在 try 块内)。
+describe('AiAssistantN8nScreen 屏侧接线(D136 四点同一出口,不是第二份队列)', () => {
+  const n8nBlock = streamChatBlockOf(N8N_SOURCE)
+
+  it('onToolApproval 在 streamChat 回调表里,回调体把帧交给队列', () => {
+    expect(/^\s{8}onToolApproval:/m.test(n8nBlock)).toBe(true)
+    expect(n8nBlock).toContain('toolApproval.onToolApproval(event)')
+  })
+
+  it('import + hook 调用 + host 装车三处都在(挂 host 用的是共享出口那个 host)', () => {
+    expect(N8N_SOURCE).toMatch(
+      /import \{ useToolApprovalQueue \} from '\.\.\/components\/ai\/ToolApprovalSheet'/,
+    )
+    expect(N8N_SOURCE).toMatch(/const toolApproval = useToolApprovalQueue\(\)/)
+    expect(N8N_SOURCE).toContain('{toolApproval.host}')
+    // 反向锁:本屏不得再写一份队列/解析(票面规则 1 要根治的那一型)
+    expect(N8N_SOURCE).not.toMatch(/function useToolApprovalQueue|parseToolApprovalEvent\(/)
+  })
+})
+
 describe('守门 90 台账配套性(接一帧同票删台账条目 + 抬 baseline)', () => {
   const ledgerMissingMobileRn = Object.keys(LEDGER.missing['mobile-rn'] ?? {})
   const wiredNames = [...streamChatOptionNames(SCREEN_SOURCE)]
@@ -284,8 +296,8 @@ describe('守门 90 台账配套性(接一帧同票删台账条目 + 抬 baselin
   })
 })
 
-/** streamChat 回调表里的 onXxx 键名(6 空格缩进 = 该对象字面量的属性位) */
-function streamChatOptionNames(source: string): string[] {
+/** 括号配平取 `await streamChat({ … })` 整段(行号每次 append 都会挪,不靠行号)。 */
+function streamChatBlockOf(source: string): string {
   const start = source.indexOf('await streamChat({')
   if (start < 0) throw new Error('找不到 streamChat 调用点')
   let depth = 0
@@ -298,8 +310,12 @@ function streamChatOptionNames(source: string): string[] {
       if (depth === 0) break
     }
   }
-  const block = source.slice(start, index + 1)
-  return [...block.matchAll(/^\s{6}(on[A-Z][A-Za-z]+):/gm)].map((m) => m[1]!)
+  return source.slice(start, index + 1)
+}
+
+/** streamChat 回调表里的 onXxx 键名(6 空格缩进 = 该对象字面量的属性位) */
+function streamChatOptionNames(source: string): string[] {
+  return [...streamChatBlockOf(source).matchAll(/^\s{6}(on[A-Z][A-Za-z]+):/gm)].map((m) => m[1]!)
 }
 
 describe('reducer 的生产面 importer(票面验收:排除测试面)', () => {
@@ -348,8 +364,8 @@ describe('reducer 的生产面 importer(票面验收:排除测试面)', () => {
     // 这条性质改用合成文本自证:comment-only 的 import 看起来像 import,
     // 但正则要求 import 与 from 同段无行注释隔断 ⇒ 不得计入。
     const commentOnly = [
-      "// tool-result 到达由 applyToolCallEvent 清掉(注释里的逐字引用,不算装车)",
-      "const x = 1",
+      '// tool-result 到达由 applyToolCallEvent 清掉(注释里的逐字引用,不算装车)',
+      'const x = 1',
     ].join('\n')
     expect(importedNamesFromChatRenderModel(commentOnly).size).toBe(0)
     // 正向对照:真 import 语句照常被识别(证明上一条不是恒真)

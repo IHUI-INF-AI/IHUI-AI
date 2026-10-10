@@ -120,6 +120,7 @@ import {
 import { NavBar } from '../components/NavBar'
 import { InputArea } from '../components/InputArea'
 import { TaskStatusBar } from '../components/ai/TaskStatusBar'
+import { useToolApprovalQueue } from '../components/ai/ToolApprovalSheet'
 import { VoiceInput } from '../components/VoiceInput'
 import { ModelConfigDialog, type ModelConfig } from '../components/ModelConfigDialog'
 import ModelPickerList, { type ModelListItem } from '../components/ModelPickerList'
@@ -1147,6 +1148,9 @@ export default function AiAssistantN8nScreen() {
   // 图片预览(对齐 Uniapp previewImage)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
 
+  // D136:高危工具审批。复用 ChatScreen 同一出口(不在本屏另写队列)。
+  const toolApproval = useToolApprovalQueue()
+
   // FloatBox 浮层提示状态(替代单按钮 Alert.alert 的非阻塞反馈,对齐 ChatScreen showToast 模式)
   const [toastVisible, setToastVisible] = useState(false)
   const [toastType, setToastType] = useState<FloatBoxType>('info')
@@ -1697,6 +1701,11 @@ export default function AiAssistantN8nScreen() {
             }),
           )
         },
+        // D136:审批帧的载荷由 streamChat 内置解析(api-client tryParseToolApproval,与 web 同一投影),
+        // 这里只交给队列 —— 不注册回调 ⇒ 帧静默丢弃,手机上高危操作一个弹窗都不出。
+        onToolApproval: (event) => {
+          toolApproval.onToolApproval(event)
+        },
         onError: (err, info) => {
           // info 透传:errorCode 是"厂商账号额度耗尽"等稳定码的唯一判据(HTTP 仍回落默认 502)
           const formatted = formatSSEError(new Error(err), info)
@@ -2048,6 +2057,10 @@ export default function AiAssistantN8nScreen() {
           </View>
         ) : null}
       </KeyboardAvoidingView>
+
+      {/* D136:审批面板 + 常驻待审批胶囊挂在本屏既有浮层同级(与下面的 Modal/FloatBox 平铺),
+          面板自身走 RN Modal ⇒ 不新造 z-index。 */}
+      {toolApproval.host}
 
       {/* 模型选择器底部弹层(对齐 Uniapp ModelList sourceIs 弹出) */}
       <Modal

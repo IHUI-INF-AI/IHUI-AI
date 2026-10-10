@@ -58,6 +58,13 @@
  *        名集只在钉 matched 后判:absent 钉时名集红可能是存量漂移,当场 blocking 就是恒红门(§12e)。
  *        源侧派生逻辑与各生成器是 mergeMessages 同型的"刻意双份"(generate-ui-routes.mjs 等),
  *        改语义必须两处同批 —— 否则名集对账开始说谎。
+ *   G5/U1 的**写回挂点**(2026-10-10 立):四端钉陈旧过去只有人肉重生成一条路 ⇒ 干净 HEAD 恒红 ⇒
+ *        每次提交被迫 --no-verify(§12e/§12f)。现在它挂在 `scripts/lib/pre-commit-hook.js` 的
+ *        TOKEN_SYNC_TARGETS 表上按各自触发面自动写回(§4「派生态一律挂这张表」),每行的写回出口 =
+ *        `--heal-ui-routes`,复核门 = 本门(表第 5 行 sync-extension-tokens.mjs 同型:同一脚本两种模式)。
+ *        **判据与判定路径一字未动**:本档不 import runCheck、不 git add、不给绿/红结论 —— 它只写产物,
+ *        写完仍由同一面的判定轮复检;写不回去(别人的在飞副本/生成器坏了/量级异常)一律拒绝并点名。
+ *        详见 healUiRoutes 头注(含"为什么不是本门自愈"的实测否证)。
  *
  * 口径(与守门 70/77/83/98/101 一致,这一层由 scripts/lib/face-reader.mjs 单点持有):
  *   全量判 **HEAD blob** / `--staged` 判**索引 blob** / `--worktree` 仅作人工与 dev 链的逃生舱。
@@ -73,6 +80,7 @@
  *   node scripts/check-miniapp-generated.mjs --json       # 机器可读结论(dev 链消费,单一实现)
  *   node scripts/check-miniapp-generated.mjs --strict     # 把 G2 孤儿也判红
  *   node scripts/check-miniapp-generated.mjs --self-test  # 逻辑自检(成对正反例,零副作用)
+ *   node scripts/check-miniapp-generated.mjs --heal-ui-routes [--staged] # 四端 ui-routes 写回出口(不判定)
  *   node scripts/check-miniapp-generated.mjs --root <dir>  # 显式指定判定根(镜像测试夹具用;生产不带)
  *
  * 紧急跳过(接线后):HUSKY_SKIP_MINIAPP_GENERATED=1 git commit ...
@@ -80,6 +88,7 @@
  */
 
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
 import { gunzipSync, gzipSync } from 'node:zlib'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -100,6 +109,7 @@ import {
   differingInputs,
   maskGeneratedAt,
   renderPin,
+  normalizeInputBytes,
   PIN_BEGIN,
   PIN_END,
 } from './lib/generated-input-pin.mjs'
@@ -1174,6 +1184,209 @@ function runCheck({ face, root, strict, group }) {
   return { findings, undetermined, counts }
 }
 
+/* ───────── G-816040 写回档(--heal-ui-routes,2026-10-10 立) ─────────
+ *
+ * 立因:四端 ui-routes 产物的自述钉(G5)此前**只有人工重生成**这一条出路。实测后果不是"多跑一次
+ * 脚本",而是恒红循环:`apps/web/app/**\/page.tsx` 被别人改了并入库,而链条上没有任何环节重跑生成器
+ * ⇒ 产物钉落后 ⇒ 本门在**干净 HEAD** 上判红 ⇒ blocking 门红 = 本机每次提交都被迫 --no-verify
+ * ⇒ 一次绕过约等于链上全部守门对该提交作废(§12e/§12f)。本仓已为此人肉修过多次(见
+ * `git log --oneline -- apps/web/src/lib/ui-routes.generated.ts`)。
+ *
+ * 为什么挂点是登记表而不是本门自愈(择一实测,写在这里免得下一个人再走一遍):
+ *   · 提交链里"写回 ⇒ 进这一次提交"只有 pre-commit 的 TOKEN_SYNC_TARGETS 做得到 —— 它持有
+ *     staging 快照,写回后 `git add` 并 `INITIAL_STAGED_SNAPSHOT.add()` 才不会在 hook 退出前被
+ *     `restoreStaging()` 当作"非预期 staged 文件"摘掉。实测(临时仓 + lib/staging-snapshot.js):
+ *     提交者只 staged a.txt 时,门自己 `git add b.txt` 会在 hook 退出前被还原成 HEAD 内容,
+ *     于是**门报了绿而提交仍是陈旧的** —— 那等于把恒红洗成静默恒红,比红更坏。所以本档**不** git add,
+ *     也**不**改判据:它只是登记表某一行的「写回出口」(同型先例:表第 5 行的 cmd 与 check 同为
+ *     sync-extension-tokens.mjs,一个模式写、一个模式判)。
+ *   · 判据侧一字未动:runCheck / formatReport 不在本档调用路径里;红与绿仍由同面的判定轮说。
+ *     本档写完后,提交链上真正的复检是 pre-commit 之后那一次 `--staged` 判定 —— 同一个面、同一轮取材。
+ *
+ * 本档永远不会做的事:① 用自己的输出替代判定(它只报"写没写回、为什么没写回");
+ *   ② 把"刚写回的内容"当成被审面(收敛校验用的是**被审面**现算的 digest,不是磁盘);
+ *   ③ 覆盖别人的在飞改动(工作树副本 ≠ 面副本 ⇒ 拒绝写回并点名);
+ *   ④ 造出不存在的产物(面上没有该文件 ⇒ file-absent 是判定侧的未判定档,不是"生成一份")。
+ */
+
+/**
+ * 单份产物一次自动写回允许的最大行级变更量(屏蔽 generatedAt 后按行做多重集差)。
+ * 上限依据:一次正常写回的变更 = 聚合哈希 1 行 + 变了的逐输入哈希行(web 全量约 100 页都改也不过
+ * 100 行)+ 产物体若干行;超过 240 行意味着"生成器给出的已经不是这次改动该有的产物"(扫错树、
+ * 树被整体重写、产物被人手改过又没入账),那必须让人看见 —— 照守门 47 的 MAX_AUTOFIX=200 同型。
+ */
+const MAX_HEAL_CHANGED_LINES = 240
+
+/** 行级变更量:按行做多重集差的绝对值和(屏蔽 generatedAt 后调用,时刻行不得算变更)。 */
+function lineChangeCount(a, b) {
+  const count = (text) => {
+    const m = new Map()
+    for (const line of String(text).split(/\r?\n/)) m.set(line, (m.get(line) ?? 0) + 1)
+    return m
+  }
+  const ca = count(a)
+  const cb = count(b)
+  let n = 0
+  for (const key of new Set([...ca.keys(), ...cb.keys()])) {
+    n += Math.abs((ca.get(key) ?? 0) - (cb.get(key) ?? 0))
+  }
+  return n
+}
+
+/**
+ * 四端 ui-routes 的自动写回出口(登记表某一行的 cmd;不判绿不判红)。
+ * @param {{face:string, root:string, log?:(s:string)=>void}} opts
+ * @returns {{rows: Array<{rel:string, action:string, note:string}>, code:number, healed:number, refused:number}}
+ *   code:0 = 本次没有"写回出口自己坏了"的故障(refuse/skip 都是正常出口,判定权留给判定轮);
+ *   code:1 = 生成器跑了而失败(登记表 failMode=block 的口径:生成器坏了不得静默)。
+ *   取不到面/枚举不到输入 ⇒ 抛 Undetermined,由 main 落 exit 2(未判定 ≠ 通过,也 ≠ 已写回)。
+ */
+function healUiRoutes({ face, root, log = (s) => console.log(s) }) {
+  const reader = makeReader(face, root)
+  // 两段式取材与判定轮**逐字同构**(见 runCheck 的 G-816040 段):先取四份产物 + 各生成器的直接输入,
+  // taro 的页面 config 清单要 app.config 求值后才补上。少 prefetch 一项,read 就返回 null
+  // (取材层不为清单外的键懒读)—— 那会把输入清单算少几份,现算的聚合哈希跟着错(实测过这一型)。
+  reader.prefetch([
+    ...UI_ROUTES_ARTIFACTS.map((a) => a.rel),
+    RN_NAVIGATOR,
+    RN_LINKING,
+    EXT_SIDEPANEL,
+    TARO_APP_CONFIG,
+  ])
+  const inputSets = new Map()
+  for (const art of UI_ROUTES_ARTIFACTS) inputSets.set(art.rel, art.inputRels(reader))
+  reader.prefetch([...new Set([...inputSets.values()].flat())])
+
+  const rows = []
+  let healed = 0
+  let refused = 0
+  let code = 0
+
+  for (const art of UI_ROUTES_ARTIFACTS) {
+    const row = { rel: art.rel, action: 'skip', note: '' }
+    rows.push(row)
+    const faceText = reader.has(art.rel) ? reader.read(art.rel) : null
+    if (faceText === null) {
+      row.action = 'refuse'
+      row.note = `${reader.label} 面上没有该产物 —— 写回出口不造"面上不存在的文件"(判定侧同事件记 file-absent,未判定)`
+      refused += 1
+      continue
+    }
+    const pin = parsePin(faceText)
+    if (!pin.present || pin.malformed) {
+      // absent/malformed 是判定侧的「未判定」档,不是"陈旧":本档只治陈旧,不替未判定发合格证。
+      row.action = 'skip'
+      row.note = `钉 ${pin.present ? 'malformed' : 'absent'} ⇒ 未判定档,不在写回范围(前置=先跑一次生成器把带钉产物入库)`
+      continue
+    }
+    // 输入清单来自同一轮取材(见函数开头的两段式 prefetch),不在这里二次枚举。
+    const inputRels = inputSets.get(art.rel)
+    const computed = digestInputs(
+      inputRels.map((rel) => ({ rel, text: reader.has(rel) ? reader.read(rel) : null })),
+    )
+    if (computed.digest === pin.digest) {
+      // 幂等锁:第二次跑本档必须一个字节都不写(登记表 failMode=block 的前置依据)。
+      row.action = 'clean'
+      row.note = `钉已与${face}面现算同值(${computed.digest.slice(0, 12)}…)⇒ 不写回`
+      continue
+    }
+    // 安全闸①:工作树副本必须与面副本同字节。不同 = 别人正拿着这份产物的在飞改动,门不得覆盖。
+    const diskText = readWorktreeFile(root, art.rel)
+    if (diskText === null) {
+      row.action = 'refuse'
+      row.note = `磁盘上没有 ${art.rel}(有人在删/尚未落地)⇒ 未写回`
+      refused += 1
+      continue
+    }
+    if (normalizeInputBytes(diskText) !== normalizeInputBytes(faceText)) {
+      row.action = 'refuse'
+      row.note = `工作树副本 ≠ ${face}面副本 ⇒ 该产物上有别人的在飞改动,门不动它(未写回)`
+      refused += 1
+      continue
+    }
+    const restore = () => writeFileSync(join(root, art.rel), diskText, 'utf8')
+    // 安全闸②:生成器两面都得在位(面上没有 ⇒ cmd 跑到即失败,而不是"当成没有输入")。
+    const genAbs = join(root, art.generator)
+    if (!reader.has(art.generator) || !existsSync(genAbs)) {
+      row.action = 'refuse'
+      row.note = `生成器不可用(面:${reader.has(art.generator) ? '在' : '不在'} / 磁盘:${existsSync(genAbs) ? '在' : '不在'})${art.generator} ⇒ 未写回,请人工排查该端生成器`
+      refused += 1
+      continue
+    }
+    const ran = spawnSync(process.execPath, [genAbs], {
+      cwd: root,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120_000,
+      maxBuffer: 16 << 20,
+      // 本机 node 宿主下不写 stdio 稳定 EBUSY(§12g);生成器不吃 stdin ⇒ 第一通道 'ignore'。
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    if (ran.status !== 0) {
+      restore()
+      row.action = 'fail'
+      row.note = `${art.generator} 退出码 ${ran.status ?? '取不到'}:${
+        String(ran.stderr || ran.stdout || '')
+          .trim()
+          .split('\n')[0] || '(无输出)'
+      } ⇒ 未写回`
+      code = 1
+      continue
+    }
+    const newText = readWorktreeFile(root, art.rel)
+    if (newText === null) {
+      row.action = 'fail'
+      row.note = `${art.generator} 跑完了却没写出 ${art.rel} ⇒ 生成器与产物对不上,门不猜`
+      code = 1
+      continue
+    }
+    // 收敛校验用**被审面**现算的 digest,不是刚写回的磁盘内容:磁盘与面不同源时门必须拒绝而不是 adopt。
+    const newPin = parsePin(newText)
+    if (!newPin.present || newPin.malformed || newPin.digest !== computed.digest) {
+      restore()
+      const drift = differingInputs(newPin, computed.perInput).slice(0, 3)
+      row.action = 'refuse'
+      row.note =
+        `生成器按磁盘算出的钉(${newPin.present && !newPin.malformed ? `${newPin.digest.slice(0, 12)}…` : '不可读'})` +
+        ` ≠ ${face}面现算(${computed.digest.slice(0, 12)}…)⇒ 未写回` +
+        `(已复原)` +
+        (drift.length ? `;差在:${drift.map((d) => d.rel).join(', ')}` : '') +
+        ' —— 该端输入的工作树副本与索引/HEAD 副本不同,把磁盘钉入库就是替别人的未提交改动背书'
+      refused += 1
+      continue
+    }
+    const changed = lineChangeCount(maskGeneratedAt(faceText), maskGeneratedAt(newText))
+    if (changed > MAX_HEAL_CHANGED_LINES) {
+      restore()
+      row.action = 'refuse'
+      row.note = `写回量级 ${changed} 行 > 上限 ${MAX_HEAL_CHANGED_LINES}(已复原)—— 这不是"跟上一次改动"的量,门不自动背书,请人工看生成器输出`
+      refused += 1
+      continue
+    }
+    row.action = 'healed'
+    row.note = `钉 ${pin.digest.slice(0, 12)}… → ${newPin.digest.slice(0, 12)}…,行级变更 ${changed}(待登记方 git add;复检仍由判定轮在同一面做)`
+    healed += 1
+  }
+
+  log(
+    `[miniapp-generated --heal-ui-routes] 面=${face}(${FACE_LABEL[face]}) 四端产物 ${rows.length} 份:` +
+      ` 已写回 ${healed} / 拒绝写回 ${refused} / 无需写回 ${rows.length - healed - refused}` +
+      (code === 1 ? ' / 生成器失败 1(阻塞提交,不静默)' : ''),
+  )
+  for (const r of rows) {
+    if (r.action === 'clean') continue
+    log(
+      `  ${r.action === 'healed' ? '✍️' : r.action === 'fail' ? '❌' : '⏭️'} ${r.rel} —— [${r.action}] ${r.note}`,
+    )
+  }
+  if (healed > 0) {
+    log(
+      '  ℹ️ 本档只写回,不判定:红/绿仍由同一面的判定轮说(提交链上 = pre-commit 之后的 --staged 判定)。',
+    )
+  }
+  return { rows, code, healed, refused }
+}
+
 /* ─────────────────────────── 输出 ─────────────────────────── */
 
 function formatReport(result, face, opts) {
@@ -1235,6 +1448,7 @@ function parseArgv(argv) {
     strict: false,
     json: false,
     selfTest: false,
+    healUiRoutes: false,
     group: null,
     root: DEFAULT_ROOT,
   }
@@ -1245,6 +1459,7 @@ function parseArgv(argv) {
     else if (a === '--strict') opts.strict = true
     else if (a === '--json') opts.json = true
     else if (a === '--self-test') opts.selfTest = true
+    else if (a === '--heal-ui-routes') opts.healUiRoutes = true
     else if (a === '--group') opts.group = argv[++i] ?? null
     else if (a.startsWith('--group=')) opts.group = a.slice(8)
     else if (a === '--root') opts.root = resolve(argv[++i] ?? '')
@@ -1266,6 +1481,23 @@ function main(argv) {
   if (opts.group && !['i18n', 'assets', 'icons', 'tabbar', 'ui-routes'].includes(opts.group)) {
     console.error(`❌ --group 只认 i18n / assets / icons / tabbar / ui-routes,给了 "${opts.group}"`)
     return 2
+  }
+  if (opts.healUiRoutes) {
+    // 写回档不判定:--json 那份机器契约是**判定**的输出面,--group 又暗示"只算某一组判定" ——
+    // 两者与本档同给就是"旗语说一件、代码做另一件",当场拒收而不是挑一个听。
+    if (opts.json || opts.group) {
+      console.error('❌ --heal-ui-routes 是写回出口(不判定),不得与 --json / --group 同给')
+      return 2
+    }
+    try {
+      return healUiRoutes({ face, root: opts.root }).code
+    } catch (e) {
+      if (e instanceof Undetermined) {
+        console.error(`⚠️ 无法判定(不冒红也不记绿,更不写回):${e.message}`)
+        return 2
+      }
+      throw e
+    }
   }
   try {
     const result = runCheck({ face, root: opts.root, strict: opts.strict, group: opts.group })
@@ -1667,6 +1899,131 @@ function selfTest() {
     eq(taroPageList(cfg).join(','), 'pages/index,pkg-ai/ai/chat', '分包页拼 root')
   })
 
+  /* ── G-816040 写回档(--heal-ui-routes,2026-10-10):成对正反例 ──
+   * 夹具跑的是**真生成器本体**(从仓库源读进来装进临时树)—— 写回出口的"能不能修"必须由那件
+   * 生成器自己回答,拿一份假的产物写手测出来的绿等于什么都没测(与"生成器漏跑"这一型同形)。
+   */
+  const GEN_REL_WEB = 'apps/web/scripts/generate-ui-routes.mjs'
+  const PIN_LIB_REL = 'scripts/lib/generated-input-pin.mjs'
+  const CONSUMER_WEB_REL = 'apps/web/src/lib/ui-action-registry.ts'
+  /** 把真生成器 + 唯一钉实现 + 消费方契约装进临时树;取不到源 ⇒ 直接抛,不得静默跳过这一例 */
+  const putWebGeneratorKit = (dir, { withGenerator = true } = {}) => {
+    for (const rel of [GEN_REL_WEB, PIN_LIB_REL]) {
+      if (rel === GEN_REL_WEB && !withGenerator) continue
+      const src = readWorktreeFile(DEFAULT_ROOT, rel)
+      if (src === null) throw new Error(`写回档夹具装不进:${rel} 在磁盘面上取不到`)
+      put(dir, rel, src)
+    }
+    put(
+      dir,
+      CONSUMER_WEB_REL,
+      "import { UI_ROUTES } from './ui-routes.generated'\nexport const R = UI_ROUTES // 消费方引用 ui-routes.generated\n",
+    )
+  }
+  /** 陈旧现场:盘面输入是新文本,产物钉按旧文本烘(= 「page.tsx 改了并入库,产物没跟上」) */
+  const putStaleWebArtifact = (dir, padRoutes = 0) => {
+    const oldText = 'export default function OLD() {\n  return null\n}\n'
+    put(dir, WEB_PAGE_REL, webPageText())
+    const pin = renderPin({
+      generator: GEN_REL_WEB,
+      sourceCommit: 'deadbeef',
+      inputs: [{ rel: WEB_PAGE_REL, text: oldText }],
+      generatedAt: '2026-01-01T00:00:00.000Z',
+    }).join('\n')
+    const lines = [`  { path: '/x', param: false, group: 'x' },`]
+    for (let i = 0; i < padRoutes; i += 1)
+      lines.push(`  { path: '/pad${i}', param: false, group: 'x' },`)
+    put(
+      dir,
+      WEB_ART_REL,
+      `// GENERATED\n${pin}\nexport const UI_ROUTES: { path: string; param: boolean; group: string }[] = [\n${lines.join('\n')}\n]\n`,
+    )
+  }
+  const webRowOf = (res) => res.rows.find((r) => r.rel === WEB_ART_REL)
+
+  t('写回档(阳性对照):输入变了而钉没跟 ⇒ 真跑生成器写回,判定轮在同一个面复检到绿', () => {
+    withScratch((dir) => {
+      putWebGeneratorKit(dir)
+      putStaleWebArtifact(dir)
+      const before = runCheck({ face: 'worktree', root: dir, strict: false, group: 'ui-routes' })
+      eq(
+        before.findings.filter((f) => f.code === 'G5').length,
+        1,
+        '夹具必须先红(先红都不成立就是这条对照在空转)',
+      )
+      const res = healUiRoutes({ face: 'worktree', root: dir, log: () => {} })
+      eq(res.code, 0, `写回档不得因"正常写回"而退出非 0,实际 ${res.code}`)
+      eq(webRowOf(res).action, 'healed', `web 行应写回,实际 ${JSON.stringify(webRowOf(res))}`)
+      const after = runCheck({ face: 'worktree', root: dir, strict: false, group: 'ui-routes' })
+      eq(after.findings.length, 0, `写回后同面复检必须无红,实际 ${JSON.stringify(after.findings)}`)
+      eq(
+        after.undetermined.uiRoutesPins.find((s) => s.rel === WEB_ART_REL)?.state,
+        'matched',
+        '复检必须真判到 matched(不是把红改成不报)',
+      )
+    })
+  })
+
+  t('写回档(幂等锁):同一现场第二次跑必须写回 0 字节(登记表 failMode=block 的前置依据)', () => {
+    withScratch((dir) => {
+      putWebGeneratorKit(dir)
+      putStaleWebArtifact(dir)
+      healUiRoutes({ face: 'worktree', root: dir, log: () => {} })
+      const once = readWorktreeFile(dir, WEB_ART_REL)
+      const res = healUiRoutes({ face: 'worktree', root: dir, log: () => {} })
+      eq(webRowOf(res).action, 'clean', `第二次必须判"无需写回",实际 ${webRowOf(res).action}`)
+      eq(res.healed, 0, '第二次不得再写任何产物')
+      eq(readWorktreeFile(dir, WEB_ART_REL), once, '第二次跑后产物必须逐字节不动')
+    })
+  })
+
+  t('写回档(生成器修不了那半):生成器不在位 ⇒ 拒绝写回、产物不动、判定侧仍红(不得静默记绿)', () => {
+    withScratch((dir) => {
+      putWebGeneratorKit(dir, { withGenerator: false })
+      putStaleWebArtifact(dir)
+      const before = readWorktreeFile(dir, WEB_ART_REL)
+      const res = healUiRoutes({ face: 'worktree', root: dir, log: () => {} })
+      eq(webRowOf(res).action, 'refuse', `生成器不可用必须拒绝写回,实际 ${webRowOf(res).action}`)
+      eq(readWorktreeFile(dir, WEB_ART_REL), before, '拒绝写回时产物字节不得动(不许"半修")')
+      const r = runCheck({ face: 'worktree', root: dir, strict: false, group: 'ui-routes' })
+      eq(r.findings.filter((f) => f.code === 'G5').length, 1, '修不了就还是红 —— 写回出口不产出绿')
+    })
+  })
+
+  t('写回档(面上没有产物):refuse 且不凭空造文件(判定侧同事件仍是 file-absent 未判定)', () => {
+    withScratch((dir) => {
+      putWebGeneratorKit(dir)
+      put(dir, WEB_PAGE_REL, webPageText())
+      const res = healUiRoutes({ face: 'worktree', root: dir, log: () => {} })
+      eq(webRowOf(res).action, 'refuse', `面上没有该产物 ⇒ 不写回,实际 ${webRowOf(res).action}`)
+      eq(readWorktreeFile(dir, WEB_ART_REL), null, '写回出口不得把"面上没有的文件"造出来')
+      const r = runCheck({ face: 'worktree', root: dir, strict: false, group: 'ui-routes' })
+      eq(
+        r.undetermined.uiRoutesPins.find((s) => s.rel === WEB_ART_REL)?.state,
+        'file-absent',
+        '判定侧口径不变:仍是未判定,不是绿',
+      )
+    })
+  })
+
+  t('写回档(量级闸):写回量 > 上限 ⇒ 复原并拒绝(异常量级必须让人看见,不自动背书)', () => {
+    withScratch((dir) => {
+      putWebGeneratorKit(dir)
+      const pad = MAX_HEAL_CHANGED_LINES + 60
+      putStaleWebArtifact(dir, pad)
+      const before = readWorktreeFile(dir, WEB_ART_REL)
+      const res = healUiRoutes({ face: 'worktree', root: dir, log: () => {} })
+      const row = webRowOf(res)
+      eq(
+        row.action,
+        'refuse',
+        `超量级必须拒绝,实际 ${row.action} —— 夹具造的量级不够,需 ${pad} 条路由`,
+      )
+      if (!row.note.includes('量级')) throw new Error(`拒绝理由必须点名量级,实际:${row.note}`)
+      eq(readWorktreeFile(dir, WEB_ART_REL), before, '超量级拒绝后必须复原到原字节')
+    })
+  })
+
   console.log(results.join('\n'))
   const bad = results.filter((r) => r.startsWith('❌')).length
   console.log(`\n自检:${results.length} 例,失败 ${bad}`)
@@ -1722,5 +2079,15 @@ export const __test__ = {
   UI_ROUTES_ARTIFACTS,
   evalTaroConfigText,
   taroPageList,
+  // 四端输入面的锚点:镜像测试的 T21 装车锁要用它们复算真输入清单,再对账登记表的触发面
+  WEB_APP_PREFIX,
+  TARO_APP_CONFIG,
+  RN_NAVIGATOR,
+  RN_LINKING,
+  EXT_SIDEPANEL,
+  // G-816040 写回档(2026-10-10):镜像测试要的是"写回出口真在位 + 量级闸的口径",不是第二份判据
+  healUiRoutes,
+  lineChangeCount,
+  MAX_HEAL_CHANGED_LINES,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
