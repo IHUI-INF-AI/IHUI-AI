@@ -21,19 +21,16 @@ import {
   type ChatAdvancedValues,
 } from './vendor-models'
 
-// 极速 API 订阅 key Auto-Model fallback(动态拉取失败时使用,2026-09-20 极速api.txt 实测列表)
+// 极速 API 订阅通道模型 fallback(动态拉取失败时使用,2026-10-09 new api 实测精选)
 const MODELS = [
   'glm-5.3',
-  'deepseek-v4-flash-0731',
-  'gpt-5.6',
-  'grok-4.6',
   'glm-5.3-flash',
-  'MiniMax-M2.7',
   'qwen3.8-flash',
-  'qwen3.8-max',
-  'gpt-6-astra',
   'deepseek-v4.1-flash',
-  'glm-5.3-flashx',
+  'gemini-3.8-flash',
+  'gpt-6-luna',
+  'grok-4.7',
+  'kimi-k3',
 ] as const
 
 const TEXTAREA_CLS =

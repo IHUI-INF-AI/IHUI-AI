@@ -9,7 +9,6 @@ import { createHmac, createHash } from 'node:crypto'
 import type { FastifyRequest, FastifyReply, FastifyPluginAsync } from 'fastify'
 import { error } from '../../utils/response.js'
 import {
-  attachEgressFacts,
   collectEgressFacts,
   directEgressFetch,
   proxiedFetch,
@@ -331,21 +330,21 @@ export async function fetchWithTimeout(
   try {
     // 命中代理白名单的被墙域名(OpenAI/Gemini/Groq 等)走 HTTP 代理,其余直连
     if (egress.proxied) {
-      const proxied = await proxiedFetch(url, {
+      // G-750(2026-10-03):事实挂载收进 proxiedFetch/directEgressFetch(起始配置 + 末跳
+      // 合成完整事实面),本层只留路由决策用的那份 collectEgressFacts,不再二次挂载覆盖。
+      return await proxiedFetch(url, {
         method: options.method,
         headers: headersRec,
         body: bodyStr,
         signal: controller.signal,
       })
-      return attachEgressFacts(proxied, egress)
     }
-    const direct = await directEgressFetch(url, {
+    return await directEgressFetch(url, {
       method: options.method,
       headers: headersRec,
       body: bodyStr,
       signal: controller.signal,
     })
-    return attachEgressFacts(direct, egress)
   } finally {
     clearTimeout(timer)
   }
@@ -405,19 +404,19 @@ export const VENDORS: Record<string, VendorConfig> = {
   x5m5x: {
     name: 'New API(按量/LLM)',
     keyEnv: 'X5M5X_API_KEY',
-    baseUrl: 'https://api.x5m5x.com/v1',
+    baseUrl: 'https://new.x5m5x.com/v1',
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
   },
   x5m5xImage: {
     name: 'New API(生图)',
     keyEnv: 'X5M5X_IMAGE_KEY',
-    baseUrl: 'https://api.x5m5x.com/v1',
+    baseUrl: 'https://new.x5m5x.com/v1',
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
   },
   x5m5xSubscribe: {
     name: 'New API(订阅/Auto-Model)',
     keyEnv: 'X5M5X_SUBSCRIBE_KEY',
-    baseUrl: 'https://api.x5m5x.com/v1',
+    baseUrl: 'https://new.x5m5x.com/v1',
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
   },
   bailian: {

@@ -28,13 +28,8 @@ import { fetchApi } from '@/lib/api'
 import { type AsyncTask, extractMediaUrls } from '@/lib/ai-media'
 import { ModelSelect, NumImagesSelect, useVendorModels } from './vendor-models'
 
-// 极速 API 生图模型(2026-09-20 实测 gpt-image-2 可出图)
-const MODELS = [
-  'gpt-image-2',
-  'gpt-image-2.5-flare',
-  'gpt-image-2.5-sunburst',
-  'gpt-image-2.5',
-] as const
+// 极速 API 生图模型(2026-10-09 new api 实测 gpt-image-2 可出图)
+const MODELS = ['gpt-image-2', 'gpt-image-2.5'] as const
 const SIZES = ['1024x1024', '1536x1024', '1024x1536'] as const
 
 const TEXTAREA_CLS =
