@@ -40,8 +40,10 @@ import {
   workbuddyResetHistory,
   workbuddyResetLogout,
   workbuddyResetMaintenance,
+  workbuddyResetPlan,
   workbuddyResetProbe,
   type WbHistoryItem,
+  type WbPlanReport,
   type WbProgressEvent,
   type WbProbeReport,
   type WbQuarantineInfo,
@@ -79,6 +81,12 @@ export default function WorkbuddyResetPage() {
   const [qBusy, setQBusy] = React.useState(false)
   const [qDeleteConfirm, setQDeleteConfirm] = React.useState<string | null>(null)
   const [qNotice, setQNotice] = React.useState('')
+  // 计划预览(执行前"会动什么/多大"逐条披露;与执行层共用后端同一份判据)
+  const [plans, setPlans] = React.useState<Partial<Record<Mode, WbPlanReport>>>({})
+  const [planLoading, setPlanLoading] = React.useState(false)
+  const [planOpen, setPlanOpen] = React.useState<Mode | null>(null)
+  // 探针条目展开/收起(默认只显前 12 条)
+  const [showAllEntries, setShowAllEntries] = React.useState(false)
 
   const runProbe = React.useCallback(async () => {
     setProbing(true)
@@ -141,6 +149,26 @@ export default function WorkbuddyResetPage() {
       }
     },
     [factoryConfirm, killRunning, includeDeviceId, onProgress, refreshSide],
+  )
+
+  const togglePlan = React.useCallback(
+    async (mode: Mode) => {
+      if (planOpen === mode) {
+        setPlanOpen(null)
+        return
+      }
+      setPlanOpen(mode)
+      setPlanLoading(true)
+      try {
+        const rep = await workbuddyResetPlan(mode, mode === 'logout' ? includeDeviceId : false)
+        setPlans((p) => ({ ...p, [mode]: rep }))
+      } catch {
+        setPlans((p) => ({ ...p, [mode]: undefined }))
+      } finally {
+        setPlanLoading(false)
+      }
+    },
+    [planOpen, includeDeviceId],
   )
 
   const restoreQuarantine = React.useCallback(
@@ -211,6 +239,51 @@ export default function WorkbuddyResetPage() {
     return map[tier] ?? tier
   }
 
+  const actLabel = (action: string) => {
+    const map: Record<string, string> = {
+      delete_dir: t('planActDeleteDir'),
+      delete_file: t('planActDeleteFile'),
+      quarantine: t('planActQuarantine'),
+    }
+    return map[action] ?? action
+  }
+
+  const renderPlan = (mode: Mode) => {
+    if (planOpen !== mode) return null
+    if (planLoading) {
+      return (
+        <p className="text-muted-foreground flex items-center gap-2 text-xs">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('probeScanning')}
+        </p>
+      )
+    }
+    const rep = plans[mode]
+    if (!rep || rep.actions.length === 0) {
+      return <p className="text-muted-foreground text-xs">{t('planEmpty')}</p>
+    }
+    return (
+      <div className="space-y-1 rounded-md border p-2">
+        <div className="flex items-center justify-between text-xs">
+          <span className="font-medium">{t('planTitle')}</span>
+          <span className="text-muted-foreground font-mono">
+            {rep.total_mb.toFixed(1)} MB · {rep.actions.length}
+          </span>
+        </div>
+        {rep.actions.slice(0, 8).map((a) => (
+          <div key={a.path} className="flex items-center justify-between gap-2 text-xs">
+            <span className="truncate font-mono">{a.path}</span>
+            <span className="text-muted-foreground shrink-0">
+              {actLabel(a.action)} · {a.size_mb.toFixed(1)} MB
+            </span>
+          </div>
+        ))}
+        {rep.actions.length > 8 ? (
+          <p className="text-muted-foreground text-xs">{t('planTruncated')}</p>
+        ) : null}
+      </div>
+    )
+  }
+
   return (
     <div className="mx-auto max-w-4xl space-y-4 p-6">
       <div>
@@ -263,7 +336,7 @@ export default function WorkbuddyResetPage() {
                 </div>
               </div>
               <div className="mt-3 space-y-1">
-                {probe.entries.slice(0, 12).map((e) => (
+                {probe.entries.slice(0, showAllEntries ? undefined : 12).map((e) => (
                   <div key={e.path} className="flex items-center justify-between gap-2 text-sm">
                     <div className="flex min-w-0 items-center gap-2">
                       <span className={`rounded px-1.5 py-0.5 text-xs ${TIER_BADGE[e.tier] ?? ''}`}>
@@ -276,6 +349,15 @@ export default function WorkbuddyResetPage() {
                     </span>
                   </div>
                 ))}
+                {probe.entries.length > 12 ? (
+                  <button
+                    type="button"
+                    className="text-primary text-xs"
+                    onClick={() => setShowAllEntries((v) => !v)}
+                  >
+                    {showAllEntries ? t('entriesShowLess') : t('entriesShowAll')}
+                  </button>
+                ) : null}
               </div>
             </>
           ) : (
@@ -304,6 +386,16 @@ export default function WorkbuddyResetPage() {
               {busy === 'maintenance' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {t('maintCta')}
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full"
+              disabled={planLoading}
+              onClick={() => void togglePlan('maintenance')}
+            >
+              {t('planPreview')}
+            </Button>
+            {renderPlan('maintenance')}
           </CardContent>
         </Card>
 
@@ -334,6 +426,16 @@ export default function WorkbuddyResetPage() {
               {busy === 'logout' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {t('logoutCta')}
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full"
+              disabled={planLoading}
+              onClick={() => void togglePlan('logout')}
+            >
+              {t('planPreview')}
+            </Button>
+            {renderPlan('logout')}
           </CardContent>
         </Card>
 
@@ -379,6 +481,16 @@ export default function WorkbuddyResetPage() {
                 {t('factoryCta')}
               </Button>
             )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full"
+              disabled={planLoading}
+              onClick={() => void togglePlan('factory')}
+            >
+              {t('planPreview')}
+            </Button>
+            {renderPlan('factory')}
           </CardContent>
         </Card>
       </div>
