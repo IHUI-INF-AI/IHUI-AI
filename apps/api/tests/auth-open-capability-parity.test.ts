@@ -106,7 +106,11 @@ const SCENARIOS: Record<string, Parameters<typeof makeRequest>[0]> = {
 beforeEach(() => {
   vi.clearAllMocks()
   verifyAccessToken.mockImplementation(async (token: string) => {
-    if (token === 'garbage') throw new Error('bad signature')
+    // 复刻 jose 的真形态:验签失败带 ERR_JWS_SIGNATURE_VERIFICATION_FAILED。
+    // 无身份标识的异常在新口径下是"没验成"(502),不是"验了但无效"(401)。
+    if (token === 'garbage') {
+      throw Object.assign(new Error('bad signature'), { code: 'ERR_JWS_SIGNATURE_VERIFICATION_FAILED' })
+    }
     return { userId: token.replace(/\.user$/, ''), phone: '', familyId: 'f1', roleId: 0 }
   })
   decodeJwt.mockImplementation((token: string) => ({
