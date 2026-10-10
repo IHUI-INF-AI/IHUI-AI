@@ -107036,7 +107036,7 @@
     },
     "/api/ai/x5m5x-image/models": {
       "get": {
-        "description": "代理调用 x5m5x /v1/models 接口(生图 key 鉴权)动态获取官方全量生图模型(gpt-image-2.5 系列)",
+        "description": "代理调用 x5m5x /v1/models 接口(生图 key 鉴权)动态获取官方全量生图模型(gpt-image-2 系列)",
         "responses": {
           "200": {
             "description": "Default Response",
@@ -107158,16 +107158,16 @@
             }
           }
         },
-        "summary": "极速 API 模型列表(生图 key)",
+        "summary": "New API 模型列表(生图 key)",
         "tags": [
           "AI",
-          "极速API"
+          "NewAPI"
         ]
       }
     },
     "/api/ai/x5m5x-subscribe/chat": {
       "post": {
-        "description": "代理调用 x5m5x /v1/chat/completions(OpenAI 协议,订阅 key),专供 11 个 Auto-Model: glm-5.3 / deepseek-v4-flash-0731 / gpt-5.6 / grok-4.6 / glm-5.3-flash / MiniMax-M2.7 / qwen3.8-flash / qwen3.8-max / gpt-6-astra / deepseek-v4.1-flash / glm-5.3-flashx",
+        "description": "代理调用 x5m5x /v1/chat/completions([OI] 协议,订阅通道,与按量同源 key/清单): glm-5.3 / glm-5.3-flash / qwen3.8-flash / deepseek-v4.1-flash / gemini-3.8-flash / grok-4.7 / kimi-k3 等",
         "requestBody": {
           "required": true,
           "content": {
@@ -107489,16 +107489,16 @@
             }
           }
         },
-        "summary": "极速 API 订阅 key 对话补全",
+        "summary": "New API 订阅 key 对话补全",
         "tags": [
           "AI",
-          "极速API"
+          "NewAPI"
         ]
       }
     },
     "/api/ai/x5m5x-subscribe/models": {
       "get": {
-        "description": "代理调用 x5m5x /v1/models 接口(订阅 key 鉴权)动态获取官方全量模型(含 11 个 Auto-Model)",
+        "description": "代理调用 x5m5x /v1/models 接口(订阅 key 鉴权)动态获取官方全量模型(2026-10-09 new api 实测 42 个)",
         "responses": {
           "200": {
             "description": "Default Response",
@@ -107620,16 +107620,16 @@
             }
           }
         },
-        "summary": "极速 API 模型列表(订阅 key)",
+        "summary": "New API 模型列表(订阅 key)",
         "tags": [
           "AI",
-          "极速API"
+          "NewAPI"
         ]
       }
     },
     "/api/ai/x5m5x/chat": {
       "post": {
-        "description": "代理调用 x5m5x /v1/chat/completions(OpenAI 协议,按量 key),支持模型: deepseek-v4-flash-0731 / glm-5.3 / gpt-5.6 / gpt-5.5 / qwen3.8-flash / qwen3.8-max / grok-4.6 / claude-opus-5 / gemini-3.6 / kimi 等 41 个(2026-09-20 实测)",
+        "description": "代理调用 x5m5x /v1/chat/completions(OpenAI 协议,按量 key),支持模型: glm-5.3 / glm-5.3-flash / qwen3.8-flash / deepseek-v4.1-flash / gemini-3.8-flash / grok-4.7 / kimi-k3 等 42 个(2026-10-09 new api 实测)",
         "requestBody": {
           "required": true,
           "content": {
@@ -107951,16 +107951,16 @@
             }
           }
         },
-        "summary": "极速 API 对话补全",
+        "summary": "New API 对话补全",
         "tags": [
           "AI",
-          "极速API"
+          "NewAPI"
         ]
       }
     },
     "/api/ai/x5m5x/image": {
       "post": {
-        "description": "代理调用 x5m5x /v1/images/generations(OpenAI images 协议,生图 key),支持模型: gpt-image-2.5-flare(默认,实测出图)/ gpt-image-2.5-sunburst / gpt-image-2.5;返回 b64_json 内联数据(非 URL),前端需转 data URI 展示",
+        "description": "代理调用 x5m5x /v1/images/generations(OpenAI images 协议,生图 key),支持模型: gpt-image-2(默认,实测出图)/ gpt-image-2.5;返回 b64_json 内联数据(非 URL),前端需转 data URI 展示",
         "requestBody": {
           "required": true,
           "content": {
@@ -108107,16 +108107,16 @@
             }
           }
         },
-        "summary": "极速 API 文生图",
+        "summary": "New API 文生图",
         "tags": [
           "AI",
-          "极速API"
+          "NewAPI"
         ]
       }
     },
     "/api/ai/x5m5x/models": {
       "get": {
-        "description": "代理调用 x5m5x /v1/models 接口动态获取官方全量模型(2026-09-20 实测 41 个 LLM)",
+        "description": "代理调用 x5m5x /v1/models 接口动态获取官方全量模型(2026-10-09 new api 实测 42 个)",
         "responses": {
           "200": {
             "description": "Default Response",
@@ -108238,10 +108238,10 @@
             }
           }
         },
-        "summary": "极速 API 模型列表(按量 key)",
+        "summary": "New API 模型列表(按量 key)",
         "tags": [
           "AI",
-          "极速API"
+          "NewAPI"
         ]
       }
     },
