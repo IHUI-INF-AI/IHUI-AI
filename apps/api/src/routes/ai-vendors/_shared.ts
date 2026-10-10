@@ -403,19 +403,19 @@ export const VENDORS: Record<string, VendorConfig> = {
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
   },
   x5m5x: {
-    name: '极速API(按量/LLM)',
+    name: 'New API(按量/LLM)',
     keyEnv: 'X5M5X_API_KEY',
     baseUrl: 'https://api.x5m5x.com/v1',
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
   },
   x5m5xImage: {
-    name: '极速API(生图)',
+    name: 'New API(生图)',
     keyEnv: 'X5M5X_IMAGE_KEY',
     baseUrl: 'https://api.x5m5x.com/v1',
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
   },
   x5m5xSubscribe: {
-    name: '极速API(订阅/Auto-Model)',
+    name: 'New API(订阅/Auto-Model)',
     keyEnv: 'X5M5X_SUBSCRIBE_KEY',
     baseUrl: 'https://api.x5m5x.com/v1',
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
