@@ -64,8 +64,9 @@ const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
     apiFormat: 'openai_chat',
   },
   agnes: {
-    baseUrl: 'https://api.agnes.ai/v1',
-    defaultModel: 'agnes-chat',
+    // 2026-10-10:境外域名不可达,切国内网关(api.agnes-ai.cn,新key A/B 实测 200/401)
+    baseUrl: 'https://api.agnes-ai.cn/v1',
+    defaultModel: 'agnes-2.5-flash',
     apiFormat: 'openai_chat',
   },
   cloudflare: {
