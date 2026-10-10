@@ -25,7 +25,7 @@ export type OutboundI18nParams = Record<string, string | number>
 const DEFAULT_LOCALE = 'zh-CN'
 
 /** 出站文案实际有词包的语言面(= packages/i18n/messages/api/ 下存在的 locale,与测试 LOCALES 同源)。 */
-export const SUPPORTED_OUTBOUND_LOCALES = ['zh-CN', 'zh-TW', 'en', 'ja', 'ko'] as const
+const SUPPORTED_OUTBOUND_LOCALES = ['zh-CN', 'zh-TW', 'en', 'ja', 'ko'] as const
 
 /**
  * 把存储值(用户偏好 language 等)归一到支持的 locale。
