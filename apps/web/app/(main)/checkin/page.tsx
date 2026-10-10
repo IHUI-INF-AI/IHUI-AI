@@ -10,9 +10,13 @@
 // 类型契约:@ihui/types(checkin.ts,账号形态脱敏无 jwt 字段)。
 // 结构:账号列表(分组徽章与筛选/启停开关/手动签到/更新JWT/删除/JWT与冷却徽章)
 // + 调度状态徽章 + 一键全部签到(跳过今日已签 + 进度)
-// + Tabs(签到记录 | 积分历史 | 积分看板,按账号过滤/加载更多)+ 录入/更新JWT/分组对话框。
+// + Tabs(签到记录 | 积分历史 | 积分看板,按账号过滤/加载更多)+ 录入/更新JWT/分组/设备头对话框。
 
-import type { CheckinCreditsDailyResponse } from '@ihui/types'
+import type {
+  CheckinCreditsDailyResponse,
+  CheckinDeviceMapUpdateResponse,
+  UpdateCheckinDeviceMapIn,
+} from '@ihui/types'
 import { rnRadius } from '@ihui/design-tokens'
 
 import * as React from 'react'
@@ -54,6 +58,7 @@ import {
 import {
   createCheckinAccount,
   deleteCheckinAccount,
+  fetchAiServiceJson,
   getCheckinSchedulerStatus,
   listCheckinAccounts,
   listCheckinCreditsDaily,
@@ -94,6 +99,25 @@ const RECORDS_LIMIT_MAX = 200
 const CREDITS_LIMIT_STEP = 200
 const CREDITS_LIMIT_MAX = 1000
 const DAY_MS = 86_400_000
+
+/**
+ * 更新账号设备头(PATCH /accounts/{id}/device_map;2026-10-11 立)。
+ * 端点封装暂置页面本地(@ihui/api-client/endpoints/checkin.ts 本期不扩),形态与
+ * updateCheckinAccountGroup 同款:fetchAiServiceJson 裸 JSON + unwrap 抛错。
+ * 422 = device_map 超 16KB;404 = 账号不存在或非属主(错误文案由后端 detail 透出)。
+ */
+async function updateCheckinDeviceMap(
+  accountId: number,
+  deviceMap: Record<string, unknown>,
+): Promise<CheckinDeviceMapUpdateResponse> {
+  const body: UpdateCheckinDeviceMapIn = { device_map: deviceMap }
+  const res = await fetchAiServiceJson<CheckinDeviceMapUpdateResponse>(
+    `/api/checkin/accounts/${encodeURIComponent(String(accountId))}/device_map`,
+    { method: 'PATCH', body: JSON.stringify(body) },
+  )
+  if (!res.success || res.data === undefined) throw new Error(res.error || '请求失败')
+  return res.data
+}
 
 export default function CheckinPage() {
   const t = useTranslations('checkin')
@@ -203,6 +227,12 @@ export default function CheckinPage() {
   const [jwtSubmitting, setJwtSubmitting] = React.useState(false)
   const [jwtFormError, setJwtFormError] = React.useState<string | null>(null)
   const [jwtNotice, setJwtNotice] = React.useState<string | null>(null)
+
+  // 编辑设备头对话框(device_map 手动编辑;Qoder refresh_token/Cosy-* 风控头族、TRAE 设备态)
+  const [deviceMapTarget, setDeviceMapTarget] = React.useState<CheckinAccount | null>(null)
+  const [deviceMapEditText, setDeviceMapEditText] = React.useState('')
+  const [deviceMapSubmitting, setDeviceMapSubmitting] = React.useState(false)
+  const [deviceMapFormError, setDeviceMapFormError] = React.useState<string | null>(null)
 
   // 调度状态(拉取失败静默不显示)
   const [scheduler, setScheduler] = React.useState<{
@@ -797,6 +827,41 @@ export default function CheckinPage() {
     }
   }
 
+  const openDeviceMapDialog = (account: CheckinAccount) => {
+    setDeviceMapTarget(account)
+    setDeviceMapEditText(JSON.stringify(account.device_map ?? {}, null, 2))
+    setDeviceMapFormError(null)
+  }
+
+  const submitDeviceMap = async () => {
+    if (!deviceMapTarget) return
+    // 校验与录入表单同口径:合法 JSON 且必须是 plain object(Array/null 一律拒),不合法不请求
+    let parsed: Record<string, unknown>
+    try {
+      const value: unknown = JSON.parse(deviceMapEditText)
+      if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+        setDeviceMapFormError(t('deviceMapInvalid'))
+        return
+      }
+      parsed = value as Record<string, unknown>
+    } catch {
+      setDeviceMapFormError(t('deviceMapInvalid'))
+      return
+    }
+    setDeviceMapSubmitting(true)
+    setDeviceMapFormError(null)
+    try {
+      await updateCheckinDeviceMap(deviceMapTarget.id, parsed)
+      setDeviceMapTarget(null)
+      setBatchNotice(t('deviceMapUpdated'))
+      await loadAll()
+    } catch (e) {
+      setDeviceMapFormError((e as Error).message)
+    } finally {
+      setDeviceMapSubmitting(false)
+    }
+  }
+
   // 加载更多:limit 增量重拉,按 id 去重追加;返回不足请求量即无更多
   const loadMoreRecords = async () => {
     const requested = Math.min(records.length + RECORDS_LIMIT_STEP, RECORDS_LIMIT_MAX)
@@ -1259,6 +1324,14 @@ export default function CheckinPage() {
                           <Button
                             variant="ghost"
                             size="sm"
+                            aria-label={t('editDeviceMap')}
+                            onClick={() => openDeviceMapDialog(account)}
+                          >
+                            <Laptop className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             aria-label={t('delete')}
                             onClick={() => setDeleteTarget(account)}
                           >
@@ -1673,6 +1746,51 @@ export default function CheckinPage() {
             <Button onClick={() => void submitGroup()} disabled={groupSubmitting}>
               {groupSubmitting && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
               {groupSubmitting ? t('submitting') : t('submit')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 编辑设备头对话框(device_map 手动编辑;TRAE/Qoder 通用;整体替换语义) */}
+      <Dialog
+        open={deviceMapTarget !== null}
+        onOpenChange={(open) => !open && setDeviceMapTarget(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('editDeviceMapTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('editDeviceMapDescription', { platform: deviceMapTarget?.platform ?? '' })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="checkin-device-map-update">{t('deviceMap')}</Label>
+              <textarea
+                id="checkin-device-map-update"
+                value={deviceMapEditText}
+                onChange={(e) => setDeviceMapEditText(e.target.value)}
+                rows={10}
+                className="w-full resize-y rounded-sm border bg-background p-2 font-mono text-xs outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            {deviceMapFormError && (
+              <p role="alert" className="text-sm text-destructive">
+                {deviceMapFormError}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeviceMapTarget(null)}
+              disabled={deviceMapSubmitting}
+            >
+              {t('cancel')}
+            </Button>
+            <Button onClick={() => void submitDeviceMap()} disabled={deviceMapSubmitting}>
+              {deviceMapSubmitting && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+              {deviceMapSubmitting ? t('submitting') : t('submit')}
             </Button>
           </DialogFooter>
         </DialogContent>

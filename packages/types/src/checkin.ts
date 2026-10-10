@@ -111,6 +111,11 @@ export interface UpdateCheckinAccountGroupIn {
   group: string
 }
 
+/** PATCH /accounts/{id}/device_map 请求体(整体替换设备指纹 map;≤16KB) */
+export interface UpdateCheckinDeviceMapIn {
+  device_map: Record<string, unknown>
+}
+
 // ===================== 响应类型 =====================
 
 /** GET /accounts 响应 */
@@ -148,6 +153,14 @@ export interface CheckinGroupUpdateResponse {
   ok: boolean
   id: number
   group: string
+}
+
+/** PATCH /accounts/{id}/device_map 响应(2026-10-11 立) */
+export interface CheckinDeviceMapUpdateResponse {
+  ok: boolean
+  /** 更新后 device_map 的键数量 */
+  device_map_keys: number
+  platform: CheckinPlatform
 }
 
 /** GET /scheduler/status 响应 */
