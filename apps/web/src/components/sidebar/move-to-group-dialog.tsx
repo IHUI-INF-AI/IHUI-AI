@@ -145,5 +145,3 @@ export function MoveToGroupDialog({
     </Dialog>
   )
 }
-
-export default MoveToGroupDialog
