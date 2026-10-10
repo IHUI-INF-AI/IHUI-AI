@@ -22,17 +22,18 @@
  *      所以 P6 产出的不是"把这两条判红",而是"给这一类待偿项一套有死亡机制的裁决账"
  *      (`scripts/data/inert-alert-rules.json`,四件套 anchor+reason+owner+reviewBy,
  *      三条红:字段不齐 / 到期未复裁 / 锚点已不在规则文件里 = 清单腐烂)。
- *   P7(2026-09-29 机主拍板"只加一把副本没出机就喊的尺子"):备份的"异地"腿此前**没有任何判据量过副本**。
- *      实测形态:源 `D:\DevEnv\backups\pg`(现读 29 份 .dump,保留 7 天)与"异地"副本
- *      `D:\BaiduSyncdisk\IHUI-PG-BACKUP` **同在 D: 卷**,而网盘同步进程(tasklist 里 BaiduNetbox)
- *      此刻不在跑 —— 即"异地容灾"只成立了"复制到另一个目录"这一半。P7 判三件事,各自三态、
+ *   P7(2026-09-29 机主拍板"只加一把副本没出机就喊的尺子"):备份的"云同步"腿此前**没有任何判据量过副本**。
+ *      实测形态(2026-10-07 复核):源 `D:\DevEnv\backups\pg`(保留 7 天)与云同步副本目录
+ *      (**现为 F:\BaiduSyncdisk\IHUI-PG-BACKUP**,09-29 时在 D: 盘符,同步盘已挪卷;网盘挂载点换址
+ *      经 IHUI_BACKUP_CLOUD_DIR env 覆盖口接管)同在 **Disk 0 物理盘**(C:/G: 在 Disk 1),盘坏即同坏
+ *      —— 按 G-916939 机主拍板(2026-10-07),台账与文档不再称"异地容灾",本腿改名**云同步腿**。P7 判三件事,各自三态、
  *      任一 finding 计入红:
  *        覆盖对账 —— 源里仍在保留期内(≤ LIMITS.pgBackupRetentionDays)的每个 .dump,副本必须有同名文件(报名);
  *        新鲜度对账 —— 副本目录最新 .dump 的年龄,阈值沿用 LIMITS.pgDumpMaxAgeHours(不新造第二个数);
  *        内容一致性 —— 对两侧同名且都在的、修改时间最新的一对做**流式** SHA-256 全文件比对,
  *                      只打印哈希与字节数,**永不打印任何 dump 内容**。
  *      **能力边界(机主原话,逐字留档)**:"三条都绿只证明副本文件在位且与源同哈希,
- *      **不证明它已离开这台机器** —— 两者同在 D: 卷,真正的出机依赖第三方同步客户端在跑,
+ *      **不证明它已离开这台机器** —— 两者同在 Disk 0 物理盘,真正的出机依赖第三方同步客户端在跑,
  *      而那是机主专属裁决,本判据不启动它、也不假装能验证它。" 同步客户端进程在不在位这一维
  *      继续由 P5 的「网盘同步客户端」行看守,**P7 不重复计账**(同一条债不得在两个判据各计一次)。
  *   P11(2026-10-02 补这一格):告警规则的**语义**有没有人跑。规则文件被改坏、或用例与规则漂开时,
@@ -916,13 +917,15 @@ export function heartbeatRows({ now, devEnv, databases, execCands = EXEC_CANDIDA
 
 export function baiduSyncRunning() {
   try {
-    const out = execFileSync('tasklist.exe', ['/FI', 'IMAGENAME eq BaiduNetbox.exe', '/FO', 'CSV', '/NH'], {
+    // 2026-10-07 实测:客户端已升级为 Unite 架构,同步组件进程族 = BaiduNetdiskUnite /
+    // baidunetdiskhost(旧 BaiduNetbox.exe 不再存在);判"客户端在跑"按进程族并判。
+    const out = execFileSync('tasklist.exe', ['/FO', 'CSV', '/NH'], {
       windowsHide: true,
       timeout: 15000,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     })
-    return !/NONE/i.test(String(out)) && String(out).includes('BaiduNetbox')
+    return /"?BaiduNetbox\.exe"?|"?BaiduNetdiskUnite\.exe"?|"?baidunetdiskhost\.exe"?/i.test(String(out))
   } catch {
     return null
   }
@@ -1235,21 +1238,33 @@ export function checkDeployLoopOutcome({
   return { id: 'P5b', state: 'finding', detail: `${base}${attribution}` }
 }
 
-/** 生产装配:HEAD 行文本与工作树脏态都走 face-reader 那一份实现(守门 118 的口径),测试注入替身。 */
+/** 生产装配:HEAD 行文本与工作树脏态都走 face-reader 那一份实现(守门 118 的口径),测试注入替身。
+ *
+ * **这一版重写取材形状(G-1118438,2026-10-11)**:旧实现是
+ * `catBatch(root, ['HEAD']).get('HEAD') ?? new Map()`,再把结果当 `Map<路径,内容>` 用。而 `catBatch`
+ * 返回的 Map **按所问的 rev 键**、值就是那份正文 —— 它从来不是一本"路径→内容"的表;问 commit 号时
+ * git 会把它 resolve 成**树对象**,于是 `.get('HEAD')` 拿到的是一段树目录文本(或 null),
+ * `headOf().get(repoPath)` 恒 `undefined` ⇒ **每一个**报错点都"取不到" ⇒ 三态永远并不到
+ * `landed` / `in-flight`,P5b 的归因退化成固定一句"无法确认"。它不会红:P5b 判的是部署环日志(巡检档,
+ * 不在提交链),而"归因判据失明"与"这一轮确实没报错"在报告里长得一模一样 —— 本仓最高频的失效型。
+ * 正确形状:把被点名的路径编成 rev 串 `HEAD:<path>` 逐路径问(与 P6 那一段 `catBatch(root, refs)`
+ * 同形),取不到也缓存,派生失败单独计一档(那格只能算"没问到",不得冒充"该文件不在 HEAD")。 */
 export function makeBuildAttributionDeps({ root = REPO } = {}) {
-  let headFiles = null
-  const headOf = () => {
-    if (headFiles !== null) return headFiles
-    try {
-      headFiles = catBatch(root, ['HEAD']).get('HEAD') ?? new Map()
-    } catch {
-      headFiles = new Map()
+  const texts = new Map()
+  const fetchFailed = new Set()
+  const headTextOf = (repoPath) => {
+    if (!texts.has(repoPath) && !fetchFailed.has(repoPath)) {
+      try {
+        texts.set(repoPath, catBatch(root, [`HEAD:${repoPath}`]).get(`HEAD:${repoPath}`) ?? null)
+      } catch {
+        fetchFailed.add(repoPath)
+      }
     }
-    return headFiles
+    return texts.get(repoPath) ?? null
   }
   return {
     readHeadLine(repoPath, n) {
-      const t = headOf().get(repoPath)
+      const t = headTextOf(repoPath)
       if (typeof t !== 'string') return null
       const lines = t.split(/\r?\n/)
       return n >= 1 && n <= lines.length ? lines[n - 1] : null
@@ -1261,6 +1276,14 @@ export function makeBuildAttributionDeps({ root = REPO } = {}) {
         return false
       }
     },
+    // 尺子自己的健康读数:归因能不能真取到正文。fetched=0 而 asked>0 就是这台尺子瞎了 ——
+    // 它必须可被量出来,否则"没判"又会写成"判过了"(镜像测试用它做端到端断言)。
+    _stats: () => ({
+      asked: texts.size + fetchFailed.size,
+      fetched: [...texts.values()].filter((v) => typeof v === 'string').length,
+      absent: [...texts.values()].filter((v) => v === null).length,
+      fetchFailed: fetchFailed.size,
+    }),
   }
 }
 
@@ -1741,7 +1764,7 @@ function defaultOffsiteReplicaDir() {
 
 /** 能力边界 —— 逐字取自机主拍板的原话,写进每条 P7 行的 detail 与上面的注释。 */
 const P7_BOUNDARY_NOTE =
-  '能力边界:三条都绿只证明副本文件在位且与源同哈希,**不证明它已离开这台机器** —— 两者同在 D: 卷,真正的出机依赖第三方同步客户端在跑,而那是机主专属裁决,本判据不启动它、也不假装能验证它;同步客户端进程在不在位由 P5「网盘同步客户端」行看守,P7 不重复计账'
+  '能力边界:三条都绿只证明副本文件在位且与源同哈希,**不证明它已离开这台机器** —— 两者同在 Disk 0 物理盘,真正的出机依赖第三方同步客户端在跑,而那是机主专属裁决,本判据不启动它、也不假装能验证它;同步客户端进程在不在位由 P5「网盘同步客户端」行看守,P7 不重复计账'
 
 /**
  * P7 —— 备份副本的覆盖 / 新鲜度 / 内容一致性,三条各自三态。
@@ -1873,7 +1896,7 @@ export async function patrol({ now = Date.now(), apply = false, strict = false, 
     state: baidu === null ? 'undetermined' : baidu ? 'ok' : 'finding',
     detail:
       baidu === false
-        ? 'BaiduNetbox 进程不在 ⇒ "异地容灾"这一腿此刻不成立(备份复制到网盘目录,而同步没在跑),且全仓没有"同步是否完成"的判据'
+        ? '网盘同步客户端进程不在 ⇒ 云同步腿这一腿此刻不成立(备份复制到网盘目录,而同步没在跑),且全仓没有"同步是否完成"的判据'
         : baidu === true
           ? '进程在位(注:同步**完成与否**仍无判据,这里只判进程)'
           : 'tasklist 派生失败 ⇒ 未判定',
@@ -2566,22 +2589,16 @@ export async function selfTest() {
   t(`P11 promtool 三态成对(全过绿 / 任一失败红且点名文件 / promtool 或用例目录取不到未判定)${p11fix.ok ? '' : ` —— ${p11fix.why}`}`, p11fix.ok === true)
   t('装车锁:patrol 必须真把 P11 接进巡检', (() => {
     const selfSrc = readFileSync(fileURLToPath(import.meta.url), 'utf8')
-    const body = selfSrc.slice(selfSrc.indexOf('export async function patrol'), selfSrc.indexOf('export function loadAdjudications'))
-    return /checkPromtoolRules\(/.test(body)
+    return patrolWiringGaps(patrolAssemblyText(selfSrc), ['P11']).length === 0
   })())
   // 装车锁(与本文件其它判据同一条理由):判据写出来而 patrol() 没接上 = 本仓最高频失效型。
   // 摘掉任意一行 add(...) 调用,这一条必须翻红 —— 所以它判的是**调用点**,不是函数存在性。
-  t('装车锁:patrol 必须真把 P9/P10 两格接进巡检', (() => {
+  // 锚点名单与取景在 `PATROL_WIRING` / `patrolAssemblyText`(§22c:只这一份,镜像测试也调它)。
+  t('装车锁:patrol 必须真把 P8/P9/P10 三格接进巡检', (() => {
     const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
-    const body = src.slice(src.indexOf('export async function patrol'), src.indexOf('export function loadAdjudications'))
     return (
-      /checkUndeliveredAlertMarkers\(\)/.test(body) &&
-      /await checkMailChannelLiveness\(/.test(body) &&
-      /checkUndeliveredAlertDebt\(/.test(body) &&
-      // P10 的裁决台账必须在**装配处**读、并把结果喂进判据 —— 只在函数签名里写
-      // `acks = []` 而装配处不传,等于这条队列没有死亡机制(它会一路红到有人删判据为止)。
-      /loadDebtAcks\(\)/.test(body) &&
-      /acks: debtAcks\.entries/.test(body)
+      patrolWiringGaps(patrolAssemblyText(src), ['P8', 'P9', 'P10', 'P10-ack-read', 'P10-ack-feed'])
+        .length === 0
     )
   })())
   const p5fix = backupPerDbFixture()
@@ -2743,8 +2760,7 @@ export async function selfTest() {
   t('非 finding 的行不被降级;"本轮不红"也不算台账腐烂', G.rows[0].state === 'ok' && G.rotten.length === 0)
   t('装车锁:applyAdjudications 必须真被 patrol 接上(判据写出来而没装车 = 本仓最高频失效型)', (() => {
     const src = readFileSync(join(SELF_DIR, 'check-ops-patrol.mjs'), 'utf8')
-    const body = src.slice(src.indexOf('export async function patrol'), src.indexOf('export function loadAdjudications'))
-    return /applyAdjudications\(/.test(body) && /adjudicated/.test(body)
+    return patrolWiringGaps(patrolAssemblyText(src), ['ledger-read', 'ledger-apply', 'ledger-bucket']).length === 0
   })())
 
   // ── P5b 构建失败归因:三态不并桶,undetermined 不得冒充 landed(2026-09-30 立)──
@@ -2772,6 +2788,32 @@ export async function selfTest() {
     const r = attribBuildFailures(seg, { readHeadLine: () => null, isDirty: () => false })
     return r.includes('无法确认') && r.includes('取不到')
   })())
+  // ── 生产装配自己必须有牙(G-1118438,2026-10-11)──
+  // 上面四条全部注入**替身** readHeadLine,因此它们对"真装配能不能取到正文"结构上失明:
+  // 旧实现把 `catBatch` 的 `Map<rev,内容>` 当 `Map<路径,内容>` 用,替身臂照绿、真实归因恒未判定。
+  // 这一族断的是**装配本身**,并且带一份旧形状的反例 —— 只断新写法会取到,等于允许"两种写法都绿"。
+  t('生产装配(G-1118438):真仓 HEAD 面上必须真取到正文,派生失败一格也不许有', (() => {
+    const d = makeBuildAttributionDeps({ root: REPO })
+    const line = d.readHeadLine('scripts/check-ops-patrol.mjs', 1)
+    const s = d._stats()
+    return s.fetchFailed === 0 && typeof line === 'string' && line.includes('#!/usr/bin/env node') && s.fetched >= 1 && s.absent === 0
+  })())
+  t('反例对照(G-1118438):同一面上旧形状必须取不到 ⇒ 证明改的是结论,不是措辞', (() => {
+    const p = 'scripts/check-ops-patrol.mjs'
+    /** 旧形状逐字回放(`catBatch(root,['HEAD'])` 的 Map 按 rev 键,`.get(路径)` 无从命中)。 */
+    const oldHeadLine = (() => {
+      let headFiles = null
+      try {
+        headFiles = catBatch(REPO, ['HEAD']).get('HEAD') ?? new Map()
+      } catch {
+        headFiles = new Map()
+      }
+      const got = headFiles instanceof Map ? headFiles.get(p) : undefined
+      return got === undefined ? null : String(got)
+    })()
+    const freshLine = makeBuildAttributionDeps({ root: REPO }).readHeadLine(p, 1)
+    return oldHeadLine === null && typeof freshLine === 'string' && freshLine.length > 0
+  })())
   t('装车锁:生产装配必须真把 makeBuildAttributionDeps 喂给 checkDeployLoopOutcome', (() => {
     const src = readFileSync(join(SELF_DIR, 'check-ops-patrol.mjs'), 'utf8')
     return src.includes('checkDeployLoopOutcome(makeBuildAttributionDeps())') && src.includes("from './lib/face-reader.mjs'")
@@ -2783,6 +2825,52 @@ export async function selfTest() {
   }
   console.log(`—— 自检 ${pass}/${cases.length}`)
   return pass === cases.length ? 0 : 1
+}
+
+/**
+ * 装车锁的**判据本体**(2026-10-08 批次 J 收口,AGENTS §22c / 守门 191 的 F1 靶子)。
+ *
+ * 这一维原先散在本文件 `--self-test` 的三格里,而镜像测试 T26/TP4/TP7 又把同样的锚点各抄了
+ * 一遍 —— 两份清单必漂开(§22c 的成因原话):漂开的表现是 patrol 里真摘掉一行接线,而门自检仍绿、
+ * 测试仍绿,因为两边各自数的是自己那份名单。锚点名单与取景只留这里一份,两侧都调它裁定。
+ *
+ * 位置是**刻意的**:必须在 `patrol` 与 `loadAdjudications` 之后。装配段按**首次出现**取景,
+ * 名单若写在那之前,`indexOf` 会先命中名单自己的声明行,窗口就会把名单算成"已接线"。
+ */
+const PATROL_ASSEMBLY_FROM = 'export async function patrol'
+const PATROL_ASSEMBLY_TO = 'export function loadAdjudications'
+
+/** 接线锚点:每条都是 patrol **装配段**里必须出现的一次调用(不是函数定义),摘掉即报这一格。 */
+const PATROL_WIRING = [
+  { id: 'P11', needle: 'checkPromtoolRules(', why: 'P11 写了没接线 = 没有这台尺子' },
+  { id: 'P8', needle: 'checkUndeliveredAlertMarkers()', why: 'P8 未送达标记没进巡检 ⇒ 投递失败没人知道' },
+  { id: 'P9', needle: 'await checkMailChannelLiveness(', why: 'P9 写了没接线 = 没有这台尺子' },
+  { id: 'P10', needle: 'checkUndeliveredAlertDebt(', why: 'P10 写了没接线 = 没有这台尺子' },
+  { id: 'P10-ack-read', needle: 'loadDebtAcks()', why: '裁决台账没人读 ⇒ 这条队列没有死亡机制,会一路红到有人删判据' },
+  { id: 'P10-ack-feed', needle: 'acks: debtAcks.entries', why: '读了台账却不喂给判据 ⇒ "已裁"在账面上永远不生效' },
+  { id: 'ledger-read', needle: 'loadAdjudications(', why: 'patrol 没读台账 ⇒ 台账成了没人读的装饰' },
+  { id: 'ledger-apply', needle: 'applyAdjudications(', why: 'patrol 没调降级 ⇒ 台账成了没人读的装饰' },
+  { id: 'ledger-bucket', needle: 'adjudicated', why: '降级结果没单独成档 ⇒ 已裁的行仍被计进红档(一条债计两次)' },
+]
+
+/** 取景 patrol 的装配段;取不到 ⇒ null(调用方必须按"无从证明"处理,绝不静默当成已接线)。 */
+function patrolAssemblyText(sourceText) {
+  const s = String(sourceText ?? '')
+  const from = s.indexOf(PATROL_ASSEMBLY_FROM)
+  const to = s.indexOf(PATROL_ASSEMBLY_TO)
+  return from >= 0 && to > from ? s.slice(from, to) : null
+}
+
+/**
+ * 裁定:装配段里**缺哪些**接线(返回缺项清单,不是布尔 —— 只说"没过"不说哪儿没过的尺子没人能修)。
+ * 装配段取不到 ⇒ 全数列为缺项:取不到正文不等于通过(本仓最贵的假绿就是这一型)。
+ */
+function patrolWiringGaps(assemblyText, ids = null) {
+  const want = Array.isArray(ids) ? PATROL_WIRING.filter((w) => ids.includes(w.id)) : PATROL_WIRING
+  if (typeof assemblyText !== 'string' || assemblyText === '') {
+    return want.map((w) => ({ id: w.id, why: `${w.why}(patrol 装配段取不到 ⇒ 无从证明已接线)` }))
+  }
+  return want.filter((w) => !assemblyText.includes(w.needle)).map((w) => ({ id: w.id, why: w.why }))
 }
 
 /** §22d 标准形态:只有被直接 node 执行才跑 CLI,被测试 import 时零副作用。 */
@@ -2835,5 +2923,9 @@ export const __test__ = {
   checkUndeliveredAlertDebt,
   // P11 同一条规矩:镜像测试引这里的实现判"三态与不把未判定读成红",不得重抄。
   checkPromtoolRules,
+  // 装车锁同一条规矩(§22c):锚点名单与装配段取景只住在这里,门自检与镜像测试都调它裁定。
+  PATROL_WIRING,
+  patrolAssemblyText,
+  patrolWiringGaps,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
