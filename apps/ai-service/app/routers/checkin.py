@@ -23,10 +23,13 @@ Phase1c(2026-10-08)增:jwt 更换 / 列表 jwt_exp + cooldown_until / scheduler 
 Phase1d(2026-10-08)增:账号分组(创建带 group / PATCH /accounts/{id}/group / 列表回吐 group)。
 WP-B(2026-10-09)增:POST /accounts/{id}/query_credits(查余额并落当日快照)、
 GET /credits/daily(每日快照三线序列:total/gained/consumed)。
+WP-E(2026-10-10)增:PATCH /accounts/{id}/device_map(手动更新设备态,
+属主校验走 get_decrypted_jwt,序列化后 ≤16KB)。
 """
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -76,6 +79,15 @@ class UpdateGroupIn(BaseModel):
     """分组允许空串 = 移出分组;上限与列宽一致(50)。"""
 
     group: str = Field(max_length=50)
+
+
+class UpdateDeviceMapIn(BaseModel):
+    """设备态整体替换(Qoder refresh_token / Cosy-* 设备头、TRAE 设备态)。"""
+
+    device_map: dict[str, Any]
+
+
+_DEVICE_MAP_MAX_BYTES = 16384
 
 
 def _validate_jwt(jwt: str) -> datetime | None:
@@ -271,6 +283,34 @@ async def query_credits(
     gained = await checkin_store.sum_credits_delta_for_day(account_id, current_user, day)
     await checkin_store.upsert_credits_daily(account_id, current_user, day, remaining, gained)
     return {"ok": True, "remaining": remaining}
+
+
+@router.patch("/accounts/{account_id}/device_map")
+async def update_account_device_map(
+    account_id: int,
+    body: UpdateDeviceMapIn,
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """手动更新账号 device_map(整体替换落库,免桌面端重新捕获)。
+
+    属主校验走 get_decrypted_jwt(owner 并入 WHERE,不命中 404);
+    序列化后超 16KB 拒收(422),防设备态膨胀打爆 jsonb 行。
+    """
+    payload = json.dumps(body.device_map, ensure_ascii=False)
+    if len(payload) > _DEVICE_MAP_MAX_BYTES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"device_map 序列化后超上限(≤{_DEVICE_MAP_MAX_BYTES},实际 {len(payload)})",
+        )
+    account = await checkin_store.get_decrypted_jwt(account_id, current_user)
+    if account is None:
+        raise HTTPException(status_code=404, detail=f"账号不存在: {account_id}")
+    await checkin_store.save_device_map(account_id, body.device_map)
+    return {
+        "ok": True,
+        "device_map_keys": len(body.device_map),
+        "platform": account.get("platform"),
+    }
 
 
 @router.get("/credits/daily")
