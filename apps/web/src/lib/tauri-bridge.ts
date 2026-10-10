@@ -1548,6 +1548,70 @@ export async function checkinGetPublicIp(): Promise<{
   return await invokeIpc<{ ip: string; location: string }>('checkin_get_public_ip')
 }
 
+// ================== WorkBuddy 程序一键重置(2026-10-10 立) ==================
+// 目标=WorkBuddy Desktop(Electron)本地状态;三档能力与 Rust workbuddy_reset.rs 一一对应。
+// 边界:只做本地状态清理;服务端设备解绑/限制解除走 WorkBuddy 官方渠道,不做指纹伪造。
+
+export interface WbLayerReport {
+  layer: number
+  name: string
+  ok: boolean
+  detail: string
+}
+export interface WbResetReport {
+  layers: WbLayerReport[]
+}
+export interface WbProbeEntry {
+  path: string
+  /** maintenance | webview_logout | device_identity | user_asset | never */
+  tier: string
+  size_mb: number
+}
+export interface WbProbeReport {
+  root: string
+  workbuddy_running: boolean
+  total_mb: number
+  reclaimable_mb: number
+  entries: WbProbeEntry[]
+}
+
+/** 探针:扫描 ~/.workbuddy 顶层条目,分类(可再生缓存/登录态/设备身份/用户资产)并算体量。重 I/O,后端 spawn_blocking。 */
+export async function workbuddyResetProbe(): Promise<WbProbeReport> {
+  requireTauri()
+  return await invokeIpc<WbProbeReport>('workbuddy_reset_probe')
+}
+
+/** 维护清理:只删可再生缓存与日志(logs/traces/tmp/webview 缓存/Crashpad 等,本机实测 ~12.4GB),
+ *  保留登录态、记忆、技能、连接器、工作区。kill_running=true 时先强杀 WorkBuddy 进程。 */
+export async function workbuddyResetMaintenance(killRunning: boolean): Promise<WbResetReport> {
+  requireTauri()
+  return await invokeIpc<WbResetReport>('workbuddy_reset_maintenance', {
+    killRunning: killRunning ?? false,
+  })
+}
+
+/** 登出重置:删除 app/session(webview 档案→下次启动回登录页);includeDeviceId=true 连带清除
+ *  device-id(本地清除→应用自行重新注册,不做指纹伪造;服务端限制不受本地清除影响)。 */
+export async function workbuddyResetLogout(
+  killRunning: boolean,
+  includeDeviceId: boolean,
+): Promise<WbResetReport> {
+  requireTauri()
+  return await invokeIpc<WbResetReport>('workbuddy_reset_logout', {
+    killRunning: killRunning ?? false,
+    includeDeviceId: includeDeviceId ?? false,
+  })
+}
+
+/** 出厂重置:~/.workbuddy 顶层条目整体搬移到同卷隔离目录(rename,秒级、零数据丢失、可逆),
+ *  应用下次启动按首次安装重建。隔离区路径回填在层 detail 里。 */
+export async function workbuddyResetFactory(killRunning: boolean): Promise<WbResetReport> {
+  requireTauri()
+  return await invokeIpc<WbResetReport>('workbuddy_reset_factory', {
+    killRunning: killRunning ?? false,
+  })
+}
+
 /** 备份指定账号的 9 类 TRAE 现场文件到应用数据目录快照区。 */
 export async function checkinSnapshotBackup(userId: string): Promise<CheckinBackupReport> {
   requireTauri()
