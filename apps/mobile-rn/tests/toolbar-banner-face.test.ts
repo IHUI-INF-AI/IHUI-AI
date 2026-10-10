@@ -47,9 +47,10 @@ function jsxTagHolding(source: string, key: string): string {
   return source.slice(open, close + 1)
 }
 
-/** 某样式档在 bannerFace 子树里的兄弟深度:同一深度 = 并排的兄弟节点 */
-function depthUnderFace(source: string, key: string): number {
-  const faceAt = source.indexOf('styles.bannerFace')
+/** 某样式档在指定锚点子树里的兄弟深度:同一深度 = 并排的兄弟节点,解析不到即抛 */
+function depthUnder(source: string, anchorKey: string, key: string): number {
+  const faceAt = source.indexOf(`styles.${anchorKey}`)
+  if (faceAt < 0) throw new Error(`判据失明:JSX 里找不到锚点 styles.${anchorKey},不判为通过`)
   const faceTagEnd = source.indexOf('>', faceAt)
   const body = source.slice(faceTagEnd + 1)
   let depth = 0
@@ -98,7 +99,9 @@ describe('营销 banner 面层几何回归锁(归并丢 flexDirection 的常驻�
   })
 
   it('机器人与卡片必须是同一层的兄弟节点(嵌套会退化成竖排)', () => {
-    expect(depthUnderFace(src, 'bannerFloat')).toBe(depthUnderFace(src, 'bannerCard'))
+    expect(depthUnder(src, 'bannerFace', 'bannerFloat')).toBe(
+      depthUnder(src, 'bannerFace', 'bannerCard'),
+    )
   })
 
   it('bannerCard 自己不得是横排(它内部是标题+副标题的两行)', () => {
@@ -126,6 +129,57 @@ describe('营销 banner 面层几何回归锁(归并丢 flexDirection 的常驻�
     expect(/height:\s*'100%'/.test(face)).toBe(true)
     // 函数形态 style 会被 NativeWind cssInterop 整份丢掉(守门 131 立项那一型)
     expect(tag).not.toMatch(/style=\{\s*\(/)
+  })
+})
+
+// 同一次实拍里的另一半:重叠发生在**下方宫格**(两列卡片),而 bannerFace 只是把机器人压下去的
+// 那个游离图标。宫格侧的修法是三件事叠在一起 —— 文字层可收缩(`flex:1` + `minWidth:0`)、
+// 两列宽度容得下、标题/描述各有行数上限。缺任何一件,长文案都会把相邻列顶成互相压字。
+describe('首页宫格列宽与文字收缩回归锁(与 banner 那半同一次实拍,此前零常驻锁)', () => {
+  const src = readFileSync(SRC, 'utf8')
+  const cell = styleBlockOf(src, 'toolCell')
+  const wrap = styleBlockOf(src, 'toolTextWrap')
+
+  it('① 收缩判据:文字层必须同时声明 flex:1 与 minWidth:0', () => {
+    // Yoga 里 flex:1 不带 minWidth:0 时,子项的内容宽度把父容器顶开 ⇒ 相邻列互相压字。
+    expect(/flex:\s*1,/.test(wrap)).toBe(true)
+    expect(/minWidth:\s*0,/.test(wrap)).toBe(true)
+  })
+
+  it('② 两列容得下:单元格宽必须是百分比形态,且两倍不超一行', () => {
+    const w = /width:\s*'([\d.]+)%'/.exec(cell)
+    expect(w, '判据失明:toolCell 宽度不再是百分比形态').not.toBeNull()
+    expect(Number(w![1]) * 2).toBeLessThanOrEqual(100)
+  })
+
+  it('③ 标题与描述各有行数上限,且两行都装在收缩层之内', () => {
+    expect(/numberOfLines=\{1\}/.test(jsxTagHolding(src, 'toolTitle'))).toBe(true)
+    expect(/numberOfLines=\{2\}/.test(jsxTagHolding(src, 'toolDesc'))).toBe(true)
+    // 这两个调用在结构漂了时会抛(判据失明)而不是静默通过 —— 本锁拒绝把"没找到"读成"没有违规"
+    expect(depthUnder(src, 'toolTextWrap', 'toolTitle')).toBeGreaterThanOrEqual(0)
+    expect(depthUnder(src, 'toolTextWrap', 'toolDesc')).toBeGreaterThanOrEqual(0)
+  })
+
+  it('④ 宫格取用节点不得写成函数形态 style(守门 131 那一型)', () => {
+    for (const key of ['toolCell', 'toolTextWrap', 'toolTitle', 'toolDesc']) {
+      expect(jsxTagHolding(src, key), `styles.${key} 所在标签写成了函数形态 style`).not.toMatch(
+        /style=\{\s*\(/,
+      )
+    }
+  })
+
+  it('本锁有牙:退掉 minWidth 或行数上限,各自必须翻红;还原必须复绿', () => {
+    const noMinWidth = src.replace(/(toolTextWrap:\s*\{[\s\S]*?)minWidth:\s*0,/, '$1')
+    expect(noMinWidth, '变异没命中原文,这条自证等于没跑').not.toBe(src)
+    expect(/minWidth:\s*0,/.test(styleBlockOf(noMinWidth, 'toolTextWrap'))).toBe(false)
+
+    const noLineCap = src.replace(/(<Text style=\{styles\.toolDesc\}) numberOfLines=\{2\}/, '$1')
+    expect(noLineCap, '变异没命中原文(描述行数上限),这条自证等于没跑').not.toBe(src)
+    expect(/numberOfLines=\{2\}/.test(jsxTagHolding(noLineCap, 'toolDesc'))).toBe(false)
+
+    // 反向对照:原文两条都在位 ⇒ 证明上面红的确实是"缺那一条",不是夹具坏了
+    expect(/minWidth:\s*0,/.test(wrap)).toBe(true)
+    expect(/numberOfLines=\{2\}/.test(jsxTagHolding(src, 'toolDesc'))).toBe(true)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

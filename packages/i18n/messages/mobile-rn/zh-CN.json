@@ -28,7 +28,11 @@
     "envNetworkOpen": "本次允许访问网络",
     "envNetworkOff": "本次不开放网络",
     "envNetworkBlocked": "已被拦截的网络目标",
-    "envNetworkBlockedOne": "{host}:{port}(原因:{reason})"
+    "envNetworkBlockedOne": "{host}:{port}(原因:{reason})",
+    "grantRuleToggle": "批准并把这类命令加入放行",
+    "grantRuleDesc": "以命令前缀「{prefix}…」为作用域生成放行规则,90 天后自动过期,可在网页端的放行规则中撤销",
+    "grantRuleConfirmTitle": "确认放行高危命令?",
+    "grantRuleConfirmContent": "命令「{prefix}…」命中高危操作。放行后 90 天内同类命令将不再询问,使用风险需自行承担。"
   },
   "nav": {
     "profile": "我的",
