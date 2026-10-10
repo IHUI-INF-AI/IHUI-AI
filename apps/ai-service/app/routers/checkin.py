@@ -17,7 +17,7 @@ request.state.user_id,解析不到且全局鉴权未启用时回落 dev 身份)�
 - POST   /accounts/{id}/checkin 手动签到(无视冷却,结果照写 records)
 - GET    /records               签到记录倒序分页
 - GET    /credits/history       积分流水(从 records 聚合 credits_delta)
-- GET    /scheduler/status      调度器运行状态(enabled / started / next_run)
+- GET    /scheduler/status      调度器运行状态(enabled / started / next_run / next_run_qoder)
 
 Phase1c(2026-10-08)增:jwt 更换 / 列表 jwt_exp + cooldown_until / scheduler status。
 Phase1d(2026-10-08)增:账号分组(创建带 group / PATCH /accounts/{id}/group / 列表回吐 group)。
@@ -252,9 +252,13 @@ async def query_credits(
     if account is None:
         raise HTTPException(status_code=404, detail=f"账号不存在: {account_id}")
     if account.get("platform") == "qoder":
-        result = await checkin_qoder.qoder_query_credits(
-            account["jwt"], dict(account.get("device_map") or {})
-        )
+        device_map = dict(account.get("device_map") or {})
+        result = await checkin_qoder.qoder_query_credits(account["jwt"], device_map)
+        # 401→refresh 会写回 device_map(新 token),落库持久化
+        try:
+            await checkin_store.save_device_map(account_id, device_map)
+        except Exception:
+            pass
     else:
         result = await checkin_credits.query_remaining_credits(account["jwt"])
     error = result.get("error")
