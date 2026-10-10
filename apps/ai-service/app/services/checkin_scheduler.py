@@ -4,8 +4,13 @@
 
 """签到助手每日调度器(Phase1b,2026-10-03 立)。
 
-每日 08:05(Asia/Shanghai)遍历 enabled 账号逐个执行 checkin_account,
-结果落 checkin_records;错误按引擎 classify_error 的分类驱动冷却累积。
+非 Qoder 账号每日 08:05(Asia/Shanghai)、Qoder 账号每日 10:05,分别遍历
+enabled 账号逐个执行(平台分发引擎),结果落 checkin_records;错误按引擎
+classify_error 的分类驱动冷却累积。
+
+Qoder 独立 10:05 窗口的原因:官方领取活动每日 10:00(UTC+8)才开放
+(docs.qoder.com/events/100credits),08:05 跑必然「活动未下发」且当天
+不再重试 ⇒ 主 job 排除 qoder 账号(partition_platforms 拆分)。
 
 冷却累积语义(与桌面端 auto_checkin.py 一致,引擎 docstring 明确要求):
 - classified_error.type == "Server" → server_errors + 1;
@@ -35,6 +40,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from app.core.logging import get_logger
 from app.services import checkin_credits
+from app.services import checkin_qoder
 from app.services import checkin_store
 from app.services.checkin_engine import checkin_account
 
@@ -52,6 +58,27 @@ _PERMANENT_COOLDOWN_DAYS = 3650
 
 _JOB_ID = "checkin_daily"
 _CREDITS_JOB_ID = "checkin_credits_daily"
+# 平台化(2026-10-10):Qoder 领取窗口每日 10:00(UTC+8)才开放(官方 docs.qoder.com
+# /events/100credits),08:05 主 job 对 Qoder 账号必然「活动未下发」且当天不再重试
+# ⇒ Qoder 账号独立 10:05 job,主 job 排除 qoder 账号。
+_JOB_ID_QODER = "checkin_daily_qoder"
+
+
+def partition_platforms(
+    accounts: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """按平台拆分账号列表,返回 (非 qoder 走 08:05 主窗口, qoder 走 10:05 窗口)。
+
+    platform 缺失按 'trae' 处理(存量账号语义,与 store 默认列值一致)。纯函数。
+    """
+    main_side: list[dict[str, Any]] = []
+    qoder_side: list[dict[str, Any]] = []
+    for acc in accounts:
+        if acc.get("platform") == "qoder":
+            qoder_side.append(acc)
+        else:
+            main_side.append(acc)
+    return main_side, qoder_side
 
 
 def _cooldown_end(cooldown_seconds: int | None) -> datetime | None:
@@ -78,7 +105,8 @@ class CheckinScheduler:
     # ===== 启停(lifespan 钩子) =====
 
     async def start(self) -> None:
-        """启动每日 08:05 定时任务(CHECKIN_CRON_ENABLED 控制,默认 false)。
+        """启动每日 08:05(非 Qoder)/10:05(Qoder)定时任务(CHECKIN_CRON_ENABLED
+        控制两个 job,默认 false)。
 
         建表 fail-open:表建不出来时只告警,不阻塞主服务启动。
         """
@@ -100,6 +128,12 @@ class CheckinScheduler:
             id=_JOB_ID,
             replace_existing=True,
         )
+        self._scheduler.add_job(
+            self._daily_run_qoder,
+            trigger=CronTrigger(hour=10, minute=5, timezone=_CN_TZ),
+            id=_JOB_ID_QODER,
+            replace_existing=True,
+        )
         # WP-B(2026-10-09):每日积分快照 job,与签到 job 同一启用开关
         self._scheduler.add_job(
             self._daily_credits_snapshot,
@@ -109,7 +143,9 @@ class CheckinScheduler:
         )
         self._scheduler.start()
         self._started = True
-        logger.info("[checkin_scheduler] 已启动每日调度(08:05 签到 / 08:10 积分快照, Asia/Shanghai)")
+        logger.info(
+            "[checkin_scheduler] 已启动每日调度(08:05 签到 / 10:05 Qoder 签到 / 08:10 积分快照)"
+        )
 
     async def stop(self) -> None:
         if not self._started:
@@ -126,10 +162,12 @@ class CheckinScheduler:
         """运行状态(公开只读视图,供 GET /api/checkin/scheduler/status)。
 
         enabled 与 start() 读同一环境变量(_cron_enabled 单一来源);started
-        为本单例是否已 start;next_run 仅已启动时有值(APScheduler job 的
-        next_run_time,带 Asia/Shanghai 时区的 ISO8601),未启动为 None。
+        为本单例是否已 start;next_run / next_run_qoder 仅已启动时有值
+        (APScheduler job 的 next_run_time,带 Asia/Shanghai 时区的 ISO8601),
+        未启动为 None。
         """
         next_run: str | None = None
+        next_run_qoder: str | None = None
         if self._started and self._scheduler is not None:
             job = self._scheduler.get_job(_JOB_ID)
             if job is not None:
@@ -137,22 +175,44 @@ class CheckinScheduler:
                 # isoformat 的产出才有 str 看守(同 checkin_store :269 的钉法)。
                 next_run_time: datetime | None = job.next_run_time
                 next_run = next_run_time.isoformat() if next_run_time is not None else None
-        return {"enabled": _cron_enabled(), "started": self._started, "next_run": next_run}
+            job_q = self._scheduler.get_job(_JOB_ID_QODER)
+            if job_q is not None:
+                next_run_time_q: datetime | None = job_q.next_run_time
+                next_run_qoder = (
+                    next_run_time_q.isoformat() if next_run_time_q is not None else None
+                )
+        return {
+            "enabled": _cron_enabled(),
+            "started": self._started,
+            "next_run": next_run,
+            "next_run_qoder": next_run_qoder,
+        }
 
     # ===== 每日任务 =====
 
-    async def _daily_run(self) -> None:
-        """遍历 enabled 账号逐个签到;冷却中的账号跳过。单账号失败不中断整轮。"""
+    async def _load_accounts_and_cooldowns(
+        self, label: str
+    ) -> tuple[list[dict[str, Any]], dict[int, datetime]] | None:
+        """读取 enabled 账号与活跃冷却;账号读失败返回 None(本轮放弃)。"""
         try:
             accounts = await checkin_store.list_enabled_accounts()
         except Exception as e:
-            logger.warning("[checkin_scheduler] 读取签到账号失败(本轮放弃): %s", e)
-            return
+            logger.warning("[checkin_scheduler] 读取签到账号失败(%s 本轮放弃): %s", label, e)
+            return None
         try:
             cooldowns = await checkin_store.get_active_cooldowns()
         except Exception as e:
             logger.warning("[checkin_scheduler] 读取冷却状态失败(按无冷却处理): %s", e)
             cooldowns = {}
+        return accounts, cooldowns
+
+    async def _run_batch(
+        self,
+        accounts: list[dict[str, Any]],
+        cooldowns: dict[int, datetime],
+        label: str,
+    ) -> None:
+        """遍历账号逐个签到;冷却中的账号跳过。单账号失败不中断整轮。"""
         now = datetime.now(UTC)
         ok_count = 0
         for acc in accounts:
@@ -173,7 +233,25 @@ class CheckinScheduler:
                 logger.warning(
                     "[checkin_scheduler] 账号 %s 签到异常(继续下一个): %s", acc.get("name"), e
                 )
-        logger.info("[checkin_scheduler] 本轮签到完成: 共 %d 个账号,成功 %d", len(accounts), ok_count)
+        logger.info(
+            "[checkin_scheduler] %s本轮签到完成: 共 %d 个账号,成功 %d", label, len(accounts), ok_count
+        )
+
+    async def _daily_run(self) -> None:
+        """08:05 主窗口:遍历非 Qoder 账号(Qoder 账号走 10:05 独立窗口)。"""
+        loaded = await self._load_accounts_and_cooldowns("主窗口")
+        if loaded is None:
+            return
+        main_side, _ = partition_platforms(loaded[0])
+        await self._run_batch(main_side, loaded[1], "主窗口")
+
+    async def _daily_run_qoder(self) -> None:
+        """10:05 Qoder 窗口:官方领取活动每日 10:00(UTC+8)开放,08:05 跑必然空手。"""
+        loaded = await self._load_accounts_and_cooldowns("Qoder窗口")
+        if loaded is None:
+            return
+        _, qoder_side = partition_platforms(loaded[0])
+        await self._run_batch(qoder_side, loaded[1], "Qoder窗口")
 
     async def _daily_credits_snapshot(self) -> None:
         """每日积分快照:遍历 enabled 账号逐个查余额并 upsert 当日快照。
@@ -190,7 +268,16 @@ class CheckinScheduler:
         fail_count = 0
         for acc in accounts:
             try:
-                result = await checkin_credits.query_remaining_credits(acc["jwt"])
+                if acc.get("platform") == "qoder":
+                    device_map = dict(acc.get("device_map") or {})
+                    result = await checkin_qoder.qoder_query_credits(acc["jwt"], device_map)
+                    # 401→refresh 会写回 device_map(新 token),落库持久化
+                    try:
+                        await checkin_store.save_device_map(acc["id"], device_map)
+                    except Exception as e:
+                        logger.warning("[checkin_scheduler] device_map 写回失败(忽略): %s", e)
+                else:
+                    result = await checkin_credits.query_remaining_credits(acc["jwt"])
                 if result.get("error") is not None or not isinstance(
                     result.get("remaining"), int
                 ):
@@ -223,9 +310,15 @@ class CheckinScheduler:
     # ===== 单账号执行 =====
 
     async def checkin_one(self, account: dict[str, Any]) -> dict[str, Any]:
-        """对单个账号执行 checkin_account,并把引擎可能补齐的 device_map 写回存储。"""
+        """对单个账号执行签到(按 platform 分发引擎),并把引擎可能补齐的
+        device_map 写回存储(Qoder 的自刷新新 token 也经此通路落库)。"""
         device_map = dict(account.get("device_map") or {})
-        result = await checkin_account(account["name"], account["jwt"], device_map)
+        if account.get("platform") == "qoder":
+            result = await checkin_qoder.qoder_checkin_account(
+                account["name"], account["jwt"], device_map
+            )
+        else:
+            result = await checkin_account(account["name"], account["jwt"], device_map)
         try:
             await checkin_store.save_device_map(account["id"], device_map)
         except Exception as e:

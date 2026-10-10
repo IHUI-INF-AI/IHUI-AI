@@ -17,7 +17,7 @@ request.state.user_id,解析不到且全局鉴权未启用时回落 dev 身份)�
 - POST   /accounts/{id}/checkin 手动签到(无视冷却,结果照写 records)
 - GET    /records               签到记录倒序分页
 - GET    /credits/history       积分流水(从 records 聚合 credits_delta)
-- GET    /scheduler/status      调度器运行状态(enabled / started / next_run)
+- GET    /scheduler/status      调度器运行状态(enabled / started / next_run / next_run_qoder)
 
 Phase1c(2026-10-08)增:jwt 更换 / 列表 jwt_exp + cooldown_until / scheduler status。
 Phase1d(2026-10-08)增:账号分组(创建带 group / PATCH /accounts/{id}/group / 列表回吐 group)。
@@ -36,11 +36,15 @@ from pydantic import BaseModel, Field
 
 from app.core.jwt_auth import require_request_user_id
 from app.services import checkin_credits
+from app.services import checkin_qoder
 from app.services import checkin_scheduler as checkin_scheduler_mod
 from app.services import checkin_store
 from app.services.checkin_engine import extract_user_id, get_jwt_exp
 
 router = APIRouter(prefix="/api/checkin", tags=["checkin"])
+
+# 支持的账号平台(2026-10-10 平台化):trae = 存量默认;qoder = 阿里 AI IDE。
+_ACCOUNT_PLATFORMS = ("trae", "qoder")
 
 _RECORDS_LIMIT_DEFAULT = 50
 _RECORDS_LIMIT_MAX = 200
@@ -57,6 +61,7 @@ class CreateAccountIn(BaseModel):
     jwt: str = Field(min_length=1)
     device_map: dict[str, Any] = Field(default_factory=dict)
     group: str = Field(default="", max_length=50)
+    platform: str = Field(default="trae")
 
 
 class SetEnabledIn(BaseModel):
@@ -97,10 +102,19 @@ async def create_account(
     body: CreateAccountIn, current_user: str = Depends(require_request_user_id)
 ) -> dict[str, Any]:
     """录入签到账号。jwt 加密落库,响应不含任何 jwt 字段。"""
+    if body.platform not in _ACCOUNT_PLATFORMS:
+        raise HTTPException(
+            status_code=400, detail=f"不支持的平台: {body.platform}(可选: {'/'.join(_ACCOUNT_PLATFORMS)})"
+        )
     _validate_jwt(body.jwt)
     try:
         account = await checkin_store.create_account(
-            current_user, body.name, body.jwt, body.device_map, account_group=body.group
+            current_user,
+            body.name,
+            body.jwt,
+            body.device_map,
+            account_group=body.group,
+            platform=body.platform,
         )
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
@@ -228,7 +242,8 @@ async def scheduler_status(
 async def query_credits(
     account_id: int, current_user: str = Depends(require_request_user_id)
 ) -> dict[str, Any]:
-    """手动查询账号积分余额:调 Trae ide_user_ent_usage,成功则 upsert 当日快照。
+    """手动查询账号积分余额:按平台分发(Trae ide_user_ent_usage / Qoder quota usage),
+    成功则 upsert 当日快照。
 
     属主校验走 get_decrypted_jwt(owner 并入 WHERE,不命中 404);
     查询失败不抛栈,返回 {"ok": false, "error": 明确描述} 且不落快照。
@@ -236,7 +251,16 @@ async def query_credits(
     account = await checkin_store.get_decrypted_jwt(account_id, current_user)
     if account is None:
         raise HTTPException(status_code=404, detail=f"账号不存在: {account_id}")
-    result = await checkin_credits.query_remaining_credits(account["jwt"])
+    if account.get("platform") == "qoder":
+        device_map = dict(account.get("device_map") or {})
+        result = await checkin_qoder.qoder_query_credits(account["jwt"], device_map)
+        # 401→refresh 会写回 device_map(新 token),落库持久化
+        try:
+            await checkin_store.save_device_map(account_id, device_map)
+        except Exception:
+            pass
+    else:
+        result = await checkin_credits.query_remaining_credits(account["jwt"])
     error = result.get("error")
     if error is not None:
         return {"ok": False, "error": str(error)}
