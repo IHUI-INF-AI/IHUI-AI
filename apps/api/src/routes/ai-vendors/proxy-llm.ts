@@ -338,7 +338,8 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
         summary: 'Agnes AI 对话补全',
         description:
           '代理调用 Agnes /v1/chat/completions(OpenAI 协议),支持模型: ' +
-          'agnes-2.5-flash(默认,快)/ agnes-2.5-pro(旗舰)/ agnes-2.0-flash / agnes-3.0-flash',
+          'agnes-2.5-flash(默认,快)/ agnes-2.5-pro(旗舰)/ agnes-2.5-pro-alpha / ' +
+          'agnes-2.5-pro-beta / agnes-3.0-flash',
         tags: ['AI', 'Agnes'],
         body: chatBody,
       }),
@@ -346,12 +347,10 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const body = chatBody.parse(request.body)
       if (!(await ensurePointsBalance(request, reply, body.model ?? ''))) return
-      const data = await callVendor(
-        'agnes',
-        'https://apihub.agnes-ai.com/v1/chat/completions',
-        reply,
-        { method: 'POST', body: JSON.stringify(body) },
-      )
+      const data = await callVendor('agnes', 'https://api.agnes-ai.cn/v1/chat/completions', reply, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      })
       if (data === null) return
       recordUsage(request.userId!, 'agnes')
       await chargePointsForCall(request, body.model ?? '', data, request.id)
@@ -366,7 +365,7 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
         summary: 'Agnes AI 文生图',
         description:
           '代理调用 Agnes /v1/images/generations 同步文生图接口(OpenAI images 协议),' +
-          '支持模型: agnes-image-2.5-flash(最新,默认,2026-09-20 实测)/ agnes-image-2.1-flash / agnes-image-2.0-flash;' +
+          '支持模型: agnes-image-2.5-flash(最新,默认,2026-09-20 实测)/ agnes-image-2.1-flash;' +
           'size 推荐 1K/2K/3K/4K 档位,配合 ratio(1:1/16:9/9:16/4:3/3:4/3:2/2:3/21:9)',
         tags: ['AI', 'Agnes'],
         body: agnesImageBody,
@@ -377,7 +376,7 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
       // Agnes 同步出图约 40-50s,timeout 90s 防误断(与 ai-service 侧一致)
       const data = await callVendor(
         'agnes',
-        'https://apihub.agnes-ai.com/v1/images/generations',
+        'https://api.agnes-ai.cn/v1/images/generations',
         reply,
         { method: 'POST', body: JSON.stringify(body) },
         90_000,
@@ -403,12 +402,12 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
       schema: buildSchema({
         summary: 'Agnes AI 模型列表',
         description:
-          '代理调用 Agnes /v1/models 接口动态获取官方全量模型(2026-09-20 实测 12 个:agnes-2.5 系列/agnes-image 系列/agnes-video 系列)',
+          '代理调用 Agnes /v1/models 接口动态获取官方全量模型(2026-10-10 实测 9 个:agnes-2.5/3.0 文本系列 + agnes-image 系列 + agnes-video 系列)',
         tags: ['AI', 'Agnes'],
       }),
     },
     async (_request, reply) => {
-      const data = await callVendor('agnes', 'https://apihub.agnes-ai.com/v1/models', reply, {
+      const data = await callVendor('agnes', 'https://api.agnes-ai.cn/v1/models', reply, {
         method: 'GET',
       })
       if (data === null) return
