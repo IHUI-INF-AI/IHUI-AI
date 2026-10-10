@@ -25,7 +25,6 @@ import {
   EGRESS_ENV_PROXY_VAR_NAMES,
   EGRESS_NO_PROXY_VAR_NAMES,
 } from '@ihui/types'
-import type { FetchDeadlineImpl } from './fetch-deadline.js'
 
 /** 内置默认白名单:被墙的 AI 厂商官方域名(可经 PROXY_DOMAINS 覆盖) */
 const DEFAULT_PROXY_DOMAINS = [
@@ -676,16 +675,6 @@ function enrichedEgressFacts(url: string, res: Response): EgressFacts {
       ? { finalHostname: hops.finalHostname, redirectCount: hops.redirectCount }
       : {}),
   })
-}
-
-/** fetch-deadline 注入形态(`FetchDeadlineImpl`)的有界实现(G-749):
- * ai-audio / ai-world-sync 经 `fetchWithinDeadline` 的 fetchImpl 缝走**同一个**有界主循环。
- * 传 transport 即换传输(代理 dispatcher 那一侧用),不传 = 直连。 */
-export function boundedDeadlineFetchImpl(transport?: EgressTransport): FetchDeadlineImpl {
-  return (input, init) => {
-    const target = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
-    return directEgressFetch(target, { ...boundedOptionsFromRequestInit(init), ...(transport ? { transport } : {}) })
-  }
 }
 
 /**
