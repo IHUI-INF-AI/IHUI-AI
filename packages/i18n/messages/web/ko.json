@@ -19102,7 +19102,8 @@
     "loadMore": "더 불러오기",
     "schedulerDisabled": "자동 출석 꺼짐",
     "schedulerEnabled": "자동 출석 켜짐",
-    "schedulerNextRun": "다음 {time}"
+    "schedulerNextRun": "다음 {time}",
+    "schedulerNextRunQoder": "Qoder 다음 {time}"
   },
   "nav": {
     "checkin": "출석",

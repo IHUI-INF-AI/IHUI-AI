@@ -156,8 +156,10 @@ export interface CheckinSchedulerStatusResponse {
   enabled: boolean
   /** 调度循环是否已启动 */
   started: boolean
-  /** 下次执行时间,ISO 8601 或 null */
+  /** 下次执行时间(主窗口,非 Qoder 账号),ISO 8601 或 null */
   next_run: string | null
+  /** 下次执行时间(Qoder 窗口,每日 10:05),ISO 8601 或 null */
+  next_run_qoder: string | null
 }
 
 /** POST /accounts/{id}/checkin 响应(本次签到记录) */

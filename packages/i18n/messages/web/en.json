@@ -19117,7 +19117,8 @@
     "loadMore": "Load more",
     "schedulerDisabled": "Auto check-in off",
     "schedulerEnabled": "Auto check-in on",
-    "schedulerNextRun": "Next {time}"
+    "schedulerNextRun": "Next {time}",
+    "schedulerNextRunQoder": "Qoder next {time}"
   },
   "nav": {
     "checkin": "Check-in",

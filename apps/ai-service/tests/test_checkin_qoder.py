@@ -348,6 +348,51 @@ class TestRefreshAndQuota:
         out = await qoder_query_credits(jwt, {}, client=make_client(handler))
         assert out["remaining"] is None and out["error"] is not None
 
+    @pytest.mark.asyncio
+    async def test_quota_401_refresh_then_retry(self, jwt):
+        """401 → refresh 换新 token 重试一次;新 refresh_token/expires_at 写回 device_map。"""
+        quota_tokens: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path == PATH_REFRESH:
+                return httpx.Response(
+                    200,
+                    json={
+                        # exp 偏移不同 ⇒ token 字符串与原 token 必不相同
+                        "token": make_qoder_jwt(exp_offset=3600.0 * 24 * 60),
+                        "refreshToken": "rt-2",
+                    },
+                )
+            assert request.url.path == PATH_QUOTA
+            quota_tokens.append(request.headers.get("authorization") or "")
+            if len(quota_tokens) == 1:
+                return httpx.Response(401)
+            return httpx.Response(200, json={"addOnQuota": {"remaining": 777}})
+
+        device_map: dict = {"refresh_token": "rt-1"}
+        out = await qoder_query_credits(jwt, device_map, client=make_client(handler))
+        assert out == {"remaining": 777, "packs": [], "error": None}
+        assert len(quota_tokens) == 2
+        assert quota_tokens[0].endswith(jwt)
+        assert quota_tokens[1] != quota_tokens[0]
+        assert device_map["refresh_token"] == "rt-2"
+        assert "expires_at" in device_map
+
+    @pytest.mark.asyncio
+    async def test_quota_401_refresh_failure(self, jwt):
+        """401 且 refresh 也失败(如 refresh_token 空)→ 返回错误,不无限重试。"""
+        calls: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls.append(request.url.path)
+            return httpx.Response(401)
+
+        out = await qoder_query_credits(jwt, {}, client=make_client(handler))
+        assert out["remaining"] is None
+        assert "HTTP 401" in out["error"]
+        assert calls.count(PATH_QUOTA) == 1  # 无 refresh_token ⇒ 不重试
+        assert PATH_REFRESH not in calls
+
 
 # ---------------------------------------------------------------------------
 # 端点契约(常量钉住,防漂移)
