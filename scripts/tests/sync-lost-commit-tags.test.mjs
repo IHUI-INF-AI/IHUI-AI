@@ -311,8 +311,53 @@ test('auto-push: 本地有 tag → push 到 origin + 验证远端有 tag', () =>
   }
 })
 
-// ─── --fetch 拉回测试 ────────────────────────────────────
+// ─── 失败原因的可观测性(2026-10-11 补)──────────────────
+// 2026-09-24 那轮把"只打 e.message"修成"打 e.stderr",但 git push 的**逐引用结果**
+// ("! [remote rejected] …"/"error: failed to push some refs")走的是 **stdout** ——
+// 于是屏幕上留下的只有钩子那串"全量 typecheck 验证…"的无关通知:它不是"报了原因但没用",
+// 是"报了一份会把人引向错误方向的原因"(AGENTS §12f:失效方向必须是"多要一次说明",
+// 绝不能是"多给一次误导")。本条用真夹具让钩子**只往 stdout 打**一行拒绝,证明它现在会露出来。
+test('auto-push 失败原因两流都报:只打在 stdout 的拒绝行不得被吞,stderr 那半也不得退化', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    // 夹具自己声明 hooksPath:全局/继承的 core.hooksPath 会把钩子指到别处,那这次"被拒"
+    // 就根本没发生,断言会以"没报失败"的形态红 —— 先把它钉死在本仓自己的 .git/hooks。
+    execSync('git config core.hooksPath .git/hooks', {
+      cwd: work,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    writeFileSync(
+      join(work, '.git', 'hooks', 'pre-push'),
+      '#!/bin/sh\necho "STDOUT-ONLY-REJECT-lost-commit-obs"\necho "STDERR-ALSO-REJECT-lost-commit-obs" 1>&2\nexit 1\n',
+      { mode: 0o755 },
+    )
+    execSync('git tag lost-commit/obs-test HEAD', {
+      cwd: work,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const r = runScript(['--auto-push', '--force'], {
+      cwd: work,
+      env: { IHUI_TAG_PUSH_CONTINUE_ON_FAIL: '1' },
+    })
+    const all = `${r.stdout}\n${r.stderr}`
+    assert.match(all, /块 push 失败/, '被钩子拒掉时必须报"块 push 失败",不得静默')
+    assert.match(
+      all,
+      /stdout: .*STDOUT-ONLY-REJECT/,
+      `git 经钩子打在 **stdout** 的拒绝行必须进原因(旧写法只取 e.stderr ⇒ 整段被吞)\n实得:\n${all.slice(-1200)}`,
+    )
+    assert.match(
+      all,
+      /stderr: .*STDERR-ALSO-REJECT/,
+      `2026-09-24 修的"stderr 也要报"那一半不得因本次改动退化\n实得:\n${all.slice(-1200)}`,
+    )
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
 
+// ─── --fetch 拉回测试 ────────────────────────────────────
 test('fetch: origin 有 tag 本地缺失 → fetch 后本地有 tag + exit 0', () => {
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
