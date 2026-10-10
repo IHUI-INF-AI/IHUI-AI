@@ -38,6 +38,7 @@ import NavBar from '../components/NavBar'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { NavChrome } from '../components/NavChrome'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -214,7 +215,9 @@ export function SubagentsScreen() {
   if (loading) {
     return (
       <View className={`flex-1 ${bgClass}`}>
-        <NavBar title={t('subagents.title')} onBack={() => navigation.goBack()} />
+        <NavChrome>
+          <NavBar title={t('subagents.title')} onBack={() => navigation.goBack()} />
+        </NavChrome>
         <View className="flex-1 items-center justify-center">
           <Text className={`text-sm ${textSecondary}`}>{t('common.loading')}</Text>
         </View>
@@ -224,7 +227,9 @@ export function SubagentsScreen() {
 
   return (
     <View className={`flex-1 ${bgClass}`}>
-      <NavBar title={t('subagents.title')} onBack={() => navigation.goBack()} />
+      <NavChrome>
+        <NavBar title={t('subagents.title')} onBack={() => navigation.goBack()} />
+      </NavChrome>
 
       {/* 分段切换(概览 / 调度 / 拓扑) */}
       <View className="flex-row gap-2 px-4 pb-3 pt-3">

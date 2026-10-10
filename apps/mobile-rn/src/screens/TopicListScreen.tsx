@@ -22,7 +22,6 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   View,
   type TextStyle,
   type ViewStyle,
@@ -32,7 +31,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { ChevronRight, Search } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
 import { getRnTokens, type RnThemeTokens, rnRadius } from '@ihui/design-tokens'
-import { CategoryInlineBar } from '@ihui/rn-app'
+import { TextField, CategoryInlineBar } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
@@ -40,6 +39,7 @@ import { useTheme } from '../context/ThemeContext'
 import { usePaginatedList } from '../hooks'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
+import { NavChrome } from '../components/NavChrome'
 
 type Route = RouteProp<RootStackParamList, 'TopicList'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -170,7 +170,9 @@ export function TopicListScreen() {
 
   return (
     <View style={styles.container}>
-      <NavBar title={t('topic.list.pageTitle')} onBack={() => navigation.goBack()} />
+      <NavChrome>
+        <NavBar title={t('topic.list.pageTitle')} onBack={() => navigation.goBack()} />
+      </NavChrome>
       <FlatList
         data={items}
         keyExtractor={(item) => String(item.id)}
@@ -189,7 +191,8 @@ export function TopicListScreen() {
           <View>
             <View style={styles.searchWrap}>
               <Search size={16} color={tk.text.tertiary} />
-              <TextInput
+              <TextField
+                colorScheme={resolvedTheme}
                 style={styles.searchInput}
                 value={searchText}
                 onChangeText={setSearchText}
