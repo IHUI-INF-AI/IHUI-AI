@@ -19,7 +19,13 @@ import {
 } from '@ihui/database'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { success, error, parseOrThrow } from '../../utils/response.js'
-import { idParamSchema } from './_shared.js'
+
+// G-624 successor(2026-10-09):本文件两处消费面(class_id / lesson_signups.id)底层列
+// 都是 uuid 主键,共享 idParamSchema(z.string().min(1))在这里等于敞口 —— 非 UUID 串
+// 打到 PG uuid 列 22P02 ⇒ 500。本地收紧为 z.uuid(),失败走 parseOrThrow ⇒
+// AppError(400, VALIDATION_FAILED)。共享行保持原样(admin-extended/_shared.ts:10,
+// 它还服务 serial 主键的在跑路由),不动共享定义。
+const uuidIdParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 /** P0-3 修复:edu_announcements 批量更新 schema。 */
 const updateAnnouncementsSchema = z.object({
@@ -84,7 +90,7 @@ export const eduRoutes: FastifyPluginAsync = async (server) => {
     '/admin/edu/classes/:id/members',
     { preHandler: requireAdmin },
     async (request, reply) => {
-      const { id: classId } = parseOrThrow(idParamSchema, request.params)
+      const { id: classId } = parseOrThrow(uuidIdParamSchema, request.params)
       const body = parseOrThrow(addClassMemberSchema, request.body)
       const [row] = await db
         .insert(eduClassesMembers)
@@ -116,7 +122,7 @@ export const eduRoutes: FastifyPluginAsync = async (server) => {
     '/admin/learn/signup-batchlesson/:id/retry',
     { preHandler: requireAdmin },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const { id } = parseOrThrow(idParamSchema, request.params)
+      const { id } = parseOrThrow(uuidIdParamSchema, request.params)
       const [row] = await db
         .update(lessonSignUps)
         .set({ status: 1 })

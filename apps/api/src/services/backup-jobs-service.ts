@@ -19,7 +19,7 @@
 import { execFile } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
-import { desc, eq, like } from 'drizzle-orm'
+import { and, desc, eq, like } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { backupJobs, backupSettings, type BackupJob, type BackupSettings } from '@ihui/database'
 import { logger } from '../utils/logger.js'
@@ -168,7 +168,8 @@ export async function runBackupNow(
         durationMs,
         updatedAt: new Date(),
       })
-      .where(eq(backupJobs.id, job.id))
+      // G-787(2026-10-09):终态写收条件写口——只允许从 running 出发,DB 级拒绝迟到写互洗。
+      .where(and(eq(backupJobs.id, job.id), eq(backupJobs.status, 'running')))
       .returning()
     logger.info('[backup] 完成', { name, filePath, size, durationMs })
     await enforceRetention(dir, `${name}-`, settings.keepCount)
@@ -179,7 +180,8 @@ export async function runBackupNow(
     await db
       .update(backupJobs)
       .set({ status: 'failed', error: msg.slice(0, 500), durationMs, updatedAt: new Date() })
-      .where(eq(backupJobs.id, job.id))
+      // G-787:同上,终态写只从 running 出发。
+      .where(and(eq(backupJobs.id, job.id), eq(backupJobs.status, 'running')))
     logger.error('[backup] 失败', { name, err: msg })
     return null
   }

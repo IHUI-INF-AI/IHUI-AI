@@ -11,7 +11,12 @@ import { z } from 'zod'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { success, parseOrThrow } from '../../utils/response.js'
 import { addUserRoleBatch, removeUserRole, removeUserRoleBatch } from '../../db/rbac-queries.js'
-import { idParamSchema } from './_shared.js'
+
+// G-624 successor(2026-10-09):roles.id 是 uuid 主键(rbac.ts:15),共享 idParamSchema
+// (z.string().min(1))在这里等于敞口 —— 非 UUID 串打到 PG uuid 列 22P02 ⇒ 500。本地收紧
+// 为 z.uuid(),失败走 parseOrThrow ⇒ AppError(400, VALIDATION_FAILED)。共享行保持原样
+// (admin-extended/_shared.ts:10,它还服务 serial 主键的在跑路由),不动共享定义。
+const uuidIdParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
 
 const addRoleUserSchema = z
   .object({ userId: z.uuid().optional(), userIds: z.array(z.uuid()).min(1).optional() })
@@ -43,7 +48,7 @@ export const roleRoutes: FastifyPluginAsync = async (server) => {
   )
   // 授权用户:兼容单个 {userId} 与批量 {userIds[]}(userRoles 有 (user_id, role_id) 联合唯一,幂等)
   server.post('/admin/roles/:id/users', { preHandler: requireAdmin }, async (request, reply) => {
-    const { id: roleId } = parseOrThrow(idParamSchema, request.params)
+    const { id: roleId } = parseOrThrow(uuidIdParamSchema, request.params)
     const b = parseOrThrow(addRoleUserSchema, request.body)
     const ids = b.userIds ?? [b.userId as string]
     await addUserRoleBatch(ids, roleId)
@@ -55,7 +60,7 @@ export const roleRoutes: FastifyPluginAsync = async (server) => {
   // 批量取消授权 {userIds[]}(Fastify v5 DELETE 属 bodywith 方法,body 可正常解析;
   // api-client 对带 body 的请求自动设 Content-Type: application/json)
   server.delete('/admin/roles/:id/users', { preHandler: requireAdmin }, async (request, reply) => {
-    const { id: roleId } = parseOrThrow(idParamSchema, request.params)
+    const { id: roleId } = parseOrThrow(uuidIdParamSchema, request.params)
     const b = parseOrThrow(revokeRoleUsersSchema, request.body)
     const revoked = await removeUserRoleBatch(b.userIds, roleId)
     return reply.send(success({ roleId, revoked }))
