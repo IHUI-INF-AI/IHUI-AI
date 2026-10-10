@@ -46,6 +46,18 @@ import './src/lib/web-shell'
  */
 const ROUTE_ROOT_BG: Record<string, (t: RnThemeTokens, dark: boolean) => string> = {
   Login: (t) => t.surface.card,
+  // Home 的顶栏行取白(对齐小程序 theme.json 原生导航栏 navBgColor=#ffffff),状态栏带须同档才不露出灰色带;
+  // 页面主体仍走 shell 的 surface.bg —— 2026-10-10 用户点名顶部灰色带
+  Home: (t) => t.surface.card,
+  // 其余一级屏(首页在 Main Tabs 里的注册名 / 广场 / 动态 / 我的 / 智能体 / 设置)同型:
+  // 屏内顶栏区已取白档,状态栏带必须逐路由跟上,否则同一屏露出两截色
+  HomeMain: (t) => t.surface.card,
+  Plaza: (t) => t.surface.card,
+  News: (t) => t.surface.card,
+  ProfileMain: (t) => t.surface.card,
+  AiMain: (t) => t.surface.card,
+  Agent: (t) => t.surface.card,
+  Settings: (t) => t.surface.card,
   ChatTools: (t, dark) => (dark ? t.gray[900] : t.surface.light),
   WebView: (t, dark) => (dark ? t.gray[900] : t.surface.light),
   Note: (t) => t.surface.light,
