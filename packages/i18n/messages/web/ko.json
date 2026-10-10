@@ -12994,15 +12994,15 @@
       "scopeModels": "모델 목록",
       "scopeEmbeddings": "임베딩",
       "scopeImages": "이미지 생성",
-    "recharge": "충전",
-    "rechargeTitle": "{name} 충전",
-    "walletBalance": "지갑 잔액",
-    "rechargeAmountLabel": "금액(위안)",
-    "rechargeAmountPlaceholder": "예: 10.00",
-    "rechargeHint": "지갑에서 이 API 키 잔액으로 이동합니다.",
-    "rechargeOk": "충전 완료",
-    "rechargeInvalid": "양수 금액을 입력하세요",
-    "rechargeConfirm": "충전 확인",
+      "recharge": "충전",
+      "rechargeTitle": "{name} 충전",
+      "walletBalance": "지갑 잔액",
+      "rechargeAmountLabel": "금액(위안)",
+      "rechargeAmountPlaceholder": "예: 10.00",
+      "rechargeHint": "지갑에서 이 API 키 잔액으로 이동합니다.",
+      "rechargeOk": "충전 완료",
+      "rechargeInvalid": "양수 금액을 입력하세요",
+      "rechargeConfirm": "충전 확인",
       "scopeAudio": "음성",
       "scopeVideos": "영상 생성",
       "unlimitedQuota": "무제한",
@@ -27946,5 +27946,3 @@
     "incidentsUnavailable": "최근 30일 이벤트 데이터를 일시적으로 가져올 수 없습니다"
   }
 }
-
-
