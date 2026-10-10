@@ -45,6 +45,7 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { NavChrome } from '../components/NavChrome'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -137,7 +138,9 @@ export default function DeveloperScreen() {
 
   return (
     <View style={styles.shell}>
-      <NavBar title="开发者详情" onBack={() => navigation.goBack()} />
+      <NavChrome>
+        <NavBar title="开发者详情" onBack={() => navigation.goBack()} />
+      </NavChrome>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {/* header_card 用户信息卡(对齐 Uniapp header_card:头像 + 昵称 + 成为开发者) */}
