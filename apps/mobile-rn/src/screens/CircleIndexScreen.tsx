@@ -39,6 +39,7 @@ import { useTheme } from '../context/ThemeContext'
 import { usePaginatedList } from '../hooks'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
+import { NavChrome } from '../components/NavChrome'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -251,7 +252,9 @@ export function CircleIndexScreen() {
 
   return (
     <View style={styles.container}>
-      <NavBar title={t('circle.index.pageTitle')} onBack={() => navigation.goBack()} />
+      <NavChrome>
+        <NavBar title={t('circle.index.pageTitle')} onBack={() => navigation.goBack()} />
+      </NavChrome>
       <View style={styles.tabRow}>
         <CategoryInlineBar
           items={tabs.map((tabItem) => ({ id: tabItem.key, label: tabItem.label }))}
