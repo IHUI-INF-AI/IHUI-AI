@@ -14,7 +14,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -439,4 +439,181 @@ export type ${gate.ALIAS.typeSymbol} = ${gate.CANON.typeSymbol}
   } finally {
     rmScratch(dir)
   }
+})
+
+// ---- 下面三臂是 2026-10-10 收尾票(G-814416 / G-1058634 复验)补的 ----
+// 票面 §22c 清单逐项对过:T2/T3/T4+T10 已覆盖"②真仓 HEAD 阳性对照 + 独立仓注入",T6 已覆盖
+// "③枚举到 0 判死"的**判据层**那一半;缺的是**CLI 层**的三格 —— ④两旗同给 exit 2、
+// ③的另一半(权威文件被摘线时 CLI 记不记绿)、①的加强(接线后必须是 blocking+skipEnv **成套**,
+// 原 T5 只查到"有没有条目")。这三格都只能在进程外证,decide() 给的是 RC 之前的语义。
+
+/** 端到端跑门体 CLI;stdio 显式给出(AGENTS §12g:缺省 stdio 在本机稳定 EBUSY)。 */
+function runGateCli(args, cwd = ROOT) {
+  return spawnSync(process.execPath, [join(ROOT, 'scripts', SRC_NAME), ...args], {
+    cwd,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 120_000,
+  })
+}
+
+const outOf = (r) => `${r.stdout ?? ''}${r.stderr ?? ''}`
+
+test('T13 两旗同给必 exit 2,且那个 2 来自"互斥"这一因(不是崩在别处)', () => {
+  const both = runGateCli(['--staged', '--worktree'])
+  assert.equal(both.status, 2, `两旗同给 RC=${both.status} 应为 2;输出:${outOf(both)}`)
+  assert.match(
+    outOf(both),
+    /两个判定面互斥/,
+    `exit 2 没带互斥的因由 ⇒ 是别的失败冒充的:${outOf(both)}`,
+  )
+  // 同族第二格:--root 换根却按 HEAD/索引读 = 双根分裂,也必须 exit 2 并说清因由
+  const badRoot = runGateCli(['--root', ROOT])
+  assert.equal(
+    badRoot.status,
+    2,
+    `单旗 --root(非 worktree 档)RC=${badRoot.status} 应为 2:${outOf(badRoot)}`,
+  )
+  assert.match(outOf(badRoot), /--root 只在 --worktree 档有效/, outOf(badRoot))
+})
+
+test('T14 尺子失明判死不记绿:唯一真相源被摘线 ⇒ CLI 必 exit 2,且不得打印合格字样', () => {
+  const dir = mkScratch('provider-health-dewired')
+  const put = (rel, text) => {
+    mkdirSync(dirname(join(dir, rel)), { recursive: true })
+    writeFileSync(join(dir, rel), text, 'utf8')
+  }
+  try {
+    // 摘线形状:别名的 import 与消费点都还在(扫描面非空),canonical 文件整块没了 ——
+    // 这是"权威文件被摘线"最真实的形态:下游一切照旧,只有尺子的锚点不存在。
+    put(
+      gate.ALIAS.rel,
+      `import type { ${gate.CANON.typeSymbol} } from '../../settings/llm/types-v2'\n` +
+        `export type ${gate.ALIAS.typeSymbol} = ${gate.CANON.typeSymbol}\n`,
+    )
+    put('apps/web/usage.ts', `if (s === 'aa') render('aa')\n`)
+    gitAt(dir, ['init', '-q', '-b', 'main'])
+    gitAt(dir, [
+      '-c',
+      'user.email=gate@local',
+      '-c',
+      'user.name=gate',
+      'commit',
+      '-q',
+      '--allow-empty',
+      '-m',
+      'init',
+    ])
+    gitAt(dir, ['add', gate.ALIAS.rel, 'apps/web/usage.ts'])
+    gitAt(dir, [
+      '-c',
+      'user.email=gate@local',
+      '-c',
+      'user.name=gate',
+      'commit',
+      '-q',
+      '-m',
+      '摘线后的面',
+    ])
+
+    const res = gate.runAudit({ root: dir, face: 'head' })
+    assert.equal(res.members, null, 'canonical 缺席却解析出了成员集合 ⇒ 尺子在自造值域')
+    assert.ok(
+      res.undetermined.some((u) => u.startsWith('PV1')),
+      `摘线没读成"未判定":${JSON.stringify(res.undetermined)}`,
+    )
+    assert.equal(res.violations.length, 0, '失明档不得冒红:那一格是"判不了",不是"有罪"')
+
+    const cli = runGateCli(['--root', dir, '--worktree'])
+    assert.equal(cli.status, 2, `摘线后门体 CLI 没 exit 2(RC=${cli.status}):${outOf(cli)}`)
+    assert.doesNotMatch(cli.stdout ?? '', /✅|对账通过/, `失明被打印成合格证:${cli.stdout}`)
+    assert.match(outOf(cli), /PV1/, `exit 2 没点名是哪一维失明:${outOf(cli)}`)
+
+    // 配对正向臂:同一 CLI、同一档,把 canonical 补回盘上就必须绿 —— 证明上面那个 2 是判据给的,
+    // 不是"这一档恒红"(§12e:恒红门的唯一结局是逼人 --no-verify)。
+    put(
+      gate.CANON.rel,
+      `export const ${gate.CANON.arraySymbol} = ['aa', 'bb', 'cc', 'dd'] as const\n` +
+        `export type ${gate.CANON.typeSymbol} = (typeof ${gate.CANON.arraySymbol})[number]\n`,
+    )
+    const fixed = runGateCli(['--root', dir, '--worktree'])
+    assert.equal(fixed.status, 0, `补回 canonical 后仍不绿(RC=${fixed.status}):${outOf(fixed)}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/**
+ * 从 runner 正文里取某道门的注册块。**只按行的结构边界收口**(条目恒为独占一行的 `  {` … `  },`),
+ * 不 import runner、不执行它(镜像测试执行被审实现 = 把它的 bug 也继承成自己的绿)。
+ */
+function runnerEntry(runnerText, scriptName) {
+  const lines = runnerText.split(/\r?\n/)
+  const i = lines.findIndex((l) => /script:\s*'/.test(l) && l.includes(`'${scriptName}'`))
+  if (i < 0) return null
+  let s = i
+  while (s > 0 && !/^\s*\{\s*$/.test(lines[s])) s--
+  let e = i
+  while (e < lines.length - 1 && !/^\s*\},?\s*$/.test(lines[e])) e++
+  const body = lines.slice(s, e + 1).join('\n')
+  return {
+    mode: (/mode:\s*'([a-zA-Z]+)'/.exec(body) || [])[1] ?? null,
+    skipEnv: (/skipEnv:\s*'([A-Za-z0-9_]+)'/.exec(body) || [])[1] ?? null,
+  }
+}
+
+test('T15 接线方向锁加强:一旦登记必须 blocking + skipEnv 成套;夹具自证这一判据有牙', () => {
+  const runner = headFile('scripts/guardian-runner.mjs')
+  assert.ok(typeof runner === 'string' && runner.length > 0, 'runner 的 HEAD 面取不到')
+  const entry = runnerEntry(runner, SRC_NAME)
+  if (!entry) {
+    // 未接线:T5 已锁"头注必须自称未接",这里只补一条 —— 缺席不许读成"接线但没档位"
+    assert.match(ownFile(SRC_NAME), /尚未接提交链|刻意尚未接/, 'runner 无条目而头注也未自称未接')
+  } else {
+    assert.equal(
+      entry.mode,
+      'blocking',
+      `已登记却非 blocking(mode=${entry.mode}) ⇒ 只报数的门守不住并表`,
+    )
+    assert.ok(
+      entry.skipEnv,
+      '接线了却没有 skipEnv ⇒ 应急出口不在承诺里(头注的"无 skipEnv"随之作废)',
+    )
+    assert.match(entry.skipEnv, /^HUSKY_SKIP_/, `skipEnv 命名族不符:${entry.skipEnv}`)
+  }
+  // 夹具臂:上面的 if 分支今天只走一侧,另一侧不许成为"永不执行的断言"。同一函数喂三种形态,
+  // 证明它读得出 mode/skipEnv 的成套关系(缺哪一格都必须露出来)。
+  const fix = (extra) =>
+    runnerEntry(
+      [
+        '  {',
+        "    id: '900',",
+        `    script: '${SRC_NAME}',`,
+        "    args: ['--strict'],",
+        extra,
+        '  },',
+        '  {',
+        "    id: '901',",
+        "    script: 'other-gate.mjs',",
+        "    mode: 'warn',",
+        '  },',
+      ].join('\n'),
+      SRC_NAME,
+    )
+  assert.deepEqual(fix("    mode: 'blocking',\n    skipEnv: 'HUSKY_SKIP_PROVIDER_HEALTH_VOCAB',"), {
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PROVIDER_HEALTH_VOCAB',
+  })
+  assert.equal(
+    fix("    mode: 'blocking',").skipEnv,
+    null,
+    '缺 skipEnv 必须读成 null(否则成套判据失明)',
+  )
+  assert.equal(
+    fix("    mode: 'warn',\n    skipEnv: 'HUSKY_SKIP_X',").mode,
+    'warn',
+    '档位必须读得出来',
+  )
+  assert.equal(runnerEntry('  {\n    script: 1,\n  },\n', SRC_NAME), null, '读不到条目不得冒充条目')
 })
