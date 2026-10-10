@@ -32,7 +32,7 @@ import {
 import { useTauriIpcReady } from '@/hooks/use-desktop'
 import type { CheckinAccount, CheckinRecord, CheckinCreditsHistoryItem } from '@ihui/api-client'
 
-const { listAccounts, listRecords, listCredits, createAccount, deleteAccount, setEnabled, manualCheckin, updateJwt, updateGroup, schedulerStatus } =
+const { listAccounts, listRecords, listCredits, createAccount, deleteAccount, setEnabled, manualCheckin, updateJwt, updateGroup, schedulerStatus, fetchAiService } =
   vi.hoisted(() => ({
     listAccounts: vi.fn(),
     listRecords: vi.fn(),
@@ -44,6 +44,7 @@ const { listAccounts, listRecords, listCredits, createAccount, deleteAccount, se
     updateJwt: vi.fn(),
     updateGroup: vi.fn(),
     schedulerStatus: vi.fn(),
+    fetchAiService: vi.fn(),
   }))
 
 // 残留审计基线报告(无残留)。vi.hoisted 提前:vi.mock 工厂在 import 期就要用它做默认值。
@@ -79,6 +80,7 @@ vi.mock('@ihui/api-client', () => ({
   updateCheckinAccountGroup: updateGroup,
   getCheckinSchedulerStatus: schedulerStatus,
   queryCheckinAccountCredits: vi.fn(async () => ({ ok: false, remaining: null, error: 'mock' })),
+  fetchAiServiceJson: fetchAiService,
 }))
 
 vi.mock('@/components/charts/EChart', () => ({
@@ -900,6 +902,83 @@ describe('Qoder 平台化(2026-10-10)', () => {
     expect(arg.device_map.refresh_token).toBe('rt-1')
     expect(arg.device_map.cosy.machine_id).toBe('mid')
     expect(arg.device_map.cosy.client_type).toBe('10')
+  })
+})
+
+// ── 编辑设备头(device_map 手动编辑;PATCH /accounts/{id}/device_map,2026-10-11)──
+// 页面本地封装走 fetchAiServiceJson(mock 于 @ihui/api-client 工厂),422/404 错误文案由
+// error 字段(后端 detail 透传)落对话框红字。
+
+describe('签到助手页面 · 编辑设备头对话框', () => {
+  const dmDeviceMap = { device_id: 'x1', cosy: { machine_id: 'mid' } }
+  const dmAccount = makeAccount({ device_map: dmDeviceMap })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockLoadSuccess({ accounts: [dmAccount] })
+    schedulerStatus.mockResolvedValue({ enabled: true, started: true, next_run: null })
+    fetchAiService.mockResolvedValue({
+      success: true,
+      data: { ok: true, device_map_keys: 2, platform: 'trae' },
+      status: 200,
+    })
+  })
+  afterEach(() => cleanup())
+
+  async function openDialog() {
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByRole('button', { name: 'editDeviceMap' }))
+    await waitFor(() => expect(screen.getByText('editDeviceMapTitle')).toBeTruthy())
+  }
+
+  it('打开对话框:textarea 初值 = 当前 device_map 的 JSON(2 空格缩进)', async () => {
+    await openDialog()
+    const textarea = document.getElementById('checkin-device-map-update') as HTMLTextAreaElement
+    expect(textarea.value).toBe(JSON.stringify(dmDeviceMap, null, 2))
+  })
+
+  it('合法 JSON 提交:PATCH 被调用且参数正确,成功后关对话框+提示+刷新', async () => {
+    await openDialog()
+    const textarea = document.getElementById('checkin-device-map-update') as HTMLTextAreaElement
+    fireEvent.change(textarea, { target: { value: '{"device_id":"x2"}' } })
+    fireEvent.click(screen.getByText('submit'))
+    await waitFor(() =>
+      expect(fetchAiService).toHaveBeenCalledWith('/api/checkin/accounts/1/device_map', {
+        method: 'PATCH',
+        body: JSON.stringify({ device_map: { device_id: 'x2' } }),
+      }),
+    )
+    await waitFor(() => expect(screen.queryByText('editDeviceMapTitle')).toBeNull())
+    expect(screen.getByText('deviceMapUpdated')).toBeTruthy()
+    await waitFor(() => expect(listAccounts).toHaveBeenCalledTimes(2))
+  })
+
+  it('非法 JSON:对话框内红字提示,不发起请求', async () => {
+    await openDialog()
+    const textarea = document.getElementById('checkin-device-map-update') as HTMLTextAreaElement
+    fireEvent.change(textarea, { target: { value: '{bad json' } })
+    fireEvent.click(screen.getByText('submit'))
+    expect(screen.getByText('deviceMapInvalid')).toBeTruthy()
+    expect(fetchAiService).not.toHaveBeenCalled()
+  })
+
+  it('JSON 数组也拒绝(device_map 必须是 plain object)', async () => {
+    await openDialog()
+    const textarea = document.getElementById('checkin-device-map-update') as HTMLTextAreaElement
+    fireEvent.change(textarea, { target: { value: '[1,2]' } })
+    fireEvent.click(screen.getByText('submit'))
+    expect(screen.getByText('deviceMapInvalid')).toBeTruthy()
+    expect(fetchAiService).not.toHaveBeenCalled()
+  })
+
+  it('404:红字显示后端 detail,对话框保持打开且不刷新', async () => {
+    fetchAiService.mockResolvedValue({ success: false, error: '账号不存在', status: 404 })
+    await openDialog()
+    fireEvent.click(screen.getByText('submit'))
+    await waitFor(() => expect(screen.getByText('账号不存在')).toBeTruthy())
+    expect(screen.getByText('editDeviceMapTitle')).toBeTruthy()
+    expect(listAccounts).toHaveBeenCalledTimes(1)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
