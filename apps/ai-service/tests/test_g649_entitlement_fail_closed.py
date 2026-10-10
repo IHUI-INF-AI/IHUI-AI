@@ -295,11 +295,10 @@ def _load_head_implementation(tmp_path: Path):
     proc = subprocess.run(
         [GIT_BIN, "-C", str(REPO_ROOT), "show", f"{BASELINE_REF}:{HEAD_SNAPSHOT_PATH}"],
         # 本机(node/WorkBuddy 宿主 + Windows)派生 git 不显式接管 stdio 会稳定 EBUSY
-        # (AGENTS §12g:成组对照 30 组实测,不写 stdio 0/30 成功)。三档写死,
-        # 不再用 `capture_output=`(它与显式 stdout/stderr 互斥)。
+        # (AGENTS §12g:成组对照 30 组实测,不写 stdio 0/30 成功)。三档写死:
+        # stdin=DEVNULL + capture_output(等价于 stdout/stderr 显式 PIPE)。
         stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         creationflags=(0x08000000 if sys.platform == "win32" else 0),
     )
     assert proc.returncode == 0, proc.stderr.decode("utf-8", "replace")
