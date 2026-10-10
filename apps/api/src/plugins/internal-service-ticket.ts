@@ -99,10 +99,10 @@ export async function mintInternalServiceTicket(input: {
  * 发票方误配一个很大的值 (或直接签一枚长效票) 时,"短期"这个前提必须还成立。
  * 上限 300s 的依据:内部服务调用是同步 HTTP,秒级足够;再长就不再是"一次性票"而是缓存。
  */
-export const MAX_TICKET_TTL_SECONDS = 300
-export const DEFAULT_TICKET_TTL_SECONDS = 60
+const MAX_TICKET_TTL_SECONDS = 300
+const DEFAULT_TICKET_TTL_SECONDS = 60
 
-export function clampTicketTtl(raw: number): number {
+function clampTicketTtl(raw: number): number {
   if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_TICKET_TTL_SECONDS
   return Math.min(Math.floor(raw), MAX_TICKET_TTL_SECONDS)
 }
@@ -272,8 +272,4 @@ export async function verifyInternalServiceTicket(
   }
 }
 
-/** 把内部票的失败原因归类成一句人话,只进日志,不进响应体。 */
-export function describeTicketFailure(r: TicketVerifyResult): string {
-  return r.ok ? 'ok' : r.reason
-}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

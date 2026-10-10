@@ -37,7 +37,9 @@ describe('G-1058647 未声明 dangerLevel 不得比声明更松(语义锁,不改
   it('工具层对缺席的缺省必须是保守档 write(index.ts 两处 ?? write 源码锁)', () => {
     const src = readFileSync(TOOLS_INDEX, 'utf8');
     const sites = src.match(/tool\.dangerLevel \?\? 'write'/g) ?? [];
-    expect(sites.length).toBe(2);
+    // G-424 钩子改写重判后按改后内容重跑规则面,第三处 ?? 'write' 是重判路径的保守档
+    // (与首过同形,非判据复制);count 随执行路径阶段数走,语义锁钉的是"不得比声明更松"。
+    expect(sites.length).toBe(3);
   });
 
   it('agent.ts 的 ?? read 兜底按票面禁令保持原样(变动即须按 G-1058647 复核)', () => {
