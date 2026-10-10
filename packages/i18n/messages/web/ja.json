@@ -18874,7 +18874,20 @@
     "resultTitle": "実行結果",
     "resultOk": "成功",
     "resultFail": "失敗",
-    "restartHint": "ログアウト/出荷時リセット後：WorkBuddy を再起動すると新品同様に始まります。隔離ディレクトリのパスは factory_reset レイヤーの詳細に表示され、項目を戻せば完全復元できます。"
+    "restartHint": "ログアウト/出荷時リセット後：WorkBuddy を再起動すると新品同様に始まります。隔離ディレクトリのパスは factory_reset レイヤーの詳細に表示され、項目を戻せば完全復元できます。",
+    "quarantineTitle": "隔離ディレクトリ管理",
+    "quarantineDesc": "ログアウト/出荷時リセットで移動したデータはここにあり、ワンクリックで完全復元できます。確定後にのみ削除してください。",
+    "quarantineRefresh": "更新",
+    "quarantineEmpty": "隔離ディレクトリはありません",
+    "qEntriesLabel": "項目",
+    "qRestore": "復元",
+    "qDelete": "削除",
+    "qDeleteConfirm": "削除したデータは元に戻せません。実行しますか？",
+    "qRestored": "復元しました。スキャンと一覧を更新しました。",
+    "qDeleted": "隔離ディレクトリを削除しました。",
+    "historyTitle": "操作履歴",
+    "historyEmpty": "操作記録はまだありません",
+    "progressLabel": "進行状況"
   },
   "checkin": {
     "title": "チェックインアシスタント",

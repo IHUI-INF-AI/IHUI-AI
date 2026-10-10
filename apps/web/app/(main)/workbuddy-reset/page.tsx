@@ -8,13 +8,17 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import {
+  Archive,
   Eraser,
   Factory,
+  History,
   Loader2,
   LogOut,
   RefreshCw,
   ShieldAlert,
+  Trash2,
   TriangleAlert,
+  Undo2,
 } from 'lucide-react'
 import {
   Badge,
@@ -29,11 +33,18 @@ import {
 } from '@ihui/ui-react'
 import { useTauriIpcReady } from '@/hooks/use-desktop'
 import {
+  workbuddyQuarantineDelete,
+  workbuddyQuarantineList,
+  workbuddyQuarantineRestore,
   workbuddyResetFactory,
+  workbuddyResetHistory,
   workbuddyResetLogout,
   workbuddyResetMaintenance,
   workbuddyResetProbe,
+  type WbHistoryItem,
+  type WbProgressEvent,
   type WbProbeReport,
+  type WbQuarantineInfo,
   type WbResetReport,
 } from '@/lib/tauri-bridge'
 
@@ -60,6 +71,14 @@ export default function WorkbuddyResetPage() {
   const [factoryConfirm, setFactoryConfirm] = React.useState(false)
   const [result, setResult] = React.useState<{ mode: Mode; rep: WbResetReport } | null>(null)
   const [runError, setRunError] = React.useState('')
+  // 执行进度(逐条目 Channel 回传)
+  const [progress, setProgress] = React.useState<WbProgressEvent | null>(null)
+  // 隔离区管理(列表/恢复/删除)与历史台账
+  const [quarantines, setQuarantines] = React.useState<WbQuarantineInfo[]>([])
+  const [history, setHistory] = React.useState<WbHistoryItem[]>([])
+  const [qBusy, setQBusy] = React.useState(false)
+  const [qDeleteConfirm, setQDeleteConfirm] = React.useState<string | null>(null)
+  const [qNotice, setQNotice] = React.useState('')
 
   const runProbe = React.useCallback(async () => {
     setProbing(true)
@@ -74,10 +93,26 @@ export default function WorkbuddyResetPage() {
     }
   }, [])
 
+  /** 隔离区 + 历史台账侧载(探针后/操作后刷新;失败静默——两卡属辅助信息,不阻断主流程)。 */
+  const refreshSide = React.useCallback(async () => {
+    try {
+      const [qs, hs] = await Promise.all([workbuddyQuarantineList(), workbuddyResetHistory()])
+      setQuarantines(qs)
+      setHistory(hs)
+    } catch {
+      // 列表读不到时保留旧值;不设错误态避免淹没主探针错误
+    }
+  }, [])
+
   React.useEffect(() => {
     if (!desktop) return
     void runProbe()
-  }, [desktop, runProbe])
+    void refreshSide()
+  }, [desktop, runProbe, refreshSide])
+
+  const onProgress = React.useCallback((ev: WbProgressEvent) => {
+    setProgress(ev)
+  }, [])
 
   const execute = React.useCallback(
     async (mode: Mode) => {
@@ -88,21 +123,68 @@ export default function WorkbuddyResetPage() {
       setFactoryConfirm(false)
       setBusy(mode)
       setRunError('')
+      setProgress(null)
       try {
         const rep =
           mode === 'maintenance'
-            ? await workbuddyResetMaintenance(killRunning)
+            ? await workbuddyResetMaintenance(killRunning, onProgress)
             : mode === 'logout'
-              ? await workbuddyResetLogout(killRunning, includeDeviceId)
-              : await workbuddyResetFactory(killRunning)
+              ? await workbuddyResetLogout(killRunning, includeDeviceId, onProgress)
+              : await workbuddyResetFactory(killRunning, onProgress)
         setResult({ mode, rep })
+        void refreshSide()
       } catch (e) {
         setRunError(e instanceof Error ? e.message : String(e))
       } finally {
         setBusy('')
+        setProgress(null)
       }
     },
-    [factoryConfirm, killRunning, includeDeviceId],
+    [factoryConfirm, killRunning, includeDeviceId, onProgress, refreshSide],
+  )
+
+  const restoreQuarantine = React.useCallback(
+    async (path: string) => {
+      setQBusy(true)
+      setQNotice('')
+      try {
+        const rep = await workbuddyQuarantineRestore(path)
+        setQNotice(
+          rep.layers.every((l) => l.ok)
+            ? t('qRestored')
+            : `${t('errPrefix')}: ${rep.layers.map((l) => l.detail).join('; ')}`,
+        )
+        void refreshSide()
+        void runProbe()
+      } catch (e) {
+        setQNotice(`${t('errPrefix')}: ${e instanceof Error ? e.message : String(e)}`)
+      } finally {
+        setQBusy(false)
+      }
+    },
+    [refreshSide, runProbe, t],
+  )
+
+  const deleteQuarantine = React.useCallback(
+    async (path: string) => {
+      setQBusy(true)
+      setQNotice('')
+      try {
+        const rep = await workbuddyQuarantineDelete(path)
+        setQNotice(
+          rep.layers.every((l) => l.ok)
+            ? t('qDeleted')
+            : `${t('errPrefix')}: ${rep.layers.map((l) => l.detail).join('; ')}`,
+        )
+        setQDeleteConfirm(null)
+        void refreshSide()
+      } catch (e) {
+        setQNotice(`${t('errPrefix')}: ${e instanceof Error ? e.message : String(e)}`)
+      } finally {
+        setQBusy(false)
+      }
+    },
+    [refreshSide, t],
   )
 
   if (!desktop) {
@@ -317,6 +399,31 @@ export default function WorkbuddyResetPage() {
         </p>
       ) : null}
 
+      {/* 执行进度(逐条目回传) */}
+      {busy && progress ? (
+        <Card>
+          <CardContent className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" /> {t('progressLabel')}
+              </span>
+              <span className="font-mono text-xs">
+                {progress.done}/{progress.total}
+              </span>
+            </div>
+            <div className="bg-secondary h-1.5 w-full overflow-hidden rounded-full">
+              <div
+                className="bg-primary h-full transition-all"
+                style={{
+                  width: progress.total > 0 ? `${(progress.done / progress.total) * 100}%` : '0%',
+                }}
+              />
+            </div>
+            <p className="text-muted-foreground truncate font-mono text-xs">{progress.item}</p>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {/* 执行结果 */}
       {result ? (
         <Card>
@@ -347,6 +454,114 @@ export default function WorkbuddyResetPage() {
           </CardContent>
         </Card>
       ) : null}
+
+      {/* 隔离区管理(恢复/删除) */}
+      <Card>
+        <CardHeader className="flex flex-row items-start justify-between space-y-0">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Archive className="h-4 w-4" /> {t('quarantineTitle')}
+            </CardTitle>
+            <CardDescription>{qNotice || t('quarantineDesc')}</CardDescription>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => void refreshSide()} disabled={qBusy}>
+            {qBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            {t('quarantineRefresh')}
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {quarantines.length === 0 ? (
+            <p className="text-muted-foreground text-sm">{t('quarantineEmpty')}</p>
+          ) : (
+            quarantines.map((q) => (
+              <div
+                key={q.path}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-2 text-sm"
+              >
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <Badge variant="secondary">{q.mode}</Badge>
+                  <span className="truncate font-mono text-xs">{q.name}</span>
+                  <span className="text-muted-foreground text-xs">
+                    {t('qEntriesLabel')}: {q.entries} · {q.size_mb.toFixed(1)} MB ·{' '}
+                    {new Date(q.created_unix * 1000).toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={qBusy}
+                    onClick={() => void restoreQuarantine(q.path)}
+                  >
+                    <Undo2 className="h-3.5 w-3.5" /> {t('qRestore')}
+                  </Button>
+                  {qDeleteConfirm === q.path ? (
+                    <>
+                      <span className="text-destructive flex items-center gap-1 text-xs">
+                        <TriangleAlert className="h-3.5 w-3.5" /> {t('qDeleteConfirm')}
+                      </span>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        disabled={qBusy}
+                        onClick={() => void deleteQuarantine(q.path)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> {t('qDelete')}
+                      </Button>
+                      <Button variant="secondary" size="sm" onClick={() => setQDeleteConfirm(null)}>
+                        {t('factoryConfirmNo')}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={qBusy}
+                      onClick={() => setQDeleteConfirm(q.path)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> {t('qDelete')}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 历史台账 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <History className="h-4 w-4" /> {t('historyTitle')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {history.length === 0 ? (
+            <p className="text-muted-foreground text-sm">{t('historyEmpty')}</p>
+          ) : (
+            history.slice(0, 10).map((h) => (
+              <div key={h.file} className="flex items-start justify-between gap-3 text-sm">
+                <div className="flex min-w-0 items-center gap-2">
+                  <Badge
+                    className={
+                      h.ok
+                        ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                        : 'bg-red-500/15 text-red-600 dark:text-red-400'
+                    }
+                  >
+                    {h.ok ? t('resultOk') : t('resultFail')}
+                  </Badge>
+                  <span className="shrink-0 font-mono text-xs">{h.mode}</span>
+                </div>
+                <span className="text-muted-foreground min-w-0 flex-1 truncate text-right text-xs">
+                  {new Date(h.ts_unix * 1000).toLocaleString()} · {h.summary}
+                </span>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
