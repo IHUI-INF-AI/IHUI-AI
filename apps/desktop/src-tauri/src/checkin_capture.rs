@@ -3046,6 +3046,313 @@ pub fn checkin_snapshot_delete(app: tauri::AppHandle, user_id: String) -> Result
     snapshot_delete(&data_dir, &user_id)
 }
 
+// ================== Qoder 凭据捕获(2026-10-10) ==================
+//
+// API 契约平移自社区公开逆向成果(MIT,版权声明见 app/services/checkin_qoder.py 头注):
+// token 存 `%APPDATA%/com.qoder[cn].app.*/auth.v1.dat` —— `v10`(3B) + nonce(12B) +
+// 密文+tag(16B),AES-256-GCM 密钥在同目录 `Local State` 的 `os_crypt.encrypted_key`
+// (base64,剥 5 字节 "DPAPI" 前缀后走 DPAPI)—— 与 Chromium v10 同构,直接复用本模块
+// 既有原语(split_v10_blob / aes256gcm_decrypt / read_aes_key_from_local_state)。
+// 明文 JSON:{"token","refreshToken","expiresAt",...}。
+// Cosy-* 设备标识:machineId ← `auth.machine-id`;version ← 安装目录
+// `build-manifest.json` 的 productVersion;machineToken/Code/Type ← 客户端自带
+// `resources/umid/runtime-info.exe --account-stdin`(best-effort,失败留空)。
+
+/// Qoder 数据目录候选(国际版 com.qoder.app.* / 国内版 com.qodercn.app.*,
+/// 按 mtime 新→旧,与参考实现 appdata_dirs 同判据)。
+pub fn qoder_appdata_dirs() -> Vec<PathBuf> {
+    let base = match std::env::var("APPDATA") {
+        Ok(v) if !v.trim().is_empty() => PathBuf::from(v),
+        _ => match dirs_home() {
+            Some(h) => h.join("AppData").join("Roaming"),
+            None => return Vec::new(),
+        },
+    };
+    let mut out: Vec<PathBuf> = Vec::new();
+    let mut found = Vec::new();
+    if let Ok(rd) = std::fs::read_dir(&base) {
+        for entry in rd.flatten() {
+            let name = entry.file_name().to_string_lossy().to_lowercase();
+            if name.starts_with("com.qoder.app.") || name.starts_with("com.qodercn.app.") {
+                found.push((entry.path(), entry.metadata().and_then(|m| m.modified()).ok()));
+            }
+        }
+    }
+    found.sort_by(|a, b| b.1.cmp(&a.1));
+    for (p, _) in found {
+        if !out.iter().any(|v| v == &p) {
+            out.push(p);
+        }
+    }
+    out
+}
+
+fn dirs_home() -> Option<PathBuf> {
+    std::env::var("USERPROFILE")
+        .or_else(|_| std::env::var("HOME"))
+        .ok()
+        .map(PathBuf::from)
+}
+
+/// 解密后的 Qoder 本机会话(字段名 serde snake_case,tauri-bridge 原样投影)。
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct CapturedQoderSession {
+    pub app_dir: String,
+    /// "cn" | "intl"(目录名 com.qodercn.* → cn)
+    pub edition: String,
+    pub uid: String,
+    pub access_token: String,
+    #[serde(rename = "refreshToken")]
+    pub refresh_token: String,
+    /// 客户端声明的过期(epoch 秒,缺失 0)
+    pub expires_at: i64,
+    /// JWT payload exp(epoch 秒,缺失 0)
+    pub jwt_exp: i64,
+    pub machine_id: String,
+    pub machine_os: String,
+    pub machine_hostname: String,
+    pub version: String,
+    pub machine_token: String,
+    pub machine_code: String,
+    pub machine_type: String,
+}
+
+/// 纯函数:解密 auth.v1.dat(密钥已由调用方从 Local State 解出)并解析会话 JSON。
+/// 只认 v10 头;解密失败/非 JSON/缺 token 一律 Err(不猜格式)。
+pub fn qoder_decrypt_session(key: &[u8], raw: &[u8]) -> Result<serde_json::Value, String> {
+    let (nonce, ct) = split_v10_blob(raw).ok_or("auth.v1.dat 非 v10 格式")?;
+    let plain = aes256gcm_decrypt(key, nonce, ct).ok_or("auth.v1.dat AES-GCM 解密失败")?;
+    let val: serde_json::Value =
+        serde_json::from_slice(&plain).map_err(|e| format!("auth.v1.dat 明文非 JSON: {e}"))?;
+    let token = val.get("token").and_then(|v| v.as_str()).unwrap_or("");
+    if token.is_empty() {
+        return Err("auth.v1.dat 会话缺 token 字段".into());
+    }
+    Ok(val)
+}
+
+/// 纯函数:Qoder JWT payload 的 uid(sub/uid/user_id/userId/id,与引擎同键序)。
+pub fn qoder_jwt_uid(token: &str) -> Option<String> {
+    let parts: Vec<&str> = token.split('.').collect();
+    if parts.len() < 2 {
+        return None;
+    }
+    use base64::Engine as _;
+    let pad = parts[1];
+    let padded = match pad.len() % 4 {
+        2 => format!("{pad}=="),
+        3 => format!("{pad}="),
+        _ => pad.to_string(),
+    };
+    let payload: serde_json::Value = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(padded.trim_end_matches('='))
+        .ok()
+        .and_then(|b| serde_json::from_slice(&b).ok())?;
+    for key in ["sub", "uid", "user_id", "userId", "id"] {
+        if let Some(v) = payload.get(key) {
+            if let Some(s) = v.as_str() {
+                if !s.is_empty() {
+                    return Some(s.to_string());
+                }
+            } else if let Some(n) = v.as_i64() {
+                return Some(n.to_string());
+            }
+        }
+    }
+    None
+}
+
+/// 读本机架构 → Cosy-MachineOS 形态(与引擎 default_machine_os 同判据)。
+fn qoder_machine_os() -> String {
+    let arch = if cfg!(target_arch = "aarch64") { "aarch64" } else { "x86_64" };
+    if cfg!(target_os = "macos") {
+        format!("{arch}_macos")
+    } else if cfg!(target_os = "linux") {
+        format!("{arch}_linux")
+    } else {
+        format!("{arch}_windows")
+    }
+}
+
+/// best-effort 读取 runtime-info.exe 输出的机器指纹(machineToken/machineCode/machineType)。
+/// Windows 专用;任何失败返回空(调用方降级,Cosy 头缺失时引擎有默认 clientType 兜底)。
+#[cfg(windows)]
+fn qoder_umid_identity(install_roots: &[PathBuf]) -> (String, String, String) {
+    for root in install_roots {
+        let exe = root.join("resources").join("umid").join("runtime-info.exe");
+        if !exe.is_file() {
+            continue;
+        }
+        let mut cmd = std::process::Command::new(&exe);
+        cmd.arg("--account-stdin").current_dir(exe.parent().unwrap_or(root));
+        cmd.stdin(std::process::Stdio::null());
+        cmd.stdout(std::process::Stdio::piped());
+        cmd.stderr(std::process::Stdio::null());
+        creation_flags_if_windows(&mut cmd, 0x0800_0000);
+        if let Ok(out) = cmd.output() {
+            if !out.status.success() {
+                continue;
+            }
+            let text = String::from_utf8_lossy(&out.stdout);
+            if let Some(line) = text.lines().rev().find(|l| !l.trim().is_empty()) {
+                if let Ok(v) = serde_json::from_str::<serde_json::Value>(line.trim()) {
+                    let g = |k: &str| {
+                        v.get(k)
+                            .and_then(|x| x.as_str())
+                            .unwrap_or("")
+                            .to_string()
+                    };
+                    return (g("machineToken"), g("machineCode"), g("machineType"));
+                }
+            }
+        }
+    }
+    (String::new(), String::new(), String::new())
+}
+
+#[cfg(not(windows))]
+fn qoder_umid_identity(_install_roots: &[PathBuf]) -> (String, String, String) {
+    (String::new(), String::new(), String::new())
+}
+
+/// Qoder 安装目录候选(供 runtime-info.exe / build-manifest.json 定位)。
+fn qoder_install_roots() -> Vec<PathBuf> {
+    let mut roots: Vec<PathBuf> = Vec::new();
+    if let Some(local) = std::env::var("LOCALAPPDATA").ok().map(PathBuf::from) {
+        roots.push(local.join("Programs").join("Qoder"));
+        roots.push(local.join("Programs").join("Qoder CN"));
+    }
+    for pf in ["ProgramFiles", "ProgramFiles(x86)"] {
+        if let Some(pf) = std::env::var(pf).ok().map(PathBuf::from) {
+            roots.push(pf.join("Qoder"));
+            roots.push(pf.join("Qoder CN"));
+        }
+    }
+    roots
+}
+
+/// 从安装目录读 build-manifest.json 的 productVersion(best-effort)。
+fn qoder_product_version(install_roots: &[PathBuf]) -> String {
+    for root in install_roots {
+        let mf = root.join("build-manifest.json");
+        if let Ok(text) = std::fs::read_to_string(&mf) {
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
+                if let Some(pv) = v.get("productVersion").and_then(|x| x.as_str()) {
+                    return pv.to_string();
+                }
+            }
+        }
+    }
+    String::new()
+}
+
+/// 执行层:扫描全部 Qoder 数据目录,解密会话 + 组装 Cosy 设备信息。
+/// 多目录命中时逐个返回(同 uid 去重,首个 mtime 最新的胜出)。
+pub fn capture_qoder_sessions() -> Vec<CapturedQoderSession> {
+    let dirs = qoder_appdata_dirs();
+    let install_roots = qoder_install_roots();
+    let version = qoder_product_version(&install_roots);
+    let machine_os = qoder_machine_os();
+    let hostname = hostname_fallback();
+    let (machine_token, machine_code, machine_type) = qoder_umid_identity(&install_roots);
+
+    let mut out: Vec<CapturedQoderSession> = Vec::new();
+    for dir in &dirs {
+        let raw_path = dir.join("auth.v1.dat");
+        let state_path = dir.join("Local State");
+        if !(raw_path.is_file() && state_path.is_file()) {
+            continue;
+        }
+        let raw = match std::fs::read(&raw_path) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let key = match read_aes_key_from_local_state(dir) {
+            Ok(k) => k,
+            Err(_) => continue,
+        };
+        let session = match qoder_decrypt_session(&key, &raw) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let token = session.get("token").and_then(|v| v.as_str()).unwrap_or("");
+        if token.is_empty() {
+            continue;
+        }
+        let uid = qoder_jwt_uid(token).unwrap_or_default();
+        if out.iter().any(|s| s.uid == uid && !uid.is_empty()) {
+            continue; // 同 uid 去重(mtime 最新 = 先到先得)
+        }
+        let machine_id = std::fs::read_to_string(dir.join("auth.machine-id"))
+            .map(|s| s.trim().to_string())
+            .unwrap_or_default();
+        let name_lower = dir.file_name().map(|n| n.to_string_lossy().to_lowercase());
+        let edition = match name_lower.as_deref() {
+            Some(n) if n.starts_with("com.qodercn.") => "cn",
+            _ => "intl",
+        }
+        .to_string();
+        out.push(CapturedQoderSession {
+            app_dir: dir.display().to_string(),
+            edition,
+            uid,
+            access_token: token.to_string(),
+            refresh_token: session
+                .get("refreshToken")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            expires_at: session.get("expiresAt").and_then(|v| v.as_i64()).unwrap_or(0),
+            jwt_exp: jwt_payload_exp(token),
+            machine_id,
+            machine_os: machine_os.clone(),
+            machine_hostname: hostname.clone(),
+            version: version.clone(),
+            machine_token: machine_token.clone(),
+            machine_code: machine_code.clone(),
+            machine_type: machine_type.clone(),
+        });
+    }
+    out
+}
+
+fn hostname_fallback() -> String {
+    std::env::var("COMPUTERNAME")
+        .or_else(|_| std::env::var("HOSTNAME"))
+        .unwrap_or_default()
+}
+
+/// JWT payload exp → epoch 秒(缺失 0)。
+fn jwt_payload_exp(token: &str) -> i64 {
+    let parts: Vec<&str> = token.split('.').collect();
+    if parts.len() < 2 {
+        return 0;
+    }
+    use base64::Engine as _;
+    let padded = match parts[1].len() % 4 {
+        2 => format!("{}==", parts[1]),
+        3 => format!("{}=", parts[1]),
+        _ => parts[1].to_string(),
+    };
+    base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(padded.trim_end_matches('='))
+        .ok()
+        .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
+        .and_then(|v| v.get("exp").and_then(|x| x.as_i64()))
+        .unwrap_or(0)
+}
+
+#[tauri::command]
+pub fn checkin_capture_qoder() -> Result<Vec<CapturedQoderSession>, IpcError> {
+    let sessions = capture_qoder_sessions();
+    if sessions.is_empty() {
+        return Err(IpcError::not_found(
+            "未找到已登录的 Qoder 客户端会话(需本机已安装并登录 Qoder,且以同一 Windows 用户运行)",
+        ));
+    }
+    Ok(sessions)
+}
+
 // ================== 单测（判据区 + 可落盘的执行层）==================
 
 #[cfg(test)]
@@ -4050,5 +4357,79 @@ mod tests {
             "非身份短串不得污染账本: {got:?}"
         );
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // ================== Qoder 捕获 ==================
+
+    /// 用测试密钥现场加密一个 auth.v1.dat 形态的 blob(v10 + nonce12 + ct+tag16)。
+    fn qoder_sealed_session(key: &[u8], session_json: &str) -> Vec<u8> {
+        use aes_gcm::aead::{Aead, KeyInit};
+        use aes_gcm::{Aes256Gcm, Nonce};
+        let cipher = Aes256Gcm::new_from_slice(key).unwrap();
+        let nonce_bytes = [7u8; 12];
+        let ct = cipher
+            .encrypt(Nonce::from_slice(&nonce_bytes), session_json.as_bytes())
+            .unwrap();
+        let mut raw = b"v10".to_vec();
+        raw.extend_from_slice(&nonce_bytes);
+        raw.extend_from_slice(&ct);
+        raw
+    }
+
+    #[test]
+    fn qoder_decrypt_session_roundtrip() {
+        let key = [0x42u8; 32];
+        let raw = qoder_sealed_session(
+            &key,
+            r#"{"token":"a.b.c","refreshToken":"rt","expiresAt":123}"#,
+        );
+        let v = qoder_decrypt_session(&key, &raw).expect("roundtrip");
+        assert_eq!(v.get("token").and_then(|x| x.as_str()), Some("a.b.c"));
+        assert_eq!(v.get("refreshToken").and_then(|x| x.as_str()), Some("rt"));
+    }
+
+    #[test]
+    fn qoder_decrypt_session_rejects_non_v10_and_missing_token() {
+        let key = [0x42u8; 32];
+        let raw = qoder_sealed_session(&key, r#"{"token":"t"}"#);
+        // 非 v10 头
+        let mut bad = raw.clone();
+        bad[0] = b'v';
+        bad[1] = b'2';
+        bad[2] = b'0';
+        assert!(qoder_decrypt_session(&key, &bad).is_err());
+        // 无 token 字段
+        let raw2 = qoder_sealed_session(&key, r#"{"refreshToken":"rt"}"#);
+        assert!(qoder_decrypt_session(&key, &raw2).is_err());
+        // 错误密钥
+        let other_key = [0x00u8; 32];
+        assert!(qoder_decrypt_session(&other_key, &raw).is_err());
+    }
+
+    #[test]
+    fn qoder_jwt_uid_prefers_sub_then_uid() {
+        assert_eq!(
+            qoder_jwt_uid(&make_jwt(r#"{"sub":"u-1"}"#)).as_deref(),
+            Some("u-1")
+        );
+        assert_eq!(qoder_jwt_uid(&make_jwt(r#"{"uid":42}"#)).as_deref(), Some("42"));
+        assert_eq!(qoder_jwt_uid("garbage"), None);
+        assert_eq!(qoder_jwt_uid(""), None);
+    }
+
+    #[test]
+    fn qoder_appdata_dirs_only_matches_qoder_prefixes() {
+        // 判据冒烟:返回的每一项目录名都必须是 com.qoder[cn].app.* 前缀
+        //(真实 APPDATA 扫描,环境隔离,不落盘)。
+        for d in qoder_appdata_dirs() {
+            let name = d
+                .file_name()
+                .map(|n| n.to_string_lossy().to_lowercase())
+                .unwrap_or_default();
+            assert!(
+                name.starts_with("com.qoder.app.") || name.starts_with("com.qodercn.app."),
+                "{name}"
+            );
+        }
     }
 }

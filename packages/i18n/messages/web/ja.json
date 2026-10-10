@@ -19029,6 +19029,15 @@
     "selectAllVisible": "表示中をすべて選択",
     "selectAccount": "アカウント {name} を選択",
     "captureTitle": "ローカルから取得",
+    "platformAll": "すべてのプラットフォーム",
+    "platformTrae": "TRAE",
+    "platformQoder": "Qoder",
+    "platformLabel": "プラットフォーム",
+    "captureQoderButton": "Qoder を取得",
+    "captureQoderTitle": "ローカル Qoder クライアントから取得",
+    "captureQoderDescription": "本機にログイン済みの Qoder クライアントのセッション資格情報（auth.v1.dat）を復号し、デバイスフィンガープリントを自動で付与します。Qoder にログインした同じ Windows ユーザーで本アプリを実行してください。",
+    "captureQoderScan": "Qoder セッションをスキャン",
+    "captureQoderEmpty": "ログイン済みの Qoder セッションが見つかりません（クライアントのサインインを確認してください）",
     "captureDirFound": "ローカルの TRAE データディレクトリを検出しました：{dir}",
     "captureDirMissing": "ローカルの TRAE データディレクトリが見つかりません（環境変数 IHUI_TRAE_DIR で指定できます）",
     "captureEmpty": "ローカルのデータディレクトリから利用可能な JWT を検出できませんでした",
@@ -19098,7 +19107,8 @@
     "loadMore": "さらに読み込む",
     "schedulerDisabled": "自動チェックイン オフ",
     "schedulerEnabled": "自動チェックイン オン",
-    "schedulerNextRun": "次回 {time}"
+    "schedulerNextRun": "次回 {time}",
+    "schedulerNextRunQoder": "Qoder 次回 {time}"
   },
   "nav": {
     "checkin": "チェックイン",
