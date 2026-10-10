@@ -20,7 +20,7 @@
 # - 例外只有两条是**全仓即时判红**(与模块收口无关,因为它们的判据不依赖本表准不准):
 #     C1 maxFileLines(单文件行上限,阈值见下方实测依据)
 #     T1 表自洽性(requires 图不得有环 / 层级单调 / roots 必须真实存在)
-#   其余(D1 依赖方向、D3 深导入、C2 契约行上限、C3 公开出口数)一律 managed-only。
+#   其余(D1 依赖方向、D3 深导入、C2 契约行上限、C3 公开出口数、C4 单文件公开方法数)一律 managed-only。
 #
 # 已收口模块(逐块登记,附**为什么是它**与**试跑数字**):
 #     ⚠️ 本段是**历史留痕,不是现值**。某模块此刻是否 `managed:true`、全仓还剩几条软账,
@@ -245,6 +245,20 @@ constraints:
   max_contract_file_lines: 2000
   # C3 managed-only:模块主入口对外公开出口数上限
   max_public_exports: 300
+  # C4 managed-only:单文件公开方法数上限(G-815990,2026-10-07 新增;声明驱动 —— 本键缺省时该维不装载)
+  # 实测依据(与 C1 同一口径:2026-10-07 HEAD blob 全量 10117 个 .ts/.tsx/.js/.jsx/.mjs/.cjs 源文件):
+  #   计数 = maskCommentsAndStrings(剥注释与字符串字面量体)后逐行匹配
+  #   `^\s*export\s+(default\s+)?(async\s+)?(function|class|const|let|var)\b`
+  #   max = 274(apps/miniapp-taro/src/api/index.ts)/ p99.9 = 50 / p99 = 24 / p90 = 5 / p50 = 1
+  #   超过 100 的只有 2 个文件,超过 200 的只有 1 个
+  # ⇒ 400:**必须大于既有最大 274**,否则新判据出生即红 = 自造一台跳门机;取 400 而不是贴近 274,
+  #   留 126 个余量给"合法增长",本判据拦的是"再写一个两三百公开出口的聚合桶文件"这一类新增,
+  #   不是既有存量 —— 与 C1 取 6000 行的同一做法(阈值取实测分布上沿,依据就地写进注释,
+  #   不得为变绿调阈值)。
+  max_public_methods: 400
+  # 2026-10-10 主会话独立复算(超集口径 = HEAD 全部 .ts/.tsx/.js/.jsx/.mjs/.cjs 共 10244 个源文件,
+  #   逐文件取本门导出的 publicMethodCount):max=274(与上面那句同一文件 apps/miniapp-taro/src/api/index.ts),
+  #   >400 的文件数 0 ⇒ 400 这一档在装载当天不出生即红;阈值既没上调也没下调,原样落 HEAD。
   # D4 managed-only:禁循环依赖(全仓图由本表 requires 声明,已由 T1 保证无环;
   # 这里判的是**现实 import 边**是否成环 —— 表说无环而现实成环,即表与现实脱节)
   forbid_cycles: true
@@ -267,6 +281,12 @@ constraints:
     - '**/build/**'
     - '**/coverage/**'
     - 'benchmarks/**'
+    # 归档件不是模块(与 benchmarks/** 同族:整目录、非产品面)。.ihui-agent/archive/** 是 §1 归档机制
+    # 与守门 13c/71 要求必须入库的历史落点,里面现存 9 枚一次性取证工具(archive/convergence-2026-09-29/)。
+    # 本门按"含源文件却未登记进表的目录"把它算进 unowned,默认档只报数、--strict 判红 ⇒ 问责档永远出不了
+    # 合格证(本轮实测:默认档判红 0 而 --strict 就红在这一条)。刻意只排 archive/**,不排整个 .ihui-agent/;
+    # 那个目录若哪天被写进产品代码,本门必须还看得见。
+    - '.ihui-agent/archive/**'
     - '**/*.config.js'
     - '**/*.config.cjs'
     - '**/*.config.mjs'
@@ -529,6 +549,14 @@ modules:
       - './pay/*'
       - './share'
       - './share/*'
+      # 2026-10-10 补登(门 103 D3 清偿 HEAD 面恒红):唯一消费面 apps/web/app/(main)/feedback/page.tsx
+      # 真的 import 了 `@ihui/shared/jobs/submission-job`(HEAD 面 git grep 全仓仅此 1 处),而本表未登记
+      # ⇒ D3 当场判红,且它红在**干净 HEAD**上 = 每一次碰 apps/ 的提交都被逼 --no-verify(§12f;他席那枚
+      # 计划文档提交已实录"迫使本票两次跳门")。该支在 packages/shared/package.json#exports 里真实存在
+      # ("./jobs/*" 的 types/import 均指 ./src/jobs/*.ts),不是凭空登记;src/jobs/ 下没有 index.ts ⇒ 按本表
+      # 既有惯例(./skills/* · ./tasks/* · ./design/* 同形)只登记通配,**不造 ./jobs 精确名** —— 造了会被
+      # 本门 E1「声明的入口必须解析得到」当场判红,那才是替自己造一台恒红机。
+      - './jobs/*'
 
   - id: 'packages/app'
     package: '@ihui/rn-app'
