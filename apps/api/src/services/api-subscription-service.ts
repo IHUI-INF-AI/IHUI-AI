@@ -319,6 +319,7 @@ export async function activateApiSubscription(
       id: plans.id,
       name: plans.name,
       features: plans.features,
+      modelWhitelist: plans.modelWhitelist,
       validityDays: plans.validityDays,
       dailyTokenLimit: plans.dailyTokenLimit,
       weeklyTokenLimit: plans.weeklyTokenLimit,
@@ -350,6 +351,14 @@ export async function activateApiSubscription(
       : hasWindowLimits
         ? Math.max(windowLimits.daily, windowLimits.weekly, windowLimits.monthly)
         : 0
+
+  // 模型白名单强制生效(2026-10-09 立,资损防线):
+  // 套餐 modelWhitelist 必须落到 Key.allowedModels,否则低价套餐用户可以调旗舰模型
+  // (gpt-5.6 输出成本 90 元/M),用 9.9 元套餐烧穿成本 —— 这是"白名单只在目录展示
+  // 不参与鉴权"的洞。语义:覆盖式(最后购买的套餐定边界),防"低价套餐补余额 +
+  // 保留旧高端白名单"的套利;空数组 = 套餐未配白名单 = 不改动 Key 现状。
+  const planWhitelist = normalizeFeatures(planRow.modelWhitelist)
+  const keyAllowedModels = planWhitelist.length > 0 ? planWhitelist : null
 
   // 2. 幂等:以订单 orderNo 为键,查该订单是否已发放过配额流水
   //    (op_type=6 = API 订阅配额发放;token_flows (related_order_no, op_type) 唯一索引兜底)
@@ -408,6 +417,7 @@ export async function activateApiSubscription(
             .update(developerApiKeys)
             .set({
               tokenBalance: Number(activeKey.tokenBalance) + tokenQuota,
+              allowedModels: keyAllowedModels,
               updatedAt: new Date(),
             })
             .where(eq(developerApiKeys.id, activeKey.id))
@@ -431,6 +441,7 @@ export async function activateApiSubscription(
           status: 'active',
           rateLimit: 60,
           tokenBalance: tokenQuota === -1 ? -1 : Math.max(tokenQuota, 0),
+          allowedModels: keyAllowedModels,
         })
         .returning({ id: developerApiKeys.id })
       if (!newKey) return { success: false, reason: 'create_key_failed' }
