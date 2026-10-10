@@ -129,6 +129,8 @@ const chatCompletionSchema = z.object({
   stream: z.boolean().optional().default(false),
   temperature: z.number().optional(),
   maxTokens: z.number().int().positive().optional(),
+  // [OI] 标准字段名 max_tokens(与 maxTokens 等价;漏收会让预扣按默认 1024 高估)
+  max_tokens: z.number().int().positive().optional(),
   // OpenAI 协议扩展(stream_options.include_usage + response_format json_schema + seed)
   stream_options: z.object({ include_usage: z.boolean().optional() }).optional(),
   response_format: z.unknown().optional(),
@@ -1297,7 +1299,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           messages,
           stream: parsed.data.stream ?? false,
           temperature: parsed.data.temperature,
-          maxTokens: parsed.data.max_tokens ?? parsed.data.maxTokens,
+          maxTokens: parsed.data.maxTokens ?? parsed.data.max_tokens,
         },
         'text',
       )
