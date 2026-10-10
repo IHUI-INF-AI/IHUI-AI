@@ -21,6 +21,10 @@
  *  - F4 同一件事多条待办 → **不动勾选**(两件事都还没做完),只给副本行加一句
  *    `〔【归并】重复登记副本…派单以那条为准〕`。索引层认这句字面把它逐出派单口径,
  *    于是"173 条未勾选"与"真待办 97 条"这两个数从此分开。**新指针一律写内容锚点,不写行号。**
+ *    **每组必留一行终端代表不加指针**(`planDupPointerTargets`:正文最长者当代表,等长取靠前的),
+ *    因为"一族全被标成指针"在 `dupOpenCopies` 里读 0 而**这一族已从 `--open` 整族消失** ——
+ *    派单口径静默少一件活。落地验收因此是**合取**:F4=0 ∧ 本枚写下的每枚指针所在族仍有终端
+ *    (`touchedFamilyTerminalProblems`,逐族点名,不追存量)。
  *  - F10 同一件事被**并发取号**登记成几条**不同编号**(F1/F4 按"编号+题面逐字等值"配主键 ⇒
  *    对这一型全盲,它会永久钉着守门 130 红) → 出口是 `foldTwins`:留一条持有行,其余折成
  *    "摘掉主键位置上的编号 + 只写持有行**题面**指针"的副本档 —— 同样**一行不删、不增、不翻勾、
@@ -33,7 +37,9 @@
  *     落地时基线已挪位,由 `--emit-base` 报出 baseBlob、落地步骤对其做 CAS 身份校验来兜;
  *     孪生行数量如实报出(它正是 F1 的成因)。
  *  2. 输出必须与输入**行数相等**,且未参与改写的每一行逐字不变(多重集对账)。
- *  3. 改完立刻用同一把尺子复跑 `auditPlan`:F1/F2/F3/F4 必须全部归零,否则拒交付。
+ *  3. 改完立刻用同一把尺子复跑 `auditPlan`:F1/F2/F3/F4 必须全部归零,否则拒交付;
+ *     F4 这一维还要**逐族**核"本枚写下的每枚指针,其所在主键族在落地面仍有终端代表"
+ *     (`touchedFamilyTerminalProblems`)—— F4=0 只证明"没有两条以上未标注的行",它证明不了有人代表。
  *  4. 幂等只认自己的标记形态 `**[归并]**`,不认裸词"归并"(HEAD 里那批未落账的
  *     "union 归并裸副本"行正文天然含该词 —— 按裸词判会恰好漏掉本工具要修的那一型)。
  *  5. 默认只出报告;`--write-to` 只往**指定路径**落候选文本,绝不碰 PROJECT_PLAN.md。
@@ -592,6 +598,83 @@ function rewriteDup(line, key, today) {
 }
 
 /**
+ * F4 的**终端代表挑选**:同一复合主键族里,哪一行**不加**指针。
+ *
+ * 规则(确定性 + 可解释,两条缺一不可):
+ *  ① **剥掉本工具注记后正文最长的那一行**当终端代表 —— 它承载的交代最多(验收凭据、取证、
+ *     残余说明都追加在行尾),把族留在这一行上,派单的人点开就是一次交代;
+ *  ② **等长则取文件里靠前的那一行** —— 刻意与索引层 `findDupOpenCopies` 的"等长取行号靠后"
+ *     **相反**:那一档只是报数,选谁都不改账面;而这里选中的那一行是**唯一进派单口径的代表**,
+ *     它会长期留在台账面上被人和工具反复指认。靠前的行是**并发 union 合并里先生效的那一份**
+ *     (append-only 文档里行号小 = 先登记),不会随"别人往后面那一行追加一句取证"而漂走;
+ *     取靠后那一行则代表身份会随着别人的追加在两轮之间互换(同一件事两个权威行,§22c 那一族)。
+ *     与 `buildRestoreTerminals` 的"最靠前的可剥行"是同一条取向(那里写明:长度会随追加变化,
+ *     两台尺子对同一族选不同代表 = 同一件事有两个权威行),差异只在**本函数判的是正文长度**
+ *     (谁承载的交代最多),恢复档判的是"谁最先能裸奔回派单面"。
+ *
+ * 计量为什么用 `stripMergeNotes(...).text.length` 而不是 `raw.length`:指针注记本身约 90 字,
+ * 按整行长度选会把**已经标过副本**的行选成"最长"⇒ 下一轮代表易主、原本的代表被补第二枚指针。
+ * 所以比较必须剥掉本工具自己写的注记,比的才是**作者写下的交代**;`stripMergeNotes` 对
+ * 裸形态/未闭集会 `refused` 并原样交回文本 ⇒ 那种行按整行长度参与比较,只是保守多算,
+ * 不会误吃作者正文。变异取证见 `scripts/tests/plan-tasks-merge.test.mjs` 的 T31 第三把刀
+ * (摘掉幂等过滤 ⇒ P4 当场翻红)。
+ *
+ * @param {Array<{line:number,raw:string}>} live 族内**尚未带副本指针**的未勾选行(长度 ≥2)
+ * @returns {{line:number,raw:string}} 该族保留的终端代表
+ */
+export function pickDupTerminal(live) {
+  let best = live[0]
+  let bestLen = stripMergeNotes(best.raw).text.length
+  for (const r of live) {
+    const len = stripMergeNotes(r.raw).text.length
+    if (len > bestLen) {
+      best = r
+      bestLen = len
+    } else if (len === bestLen && r.line < best.line) best = r
+  }
+  return best
+}
+
+/**
+ * F4 的**改写名单**:按复合主键分组,**每组只给副本加指针、永远留下一行终端代表不加指针**。
+ *
+ * 为什么这是必须的一档(而不是继续直接吃索引层 `dupCopies` 那份名单):
+ * `dupCopies` 的"幸存者"是**判据侧**为了报数挑的,它不承诺"归并之后这一族还有人"。归并出口
+ * 拿它当名单逐行加指针,加完之后的面上:
+ *  - 幸存者如果本轮被 F1/F2 **翻勾**、或它自己就落在被剔的那一档里,这一族在 `--open` 里
+ *    就一条都不剩 —— 派单口径**静默少一件活**(本仓最贵的一型:判据失效的表现永远是安静);
+ *  - 归档层把幸存者搬走之后,留在台账里的指针行就地失去终点 ⇒ 隐形族(AGENTS §1 已登记的洞)。
+ * 出口必须**自己**判"我加完指针以后这一族还剩谁",而不是复用别人的报数幸存者。
+ *
+ * 三条硬性质:
+ *  ① **每组留 1 条**:名单恒等于 `live − {pickDupTerminal(live)}`,所以族内始终有一行不带指针;
+ *  ② **幂等**:`live` 先按 `DUP_POINTER_RE` 剔掉已标注的行 ⇒ 族内只剩一行未标注时
+ *     `live.length < 2` ⇒ 整组跳过 ⇒ 第二次跑报 **0 行**(既有 selfTest 的幂等条即测这一条);
+ *  ③ **族本来就全指**(`live.length === 0`)⇒ 一行都不加,也**不假装修好了** ——
+ *     那一族的找回出口是 `--restore-terminals`(它会把某一行剥回裸登记),不是在这里再补指针。
+ *
+ * 只加指针:**不翻勾、不删行、不并抄、正文逐字保留**(F4 口径,与 `rewriteDup` 同一条禁令)。
+ * 无复合主键的逐字孪生(F4b)不走这里:它按"逐字正文"分组、由索引层 `findVerbatimDupOpenRows`
+ * 自己留一份幸存行(量纲不是主键,套进本函数等于给没有主键的行编一个键)。
+ *
+ * @param {Array<{key:string,open:Array}>} groups `auditPlan().dupOpen`(唯一"什么算同题"的实现)
+ * @returns {Array<{line:number,key:string,terminalLine:number}>}
+ */
+export function planDupPointerTargets(groups) {
+  const targets = []
+  for (const g of groups ?? []) {
+    const live = g.open.filter((r) => !DUP_POINTER_RE.test(r.raw))
+    if (live.length < 2) continue
+    const terminal = pickDupTerminal(live)
+    for (const r of live) {
+      if (r.line === terminal.line) continue
+      targets.push({ line: r.line, key: g.key, terminalLine: terminal.line })
+    }
+  }
+  return targets
+}
+
+/**
  * @returns {{ text:string, changed:Array<{line:number,kind:string,before:string,after:string}>,
  *             refused:string[], adjudicationNeeded:Array<{line:number,key:string,reason:string}>, dupTwins:string[], before:object }}
  */
@@ -620,8 +703,10 @@ export function buildMerge(content, today) {
     f3exit.set(p.line, p.exit)
   }
   for (const ln of f3exit.keys()) note(ln, 'F3', compositeKeyOf(lines[ln - 1] ?? '') ?? '')
-  // F4:同主键的多条未勾选 —— 幸存者由索引层判定,其余各加一句副本指针(不动勾选、不删行)
-  for (const c of a.dupCopies) note(c.row.line, 'F4', c.key)
+  // F4:同主键的多条未勾选 —— 出口**自己**留一行终端代表(见 planDupPointerTargets 头注),
+  // 其余各加一句副本指针(不动勾选、不删行)。刻意不再复用索引层报数用的幸存者名单:
+  // 那一档不承诺"归并之后这一族还有人",而派单口径丢一件活是静默的。
+  for (const c of planDupPointerTargets(a.dupOpen)) note(c.line, 'F4', c.key)
   // F4b:逐字相同但**没有编号**的孪生行 —— 同一条出口(只加指针、不动勾选、不删行),
   // 措辞按有无主键分档,因为对没有主键的行说"同主键"是一句无法核验的假话。
   for (const c of a.verbatimDups.copies) note(c.row.line, 'F4', c.key)
@@ -737,6 +822,12 @@ export function buildMerge(content, today) {
  * 所以恢复一行代表不会顶起 F4,验收链也无需放宽(实际落地的是差值护栏
  * `pointerVisibilityRegression`:只拦"本次把本来看得见的那族弄没了代表",不追存量,免造恒红闸)。
  * 一句话:**"改 A 会撞 B 那条断言"必须先去看 B 怎么算的,不能照着断言的名字推。**
+ *
+ * 2026-10-10 把 A 那一侧也接上了(票面 ①):`planDupPointerTargets` 让 F4 出口**自己**按复合主键
+ * 分组并留下一行终端代表,不再复用索引层报数用的幸存者。而验收链按上面那句实测**没有**改成
+ * 票面 ② 写的那个析取(「F4=0 ∨ 各有终端」是净削判据,§12e),改成了**合取**:
+ * `touchedFamilyTerminalProblems` 逐族点名"本枚写下的指针所在族仍有终端"。两条同时成立才落地 ⇒
+ * 自动档既不自我拒绝,也不再有机会把一族标成全指。
  *
  * 口径边界(如实登记,不得当成"扫全了"):
  *  - 主键优先取 `compositeKeyOf`(与派单口径同一把尺子);**给不出主键的行不跳过**,改按
@@ -3191,6 +3282,53 @@ export function pointerVisibilityRegression(srcText, merged) {
   return `隐形族由 ${b.hiddenFamilies} 族/${b.hiddenRows} 行 变为 ${a.hiddenFamilies} 族/${a.hiddenRows} 行 —— 给一族加指针前必须留下一行不带指针的代表,否则这件活从 --open 口径整族消失`
 }
 
+/**
+ * 落地验收链的**第二条** F4 断言:本枚写下的每一枚副本指针,其所在主键族在**落地面**上必须
+ * 仍有终端代表(一行不带指针的未勾选行,或被编号/题面/已完成行救回的代表)。
+ *
+ * 为什么「F4=0」这一条**不**够(也为什么不把它放宽成「F4=0 ∨ 各有终端」):
+ *  - `findDupOpenCopies` 第一步就 `g.open.filter(r => !DUP_POINTER_RE.test(r.raw))` 并要求
+ *    `live.length >= 2`,所以"一族全被标成指针"在它眼里是 **0 条副本** ⇒ F4 读数归零、验收照过,
+ *    而那件活已经从 `--open` 里整族消失。**F4=0 证明不了有人代表这件事**,它只证明"没有
+ *    两条以上未标注的行"。
+ *  - 票面写的升级方案是「F4=0 **∨** 剩余副本各有终端」。这个**析取**不能要:析取的一侧成立时
+ *    另一侧就可以不成立,等于允许"F4 未归零但各有终端"落地 —— 那是净削判据(§12e)。
+ *    实测本出口与 F4=0 **并不互斥**:留下那一行代表之后,该族 `live.length === 1` ⇒ 该族对
+ *    `dupOpenCopies` 的贡献仍是 0 ⇒ 归并器不会"自我拒绝"。所以落地形式是**合取**:
+ *    `F4=0 ∧ 本枚写下的指针各有终端`。原初版"单改生产者侧会让归并器每次自我拒绝"的推理
+ *    错在没先读 F4 自己怎么算(见 `auditPointerTerminals` 头注那条推翻),在此一并接住。
+ *  - 与 `pointerVisibilityRegression` 的分工:那条是**差值**护栏(存量里本来就有几十族全指形态,
+ *    按绝对零判就是恒红闸),它拦"这次把本来还看得见的那族弄没了代表";本条是**逐族点名**的
+ *    因果断言,只查本枚动过的那些行 ⇒ 不追存量、不会恒红,而报出来的是一句可以定位的主键。
+ *
+ * 判据一律复用 `auditPointerTerminals`(本文件里"一族还有没有任何代表"的**唯一**实现,
+ * 含编号/题面/已完成行/折叠声明四层救援),不在这里再写一份"什么算代表"(§22c)。
+ *
+ * @param merged 归并后的整档文本
+ * @param changed 本枚的改写记录(`kind` 含 F4 且 before 不带指针、after 带指针的才算)
+ * @returns {string[]} 每一条点名一个被写隐形的主键族
+ */
+export function touchedFamilyTerminalProblems(merged, changed) {
+  const t = auditPointerTerminals(String(merged ?? ''))
+  const byLine = new Map()
+  for (const g of t.groups) for (const l of g.lines) byLine.set(l.line, g)
+  const problems = []
+  const seen = new Set()
+  for (const c of changed ?? []) {
+    if (!/(?:^|\+)F4(?:\+|$)/.test(String(c.kind ?? ''))) continue
+    if (DUP_POINTER_RE.test(String(c.before ?? ''))) continue
+    if (!DUP_POINTER_RE.test(String(c.after ?? ''))) continue
+    const g = byLine.get(c.line)
+    if (!g || !g.hidden) continue
+    if (seen.has(g.key)) continue
+    seen.add(g.key)
+    problems.push(
+      `主键族「${g.key}」被本枚标成全族指针(共 ${g.lines.length} 行,L${g.lines.map((l) => l.line).join(',L')})⇒ 该族在 --open 派单口径里没有终端代表,这件活隐形了`,
+    )
+  }
+  return problems
+}
+
 /** 自愈的"该不该停手"判据 —— 抽成纯函数,否则这一层最要紧的安全断言只能在真仓上验一次。 */
 export function healStopReasons(srcText, merged, changed, refusedCount, adj = null) {
   // 与 verifyMerge 同一处理:F1+F3 那一型里 F3 的锚点替换是本工具授权的改写,先折回 before,
@@ -3233,6 +3371,7 @@ export function healStopReasons(srcText, merged, changed, refusedCount, adj = nu
       ? ['归并后未归零']
       : []),
     pointerVisibilityRegression(srcText, merged),
+    ...touchedFamilyTerminalProblems(merged, changed),
   ].filter(Boolean)
 }
 
@@ -3422,6 +3561,7 @@ export function verifyMerge(original, merged, changed, adj = null) {
     problems.push(`F4 未归零:${after.counts.dupOpenCopies} 行同题待办副本仍挂着`)
   const ptrProblem = pointerVisibilityRegression(original, merged)
   if (ptrProblem) problems.push(ptrProblem)
+  problems.push(...touchedFamilyTerminalProblems(merged, changed))
   return { problems, after: after.counts, f3 }
 }
 
