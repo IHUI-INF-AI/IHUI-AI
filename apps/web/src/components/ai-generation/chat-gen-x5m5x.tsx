@@ -21,17 +21,15 @@ import {
   type ChatAdvancedValues,
 } from './vendor-models'
 
-// 极速 API 按量 key 模型 fallback(动态拉取失败时使用,2026-09-20 实测精选)
+// 极速 API 按量 key 模型 fallback(动态拉取失败时使用,2026-10-09 new api 实测精选)
 const MODELS = [
-  'deepseek-v4-flash-0731',
   'glm-5.3',
-  'gpt-5.6',
-  'gpt-5.5',
-  'qwen3.8-max',
+  'glm-5.3-flash',
   'qwen3.8-flash',
-  'grok-4.6',
-  'claude-opus-5',
-  'gemini-3.6',
+  'deepseek-v4.1-flash',
+  'gemini-3.8-flash',
+  'gpt-6-luna',
+  'grok-4.7',
   'kimi-k3',
 ] as const
 

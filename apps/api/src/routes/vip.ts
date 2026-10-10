@@ -165,7 +165,8 @@ async function createVipPrepay(
       payerClientIp: clientIp ?? '127.0.0.1',
     })
     return { mock: false, method: 'h5', h5Url }
-  } catch {
+  } catch (e) {
+    console.error('[vip-payinfo] prepay failed:', e instanceof Error ? e.message : e)
     return { mock: true, method, error: '预下单失败' }
   }
 }
