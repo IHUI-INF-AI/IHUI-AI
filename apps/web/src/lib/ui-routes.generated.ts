@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: 73d4c6cb46c627b8247fca11b5064152b4241d4a
-// inputsSha256: e6d605fe905d5db0be2c73771eb8a355e154535c2f3415f6a29dc5570ff4e0dd
+// sourceCommit: aeb16789dc53ed5606c7288ddc080089bb334466
+// inputsSha256: 8f2b8a32b59ce42a10157ae9b500860170c1eff067345d81700ea9d54e140602
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx 3d3cf195c8dcb8ec142e08a1d50b9016687a48c3503839f0db0dff7f9bbce67e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -420,7 +420,7 @@
 // input: apps/web/app/(main)/chat/settings/page.tsx ac7b78cfb765452ecca82c101a7b659847744af0d2bf9a750e0e0f464edcf561
 // input: apps/web/app/(main)/chat/share/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/chat/templates/page.tsx d4171e1f2cb0c2069094468b9138c299e62f00f4c43426ce5cf35846528c26d8
-// input: apps/web/app/(main)/checkin/page.tsx bcfb29d7bc2ddbcfaceb3bb82aea2522a65876960c4d938cb59d71dadfbd44ef
+// input: apps/web/app/(main)/checkin/page.tsx 2248b34f1b1219a91c3834300643dad8b2656c425087dacbace7ae3842400331
 // input: apps/web/app/(main)/circles/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/circles/page.tsx 5dc5b147cc4e060a352c51f9480deb7b0063dfeae971c07933cd0a4fbbfd9cdd
 // input: apps/web/app/(main)/circles/post/page.tsx c0fe168de566874d24fbcc1208b6f93b142e9f2dc6c2874b51f422a9eed6dc57
@@ -749,6 +749,7 @@
 // input: apps/web/app/(main)/publish/new/page.tsx e9cb934344160a31d35b64cc33ddf4fb68f0c9e9cb8b8bebb97ffb1ec04a24d1
 // input: apps/web/app/(main)/publish/page.tsx c8db96a527dec17f81d00d0195ba83a0170b7ef84bc975fb318ec5f98ff384cc
 // input: apps/web/app/(main)/purchase/page.tsx 9b9037ab03cbfdad16c70fbc52f51f7030a69d6b495c8eeb7b35eb5fe0765d5d
+// input: apps/web/app/(main)/qoder-reset/page.tsx abc80e71782c0cb5e6580ab6f6dab4f1c88a205b2de863e90b6ae918e8231c67
 // input: apps/web/app/(main)/ranking/page.tsx 910974576ec729b0a2ff5e3f79882953043c8799317f4c00fb6d114dbd9bb1f2
 // input: apps/web/app/(main)/recruitment/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/recruitment/page.tsx e221f036ea47bb646261be8d99227d7da159cbeb8c6bfe639a3a656601fe73f1
@@ -883,7 +884,7 @@
 // input: apps/web/app/(main)/wallet/withdraw/page.tsx e780126637c867c48659734c1072a9f2b820484c58621f0983e986cb27bbf078
 // input: apps/web/app/(main)/wallet/withdraw/records/page.tsx a53c7e726205b48c67090a8b80cba2a3606a0ee1866e111b2d1611436884bac4
 // input: apps/web/app/(main)/web-tools/page.tsx bbf4e52b231bcad2ae0730b2f8127cd23a6bf09fdda4e49f8dbd1167acccc4fa
-// input: apps/web/app/(main)/workbuddy-reset/page.tsx 490ee32f6dd5f2f09d356653a733f0376439d61f273366a9c7e04f36c65c148b
+// input: apps/web/app/(main)/workbuddy-reset/page.tsx 87bfa8554c3f815d1094ae29887d7b1af53e6a0033b761f217fa45eac110ded7
 // input: apps/web/app/(main)/workflows/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/workflows/instances/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/workflows/page.tsx 04023d6b22d63b60eceb775e64e213bddfab0a02b4ad697969fb33d9a199ddfe
@@ -914,7 +915,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 6df145382f287882d4dfd57434356f055a22a13afc39f5a8efff3edf6f8460a2
 // input: apps/web/app/status/page.tsx 73f528f7654b7eb8bf5d08493a07afa63ed1de621f5a792399270a41505bf2fd
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-10-10T07:38:53.279Z
+// generatedAt: 2026-10-10T14:20:29.764Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
@@ -1662,6 +1663,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/publish/monitor', param: false, group: 'publish' },
   { path: '/publish/new', param: false, group: 'publish' },
   { path: '/purchase', param: false, group: 'purchase' },
+  { path: '/qoder-reset', param: false, group: 'qoder-reset' },
   { path: '/ranking', param: false, group: 'ranking' },
   { path: '/recruitment', param: false, group: 'recruitment' },
   { path: '/recruitment/:id', param: true, group: 'recruitment' },
