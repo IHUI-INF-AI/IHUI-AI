@@ -24,6 +24,7 @@ import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/re
 import CheckinPage from '../page'
 import {
   checkinAuditTraeResidual,
+  checkinCaptureQoder,
   checkinOneClickReset,
   checkinGetPublicIp,
   checkinSnapshotList,
@@ -126,6 +127,7 @@ vi.mock('@/hooks/use-desktop', () => ({
 vi.mock('@/lib/tauri-bridge', () => ({
   checkinDetectTraeDir: vi.fn(),
   checkinCaptureJwts: vi.fn(),
+  checkinCaptureQoder: vi.fn(async () => []),
   checkinResetDeviceIds: vi.fn(),
   checkinOneClickReset: vi.fn(),
   checkinGetPublicIp: vi.fn(),
@@ -196,6 +198,7 @@ const accountFixture: CheckinAccount = {
   id: 1,
   name: '主账号',
   group: '',
+  platform: 'trae',
   device_map: {},
   enabled: true,
   jwt_exp: null,
@@ -369,6 +372,7 @@ describe('签到助手页面 · 账号列表与记录', () => {
         jwt: 'eyJabc',
         device_map: { device_id: 'x1' },
         group: '',
+        platform: 'trae',
       }),
     )
   })
@@ -813,6 +817,89 @@ describe('签到助手页面 · 一键解决风控向导', () => {
     expect(screen.getByText('wizardAuditTitle')).toBeTruthy()
     fireEvent.click(restart)
     await waitFor(() => expect(screen.queryByText('wizardAuditTitle')).toBeNull())
+  })
+})
+
+describe('Qoder 平台化(2026-10-10)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockLoadSuccess()
+    schedulerStatus.mockResolvedValue({ enabled: true, started: true, next_run: null })
+  })
+  afterEach(() => cleanup())
+
+  it('平台徽章:存量账号显示 TRAE,qoder 账号显示 Qoder', async () => {
+    mockLoadSuccess({
+      accounts: [accountFixture, makeAccount({ id: 2, name: 'Qoder 账号', platform: 'qoder' })],
+    })
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('Qoder 账号').length).toBeGreaterThan(0))
+    expect(screen.getByText('Qoder', { selector: 'span' })).toBeTruthy()
+    expect(screen.getAllByText('TRAE', { selector: 'span' }).length).toBeGreaterThan(0)
+  })
+
+  it('平台筛选:qoder 只显示 qoder 账号', async () => {
+    mockLoadSuccess({
+      accounts: [accountFixture, makeAccount({ id: 2, name: 'Qoder 账号', platform: 'qoder' })],
+    })
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('Qoder 账号').length).toBeGreaterThan(0))
+    fireEvent.change(screen.getByTestId('platform-filter'), { target: { value: 'qoder' } })
+    // 账号名也出现在记录筛选下拉的 option 里(恒在),故用平台徽章断言行级过滤
+    expect(screen.queryByText('TRAE', { selector: 'span' })).toBeNull()
+    expect(screen.getAllByText('Qoder 账号').length).toBeGreaterThan(0)
+    fireEvent.change(screen.getByTestId('platform-filter'), { target: { value: 'all' } })
+    expect(screen.getAllByText('TRAE', { selector: 'span' }).length).toBeGreaterThan(0)
+  })
+
+  it('录入对话框:platform 选择随提交上送', async () => {
+    createAccount.mockResolvedValue({ id: 9 })
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('addAccount'))
+    fireEvent.change(screen.getByLabelText('name'), { target: { value: '手工 Qoder' } })
+    fireEvent.change(screen.getByLabelText('jwt'), { target: { value: 'a.b.c' } })
+    fireEvent.change(screen.getByTestId('platform-select'), { target: { value: 'qoder' } })
+    fireEvent.click(screen.getByText('submit'))
+    await waitFor(() => expect(createAccount).toHaveBeenCalledTimes(1))
+    expect(createAccount.mock.calls[0]![0].platform).toBe('qoder')
+  })
+
+  it('Qoder 捕获:扫描→入库带 platform=qoder 与 cosy 设备头', async () => {
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    vi.mocked(checkinCaptureQoder).mockResolvedValue([
+      {
+        app_dir: 'C:/x/com.qodercn.app.stable',
+        edition: 'cn',
+        uid: 'q-1',
+        access_token: 'tok-1',
+        refreshToken: 'rt-1',
+        expires_at: 123,
+        jwt_exp: 456,
+        machine_id: 'mid',
+        machine_os: 'x86_64_windows',
+        machine_hostname: 'host',
+        version: '1.0.0',
+        machine_token: 'mt',
+        machine_code: 'mc',
+        machine_type: 'PC',
+      },
+    ])
+    createAccount.mockResolvedValue({ id: 9 })
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('captureQoderButton'))
+    fireEvent.click(screen.getByText('captureQoderScan'))
+    await waitFor(() => expect(screen.getByText('captureImport')).toBeTruthy())
+    fireEvent.click(screen.getByText('captureImport'))
+    await waitFor(() => expect(createAccount).toHaveBeenCalledTimes(1))
+    const arg = createAccount.mock.calls[0]![0]
+    expect(arg.platform).toBe('qoder')
+    expect(arg.jwt).toBe('tok-1')
+    expect(arg.name).toContain('Qoder-cn')
+    expect(arg.device_map.refresh_token).toBe('rt-1')
+    expect(arg.device_map.cosy.machine_id).toBe('mid')
+    expect(arg.device_map.cosy.client_type).toBe('10')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
