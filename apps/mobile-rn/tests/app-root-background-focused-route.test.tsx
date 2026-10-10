@@ -129,23 +129,26 @@ describe('O57 App 根 View 底色按聚焦路由条件化(状态栏带单点修�
     expect(css(tokens.gray.black)).toBe('rgb(0, 0, 0)')
   })
 
-  // 实现按聚焦路由分档(App.tsx ROUTE_ROOT_BG):顶栏区取白档的屏 = surface.card,
+  // 实现按聚焦路由分档(App.tsx ROUTE_ROOT_BG):顶栏区取白档的屏 = surface.chrome,
   // 其余常规屏仍 surface.bg。逐路由钉真实值,表镜像 App.tsx 的 ROUTE_ROOT_BG(未导出)。
-  it('逐路由聚焦 ⇒ 根底色按 ROUTE_ROOT_BG 分档(顶栏白档屏=surface.card,常规屏=surface.bg)', () => {
+  it('逐路由聚焦 ⇒ 根底色按 ROUTE_ROOT_BG 分档(顶栏白档屏=surface.chrome,常规屏=surface.bg)', () => {
     const expectedByRoute: Record<string, string> = {
       // 一级屏:顶栏区取白,状态栏带随之同档(2026-10-10 用户点名首页顶部灰色带)
-      Home: tokens.surface.card,
-      HomeMain: tokens.surface.card,
-      Plaza: tokens.surface.card,
-      News: tokens.surface.card,
-      ProfileMain: tokens.surface.card,
-      AiMain: tokens.surface.card,
-      Agent: tokens.surface.card,
-      Settings: tokens.surface.card,
+      Home: tokens.surface.chrome,
+      HomeMain: tokens.surface.chrome,
+      Plaza: tokens.surface.chrome,
+      News: tokens.surface.chrome,
+      ProfileMain: tokens.surface.chrome,
+      AiMain: tokens.surface.chrome,
+      Agent: tokens.surface.chrome,
+      Settings: tokens.surface.chrome,
       Login: tokens.surface.card, // ROUTE_ROOT_BG.Login ⇒ surface.card
-      // 对照:未收口的二级屏仍走默认档,证明这不是"整片回落 surface.card"
-      CourseDetail: tokens.surface.bg,
-      Chat: tokens.surface.bg,
+      // 对照:未收口的二级屏仍走默认档,证明这不是"整片回落同一档"
+      CourseDetail: tokens.surface.chrome,
+      Chat: tokens.surface.chrome,
+      // 真对照:**不渲染 NavBar** 的路由仍走默认 surface.bg —— 证明 chrome 跟着"有没有顶栏"走,
+      // 不是整片回落同一档
+      Main: tokens.surface.bg,
     }
     for (const [route, expected] of Object.entries(expectedByRoute)) {
       env.route = route
@@ -153,7 +156,7 @@ describe('O57 App 根 View 底色按聚焦路由条件化(状态栏带单点修�
       expect(rootBackgroundOf(container)).toBe(css(expected))
     }
     expect(css(tokens.surface.bg)).toBe('rgb(245, 245, 245)')
-    expect(css(tokens.surface.card)).toBe('rgb(255, 255, 255)')
+    expect(css(tokens.surface.chrome)).toBe('rgb(255, 255, 255)')
   })
 
   it('导航未就绪(冷启动)⇒ 回落 surface.bg,ready 事件到达后翻黑', () => {
@@ -172,7 +175,7 @@ describe('O57 App 根 View 底色按聚焦路由条件化(状态栏带单点修�
 
     env.route = 'Home'
     fireNavigation()
-    expect(rootBackgroundOf(container)).toBe(css(tokens.surface.card))
+    expect(rootBackgroundOf(container)).toBe(css(tokens.surface.chrome))
 
     env.route = 'VideoPlayer'
     fireNavigation()
