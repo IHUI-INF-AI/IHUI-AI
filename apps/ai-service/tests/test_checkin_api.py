@@ -630,7 +630,7 @@ async def test_update_group_owner_isolation(client, fake_store):
 
 
 async def test_scheduler_status_shape(client, monkeypatch):
-    """GET /scheduler/status:三字段形态(测试进程无 lifespan → 未启动,next_run 为 null)。"""
+    """GET /scheduler/status:四字段形态(测试进程无 lifespan → 未启动,next_run 双 null)。"""
     monkeypatch.setenv("CHECKIN_CRON_ENABLED", "true")
     resp = await client.get("/api/checkin/scheduler/status")
     assert resp.status_code == 200
@@ -638,23 +638,37 @@ async def test_scheduler_status_shape(client, monkeypatch):
     assert body["enabled"] is True
     assert body["started"] is False
     assert body["next_run"] is None
+    assert body["next_run_qoder"] is None
 
 
 
 def test_scheduler_status_next_run_when_started(monkeypatch):
-    """status():started 单例 + job.next_run_time → 带时区 ISO8601;未启动三字段缺省。"""
+    """status():started 单例 + job.next_run_time → 带时区 ISO8601;未启动四字段缺省。"""
     monkeypatch.setenv("CHECKIN_CRON_ENABLED", "false")
     sched = checkin_scheduler_mod.CheckinScheduler()
-    assert sched.status() == {"enabled": False, "started": False, "next_run": None}
+    assert sched.status() == {
+        "enabled": False,
+        "started": False,
+        "next_run": None,
+        "next_run_qoder": None,
+    }
 
     nrt = datetime(2026, 10, 9, 8, 5, tzinfo=checkin_scheduler_mod._CN_TZ)
+    nrt_q = datetime(2026, 10, 9, 10, 5, tzinfo=checkin_scheduler_mod._CN_TZ)
 
     class _FakeJob:
         next_run_time: datetime | None = nrt
 
+    class _FakeJobQoder:
+        next_run_time: datetime | None = nrt_q
+
     class _FakeApscheduler:
-        def get_job(self, job_id: str) -> _FakeJob | None:
-            return _FakeJob() if job_id == checkin_scheduler_mod._JOB_ID else None
+        def get_job(self, job_id: str):
+            if job_id == checkin_scheduler_mod._JOB_ID:
+                return _FakeJob()
+            if job_id == checkin_scheduler_mod._JOB_ID_QODER:
+                return _FakeJobQoder()
+            return None
 
     sched._scheduler = _FakeApscheduler()  # 模拟已 start 的单例,不真起事件循环调度
     sched._started = True
@@ -662,6 +676,7 @@ def test_scheduler_status_next_run_when_started(monkeypatch):
     assert st["started"] is True
     assert st["enabled"] is False
     assert st["next_run"] == "2026-10-09T08:05:00+08:00"
+    assert st["next_run_qoder"] == "2026-10-09T10:05:00+08:00"
 
 
 

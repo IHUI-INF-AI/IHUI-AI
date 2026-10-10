@@ -19102,7 +19102,8 @@
     "loadMore": "載入更多",
     "schedulerDisabled": "自動簽到未開啟",
     "schedulerEnabled": "自動簽到已開啟",
-    "schedulerNextRun": "下次 {time}"
+    "schedulerNextRun": "下次 {time}",
+    "schedulerNextRunQoder": "Qoder 下次 {time}"
   },
   "nav": {
     "checkin": "簽到助手",

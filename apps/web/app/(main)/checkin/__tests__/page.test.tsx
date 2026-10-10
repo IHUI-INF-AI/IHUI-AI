@@ -862,7 +862,7 @@ describe('Qoder 平台化(2026-10-10)', () => {
     fireEvent.change(screen.getByTestId('platform-select'), { target: { value: 'qoder' } })
     fireEvent.click(screen.getByText('submit'))
     await waitFor(() => expect(createAccount).toHaveBeenCalledTimes(1))
-    expect(createAccount.mock.calls[0][0].platform).toBe('qoder')
+    expect(createAccount.mock.calls[0]![0].platform).toBe('qoder')
   })
 
   it('Qoder 捕获:扫描→入库带 platform=qoder 与 cosy 设备头', async () => {
@@ -893,7 +893,7 @@ describe('Qoder 平台化(2026-10-10)', () => {
     await waitFor(() => expect(screen.getByText('captureImport')).toBeTruthy())
     fireEvent.click(screen.getByText('captureImport'))
     await waitFor(() => expect(createAccount).toHaveBeenCalledTimes(1))
-    const arg = createAccount.mock.calls[0][0]
+    const arg = createAccount.mock.calls[0]![0]
     expect(arg.platform).toBe('qoder')
     expect(arg.jwt).toBe('tok-1')
     expect(arg.name).toContain('Qoder-cn')

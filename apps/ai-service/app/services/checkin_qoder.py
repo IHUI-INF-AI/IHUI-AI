@@ -455,7 +455,8 @@ async def qoder_query_credits(
 
     响应结构存在未知细节,防御性解析(与 checkin_credits.query_remaining_credits
     同一契约):任何失败返回 {"remaining": None, "packs": [], "error": "..."},
-    绝不向调用方抛栈。
+    绝不向调用方抛栈。401 → refresh 换新后重试一次(与 checkin 主链路同款;
+    新 token/refresh_token/expires_at 写回 device_map,由调用方落库)。
     """
     token = (jwt or "").strip()
     if not token:
@@ -463,6 +464,18 @@ async def qoder_query_credits(
     status, data = await _api_call(
         PATH_QUOTA, "GET", token=token, device_map=device_map, timeout=timeout, client=client
     )
+    if status == 401:
+        refreshed = await qoder_refresh_token(
+            str(device_map.get("refresh_token") or ""), device_map, timeout, client
+        )
+        if refreshed is not None:
+            token = str(refreshed["access_token"])
+            device_map["refresh_token"] = refreshed["refresh_token"]
+            device_map["expires_at"] = refreshed["expires_at"]
+            status, data = await _api_call(
+                PATH_QUOTA, "GET", token=token, device_map=device_map, timeout=timeout,
+                client=client,
+            )
     if status in (0, -1):
         return {"remaining": None, "packs": [], "error": "网络异常"}
     if status != 200 or not isinstance(data, dict):
