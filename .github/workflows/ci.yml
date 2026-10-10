@@ -358,23 +358,32 @@ jobs:
           "
       - name: Create checkin tables (raw conn + self-verify)
         working-directory: apps/ai-service
-        # 签到三表为 ai-service 运行时懒建表,不在 drizzle 迁移内。
+        # 签到表为 ai-service 运行时懒建表,不在 drizzle 迁移内。
         # 共享池跨 loop 回收在 CI 多连 asyncio.run 下出现过步骤退出 0 但表未落库的
         # 静默失配(run 37090730137 实测),故改裸连接建表并当步自验,缺表即红。
         # 注意:本块 python/SQL 内禁用美元符(bash 双引号会吞 $param,run 37092664754 教训)。
+        # 自验钉的是「DDL 声明的每一张表都可见」这一不变量,**不是表的张数**
+        # (run 38009440233 实测:签到线补第 4 张表 checkin_credits_daily 后,旧写法
+        #  `assert n == 3` 让干净 HEAD 上的 main CI 每枚提交恒红;数量型锁既把"合法多一张"
+        #  判成缺失,又只在数目恰好对上时才响 —— 真缺表时若张数巧合相等照样放过)。
+        # 期望集合从 checkin_store 自己的源码里派生 ⇒ 增删 DDL 自动跟随,无需再改本步;
+        # 派生为空按「判据失明」判红,绝不记通过。
         run: |
           python -c "
-          import asyncio, asyncpg
+          import asyncio, inspect, re, asyncpg
+          import app.services.checkin_store as cs
           from app.core.config import settings
-          from app.services.checkin_store import ensure_tables_conn
+          expected = sorted(set(re.findall(r'CREATE TABLE IF NOT EXISTS\s+([a-z_]+)', inspect.getsource(cs))))
+          assert expected, 'checkin DDL 派生为空 ⇒ 判据失明,不得记通过'
           async def main():
               conn = await asyncpg.connect(dsn=settings.database_url)
               try:
-                  await ensure_tables_conn(conn)
-                  q = 'SELECT count(*) FROM information_schema.tables WHERE table_name LIKE ' + chr(39) + 'checkin%' + chr(39)
-                  n = await conn.fetchval(q)
-                  print('[ci] checkin tables visible:', n)
-                  assert n == 3, 'checkin tables missing: %s' % n
+                  await cs.ensure_tables_conn(conn)
+                  rows = await conn.fetch('SELECT table_name FROM information_schema.tables')
+                  have = set(r[0] for r in rows)
+                  missing = [t for t in expected if t not in have]
+                  print('[ci] checkin DDL 声明', len(expected), '张,落库可见', len(expected) - len(missing), '张')
+                  assert not missing, 'checkin tables missing: %s (DDL 声明 %s 张)' % (missing, len(expected))
               finally:
                   await conn.close()
           asyncio.run(main())
