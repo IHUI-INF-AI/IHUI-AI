@@ -69,6 +69,11 @@ fn main() {
             "workbuddy_reset_probe",
             "workbuddy_reset_maintenance",
             "workbuddy_reset_logout",
+            "workbuddy_reset_plan",
+            "workbuddy_quarantine_list",
+            "workbuddy_quarantine_restore",
+            "workbuddy_quarantine_delete",
+            "workbuddy_reset_history",
             "workbuddy_reset_factory",
         ])),
     )
