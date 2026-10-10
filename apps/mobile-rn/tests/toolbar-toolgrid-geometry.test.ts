@@ -91,8 +91,9 @@ describe('Toolbar 6 工具格几何锁(L5171)', () => {
 
   it('6 格数据面:HOME_TOOLS 恰 6 项(双列 3 行,与真机 v0.0.5 后重构一致)', () => {
     const m = /const HOME_TOOLS[^=]*=\s*\[([\s\S]*?)\]/.exec(src)
-    expect(m, '解析不到 HOME_TOOLS 定义').toBeTruthy()
-    const keys = (m![1].match(/key:\s*'/g) ?? []).length
+    const body = m?.[1] ?? ''
+    expect(body, '解析不到 HOME_TOOLS 定义(正则没匹配到或整段为空)').toBeTruthy()
+    const keys = (body.match(/key:\s*'/g) ?? []).length
     expect(keys).toBe(6)
   })
 })
