@@ -742,5 +742,77 @@ describe('签到助手页面 · 一键解决风控向导', () => {
     fireEvent.click(rerun)
     await waitFor(() => expect(checkinAuditTraeResidual).toHaveBeenCalledTimes(2))
   })
+
+  // ── 2026-10-11 UX 修正闭环验证 ──
+
+  it('P0-3 非可选层失败时显示告警而非"不影响"', async () => {
+    await openMaint()
+    // 层 1(machineid,文件级,非可选)失败 ⇒ 必须告警,不得再说"不影响主体"
+    vi.mocked(checkinOneClickReset).mockResolvedValue({
+      layers: [{ layer: 1, name: 'machineid', ok: false, detail: 'boom' }],
+    })
+    vi.mocked(checkinGetPublicIp).mockResolvedValue({ ip: '1.2.3.4', location: '' })
+    fireEvent.click(screen.getByText('wizardStart'))
+    await waitFor(() => expect(screen.getByText('wizardVerify')).toBeTruthy())
+    expect(screen.getByText('wizardCriticalFailNote')).toBeTruthy()
+    expect(screen.queryByText('wizardOptionalNote')).toBeNull()
+  })
+
+  it('P0-1 无法换网时「直接完成」旁路可跳过验证进入冷却态', async () => {
+    await openMaint()
+    vi.mocked(checkinOneClickReset).mockResolvedValue({ layers: [wizardLayer(0)] })
+    vi.mocked(checkinGetPublicIp).mockResolvedValue({ ip: '1.2.3.4', location: '' })
+    fireEvent.click(screen.getByText('wizardStart'))
+    await waitFor(() => expect(screen.getByText('wizardVerify')).toBeTruthy())
+    fireEvent.click(screen.getByText('wizardSkipIp'))
+    await waitFor(() => expect(screen.getByText('wizardCooldown')).toBeTruthy())
+    expect(screen.getByText('wizardRestart')).toBeTruthy()
+    expect(screen.queryByText('wizardVerify')).toBeNull()
+  })
+
+  it('P0-1 IP 连续 3 次未变自动高亮引导"直接完成"', async () => {
+    await openMaint()
+    vi.mocked(checkinOneClickReset).mockResolvedValue({ layers: [wizardLayer(0)] })
+    // 出口 IP 始终不变 ⇒ 每次验证都计一次失败
+    vi.mocked(checkinGetPublicIp).mockResolvedValue({ ip: '1.2.3.4', location: '' })
+    fireEvent.click(screen.getByText('wizardStart'))
+    await waitFor(() => expect(screen.getByText('wizardVerify')).toBeTruthy())
+    for (let i = 0; i < 3; i++) {
+      fireEvent.click(screen.getByText('wizardVerify'))
+      // 每次验证后向导仍在 Step2(未变),等待按钮恢复可点再点下一次
+      await waitFor(() =>
+        expect((screen.getByText('wizardVerify') as HTMLButtonElement).disabled).toBe(false),
+      )
+    }
+    await waitFor(() => expect(screen.getByText('wizardIpFailMany')).toBeTruthy())
+  })
+
+  it('P1-2 审计发现残留时提供"退出 TRAE 后强制重跑"按钮', async () => {
+    await openMaint()
+    vi.mocked(checkinOneClickReset).mockResolvedValue({ layers: [wizardLayer(0)] })
+    vi.mocked(checkinGetPublicIp).mockResolvedValue({ ip: '1.2.3.4', location: '' })
+    vi.mocked(checkinAuditTraeResidual).mockResolvedValue({
+      ...cleanAudit,
+      ok: false,
+      hard_hits: 2,
+      hard_hit_files: [{ file: 'storage.json', count: 1, sample: 'abc' }],
+    })
+    fireEvent.click(screen.getByText('wizardStart'))
+    await waitFor(() => expect(screen.getByText('wizardResidualReclean')).toBeTruthy())
+  })
+
+  it('P2-7 重新开始向导会清空上一轮审计结论', async () => {
+    await openMaint()
+    vi.mocked(checkinOneClickReset).mockResolvedValue({ layers: [wizardLayer(0)] })
+    vi.mocked(checkinGetPublicIp).mockResolvedValue({ ip: '1.2.3.4', location: '' })
+    fireEvent.click(screen.getByText('wizardStart'))
+    await waitFor(() => expect(screen.getByText('wizardAuditClean')).toBeTruthy())
+    // 先走到 Step3(跳过验证),才有"重新开始"按钮
+    fireEvent.click(screen.getByText('wizardSkipIp'))
+    const restart = await waitFor(() => screen.getByText('wizardRestart'))
+    expect(screen.getByText('wizardAuditTitle')).toBeTruthy()
+    fireEvent.click(restart)
+    await waitFor(() => expect(screen.queryByText('wizardAuditTitle')).toBeNull())
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
