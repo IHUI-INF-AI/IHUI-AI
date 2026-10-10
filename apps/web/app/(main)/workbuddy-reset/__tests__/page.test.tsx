@@ -13,13 +13,15 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react'
 import WorkbuddyResetPage from '../page'
 import {
   workbuddyResetProbe,
   workbuddyResetMaintenance,
   workbuddyResetLogout,
   workbuddyResetFactory,
+  workbuddyQuarantineRestore,
+  workbuddyQuarantineDelete,
 } from '@/lib/tauri-bridge'
 import { useTauriIpcReady } from '@/hooks/use-desktop'
 
@@ -49,13 +51,17 @@ vi.mock('next-intl', () => ({
 vi.mock('lucide-react', () => {
   const Icon = () => <span data-testid="icon" />
   return {
+    Archive: Icon,
     Eraser: Icon,
     Factory: Icon,
+    History: Icon,
     Loader2: Icon,
     LogOut: Icon,
     RefreshCw: Icon,
     ShieldAlert: Icon,
+    Trash2: Icon,
     TriangleAlert: Icon,
+    Undo2: Icon,
   }
 })
 
@@ -65,18 +71,53 @@ vi.mock('@/hooks/use-desktop', () => ({
 
 vi.mock('@/lib/tauri-bridge', () => ({
   workbuddyResetProbe: vi.fn(async () => JSON.parse(JSON.stringify(probeReport))),
-  workbuddyResetMaintenance: vi.fn(async () => ({
-    layers: [
-      { layer: 0, name: 'kill_workbuddy_processes', ok: true, detail: '已强杀 5 个 WorkBuddy 进程' },
-      { layer: 1, name: 'maintenance_clean', ok: true, detail: '已清理 9 项' },
-    ],
-  })),
+  workbuddyResetMaintenance: vi.fn(async (_kill: boolean, onProgress?: (ev: unknown) => void) => {
+    onProgress?.({ layer: 1, done: 1, total: 2, item: 'logs/20261010/main.log' })
+    return {
+      layers: [
+        { layer: 0, name: 'kill_workbuddy_processes', ok: true, detail: '已强杀 5 个 WorkBuddy 进程' },
+        { layer: 1, name: 'maintenance_clean', ok: true, detail: '已清理 9 项' },
+      ],
+    }
+  }),
   workbuddyResetLogout: vi.fn(async () => ({
-    layers: [{ layer: 2, name: 'logout_reset', ok: true, detail: '已清除 1 项' }],
+    layers: [{ layer: 2, name: 'logout_reset', ok: true, detail: '已搬移 1 项; 隔离区=D:/q' }],
   })),
   workbuddyResetFactory: vi.fn(async () => ({
     layers: [{ layer: 3, name: 'factory_reset', ok: true, detail: '已搬移 36 项; 隔离区=D:/q' }],
   })),
+  workbuddyResetPlan: vi.fn(async () => ({
+    mode: 'maintenance',
+    include_device_id: false,
+    actions: [],
+    total_mb: 0,
+  })),
+  workbuddyQuarantineList: vi.fn(async () => [
+    {
+      name: '.workbuddy-quarantine-1728500000',
+      path: 'C:/q',
+      created_unix: 1728500000,
+      mode: 'factory',
+      original_root: 'C:/u/.workbuddy',
+      entries: 3,
+      size_mb: 1024.5,
+    },
+  ]),
+  workbuddyQuarantineRestore: vi.fn(async () => ({
+    layers: [{ layer: 4, name: 'quarantine_restore', ok: true, detail: '已恢复 3 项' }],
+  })),
+  workbuddyQuarantineDelete: vi.fn(async () => ({
+    layers: [{ layer: 5, name: 'quarantine_delete', ok: true, detail: '已删除隔离区' }],
+  })),
+  workbuddyResetHistory: vi.fn(async () => [
+    {
+      file: '1728500000-factory.json',
+      ts_unix: 1728500000,
+      mode: 'factory',
+      ok: true,
+      summary: 'L3 factory_reset ok',
+    },
+  ]),
 }))
 
 vi.mock('@ihui/ui-react', () => {
@@ -133,7 +174,7 @@ describe('WorkBuddy 一键重置页', () => {
     ;(useTauriIpcReady as ReturnType<typeof vi.fn>).mockReturnValue(true)
     render(<WorkbuddyResetPage />)
     await waitFor(() => expect(workbuddyResetProbe).toHaveBeenCalledTimes(1))
-    await waitFor(() => expect(screen.getByText(/\.workbuddy/)).toBeTruthy())
+    await waitFor(() => expect(screen.getAllByText(/\.workbuddy/).length).toBeGreaterThan(0))
     expect(screen.getByText(/probeReclaimable/)).toBeTruthy()
     expect(screen.getByText(/wbRunning/)).toBeTruthy()
     // 分档标签在列(日志=可再生缓存,session=登录态,workspace/MEMORY.md=用户资产)
@@ -149,7 +190,7 @@ describe('WorkBuddy 一键重置页', () => {
     await waitFor(() => expect(screen.getByText('maintCta')).toBeTruthy())
     fireEvent.click(screen.getByText('maintCta'))
     await waitFor(() => expect(workbuddyResetMaintenance).toHaveBeenCalledTimes(1))
-    expect(workbuddyResetMaintenance).toHaveBeenCalledWith(true)
+    expect(workbuddyResetMaintenance).toHaveBeenCalledWith(true, expect.any(Function))
     await waitFor(() => expect(screen.getByText('resultTitle')).toBeTruthy())
     expect(screen.getByText('maintenance_clean')).toBeTruthy()
     expect(screen.getAllByText('resultOk').length).toBeGreaterThan(0)
@@ -162,7 +203,7 @@ describe('WorkBuddy 一键重置页', () => {
     fireEvent.click(screen.getByRole('checkbox'))
     fireEvent.click(screen.getByText('logoutCta'))
     await waitFor(() => expect(workbuddyResetLogout).toHaveBeenCalledTimes(1))
-    expect(workbuddyResetLogout).toHaveBeenCalledWith(true, true)
+    expect(workbuddyResetLogout).toHaveBeenCalledWith(true, true, expect.any(Function))
   })
 
   it('出厂重置:两次确认才执行', async () => {
@@ -174,8 +215,56 @@ describe('WorkBuddy 一键重置页', () => {
     expect(screen.getByText('factoryConfirm')).toBeTruthy()
     fireEvent.click(screen.getByText('factoryConfirmYes'))
     await waitFor(() => expect(workbuddyResetFactory).toHaveBeenCalledTimes(1))
-    expect(workbuddyResetFactory).toHaveBeenCalledWith(true)
+    expect(workbuddyResetFactory).toHaveBeenCalledWith(true, expect.any(Function))
     await waitFor(() => expect(screen.getByText(/隔离区/)).toBeTruthy())
+  })
+
+  it('执行进度条:逐条目回传渲染当前条目与计数', async () => {
+    ;(useTauriIpcReady as ReturnType<typeof vi.fn>).mockReturnValue(true)
+    let push: ((ev: { layer: number; done: number; total: number; item: string }) => void) | undefined
+    vi.mocked(workbuddyResetMaintenance).mockImplementationOnce(async (_k, onP) => {
+      push = onP as typeof push
+      await new Promise((r) => setTimeout(r, 30))
+      return { layers: [{ layer: 1, name: 'maintenance_clean', ok: true, detail: 'x' }] }
+    })
+    render(<WorkbuddyResetPage />)
+    fireEvent.click(await screen.findByText('maintCta'))
+    await waitFor(() => expect(push).toBeTruthy())
+    act(() => push!({ layer: 1, done: 1, total: 2, item: 'logs/20261010/main.log' }))
+    expect(screen.getByText('progressLabel')).toBeTruthy()
+    expect(screen.getByText('logs/20261010/main.log')).toBeTruthy()
+    expect(screen.getByText('1/2')).toBeTruthy()
+    // 完成后进度卡撤下
+    await waitFor(() => expect(screen.queryByText('progressLabel')).toBeNull())
+  })
+
+  it('隔离区管理卡:列表渲染 + 一键恢复调用', async () => {
+    ;(useTauriIpcReady as ReturnType<typeof vi.fn>).mockReturnValue(true)
+    render(<WorkbuddyResetPage />)
+    expect(await screen.findByText('quarantineTitle')).toBeTruthy()
+    expect(screen.getByText('.workbuddy-quarantine-1728500000')).toBeTruthy()
+    expect(screen.getAllByText('factory').length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByText('qRestore'))
+    await waitFor(() => expect(workbuddyQuarantineRestore).toHaveBeenCalledWith('C:/q'))
+    await waitFor(() => expect(screen.getByText('qRestored')).toBeTruthy())
+  })
+
+  it('隔离区删除:两段确认才执行', async () => {
+    ;(useTauriIpcReady as ReturnType<typeof vi.fn>).mockReturnValue(true)
+    render(<WorkbuddyResetPage />)
+    fireEvent.click(await screen.findByText('qDelete'))
+    expect(workbuddyQuarantineDelete).not.toHaveBeenCalled()
+    expect(screen.getByText('qDeleteConfirm')).toBeTruthy()
+    fireEvent.click(screen.getByText('qDelete'))
+    await waitFor(() => expect(workbuddyQuarantineDelete).toHaveBeenCalledWith('C:/q'))
+  })
+
+  it('历史台账卡:模式与摘要渲染', async () => {
+    ;(useTauriIpcReady as ReturnType<typeof vi.fn>).mockReturnValue(true)
+    render(<WorkbuddyResetPage />)
+    expect(await screen.findByText('historyTitle')).toBeTruthy()
+    expect(screen.getAllByText('factory').length).toBeGreaterThan(0)
+    expect(screen.getByText(/L3 factory_reset ok/)).toBeTruthy()
   })
 
   it('边界披露与关闭宿主提示常驻', async () => {
