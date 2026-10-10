@@ -10,9 +10,6 @@ export { MarkdownViewer } from './MarkdownViewer'
 export { CodeViewer } from './CodeViewer'
 export { FilePreview } from './FilePreview'
 export type { ImagePreviewItem } from './FilePreview'
-// G-854:矢量图独立预览 Modal(缩放/平移/键盘/ctrl+滚轮定点缩放/捏合的唯一载体)
-export { DiagramPreviewModal } from './DiagramPreviewModal'
-export type { DiagramPreviewModalProps } from './DiagramPreviewModal'
 export {
   ArtifactTurnBadge,
   ArtifactKindBadge,
