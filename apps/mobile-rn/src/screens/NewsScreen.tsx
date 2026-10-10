@@ -43,6 +43,7 @@ import {
   type ArticleItem,
   type CategoryItem,
 } from '@ihui/rn-app'
+import { NavChrome } from '../components/NavChrome'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -395,14 +396,14 @@ export default function NewsScreenWrapper() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.navChrome}>
+      <NavChrome>
         <NavBar
           title="AI资讯"
           leftActions={leftActions}
           rightActions={rightActions}
           onBack={handleBack}
         />
-      </View>
+      </NavChrome>
       <SharedSquareScreen
         t={t}
         colorScheme={resolvedTheme === 'dark' ? 'dark' : 'light'}
@@ -452,7 +453,6 @@ export default function NewsScreenWrapper() {
 }
 
 const styles = StyleSheet.create({
-  navChrome: { backgroundColor: tokens.surface.card },
   container: {
     flex: 1,
     backgroundColor: tokens.surface.bg,

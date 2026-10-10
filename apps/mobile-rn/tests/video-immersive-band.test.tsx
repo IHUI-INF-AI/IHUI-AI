@@ -289,10 +289,14 @@ describe('② 带位仍由 App 根 View 单点绘制(全屏态不得有第二层
     // 按路由分档:Login 页面底取 surface.card,不是 surface.bg;该表未导出,逐路由真实值另由
     // app-root-background-focused-route.test.tsx 钉住)。本用例锁的是"非全屏态 ⇒ 底色等于该路由
     // 自己那一档",所以不得整片回落到 surface.bg —— 那会把 10-07 那次修复当成缺陷改回去。
-    // Home 等一级屏由 2026-10-10 用户点名「首页顶部露出一条灰色带」后加入:顶栏区取白,带随之同档。
-    const CHROME = css(tokens.surface.card)
+    // Home 等一级屏由 2026-10-10 用户点名「首页顶部露出一条灰色带」后加入:顶栏区取白,带随之同档;
+    // 同日第二轮把 chrome 单立成档(亮 #FFFFFF / 暗 #262626,对齐小程序原生导航栏 navBgColor),深色档不再跟着 card 走。
+    // 顶栏 chrome 档(2026-10-10 立):凡屏内用 <NavChrome> 给导航行取色的屏,其注册路由名的
+    // 状态栏带必须同档。清单与 apps/mobile-rn/tests/nav-chrome-route-parity.test.ts 同源,
+    // 那张锁负责"漏一条即红",这里负责"实落到根元素上的值等于该档"。
+    const CHROME = css(tokens.surface.chrome)
     const EXPECTED_ROOT_BG: Record<string, string> = {
-      Login: CHROME,
+      Login: css(tokens.surface.card), // 登录页无 NavBar,页面底定档仍是 card(2026-10-07 那次修复)
       Home: CHROME,
       HomeMain: CHROME,
       Plaza: CHROME,
@@ -301,8 +305,27 @@ describe('② 带位仍由 App 根 View 单点绘制(全屏态不得有第二层
       AiMain: CHROME,
       Agent: CHROME,
       Settings: CHROME,
+      AiAssistantN8n: CHROME,
+      Cart: CHROME,
+      Chat: CHROME,
+      CircleIndex: CHROME,
+      ConversationImport: CHROME,
+      CourseDetail: CHROME,
+      DevEnter: CHROME,
+      Developer: CHROME,
+      LiveDetail: CHROME,
+      RankingDetail: CHROME,
+      Share: CHROME,
+      StudyIndex: CHROME,
+      StudyPublish: CHROME,
+      Subagents: CHROME,
+      TopicDetail: CHROME,
+      TopicList: CHROME,
+      WebPortal: CHROME,
     }
-    for (const route of [...Object.keys(EXPECTED_ROOT_BG), 'CourseDetail', 'Chat']) {
+    // 真对照:不渲染 NavBar 的容器路由仍走默认 surface.bg
+    const DEFAULT_BG_ROUTES = ['Main']
+    for (const route of [...Object.keys(EXPECTED_ROOT_BG), ...DEFAULT_BG_ROUTES]) {
       env.route = route
       const { container } = render(<App />)
       expect(rootBackgroundOf(container)).toBe(EXPECTED_ROOT_BG[route] ?? css(tokens.surface.bg))
