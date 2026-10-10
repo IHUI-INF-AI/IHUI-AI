@@ -11,6 +11,7 @@ import { Check } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/feedback'
+import { dismissSubmissionJob, registerSubmissionJob } from '@ihui/shared/jobs/submission-job'
 import type { FeedbackItem, FeedbackType } from './types'
 import { FeedbackList } from './FeedbackList'
 import { FeedbackForm } from './FeedbackForm'
@@ -83,13 +84,37 @@ export default function FeedbackPage() {
       setFormError(t('required'))
       return
     }
-    createMut.mutate({
-      type,
-      title: title.trim(),
-      content: content.trim(),
-      contact: contact.trim() || undefined,
-      images: images.length > 0 ? images : undefined,
+    const trimmedTitle = title.trim()
+    const trimmedContent = content.trim()
+    const trimmedContact = contact.trim() || undefined
+    const payloadImages = images.length > 0 ? images : undefined
+    // G-815964:提交瞬间把整份表单注册进全局作业注册表 —— jobId 冻结快照,
+    // 提交在途期间可按 jobId 查询;终态后立即真删(终态删不得就是只进不出的泄漏)。
+    // paused-log 守卫在本链路暂无触发点(此处没有"挂起等用户补日志"的分支),留给后续消费点。
+    const jobId = `feedback-submit-${crypto.randomUUID()}`
+    const job = registerSubmissionJob({
+      jobId,
+      form: { type, title: trimmedTitle, content: trimmedContent, contact: trimmedContact, images: payloadImages },
     })
+    createMut.mutate(
+      {
+        type,
+        title: trimmedTitle,
+        content: trimmedContent,
+        contact: trimmedContact,
+        images: payloadImages,
+      },
+      {
+        onSuccess: (d) => {
+          job.succeed(d.feedback?.id)
+          dismissSubmissionJob(jobId)
+        },
+        onError: (err: Error) => {
+          job.fail(err.message)
+          dismissSubmissionJob(jobId)
+        },
+      },
+    )
   }
 
   const list = data ?? []

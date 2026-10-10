@@ -2349,6 +2349,594 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "Enables the active_window command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-active-window",
+          "markdownDescription": "Enables the active_window command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the checkin_capture_jwts command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-checkin-capture-jwts",
+          "markdownDescription": "Enables the checkin_capture_jwts command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the checkin_detect_trae_dir command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-checkin-detect-trae-dir",
+          "markdownDescription": "Enables the checkin_detect_trae_dir command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the checkin_get_public_ip command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-checkin-get-public-ip",
+          "markdownDescription": "Enables the checkin_get_public_ip command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the checkin_one_click_reset command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-checkin-one-click-reset",
+          "markdownDescription": "Enables the checkin_one_click_reset command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the checkin_reset_device_ids command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-checkin-reset-device-ids",
+          "markdownDescription": "Enables the checkin_reset_device_ids command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the checkin_snapshot_backup command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-checkin-snapshot-backup",
+          "markdownDescription": "Enables the checkin_snapshot_backup command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the checkin_snapshot_delete command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-checkin-snapshot-delete",
+          "markdownDescription": "Enables the checkin_snapshot_delete command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the checkin_snapshot_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-checkin-snapshot-list",
+          "markdownDescription": "Enables the checkin_snapshot_list command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the checkin_snapshot_restore command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-checkin-snapshot-restore",
+          "markdownDescription": "Enables the checkin_snapshot_restore command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the clear_webview_cache command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-clear-webview-cache",
+          "markdownDescription": "Enables the clear_webview_cache command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the clipboard_get command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-clipboard-get",
+          "markdownDescription": "Enables the clipboard_get command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the clipboard_set command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-clipboard-set",
+          "markdownDescription": "Enables the clipboard_set command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_admin_window_info command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-admin-window-info",
+          "markdownDescription": "Enables the get_admin_window_info command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_app_info command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-app-info",
+          "markdownDescription": "Enables the get_app_info command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_desktop_prefs command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-desktop-prefs",
+          "markdownDescription": "Enables the get_desktop_prefs command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_tray_always_visible command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-tray-always-visible",
+          "markdownDescription": "Enables the get_tray_always_visible command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the git_authorize_workspace command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-git-authorize-workspace",
+          "markdownDescription": "Enables the git_authorize_workspace command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the git_channel_info command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-git-channel-info",
+          "markdownDescription": "Enables the git_channel_info command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the git_workspace_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-git-workspace-status",
+          "markdownDescription": "Enables the git_workspace_status command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the keyboard_hotkey command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-keyboard-hotkey",
+          "markdownDescription": "Enables the keyboard_hotkey command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the keyboard_press command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-keyboard-press",
+          "markdownDescription": "Enables the keyboard_press command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the keyboard_type command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-keyboard-type",
+          "markdownDescription": "Enables the keyboard_type command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the list_dir command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-list-dir",
+          "markdownDescription": "Enables the list_dir command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the mouse_click command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-mouse-click",
+          "markdownDescription": "Enables the mouse_click command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the mouse_move command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-mouse-move",
+          "markdownDescription": "Enables the mouse_move command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the mouse_scroll command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-mouse-scroll",
+          "markdownDescription": "Enables the mouse_scroll command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the open_admin_window command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-open-admin-window",
+          "markdownDescription": "Enables the open_admin_window command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the open_in_chrome command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-open-in-chrome",
+          "markdownDescription": "Enables the open_in_chrome command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the quit_app command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-quit-app",
+          "markdownDescription": "Enables the quit_app command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the read_binary_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-read-binary-file",
+          "markdownDescription": "Enables the read_binary_file command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the read_text_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-read-text-file",
+          "markdownDescription": "Enables the read_text_file command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the reset_window_state command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-reset-window-state",
+          "markdownDescription": "Enables the reset_window_state command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the resolve_close_choice command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-resolve-close-choice",
+          "markdownDescription": "Enables the resolve_close_choice command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the restart_app command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-restart-app",
+          "markdownDescription": "Enables the restart_app command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the restore_window_state command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-restore-window-state",
+          "markdownDescription": "Enables the restore_window_state command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the save_window_state command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-save-window-state",
+          "markdownDescription": "Enables the save_window_state command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the screenshot_screen command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-screenshot-screen",
+          "markdownDescription": "Enables the screenshot_screen command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_desktop_badge command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-desktop-badge",
+          "markdownDescription": "Enables the set_desktop_badge command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_desktop_prefs command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-desktop-prefs",
+          "markdownDescription": "Enables the set_desktop_prefs command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_tray_always_visible command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-tray-always-visible",
+          "markdownDescription": "Enables the set_tray_always_visible command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_tray_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-tray-status",
+          "markdownDescription": "Enables the set_tray_status command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the start_resize command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-start-resize",
+          "markdownDescription": "Enables the start_resize command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the stat_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-stat-file",
+          "markdownDescription": "Enables the stat_file command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the take_pending_deep_links command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-take-pending-deep-links",
+          "markdownDescription": "Enables the take_pending_deep_links command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the toggle_always_on_top command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-toggle-always-on-top",
+          "markdownDescription": "Enables the toggle_always_on_top command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the toggle_devtools command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-toggle-devtools",
+          "markdownDescription": "Enables the toggle_devtools command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the toggle_fullscreen command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-toggle-fullscreen",
+          "markdownDescription": "Enables the toggle_fullscreen command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the write_text_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-write-text-file",
+          "markdownDescription": "Enables the write_text_file command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the active_window command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-active-window",
+          "markdownDescription": "Denies the active_window command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the checkin_capture_jwts command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-checkin-capture-jwts",
+          "markdownDescription": "Denies the checkin_capture_jwts command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the checkin_detect_trae_dir command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-checkin-detect-trae-dir",
+          "markdownDescription": "Denies the checkin_detect_trae_dir command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the checkin_get_public_ip command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-checkin-get-public-ip",
+          "markdownDescription": "Denies the checkin_get_public_ip command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the checkin_one_click_reset command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-checkin-one-click-reset",
+          "markdownDescription": "Denies the checkin_one_click_reset command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the checkin_reset_device_ids command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-checkin-reset-device-ids",
+          "markdownDescription": "Denies the checkin_reset_device_ids command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the checkin_snapshot_backup command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-checkin-snapshot-backup",
+          "markdownDescription": "Denies the checkin_snapshot_backup command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the checkin_snapshot_delete command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-checkin-snapshot-delete",
+          "markdownDescription": "Denies the checkin_snapshot_delete command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the checkin_snapshot_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-checkin-snapshot-list",
+          "markdownDescription": "Denies the checkin_snapshot_list command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the checkin_snapshot_restore command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-checkin-snapshot-restore",
+          "markdownDescription": "Denies the checkin_snapshot_restore command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the clear_webview_cache command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-clear-webview-cache",
+          "markdownDescription": "Denies the clear_webview_cache command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the clipboard_get command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-clipboard-get",
+          "markdownDescription": "Denies the clipboard_get command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the clipboard_set command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-clipboard-set",
+          "markdownDescription": "Denies the clipboard_set command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_admin_window_info command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-admin-window-info",
+          "markdownDescription": "Denies the get_admin_window_info command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_app_info command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-app-info",
+          "markdownDescription": "Denies the get_app_info command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_desktop_prefs command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-desktop-prefs",
+          "markdownDescription": "Denies the get_desktop_prefs command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_tray_always_visible command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-tray-always-visible",
+          "markdownDescription": "Denies the get_tray_always_visible command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the git_authorize_workspace command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-git-authorize-workspace",
+          "markdownDescription": "Denies the git_authorize_workspace command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the git_channel_info command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-git-channel-info",
+          "markdownDescription": "Denies the git_channel_info command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the git_workspace_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-git-workspace-status",
+          "markdownDescription": "Denies the git_workspace_status command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the keyboard_hotkey command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-keyboard-hotkey",
+          "markdownDescription": "Denies the keyboard_hotkey command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the keyboard_press command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-keyboard-press",
+          "markdownDescription": "Denies the keyboard_press command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the keyboard_type command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-keyboard-type",
+          "markdownDescription": "Denies the keyboard_type command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the list_dir command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-list-dir",
+          "markdownDescription": "Denies the list_dir command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the mouse_click command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-mouse-click",
+          "markdownDescription": "Denies the mouse_click command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the mouse_move command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-mouse-move",
+          "markdownDescription": "Denies the mouse_move command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the mouse_scroll command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-mouse-scroll",
+          "markdownDescription": "Denies the mouse_scroll command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the open_admin_window command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-open-admin-window",
+          "markdownDescription": "Denies the open_admin_window command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the open_in_chrome command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-open-in-chrome",
+          "markdownDescription": "Denies the open_in_chrome command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the quit_app command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-quit-app",
+          "markdownDescription": "Denies the quit_app command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the read_binary_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-read-binary-file",
+          "markdownDescription": "Denies the read_binary_file command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the read_text_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-read-text-file",
+          "markdownDescription": "Denies the read_text_file command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the reset_window_state command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-reset-window-state",
+          "markdownDescription": "Denies the reset_window_state command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the resolve_close_choice command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-resolve-close-choice",
+          "markdownDescription": "Denies the resolve_close_choice command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the restart_app command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-restart-app",
+          "markdownDescription": "Denies the restart_app command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the restore_window_state command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-restore-window-state",
+          "markdownDescription": "Denies the restore_window_state command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the save_window_state command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-save-window-state",
+          "markdownDescription": "Denies the save_window_state command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the screenshot_screen command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-screenshot-screen",
+          "markdownDescription": "Denies the screenshot_screen command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_desktop_badge command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-desktop-badge",
+          "markdownDescription": "Denies the set_desktop_badge command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_desktop_prefs command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-desktop-prefs",
+          "markdownDescription": "Denies the set_desktop_prefs command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_tray_always_visible command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-tray-always-visible",
+          "markdownDescription": "Denies the set_tray_always_visible command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_tray_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-tray-status",
+          "markdownDescription": "Denies the set_tray_status command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the start_resize command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-start-resize",
+          "markdownDescription": "Denies the start_resize command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the stat_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-stat-file",
+          "markdownDescription": "Denies the stat_file command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the take_pending_deep_links command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-take-pending-deep-links",
+          "markdownDescription": "Denies the take_pending_deep_links command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the toggle_always_on_top command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-toggle-always-on-top",
+          "markdownDescription": "Denies the toggle_always_on_top command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the toggle_devtools command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-toggle-devtools",
+          "markdownDescription": "Denies the toggle_devtools command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the toggle_fullscreen command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-toggle-fullscreen",
+          "markdownDescription": "Denies the toggle_fullscreen command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the write_text_file command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-write-text-file",
+          "markdownDescription": "Denies the write_text_file command without any pre-configured scope."
+        },
+        {
           "description": "This permission set configures if your\napplication can enable or disable auto\nstarting the application on boot.\n\n#### Granted Permissions\n\nIt allows all to check, enable and\ndisable the automatic start on boot.\n\n\n#### This default permission set includes:\n\n- `allow-enable`\n- `allow-disable`\n- `allow-is-enabled`",
           "type": "string",
           "const": "autostart:default",

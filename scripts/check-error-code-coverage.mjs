@@ -173,6 +173,19 @@ const R4_SCAN_ROOTS = [
   { dir: 'packages/shared/src', exts: ['.ts', '.tsx'] },
 ]
 
+/**
+ * R4b 的面比 R4a **宽一棵树**:出口真正被消费的地方是 services(2026-10-10 现读两处
+ * `coerceKnownOr(` 都在 `apps/api/src/services/**`,而 R4a 的两棵树里一处都没有)——
+ * 只扫 db + shared 时 R4b 恒报"调用点 0",读报告的人会把它当成"没有读侧兜底要做",
+ * 而真相是"有兜底、尺子看不见"。R4a 刻意不同步扩:`apps/api/src/services` 现读有 19 处
+ * 直转站点(单文件最多 17 处),扩进去当天就会让问责档(`--strict` 锚点按 0)恒红,
+ * 那正是本门头注禁止的"新判据一上手就是恒红门";存量清单与不扩的理由写进台账 G-815963。
+ */
+const R4B_SCAN_ROOTS = [
+  ...R4_SCAN_ROOTS,
+  { dir: 'apps/api/src/services', exts: ['.ts', '.tsx'] },
+]
+
 /** 唯一出口(G-815963 前半已入库)。摘线时本门判"尺子失明"并参与退出码 —— 同守门 135/144 的规矩。 */
 const OUTLET_FILE = 'packages/types/src/enum-coerce.ts'
 const OUTLET_EXPORT = 'coerceKnownOr'
@@ -281,6 +294,13 @@ function makeGitReader(face, root) {
         R4_SCAN_ROOTS.map((s) => s.dir).join(' + '),
       )
     },
+    listCoerceScanFiles() {
+      return requireNonEmpty(
+        listIn(R4B_SCAN_ROOTS),
+        label,
+        R4B_SCAN_ROOTS.map((s) => s.dir).join(' + '),
+      )
+    },
     fetch,
     read(rel) {
       fetch([rel])
@@ -341,6 +361,13 @@ function makeWorktreeReader(root) {
         walkIn(R4_SCAN_ROOTS),
         label,
         R4_SCAN_ROOTS.map((s) => s.dir).join(' + '),
+      )
+    },
+    listCoerceScanFiles() {
+      return requireNonEmpty(
+        walkIn(R4B_SCAN_ROOTS),
+        label,
+        R4B_SCAN_ROOTS.map((s) => s.dir).join(' + '),
       )
     },
     fetch() {},
@@ -565,6 +592,29 @@ export function collectEnumFiles(reader) {
   const listed = reader.listEnumScanFiles()
   reader.fetch(listed.map((f) => f.relPath))
   return listed.map(({ relPath }) => ({ relPath, src: reader.read(relPath) }))
+}
+
+/**
+ * R4b 的文件集:比 R4a **宽一棵树**(见 R4B_SCAN_ROOTS 的头注),并按 relPath 去重 ——
+ * R4B 由 R4_SCAN_ROOTS 展开而来,若哪天有人往里加一棵与已有根重叠的目录,不去重就会把同一个
+ * 调用点数两遍,而"通过 N"是要给人读的量,虚高比漏判更难发现。
+ * 读不到 `listCoerceScanFiles` 时退回窄面而不是抛错:镜像与注入式夹具只实现旧的那把清单出口,
+ * 让它们当场崩会把"判据变宽"误报成"判据坏了"。
+ */
+export function collectCoerceFiles(reader) {
+  const listed =
+    typeof reader.listCoerceScanFiles === 'function'
+      ? reader.listCoerceScanFiles()
+      : reader.listEnumScanFiles()
+  const uniq = []
+  const seen = new Set()
+  for (const f of listed) {
+    if (seen.has(f.relPath)) continue
+    seen.add(f.relPath)
+    uniq.push(f)
+  }
+  reader.fetch(uniq.map((f) => f.relPath))
+  return uniq.map(({ relPath }) => ({ relPath, src: reader.read(relPath) }))
 }
 
 /** R4a 站点提取:遮注释 + 字符串之后的代码面上找 `as XxxStatus` / `as unknown as XxxStatus`。 */
@@ -847,7 +897,9 @@ export function runChecks({ root = ROOT, face = 'head', extraFiles = [], strict 
         ? '问责档:锚点按 0(存量也问责)'
         : '全量/工作树档:存量只报数,不判红'
   const cast = checkEnumCastRatchet(enumFiles, { anchorOf, ratcheted })
-  const coerce = checkCoerceSafeArg(enumFiles)
+  // R4b 用宽面:出口的消费点住在 services,而 R4a 的两棵树里一处都没有(见 R4B_SCAN_ROOTS 头注)。
+  const coerceFiles = collectCoerceFiles(reader)
+  const coerce = checkCoerceSafeArg(coerceFiles)
   const outlet = checkOutletLiveness(reader.readIfPresent(OUTLET_FILE))
   const problems = [
     ...checkCoverage(scanned, catalog),
@@ -866,11 +918,14 @@ export function runChecks({ root = ROOT, face = 'head', extraFiles = [], strict 
     face: reader.label,
     r4: {
       enumFiles: enumFiles.length,
+      castScope: R4_SCAN_ROOTS.map((s) => s.dir).join(' + '),
       castSites: cast.sites.length,
       castReported: cast.reported,
       ratcheted,
       anchorMode,
       strict,
+      coerceFiles: coerceFiles.length,
+      coerceScope: R4B_SCAN_ROOTS.map((s) => s.dir).join(' + '),
       coerceOk: coerce.ok.length,
       coerceUndetermined: coerce.undetermined,
       outletProblems: outlet.length,
@@ -1254,6 +1309,51 @@ function selfTest() {
     'R4 全量档对存量只报数:HEAD 面直转站点哪怕 >0 也不得进 problems(否则每次提交被逼 --no-verify)',
     live.problems.every((p) => !p.startsWith('R4a')),
   )
+  // —— R4b 的射程(G-815963 续):"造好没装车"是这一族最常见的死法,所以先证"宽面真的接到了判据上"。
+  // 旧自检只把 src 喂 checkCoerceSafeArg(它收文件数组),于是"清单从哪来"这一维**没有任何用例** ——
+  // 把 runCheck 里的入参写回 enumFiles,自检照样全绿而读数永久是 0。
+  {
+    const narrowSrc = 'export const x = 1\n'
+    const wideSrc = "const v = coerceKnownOr(row.status, ['active', 'closed'], 'closed')\n"
+    const fakeReader = {
+      label: '构造面',
+      fetch() {},
+      read: (rel) => (rel.endsWith('narrow.ts') ? narrowSrc : wideSrc),
+      listEnumScanFiles: () => [{ relPath: 'apps/api/src/db/narrow.ts' }],
+      listCoerceScanFiles: () => [
+        { relPath: 'apps/api/src/db/narrow.ts' },
+        { relPath: 'apps/api/src/services/wide.ts' },
+        { relPath: 'apps/api/src/services/wide.ts' }, // 根重叠:同一文件不得数两遍
+      ],
+    }
+    const wideRun = checkCoerceSafeArg(collectCoerceFiles(fakeReader))
+    t(
+      'R4b 真的读宽面(窄面 0 处、宽面 1 处 ⇒ 必须数到 1;并且重复根不得把同一调用点数两遍)',
+      wideRun.ok.length === 1 && wideRun.red.length === 0 && wideRun.undetermined.length === 0,
+    )
+    const legacyRun = collectCoerceFiles({
+      label: '构造面',
+      fetch() {},
+      read: () => wideSrc,
+      listEnumScanFiles: () => [{ relPath: 'apps/api/src/db/narrow.ts' }],
+    })
+    t(
+      'R4b 对只实现窄清单出口的 reader 退回窄面而不是抛错(注入式夹具不得被"扩面"当成判据坏了)',
+      legacyRun.length === 1,
+    )
+  }
+  t(
+    'R4b 射程含 services 而 R4a 不含(这是分工不是疏忽:同步扩 R4a 会让问责档当场变恒红门)',
+    R4B_SCAN_ROOTS.some((s) => s.dir === 'apps/api/src/services') &&
+      !R4_SCAN_ROOTS.some((s) => s.dir === 'apps/api/src/services'),
+  )
+  t(
+    'R4b 宽面在真判定面上确实被**判据**消费(HEAD 现读两处读侧兜底调用点都在 services:' +
+      'agent-runtime/session-store.ts 与 clawdbot/session-manager.ts ⇒ 通过数必须 ≥2;' +
+      '只报 coerceFiles 数量而不判它,读数会显示"扫到了"而判据仍在看窄面)。' +
+      '出口条件:若哪天这两处被迁走导致归零,要改的是这条断言的期望值并写下新消费点,不得删断言',
+    live.r4.coerceOk >= 2,
+  )
   // 问责档的接线必须被证明"真的传到了",而不是只写在 main 里 —— 用与全量档同一份数据比:
   // 今天 HEAD 零站点,所以两档都该是 0 条 R4a 红;差值只在锚点(0 vs null),那条差值由
   // 上面"新文件锚点 0 ⇒ 一处即红"那条构造面用例证明有牙(全量档走的就是这一支)。
@@ -1315,9 +1415,11 @@ function main() {
       strict,
     })
     // R4 的三态必须各说各的:把"没判"写成"判过了"是本仓最高频的失效型。
+    // R4a 与 R4b 现在**扫的不是同一批文件**,所以两个数各自带自己的面 —— 印成"扫 N 个文件 ·
+    // 调用点通过 M"会让人以为 M 是从 N 里数出来的,而那是两把不同射程的尺子。
     const r4line =
-      `R4 枚举兜底:扫 ${r4.enumFiles} 个文件 · 直转站点 ${r4.castSites} 处(${r4.anchorMode}) · ` +
-      `coerceKnownOr 调用点 通过 ${r4.coerceOk} / 未判定 ${r4.coerceUndetermined.length} · 出口摘线 ${r4.outletProblems}`
+      `R4 枚举兜底:R4a 扫 ${r4.enumFiles} 个文件(${r4.castScope}) · 直转站点 ${r4.castSites} 处(${r4.anchorMode}) · ` +
+      `R4b 扫 ${r4.coerceFiles} 个文件(${r4.coerceScope}) · coerceKnownOr 调用点 通过 ${r4.coerceOk} / 未判定 ${r4.coerceUndetermined.length} · 出口摘线 ${r4.outletProblems}`
     const r4detail = [
       ...r4.castReported.map((s) => `   · R4a 存量只报数:${s}`),
       ...r4.coerceUndetermined.map((u) => `   · R4b 未判定:${u.at} —— ${u.why}`),
@@ -1378,6 +1480,7 @@ export const __test__ = {
   checkClasses,
   checkNoFallback,
   collectEnumFiles,
+  collectCoerceFiles,
   extractEnumCastSites,
   checkEnumCastRatchet,
   checkCoerceSafeArg,
@@ -1388,6 +1491,7 @@ export const __test__ = {
   MESSAGE_FILE,
   OUTLET_FILE,
   R4_SCAN_ROOTS,
+  R4B_SCAN_ROOTS,
   UndeterminedError,
 }
 

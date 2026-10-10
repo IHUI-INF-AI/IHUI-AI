@@ -324,6 +324,19 @@ export const BYPASS_LANDING_SITES = [
     rollback: null,
     before: "gitIn(null, ['update-index', '--add'",
   },
+  {
+    // 第 7 站(G-1111919):前缀套叠副本指定持有行。CAS 与复验形状同 heal 档 —— 裸 update-ref 带
+    // 期望值,复验是紧随的 rev-parse 等值回读,**没有**"复验不过即回退"的分支,所以 `rollback: null`
+    // 是声明而不是漏填。`before` 用的是本枚刚补上的共享索引对齐:补它之前这一站推进了 HEAD 却不动
+    // 主索引(普通提交会把这一档写回旧版),那张表当时**无法**诚实地登记它 —— 判据要求留痕排在
+    // 索引对齐之前,而"索引对齐"这一步根本不存在。判据不迁就现场,现场迁就判据。
+    fn: 'healWithPrefixHolder',
+    source: 'plan-tasks-merge:prefix-holder',
+    cas: "['update-ref', 'HEAD', commitSha, head0]",
+    guard: "if (gitIn(null, ['rev-parse', 'HEAD']) !== commitSha) {",
+    rollback: null,
+    before: 'alignSharedIndex(',
+  },
 ]
 
 /** 顶层函数声明的位置清单(名字 + 起点)。列 0 起笔才算,缩进的内部函数不吃这一判据。 */
@@ -3033,10 +3046,19 @@ function healWithPrefixHolder(holderFragment, { commit }) {
       headBefore: head0,
       root: ROOT,
     })
+    // 本站点此前是七个落地站点里唯一**不做共享索引对齐**的那一个:HEAD 被推进了,而主索引还停在
+    // 父提交的那份 PROJECT_PLAN ⇒ 此后任何人一次不带 pathspec 的普通提交就把这一档的修法写回旧版
+    // (§12d 第三层记过的那一型,今天本机已被它咬到多次)。补 fold-twins 档同一条出口,不另写等锁循环。
+    const align = alignSharedIndex({ root: ROOT, paths: [PLAN_REL], parentRef: head0 })
+    const nOf = (v) => (Array.isArray(v) ? v.length : Number(v) || 0)
     const landedText = gitIn(null, ['show', `${commitSha}:${PLAN_REL}`], { encoding: 'utf8' })
     const leftAfter = findPrefixNestedCopies(landedText).pairs.length
     console.log(
-      `✅ 前缀套叠指针落地 ${commitSha.slice(0, 11)}:加指针 ${changed.length} 行(持有行 L${res.holderLine});落地面全仓 F4c 报数 ${leftAfter} 对(存量其他族按设计只报数,不判红)`,
+      `✅ 前缀套叠指针落地 ${commitSha.slice(0, 11)}:加指针 ${changed.length} 行(持有行 L${res.holderLine});落地面全仓 F4c 报数 ${leftAfter} 对(存量其他族按设计只报数,不判红);` +
+        `共享索引 移动 ${nOf(align.moved)} / 已就位 ${nOf(align.already)}` +
+        `${nOf(align.skipped) ? ` / 归属他人未动 ${align.skipped.map((s) => s.path).join(',')}` : ''}` +
+        `${nOf(align.undetermined) ? ` / 未判定 ${nOf(align.undetermined)}` : ''}` +
+        `${align.lockAbandoned || align.failed ? '(共享索引未对齐 ⇒ 必须复跑一次,否则下一次普通提交会写回旧版)' : ''}`,
     )
     return 0
   } finally {
@@ -3577,10 +3599,12 @@ function selfTest() {
    * "要么删不掉,要么把唯一份删掉"—— 后者比前者贵得多(§1 禁止无声删除)。
    */
   const LP = (s) => s + '　'.repeat(Math.max(0, 46 - [...s].length))
+  // 块首行必须带复选框:drifted 候选资格按"首行是登记行"判(bodyOfRow 非空,剔切分产物,
+  // 见 findDupBlocks 头注①)——无复选框的块在该判据下结构性进不了 drifted,用例必须跟判据同形。
   const BLK = [
-    LP('- 块行一:整块登记被并发 union 追加两遍时,行级判据看不见,因为每行只是又一个孪生行'),
-    LP('- 块行二:第二行,长度必须过块级阈值;阈值以下(短行/2 行块)天然成对,纳入只剩噪声'),
-    LP('- 块行三:第三行,三行合成 F6 的量纲 —— 块,而不是行'),
+    LP('- [ ] 块行一:整块登记被并发 union 追加两遍时,行级判据看不见,因为每行只是又一个孪生行'),
+    LP('- [ ] 块行二:第二行,长度必须过块级阈值;阈值以下(短行/2 行块)天然成对,纳入只剩噪声'),
+    LP('- [ ] 块行三:第三行,三行合成 F6 的量纲 —— 块,而不是行'),
   ].join('\n')
   const dupDoc = `## 甲段\n${BLK}\n## 乙段\n${BLK}\n\n尾行不是 bullet,否则会把上一个 run 续成四行`
   const oneDoc = `## 甲段\n${BLK}\n\n尾行不是 bullet`
@@ -3600,7 +3624,7 @@ function selfTest() {
   )
   ok(buildBlockDedupe(oneDoc).deletedCount === 0, '只有一份时一行都不许删(幂等 + 不误伤唯一副本)')
   // 漂移副本(首行同而正文不同)结构性不可自动折半:必须原样留着交人工
-  const driftDoc = `## 甲段\n${BLK}\n## 乙段\n${[BLK.split('\n')[0], LP('- 块行二:被人工改过的第二行,与上面那份不再逐字相等'), BLK.split('\n')[2]].join('\n')}\n\n尾行不是 bullet`
+  const driftDoc = `## 甲段\n${BLK}\n## 乙段\n${[BLK.split('\n')[0], LP('- [ ] 块行二:被人工改过的第二行,与上面那份不再逐字相等'), BLK.split('\n')[2]].join('\n')}\n\n尾行不是 bullet`
   ok(audit(driftDoc).counts.dupBlocks === 0, '漂移不该算逐字重复(算了就等于允许机器折半)')
   ok(
     audit(driftDoc).counts.dupBlockDrifted === 1,
@@ -3748,7 +3772,10 @@ function selfTest() {
   // R9:题面没有句点边界的族,恢复会让同一编号出现"带注记 / 不带注记"两个 titleOf ⇒
   // 守门 130 的 F9 差值棘轮会当场判红。本档不许为变绿去改那道门的判据(lib 持有人职权),
   // 也不许整批按住,所以**逐族**拒绝并写明解阻前置 —— 这条断言钉的就是"它真的拒"。
-  const f9Line = `- [ ] G-509 无句点题面${NOTE}`
+  // 注记必须**夹在正文中间**(后跟续段):行尾注记的恢复题面是原题面的精确前缀,
+  // F9 的前缀套叠并桶(②,f9CollapsePrefixNested)会把它吃掉 ⇒ 结构上不再判红,
+  // 那一形态现在"不拒"是正确行为;行中注记剥出非前缀题面才真正会多一组 —— 用例钉的是它。
+  const f9Line = `- [ ] G-509 无句点题面${NOTE}续段正文`
   const rst9 = buildRestoreTerminals([f9Line, f9Line].join('\n'), '2026-09-28')
   ok(
     rst9.edits.length === 0 && rst9.refused.length === 1 && rst9.refused[0].reason.includes('F9'),

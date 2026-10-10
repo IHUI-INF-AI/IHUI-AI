@@ -63,6 +63,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { catBatch, gitBinary, gitRaw, readWorktreeFile, selectFace, Undetermined } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { prependPathDir } from './lib/normalize-path-env.mjs'
 
 const ROOT = resolvePath(dirname(fileURLToPath(import.meta.url)), '..')
 const AI_DIR = 'apps/ai-service'
@@ -103,8 +104,11 @@ function resolvePython(root) {
 // 尺子内部用裸 `git` 枚举(subprocess 里跑 git ls-files),而钩子/服务账户的 PATH 与交互
 // 终端不通(AGENTS §5b)—— 把 git 所在目录显式前置进那份子环境,让"尺子跑不动"不再
 // 伪装成"仓里没有违规"。
+// 写法必须是"归一 + 前置"一步做完(G-1105300):旧形态 `{ ...process.env, PATH: … }` 在宿主把
+// PATH 写成 `Path`(Windows 原生拼写)时会在同一对象里并存两种拼写,而按"继承那份优先"的语义,
+// 归一之后不再显式赋值就等于把这个目录白前置 —— 站点存在的理由静默失效。
 function rulerEnv() {
-  return { ...process.env, PATH: [dirname(GIT), process.env.PATH ?? ''].join(process.delimiter), PYTHONIOENCODING: 'utf-8' }
+  return { ...prependPathDir({ ...process.env }, dirname(GIT)), PYTHONIOENCODING: 'utf-8' }
 }
 
 // ---------------------------------------------------------------------------
@@ -181,8 +185,10 @@ function runRuler(faceDir, pyExe) {
     timeout: SPAWN_TIMEOUT_MS,
     maxBuffer: MAX_BUFFER,
     windowsHide: true,
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    stdio: 'ignore',
+    // ⚠️ stdout **必须**是 pipe:本函数把 `r.stdout` 当唯一结论载体,`stdio:'ignore'` 会让
+    // 三通道全丢弃 ⇒ JSON.parse(null) 抛、门恒落"输出不可解析",账面读起来像"这台机没跑成"
+    // 而实际是门自己把尺子的输出扔了(G-1108372)。stdin 仍 'ignore'(本机 EBUSY 那一型,尺子不吃输入)。
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   if (r.error) return { ok: false, reason: `尺子派生失败:${r.error.message}` }
   if (r.status !== 0 && r.status !== 1) {
