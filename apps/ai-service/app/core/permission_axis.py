@@ -8,7 +8,7 @@
 # scripts/check-permission-mode-vocabulary.mjs 的 R6 条对账。取证与边界声明见 TS 侧头注;
 # 本双轴与下方 permission_mode.py 既有的 CHAT_MODE × PERMISSION_MODE 相交策略是两个域,不得顶账。
 
-from typing import Final, Literal, Optional
+from typing import Final, Literal
 
 SandboxModeId = Literal["read-only", "workspace-write", "danger-full-access"]
 ApprovalPolicyId = Literal["untrusted", "on-failure", "on-request", "never"]
@@ -62,7 +62,7 @@ GRANULAR_APPROVAL_KEYS: Final[tuple[str, ...]] = (
 )
 
 
-def normalize_sandbox_mode(raw: object) -> Optional[str]:
+def normalize_sandbox_mode(raw: object) -> str | None:
     """任意输入 → 沙箱轴规范标识;认不出返回 None(不回退默认,同 TS 侧 fail-closed)。"""
     if not isinstance(raw, str):
         return None
@@ -72,7 +72,7 @@ def normalize_sandbox_mode(raw: object) -> Optional[str]:
     return SANDBOX_MODE_ALIASES.get(key)
 
 
-def normalize_approval_policy(raw: object) -> Optional[str]:
+def normalize_approval_policy(raw: object) -> str | None:
     """任意输入 → 审批轴规范标识;认不出返回 None(不回退默认,同 TS 侧 fail-closed)。"""
     if not isinstance(raw, str):
         return None
@@ -82,7 +82,7 @@ def normalize_approval_policy(raw: object) -> Optional[str]:
     return APPROVAL_POLICY_ALIASES.get(key)
 
 
-PERMISSION_MODE_TO_AXIS: Final[dict[str, Optional[tuple[str, str]]]] = {
+PERMISSION_MODE_TO_AXIS: Final[dict[str, tuple[str, str] | None]] = {
     "default": ("workspace-write", "on-request"),
     "plan": ("read-only", "on-request"),
     "bypassPermissions": ("danger-full-access", "never"),
