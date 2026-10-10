@@ -479,8 +479,8 @@ def _account_row(row: Mapping[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {
         "id": row["id"],
         "name": row["name"],
-        "group": row["account_group"] if "account_group" in row else "",
-        "platform": row["platform"] if "platform" in row else "trae",
+        "group": row.get("account_group", ""),
+        "platform": row.get("platform", "trae"),
         "device_map": device_map,
         "enabled": row["enabled"],
         "created_at": row["created_at"].isoformat() if row["created_at"] else None,
