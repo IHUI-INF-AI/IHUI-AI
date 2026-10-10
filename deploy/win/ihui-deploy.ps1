@@ -146,6 +146,10 @@ $AiDir      = "$Root\apps\ai-service"
 $BackupDir  = 'D:\DevEnv\backups\deploy'
 # 健康门禁凭据的生产机本地兜底文件(仓库外;IHUI_ADMIN_PASSWORD 优先)
 $AdminPwdFile = if ($env:IHUI_ADMIN_PASSWORD_FILE) { $env:IHUI_ADMIN_PASSWORD_FILE } else { 'D:\DevEnv\secrets\admin-password.txt' }
+# 凭据解析与"两处漂移"对照的唯一实现(admin-credential.ps1);本文件不得再手写第二份取值序。
+# 2026-10-10 立:env 块陈旧而文件可用时,旧写法全程无声(llm 门禁盲 + 白烧失败登录),
+# 现在两处不一致会在 BackendLogin-Token 里记一条 WARN(只记指纹,不记口令)。
+. (Join-Path $PSScriptRoot 'admin-credential.ps1')
 $ActiveFile = "$Root\deploy\win\active-env"   # active-env 标记,当前恒 'win'
 $PublicWeb  = 'https://aizhs.top'
 $ApiHealth  = "$PublicWeb/api/health"
@@ -509,10 +513,12 @@ function BackendLogin-Token {
     # 凭据不入仓库:密码经环境变量 IHUI_ADMIN_PASSWORD 注入;
     # 服务上下文(NSSM/计划任务)拿不到该变量时,回落到生产机本机密钥文件 ——
     # 否则 p3 恒 False → 门禁 8 轮必失败 → 每次构建成功后又被回滚,api/ai-service 永不重启。
-    $adminPwd = $env:IHUI_ADMIN_PASSWORD
-    if (-not $adminPwd -and (Test-Path $AdminPwdFile)) {
-        try { $adminPwd = (Get-Content $AdminPwdFile -Raw).Trim() } catch { $adminPwd = $null }
+    # 取值序(env 优先)一字不改;解析与"两处漂移"对照收在 admin-credential.ps1(唯一实现)。
+    $cred = Resolve-AdminCredential -EnvValue $env:IHUI_ADMIN_PASSWORD -File $AdminPwdFile
+    if ($cred.Drift) {
+        Log "WARN  两处 admin 口令不一致(env 块 $($cred.EnvFingerprint) ≠ 回落文件 $($cred.FileFingerprint))—— 取用序 env 优先,陈旧那处会静默地把门禁打成盲的;修法=§5e 事务式把陈旧那处同步,再重启本服务。判它是否已修好:本轮或下一轮应出现 'HEALTH 已取得探测令牌'(坏态是 401)"
     }
+    $adminPwd = $cred.Value
     if (-not $adminPwd) { return $null }
     try {
         $b = @{ username='admin'; password=$adminPwd } | ConvertTo-Json
@@ -708,7 +714,9 @@ function Report-BlockedWip {
 $LiveDocPaths = @('PROJECT_PLAN.md', 'README.md', 'AGENTS.md')
 function Invoke-LiveDocStaleRecovery {
     <#
-      挡 ff 的路径**全部**是活文档时,先逐行证明"这份副本没有任何 HEAD 与归档之外的内容",
+      挡 ff 的路径**全部**是活文档时,先逐行证明"这份副本没有任何 HEAD∪归档∪远端(origin/main) 之外的内容"
+      (2026-10-10 起:除整行等值外,还按"剥记账装饰后实质内容逐字见于三面"认「旧修订被取代」;
+       判定器 `scripts/live-doc-staleness-decision.mjs`,取不到远端面时自动退回两面口径),
       证得了才把它复原到 HEAD(先落逐字节备份),并让调用方重试一次 ff。
       返回 $true = 已复原可重试;$false = 不复原(照旧 BLOCKED-WIP)。
 
@@ -733,7 +741,7 @@ function Invoke-LiveDocStaleRecovery {
     $code = $LASTEXITCODE
     if ($code -ne 0) {
         # exit 1 = 有无出处行(可能有人的活账就在这份副本里) / exit 2 = 判不出。两种都不许覆盖。
-        Log "LIVE-DOC 判不可复原(exit=$code):副本含 HEAD 与归档都无出处的行,禁止覆盖(不代提交不删除)"
+        Log "LIVE-DOC 判不可复原(exit=$code):副本含 HEAD∪归档∪远端(origin/main) 都无出处、且长度闸内也认不出「被取代」的行,禁止覆盖(不代提交不删除)"
         @($out -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -Last 14) | ForEach-Object { Log "  [decide] $_" }
         return $false
     }
