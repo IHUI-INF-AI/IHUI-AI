@@ -17,6 +17,9 @@ mod git_status_core;
 // G-379/G-407/G-774,2026-10-07:桌面日志保留期——政策常量唯一出处 + setup 期裁剪历史档案。
 mod log_retention;
 mod startup_guard;
+// 2026-10-10 立:WorkBuddy 程序一键重置——维护清理/登出重置/出厂重置(隔离区搬移可逆)。
+// 分层同 checkin_capture.rs:判据纯函数 + 执行层 + 薄胶水,测试用临时夹具(绝不触碰真实 ~/.workbuddy)。
+mod workbuddy_reset;
 
 use serde::{Deserialize, Serialize};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
@@ -3326,8 +3329,12 @@ pub fn run() {
             checkin_capture::checkin_audit_trae_residual,
             checkin_capture::checkin_snapshot_backup,
             checkin_capture::checkin_snapshot_restore,
-            checkin_capture::checkin_snapshot_list,
-            checkin_capture::checkin_snapshot_delete
+    checkin_capture::checkin_snapshot_list,
+    checkin_capture::checkin_snapshot_delete,
+    workbuddy_reset::workbuddy_reset_probe,
+    workbuddy_reset::workbuddy_reset_maintenance,
+    workbuddy_reset::workbuddy_reset_logout,
+    workbuddy_reset::workbuddy_reset_factory
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

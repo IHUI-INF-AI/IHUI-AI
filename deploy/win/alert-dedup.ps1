@@ -63,7 +63,9 @@ function Read-AlertDedupState {
     if ($obj -and $obj.alerts) {
         foreach ($p in @($obj.alerts.PSObject.Properties)) {
             if (-not $p.Value) { continue }
-            $map[$p.Name] = @{ sigTs = [string]$p.Value.sigTs; firstTs = [string]$p.Value.firstTs; repeatNo = [int]$p.Value.repeatNo; lastSend = [string]$p.Value.lastSend; label = [string]$p.Value.label }
+            $stall = $false
+            if ($null -ne $p.Value.stall) { [void]([bool]::TryParse([string]$p.Value.stall, [ref]$stall)) }
+            $map[$p.Name] = @{ sigTs = [string]$p.Value.sigTs; firstTs = [string]$p.Value.firstTs; repeatNo = [int]$p.Value.repeatNo; lastSend = [string]$p.Value.lastSend; label = [string]$p.Value.label; stall = $stall }
         }
         return @{ Found = $true; Map = $map; Error = $null }
     }
@@ -104,6 +106,7 @@ function Write-AlertDedupState {
             repeatNo = [int]$Map[$k].repeatNo
             lastSend = [string]$Map[$k].lastSend
             label    = [string]$Map[$k].label
+            stall    = [bool]$Map[$k].stall
         }
     }
     $doc = [ordered]@{ version = 2; alerts = $alerts }
@@ -130,7 +133,12 @@ function Test-AlertDueByIdentity {
         [Parameter(Mandatory = $true)][string]$Sig,
         [Parameter(Mandatory = $true)][string]$StateFile,
         [Parameter(Mandatory = $true)][double]$RepeatHours,
-        [int]$MaxEntries = 50
+        [int]$MaxEntries = 50,
+        # stall=$true 把这一格登记成"本轮未切流"类故障 ⇒ 它有一个**终态**:部署环一旦成功切流,
+        # 这条身份就被 Clear-AlertStallIdentities 摘掉。没有终态的 4h 重发会把已恢复的故障
+        # 一直寄下去(2026-10-10 实测:同一身份 repeatNo=40,而这期间线上完成过 92 次切流)。
+        # 默认 $false = 与改动前逐字同形(可与他种成功共存的故障不得被清偿,否则每轮重寄)。
+        [switch]$Stall
     )
     $key = Get-AlertDedupKey -Sig $Sig
     $state = Read-AlertDedupState -StateFile $StateFile
@@ -162,14 +170,14 @@ function Test-AlertDueByIdentity {
             $repeatNo = [int]$e.repeatNo + 1
             $durH = [Math]::Round(($now - $firstTs).TotalHours, 1)
             $note = "`n- 备注: 同一故障已持续 ${durH} 小时,本条为第 $($repeatNo + 1) 次重发(每 $RepeatHours 小时一次;其他身份的变化不影响本条)" + $undeterminedNote
-            $map[$key] = @{ sigTs = $now.ToString('o'); firstTs = $firstTs.ToString('o'); repeatNo = $repeatNo; lastSend = $now.ToString('o'); label = $label }
+            $map[$key] = @{ sigTs = $now.ToString('o'); firstTs = $firstTs.ToString('o'); repeatNo = $repeatNo; lastSend = $now.ToString('o'); label = $label; stall = [bool]$Stall }
             try { Write-AlertDedupState -StateFile $StateFile -Map $map -MaxEntries $MaxEntries | Out-Null } catch { }
             return @{ Due = $true; Decision = 'due-repeat'; Key = $key; Note = $note }
         }
         # 记录在位但时间戳解析不出 ⇒ 不按"已寄过"处理(那会静默),也不假装新故障
     }
 
-    $map[$key] = @{ sigTs = $now.ToString('o'); firstTs = $now.ToString('o'); repeatNo = 0; lastSend = $now.ToString('o'); label = $label }
+    $map[$key] = @{ sigTs = $now.ToString('o'); firstTs = $now.ToString('o'); repeatNo = 0; lastSend = $now.ToString('o'); label = $label; stall = [bool]$Stall }
     $decision = 'due-new'
     $note = ''
     if ($state.Error) { $decision = 'undetermined'; $note = $undeterminedNote }
@@ -201,7 +209,11 @@ function Test-AlertSuppressionGrace {
         [Parameter(Mandatory = $true)][string]$Sig,
         [Parameter(Mandatory = $true)][string]$StateFile,
         [Parameter(Mandatory = $true)][int]$GraceMinutes,
-        [int]$MaxEntries = 50
+        [int]$MaxEntries = 50,
+        # 同 Test-AlertDueByIdentity 的 -Stall:标出"这一格属于切流受阻类",成功切流时锚点与身份
+        # **一起**退休。只清身份不清锚点会造出更坏的形态 —— 锚点还挂在上一段停摆的起点上,
+        # 恢复后的第一次被挡直接判"超窗",于是每段都秒寄(2026-10-10 由行为测试 T5 抓出)。
+        [switch]$Stall
     )
     $clean = ($Sig -replace '\s+', ' ').Trim()
     if ($clean.Length -gt 120) { $clean = $clean.Substring(0, 120) }
@@ -252,8 +264,43 @@ function Test-AlertSuppressionGrace {
         $decision = 'escalated'
     }
 
-    $map[$key] = @{ sigTs = $now.ToString('o'); firstTs = $anchor.ToString('o'); repeatNo = 0; lastSend = $now.ToString('o'); label = $label }
+    $map[$key] = @{ sigTs = $now.ToString('o'); firstTs = $anchor.ToString('o'); repeatNo = 0; lastSend = $now.ToString('o'); label = $label; stall = [bool]$Stall }
     try { Write-AlertDedupState -StateFile $StateFile -Map $map -MaxEntries $MaxEntries | Out-Null } catch { }
     return @{ Suppressed = $suppressed; ElapsedMinutes = $elapsed; Decision = $decision; Key = $key; Note = $note }
+}
+
+function Clear-AlertStallIdentities {
+    <#
+      故障的**终态**:部署环成功切流了,那么"本轮未切流"这一类告警就已经不成立了 —— 把它们从
+      去重档案里摘掉,让下一次发生重新按"新故障"计时。
+      为什么必须由成功切流来清、而不是等 4 小时窗口自己过:窗口只会"到点再寄一封",它不知道
+      中间已经恢复过。2026-10-10 现读同一身份 repeatNo=40(firstTs 09-29),而这段时间日志里有
+      92 行"部署完成"⇒ 那些重发信里没有一封对应一次真实停摆。
+      只摘 `stall=true` 的条目:`grace:` 前缀的抑制锚点与非切流类(如 DB 迁移未落地 —— 它按设计
+      与成功切流共存)都必须原样留着,否则后者会在下一次成功后的**每一轮**重寄,修噪声变成造噪声。
+      返回 @{ Ok; Cleared; Labels; Error } —— 档案读不出时 Ok=$false 并带原因,调用方必须把原因
+      打进日志:把"没清成"写成"已清"就是把没判当成判过了。
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$StateFile,
+        [int]$MaxEntries = 50
+    )
+    $state = Read-AlertDedupState -StateFile $StateFile
+    if ($state.Error) {
+        return @{ Ok = $false; Cleared = 0; Labels = @(); Error = $state.Error }
+    }
+    $map = $state.Map
+    $stallKeys = @($map.Keys | Where-Object { $map[$_].stall })
+    if ($stallKeys.Count -eq 0) {
+        return @{ Ok = $true; Cleared = 0; Labels = @(); Error = $null }
+    }
+    $labels = @($stallKeys | ForEach-Object { [string]$map[$_].label })
+    foreach ($k in $stallKeys) { $map.Remove($k) }
+    try {
+        Write-AlertDedupState -StateFile $StateFile -Map $map -MaxEntries $MaxEntries | Out-Null
+    } catch {
+        return @{ Ok = $false; Cleared = 0; Labels = $labels; Error = "清偿写不回去: $($_.Exception.Message)" }
+    }
+    return @{ Ok = $true; Cleared = $stallKeys.Count; Labels = $labels; Error = $null }
 }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -254,6 +254,15 @@ $MigAlertStateFile = "$Root\deploy\win\.migrate-alert-state.json"
 # 同一失败 ⇒ 首发之后整天彻底静默(实测一次持续两天的故障只被通知过 1 次)。告警的判据应当是
 # 「故障还在发生」而不是「上次发过了」,故改为到点周期性重发;失败签名变化一律立即发。
 $FailAlertRepeatHours = 4
+# 切流受阻类告警的宽限窗(分钟,2026-10-10 加)。阈值是量出来的,不是拍的:
+#   · 轮询节奏实测 ~70 秒/轮(10-10 10:56:37→11:03:06 六轮,间隔 70±6s)⇒ 15 分钟 = 13 轮
+#   · 被挡段时长分布(10-04→10-10 全日志,37 段)min 8 / p50 32 / p90 288 分钟 ⇒ 37 段里 13 段(35%)
+#     在 15 分钟内自己好了(典型:并发会话同窗口的 git index.lock、别人正在写的 PROJECT_PLAN.md)
+# 这一型当日就产出一封假信:10:56 那轮撞 index.lock ⇒ 10:57 寄"生产环境部署失败",而 11:18/11:33
+# 各完成一次切流 —— 线上一切正常。所以"本轮没切过去"不等于"部署失败",持续超过一个可发布的
+# 周期才算。窗内只记日志不寄信,超窗即升级为正式告警(Test-AlertSuppressionGrace 自带终态,
+# 不会变成永久静音);其他类告警的判据一字未动。
+$StallAlertGraceMinutes = 15
 $NotifyEmailTo = '502319984@qq.com'
 # ── 品牌邮件通道(2026-09-23 收口)─────────────────────────────────────────────
 # 为什么 PowerShell 侧一行发信代码都不留:旧实现自己拼传输层 —— SMTP 分支 Send-MailMessage
@@ -353,7 +362,7 @@ function Send-EmailNotify {
     return $false
 }
 function Invoke-FailNotify {
-    param([string]$m)
+    param([string]$m, [switch]$Stall)
     # 去重逻辑住在共享模块 deploy/win/alert-dedup.ps1(**按签名分槽**持久),本函数只负责发送。
     # 2026-09-28 之前的这里是"单槽"实现:状态文件只存最后一条签名,于是同一故障的两条措辞
     # ("远端分叉需人工收敛" / "有未提交文件挡住 ff")随现场交替出现时,每次交替都①被当成
@@ -361,7 +370,17 @@ function Invoke-FailNotify {
     # 实测代价:近 48h 寄出 47 封,内容全是同一件事"ff 切流被挡"。
     # 这是**按身份去重**,不是总量封顶 —— 无"每日 N 封"计数闸(成因见文件头 §5e 注释块)。
     $sig = ($m -replace '\s+', ' ').Trim()
-    $due = Test-AlertDueByIdentity -Sig $sig -StateFile $AlertNotifyStateFile -RepeatHours $FailAlertRepeatHours
+    # 切流受阻类先过"持续够一个可发布周期才算停摆"的宽限窗(阈值出处见 $StallAlertGraceMinutes)。
+    # 窗内只在日志留一行并写明"还差多久升级",绝不静默丢弃;超窗或判不出都照常往下走并发信。
+    if ($Stall) {
+        $grace = Test-AlertSuppressionGrace -Sig $sig -StateFile $AlertNotifyStateFile -GraceMinutes $StallAlertGraceMinutes -Stall
+        if ($grace.Suppressed) {
+            Log "ALERT 切流受阻仍在宽限窗($StallAlertGraceMinutes 分钟)内,本轮不寄:$($grace.Note) | 身份=$($grace.Key)"
+            return
+        }
+        Log "ALERT 切流受阻超出宽限窗,转正式告警:$($grace.Note)"
+    }
+    $due = Test-AlertDueByIdentity -Sig $sig -StateFile $AlertNotifyStateFile -RepeatHours $FailAlertRepeatHours -Stall:$Stall
     if (-not $due.Due) {
         Log "ALERT 同身份失败告警本轮跳过:$($due.Note)"
         return
@@ -393,7 +412,8 @@ function Invoke-FailNotify {
 function Fail {
     param([string]$m)
     Log "FAIL  $m"
-    try { Invoke-FailNotify -m $m } catch {}
+    # Fail == 本轮以未切流收场 ⇒ 全部走"切流受阻"类(宽限窗 + 成功切流即清偿)。
+    try { Invoke-FailNotify -m $m -Stall } catch {}
     try { Release-DeployLock } catch {}
     exit 1
 }
@@ -1864,7 +1884,7 @@ if (-not (Test-HealthGate)) {
         # (外壳按退出码记账,换码会改"门禁失败轮"在流水里的形态)。这里只补发信那一件事,
         # 收口路径与退出码逐字不动 —— 只加响,不改流。
         # 签名稳定性同 :1380 那条:文案不含 sha/时间戳/轮次,按身份去重(4h)才会真命中。
-        try { Invoke-FailNotify -m "健康门禁未过,新构建已回滚:旧版本仍在线(30 分钟后自动重试;构建本身成功,是 web/api/llm 门禁判不过)" } catch { Log "ALERT 门禁失败告警发信异常(不影响回滚已成立):$_" }
+        try { Invoke-FailNotify -Stall -m "健康门禁未过,新构建已回滚:旧版本仍在线(30 分钟后自动重试;构建本身成功,是 web/api/llm 门禁判不过)" } catch { Log "ALERT 门禁失败告警发信异常(不影响回滚已成立):$_" }
         Release-DeployLock
         exit 0
     }
@@ -1941,6 +1961,20 @@ Write-Host ""
 $deployDoneSha = (& git -C $Root rev-parse --short HEAD 2>&1 | Out-String).Trim()
 if ($deployDoneSha -notmatch '^[0-9a-f]{7,40}$') { $deployDoneSha = "未判定(实得:$deployDoneSha)" }
 Log "=== 部署完成,HEAD=$deployDoneSha 活跃组=win(8801/8802/8803) ==="
+# 成功切流就是"本轮未切流"类告警的**终态**:把这些身份从去重档案里摘掉,下一次再挡按新故障重计。
+# 不清这一格,已恢复的故障会按 4h 周期一直寄下去(2026-10-10 现读同一身份 repeatNo=40,而这期间
+# 日志里有 92 行"部署完成")。档案读不出时只喊"未清偿 + 原因",绝不把"没清成"写成"已清"。
+try {
+    $cleared = Clear-AlertStallIdentities -StateFile $AlertNotifyStateFile
+    if ($cleared.Ok) {
+        if ($cleared.Cleared -gt 0) {
+            $shown = @($cleared.Labels | Select-Object -First 3) -join ' ;; '
+            Log "ALERT-CLEARED 本轮切流成功,清偿 $($cleared.Cleared) 个切流受阻告警身份(前 3 条:$shown)"
+        }
+    } else {
+        Log "WARN  告警身份未清偿(去重档案判不出:$($cleared.Error))—— 不等于已清,下一轮仍可能重发"
+    }
+} catch { Log "WARN  告警清偿调用异常(不影响本轮发布):$_" }
 Release-DeployLock
 if ($script:DbMigrateDegraded) {
     Log "WARN  本轮收尾:DB 迁移未落地(发布按设计继续),状态见 deploy\win\.migrate-alert-state.json;-diagnose 的 [7b] 会复述落后条数"

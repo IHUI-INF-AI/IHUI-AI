@@ -17,8 +17,9 @@ import {
 import { registerUiField, type UiFieldHandle } from './field-host'
 
 // 共享 variant/size 档位唯一源:@ihui/design-tokens 的 button-variants.ts(ui-react 同源)。
-// 本端形态 = 共享基座 + RN 追加:RN 没有 CSS 继承,所以底与字色必须显式写出来,而这些原子
-// web 侧靠继承拿到、不写在类名里 —— 于是它们进不了共享基座(基座只收两端共同持有的原子)。
+// 2026-10-10 机主拍板「统一网页端和手机端按钮样式」:底与字色此前是"RN 显式写、web 靠继承",
+// 于是同一档名在两端渲染成不同串 —— 现在它们进共享基座(以 web 定稿为基准,对 web 是零观感变化),
+// RN 不再追加同名原子(继续追加会与基座同族冲突,实际生效由 Tailwind 输出顺序决定,不是由我们决定)。
 // hover/shadow 这类平台修饰在 RN 侧不存在,故不追加。
 // default 档由共享配置给 `bg-cta text-cta-foreground`(AGENTS §4 主 CTA 唯一写法),
 // 替换此前的 `bg-primary text-primary-foreground`(值全等、语义错位 —— primary 在 web 兼任墨色)。
@@ -26,13 +27,17 @@ export const buttonVariants = cva(`flex flex-row ${SHARED_BUTTON_BASE_CLASS} rou
   variants: {
     variant: {
       ...SHARED_BUTTON_VARIANT_CLASSES,
-      outline: `${SHARED_BUTTON_VARIANT_CLASSES.outline} bg-transparent text-foreground`,
-      ghost: `${SHARED_BUTTON_VARIANT_CLASSES.ghost} bg-transparent text-foreground`,
+      outline: SHARED_BUTTON_VARIANT_CLASSES.outline,
+      ghost: SHARED_BUTTON_VARIANT_CLASSES.ghost,
     },
     size: {
       ...SHARED_BUTTON_SIZE_CLASSES,
-      // 两端 lg 今天不同值(web h-10),取同值属全端观感决策 ⇒ 各自在基座外追加,不得单方面收敛
-      lg: `${SHARED_BUTTON_SIZE_CLASSES.lg} h-12 px-6`,
+      // lg 已收进基座(h-10 px-8,取 web 定稿),RN 原 h-12 px-6 随本票统一 —— 现读 RN 侧 size="lg"
+      // 显式传参 0 处,所以这次收敛不冲击既有布局。
+      // **md 是 RN 独占档**(h-10=40),不在"同档名必须同值"的射程内,但它使 RN 的默认按钮
+      // (defaultVariants size='md')仍比 web 的 default(h-9=36) 高 4px。动它等于全站 RN 按钮变矮,
+      // 而 40px 是移动端触摸目标的余量 —— 属另一格决定,已登记台账,不在本票顺手改。
+      lg: SHARED_BUTTON_SIZE_CLASSES.lg,
       md: 'h-10 px-4',
     },
   },
