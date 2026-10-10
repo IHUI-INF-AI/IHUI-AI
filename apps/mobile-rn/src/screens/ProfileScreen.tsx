@@ -514,17 +514,19 @@ export function ProfileScreen() {
 
   return (
     <>
-      <NavBar
-        title={t('profile.title')}
-        rightActions={[
-          {
-            icon: SquarePen,
-            label: t('menu.feedback'),
-            onPress: () => rootNav?.navigate('Feedback', { pageType: 'profile' } as never),
-          },
-          { icon: Menu, onPress: () => setDrawerVisible(true) },
-        ]}
-      />
+      <View style={styles.navChrome}>
+        <NavBar
+          title={t('profile.title')}
+          rightActions={[
+            {
+              icon: SquarePen,
+              label: t('menu.feedback'),
+              onPress: () => rootNav?.navigate('Feedback', { pageType: 'profile' } as never),
+            },
+            { icon: Menu, onPress: () => setDrawerVisible(true) },
+          ]}
+        />
+      </View>
       <ScrollView
         ref={profileScrollRef}
         style={styles.screenScroll}
@@ -1850,6 +1852,7 @@ function getVideoPoster(item: VideoContent): string {
 // ============ StyleSheet(浅色优雅风,圆角仅 12/8/6,无分割线,无蓝色发光) ============
 
 const styles = StyleSheet.create({
+  navChrome: { backgroundColor: tokens.surface.card },
   screenScroll: {
     flex: 1,
     backgroundColor: tokens.surface.bg,
