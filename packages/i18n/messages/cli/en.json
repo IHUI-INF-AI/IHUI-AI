@@ -404,6 +404,7 @@
     "skillsLoaded": "\nLoaded {count} skill(s):",
     "skillsSourceLine": "    Source: {source}",
     "skillShowDesc": "Show the content of a skill",
+    "skillShadowReportDesc": "Read the allowed-tools shadow ledger (record-only, not enforced)",
     "skillNotFound": "Skill not found: {name}",
     "skillSourceDetail": "Source: {source}",
     "skillDescriptionLine": "Description: {description}\n",
