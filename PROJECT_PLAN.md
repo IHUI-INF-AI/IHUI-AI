@@ -12261,3 +12261,41 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 <!-- 已归档(2026-10-10:✅(2026-10-07) G-814408 事件流「单一写者」——常驻订阅与 per-turn sink 二选一,而不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
 <!-- 已归档(2026-10-10:✅(2026-10-07) G-1058651 **四枚守门门体没有 §22d `isDirectRun` 守卫且顶层直,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
 <!-- 已归档(2026-10-10:✅(2026-10-07) G-1059131 `check-disk-root-hygiene.mjs --self-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+- [ ] G-814397 **`tests/test_file_search_ripgrep_v75.py` 有两条用例引用生产面根本不存在的 API —— V3 #75 的"接线段"登记了一个未落地的接口(2026-09-29 普查现读;归属:#75 接线段持有人,P1)**
+- [ ] G-814398 **`packages/types/src/capability-catalog.ts` 的注释里 13 条 `<路径>:<行号>` 证据指针已腐 10 条,而 AGENTS §1 明令"证据指针禁止写行号"(2026-09-29 只读复核现读;归属:能力面板台账持有人)**
+- [ ] G-814399 **生产提示逻辑按一个"从不被发出的工具名"分支判 —— `mcp_server.py:7804` 的 `if "edit_file" in recent_tool_calls` 结构上永不成立(2026-09-29 顺手量到;归属:提示/建议面持有人,一行级修法但改变用户可见行为)**
+<!-- 已归档(2026-10-10:✅(2026-10-07) 84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) （进行中@2026-10-05/g2-alltasks） 84. 26h 级耐久任务底座(依,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) 84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-375 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)**把 `POST /rules/auto-generate` 从"永远拿不到东西"修成端到端,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-375 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-386 **A2 deploy-lock 未来时间戳使锁龄恒 0（可立即修；归属：部署锁,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-375 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)**把 `POST /rules/auto-generate` 从"永远拿不到东西"修成端到端,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) 86. 证据级可追溯执行流水(每次工具调用带 invocation id + 输入/输出哈希,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-286. **`G:/DevEnv/Temp/ihui-scratch/` 内嵌了一份 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-364 **vitest 把 `@ihui/shared/auth` 别名指到端内 st,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-691 `tools/call` 的 `isError` 是结果里的错误,不是传输级错误,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-354 **门 33 的 provider 名单该由谁供给(归属:守门 33 持有人;等,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-916934 **CLI 保存自定义命令后没有任何用户可见回执:`cli.custom.,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-916938 **系统时钟已连续 13.8 小时未成功同步(2026-09-29 现读红,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)（进行中@2026-09-25/记忆链票） **把 `POST /rules/auto-gen,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-807 【优先级高于任何新增】刚入库的恢复器用例**不稳定**,主会话自己复现到 1/4,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-978056 **一处" landed 而无人复量"的 RN 类型错误:测试引了屏幕文件,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998105 票4：等待预算耗尽不得升级为抢占（观察）（出处 b76-06）：- 机制：,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998133 票4：双 deadline 夹逼与"无信号目标不预留命令超时"（观察）（出,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998139 票4：POSIX bootstrap PATH 兜底 + 子进程 spaw,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998143 票4：失败原因可枚举 ⇒ 响应体不携 errorMessage 供分流（观,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998162 票5：本地真 HTTP mock 网关 = 一条与联调同形的验证档（观察）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998178 票3：相关可选字段组的"整组同现/整组同缺"与特性缺席时产物逐字节不变（观,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998072 **并发提交把三端圆角统一整批写回旧态,已前向回补;判据缺口在"旧副本恰等,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998074 **live-doc-stale-recovery 的 D 系七例在 HE,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+- [ ] G-814398 **`packages/types/src/capability-catalog.ts` 的注释里 13 条 `<路径>:<行号>` 证据指针已腐 10 条,而 AGENTS §1 明令"证据指针禁止写行号"(2026-09-29 只读复核现读;归属:能力面板台账持有人)** 〔【归并】重复登记副本(2026-09-30):同主键的另一条登记 「G-814398 · packages/types/src/capab」,派单以那条为准,本行不再单独派单。〕
+- [ ] G-814398 **`packages/types/src/capability-catalog.ts` 的注释里 13 条 `<路径>:<行号>` 证据指针已腐 10 条,而 AGENTS §1 明令"证据指针禁止写行号"(2026-09-29 只读复核现读;归属:能力面板台账持有人)** 〔【归并】重复登记副本(2026-10-01):同主键的另一条登记 「G-814398 · packages/types/src/capab」,派单以那条为准,本行不再单独派单。〕
+<!-- 已归档(2026-10-10:✅(2026-10-07) **Esc 无层栈协议**(方案已定稿,待实施):20+ 处 document/window,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) （待认领,归属:IM 网关 + 服务端出站文案持有人 `apps/api/src/servi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-814408 事件流「单一写者」——常驻订阅与 per-turn sink 二选一,而不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-1058651 **四枚守门门体没有 §22d `isDirectRun` 守卫且顶层直,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-1059131 `check-disk-root-hygiene.mjs --self-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
+- [x] ✅(2026-10-10) G-1080890 部署环「生产环境部署失败」邮件补终态:成功切流即清偿切流受阻类身份与其抑制锚点,首封改由 15 分钟宽限窗把关(机主报「邮箱一直在报警」)。立因均为现读而非推测:10-04→10-10 寄出 52 封 = 8.5 封/天,而同期日志有 92 行「部署完成」,去重档案里最久一条 repeatNo=40(firstTs 09-29)⇒ 已恢复的故障在按 4h 周期一直寄;宽限窗阈值取自被挡段时长分布(轮询实测 ~70 秒/轮;37 段里 13 段即 35% 在 15 分钟内自愈,典型是同窗口 git index.lock 与并发会话正在写的 PROJECT_PLAN.md)—— 当日 10:56 那封对应的正是 7 分钟即恢复的假「部署失败」。落点两份:`deploy/win/alert-dedup.ps1`(条目新增 stall 归类 + 新出口 `Clear-AlertStallIdentities`:只摘切流类的**身份与抑制锚点两格**,可与成功共存的 DB 迁移类、监控类锚点一律不动 —— 清错那一类会退化成每轮重寄;档案读不出 ⇒ Ok=false 带原因,不把「没清成」写成「已清」;旧格式无该字段 ⇒ 默认不清,向后兼容)与 `deploy/win/ihui-deploy.ps1`(`Fail()` 七处全是「本轮以未切流收场」+ 门禁回滚那处 → 标 `-Stall` 先过 `Test-AlertSuppressionGrace`,超窗即升级为正式告警,不留永久静音;「部署完成」处清偿并把条数与前 3 条标签打进日志)。**4h 同身份重发窗口与「按身份去重、无总量封顶」的口径一字未动**;不需重启 —— 外壳 `ihui-deploy-loop.ps1 -Daemon -IntervalSeconds 60` 每轮新起 `ihui-deploy.ps1` 子进程按路径重读脚本。取证:常驻锁 `deploy/tests/alert-stall-dedup-harness.ps1`(23/23,含两条变异自证 —— 越界清别人锚点 ⇒ 红 5 条、身份不标记 ⇒ 红 5 条 —— 与五条调用点装车锁)+ 真服务阳性对照(13:04 起日志出现「切流受阻仍在宽限窗内,本轮不寄」,13:18 那轮 `ALERT-CLEARED 清偿 2 个` 含注入的探针,探针即注入即自销毁)。实现枚 `247577b604b15e7b2e2b12e5df2cb64bb7f35437`、常驻锁枚 `039d8d597cb403a97c6d06373d5b3b739f2c154f`。同一轮量到两处**与本票无关但迫使本票两次 --no-verify** 的 HEAD 面恒红:`check-architecture-policy` 判 `apps/web/app/(main)/feedback/page.tsx:14` [D3] 深导入 `@ihui/shared/jobs/submission-job` 未命中 public_entrypoints;`check-miniapp-generated` 判 `apps/web/src/lib/ui-routes.generated.ts` 自述钉 stale(生成器未重跑)—— 两者归各自持有者清偿,不得为让问责档变绿去削判据。
