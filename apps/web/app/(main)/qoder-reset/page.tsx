@@ -33,6 +33,8 @@ import {
 } from '@ihui/ui-react'
 import { useTauriIpcReady } from '@/hooks/use-desktop'
 import {
+  checkinAuditQoderResidual,
+  checkinGetPublicIp,
   qoderQuarantineDelete,
   qoderQuarantineList,
   qoderQuarantineRestore,
@@ -46,6 +48,7 @@ import {
   type WbPlanReport,
   type WbProgressEvent,
   type WbProbeReport,
+  type QoderResidualAuditReport,
   type WbQuarantineInfo,
   type WbResetReport,
 } from '@/lib/tauri-bridge'
@@ -59,6 +62,16 @@ const TIER_BADGE: Record<string, string> = {
   user_asset: 'bg-slate-500/15 text-slate-600 dark:text-slate-300',
   never: 'bg-zinc-500/15 text-zinc-500',
 }
+
+/** 向导事后自检的残留判据:这五类坐标仍存在=旧设备身份/登录态未清干净
+ *  (chat_db/local_state 属用户资产,不在判据内)。 */
+const WIZARD_RESIDUAL_KINDS = new Set([
+  'auth_credential',
+  'machine_id',
+  'device_identity',
+  'runtime_info',
+  'webview_login',
+])
 
 export default function QoderResetPage() {
   const t = useTranslations('qoderReset')
@@ -87,6 +100,32 @@ export default function QoderResetPage() {
   const [planOpen, setPlanOpen] = React.useState<Mode | null>(null)
   // 探针条目展开/收起(默认只显前 12 条)
   const [showAllEntries, setShowAllEntries] = React.useState(false)
+  // 风控向导(2026-10-11 镜像 WorkBuddy 打卡页一键风控向导,2026-10-10 立):傻瓜式 3 步
+  // 登出+设备身份重置 → 换网络出口验证 → 24h 冷却提醒
+  const [wizardStep, setWizardStep] = React.useState<0 | 2 | 3>(0)
+  const [wizardIpBefore, setWizardIpBefore] = React.useState('')
+  const [wizardIpLoc, setWizardIpLoc] = React.useState('')
+  const [wizardIpNow, setWizardIpNow] = React.useState('')
+  const [wizardBusy, setWizardBusy] = React.useState(false)
+  const [wizardMsg, setWizardMsg] = React.useState<string[]>([])
+  // 事后自检(2026-10-11 立):重置后用双根残留审计桥只读清点,把"到底干净了没有"
+  // 变成面板上可读的结论,而不是靠用户猜。
+  const [wizardAudit, setWizardAudit] = React.useState<QoderResidualAuditReport | null>(null)
+  const [wizardAuditing, setWizardAuditing] = React.useState(false)
+  // 是否出现"非可选层失败":用于动态判定下方提示语(可选层失败才说"不影响",否则警告)
+  const [wizardCriticalFail, setWizardCriticalFail] = React.useState(false)
+  // IP 验证连续失败次数(未变/获取失败都计):≥3 自动高亮引导走"直接完成"旁路
+  const [wizardIpFailCount, setWizardIpFailCount] = React.useState(0)
+  // 上次向导重置时间(冷却提醒用):24h 内再登录会续期风控
+  const [lastResetAt, setLastResetAt] = React.useState<number | null>(null)
+  React.useEffect(() => {
+    try {
+      const v = localStorage.getItem('qoder-reset-wizard-at')
+      if (v) setLastResetAt(Number(v))
+    } catch {
+      /* 隐私模式降级:无提醒 */
+    }
+  }, [])
 
   const runProbe = React.useCallback(async () => {
     setProbing(true)
@@ -150,6 +189,120 @@ export default function QoderResetPage() {
     },
     [factoryConfirm, killRunning, includeDeviceId, onProgress, refreshSide],
   )
+
+  // 事后自检:与"重置"解耦的独立动作——双根残留审计只读清点,凡设备身份/登录态
+  // 坐标仍存在即残留;失败只在向导消息里落一行,不拦流程(取证不是处置)。
+  const runWizardAudit = async () => {
+    setWizardAuditing(true)
+    try {
+      const rep = await checkinAuditQoderResidual()
+      setWizardAudit(rep)
+      const residual = rep.entries.filter(
+        (e) => e.exists && WIZARD_RESIDUAL_KINDS.has(e.kind),
+      )
+      setWizardMsg((m) => [
+        residual.length === 0
+          ? t('wizardAuditClean')
+          : t('wizardAuditResidual', { n: residual.length }),
+        ...m,
+      ])
+    } catch {
+      setWizardMsg((m) => [t('wizardAuditFail'), ...m])
+    } finally {
+      setWizardAuditing(false)
+    }
+  }
+
+  // 向导 Step1:Qoder 版"一键风控重置"=登出重置档全开(登录态 .auth + Partitions webview +
+  // 设备身份 installation_id/umid-cache.json 一并隔离,应用下次启动自行重注册)。
+  // 进程强杀层失败属可选降级,其余层失败才算 critical(镜像 WorkBuddy 向导动态提示)。
+  const startWizardReset = async () => {
+    setWizardBusy(true)
+    setWizardMsg([])
+    try {
+      const report = await qoderResetLogout(true, true)
+      const okCount = report.layers.filter((l) => l.ok).length
+      const fails = report.layers.filter((l) => !l.ok)
+      setWizardIpFailCount(0)
+      const critical = fails.some((l) => !l.name.includes('kill'))
+      setWizardCriticalFail(critical)
+      setWizardMsg([
+        t('wizardResetDone', { ok: okCount, total: report.layers.length }),
+        ...fails.map((l) => `${l.name}: ${l.detail}`),
+      ])
+      try {
+        localStorage.setItem('qoder-reset-wizard-at', String(Date.now()))
+        setLastResetAt(Date.now())
+      } catch {
+        /* 隐私模式下 localStorage 不可用,冷却提醒仅当次会话有效 */
+      }
+      setWizardStep(2)
+      try {
+        const before = await checkinGetPublicIp()
+        setWizardIpBefore(before.ip)
+        setWizardIpLoc(before.location)
+        if (!before.location) {
+          setWizardMsg((m) => [t('wizardNoLoc'), ...m])
+        }
+      } catch {
+        setWizardMsg((m) => [t('wizardIpFetchFail'), ...m])
+      }
+      // 重置完就地自检:自动跑一次探针复核,用户不必另找入口确认"是否彻底"
+      await runWizardAudit()
+    } catch (e) {
+      setRunError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setWizardBusy(false)
+    }
+  }
+
+  // 向导 Step2:验证用户已换网络出口(IP 必须真的变了)
+  const verifyIpChanged = async () => {
+    setWizardBusy(true)
+    try {
+      // 基准 IP 缺失(Step1 采集失败)时,此次采集先补基准——重置本身不动网络,
+      // 用户尚未换出口前采集到的仍是"重置前出口"
+      if (!wizardIpBefore) {
+        const base = await checkinGetPublicIp()
+        setWizardIpBefore(base.ip)
+        setWizardIpLoc(base.location)
+        setWizardMsg((m) => [t('wizardRefetch', { ip: base.ip }), ...m])
+        return
+      }
+      const now = await checkinGetPublicIp()
+      setWizardIpNow(now.ip)
+      if (now.ip !== wizardIpBefore) {
+        setWizardIpFailCount(0)
+        setWizardStep(3)
+      } else {
+        setWizardIpFailCount((c) => c + 1)
+        setWizardMsg((m) => [t('wizardIpUnchanged'), ...m])
+      }
+    } catch {
+      setWizardIpFailCount((c) => c + 1)
+      setWizardMsg((m) => [t('wizardIpFetchFail'), ...m])
+    } finally {
+      setWizardBusy(false)
+    }
+  }
+
+  // P0-1 旁路:用户确实无法更换网络时,允许直接跳到 Step3(进入 24h 冷却),避免单向死路
+  const skipIpVerify = () => {
+    setWizardIpFailCount(0)
+    setWizardStep(3)
+  }
+
+  // 向导状态归零(Step3 完成后的重新开始入口;上一轮审计结论必须清掉,防误导新一轮)
+  const restartWizard = () => {
+    setWizardStep(0)
+    setWizardIpBefore('')
+    setWizardIpLoc('')
+    setWizardIpNow('')
+    setWizardMsg([])
+    setWizardAudit(null)
+    setWizardCriticalFail(false)
+    setWizardIpFailCount(0)
+  }
 
   const togglePlan = React.useCallback(
     async (mode: Mode) => {
@@ -365,6 +518,181 @@ export default function QoderResetPage() {
               <Loader2 className="h-4 w-4 animate-spin" /> {t('probeScanning')}
             </p>
           )}
+        </CardContent>
+      </Card>
+
+      {/* 风控向导(2026-10-11 镜像 WorkBuddy 打卡页一键风控向导):傻瓜式 3 步
+          登出重置全开设备身份 → 换网络出口验证 → 24h 冷却提醒;事后自检用探针复扫双根 */}
+      <Card className="border-amber-500/50 bg-amber-500/10">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ShieldAlert className="h-4 w-4" /> {t('wizardTitle')}
+          </CardTitle>
+          <CardDescription>{t('wizardSubtitle')}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {/* 24h 冷却常驻条:只要处于冷却期(无论哪个 Step)都显示,反复提醒"别登录" */}
+          {lastResetAt && Date.now() - lastResetAt < 24 * 3600_000 && (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              {t('wizardCooldownActive', {
+                hours: Math.max(
+                  1,
+                  Math.ceil((24 * 3600_000 - (Date.now() - lastResetAt)) / 3600_000),
+                ),
+              })}
+            </p>
+          )}
+          {wizardStep === 0 && (
+            <>
+              <p className="text-muted-foreground text-xs">{t('wizardIntro')}</p>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={wizardBusy}
+                onClick={() => void startWizardReset()}
+              >
+                {wizardBusy && <Loader2 className="h-3 w-3 animate-spin" />}
+                {t('wizardStart')}
+              </Button>
+            </>
+          )}
+          {wizardStep === 2 && (
+            <>
+              {wizardIpBefore ? (
+                <p className="text-muted-foreground text-xs">
+                  {wizardIpLoc
+                    ? t('wizardIpBefore', { ip: wizardIpBefore, location: wizardIpLoc })
+                    : t('wizardIpBeforeNoLoc', { ip: wizardIpBefore })}
+                </p>
+              ) : (
+                <p className="text-muted-foreground text-xs">{t('wizardRefetchHint')}</p>
+              )}
+              <p className="text-muted-foreground text-xs">{t('wizardGuide')}</p>
+              {wizardIpFailCount >= 3 && (
+                <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                  {t('wizardIpFailMany')}
+                </p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" disabled={wizardBusy} onClick={() => void verifyIpChanged()}>
+                  {wizardBusy && <Loader2 className="h-3 w-3 animate-spin" />}
+                  {t('wizardVerify')}
+                </Button>
+                <Button size="sm" variant="ghost" disabled={wizardBusy} onClick={skipIpVerify}>
+                  {t('wizardSkipIp')}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={wizardBusy || wizardAuditing}
+                  onClick={() => void runWizardAudit()}
+                >
+                  {wizardAuditing && <Loader2 className="h-3 w-3 animate-spin" />}
+                  {t('wizardAuditRerun')}
+                </Button>
+              </div>
+            </>
+          )}
+          {wizardStep === 3 && (
+            <>
+              <p className="text-xs text-green-600 dark:text-green-400">
+                {t('wizardIpChanged', { ip: wizardIpNow })}
+              </p>
+              <p className="text-muted-foreground text-xs">{t('wizardCooldown')}</p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={wizardBusy || wizardAuditing}
+                  onClick={restartWizard}
+                >
+                  {t('wizardRestart')}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={wizardBusy || wizardAuditing}
+                  onClick={() => void runWizardAudit()}
+                >
+                  {wizardAuditing && <Loader2 className="h-3 w-3 animate-spin" />}
+                  {t('wizardAuditRerun')}
+                </Button>
+              </div>
+            </>
+          )}
+          {wizardMsg.length > 0 && (
+            <pre className="max-h-24 overflow-y-auto rounded bg-muted p-2 text-xs">
+              {wizardMsg.join('\n')}
+            </pre>
+          )}
+          {/* 事后自检面板:只在真的扫过之后出现(未扫过时 wizardAudit 为 null) */}
+          {wizardAudit && (
+            <div className="space-y-1 rounded border border-border/60 bg-background/40 p-2">
+              <p className="text-xs font-medium">{t('wizardAuditTitle')}</p>
+              {wizardAuditing && (
+                <p className="text-muted-foreground text-xs">{t('wizardAuditScanning')}</p>
+              )}
+              <p className="text-muted-foreground text-xs">
+                {t('wizardAuditScope', {
+                  cn: wizardAudit.cn_root,
+                  roaming: wizardAudit.roaming_root,
+                  files: wizardAudit.entries.length,
+                })}
+              </p>
+              {wizardAudit.entries.filter((e) => e.exists && WIZARD_RESIDUAL_KINDS.has(e.kind))
+                .length === 0 ? (
+                <p className="text-xs text-green-600 dark:text-green-400">
+                  {t('wizardAuditClean')}
+                </p>
+              ) : (
+                <>
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    {t('wizardAuditResidual', {
+                      n: wizardAudit.entries.filter(
+                        (e) => e.exists && WIZARD_RESIDUAL_KINDS.has(e.kind),
+                      ).length,
+                    })}
+                  </p>
+                  <ul className="space-y-0.5 text-xs">
+                    {wizardAudit.entries
+                      .filter((e) => e.exists && WIZARD_RESIDUAL_KINDS.has(e.kind))
+                      .slice(0, 8)
+                      .map((e) => (
+                        <li key={`${e.root}:${e.path}`} className="truncate font-mono">
+                          {e.root}:{e.path}
+                        </li>
+                      ))}
+                  </ul>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={wizardBusy || wizardAuditing}
+                    onClick={() => void startWizardReset()}
+                  >
+                    {wizardBusy && <Loader2 className="h-3 w-3 animate-spin" />}
+                    {t('wizardResidualReclean')}
+                  </Button>
+                </>
+              )}
+              {/* 全量条目折叠(镜像 WorkBuddy 向导的 details 展开收起模式) */}
+              <details className="text-xs">
+                <summary className="text-muted-foreground cursor-pointer">
+                  {t('wizardAuditEntries')}
+                </summary>
+                <pre className="max-h-24 overflow-y-auto rounded bg-muted p-2">
+                  {wizardAudit.entries.map((e) => `${e.kind}  ${e.root}:${e.path}`).join('\n')}
+                </pre>
+              </details>
+            </div>
+          )}
+          {wizardStep === 2 &&
+            (wizardCriticalFail ? (
+              <p className="text-xs font-medium text-destructive">
+                {t('wizardCriticalFailNote')}
+              </p>
+            ) : (
+              <p className="text-muted-foreground text-xs">{t('wizardOptionalNote')}</p>
+            ))}
         </CardContent>
       </Card>
 
