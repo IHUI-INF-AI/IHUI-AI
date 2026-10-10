@@ -35,6 +35,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from app.core.logging import get_logger
 from app.services import checkin_credits
+from app.services import checkin_qoder
 from app.services import checkin_store
 from app.services.checkin_engine import checkin_account
 
@@ -190,7 +191,12 @@ class CheckinScheduler:
         fail_count = 0
         for acc in accounts:
             try:
-                result = await checkin_credits.query_remaining_credits(acc["jwt"])
+                if acc.get("platform") == "qoder":
+                    result = await checkin_qoder.qoder_query_credits(
+                        acc["jwt"], dict(acc.get("device_map") or {})
+                    )
+                else:
+                    result = await checkin_credits.query_remaining_credits(acc["jwt"])
                 if result.get("error") is not None or not isinstance(
                     result.get("remaining"), int
                 ):
@@ -223,9 +229,15 @@ class CheckinScheduler:
     # ===== 单账号执行 =====
 
     async def checkin_one(self, account: dict[str, Any]) -> dict[str, Any]:
-        """对单个账号执行 checkin_account,并把引擎可能补齐的 device_map 写回存储。"""
+        """对单个账号执行签到(按 platform 分发引擎),并把引擎可能补齐的
+        device_map 写回存储(Qoder 的自刷新新 token 也经此通路落库)。"""
         device_map = dict(account.get("device_map") or {})
-        result = await checkin_account(account["name"], account["jwt"], device_map)
+        if account.get("platform") == "qoder":
+            result = await checkin_qoder.qoder_checkin_account(
+                account["name"], account["jwt"], device_map
+            )
+        else:
+            result = await checkin_account(account["name"], account["jwt"], device_map)
         try:
             await checkin_store.save_device_map(account["id"], device_map)
         except Exception as e:

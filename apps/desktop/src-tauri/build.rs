@@ -58,6 +58,7 @@ fn main() {
             "take_pending_deep_links",
             "checkin_detect_trae_dir",
             "checkin_capture_jwts",
+            "checkin_capture_qoder",
             "checkin_reset_device_ids",
             "checkin_get_public_ip",
             "checkin_one_click_reset",

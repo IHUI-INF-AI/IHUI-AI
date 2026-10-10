@@ -23,12 +23,17 @@ export interface CheckinLastRecordSummary {
   created_at: string | null
 }
 
+/** 支持的签到平台:'trae' = TRAE(存量默认);'qoder' = Qoder(阿里 AI IDE) */
+export type CheckinPlatform = 'trae' | 'qoder'
+
 /** 签到账号(脱敏形态:GET /accounts 列表项,无 jwt / jwt_enc 字段) */
 export interface CheckinAccount {
   id: number
   name: string
   /** 账号分组(Phase1d;空串 = 未分组) */
   group: string
+  /** 所属平台(平台化,2026-10-10;存量账号默认 trae) */
+  platform: CheckinPlatform
   /** 设备指纹 map(引擎可原位补齐缺失标识) */
   device_map: Record<string, unknown>
   /** 停用后每日调度跳过,手动签到仍可用 */
@@ -87,6 +92,8 @@ export interface CreateCheckinAccountIn {
   device_map?: Record<string, unknown>
   /** 可选分组(Phase1d;缺省空串 = 未分组) */
   group?: string
+  /** 所属平台(缺省 trae;qoder 账号 device_map 需带 refresh_token 与 Cosy-* 设备头) */
+  platform?: CheckinPlatform
 }
 
 /** PATCH /accounts/{id}/enabled 请求体 */
