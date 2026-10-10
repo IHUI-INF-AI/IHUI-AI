@@ -1,12 +1,12 @@
 {
-  "note": "Knip 棘轮基线:各项计数不得超过此值。新增死代码会使 CI 失败;清理后请重跑 --update 收紧。",
-  "recordedFrom": "2026-10-04 账务修正(非新增死代码):exports 2007 -> 2008。取证:①CI 在 b6f4a78d09(run 37176129089)与 288473001a(run 37176721425)两次实测均为 2008;②同环境本地 A/B——干净检出 3dff10bc23(本基线来源提交)与 288473001a(CI head)各跑 knip --reporter json,exports 均 2019、types 均 1725、files 均 779,(file,name) 集合差双向均为 0(逐条比对,非仅比计数);③2007->2008 的窗口(c609440f90..b6f4a78d09)内 TS/TSX 改动仅 member-routes.ts(内联 z.string().uuid() 前验,未新增 export)与新增的 context-budget-bar.test.tsx(全文件无 export);mjs 改动仅注释与白名单字面量;这些文件在 CI 的 2008 未用导出清单里一条都不出现。结论:两次 union 未引入任何新死代码,2007 是上一轮收紧基线时的记账误差(少计 1),故按 CI 实测口径补正为 2008。本地绝对值 2019 与 CI 2008 的差来自 apps/extension 工作区在本机加载失败(./.wxt/tsconfig.json 缺失),该 workspace 的 13 条在本地额外出现;两侧同环境比较故不受影响。 || 2026-10-03 收敛:CI 干净检出实测(run 37110359010 @ 6c2d36920d,与 CI 同形)。2026-10-04 增量(exports 2005→2007,+2):apps/api/src/services/ai-feed-service.ts 的 isLoopbackUrl / shouldUseSyncProxy —— 二者是该文件内部在用的出站代理判据(shouldUseSyncProxy 于 fetchWithTimeout:221 被调用,isLoopbackUrl 于 shouldUseSyncProxy:205 被调用),并由并行会话新增的 src/services/__tests__/ai-feed-proxy-egress.test.ts 独立钉死;本仓 knip.jsonc 未启用 vitest 插件(Knip 6.x 不再自动探测测试框架),测试文件的 import 不计入「被使用」⇒ 判为未用导出。不改生产代码:去掉 export 会破测试,违背源码注释「提成导出函数以便独立钉死」的初衷。按 check-knip-ratchet.mjs 自述出路(--update)只收紧这一类,total 同步 +2。此前基线(2026-09-26)之后并行会话落库的 gate-122/compliance/G-719/G-814403 等交付带来 exports+143/types+118/duplicates+11/unlisted+3/binaries+1 的既有面,按脚本自述出路 --update 口径收紧到当前现实;棘轮继续拦截未来增量。",
+  "note": "Knip 棘轮基线:各项计数不得超过此值。新增死代码会使 CI 失败;清理后请重跑 --update 收紧。 || 2026-10-10 收敛(Knip 归因席 G:/tmp-probe/knip-attribution.md):A 类死代码清理已落 4913907670+73207c9999(17 文件去 export/删桶行;执行中 7 处纠偏见提交信息),本地干净树(knip-wt @ 8ce57aa5bd)exports 2023→2004、types 1561→1549、duplicates 293→292;按双点验证的环境偏移(exports CI=本地-11、types CI=本地+1、duplicates CI=本地-4,在基线锚点 d814e9553a 与前一 HEAD 9844aa9ecc 两处实测均恒定)换算 CI 口径预测 exports 1993 / types 1550 / duplicates 288,故 exports 收紧 2008→1993、types 放行 1514→1550。types +36 的构成(B 类记账,提交自述契约先行/判据先行/测试钉住,2026-10-04 isLoopbackUrl 先例同型):92ae2d566c chat-sync 契约切片 8; a2155d973e recovery-gate 判据 10+pagination-stall 2;6c1175870c background-registry 终态五道校验(被 .mjs 测试逐断言钉) 5;00f2cf4d4b G-427 影子记账第①步 types 3; cffa4242f3 frame-ownership-barrier 奇偶镜像 2;d4f8ba336b G-424/G-427 抄上游 hooks types 3(其 exports 面在他席 hooks/index.ts,该文件在飞未清);6b07ee18f6 StreamOpenTiming(被 api-client 测试钉) 1; 另 C 类 ad15b07978 x5m5x relay 在飞 2 项(syncSwiftapiModels/RelaySyncStats)与 A 类未清残留(hooks/index.ts 在飞 1 type;api declaration:true 面 3 type:UploadMergeStopFailedRecord/SlotLocalityScope/ReplayAbandonReason;ADMIN_PAGE_SIZE/buildAdminQs 经查有真实消费方,归因误报)一并含入余量。根治方向:knip.jsonc 启用 vitest 插件使测试 import 计入使用面,可一次性消除测试钉住族。",
+  "recordedFrom": "2026-10-10 8ce57aa5bd:本地干净工作树 G:/tmp-probe/knip-wt 实测 knip 6.32.2 --reporter json(证据 G:/tmp-probe/knip-new.json),偏移双点验证见 note 2026-10-10 段。",
   "generatedAt": "2026-10-03T08:45:00.000Z",
   "total": 4646,
   "counts": {
     "files": 703,
-    "exports": 2008,
-    "types": 1514,
+    "exports": 1993,
+    "types": 1550,
     "duplicates": 288,
     "enumMembers": 5,
     "namespaceMembers": 0,
