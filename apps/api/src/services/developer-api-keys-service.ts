@@ -122,6 +122,11 @@ export async function createKey(
       key,
       secret: hashed,
       permissions,
+      // 2026-10-09 开卖口径:新 Key 默认余额 0(先充值后调用),不再吃 DB 默认 -1(无限)。
+      // DB 默认 -1 本意是存量 Key 兼容;新 Key 走无限 = 默认权限放开 chat:write 后即无限白嫖。
+      // 充值入口:POST /developer/relay/keys/:id/recharge(钱包)/ /redeem(兑换码)。
+      tokenBalance: 0,
+      costBalanceCents: 0,
       // DEPRECATED(2026-09-21):`rate_limit` 不参与任何限流判定(判定只读 rateLimit5h/1d/7d
       // + per-model RPM/TPM + tpmLimit),保留列与默认值仅为存量展示兼容;
       // 入口已在 routes/developer.ts `noteDeprecatedKeyFields` 回废弃响应头,2026-12-31 移除。

@@ -1503,11 +1503,12 @@ export async function rechargeApiKeyFromWallet(
   tokenDelta: number,
   costDeltaCents: number,
 ): Promise<{ tokenBalance: number; costBalanceCents: number } | null> {
+  // 2026-10-09:允许单边充值(cost-only/token-only)——只要有一边为正即可,
+  // 原判据要求两边都 >0,导致 UI 只填金额(cost)时 400 "充值数量必须为正整数"。
   if (
-    !Number.isInteger(tokenDelta) ||
-    tokenDelta <= 0 ||
-    !Number.isInteger(costDeltaCents) ||
-    costDeltaCents <= 0
+    (tokenDelta !== 0 && (!Number.isInteger(tokenDelta) || tokenDelta < 0)) ||
+    (costDeltaCents !== 0 && (!Number.isInteger(costDeltaCents) || costDeltaCents < 0)) ||
+    (tokenDelta <= 0 && costDeltaCents <= 0)
   ) {
     throw Object.assign(new Error('充值数量必须为正整数'), { statusCode: 400 })
   }
@@ -1530,13 +1531,15 @@ export async function rechargeApiKeyFromWallet(
       .update(userMargins)
       .set({ tokenQuantity: newWalletBalance, updatedAt: new Date() })
       .where(eq(userMargins.userId, userId))
-    await tx.insert(tokenFlows).values({
-      userId,
-      opType: 4,
-      quantity: totalTokensNeeded,
-      balanceAfter: newWalletBalance,
-      remark: `Relay API Key 充值:${apiKeyId}(token+${tokenDelta}, cost+${costDeltaCents})`,
-    })
+    if (totalTokensNeeded > 0) {
+      await tx.insert(tokenFlows).values({
+        userId,
+        opType: 4,
+        quantity: totalTokensNeeded,
+        balanceAfter: newWalletBalance,
+        remark: `Relay API Key 充值:${apiKeyId}(token+${tokenDelta}, cost+${costDeltaCents})`,
+      })
+    }
     // ③ API Key 加余额(行锁;tokenBalance/costBalanceCents = -1 无限额度则不动)
     const [keyRow] = await tx
       .select({
