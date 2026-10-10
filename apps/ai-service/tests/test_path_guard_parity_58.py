@@ -245,7 +245,7 @@ async def test_git_hooks_write_attempt_is_the_real_attack_scenario(tmp_path, mon
 def test_two_editing_paths_agree_on_policy(tmp_path, monkeypatch, rel):
     """两条源代码编辑路径(file_editor 与 mcp 写工具)对同一路径必须同结论。"""
     monkeypatch.setenv("MCP_WORKSPACE_ROOTS", str(tmp_path))
-    monkeypatch.setattr(file_editor, "_WORKSPACE_ROOTS", [str(tmp_path)])
+    monkeypatch.setattr(file_editor, "_workspace_roots", lambda: [str(tmp_path)])
     p = tmp_path / rel
     mcp_ok, _ = _validate_write_path_in_workspace(str(p))
     fe_ok, _ = file_editor.validate_path(str(p))
@@ -254,7 +254,7 @@ def test_two_editing_paths_agree_on_policy(tmp_path, monkeypatch, rel):
 
 def test_reject_message_wording_is_identical_across_paths(tmp_path, monkeypatch):
     monkeypatch.setenv("MCP_WORKSPACE_ROOTS", str(tmp_path))
-    monkeypatch.setattr(file_editor, "_WORKSPACE_ROOTS", [str(tmp_path)])
+    monkeypatch.setattr(file_editor, "_workspace_roots", lambda: [str(tmp_path)])
     p = tmp_path / ".git" / "hooks" / "pre-commit"
     mcp_ok, mcp_msg = _validate_write_path_in_workspace(str(p))
     fe_ok, fe_msg = file_editor.validate_path(str(p))
