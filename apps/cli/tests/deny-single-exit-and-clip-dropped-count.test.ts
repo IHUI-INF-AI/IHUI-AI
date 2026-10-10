@@ -389,28 +389,36 @@ describe('票 A:单源面 —— 在 HEAD 已成立的那几条判据(精确数)
     expect(countOccurrences(TOOLS_CODE, DANGER_JUDGMENT)).toBe(1)
   })
 
-  it('批准判定是唯一定义 + 唯一调用点(requiresUserConfirmation 合计 2 = 定义 1 + 那道闸 1)', () => {
+  it('批准判定唯一定义;闸谓词在钩子咨询入口与改后人工窗两阶段求值(合计 3 = 定义 1 + 两处闸 2)', () => {
+    // G-424 钩子改写重判:同一 requiresUserConfirmation 谓词先在钩子咨询入口求值一次,
+    // 改后内容重判权限漂移后在人工窗再求值一次 —— 两处是同一谓词的两个流程阶段,
+    // 不是把判据抄第二遍(定义唯一性由上一行继续钉死,判据本体仍单源)。
     expect(countOccurrences(TOOLS_CODE, 'export function requiresUserConfirmation(')).toBe(1)
-    expect(countOccurrences(TOOLS_CODE, 'if (requiresUserConfirmation(')).toBe(1)
-    expect(countOccurrences(TOOLS_CODE, 'requiresUserConfirmation(')).toBe(2)
+    expect(countOccurrences(TOOLS_CODE, 'if (requiresUserConfirmation(')).toBe(2)
+    expect(countOccurrences(TOOLS_CODE, 'requiresUserConfirmation(')).toBe(3)
   })
 
-  it('闸名与归因串在 index 面上各只有一份 ⇒ 三条拒绝路径不能各自新造一态', () => {
-    for (const lit of [
-      "'permission-rule'",
-      "'dangerous-gate'",
-      "'lease-digest-drift'",
-      "'rule-deny'",
-      "'no-confirmation-channel'",
-      "'user-declined'",
-    ]) {
-      expect(countOccurrences(TOOLS_CODE, lit)).toBe(1)
+  it('闸名与归因串各归其位:每态出现次数必须等于其语义档位数 ⇒ 拒绝路径不能各自新造一态', () => {
+    // G-424 钩子改写后的重判拒绝与首过规则拒绝同形(注释原话"gate/decider 与首过同形"),
+    // 复用同一 buildToolDenial 形态 ⇒ 'permission-rule'/'rule-deny' 各 +1 是复用而非新造;
+    // 其余四态仍各只有一份(新拒绝路径没有引入新档位)。
+    for (const [lit, want] of [
+      ["'permission-rule'", 2],
+      ["'dangerous-gate'", 1],
+      ["'lease-digest-drift'", 1],
+      ["'rule-deny'", 2],
+      ["'no-confirmation-channel'", 1],
+      ["'user-declined'", 1],
+    ] as const) {
+      expect(countOccurrences(TOOLS_CODE, lit)).toBe(want)
     }
     // 头语在 index 内只拼一遍;审计出口被两处调用(规则闸 + 确认闸)覆盖三道闸
     expect(countOccurrences(TOOLS_CODE, DENY_HEAD)).toBe(1)
-    expect(countOccurrences(TOOLS_CODE, '被权限规则拒绝')).toBe(1)
+    // G-424 钩子改写重判路径的规则拒绝复用同一句 ruleMsg(与首过逐字同形),故 +1
+    expect(countOccurrences(TOOLS_CODE, '被权限规则拒绝')).toBe(2)
     expect(countOccurrences(TOOLS_CODE, '摘要漂移')).toBe(1)
-    expect(countOccurrences(TOOLS_CODE, 'auditToolDenial(')).toBe(2)
+    // 审计出口三处调用:规则闸 + 钩子改写重判规则闸 + 确认闸,覆盖全部拒绝路径
+    expect(countOccurrences(TOOLS_CODE, 'auditToolDenial(')).toBe(3)
   })
 
   it('出路文案只有一份映射:toolDenialGuidance 定义 1/合计 2、后缀格式串 1、四条 GUIDANCE_* 各 2(声明 + 使用)', () => {
