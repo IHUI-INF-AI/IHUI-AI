@@ -124,6 +124,15 @@ ALTER TABLE checkin_accounts
     ADD COLUMN IF NOT EXISTS account_group text NOT NULL DEFAULT ''
 """
 
+# 平台化(2026-10-10):'trae'(存量默认)| 'qoder'。ADD COLUMN IF NOT EXISTS 幂等,
+# 与 account_group 加列同一配方(ensure_tables 与 CI 裸连接两条路径共用)。
+# qoder 账号:jwt_enc 存 accessToken,refresh_token / expires_at / Cosy-* 设备头
+# 存 device_map(复用 jsonb,不另加列)—— 引擎见 checkin_qoder.py。
+_ALTER_ACCOUNTS_PLATFORM_SQL = """
+ALTER TABLE checkin_accounts
+    ADD COLUMN IF NOT EXISTS platform text NOT NULL DEFAULT 'trae'
+"""
+
 _ensure_failed = False
 
 
@@ -144,6 +153,7 @@ async def ensure_tables_conn(conn: asyncpg.Connection) -> None:
     await conn.execute(_CREATE_ERROR_COUNTS_SQL)
     await conn.execute(_CREATE_CREDITS_DAILY_SQL)
     await conn.execute(_ALTER_ACCOUNTS_GROUP_SQL)
+    await conn.execute(_ALTER_ACCOUNTS_PLATFORM_SQL)
     await conn.execute(_CREATE_INDEXES_SQL)
     _ensure_failed = False
 
@@ -246,6 +256,7 @@ async def create_account(
     jwt: str,
     device_map: dict[str, Any],
     account_group: str = "",
+    platform: str = "trae",
 ) -> dict[str, Any]:
     """录入账号(jwt 加密落库)。同名账号已存在时抛 ValueError。"""
     pool = await get_shared_pool()
@@ -255,9 +266,9 @@ async def create_account(
             row = await conn.fetchrow(
                 """
                 INSERT INTO checkin_accounts
-                    (owner_user_id, name, jwt_enc, device_map, enabled, account_group)
-                VALUES ($1, $2, $3, $4::jsonb, true, $5)
-                RETURNING id, owner_user_id, name, device_map, enabled, account_group,
+                    (owner_user_id, name, jwt_enc, device_map, enabled, account_group, platform)
+                VALUES ($1, $2, $3, $4::jsonb, true, $5, $6)
+                RETURNING id, owner_user_id, name, device_map, enabled, account_group, platform,
                           created_at, updated_at
                 """,
                 owner_user_id,
@@ -265,6 +276,7 @@ async def create_account(
                 jwt_enc,
                 json.dumps(device_map, ensure_ascii=False),
                 account_group,
+                platform,
             )
         except Exception as e:
             # asyncpg 唯一约束冲突 → 23505
@@ -284,7 +296,7 @@ async def list_accounts(owner_user_id: str) -> list[dict[str, Any]]:
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
-            SELECT a.id, a.owner_user_id, a.name, a.account_group, a.jwt_enc, a.device_map, a.enabled,
+            SELECT a.id, a.owner_user_id, a.name, a.account_group, a.platform, a.jwt_enc, a.device_map, a.enabled,
                    a.created_at, a.updated_at,
                    r.ok        AS last_ok,
                    r.action    AS last_action,
@@ -385,7 +397,7 @@ async def get_decrypted_jwt(account_id: int, owner_user_id: str) -> dict[str, An
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """
-            SELECT id, name, jwt_enc, device_map, enabled
+            SELECT id, name, jwt_enc, device_map, enabled, platform
             FROM checkin_accounts
             WHERE id = $1 AND owner_user_id = $2
             """,
@@ -398,6 +410,7 @@ async def get_decrypted_jwt(account_id: int, owner_user_id: str) -> dict[str, An
         "id": row["id"],
         "name": row["name"],
         "jwt": _decrypt_jwt(row["jwt_enc"]),
+        "platform": row["platform"],
         "device_map": json.loads(row["device_map"] or "{}") if isinstance(row["device_map"], str) else dict(row["device_map"] or {}),
         "enabled": row["enabled"],
     }
@@ -409,7 +422,7 @@ async def list_enabled_accounts() -> list[dict[str, Any]]:
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
-            SELECT id, name, jwt_enc, device_map
+            SELECT id, name, jwt_enc, device_map, platform
             FROM checkin_accounts
             WHERE enabled = true
             ORDER BY id
@@ -422,6 +435,7 @@ async def list_enabled_accounts() -> list[dict[str, Any]]:
                 "id": r["id"],
                 "name": r["name"],
                 "jwt": _decrypt_jwt(r["jwt_enc"]),
+                "platform": r["platform"],
                 "device_map": json.loads(r["device_map"] or "{}")
                 if isinstance(r["device_map"], str)
                 else dict(r["device_map"] or {}),
@@ -466,6 +480,7 @@ def _account_row(row: Mapping[str, Any]) -> dict[str, Any]:
         "id": row["id"],
         "name": row["name"],
         "group": row["account_group"] if "account_group" in row else "",
+        "platform": row["platform"] if "platform" in row else "trae",
         "device_map": device_map,
         "enabled": row["enabled"],
         "created_at": row["created_at"].isoformat() if row["created_at"] else None,
@@ -825,7 +840,7 @@ async def list_enabled_accounts_full() -> list[dict[str, Any]]:
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
-            SELECT id, owner_user_id, name, jwt_enc, device_map
+            SELECT id, owner_user_id, name, jwt_enc, device_map, platform
             FROM checkin_accounts
             WHERE enabled = true
             ORDER BY id
@@ -839,6 +854,7 @@ async def list_enabled_accounts_full() -> list[dict[str, Any]]:
                 "owner_user_id": r["owner_user_id"],
                 "name": r["name"],
                 "jwt": _decrypt_jwt(r["jwt_enc"]),
+                "platform": r["platform"],
                 "device_map": json.loads(r["device_map"] or "{}")
                 if isinstance(r["device_map"], str)
                 else dict(r["device_map"] or {}),

@@ -65,7 +65,7 @@ class FakeStore:
 
     # --- 账号 ---
 
-    async def create_account(self, owner, name, jwt, device_map, account_group=""):
+    async def create_account(self, owner, name, jwt, device_map, account_group="", platform="trae"):
         for acc in self.accounts.values():
             if acc["owner_user_id"] == owner and acc["name"] == name:
                 raise ValueError(f"账号名已存在: {name}")
@@ -78,6 +78,7 @@ class FakeStore:
             "jwt": jwt,
             "device_map": dict(device_map),
             "group": account_group,
+            "platform": platform,
             "enabled": True,
             "created_at": datetime.now(UTC),
             "updated_at": datetime.now(UTC),
@@ -302,6 +303,7 @@ class FakeStore:
             "id": acc["id"],
             "name": acc["name"],
             "group": acc.get("group", ""),
+            "platform": acc.get("platform", "trae"),
             "device_map": dict(acc["device_map"]),
             "enabled": acc["enabled"],
             "created_at": acc["created_at"].isoformat(),
