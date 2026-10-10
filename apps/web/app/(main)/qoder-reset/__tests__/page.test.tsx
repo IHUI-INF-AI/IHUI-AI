@@ -154,7 +154,6 @@ vi.mock('@ihui/ui-react', () => {
     } & Record<string, unknown>) => (
       <input
         type="checkbox"
-        role="checkbox"
         checked={checked ?? false}
         onChange={(e) => onCheckedChange?.(e.target.checked)}
         {...rest}
