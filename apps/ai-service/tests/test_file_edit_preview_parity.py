@@ -35,12 +35,12 @@ import pytest
 
 from app.routers.llm import (
     _FILE_EDIT_PREVIEW_TOOLS,
-    _file_edit_preview_frames,
-    _file_edit_preview_text,
     _PREVIEW_LINES_PER_FRAME,
     _PREVIEW_MAX_CHARS,
     _PREVIEW_MAX_FRAMES,
     _PREVIEW_MAX_LINES,
+    _file_edit_preview_frames,
+    _file_edit_preview_text,
 )
 
 REPO = Path(__file__).resolve().parents[3]

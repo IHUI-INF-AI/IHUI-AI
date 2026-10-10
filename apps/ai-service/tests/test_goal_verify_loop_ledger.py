@@ -28,8 +28,6 @@ from typing import Any
 import pytest
 
 from app.routers import goal_verification
-# 复用同族用例的 app/client 助手(仓内既有做法,见 test_engine_harness_wiring_36.py)
-from tests.test_goal_verify_loop import _client
 from app.services.goal_round_state import (
     SESSION_KEY_PREFIX,
     STATE_METADATA_KEY,
@@ -46,6 +44,9 @@ from app.services.goal_round_state import (
     reset_store,
     state_from_checkpoint_metadata,
 )
+
+# 复用同族用例的 app/client 助手(仓内既有做法,见 test_engine_harness_wiring_36.py)
+from tests.test_goal_verify_loop import _client
 
 AI_SERVICE_ROOT = Path(__file__).resolve().parents[1]
 
