@@ -30,6 +30,7 @@ import { useI18n } from '../i18n'
 import { FREE_RESOURCE_URL } from '../constants/links'
 import { Menu } from 'lucide-react-native'
 import Clipboard from '@react-native-clipboard/clipboard'
+import { NavChrome } from '../components/NavChrome'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -148,11 +149,13 @@ export default function RankingDetailScreenWrapper() {
 
   return (
     <View style={styles.container}>
-      <NavBar
-        title={detail.title}
-        onBack={() => navigation.goBack()}
-        rightActions={[{ icon: Menu, label: '历史榜单', onPress: openDrawer }]}
-      />
+      <NavChrome>
+        <NavBar
+          title={detail.title}
+          onBack={() => navigation.goBack()}
+          rightActions={[{ icon: Menu, label: '历史榜单', onPress: openDrawer }]}
+        />
+      </NavChrome>
       <RankingDetailScreen
         t={t}
         onBack={() => navigation.goBack()}
