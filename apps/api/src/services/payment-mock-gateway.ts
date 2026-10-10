@@ -43,7 +43,7 @@ import {
 } from 'node:crypto'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 
-export const PAYMENT_MOCK_DEFAULT_PORT = 45_217
+const PAYMENT_MOCK_DEFAULT_PORT = 45_217
 /** 真实微信支付 V3 网关(与 wechat-pay.ts 的缺省一致)。 */
 export const REAL_WX_PAY_API_BASE = 'https://api.mch.weixin.qq.com'
 

@@ -6,14 +6,6 @@
 
 export type CardType = '实卡' | '虚卡' | '全部'
 
-export interface BalanceData {
-  balance: string
-}
-
-export interface PhoneData {
-  phone: string
-}
-
 export type MessageData =
   | {
       status: 'received'
@@ -45,11 +37,6 @@ export interface PhonePlatformStat {
   count: number
 }
 
-export interface OkData {
-  ok: boolean
-  result?: string
-}
-
 /** 平台历史记录单条(GET /used,本账号 24h 流水;后端已解析「号码\t扣费\t短信原文」) */
 export interface UsedRecord {
   phone: string
@@ -66,7 +53,7 @@ export interface UsedData {
 }
 
 /** 快照累积流水项(GET /used-union,firstSeenAt=入库时间口径,非短信到达时刻) */
-export interface UsedSnapItem {
+interface UsedSnapItem {
   id: string
   phone: string
   fee: string
