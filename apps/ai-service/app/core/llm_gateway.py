@@ -88,8 +88,8 @@ logger = logging.getLogger(__name__)
 _ihui_relay_base_cache: dict[str, Any] = {"base": None, "expires_at": 0.0}
 _IHUI_RELAY_BASE_TTL = 300  # 5 分钟
 _IHUI_RELAY_BASES = [
-    "https://api.x5m5x.com/v1",     # 国内主节点
-    "https://us-api.x5m5x.com/v1",  # 海外备用节点
+    "https://new.x5m5x.com/v1",     # 国内主节点
+    "https://us-new.x5m5x.com/v1",  # 海外备用节点
 ]
 
 
