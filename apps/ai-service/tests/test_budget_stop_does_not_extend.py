@@ -19,12 +19,12 @@ from app.routers import llm as llm_mod
 from app.routers.llm import _d120_should_extend, _is_budget_exhaustion_error
 
 # "其余条件全部满足"的基线参数(非首轮/下一轮触顶/未用尽/上轮有工具执行)
-_BASE = dict(
-    tool_iter=3,
-    iter_budget=4,
-    extensions_used=0,
-    tool_executed_last_round=True,
-)
+_BASE = {
+    "tool_iter": 3,
+    "iter_budget": 4,
+    "extensions_used": 0,
+    "tool_executed_last_round": True,
+}
 
 
 def test_budget_exhausted_turn_must_not_extend():
