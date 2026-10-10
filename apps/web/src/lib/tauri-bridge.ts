@@ -4,7 +4,7 @@
 
 // tauri 桥接依赖:运行时由 Tauri WebView 注入,构建时 next.config.ts transpilePackages 解析。
 // pnpm workspace 已将 @tauri-apps/api 与 @tauri-apps/plugin-dialog 链接到 web node_modules。
-import { invoke } from '@tauri-apps/api/core'
+import { invoke, Channel } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog'
 // 仅类型导入:check() 返回的 Update 对象类型(运行时仍动态 import,避免浏览器端加载插件)
@@ -1581,35 +1581,133 @@ export async function workbuddyResetProbe(): Promise<WbProbeReport> {
   return await invokeIpc<WbProbeReport>('workbuddy_reset_probe')
 }
 
-/** 维护清理:只删可再生缓存与日志(logs/traces/tmp/webview 缓存/Crashpad 等,本机实测 ~12.4GB),
- *  保留登录态、记忆、技能、连接器、工作区。kill_running=true 时先强杀 WorkBuddy 进程。 */
-export async function workbuddyResetMaintenance(killRunning: boolean): Promise<WbResetReport> {
+/** 执行进度事件(逐条目经 Tauri Channel 回传)。 */
+export interface WbProgressEvent {
+  layer: number
+  done: number
+  total: number
+  item: string
+}
+export type WbProgressHandler = (ev: WbProgressEvent) => void
+
+/** 计划预览单条动作。 */
+export interface WbPlanAction {
+  path: string
+  /** delete_file | delete_dir | quarantine */
+  action: string
+  size_mb: number
+}
+export interface WbPlanReport {
+  mode: string
+  include_device_id: boolean
+  actions: WbPlanAction[]
+  total_mb: number
+}
+
+/** 隔离区信息(列表)。 */
+export interface WbQuarantineInfo {
+  name: string
+  path: string
+  created_unix: number
+  /** factory | logout | unknown */
+  mode: string
+  original_root: string
+  entries: number
+  size_mb: number
+}
+
+/** 历史台账条目。 */
+export interface WbHistoryItem {
+  file: string
+  ts_unix: number
+  mode: string
+  ok: boolean
+  summary: string
+}
+
+function progressChannel(onProgress?: WbProgressHandler): Channel<WbProgressEvent> | undefined {
+  if (!onProgress) return undefined
+  const ch = new Channel<WbProgressEvent>()
+  ch.onmessage = onProgress
+  return ch
+}
+
+/** 计划预览:与执行层共用同一份判据,返回"会动什么/多大"的精确清单(执行前展示给用户)。 */
+export async function workbuddyResetPlan(
+  mode: 'maintenance' | 'logout' | 'factory',
+  includeDeviceId: boolean,
+): Promise<WbPlanReport> {
   requireTauri()
-  return await invokeIpc<WbResetReport>('workbuddy_reset_maintenance', {
-    killRunning: killRunning ?? false,
+  return await invokeIpc<WbPlanReport>('workbuddy_reset_plan', {
+    mode,
+    includeDeviceId: includeDeviceId ?? false,
   })
 }
 
-/** 登出重置:删除 app/session(webview 档案→下次启动回登录页);includeDeviceId=true 连带清除
- *  device-id(本地清除→应用自行重新注册,不做指纹伪造;服务端限制不受本地清除影响)。 */
+/** 维护清理:只删可再生缓存与日志(logs/traces/tmp/webview 缓存/Crashpad 等,本机实测 ~12.4GB),
+ *  保留登录态、记忆、技能、连接器、工作区。kill_running=true 时先强杀 WorkBuddy 进程。
+ *  onProgress 逐条目回传执行进度。 */
+export async function workbuddyResetMaintenance(
+  killRunning: boolean,
+  onProgress?: WbProgressHandler,
+): Promise<WbResetReport> {
+  requireTauri()
+  return await invokeIpc<WbResetReport>('workbuddy_reset_maintenance', {
+    killRunning: killRunning ?? false,
+    onProgress: progressChannel(onProgress),
+  })
+}
+
+/** 登出重置:app/session 搬入隔离区(下次启动回登录页,可一键恢复);includeDeviceId=true
+ *  连带隔离 device-id(本地清除→应用自行重新注册,不做指纹伪造;服务端限制不受影响)。 */
 export async function workbuddyResetLogout(
   killRunning: boolean,
   includeDeviceId: boolean,
+  onProgress?: WbProgressHandler,
 ): Promise<WbResetReport> {
   requireTauri()
   return await invokeIpc<WbResetReport>('workbuddy_reset_logout', {
     killRunning: killRunning ?? false,
     includeDeviceId: includeDeviceId ?? false,
+    onProgress: progressChannel(onProgress),
   })
 }
 
 /** 出厂重置:~/.workbuddy 顶层条目整体搬移到同卷隔离目录(rename,秒级、零数据丢失、可逆),
- *  应用下次启动按首次安装重建。隔离区路径回填在层 detail 里。 */
-export async function workbuddyResetFactory(killRunning: boolean): Promise<WbResetReport> {
+ *  应用下次启动按首次安装重建。manifest 记录全部条目——隔离区管理卡一键恢复。 */
+export async function workbuddyResetFactory(
+  killRunning: boolean,
+  onProgress?: WbProgressHandler,
+): Promise<WbResetReport> {
   requireTauri()
   return await invokeIpc<WbResetReport>('workbuddy_reset_factory', {
     killRunning: killRunning ?? false,
+    onProgress: progressChannel(onProgress),
   })
+}
+
+/** 隔离区列表:扫描用户根目录同卷的全部 .workbuddy-quarantine-<ts>(出厂后根目录为空壳也能列)。 */
+export async function workbuddyQuarantineList(): Promise<WbQuarantineInfo[]> {
+  requireTauri()
+  return await invokeIpc<WbQuarantineInfo[]>('workbuddy_quarantine_list')
+}
+
+/** 从隔离区一键恢复:按 manifest 原样搬回;目标已存在拒绝覆盖(绝不静默覆盖现有数据)。 */
+export async function workbuddyQuarantineRestore(quarantinePath: string): Promise<WbResetReport> {
+  requireTauri()
+  return await invokeIpc<WbResetReport>('workbuddy_quarantine_restore', { quarantinePath })
+}
+
+/** 删除隔离区(数据确认不要后的人工清理出口;护栏:目录名格式+父目录必须匹配用户根)。 */
+export async function workbuddyQuarantineDelete(quarantinePath: string): Promise<WbResetReport> {
+  requireTauri()
+  return await invokeIpc<WbResetReport>('workbuddy_quarantine_delete', { quarantinePath })
+}
+
+/** 历史台账:每次重置操作留档(reset-history/*.json,按时间倒序)。 */
+export async function workbuddyResetHistory(): Promise<WbHistoryItem[]> {
+  requireTauri()
+  return await invokeIpc<WbHistoryItem[]>('workbuddy_reset_history')
 }
 
 /** 备份指定账号的 9 类 TRAE 现场文件到应用数据目录快照区。 */
