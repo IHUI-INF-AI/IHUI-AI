@@ -319,7 +319,7 @@ def test_api_list_summaries_contract(store: SessionStore) -> None:
     from app.routers.relay import _CreateSummaryBody
 
     create_relay_summary(_CreateSummaryBody(thread_id=tid), "alice", store=store)
-    
+
     # `/summaries` 跨线程整表列出这一格**本批刻意未收**:真过滤要 store 层加属主参数
     # (与 `list_threads(owner_user_id=…)` 同形),响应侧筛会让 total 与集合分叉 —— 台账 G-250 在账。
     resp = api_list_relay_summaries(limit=10, offset=0, store=store)

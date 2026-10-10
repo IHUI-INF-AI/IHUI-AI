@@ -139,7 +139,8 @@ def test_gt9_装车锁_调用点必须走那三个出口() -> None:
     """
     import ast as _ast
 
-    src = open(llm.__file__ or "", encoding="utf-8").read()
+    with open(llm.__file__ or "", encoding="utf-8") as _f:
+        src = _f.read()
     tree = _ast.parse(src)
     allowed_names = {
         "_grant_bucket_key",
