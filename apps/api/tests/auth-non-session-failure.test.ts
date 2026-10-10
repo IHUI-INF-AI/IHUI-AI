@@ -23,6 +23,9 @@
  * jose 全部 vi.mock 桩掉。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+// eslint 规则 consistent-type-imports 禁 `import()` 类型注解 ⇒ 顶层 import type 供 typeof 引用
+import type * as AuthModule from '@ihui/auth'
+import type * as JoseModule from 'jose'
 
 const { getUserStatus, verifyAccessToken, decodeJwt } = vi.hoisted(() => ({
   getUserStatus: vi.fn(),
@@ -34,11 +37,11 @@ vi.mock('../src/db/usercenter-queries.js', () => ({
   getUserStatus: (id: string) => getUserStatus(id),
 }))
 vi.mock('@ihui/auth', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@ihui/auth')>()
+  const actual = await importOriginal<typeof AuthModule>()
   return { ...actual, verifyAccessToken: (t: string) => verifyAccessToken(t) }
 })
 vi.mock('jose', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('jose')>()
+  const actual = await importOriginal<typeof JoseModule>()
   return { ...actual, decodeJwt: (t: string) => decodeJwt(t) }
 })
 
