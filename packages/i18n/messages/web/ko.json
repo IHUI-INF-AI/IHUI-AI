@@ -19024,6 +19024,15 @@
     "selectAllVisible": "목록 전체 선택",
     "selectAccount": "계정 {name} 선택",
     "captureTitle": "로컬에서 가져오기",
+    "platformAll": "전체 플랫폼",
+    "platformTrae": "TRAE",
+    "platformQoder": "Qoder",
+    "platformLabel": "플랫폼",
+    "captureQoderButton": "Qoder 가져오기",
+    "captureQoderTitle": "로컬 Qoder 클라이언트에서 가져오기",
+    "captureQoderDescription": "이 머신에 로그인된 Qoder 클라이언트의 세션 자격 증명(auth.v1.dat)을 복호화하고 디바이스 지문을 자동으로 포함합니다. Qoder에 로그인한 것과 동일한 Windows 사용자로 이 앱을 실행해야 합니다.",
+    "captureQoderScan": "Qoder 세션 스캔",
+    "captureQoderEmpty": "로그인된 Qoder 세션을 찾지 못했습니다(클라이언트 로그인 상태를 확인하세요)",
     "captureDirFound": "로컬 TRAE 데이터 디렉터리를 감지했습니다: {dir}",
     "captureDirMissing": "로컬 TRAE 데이터 디렉터리를 찾을 수 없습니다(환경 변수 IHUI_TRAE_DIR로 지정 가능)",
     "captureEmpty": "로컬 데이터 디렉터리에서 사용 가능한 JWT를 찾지 못했습니다",
@@ -19093,7 +19102,8 @@
     "loadMore": "더 불러오기",
     "schedulerDisabled": "자동 출석 꺼짐",
     "schedulerEnabled": "자동 출석 켜짐",
-    "schedulerNextRun": "다음 {time}"
+    "schedulerNextRun": "다음 {time}",
+    "schedulerNextRunQoder": "Qoder 다음 {time}"
   },
   "nav": {
     "checkin": "출석",
