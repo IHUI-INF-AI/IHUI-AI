@@ -46404,7 +46404,7 @@
     },
     "/api/ai/agnes/video": {
       "post": {
-        "description": "代理调用 Agnes POST /v1/videos 创建视频任务(异步),支持文生视频(仅 prompt)与图生视频(附加 image 单图 URL);默认参数 model=agnes-video-2.5/mode=text/size=720P(2.5 系列),响应含 taskId 供轮询",
+        "description": "代理调用 Agnes POST /v1/videos 创建视频任务(异步),支持文生视频(仅 prompt)与图生视频(附加 image 单图 URL);默认参数 model=agnes-video-2.5-flash(免费档)/mode=text/size=720P(2.5 系列),响应含 taskId 供轮询",
         "requestBody": {
           "required": true,
           "content": {
