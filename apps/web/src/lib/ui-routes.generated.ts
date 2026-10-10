@@ -5,14 +5,14 @@
 /**
  * UI 路由清单（自动生成，请勿手改）。
  *
- * 由 scripts/generate-ui-routes.mjs 扫描 app 下的 page.tsx 生成；
- * 运行： node scripts/generate-ui-routes.mjs
+ * 由 apps/web/scripts/generate-ui-routes.mjs 扫描 app 下的 page.tsx 生成；
+ * 运行： node apps/web/scripts/generate-ui-routes.mjs
  * 供 src/lib/ui-action-registry.ts 校验 navigate 动作的跳转目标。
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: 40d3912554a0c6168b149044f81a90a9d0de8b2e
-// inputsSha256: 620fa49d041ebeeb0b09eb2b6ca5c57d7de8c3de4eb353b27d547f29c0d542e0
+// sourceCommit: 333d634f1d6f8ef4fa0fae9ec35edd9669cfdb4d
+// inputsSha256: 7753172bd3ecef787cf9a9ee2485c4c7c7356139dae548d0b9fac40c52e602bf
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx 3d3cf195c8dcb8ec142e08a1d50b9016687a48c3503839f0db0dff7f9bbce67e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -420,7 +420,7 @@
 // input: apps/web/app/(main)/chat/settings/page.tsx ac7b78cfb765452ecca82c101a7b659847744af0d2bf9a750e0e0f464edcf561
 // input: apps/web/app/(main)/chat/share/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/chat/templates/page.tsx d4171e1f2cb0c2069094468b9138c299e62f00f4c43426ce5cf35846528c26d8
-// input: apps/web/app/(main)/checkin/page.tsx 9f5309b3d4759e6e2943009f26ef39015dcf1146c459d489375ab9c9594e09c0
+// input: apps/web/app/(main)/checkin/page.tsx bcfb29d7bc2ddbcfaceb3bb82aea2522a65876960c4d938cb59d71dadfbd44ef
 // input: apps/web/app/(main)/circles/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/circles/page.tsx 5dc5b147cc4e060a352c51f9480deb7b0063dfeae971c07933cd0a4fbbfd9cdd
 // input: apps/web/app/(main)/circles/post/page.tsx c0fe168de566874d24fbcc1208b6f93b142e9f2dc6c2874b51f422a9eed6dc57
@@ -492,7 +492,7 @@
 // input: apps/web/app/(main)/developer/page.tsx 058d223c910b0e6b113e86d58a7c5892f8110e31508fd90f988248c6ed9f80a6
 // input: apps/web/app/(main)/developer/pricing/page.tsx 98ff5a53b9448a91c64ec733e291aea8f124e35458fba949d11d8ac943aa1b42
 // input: apps/web/app/(main)/developer/relay/benefits/page.tsx f813cbff15df911f4c0a3f64a719e522d8a6d2300db2f5c167de4df8d41b8be8
-// input: apps/web/app/(main)/developer/relay/keys/page.tsx 2509fb9e7eecb2ece100e6617c32b20aeb57fa55fcff75e84577ba7216c1041c
+// input: apps/web/app/(main)/developer/relay/keys/page.tsx f2d0ea12bf9aa9c36a54f319cd7ba314271ba15c80f2e021b5de8c3855ea909f
 // input: apps/web/app/(main)/developer/relay/page.tsx b72fdd176284596649261256ae2455a3dc604bcc5addd6dde234d7027c3b4539
 // input: apps/web/app/(main)/developer/relay/subscriptions/page.tsx e604f24708ede8fba0fb5d4f0781586ba3454688a4e6d25e289c6c26aade04cc
 // input: apps/web/app/(main)/developer/relay/usage/page.tsx a3feba28b60c1e5f80ea4b6e58d752bb74a47eb06046967e10caee50d38b00dd
@@ -883,6 +883,7 @@
 // input: apps/web/app/(main)/wallet/withdraw/page.tsx e780126637c867c48659734c1072a9f2b820484c58621f0983e986cb27bbf078
 // input: apps/web/app/(main)/wallet/withdraw/records/page.tsx a53c7e726205b48c67090a8b80cba2a3606a0ee1866e111b2d1611436884bac4
 // input: apps/web/app/(main)/web-tools/page.tsx bbf4e52b231bcad2ae0730b2f8127cd23a6bf09fdda4e49f8dbd1167acccc4fa
+// input: apps/web/app/(main)/workbuddy-reset/page.tsx 19a2a89a0b1d4b3997a63ea5266b79525b7d6ba7f81250ebdfacadc09db8fd78
 // input: apps/web/app/(main)/workflows/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/workflows/instances/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/workflows/page.tsx 04023d6b22d63b60eceb775e64e213bddfab0a02b4ad697969fb33d9a199ddfe
@@ -913,7 +914,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 6df145382f287882d4dfd57434356f055a22a13afc39f5a8efff3edf6f8460a2
 // input: apps/web/app/status/page.tsx 73f528f7654b7eb8bf5d08493a07afa63ed1de621f5a792399270a41505bf2fd
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-10-09T21:36:16.285Z
+// generatedAt: 2026-10-10T07:11:09.311Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
@@ -1796,6 +1797,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/wallet/withdraw', param: false, group: 'wallet' },
   { path: '/wallet/withdraw/records', param: false, group: 'wallet' },
   { path: '/web-tools', param: false, group: 'web-tools' },
+  { path: '/workbuddy-reset', param: false, group: 'workbuddy-reset' },
   { path: '/workflows', param: false, group: 'workflows' },
   { path: '/workflows/:id', param: true, group: 'workflows' },
   { path: '/workflows/instances/:id', param: true, group: 'workflows' },
