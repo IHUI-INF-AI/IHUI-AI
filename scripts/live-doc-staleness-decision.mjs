@@ -17,24 +17,38 @@
  *   对每个被问路径 P:取 P 的工作区内容(要判的就是它)与 P 在**被审面**上的 blob,以及该面上
  *   `.ihui-agent/archive` 之下(递归)全部 `.md` 的 blob(归档语料,与基准 blob 同面同轮一次批量读,
  *   不逐文件派生 —— 内容读取一律走 scripts/lib/face-reader.mjs 的 catBatch / readWorktreeFile,
- *   自派生 git 取正文或按磁盘读仓库内容会被守门 118 判成半接线)。
+ *   自派生 git 取正文或按磁盘读仓库内容会被守门 118 判成半接线),外加上**远端面** `REMOTE_REF:P`
+ *   (加性出处源;取不到/路径不在远端 ⇒ 该面缺席、结论与改动前逐字相同,**不判死**)。
  *   归一 = 剥 `\r`、连续空白压成一个空格、trim(被审面 blob 是 LF、共享工作树常是 CRLF,
  *   不剥 `\r` 会把同一行读成两行 —— 守门 13c 记过同型假红)。空行不计。
- *   一条工作区行 L "有出处" 当且仅当 count_WT(L) <= count_(HEAD ⊔ 归档语料)(L)。
+ *   一条工作区行 L "有出处" 当且仅当 count_WT(L) <= count_(HEAD ⊔ 归档语料 ⊔ 远端面)(L)。
  *   用集合代替多重集 = 放过"同一行被复制了两份以上"这种真独有内容,所以**计数是判据的一部分**。
  *
+ * **第二判据:「旧修订被取代」(2026-10-10 立,由当天 1h37m 的 ff 冻结逼出)**
+ *   整行多重集判不出"同一段正文 + 更新的状态/注记/编号" —— 本地落后远端时,磁盘副本里一排
+ *   "旧修订"行在 HEAD∪归档里整行找不到(而它们的**实质内容**逐字都在远端的新修订里:
+ *   典型的如 `- [ ] G-x（进行中@…）正文` 被 `- [x] ✅(日期) G-x 正文 〔完成注记〕` 取代)。
+ *   判据:把**闭集合的记账装饰**(复选框 / ✅+日期 /〔归并〕指针前缀 /`（进行中@…）` 认领标记 /
+ *   行首编号,唯一实现 stripSupersedeDecoration)剥掉后,若剩余实质内容 ≥ SUPERSEDE_MIN_LEN(=40)
+ *   且**逐字**出现在出处语料(HEAD ⊔ 归档 ⊔ 远端)的某一行里 ⇒ 按"被取代"放过。
+ *   放过的行为**逐条进人读面与 JSON**(superseded / supersededCount),不许静默;
+ *   够不着长度闸的短行一律回 needHuman 交人工 —— 失效方向刻意是保守侧。
+ *
  * 三态(绝不并桶):
- *   alignable    —— 所有工作区行都有出处 ⇒ 覆盖回被审面不丢任何"只此一份"的内容。
- *   needHuman    —— 存在无出处行 ⇒ 那份副本里有 HEAD 与归档都没有的东西(可能是别人正在写的活账),
+ *   alignable    —— 所有工作区行都有出处(含"被取代"放过) ⇒ 覆盖回被审面不丢任何"只此一份"的内容。
+ *   needHuman    —— 存在无出处行 ⇒ 那份副本里有三个面都没有的东西(可能是别人正在写的活账),
  *                   **绝不建议覆盖**,并逐条点名(最多 20 行 + 其余计数)。
  *   undetermined —— 取不到(工作区文件不在 / 被审面基准 blob 取不到 / 归档语料读不出 / 仓库根基准错位)
  *                   ⇒ 点名原因,**既不算 alignable 也不算 needHuman**;它同样不进 blockerSet。
+ *                   (远端面缺席**不**进这一态 —— 它是加性源,缺席时回到"HEAD ⊔ 归档"口径。)
  *
  * 能力边界(如实登记,别误以为这里有尺子):
  *   · 本文件不判"该不该覆盖",只答"覆盖会不会丢只此一份的内容"。备份与覆盖动作属调用方(部署环)。
- *   · 判据是**行级多重集**:工作区里"同一行被就地改写"会读成"新行无出处"⇒ needHuman(保守方向);
+ *   · 判据是**行级多重集**:工作区里"同一行被就地改写"走第二判据(实质内容包含)判;
  *     反过来"两行互换位置"两侧多重集相同 ⇒ 读成 alignable —— 行多重集相等不等于顺序相同,本出口
  *     不声明顺序结论。
+ *   · 第二判据是**包含关系**,不是相似度:实质内容必须**逐字**出现(归一空白后);且要过长度闸。
+ *     短行、正文真的被改写(不只是换状态/加注记)的行,一律留在 needHuman。
  *
  * 退出码:0 = 全部 alignable(blockerSet true);1 = 有 needHuman;2 = 有 undetermined 或没问到任何路径
  * (2 优先于 1 —— 把"没判成"写成"判定为不许覆盖"同样是把没判写成判过了)。
@@ -60,6 +74,17 @@ const ARCHIVE_PREFIX = '.ihui-agent/archive'
 const DEFAULT_PATHS = ['PROJECT_PLAN.md', 'README.md', 'AGENTS.md']
 /** 人读面最多逐条点名的无出处行数(其余只报计数,免得一次 needHuman 刷出几万行)。 */
 export const MAX_PRINTED_ORPHANS = 20
+
+/**
+ * 「旧修订被取代」认定的长度下限(2026-10-10 立,由当天 1h37m 的 ff 冻结逼出)。
+ * 为什么是 40:与 plan-tasks-merge 的 F6 块判据同一阈值、同一理由 —— 低于它会把台账里
+ * 天然成对/成串的短行(`- [x] 甲已完成`、`  },`、纯前缀行等)大把带进"包含"关系,噪声淹信号。
+ * 失效方向刻意是**保守侧**:够不着就回 needHuman 交人工,绝不拿短行去猜"被取代"。
+ */
+export const SUPERSEDE_MIN_LEN = 40
+
+/** 远端面引用名(唯一出口;gather 与文档同引它,不另写第二份字面量)。 */
+export const REMOTE_REF = 'origin/main'
 /** `--json` 面带的无出处行数上限(比人读面宽,但仍必须有界)。 */
 export const MAX_JSON_ORPHANS = 200
 
@@ -77,6 +102,30 @@ export function lineCounts(text) {
     map.set(key, (map.get(key) || 0) + 1)
   }
   return map
+}
+
+/** 整份文本按行归一的投影(逐行 normalizeLine 后以 `\n` 拼接)——「实质内容包含」判据的语料面。 */
+export function normalizeLineText(text) {
+  return String(text).split('\n').map(normalizeLine).join('\n')
+}
+
+/**
+ * 「旧修订」的装饰剥离(唯一实现;**闭集合,这份清单即判据本身**)。
+ * 只剥**记账装饰**,不碰正文:复选框、`✅`+日期、(行首)`〔归并〕`指针前缀、
+ * `（进行中@…）`认领标记、行首编号。剥后仍有 ≥ SUPERSEDE_MIN_LEN 字符、
+ * 且这串实质内容逐字出现在出处语料里 ⇒ 按"被取代"放过(见 decidePath)。
+ * 为什么这些装饰可以剥:它们是状态与租约的**记账位**(§1 / §109 把它们的语义定义在台账层),
+ * 而"同一件事的旧修订被新修订取代"恰恰表现为「同一段正文 + 更新的状态/注记/编号」
+ * —— 不剥装饰,这层关系在整行等值下永远看不见(2026-10-10 实测 17 行全属这一型)。
+ */
+export function stripSupersedeDecoration(raw) {
+  let s = normalizeLine(raw)
+  s = s.replace(/^- \[[ xX]\]\s*/, '')
+  s = s.replace(/^(?:✅)?\(\d{4}-\d{2}-\d{2}\)\s*/, '')
+  s = s.replace(/^（【归并】[^）]*）\s*/, '')
+  s = s.replace(/[（(]进行中@[^）)]*[）)]/g, '')
+  s = s.replace(/^G-\d+\s*/, '')
+  return s.trim()
 }
 
 /** 把 src 的计数并进 target(出处侧是 HEAD ⊔ 归档语料的并,所以必须带计数累加)。 */
@@ -104,15 +153,25 @@ export function orphanLines(wtCounts, refCounts) {
  * blockingError 是"这一轮整体没法判"(出处集不完整、根基准错位)—— 它必须先判,否则会把
  * "我没读到归档语料"误报成"这个路径的基准 blob 取不到",归因错方向比不归因更贵。
  *
+ * remoteText(可选):**远端面**的正文(调用方按 REMOTE_REF 现取)。它是**加性的**出处源:
+ *   取不到 / 该路径不在远端 ⇒ 本判据与改动前逐字同结论(保守侧),**不是** undetermined ——
+ *   与 archiveTexts 的"缺了就不许出结论"刻意不对称:归档是判据的必需面,远端只是多一面
+ *   「已提交内容」的语料(2026-10-10:本地落后 15 枚时,被取代的新修订只在远端面上)。
+ *
  * @param {{rel:string, blockingError?:string|null, wtText:string|null, headText:string|null,
- *          archiveTexts?:string[], archiveError?:string|null, wtUnavailableReason?:string}} a
+ *          archiveTexts?:string[], archiveError?:string|null, wtUnavailableReason?:string,
+ *          remoteText?:string|null}} a
  */
 export function decidePath(a) {
   const rel = a.rel
   if (a.blockingError)
     return { path: rel, status: 'undetermined', reason: `本轮整体不可判:${a.blockingError}` }
   if (a.wtText === null || a.wtText === undefined)
-    return { path: rel, status: 'undetermined', reason: a.wtUnavailableReason || '工作区副本取不到' }
+    return {
+      path: rel,
+      status: 'undetermined',
+      reason: a.wtUnavailableReason || '工作区副本取不到',
+    }
   if (a.headText === null || a.headText === undefined)
     return {
       path: rel,
@@ -128,8 +187,27 @@ export function decidePath(a) {
 
   const ref = lineCounts(a.headText)
   for (const text of a.archiveTexts || []) mergeCountsInto(ref, lineCounts(text))
+  if (typeof a.remoteText === 'string') mergeCountsInto(ref, lineCounts(a.remoteText))
   const wt = lineCounts(a.wtText)
-  const orphans = orphanLines(wt, ref)
+  const orphans0 = orphanLines(wt, ref)
+
+  // 「旧修订被取代」第二判据(2026-10-10 立):整行多重集判不出"同一段正文 + 更新的状态/注记",
+  // 于是把**记账装饰**剥掉后,按"实质内容逐字见于出处语料(HEAD ⊔ 归档 ⊔ 远端)"再判一次。
+  // 两条护城河:① 剥离是闭集合(stripSupersedeDecoration,清单一处);② 只有 ≥ SUPERSEDE_MIN_LEN
+  // 的实质内容才算数 —— 短行一律回 needHuman 交人工。放过的行**逐条写进结果与输出**,不许静默。
+  const refTextParts = [normalizeLineText(a.headText)]
+  for (const t of a.archiveTexts || []) refTextParts.push(normalizeLineText(t))
+  if (typeof a.remoteText === 'string') refTextParts.push(normalizeLineText(a.remoteText))
+  const refText = refTextParts.join('\n')
+  const superseded = []
+  const orphans = []
+  for (const o of orphans0) {
+    const body = stripSupersedeDecoration(o.line)
+    if (body.length >= SUPERSEDE_MIN_LEN && refText.includes(body)) superseded.push(o.line)
+    else orphans.push(o)
+  }
+  superseded.sort()
+
   const total = (m) => [...m.values()].reduce((x, y) => x + y, 0)
   return {
     path: rel,
@@ -138,6 +216,9 @@ export function decidePath(a) {
     worktreeDistinctLines: wt.size,
     referenceDistinctLines: ref.size,
     archiveDocs: (a.archiveTexts || []).length,
+    remoteMatched: typeof a.remoteText === 'string',
+    supersededCount: superseded.length,
+    superseded,
     orphans,
   }
 }
@@ -213,10 +294,15 @@ function gather(root, paths) {
 
   const headSpecs = paths.map((p) => `HEAD:${p}`)
   const archiveSpecs = archivePaths.map((p) => `HEAD:${p}`)
+  // 远端面(加性出处源,2026-10-10 立):ff 的目标就是远端 tip,而本地落后时"被取代的
+  // 新修订"只存在于它上面 —— 取不到 / 路径不在远端 ⇒ 该面缺席(与改动前同结论),不判死。
+  const remoteSpecs = paths.map((p) => `${REMOTE_REF}:${p}`)
   const blobs = new Map()
   if (!blockingError) {
     try {
-      for (const [k, v] of catBatch(root, [...headSpecs, ...archiveSpecs], { timeout: 120000 }))
+      for (const [k, v] of catBatch(root, [...headSpecs, ...archiveSpecs, ...remoteSpecs], {
+        timeout: 120000,
+      }))
         blobs.set(k, v)
     } catch (e) {
       blockingError = `被审面批量取材失败:${e?.message ?? e}`
@@ -245,6 +331,7 @@ function gather(root, paths) {
       wtReason = `工作区副本读不出:${e?.message ?? e}`
     }
     if (wtText === null && !blockingError) wtReason = worktreeAbsence(root, rel)
+    const remoteText = blobs.get(remoteSpecs[i])
     return decidePath({
       rel,
       blockingError,
@@ -252,12 +339,17 @@ function gather(root, paths) {
       wtUnavailableReason: wtReason,
       headText: blobs.get(headSpecs[i]) ?? null,
       archiveTexts,
+      remoteText: typeof remoteText === 'string' ? remoteText : null,
     })
   })
+  const remoteMatched = paths.filter((_, i) => typeof blobs.get(remoteSpecs[i]) === 'string').length
   return {
     results,
     archiveDocs: archiveTexts.length,
     archiveChars: archiveTexts.reduce((n, t) => n + t.length, 0),
+    remoteRef: REMOTE_REF,
+    remoteMatched,
+    remoteTotal: paths.length,
     blockingError,
   }
 }
@@ -287,12 +379,16 @@ export function render(results, summary, meta, orphanCap) {
   const lines = []
   lines.push(
     `判定面=${meta.face} 根=${meta.root} 归档语料=${meta.archiveDocs} 件 .md` +
-      (meta.archiveChars ? ` / ${(meta.archiveChars / 1e6).toFixed(2)}M 归一前字符` : ''),
+      (meta.archiveChars ? ` / ${(meta.archiveChars / 1e6).toFixed(2)}M 归一前字符` : '') +
+      (meta.remoteRef
+        ? ` | 远端面=${meta.remoteRef} 命中 ${meta.remoteMatched}/${meta.remoteTotal}` +
+          (meta.remoteMatched === 0
+            ? '(无命中:引用不可达或路径不在远端 —— 该面缺席,结论按 HEAD∪归档 口径,不是判死)'
+            : '')
+        : ''),
   )
   if (meta.defaulted)
-    lines.push(
-      `被问路径来自缺省表(${DEFAULT_PATHS.join(' / ')}),不是调用方显式声明`,
-    )
+    lines.push(`被问路径来自缺省表(${DEFAULT_PATHS.join(' / ')}),不是调用方显式声明`)
   for (const r of results) {
     if (r.status === 'undetermined') {
       lines.push(`  ${r.path}: undetermined —— ${r.reason}`)
@@ -308,6 +404,18 @@ export function render(results, summary, meta, orphanCap) {
     }
     if (orphans.length > orphanCap)
       lines.push(`      …其余 ${orphans.length - orphanCap} 种无出处行未列出(总数见 orphanKinds)`)
+    const superseded = r.superseded || []
+    if (superseded.length > 0) {
+      lines.push(
+        `      另有 ${superseded.length} 行按「旧修订被取代」放过(实质内容逐字见于 HEAD/归档/远端,逐条如下):`,
+      )
+      for (const s of superseded.slice(0, orphanCap)) {
+        const shown = s.length > 240 ? `${s.slice(0, 240)}…` : s
+        lines.push(`      被取代:${shown}`)
+      }
+      if (superseded.length > orphanCap)
+        lines.push(`      …其余 ${superseded.length - orphanCap} 行未列出`)
+    }
   }
   lines.push(
     `汇总:alignable ${summary.alignable} / needHuman ${summary.needHuman} / undetermined ${summary.undetermined}` +
@@ -326,147 +434,322 @@ function selfTest() {
   const head = ['# 计划', '- [x] 甲已完成', '- [ ] 乙进行中'].join('\n')
   const arch = '- [x] 甲已完成'
 
-  t('正例:工作区每行都能在 HEAD 或归档里找到出处 ⇒ alignable', (() => {
-    const r = decidePath({ rel: 'P', wtText: head, headText: head, archiveTexts: [arch] })
-    return r.status === 'alignable' && r.orphans.length === 0
-  })())
+  t(
+    '正例:工作区每行都能在 HEAD 或归档里找到出处 ⇒ alignable',
+    (() => {
+      const r = decidePath({ rel: 'P', wtText: head, headText: head, archiveTexts: [arch] })
+      return r.status === 'alignable' && r.orphans.length === 0
+    })(),
+  )
 
-  t('反例A:一行谁都没有 ⇒ needHuman 并逐字点名该行', (() => {
-    const wt = [head, '- [ ] 某人今天登记的活账'].join('\n')
-    const r = decidePath({ rel: 'P', wtText: wt, headText: head, archiveTexts: [arch] })
-    return (
-      r.status === 'needHuman' &&
-      r.orphans.length === 1 &&
-      r.orphans[0].line === '- [ ] 某人今天登记的活账'
-    )
-  })())
+  t(
+    '反例A:一行谁都没有 ⇒ needHuman 并逐字点名该行',
+    (() => {
+      const wt = [head, '- [ ] 某人今天登记的活账'].join('\n')
+      const r = decidePath({ rel: 'P', wtText: wt, headText: head, archiveTexts: [arch] })
+      return (
+        r.status === 'needHuman' &&
+        r.orphans.length === 1 &&
+        r.orphans[0].line === '- [ ] 某人今天登记的活账'
+      )
+    })(),
+  )
 
-  t('反例B:同行 WT×3 而出处合计×2 ⇒ needHuman(写成集合判据这一支必红)', (() => {
-    const dup = '- [x] 甲已完成'
-    const r = decidePath({ rel: 'P', wtText: [dup, dup, dup].join('\n'), headText: dup, archiveTexts: [dup] })
-    return r.status === 'needHuman' && r.orphans.length === 1 && r.orphans[0].excess === 1
-  })())
+  t(
+    '反例B:同行 WT×3 而出处合计×2 ⇒ needHuman(写成集合判据这一支必红)',
+    (() => {
+      const dup = '- [x] 甲已完成'
+      const r = decidePath({
+        rel: 'P',
+        wtText: [dup, dup, dup].join('\n'),
+        headText: dup,
+        archiveTexts: [dup],
+      })
+      return r.status === 'needHuman' && r.orphans.length === 1 && r.orphans[0].excess === 1
+    })(),
+  )
 
-  t('反例B对照:同行 WT×2 而出处合计×3 ⇒ alignable(多重集不得反过来误伤)', (() => {
-    const dup = '- [x] 甲已完成'
-    const r = decidePath({
-      rel: 'P',
-      wtText: [dup, dup].join('\n'),
-      headText: [dup, dup, dup].join('\n'),
-      archiveTexts: [],
-    })
-    return r.status === 'alignable'
-  })())
+  t(
+    '反例B对照:同行 WT×2 而出处合计×3 ⇒ alignable(多重集不得反过来误伤)',
+    (() => {
+      const dup = '- [x] 甲已完成'
+      const r = decidePath({
+        rel: 'P',
+        wtText: [dup, dup].join('\n'),
+        headText: [dup, dup, dup].join('\n'),
+        archiveTexts: [],
+      })
+      return r.status === 'alignable'
+    })(),
+  )
 
-  t('归一化:同一行只差 CRLF、尾随空白与多空格 ⇒ 有出处', (() => {
-    const r = decidePath({
-      rel: 'P',
-      wtText: '- [x] 甲已完成  \r\n',
-      headText: '  -   [x] 甲已完成',
-      archiveTexts: [],
-    })
-    return r.status === 'alignable'
-  })())
+  t(
+    '归一化:同一行只差 CRLF、尾随空白与多空格 ⇒ 有出处',
+    (() => {
+      const r = decidePath({
+        rel: 'P',
+        wtText: '- [x] 甲已完成  \r\n',
+        headText: '  -   [x] 甲已完成',
+        archiveTexts: [],
+      })
+      return r.status === 'alignable'
+    })(),
+  )
 
-  t('归一化:空行不计(多几个空行不构成无出处)', (() => {
-    const r = decidePath({ rel: 'P', wtText: '\n\n   \n\t\n', headText: '', archiveTexts: [] })
-    return r.status === 'alignable' && r.worktreeNonBlankLines === 0
-  })())
+  t(
+    '归一化:空行不计(多几个空行不构成无出处)',
+    (() => {
+      const r = decidePath({ rel: 'P', wtText: '\n\n   \n\t\n', headText: '', archiveTexts: [] })
+      return r.status === 'alignable' && r.worktreeNonBlankLines === 0
+    })(),
+  )
 
-  t('空文件(0 行)不算异常 ⇒ alignable', (() => {
-    const r = decidePath({ rel: 'P', wtText: '', headText: head, archiveTexts: [arch] })
-    return r.status === 'alignable'
-  })())
+  t(
+    '空文件(0 行)不算异常 ⇒ alignable',
+    (() => {
+      const r = decidePath({ rel: 'P', wtText: '', headText: head, archiveTexts: [arch] })
+      return r.status === 'alignable'
+    })(),
+  )
 
-  t('未判定源1:工作区副本取不到 ⇒ undetermined 并带原因', (() => {
-    const r = decidePath({ rel: 'P', wtText: null, headText: head, wtUnavailableReason: '不在盘上' })
-    return r.status === 'undetermined' && r.reason === '不在盘上'
-  })())
+  t(
+    '未判定源1:工作区副本取不到 ⇒ undetermined 并带原因',
+    (() => {
+      const r = decidePath({
+        rel: 'P',
+        wtText: null,
+        headText: head,
+        wtUnavailableReason: '不在盘上',
+      })
+      return r.status === 'undetermined' && r.reason === '不在盘上'
+    })(),
+  )
 
-  t('未判定源2:被审面基准 blob 取不到 ⇒ undetermined', (() => {
-    const r = decidePath({ rel: 'P', wtText: head, headText: null })
-    return r.status === 'undetermined'
-  })())
+  t(
+    '未判定源2:被审面基准 blob 取不到 ⇒ undetermined',
+    (() => {
+      const r = decidePath({ rel: 'P', wtText: head, headText: null })
+      return r.status === 'undetermined'
+    })(),
+  )
 
-  t('未判定源3:归档语料读不出 ⇒ undetermined(出处集不完整)', (() => {
-    const r = decidePath({
-      rel: 'P',
-      wtText: head,
-      headText: head,
-      archiveTexts: [],
-      archiveError: '清单取不到',
-    })
-    return r.status === 'undetermined' && /清单取不到/.test(r.reason)
-  })())
+  t(
+    '未判定源3:归档语料读不出 ⇒ undetermined(出处集不完整)',
+    (() => {
+      const r = decidePath({
+        rel: 'P',
+        wtText: head,
+        headText: head,
+        archiveTexts: [],
+        archiveError: '清单取不到',
+      })
+      return r.status === 'undetermined' && /清单取不到/.test(r.reason)
+    })(),
+  )
 
-  t('整体不可判(blockingError)优先于其它原因,不得把"没读到语料"说成"基准没了"', (() => {
-    const r = decidePath({ rel: 'P', blockingError: '根基准错位', wtText: null, headText: null })
-    return r.status === 'undetermined' && /根基准错位/.test(r.reason)
-  })())
+  t(
+    '整体不可判(blockingError)优先于其它原因,不得把"没读到语料"说成"基准没了"',
+    (() => {
+      const r = decidePath({ rel: 'P', blockingError: '根基准错位', wtText: null, headText: null })
+      return r.status === 'undetermined' && /根基准错位/.test(r.reason)
+    })(),
+  )
 
-  t('blockerSet:undetermined 不得被算进"全部 alignable"', (() => {
-    const s = aggregate([
-      { path: 'A', status: 'alignable' },
-      { path: 'B', status: 'undetermined' },
-    ])
-    return s.blockerSet === false && s.exitCode === 2
-  })())
+  t(
+    'blockerSet:undetermined 不得被算进"全部 alignable"',
+    (() => {
+      const s = aggregate([
+        { path: 'A', status: 'alignable' },
+        { path: 'B', status: 'undetermined' },
+      ])
+      return s.blockerSet === false && s.exitCode === 2
+    })(),
+  )
 
-  t('blockerSet:needHuman ⇒ false 且 exit 1', (() => {
-    const s = aggregate([
-      { path: 'A', status: 'alignable' },
-      { path: 'B', status: 'needHuman' },
-    ])
-    return s.blockerSet === false && s.exitCode === 1
-  })())
+  t(
+    'blockerSet:needHuman ⇒ false 且 exit 1',
+    (() => {
+      const s = aggregate([
+        { path: 'A', status: 'alignable' },
+        { path: 'B', status: 'needHuman' },
+      ])
+      return s.blockerSet === false && s.exitCode === 1
+    })(),
+  )
 
-  t('blockerSet:全部 alignable ⇒ true 且 exit 0', (() => {
-    const s = aggregate([{ path: 'A', status: 'alignable' }, { path: 'B', status: 'alignable' }])
-    return s.blockerSet === true && s.exitCode === 0
-  })())
+  t(
+    'blockerSet:全部 alignable ⇒ true 且 exit 0',
+    (() => {
+      const s = aggregate([
+        { path: 'A', status: 'alignable' },
+        { path: 'B', status: 'alignable' },
+      ])
+      return s.blockerSet === true && s.exitCode === 0
+    })(),
+  )
 
-  t('零路径被问 ⇒ 判死(exit 2)而不是凭空给出 blockerSet=true', (() => {
-    const s = aggregate([])
-    return s.blockerSet === false && s.exitCode === 2
-  })())
+  t(
+    '零路径被问 ⇒ 判死(exit 2)而不是凭空给出 blockerSet=true',
+    (() => {
+      const s = aggregate([])
+      return s.blockerSet === false && s.exitCode === 2
+    })(),
+  )
 
-  t('未判定优先于 needHuman(不得把没判成写成"判定为不许覆盖")', (() => {
-    const s = aggregate([
-      { path: 'A', status: 'needHuman' },
-      { path: 'B', status: 'undetermined' },
-    ])
-    return s.exitCode === 2
-  })())
+  t(
+    '未判定优先于 needHuman(不得把没判成写成"判定为不许覆盖")',
+    (() => {
+      const s = aggregate([
+        { path: 'A', status: 'needHuman' },
+        { path: 'B', status: 'undetermined' },
+      ])
+      return s.exitCode === 2
+    })(),
+  )
 
-  t('人读面点名闸:25 种无出处行 ⇒ 只列 20 行并报"其余 5 种"', (() => {
-    const many = []
-    for (let i = 0; i < 25; i++) many.push(`- [ ] 独有 ${i}`)
-    const r = decidePath({ rel: 'P', wtText: many.join('\n'), headText: '', archiveTexts: [] })
-    const sum = aggregate([r])
-    const body = render(
-      [r],
-      sum,
-      { face: 'head(默认面)', root: 'R', archiveDocs: 0, archiveChars: 0, defaulted: false },
-      MAX_PRINTED_ORPHANS,
-    )
-    const listed = (body.match(/无出处 ×/g) || []).length
-    return r.orphans.length === 25 && listed === MAX_PRINTED_ORPHANS && /其余 5 种/.test(body)
-  })())
+  t(
+    '人读面点名闸:25 种无出处行 ⇒ 只列 20 行并报"其余 5 种"',
+    (() => {
+      const many = []
+      for (let i = 0; i < 25; i++) many.push(`- [ ] 独有 ${i}`)
+      const r = decidePath({ rel: 'P', wtText: many.join('\n'), headText: '', archiveTexts: [] })
+      const sum = aggregate([r])
+      const body = render(
+        [r],
+        sum,
+        { face: 'head(默认面)', root: 'R', archiveDocs: 0, archiveChars: 0, defaulted: false },
+        MAX_PRINTED_ORPHANS,
+      )
+      const listed = (body.match(/无出处 ×/g) || []).length
+      return r.orphans.length === 25 && listed === MAX_PRINTED_ORPHANS && /其余 5 种/.test(body)
+    })(),
+  )
 
-  t('normalizeLine:制表符与全角空格都算空白,一律折叠为单空格后 trim', (() => {
-    return normalizeLine('\ta \u3000  b  ') === 'a b'
-  })())
+  t(
+    'normalizeLine:制表符与全角空格都算空白,一律折叠为单空格后 trim',
+    (() => {
+      return normalizeLine('\ta \u3000  b  ') === 'a b'
+    })(),
+  )
 
-  t('toRel:反斜杠与 ./ 前缀都归一成仓内相对路径', (() => {
-    return toRel('.\\sub\\DOC.md', 'C:/x') === 'sub/DOC.md' && toRel('./A.md', 'C:/x') === 'A.md'
-  })())
+  t(
+    'toRel:反斜杠与 ./ 前缀都归一成仓内相对路径',
+    (() => {
+      return toRel('.\\sub\\DOC.md', 'C:/x') === 'sub/DOC.md' && toRel('./A.md', 'C:/x') === 'A.md'
+    })(),
+  )
 
-  t('判据有牙对照:同一份输入,把归档语料抽掉后必须从 alignable 翻成 needHuman', (() => {
-    const wt = ['# 计划', '- [x] 甲已完成', '- [ ] 乙进行中'].join('\n')
-    const withArch = decidePath({ rel: 'P', wtText: wt, headText: '# 计划\n- [ ] 乙进行中', archiveTexts: [arch] })
-    const without = decidePath({ rel: 'P', wtText: wt, headText: '# 计划\n- [ ] 乙进行中', archiveTexts: [] })
-    return withArch.status === 'alignable' && without.status === 'needHuman'
-  })())
+  t(
+    '判据有牙对照:同一份输入,把归档语料抽掉后必须从 alignable 翻成 needHuman',
+    (() => {
+      const wt = ['# 计划', '- [x] 甲已完成', '- [ ] 乙进行中'].join('\n')
+      const withArch = decidePath({
+        rel: 'P',
+        wtText: wt,
+        headText: '# 计划\n- [ ] 乙进行中',
+        archiveTexts: [arch],
+      })
+      const without = decidePath({
+        rel: 'P',
+        wtText: wt,
+        headText: '# 计划\n- [ ] 乙进行中',
+        archiveTexts: [],
+      })
+      return withArch.status === 'alignable' && without.status === 'needHuman'
+    })(),
+  )
+
+  // ── 2026-10-10 新增:远端面(加性)与「旧修订被取代」第二判据 ──────────────────────────
+  const LONG_BODY =
+    '**修复某某链路:入参校验、重试与超时三处收口(现读取证,归属链路持有人;本段正文专门长到能过 SUPERSEDE_MIN_LEN 闸)**'
+  const wtClaim = '- [ ] G-700（进行中@2026-10-10/holder）' + LONG_BODY
+  const remoteDone = '- [x] ✅(2026-10-10) G-700 ' + LONG_BODY + ' 〔完成@2026-10-10:已入库〕'
+
+  t(
+    '被取代正例:认领行(旧修订)的实质内容逐字见于远端完成版 ⇒ alignable 并逐条报名',
+    (() => {
+      const r = decidePath({
+        rel: 'P',
+        wtText: wtClaim,
+        headText: '# 计划',
+        archiveTexts: [],
+        remoteText: remoteDone,
+      })
+      return r.status === 'alignable' && r.supersededCount === 1 && r.superseded[0] === wtClaim
+    })(),
+  )
+
+  t(
+    '被取代反例(成对):同一行、远端面缺席 ⇒ 仍 needHuman(远端面才是承重的那一面)',
+    (() => {
+      const r = decidePath({
+        rel: 'P',
+        wtText: wtClaim,
+        headText: '# 计划',
+        archiveTexts: [],
+        remoteText: null,
+      })
+      return r.status === 'needHuman' && r.supersededCount === 0 && r.orphans.length === 1
+    })(),
+  )
+
+  t(
+    '被取代正例二:HEAD 侧完成版即可取代(不必等远端面,两面同权)',
+    (() => {
+      const r = decidePath({ rel: 'P', wtText: wtClaim, headText: remoteDone, archiveTexts: [] })
+      return r.status === 'alignable' && r.supersededCount === 1
+    })(),
+  )
+
+  t(
+    '反洗白:远端面在场,真独有的长行仍须 needHuman(不得被"包含"顺走)',
+    (() => {
+      const uniq = '- [ ] 某人今天刚写的活账:重构权限矩阵(长到足够过长度闸,且任何面里都没有这一段)'
+      const r = decidePath({
+        rel: 'P',
+        wtText: uniq,
+        headText: '# 计划',
+        archiveTexts: [],
+        remoteText: remoteDone,
+      })
+      return r.status === 'needHuman' && r.supersededCount === 0 && r.orphans.length === 1
+    })(),
+  )
+
+  t(
+    '短行保护:装饰剥后不足 SUPERSEDE_MIN_LEN ⇒ 即使远端含该短串也不按被取代放过',
+    (() => {
+      const short = '- [ ] 已入库'
+      const r = decidePath({
+        rel: 'P',
+        wtText: short,
+        headText: '# 计划',
+        archiveTexts: [],
+        remoteText: '前缀 已入库 后缀(远端确实含这三个字)',
+      })
+      return r.status === 'needHuman' && r.supersededCount === 0
+    })(),
+  )
+
+  t(
+    '装饰剥离开集合:复选框/✅日期/〔归并〕前缀/认领标记/行首编号依次剥净',
+    (() => {
+      const s1 = stripSupersedeDecoration('- [x] ✅(2026-10-07) G-814416 ' + LONG_BODY)
+      const s2 = stripSupersedeDecoration(
+        '- [ ] （【归并】重复登记副本·同题不同编号·2026-09-28·说明）G-761 ' + LONG_BODY,
+      )
+      const s3 = stripSupersedeDecoration('- [ ] G-700（进行中@2026-10-10/holder）' + LONG_BODY)
+      return s1 === LONG_BODY && s2 === LONG_BODY && s3 === LONG_BODY
+    })(),
+  )
+
+  t(
+    '精确等值不受新判据影响:老的「有出处」行仍走老路(被取代数为 0)',
+    (() => {
+      const r = decidePath({ rel: 'P', wtText: head, headText: head, archiveTexts: [arch] })
+      return r.status === 'alignable' && r.supersededCount === 0
+    })(),
+  )
 
   let pass = 0
   for (const c of cases) {
@@ -496,6 +779,9 @@ function main() {
     archiveDocs: got.archiveDocs,
     archiveChars: got.archiveChars,
     defaulted: argv.defaulted,
+    remoteRef: got.remoteRef,
+    remoteMatched: got.remoteMatched,
+    remoteTotal: got.remoteTotal,
   }
   if (paths.length === 0) {
     console.log('没有问到任何路径 ⇒ 无法判定(零路径不得被读成"都可以覆盖")')
@@ -511,11 +797,16 @@ function main() {
           paths,
           archiveDocs: got.archiveDocs,
           archiveChars: got.archiveChars,
+          remoteRef: got.remoteRef,
+          remoteMatched: got.remoteMatched,
+          remoteTotal: got.remoteTotal,
           summary,
           results: got.results.map((r) => ({
             ...r,
             orphans: (r.orphans || []).slice(0, MAX_JSON_ORPHANS),
             orphanKinds: (r.orphans || []).length,
+            superseded: (r.superseded || []).slice(0, MAX_JSON_ORPHANS),
+            supersededCount: (r.superseded || []).length,
           })),
         },
         null,
@@ -534,9 +825,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 
 export const __test__ = {
   normalizeLine,
+  normalizeLineText,
   lineCounts,
   mergeCountsInto,
   orphanLines,
+  stripSupersedeDecoration,
   decidePath,
   aggregate,
   toRel,
@@ -546,8 +839,9 @@ export const __test__ = {
   ROOT,
   ARCHIVE_PREFIX,
   DEFAULT_PATHS,
+  REMOTE_REF,
+  SUPERSEDE_MIN_LEN,
   MAX_PRINTED_ORPHANS,
   MAX_JSON_ORPHANS,
 }
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
