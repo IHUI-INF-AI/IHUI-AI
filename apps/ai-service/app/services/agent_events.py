@@ -107,10 +107,10 @@ SSE_GOAL_UPDATED = "goal_updated"
 # **不刷新**即见目标" —— 只带在流首就必然要刷新,那条验收会假绿在"我这边看了对"
 # 而红在别人的真机。注册表随流生命周期注册/注销(llm.py 三处,与 _steer_sessions
 # 同一组锚点),不消费、不清空别的流的队列。
-_goal_listeners: dict[str, list["asyncio.Queue[dict[str, Any]]"]] = {}
+_goal_listeners: dict[str, list[asyncio.Queue[dict[str, Any]]]] = {}
 
 
-def register_goal_listener(conversation_id: str) -> "asyncio.Queue[dict[str, Any]]":
+def register_goal_listener(conversation_id: str) -> asyncio.Queue[dict[str, Any]]:
     """为一条活跃流挂上 goal 监听(空列表即"该会话有流在跑")。"""
     queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=8)
     if conversation_id:
@@ -119,7 +119,7 @@ def register_goal_listener(conversation_id: str) -> "asyncio.Queue[dict[str, Any
 
 
 def unregister_goal_listener(
-    conversation_id: str, queue: "asyncio.Queue[dict[str, Any]]"
+    conversation_id: str, queue: asyncio.Queue[dict[str, Any]]
 ) -> None:
     """流收尾时摘掉自己的监听 —— 桶不删,后续同名会话会拿到一个没人 await 的队列。"""
     if not conversation_id:
@@ -152,7 +152,7 @@ def publish_goal_update(conversation_id: str, payload: dict[str, Any]) -> int:
     return delivered
 
 
-def drain_goal_updates(queue: "asyncio.Queue[dict[str, Any]]") -> list[dict[str, Any]]:
+def drain_goal_updates(queue: asyncio.Queue[dict[str, Any]]) -> list[dict[str, Any]]:
     """非阻塞取干该流的 goal 帧(流循环每轮调用一次,与 steer 的 drain 同位)。"""
     drained: list[dict[str, Any]] = []
     while True:
