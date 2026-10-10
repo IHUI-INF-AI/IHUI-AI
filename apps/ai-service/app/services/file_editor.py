@@ -16,7 +16,7 @@
 - 文件存在 + >1 次 + replace_all=False→ MULTIPLE_MATCHES
 
 安全约束:
-- 路径必须在 _WORKSPACE_ROOTS 白名单内(防 symlink 穿越)
+- 路径必须在 _workspace_roots() 白名单内(防 symlink 穿越;每次调用现算)
 - 路径不能在敏感目录黑名单(.git/node_modules/.venv/dist/build 等)
 - 文件大小上限 1MB
 - old_string 不能为空(new_string 可为空,用于删除代码)
@@ -46,18 +46,23 @@ from .path_guard import SENSITIVE_DIR_PATTERN
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# 安全常量(与 mcp_server._WORKSPACE_ROOTS 同语义)
+# 安全常量(工作区根目录白名单,唯一实现复用 mcp_server._get_workspace_roots)
 # ---------------------------------------------------------------------------
 
-# 工作区根目录白名单:优先复用 mcp_server 的常量,失败则从 env 读取,再失败用 cwd
+# 2026-10-11 修:这里原先写 `from .mcp_server import _WORKSPACE_ROOTS`,而那个常量早在
+# 2026-07-27 就被 mcp_server 换成延迟求值的 `_get_workspace_roots()`(起因见该函数上方的修复说明:
+# 模块加载期求值会早于 main.py 的 settings→environ 同步)。于是这行导入**每次都抛 ImportError**、
+# 被下面的 except 静默吞掉 —— 注释承诺的"复用"从未发生,两份各自读 env 的实现一直并存,
+# 而 typecheck / lint / 其余门全都不响(Python 侧具名导入的悬空符号当时无尺子)。
 def _resolve_workspace_roots() -> list[str]:
     try:
-        from .mcp_server import _WORKSPACE_ROOTS  # type: ignore[attr-defined]
-        if _WORKSPACE_ROOTS:
-            return list(_WORKSPACE_ROOTS)
+        from .mcp_server import _get_workspace_roots
+        roots = _get_workspace_roots()
+        if roots:
+            return list(roots)
     except Exception as e:
         logger.debug(
-            "file_editor._resolve_workspace_roots 加载 mcp_server 常量失败: %s",
+            "file_editor._resolve_workspace_roots 复用 mcp_server 出口失败: %s",
             e,
             exc_info=True,
         )
@@ -68,8 +73,13 @@ def _resolve_workspace_roots() -> list[str]:
     ]
 
 
-# 模块级常量(测试时可用 monkeypatch.setattr 替换)
-_WORKSPACE_ROOTS: list[str] = _resolve_workspace_roots()
+# 工作区白名单的唯一读取出口 —— 每次调用现算,不再有模块级常量。
+# mcp_server 在 2026-07-27 就是为同一症状把常量换成延迟函数,而那次修复只落在它那一侧:
+# main.py 把 settings 同步进 os.environ 发生在模块导入之后,于是 import 期求值只能读到空 env
+# 而落到 os.getcwd(),相对路径被拼成重复前缀(apps/ai-service 打头两遍)。
+def _workspace_roots() -> list[str]:
+    """允许作为工作区根目录的绝对路径集合(现算;测试 monkeypatch.setattr 本函数)。"""
+    return _resolve_workspace_roots()
 
 # 敏感目录黑名单(正则,匹配路径片段,防误改依赖/VCS/构建产物)
 # 批58(三十):正则本体已上移到 path_guard.SENSITIVE_DIR_PATTERN(单一权威源),
@@ -107,8 +117,9 @@ def validate_path(file_path: str) -> tuple[bool, str]:
         # 黑名单优先(防 .git/node_modules 等敏感目录)
         if _SENSITIVE_DIR_PATTERNS.search(resolved_str):
             return False, f"路径在敏感目录黑名单内: {resolved_str}"
-        # 白名单(防 symlink 穿越到 /etc/passwd 等)
-        for root in _WORKSPACE_ROOTS:
+        # 白名单(防 symlink 穿越到 /etc/passwd 等)—— 现算一次,遍历与报错共用同一份
+        roots = _workspace_roots()
+        for root in roots:
             try:
                 resolved.relative_to(root)
                 return True, resolved_str
@@ -116,7 +127,7 @@ def validate_path(file_path: str) -> tuple[bool, str]:
                 continue
         return False, (
             f"路径不在工作区白名单内: {file_path}"
-            f"(允许根目录: {_WORKSPACE_ROOTS})"
+            f"(允许根目录: {roots})"
         )
     except Exception as e:
         logger.warning("file_editor.validate_path 路径解析失败: %s", e, exc_info=True)
@@ -173,7 +184,7 @@ def edit_file(
     """精细编辑文件:基于 old_string/new_string 模式。
 
     Args:
-        file_path: 目标文件路径(必须在 _WORKSPACE_ROOTS 白名单内)
+        file_path: 目标文件路径(必须在 _workspace_roots() 白名单内)
         old_string: 待替换的字符串(不能为空)
         new_string: 替换后的字符串(可为空,表示删除代码)
         replace_all: old_string 多次命中时是否全部替换(默认 False)

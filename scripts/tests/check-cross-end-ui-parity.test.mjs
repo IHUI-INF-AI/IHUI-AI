@@ -16,7 +16,7 @@ import test from 'node:test'
 
 import { __test__ as src } from '../check-cross-end-ui-parity.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
-import { radiusSetOf } from '../lib/radius-tokens.mjs'
+import { bareRoundedOccurrences, radiusSetOf } from '../lib/radius-tokens.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const RUNNER = resolve(ROOT, 'scripts/guardian-runner.mjs')
@@ -514,7 +514,18 @@ test('T21 RE 射程边界必须报名且不得进退出码(覆盖面不是违规
 
 test('T22 圆角按元素归属的解析只许一份实现(遮罩/豁免在别处再写一遍必然漂移)', () => {
   const gate = readFileSync(SELF, 'utf8')
-  assert.match(gate, /import \{ radiusEntriesOf, radiusLookup, radiusSetOf \} from '\.\/lib\/radius-tokens\.mjs'/)
+  // 锁按归一化文本比:长 import 会被 prettier 折成多行,而这条锁在乎的是"从共享 lib 引"这一事实。
+  // 取该模块**全部** import 语句的说明符并集(2026-10-11):符号分两条语句写是合法书写,
+  // 只取第一条会把"另起一行导"读成"不再由 lib 供给"⇒ 形状锁必须钉不变量,不能钉语句条数。
+  const specifiers = [...flat(gate).matchAll(/import \{([^}]*)\} from '\.\/lib\/radius-tokens\.mjs'/g)]
+    .map((m) => m[1])
+    .join(',')
+  assert.ok(specifiers.length > 0, '门不再从 radius-tokens 引实现 ⇒ 圆角解析退回各写一套')
+  for (const sym of ['radiusEntriesOf', 'radiusSetOf', 'bareRoundedOccurrences'])
+    assert.ok(
+      new RegExp(`\\b${sym}\\b`).test(specifiers),
+      `${sym} 不再由 lib 供给 ⇒ 同一处写法一边认一边漏(裸档识别尤其如此)`,
+    )
   assert.ok(
     !/function radiusEntriesOf|function blockOwnerOf|maskComments/.test(gate),
     '门内不得再有第二份圆角解析或遮罩实现(与守门 77 各写一遍 = 同一处标记一边认一边判红)',
@@ -707,4 +718,285 @@ test('T25 同侧多候选不得只查一侧;选腿比较器与出口链只许一
     txt.includes("[a-z][\\w]*(?:-[a-z0-9]+)*"),
     '连字符属性不再整体取键 ⇒ line-height 会被读成 height、max-width 会被跳掉(两个方向都错过)',
   )
+})
+
+/**
+ * ── 票 G-978049 三格的镜像锁(2026-10-11 值守席)────────────────────────────────
+ * 三格各自的"复裁判据"必须各有一把常驻尺子,否则下一次读数变化时台账里那句话又只剩散文。
+ * 每条都配了"摘掉新判据必读红"的构造面 / 形状锁,而不是只钉今天恰好是绿的读数。
+ */
+
+/** 构一条 finding:`verdictOf` 只读 named / geometry / radius / elementRadius 四个计数源。 */
+const legFinding = (name, { geo = [], radius = [], element = 0 }) => ({
+  name,
+  named: [],
+  geometry: { onlyMiniapp: [], onlyRn: geo },
+  radius: { onlyMiniapp: [], onlyRn: radius },
+  elementRadius: { mismatched: Array.from({ length: element }, (_, i) => ({ name: `e${i}` })) },
+})
+const MAIN_KEYS = {
+  counts: 'counts',
+  radius: 'radiusCounts',
+  element: 'elementRadiusCounts',
+  waivers: 'waivers',
+}
+
+test('T26 两把尺子不得互相顶账:主腿下降不得放行 web 腿上升,反向同理,主腿豁免不得免 web', () => {
+  const ledger = {
+    counts: { Foo: 2 },
+    radiusCounts: { Foo: 1 },
+    elementRadiusCounts: { Foo: 0 },
+    webCounts: { Foo: 0 },
+    webRadiusCounts: { Foo: 0 },
+    webElementRadiusCounts: { Foo: 0 },
+    waivers: {},
+    webWaivers: {},
+  }
+  // 这一族主腿从锚点 2 掉到 0(真变好了),web 腿同时新出 1 档分叉。
+  const mainVerdict = src.verdictOf([legFinding('Foo', {})], ledger, MAIN_KEYS)
+  const webVerdict = src.verdictOf([legFinding('Foo', { radius: [8] })], ledger, src.WEB_LEDGER)
+  assert.equal(mainVerdict.red.length, 0, '主腿这一轮是变好,不该红')
+  assert.ok(
+    mainVerdict.shrunk.some((s) => s.name === 'Foo'),
+    '主腿下降必须报名(台账要靠它收紧),不得静默吞掉',
+  )
+  assert.deepEqual(
+    webVerdict.red.map((r) => r.name),
+    ['Foo'],
+    'web 锚点是 0 而主腿锚点是 1/2 ⇒ 两腿一旦共用锚点,这次 web 上升会被主腿的宽名额顶掉(净零逃逸)',
+  )
+  // 反向对照:web 下降不得替主腿上升顶名额。
+  const flip = { ...ledger, counts: { Foo: 0 }, webRadiusCounts: { Foo: 2 } }
+  assert.equal(
+    src.verdictOf([legFinding('Foo', { geo: [4] })], flip, MAIN_KEYS).red.length,
+    1,
+    '主腿新增一档而 web 恰好下降 ⇒ 主腿必须红,否则"两腿互相抵账"成为常态',
+  )
+  assert.equal(
+    src.verdictOf([legFinding('Foo', { radius: [8] })], flip, src.WEB_LEDGER).red.length,
+    0,
+    'web 这一轮在锚点内,不该被主腿的红连坐(连坐会让人学会忽略整条腿)',
+  )
+  // 豁免也分腿:主腿记了理由,web 腿的上升照旧问责。
+  const waivedMain = {
+    ...ledger,
+    waivers: { Foo: { reason: '主腿这一族已逐条裁过', until: '2099-01-01' } },
+  }
+  assert.equal(src.verdictOf([legFinding('Foo', {})], waivedMain, MAIN_KEYS).waived.length, 1)
+  assert.equal(
+    src.verdictOf([legFinding('Foo', { radius: [8] })], waivedMain, src.WEB_LEDGER).red.length,
+    1,
+    '拿主腿的豁免表去免 web 腿 = 给这条腿写个理由就能让那条腿的债凭空蒸发',
+  )
+})
+
+test('T27 整腿未判定不得借另两腿的绿出合格证(失明必须折进退出码)', () => {
+  const pairs = [{ name: 'Foo', miniapp: 'a/Foo.tsx', rn: 'b/Foo.tsx' }]
+  const text = {
+    'a/Foo.tsx': '<View className="rounded-lg" />',
+    'b/Foo.tsx': '<div className="rounded-xl" />',
+  }
+  // 行为半边:档位表取不到 ⇒ 这一腿一条 findings 都不许产出,而每一对都要落"未判定"。
+  const blind = src.webRadiusAudit(pairs, text, null, {})
+  assert.equal(blind.findings.length, 0, '档表失明还产出档差 = 拿猜出来的表打分')
+  assert.equal(blind.undetermined.length, pairs.length, '整腿失明必须逐对报名,不得读成"没有差异"')
+  assert.match(
+    blind.undetermined[0].why,
+    /失明|不得记/,
+    `未判定的措辞要让人看出是尺子瞎了:${blind.undetermined[0].why}`,
+  )
+  // 两侧都读不出档 ⇒ 未判定,不是"两端同值";两侧都读到而集合不同,才叫差异。
+  const emptyBoth = src.webRadiusAudit(
+    pairs,
+    { 'a/Foo.tsx': 'x', 'b/Foo.tsx': 'y' },
+    { lg: 8, xl: 12 },
+    {},
+  )
+  assert.equal(emptyBoth.undetermined.length, 1, '两侧零档被记成"同值"就是把没判写成判过了')
+  assert.equal(
+    src.webRadiusAudit(pairs, text, { lg: 8, xl: 12 }, {}).findings.length,
+    1,
+    '两端都读到档而集合不同,必须是差异',
+  )
+  // 半边"不得借绿":台账钉着 web 锚点而本轮零记录 ⇒ webGhostRed 必须存在,且**先于**主腿求和折进退出码。
+  const txt = flat(readFileSync(SELF, 'utf8'))
+  assert.ok(
+    /const webGhostRed = webPriorKeys\.length && !web\.findings\.length/.test(txt),
+    '整腿消失的判据被摘掉 ⇒ 把 web 腿目录改名就能让这一维安静,而账面只是少几行字',
+  )
+  assert.ok(
+    /if \(webVerdict\.red\.length \|\| webGhostRed\) \{[\s\S]{0,400}?return 1 \}/.test(txt),
+    'web 腿的红/整腿消失没有独立折进退出码 ⇒ 主腿绿会把这一维的失效读成通过',
+  )
+  assert.ok(/消失不是销账/.test(txt), '整腿消失必须把结论印在报告上,只改退出码没人看得见')
+})
+
+test('T28 ① 的复裁判据:VideoPlayer 的 web 残档必须由带理由豁免接管,残档集合一变就得重裁', () => {
+  const led = JSON.parse(readFileSync(LEDGER, 'utf8'))
+  const w = led[src.WEB_LEDGER.waivers]?.VideoPlayer
+  assert.ok(
+    w,
+    '① 的结案条件是"归零 或 被 webWaivers 带理由接管" —— 两者都没有,这一格就还开着',
+  )
+  assert.equal(src.waiverProblem(w), null, '接管式豁免必须带可复核理由(空理由等于没接管)')
+  assert.match(w.reason, /git show|git grep|HEAD:/, '理由必须给出跑得动的现读命令,转述不算取证')
+  assert.match(String(w.until ?? ''), /^\d{4}-\d{2}-\d{2}$/, '豁免必须有到期日(守门 108 同一条要求)')
+  assert.ok(
+    new Date(String(w.until)).getTime() > Date.now(),
+    `① 的接管已过期(${w.until})⇒ 该族回到"锚点还在、理由失效"的状态,必须重新裁`,
+  )
+  // 真值半边(阳性对照):裁决只覆盖"web 自绘控制条的那一档";残档集合一变,豁免就得撤下来重裁。
+  const r = spawnSync(process.execPath, [SELF, '--staged', '--json'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 180000,
+  })
+  assert.equal(r.status, 0, `索引面判红:\n${(r.stdout || r.stderr || '').slice(-500)}`)
+  const j = JSON.parse(r.stdout)
+  const f = (j.web?.findings ?? []).find((x) => x.name === 'VideoPlayer')
+  assert.ok(f, 'web 腿不再产出 VideoPlayer 配对 ⇒ ① 换了载体,请改这一格而不是删掉断言')
+  assert.deepEqual(
+    f.radius.onlyRn,
+    [4],
+    '残档集合变了(尤其舞台档又分叉)⇒ 必须撤下豁免重新裁,不得让整族豁免遮住新的分叉',
+  )
+  assert.deepEqual(f.radius.onlyMiniapp, [], '小程序侧出现新档 = 这一族不再是"单侧 chrome"')
+  for (const v of f.radius.onlyRn)
+    assert.ok(
+      w.reason.includes(String(v)),
+      `豁免理由点名的档与实际残档不一致(${v})⇒ 理由不再是这条读数的取证`,
+    )
+  const v = src.verdictOf(
+    [legFinding('VideoPlayer', { radius: [...f.radius.onlyMiniapp, ...f.radius.onlyRn] })],
+    led,
+    src.WEB_LEDGER,
+  )
+  assert.equal(v.red.length, 0, '① 接管后这一族不该红')
+  assert.ok(
+    v.waived.some((x) => x.name === 'VideoPlayer'),
+    '必须落在"带理由豁免"而不是"没扫到" —— 后者是覆盖面消失,不是债务清偿',
+  )
+})
+
+test('T29 ② 的裸档探针:必须看得见"看不见多少",且不得顺手把裸档并进提取式(三本账未同批重锚)', () => {
+  const table = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, DEFAULT: 8 }
+  const pairs = [{ name: 'Foo', miniapp: 'a/Foo.tsx', rn: 'b/Foo.tsx' }]
+  const text = {
+    'a/Foo.tsx': '<View className="rounded-lg" />\n',
+    'b/Foo.tsx': '<div className="rounded bg-card" />\n// rounded 写在注释里不该算\n',
+  }
+  const web = src.bareRoundedAudit(pairs, text, table, 'web')
+  assert.equal(
+    web.total,
+    1,
+    'web 腿那份裸档必须被点名(它今天不进档集合,于是差值被读成"那一端没写档")',
+  )
+  assert.equal(web.sites[0].side, 'web', 'web 腿的 rn 槽位必须报成 web,报成 rn 就是替另一条腿记账')
+  assert.equal(web.sites[0].px, 8, '裸档的值必须从档位表 DEFAULT 取,取不到要落 null 而不是猜')
+  assert.equal(web.defaultResolved, true)
+  assert.equal(
+    src.bareRoundedAudit(pairs, text, { lg: 8 }, 'web').defaultResolved,
+    false,
+    '表里没有 DEFAULT 时必须报"值未判定" —— 冒充成 8 就是把没判写成判过了',
+  )
+  assert.equal(
+    src.bareRoundedAudit(pairs, text, table, 'main').sites[0].side,
+    'rn',
+    '主腿的同一槽位必须仍报成 rn —— 改名只发生在 web 腿,两腿的名单不得并成一个数',
+  )
+  // 成对反向:具名档 / full / 任意值 / 注释形态一律不算裸档。
+  const named = { 'z/Foo.tsx': 'className="rounded-full rounded-[6px] rounded-lg"' }
+  assert.equal(src.bareRoundedAudit([{ name: 'Foo', miniapp: '', rn: 'z/Foo.tsx' }], named, table, 'web').total, 0)
+  assert.equal(bareRoundedOccurrences('// rounded 只是说明文字', table).count, 0)
+  assert.equal(bareRoundedOccurrences('const a = "rounded"', table).count >= 1, true, '串里的裸档仍是一个真实取用点')
+  // 装车锁:两腿都算、进 json、跟人读面同印 —— 少一处就是"有判据而没人调度"。
+  const txt = flat(readFileSync(SELF, 'utf8'))
+  assert.ok(
+    /web: bareRoundedAudit\(webPairs, text, radiusTable, 'web'\)/.test(txt) &&
+      /main: bareRoundedAudit\(pairs\?\.pairs \?\? \[\], text, radiusTable, 'main'\)/.test(txt),
+    '裸档探针只剩一条腿 ⇒ 另一条腿的"看不见多少"又回到无人报名',
+  )
+  assert.ok(
+    /bareRounded: collected\.bareRounded/.test(txt),
+    '探针不进 --json ⇒ 下一票只能抄终端输出当数据源',
+  )
+  assert.ok(
+    /裸档盲区/.test(txt),
+    '探针不跟人读读数同印 ⇒ "配对文件里读到 0 处"会被读成"全仓没有裸档"',
+  )
+  // 反向锁(本票最关键的一条):提取式今天**不许**认裸档 —— 补认必须与守门 77 / 150 的台账同枚重锚。
+  assert.deepEqual(
+    radiusSetOf('<View className="rounded bg-card" />', table),
+    [],
+    '裸档被并进 radiusItemsInLine 了,而 77 的 HEAD 棘轮与 150 的角色档台账没在同一枚提交里重锚 ⇒ 会把别人钉着的锚顶成"新增红"(§O81 票⑬)',
+  )
+  const j = JSON.parse(
+    spawnSync(process.execPath, [SELF, '--staged', '--json'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      cwd: ROOT,
+      encoding: 'utf8',
+      timeout: 180000,
+    }).stdout,
+  )
+  assert.ok(j.bareRounded && j.bareRounded.web && j.bareRounded.main, '真仓面读不到 bareRounded ⇒ 探针没装车')
+  assert.equal(
+    j.bareRounded.web.total,
+    j.bareRounded.web.sites.reduce((s, x) => s + x.count, 0),
+    '计数与名单不自洽 ⇒ 报名本身不可复核',
+  )
+  assert.equal(
+    j.bareRounded.web.sites.every((x) => typeof x.file === 'string' && Array.isArray(x.lines) && x.lines.length === x.count),
+    true,
+    '站点没有逐条行号 ⇒ 下一票拿到总数也找不到地方',
+  )
+})
+
+test('T30 ③ 的机制复核:web 腿端入口剔除必须真在判,且剔掉的族逐条点名(不得退回个案拆对)', () => {
+  const txt = flat(readFileSync(SELF, 'utf8'))
+  assert.ok(
+    /web: \['apps\/web\/app'\]/.test(txt),
+    'web 种子面被摘 ⇒ 可达性判据对整条腿静默失效(票 G-978049③ 的落地形态消失)',
+  )
+  assert.ok(
+    /export function pruneUnreachableLegs\(/.test(txt) &&
+      /const pruned = pruneUnreachableLegs\(/.test(txt),
+    '剔除函数在而没人调 = 提交链上一路绿灯(守门 70/76/81 同型)',
+  )
+  assert.ok(
+    !/未做端入口可达性剔除\(rn 腿那套图是从 RN 入口走的/.test(txt),
+    '门内头注仍声称"未做剔除" ⇒ 文档与代码分叉,下一个人会照旧文去补一个已经存在的机制',
+  )
+  const r = spawnSync(process.execPath, [SELF, '--staged', '--json'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 180000,
+  })
+  assert.equal(r.status, 0, `索引面判红:\n${(r.stdout || r.stderr || '').slice(-500)}`)
+  const j = JSON.parse(r.stdout)
+  assert.ok(Array.isArray(j.web?.webUnreachable), '--json 不暴露 webUnreachable ⇒ 人读面的点名无源可查')
+  assert.ok('webReachSuspended' in (j.web ?? {}), '挂起半边没有出口 ⇒ "这一轮没剔"与"都活着"在机器面上同形')
+  for (const u of j.web.webUnreachable) {
+    assert.ok(u.name && Array.isArray(u.legs) && u.legs.length > 0, `剔除条目没点名腿:${JSON.stringify(u)}`)
+  }
+  // 剔除不得静默:json 里每一条被剔的族,人读面必须有一行点名它的 ⊘ WD 条目。
+  const human = spawnSync(process.execPath, [SELF, '--staged'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 180000,
+  })
+  for (const u of j.web.webUnreachable)
+    assert.ok(
+      human.stdout.includes(`⊘ WD ${u.name} ——`),
+      `json 剔了 ${u.name} 而人读面没点名 ⇒ 判据输入被改动而账面只少一行字(静默删族)`,
+    )
+  // 个案拆对不得反过来吃掉机制:web 腿的 pairingRejects 若还在钉"死副本",就是③该接管的那一类。
+  const led = JSON.parse(readFileSync(LEDGER, 'utf8'))
+  for (const [name, w] of Object.entries(led[src.WEB_LEDGER.waivers] ?? {}))
+    assert.ok(
+      typeof w?.reason === 'string' && w.reason.trim().length >= 6,
+      `web 腿豁免 ${name} 没有可复核的理由(接管式登记也是登记,不是消红通道)`,
+    )
 })
