@@ -116,6 +116,7 @@ import {
   type VideoContent,
 } from './profileContentTypes'
 import { rpx } from '../utils/rpx'
+import { NavChrome } from '../components/NavChrome'
 
 type ProfileStackNav = NativeStackNavigationProp<MainStackParamList, 'ProfileMain'>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -514,7 +515,7 @@ export function ProfileScreen() {
 
   return (
     <>
-      <View style={styles.navChrome}>
+      <NavChrome>
         <NavBar
           title={t('profile.title')}
           rightActions={[
@@ -526,7 +527,7 @@ export function ProfileScreen() {
             { icon: Menu, onPress: () => setDrawerVisible(true) },
           ]}
         />
-      </View>
+      </NavChrome>
       <ScrollView
         ref={profileScrollRef}
         style={styles.screenScroll}
@@ -1852,7 +1853,6 @@ function getVideoPoster(item: VideoContent): string {
 // ============ StyleSheet(浅色优雅风,圆角仅 12/8/6,无分割线,无蓝色发光) ============
 
 const styles = StyleSheet.create({
-  navChrome: { backgroundColor: tokens.surface.card },
   screenScroll: {
     flex: 1,
     backgroundColor: tokens.surface.bg,

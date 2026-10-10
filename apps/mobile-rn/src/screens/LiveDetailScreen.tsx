@@ -22,6 +22,7 @@ import { formatTimeOnly } from '../utils/date-utils'
 import { getToken } from '../lib/token'
 import { API_BASE_URL } from '../lib/config'
 import { LiveChatClient, type ChatMessage, type ChatStatus } from '../lib/ws/chat-client'
+import { NavChrome } from '../components/NavChrome'
 
 type Route = RouteProp<RootStackParamList, 'LiveDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'LiveDetail'>
@@ -143,7 +144,9 @@ export function LiveDetailScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <NavBar title={live?.title ?? t('liveDetail.title')} onBack={() => navigation.goBack()} />
+      <NavChrome>
+        <NavBar title={live?.title ?? t('liveDetail.title')} onBack={() => navigation.goBack()} />
+      </NavChrome>
       {/* 直播预告 / 主播端入口(孤儿路由修复:LivePreview/LiveHost 注册无入口,直播详情补挂) */}
       <View style={styles.entryRow}>
         {/* 动态按压态不得写成函数形态的 style:Pressable 被 cssInterop 注册过,函数声明会被展开成
