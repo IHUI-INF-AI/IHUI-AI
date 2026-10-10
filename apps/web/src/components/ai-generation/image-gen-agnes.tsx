@@ -28,8 +28,8 @@ import { fetchApi } from '@/lib/api'
 import { type AsyncTask, extractMediaUrls } from '@/lib/ai-media'
 import { ModelSelect, NumImagesSelect, useVendorModels } from './vendor-models'
 
-// Agnes 生图模型 fallback(动态拉取失败时使用):agnes-image-2.5-flash(最新,默认)/ 2.1 / 2.0
-const MODELS = ['agnes-image-2.5-flash', 'agnes-image-2.1-flash', 'agnes-image-2.0-flash'] as const
+// Agnes 生图模型 fallback(动态拉取失败时使用):agnes-image-2.5-flash(最新,默认)/ 2.1(2026-10-10 实测仅存这 2 个)
+const MODELS = ['agnes-image-2.5-flash', 'agnes-image-2.1-flash'] as const
 // Agnes 官方推荐 size 档位(1K/2K/3K/4K)
 const SIZES = ['1K', '2K', '3K', '4K'] as const
 // Agnes 支持的宽高比

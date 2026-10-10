@@ -243,14 +243,16 @@ let modelsCache: ModelsCacheEntry | null = null
  *
  * 映射规则:
  *   provider_code='stepfun'                → stepfun/{model_id}
- *   base_url 含 'agnes-ai.com'             → agnes/{model_id}
+ *   base_url 含 'agnes-ai.com' 或 'agnes-ai.cn'   → agnes/{model_id}
  *   base_url 含 'openai.com' 或其他        → {model_id}(不加前缀,走默认 OpenAI 路径)
  *
  * 反向去前缀在 relay-billing-service.ts 的 stripLiteLLMPrefix 中实现(calculateCost 用)。
  */
 function toLiteLLMModelId(modelId: string, providerCode: string, baseUrl: string): string {
   if (providerCode === 'stepfun') return `stepfun/${modelId}`
-  if (baseUrl && baseUrl.includes('agnes-ai.com')) return `agnes/${modelId}`
+  // 2026-10-10:同时匹配国内域名 api.agnes-ai.cn(境外 apihub.agnes-ai.com 不可达后切至此)
+  if (baseUrl && (baseUrl.includes('agnes-ai.com') || baseUrl.includes('agnes-ai.cn')))
+    return `agnes/${modelId}`
   // P0-5m(2026-07-30):OpenRouter 模型加 openrouter/ 前缀,
   // ai-service _resolve_provider 识别 openrouter/ 前缀后走 LiteLLM 原生 OpenRouter 路由。
   // OpenRouter 上游模型 ID 已含厂商前缀(如 deepseek/deepseek-v4-pro),

@@ -21,13 +21,12 @@ import {
   type ChatAdvancedValues,
 } from './vendor-models'
 
-// Agnes 文本模型 fallback(/v1/models 拉取失败时使用,2026-09-20 实测 6 个)
+// Agnes 文本模型 fallback(/v1/models 拉取失败时使用,2026-10-10 实测 5 个,2.0 已下架)
 const MODELS = [
   'agnes-2.5-flash',
   'agnes-2.5-pro',
   'agnes-2.5-pro-alpha',
   'agnes-2.5-pro-beta',
-  'agnes-2.0-flash',
   'agnes-3.0-flash',
 ] as const
 

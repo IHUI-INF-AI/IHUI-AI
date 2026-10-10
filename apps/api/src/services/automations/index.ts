@@ -26,7 +26,6 @@ export {
   describeScanItemKeyIssue,
   SCAN_ITEM_KEY_SOURCES,
   SCAN_ITEM_KEY_FORMAT,
-  type ScanItemKey,
 } from './scan-item-key.js'
 export { loadAutomationsConfig, validateConfig } from './config.js'
 export { redactSecrets, makeAuditLogger } from './redact.js'
