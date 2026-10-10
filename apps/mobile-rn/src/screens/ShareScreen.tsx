@@ -60,6 +60,7 @@ import { navigateDrawerTab } from '../navigation/tab-utils'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 import { FREE_RESOURCE_URL } from '../constants/links'
+import { NavChrome } from '../components/NavChrome'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -295,11 +296,13 @@ export function ShareScreen() {
         colorScheme={resolvedTheme}
         containerStyle={{ paddingHorizontal: rpx(0), paddingTop: rpx(0), paddingBottom: rpx(0) }}
         renderHeader={() => (
-          <NavBar
-            title={t('share.title')}
-            onBack={() => navigation.goBack()}
-            leftActions={[{ icon: Menu, label: '菜单', onPress: () => setDrawerVisible(true) }]}
-          />
+          <NavChrome>
+            <NavBar
+              title={t('share.title')}
+              onBack={() => navigation.goBack()}
+              leftActions={[{ icon: Menu, label: '菜单', onPress: () => setDrawerVisible(true) }]}
+            />
+          </NavChrome>
         )}
         renderContent={() => (
           <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
