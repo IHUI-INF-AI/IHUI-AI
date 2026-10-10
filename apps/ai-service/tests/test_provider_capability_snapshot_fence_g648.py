@@ -15,8 +15,8 @@ from dataclasses import replace
 
 import pytest
 
-from app.core import provider_caps
 from app.core import provider_capability_snapshot as pcs
+from app.core import provider_caps
 
 
 @pytest.fixture(autouse=True)
