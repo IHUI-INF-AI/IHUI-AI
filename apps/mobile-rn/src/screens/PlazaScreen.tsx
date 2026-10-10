@@ -420,39 +420,41 @@ export function PlazaScreen() {
 
   return (
     <View style={styles.container}>
-      <NavBar
-        title="AI需求广场"
-        leftActions={leftActions}
-        onBack={() => navigation.goBack()}
-        rightActions={[
-          {
-            icon: FolderOpen,
-            label: '分类',
-            // 对齐原项目 navigation-bars showFenLei → 赛道筛选弹层(ScrollTitle + Tab)
-            onPress: () => setCategoryVisible(true),
-          },
-          {
-            icon: User,
-            label: '身份',
-            // 对齐原项目 plaza/index.vue setshowBottom → 切换身份弹窗
-            onPress: () => setIdentityVisible(true),
-          },
-        ]}
-        rightAction={
-          <Pressable
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            onPress={() => setShowSearch((v) => !v)}
-            accessibilityRole="button"
-            accessibilityLabel="搜索"
-          >
-            {showSearch ? (
-              <X size={20} color={tokens.gray.black} />
-            ) : (
-              <Search size={20} color={tokens.gray.black} />
-            )}
-          </Pressable>
-        }
-      />
+      <View style={styles.navChrome}>
+        <NavBar
+          title="AI需求广场"
+          leftActions={leftActions}
+          onBack={() => navigation.goBack()}
+          rightActions={[
+            {
+              icon: FolderOpen,
+              label: '分类',
+              // 对齐原项目 navigation-bars showFenLei → 赛道筛选弹层(ScrollTitle + Tab)
+              onPress: () => setCategoryVisible(true),
+            },
+            {
+              icon: User,
+              label: '身份',
+              // 对齐原项目 plaza/index.vue setshowBottom → 切换身份弹窗
+              onPress: () => setIdentityVisible(true),
+            },
+          ]}
+          rightAction={
+            <Pressable
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              onPress={() => setShowSearch((v) => !v)}
+              accessibilityRole="button"
+              accessibilityLabel="搜索"
+            >
+              {showSearch ? (
+                <X size={20} color={tokens.gray.black} />
+              ) : (
+                <Search size={20} color={tokens.gray.black} />
+              )}
+            </Pressable>
+          }
+        />
+      </View>
       <SharedPlazaScreen
         t={t}
         items={items}
@@ -638,6 +640,7 @@ export function PlazaScreen() {
 }
 
 const styles = StyleSheet.create({
+  navChrome: { backgroundColor: tokens.surface.card },
   container: {
     flex: 1,
     backgroundColor: tokens.surface.bg,
