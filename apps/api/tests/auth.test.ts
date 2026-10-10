@@ -123,8 +123,14 @@ describe('auth — JWT 认证中间件', () => {
       expect(res.statusCode).toBe(401)
     })
 
-    it('verifyAccessToken 抛错返回 401', async () => {
-      mockVerifyAccessToken.mockRejectedValue(new Error('token expired'))
+    // 票 G-396 / G-765 / G-357(机主拍板 2026-10-07)把这一格拆成两条:原用例用
+    // `new Error('token expired')` 表达"token 过期",而未标注任何身份 —— 那与"驱动/依赖
+    // 故障"在代码里同形,于是服务端故障会被端上读成"你要重新登录"。收紧后:
+    // 真会话失效必须带 jose 的 code 才继续占 401,没身份标识的异常改 502 + 独立 errorCode。
+    it('真过期(jose ERR_JWT_EXPIRED)仍返回 401', async () => {
+      mockVerifyAccessToken.mockRejectedValue(
+        Object.assign(new Error('token expired'), { code: 'ERR_JWT_EXPIRED' }),
+      )
       const res = await server.inject({
         method: 'GET',
         url: '/api/test',
@@ -133,6 +139,18 @@ describe('auth — JWT 认证中间件', () => {
       expect(res.statusCode).toBe(401)
       const body = res.json()
       expect(body.message).toContain('Invalid or expired token')
+    })
+
+    it('verifyAccessToken 抛无名异常(依赖故障)返回 502,不再冒充会话死亡', async () => {
+      mockVerifyAccessToken.mockRejectedValue(new Error('connection refused to db:5432'))
+      const res = await server.inject({
+        method: 'GET',
+        url: '/api/test',
+        headers: { authorization: 'Bearer whatever-token' },
+      })
+      expect(res.statusCode).toBe(502)
+      // 原文只进日志:响应体里不得出现驱动/连接故障的措辞(O17 脱敏纪律)
+      expect(JSON.stringify(res.json())).not.toContain('connection refused')
     })
 
     it('token 前后空格被 trim', async () => {
