@@ -97,6 +97,11 @@
     "allow-workbuddy-reset-probe",
     "allow-workbuddy-reset-maintenance",
     "allow-workbuddy-reset-logout",
+    "allow-workbuddy-reset-plan",
+    "allow-workbuddy-quarantine-list",
+    "allow-workbuddy-quarantine-restore",
+    "allow-workbuddy-quarantine-delete",
+    "allow-workbuddy-reset-history",
     "allow-workbuddy-reset-factory"
   ]
 }

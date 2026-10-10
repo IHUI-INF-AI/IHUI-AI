@@ -18869,7 +18869,20 @@
     "resultTitle": "실행 결과",
     "resultOk": "성공",
     "resultFail": "실패",
-    "restartHint": "로그아웃/공장 초기화 후: WorkBuddy를 다시 열면 새 상태로 시작합니다. 격리 디렉터리 경로는 factory_reset 레이어 상세에 표시되며, 항목을 옮기면 완전 복구됩니다."
+    "restartHint": "로그아웃/공장 초기화 후: WorkBuddy를 다시 열면 새 상태로 시작합니다. 격리 디렉터리 경로는 factory_reset 레이어 상세에 표시되며, 항목을 옮기면 완전 복구됩니다.",
+    "quarantineTitle": "격리 디렉터리 관리",
+    "quarantineDesc": "로그아웃/공장 초기화로 이동된 데이터가 여기에 있으며 한 번에 원래대로 복구할 수 있습니다. 확실할 때만 삭제하세요.",
+    "quarantineRefresh": "새로 고침",
+    "quarantineEmpty": "격리 디렉터리가 없습니다",
+    "qEntriesLabel": "항목",
+    "qRestore": "복구",
+    "qDelete": "삭제",
+    "qDeleteConfirm": "삭제된 데이터는 되돌릴 수 없습니다. 확입니까?",
+    "qRestored": "복구되었습니다. 스캔과 목록을 갱신했습니다.",
+    "qDeleted": "격리 디렉터리를 삭제했습니다.",
+    "historyTitle": "작업 기록",
+    "historyEmpty": "아직 기록이 없습니다",
+    "progressLabel": "진행률"
   },
   "checkin": {
     "title": "출석 도우미",
