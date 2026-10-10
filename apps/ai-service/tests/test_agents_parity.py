@@ -356,7 +356,6 @@ async def test_resume_endpoint_resumes_from_checkpoint(monkeypatch):
     # 3) 归属这一维有牙:换一个主体来续跑同一条 checkpoint 必须是 403,
     #    而不是"传谁都行"—— 上面那条绿的读数只有配上这一条才证明 owner 真被读了。
     import pytest
-
     from fastapi import HTTPException
 
     with pytest.raises(HTTPException) as exc_info:
