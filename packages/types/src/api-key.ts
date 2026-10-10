@@ -175,14 +175,15 @@ export const API_KEY_PERMISSIONS = [
 ] as const
 
 /**
- * 新建 API Key 的默认权限集(2026-09-20 收紧)。
+ * 新建 API Key 的默认权限集(2026-10-09 重放 chat:write)。
  *
- * 变更原因(O2):此前默认含 `chat:write`,任何新 key 开箱即可调用付费模型烧余额,
- * 在「向第三方 Agent 全面开放」的前提下等于把计费闸门交给陌生人。
- * 现默认仅开放只读元数据(models:read),写能力必须由创建者显式授予。
+ * 2026-09-20 曾收紧为仅 models:read(防陌生人烧余额);2026-10-09 拍板回放:
+ * 创建勾选流程劝退用户,计费闸门由三层兜底(token/cost 余额 + 5h/1d/7d 限流窗口
+ * + per-model RPM/TPM),新 key 默认余额耗尽态(costBalanceCents=0)本身不可消费,
+ * 必须先充值 ⇒ 开箱即用与资损防线不冲突。
  * 注意:创建时显式传入合法权限数组将覆盖默认值;updateKey 不受影响(可显式清空)。
  */
-export const DEFAULT_API_KEY_PERMISSIONS = ['models:read'] as const
+export const DEFAULT_API_KEY_PERMISSIONS = ['models:read', 'chat:write', 'images:write'] as const
 
 /** 权限点类型(联合类型,编译期枚举校验)。 */
 export type ApiKeyPermission = (typeof API_KEY_PERMISSIONS)[number]
