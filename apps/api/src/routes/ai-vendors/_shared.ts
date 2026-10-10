@@ -398,7 +398,8 @@ export const VENDORS: Record<string, VendorConfig> = {
   agnes: {
     name: 'Agnes AI(文本/图片/视频)',
     keyEnv: 'AGNES_API_KEY',
-    baseUrl: 'https://apihub.agnes-ai.com/v1',
+    // 2026-10-10:境外 apihub.agnes-ai.com 路由不可达,切国内域名(A/B 实测 200/401)
+    baseUrl: 'https://api.agnes-ai.cn/v1',
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
   },
   x5m5x: {

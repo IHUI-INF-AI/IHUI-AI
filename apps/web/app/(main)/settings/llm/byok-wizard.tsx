@@ -129,9 +129,10 @@ const PROVIDERS: readonly WizardProvider[] = [
     name: 'Agnes',
     free: false,
     apiFormat: 'openai_chat',
-    baseUrl: 'https://api.agnes.ai/v1',
-    defaultModelId: 'agnes-chat',
-    signupUrl: 'https://agnes.ai/api-keys',
+    // 2026-10-10:境外域名不可达,改国内网关(/v1/models 实测模型 agnes-2.5-flash 等)
+    baseUrl: 'https://api.agnes-ai.cn/v1',
+    defaultModelId: 'agnes-2.5-flash',
+    signupUrl: 'https://agnes-ai.com',
   },
   {
     code: 'cloudflare',
