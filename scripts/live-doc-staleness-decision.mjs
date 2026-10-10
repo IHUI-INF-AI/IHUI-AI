@@ -106,10 +106,7 @@ export function lineCounts(text) {
 
 /** 整份文本按行归一的投影(逐行 normalizeLine 后以 `\n` 拼接)——「实质内容包含」判据的语料面。 */
 export function normalizeLineText(text) {
-  return String(text)
-    .split('\n')
-    .map(normalizeLine)
-    .join('\n')
+  return String(text).split('\n').map(normalizeLine).join('\n')
 }
 
 /**
@@ -170,7 +167,11 @@ export function decidePath(a) {
   if (a.blockingError)
     return { path: rel, status: 'undetermined', reason: `本轮整体不可判:${a.blockingError}` }
   if (a.wtText === null || a.wtText === undefined)
-    return { path: rel, status: 'undetermined', reason: a.wtUnavailableReason || '工作区副本取不到' }
+    return {
+      path: rel,
+      status: 'undetermined',
+      reason: a.wtUnavailableReason || '工作区副本取不到',
+    }
   if (a.headText === null || a.headText === undefined)
     return {
       path: rel,
@@ -299,7 +300,9 @@ function gather(root, paths) {
   const blobs = new Map()
   if (!blockingError) {
     try {
-      for (const [k, v] of catBatch(root, [...headSpecs, ...archiveSpecs, ...remoteSpecs], { timeout: 120000 }))
+      for (const [k, v] of catBatch(root, [...headSpecs, ...archiveSpecs, ...remoteSpecs], {
+        timeout: 120000,
+      }))
         blobs.set(k, v)
     } catch (e) {
       blockingError = `被审面批量取材失败:${e?.message ?? e}`
@@ -385,9 +388,7 @@ export function render(results, summary, meta, orphanCap) {
         : ''),
   )
   if (meta.defaulted)
-    lines.push(
-      `被问路径来自缺省表(${DEFAULT_PATHS.join(' / ')}),不是调用方显式声明`,
-    )
+    lines.push(`被问路径来自缺省表(${DEFAULT_PATHS.join(' / ')}),不是调用方显式声明`)
   for (const r of results) {
     if (r.status === 'undetermined') {
       lines.push(`  ${r.path}: undetermined —— ${r.reason}`)
@@ -412,7 +413,8 @@ export function render(results, summary, meta, orphanCap) {
         const shown = s.length > 240 ? `${s.slice(0, 240)}…` : s
         lines.push(`      被取代:${shown}`)
       }
-      if (superseded.length > orphanCap) lines.push(`      …其余 ${superseded.length - orphanCap} 行未列出`)
+      if (superseded.length > orphanCap)
+        lines.push(`      …其余 ${superseded.length - orphanCap} 行未列出`)
     }
   }
   lines.push(
@@ -432,209 +434,322 @@ function selfTest() {
   const head = ['# 计划', '- [x] 甲已完成', '- [ ] 乙进行中'].join('\n')
   const arch = '- [x] 甲已完成'
 
-  t('正例:工作区每行都能在 HEAD 或归档里找到出处 ⇒ alignable', (() => {
-    const r = decidePath({ rel: 'P', wtText: head, headText: head, archiveTexts: [arch] })
-    return r.status === 'alignable' && r.orphans.length === 0
-  })())
+  t(
+    '正例:工作区每行都能在 HEAD 或归档里找到出处 ⇒ alignable',
+    (() => {
+      const r = decidePath({ rel: 'P', wtText: head, headText: head, archiveTexts: [arch] })
+      return r.status === 'alignable' && r.orphans.length === 0
+    })(),
+  )
 
-  t('反例A:一行谁都没有 ⇒ needHuman 并逐字点名该行', (() => {
-    const wt = [head, '- [ ] 某人今天登记的活账'].join('\n')
-    const r = decidePath({ rel: 'P', wtText: wt, headText: head, archiveTexts: [arch] })
-    return (
-      r.status === 'needHuman' &&
-      r.orphans.length === 1 &&
-      r.orphans[0].line === '- [ ] 某人今天登记的活账'
-    )
-  })())
+  t(
+    '反例A:一行谁都没有 ⇒ needHuman 并逐字点名该行',
+    (() => {
+      const wt = [head, '- [ ] 某人今天登记的活账'].join('\n')
+      const r = decidePath({ rel: 'P', wtText: wt, headText: head, archiveTexts: [arch] })
+      return (
+        r.status === 'needHuman' &&
+        r.orphans.length === 1 &&
+        r.orphans[0].line === '- [ ] 某人今天登记的活账'
+      )
+    })(),
+  )
 
-  t('反例B:同行 WT×3 而出处合计×2 ⇒ needHuman(写成集合判据这一支必红)', (() => {
-    const dup = '- [x] 甲已完成'
-    const r = decidePath({ rel: 'P', wtText: [dup, dup, dup].join('\n'), headText: dup, archiveTexts: [dup] })
-    return r.status === 'needHuman' && r.orphans.length === 1 && r.orphans[0].excess === 1
-  })())
+  t(
+    '反例B:同行 WT×3 而出处合计×2 ⇒ needHuman(写成集合判据这一支必红)',
+    (() => {
+      const dup = '- [x] 甲已完成'
+      const r = decidePath({
+        rel: 'P',
+        wtText: [dup, dup, dup].join('\n'),
+        headText: dup,
+        archiveTexts: [dup],
+      })
+      return r.status === 'needHuman' && r.orphans.length === 1 && r.orphans[0].excess === 1
+    })(),
+  )
 
-  t('反例B对照:同行 WT×2 而出处合计×3 ⇒ alignable(多重集不得反过来误伤)', (() => {
-    const dup = '- [x] 甲已完成'
-    const r = decidePath({
-      rel: 'P',
-      wtText: [dup, dup].join('\n'),
-      headText: [dup, dup, dup].join('\n'),
-      archiveTexts: [],
-    })
-    return r.status === 'alignable'
-  })())
+  t(
+    '反例B对照:同行 WT×2 而出处合计×3 ⇒ alignable(多重集不得反过来误伤)',
+    (() => {
+      const dup = '- [x] 甲已完成'
+      const r = decidePath({
+        rel: 'P',
+        wtText: [dup, dup].join('\n'),
+        headText: [dup, dup, dup].join('\n'),
+        archiveTexts: [],
+      })
+      return r.status === 'alignable'
+    })(),
+  )
 
-  t('归一化:同一行只差 CRLF、尾随空白与多空格 ⇒ 有出处', (() => {
-    const r = decidePath({
-      rel: 'P',
-      wtText: '- [x] 甲已完成  \r\n',
-      headText: '  -   [x] 甲已完成',
-      archiveTexts: [],
-    })
-    return r.status === 'alignable'
-  })())
+  t(
+    '归一化:同一行只差 CRLF、尾随空白与多空格 ⇒ 有出处',
+    (() => {
+      const r = decidePath({
+        rel: 'P',
+        wtText: '- [x] 甲已完成  \r\n',
+        headText: '  -   [x] 甲已完成',
+        archiveTexts: [],
+      })
+      return r.status === 'alignable'
+    })(),
+  )
 
-  t('归一化:空行不计(多几个空行不构成无出处)', (() => {
-    const r = decidePath({ rel: 'P', wtText: '\n\n   \n\t\n', headText: '', archiveTexts: [] })
-    return r.status === 'alignable' && r.worktreeNonBlankLines === 0
-  })())
+  t(
+    '归一化:空行不计(多几个空行不构成无出处)',
+    (() => {
+      const r = decidePath({ rel: 'P', wtText: '\n\n   \n\t\n', headText: '', archiveTexts: [] })
+      return r.status === 'alignable' && r.worktreeNonBlankLines === 0
+    })(),
+  )
 
-  t('空文件(0 行)不算异常 ⇒ alignable', (() => {
-    const r = decidePath({ rel: 'P', wtText: '', headText: head, archiveTexts: [arch] })
-    return r.status === 'alignable'
-  })())
+  t(
+    '空文件(0 行)不算异常 ⇒ alignable',
+    (() => {
+      const r = decidePath({ rel: 'P', wtText: '', headText: head, archiveTexts: [arch] })
+      return r.status === 'alignable'
+    })(),
+  )
 
-  t('未判定源1:工作区副本取不到 ⇒ undetermined 并带原因', (() => {
-    const r = decidePath({ rel: 'P', wtText: null, headText: head, wtUnavailableReason: '不在盘上' })
-    return r.status === 'undetermined' && r.reason === '不在盘上'
-  })())
+  t(
+    '未判定源1:工作区副本取不到 ⇒ undetermined 并带原因',
+    (() => {
+      const r = decidePath({
+        rel: 'P',
+        wtText: null,
+        headText: head,
+        wtUnavailableReason: '不在盘上',
+      })
+      return r.status === 'undetermined' && r.reason === '不在盘上'
+    })(),
+  )
 
-  t('未判定源2:被审面基准 blob 取不到 ⇒ undetermined', (() => {
-    const r = decidePath({ rel: 'P', wtText: head, headText: null })
-    return r.status === 'undetermined'
-  })())
+  t(
+    '未判定源2:被审面基准 blob 取不到 ⇒ undetermined',
+    (() => {
+      const r = decidePath({ rel: 'P', wtText: head, headText: null })
+      return r.status === 'undetermined'
+    })(),
+  )
 
-  t('未判定源3:归档语料读不出 ⇒ undetermined(出处集不完整)', (() => {
-    const r = decidePath({
-      rel: 'P',
-      wtText: head,
-      headText: head,
-      archiveTexts: [],
-      archiveError: '清单取不到',
-    })
-    return r.status === 'undetermined' && /清单取不到/.test(r.reason)
-  })())
+  t(
+    '未判定源3:归档语料读不出 ⇒ undetermined(出处集不完整)',
+    (() => {
+      const r = decidePath({
+        rel: 'P',
+        wtText: head,
+        headText: head,
+        archiveTexts: [],
+        archiveError: '清单取不到',
+      })
+      return r.status === 'undetermined' && /清单取不到/.test(r.reason)
+    })(),
+  )
 
-  t('整体不可判(blockingError)优先于其它原因,不得把"没读到语料"说成"基准没了"', (() => {
-    const r = decidePath({ rel: 'P', blockingError: '根基准错位', wtText: null, headText: null })
-    return r.status === 'undetermined' && /根基准错位/.test(r.reason)
-  })())
+  t(
+    '整体不可判(blockingError)优先于其它原因,不得把"没读到语料"说成"基准没了"',
+    (() => {
+      const r = decidePath({ rel: 'P', blockingError: '根基准错位', wtText: null, headText: null })
+      return r.status === 'undetermined' && /根基准错位/.test(r.reason)
+    })(),
+  )
 
-  t('blockerSet:undetermined 不得被算进"全部 alignable"', (() => {
-    const s = aggregate([
-      { path: 'A', status: 'alignable' },
-      { path: 'B', status: 'undetermined' },
-    ])
-    return s.blockerSet === false && s.exitCode === 2
-  })())
+  t(
+    'blockerSet:undetermined 不得被算进"全部 alignable"',
+    (() => {
+      const s = aggregate([
+        { path: 'A', status: 'alignable' },
+        { path: 'B', status: 'undetermined' },
+      ])
+      return s.blockerSet === false && s.exitCode === 2
+    })(),
+  )
 
-  t('blockerSet:needHuman ⇒ false 且 exit 1', (() => {
-    const s = aggregate([
-      { path: 'A', status: 'alignable' },
-      { path: 'B', status: 'needHuman' },
-    ])
-    return s.blockerSet === false && s.exitCode === 1
-  })())
+  t(
+    'blockerSet:needHuman ⇒ false 且 exit 1',
+    (() => {
+      const s = aggregate([
+        { path: 'A', status: 'alignable' },
+        { path: 'B', status: 'needHuman' },
+      ])
+      return s.blockerSet === false && s.exitCode === 1
+    })(),
+  )
 
-  t('blockerSet:全部 alignable ⇒ true 且 exit 0', (() => {
-    const s = aggregate([{ path: 'A', status: 'alignable' }, { path: 'B', status: 'alignable' }])
-    return s.blockerSet === true && s.exitCode === 0
-  })())
+  t(
+    'blockerSet:全部 alignable ⇒ true 且 exit 0',
+    (() => {
+      const s = aggregate([
+        { path: 'A', status: 'alignable' },
+        { path: 'B', status: 'alignable' },
+      ])
+      return s.blockerSet === true && s.exitCode === 0
+    })(),
+  )
 
-  t('零路径被问 ⇒ 判死(exit 2)而不是凭空给出 blockerSet=true', (() => {
-    const s = aggregate([])
-    return s.blockerSet === false && s.exitCode === 2
-  })())
+  t(
+    '零路径被问 ⇒ 判死(exit 2)而不是凭空给出 blockerSet=true',
+    (() => {
+      const s = aggregate([])
+      return s.blockerSet === false && s.exitCode === 2
+    })(),
+  )
 
-  t('未判定优先于 needHuman(不得把没判成写成"判定为不许覆盖")', (() => {
-    const s = aggregate([
-      { path: 'A', status: 'needHuman' },
-      { path: 'B', status: 'undetermined' },
-    ])
-    return s.exitCode === 2
-  })())
+  t(
+    '未判定优先于 needHuman(不得把没判成写成"判定为不许覆盖")',
+    (() => {
+      const s = aggregate([
+        { path: 'A', status: 'needHuman' },
+        { path: 'B', status: 'undetermined' },
+      ])
+      return s.exitCode === 2
+    })(),
+  )
 
-  t('人读面点名闸:25 种无出处行 ⇒ 只列 20 行并报"其余 5 种"', (() => {
-    const many = []
-    for (let i = 0; i < 25; i++) many.push(`- [ ] 独有 ${i}`)
-    const r = decidePath({ rel: 'P', wtText: many.join('\n'), headText: '', archiveTexts: [] })
-    const sum = aggregate([r])
-    const body = render(
-      [r],
-      sum,
-      { face: 'head(默认面)', root: 'R', archiveDocs: 0, archiveChars: 0, defaulted: false },
-      MAX_PRINTED_ORPHANS,
-    )
-    const listed = (body.match(/无出处 ×/g) || []).length
-    return r.orphans.length === 25 && listed === MAX_PRINTED_ORPHANS && /其余 5 种/.test(body)
-  })())
+  t(
+    '人读面点名闸:25 种无出处行 ⇒ 只列 20 行并报"其余 5 种"',
+    (() => {
+      const many = []
+      for (let i = 0; i < 25; i++) many.push(`- [ ] 独有 ${i}`)
+      const r = decidePath({ rel: 'P', wtText: many.join('\n'), headText: '', archiveTexts: [] })
+      const sum = aggregate([r])
+      const body = render(
+        [r],
+        sum,
+        { face: 'head(默认面)', root: 'R', archiveDocs: 0, archiveChars: 0, defaulted: false },
+        MAX_PRINTED_ORPHANS,
+      )
+      const listed = (body.match(/无出处 ×/g) || []).length
+      return r.orphans.length === 25 && listed === MAX_PRINTED_ORPHANS && /其余 5 种/.test(body)
+    })(),
+  )
 
-  t('normalizeLine:制表符与全角空格都算空白,一律折叠为单空格后 trim', (() => {
-    return normalizeLine('\ta \u3000  b  ') === 'a b'
-  })())
+  t(
+    'normalizeLine:制表符与全角空格都算空白,一律折叠为单空格后 trim',
+    (() => {
+      return normalizeLine('\ta \u3000  b  ') === 'a b'
+    })(),
+  )
 
-  t('toRel:反斜杠与 ./ 前缀都归一成仓内相对路径', (() => {
-    return toRel('.\\sub\\DOC.md', 'C:/x') === 'sub/DOC.md' && toRel('./A.md', 'C:/x') === 'A.md'
-  })())
+  t(
+    'toRel:反斜杠与 ./ 前缀都归一成仓内相对路径',
+    (() => {
+      return toRel('.\\sub\\DOC.md', 'C:/x') === 'sub/DOC.md' && toRel('./A.md', 'C:/x') === 'A.md'
+    })(),
+  )
 
-  t('判据有牙对照:同一份输入,把归档语料抽掉后必须从 alignable 翻成 needHuman', (() => {
-    const wt = ['# 计划', '- [x] 甲已完成', '- [ ] 乙进行中'].join('\n')
-    const withArch = decidePath({ rel: 'P', wtText: wt, headText: '# 计划\n- [ ] 乙进行中', archiveTexts: [arch] })
-    const without = decidePath({ rel: 'P', wtText: wt, headText: '# 计划\n- [ ] 乙进行中', archiveTexts: [] })
-    return withArch.status === 'alignable' && without.status === 'needHuman'
-  })())
+  t(
+    '判据有牙对照:同一份输入,把归档语料抽掉后必须从 alignable 翻成 needHuman',
+    (() => {
+      const wt = ['# 计划', '- [x] 甲已完成', '- [ ] 乙进行中'].join('\n')
+      const withArch = decidePath({
+        rel: 'P',
+        wtText: wt,
+        headText: '# 计划\n- [ ] 乙进行中',
+        archiveTexts: [arch],
+      })
+      const without = decidePath({
+        rel: 'P',
+        wtText: wt,
+        headText: '# 计划\n- [ ] 乙进行中',
+        archiveTexts: [],
+      })
+      return withArch.status === 'alignable' && without.status === 'needHuman'
+    })(),
+  )
 
   // ── 2026-10-10 新增:远端面(加性)与「旧修订被取代」第二判据 ──────────────────────────
-  const LONG_BODY = '**修复某某链路:入参校验、重试与超时三处收口(现读取证,归属链路持有人;本段正文专门长到能过 SUPERSEDE_MIN_LEN 闸)**'
+  const LONG_BODY =
+    '**修复某某链路:入参校验、重试与超时三处收口(现读取证,归属链路持有人;本段正文专门长到能过 SUPERSEDE_MIN_LEN 闸)**'
   const wtClaim = '- [ ] G-700（进行中@2026-10-10/holder）' + LONG_BODY
   const remoteDone = '- [x] ✅(2026-10-10) G-700 ' + LONG_BODY + ' 〔完成@2026-10-10:已入库〕'
 
-  t('被取代正例:认领行(旧修订)的实质内容逐字见于远端完成版 ⇒ alignable 并逐条报名', (() => {
-    const r = decidePath({
-      rel: 'P',
-      wtText: wtClaim,
-      headText: '# 计划',
-      archiveTexts: [],
-      remoteText: remoteDone,
-    })
-    return r.status === 'alignable' && r.supersededCount === 1 && r.superseded[0] === wtClaim
-  })())
+  t(
+    '被取代正例:认领行(旧修订)的实质内容逐字见于远端完成版 ⇒ alignable 并逐条报名',
+    (() => {
+      const r = decidePath({
+        rel: 'P',
+        wtText: wtClaim,
+        headText: '# 计划',
+        archiveTexts: [],
+        remoteText: remoteDone,
+      })
+      return r.status === 'alignable' && r.supersededCount === 1 && r.superseded[0] === wtClaim
+    })(),
+  )
 
-  t('被取代反例(成对):同一行、远端面缺席 ⇒ 仍 needHuman(远端面才是承重的那一面)', (() => {
-    const r = decidePath({ rel: 'P', wtText: wtClaim, headText: '# 计划', archiveTexts: [], remoteText: null })
-    return r.status === 'needHuman' && r.supersededCount === 0 && r.orphans.length === 1
-  })())
+  t(
+    '被取代反例(成对):同一行、远端面缺席 ⇒ 仍 needHuman(远端面才是承重的那一面)',
+    (() => {
+      const r = decidePath({
+        rel: 'P',
+        wtText: wtClaim,
+        headText: '# 计划',
+        archiveTexts: [],
+        remoteText: null,
+      })
+      return r.status === 'needHuman' && r.supersededCount === 0 && r.orphans.length === 1
+    })(),
+  )
 
-  t('被取代正例二:HEAD 侧完成版即可取代(不必等远端面,两面同权)', (() => {
-    const r = decidePath({ rel: 'P', wtText: wtClaim, headText: remoteDone, archiveTexts: [] })
-    return r.status === 'alignable' && r.supersededCount === 1
-  })())
+  t(
+    '被取代正例二:HEAD 侧完成版即可取代(不必等远端面,两面同权)',
+    (() => {
+      const r = decidePath({ rel: 'P', wtText: wtClaim, headText: remoteDone, archiveTexts: [] })
+      return r.status === 'alignable' && r.supersededCount === 1
+    })(),
+  )
 
-  t('反洗白:远端面在场,真独有的长行仍须 needHuman(不得被"包含"顺走)', (() => {
-    const uniq = '- [ ] 某人今天刚写的活账:重构权限矩阵(长到足够过长度闸,且任何面里都没有这一段)'
-    const r = decidePath({
-      rel: 'P',
-      wtText: uniq,
-      headText: '# 计划',
-      archiveTexts: [],
-      remoteText: remoteDone,
-    })
-    return r.status === 'needHuman' && r.supersededCount === 0 && r.orphans.length === 1
-  })())
+  t(
+    '反洗白:远端面在场,真独有的长行仍须 needHuman(不得被"包含"顺走)',
+    (() => {
+      const uniq = '- [ ] 某人今天刚写的活账:重构权限矩阵(长到足够过长度闸,且任何面里都没有这一段)'
+      const r = decidePath({
+        rel: 'P',
+        wtText: uniq,
+        headText: '# 计划',
+        archiveTexts: [],
+        remoteText: remoteDone,
+      })
+      return r.status === 'needHuman' && r.supersededCount === 0 && r.orphans.length === 1
+    })(),
+  )
 
-  t('短行保护:装饰剥后不足 SUPERSEDE_MIN_LEN ⇒ 即使远端含该短串也不按被取代放过', (() => {
-    const short = '- [ ] 已入库'
-    const r = decidePath({
-      rel: 'P',
-      wtText: short,
-      headText: '# 计划',
-      archiveTexts: [],
-      remoteText: '前缀 已入库 后缀(远端确实含这三个字)',
-    })
-    return r.status === 'needHuman' && r.supersededCount === 0
-  })())
+  t(
+    '短行保护:装饰剥后不足 SUPERSEDE_MIN_LEN ⇒ 即使远端含该短串也不按被取代放过',
+    (() => {
+      const short = '- [ ] 已入库'
+      const r = decidePath({
+        rel: 'P',
+        wtText: short,
+        headText: '# 计划',
+        archiveTexts: [],
+        remoteText: '前缀 已入库 后缀(远端确实含这三个字)',
+      })
+      return r.status === 'needHuman' && r.supersededCount === 0
+    })(),
+  )
 
-  t('装饰剥离开集合:复选框/✅日期/〔归并〕前缀/认领标记/行首编号依次剥净', (() => {
-    const s1 = stripSupersedeDecoration('- [x] ✅(2026-10-07) G-814416 ' + LONG_BODY)
-    const s2 = stripSupersedeDecoration('- [ ] （【归并】重复登记副本·同题不同编号·2026-09-28·说明）G-761 ' + LONG_BODY)
-    const s3 = stripSupersedeDecoration('- [ ] G-700（进行中@2026-10-10/holder）' + LONG_BODY)
-    return s1 === LONG_BODY && s2 === LONG_BODY && s3 === LONG_BODY
-  })())
+  t(
+    '装饰剥离开集合:复选框/✅日期/〔归并〕前缀/认领标记/行首编号依次剥净',
+    (() => {
+      const s1 = stripSupersedeDecoration('- [x] ✅(2026-10-07) G-814416 ' + LONG_BODY)
+      const s2 = stripSupersedeDecoration(
+        '- [ ] （【归并】重复登记副本·同题不同编号·2026-09-28·说明）G-761 ' + LONG_BODY,
+      )
+      const s3 = stripSupersedeDecoration('- [ ] G-700（进行中@2026-10-10/holder）' + LONG_BODY)
+      return s1 === LONG_BODY && s2 === LONG_BODY && s3 === LONG_BODY
+    })(),
+  )
 
-  t('精确等值不受新判据影响:老的「有出处」行仍走老路(被取代数为 0)', (() => {
-    const r = decidePath({ rel: 'P', wtText: head, headText: head, archiveTexts: [arch] })
-    return r.status === 'alignable' && r.supersededCount === 0
-  })())
+  t(
+    '精确等值不受新判据影响:老的「有出处」行仍走老路(被取代数为 0)',
+    (() => {
+      const r = decidePath({ rel: 'P', wtText: head, headText: head, archiveTexts: [arch] })
+      return r.status === 'alignable' && r.supersededCount === 0
+    })(),
+  )
 
   let pass = 0
   for (const c of cases) {
@@ -729,5 +844,4 @@ export const __test__ = {
   MAX_PRINTED_ORPHANS,
   MAX_JSON_ORPHANS,
 }
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
