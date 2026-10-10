@@ -41,27 +41,35 @@ export const SHARED_BUTTON_BASE_CLASS = 'items-center justify-center'
 /**
  * 共享 variant 档(4 档)。
  *
- * 取值口径:**每一档只放两端共同持有的那组原子**;各端在自己的 cva 调用里先展开本表、
- * 再在基座**之外**追加平台专属原子(RN 的底与字色必须显式给,web 靠 CSS 继承)。
- * 空串 = 两端在这一档的共同集合为空,受管的只是"键名 + 谁都不许整档另写"——
- * 写成空串而不是某一端的特化值,是因为把一端的观感推给另一端比并不上档更坏。
+ * 取值口径:**每一档放两端共同持有的那组原子**;各端在自己的 cva 调用里先展开本表、
+ * 再在基座**之外**追加平台专属原子(hover / shadow 只有 web 有,RN 不存在这两个状态)。
+ *
+ * 2026-10-10 机主拍板「统一网页端和手机端按钮样式」后,`outline` 与 `ghost` 不再是空串:
+ * 此前它们被记成"两端共同集合为空",实际是**用空串遮住一处真分叉** —— RN 无 CSS 继承,
+ * 必须显式给底与字色,而 web 靠继承;两端各给各的,账面看"同源"而屏幕上不同形。
+ * 现在以 **web 定稿为基准**把底与字色收进基座,且这一收编对 web 是**零观感变化**:
+ *  - outline:web 原本就写 `bg-background`,RN 原写 `bg-transparent`(透出父容器)。RN 跟 web。
+ *  - ghost:web 原本不写底(继承 = 透明)也不写字色(继承 = foreground),基座显式给出
+ *    `bg-transparent text-foreground` 与 web 的继承结果同值;RN 原本就写这一串,逐字未变。
  */
 export const SHARED_BUTTON_VARIANT_CLASSES: Record<ButtonBaseVariant, string> = {
   default: 'bg-cta text-cta-foreground',
   destructive: 'bg-destructive text-destructive-foreground',
-  // 两端都有 border + border-input;底(RN bg-transparent / web bg-background)与 hover 属平台追加
-  outline: 'border border-input',
-  // RN 无继承必须显式给底与字色,web 什么都不写 —— 共同集合为空
-  ghost: '',
+  outline: 'border border-input bg-background text-foreground',
+  ghost: 'bg-transparent text-foreground',
 }
 
 /**
  * 共享 size 档(2 档)。取值口径同上。
  * sm 两端同为 h-8 px-3(web 另追加 rounded-sm text-xs);
- * lg 今天一端 h-12 一端 h-10,共同集合为空 ⇒ 空串,取同值属全端观感决策(未拍板前不得单方面收敛)。
+ * lg 于 2026-10-10 收编为 `h-10 px-8`(以 web 为基准 —— web 的 Button 高度档位定稿就是
+ * xs 28 / sm 32 / default 36 / lg 40,RN 此前的 h-12=48 不在这套定稿上)。
+ * **两处未随本档统一、如实登记**:① 圆角 —— web 在 lg 追加 `rounded-sm`(4px)而 RN 的基座是
+ * `rounded-md`(6px),归"圆角角色档统一批"(守门 150/77 的地盘),不在本票顺手改;
+ * ② 字号 —— RN 的文字尺寸由内部 <Text> 控制,size 档只作用在盒上,属平台结构差异。
  */
 export const SHARED_BUTTON_SIZE_CLASSES: Record<ButtonBaseSize, string> = {
   sm: 'h-8 px-3',
-  lg: '',
+  lg: 'h-10 px-8',
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
