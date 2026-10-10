@@ -209,6 +209,7 @@ export default function CheckinPage() {
     enabled: boolean
     started: boolean
     next_run: string | null
+    next_run_qoder: string | null
   } | null>(null)
 
   // 按账号过滤 + 加载更多(返回条数 < 请求量即无更多)
@@ -1017,6 +1018,11 @@ export default function CheckinPage() {
               {scheduler.enabled && scheduler.started && scheduler.next_run && (
                 <span className="font-normal text-muted-foreground">
                   {t('schedulerNextRun', { time: formatShortTime(scheduler.next_run) })}
+                </span>
+              )}
+              {scheduler.enabled && scheduler.started && scheduler.next_run_qoder && (
+                <span className="font-normal text-muted-foreground">
+                  {t('schedulerNextRunQoder', { time: formatShortTime(scheduler.next_run_qoder) })}
                 </span>
               )}
             </span>
