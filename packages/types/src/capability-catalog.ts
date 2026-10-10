@@ -409,7 +409,8 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     idempotencyRequired: false,
     description: '工具/资源/提示词清单',
     // POST /v1/mcp/resources/read 与 GET /v1/mcp/tools 同属 MCP 网关只读面,
-    // 闸口规则在 apps/api/src/routes/v1-mcp-gateway.ts:164-168 要求 tools:read;
+    // 闸口规则在 apps/api/src/routes/v1-mcp-gateway.ts 的 preHandler `requireCapabilityRules([...])`
+    // 规则表里两条 `scope: 'tools:read'` 条目上要求 tools:read;
     // 此前只登记了清单端点、漏登记读取端点,机器凭据无法从 capabilities 清单发现它。
     routes: [
       'GET /v1/tools',
@@ -442,9 +443,12 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     idempotencyRequired: false,
     description: '作为 MCP server 被外部 agent 长连接接入',
     // 三条端点全部由 apps/ai-service 提供,apps/api 契约里没有:
-    //   POST /api/mcp                      ← app/routers/mcp_official.py:587(main.py:698 挂 /api)
-    //   POST /api/mcp/export/streamable    ← app/services/mcp_export.py:15(ENABLE_MCP_EXPORT 时挂载)
-    //   GET  /api/mcp/export/sse           ← app/services/mcp_export.py:13
+    //   POST /api/mcp                      ← app/routers/mcp_official.py 的 `@router.post("/mcp")`,
+    //     由 app/main.py `include_router(mcp_official.router, prefix="/api")` 挂 /api
+    //   POST /api/mcp/export/streamable    ← app/services/mcp_export.py 模块 docstring 传输清单的
+    //     streamable-http 行(ENABLE_MCP_EXPORT 时挂载)
+    //   GET  /api/mcp/export/sse           ← app/services/mcp_export.py 模块 docstring 传输清单的
+    //     sse 行
     host: 'ai-service',
     routes: ['POST /api/mcp', 'POST /api/mcp/export/streamable', 'GET /api/mcp/export/sse'],
   }),
@@ -704,8 +708,8 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     idempotencyRequired: false,
     description: '实时语音/多模态长连接(占用并发槽)',
     // WS 声明:OpenAPI 3.0 不描述 WebSocket,`apps/api/openapi.json` 里必然没有对应项。
-    // 真实注册点 apps/api/src/routes/v1-realtime.ts:742(`server.get('/v1/realtime',
-    // { websocket: true, ... })`)。判据侧的豁免与导出器同源:
+    // 真实注册点 apps/api/src/routes/v1-realtime.ts 的 `server.get('/v1/realtime',
+    // { websocket: true, ... })`。判据侧的豁免与导出器同源:
     // apps/api/scripts/export-openapi.ts `unmatchedRouteIsExpected()` + scripts/openapi-check.mjs。
     routes: ['WS /v1/realtime'],
   }),
@@ -780,7 +784,8 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     thirdPartyEligible: false,
     idempotencyRequired: false,
     description: '沙箱内执行命令;开放前提=强制 docker --network=none 后端 + 管理员显式签发',
-    // POST /api/sandbox/run ← app/routers/sandbox_exec.py:47(prefix /sandbox)+ :73(main.py:843 挂 /api)
+    // POST /api/sandbox/run ← app/routers/sandbox_exec.py 的 `APIRouter(prefix="/sandbox")` +
+    //   同文件 `@router.post("/run")`(app/main.py `include_router(sandbox_exec_router.router, prefix="/api")` 挂 /api)
     host: 'ai-service',
     routes: ['POST /api/sandbox/run'],
     tools: ['run_command', 'run_in_background', 'bg_task_status'],
@@ -795,8 +800,9 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     idempotencyRequired: false,
     description: '浏览器自动化(可触达外部站点与真实账号)',
     // O8b(2026-09-21)路径修正 + 归属修正:`/api/browser-hub` 两端都不存在。
-    // 真实面是 apps/ai-service 的 browser_hub —— app/routers/browser_hub.py:46 的
-    // router prefix 是 `/browser`(不是 `/browser-hub`),经 app/main.py:737 挂在 `/api`
+    // 真实面是 apps/ai-service 的 browser_hub —— app/routers/browser_hub.py 的
+    // `APIRouter(prefix="/browser", ...)` 声明的 router prefix 是 `/browser`(不是 `/browser-hub`),
+    // 经 app/main.py 的 `include_router(browser_hub_router.router, prefix="/api")` 挂在 `/api`
     // 下 ⇒ 实际 `/api/browser/sessions*`(POST /sessions、/sessions/{id}/navigate 等)。
     // 注意:apps/api 契约里另有 `/api/browser/probe|screenshot`(服务端渲染截图面),
     // 与本 scope 的 browser_* 工具面无关,不得混用。
@@ -873,8 +879,9 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     thirdPartyEligible: false,
     idempotencyRequired: false,
     description: '本机 GUI 控制(键鼠/剪贴板)—— 永不开放给外部 key',
-    // POST /api/computer-use/* ← app/routers/computer_use.py:56(prefix /computer-use,
-    // 8 个 @router.post)+ app/main.py:819 挂 /api
+    // POST /api/computer-use/* ← app/routers/computer_use.py 的
+    //   `APIRouter(prefix="/computer-use", ...)`(该文件 8 个 @router.post)+
+    //   app/main.py `include_router(computer_use_router.router, prefix="/api")` 挂 /api
     host: 'ai-service',
     routes: ['POST /api/computer-use/*'],
     tools: [
@@ -902,7 +909,8 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     description: 'URL 抓取(SSRF 面,必须过出口白名单)',
     // O8b(2026-09-21)删除不实声明:`POST /api/web/fetch` 两端源码里都不存在路由
     // (apps/api/src/routes/** 无 /api/web/* 注册点;ai-service 只有
-    // app/routers/web_tools.py:49 `POST /api/web-tools/call` —— 按 tool 名分发的统一
+    // app/routers/web_tools.py 的 `@router.post("/web-tools/call")`(对外
+    // `POST /api/web-tools/call`)—— 按 tool 名分发的统一
     // 入口,不是本 scope 的 REST 端点)。抓取能力当前只以 MCP 工具形态存在。
     // scope 与 tools 保留(闸口与 MCP 工具仍引用),真实 REST 端点落地后再登记。
     routes: [],
@@ -918,8 +926,8 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     idempotencyRequired: false,
     description: '联网搜索与整站爬取(资源密集)',
     // O8b(2026-09-21)删除不实声明:`POST /api/web/search`、`POST /api/web/crawl` 两端
-    // 均无注册点。真实面是 ai-service 的工具分发口 `app/routers/tools.py:49`
-    // `POST /api/tools/search-web`(整站爬取 map_site/crawl_site 当前只有 MCP 工具形态,
+    // 均无注册点。真实面是 ai-service 的工具分发口 `app/routers/tools.py` 的
+    // `@router.post("/tools/search-web")`(对外 `POST /api/tools/search-web`;整站爬取 map_site/crawl_site 当前只有 MCP 工具形态,
     // 无 HTTP 端点)。scope 与 tools 保留,REST 面落地后再登记。
     routes: [],
     tools: ['web_search', 'search_web', 'map_site', 'crawl_site'],
@@ -948,8 +956,11 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     billable: false,
     // 2026-09-28 由 true 改 false(机主拍板"按能力目录逐项放开"第一档的当轮实测,详见本行注释):
     // 标注写着"可第三方",而它的两个 handler 都是**整片读**、一个身份参数都不收 ——
-    //   GET /api/connectors          ← app/routers/connectors.py:105 `connector_store.list_all()`
-    //   GET /api/mcp/external/servers ← app/routers/mcp.py:346        `manager.list_registered()`
+    //   GET /api/connectors          ← app/routers/connectors.py 的 `@router.get("")` handler;
+    //     该处当轮点名的 `connector_store.list_all()` 已随 G-371 落属主消失(HEAD 面该 handler 调的是
+    //     `connector_store.list_owned(user_id)`)
+    //   GET /api/mcp/external/servers ← app/routers/mcp.py 的 `@router.get("/mcp/external/servers")`
+    //     handler(`manager.list_registered()`)
     // 两处都是全站单文件 store,函数体里没有 user_id/owner 条件,所以"scoped-read"这个档位
     // 名不副实:没有 scope,任何有效凭据都能读到别人的配置。**放开等于造一个越权面**。
     // 恢复成 true 的前置 = 先给连接器配置落归属(另计一票),而不是把标注改回去。
@@ -966,8 +977,10 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     thirdPartyEligible: false,
     idempotencyRequired: false,
     description: '外部连接器/MCP server 清单与能力(已按调用方属主过滤;第三方开放仍待机主重开)',
-    // GET /api/connectors      ← app/routers/connectors.py:29(prefix /connectors)+ :107(@router.get(""))
-    // GET /api/mcp/external/servers ← app/routers/mcp.py:346(main.py:697 挂 /api)
+    // GET /api/connectors      ← app/routers/connectors.py 的 `APIRouter(prefix="/connectors")` +
+    //   同文件 `@router.get("", ...)`(app/main.py `include_router(connectors.router, prefix="/api")` 挂 /api)
+    // GET /api/mcp/external/servers ← app/routers/mcp.py 的 `@router.get("/mcp/external/servers", ...)`
+    //   (app/main.py `include_router(mcp.router, prefix="/api")` 挂 /api)
     host: 'ai-service',
     routes: ['GET /api/connectors', 'GET /api/mcp/external/servers'],
   }),
@@ -980,8 +993,10 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     thirdPartyEligible: false,
     idempotencyRequired: true,
     description: '注册/启停外部 MCP server —— 等于注入可执行工具,不对第三方 key 开放',
-    // POST /api/mcp/external/servers             ← app/routers/mcp.py:362
-    // POST /api/mcp/external/servers/{name}/connect ← app/routers/mcp.py:426
+    // POST /api/mcp/external/servers             ← app/routers/mcp.py 的
+    //   `@router.post("/mcp/external/servers", ...)`
+    // POST /api/mcp/external/servers/{name}/connect ← app/routers/mcp.py 的
+    //   `@router.post("/mcp/external/servers/{name}/connect", ...)`
     // O8b(2026-09-21)路径修正:原声明 `POST /api/mcp/external/connect` 是臆写的短形式,
     // 两端源码里都不存在(ai-service 的 connect 路由带 {name} 段)。
     host: 'ai-service',
@@ -1009,9 +1024,11 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     idempotencyRequired: true,
     description: '安装/启停技能(注入 agent 行为)',
     // O8b(2026-09-21)删除不实声明:`POST /api/skills/install` 两端均无注册点 ——
-    // ai-service 的 `/install` 是 MCP store(`app/routers/mcp.py:547 POST /api/mcp/store/install`),
+    // ai-service 的 `/install` 是 MCP store(`app/routers/mcp.py` 的
+    // `@router.post("/mcp/store/install", ...)`,对外 `POST /api/mcp/store/install`),
     // 属 tools/mcp 面而非技能面。启停面**确实存在**但是**人 JWT 专用**
-    // (`apps/api/src/routes/skills.ts:915 POST /api/skills/:name/enable` 走 checkAuth,
+    // (`apps/api/src/routes/skills.ts` 的 `server.post('/skills/:name/enable', ...)`,
+    // 对外 POST /api/skills/:name/enable,走 checkAuth,
     // 不挂能力闸),而 `routes` 字段的语义是"该能力的对外端点";本 scope 又已是
     // thirdPartyEligible=false ⇒ 机器凭据永远拿不到。登记它只会让契约与文档
     // 声称一个机器侧根本调不到的端点,故按"暂无对外端点"处理。
