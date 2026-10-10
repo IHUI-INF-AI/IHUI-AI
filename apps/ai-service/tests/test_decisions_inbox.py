@@ -30,7 +30,6 @@ from app.routers import decisions as decisions_router
 from app.routers import engine as engine_router
 from app.services import agent_loop_v2 as alv2
 
-
 # =============================================================================
 # fixtures(独立最小 app;身份可变)
 # =============================================================================

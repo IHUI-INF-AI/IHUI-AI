@@ -145,9 +145,8 @@ def test_4_live_with_dead_channel_exits_undetermined(tmp_path: Path) -> None:
     这条是本会话实测逼出来的:keyless 免费通道今天回 402,而旧行为是"报告照写、RC=0"——
     读报告的人会把它登记成"当期数字已出"。
     """
-    import os
-
     import json
+    import os
 
     os.makedirs(tmp_path / "live-dead", exist_ok=True)
     # 只取评测集第一题:本题要证的是"零回答 ⇒ 退出码 2",与题量无关;
