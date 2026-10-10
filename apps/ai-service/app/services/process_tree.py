@@ -62,16 +62,16 @@ async def kill_process_tree(pid: int) -> None:
     # POSIX:先按进程组杀(子进程同组时整组退场),拿不到组再单杀。
     # os.getpgid/killpg 是 POSIX-only,Windows 的 mypy 存根没有 —— 静态存根缺位,非真错误。
     try:
-        pgid = os.getpgid(pid)  # type: ignore[attr-defined]
+        pgid = os.getpgid(pid)  # type: ignore[attr-defined, unused-ignore]
     except ProcessLookupError:
         return
     except OSError:
         pgid = None
     try:
         if pgid:
-            os.killpg(pgid, signal.SIGKILL)  # type: ignore[attr-defined]
+            os.killpg(pgid, signal.SIGKILL)  # type: ignore[attr-defined, unused-ignore]
         else:
-            os.kill(pid, signal.SIGKILL)  # type: ignore[attr-defined]
+            os.kill(pid, signal.SIGKILL)  # type: ignore[attr-defined, unused-ignore]
     except ProcessLookupError:
         pass
     except OSError as e:
