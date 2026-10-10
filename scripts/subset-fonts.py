@@ -30,9 +30,6 @@
 依赖: fonttools (pip install fonttools brotli)
 """
 import argparse
-import json
-import os
-import re
 import subprocess
 import sys
 from pathlib import Path
