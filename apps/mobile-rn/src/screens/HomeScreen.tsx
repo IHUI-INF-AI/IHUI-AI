@@ -1485,22 +1485,24 @@ export function HomeScreen() {
        *  左按钮☰ 触发 Drawer(对齐 handleNavClick);右按钮🤝/🎁 对齐 join-click/share-image
        *  右侧追加分类按钮(对齐 Uniapp tools 页 showFenLei → tagWrapShow 赛道分类弹层)
        *  NavBar 置于 ScrollView 外,等价于 Uniapp viscosity=true 粘性效果(始终固定顶部) */}
-      <NavBar
-        title="智汇AI社区"
-        leftActions={navLeftActions}
-        rightActions={navRightActions}
-        rightAction={
-          <TouchableOpacity
-            onPress={() => setFenleiVisible(true)}
-            hitSlop={8}
-            activeOpacity={0.6}
-            accessibilityRole="button"
-            accessibilityLabel="分类"
-          >
-            <SlidersHorizontal size={20} color={tokens.text.primary} />
-          </TouchableOpacity>
-        }
-      />
+      <View style={shellStyles.navWrap}>
+        <NavBar
+          title="智汇AI社区"
+          leftActions={navLeftActions}
+          rightActions={navRightActions}
+          rightAction={
+            <TouchableOpacity
+              onPress={() => setFenleiVisible(true)}
+              hitSlop={8}
+              activeOpacity={0.6}
+              accessibilityRole="button"
+              accessibilityLabel="分类"
+            >
+              <SlidersHorizontal size={20} color={tokens.text.primary} />
+            </TouchableOpacity>
+          }
+        />
+      </View>
       <ScrollView
         ref={scrollRef}
         style={shellStyles.scroll}
@@ -2110,6 +2112,8 @@ export function HomeScreen() {
 
 const shellStyles = {
   root: { flex: 1, backgroundColor: tokens.surface.bg } as const,
+  // 顶栏行取白档,与 App.tsx 给 Home 的状态栏带同色;主体仍走 root 的 surface.bg
+  navWrap: { backgroundColor: tokens.surface.card } as const,
   scroll: { flex: 1 } as const,
   scrollContent: { paddingBottom: rpx(120) } as const,
   // 轮播(对齐 Uniapp custom-carousel-wrapper:margin 18rpx 0 0 0 ≈ marginTop: rpx(18) + 圆角 30rpx≈15)
