@@ -1710,6 +1710,93 @@ export async function workbuddyResetHistory(): Promise<WbHistoryItem[]> {
   return await invokeIpc<WbHistoryItem[]>('workbuddy_reset_history')
 }
 
+// ================== Qoder 程序一键重置(2026-10-10 立) ==================
+// 目标=Qoder CN 双根:~/.qoder-cn(agent 核心)+ %APPDATA%/com.qodercn.app.stable(Electron 壳)。
+// 报告类型与 WorkBuddy 重置共用(Wb* 系列);边界同款:本地清理+官方渠道,不做指纹伪造。
+
+/** Qoder 探针:双根逐条目分类(维护/登录态/设备身份/用户资产)并算体量。 */
+export async function qoderResetProbe(): Promise<WbProbeReport> {
+  requireTauri()
+  return await invokeIpc<WbProbeReport>('qoder_reset_probe')
+}
+
+/** Qoder 计划预览:与执行层共用判据,执行前精确列出"会动什么/多大"。 */
+export async function qoderResetPlan(
+  mode: 'maintenance' | 'logout' | 'factory',
+  includeDeviceId: boolean,
+): Promise<WbPlanReport> {
+  requireTauri()
+  return await invokeIpc<WbPlanReport>('qoder_reset_plan', {
+    mode,
+    includeDeviceId: includeDeviceId ?? false,
+  })
+}
+
+/** Qoder 维护清理:清 logs/tmp/file-history(可再生编辑历史)/shell-snapshots 等子条目 +
+ *  壳面 Cache/Code Cache/GPUCache;登录态(.auth)、聊天记录(main.sqlite)、项目不动。 */
+export async function qoderResetMaintenance(
+  killRunning: boolean,
+  onProgress?: WbProgressHandler,
+): Promise<WbResetReport> {
+  requireTauri()
+  return await invokeIpc<WbResetReport>('qoder_reset_maintenance', {
+    killRunning: killRunning ?? false,
+    onProgress: progressChannel(onProgress),
+  })
+}
+
+/** Qoder 登出重置:.auth + Partitions(webview 登录态)搬入隔离区(可一键恢复);
+ *  includeDeviceId=true 连带隔离 installation_id + umid-cache.json(本地清除→应用自行重注册)。 */
+export async function qoderResetLogout(
+  killRunning: boolean,
+  includeDeviceId: boolean,
+  onProgress?: WbProgressHandler,
+): Promise<WbResetReport> {
+  requireTauri()
+  return await invokeIpc<WbResetReport>('qoder_reset_logout', {
+    killRunning: killRunning ?? false,
+    includeDeviceId: includeDeviceId ?? false,
+    onProgress: progressChannel(onProgress),
+  })
+}
+
+/** Qoder 出厂重置:两根顶层条目分别整体搬移到各自同卷隔离目录(rename,秒级、零丢失、可逆)。 */
+export async function qoderResetFactory(
+  killRunning: boolean,
+  onProgress?: WbProgressHandler,
+): Promise<WbResetReport> {
+  requireTauri()
+  return await invokeIpc<WbResetReport>('qoder_reset_factory', {
+    killRunning: killRunning ?? false,
+    onProgress: progressChannel(onProgress),
+  })
+}
+
+/** Qoder 隔离区列表:扫描两根各自同卷的 .qoder-quarantine-<ts>(同父去重)。 */
+export async function qoderQuarantineList(): Promise<WbQuarantineInfo[]> {
+  requireTauri()
+  return await invokeIpc<WbQuarantineInfo[]>('qoder_quarantine_list')
+}
+
+/** Qoder 从隔离区一键恢复(按 manifest 原样搬回;目标已存在拒绝覆盖)。 */
+export async function qoderQuarantineRestore(quarantinePath: string): Promise<WbResetReport> {
+  requireTauri()
+  return await invokeIpc<WbResetReport>('qoder_quarantine_restore', { quarantinePath })
+}
+
+/** Qoder 删除隔离区(护栏:目录名格式+父目录必须匹配两根之一)。 */
+export async function qoderQuarantineDelete(quarantinePath: string): Promise<WbResetReport> {
+  requireTauri()
+  return await invokeIpc<WbResetReport>('qoder_quarantine_delete', { quarantinePath })
+}
+
+/** Qoder 历史台账(根① reset-history/*.json,按时间倒序,上限 50)。 */
+export async function qoderResetHistory(): Promise<WbHistoryItem[]> {
+  requireTauri()
+  return await invokeIpc<WbHistoryItem[]>('qoder_reset_history')
+}
+
+
 /** 备份指定账号的 9 类 TRAE 现场文件到应用数据目录快照区。 */
 export async function checkinSnapshotBackup(userId: string): Promise<CheckinBackupReport> {
   requireTauri()
