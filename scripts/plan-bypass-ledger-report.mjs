@@ -384,6 +384,7 @@ export function classifyAll({
         unknownBatchAmbiguous: 0,
         normalByRecord: 0,
         normalByEcho: 0,
+        normalByLanded: 0,
         normalByBatch: 0,
         total: 0,
       })
@@ -391,7 +392,8 @@ export function classifyAll({
     row.total++
     if (state === 'normal') {
       row.normal++
-      if (proof === 'round-record') row.normalByRecord++
+      if (proof === 'safe-commit-landed') row.normalByLanded++
+      else if (proof === 'round-record') row.normalByRecord++
       else if (proof === 'gate-batch-run') row.normalByBatch++
       else row.normalByEcho++
     } else if (state === 'skipped') row.skipped++
@@ -842,6 +844,7 @@ async function run({ argv }) {
     unknownUnsplittable: rows.reduce((a, r) => a + r.unknownUnsplittable, 0),
     unknownBatchAmbiguous: rows.reduce((a, r) => a + r.unknownBatchAmbiguous, 0),
     normalByBatch: rows.reduce((a, r) => a + r.normalByBatch, 0),
+    normalByLanded: rows.reduce((a, r) => a + r.normalByLanded, 0),
     normalByRecord: rows.reduce((a, r) => a + r.normalByRecord, 0),
     normalByEcho: rows.reduce((a, r) => a + r.normalByEcho, 0),
   }
@@ -949,7 +952,7 @@ async function run({ argv }) {
     if (hook.ok && hook.capped)
       console.log(`⚠️ 钩子日志 ${hook.size} B 超过 ${HOOK_READ_CAP_BYTES} B 上限,只读了尾部 ${hook.bytesParsed} B(开头 ${hook.skippedBytes} B 没看见)⇒ normal 是**下界**,不是全量`)
     console.log(
-      `  normal 正证来源:一方记录 ${sums.normalByRecord} / 日志回显 ${sums.normalByEcho}` +
+      `  normal 正证来源:sha 绑定(safe-commit Step 5)${sums.normalByLanded ?? 0} 枚 / 一方记录 ${sums.normalByRecord} / 日志回显 ${sums.normalByEcho}` +
         (firstParty.ok
           ? `(一方记录 ${firstParty.records} 条${firstParty.badLines ? `,坏行 ${firstParty.badLines}` : ''})`
           : ` ⇒ 一方记录取不到(${firstParty.state}:${firstParty.why}),normal 只剩"逐字等值回显"这一条脆正证 —— ` +
@@ -1104,6 +1107,7 @@ function selfTest() {
     })
     ok('旧绑定条件在"HEAD 被推进"场景 ⇒ 拿不到证(unknown=1,这就是本票的立因)', oldOnly.rows[0].unknown === 1 && oldOnly.rows[0].normal === 0, JSON.stringify(oldOnly.rows))
     ok('新绑定条件同场景 ⇒ normal=1', r.rows[0].normal === 1)
+    ok('这一枚必须记在 sha 绑定那一档,不得混进"日志回显"(混了就会有人以为脆判据还在生效)', r.rows[0].normalByLanded === 1 && r.rows[0].normalByEcho === 0, JSON.stringify(r.rows[0]))
   }
   // normal:唯一正证 = 逐字等值 + 失败 0 的钩子轮
   {
