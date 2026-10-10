@@ -73,12 +73,30 @@ export const AUDITED_DOCS = ['README.md', 'README.en.md']
  *   ② 只有**带单位量词**或**指标专属词紧邻**的形态才算声明,漏了不算红(宁漏不误报);
  *   ③ 位数下限:表数 / 路由数 / 测试文件数这类"总量级"指标只认 ≥3 位数字,
  *      于是"45 张表(某个子 schema)""每域平均 18 张表"不会被当成总量声明。
+ *   ④ 千位逗号分组必须归一(2026-10-10 G-1117442)——写法只许 `NUM()` 一份。
  */
+
+/**
+ * 数字捕获片段的**唯一**构造器。
+ *
+ * 立它的理由不是"复用好看",是旧写法**从来没匹配成功过**:千位分组的首段只有 1-3 位,
+ * 而旧片段写成 `\d{2,6}(?:,\d{3})*` —— 首段要求 ≥2 位,于是 "4,415 API routes" 这一支
+ * 永不成立(实测 `checked=0`);更糟的是自检把"违规数=0"当成"归一生效"的证据,而 0 违规
+ * 与"根本没看见"在文本上同形 ⇒ 一条恒真断言替一台瞎掉的尺子发合格证。
+ *
+ * 两条并列,顺序无关:
+ *   · `\d{min,max}` —— 原样保留位数下限,所以 1 位数仍然不会被当成总量声明(零假阳扩面);
+ *   · `\d{1,3}(?:,\d{3})+` —— **至少一个**逗号组才走这一支,没有分组文字的位数判据不受影响。
+ */
+export function NUM(min, max) {
+  return `(?:\\d{${min},${max}}|\\d{1,3}(?:,\\d{3})+)`
+}
+
 export const CLAIMS = [
   {
     key: 'dbTables',
     label: '数据库表数',
-    re: /(?<![\d,])(\d{3,6}(?:,\d{3})*)(?![\d,])\s*(?:张(?:数据库)?表|个数据库表|数据库表|tables?\b)/gi,
+    re: new RegExp(`(?<![\\d,])(${NUM(3, 6)})(?![\\d,])\\s*(?:张(?:数据库)?表|个数据库表|数据库表|tables?\\b)`, 'gi'),
     pick: (m) => m[1],
     sample: '<N> 张表',
     probe: '583',
@@ -88,7 +106,12 @@ export const CLAIMS = [
     label: 'API 路由数',
     // 中文那一支**必须带 API 前缀**:"879 条路由"(ai-service 内部计数)、"288 路由文件"都不是总量声明,
     // 放宽到裸"路由"就把子量级读成总量(实测抓到两型假阳)。
-    re: /(?<![\d,])(\d{2,6}(?:,\d{3})*)(?![\d,])\s*(?:条\s*)?API\s*路由(?!文件)|(?<![\d,])(\d{2,6})(?![\d,])\s*(?:API\s)?routes?\b(?! files?)/gi,
+    // 英文那一支以前缺逗号分组归一 ⇒ README.en.md 的 "4,415 API routes" 整型隐身(G-1117442);
+    // 两支现在共用 NUM(),位数下限与假阳护栏逐字不变。
+    re: new RegExp(
+      `(?<![\\d,])(${NUM(2, 6)})(?![\\d,])\\s*(?:条\\s*)?API\\s*路由(?!文件)|(?<![\\d,])(${NUM(2, 6)})(?![\\d,])\\s*(?:API\\s)?routes?\\b(?! files?)`,
+      'gi',
+    ),
     pick: (m) => m[1] ?? m[2],
     sample: '<N> API 路由',
     probe: '4363',
@@ -96,7 +119,7 @@ export const CLAIMS = [
   {
     key: 'aiServiceRoutes',
     label: 'AI 服务路由数',
-    re: /(?<![\d,])(\d{2,6})(?![\d,])\s*(?:条\s*)?(?:FastAPI|AI-?Service|ai-service)\s*(?:路由|routes?\b)/gi,
+    re: new RegExp(`(?<![\\d,])(${NUM(2, 6)})(?![\\d,])\\s*(?:条\\s*)?(?:FastAPI|AI-?Service|ai-service)\\s*(?:路由|routes?\\b)`, 'gi'),
     pick: (m) => m[1],
     sample: '<N> FastAPI 路由',
     probe: '548',
@@ -131,7 +154,7 @@ export const CLAIMS = [
   {
     key: 'testFiles',
     label: '测试文件数',
-    re: /(?<![\d,])(\d{3,6}(?:,\d{3})*)(?![\d,])\s*(?:个)?\s*测试文件/gi,
+    re: new RegExp(`(?<![\\d,])(${NUM(3, 6)})(?![\\d,])\\s*(?:个)?\\s*测试文件`, 'gi'),
     pick: (m) => m[1],
     sample: '<N> 测试文件',
     probe: '2104',
@@ -376,8 +399,15 @@ export function selfTest() {
   ok('S7 简介里 340 tables ⇒ DN3 点名 dbTables', checkDescription('RLS over 340 tables', numbers).problems.some((p) => p.includes('dbTables')))
   // S8 简介:现算值 ⇒ 0 问题(反向对照)
   ok('S8 简介现算值 ⇒ DN3 无问题', checkDescription(`RLS over ${numbers.dbTables} tables · ${numbers.llmModels} catalogued LLMs`, numbers).problems.length === 0)
-  // S9 逗号写法归一
-  ok('S9 "4,363 API 路由" 与现算值等值', findStaleClaims(`4,363 API 路由\n${BLOCK_BEGIN}\nx\n${BLOCK_END}`, numbers).violations.length === 0)
+  // S9 逗号写法归一。**必须断 checked===1**:旧版只断"违规=0",而 `\d{2,6}(?:,\d{3})*` 对
+  //     "4,363" 从未匹配过(首段只有 1 位)⇒ checked=0 也绿,这条断言一直替瞎掉的尺子发合格证。
+  ok(
+    'S9 "4,363 API 路由" 与现算值等值(且真被匹配到)',
+    (() => {
+      const r = findStaleClaims(`4,363 API 路由\n${BLOCK_BEGIN}\nx\n${BLOCK_END}`, numbers)
+      return r.checked === 1 && r.violations.length === 0
+    })(),
+  )
   // S10 三态:0 候选判死优先于一切
   ok('S10 枚举到 0 候选 ⇒ exit 2(不记绿)', decide({ violations: [], blockProblems: [], descProblems: [], undetermined: [], strict: false, candidates: 0 }).code === 2)
   // S11 未判定在默认档不红、strict 档 exit 2
@@ -470,6 +500,40 @@ export function selfTest() {
     'S21f 反例:问责轮次 0 候选仍判死(不问责≠永久豁免)',
     decide({ violations: [], blockProblems: [], descProblems: [], undetermined: [], strict: false, candidates: 0 }).code === 2,
   )
+  // S22 逗号分组归一(G-1117442)——三条同时成立才算这一族有牙,缺任一条就是恒真断言:
+  //     ① 英文支带逗号**必被抓**(checked 必须 ≥1 —— "0 违规"与"根本没看见"过去同形);
+  //     ② 不带逗号不误伤(位数下限逐字保持原判据:1 位数、无英文措辞的裸数仍不算总量声明);
+  //     ③ 带逗号且写对现算值 ⇒ 抓到但不判红(证明"匹配到"不等于"判成漂移")。
+  const s22a = findStaleClaims(`4,415 API routes\n${BLOCK_BEGIN}\nx\n${BLOCK_END}`, numbers)
+  ok(
+    'S22a 英文支带逗号必被抓(checked=1 且点名 4415≠4363)',
+    s22a.checked === 1 &&
+      s22a.violations.length === 1 &&
+      s22a.violations[0].key === 'apiRoutes' &&
+      s22a.violations[0].found === 4415,
+  )
+  const s22b = findStaleClaims(`5 API routes\n4 张表\n3 test files\n5,000 测试文件\n${BLOCK_BEGIN}\nx\n${BLOCK_END}`, numbers)
+  ok(
+    'S22b 不带逗号不误伤:1 位数与无英文措辞的裸数仍不算总量声明',
+    s22b.checked === 1 && s22b.violations.length === 1 && s22b.violations[0].found === 5000,
+  )
+  const s22c = findStaleClaims(`4,363 API routes\n${BLOCK_BEGIN}\nx\n${BLOCK_END}`, numbers)
+  ok('S22c 带逗号写对现算值 ⇒ 抓到且判等通过', s22c.checked === 1 && s22c.violations.length === 0)
+  // S23 逗号分组写法只许 NUM 出一份 —— 判据比对的是**实际吃进 RegExp 的那一串**,不是源码文本
+  //     (注释里提到这一片段是正当的,按文本数会把自己判红;而手抄一份 `(?:,\d{3})*` 恰恰就是
+  //     本票要防的第二真相:两处算同一件事必漂移,漂开的表现不是报错,是两条判据各自发合格证)。
+  const usesNumFabric = (src) => {
+    if (!src.includes(',\\d{3}')) return true // 不含分组形态 ⇒ 与本锁无关
+    return [1, 2, 3, 4, 5, 6].some((max) => [1, 2, 3].some((min) => src.includes(NUM(min, max))))
+  }
+  const s23 = CLAIMS.filter((c) => !usesNumFabric(c.re.source))
+  ok(
+    'S23 分组写法只由 NUM 出一份(每条 claim 的分组形态必须逐字是 NUM 的产物)',
+    s23.length === 0 &&
+      // 阳性对照:把旧的死写法(首段仍要求 ≥2 位)喂同一把锁,必须被判成"不是 NUM 的产物"
+      !usesNumFabric(new RegExp(`(\\d{2,6}(?:,\\d{3})*)x`, 'gi').source) &&
+      usesNumFabric(NUM(2, 6)),
+  )
   console.log(`\n自检:pass ${pass} / fail ${fail}`)
   return fail === 0 ? 0 : 1
 }
@@ -488,7 +552,7 @@ function main(argv) {
   const strict = argv.includes('--strict')
   const root = resolve(readArg(argv, '--root') ?? ROOT)
   let derived
-  let docsText = new Map()
+  const docsText = new Map()
   try {
     assertRepoRoot(root, '本门')
     derived = collectNumbers({ root, face })

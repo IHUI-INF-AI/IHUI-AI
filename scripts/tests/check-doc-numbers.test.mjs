@@ -14,6 +14,8 @@
  *  T4 端到端有牙证明 —— 在临时 git 仓里造"索引里的 README 写着旧数字",`--staged` 必须 exit 1
  *     并点名该取数键;改成现算值后必须 exit 0。**只判纯函数的测试证明不了门会红**。
  *  T5 取不到 ⇒ 判死,不记绿(无提交 / 空候选 / 两面旗同给)。
+ *  T9 逗号分组只由 NUM 出一份 + 用**真历史文本**做阳性对照(G-1117442)——旧写法对 "4,415"
+ *     从未匹配过,而"违规=0"的断言会替瞎掉的尺子发合格证,所以这一条同时钉"写法唯一"与"真能抓到"。
  */
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -24,7 +26,7 @@ import { test } from 'node:test'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { catBatch } from '../lib/face-reader.mjs'
 import { BLOCK_BEGIN, BLOCK_END } from '../gen-doc-numbers.mjs'
-import { CLAIMS, decide, findStaleClaims } from '../check-doc-numbers.mjs'
+import { CLAIMS, NUM, decide, findStaleClaims } from '../check-doc-numbers.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const GATE = resolve(HERE, '..', 'check-doc-numbers.mjs')
@@ -267,5 +269,42 @@ test('T8 stagedTriggers 变异探针:T1 的触发条件句不是恒真', () => {
   const stripped = entry.replace(/stagedTriggers:\s*\[[^\]]*\],?/g, '')
   if (/stagedTriggers:\s*\[[^\]]*'README\.md'/.test(stripped))
     throw new Error('探针失效:剥掉触发清单后仍匹配 ⇒ T1 那条断言没有牙')
+})
+
+/** 分组形态是否逐字由导出的 NUM 产出(判据吃进 RegExp 的那一串,不比对源码/注释)。 */
+function usesNumFabric(src) {
+  if (!src.includes(',\\d{3}')) return true // 不含分组形态 ⇒ 与本锁无关
+  return [1, 2, 3, 4, 5, 6].some((max) => [1, 2, 3].some((min) => src.includes(NUM(min, max))))
+}
+
+test('T9 逗号分组只由 NUM 出一份 + 真历史文本阳性对照(G-1117442)', () => {
+  // ① 写法唯一:手抄一份旧形态(首段仍要求 ≥2 位 ⇒ "4,415" 永不匹配)必须被这把锁认出来。
+  const offenders = CLAIMS.filter((c) => !usesNumFabric(c.re.source))
+  if (offenders.length > 0)
+    throw new Error(
+      `这些 claim 的分组形态不是 NUM 的产物(第二份写法必漂移):${offenders.map((c) => c.key).join(', ')}`,
+    )
+  if (usesNumFabric(new RegExp('(\\d{2,6}(?:,\\d{3})*)x', 'gi').source))
+    throw new Error('阳性对照失效:旧的死写法被认成 NUM 的产物 ⇒ 这条锁没有牙')
+
+  // ② 阳性对照钉**出处**不钉 HEAD:下面两行逐字取自枚 a1cc2b32d3833b009716b1646db4c2081aafc369 的
+  //    父提交里的 README.en.md(那枚提交把两处带逗号数字按现值改对了,而"改对不等于门看得见")。
+  const HIST =
+    'Headline claims (same source as the table below, all live-computed): **590 tables · 4,386 API routes ·\n' +
+    '25 WebSocket endpoints · 118 catalogued LLMs · 38 platforms auto-publishing · 2,432 test files ·'
+  if (!HIST.includes('4,386')) throw new Error('夹具已不含逗号形态,阳性对照无从谈起(形状锁)')
+  const numbers = { dbTables: 595, apiRoutes: 4415, testFiles: 2778 }
+  const r = findStaleClaims(`${HIST}\n${BLOCK_BEGIN}\nx\n${BLOCK_END}`, numbers)
+  const api = r.violations.filter((v) => v.key === 'apiRoutes')
+  if (api.length !== 1 || api[0].found !== 4386)
+    throw new Error(`带逗号的英文路由声明必须被点名 4386≠4415,实得 ${JSON.stringify(r.violations)}`)
+
+  // ③ 把"这一族仍未覆盖"钉成会过期的事实:CLAIMS 的 testFiles / wsEndpoints 两支**只有中文措辞**,
+  //    所以 "2,432 test files" 与 "25 WebSocket endpoints" 至今 checked=0 —— 那与逗号无关,是缺英文分支,
+  //    已由台账另计一票。谁补上英文分支,这一条必须翻红并去销那一票(留着的登记比没有更危险)。
+  if (r.violations.some((v) => v.key === 'testFiles'))
+    throw new Error(
+      'testFiles 的英文措辞已被纳管:本条"未覆盖"登记已过期,请改成正向断言并销台账那一票',
+    )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
