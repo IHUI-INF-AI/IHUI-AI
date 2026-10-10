@@ -29,6 +29,10 @@ function childPath(env: Record<string, string | undefined>): { keys: string[]; p
   return JSON.parse(String(r.stdout)) as { keys: string[]; path: string | undefined }
 }
 
+// PATH 大小写双拼写是 Windows 环境块语义(注册表组合);POSIX 上 env 键大小写敏感,
+// 'PATH' 与 'Path' 本就是两个变量,P6 阳性对照在 Linux 上结构性地不可复现 ⇒ 整组仅 Windows 跑。
+const itWinOnly = process.platform === 'win32' ? it : it.skip
+
 describe('bench runner 的 PATH 前置站点(G-1105300 站点接线)', () => {
   it('P1 宿主拼写成 PATH 时:只有一种拼写,且前置目录就在值首', () => {
     const env = prependPathEntry({ PATH: OTHER, SYSTEMROOT: 'C:\\Windows' }, DIR)
@@ -62,7 +66,7 @@ describe('bench runner 的 PATH 前置站点(G-1105300 站点接线)', () => {
     expect(String(seen.path).startsWith(DIR + ';')).toBe(true)
   })
 
-  it('P6 阳性对照:站点旧写法(固定写 `Path`)确实产出两份拼写,且子进程读到的那份**不含**前置目录', () => {
+  itWinOnly('P6 阳性对照:站点旧写法(固定写 `Path`)确实产出两份拼写,且子进程读到的那份**不含**前置目录', () => {
     // 这一条是"测试有牙"的证明:它复现的是修复前的原句,而不是我方的新实现。
     // 修复前在这台机(Git Bash / 已登录会话宿主,PATH 拼写为大写)上,子进程拿到的是继承值 ⇒
     // "前置 Git\\bin 屏蔽 WSL bash 桩"整句静默失效。判据:keys 只有一份而值不含 DIR。
