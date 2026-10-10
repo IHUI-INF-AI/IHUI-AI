@@ -1216,10 +1216,18 @@ test('M22 形状锁:主键区只有一份实现,状态词表与 DECOR_RE 同源(
   // ② 题面的收口只许有 cleanTitle 一份(标记剥离 + 分界符截断 + 前缀长度)。
   const cleans = src.split('function cleanTitle(').length - 1
   if (cleans !== 1) throw new Error('cleanTitle 出现第二份实现 ⇒ 两份真相')
-  // 分界符截断那一把正则全文件只许出现一次(在 cleanTitle 里)—— 一旦有人为了"顺手修一族"
+  // 分界符截断那一把字符集全文件只许出现一次(在 cleanTitle 里)—— 一旦有人为了"顺手修一族"
   // 在 titleOf 或别处再抄一遍,两侧对"题面到哪里为止"就会漂,而漂的形态永远是安静。
-  if (src.split('[:：.、,，!！?？]').length - 1 !== 1)
-    throw new Error('题面截断判据出现第二份(或一份都没有)⇒ 两处必漂(本仓最高频失效型)')
+  // 2026-10-10 起这份字符集抽成了唯一常量 TITLE_TRUNC_CHARS(三把 RegExp 都由它构造,含
+  // emphasisLedTitle 那一档),所以"带收尾 ] 的裸字面量"在源码里必然为 0 —— 而 0 恰是本条
+  // 要防的另一半(判据整块消失)。现钉三件事,判据方向一字未松:字符集原文只许 1 份定义 /
+  // 裸 `[…]` 形态不得回来(那是绕开常量的第二份真相)/ 常量必须真被 RegExp 构造点引用。
+  if (src.split('（(【[:：.、,，!！?？').length - 1 !== 1)
+    throw new Error('题面分界符字符集出现第二份定义(或那份定义整块不见)⇒ 两处必漂(本仓最高频失效型)')
+  if (src.split('[:：.、,，!！?？]').length - 1 !== 0)
+    throw new Error('不得再出现"带收尾 ] 的裸字符集"形态 —— 那等于绕过唯一常量自拼第二份真相')
+  if (!/new RegExp\(\s*`\[\$\{TITLE_TRUNC_CHARS\}\]/.test(src))
+    throw new Error('TITLE_TRUNC_CHARS 未被任何 RegExp 构造点引用 ⇒ 那份定义根本没跑')
   const titleOfBody = /export function titleOf\([\s\S]*?\n}/.exec(src)?.[0] ?? ''
   if (!titleOfBody || /\.replace\(/.test(titleOfBody))
     throw new Error('titleOf 自己不得再动手剥题面 —— 一律经 stripOwnKey + cleanTitle')
