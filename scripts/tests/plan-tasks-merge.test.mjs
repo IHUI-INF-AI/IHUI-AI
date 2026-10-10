@@ -55,6 +55,10 @@ import {
   buildOpenRowDedupe,
   verifyOpenRowDedupe,
   findRowTwins,
+  // F4 出口的"每组留一行终端代表":判据与验收合取式一律引实现那一份(§22c 不抄第二份)
+  planDupPointerTargets,
+  pickDupTerminal,
+  touchedFamilyTerminalProblems,
   // G-341:读数出口与判定面点名一起进镜像测试 —— 测试不得自己再算一遍(§22c)
   verifyMerge,
   setRunFace,
@@ -1403,4 +1407,343 @@ test('T29 变异自证:三把变异各打断链上一环(证明 T28 那三条不
         `变异「${v.name}」翻红的是别处,不是它该打断的那一环 ⇒ 靶位与断言不对应。实得:${bad.join(' | ').slice(0, 500)}`,
       )
   }
+})
+
+// ══ T30 / T31(F4 归并出口「每个主键族留一行终端代表」与它的三把变异)════════════
+/**
+ * 票面那一型(AGENTS §1「归档机制」登记的洞,**产生侧**):F4 出口逐行写
+ * `〔【归并】重复登记副本…〕` 指针时**不看这一族加完还剩谁**。一族全被标成指针之后,
+ * `findDupOpenCopies` 对它恒读 0(第一步就 `filter(!DUP_POINTER_RE)` 并要求 `live.length >= 2`)
+ * ⇒ F4=0、验收过、账面全绿,而这一族在 `--open` 派单口径里**一条都不剩** ——
+ * 那件活从此没人看得见。判据失效的表现永远是安静,而这里的安静是"数字变好看了"。
+ *
+ * 所以本对用例钉的全是**读数**,不是"函数存在"(T23 那条接线锁同族理由):
+ *  P1 `--heal` 报告档拟改行数 = **组大小 − 1**(每组恰留一行终端代表);
+ *  P2 一行不删、一行不翻勾:未勾选总数与行数归并前后**逐字相等**;
+ *  P3 落地面重算派单口径:该族**必须仍有一条代表出现在 `--open` 里**(核心那条 ——
+ *     它证明"账面归零"不是靠把活藏起来做到的);
+ *  P4 幂等:再跑一次报告档必须"拟改写 0 行",再跑落地档必须报"无状态分叉"且提交数不变;
+ *  P5/P6 选代表的规则钉死:剥注记后**正文最长**那一行当终端代表,等长则取**靠前**那一行;
+ *  P3c/P3d 两处落地闸(交付校验 / 自愈停手判据)必须对同一组读数放行 ——
+ *     断言写在闸门上而闸门没调它,等于没有断言(守门 70/76/81 同族)。
+ * 复合主键一律走 `plan-task-index.mjs` 已导出的 `compositeKeyOf`、注记剥离走
+ * `plan-tasks-merge.mjs` 的 `stripMergeNotes`(§22c:测试里不得抄第二份主键或正则)。
+ */
+const F4ID = 'G-99000042'
+const F4TITLE = '族内终端代表判据'
+const F4KEY = `${F4ID}#${F4TITLE}`
+const R_MID = `- [ ] **${F4ID}. ${F4TITLE}**:第一份登记,交代到"连续 3 次绿"这一步为止,后面没有别的取证。`
+const R_LONG = `- [ ] **${F4ID}. ${F4TITLE}**:第二份登记是这一族里交代最多的那一份:验收凭据、残余口径与判龄锚点都写在同一行里,所以按规则应当由它当终端代表。`
+const R_SHORT = `- [ ] **${F4ID}. ${F4TITLE}**:第三份最短,只登记了题面而没有别的取证,所以它一定不是代表。`
+const R_UNRELATED = '- [ ] **D8 真待办**:还没人做。'
+/** 一族 = 3 条**未标注**的同主键待办(刻意把最长那一行放在中间,证明规则不是"取首行/末行")。 */
+const F4FACE = ['# 计划', '', R_MID, R_LONG, R_SHORT, R_UNRELATED, ''].join('\n')
+const F4GROUP = 3
+const F4DAY = '2026-10-10'
+/** 等长并列的第二族:两行剥注记后**逐字等长** ⇒ 规则 ② 必须留下靠前的那一行。 */
+const EQ_A = `- [ ] **G-99000043. 等长并列时取靠前者**:甲段交代只写到第一次取证为止,长度与乙段必须逐字相等。`
+const EQ_B = `- [ ] **G-99000043. 等长并列时取靠前者**:乙段交代只写到第二次取证为止,长度与甲段必须逐字相等。`
+const EQFACE = ['# 计划', '', EQ_A, EQ_B, ''].join('\n')
+
+const famRowsOf = (text) =>
+  text
+    .split('\n')
+    .map((raw, i) => ({ line: i + 1, raw }))
+    .filter((x) => compositeKeyOf(stripMergeNotes(x.raw).text) === F4KEY)
+
+/** 派单口径(--open)里该族的代表行;`key` 是 `--json` 的机器字段(编号),族唯一 ⇒ 可直接比。 */
+const openRepsOf = (dir) => {
+  const j = JSON.parse(
+    execFileSync(
+      process.execPath,
+      [path.resolve(ROOT, 'scripts', 'plan-tasks.mjs'), '--root', dir, '--open', '--json'],
+      {
+        cwd: ROOT,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 120000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        maxBuffer: 1 << 26,
+      },
+    ),
+  )
+  return { face: j, reps: j.open.filter((r) => r.key === F4ID) }
+}
+
+/**
+ * 归并出口的四条不变量 —— 纯函数,输入可以是**被变异过**的那份实现(与 T29 同一套做法)。
+ * 返回不合格项(空数组 = 这一环闭合);每条前缀 P* 就是 T31 的靶位编号。
+ * 判据用的 `auditPlan` / `compositeKeyOf` / `stripMergeNotes` 都来自**未变异**的那两份实现:
+ * 被变异的是生产者,裁判不能跟着一起变(否则变异体自己证明自己没错)。
+ */
+function familyProblems(mod, src) {
+  const c0 = auditPlan(src)
+  if (
+    c0.counts.dupOpenCopies !== F4GROUP - 1 ||
+    c0.counts.forks !== 0 ||
+    c0.counts.voidRows !== 0 ||
+    c0.counts.verbatimDupCopies !== 0
+  )
+    return [
+      `P0 夹具不再等于票面那一型(F4=${c0.counts.dupOpenCopies} 应为 ${F4GROUP - 1},F1=${c0.counts.forks} F2=${c0.counts.voidRows} F4b=${c0.counts.verbatimDupCopies})⇒ 本用例失去对象,换夹具而不是删断言`,
+    ]
+  const bad = []
+  const srcLines = src.split('\n')
+  const h = mod.buildMerge(src, F4DAY)
+  const outLines = h.text.split('\n')
+  const touched = h.changed.filter((c) => /(?:^|\+)F4(?:\+|$)/.test(String(c.kind)))
+  if (h.changed.length !== F4GROUP - 1 || touched.length !== F4GROUP - 1)
+    bad.push(
+      `P1 拟改写 ${h.changed.length} 行(其中 F4 ${touched.length} 行),应为 组大小 ${F4GROUP} − 1 = ${F4GROUP - 1}`,
+    )
+  if (h.refused.length) bad.push(`P1a 有拒写项(自动档会因它整批停手):${h.refused.join(' | ')}`)
+  for (const c of touched) {
+    if (!DUP_POINTER_RE.test(String(c.after)))
+      bad.push(`P1b L${c.line} 产物不含副本指针字面 ⇒ 派单口径不会逐出它,这一折只是换个地方挂账`)
+    if (/^- \[x\]/.test(String(c.after)))
+      bad.push(`P1c L${c.line} 被翻成已完成:F4 口径只加指针、绝不动勾选`)
+    if (!String(c.after).startsWith(String(c.before)))
+      bad.push(`P1d L${c.line} 正文被改写(必须"原行逐字 + 行尾追加指针")`)
+    if (c.before !== srcLines[c.line - 1]) bad.push(`P1e L${c.line} 的 before 与面上那一行不等 ⇒ 行号口径已漂`)
+  }
+  if (outLines.length !== srcLines.length)
+    bad.push(`P2a 行数由 ${srcLines.length} 变为 ${outLines.length}(归并禁止删行/加行)`)
+  const c1 = auditPlan(h.text)
+  if (c1.counts.open !== c0.counts.open)
+    bad.push(`P2 未勾选总数由 ${c0.counts.open} 变 ${c1.counts.open}(不得动勾选,更不许把活删成假绿)`)
+  const moved = srcLines.filter((l, i) => l !== outLines[i] && !touched.some((c) => c.line === i + 1))
+  if (moved.length) bad.push(`P2b 有未登记行被改动:${JSON.stringify(moved.map((l) => l.slice(0, 30)))}`)
+  if (c1.counts.dupOpenCopies !== 0)
+    bad.push(`P2c 归并后 F4=${c1.counts.dupOpenCopies} 未归零(落地验收链的旧那一半)`)
+  if (famRowsOf(h.text).length !== F4GROUP)
+    bad.push(`P2d 该族在输出面上有 ${famRowsOf(h.text).length} 行(应仍为 ${F4GROUP} 行,一行不删)`)
+  const reps = c1.claimableRows.filter((r) => compositeKeyOf(r.raw) === F4KEY)
+  if (reps.length === 0)
+    bad.push(`P3 主键族「${F4KEY}」在派单口径(--open)里一条代表都不剩 ⇒ 这件活隐形了`)
+  const dead = mod.auditPointerTerminals(h.text).groups.filter((g) => g.key === F4KEY && g.hidden)
+  if (dead.length)
+    bad.push(`P3b 隐形族诊断判该族全指无终端:${JSON.stringify(dead[0].lines.map((l) => l.line))}`)
+  const vm = mod.verifyMerge(src, h.text, h.changed)
+  if (vm.problems.length) bad.push(`P3c 交付校验红:${vm.problems.join(' | ')}`)
+  const stop = mod.healStopReasons(src, h.text, h.changed, 0)
+  if (stop.length) bad.push(`P3d 自愈停手:${stop.join(' / ')}`)
+  const again = mod.buildMerge(h.text, F4DAY)
+  if (again.changed.length !== 0)
+    bad.push(
+      `P4 第二次跑仍拟改写 ${again.changed.length} 行(${again.changed.map((c) => `L${c.line}[${c.kind}]`).join(',')})⇒ "已有终端就不再补指针"的幂等判据被打破`,
+    )
+  if (again.refused.length)
+    bad.push(`P4a 第二次跑产生拒写项(等于自动档每轮停手):${again.refused.join(' | ')}`)
+  const longAt = srcLines.indexOf(R_LONG)
+  if (longAt < 0) return ['P0b 夹具里找不到最长那一行 ⇒ 夹具被改写过,本用例失去对象']
+  if (DUP_POINTER_RE.test(outLines[longAt]))
+    bad.push(`P5 正文最长那一行(L${longAt + 1})被标成了副本 ⇒ pickDupTerminal 的规则 ① 失效`)
+  for (const l of [R_MID, R_SHORT]) {
+    const i = srcLines.indexOf(l)
+    if (i < 0) {
+      bad.push(`P5a 夹具缺行:${JSON.stringify(l.slice(0, 32))}`)
+      continue
+    }
+    if (!DUP_POINTER_RE.test(outLines[i])) bad.push(`P5b L${i + 1} 未被标注(组内除代表外每行都该加指针)`)
+  }
+  if (outLines[srcLines.indexOf(R_UNRELATED)] !== R_UNRELATED) bad.push('P5c 无关那一族被误动')
+  const he = mod.buildMerge(EQFACE, F4DAY)
+  const eqLines = he.text.split('\n')
+  if (he.changed.length !== 1 || he.changed[0].line !== 4)
+    bad.push(
+      `P6 等长并列必须留**靠前**那一行(L3)当代表、只标 L4,实得 ${JSON.stringify(he.changed.map((c) => `L${c.line}[${c.kind}]`))}`,
+    )
+  if (DUP_POINTER_RE.test(eqLines[2])) bad.push('P6a 等长并列时靠前的行被标了指针 ⇒ 规则 ② 的 tie-break 漂了')
+  return bad
+}
+
+test('T30 端到端:F4 归并每个主键族必须留下一行终端代表,该族仍出现在 --open(报告档零副作用 + 落地档幂等)', () => {
+  const bad = familyProblems(
+    { buildMerge, verifyMerge, healStopReasons, auditPointerTerminals },
+    F4FACE,
+  )
+  if (bad.length) throw new Error(`归并出口不闭合:\n  ${bad.join('\n  ')}`)
+  /**
+   * 三条新出口的"有牙"证明(不等 T31 的变异才算被测到 —— 变异证的是断言会红,这里证的是
+   * 出口本身在正当/越界两侧各给正确答案,即本仓反复要求的**成对**断言)。
+   */
+  const targets = planDupPointerTargets(auditPlan(F4FACE).dupOpen)
+  if (targets.length !== F4GROUP - 1 || !targets.every((t) => t.terminalLine === 4))
+    throw new Error(
+      `planDupPointerTargets 名单应恰为组内除 L4(最长)之外的 ${F4GROUP - 1} 行,实得 ${JSON.stringify(targets)}`,
+    )
+  const m0 = buildMerge(F4FACE, F4DAY)
+  if (planDupPointerTargets(auditPlan(m0.text).dupOpen).length !== 0)
+    throw new Error('planDupPointerTargets 不幂等:标注完仍能排出新名单 ⇒ 落地档每轮都会再写一遍')
+  const picked = pickDupTerminal(auditPlan(EQFACE).dupOpen[0].open)
+  if (picked.line !== 3)
+    throw new Error(`等长并列必须取**靠前**那一行当终端代表,实得 L${picked.line}`)
+  const cleanTeeth = touchedFamilyTerminalProblems(m0.text, m0.changed)
+  if (cleanTeeth.length !== 0)
+    throw new Error(`正当归并不该被新判据拦,实得:${JSON.stringify(cleanTeeth)}`)
+  // 越界侧:手工造一份"整族全指"的面(改前那条路径的产物形状),新判据必须点名它
+  const allPtr = F4FACE.split('\n')
+    .map((l) =>
+      l.includes(F4TITLE)
+        ? `${l} 〔【归并】重复登记副本(2026-10-10):同主键的另一条登记,派单以那条为准。〕`
+        : l,
+    )
+    .join('\n')
+  if (auditPointerTerminals(allPtr).hiddenFamilies !== 1)
+    throw new Error(
+      `全指面必须被既有判据读成 1 个隐形族,实得 ${auditPointerTerminals(allPtr).hiddenFamilies} ⇒ 反向对照本身没成型`,
+    )
+  const allChanged = allPtr
+    .split('\n')
+    .map((raw, i) => ({ line: i + 1, kind: 'F4', before: F4FACE.split('\n')[i], after: raw }))
+    .filter((c) => DUP_POINTER_RE.test(c.after) && !DUP_POINTER_RE.test(c.before))
+  const teeth = touchedFamilyTerminalProblems(allPtr, allChanged)
+  if (teeth.length !== 1)
+    throw new Error(`整族全指的产物必须被新判据点名 1 条,实得 ${JSON.stringify(teeth)}`)
+  // 接线证明:名单函数与验收合取式必须真被那两个调用点用上(函数在而无人调 = 没有这一维)
+  const srcTxt = readFileSync(new URL('../plan-tasks-merge.mjs', import.meta.url), 'utf8')
+  if (!/for \(const c of planDupPointerTargets\(a\.dupOpen\)\)/.test(srcTxt))
+    throw new Error('buildMerge 的 F4 支没有走 planDupPointerTargets ⇒ 出口又吃回索引层的报数幸存者')
+  if (
+    (srcTxt.match(/touchedFamilyTerminalProblems\(/g) ?? []).length < 3
+  )
+    throw new Error(
+      'touchedFamilyTerminalProblems 的调用点少于两处(交付校验 + 自愈停手判据)⇒ 验收链没接上',
+    )
+  if (EQ_A.length !== EQ_B.length)
+    throw new Error(`等长并列夹具退化:${EQ_A.length} vs ${EQ_B.length} ⇒ P6 测的不是 tie-break`)
+
+  const env = fixtureRepo(F4FACE, 'fixture: 一件事被抄成三份未标注的待办')
+  try {
+    const rep = runCli(env, ['--heal'])
+    if (!/拟改写 2 行\(F4,F4\)/.test(rep.out))
+      throw new Error(`报告档的拟改行数不是"组大小−1":${rep.out.trim().slice(0, 400)}`)
+    if (!/派单口径 (\d+) → \1/.test(rep.out))
+      throw new Error(`报告档的未勾选总数前后不等(把活删/翻成了假绿):${rep.out.trim().slice(0, 400)}`)
+    if (rep.added.length)
+      throw new Error(`报告档在工作目录写出了新文件(应零副作用):${JSON.stringify(rep.added)}`)
+    if (countCommits(env.dir) !== 1) throw new Error('报告档产出提交了(应零副作用)')
+    if (readFileSync(path.join(env.dir, 'PROJECT_PLAN.md'), 'utf8') !== F4FACE)
+      throw new Error('报告档改写了工作树副本')
+
+    const land = runCli(env, ['--heal', '--commit'])
+    if (land.code !== 0 || !/自愈落地/.test(land.out))
+      throw new Error(
+        `落地档没产出提交(自动档自我拒绝的那一型):code=${land.code}\n${land.out.slice(0, 600)}`,
+      )
+    if (countCommits(env.dir) !== 2) throw new Error(`落地后提交数应为 2,实得 ${countCommits(env.dir)}`)
+    const landed = gitQ(env.dir, ['show', 'HEAD:PROJECT_PLAN.md']).replace(/\r\n/g, '\n')
+    if (landed.split('\n').length !== F4FACE.split('\n').length)
+      throw new Error('落地面上行数变了(归并禁止删行/加行)')
+    const openL = auditPlan(landed).counts.open
+    if (openL !== auditPlan(F4FACE).counts.open)
+      throw new Error(`落地面未勾选总数 ${auditPlan(F4FACE).counts.open} → ${openL}(动了勾选或删了行)`)
+    const fam = famRowsOf(landed)
+    if (fam.length !== F4GROUP)
+      throw new Error(`落地面上该族有 ${fam.length} 行(应仍为 ${F4GROUP}),行不见了`)
+    const unpointed = fam.filter((x) => !DUP_POINTER_RE.test(x.raw))
+    if (unpointed.length !== 1)
+      throw new Error(
+        `落地面该族的终端代表数 = ${unpointed.length}(必须恰为 1),实得 ${JSON.stringify(unpointed.map((u) => u.line))}`,
+      )
+    if (unpointed[0].raw !== R_LONG)
+      throw new Error(
+        `留下的那一行不是"正文最长"那一行 ⇒ 选代表规则在落地面上不成立:${unpointed[0].raw.slice(0, 60)}`,
+      )
+    // 核心断言:用**派单出口本身**(--open)复验,不在测试里重算口径
+    const { face, reps } = openRepsOf(env.dir)
+    if (reps.length !== 1)
+      throw new Error(
+        `--open 里该族代表数 = ${reps.length}(应为 1)⇒ 归并把这件活藏进了互指指针里。open=${JSON.stringify(face.open)}`,
+      )
+    if (!reps[0].text.includes(F4TITLE))
+      throw new Error(`--open 里那一行不是该族的代表:${JSON.stringify(reps[0])}`)
+    if (face.counts.dupOpenCopies !== 0)
+      throw new Error(`落地面 F4=${face.counts.dupOpenCopies} 未归零 ⇒ 归并没有做到位`)
+
+    const rep2 = runCli(env, ['--heal'])
+    if (!/拟改写 0 行/.test(rep2.out))
+      throw new Error(`第二次报告档不再幂等:${rep2.out.trim().slice(0, 400)}`)
+    const land2 = runCli(env, ['--heal', '--commit'])
+    if (land2.code !== 0 || !/无状态分叉/.test(land2.out))
+      throw new Error(
+        `第二次落地档应"不动任何东西":code=${land2.code}\n${land2.out.slice(0, 600)}`,
+      )
+    if (countCommits(env.dir) !== 2) throw new Error('第二次落地又产出了提交(幂等失败)')
+  } finally {
+    rmScratch(env.dir)
+  }
+})
+
+test('T31 变异自证:F4 出口的三把刀各打断一环(留终端 / 只加指针 / 幂等),还原后全绿', async () => {
+  const SCRIPTS_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+  const cleanMod = { buildMerge, verifyMerge, healStopReasons, auditPointerTerminals }
+  const variants = [
+    {
+      name: '摘掉"每组留一行终端代表"(退回全指)',
+      // planDupPointerTargets 里那一行 `continue` 是 ① 的全部实现;摘掉它 = 族内所有未标注行
+      // 都被加指针 = 该族在 --open 里一条代表都不剩,而 dupOpenCopies 归零、账面全绿。
+      apply: (t) => t.replace('      if (r.line === terminal.line) continue', '      if (false) continue'),
+      expect: (bad) => bad.some((x) => x.startsWith('P1 ')) && bad.some((x) => x.startsWith('P3 ')),
+    },
+    {
+      name: '把"只加指针"改成"顺手翻勾"',
+      apply: (t) =>
+        t.replace(
+          'after = rewriteDup(after, v.key, today)',
+          "after = rewriteDup(after.replace('[ ]', '[x]'), v.key, today)",
+        ),
+      expect: (bad) => bad.some((x) => x.startsWith('P2 ')),
+    },
+    {
+      name: '打破"已有终端就不再补指针"的幂等判据',
+      // 两处一起摘:出口侧的"已标注行不进 live"与 rewriteDup 自己的幂等短路。
+      // 只摘一处会被另一处兜住(实测第二版就白刀),而本票要证的是**这一环**会不会红。
+      apply: (t) =>
+        t
+          .replace(
+            '    const live = g.open.filter((r) => !DUP_POINTER_RE.test(r.raw))',
+            '    const live = g.open.slice()',
+          )
+          .replace('  if (DUP_POINTER_RE.test(line)) return line', '  if (false) return line'),
+      expect: (bad) => bad.some((x) => x.startsWith('P4 ')),
+    },
+  ]
+  for (const v of variants) {
+    const dir = mkScratch('plan-merge-f4mut')
+    let mod
+    try {
+      const dst = path.join(dir, 'scripts')
+      mkdirSync(dst, { recursive: true })
+      copyScriptWithClosure(SCRIPTS_DIR, 'plan-tasks-merge.mjs', dst, [
+        'lib/plan-task-index.mjs',
+        'lib/scratch-dir.mjs',
+      ])
+      const p = path.join(dst, 'plan-tasks-merge.mjs')
+      const srcTxt = readFileSync(p, 'utf8')
+      const outTxt = v.apply(srcTxt)
+      if (outTxt === srcTxt)
+        throw new Error(`变异「${v.name}」一个字节都没改下去 ⇒ 变异靶写歪了,T30 对应那条仍是恒真的`)
+      writeFileSync(p, outTxt, 'utf8')
+      mod = await import(pathToFileURL(p).href)
+    } catch (e) {
+      rmScratch(dir)
+      throw e
+    }
+    const bad = familyProblems(mod, F4FACE)
+    // 变异模块已进 import 缓存,摘掉盘上那份不影响已装载的模块(与 T29 同一处理)
+    rmScratch(dir)
+    if (bad.length === 0)
+      throw new Error(
+        `变异「${v.name}」之后 T30 的断言一条都没红 ⇒ 那条断言恒真,变异自证不成立(本仓"把没判写成判过了"的最高频形态)`,
+      )
+    if (!v.expect(bad))
+      throw new Error(
+        `变异「${v.name}」翻红的是别处,不是它该打断的那一环 ⇒ 靶位与断言不对应。实得:${bad.join(' | ').slice(0, 600)}`,
+      )
+  }
+  // 逐字节还原 = 用**未变异**的实现再跑同一组断言,必须全绿(证明三把刀是外来的,不是夹具坏了)
+  const restored = familyProblems(cleanMod, F4FACE)
+  if (restored.length)
+    throw new Error(`变异还原后必须全绿,实得:\n  ${restored.join('\n  ')}`)
 })
