@@ -73,7 +73,7 @@ const MAP = [
     file: 'agnes apikey.txt',
     expect: /^sk-[A-Za-z0-9]{20,}$/,
     baseEnv: 'AGNES_API_BASE',
-    base: 'https://apihub.agnes-ai.com/v1',
+    base: 'https://api.agnes-ai.cn/v1',
     probe: 'bearer',
   },
   {

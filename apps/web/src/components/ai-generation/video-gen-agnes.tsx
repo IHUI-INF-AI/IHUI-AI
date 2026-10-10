@@ -27,8 +27,8 @@ import {
 import { fetchApi } from '@/lib/api'
 import { type AsyncTask, extractMediaUrls } from '@/lib/ai-media'
 
-// Agnes 视频模型(2026-09-20 /v1/models 实测 3 个,默认 agnes-video-2.5-flash 最新)
-const MODELS = ['agnes-video-2.5-flash', 'agnes-video-2.5', 'agnes-video-v2.0'] as const
+// Agnes 视频模型(2026-10-10 /v1/models 实测仅 2.5 系列 2 个,v2.0 已下架;默认 agnes-video-2.5-flash 最新)
+const MODELS = ['agnes-video-2.5-flash', 'agnes-video-2.5'] as const
 // 2.5 系列:size 仅支持 720P(2026-09-20 实测)
 const V25_SIZES = ['720P'] as const
 // v2.0 常用尺寸档位(上游会自动映射到最近 preset;默认 1152x768)
