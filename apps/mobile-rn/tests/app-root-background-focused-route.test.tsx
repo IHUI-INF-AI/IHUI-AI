@@ -129,14 +129,22 @@ describe('O57 App 根 View 底色按聚焦路由条件化(状态栏带单点修�
     expect(css(tokens.gray.black)).toBe('rgb(0, 0, 0)')
   })
 
-  // 实现按聚焦路由分档(App.tsx ROUTE_ROOT_BG):Login 页面底取 surface.card,
+  // 实现按聚焦路由分档(App.tsx ROUTE_ROOT_BG):顶栏区取白档的屏 = surface.card,
   // 其余常规屏仍 surface.bg。逐路由钉真实值,表镜像 App.tsx 的 ROUTE_ROOT_BG(未导出)。
-  it('逐路由聚焦 ⇒ 根底色按 ROUTE_ROOT_BG 分档(Login=surface.card,常规屏=surface.bg)', () => {
+  it('逐路由聚焦 ⇒ 根底色按 ROUTE_ROOT_BG 分档(顶栏白档屏=surface.card,常规屏=surface.bg)', () => {
     const expectedByRoute: Record<string, string> = {
-      Home: tokens.surface.bg,
-      Profile: tokens.surface.bg,
-      Settings: tokens.surface.bg,
+      // 一级屏:顶栏区取白,状态栏带随之同档(2026-10-10 用户点名首页顶部灰色带)
+      Home: tokens.surface.card,
+      HomeMain: tokens.surface.card,
+      Plaza: tokens.surface.card,
+      News: tokens.surface.card,
+      ProfileMain: tokens.surface.card,
+      AiMain: tokens.surface.card,
+      Agent: tokens.surface.card,
+      Settings: tokens.surface.card,
       Login: tokens.surface.card, // ROUTE_ROOT_BG.Login ⇒ surface.card
+      // 对照:未收口的二级屏仍走默认档,证明这不是"整片回落 surface.card"
+      CourseDetail: tokens.surface.bg,
       Chat: tokens.surface.bg,
     }
     for (const [route, expected] of Object.entries(expectedByRoute)) {
@@ -157,14 +165,14 @@ describe('O57 App 根 View 底色按聚焦路由条件化(状态栏带单点修�
     expect(rootBackgroundOf(container)).toBe(css(tokens.gray.black))
   })
 
-  it('路由切换经 state 订阅驱动底色:黑 → 灰 → 黑(订阅真实挂上而非一次性快照)', () => {
+  it('路由切换经 state 订阅驱动底色:黑 → 白 → 黑(订阅真实挂上而非一次性快照)', () => {
     env.route = 'VideoPlayer'
     const { container } = render(<App />)
     expect(rootBackgroundOf(container)).toBe(css(tokens.gray.black))
 
     env.route = 'Home'
     fireNavigation()
-    expect(rootBackgroundOf(container)).toBe(css(tokens.surface.bg))
+    expect(rootBackgroundOf(container)).toBe(css(tokens.surface.card))
 
     env.route = 'VideoPlayer'
     fireNavigation()
