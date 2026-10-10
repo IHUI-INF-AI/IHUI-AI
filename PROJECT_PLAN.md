@@ -12261,9 +12261,9 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 <!-- 已归档(2026-10-10:✅(2026-10-07) G-814408 事件流「单一写者」——常驻订阅与 per-turn sink 二选一,而不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
 <!-- 已归档(2026-10-10:✅(2026-10-07) G-1058651 **四枚守门门体没有 §22d `isDirectRun` 守卫且顶层直,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
 <!-- 已归档(2026-10-10:✅(2026-10-07) G-1059131 `check-disk-root-hygiene.mjs --self-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
-- [ ] G-814397 **`tests/test_file_search_ripgrep_v75.py` 有两条用例引用生产面根本不存在的 API —— V3 #75 的"接线段"登记了一个未落地的接口(2026-09-29 普查现读;归属:#75 接线段持有人,P1)**
-- [ ] G-814398 **`packages/types/src/capability-catalog.ts` 的注释里 13 条 `<路径>:<行号>` 证据指针已腐 10 条,而 AGENTS §1 明令"证据指针禁止写行号"(2026-09-29 只读复核现读;归属:能力面板台账持有人)**
-- [ ] G-814399 **生产提示逻辑按一个"从不被发出的工具名"分支判 —— `mcp_server.py:7804` 的 `if "edit_file" in recent_tool_calls` 结构上永不成立(2026-09-29 顺手量到;归属:提示/建议面持有人,一行级修法但改变用户可见行为)**
+- [ ] G-814397 **`tests/test_file_search_ripgrep_v75.py` 有两条用例引用生产面根本不存在的 API —— V3 #75 的"接线段"登记了一个未落地的接口(2026-09-29 普查现读;归属:#75 接线段持有人,P1)** 〔【归并】重复登记副本(2026-10-10):同主键的另一条登记 「G-814397 · tests/testfilesearchripg」,派单以那条为准,本行不再单独派单。〕
+- [x] ✅(2026-10-10) G-814398 **`packages/types/src/capability-catalog.ts` 的注释里 13 条 `<路径>:<行号>` 证据指针已腐 10 条,而 AGENTS §1 明令"证据指针禁止写行号"(2026-09-29 只读复核现读;归属:能力面板台账持有人)** （[归并] 本行与已完成登记同题(主键 「G-814398 · packages/types/src/capab」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、正文逐字保留于前、不删行、不重复计账）
+- [ ] G-814399 **生产提示逻辑按一个"从不被发出的工具名"分支判 —— `mcp_server.py:7804` 的 `if "edit_file" in recent_tool_calls` 结构上永不成立(2026-09-29 顺手量到;归属:提示/建议面持有人,一行级修法但改变用户可见行为)** 〔【归并】重复登记副本(2026-10-10):同主键的另一条登记 「G-814399 · 生产提示逻辑按一个"从不被发出的工具名"分支判—」,派单以那条为准,本行不再单独派单。〕
 <!-- 已归档(2026-10-10:✅(2026-10-07) 84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
 <!-- 已归档(2026-10-10:✅(2026-10-07) （进行中@2026-10-05/g2-alltasks） 84. 26h 级耐久任务底座(依,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
 <!-- 已归档(2026-10-10:✅(2026-10-07) 84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
@@ -12291,8 +12291,8 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 <!-- 已归档(2026-10-10:✅(2026-10-07) G-998178 票3：相关可选字段组的"整组同现/整组同缺"与特性缺席时产物逐字节不变（观,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
 <!-- 已归档(2026-10-10:✅(2026-10-07) G-998072 **并发提交把三端圆角统一整批写回旧态,已前向回补;判据缺口在"旧副本恰等,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
 <!-- 已归档(2026-10-10:✅(2026-10-07) G-998074 **live-doc-stale-recovery 的 D 系七例在 HE,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
-- [ ] G-814398 **`packages/types/src/capability-catalog.ts` 的注释里 13 条 `<路径>:<行号>` 证据指针已腐 10 条,而 AGENTS §1 明令"证据指针禁止写行号"(2026-09-29 只读复核现读;归属:能力面板台账持有人)** 〔【归并】重复登记副本(2026-09-30):同主键的另一条登记 「G-814398 · packages/types/src/capab」,派单以那条为准,本行不再单独派单。〕
-- [ ] G-814398 **`packages/types/src/capability-catalog.ts` 的注释里 13 条 `<路径>:<行号>` 证据指针已腐 10 条,而 AGENTS §1 明令"证据指针禁止写行号"(2026-09-29 只读复核现读;归属:能力面板台账持有人)** 〔【归并】重复登记副本(2026-10-01):同主键的另一条登记 「G-814398 · packages/types/src/capab」,派单以那条为准,本行不再单独派单。〕
+- [x] ✅(2026-10-10) G-814398 **`packages/types/src/capability-catalog.ts` 的注释里 13 条 `<路径>:<行号>` 证据指针已腐 10 条,而 AGENTS §1 明令"证据指针禁止写行号"(2026-09-29 只读复核现读;归属:能力面板台账持有人)** 〔【归并】重复登记副本(2026-09-30):同主键的另一条登记 「G-814398 · packages/types/src/capab」,派单以那条为准,本行不再单独派单。〕 （[归并] 本行与已完成登记同题(主键 「G-814398 · packages/types/src/capab」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、正文逐字保留于前、不删行、不重复计账）
+- [x] ✅(2026-10-10) G-814398 **`packages/types/src/capability-catalog.ts` 的注释里 13 条 `<路径>:<行号>` 证据指针已腐 10 条,而 AGENTS §1 明令"证据指针禁止写行号"(2026-09-29 只读复核现读;归属:能力面板台账持有人)** 〔【归并】重复登记副本(2026-10-01):同主键的另一条登记 「G-814398 · packages/types/src/capab」,派单以那条为准,本行不再单独派单。〕 （[归并] 本行与已完成登记同题(主键 「G-814398 · packages/types/src/capab」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、正文逐字保留于前、不删行、不重复计账）
 <!-- 已归档(2026-10-10:✅(2026-10-07) **Esc 无层栈协议**(方案已定稿,待实施):20+ 处 document/window,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
 <!-- 已归档(2026-10-10:✅(2026-10-07) （待认领,归属:IM 网关 + 服务端出站文案持有人 `apps/api/src/servi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
 <!-- 已归档(2026-10-10:✅(2026-10-07) G-814408 事件流「单一写者」——常驻订阅与 per-turn sink 二选一,而不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
