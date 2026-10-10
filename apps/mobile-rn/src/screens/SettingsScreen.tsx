@@ -16,6 +16,7 @@ import type {
 import { updatePassword } from '@ihui/api-client'
 import SideMenu, { type SideMenuItem } from '../components/SideMenu'
 import { NavBar, type NavBarAction } from '../components/NavBar'
+import { tokens } from '../theme/active-tokens'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { APP_VERSION } from '../lib/config'
@@ -202,11 +203,13 @@ export default function SettingsScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <NavBar
-        title={t('settings.title')}
-        onBack={() => navigation.goBack()}
-        rightActions={rightActions}
-      />
+      <View style={{ backgroundColor: tokens.surface.card }}>
+        <NavBar
+          title={t('settings.title')}
+          onBack={() => navigation.goBack()}
+          rightActions={rightActions}
+        />
+      </View>
       <SharedSettingsScreen
         t={t}
         user={
