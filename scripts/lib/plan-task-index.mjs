@@ -292,16 +292,47 @@ export function stripOwnKey(body, key, mode = 'strict') {
  *  ⚠ 只在 `〔` **前面还有题面文字**时截:`〔…〕` 开头的那一族(HEAD 现读 28 行,题面就是 `〔`)
  *  截了会把已有的键没收成空题面 —— 与 `LEAD_DECOR_PAIRS` 头注"〔〕只在行首吃、键后 `〔拆票…〕`
  *  的 stripOwnKey 结论必须与旧版逐字同形"(M20)是同一条防线:修口径不得以削覆盖面为代价。 */
+/** 标题/描述分界符集(**唯一一份**):`cleanTitle` 的截断与 `emphasisLedTitle` 的"分隔符后紧跟
+ *  起头记号"共用这一份字符类,两处各列一份迟早漂成"一边在这儿截断、一边还当题面继续吃"。 */
+const TITLE_TRUNC_CHARS = '（(【[:：.、,，!！?？'
+const TITLE_TRUNC_RE = new RegExp(`[${TITLE_TRUNC_CHARS}].*$`)
+/** 第一个分界符的位置(`emphasisLedTitle` 用它定锚,与 `TITLE_TRUNC_RE` 同一份字符类)。 */
+const FIRST_TRUNC_RE = new RegExp(`[${TITLE_TRUNC_CHARS}]`)
 function cleanTitle(s) {
   const t = String(s ?? '')
     .replace(/[*`_\s]/g, '')
-    .replace(/[（(【[:：.、,，!！?？].*$/, '')
+    .replace(TITLE_TRUNC_RE, '')
   const at = t.indexOf('〔')
   return (at > 0 ? t.slice(0, at) : t).slice(0, TITLE_PREFIX)
 }
 /** 题面"给得出来"的判据与 `compositeKeyOf` 同一条(≥4 字且不是编号本身)。 */
 function usableTitle(t, key) {
   return !!t && t.length >= 4 && t.replace(/[*`_\s]/g, '') !== String(key).replace(/[*`_\s]/g, '')
+}
+
+/** 题面被写在**分界符之后**、并以 `**` 强调段或反引号标识符起头的那一族(G-1058639 现读的两个子形态):
+ *  `- [ ] 4. 观察期:**首个 GREEN run 达成(2026-09-14,…)**。连续 3 次 main push 稳定绿后收官…`
+ *  —— 第一个分界符 `:` 之前只剩 `观察期`(3 字 <4),真题面在 `:` 后紧跟的 `**` 那一截里。
+ *  strict / lenient 两档都给不出可用题面时走这里,由 `titleOf` 作**第三档**调用。
+ *  ⚠ 成立条件刻意收成"分界符后**一位之内**就是起头记号":
+ *  `- [ ] **G-257(新登记)**:另一议题**` 那一族的分界符是 `(`,其后是 `新登记` 而非记号 ⇒ 不成立 ⇒
+ *  该行仍按"给不出题面"处理(计无主键,交 F4b/人工)。**M16 撞号防线一字不松**:把扫描器推进任意
+ *  括号,等于让"两个不同议题抢一个号"突然各给得出题面而不再同键,那条误翻勾自伤就回来了。
+ *  记号种类只认本仓登记行的两种书写(`**` 成对强调 / 反引号标识符),不认单 `*` 与 `_`(那会
+ *  把 `用例**不稳定**` 这类句中强调读成题面起头)。 */
+const EMPHASIS_LED_SRC = `[${TITLE_TRUNC_CHARS}][ \\t]*(?:\\*\\*|\u0060)`
+export function emphasisLedTitle(body, key) {
+  if (typeof body !== 'string' || body.length === 0) return null
+  // 只看**第一个**分界符(题面正是在它这里被截断的):其后一位之内不是起头记号 ⇒ 本行不属于这一族,
+  // 绝不往后面捡记号 —— 越过题面自带的括注去捡,就等于替 M16 钉住的那一族凭空造出题面。
+  const first = body.search(FIRST_TRUNC_RE)
+  if (first < 0) return null
+  const led = new RegExp(EMPHASIS_LED_SRC, 'y')
+  led.lastIndex = first
+  const m = led.exec(body)
+  if (!m) return null
+  const t = cleanTitle(body.slice(first + m[0].length))
+  return usableTitle(t, key) ? t : null
 }
 
 /** 剥掉行首编号形态(含其前置强调记号)。只在 `leadingNumericId` 判成立后调用。 */
@@ -409,7 +440,14 @@ export function titleOf(line) {
   // 严格档给不出实质题面时退回老口径(编号留在题面里)——**只许退让,不许没收已有的键**:
   // 实测 HEAD 面有 20 行(如 `**O52「残余…」三条全部落地**`)在严格档下题面会短到不成键,
   // 若不退让就是"为了修一族而把另一族的覆盖面削掉",而那正是本层立项要防的反面(看不见≠没有)。
-  return cleanTitle(stripOwnKey(stripped, key, 'lenient'))
+  const lenient = cleanTitle(stripOwnKey(stripped, key, 'lenient'))
+  if (usableTitle(lenient, key)) return lenient
+  // 第三档:两档都给不出可用题面时,题面可能写在**分界符之后**且以 `**` / 反引号起头
+  // (`4. 观察期:**首个 GREEN run 达成…**`)。判据与成立条件见 `emphasisLedTitle` 头注 ——
+  // 输入必须是**同一份 `stripped`**(行首裸编号已由上面那个唯一出口剥掉),再抄一份剥法就回到
+  // M15 那一型:编号识别扩了、标题跳过没扩 ⇒ 刚修的族上自己失明。
+  // ⚠ 这一档**只在前两档失败时**才可能生效 ⇒ 已经成键的行一个都不会改键(只扩大,不改动)。
+  return emphasisLedTitle(stripped, key) ?? lenient
 }
 
 /**
