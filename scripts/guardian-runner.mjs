@@ -4739,6 +4739,27 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- provider 健康四档单一真相源对账(1 项,blocking)---
+  {
+    id: '200',
+    label:
+      'provider 健康四档单一真相源对账(值域并表后不得再分叉)',
+    script: 'check-provider-health-vocabulary.mjs',
+    args: ['--strict'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PROVIDER_HEALTH_VOCAB',
+    stagedTriggers: ['apps/', 'packages/'],
+    onFailHint: [
+      '',
+      '1) 本门判的是 provider 健康档位 unknown/healthy/degraded/down 的单一真相源:canonical 住在 apps/web/app/(main)/settings/llm/types-v2.ts 的 PROVIDER_HEALTH_STATUSES(2026-10-07 机主拍板并表);',
+      '2) 红 = 全仓出现第二份同值档位声明,或 canonical 被摘线/改值域 ⇒ 把重复那份改为 import canonical(类型或 as const 数组),不要改任一侧取值、不要加豁免;',
+      '3) 真子集(残缺表)与同名不同域只报名不判红 —— 补齐到全档即翻红,那是预期行为,不是门坏了;',
+      '4) 单复验:node scripts/check-provider-health-vocabulary.mjs --strict(问责档)/ --staged --strict(提交链档)/ --self-test;',
+      '5) 应急跳过(不推荐,跳过即放弃这次并表防回潮):HUSKY_SKIP_PROVIDER_HEALTH_VOCAB=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
