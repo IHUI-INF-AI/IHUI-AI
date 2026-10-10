@@ -18869,7 +18869,20 @@
     "resultTitle": "执行结果",
     "resultOk": "成功",
     "resultFail": "失败",
-    "restartHint": "如执行了登出/出厂重置：重新打开 WorkBuddy 即按全新状态启动；出厂重置的隔离区路径见 factory_reset 层详情，把条目搬回原目录即完整恢复。"
+    "restartHint": "如执行了登出/出厂重置：重新打开 WorkBuddy 即按全新状态启动；出厂重置的隔离区路径见 factory_reset 层详情，把条目搬回原目录即完整恢复。",
+    "quarantineTitle": "隔离区管理",
+    "quarantineDesc": "登出/出厂重置搬移的数据都在这里，可一键原样恢复；确认不要后可删除释放空间。",
+    "quarantineRefresh": "刷新",
+    "quarantineEmpty": "暂无隔离区",
+    "qEntriesLabel": "条目",
+    "qRestore": "一键恢复",
+    "qDelete": "删除",
+    "qDeleteConfirm": "删除后数据不可找回，确认？",
+    "qRestored": "已恢复，探针与隔离区列表已刷新。",
+    "qDeleted": "隔离区已删除。",
+    "historyTitle": "操作历史",
+    "historyEmpty": "暂无操作记录",
+    "progressLabel": "执行进度"
   },
   "checkin": {
     "title": "签到助手",

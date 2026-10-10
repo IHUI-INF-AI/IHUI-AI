@@ -6,7 +6,7 @@
 /**
  * UI 路由清单生成脚本：扫描 app 下所有 page.tsx，生成路由清单 TS 模块。
  *
- * 运行： node scripts/generate-ui-routes.mjs
+ * 运行： node apps/web/scripts/generate-ui-routes.mjs
  *
  * 规则：
  * - 路由分组目录（(main)/(marketing) 等括号段）不参与 URL，跳过；
@@ -151,8 +151,8 @@ const content = `// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li
 /**
  * UI 路由清单（自动生成，请勿手改）。
  *
- * 由 scripts/generate-ui-routes.mjs 扫描 app 下的 page.tsx 生成；
- * 运行： node scripts/generate-ui-routes.mjs
+ * 由 apps/web/scripts/generate-ui-routes.mjs 扫描 app 下的 page.tsx 生成；
+ * 运行： node apps/web/scripts/generate-ui-routes.mjs
  * 供 src/lib/ui-action-registry.ts 校验 navigate 动作的跳转目标。
  */
 ${pinBlock}
