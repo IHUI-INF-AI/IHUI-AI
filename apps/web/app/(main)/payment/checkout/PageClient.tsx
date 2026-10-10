@@ -365,7 +365,7 @@ function ExistingOrderCheckout({ orderNo }: { orderNo: string }) {
         {t('checkout.title')}
       </h1>
       <Card>
-        <CardContent className="space-y-4 p-6 text-center">
+        <CardContent className="min-[640px]:p-6 space-y-4 p-6 text-center">
           {mockError ? (
             <>
               <p className="text-sm text-destructive">{t('checkout.payConfigNotReady')}</p>
