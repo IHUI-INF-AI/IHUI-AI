@@ -262,10 +262,11 @@ describe('② 带位仍由 App 根 View 单点绘制(全屏态不得有第二层
   })
 
   it('全屏窗口在位而 App **挂载之后**才呈现 ⇒ 由订阅翻黑,退出后逐字翻回原值', () => {
+    // Settings 的顶栏区已取白档(2026-10-10 灰色带收口),所以"退出后翻回的原值"是 surface.card
     env.route = 'Settings'
     const { container } = render(<App />)
     const before = rootBackgroundOf(container)
-    expect(before).toBe(css(tokens.surface.bg))
+    expect(before).toBe(css(tokens.surface.card))
 
     // setState 由订阅回调驱动(不在 React 事件里),翻转必须整个包在 act 内 ——
     // 只在断言前 `act(() => undefined)` 冲不掉一次已经排队的并发更新,读数会停在旧值。
@@ -288,8 +289,20 @@ describe('② 带位仍由 App 根 View 单点绘制(全屏态不得有第二层
     // 按路由分档:Login 页面底取 surface.card,不是 surface.bg;该表未导出,逐路由真实值另由
     // app-root-background-focused-route.test.tsx 钉住)。本用例锁的是"非全屏态 ⇒ 底色等于该路由
     // 自己那一档",所以不得整片回落到 surface.bg —— 那会把 10-07 那次修复当成缺陷改回去。
-    const EXPECTED_ROOT_BG: Record<string, string> = { Login: css(tokens.surface.card) }
-    for (const route of ['Home', 'Profile', 'Settings', 'Login', 'Chat', 'CourseDetail']) {
+    // Home 等一级屏由 2026-10-10 用户点名「首页顶部露出一条灰色带」后加入:顶栏区取白,带随之同档。
+    const CHROME = css(tokens.surface.card)
+    const EXPECTED_ROOT_BG: Record<string, string> = {
+      Login: CHROME,
+      Home: CHROME,
+      HomeMain: CHROME,
+      Plaza: CHROME,
+      News: CHROME,
+      ProfileMain: CHROME,
+      AiMain: CHROME,
+      Agent: CHROME,
+      Settings: CHROME,
+    }
+    for (const route of [...Object.keys(EXPECTED_ROOT_BG), 'CourseDetail', 'Chat']) {
       env.route = route
       const { container } = render(<App />)
       expect(rootBackgroundOf(container)).toBe(EXPECTED_ROOT_BG[route] ?? css(tokens.surface.bg))

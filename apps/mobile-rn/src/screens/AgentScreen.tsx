@@ -622,14 +622,16 @@ export function AgentScreen() {
 
   return (
     <View style={styles.shell}>
-      <NavBar
-        title={t('agentScreen.title')}
-        leftActions={[
-          { icon: FolderOpen, label: '分类', onPress: handleCategoryPress },
-          { icon: Menu, label: '菜单', onPress: handleMenuPress },
-        ]}
-        rightActions={[{ icon: Search, label: '搜索', onPress: handleSearchPress }]}
-      />
+      <View style={styles.navChrome}>
+        <NavBar
+          title={t('agentScreen.title')}
+          leftActions={[
+            { icon: FolderOpen, label: '分类', onPress: handleCategoryPress },
+            { icon: Menu, label: '菜单', onPress: handleMenuPress },
+          ]}
+          rightActions={[{ icon: Search, label: '搜索', onPress: handleSearchPress }]}
+        />
+      </View>
       <ScrollView
         ref={contentScrollRef}
         style={styles.contentScroll}
@@ -845,6 +847,7 @@ function mapConversationToDrawer(c: ConversationDetail): DrawerConversationItem 
 const TRACK_PADDING_V = rpx(10)
 
 const styles = StyleSheet.create({
+  navChrome: { backgroundColor: tokens.surface.card },
   shell: { flex: 1, backgroundColor: tokens.surface.bg },
   contentScroll: { flex: 1 },
   carouselWrap: {
