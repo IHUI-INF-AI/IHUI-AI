@@ -143,9 +143,13 @@
     "SearchBar": {
       "reason": "两档都不是\"同元素取了不同档\":仅小程序 4 = web 输入井同值住在包 import 里(现读 git grep -n \"rounded-sm\" HEAD:packages/ui-react/src/components/search-input.tsx 命中 :26 searchInputWellClassName,本腿不跟 .tsx 包 import ⇒ 扩一跳即抵掉);仅 web 12 = 该组件多嵌一段联想面板(:187 rounded-xl bg-popover),小程序端不渲染任何下拉节点,补数字等于画一个不存在的面板。",
       "until": "2027-03-30"
+    },
+    "VideoPlayer": {
+      "reason": "票 G-978049① 的复裁判据之二(带理由接管),不是为消红:舞台档三端已同值 —— 现读 `git show HEAD:apps/web/src/components/media/VideoPlayer.tsx` :122 `overflow-hidden rounded-lg`(=8)、`git show HEAD:apps/miniapp-taro/src/components/VideoPlayer.tsx` :69/:71 rounded-lg、`git show HEAD:apps/mobile-rn/src/components/VideoPlayer.tsx` :222 `borderRadius: rnRadius.lg`;本族 web 腿残档只有 4,来自 7 处自绘控制条 `rounded-sm`(:165/:180/:186/:193/:200/:207/:217),而小程序走原生 `<Video controls>`(同文件 controls 引用 4 处、rounded-sm 0 处)⇒ 结构上没有这些节点,与主腿 `waivers.VideoPlayer` 是同一条理由的两面,不是同一元素取了不同档。档集合实测 mp=[8] / web=[4,8] / rn=[8]。禁止为凑集合给小程序补一层自绘控件(那是拿假节点抵数字)。",
+      "until": "2027-03-30"
     }
   },
-  "ledgerVersion": "2026-10-08 票G-978049③:守门128 web腿加装端入口可达性剔除(双侧判据+逐条点名+可选端挂起语义);僵尸对 Avatar/ConfirmDialog/CountdownTimer(小程序侧文件已死、web活)的 webRadiusCounts 锚点与 webWaivers 豁免随之手编清除;Loading/VoiceInput 两条 web 腿拆对声明撤除改由机制接管。上一版:2026-09-27 票⑭:配对源纳入 packages/app/src/features/**,同侧多候选按\"平台后缀 > 出口指向 > 目录序\"选腿(判据 = 包入口/端组件桶的 re-export 链按名解到的那一份,不是猜),进审候选在 --json 与人读报告双面点名",
+  "ledgerVersion": "2026-10-11 票G-978049(值守席,三格逐格复裁):① web 腿残档 VideoPlayer 由 webWaivers 带理由接管(票面复裁判据之二成立)——**未动任何锚点**:该族 webRadiusCounts 旧读=新读=锚点=1(mp 档集 [8] / web [4,8] / rn [8],舞台档 8 三端已同,残档 4 属 web 自绘控制 chrome),重锚正当性因此不依赖\"只降不升\",而由 --json 前后逐字段等值证明(本轮唯一新增字段是 bareRounded)。② 裸档盲区**未补认**:票面落地判据要求 77/150/128 三本账同一枚提交各自重锚,而 77 的 radius-single-source-baseline.json 与 150 的 radius-role-conformance-baseline.json 不在本票文件清单 ⇒ 硬停手;改把\"看不见多少\"跟着读数印出 —— 唯一实现 `scripts/lib/radius-tokens.mjs` 的 bareRoundedOccurrences(不并进 radiusItemsInLine,所以三本账读数一字未动)+ 门内 bareRoundedAudit(web/main 两腿各报名、不进判据、不进退出码);真仓 HEAD 现读 web 腿 1 处(packages/ui-react/src/components/category-bar.tsx:34 ⇒ 8)、主腿 2 处(apps/miniapp-taro/src/components/ModelList.tsx:573/:574 ⇒ 8),全 HEAD 面出现裸档字形的跟踪文件 459 个 / 993 行(未遮噪口径,给下一票当规模而不是当债务)。③ 复核:web 腿端入口可达性剔除机制在位(SEED_DIRS.web=apps/web/app、@ 别名按 web tsconfig 解析、剔 6 对逐条点名、种子缺席时整维挂起留痕),门内头注那句\"未做端入口可达性剔除\"是③落地前的旧声称,已按现状改写。上一版:2026-10-08 票G-978049③:守门128 web腿加装端入口可达性剔除(双侧判据+逐条点名+可选端挂起语义);僵尸对 Avatar/ConfirmDialog/CountdownTimer(小程序侧文件已死、web活)的 webRadiusCounts 锚点与 webWaivers 豁免随之手编清除;Loading/VoiceInput 两条 web 腿拆对声明撤除改由机制接管。上一版:2026-09-27 票⑭:配对源纳入 packages/app/src/features/**,同侧多候选按\"平台后缀 > 出口指向 > 目录序\"选腿(判据 = 包入口/端组件桶的 re-export 链按名解到的那一份,不是猜),进审候选在 --json 与人读报告双面点名",
   "pairingRejects": {
     "FloatBox": {
       "reason": "同名不同物:小程序端是右下角悬浮功能盒(赚米/客服/反馈三按钮,right 20rpx、收起推到 -240rpx),RN 端是顶部悬浮消息提示 toast(TOP_OFFSET 居中、duration 3000ms、4 种 type、多实例由 Toast Portal 堆叠)—— 两端头注逐字读自 HEAD,不是同一个界面元素",
