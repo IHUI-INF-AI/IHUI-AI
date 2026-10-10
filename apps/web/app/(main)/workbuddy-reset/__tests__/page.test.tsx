@@ -17,6 +17,7 @@ import { render, screen, fireEvent, waitFor, cleanup, act } from '@testing-libra
 import WorkbuddyResetPage from '../page'
 import {
   workbuddyResetProbe,
+  workbuddyResetPlan,
   workbuddyResetMaintenance,
   workbuddyResetLogout,
   workbuddyResetFactory,
@@ -37,6 +38,14 @@ const { probeReport } = vi.hoisted(() => ({
       { path: 'device-id', tier: 'device_identity', size_mb: 0.001 },
       { path: 'workspace', tier: 'user_asset', size_mb: 2969.6 },
       { path: 'MEMORY.md', tier: 'user_asset', size_mb: 0.05 },
+      { path: 'plugins', tier: 'user_asset', size_mb: 427.0 },
+      { path: 'projects', tier: 'user_asset', size_mb: 1100.0 },
+      { path: 'binaries', tier: 'user_asset', size_mb: 610.0 },
+      { path: 'sessions', tier: 'user_asset', size_mb: 12.0 },
+      { path: 'memory', tier: 'user_asset', size_mb: 3.0 },
+      { path: 'agents', tier: 'user_asset', size_mb: 2.0 },
+      { path: 'skills', tier: 'user_asset', size_mb: 1.0 },
+      { path: 'connectors', tier: 'user_asset', size_mb: 8.0 },
     ],
   },
 }))
@@ -181,7 +190,7 @@ describe('WorkBuddy 一键重置页', () => {
     expect(screen.getByText('tierMaintenance')).toBeTruthy()
     expect(screen.getByText('tierWebviewLogout')).toBeTruthy()
     expect(screen.getByText('tierDeviceIdentity')).toBeTruthy()
-    expect(screen.getAllByText('tierUserAsset').length).toBe(2)
+    expect(screen.getAllByText('tierUserAsset').length).toBe(9)
   })
 
   it('维护清理:killRunning 默认 true,结果层渲染 ok', async () => {
@@ -217,6 +226,42 @@ describe('WorkBuddy 一键重置页', () => {
     await waitFor(() => expect(workbuddyResetFactory).toHaveBeenCalledTimes(1))
     expect(workbuddyResetFactory).toHaveBeenCalledWith(true, expect.any(Function))
     await waitFor(() => expect(screen.getByText(/隔离区/)).toBeTruthy())
+  })
+
+  it('计划预览:操作卡展开判据清单且不执行', async () => {
+    ;(useTauriIpcReady as ReturnType<typeof vi.fn>).mockReturnValue(true)
+    vi.mocked(workbuddyResetPlan).mockImplementationOnce(async (mode) => ({
+      mode,
+      include_device_id: false,
+      total_mb: 8090.4,
+      actions: [
+        { path: 'logs/20261010', action: 'delete_dir', size_mb: 8089.4 },
+        { path: 'app/CodeCache', action: 'delete_dir', size_mb: 1.0 },
+      ],
+    }))
+    render(<WorkbuddyResetPage />)
+    await screen.findByText('maintCta')
+    fireEvent.click(screen.getAllByText('planPreview')[0]!)
+    expect(await screen.findByText('planTitle')).toBeTruthy()
+    expect(screen.getByText('logs/20261010')).toBeTruthy()
+    expect(screen.getAllByText(/planActDeleteDir/).length).toBe(2)
+    // 计划绝不执行:探针/清理桥未被额外调用
+    expect(workbuddyResetMaintenance).not.toHaveBeenCalled()
+    // 再点收起
+    fireEvent.click(screen.getAllByText('planPreview')[0]!)
+    await waitFor(() => expect(screen.queryByText('planTitle')).toBeNull())
+  })
+
+  it('探针条目:超 12 条折叠,展开后全量可见', async () => {
+    ;(useTauriIpcReady as ReturnType<typeof vi.fn>).mockReturnValue(true)
+    render(<WorkbuddyResetPage />)
+    await screen.findByText(/probeReclaimable/)
+    expect(screen.queryByText('connectors')).toBeNull()
+    fireEvent.click(screen.getByText('entriesShowAll'))
+    expect(screen.getByText('connectors')).toBeTruthy()
+    expect(screen.getByText('plugins')).toBeTruthy()
+    fireEvent.click(screen.getByText('entriesShowLess'))
+    expect(screen.queryByText('connectors')).toBeNull()
   })
 
   it('执行进度条:逐条目回传渲染当前条目与计数', async () => {
