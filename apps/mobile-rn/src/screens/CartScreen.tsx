@@ -47,6 +47,7 @@ import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 import { isWeChatInstalled, openWeChatPayment } from '../lib/wechat-pay'
+import { NavChrome } from '../components/NavChrome'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -263,7 +264,9 @@ export function CartScreen() {
 
   return (
     <View style={styles.container}>
-      <NavBar title={t('cart.title')} onBack={() => navigation.goBack()} />
+      <NavChrome>
+        <NavBar title={t('cart.title')} onBack={() => navigation.goBack()} />
+      </NavChrome>
       <FlatList
         data={items}
         keyExtractor={(it) => it.id}

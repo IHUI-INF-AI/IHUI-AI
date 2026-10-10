@@ -34,6 +34,7 @@ import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { NavChrome } from '../components/NavChrome'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'ConversationImport'>
 
@@ -320,9 +321,12 @@ export function ConversationImportScreen() {
    * 既有唯一出口(RootNavigator 的 Chat 路由 + ChatScreen 的 loadConversationMessages),
    * 不新造深链。
    */
-  const onOpenConversation = useCallback((conversationId: string) => {
-    navigation.navigate('Chat', { conversationId })
-  }, [navigation])
+  const onOpenConversation = useCallback(
+    (conversationId: string) => {
+      navigation.navigate('Chat', { conversationId })
+    },
+    [navigation],
+  )
 
   /**
    * D28 补齐层:「用场景分析」发起 —— 跳 Chat 路由,带 autoSendPrompt。
@@ -343,7 +347,9 @@ export function ConversationImportScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <NavBar title={t('conversationImport.pageTitle')} onBack={() => navigation.goBack()} />
+      <NavChrome>
+        <NavBar title={t('conversationImport.pageTitle')} onBack={() => navigation.goBack()} />
+      </NavChrome>
       <SharedConversationImportScreen
         t={t}
         colorScheme={resolvedTheme}
