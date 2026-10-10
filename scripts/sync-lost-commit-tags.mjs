@@ -605,15 +605,30 @@ ${C.green}✅ dry-run 完成(未实际 push)${C.reset}`)
       // 单块失败不阻断:标记未更新,下次提交会重试该块
       // 2026-09-24 修可观测性:原先只打 e.message(恒为 "Command failed: git push …"),git 给出的
       // 真正原因整段躺在 e.stderr 里 —— 217 枚积压 tag 补推失败多天,输出里一个原因字都没有。
-      const tail = String(e?.stderr ?? '')
-        .split(String.fromCharCode(10))
-        .map((l) => l.trim())
-        .filter(Boolean)
-        .slice(-12)
-        .join(' | ')
-      const firstLine = (tail || String(e?.message ?? e))
-        .split(String.fromCharCode(10))[0]
-        .slice(0, 1200)
+      // 2026-10-11 补另一半:**git push 的逐引用结果("! [remote rejected] …"/"error: failed to
+      // push some refs")走的是 stdout**(hook 的提示才在 stderr)。原先只看 e.stderr,于是
+      // 屏幕上留下的是钩子那串"全量 typecheck 验证…"的**无关**通知,读起来像"push 门把这次拦了",
+      // 而真实原因(例如远端拒绝某个引用)一个字都没露 —— 与 §12f"失效方向是安静"同型:
+      // 这不是"报了原因但原因没用",是"报了一份会误导人的原因"。两流并取,stdout 在前。
+      // 两流**各取尾部并标注来源**:合并成一串再 slice(-12) 会让后拼的那一流把前一流挤出去
+      // (第一版就是这么写的,结果屏幕上仍是钩子那串无关通知,git 的拒绝行一个字没露 ⇒ 修了个
+      //  观察性缺陷却产出第二个"会误导人的原因",比原状更糟)。
+      const tailOf = (s, n = 6) =>
+        String(s ?? '')
+          .split(String.fromCharCode(10))
+          .map((l) => l.trim())
+          .filter(Boolean)
+          .slice(-n)
+          .join(' | ')
+      const outTail = tailOf(e?.stdout)
+      const errTail = tailOf(e?.stderr)
+      const firstLine = (
+        [outTail && `stdout: ${outTail}`, errTail && `stderr: ${errTail}`]
+          .filter(Boolean)
+          .join(' || ') || String(e?.message ?? e)
+      )
+        .toString()
+        .slice(0, 2400)
       console.error(
         `${C.yellow}⚠️  第 ${idx + 1} 块 push 失败(${chunk.length} 个),下轮重试:${C.reset} ${firstLine}`,
       )
