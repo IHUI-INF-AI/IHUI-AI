@@ -364,13 +364,17 @@ function runCapture(outFile, cmdArgs, { timeoutMs, label, cwd }) {
   })
 }
 
-function verify(outFile, expectCwd) {
+function verify(outFile, expectCwd, quiet) {
   if (!existsSync(outFile)) {
-    console.log(`❌ INCOMPLETE(missing-file): 证据文件不存在:${outFile}`)
-    return { v: { kind: 'missing', reason: '文件不存在' } }
+    if (!quiet) console.log(`❌ INCOMPLETE(missing-file): 证据文件不存在:${outFile}`)
+    const v = { kind: 'missing', reason: '文件不存在' }
+    // 这一支以前只 return { v } 不带 rcExit,而调用方写的是 `.rcExit ?? 0` ⇒ 一份**根本不存在**的
+    // 证据以 exit 0 收工,正是本工具立身要防的"把没跑到读成跑到"。现在两支都走同一把尺子。
+    return { v, rcExit: exitCodeForVerdict(v) }
   }
   const v = judgeEvidence(readFileSync(outFile, 'utf8'), expectCwd)
   const rcExit = exitCodeForVerdict(v)
+  if (quiet) return { v, rcExit }
   const icon = v.kind === 'complete' ? (v.rc === 0 ? '✅' : '🔴') : '⚠️'
   console.log(`${icon} ${v.kind}: ${v.reason}`)
   if (v.cwd) console.log(`   取证 cwd:${v.cwd}(${CWD_MARK} 行原样读回)`)
@@ -479,8 +483,10 @@ async function main() {
       console.error(`❌ ${e.message}`)
       return 2
     }
-    if (expectCwd) return verify(fp, expectCwd).rcExit ?? 0
-    return verify(fp).rcExit ?? 0
+    // 退出码一律由那**一把**尺子算,不读 verify() 带回的 rcExit,也不写 `?? 0` ——
+    // "读不到就 0"会把任何一种新增未设 rcExit 的分支伪装成"取证完成且成功"。
+    if (expectCwd) return exitCodeForVerdict(verify(fp, expectCwd).v)
+    return exitCodeForVerdict(verify(fp).v)
   }
   const outArg = head.find((a) => !a.startsWith('--'))
   if (!outArg || !cmd.length) {
@@ -603,7 +609,21 @@ async function runSelfTest() {
     'T12 端到端失败:RC=4 被如实记下(不是"没跑到")',
     b.rc === 4 && vb.kind === 'complete' && vb.rc === 4,
   )
-  ok('T13 端到端可验:verify() 对成功件返回 0', verify(f1).rcExit === 0 || verify(f1) !== undefined)
+  // T13 旧写法是 `verify(f1).rcExit === 0 || verify(f1) !== undefined` —— 第二个析取支**恒真**
+  // (函数任何返回都是对象),所以这条断言从写下起就没判过任何东西,而它正是本行要防的那一型。
+  ok('T13 端到端可验:verify() 对成功件返回 rcExit=0', verify(f1).rcExit === 0)
+  // T13b 是本票补的根因对照:**不存在**的证据必须落 INCOMPLETE(3),不得被 `?? 0` 读成通过。
+  // 正向:missing ⇒ verify().rcExit === 3 且调用方口径 exitCodeForVerdict(...v) === 3;
+  // 反向:同一路径若真存在且 RC=0 ⇒ 必须 0(证明红的是"没有证据",不是"verify 永远 3")。
+  ok(
+    'T13b 证据文件不存在 ⇒ INCOMPLETE 且退出码 3(不是 0)',
+    (() => {
+      const ghost = resolve(dir, 'evidence-selftest-does-not-exist.md')
+      if (existsSync(ghost)) rmSync(ghost)
+      const m = verify(ghost, undefined, true)
+      return m.v.kind === 'missing' && m.rcExit === 3 && exitCodeForVerdict(m.v) === 3
+    })(),
+  )
   // T14 —— 本工具存在的唯一理由的**真实**端到端:外部把包装器 SIGKILL 掉(模拟 agent 的
   // `timeout 200 …` 掐断输出那一型),证据文件必须**没有** RC 行 ⇒ 读侧判 INCOMPLETE 而不是"跑过了"。
   // 构造面(T3)只能证明函数会给答案,这一条证明**真实进程被杀后文件形态就是这样**。
@@ -847,7 +867,13 @@ async function runSelfTest() {
     process.execPath,
     [TOOL_PATH, f24, '--timeout=300', '--', process.execPath, '-e', 'console.log(1)'],
     // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
-    { stdio: ['ignore', 'pipe', 'pipe'], cwd: ROOT, windowsHide: true, encoding: 'utf8', timeout: 60_000 },
+    {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      cwd: ROOT,
+      windowsHide: true,
+      encoding: 'utf8',
+      timeout: 60_000,
+    },
   )
   const o24 = `${r24?.stdout ?? ''}${r24?.stderr ?? ''}`
   ok(
@@ -866,7 +892,13 @@ async function runSelfTest() {
       '-e',
       'setTimeout(() => {}, 30000)',
     ],
-    { stdio: ['ignore', 'pipe', 'pipe'], cwd: ROOT, windowsHide: true, encoding: 'utf8', timeout: 60_000 },
+    {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      cwd: ROOT,
+      windowsHide: true,
+      encoding: 'utf8',
+      timeout: 60_000,
+    },
   )
   const o25 = `${r25?.stdout ?? ''}${r25?.stderr ?? ''}`
   const t25 = existsSync(f25) ? readFileSync(f25, 'utf8') : ''
