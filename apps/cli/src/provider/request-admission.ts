@@ -137,13 +137,13 @@ export const NON_FAILURE_RETRY_REASONS: ReadonlySet<string> = new Set<string>([
 ]);
 
 /** HTTP Retry-After 的单位是秒,治理器要 ms —— 换算系数只写这一处。 */
-export const MS_PER_SECOND = 1000;
+const MS_PER_SECOND = 1000;
 
 /** 429 的唯一字面量落点(HTTP 状态码是协议常量,不是并发档位)。 */
 const HTTP_STATUS_TOO_MANY_REQUESTS = 429;
 
 /** 尝试结局档位(与治理器的 release 出口一一对应,'ended' 走 releaseCounted)。 */
-export type AttemptOutcome = 'success' | 'throttled' | 'timeout' | 'ended';
+type AttemptOutcome = 'success' | 'throttled' | 'timeout' | 'ended';
 
 export interface AttemptSignal {
   outcome: AttemptOutcome;
@@ -210,7 +210,7 @@ export function classifyAttemptOutcome(input: AttemptSignalInput): AttemptSignal
 
 // ───────────────────────── 对外契约 ─────────────────────────
 
-export type AdmissionMode = AimdAskMode;
+type AdmissionMode = AimdAskMode;
 
 /** 一次已准入尝试的状态事件汇:结果的唯一回喂通道,幂等。 */
 export interface AdmissionTicket {
@@ -226,7 +226,7 @@ export interface AdmissionTicket {
   settleFromInput(input: AttemptSignalInput): boolean;
 }
 
-export interface AdmissionBucketSnapshot {
+interface AdmissionBucketSnapshot {
   key: string;
   /** cap 由治理器给(唯一权威) */
   cap: number;
@@ -240,7 +240,7 @@ export interface AdmissionBucketSnapshot {
   cooldownUntilMs: number;
 }
 
-export interface AcquireOptions {
+interface AcquireOptions {
   mode?: AdmissionMode;
   signal?: AbortSignal;
 }
