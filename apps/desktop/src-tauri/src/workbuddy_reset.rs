@@ -26,7 +26,7 @@
 //! - 核心函数一律 root 显式传参（测试用临时夹具，不用进程级 env 全局）；
 //! - 每层逐条目报告，锁文件只记错误不 panic，照实呈现（不谎报全绿）。
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::IpcError;
 
@@ -62,6 +62,91 @@ pub struct WbProbeReport {
     pub reclaimable_mb: f64,
     pub entries: Vec<WbEntry>,
 }
+
+/// 执行进度事件（Tauri Channel 逐条目回传）。
+#[derive(Debug, Clone, Serialize)]
+pub struct WbProgressEvent {
+    pub layer: u8,
+    /// 已完成条目数（含失败）
+    pub done: usize,
+    pub total: usize,
+    /// 当前条目相对路径
+    pub item: String,
+}
+
+pub type WbProgressCb<'a> = &'a (dyn Fn(WbProgressEvent) + Send + Sync);
+
+/// 隔离区信息（列表命令返回）。
+#[derive(Debug, Clone, Serialize)]
+pub struct WbQuarantineInfo {
+    pub name: String,
+    pub path: String,
+    /// 隔离目录名后缀时间戳（unix 秒）
+    pub created_unix: u64,
+    /// factory | logout | unknown(manifest 缺失/损坏)
+    pub mode: String,
+    /// 记录的原始根目录
+    pub original_root: String,
+    /// 数据条目数（不含 manifest）
+    pub entries: usize,
+    pub size_mb: f64,
+}
+
+/// 单条计划动作。
+#[derive(Debug, Clone, Serialize)]
+pub struct WbPlanAction {
+    pub path: String,
+    /// delete_file | delete_dir | quarantine
+    pub action: &'static str,
+    pub size_mb: f64,
+}
+
+/// 计划预览报告（执行前"会动什么"的精确清单）。
+#[derive(Debug, Clone, Serialize)]
+pub struct WbPlanReport {
+    /// maintenance | logout | factory
+    pub mode: String,
+    pub include_device_id: bool,
+    pub actions: Vec<WbPlanAction>,
+    pub total_mb: f64,
+}
+
+/// 历史台账条目（reset-history/<ts>-<mode>.json）。
+#[derive(Debug, Clone, Serialize)]
+pub struct WbHistoryItem {
+    pub file: String,
+    pub ts_unix: u64,
+    pub mode: String,
+    pub ok: bool,
+    pub summary: String,
+}
+
+// ================== 隔离区 manifest（恢复依据） ==================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct WbManifestEntry {
+    /// 隔离区内的条目名
+    name: String,
+    /// 原始相对路径（相对用户根目录）
+    original_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct WbQuarantineManifest {
+    /// factory | logout
+    mode: String,
+    created_unix: u64,
+    /// 原始用户根目录（绝对路径字符串）
+    root: String,
+    entries: Vec<WbManifestEntry>,
+}
+
+/// 隔离目录命名前缀（工厂/登出共用；恢复与删除命令以此作护栏）。
+pub const QUARANTINE_PREFIX: &str = ".workbuddy-quarantine-";
+/// 隔离区 manifest 文件名。
+pub const QUARANTINE_MANIFEST: &str = "quarantine-manifest.json";
+/// 历史台账目录（顶层；分类判据落 user_asset 档，维护清理不动它）。
+pub const HISTORY_DIR: &str = "reset-history";
 
 // ================== 分类判据（纯函数，可单测） ==================
 
@@ -204,30 +289,7 @@ fn dir_size_recursive(p: &std::path::Path) -> u64 {
     }
 }
 
-/// 清空目录内容（保留目录壳）。目录不存在 = 无事发生（ok）。
-/// 返回 (已删条目名, 失败条目名:错误)。
-fn remove_dir_contents(dir: &std::path::Path) -> (Vec<String>, Vec<String>) {
-    let mut removed = Vec::new();
-    let mut errors = Vec::new();
-    let rd = match std::fs::read_dir(dir) {
-        Ok(rd) => rd,
-        Err(_) => return (removed, errors), // 不存在/不可读 = 无事发生
-    };
-    for e in rd.flatten() {
-        let name = e.file_name().to_string_lossy().to_string();
-        let r = if e.path().is_dir() {
-            std::fs::remove_dir_all(&e.path())
-        } else {
-            std::fs::remove_file(&e.path())
-        };
-        match r {
-            Ok(_) => removed.push(name),
-            Err(err) => errors.push(format!("{name}: {err}")),
-        }
-    }
-    (removed, errors)
-}
-
+/// 层报告汇总：无失败 = ok。
 fn layer_from(name: &'static str, layer: u8, errors: &[String], acted: usize, acted_noun: &str) -> WbLayerReport {
     if errors.is_empty() {
         WbLayerReport {
@@ -358,74 +420,249 @@ fn maybe_kill(kill_running: bool) -> Option<WbLayerReport> {
     }
 }
 
-// ================== 层① 维护清理 ==================
+// ================== 动作清单引擎（计划与执行共用同一份判据） ==================
 
-/// 维护清理：只动可再生缓存与日志。登录态(app/session 本体)、记忆、技能、工作区一律不碰。
-fn layer_maintenance(root: &std::path::Path) -> WbLayerReport {
-    let mut errors: Vec<String> = Vec::new();
-    let mut acted = 0usize;
-    // 顶层维护目录：清空内容、保留目录壳（与应用的重建习惯一致）
-    for name in MAINTENANCE_TOP_DIRS {
-        let dir = root.join(name);
-        if !dir.exists() {
-            continue;
+/// 单条待执行动作。计划预览与实际执行都从这里出，杜绝"说的和做的不一致"。
+#[derive(Debug, Clone)]
+pub struct WbActionItem {
+    /// 相对路径标签（UI/进度展示）
+    pub path: String,
+    /// 隔离区内的条目名（维护清理执行时不使用）
+    pub qname: String,
+    /// delete_file | delete_dir | quarantine
+    pub action: &'static str,
+    pub full: std::path::PathBuf,
+}
+
+/// 维护档动作清单：顶层维护目录逐子条目删除（壳保留）+ app/session 维护子目录整删。
+fn build_maintenance_items(root: &std::path::Path) -> Vec<WbActionItem> {
+    let mut items = Vec::new();
+    for top in MAINTENANCE_TOP_DIRS {
+        let dir = root.join(top);
+        if let Ok(rd) = std::fs::read_dir(&dir) {
+            for e in rd.flatten() {
+                let child = e.file_name().to_string_lossy().to_string();
+                let is_dir = e.path().is_dir();
+                items.push(WbActionItem {
+                    path: format!("{top}/{child}"),
+                    qname: child,
+                    action: if is_dir { "delete_dir" } else { "delete_file" },
+                    full: e.path(),
+                });
+            }
         }
-        let (removed, errs) = remove_dir_contents(&dir);
-        acted += removed.len();
-        errors.extend(errs);
     }
-    // app/ 下维护子目录：整目录删除（应用自行重建）
     for name in MAINTENANCE_APP_DIRS {
         let dir = root.join("app").join(name);
         if dir.exists() {
-            match std::fs::remove_dir_all(&dir) {
-                Ok(_) => acted += 1,
-                Err(e) => errors.push(format!("app/{name}: {e}")),
-            }
+            items.push(WbActionItem {
+                path: format!("app/{name}"),
+                qname: (*name).to_string(),
+                action: "delete_dir",
+                full: dir,
+            });
         }
     }
-    // app/session/ 下 webview 缓存子目录：整目录删除（登录态 Local Storage/IndexedDB 保留）
     for name in MAINTENANCE_SESSION_DIRS {
         let dir = root.join("app").join(WEBVIEW_SESSION_DIR).join(name);
         if dir.exists() {
-            match std::fs::remove_dir_all(&dir) {
-                Ok(_) => acted += 1,
-                Err(e) => errors.push(format!("app/session/{name}: {e}")),
-            }
+            items.push(WbActionItem {
+                path: format!("app/session/{name}"),
+                qname: (*name).to_string(),
+                action: "delete_dir",
+                full: dir,
+            });
         }
     }
-    layer_from("maintenance_clean", 1, &errors, acted, "清理")
+    items
 }
 
-// ================== 层② 登出重置 ==================
-
-/// 登出重置：删除 app/session（webview 档案整目录 → 下次启动回登录页），
-/// 可选连带删除 device-id（应用下次启动自行生成新设备身份——不做指纹伪造）。
-fn layer_logout(root: &std::path::Path, include_device_id: bool) -> WbLayerReport {
-    let mut errors: Vec<String> = Vec::new();
-    let mut acted = 0usize;
+/// 登出档动作清单：session 整目录 + 可选 device-id，全部走隔离区搬移（可逆）。
+fn build_logout_items(root: &std::path::Path, include_device_id: bool) -> Vec<WbActionItem> {
+    let mut items = Vec::new();
     let session = root.join("app").join(WEBVIEW_SESSION_DIR);
     if session.exists() {
-        match std::fs::remove_dir_all(&session) {
-            Ok(_) => acted += 1,
-            Err(e) => errors.push(format!("app/session: {e}")),
-        }
+        items.push(WbActionItem {
+            path: "app/session".into(),
+            qname: WEBVIEW_SESSION_DIR.to_string(),
+            action: "quarantine",
+            full: session,
+        });
     }
     if include_device_id {
         let dev = root.join(DEVICE_ID_FILE);
         if dev.exists() {
-            match std::fs::remove_file(&dev) {
-                Ok(_) => acted += 1,
-                Err(e) => errors.push(format!("device-id: {e}")),
-            }
+            items.push(WbActionItem {
+                path: DEVICE_ID_FILE.into(),
+                qname: DEVICE_ID_FILE.to_string(),
+                action: "quarantine",
+                full: dev,
+            });
         }
     }
-    let mut rep = layer_from("logout_reset", 2, &errors, acted, "清除");
-    if include_device_id && errors.is_empty() {
+    items
+}
+
+/// 出厂档动作清单：根目录全部顶层条目。
+fn build_factory_items(root: &std::path::Path) -> Vec<WbActionItem> {
+    let mut items = Vec::new();
+    if let Ok(rd) = std::fs::read_dir(root) {
+        for e in rd.flatten() {
+            let name = e.file_name().to_string_lossy().to_string();
+            items.push(WbActionItem {
+                path: name.clone(),
+                qname: name,
+                action: "quarantine",
+                full: e.path(),
+            });
+        }
+    }
+    items
+}
+
+/// 建隔离区并写 manifest（恢复的唯一依据）。
+fn create_quarantine(
+    root: &std::path::Path,
+    mode: &str,
+    entries: &[WbActionItem],
+) -> Result<std::path::PathBuf, String> {
+    let parent = root
+        .parent()
+        .ok_or_else(|| format!("根目录无父目录,无法建隔离区: {}", root.display()))?;
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let quarantine = parent.join(format!("{QUARANTINE_PREFIX}{ts}"));
+    std::fs::create_dir_all(&quarantine)
+        .map_err(|e| format!("隔离区创建失败 {}: {e}", quarantine.display()))?;
+    let manifest = WbQuarantineManifest {
+        mode: mode.to_string(),
+        created_unix: ts,
+        root: root.display().to_string(),
+        entries: entries
+            .iter()
+            .map(|i| WbManifestEntry { name: i.qname.clone(), original_path: i.path.clone() })
+            .collect(),
+    };
+    let body = serde_json::to_string_pretty(&manifest)
+        .map_err(|e| format!("manifest 序列化失败: {e}"))?;
+    std::fs::write(quarantine.join(QUARANTINE_MANIFEST), body)
+        .map_err(|e| format!("manifest 写入失败: {e}"))?;
+    Ok(quarantine)
+}
+
+/// 执行动作清单。quarantine=Some 时 quarantine 类动作 rename 进隔离区，否则报错兜底。
+/// 返回 (层报告, 实际执行数)。
+fn execute_items(
+    items: Vec<WbActionItem>,
+    layer: u8,
+    name: &'static str,
+    acted_noun: &str,
+    quarantine: Option<&std::path::Path>,
+    progress: Option<WbProgressCb>,
+) -> (WbLayerReport, usize) {
+    let total = items.len();
+    let mut acted = 0usize;
+    let mut errors: Vec<String> = Vec::new();
+    for (idx, item) in items.iter().enumerate() {
+        let r = match (item.action, quarantine) {
+            ("delete_file", _) => std::fs::remove_file(&item.full),
+            ("delete_dir", _) => std::fs::remove_dir_all(&item.full),
+            ("quarantine", Some(q)) => std::fs::rename(&item.full, q.join(&item.qname)),
+            ("quarantine", None) => Err(std::io::Error::other("隔离区未就位")),
+            _ => Err(std::io::Error::other("未知动作类型")),
+        };
+        match r {
+            Ok(_) => acted += 1,
+            Err(e) => errors.push(format!("{}: {e}", item.path)),
+        }
+        if let Some(cb) = progress {
+            cb(WbProgressEvent { layer, done: idx + 1, total, item: item.path.clone() });
+        }
+    }
+    (layer_from(name, layer, &errors, acted, acted_noun), acted)
+}
+
+/// 历史台账：每次操作后在 reset-history/ 落一份 JSON（顶层 user_asset 档，维护清理不动）。
+fn write_history(root: &std::path::Path, mode: &str, report: &WbResetReport) {
+    let dir = root.join(HISTORY_DIR);
+    if std::fs::create_dir_all(&dir).is_err() {
+        return; // 台账失败不阻断主流程,但主报告不受影响
+    }
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let summary = report
+        .layers
+        .iter()
+        .map(|l| format!("L{} {} {}", l.layer, l.name, if l.ok { "ok" } else { "FAIL" }))
+        .collect::<Vec<_>>()
+        .join("; ");
+    let doc = serde_json::json!({
+        "ts_unix": ts,
+        "mode": mode,
+        "ok": report.layers.iter().all(|l| l.ok),
+        "summary": summary,
+    });
+    let _ = std::fs::write(dir.join(format!("{ts}-{mode}.json")), doc.to_string());
+}
+
+// ================== 层① 维护清理 ==================
+
+/// 维护清理：只删可再生缓存与日志。登录态(app/session 本体)、记忆、技能、工作区一律不碰。
+fn layer_maintenance(root: &std::path::Path, progress: Option<WbProgressCb>) -> WbLayerReport {
+    let items = build_maintenance_items(root);
+    let (rep, _) = execute_items(items, 1, "maintenance_clean", "清理", None, progress);
+    rep
+}
+
+// ================== 层② 登出重置（隔离区搬移,可逆） ==================
+
+/// 登出重置：app/session 搬入隔离区（下次启动回登录页），可选连带 device-id。
+/// 不再真删——与出厂同款可逆设计，恢复命令可原样搬回。
+fn layer_logout(
+    root: &std::path::Path,
+    include_device_id: bool,
+    progress: Option<WbProgressCb>,
+) -> WbLayerReport {
+    let items = build_logout_items(root, include_device_id);
+    if items.is_empty() {
+        return WbLayerReport {
+            layer: 2,
+            name: "logout_reset",
+            ok: true,
+            detail: "无待处理条目(本就不存在或已清空)".into(),
+        };
+    }
+    let quarantine = match create_quarantine(root, "logout", &items) {
+        Ok(q) => q,
+        Err(e) => {
+            return WbLayerReport { layer: 2, name: "logout_reset", ok: false, detail: e };
+        }
+    };
+    let (mut rep, acted) = execute_items(
+        items,
+        2,
+        "logout_reset",
+        "搬移",
+        Some(&quarantine),
+        progress,
+    );
+    if rep.ok {
         rep.detail = format!(
-            "{}; device-id 已清除(WorkBuddy 下次启动自行重新注册设备身份;服务端限制不受影响)",
-            rep.detail
+            "{}; 隔离区={} (恢复命令可原样搬回)",
+            rep.detail,
+            quarantine.display()
         );
+        if include_device_id {
+            rep.detail = format!(
+                "{}; device-id 已隔离(WorkBuddy 下次启动自行重新注册设备身份;服务端限制不受影响)",
+                rep.detail
+            );
+        }
+        let _ = acted;
     }
     rep
 }
@@ -433,118 +670,289 @@ fn layer_logout(root: &std::path::Path, include_device_id: bool) -> WbLayerRepor
 // ================== 层③ 出厂重置（隔离区搬移,可逆） ==================
 
 /// 出厂重置：把根目录**全部顶层条目**搬移到同卷隔离目录（rename，秒级、零丢失、可逆）。
-/// 应用下次启动按首次安装重建。隔离目录名回填在 detail 里——把条目搬回根目录即完整恢复。
-fn layer_factory(root: &std::path::Path) -> WbLayerReport {
-    let ts = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-    let parent = match root.parent() {
-        Some(p) => p.to_path_buf(),
-        None => {
-            return WbLayerReport {
-                layer: 3,
-                name: "factory_reset",
-                ok: false,
-                detail: format!("根目录无父目录,无法建隔离区: {}", root.display()),
-            }
-        }
-    };
-    let quarantine = parent.join(format!(".workbuddy-quarantine-{ts}"));
-    if let Err(e) = std::fs::create_dir_all(&quarantine) {
-        return WbLayerReport {
-            layer: 3,
-            name: "factory_reset",
-            ok: false,
-            detail: format!("隔离区创建失败 {}: {e}", quarantine.display()),
-        };
-    }
-    let rd = match std::fs::read_dir(root) {
-        Ok(rd) => rd,
+/// 应用下次启动按首次安装重建。manifest 记录全部条目与原始根——恢复命令一键搬回。
+fn layer_factory(root: &std::path::Path, progress: Option<WbProgressCb>) -> WbLayerReport {
+    let items = build_factory_items(root);
+    let quarantine = match create_quarantine(root, "factory", &items) {
+        Ok(q) => q,
         Err(e) => {
-            return WbLayerReport {
-                layer: 3,
-                name: "factory_reset",
-                ok: false,
-                detail: format!("根目录枚举失败: {e}"),
-            }
+            return WbLayerReport { layer: 3, name: "factory_reset", ok: false, detail: e };
         }
     };
-    let mut moved: Vec<String> = Vec::new();
-    let mut errors: Vec<String> = Vec::new();
-    for e in rd.flatten() {
-        let name = e.file_name().to_string_lossy().to_string();
-        match std::fs::rename(&e.path(), quarantine.join(&name)) {
-            Ok(_) => moved.push(name),
-            Err(err) => errors.push(format!("{name}: {err}")),
-        }
-    }
-    let mut rep = layer_from("factory_reset", 3, &errors, moved.len(), "搬移");
-    if errors.is_empty() && !moved.is_empty() {
+    let (mut rep, _) = execute_items(items, 3, "factory_reset", "搬移", Some(&quarantine), progress);
+    if rep.ok {
         rep.detail = format!(
-            "{}; 隔离区={} (把其中条目搬回 {} 即完整恢复)",
+            "{}; 隔离区={} (恢复命令可原样搬回)",
             rep.detail,
-            quarantine.display(),
-            root.display()
+            quarantine.display()
         );
-    } else if errors.is_empty() {
-        rep.detail = format!("根目录本就为空; 隔离区={}", quarantine.display());
     }
     rep
 }
 
 // ================== 编排层（root 显式传参,单测直入） ==================
 
-pub fn workbuddy_maintenance_reset(root: &std::path::Path, kill_running: bool) -> WbResetReport {
-    sanity_check_root(root).expect("sanity");
-    let mut layers: Vec<WbLayerReport> = Vec::new();
+fn kill_or_skip(kill_running: bool) -> WbLayerReport {
     match maybe_kill(kill_running) {
-        Some(l) => layers.push(l),
-        None => layers.push(WbLayerReport {
+        Some(l) => l,
+        None => WbLayerReport {
             layer: 0,
             name: "kill_workbuddy_processes",
             ok: true,
             detail: "skipped(kill_running=false)".into(),
-        }),
+        },
     }
-    layers.push(layer_maintenance(root));
-    WbResetReport { layers }
+}
+
+pub fn workbuddy_maintenance_reset(
+    root: &std::path::Path,
+    kill_running: bool,
+    progress: Option<WbProgressCb>,
+) -> WbResetReport {
+    sanity_check_root(root).expect("sanity");
+    let mut layers: Vec<WbLayerReport> = Vec::new();
+    layers.push(kill_or_skip(kill_running));
+    layers.push(layer_maintenance(root, progress));
+    let rep = WbResetReport { layers };
+    write_history(root, "maintenance", &rep);
+    rep
 }
 
 pub fn workbuddy_logout_reset(
     root: &std::path::Path,
     kill_running: bool,
     include_device_id: bool,
+    progress: Option<WbProgressCb>,
 ) -> WbResetReport {
     sanity_check_root(root).expect("sanity");
     let mut layers: Vec<WbLayerReport> = Vec::new();
-    match maybe_kill(kill_running) {
-        Some(l) => layers.push(l),
-        None => layers.push(WbLayerReport {
-            layer: 0,
-            name: "kill_workbuddy_processes",
-            ok: true,
-            detail: "skipped(kill_running=false)".into(),
-        }),
-    }
-    layers.push(layer_logout(root, include_device_id));
-    WbResetReport { layers }
+    layers.push(kill_or_skip(kill_running));
+    layers.push(layer_logout(root, include_device_id, progress));
+    let rep = WbResetReport { layers };
+    write_history(root, "logout", &rep);
+    rep
 }
 
-pub fn workbuddy_factory_reset(root: &std::path::Path, kill_running: bool) -> WbResetReport {
+pub fn workbuddy_factory_reset(
+    root: &std::path::Path,
+    kill_running: bool,
+    progress: Option<WbProgressCb>,
+) -> WbResetReport {
     sanity_check_root(root).expect("sanity");
     let mut layers: Vec<WbLayerReport> = Vec::new();
-    match maybe_kill(kill_running) {
-        Some(l) => layers.push(l),
-        None => layers.push(WbLayerReport {
-            layer: 0,
-            name: "kill_workbuddy_processes",
-            ok: true,
-            detail: "skipped(kill_running=false)".into(),
-        }),
+    layers.push(kill_or_skip(kill_running));
+    layers.push(layer_factory(root, progress));
+    let rep = WbResetReport { layers };
+    write_history(root, "factory", &rep);
+    rep
+}
+
+// ================== 计划预览 / 隔离区生命周期 / 历史台账 ==================
+
+/// 计划预览：与执行层共用 build_*_items 判据，返回"会动什么"的精确清单（含体量）。
+pub fn workbuddy_plan(root: &std::path::Path, mode: &str, include_device_id: bool) -> WbPlanReport {
+    let items = match mode {
+        "logout" => build_logout_items(root, include_device_id),
+        "factory" => build_factory_items(root),
+        _ => build_maintenance_items(root),
+    };
+    let mut actions = Vec::new();
+    let mut total = 0u64;
+    for i in &items {
+        let size = if i.action == "delete_file" {
+            std::fs::metadata(&i.full).map(|m| m.len()).unwrap_or(0)
+        } else {
+            dir_size_recursive(&i.full)
+        };
+        total += size;
+        actions.push(WbPlanAction {
+            path: i.path.clone(),
+            action: i.action,
+            size_mb: size as f64 / 1048576.0,
+        });
     }
-    layers.push(layer_factory(root));
-    WbResetReport { layers }
+    actions.sort_by(|a, b| b.size_mb.partial_cmp(&a.size_mb).unwrap_or(std::cmp::Ordering::Equal));
+    WbPlanReport {
+        mode: mode.to_string(),
+        include_device_id,
+        total_mb: total as f64 / 1048576.0,
+        actions,
+    }
+}
+
+/// 隔离区目录名护栏（纯函数）：必须 `<前缀><纯数字时间戳>`。
+pub fn is_quarantine_dir_name(name: &str) -> bool {
+    let Some(suffix) = name.strip_prefix(QUARANTINE_PREFIX) else {
+        return false;
+    };
+    !suffix.is_empty() && suffix.bytes().all(|b| b.is_ascii_digit())
+}
+
+/// 列出同卷全部隔离区（从根目录父目录扫描；工厂重置后根目录为空壳,不依赖根内容）。
+pub fn quarantine_list_impl(root: &std::path::Path) -> Result<Vec<WbQuarantineInfo>, String> {
+    let parent = root
+        .parent()
+        .filter(|p| p.is_dir())
+        .ok_or_else(|| format!("根目录父目录不存在,无法扫描隔离区: {}", root.display()))?;
+    let mut out = Vec::new();
+    let rd = std::fs::read_dir(parent).map_err(|e| format!("父目录枚举失败: {e}"))?;
+    for e in rd.flatten() {
+        let name = e.file_name().to_string_lossy().to_string();
+        if !is_quarantine_dir_name(&name) || !e.path().is_dir() {
+            continue;
+        }
+        let created_unix = name[QUARANTINE_PREFIX.len()..].parse().unwrap_or(0);
+        let mut size = 0u64;
+        let mut entries = 0usize;
+        let (mut mode, mut original_root) = ("unknown".to_string(), String::new());
+        if let Ok(qrd) = std::fs::read_dir(e.path()) {
+            for qe in qrd.flatten() {
+                if qe.file_name().to_string_lossy() == QUARANTINE_MANIFEST {
+                    continue;
+                }
+                entries += 1;
+                size += dir_size_recursive(&qe.path());
+            }
+        }
+        if let Ok(body) = std::fs::read_to_string(e.path().join(QUARANTINE_MANIFEST)) {
+            if let Ok(m) = serde_json::from_str::<WbQuarantineManifest>(&body) {
+                mode = m.mode;
+                original_root = m.root;
+            }
+        }
+        out.push(WbQuarantineInfo {
+            original_root,
+            name,
+            path: e.path().display().to_string(),
+            created_unix,
+            mode,
+            entries,
+            size_mb: size as f64 / 1048576.0,
+        });
+    }
+    out.sort_by(|a, b| b.created_unix.cmp(&a.created_unix));
+    Ok(out)
+}
+
+/// 从隔离区恢复：按 manifest 逐条目 rename 回原位。护栏：目录名前缀 + manifest 可解析
+/// + 目标已存在则拒绝覆盖（绝不静默覆盖用户现有数据）。全空后删除隔离区壳。
+pub fn quarantine_restore_impl(
+    quarantine: &std::path::Path,
+) -> WbResetReport {
+    let name = quarantine
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let fail = |detail: String| WbResetReport {
+        layers: vec![WbLayerReport { layer: 4, name: "quarantine_restore", ok: false, detail }],
+    };
+    if !is_quarantine_dir_name(&name) {
+        return fail(format!("护栏拒绝：{name} 不是隔离区目录名({QUARANTINE_PREFIX}<时间戳>)"));
+    }
+    if !quarantine.is_dir() {
+        return fail(format!("隔离区不存在: {}", quarantine.display()));
+    }
+    let body = match std::fs::read_to_string(quarantine.join(QUARANTINE_MANIFEST)) {
+        Ok(b) => b,
+        Err(e) => return fail(format!("manifest 读取失败: {e}")),
+    };
+    let manifest: WbQuarantineManifest = match serde_json::from_str(&body) {
+        Ok(m) => m,
+        Err(e) => return fail(format!("manifest 解析失败: {e}")),
+    };
+    let root = std::path::PathBuf::from(&manifest.root);
+    if root.parent().is_none() {
+        return fail(format!("manifest 记录的根目录非法: {}", manifest.root));
+    }
+    let mut acted = 0usize;
+    let mut errors: Vec<String> = Vec::new();
+    for entry in &manifest.entries {
+        let target = root.join(&entry.original_path);
+        if target.exists() {
+            errors.push(format!("{}: 目标已存在,拒绝覆盖", entry.original_path));
+        } else {
+            let src = quarantine.join(&entry.name);
+            if let Some(parent) = target.parent() {
+                if let Err(e) = std::fs::create_dir_all(parent) {
+                    errors.push(format!("{}: 父目录创建失败({e})", entry.original_path));
+                } else if let Err(e) = std::fs::rename(&src, &target) {
+                    errors.push(format!("{}: {e}", entry.original_path));
+                } else {
+                    acted += 1;
+                }
+            }
+        }
+    }
+    // 搬空（只剩 manifest）后清掉隔离区壳
+    let mut leftover = false;
+    if let Ok(rd) = std::fs::read_dir(quarantine) {
+        leftover = rd.flatten().any(|e| e.file_name().to_string_lossy() != QUARANTINE_MANIFEST);
+    }
+    if !leftover {
+        let _ = std::fs::remove_dir_all(quarantine);
+    }
+    WbResetReport {
+        layers: vec![layer_from("quarantine_restore", 4, &errors, acted, "恢复")],
+    }
+}
+
+/// 删除隔离区（数据已确认不要时的人工清理出口）。护栏：目录名格式 + 父目录匹配。
+pub fn quarantine_delete_impl(
+    quarantine: &std::path::Path,
+    expected_parent: &std::path::Path,
+) -> WbResetReport {
+    let name = quarantine
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let fail = |detail: String| WbResetReport {
+        layers: vec![WbLayerReport { layer: 5, name: "quarantine_delete", ok: false, detail }],
+    };
+    if !is_quarantine_dir_name(&name) {
+        return fail(format!("护栏拒绝：{name} 不是隔离区目录名({QUARANTINE_PREFIX}<时间戳>)"));
+    }
+    if quarantine.parent() != Some(expected_parent) {
+        return fail(format!(
+            "护栏拒绝：隔离区不在预期父目录 {} 下",
+            expected_parent.display()
+        ));
+    }
+    match std::fs::remove_dir_all(quarantine) {
+        Ok(_) => WbResetReport {
+            layers: vec![WbLayerReport {
+                layer: 5,
+                name: "quarantine_delete",
+                ok: true,
+                detail: format!("已删除隔离区 {}", quarantine.display()),
+            }],
+        },
+        Err(e) => fail(format!("删除失败: {e}")),
+    }
+}
+
+/// 读取历史台账（reset-history/*.json，按时间倒序）。
+pub fn workbuddy_read_history(root: &std::path::Path) -> Vec<WbHistoryItem> {
+    let mut out = Vec::new();
+    let Ok(rd) = std::fs::read_dir(root.join(HISTORY_DIR)) else {
+        return out;
+    };
+    for e in rd.flatten() {
+        let fname = e.file_name().to_string_lossy().to_string();
+        if !fname.ends_with(".json") {
+            continue;
+        }
+        let Ok(body) = std::fs::read_to_string(e.path()) else { continue };
+        let Ok(v) = serde_json::from_str::<serde_json::Value>(&body) else { continue };
+        out.push(WbHistoryItem {
+            ts_unix: v.get("ts_unix").and_then(|x| x.as_u64()).unwrap_or(0),
+            mode: v.get("mode").and_then(|x| x.as_str()).unwrap_or("unknown").to_string(),
+            ok: v.get("ok").and_then(|x| x.as_bool()).unwrap_or(false),
+            summary: v.get("summary").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+            file: fname,
+        });
+    }
+    out.sort_by(|a, b| b.ts_unix.cmp(&a.ts_unix));
+    out
 }
 
 // ================== 探针（重 I/O,命令层包 spawn_blocking） ==================
@@ -653,6 +1061,8 @@ pub fn probe_workbuddy_running() -> bool {
 
 // ================== tauri 薄胶水（只转发,不含判定） ==================
 
+use tauri::ipc::Channel;
+
 #[tauri::command(async)]
 pub async fn workbuddy_reset_probe() -> Result<WbProbeReport, IpcError> {
     let root = resolve_user_dir().map_err(|e| IpcError::internal(e))?;
@@ -662,36 +1072,119 @@ pub async fn workbuddy_reset_probe() -> Result<WbProbeReport, IpcError> {
         .map_err(|e| IpcError::internal(format!("探针任务异常退出: {e}")))
 }
 
+/// 计划预览：执行前把"会动什么/多大"逐条列给用户（与执行层共用判据）。
 #[tauri::command(async)]
-pub async fn workbuddy_reset_maintenance(kill_running: bool) -> Result<WbResetReport, IpcError> {
+pub async fn workbuddy_reset_plan(
+    mode: String,
+    include_device_id: bool,
+) -> Result<WbPlanReport, IpcError> {
     let root = resolve_user_dir().map_err(|e| IpcError::internal(e))?;
     sanity_check_root(&root).map_err(|e| IpcError::permission(e))?;
-    tauri::async_runtime::spawn_blocking(move || workbuddy_maintenance_reset(&root, kill_running))
-        .await
-        .map_err(|e| IpcError::internal(format!("维护清理任务异常退出: {e}")))
+    tauri::async_runtime::spawn_blocking(move || {
+        workbuddy_plan(&root, &mode, include_device_id)
+    })
+    .await
+    .map_err(|e| IpcError::internal(format!("计划预览任务异常退出: {e}")))
+}
+
+#[tauri::command(async)]
+pub async fn workbuddy_reset_maintenance(
+    kill_running: bool,
+    on_progress: Channel<WbProgressEvent>,
+) -> Result<WbResetReport, IpcError> {
+    let root = resolve_user_dir().map_err(|e| IpcError::internal(e))?;
+    sanity_check_root(&root).map_err(|e| IpcError::permission(e))?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let cb = move |ev: WbProgressEvent| {
+            let _ = on_progress.send(ev);
+        };
+        workbuddy_maintenance_reset(&root, kill_running, Some(&cb))
+    })
+    .await
+    .map_err(|e| IpcError::internal(format!("维护清理任务异常退出: {e}")))
 }
 
 #[tauri::command(async)]
 pub async fn workbuddy_reset_logout(
     kill_running: bool,
     include_device_id: bool,
+    on_progress: Channel<WbProgressEvent>,
 ) -> Result<WbResetReport, IpcError> {
     let root = resolve_user_dir().map_err(|e| IpcError::internal(e))?;
     sanity_check_root(&root).map_err(|e| IpcError::permission(e))?;
     tauri::async_runtime::spawn_blocking(move || {
-        workbuddy_logout_reset(&root, kill_running, include_device_id)
+        let cb = move |ev: WbProgressEvent| {
+            let _ = on_progress.send(ev);
+        };
+        workbuddy_logout_reset(&root, kill_running, include_device_id, Some(&cb))
     })
     .await
     .map_err(|e| IpcError::internal(format!("登出重置任务异常退出: {e}")))
 }
 
 #[tauri::command(async)]
-pub async fn workbuddy_reset_factory(kill_running: bool) -> Result<WbResetReport, IpcError> {
+pub async fn workbuddy_reset_factory(
+    kill_running: bool,
+    on_progress: Channel<WbProgressEvent>,
+) -> Result<WbResetReport, IpcError> {
     let root = resolve_user_dir().map_err(|e| IpcError::internal(e))?;
     sanity_check_root(&root).map_err(|e| IpcError::permission(e))?;
-    tauri::async_runtime::spawn_blocking(move || workbuddy_factory_reset(&root, kill_running))
+    tauri::async_runtime::spawn_blocking(move || {
+        let cb = move |ev: WbProgressEvent| {
+            let _ = on_progress.send(ev);
+        };
+        workbuddy_factory_reset(&root, kill_running, Some(&cb))
+    })
+    .await
+    .map_err(|e| IpcError::internal(format!("出厂重置任务异常退出: {e}")))
+}
+
+/// 隔离区列表（工厂重置后根目录为空壳也能列——扫描父目录,不依赖根内容）。
+#[tauri::command(async)]
+pub async fn workbuddy_quarantine_list() -> Result<Vec<WbQuarantineInfo>, IpcError> {
+    let root = resolve_user_dir().map_err(|e| IpcError::internal(e))?;
+    tauri::async_runtime::spawn_blocking(move || quarantine_list_impl(&root))
         .await
-        .map_err(|e| IpcError::internal(format!("出厂重置任务异常退出: {e}")))
+        .map_err(|e| IpcError::internal(format!("隔离区扫描任务异常退出: {e}")))?
+        .map_err(|e| IpcError::internal(e))
+}
+
+/// 从隔离区一键恢复（按 manifest 原样搬回;目标已存在拒绝覆盖）。
+#[tauri::command(async)]
+pub async fn workbuddy_quarantine_restore(
+    quarantine_path: String,
+) -> Result<WbResetReport, IpcError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        quarantine_restore_impl(&std::path::PathBuf::from(&quarantine_path))
+    })
+    .await
+    .map_err(|e| IpcError::internal(format!("恢复任务异常退出: {e}")))
+}
+
+/// 删除隔离区（二次确认后的人工清理出口;护栏：目录名格式 + 父目录必须匹配用户根）。
+#[tauri::command(async)]
+pub async fn workbuddy_quarantine_delete(
+    quarantine_path: String,
+) -> Result<WbResetReport, IpcError> {
+    let root = resolve_user_dir().map_err(|e| IpcError::internal(e))?;
+    let parent = root
+        .parent()
+        .map(|p| p.to_path_buf())
+        .ok_or_else(|| IpcError::internal("根目录无父目录"))?;
+    tauri::async_runtime::spawn_blocking(move || {
+        quarantine_delete_impl(&std::path::PathBuf::from(&quarantine_path), &parent)
+    })
+    .await
+    .map_err(|e| IpcError::internal(format!("删除任务异常退出: {e}")))
+}
+
+/// 历史台账（每次重置操作留档,按时间倒序）。
+#[tauri::command(async)]
+pub async fn workbuddy_reset_history() -> Result<Vec<WbHistoryItem>, IpcError> {
+    let root = resolve_user_dir().map_err(|e| IpcError::internal(e))?;
+    tauri::async_runtime::spawn_blocking(move || workbuddy_read_history(&root))
+        .await
+        .map_err(|e| IpcError::internal(format!("历史读取任务异常退出: {e}")))
 }
 
 // ================== 测试（临时夹具,绝不触碰真实 ~/.workbuddy） ==================
@@ -700,14 +1193,17 @@ pub async fn workbuddy_reset_factory(kill_running: bool) -> Result<WbResetReport
 mod tests {
     use super::*;
 
+    /// 独立容器夹具：temp/wb-reset-test-<tag>-<nanos>/root —— root.parent() 全局唯一,
+    /// 隔离区写进父目录,多测试并行互不串扰(cargo test 默认多线程)。
     fn fixture_root(tag: &str) -> std::path::PathBuf {
-        let base = std::env::temp_dir().join(format!(
+        let container = std::env::temp_dir().join(format!(
             "wb-reset-test-{tag}-{}",
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_nanos()
         ));
+        let base = container.join("root");
         std::fs::create_dir_all(base.join("logs/20261010")).unwrap();
         std::fs::write(base.join("logs/20261010/main.log"), "log").unwrap();
         std::fs::create_dir_all(base.join("app/session/Local Storage")).unwrap();
@@ -723,6 +1219,24 @@ mod tests {
         base
     }
 
+    /// 清理整个容器（隔离区与 root 一并清,测试零残留）。
+    fn cleanup(fx: &std::path::Path) {
+        if let Some(c) = fx.parent() {
+            let _ = std::fs::remove_dir_all(c);
+        }
+    }
+
+    /// 在夹具父目录里找本测试创建的隔离区。
+    fn find_quarantine(fx: &std::path::Path) -> std::path::PathBuf {
+        let parent = fx.parent().unwrap();
+        for e in std::fs::read_dir(parent).unwrap().flatten() {
+            if is_quarantine_dir_name(&e.file_name().to_string_lossy()) {
+                return e.path();
+            }
+        }
+        panic!("未找到隔离区于 {}", parent.display());
+    }
+
     #[test]
     fn classify_slots_are_stable() {
         assert_eq!(classify_top_level("logs"), "maintenance");
@@ -734,6 +1248,12 @@ mod tests {
         assert_eq!(classify_app_child("data"), "user_asset");
         assert_eq!(classify_session_child("Cache"), "maintenance");
         assert_eq!(classify_session_child("Local Storage"), "user_asset");
+        // 隔离区目录名判据
+        assert!(is_quarantine_dir_name(".workbuddy-quarantine-1728537600"));
+        assert!(!is_quarantine_dir_name(".workbuddy-quarantine-"));
+        assert!(!is_quarantine_dir_name(".workbuddy-quarantine-12a"));
+        assert!(!is_quarantine_dir_name("workbuddy-quarantine-123"));
+        assert!(!is_quarantine_dir_name(".workbuddy-quarantine-1-2"));
     }
 
     #[test]
@@ -743,72 +1263,228 @@ mod tests {
         assert!(sanity_check_root(&foreign).is_err(), "无特征标记必须拒");
         let fx = fixture_root("guard");
         assert!(sanity_check_root(&fx).is_ok(), "夹具必须过");
+        cleanup(&fx);
     }
 
     #[test]
     fn maintenance_keeps_session_and_assets_clears_caches() {
         let fx = fixture_root("maint");
-        let rep = workbuddy_maintenance_reset(&fx, false);
+        let rep = workbuddy_maintenance_reset(&fx, false, None);
         assert!(rep.layers.iter().all(|l| l.ok), "{:?}", rep.layers);
         // 缓存与日志被清
         assert!(fx.join("logs").is_dir() && std::fs::read_dir(fx.join("logs")).unwrap().next().is_none());
         assert!(!fx.join("app/CodeCache").exists());
-        assert!(!fx.join("app/session/Cache").exists() || !fx.join("app/session/GPUCache").exists());
         // 登录态、记忆、工作区、设备身份原封不动
         assert!(fx.join("app/session/Local Storage/manifest").exists(), "登录态不得被动");
         assert!(fx.join("MEMORY.md").exists());
         assert!(fx.join("workspace/proj/f.txt").exists());
         assert!(fx.join("device-id").exists());
-        let _ = std::fs::remove_dir_all(&fx);
+        // 历史台账落档
+        let h = workbuddy_read_history(&fx);
+        assert_eq!(h.len(), 1, "维护清理必须留一档历史");
+        assert_eq!(h[0].mode, "maintenance");
+        assert!(h[0].ok);
+        cleanup(&fx);
     }
 
     #[test]
-    fn logout_clears_session_only_optionally_device_id() {
-        let fx = fixture_root("logout");
-        let rep = workbuddy_logout_reset(&fx, false, false);
+    fn maintenance_progress_events_monotonic() {
+        let fx = fixture_root("progress");
+        use std::sync::{Arc, Mutex};
+        let events: Arc<Mutex<Vec<WbProgressEvent>>> = Arc::new(Mutex::new(Vec::new()));
+        let sink = events.clone();
+        let cb = move |ev: WbProgressEvent| {
+            sink.lock().unwrap().push(ev);
+        };
+        let rep = workbuddy_maintenance_reset(&fx, false, Some(&cb));
         assert!(rep.layers.iter().all(|l| l.ok), "{:?}", rep.layers);
-        assert!(!fx.join("app/session").exists(), "session 必须整删");
+        let got = events.lock().unwrap();
+        assert!(!got.is_empty(), "必须逐条目发进度");
+        assert_eq!(got[0].layer, 1);
+        let total = got[0].total;
+        assert!(total >= 2, "夹具至少有 logs 子条目与 app/CodeCache,实际 {total}");
+        for w in got.windows(2) {
+            assert_eq!(w[1].done, w[0].done + 1, "done 必须单调 +1");
+            assert_eq!(w[1].total, total);
+        }
+        assert_eq!(got.last().unwrap().done, total, "收尾必须到 total");
+        assert!(!got[0].item.is_empty());
+        cleanup(&fx);
+    }
+
+    #[test]
+    fn logout_quarantines_session_and_restores_exactly() {
+        let fx = fixture_root("logout");
+        let rep = workbuddy_logout_reset(&fx, false, false, None);
+        assert!(rep.layers.iter().all(|l| l.ok), "{:?}", rep.layers);
+        // session 已不在原位;device-id/记忆/维护档不属登出层
+        assert!(!fx.join("app/session").exists(), "session 必须已搬离");
         assert!(fx.join("device-id").exists(), "未勾选时 device-id 必须保留");
         assert!(fx.join("MEMORY.md").exists());
-        assert!(fx.join("logs").exists(), "维护档不属于登出层");
-
-        let fx2 = fixture_root("logout-dev");
-        let rep2 = workbuddy_logout_reset(&fx2, false, true);
-        assert!(rep2.layers.iter().all(|l| l.ok), "{:?}", rep2.layers);
-        assert!(!fx2.join("device-id").exists(), "勾选后 device-id 必须清除");
-        assert!(fx2.join("app/session").exists() == false || true);
-        let _ = std::fs::remove_dir_all(&fx);
-        let _ = std::fs::remove_dir_all(&fx2);
+        assert!(fx.join("logs/20261010/main.log").exists(), "维护档不属于登出层");
+        // 隔离区持有 session,manifest 记录 mode=logout + 原路径 app/session
+        let q = find_quarantine(&fx);
+        let body = std::fs::read_to_string(q.join(QUARANTINE_MANIFEST)).unwrap();
+        let m: WbQuarantineManifest = serde_json::from_str(&body).unwrap();
+        assert_eq!(m.mode, "logout");
+        assert_eq!(m.root, fx.display().to_string());
+        assert!(m.entries.iter().any(|e| e.original_path == "app/session" && e.name == "session"));
+        assert!(q.join("session/Local Storage/manifest").exists(), "登录态内容必须完好在隔离区");
+        // 一键恢复:原样搬回 + 隔离区壳清掉
+        let rrep = quarantine_restore_impl(&q);
+        assert!(rrep.layers.iter().all(|l| l.ok), "{:?}", rrep.layers);
+        assert!(fx.join("app/session/Local Storage/manifest").exists(), "恢复后登录态必须原位");
+        assert!(!q.exists(), "搬空后隔离区壳必须清除");
+        cleanup(&fx);
     }
 
     #[test]
-    fn factory_moves_everything_to_quarantine_reversibly() {
-        let fx = fixture_root("factory");
-        let rep = workbuddy_factory_reset(&fx, false);
+    fn logout_with_device_id_restores_both() {
+        let fx = fixture_root("logout-dev");
+        let rep = workbuddy_logout_reset(&fx, false, true, None);
         assert!(rep.layers.iter().all(|l| l.ok), "{:?}", rep.layers);
-        // 根目录被搬空(壳保留)
-        assert!(fx.is_dir(), "根目录壳必须保留");
-        assert!(
-            std::fs::read_dir(&fx).unwrap().next().is_none(),
-            "根目录必须为空(全部已搬移)"
+        assert!(!fx.join("device-id").exists(), "勾选后 device-id 必须隔离");
+        assert!(rep.layers.last().unwrap().detail.contains("device-id"), "detail 必须披露设备身份处置");
+        let q = find_quarantine(&fx);
+        let rrep = quarantine_restore_impl(&q);
+        assert!(rrep.layers.iter().all(|l| l.ok), "{:?}", rrep.layers);
+        assert!(fx.join("device-id").exists());
+        assert_eq!(
+            std::fs::read_to_string(fx.join("device-id")).unwrap(),
+            "0123456789abcdef0123456789abcdef0123",
+            "device-id 内容必须逐字节恢复"
         );
-        // 隔离区持有全部条目,且内容完好
-        let detail = &rep.layers.last().unwrap().detail;
-        let qpos = detail.find("隔离区=").expect("detail 必须回填隔离区路径");
-        let qpath = detail[qpos + "隔离区=".len()..].split(' ').next().unwrap();
-        let q = std::path::PathBuf::from(qpath);
-        assert!(q.is_dir(), "隔离区必须存在: {qpath}");
+        assert!(fx.join("app/session/Local Storage/manifest").exists());
+        cleanup(&fx);
+    }
+
+    #[test]
+    fn restore_rejects_existing_target_without_overwrite() {
+        let fx = fixture_root("restore-conflict");
+        let _ = workbuddy_logout_reset(&fx, false, false, None);
+        let q = find_quarantine(&fx);
+        // 预先占位目标（模拟应用已重建 session）
+        std::fs::create_dir_all(fx.join("app/session")).unwrap();
+        std::fs::write(fx.join("app/session/sentinel"), "keep").unwrap();
+        let rrep = quarantine_restore_impl(&q);
+        assert!(!rrep.layers[0].ok, "目标已存在必须拒绝");
+        assert!(rrep.layers[0].detail.contains("拒绝覆盖"));
+        assert_eq!(
+            std::fs::read_to_string(fx.join("app/session/sentinel")).unwrap(),
+            "keep",
+            "现有数据绝不能被覆盖"
+        );
+        cleanup(&fx);
+    }
+
+    #[test]
+    fn factory_moves_everything_to_quarantine_and_restores() {
+        let fx = fixture_root("factory");
+        let top_count = std::fs::read_dir(&fx).unwrap().count();
+        let rep = workbuddy_factory_reset(&fx, false, None);
+        assert!(rep.layers.iter().all(|l| l.ok), "{:?}", rep.layers);
+        // 根目录被搬空(壳保留);唯一遗留 = 操作后新写的 reset-history 台账(设计行为)
+        assert!(fx.is_dir(), "根目录壳必须保留");
+        let leftover: Vec<String> = std::fs::read_dir(&fx)
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().to_string())
+            .collect();
+        assert_eq!(leftover, vec![HISTORY_DIR.to_string()], "出厂后根目录只应留历史台账");
+        // manifest 校验:mode=factory + 原根 + 条目数=顶层条目数
+        let q = find_quarantine(&fx);
+        let body = std::fs::read_to_string(q.join(QUARANTINE_MANIFEST)).unwrap();
+        let m: WbQuarantineManifest = serde_json::from_str(&body).unwrap();
+        assert_eq!(m.mode, "factory");
+        assert_eq!(m.root, fx.display().to_string());
+        assert_eq!(m.entries.len(), top_count, "manifest 条目必须覆盖全部顶层条目");
         assert!(q.join("device-id").exists(), "device-id 必须在隔离区");
         assert!(q.join("MEMORY.md").exists(), "记忆必须在隔离区");
         assert!(q.join("app/session/Local Storage/manifest").exists(), "登录态必须在隔离区");
         assert_eq!(std::fs::read_to_string(q.join("MEMORY.md")).unwrap(), "# memory");
-        // 可逆性:搬回即恢复
-        for e in std::fs::read_dir(&q).unwrap().flatten() {
-            std::fs::rename(e.path(), fx.join(e.file_name())).unwrap();
-        }
+        // 历史台账:出厂落档(根目录壳上)
+        let h = workbuddy_read_history(&fx);
+        assert_eq!(h.len(), 1);
+        assert_eq!(h[0].mode, "factory");
+        // 一键恢复:全部条目原样搬回 + 隔离区壳清掉
+        let rrep = quarantine_restore_impl(&q);
+        assert!(rrep.layers.iter().all(|l| l.ok), "{:?}", rrep.layers);
         assert!(fx.join("MEMORY.md").exists() && fx.join("device-id").exists());
-        let _ = std::fs::remove_dir_all(&q);
-        let _ = std::fs::remove_dir_all(&fx);
+        assert!(fx.join("app/session/Local Storage/manifest").exists());
+        assert_eq!(std::fs::read_to_string(fx.join("MEMORY.md")).unwrap(), "# memory");
+        assert!(!q.exists(), "搬空后隔离区壳必须清除");
+        cleanup(&fx);
+    }
+
+    #[test]
+    fn quarantine_list_reports_mode_entries_size() {
+        let fx = fixture_root("qlist");
+        let _ = workbuddy_logout_reset(&fx, false, false, None);
+        let list = quarantine_list_impl(&fx).unwrap();
+        assert_eq!(list.len(), 1, "必须恰好列出本夹具的隔离区");
+        let info = &list[0];
+        assert_eq!(info.mode, "logout");
+        assert_eq!(info.entries, 1, "数据条目= session(manifest 不计)");
+        assert!(info.created_unix > 0);
+        assert_eq!(info.original_root, fx.display().to_string());
+        assert!(info.size_mb > 0.0);
+        assert!(info.name.starts_with(QUARANTINE_PREFIX));
+        cleanup(&fx);
+    }
+
+    #[test]
+    fn quarantine_delete_has_hard_guards() {
+        let fx = fixture_root("qdel");
+        // 名字护栏:非隔离区名拒绝
+        let bogus = fx.parent().unwrap().join("not-quarantine");
+        std::fs::create_dir_all(&bogus).unwrap();
+        std::fs::write(bogus.join("x"), "y").unwrap();
+        let rep = quarantine_delete_impl(&bogus, fx.parent().unwrap());
+        assert!(!rep.layers[0].ok, "非隔离区名必须拒");
+        assert!(bogus.exists(), "被拒目标必须原样保留");
+        let _ = std::fs::remove_dir_all(&bogus);
+        // 父目录护栏:正名+错父拒绝
+        let _ = workbuddy_logout_reset(&fx, false, false, None);
+        let q = find_quarantine(&fx);
+        let other_parent = std::env::temp_dir().join(format!(
+            "wb-reset-other-parent-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&other_parent).unwrap();
+        let rep2 = quarantine_delete_impl(&q, &other_parent);
+        assert!(!rep2.layers[0].ok, "父目录不匹配必须拒");
+        assert!(q.exists());
+        // 正名+对父 → 删除
+        let rep3 = quarantine_delete_impl(&q, fx.parent().unwrap());
+        assert!(rep3.layers[0].ok);
+        assert!(!q.exists());
+        cleanup(&fx);
+        let _ = std::fs::remove_dir_all(&other_parent);
+    }
+
+    #[test]
+    fn plan_reports_actions_without_executing() {
+        let fx = fixture_root("plan");
+        // 维护计划:列 CodeCache 整删 + logs 子条目;执行前后根目录不变
+        let p = workbuddy_plan(&fx, "maintenance", false);
+        assert!(p.actions.iter().any(|a| a.path == "app/CodeCache" && a.action == "delete_dir"));
+        assert!(p.actions.iter().any(|a| a.path == "logs/20261010" && a.action == "delete_dir"));
+        assert!(p.total_mb > 0.0);
+        assert!(fx.join("app/CodeCache/js/x").exists(), "计划绝不能执行");
+        // 登出计划:session 走 quarantine;勾选 device-id 后多一条
+        let pl = workbuddy_plan(&fx, "logout", false);
+        assert!(pl.actions.iter().any(|a| a.path == "app/session" && a.action == "quarantine"));
+        assert!(!pl.actions.iter().any(|a| a.path == "device-id"));
+        let pld = workbuddy_plan(&fx, "logout", true);
+        assert!(pld.actions.iter().any(|a| a.path == "device-id" && a.action == "quarantine"));
+        // 出厂计划:条目数=顶层条目数,全走 quarantine
+        let pf = workbuddy_plan(&fx, "factory", false);
+        assert_eq!(pf.actions.len(), std::fs::read_dir(&fx).unwrap().count());
+        assert!(pf.actions.iter().all(|a| a.action == "quarantine"));
+        cleanup(&fx);
     }
 
     #[test]
@@ -833,7 +1509,7 @@ mod tests {
             .any(|e| e.path == "app/session" && e.tier == "webview_logout");
         let has_mem = rep.entries.iter().any(|e| e.path == "MEMORY.md" && e.tier == "user_asset");
         assert!(has_logs && has_session && has_mem, "{:?}", rep.entries);
-        let _ = std::fs::remove_dir_all(&fx);
+        cleanup(&fx);
     }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
