@@ -18884,7 +18884,20 @@
     "resultTitle": "Execution Result",
     "resultOk": "OK",
     "resultFail": "Failed",
-    "restartHint": "After logout/factory reset: reopen WorkBuddy to start fresh. The factory quarantine path is shown in the factory_reset layer detail; moving entries back restores everything."
+    "restartHint": "After logout/factory reset: reopen WorkBuddy to start fresh. The factory quarantine path is shown in the factory_reset layer detail; moving entries back restores everything.",
+    "quarantineTitle": "Quarantine manager",
+    "quarantineDesc": "Everything moved by logout/factory reset lives here and can be restored exactly. Delete only when you are sure.",
+    "quarantineRefresh": "Refresh",
+    "quarantineEmpty": "No quarantine directories",
+    "qEntriesLabel": "entries",
+    "qRestore": "Restore",
+    "qDelete": "Delete",
+    "qDeleteConfirm": "Deleted data cannot be recovered. Confirm?",
+    "qRestored": "Restored. Probe and quarantine list refreshed.",
+    "qDeleted": "Quarantine deleted.",
+    "historyTitle": "Operation history",
+    "historyEmpty": "No operations recorded yet",
+    "progressLabel": "Progress"
   },
   "checkin": {
     "title": "Check-in Assistant",
