@@ -26,6 +26,12 @@
  *   与 lostTag 集合比对,避免误报。
  *
  * 当前模式: blocking 模式(isBlocking=true)下,reset 操作或未备份悬空 commit → exit 1。
+ *   2026-10-11 起「未备份悬空 commit」这一档带**时间窗量纲**(默认 30 天,与 §29 写明的
+ *   lost-commit 备份保留期同值):窗内才拦,超窗只报数并点名最老一枚,`--strict` 把超窗
+ *   也计入(问责存量),`--window-days 0` 回到全量语义。reset 那一档**不受窗影响**。
+ *   立因是当轮实测:本仓未备份悬空 9809 枚 ⇒ 这道门早已恒红,而恒红的实际后果是每次提交
+ *   都被逼 HUSKY_SKIP_COMMIT_LOSS_CHECK=1,连它真正该拦的"刚丢的那一枚"也不再有人被拦住
+ *   (AGENTS §12f)。判据本身没有放宽"什么算丢失",改的是"哪一档由提交链负责"。
  * 远程 tag 完整性:仅远端 tag 缺失或 tag 对象不可达时 → exit 1(必须先 fetch 拉回);
  * 多余的本地 tag(远端没有)→ warn,不阻塞。
  *
@@ -69,7 +75,14 @@
  *   现由 `isDirectRun` 守卫执行,判定单元经 `export const __test__` 供测试取用。
  */
 import { pathToFileURL } from 'node:url'
-import { batchExecFileSync, catBatchOids, gitBinary, gitErrText, gitRaw, Undetermined } from './lib/face-reader.mjs'
+import {
+  batchExecFileSync,
+  catBatchOids,
+  gitBinary,
+  gitErrText,
+  gitRaw,
+  Undetermined,
+} from './lib/face-reader.mjs'
 
 /**
  * 判定对象 = **当前工作目录所在的仓库**,不是脚本自己所在的那个仓库。
@@ -92,11 +105,16 @@ const C = {
 const SKIP_ENV = 'HUSKY_SKIP_COMMIT_LOSS_CHECK'
 
 /**
- * 三个档位的 argv 读取点(**唯一源头**)。
+ * 档位旗标的 argv 读取点(**唯一源头**;2026-10-11 起含 `--list-unbacked`,共四项)。
  * 镜像测试原先各抄一份 `'--blocking' / '--filter-stash'` 字面量:档位名一旦改,测试传的
  * 就成了没人读的字符串,断言照样绿(§22c 的"镜像常量漂移")。故导出真常量,测试取用。
  */
-const FLAGS = { strict: '--strict', blocking: '--blocking', filterStash: '--filter-stash' }
+const FLAGS = {
+  strict: '--strict',
+  blocking: '--blocking',
+  filterStash: '--filter-stash',
+  listUnbacked: '--list-unbacked',
+}
 
 /**
  * 「判绿」两句文案的唯一源头。测试只能靠 stdout 区分"判完了、判绿"与"没判成",
@@ -120,6 +138,33 @@ const UNREACHABLE_COMMIT_PREFIX = 'unreachable commit'
 const UNREACHABLE_COMMIT_LINE_RE = /^unreachable commit\s+/
 
 /**
+ * 「悬空 commit 该由谁在什么时候处理」的**时间窗量纲**(2026-10-11 立,G-1117436 同批)。
+ *
+ * 立因不是假想,是当轮实测:`node scripts/check-commit-loss-guard.mjs --blocking --filter-stash`
+ * 在本仓读到 **9809 个未备份悬空 commit**(封件 `.ihui-agent/tmp/gate30a-before.md`,
+ * `#EVIDENCE-RC=1`),即这道门早已是恒红门 —— 而恒红门的实际后果不是"每次都拦住丢失",
+ * 是每一次提交都被逼 `HUSKY_SKIP_COMMIT_LOSS_CHECK=1`,于是**连它真正防的那一型(刚发生的
+ * reset / 刚产生的无出处悬空)也不再有人被拦住**(AGENTS §12f,同仓一天三道同型)。
+ *
+ * 为什么"把判据改成只报数"不是答案:那等于承认 9809 枚都该保而永久不保,门变成装饰品。
+ * 为什么"逐枚 tag 9809 枚"也不是答案:那要往 origin 原子推近万枚 tag,而 §29 早已写明
+ * **悬空备份的保留期就是 30 天、超期由仓库维护者一次性人工 GC**(需要人审,不得脚本自动化)。
+ * ⇒ 唯一与仓内既有政策同形的量纲:**「30 天窗内新产生、且无 tag 备份」才由提交链拦,
+ * 超窗的部分逐条报数并点名最老一枚,问责走 `--strict`**。窗内这一档才是"本次该处理的丢失",
+ * 超窗那一档是"该由人拍板 GC 的存量",把后者算在每个提交者头上,得到的只有跳门。
+ *
+ * 三条不许漂的写法:
+ * ① 读不到某枚的 committer 时刻 ⇒ **保守算窗内**(照旧拦),并逐条点名 —— 缺读数永远不往绿折;
+ * ② 整批日期都取不到(派生全失败)⇒ 全部按"未判定=窗内"拦,并大声报出派生失败;
+ * ③ `--window-days 0`(或 `IHUI_COMMIT_LOSS_WINDOW_DAYS=0`)= **关掉窗维**,回到 2026-10-11
+ *    之前的全量语义。它是变异自证的对照组,也是人工回看存量时的入口,不是应急跳门通道。
+ */
+const WINDOW_DAYS_DEFAULT = 30
+const WINDOW_DAYS_ENV = 'IHUI_COMMIT_LOSS_WINDOW_DAYS'
+/** 一次 `git log --no-walk` 传多少 oid:400 × 41 字符 ≈ 16.5 KB,稳在 Windows argv 上限内。 */
+const DATE_WALK_BATCH = 400
+
+/**
  * reflog 行 → "这是一次把 HEAD 往回退的 reset" 的判据(唯一源头)。
  * 命中形态:`reset: moving to HEAD~` / `reset: moving to HEAD@{1}`;
  * 不命中:`checkout: moving from …` / `commit: …` / `reset: moving to <具体 hash>`。
@@ -141,6 +186,18 @@ const HOLLOW_TAG_HINT =
 const isStrict = process.argv.includes(FLAGS.strict)
 const isBlocking = process.argv.includes(FLAGS.blocking)
 const isFilterStash = process.argv.includes(FLAGS.filterStash)
+const isListUnbacked = process.argv.includes(FLAGS.listUnbacked)
+/**
+ * `--window-days <N>` 的取值(**只认紧跟的那一个 token**)。
+ * 刻意不写成"扫到 flag 之后所有数字里挑一个":仓内已有判据因把别处的数字当自己的参数而误判
+ * (守门 111 那条"参数改成可选标注后正则只认旧形态"同型)。取不到值就交给 resolveWindowDays
+ * 回落默认,并由它把"给了旗但值无效"标成 invalid ⇒ 打印出来,不静默。
+ */
+const WINDOW_DAYS_FLAG = '--window-days'
+const windowDaysFlagValue = (() => {
+  const i = process.argv.indexOf(WINDOW_DAYS_FLAG)
+  return i === -1 ? undefined : process.argv[i + 1]
+})()
 
 /**
  * 名称列表截断(2026-09-18)。
@@ -206,7 +263,10 @@ function treesForCommits(oids) {
   const out = new Map()
   const list = [...new Set(oids.filter((h) => /^[0-9a-f]{40}$/.test(String(h) || '')))]
   if (list.length === 0) return out
-  const got = catBatchOids(ROOT, list.map((h) => `${h}^{tree}`))
+  const got = catBatchOids(
+    ROOT,
+    list.map((h) => `${h}^{tree}`),
+  )
   for (const h of list) {
     const tree = got.get(`${h}^{tree}`)
     if (tree) out.set(h, tree)
@@ -284,7 +344,11 @@ function isResetReflogLine(line) {
  * (git 对唯一对象输出短 hash,所以只能按前缀比,不能等值比)。
  */
 function reflogLineSourceHash(line) {
-  return String(line || '').trim().split(/\s+/)[0] || ''
+  return (
+    String(line || '')
+      .trim()
+      .split(/\s+/)[0] || ''
+  )
 }
 
 /**
@@ -410,6 +474,111 @@ function parseTreeSubjectIndex(stdout) {
 }
 
 /**
+ * 一批 commit oid → `[{hash, unixSeconds}]`(**纯函数**,不派生 git)。
+ *
+ * 输入是 `git log --no-walk --format=%H%x09%ct` 的 stdout。两件事必须记住:
+ * ① `--no-walk` **不保证与传参同序**(实测,见 `filterStashLike` 里那条老注),所以只能按
+ *    `%H` 建映射,严禁按行索引对应 —— 那是曾经把 stash 过滤错位的同一个坑;
+ * ② 时刻读不出来(空值、非数字、被 `%ct` 打成 `-`)⇒ **跳过该行**,由调用方把"没有读数"
+ *    当成保守方向(算窗内)处理。这里不猜、也不默认成 0(0 = 1970 年 = 必然超窗 = 往绿折)。
+ */
+function parseCommitterDateLines(stdout) {
+  const out = []
+  for (const line of String(stdout ?? '').split('\n')) {
+    const t = line.indexOf('\t')
+    if (t <= 0) continue
+    const hash = line.slice(0, t).trim()
+    const raw = line.slice(t + 1).trim()
+    if (!hash) continue
+    const ts = Number(raw)
+    if (!Number.isFinite(ts) || ts <= 0) continue
+    out.push([hash, ts])
+  }
+  return out
+}
+
+/**
+ * 窗维取几天(**纯函数**):`--window-days` > 环境变量 > 默认 30。
+ * 非法值(非数字、负数、非整数)⇒ 回落到默认并**由调用方报名**,绝不静默变成"关掉窗维"
+ * (那会让一次打错的 argv 变成整道门的量纲变更)。`0` 是合法值,含义见 WINDOW_DAYS_* 注释③。
+ */
+function resolveWindowDays({ flagValue, envValue, fallback = WINDOW_DAYS_DEFAULT } = {}) {
+  const pick = (v) => {
+    if (v === undefined || v === null || v === '') return null
+    const n = Number(String(v).trim())
+    if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) return null
+    return n
+  }
+  const fromFlag = pick(flagValue)
+  if (fromFlag !== null) return { days: fromFlag, source: 'flag', invalid: false }
+  const fromEnv = pick(envValue)
+  if (fromEnv !== null) return { days: fromEnv, source: 'env', invalid: false }
+  const touched =
+    (flagValue !== undefined && flagValue !== '') || (envValue !== undefined && envValue !== '')
+  return { days: fallback, source: 'default', invalid: touched }
+}
+
+/**
+ * 未备份悬空 commit → **窗内(拦)/ 超窗(报数)** 两档(纯函数,本门新增判据的唯一实现)。
+ *
+ * 输入全部由调用方从 git 取好后喂进来,所以这一层的四种情形都能用构造面证明,不必依赖
+ * 仓库此刻的悬空存量(那正是守门 103 T12 那一课:证明取材面类的行为只能用纯函数+构造面)。
+ *
+ * @param {object} p
+ * @param {string[]} p.unbacked        经过 ①②③ 三道既有放行后仍未备份的悬空 commit
+ * @param {Map<string,number>} p.committerUnixByHash  批量取到的 committer 时刻
+ * @param {number} p.nowUnix           本次判定的"现在"(注入而非读时钟,便于夹具)
+ * @param {number} p.windowDays        窗宽;`<=0` ⇒ 关掉窗维(全量语义)
+ * @param {number} [p.strict]          问责档:超窗也算拦
+ * @param {number} [p.failedBatches]   取日期的批次失败条数(整批失败 ⇒ 保守全拦)
+ */
+function splitUnbackedByWindow({
+  unbacked = [],
+  committerUnixByHash = new Map(),
+  nowUnix = 0,
+  windowDays = WINDOW_DAYS_DEFAULT,
+  strict = false,
+  failedBatches = 0,
+} = {}) {
+  const ids = [...unbacked]
+  // 窗维关掉 ⇒ 逐字回到 2026-10-11 之前的语义(全算拦)。放在最前,是为了让"整批取不到日期"
+  // 那一支不会把它悄悄改回部分放行。
+  if (!(windowDays > 0)) {
+    return { blocking: ids, outOfWeek: [], undated: [], cutoff: null, windowDays, strict }
+  }
+  const cutoff = nowUnix - windowDays * 86_400
+  // 整批派生失败(一个时刻都没读到,而确有候选、且确有批次报错)⇒ 保守:全部算窗内。
+  // 只在此三者同时成立时触发;单枚读不到走下面的 undated 分支,不影响其余。
+  if (ids.length > 0 && committerUnixByHash.size === 0 && failedBatches > 0) {
+    return {
+      blocking: ids,
+      outOfWeek: [],
+      undated: ids,
+      wholeWalkFailed: true,
+      cutoff,
+      windowDays,
+      strict,
+    }
+  }
+  const blocking = []
+  const undated = []
+  const outOfWeek = []
+  for (const c of ids) {
+    const ts = committerUnixByHash.get(c)
+    if (typeof ts !== 'number' || !Number.isFinite(ts)) {
+      undated.push(c)
+      blocking.push(c) // 保守方向:读不到就当还在窗内,绝不因"没量到"而放行
+      continue
+    }
+    if (ts >= cutoff) blocking.push(c)
+    else outOfWeek.push({ hash: c, unix: ts })
+  }
+  outOfWeek.sort((a, b) => a.unix - b.unix)
+  if (strict) for (const o of outOfWeek) blocking.push(o.hash)
+  return { blocking, outOfWeek, undated, cutoff, windowDays, strict }
+}
+
+/**
  * fsck 读数 —— **本门唯一一处不走 `gitText` 的判据**,因为它必须区分
  * 「取不到」与「取到了但是零」,而 `allowFail` 只能表达后者。
  *
@@ -523,6 +692,41 @@ function filterStashLike(hashes) {
     }
   }
   return hashes.filter((c) => !isStashSubject(subjectByHash.get(c) || ''))
+}
+
+/**
+ * 批量取 committer 时刻(窗维的唯一派生出口)。
+ *
+ * 为什么按批而不是逐枚:`git log --no-walk` 每次派生在本机实测约 100–300 ms,而窗维要问的
+ * 候选在本仓可达近万枚 —— 逐枚就是上面那条 2026-08-17 事故重演一遍。分批是同一套修法的复用,
+ * 批次宽度由 `DATE_WALK_BATCH` 给(400 × 41 字符稳在 Windows argv 上限内)。
+ * 同一条老注对这里同样成立:**`--no-walk` 不保证与传参同序**,所以只能按 `%H` 建映射。
+ *
+ * 为什么这里允许 `allowFail`:它把"取不到"折成空串,而调用方**不是**把空读成"没有悬空",
+ * 是读成"这一批没量到"⇒ 计入 `failedBatches` ⇒ 整批都失败时由 `splitUnbackedByWindow` 的
+ * `wholeWalkFailed` 支保守全拦。`gitText` 头注那条禁令禁的是"取不到就等于没有"的判据,不是这一型。
+ *
+ * @returns {{map: Map<string, number>, failedBatches: number, batches: number}}
+ */
+function committerUnixFor(oids) {
+  const map = new Map()
+  let failedBatches = 0
+  let batches = 0
+  const list = [...oids]
+  for (let i = 0; i < list.length; i += DATE_WALK_BATCH) {
+    const batch = list.slice(i, i + DATE_WALK_BATCH)
+    batches++
+    const out = gitText(['log', '--no-walk', '--format=%H%x09%ct', ...batch], {
+      allowFail: true,
+      timeout: LOCAL_GIT_TIMEOUT_MS,
+    })
+    if (!out) {
+      failedBatches++
+      continue
+    }
+    for (const [hash, ts] of parseCommitterDateLines(out)) map.set(hash, ts)
+  }
+  return { map, failedBatches, batches }
 }
 
 function listLostCommitTags() {
@@ -683,6 +887,20 @@ async function main() {
   }
 
   console.log(`${C.cyan}${C.bold}🛡️  Commit 丢失防护守门(AGENTS.md §22 配套)${C.reset}`)
+
+  // 窗维在**入口处**解析一次:main 里两处打印(告警行与建议行)必须报同一个天数,
+  // 各算一遍就会在有人只改一处时出现"拦的是 7 天、说的是 30 天"这种自相矛盾的读数。
+  const winDim = resolveWindowDays({
+    flagValue: windowDaysFlagValue,
+    envValue: process.env[WINDOW_DAYS_ENV],
+  })
+  console.log(
+    `  ${C.dim}悬空 commit 量纲:${C.reset}` +
+      (winDim.days > 0
+        ? `${C.cyan}${winDim.days}${C.reset} ${C.dim}天内才拦(来源=${winDim.source};` +
+          `超窗存量只报数 —— §29 人工 GC 范围)${C.reset}`
+        : `${C.cyan}窗维已关闭${C.reset} ${C.dim}(全量语义:任何未备份悬空都拦)${C.reset}`),
+  )
 
   const resets = detectResets()
   const rawUnreachable = detectUnreachable()
@@ -1097,22 +1315,82 @@ async function main() {
       }
     }
     if (unbacked.length > 0) {
-      issues.push(
-        `${unbacked.length} 个悬空 commit 未 tag 备份(运行 git tag lost-commit/<name> <hash> 备份)`,
-      )
-      // 2026-09-04 修复:打印具体未备份 hash(原仅报数量,无法定位处置;
-      // 并行 agent 高频 fsck 会持续产生新悬空对象,需可见才能针对性 tag 备份)
-      for (const c of unbacked.slice(0, 10)) {
-        const subj = gitText(['log', '-1', '--format=%s', c], { allowFail: true }) || ''
+      // ── 时间窗量纲(2026-10-11 立,缘由与三条不许漂的写法见 WINDOW_DAYS_* 头注)──
+      // 只问"窗内新产生的、且无出处的悬空"要谁负责;超窗那部分是 §29 写明的人工 GC 存量,
+      // 逐枚算在每个提交者头上,得到的从来不是备份,是全员跳门(§12f)。
+      const walked = committerUnixFor(unbacked)
+      const win = splitUnbackedByWindow({
+        unbacked,
+        committerUnixByHash: walked.map,
+        failedBatches: walked.failedBatches,
+        nowUnix: Math.floor(Date.now() / 1000),
+        windowDays: winDim.days,
+        strict: isStrict,
+      })
+      if (winDim.invalid)
         console.log(
-          `  ${C.yellow}   ↳ 未备份:${C.cyan}${c.slice(0, SHORT_HASH_LEN)}${C.reset} ${C.dim}${subj.slice(0, 80)}${C.reset}`,
+          `  ${C.yellow}⚠️  ${WINDOW_DAYS_FLAG} / ${WINDOW_DAYS_ENV} 的值无法解析` +
+            `(flag=${JSON.stringify(windowDaysFlagValue)} env=${JSON.stringify(
+              process.env[WINDOW_DAYS_ENV],
+            )})⇒ 回落默认 ${WINDOW_DAYS_DEFAULT} 天${C.reset}`,
+        )
+      if (win.wholeWalkFailed)
+        console.log(
+          `  ${C.yellow}⚠️  committer 时刻整批判不到(${walked.failedBatches}/${walked.batches} 批失败)` +
+            ` ⇒ 窗维未生效,按保守方向**全部照拦**;这是"没量到",不是"没风险"${C.reset}`,
+        )
+      if (win.undated.length > 0 && !win.wholeWalkFailed) {
+        console.log(
+          `  ${C.yellow}⚠️  ${win.undated.length} 枚取不到 committer 时刻 ⇒ 保守算窗内(照拦)${C.reset}`,
+        )
+        for (const c of win.undated.slice(0, 5))
+          console.log(`  ${C.dim}   ↳ 无时刻:${C.cyan}${c.slice(0, SHORT_HASH_LEN)}${C.reset}`)
+      }
+      if (win.outOfWeek.length > 0 && !isStrict) {
+        const oldest = win.outOfWeek[0]
+        console.log(
+          `  ${C.dim}↳ 超出 ${winDim.days} 天窗、只报数不拦:${win.outOfWeek.length} 枚` +
+            `(最老一枚 ${new Date(oldest.unix * 1000).toISOString().slice(0, 10)} ` +
+            `${oldest.hash.slice(0, SHORT_HASH_LEN)})—— 按 AGENTS.md §29 属人工 GC 存量;` +
+            `问责跑 --strict,全量档跑 --window-days 0${C.reset}`,
         )
       }
-      if (unbacked.length > 10)
-        console.log(`  ${C.dim}   ↳ …另有 ${unbacked.length - 10} 个未显示${C.reset}`)
-      blocking = true
-    } else if (unreachable.length > 0) {
-      issues.push(`${unreachable.length} 个悬空 commit 已全部 tag 备份(防止 git gc 清理)`)
+      if (win.blocking.length > 0) {
+        issues.push(
+          `${win.blocking.length} 个悬空 commit 未 tag 备份(运行 git tag lost-commit/<name> <hash> 备份)` +
+            (winDim.days > 0 && !isStrict ? ` [${winDim.days} 天窗内]` : ' [全量档]'),
+        )
+        // 2026-09-04 修复:打印具体未备份 hash(原仅报数量,无法定位处置;
+        // 并行 agent 高频 fsck 会持续产生新悬空对象,需可见才能针对性 tag 备份)
+        // `--list-unbacked`:把**本次要拦的那一批**全量、机器可读地打出来(每行一枚完整 oid)。
+        // 加它的理由是处置动作需要清单:默认只点 10 枚时,想照 §22 逐枚 tag 的人只能改脚本
+        // 或重写一遍判据链(而重写的那份必然与源漂开 —— §22c 同一条理由)。
+        if (isListUnbacked) {
+          console.log(
+            `  ${C.cyan}--list-unbacked:${win.blocking.length} 枚(完整 oid,可直接喂 git tag)${C.reset}`,
+          )
+          for (const c of win.blocking) console.log(c)
+        } else {
+          for (const c of win.blocking.slice(0, 10)) {
+            const subj = gitText(['log', '-1', '--format=%s', c], { allowFail: true }) || ''
+            console.log(
+              `  ${C.yellow}   ↳ 未备份:${C.cyan}${c.slice(0, SHORT_HASH_LEN)}${C.reset} ${C.dim}${subj.slice(0, 80)}${C.reset}`,
+            )
+          }
+          if (win.blocking.length > 10)
+            console.log(`  ${C.dim}   ↳ …另有 ${win.blocking.length - 10} 个未显示${C.reset}`)
+        }
+        blocking = true
+      } else if (win.outOfWeek.length > 0) {
+        // 窗维把整批都判成超窗 ⇒ 不是"没风险",是"这一档不由提交链拦"。必须留一行可见结论,
+        // 否则下一个会话读到的就是"门绿了",而近万枚存量在账面上蒸发。
+        issues.push(
+          `${win.outOfWeek.length} 个未 tag 备份的悬空 commit 全部超出 ${winDim.days} 天窗` +
+            `(§29 人工 GC 存量,默认档只报数;问责 --strict / 全量 --window-days 0)`,
+        )
+      } else if (unreachable.length > 0) {
+        issues.push(`${unreachable.length} 个悬空 commit 已全部 tag 备份(防止 git gc 清理)`)
+      }
     }
   }
 
@@ -1283,6 +1561,15 @@ export const __test__ = {
   UNREACHABLE_COMMIT_LINE_RE,
   parseUnreachableCommitLines,
   parseTreeSubjectIndex,
+  // 时间窗量纲(2026-10-11):判据、取值、派生出口三者都必须可被测试直接消费,
+  // 免得镜像那边再抄一份"cutoff = now - days*86400"的算术 —— 抄的那份不与源同步。
+  WINDOW_DAYS_DEFAULT,
+  WINDOW_DAYS_ENV,
+  WINDOW_DAYS_FLAG,
+  DATE_WALK_BATCH,
+  parseCommitterDateLines,
+  resolveWindowDays,
+  splitUnbackedByWindow,
   isStashSubject,
   extractOriginalHashFromStash,
   // tag 可达性 / 集合比对读取
