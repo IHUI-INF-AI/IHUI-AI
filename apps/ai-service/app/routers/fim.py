@@ -414,7 +414,7 @@ class PredictiveEditRequest(BaseModel):
     owner_uuid: str | None = Field(None, description="用户 UUID(模型私有配置匹配)")
 
     @model_validator(mode="after")
-    def _cursor_must_be_inside_document(self) -> "PredictiveEditRequest":
+    def _cursor_must_be_inside_document(self) -> PredictiveEditRequest:
         """光标越界属调用方 bug ⇒ 422,不得静默夹到文档末尾再猜。"""
         if self.cursor > len(self.content):
             raise ValueError("cursor 超出文档长度")

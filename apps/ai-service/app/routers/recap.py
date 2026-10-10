@@ -67,7 +67,7 @@ async def generate_recap_handoff(
             ),
             timeout=_RECAP_TIMEOUT_S,
         )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         raise HTTPException(status_code=504, detail="recap generation timed out") from None
     except Exception as exc:  # noqa: BLE001 - litellm 异常族不稳定,统一按上游失败兜底
         logger.warning("recap handoff generation failed for user=%s: %s", user_id, exc)
