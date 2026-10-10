@@ -165,6 +165,10 @@ export default function CheckinPage() {
   // "到底干净了没有"变成面板上可读的结论,而不是靠用户猜。
   const [wizardAudit, setWizardAudit] = React.useState<CheckinResidualAuditReport | null>(null)
   const [wizardAuditing, setWizardAuditing] = React.useState(false)
+  // 是否出现"非可选层失败":用于动态判定下方提示语(可选层失败才说"不影响",否则警告)
+  const [wizardCriticalFail, setWizardCriticalFail] = React.useState(false)
+  // IP 验证连续失败次数(未变/获取失败都计):≥3 自动高亮引导走"直接完成"旁路
+  const [wizardIpFailCount, setWizardIpFailCount] = React.useState(0)
   // 上次一键重置时间(冷却提醒用):24h 内再登录会续期风控
   const [lastResetAt, setLastResetAt] = React.useState<number | null>(null)
   React.useEffect(() => {
@@ -381,6 +385,12 @@ export default function CheckinPage() {
       const report = await checkinOneClickReset()
       const okCount = report.layers.filter((l) => l.ok).length
       const fails = report.layers.filter((l) => !l.ok)
+      setWizardIpFailCount(0)
+      // 可选层(需管理员 UAC 的 5、动浏览器的 7、动网卡的 13)失败属预期降级,不影响主体;
+      // 其它层(如 1/2/3/4/6 文件级)失败才是真问题 —— 据此动态决定下方提示语,
+      // 杜绝"非可选层挂了还说不影响"的误导(2026-10-11 UX 修正)。
+      const critical = fails.some((l) => ![5, 7, 13].includes(l.layer))
+      setWizardCriticalFail(critical)
       setWizardMsg([
         t('wizardResetDone', { ok: okCount, total: report.layers.length }),
         ...fails.map((l) => `${l.name}: ${l.detail}`),
@@ -427,15 +437,26 @@ export default function CheckinPage() {
       const now = await checkinGetPublicIp()
       setWizardIpNow(now.ip)
       if (now.ip !== wizardIpBefore) {
+        setWizardIpFailCount(0)
         setWizardStep(3)
       } else {
+        // IP 没变 ⇒ 计一次失败;连续 ≥3 次在界面自动高亮引导走"直接完成"旁路
+        setWizardIpFailCount((c) => c + 1)
         setWizardMsg((m) => [t('wizardIpUnchanged'), ...m])
       }
     } catch (e) {
+      setWizardIpFailCount((c) => c + 1)
+      setWizardMsg((m) => [t('wizardIpFetchFail'), ...m])
       setMaintError((e as Error).message)
     } finally {
       setWizardBusy(false)
     }
+  }
+
+  // P0-1 旁路:用户确实无法更换网络时,允许直接跳到 Step3(进入 24h 冷却),避免单向死路
+  const skipIpVerify = () => {
+    setWizardIpFailCount(0)
+    setWizardStep(3)
   }
 
   // 向导状态归零(Step3 完成后的重新开始入口)
@@ -445,6 +466,10 @@ export default function CheckinPage() {
     setWizardIpLoc('')
     setWizardIpNow('')
     setWizardMsg([])
+    // P2-7:必须把上一轮审计结论也清掉,否则旧"残留/干净"结论会误导新一轮判断
+    setWizardAudit(null)
+    setWizardCriticalFail(false)
+    setWizardIpFailCount(0)
   }
 
   const backupSnapshot = () =>
@@ -1620,18 +1645,19 @@ export default function CheckinPage() {
               {/* 一键解决风控向导(傻瓜式主入口,2026-10-10) */}
               <div className="space-y-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3">
                 <p className="text-sm font-medium">{t('wizardTitle')}</p>
+                {/* 24h 冷却常驻条:只要处于冷却期(无论哪个 Step)都显示,反复提醒"别登录" */}
+                {lastResetAt && Date.now() - lastResetAt < 24 * 3600_000 && (
+                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                    {t('wizardCooldownActive', {
+                      hours: Math.max(
+                        1,
+                        Math.ceil((24 * 3600_000 - (Date.now() - lastResetAt)) / 3600_000),
+                      ),
+                    })}
+                  </p>
+                )}
                 {wizardStep === 0 && (
                   <>
-                    {lastResetAt && Date.now() - lastResetAt < 24 * 3600_000 && (
-                      <p className="text-xs text-amber-700 dark:text-amber-400">
-                        {t('wizardCooldownActive', {
-                          hours: Math.max(
-                            1,
-                            Math.ceil((24 * 3600_000 - (Date.now() - lastResetAt)) / 3600_000),
-                          ),
-                        })}
-                      </p>
-                    )}
                     <p className="text-xs text-muted-foreground">{t('wizardIntro')}</p>
                     <Button
                       variant="destructive"
@@ -1656,6 +1682,11 @@ export default function CheckinPage() {
                       <p className="text-xs text-muted-foreground">{t('wizardRefetchHint')}</p>
                     )}
                     <p className="text-xs text-muted-foreground">{t('wizardGuide')}</p>
+                    {wizardIpFailCount >= 3 && (
+                      <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                        {t('wizardIpFailMany')}
+                      </p>
+                    )}
                     <Button
                       size="sm"
                       disabled={wizardBusy || maintBusy}
@@ -1663,6 +1694,14 @@ export default function CheckinPage() {
                     >
                       {wizardBusy && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
                       {t('wizardVerify')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={wizardBusy || maintBusy}
+                      onClick={skipIpVerify}
+                    >
+                      {t('wizardSkipIp')}
                     </Button>
                     <Button
                       size="sm"
@@ -1730,6 +1769,17 @@ export default function CheckinPage() {
                         {t('wizardAuditResidual', { n: wizardAudit.hard_hits })}
                       </p>
                     )}
+                    {!wizardAudit.ok && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={wizardBusy || wizardAuditing || maintBusy}
+                        onClick={() => void startOneClickReset()}
+                      >
+                        {wizardBusy && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                        {t('wizardResidualReclean')}
+                      </Button>
+                    )}
                     {wizardAudit.hard_hit_files.length > 0 && (
                       <ul className="space-y-0.5 text-xs">
                         {wizardAudit.hard_hit_files.slice(0, 8).map((hit) => (
@@ -1767,7 +1817,11 @@ export default function CheckinPage() {
                   </div>
                 )}
                 {wizardStep === 2 && (
-                  <p className="text-xs text-muted-foreground">{t('wizardOptionalNote')}</p>
+                  wizardCriticalFail ? (
+                    <p className="text-xs font-medium text-destructive">{t('wizardCriticalFailNote')}</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">{t('wizardOptionalNote')}</p>
+                  )
                 )}
               </div>
               <div>
