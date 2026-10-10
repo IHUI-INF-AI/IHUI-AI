@@ -66,6 +66,7 @@ import { rpx } from '../utils/rpx'
 import { Search, User, Menu, FolderOpen, X } from 'lucide-react-native'
 
 import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { NavChrome } from '../components/NavChrome'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -420,7 +421,7 @@ export function PlazaScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.navChrome}>
+      <NavChrome>
         <NavBar
           title="AI需求广场"
           leftActions={leftActions}
@@ -454,7 +455,7 @@ export function PlazaScreen() {
             </Pressable>
           }
         />
-      </View>
+      </NavChrome>
       <SharedPlazaScreen
         t={t}
         items={items}
@@ -640,7 +641,6 @@ export function PlazaScreen() {
 }
 
 const styles = StyleSheet.create({
-  navChrome: { backgroundColor: tokens.surface.card },
   container: {
     flex: 1,
     backgroundColor: tokens.surface.bg,
