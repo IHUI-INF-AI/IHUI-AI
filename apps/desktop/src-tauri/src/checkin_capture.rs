@@ -2502,8 +2502,11 @@ fn audit_probe_sqm_machine_id(_: &std::collections::HashSet<String>) -> Vec<(Str
     Vec::new()
 }
 
-/// 硬件标识清点:主板 UUID/BIOS 序列号/系统序列号/系统盘卷号。
-/// 这些**本地改不了**,如实列出来是"边界披露"——不是缺陷,避免用户误以为工具没做到位。
+/// 硬件标识清点:主板 UUID/BIOS 序列号/系统序列号/系统盘卷 GUID/计算机名/卷标/经典卷序列号。
+/// 这些**本地改不了或改了代价不成比例**(卷序列号原生无改法;改计算机名需重启且网络身份绑定风险)
+/// ⇒ 走"只读告警"而非重置层:如实列出来是"边界披露"——不是缺陷,避免用户误以为工具没做到位;
+/// 同时补全指纹可见面:若 TRAE 把计算机名/卷信息计入设备指纹,用户在这里能看到它拿走了什么。
+/// 经典卷序列号解析用语言无关正则(`vol C:` 中文系统输出"卷的序列号是 XXXX-XXXX")。
 #[cfg(windows)]
 fn audit_probe_hardware() -> Vec<String> {
     let script = "$ErrorActionPreference='SilentlyContinue'; \
@@ -2511,7 +2514,11 @@ fn audit_probe_hardware() -> Vec<String> {
         Get-CimInstance -ClassName Win32_ComputerSystemProduct | ForEach-Object { 'MB-UUID=' + $_.UUID }; \
         Get-CimInstance -ClassName Win32_BIOS | ForEach-Object { 'BIOS-SN=' + $_.SerialNumber }; \
         Get-CimInstance -ClassName Win32_OperatingSystem | ForEach-Object { 'OS-SN=' + $_.SerialNumber }; \
-        Get-Volume -DriveLetter C | ForEach-Object { 'VolC-SN=' + ($_ | Select-Object -ExpandProperty ObjectId) }";
+        Get-Volume -DriveLetter C | ForEach-Object { 'VolC-SN=' + ($_ | Select-Object -ExpandProperty ObjectId) }; \
+        'ComputerName=' + $env:COMPUTERNAME; \
+        Get-Volume -DriveLetter C | ForEach-Object { 'VolC-Label=' + $_.FriendlyName }; \
+        $vol = (cmd /c vol C:) -join ' '; \
+        if ($vol -match '[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}') { 'VolC-Classic=' + $Matches[0] }";
     match run_ps_capture(script, std::time::Duration::from_secs(30)) {
         Ok(v) if !v.is_empty() => v,
         Ok(_) => vec!["(硬件标识查询返回空)".to_string()],
