@@ -20,14 +20,20 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { join, dirname } from 'node:path'
+import { delimiter as PATH_DELIM } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import {
   normalizePathEnvKey,
+  prependPathDir,
   variantsOfPathKey,
   pickPathVariant,
   PATH_ENV_CHOICE,
   PATH_ENV_UNDETERMINED,
 } from '../lib/normalize-path-env.mjs'
+import { maskComments } from '../lib/code-mask.mjs'
 
 const pathKeys = (o) => variantsOfPathKey(o) // 用门体那把尺子,不在测试里另写一份 filter
 
@@ -169,5 +175,99 @@ test('N10 pickPathVariant 的 unverifiable 态不得被折成"相等"或"不等"
   assert.equal(withProc.chosen.key, 'PATH')
   assert.equal(withProc.matchedProcessEnv, true)
   assert.equal(withProc.processEnvUnavailable, undefined)
+})
+
+/* ── N11…N14:站点写法出口(G-1105300 的"归一之后还须再赋值一次"那一格)──────────────
+ * 本块钉的不是"函数返回什么",而是**调用方按直觉写会不会静默失效**:
+ * 宿主把 PATH 写成 `Path` 时,`{ ...process.env, PATH: 短patch }` 再归一 ⇒ 按"继承那份优先"
+ * 选中的是完整用户 PATH,那个短 patch 整个丢掉,而站点存在的理由(把一个目录送进子环境)
+ * 就此静默失效 —— 症状是"尺子跑不动"被读成"仓里没有违规"(AGENTS §12e 那一族)。 */
+
+test('N11 前置出口:宿主只有 Path 拼写时,结果只剩一个 PATH 且目录真的在最前', () => {
+  const env = { FOO: '1', Path: 'FULL_USER_PATH' }
+  const out = prependPathDir(env, 'G:/git/cmd', { processPath: 'FULL_USER_PATH' })
+  assert.deepEqual(pathKeys(out), ['PATH'], `应只剩大写键:${JSON.stringify(pathKeys(out))}`)
+  assert.equal(out.Path, undefined, '小写拼写的键必须被摘掉(留着它就有第二份键)')
+  assert.equal(
+    out.PATH,
+    `G:/git/cmd${PATH_DELIM}FULL_USER_PATH`,
+    '目录前置 + 继承值原样在后(不抢继承条目的优先级)',
+  )
+  assert.equal(out.FOO, '1', '其它键逐字保留')
+  const choice = out[PATH_ENV_CHOICE]
+  assert.equal(choice.prependedDir, 'G:/git/cmd')
+  assert.equal(choice.hadInheritedPath, true, '自述必须说清"继承值在不在",否则判不出与没有会并桶')
+})
+
+test('N12 有牙对偶:同一输入按"直觉的一步写法"做,目录就被继承值吃掉(证明出口不是包装癖)', () => {
+  // 这条断言的对象是**旧写法**:它必须真的丢目录。若哪天 Node/实现改了语义让旧写法也能work,
+  // 这条会翻红并逼我们重新判断"这个出口还有没有必要" —— 不许把没判的东西写成已判。
+  const env = { FOO: '1', Path: 'FULL_USER_PATH' }
+  const naive = normalizePathEnvKey(
+    { ...env, PATH: ['G:/git/cmd', env.PATH ?? ''].join(PATH_DELIM) },
+    { processPath: 'FULL_USER_PATH' },
+  )
+  assert.ok(
+    !String(naive.PATH).includes('G:/git/cmd'),
+    `夹具自证失败:旧写法在这一输入上居然保住了目录,那 N11 与站点接线判据都要重新定性:${naive.PATH}`,
+  )
+  assert.equal(naive.PATH, 'FULL_USER_PATH', '旧写法的真实后果:短 patch 整块丢失')
+  // 同一份输入走出口 ⇒ 目录在位(两条一起成立才叫"出口解决了问题",而不是"问题不存在")
+  const fixed = prependPathDir(env, 'G:/git/cmd', { processPath: 'FULL_USER_PATH' })
+  assert.ok(String(fixed.PATH).startsWith(`G:/git/cmd${PATH_DELIM}`))
+})
+
+test('N13 边界:空目录退化成纯归一(不产前导分隔符);无 PATH 时显式前置可造键;入参不被就地改', () => {
+  const a = prependPathDir({ Path: 'A' }, '', { processPath: 'A' })
+  assert.equal(a.PATH, 'A', 'dir 为空 ⇒ 只归一,不得留下 A 前面一个孤立分隔符')
+  assert.ok(!String(a.PATH).startsWith(PATH_DELIM))
+  assert.equal(a[PATH_ENV_CHOICE].prependedDir, undefined, '没前置过就不能在自述里声称前置过')
+
+  const b = prependPathDir({ FOO: '1' }, 'G:/git/cmd', { processPath: null })
+  assert.equal(b.PATH, 'G:/git/cmd', '环境里本来没有 PATH ⇒ 显式前置就是调用方的指令,允许造键(与"归一时不发明继承值"不冲突)')
+
+  const frozen = Object.freeze({ Path: 'A', PATH: 'B' })
+  assert.doesNotThrow(() => prependPathDir(frozen, 'G:/git/cmd', { processPath: 'A' }), '不得就地改写入参(冻结对象会当场抛)')
+  assert.equal(frozen.PATH, 'B', '入参逐字不变')
+  const notObj = prependPathDir(null, 'G:/git/cmd')
+  assert.equal(notObj.PATH, undefined, '入参不是对象 ⇒ 不发明值,只把"判不出"挂在 Symbol 上')
+  assert.ok(notObj[PATH_ENV_UNDETERMINED], '必须留下未判定原因')
+})
+
+test('N14 装车锁:站点必须走该出口,scripts 生产面不得再出现裸的 {...process.env, PATH: ...}', () => {
+  const here = dirname(fileURLToPath(import.meta.url))
+  const scriptsDir = join(here, '..')
+  const site = readFileSync(join(scriptsDir, 'check-principal-consumed.mjs'), 'utf8')
+  const siteCode = maskComments(site)
+  assert.match(siteCode, /prependPathDir\(\s*\{ \.\.\.process\.env \}\s*,\s*dirname\(GIT\)\s*\)/, 'rulerEnv 必须真的经出口(引了不用 = 半接线,守门 118 那一型)')
+  assert.match(siteCode, /from '\.\/lib\/normalize-path-env\.mjs'/, 'import 必须在位')
+
+  // 全 scripts 生产面扫一遍:测试面刻意排除 —— 本文件 N12 就是要构造坏形态来证明判据有牙,
+  // 把测试面扫进来等于让门把自己的证据读成仓库违规(守门 131/135 同一课)。
+  const risky = []
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (e.name === 'node_modules' || e.name === 'tests') continue
+      const p = join(dir, e.name)
+      if (e.isDirectory()) {
+        walk(p)
+        continue
+      }
+      if (!/\.(mjs|cjs)$/.test(e.name)) continue
+      const code = maskComments(readFileSync(p, 'utf8'))
+      if (/\{\s*\.\.\.process\.env\s*,\s*PATH\s*:/.test(code)) risky.push(p.replace(scriptsDir, 'scripts'))
+    }
+  }
+  walk(scriptsDir)
+  assert.deepEqual(risky, [], `这些站点还在用"一步写法",短 patch 会在 Path 拼写的宿主上静默丢失:${risky.join(' | ')}`)
+  assert.ok(statSync(join(scriptsDir, 'lib/normalize-path-env.mjs')).isFile(), '出口文件必须在位(被外部清理层删掉时本锁要响)')
+
+  // 分隔符来源锁(本块测试自己就是被这条抓出来的):Node 24 已不暴露 `process.delimiter`,
+  // 用它不会报错,只会让 `join(undefined)` 按 Array 缺省用**逗号**拼 PATH ⇒ 整条环境路径变成非法条目。
+  // 断言用错口的话两侧会一起错(本文件的 N11/N12 第一版就是这么"全绿"的),所以锁必须钉在实现面上。
+  assert.notEqual(PATH_DELIM, undefined, '测试自己的分隔符口径都不成立 ⇒ 本文件全部断言失去意义')
+  const libCode = maskComments(readFileSync(join(scriptsDir, 'lib/normalize-path-env.mjs'), 'utf8'))
+  assert.doesNotMatch(libCode, /process\.delimiter/, '实现必须取 node:path 的 delimiter,不得回到 process.delimiter')
+  assert.match(libCode, /from 'node:path'/, 'delimiter 的 import 必须在位')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

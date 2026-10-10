@@ -479,6 +479,753 @@
           ]
         }
       ]
+    },
+    {
+      "id": "#15",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "会话标题自动生成",
+      "title": "会话标题自动生成",
+      "assertions": [
+        {
+          "text": "auto-title 路由在 api 侧在位",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/api/src/routes/chat.ts"
+              ],
+              "regex": "auto-title",
+              "expect": "present"
+            }
+          ]
+        },
+        {
+          "text": "首turn后自动起标题的函数在 send-message.ts(文档字面只写文件名,真身在 web hooks)",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/web/src/hooks/use-chat/send-message.ts"
+              ],
+              "regex": "autoTitleAfterFirstTurn",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#16",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "流式平滑渲染",
+      "title": "流式平滑渲染",
+      "assertions": [
+        {
+          "text": "逐帧步长判据 max(2, ceil(remaining/8)) 在批处理器里在位",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/web/src/hooks/use-chat/smooth-delta-batcher.ts"
+              ],
+              "regex": "Math\\.ceil\\(remaining / 8\\)",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#17",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "代码块行号",
+      "title": "代码块行号",
+      "assertions": [
+        {
+          "text": "行号开关透传到 markdown 渲染面",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/web/src/components/ai/markdown-stream.tsx"
+              ],
+              "regex": "showLineNumbers=",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#18",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "`#` 语义源选择器",
+      "title": "`#` 语义源选择器",
+      "assertions": [
+        {
+          "text": "九类维度表有单一事实源(路径搬家型:表已从 hook 挪进 shared mention-engine)",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "packages/shared/src/chat/mention-engine.ts"
+              ],
+              "regex": "MENTION_DIMENSIONS",
+              "expect": "present"
+            }
+          ]
+        },
+        {
+          "text": "`#` 侧 hook 仍作为键盘导航 adapter 接在同一张表上(不各抄一份)",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/web/src/hooks/use-context-selector.ts"
+              ],
+              "regex": "parseMentionTrigger|dimensionsForSigil",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#19",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "消息内文件引用 chip",
+      "title": "消息内文件引用 chip",
+      "assertions": [
+        {
+          "text": "文件引用 chip 组件在位且有导出面",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/web/src/components/chat/message-list/file-chips.tsx"
+              ],
+              "regex": "MessageFileChips",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#20",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "轮次变更汇总",
+      "title": "轮次变更汇总",
+      "assertions": [
+        {
+          "text": "轮次变更卡片组件在位且有导出面",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/web/src/components/chat/message-list/turn-changes-card.tsx"
+              ],
+              "regex": "TurnChangesCard",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#21",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "usage 流内事件",
+      "title": "usage 流内事件",
+      "assertions": [
+        {
+          "text": "命名帧 usage 在 api-client 的帧路由里有认领分支",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "packages/api-client/src/client.ts"
+              ],
+              "regex": "type === 'usage'",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#22",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "Last-Event-ID 重放",
+      "title": "Last-Event-ID 重放",
+      "assertions": [
+        {
+          "text": "重连时回带 Last-Event-ID 请求头",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "packages/api-client/src/client.ts"
+              ],
+              "regex": "Last-Event-ID",
+              "expect": "present"
+            }
+          ]
+        },
+        {
+          "text": "重放内容有 dedupe(重连不重复渲染)",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "packages/api-client/src/client.ts"
+              ],
+              "regex": "dedupe",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#24",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "消息游标分页",
+      "title": "消息游标分页",
+      "assertions": [
+        {
+          "text": "nextCursor 游标分页在 api 取数/路由两层在位(任一命中即算,报告点名用的是哪层)",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/api/src/routes/message.ts",
+                "apps/api/src/db/chat-queries.ts"
+              ],
+              "regex": "nextCursor",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#25",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "SSE 契约单一事实源",
+      "title": "SSE 契约单一事实源",
+      "assertions": [
+        {
+          "text": "Python 侧契约文件在位",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/ai-service/app/core/sse_contract.py"
+              ],
+              "regex": "SSE_",
+              "expect": "present"
+            }
+          ]
+        },
+        {
+          "text": "TS 侧契约文件在位(双端对账)",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "packages/shared/src/sse/contract.ts"
+              ],
+              "regex": "export",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#26",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "RAG 默认注入",
+      "title": "RAG 默认注入",
+      "assertions": [
+        {
+          "text": "knowledgeContext 开关贯通前后端(文档字面写 send-message.ts,后端出口在 ai-chat-stream 路由)",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/web/src/hooks/use-chat/send-message.ts",
+                "apps/api/src/routes/ai-chat-stream.ts"
+              ],
+              "regex": "knowledgeContext",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#27",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "记忆更新可视化",
+      "title": "记忆更新可视化",
+      "assertions": [
+        {
+          "text": "记忆通知条组件在位(路径搬家型:实身在 components/ai/progress-sections/ 下)",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/web/src/components/ai/progress-sections/memory-notice-bar.tsx",
+                "apps/web/src/components/chat/progress-sections/memory-notice-bar.tsx"
+              ],
+              "regex": "MemoryNoticeBar",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#28",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "代码块一键运行",
+      "title": "代码块一键运行",
+      "assertions": [
+        {
+          "text": "沙箱白名单(node/python3/npx)在运行入口里在位",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/web/src/components/ai/code-block-run.ts"
+              ],
+              "regex": "python3|npx",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#29",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "AI 个性预设",
+      "title": "AI 个性预设",
+      "assertions": [
+        {
+          "text": "persona 注册表在 ai-service 侧在位",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/ai-service/app/services/persona_registry.py",
+                "apps/ai-service/app/routers/personas.py"
+              ],
+              "regex": "persona",
+              "expect": "present"
+            }
+          ]
+        },
+        {
+          "text": "人格档在 sampling-params 面板有上屏入口",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/web/src/components/chat/sampling-params-panel.tsx"
+              ],
+              "regex": "persona",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#30",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "diff 评论驱动返工",
+      "title": "diff 评论驱动返工",
+      "assertions": [
+        {
+          "text": "diff 评论条组件在位且有导出面",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/web/src/components/chat/diff-comments-bar.tsx"
+              ],
+              "regex": "DiffCommentsBar",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#31",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "全局任务看板",
+      "title": "全局任务看板",
+      "assertions": [
+        {
+          "text": "kanban tab 在侧面板工具注册表里在位",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/web/src/components/ai/ai-side-panel-tools.tsx"
+              ],
+              "regex": "'kanban'",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#33",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "思考分节标题",
+      "title": "思考分节标题",
+      "assertions": [
+        {
+          "text": "分节切分函数在位",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/web/src/lib/reasoning-sections.ts"
+              ],
+              "regex": "splitReasoningSections",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#34",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "SR 全流程",
+      "title": "SR 全流程",
+      "assertions": [
+        {
+          "text": "播报器带 aria-live=polite(SR 可达判据)",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/web/src/components/chat/sr-stream-announcer.tsx"
+              ],
+              "regex": "aria-live=\"polite\"",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#35",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "增量 markdown 缓存",
+      "title": "增量 markdown 缓存",
+      "assertions": [
+        {
+          "text": "稳定切分函数在位",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/web/src/lib/markdown-stable-split.ts"
+              ],
+              "regex": "splitMarkdownStable",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#36",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "多模型并排对比",
+      "title": "多模型并排对比",
+      "assertions": [
+        {
+          "text": "并排对比组件在位且有导出面",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/web/src/components/ai/best-of-compare.tsx"
+              ],
+              "regex": "BestOfCompare",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#38",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "并行世界线",
+      "title": "并行世界线",
+      "assertions": [
+        {
+          "text": "世界线 store 在位",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/web/src/stores/worlds.ts"
+              ],
+              "regex": "WorldsState|WorldBranch",
+              "expect": "present"
+            }
+          ]
+        },
+        {
+          "text": "世界线对比组件在位",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/web/src/components/ai/worlds-compare.tsx"
+              ],
+              "regex": "WorldsCompare",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#39",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "分享带执行轨迹",
+      "title": "分享带执行轨迹",
+      "assertions": [
+        {
+          "text": "消费侧:trace-replay 消费 toolCalls 渲染重演",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/web/src/components/ai/trace-replay.tsx"
+              ],
+              "regex": "toolCalls",
+              "expect": "present"
+            }
+          ]
+        },
+        {
+          "text": "写入侧:分享快照透传 answer.toolCalls(文档标注'仍待复核'的那半边,判据落在分享内容路由)",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/api/src/routes/share-content.ts"
+              ],
+              "regex": "toolCalls",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#40",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "主动巡逻 Agent",
+      "title": "主动巡逻 Agent",
+      "assertions": [
+        {
+          "text": "巡逻任务表 schema 在位",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "packages/database/src/schema/patrol.ts"
+              ],
+              "regex": "pgTable",
+              "expect": "present"
+            }
+          ]
+        },
+        {
+          "text": "巡逻路由在位",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/api/src/routes/patrol.ts"
+              ],
+              "regex": "patrol",
+              "expect": "present"
+            }
+          ]
+        },
+        {
+          "text": "调度器在 api 入口注册",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/api/src/index.ts"
+              ],
+              "regex": "startPatrolScheduler",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#41",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "记忆图谱注入",
+      "title": "记忆图谱注入",
+      "assertions": [
+        {
+          "text": "_inject_memory_graph 在 llm.py 在位且有调用点",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/ai-service/app/routers/llm.py"
+              ],
+              "regex": "_inject_memory_graph",
+              "expect": "present",
+              "minCount": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#42",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "全栈原子回滚",
+      "title": "全栈原子回滚",
+      "assertions": [
+        {
+          "text": "atomicrollback tab 在侧面板工具注册表里在位(落地形态:文件制原子快照面板)",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/web/src/components/ai/ai-side-panel-tools.tsx"
+              ],
+              "regex": "atomicrollback|AtomicRollbackPanel",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#43",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "成本协商代理",
+      "title": "成本协商代理",
+      "assertions": [
+        {
+          "text": "成本预估条组件在位且有导出面",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/web/src/components/ai/cost-estimate-bar.tsx"
+              ],
+              "regex": "CostEstimateBar",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#44",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "团队作战室",
+      "title": "团队作战室",
+      "assertions": [
+        {
+          "text": "swarm/orchestration tab 在侧面板工具注册表里在位",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/web/src/components/ai/ai-side-panel-tools.tsx"
+              ],
+              "regex": "'swarm'|'orchestration'",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#45",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "自愈工作区",
+      "title": "自愈工作区",
+      "assertions": [
+        {
+          "text": "self-heal 链路有带开关门控的服务入口(路由+服务双层任一命中)",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/ai-service/app/routers/self_healing.py",
+                "apps/ai-service/app/services/self_healing.py"
+              ],
+              "regex": "AGENT_SELF_HEALING_ENABLED|self_heal",
+              "expect": "present"
+            }
+          ]
+        }
+      ],
+      "observations": [
+        {
+          "text": "AGENT_SELF_HEALING_ENABLED 仍默认 off(文档标注'接了但默认关'—— 不构成未交付,但必须打印,否则放量状态被洗白)",
+          "blocking": false,
+          "anchors": [
+            {
+              "paths": [
+                "apps/ai-service/app/routers/self_healing.py"
+              ],
+              "regex": "AGENT_SELF_HEALING_ENABLED",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "#46",
+      "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
+      "docAnchor": "实时语音协作",
+      "title": "实时语音协作",
+      "assertions": [
+        {
+          "text": "语音流播放组件在位(播放/免提两开关为流式 TTS 链路的端上判据)",
+          "blocking": true,
+          "anchors": [
+            {
+              "paths": [
+                "apps/web/src/components/chat/voice-stream-speaker.tsx"
+              ],
+              "regex": "VOICE_PLAYBACK_KEY|VoicePlaybackToggle",
+              "expect": "present"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

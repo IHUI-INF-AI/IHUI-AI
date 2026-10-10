@@ -22,6 +22,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 import CheckinPage from '../page'
+import {
+  checkinAuditTraeResidual,
+  checkinOneClickReset,
+  checkinGetPublicIp,
+  checkinSnapshotList,
+} from '@/lib/tauri-bridge'
+import { useTauriIpcReady } from '@/hooks/use-desktop'
 import type { CheckinAccount, CheckinRecord, CheckinCreditsHistoryItem } from '@ihui/api-client'
 
 const { listAccounts, listRecords, listCredits, createAccount, deleteAccount, setEnabled, manualCheckin, updateJwt, updateGroup, schedulerStatus } =
@@ -37,6 +44,23 @@ const { listAccounts, listRecords, listCredits, createAccount, deleteAccount, se
     updateGroup: vi.fn(),
     schedulerStatus: vi.fn(),
   }))
+
+// 残留审计基线报告(无残留)。vi.hoisted 提前:vi.mock 工厂在 import 期就要用它做默认值。
+const { cleanAudit } = vi.hoisted(() => ({
+  cleanAudit: {
+    ok: true,
+    message: '',
+    blacklist_size: 12,
+    scanned_files: 100,
+    scanned_mb: 8.5,
+    sites_present: 3,
+    hard_hits: 0,
+    hard_hit_files: [] as { file: string; count: number; sample: string }[],
+    suspect_hits: 0,
+    registry: [] as string[],
+    hardware: [] as string[],
+  },
+}))
 
 vi.mock('@ihui/api-client', () => ({
   listCheckinAccounts: listAccounts,
@@ -68,6 +92,12 @@ vi.mock('next-intl', () => ({
       if (values && 'days' in values) return `${key}:${values.days}`
       if (values && 'time' in values) return `${key}:${values.time}`
       if (values && 'delta' in values) return `${key}:${values.delta}`
+      if (values && 'ok' in values) return `${key}:${values.ok}/${values.total}`
+      if (values && 'ip' in values) return `${key}:${values.ip}`
+      if (values && 'hours' in values) return `${key}:${values.hours}`
+      if (values && 'n' in values) return `${key}:${values.n}`
+      if (values && 'files' in values)
+        return `${key}:${values.files}/${values.mb}/${values.sites}`
       return key
     },
 }))
@@ -91,12 +121,15 @@ vi.mock('lucide-react', () => {
 // 桌面端通道(WP-C):测试环境无 __TAURI_INTERNALS__,useTauriIpcReady 恒 false;
 // 桥接函数 mock 成具名 vi.fn,浏览器路径下不应被调用。
 vi.mock('@/hooks/use-desktop', () => ({
-  useTauriIpcReady: () => false,
+  useTauriIpcReady: vi.fn(() => false),
 }))
 vi.mock('@/lib/tauri-bridge', () => ({
   checkinDetectTraeDir: vi.fn(),
   checkinCaptureJwts: vi.fn(),
   checkinResetDeviceIds: vi.fn(),
+  checkinOneClickReset: vi.fn(),
+  checkinGetPublicIp: vi.fn(),
+  checkinAuditTraeResidual: vi.fn(async () => ({ ...cleanAudit })),
   checkinSnapshotBackup: vi.fn(),
   checkinSnapshotRestore: vi.fn(),
   checkinSnapshotList: vi.fn(),
@@ -595,6 +628,119 @@ describe('签到助手页面 · 桌面端专属入口(WP-C)', () => {
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
     expect(screen.queryByText('captureTitle')).toBeNull()
     expect(screen.queryByText('maintTitle')).toBeNull()
+  })
+})
+
+// ── 一键解决风控向导(2026-10-10):3 步状态机 + busy 双闸 ──
+
+const wizardLayer = (i: number) => ({ layer: i, name: `L${i}`, ok: true, detail: 'ok' })
+
+describe('签到助手页面 · 一键解决风控向导', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    // mockReset 清 implementation:防前测的 mockResolvedValueOnce 序列泄漏到后测
+    // (useTauriIpcReady 的工厂实现不受 clearAllMocks 影响,无需重置)
+    vi.mocked(checkinOneClickReset).mockReset()
+    vi.mocked(checkinGetPublicIp).mockReset()
+    // mockReset 会清掉工厂里的默认实现,必须显式补回默认报告
+    vi.mocked(checkinAuditTraeResidual).mockReset()
+    vi.mocked(checkinAuditTraeResidual).mockResolvedValue({ ...cleanAudit })
+    vi.mocked(checkinSnapshotList).mockResolvedValue([])
+    mockLoadSuccess()
+  })
+  afterEach(() => cleanup())
+
+  async function openMaint() {
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('maintTitle'))
+    await waitFor(() => expect(screen.getByText('wizardTitle')).toBeTruthy())
+  }
+
+  it('全流程:一键重置 → 显示基准 IP → 换网验证通过 → 冷却完成态+重新开始', async () => {
+    await openMaint()
+    vi.mocked(checkinOneClickReset).mockResolvedValue({ layers: Array.from({ length: 14 }, (_, i) => wizardLayer(i)) })
+    vi.mocked(checkinGetPublicIp)
+      .mockResolvedValueOnce({ ip: '1.2.3.4', location: '中国 吉林 长春 电信' })
+      .mockResolvedValueOnce({ ip: '5.6.7.8', location: '' })
+    fireEvent.click(screen.getByText('wizardStart'))
+    // Step2:重置完成报告 + 基准 IP 渲染
+    await waitFor(() => expect(screen.getByText(/wizardIpBefore/)).toBeTruthy())
+    expect(checkinOneClickReset).toHaveBeenCalledTimes(1)
+    expect(screen.getByText(/1\.2\.3\.4/)).toBeTruthy()
+    expect(screen.getByText(/wizardResetDone/)).toBeTruthy()
+    // Step3:换网后 IP 变化 → 完成态
+    fireEvent.click(screen.getByText('wizardVerify'))
+    await waitFor(() => expect(screen.getByText(/wizardIpChanged/)).toBeTruthy())
+    expect(screen.getByText(/5\.6\.7\.8/)).toBeTruthy()
+    expect(screen.getByText('wizardRestart')).toBeTruthy()
+    // 重新开始:全部归零回到 Step0
+    fireEvent.click(screen.getByText('wizardRestart'))
+    await waitFor(() => expect(screen.getByText('wizardStart')).toBeTruthy())
+    expect(screen.queryByText('wizardRestart')).toBeNull()
+  })
+
+  it('IP 未变时不进入完成态,红字提示重拔', async () => {
+    await openMaint()
+    vi.mocked(checkinOneClickReset).mockResolvedValue({ layers: [wizardLayer(0)] })
+    vi.mocked(checkinGetPublicIp).mockResolvedValue({ ip: '1.2.3.4', location: '' })
+    fireEvent.click(screen.getByText('wizardStart'))
+    await waitFor(() => expect(screen.getByText('wizardVerify')).toBeTruthy())
+    fireEvent.click(screen.getByText('wizardVerify'))
+    await waitFor(() => expect(screen.getByText(/wizardIpUnchanged/)).toBeTruthy())
+    expect(screen.queryByText('wizardRestart')).toBeNull()
+  })
+
+  it('busy 双闸:向导执行中 wizardStart 与手动 maintReset 同时禁用', async () => {
+    await openMaint()
+    vi.mocked(checkinOneClickReset).mockReturnValue(new Promise(() => {}))
+    fireEvent.click(screen.getByText('wizardStart'))
+    await waitFor(() => {
+      expect((screen.getByText('wizardStart') as HTMLButtonElement).disabled).toBe(true)
+      expect((screen.getByText('maintReset') as HTMLButtonElement).disabled).toBe(true)
+    })
+  })
+
+  it('重置成功后自动跑一次残留审计,并显示"无残留"结论', async () => {
+    await openMaint()
+    vi.mocked(checkinOneClickReset).mockResolvedValue({ layers: [wizardLayer(0)] })
+    vi.mocked(checkinGetPublicIp).mockResolvedValue({ ip: '1.2.3.4', location: '' })
+    fireEvent.click(screen.getByText('wizardStart'))
+    await waitFor(() => expect(screen.getByText('wizardAuditClean')).toBeTruthy())
+    expect(checkinAuditTraeResidual).toHaveBeenCalledTimes(1)
+    expect(screen.getByText('wizardAuditScope:100/8.5/3')).toBeTruthy()
+  })
+
+  it('审计发现残留:显示残留条数并列出命中文件', async () => {
+    await openMaint()
+    vi.mocked(checkinOneClickReset).mockResolvedValue({ layers: [wizardLayer(0)] })
+    vi.mocked(checkinGetPublicIp).mockResolvedValue({ ip: '1.2.3.4', location: '' })
+    vi.mocked(checkinAuditTraeResidual).mockResolvedValue({
+      ...cleanAudit,
+      ok: false,
+      hard_hits: 3,
+      hard_hit_files: [
+        { file: 'storage.json', count: 2, sample: 'abc123' },
+        { file: 'state.vscdb', count: 1, sample: 'def456' },
+      ],
+    })
+    fireEvent.click(screen.getByText('wizardStart'))
+    await waitFor(() => expect(screen.getByText('wizardAuditResidual:3')).toBeTruthy())
+    expect(screen.getByText(/storage\.json ×2 abc123/)).toBeTruthy()
+    expect(screen.getByText(/state\.vscdb ×1 def456/)).toBeTruthy()
+  })
+
+  it('点「重新检测残留」会再跑一次审计(累计 2 次)', async () => {
+    await openMaint()
+    vi.mocked(checkinOneClickReset).mockResolvedValue({ layers: [wizardLayer(0)] })
+    vi.mocked(checkinGetPublicIp).mockResolvedValue({ ip: '1.2.3.4', location: '' })
+    fireEvent.click(screen.getByText('wizardStart'))
+    await waitFor(() => expect(checkinAuditTraeResidual).toHaveBeenCalledTimes(1))
+    const rerun = await waitFor(() => screen.getByText('wizardAuditRerun'))
+    expect((rerun as HTMLButtonElement).disabled).toBe(false)
+    fireEvent.click(rerun)
+    await waitFor(() => expect(checkinAuditTraeResidual).toHaveBeenCalledTimes(2))
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
