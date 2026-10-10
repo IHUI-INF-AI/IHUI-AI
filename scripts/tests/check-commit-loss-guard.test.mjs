@@ -49,12 +49,7 @@ function runScript(args = [], opts = {}) {
 // 这些正则复制自源脚本,用于验证规则逻辑的正确性
 
 const RESET_REGEX = /reset:\s*moving to HEAD[~@]/
-const STASH_REGEXES = [
-  /^WIP on /,
-  /^On \S+: /,
-  /^index on \S+: /,
-  /^untracked files on /,
-]
+const STASH_REGEXES = [/^WIP on /, /^On \S+: /, /^index on \S+: /, /^untracked files on /]
 const HASH_EXTRACT_REGEX = /^[A-Za-z ]+on\s+\S+:\s+([0-9a-f]{7,40})\b/
 
 test('正则: reset: moving to HEAD~1 → 匹配', () => {
@@ -82,7 +77,11 @@ test('正则: index on main: → 匹配 stash subject', () => {
 })
 
 test('正则: index on fix/<branch>: → 匹配 stash subject(非 main 分支)', () => {
-  assert.ok(STASH_REGEXES.some((re) => re.test('index on fix/test-suite-cleanup-2026-08-17: 8f957984b0 fix(msg)')))
+  assert.ok(
+    STASH_REGEXES.some((re) =>
+      re.test('index on fix/test-suite-cleanup-2026-08-17: 8f957984b0 fix(msg)'),
+    ),
+  )
 })
 
 test('正则: On fix/<branch>: → 匹配 stash subject(非 main 分支)', () => {
@@ -105,7 +104,11 @@ test('CLI: 干净仓库无参数运行 → exit 0(无违规)', () => {
   const dir = createTempRepo()
   try {
     const r = runScript([], { cwd: dir })
-    assert.equal(r.status, 0, `干净仓库应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
+    assert.equal(
+      r.status,
+      0,
+      `干净仓库应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
     assert.match(r.stdout, /无 commit 丢失风险|未检测到 reset|未检测到悬空 commit/)
   } finally {
     rmScratch(dir)
@@ -116,7 +119,10 @@ test('CLI: --help 不崩溃(脚本未实现 --help,按默认模式运行)', () =
   const dir = createTempRepo()
   try {
     const r = runScript(['--help'], { cwd: dir })
-    assert.ok(r.status === 0 || r.status === 1, `--help 不应 crash,实际 exit ${r.status}\nstderr: ${r.stderr}`)
+    assert.ok(
+      r.status === 0 || r.status === 1,
+      `--help 不应 crash,实际 exit ${r.status}\nstderr: ${r.stderr}`,
+    )
     assert.ok(!r.stderr.includes('Error:'), `--help 不应产生 Error`)
   } finally {
     rmScratch(dir)
@@ -330,7 +336,11 @@ test('备份: 悬空 commit 已 tag 备份 → 非 blocking(已保护)', () => {
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     execSync('git commit --allow-empty -m "backed-up-commit"', { cwd: dir, stdio: 'ignore' })
     // 2026-10-04:子进程必须给 stdio(留管道取输出),否则本机报 spawnSync EBUSY
-    const hash = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+    const hash = execSync('git rev-parse HEAD', {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     execSync('git checkout main', { cwd: dir, stdio: 'ignore' })
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
@@ -341,7 +351,11 @@ test('备份: 悬空 commit 已 tag 备份 → 非 blocking(已保护)', () => {
     const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
     // 已备份的悬空 commit 不应导致 blocking(exit 0,因为已保护)
     // 注:可能因 lost-commit tag 仅本地(未 push)而 warn,但不 blocking
-    assert.equal(r.status, 0, `已备份悬空 commit + blocking 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.equal(
+      r.status,
+      0,
+      `已备份悬空 commit + blocking 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`,
+    )
     assert.match(r.stdout, /已全部 tag 备份|已保护|lost-commit\/backed-up/)
   } finally {
     rmScratch(dir)
@@ -363,7 +377,11 @@ test('filter-stash: stash-like 悬空 commit 被过滤(不报告为丢失)', () 
     execSync('git stash drop', { cwd: dir, stdio: 'ignore' })
     // 用 --filter-stash 运行 → stash-like 悬空 commit 应被过滤
     const r = runScript(['--filter-stash'], { cwd: dir })
-    assert.equal(r.status, 0, `filter-stash 过滤 stash-like 后应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.equal(
+      r.status,
+      0,
+      `filter-stash 过滤 stash-like 后应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`,
+    )
     // 验证过滤行为:stdout 应提及已过滤,或不报告 stash-like 为未备份悬空
     assert.ok(
       /已过滤|stash-like|未检测到悬空 commit/.test(r.stdout),
@@ -398,7 +416,13 @@ test('自愈: 另一台机推来的 lost-commit tag → 本门自己 fetch 回�
   const origin = join(base, 'origin.git')
   const local = join(base, 'local')
   const other = join(base, 'other')
-  const G = (cwd, args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
+  const G = (cwd, args) =>
+    execFileSync('git', args, {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
   try {
     execFileSync('git', ['init', '--bare', origin], {
       encoding: 'utf8',
@@ -428,13 +452,30 @@ test('自愈: 另一台机推来的 lost-commit tag → 本门自己 fetch 回�
     G(other, ['tag', 'lost-commit/only-on-remote'])
     G(other, ['push', 'origin', 'refs/tags/lost-commit/only-on-remote'])
 
-    assert.equal(G(local, ['tag', '-l', 'lost-commit/only-on-remote']).trim(), '', '前置:本机确实没有这个 tag')
+    assert.equal(
+      G(local, ['tag', '-l', 'lost-commit/only-on-remote']).trim(),
+      '',
+      '前置:本机确实没有这个 tag',
+    )
 
     const r = runScript(['--blocking'], { cwd: local })
-    assert.doesNotMatch(r.stdout, /❌ 仅远端/, `不应再报「仅远端」红线,实际:\n${r.stdout.slice(-800)}`)
-    assert.equal(r.status, 0, `仅远端 tag 已被自愈,不应阻塞提交,实际 exit ${r.status}:\n${(r.stdout || '').slice(-900)}\n${(r.stderr || '').slice(-300)}`)
+    assert.doesNotMatch(
+      r.stdout,
+      /❌ 仅远端/,
+      `不应再报「仅远端」红线,实际:\n${r.stdout.slice(-800)}`,
+    )
+    assert.equal(
+      r.status,
+      0,
+      `仅远端 tag 已被自愈,不应阻塞提交,实际 exit ${r.status}:\n${(r.stdout || '').slice(-900)}\n${(r.stderr || '').slice(-300)}`,
+    )
     // tag 必须真回到本机(证明走的是自愈,不是"干脆不看远端"糊过去)
-    assert.equal(G(local, ['rev-parse', '--verify', '--quiet', 'refs/tags/lost-commit/only-on-remote']).length > 0, true, '自愈后本机应能解析该 tag')
+    assert.equal(
+      G(local, ['rev-parse', '--verify', '--quiet', 'refs/tags/lost-commit/only-on-remote'])
+        .length > 0,
+      true,
+      '自愈后本机应能解析该 tag',
+    )
     // 且已固化进 packed-refs(松散嵌套 ref 会被宿主清理层删掉,不 pack 等于下次再红)
     //    必须 --absolute-git-dir:`--git-dir` 返回相对路径,join 会解析到测试进程的 cwd 而非临时仓
     const gitDir = G(local, ['rev-parse', '--absolute-git-dir']).trim()
@@ -443,5 +484,237 @@ test('自愈: 另一台机推来的 lost-commit tag → 本门自己 fetch 回�
   } finally {
     rmScratch(base)
   }
+})
+
+// ─── 时间窗量纲(2026-10-11 立,G-1117436 同批)──────────────────────────
+// 立因:本仓未 tag 备份的悬空 commit 实测 9809 枚(封件 .ihui-agent/tmp/gate30a-before.md,
+// #EVIDENCE-RC=1)⇒ 恒红门。恒红的后果不是"每次都拦住丢失",是**每次提交都被逼跳过这道门**,
+// 于是"刚丢的那一枚"也不再有人被拦住(AGENTS §12f)。
+// 判据没有放宽"什么算丢失":改的是"哪一档由提交链负责"。窗内 = 拦;超窗(§29 写明的人工 GC
+// 存量)= 只报数并点名最老一枚;读不到时刻 = 保守算窗内。以下每一档都有成对用例。
+
+const DAY = 86_400
+
+test('纯函数: parseCommitterDateLines 认 %H\\t%ct,畸形行与非正数时刻一律跳过', () => {
+  const rows = __test__.parseCommitterDateLines(
+    ['a'.repeat(40) + '\t1700000000', 'b'.repeat(40) + '\t-'].join('\n') +
+      '\nno-tab-line\n\n\t123\n' +
+      'c'.repeat(40) +
+      '\t0',
+  )
+  assert.equal(rows.length, 1, '只有"完整 oid + 正整数时刻"成立')
+  assert.equal(rows[0][0], 'a'.repeat(40))
+  assert.equal(rows[0][1], 1700000000)
+  assert.equal(__test__.parseCommitterDateLines('').length, 0, '空读数 → 空表')
+  assert.equal(__test__.parseCommitterDateLines(null).length, 0, 'null → 空表')
+})
+
+test('纯函数: resolveWindowDays 认 flag > env > 默认,0 合法,非法值回落默认并标 invalid', () => {
+  const T = __test__.resolveWindowDays
+  assert.deepEqual(T({ flagValue: '7', envValue: '3' }), {
+    days: 7,
+    source: 'flag',
+    invalid: false,
+  })
+  assert.deepEqual(T({ envValue: '3' }), { days: 3, source: 'env', invalid: false })
+  assert.deepEqual(T({}), {
+    days: __test__.WINDOW_DAYS_DEFAULT,
+    source: 'default',
+    invalid: false,
+  })
+  // 0 = 显式关掉窗维(全量语义),必须被认成合法值而不是"没给"
+  assert.deepEqual(T({ flagValue: '0' }), { days: 0, source: 'flag', invalid: false })
+  // 打错值 ⇒ 回落默认 **且** 标 invalid(不得静默当成"关掉窗维")
+  const bad = T({ flagValue: 'abc', envValue: undefined })
+  assert.equal(bad.days, __test__.WINDOW_DAYS_DEFAULT)
+  assert.equal(bad.invalid, true, '给了旗却解不出 ⇒ 必须报名')
+  assert.equal(T({ flagValue: '-1' }).invalid, true, '负数不是合法窗宽')
+})
+
+test('窗维成对: 窗内拦 / 超窗只报数(同一条判据,差别只有时刻)', () => {
+  const now = 1_700_000_000
+  const mk = (h, ageDays) => [h, now - ageDays * DAY]
+  const map = new Map([mk('a'.repeat(40), 1), mk('b'.repeat(40), 400)])
+  const r = __test__.splitUnbackedByWindow({
+    unbacked: ['a'.repeat(40), 'b'.repeat(40)],
+    committerUnixByHash: map,
+    nowUnix: now,
+    windowDays: 30,
+  })
+  assert.deepEqual(r.blocking, ['a'.repeat(40)], '1 天前的无出处悬空必须照拦')
+  assert.equal(r.outOfWeek.length, 1, '400 天前那枚进"只报数"档')
+  assert.equal(r.outOfWeek[0].hash, 'b'.repeat(40))
+  assert.equal(r.strict, false, '默认档不是问责档')
+})
+
+test('窗维保守方向: 取不到时刻 ⇒ 算窗内(照拦),绝不因"没量到"而放行', () => {
+  const now = 1_700_000_000
+  const r = __test__.splitUnbackedByWindow({
+    unbacked: ['c'.repeat(40)],
+    committerUnixByHash: new Map(), // 有读数但没这一枚 ⇒ 不是"整批失败"
+    nowUnix: now,
+    windowDays: 30,
+    failedBatches: 0,
+  })
+  assert.deepEqual(r.blocking, ['c'.repeat(40)], '无时刻必须照拦')
+  assert.deepEqual(r.undated, ['c'.repeat(40)])
+  assert.ok(!r.wholeWalkFailed, '单枚读不到不得冒充"整批失败"')
+})
+
+test('窗维保守方向: 整批时刻都派生失败 ⇒ 窗维未生效,全部照拦并大声报名', () => {
+  const r = __test__.splitUnbackedByWindow({
+    unbacked: ['d'.repeat(40), 'e'.repeat(40)],
+    committerUnixByHash: new Map(),
+    nowUnix: 1_700_000_000,
+    windowDays: 30,
+    failedBatches: 3,
+  })
+  assert.equal(r.wholeWalkFailed, true)
+  assert.equal(r.blocking.length, 2, '"没量到"不得折成"没风险"')
+  assert.equal(r.outOfWeek.length, 0)
+})
+
+test('变异对照: --window-days 0(窗维关闭)⇒ 超窗也拦,逐字回到 2026-10-11 之前的语义', () => {
+  const now = 1_700_000_000
+  const args = {
+    unbacked: ['b'.repeat(40)],
+    committerUnixByHash: new Map([['b'.repeat(40), now - 400 * DAY]]),
+    nowUnix: now,
+  }
+  const off = __test__.splitUnbackedByWindow({ ...args, windowDays: 0 })
+  const on = __test__.splitUnbackedByWindow({ ...args, windowDays: 30 })
+  assert.deepEqual(off.blocking, ['b'.repeat(40)], '窗维关闭必须照拦(这条断言就是判据有牙的证明)')
+  assert.deepEqual(on.blocking, [], '同一枚在 30 天窗档只报数')
+})
+
+test('问责档: --strict 把超窗存量也算进拦(存量不得在问责面上被读成"没有")', () => {
+  const now = 1_700_000_000
+  const r = __test__.splitUnbackedByWindow({
+    unbacked: ['b'.repeat(40)],
+    committerUnixByHash: new Map([['b'.repeat(40), now - 400 * DAY]]),
+    nowUnix: now,
+    windowDays: 30,
+    strict: true,
+  })
+  assert.deepEqual(r.blocking, ['b'.repeat(40)], 'strict 必须把超窗拉回问责面')
+})
+
+test('排序: 超窗档按时刻升序(报告行"最老一枚"直接取 [0],不得是任意一枚)', () => {
+  const now = 1_700_000_000
+  const r = __test__.splitUnbackedByWindow({
+    unbacked: ['x'.repeat(40), 'y'.repeat(40), 'z'.repeat(40)],
+    committerUnixByHash: new Map([
+      ['x'.repeat(40), now - 100 * DAY],
+      ['y'.repeat(40), now - 500 * DAY],
+      ['z'.repeat(40), now - 200 * DAY],
+    ]),
+    nowUnix: now,
+    windowDays: 30,
+  })
+  assert.deepEqual(
+    r.outOfWeek.map((o) => o.hash.slice(0, 1)),
+    ['y', 'z', 'x'],
+  )
+})
+
+// ─── 端到端: 窗维在真 git 仓上两条分支都成立(不接受"只有纯函数会判") ───
+
+function makeDangling(dir, subject, committerDate) {
+  execFileSync('git', ['checkout', '-b', 'tmp-x'], {
+    cwd: dir,
+    stdio: 'ignore',
+    windowsHide: true,
+  })
+  const env = committerDate ? { ...process.env, GIT_COMMITTER_DATE: committerDate } : process.env
+  // `--date` 只改**作者**时刻,committer 时刻照旧取当前时钟 ⇒ 必须用 GIT_COMMITTER_DATE,
+  // 否则造出来的"老提交"在窗维眼里是新的,那格端到端用例就是空的。
+  execFileSync('git', ['commit', '--allow-empty', '-m', subject], {
+    cwd: dir,
+    env,
+    stdio: 'ignore',
+    windowsHide: true,
+  })
+  const oid = execFileSync('git', ['rev-parse', 'HEAD'], {
+    cwd: dir,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  }).trim()
+  execFileSync('git', ['checkout', 'main'], { cwd: dir, stdio: 'ignore', windowsHide: true })
+  execFileSync('git', ['branch', '-D', 'tmp-x'], { cwd: dir, stdio: 'ignore', windowsHide: true })
+  return oid
+}
+
+test('端到端·窗内: 刚丢的无出处悬空 commit ⇒ 拦,且 --list-unbacked 交出完整 oid 供处置', () => {
+  const dir = createTempRepo()
+  try {
+    const oid = makeDangling(dir, 'e2e-recent-loss-XYZ')
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(r.status, 1, `窗内丢失必须拦,实际 ${r.status}:\n${r.stdout.slice(-600)}`)
+    assert.match(r.stdout, /天窗内/, '拦的那一档必须写明是窗内')
+    const l = runScript(['--blocking', '--filter-stash', '--list-unbacked'], { cwd: dir })
+    assert.match(l.stdout, new RegExp(oid), `--list-unbacked 必须逐枚给出完整 oid(${oid})`)
+    // 处置出口成立:照 §22 tag 备份之后同一道门必须转绿(不是靠调窗宽)
+    execFileSync('git', ['tag', `lost-commit/e2e-${oid.slice(0, 12)}`, oid], {
+      cwd: dir,
+      stdio: 'ignore',
+      windowsHide: true,
+    })
+    const after = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(
+      after.status,
+      0,
+      `已 tag 备份应放行,实际 ${after.status}:\n${after.stdout.slice(-600)}`,
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('端到端·超窗: 只报数不拦,同仓 --window-days 0 必翻回拦(量纲有牙的双向证明)', () => {
+  const dir = createTempRepo()
+  try {
+    makeDangling(dir, 'e2e-ancient-loss-XYZ', '2020-01-01T00:00:00 +08:00')
+    const def = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(def.status, 0, `超窗不得拦,实际 ${def.status}:\n${def.stdout.slice(-700)}`)
+    assert.match(def.stdout, /超出 \d+ 天窗、只报数不拦/, '报数行必须在(不得静默成"门绿了")')
+    const full = runScript(['--blocking', '--filter-stash', '--window-days', '0'], { cwd: dir })
+    assert.equal(full.status, 1, `窗维关闭必须照拦,实际 ${full.status}`)
+    assert.match(full.stdout, /全量档/, '全量档的措辞必须与窗内档可区分')
+    const strict = runScript(['--blocking', '--filter-stash', '--strict'], { cwd: dir })
+    assert.equal(strict.status, 1, '--strict 是问责存量档,超窗也算红')
+    // 环境变量与旗标同义(否则运维只能记两种写法,而记错一种就静默回到默认窗宽)
+    const byEnv = runScript(['--blocking', '--filter-stash'], {
+      cwd: dir,
+      env: { [__test__.WINDOW_DAYS_ENV]: '0' },
+    })
+    assert.equal(byEnv.status, 1, `${__test__.WINDOW_DAYS_ENV}=0 必须与 --window-days 0 同义`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('装车证明: 窗维判据必须真挂在 main 的判定链上(函数在而无人调 = 没有)', () => {
+  const src = readFileSync(SCRIPT_PATH, 'utf8')
+  // 守门 70/76/81 同型教训:判据写完、自检过了,但 main 没调它 ⇒ 提交链上一路绿灯。
+  // 数法刻意分开:**声明处**只允许一次,**带括号的调用**必须至少两次(声明行不带括号,
+  // 所以 `calls >= 2` 等价于"除声明外至少真有一处调用");导出面单独核,免得测试 import 不到
+  // 却也没人发现。只写一条 `>= 3` 的粗断言会把"导出面漏了"与"main 没调"混成同一种红。
+  const pairs = [
+    ['splitUnbackedByWindow', /^\s*splitUnbackedByWindow,?\s*$/m],
+    ['committerUnixFor', null],
+  ]
+  for (const [name, exportRe] of pairs) {
+    const decl = (src.match(new RegExp(`^function ${name}\\s*\\(`, 'm')) || []).length
+    const calls = (src.match(new RegExp(`\\b${name}\\s*\\(`, 'g')) || []).length
+    assert.equal(decl, 1, `${name} 应且仅应声明一次,实得 ${decl}`)
+    assert.ok(calls >= 2, `${name} 除声明外必须有调用点(main 未接=门对该型失明),实得 ${calls}`)
+    // 导出面只核**纯判据**:`committerUnixFor` 会派生 git,而 __test__ 那条约定是
+    // "任何 git 派生都不在这里发生" —— 导出它的引用虽不触发派生,但会让下一个会话以为
+    // 测试可以自己叫它取时刻(那就不再是"消费生产判据",而是第二条取材通道)。
+    if (exportRe)
+      assert.match(src, exportRe, `${name} 必须进 __test__ 导出面,供镜像直接消费而非另抄判据`)
+  }
+  assert.match(src, /wholeWalkFailed/, '整批派生失败那一支必须有实现,不得只写在注释里')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
