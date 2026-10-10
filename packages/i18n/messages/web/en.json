@@ -13004,15 +13004,15 @@
       "scopeModels": "Model List",
       "scopeEmbeddings": "Embeddings",
       "scopeImages": "Image Generation",
-    "recharge": "Top up",
-    "rechargeTitle": "Top up {name}",
-    "walletBalance": "Wallet balance",
-    "rechargeAmountLabel": "Amount (CNY)",
-    "rechargeAmountPlaceholder": "e.g. 10.00",
-    "rechargeHint": "Funds move from wallet to this API key balance.",
-    "rechargeOk": "Top-up successful",
-    "rechargeInvalid": "Enter a positive amount",
-    "rechargeConfirm": "Confirm",
+      "recharge": "Top up",
+      "rechargeTitle": "Top up {name}",
+      "walletBalance": "Wallet balance",
+      "rechargeAmountLabel": "Amount (CNY)",
+      "rechargeAmountPlaceholder": "e.g. 10.00",
+      "rechargeHint": "Funds move from wallet to this API key balance.",
+      "rechargeOk": "Top-up successful",
+      "rechargeInvalid": "Enter a positive amount",
+      "rechargeConfirm": "Confirm",
       "scopeAudio": "Audio",
       "scopeVideos": "Video Generation",
       "unlimitedQuota": "Unlimited",
@@ -27967,5 +27967,3 @@
     "incidentsUnavailable": "Incident data for the last 30 days is temporarily unavailable"
   }
 }
-
-
