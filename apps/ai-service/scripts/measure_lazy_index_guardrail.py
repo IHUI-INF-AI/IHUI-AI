@@ -45,9 +45,10 @@ import statistics
 import sys
 import time
 import tracemalloc
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Final
+from typing import Any, Final
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -62,10 +63,10 @@ for _stream in (sys.stdout, sys.stderr):
 
 from app.services import rg_fallback_parity as rgp  # noqa: E402
 from app.services.codebase_indexer import (  # noqa: E402
-    EMBEDDING_BATCH_SIZE,
-    MAX_FILES_PER_INDEX,
     _EXT_TO_LANG,
     _IGNORED_DIRS,
+    EMBEDDING_BATCH_SIZE,
+    MAX_FILES_PER_INDEX,
     codebase_indexer,
 )
 
@@ -195,7 +196,7 @@ def build_tree(root: Path, files: int) -> int:
     for idx in range(files):
         sub = root / f"d{(idx // 100) % 400:04d}"
         sub.mkdir(parents=True, exist_ok=True)
-        data = f"# calib {idx}\n{body}".encode("utf-8")
+        data = f"# calib {idx}\n{body}".encode()
         (sub / f"c{idx:07d}.py").write_bytes(data)
         total += len(data)
     return total // max(files, 1)

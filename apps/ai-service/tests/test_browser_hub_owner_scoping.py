@@ -23,7 +23,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from app.core.jwt_auth import principal_from_payload
-from app.services.browser_hub import BrowserSession, BrowserHub, _same_owner
+from app.services.browser_hub import BrowserHub, BrowserSession, _same_owner
 
 AI_SERVICE = Path(__file__).resolve().parents[1]
 

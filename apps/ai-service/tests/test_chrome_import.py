@@ -22,7 +22,6 @@ import pytest
 from app.services import chrome_import as m
 from app.services.scan_login import PLATFORM_SCAN_CONFIG
 
-
 # =============================================================================
 # _wait_for_cdp_ready: 代理穿透反向锁
 # =============================================================================
@@ -99,7 +98,7 @@ def test_spawn_browser_builds_cdp_command_line(tmp_path):
 
     args = captured["args"]
     assert args[0] == str(browser)
-    assert f"--remote-debugging-port=9223" in args
+    assert "--remote-debugging-port=9223" in args
     assert "--app=https://example.com/login" in args
     assert any(a.startswith("--user-data-dir=") for a in args)
     assert "--no-first-run" in args and "--no-default-browser-check" in args
@@ -148,7 +147,7 @@ async def test_launch_success_path(tmp_path):
     assert r == {"launched": True, "port": 54321, "login_url": login_url,
                  "browser": "chrome", "error": None}
     assert spawned and spawned[0][0] == str(tmp_path / "c.exe")
-    assert f"--remote-debugging-port=54321" in spawned[0]
+    assert "--remote-debugging-port=54321" in spawned[0]
     wait_ready.assert_awaited_once_with(54321)
 
 

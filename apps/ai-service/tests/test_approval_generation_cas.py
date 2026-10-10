@@ -22,11 +22,10 @@ from app.services.approval_generation_cas import (
     REASON_SUPERSEDED,
     STATE_PENDING,
     STATE_RESOLVED,
-    STATE_SUPERSEDED,
     STATE_TIMED_OUT,
     ApprovalGenerationCas,
-    ApprovalSpec,
     ApprovalGenerationError,
+    ApprovalSpec,
     content_digest,
 )
 
