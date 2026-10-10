@@ -28,7 +28,11 @@
     "envNetworkOpen": "今回のみネットワークアクセスを許可",
     "envNetworkOff": "今回はネットワークを利用できません",
     "envNetworkBlocked": "ブロックされたネットワーク先",
-    "envNetworkBlockedOne": "{host}:{port}(理由:{reason})"
+    "envNetworkBlockedOne": "{host}:{port}(理由:{reason})",
+    "grantRuleToggle": "承認してこの種のコマンドを許可に追加",
+    "grantRuleDesc": "コマンドプレフィックス「{prefix}…」を対象とする許可ルールを作成します。90 日後に自動失効し、Web アプリの許可ルールパネルから取り消せます。",
+    "grantRuleConfirmTitle": "高リスクコマンドを許可しますか?",
+    "grantRuleConfirmContent": "コマンド「{prefix}…」は高リスク操作に該当します。許可すると 90 日間は類似コマンドで再度確認されません。使用に伴うリスクはご自身の責任となります。"
   },
   "nav": {
     "profile": "マイページ",
