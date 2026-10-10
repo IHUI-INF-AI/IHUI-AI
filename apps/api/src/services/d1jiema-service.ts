@@ -70,7 +70,7 @@ export function extractPlatform(raw: string): string | undefined {
 }
 
 /** 短信用途的词汇表**只在这里定义一次**:分类器产出它、台账列(varchar(16))读回来也归一到它。 */
-export const SMS_USAGE_KINDS = ['register', 'login', 'other'] as const
+const SMS_USAGE_KINDS = ['register', 'login', 'other'] as const
 export type SmsUsageKind = (typeof SMS_USAGE_KINDS)[number]
 
 /** 短信用途判定:含「注册」=新号注册,含「登录」=该号已注册过(登录码),其余 other */
@@ -178,7 +178,7 @@ export async function sendSms(phone: string, toPhone: string, content: string): 
 }
 
 /** 查询历史记录(平台限频 1 次/分钟,返回最近 24h 最多 100 条,\n 分割) */
-export async function queryUsed(): Promise<string[]> {
+async function queryUsed(): Promise<string[]> {
   const raw = await callD1jiema('queryUsed')
   return raw
     .split('\n')

@@ -23,7 +23,7 @@
 import * as React from 'react'
 
 /** 只暂停:用于「视图被隐藏 / 失活」,源还留在元素上,回到前台即可继续。 */
-export function pauseMediaElement(el: HTMLMediaElement | null | undefined): boolean {
+function pauseMediaElement(el: HTMLMediaElement | null | undefined): boolean {
   if (!el) return false
   try {
     el.pause()
