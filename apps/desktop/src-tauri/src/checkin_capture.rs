@@ -58,6 +58,18 @@ pub const TRAE_REG_FINGERPRINT_SLOTS: [(&str, &str); 5] = [
     (r"Software\Trae Work 助手\Common", "Info"),
 ];
 
+/// SQMClient MachineId 槽位(HKLM)。2026-10-11 指纹源普查实锤:
+/// VSCode/TRAE 内核 `getMachineId()` **直接**读 `HKLM\SOFTWARE\Microsoft\SQMClient\MachineId`
+/// (经 `@vscode/windows-registry` 的 `GetStringRegKey("HKEY_LOCAL_MACHINE","Software\\Microsoft\\SQMClient","MachineId")`),
+/// 而层⑤ 旧实现只改 `Cryptography\MachineGuid`——那是**另一个键、另一个值**,
+/// 等于"换了皮没换芯",machineId 仍是旧值,风控照样认出老设备。
+/// 现层⑤ 改为 HKLM 机器身份**双写**,把这一层也彻底覆盖。
+pub const SQM_MACHINE_ID_KEY: &str = r"SOFTWARE\Microsoft\SQMClient";
+pub const SQM_MACHINE_ID_NAME: &str = "MachineId";
+/// 审计/账本里 SQMClient MachineId 的记号槽串(与 `capture_registry_fingerprints` 写入、
+/// `audit_probe_sqm_machine_id` 比对保持同一形态,否则对不上)。
+pub const SQM_MACHINE_ID_SLOT: &str = r"SOFTWARE\Microsoft\SQMClient\MachineId";
+
 /// 快照 9 类清单（对称备份/恢复的唯一出处）。`paths` 相对 TRAE 数据目录，
 /// 备份目录里按**同样的相对路径**镜像存放——恢复逻辑因此与备份共用同一张表。
 pub struct SnapshotEntry {
@@ -749,17 +761,19 @@ fn reset_layer_tiny_storage(trae_dirs: &[PathBuf]) -> ResetLayerReport {
     }
 }
 
-/// 层⑤：注册表 `HKLM\...\MachineGuid`。需管理员：走
-/// `powershell Start-Process -Verb RunAs` 提权 reg add；用户拒绝/UAC 失败一律
-/// 降级 ok=false 不报错（该层失败不影响其余层）。
-/// 层⑤:MachineGuid(HKLM\SOFTWARE\Microsoft\Cryptography)写新随机 GUID。
-/// 2026-10-10 根治:不再硬依赖 `reg.exe + RunAs`——先试**进程内 PowerShell 直写**
-/// (当前进程已提权或内建 Administrator 静默提权时零弹窗零 reg.exe 依赖;
-///  本机 Administrator 实测直写成功),失败再回退 RunAs 提权 reg add(弹 UAC 由用户点)。
-/// 两级都失败才降级 skip。沙箱黑名单挡 reg.exe 的环境里第一级不受影响。
+/// 层⑤：HKLM 机器身份**双写** —— `Cryptography\MachineGuid` + `SQMClient\MachineId`。
+/// 两者都是 Windows 内核 `getMachineId()` 风格的机器身份槽,且 VSCode/TRAE 内核
+/// **直接**读的是 `SQMClient\MachineId`(不是 Cryptography\MachineGuid)——
+/// 2026-10-11 补:旧实现只改 MachineGuid,等于"换了皮没换芯",machineId 仍是旧值。
+/// 两者都需管理员:走 PowerShell 进程内直写(首选,零弹窗)→ RunAs 提权 reg add(弹 UAC)。
+/// 两级都失败才降级 skip。SQMClient 改写前先 best-effort 备份,备份失败则跳过该子项
+/// (硬安全网:不可逆 HKLM 改写必须有备份,与 MachineGuid 同纪律)。
 #[cfg(windows)]
 fn reset_layer_machine_guid() -> ResetLayerReport {
     let guid = random_guid_like();
+    let mut detail_parts: Vec<String> = Vec::new();
+
+    // ── 子项一:Cryptography\MachineGuid ──
     // 第一级:进程内 PowerShell 直写(无 reg.exe 依赖)
     let direct = format!(
         "try {{ Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Cryptography' \
@@ -769,45 +783,111 @@ fn reset_layer_machine_guid() -> ResetLayerReport {
     let mut direct_cmd = std::process::Command::new("powershell");
     direct_cmd.args(["-NoProfile", "-NonInteractive", "-Command", &direct]);
     creation_flags_if_windows(&mut direct_cmd, 0x0800_0000);
-    let direct_res = direct_cmd.output();
-    if let Ok(out) = &direct_res {
+    let mut machine_guid_ok = false;
+    if let Ok(out) = direct_cmd.output() {
         if out.status.success() {
-            return ResetLayerReport {
-                layer: 5,
-                name: "MachineGuid",
-                ok: true,
-                detail: "已写新 MachineGuid(进程内直写,无弹窗)".into(),
-            };
+            machine_guid_ok = true;
+            detail_parts.push("已写新 MachineGuid(进程内直写,无弹窗)".into());
         }
     }
-    // 第二级:RunAs 提权 reg add(弹 UAC,由用户掌握)
+    if !machine_guid_ok {
+        // 第二级:RunAs 提权 reg add(弹 UAC,由用户掌握)
+        let script = format!(
+            "Start-Process -FilePath reg.exe -Verb RunAs -Wait -WindowStyle Hidden \
+             -ArgumentList @('add','HKLM\\SOFTWARE\\Microsoft\\Cryptography','/v',\
+             'MachineGuid','/t','REG_SZ','/d','{guid}','/f')"
+        );
+        match std::process::Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+            .output()
+        {
+            Ok(out) if out.status.success() => {
+                machine_guid_ok = true;
+                detail_parts.push("已写新 MachineGuid(提权 reg add)".into());
+            }
+            Ok(out) => detail_parts.push(format!(
+                "MachineGuid 降级 skip(UAC 被拒或 reg add 失败, exit={:?})",
+                out.status.code()
+            )),
+            Err(e) => detail_parts.push(format!("MachineGuid 降级 skip(无法启动 powershell: {e})")),
+        }
+    }
+
+    // ── 子项二:SQMClient\MachineId(内核 machineId 的真源,独立备份 + 独立两级写入)──
+    let sqm_guid = random_guid_like();
+    match backup_sqm_machine_id() {
+        Ok(()) => match write_sqm_machine_id(&sqm_guid) {
+            Ok(how) => detail_parts.push(format!("已写新 SQMClient MachineId({how})")),
+            Err(e) => detail_parts.push(format!("SQMClient MachineId 降级 skip({e})")),
+        },
+        Err(e) => detail_parts.push(format!("SQMClient MachineId 跳过(备份失败: {e})")),
+    }
+
+    // 主判据仍是 MachineGuid(历史契约:层⑤ 失败=可降级);SQM 子项失败只降级不拦主流程。
+    ResetLayerReport {
+        layer: 5,
+        name: "MachineGuid",
+        ok: machine_guid_ok,
+        detail: detail_parts.join("; "),
+    }
+}
+
+/// SQMClient MachineId 改写前 best-effort 备份(独立安全网,落地到 `SqmMachineId-backup.txt`)。
+/// 与 `ensure_machine_guid_backup` 同纪律:不可逆 HKLM 改写前必须把旧值落盘。
+#[cfg(windows)]
+fn backup_sqm_machine_id() -> Result<(), String> {
+    let script = "try { \
+        $v=(Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\SQMClient' -ErrorAction Stop).MachineId; \
+        $d=\"$env:USERPROFILE\\.trae-proxy\"; \
+        New-Item -ItemType Directory -Force -Path $d | Out-Null; \
+        $p=\"$d\\SqmMachineId-backup.txt\"; \
+        if (!(Test-Path $p)) { Set-Content -Path $p -Value $v -Encoding ascii }; \
+        Write-Output $v; exit 0 } catch { exit 1 }";
+    let mut cmd = std::process::Command::new("powershell");
+    cmd.args(["-NoProfile", "-NonInteractive", "-Command", script]);
+    creation_flags_if_windows(&mut cmd, 0x0800_0000);
+    match cmd.output() {
+        Ok(out) if out.status.success() => {
+            let v = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            if v.is_empty() {
+                Err("读取 SQMClient MachineId 返回空".into())
+            } else {
+                Ok(())
+            }
+        }
+        Ok(_) => Err("读取 SQMClient MachineId 失败(无权限或键不存在?)".into()),
+        Err(e) => Err(format!("无法启动内建脚本: {e}")),
+    }
+}
+
+/// SQMClient MachineId 两级写入:进程内 PowerShell 直写(首选)→ RunAs 提权 reg add(弹 UAC)。
+#[cfg(windows)]
+fn write_sqm_machine_id(guid: &str) -> Result<String, String> {
+    let direct = format!(
+        "try {{ Set-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\SQMClient' \
+         -Name MachineId -Value '{guid}' -Force -ErrorAction Stop; exit 0 }} \
+         catch {{ exit 1 }}"
+    );
+    let mut direct_cmd = std::process::Command::new("powershell");
+    direct_cmd.args(["-NoProfile", "-NonInteractive", "-Command", &direct]);
+    creation_flags_if_windows(&mut direct_cmd, 0x0800_0000);
+    if let Ok(out) = direct_cmd.output() {
+        if out.status.success() {
+            return Ok("进程内直写,无弹窗".into());
+        }
+    }
     let script = format!(
         "Start-Process -FilePath reg.exe -Verb RunAs -Wait -WindowStyle Hidden \
-         -ArgumentList @('add','HKLM\\SOFTWARE\\Microsoft\\Cryptography','/v',\
-         'MachineGuid','/t','REG_SZ','/d','{guid}','/f')"
+         -ArgumentList @('add','HKLM\\SOFTWARE\\Microsoft\\SQMClient','/v',\
+         'MachineId','/t','REG_SZ','/d','{guid}','/f')"
     );
     match std::process::Command::new("powershell")
         .args(["-NoProfile", "-NonInteractive", "-Command", &script])
         .output()
     {
-        Ok(out) if out.status.success() => ResetLayerReport {
-            layer: 5,
-            name: "MachineGuid",
-            ok: true,
-            detail: "已写新 MachineGuid(提权 reg add)".into(),
-        },
-        Ok(out) => ResetLayerReport {
-            layer: 5,
-            name: "MachineGuid",
-            ok: false,
-            detail: format!("降级 skip(UAC 被拒或 reg add 失败, exit={:?})", out.status.code()),
-        },
-        Err(e) => ResetLayerReport {
-            layer: 5,
-            name: "MachineGuid",
-            ok: false,
-            detail: format!("降级 skip(无法启动 powershell: {e})"),
-        },
+        Ok(out) if out.status.success() => Ok("提权 reg add".into()),
+        Ok(out) => Err(format!("UAC 被拒或 reg add 失败, exit={:?}", out.status.code())),
+        Err(e) => Err(format!("无法启动 powershell: {e}")),
     }
 }
 
@@ -2085,14 +2165,21 @@ pub fn reg_fingerprint_token(slot: &str, value: &str) -> String {
 }
 
 /// 抓取注册表指纹槽位的当前值(层⑪ 动手之前)。
+/// 含两类:HKCU 下厂商容器内的设备指纹(Info 等,TRAE_REG_FINGERPRINT_SLOTS)
+/// + HKLM 下 Windows 内核 machineId 真源 `SQMClient\MachineId`(层⑤ 双写覆盖)。
+/// 后者是"应用层全翻新了却仍被认出来"的最隐蔽一类——内核级机器身份,必须进黑名单比对。
 #[cfg(windows)]
 pub fn capture_registry_fingerprints() -> Vec<String> {
-    use windows::Win32::System::Registry::HKEY_CURRENT_USER;
+    use windows::Win32::System::Registry::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
     let mut out: Vec<String> = Vec::new();
     for (key, name) in TRAE_REG_FINGERPRINT_SLOTS {
         if let Some(v) = regutil::read_string(HKEY_CURRENT_USER, key, name) {
             out.push(reg_fingerprint_token(key, &v));
         }
+    }
+    // SQMClient MachineId(HKLM,内核 machineId 真源)
+    if let Some(v) = regutil::read_string(HKEY_LOCAL_MACHINE, SQM_MACHINE_ID_KEY, SQM_MACHINE_ID_NAME) {
+        out.push(reg_fingerprint_token(SQM_MACHINE_ID_SLOT, &v));
     }
     out
 }
@@ -2357,7 +2444,8 @@ fn audit_probe_registry() -> Vec<String> {
         }; \
         $cls = @(Get-ChildItem 'HKCU:\\Software\\Classes' -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -match '^trae' }); \
         Write-Output ('[REG] HKCU:\\Software\\Classes => 命中 ' + $cls.Count + ' 项'); \
-        Write-Output ('[REG] MachineGuid=' + (Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Cryptography').MachineGuid)";
+        Write-Output ('[REG] MachineGuid=' + (Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Cryptography' -ErrorAction SilentlyContinue).MachineGuid); \
+        Write-Output ('[REG] SqmMachineId=' + (Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\SQMClient' -ErrorAction SilentlyContinue).MachineId)";
     match run_ps_capture(script, std::time::Duration::from_secs(45)) {
         Ok(v) => v,
         Err(e) => vec![format!("[REG] 注册表查询降级: {e}")],
@@ -2388,6 +2476,29 @@ fn audit_probe_registry_fingerprints(blacklist: &std::collections::HashSet<Strin
 
 #[cfg(not(windows))]
 fn audit_probe_registry_fingerprints(_: &std::collections::HashSet<String>) -> Vec<(String, String)> {
+    Vec::new()
+}
+
+/// SQMClient MachineId 残留比对(HKLM,内核 machineId 真源)。
+/// 账本里记过的旧 SQMClient MachineId,现在还在 ⇒ 硬命中——
+/// 这是"层⑤ 双写没生效 / 被 UAC 拦了"时最直接的可复核证据。
+#[cfg(windows)]
+fn audit_probe_sqm_machine_id(blacklist: &std::collections::HashSet<String>) -> Vec<(String, String)> {
+    use windows::Win32::System::Registry::HKEY_LOCAL_MACHINE;
+    let mut hits: Vec<(String, String)> = Vec::new();
+    if let Some(v) = regutil::read_string(HKEY_LOCAL_MACHINE, SQM_MACHINE_ID_KEY, SQM_MACHINE_ID_NAME) {
+        if blacklist.contains(&reg_fingerprint_token(SQM_MACHINE_ID_SLOT, &v)) {
+            hits.push((
+                format!("HKLM\\{}\\{}", SQM_MACHINE_ID_KEY, SQM_MACHINE_ID_NAME),
+                v,
+            ));
+        }
+    }
+    hits
+}
+
+#[cfg(not(windows))]
+fn audit_probe_sqm_machine_id(_: &std::collections::HashSet<String>) -> Vec<(String, String)> {
     Vec::new()
 }
 
@@ -2441,6 +2552,10 @@ pub fn audit_trae_residual() -> ResidualAuditReport {
     }
     // 注册表指纹维度(与文件扫描并列,不进 scanned 计数——它不是文件)
     for (slot, val) in audit_probe_registry_fingerprints(&set) {
+        hits.push((slot, val));
+    }
+    // SQMClient MachineId 维度(HKLM 内核 machineId 真源,层⑤ 双写覆盖)
+    for (slot, val) in audit_probe_sqm_machine_id(&set) {
         hits.push((slot, val));
     }
     // 按文件聚合
@@ -3889,8 +4004,11 @@ mod tests {
         assert!(got.contains(&"aaaaa56789abcdef0123456789abcdef".to_string()), "{got:?}");
         assert!(got.contains(&"ccccc56789abcdef0123456789abcdef".to_string()), "{got:?}");
         assert!(got.contains(&"ddddd56789abcdef0123456789abcdef".to_string()), "{got:?}");
-        // sqmId 是 GUID 花括号形态 ⇒ 抽不到裸 36 位,这里只断言不崩且不进垃圾值
-        assert!(!got.iter().any(|v| v.contains('{')), "不得收入非身份形态: {got:?}");
+        // sqmId 是 GUID 花括号形态 ⇒ 抽不到裸 36 位,这里只断言不崩且不进垃圾值。
+        // 注意:注册表指纹维度(层⑤ 双写覆盖的 HKLM SQMClient MachineId 等)以 `regfp|`
+        // 前缀独立计入,其值为真实 MachineId(含花括号)属正常,不计入"文件侧不得含花括号"判据。
+        let file_tokens: Vec<&String> = got.iter().filter(|v| !v.starts_with("regfp|")).collect();
+        assert!(!file_tokens.iter().any(|v| v.contains('{')), "不得收入非身份形态: {got:?}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
