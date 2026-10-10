@@ -146,6 +146,7 @@ import { rpx } from '../utils/rpx'
 import TabBar, { type TabBarKey } from '../components/TabBar'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { NavChrome } from '../components/NavChrome'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -1485,7 +1486,7 @@ export function HomeScreen() {
        *  左按钮☰ 触发 Drawer(对齐 handleNavClick);右按钮🤝/🎁 对齐 join-click/share-image
        *  右侧追加分类按钮(对齐 Uniapp tools 页 showFenLei → tagWrapShow 赛道分类弹层)
        *  NavBar 置于 ScrollView 外,等价于 Uniapp viscosity=true 粘性效果(始终固定顶部) */}
-      <View style={shellStyles.navWrap}>
+      <NavChrome>
         <NavBar
           title="智汇AI社区"
           leftActions={navLeftActions}
@@ -1502,7 +1503,7 @@ export function HomeScreen() {
             </TouchableOpacity>
           }
         />
-      </View>
+      </NavChrome>
       <ScrollView
         ref={scrollRef}
         style={shellStyles.scroll}
@@ -2113,7 +2114,6 @@ export function HomeScreen() {
 const shellStyles = {
   root: { flex: 1, backgroundColor: tokens.surface.bg } as const,
   // 顶栏行取白档,与 App.tsx 给 Home 的状态栏带同色;主体仍走 root 的 surface.bg
-  navWrap: { backgroundColor: tokens.surface.card } as const,
   scroll: { flex: 1 } as const,
   scrollContent: { paddingBottom: rpx(120) } as const,
   // 轮播(对齐 Uniapp custom-carousel-wrapper:margin 18rpx 0 0 0 ≈ marginTop: rpx(18) + 圆角 30rpx≈15)
