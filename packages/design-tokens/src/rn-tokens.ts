@@ -205,7 +205,15 @@ export type RnThemeTokens = {
    * theme/active-tokens.ts 用 clonePalette 逐命名空间浅拷(`{ ...src[ns] }`),
    * 顶层字符串会被摊成字符对象 ⇒ 运行时是不合法颜色(与 agentName 同一条理由)。 */
   selection: { DEFAULT: string; foreground: string }
-  surface: { bg: string; light: string; muted: string; card: string; dark: string; inputBg: string }
+  surface: {
+    bg: string
+    light: string
+    muted: string
+    card: string
+    dark: string
+    inputBg: string
+    chrome: string
+  }
   text: { primary: string; secondary: string; tertiary: string; medium: string }
   border: { light: string; medium: string }
   error: { bg: string; text: string }
@@ -271,6 +279,7 @@ export const rnLightTokens: RnThemeTokens = {
     card: '#FFFFFF',
     dark: '#262626',
     inputBg: '#F5F5F5',
+    chrome: '#FFFFFF',
   },
   text: { primary: '#0A0A0A', secondary: '#666666', tertiary: '#A3A3A3', medium: '#404040' },
   border: { light: '#E5E5E5', medium: '#D4D4D4' },
@@ -361,6 +370,7 @@ export const rnDarkTokens: RnThemeTokens = {
     card: '#1A1A1A',
     dark: '#171717',
     inputBg: '#262626',
+    chrome: '#262626',
   },
   text: { primary: '#FAFAFA', secondary: '#A3A3A3', tertiary: '#737373', medium: '#D4D4D4' },
   border: { light: '#383838', medium: '#525252' },

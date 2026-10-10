@@ -46,18 +46,38 @@ import './src/lib/web-shell'
  */
 const ROUTE_ROOT_BG: Record<string, (t: RnThemeTokens, dark: boolean) => string> = {
   Login: (t) => t.surface.card,
-  // Home 的顶栏行取白(对齐小程序 theme.json 原生导航栏 navBgColor=#ffffff),状态栏带须同档才不露出灰色带;
-  // 页面主体仍走 shell 的 surface.bg —— 2026-10-10 用户点名顶部灰色带
-  Home: (t) => t.surface.card,
-  // 其余一级屏(首页在 Main Tabs 里的注册名 / 广场 / 动态 / 我的 / 智能体 / 设置)同型:
-  // 屏内顶栏区已取白档,状态栏带必须逐路由跟上,否则同一屏露出两截色
-  HomeMain: (t) => t.surface.card,
-  Plaza: (t) => t.surface.card,
-  News: (t) => t.surface.card,
-  ProfileMain: (t) => t.surface.card,
-  AiMain: (t) => t.surface.card,
-  Agent: (t) => t.surface.card,
-  Settings: (t) => t.surface.card,
+  // 顶栏 chrome 带 —— 凡屏内用 <NavChrome> 给导航行取了 tokens.surface.chrome,它的**每一个注册路由名**
+  // 都必须在这里给同一档:状态栏 inset 带由本枚根 View 画,导航行由屏自己画,两处不同色就是同一屏两截色
+  // (2026-10-10 用户实拍「顶部这个区域为什么是灰色的,怎么还有个灰色带呢?应该不设置背景色 直接透出底色白色啊」)。
+  // 清单派生自 RootNavigator 的 name=/component= 注册对(现读,不手拼);漏一条由
+  // tests/nav-chrome-route-parity.test.ts 当场判红 —— 它从源码反查"哪些屏渲染 NavBar",再核每个注册名在不在本表。
+  // 刻意**不**改成"默认全给 chrome + 例外表":沉浸式/渐变定档那几屏(VideoPlayer / CoursePlanet / MoreCourse /
+  // ChatTools)的顶色是各自定稿,翻默认会把它们推给白档。
+  Home: (t) => t.surface.chrome,
+  HomeMain: (t) => t.surface.chrome,
+  Plaza: (t) => t.surface.chrome,
+  News: (t) => t.surface.chrome,
+  ProfileMain: (t) => t.surface.chrome,
+  AiMain: (t) => t.surface.chrome,
+  Agent: (t) => t.surface.chrome,
+  Settings: (t) => t.surface.chrome,
+  AiAssistantN8n: (t) => t.surface.chrome,
+  Cart: (t) => t.surface.chrome,
+  Chat: (t) => t.surface.chrome,
+  CircleIndex: (t) => t.surface.chrome,
+  ConversationImport: (t) => t.surface.chrome,
+  CourseDetail: (t) => t.surface.chrome,
+  DevEnter: (t) => t.surface.chrome,
+  Developer: (t) => t.surface.chrome,
+  LiveDetail: (t) => t.surface.chrome,
+  RankingDetail: (t) => t.surface.chrome,
+  Share: (t) => t.surface.chrome,
+  StudyIndex: (t) => t.surface.chrome,
+  StudyPublish: (t) => t.surface.chrome,
+  Subagents: (t) => t.surface.chrome,
+  TopicDetail: (t) => t.surface.chrome,
+  TopicList: (t) => t.surface.chrome,
+  WebPortal: (t) => t.surface.chrome,
   ChatTools: (t, dark) => (dark ? t.gray[900] : t.surface.light),
   WebView: (t, dark) => (dark ? t.gray[900] : t.surface.light),
   Note: (t) => t.surface.light,
