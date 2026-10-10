@@ -39,6 +39,10 @@ import {
   startLiteLLMPriceSyncScheduler,
   stopLiteLLMPriceSyncScheduler,
 } from './services/litellm-price-sync.js'
+import {
+  startRelayModelSyncScheduler,
+  stopRelayModelSyncScheduler,
+} from './services/relay-model-sync.js'
 import { startAlgorithmRecordScheduler } from './services/algorithm-record-service.js'
 import {
   startAgentAutomationScheduler,
@@ -181,6 +185,7 @@ async function start() {
       syncStopPhase('stopTrendingScheduler', stopTrendingScheduler),
       syncStopPhase('stopSourceProbeScheduler', stopSourceProbeScheduler),
       syncStopPhase('stopLiteLLMPriceSyncScheduler', stopLiteLLMPriceSyncScheduler),
+      syncStopPhase('stopRelayModelSyncScheduler', stopRelayModelSyncScheduler),
       syncStopPhase('stopHotWordsScheduler', stopHotWordsScheduler),
       syncStopPhase('stopPiiRetentionScheduler', stopPiiRetentionScheduler),
       syncStopPhase('stopAuditEvidenceRetentionScheduler', stopAuditEvidenceRetentionScheduler),
@@ -288,6 +293,12 @@ async function start() {
 
   // 启动数据库备份定时调度(读 backup_settings;备份设置页可改,2026-09-16 立)
   void startBackupCronScheduler()
+
+  // 启动中转站上游模型自动同步(启动 30s 后首跑,之后每 6h 一次,
+  // 默认开启,RELAY_MODEL_SYNC_ENABLED=false 禁用,2026-10-09 立)
+  if (process.env.RELAY_MODEL_SYNC_ENABLED !== 'false') {
+    startRelayModelSyncScheduler()
+  }
 
   // 启动异步图片任务 worker(每 30 秒扫描 pending,2026-09-17 立)
   startImageTaskWorker()

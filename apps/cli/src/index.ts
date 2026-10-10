@@ -46,6 +46,13 @@ import { drainHeadlessBeforeExit } from './headless-drain.js';
 import { listTasks, settleAllInFlight } from './tools/background-registry.js';
 import { loadSkills, findSkill } from './skills/index.js';
 import {
+  aggregateShadowLedger,
+  formatShadowReport,
+  readShadowLedger,
+  resolveShadowLedgerPath,
+} from './skills/allowed-tools-shadow.js';
+import { runShadowSelfTest } from './skills/allowed-tools-shadow.selftest.js';
+import {
   loadSession,
   getMostRecentSession,
   listSessions,
@@ -902,6 +909,33 @@ skillsCmd
     console.info(chalk.dim(t('cliEntry.skillSourceDetail', { source: skill.source })));
     console.info(chalk.dim(t('cliEntry.skillDescriptionLine', { description: skill.description })));
     console.info(skill.body);
+  });
+
+// G-427 第①步的读侧 —— allowed-tools 影子账本(机主 2026-10-10 拍板「先记账一周再开真门控」)。
+// 记的是"若白名单真生效,哪些调用会被挡",**执行链上没有任何一处读它**。
+// 选项帮助与输出面一律 ASCII:守门 70 的硬编码中文棘轮同样约束本文件,而这条命令的读者是
+// "拿实据逐技能裁决"的人,不是终端界面(命令描述走 t(),与其余 24 条同形,不开第二套惯例)。
+skillsCmd
+  .command('shadow-report')
+  .description(t('cliEntry.skillShadowReportDesc'))
+  .option('--ledger <jsonl>', 'ledger file (default: the user state dir)')
+  .option('--json', 'machine-readable aggregate')
+  .option('--self-test', 'run the built-in assertion table; non-zero on any failure')
+  .action((options: { ledger?: string; json?: boolean; selfTest?: boolean }) => {
+    if (options.selfTest === true) {
+      process.exitCode = runShadowSelfTest();
+      return;
+    }
+    const file = resolveShadowLedgerPath(options.ledger);
+    const read = readShadowLedger(file);
+    const agg = aggregateShadowLedger(read, file);
+    if (options.json === true) {
+      process.stdout.write(`${JSON.stringify(agg, null, 2)}\n`);
+    } else {
+      console.info(formatShadowReport(agg));
+    }
+    // 取不到台账 = 无法判定,不是"没有冲突"。退出码 2 与姊妹出口同一条约定。
+    if (read.missing) process.exitCode = 2;
   });
 
 // settings 子命令组

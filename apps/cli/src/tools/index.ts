@@ -21,6 +21,7 @@
 
 import { redactSecrets } from '../redact.js';
 import { checkFolderTrust, type FolderTrustMap } from '../sandbox/index.js';
+import { observeShadowToolCall } from '../skills/allowed-tools-shadow.js';
 import { checkPermission, checkRulesWithLease, type PermissionRules } from './permissions.js';
 import { activePermissionLease } from './permission-lease.js';
 import {
@@ -1252,6 +1253,13 @@ export async function executeToolCall(
       };
     }
   }
+  // G-427 第①步(机主 2026-10-10 拍板「先影子记账一周再开真门控」):allowed-tools 的影子记账点。
+  // 位置刻意在**所有既有闸门放行之后、真正执行之前** —— 记的是"这一趟真会跑"。已被权限规则 /
+  // 限流 / 确认窗拒掉的调用不记:白名单真生效时它们同样被拒,记两遍等于把一件事算两次。
+  // 返回值必须丢弃 —— 它不是任何判定的输入,拿它分支就是 enforce(本票明令禁止)。
+  // 永不抛、永不改 args、不改返回值;hub 分支拿不到本地 Tool 对象,与上方
+  // shadowValidateToolArguments 的已知覆盖面缺口同型,本票不扩面。
+  observeShadowToolCall(tool.name);
   // P1-5 Error recovery:read 工具失败自动重试 1 次 + 100ms 退避;write/dangerous 不重试(避免副作用)
   const executed = await executeWithRetry(tool, call.arguments, ctx);
   // H-5:ToolResultBudgetContract 在 executor 边界消费 —— handler 产出回灌模型之前按声明预算
