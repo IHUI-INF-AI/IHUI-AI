@@ -41,6 +41,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, gitBinary, gitRaw, selectFace, Undetermined } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { radiusEntriesOf, radiusLookup, radiusPxInLine, radiusSetOf } from './lib/radius-tokens.mjs'
+// 裸档形状单独一行导:把上面那条 import 折成多行会让"行级复活"判据把成员行读成搬回祖先形态(2026-10-11 实测)
+import { bareRoundedOccurrences } from './lib/radius-tokens.mjs'
 import { facePx } from './lib/length-units.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -82,9 +84,15 @@ const OWN_END_PREFIX = { miniapp: 'apps/miniapp-taro/', rn: 'apps/mobile-rn/' }
  * 一不一样**。几何维刻意不判,并在人读面与 `--json` 面**明写"未判"**(不是"已确认相同")。
  *
  * 已知覆盖边界(逐条报出,不当通过):
- *  - 未做端入口可达性剔除(rn 腿那套图是从 RN 入口走的,web 需要另一张图)⇒ 一份死副本
- *    可能进配对;这一条写在报告里,不在代码里偷偷抹。
+ *  - **端入口可达性剔除已装上**(2026-10-08 票 G-978049③):双侧各跑一遍图,种子面
+ *    `SEED_DIRS.web = apps/web/app`(Next 的 page/layout 层就是框架真渲染的入口),`@/` 别名按
+ *    web 的 tsconfig 解析;被剔的族逐条点名(`⊘ WD …… 从web端入口不可达`),web 种子取不到时
+ *    整维**挂起留痕**而不是当成"都活着" —— 挂起那一句里的"本轮未做剔除"说的是这一轮,不是这一腿。
  *  - 只比**档值集合**(RD 量纲),不比元素名(RE 量纲):web 侧没有 StyleSheet 键可归属。
+ *  - **裸档盲区(G-978049②,本腿与主腿同罪)**:档位提取式只认 `rounded-(xs|sm|md|lg|xl|2xl)`,
+ *    裸写 `rounded` / `var(--radius)`(值 = 档位表 DEFAULT)读不出来 ⇒ "一端写裸档、另一端写具名档"
+ *    会被读成"那一端没写档"。补认它必须与守门 77 / 150 的台账**同枚提交各自重锚**,不在本腿单独放宽;
+ *    今天先由 `bareRoundedAudit` **逐条报名**(报数不进判据、不进退出码),给下一票当输入。
  */
 const WEB_DIRS = ['apps/web/src/components', 'packages/ui-react/src/components']
 const WEB_LEDGER = {
@@ -1875,6 +1883,15 @@ export function collect(
   const geoDecl = hasGeo
     ? geometryDeclCheck(specSources[geoPath], specSources[geoDtsPath])
     : { skipped: true }
+  /**
+   * 裸档报名(G-978049②):**两腿各算各的名单**,且不进判据、不进退出码 —— 它报的是
+   * "这一维今天看不见多少",不是"发现了多少债"。档表取不到 DEFAULT 时 `defaultResolved:false`,
+   * 由打印面如实写成"值未判定",绝不拿一个猜出来的 8 去冒充读数。
+   */
+  const bareRounded = {
+    web: bareRoundedAudit(webPairs, text, radiusTable, 'web'),
+    main: bareRoundedAudit(pairs?.pairs ?? [], text, radiusTable, 'main'),
+  }
   return {
     pairs,
     webPairs,
@@ -1887,6 +1904,7 @@ export function collect(
     blindClasses,
     tiers,
     radius: radiusTable,
+    bareRounded,
     geoDecl,
     rejected: rejectedHits,
     unreachableLegs: unreachable,
@@ -2497,6 +2515,57 @@ export function webRadiusAudit(webPairs, text, radiusTable, styles = {}) {
   return { findings, undetermined }
 }
 
+/**
+ * **裸档取用的报名(G-978049②)—— 只报名,不进任何判据、不进退出码。**
+ *
+ * 为什么必须在尺子里而不是在注释里:提取式读不到裸 `rounded` 这件事,今天的全部表现是
+ * "那一端没写档" —— 与"那一端真的没写档"在账面上**完全同形**。本门已经吃过一次这个形状
+ * (Tooltip 一族被读窄,现读小程序那行改前裸 `rounded` 隐身、只显 web 的 6),而它不是判据错,
+ * 是判据不知道自己没看见。所以这一格的正解是把"看不见多少"跟着读数一起印出来,而不是顺手
+ * 放宽提取式 —— 后者会同时移动守门 77 的 HEAD 棘轮、守门 150 的角色档台账与本门三维锚点,
+ * 票面明令三处必须在同一枚提交里各自重锚(§O81 票⑬:"重锚的正当性靠'中和本次读数改动后的
+ * 旧口径'证明,不靠只降不升")。
+ *
+ * 什么算裸档由 `lib/radius-tokens.mjs` 的 `bareRoundedOccurrences` 那一份实现给 ——
+ * 本门不得再抄一份正则(两处算同一件事必漂移,本仓记过最多次)。
+ *
+ * @param {Array<{name:string,miniapp:string,rn:string}>} pairs 该腿的配对(主腿或 web 腿)
+ * @param {Record<string,string>} text 已按被审面取满的源码
+ * @param {{DEFAULT?: number}|null} table 档位表(取不到 DEFAULT 时 px 落 null 并如实报名)
+ * @param {string} legName 报告里点名是哪条腿(web / main);两腿的名单不得并成一个数,
+ *   因为处置动作不同(web 侧裸档 = web 少一档,主腿裸档 = 某端少一档)
+ */
+export function bareRoundedAudit(pairs, text, table, legName) {
+  const out = []
+  let total = 0
+  for (const p of pairs ?? []) {
+    for (const side of ['miniapp', 'rn']) {
+      const rel = p[side]
+      if (!rel || typeof text[rel] !== 'string') continue
+      const hit = bareRoundedOccurrences(text[rel], table)
+      if (!hit.count) continue
+      total += hit.count
+      out.push({
+        leg: legName,
+        name: p.name,
+        side: side === 'rn' && legName === 'web' ? 'web' : side,
+        file: rel,
+        count: hit.count,
+        px: Number.isFinite(table && table.DEFAULT) ? table.DEFAULT : null,
+        lines: hit.samples.map(
+          (s) => `${s.line}:${s.raw}${s.px === null ? '(值未判定)' : `=${s.px}`}`,
+        ),
+      })
+    }
+  }
+  return {
+    total,
+    defaultPx: Number.isFinite(table && table.DEFAULT) ? table.DEFAULT : null,
+    sites: out,
+    defaultResolved: Number.isFinite(table && table.DEFAULT),
+  }
+}
+
 export function verdictOf(
   findings,
   baseline,
@@ -2915,6 +2984,9 @@ export function main(argv, repoRoot = ROOT) {
           undetermined: rs.undetermined,
           red: rsRed.map((x) => x.name),
         },
+        // 裸档盲区也要能被机器读(G-978049②):下一票要同批重锚 77/150/128 三本账时,
+        // 它的输入就是这两份名单 —— 只印人读面就等于把取证退回复制粘贴终端输出。
+        bareRounded: collected.bareRounded ?? null,
         // web 腿也要能被机器读:只有人读面的话,下一票(把 web 的几何也纳进来)就得抄终端输出当数据源。
         web: {
           pairCount: web.findings.length,
@@ -3122,6 +3194,26 @@ export function main(argv, repoRoot = ROOT) {
           `  × WD ${r.name}:圆角 ${r.radiusCount} > 该族自己在台账的锚点 ${r.radiusAnchor} —— ` +
             `收口姿势与 RD 同:两端各自引用档位表不是目的,同一元素取同一档才是`,
         )
+      /**
+       * **裸档盲区跟着读数一起印(G-978049②)**。不印的代价是这句会被读成"配对文件里没有裸档":
+       * 提取式今天读不到 `rounded` / `var(--radius)`(值 = 档位表 DEFAULT),所以"读不出"与
+       * "没有"在这条腿的产物里是同一个数。补认它要 77/150/128 三本账同枚重锚(见门内头注),
+       * 不在本腿单独放宽判据 ⇒ 这里只报名,不判红、不改退出码。
+       */
+      {
+        const br = collected.bareRounded ?? { web: { total: 0 }, main: { total: 0 } }
+        const nWeb = br?.web?.total ?? 0
+        const nMain = br?.main?.total ?? 0
+        const valNote =
+          br?.web?.defaultResolved === false
+            ? '(档位表没读到 DEFAULT ⇒ 这些裸档的**值未判定**,不得拿猜的 8 冒充)'
+            : `值 = DEFAULT ${br?.web?.defaultPx}`
+        console.log(
+          `  ⊘ 裸档盲区(不判红、不进退出码):配对文件里读到 ${nWeb} 处(web 腿)/ ${nMain} 处(主腿)` +
+            `裸 rounded / var(--radius),${valNote} —— 它们**未计进档集合**,` +
+            `"一端写裸档、另一端写具名档"会被读成"那一端没写档";逐条见 --json 的 bareRounded`,
+        )
+      }
     }
     /**
      * RE 的**射程边界逐条报名**,不只报数。这一格是这一维存在的全部理由:RD 那些
@@ -5812,6 +5904,9 @@ export const __test__ = {
   pruneUnreachableLegs,
   collect,
   audit,
+  webRadiusAudit,
+  bareRoundedAudit,
+  WEB_LEDGER,
   verdictOf,
   emitBaseline,
   anchorRegression,
