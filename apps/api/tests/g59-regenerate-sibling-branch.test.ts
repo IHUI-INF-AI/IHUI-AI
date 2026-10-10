@@ -215,8 +215,22 @@ describe('票59①:静态对账(schema 两列 / 迁移 / journal / createMessage
     }
     const mine = journal.entries.find((e) => e.tag === '20261007221500_chat_messages_sibling_versions')
     expect(mine).toBeDefined()
-    const maxIdx = Math.max(...journal.entries.map((e) => e.idx))
-    expect(mine!.idx).toBe(maxIdx)
+    // 「不撞号」= 全表只有这一条占这个 idx;「顺延」= 登记时刻序与 idx 序同向。
+    // 原先钉的是「本条必须是全表最大 idx」,那断言的是"此后不许再有迁移",
+    // 任何一次合法追加都会让它永久红(守门 101 段位置那一课的同一形态)。
+    expect(journal.entries.filter((e) => e.idx === mine!.idx)).toHaveLength(1)
+    const stampOf = (tag: string) => (/^\d{14}_/.test(tag) ? BigInt(tag.slice(0, 14)) : null)
+    const mineStamp = stampOf(mine!.tag)
+    expect(mineStamp).not.toBeNull()
+    for (const e of journal.entries) {
+      const s = stampOf(e.tag)
+      if (s === null || s === mineStamp) continue
+      if (s > mineStamp!) {
+        expect(e.idx, `晚于本条登记的 ${e.tag} 却拿到不大于本条的 idx ${e.idx}`).toBeGreaterThan(mine!.idx)
+      } else {
+        expect(e.idx, `早于本条登记的 ${e.tag} 却拿到不小于本条的 idx ${e.idx}`).toBeLessThan(mine!.idx)
+      }
+    }
   })
 
   it('createMessage 已放通 parentMessageId/siblingIndex 透传(input 类型 + values 块)', () => {

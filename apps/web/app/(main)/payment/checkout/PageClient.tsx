@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { cn } from '@/lib/utils'
 import { useVipPayment } from '@/hooks/use-vip-payment'
 import { useToast } from '@/hooks/use-toast'
+import { fetchApi } from '@/lib/api'
 
 const formatCNY = (n: number) =>
   new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(n)
@@ -234,8 +235,172 @@ function CheckoutContent() {
   )
 }
 
+/**
+ * 已有订单支付模式(2026-10-10):URL 带 orderNo 时直接对该订单取支付参数并轮询,
+ * 不再新建订单 —— 订阅接口返回的 checkoutUrl 即此形态(此前被忽略,导致重复下单)。
+ */
+function ExistingOrderCheckout({ orderNo }: { orderNo: string }) {
+  const t = useTranslations('payment')
+  const router = useRouter()
+  const { queryOrder, fetchPayInfo } = useVipPayment()
+  const toast = useToast()
+  const [amount, setAmount] = React.useState<number | null>(null)
+  const [qrCodeUrl, setQrCodeUrl] = React.useState('')
+  const [mockError, setMockError] = React.useState(false)
+  const [loaded, setLoaded] = React.useState(false)
+  const [polling, setPolling] = React.useState(false)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const stopPoll = () => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current)
+      pollRef.current = null
+    }
+    setPolling(false)
+  }
+
+  useEffect(() => () => stopPoll(), [])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetchApi<{
+          order: { amount: number; status: string; paymentMethod: string | null }
+        }>(`/api/payment/orders/${encodeURIComponent(orderNo)}`)
+        if (cancelled) return
+        if (res.success && res.data.order) {
+          setAmount(res.data.order.amount)
+          if (res.data.order.status === 'paid') {
+            toast.success(t('checkout.paySuccess'))
+            router.push('/vip')
+            return
+          }
+          if (res.data.order.status !== 'pending') {
+            toast.error(t('checkout.orderClosed'))
+            return
+          }
+        }
+        const info = await fetchPayInfo(orderNo)
+        if (cancelled || !info) return
+        if (info.status === 'paid') {
+          toast.success(t('checkout.paySuccess'))
+          router.push('/vip')
+          return
+        }
+        const pi = info.payInfo
+        if (!pi) return
+        if (pi.mock) {
+          setMockError(true)
+        } else if (pi.method === 'native' && pi.codeUrl) {
+          setQrCodeUrl(pi.codeUrl)
+        } else if (pi.method === 'alipay' && pi.payUrl) {
+          setQrCodeUrl(pi.payUrl)
+        } else if (pi.method === 'h5' && pi.h5Url) {
+          window.location.href = pi.h5Url
+          return
+        } else {
+          toast.error(t('checkout.methodNotSupported'))
+        }
+      } catch {
+        if (!cancelled) toast.error(t('checkout.payIncomplete'))
+      } finally {
+        if (!cancelled) setLoaded(true)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderNo])
+
+  const startPolling = () => {
+    setPolling(true)
+    let count = 0
+    const MAX = 60
+    pollRef.current = setInterval(async () => {
+      count++
+      try {
+        const status = await queryOrder(orderNo)
+        if (status === 'paid') {
+          stopPoll()
+          setQrCodeUrl('')
+          toast.success(t('checkout.paySuccess'))
+          router.push('/vip')
+          return
+        }
+        if (
+          status === 'cancelled' ||
+          status === 'closed' ||
+          status === 'refunded' ||
+          count >= MAX
+        ) {
+          stopPoll()
+          toast.error(
+            t('checkout.payIncomplete'),
+            count >= MAX ? t('checkout.payTimeout') : t('checkout.orderClosed'),
+          )
+        }
+      } catch {
+        // 轮询异常忽略,下一轮继续
+      }
+    }, 2000)
+  }
+
+  useEffect(() => {
+    if (qrCodeUrl) startPolling()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qrCodeUrl])
+
+  return (
+    <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
+      <Link
+        href="/payment"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        {t('checkout.back')}
+      </Link>
+      <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        {t('checkout.title')}
+      </h1>
+      <Card>
+        <CardContent className="space-y-4 p-6 text-center">
+          {mockError ? (
+            <>
+              <p className="text-sm text-destructive">{t('checkout.payConfigNotReady')}</p>
+              <p className="text-xs text-muted-foreground">{t('checkout.contactAdmin')}</p>
+            </>
+          ) : qrCodeUrl ? (
+            <>
+              <p className="text-sm text-muted-foreground">{t('checkout.wechatScanDesc')}</p>
+              {amount !== null && (
+                <p className="text-lg font-semibold tabular-nums">{formatCNY(amount / 100)}</p>
+              )}
+              <div className="flex justify-center py-2 rounded-lg border border-border bg-white">
+                <QRCodeCanvas value={qrCodeUrl} size={240} level="M" />
+              </div>
+              {polling && (
+                <p className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  {t('checkout.processing')}
+                </p>
+              )}
+            </>
+          ) : loaded ? (
+            <p className="text-sm text-muted-foreground">{t('checkout.payIncomplete')}</p>
+          ) : (
+            <Loader2 className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 export default function CheckoutPage() {
   const t = useTranslations('payment')
+  const searchParams = useSearchParams()
   return (
     <Suspense
       fallback={
@@ -245,7 +410,11 @@ export default function CheckoutPage() {
         </div>
       }
     >
-      <CheckoutContent />
+      {searchParams.get('orderNo') ? (
+        <ExistingOrderCheckout orderNo={searchParams.get('orderNo') as string} />
+      ) : (
+        <CheckoutContent />
+      )}
     </Suspense>
   )
 }

@@ -60,6 +60,7 @@ import * as path from 'node:path';
 import { buildSkillPromptSection, codePointLength, sanitizeSkillName } from '../utils/prompt-boundary.js';
 import { parseSkillsFrontmatter } from './frontmatter.js';
 import { recordInjectionInjected, recordInjectionSkipped } from '../utils/prompt-injection-registry.js';
+import { declareShadowSurfaces } from './allowed-tools-shadow.js';
 import * as os from 'node:os';
 import type { SkillFrontmatter, SkillPrerequisites, SkillSource } from '@ihui/types';
 
@@ -556,12 +557,12 @@ export function parseSkillDefinition(content: string, filePath: string): SkillDe
  *                    上游"被空数组吞掉后扩大 scope"的事故重演;
  *   - `string[]`  —— 合并去重结果(显式空表仍是 [])。
  *
- * 消费面如实登记(G-380,2026-10-07):本函数**生产零调用方**,当前唯一调用方是测试
- * (tests/skills.test.ts)。`allowed-tools`/`tools` 两字段在生产面的全部触点只有解析
- * (parseFrontmatter)与回写(skills/sync.ts 经 serializeSkillsFrontmatter 的同步/打印面)
- * —— **没有任何执行层按这份清单限制工具**。名字里的"工具白名单"是声明面承诺,不是
- * 已生效判据;执行层要不要消费它(权限闸落点)属拍板票,在那之前不得把"函数存在"
- * 读成"白名单已兑现",本注释不得改写成"已实现/已生效"。
+ * 消费面如实登记(2026-10-10 更新,取代 G-380 那句"生产零调用方"):唯一生产调用点是
+ * `formatSkillsForPrompt`,它把结果交给 `allowed-tools-shadow.ts` **记账(只记不挡)** ——
+ * 机主 2026-10-10 拍板「先影子记账一周再开真门控」。所以本函数今天身份是"影子样本的来源",
+ * **仍不是已生效判据**:没有任何执行层按这份清单限制工具,名字里的"工具白名单"依旧是
+ * 声明面承诺。一周后要不要落闸门是新的拍板,在那之前本注释不得改写成"已实现/已生效",
+ * 也不得倒回"零调用方"(那会把已装车的记账说成没装车)。
  */
 export function getAllowedTools(fm: SkillFrontmatter | undefined): string[] | null | undefined {
   if (!fm) return undefined;
@@ -919,6 +920,12 @@ export function formatSkillsForPrompt(skills: Skill[], gate?: SkillsPromptGateOp
       `${autoLoadable.length} auto-loadable skill(s) all have empty bodies (${withheld.length} more withheld by the conservative rule)`,
     );
   }
+  // G-427 第①步(机主拍板 2026-10-10「先影子记账一周再开真门控」):把**进自动加载面**的这批
+  // 技能交给 allowed-tools 影子账本。声明点选在"提示词真的产出了技能段"之后,而不是
+  // "磁盘上有这些文件" —— 记账的口径必须与"这批技能真的在生效"同形,否则一周后拿到的
+  // 是一份没发生过的样本。三值口径直接取 `getAllowedTools`(唯一实现,本文件不重算一遍),
+  // 影子账本**永不拦截、永不改判定**(见 allowed-tools-shadow.ts 文件头①)。
+  declareShadowSurfaces(autoLoadable.map((s) => ({ name: s.name, allowed: getAllowedTools(s.frontmatter) })));
   const text = withheld.length === 0 ? built.text : built.text + withheldCountLine(withheld);
   return recordInjectionInjected('skill_list', text);
 }
