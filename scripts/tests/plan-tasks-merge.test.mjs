@@ -14,7 +14,7 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { test } from 'node:test'
 
 import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
@@ -49,6 +49,12 @@ import {
   buildRestoreTerminals,
   verifyRestoreTerminals,
   pointerVisibilityRegression,
+  // G-761:单行等值副本两档的出口函数与零损失核 —— 本文件只钉"跨态链",判据一律引实现那一份
+  buildRowDedupe,
+  verifyRowDedupe,
+  buildOpenRowDedupe,
+  verifyOpenRowDedupe,
+  findRowTwins,
   // G-341:读数出口与判定面点名一起进镜像测试 —— 测试不得自己再算一遍(§22c)
   verifyMerge,
   setRunFace,
@@ -1213,5 +1219,188 @@ test('T27 G-341 端到端:同一次 --heal 的抬头行与结论行必须报同�
       throw new Error(`结论行未点名判定面:${cli.out.trim().slice(0, 300)}`)
   } finally {
     rmScratch(env.dir)
+  }
+})
+
+// ══ T28 / T29(G-761 票面那句验收判据:跨态单行孪生必须把 F1 打到 0 且不再起红)══════
+/**
+ * 这一对用例**不钉"有没有单行档"** —— 那一半早已住在同一份 `plan-tasks-merge.mjs` 里
+ * (G-336 `--dedupe-rows` 管已勾档、G-741 `--dedupe-open-rows` 管未勾带指针档、G-761 补租约硬跳过
+ * 并把 `--dedupe-blocks` 在 F6=0 时的报告补成同报单行读数),本票不许再造第四把尺子。
+ * 它钉的是票面最后那句:**「归并后 F1 归零,且下一轮收敛不被同一件事的副本顶回来」**。
+ *
+ * 为什么这句话此前无人守:两份删除档的零损失断言只判 **F1 不涨**(`fDimRegressions`),于是
+ * "删完副本仍剩一条未勾行压在同一条已勾持有行上"这种 F1=1 的产物照样判绿落地;而
+ * `git-sync-converge` 的落地门看的是 **F1 是不是 0**(2026-10-08 真仓那一例:持有行翻勾后
+ * F1 0→3 ⇒ 拒推,最后靠 `--heal --commit` 归并 17 行才解卡)。"不涨"与"归零"之间那一格就是本票对象。
+ *
+ * 三条不变量成对钉:
+ *  A 先 `--heal` 再 `--dedupe-rows` ⇒ F1 归零 ∧ 一行不删 ∧ 幂等闭合;
+ *  B 先 `--dedupe-open-rows` 再 `--heal` ⇒ 同样归零(序不敏感,否则"该先跑哪档"又变成一次人工裁决),
+ *    幸存那行按设计保持未勾且不进派单口径(claimable=0)⇒ 它不再顶住收敛门;
+ *  C 天然成对的**短行**(整行 <40 字符)两档一份都不许吃(阈值不得为变绿而放宽)。
+ * 顶回来的机制住在守门 71:翻勾若把正文挤举行首,防丢层就把合法翻勾读成"整行消失"并回捞旧行,
+ * F1 重新起红(G-307 那两小时 24 枚"恢复型"提交就是这么来的)。所以链的每一环都用 `lostMarkers`
+ * 复验,而不是只在折叠档那一档验。T29 的三把变异就按 A/B/C 三环各配一把。
+ */
+const XID = 'G-99000071'
+const XDAY = '2026-10-10'
+const XBODY =
+  '跨态单行孪生链:一条任务被抄成三份逐字相同的未勾副本,另有一条已勾的持有行,正文长度越过四十字符噪声阈。'
+const XHOLD = `- [x] ✅(2026-10-08) **${XID} ${XBODY}`
+const XCOPY = `- [ ] **${XID} ${XBODY}`
+const XPTR = `${XCOPY} 〔【归并】重复登记副本(2026-10-08):同主键的另一条登记,派单以那条为准,本行不再单独派单。〕`
+/** 票面那一例的夹具:1 条已勾持有行 + 3 份逐字相同的未勾副本。 */
+const XFACE = ['# 计划', '', XHOLD, XCOPY, XCOPY, XCOPY, ''].join('\n')
+/** 同一例的"副本已带指针"形态(未勾档的准入条件第⑤条)。 */
+const XPTRFACE = ['# 计划', '', XHOLD, XPTR, XPTR, XPTR, ''].join('\n')
+/** 成对反例:同族形态但整行短于 40 字符 —— 两档都必须对它一份不吃。 */
+const XSHORT_DONE = '- [x] ✅(2026-10-08) G-99000072 短行'
+const XSHORT_OPEN = '- [ ] G-99000073 短行〔【归并】重复登记副本〕'
+const XSHORTFACE = ['# 计划', '', XSHORT_DONE, XSHORT_DONE, XSHORT_OPEN, XSHORT_OPEN, ''].join('\n')
+
+const f1Of = (t) => auditPlan(t).counts.forks
+
+/** A 臂:先翻勾、再摘已勾副本;六条读数一次算完,返回不合格项(空数组 = 链闭合)。 */
+function chainProblems(mod, src) {
+  const bad = []
+  const h = mod.buildMerge(src, XDAY)
+  if (h.changed.length !== 3)
+    bad.push(
+      `--heal 只动了 ${h.changed.length} 行(应为 3 份副本);refused=${JSON.stringify(h.refused)} 待裁=${JSON.stringify(h.adjudicationNeeded)}`,
+    )
+  if (h.text.split('\n').length !== src.split('\n').length)
+    bad.push('--heal 改了行数(票面边界 1:归并只许翻勾/加指针,禁止删行)')
+  if (f1Of(h.text) !== 0) bad.push(`--heal 后 F1=${f1Of(h.text)} 未归零(收敛门照旧拒推)`)
+  for (const c of h.changed) {
+    if (!forkPreserved(c.before, c.after)) bad.push(`L${c.line} 翻勾改到正文 ⇒ 谁作数须由人裁`)
+    if (!new RegExp(`^- \\[x\\] ✅\\(\\d{4}-\\d{2}-\\d{2}\\) \\*\\*${XID} `).test(c.after))
+      bad.push(`L${c.line} 翻勾后正文不在行首(守门 71 的行首判活会读成丢行):${c.after.slice(0, 56)}`)
+  }
+  const lost = lostMarkers(src, h.text).length
+  if (lost !== 0) bad.push(`守门 71 判为整行消失 ${lost} 处 ⇒ 自愈会回捞旧行、F1 重新起红`)
+  if (!h.text.includes(XID)) bad.push(`主键 ${XID} 整族从面上消失(无声删除)`)
+  const d = mod.buildRowDedupe(h.text)
+  if (d.deletedCount !== 2)
+    bad.push(`heal 之后单行已完成档拟删 ${d.deletedCount} 行(应为 2:摘第 2..3 份,留首次出现)`)
+  const p = mod.verifyRowDedupe(h.text, d.text, d.deletedCount)
+  if (p.length) bad.push(`删副本的零损失断言未过:${p.join(' | ')}`)
+  if (f1Of(d.text) !== 0) bad.push(`删完副本后 F1=${f1Of(d.text)} 又非 0 ⇒ 链不闭合`)
+  if (mod.findRowTwins(d.text).length !== 0) bad.push('单行已完成档不幂等:删完仍有等值孪生组')
+  if (auditPlan(d.text).counts.open !== 0) bad.push('删完还剩未勾行(把活账删成了假绿)')
+  return bad
+}
+
+/** B 臂:先摘未勾副本、再 heal —— 结论必须与 A 臂同色(序不敏感)。 */
+function pointerOrderProblems(mod, src) {
+  const bad = []
+  const o = mod.buildOpenRowDedupe(src)
+  if (o.deletedCount !== 2) bad.push(`未勾带指针档拟删 ${o.deletedCount} 行(应为 2)`)
+  const p = mod.verifyOpenRowDedupe(src, o.text, o.deletedCount, null, o.droppedLines)
+  if (p.length) bad.push(`未勾档零损失断言未过:${p.join(' | ')}`)
+  const c1 = auditPlan(o.text).counts
+  if (c1.forks !== 0) bad.push(`先删副本这一序下 F1=${c1.forks} 未归零`)
+  if (c1.open !== 1) bad.push(`应恰好剩一条副本指针行当族内终端代表,实得 open=${c1.open}`)
+  if (c1.claimable !== 0) bad.push(`幸存的副本指针行不得进派单口径,实得 claimable=${c1.claimable}`)
+  const again = mod.buildMerge(o.text, XDAY)
+  if (again.changed.length !== 0)
+    bad.push(`删完仍需再 heal(${again.changed.length} 行)⇒ 序敏感,"该先跑哪档"会变成一次人工裁决`)
+  return bad
+}
+
+/** C 臂:天然成对的短行两档都不许吃(阈值放宽的唯一反证)。 */
+function noiseProblems(mod, src) {
+  const bad = []
+  const d = mod.buildRowDedupe(src)
+  if (d.deletedCount !== 0) bad.push(`短行被已完成档吃掉 ${d.deletedCount} 行(40 字符阈是它唯一的防线)`)
+  if (mod.findRowTwins(src).length !== 0) bad.push('短行被算成了等值孪生组')
+  const o = mod.buildOpenRowDedupe(src)
+  if (o.deletedCount !== 0) bad.push(`短行被未勾带指针档吃掉 ${o.deletedCount} 行`)
+  if (d.text !== src) bad.push('已完成档对短行动了行(产物必须逐字等于输入)')
+  if (o.text !== src) bad.push('未勾档对短行动了行(产物必须逐字等于输入)')
+  return bad
+}
+
+test('T28 跨态单行孪生的出口链:F1 归零 ∧ 一行不删 ∧ 序不敏感 ∧ 短行不吃', () => {
+  // 发散前提:夹具必须真的等于票面那一例,否则下面每条都可能由"两个 0 相等"冒充。
+  const c0 = auditPlan(XFACE).counts
+  if (c0.forks !== 1 || c0.dupOpenCopies !== 2)
+    throw new Error(
+      `夹具不再等于票面那一例(F1=${c0.forks} F4=${c0.dupOpenCopies},应为 1/2)⇒ 本用例失去对象,换夹具而不是删断言`,
+    )
+  for (const [n, l] of [['XHOLD', XHOLD], ['XCOPY', XCOPY], ['XPTR', XPTR]])
+    if (l.length < 40) throw new Error(`${n} 掉到 40 字符噪声阈以下,两档结构性看不见它`)
+  const sh = XSHORTFACE.split('\n').filter((l, _i, all) => l.startsWith('- [') && all.filter((x) => x === l).length > 1)
+  if (sh.length !== 4) throw new Error(`短行反例夹具退化(应含 2 对逐字相同行 = 4 行,实得 ${sh.length})⇒ C 臂没有在测的东西`)
+
+  const a = chainProblems({ buildMerge, buildRowDedupe, verifyRowDedupe, findRowTwins }, XFACE)
+  if (a.length) throw new Error(`A 臂(先 --heal 再 --dedupe-rows)不闭合:\n  ${a.join('\n  ')}`)
+  const b = pointerOrderProblems({ buildOpenRowDedupe, verifyOpenRowDedupe, buildMerge }, XPTRFACE)
+  if (b.length) throw new Error(`B 臂(先 --dedupe-open-rows 再 --heal)不闭合:\n  ${b.join('\n  ')}`)
+  const c = noiseProblems({ buildRowDedupe, buildOpenRowDedupe, findRowTwins }, XSHORTFACE)
+  if (c.length) throw new Error(`C 臂(天然成对的短行)被吃:\n  ${c.join('\n  ')}`)
+})
+
+test('T29 变异自证:三把变异各打断链上一环(证明 T28 那三条不是恒真式)', async () => {
+  const SCRIPTS_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+  const variants = [
+    {
+      name: '翻勾形态退回"注记前置"(G-307 那一型)',
+      // 生产侧 rewriteFork 只是 lib 那一份的薄调用点;换成旧形态后正文不再在行首 ⇒
+      // forkPreserved 拒绝翻勾 ⇒ 副本停在未勾态、F1 不归零。红的是 A 臂,不是"少改一点"。
+      apply: (t) =>
+        t.replace(
+          'function rewriteFork(line, key, today) {\n  return buildForkedLine(line, key, today)\n}',
+          "function rewriteFork(line, key, today) {\n  return '- [x] ' + String.fromCodePoint(0x2705) + '(' + today + ') **[归并]** 同题副本 ' + line.slice(6)\n}",
+        ),
+      expect: (bad) => bad.some((x) => /未归零|行首/.test(x)),
+    },
+    {
+      name: '把 40 字符噪声阈降到 8(阈值放宽)',
+      apply: (t) => t.replace('const ROW_MIN_LEN = 40', 'const ROW_MIN_LEN = 8'),
+      expect: (bad) => bad.some((x) => /短行被|短行被算成/.test(x)),
+    },
+    {
+      name: '把"删第 2..N 份"改成"删全部份"(幸存份被抹掉)',
+      apply: (t) => t.replace('for (const ln of g.at.slice(1)) {', 'for (const ln of g.at) {'),
+      expect: (bad) => bad.some((x) => /拟删 3 行|零损失断言未过|一份都不剩/.test(x)),
+    },
+  ]
+  for (const v of variants) {
+    const dir = mkScratch('plan-merge-mut')
+    let mod
+    try {
+      const dst = path.join(dir, 'scripts')
+      mkdirSync(dst, { recursive: true })
+      copyScriptWithClosure(SCRIPTS_DIR, 'plan-tasks-merge.mjs', dst, [
+        'lib/plan-task-index.mjs',
+        'lib/scratch-dir.mjs',
+      ])
+      const p = path.join(dst, 'plan-tasks-merge.mjs')
+      const srcTxt = readFileSync(p, 'utf8')
+      const outTxt = v.apply(srcTxt)
+      if (outTxt === srcTxt)
+        throw new Error(`变异「${v.name}」一个字节都没改下去 ⇒ 变异靶写歪了,T28 对应那条仍是恒真的`)
+      writeFileSync(p, outTxt, 'utf8')
+      mod = await import(pathToFileURL(p).href)
+    } catch (e) {
+      rmScratch(dir)
+      throw e
+    }
+    const bad = [
+      ...chainProblems(mod, XFACE),
+      ...pointerOrderProblems(mod, XPTRFACE),
+      ...noiseProblems(mod, XSHORTFACE),
+    ]
+    // 变异模块已进 import 缓存,摘掉盘上那份不影响已装载的模块(本套件 import 后不再回读它)
+    rmScratch(dir)
+    if (bad.length === 0)
+      throw new Error(
+        `变异「${v.name}」之后 T28 三条断言一条都没红 ⇒ 那条断言恒真,变异自证不成立(本仓"把没判写成判过了"的最高频形态)`,
+      )
+    if (!v.expect(bad))
+      throw new Error(
+        `变异「${v.name}」翻红的是别处,不是它该打断的那一环 ⇒ 靶位与断言不对应。实得:${bad.join(' | ').slice(0, 500)}`,
+      )
   }
 })
