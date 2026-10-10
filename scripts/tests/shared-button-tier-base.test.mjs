@@ -358,4 +358,65 @@ test('T9 构造面双向锁:注入 h-12 px-6 必被点名两族,只加基座未�
   // hover: / focus: 这类平台修饰带冒号,不参与同族比对(否则 web 的 hover:bg-accent 会被判成 bg 冲突)
   assert.deepEqual(conflictsOf(`${base} hover:bg-accent shadow-sm`, base), [], '平台修饰被误报')
 })
+
+// ── T11:并档刻意没动的三格,钉成机器可读的账 ────────────────────────────────
+// 为什么钉"差异仍在"而不是钉"不许改":这三格各自都是一个**该不该统一**的开放决定(RN 无 CSS 继承、
+// 文字尺寸由组件内部 Text 控制、40px 是移动端触摸目标的余量),统一任何一格都要同时结清台账
+// G-1115908 与 AGENTS/README 里的「耦合边界」句。所以本锁不是禁止改进,而是**改进发生时必红一次**,
+// 逼改动的人把账同步 —— 否则下一位只能从散文里猜两端到底差在哪(散文在本仓的失效形态永远是安静)。
+/** 三格未统一账的检测(导出给 T11 与 T12 共用 —— 判据只能有一份,构造面也必须走它) */
+function openDivergences(native, react) {
+  const open = []
+  // ① 圆角:web 在 lg 追加 rounded-sm(4px),而 RN 的 cva 基座整表是 rounded-md(6px)
+  const rnBase = (native.match(/cva\(\s*`([^`]*)`/) ?? ['', ''])[1]
+  if (
+    /rounded-md/.test(rnBase) &&
+    /\brounded-sm\b/.test(finalClassOf(react, 'size', 'lg', SHARED.size))
+  )
+    open.push('圆角:web lg=rounded-sm vs RN 基座=rounded-md')
+  // ② 默认档高度:RN 独占 md=h-10(40) 对 web 的 default=h-9(36)
+  const rnMd = finalClassOf(native, 'size', 'md', SHARED.size)
+  const webDefault = finalClassOf(react, 'size', 'default', SHARED.size)
+  if (/\bh-10\b/.test(rnMd) && /\bh-9\b/.test(webDefault))
+    open.push(
+      `默认档高度:RN md=${rnMd.match(/h-\d+/)?.[0] ?? '?'} vs web default=${webDefault.match(/h-\d+/)?.[0] ?? '?'}`,
+    )
+  // ③ 字号:web 的 sm 追加 text-xs,而 RN 的 size 档只作用在盒上(字由内部 Text 固定 text-sm)
+  const webSm = finalClassOf(react, 'size', 'sm', SHARED.size)
+  if (/\btext-xs\b/.test(webSm) && /className="text-sm/.test(native))
+    open.push('字号:web sm=text-xs vs RN 内部 Text=text-sm')
+  return open
+}
+
+test('T11 未统一的三格各仍在(某格被统一了就要红一次:同步台账 G-1115908 与活文档的三格清单)', () => {
+  const open = openDivergences(
+    readHead('packages/ui-native/src/button.tsx'),
+    readHead('packages/ui-react/src/components/button.tsx'),
+  )
+  assert.equal(
+    open.length,
+    3,
+    `三格账少了一格 ⇒ 有人已统一了它(是进展,但账必须同步)。现仍开放:${open.join('; ') || '(无)'}。` +
+      ' 收敛一格的正当动作:①结清 PROJECT_PLAN 的 G-1115908 对应条;②改 AGENTS/README 那句「仍未统一的三格」;' +
+      '③把本断言的期望值改成剩余格数并在旁边写明是哪格已收 —— 不得为了让本条绿去删开放项。',
+  )
+})
+
+test('T12 三格账的牙:构造面把 RN 默认档改成 h-9 必须只剩两格,且缺的正是默认档那一格', () => {
+  const native = readHead('packages/ui-native/src/button.tsx')
+  const react = readHead('packages/ui-react/src/components/button.tsx')
+  assert.equal(openDivergences(native, react).length, 3, '控制测量必须先读到 3 格')
+  const mutated = native.replace("md: 'h-10 px-4'", "md: 'h-9 px-4'")
+  assert.notEqual(mutated, native, '夹具未命中 ⇒ 对照无效(测的是"没跑到"而不是"已统一")')
+  const after = openDivergences(mutated, react)
+  assert.equal(after.length, 2, `统一默认档后应只剩两格,实得 ${after.join('; ')}`)
+  assert.ok(
+    !after.some((s) => s.startsWith('默认档高度')),
+    '该被摘掉的"默认档高度"仍计为开放 ⇒ 检测式无牙',
+  )
+  // 反向:动一处与三格无关的字串,不得少格(防检测式靠"文本变短/变样"误报)
+  const noise = native.replace('flex-row', 'flex-rows')
+  assert.notEqual(noise, native, '噪声夹具未命中 ⇒ 这一臂没测到东西')
+  assert.equal(openDivergences(noise, react).length, 3, '无关改写把账改动了 ⇒ 检测式在测文本而不是测尺寸')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
