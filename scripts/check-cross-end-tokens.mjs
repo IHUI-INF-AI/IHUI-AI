@@ -139,6 +139,16 @@ const MAPPINGS = [
     css: { light: '--color-vip-gold-end', dark: '--color-vip-gold-end' },
     basis: '同上(rn-tokens.ts L52 注释);tokens.css @theme L137,.dark 无覆盖',
   },
+  {
+    label: 'surface.chrome <-> --color-chrome',
+    rn: {
+      light: ['rnLightTokens', 'surface', 'chrome'],
+      dark: ['rnDarkTokens', 'surface', 'chrome'],
+    },
+    css: { light: '--color-chrome', dark: '--color-chrome' },
+    basis:
+      '2026-10-10 立(用户实拍「顶部这个区域为什么是灰色的,怎么还有个灰色带呢」)。顶栏 chrome = 状态栏带 + 导航行底色,真值取自 apps/miniapp-taro/src/theme.json 原生导航栏 navBgColor(亮 #ffffff / 暗 #262626;暗值是 scripts/sync-miniapp-chrome.mjs 的 CHROME_DECLARED_DIVERGENCE 里登记过的决策「对齐 rn gray.800」,不得当成漂移同步回 #242424)。RN 侧同值落 rn-tokens.ts surface.chrome(亮/暗),web 侧落 tokens.css @theme + .dark 覆盖。刻意不复用两档现成值:surface.light 在本表已挂着 rnDarkTokens|surface.light「两侧合同互斥,必须人裁」那条登记,再叠一义会把顶栏混进白卡面;surface.card 暗值是 #1A1A1A,真机 720x1640 量得与小程序深色 chrome 差 12 级(同屏还与主体差 10 级,正是灰带投诉的深色形态)。',
+  },
   // 注(2026-09-17):原「surface.inputBg ↔ --color-link-bg」配对已移除。根因:两边语义均已漂移且
   // 不再同源——rn surface.inputBg 已改为中性输入框底色(light #F5F5F5/dark #262626),
   // tokens.css --color-link-bg 已改为链接背景浅蓝透明(light rgba(143,184,204,0.15)/dark
