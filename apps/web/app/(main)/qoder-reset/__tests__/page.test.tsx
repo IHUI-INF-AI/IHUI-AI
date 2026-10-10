@@ -16,6 +16,8 @@ import React from 'react'
 import { render, screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react'
 import QoderResetPage from '../page'
 import {
+  checkinAuditQoderResidual,
+  checkinGetPublicIp,
   qoderResetProbe,
   qoderResetPlan,
   qoderResetMaintenance,
@@ -79,6 +81,22 @@ vi.mock('@/hooks/use-desktop', () => ({
 }))
 
 vi.mock('@/lib/tauri-bridge', () => ({
+  checkinAuditQoderResidual: vi.fn(async () => ({
+    cn_root: 'C:/Users/Administrator/.qoder-cn',
+    roaming_root: 'C:/Users/Administrator/AppData/Roaming/com.qodercn.app.stable',
+    entries: [
+      { root: 'cn', path: 'installation_id', kind: 'device_identity', exists: true, size: 36 },
+      { root: 'cn', path: '.auth', kind: 'auth_credential', exists: false, size: null },
+      { root: 'roaming', path: 'Partitions', kind: 'webview_login', exists: false, size: null },
+      { root: 'cn', path: 'projects', kind: 'chat_db', exists: true, size: null },
+    ],
+    present: 2,
+    message: '双根清点完成',
+  })),
+  checkinGetPublicIp: vi.fn(async () => ({
+    ip: '203.0.113.7',
+    location: '广东深圳',
+  })),
   qoderResetProbe: vi.fn(async () => JSON.parse(JSON.stringify(probeReport))),
   qoderResetMaintenance: vi.fn(async (_kill: boolean, onProgress?: (ev: unknown) => void) => {
     onProgress?.({ layer: 1, done: 1, total: 2, item: 'logs/20261010/main.log' })
@@ -99,6 +117,7 @@ vi.mock('@/lib/tauri-bridge', () => ({
     mode: 'maintenance',
     include_device_id: false,
     actions: [],
+    protected: [],
     total_mb: 0,
   })),
   qoderQuarantineList: vi.fn(async () => [
@@ -232,10 +251,11 @@ describe('Qoder 一键重置页', () => {
     vi.mocked(qoderResetPlan).mockImplementationOnce(async (mode) => ({
       mode,
       include_device_id: false,
+      protected: [],
       total_mb: 8090.4,
       actions: [
-        { path: 'logs/20261010', action: 'delete_dir', size_mb: 8089.4 },
-        { path: 'app/CodeCache', action: 'delete_dir', size_mb: 1.0 },
+        { path: 'logs/20261010', action: 'delete_dir', size_mb: 8089.4, reason: '可再生日志' },
+        { path: 'app/CodeCache', action: 'delete_dir', size_mb: 1.0, reason: '壳面缓存' },
       ],
     }))
     render(<QoderResetPage />)
@@ -309,6 +329,66 @@ describe('Qoder 一键重置页', () => {
     expect(await screen.findByText('historyTitle')).toBeTruthy()
     expect(screen.getAllByText('factory').length).toBeGreaterThan(0)
     expect(screen.getByText(/L3 factory_reset ok/)).toBeTruthy()
+  })
+
+  it('风控向导:入口可见,一键重置=登出档全开设备身份并进入换网验证', async () => {
+    ;(useTauriIpcReady as ReturnType<typeof vi.fn>).mockReturnValue(true)
+    render(<QoderResetPage />)
+    // Step0 入口:向导卡常驻可见
+    expect(await screen.findByText('wizardTitle')).toBeTruthy()
+    expect(screen.getByText('wizardIntro')).toBeTruthy()
+    expect(screen.getByText('wizardStart')).toBeTruthy()
+    fireEvent.click(screen.getByText('wizardStart'))
+    // Step1 = 登出重置档全开(登录态 .auth + Partitions + 设备身份一并隔离)
+    await waitFor(() => expect(qoderResetLogout).toHaveBeenCalledTimes(1))
+    expect(qoderResetLogout).toHaveBeenCalledWith(true, true)
+    // Step2:换网验证入口 + 基准出口 IP 已采集
+    expect(await screen.findByText('wizardVerify')).toBeTruthy()
+    expect(screen.getByText('wizardIpBefore')).toBeTruthy()
+    expect(checkinGetPublicIp).toHaveBeenCalledTimes(1)
+    // 就地自检:双根残留审计桥只读清点(effect 期间探针仅 1 次,审计独立),
+    // installation_id(device_identity)仍存在 → 残留结论;chat_db 属用户资产不计入
+    await waitFor(() => expect(checkinAuditQoderResidual).toHaveBeenCalledTimes(1))
+    expect(screen.getAllByText(/wizardAuditResidual/).length).toBe(2) // 消息流 + 面板各一条
+    expect(screen.getByText('cn:installation_id')).toBeTruthy()
+    expect(screen.getByText('wizardResidualReclean')).toBeTruthy()
+  })
+
+  it('风控向导:出口 IP 未变计失败,连续 3 次提示旁路,跳过进入冷却', async () => {
+    ;(useTauriIpcReady as ReturnType<typeof vi.fn>).mockReturnValue(true)
+    render(<QoderResetPage />)
+    fireEvent.click(await screen.findByText('wizardStart'))
+    // 基准 IP(1 次)与验证 IP(2 次)相同 → 计失败
+    fireEvent.click(await screen.findByText('wizardVerify'))
+    await waitFor(() => expect(checkinGetPublicIp).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(screen.getByText(/wizardIpUnchanged/)).toBeTruthy())
+    expect(screen.queryByText('wizardCooldown')).toBeNull()
+    // 连续 3 次失败 → 高亮引导走"直接完成"旁路
+    fireEvent.click(screen.getByText('wizardVerify'))
+    await waitFor(() => expect(checkinGetPublicIp).toHaveBeenCalledTimes(3))
+    fireEvent.click(screen.getByText('wizardVerify'))
+    await waitFor(() => expect(checkinGetPublicIp).toHaveBeenCalledTimes(4))
+    await waitFor(() => expect(screen.getByText(/wizardIpFailMany/)).toBeTruthy())
+    // 旁路:直接进 Step3 冷却提醒,避免单向死路
+    fireEvent.click(screen.getByText('wizardSkipIp'))
+    expect(screen.getByText('wizardCooldown')).toBeTruthy()
+  })
+
+  it('风控向导:换网成功进入冷却提醒,重新开始向导归零', async () => {
+    ;(useTauriIpcReady as ReturnType<typeof vi.fn>).mockReturnValue(true)
+    vi.mocked(checkinGetPublicIp)
+      .mockImplementationOnce(async () => ({ ip: '203.0.113.7', location: '广东深圳' }))
+      .mockImplementationOnce(async () => ({ ip: '198.51.100.9', location: '广东广州' }))
+    render(<QoderResetPage />)
+    fireEvent.click(await screen.findByText('wizardStart'))
+    fireEvent.click(await screen.findByText('wizardVerify'))
+    // IP 真的变了 → Step3 冷却提醒
+    expect(await screen.findByText('wizardIpChanged')).toBeTruthy()
+    expect(screen.getByText('wizardCooldown')).toBeTruthy()
+    // 重新开始:归零回 Step0,上一轮自检结论清掉(防误导新一轮判断)
+    fireEvent.click(screen.getByText('wizardRestart'))
+    expect(await screen.findByText('wizardStart')).toBeTruthy()
+    expect(screen.queryByText('wizardAuditTitle')).toBeNull()
   })
 
   it('边界披露与关闭宿主提示常驻', async () => {
