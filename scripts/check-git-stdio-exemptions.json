@@ -1,49 +1,49 @@
 {
- "$schema": "check-git-stdio-discipline 豁免台账",
- "note": "本台账是守门 189(check-git-stdio-discipline.mjs)的**具名**豁免通道;禁行内豁免(AGENTS:裁决账不是豁免通道)。条目不是\"这些点没问题\",而是\"这些点已知、有人认领、限期消减\" —— 到期未动即自动失效并重新判红。分批到期:生产面 2026-10-20、测试面 2026-11-03(测试面量大面广,给更宽的窗口)。条目由门自己的报告生成(generatedFrom),不要手抄。",
- "generatedFrom": "scripts/check-git-stdio-discipline.mjs --worktree",
- "entries": [
-  {
-   "file": "scripts/check-spawn-stdio.mjs",
-   "line": 700,
-   "reason": "生产面存量:派生 git 未显式接管 stdio(宿主 EBUSY 病灶,2026-10-03 成组对照 30 组定界:不写 stdio 0/30 成功、写即 30/30;间歇性 ⇒ 判断\"是否必要\"必须成组对照)。门判红原话:调用根本没有 options 实参(无从配 stdio)",
-   "owner": "IHUI-AI stdio 治理线(门 189 判红台账)",
-   "reviewBy": "2026-10-20"
-  },
-  {
-   "file": "scripts/check-spawn-stdio.mjs",
-   "line": 765,
-   "reason": "生产面存量:派生 git 未显式接管 stdio(宿主 EBUSY 病灶,2026-10-03 成组对照 30 组定界:不写 stdio 0/30 成功、写即 30/30;间歇性 ⇒ 判断\"是否必要\"必须成组对照)。门判红原话:options 内无 stdio 属性名",
-   "owner": "IHUI-AI stdio 治理线(门 189 判红台账)",
-   "reviewBy": "2026-10-20"
-  },
-  {
-   "file": "scripts/tests/check-admin-gate-consistency.test.mjs",
-   "line": 367,
-   "reason": "样例字符串自匹配:该行是测试夹具数组里的合成源码样例(execFileSync 调用文本,作被测门的阳性输入),不是真调用 —— maskInert 对带尾随逗号的数组字面量留缝(门自检 L556-561 注释自述同源缝隙)。真调用面无违规",
-   "owner": "IHUI-AI stdio 治理线(门 193 判红台账);maskInert 缝隙修复归 detector 持有人,到期复核",
-   "reviewBy": "2026-11-03"
-  },
-  {
-   "file": "scripts/tests/check-tool-arg-routing-identity.test.mjs",
-   "line": 36,
-   "reason": "真缺 stdio,但该文件此刻由另一会话持有在飞(M,镜像测试真相源改造)⇒ 按 §12 不动他人文件,先以台账豁免保推送畅通;持有人落地或治理线下轮消减",
-   "owner": "IHUI-AI stdio 治理线(门 193 判红台账)",
-   "reviewBy": "2026-10-20"
-  },
-  {
-   "file": "scripts/lib/plan-collide-renumber-blob.mjs",
-   "line": 72,
-   "reason": "真缺 stdio,但该文件此刻由持有人持有在飞(M,其 in-flight diff 正是该文件的 GIT_STDIO 修复,尚未含这两处)⇒ §12 不动他人文件,台账豁免保推送畅通,持有人落地时自然消减",
-   "owner": "plan-collide-renumber-blob 持有人 + IHUI-AI stdio 治理线(门 193 判红台账)",
-   "reviewBy": "2026-10-20"
-  },
-  {
-   "file": "scripts/lib/plan-collide-renumber-blob.mjs",
-   "line": 82,
-   "reason": "真缺 stdio,但该文件此刻由持有人持有在飞(M,其 in-flight diff 正是该文件的 GIT_STDIO 修复,尚未含这两处)⇒ §12 不动他人文件,台账豁免保推送畅通,持有人落地时自然消减",
-   "owner": "plan-collide-renumber-blob 持有人 + IHUI-AI stdio 治理线(门 193 判红台账)",
-   "reviewBy": "2026-10-20"
-  }
- ]
+  "$schema": "check-git-stdio-discipline 豁免台账",
+  "note": "本台账是守门 193(check-git-stdio-discipline.mjs)的**具名**豁免通道;禁行内豁免(AGENTS:裁决账不是豁免通道)。条目不是\"这些点没问题\",而是\"这些点已知、有人认领、限期消减\" —— 到期未动即自动失效并重新判红。分批到期:生产面 2026-10-20、测试面 2026-11-03(测试面量大面广,给更宽的窗口)。条目由门自己的报告生成(generatedFrom),不要手抄。",
+  "generatedFrom": "scripts/check-git-stdio-discipline.mjs --worktree",
+  "entries": [
+    {
+      "file": "scripts/check-spawn-stdio.mjs",
+      "line": 700,
+      "reason": "生产面存量:派生 git 未显式接管 stdio(宿主 EBUSY 病灶,2026-10-03 成组对照 30 组定界:不写 stdio 0/30 成功、写即 30/30;间歇性 ⇒ 判断\"是否必要\"必须成组对照)。门判红原话:调用根本没有 options 实参(无从配 stdio)",
+      "owner": "IHUI-AI stdio 治理线(门 193 判红台账)",
+      "reviewBy": "2026-10-20"
+    },
+    {
+      "file": "scripts/check-spawn-stdio.mjs",
+      "line": 765,
+      "reason": "生产面存量:派生 git 未显式接管 stdio(宿主 EBUSY 病灶,2026-10-03 成组对照 30 组定界:不写 stdio 0/30 成功、写即 30/30;间歇性 ⇒ 判断\"是否必要\"必须成组对照)。门判红原话:options 内无 stdio 属性名",
+      "owner": "IHUI-AI stdio 治理线(门 193 判红台账)",
+      "reviewBy": "2026-10-20"
+    },
+    {
+      "file": "scripts/tests/check-admin-gate-consistency.test.mjs",
+      "line": 367,
+      "reason": "样例字符串自匹配:该行是测试夹具数组里的合成源码样例(execFileSync 调用文本,作被测门的阳性输入),不是真调用 —— maskInert 对带尾随逗号的数组字面量留缝(门自检 L556-561 注释自述同源缝隙)。真调用面无违规",
+      "owner": "IHUI-AI stdio 治理线(门 193 判红台账);maskInert 缝隙修复归 detector 持有人,到期复核",
+      "reviewBy": "2026-11-03"
+    },
+    {
+      "file": "scripts/tests/check-tool-arg-routing-identity.test.mjs",
+      "line": 36,
+      "reason": "真缺 stdio,但该文件此刻由另一会话持有在飞(M,镜像测试真相源改造)⇒ 按 §12 不动他人文件,先以台账豁免保推送畅通;持有人落地或治理线下轮消减",
+      "owner": "IHUI-AI stdio 治理线(门 193 判红台账)",
+      "reviewBy": "2026-10-20"
+    },
+    {
+      "file": "scripts/lib/plan-collide-renumber-blob.mjs",
+      "line": 72,
+      "reason": "真缺 stdio,但该文件此刻由持有人持有在飞(M,其 in-flight diff 正是该文件的 GIT_STDIO 修复,尚未含这两处)⇒ §12 不动他人文件,台账豁免保推送畅通,持有人落地时自然消减",
+      "owner": "plan-collide-renumber-blob 持有人 + IHUI-AI stdio 治理线(门 193 判红台账)",
+      "reviewBy": "2026-10-20"
+    },
+    {
+      "file": "scripts/lib/plan-collide-renumber-blob.mjs",
+      "line": 82,
+      "reason": "真缺 stdio,但该文件此刻由持有人持有在飞(M,其 in-flight diff 正是该文件的 GIT_STDIO 修复,尚未含这两处)⇒ §12 不动他人文件,台账豁免保推送畅通,持有人落地时自然消减",
+      "owner": "plan-collide-renumber-blob 持有人 + IHUI-AI stdio 治理线(门 193 判红台账)",
+      "reviewBy": "2026-10-20"
+    }
+  ]
 }

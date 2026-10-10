@@ -298,27 +298,66 @@ function Start-ServiceProcess {
   Write-Info "  cmd: cmd.exe /c $cmdLine"
   Write-Info "  cwd: $Cwd"
 
+  $procId = $null
+  $spawnTier = 'start-process'
+
+  # 通道 1(首选,宿主退出免疫):WMI Win32_Process.Create —— 父进程为 WmiPrvSE,
+  # 天然在调用方作业树之外,宿主应用退出(JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE)
+  # 杀不到服务(2026-10-09 实证:Start-Process 派生的服务随宿主重启全灭)。
+  # 经 Start-Job + 20s 超时守卫执行:沙箱/受限会话里 CIM IPC 可能被 stall,
+  # 超时即降级通道 2,绝不卡死启动链。stdin 已由 $cmdLine 尾部 `< NUL` 断开。
   try {
-    $proc = Start-Process -FilePath 'cmd.exe' `
-      -ArgumentList @('/c', $cmdLine) `
-      -WorkingDirectory $Cwd `
-      -WindowStyle Hidden `
-      -RedirectStandardOutput $logPath `
-      -RedirectStandardError $errPath `
-      -PassThru `
-      -ErrorAction Stop
+    $cmdFull = "$env:ComSpec /c `"cd /d `"$Cwd`" && ($cmdLine) >> `"$logPath`" 2>> `"$errPath`"`""
+    $job = Start-Job -ScriptBlock {
+      param($cmdFull)
+      $startup = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{ ShowWindow = 0 }
+      Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{
+        CommandLine               = $cmdFull
+        ProcessStartupInformation = $startup
+      }
+    } -ArgumentList $cmdFull
+    if (Wait-Job $job -Timeout 20) {
+      $createResult = Receive-Job $job
+      if ($createResult -and $createResult.ReturnValue -eq 0 -and $createResult.ProcessId) {
+        $procId = $createResult.ProcessId
+        $spawnTier = 'wmi-breakaway'
+      }
+    } else {
+      Stop-Job $job
+      Write-Warn "WMI 通道 20s 超时(沙箱/受限会话),降级 Start-Process"
+    }
+    Remove-Job $job -Force -ErrorAction SilentlyContinue
   } catch {
-    Write-Err "启动 $Name 失败:$($_.Exception.Message)"
-    return $false
+    Write-Warn "WMI 通道异常($($_.Exception.Message)),降级 Start-Process"
   }
 
-  $procId = $proc.Id
-  Write-Ok "$Name 启动成功 PID=$procId"
+  # 通道 2(降级):Start-Process。沙箱/受限会话里可用,但服务进程挂在调用方
+  # 作业树内 —— 宿主应用退出会被连带杀掉(已知代价,重启宿主后需重跑 dev:safe)。
+  if (-not $procId) {
+    try {
+      $proc = Start-Process -FilePath 'cmd.exe' `
+        -ArgumentList @('/c', $cmdLine) `
+        -WorkingDirectory $Cwd `
+        -WindowStyle Hidden `
+        -RedirectStandardOutput $logPath `
+        -RedirectStandardError $errPath `
+        -PassThru `
+        -ErrorAction Stop
+      $procId = $proc.Id
+      $spawnTier = 'start-process'
+    } catch {
+      Write-Err "启动 $Name 失败:$($_.Exception.Message)"
+      return $false
+    }
+  }
+
+  Write-Ok "$Name 启动成功 PID=$procId (通道:$spawnTier)"
 
   # 5. 写 PID 注册表
   $map = Get-PidMap
   $map[$Name] = @{
     pid        = $procId
+    spawn_tier = $spawnTier
     port       = $Port
     health     = $HealthUrl
     log        = $logPath

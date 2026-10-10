@@ -15,8 +15,9 @@
  *   - taskTimeout(G-426 改语义):timeoutSeconds 是**无活动空闲窗**(默认 300s),每次真实任务
  *     活动(stdout/stderr/progress IPC,markActivity 唯一写入点)把窗口重排回完整值 —— 仍在
  *     推进的慢子代理不再被墙钟 SIGTERM,真正卡死的才超时;另设**从开始计时**的绝对上限
- *     = 窗口 × 3(TASK_TIMEOUT_ABSOLUTE_FACTOR)兜底防无限续命;错误 context 带
- *     idleMs 与 recoverable/retryable 标记。旧行为"无条件 300s 墙钟到点即杀"已废。
+ *     = 窗口 × 3(TASK_TIMEOUT_ABSOLUTE_FACTOR),到点不杀(G-426 拍板第三件套:仍在推进的
+ *     执行自动转后台,前台取消不再杀它),只有 idle 档(空闲窗整段耗尽)才 SIGTERM;
+ *     错误 context 带 idleMs 与 recoverable/retryable 标记。旧行为"无条件 300s 墙钟到点即杀"已废。
  *   - 无活动超时(2026-09-27 票,见 getLifecycleStatus / awaitResult):
  *       最后一次"任务活动"(子进程 stdout/stderr 输出、progress IPC)距今超过阈值 ⇒
  *       **转后台** —— spawn Promise 以 wire 形态 status='running' 提前 resolve,
@@ -70,9 +71,10 @@ const HEARTBEAT_INTERVAL_MS = 5_000;
 const DEFAULT_TASK_TIMEOUT_SECONDS = 300;
 /**
  * G-426:taskTimeout 绝对上限倍数。空闲窗改成"每次任务活动重排"后,必须留一个**从开始计时**
- * 的总上限兜底,否则持续输出事件的死循环能无限续命。取窗口 3 倍而不是独立常量:timeoutSeconds
+ * 的总上限收口,否则前台永远等不到结算。取窗口 3 倍而不是独立常量:timeoutSeconds
  * 是逐请求可调档(默认 300s),"多长的执行算滥用"应与该请求自己声明的合理时长同比例缩放 ——
- * 3 = 名义窗口之外再给两整段同额推进余量,足以容纳合法的慢长任务,又把无限续命封死。
+ * 3 = 名义窗口之外再给两整段同额推进余量。G-426 拍板第三件套:到点的收口动作是**转后台**
+ * (前台停止等待),不是 SIGTERM —— 真正卡死的死法归 idle 档。
  */
 const TASK_TIMEOUT_ABSOLUTE_FACTOR = 3;
 const DEFAULT_MAX_QUEUE_SIZE = 100;
@@ -238,7 +240,7 @@ interface WorkerEntry {
   lastActivityAt: number;
   /** 生命周期状态机当前值(唯一清单见 types.ts SUBAGENT_LIFECYCLE_STATUSES) */
   lifecycle: SubagentLifecycleStatus;
-  /** 是否已因无活动超阈被挪到后台(spawn Promise 已提前 resolve) */
+  /** 是否已转后台(无活动超阈或绝对上限到点;spawn Promise 已提前 resolve) */
   idleDetached: boolean;
   /** 后台终态 awaiter(awaitResult 在真正 exit 前登记的回调) */
   finalResolvers: Array<(resp: SubagentSpawnResponse) => void>;
@@ -1015,16 +1017,30 @@ export class SubagentWorkerPool {
     if (entry.idleDetached) return;
     if (entry.lifecycle !== 'running') return;
     if (Date.now() - entry.lastActivityAt <= this.idleTimeoutMs) return;
-    this.detachToBackground(subagentId, entry);
+    this.detachToBackground(subagentId, entry, 'idle');
   }
 
-  /** checkIdleTimeout 的迁移动作(单独成函数:测试与人工核验都能对同一份实现问责) */
-  private detachToBackground(subagentId: string, entry: WorkerEntry): void {
+  /**
+   * checkIdleTimeout / handleTimeout('absolute') 共用的迁移动作(单独成函数:测试与人工
+   * 核验都能对同一份实现问责)。cause 只影响报名行的归因细节,状态迁移两路完全同形:
+   * lifecycle → detached_idle、spawn Promise 以 'running' 提前 resolve、进程不杀。
+   */
+  private detachToBackground(
+    subagentId: string,
+    entry: WorkerEntry,
+    cause: 'idle' | 'absolute-cap',
+  ): void {
     entry.idleDetached = true;
     entry.lifecycle = SUBAGENT_STATUS_DETACHED_IDLE;
+    // 报名行刻意 ASCII(守门 70 棘轮:本文件中文行只减不增;机器码 SUBAGENT_DETACH_REASON 之外
+    // 的归因细节是给日志筛读的,ASCII 足够)。
+    const detail =
+      cause === 'idle'
+        ? `no task event for ${this.idleTimeoutMs}ms`
+        : `absolute cap reached despite activity (window=${entry.taskTimeoutWindowMs}ms x${TASK_TIMEOUT_ABSOLUTE_FACTOR})`;
     process.stderr.write(
-      `[subagent ${subagentId}] ${SUBAGENT_DETACH_REASON}: ` +
-        `无任务事件超过 ${this.idleTimeoutMs}ms,已转后台(进程未被杀死,awaitResult 可取回终态)\n`,
+      `[subagent ${subagentId}] ${SUBAGENT_DETACH_REASON}: ${detail};` +
+        ` detached to background (process NOT killed, awaitResult returns the final state)\n`,
     );
     if (entry.resolver) {
       // 前台从此不再等待:wire 状态如实回 'running'(仍在执行),不得写成任何终态
@@ -1055,8 +1071,22 @@ export class SubagentWorkerPool {
    * G-426:两档归因 —— `idle` = 空闲窗内没有任何真实任务活动(真正卡死);
    * `absolute` = 总时长越过窗口 × TASK_TIMEOUT_ABSOLUTE_FACTOR(持续活动也到头了)。
    * 错误 context 按票面口径带 idleMs 与 recoverable/retryable 标记(ASCII,消费方是模型)。
+   *
+   * G-426 拍板第三件套「超阈值自动后台化 detachParent」:`absolute` 到点不再 SIGTERM ——
+   * 能活到总上限的执行必然一路有真实活动把空闲窗重排到底(真正卡死的死法是 `idle` 那一档,
+   * 且更早的无活动转后台(120s)通常已先发生),所以该被收口的是"前台等待"而不是任务本身:
+   * 走与无活动转后台同一迁移出口(detachToBackground),spawn Promise 以 wire 既有档位
+   * 'running' 提前 resolve,进程不杀,跑到自然终态经 awaitResult 回收。已转后台的条目
+   * (idleDetached)到点一律幂等返回:上限已消费,不再重排也不再杀 —— 前台取消不再杀它。
    */
   private handleTimeout(subagentId: string, entry: WorkerEntry, reason: 'idle' | 'absolute'): void {
+    if (reason === 'absolute') {
+      if (!entry.idleDetached) {
+        this.detachToBackground(subagentId, entry, 'absolute-cap');
+      }
+      // 不设 timedOut:转后台 ≠ 失败,自然 exit(0) 仍按 completed 收口(handleWorkerExit)。
+      return;
+    }
     entry.timedOut = true;
     // G-998115:超时属宿主 watchdog 回收 ⇒ 先写归因(首因锁定),再发信号
     this.setTerminationKind(entry, 'watchdog_recycle');
