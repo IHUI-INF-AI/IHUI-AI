@@ -12994,15 +12994,15 @@
       "scopeModels": "モデル一覧",
       "scopeEmbeddings": "ベクトル",
       "scopeImages": "画像生成",
-    "recharge": "チャージ",
-    "rechargeTitle": "{name} にチャージ",
-    "walletBalance": "ウォレット残高",
-    "rechargeAmountLabel": "金額(元)",
-    "rechargeAmountPlaceholder": "例: 10.00",
-    "rechargeHint": "ウォレットからこのAPIキー残高へ移動します。",
-    "rechargeOk": "チャージ完了",
-    "rechargeInvalid": "正の金額を入力してください",
-    "rechargeConfirm": "チャージ実行",
+      "recharge": "チャージ",
+      "rechargeTitle": "{name} にチャージ",
+      "walletBalance": "ウォレット残高",
+      "rechargeAmountLabel": "金額(元)",
+      "rechargeAmountPlaceholder": "例: 10.00",
+      "rechargeHint": "ウォレットからこのAPIキー残高へ移動します。",
+      "rechargeOk": "チャージ完了",
+      "rechargeInvalid": "正の金額を入力してください",
+      "rechargeConfirm": "チャージ実行",
       "scopeAudio": "音声",
       "scopeVideos": "動画生成",
       "unlimitedQuota": "無制限",
@@ -27957,5 +27957,3 @@
     "incidentsUnavailable": "直近 30 日間のインシデント情報は一時的に取得できません"
   }
 }
-
-
