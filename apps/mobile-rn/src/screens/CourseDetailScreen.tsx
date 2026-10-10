@@ -24,6 +24,7 @@ import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { NavChrome } from '../components/NavChrome'
 
 type Route = RouteProp<RootStackParamList, 'CourseDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'CourseDetail'>
@@ -103,7 +104,9 @@ export function CourseDetailScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <NavBar title={course?.title ?? t('course.title')} onBack={() => navigation.goBack()} />
+      <NavChrome>
+        <NavBar title={course?.title ?? t('course.title')} onBack={() => navigation.goBack()} />
+      </NavChrome>
       <SharedCourseDetailScreen
         t={t}
         colorScheme={resolvedTheme}
