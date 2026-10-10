@@ -341,7 +341,35 @@ if (!runLintStaged()) {
 // 无变化处理:同步后与 index 一致时跳过 git add,不报错
 // staging-snapshot 协同:git add 后同步更新 INITIAL_STAGED_SNAPSHOT,避免 setupRestoreOnExit
 //       把新加的文件当作"非预期 staged 文件"unstage(见 staging-snapshot.js)
+// ⚠️ 2026-10-10(G-816040 四端 ui-routes 上表时实测的两条形状结论,新加行必须照做):
+//   ① **一行只登记一个 file 路径**。`INITIAL_STAGED_SNAPSHOT.add(t.file)` 走的是 Set.add,
+//      空格分隔的多路径串会被当成**一个不存在的键**登记 ⇒ restoreStaging 照样把那几个文件全摘掉。
+//      实测(临时仓 + 本目录 staging-snapshot.js):snapshot={a.txt},门内 `git add b.txt c.txt`
+//      后 `snapshot.add('b.txt c.txt')` ⇒ restore 摘掉 b.txt 与 c.txt ⇒ 提交只带走 a.txt。
+//      第 2 行(miniapp chrome 的两份副本)正是这个形态,其写回在 hook 退出前会被摘掉 —— 那是别人的行,
+//      本票不动它,只把这一型登记出来(修它要改 add 的实现或拆成两行,归该行的票)。
+//   ② 写回出口**不能放在守门脚本的判定路径里**。门自己 `git add` 的东西同样不在入口快照里,
+//      一样会被摘掉 ⇒ 于是"门报了绿而提交仍是陈旧的"= 把恒红洗成静默恒红。实测见 ①。
+//      所以:写回出口挂在本表(表持有快照,add 得动),判定门只判不写。
 const TOKENS_CSS_REL = 'packages/design-tokens/src/styles/tokens.css'
+// 粗触发 'v3-src' 的取值面(2026-10-10 起)。V3_USAGE_DIRS 是它的历史名字:v3 用量三端源码,
+// 同时**就是**「ALPHA_USAGE 用量表」那一行的真实触发面 —— 一份清单两处用,不复制第二份。
+// END_SRC_DIRS 在它之外补上 apps/web/ 与 apps/extension/:四端 ui-routes 的输入面有两端落在
+// v3 三端之外,粗触发盖不住它们,那两行就过不了第一道筛(行在而永不触发 = 登记表最烂的一型)。
+const V3_USAGE_DIRS = ['apps/miniapp-taro/src/', 'apps/mobile-rn/src/', 'packages/app/src/']
+const END_SRC_DIRS = [...V3_USAGE_DIRS, 'apps/web/', 'apps/extension/']
+// 行的**精确**触发面:`pathTrigger`(空格分隔前缀,与 file 同形)在场就按它筛,不在场沿用粗触发。
+// 为什么要这一维:守门 125(check-token-sync-registry)对 trigger 字段是**闭合枚举** {tokens, v3-src},
+// 实测给它加第四个值 ⇒ 它当场 R1 判红(`trigger='ui-routes-src' 不在 {tokens, v3-src}`),而它自己的
+// 修复口径写着"不得为消红放宽本门判据" ⇒ 新枚举值归那道门自己的词汇表(另票),本票把精确面挂进行内。
+// 代价如实登记:pathTrigger 不在 125 的审计词表里,"前缀改名 ⇒ 该行永不触发"这一型 125 看不见,
+// 由守门 105 的镜像测试 T21 拿**判定面真输入清单**逐行对账兜住(含"pathTrigger ⊆ 粗触发"的死行锁)。
+const rowFaceOn = (t, stagedList) => {
+  const face = typeof t.pathTrigger === 'string' ? t.pathTrigger.split(/\s+/).filter(Boolean) : []
+  if (face.length === 0) return true
+  return stagedList.some((f) => face.some((p) => f.startsWith(p)))
+}
+
 const TOKEN_SYNC_TARGETS = [
   {
     label: 'miniapp-taro app.css',
@@ -398,15 +426,67 @@ const TOKEN_SYNC_TARGETS = [
     // 触发面是**端源码**而不是 tokens.css,所以 trigger 用 v3-src;按索引面扫,才与本次提交带走的内容同形。
     // failMode=warn:生成器在"表体之外另有未提交差异"时按设计拒绝写回(那是 §12 防吞他人行的闸门,
     // 不是故障)。此时不得把别人的现场变成阻塞;正确性由守门 93 的 R6 继续兜。
+    // 2026-10-10:粗触发 'v3-src' 扩容到四端源码后,本行用 pathTrigger 把面**钉回原来那三端** ——
+    // 别人的行的有效触发面一字不改(扩容粗触动的代价不能由这一行来付)。
     label: 'ALPHA_USAGE 用量表',
     file: 'packages/design-tokens/src/tailwind-alpha-plugin.js',
     cmd: 'node scripts/sync-alpha-usage.mjs --quiet --face staged',
     trigger: 'v3-src',
+    pathTrigger: V3_USAGE_DIRS.join(' '),
     failMode: 'warn',
     check: 'check-cross-end-tokens.mjs',
   },
+  // ── 四端「AI 可导航路由」派生产物(2026-10-10 立,G-816040)────────────────────
+  // 病因(本仓人肉修过多次、每次都写"消守门 105 恒红"的那一型):`apps/web/app/**/page.tsx`
+  // 之类的输入被别人改了并入库,而链条上没有任何环节重跑各端的 generate-ui-routes ⇒ 产物里的自述钉
+  // (sourceCommit / inputsSha256 / 逐输入行)落后 ⇒ 守门 105 的 G5 在**干净 HEAD** 上判红 ⇒ blocking
+  // 门红 = 本机每次提交都被迫 --no-verify(一次绕过约等于链上全部守门对该提交作废,§12e/§12f)。
+  // 立点:按 §4「端内派生副本一律挂这张表」把四端生成器接进提交链,写完自动 git add + 登记快照。
+  // 一行一端(见上面形状结论①:file 多路径会让 snapshot.add 失效)。
+  // 写回出口 = 守门 105 自己的 --heal-ui-routes 档(同型先例:表第 5 行 cmd 与 check 同为
+  // sync-extension-tokens.mjs,一个模式写、一个模式判)。它**只写不判**:面上取不到/生成器坏了/
+  // 工作树副本与面副本不同(别人的在飞改动)/写回量级异常 ⇒ 一律拒绝并点名,绝不产出"绿"这个结论。
+  // failMode=block 的依据(实测,2026-10-10):真仓 --staged 面跑一次 4 份产物全判"无需写回"、
+  // 写回 0 字节、exit 0(幂等),即健康仓库上本行不会阻塞任何提交;生成器真失败才阻塞。
+  // 复核门 = check-miniapp-generated.mjs(守门 105,blocking):同一轮里 --staged 判索引 blob,
+  // 即"刚登记进去的产物"必须与"本次提交带走的那一份输入"同面算得平 —— 判定权在那一轮,不在这里。
+  {
+    label: 'web ui-routes 派生产物(AI 可导航路由)',
+    file: 'apps/web/src/lib/ui-routes.generated.ts',
+    cmd: 'node scripts/check-miniapp-generated.mjs --heal-ui-routes --staged',
+    trigger: 'v3-src',
+    pathTrigger: 'apps/web/app/',
+    failMode: 'block',
+    check: 'check-miniapp-generated.mjs',
+  },
+  {
+    label: 'mobile-rn ui-routes 派生产物(AI 可导航路由)',
+    file: 'apps/mobile-rn/src/constants/ui-routes.generated.ts',
+    cmd: 'node scripts/check-miniapp-generated.mjs --heal-ui-routes --staged',
+    trigger: 'v3-src',
+    pathTrigger: 'apps/mobile-rn/src/navigation/',
+    failMode: 'block',
+    check: 'check-miniapp-generated.mjs',
+  },
+  {
+    label: 'miniapp-taro ui-routes 派生产物(AI 可导航路由)',
+    file: 'apps/miniapp-taro/src/constants/ui-routes.generated.ts',
+    cmd: 'node scripts/check-miniapp-generated.mjs --heal-ui-routes --staged',
+    trigger: 'v3-src',
+    pathTrigger: 'apps/miniapp-taro/src/',
+    failMode: 'block',
+    check: 'check-miniapp-generated.mjs',
+  },
+  {
+    label: 'extension ui-routes 派生产物(AI 可导航路由)',
+    file: 'apps/extension/lib/ext-ui-routes.generated.ts',
+    cmd: 'node scripts/check-miniapp-generated.mjs --heal-ui-routes --staged',
+    trigger: 'v3-src',
+    pathTrigger: 'apps/extension/entrypoints/sidepanel/',
+    failMode: 'block',
+    check: 'check-miniapp-generated.mjs',
+  },
 ]
-const V3_USAGE_DIRS = ['apps/miniapp-taro/src/', 'apps/mobile-rn/src/', 'packages/app/src/']
 
 if (process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
   try {
@@ -421,20 +501,26 @@ if (process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
       .split('\n')
       .filter(Boolean)
       .map((f) => f.replace(/\\/g, '/'))
-    // 每个目标自带触发面:token 派生看 tokens.css,用量派生看 v3 三端源码。
+    // 每个目标自带触发面:token 派生看 tokens.css,端源码派生看 v3-src(2026-10-10 起含 web/extension)。
     // git 在 Windows 下可能给反斜杠路径,统一成正斜杠再比(旧实现手写两条字面量比较,加一端就漏一端)
     const triggersOn = {
       tokens: stagedList.includes(TOKENS_CSS_REL),
-      'v3-src': stagedList.some((f) => V3_USAGE_DIRS.some((d) => f.startsWith(d))),
+      'v3-src': stagedList.some((f) => END_SRC_DIRS.some((d) => f.startsWith(d))),
     }
-    const matched = TOKEN_SYNC_TARGETS.filter((t) => triggersOn[t.trigger])
+    // 第一道筛(粗触发)写法原样保留 —— sync-rn-global-css.test.mjs 的 T8 装车锁按字面读它;
+    // 第二道筛是行自己的精确面 pathTrigger(没有就沿用粗触发,原有 6 行的有效面一字不改)。
+    const matched = TOKEN_SYNC_TARGETS.filter((t) => triggersOn[t.trigger]).filter((t) =>
+      rowFaceOn(t, stagedList),
+    )
     if (matched.length === 0) {
       console.log(
-        `⏭  design-tokens / 用量 派生自动同步(无 ${TOKENS_CSS_REL} 与 v3 端源码的 staged 改动, 跳过)`,
+        `⏭  派生自动同步(本次 staged 不含任何登记行的触发面:无 ${TOKENS_CSS_REL},也不在端源码面内, 跳过)`,
       )
     } else {
       for (const t of matched) {
-        console.log(`🎨 派生自动同步:${t.label}(触发面 ${t.trigger})`)
+        console.log(
+          `🎨 派生自动同步:${t.label}(粗触发 ${t.trigger}${t.pathTrigger ? ` / 精确面 ${t.pathTrigger}` : ''})`,
+        )
         try {
           execSync(t.cmd, { stdio: 'inherit', cwd: process.cwd(), windowsHide: true })
         } catch {
