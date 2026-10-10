@@ -1900,7 +1900,7 @@ class LLMGateway:
             cfg = settings.get_provider_config("agnes")
             return (
                 cfg.api_key or None,
-                cfg.api_base or "https://apihub.agnes-ai.com/v1",
+                cfg.api_base or "https://api.agnes-ai.cn/v1",
                 f"openai/{real_model}",
             )
         # 2026-07-24 接入:10 个免费 LLM provider 内化(均为 OpenAI 兼容)

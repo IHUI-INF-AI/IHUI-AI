@@ -154,7 +154,7 @@ return redis.call('HGETALL', KEYS[1])
 `.trim()
 
 /** 隔离记录键:租约键的姊妹键(同前缀同环境段,互不串)。 */
-export function resolveUploadMergeQuarantineKey(slotsKey: string): string {
+function resolveUploadMergeQuarantineKey(slotsKey: string): string {
   return `${slotsKey}:quarantine`
 }
 

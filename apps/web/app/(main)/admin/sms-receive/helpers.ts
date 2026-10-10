@@ -17,7 +17,7 @@ import type {
   UsedUnionData,
 } from './types'
 
-export const API_BASE = '/api/admin/sms-receive'
+const API_BASE = '/api/admin/sms-receive'
 
 /** 轮询取码间隔(ms)。平台按请求量计费(每 1000 次扣 0.01~0.2 元),5s 足够快且成本低 */
 export const POLL_INTERVAL_MS = 5_000
@@ -27,7 +27,7 @@ export const POLL_TIMEOUT_MS = 180_000
 export const USED_COOLDOWN_SECONDS = 60
 
 /** 近 30 分钟热度统计窗口(ms),台账卡「近 30 分钟热度」格展示用 */
-export const HOT_WINDOW_MS = 30 * 60 * 1000
+const HOT_WINDOW_MS = 30 * 60 * 1000
 /** 自动筛新号预筛阈值:全局被接码次数(平台 ≤12 条滚动窗口)≥该值 = 被使用多次 → 拉黑换号 */
 export const HOT_MIN_RECORDS = 3
 
@@ -103,7 +103,7 @@ export async function fetchUsedUnion(limit = 50): Promise<UsedUnionData> {
 let usedCache: { at: number; items: UsedRecord[] } | null = null
 
 /** 取本账号 24h 流水(60s 缓存);缓存过期且查询失败时返回 null(fail-open) */
-export async function fetchUsedCached(): Promise<UsedRecord[] | null> {
+async function fetchUsedCached(): Promise<UsedRecord[] | null> {
   if (usedCache && Date.now() - usedCache.at < USED_COOLDOWN_SECONDS * 1000) return usedCache.items
   try {
     const items = await fetchUsed()

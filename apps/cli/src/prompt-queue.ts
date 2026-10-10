@@ -55,7 +55,7 @@ export type PromptQueueKind =
   | 'control-only-turn';
 
 /** 通知组判据(成批只认这一组 —— `dequeueNextBatch` 的唯一准入)。 */
-export const PROMPT_QUEUE_NOTIFICATION_KINDS = [
+const PROMPT_QUEUE_NOTIFICATION_KINDS = [
   'task-notification',
   'subagent-message',
   'control-only-turn',
