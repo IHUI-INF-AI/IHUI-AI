@@ -18882,7 +18882,16 @@
     "qDeleted": "격리 디렉터리를 삭제했습니다.",
     "historyTitle": "작업 기록",
     "historyEmpty": "아직 기록이 없습니다",
-    "progressLabel": "진행률"
+    "progressLabel": "진행률",
+    "planPreview": "계획 미리보기",
+    "planTitle": "계획 미리보기(실행 시 항목별 진행률 전송)",
+    "planActDeleteDir": "디렉터리 삭제",
+    "planActDeleteFile": "파일 삭제",
+    "planActQuarantine": "격리 디렉터리로 이동",
+    "planTruncated": "체량이 큰 상위 8개 항목만 표시, 나머지는 실행 레이어 상세를 참고하세요.",
+    "planEmpty": "실행할 항목이 없습니다(존재하지 않거나 이미 비어 있음).",
+    "entriesShowAll": "모두 표시",
+    "entriesShowLess": "접기"
   },
   "checkin": {
     "title": "출석 도우미",

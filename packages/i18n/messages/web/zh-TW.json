@@ -18882,7 +18882,16 @@
     "qDeleted": "隔離區已刪除。",
     "historyTitle": "操作歷史",
     "historyEmpty": "暫無操作記錄",
-    "progressLabel": "執行進度"
+    "progressLabel": "執行進度",
+    "planPreview": "預覽計畫",
+    "planTitle": "計畫預覽(執行時逐條回傳進度)",
+    "planActDeleteDir": "整目錄刪除",
+    "planActDeleteFile": "刪除檔案",
+    "planActQuarantine": "搬入隔離區",
+    "planTruncated": "僅顯示體量最大的前 8 項，其餘見執行層詳情。",
+    "planEmpty": "無待執行條目(本就不存在或已清空)。",
+    "entriesShowAll": "顯示全部條目",
+    "entriesShowLess": "收起"
   },
   "checkin": {
     "title": "簽到助手",

@@ -18887,7 +18887,16 @@
     "qDeleted": "隔離ディレクトリを削除しました。",
     "historyTitle": "操作履歴",
     "historyEmpty": "操作記録はまだありません",
-    "progressLabel": "進行状況"
+    "progressLabel": "進行状況",
+    "planPreview": "プランを確認",
+    "planTitle": "プランプレビュー(実行時は項目ごとに進捗を配信)",
+    "planActDeleteDir": "ディレクトリ削除",
+    "planActDeleteFile": "ファイル削除",
+    "planActQuarantine": "隔離ディレクトリへ移動",
+    "planTruncated": "体量の大きい上位 8 項目のみ表示。残りは実行時のレイヤー詳細を参照。",
+    "planEmpty": "実行対象はありません(存在しない、または既に空)。",
+    "entriesShowAll": "すべて表示",
+    "entriesShowLess": "折りたたむ"
   },
   "checkin": {
     "title": "チェックインアシスタント",
