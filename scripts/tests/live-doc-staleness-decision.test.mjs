@@ -17,7 +17,7 @@
 
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { after, test } from 'node:test'
 import { fileURLToPath } from 'node:url'
@@ -334,5 +334,92 @@ test('T14 归一化键的构造面:多重集比较而非集合(纯函数,与端�
     archiveTexts: [],
   })
   assert.equal(within.status, 'alignable')
+})
+
+// ── 2026-10-10 新增:「旧修订被取代」第二判据 + 远端面(加性)。端到端四臂,钉住承重关系 ──
+const SUP_BODY = '**远端面取代测试:这条正文专门写长到能通过四十字符长度闸,不给长度判据留边界歧义**'
+const OLD_LINE = `- [ ] G-42（进行中@2026-10-10/peer）${SUP_BODY}`
+const NEW_LINE = `- [x] ✅(2026-10-10) G-42 ${SUP_BODY} 〔完成@2026-10-10:已入库〕`
+const UNIQ_LINE = '- [ ] 某人今天刚写的活账:把远端面判据的边界逐条重验(这条正文足够长,且三个面里都没有这一段)'
+
+/**
+ * 造一份"旧修订的正文只在新修订里"的仓(2026-10-10 那一型的端到端夹具):
+ *   HEAD(main) = '# 台账'(本地落后;两个本地面都没有旧修订的正文)
+ *   headSide=false 时走 side-tmp 分支造完成态,按 remote 决定是否挂到 refs/remotes/origin/main;
+ *   headSide=true 时完成态直接进 HEAD(证明 HEAD 面同权,不依赖远端面)。
+ *   最后把**滞台副本**(旧修订形态)写回工作区且不提交 —— 要判的就是它。
+ */
+function makeSupersedeRepo({ remote = true, headSide = false } = {}) {
+  const repo = mkScratch('ldsd-sup-')
+  git(repo, ['init', '-b', 'main'])
+  writeFileSync(join(repo, 'DOC.md'), '# 台账\n', 'utf8')
+  git(repo, ['add', 'DOC.md'])
+  commit(repo, 'docs: 台账初版')
+  if (headSide) {
+    writeFileSync(join(repo, 'DOC.md'), `# 台账\n${NEW_LINE}\n`, 'utf8')
+    git(repo, ['add', 'DOC.md'])
+    commit(repo, 'docs: 完成态(HEAD 侧取代)')
+  } else {
+    git(repo, ['checkout', '-b', 'side-tmp'])
+    writeFileSync(join(repo, 'DOC.md'), `# 台账\n${NEW_LINE}\n`, 'utf8')
+    git(repo, ['add', 'DOC.md'])
+    commit(repo, 'docs: 完成态(远端面取代)')
+    const done = git(repo, ['rev-parse', 'HEAD']).trim()
+    git(repo, ['checkout', 'main'])
+    if (remote) git(repo, ['update-ref', 'refs/remotes/origin/main', done])
+    git(repo, ['branch', '-D', 'side-tmp'])
+  }
+  writeFileSync(join(repo, 'DOC.md'), `# 台账\n${OLD_LINE}\n`, 'utf8')
+  return { repo }
+}
+function openSupersedeRepo(opts) {
+  const made = makeSupersedeRepo(opts)
+  opened.push(made.repo)
+  return made
+}
+
+test('S1 端到端:旧修订的正文只在远端面上 ⇒ alignable(按「被取代」放过)、逐条报名、exit 0', () => {
+  const { repo } = openSupersedeRepo({ remote: true })
+  const j = runJson(repo, ['--paths', 'DOC.md'])
+  assert.equal(j.status, 0, `应判可复原:${j.stdout}${j.stderr}`)
+  const r = j.payload.results[0]
+  assert.equal(r.status, 'alignable')
+  assert.equal(r.supersededCount, 1)
+  assert.equal(r.superseded[0], OLD_LINE, '被取代的行必须逐条点名(不许静默)')
+  assert.equal(j.payload.remoteMatched, 1, '远端面必须真被读到(否则这条测的是别的路径)')
+  assert.equal(j.payload.summary.blockerSet, true)
+})
+
+test('S2 反向对照:同一份副本、远端面缺席(引用不存在)⇒ needHuman,且不抛错(降级=改动前口径)', () => {
+  const { repo } = openSupersedeRepo({ remote: false })
+  const j = runJson(repo, ['--paths', 'DOC.md'])
+  assert.equal(j.status, 1, `应判需人工:${j.stdout}${j.stderr}`)
+  const r = j.payload.results[0]
+  assert.equal(r.status, 'needHuman')
+  assert.equal(r.supersededCount, 0)
+  assert.equal(r.orphans.length, 1)
+  assert.equal(j.payload.remoteMatched, 0)
+})
+
+test('S3 HEAD 侧取代即可(不依赖远端面):新修订在 HEAD 上时同样按「被取代」放过', () => {
+  const { repo } = openSupersedeRepo({ remote: false, headSide: true })
+  const j = runJson(repo, ['--paths', 'DOC.md'])
+  assert.equal(j.status, 0, `应判可复原:${j.stdout}${j.stderr}`)
+  assert.equal(j.payload.results[0].supersededCount, 1)
+})
+
+test('S4 反洗白(端到端):远端面在场时,真独有的长行仍须 needHuman,且不得出现在被取代里', () => {
+  const { repo } = openSupersedeRepo({ remote: true })
+  appendFileSync(join(repo, 'DOC.md'), `${UNIQ_LINE}\n`, 'utf8')
+  const j = runJson(repo, ['--paths', 'DOC.md'])
+  assert.equal(j.status, 1)
+  const r = j.payload.results[0]
+  assert.equal(r.status, 'needHuman')
+  assert.equal(r.supersededCount, 1)
+  assert.ok(
+    r.orphans.some((o) => o.line === UNIQ_LINE),
+    '真独有行必须在 orphans 里',
+  )
+  assert.ok(!r.superseded.includes(UNIQ_LINE), '真独有行不得被「被取代」顺走')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
