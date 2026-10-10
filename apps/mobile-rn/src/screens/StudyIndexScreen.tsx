@@ -68,6 +68,7 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { NavChrome } from '../components/NavChrome'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -507,25 +508,27 @@ export function StudyIndexScreen() {
 
   return (
     <View style={styles.container}>
-      <NavBar
-        title="AI 视频"
-        onBack={handleBack}
-        rightActions={[{ icon: Menu, onPress: () => setDrawerVisible(true), label: '菜单' }]}
-        rightAction={
-          <Pressable
-            hitSlop={BACK_HIT_SLOP}
-            onPress={() => setShowSearch((v) => !v)}
-            accessibilityRole="button"
-            accessibilityLabel="搜索"
-          >
-            {showSearch ? (
-              <X size={20} color={tk.text.primary} />
-            ) : (
-              <Search size={20} color={tk.text.primary} />
-            )}
-          </Pressable>
-        }
-      />
+      <NavChrome>
+        <NavBar
+          title="AI 视频"
+          onBack={handleBack}
+          rightActions={[{ icon: Menu, onPress: () => setDrawerVisible(true), label: '菜单' }]}
+          rightAction={
+            <Pressable
+              hitSlop={BACK_HIT_SLOP}
+              onPress={() => setShowSearch((v) => !v)}
+              accessibilityRole="button"
+              accessibilityLabel="搜索"
+            >
+              {showSearch ? (
+                <X size={20} color={tk.text.primary} />
+              ) : (
+                <Search size={20} color={tk.text.primary} />
+              )}
+            </Pressable>
+          }
+        />
+      </NavChrome>
       {showSearch ? (
         <View style={styles.searchBar}>
           <SearchInput
