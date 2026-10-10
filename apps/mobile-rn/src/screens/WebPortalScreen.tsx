@@ -19,6 +19,7 @@ import { useTheme } from '../context/ThemeContext'
 import { NavBar } from '../components/NavBar'
 import { WEB_PORTAL_SECTIONS, buildWebUrl, type WebPortalEntry } from '../lib/webview-portal-config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { NavChrome } from '../components/NavChrome'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -51,7 +52,9 @@ export function WebPortalScreen() {
 
   return (
     <View className={`flex-1 ${dark ? 'bg-neutral-900' : 'bg-white'}`}>
-      <NavBar title={t('webViewPortal.title')} onBack={() => navigation.goBack()} />
+      <NavChrome>
+        <NavBar title={t('webViewPortal.title')} onBack={() => navigation.goBack()} />
+      </NavChrome>
       <ScrollView className="flex-1" contentContainerStyle={{ padding: 12, paddingBottom: 32 }}>
         <Text className={`mb-3 text-[13px] ${dark ? 'text-neutral-400' : 'text-gray-500'}`}>
           {t('webViewPortal.hint')}
