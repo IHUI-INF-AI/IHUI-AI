@@ -18,6 +18,7 @@ import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { NavChrome } from '../components/NavChrome'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type PublishMode = 'group' | 'video'
@@ -247,10 +248,12 @@ export default function StudyPublishScreen() {
   return (
     <View style={styles.container}>
       {/* 对齐 Uniapp pagesA/study/publish.vue 双态标题(发布课程合集/发布视频)+ 返回 */}
-      <NavBar
-        title={mode === 'video' ? '发布视频' : '发布课程合集'}
-        onBack={() => navigation.goBack()}
-      />
+      <NavChrome>
+        <NavBar
+          title={mode === 'video' ? '发布视频' : '发布课程合集'}
+          onBack={() => navigation.goBack()}
+        />
+      </NavChrome>
       <SharedStudyPublishScreen {...sharedProps} colorScheme={resolvedTheme} />
     </View>
   )
