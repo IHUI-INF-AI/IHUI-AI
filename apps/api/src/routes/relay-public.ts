@@ -273,9 +273,11 @@ const relayPublicRoutes: FastifyPluginAsync = async (server) => {
 
       const peakWindows: PublicPeakWindow[] = await listPublicPeakWindows()
 
+      reply.header('Cache-Control', 'no-store')
       return reply.send(success({ items, peakWindows }))
     } catch {
       // 失败时返回空清单(前端降级到无徽章状态)
+      reply.header('Cache-Control', 'no-store')
       return reply.send(success({ items: [], peakWindows: [] }))
     }
   })
@@ -371,9 +373,11 @@ const relayPublicRoutes: FastifyPluginAsync = async (server) => {
         }))
         .sort((a, b) => b.modelCount - a.modelCount || a.providerCode.localeCompare(b.providerCode))
 
+      reply.header('Cache-Control', 'no-store')
       return reply.send(success({ channels }))
     } catch {
       // 失败降级为空清单,前端展示空状态
+      reply.header('Cache-Control', 'no-store')
       return reply.send(success({ channels: [] }))
     }
   })

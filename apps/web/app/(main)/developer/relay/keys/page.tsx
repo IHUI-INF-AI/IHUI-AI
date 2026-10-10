@@ -8,7 +8,18 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { Key, Plus, Trash2, RotateCcw, Copy, Eye, EyeOff, Loader2, Power } from 'lucide-react'
+import {
+  Key,
+  Plus,
+  Trash2,
+  RotateCcw,
+  Copy,
+  Eye,
+  EyeOff,
+  Loader2,
+  Power,
+  Wallet,
+} from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import {
   Button,
@@ -113,6 +124,13 @@ export default function RelayKeysPage() {
     apiKey: { id: string; name: string; key: string }
     secret: string
   } | null>(null)
+  // 2026-10-09 开卖闭环:Key 余额充值(钱包余额 → Key 余额)。新 Key 默认 0 余额,
+  // 用户通过此弹窗从钱包划转;后端 POST /developer/relay/keys/:id/recharge。
+  const [rechargeTarget, setRechargeTarget] = React.useState<{ id: string; name: string } | null>(
+    null,
+  )
+  const [rechargeAmount, setRechargeAmount] = React.useState('')
+  const [walletBalance, setWalletBalance] = React.useState<number | null>(null)
   const [secretVisible, setSecretVisible] = React.useState(false)
   const [visible, setVisible] = React.useState<Record<string, boolean>>({})
   // 一键接入配置生成器弹窗状态(2026-09-16)
@@ -212,6 +230,32 @@ export default function RelayKeysPage() {
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['developer', 'relay', 'keys'] })
       toast.success(t('windowsCleared', { count: data.cleared }))
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  // 钱包余额(打开充值弹窗时拉一次)
+  React.useEffect(() => {
+    if (!rechargeTarget) return
+    api<{ balance: number }>('/api/wallet/balance')
+      .then((d) => setWalletBalance(d.balance))
+      .catch(() => setWalletBalance(null))
+  }, [rechargeTarget])
+
+  const rechargeMut = useMutation({
+    mutationFn: (input: { id: string; cents: number }) =>
+      api<{ tokenBalance: number; costBalanceCents: number }>(
+        `/api/developer/relay/keys/${input.id}/recharge`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ costDeltaCents: input.cents, tokenDelta: input.cents }),
+        },
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['developer', 'relay', 'keys'] })
+      toast.success(t('rechargeOk'))
+      setRechargeTarget(null)
+      setRechargeAmount('')
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -377,6 +421,17 @@ export default function RelayKeysPage() {
                       </p>
                     </div>
                     <div className="flex shrink-0 gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setRechargeTarget({ id: k.id, name: k.name })
+                          setRechargeAmount('')
+                        }}
+                      >
+                        <Wallet className="h-3.5 w-3.5" aria-hidden />
+                        <span>{t('recharge')}</span>
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"
@@ -579,6 +634,56 @@ export default function RelayKeysPage() {
         keyId={useTarget?.id ?? ''}
         keyName={useTarget?.name ?? ''}
       />
+      {rechargeTarget && (
+        <Dialog open onOpenChange={(o) => !o && setRechargeTarget(null)}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>{t('rechargeTitle', { name: rechargeTarget.name })}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 py-2">
+              <div className="text-sm text-muted-foreground">
+                {t('walletBalance')}:
+                <span className="ml-1 font-medium text-foreground">
+                  {walletBalance === null ? '...' : money.format(walletBalance / 100)}
+                </span>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="recharge-amount">{t('rechargeAmountLabel')}</Label>
+                <Input
+                  id="recharge-amount"
+                  inputMode="decimal"
+                  placeholder={t('rechargeAmountPlaceholder')}
+                  value={rechargeAmount}
+                  onChange={(e) => setRechargeAmount(e.target.value)}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">{t('rechargeHint')}</p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRechargeTarget(null)}>
+                {tc('cancel')}
+              </Button>
+              <Button
+                disabled={rechargeMut.isPending || !rechargeAmount}
+                onClick={() => {
+                  const yuan = Number(rechargeAmount)
+                  if (!Number.isFinite(yuan) || yuan <= 0) {
+                    toast.error(t('rechargeInvalid'))
+                    return
+                  }
+                  rechargeMut.mutate({
+                    id: rechargeTarget.id,
+                    cents: Math.round(yuan * 100),
+                  })
+                }}
+              >
+                {rechargeMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {t('rechargeConfirm')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
       <ConfirmDialogRenderer />
     </div>
   )

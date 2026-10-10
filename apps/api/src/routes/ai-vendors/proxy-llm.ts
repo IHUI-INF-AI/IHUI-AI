@@ -105,7 +105,7 @@ const agnesImageBody = z.object({
   n: z.number().int().min(1).max(10).optional(),
 })
 
-// 极速 API 生图:OpenAI images 协议(gpt-image-2.5 系列,返回 b64_json 内联,2026-09-20 实测)
+// New API 生图:OpenAI images 协议(gpt-image-2 系列,返回 b64_json 内联,2026-10-09 实测)
 const x5m5xImageBody = z.object({
   prompt: z.string().optional(),
   model: z.string().optional(),
@@ -131,24 +131,24 @@ export function inferPointsMultiplier(modelId: string): number {
   const mid = (modelId || '').toLowerCase()
   // 智汇AI 官方中转模型(ihui/ 前缀):付费模型,按档位映射积分倍数
   const IHUI_POINTS_MAP: Record<string, number> = {
-    // 倍率 = 极速扣费比例 × 3(统一利润系数),2026-08-31 按官方套餐扣费比例重配
-    'ihui/auto-model': 3, // 极速扣费 1:1
-    'ihui/minimax-m2.7': 6, // 极速扣费 1:2
-    'ihui/minimax-m2.7-highspeed': 15, // 极速扣费 1:5
-    'ihui/minimax-m3': 15, // 极速扣费 1:5
-    'ihui/deepseek-v4-flash-0731': 15, // 极速扣费 1:5
-    'ihui/glm-5.1': 18, // 极速扣费 1:6
-    'ihui/glm-5.2': 18, // 极速扣费 1:6
-    'ihui/glm-5.3-flash': 18, // 极速扣费 1:6
-    'ihui/kimi-k2.6': 18, // 极速扣费 1:6
-    'ihui/deepseek-v4-pro': 18, // 极速扣费 1:6
-    'ihui/deepseek-v4-pro-0813': 18, // 极速扣费 1:6
-    'ihui/grok-4.5': 18, // 极速扣费 1:6(未列套餐,按次旗舰估)
-    'ihui/glm-5.3': 30, // 极速扣费 1:10
-    'ihui/gpt-5.6': 30, // 极速扣费 1:10
-    'ihui/grok-4.6': 30, // 极速扣费 1:10
-    'ihui/qwen3.7-max': 30, // 极速扣费 1:10
-    'ihui/kimi-k2.7-code': 30, // 极速扣费 1:10
+    // 倍率 = 上游扣费比例 × 3(统一利润系数),2026-08-31 按官方套餐扣费比例重配
+    'ihui/auto-model': 3, // 上游扣费 1:1
+    'ihui/minimax-m2.7': 6, // 上游扣费 1:2
+    'ihui/minimax-m2.7-highspeed': 15, // 上游扣费 1:5
+    'ihui/minimax-m3': 15, // 上游扣费 1:5
+    'ihui/deepseek-v4-flash-0731': 15, // 上游扣费 1:5
+    'ihui/glm-5.1': 18, // 上游扣费 1:6
+    'ihui/glm-5.2': 18, // 上游扣费 1:6
+    'ihui/glm-5.3-flash': 18, // 上游扣费 1:6
+    'ihui/kimi-k2.6': 18, // 上游扣费 1:6
+    'ihui/deepseek-v4-pro': 18, // 上游扣费 1:6
+    'ihui/deepseek-v4-pro-0813': 18, // 上游扣费 1:6
+    'ihui/grok-4.5': 18, // 上游扣费 1:6(未列套餐,按次旗舰估)
+    'ihui/glm-5.3': 30, // 上游扣费 1:10
+    'ihui/gpt-5.6': 30, // 上游扣费 1:10
+    'ihui/grok-4.6': 30, // 上游扣费 1:10
+    'ihui/qwen3.7-max': 30, // 上游扣费 1:10
+    'ihui/kimi-k2.7-code': 30, // 上游扣费 1:10
   }
   if (IHUI_POINTS_MAP[mid] !== undefined) return IHUI_POINTS_MAP[mid]
   // 优先 mini/nano/haiku(避免 gpt-4o-mini 被标准层 gpt-4o 遮蔽,o1-mini 被 o1 遮蔽)
@@ -416,24 +416,24 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // 极速 API(x5m5x 中转站)— 2 端点
+  // New API 站(x5m5x 中转站)— 2 端点
   server.post(
     '/x5m5x/chat',
     {
       schema: buildSchema({
-        summary: '极速 API 对话补全',
+        summary: 'New API 对话补全',
         description:
           '代理调用 x5m5x /v1/chat/completions(OpenAI 协议,按量 key),支持模型: ' +
-          'deepseek-v4-flash-0731 / glm-5.3 / gpt-5.6 / gpt-5.5 / qwen3.8-flash / qwen3.8-max / ' +
-          'grok-4.6 / claude-opus-5 / gemini-3.6 / kimi 等 41 个(2026-09-20 实测)',
-        tags: ['AI', '极速API'],
+          'glm-5.3 / glm-5.3-flash / qwen3.8-flash / deepseek-v4.1-flash / gemini-3.8-flash / ' +
+          'grok-4.7 / kimi-k3 等 42 个(2026-10-09 new api 实测)',
+        tags: ['AI', 'NewAPI'],
         body: chatBody,
       }),
     },
     async (request, reply) => {
       const body = chatBody.parse(request.body)
       if (!(await ensurePointsBalance(request, reply, body.model ?? ''))) return
-      const data = await callVendor('x5m5x', 'https://api.x5m5x.com/v1/chat/completions', reply, {
+      const data = await callVendor('x5m5x', 'https://new.x5m5x.com/v1/chat/completions', reply, {
         method: 'POST',
         body: JSON.stringify(body),
       })
@@ -448,14 +448,14 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     '/x5m5x/models',
     {
       schema: buildSchema({
-        summary: '极速 API 模型列表(按量 key)',
+        summary: 'New API 模型列表(按量 key)',
         description:
-          '代理调用 x5m5x /v1/models 接口动态获取官方全量模型(2026-09-20 实测 41 个 LLM)',
-        tags: ['AI', '极速API'],
+          '代理调用 x5m5x /v1/models 接口动态获取官方全量模型(2026-10-09 new api 实测 42 个)',
+        tags: ['AI', 'NewAPI'],
       }),
     },
     async (_request, reply) => {
-      const data = await callVendor('x5m5x', 'https://api.x5m5x.com/v1/models', reply, {
+      const data = await callVendor('x5m5x', 'https://new.x5m5x.com/v1/models', reply, {
         method: 'GET',
       })
       if (data === null) return
@@ -467,12 +467,12 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     '/x5m5x/image',
     {
       schema: buildSchema({
-        summary: '极速 API 文生图',
+        summary: 'New API 文生图',
         description:
           '代理调用 x5m5x /v1/images/generations(OpenAI images 协议,生图 key),' +
-          '支持模型: gpt-image-2.5-flare(默认,实测出图)/ gpt-image-2.5-sunburst / gpt-image-2.5;' +
+          '支持模型: gpt-image-2(默认,实测出图)/ gpt-image-2.5;' +
           '返回 b64_json 内联数据(非 URL),前端需转 data URI 展示',
-        tags: ['AI', '极速API'],
+        tags: ['AI', 'NewAPI'],
         body: x5m5xImageBody,
       }),
     },
@@ -480,14 +480,14 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
       const body = x5m5xImageBody.parse(request.body)
       const payload = {
         prompt: body.prompt ?? '',
-        model: body.model ?? 'gpt-image-2.5-flare',
+        model: body.model ?? 'gpt-image-2',
         size: body.size ?? '1024x1024',
         ...(body.n ? { n: body.n } : {}),
       }
       // 生图同步出图,timeout 120s 防误断(b64 内联数据传输较慢)
       const data = await callVendor(
         'x5m5xImage',
-        'https://api.x5m5x.com/v1/images/generations',
+        'https://new.x5m5x.com/v1/images/generations',
         reply,
         { method: 'POST', body: JSON.stringify(payload) },
         120_000,
@@ -497,7 +497,7 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
       const errObj = (data as { error?: { message?: string } | string }).error
       if (errObj) {
         const msg = typeof errObj === 'string' ? errObj : errObj.message || JSON.stringify(errObj)
-        return reply.status(502).send(error(502, `极速 API 生图失败: ${msg.slice(0, 300)}`))
+        return reply.status(502).send(error(502, `New API 生图失败: ${msg.slice(0, 300)}`))
       }
       // 同步接口:任务创建后直接落终态 succeeded,前端复用 /tasks/:taskId 轮询模式
       const task = createTask(request.userId!, 'x5m5xImage', 'image', data)
@@ -511,14 +511,14 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     '/x5m5x-image/models',
     {
       schema: buildSchema({
-        summary: '极速 API 模型列表(生图 key)',
+        summary: 'New API 模型列表(生图 key)',
         description:
-          '代理调用 x5m5x /v1/models 接口(生图 key 鉴权)动态获取官方全量生图模型(gpt-image-2.5 系列)',
-        tags: ['AI', '极速API'],
+          '代理调用 x5m5x /v1/models 接口(生图 key 鉴权)动态获取官方全量生图模型(gpt-image-2 系列)',
+        tags: ['AI', 'NewAPI'],
       }),
     },
     async (_request, reply) => {
-      const data = await callVendor('x5m5xImage', 'https://api.x5m5x.com/v1/models', reply, {
+      const data = await callVendor('x5m5xImage', 'https://new.x5m5x.com/v1/models', reply, {
         method: 'GET',
       })
       if (data === null) return
@@ -526,17 +526,17 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // 极速 API 订阅 key — Auto-Model 专属端点
+  // New API 订阅通道(2026-10-09: new api 无独立订阅 key,与按量同源)
   server.post(
     '/x5m5x-subscribe/chat',
     {
       schema: buildSchema({
-        summary: '极速 API 订阅 key 对话补全',
+        summary: 'New API 订阅 key 对话补全',
         description:
-          '代理调用 x5m5x /v1/chat/completions(OpenAI 协议,订阅 key),专供 11 个 Auto-Model: ' +
-          'glm-5.3 / deepseek-v4-flash-0731 / gpt-5.6 / grok-4.6 / glm-5.3-flash / MiniMax-M2.7 / ' +
-          'qwen3.8-flash / qwen3.8-max / gpt-6-astra / deepseek-v4.1-flash / glm-5.3-flashx',
-        tags: ['AI', '极速API'],
+          '代理调用 x5m5x /v1/chat/completions([OI] 协议,订阅通道,与按量同源 key/清单): ' +
+          'glm-5.3 / glm-5.3-flash / qwen3.8-flash / deepseek-v4.1-flash / gemini-3.8-flash / grok-4.7 / kimi-k3 等',
+
+        tags: ['AI', 'NewAPI'],
         body: chatBody,
       }),
     },
@@ -545,7 +545,7 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
       if (!(await ensurePointsBalance(request, reply, body.model ?? ''))) return
       const data = await callVendor(
         'x5m5xSubscribe',
-        'https://api.x5m5x.com/v1/chat/completions',
+        'https://new.x5m5x.com/v1/chat/completions',
         reply,
         { method: 'POST', body: JSON.stringify(body) },
       )
@@ -560,14 +560,14 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     '/x5m5x-subscribe/models',
     {
       schema: buildSchema({
-        summary: '极速 API 模型列表(订阅 key)',
+        summary: 'New API 模型列表(订阅 key)',
         description:
-          '代理调用 x5m5x /v1/models 接口(订阅 key 鉴权)动态获取官方全量模型(含 11 个 Auto-Model)',
-        tags: ['AI', '极速API'],
+          '代理调用 x5m5x /v1/models 接口(订阅 key 鉴权)动态获取官方全量模型(2026-10-09 new api 实测 42 个)',
+        tags: ['AI', 'NewAPI'],
       }),
     },
     async (_request, reply) => {
-      const data = await callVendor('x5m5xSubscribe', 'https://api.x5m5x.com/v1/models', reply, {
+      const data = await callVendor('x5m5xSubscribe', 'https://new.x5m5x.com/v1/models', reply, {
         method: 'GET',
       })
       if (data === null) return

@@ -404,6 +404,7 @@
     "skillsLoaded": "\n已加載 {count} 個 skill:",
     "skillsSourceLine": "    來源: {source}",
     "skillShowDesc": "查看指定 skill 的內容",
+    "skillShadowReportDesc": "讀取 allowed-tools 影子記帳紀錄(只記不擋,尚未生效)",
     "skillNotFound": "未找到 skill: {name}",
     "skillSourceDetail": "來源: {source}",
     "skillDescriptionLine": "描述: {description}\n",
