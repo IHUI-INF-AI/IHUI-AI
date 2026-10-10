@@ -41,6 +41,16 @@ const createPackageSchema = z.object({
   interval: z.enum(['month', 'year']),
   features: z.array(z.string()).max(100).default([]),
   sortOrder: z.number().int().default(0),
+  // 结构化商品字段(2026-10-09):API 订阅套餐必填面(窗口限额/白名单/原价/有效期)
+  billingPeriod: z.enum(['day', 'week', 'month', 'year']).optional(),
+  validityDays: z.number().int().min(0).max(3650).optional(),
+  originalPrice: z.number().int().min(0).optional(),
+  dailyTokenLimit: z.number().int().min(-1).optional(),
+  weeklyTokenLimit: z.number().int().min(-1).optional(),
+  monthlyTokenLimit: z.number().int().min(-1).optional(),
+  modelWhitelist: z.array(z.string().max(128)).max(128).optional(),
+  isForSale: z.boolean().optional(),
+  isActive: z.boolean().optional(),
 })
 
 const updatePackageSchema = z.object({
@@ -51,6 +61,14 @@ const updatePackageSchema = z.object({
   features: z.array(z.string()).max(100).optional(),
   isActive: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
+  billingPeriod: z.enum(['day', 'week', 'month', 'year']).optional(),
+  validityDays: z.number().int().min(0).max(3650).optional(),
+  originalPrice: z.number().int().min(0).optional(),
+  dailyTokenLimit: z.number().int().min(-1).optional(),
+  weeklyTokenLimit: z.number().int().min(-1).optional(),
+  monthlyTokenLimit: z.number().int().min(-1).optional(),
+  modelWhitelist: z.array(z.string().max(128)).max(128).optional(),
+  isForSale: z.boolean().optional(),
 })
 
 const billingQuerySchema = z.object({

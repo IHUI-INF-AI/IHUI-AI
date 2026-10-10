@@ -105,7 +105,7 @@ const agnesImageBody = z.object({
   n: z.number().int().min(1).max(10).optional(),
 })
 
-// New API 生图:OpenAI images 协议(gpt-image-2.5 系列,返回 b64_json 内联,2026-09-20 实测)
+// New API 生图:OpenAI images 协议(gpt-image-2 系列,返回 b64_json 内联,2026-10-09 实测)
 const x5m5xImageBody = z.object({
   prompt: z.string().optional(),
   model: z.string().optional(),
@@ -424,8 +424,8 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
         summary: 'New API 对话补全',
         description:
           '代理调用 x5m5x /v1/chat/completions(OpenAI 协议,按量 key),支持模型: ' +
-          'deepseek-v4-flash-0731 / glm-5.3 / gpt-5.6 / gpt-5.5 / qwen3.8-flash / qwen3.8-max / ' +
-          'grok-4.6 / claude-opus-5 / gemini-3.6 / kimi 等 41 个(2026-09-20 实测)',
+          'glm-5.3 / glm-5.3-flash / qwen3.8-flash / deepseek-v4.1-flash / gemini-3.8-flash / ' +
+          'grok-4.7 / kimi-k3 等 42 个(2026-10-09 new api 实测)',
         tags: ['AI', 'NewAPI'],
         body: chatBody,
       }),
@@ -433,7 +433,7 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const body = chatBody.parse(request.body)
       if (!(await ensurePointsBalance(request, reply, body.model ?? ''))) return
-      const data = await callVendor('x5m5x', 'https://api.x5m5x.com/v1/chat/completions', reply, {
+      const data = await callVendor('x5m5x', 'https://new.x5m5x.com/v1/chat/completions', reply, {
         method: 'POST',
         body: JSON.stringify(body),
       })
@@ -450,12 +450,12 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
       schema: buildSchema({
         summary: 'New API 模型列表(按量 key)',
         description:
-          '代理调用 x5m5x /v1/models 接口动态获取官方全量模型(2026-09-20 实测 41 个 LLM)',
+          '代理调用 x5m5x /v1/models 接口动态获取官方全量模型(2026-10-09 new api 实测 42 个)',
         tags: ['AI', 'NewAPI'],
       }),
     },
     async (_request, reply) => {
-      const data = await callVendor('x5m5x', 'https://api.x5m5x.com/v1/models', reply, {
+      const data = await callVendor('x5m5x', 'https://new.x5m5x.com/v1/models', reply, {
         method: 'GET',
       })
       if (data === null) return
@@ -470,7 +470,7 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
         summary: 'New API 文生图',
         description:
           '代理调用 x5m5x /v1/images/generations(OpenAI images 协议,生图 key),' +
-          '支持模型: gpt-image-2.5-flare(默认,实测出图)/ gpt-image-2.5-sunburst / gpt-image-2.5;' +
+          '支持模型: gpt-image-2(默认,实测出图)/ gpt-image-2.5;' +
           '返回 b64_json 内联数据(非 URL),前端需转 data URI 展示',
         tags: ['AI', 'NewAPI'],
         body: x5m5xImageBody,
@@ -480,14 +480,14 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
       const body = x5m5xImageBody.parse(request.body)
       const payload = {
         prompt: body.prompt ?? '',
-        model: body.model ?? 'gpt-image-2.5-flare',
+        model: body.model ?? 'gpt-image-2',
         size: body.size ?? '1024x1024',
         ...(body.n ? { n: body.n } : {}),
       }
       // 生图同步出图,timeout 120s 防误断(b64 内联数据传输较慢)
       const data = await callVendor(
         'x5m5xImage',
-        'https://api.x5m5x.com/v1/images/generations',
+        'https://new.x5m5x.com/v1/images/generations',
         reply,
         { method: 'POST', body: JSON.stringify(payload) },
         120_000,
@@ -513,12 +513,12 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
       schema: buildSchema({
         summary: 'New API 模型列表(生图 key)',
         description:
-          '代理调用 x5m5x /v1/models 接口(生图 key 鉴权)动态获取官方全量生图模型(gpt-image-2.5 系列)',
+          '代理调用 x5m5x /v1/models 接口(生图 key 鉴权)动态获取官方全量生图模型(gpt-image-2 系列)',
         tags: ['AI', 'NewAPI'],
       }),
     },
     async (_request, reply) => {
-      const data = await callVendor('x5m5xImage', 'https://api.x5m5x.com/v1/models', reply, {
+      const data = await callVendor('x5m5xImage', 'https://new.x5m5x.com/v1/models', reply, {
         method: 'GET',
       })
       if (data === null) return
@@ -526,16 +526,16 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // New API 订阅 key — Auto-Model 专属端点
+  // New API 订阅通道(2026-10-09: new api 无独立订阅 key,与按量同源)
   server.post(
     '/x5m5x-subscribe/chat',
     {
       schema: buildSchema({
         summary: 'New API 订阅 key 对话补全',
         description:
-          '代理调用 x5m5x /v1/chat/completions(OpenAI 协议,订阅 key),专供 11 个 Auto-Model: ' +
-          'glm-5.3 / deepseek-v4-flash-0731 / gpt-5.6 / grok-4.6 / glm-5.3-flash / MiniMax-M2.7 / ' +
-          'qwen3.8-flash / qwen3.8-max / gpt-6-astra / deepseek-v4.1-flash / glm-5.3-flashx',
+          '代理调用 x5m5x /v1/chat/completions([OI] 协议,订阅通道,与按量同源 key/清单): ' +
+          'glm-5.3 / glm-5.3-flash / qwen3.8-flash / deepseek-v4.1-flash / gemini-3.8-flash / grok-4.7 / kimi-k3 等',
+
         tags: ['AI', 'NewAPI'],
         body: chatBody,
       }),
@@ -545,7 +545,7 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
       if (!(await ensurePointsBalance(request, reply, body.model ?? ''))) return
       const data = await callVendor(
         'x5m5xSubscribe',
-        'https://api.x5m5x.com/v1/chat/completions',
+        'https://new.x5m5x.com/v1/chat/completions',
         reply,
         { method: 'POST', body: JSON.stringify(body) },
       )
@@ -562,12 +562,12 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
       schema: buildSchema({
         summary: 'New API 模型列表(订阅 key)',
         description:
-          '代理调用 x5m5x /v1/models 接口(订阅 key 鉴权)动态获取官方全量模型(含 11 个 Auto-Model)',
+          '代理调用 x5m5x /v1/models 接口(订阅 key 鉴权)动态获取官方全量模型(2026-10-09 new api 实测 42 个)',
         tags: ['AI', 'NewAPI'],
       }),
     },
     async (_request, reply) => {
-      const data = await callVendor('x5m5xSubscribe', 'https://api.x5m5x.com/v1/models', reply, {
+      const data = await callVendor('x5m5xSubscribe', 'https://new.x5m5x.com/v1/models', reply, {
         method: 'GET',
       })
       if (data === null) return

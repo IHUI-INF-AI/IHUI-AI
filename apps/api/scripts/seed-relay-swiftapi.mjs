@@ -4,7 +4,7 @@
 
 // 中转站上游号池种子脚本(2026-09-13):极速API(x5m5x.com)接入
 // - 启用 ai_model_config#31(swiftapi)
-// - key 池写 5 条端点条目(api/de-api/us-api/fr-api/hk-api,extraMetadata.baseUrl 覆盖)
+// - key 池写 2 条端点条目(new/us-new,extraMetadata.baseUrl 覆盖)
 // - 写 16 个模型到 ai_model_config_models(is_relay_public=true)
 // - 建 least-latency 渠道组 upstream-pool 并挂 swiftapi keys
 // 幂等:重复执行先清旧 swiftapi key 条目与组成员、模型按 (config_id, model_id) 去重。
@@ -49,31 +49,47 @@ const API_KEY = process.env.RELAY_SWIFTAPI_API_KEY || ''
 if (!API_KEY.startsWith('sk-')) throw new Error('RELAY_SWIFTAPI_API_KEY env var required')
 const PROVIDER = 'swiftapi'
 const ENDPOINTS = [
-  { ep: 'api', url: 'https://api.x5m5x.com/v1', weight: 5, priority: 0 },
-  { ep: 'de-api', url: 'https://de-api.x5m5x.com/v1', weight: 4, priority: 1 },
-  { ep: 'us-api', url: 'https://us-api.x5m5x.com/v1', weight: 3, priority: 2 },
-  { ep: 'fr-api', url: 'https://fr-api.x5m5x.com/v1', weight: 2, priority: 3 },
-  { ep: 'hk-api', url: 'https://hk-api.x5m5x.com/v1', weight: 1, priority: 4 },
+  { ep: 'new', url: 'https://new.x5m5x.com/v1', weight: 5, priority: 0 },
+  { ep: 'us-new', url: 'https://us-new.x5m5x.com/v1', weight: 4, priority: 1 },
 ]
 // cf-api 有 Cloudflare WAF UA 过滤(服务端 fetch 会 403),不入池;其余 3 把密钥
 // (按量/订阅/Auto-Model)由用户在 admin 后台追加为独立 key 条目即可,脚本结构不变。
 const MODELS = [
-  'Auto-Model',
-  'MiniMax-M2.7',
-  'MiniMax-M2.7-highspeed',
-  'MiniMax-M3',
   'deepseek-v4-flash-0731',
   'deepseek-v4-pro-0813',
   'deepseek-v4.1-flash',
+  'deepseek-v4-flash-0731:free',
+  'deepseek-v3.2',
   'glm-5.1',
   'glm-5.2',
   'glm-5.3',
   'glm-5.3-flash',
-  'gpt-5.6',
-  'grok-4.6',
+  'glm-5.3-flashx',
   'hy4-preview',
-  'kimi-k2.6',
+  'hy3',
+  'hy4',
+  'kimi-k3',
   'kimi-k2.7-code',
+  'mimo-v2.5',
+  'mimo-v2.6-flash',
+  'minimax-m3',
+  'qwen3.7-max',
+  'qwen3.8-max',
+  'qwen3.8-flash',
+  'gemini-3.6-flash',
+  'gemini-3.7-flash',
+  'gemini-3.8-flash',
+  'gpt-5.6-luna',
+  'gpt-5.6-sol',
+  'gpt-5.6-terra',
+  'gpt-6-astra',
+  'gpt-6-luna',
+  'gpt-6-sol',
+  'gpt-6.1-sol',
+  'gpt-image-2',
+  'gpt-image-2.5',
+  'grok-4.6',
+  'grok-4.7',
 ]
 const GROUP_NAME = 'upstream-pool'
 
@@ -81,13 +97,15 @@ const sql = postgres(DB, { max: 1 })
 
 try {
   await sql.begin(async (tx) => {
-    // 1. 启用 config 31
+    // 1. 启用 swiftapi config(带 /v1 的行是模型上架主体;根路径行仅刷新 base_url)
     const cfg = await tx`
-      UPDATE ai_model_config SET enabled=true, model_id_for_test='glm-5.3-flash', updated_at=now()
-      WHERE provider_code=${PROVIDER} RETURNING id, name`
+      UPDATE ai_model_config SET enabled=true, model_id_for_test='glm-5.3-flash', updated_at=now(),
+        base_url = CASE WHEN base_url LIKE '%/v1' THEN 'https://new.x5m5x.com/v1' ELSE 'https://new.x5m5x.com' END
+      WHERE provider_code=${PROVIDER} RETURNING id, name, base_url`
     if (cfg.length === 0) throw new Error('swiftapi config row not found (expected id=31)')
-    const configId = cfg[0].id
-    console.log(`[1] config enabled: id=${configId} name=${cfg[0].name}`)
+    const cfgRow = cfg.find((c) => c.base_url.endsWith('/v1')) ?? cfg[0]
+    const configId = cfgRow.id
+    console.log(`[1] config enabled: id=${configId} name=${cfgRow.name} base_url=${cfgRow.base_url}`)
 
     // 2. 清旧 swiftapi key 条目(及组成员,靠应用层先删)
     const oldIds = await tx`
@@ -105,7 +123,7 @@ try {
         INSERT INTO ai_relay_key_pool (provider_code, name, api_key_enc, key_prefix, priority, weight, is_enabled, extra_metadata, remark)
         VALUES (${PROVIDER}, ${`SwiftAPI ${e.ep}`}, ${enc}, ${`${API_KEY.slice(0, 6)}***${API_KEY.slice(-4)}`},
                 ${e.priority}, ${e.weight}, true, ${tx.json({ baseUrl: e.url })},
-                ${`极速API 端点 ${e.ep}(测速报告 2026-09-12 v3:均零失败;cf-api 因 WAF 未入池)`})
+                ${`极速API 端点 ${e.ep}(2026-10-08 更换 new api:new/us-new 双端点)`})
         RETURNING id`
       keyIds.push(r[0].id)
     }
@@ -129,7 +147,7 @@ try {
     let upserted = 0
     for (let i = 0; i < MODELS.length; i++) {
       const m = MODELS[i]
-      const r = await tx`SELECT id FROM ai_model_config_models WHERE config_id=${configId} AND model_id=${m}`
+      const r = await tx`SELECT id FROM ai_model_config_models WHERE config_id=${configId} AND lower(model_id)=lower(${m})`
       if (r.length > 0) {
         await tx`
           UPDATE ai_model_config_models
@@ -143,6 +161,30 @@ try {
       upserted++
     }
     console.log(`[5] models upserted: ${upserted}`)
+
+    // 6. 下架不在当前上游列表的遗留模型(避免中转站展示已不存在的模型)
+    const currentLower = MODELS.map((m) => m.toLowerCase())
+    const retired = await tx`
+      UPDATE ai_model_config_models
+      SET enabled=false, is_relay_public=false, updated_at=now()
+      WHERE config_id=${configId} AND is_relay_public=true
+        AND lower(model_id) <> ALL(${currentLower})
+      RETURNING model_id`
+    if (retired.length > 0) console.log(`[6] retired stale models: ${retired.map((r) => r.model_id).join(', ')}`)
+
+    // 7. 下架根路径 config(订阅/Auto-Model 场景)的全部 relay-public 旧模型:
+    //    new api 无 Auto-Model,这批行会以重复 modelId 污染公开目录(2026-10-09)
+    const rootIds = await tx`
+      SELECT id FROM ai_model_config WHERE provider_code=${PROVIDER} AND base_url NOT LIKE '%/v1'`
+    let rootRetired = 0
+    for (const rc of rootIds) {
+      const r = await tx`
+        UPDATE ai_model_config_models
+        SET enabled=false, is_relay_public=false, updated_at=now()
+        WHERE config_id=${rc.id} AND is_relay_public=true`
+      rootRetired += r.count
+    }
+    if (rootRetired > 0) console.log(`[7] retired root-config relay models: ${rootRetired}`)
   })
   console.log('SEED_OK')
 } catch (err) {
