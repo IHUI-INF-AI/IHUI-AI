@@ -26,6 +26,14 @@ vi.mock('@ihui/api-client', () => ({
   streamChat: streamChatMock,
   setBaseUrl: vi.fn(),
   setTokenProvider: vi.fn(),
+  // [调和 2026-10-11] G-916940③(e0f1e578ca)起 runToolLoop 无条件引用容量出口
+  // (src/commands/agent.ts:1586 `opts.contextLimit ?? getModelContextCapacity(opts.modelId)`),
+  // 而本 mock 工厂只给了网络边界四个导出 —— 缺这一项时本用例三条都在 runToolLoop
+  // 启动行(102/127/145/159)崩于 "No \"getModelContextCapacity\" export is defined on
+  // the \"@ihui/api-client\" mock",与 CI 红点逐行吻合。桩值 128_000 与真实出口对未知
+  // modelId('test')的回落档等值(model-context-capacity.ts: DEFAULT_CONTEXT_CAPACITY
+  // = 128_000),复用既有缺省语义而非新造档位;判据本体(帧时序/载荷/seq)一字未放宽。
+  getModelContextCapacity: () => 128_000,
   formatSSEError: (err: unknown) => ({
     severity: 'unknown' as const,
     title: 'error',
