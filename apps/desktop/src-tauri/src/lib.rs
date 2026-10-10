@@ -3324,6 +3324,7 @@ pub fn run() {
             // 2026-10-09 签到捕获(WP-C):7 条命令,判据与执行都在 checkin_capture.rs,这里只注册。
             checkin_capture::checkin_detect_trae_dir,
             checkin_capture::checkin_capture_jwts,
+            checkin_capture::checkin_capture_qoder,
             checkin_capture::checkin_reset_device_ids,
             checkin_capture::checkin_get_public_ip,
             checkin_capture::checkin_one_click_reset,
