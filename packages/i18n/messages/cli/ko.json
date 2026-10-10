@@ -404,6 +404,7 @@
     "skillsLoaded": "\n{count}개의 skill을 불러왔습니다:",
     "skillsSourceLine": "    출처: {source}",
     "skillShowDesc": "지정한 skill 내용 보기",
+    "skillShadowReportDesc": "allowed-tools 그림자 장부를 확인합니다(기록 전용, 차단 없음)",
     "skillNotFound": "skill을 찾을 수 없습니다: {name}",
     "skillSourceDetail": "출처: {source}",
     "skillDescriptionLine": "설명: {description}\n",
