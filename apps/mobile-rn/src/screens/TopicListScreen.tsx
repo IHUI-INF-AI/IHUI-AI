@@ -39,6 +39,7 @@ import { useTheme } from '../context/ThemeContext'
 import { usePaginatedList } from '../hooks'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
+import { NavChrome } from '../components/NavChrome'
 
 type Route = RouteProp<RootStackParamList, 'TopicList'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -169,7 +170,9 @@ export function TopicListScreen() {
 
   return (
     <View style={styles.container}>
-      <NavBar title={t('topic.list.pageTitle')} onBack={() => navigation.goBack()} />
+      <NavChrome>
+        <NavBar title={t('topic.list.pageTitle')} onBack={() => navigation.goBack()} />
+      </NavChrome>
       <FlatList
         data={items}
         keyExtractor={(item) => String(item.id)}
