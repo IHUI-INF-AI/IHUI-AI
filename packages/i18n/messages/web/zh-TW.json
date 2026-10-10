@@ -18869,7 +18869,20 @@
     "resultTitle": "執行結果",
     "resultOk": "成功",
     "resultFail": "失敗",
-    "restartHint": "如執行了登出/出廠重置：重新開啟 WorkBuddy 即按全新狀態啟動；出廠重置的隔離區路徑見 factory_reset 層詳情，把條目搬回原目錄即完整恢復。"
+    "restartHint": "如執行了登出/出廠重置：重新開啟 WorkBuddy 即按全新狀態啟動；出廠重置的隔離區路徑見 factory_reset 層詳情，把條目搬回原目錄即完整恢復。",
+    "quarantineTitle": "隔離區管理",
+    "quarantineDesc": "登出/出廠重置搬移的資料都在這裡，可一鍵原樣恢復；確認不要後可刪除釋放空間。",
+    "quarantineRefresh": "重新整理",
+    "quarantineEmpty": "暫無隔離區",
+    "qEntriesLabel": "條目",
+    "qRestore": "一鍵恢復",
+    "qDelete": "刪除",
+    "qDeleteConfirm": "刪除後資料不可找回，確認？",
+    "qRestored": "已恢復，探針與隔離區列表已重新整理。",
+    "qDeleted": "隔離區已刪除。",
+    "historyTitle": "操作歷史",
+    "historyEmpty": "暫無操作記錄",
+    "progressLabel": "執行進度"
   },
   "checkin": {
     "title": "簽到助手",
