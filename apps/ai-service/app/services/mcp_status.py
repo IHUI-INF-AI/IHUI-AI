@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 
@@ -46,7 +46,7 @@ _REQUEST_TIMEOUT_SECONDS = 5.0
 # 所以进程重启后清空是正确行为,不需要持久化。
 _last_state: dict[tuple[str, str], str] = {}
 # 强引用集合:asyncio 只弱引用 task,不托住就可能在派发前被 GC 掉(静默丢帧的一种常见成因)。
-_pending_tasks: set["asyncio.Task[None]"] = set()
+_pending_tasks: set[asyncio.Task[None]] = set()
 
 _dispatch_stats: dict[str, int] = {
     "sent": 0,
@@ -69,7 +69,7 @@ def reset_status_ledger() -> None:
         _dispatch_stats[key] = 0
 
 
-def _validate(state: str, attempt: Optional[int], max_attempts: Optional[int]) -> Optional[str]:
+def _validate(state: str, attempt: int | None, max_attempts: int | None) -> str | None:
     """返回拒发原因(None ⇒ 可以发)。
 
     未知 state 必须拒:消费端按 `state` 查五语言词表,未知档渲染出来是空白,
@@ -87,10 +87,10 @@ def report_mcp_status(
     server: str,
     state: str,
     *,
-    reason: Optional[str] = None,
-    attempt: Optional[int] = None,
-    max_attempts: Optional[int] = None,
-    tools: Optional[list[str]] = None,
+    reason: str | None = None,
+    attempt: int | None = None,
+    max_attempts: int | None = None,
+    tools: list[str] | None = None,
 ) -> bool:
     """记录一次 MCP 连接状态变更并派发到 apps/api 的下行入口。
 

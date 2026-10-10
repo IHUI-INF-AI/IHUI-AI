@@ -41,11 +41,11 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from typing import Any, Final, Literal, Protocol
 
-from app.core.turn_stop_reason import TurnStopReason
 from app.core.tunables import (
     GOAL_RUN_DIGEST_MAX_CHARS,
     GOAL_VERIFICATION_MAX_CONSECUTIVE_FAILURES,
 )
+from app.core.turn_stop_reason import TurnStopReason
 
 from .completion_verification import (
     CompletionVerification,

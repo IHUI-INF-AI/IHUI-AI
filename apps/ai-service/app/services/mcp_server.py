@@ -47,6 +47,7 @@ from .merge3 import resolve_conflicts as _merge3_resolve_conflicts
 # 批58(三十):敏感目录黑名单收敛为单一权威源(与 file_editor 共用同一常量与匹配函数)。
 # 此前本模块的路径校验完全不做敏感目录判定,导致三个写工具可写 .git/hooks/。
 from .path_guard import find_sensitive_segment, sensitive_error_message
+
 # V3 #75 后半:懒索引护栏用**枚举层同一份**有界探测出口(该模块只依赖标准库,
 # 无重依赖、无回环,所以可以在顶层 import;函数内再 import 一次只会造成两个出处)。
 from .rg_fallback_parity import SizeProbe, probe_code_file_count
@@ -1029,10 +1030,10 @@ async def _lazy_index_and_research(
     # 这两个下划线名是私有的,但复制它们的后果更严重 —— 护栏的分母与索引面一旦不是
     # 同一批文件,阈值就只是在量一个不存在的东西(本票修的正是这一型)。
     from .codebase_indexer import (
-        EMBEDDING_BATCH_SIZE,
-        MAX_FILES_PER_INDEX,
         _EXT_TO_LANG,
         _IGNORED_DIRS,
+        EMBEDDING_BATCH_SIZE,
+        MAX_FILES_PER_INDEX,
     )
 
     try:
@@ -2968,7 +2969,7 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
             _drain_stream(proc.stdout, stdout_lines, on_line=on_stdout_line),
             _drain_stream(proc.stderr, stderr_lines, on_line=on_stderr_line),
         )
-        _watcher: "asyncio.Future[None] | None" = None
+        _watcher: asyncio.Future[None] | None = None
         if _interaction_on and getattr(proc, "stdin", None) is not None:
             _watcher = asyncio.ensure_future(
                 _watch_terminal_input(proc, _activity, _inter_state, _terminal_id, _term_ctx, command)
@@ -5211,6 +5212,7 @@ from ..tools import (
 from ..tools import (  # noqa: E402
     generate_chart as _generate_chart,
 )
+
 # PROJECT_PLAN #81 最小一环:报表模板生成器(report_tools,同 chart 的零依赖路线)
 from ..tools import (  # noqa: E402
     generate_report as _generate_report,

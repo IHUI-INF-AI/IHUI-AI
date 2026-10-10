@@ -38,10 +38,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.core.jwt_auth import require_request_user_id
-from app.services import checkin_credits
-from app.services import checkin_qoder
+from app.services import checkin_credits, checkin_qoder, checkin_store
 from app.services import checkin_scheduler as checkin_scheduler_mod
-from app.services import checkin_store
 from app.services.checkin_engine import extract_user_id, get_jwt_exp
 
 router = APIRouter(prefix="/api/checkin", tags=["checkin"])

@@ -283,7 +283,7 @@ _LOADED_NAME_RE = _re.compile(r"loaded")
 _LOADED_ATTR_RE = _re.compile(r"_loaded$")
 
 
-def _assign_mark(node: "_ast.stmt") -> str | None:
+def _assign_mark(node: _ast.stmt) -> str | None:
     """`<obj>.<x>_loaded = True`(字面 True 常量)⇒ 返回属性名;否则 None。"""
     if not isinstance(node, _ast.Assign):
         return None
@@ -305,7 +305,7 @@ def find_unsafe_loaded_marks(source: str) -> list[dict[str, object]]:
     findings: list[dict[str, object]] = []
     tree = _ast.parse(source)
 
-    def blocks(node: "_ast.AST") -> list[list[_ast.stmt]]:
+    def blocks(node: _ast.AST) -> list[list[_ast.stmt]]:
         out: list[list[_ast.stmt]] = []
         for field in ("body", "orelse", "finalbody"):
             v = getattr(node, field, None)
