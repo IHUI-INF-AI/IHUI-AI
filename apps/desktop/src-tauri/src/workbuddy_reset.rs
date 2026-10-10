@@ -147,6 +147,32 @@ pub const QUARANTINE_PREFIX: &str = ".workbuddy-quarantine-";
 pub const QUARANTINE_MANIFEST: &str = "quarantine-manifest.json";
 /// 历史台账目录（顶层；分类判据落 user_asset 档，维护清理不动它）。
 pub const HISTORY_DIR: &str = "reset-history";
+/// 台账上限：只留最近 N 份，防止 reset-history 无限增长（真实文件名为 10 位 unix 秒，
+/// 字典序 == 数值序；超出按文件名升序即最旧的先删）。
+pub const HISTORY_KEEP: usize = 50;
+
+/// 台账裁剪：超出 keep 份时删除最旧的文件，返回删除数。
+pub fn prune_history(dir: &std::path::Path, keep: usize) -> usize {
+    let Ok(rd) = std::fs::read_dir(dir) else { return 0 };
+    let mut names: Vec<String> = rd
+        .flatten()
+        .filter(|e| e.path().is_file())
+        .map(|e| e.file_name().to_string_lossy().to_string())
+        .filter(|n| n.ends_with(".json"))
+        .collect();
+    if names.len() <= keep {
+        return 0;
+    }
+    names.sort();
+    let excess = names.len() - keep;
+    let mut removed = 0usize;
+    for n in names.into_iter().take(excess) {
+        if std::fs::remove_file(dir.join(&n)).is_ok() {
+            removed += 1;
+        }
+    }
+    removed
+}
 
 // ================== 分类判据（纯函数，可单测） ==================
 
@@ -607,6 +633,7 @@ fn write_history(root: &std::path::Path, mode: &str, report: &WbResetReport) {
         "summary": summary,
     });
     let _ = std::fs::write(dir.join(format!("{ts}-{mode}.json")), doc.to_string());
+    let _ = prune_history(&dir, HISTORY_KEEP);
 }
 
 // ================== 层① 维护清理 ==================
@@ -1284,6 +1311,23 @@ mod tests {
         assert_eq!(h.len(), 1, "维护清理必须留一档历史");
         assert_eq!(h[0].mode, "maintenance");
         assert!(h[0].ok);
+        cleanup(&fx);
+    }
+
+    #[test]
+    fn history_prune_keeps_newest_only() {
+        let fx = fixture_root("prune");
+        let dir = fx.join(HISTORY_DIR);
+        std::fs::create_dir_all(&dir).unwrap();
+        for i in 0..55u64 {
+            std::fs::write(dir.join(format!("{i:010}-maintenance.json")), "{}").unwrap();
+        }
+        assert_eq!(prune_history(&dir, HISTORY_KEEP), 5, "55 份必须裁掉最旧 5 份");
+        let left = std::fs::read_dir(&dir).unwrap().count();
+        assert_eq!(left, HISTORY_KEEP);
+        assert!(!dir.join("0000000000-maintenance.json").exists(), "最旧必须被删");
+        assert!(dir.join("0000000005-maintenance.json").exists(), "留下的必须是最新的");
+        assert_eq!(prune_history(&dir, HISTORY_KEEP), 0, "幂等:不超上限必须 0 删除");
         cleanup(&fx);
     }
 

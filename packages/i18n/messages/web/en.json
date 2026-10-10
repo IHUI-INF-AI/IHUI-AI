@@ -18897,7 +18897,16 @@
     "qDeleted": "Quarantine deleted.",
     "historyTitle": "Operation history",
     "historyEmpty": "No operations recorded yet",
-    "progressLabel": "Progress"
+    "progressLabel": "Progress",
+    "planPreview": "Preview plan",
+    "planTitle": "Plan preview (per-item progress is streamed at run time)",
+    "planActDeleteDir": "delete directory",
+    "planActDeleteFile": "delete file",
+    "planActQuarantine": "move to quarantine",
+    "planTruncated": "Showing the 8 largest items; see layer detail at run time for the rest.",
+    "planEmpty": "Nothing to do (nothing exists or already clean).",
+    "entriesShowAll": "Show all entries",
+    "entriesShowLess": "Show less"
   },
   "checkin": {
     "title": "Check-in Assistant",
