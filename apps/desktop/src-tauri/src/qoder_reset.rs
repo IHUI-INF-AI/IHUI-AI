@@ -26,8 +26,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::workbuddy_reset::{
-    prune_history, WbEntry, WbHistoryItem, WbLayerReport, WbPlanAction, WbPlanReport,
-    WbProgressCb, WbProgressEvent, WbProbeReport, WbQuarantineInfo, WbResetReport,
+    prune_history, WbEntry, WbHistoryItem, WbLayerReport, WbProgressCb, WbProgressEvent,
+    WbProbeReport, WbQuarantineInfo, WbResetReport,
 };
 use crate::IpcError;
 
@@ -47,10 +47,62 @@ pub const Q_MAINTENANCE_TOP_DIRS: &[&str] = &[
 pub const Q_AUTH_DIR: &str = ".auth";
 /// 根① 设备身份文件。
 pub const Q_DEVICE_ID_FILES: &[&str] = &["installation_id", "umid-cache.json"];
-/// 根②（Electron 壳）维护档整删子目录。
-pub const Q_MAINTENANCE_ROAMING_DIRS: &[&str] = &["Cache", "Code Cache", "GPUCache"];
+/// 根②（Electron 壳）维护档整删子目录（Electron 标准可再生缓存;存在才动,不存在即无操作;
+/// 2026-10-11 分层扩展:比照 workbuddy_reset 的 MAINTENANCE_APP_DIRS 粒度补齐）。
+pub const Q_MAINTENANCE_ROAMING_DIRS: &[&str] = &[
+    "Cache",
+    "Code Cache",
+    "GPUCache",
+    "Crashpad",
+    "DawnGraphiteCache",
+    "DawnWebGPUCache",
+    "DIPS",
+    "DIPS-wal",
+];
+/// Partitions/<p>/ 下 webview 可再生缓存子目录（维护档;登录态子目录一律不动;
+/// 比照 workbuddy_reset 的 MAINTENANCE_SESSION_DIRS 粒度)。
+pub const Q_MAINTENANCE_PARTITION_CACHE_DIRS: &[&str] = &[
+    "Cache",
+    "Code Cache",
+    "GPUCache",
+    "DawnGraphiteCache",
+    "DawnWebGPUCache",
+    "DIPS",
+    "DIPS-wal",
+];
 /// 根② webview 登录态目录。
 pub const Q_PARTITIONS_DIR: &str = "Partitions";
+
+// ================== 环境变量逃生门（应急禁用整个 Qoder 重置面） ==================
+
+/// 逃生门变量名:置任意非空且非 "0" 的值 → Qoder 重置的计划与执行全部拦截。
+/// 仓内 env 开关惯例为 IHUI_ 前缀(checkin_capture 的 IHUI_RESET_* / git 的 IHUI_GIT_BIN),
+/// WorkBuddy 重置版本身无禁用门,故按同前缀惯例命名;语义:禁用是安全侧,默认放行。
+pub const Q_RESET_DISABLE_ENV: &str = "IHUI_QODER_RESET_DISABLE";
+
+/// 逃生门判据（纯函数,reader 注入可单测）:置位 → Err(明确原因)。
+pub fn q_reset_gate_with(read: impl Fn(&str) -> Option<String>) -> Result<(), String> {
+    match read(Q_RESET_DISABLE_ENV) {
+        Some(v) if !v.trim().is_empty() && v.trim() != "0" => Err(format!(
+            "逃生门生效:环境变量 {Q_RESET_DISABLE_ENV}={v} 已置位,Qoder 重置的计划与执行已全部拦截;如需恢复,请移除该变量或将其设为 0"
+        )),
+        _ => Ok(()),
+    }
+}
+
+/// 真实逃生门读取（进程环境变量）。
+fn q_reset_gate() -> Result<(), String> {
+    q_reset_gate_with(|k| std::env::var(k).ok())
+}
+
+/// 根②维护档整删条目的中文理由（按名字细分,计划面透出）。
+fn roaming_maintenance_reason(name: &str) -> &'static str {
+    match name {
+        "Cache" | "Code Cache" | "GPUCache" => "Electron 渲染缓存,可再生,整删即回收",
+        "Crashpad" => "崩溃转储目录,可再生,整删即回收",
+        _ => "GPU/着色器缓存与 DIPS 记录,可再生,整删即回收",
+    }
+}
 /// 根① sanity 特征标记。
 pub const Q_SANITY_MARKERS_CN: &[&str] =
     &[".auth", "logs", "projects", "settings.json", "installation_id"];
@@ -179,10 +231,18 @@ struct QActionItem {
     qname: String,
     /// delete_file | delete_dir | quarantine
     action: &'static str,
+    /// 中文理由（该层为什么动/为什么属于此档,计划面透出）
+    reason: String,
     full: std::path::PathBuf,
 }
 
-fn list_children_delete_items(root: &std::path::Path, dir: &str, prefix: &str, out: &mut Vec<QActionItem>) {
+fn list_children_delete_items(
+    root: &std::path::Path,
+    dir: &str,
+    prefix: &str,
+    reason: &str,
+    out: &mut Vec<QActionItem>,
+) {
     if let Ok(rd) = std::fs::read_dir(root.join(dir)) {
         for e in rd.flatten() {
             let child = e.file_name().to_string_lossy().to_string();
@@ -192,19 +252,33 @@ fn list_children_delete_items(root: &std::path::Path, dir: &str, prefix: &str, o
                 orig: format!("{prefix}{dir}/{child}"),
                 qname: child,
                 action: if is_dir { "delete_dir" } else { "delete_file" },
+                reason: reason.to_string(),
                 full: e.path(),
             });
         }
     }
 }
 
-/// 维护档动作清单：根① 清空壳目录子条目 + 根② logs 子条目与三个 webview 缓存整删。
+/// 维护档动作清单：根① 清空壳目录子条目 + 根② logs 子条目与 webview 缓存整删
+/// + Partitions/<p>/ webview 可再生缓存子层（2026-10-11 分层扩展,登录态子目录不动）。
 fn build_maintenance_items(cn: &std::path::Path, roaming: &std::path::Path) -> Vec<QActionItem> {
     let mut items = Vec::new();
     for dir in Q_MAINTENANCE_TOP_DIRS {
-        list_children_delete_items(cn, dir, "cn/", &mut items);
+        list_children_delete_items(
+            cn,
+            dir,
+            "cn/",
+            "维护档:logs/tmp/编辑历史快照等可再生内容,清空即回收(目录壳保留)",
+            &mut items,
+        );
     }
-    list_children_delete_items(roaming, "logs", "roaming/", &mut items);
+    list_children_delete_items(
+        roaming,
+        "logs",
+        "roaming/",
+        "维护档:壳面日志,可再生,清空即回收(目录壳保留)",
+        &mut items,
+    );
     for name in Q_MAINTENANCE_ROAMING_DIRS {
         let dir = roaming.join(name);
         if dir.exists() {
@@ -213,8 +287,28 @@ fn build_maintenance_items(cn: &std::path::Path, roaming: &std::path::Path) -> V
                 orig: name.to_string(),
                 qname: (*name).to_string(),
                 action: "delete_dir",
+                reason: roaming_maintenance_reason(name).to_string(),
                 full: dir,
             });
+        }
+    }
+    // 分层扩展:Partitions/<p>/ 下 webview 可再生缓存子目录(维护档,登录态子目录不动)
+    if let Ok(rd) = std::fs::read_dir(roaming.join(Q_PARTITIONS_DIR)) {
+        for p in rd.flatten().filter(|e| e.path().is_dir()) {
+            let part = p.file_name().to_string_lossy().to_string();
+            for cache in Q_MAINTENANCE_PARTITION_CACHE_DIRS {
+                let dir = p.path().join(cache);
+                if dir.exists() {
+                    items.push(QActionItem {
+                        path: format!("roaming/Partitions/{part}/{cache}"),
+                        orig: format!("Partitions/{part}/{cache}"),
+                        qname: (*cache).to_string(),
+                        action: "delete_dir",
+                        reason: "webview 可再生缓存子目录,清理不触碰登录态(Local Storage/IndexedDB/Cookies 保留)".to_string(),
+                        full: dir,
+                    });
+                }
+            }
         }
     }
     items
@@ -230,6 +324,7 @@ fn build_logout_items(cn: &std::path::Path, roaming: &std::path::Path, include_d
             orig: Q_AUTH_DIR.to_string(),
             qname: Q_AUTH_DIR.to_string(),
             action: "quarantine",
+            reason: "登录凭据目录:隔离后 Qoder 下次启动回登录页,可从隔离区原样恢复".to_string(),
             full: auth,
         });
     }
@@ -240,6 +335,7 @@ fn build_logout_items(cn: &std::path::Path, roaming: &std::path::Path, include_d
             orig: Q_PARTITIONS_DIR.to_string(),
             qname: Q_PARTITIONS_DIR.to_string(),
             action: "quarantine",
+            reason: "webview 登录态整目录:隔离可逆,恢复即回到原登录态".to_string(),
             full: partitions,
         });
     }
@@ -252,6 +348,7 @@ fn build_logout_items(cn: &std::path::Path, roaming: &std::path::Path, include_d
                     orig: (*f).to_string(),
                     qname: (*f).to_string(),
                     action: "quarantine",
+                    reason: "设备身份文件:本地清除后 Qoder 下次启动自行重新注册,不做指纹伪造".to_string(),
                     full: p,
                 });
             }
@@ -271,6 +368,7 @@ fn build_factory_items(cn: &std::path::Path, roaming: &std::path::Path) -> Vec<Q
                 orig: name.clone(),
                 qname: name,
                 action: "quarantine",
+                reason: "出厂档:根①顶层条目整体隔离(可逆),应用下次启动重建全新状态".to_string(),
                 full: e.path(),
             });
         }
@@ -283,6 +381,7 @@ fn build_factory_items(cn: &std::path::Path, roaming: &std::path::Path) -> Vec<Q
                 orig: name.clone(),
                 qname: name,
                 action: "quarantine",
+                reason: "出厂档:根②顶层条目整体隔离(可逆),应用下次启动重建全新状态".to_string(),
                 full: e.path(),
             });
         }
@@ -685,7 +784,63 @@ pub fn qoder_factory_reset(
 
 // ================== 计划预览 / 探针 / 隔离区生命周期 / 历史 ==================
 
-pub fn qoder_plan(cn: &std::path::Path, roaming: &std::path::Path, mode: &str, include_device_id: bool) -> WbPlanReport {
+/// 单条计划动作（含中文理由,与执行判据同源）。
+#[derive(Debug, Clone, Serialize)]
+pub struct QPlanAction {
+    pub path: String,
+    /// delete_file | delete_dir | quarantine
+    pub action: &'static str,
+    pub size_mb: f64,
+    pub reason: String,
+}
+
+/// 保护面条目（声明不动什么;用户资产逐条列名,2026-10-11 分层扩展）。
+#[derive(Debug, Clone, Serialize)]
+pub struct QProtectedAsset {
+    pub path: String,
+    pub reason: String,
+    pub exists: bool,
+}
+
+/// 计划预览报告（执行前"会动什么/为什么/保护什么"的精确清单）。
+#[derive(Debug, Clone, Serialize)]
+pub struct QPlanReport {
+    /// maintenance | logout | factory
+    pub mode: String,
+    pub include_device_id: bool,
+    pub actions: Vec<QPlanAction>,
+    /// 资产保护层:任何档位都不动的用户资产(出厂档仅整体隔离、可原样恢复)
+    pub protected: Vec<QProtectedAsset>,
+    pub total_mb: f64,
+}
+
+/// 资产保护层清单（Qoder 双根实际存在的用户资产,照 workbuddy 的 user_asset 档粒度）。
+fn q_protected_assets(cn: &std::path::Path, roaming: &std::path::Path) -> Vec<QProtectedAsset> {
+    let defs: [(&str, &str, bool); 5] = [
+        ("cn/projects", "用户项目资产:维护/登出档不动;出厂档仅整体隔离且可原样恢复", false),
+        ("cn/plugins", "已安装插件资产:维护/登出档不动;出厂档仅整体隔离且可原样恢复", false),
+        ("cn/settings.json", "用户设置文件:维护/登出档不动;出厂档仅整体隔离且可原样恢复", false),
+        ("cn/memory.md", "记忆文件:维护/登出档不动;出厂档仅整体隔离且可原样恢复", false),
+        ("roaming/main.sqlite", "聊天记录(用户资产):维护/登出档不动;出厂档仅整体隔离且可原样恢复", true),
+    ];
+    defs.iter()
+        .map(|(path, reason, in_roaming)| {
+            let full = if *in_roaming {
+                roaming.join(path.trim_start_matches("roaming/"))
+            } else {
+                cn.join(path.trim_start_matches("cn/"))
+            };
+            QProtectedAsset {
+                path: (*path).to_string(),
+                reason: (*reason).to_string(),
+                exists: full.exists(),
+            }
+        })
+        .collect()
+}
+
+/// 计划预览:与执行层共用 build_*_items 判据,逐层带中文理由 + 保护面自动包含。
+pub fn qoder_plan(cn: &std::path::Path, roaming: &std::path::Path, mode: &str, include_device_id: bool) -> QPlanReport {
     let items = match mode {
         "logout" => build_logout_items(cn, roaming, include_device_id),
         "factory" => build_factory_items(cn, roaming),
@@ -700,16 +855,18 @@ pub fn qoder_plan(cn: &std::path::Path, roaming: &std::path::Path, mode: &str, i
             dir_size_recursive(&i.full)
         };
         total += size;
-        actions.push(WbPlanAction {
+        actions.push(QPlanAction {
             path: i.path.clone(),
             action: i.action,
             size_mb: size as f64 / 1048576.0,
+            reason: i.reason.clone(),
         });
     }
     actions.sort_by(|a, b| b.size_mb.partial_cmp(&a.size_mb).unwrap_or(std::cmp::Ordering::Equal));
-    WbPlanReport {
+    QPlanReport {
         mode: mode.to_string(),
         include_device_id,
+        protected: q_protected_assets(cn, roaming),
         total_mb: total as f64 / 1048576.0,
         actions,
     }
@@ -1018,7 +1175,8 @@ pub async fn qoder_reset_probe() -> Result<WbProbeReport, IpcError> {
 pub async fn qoder_reset_plan(
     mode: String,
     include_device_id: bool,
-) -> Result<WbPlanReport, IpcError> {
+) -> Result<QPlanReport, IpcError> {
+    q_reset_gate().map_err(IpcError::permission)?;
     let (cn, roaming) = q_resolve_both()?;
     q_sanity_both(&cn, &roaming)?;
     tauri::async_runtime::spawn_blocking(move || {
@@ -1033,6 +1191,7 @@ pub async fn qoder_reset_maintenance(
     kill_running: bool,
     on_progress: Channel<WbProgressEvent>,
 ) -> Result<WbResetReport, IpcError> {
+    q_reset_gate().map_err(IpcError::permission)?;
     let (cn, roaming) = q_resolve_both()?;
     q_sanity_both(&cn, &roaming)?;
     tauri::async_runtime::spawn_blocking(move || {
@@ -1049,6 +1208,7 @@ pub async fn qoder_reset_logout(
     include_device_id: bool,
     on_progress: Channel<WbProgressEvent>,
 ) -> Result<WbResetReport, IpcError> {
+    q_reset_gate().map_err(IpcError::permission)?;
     let (cn, roaming) = q_resolve_both()?;
     q_sanity_both(&cn, &roaming)?;
     tauri::async_runtime::spawn_blocking(move || {
@@ -1064,6 +1224,7 @@ pub async fn qoder_reset_factory(
     kill_running: bool,
     on_progress: Channel<WbProgressEvent>,
 ) -> Result<WbResetReport, IpcError> {
+    q_reset_gate().map_err(IpcError::permission)?;
     let (cn, roaming) = q_resolve_both()?;
     q_sanity_both(&cn, &roaming)?;
     tauri::async_runtime::spawn_blocking(move || {
@@ -1121,6 +1282,98 @@ pub async fn qoder_reset_history() -> Result<Vec<WbHistoryItem>, IpcError> {
         .map_err(|e| IpcError::internal(format!("Qoder 历史读取任务异常退出: {e}")))
 }
 
+// ================== 残留审计（只读清点,镜像 TRAE checkinAuditTraeResidual 思路） ==================
+
+/// 单条残留审计条目:只报存在与路径,不读内容、不删除任何东西。
+#[derive(Debug, Clone, Serialize)]
+pub struct QResidualEntry {
+    /// 所属根:cn(~/.qoder-cn) | roaming(%APPDATA%/com.qodercn.app.stable)
+    pub root: &'static str,
+    /// 相对所属根的路径
+    pub path: String,
+    /// auth_credential | machine_id | device_identity | runtime_info | local_state | chat_db | webview_login
+    pub kind: &'static str,
+    pub exists: bool,
+    /// 文件字节数(目录或不存在=None)
+    pub size: Option<u64>,
+}
+
+/// Qoder 残留审计报告(签到/登录残留只读清点)。
+#[derive(Debug, Clone, Serialize)]
+pub struct QResidualAuditReport {
+    pub cn_root: String,
+    pub roaming_root: String,
+    pub entries: Vec<QResidualEntry>,
+    /// 在场条目数
+    pub present: usize,
+    pub message: String,
+}
+
+fn push_audit_entry(
+    entries: &mut Vec<QResidualEntry>,
+    root: &'static str,
+    rel: &str,
+    full: &std::path::Path,
+    kind: &'static str,
+) {
+    let exists = full.exists();
+    let size = if exists && full.is_file() {
+        std::fs::metadata(full).ok().map(|m| m.len())
+    } else {
+        None
+    };
+    entries.push(QResidualEntry { root, path: rel.to_string(), kind, exists, size });
+}
+
+/// 残留审计主流程(纯同步,可单测;坐标来自 2026-10-10 只读侦察与签到捕获实装):
+/// 根① .auth(凭据+machine_id)、installation_id、umid-cache.json(runtime-info 产物);
+/// 根② auth.v1.dat(登录凭据)、auth.machine-id、Local State(AES 密钥面)、
+/// main.sqlite(聊天记录)、Partitions(webview 登录态)。
+pub fn qoder_audit_residual_impl(
+    cn: &std::path::Path,
+    roaming: &std::path::Path,
+) -> QResidualAuditReport {
+    let mut entries: Vec<QResidualEntry> = Vec::new();
+    push_audit_entry(&mut entries, "cn", ".auth", &cn.join(Q_AUTH_DIR), "auth_credential");
+    push_audit_entry(
+        &mut entries,
+        "cn",
+        ".auth/machine_id",
+        &cn.join(Q_AUTH_DIR).join("machine_id"),
+        "machine_id",
+    );
+    push_audit_entry(&mut entries, "cn", "installation_id", &cn.join("installation_id"), "device_identity");
+    push_audit_entry(&mut entries, "cn", "umid-cache.json", &cn.join("umid-cache.json"), "runtime_info");
+    push_audit_entry(&mut entries, "roaming", "auth.v1.dat", &roaming.join("auth.v1.dat"), "auth_credential");
+    push_audit_entry(&mut entries, "roaming", "auth.machine-id", &roaming.join("auth.machine-id"), "machine_id");
+    push_audit_entry(&mut entries, "roaming", "Local State", &roaming.join("Local State"), "local_state");
+    push_audit_entry(&mut entries, "roaming", "main.sqlite", &roaming.join("main.sqlite"), "chat_db");
+    push_audit_entry(&mut entries, "roaming", "Partitions", &roaming.join(Q_PARTITIONS_DIR), "webview_login");
+    let present = entries.iter().filter(|e| e.exists).count();
+    let missing = entries.len() - present;
+    QResidualAuditReport {
+        cn_root: cn.display().to_string(),
+        roaming_root: roaming.display().to_string(),
+        present,
+        message: format!(
+            "只读清点 Qoder 双根 {} 类签到/登录残留坐标:在场 {} 项、缺席 {} 项(只报存在与路径,不读内容、不删除任何东西)",
+            entries.len(),
+            present,
+            missing
+        ),
+        entries,
+    }
+}
+
+/// 残留审计命令:双根只读扫描,不做任何写入(重置面之外的独立取证口)。
+#[tauri::command(async)]
+pub async fn checkin_audit_qoder_residual() -> Result<QResidualAuditReport, IpcError> {
+    let (cn, roaming) = q_resolve_both()?;
+    tauri::async_runtime::spawn_blocking(move || qoder_audit_residual_impl(&cn, &roaming))
+        .await
+        .map_err(|e| IpcError::internal(format!("Qoder 残留审计任务异常退出: {e}")))
+}
+
 // ================== 测试（临时夹具,绝不触碰真实 ~/.qoder-cn） ==================
 
 #[cfg(test)]
@@ -1160,6 +1413,13 @@ mod tests {
         std::fs::write(roaming.join("Cache/js/x"), "c").unwrap();
         std::fs::create_dir_all(roaming.join("Partitions/p1/Local Storage")).unwrap();
         std::fs::write(roaming.join("Partitions/p1/Local Storage/m"), "ls").unwrap();
+        std::fs::create_dir_all(roaming.join("Partitions/p1/Cache/js")).unwrap();
+        std::fs::write(roaming.join("Partitions/p1/Cache/js/x"), "c").unwrap();
+        std::fs::create_dir_all(roaming.join("Partitions/p1/DawnWebGPUCache")).unwrap();
+        std::fs::write(roaming.join("Partitions/p1/DawnWebGPUCache/g"), "g").unwrap();
+        std::fs::create_dir_all(roaming.join("Crashpad/reports")).unwrap();
+        std::fs::write(roaming.join("Crashpad/reports/a.dmp"), "d").unwrap();
+        std::fs::write(roaming.join("Local State"), "{}").unwrap();
         std::fs::write(roaming.join("main.sqlite"), "db").unwrap();
         (cn, roaming)
     }
@@ -1480,6 +1740,130 @@ mod tests {
         }
         assert_eq!(prune_history(&dir, 50), 5);
         assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 50);
+        cleanup(&cn, &roaming);
+    }
+
+    #[test]
+    fn env_escape_gate_blocks_plan_and_reset() {
+        // 未置位 / 置 0 / 空值 → 放行
+        assert!(q_reset_gate_with(|_| None).is_ok());
+        assert!(q_reset_gate_with(|_| Some("0".into())).is_ok());
+        assert!(q_reset_gate_with(|_| Some(String::new())).is_ok());
+        // 置位 → 拦截且原因点名变量
+        let err = q_reset_gate_with(|_| Some("1".into())).unwrap_err();
+        assert!(err.contains(Q_RESET_DISABLE_ENV), "{err}");
+        assert!(err.contains("拦截"));
+        assert!(
+            q_reset_gate_with(|_| Some(" 1 ".into())).is_err(),
+            "空白包裹值同样视作置位"
+        );
+        // 真实读取路径:测试进程未设该变量 → 放行
+        assert!(q_reset_gate().is_ok());
+    }
+
+    #[test]
+    fn audit_reports_present_and_missing_without_reading() {
+        let (cn, roaming) = fixture_roots("audit");
+        let rep = qoder_audit_residual_impl(&cn, &roaming);
+        let find =
+            |p: &str| rep.entries.iter().find(|e| e.path == p).unwrap_or_else(|| panic!("缺条目 {p}"));
+        // 在场类(目录只报存在不报 size)
+        let auth = find(".auth");
+        assert!(
+            auth.exists && auth.root == "cn" && auth.kind == "auth_credential" && auth.size.is_none(),
+            "{:?}",
+            auth
+        );
+        let mid = find(".auth/machine_id");
+        assert!(mid.exists && mid.kind == "machine_id" && mid.size == Some(36), "{:?}", mid);
+        let inst = find("installation_id");
+        assert!(inst.exists && inst.kind == "device_identity" && inst.size.is_some());
+        let umid = find("umid-cache.json");
+        assert!(umid.exists && umid.kind == "runtime_info", "umid-cache=runtime-info 产物");
+        let state = find("Local State");
+        assert!(state.exists && state.root == "roaming" && state.kind == "local_state");
+        let db = find("main.sqlite");
+        assert!(db.exists && db.kind == "chat_db");
+        let parts = find("Partitions");
+        assert!(parts.exists && parts.kind == "webview_login");
+        // 缺席类(夹具不含 auth.v1.dat / auth.machine-id)
+        let av = find("auth.v1.dat");
+        assert!(!av.exists && av.size.is_none() && av.root == "roaming");
+        assert!(!find("auth.machine-id").exists);
+        assert_eq!(rep.present, rep.entries.iter().filter(|e| e.exists).count());
+        assert!(rep.present > 0);
+        assert!(rep.message.contains("只读"));
+        assert!(rep.cn_root.ends_with("cn") && rep.roaming_root.ends_with("roaming"));
+        // 审计绝不写入:跑前后条目都在原位
+        assert!(cn.join(".auth/machine_id").exists() && roaming.join("main.sqlite").exists());
+        cleanup(&cn, &roaming);
+    }
+
+    #[test]
+    fn audit_all_missing_on_empty_roots() {
+        let base = std::env::temp_dir().join(format!(
+            "qoder-audit-empty-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let cn = base.join("cn");
+        let roaming = base.join("roaming");
+        std::fs::create_dir_all(&cn).unwrap();
+        std::fs::create_dir_all(&roaming).unwrap();
+        let rep = qoder_audit_residual_impl(&cn, &roaming);
+        assert_eq!(rep.present, 0, "空根必须全缺席");
+        assert!(rep.entries.iter().all(|e| !e.exists && e.size.is_none()));
+        assert_eq!(rep.entries.len(), 9);
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn plan_includes_extended_layers_and_factory_covers_them() {
+        let (cn, roaming) = fixture_roots("plan-ext");
+        let p = qoder_plan(&cn, &roaming, "maintenance", false);
+        // 新层①:根②整删扩充(Crashpad 等)带中文理由
+        assert!(
+            p.actions
+                .iter()
+                .any(|a| a.path == "roaming/Crashpad" && a.action == "delete_dir" && a.reason.contains("崩溃转储")),
+            "{:?}",
+            p.actions
+        );
+        // 新层②:Partitions/<p>/ webview 缓存子层(维护档,登录态子目录不动)
+        assert!(p.actions.iter().any(|a| a.path == "roaming/Partitions/p1/Cache" && a.action == "delete_dir"));
+        assert!(
+            p.actions
+                .iter()
+                .any(|a| a.path == "roaming/Partitions/p1/DawnWebGPUCache" && a.action == "delete_dir")
+        );
+        // 每层都有中文理由
+        assert!(p.actions.iter().all(|a| !a.reason.is_empty()));
+        // 危险层不得出现在维护计划
+        for danger in [".auth", "Partitions", "installation_id", "umid-cache.json"] {
+            assert!(
+                !p.actions.iter().any(|a| a.path == danger),
+                "维护计划不得含危险层 {danger}"
+            );
+        }
+        // 保护面:用户资产逐条列名+理由
+        assert!(p.protected.iter().any(|x| x.path == "cn/projects" && x.exists && !x.reason.is_empty()));
+        assert!(p.protected.iter().any(|x| x.path == "roaming/main.sqlite" && x.exists));
+        // 出厂档覆盖新层所在顶层条目(整体隔离,子层被连带覆盖)
+        let pf = qoder_plan(&cn, &roaming, "factory", false);
+        assert!(pf.actions.iter().any(|a| a.path == "roaming/Partitions" && a.action == "quarantine"));
+        assert!(pf.actions.iter().any(|a| a.path == "roaming/Crashpad" && a.action == "quarantine"));
+        // 计划绝不执行
+        assert!(roaming.join("Partitions/p1/Cache/js/x").exists());
+        // 执行档验证:维护清掉 webview 缓存子层与 Crashpad,登录态子目录保留
+        let rep = qoder_maintenance_reset(&cn, &roaming, false, None);
+        assert!(rep.layers.iter().all(|l| l.ok), "{:?}", rep.layers);
+        assert!(!roaming.join("Partitions/p1/Cache").exists());
+        assert!(!roaming.join("Partitions/p1/DawnWebGPUCache").exists());
+        assert!(!roaming.join("Crashpad").exists());
+        assert!(roaming.join("Partitions/p1/Local Storage/m").exists(), "登录态子目录必须保留");
+        assert!(roaming.join("Local State").exists(), "Local State 属登录面,维护不动");
         cleanup(&cn, &roaming);
     }
 }
