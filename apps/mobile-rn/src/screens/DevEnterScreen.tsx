@@ -51,6 +51,7 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { NavChrome } from '../components/NavChrome'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -259,7 +260,9 @@ export default function DevEnterScreen() {
 
   return (
     <View style={styles.shell}>
-      <NavBar title="我的智能体" onBack={() => navigation.goBack()} />
+      <NavChrome>
+        <NavBar title="我的智能体" onBack={() => navigation.goBack()} />
+      </NavChrome>
 
       {/* 一级 Tab(对齐 Uniapp models_bar headTypes) */}
       <View style={styles.headTabBar}>

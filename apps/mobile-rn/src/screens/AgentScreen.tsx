@@ -64,6 +64,7 @@ import { FREE_RESOURCE_URL } from '../constants/links'
 import { type LucideIcon, Bot, Film, FolderOpen, Menu, Palette, Search } from 'lucide-react-native'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { NavChrome } from '../components/NavChrome'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -622,7 +623,7 @@ export function AgentScreen() {
 
   return (
     <View style={styles.shell}>
-      <View style={styles.navChrome}>
+      <NavChrome>
         <NavBar
           title={t('agentScreen.title')}
           leftActions={[
@@ -631,7 +632,7 @@ export function AgentScreen() {
           ]}
           rightActions={[{ icon: Search, label: '搜索', onPress: handleSearchPress }]}
         />
-      </View>
+      </NavChrome>
       <ScrollView
         ref={contentScrollRef}
         style={styles.contentScroll}
@@ -847,7 +848,6 @@ function mapConversationToDrawer(c: ConversationDetail): DrawerConversationItem 
 const TRACK_PADDING_V = rpx(10)
 
 const styles = StyleSheet.create({
-  navChrome: { backgroundColor: tokens.surface.card },
   shell: { flex: 1, backgroundColor: tokens.surface.bg },
   contentScroll: { flex: 1 },
   carouselWrap: {
