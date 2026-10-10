@@ -6,10 +6,23 @@
 /**
  * provider 健康四档「单一真相源 + 不得自立第三份」对账门(台账 G-814416,2026-10-08 立)。
  *
- * 【接线状态:尚未接提交链】本门**没有** scripts/guardian-runner.mjs 注册条目,也没有应急
- * 跳过 env(既不在 runner 里,就不存在 skipEnv —— 如实登记,免得下一个人去找不存在的出路)。
- * 注册表由主会话单写,注册与 AGENTS.md 点名都不在本票交付范围内(守门 89 R2 会对"谎称已接线"
- * 逐次提交判红,所以这里只能自称未接)。人工跑法见文末 usage。
+ * 【接线状态:已接提交链(2026-10-10)】本门在 `scripts/guardian-runner.mjs` 有注册条目,定级
+ * `blocking`,并随条目下发 `args: ['--strict']` —— 本门默认档只报数,不带 `--strict` 的 blocking
+ * 就是一台永远不红的尺子(守门 117 同一条教训:「不带它升档是假的」)。应急跳过 env =
+ * `HUSKY_SKIP_PROVIDER_HEALTH_VOCAB`(只在 runner 条目里有效,门体自己不读它 —— 如实登记,
+ * 免得下一个人以为手跑也能跳过)。触发面 `apps/` + `packages/`:PV2 的扫描面就是这两片,
+ * 收窄触发面等于"判据存在而永不调用"(守门 81 那一型)。接线前置是现读 `--strict` RC=0
+ * (HEAD 面 409 候选 · 同值副本 0),所以接线不新增恒红面(§12e)。
+ * 注册与 AGENTS.md/README.md 点名同笔完成(守门 89 的 R2 判"谎称已接线"、R4 判"已接线而文档
+ * 通篇不点名",两头都拦每一次碰文档的提交,拆开落就是自造恒红)。
+ *
+ * 【无行内豁免(2026-10-10 复验票 G-1058634 定稿)】本门**不提供** `provider-health-exempt: <原因>`
+ * 一类的行内出口,只有下文「覆盖边界」那份具名台账。两条理由:① 判据认的是**声明形态**,正当写法
+ * (import canonical 的类型/数组,或从其派生)本来就绿,不存在"合理动作被误伤"因而需要逃生舱的形状;
+ * ② 任何新豁免族都必须**同笔**登记进 `scripts/check-exemption-expiry.mjs` 的 `FAMILY_LIFETIME_DAYS`,
+ * 不登记就走 90 天默认档,而邻居门 108 的 E4 会把第一处真用它判成"新引入的未登记豁免族"= 两道门互咬。
+ * 2026-10-10 现读该登记入口为**在飞**(`git status --porcelain` 报 ` M`),所以这一族按票面纪律明确
+ * 不落,只把前提写死在这里;将来要落必须同批改两处并在头注同步撤销本段。
  *
  * 在修什么(现读取证,2026-10-08):
  *   provider 健康档位 unknown/healthy/degraded/down 是**落库列 + REST 字段 + 前端徽章**三重
@@ -44,6 +57,8 @@
  * --staged 判**索引 blob**(棘轮锚点 = 同一判据在 HEAD 面的结果 ⇒ 只有新增才红,存量只报名)、
  * --worktree 仅人工逃生舱、两旗同给 exit 2、取不到不回落。取数一律走 lib/face-reader(层兜住
  * git 绝对路径 / batch stdio / fork 风暴 / junction / maxBuffer),遮罩只引 lib/code-mask 那一份。
+ * 这三格中只能在**进程外**证的两侧(两旗同给必 exit 2、唯一真相源被摘线必判死不记绿)由镜像测试
+ * T13/T14 端到端钉住;"接线后必须 blocking + skipEnv 成套"由 T15 钉(未接线一侧由 T5 钉)。
  *
  * 覆盖边界(如实登记,不得读成"已确认没有"):
  *   ① 判的是**同值副本**,不是"任何含这四档的表"。HEAD 现读的三型近邻:
@@ -846,7 +861,7 @@ function usage() {
     '用法: node scripts/check-provider-health-vocabulary.mjs [--staged|--worktree] [--root <dir>] [--strict] [--json] [--all] [--self-test]\n' +
       '缺省判 HEAD blob;--staged 判索引 blob;--worktree 仅人工逃生舱(--root 只在该档有效);两旗同给 exit 2。\n' +
       '默认档违规只报数(逐条打印、exit 0);--strict 才判红(问责档)。PV2 的新增判定只在 --staged 档生效。\n' +
-      '本门尚未接提交链(无 runner 条目、无 skipEnv)。',
+      '本门已接提交链(guardian-runner blocking 条目,随条目下发 --strict);应急跳过 env = HUSKY_SKIP_PROVIDER_HEALTH_VOCAB,只在提交链生效。',
   )
 }
 
