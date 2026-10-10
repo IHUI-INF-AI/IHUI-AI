@@ -10644,7 +10644,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 <!-- 已归档(2026-10-09:✅(2026-10-09) 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()`(`chec,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
 <!-- 已归档(2026-10-09:✅(2026-10-09) **RN/desktop 端设备指纹只有 2 个可能值（本批新量到，需 owner 定性，非,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
 <!-- 已归档(2026-10-10:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
-- [ ] page_* 动词的**跨端登记**未做:web / miniapp-taro / RN / desktop / api 侧 `agent_action` 枚举与
+- [ ] page_* 动词的**跨端登记**未做:web / miniapp-taro / RN / desktop / api 侧 `agent_action` 枚举与〔【归并】重复登记副本(2026-10-10 量,本席):同主键另有两条带完整正文的未勾登记(现读入口 `git show HEAD:PROJECT_PLAN.md | grep -c "page_\* 动词"` = 8 条命中,其中 3 条未勾登记 + 5 条已归档占位),本行是其中被并发插入截断的短副本 —— 正文到「枚举与」即断,没有任何交代,于是它进了 `--open --dispatchable` 的出单,而下一个接手的人拿到的是半句话。派单一律走带复测结论的那条长副本(现读 831 字节,同前检索式可定位);按 §1 的 F4 口径**只加指针、不动勾选**(长副本那条自己写明这一格等的是「page_* 会不会经共享事件流落到小程序 / RN / desktop 屏上」的产品与该端持有者裁决,不是 agent 能代定的,更没有"做完了")。也不摘声明位编号(守门 71 按"编号 + 题面原文前缀"判丢行,摘号会让自愈层把本行整条回捞)。〕
 <!-- 已归档(2026-10-09:✅(2026-10-08) `--allow-dangerous` 确认旁路仍在调用方(`commands/agent.,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
 <!-- 已归档(2026-10-09:✅(2026-10-08) G-1038487 **第十一批:沙箱默认严档落地 + 两路只读取证的 24 条发现落成可执,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
 <!-- 已归档(2026-10-09:✅(2026-10-08) **第十一批:沙箱默认严档落地 + 两路只读取证的 24 条发现落成可执行票(每条带落点与验,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md -->
