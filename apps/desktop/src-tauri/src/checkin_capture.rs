@@ -2010,6 +2010,21 @@ pub fn reset_device_ids(
             detail: "skipped(clean_browser_cookies=false)".into(),
         }
     });
+    // 深度层前复查强杀(2026-10-10 真机 E2E 实锤):层①→⑧执行窗口内 TRAE 可能被
+    // 重新拉起(explorer.exe shell 拉起/看门狗,实测 2 分钟内复活 27 进程),复活的
+    // TRAE 会持深度目录文件锁(os error 32)并并发写身份文件——重置窗口内必须保持
+    // TRAE 死亡,否则重置不净。复查结果透明并入层⓪报告;没杀到=不追加任何字。
+    if kill_running {
+        let recheck = kill_trae_processes();
+        if let Some(l0) = layers.iter_mut().find(|l| l.layer == 0) {
+            if !recheck.ok {
+                l0.ok = false;
+            }
+            if recheck.detail != "无运行中的 TRAE 进程" {
+                l0.detail = format!("{}; 复查强杀: {}", l0.detail, recheck.detail);
+            }
+        }
+    }
     // 层⑧⑨⑩(深度重置)默认 skip:webview Cookies 库本体/state.vscdb 身份键/日志缓存,
     // 是"不卸载达到重装级干净"的补全——动的是 TRAE 登录态与凭据,同样由用户显式选择。
     layers.push(if deep_reset {
@@ -2502,8 +2517,11 @@ fn audit_probe_sqm_machine_id(_: &std::collections::HashSet<String>) -> Vec<(Str
     Vec::new()
 }
 
-/// 硬件标识清点:主板 UUID/BIOS 序列号/系统序列号/系统盘卷号。
-/// 这些**本地改不了**,如实列出来是"边界披露"——不是缺陷,避免用户误以为工具没做到位。
+/// 硬件标识清点:主板 UUID/BIOS 序列号/系统序列号/系统盘卷 GUID/计算机名/卷标/经典卷序列号。
+/// 这些**本地改不了或改了代价不成比例**(卷序列号原生无改法;改计算机名需重启且网络身份绑定风险)
+/// ⇒ 走"只读告警"而非重置层:如实列出来是"边界披露"——不是缺陷,避免用户误以为工具没做到位;
+/// 同时补全指纹可见面:若 TRAE 把计算机名/卷信息计入设备指纹,用户在这里能看到它拿走了什么。
+/// 经典卷序列号解析用语言无关正则(`vol C:` 中文系统输出"卷的序列号是 XXXX-XXXX")。
 #[cfg(windows)]
 fn audit_probe_hardware() -> Vec<String> {
     let script = "$ErrorActionPreference='SilentlyContinue'; \
@@ -2511,7 +2529,11 @@ fn audit_probe_hardware() -> Vec<String> {
         Get-CimInstance -ClassName Win32_ComputerSystemProduct | ForEach-Object { 'MB-UUID=' + $_.UUID }; \
         Get-CimInstance -ClassName Win32_BIOS | ForEach-Object { 'BIOS-SN=' + $_.SerialNumber }; \
         Get-CimInstance -ClassName Win32_OperatingSystem | ForEach-Object { 'OS-SN=' + $_.SerialNumber }; \
-        Get-Volume -DriveLetter C | ForEach-Object { 'VolC-SN=' + ($_ | Select-Object -ExpandProperty ObjectId) }";
+        Get-Volume -DriveLetter C | ForEach-Object { 'VolC-SN=' + ($_ | Select-Object -ExpandProperty ObjectId) }; \
+        'ComputerName=' + $env:COMPUTERNAME; \
+        Get-Volume -DriveLetter C | ForEach-Object { 'VolC-Label=' + $_.FriendlyName }; \
+        $vol = (cmd /c vol C:) -join ' '; \
+        if ($vol -match '[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}') { 'VolC-Classic=' + $Matches[0] }";
     match run_ps_capture(script, std::time::Duration::from_secs(30)) {
         Ok(v) if !v.is_empty() => v,
         Ok(_) => vec!["(硬件标识查询返回空)".to_string()],
