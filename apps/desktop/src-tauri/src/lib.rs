@@ -3334,6 +3334,11 @@ pub fn run() {
     workbuddy_reset::workbuddy_reset_probe,
     workbuddy_reset::workbuddy_reset_maintenance,
     workbuddy_reset::workbuddy_reset_logout,
+    workbuddy_reset::workbuddy_reset_plan,
+    workbuddy_reset::workbuddy_quarantine_list,
+    workbuddy_reset::workbuddy_quarantine_restore,
+    workbuddy_reset::workbuddy_quarantine_delete,
+    workbuddy_reset::workbuddy_reset_history,
     workbuddy_reset::workbuddy_reset_factory
         ])
         .run(tauri::generate_context!())
