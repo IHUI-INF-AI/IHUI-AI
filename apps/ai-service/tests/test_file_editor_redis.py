@@ -141,7 +141,7 @@ def redis_env(monkeypatch) -> _FakeRedis:
 @pytest.fixture
 def workspace(tmp_path, monkeypatch):
     """把 file_editor 工作区白名单指向临时目录。"""
-    monkeypatch.setattr(file_editor, "_WORKSPACE_ROOTS", [str(tmp_path)])
+    monkeypatch.setattr(file_editor, "_workspace_roots", lambda: [str(tmp_path)])
     return tmp_path
 
 
