@@ -46,18 +46,23 @@ from .path_guard import SENSITIVE_DIR_PATTERN
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# 安全常量(与 mcp_server._WORKSPACE_ROOTS 同语义)
+# 安全常量(工作区根目录白名单,唯一实现复用 mcp_server._get_workspace_roots)
 # ---------------------------------------------------------------------------
 
-# 工作区根目录白名单:优先复用 mcp_server 的常量,失败则从 env 读取,再失败用 cwd
+# 2026-10-11 修:这里原先写 `from .mcp_server import _WORKSPACE_ROOTS`,而那个常量早在
+# 2026-07-27 就被 mcp_server 换成延迟求值的 `_get_workspace_roots()`(起因见该函数上方的修复说明:
+# 模块加载期求值会早于 main.py 的 settings→environ 同步)。于是这行导入**每次都抛 ImportError**、
+# 被下面的 except 静默吞掉 —— 注释承诺的"复用"从未发生,两份各自读 env 的实现一直并存,
+# 而 typecheck / lint / 其余门全都不响(Python 侧具名导入的悬空符号当时无尺子)。
 def _resolve_workspace_roots() -> list[str]:
     try:
-        from .mcp_server import _WORKSPACE_ROOTS  # type: ignore[attr-defined]
-        if _WORKSPACE_ROOTS:
-            return list(_WORKSPACE_ROOTS)
+        from .mcp_server import _get_workspace_roots
+        roots = _get_workspace_roots()
+        if roots:
+            return list(roots)
     except Exception as e:
         logger.debug(
-            "file_editor._resolve_workspace_roots 加载 mcp_server 常量失败: %s",
+            "file_editor._resolve_workspace_roots 复用 mcp_server 出口失败: %s",
             e,
             exc_info=True,
         )
