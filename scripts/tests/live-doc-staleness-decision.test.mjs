@@ -197,7 +197,10 @@ test('T3 反例B:同一行 WT×3 而出处合计×2 ⇒ needHuman(用集合代�
   const r = runJson(repo, ['--paths', 'DOC.md'])
   assert.equal(r.status, 1, '重复超出出处次数 ⇒ 不得判 alignable')
   const o = r.payload.results[0].orphans.find((x) => x.line === MOVED_LINE)
-  assert.ok(o, `无出处清单必须点名被复制的那一行,实得 ${JSON.stringify(r.payload.results[0].orphans)}`)
+  assert.ok(
+    o,
+    `无出处清单必须点名被复制的那一行,实得 ${JSON.stringify(r.payload.results[0].orphans)}`,
+  )
   assert.equal(o.worktree, 3)
   assert.equal(o.reference, 1)
   assert.equal(o.excess, 2)
@@ -283,14 +286,24 @@ test('T11 自检登记必须求值(守门 156 那一型):登记侧比 true,用�
   const to = SRC.indexOf('function main(')
   assert.ok(from > 0 && to > from, '自检主体必须能被定位(改名了就去改这条锁,别删)')
   const body = SRC.slice(from, to)
-  const registrant = body.slice(body.indexOf('const t ='), body.indexOf('\n', body.indexOf('const t =')))
+  const registrant = body.slice(
+    body.indexOf('const t ='),
+    body.indexOf('\n', body.indexOf('const t =')),
+  )
   assert.match(registrant, /ok === true/, '登记必须求值到布尔')
   assert.ok(!/!!\s*cond|Boolean\(/.test(registrant), '不得退回对函数恒真的求值写法')
   assert.ok(!/\?\s*'PASS'/.test(registrant), "不得用 x ? 'PASS' : 'FAIL' 冒充判定")
-  const calls = body.match(/\bt\(/g) || []
-  const iife = body.match(/\bt\('[^']*',[ ]*\(\(\) => \{/g) || []
+  // 逐行匹配会被 prettier 打掉:名字长的调用会被折成 t(\n '…',\n (() => { 三行,
+  // 而 lint-staged 每次提交都会这样重排 ⇒ 锁必须认两种书写形态,否则下一个人红在别人的排版上。
+  const flat = body.replace(/\s+/g, ' ')
+  const calls = flat.match(/\bt\(\s*'/g) || []
+  const iife = flat.match(/\bt\(\s*'[^']*'\s*,\s*\(\(\) => \{/g) || []
   assert.ok(calls.length >= 15, `自检用例数不得被削(现读 ${calls.length})`)
-  assert.equal(iife.length, calls.length, '每条用例都必须是 (() => {…})() 立即求值形态')
+  assert.equal(
+    iife.length,
+    calls.length,
+    `每条用例都必须是 (() => {…})() 立即求值形态(iife ${iife.length} / calls ${calls.length})`,
+  )
 })
 
 test('T12 自检端到端:源文件自带的 --self-test 必须 rc 0(装车证明)', () => {
@@ -340,7 +353,8 @@ test('T14 归一化键的构造面:多重集比较而非集合(纯函数,与端�
 const SUP_BODY = '**远端面取代测试:这条正文专门写长到能通过四十字符长度闸,不给长度判据留边界歧义**'
 const OLD_LINE = `- [ ] G-42（进行中@2026-10-10/peer）${SUP_BODY}`
 const NEW_LINE = `- [x] ✅(2026-10-10) G-42 ${SUP_BODY} 〔完成@2026-10-10:已入库〕`
-const UNIQ_LINE = '- [ ] 某人今天刚写的活账:把远端面判据的边界逐条重验(这条正文足够长,且三个面里都没有这一段)'
+const UNIQ_LINE =
+  '- [ ] 某人今天刚写的活账:把远端面判据的边界逐条重验(这条正文足够长,且三个面里都没有这一段)'
 
 /**
  * 造一份"旧修订的正文只在新修订里"的仓(2026-10-10 那一型的端到端夹具):
