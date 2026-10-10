@@ -19,6 +19,7 @@ mod log_retention;
 mod startup_guard;
 // 2026-10-10 立:WorkBuddy 程序一键重置——维护清理/登出重置/出厂重置(隔离区搬移可逆)。
 // 分层同 checkin_capture.rs:判据纯函数 + 执行层 + 薄胶水,测试用临时夹具(绝不触碰真实 ~/.workbuddy)。
+mod qoder_reset;
 mod workbuddy_reset;
 
 use serde::{Deserialize, Serialize};
@@ -3323,6 +3324,7 @@ pub fn run() {
             // 2026-10-09 签到捕获(WP-C):7 条命令,判据与执行都在 checkin_capture.rs,这里只注册。
             checkin_capture::checkin_detect_trae_dir,
             checkin_capture::checkin_capture_jwts,
+            checkin_capture::checkin_capture_qoder,
             checkin_capture::checkin_reset_device_ids,
             checkin_capture::checkin_get_public_ip,
             checkin_capture::checkin_one_click_reset,
@@ -3339,6 +3341,15 @@ pub fn run() {
     workbuddy_reset::workbuddy_quarantine_restore,
     workbuddy_reset::workbuddy_quarantine_delete,
     workbuddy_reset::workbuddy_reset_history,
+    qoder_reset::qoder_reset_probe,
+    qoder_reset::qoder_reset_plan,
+    qoder_reset::qoder_reset_maintenance,
+    qoder_reset::qoder_reset_logout,
+    qoder_reset::qoder_reset_factory,
+    qoder_reset::qoder_quarantine_list,
+    qoder_reset::qoder_quarantine_restore,
+    qoder_reset::qoder_quarantine_delete,
+    qoder_reset::qoder_reset_history,
     workbuddy_reset::workbuddy_reset_factory
         ])
         .run(tauri::generate_context!())
