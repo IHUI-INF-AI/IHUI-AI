@@ -65,9 +65,9 @@ import json
 import logging
 import os
 import threading
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Callable, Final
+from typing import Any, Final
 
 from app.core import provider_caps as _provider_caps
 
@@ -88,7 +88,7 @@ ENTITLEMENT_FAIL_CLOSED_KEY: Final = "entitled"
 ALL_GOVERNED_PROVIDERS: Final = "*"
 
 
-def fence_enabled(env: "dict[str, str] | None" = None) -> bool:
+def fence_enabled(env: dict[str, str] | None = None) -> bool:
     """栅栏开关(门控类,默认开)。env 参数供测试注入,缺省实读 os.environ。"""
     raw = (env or os.environ).get(SNAPSHOT_FENCE_ENABLED_ENV)
     if raw is None or not raw.strip():
@@ -266,7 +266,7 @@ def register_account_source() -> str:
     return ACCOUNT_SOURCE_NAME
 
 
-def read_upstream_sources(env: "dict[str, str] | None" = None) -> dict[str, Any]:
+def read_upstream_sources(env: dict[str, str] | None = None) -> dict[str, Any]:
     """读满全部上游源,生成"上游版本"判定面(深拷贝,调用方可安全持有)。
 
     G-649:逐源 try/except。此前一枚源抛错就整块打断装配 —— 连不依赖它的
@@ -331,7 +331,7 @@ def read_upstream_sources(env: "dict[str, str] | None" = None) -> dict[str, Any]
     return view
 
 
-def capture_upstream_fingerprint(env: "dict[str, str] | None" = None) -> str:
+def capture_upstream_fingerprint(env: dict[str, str] | None = None) -> str:
     """上游版本号 = 全源规范化 JSON 的 sha256(内容指纹,源任何一处变即变)。"""
     payload = json.dumps(
         read_upstream_sources(env),
