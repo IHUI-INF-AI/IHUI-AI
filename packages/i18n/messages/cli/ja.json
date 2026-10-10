@@ -404,6 +404,7 @@
     "skillsLoaded": "\n{count} 件の skill を読み込みました:",
     "skillsSourceLine": "    出所: {source}",
     "skillShowDesc": "指定 skill の内容を表示",
+    "skillShadowReportDesc": "allowed-tools のシャドウ記録を読む(記録のみ、強制しない)",
     "skillNotFound": "skill が見つかりません: {name}",
     "skillSourceDetail": "出所: {source}",
     "skillDescriptionLine": "説明: {description}\n",
