@@ -376,6 +376,11 @@ export function QueueInteractionBar({
         const specific = blockedByKey ? blockedByKey[kind] : null
         const sixGridBlocked = !!(specific && specific.blocked && specific.reasonKey && specific.reason)
         if (verdict.allowed && !sixGridBlocked) return null
+        // G-937950:cause 串独立渲染(不与 action 键合成一句"当前不可用")。
+        // data-queue-denied-cause 携带**渲染出的文案串**,data-cause-key 携带键名 ——
+        // 两条测试断言用:两个不同拒绝条件得到的文案必须互不相同。
+        const causeKey = verdict.causeKey && !sixGridBlocked ? verdict.causeKey : null
+        const causeText = causeKey ? tn(`queue.${causeKey}`) : null
         return (
           <span
             key={kind}
@@ -387,9 +392,9 @@ export function QueueInteractionBar({
             {/* D162 ①:动作名之外必须同时给出**具体条件**(流式中锁定重排 / 队列已空 /
                 Runtime 不支持插话 …)。两串各自独立渲染并各带 data-*,用例才能断言
                 "两个不同条件得到的文案互不相同" —— 合成一句"当前不可用"就等于没写。 */}
-            {verdict.causeKey && !sixGridBlocked ? (
-              <span className="ml-1" data-queue-denied-cause={kind} data-cause-key={verdict.causeKey}>
-                {tn(`queue.${verdict.causeKey}`)}
+            {causeText ? (
+              <span className="ml-1" data-queue-denied-cause={causeText} data-cause-key={causeKey}>
+                {causeText}
               </span>
             ) : null}
             {/* D162:六格命中的更具体拒因(queueChanged / controlCommandNoInterject /

@@ -30,11 +30,12 @@
 from __future__ import annotations
 
 import base64
+import datetime
 import hashlib
 import json
 import random
 import uuid
-from typing import Any, Final, Optional
+from typing import Any, Final
 
 import httpx
 
@@ -65,7 +66,7 @@ _LSCBD_AID: Final = "787976"
 # ---------------------------------------------------------------------------
 
 
-def _normalize_seed(seed):
+def _normalize_seed(seed: int | str | None) -> int | str | None:
     """将任意 seed 归一为稳定 int（字符串走 sha256，跨进程一致；纯数字串按数值）。"""
     if isinstance(seed, int):
         return seed & 0x7FFFFFFFFFFFFFFF
@@ -76,16 +77,18 @@ def _normalize_seed(seed):
     return seed
 
 
-def _stable_rng(seed):
+def _stable_rng(seed: int | str | None) -> random.Random:
     """遗留兼容：基于 seed 的稳定随机数生成器（旧算法，已被 SHA-256 派生取代）。"""
     return random.Random(_normalize_seed(seed))
 
 
-def _seeded_stream(seed, salt, nbytes):
-    """确定性派生均匀字节流（SHA-256），避免 random.Random(seed) 病态序列。"""
-    if seed is None:
-        return None
-    data = f"{salt}:{seed}".encode("utf-8")
+def _seeded_stream(seed: int | str, salt: str, nbytes: int) -> bytes:
+    """确定性派生均匀字节流（SHA-256），避免 random.Random(seed) 病态序列。
+
+    调用方（rand_digits/rand_hex/gen_market_uuid）均已在调用前守卫 seed is None，
+    故签名收窄为非可选（类型债 39 条清偿，2026-10-10）。
+    """
+    data = f"{salt}:{seed}".encode()
     out = b""
     i = 0
     while len(out) < nbytes:
@@ -94,14 +97,14 @@ def _seeded_stream(seed, salt, nbytes):
     return out[:nbytes]
 
 
-def rand_digits(n, seed=None):
+def rand_digits(n: int, seed: int | str | None = None) -> str:
     if seed is None:
         return "".join(random.choice("0123456789") for _ in range(n))
     bs = _seeded_stream(seed, "devid", n + 1)
     return "".join(str(b % 10) for b in bs[:n])
 
 
-def rand_hex(n, seed=None):
+def rand_hex(n: int, seed: int | str | None = None) -> str:
     if seed is None:
         return "".join(random.choice("0123456789abcdef") for _ in range(n))
     need = (n + 1) // 2
@@ -109,7 +112,7 @@ def rand_hex(n, seed=None):
     return "".join(f"{b:02x}" for b in bs)[:n]
 
 
-def gen_market_uuid(seed):
+def gen_market_uuid(seed: int | str | None) -> str:
     """标准 UUID v4（确定性派生），符合 market_user_id 字段格式。"""
     if seed is None:
         return str(uuid.uuid4())
@@ -124,7 +127,7 @@ def gen_market_uuid(seed):
 # ---------------------------------------------------------------------------
 
 
-def extract_user_id(jwt):
+def extract_user_id(jwt: str) -> str | None:
     """从 JWT payload 里取 data.id，不校验签名。"""
     token = jwt
     if token.startswith("Cloud-IDE-JWT "):
@@ -137,20 +140,18 @@ def extract_user_id(jwt):
         payload = json.loads(base64.urlsafe_b64decode(pad))
         data = payload.get("data", {})
         if isinstance(data, dict) and data.get("id"):
-            return data.get("id")
+            return str(data.get("id"))
         if payload.get("auth_id"):
-            return payload.get("auth_id")
+            return str(payload.get("auth_id"))
         if payload.get("sub"):
-            return payload.get("sub")
+            return str(payload.get("sub"))
         return None
     except Exception:
         return None
 
 
-def get_jwt_exp(jwt):
+def get_jwt_exp(jwt: str) -> tuple[datetime.datetime | None, float | None]:
     """从 JWT payload 取 exp 字段，返回 (exp_datetime, remaining_hours) 或 (None, None)。"""
-    import datetime
-
     token = jwt
     if token.startswith("Cloud-IDE-JWT "):
         token = token.split(None, 1)[1]
@@ -175,7 +176,7 @@ def get_jwt_exp(jwt):
 # ---------------------------------------------------------------------------
 
 
-def get_device_for(user_id, device_map):
+def get_device_for(user_id: str, device_map: dict[str, dict[str, Any]]) -> dict[str, Any]:
     """复用/生成 device_map 中该 user_id 的设备标识（原位写入传入的 dict）。
 
     与上游差异: 不再落盘 device_map.json —— 持久化由调用方负责（调用方在
@@ -184,8 +185,6 @@ def get_device_for(user_id, device_map):
     """
     rec = device_map.get(user_id)
     if rec is None or rec.get("gen", 1) < DEVICE_GEN:
-        import datetime
-
         device_map[user_id] = {
             "device_id": rand_digits(15, seed=user_id),
             "market_user_id": gen_market_uuid(user_id),
@@ -196,7 +195,7 @@ def get_device_for(user_id, device_map):
     return device_map[user_id]
 
 
-def _build_headers(jwt, dev):
+def _build_headers(jwt: str, dev: dict[str, Any]) -> dict[str, str]:
     """签到/状态接口共用的请求头（按账号独立设备 id 与 session）。"""
     return {
         "accept": "*/*",
@@ -227,7 +226,7 @@ def _build_headers(jwt, dev):
 # HTTP 层（urllib → httpx.AsyncClient）
 # ---------------------------------------------------------------------------
 
-_shared_client: Optional[httpx.AsyncClient] = None
+_shared_client: httpx.AsyncClient | None = None
 
 
 def get_http_client() -> httpx.AsyncClient:
@@ -251,7 +250,14 @@ async def aclose_http_client() -> None:
     _shared_client = None
 
 
-async def _http_post(url, jwt, dev, body=b"{}", timeout=DEFAULT_TIMEOUT, client=None):
+async def _http_post(
+    url: str,
+    jwt: str,
+    dev: dict[str, Any],
+    body: bytes = b"{}",
+    timeout: float = DEFAULT_TIMEOUT,
+    client: httpx.AsyncClient | None = None,
+) -> tuple[int, str]:
     """统一 POST 入口，返回 (status_code:int, body_text:str)。
 
     语义对齐上游: 网络超时 → (0, "")；其他网络异常 → (-1, "异常描述")。
@@ -273,7 +279,13 @@ async def _http_post(url, jwt, dev, body=b"{}", timeout=DEFAULT_TIMEOUT, client=
 # ---------------------------------------------------------------------------
 
 
-async def status_check(name, jwt, device_map, timeout=DEFAULT_TIMEOUT, client=None):
+async def status_check(
+    name: str,
+    jwt: str,
+    device_map: dict[str, dict[str, Any]],
+    timeout: float = DEFAULT_TIMEOUT,
+    client: httpx.AsyncClient | None = None,
+) -> tuple[bool, bool | None, int | None, int | None, str]:
     """预检：返回 (ok: bool, checked_in: bool|None, credits: int|None, code: int|None, message: str)。"""
     user_id = extract_user_id(jwt)
     if not user_id:
@@ -295,7 +307,13 @@ async def status_check(name, jwt, device_map, timeout=DEFAULT_TIMEOUT, client=No
     return True, bool(checked_in), credits, code, msg
 
 
-async def signin(name, jwt, device_map, timeout=DEFAULT_TIMEOUT, client=None):
+async def signin(
+    name: str,
+    jwt: str,
+    device_map: dict[str, dict[str, Any]],
+    timeout: float = DEFAULT_TIMEOUT,
+    client: httpx.AsyncClient | None = None,
+) -> tuple[bool, str, int | None, int | None]:
     """对单个账号执行签到，返回 (success, message, code, http_status)。"""
     user_id = extract_user_id(jwt)
     if not user_id:
@@ -313,9 +331,14 @@ async def signin(name, jwt, device_map, timeout=DEFAULT_TIMEOUT, client=None):
         return False, f"HTTP {status}: 非 JSON 响应: {body[:200]}", status if status else None, status
 
 
-def classify_error(http_status, message, code):
+def classify_error(
+    http_status: int | None, message: str | None, code: int | None
+) -> tuple[str, int]:
     """根据 HTTP 状态码和业务码分类签到错误，返回 (error_type, cooldown_seconds)。
-    cooldown_seconds: -1=永久, 0=不冷却(仅记录错误计数), >0=冷却秒数"""
+    cooldown_seconds: -1=永久, 0=不冷却(仅记录错误计数), >0=冷却秒数
+    http_status 为 None 表示网络层异常（未拿到响应），落入 Unknown。"""
+    if http_status is None:
+        return "Unknown", 0
     if http_status == 200 and code == 1005:
         return "PlanLimit", 43200
     if http_status == 429:
@@ -333,14 +356,22 @@ def classify_error(http_status, message, code):
     return "Unknown", 0
 
 
-async def signin_with_retry(name, jwt, device_map, timeout=DEFAULT_TIMEOUT, retry=0, retry_delay=1.0, client=None):
+async def signin_with_retry(
+    name: str,
+    jwt: str,
+    device_map: dict[str, dict[str, Any]],
+    timeout: float = DEFAULT_TIMEOUT,
+    retry: int = 0,
+    retry_delay: float = 1.0,
+    client: httpx.AsyncClient | None = None,
+) -> tuple[bool, str, int | None, int | None]:
     """对单个账号执行签到；仅网络层异常（code 为 None）按 retry 次数重试，业务失败不重试。
 
     与上游差异: print → structlog；retry_delay 可注入（测试用 0 避免 sleep）。
     """
     import asyncio
 
-    last = (False, "无重试", None, 0)
+    last: tuple[bool, str, int | None, int | None] = (False, "无重试", None, None)
     for attempt in range(retry + 1):
         ok, msg, code, status = await signin(name, jwt, device_map, timeout, client=client)
         if ok or code is not None:
@@ -360,12 +391,12 @@ async def signin_with_retry(name, jwt, device_map, timeout=DEFAULT_TIMEOUT, retr
 async def checkin_account(
     name: str,
     jwt: str,
-    device_map: dict,
+    device_map: dict[str, dict[str, Any]],
     *,
     timeout: float = DEFAULT_TIMEOUT,
     retry: int = 0,
     retry_delay: float = 1.0,
-    client: Optional[httpx.AsyncClient] = None,
+    client: httpx.AsyncClient | None = None,
 ) -> dict[str, Any]:
     """对单个账号执行完整签到流程，返回与上游 NDJSON emit 语义对齐的结构化 dict。
 

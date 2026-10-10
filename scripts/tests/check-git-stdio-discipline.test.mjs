@@ -23,6 +23,7 @@ import {
   EXEMPTIONS_FILE,
   SCAN_ROOTS,
   SELF_EXEMPT,
+  STDIO_PROP,
   callSpan,
   exemptedBy,
   evaluate,
@@ -65,7 +66,7 @@ function runNode(args, timeout = 600000) {
 }
 
 // ── T1 装车证明:runner 里必须有本门,且 blocking + skipEnv 齐备 ──────────────────
-test('T1 装车证明:runner 里必须有 id 189,且 blocking + skipEnv 齐备', () => {
+test('T1 装车证明:runner 里必须有本门,且 blocking + skipEnv 齐备', () => {
   const src = readFileSync(RUNNER, 'utf8')
   const at = src.indexOf(`id: '${GATE_ID}'`)
   assert.ok(at >= 0, `守门 ${GATE_ID} 不在 runner 里 —— 门存在但没人调度 = 没有(§22c 反复记过)`)
@@ -410,7 +411,73 @@ test('T13 三面各自给出读数,且 HEAD 与索引不同面时结论不同(�
   }
 })
 
-// ── T14 门必须真的跑得起来,且 self-test 全绿(不是"跑不起来"冒充"通过")──────
+// ── T15 ES6 属性简写必须算"已接管 stdio",且不得放宽成恒绿 ────────────────────
+// 依据:真仓 scripts/git-heal-broken-links.mjs 的 git() 包装器 options 里写的是 `stdio,`
+// (值先算好再简写),而旧判据只认冒号 ⇒ 已合规的调用被报成「options 内无 stdio 属性名」。
+// 这一族是门自身的**误判**方向:门把没坏的代码报成红,逼人去改对的地方,最终逼人关掉整条守门链。
+test('T15 属性简写合规(正例四形态),而名字里带 stdio 的反例一律仍判红', () => {
+  const EF = 'execFileSync'
+  const j = (src) => judgeSpan(callSpan(src, src.indexOf('(')), src.includes('execSync('))
+  // 正例:简写就是"名为 stdio 的属性名",与口径第 3 条同形
+  for (const opts of [
+    '{ stdio }',
+    '{ stdio, cwd: R }',
+    '{ cwd: R, stdio }',
+    // 真仓同型的多行折行形态(本门第一原则:折行不改判据)
+    '{ cwd: opts.cwd || ROOT,\n    stdio,\n    input: opts.input,\n  }',
+  ]) {
+    assert.equal(
+      j(`${EF}('git', ['ls-files'], ${opts})`).verdict,
+      'ok',
+      `简写形态 ${JSON.stringify(opts)} 竟被判红 —— 门自身的误判`,
+    )
+  }
+  // 反向对照(牙):前缀/后缀粘住、值位置、嵌套值位置、字符串里 —— 都必须仍判红。
+  // 这一格是本例的**关键**:判据没被放成"看到 stdio 字样就放过"。
+  for (const opts of [
+    '{ xstdio: 1 }',
+    '{ my_stdio: 1 }',
+    '{ mystdio: 1 }',
+    '{ stdioX: 1 }',
+    '{ stdioX }',
+    '{ stdioX, y: 1 }',
+    '{ encoding: stdio }',
+    '{ env: { A: stdio }, cwd: R }',
+    "{ NOTE: 'stdio', cwd: R }",
+    '{ cwd: R, A: [stdio] }',
+  ]) {
+    assert.equal(
+      j(`${EF}('git', ['ls-files'], ${opts})`).verdict,
+      'noStdio',
+      `${opts} 竟判成合规(简写支不得放宽成恒绿)`,
+    )
+  }
+  // 简写合规的那一次调用不得洗白同文件的裸奔调用(判据仍落在**该次调用**的 options 内)
+  const two = [
+    `const a = ${EF}('git', ['ls-files'], { stdio })`,
+    `const b = ${EF}('git', ['status'], { encoding: 'utf8' })`,
+  ].join('\n')
+  const r = scanSource(two)
+  assert.equal(r.misses.length, 1, `期望恰好 1 处判红:${JSON.stringify(r.misses)}`)
+  assert.equal(r.misses[0].line, 2, '判红的必须是第 2 行那处裸奔')
+})
+
+// ── T16 判据口径必须与实现同形(注释与实现漂开 = 下一个人的错源)────────────────
+test('T16 文件头口径与 STDIO_PROP 注释必须写明"两种形态",且实现确有两支', () => {
+  const src = readFileSync(SRC, 'utf8')
+  // ① 实现确有两支:显式属性 + 简写。用**正/反例**证明,不复读正则源码(复读实现 = 复读机)。
+  const ok = STDIO_PROP.test('{ stdio: 1 }') && STDIO_PROP.test('{ stdio }')
+  assert.ok(ok, 'STDIO_PROP 缺显式属性或缺简写的一支')
+  for (const bad of ['{ xstdio: 1 }', '{ my_stdio: 1 }', '{ stdioX }', '{ encoding: stdio }']) {
+    assert.equal(STDIO_PROP.test(bad), false, `${bad} 被 STDIO_PROP 算成合规 —— 判据被放宽过头`)
+  }
+  // ② 口径文本必须提到简写:口径与实现不同形时,注释就成了下一个人的错源
+  //    (本仓反复记过:"日志说 N 个,交给裁决的是另外 N 个"同型)。
+  assert.ok(
+    src.includes('属性简写') && src.includes('stdio\\s*:|(?:^|[{,])\\s*stdio\\s*[,}]'),
+    '文件头口径第 3 条 / STDIO_PROP 注释未与实现同形(缺简写支或未写明)',
+  )
+})
 test('T14 CLI:self-test 全绿且例数 ≥5(票面下界),默认面 exit 1(存量未修),两面旗互斥判死', () => {
   const out = runNode(['scripts/check-git-stdio-discipline.mjs', '--self-test'])
   // 不断言精确例数:门加用例是**应该**的,把它写成硬编码会让"补一条用例"变成一次红。

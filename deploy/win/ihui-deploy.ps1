@@ -77,7 +77,14 @@ $ApiDir     = "$Root\apps\api"
 # 应急回退:`IHUI_DEPLOY_CLEAN_BUILD=0` 退回旧行为(读共享工作树);导出面本身准备失败时也会
 # **大声回退**并打 `[CLEAN-BUILD] FALLBACK` 行 —— 宁可线上继续更新但隔离暂时失效,也不要没有部署。
 $CleanBuildEnabled = ($env:IHUI_DEPLOY_CLEAN_BUILD -ne '0')
-$CleanBuildWt = if ($env:IHUI_DEPLOY_CLEAN_WT) { $env:IHUI_DEPLOY_CLEAN_WT } else { "$Root\.ihui-agent\tmp\clean-build-wt" }
+# 默认净面根搬到仓外(2026-10-10,根治"仓库里又冒出一个 clean-build-wt"这一反复现象):
+# 默认路径此前是 $Root\.ihui-agent\tmp\clean-build-wt,这意味着**只要 IHUI_DEPLOY_CLEAN_WT 一丢**
+# (重装服务 / nssm 配置回滚 / 换机 / 别人照抄旧配置),它就自动在仓库里长出一个 3.4 GB 的净面,
+# 且该目录被 .gitignore 吞掉 ⇒ 用户在仓库里"又看到一个 clean build",而配环境变量那一步只治了
+# 有环境变量的那台机器。改成仓外专用根后,回落也回不到仓库里 —— 这才是根因那一半。
+# 硬编码 D:\DevEnv\... 与本文件既有风格一致($BackupDir = 'D:\DevEnv\backups\deploy')。
+$CleanBuildRootDefault = 'D:\DevEnv\Temp\ihui-deploy-build'
+$CleanBuildWt = if ($env:IHUI_DEPLOY_CLEAN_WT) { $env:IHUI_DEPLOY_CLEAN_WT } else { "$CleanBuildRootDefault\clean-build-wt" }
 # 净面的一切 git 调用都必须带这一串:服务身份是 **SYSTEM**,而净面目录由交互账户创建,
 # git 会判"dubious ownership"直接 exit 128(2026-09-29 17:38:56 实测,`[clean-out] fatal:
 # detected dubious ownership … WIN-20251101PXT/Administrator … but the current user is
@@ -86,14 +93,45 @@ $CleanBuildWt = if ($env:IHUI_DEPLOY_CLEAN_WT) { $env:IHUI_DEPLOY_CLEAN_WT } els
 # 一律 -c safe.directory=*,服务账户与交互账户的 safe.directory 互不相通"说的就是这件事,
 # 我第一次写这段时照抄了本文件的旧写法而没带上它,于是净面在真实服务里从未生效。
 $gitFace = @('-c', 'safe.directory=*')
-# 爆炸半径防线:本函数会在新建净面前 `Remove-Item -Recurse -Force` 那个目录。环境变量被写歪
-# (拼错、指到仓库根、指到盘根)时,那一条就成了"删掉整个仓库"。所以路径必须同时满足:
-# 落在 $Root\.ihui-agent\tmp\ 之下、去尾斜杠后长度明显大于该前缀。不满足 ⇒ 直接禁用净面并喊出来,
-# **宁可退回旧行为,也绝不带着一个可疑路径去递归删**。
-$CleanBuildPrefix = "$Root\.ihui-agent\tmp\"
-$CleanBuildPathOk = ($CleanBuildWt -like ($CleanBuildPrefix + '*')) -and ($CleanBuildWt.TrimEnd('\').Length -gt $CleanBuildPrefix.Length)
+# 爆炸半径防线(2026-10-10 扩面,原判据一字未松):本函数会在新建净面前 `Remove-Item -Recurse -Force`
+# 那个目录。环境变量被写歪(拼错、指到仓库根、指到盘根)时,那一条就成了"删掉整个仓库"。判据三条同时成立:
+#   ① 路径**严格**落在某个已授权临时根之下(去尾斜杠后长度必须大于该根 ⇒ 根目录本身、盘根都进不来);
+#   ② 该根不是盘根;
+#   ③ 该根不包含 $Root(仓库根)。这条对仓内根天然成立,对**仓外根**是必需闸门:不设它的话,把外部根
+#      授权成 `D:\` 或 `D:\IHUI` 这类祖先时,`CleanBuildWt=$Root` 会因为"严格更深"而被 ① 放行 ——
+#      那正好是 2026-09-29 注释里点名要防的"删掉整个仓库"。
+# 默认根是仓外专用根 $CleanBuildRootDefault;仓内根 $Root\.ihui-agent\tmp\ 保留在授权表里只为**显式**
+# 指回去的老配置仍可用(直接删掉它会让那种配置落进"路径不合法 ⇒ CLEAN-BUILD DISABLED ⇒ 退回共享工作树
+# 就地构建",正好重开 2026-09-29 那条生产伤口,比它在仓库里留个目录更坏)。保留 ≠ 默认:新装的机器
+# 在没有环境变量时走的是仓外根,不会再在仓库里长出净面。
+# 仓外根还可由 $env:IHUI_DEPLOY_CLEAN_WT_ROOTS(分号分隔)再显式追加,追加即视为机主对该根下递归删除的
+# **显式授权** —— 故只收**专用窄根**,不收繁忙共享临时根:
+# 共享根(如 D:\DevEnv\Temp\ihui-scratch,底下有几百个他人在用/自测残留的目录)一旦被授权,任何落到
+# 它内部的笔误都会变成可递归删除目标,爆炸半径比仓内根大一个量级。
+$CleanBuildRoots = @("$CleanBuildRootDefault\", "$Root\.ihui-agent\tmp\")
+if ($env:IHUI_DEPLOY_CLEAN_WT_ROOTS) {
+    foreach ($extra in ($env:IHUI_DEPLOY_CLEAN_WT_ROOTS -split ';')) {
+        $t = $extra.Trim()
+        if ($t -eq '') { continue }
+        $norm = $t.TrimEnd('\')
+        if ($t -notmatch '^[A-Za-z]:\\') { Write-Output "[CLEAN-BUILD] 忽略非绝对路径的额外根:$t"; continue }
+        if ($norm.Length -le 2) { Write-Output "[CLEAN-BUILD] 忽略盘根:$t"; continue }
+        if ($Root.StartsWith($t, [System.StringComparison]::OrdinalIgnoreCase)) {
+            Write-Output "[CLEAN-BUILD] 忽略包含仓库根的额外根(会让 CleanBuildWt 有机会指到仓库本身):$t"
+            continue
+        }
+        $CleanBuildRoots += ($norm + '\')
+    }
+}
+# 去重:默认根已在表里,而机主把它也写进 IHUI_DEPLOY_CLEAN_WT_ROOTS 是很自然的一步(实测就是如此),
+# 不去重的话下面 DISABLED 那行的"(已授权根:…)"会把同一个根列两遍 —— 那是排障时要逐字读的行。
+$CleanBuildRoots = @($CleanBuildRoots | Select-Object -Unique)
+$CleanBuildPathOk = $false
+foreach ($r in $CleanBuildRoots) {
+    if (($CleanBuildWt -like ($r + '*')) -and ($CleanBuildWt.TrimEnd('\').Length -gt $r.Length)) { $CleanBuildPathOk = $true; break }
+}
 if (-not $CleanBuildPathOk) {
-    Write-Output "[CLEAN-BUILD] DISABLED: 净面路径不落在 .ihui-agent/tmp 之下,拒绝带着它执行递归删除:$CleanBuildWt"
+    Write-Output "[CLEAN-BUILD] DISABLED: 净面路径不落在任何已授权临时根之下,拒绝带着它执行递归删除:$CleanBuildWt (已授权根:$($CleanBuildRoots -join ' | '))"
     $CleanBuildEnabled = $false
 }
 $AiDir      = "$Root\apps\ai-service"

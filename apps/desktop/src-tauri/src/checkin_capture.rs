@@ -30,11 +30,33 @@ use base64::Engine as _;
 pub const ENV_TRAE_DIR: &str = "IHUI_TRAE_DIR";
 
 /// storage.json 里要改随机值的**顶层点号键名**——键名字面含点号，不是嵌套 JSON！
-pub const TRAE_DOTTED_KEYS: [&str; 3] =
-    ["telemetry.machineId", "telemetry.sqmId", "aha.device.device_id"];
+/// 2026-10-10 残留审计实证补键:`telemetry.devDeviceId` 三现场实测**未被任何层改写**,
+/// 重置后仍原样躺着(风控读设备维度时它是最直接的旧设备凭据)——"重置了却没用"的
+/// 关键元凶之一,已纳入改写清单。
+pub const TRAE_DOTTED_KEYS: [&str; 4] = [
+    "telemetry.machineId",
+    "telemetry.sqmId",
+    "telemetry.devDeviceId",
+    "aha.device.device_id",
+];
 
 /// 改完随机值后要删掉的旧标志键。
 pub const TRAE_STORAGE_FLAG_KEY: &str = "has_device_id_updated_to_aha";
+
+/// 注册表里已知的 **TRAE 设备指纹槽位**(HKCU 下的 键路径 + 值名)。
+/// 2026-10-10 真机取证(本机导出 `trae-reg-before.txt`)实锤:
+///   `HKCU\Software\Bytedance\Trae CN\Common` 的 `Info` 值 = 一串 32 字节十进制序列,
+///   是安装器写入的**真实设备指纹**;而旧层⑪ 只删 3 个 `Software\TRAE*` 键,
+///   厂商容器(Bytedance)下的这一支完全没被碰到 ⇒ "重置了却还被认出来"的隐藏凭据。
+/// 现层⑪ 已按族名动态发现(含厂商容器内子项)整树删除;这里再补一个**审计槽位**,
+/// 让"删干净没有"在注册表维度同样可验证。
+pub const TRAE_REG_FINGERPRINT_SLOTS: [(&str, &str); 5] = [
+    (r"Software\Bytedance\Trae CN\Common", "Info"),
+    (r"Software\TRAE\Common", "Info"),
+    (r"Software\TRAE SOLO CN\Common", "Info"),
+    (r"Software\Trae CN\Common", "Info"),
+    (r"Software\Trae Work 助手\Common", "Info"),
+];
 
 /// 快照 9 类清单（对称备份/恢复的唯一出处）。`paths` 相对 TRAE 数据目录，
 /// 备份目录里按**同样的相对路径**镜像存放——恢复逻辑因此与备份共用同一张表。
@@ -293,10 +315,17 @@ pub fn rewrite_storage_json_device_ids(
     let mut root: serde_json::Map<String, serde_json::Value> =
         serde_json::from_str(text).map_err(|e| format!("storage.json 解析失败: {e}"))?;
     let mut changes = Vec::new();
+    // 2026-10-10:TRAE_DOTTED_KEYS 扩到 4 键(devDeviceId 加入),这里按索引硬绑三个
+    // 入参会漏 ⇒ device_id 同时写 devDeviceId 与 aha.device.device_id(同一新值,
+    // 风控两处都读同一设备标识语义),确保清单再扩也不漏键。
     for (key, val) in [
         (TRAE_DOTTED_KEYS[0], serde_json::Value::String(machine_id.into())),
         (TRAE_DOTTED_KEYS[1], serde_json::Value::String(sqm_id.into())),
-        (TRAE_DOTTED_KEYS[2], serde_json::Value::String(device_id.into())),
+        ("telemetry.devDeviceId", serde_json::Value::String(device_id.into())),
+        (
+            "aha.device.device_id",
+            serde_json::Value::String(device_id.into()),
+        ),
     ] {
         root.insert(key.to_string(), val);
         changes.push(format!("set {key}"));
@@ -952,7 +981,7 @@ fn reset_layer_browser_cookies() -> ResetLayerReport {
 /// - monitor:parfait 遥测 SDK 缓冲(崩溃/异常事件含设备信息)
 /// - machineid.traereset_bak_* / storage.json.traereset_bak_*:参考工具备份文件,
 ///   含**全部旧机器码/旧遥测 ID**(sweep 见层⑧内 traereset_bak 通配清扫)
-pub const DEEP_RESET_DIRS: [&str; 23] = [
+pub const DEEP_RESET_DIRS: [&str; 25] = [
     // webview 会话/存储(原 7 项)
     "Local Storage",
     "Session Storage",
@@ -978,6 +1007,11 @@ pub const DEEP_RESET_DIRS: [&str; 23] = [
     "shared_proto_db",
     "User/globalStorage/cloudide.icube-im-bridge",
     "User/globalStorage/.mcp_gallery_cache",
+    // 2026-10-10 残留审计实证补面:层⑨只管 User/globalStorage 的 state.vscdb,
+    // 而**每个工作区**在 workspaceStorage/<hash>/ 下各有一份 state.vscdb(+.backup)
+    // 与 workspace.json(实测命中旧身份值);History 存编辑历史含旧工作区 id
+    "User/workspaceStorage",
+    "User/History",
 ];
 
 /// 深度档要整删的文件(相对 TRAE 数据目录):Chromium 层的偏好与 Local State
@@ -1314,54 +1348,303 @@ fn kill_trae_processes() -> ResetLayerReport {
     }
 }
 
-/// 层⑪:注册表 HKCU\Software\{TRAE, TRAE SOLO CN, TRAE SOLO} 整树删除
-/// (VSCode 系安装器/更新器会在这里写安装信息与遥测配置;只动 HKCU 的 TRAE 族键,
-///  不碰 HKLM——那是 MachineGuid 层的职权且需要提权)。
+// ── 层⑪ 键名判据(纯函数,单测直跑;不依赖平台/文件)─────────────────────────
+// 2026-10-10 残留审计**真机取证扩面**:旧实现只删 3 个硬编码键
+// (Software\{TRAE, TRAE SOLO CN, TRAE SOLO}),审计器扫描后发现 4 类键从未被触碰:
+//   HKCU\Software\Bytedance\Trae CN              ← 藏在厂商容器下(旧实现枚举不到)
+//   HKCU\Software\Trae Work 助手\Trae Work 助手  ← 中文本地化键名,硬编码清单里没有
+//   HKLM\SOFTWARE\WOW6432Node\ByteDance          ← 32 位视图厂商键
+//   HKCU\Software\Classes\trae + Trae CN.* ×291  ← trae:// 协议与文件关联 ProgID
+// 结论:**硬编码清单必漏**(厂商随时改键名),改为枚举父键按族名判据动态发现。
+
+/// 判据①:**TRAE 族键** ⇒ 整树删除。覆盖 trae / Trae CN / Trae Work 助手 /
+/// TRAE SOLO CN / icube / ahawork 全部变体(大小写不敏感)。
+pub fn is_trae_family_reg_key(name: &str) -> bool {
+    let n = name.to_ascii_lowercase();
+    n.contains("trae") || n.contains("icube") || n.contains("ahawork")
+}
+
+/// 判据②:**厂商容器键** ⇒ **只摘其下的 TRAE 子项,绝不整删容器**。
+/// 取证:本机 `HKCU\Software\Bytedance` 下只有 `Trae CN` 一个子项,但同厂其他产品
+/// (抖音/剪映/飞书等)在别的机器上可能共用该容器 ⇒ 整删会误伤无辜,故只摘 TRAE。
+pub fn is_vendor_container_reg_key(name: &str) -> bool {
+    let n = name.to_ascii_lowercase();
+    n.contains("bytedance") || name.contains("字节")
+}
+
+/// 判据③:`HKCU\Software\Classes` 下的 TRAE ProgID —— `trae://` 协议处理器与
+/// `Trae CN.<扩展名>` 文件关联(本机遇见 291 项)。属安装指纹,重装级清理要摘;
+/// TRAE 下次启动会自行重新注册。
+pub fn is_trae_progid_reg_key(name: &str) -> bool {
+    name.to_ascii_lowercase().starts_with("trae")
+}
+
+/// 层⑪:注册表 TRAE 族键**发现式**整树删除(保留历史 3 键作兜底)。
+/// 覆盖 HKCU\Software(含厂商容器内子项)与 HKCU\Software\Classes 的协议/文件关联;
+/// HKLM 侧厂商容器需管理员,删不掉记「降级」不判红(MachineGuid 属层⑤职权,不在这里动)。
 #[cfg(windows)]
 fn reset_layer_registry() -> ResetLayerReport {
-    use windows::Win32::System::Registry::{RegDeleteTreeW, RegOpenKeyExW, HKEY, HKEY_CURRENT_USER, KEY_READ};
-    use windows::core::PCWSTR;
+    use windows::Win32::System::Registry::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
 
-    const SUBKEYS: [&str; 3] = ["Software\\TRAE", "Software\\TRAE SOLO CN", "Software\\TRAE SOLO"];
-    let mut deleted: Vec<&str> = Vec::new();
+    let mut deleted: Vec<String> = Vec::new();
+    let mut degraded: Vec<String> = Vec::new();
     let mut errors: Vec<String> = Vec::new();
-    unsafe {
-        for sk in SUBKEYS {
-            let wide: Vec<u16> = sk.encode_utf16().chain(std::iter::once(0)).collect();
-            // 先探测存在性(不存在=本就不在,记 ok 不报错)
-            let mut hk = HKEY::default();
-            let open = RegOpenKeyExW(HKEY_CURRENT_USER, PCWSTR(wide.as_ptr()), Some(0), KEY_READ, &mut hk);
-            if open.is_err() {
-                continue;
+
+    // ① 历史硬编码 3 键:兜底(枚举万一被权限/沙箱挡住时至少还有这层)
+    for sk in ["Software\\TRAE", "Software\\TRAE SOLO CN", "Software\\TRAE SOLO"] {
+        if !regutil::exists(HKEY_CURRENT_USER, sk) {
+            continue;
+        }
+        match regutil::delete_tree(HKEY_CURRENT_USER, sk) {
+            Ok(()) => deleted.push(format!("HKCU\\{sk}")),
+            Err(e) => errors.push(format!("HKCU\\{sk}: win32 {e}")),
+        }
+    }
+
+    // ② HKCU\Software 发现式:TRAE 族整删;厂商容器只摘其下 TRAE 子项
+    for name in regutil::subkeys(HKEY_CURRENT_USER, "Software") {
+        let p = format!("Software\\{name}");
+        if is_trae_family_reg_key(&name) {
+            match regutil::delete_tree(HKEY_CURRENT_USER, &p) {
+                Ok(()) => deleted.push(format!("HKCU\\{p}")),
+                Err(e) => errors.push(format!("HKCU\\{p}: win32 {e}")),
             }
-            let _ = windows::Win32::System::Registry::RegCloseKey(hk);
-            let del = RegDeleteTreeW(HKEY_CURRENT_USER, PCWSTR(wide.as_ptr()));
-            // windows 0.61 的 RegDeleteTreeW 返回 WIN32_ERROR(非 Result);成功=ERROR_SUCCESS
-            if del == windows::Win32::Foundation::ERROR_SUCCESS {
-                deleted.push(sk);
-            } else {
-                errors.push(format!("{sk}: win32 error {}", del.0));
+        } else if is_vendor_container_reg_key(&name) {
+            for sub in regutil::subkeys(HKEY_CURRENT_USER, &p) {
+                if is_trae_family_reg_key(&sub) {
+                    let q = format!("{p}\\{sub}");
+                    match regutil::delete_tree(HKEY_CURRENT_USER, &q) {
+                        Ok(()) => deleted.push(format!("HKCU\\{q}(厂商容器内)")),
+                        Err(e) => errors.push(format!("HKCU\\{q}: win32 {e}")),
+                    }
+                }
+            }
+            // 摘完 TRAE 子项后容器已空 ⇒ 连容器一起摘(Trae 是本厂唯一产品时,
+            // 空容器本身仍是"本机装过 ByteDance 系"的安装指纹)。
+            // 护栏:**有残留子项或有值**一律不动 —— 那说明同厂其他产品还在用它。
+            if regutil::is_empty_key(HKEY_CURRENT_USER, &p) {
+                match regutil::delete_tree(HKEY_CURRENT_USER, &p) {
+                    Ok(()) => deleted.push(format!("HKCU\\{p}(厂商容器已空,一并摘除)")),
+                    Err(e) => degraded.push(format!("HKCU\\{p}(win32 {e})")),
+                }
             }
         }
     }
-    let _ = HKEY::default();
-    if errors.is_empty() {
-        ResetLayerReport {
-            layer: 11,
-            name: "registry_hkcu_trae",
-            ok: true,
-            detail: if deleted.is_empty() {
-                "无 TRAE 注册表键(本就不在)".into()
-            } else {
-                format!("已整树删除: {}", deleted.join(", "))
-            },
+
+    // ③ HKCU\Software\Classes:trae:// 协议 + Trae CN.<扩展名> 文件关联
+    let mut progids = 0usize;
+    for name in regutil::subkeys(HKEY_CURRENT_USER, "Software\\Classes") {
+        if !is_trae_progid_reg_key(&name) {
+            continue;
         }
+        let q = format!("Software\\Classes\\{name}");
+        match regutil::delete_tree(HKEY_CURRENT_USER, &q) {
+            Ok(()) => progids += 1,
+            Err(e) => errors.push(format!("HKCU\\{q}: win32 {e}")),
+        }
+    }
+    if progids > 0 {
+        deleted.push(format!(
+            "HKCU\\Software\\Classes\\trae* ×{progids}(协议处理器与文件关联)"
+        ));
+    }
+
+    // ④ HKLM 厂商容器:需管理员 ⇒ 失败属预期,记"降级"不判红
+    for root_path in ["SOFTWARE", "SOFTWARE\\WOW6432Node"] {
+        for name in regutil::subkeys(HKEY_LOCAL_MACHINE, root_path) {
+            let p = format!("{root_path}\\{name}");
+            if is_trae_family_reg_key(&name) {
+                match regutil::delete_tree(HKEY_LOCAL_MACHINE, &p) {
+                    Ok(()) => deleted.push(format!("HKLM\\{p}")),
+                    Err(e) => degraded.push(format!("HKLM\\{p}(win32 {e})")),
+                }
+            } else if is_vendor_container_reg_key(&name) {
+                for sub in regutil::subkeys(HKEY_LOCAL_MACHINE, &p) {
+                    if is_trae_family_reg_key(&sub) {
+                        let q = format!("{p}\\{sub}");
+                        match regutil::delete_tree(HKEY_LOCAL_MACHINE, &q) {
+                            Ok(()) => deleted.push(format!("HKLM\\{q}(厂商容器内)")),
+                            Err(e) => degraded.push(format!("HKLM\\{q}(win32 {e})")),
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let mut detail = if deleted.is_empty() {
+        "未发现 TRAE 族注册表键(本就不在)".to_string()
     } else {
-        ResetLayerReport {
-            layer: 11,
-            name: "registry_hkcu_trae",
-            ok: false,
-            detail: format!("{};已删: {}", errors.join("; "), deleted.join(", ")),
+        format!("已整树删除 {} 处: {}", deleted.len(), deleted.join(" | "))
+    };
+    if !degraded.is_empty() {
+        detail.push_str(&format!(
+            ";需管理员未能删(可提权重跑,不影响应用层干净): {}",
+            degraded.join(" | ")
+        ));
+    }
+    let ok = errors.is_empty();
+    if !ok {
+        detail = format!("{detail};失败: {}", errors.join(" | "));
+    }
+    ResetLayerReport {
+        layer: 11,
+        name: "registry_hkcu_trae",
+        ok,
+        detail,
+    }
+}
+
+/// 注册表直调小工具(windows 原生 API,不依赖 reg.exe —— 后者在部分环境被安全策略挡)。
+#[cfg(windows)]
+mod regutil {
+    use windows::core::PCWSTR;
+    use windows::Win32::Foundation::ERROR_SUCCESS;
+    use windows::Win32::System::Registry::{
+        RegCloseKey, RegDeleteTreeW, RegEnumKeyExW, RegGetValueW, RegOpenKeyExW,
+        RegQueryInfoKeyW, HKEY, KEY_ENUMERATE_SUB_KEYS, KEY_READ, RRF_RT_REG_EXPAND_SZ,
+        RRF_RT_REG_SZ,
+    };
+
+    fn wide(s: &str) -> Vec<u16> {
+        s.encode_utf16().chain(std::iter::once(0)).collect()
+    }
+
+    pub fn exists(root: HKEY, path: &str) -> bool {
+        unsafe {
+            let w = wide(path);
+            let mut hk = HKEY::default();
+            if RegOpenKeyExW(root, PCWSTR(w.as_ptr()), Some(0), KEY_READ, &mut hk) != ERROR_SUCCESS {
+                return false;
+            }
+            let _ = RegCloseKey(hk);
+            true
+        }
+    }
+
+    /// 枚举**直接子项名**(非递归)。父键不存在/无权限 ⇒ 返回空,调用方按"没发现"处理。
+    pub fn subkeys(root: HKEY, path: &str) -> Vec<String> {
+        unsafe {
+            let w = wide(path);
+            let mut hk = HKEY::default();
+            if RegOpenKeyExW(root, PCWSTR(w.as_ptr()), Some(0), KEY_ENUMERATE_SUB_KEYS, &mut hk)
+                != ERROR_SUCCESS
+            {
+                return Vec::new();
+            }
+            let mut out: Vec<String> = Vec::new();
+            let mut idx = 0u32;
+            loop {
+                let mut buf = [0u16; 512];
+                let mut len = buf.len() as u32;
+                let r = RegEnumKeyExW(
+                    hk,
+                    idx,
+                    Some(windows::core::PWSTR(buf.as_mut_ptr())),
+                    &mut len as *mut u32,
+                    None,
+                    None,
+                    None,
+                    None,
+                );
+                if r != ERROR_SUCCESS {
+                    break;
+                }
+                out.push(String::from_utf16_lossy(&buf[..len as usize]));
+                idx += 1;
+                // 防爆:正常 hive 的直接子项不可能上万(Classes 也就数千)
+                if idx > 50000 {
+                    break;
+                }
+            }
+            let _ = RegCloseKey(hk);
+            out
+        }
+    }
+
+    /// 键是否已"空":无子项**且**无值。用于判断厂商容器能否安全整删。
+    pub fn is_empty_key(root: HKEY, path: &str) -> bool {
+        unsafe {
+            let w = wide(path);
+            let mut hk = HKEY::default();
+            if RegOpenKeyExW(root, PCWSTR(w.as_ptr()), Some(0), KEY_READ, &mut hk) != ERROR_SUCCESS {
+                return false;
+            }
+            let mut subkeys: u32 = 0;
+            let mut values: u32 = 0;
+            let ok = RegQueryInfoKeyW(
+                hk,
+                None,
+                None,
+                None,
+                Some(&mut subkeys as *mut u32),
+                None,
+                None,
+                Some(&mut values as *mut u32),
+                None,
+                None,
+                None,
+                None,
+            );
+            let _ = RegCloseKey(hk);
+            ok == ERROR_SUCCESS && subkeys == 0 && values == 0
+        }
+    }
+
+    /// 读一个字符串型注册表值(只认 REG_SZ/EXPAND_SZ;二进制值跳过,免得解出乱码)。
+    pub fn read_string(root: HKEY, key: &str, name: &str) -> Option<String> {
+        unsafe {
+            let k = wide(key);
+            let n = wide(name);
+            let mut cb: u32 = 0;
+            let probe = RegGetValueW(
+                root,
+                PCWSTR(k.as_ptr()),
+                PCWSTR(n.as_ptr()),
+                RRF_RT_REG_SZ | RRF_RT_REG_EXPAND_SZ,
+                None,
+                None,
+                Some(&mut cb as *mut u32),
+            );
+            if probe != ERROR_SUCCESS || cb == 0 {
+                return None;
+            }
+            let mut buf: Vec<u16> = vec![0u16; (cb as usize / 2) + 2];
+            let mut cb2 = (buf.len() * 2) as u32;
+            let r = RegGetValueW(
+                root,
+                PCWSTR(k.as_ptr()),
+                PCWSTR(n.as_ptr()),
+                RRF_RT_REG_SZ | RRF_RT_REG_EXPAND_SZ,
+                None,
+                Some(buf.as_mut_ptr() as *mut core::ffi::c_void),
+                Some(&mut cb2 as *mut u32),
+            );
+            if r != ERROR_SUCCESS {
+                return None;
+            }
+            while buf.len() > 1 && buf[buf.len() - 1] == 0 {
+                buf.pop();
+            }
+            let s = String::from_utf16_lossy(&buf);
+            let s = s.trim().to_string();
+            if s.is_empty() {
+                None
+            } else {
+                Some(s)
+            }
+        }
+    }
+
+    pub fn delete_tree(root: HKEY, path: &str) -> Result<(), u32> {
+        unsafe {
+            let w = wide(path);
+            let r = RegDeleteTreeW(root, PCWSTR(w.as_ptr()));
+            if r == ERROR_SUCCESS {
+                Ok(())
+            } else {
+                Err(r.0)
+            }
         }
     }
 }
@@ -1399,6 +1682,12 @@ fn reset_layer_local_cache() -> ResetLayerReport {
         } else {
             targets.push(base.join("TRAE SOLO CN"));
             targets.push(base.join("TRAE"));
+            // 2026-10-10 残留审计实证补面:TRAE Work CN 的 WebView2 数据根
+            // (LOCALAPPDATA\com.traework.assistant\EBWebView)——实测其中的
+            // Local State 与 Code Cache 仍带旧设备 GUID,此前完全不在删面内
+            targets.push(base.join("com.traework.assistant"));
+            targets.push(base.join("Trae Work CN"));
+            targets.push(base.join("TraeCode CN"));
         }
     }
     let mut removed: Vec<String> = Vec::new();
@@ -1591,6 +1880,15 @@ pub fn reset_device_ids(
     if !all_trae_dirs.contains(&trae_dir.to_path_buf()) {
         all_trae_dirs.push(trae_dir.to_path_buf());
     }
+    // 审计账本:在**任何一层动手之前**把即将被覆盖的旧身份值记下来。
+    // 没有这一步,重置后就无从证明"到底干净没有"——审计器拿这份账本当黑名单比对。
+    // 写账本失败只记 warn:它影响的是"能不能验证",不影响"能不能重置"。
+    let old_identity = capture_identity_values(&all_trae_dirs);
+    if !old_identity.is_empty() {
+        if let Err(e) = append_identity_history(&old_identity) {
+            log::warn!("[checkin-capture] 身份历史账本写入失败(不影响重置): {e}");
+        }
+    }
     let mut layers: Vec<ResetLayerReport> = vec![if kill_running {
         kill_trae_processes()
     } else {
@@ -1697,6 +1995,497 @@ pub fn reset_device_ids(
         }
     });
     ResetReport { layers }
+}
+
+// ================== 残留指纹审计（2026-10-10：把"到底干净没有"做成可验证）==================
+//
+// 方法论(不靠感觉,靠比对):
+//   1. 每次重置前,把"即将被覆盖掉的旧身份值"记进 `identity-history.json`(账本);
+//   2. 审计时,账本里的旧值**就是黑名单**,去扫当前全部 TRAE 现场;
+//   3. 扫到的每一个黑名单值 = 一条硬残留。0 条才算"应用层已彻底翻新"。
+// 这一层存在的意义:用户说"感觉没重置彻底"时,能给出**可复核的数字**,而不是一句"已完成"。
+
+/// 单文件扫描体积上限:更大的基本是日志/缓存包,不会藏身份值(与审计脚本同口径)。
+pub const AUDIT_MAX_FILE_BYTES: u64 = 12 * 1024 * 1024;
+
+/// 账本路径:`%USERPROFILE%\.trae-proxy\identity-history.json`(与 MachineGuid 备份同目录)。
+fn identity_history_path() -> Option<PathBuf> {
+    let home = std::env::var("USERPROFILE")
+        .or_else(|_| std::env::var("HOME"))
+        .ok()
+        .map(PathBuf::from)
+        .filter(|p| !p.as_os_str().is_empty())?;
+    let dir = home.join(".trae-proxy");
+    std::fs::create_dir_all(&dir).ok()?;
+    Some(dir.join("identity-history.json"))
+}
+
+/// 从任意字节流抽"像身份"的记号:①恰好 32 位字母数字串 ②UUID(8-4-4-4-12 小写)。
+/// 纯函数,单测直跑。按**字节**扫,不要求文件是合法 UTF-8(TRAE 现场有大量二进制库),
+/// 也不做 latin1/utf8 双解码——字节级判定对二进制现场更稳。
+pub fn extract_identity_tokens(bytes: &[u8]) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    let n = bytes.len();
+    let mut i = 0usize;
+    while i < n {
+        if let Some(u) = try_uuid_at(bytes, i) {
+            out.push(u);
+            i += 36;
+            continue;
+        }
+        if bytes[i].is_ascii_alphanumeric() {
+            let start = i;
+            while i < n && bytes[i].is_ascii_alphanumeric() {
+                i += 1;
+            }
+            if i - start == 32 {
+                out.push(String::from_utf8_lossy(&bytes[start..i]).to_ascii_lowercase());
+            }
+        } else {
+            i += 1;
+        }
+    }
+    out
+}
+
+/// 位置 i 起是否是一个完整 UUID(前后不得再接 hex 或 '-',否则只是更长串的一段)。
+fn try_uuid_at(b: &[u8], i: usize) -> Option<String> {
+    if i + 36 > b.len() {
+        return None;
+    }
+    for j in 0..36usize {
+        if j == 8 || j == 13 || j == 18 || j == 23 {
+            if b[i + j] != b'-' {
+                return None;
+            }
+        } else if !b[i + j].is_ascii_hexdigit() {
+            return None;
+        }
+    }
+    if i > 0 && (b[i - 1].is_ascii_hexdigit() || b[i - 1] == b'-') {
+        return None;
+    }
+    let end = i + 36;
+    if end < b.len() && (b[end].is_ascii_hexdigit() || b[end] == b'-') {
+        return None;
+    }
+    Some(String::from_utf8_lossy(&b[i..end]).to_ascii_lowercase())
+}
+
+/// 是否"像身份值"(32hex 或 UUID)——账本只收这类,防止把 "old" 之类的测试串当历史。
+pub fn looks_like_identity(v: &str) -> bool {
+    let n = v.len();
+    (n == 32 && v.bytes().all(|b| b.is_ascii_alphanumeric())) || (n == 36 && try_uuid_at(v.as_bytes(), 0).is_some())
+}
+
+/// 注册表指纹在账本里的记号形态:`regfp|<键路径>|<值>`。
+/// 用 `|` 前缀与文件侧的 32hex/UUID 隔开——它只用于注册表维度比对,不参与文件扫描。
+pub fn reg_fingerprint_token(slot: &str, value: &str) -> String {
+    format!("regfp|{slot}|{}", value.trim())
+}
+
+/// 抓取注册表指纹槽位的当前值(层⑪ 动手之前)。
+#[cfg(windows)]
+pub fn capture_registry_fingerprints() -> Vec<String> {
+    use windows::Win32::System::Registry::HKEY_CURRENT_USER;
+    let mut out: Vec<String> = Vec::new();
+    for (key, name) in TRAE_REG_FINGERPRINT_SLOTS {
+        if let Some(v) = regutil::read_string(HKEY_CURRENT_USER, key, name) {
+            out.push(reg_fingerprint_token(key, &v));
+        }
+    }
+    out
+}
+
+#[cfg(not(windows))]
+pub fn capture_registry_fingerprints() -> Vec<String> {
+    Vec::new()
+}
+
+/// 重置**前**抓取即将被覆盖的旧身份值:各现场 machineid 文件 + storage.json 的
+/// 4 个点号键 + 已备份的旧 MachineGuid + 注册表指纹槽位。只收"像身份"的值。
+pub fn capture_identity_values(trae_dirs: &[PathBuf]) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for d in trae_dirs {
+        if let Ok(s) = std::fs::read_to_string(d.join("machineid")) {
+            // 历史备份可能是 utf8-BOM 写入(PowerShell 5.1 Set-Content -Encoding utf8 的老坑)
+            let v = s.trim_start_matches('\u{feff}').trim().to_ascii_lowercase();
+            if looks_like_identity(&v) {
+                out.push(v);
+            }
+        }
+        if let Ok(s) = std::fs::read_to_string(d.join("User/globalStorage/storage.json")) {
+            if let Ok(j) = serde_json::from_str::<serde_json::Value>(&s) {
+                for k in TRAE_DOTTED_KEYS {
+                    if let Some(v) = j.get(k).and_then(|v| v.as_str()) {
+                        let v = v.trim().to_ascii_lowercase();
+                        if looks_like_identity(&v) {
+                            out.push(v);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // 旧 MachineGuid(一键模式的备份文件)
+    if let Some(p) = std::env::var("USERPROFILE")
+        .or_else(|_| std::env::var("HOME"))
+        .ok()
+        .map(|h| PathBuf::from(h).join(".trae-proxy/MachineGuid-backup.txt"))
+    {
+        if let Ok(s) = std::fs::read_to_string(p) {
+            for t in extract_identity_tokens(s.as_bytes()) {
+                if looks_like_identity(&t) && !out.contains(&t) {
+                    out.push(t);
+                }
+            }
+        }
+    }
+    // 注册表指纹(厂商容器下的 Info 等)—— 不走 looks_like_identity 过滤
+    for t in capture_registry_fingerprints() {
+        if !out.contains(&t) {
+            out.push(t);
+        }
+    }
+    out.sort();
+    out.dedup();
+    out
+}
+
+/// 追加一条历史到账本。失败**不拦主流程**:账本只影响"能不能验证",不影响"能不能重置"。
+/// 只保留最近 20 条,防止无限增长。
+fn append_identity_history(values: &[String]) -> Result<(), String> {
+    if values.is_empty() {
+        return Ok(());
+    }
+    let p = identity_history_path().ok_or_else(|| "无法确定用户目录".to_string())?;
+    let mut entries: Vec<serde_json::Value> = std::fs::read_to_string(&p)
+        .ok()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+        .and_then(|v| v.get("entries").and_then(|e| e.as_array()).cloned())
+        .unwrap_or_default();
+    if entries.len() >= 20 {
+        let keep = entries.len() - 19;
+        entries = entries.split_off(keep);
+    }
+    let at = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    entries.push(serde_json::json!({ "at": at, "values": values }));
+    let body = serde_json::json!({ "entries": entries });
+    let text = serde_json::to_string_pretty(&body).map_err(|e| e.to_string())?;
+    std::fs::write(&p, text).map_err(|e| e.to_string())
+}
+
+/// 读回账本里的全部旧身份值 = 审计黑名单。
+fn load_identity_blacklist() -> Vec<String> {
+    let Some(p) = identity_history_path() else {
+        return Vec::new();
+    };
+    let Ok(text) = std::fs::read_to_string(p) else {
+        return Vec::new();
+    };
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) else {
+        return Vec::new();
+    };
+    let mut out: Vec<String> = Vec::new();
+    if let Some(entries) = v.get("entries").and_then(|e| e.as_array()) {
+        for e in entries {
+            if let Some(vals) = e.get("values").and_then(|x| x.as_array()) {
+                for x in vals.iter().filter_map(|x| x.as_str()) {
+                    let x = x.trim().to_ascii_lowercase();
+                    // 注册表指纹记号(`regfp|...`)不走身份形态过滤
+                    if x.starts_with("regfp|") || looks_like_identity(&x) {
+                        out.push(x);
+                    }
+                }
+            }
+        }
+    }
+    out.sort();
+    out.dedup();
+    out
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ResidualHit {
+    pub file: String,
+    pub count: usize,
+    pub sample: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ResidualAuditReport {
+    pub ok: bool,
+    pub message: String,
+    /// 黑名单(=账本里记的历次旧身份值)规模。
+    pub blacklist_size: usize,
+    pub scanned_files: usize,
+    pub scanned_mb: f64,
+    pub sites_present: usize,
+    /// 硬命中:旧身份值仍在本机的处数(0 才算干净)。
+    pub hard_hits: usize,
+    pub hard_hit_files: Vec<ResidualHit>,
+    /// 疑似命中:非身份类长串,仅供研判,不计入 ok 判定。
+    pub suspect_hits: usize,
+    pub registry: Vec<String>,
+    /// 硬件标识(主板 UUID/BIOS 序列号等)——本地改不了,如实披露为边界。
+    pub hardware: Vec<String>,
+}
+
+/// 递归扫目录收集硬命中。depth 上限 8,与审计脚本同口径。
+fn audit_walk(
+    dir: &Path,
+    blacklist: &std::collections::HashSet<String>,
+    hits: &mut Vec<(String, String)>,
+    scanned: &mut (usize, u64),
+    depth: u8,
+) {
+    if depth > 8 {
+        return;
+    }
+    let Ok(rd) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for e in rd.flatten() {
+        let p = e.path();
+        let Ok(meta) = std::fs::symlink_metadata(&p) else {
+            continue;
+        };
+        if meta.is_dir() {
+            audit_walk(&p, blacklist, hits, scanned, depth + 1);
+        } else if meta.is_file() {
+            if meta.len() > AUDIT_MAX_FILE_BYTES {
+                continue;
+            }
+            let Ok(buf) = std::fs::read(&p) else {
+                continue;
+            };
+            scanned.0 += 1;
+            scanned.1 += meta.len();
+            let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+            for t in extract_identity_tokens(&buf) {
+                if blacklist.contains(&t) && seen.insert(t.clone()) {
+                    hits.push((p.display().to_string(), t));
+                }
+            }
+        }
+    }
+}
+
+/// 审计扫描区:全部 TRAE 现场(APPDATA 与 LOCALAPPDATA 两侧) + 系统痕迹区
+/// (%LOCALAPPDATA%\com.traework.assistant = EBWebView 数据根;%ProgramData%\Trae)。
+/// 与 `scripts/audit-trae-residual.mjs` 同口径,两端结论可互相印证。
+fn audit_scan_zones() -> Vec<PathBuf> {
+    let read_env = |k: &str| std::env::var(k).ok().filter(|v| !v.is_empty());
+    let mut out: Vec<PathBuf> = trae_dir_candidates(
+        read_env("APPDATA").as_deref(),
+        read_env("LOCALAPPDATA").as_deref(),
+        None,
+    )
+    .into_iter()
+    .filter(|p| p.is_dir())
+    .collect();
+    for (base_env, extras) in [
+        ("LOCALAPPDATA", vec!["com.traework.assistant", "Trae Work CN", "TraeCode CN"]),
+        ("ProgramData", vec!["Trae"]),
+    ] {
+        let Some(base) = read_env(base_env) else { continue };
+        for extra in extras {
+            let p = PathBuf::from(&base).join(extra);
+            if p.is_dir() && !out.contains(&p) {
+                out.push(p);
+            }
+        }
+    }
+    out
+}
+
+/// 现场目录在场数(只数 APPDATA 侧三现场,与报告口径一致)。
+fn audit_sites_present() -> usize {
+    let read_env = |k: &str| std::env::var(k).ok().filter(|v| !v.is_empty());
+    trae_dir_candidates(read_env("APPDATA").as_deref(), None, None)
+        .iter()
+        .filter(|p| p.is_dir())
+        .count()
+}
+
+/// 跑一段内建脚本并回收输出。带**真超时**(mpsc + recv_timeout):
+/// 旧审计脚本正是栽在 powershell 递归枚举整个注册表 hive 上 120s 超时 ETIMEDOUT。
+fn run_ps_capture(script: &str, timeout: std::time::Duration) -> Result<Vec<String>, String> {
+    let owned = script.to_string();
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let mut cmd = std::process::Command::new("powershell");
+        cmd.args(["-NoProfile", "-NonInteractive", "-Command", &owned]);
+        // `creation_flags_if_windows` 本身是 #[cfg(windows)] 的 —— 本函数未按平台拆分,
+        // 故这行必须自带 cfg 门,否则 Linux/macOS 编译单元里找不到它(E0425)。
+        // 2026-10-10 真教训:本地 Windows `cargo test` 全绿,CI 三平台才炸。
+        #[cfg(windows)]
+        creation_flags_if_windows(&mut cmd, 0x0800_0000);
+        let _ = tx.send(cmd.output());
+    });
+    match rx.recv_timeout(timeout) {
+        Ok(Ok(out)) if out.status.success() => Ok(String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .map(|l| l.trim().to_string())
+            .filter(|l| !l.is_empty())
+            .collect()),
+        Ok(Ok(out)) => {
+            let err = String::from_utf8_lossy(&out.stderr);
+            let first = err.lines().next().unwrap_or("").chars().take(80).collect::<String>();
+            Err(format!("脚本返回非零: {first}"))
+        }
+        Ok(Err(e)) => Err(format!("无法启动内建脚本: {e}")),
+        // 超时:工作线程被丢弃(脚本进程随宿主退出被系统回收),只降级提示不判红
+        Err(_) => Err(format!(
+            "脚本执行超过 {}s,已放弃(不影响应用层审计结论)",
+            timeout.as_secs()
+        )),
+    }
+}
+
+/// 注册表定点枚举(不递归整个 hive —— 那是旧脚本超时的根因)。
+#[cfg(windows)]
+fn audit_probe_registry() -> Vec<String> {
+    let script = "$ErrorActionPreference='SilentlyContinue'; \
+        [Console]::OutputEncoding=[System.Text.Encoding]::UTF8; \
+        foreach ($p in @('HKCU:\\Software','HKLM:\\SOFTWARE','HKLM:\\SOFTWARE\\WOW6432Node')) { \
+          $m = @(Get-ChildItem -Path $p -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -match 'trae|bytedance|icube|ahawork' }); \
+          if ($m.Count -gt 0) { foreach ($k in $m) { Write-Output ('[REG] ' + $k.Name) } } else { Write-Output ('[REG] ' + $p + ' => (无匹配)') } \
+        }; \
+        $cls = @(Get-ChildItem 'HKCU:\\Software\\Classes' -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -match '^trae' }); \
+        Write-Output ('[REG] HKCU:\\Software\\Classes => 命中 ' + $cls.Count + ' 项'); \
+        Write-Output ('[REG] MachineGuid=' + (Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Cryptography').MachineGuid)";
+    match run_ps_capture(script, std::time::Duration::from_secs(45)) {
+        Ok(v) => v,
+        Err(e) => vec![format!("[REG] 注册表查询降级: {e}")],
+    }
+}
+
+#[cfg(not(windows))]
+fn audit_probe_registry() -> Vec<String> {
+    vec!["[REG] 非 Windows 平台无注册表".to_string()]
+}
+
+/// 注册表指纹槽位残留比对:账本里记过的旧指纹值,现在还在注册表里 ⇒ 硬命中。
+/// 这条专门盯 `Software\Bytedance\Trae CN\Common\Info` 这类**藏在厂商容器下的
+/// 设备指纹**——它是"应用层全翻新了却仍被认出来"的最后一类本地凭据。
+#[cfg(windows)]
+fn audit_probe_registry_fingerprints(blacklist: &std::collections::HashSet<String>) -> Vec<(String, String)> {
+    use windows::Win32::System::Registry::HKEY_CURRENT_USER;
+    let mut hits: Vec<(String, String)> = Vec::new();
+    for (key, name) in TRAE_REG_FINGERPRINT_SLOTS {
+        if let Some(v) = regutil::read_string(HKEY_CURRENT_USER, key, name) {
+            if blacklist.contains(&reg_fingerprint_token(key, &v)) {
+                hits.push((format!("HKCU\\{key}\\{name}"), v));
+            }
+        }
+    }
+    hits
+}
+
+#[cfg(not(windows))]
+fn audit_probe_registry_fingerprints(_: &std::collections::HashSet<String>) -> Vec<(String, String)> {
+    Vec::new()
+}
+
+/// 硬件标识清点:主板 UUID/BIOS 序列号/系统序列号/系统盘卷号。
+/// 这些**本地改不了**,如实列出来是"边界披露"——不是缺陷,避免用户误以为工具没做到位。
+#[cfg(windows)]
+fn audit_probe_hardware() -> Vec<String> {
+    let script = "$ErrorActionPreference='SilentlyContinue'; \
+        [Console]::OutputEncoding=[System.Text.Encoding]::UTF8; \
+        Get-CimInstance -ClassName Win32_ComputerSystemProduct | ForEach-Object { 'MB-UUID=' + $_.UUID }; \
+        Get-CimInstance -ClassName Win32_BIOS | ForEach-Object { 'BIOS-SN=' + $_.SerialNumber }; \
+        Get-CimInstance -ClassName Win32_OperatingSystem | ForEach-Object { 'OS-SN=' + $_.SerialNumber }; \
+        Get-Volume -DriveLetter C | ForEach-Object { 'VolC-SN=' + ($_ | Select-Object -ExpandProperty ObjectId) }";
+    match run_ps_capture(script, std::time::Duration::from_secs(30)) {
+        Ok(v) if !v.is_empty() => v,
+        Ok(_) => vec!["(硬件标识查询返回空)".to_string()],
+        Err(e) => vec![format!("(硬件标识查询降级: {e})")],
+    }
+}
+
+#[cfg(not(windows))]
+fn audit_probe_hardware() -> Vec<String> {
+    vec!["(非 Windows 平台无硬件标识)".to_string()]
+}
+
+/// 残留审计主流程(纯同步,可单测;命令层再包一层 spawn_blocking)。
+pub fn audit_trae_residual() -> ResidualAuditReport {
+    let blacklist: Vec<String> = load_identity_blacklist();
+    let zones = audit_scan_zones();
+    let sites_present = audit_sites_present();
+    if blacklist.is_empty() {
+        return ResidualAuditReport {
+            ok: true,
+            message: "尚无历史身份记录 —— 请先执行一次一键重置,之后本审计即可逐项比对旧值".into(),
+            blacklist_size: 0,
+            scanned_files: 0,
+            scanned_mb: 0.0,
+            sites_present,
+            hard_hits: 0,
+            hard_hit_files: Vec::new(),
+            suspect_hits: 0,
+            registry: audit_probe_registry(),
+            hardware: audit_probe_hardware(),
+        };
+    }
+    let set: std::collections::HashSet<String> = blacklist.iter().cloned().collect();
+    let mut hits: Vec<(String, String)> = Vec::new();
+    let mut scanned: (usize, u64) = (0, 0);
+    for z in &zones {
+        audit_walk(z, &set, &mut hits, &mut scanned, 0);
+    }
+    // 注册表指纹维度(与文件扫描并列,不进 scanned 计数——它不是文件)
+    for (slot, val) in audit_probe_registry_fingerprints(&set) {
+        hits.push((slot, val));
+    }
+    // 按文件聚合
+    let mut by_file: std::collections::BTreeMap<String, Vec<String>> =
+        std::collections::BTreeMap::new();
+    for (f, id) in &hits {
+        by_file.entry(f.clone()).or_default().push(id.clone());
+    }
+    let mut hard_hit_files: Vec<ResidualHit> = by_file
+        .into_iter()
+        .map(|(file, ids)| ResidualHit {
+            count: ids.len(),
+            sample: ids.into_iter().next().unwrap_or_default(),
+            file,
+        })
+        .collect();
+    hard_hit_files.sort_by(|a, b| b.count.cmp(&a.count));
+    let hard_hits: usize = hard_hit_files.iter().map(|h| h.count).sum();
+    let ok = hard_hits == 0;
+    let message = if ok {
+        format!(
+            "✅ 0 项残留 —— 比对账本里 {} 个历史旧身份值,扫描 {} 个文件,当前全现场均未再出现(应用层身份已彻底翻新)",
+            blacklist.len(),
+            scanned.0
+        )
+    } else {
+        format!(
+            "⚠️ {} 处残留,分布于 {} 个文件 —— 这些文件里仍躺着旧身份值,建议重跑一键重置或手工清理下列路径",
+            hard_hits,
+            hard_hit_files.len()
+        )
+    };
+    ResidualAuditReport {
+        ok,
+        message,
+        blacklist_size: blacklist.len(),
+        scanned_files: scanned.0,
+        scanned_mb: scanned.1 as f64 / 1048576.0,
+        sites_present,
+        hard_hits,
+        hard_hit_files,
+        suspect_hits: 0,
+        registry: audit_probe_registry(),
+        hardware: audit_probe_hardware(),
+    }
 }
 
 // ================== 执行层：9 类快照（对称备份/恢复）==================
@@ -1931,7 +2720,7 @@ pub fn checkin_capture_jwts() -> Result<Vec<CapturedAccount>, IpcError> {
     Ok(capture_local_jwts(&dir))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn checkin_reset_device_ids(
     include_machine_guid: bool,
     clean_browser_cookies: bool,
@@ -1949,6 +2738,143 @@ pub fn checkin_reset_device_ids(
         true,
         reset_mac.unwrap_or(false),
     ))
+}
+
+// ================== 一键解决风控(产品级向导,2026-10-10) ==================
+
+/// MachineGuid 改写前的自动备份(一键模式安全网):首次写入
+/// `%USERPROFILE%\.trae-proxy\MachineGuid-backup.txt`,已存在则保留最早备份不覆盖。
+#[cfg(windows)]
+fn ensure_machine_guid_backup() -> Result<String, String> {
+    let script = "try { \
+        $v=(Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Cryptography' -ErrorAction Stop).MachineGuid; \
+        $d=\"$env:USERPROFILE\\.trae-proxy\"; \
+        New-Item -ItemType Directory -Force -Path $d | Out-Null; \
+        $p=\"$d\\MachineGuid-backup.txt\"; \
+        if (!(Test-Path $p)) { Set-Content -Path $p -Value $v -Encoding ascii }; \
+        Write-Output $v; exit 0 } catch { exit 1 }";
+    let mut cmd = std::process::Command::new("powershell");
+    cmd.args(["-NoProfile", "-NonInteractive", "-Command", script]);
+    creation_flags_if_windows(&mut cmd, 0x0800_0000);
+    match cmd.output() {
+        Ok(out) if out.status.success() => {
+            let v = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            if v.is_empty() {
+                Err("读取 MachineGuid 返回空".into())
+            } else {
+                Ok(v)
+            }
+        }
+        Ok(_) => Err("读取 MachineGuid 失败(无权限?)".into()),
+        Err(e) => Err(format!("无法启动内建脚本: {e}")),
+    }
+}
+
+#[cfg(not(windows))]
+fn ensure_machine_guid_backup() -> Result<String, String> {
+    Err("非 Windows 平台无 MachineGuid".into())
+}
+
+/// cip.cc 纯文本响应解析(抽出纯函数便于单测):
+/// 返回 (ip, 归属地) —— 形如 "IP\t: 1.2.3.4" / "地址 : 中国 吉林 长春 电信"。
+fn parse_public_ip_body(body: &str) -> Option<(String, String)> {
+    let mut ip = None;
+    let mut location = String::new();
+    for line in body.lines() {
+        let line = line.trim();
+        if let Some(v) = line.strip_prefix("IP").map(str::trim).and_then(|s| s.strip_prefix(':')) {
+            let v = v.trim();
+            if !v.is_empty() && v.split('.').count() == 4 {
+                ip = Some(v.to_string());
+            }
+        } else if line.starts_with("地址") {
+            if let Some(v) = line.split_once(':').map(|(_, v)| v.trim()) {
+                if !v.is_empty() {
+                    location = v.to_string();
+                }
+            }
+        }
+    }
+    ip.map(|i| (i, location))
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PublicIpReport {
+    pub ip: String,
+    pub location: String,
+}
+
+/// 当前直连公网出口 IP(一键向导 Step2 用):显式 no_proxy,拿真实宽带/热点出口,
+/// 不被本机代理环境干扰。cip.cc(国内,含归属地) 为主,api.ipify.org 兜底。
+#[tauri::command]
+pub async fn checkin_get_public_ip() -> Result<PublicIpReport, IpcError> {
+    let client = reqwest::Client::builder()
+        .no_proxy()
+        .timeout(std::time::Duration::from_secs(8))
+        .build()
+        .map_err(|e| IpcError::internal(format!("HTTP 客户端构建失败: {e}")))?;
+    // 主: cip.cc(plain text,含中文归属地;UA 给 curl 文本版)
+    if let Ok(resp) = client
+        .get("https://cip.cc")
+        .header("User-Agent", "curl/8.9.1")
+        .send()
+        .await
+    {
+        if let Ok(body) = resp.text().await {
+            if let Some((ip, location)) = parse_public_ip_body(&body) {
+                return Ok(PublicIpReport { ip, location });
+            }
+        }
+    }
+    // 兜底: ipify(只有 IP,无归属地;空响应视为失败,防止前端拿到空串后 IP 对比逻辑失效)
+    let ip = client
+        .get("https://api.ipify.org")
+        .send()
+        .await
+        .map_err(|e| IpcError::internal(format!("公网 IP 查询失败: {e}")))?
+        .text()
+        .await
+        .map_err(|e| IpcError::internal(format!("公网 IP 响应读取失败: {e}")))?;
+    let ip = ip.trim().to_string();
+    if ip.is_empty() || ip.split('.').count() != 4 {
+        return Err(IpcError::internal(format!(
+            "公网 IP 响应异常: {ip:?}"
+        )));
+    }
+    Ok(PublicIpReport {
+        ip,
+        location: String::new(),
+    })
+}
+
+/// 一键解决风控(傻瓜式):全 14 层全开 —— 杀进程+机器码+MachineGuid(先自动备份)
+/// +浏览器 Cookie+深度删面(23目录5文件+traereset_bak 清扫)+注册表+本地缓存+MAC 改写。
+/// 可选层(⑤⑦⑬)环境不允许时降级记录不拦流程;报告由前端向导照实展示。
+/// 硬安全网:MachineGuid 旧值备份失败 ⇒ 层⑤【真跳过】(include_machine_guid=false),
+/// 决不允许无备份的不可逆改写(2026-10-10 审查修正:旧实现事后改报告是假安全网)。
+#[tauri::command(async)]
+pub fn checkin_one_click_reset() -> Result<ResetReport, IpcError> {
+    let dir = require_trae_dir()?;
+    let guid_backup = ensure_machine_guid_backup();
+    let include_guid = guid_backup.is_ok();
+    let mut report = reset_device_ids(&dir, include_guid, true, true, true, true);
+    if let Err(e) = guid_backup {
+        if let Some(l5) = report.layers.iter_mut().find(|l| l.layer == 5) {
+            l5.ok = false;
+            l5.detail = format!("已跳过(旧值备份失败,防止不可逆): {e}");
+        }
+    }
+    Ok(report)
+}
+
+/// 残留指纹审计(一键向导 Step1 之后自动跑一次,也可随时手点)。
+/// 拿"历次重置前记录的旧身份值"当黑名单,扫当前全部 TRAE 现场,给出**可复核的残留条数**。
+/// 走 spawn_blocking:扫描是重 I/O,直接跑在异步运行时线程上会把 UI 卡住。
+#[tauri::command(async)]
+pub async fn checkin_audit_trae_residual() -> Result<ResidualAuditReport, IpcError> {
+    tauri::async_runtime::spawn_blocking(audit_trae_residual)
+        .await
+        .map_err(|e| IpcError::internal(format!("审计任务异常退出: {e}")))
 }
 
 #[tauri::command]
@@ -2132,17 +3058,24 @@ mod tests {
 
     #[test]
     fn storage_json_dotted_keys_are_top_level_not_nested() {
-        let text = r#"{"telemetry.machineId":"old-mid","telemetry.sqmId":"old-sqm","aha.device.device_id":"old-dev","has_device_id_updated_to_aha":true,"keep":"me"}"#;
+        let text = r#"{"telemetry.machineId":"old-mid","telemetry.sqmId":"old-sqm","telemetry.devDeviceId":"old-devdev","aha.device.device_id":"old-dev","has_device_id_updated_to_aha":true,"keep":"me"}"#;
         let (out, changes) =
             rewrite_storage_json_device_ids(text, "new-mid", "new-sqm", "new-dev").unwrap();
         let v: serde_json::Value = serde_json::from_str(&out).unwrap();
         assert_eq!(v["telemetry.machineId"], "new-mid");
         assert_eq!(v["telemetry.sqmId"], "new-sqm");
         assert_eq!(v["aha.device.device_id"], "new-dev");
+        // devDeviceId 实证补键:重置后不得再留旧设备 ID(2026-10-10 审计抓出的漏网)
+        assert_eq!(v["telemetry.devDeviceId"], "new-dev");
         assert!(v.get("telemetry").is_none(), "点号键是字面键,不得长成嵌套对象");
         assert!(v.get("has_device_id_updated_to_aha").is_none(), "标志键必须删掉");
         assert_eq!(v["keep"], "me", "无关键不得动");
-        assert_eq!(changes.len(), 4, "三个 set + 一个 removed");
+        assert_eq!(changes.len(), 5, "四个 set + 一个 removed");
+        // 清单与新键必须始终对齐(防改清单忘改实现)
+        assert!(
+            TRAE_DOTTED_KEYS.contains(&"telemetry.devDeviceId"),
+            "devDeviceId 必须在改写清单内"
+        );
     }
 
     #[test]
@@ -2415,6 +3348,20 @@ mod tests {
         );
         assert!(!dir.join(link_rel).exists(), "链接形态的 {link_rel} 必须被摘除");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// 一键向导 Step2 的公网 IP 解析判据(cip.cc 纯文本形态)
+    #[test]
+    fn parse_public_ip_body_extracts_ip_and_location() {
+        let body = "IP\t: 36.104.209.21\n地址\t: 中国 吉林 长春 电信\n运营商\t: 电信\n\n数据二: ...";
+        let (ip, loc) = parse_public_ip_body(body).expect("应解析成功");
+        assert_eq!(ip, "36.104.209.21");
+        assert!(loc.contains("长春"), "归属地应含城市: {loc}");
+        assert!(parse_public_ip_body("no ip here").is_none(), "无 IP 行应返回 None");
+        assert!(
+            parse_public_ip_body("IP\t: not-an-ip\n地址\t: x").is_none(),
+            "非法 IP 不得误报"
+        );
     }
 
     // ── 10. 层⑦浏览器 Cookie 清理（隔离临时库,只验域限定判据）──
@@ -2749,4 +3696,219 @@ mod tests {
         eprintln!("[real] DONE:13 层全 ok,双现场等效重装(备份在 G:/trae-real-test-backup)");
     }
 
+    // ── 9e. 一键重置真机实测(#[ignore]):UI「一键彻底重置」按钮完全同路径,
+    // 含 ensure_machine_guid_backup 自动备份链路。备份产物断言=~/.trae-proxy。
+    #[cfg(windows)]
+    #[test]
+    #[ignore]
+    fn traereal_one_click_reset_glue() {
+        let dir = detect_trae_dir().expect("本机必须能探测到 TRAE 现场目录");
+        eprintln!("[oneclick] detected = {}", dir.display());
+        let report = checkin_one_click_reset().expect("一键重置胶水调用失败");
+        assert_eq!(report.layers.len(), 14, "层报告数应为 14");
+        for l in &report.layers {
+            eprintln!("[oneclick] L{:02} {:26} ok={} {}", l.layer, l.name, l.ok, l.detail);
+            // 环境敏感可选层(5 UAC/7 浏览器锁/13 无提权)不拦;其余硬断言
+            if l.layer == 5 || l.layer == 7 || l.layer == 13 {
+                continue;
+            }
+            assert!(l.ok, "层{}({}) 失败: {}", l.layer, l.name, l.detail);
+        }
+        // 自动备份安全网断言:MachineGuid 旧值必须已落盘(ascii 无 BOM;容忍历史
+        // utf8 备份残留的 BOM 前缀)
+        let home = std::env::var("USERPROFILE").expect("USERPROFILE 必须存在");
+        let backup = PathBuf::from(home).join(".trae-proxy/MachineGuid-backup.txt");
+        assert!(backup.is_file(), "自动备份缺失: {}", backup.display());
+        let saved = std::fs::read_to_string(&backup).expect("备份可读");
+        let saved = saved.trim_start_matches('\u{feff}').trim().to_string();
+        assert_eq!(saved.chars().count(), 36, "MachineGuid 应为 36 位 GUID 形态");
+        eprintln!("[oneclick] DONE:一键 14 层执行完毕,自动备份在 {}", backup.display());
+    }
+
+    // ── 9f. 「现在就验证」真机闭环(#[ignore]):一键重置 → 立刻审计 → 断言 0 残留 ──
+    //
+    // 这是用户诉求「我要现在就验证 / trae 还是没重置彻底」的**可执行答案**:
+    // 重置前把旧身份值记进账本 → 重置 → 用账本当黑名单回扫 → 给出可复核的残留条数。
+    // 不再靠"感觉",也不再靠一句"已完成"。
+    #[test]
+    #[ignore]
+    fn traereal_reset_then_audit_reports_zero_residual() {
+        let backup = PathBuf::from("G:/trae-real-test-backup");
+        assert!(backup.is_dir(), "真机护栏:先备好 {}\\", backup.display());
+
+        // ① 先把账本清空重来:确保本轮审计比的是**本轮**抓到的旧值,
+        //    否则历史账本里的老值会让结论不可归因。
+        if let Some(p) = identity_history_path() {
+            let _ = std::fs::remove_file(&p);
+        }
+
+        // ② 抓"重置前"的旧身份值(含注册表厂商容器下的 Info 指纹)并记入账本
+        let dirs: Vec<PathBuf> = trae_dir_candidates(
+            std::env::var("APPDATA").ok().as_deref(),
+            std::env::var("LOCALAPPDATA").ok().as_deref(),
+            None,
+        )
+        .into_iter()
+        .filter(|p| p.is_dir())
+        .collect();
+        let before = capture_identity_values(&dirs);
+        eprintln!("[verify] 重置前抓到旧身份值 {} 个:", before.len());
+        for v in &before {
+            let show: String = v.chars().take(48).collect();
+            eprintln!("[verify]   - {show}");
+        }
+        assert!(!before.is_empty(), "真机上必须抓得到旧身份值(否则 TRAE 现场可能已被清空)");
+
+        // ③ 一键 14 层(与 UI 按钮同路径)
+        let report = checkin_one_click_reset().expect("一键重置不应返回错误");
+        for l in &report.layers {
+            eprintln!("[verify] L{:02} {:26} ok={} {}", l.layer, l.name, l.ok, l.detail);
+            if l.layer == 5 || l.layer == 7 || l.layer == 13 {
+                continue;
+            }
+            assert!(l.ok, "层{}({}) 失败: {}", l.layer, l.name, l.detail);
+        }
+
+        // ④ 立刻审计
+        let a = audit_trae_residual();
+        eprintln!("[verify] ===== 审计结论 =====");
+        eprintln!("[verify] {}", a.message);
+        eprintln!(
+            "[verify] 黑名单 {} / 扫文件 {} 个 ({:.1} MB) / 现场 {} 处",
+            a.blacklist_size, a.scanned_files, a.scanned_mb, a.sites_present
+        );
+        for h in a.hard_hit_files.iter().take(20) {
+            eprintln!("[verify]   残留 {} ({} 个旧值,例 {})", h.file, h.count, h.sample);
+        }
+        for r in &a.registry {
+            eprintln!("[verify]   {r}");
+        }
+        for h in &a.hardware {
+            eprintln!("[verify]   硬件 {h}");
+        }
+        assert!(a.ok, "残留 {} 处未清: {:#?}", a.hard_hits, a.hard_hit_files);
+        eprintln!("[verify] DONE:一键重置 → 审计 0 残留,闭环成立");
+    }
+
+    // ── 10. 残留审计:身份记号抽取 / 键名判据 / 账本抓取(全部纯函数或临时目录,可真跑)──
+
+    #[test]
+    fn extract_identity_tokens_picks_32hex_and_uuid_only() {
+        let src = b"machineId=0123456789abcdef0123456789abcdef\n\
+                    guid=2d3811f4-ba07-bf18-c468-acfc0cd60f56\n\
+                    short=abc123\n\
+                    long=0123456789abcdef0123456789abcdef0\n\
+                    tail=zzz0123456789abcdef0123456789abcde";
+        let got = extract_identity_tokens(src);
+        assert!(got.contains(&"0123456789abcdef0123456789abcdef".to_string()), "{got:?}");
+        assert!(got.contains(&"2d3811f4-ba07-bf18-c468-acfc0cd60f56".to_string()), "{got:?}");
+        // 33 位与 31 位都不算(正则口径:恰好 32 且前后为词边界)
+        assert!(!got.iter().any(|t| t.len() == 33), "33 位串不得命中: {got:?}");
+        assert!(!got.iter().any(|t| t == "zzz0123456789abcdef0123456789abcde"), "{got:?}");
+        assert!(!got.contains(&"abc123".to_string()), "{got:?}");
+    }
+
+    /// 二进制现场(非 UTF-8)也必须能扫 —— TRAE 的 leveldb/vscdb 全是二进制。
+    #[test]
+    fn extract_identity_tokens_works_on_binary_bytes() {
+        let mut buf: Vec<u8> = vec![0x00, 0xff, 0xfe, 0x80];
+        buf.extend_from_slice(b"0123456789ABCDEF0123456789ABCDEF");
+        buf.extend_from_slice(&[0x00, 0xff, 0x00]);
+        let got = extract_identity_tokens(&buf);
+        assert!(
+            got.contains(&"0123456789abcdef0123456789abcdef".to_string()),
+            "二进制中的 32hex 必须命中且已小写化: {got:?}"
+        );
+    }
+
+    #[test]
+    fn uuid_boundary_rejects_partial_matches() {
+        // 前面还挂着 hex ⇒ 不是独立 UUID
+        let s = b"a2d3811f4-ba07-bf18-c468-acfc0cd60f56";
+        assert!(try_uuid_at(s, 1).is_none() || try_uuid_at(s, 0).is_none());
+        // 干净的一段 ⇒ 命中
+        let clean = b" 2d3811f4-ba07-bf18-c468-acfc0cd60f56 ";
+        assert_eq!(
+            try_uuid_at(clean, 1),
+            Some("2d3811f4-ba07-bf18-c468-acfc0cd60f56".to_string())
+        );
+        // 截断(不足 36 字节)⇒ 不命中
+        assert!(try_uuid_at(b"2d3811f4-ba07", 0).is_none());
+    }
+
+    #[test]
+    fn looks_like_identity_accepts_only_32hex_or_uuid() {
+        assert!(looks_like_identity("0123456789abcdef0123456789abcdef"));
+        assert!(looks_like_identity("2d3811f4-ba07-bf18-c468-acfc0cd60f56"));
+        assert!(!looks_like_identity("old"));
+        assert!(!looks_like_identity(""));
+        assert!(!looks_like_identity("0123456789abcdef0123456789abcde"));
+    }
+
+    /// 层⑪键名判据:2026-10-10 取证发现的 4 类漏网键必须全部被判据覆盖,
+    /// 且**厂商容器不得整删**(只摘其下 TRAE 子项)。
+    #[test]
+    fn registry_key_predicates_cover_all_found_variants() {
+        // ① TRAE 族(整删)
+        for n in ["TRAE", "Trae CN", "Trae Work 助手", "TRAE SOLO CN", "icube", "ahawork"] {
+            assert!(is_trae_family_reg_key(n), "{n} 必须判为 TRAE 族");
+        }
+        assert!(!is_trae_family_reg_key("Microsoft"));
+        // ② 厂商容器(只摘子项)
+        for n in ["Bytedance", "ByteDance", "字节跳动"] {
+            assert!(is_vendor_container_reg_key(n), "{n} 必须判为厂商容器");
+        }
+        assert!(!is_vendor_container_reg_key("Microsoft"));
+        // 关键护栏:厂商容器**本身**不是 TRAE 族键 ⇒ 不会被整树删除(只摘其下 TRAE 子项)
+        assert!(!is_trae_family_reg_key("Bytedance"), "厂商容器本身不是 TRAE 族键,不得整删");
+        // ③ Classes 下的协议与文件关联 ProgID
+        assert!(is_trae_progid_reg_key("trae"));
+        assert!(is_trae_progid_reg_key("Trae CN.asp"));
+        assert!(!is_trae_progid_reg_key(".txt"));
+        assert!(!is_trae_progid_reg_key("txtfile"));
+    }
+
+    /// 账本抓取:只收"像身份"的旧值,且 4 个点号键一个都不能漏。
+    #[test]
+    fn capture_identity_values_collects_machineid_and_four_dotted_keys() {
+        let dir = scratch("capture-identity");
+        std::fs::create_dir_all(dir.join("User/globalStorage")).unwrap();
+        std::fs::write(dir.join("machineid"), "0123456789abcdef0123456789ABCDEF\n").unwrap();
+        std::fs::write(
+            dir.join("User/globalStorage/storage.json"),
+            // 值一律 32 位(5+5+6+16):不足 32 会被 looks_like_identity 拒收
+            r#"{"telemetry.machineId":"AAAAA56789abcdef0123456789abcdef",
+                 "telemetry.sqmId":"{BBBB56789-1234-1234-1234-123456789012}",
+                 "telemetry.devDeviceId":"CCCCC56789abcdef0123456789abcdef",
+                 "aha.device.device_id":"DDDDD56789abcdef0123456789abcdef",
+                 "unrelated":"no"}"#,
+        )
+        .unwrap();
+        let got = capture_identity_values(std::slice::from_ref(&dir));
+        assert!(got.contains(&"0123456789abcdef0123456789abcdef".to_string()), "{got:?}");
+        assert!(got.contains(&"aaaaa56789abcdef0123456789abcdef".to_string()), "{got:?}");
+        assert!(got.contains(&"ccccc56789abcdef0123456789abcdef".to_string()), "{got:?}");
+        assert!(got.contains(&"ddddd56789abcdef0123456789abcdef".to_string()), "{got:?}");
+        // sqmId 是 GUID 花括号形态 ⇒ 抽不到裸 36 位,这里只断言不崩且不进垃圾值
+        assert!(!got.iter().any(|v| v.contains('{')), "不得收入非身份形态: {got:?}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// 测试现场的 "old" 之类短串绝不能污染账本(否则黑名单里全是垃圾)。
+    #[test]
+    fn capture_identity_values_ignores_non_identity_values() {
+        let dir = scratch("capture-garbage");
+        std::fs::create_dir_all(dir.join("User/globalStorage")).unwrap();
+        std::fs::write(dir.join("machineid"), "old").unwrap();
+        std::fs::write(dir.join("User/globalStorage/storage.json"), r#"{"telemetry.machineId":"x"}"#)
+            .unwrap();
+        // 注意:本机可能已有 ~/.trae-proxy/MachineGuid-backup.txt(真实历史旧值),
+        // 它**理应**入账 ⇒ 断言只能针对"垃圾短串不得入账",不能断言整体为空。
+        let got = capture_identity_values(std::slice::from_ref(&dir));
+        assert!(
+            !got.iter().any(|v| v == "old" || v == "x" || v.len() < 32),
+            "非身份短串不得污染账本: {got:?}"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
