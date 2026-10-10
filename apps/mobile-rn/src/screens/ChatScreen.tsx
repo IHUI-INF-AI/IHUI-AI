@@ -136,7 +136,12 @@ import {
 } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
 // G-166:交代区(RN 端共享组件)—— 引用来源 + 本轮上下文注入,与 N8n 屏同一实现
-import { CitationList, InjectionDisclosure, PermissionTierRow, SteerNoticeList } from '../components/ChatDisclosure'
+import {
+  CitationList,
+  InjectionDisclosure,
+  PermissionTierRow,
+  SteerNoticeList,
+} from '../components/ChatDisclosure'
 // D135(承 V4 #93):任务进度状态条 —— 执行帧折叠结果的可读出口,与 N8n 屏同一组件
 import { TaskStatusBar } from '../components/ai/TaskStatusBar'
 import {
@@ -613,14 +618,15 @@ export function ChatScreen() {
    * 只盖 title:抽屉行没有归档列,`model` 在抽屉里是 modelConfig(名字档),
    * 把没有呈现面的字段算成"已同步"就是第二种分叉 —— 所以这条链路始终喊 pullOnly。
    */
-  const drawerConversationsForRender = useMemo(
-    () =>
-      drawerConversations.map((item) => {
-        const title = conversationMetaLedger.titleFor(item.id, item.title)
-        return title === item.title ? item : { ...item, title }
-      }),
-    [drawerConversations, broadcastMetaVersion],
-  )
+  const drawerConversationsForRender = useMemo(() => {
+    // 读一次版本键:账本改动不发请求,失效全靠它 —— 不读它则 eslint 判"多余依赖"而删掉即退化成
+    // "另一端改了标题、本端不重算"(与上面那句注释是同一件事的两种写法,取能被静态检查看见的那一种)。
+    void broadcastMetaVersion
+    return drawerConversations.map((item) => {
+      const title = conversationMetaLedger.titleFor(item.id, item.title)
+      return title === item.title ? item : { ...item, title }
+    })
+  }, [drawerConversations, broadcastMetaVersion])
 
   // ── 智汇值卡余额加载(getTokenBalance;接口异常静默降级为 0,不阻塞页面) ──
   useEffect(() => {
@@ -932,7 +938,10 @@ export function ChatScreen() {
       },
       // 断线重连:提示出口复用 FloatBox(与 web"网络波动,正在重连…"同族)
       onReconnect: (attempt, delayMs) => {
-        showToast('info', `网络波动,正在第 ${attempt} 次重连(${Math.max(1, Math.round(delayMs / 1000))}s 后)`)
+        showToast(
+          'info',
+          `网络波动,正在第 ${attempt} 次重连(${Math.max(1, Math.round(delayMs / 1000))}s 后)`,
+        )
       },
       // response 已到达(冷启动 watchdog 信号):本端无该 watchdog,最小态 = 计数
       onResponse: () => {
@@ -1660,16 +1669,13 @@ export function ChatScreen() {
   }, [])
 
   // D111 消息反馈:点赞/点踩走 @ihui/api-client 唯一出口(rateChatMessage),不裸 fetch。
-  const rateMessage = useCallback(
-    async (messageId: string, next: MessageRating): Promise<void> => {
-      try {
-        await rateChatMessage({ messageId, rating: next })
-      } catch {
-        // 反馈提交失败不打断阅读流(与 web 端点赞失败静默同口径)
-      }
-    },
-    [],
-  )
+  const rateMessage = useCallback(async (messageId: string, next: MessageRating): Promise<void> => {
+    try {
+      await rateChatMessage({ messageId, rating: next })
+    } catch {
+      // 反馈提交失败不打断阅读流(与 web 端点赞失败静默同口径)
+    }
+  }, [])
 
   const renderMessage = useCallback(
     (item: ChatScreenMessage, _index: number): React.ReactNode => {
@@ -1924,21 +1930,17 @@ export function ChatScreen() {
             {/* D111 权限档交代行:档名 + 该档后果(与 N8n 屏同一共享组件;null 不渲染) */}
             {isFailed ? null : <PermissionTierRow key="permission-tier-row" mode={workspaceTier} />}
             {/* D135 终端任务最小可视态:命令 + 状态 + 耗时(完整终端面板在 N8n 屏,不在此复制) */}
-            {isFailed ? null : (
-              executionVizById[item.id]?.terminalTasks?.length ? (
-                <View style={styles.execRows}>
-                  {(executionVizById[item.id]!.terminalTasks ?? []).map((task) => (
-                    <Text key={task.id} style={styles.execRowText} numberOfLines={1}>
-                      {`$ ${task.command} · ${task.status}${
-                        task.durationMs !== undefined
-                          ? ` · ${formatDurationMs(task.durationMs)}`
-                          : ''
-                      }`}
-                    </Text>
-                  ))}
-                </View>
-              ) : null
-            )}
+            {isFailed ? null : executionVizById[item.id]?.terminalTasks?.length ? (
+              <View style={styles.execRows}>
+                {(executionVizById[item.id]!.terminalTasks ?? []).map((task) => (
+                  <Text key={task.id} style={styles.execRowText} numberOfLines={1}>
+                    {`$ ${task.command} · ${task.status}${
+                      task.durationMs !== undefined ? ` · ${formatDurationMs(task.durationMs)}` : ''
+                    }`}
+                  </Text>
+                ))}
+              </View>
+            ) : null}
           </View>
         </View>
       )
@@ -1955,6 +1957,7 @@ export function ChatScreen() {
       rateMessage,
       retryLastTurn,
       t,
+      workspaceTier,
     ],
   )
 
