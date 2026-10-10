@@ -296,7 +296,7 @@ export const mediaVendorRoutes: FastifyPluginAsync = async (server) => {
         description:
           '代理调用 Agnes POST /v1/videos 创建视频任务(异步),' +
           '支持文生视频(仅 prompt)与图生视频(附加 image 单图 URL);' +
-          '默认参数 model=agnes-video-2.5/mode=text/size=720P(2.5 系列),响应含 taskId 供轮询',
+          '默认参数 model=agnes-video-2.5-flash(免费档)/mode=text/size=720P(2.5 系列),响应含 taskId 供轮询',
         tags: ['AI', 'Agnes'],
         body: agnesVideoBody,
       }),
@@ -305,7 +305,8 @@ export const mediaVendorRoutes: FastifyPluginAsync = async (server) => {
       const body = agnesVideoBody.parse(request.body)
       const { image, ...rest } = body
       // 2026-10-10:默认模型对齐 /v1/models 现存清单(v2.0 已下架,上游 503 model_not_found)
-      const model = rest.model ?? 'agnes-video-2.5'
+      // 默认走免费档 flash(机主拍板不充值:付费档 2.5 在余额 0 时上游 403 insufficient_user_quota)
+      const model = rest.model ?? 'agnes-video-2.5-flash'
       // 2.5 系列(现存):mode 必填(缺省按有无 image 补 text/image),size 仅 720P(缺省 720P),
       // 不收 width/height/num_frames/frame_rate
       // v2.0 分支保留仅为显式传旧模型时透传原参数(上游已 503,不做业务拦截)
