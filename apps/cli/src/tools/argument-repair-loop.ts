@@ -46,7 +46,7 @@ export interface ArgumentRepairDeps {
 }
 
 /** 一次提交的判定结果:accepted 之外的三种帧都会终结本轮提交(等模型重发)。 */
-export type RepairOutcome =
+type RepairOutcome =
   | { kind: 'accepted'; args: unknown }
   | {
       kind: 'reject';

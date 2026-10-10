@@ -49,7 +49,7 @@ export const RETRYABLE_FAILURE_CODES: ReadonlySet<FailureCode> = new Set<Failure
 ]);
 
 /** 致命档(逐字 = 改前 `isFatalErrorType`:仅 permission)。 */
-export const FATAL_FAILURE_CODES: ReadonlySet<FailureCode> = new Set<FailureCode>(['permission']);
+const FATAL_FAILURE_CODES: ReadonlySet<FailureCode> = new Set<FailureCode>(['permission']);
 
 export function isRetryableFailureCode(code: FailureCode): boolean {
   return RETRYABLE_FAILURE_CODES.has(code);
