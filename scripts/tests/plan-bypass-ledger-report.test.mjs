@@ -23,6 +23,7 @@
  *         仓库问不到东西(`ok=false`)必须三种答法,不得共用"0 枚"这一个词。
  */
 import test from 'node:test'
+import { maskedSpans } from '../lib/code-mask.mjs'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
@@ -223,8 +224,26 @@ test('T4 装车证明:真跑一次旁路落地 ⇒ 留痕真的进了同一本�
 
 test('T5 同源 schema 锁:键名与 safe-commit 那本逐字同族,只多 gatesRun/landedSha/source', () => {
   const safe = src('safe-commit.mjs')
-  const p = safe.indexOf('safe-commit-attestation.jsonl')
-  assert.ok(p > 0, 'safe-commit 里找不到那本台账 ⇒ 本测试无从对账(它改了落点?)')
+  // 锚点必须是**代码面里那枚完整的路径字面量**。此前这里用裸 indexOf(文件名),而 safe-commit 的
+  // 函数头注释与一句日志文案里都逐字出现过这个文件名 ⇒ "第一次命中"落在**散文**上,紧随其后的
+  // JSON.stringify 是另一本台账(staged-delete-intent-ledger.jsonl,票 G-1018292)的记录块,
+  // 于是本锁拿别人的键名清单来要求旁路留痕,自 2026-10-08 起恒红在"event 不在旁路 schema 里"这一枚
+  // **假阳**上。现按结构位取:maskedSpans 中 kind==='string' 且整段文本恰为该文件名的字面量才算落点
+  // —— 不变量一个字没放宽(键集仍须逐字同族),修的只是"比的是哪一块"。
+  const LEDGER_BASENAME = 'safe-commit-attestation.jsonl'
+  const anchors = maskedSpans(safe)
+    .filter(
+      (sp) =>
+        sp.kind === 'string' &&
+        safe.slice(sp.start, sp.end).replace(/^['"`]|['"`]$/g, '') === LEDGER_BASENAME,
+    )
+    .map((sp) => sp.start)
+  assert.equal(
+    anchors.length,
+    1,
+    `代码面里"那本台账的路径字面量"必须恰好 1 处(实测 ${anchors.length})⇒ 要么 safe-commit 改了落点、要么本锁的取法又漂了,两种都得人来判`,
+  )
+  const p = anchors[0]
   const s = safe.indexOf('JSON.stringify(', p)
   assert.ok(s > p, 'safe-commit 的那次落盘不再是 JSON.stringify 内联形态 ⇒ 键名对账失去对象')
   // 把对账范围**收在那段对象字面量之内**(它的收尾就是 `})}`):切到 1200 字符会把后面的
@@ -249,10 +268,13 @@ test('T5 同源 schema 锁:键名与 safe-commit 那本逐字同族,只多 gates
     assert.ok(mine.includes(k), `safe-commit 写了键 ${k} 而旁路留痕没有 ⇒ 两份 schema(硬要求①)`)
   for (const k of ['gatesRun', 'landedSha', 'source'])
     assert.ok(mine.includes(k), '本票新增的三个键必须在位:绑不到 sha 就统计不了,不写 gatesRun 就分不清绕门')
-  // 只有这三个是新增;其余顺序与命名必须与那本一致
+  // 其余键必须与那本**逐字同族、同序**。这里刻意不再抄一份硬写清单:
+  // 硬清单会把"safe-commit 正当新增一键"判成红,而真正要钉的是不变量"两边键集相等且只允许多那三键"
+  // —— 抄清单的锁只会教下一个人去把新键删掉(§22c/守门 105 那条"形状锁钉条目不钉不变量"同型)。
+  const MINE_EXTRA = ['gatesRun', 'landedSha', 'source']
   assert.deepEqual(
-    mine.filter((k) => !['gatesRun', 'landedSha', 'source'].includes(k)),
-    ['ts', 'kind', 'ranFullBatch', 'reason', 'failedGates', 'declaredFiles', 'headBefore', 'batchSelfRun', 'selfRunOk', 'blockerBeforeBatch'],
+    mine.filter((k) => !MINE_EXTRA.includes(k)),
+    theirs,
     '键集漂移(增删改名)即红:台账有两份形状 = 统计永远对不上',
   )
   assert.equal(LEDGER_REL, join('.workbuddy', 'safe-commit-attestation.jsonl'), '必须是那一本,不得另立文件')

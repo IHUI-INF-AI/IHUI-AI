@@ -40,6 +40,9 @@ function git(args: string[]): string {
 }
 
 describe('默认值形参的存在性判据恒真', () => {
+  // 超时预算 60s(默认 10s):本用例先 git grep 预筛再逐文件 git show 全仓 blob,高负载的
+  // vitest 全量跑下实读 16.2s 会被 10s 掐掉而假红(2026-10-10 实测,单跑 4/4 绿)——它是
+  // 环境性 flaky 不是反模式命中,预算给足让"真命中"与"超时假红"不再同形。
   it('真仓 HEAD 面:0 命中(命中即说明有人把默认值当"传没传")', () => {
     // 先用 git grep 预筛(判据字面量的严格超集),再逐文件跑判据 —— 全量读三千个 blob 会让
     // 本测试在每次 vitest 跑里成为最长的尾巴,而预筛漏一形的代价由下面两条用例兜住。
@@ -65,7 +68,7 @@ describe('默认值形参的存在性判据恒真', () => {
       for (const h of findDefaultParamTautologies(src)) hits.push(`${p}:${h.line} ${h.snippet}`)
     }
     expect(hits, `恒真存在性判据 ${hits.length} 处:\n${hits.join('\n')}`).toEqual([])
-  })
+  }, 60_000)
 
   it('阳性对照:修复前那段原文逐字喂进来必须命中(否则本测试是空转尺子)', () => {
     const before = [

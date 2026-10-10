@@ -1233,6 +1233,21 @@ const MessageItem = React.memo(function MessageItem({
                     })}
               </p>
             )}
+            {/* G-1104168(2026-10-10 立):会话快照中断痕迹 —— 数据侧(ai-service
+                conversation.py)只在有正文的取消路径落 metadata.interrupted,历史水合
+                挂消息字段;词与 fallback 交代行同区(chat ns 两键),reason 缺省只渲染
+                主标注。零字符取消不落泡(数据侧保证),空内容消息不会渲染出空泡。 */}
+            {!isUser && m.interrupted && (
+              <p
+                data-testid={`message-interrupted-${m.id}`}
+                className="flex items-center gap-1 px-3 pb-1 text-xs text-muted-foreground"
+              >
+                <Ban className="h-3 w-3 shrink-0" aria-hidden="true" />
+                {m.interruptReason === 'user_cancelled'
+                  ? t('interruptedNoticeUserCancelled')
+                  : t('interruptedNotice')}
+              </p>
+            )}
             {/* #11 Citations 全链路(2026-09-13 立):引用溯源条 inline 到消息正文下方。
                 D64③ 起:无思考时该条已收进思考卡(同一集合只呈现一次),故此处让位。 */}
             {!refsRenderedInsideThinkingCard && m.citations && m.citations.length > 0 && (

@@ -218,6 +218,12 @@ export interface ChatMessage extends Omit<BaseChatMessage, 'createdAt' | 'toolCa
    *  逐字段同形同单位。缺失/空 = 本轮无排队或老消息,不造空态。
    *  会话级桶灌回(消费 api 侧"空数组=确实没有"语义)属后续挂载格,本字段只做消息级回放。 */
   queueItems?: SideQueueItem[]
+  /** G-1104168(2026-10-10 立):该回答被中断的痕迹(仅历史回放;live 通道无此帧)。
+   *  数据侧 ai-service conversation.py 只在 arrived_text 非空的取消路径落
+   *  metadata.interrupted —— 零字符取消不落泡 ⇒ 展示侧不会渲染出空泡。 */
+  interrupted?: boolean
+  /** 中断原因码(ai-service interrupt_reason,如 user_cancelled);缺省不渲染副文案 */
+  interruptReason?: string
 }
 
 /** 自动压缩上下文状态(2026-08-16 立)
