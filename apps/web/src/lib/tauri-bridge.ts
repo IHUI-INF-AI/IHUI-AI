@@ -1752,13 +1752,61 @@ export async function qoderResetProbe(): Promise<WbProbeReport> {
   return await invokeIpc<WbProbeReport>('qoder_reset_probe')
 }
 
-/** Qoder 计划预览:与执行层共用判据,执行前精确列出"会动什么/多大"。 */
+/** Qoder 计划预览单条动作(比 Wb 版多中文 reason,分层扩展 2026-10-11)。 */
+export interface QoderPlanAction {
+  path: string
+  /** delete_file | delete_dir | quarantine */
+  action: string
+  size_mb: number
+  /** 中文理由:该层为什么动/为什么属于此档 */
+  reason: string
+}
+
+/** 资产保护层条目(任何档位都不动的用户资产)。 */
+export interface QoderProtectedAsset {
+  path: string
+  reason: string
+  exists: boolean
+}
+
+/** Qoder 计划预览报告。 */
+export interface QoderPlanReport {
+  mode: string
+  include_device_id: boolean
+  actions: QoderPlanAction[]
+  /** 资产保护层:任何档位都不动的用户资产(出厂档仅整体隔离、可原样恢复) */
+  protected: QoderProtectedAsset[]
+  total_mb: number
+}
+
+/** Qoder 残留审计单条目(只读清点,不读内容)。 */
+export interface QoderResidualEntry {
+  /** cn(~/.qoder-cn) | roaming(%APPDATA%/com.qodercn.app.stable) */
+  root: string
+  path: string
+  /** auth_credential | machine_id | device_identity | runtime_info | local_state | chat_db | webview_login */
+  kind: string
+  exists: boolean
+  /** 文件字节数(目录或不存在为 null) */
+  size: number | null
+}
+
+/** Qoder 残留审计报告(签到/登录残留只读清点)。 */
+export interface QoderResidualAuditReport {
+  cn_root: string
+  roaming_root: string
+  entries: QoderResidualEntry[]
+  present: number
+  message: string
+}
+
+/** Qoder 计划预览:与执行层共用判据,执行前精确列出"会动什么/为什么/保护什么"。 */
 export async function qoderResetPlan(
   mode: 'maintenance' | 'logout' | 'factory',
   includeDeviceId: boolean,
-): Promise<WbPlanReport> {
+): Promise<QoderPlanReport> {
   requireTauri()
-  return await invokeIpc<WbPlanReport>('qoder_reset_plan', {
+  return await invokeIpc<QoderPlanReport>('qoder_reset_plan', {
     mode,
     includeDeviceId: includeDeviceId ?? false,
   })
@@ -1826,6 +1874,12 @@ export async function qoderQuarantineDelete(quarantinePath: string): Promise<WbR
 export async function qoderResetHistory(): Promise<WbHistoryItem[]> {
   requireTauri()
   return await invokeIpc<WbHistoryItem[]>('qoder_reset_history')
+}
+
+/** Qoder 残留审计:双根只读清点签到/登录相关残留坐标(存在性+路径,不读内容、不删除)。 */
+export async function checkinAuditQoderResidual(): Promise<QoderResidualAuditReport> {
+  requireTauri()
+  return await invokeIpc<QoderResidualAuditReport>('checkin_audit_qoder_residual')
 }
 
 
