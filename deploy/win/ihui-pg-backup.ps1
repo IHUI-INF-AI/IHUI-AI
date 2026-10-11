@@ -70,7 +70,8 @@ $psql = Join-Path $DevEnvRoot 'runtimes\pgsql\bin\psql.exe'
 $pgDump = Join-Path $DevEnvRoot 'runtimes\pgsql\bin\pg_dump.exe'
 $backupDir = Join-Path $DevEnvRoot 'backups\pg'
 $retentionDays = 7
-# 云备份同步(2026-08-05 加):复制到百度网盘同步盘 = 异地容灾(同步盘自动云同步)
+# 云备份同步(2026-08-05 加):复制到百度网盘同步盘 = 云同步腿(G-916939 机主拍板 2026-10-07:
+# 不再称"异地容灾" —— 副本与源同机同物理盘,出机靠同步客户端,不是靠复制本身)
 # 字面默认值保持"首行直赋"形态:pg-backup-cadence-audit.mjs 的 parseCloudDir 对本 runner
 # 文本做正则首匹配取该赋值(§5b:配置读被执行的那份)—— 改形态要先改解析器,注释里也
 # 不得复刻该形态(首匹配会先命中说明文字,把配置读成假值)。
@@ -474,11 +475,11 @@ foreach ($f in $expired) {
 $kept = @(Get-BackupArtifacts $backupDir)
 Write-Host "[OK] 本地保留 $($kept.Count) 份,回收 $([math]::Round($reclaimed/1MB,1)) MB" -ForegroundColor Green
 
-# 云备份同步(异地容灾):把保留窗口内**每一份**还没进同步盘的 dump 补过去(同步盘自动云同步)
+# 云备份同步(云同步腿):把保留窗口内**每一份**还没进同步盘的 dump 补过去(同步盘自动云同步)
 #
 # 旧写法只复制"最新一份"。2026-09-27 的备份节拍审计(scripts/pg-backup-cadence-audit.mjs)量到
 # 后果:本地 09-21/22/23 三份 dump 都在,云盘目录里却一天都没有 —— 某天复制成功了,第二天又被
-# "只取最新"跳过,那一天**永远补不回来**。异地腿的意义正是"本机整盘没了还有",而它缺哪天不由
+# "只取最新"跳过,那一天**永远补不回来**。云同步腿的意义正是"本机整盘没了还有",而它缺哪天不由
 # 我们决定,所以改成按缺口补:这一轮漏了下轮自动带上,不靠人记得。稳态字节数不变(每日新增一份、
 # 复制一份),差别只出现在"曾经漏掉"的日子里。
 if ($cloudDir) {
