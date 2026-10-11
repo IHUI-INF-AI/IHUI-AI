@@ -98,6 +98,33 @@ const MISSING_CLASSIFY_CAP = 600
 const trim = (l) => String(l ?? '').trim()
 
 /**
+ * 「三态判据只准有一份」这条锁的**判据本体**(2026-10-08 批次 J 收口,AGENTS §22c)。
+ *
+ * 它原先住在本文件 `--self-test` 第⑪格里,而镜像测试 T2 又把同样的两个形态正则各抄了一遍
+ * (一处判归并器 `merge-live-doc.mjs`、一处判本门自身)—— 两份判据必漂开,而漂开的表现是
+ * 测试照样绿、门看不见第二份实现(§22c 成因)。现在两侧都调这一份裁定,名单只住在这里。
+ *
+ * 为什么要先遮注释:本文件与归并器的头注里**逐字写着**"不得再出现 `function classifyMissing(`",
+ * 那是这条锁的说明书而不是实现(门 103 的 `stripJsonc`、门 131 同族事故)。遮罩只用
+ * `lib/code-mask.mjs` 那一份实现,不在这里再写一遍剥注释逻辑。
+ *
+ * 返回**裁定而不是布尔**:`readable` 钉"取不到正文不许当成通过"(空面与没违规同形是本仓最贵的
+ * 假绿),`importsLib` 钉"必须从 lib 取那一份",`secondImpl` 逐字点名是哪几个形态又出现了。
+ */
+const CLASSIFY_LIB_REL = './lib/live-doc-classify.mjs'
+const SECOND_CLASSIFY_IMPL_RES = [/function classifyMissing\(/, /function anchorKey\(/]
+
+function soleClassifyImplVerdict(sourceText) {
+  const raw = String(sourceText ?? '')
+  const code = maskComments(raw)
+  return {
+    readable: raw.length > 0,
+    importsLib: raw.includes(CLASSIFY_LIB_REL),
+    secondImpl: SECOND_CLASSIFY_IMPL_RES.filter((re) => re.test(code)).map(String),
+  }
+}
+
+/**
  * 归档件清单(按被审面)。全量/`--worktree` 档判 HEAD 树,`--staged` 档判索引 ——
  * 与正文同面同轮,这样"同一枚提交里既归档又删行"才不会被读成丢行(§1 两步走)。
  */
@@ -580,20 +607,12 @@ export function selfTest() {
        * 用 HEAD 面会把自检变成"落地之后才可能绿"的锁(而落地前它必须能跑),那是把取证工具
        * 做成一台自我否证的机器。HEAD 面同一把锁的去处是镜像测试 T2,两边各管各的时机。
        *
-       * 必须先遮注释再匹配(本枚实测踩到):`merge-live-doc.mjs` 的头注里**逐字写着**
-       * "本文件里不得再出现 `function classifyMissing(`" —— 那是这条锁的说明书,而按字面匹配
-       * 会让说明书本身判红。这是本仓记过的那一型:**说明性文字也会带执行性字符**
-       * (门 103 的 `stripJsonc`、门 131 的"门把解释自己的散文判成违规"同族)。
-       * 遮罩只用 `lib/code-mask.mjs` 那一份实现,不得在门里再写一份剥注释逻辑。
+       * 裁定本体在 `soleClassifyImplVerdict`(遮注释 + 两份形态 + 必须 import lib),本格与镜像
+       * 测试 T2 调的是同一份 —— 门里不再各写一遍(§22c)。
        */
       const raw = String(readWorktreeFile(REPO_ROOT, 'scripts/merge-live-doc.mjs') ?? '')
-      const own = maskComments(raw)
-      return (
-        raw.length > 0 &&
-        raw.includes('./lib/live-doc-classify.mjs') &&
-        !/function classifyMissing\(/.test(own) &&
-        !/function anchorKey\(/.test(own)
-      )
+      const v = soleClassifyImplVerdict(raw)
+      return v.readable && v.importsLib && v.secondImpl.length === 0
     })(),
   )
 
@@ -630,5 +649,15 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { run, judgeDoc, selfTest, LIVE_DOCS, MISSING_CLASSIFY_CAP, archiveList }
+export const __test__ = {
+  run,
+  judgeDoc,
+  selfTest,
+  LIVE_DOCS,
+  MISSING_CLASSIFY_CAP,
+  archiveList,
+  // §22c:唯一实现锁的裁定本体住在这里,镜像测试 T2 调它,不得在测试里再抄一遍形态正则。
+  soleClassifyImplVerdict,
+}
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

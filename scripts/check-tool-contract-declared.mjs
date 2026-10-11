@@ -1235,6 +1235,16 @@ const toPartialContract = (src) => src.replace(/ effectScope: 'none',/, '')
  *  的 WITHOUT_SCOPE 是同一件事,两处各写一份正则就是两份真相 —— 两个配方**取值不同**(一处吃前导空格、
  *  一处吃后随空格),不得合并成一个,否则夹具语义会变。 */
 const toScopelessContract = (src) => src.replace(/effectScope: 'none', /, '')
+/** 第三手:摘掉 resultBudget 组造"挂了契约但缺该组"的夹具 —— 门体 selfTest 的 noBudget 与镜像测试的
+ *  WITHOUT_BUDGET 共用这一份(守门 191 的 F1 判的正是"两处各写一份"那一型)。
+ *  ⚠️ 与上面两手**取值不同,不得合并**:正则结尾 `\},?`(尾逗号可选)、占位串 `'x: 1,'`,
+ *  这里以门体自检实际依赖的那一份为准,镜像测试改调本入口,不再自带第二份正则。 */
+const toBudgetlessContract = (src) =>
+  src.replace(/resultBudget: \{[^}]*\{[^}]*\}[^}]*\},?/, 'x: 1,')
+/** 第四手:摘掉 dangerLevel 行造"缺 dangerLevel"的夹具 —— 门体 selfTest 的 noDanger(ST7)与镜像测试
+ *  T4 各写一份 `replace(/  dangerLevel: 'read',\n/, '')` 就是两份真相(守门 191 的 F1 判的正是这一型);
+ *  两侧取值**逐字相同**、合并不移动任何夹具,镜像测试改调本入口,不再自带第二份正则(2026-10-11 收口)。 */
+const stripDangerLevelLine = (src) => src.replace(/  dangerLevel: 'read',\n/, '')
 
 function selfTest() {
   const results = []
@@ -1257,7 +1267,7 @@ function selfTest() {
   },
   async execute() { return { success: true, output: 'ok' } },
 };`
-  const noBudget = full.replace(/resultBudget: \{[^}]*\{[^}]*\}[^}]*\},?/, 'x: 1,')
+  const noBudget = toBudgetlessContract(full)
   const noScope = toScopelessContract(full)
 
   const t1 = extractToolLiterals(bare)
@@ -1283,7 +1293,7 @@ function selfTest() {
     violationsOf(t4).some((v) => v.kind === 'TC2-missing-field:permission.effectScope'),
   )
 
-  const noDanger = bare.replace(/  dangerLevel: 'read',\n/, '')
+  const noDanger = stripDangerLevelLine(bare)
   ok(
     'ST7 无 dangerLevel 且无契约 ⇒ flip-audit 计 1(第二阶段会被拦)',
     flipAuditOf(extractToolLiterals(noDanger)).length === 1,
@@ -1766,6 +1776,8 @@ if (isDirectRun) {
 export const __test__ = {
   toPartialContract,
   toScopelessContract,
+  toBudgetlessContract,
+  stripDangerLevelLine,
   maskNonCode,
   findObjectRanges,
   collectMembers,

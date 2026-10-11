@@ -13,11 +13,11 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import test from 'node:test'
+// §22c:判据一律走静态 import 的导出口(执行面形状表 PROC_SCRIPT_SHAPE_FORMS 也取自这一份)
+import { __test__ as gate } from '../check-service-binary-paths.mjs'
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'check-service-binary-paths.mjs')
 const rawSource = () => readFileSync(SRC, 'utf8')
-const mod = await import(pathToFileURL(SRC).href)
-const { __test__ } = mod
 const {
   measured,
   unmeasured,
