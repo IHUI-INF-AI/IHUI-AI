@@ -27,7 +27,7 @@ import { test } from 'node:test'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { catBatch } from '../lib/face-reader.mjs'
 import { BLOCK_BEGIN, BLOCK_END } from '../gen-doc-numbers.mjs'
-import { CLAIMS, NUM, decide, findStaleClaims } from '../check-doc-numbers.mjs'
+import { CLAIMS, LEGACY_GROUP_RE, decide, findStaleClaims, usesNumFabric } from '../check-doc-numbers.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const GATE = resolve(HERE, '..', 'check-doc-numbers.mjs')
@@ -272,12 +272,7 @@ test('T8 stagedTriggers 变异探针:T1 的触发条件句不是恒真', () => {
     throw new Error('探针失效:剥掉触发清单后仍匹配 ⇒ T1 那条断言没有牙')
 })
 
-/** 分组形态是否逐字由导出的 NUM 产出(判据吃进 RegExp 的那一串,不比对源码/注释)。 */
-function usesNumFabric(src) {
-  if (!src.includes(',\\d{3}')) return true // 不含分组形态 ⇒ 与本锁无关
-  return [1, 2, 3, 4, 5, 6].some((max) => [1, 2, 3].some((min) => src.includes(NUM(min, max))))
-}
-
+/** 分组形态判据(usesNumFabric)与其阳性对照夹具(LEGACY_GROUP_RE)都从门 import —— 测试侧不许另存第二份实现。 */
 test('T9 逗号分组只由 NUM 出一份 + 真历史文本阳性对照(G-1117442)', () => {
   // ① 写法唯一:手抄一份旧形态(首段仍要求 ≥2 位 ⇒ "4,415" 永不匹配)必须被这把锁认出来。
   const offenders = CLAIMS.filter((c) => !usesNumFabric(c.re.source))
@@ -285,7 +280,7 @@ test('T9 逗号分组只由 NUM 出一份 + 真历史文本阳性对照(G-111744
     throw new Error(
       `这些 claim 的分组形态不是 NUM 的产物(第二份写法必漂移):${offenders.map((c) => c.key).join(', ')}`,
     )
-  if (usesNumFabric(new RegExp('(\\d{2,6}(?:,\\d{3})*)x', 'gi').source))
+  if (usesNumFabric(LEGACY_GROUP_RE.source))
     throw new Error('阳性对照失效:旧的死写法被认成 NUM 的产物 ⇒ 这条锁没有牙')
 
   // ② 阳性对照钉**出处**不钉 HEAD:下面两行逐字取自枚 a1cc2b32d3833b009716b1646db4c2081aafc369 的

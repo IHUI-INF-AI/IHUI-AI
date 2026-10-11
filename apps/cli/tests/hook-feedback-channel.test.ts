@@ -78,7 +78,7 @@ describe('④ 凭据形态在出口已被盖掉且仍可读', () => {
     expect(line).toContain('HTTP 401');
   });
 
-  it('生产链同样兑现:runPostToolCall 的 feedback 里没有凭据原文', () => {
+  it('生产链同样兑现:runPostToolCall 的 feedback 里没有凭据原文', async () => {
     fs.writeFileSync(
       CONFIG,
       JSON.stringify({
@@ -94,7 +94,7 @@ describe('④ 凭据形态在出口已被盖掉且仍可读', () => {
       }),
       'utf-8',
     );
-    const r = runPostToolCall('bash', {});
+    const r = await runPostToolCall('bash', {});
     expect(r.terminal).toBe('non_blocking_error');
     expect(r.feedback).toBeTruthy();
     expect(r.feedback).not.toContain('ihui_AAAAAAAAAAAAAAAAAAAAAAAA');

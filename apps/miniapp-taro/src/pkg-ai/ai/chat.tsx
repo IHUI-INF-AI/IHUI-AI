@@ -797,6 +797,7 @@ export default function ChatPage() {
                         // D113:tool-result 到达即清流中预览 —— 最终 diff 以 result 为准,
                         // 留着预览会让"已完成的工具"同时显示预览与结果两份内容(对齐 web)
                         partialDiff: undefined,
+                        partialSeq: undefined,
                         durationMs:
                           typeof x.startedAt === 'number' ? Date.now() - x.startedAt : x.durationMs,
                       }
@@ -820,8 +821,8 @@ export default function ChatPage() {
               )
             },
             // D113:工具流中 diff 预览 —— 共享 parser 认领帧后端内此前无分支 = 静默丢帧。
-            // partialText 是累积文本,按 toolCallId 覆盖写入(同 seq 重放天然幂等,seq 不参与
-            // 判断);start 帧未到时不凭空造条目,空 toolCallId 整帧丢弃(见 applyToolDelta)。
+            // partialText 是增量正文,按 toolCallId 以 seq 收敛追加(evt.seq<=已存 partialSeq 即丢弃);
+            // start 帧未到时不凭空造条目,空 toolCallId 整帧丢弃(见 applyToolDelta)。
             onToolDelta: (evt) =>
               upsertCard((c) => ({ ...c, toolCalls: applyToolDelta(c.toolCalls, evt) })),
             onSubagentSpawn: (evt) =>

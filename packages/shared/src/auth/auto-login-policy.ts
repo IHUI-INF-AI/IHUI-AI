@@ -77,4 +77,38 @@ export function shouldAttemptAutoLogin(deps: AutoLoginDeps): boolean {
     gates: [deps.hasAutoLoginFlag, deps.hasRememberedCredentials],
   })
 }
+
+/**
+ * 静默刷新失败的性质 —— 决定「这次失败要不要升级成持久登出标记」的唯一输入。
+ *
+ * - `rejected`:服务端**明确拒绝了凭据**(refresh 端点返回 401/403)。token 真死了,
+ *   落标记与现状语义一致(「会话失效」本就属于标记覆盖范围)。
+ * - `transient`:瞬时不可用 —— 网络错误、超时、api 服务重启中、5xx。凭据没有被否定,
+ *   只是此刻问不出答案;下一次冷启动带着同一份 httpOnly cookie 重试即可恢复。
+ * - `null`:性质未知(刷新结果被 CAS 丢弃 / 未注入续期实现 / 记录不可得)。
+ */
+export type RefreshFailureKind = 'rejected' | 'transient'
+
+/**
+ * HTTP 状态码 → 刷新失败性质。仅 401/403 算「凭据被明确拒绝」;
+ * 其余(5xx、0、undefined=网络错误/超时)一律瞬时。
+ */
+export function classifyRefreshFailureStatus(status: number | undefined): RefreshFailureKind {
+  return status === 401 || status === 403 ? 'rejected' : 'transient'
+}
+
+/**
+ * 冷启动静默刷新失败后,**要不要写持久登出标记**(即要不要从此永久压制自动登录)。
+ *
+ * 2026-10-09 根治「自动登录总被清掉」:此前 bootstrap 把**任何**刷新失败(含 api 重启/
+ * 网络抖动导致的瞬时失败)都当凭据失效走 `logout()` → 落标记 → 即使 30 天 refresh
+ * cookie 仍有效,冷启动也再不去用它,用户被迫反复手动登录。现在只有 `rejected`
+ * (服务端明确说"这个 token 不行")才允许写标记。
+ *
+ * 失效方向与 session-marker 同形:`null`(未知)一律**不写** —— 抑制自动登录是改变
+ * 用户可见行为的动作,不能由一次未知失败触发;瞬时失败后保持现状,下一次冷启动自然重试。
+ */
+export function shouldMarkSessionLoggedOut(failure: RefreshFailureKind | null): boolean {
+  return failure === 'rejected'
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

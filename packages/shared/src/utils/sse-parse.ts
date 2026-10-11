@@ -549,12 +549,13 @@ function parseLineEvent(line: string): SSEEvent | null {
       return { type: 'terminal_delta', terminalDelta: delta }
     }
     // ===== D113(2026-09-27 立):tool-delta 同样必须在兜底抽取链之前认领 =====
-    // 载荷 partialText 是**累积文本**(整帧替换渲染),若滑到下面的 content/delta/text 泛化
-    // 兜底就会被当成正文增量喷进气泡;而它的 type 又不在任何既有分支里,原状是走到末尾
-    // `return null` ⇒ 静默丢帧。两条失效方向都在这一次改掉:既不污染正文,也不悄悄消失。
-    // 字段收窄口径抄 @ihui/api-client client.ts 的 tryParseToolDelta(seq 非 number 归 0、
-    // truncated 仅 true 才带键),并额外要求 toolCallId / partialText **必须是 string**
-    // —— 校验不过一律**丢弃**,绝不回落 chunk(与 terminal_delta 同一条纪律)。
+    // 载荷 partialText 是**增量正文(仅本批新增)**(消费端按 seq 收敛追加渲染),若滑到下面的
+    // content/delta/text 泛化兜底就会被当成正文增量喷进气泡;而它的 type 又不在任何既有分支里,
+    // 原状是走到末尾 `return null` ⇒ 静默丢帧。两条失效方向都在这一次改掉:既不污染正文,也不悄悄消失。
+    // 字段收窄:truncated 仅 true 才带键;本腿为透传,额外要求 toolCallId / partialText **必须是
+    // string**,seq 非 number 归 0(消费端按 seq 收敛会把 0 判成陈旧帧丢弃)。api-client 的
+    // tryParseToolDelta 自 G-816035(2026-10-08)起要求 seq 必须为 >= 1 的整数 —— 校验不过一律
+    // **丢弃**,绝不回落 chunk(与 terminal_delta 同一条纪律)。
     if (json?.type === 'tool-delta') {
       const toolCallId = json.toolCallId
       const partialText = json.partialText

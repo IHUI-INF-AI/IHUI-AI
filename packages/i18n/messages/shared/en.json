@@ -2123,6 +2123,7 @@
       "planBlocked": "Plan blocked",
       "securityBlocked": "Blocked by security policy",
       "roleDenied": "Denied by role policy",
+      "turnDenied": "Disabled for this turn",
       "rejectedByUser": "Rejected by you",
       "approvalTimeout": "Approval timed out",
       "toolMissing": "Tool not found",

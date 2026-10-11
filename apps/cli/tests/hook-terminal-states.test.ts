@@ -97,19 +97,19 @@ describe('终态拆分 — 走真派生子进程的生产链', () => {
     process.env.IHUI_TRUST_WORKSPACE = '1';
   });
 
-  it('① 退出 0 ⇒ succeeded,且不产出任何反馈行(成功不该占用回传面)', () => {
+  it('① 退出 0 ⇒ succeeded,且不产出任何反馈行(成功不该占用回传面)', async () => {
     const name = hookName('ok');
     writeHookConfig('preToolCall', [{ name, command: exit0Cmd }]);
-    const r = runPreToolCall('bash', {});
+    const r = await runPreToolCall('bash', {});
     expect(r.proceed).toBe(true);
     expect(r.terminal).toBe('succeeded');
     expect(r.feedback).toBeUndefined();
   });
 
-  it('② 非零+不阻断 与 未取到结果 是两个不同的终态(本票立论点)', () => {
+  it('② 非零+不阻断 与 未取到结果 是两个不同的终态(本票立论点)', async () => {
     const name = hookName('nonblock');
     writeHookConfig('notification', [{ name, command: exit3Cmd }]);
-    const failed = runHook('notification', {});
+    const failed = await runHook('notification', {});
     expect(failed.proceed).toBe(true);
     expect(failed.terminal).toBe('non_blocking_error');
     expect(failed.feedback).toContain('state=non_blocking_error');
@@ -117,13 +117,13 @@ describe('终态拆分 — 走真派生子进程的生产链', () => {
     // "根本没跑到":无 command/webhook 载体的条目 —— 旧账面它与成功完全同形
     const name2 = hookName('no-carrier');
     writeHookConfig('notification', [{ name: name2 }]);
-    const unknown = runHook('notification', {});
+    const unknown = await runHook('notification', {});
     expect(unknown.terminal).toBe('result_unknown');
     expect(unknown.terminal).not.toBe(failed.terminal);
     expect(unknown.feedback).toContain('state=result_unknown');
   });
 
-  it('③ 未取到结果不得被渲染成"完成"(呈现出口逐条判)', () => {
+  it('③ 未取到结果不得被渲染成"完成"(呈现出口逐条判)', async () => {
     expect(isTerminalComplete('result_unknown')).toBe(false);
     expect(isTerminalComplete('succeeded')).toBe(true);
     expect(describeHookTerminal('result_unknown')).not.toBe(describeHookTerminal('succeeded'));
@@ -136,7 +136,7 @@ describe('终态拆分 — 走真派生子进程的生产链', () => {
     writeHookConfig('postToolCall', []);
     const errSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     try {
-      const r = runHook('postToolCall', { toolName: 'bash', toolArgs: circ });
+      const r = await runHook('postToolCall', { toolName: 'bash', toolArgs: circ });
       expect(r.proceed).toBe(true); // 行为不变:不因拆终态多拦一次
       expect(r.terminal).toBe('result_unknown');
       expect(r.reason).toBeUndefined();
@@ -148,21 +148,21 @@ describe('终态拆分 — 走真派生子进程的生产链', () => {
     }
   });
 
-  it('超时被杀 ⇒ timed_out(没跑完 ≠ 跑失败,proceed 语义逐字不变)', () => {
+  it('超时被杀 ⇒ timed_out(没跑完 ≠ 跑失败,proceed 语义逐字不变)', async () => {
     const name = hookName('slow');
     writeHookConfig('notification', [{ name, command: longCmd, timeout: 300 }]);
-    const r = runHook('notification', {});
+    const r = await runHook('notification', {});
     expect(r.proceed).toBe(true);
     expect(r.terminal).toBe('timed_out');
     expect(r.feedback).toContain('state=timed_out');
   });
 
-  it('被信任门跳过 ⇒ skipped,非零阻断仍 ⇒ blocked', () => {
+  it('被信任门跳过 ⇒ skipped,非零阻断仍 ⇒ blocked', async () => {
     // 无 IHUI_TRUST_WORKSPACE:临时目录不在信任清单 → 跳过态(旧账面 = exit 0 = 与成功同形)
     delete process.env.IHUI_TRUST_WORKSPACE;
     const name = hookName('skip');
     writeHookConfig('preToolCall', [{ name, command: exit0Cmd }]);
-    const skipped = runPreToolCall('bash', {});
+    const skipped = await runPreToolCall('bash', {});
     expect(skipped.proceed).toBe(true); // 跳过不反向阻断工具调用(既有语义保留)
     expect(skipped.terminal).toBe('skipped');
     expect(skipped.feedback).toContain('state=skipped');
@@ -171,26 +171,26 @@ describe('终态拆分 — 走真派生子进程的生产链', () => {
     process.env.IHUI_TRUST_WORKSPACE = '1';
     const name2 = hookName('block');
     writeHookConfig('preToolCall', [{ name: name2, command: exit3Cmd }]);
-    const blocked = runPreToolCall('bash', {});
+    const blocked = await runPreToolCall('bash', {});
     expect(blocked.proceed).toBe(false);
     expect(blocked.terminal).toBe('blocked');
     expect(blocked.reason).toContain(name2);
   });
 
-  it('钩子自述"成功"不得改写终态(判据只看宿主侧观察)', () => {
+  it('钩子自述"成功"不得改写终态(判据只看宿主侧观察)', async () => {
     const name = hookName('lie');
     writeHookConfig('notification', [{ name, command: lieCmd }]);
-    const r = runHook('notification', {});
+    const r = await runHook('notification', {});
     expect(r.terminal).toBe('non_blocking_error');
     expect(r.terminal).not.toBe('succeeded');
     // 它的自述只作为**文本**进入反馈行(origin 已标不可信),不进入判定
     expect(r.feedback).toContain('hook-state:succeeded all good');
   });
 
-  it('runPostToolCall 链:默认不阻断的非零退出落 non_blocking_error', () => {
+  it('runPostToolCall 链:默认不阻断的非零退出落 non_blocking_error', async () => {
     const name = hookName('post');
     writeHookConfig('postToolCall', [{ name, command: exit3Cmd }]);
-    const r = runPostToolCall('bash', {});
+    const r = await runPostToolCall('bash', {});
     expect(r.proceed).toBe(true);
     expect(r.terminal).toBe('non_blocking_error');
   });

@@ -75,7 +75,7 @@ export const fetch_url: Tool = {
       return { success: false, output: '', error: '仅支持 http/https URL' };
     }
 
-    const preResult = runPreToolCall('fetch_url', { url });
+    const preResult = await runPreToolCall('fetch_url', { url });
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const controller = new AbortController();

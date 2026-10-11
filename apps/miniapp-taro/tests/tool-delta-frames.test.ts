@@ -6,7 +6,7 @@
  * D113(本票):miniapp-taro 工具流中 diff 预览接线自证。
  *
  * 三层同 terminal-delta 那把尺子(见 src/pkg-ai/ai/cards/__tests__/terminal-delta.test.ts):
- *  ① 纯逻辑:applyToolDelta 的覆盖写语义(写入 / 覆盖 / 同 seq 重放幂等 / 空 id 丢弃 / 不造条目);
+ *  ① 纯逻辑:applyToolDelta 的 seq 收敛追加语义(写入 / 追加 / 重传乱序幂等 / 缺口照追加 / 空 id 丢弃 / 不造条目);
  *  ② 源码级接线:解析器认领 → dispatch case → 回调表 → chat.tsx 注册与 result 清除 → 渲染条件,
  *     任一环节被摘掉即红("造好没装车"是本仓最高频失效型,只测纯函数测不出断链);
  *  ③ 端到端:逐字取自 llm.py 生产者形态的真实帧,经共享 parseSSEChunk 解析后直接喂归并层。
@@ -30,38 +30,55 @@ const TOOL_DELTA_FRAME =
 const running: ToolCallView = { id: 'call-1', name: 'write_file', status: 'running' }
 
 describe('applyToolDelta(D113 纯逻辑)', () => {
-  it('按 toolCallId 覆盖式写入 partialDiff,其余字段不动', () => {
-    const out = applyToolDelta([running], { toolCallId: 'call-1', partialText: '+a\n' })
+  it('按 toolCallId 以 seq 追加写入 partialDiff,其余字段不动', () => {
+    const out = applyToolDelta([running], { toolCallId: 'call-1', seq: 1, partialText: '+a\n' })
     expect(out).toHaveLength(1)
     expect(out[0]?.partialDiff).toBe('+a\n')
+    expect(out[0]?.partialSeq).toBe(1)
     expect(out[0]?.status).toBe('running')
     expect(out[0]?.name).toBe('write_file')
   })
 
-  it('累积文本整帧替换:后到的帧覆盖前一帧(不是追加),同 seq 重放逐字段幂等', () => {
-    const once = applyToolDelta([running], { toolCallId: 'call-1', partialText: 'v1' })
-    const twice = applyToolDelta(once, { toolCallId: 'call-1', partialText: 'v1\nv2' })
+  it('增量追加(不是整帧替换):seq 递增时后帧拼到前帧之后', () => {
+    const once = applyToolDelta([running], { toolCallId: 'call-1', seq: 1, partialText: 'v1' })
+    const twice = applyToolDelta(once, { toolCallId: 'call-1', seq: 2, partialText: 'v2' })
     expect(twice).toHaveLength(1)
-    expect(twice[0]?.partialDiff).toBe('v1\nv2')
-    const replay = applyToolDelta(twice, { toolCallId: 'call-1', partialText: 'v1\nv2' })
+    expect(twice[0]?.partialDiff).toBe('v1v2')
+    expect(twice[0]?.partialSeq).toBe(2)
+  })
+
+  it('重传/乱序(evt.seq<=已存 partialSeq)幂等丢弃,逐帧不变', () => {
+    const once = applyToolDelta([running], { toolCallId: 'call-1', seq: 1, partialText: 'v1' })
+    const twice = applyToolDelta(once, { toolCallId: 'call-1', seq: 2, partialText: 'v2' })
+    const replay = applyToolDelta(twice, { toolCallId: 'call-1', seq: 2, partialText: 'v2' })
     expect(replay[0]).toEqual(twice[0])
+    expect(applyToolDelta(twice, { toolCallId: 'call-1', seq: 1, partialText: 'v1' })[0]).toEqual(
+      twice[0],
+    )
+  })
+
+  it('缺口(seq>partialSeq+1)照追加,不因缺口丢新帧', () => {
+    const once = applyToolDelta([running], { toolCallId: 'call-1', seq: 1, partialText: 'a' })
+    const jumped = applyToolDelta(once, { toolCallId: 'call-1', seq: 4, partialText: 'd' })
+    expect(jumped[0]?.partialDiff).toBe('ad')
+    expect(jumped[0]?.partialSeq).toBe(4)
   })
 
   it('空 toolCallId 整帧丢弃,零写入(后端 tc.get("id","") 可给出空串)', () => {
-    const out = applyToolDelta([running], { toolCallId: '', partialText: '不该显示' })
+    const out = applyToolDelta([running], { toolCallId: '', seq: 1, partialText: '不该显示' })
     expect(out).toEqual([running])
     expect(out[0]?.partialDiff).toBeUndefined()
   })
 
   it('start 帧未到的 toolCallId 不凭空造条目', () => {
-    const out = applyToolDelta([running], { toolCallId: 'call-9', partialText: 'x' })
+    const out = applyToolDelta([running], { toolCallId: 'call-9', seq: 1, partialText: 'x' })
     expect(out).toHaveLength(1)
     expect(out[0]?.id).toBe('call-1')
   })
 
   it('不同 toolCallId 互不串扰(并行多工具各显各的预览)', () => {
     const two: ToolCallView[] = [running, { id: 'call-2', name: 'file_edit', status: 'running' }]
-    const out = applyToolDelta(two, { toolCallId: 'call-2', partialText: 'only-2' })
+    const out = applyToolDelta(two, { toolCallId: 'call-2', seq: 1, partialText: 'only-2' })
     expect(out[0]?.partialDiff).toBeUndefined()
     expect(out[1]?.partialDiff).toBe('only-2')
   })

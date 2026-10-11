@@ -2355,10 +2355,28 @@
           "markdownDescription": "Enables the active_window command without any pre-configured scope."
         },
         {
+          "description": "Enables the checkin_audit_qoder_residual command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-checkin-audit-qoder-residual",
+          "markdownDescription": "Enables the checkin_audit_qoder_residual command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the checkin_audit_trae_residual command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-checkin-audit-trae-residual",
+          "markdownDescription": "Enables the checkin_audit_trae_residual command without any pre-configured scope."
+        },
+        {
           "description": "Enables the checkin_capture_jwts command without any pre-configured scope.",
           "type": "string",
           "const": "allow-checkin-capture-jwts",
           "markdownDescription": "Enables the checkin_capture_jwts command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the checkin_capture_qoder command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-checkin-capture-qoder",
+          "markdownDescription": "Enables the checkin_capture_qoder command without any pre-configured scope."
         },
         {
           "description": "Enables the checkin_detect_trae_dir command without any pre-configured scope.",
@@ -2523,6 +2541,60 @@
           "markdownDescription": "Enables the open_in_chrome command without any pre-configured scope."
         },
         {
+          "description": "Enables the qoder_quarantine_delete command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-qoder-quarantine-delete",
+          "markdownDescription": "Enables the qoder_quarantine_delete command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the qoder_quarantine_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-qoder-quarantine-list",
+          "markdownDescription": "Enables the qoder_quarantine_list command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the qoder_quarantine_restore command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-qoder-quarantine-restore",
+          "markdownDescription": "Enables the qoder_quarantine_restore command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the qoder_reset_factory command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-qoder-reset-factory",
+          "markdownDescription": "Enables the qoder_reset_factory command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the qoder_reset_history command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-qoder-reset-history",
+          "markdownDescription": "Enables the qoder_reset_history command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the qoder_reset_logout command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-qoder-reset-logout",
+          "markdownDescription": "Enables the qoder_reset_logout command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the qoder_reset_maintenance command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-qoder-reset-maintenance",
+          "markdownDescription": "Enables the qoder_reset_maintenance command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the qoder_reset_plan command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-qoder-reset-plan",
+          "markdownDescription": "Enables the qoder_reset_plan command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the qoder_reset_probe command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-qoder-reset-probe",
+          "markdownDescription": "Enables the qoder_reset_probe command without any pre-configured scope."
+        },
+        {
           "description": "Enables the quit_app command without any pre-configured scope.",
           "type": "string",
           "const": "allow-quit-app",
@@ -2637,6 +2709,60 @@
           "markdownDescription": "Enables the toggle_fullscreen command without any pre-configured scope."
         },
         {
+          "description": "Enables the workbuddy_quarantine_delete command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-workbuddy-quarantine-delete",
+          "markdownDescription": "Enables the workbuddy_quarantine_delete command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the workbuddy_quarantine_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-workbuddy-quarantine-list",
+          "markdownDescription": "Enables the workbuddy_quarantine_list command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the workbuddy_quarantine_restore command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-workbuddy-quarantine-restore",
+          "markdownDescription": "Enables the workbuddy_quarantine_restore command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the workbuddy_reset_factory command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-workbuddy-reset-factory",
+          "markdownDescription": "Enables the workbuddy_reset_factory command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the workbuddy_reset_history command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-workbuddy-reset-history",
+          "markdownDescription": "Enables the workbuddy_reset_history command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the workbuddy_reset_logout command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-workbuddy-reset-logout",
+          "markdownDescription": "Enables the workbuddy_reset_logout command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the workbuddy_reset_maintenance command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-workbuddy-reset-maintenance",
+          "markdownDescription": "Enables the workbuddy_reset_maintenance command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the workbuddy_reset_plan command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-workbuddy-reset-plan",
+          "markdownDescription": "Enables the workbuddy_reset_plan command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the workbuddy_reset_probe command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-workbuddy-reset-probe",
+          "markdownDescription": "Enables the workbuddy_reset_probe command without any pre-configured scope."
+        },
+        {
           "description": "Enables the write_text_file command without any pre-configured scope.",
           "type": "string",
           "const": "allow-write-text-file",
@@ -2649,10 +2775,28 @@
           "markdownDescription": "Denies the active_window command without any pre-configured scope."
         },
         {
+          "description": "Denies the checkin_audit_qoder_residual command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-checkin-audit-qoder-residual",
+          "markdownDescription": "Denies the checkin_audit_qoder_residual command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the checkin_audit_trae_residual command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-checkin-audit-trae-residual",
+          "markdownDescription": "Denies the checkin_audit_trae_residual command without any pre-configured scope."
+        },
+        {
           "description": "Denies the checkin_capture_jwts command without any pre-configured scope.",
           "type": "string",
           "const": "deny-checkin-capture-jwts",
           "markdownDescription": "Denies the checkin_capture_jwts command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the checkin_capture_qoder command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-checkin-capture-qoder",
+          "markdownDescription": "Denies the checkin_capture_qoder command without any pre-configured scope."
         },
         {
           "description": "Denies the checkin_detect_trae_dir command without any pre-configured scope.",
@@ -2817,6 +2961,60 @@
           "markdownDescription": "Denies the open_in_chrome command without any pre-configured scope."
         },
         {
+          "description": "Denies the qoder_quarantine_delete command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-qoder-quarantine-delete",
+          "markdownDescription": "Denies the qoder_quarantine_delete command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the qoder_quarantine_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-qoder-quarantine-list",
+          "markdownDescription": "Denies the qoder_quarantine_list command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the qoder_quarantine_restore command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-qoder-quarantine-restore",
+          "markdownDescription": "Denies the qoder_quarantine_restore command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the qoder_reset_factory command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-qoder-reset-factory",
+          "markdownDescription": "Denies the qoder_reset_factory command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the qoder_reset_history command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-qoder-reset-history",
+          "markdownDescription": "Denies the qoder_reset_history command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the qoder_reset_logout command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-qoder-reset-logout",
+          "markdownDescription": "Denies the qoder_reset_logout command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the qoder_reset_maintenance command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-qoder-reset-maintenance",
+          "markdownDescription": "Denies the qoder_reset_maintenance command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the qoder_reset_plan command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-qoder-reset-plan",
+          "markdownDescription": "Denies the qoder_reset_plan command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the qoder_reset_probe command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-qoder-reset-probe",
+          "markdownDescription": "Denies the qoder_reset_probe command without any pre-configured scope."
+        },
+        {
           "description": "Denies the quit_app command without any pre-configured scope.",
           "type": "string",
           "const": "deny-quit-app",
@@ -2929,6 +3127,60 @@
           "type": "string",
           "const": "deny-toggle-fullscreen",
           "markdownDescription": "Denies the toggle_fullscreen command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the workbuddy_quarantine_delete command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-workbuddy-quarantine-delete",
+          "markdownDescription": "Denies the workbuddy_quarantine_delete command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the workbuddy_quarantine_list command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-workbuddy-quarantine-list",
+          "markdownDescription": "Denies the workbuddy_quarantine_list command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the workbuddy_quarantine_restore command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-workbuddy-quarantine-restore",
+          "markdownDescription": "Denies the workbuddy_quarantine_restore command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the workbuddy_reset_factory command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-workbuddy-reset-factory",
+          "markdownDescription": "Denies the workbuddy_reset_factory command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the workbuddy_reset_history command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-workbuddy-reset-history",
+          "markdownDescription": "Denies the workbuddy_reset_history command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the workbuddy_reset_logout command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-workbuddy-reset-logout",
+          "markdownDescription": "Denies the workbuddy_reset_logout command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the workbuddy_reset_maintenance command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-workbuddy-reset-maintenance",
+          "markdownDescription": "Denies the workbuddy_reset_maintenance command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the workbuddy_reset_plan command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-workbuddy-reset-plan",
+          "markdownDescription": "Denies the workbuddy_reset_plan command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the workbuddy_reset_probe command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-workbuddy-reset-probe",
+          "markdownDescription": "Denies the workbuddy_reset_probe command without any pre-configured scope."
         },
         {
           "description": "Denies the write_text_file command without any pre-configured scope.",

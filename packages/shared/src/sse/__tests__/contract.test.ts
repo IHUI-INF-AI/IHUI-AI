@@ -278,16 +278,16 @@ describe('SSEEventPayload 判别联合对齐', () => {
 })
 
 // ============================================================================
-// G-816035:tool-delta 载荷语义(累积式)三处对账
+// G-816035:tool-delta 载荷语义(增量)三处对账
 // ============================================================================
 //
-// 立票原委(AGENTS §22c 点名的"注释与实现分叉"型):`contract.ts` 的 tool-delta 声明段此前写的是
-// "本次增量的正文(不是全量)" + "乱序/重传由消费端按 seq 收敛",而生产端
-// (`apps/ai-service/app/routers/llm.py::_file_edit_preview_frames`,每帧 `kept[:i+N]` = 从头到当前的
-// 整段)与六个消费端(web `createToolDeltaHandler` / extension / miniapp / RN 的 `applyToolDelta` +
-// api-client 与 shared 两条解析腿)**一律按累积文本整帧覆盖**。
-// 要紧的是:覆盖式写入只在累积语义下安全 —— 谁照旧注释改成增量,各端**静默丢正文**而不报错、
-// 不红任何 typecheck(本仓"判据失效的表现永远是安静"那一族)。
+// 立票原委(AGENTS §22c 点名的"注释与实现分叉"型):`contract.ts` 的 tool-delta 声明段与生产端
+// (`apps/ai-service/app/routers/llm.py::_file_edit_preview_frames`)、六个消费端(web
+// `createToolDeltaHandler` / extension / miniapp / RN 的 `applyToolDelta` + api-client 与 shared
+// 两条解析腿)一度分成两派。机主 2026-10-07 拍板(**契约定增量**),本笔(2026-10-08)把两侧
+// 收口到**增量**:每帧 `partialText` **只含本批新增行**,消费端按 `seq` 收敛**追加**。
+// 要紧的是:**覆盖直写在增量语义下不安全** —— 每帧只含新增的那一段,覆盖直写会把已显示过的
+// 前段正文抹掉,且不报错、不红任何 typecheck(本仓"判据失效的表现永远是安静"那一族)。
 //
 // 三条锁各自独立;③ 是"明写它仍判不出来"的那一半 —— 跨语言 parity 门
 // `scripts/check-agent-event-parity.mjs` 只提**事件名**,对本帧载荷语义零判据,所以不得把 parity 绿
@@ -327,17 +327,25 @@ function toolDeltaSection(src: string): string {
   return src.slice(start, end)
 }
 
-/** 禁止再出现的"增量"措辞(逐字取自被改掉的那份旧文本,不是模糊匹配 —— 模糊匹配会把未来的合法措辞一起打死)。 */
-const INCREMENTAL_PHRASES = ['不是全量', '本次增量的正文'] as const
+/** 禁止再出现的"累积"措辞(逐字取自被改掉的那份旧文本,不是模糊匹配 —— 模糊匹配会把未来的合法措辞一起打死)。 */
+const CUMULATIVE_PHRASES = [
+  '累积式',
+  '整帧替换',
+  '从头到当前批次',
+  '覆盖式写入只在累积语义下安全',
+] as const
+
+/** 契约注释必须写到的增量要素(与生产端/消费端应然形态逐字对齐)。 */
+const REQUIRED_PHRASES = ['增量', 'seq', '收敛', 'check-agent-event-parity'] as const
 
 function contractSemanticsProblems(section: string): string[] {
   const problems: string[] = []
-  if (!section.includes('累积式')) problems.push('未写"累积式"')
-  for (const phrase of INCREMENTAL_PHRASES) {
-    if (section.includes(phrase)) problems.push(`仍含增量措辞"${phrase}"`)
+  for (const phrase of REQUIRED_PHRASES) {
+    if (!section.includes(phrase)) problems.push(`未写"${phrase}"`)
   }
-  if (!section.includes('不参与')) problems.push('未点明 seq 当前不参与判定')
-  if (!section.includes('check-agent-event-parity')) problems.push('未明写 parity 门判不出这一维')
+  for (const phrase of CUMULATIVE_PHRASES) {
+    if (section.includes(phrase)) problems.push(`仍含累积措辞"${phrase}"`)
+  }
   return problems
 }
 
@@ -352,26 +360,33 @@ interface PreviewCase {
 
 /**
  * 生产端事实:跨语言台账 `file-edit-preview-cases.json` 的 `expected.frames` 由 llm.py 真实输出写入
- * (其 `$comment` 自述"不得手工编辑 expected 让某一侧变绿")。累积式 ⇔ 每一帧以上一帧为前缀。
- * 判据用**前缀关系**而不是复算切帧:复算就是实现自己的复读机。
+ * (其 `$comment` 自述"不得手工编辑 expected 让某一侧变绿")。增量语义 ⇔ 每帧只含本批新增:
+ * 非末批次帧尾部补一个 `"\n"`(向消费端示意"还有下一批")、末批次帧不补 —— 所以**每个非末帧
+ * 必须以 `"\n"` 收尾**,而"每帧越来越长、后帧以前帧为前缀"的整段覆盖形态非末帧永不以换行收尾。
+ * 判据只看"收尾"与"非空",不复算切帧(复算就是实现自己的复读机)。
+ *
+ * **已声明边界**:本判据以"台账用例的行内容跨批唯一(`line-NNNN` 型)"为前提 —— 若将来加入
+ * 行内容在多批重复的用例,可能构造出前缀巧合而让本判据失去区分力;那种用例属已声明边界,
+ * 加用例时需复核本判据,不许当恒绿。
  */
-function nonCumulativeFrames(cases: PreviewCase[]): string[] {
+function incrementalFrames(cases: PreviewCase[]): string[] {
   const problems: string[] = []
   let multiFrameCases = 0
   for (const c of cases) {
     const frames = c.expected?.frames ?? []
     if (frames.length < 2) continue
     multiFrameCases += 1
-    for (let i = 1; i < frames.length; i += 1) {
-      const prev = frames[i - 1]?.partialText
+    for (let i = 0; i < frames.length; i += 1) {
       const cur = frames[i]?.partialText
-      if (typeof prev !== 'string' || typeof cur !== 'string') {
-        // 判不出 ≠ 通过:前缀关系量不到时点名,不静默计成"累积式"
-        problems.push(`${c.id}: 第 ${i + 1} 帧缺 partialText ⇒ 累积与否判不出,不得当成通过`)
+      if (typeof cur !== 'string' || cur.length === 0) {
+        // 判不出 ≠ 通过:量不到时点名,不静默计成"增量"
+        problems.push(`${c.id}: 第 ${i + 1} 帧缺/空 partialText ⇒ 增量形态判不出,不得当成通过`)
         continue
       }
-      if (!cur.startsWith(prev)) {
-        problems.push(`${c.id}: 第 ${i + 1} 帧不以第 ${i} 帧为前缀 ⇒ 生产端不是累积式`)
+      if (i < frames.length - 1 && !cur.endsWith('\n')) {
+        problems.push(
+          `${c.id}: 第 ${i + 1} 帧是非末帧却未以 "\\n" 收尾 ⇒ 生产端不是增量(疑为整段覆盖)`,
+        )
       }
     }
   }
@@ -413,23 +428,19 @@ function walkSourceFiles(relDir: string, depth: number, out: string[]): void {
   }
 }
 
-/** "把新帧当增量拼接"的书写形态(覆盖写 `partialDiff: evt.partialText` 不在其列)。 */
-const INCREMENTAL_WRITE_PATTERNS: ReadonlyArray<readonly [RegExp, string]> = [
-  [/\+=\s*[A-Za-z_$][\w$.]*\.partialText\b/, '新帧 partialText 被 += 追加到已有正文'],
-  [/\bpartialText\b\s*\+=/, 'partialText 自身被 += 改写'],
-  [
-    /\bpartial(?:Diff|Text)\s*:\s*[^;\n]*\+[^;\n]*partialText/,
-    '以 + 拼接 partialText 后落到覆盖字段',
-  ],
-  [/\bpartial(?:Diff|Text)\b[^\n]{0,40}\.concat\(/, 'partialDiff/partialText 走 concat 拼接'],
-]
+/** "把增量帧覆盖直写"的书写形态:新帧 partialText 不带 `+` 拼接、不比对 seq,直接落到 partialDiff。 */
+const OVERWRITE_WRITE_PATTERN = /\bpartialDiff\s*:\s*[A-Za-z_$][\w$.]*\.partialText\b/
+
+/** 增量追加形态:partialDiff 由旧值以 `+` 拼上新帧 partialText(与覆盖直写互斥)。 */
+const APPEND_WRITE_PATTERN = /\bpartialDiff\s*:[^\n;]*\+[^\n;]*\.partialText/
 
 /**
  * 判据面 = 剥掉「整行注释」后的代码面(行首为 `//` / `/*` / `*`)。
  *
- * 为什么要剥:本锁抓的是**会执行**的拼接写法。而 `contract.ts` 里按票面要求写了整段
- * 「谁不得怎么做」的禁令散文,逐字提到 `+=` 与 `.concat(` ⇒ 不剥注释,门就把**自己解释自己的
- * 那段话**判成仓库违规(本仓守门 131 记过同型:「门把解释自己的散文判成了违规」)。
+ * 为什么要剥:本锁抓的是**会执行**的覆盖直写。而 `contract.ts` 里按票面要求写了整段
+ * 「谁不得怎么做」的禁令散文,逐字举出 `partialDiff: evt.partialText` 这种覆盖直写形态
+ * ⇒ 不剥注释,门就把**自己解释自己的那段话**判成仓库违规(本仓守门 131 记过同型:
+ * 「门把解释自己的散文判成了违规」)。
  *
  * 刻意**只**剥整行注释、不剥行尾注释 ⇒ 任何可执行形态(哪怕后面挂着注释)照旧被抓。
  * 所以这一刀只削假阳,不会放过真接线 —— 由下方成对用例(注释形态必绿 / 代码形态必红)钉住。
@@ -444,60 +455,71 @@ function executableFace(text: string): string {
     .join('\n')
 }
 
-function incrementalWriteProblems(rel: string, text: string): string[] {
+function overwriteWriteProblems(rel: string, text: string): string[] {
   const face = executableFace(text)
-  return INCREMENTAL_WRITE_PATTERNS.filter(([re]) => re.test(face)).map(
-    ([, msg]) => `${rel}: ${msg}`,
-  )
+  return OVERWRITE_WRITE_PATTERN.test(face)
+    ? [`${rel}: 新帧 partialText 被整帧覆盖直写进 partialDiff(增量语义下会抹掉前段正文)`]
+    : []
 }
 
-describe('G-816035 tool-delta 载荷语义 = 累积式(三处对账)', () => {
-  it('① 契约注释必须写"累积式整帧替换"、不得留旧增量措辞、并明写 parity 判不出', () => {
+describe('G-816035 tool-delta 载荷语义 = 增量(三处对账)', () => {
+  it('① 契约注释必须写"增量"、不得留旧累积措辞、并明写 parity 判不出', () => {
     expect(contractSemanticsProblems(toolDeltaSection(readRepoText(CONTRACT_REL)))).toEqual([])
   })
 
-  it('① 阳性对照:旧那份"增量/不是全量"的注释形态喂同一判据必须红(否则本条锁是恒绿的)', () => {
+  it('① 阳性对照:旧那份"累积式整帧替换"的注释形态喂同一判据必须红(否则本条锁是恒绿的)', () => {
     const legacy = [
-      '// 文件写类工具的流中 diff 预览增量帧',
-      '/** 同一 toolCallId 内的递增序号(乱序/重传由消费端按 seq 收敛) */',
-      '/** 本次增量的正文(不是全量) */',
+      '// 文件写类工具的流中 diff 预览累积式帧',
+      '/** 累积式整帧替换:从头到当前批次的整段正文,消费端覆盖写入 */',
+      '/** 同一 toolCallId 内的递增序号(seq 当前不参与排序或收敛) */',
       'partialText: string',
     ].join('\n')
     const problems = contractSemanticsProblems(legacy)
     expect(problems.length).toBeGreaterThan(0)
     // 点名到具体哪几条:只要求"非空"会放过"因为别的偶然原因红"的退化
-    expect(problems.join('|')).toContain('未写"累积式"')
-    expect(problems.join('|')).toContain('不是全量')
+    expect(problems.join('|')).toContain('累积式')
+    expect(problems.join('|')).toContain('整帧替换')
   })
 
-  it('①b 生产端事实同向:跨语言台账每一帧都以上一帧为前缀(累积式)', () => {
+  it('①b 生产端事实同向:跨语言台账每个非末帧都以 "\\n" 收尾(增量),且无空帧', () => {
     const fixture = JSON.parse(
       readRepoText('apps/ai-service/tests/fixtures/file-edit-preview-cases.json'),
     ) as { cases: PreviewCase[] }
-    expect(nonCumulativeFrames(fixture.cases)).toEqual([])
+    expect(incrementalFrames(fixture.cases)).toEqual([])
   })
 
-  it('①b 正反对照:增量形态必红、单帧台账必须被认成"这条锁没跑到"', () => {
+  it('①b 正反对照:整段覆盖式(伪累积)必红、增量形态必绿、单帧台账必须被认成"这条锁没跑到"', () => {
+    // 伪累积:后一帧以前一帧为前缀、非末帧不以 "\n" 收尾 ⇒ 必红
     expect(
-      nonCumulativeFrames([
-        { id: 'fake-delta', expected: { frames: [{ partialText: 'l0' }, { partialText: 'l1' }] } },
+      incrementalFrames([
+        {
+          id: 'fake-cumulative',
+          expected: { frames: [{ partialText: 'l0' }, { partialText: 'l0\nl1' }] },
+        },
       ]).length,
     ).toBeGreaterThan(0)
+    // 伪增量:非末帧以 "\n" 收尾、末帧不补 ⇒ 必绿
     expect(
-      nonCumulativeFrames([
+      incrementalFrames([
         {
-          id: 'fake-prefix',
-          expected: { frames: [{ partialText: 'l0' }, { partialText: 'l0\nl1' }] },
+          id: 'fake-incremental',
+          expected: { frames: [{ partialText: 'l0\n' }, { partialText: 'l1' }] },
         },
       ]),
     ).toEqual([])
-    // 单帧用例给不出"累积 vs 增量"的任何信息 ⇒ 必须喊"没跑到",不得静默返回 [] 冒充通过
+    // 空帧必红(判不出 ≠ 通过)
     expect(
-      nonCumulativeFrames([{ id: 'only-one', expected: { frames: [{ partialText: 'l0' }] } }]),
+      incrementalFrames([
+        { id: 'empty-frame', expected: { frames: [{ partialText: '' }, { partialText: 'l1' }] } },
+      ]).length,
+    ).toBeGreaterThan(0)
+    // 单帧用例给不出"增量 vs 覆盖"的任何信息 ⇒ 必须喊"没跑到",不得静默返回 [] 冒充通过
+    expect(
+      incrementalFrames([{ id: 'only-one', expected: { frames: [{ partialText: 'l0' }] } }]),
     ).toEqual([expect.stringContaining('没有多帧用例')])
   })
 
-  it('② 反向锁:生产面任何接 tool-delta 的端都不许把 partialText 当增量拼接', () => {
+  it('② 反向锁:生产面任何接 tool-delta 的端都不许把 partialText 覆盖直写进 partialDiff', () => {
     // 已知局限(与守门 117 那条同型):本锁扫的是**工作树副本**,而工作树常年有他人未提交的在飞文件
     // ⇒ 这一条红可能点名别人正在写的文件。那种红归属他人,不得由本包持有人去改别人的文件,
     // 也不得为让它变绿而放宽判据(本仓 §12/§12e 同一条禁令)。
@@ -505,55 +527,74 @@ describe('G-816035 tool-delta 载荷语义 = 累积式(三处对账)', () => {
     walkSourceFiles('apps', 0, files)
     walkSourceFiles('packages', 0, files)
     const consumers = files.filter((rel) => readRepoText(rel).includes('partialText'))
-    // 覆盖面自证:扫到 0~2 个含 partialText 的生产面文件,读起来与"都没违规"一模一样
-    expect(consumers.length).toBeGreaterThanOrEqual(3)
-    const problems = consumers.flatMap((rel) => incrementalWriteProblems(rel, readRepoText(rel)))
+    // 覆盖面自证:扫到太少含 partialText 的生产面文件,读起来与"都没违规"一模一样
+    // (阈值 16 = 本波改后现读实测的消费点个数;下调即"判据面缩水",不得为让某条变绿而下调)
+    expect(consumers.length).toBeGreaterThanOrEqual(16)
+    const problems = consumers.flatMap((rel) => overwriteWriteProblems(rel, readRepoText(rel)))
     // 「扫过且没有」与「没扫到」必须在账面上不同形 —— 只给"通过"两个字分不清这两件事。
-    // 走到这一行时 consumers.length 已 >=3(上一行判死),所以这句打印才是"已扫"的凭据;
+    // 走到这一行时 consumers.length 已判死(上一行),所以这句打印才是"已扫"的凭据;
     // 而"扫过且有 N 处"绝不能被同一句措辞说成"扫过且没有",故措辞按 problems 分支。
     console.info(
       `② 反向锁覆盖面: 枚举 TS/TSX 文件 ${files.length} 个 → 含 partialText 的消费点 ${consumers.length} 个` +
         (problems.length === 0
-          ? ` → 累加形态 0 处(「扫过且没有」,而非「没扫到」)`
-          : ` → 累加形态 ${problems.length} 处(「扫过且有」,逐条点名如下)`),
+          ? ` → 覆盖直写 0 处(「扫过且没有」,而非「没扫到」)`
+          : ` → 覆盖直写 ${problems.length} 处(「扫过且有」,逐条点名如下)`),
     )
     expect(problems).toEqual([])
   })
 
-  it('② 阳性对照 + 反向对照:拼接写法必被抓,整帧覆盖的真实形态不得被计债', () => {
-    expect(
-      incrementalWriteProblems('fake.ts', '{ ...c, partialDiff: c.partialDiff + evt.partialText }')
-        .length,
-    ).toBeGreaterThan(0)
-    expect(incrementalWriteProblems('fake.ts', 'acc += evt.partialText').length).toBeGreaterThan(0)
-    expect(incrementalWriteProblems('real.ts', '{ ...c, partialDiff: evt.partialText }')).toEqual(
-      [],
+  it('② 追加形态反锁:四端指定消费文件必须以 + 拼接 partialText(而非整帧覆盖)', () => {
+    // CLI 本地 store 的字段名是 `partialText`(不是 `partialDiff`),故不在本条的 `partialDiff:` 锚定面内;
+    // 其覆盖/追加形态由 apps/cli 自己的测试(WS2)钉住 —— 现读形态不同,此处注明不纳入。
+    const appendFiles = [
+      'apps/web/src/hooks/use-chat/stream-handlers.ts',
+      'apps/extension/lib/tool-call-frames.ts',
+      'apps/miniapp-taro/src/pkg-ai/ai/cards/types.ts',
+      'apps/mobile-rn/src/utils/chat-render-model.ts',
+    ]
+    const problems = appendFiles.filter(
+      (rel) => !APPEND_WRITE_PATTERN.test(executableFace(readRepoText(rel))),
     )
+    expect(problems).toEqual([])
+  })
+
+  it('② 阳性对照 + 反向对照:覆盖直写必被抓,真追加必绿', () => {
+    expect(
+      overwriteWriteProblems('fake.ts', 'partialDiff: evt.partialText').length,
+    ).toBeGreaterThan(0)
+    expect(
+      overwriteWriteProblems('fake.ts', '{ ...c, partialDiff: item.partialText }').length,
+    ).toBeGreaterThan(0)
+    // 真追加形态(旧值 + 新帧 partialText)不得被计债
+    expect(
+      overwriteWriteProblems(
+        'real.ts',
+        "{ ...c, partialDiff: (c.partialDiff ?? '') + evt.partialText }",
+      ),
+    ).toEqual([])
     // 夹具文本刻意拼出来:门 182 是按 packages/shared/src 面上 `.strict(` 字面量计数做
     // 只减不增棘轮的,而这是一条喂给判据的反例字符串、不是控制面 schema —— 写成字面量
     // 会让"给判据加一条反例"在账面上变成"多加一处闭集声明"。拼接后喂进去的字节不变。
-    expect(incrementalWriteProblems('real.ts', `partialText: string }).${'strict'}()`)).toEqual([])
+    expect(overwriteWriteProblems('real.ts', `partialText: string }).${'strict'}()`)).toEqual([])
   })
 
   it('②b 剥注释这一刀只削假阳:同一行正文,挂 `//` 必绿、去掉 `//` 必红(证明放过的是散文不是接线)', () => {
-    // 最小对:除行首 `//` 外**逐字相同**。这一对比才真正区分"注释里的提及"与"会执行的拼接" ——
+    // 最小对:除行首 `//` 外**逐字相同**。这一对比才真正区分"注释里的提及"与"会执行的覆盖直写" ——
     // 若判据失效(整块不判),红绿两支会同时绿;若判据过宽(连散文也判),两支会同时红。
-    const payload = 'acc += evt.partialText'
-    expect(incrementalWriteProblems('doc.md', `// ${payload}`)).toEqual([])
-    expect(incrementalWriteProblems('wired.ts', payload).length).toBeGreaterThan(0)
+    const payload = 'partialDiff: evt.partialText'
+    expect(overwriteWriteProblems('doc.md', `// ${payload}`)).toEqual([])
+    expect(overwriteWriteProblems('wired.ts', payload).length).toBeGreaterThan(0)
 
-    // 契约文件里那句禁令的**逐字形态**(含 `+=` 与 `.concat(`),以整行注释出现 ⇒ 不得计债
+    // 契约文件里那句禁令的**逐字形态**(提到覆盖直写),以整行注释出现 ⇒ 不得计债
     const prohibitionLine =
-      '// **谁不得怎么做**:以上任何消费端都不得对 `partialText` 做 `+=` / `+` 拼接 / `.concat(` 累加,'
-    expect(incrementalWriteProblems(CONTRACT_REL, prohibitionLine)).toEqual([])
+      '// **谁不得怎么做**:以上任何消费端都不得丢掉 `seq` 判新旧,也不得把新帧直接覆盖进 `partialDiff`'
+    expect(overwriteWriteProblems(CONTRACT_REL, prohibitionLine)).toEqual([])
 
     // 真代码后面挂着注释,照旧必须被抓(证明只剥整行注释、没顺手剥行尾注释)
-    expect(
-      incrementalWriteProblems('wired.ts', `${payload} // 流中预览累加`).length,
-    ).toBeGreaterThan(0)
+    expect(overwriteWriteProblems('wired.ts', `${payload} // 流中预览`).length).toBeGreaterThan(0)
 
     // 本仓真实消费端契约文件此刻必须干净 —— 它含禁令散文,正是这一刀要放过的形态
-    expect(incrementalWriteProblems(CONTRACT_REL, readRepoText(CONTRACT_REL))).toEqual([])
+    expect(overwriteWriteProblems(CONTRACT_REL, readRepoText(CONTRACT_REL))).toEqual([])
   })
 
   it('③ 明写边界:跨语言 parity 门对本帧载荷语义零判据(它开始判这一维时本条必须红,并同步改掉 contract.ts 的免责声明)', () => {

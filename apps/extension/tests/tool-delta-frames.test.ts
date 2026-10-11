@@ -6,7 +6,7 @@
  * D113(本票):extension 工具流中 diff 预览接线自证。
  *
  * 三层与小程序那一把尺子同形(见 `apps/miniapp-taro/tests/tool-delta-frames.test.ts`):
- *  ① 纯逻辑:applyToolDelta 覆盖写语义 + applyToolCallStart 的重复帧保预览语义;
+ *  ① 纯逻辑:applyToolDelta 的 seq 收敛追加语义 + applyToolCallStart 的重复帧保预览语义;
  *  ② 端到端:逐字取自 llm.py 生产者形态的真实帧,经共享 parseSSEChunk 解析后直接喂归并层;
  *  ③ 源码级接线:解析开关 → dispatch 分支 → 端内回调注册 → result 清除 → 投影 → 渲染条件,
  *     任一环节被摘掉即红("造好没装车"是本仓最高频失效型,只测纯函数测不出断链)。
@@ -51,31 +51,53 @@ const running: ToolCall = {
 }
 
 describe('applyToolDelta(D113 纯逻辑)', () => {
-  it('按 toolCallId 覆盖式写入 partialDiff,其余字段不动', () => {
-    const next = applyToolDelta([running], { toolCallId: 'call-1', partialText: 'v1' })
-    expect(next[0]).toEqual({ ...running, partialDiff: 'v1' })
+  it('按 toolCallId 以 seq 追加写入 partialDiff,其余字段不动', () => {
+    const next = applyToolDelta([running], { toolCallId: 'call-1', seq: 1, partialText: 'v1' })
+    expect(next[0]).toEqual({ ...running, partialDiff: 'v1', partialSeq: 1 })
   })
 
-  it('累积文本整帧替换(不是追加),同 seq 重放逐字段幂等', () => {
-    const once = applyToolDelta([running], { toolCallId: 'call-1', partialText: 'line1' })
-    const twice = applyToolDelta(once, { toolCallId: 'call-1', partialText: 'line1\nline2' })
-    expect(twice[0]?.partialDiff).toBe('line1\nline2')
-    expect(applyToolDelta(twice, { toolCallId: 'call-1', partialText: 'line1\nline2' })).toEqual(
+  it('增量追加(不是整帧替换):seq 递增时后帧拼到前帧之后', () => {
+    const once = applyToolDelta([running], { toolCallId: 'call-1', seq: 1, partialText: 'line1' })
+    const twice = applyToolDelta(once, { toolCallId: 'call-1', seq: 2, partialText: 'line2' })
+    expect(twice[0]?.partialDiff).toBe('line1line2')
+    expect(twice[0]?.partialSeq).toBe(2)
+  })
+
+  it('重传/乱序(evt.seq<=已存 partialSeq)幂等丢弃,零写入', () => {
+    const once = applyToolDelta([running], { toolCallId: 'call-1', seq: 1, partialText: 'line1' })
+    const twice = applyToolDelta(once, { toolCallId: 'call-1', seq: 2, partialText: 'line2' })
+    expect(applyToolDelta(twice, { toolCallId: 'call-1', seq: 2, partialText: 'line2' })).toEqual(
+      twice,
+    )
+    expect(applyToolDelta(twice, { toolCallId: 'call-1', seq: 1, partialText: 'line1' })).toEqual(
       twice,
     )
   })
 
+  it('缺口(seq>partialSeq+1)照追加,不因缺口丢新帧', () => {
+    const once = applyToolDelta([running], { toolCallId: 'call-1', seq: 1, partialText: 'a' })
+    const jumped = applyToolDelta(once, { toolCallId: 'call-1', seq: 4, partialText: 'd' })
+    expect(jumped[0]?.partialDiff).toBe('ad')
+    expect(jumped[0]?.partialSeq).toBe(4)
+  })
+
   it('空 toolCallId 整帧丢弃,零写入(后端 tc.get("id","") 可给出空串)', () => {
-    expect(applyToolDelta([running], { toolCallId: '', partialText: 'x' })).toEqual([running])
+    expect(applyToolDelta([running], { toolCallId: '', seq: 1, partialText: 'x' })).toEqual([
+      running,
+    ])
   })
 
   it('start 帧未到的 toolCallId 不凭空造条目', () => {
-    expect(applyToolDelta([], { toolCallId: 'ghost', partialText: 'x' })).toEqual([])
+    expect(applyToolDelta([], { toolCallId: 'ghost', seq: 1, partialText: 'x' })).toEqual([])
   })
 
   it('不同 toolCallId 互不串扰(并行多工具各显各的预览)', () => {
     const other: ToolCall = { id: 'call-2', toolName: 'read_file', args: {}, status: 'running' }
-    const next = applyToolDelta([running, other], { toolCallId: 'call-1', partialText: 'v' })
+    const next = applyToolDelta([running, other], {
+      toolCallId: 'call-1',
+      seq: 1,
+      partialText: 'v',
+    })
     expect(next[0]?.partialDiff).toBe('v')
     expect(next).toHaveLength(2)
     expect(next[1]?.partialDiff).toBeUndefined()
@@ -94,11 +116,13 @@ describe('applyToolCallStart(D113:重复 start 帧不得抹掉流中预览)', ()
   it('重复 start 帧:partialDiff 原样保留(本端此前是 ...list + 新条目,会把预览抹空)', () => {
     const withPreview = applyToolDelta([running], {
       toolCallId: 'call-1',
+      seq: 1,
       partialText: 'partial',
     })
     const next = applyToolCallStart(withPreview, evt)
     expect(next).toHaveLength(1)
     expect(next[0]?.partialDiff).toBe('partial')
+    expect(next[0]?.partialSeq).toBe(1)
     expect(next[0]?.status).toBe('running')
   })
 

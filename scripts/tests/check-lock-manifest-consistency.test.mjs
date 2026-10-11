@@ -1180,7 +1180,12 @@ test('T36 双声明豁免:逐字取自真 pnpm 产物的那一份 lock 必须判
     const cli = runCLI(['--all', '--worktree', '--root', dir])
     assert.equal(cli.code, 0, `CLI 不该在 pnpm 接受的状态上挡路:\n${cli.out}`)
     assert.match(cli.out, /段位置违规 0/)
-    assert.match(cli.out, /同一名字双声明、pnpm 只折一条落段而放过 1 条/)
+    // 措辞本体在门里(§22c / 守门 191 的 F1 靶子):这一行原先在测试里又逐字写了一遍那份字样,
+    // 于是"报告 / 门自检 / 镜像测试"三份同料 —— 任何一份改字,另两份就变成恒红或恒绿的断言。
+    assert.ok(
+      cli.out.includes(gate.multiSectionExemptNote(r.multiSectionExempted.length)),
+      '放过必须留在报告行里(字样由门导出,测试不重抄)',
+    )
     assert.doesNotMatch(cli.out, /\[分区漂移\]/)
 
     // 反向对照(证明上面那条不是恒真):把同一条锁条目挪到清单**从未声明**的段

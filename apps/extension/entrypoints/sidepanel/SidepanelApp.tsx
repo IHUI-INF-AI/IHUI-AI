@@ -120,11 +120,20 @@ function SidepanelInner() {
         let res = await getProfile()
         if (cancelled) return
         if (!res.success && isUnauthorized(res)) {
-          const refreshed = await doRefresh()
+          let refreshed = false
+          let transient = false
+          try {
+            refreshed = await doRefresh()
+          } catch {
+            // 2026-10-09:doRefresh 对瞬时失败(网络/5xx)抛 TransientRefreshError ——
+            // 凭据没被服务端否定,不清 token、不翻未登录;落到下方 startAutoRefresh,
+            // 由 4 分钟兜底 interval 重试续期。
+            transient = true
+          }
           if (cancelled) return
           if (refreshed) {
             res = await getProfile()
-          } else {
+          } else if (!transient) {
             await clearAllTokens()
             setTokenState(null)
             setAuthed(false)
