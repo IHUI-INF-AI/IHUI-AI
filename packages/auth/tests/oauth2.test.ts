@@ -14,6 +14,7 @@ import {
   createAndStoreAuthorizationCode,
   validateAuthorizationCode,
   OAuth2Error,
+  resolveGrantedScopes,
   type OAuth2Client,
   type PkcePolicy,
   type StoredAuthorizationCode,
@@ -208,6 +209,53 @@ describe('validateAuthorizationCode —— 同一 code 二次兑换抛 invalid_g
     expect(caught).toBeInstanceOf(OAuth2Error)
     expect((caught as OAuth2Error).code).toBe('invalid_grant')
     expect((caught as OAuth2Error).message).toContain('已被消费')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// L11496 (G-998084 短时效一次性 capability 的另一半): 角色不可自提升
+// 语义本就在 resolveGrantedScopes 的严格求交里(HEAD oauth2.ts:555-566):
+// 请求 scope 不在 allowed 集合 ⇒ 只进 rejected,绝无可能进 granted。
+// 此前该函数零测试(git grep tests 无引用),此处钉住裁决。
+// ---------------------------------------------------------------------------
+
+describe('resolveGrantedScopes —— 角色不可自提升', () => {
+  it('正向: 被授予 X 的请求方请求 X ⇒ 通过', () => {
+    const r = resolveGrantedScopes('openid', ['openid', 'profile:read'])
+    expect(r).toEqual({ granted: ['openid'], rejected: [] })
+  })
+
+  it('反向: 被授予普通 scope 的请求方请求 admin ⇒ 整体拒绝', () => {
+    const r = resolveGrantedScopes('admin:all', ['openid', 'profile:read'])
+    expect(r.granted).toEqual([])
+    expect(r.rejected).toEqual(['admin:all'])
+  })
+
+  it('混合: 普通 scope 授予,自提升项(admin/更高角色)拒绝,不因夹带而得逞', () => {
+    const r = resolveGrantedScopes(['openid', 'admin:all', 'role:owner'], ['openid'])
+    expect(r.granted).toEqual(['openid'])
+    expect(r.rejected).toEqual(['admin:all', 'role:owner'])
+  })
+})
+
+describe('resolveGrantedScopes —— 既有行为锁', () => {
+  it('空请求 = 授予客户端全部可用 scope(三种空形态等价)', () => {
+    expect(resolveGrantedScopes(null, 'openid profile:read').granted).toEqual(['openid', 'profile:read'])
+    expect(resolveGrantedScopes(undefined, ['openid'])).toEqual({ granted: ['openid'], rejected: [] })
+    expect(resolveGrantedScopes('', ['openid'])).toEqual({ granted: ['openid'], rejected: [] })
+  })
+
+  it('空格串与数组入参等价,且去重去空', () => {
+    expect(resolveGrantedScopes('openid  openid  ', ['openid'])).toEqual({
+      granted: ['openid'],
+      rejected: [],
+    })
+  })
+
+  it('子集请求只授予请求项,不超额发放', () => {
+    const r = resolveGrantedScopes(['profile:read'], ['openid', 'profile:read', 'email:read'])
+    expect(r.granted).toEqual(['profile:read'])
+    expect(r.rejected).toEqual([])
   })
 })
 
