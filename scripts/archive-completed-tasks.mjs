@@ -125,6 +125,7 @@ import { findMarkerPairs } from './check-no-conflict-markers.mjs'
 // 本脚本刻意不再手写第二份 read-tree/commit-tree/CAS —— 同一会话手写 6 份并漂开正是它入库的理由。
 import {
   alignSharedIndex,
+  attestBypassCommit,
   casUpdateRef,
   commitTreeWithIndex,
   git as plumbingGit,
@@ -1211,6 +1212,13 @@ async function landThroughObjectSpace({ base, toArchive }) {
       console.error(`     ${v.id} 缺 ${v.missing} 条:${v.samples[0] ?? ''}`)
     process.exit(1)
   }
+  // 旁路落地不跑钩子 ⇒ 必须留痕(2026-10-11)。归档提交每天自动产生若干枚,过去只推 HEAD
+  // 不写台账,于是总量统计把它们与"有人 --no-verify 塞了一枚红"一并落进 unknown(现读
+  // `plan-bypass-ledger-report.mjs --since 2026-10-09` 的 18 枚"本机可疑"里 3 枚即本器产物)。
+  // 留痕失败不改本枚归档的成败(它已在 HEAD 上),
+  // 但必须喊出来 —— 静默少一行留痕与静默少一次门禁是同一型失效。
+  const at = attestBypassCommit(landed, { root: ROOT, headBefore: parentSha, source: 'archive-completed-tasks' })
+  if (!at.ok) console.error(C.yellow + `⚠️ 旁路留痕未写入(${at.why})⇒ 这一枚在跳门总量台账里仍是 unknown` + C.reset)
   console.log(`${C.green}✅ 已归档 ${toArchive.length} 个条目${C.reset}`)
   console.log(`${C.dim}   归档文件: ${archiveRel}${C.reset}`)
   console.log(`${C.dim}   PROJECT_PLAN.md 原位置已留归档占位注释${C.reset}`)

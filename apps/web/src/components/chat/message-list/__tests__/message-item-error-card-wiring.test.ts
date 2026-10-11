@@ -32,7 +32,8 @@ function productionFiles(): Array<{ path: string; code: string }> {
     for (const ent of readdirSync(dir, { withFileTypes: true })) {
       const full = join(dir, ent.name)
       if (ent.isDirectory()) {
-        if (ent.name === '__tests__' || ent.name === 'tests' || ent.name === 'node_modules') continue
+        if (ent.name === '__tests__' || ent.name === 'tests' || ent.name === 'node_modules')
+          continue
         walk(full)
         continue
       }

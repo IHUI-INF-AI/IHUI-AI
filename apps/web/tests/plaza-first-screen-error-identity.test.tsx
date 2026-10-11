@@ -45,7 +45,10 @@ vi.mock('@/lib/api', () => ({
 const toastError = vi.fn()
 const toastSuccess = vi.fn()
 vi.mock('@/components/common/Toaster', () => ({
-  toast: { error: (...a: unknown[]) => toastError(...a), success: (...a: unknown[]) => toastSuccess(...a) },
+  toast: {
+    error: (...a: unknown[]) => toastError(...a),
+    success: (...a: unknown[]) => toastSuccess(...a),
+  },
 }))
 
 const pushMock = vi.fn()
