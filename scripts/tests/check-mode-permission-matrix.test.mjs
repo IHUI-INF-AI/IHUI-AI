@@ -189,4 +189,117 @@ test('T9 接线成套性:头注声明必须与 runner 现读一致;已注册则�
   assert.match(entry, /mode:\s*'blocking'/, '接线了却不是 blocking —— 判对了也没人被打断')
   assert.match(entry, /skipEnv:\s*'HUSKY_SKIP_MODE_PERMISSION_MATRIX'/, '缺应急跳过通道')
 })
+
+// ---------------------------------------------------------------------------
+// M6 turnScopedDenylist(G-998120,2026-10-07 拍板:禁)
+// 用例一律从**当前工作树**取六份面、经 decide() 生产入口注入变异 ——
+// 不在测试里复制一份判据(两份真相 = 源改判据测试仍绿的假绿,§22c 立条要杀的那种)。
+// ---------------------------------------------------------------------------
+
+/** 取工作树面的浅拷贝(每个用例独立变异,互不污染)。 */
+function worktreeFace() {
+  const base = G.readContents(REPO, 'worktree')
+  return { base, clone: () => JSON.parse(JSON.stringify(base)) }
+}
+
+test('T10 M6 基线:工作树面第四维锚点在位且判定零问题零未判定', () => {
+  const { base } = worktreeFace()
+  assert.ok(
+    base[G.FILES.pyAgentLoop].includes('merge_turn_scoped_denylist'),
+    '工作树的 agent_loop_v2.py 缺第四维锚点 —— 实现与测试必须同笔落地',
+  )
+  const r = G.decide(base)
+  assert.deepEqual(r.undetermined, [], `不得有未判定:${JSON.stringify(r.undetermined)}`)
+  assert.deepEqual(
+    r.problems.filter((p) => p.startsWith('M6')),
+    [],
+    `M6 基线不得自红:${JSON.stringify(r.problems)}`,
+  )
+})
+
+test('T11 M6 正例:轮次附加集为空(非 automation 轮)不得判红', () => {
+  const { base, clone } = worktreeFace()
+  const loopSrc = base[G.FILES.pyAgentLoop]
+  const c = clone()
+  c[G.FILES.pyAgentLoop] = loopSrc.replace(
+    'AUTOMATION_TURN_TOOL_DENYLIST if turn_source == "automation" else None',
+    'frozenset() if turn_source == "automation" else None',
+  )
+  assert.notEqual(c[G.FILES.pyAgentLoop], loopSrc, '变异未生效(锚文本漂移),用例已空转')
+  const m6 = G.decide(c).problems.filter((p) => p.startsWith('M6'))
+  assert.deepEqual(m6, [], `空附加集是合法形状,不得判红:${JSON.stringify(m6)}`)
+})
+
+test('T12 M6 反例:合并体丢弃基础档(整体替换调用方集合)必红', () => {
+  const { base, clone } = worktreeFace()
+  const loopSrc = base[G.FILES.pyAgentLoop]
+  assert.ok(loopSrc.includes('return base | additions'), '锚文本漂移,用例已空转')
+  const c = clone()
+  c[G.FILES.pyAgentLoop] = loopSrc.replace('return base | additions', 'return additions')
+  const m6 = G.decide(c).problems.filter((p) => p.startsWith('M6'))
+  assert.ok(
+    m6.some((p) => p.includes('整体替换')),
+    `把调用方集合整体替换必须判红:${JSON.stringify(m6)}`,
+  )
+})
+
+test('T13 M6 反例:生效集绕过合并直接取附加集(基础档被替换)必红', () => {
+  const { base, clone } = worktreeFace()
+  const loopSrc = base[G.FILES.pyAgentLoop]
+  assert.ok(
+    /self\._effective_denylist(?::\s*frozenset\[str\])?\s*=\s*merge_turn_scoped_denylist\(\s*deny_tools,\s*turn_denylist\s*\)/.test(
+      loopSrc,
+    ),
+    '锚文本漂移,用例已空转',
+  )
+  const c = clone()
+  c[G.FILES.pyAgentLoop] = loopSrc.replace(
+    /self\._effective_denylist(?::\s*frozenset\[str\])?\s*=\s*merge_turn_scoped_denylist\(\s*deny_tools,\s*turn_denylist\s*\)/,
+    'self._effective_denylist: frozenset[str] = frozenset(turn_denylist or ())',
+  )
+  const m6 = G.decide(c).problems.filter((p) => p.startsWith('M6'))
+  assert.ok(
+    m6.some((p) => p.includes('绕过合并')),
+    `绕过合并直接赋值必须判红:${JSON.stringify(m6)}`,
+  )
+})
+
+test('T14 M6 反例:轮次负向面写回 checkpoint 元数据(粘会话)必红', () => {
+  const { base, clone } = worktreeFace()
+  const c = clone()
+  c[G.FILES.pyAgentLoop] =
+    base[G.FILES.pyAgentLoop] + '\ncheckpoint_data["metadata"]["turn_denylist"] = 1\n'
+  const m6 = G.decide(c).problems.filter((p) => p.startsWith('M6'))
+  assert.ok(
+    m6.some((p) => p.includes('写回')),
+    `收紧粘到会话/持久化状态必须判红:${JSON.stringify(m6)}`,
+  )
+})
+
+test('T15 M6 锚点缺失(旧 HEAD 面)计未判定:不冒红也不记绿', () => {
+  const { base, clone } = worktreeFace()
+  const c = clone()
+  c[G.FILES.pyAgentLoop] = 'TOOLS = {}\n'
+  const r = G.decide(c)
+  assert.ok(
+    r.undetermined.some((s) => s.startsWith('M6')),
+    `锚点缺失必须报未判定:${JSON.stringify(r)}`,
+  )
+  assert.deepEqual(
+    r.problems.filter((p) => p.startsWith('M6')),
+    [],
+    '锚点缺失不得冒红(与解析失败同档:exit 2,不是 exit 1)',
+  )
+})
+
+test('T16 M6 端到端:临时仓 HEAD 面(工作树装车)第四维生效且整体绿灯', () => {
+  const dir = makeFaceRepo('mpm-m6-')
+  try {
+    const r = G.runAudit({ root: dir, face: 'head' })
+    assert.deepEqual(r.undetermined, [], `六份输入应全部取得到:${JSON.stringify(r.undetermined)}`)
+    assert.deepEqual(r.problems, [], `装车后 HEAD 面应全绿:${JSON.stringify(r.problems)}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

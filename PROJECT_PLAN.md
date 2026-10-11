@@ -8260,20 +8260,12 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - [ ] **D50 多端遥控配对 + 每会话浏览器 Tab 状态(G-60)+ WorkBuddy 取证专项**:① 手机看/接管桌面在跑会话(对标 `remote_control_enrollments`);② 每会话浏览器 tab 路由状态持久化(对标 `thread-tab-routes-v1`,复用 work-panel 历史连贯根治成果);③ **WorkBuddy 元素级取证补齐**(本机四路探测确认无程序本体):在装有 WorkBuddy 的机器上取包体或跑一次渲染取证,把报告 §1.4 的 E4 二手升为 E1/E2,再回补差距编号 〔【归并】重复登记副本(2026-09-28):同主键的另一条登记已随归档搬至 .ihui-agent/archive/PROJECT_PLAN_*.md 的条目 「D50 · 多端遥控配对+每会话浏览器Tab状态」,派单以那条为准,本行不再单独派单。〕
 - [ ] （【归并】重复登记副本·同题不同编号·2026-09-29·本行与同题登记的持有行重复,现摘掉编号只留指针,不翻勾、不并抄、正文逐字保留,派单以持有行为准）G-588. **守门 79 只看"成对"冲突标记,单侧残留可以长期停在已入库内容里而每次提交全绿 —— 本票抓到一处并当场摘净,收紧的前置条件已由本票达成(等归属:门 79 持有人落判据)**:实测(2026-09-28,门体 `--rev HEAD` 末行原文)「⚠️ 另有未配对标记 1 处孤立 `<<<<<<<` / 2 处孤立 `>>>>>>>` —— 按 P2/P3 不计红」，逐行定位到 `.ihui-agent/archive/PROJECT_PLAN_*.md` 里**成段**的 6 行合并标记残留(`<<<<<<< ours` ×2 / `=======` ×2 / `>>>>>>> theirs` ×2,相邻两份 = 并发 union 把同一段搬了两遍连标记一起搬)。**为什么这一格值得单独一票而不是"报数就完了"**:① 该文件正是 AGENTS §1 那句"完整内容在 .ihui-agent/archive/…"的**可核验锚点本体**,锚点里躺着合并残留,等于承诺"能逐字找回"的那份东西自己就是脏的;② 门 79 的立项理由就是"`.git` 被宿主清除后有人在共享工作区跑真 merge,标记进了 HEAD 树而全链没有一道看得见",而它落地后**只堵住了成对那一型**,只剩一半的那一型结构性隐身 —— 与守门 102 左向箭头、门 77 CSS 声明形态同一条"一条门只管自己立项那一型"的洞;③ 每次提交都是绿的,所以没有任何人会自然发现它。**已做的处置(不改判据、不碰别人在飞副本)**:由 `0e6fdc44f` 用对象空间(临时索引 + commit-tree + CAS)**纯删除 6 行、零新增**摘净,落地前自证"把摘掉的行按原位置塞回 ⇒ 与原文逐字等值"(读数 `k=31282/31282 ri=6/6`),全程不写工作树;摘后门体末行变成「0 处孤立 `<<<<<<<` / 1 处孤立 `>>>>>>>`」,那 1 处是 `apps/cli/src/tools/file-edit.ts` 的 SEARCH/REPLACE 补丁语法夹具(`>>>>>>> REPLACE`),属该门 E1 合法豁免族,不是残留。**收紧的判据(机械可判、不会造恒红门)**:把**带 `ours|theirs|HEAD` 尾巴的孤立 `<<<<<<<` / `>>>>>>>`** 升为判红 —— 那两种形态在 Markdown 里不合法(setext 下划线、表格分隔、ASCII 示意图都不会写出 `>>>>>>> theirs`),而**孤立的 `=======` 维持只报数**(该门头注写明的单行假阳风险正是为它立的)。前置条件"先清偿再收紧,并让已诚实的一侧由判据自身识别"(守门 134 扩键那一条通用规矩)**已由本票达成**:真仓 HEAD 面带词尾的孤立标记现读 = 0。**验收判据**:①`node scripts/check-no-conflict-markers.mjs --rev HEAD` 在收紧后仍 exit 0(存量已净,不产生新恒红面);②自检必须成对留正反例 —— 注入一处 `>>>>>>> theirs` 单侧 ⇒ 必红,注入一行合法 `=======`(setext/表格)⇒ 必不红;③镜像测试钉"孤立标记的判据与成对判据共用同一份配对实现"(`scripts/lib/conflict-marker-triples.mjs` 的 `findMarkerPairs`),禁止两处各扫一遍。**禁止的出路**:为让报数消失去删归档件正文、或把 P2/P3 整档改成判红(那会把 Markdown 合法单行判成违规,造出一台与任何提交都无关的恒红门)。 (编号改派留痕:原 G-579 与另一路会话的「台账里 6 族待办对派单永久隐形」撞成一号两事 —— 时间戳判明本行是后来者(对方 `4a14cfe57d` = 10:19:12Z,本行 `c445b7dacd` = 10:27:51Z),按台账惯例由后来者改号、对方保留原号;本行取号那一轮工具明写过"远端未参与 ⇒ 未与远端对齐",所以这次撞号不是疏忽而是取号面没覆盖远端(见 G-313 同族)。) (原编号 G-588;持有行题面「守门79只看"成对"冲突标记」)
 - [ ] **G-977953 台账脏号的真实边界:232 行畸形号一行都不能机械修、112 组撞号两侧都已发布 —— 需要的是逐组裁决,交台账判据持有人(这一票等的就是这个裁决,不是环境条件,也不是别的会话)** —— 本轮把这件事量到底,结论是"不能批量做",数字与判据都现读可得,不必重新推导:① **畸形号 232 行**(族 G 223 / D 8 / O 1),但它们只收敛到 **32 个"修好后应该变成"的目标号**;把台账那一份规划器 `planMalformedStrip`(`scripts/lib/plan-task-index.mjs`,注意**它已经存在且就是判据自己的规划器,不要再写第二把尺子**)喂满 232 行,输出 **approved 0 / refused 232**,拒因全部是同一条:**目标号已被另一行占用**。换个更宽的问法也一样:按"编号+标题"整对查,可自由落位的 **0 个**,会撞上同名副本(产 F4 孪生、不新增 F9)**161 行**,会撞上不同标题(直接加入/新增 F9 组)**71 行**。② **F9 撞号 112 组**(`node scripts/plan-tasks.mjs --gate`,注意**不带 `--json` 那一档才有退出码**,`--gate --json` 恒 0 —— 已被这一格骗过一次并登记在案),逐组判"哪一侧未发布"的结果是 **112/112 两侧都已发布**(本机 HEAD ⊆ 已推远端 tip,用 `merge-base --is-ancestor` 验,不是猜),即**没有任何一侧可以按"只改未发布那一侧"的纪律让号而不动到已发布的历史**;让号器 `scripts/plan-collide-renumber.mjs` 也要求合并时刻的 `--theirs` 才能安全作业,现在没有待合的撞号场景。③ **所以正确的下一步不是"清一次"**:那 71 行是**让号的输入清单**(等下一个真分叉时刻由让号器消费),那 161 行是 F4/F6 的**折叠副本**问题而不是编号问题;唯一的增量刹车是 `live-doc-edit.mjs` 的**生产者侧守卫**(拒绝落地新增畸形号,本轮它确实拒了我一次并点名成因)。**等谁:台账判据持有人**拍板"112 组已发布撞号要不要长期作为存量只报数(现状就是这样,落地闸按差值棘轮不拦它),还是要一组一组人工裁决标题归属";在此之前**批量改号 = 篡改已发布历史,禁止**。数字一律现读,不得引用本行派单。【让号@2026-09-29:原编号 G-937951;union-converge F9 归并新增撞号组,未推的本地面让号;改前整行原文逐字见 .ihui-agent/archive/PROJECT_PLAN_*.md】
-- [ ] D14 云端沙箱 agent(容器隔离+任务队列+镜像缓存+跨项目并行看板,对标 Qoder My Quests)(G-17) 〔【归并】重复登记副本(2026-09-27):同主键的另一条登记已随归档搬至 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md 的条目 「D14 · 云端沙箱agent」,派单以那条为准,本行不再单独派单。〕
-- [ ] D14 云端沙箱 agent(容器隔离+任务队列+镜像缓存+跨项目并行看板,对标 Qoder My Quests)(G-17) 〔【归并】重复登记副本(2026-09-28):同主键的另一条登记已随归档搬至 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md 的条目 「D14 · 云端沙箱agent」,派单以那条为准,本行不再单独派单。〕
-- [ ] G-580 **并集合并会把"两侧皆空"的嵌套冲突标记块原样写进归档件并入库,而全链没有一道门在提交时拦它(2026-09-28 实测并已修掉一处)**: 本枚在 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md` 里量到 6 行 `<<<<<<< ours / <<<<<<< ours / ======= / ======= / >>>>>>> theirs / >>>>>>> theirs` —— **两侧正文都为空**,是合并器自己造出来的形状,却被归档器当"归档正文"逐字搬进归档件并入了 HEAD(枚 `276ea4fa4` 之前的面)。为什么不响:守门 79(冲突标记)在提交链走 `--staged`,只咬**被提交的那个文件**,归档件不是每次都被碰 ⇒ 它在全量档天天红、在提交链一次不拦;守门 13c 的 A3 只管归档件**内部的占位指针**能否兑现,不看内容里有没有标记。修的动作是删那 6 行(零损失逐行验过:除这 6 行外每一行逐字等值,行数 33447→33441),**判据侧要补的是两条**:① 归档面纳入冲突标记判据(默认档 warn、`--strict` 问责 —— 直接在提交链判红就是一台与任何提交都无关的恒红门,§12e 同型);② 活文档并集归并的落地闸拒绝带任何行首标记的输出(含"两侧皆空"这一型 —— 它看起来无害,实则是把合并器的中间态当内容落库)。归属:分叉合并归并线(与 G-363 / G-461 / G-455 同一持有人)。**现读命令**:`node scripts/check-no-conflict-markers.mjs`(全量)与 `git grep -lE "^(<<<<<<< |>>>>>>> )" HEAD -- .`(HEAD 面应只剩 `apps/cli/tests/file-edit.test.ts` 那一处合法 SEARCH/REPLACE 夹具,由该门 E1 计数豁免)。 **落地时的两处现读更正(同日,本枚)**:① "两侧皆空"的摘除函数其实**早在共同基底里就有**(`git grep -c 两侧正文都为空的冲突标记` 对 base/ours/theirs 三面均为 1)—— 所以缺的不是能力,而是**归档写入侧没调它**:归档器把正文逐字搬进归档件时不过这道摘除,于是能力在、产物仍带标记。判据方向因此从"补一条判据"收窄成"归档写入前调用既有出口 + 归档面复核",成本比原票面低一档。② 本票发现的当天,同一份 `scripts/archive-completed-tasks.mjs` 又被两侧各自改过(本地 `3306d0975` 与远端 `92ba35348`),三方合并在自测 S19d 的装车锁处报冲突;两侧分歧只是"要不要把解构键清单钉进正则",而两侧 `main()` 现读都是同一份 `const { tasks, blocked, movable }`,⇒ 两条断言今天同时成立,合并不需要选边。**若下次再撞同一处,请保留本侧那条宽松锁并按其注释连精确锁一起改**,别把"纯净化解构"判成回潮(锁错粒度=给自己造恒红)。 〔【归并】重复登记副本(2026-09-29):同主键的另一条登记 「G-580」,派单以那条为准,本行不再单独派单。〕
-- [ ] G-580 **并集合并会把"两侧皆空"的嵌套冲突标记块原样写进归档件并入库,而全链没有一道门在提交时拦它(2026-09-28 实测并已修掉一处)**: 本枚在 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md` 里量到 6 行 `<<<<<<< ours / <<<<<<< ours / ======= / ======= / >>>>>>> theirs / >>>>>>> theirs` —— **两侧正文都为空**,是合并器自己造出来的形状,却被归档器当"归档正文"逐字搬进归档件并入了 HEAD(枚 `276ea4fa4` 之前的面)。为什么不响:守门 79(冲突标记)在提交链走 `--staged`,只咬**被提交的那个文件**,归档件不是每次都被碰 ⇒ 它在全量档天天红、在提交链一次不拦;守门 13c 的 A3 只管归档件**内部的占位指针**能否兑现,不看内容里有没有标记。修的动作是删那 6 行(零损失逐行验过:除这 6 行外每一行逐字等值,行数 33447→33441),**判据侧要补的是两条**:① 归档面纳入冲突标记判据(默认档 warn、`--strict` 问责 —— 直接在提交链判红就是一台与任何提交都无关的恒红门,§12e 同型);② 活文档并集归并的落地闸拒绝带任何行首标记的输出(含"两侧皆空"这一型 —— 它看起来无害,实则是把合并器的中间态当内容落库)。归属:分叉合并归并线(与 G-363 / G-461 / G-455 同一持有人)。**现读命令**:`node scripts/check-no-conflict-markers.mjs`(全量)与 `git grep -lE "^(<<<<<<< |>>>>>>> )" HEAD -- .`(HEAD 面应只剩 `apps/cli/tests/file-edit.test.ts` 那一处合法 SEARCH/REPLACE 夹具,由该门 E1 计数豁免)。 **落地时的两处现读更正(同日,本枚)**:① "两侧皆空"的摘除函数其实**早在共同基底里就有**(`git grep -c 两侧正文都为空的冲突标记` 对 base/ours/theirs 三面均为 1)—— 所以缺的不是能力,而是**归档写入侧没调它**:归档器把正文逐字搬进归档件时不过这道摘除,于是能力在、产物仍带标记。判据方向因此从"补一条判据"收窄成"归档写入前调用既有出口 + 归档面复核",成本比原票面低一档。② 本票发现的当天,同一份 `scripts/archive-completed-tasks.mjs` 又被两侧各自改过(本地 `3306d0975` 与远端 `92ba35348`),三方合并在自测 S19d 的装车锁处报冲突;两侧分歧只是"要不要把解构键清单钉进正则",而两侧 `main()` 现读都是同一份 `const { tasks, blocked, movable }`,⇒ 两条断言今天同时成立,合并不需要选边。**若下次再撞同一处,请保留本侧那条宽松锁并按其注释连精确锁一起改**,别把"纯净化解构"判成回潮(锁错粒度=给自己造恒红)。 〔【归并】重复登记副本(2026-09-29):同主键的另一条登记 「G-580 · 并集合并会把"两侧皆空"的嵌套冲突标记块原样写进」,派单以那条为准,本行不再单独派单。〕
-- [ ] G-580 **并集合并会把"两侧皆空"的嵌套冲突标记块原样写进归档件并入库,而全链没有一道门在提交时拦它(2026-09-28 实测并已修掉一处)**: 本枚在 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md` 里量到 6 行 `<<<<<<< ours / <<<<<<< ours / ======= / ======= / >>>>>>> theirs / >>>>>>> theirs` —— **两侧正文都为空**,是合并器自己造出来的形状,却被归档器当"归档正文"逐字搬进归档件并入了 HEAD(枚 `276ea4fa4` 之前的面)。为什么不响:守门 79(冲突标记)在提交链走 `--staged`,只咬**被提交的那个文件**,归档件不是每次都被碰 ⇒ 它在全量档天天红、在提交链一次不拦;守门 13c 的 A3 只管归档件**内部的占位指针**能否兑现,不看内容里有没有标记。修的动作是删那 6 行(零损失逐行验过:除这 6 行外每一行逐字等值,行数 33447→33441),**判据侧要补的是两条**:① 归档面纳入冲突标记判据(默认档 warn、`--strict` 问责 —— 直接在提交链判红就是一台与任何提交都无关的恒红门,§12e 同型);② 活文档并集归并的落地闸拒绝带任何行首标记的输出(含"两侧皆空"这一型 —— 它看起来无害,实则是把合并器的中间态当内容落库)。归属:分叉合并归并线(与 G-363 / G-461 / G-455 同一持有人)。**现读命令**:`node scripts/check-no-conflict-markers.mjs`(全量)与 `git grep -lE "^(<<<<<<< |>>>>>>> )" HEAD -- .`(HEAD 面应只剩 `apps/cli/tests/file-edit.test.ts` 那一处合法 SEARCH/REPLACE 夹具,由该门 E1 计数豁免)。 **落地时的两处现读更正(同日,本枚)**:① "两侧皆空"的摘除函数其实**早在共同基底里就有**(`git grep -c 两侧正文都为空的冲突标记` 对 base/ours/theirs 三面均为 1)—— 所以缺的不是能力,而是**归档写入侧没调它**:归档器把正文逐字搬进归档件时不过这道摘除,于是能力在、产物仍带标记。判据方向因此从"补一条判据"收窄成"归档写入前调用既有出口 + 归档面复核",成本比原票面低一档。② 本票发现的当天,同一份 `scripts/archive-completed-tasks.mjs` 又被两侧各自改过(本地 `3306d0975` 与远端 `92ba35348`),三方合并在自测 S19d 的装车锁处报冲突;两侧分歧只是"要不要把解构键清单钉进正则",而两侧 `main()` 现读都是同一份 `const { tasks, blocked, movable }`,⇒ 两条断言今天同时成立,合并不需要选边。**若下次再撞同一处,请保留本侧那条宽松锁并按其注释连精确锁一起改**,别把"纯净化解构"判成回潮(锁错粒度=给自己造恒红)。
-- [ ] G-856410 **活文档行 union 会把"本侧已让号删掉的旧形态"从 base/对侧补回来 ⇒ union-converge 落地闸对本侧死锁(归属:union-converge 落地闸持有人;本会话量到并受阻)** —— 现读取证:本侧把 7 枚登记行整体让号(`c8cecd2572`,815951..815957 → 815980..815986,四条断言:键位命中唯一 / 标题稳定片段 / 正文逐字守恒 / 旧号引用只允许是【归并】留痕行)之后,`node scripts/union-converge.mjs` 的 F9 从 7 组降到 2 组,余下两组是 `G-815926` / `G-815930` 与「图标生成器注入 radius-exempt 的恒红与…」——**而本面已经没有这两个键位行**。机理:落地闸只判"合并结果是否放大分叉",不管这行是谁删的;活文档的「每行重数取 max」在"本侧删除、对侧未改"这一格会把 base/对侧那一份重新计成 1 份,于是让号一侧的删除**结构上无法传播**,而 F9 恰恰按合并结果计组 ⇒ 谁也无法让闸变绿,除非有人能在合并面上做真正的删除(§12d/守门 100 的口径:"确要删必须在合并之后显式 git rm" —— 可这一步需要先落一次合并,而合并正被它拦住 = 死锁)。**这不是"再改一次号"能解的**(我已实证:上一轮连让两次,每次都被并发 union 把旧形态捞回,一面上攒出三个编号形态)。**候选出路三条,请择一并给出可判前置**:① 落地闸为"本侧自有旧形态副本"开一条**声明式窄口**(逐条附 file+旧号+让号到的新号+取证命令,照 `--take-ours` 的做法:声明必须可复核、少一项即拒),合并落地后立刻在合并面 `git rm` 幽灵行;② 让行 union 认得"删除"这一维 —— 某行在 base 与对侧都在、而本侧把它改写成让号形态(同标题、异键位)时**不再按 max 累加**,配套必须有一条"本侧正当新增不得被少带"的成对反例,否则就把守门 71/100 防吞行那一族能力废回去;③ 由落地闸持有人在合并面做一次一次性清账(把 815926/815930 的幽灵键位行显式删除并留让号注记)。**在①②③任一项落地前,本机凡是"本侧让过号"的会话都会被这道闸卡住,交付同步不到 origin** —— 本会话的 9 枚代码/判据提交即卡在此(圆角四道门与 face-reader 镜像在被审面全绿,已实测)。**禁止的处理**:为让闸变绿去放宽 F9/F1/F4 判据、把幽灵行算成存量债预登记进基线、或继续第三次改号。 〔2026-09-29 让号:G-815987 → G-856410 —— 与 origin 面上一枚同号异题登记撞上(union-converge 落地闸 F9 现读),按 §1「后来者改号、由未推的一侧让号」本侧让;旧形态整行原文已逐字入 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md(门 71 的归档豁免),本行上一条"已还原为本号"的留痕已被本条取代〕
 - [ ] **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN / miniapp 未消费 tailPreview` —— 两端 1742 个跟踪文件里命中 0,唯一消费者是 web;难点不是接一行,而是两端如何取到 `context-attribution` 这份共享引擎(实测两端对它**零引用**,共享引擎在移动端没有装载路径)。② `apps/api` 侧 `page_*` 只有测试面引用、无生产侧登记(一格小账)。〔2026-09-28 复判(② 本格):**判"无消费方,登记即造假",不硬接、保持未勾、不再派单** —— HEAD 复跑:7 条 `page_*` 动词字面量在 `apps/api/src` 命中 0(git grep HEAD),仅测试面 `tests/agent-control-ui.test.ts` L874-882 引用,"只有测试面引用"仍成立。api 侧既有出口形态是**动词不透明的纯转发/计数面**:`capabilitySchema.browserPageActions=z.array(z.string()).max(20)`(routes/agent-control.ts:218)+ `/status` 计数(:463)+ `executeSchema.action=z.string()`(:232,不解释动词名直接 WS 转发);且**六族动词(browser/computer/ui/app_ui/miniapp_ui/ext_ui)在 api 生产面同样零动词字面量** —— page_* 不是特例,是转发面的设计常态。与单源的类型级衔接已由 `AgentControlCapability` cast 承担(字段类型 `BrowserPageControlActionType[]` 即 packages/types 单源);动词名的真实消费方在 extension(`@ihui/dom-actions` PAGE_ACTIONS,编译期护栏)与 CLI,服务端授权闸读的是 `browserPageActions` **计数>0** 而非动词名(ai-service `control_autonomy.py:233`)。硬"登记"只有两条路:在 api 侧另抄一份成员清单(§1 状态词汇四份副本的教训,明令禁止),或只为本族加运行期枚举校验(与其余六族形态不一致,且 schema 注释已记过失败模式"端上多报一条⇒整条 capability 上报 400 静默失去该端全部能力")。⇒ 本格按"平台域外/无消费方"收口,登记即造假,不硬造。取证:`check-capability-catalog` 全量绿(62 scope / 180 handler 0 未覆盖 / D 0 腐化,EXIT 0)、`@ihui/api` typecheck 0 错、`agent-control-ui.test.ts` 25/25 过(含 ㉕ 句柄族 7 动词计数)。〕 〔【归并】重复登记副本(2026-09-29):逐字相同的另一条登记(与本行正文逐字相同,可按正文检索),派单以那条为准,本行不再单独派单。〕
 - [ ] **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN / miniapp 未消费 tailPreview` —— 两端 1742 个跟踪文件里命中 0,唯一消费者是 web;难点不是接一行,而是两端如何取到 `context-attribution` 这份共享引擎(实测两端对它**零引用**,共享引擎在移动端没有装载路径)。② `apps/api` 侧 `page_*` 只有测试面引用、无生产侧登记(一格小账)。 〔【归并】重复登记副本(2026-09-29):逐字相同的另一条登记(与本行正文逐字相同,可按正文检索),派单以那条为准,本行不再单独派单。〕
 - [ ] **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN / miniapp 未消费 tailPreview` —— 两端 1742 个跟踪文件里命中 0,唯一消费者是 web;难点不是接一行,而是两端如何取到 `context-attribution` 这份共享引擎(实测两端对它**零引用**,共享引擎在移动端没有装载路径)。② `apps/api` 侧 `page_*` 只有测试面引用、无生产侧登记(一格小账)。 〔【归并】重复登记副本(2026-09-30):逐字相同的另一条登记(与本行正文逐字相同,可按正文检索),派单以那条为准,本行不再单独派单。〕
 - [ ] **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN / miniapp 未消费 tailPreview` —— 两端 1742 个跟踪文件里命中 0,唯一消费者是 web;难点不是接一行,而是两端如何取到 `context-attribution` 这份共享引擎(实测两端对它**零引用**,共享引擎在移动端没有装载路径)。② `apps/api` 侧 `page_*` 只有测试面引用、无生产侧登记(一格小账)。〔2026-09-28 复判(② 本格):**判"无消费方,登记即造假",不硬接、保持未勾、不再派单** —— HEAD 复跑:7 条 `page_*` 动词字面量在 `apps/api/src` 命中 0(git grep HEAD),仅测试面 `tests/agent-control-ui.test.ts` L874-882 引用,"只有测试面引用"仍成立。api 侧既有出口形态是**动词不透明的纯转发/计数面**:`capabilitySchema.browserPageActions=z.array(z.string()).max(20)`(routes/agent-control.ts:218)+ `/status` 计数(:463)+ `executeSchema.action=z.string()`(:232,不解释动词名直接 WS 转发);且**六族动词(browser/computer/ui/app_ui/miniapp_ui/ext_ui)在 api 生产面同样零动词字面量** —— page_* 不是特例,是转发面的设计常态。与单源的类型级衔接已由 `AgentControlCapability` cast 承担(字段类型 `BrowserPageControlActionType[]` 即 packages/types 单源);动词名的真实消费方在 extension(`@ihui/dom-actions` PAGE_ACTIONS,编译期护栏)与 CLI,服务端授权闸读的是 `browserPageActions` **计数>0** 而非动词名(ai-service `control_autonomy.py:233`)。硬"登记"只有两条路:在 api 侧另抄一份成员清单(§1 状态词汇四份副本的教训,明令禁止),或只为本族加运行期枚举校验(与其余六族形态不一致,且 schema 注释已记过失败模式"端上多报一条⇒整条 capability 上报 400 静默失去该端全部能力")。⇒ 本格按"平台域外/无消费方"收口,登记即造假,不硬造。取证:`check-capability-catalog` 全量绿(62 scope / 180 handler 0 未覆盖 / D 0 腐化,EXIT 0)、`@ihui/api` typecheck 0 错、`agent-control-ui.test.ts` 25/25 过(含 ㉕ 句柄族 7 动词计数)。〕 〔【归并】重复登记副本(2026-09-30):逐字相同的另一条登记(与本行正文逐字相同,可按正文检索),派单以那条为准,本行不再单独派单。〕
 - [ ] **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN / miniapp 未消费 tailPreview` —— 两端 1742 个跟踪文件里命中 0,唯一消费者是 web;难点不是接一行,而是两端如何取到 `context-attribution` 这份共享引擎(实测两端对它**零引用**,共享引擎在移动端没有装载路径)。② `apps/api` 侧 `page_*` 只有测试面引用、无生产侧登记(一格小账)。 〔【归并】重复登记副本(2026-10-01):逐字相同的另一条登记(与本行正文逐字相同,可按正文检索),派单以那条为准,本行不再单独派单。〕
 - [ ] **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN / miniapp 未消费 tailPreview` —— 两端 1742 个跟踪文件里命中 0,唯一消费者是 web;难点不是接一行,而是两端如何取到 `context-attribution` 这份共享引擎(实测两端对它**零引用**,共享引擎在移动端没有装载路径)。② `apps/api` 侧 `page_*` 只有测试面引用、无生产侧登记(一格小账)。〔2026-09-28 复判(② 本格):**判"无消费方,登记即造假",不硬接、保持未勾、不再派单** —— HEAD 复跑:7 条 `page_*` 动词字面量在 `apps/api/src` 命中 0(git grep HEAD),仅测试面 `tests/agent-control-ui.test.ts` L874-882 引用,"只有测试面引用"仍成立。api 侧既有出口形态是**动词不透明的纯转发/计数面**:`capabilitySchema.browserPageActions=z.array(z.string()).max(20)`(routes/agent-control.ts:218)+ `/status` 计数(:463)+ `executeSchema.action=z.string()`(:232,不解释动词名直接 WS 转发);且**六族动词(browser/computer/ui/app_ui/miniapp_ui/ext_ui)在 api 生产面同样零动词字面量** —— page_* 不是特例,是转发面的设计常态。与单源的类型级衔接已由 `AgentControlCapability` cast 承担(字段类型 `BrowserPageControlActionType[]` 即 packages/types 单源);动词名的真实消费方在 extension(`@ihui/dom-actions` PAGE_ACTIONS,编译期护栏)与 CLI,服务端授权闸读的是 `browserPageActions` **计数>0** 而非动词名(ai-service `control_autonomy.py:233`)。硬"登记"只有两条路:在 api 侧另抄一份成员清单(§1 状态词汇四份副本的教训,明令禁止),或只为本族加运行期枚举校验(与其余六族形态不一致,且 schema 注释已记过失败模式"端上多报一条⇒整条 capability 上报 400 静默失去该端全部能力")。⇒ 本格按"平台域外/无消费方"收口,登记即造假,不硬造。取证:`check-capability-catalog` 全量绿(62 scope / 180 handler 0 未覆盖 / D 0 腐化,EXIT 0)、`@ihui/api` typecheck 0 错、`agent-control-ui.test.ts` 25/25 过(含 ㉕ 句柄族 7 动词计数)。〕 〔【归并】重复登记副本(2026-10-01):逐字相同的另一条登记(与本行正文逐字相同,可按正文检索),派单以那条为准,本行不再单独派单。〕
-- [ ] D18 Agent SDK 对外开放(G-23) 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记已随归档搬至 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md 的条目 「D18 · AgentSDK对外开放」,派单以那条为准,本行不再单独派单。〕
-- [ ] G-322 **带值旗标吞掉紧邻旗标这一族的普查结果(只读普查,主会话派代理跑,未修任何一处)**：口径是"值必须存在且不以 `-` 开头才算旗标的值"，`--json` 两处已由枚 `380431ffc` 收口(G-314)；普查另得 **15 组落点**，按危害分三档如下，**逐条都标了依据(实测/读码)**，派单前请按当次实测复核。 〔进展@2026-09-28/主会话+子代理C-E:第一档与第二/三档已按档逐处收口 —— 门 127 `--files`(枚 `87d75d90b`,显式给值却解析不到 ⇒ 判未判定 exit 2,而"本次提交不涉及射程"那一种 0 仍照旧放行,不造恒红门);归并器 `--write-to`(枚 `8832e73a4`);门 8 两处 `--dump-*`(枚 `636c28f58`);`i18n-diff --output` + `verify-ui --spec` + `plan-line-age --limit`(同一枚 `519d4df06`,前两处拒绝并非零、第三处退回默认但大声点名)。**仍开着的**:pre-deploy `--env` 静默降级、`migrate-llm-providers` 的 `--input/--output`(仅 --apply 下写)、门 118 `--root` 抛裸栈而非 exit 2 的形态问题、约 25 处 `--root` 只按族级抽测下结论 —— 这几格本行继续挂着,不得被上面那批翻勾读成"这一族已清完"。〕 〔【归并】重复登记副本(2026-09-28):同主键的另一条登记已随归档搬至 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md 的条目 「G-322 · 带值旗标吞掉紧邻旗标这一族的普查结果」,派单以那条为准,本行不再单独派单。〕
 - [ ] RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 zh-TW/en/ja/ko 四语归因译文待人复核。 〔【归并】重复登记副本(2026-09-29):逐字相同的另一条登记(与本行正文逐字相同,可按正文检索),派单以那条为准,本行不再单独派单。〕
 - [ ] P1 **返回键同一型跨端清账(本票的直接续作)**:① `packages/app/src/features/**` 与两个共享 `NavBar` / `PayResultScreen` 的 ‹;② `apps/mobile-rn/src/screens/**` 及其端内 `NavBar`(RN 侧写法是 `lucide-react-native ChevronLeft`,端内 `apps/mobile-rn/src/screens/AboutScreen.tsx` 已有现成范例);③ `apps/extension` 那处「字符箭头 + 文字」双写(属 102 的 GA1 族而非 GA4)。做法与本票同:先复用该端既有矢量出口,再按文件收编,顺带删各自失效的样式工厂。**存量数字一律按上面那条命令现取,勿照任何文档里的历史数派单。** GA4 棘轮已把这些位置钉成"不得再加",但棘轮不会自动变小 —— 存量清零前,GA4 在这三端始终只是"没恶化",不是"已合规"。 〔【归并】重复登记副本(2026-09-28):同主键的另一条登记 「P1 · 返回键同一型跨端清账(本票的直接续作)…(带 2026-09-28 清账注记并已于同日翻勾)」,派单以那条为准,本行不再单独派单;本行无编号 ⇒ 台账 F1/F4 的复合主键看不见这一对,故手工折,只加指针不动状态。〕
 - [ ] P1 **返回键同一型跨端清账(本票的直接续作)**:① `packages/app/src/features/**` 与两个共享 `NavBar` / `PayResultScreen` 的 ‹;② `apps/mobile-rn/src/screens/**` 及其端内 `NavBar`(RN 侧写法是 `lucide-react-native ChevronLeft`,端内 `apps/mobile-rn/src/screens/AboutScreen.tsx` 已有现成范例);③ `apps/extension` 那处「字符箭头 + 文字」双写(属 102 的 GA1 族而非 GA4)。做法与本票同:先复用该端既有矢量出口,再按文件收编,顺带删各自失效的样式工厂。**存量数字一律按上面那条命令现取,勿照任何文档里的历史数派单。** GA4 棘轮已把这些位置钉成"不得再加",但棘轮不会自动变小 —— 存量清零前,GA4 在这三端始终只是"没恶化",不是"已合规"。 〔【归并】重复登记副本(2026-09-29):逐字相同的另一条登记(与本行正文逐字相同,可按正文检索),派单以那条为准,本行不再单独派单。〕
@@ -11248,7 +11240,6 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 <!-- 已归档(2026-10-10:✅(2026-10-07) G-375 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
 - [ ]（待派）G-635 **审批授权链路的真机 UI 验收本轮做不到(标题里曾嵌一段粗体,会把 Markdown 打断 —— 已改平),两条阻塞都是实测的、不是"还没试"(附:已给出的替代证据与补验证的确切前置)** —— 用户此前授权"在本机起栈试一次"(目标:真人点一次目录、真改一个文件,并验证「本会话总是允许」下一轮不再重复提示)。两条路都被现场堵住,**如实登记为未验收,不得读成已验收**: 【第三条实测阻塞(同轮补):产物到端验证也做不了 —— `pnpm --filter @ihui/miniapp-taro build` 两次同因失败,`Error: UNKNOWN: unknown error, open …/src/i18n/generated/remote-locales.gen.ts`,该文件跑前跑后均为 ` M`(他人在途现场且被别的进程持有写句柄),生成器写不进去 ⇒ 构建在第一步即中断。顺带量到一件本该记清的事实:**构建链末尾本来就带产物门**(`… && node ../../scripts/check-miniapp-css-landing.mjs --min-coverage 0.5`),所以"产物门未接提交链"不等于"没人判产物"。单独跑该门的现读是 C1 落地覆盖率 94.60%(718/759 类)判红,但它自己同时报出"17 个路径在工作树里与 HEAD 不同"⇒ 这一红量在他人现场上,**不得归因给本轮改动**,也不得据此改判据。三条阻塞的共同解法只有一个:等持有这些现场的会话提交完成,不是在共享工作区里强行覆盖。】 【第四条实测阻塞(2026-09-29 05:5x,这一条把前三条归成同一件事):本机在跑的服务**进程启动时间就是答案** —— `Get-Process` 实读 8801 的 node 与 8803 的 python **同为 2026-09-28 13:03:45/43**,而本会话相关改动的第一枚落地在 09-29 02:46(`ea57205b37` 把 D158 主体绑定合入 `app/routers/llm.py`)、会话级授权更早也在 09-29 —— 即**现在点开的任何一屏都在跑 16 小时前的代码**,拿它做"验收通过"必然是假合格证,而 8803 无 `--reload`(§前一条已实测)意味着改文件也不会生效。要让它跑到新代码只有重启一条路,而重启会把并行会话此刻未提交的现场带进运行态(第二条阻塞),所以第三条与第四条不是两件麻烦,是**同一件事的两面**:这台机器上"跑新代码"与"不越权动别人的现场"当前互斥。8801 侧另有一格可复核:`curl http://127.0.0.1:8801/` 返回的 8181 字节页面与本会话早先存的 `web500.html` **逐字节相同** ⇒ 500 仍是同一个未恢复现场(被恢复的 65 个文件里没有它缺的那一块);端口面实测 8810/8811 已在监听(PG/Redis 都活着),所以卡点不是"库没起",而是**服务身份持有的代码版本与索引现场**。出路按可判条件写:等持有 `apps/web`/`apps/ai-service` 在飞现场的会话完成提交并自行重启,或机主明确授权"以当前工作树整体重启全栈"(那是替所有在飞会话做决定,agent 不得自办)。】 〔【归并】重复登记副本(2026-09-29):逐字相同的另一条登记(与本行正文逐字相同,可按正文检索),派单以那条为准,本行不再单独派单。〕
 <!-- 已归档(2026-10-10:✅(2026-10-07) G-814403 **同题"前缀套叠"副本对全部判据隐身：给尺子加一档只报数的同题前缀族(可,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
-- [x] ✅(2026-10-11) G-815408 **守门 103 全量档在干净 HEAD 上判红 5 处：端内文件相对路径穿透 repo-tooling（可立即修；归属：`apps/miniapp-taro` 与 `apps/web` 两条线持有人 + 架构表持有人；等什么：一次模块归属裁决，不是等新环境）** —— 现读（2026-09-29 08:56，`node scripts/check-architecture-policy.mjs` 末段）：`[arch-policy] 判红 5 处` ⇒ ① `scripts/gen-i18n-compressed.mjs:16` 同时命中 **[D1] 未声明 requires / [D2] rank 40 反向依赖 rank 90 / [D3] 深导入实现细节**，对象是 `../../../scripts/lib/generated-input-pin.mjs`；② `apps/web/src/components/ai/__tests__/d152-goal-server-cache.test.tsx:29` 命中 **[D1][D2]**，对象是 `../../../../../../scripts/lib/code-mask.mjs`。涉事两文件 `git status --porcelain` **三面全干净** ⇒ 属"红在已入库代码上"（AGENTS §12f：这类红优先级高于一切新增工作，因为它的全局后果是每个会话每次提交都**合法地** `--no-verify`）。**限定事实，不得读成"每次提交都被拦"**：`--staged` 档现跑 **RC=0**，红只在全量/审计面。**两条禁令**：不得为消红把 `repo-tooling` 的模块标成 `exported` 或往 `config/architecture-policy.yaml` 里塞例外（那是把架构表改成"记录既成事实"，本仓明令禁止），也不得用行内 `arch-exempt:` 遮掉（豁免必须有归属与到期，且这 5 处是结构问题不是误报）。**候选出路（接手时先选一条并写明理由，不得三条都做）**：(A) 把 `gen-i18n-compressed.mjs` 这类"端内脚本向上摸工具层"的生成器搬到根 `scripts/`（同仓先例：miniapp 的 token 同步器当年正是从端内搬到根才解掉 D2 —— 但会改端内 `package.json` 的 `gen:i18n` 脚本路径，需同批同步守门 105 与 `dev-weapp.mjs` 的调用点）；(B) 把被需要的能力从工具层经**已登记 public entrypoint** 递出来（`generated-input-pin` / `code-mask` 各一处），端内改为按名 import 而非相对穿透；(C) 该 web 测试改成不依赖工具层遮罩（自建最小 fixture），代价是丢掉"与门共用一份遮罩实现"这条防漂移收益 —— **不推荐**，本仓遮罩只许有 `lib/code-mask.mjs` 那一份。**同批必须一并登记的诚实更正（我自己在上一枚落地里造的）**：格 B（`--worktree` 面 + 未知旗标硬失败）已由枚 `bbe687355d` 落地，但**那枚提交信息写了"两个文件"、实际只落 1 个** —— 代理那半份 `scripts/tests/check-architecture-policy.test.mjs` 是在**陈旧底稿**上写的，落地器"陈旧落地/行级复活"守卫实测拒绝：`消失 5 行 / 重现 162 行 / 复活 1 行`，消失的正是 `pickPolicySource` 那三条"改表那枚提交必须被审"的取材面断言 ⇒ 放弃代理版本、测试文件 `git checkout --` 恢复 HEAD 现版，三条新行为的锁改由**门体自带 `--self-test` 138 例**承担（含"三面取材与参数闸门（--worktree / 矛盾旗标 / 未知旗标）"，现跑全绿，旧镜像 × 新实现 RC=0）。**通用教训：写"实现 + 测试同枚"的提交信息前必须确认测试那份的底稿是 HEAD 现版** —— 否则信息里那句"测试也带上了"就是空头承诺，而账面只有落地器会喊，`git log` 不会。〔进度注记(未结清,按票面口径保持未勾)2026-10-01〕守门 103 现跑判红由 5 归零(封缄 G:/IHUI-AI/.ihui-agent/tmp/g103.txt #EVIDENCE-RC=0,末行原文"架构契约门通过(面:HEAD blob(9949 个源文件))"),但**归零的成因不是本票要的模块归属裁决**:两处站点各挂了一条**带原因带到期日的行内 arch-exempt**(scripts/gen-i18n-compressed.mjs:20 unt 2026-12-28;apps/web/src/components/ai/__tests__/d152-goal-server-cache.test.tsx 同族,注释里还留着"正解=搬到根 scripts/,前置=等两台机分叉裁决")。也就是说 D1/D2/D3 那三条边一条都没拆,只是被合法缓期 —— 本票的结构问题仍在,到期未裁时守门 108 会把它送回队列,届时只剩票面 A/B/C 三条真出路(且不得三条都做)。配套现读:守门 108 RC=0(缺日期的新增 0、已过期 0),所以这一族今天不是恒红;另记一条不冲突的近况 —— 枚 86e75c032a 给 @ihui/types 补 ./knowledge-team 公开入口把 D3 那一路判红归零,那是"补登记"而不是"往表里塞例外",与票面两条禁令一致。归属一字未改:apps/miniapp-taro 与 apps/web 两条线持有人 + 架构表持有人,等什么=一次模块归属裁决(不是等新环境)。 〔进展(2026-10-07):G-815923 生成器那一格已结构清偿——生成器搬至根 `scripts/gen-i18n-compressed.mjs`(arch-exempt 随迁摘除,D1/D2/D3 三处同因判红随迁消失),web 测试格仍属合法缓期,整行保持开放;行内旧路径引用已同步更新至现址,历史判红引文中的行号按当时快照保留〕 〔结案注记(2026-10-11 现读,node scripts/check-architecture-policy.mjs 末段):本行点名的两处 —— `scripts/gen-i18n-compressed.mjs:16` 的 [D1][D2][D3] 与 `apps/web/src/components/ai/__tests__/d152-goal-server-cache.test.tsx:29` 的 [D1][D2] —— 按被审面复跑**均已不再红**(两处各由独立会话按本行给的出路收口,不在本票名下,只如实记现读)。本票另收掉第三处同族红:`apps/cli/tests/compaction-timeline-resume.test.ts` 的 [D1][D2](枚 3fe1b0fec13a36737920fa2ec6d3258339897c62,它缺的是同族 30 个先例都带的那一行有归属有到期的 arch-exempt 标记,不是新的结构裁决)。HEAD 面现读判红从 5 → 1,剩那 1 处是**本行没有的形状**(守门 128 门体自身超 6000 行的 [C1]),另起一行登记,不折进本行。〕
 - [ ] G-1113924 **守门 128 的门体自己越了它所属工具层的行数上限(交代:等派单 —— 是拆分工作,不是等新环境,也不是等裁决)** —— 现读:`node scripts/check-architecture-policy.mjs` 在干净 HEAD 上判红 1 处 =`scripts/check-cross-end-ui-parity.mjs` 6062 行 > 策略表 C1 上限 6000。两条禁令先写在这里:**不得**为消红去调 `config/architecture-policy.yaml` 的阈值(那条 6000 的取值依据写在表注释里,改它等于把架构表改成记录既成事实),**不得**给整块门体加文件级豁免(C1 没有行内出口)。正解只有一条:把门里可独立成形的纯判据段(档表解析 / 单位归一 / 元素名归属那几族已有 `scripts/lib/` 同层先例)抽成 `scripts/lib/` 的一个模块,由门与它的镜像测试**共用同一份实现**(§22c 禁止测试再抄一份判据),抽完必须在被审面上逐档复跑门的读数与镜像例数,证明"只是搬家、判定未变"。归属:跨端 UI 对账门(128)的持有人;迁移前后该文件的镜像测试不得处于红态。
 - [ ] **G-811. 图源池的层序违规已清零(落地枚 f1638d8),但留了三格未闭合** —— 起因:提交 `7a3e70ac2e` 让 `packages/database`(platform, rank 20)反向 import `packages/shared`(composite, rank 30)与 `scripts/lib/*`(tooling, rank 90),守门 103 在 HEAD 面判 **18 处 D1/D2/D3 红**。收口形态:判据本体搬到根 `scripts/check-image-source-domains.mjs`(tooling 向下取用合法),database 侧改成逐字镜像 `packages/database/seed/image-source-pool.ts`,镜像不漂由**两把尺子**钉:① 该门按被审面逐键比三张清单(漂移即红,一侧取不到判"无法判定");② `node --test scripts/tests/image-source-pool-parity.test.mjs` 真执行 shared/镜像/根层尺子**三方**在同一份语料上同判(清单对得上而判据函数各写各的,是"数据同值、行为分叉"那一型;突变去掉子域名后缀匹配 ⇒ 当场 fail 1,还原 ⇒ 7/7)。**该门自己不再 import 图源池**:域名清单改为从被审面解析字面量 —— import 走磁盘而问责走 HEAD/索引,两面混取会让报告说的和提交里的不是同一份代码(守门 118 立项要防的那一型),而且"判据 import 被审对象"等于池被清空时门跟着一起瞎。旧路径 `packages/database/scripts/check-image-source-domains.mjs` **不删**、改成零 import 的转发壳(它是守门 30c 的保护区路径,且 `pnpm --filter @ihui/database check:image-domains` 是已发布的问责入口;删它会让按旧命令派单的人拿到 MODULE_NOT_FOUND)。**三格未闭合,逐格给判据:** 〔【归并】重复登记副本(2026-09-29):同主键的另一条登记 「G-811 · 图源池的层序违规已清零」,派单以那条为准,本行不再单独派单。〕
 - [ ]承「图源池的层序违规已清零(落地枚 f1638d8),但留了三格未闭合」那条的第 ③ 格:畸形编号实测有**第二类**,且机械批处理会被自己造出的第三份副本顶回 —— 现读 HEAD 面另有 4 个六位号条目行 `G-811336 / G-812373 / G-813374 / G-814385`,其一是"上一轮改号"留下的:**剥前缀时把新号与旧号数字直接相接**(`G-811` + `336` ⇒ `G-811336`),即"修双前缀"这一步本身产出了新畸形。后果实测:我按上一条写的脚本把 `G-G-373` 归成 `G-373` 时,同一件事在面上已有 `G-812373` 那份副本 ⇒ 归并不是消除副本而是**长出第三份**(64 组同主键多行由此而来);而取号器把这类六位号当"已用号"算 max,`{{NEXT_ID}}` 会给出 `G-814386` 这种天文号。**因此本票不换算法,改成逐条归并**:① 先按标题前缀把同一件事的所有形态(干净号 / `G-G-N` / 六位接号)聚成一组,持有行只允许一个;② 其余副本走 `node scripts/plan-tasks-merge.mjs --heal`(F4 只加"重复登记副本"指针、绝不动勾选);③ 只有聚不到组的畸形号才去前缀或另发新号,另发必须走取号令牌(G 族的 NEXT_ID 形态,该令牌展开值已含族名,正文再手写 `G-` 就产出 `G-G-N`,本仓实测三次)。**判据(三条同时成立才算做完)**:面上 `G-G-\d+` 与 `G-\d{6,}` 均为 0;`node scripts/plan-tasks.mjs --staged --gate` 的 F9 撞号组数不得比动手前高;`git show HEAD:PROJECT_PLAN.md` 里每一条被改动的行,除号形态外与父提交逐字等值。**已实测拒写两次**:第一版脚本 `changed(369) != expected(378)`(有 5 个畸形号只出现在折叠注释里没有条目行)、`norm` 等值把六位接号算进"已用号"导致 alloc 出 `G-814386`;另一次是取号器自己拒的 —— 远端 tip 在推进而对象不在本地 ⇒ 它拒绝发号并要求先 `git fetch`,这条锁是对的(上一版只警告不拒,当天就撞出 2 组 F9)。**结论:本条登记行刻意不带编号**,以免我又用六位天文号给台账添第三类畸形。〔归属:本会话;等什么:无,可立即做,但必须按 ①②③ 的顺序,不得直接全局替换〕 〔【归并】重复登记副本(2026-09-29):逐字相同的另一条登记(与本行正文逐字相同,可按正文检索),派单以那条为准,本行不再单独派单。〕
@@ -12367,7 +12358,6 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 <!-- 已归档(2026-10-11:✅(2026-10-11)**D176 任务回顾与「移交到新任务」全流程(14 行,对标 `chatSession.hi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
 <!-- 已归档(2026-10-11:✅(2026-10-11) G-977961 **更正 G-916428 的账面状态:那一行的 `[x] ✅(2026-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
 <!-- 已归档(2026-10-11:✅(2026-10-10) G-797 【安全·默认档已定】回环 http 白名单今天**不分调用者** ⇒ 远端 ma,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
-- [x] ✅(2026-10-11) G-978007 **RN/小程序还有 61 个输入框完全没有聚焦态(墨档描边)—— 缺口已量准,补法是"提共享件 + 逐屏迁移",不许盲改** —— 实测口径:含本地 `TextInput` 且**没有任何** `onFocus`/`focused` 处理的文件 **61 个**(我前一轮报的 84 是粗量,那 84 里含只消费共享件的屏,已剔除)。本轮已修三处:RN LoginScreen 两处(旧值 dark 取 `surface.light` = #262626,深色页上等于没有描边 —— 这就是"纯白没了"的真因)、共享 SearchInput(09-26 被改成 brandAccent 蓝档)、miniapp `.login-phone-row-focused`(同型);三处统一取墨档(亮纯黑/暗纯白),门 83 R8 同批补第三型书写位(style 键名本身是聚焦档)+ 成对自检 M8j4/M8j5。**剩下 61 个为什么不在本轮一起做**:唯一正解是把 LoginScreen 里那份本地 `FocusInput`(带 `focusedStyle` 通道)提成 `packages/app/src/components/TextField.tsx`,`colorScheme` 设**必填** prop 让守门 91 在类型层强制传主题,再逐屏替换。而本机此刻对聚焦态做不了视觉验证:内置浏览器面板里 `focus()` 会触发 RN 重渲染把 CDP 求值拖到超时(实测两次),键盘 Tab 也进不去焦点 —— **在用户正在看的登录页上做无验证的重构等于赌**。**验收判据(下一手逐屏必须满足)**:迁移后在该屏 DOM 读 `getComputedStyle(输入框.parentElement).borderColor`⇒ 浅色必为 `rgb(0, 0, 0)`、深色必为 `rgb(255, 255, 255)`,且 `borderWidth` 由 1 变 2;拿不到这个读数就不算迁完。小程序侧同一判据走微信开发者工具(`cli.bat` 通道在位)。**禁止的出路**:给 61 个文件各写一份本地聚焦 state(那正是本仓反复记过的"两份实现再靠对账追平")。 **〔2026-09-30 小程序半边收口(见 G-978046 同笔)〕**:端内唯一实现 = `apps/miniapp-taro/src/hooks/use-field-focus.ts`(取色唯一出处 `var(--color-primary)` 墨档)+ `components/FocusField.tsx`(FocusInput/FocusTextarea,行内样式稳赢类级联、map 回调里合法);迁移 31 个"有描边却对聚焦无反应"站点(15 SELF-JSX + 10 SELF-CSS + 6 WRAP,含 2 个 WRAP-CSS 容器) —— 普查尺(mp-census4)复测:已接聚焦 5 → 36,待办面只剩 15 个本来无框(NONE)站点,属设计意图不在本票;miniapp typecheck 对本票 33 文件 0 错(RC=2 的红全在他人 tool-approval 在飞文件);真机视觉验收通道(微信开发者工具 cli.bat)待用户侧复看,效果以实测为准。 〔进展@2026-10-10(第一批落地 40d3912554):ImageGenCreateScreen/KnowledgeRagScreen/BottomActionBar 三屏裸 TextInput → 共享 TextField(colorScheme 必填,focusedStyle borderWidth 1→2,取色走 design-tokens brand.DEFAULT 亮纯黑/暗纯白唯一出处);VerifyCodeModal OTP 特殊形态:隐藏键盘接收器(1×1/opacity 0)保留不套共享件(零像素可见),可见聚焦视觉 6 格子 boxFocused 从 brandAccent.deep 改 brand.DEFAULT+borderWidth 2 对齐墨档判据;普查尺(.ihui-agent/tmp/rn-focus-census-g978007.mjs)bare 5→1。剩余:ChatScreen 2 站点等该文件他人 in-flight 脏面落地后补迁;真机视觉复看(效果类以实测为准)待用户侧。packages/app tsc RC=0、本票 4 文件 tsc 0 错。〕 〔核查@2026-10-11 goal-r19:当轮按票号反查到交付面 packages/app(TextField 唯一实现族) 并实跑(读数见 .ihui-agent/tmp/goal-r19/selfverify.json 与本行注记),**仍不翻勾** —— 唯一实现与必填 prop 锁、裸 TextInput 普查 offenders=0 均在位;未收口:白名单两条 className 描边屏未迁、ChatScreen 2 站点他席脏、真机/开发者工具视觉复看未做、**小程序端 44 个含 Input/Textarea 的文件整半边一行未动**。本行由机主授权的值守席核过,勿照旧票面再派实现。〕 〔结案注记(2026-10-11 现读,本轮):本行的"61 个"与"提共享件"前置都已过期 —— 共享件早已落地并被使用 (RN/共享层 packages/app/src/components/TextField.tsx、小程序端 components/FocusField.tsx + hooks/use-field-focus.ts)。本轮按现读补齐小程序端最后一批真缺口:pages/study/ai-tutor 的 WRAP 形态容器与 pkg-ai/ai/conversation-import-analysis 的自带描边输入,枚 48c374c83ea16bc69d013f0304ee730acc291330;现读该端 96 个输入元素 / 39 个带描边 / 带描边而无聚焦反馈 0 处。ModelConfigDialog 那 5 处参数输入两端都是填充式(modelConfigInputBoxStyle 只给高度与左右内衬、无描边),不是本行说的缺口,给它们补描边属全端观感决策不得单方动。RN 侧 TextInput 文件全部走共享件(3/3)。本行另一条前置"登录页做不了视觉验证"也已过去:本轮验证经小程序端 tsc + 守门 105 产物钉 + 两端同档取值对账。仍开着的那一格另起一条待办,不藏在本行里。〕
 - [ ] G-1113923 **输入框"聚焦反馈"这一维至今无常驻尺子,且 RN/共享层还剩 2 处在唯一实现之外自拼聚焦描边(交代:等派单 —— 两件都是可立即做的工程活,不是等环境)** —— ① 量这把尺子的脚本是本轮的一次性探针,它自己的窗口判据在 `apps/miniapp-taro/src/components/ModelConfigDialog.tsx` 那处产出过**假阳**(把十几行外另一个区块容器的 `border-t` 算进本元素),没有进提交链 ⇒ 现读"带描边而无聚焦反馈 0 处"这个结论**没有尺子守**,下一次改动可以静默回潮;正解是做常驻对账(两端各自的书写语言都要能读到:RN style 档 / 小程序 className 与行内 style / web 工具类),盒与选择器的取证窗口**必须只取该元素自己的属性区**(守门 150 票㉛ 与门 77 的 `boxDimsOwn` 同一课)。② `packages/app/src/components/SearchInput.tsx` 与 `packages/app/src/features/chat/MessageInput.tsx` 的聚焦描边是内联书写,未走 AGENTS §4 定的唯一实现 `packages/app/src/components/TextField.tsx`(它自带 `colorScheme` 必填 prop,守门 91 因此在类型层强制传主题)—— 今天两端取值同档所以**不是分叉**,但"改一端忘另一端"的窗口正开在这里;迁移前先确认两处各自的聚焦通道语义(SearchInput 有语音模式与自绘清除键、MessageInput 一行两元素),不得整屏替换。〔进展@2026-10-11(本席派代理落地并现读复验;**不翻勾** —— 三件事没做:web 端存量、接线、未判定那 6 处)〕① 尺子已入库但未接线:`scripts/check-input-focus-feedback.mjs` + 镜像 `scripts/tests/check-input-focus-feedback.test.mjs`(10 例),三端书写语言齐覆盖(RN style 键 / 小程序与 web 的 className 工具类 + 内联 style / web CSS 声明含 @apply 与 BEM 修饰档),取证窗只取元素自己的属性区(`lib/jsx-scope` + `lib/box-geometry.objectScope` + `lib/radius-roles.maskFaces`,遮罩零复份),取材经 `face-reader.catBatch`、两旗同给 exit 2、三态不并桶、棘轮锚 = 该文件 HEAD 自身存量;`--self-test` 26 对(含十几行外兄弟容器的 border 不得算进本元素 那条反向锁,即当年假阳的锁)。现读末行:全量档 `✅ 结论:F1 无新增(存量 82 处 / 56 文件只报数)` RC 0、`--staged` 档 `三态点名:命中 0 · 放过 0 · 未判定 0` RC 0、`--strict` `❌ 无法判定(exit 2)—— 未判定 6 处` RC 2、变异自证(把 SearchInput 的 onFocus 摘掉)读出 `packages/app/src/components/SearchInput.tsx:213 <TextInput> 描边:borderWidth,borderColor 聚焦:无(HEAD 0 → 现 1)` RC 1,还原后逐字回到 `命中 82 · 放过 324 · 未判定 6`。**接线是安全的**(提交档 --staged 与全量档都 RC 0 ⇒ 动态 HEAD 锚不吃存量),差的只是把注册条目 + 门体头注 + AGENTS/README 点名做成**同一枚**(守门 89 的 R2 判谎称已接线、R4 判已接线而不点名),按 §12 归注册表单写者。② 本行原写的 RN/共享层还剩 2 处在唯一实现之外自拼聚焦描边 —— **该前提被代理带 file:line 证伪**:那两处是**容器级(WRAP)**形态,`packages/app/src/components/SearchInput.tsx:173-181` 把 focused 条件描边画在外层 View、内层 :213-227 是无描边裸 TextInput;`packages/app/src/features/chat/MessageInput.tsx:180` 用 isFocused && styles.inputRowFocused(键在 :407-415)、内层 :223-235 同理。而 `TextField` 是**输入框级**唯一实现 ⇒ 换上去等于把描边从整行/整井挪到裸输入框,是视觉回归不是收口(与小程序端 `FocusField` 的 WRAP 形态②同型)。RN 侧真正缺的是与 `useFieldFocus` 等价的 **WRAP helper**,那是另一票。若为此把 `colorScheme` 改必填,要动调用点 5 个(SearchInput 的 ChatRoomScreen / CourseTabScreen / DistributionOrderListScreen / PlazaScreen / StudyIndex)+ ChatScreen.tsx:223,按不扩大改动面未做。③ 新量出的真存量:web 端 80 处有描边无聚焦反馈(全仓 82 中占 80)、RN 2 处即上面那两站、小程序 0 —— web 那一族是这把尺子第一次照见的,不在本票原范围,清偿另计批。〕
 - [ ]（进行中@2026-10-11/goal-r19b） G-978049 **守门 128 web 腿留下的三格(本轮逐条裁决的余数,每格带复裁判据,不得读成"已收口")** —— ① **VideoPlayer 的 web 舞台 `rounded-lg`(8)vs 小程序/RN 舞台直角**:同一元素(16:9 舞台容器)三端两种形态,是本轮 12 族里**唯一**没有被拆对/豁免掉的真分叉,现读 `node scripts/check-cross-end-ui-parity.mjs` 的 `· WD VideoPlayer 仅 web 档 4/8` 行(锚点 2,留在账上可见;4 那档是 web 自绘控制 chrome,与主腿既有 `waivers.VideoPlayer` 同型)。**它在等什么**:等"移动端全幅贴边是不是有意的布局形态"这一拍板 —— 跟 web(两端补 overflow-hidden rounded-lg,须同笔改 RN 否则又造新分叉)还是跟移动端(web 改直角)都是全端观感决策,归该屏持有人问用户,不得由 parity 红顺手改像素。**复裁判据**:台账 `webRadiusCounts.VideoPlayer` 归零或该族被 `webWaivers` 带理由接管,二者之一成立即结。② **提取式不读裸 `rounded`(=DEFAULT 8)**:`scripts/lib/radius-tokens.mjs` 的类名支只认 `rounded-(xs|sm|md|lg|xl|2xl)`,所以"一端写裸 rounded、另一端写具名档"在 RD/RE 里读成"那一端没写档"。本轮 Tooltip 一族就是这么被读窄的(现读小程序那行改前 `rounded` 隐身、只显 web 的 6)。**这不能单独在 128 里补**:同一把尺被守门 77 与 150 共用,补认裸档会同时移动三本账 ⇒ **落地判据**=三处读数在同一枚提交里各自重锚(77 的 HEAD 棘轮 / 150 的 538 键台账 / 128 的三维),并按 §4"表加了新列,审表的门必须同批改"配"裸档必须被读到"的成对用例(正例命中 + 写进注释不命中)。**owner**:圆角族持有人(本轮主会话)。**reviewBy**:2026-10-31。③ **web 腿没有端入口可达性剔除**:主腿会把"从端入口走不到的腿文件"剔掉并点名(现读首行"已剔除 5 对"),web 腿只按同名配对 ⇒ Loading / VoiceInput / LoginPopUp / UserInfoCard 四族本轮是靠**人工证据**逐条查明是死副本或同名不同物之后走 `pairingRejects(legs:["web"])` 拆掉的,那是个案裁决不是机制。**机制化判据**:把 `pruneUnreachableLegs` 的种子面扩到 web(`apps/web/app/**` 路由为种子,`@/` 别名按 web 的 tsconfig 解析),剔掉的族逐条点名且**不得静默**;扩成之后本轮那四条个案拆对声明应能了结(由 ③ 的判据代替人工),而 `rejGhosted` 会当场喊出该了结哪几条。**owner**:门 128 持有人。**reviewBy**:2026-11-15。 〔拍板@2026-10-07 机主:web补rounded与全站一致+RN同笔改不留新分叉;复裁判据=webRadiusCounts.VideoPlayer归零〕 〔拍板@2026-10-07 机主:web补rounded与全站一致+RN同笔改不留新分叉;复裁判据=webRadiusCounts.VideoPlayer归零〕 〔现读@2026-10-11 goal-r19:三格已分头处置两格半,本行不翻勾。① VideoPlayer 走 webWaivers 带理由接管(舞台三端同值 lg=8 已由 HEAD 逐行核对,残档只剩 web 自绘控制条 4 ⇒ 与主腿同一理由的两面;新镜像 T28 钉"残档集合一变必须撤下豁免重裁");③ 端入口可达性剔除**机制已于 2026-10-08 落地**(SEED_DIRS.web=apps/web/app、@/ 按 web tsconfig、真仓剔 6 对逐条点名、可选端挂起留痕;pairingRejects 现只剩 FloatBox),本席补 T30 镜像锁并改掉门内那句过时的"未做"声称;② 裸档盲区**仍硬停手** —— 补认要 77/150/128 三本账同枚重锚,前两本不在本票文件清单内;规模已量给下一票(含裸档字形的跟踪文件 459 个/993 行未遮噪口径,配对文件内 web 腿 1 处、主腿 2 处 ⇒ 并档后 CategoryBar 首当其冲超锚)。落地枚 e48ed61228 + 391b8ce768(T22 形状锁改按 lib 供给符号全集判,有牙证明:摘掉 bareRoundedOccurrences 供给 ⇒ 7 条红,还原逐字节一致)。〕
 - [x] ✅(2026-10-11) G-998082 票8：发现类接口的"部分失败"信封（观察）（出处 b76-01）：- 机制：发现/加载接口同时返回成功条目、`diagnostics`（封闭 code + severity）与 `totalDiscovered`；坏条目降级为被点名的 invalid 行而不是让整批失败；"空数组会让每次调用都挂一个噪音字段"，因此无异常时该字段缺席（apps/zcode-cli/packages/contracts/src/commands/index.ts:14-23、49-62；apps/zcode-cli/packages/contracts/src/tools/saved-workflow.ts:127-138；apps/zcode-cli/packages/contracts/src/tools/list-saved-workflows.ts:25-31；apps/zcode-cli/packages/contracts/src/interfaces/context-source.port.ts:72-85）。 我方建议落点域：批量导入/批量校验类接口（学费账目批量导入、成员批量导入等），候选文件 `packages/types/src/education.ts`、`packages/types/src/api-contracts.ts`（两份均在 `git -C G:/IHUI-AI ls-tree -r --name-only HEAD packages/types` 输出中）。我方现状：`git -C G:/IHUI-AI grep -n -F 'diagnostics' HEAD -- apps packages` 命中 186 行——**我方已经对的那一半在 CLI 插件装载面**：`apps/cli/src/plugins/types.ts:188` 有 `diagnostics: PluginDiagnostic[]`，`apps/cli/src/plugins/loader.ts:47-73` 用 `Record<PluginDiagnosticCode, PluginDiagnosticSeverity>` 要求键穷尽联合（注释原文"新增码忘了定档，编译期就红"、"severity 由码唯一决定，产出点不得自行挑档"），`apps/cli/src/plugins/index.ts:18` 定下"每份被跳过的清单恰好一条 diagnostic"。缺的那一格在业务批量接口上：`git -C G:/IHUI-AI grep -n -F 'totalDiscovered' HEAD -- apps packages` 命中 0 行，发现总数没有位（我方另有 `skippedCount`，见 `apps/api/src/routes/cli-import.ts:448`、`apps/api/src/jobs/ai-world-sync.ts:1156-1178`，但它是"去重跳过计数"不是"发现总数"）；也没有"无异常时该字段缺席而不是发空数组"的约束。落点需挑一条具体批量接口先做，故列观察。 验收草案：给一条批量接口跑混合样本（10 条里 3 条格式错），断言返回 `accepted.length === 7`、`invalid.length === 3` 且每条带行号或唯一键、`totalDiscovered === 10`；全对时断言 `!('invalid' in response)`。 〔结清@2026-10-11 第39轮:hooks 发现接口 discoverWithDiagnostics 部分失败信封(totalDiscovered+封闭 diagnostics,无异常缺席);vitest 6/6,变异 4 翻红。实现枚 3acef2f34c57b62b87ae5b37c439da5c337ebd8e；本席自复跑测试末行取证〕
@@ -12512,7 +12502,6 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - [x] ✅(2026-10-10) **P1-① 扩共享层首批 —— 票面前提已被实测否证,剩余只有 4 件(在等:逐件判定谁在渲染,不是 10–20 人日的一批)**:按「同名导出」量两端(miniapp 452 个源文件 / 812 个导出名 × packages/app 224 个文件 / 226 个导出名;覆盖面自证与读数一起打,枚举到 0 个文件当场抛),两端同名而 `packages/shared` 还没有的仅 **4 件**:`BackChevron` / `SectionHeader` / `Selecter` / `UserInfoCard`。其中 BackChevron 的两份同名实现已在守门 102 的 S0 机制清单里,`UserInfoCard` 的第四份已由 O81 票登记为 DOM 死副本并明令不删(§7 删除安全)⇒ 这一条的真实工作是**逐件判定哪份在屏幕上渲染**,不是批量上提。顺带量到:`apps/miniapp-taro/src/components/SectionHeader.tsx` 是 default export、`components/index.ts` 没递它、全端零「从 `@/components/SectionHeader` 取用」的 import ⇒ P2-F 把三个页面切到 `@/components/adapters` 之后它是孤儿副本;删与留属该端持有人裁决,本条只留证据不下结论。**判据边界(不得读歪)**:这把尺子只认同名,不同名而同意象的重复(RN 的 camelCase 样式键 vs 小程序的 kebab 类名)它结构上看不见,所以「4 件」不等于「两端 UI 只剩 4 处重复」—— 后一维的尺子是守门 128 的 RE 维,它现读对 7 族零判据(两侧未同名,已报名)。 〔重复登记副本·派单指针(2026-10-09 量,本席):本行与同题的另一条登记前缀逐字相同而**信息更少**(持有那条在同题正文之外多 801 字节(裁决与尺子边界的后续),本条是它的早期形态)⇒ **派单以题面「**P1-① 扩共享层首批 —— 票面前提已被实测否证,剩余只有 4…」中较长的那条(现读 1133 字节)为准**,本行不再单独派单。按 §1 的 F4 口径**不动勾选** —— 两条都是没做完的事,把没做的记成做过的比原病更响;也不摘声明位编号(守门 71 按"编号 + 题面原文前缀"判丢行,摘号会让自愈层把本行整条回捞,批⑤→⑦ 四轮循环即此),复核入口:`git show HEAD:PROJECT_PLAN.md | grep -F ' ] **P1-① 扩共享层首批 —— 票面前提已被实' | awk '{print length()}'` 应现读到两条长度不等的同题行。〕 〔拍板@2026-10-09 机主授权代行:4 件逐件判定——BackChevron/SectionHeader 上提 shared,Selecter 核消费面,UserInfoCard 按 O81 登记不删;小票派单。〕 〔逐件判定@2026-10-10 现读结案(机主 2026-10-09 拍板"4 件逐件判定"的后半;证据全为本席现跑 `git show HEAD:…` / `git grep … HEAD`,不是转述):① **BackChevron** —— 取值已同源:`packages/shared/src/ui/back-chevron-spec.ts` 在 HEAD,小程序腿 `apps/miniapp-taro/src/components/BackChevron.tsx` 与 RN 腿 `packages/app/src/components/BackChevron.tsx` 取的是同一出口 `backChevronBoxStyle` / `backChevronGlyphPx`,各端只做单位换算(小程序 ×TARO_RPX_PER_PX、RN 恒等),残余是平台 JSX(§4 明许的平台特有)⇒ "上提 shared"这一件**已完成**。② **SectionHeader** —— 现读 `git ls-tree -r --name-only HEAD | grep -i SectionHeader` 全仓只剩 **1 个文件**(小程序 `adapters/SectionHeader.taro.tsx`);`packages/app/src/index.ts` 的 barrel 注释自述那份已于 2026-09-30 摘除 ⇒ **两端同名已不成立**,本件不再是重复(孤儿腿的删除由守门 168 防回潮,不是待修)。③ **Selecter** —— 判定结果=**同名不同物不并档**:shared 那份是 5 档横向选项器(`type: scale|video|ratio|voice|空` + `options`),mobile-rn 里那个同名 `variant==='selecter'` 走屏内 `ModelSelecterDialog`(底部模型弹窗,契约 `models/selectedModelId/onSelectModel`),两组键不相交,按守门 128"同名不同物拆对、不得为并档改任一端"的口径**不该并**;但同一文件里的屏内 `RatioSelector` 与 shared 的 ratio 档是**同意象两份实现**,而 shared 那份 Selecter 在任何 RN 端**零调用方**(只经 `@ihui/rn-app` barrel 导出)⇒ 这一格是真重复,它的两条出路(迁 RN 屏内实现=改屏观感属产品裁决 / 删公共导出=§7 要求先有等价替代而 RN 端没有)都不归本席裁,已在本轮紧随其后的台账行里另起一行登记(标题为「共享件 Selecter 在任何 RN 端零调用方,而 mobile-rn 把同一件事在屏内又写了一份」,按该标题现读取行,本行不写它的编号以免挪号后成假指针),并写明归属与现读入口。④ **UserInfoCard** —— 三份活实现(miniapp / mobile-rn / `packages/app/src/features/cards`)全部取 `packages/shared/src/ui/user-info-card-spec.ts`,第四份 `packages/app/src/components/UserInfoCard.tsx` 按 O81 已登记为 DOM 死副本并明令不删(§7)⇒ 按拍板"登记不删"已生效。⇒ 本行声明的"真实工作=逐件判定哪份在屏幕上渲染"四件判完,故回勾;同题副本行按 §1 F4 一并翻同一状态,正文一字未删。〕
 - [x] ✅(2026-10-10) 副本指针(编号 P1-①):本行折叠自旧形态行 **P1-① 扩共享层首批(在等:逐屏清单裁决,量级 10–20 人日)** —— 那整句已被实测否证(两端同名导出只有 4 件,不是 10–20 人日的一批),当前状态见 ## O92 里「P1-① 扩共享层首批 —— 票面前提已被实测否证,剩余只有 4 件」那条;按 §1 F4 只加指针、不动勾选,也不无声删行。〔旧形态行是第七十三批的并发 union 按「每行重数取 max」从**改写前**的副本补回来的,不是新增工作;归并出口 `node scripts/plan-tasks-merge.mjs --heal`。〕 〔旧形态行随持有行同状态结案@2026-10-10:本行所指向的 P1-① 持有行已完成「4 件逐件判定」(BackChevron 两端取值已同源于 packages/shared 的 back-chevron-spec、SectionHeader 现读全仓只剩小程序一份、UserInfoCard 三份活实现同取 user-info-card-spec 而第四份按 O81 登记不删、Selecter 判为同名不同物不并档 + 一格同意象两实现另立 G-1113919 写明裁决归属),而本行原文那句「量级 10–20 人日」早已被实测否证 ⇒ 指针事项已闭,故按持有行同状态翻勾;正文一字未删(§1 禁止无声删除)。〕
 - [x] ✅(2026-10-10) G-978066 **D136 RN 端工具审批：代码与测试已交付并复验通过，但因同文件被他人 121 行在飞改动占据而刻意未落地（等他人，不等环境）** —— 交付面：新增 `apps/mobile-rn/src/components/ai/ToolApprovalSheet.tsx`（三档表 / 默认 `once` / 换条重置 / scope 仅在批准时携带 / 关闭只收屏不回传 / 常驻"打开审批"入口 / **已处理记录放在面板外**——这条是测试逼出来的修正：原本记录在 Modal 内，一拒绝就什么都不剩，等于用户仍不知道发生过一次决定，正撞 §30"钩子无终态不得渲染完成"）+ `packages/i18n/messages/mobile-rn/*` 五语言各 29 键 + `tests/tool-approval-rn-wiring.test.tsx` 22 例 + `ChatScreen.tsx` 四处手术（import / hook / 接帧 / 挂 host）。主会话独立复跑：**22/22 通过**；（**主会话逐语言独立复算**：叶 2221→2250、新增 29 全为 `toolApproval.*`、删除 0、改值 0；且**刻意没走 `i18n-apply`** —— 它拿滞后的工作树语言包当底稿，跑一次会连带删掉别人已入库的键，本仓记过这一型）；`check:i18n-keys` parity 与主题/圆角两道门的 RC=0 为**代理读数、主会话未复跑**——本批未落地任何该端文件，这些读数不影响 HEAD 面。承载面穷举出**一处真承载但未接**：`AiAssistantN8nScreen.tsx:1476` 的 streamChat（含 6 处语音入口）——不在本批文件白名单，登记为下一格。**为什么不落地**（这是关键判断，不是偷懒）：`ChatScreen.tsx` 的索引副本里有他人 **D135 的 +121 行**在飞改动，而 F 的 hunk#1 的锚点上下文**正是他们新增的那一行**（HEAD 面命中 0 次、their 侧唯一锚命中 7 次 ⇒  reconstruction 脚本按"不猜位置"直接拒产出、未写任何文件）。把整份工作树版本提交 = 替别人落地他们的在飞改动（§12 污染型）；只提交除 ChatScreen 外的部分 = 交付一个没人调用的组件，而它的 22 例测试里有一条断言"ChatScreen 必须 import 这个 hook"，**先落测试会在干净检出上必红**（本仓记过"代落的测试依赖他人未入库源码"那一型）。所以正确顺序是：**等 D135 那 121 行入库**（他们自己那枚提交），随后在同文件上以"HEAD ⊕ 13 行"的形态把接线 + Sheet + 测试 + 五语言作为**一枚**提交落地，并同枚删掉 `scripts/data/sse-dispatch-coverage.json` 里 `missing['mobile-rn'].onToolApproval`（上一行的诚实性决定就是为了这一刻）。租约保留在本行，别让第二路会话重做。残余三格照单登记：N8n 屏未接、`grantRule` 规则编辑器与 reason 输入未从 web 搬、"批准之后真的执行了"这条正控制未跑（本批只证副作用不发生的反向用例）。 〔现读@2026-10-09:本行等的那件事已经发生 —— D135 那 121 行已入库,票面计划的"随后一枚 HEAD ⊕ 接线"也已落地:`git ls-tree HEAD` 现读 `apps/mobile-rn/src/components/ai/ToolApprovalSheet.tsx` 在树里,`ChatScreen.tsx` 与 `ChatDisclosure.tsx` 两处都有引用,配套 `tests/tool-approval-rn-wiring.test.tsx` / `tool-approval-side-effect.test.tsx` / `d135-seam-wiring.test.ts` 同在 HEAD,端内全量现跑 89 个测试文件 / 832 用例 0 失败;`scripts/data/sse-dispatch-coverage.json` 的 `missing` 里 `mobile-rn → onToolApproval` 一条已按票面要求删除(现读该端只剩 onFinishReason / onReasoningEffortNotice / onGoalUpdate / onConfigWarning / onDeprecationNotice / onGuardianWarning / onTraceId 七条带理由的未接线)。**但本行不翻勾**:行内自己登记的三格仍未闭 —— N8n 屏那条 `streamChat` 未接、`grantRule` 规则编辑器与 reason 输入未从 web 搬、"批准后真的执行了"这条**正向**控制用例未跑(至今只有"副作用不发生"的反向用例)。翻勾会把这三格从派单口径里洗掉,而它们是做得了的活,不是等人的裁决。〕 〔三格已做完@2026-10-10(枚 571dafcff4d62bb592e80711eb021896e1d6d46c)——上一段那句"本行不翻勾"的前提被本枚兑现,不是撤回那句,是把它的后半跑完:① N8n 屏 `apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx` 四点接审批(import `useToolApprovalQueue` / 建队列 / `onToolApproval` 进 `streamChat` 回调表 / 挂 `toolApproval.host`),判据进 `apps/mobile-rn/tests/d135-seam-wiring.test.ts` 的 N8n 节,变异证据=注释掉那三行则该节红(红的是接线本身,不是格式);② 面板补 reason 输入(走 `@ihui/rn-app` 的 `TextField`,半径 `rnRadius.sm`、静态描边 `tokens.border.light`)与 grantRule 规则编辑器(仅批准档携带、仅 `run_command` 显示、命中高危表先弹原生二次确认、换条重置);送出符号现读更正为 **`postToolApprovalResponse`**(上一段注记写的 `sendToolApprovalResponse` 是网关 agent 流那条,不是本面板的出口),档位三档现读更正为 **once / session / always**(此前写成两档);文案复用 `packages/i18n/messages/shared` 已有的 `editor.toolApproval.*` 五语言,新键只加 4 个 `toolApproval.grantRule*` 到 mobile-rn 五语,不造第二份原因文案;新常驻用例 `apps/mobile-rn/tests/tool-approval-grant-rule-editor.test.tsx` 15 条全部断在真实载荷上,六组变异各红(去 reason 送出 / reason 恒带 / 规则写成常量 / 每个工具都显编辑器 / 撤二次确认 / 撤换条重置);③ "批准只结自己那条记录"的**正向**并发隔离补三条臂(默认 once / 选 always / 两条同时待决只结被批那条且另一条不继承 always),断在实收 wire 上,进 `apps/mobile-rn/tests/tool-approval-side-effect.test.tsx`;顺带更正本行此前两句前提偏差——该文件其实已有一条 session 档正向对照、且档位是三档,记下来是因为"我以为缺什么"不能当判据。验证(本会话现跑,不采信代理自报):`pnpm --filter @ihui/mobile-rn test` = 90 文件 / 852 用例 0 失败;`pnpm --filter @ihui/mobile-rn typecheck` EXIT=0;`node scripts/check-i18n-keys.mjs --target=mobile-rn` EXIT=0(743 键 × 5 语言 parity OK)。〕
-- [x] ✅(2026-10-10) G-1018190 21 个 IHUI 服务**全部没有 SCM 恢复动作**(现读 `FailureActions` 键不存在;`IHUI-PG-BACKUP` 已逐条验):进程异常退出后端不会自愈,而"备份/监控服务静默停摆"正是本仓记过两次的失效形态(RSSHub 停 3 天无人知、部署环冻结 11h50m)。加 `sc failure ... actions= restart/60000/…` 属**服务恢复策略**,且改的是 21 个在跑服务的机器状态 ⇒ 等机主拍板(哪些服务该自动重启、哪些宁可停着等人工),不得由会话逐个代决。【让号@2026-10-01:原编号 G-978121;union-converge F9 归并新增撞号组,未推的本地面让号;改前整行原文逐字见 .ihui-agent/archive/PROJECT_PLAN_yielded-ids-2026-09-29.md】 〔拍板@2026-10-08 机主:采纳——21 个 IHUI 服务加 sc failure 恢复动作;但本机无这些服务(Get-Service/注册表双查 0 命中)⇒ 须在部署主机执行,本行不在本机结清〕 〔拍板@2026-10-09 机主授权代行:21 个服务全加 SCM 自动恢复,须在部署主机执行(本机无这些服务),随下次上生产窗口。〕 （[归并] 本行与已完成登记同题(主键 「G-1018190 · 21个IHUI服务全部没有SCM恢复动作」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、正文逐字保留于前、不删行、不重复计账）
 - [x] ✅(2026-10-10) **`CourseScreen:113` 那格盲区的精确成因(不再是"未知失配"),以及为什么这一枚仍没修**: 〔【归并】重复登记副本(2026-10-01):逐字相同的另一条登记(与本行正文逐字相同,可按正文检索),派单以那条为准,本行不再单独派单。〕〔结案@2026-10-10 现读:`node scripts/check-glyph-arrow-icon.mjs` HEAD 面逐档 0(S0/GA1/GA2/GA4/GA5/GA6/GA7/GA8),且两条覆盖面自证同读 **0** —— 「GA4/GA5 遍历盲区:0 处」「GA8 结构未判定:0 处」,即当初点名的那一格「跨行自闭合标签会让该处之后的遍历栈失配」已不再是盲区。本行原句要的「精确成因」因此由尺子自己回答:成因 = 词法器把 `return <X/>`(不套括号)的前一词元当标识符,该形态已随守门 102 的 C5 配套收口,corrupt 维归零。⇒ 无剩余动作,本行结案;同题三份带【归并】指针的副本同日同样改写,不留状态分叉。〕
 - [x] ✅(2026-10-10) **O59⑤ D48 的验收在盘上仍不成立(本票实测,交持有桌面端运行条件的人)**:加密层接线经核属实 —— `apps/web/src/stores/chat.ts:1430` 的 `name: 'ihui-chat'` 走 `storage: createChatPersistStorage(ssrStorage)`,且该文件 import 了 `chat-persist-crypto`/`local-vault`(2 处)。但项目自己那道 `scripts/check-desktop-cache-plaintext.mjs` 实测 **exit 1**:`…\EBWebView\Default\Local Storage\leveldb\000003.log` 内 `ihui-chat` 明文 persist 记录 2 处 + utf16 CJK 命中 11 处,而同文件 **`ihuiVaultV1` 密文标记 0 命中**;该 log mtime 停在 2026-09-23 18:11(早于今日加密提交)。即:盘上是改造前的残留明文,而改造后桌面端从未在这台机跑过 ⇒ **"加密生效"缺正面证据**(不是反证)。解阻判据:在桌面端跑一次登录并产生会话持久化后复跑该门,须见 `ihuiVaultV1` 记录出现且 plain 命中归零。该门刻意定级 warn 不挂提交链(判的是机器状态,挂 blocking 会逼全队跳门),所以它红不会自动惊动任何人 —— 由本条钉住归属。 （[归并] 本行与已完成登记同题(主键 「O59 · ⑤D48的验收在盘上仍不成立」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、正文逐字保留于前、不删行、不重复计账）
 - [x] ✅(2026-10-10) G-815400 **取号令牌在两台机器上会发出同一个号 —— 本轮只用"预留号段"止血,机制未修**(2026-09-28 夜值守登记;归属:取号器 `scripts/live-doc-edit.mjs` 持有人;**在等什么**:等持有人拍板走哪条改法,不是等操作条件) 〔拍板@2026-10-07 机主:修机制——机器id混入取号令牌哈希;预留号段止血维持〕 〔拍板@2026-10-07 机主:修机制——机器id混入取号令牌哈希;预留号段止血维持〕 〔拍板@2026-10-09 机主授权代行:取号令牌混入机器 id 修跨机撞号;预留号段维持至全机生效;立项派单。〕 （[归并] 本行与已完成登记同题(主键 「G-815400 · 取号令牌在两台机器上会发出同一个号——本轮只用"」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、正文逐字保留于前、不删行、不重复计账）
@@ -16200,3 +16189,3509 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 <!-- 已归档(2026-10-11:✅(2026-10-10) G-814398 **`packages/types/src/capability-cata,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
 <!-- 已归档(2026-10-11:✅(2026-10-10) G-814398 **`packages/types/src/capability-cata,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
 <!-- 已归档(2026-10-11:✅(2026-10-10) G-1117437 **`apps/ai-service/app/types/api_cli,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+- [ ] D14 云端沙箱 agent(容器隔离+任务队列+镜像缓存+跨项目并行看板,对标 Qoder My Quests)(G-17) 〔【归并】重复登记副本(2026-09-27):同主键的另一条登记已随归档搬至 .ihui-agent/archive/PROJECT_PLAN_copy-purge-2026-10-08.md 的条目 「D14 · 云端沙箱agent」,派单以那条为准,本行不再单独派单。〕
+- [ ] D14 云端沙箱 agent(容器隔离+任务队列+镜像缓存+跨项目并行看板,对标 Qoder My Quests)(G-17) 〔【归并】重复登记副本(2026-09-28):同主键的另一条登记已随归档搬至 .ihui-agent/archive/PROJECT_PLAN_copy-purge-2026-10-08.md 的条目 「D14 · 云端沙箱agent」,派单以那条为准,本行不再单独派单。〕
+- [ ] G-580 **并集合并会把"两侧皆空"的嵌套冲突标记块原样写进归档件并入库,而全链没有一道门在提交时拦它(2026-09-28 实测并已修掉一处)**: 本枚在 `.ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md` 里量到 6 行 `<<<<<<< ours / <<<<<<< ours / ======= / ======= / >>>>>>> theirs / >>>>>>> theirs` —— **两侧正文都为空**,是合并器自己造出来的形状,却被归档器当"归档正文"逐字搬进归档件并入了 HEAD(枚 `276ea4fa4` 之前的面)。为什么不响:守门 79(冲突标记)在提交链走 `--staged`,只咬**被提交的那个文件**,归档件不是每次都被碰 ⇒ 它在全量档天天红、在提交链一次不拦;守门 13c 的 A3 只管归档件**内部的占位指针**能否兑现,不看内容里有没有标记。修的动作是删那 6 行(零损失逐行验过:除这 6 行外每一行逐字等值,行数 33447→33441),**判据侧要补的是两条**:① 归档面纳入冲突标记判据(默认档 warn、`--strict` 问责 —— 直接在提交链判红就是一台与任何提交都无关的恒红门,§12e 同型);② 活文档并集归并的落地闸拒绝带任何行首标记的输出(含"两侧皆空"这一型 —— 它看起来无害,实则是把合并器的中间态当内容落库)。归属:分叉合并归并线(与 G-363 / G-461 / G-455 同一持有人)。**现读命令**:`node scripts/check-no-conflict-markers.mjs`(全量)与 `git grep -lE "^(<<<<<<< |>>>>>>> )" HEAD -- .`(HEAD 面应只剩 `apps/cli/tests/file-edit.test.ts` 那一处合法 SEARCH/REPLACE 夹具,由该门 E1 计数豁免)。 **落地时的两处现读更正(同日,本枚)**:① "两侧皆空"的摘除函数其实**早在共同基底里就有**(`git grep -c 两侧正文都为空的冲突标记` 对 base/ours/theirs 三面均为 1)—— 所以缺的不是能力,而是**归档写入侧没调它**:归档器把正文逐字搬进归档件时不过这道摘除,于是能力在、产物仍带标记。判据方向因此从"补一条判据"收窄成"归档写入前调用既有出口 + 归档面复核",成本比原票面低一档。② 本票发现的当天,同一份 `scripts/archive-completed-tasks.mjs` 又被两侧各自改过(本地 `3306d0975` 与远端 `92ba35348`),三方合并在自测 S19d 的装车锁处报冲突;两侧分歧只是"要不要把解构键清单钉进正则",而两侧 `main()` 现读都是同一份 `const { tasks, blocked, movable }`,⇒ 两条断言今天同时成立,合并不需要选边。**若下次再撞同一处,请保留本侧那条宽松锁并按其注释连精确锁一起改**,别把"纯净化解构"判成回潮(锁错粒度=给自己造恒红)。 〔【归并】重复登记副本(2026-09-29):同主键的另一条登记 「G-580」,派单以那条为准,本行不再单独派单。〕
+- [ ] G-580 **并集合并会把"两侧皆空"的嵌套冲突标记块原样写进归档件并入库,而全链没有一道门在提交时拦它(2026-09-28 实测并已修掉一处)**: 本枚在 `.ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md` 里量到 6 行 `<<<<<<< ours / <<<<<<< ours / ======= / ======= / >>>>>>> theirs / >>>>>>> theirs` —— **两侧正文都为空**,是合并器自己造出来的形状,却被归档器当"归档正文"逐字搬进归档件并入了 HEAD(枚 `276ea4fa4` 之前的面)。为什么不响:守门 79(冲突标记)在提交链走 `--staged`,只咬**被提交的那个文件**,归档件不是每次都被碰 ⇒ 它在全量档天天红、在提交链一次不拦;守门 13c 的 A3 只管归档件**内部的占位指针**能否兑现,不看内容里有没有标记。修的动作是删那 6 行(零损失逐行验过:除这 6 行外每一行逐字等值,行数 33447→33441),**判据侧要补的是两条**:① 归档面纳入冲突标记判据(默认档 warn、`--strict` 问责 —— 直接在提交链判红就是一台与任何提交都无关的恒红门,§12e 同型);② 活文档并集归并的落地闸拒绝带任何行首标记的输出(含"两侧皆空"这一型 —— 它看起来无害,实则是把合并器的中间态当内容落库)。归属:分叉合并归并线(与 G-363 / G-461 / G-455 同一持有人)。**现读命令**:`node scripts/check-no-conflict-markers.mjs`(全量)与 `git grep -lE "^(<<<<<<< |>>>>>>> )" HEAD -- .`(HEAD 面应只剩 `apps/cli/tests/file-edit.test.ts` 那一处合法 SEARCH/REPLACE 夹具,由该门 E1 计数豁免)。 **落地时的两处现读更正(同日,本枚)**:① "两侧皆空"的摘除函数其实**早在共同基底里就有**(`git grep -c 两侧正文都为空的冲突标记` 对 base/ours/theirs 三面均为 1)—— 所以缺的不是能力,而是**归档写入侧没调它**:归档器把正文逐字搬进归档件时不过这道摘除,于是能力在、产物仍带标记。判据方向因此从"补一条判据"收窄成"归档写入前调用既有出口 + 归档面复核",成本比原票面低一档。② 本票发现的当天,同一份 `scripts/archive-completed-tasks.mjs` 又被两侧各自改过(本地 `3306d0975` 与远端 `92ba35348`),三方合并在自测 S19d 的装车锁处报冲突;两侧分歧只是"要不要把解构键清单钉进正则",而两侧 `main()` 现读都是同一份 `const { tasks, blocked, movable }`,⇒ 两条断言今天同时成立,合并不需要选边。**若下次再撞同一处,请保留本侧那条宽松锁并按其注释连精确锁一起改**,别把"纯净化解构"判成回潮(锁错粒度=给自己造恒红)。 〔【归并】重复登记副本(2026-09-29):同主键的另一条登记 「G-580 · 并集合并会把"两侧皆空"的嵌套冲突标记块原样写进」,派单以那条为准,本行不再单独派单。〕
+- [ ] G-580 **并集合并会把"两侧皆空"的嵌套冲突标记块原样写进归档件并入库,而全链没有一道门在提交时拦它(2026-09-28 实测并已修掉一处)**: 本枚在 `.ihui-agent/archive/PROJECT_PLAN_2026-09-28_auto-archive.md` 里量到 6 行 `<<<<<<< ours / <<<<<<< ours / ======= / ======= / >>>>>>> theirs / >>>>>>> theirs` —— **两侧正文都为空**,是合并器自己造出来的形状,却被归档器当"归档正文"逐字搬进归档件并入了 HEAD(枚 `276ea4fa4` 之前的面)。为什么不响:守门 79(冲突标记)在提交链走 `--staged`,只咬**被提交的那个文件**,归档件不是每次都被碰 ⇒ 它在全量档天天红、在提交链一次不拦;守门 13c 的 A3 只管归档件**内部的占位指针**能否兑现,不看内容里有没有标记。修的动作是删那 6 行(零损失逐行验过:除这 6 行外每一行逐字等值,行数 33447→33441),**判据侧要补的是两条**:① 归档面纳入冲突标记判据(默认档 warn、`--strict` 问责 —— 直接在提交链判红就是一台与任何提交都无关的恒红门,§12e 同型);② 活文档并集归并的落地闸拒绝带任何行首标记的输出(含"两侧皆空"这一型 —— 它看起来无害,实则是把合并器的中间态当内容落库)。归属:分叉合并归并线(与 G-363 / G-461 / G-455 同一持有人)。**现读命令**:`node scripts/check-no-conflict-markers.mjs`(全量)与 `git grep -lE "^(<<<<<<< |>>>>>>> )" HEAD -- .`(HEAD 面应只剩 `apps/cli/tests/file-edit.test.ts` 那一处合法 SEARCH/REPLACE 夹具,由该门 E1 计数豁免)。 **落地时的两处现读更正(同日,本枚)**:① "两侧皆空"的摘除函数其实**早在共同基底里就有**(`git grep -c 两侧正文都为空的冲突标记` 对 base/ours/theirs 三面均为 1)—— 所以缺的不是能力,而是**归档写入侧没调它**:归档器把正文逐字搬进归档件时不过这道摘除,于是能力在、产物仍带标记。判据方向因此从"补一条判据"收窄成"归档写入前调用既有出口 + 归档面复核",成本比原票面低一档。② 本票发现的当天,同一份 `scripts/archive-completed-tasks.mjs` 又被两侧各自改过(本地 `3306d0975` 与远端 `92ba35348`),三方合并在自测 S19d 的装车锁处报冲突;两侧分歧只是"要不要把解构键清单钉进正则",而两侧 `main()` 现读都是同一份 `const { tasks, blocked, movable }`,⇒ 两条断言今天同时成立,合并不需要选边。**若下次再撞同一处,请保留本侧那条宽松锁并按其注释连精确锁一起改**,别把"纯净化解构"判成回潮(锁错粒度=给自己造恒红)。
+- [ ] G-856410 **活文档行 union 会把"本侧已让号删掉的旧形态"从 base/对侧补回来 ⇒ union-converge 落地闸对本侧死锁(归属:union-converge 落地闸持有人;本会话量到并受阻)** —— 现读取证:本侧把 7 枚登记行整体让号(`c8cecd2572`,815951..815957 → 815980..815986,四条断言:键位命中唯一 / 标题稳定片段 / 正文逐字守恒 / 旧号引用只允许是【归并】留痕行)之后,`node scripts/union-converge.mjs` 的 F9 从 7 组降到 2 组,余下两组是 `G-815926` / `G-815930` 与「图标生成器注入 radius-exempt 的恒红与…」——**而本面已经没有这两个键位行**。机理:落地闸只判"合并结果是否放大分叉",不管这行是谁删的;活文档的「每行重数取 max」在"本侧删除、对侧未改"这一格会把 base/对侧那一份重新计成 1 份,于是让号一侧的删除**结构上无法传播**,而 F9 恰恰按合并结果计组 ⇒ 谁也无法让闸变绿,除非有人能在合并面上做真正的删除(§12d/守门 100 的口径:"确要删必须在合并之后显式 git rm" —— 可这一步需要先落一次合并,而合并正被它拦住 = 死锁)。**这不是"再改一次号"能解的**(我已实证:上一轮连让两次,每次都被并发 union 把旧形态捞回,一面上攒出三个编号形态)。**候选出路三条,请择一并给出可判前置**:① 落地闸为"本侧自有旧形态副本"开一条**声明式窄口**(逐条附 file+旧号+让号到的新号+取证命令,照 `--take-ours` 的做法:声明必须可复核、少一项即拒),合并落地后立刻在合并面 `git rm` 幽灵行;② 让行 union 认得"删除"这一维 —— 某行在 base 与对侧都在、而本侧把它改写成让号形态(同标题、异键位)时**不再按 max 累加**,配套必须有一条"本侧正当新增不得被少带"的成对反例,否则就把守门 71/100 防吞行那一族能力废回去;③ 由落地闸持有人在合并面做一次一次性清账(把 815926/815930 的幽灵键位行显式删除并留让号注记)。**在①②③任一项落地前,本机凡是"本侧让过号"的会话都会被这道闸卡住,交付同步不到 origin** —— 本会话的 9 枚代码/判据提交即卡在此(圆角四道门与 face-reader 镜像在被审面全绿,已实测)。**禁止的处理**:为让闸变绿去放宽 F9/F1/F4 判据、把幽灵行算成存量债预登记进基线、或继续第三次改号。 〔2026-09-29 让号:G-815987 → G-856410 —— 与 origin 面上一枚同号异题登记撞上(union-converge 落地闸 F9 现读),按 §1「后来者改号、由未推的一侧让号」本侧让;旧形态整行原文已逐字入 .ihui-agent/archive/PROJECT_PLAN_superseded-numbering-2026-09-29.md(门 71 的归档豁免),本行上一条"已还原为本号"的留痕已被本条取代〕
+- [ ] D18 Agent SDK 对外开放(G-23) 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记已随归档搬至 .ihui-agent/archive/PROJECT_PLAN_copy-purge-2026-10-08.md 的条目 「D18 · AgentSDK对外开放」,派单以那条为准,本行不再单独派单。〕
+- [ ] G-322 **带值旗标吞掉紧邻旗标这一族的普查结果(只读普查,主会话派代理跑,未修任何一处)**：口径是"值必须存在且不以 `-` 开头才算旗标的值"，`--json` 两处已由枚 `380431ffc` 收口(G-314)；普查另得 **15 组落点**，按危害分三档如下，**逐条都标了依据(实测/读码)**，派单前请按当次实测复核。 〔进展@2026-09-28/主会话+子代理C-E:第一档与第二/三档已按档逐处收口 —— 门 127 `--files`(枚 `87d75d90b`,显式给值却解析不到 ⇒ 判未判定 exit 2,而"本次提交不涉及射程"那一种 0 仍照旧放行,不造恒红门);归并器 `--write-to`(枚 `8832e73a4`);门 8 两处 `--dump-*`(枚 `636c28f58`);`i18n-diff --output` + `verify-ui --spec` + `plan-line-age --limit`(同一枚 `519d4df06`,前两处拒绝并非零、第三处退回默认但大声点名)。**仍开着的**:pre-deploy `--env` 静默降级、`migrate-llm-providers` 的 `--input/--output`(仅 --apply 下写)、门 118 `--root` 抛裸栈而非 exit 2 的形态问题、约 25 处 `--root` 只按族级抽测下结论 —— 这几格本行继续挂着,不得被上面那批翻勾读成"这一族已清完"。〕 〔【归并】重复登记副本(2026-09-28):同主键的另一条登记已随归档搬至 .ihui-agent/archive/PROJECT_PLAN_2026-10-09_auto-archive.md 的条目 「G-322 · 带值旗标吞掉紧邻旗标这一族的普查结果」,派单以那条为准,本行不再单独派单。〕
+- [ ] G-815408 **守门 103 全量档在干净 HEAD 上判红 5 处：端内文件相对路径穿透 repo-tooling（可立即修；归属：`apps/miniapp-taro` 与 `apps/web` 两条线持有人 + 架构表持有人；等什么：一次模块归属裁决，不是等新环境）** —— 现读（2026-09-29 08:56，`node scripts/check-architecture-policy.mjs` 末段）：`[arch-policy] 判红 5 处` ⇒ ① `scripts/gen-i18n-compressed.mjs:16` 同时命中 **[D1] 未声明 requires / [D2] rank 40 反向依赖 rank 90 / [D3] 深导入实现细节**，对象是 `../../../scripts/lib/generated-input-pin.mjs`；② `apps/web/src/components/ai/__tests__/d152-goal-server-cache.test.tsx:29` 命中 **[D1][D2]**，对象是 `../../../../../../scripts/lib/code-mask.mjs`。涉事两文件 `git status --porcelain` **三面全干净** ⇒ 属"红在已入库代码上"（AGENTS §12f：这类红优先级高于一切新增工作，因为它的全局后果是每个会话每次提交都**合法地** `--no-verify`）。**限定事实，不得读成"每次提交都被拦"**：`--staged` 档现跑 **RC=0**，红只在全量/审计面。**两条禁令**：不得为消红把 `repo-tooling` 的模块标成 `exported` 或往 `config/architecture-policy.yaml` 里塞例外（那是把架构表改成"记录既成事实"，本仓明令禁止），也不得用行内 `arch-exempt:` 遮掉（豁免必须有归属与到期，且这 5 处是结构问题不是误报）。**候选出路（接手时先选一条并写明理由，不得三条都做）**：(A) 把 `gen-i18n-compressed.mjs` 这类"端内脚本向上摸工具层"的生成器搬到根 `scripts/`（同仓先例：miniapp 的 token 同步器当年正是从端内搬到根才解掉 D2 —— 但会改端内 `package.json` 的 `gen:i18n` 脚本路径，需同批同步守门 105 与 `dev-weapp.mjs` 的调用点）；(B) 把被需要的能力从工具层经**已登记 public entrypoint** 递出来（`generated-input-pin` / `code-mask` 各一处），端内改为按名 import 而非相对穿透；(C) 该 web 测试改成不依赖工具层遮罩（自建最小 fixture），代价是丢掉"与门共用一份遮罩实现"这条防漂移收益 —— **不推荐**，本仓遮罩只许有 `lib/code-mask.mjs` 那一份。**同批必须一并登记的诚实更正（我自己在上一枚落地里造的）**：格 B（`--worktree` 面 + 未知旗标硬失败）已由枚 `bbe687355d` 落地，但**那枚提交信息写了"两个文件"、实际只落 1 个** —— 代理那半份 `scripts/tests/check-architecture-policy.test.mjs` 是在**陈旧底稿**上写的，落地器"陈旧落地/行级复活"守卫实测拒绝：`消失 5 行 / 重现 162 行 / 复活 1 行`，消失的正是 `pickPolicySource` 那三条"改表那枚提交必须被审"的取材面断言 ⇒ 放弃代理版本、测试文件 `git checkout --` 恢复 HEAD 现版，三条新行为的锁改由**门体自带 `--self-test` 138 例**承担（含"三面取材与参数闸门（--worktree / 矛盾旗标 / 未知旗标）"，现跑全绿，旧镜像 × 新实现 RC=0）。**通用教训：写"实现 + 测试同枚"的提交信息前必须确认测试那份的底稿是 HEAD 现版** —— 否则信息里那句"测试也带上了"就是空头承诺，而账面只有落地器会喊，`git log` 不会。〔进度注记(未结清,按票面口径保持未勾)2026-10-01〕守门 103 现跑判红由 5 归零(封缄 G:/IHUI-AI/.ihui-agent/tmp/g103.txt #EVIDENCE-RC=0,末行原文"架构契约门通过(面:HEAD blob(9949 个源文件))"),但**归零的成因不是本票要的模块归属裁决**:两处站点各挂了一条**带原因带到期日的行内 arch-exempt**(scripts/gen-i18n-compressed.mjs:20 unt 2026-12-28;apps/web/src/components/ai/__tests__/d152-goal-server-cache.test.tsx 同族,注释里还留着"正解=搬到根 scripts/,前置=等两台机分叉裁决")。也就是说 D1/D2/D3 那三条边一条都没拆,只是被合法缓期 —— 本票的结构问题仍在,到期未裁时守门 108 会把它送回队列,届时只剩票面 A/B/C 三条真出路(且不得三条都做)。配套现读:守门 108 RC=0(缺日期的新增 0、已过期 0),所以这一族今天不是恒红;另记一条不冲突的近况 —— 枚 86e75c032a 给 @ihui/types 补 ./knowledge-team 公开入口把 D3 那一路判红归零,那是"补登记"而不是"往表里塞例外",与票面两条禁令一致。归属一字未改:apps/miniapp-taro 与 apps/web 两条线持有人 + 架构表持有人,等什么=一次模块归属裁决(不是等新环境)。 〔进展(2026-10-07):G-815923 生成器那一格已结构清偿——生成器搬至根 `scripts/gen-i18n-compressed.mjs`(arch-exempt 随迁摘除,D1/D2/D3 三处同因判红随迁消失),web 测试格仍属合法缓期,整行保持开放;行内旧路径引用已同步更新至现址,历史判红引文中的行号按当时快照保留〕
+- [ ] G-978007 **RN/小程序还有 61 个输入框完全没有聚焦态(墨档描边)—— 缺口已量准,补法是"提共享件 + 逐屏迁移",不许盲改** —— 实测口径:含本地 `TextInput` 且**没有任何** `onFocus`/`focused` 处理的文件 **61 个**(我前一轮报的 84 是粗量,那 84 里含只消费共享件的屏,已剔除)。本轮已修三处:RN LoginScreen 两处(旧值 dark 取 `surface.light` = #262626,深色页上等于没有描边 —— 这就是"纯白没了"的真因)、共享 SearchInput(09-26 被改成 brandAccent 蓝档)、miniapp `.login-phone-row-focused`(同型);三处统一取墨档(亮纯黑/暗纯白),门 83 R8 同批补第三型书写位(style 键名本身是聚焦档)+ 成对自检 M8j4/M8j5。**剩下 61 个为什么不在本轮一起做**:唯一正解是把 LoginScreen 里那份本地 `FocusInput`(带 `focusedStyle` 通道)提成 `packages/app/src/components/TextField.tsx`,`colorScheme` 设**必填** prop 让守门 91 在类型层强制传主题,再逐屏替换。而本机此刻对聚焦态做不了视觉验证:内置浏览器面板里 `focus()` 会触发 RN 重渲染把 CDP 求值拖到超时(实测两次),键盘 Tab 也进不去焦点 —— **在用户正在看的登录页上做无验证的重构等于赌**。**验收判据(下一手逐屏必须满足)**:迁移后在该屏 DOM 读 `getComputedStyle(输入框.parentElement).borderColor`⇒ 浅色必为 `rgb(0, 0, 0)`、深色必为 `rgb(255, 255, 255)`,且 `borderWidth` 由 1 变 2;拿不到这个读数就不算迁完。小程序侧同一判据走微信开发者工具(`cli.bat` 通道在位)。**禁止的出路**:给 61 个文件各写一份本地聚焦 state(那正是本仓反复记过的"两份实现再靠对账追平")。 **〔2026-09-30 小程序半边收口(见 G-978046 同笔)〕**:端内唯一实现 = `apps/miniapp-taro/src/hooks/use-field-focus.ts`(取色唯一出处 `var(--color-primary)` 墨档)+ `components/FocusField.tsx`(FocusInput/FocusTextarea,行内样式稳赢类级联、map 回调里合法);迁移 31 个"有描边却对聚焦无反应"站点(15 SELF-JSX + 10 SELF-CSS + 6 WRAP,含 2 个 WRAP-CSS 容器) —— 普查尺(mp-census4)复测:已接聚焦 5 → 36,待办面只剩 15 个本来无框(NONE)站点,属设计意图不在本票;miniapp typecheck 对本票 33 文件 0 错(RC=2 的红全在他人 tool-approval 在飞文件);真机视觉验收通道(微信开发者工具 cli.bat)待用户侧复看,效果以实测为准。 〔进展@2026-10-10(第一批落地 40d3912554):ImageGenCreateScreen/KnowledgeRagScreen/BottomActionBar 三屏裸 TextInput → 共享 TextField(colorScheme 必填,focusedStyle borderWidth 1→2,取色走 design-tokens brand.DEFAULT 亮纯黑/暗纯白唯一出处);VerifyCodeModal OTP 特殊形态:隐藏键盘接收器(1×1/opacity 0)保留不套共享件(零像素可见),可见聚焦视觉 6 格子 boxFocused 从 brandAccent.deep 改 brand.DEFAULT+borderWidth 2 对齐墨档判据;普查尺(.ihui-agent/tmp/rn-focus-census-g978007.mjs)bare 5→1。剩余:ChatScreen 2 站点等该文件他人 in-flight 脏面落地后补迁;真机视觉复看(效果类以实测为准)待用户侧。packages/app tsc RC=0、本票 4 文件 tsc 0 错。〕 〔核查@2026-10-11 goal-r19:当轮按票号反查到交付面 packages/app(TextField 唯一实现族) 并实跑(读数见 .ihui-agent/tmp/goal-r19/selfverify.json 与本行注记),**仍不翻勾** —— 唯一实现与必填 prop 锁、裸 TextInput 普查 offenders=0 均在位;未收口:白名单两条 className 描边屏未迁、ChatScreen 2 站点他席脏、真机/开发者工具视觉复看未做、**小程序端 44 个含 Input/Textarea 的文件整半边一行未动**。本行由机主授权的值守席核过,勿照旧票面再派实现。〕
+- [ ] **RN/desktop 端设备指纹只有 2 个可能值（本批新量到，需 owner 定性，非清账动作）**：`apps/mobile-rn/src/lib/device-fingerprint.ts` 的采集器只喂 `platform: Platform.OS` 一个字段 ⇒ 全网 iPhone 共用同一个 `fingerprintHash`（实测 `platform:'ios'` → `8be82194543a6f57cd52c70e03fc9151`、`'android'` → `ef773d266bcd872d505f7af4657e73c3`）。而该列是 `user_devices` 的 `(userId, fingerprintHash)` 唯一键，并被 `plugins/audit-logger.ts:306`、`routes/payment-gateway.ts` 6 处、`payment-usdt.ts:107`、`services/anomaly-detector.ts` 的 `device-fingerprint` 维度当设备标识消费 ⇒ **"新设备登录"检测与支付侧设备风控在 RN 端结构性失效**。修法要么补采字段（需 `react-native-device-info`，AGENTS §3 零依赖约定要一并议）、要么把"依赖指纹唯一性"的规则改掉 —— 两条都改变对外行为，不由 agent 单方定。
+- [ ] G-1113920 **App 常驻「网络已断开,部分功能不可用」横幅与设备实际连通性矛盾(2026-10-10/11 两次真机撞见,值守会话现读)** —— 同屏证据:`adb shell ping -c 2 aizhs.top` 回 **2 packets transmitted, 2 received, 0% packet loss**(RTT 408–505ms),`dumpsys connectivity` 两条 NetworkAgentInfo(WIFI + MOBILE[NR])均带 `VALIDATED` 且 `NOT_SUSPENDED`,而 App 顶部横幅一路亮红常驻,首页与广场两屏都拍到。**它在等什么**:等一次源码级定位 —— 先答"在线判据探的是哪个目标、超时/失败阈值多少、是否把'探测目标不可达'与'设备无网'并成同一结论",再判该不该改成 fail-visible 的分级提示(慢网 ≠ 断网)。属**等环境条件之外的独立一格**:与顶栏 chrome 票同屏撞见但不同因,不得并档。**为什么现在只登记不顺手改**:横幅文案与判据同族改动会牵动四端离线提示语义,而本轮真机时间窗已用于顶栏取证。
+<!-- 已归档(2026-10-11:✅(2026-10-10) 双端功能矩阵维护(2026-08-26 立,跨端:apps/web + apps/mobil,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-396 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **P1-① 扩共享层首批 —— 票面前提已被实测否证,剩余只有 4 件(在等:逐件判定谁在,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-1018190 21 个 IHUI 服务**全部没有 SCM 恢复动作**(现读 `Fa,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **P1-① 扩共享层首批 —— 票面前提已被实测否证,剩余只有 4 件(在等:逐件判定谁在,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **P1-① 扩共享层首批 —— 票面前提已被实测否证,剩余只有 4 件(在等:逐件判定谁在,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-396 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **并档那一格(在等:全端观感裁决,不是本票漏改)**:`outline` / `ghost,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-797 【安全·默认档已定】回环 http 白名单今天**不分调用者** ⇒ 远端 ma,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-1038466 **全量守门盘点(187 项跑完再汇总)在干净 HEAD 上剩两处无人认,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-1058635 **小程序端 ui-routes 产物缺自述钉：重跑一条命令即可，但它结,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-998157 票5：复合键的构造与解析成对导出在协议层（观察）（出处 b76-12d）：,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) P2 **设置页双层页头**:顶上「设置 + 菜单」一条栏,下面又一条「`<` 设置」(`p,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-1058626 **plan-tasks-merge.mjs --self-test 在,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-1108372 **守门 152 在提交链上从未真的判过一次:它恒落"机器态未判定",而,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-1110084 **反极性判据只有一把局部的尺子:"派生把结论通道丢掉、调用方还去读它",完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) O1820 部署净面(clean-build)默认根迁出仓库 + 路径守卫扩成可追加授权根表,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-998153 票 4（观察）写库前不问「到底有没有变」：`.set({ ...data,,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-427 技能 `allowed-tools` 是装饰性声明（零消费者），而"广告的能力",完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10)G-814409 裁剪必须自报丢了多少:上游 `commands-command.ts:167,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **`plan-tasks-merge.mjs --dedupe-blocks` 的阈值覆盖,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-814398 **`packages/types/src/capability-cata,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-814401 **主干 `pnpm --filter @ihui/web typeche,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **`plan-tasks-merge.mjs --dedupe-blocks` 的阈值覆盖,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-761 **`plan-tasks-merge.mjs --dedupe-blocks`,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-814398 **`packages/types/src/capability-cata,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **并档那一格(在等:全端观感裁决,不是本票漏改)**:`outline` / `ghost,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **并档那一格(在等:全端观感裁决,不是本票漏改)**:`outline` / `ghost,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-1080890 部署环「生产环境部署失败」邮件补终态:成功切流即清偿切流受阻类身份与其抑,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-814398 **`packages/types/src/capability-cata,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-814398 **`packages/types/src/capability-cata,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-1117437 **`apps/ai-service/app/types/api_cli,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+- [ ] G-1113923 **输入框"聚焦反馈"这一维至今无常驻尺子,且 RN/共享层还剩 2 处在唯一实现之外自拼聚焦描边(交代:等派单 —— 两件都是可立即做的工程活,不是等环境)** —— ① 量这把尺子的脚本是本轮的一次性探针,它自己的窗口判据在 `apps/miniapp-taro/src/components/ModelConfigDialog.tsx` 那处产出过**假阳**(把十几行外另一个区块容器的 `border-t` 算进本元素),没有进提交链 ⇒ 现读"带描边而无聚焦反馈 0 处"这个结论**没有尺子守**,下一次改动可以静默回潮;正解是做常驻对账(两端各自的书写语言都要能读到:RN style 档 / 小程序 className 与行内 style / web 工具类),盒与选择器的取证窗口**必须只取该元素自己的属性区**(守门 150 票㉛ 与门 77 的 `boxDimsOwn` 同一课)。② `packages/app/src/components/SearchInput.tsx` 与 `packages/app/src/features/chat/MessageInput.tsx` 的聚焦描边是内联书写,未走 AGENTS §4 定的唯一实现 `packages/app/src/components/TextField.tsx`(它自带 `colorScheme` 必填 prop,守门 91 因此在类型层强制传主题)—— 今天两端取值同档所以**不是分叉**,但"改一端忘另一端"的窗口正开在这里;迁移前先确认两处各自的聚焦通道语义(SearchInput 有语音模式与自绘清除键、MessageInput 一行两元素),不得整屏替换。
+- [ ]（进行中@2026-10-11/主会话收口）**门 128 尺子超架构契约 C1 行数上限待拆**(2026-10-11 收口现读):`scripts/check-cross-end-ui-parity.mjs` HEAD 面 6061 行 > C1 `max_file_lines: 6000`(由对端合并提交 b8c5583a11「G-629 跨端 UI 一致性门补根槽位维并修三处取材错位」带入,git show HEAD 与工作树逐字节同 ⇒ HEAD 即红,与任何提交无关的即时判红)。**修法只有拆**:自检/fixture 段(约 L3605-L6024,≈2400 行,`FIXTURE_BASE`/`radiusFixtureTable`/`makeFixtureRepo`/`runSelfTest` 族)拆出到 `scripts/lib/` 配套文件,主逻辑段(webRadiusAudit/verdictOf/anchorRegression/emitBaseline/parseBaseline/chooseBaseline/loadBaseline/faceFromArgv/main 均已 export)可 import —— **不许调阈值**(yaml 注释明写 6000 是"实测分布上沿",为变绿调阈值是禁手)。该文件属门 128 持有者领域,2026-10-11 收口会话不越权重拆(§12),登记在案防静默。**在等**:门 128 持有者拆分,或机主裁决"拆 vs 上调"。过渡期:提交链经 safe-commit attestation 留痕放行(每枚 --no-verify 带归因落 .workbuddy/safe-commit-attestation.jsonl)。
+<!-- 已归档(2026-09-28:✅(2026-09-24) **P1 品牌 CTA 独立成档 `--color-cta`(全栈:web/小程序/RN/共,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-998185 **Web 个性化页登录态门整类 campaign(P2 机械化批量,复用,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25)**`safe-commit.mjs` 在首次 commit 失败后打印「按用户规则"hook,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **起因与根因**:用户实拍反馈「浅色模式有大面积黑色背景,深色模式也有大面积白色背景」。根,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O62 品牌实底「大面积反色」全栈收口 + Tailwind v3 端 /alpha 修饰符落地(2026-09-25 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O61 safe-commit 的"钩子失败归因"从抄来的结论改成量出来的结论（2026-09-25 立并完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 2026-09-23 C 盘污染收口:13.2GB 构建备份 + 单日 45 个夹具的来源查清并归零(单端:工程治,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅ **A 组 = 纯冗余,已删(`C:\c` 整目录 515MB)**。`C:\c` 是 2026-08-06 某会话,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **止血① 落点收口**:新增 `scripts/lib/scratch-dir.mjs`(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅ **A 组 = 纯冗余,已删(`C:\c` 整目录 515MB)**。`C:\c` 是 2026-08-06 某会话,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅ **逐项定性(每项都有可复算证据,不靠猜)**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) 计划任务 `IHUI-C-Drive-AutoMaintain` 已注册(2026-09-2,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) ~~计划任务 `IHUI-C-Drive-AutoMaintain` 已注册~~ → **本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24 17:1x) 计划任务 `IHUI-C-Drive-AutoMaintain` **已按用户授,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23)单一真相源 `packages/design-tokens/src/radius.js`(`x,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23)基础设施自伤已修:`pnpm install --filter @ihui/extension,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23)真机交付:arm64 `assembleRelease` 出包(66MB)→ `adb ins,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O39 守门接线层第二批 —— 门 91 补装、8 枚结构性豁免、门 89 新增 R4 反向对账、tag 远端备份改 f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **O36 残余 ② 已闭环,且结论与子代理报告不一致的两处均已复核纠正**。5 枚红点 =,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):O36 追加(同日):对账门 5 枚红点全部判明,并把"对账门自己也没装车"这条钉上(2026-09-24 立并完成 ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O36 守门"接线层"根治 —— 补装三枚造好没装车的门、修一道假阳性、摘掉两处恒绿登记(2026-09-24 立并完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 2026-09-23 磁盘清理 13.9GB + 三道守门加固 + 凭据库防误删(单端:工程治理/守门脚本,已完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 2026-09-23 生产上线链冻结两日 —— 根因与修复(本机即生产机;已完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25)**新尺子(层的镜像套件第四型)**:`判"远端在哪"只许走层` —— 扫 HEAD 的 `s,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **归属:守门 116 持有者(本票不认领、不抬基线)** —— 层的"常量绑裸 git"棘,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md 〔【归并】O7 落账:复测 2026-09-26 -->
+<!-- 已归档(2026-09-28:✅(2026-09-23,本票补记)**第一次落地被并发会话的无 CAS `update-ref` 从 main 线上抹,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **23 文件硬编码中文归零,词表 93 枚 × 5 语言**:web 侧 `agentWo,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **守门 81** `check-brand-email-channel.mjs`(bloc,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27 翻勾:陈旧状态 —— 此后 2026-09-24 起多轮部署记录健康门禁正常通过(见 2026,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) D19 desktop/miniapp/mobile-rn 对话流 parity(termi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **本轮未落地、需重做的一批(web 86 处内的键名对齐)**:该批次报告改了 4 个文件,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **本轮未落地、需重做的一批(web 86 处内的键名对齐)**:该批次报告改了 4 个文件,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **本轮未落地、需重做的一批(web 86 处内的键名对齐)**:该批次报告改了 4 个文件,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) B15 本目标下**仍未闭环**的一件事(② 已于 2026-09-26 实测收口):① 移,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28 现读归正:本行的"两件事"已过期,现存账以下一条"一件事"行为准) B15 本目标下**仍未闭,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) B15 本目标下**仍未闭环**的一件事(② 已于 2026-09-26 实测收口,见下):,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:（✅@2026-10-05/g2-alltasks） O19b 剩余 4 列**故意不并**,各有明确理由:① `use,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) O13 多租户隔离重建（tenant RLS 被 0214 删除后，按 catalog da,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) O13b 第二段(收敛本身,5 条可核算):① 34 个白名单文件逐个迁移到集中封装并**删,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) O13b 第二段(收敛本身,5 条可核算):① 34 个白名单文件逐个迁移到集中封装并**删,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) O13b 第二段(收敛本身,5 条可核算):① 34 个白名单文件逐个迁移到集中封装并**删,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **O21 资金链与文件版本面的属主谓词补齐(2026-09-23 逐行实测,安全 P0)*,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) O14 SDK 真正发布（现 0 tag / brew sha256 占位）：npm/PyP,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) O20c 生产 `pg_hba.conf` 本地链路是 **trust**(127.0.0.,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) O20 公网拓扑:**ai-service 在公网零暴露**,导致能力目录里 71 项 `h,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) O20c 生产 `pg_hba.conf` 本地链路是 **trust**(127.0.0.,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) O20f **并行会话 tree 重置事件**(工程治理,非业务功能):2026-09-21,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「O14b2」),是被并发并集留下的未翻勾副本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28 终项确认给出并翻勾:票面动词"方案评审并启动"两半均有实物,⏳所等并行批次已恢复) D6 多 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「D13」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「D13」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **[归并]** 本行与已完成登记同题(主键 「D15」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **计划表 ⇄ HEAD 差集审计(只读,62 条票逐条核)** —— 不是功能票,是给"照,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **D14 云端沙箱：先判归属再动手,把重复执行层当场摘掉；纯逻辑层已验证但按③口径不装成已,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **D18 补完 .NET 的发布出口(NuGet 通道)**。先纠票面一处不实：`pack,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) D19 desktop/miniapp/mobile-rn 对话流 parity(termi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) D20 会话文件夹/标签/置顶+导出 PDF(G-11)。**TTS 朗读已存在**(202,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **D33 过程性信息持久化补全(G-39)**:在 D24 已落 toolCalls/te,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)**D34 事件契约扩字段(G-40/G-43/G-44/G-52)**:`sse_contr,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **D33 过程性信息持久化补全(G-39)**:在 D24 已落 toolCalls/te,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **D33 过程性信息持久化补全(G-39)**:在 D24 已落 toolCalls/te,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)**D34 事件契约扩字段(G-40/G-43/G-44/G-52)**:`sse_contr,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **[归并]** 本行与已完成登记同题(主键 「D36 · 输入草稿与历史(G-55)」),,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)**D37 内联系统注入条 + 上下文装配查看器(G-40/G-41,并扩 D13 口径四类→,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)**D37 内联系统注入条 + 上下文装配查看器(G-40/G-41,并扩 D13 口径四类→,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **第三/四/五/六轮取证 + 五道新门接线收口**（吸收线纵深，逐票给证；细节在各枚提交信,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D44 白名单兜底事件逐个补渲染位(G-62)**:`scripts/check-age,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **D45 会话详情聚合档位 + 环境建议条(G-53/G-54)**:① 步骤视图/命令视,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **D48 本地会话数据主权与加密(G-56)**:桌面端本地缓存加密(对标 Trae SQ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23 进行中,**①已收口**) **D49 我方自证缺陷包(G-61)**:① 点赞/点踩落库(现,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D51 对话流元素覆盖守门**:新建 `scripts/check-chat-eleme,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **D52 任务监控分区面板(G-63)**:把 26 个平铺工具 Tab 之上加"以任务为,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-21)**D54 工具名本地化覆盖率收口(G-80,第 5 轮已定档——原判"我方可能没词表"是幻影,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D57 对标文档证据等级标注(卫生项,防二手当一手)**:`docs/AI_CHAT_B,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **D58 工具类目聚合层(G-71/G-72)**:在现有按工具名分组之上引入**类目**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **D58 工具类目聚合层(G-71/G-72)**:在现有按工具名分组之上引入**类目**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)  **D59 模型负载与排队条(G-73)**:补「低/中/高负载可能排队」「已进入慢速队列,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D61 自动化执行后果预演(G-78,与 D30 强协同)**:建/改 automati,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)  **D62 语音字幕与讨论纪要(G-76)**:播报时字幕可见(`静音并显示字幕`语义)+,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **补:同一「更多」入口的第二轮收口 —— 首页那个按钮上一票根本没改到,外加我自己两处失准,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)  **D65 Hook 失败可见性卡(G-87,先自证再开工)**:Qoder 有 `hoo,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)  **D66 编辑并重新发送 = 文件回退组合操作(G-89)**:把"编辑重发"与"回退本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)  **D71 统一 Turn 状态词汇表 + 错误分类族(G-97/G-98)**:①对话流,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)  **D71 统一 Turn 状态词汇表 + 错误分类族(G-97/G-98)**:①对话流,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24 渲染面) **D78 连接器授权卡(G-107)**:对话流内 `连接到 {connector,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24 定档) **D80 两条待自证定档(G-110/G-111)**:①Codex `widget,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **D81 活动条目双时态语法(G-112/G-113)**:按 Codex `widget,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md 〔【归并】D81 落账:复测 2026-09-26 -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **[归并]** 本行与已完成登记同题(主键 「D81」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-21) **D80 待自证定档完成**,四条判定全部出结论(报告 §14,逐条带我方代码文件:行):,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23)  **D82 就地润色与失败保稿(G-95 重定义后)**:输入框草稿的一键润色(**改写当,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **D83 MCP 工具活动的 server×tool 定制措辞层(G-114,架构级)**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **D83 MCP 工具活动的 server×tool 定制措辞层(G-114,架构级)**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D84 审批作用域四件套与理由输入(G-115)**:`允许一次 / 始终允许 / 允许,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) O10 对外 run 语义：幂等 run 创建（`Idempotency-Key`）、外部 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D90 预览降级三态与"文件已更新"提示(G-123)**:对标 Qoder `工具记录,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)  **D91 四类文档批注锚点分型(G-124,扩展 D87)**:Qoder 的批注不是单,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D90 预览降级三态与"文件已更新"提示(G-123)**:对标 Qoder `工具记录,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D90 预览降级三态与"文件已更新"提示(G-123)**:对标 Qoder `工具记录,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)  **D94 失败诊断脱敏交接包(G-127,品类级)**:出错时自动产出**可直接对外提交,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)  **D94 失败诊断脱敏交接包(G-127,品类级)**:出错时自动产出**可直接对外提交,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D96 对话内写作块(G-129)**:流内可编辑文本块 + **逐块`接受`/`全部接,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **H28 前置验证任务(必须先于 D83/D54/D90/D91 的措辞实现)**:对话流,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D98 审阅态与差异可读性收口(G-134/G-135)**:对标 `codex.rev,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)  **D100 计费自助状态机(G-137)**:Codex `settings.usage,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D101 端中立措辞引擎(G-139;H28 的前置，非可选项)**:落点 `packa,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)  **D102 对话移交工作树(G-140)**:Codex `localConversat,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **D105 PR 检查状态与动作卡(G-146)**:`localConversation,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **D106 消息级"交代帧"跨端消费缺口(G-148;实测量化,不是推测)**:多落点 g,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) ⏸️ **唯一遗留(外部依赖阻塞)**:真实端到端生成/取消/声纹克隆 e2e(`apps/,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27 翻勾:主体已由 2026-09-24「对象库连通性按服务端真值补全」收口 —— `git fe,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **D111 移动端完全没有权限模式可见性(G-159 / G-160;第 55 轮按渲染层,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) H2 FIM/Monaco 闭环:Web 编辑器 inline completion 接入 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「83 · Spec↔Code双向落差检测+L,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) 84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「80 · Guardian复核代理」),是被,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) 83. Spec ↔ Code 双向落差检测 + LSP 扩语言(现仅 TypeScript,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) （进行中@2026-10-05/g2-alltasks） 84. 26h 级耐久任务底座(依,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「83 · Spec↔Code双向落差检测+L,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末 —— G-227 家目录改道自愈在系统身份下"拿错搬运对象"(2026-09-27 立并完成 ✅,运维,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-12):本段全部完成,完整内容移至 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md;git 历史(commit 40ae3da648e 及之前)亦含完整原文 -->
+<!-- 已归档(2026-09-12):本段全部完成,完整内容移至 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md;git 历史(commit 40ae3da648e 及之前)亦含完整原文 -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) 双端功能矩阵维护(2026-08-26 立,跨端:apps/web + apps/mobil,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) 双端功能矩阵维护(2026-08-26 立,跨端:apps/web + apps/mobil,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-12):本段全部完成,完整内容移至 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md;git 历史(commit 40ae3da648e 及之前)亦含完整原文 -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) D 盘历史项目迁移完整性审计 — 5 维度对照 + 缺失项识别(/goal 模式),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) D 盘历史项目迁移 100% 达成 — 11 项缺失修复复核(/goal 模式轮 3,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) 小程序兼容路由 53 个 stub 真实化 — 接入 packages/databa,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) 小程序联调 P0 阻碍修复 + /study/* 鉴权路由补全 — 端到端真实数据验,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) /study/* JWT 全流程 P0 bug 修复 + miniapp-taro ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) Commit 丢失防护机制强化 — 文档 + 脚本 + 钩子三件套(AGENTS.m,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) GEO/SEO 内容层 + 5 语言 i18n parity 完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) i18n 死 key 审计(commit 73197f3e1)— scripts/scan-dead-i18n-keys.mjs 305 行 + 报告 10255 leaf key / 4415 死 key 43.1% 写入 .ihui-agent/tmp/i18n-dead-keys-2026-07-26.md(143KB),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-07-26):[x] ✅(2026-07-26) LLM provider 字典化阶段 1(commit d7d0b9c40)— docs/llm-provider-dict-design.md 277 行 7 章节 + LLMSettings PoC(+20 行,100% 向后兼容)+ LLM_PROVIDERS_JSON 注释示例,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-12):本段全部完成,完整内容移至 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md;git 历史(commit 40ae3da648e 及之前)亦含完整原文 -->
+<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 动作1:4端 token 下沉改用 createInMemoryTokenStore,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 动作2:mobile-rn/global.css sync 脚本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 动作3:5个 scan-*-dead-i18n-keys.mjs 收敛为 --tar,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 动作4:web/shared logger 文档标注,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 动作5:packages/app 改名 @ihui/rn-app,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 动作6:tokens.css 圆角5档上提共享层,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 动作7:extension content script 24处硬编码颜色集中管理,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 动作8:mobile-rn AiModelCard 13处硬编码颜色改 tokens,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 阶段1收尾: @ihui/app -> @ihui/rn-app 文档同步(comm,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 阶段2 P0+P1+P2 全部完成(5.5x -> 4.2x,10动作9 subag,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 阶段3 完成(4.2x->3.9x,5动作4 subagent+主agent并行),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-08-03):[x] ✅(2026-07-27) 阶段3.5 完成(3.9x->3.7x,9 screen 接入,4 subagent,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-08-05):[x] ✅(2026-07-28) 阶段4 完成(3.7x->3.5x,4 screen 接入 Article/Poin,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-08-05):[x] ✅(2026-07-28) 阶段5 完成(3.5x->3.3x,3 screen 接入 FavoriteItem,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-07-30) **P0 ai_pricing 数据状态收尾** — 验证 `ai_pricing.step,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-08-01) **P0-1 API Key 安全粒度 4 字段 + 鉴权强制执行**(subagent-1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-08-01) **P0-17 /v1/responses 端点(OpenAI Responses API ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-08-05):[x] ✅(2026-07-28) 阶段6 完成(3.3x->3.1x,8 screen mock 数据替换为真实 AP,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-08-05):[x] ✅(2026-07-28) 阶段7 完成(3.1x->2.9x,schema 字段补齐 + 真实文件上传 + 类,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-08-15):[x] ✅(2026-07-31) 模型名自动更新(ModelSyncService,Phase E 增量,用户反馈"模,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-08-15):[x] ✅(2026-07-31) ModelSyncService 深度优化 v2(15 项,Phase E v2,用,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-08-15):[x] ✅(2026-07-31) ModelSyncService 深度优化 v4(8 项,Phase E v4,用户,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-08-05):[x] ✅(2026-07-28) 6 个折叠子区完整覆盖 useAgentProgress 全部数据源,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-08-05):[x] ✅(2026-07-28) 字符数从外层 hint 行迁移至输入框内右下角 + enterToSend 5 语言,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-08-05):[x] ✅(2026-07-28) Phase 19 + Phase 20 完整收尾(4 commit + 4 suba,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-08-05):[x] ✅(2026-07-29) Phase 21 完整收尾(3 subagent 并行 + 1 浏览器验证,累计 6,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-08-05):[x] ✅(2026-07-29) Phase 22 完整收尾(3 subagent 并行,73 新单测,3 commi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-08-05):[x] ✅(2026-07-29) Phase 23 完整收尾(2 subagent 并行,36 新单测,2+ comm,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-08-05):[x] ✅(2026-07-29) Phase 24 终态收尾(用户要求"直到没有任何后续建议可给到我为止,完整收尾关闭,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-08-04) **P1: auth.ts QR 扫码登录**(2 端点 501 → 真实实装 + 新增 /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-08-04) **P0: user_token_balance 表补建**(预先存在的 schema 缺口,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-25):已完成 ✅(2026-07-30),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-12):本段全部完成,完整内容移至 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md;git 历史(commit 40ae3da648e 及之前)亦含完整原文 -->
+<!-- 已归档(2026-09-28:✅(2026-07-30) **P2-F.1**(本批次立即):已完成 H1-H5,4 适配层 + barrel + R,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-22) **P2-F.9 守门 67 判据补齐:从"认变量名"升级到"认响应体出处",同日再修两处同,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-08-15):[x] ✅(2026-07-31) 用户可输入 `ihui` 全局命令 + 一键启动 dev 栈,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):批次1:考勤管理(P0) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):批次2:家长端(P0) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):批次3:成绩管理(P1) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):批次4:智能排课(P1) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):批次5:作业管理(P2) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):批次6:招生管理(P2) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):批次7:财务管理(P3) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):批次8:现有功能优化 ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):P1 页面切换速度极致优化(dev 第七刀预热 + 6 区块骨架屏 + 生产预取体系,2026-09-03 立并完成 ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):P1 跨端视觉一致性:miniapp-taro 对齐 web 样式 + 双端同步守门(2026-09-03 立并完成 ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):P1 mobile-rn HomeScreen 底部输入框折叠态(2026-09-03 立并完成 ✅,提交 52c920,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):P0 web 端工作区两大缺陷修复:AI 读不到工作区文件 + 工作区未按对话隔离(2026-09-04 立并完成 ✅,,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):P0 竞品差距四大补齐:Tab 补全 + Merkle 三层索引 + popover 根治 + 签名链路(2026-09,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):P0 运行时真实度审计修复:索引触发链根治 + 孤儿路由打通(2026-09-07 立并完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):P0 web 端统一返回键:全站收敛至顶栏(2026-09-08 立并完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):F6-F8 媒体任务/声纹库 收尾深化(2026-09-09 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):Firecrawl 网页工具 前端操作页 + extract_web 费用归属 收尾(2026-09-09 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):extract_web LLM 费用真入账闭环(2026-09-09 第六轮完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):F6-F8 第六轮:全站 i18n 根治——构建期 INVALID_MESSAGE 清零(2026-09-09 完成 ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28):P0 AI 对话输入框上方任务进度状态条(2026-09-21 立并完成 ✅,跨端:packages/shared + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28):P0 消息流活动区统一设计语言(2026-09-21 立并完成 ✅,web + packages/shared + i1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28):P1 侧边栏底部 5 工具按钮收进用户行下拉菜单(2026-09-21 立并完成 ✅,平台独占:仅 apps/web),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26)（完成:提交 c80253f29b7 —— 栈单一来源落 packages/ui-react/,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 移动端输入框大框化 + 全项目加号统一 AddPanel(2026-09-22 立并完成 ✅,平台独占:apps/,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 深色模式接线与底色统一(2026-09-23 立,主体完成 ✅,平台独占:apps/mobil,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 深色复核收尾:Drawer/NativeWind 残余清零 + Profile 对比度修复 +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 共享工作区幻影滞后根治:137 个被删跟踪文件恢复 + 503 文件对齐 HEAD + gitdir 备份重建 +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 G-168 桌面端正常使用被封 IP —— 反自动化封禁面五点收口(2026-09-23 立并完成 ✅,跨端:ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 我的页深色复核第二轮:离板色/低对比前景收口 + 首屏超时真重试(2026-09-23 立并完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 主 CTA 深色档立档(brand.ctaFill/ctaText)+ 30 处成对迁移 + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **消掉一个必然阻塞**:`App.tsx` 的 `if (!fontsLoaded) re,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 守门 75 扩 R3「纯白填充」棘轮 + 补 R1 共享包盲区(2026-09-23 立并完成 ✅,单端工程治理:,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 自愈层判据缺口补齐:旁路提交后"工作区==HEAD 而索引停在祖先版本"此前永不刷新(2026-09-23 立并完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 测试基建根治:色板镜像漂移 + 12 个测试文件从未执行 + 主题单例浅拷贝污染(live) ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) `apps/mobile-rn/src/screens/HomeScreen.tsx` 的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 工作区存续自愈被"暂存删除"打崩已修 + 244 处判读子代理超时未交付(产物已量化交接)(2026-09-23 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **做了什么**:.ihui-agent/tmp/copay-plan-registrati,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **传输层单点化(已落地)**:`notify-deploy-failure.ts` 已扩为,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O25 部署失败邮件走纯文本通道 —— 品牌模板层合并根治 + 守门 81(2026-09-23 立并完成 ✅,单端工程,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **根因定位(已确证)**:`deploy/win/ihui-deploy.ps1` 的 `,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **守门 41 面:幻影漂移对齐挂进 git-guardian 每 2 分钟一趟**(com,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **守门 44 恒红解除 = 恢复全链守门**:一级目录 11 项 `.git.broken,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **O28① 白名单额度对齐新判据(commit `4b00fa5c907`)**:上一票给,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **O28③ 顺带查清两个坑并留档**:① `apps/web/src/components,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O28 门 53 白名单按新判据重算收紧 + D71② 真实障碍与"第二张错误表"预警(2026-09-24 立并完成 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **O26① 守门 53 升 blocking(commit `3ddf3dddc88`)*,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O27 守门 75/76 让号至 83/84 —— runner 的 id 唯一性自检由红转静默(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O26 推送与提交链两道静默失效根治:门 53 升 blocking(前置补 roleId 来源排除)+ 暂存还原批量失,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O35 镜像配额根因链收口(Gitee 内部备份标签清零)+ 守门 71 补任务标题族 + vbs 生成器/产物漂移(2,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **守门 41 由红转绿,解除全队被迫 `--no-verify`**:并发建立的重复 re,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **O30① O13b 第二段 ① 实质收口(commit `369a750e2eb`)**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **同一红点的第二轮根因(只删 remote 会以为已修完)**:移除 `gh` 后守门 4,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) **阻塞主体(需用户操作,非本会话代码可解)**:`git push` 被 GitHub p,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **4 道 blocking 门红在 HEAD(union 复活的裸副本,勿照本行派单 ——,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **D92 的阻塞点原来不在"没人建表",而在码被丢掉**:`formatSSEError`,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O33 主线推送恢复实证：allow-secret 已放行 + 夹具拆写 + 告警按 used_in_tests 关闭（,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)**守门 57 改判「仓库内容」而非共享工作树快照**:本会话只改守门脚本,[57] 却报 5,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)**根目录整洁(守门 44)归绿 + 归档落点收口**:一级目录 7 项 `.git.brok,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)**本轮真机走查查出、刻意未批量改的两项结构性欠账(2026-09-24)**:① **守门 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅ **逐项定性(每项都有可复算证据,不靠猜)**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O36 守门"接线层"根治 —— 补装三枚造好没装车的门、修一道假阳性、摘掉两处恒绿登记(2026-09-24 立并完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O39 守门接线层第二批 —— 门 91 补装、8 枚结构性豁免、门 89 新增 R4 反向对账、tag 远端备份改 f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **本会话最干净的一次自证:我登记守门 91 的同一分钟,并发会话在同一位置也登记了一道 9,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **ai-service `.venv` 处于半损坏态**:`.venv/pyvenv.cf,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O42 台账也不能撒谎 —— 门 89 新增 R7「豁免依据必须可核验」，并当场抓到一条已入库的假依据(2026-09-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **止血③ 守门 93 `check-c-drive-pollution.mjs`**(wa,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅ **桌面端本地打包不再恒红(提交待合,agent 路 A)**:实证用户那次"打包失败"的真实形态是,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「62 · 会话搜索栏挂载+侧栏批量选择」),,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「83 · Spec↔Code双向落差检测+L,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「54 · 工具连续失败反思/卡死检测上提到主,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) **守卫票: `scripts/i18n-apply.mjs` 把未知参数当"无参",`--,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) 计划任务 `IHUI-C-Drive-AutoMaintain` 仍未注册(注册 = 影响全,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **R3 名单 11 → 1 的处置口径**:155 枚守门逐枚实测后,**只接真该接且今天,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O44 编号连环撞车收口 + 假逃生舱清零 + 水印语法门装车：守门 89 的 R3/R5/R7 同时归零(2026-0,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O43 凭据健康巡检两处实测缺陷修复：import 即发告警（缺 §22d 守卫）+ 部署停摆项在非部署机恒红（2026,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O42 台账也不能撒谎 —— 门 89 新增 R7「豁免依据必须可核验」，并当场抓到一条已入库的假依据(2026-09-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **O41① 用户授权后注册计划任务,并给出装车证明**:`IHUI C-Drive Aut,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **⑩O29 续:bridge 邮件腿真接线 + Server酱假成功 + 全站 SQLi ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O41 C 盘自动维护任务真正装上 + 盘根 71 项待定性复核(2026-09-24 立并完成 ✅,单端工程治理:sc,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O49 文档隐形即拦 —— 守门 89 的 R4 升 blocking(带双向端到端证明),顺带修掉一处被并行提交截断的,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **定位并修掉启动崩溃**:clean release 包(code 12)装机后 `Fat,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **C 组刻意没动,待用户定性**:`C:\ai_zhs\cert\*.pem`(5 个,每,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **实测钉死一条边界:单屏无法把底色铺进状态栏带 ⇒ 带色只能在单点改(端内那条路已证伪并回,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O52 C 盘"怎么占了这么多"全量对账:34.75GB 逐项验身份后回收,并把三类系统自产残骸接进每日维护(2026-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O51 守门 78 装上"链接内容 / 命令可解析"两维并当场咬出全机门禁停摆 —— 含我自己造成的重复票与一次误删链接,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O52 shim 完整性判据的取证反转 —— 我原来的"基线未证明"是破损现场给的错觉，判红落点因此放在提交链之外(20,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O53 shim 完整性判据的取证反转 —— 我原来的"基线未证明"是破损现场给的错觉，判红落点因此放在提交链之外(20,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O54 守门 78 补第五维 + 深扫 .pnpm 闭包、守门 89 文档面改判 HEAD∪索引 —— O52 三条残余,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O54 §26 改道自愈的第三层:悬空 junction 必须能重建 + 冷却不得拦住人工窗口(2026-09-24 立,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O56 合并吞并的修复出口 `union-converge` + 守门 96 被旧基线回写后的复位(2026-09-24,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅ **本阶段刻意没做的两件事**(留给拍板,不是遗漏):① `pagefile.sys` 32GB 才是 C 盘最大单,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D92 插件/MCP 视图失败分类学(G-125)**:Qoder 有 **15 种**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **C 组刻意没动,待用户定性**:`C:\ai_zhs\cert\*.pem`(5 个,每,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **给 `union-converge` 补上"声明式例外" `--take-ours <p,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **P1 v3 端 `/alpha` 不出规则:三条修法已实测排除,唯一可行路径已定档(未落,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **前向更正本票残留 ③ 的措辞(我写它时还没读完实现,它把"设计如此"写成了"在途")**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **P1 区段头「查看更多」入口三端统一为矢量箭头 + 文案精简「更多」**(全端:mobi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O59 Esc 层栈迁移收尾 + 台账与 HEAD 对账改判(2026-09-24 立并完成 ✅,跨端:apps/web,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **D38 队列语义完整交互(G-42)**:拖拽重排 / 撤回 / 编辑队列项 / 「打断,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **D39 错误重试可观测 + 额度耗尽处置动作族(G-44/G-45)**:error 卡,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):O60 未认领票全量 HEAD 对账(2026-09-25 完成 ✅):53 张票三态判定 + 台账漂移量化 + 三处代,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **四条 CI 连红收口**（`7c6c24fd693` / `ebb1e57e393`）—,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **脱敏中间件的子串误伤**(`39ef399b5cd`)：CI 里 e2e-browser,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **D83 MCP 定制措辞层装车入库 `9b024c54940`**(8 文件 +409/,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **补跑全链并对本票改动求差**:CAS 旁路提交不跑钩子,所以"门没红"不等于"门跑过"。,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **D38 队列语义完整交互(G-42)**:拖拽重排 / 撤回 / 编辑队列项 / 「打断,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **WP-7 浏览器语义快照与活句柄层**(CLI + 扩展两端入库 `9f404d0`/前,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28 现读归正:模块已入库且接线已完成,本行是解阻条件达成后未翻勾的陈旧账) **`stream-t,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **O60 残余② 当场收口(不留"报告只在 tmp"的尾巴)**:8 份逐票对账报告 + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **上一条"未闭环六项"里四项已就地做完**:,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **D17(生态统一入口)** —— 本行是 `merge-live-doc --apply,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):O60c D17 入库 + 同一机制的第二条成因被当场逮到(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **B15② `ext_ui` 第五族：把扩展自有界面(sidepanel 44 页 / 5,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O62 取材层收口成一一份 + 顺带修掉它引出的两个连锁缺陷（2026-09-25 立并完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O63 八道门迁入取材层的第三波:6 道落地 + 2 道按住,并把"量等价"这件事从比旧基线改成同瞬间 A/B(2026,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **动作**:R6 的"必须登记 / 清单腐烂"两判据从三个消费端收窄到**真 v3 两端*,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) P1 **返回键同一型跨端清账(本票的直接续作,数字已量)**:① `packages/ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **D48② `ihui-vault.json` 进 `.gitignore`**(表第 1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **G-174 门 108 的棘轮"只下调"配上静态存量数,产出一条没有任何合法出口的恒红(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **G-173 门 107 把"可审计锚点"写进了 gitignored 目录 ⇒ 这道 b,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **A36 第①步落地：入参校验器接上"影子模式"，并立守护门 115**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **A26「branded nominal id」量完 ⇒ 不采纳（附真暴露面读数，不是我先,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **A26「branded nominal id」量完 ⇒ 不采纳**（同体两行的旧副本，现,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **A34 出站事实随返回值走 → 门 116 上线**（`packages/types/s,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **新建 `scripts/scrub-temp-fixtures.mjs` —— 本项目测,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O74 收敛器不再拿"会被清掉的本地指针"当远端真值(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **D30② 修复结果开 PR**（`apps/api/src/services/githu,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O76 "远端现在在哪"上移到取材层:三处同族残留收口 + 一把防回潮尺子(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **D30① 收尾半格：webhook 路由侧接线**（`apps/api/src/rout,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **新建 `scripts/check-memory-owner-binding.mjs` ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **把 `POST /rules/auto-generate` 从"永远拿不到东西"修成端到,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O78 收敛器收尾对齐"长期失败"接上到人出口(2026-09-25 完成 ✅,闭合 O74 的 ②),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O79 复测两条幻影债:那"4 道恒红的 blocking 门"与"0 个纳管模块"都不复存在(2026-09-25 完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O80 Hook 通知渠道三面漂移收口:定性靠生产者/消费者双证据,对账改成四面 + 一张带到期日的欠条(2026-09,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O81 webhook 通知分支补测 + 一次"未跟踪目录遮蔽模块"的事故登记(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **回归普查(全量,比抽样强):开链引入的"同元素同属性竞争"= 27 处,其中实质风险 0,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27 翻勾:同题已由 2026-09-25「现测本条是幻影债」销账 —— 实名 `IHUI C-Dr,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:计划任务 `IHUI-C-Drive-AutoMaintain` 仍未注册(注册 = 影响全机的删除动作,须用户授权);,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()`(`chec,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **守门 81** `check-brand-email-channel.mjs`(bloc,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-25):对话链路对标 Codex/Trae/Qoder 补洞 W1-W5 ✅(2026-09-18,跨端:ai-service ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-25):已完成 ✅(2026-07-30),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-25):产品 AI 能力满分开发(2026-08-12 立,P1,ai-service 为主) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-25):第二轮:三 agent 并行穷尽审计 + P0 越权根治(2026-09-09 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-25):第三轮:admin 判定复核 + 声纹删除越权收敛(2026-09-09 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-25):第四轮:video.py 越权收敛 + 回调验签 fail-closed(2026-09-09 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-25):第五轮:产品完整性收尾——交付承诺逐项对账(2026-09-09 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **ai-service `.venv` 处于半损坏态**:`.venv/pyvenv.cf,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27 用户授权后代定性:10–20 字节装不下任何 PEM,判**占位/损坏假文件、非真证书**;真,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **C 组刻意没动,待用户定性**:`C:\ai_zhs\cert\*.pem`(5 个,每,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **D106 消息级"交代帧"跨端消费缺口(G-148;实测量化,不是推测)**:多落点 g,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27 用户授权后代定性:10–20 字节装不下任何 PEM,判**占位/损坏假文件、非真证书**;真,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) H2 FIM/Monaco 闭环:Web 编辑器 inline completion 接入 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **[归并]** 本行与已完成登记同题(主键 「D111」),是被并发并集留下的未翻勾副本 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **D17(生态统一入口)页面已写完但缺语言包,按住**:`apps/web/app/(ma,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) `/api/agent/goal-verify` **无生产消费方**(端点已注册、测试已断,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **守卫票：`scripts/i18n-apply.mjs` 把未知参数当"无参"，`--h,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **P0 授权缺陷：`POST /skills/market` 可用自报 author 认领,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **[归并]** 本行与已完成登记同题(主键 「O10」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **[归并]** 本行与已完成登记同题(主键 「G-174」),是被并发并集留下的未翻勾副本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **合并后按 HEAD 面复算的现值(不沿用提交前读数)**:守门 102 全量面 exit,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **G-182 任务归档器已经空转 11 天,而它的 15 个镜像测试一路全绿 —— 因为测,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **更正我自己写进 `app.css` 注释的归因**(提交 `5e3978a268`):注,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25 深夜) **AGENTS.md §4 那两条 ⚠️ 已就地补"现值为准"更正(旧行逐字保留,§,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **[归并]** 本行与已完成登记同题(主键 「D38」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **[归并]** 本行与已完成登记同题(主键 「O13b」),是被并发并集留下的未翻勾副本 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:**他人账，本票未代改（登记事实与解阻判据）**：门 103 **全量**档 exit 1 报 2 处，红在 〔清账@2,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26)**D64 小元素包(G-72/75/77/79/82/83)**:①Credits 热力图(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md 〔【归并】D64 落账:复测 2026-09-26 -->
+<!-- 已归档(2026-09-28:✅(2026-09-26)（完成:提交 c80253f29b7 —— 栈单一来源落 packages/ui-react/,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **存续自愈与在飞删除相撞(需归属会话立即脱离窗口)**:`--dry-run --json,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **[归并]** 本行与已完成登记同题(主键 「O20」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **[归并]** 本行与已完成登记同题(主键 「O13b」),是被并发并集留下的未翻勾副本 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **本轮未落地、需重做的一批(web 86 处内的键名对齐)**:该批次报告改了 4 个文件,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28) **本线仍未闭环的一件(归属明确,不是遗漏)**:守门 93 的 **R1/R2/R4/R5,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **[归并]** 本行与已完成登记同题(主键 「O80 · 存量漂移一条」),是被并发并集留,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **紧急(他人暂存态,非本会话所为,2026-09-24 11:0x 发现)**:**索引里,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md 〔【归并】D62 落账:复测 2026-09-26 -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **[归并]** 本行与另一条已完成登记**正文逐字等值**(该登记开头「**紧急(他人暂存,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末五 —— G-231 穷尽式恒红门审计 + 告警/跳门总量首次可量 + 收敛器不再自造全链跳门(2026,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26)**H-5 `ToolResultBudgetContract` 已接上运行时消费面**(`0,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26 05:3x) **门 118 补上「半接线」判据:引了 `face-reader` 不再等于走,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28) **D41 Office/PDF 产物预览(G-49)**:docx/pptx(含讲者备注),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) O10 对外 run 语义：幂等 run 创建（`Idempotency-Key`）、外部 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **[归并]** 本行与已完成登记同题(主键 「O10」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26 07:0x) **守门 125 的 R4 看不见"被 prettier 拆开的那一行",而我上,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) P1 **`check-auth-refresh-singleton`(hook 批外步骤),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **终读(HEAD 面,全量审计):S0 0 / GA1 0 / GA2 0 / GA4 0,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26)**销掉一条会误导派单的旧登记**:AGENTS.md §4 那句"`packages/app,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26)**先推翻我自己昨天收尾时写下的定性**。附⑩ 的结论"全端真实可达率 = 269/771 =,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **G-192 递归那一格做完了,并且把看守扩到了归档层自身(A3)**:G-191 留的尾,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) D29 团队级知识引擎:记忆/Repo Wiki/知识卡云端共享+成员修正+过程审计(对标 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **[归并]** 本行与已完成登记同题(主键 「D29」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **[归并]** 本行与已完成登记同题(主键 「D31」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26 02:2x) **G-205 桌面端事件链路接线守门因一次正当重构而恒红 —— 修尺子,不动别,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **先销自己的错**(上一格"续末②"里我写的两个数都是错的,现按实测更正):,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **续末③ 清单 A 的源码收编落地一半,并把"另一半为什么收不了"写成证据**:,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) D17 专家包/技能市场/连接器授权中心统一入口(对标 WorkBuddy 生态)(G-25,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26)`cache: { enable: true } → false`(提交见 `apps/min,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):O36 追加(同日):对账门 5 枚红点全部判明,并把"对账门自己也没装车"这条钉上(2026-09-24 立并完成 ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):批次1:考勤管理(P0) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):批次2:家长端(P0) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):批次3:成绩管理(P1) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):批次4:智能排课(P1) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):批次5:作业管理(P2) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):批次6:招生管理(P2) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):批次7:财务管理(P3) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):批次8:现有功能优化 ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):O36 追加(同日):对账门 5 枚红点全部判明,并把"对账门自己也没装车"这条钉上(2026-09-24 立并完成 ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):O60 未认领票全量 HEAD 对账(2026-09-25 完成 ✅):53 张票三态判定 + 台账漂移量化 + 三处代,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):O60c D17 入库 + 同一机制的第二条成因被当场逮到(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):第五十批(2026-09-25,✅ 已闭环,用户指令"我需要所有都做到自动同步 以 web app 为主"),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):O60d 第二波并行编码落地(2026-09-25 完成 ✅):6 票入库 + 1 票按住 + 两处 HEAD 级恒红当,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):O60e 收尾三件:收敛器落地闸的"搬家≠吞并"、一批 HEAD 级红的逐条归因、六路报告转正(2026-09-25 完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):O60f D19 解锁入库 + 一次"上一票的按住结论会不会过期"的实战(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):O60g 我自己那张"未开工清单"里有两处过期判定 —— 复测更正,并给出剩下真未开工的门槛(2026-09-25 完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):O60h 第三波:9 路并行取证与清理的双态行收口、清单更正,以及量出来的 12 条新敞口(2026-09-25 完成 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):O60i D94 交接单接进对话流失败位，并自曝一条"装车"判据的漏洞（2026-09-25 完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):O60j 失败卡两份实现合一（任务 #10 收口），并更正我 O60i 里一句过强的话（2026-09-25 完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):O71 取材层收口的最后一跳:守门 93 自带的那份 `cat-file --batch` 归一(2026-09-25 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):小程序端页头返回键收编到矢量单一源头 + 守门 102 扩 GA4(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):O36 追加(同日):对账门 5 枚红点全部判明,并把"对账门自己也没装车"这条钉上(2026-09-24 立并完成 ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):批次1:考勤管理(P0) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):批次2:家长端(P0) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):批次3:成绩管理(P1) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):批次4:智能排课(P1) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):批次5:作业管理(P2) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):批次6:招生管理(P2) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):批次7:财务管理(P3) ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):批次8:现有功能优化 ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):O36 追加(同日):对账门 5 枚红点全部判明,并把"对账门自己也没装车"这条钉上(2026-09-24 立并完成 ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):O60 未认领票全量 HEAD 对账(2026-09-25 完成 ✅):53 张票三态判定 + 台账漂移量化 + 三处代,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):O60c D17 入库 + 同一机制的第二条成因被当场逮到(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):第五十批(2026-09-25,✅ 已闭环,用户指令"我需要所有都做到自动同步 以 web app 为主"),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):O60d 第二波并行编码落地(2026-09-25 完成 ✅):6 票入库 + 1 票按住 + 两处 HEAD 级恒红当,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):O60e 收尾三件:收敛器落地闸的"搬家≠吞并"、一批 HEAD 级红的逐条归因、六路报告转正(2026-09-25 完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):O60f D19 解锁入库 + 一次"上一票的按住结论会不会过期"的实战(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):O60g 我自己那张"未开工清单"里有两处过期判定 —— 复测更正,并给出剩下真未开工的门槛(2026-09-25 完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):O60h 第三波:9 路并行取证与清理的双态行收口、清单更正,以及量出来的 12 条新敞口(2026-09-25 完成 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):O60i D94 交接单接进对话流失败位，并自曝一条"装车"判据的漏洞（2026-09-25 完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):O60j 失败卡两份实现合一（任务 #10 收口），并更正我 O60i 里一句过强的话（2026-09-25 完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):O71 取材层收口的最后一跳:守门 93 自带的那份 `cat-file --batch` 归一(2026-09-25 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-26):小程序端页头返回键收编到矢量单一源头 + 守门 102 扩 GA4(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26)**结论:受影响,构型与 production 一模一样。** 附⑫ 只测了 `taro bu,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O36 追加(同日):对账门 5 枚红点全部判明,并把"对账门自己也没装车"这条钉上(2026-09-24 立并完成 ✅,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:小程序端页头返回键收编到矢量单一源头 + 守门 102 扩 GA4(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27 已修,提交 `d12125f071c`:根因 = toolTextWrap 无 flex 收缩,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09) P1 **首页「独家开发 AI Agent 应用」宫格中间列两张卡文字重叠**,另有一个机器,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) P1 **广场(AI需求广场)首屏直接进错误态**:文案「提交的信息有误,请检查后重试」属 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27 已修,提交 `8ef8b657106`:删共享 packages/app SettingsSc,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) P2 **设置页双层页头**:顶上「设置 + 菜单」一条栏,下面又一条「`<` 设置」(`p,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28) P1 **守门 8 `check-api-routes` 只扫 `apps/web`,三端死,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **[归并]** 本行与已完成登记同题(主键 「G-207」),是被并发并集留下的未翻勾副本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-209」),是被并发并集留下的未翻勾副本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **G-208 一次重启把 API 与部署环同时打死,而两者的成因是同一个:判"活着"用的是,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O82 计划文档任务状态分叉归并（2026-09-26 立并完成 ✅，守门 130 配套）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O82附 收敛器侧的同一道自证（2026-09-26 立并完成 ✅，守门 130 的盲区补票）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) P1 **把 `packages/api-client` 加进守门 8 射程后实测出一台"假,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **CI `Knip` job 连红 12 天归因 + 收口**(`5f1ef969c9`),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **O82续三 落账** 三路守门票全部入库：守门 8 前端调用面从 apps/web 扩到,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **O82续三 更正** 上面第二格说"18 条翻勾 + 2 条租约摘牌 + 1 条改写"，,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **O82续三·D35后续①**：`projectionState` 的**写入**方仍无人,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28) **O82续三·D41后续①**：11 条新文案只在组件内联兜底（清单在 `.ihui-ag,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **O82续三·守门8后续①**：三端首纳入的死调用存量已冻进 `scripts/api-r,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28) **O82续三·D41后续①**：11 条新文案只在组件内联兜底（清单在 `.ihui-ag,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **O82续三·D35后续①**：`projectionState` 的**写入**方仍无人,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28) **O82续三·D41后续①**：11 条新文案只在组件内联兜底（清单在 `.ihui-ag,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **O82续三 落账** 三路守门票全部入库：守门 8 前端调用面从 apps/web 扩到,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28) **O82续三·D41后续①**：11 条新文案只在组件内联兜底（清单在 `.ihui-ag,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **O82续三 落账** 三路守门票全部入库：守门 8 前端调用面从 apps/web 扩到,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **O82续三·D35后续①**：`projectionState` 的**写入**方仍无人,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28) **O82续三·D41后续①**：11 条新文案只在组件内联兜底（清单在 `.ihui-ag,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **G-215 包入口 barrel 漏 re-export 是"本地 typecheck ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28) **D58 的"countable=false 仍渲染标题"与摘要卡片"全零不渲染"早返回互,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **G-217 语言包内容被并发提交按旧基线整文件写回,五道 i18n 门与部署环一路绿灯(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27 翻勾:三格全部有归宿 —— ① 成因面已由 **G-224** 取证坐实:是"拿同步盘 09-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28) **G-223 今天 03:06–03:08 `apps/api/.env` 被换成一份缺 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **G-209 `git-sync-converge` 违反 §5b 自己那条"origin,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **小程序主包余量从 2,457 B 抬到 128,903 B(`2162e460ee`)—,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **守门 94(errorCode 覆盖率)现在是真红,但红不在内容里,补目录行会制造孤儿条,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **一条否证,免得下一个人去回补不存在的洞:"我的登记行被顶掉了 8 行"这个读数对本会话不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **把自己登记里的证据指针从"一次性探针"改成常驻判据(上一行 R6 条目里那句 `.ihu,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **门 101 补上第 6 维 R6"分区同形"—— 把今晚 CI 那一片红的形状变成判据,,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **更正我上一格登记里的一句过度断言**:第五十一批收尾那行写的是「唯一仍红的是 `deli,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **`Lint` 步已随 `815adb7d51` 归零(实测于 origin head `,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **就地更正上一条:probe 的 export 别人已经修好了,我交的那一行是冗余;我这一,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) D29 团队级知识引擎:记忆/Repo Wiki/知识卡云端共享+成员修正+过程审计(对标 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26)**守门 71 的取材面收口(它自己就是"判据失效表现永远是安静"那一型的现役样本)**:全量,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+- **⑦ 顺手关掉一处会让别人跳门的红**:`check-watermark-coverage --no-fix` 现读唯一缺口是并发提交 `3dc77484be7` 新建的台账去重归档件 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md`(缺溯源横幅)。只走 `watermark.mjs inject`(禁对含载荷文件做文本级批量改写,§5c),`verify` 覆盖 1/1、残迹 0、损坏 0,该门由 exit 1 转 exit 0。
+<!-- 已归档(2026-09-28:✅(2026-09-26)O85 用自家自媒体发布能力推 IHUI-AI：掘金已提交(审核中)+ 两处发布适配器入口失效,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26,提交 `61cea5534` + `HEAD` 后续那一枚 failed 档补刀)**G-22,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26)**G-224 根目录 `.env` 是同一次事故的**上游受损件**,已按血缘补齐;并把"看,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **G-225 §27 那句"所有 .ps1 第一行必须 `#requires -Versi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27 凌晨) **三条 api-client 死路径逐条判到"需新端点",且"面差一格"这一票的缺口,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **把第二十四批留下的"布尔 ack 惯例面"从散文决策变成一整批真实改动** —— 承接上,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) **余 38 处布尔 ack 的四格分解与下一跳的判据扩展**(现读法:`node scri,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **主结论是否证，不是修复**：用户问「报警邮件为什么有一串经纬度」。仓库内**不存在任何一,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86 报警邮件里的经纬度坐标溯源 + "名为哈希/脱敏实为明文"四型收口（2026-09-27 立并完成 ✅，comm,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86附 守门 137「名字承诺/实现兑现对账」接进提交链（2026-09-27 立并完成 ✅，O86 的另一半）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **本批立项取证(第三轮对标,由本会话完成并产出下列计划)**:方法 = 三层全量取证(we,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) **D122 压缩质量回归评测集(G-236)**:压缩机制已领先(见已领先矩阵④),缺质量,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) **D127 对话质量黄金任务集(超越的根)**:对标功能逐条配 e2e 是既有纪律,补一层,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86附② 生产机实测收口"服务端历史明文行"这一项（2026-09-27 立并完成 ✅，本机是空开发库不作数）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **顺带查出一场全机规模的门禁停摆(比本票原任务更严重)**:排查 eslint 为何没给我,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) O81 票⑧ —— **圆角跨端同档:尺子已建完,收敛按台账走**。用户原话「App 端 小,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「51 · runinbackground真实,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:**同批登记一条通道侧实测（供下一次诊断省一轮）**：`core.sshCommand` 曾一度写成 〔清账@2026-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **G-227 现象与实测因果链(四段全部现量,非推断)**:`.workbuddy/git,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27 **翻勾上一格:跨周期复验已做,现网读数**)重启 `IHUI-GIT-GUARD` 后静置 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「62 · 会话搜索栏挂载+侧栏批量选择」),,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27)**由该日志取得决定性实证,上一格「残余③」里"两实例并存"从"未追的线索"升为已定性的独立缺,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28) P1 新登记(接上条,解阻前置已明确):僵尸实例修复。可选方向三条,按仓库既有取向排序 ——,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **第三十三批：协议级 JSONL 读取声明帧预算，把"超限"从"连接死亡"里分出来**（`,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27)根因逐环取证(读到的实现,非推测):`app.exit(0)` 只是向事件循环投递 `Mess,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) P1 残余①:`apps/web/src/lib/tauri-bridge.ts` 里 `s,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) P1 残余②:桌面端 `tauri_plugin_log` 注册处只给了 `.level(I,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 2026-09-27 桌面端「正在退出...」永久转圈退不掉 —— 退出链补「必然终止」兜底(单端:desktop,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27)退出兜底已随 **v0.1.45** 出包:本机 `tauri build` 产出 + 签名(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-26) **[归并]** 本行与已完成登记同题(主键 「D29」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-206」),是被并发并集留下的未翻勾副本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) 进行中@2026-09-26/O81票）O81 跨端 UI 单一源:小程序端与 App(RN,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-206」),是被并发并集留下的未翻勾副本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-239」),是被并发并集留下的未翻勾副本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **批次 49 `normalizeToolArguments` + 有界 repair +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅**根因确认并修好**:不是 NSIS 插件缺失,也不是仓库 `.nsi` 内容 —— 是 `release-desk,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅**同批另两处修复已入库**:`quit_app` 的 3 秒强制终止兜底 + `setup` 里"main 窗口没建,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **批次 44 守门 147 `check-model-capacity-parity`：模,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-239」),是被并发并集留下的未翻勾副本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) O81 票⑬ —— **读数补三条 + 真 A 类一枚 + 13 族差异逐条登记理由**。承,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-239」),是被并发并集留下的未翻勾副本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **更正我自己刚才那枚登记的提交标题**:`f669280a69d` 的标题写着「O81 票,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **先量事实,再定性**:今天部署环寄信按小时分解 = 02 点 1 封 / 03 点 3 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末四 —— G-230 今天第三道"对 HEAD 恒红"的 blocking 门(mypy)+ 顺手抓到 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末三 —— G-229 告警去重的账收进发信唯一出口 + 两道红门把全队守门顶成 --no-verify(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末二 —— G-228 部署环撞分叉不再直接报警(2026-09-27 立并完成 ✅,机主投诉「一直在寄告,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27,提交 `4b6c18348` + `f939e1586` + `ba0575f9b`)**第五,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27,提交 `26f88c49e`)**G-208 留下的第三格:API 启动前置 PostgreS,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27 翻勾:止血 + 判据 + 覆盖面补强三件齐,证据 `a980463fc` / `0e1e51c,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) O81 票⑮(同会话续做,但主题已越出 O81)—— **提交链上两道 blocking 门,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27,提交 `d3ca3a369`)**新尺子 `scripts/check-plan-sha-re,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27,提交 `bd35f4f54`)**G-240 的第②步出口:影子台账 → 可排期的问责清单 `,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) 进行中@2026-09-27/主会话）O81 票⑰ —— **`2f-ext` 升 bloc,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **`scripts/check-credential-health.mjs:832` 的正,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27,提交 `f8f212018`)**门 89 的 R4 抓到我自己的一处"装了没登记"**。批量,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27,提交 `ac0e6dd96` + AGENTS 登记 `48c6cc559`)**根治波第一格,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **G-254 计划任务越做越多的根治:台账加「归属分层 + 交代/寿命」两维(守门 130,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) 进行中）**真机走查(2026-09-24,v0.0.5/code7)三项新发现的收口状态*,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:G-249 线程 metadata 整写抹掉已持久化身份 —— 第六十批收口(ab622df09),含"补写 metad,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-254」),是被并发并集留下的未翻勾副本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-255 同一块 metadata 的第二种被冲法:`thread/metadata` 整,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-256」),是被并发并集留下的未翻勾副本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **O87 台账主键族对"行首裸编号"整族失明(F1/F4/归并器三处同盲 ⇒ 已完成的票被,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **G-255 超 2 天台账第一批逐行收尾(26 行 → 5 行结清 / 21 行按理由保,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **86F. 导出信封与审计链的"链锚"绑定 + `canonicalStringify` ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **86H. agent 审批的权限决策落审计链(#86 维度③残余)**（归属：本线,已落,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **86G. 导出验签的公钥分发与密钥轮换(两格都需 §24 拍板,不是遗漏)**:① 目前,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-257」),是被并发并集留下的未翻勾副本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-258」),是被并发并集留下的未翻勾副本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-257」),是被并发并集留下的未翻勾副本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:G-270 备份端到端还原实证(2026-09-27 ✅,机主单次授权的人工演练,不改 scripts/pg-resto,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **O87a 死调用 `/api/courses` 改走真实端点**:现场实测 `GET h,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **O87h 课程列表缺「难度/价格」查询轴与真分页(属 API+schema 决策,不是清,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **G-263 线上 prometheus 收口成"仓库唯一源",挖出两条"账面绿而告警永不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **G-265. 守门 `check-stale-dist.mjs` 对 `@ihui/ty,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「86D · 保留策略与墓碑」),是被并发并集,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:（✅@2026-10-05/g2-alltasks） **G-269 备份在线还原演练实测(2026-09-27,机主授,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **G-267 windows_exporter 401 的真因是"文件形状",并推翻本会话,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **86G-1. 免鉴权验签公钥端点已落地(86G 的第一半;用户拍板"开免鉴权公钥端点"),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **G-264 三件"看起来存在、实际永不生效"的东西一起收口(枚 `0b2c28386`),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **G-275 D35 长会话分页投影收口:读路径第一次有可执行入口** —— 共享层那句『,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **G-281 "本机绿而 CI 红"这一格今天清到底:三处成因逐个钉死** —— ① **,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **G-282 CI 连绿现在被一枚 mobile-rn 的已入库类型红灯挡着 —— 归属该,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **G-282 实况更正并结清:票面障碍(已入库红灯挡 CI 连绿)已解除** —— ① `,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) G-285. **`scripts/run-evidence.mjs` 结构上不能用于"cw,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **G-290(进行中@2026-09-27/主会话)`QuitUpdateOverlay`,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **G-290`QuitUpdateOverlay` 引用了四个谁都没写的键 —— 安静存量,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **G-290(归并:本行是同编号的过期未勾副本,现行结论见另一条已完成登记)** —— 现,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「O14b2」),是被并发并集留下的未翻勾副本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-104 · 规格补强三条」),是被并发并,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28):P0 AI 对话输入框上方任务进度状态条(2026-09-21 立并完成 ✅,跨端:packages/shared + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28):P0 消息流活动区统一设计语言(2026-09-21 立并完成 ✅,web + packages/shared + i1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28):P1 侧边栏底部 5 工具按钮收进用户行下拉菜单(2026-09-21 立并完成 ✅,平台独占:仅 apps/web),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-256」),是被并发并集留下的未翻勾副本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「O86」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86附⑩ 桌面端「退不掉」这条线到此收口:托盘/Ctrl+Q 立即退出 + 退出遮罩整条移除 + feed 变窄护栏(,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O62 品牌实底「大面积反色」全栈收口 + Tailwind v3 端 /alpha 修饰符落地(2026-09-25 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 2026-09-23 磁盘清理 13.9GB + 三道守门加固 + 凭据库防误删(单端:工程治理/守门脚本,已完成,随块带走的归并落账注记: 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O28 门 53 白名单按新判据重算收紧 + D71② 真实障碍与"第二张错误表"预警(2026-09-24 立并完成 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O27 守门 75/76 让号至 83/84 —— runner 的 id 唯一性自检由红转静默(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O26 推送与提交链两道静默失效根治:门 53 升 blocking(前置补 roleId 来源排除)+ 暂存还原批量失,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O33 主线推送恢复实证：allow-secret 已放行 + 夹具拆写 + 告警按 used_in_tests 关闭（,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O45 C 盘"还有我们的东西"第四类真因:守门只看自己的 TEMP,真凶在服务身份的 TEMP(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O42 台账也不能撒谎 —— 门 89 新增 R7「豁免依据必须可核验」，并当场抓到一条已入库的假依据(2026-09-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O44 编号连环撞车收口 + 假逃生舱清零 + 水印语法门装车：守门 89 的 R3/R5/R7 同时归零(2026-0,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O43 凭据健康巡检两处实测缺陷修复：import 即发告警（缺 §22d 守卫）+ 部署停摆项在非部署机恒红（2026,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O45 C 盘"还有我们的东西"第四类真因:守门只看自己的 TEMP,真凶在服务身份的 TEMP(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O47 桌面端更新 feed 的平台覆盖收口:主端点从「只有 windows 一个键」改为四平台,并证伪「缺键会自动回落,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O55 合并吞并已入库内容这一整类:新守门 100 + 两次 union converge(35 路径 / 净 −120,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O49 文档隐形即拦 —— 守门 89 的 R4 升 blocking(带双向端到端证明),顺带修掉一处被并行提交截断的,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O52 C 盘"怎么占了这么多"全量对账:34.75GB 逐项验身份后回收,并把三类系统自产残骸接进每日维护(2026-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O51 守门 78 装上"链接内容 / 命令可解析"两维并当场咬出全机门禁停摆 —— 含我自己造成的重复票与一次误删链接,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O52 shim 完整性判据的取证反转 —— 我原来的"基线未证明"是破损现场给的错觉，判红落点因此放在提交链之外(20,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O53 shim 完整性判据的取证反转 —— 我原来的"基线未证明"是破损现场给的错觉，判红落点因此放在提交链之外(20,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O54 守门 78 补第五维 + 深扫 .pnpm 闭包、守门 89 文档面改判 HEAD∪索引 —— O52 三条残余,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O54 §26 改道自愈的第三层:悬空 junction 必须能重建 + 冷却不得拦住人工窗口(2026-09-24 立,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O56 合并吞并的修复出口 `union-converge` + 守门 96 被旧基线回写后的复位(2026-09-24,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O60 守门 91 的取材口径改判 HEAD/索引 blob —— 它按磁盘判，产出的正是最坏的那一类错（2026-09,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O74 收敛器不再拿"会被清掉的本地指针"当远端真值(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O76 "远端现在在哪"上移到取材层:三处同族残留收口 + 一把防回潮尺子(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O78 收敛器收尾对齐"长期失败"接上到人出口(2026-09-25 完成 ✅,闭合 O74 的 ②),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O79 复测两条幻影债:那"4 道恒红的 blocking 门"与"0 个纳管模块"都不复存在(2026-09-25 完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O80 Hook 通知渠道三面漂移收口:定性靠生产者/消费者双证据,对账改成四面 + 一张带到期日的欠条(2026-09,随块带走的归并落账注记: 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O82 计划文档任务状态分叉归并（2026-09-26 立并完成 ✅，守门 130 配套）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O82附 收敛器侧的同一道自证（2026-09-26 立并完成 ✅，守门 130 的盲区补票）,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O39 守门接线层第二批 —— 门 91 补装、8 枚结构性豁免、门 89 新增 R4 反向对账、tag 远端备份改 f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O36 守门"接线层"根治 —— 补装三枚造好没装车的门、修一道假阳性、摘掉两处恒绿登记(2026-09-24 立并完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O58 四道门的"判了修不了 / 崩了像红了"收口 + 守护首次真能喊人(2026-09-24 立并完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 深色模式接线与底色统一(2026-09-23 立,主体完成 ✅,平台独占:apps/mobil,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 深色复核收尾:Drawer/NativeWind 残余清零 + Profile 对比度修复 +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 共享工作区幻影滞后根治:137 个被删跟踪文件恢复 + 503 文件对齐 HEAD + gitdir 备份重建 +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 G-168 桌面端正常使用被封 IP —— 反自动化封禁面五点收口(2026-09-23 立并完成 ✅,跨端:ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 我的页深色复核第二轮:离板色/低对比前景收口 + 首屏超时真重试(2026-09-23 立并完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 主 CTA 深色档立档(brand.ctaFill/ctaText)+ 30 处成对迁移 + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 守门 75 扩 R3「纯白填充」棘轮 + 补 R1 共享包盲区(2026-09-23 立并完成 ✅,单端工程治理:,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 自愈层判据缺口补齐:旁路提交后"工作区==HEAD 而索引停在祖先版本"此前永不刷新(2026-09-23 立并完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 测试基建根治:色板镜像漂移 + 12 个测试文件从未执行 + 主题单例浅拷贝污染(live) ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 `.git` 存续事故处置 + 守门 77「提交内容含冲突标记」+ Esc 无层栈协议落地(2026-09-23 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O22 P0 推送通道三类失效根治:partial-clone 预检 + git-lock 路径与 stdio + HU,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O23 前几批交付的合流后回归核验 + D92/D71 同源约束锁定(2026-09-23 立并完成 ✅,单端工程治理:,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O25 部署失败邮件走纯文本通道 —— 品牌模板层合并根治 + 守门 81(2026-09-23 立并完成 ✅,单端工程,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末四 —— G-230 今天第三道"对 HEAD 恒红"的 blocking 门(mypy)+ 顺手抓到 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末三 —— G-229 告警去重的账收进发信唯一出口 + 两道红门把全队守门顶成 --no-verify(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) O14 SDK 真正发布（现 0 tag / brew sha256 占位）：npm/PyP,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) 84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) 86. 证据级可追溯执行流水(每次工具调用带 invocation id + 输入/输出哈希,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29)53. 计划模式硬约束下放到主聊天流(主链路从纯提示词注入改为 `tools ∩ READON,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) 73. `apps/miniapp-taro` AI 对话页(移植 `packages/ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) **O59⑤ D48 的验收在盘上仍不成立 —— 根因已定位并修掉(据实收口)**:原票判据,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29)  **4 道 blocking 门红在 HEAD(各归属会话处置,本会话不代改)**:① 门,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) O13 多租户隔离重建（tenant RLS 被 0214 删除后，按 catalog da,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) P1 **返回键同一型跨端清账(本票的直接续作)**:① `packages/app/src,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **`CourseScreen:113` 那格 GA4/GA5 遍历盲区 —— 已归零;本行,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **RN/desktop 端设备指纹只有 2 个可能值（本批新量到，需 owner 定性，非,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:**real 测试面的归属待定（需人定方向，未认领）**：`apps/api/vitest.config.ts` 把 `,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) **⑤剩余那一半:内部令牌换一次性短期票**(承第三十八批已修的计时维)——原 ticket,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **G-261. 同型「500 掩盖 400」站点的余量清偿**:粗筛 = 10 个路由文件,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28) **G-295(进行中@2026-09-28/主会话+子代理A)给 `object-spac,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28) B15 本目标下**仍未闭环**的两件事(不写作已完成,各自给出解阻判据): （[归并] 本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) `--allow-dangerous` 确认旁路仍在调用方(`commands/agent.,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) **存量漂移一条(另票,本票未代改)**:`packages/types/src/hooks,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **G-240 enforce 档的下一步不是翻默认，而是"用台账修描述"**：影子/enf,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) O19b 剩余 4 列**故意不并**,各有明确理由:① `users/projects/f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-318 **公网路径抖动比部署换流大一个量级,且全仓无常驻探测器**（**等环境取证**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-325 **face-reader 那条"自拼 cat-file --batch"棘轮红,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-331 **守门 41 的注册条目与实现矛盾(onFailHint 仍在喊"删分支"),,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) O14 SDK 真正发布（现 0 tag / brew sha256 占位）：npm/PyP,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) O20 公网拓扑:**ai-service 在公网零暴露**,导致能力目录里 71 项 `h,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **D33 过程性信息持久化补全(G-39)**:在 D24 已落 toolCalls/te,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **`stream-tool-ledger` 未入库**:模块与单测已绿(`apps/cli,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29)**★ 抓到本仓一处"造好没装车"：`apps/cli/src/tools/argument-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) 〔【归并】重复登记副本(2026-09-28,到期租约已让渡):本行是活文档按行 union,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **测试**:`apps/api/tests/notify-deploy-failure.t,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()`(`chec,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) **守门 81** `check-brand-email-channel.mjs`(bloc,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) **node `spawnSync` 对原生 exe 持续 EBUSY**(`schtask,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) **node `spawnSync` 对原生 exe 持续 EBUSY**(`schtask,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) `/api/agent/goal-verify` **无生产消费方**(端点已注册、测试已断,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) - [ ] 钩子 trust 的**残余面**:webhook 形态钩子仍不过门(本批按 c,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) P1 **返回键同一型跨端清账(本票的直接续作)**:① `packages/app/src,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) 进行中@2026-09-26/O81票）O81 跨端 UI 单一源:小程序端与 App(RN,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) 进行中@2026-09-26/O81票）O81 跨端 UI 单一源:小程序端与 App(RN,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()`(`chec,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) 84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **86F. 导出信封与审计链的"链锚"绑定 + `canonicalStringify` ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **G-257(新登记)**:`scripts/check-agent-engine-par,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **G-261. 同型「500 掩盖 400」站点的余量清偿**:粗筛 = 10 个路由文件,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-338 **`connectors:read` 的公网语义与 ai-service 侧的,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-391 **守门 37 的两格已知盲区(2026-09-28 随 G-225 出路②落地,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) O19b 剩余 4 列**故意不并**,各有明确理由:① `users/projects/f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) D19 desktop/miniapp/mobile-rn 对话流 parity(termi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **D83 MCP 工具活动的 server×tool 定制措辞层(G-114,架构级)**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28) **把 `POST /rules/auto-generate` 从"永远拿不到东西"修成端到,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) 计划任务 `IHUI-C-Drive-AutoMaintain` 仍未注册(注册 = 影响全,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) （待认领）**G-189 两格已量化、刻意不当场执行的事项(附现成判据与取证,下一步可直接做,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) 86. 证据级可追溯执行流水(每次工具调用带 invocation id + 输入/输出哈希,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-345 **同一族的残余四处(代 agent-DRIVEROOT 登记,它按纪律只普查未,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) O14b2 取舍待定:若把 Go SDK 提到根模块(如 `github.com/IHUI-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **规格补强三条(不新增任务,写入既有任务描述)**:①G-104 两套撤销语义分离(`ro,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 81. MTC 工作面(对标 Trae SOLO MTC:文档/数据表/报表/演示/竞品调研,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 62. 会话搜索栏挂载 + 侧栏批量选择(`ChatSearchBar`/`useChatS,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 74. CLI 全屏 TUI 决策(三选一,建议 **A 真上 ink**:补依赖 + `t,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 62. 会话搜索栏挂载 + 侧栏批量选择(`ChatSearchBar`/`useChatS,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 51. `run_in_background` 真实任务类型 + DAG 真实执行器(注册 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) 计划任务 `IHUI-C-Drive-AutoMaintain` 仍未注册(注册 = 影响全,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28) **G-189 两格已量化、刻意不当场执行的事项(附现成判据与取证,下一步可直接做)**:①,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **O82续三·D35后续②**：`packages/shared/src/chat/ind,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 51. `run_in_background` 真实任务类型 + DAG 真实执行器(注册 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **G-243 最低版本闸门不可远程切换**（归属：对外能力决策 ⇒ 需用户确认，§24） ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **G-246 PROJECT_PLAN 里 44 枚 sha 形态引用在对象库里解析不到（,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) 进行中@2026-09-27/主会话）**G-278 D6-G1 v2 执行器适配器已入库并,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-283. **ai-service 引擎会话库的默认落点是相对 cwd 的 ⇒ 从仓根起,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-285. **`scripts/run-evidence.mjs` 结构上不能用于"cw,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-286. **`G:/DevEnv/Temp/ihui-scratch/` 内嵌了一份 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **G-298 备份脚本仍硬编码两处盘符,按 §15b 属应收口项 —— 单列是因为它不该和,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **G-336. 分叉合并这次"丢掉的东西"与"互相矛盾的两行文档",按归属交接,不由合并代,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) -311 **`union-converge` 的"归并不得放大台账分叉"那道判据，对它立项,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 74. CLI 全屏 TUI 决策(三选一,建议 **A 真上 ink**:补依赖 + `t,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-250 引擎只读/销毁面(`thread.search` / `items.list` ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) **RN「记住密码」把账号+密码明文写进 AsyncStorage,而它正是票#20 那条自,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 62. 会话搜索栏挂载 + 侧栏批量选择(`ChatSearchBar`/`useChatS,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 62. 会话搜索栏挂载 + 侧栏批量选择(`ChatSearchBar`/`useChatS,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 51. `run_in_background` 真实任务类型 + DAG 真实执行器(注册 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28) **G-189 两格已量化、刻意不当场执行的事项(附现成判据与取证,下一步可直接做)**:①,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 51. `run_in_background` 真实任务类型 + DAG 真实执行器(注册 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-353 **推送失败的分诊会把人支去改仓库设置,而真因是并发插队(2026-09-28 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28) **G-189 两格已量化、刻意不当场执行的事项(附现成判据与取证,下一步可直接做)**:①,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-363**(归属:分叉合并归并线;本会话不再动台账结构,理由写在行内)** **守门 1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) 86. 证据级可追溯执行流水(每次工具调用带 invocation id + 输入/输出哈希,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-328 **桌面端「启动后先进托盘」在真机采样里出现过一次"启动 11 秒后窗口自行转为,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-299 **本机交付被远端分支保护拒收——所有已提交内容现在只在这台机上,远端收不下**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) **[归并]** 【归并】重复登记副本:本行与同任务登记「把 redactChildOutp,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **O87h 课程列表缺「难度/价格」查询轴与真分页(属 API+schema 决策,不是清,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅ **A 组 = 纯冗余,已删(`C:\c` 整目录 515MB)**。`C:\c` 是 2026-08-06 某会话,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅ **A 组 = 纯冗余,已删(`C:\c` 整目录 515MB)**。`C:\c` 是 2026-08-06 某会话,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅ **逐项定性(每项都有可复算证据,不靠猜)**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-21)**D54 工具名本地化覆盖率收口(G-80,第 5 轮已定档——原判"我方可能没词表"是幻影,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-21) **D80 待自证定档完成**,四条判定全部出结论(报告 §14,逐条带我方代码文件:行):,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-07-30) **P0 ai_pricing 数据状态收尾** — 验证 `ai_pricing.step,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-08-01) **P0-1 API Key 安全粒度 4 字段 + 鉴权强制执行**(subagent-1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-08-01) **P0-17 /v1/responses 端点(OpenAI Responses API ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-08-04) **P1: auth.ts QR 扫码登录**(2 端点 501 → 真实实装 + 新增 /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-08-04) **P0: user_token_balance 表补建**(预先存在的 schema 缺口,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-07-30) **P2-F.1**(本批次立即):已完成 H1-H5,4 适配层 + barrel + R,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅ **逐项定性(每项都有可复算证据,不靠猜)**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 2026-09-23 C 盘污染收口:13.2GB 构建备份 + 单日 45 个夹具的来源查清并归零(单端:工程治,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **止血① 落点收口**:新增 `scripts/lib/scratch-dir.mjs`(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23)单一真相源 `packages/design-tokens/src/radius.js`(`x,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23)基础设施自伤已修:`pnpm install --filter @ihui/extension,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23)真机交付:arm64 `assembleRelease` 出包(66MB)→ `adb ins,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 2026-09-23 磁盘清理 13.9GB + 三道守门加固 + 凭据库防误删(单端:工程治理/守门脚本,已完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 2026-09-23 生产上线链冻结两日 —— 根因与修复(本机即生产机;已完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23,本票补记)**第一次落地被并发会话的无 CAS `update-ref` 从 main 线上抹,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **23 文件硬编码中文归零,词表 93 枚 × 5 语言**:web 侧 `agentWo,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D44 白名单兜底事件逐个补渲染位(G-62)**:`scripts/check-age,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23 进行中,**①已收口**) **D49 我方自证缺陷包(G-61)**:① 点赞/点踩落库(现,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D51 对话流元素覆盖守门**:新建 `scripts/check-chat-eleme,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D57 对标文档证据等级标注(卫生项,防二手当一手)**:`docs/AI_CHAT_B,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D61 自动化执行后果预演(G-78,与 D30 强协同)**:建/改 automati,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23)  **D82 就地润色与失败保稿(G-95 重定义后)**:输入框草稿的一键润色(**改写当,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D84 审批作用域四件套与理由输入(G-115)**:`允许一次 / 始终允许 / 允许,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D90 预览降级三态与"文件已更新"提示(G-123)**:对标 Qoder `工具记录,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D90 预览降级三态与"文件已更新"提示(G-123)**:对标 Qoder `工具记录,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D90 预览降级三态与"文件已更新"提示(G-123)**:对标 Qoder `工具记录,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D96 对话内写作块(G-129)**:流内可编辑文本块 + **逐块`接受`/`全部接,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **H28 前置验证任务(必须先于 D83/D54/D90/D91 的措辞实现)**:对话流,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D98 审阅态与差异可读性收口(G-134/G-135)**:对标 `codex.rev,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D101 端中立措辞引擎(G-139;H28 的前置，非可选项)**:落点 `packa,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-22) **P2-F.9 守门 67 判据补齐:从"认变量名"升级到"认响应体出处",同日再修两处同,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 移动端输入框大框化 + 全项目加号统一 AddPanel(2026-09-22 立并完成 ✅,平台独占:apps/,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 深色模式接线与底色统一(2026-09-23 立,主体完成 ✅,平台独占:apps/mobil,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 深色复核收尾:Drawer/NativeWind 残余清零 + Profile 对比度修复 +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 共享工作区幻影滞后根治:137 个被删跟踪文件恢复 + 503 文件对齐 HEAD + gitdir 备份重建 +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 G-168 桌面端正常使用被封 IP —— 反自动化封禁面五点收口(2026-09-23 立并完成 ✅,跨端:ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 我的页深色复核第二轮:离板色/低对比前景收口 + 首屏超时真重试(2026-09-23 立并完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 主 CTA 深色档立档(brand.ctaFill/ctaText)+ 30 处成对迁移 + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **消掉一个必然阻塞**:`App.tsx` 的 `if (!fontsLoaded) re,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 守门 75 扩 R3「纯白填充」棘轮 + 补 R1 共享包盲区(2026-09-23 立并完成 ✅,单端工程治理:,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 自愈层判据缺口补齐:旁路提交后"工作区==HEAD 而索引停在祖先版本"此前永不刷新(2026-09-23 立并完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 测试基建根治:色板镜像漂移 + 12 个测试文件从未执行 + 主题单例浅拷贝污染(live) ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **自愈崩溃已修(严重度高于表面)**:`refreshStaleIndex()` 把 `g,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 `.git` 存续事故处置 + 守门 77「提交内容含冲突标记」+ Esc 无层栈协议落地(2026-09-23 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O22 P0 推送通道三类失效根治:partial-clone 预检 + git-lock 路径与 stdio + HU,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O23 前几批交付的合流后回归核验 + D92/D71 同源约束锁定(2026-09-23 立并完成 ✅,单端工程治理:,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **做了什么**:.ihui-agent/tmp/copay-plan-registrati,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **传输层单点化(已落地)**:`notify-deploy-failure.ts` 已扩为,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O25 部署失败邮件走纯文本通道 —— 品牌模板层合并根治 + 守门 81(2026-09-23 立并完成 ✅,单端工程,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **根因定位(已确证)**:`deploy/win/ihui-deploy.ps1` 的 `,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **①`ALERT_EMAIL_TO` 已落盘**:按 §5d 先备份(`.ihui-age,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **⑤-附:运行副本的邮件通道已按"叠加而非替换"接通(用户要求继续收口后代做,带回滚)**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **O30① 地面真相先纠一处**:上一段登记的「cron 4.5h 零运行」是**采样假象,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **G-295(进行中@2026-09-28/主会话+子代理A)给 `object-spac,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-361 **RN「记住密码」把账号+密码明文写进 AsyncStorage,而它正是票#,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-458 **守门 150(角色档合规)在 HEAD 面判红 471 族,而它是 bloc,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) O14b2 取舍待定:若把 Go SDK 提到根模块(如 `github.com/IHUI-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) D19 desktop/miniapp/mobile-rn 对话流 parity(termi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **规格补强三条(不新增任务,写入既有任务描述)**:①G-104 两套撤销语义分离(`ro,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **D83 MCP 工具活动的 server×tool 定制措辞层(G-114,架构级)**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 81. MTC 工作面(对标 Trae SOLO MTC:文档/数据表/报表/演示/竞品调研,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **G-246 PROJECT_PLAN 里 44 枚 sha 形态引用在对象库里解析不到（,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-250 引擎只读/销毁面(`thread.search` / `items.list` ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-361. CLI 全屏 TUI 决策 —— **拍板③"真上全屏终端界面"已落地,枚 `,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **[归并]** 本行与已完成登记同题(主键 「51 · runinbackground真实,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 62. 会话搜索栏挂载 + 侧栏批量选择(`ChatSearchBar`/`useChatS,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-368 **守门 130 的恒红今天真正收口了(第三轮):三档读数 `--gate` /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-369 **门 130 自己有两条"报了却没报全"的缺陷,都在他人持有的文件里,本票只登,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **P1 品牌 CTA 独立成档 `--color-cta`(全栈:web/小程序/RN/共,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25)**`safe-commit.mjs` 在首次 commit 失败后打印「按用户规则"hook,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **G-261. 把「取到已验证身份却一次都没用它」做成常驻对账门(ai-service 侧,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-285. **`scripts/run-evidence.mjs` 结构上不能用于"cw,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) （【归并】重复登记副本·同题不同编号·2026-09-28·本行与同题登记的持有行重复,现摘,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-299 **本机交付被远端分支保护拒收——所有已提交内容现在只在这台机上,远端收不下**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04)〔【归并】重复登记副本(2026-09-28):本行行首那个号是**双前缀畸形号** —— 改,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) **RN「记住密码」把账号+密码明文写进 AsyncStorage,而它正是票#20 那条自,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 62. 会话搜索栏挂载 + 侧栏批量选择(`ChatSearchBar`/`useChatS,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-250 引擎只读/销毁面(`thread.search` / `items.list` ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) **RN「记住密码」把账号+密码明文写进 AsyncStorage,而它正是票#20 那条自,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **RN「记住密码」把账号+密码明文写进 AsyncStorage,而它正是票#20 那条自,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-687 孤儿收敛挂在构造时刻:进程被杀遗留的非终态行只在"本实例名下零在飞"那一刻可判定,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O62 品牌实底「大面积反色」全栈收口 + Tailwind v3 端 /alpha 修饰符落地(2026-09-25 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O61 safe-commit 的"钩子失败归因"从抄来的结论改成量出来的结论（2026-09-25 立并完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 2026-09-23 C 盘污染收口:13.2GB 构建备份 + 单日 45 个夹具的来源查清并归零(单端:工程治,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O39 守门接线层第二批 —— 门 91 补装、8 枚结构性豁免、门 89 新增 R4 反向对账、tag 远端备份改 f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O36 守门"接线层"根治 —— 补装三枚造好没装车的门、修一道假阳性、摘掉两处恒绿登记(2026-09-24 立并完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O58 四道门的"判了修不了 / 崩了像红了"收口 + 守护首次真能喊人(2026-09-24 立并完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 2026-09-23 磁盘清理 13.9GB + 三道守门加固 + 凭据库防误删(单端:工程治理/守门脚本,已完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 2026-09-23 生产上线链冻结两日 —— 根因与修复(本机即生产机;已完成 ✅),随块带走的归并落账注记: 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 移动端输入框大框化 + 全项目加号统一 AddPanel(2026-09-22 立并完成 ✅,平台独占:apps/,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 深色模式接线与底色统一(2026-09-23 立,主体完成 ✅,平台独占:apps/mobil,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 深色复核收尾:Drawer/NativeWind 残余清零 + Profile 对比度修复 +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 共享工作区幻影滞后根治:137 个被删跟踪文件恢复 + 503 文件对齐 HEAD + gitdir 备份重建 +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 G-168 桌面端正常使用被封 IP —— 反自动化封禁面五点收口(2026-09-23 立并完成 ✅,跨端:ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 我的页深色复核第二轮:离板色/低对比前景收口 + 首屏超时真重试(2026-09-23 立并完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 主 CTA 深色档立档(brand.ctaFill/ctaText)+ 30 处成对迁移 + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 守门 75 扩 R3「纯白填充」棘轮 + 补 R1 共享包盲区(2026-09-23 立并完成 ✅,单端工程治理:,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 自愈层判据缺口补齐:旁路提交后"工作区==HEAD 而索引停在祖先版本"此前永不刷新(2026-09-23 立并完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 测试基建根治:色板镜像漂移 + 12 个测试文件从未执行 + 主题单例浅拷贝污染(live) ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 工作区存续自愈被"暂存删除"打崩已修 + 244 处判读子代理超时未交付(产物已量化交接)(2026-09-23 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 `.git` 存续事故处置 + 守门 77「提交内容含冲突标记」+ Esc 无层栈协议落地(2026-09-23 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O22 P0 推送通道三类失效根治:partial-clone 预检 + git-lock 路径与 stdio + HU,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O23 前几批交付的合流后回归核验 + D92/D71 同源约束锁定(2026-09-23 立并完成 ✅,单端工程治理:,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O25 部署失败邮件走纯文本通道 —— 品牌模板层合并根治 + 守门 81(2026-09-23 立并完成 ✅,单端工程,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O28 门 53 白名单按新判据重算收紧 + D71② 真实障碍与"第二张错误表"预警(2026-09-24 立并完成 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O27 守门 75/76 让号至 83/84 —— runner 的 id 唯一性自检由红转静默(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O26 推送与提交链两道静默失效根治:门 53 升 blocking(前置补 roleId 来源排除)+ 暂存还原批量失,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O35 镜像配额根因链收口(Gitee 内部备份标签清零)+ 守门 71 补任务标题族 + vbs 生成器/产物漂移(2,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O33 主线推送恢复实证：allow-secret 已放行 + 夹具拆写 + 告警按 used_in_tests 关闭（,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O36 守门"接线层"根治 —— 补装三枚造好没装车的门、修一道假阳性、摘掉两处恒绿登记(2026-09-24 立并完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O39 守门接线层第二批 —— 门 91 补装、8 枚结构性豁免、门 89 新增 R4 反向对账、tag 远端备份改 f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O45 C 盘"还有我们的东西"第四类真因:守门只看自己的 TEMP,真凶在服务身份的 TEMP(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O42 台账也不能撒谎 —— 门 89 新增 R7「豁免依据必须可核验」，并当场抓到一条已入库的假依据(2026-09-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O44 编号连环撞车收口 + 假逃生舱清零 + 水印语法门装车：守门 89 的 R3/R5/R7 同时归零(2026-0,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O43 凭据健康巡检两处实测缺陷修复：import 即发告警（缺 §22d 守卫）+ 部署停摆项在非部署机恒红（2026,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O42 台账也不能撒谎 —— 门 89 新增 R7「豁免依据必须可核验」，并当场抓到一条已入库的假依据(2026-09-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O41 C 盘自动维护任务真正装上 + 盘根 71 项待定性复核(2026-09-24 立并完成 ✅,单端工程治理:sc,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O45 C 盘"还有我们的东西"第四类真因:守门只看自己的 TEMP,真凶在服务身份的 TEMP(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O47 桌面端更新 feed 的平台覆盖收口:主端点从「只有 windows 一个键」改为四平台,并证伪「缺键会自动回落,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O55 合并吞并已入库内容这一整类:新守门 100 + 两次 union converge(35 路径 / 净 −120,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O49 文档隐形即拦 —— 守门 89 的 R4 升 blocking(带双向端到端证明),顺带修掉一处被并行提交截断的,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O52 C 盘"怎么占了这么多"全量对账:34.75GB 逐项验身份后回收,并把三类系统自产残骸接进每日维护(2026-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O51 守门 78 装上"链接内容 / 命令可解析"两维并当场咬出全机门禁停摆 —— 含我自己造成的重复票与一次误删链接,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O52 shim 完整性判据的取证反转 —— 我原来的"基线未证明"是破损现场给的错觉，判红落点因此放在提交链之外(20,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O53 shim 完整性判据的取证反转 —— 我原来的"基线未证明"是破损现场给的错觉，判红落点因此放在提交链之外(20,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O54 守门 78 补第五维 + 深扫 .pnpm 闭包、守门 89 文档面改判 HEAD∪索引 —— O52 三条残余,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O54 §26 改道自愈的第三层:悬空 junction 必须能重建 + 冷却不得拦住人工窗口(2026-09-24 立,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O56 合并吞并的修复出口 `union-converge` + 守门 96 被旧基线回写后的复位(2026-09-24,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O59 Esc 层栈迁移收尾 + 台账与 HEAD 对账改判(2026-09-24 立并完成 ✅,跨端:apps/web,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O60 守门 91 的取材口径改判 HEAD/索引 blob —— 它按磁盘判，产出的正是最坏的那一类错（2026-09,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O62 取材层收口成一一份 + 顺带修掉它引出的两个连锁缺陷（2026-09-25 立并完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O63 八道门迁入取材层的第三波:6 道落地 + 2 道按住,并把"量等价"这件事从比旧基线改成同瞬间 A/B(2026,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O74 收敛器不再拿"会被清掉的本地指针"当远端真值(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O76 "远端现在在哪"上移到取材层:三处同族残留收口 + 一把防回潮尺子(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O78 收敛器收尾对齐"长期失败"接上到人出口(2026-09-25 完成 ✅,闭合 O74 的 ②),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O79 复测两条幻影债:那"4 道恒红的 blocking 门"与"0 个纳管模块"都不复存在(2026-09-25 完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O80 Hook 通知渠道三面漂移收口:定性靠生产者/消费者双证据,对账改成四面 + 一张带到期日的欠条(2026-09,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O81 webhook 通知分支补测 + 一次"未跟踪目录遮蔽模块"的事故登记(2026-09-25 完成 ✅),随块带走的归并落账注记: 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O82 计划文档任务状态分叉归并（2026-09-26 立并完成 ✅，守门 130 配套）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O82附 收敛器侧的同一道自证（2026-09-26 立并完成 ✅，守门 130 的盲区补票）,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86 报警邮件里的经纬度坐标溯源 + "名为哈希/脱敏实为明文"四型收口（2026-09-27 立并完成 ✅，comm,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86附 守门 137「名字承诺/实现兑现对账」接进提交链（2026-09-27 立并完成 ✅，O86 的另一半）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末 —— G-227 家目录改道自愈在系统身份下"拿错搬运对象"(2026-09-27 立并完成 ✅,运维,随块带走的归并落账注记: 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86附② 生产机实测收口"服务端历史明文行"这一项（2026-09-27 立并完成 ✅，本机是空开发库不作数）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 2026-09-27 桌面端「正在退出...」永久转圈退不掉 —— 退出链补「必然终止」兜底(单端:desktop,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末二 —— G-228 部署环撞分叉不再直接报警(2026-09-27 立并完成 ✅,机主投诉「一直在寄告,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末五 —— G-231 穷尽式恒红门审计 + 告警/跳门总量首次可量 + 收敛器不再自造全链跳门(2026,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末四 —— G-230 今天第三道"对 HEAD 恒红"的 blocking 门(mypy)+ 顺手抓到 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末三 —— G-229 告警去重的账收进发信唯一出口 + 两道红门把全队守门顶成 --no-verify(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86附⑩ 桌面端「退不掉」这条线到此收口:托盘/Ctrl+Q 立即退出 + 退出遮罩整条移除 + feed 变窄护栏(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 侧边栏底部 5 工具按钮收进用户行下拉菜单(2026-09-21 立并完成 ✅,平台独占:仅 apps/web),随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-372 **完成即归档排空 + 它连出的第四笔账(2026-09-28 立;①②③⑤已落,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 62. 会话搜索栏挂载 + 侧栏批量选择(`ChatSearchBar`/`useChatS,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 51. `run_in_background` 真实任务类型 + DAG 真实执行器(注册 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **G-282 CI 连绿现在被一枚 mobile-rn 的已入库类型红灯挡着 —— 归属该,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-285. **`scripts/run-evidence.mjs` 结构上不能用于"cw,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-250 引擎只读/销毁面(`thread.search` / `items.list` ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-368 **我自己的一次越权已前向撤回:我在 post-commit 里补的 `--da,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) 【归并】重复登记副本(2026-09-28,幂等折叠):这一行与同题的持有行是同一件事,持有,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-299 **本机交付被远端分支保护拒收——所有已提交内容现在只在这台机上,远端收不下**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 62. 会话搜索栏挂载 + 侧栏批量选择(`ChatSearchBar`/`useChatS,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-250 引擎只读/销毁面(`thread.search` / `items.list` ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-369 **门 130 自己有两条"报了却没报全"的缺陷,都在他人持有的文件里,本票只登,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 62. 会话搜索栏挂载 + 侧栏批量选择(`ChatSearchBar`/`useChatS,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-369 **门 130 自己有两条"报了却没报全"的缺陷,都在他人持有的文件里,本票只登,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) **CSRF「按凭据存在性豁免」这一型无判据:票#23 修了一处,型还在** —— `plu,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **O87h 课程列表缺「难度/价格」查询轴与真分页(属 API+schema 决策,不是清,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-384 **守门 108 的记账面补上"存档面"这一档(枚 `d374766e8`),并,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25)**`safe-commit.mjs` 在首次 commit 失败后打印「按用户规则"hook,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O62 品牌实底「大面积反色」全栈收口 + Tailwind v3 端 /alpha 修饰符落地(2026-09-25 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O61 safe-commit 的"钩子失败归因"从抄来的结论改成量出来的结论（2026-09-25 立并完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 2026-09-23 C 盘污染收口:13.2GB 构建备份 + 单日 45 个夹具的来源查清并归零(单端:工程治,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O39 守门接线层第二批 —— 门 91 补装、8 枚结构性豁免、门 89 新增 R4 反向对账、tag 远端备份改 f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O36 守门"接线层"根治 —— 补装三枚造好没装车的门、修一道假阳性、摘掉两处恒绿登记(2026-09-24 立并完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O58 四道门的"判了修不了 / 崩了像红了"收口 + 守护首次真能喊人(2026-09-24 立并完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 2026-09-23 磁盘清理 13.9GB + 三道守门加固 + 凭据库防误删(单端:工程治理/守门脚本,已完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 2026-09-23 生产上线链冻结两日 —— 根因与修复(本机即生产机;已完成 ✅),随块带走的归并落账注记: 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 移动端输入框大框化 + 全项目加号统一 AddPanel(2026-09-22 立并完成 ✅,平台独占:apps/,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 深色模式接线与底色统一(2026-09-23 立,主体完成 ✅,平台独占:apps/mobil,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 深色复核收尾:Drawer/NativeWind 残余清零 + Profile 对比度修复 +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 共享工作区幻影滞后根治:137 个被删跟踪文件恢复 + 503 文件对齐 HEAD + gitdir 备份重建 +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 G-168 桌面端正常使用被封 IP —— 反自动化封禁面五点收口(2026-09-23 立并完成 ✅,跨端:ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 我的页深色复核第二轮:离板色/低对比前景收口 + 首屏超时真重试(2026-09-23 立并完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 主 CTA 深色档立档(brand.ctaFill/ctaText)+ 30 处成对迁移 + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 守门 75 扩 R3「纯白填充」棘轮 + 补 R1 共享包盲区(2026-09-23 立并完成 ✅,单端工程治理:,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 自愈层判据缺口补齐:旁路提交后"工作区==HEAD 而索引停在祖先版本"此前永不刷新(2026-09-23 立并完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 测试基建根治:色板镜像漂移 + 12 个测试文件从未执行 + 主题单例浅拷贝污染(live) ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 工作区存续自愈被"暂存删除"打崩已修 + 244 处判读子代理超时未交付(产物已量化交接)(2026-09-23 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 `.git` 存续事故处置 + 守门 77「提交内容含冲突标记」+ Esc 无层栈协议落地(2026-09-23 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O22 P0 推送通道三类失效根治:partial-clone 预检 + git-lock 路径与 stdio + HU,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O23 前几批交付的合流后回归核验 + D92/D71 同源约束锁定(2026-09-23 立并完成 ✅,单端工程治理:,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O25 部署失败邮件走纯文本通道 —— 品牌模板层合并根治 + 守门 81(2026-09-23 立并完成 ✅,单端工程,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O28 门 53 白名单按新判据重算收紧 + D71② 真实障碍与"第二张错误表"预警(2026-09-24 立并完成 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O27 守门 75/76 让号至 83/84 —— runner 的 id 唯一性自检由红转静默(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O26 推送与提交链两道静默失效根治:门 53 升 blocking(前置补 roleId 来源排除)+ 暂存还原批量失,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O35 镜像配额根因链收口(Gitee 内部备份标签清零)+ 守门 71 补任务标题族 + vbs 生成器/产物漂移(2,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O33 主线推送恢复实证：allow-secret 已放行 + 夹具拆写 + 告警按 used_in_tests 关闭（,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O36 守门"接线层"根治 —— 补装三枚造好没装车的门、修一道假阳性、摘掉两处恒绿登记(2026-09-24 立并完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O39 守门接线层第二批 —— 门 91 补装、8 枚结构性豁免、门 89 新增 R4 反向对账、tag 远端备份改 f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O45 C 盘"还有我们的东西"第四类真因:守门只看自己的 TEMP,真凶在服务身份的 TEMP(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O42 台账也不能撒谎 —— 门 89 新增 R7「豁免依据必须可核验」，并当场抓到一条已入库的假依据(2026-09-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O44 编号连环撞车收口 + 假逃生舱清零 + 水印语法门装车：守门 89 的 R3/R5/R7 同时归零(2026-0,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O43 凭据健康巡检两处实测缺陷修复：import 即发告警（缺 §22d 守卫）+ 部署停摆项在非部署机恒红（2026,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O42 台账也不能撒谎 —— 门 89 新增 R7「豁免依据必须可核验」，并当场抓到一条已入库的假依据(2026-09-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O41 C 盘自动维护任务真正装上 + 盘根 71 项待定性复核(2026-09-24 立并完成 ✅,单端工程治理:sc,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O45 C 盘"还有我们的东西"第四类真因:守门只看自己的 TEMP,真凶在服务身份的 TEMP(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O47 桌面端更新 feed 的平台覆盖收口:主端点从「只有 windows 一个键」改为四平台,并证伪「缺键会自动回落,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O55 合并吞并已入库内容这一整类:新守门 100 + 两次 union converge(35 路径 / 净 −120,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O49 文档隐形即拦 —— 守门 89 的 R4 升 blocking(带双向端到端证明),顺带修掉一处被并行提交截断的,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O52 C 盘"怎么占了这么多"全量对账:34.75GB 逐项验身份后回收,并把三类系统自产残骸接进每日维护(2026-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O51 守门 78 装上"链接内容 / 命令可解析"两维并当场咬出全机门禁停摆 —— 含我自己造成的重复票与一次误删链接,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O52 shim 完整性判据的取证反转 —— 我原来的"基线未证明"是破损现场给的错觉，判红落点因此放在提交链之外(20,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O53 shim 完整性判据的取证反转 —— 我原来的"基线未证明"是破损现场给的错觉，判红落点因此放在提交链之外(20,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O54 守门 78 补第五维 + 深扫 .pnpm 闭包、守门 89 文档面改判 HEAD∪索引 —— O52 三条残余,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O54 §26 改道自愈的第三层:悬空 junction 必须能重建 + 冷却不得拦住人工窗口(2026-09-24 立,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O56 合并吞并的修复出口 `union-converge` + 守门 96 被旧基线回写后的复位(2026-09-24,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O59 Esc 层栈迁移收尾 + 台账与 HEAD 对账改判(2026-09-24 立并完成 ✅,跨端:apps/web,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O60 守门 91 的取材口径改判 HEAD/索引 blob —— 它按磁盘判，产出的正是最坏的那一类错（2026-09,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O62 取材层收口成一一份 + 顺带修掉它引出的两个连锁缺陷（2026-09-25 立并完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O63 八道门迁入取材层的第三波:6 道落地 + 2 道按住,并把"量等价"这件事从比旧基线改成同瞬间 A/B(2026,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O74 收敛器不再拿"会被清掉的本地指针"当远端真值(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O76 "远端现在在哪"上移到取材层:三处同族残留收口 + 一把防回潮尺子(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O78 收敛器收尾对齐"长期失败"接上到人出口(2026-09-25 完成 ✅,闭合 O74 的 ②),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O79 复测两条幻影债:那"4 道恒红的 blocking 门"与"0 个纳管模块"都不复存在(2026-09-25 完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O80 Hook 通知渠道三面漂移收口:定性靠生产者/消费者双证据,对账改成四面 + 一张带到期日的欠条(2026-09,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O81 webhook 通知分支补测 + 一次"未跟踪目录遮蔽模块"的事故登记(2026-09-25 完成 ✅),随块带走的归并落账注记: 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O82 计划文档任务状态分叉归并（2026-09-26 立并完成 ✅，守门 130 配套）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O82附 收敛器侧的同一道自证（2026-09-26 立并完成 ✅，守门 130 的盲区补票）,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86 报警邮件里的经纬度坐标溯源 + "名为哈希/脱敏实为明文"四型收口（2026-09-27 立并完成 ✅，comm,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86附 守门 137「名字承诺/实现兑现对账」接进提交链（2026-09-27 立并完成 ✅，O86 的另一半）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末 —— G-227 家目录改道自愈在系统身份下"拿错搬运对象"(2026-09-27 立并完成 ✅,运维,随块带走的归并落账注记: 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86附② 生产机实测收口"服务端历史明文行"这一项（2026-09-27 立并完成 ✅，本机是空开发库不作数）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 2026-09-27 桌面端「正在退出...」永久转圈退不掉 —— 退出链补「必然终止」兜底(单端:desktop,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末二 —— G-228 部署环撞分叉不再直接报警(2026-09-27 立并完成 ✅,机主投诉「一直在寄告,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O62 品牌实底「大面积反色」全栈收口 + Tailwind v3 端 /alpha 修饰符落地(2026-09-25 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O61 safe-commit 的"钩子失败归因"从抄来的结论改成量出来的结论（2026-09-25 立并完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O58 四道门的"判了修不了 / 崩了像红了"收口 + 守护首次真能喊人(2026-09-24 立并完成 ✅),随块带走的归并落账注记: 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末 —— G-227 家目录改道自愈在系统身份下"拿错搬运对象"(2026-09-27 立并完成 ✅,运维,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O28 门 53 白名单按新判据重算收紧 + D71② 真实障碍与"第二张错误表"预警(2026-09-24 立并完成 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O27 守门 75/76 让号至 83/84 —— runner 的 id 唯一性自检由红转静默(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O26 推送与提交链两道静默失效根治:门 53 升 blocking(前置补 roleId 来源排除)+ 暂存还原批量失,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O33 主线推送恢复实证：allow-secret 已放行 + 夹具拆写 + 告警按 used_in_tests 关闭（,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O36 守门"接线层"根治 —— 补装三枚造好没装车的门、修一道假阳性、摘掉两处恒绿登记(2026-09-24 立并完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O39 守门接线层第二批 —— 门 91 补装、8 枚结构性豁免、门 89 新增 R4 反向对账、tag 远端备份改 f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O45 C 盘"还有我们的东西"第四类真因:守门只看自己的 TEMP,真凶在服务身份的 TEMP(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O42 台账也不能撒谎 —— 门 89 新增 R7「豁免依据必须可核验」，并当场抓到一条已入库的假依据(2026-09-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O44 编号连环撞车收口 + 假逃生舱清零 + 水印语法门装车：守门 89 的 R3/R5/R7 同时归零(2026-0,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O43 凭据健康巡检两处实测缺陷修复：import 即发告警（缺 §22d 守卫）+ 部署停摆项在非部署机恒红（2026,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O42 台账也不能撒谎 —— 门 89 新增 R7「豁免依据必须可核验」，并当场抓到一条已入库的假依据(2026-09-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O41 C 盘自动维护任务真正装上 + 盘根 71 项待定性复核(2026-09-24 立并完成 ✅,单端工程治理:sc,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O45 C 盘"还有我们的东西"第四类真因:守门只看自己的 TEMP,真凶在服务身份的 TEMP(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O47 桌面端更新 feed 的平台覆盖收口:主端点从「只有 windows 一个键」改为四平台,并证伪「缺键会自动回落,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O55 合并吞并已入库内容这一整类:新守门 100 + 两次 union converge(35 路径 / 净 −120,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O49 文档隐形即拦 —— 守门 89 的 R4 升 blocking(带双向端到端证明),顺带修掉一处被并行提交截断的,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O52 C 盘"怎么占了这么多"全量对账:34.75GB 逐项验身份后回收,并把三类系统自产残骸接进每日维护(2026-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O51 守门 78 装上"链接内容 / 命令可解析"两维并当场咬出全机门禁停摆 —— 含我自己造成的重复票与一次误删链接,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O52 shim 完整性判据的取证反转 —— 我原来的"基线未证明"是破损现场给的错觉，判红落点因此放在提交链之外(20,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O53 shim 完整性判据的取证反转 —— 我原来的"基线未证明"是破损现场给的错觉，判红落点因此放在提交链之外(20,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O54 守门 78 补第五维 + 深扫 .pnpm 闭包、守门 89 文档面改判 HEAD∪索引 —— O52 三条残余,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O54 §26 改道自愈的第三层:悬空 junction 必须能重建 + 冷却不得拦住人工窗口(2026-09-24 立,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O56 合并吞并的修复出口 `union-converge` + 守门 96 被旧基线回写后的复位(2026-09-24,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O59 Esc 层栈迁移收尾 + 台账与 HEAD 对账改判(2026-09-24 立并完成 ✅,跨端:apps/web,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O60 守门 91 的取材口径改判 HEAD/索引 blob —— 它按磁盘判，产出的正是最坏的那一类错（2026-09,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O62 取材层收口成一一份 + 顺带修掉它引出的两个连锁缺陷（2026-09-25 立并完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O63 八道门迁入取材层的第三波:6 道落地 + 2 道按住,并把"量等价"这件事从比旧基线改成同瞬间 A/B(2026,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O74 收敛器不再拿"会被清掉的本地指针"当远端真值(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O76 "远端现在在哪"上移到取材层:三处同族残留收口 + 一把防回潮尺子(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O78 收敛器收尾对齐"长期失败"接上到人出口(2026-09-25 完成 ✅,闭合 O74 的 ②),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O79 复测两条幻影债:那"4 道恒红的 blocking 门"与"0 个纳管模块"都不复存在(2026-09-25 完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O80 Hook 通知渠道三面漂移收口:定性靠生产者/消费者双证据,对账改成四面 + 一张带到期日的欠条(2026-09,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O81 webhook 通知分支补测 + 一次"未跟踪目录遮蔽模块"的事故登记(2026-09-25 完成 ✅),随块带走的归并落账注记: 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O82 计划文档任务状态分叉归并（2026-09-26 立并完成 ✅，守门 130 配套）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O82附 收敛器侧的同一道自证（2026-09-26 立并完成 ✅，守门 130 的盲区补票）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86 报警邮件里的经纬度坐标溯源 + "名为哈希/脱敏实为明文"四型收口（2026-09-27 立并完成 ✅，comm,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86附 守门 137「名字承诺/实现兑现对账」接进提交链（2026-09-27 立并完成 ✅，O86 的另一半）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86附② 生产机实测收口"服务端历史明文行"这一项（2026-09-27 立并完成 ✅，本机是空开发库不作数）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 2026-09-27 桌面端「正在退出...」永久转圈退不掉 —— 退出链补「必然终止」兜底(单端:desktop,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末五 —— G-231 穷尽式恒红门审计 + 告警/跳门总量首次可量 + 收敛器不再自造全链跳门(2026,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86附⑩ 桌面端「退不掉」这条线到此收口:托盘/Ctrl+Q 立即退出 + 退出遮罩整条移除 + feed 变窄护栏(,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末四 —— G-230 今天第三道"对 HEAD 恒红"的 blocking 门(mypy)+ 顺手抓到 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末三 —— G-229 告警去重的账收进发信唯一出口 + 两道红门把全队守门顶成 --no-verify(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O25 部署失败邮件走纯文本通道 —— 品牌模板层合并根治 + 守门 81(2026-09-23 立并完成 ✅,单端工程,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) 【【归并】重复登记副本·双前缀畸形号(2026-09-28):行首那个号是改派工具把前缀又贴,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:**D130 对话流保真②:推理强度档位前端零通道(承 V4 #88;取证 2026-09-28)** —— 后端成体系,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **D151 协议通道①:交互式命令没有「等待用户输入」态,也没有把键入送回去的通道(取证 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **D158 审批缺第四档「批准并生成放行规则」,用户只能一次次重批同类命令(一手取证 20,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) **D160 我方侧对话流穷举两路代理均撞轮次上限,对账矩阵缺一侧(实测 2026-09-2,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-581 **共享工作树里的 `PROJECT_PLAN.md` 此刻挂着一对未解决冲突标,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-404 **瞬时假值覆盖上一个可信值：上下文占用把"短暂 0"当"真的清空"（可落地；归,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)G-406 **棘轮锚点把量值编进指纹 + `--changed` 不沿反向依赖（可落地；归属,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-409 **"文档表 ↔ 判据名"双向对账缺口（可落地；归属：守门 89 持有人）** ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-411 **A1 改道校验只比大小不比内容（可立即修；归属：§26 C 盘改道线，本票持,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **P1 品牌 CTA 独立成档 `--color-cta`(全栈:web/小程序/RN/共,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) 计划任务 `IHUI-C-Drive-AutoMaintain` 已注册(2026-09-2,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) ~~计划任务 `IHUI-C-Drive-AutoMaintain` 已注册~~ → **本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24 17:1x) 计划任务 `IHUI-C-Drive-AutoMaintain` **已按用户授,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O58 四道门的"判了修不了 / 崩了像红了"收口 + 守护首次真能喊人(2026-09-24 立并完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **O21 资金链与文件版本面的属主谓词补齐(2026-09-23 逐行实测,安全 P0)*,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **计划表 ⇄ HEAD 差集审计(只读,62 条票逐条核)** —— 不是功能票,是给"照,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **D14 云端沙箱：先判归属再动手,把重复执行层当场摘掉；纯逻辑层已验证但按③口径不装成已,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **D18 补完 .NET 的发布出口(NuGet 通道)**。先纠票面一处不实：`pack,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)**D34 事件契约扩字段(G-40/G-43/G-44/G-52)**:`sse_contr,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)**D34 事件契约扩字段(G-40/G-43/G-44/G-52)**:`sse_contr,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)**D37 内联系统注入条 + 上下文装配查看器(G-40/G-41,并扩 D13 口径四类→,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)**D37 内联系统注入条 + 上下文装配查看器(G-40/G-41,并扩 D13 口径四类→,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **D45 会话详情聚合档位 + 环境建议条(G-53/G-54)**:① 步骤视图/命令视,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **D48 本地会话数据主权与加密(G-56)**:桌面端本地缓存加密(对标 Trae SQ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **D52 任务监控分区面板(G-63)**:把 26 个平铺工具 Tab 之上加"以任务为,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)  **D59 模型负载与排队条(G-73)**:补「低/中/高负载可能排队」「已进入慢速队列,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)  **D62 语音字幕与讨论纪要(G-76)**:播报时字幕可见(`静音并显示字幕`语义)+,随块带走的归并落账注记: 〔【归并】D64 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **补:同一「更多」入口的第二轮收口 —— 首页那个按钮上一票根本没改到,外加我自己两处失准,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)  **D65 Hook 失败可见性卡(G-87,先自证再开工)**:Qoder 有 `hoo,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)  **D66 编辑并重新发送 = 文件回退组合操作(G-89)**:把"编辑重发"与"回退本,随块带走的归并落账注记: 〔【归并】D68 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)  **D71 统一 Turn 状态词汇表 + 错误分类族(G-97/G-98)**:①对话流,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)  **D71 统一 Turn 状态词汇表 + 错误分类族(G-97/G-98)**:①对话流,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24 渲染面) **D78 连接器授权卡(G-107)**:对话流内 `连接到 {connector,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24 定档) **D80 两条待自证定档(G-110/G-111)**:①Codex `widget,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)  **D91 四类文档批注锚点分型(G-124,扩展 D87)**:Qoder 的批注不是单,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)  **D94 失败诊断脱敏交接包(G-127,品类级)**:出错时自动产出**可直接对外提交,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)  **D94 失败诊断脱敏交接包(G-127,品类级)**:出错时自动产出**可直接对外提交,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)  **D100 计费自助状态机(G-137)**:Codex `settings.usage,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)  **D102 对话移交工作树(G-140)**:Codex `localConversat,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **D105 PR 检查状态与动作卡(G-146)**:`localConversation,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **D106 消息级"交代帧"跨端消费缺口(G-148;实测量化,不是推测)**:多落点 g,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **D111 移动端完全没有权限模式可见性(G-159 / G-160;第 55 轮按渲染层,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) H2 FIM/Monaco 闭环:Web 编辑器 inline completion 接入 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) `apps/mobile-rn/src/screens/HomeScreen.tsx` 的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **做了什么**:.ihui-agent/tmp/copay-plan-registrati,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **守门 41 面:幻影漂移对齐挂进 git-guardian 每 2 分钟一趟**(com,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **守门 44 恒红解除 = 恢复全链守门**:一级目录 11 项 `.git.broken,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **O28① 白名单额度对齐新判据(commit `4b00fa5c907`)**:上一票给,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **O28③ 顺带查清两个坑并留档**:① `apps/web/src/components,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **G-208 一次重启把 API 与部署环同时打死,而两者的成因是同一个:判"活着"用的是,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **为什么要单独发这一票**:本日 `.git` 事故之后主线被并发会话快进 + `git-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28,提交 `a45c5304ae`) **G-353 **推送失败的分诊会把人支去改仓库设置,而真,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) D163 回退与预览失败必须声明「工作区未发生变化」,并把 Diff 快捷预览从三态补到五态,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **P1 品牌 CTA 独立成档 `--color-cta`(全栈:web/小程序/RN/共,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 2026-09-23 C 盘污染收口:13.2GB 构建备份 + 单日 45 个夹具的来源查清并归零(单端:工程治,随块带走的归并落账注记: 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 主 CTA 深色档立档(brand.ctaFill/ctaText)+ 30 处成对迁移 + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) P1 **返回键同一型跨端清账(本票的直接续作)**:① `packages/app/src,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **`CourseScreen:113` 那格盲区的精确成因(不再是"未知失配"),以及为什,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) P1 **返回键同一型跨端清账(本票的直接续作)**:① `packages/app/src,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **D157 取证物不受版本控制 = 本轮一手证据下一次全部重做(实测 2026-09-28,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 测试基建根治:色板镜像漂移 + 12 个测试文件从未执行 + 主题单例浅拷贝污染(live) ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 `.git` 存续事故处置 + 守门 77「提交内容含冲突标记」+ Esc 无层栈协议落地(2026-09-23 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O28 门 53 白名单按新判据重算收紧 + D71② 真实障碍与"第二张错误表"预警(2026-09-24 立并完成 ,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O62 品牌实底「大面积反色」全栈收口 + Tailwind v3 端 /alpha 修饰符落地(2026-09-25 ,随块带走的归并落账注记: 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末 —— G-227 家目录改道自愈在系统身份下"拿错搬运对象"(2026-09-27 立并完成 ✅,运维,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 工作区存续自愈被"暂存删除"打崩已修 + 244 处判读子代理超时未交付(产物已量化交接)(2026-09-23 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O27 守门 75/76 让号至 83/84 —— runner 的 id 唯一性自检由红转静默(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O35 镜像配额根因链收口(Gitee 内部备份标签清零)+ 守门 71 补任务标题族 + vbs 生成器/产物漂移(2,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O39 守门接线层第二批 —— 门 91 补装、8 枚结构性豁免、门 89 新增 R4 反向对账、tag 远端备份改 f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O45 C 盘"还有我们的东西"第四类真因:守门只看自己的 TEMP,真凶在服务身份的 TEMP(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O42 台账也不能撒谎 —— 门 89 新增 R7「豁免依据必须可核验」，并当场抓到一条已入库的假依据(2026-09-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O41 C 盘自动维护任务真正装上 + 盘根 71 项待定性复核(2026-09-24 立并完成 ✅,单端工程治理:sc,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O45 C 盘"还有我们的东西"第四类真因:守门只看自己的 TEMP,真凶在服务身份的 TEMP(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O52 shim 完整性判据的取证反转 —— 我原来的"基线未证明"是破损现场给的错觉，判红落点因此放在提交链之外(20,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O59 Esc 层栈迁移收尾 + 台账与 HEAD 对账改判(2026-09-24 立并完成 ✅,跨端:apps/web,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O81 webhook 通知分支补测 + 一次"未跟踪目录遮蔽模块"的事故登记(2026-09-25 完成 ✅),随块带走的归并落账注记: 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86 报警邮件里的经纬度坐标溯源 + "名为哈希/脱敏实为明文"四型收口（2026-09-27 立并完成 ✅，comm,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86附② 生产机实测收口"服务端历史明文行"这一项（2026-09-27 立并完成 ✅，本机是空开发库不作数）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 2026-09-27 桌面端「正在退出...」永久转圈退不掉 —— 退出链补「必然终止」兜底(单端:desktop,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末二 —— G-228 部署环撞分叉不再直接报警(2026-09-27 立并完成 ✅,机主投诉「一直在寄告,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末四 —— G-230 今天第三道"对 HEAD 恒红"的 blocking 门(mypy)+ 顺手抓到 ,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O23 前几批交付的合流后回归核验 + D92/D71 同源约束锁定(2026-09-23 立并完成 ✅,单端工程治理:,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O39 守门接线层第二批 —— 门 91 补装、8 枚结构性豁免、门 89 新增 R4 反向对账、tag 远端备份改 f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-421 **台账里五条挂着"未完成"的登记，本会话逐条现读到"实现已在 HEAD"——只,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-423 `alwaysAsk` 是张空支票：契约声明零消费者，而 `bypassPerm,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-425 输出被 max_tokens 截断时没有任何"续写"链路，且端上看不到截断（等人,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **归档器的冲突标记闸少判了一侧,已补齐(枚 52083cccc)**:台账侧那道闸(`ma,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25)**`safe-commit.mjs` 在首次 commit 失败后打印「按用户规则"hook,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **D157 取证物不受版本控制 = 本轮一手证据下一次全部重做(实测 2026-09-28,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O62 品牌实底「大面积反色」全栈收口 + Tailwind v3 端 /alpha 修饰符落地(2026-09-25 ,随块带走的归并落账注记: 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末 —— G-227 家目录改道自愈在系统身份下"拿错搬运对象"(2026-09-27 立并完成 ✅,运维,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O59 Esc 层栈迁移收尾 + 台账与 HEAD 对账改判(2026-09-24 立并完成 ✅,跨端:apps/web,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O81 webhook 通知分支补测 + 一次"未跟踪目录遮蔽模块"的事故登记(2026-09-25 完成 ✅),随块带走的归并落账注记: 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86 报警邮件里的经纬度坐标溯源 + "名为哈希/脱敏实为明文"四型收口（2026-09-27 立并完成 ✅，comm,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86附② 生产机实测收口"服务端历史明文行"这一项（2026-09-27 立并完成 ✅，本机是空开发库不作数）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 2026-09-27 桌面端「正在退出...」永久转圈退不掉 —— 退出链补「必然终止」兜底(单端:desktop,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末二 —— G-228 部署环撞分叉不再直接报警(2026-09-27 立并完成 ✅,机主投诉「一直在寄告,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末四 —— G-230 今天第三道"对 HEAD 恒红"的 blocking 门(mypy)+ 顺手抓到 ,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O23 前几批交付的合流后回归核验 + D92/D71 同源约束锁定(2026-09-23 立并完成 ✅,单端工程治理:,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O39 守门接线层第二批 —— 门 91 补装、8 枚结构性豁免、门 89 新增 R4 反向对账、tag 远端备份改 f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O28 门 53 白名单按新判据重算收紧 + D71② 真实障碍与"第二张错误表"预警(2026-09-24 立并完成 ,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **P1 品牌 CTA 独立成档 `--color-cta`(全栈:web/小程序/RN/共,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 2026-09-23 C 盘污染收口:13.2GB 构建备份 + 单日 45 个夹具的来源查清并归零(单端:工程治,随块带走的归并落账注记: 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O25 部署失败邮件走纯文本通道 —— 品牌模板层合并根治 + 守门 81(2026-09-23 立并完成 ✅,单端工程,随块带走的归并落账注记: 〔【归并】O76 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) **D165 会话分组缺「移动到分组 / 移动所选 / 分组置顶」三个动作,且失败不给原因(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **D157 取证物不受版本控制 = 本轮一手证据下一次全部重做(实测 2026-09-28,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) （【归并】重复登记副本·同题不同编号·2026-09-28·本行与同题登记的持有行重复,现摘,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) D19 desktop/miniapp/mobile-rn 对话流 parity(termi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **D83 MCP 工具活动的 server×tool 定制措辞层(G-114,架构级)**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-1038370 **陈旧回写只在"祖先窗口"内可见:磁盘副本等于窗口之外的历史提交时,两,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末五 —— G-231 穷尽式恒红门审计 + 告警/跳门总量首次可量 + 收敛器不再自造全链跳门(2026,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末 —— G-227 家目录改道自愈在系统身份下"拿错搬运对象"(2026-09-27 立并完成 ✅,运维,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O81 webhook 通知分支补测 + 一次"未跟踪目录遮蔽模块"的事故登记(2026-09-25 完成 ✅),随块带走的归并落账注记: 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86 报警邮件里的经纬度坐标溯源 + "名为哈希/脱敏实为明文"四型收口（2026-09-27 立并完成 ✅，comm,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86附② 生产机实测收口"服务端历史明文行"这一项（2026-09-27 立并完成 ✅，本机是空开发库不作数）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 2026-09-27 桌面端「正在退出...」永久转圈退不掉 —— 退出链补「必然终止」兜底(单端:desktop,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末二 —— G-228 部署环撞分叉不再直接报警(2026-09-27 立并完成 ✅,机主投诉「一直在寄告,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末四 —— G-230 今天第三道"对 HEAD 恒红"的 blocking 门(mypy)+ 顺手抓到 ,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O23 前几批交付的合流后回归核验 + D92/D71 同源约束锁定(2026-09-23 立并完成 ✅,单端工程治理:,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O28 门 53 白名单按新判据重算收紧 + D71② 真实障碍与"第二张错误表"预警(2026-09-24 立并完成 ,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 2026-09-23 C 盘污染收口:13.2GB 构建备份 + 单日 45 个夹具的来源查清并归零(单端:工程治,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O52 shim 完整性判据的取证反转 —— 我原来的"基线未证明"是破损现场给的错觉，判红落点因此放在提交链之外(20,随块带走的归并落账注记: 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O39 守门接线层第二批 —— 门 91 补装、8 枚结构性豁免、门 89 新增 R4 反向对账、tag 远端备份改 f,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O63 八道门迁入取材层的第三波:6 道落地 + 2 道按住,并把"量等价"这件事从比旧基线改成同瞬间 A/B(2026,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-468 **`check-adapter-wiring.mjs`(守门 64)的取材面收,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **P1 品牌 CTA 独立成档 `--color-cta`(全栈:web/小程序/RN/共,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 2026-09-23 C 盘污染收口:13.2GB 构建备份 + 单日 45 个夹具的来源查清并归零(单端:工程治,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅ **A 组 = 纯冗余,已删(`C:\c` 整目录 515MB)**。`C:\c` 是 2026-08-06 某会话,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **止血① 落点收口**:新增 `scripts/lib/scratch-dir.mjs`(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅ **A 组 = 纯冗余,已删(`C:\c` 整目录 515MB)**。`C:\c` 是 2026-08-06 某会话,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅ **逐项定性(每项都有可复算证据,不靠猜)**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) 计划任务 `IHUI-C-Drive-AutoMaintain` 已注册(2026-09-2,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23)单一真相源 `packages/design-tokens/src/radius.js`(`x,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23)基础设施自伤已修:`pnpm install --filter @ihui/extension,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23)真机交付:arm64 `assembleRelease` 出包(66MB)→ `adb ins,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **D38 队列语义完整交互(G-42)**:拖拽重排 / 撤回 / 编辑队列项 / 「打断,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 2026-09-23 磁盘清理 13.9GB + 三道守门加固 + 凭据库防误删(单端:工程治理/守门脚本,已完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 2026-09-23 生产上线链冻结两日 —— 根因与修复(本机即生产机;已完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23,本票补记)**第一次落地被并发会话的无 CAS `update-ref` 从 main 线上抹,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **23 文件硬编码中文归零,词表 93 枚 × 5 语言**:web 侧 `agentWo,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **本轮未落地、需重做的一批(web 86 处内的键名对齐)**:该批次报告改了 4 个文件,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D44 白名单兜底事件逐个补渲染位(G-62)**:`scripts/check-age,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23 进行中,**①已收口**) **D49 我方自证缺陷包(G-61)**:① 点赞/点踩落库(现,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D51 对话流元素覆盖守门**:新建 `scripts/check-chat-eleme,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-21)**D54 工具名本地化覆盖率收口(G-80,第 5 轮已定档——原判"我方可能没词表"是幻影,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D57 对标文档证据等级标注(卫生项,防二手当一手)**:`docs/AI_CHAT_B,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D61 自动化执行后果预演(G-78,与 D30 强协同)**:建/改 automati,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-21) **D80 待自证定档完成**,四条判定全部出结论(报告 §14,逐条带我方代码文件:行):,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23)  **D82 就地润色与失败保稿(G-95 重定义后)**:输入框草稿的一键润色(**改写当,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D84 审批作用域四件套与理由输入(G-115)**:`允许一次 / 始终允许 / 允许,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D90 预览降级三态与"文件已更新"提示(G-123)**:对标 Qoder `工具记录,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D90 预览降级三态与"文件已更新"提示(G-123)**:对标 Qoder `工具记录,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D90 预览降级三态与"文件已更新"提示(G-123)**:对标 Qoder `工具记录,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D96 对话内写作块(G-129)**:流内可编辑文本块 + **逐块`接受`/`全部接,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **H28 前置验证任务(必须先于 D83/D54/D90/D91 的措辞实现)**:对话流,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D98 审阅态与差异可读性收口(G-134/G-135)**:对标 `codex.rev,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D101 端中立措辞引擎(G-139;H28 的前置，非可选项)**:落点 `packa,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-07-30) **P0 ai_pricing 数据状态收尾** — 验证 `ai_pricing.step,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-08-01) **P0-1 API Key 安全粒度 4 字段 + 鉴权强制执行**(subagent-1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-08-01) **P0-17 /v1/responses 端点(OpenAI Responses API ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-08-04) **P1: auth.ts QR 扫码登录**(2 端点 501 → 真实实装 + 新增 /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-08-04) **P0: user_token_balance 表补建**(预先存在的 schema 缺口,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-07-30) **P2-F.1**(本批次立即):已完成 H1-H5,4 适配层 + barrel + R,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-22) **P2-F.9 守门 67 判据补齐:从"认变量名"升级到"认响应体出处",同日再修两处同,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28):P0 AI 对话输入框上方任务进度状态条(2026-09-21 立并完成 ✅,跨端:packages/shared + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28):P0 消息流活动区统一设计语言(2026-09-21 立并完成 ✅,web + packages/shared + i1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28):P1 侧边栏底部 5 工具按钮收进用户行下拉菜单(2026-09-21 立并完成 ✅,平台独占:仅 apps/web),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 移动端输入框大框化 + 全项目加号统一 AddPanel(2026-09-22 立并完成 ✅,平台独占:apps/,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 深色模式接线与底色统一(2026-09-23 立,主体完成 ✅,平台独占:apps/mobil,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 深色复核收尾:Drawer/NativeWind 残余清零 + Profile 对比度修复 +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 共享工作区幻影滞后根治:137 个被删跟踪文件恢复 + 503 文件对齐 HEAD + gitdir 备份重建 +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 G-168 桌面端正常使用被封 IP —— 反自动化封禁面五点收口(2026-09-23 立并完成 ✅,跨端:ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 我的页深色复核第二轮:离板色/低对比前景收口 + 首屏超时真重试(2026-09-23 立并完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 主 CTA 深色档立档(brand.ctaFill/ctaText)+ 30 处成对迁移 + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **消掉一个必然阻塞**:`App.tsx` 的 `if (!fontsLoaded) re,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 守门 75 扩 R3「纯白填充」棘轮 + 补 R1 共享包盲区(2026-09-23 立并完成 ✅,单端工程治理:,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 自愈层判据缺口补齐:旁路提交后"工作区==HEAD 而索引停在祖先版本"此前永不刷新(2026-09-23 立并完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) `apps/mobile-rn/src/screens/HomeScreen.tsx` 的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 工作区存续自愈被"暂存删除"打崩已修 + 244 处判读子代理超时未交付(产物已量化交接)(2026-09-23 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O35 镜像配额根因链收口(Gitee 内部备份标签清零)+ 守门 71 补任务标题族 + vbs 生成器/产物漂移(2,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)（进行中@2026-09-28/UUIDCENSUS,本会话已派只读普查代理,逐条 A敞口/B,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) 进行中@2026-09-29/UUIDNARROW） G-624 **把两条共享 `idPa,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) 进行中@2026-09-29/SSEMIRROR） G-625 **守门 90 的镜像有一条,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-628 **守门 35(mypy)按磁盘判、结构上没有 HEAD 档:它会把邻居的未跟踪,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-741 **台账缺一个"单行逐字相同的孪生待办"出口:现有 `--dedupe-bloc,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-469 同一屏**没被端到端证明**的那一格(登记,未做):选了轴之后列表是否真按 `p,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-462 **docker 那份 nginx 里两片"没申报就整片代理到 ai-servi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04)〔【归并】重复登记副本:与本编号另一条同题登记正文逐字相同,不单独派单〕 **把 `redac,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09)〔【归并】重复登记副本·同题不同编号(2026-09-28):本行与持有行是同一件事的第二份登,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O36 守门"接线层"根治 —— 补装三枚造好没装车的门、修一道假阳性、摘掉两处恒绿登记(2026-09-24 立并完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O59 Esc 层栈迁移收尾 + 台账与 HEAD 对账改判(2026-09-24 立并完成 ✅,跨端:apps/web,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O62 取材层收口成一一份 + 顺带修掉它引出的两个连锁缺陷（2026-09-25 立并完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-583 **台账里 37 行待办的"重复登记副本"注记机器剥不掉,恢复出口按纪律拒绝动它,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-471 **postgres_exporter 的 wal 采集器每 15 秒被库拒一次,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-375 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-386 **A2 deploy-lock 未来时间戳使锁龄恒 0（可立即修；归属：部署锁,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-389 **A7+A8+A9 三格"尺子盲区"（可立即修，逐条一票）** —— 消费投影,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-597 真机拍到的观感缺陷(登记,未修):首页轮播的图片来源在移动网络下失败,错误占位是,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) （【归并】重复登记副本·同题不同编号·2026-09-28·本行与同题登记的持有行重复,现摘,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-579. **守门 79 只看"成对"冲突标记,单侧残留可以长期停在已入库内容里而每次提,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28) **G-189 两格已量化、刻意不当场执行的事项(附现成判据与取证,下一步可直接做)**:①,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-466 **守门 8 的假绿灯：一版收紧能把 3 处从"看不见"变成判红，但其中 1 处,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29)  **本线仍未闭环的一件(归属明确,不是遗漏)**:守门 93 的 **R1/R2/R4/R,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28) **D149 孤儿件:对话流有一批组件写完没上屏(承 V4 §六 卫生清单;取证 2026-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-374 **设置项"显式清空"与"从未设置"无差，且读侧同一含义两键相反（需拍板；归属：,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-607 **第十批落地(G-465 残留名单钉进尺子 / ZCode 台账分母口径 / ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28) G-1038322 **`plan-tasks-merge.mjs --dedupe-blo,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) （【归并】重复登记副本·同题不同编号·2026-09-28·本行与同题登记的持有行重复,现摘,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) ✅(2026-09-28)**G-601 跨端存储契约门红在干净 HEAD 上,而它说的是假,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28) **G-189 两格已量化、刻意不当场执行的事项(附现成判据与取证,下一步可直接做)**:①,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)**把 `POST /rules/auto-generate` 从"永远拿不到东西"修成端到端,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28) **G-189 两格已量化、刻意不当场执行的事项(附现成判据与取证,下一步可直接做)**:①,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) （【归并】重复登记副本·同题不同编号·2026-09-28·本行与同题登记的持有行重复,现摘,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-400 **把 `redactChildOutput` 的同形副本收成一份实现（承 L1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-466（原编号;持有行 G-609）同型未普查的一格(登记,未修):全仓还有多少条路由把,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) O81 票㉛ —— **把 C6 的胶囊一侧从"只开队列"升成判红,并修掉 8 条"从未求值,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) 进行中@2026-09-29/主会话）G-622 **第十三批:ZCode 取证票落地六枚 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-466 **守门 8 的假绿灯：一版收紧能把 3 处从"看不见"变成判红，但其中 1 处,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)（进行中@2026-09-28/UUIDCENSUS,本会话已派只读普查代理,逐条 A敞口/B,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-632 分支代际计数器:异步解算期间分支被切换 ⇒ 本轮结果必须作废而非落地。落点 ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-638 钩子改写参数后必须重过权限判定:hook 对 tool input 的改写不得绕,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-659 队列 durable admission 账本:admitted→promote,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29)G-676 显示宽度尺先消副本再谈新增:`apps/cli/src/util/text-wid,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-679 可寻址性守恒尺:渲染出来的每个行内动作/按钮,target 必须能被同一次冷 m,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29)G-680 生成物自带源版本钉 + 输入内容哈希:`--check` 陈旧检测我方已有(7+ ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-334 **把 `redactChildOutput` 的同形副本收成一份实现（承 L1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-466 **守门 8 的假绿灯：一版收紧能把 3 处从"看不见"变成判红，但其中 1 处,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)（进行中@2026-09-28/UUIDCENSUS,本会话已派只读普查代理,逐条 A敞口/B,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)（进行中@2026-09-28/UUIDCENSUS,本会话已派只读普查代理,逐条 A敞口/B,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) 进行中@2026-09-29/UUIDNARROW） G-624 **把两条共享 `idPa,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-682 插件依赖闭包在安装期定型:清单加 `dependencies?: string[,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-686 进程级按 provider/model 分桶的 AIMD 准入:闸门粒度=每一次,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-687 孤儿收敛挂在构造时刻:进程被杀遗留的非终态行只在"本实例名下零在飞"那一刻可判定,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-03) G-693 流式空闲超时与总超时分离:我方 `provider/local.ts:166-2,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-694 成对清理纪律:超时/取消路径必须与成功路径同样摘监听器并释放流。我方 `send,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-695 关闭事件"晚订阅者补发 + 单次 fire":我方 `ws-chat.ts:53,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28) G-707 宽松日期解析要 canonical 回比 + 响应头回显前要再消毒:上游对三种 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-374 **设置项"显式清空"与"从未设置"无差，且读侧同一含义两键相反（需拍板；归属：,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-712 schema 缺席 ⇒ 硬失败,绝不静默降级为"无校验":上游 `schema/,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-694 成对清理纪律:超时/取消路径必须与成功路径同样摘监听器并释放流。我方 `send,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-703 终态必须一次性回收"运行域"全部寻址凭据:状态落到非运行态的那一个 choke ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-735 拉第三方内容要有**有界重定向 + 跨 origin 剥自定义头**(ZCode,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-788 旧分页分支的游标**只比 createdAt 单列**,而导入路径会把多条消息落,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-03) G-791 第二十七批的**待命与不抄登记**(八条,各带可判重开条件;写下来是为了让下一个,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-820 活动时钟必须单调且"维护性写入只拥有自己的列" —— **Python 半边已落,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-821 会话累计 token 必须按来源持增量基线,否则随轮次平方级虚高 —— 已落地(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-816000 **跨域图片"保存"取不到字节时,要补一个能真用出去的兜底入口(不是只报失,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-824 **内联表格要有工具栏(DOM 回读→复制 GFM/下载 CSV/全屏 stic,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)G-830 **派单模板必须自带"前提自检",否则负责人写的'我方已有'会关掉真待办**(可立,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-831 **`check-staged-typecheck.mjs` 对未知参数静默忽略,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-832 **G-808 的残余两格:读侧同名行的取舍,以及"两个市场同名插件"要不要加列,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-833 **聊天附件三入口缺"类型/单文件大小/数量"三档校验,且超额是静默丢弃**(可,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-845 **空输入框上按 Backspace 删除最后一个附件**(小,可落地;归属:w,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-846 【不抄登记】单个 submit 按钮双语义(submit/stop)+ 动态切 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-855 签名 URL 进日志前必须剥掉凭据段 —— 已落地(ad063112e8),但*,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-856 **多媒体预览:切离即暂停、解码失败只收口当前项**(可落地;归属:web 媒体,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-857 【不抄登记】用 `dangerouslySetInnerHTML` 直接插 SV,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-862 **IME 组合守卫在 `contextSelector` 之后,组合期按 En,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-738 不抄登记(ZCode 吸收第二十四批·切片3 的 4 条否证 + 2 条上游反例,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-760 **把 `redactChildOutput` 的同形副本收成一份实现（承 L1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-368 **RN「记住密码」把账号+密码明文写进 AsyncStorage,而它正是票#,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-770 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-384 **门 130 的 F9 把"交叉引用"算成"撞号":整行扫描编号 ⇒ 别人正文,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-780 **A3 sso/mobile-auth 的 redirect 未过 origi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-781 **A4+A10 两处"注释承诺而未兑现"（待我复验后落地）** —— 名称档码,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-785 真机拍到的观感缺陷(登记,未修):首页轮播的图片来源在移动网络下失败,错误占位是,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-628 **守门 35(mypy)按磁盘判、结构上没有 HEAD 档:它会把邻居的未跟踪,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-694 成对清理纪律:超时/取消路径必须与成功路径同样摘监听器并释放流。我方 `send,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-753 **`/api/workflows/*` 整族路由零主体、`workflow_e,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-375 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-391 **守门 37 的两格已知盲区(2026-09-28 随 G-225 出路②落地,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-386 **A2 deploy-lock 未来时间戳使锁龄恒 0（可立即修；归属：部署锁,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-389 **A7+A8+A9 三格"尺子盲区"（可立即修，逐条一票）** —— 消费投影,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-431 同型未普查的一格(登记,未修):全仓还有多少条路由把**任意字符串**喂给 `u,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-628 **守门 35(mypy)按磁盘判、结构上没有 HEAD 档:它会把邻居的未跟踪,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-694 成对清理纪律:超时/取消路径必须与成功路径同样摘监听器并释放流。我方 `send,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-694 成对清理纪律:超时/取消路径必须与成功路径同样摘监听器并释放流。我方 `send,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-03) G-709 **MCP 凭据 store 把损坏 JSON 当空 store ⇒ 下一次保存,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-742 **共享工作区今日被宿主清理层删掉 65 个"当天新入库"的跟踪文件,并被某个流,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-694 成对清理纪律:超时/取消路径必须与成功路径同样摘监听器并释放流。我方 `send,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-334 **把 `redactChildOutput` 的同形副本收成一份实现（承 L1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-374 **设置项"显式清空"与"从未设置"无差，且读侧同一含义两键相反（需拍板；归属：,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-375 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-385 **A1 改道校验只比大小不比内容（可立即修；归属：§26 C 盘改道线，本票持,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-386 **A2 deploy-lock 未来时间戳使锁龄恒 0（可立即修；归属：部署锁,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-03) G-390 **W4-W7 四波覆盖票（每波一票，交付判据见上）** —— 派单前先看登记表,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:**D154 协议通道④:MCP 启动状态与 OAuth 完成没有下行,连不上时对话里看不出来(取证 2026-09-2,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-814403 **同题"前缀套叠"副本对全部判据隐身：给尺子加一档只报数的同题前缀族(可,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-815409 **七张"票面已不成立但账面仍挂未勾"的行逐行落账（可立即修；归属：活文档,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-814386 **台账逐字孪生的根因在"并集重放"这一侧,不在清理那一侧 —— 给活文档,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) 〔【归并】重复登记副本(2026-09-29,主会话代判):本行与 G-755 主件同题而正,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08)承「图源池的层序违规已清零(落地枚 f1638d8),但留了三格未闭合」那条的第 ③ 格:畸形,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-403 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-796 **「把守门 149 的 barrel 射程扩到端内」这一票两枚代理都死在 15,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-403 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-391 **守门 37 的两格已知盲区(2026-09-28 随 G-225 出路②落地,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-03) G-709 **MCP 凭据 store 把损坏 JSON 当空 store ⇒ 下一次保存,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-391 **守门 37 的两格已知盲区(2026-09-28 随 G-225 出路②落地,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-694 成对清理纪律:超时/取消路径必须与成功路径同样摘监听器并释放流。我方 `send,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28) G-789 迁移内容漂移**在提交链上不可判**,但**先证工具行为再决定这是不是缺口**(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-814388 【归并】【安全/可用性】cli 插件域的 **git 派生三件套全缺**(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-815923 **小程序 i18n 生成器伸手进根工具层 ⇒ 守门 103 一次产出三处,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-815925 **同一天里台账分叉从 0 涨到 96 组（F1 同主键两态并存），本会话,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)**把 `POST /rules/auto-generate` 从"永远拿不到东西"修成端到端,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-391 **守门 37 的两格已知盲区(2026-09-28 随 G-225 出路②落地,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-814423 diff 内容的"读不到"与"空文件"必须**全或无**降级,禁止单侧补空,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-403 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-391 **守门 37 的两格已知盲区(2026-09-28 随 G-225 出路②落地,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-300 `USDT_TRC20_ADDRESS` 仍空（**等机主给值**——它是平台自,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) 计划任务 `IHUI-C-Drive-AutoMaintain` 仍未注册(注册 = 影响全,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) O19b 剩余 4 列**故意不并**,各有明确理由:① `users/projects/f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-1018227 **`ihui-auth-user` 里存了 `isAuthentica,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-466 同型未普查的一格(登记,未修):全仓还有多少条路由把**任意字符串**喂给 `u,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-466 **守门 8 的假绿灯：一版收紧能把 3 处从"看不见"变成判红，但其中 1 处,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-1018300 **第十一批:沙箱默认严档落地 + 两路只读取证的 24 条发现落成可执,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) **D172 provider 调用记录表缺 trace 列(承 D147;等环境条件 ——,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)（【归并】重复登记副本·同题不同编号·2026-09-28·本行与同题登记的持有行重复,现摘掉,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-391 **守门 37 的两格已知盲区(2026-09-28 随 G-225 出路②落地,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-03) G-709 **MCP 凭据 store 把损坏 JSON 当空 store ⇒ 下一次保存,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-694 成对清理纪律:超时/取消路径必须与成功路径同样摘监听器并释放流。我方 `send,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-815410 **`git-sync-converge` / `union-conver,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-815411 出站超时"罩住响应体"之后,**同一批站点里 abort 被吞成空响应**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-796 **「把守门 149 的 barrel 射程扩到端内」这一票两枚代理都死在 15,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-814406 无头(--print/--json)退出前等待在飞后台任务与通知回合:上游,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:**real 测试面的归属待定（需人定方向，未认领）**：`apps/api/vitest.config.ts` 把 `,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) **G-269 备份在线还原演练实测(2026-09-27,机主授权"临时授 beifen ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)G-406 **棘轮锚点把量值编进指纹 + `--changed` 不沿反向依赖（可落地；归属,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-415 **A7+A8+A9 三格"尺子盲区"（可立即修，逐条一票）** —— 消费投影,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-385 **A1 改道校验只比大小不比内容（可立即修；归属：§26 C 盘改道线，本票持,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-421 **台账里五条挂着"未完成"的登记，本会话逐条现读到"实现已在 HEAD"——只,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-425 输出被 max_tokens 截断时没有任何"续写"链路，且端上看不到截断（等人,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-536 同型未普查的一格(登记,未修):全仓还有多少条路由把**任意字符串**喂给 `u,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) **D166 粘贴链接没有预览卡,发出去之后才知道读不到(承 V4 §9.4③;一手取证 2,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-469 同一屏**没被端到端证明**的那一格(登记,未做):选了轴之后列表是否真按 `p,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) **存量漂移一条(另票,本票未代改)**:`packages/types/src/hooks,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) P1 残余①:`apps/web/src/lib/tauri-bridge.ts` 里 `s,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-325 **face-reader 那条"自拼 cat-file --batch"棘轮红,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-331 **守门 41 的注册条目与实现矛盾(onFailHint 仍在喊"删分支"),,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) O19b 剩余 4 列**故意不并**,各有明确理由:① `users/projects/f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-334 **把 `redactChildOutput` 的同形副本收成一份实现（承 L1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-1018238 **`ihui-auth-user` 里存了 `isAuthentica,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-367 **SSO 深链换到令牌后界面仍停登录页:现象已实测,根因未定** —— 真机(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-431 同型未普查的一格(登记,未修):全仓还有多少条路由把**任意字符串**喂给 `u,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) **把 `redactChildOutput` 的同形副本收成一份实现（承 L13210 收,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) **D139 尺子①:对话流事件 parity 门只护 web,其余四端缺失结构性不可见(承,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-581 **共享工作树里的 `PROJECT_PLAN.md` 此刻挂着一对未解决冲突标,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-607 **第十批落地(G-465 残留名单钉进尺子 / ZCode 台账分母口径 / ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) ✅(2026-09-28)**G-602 小程序产物落地门补 C0「产物新鲜度」维 —— 旧,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-466 **守门 8 的假绿灯：一版收紧能把 3 处从"看不见"变成判红，但其中 1 处,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)G-622 **第十三批:ZCode 取证票落地六枚 + 一枚分裂交付已补 + 两处"我自己造,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)（进行中@2026-09-28/UUIDCENSUS,本会话已派只读普查代理,逐条 A敞口/B,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-632 分支代际计数器:异步解算期间分支被切换 ⇒ 本轮结果必须作废而非落地。落点 ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-659 队列 durable admission 账本:admitted→promote,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-675 互斥身份用类型表达:两种后台来源标记用 `?: never` 做成不可构造(现全,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-677 归属窗口随请求 settle 关闭:AsyncLocalStorage stor,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-679 可寻址性守恒尺:渲染出来的每个行内动作/按钮,target 必须能被同一次冷 m,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-400 **把 `redactChildOutput` 的同形副本收成一份实现（承 L1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-686 进程级按 provider/model 分桶的 AIMD 准入:闸门粒度=每一次,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-687 孤儿收敛挂在构造时刻:进程被杀遗留的非终态行只在"本实例名下零在飞"那一刻可判定,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-694 成对清理纪律:超时/取消路径必须与成功路径同样摘监听器并释放流。我方 `send,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-628 **守门 35(mypy)按磁盘判、结构上没有 HEAD 档:它会把邻居的未跟踪,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-431 同型未普查的一格(登记,未修):全仓还有多少条路由把**任意字符串**喂给 `u,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-714 重放缓冲要"字节水位 + 双放弃条件",而不是只数条数:上游 `packages,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-742 **共享工作区今日被宿主清理层删掉 65 个"当天新入库"的跟踪文件,并被某个流,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-374 **设置项"显式清空"与"从未设置"无差，且读侧同一含义两键相反（需拍板；归属：,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-375 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-385 **A1 改道校验只比大小不比内容（可立即修；归属：§26 C 盘改道线，本票持,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-386 **A2 deploy-lock 未来时间戳使锁龄恒 0（可立即修；归属：部署锁,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-03) G-390 **W4-W7 四波覆盖票（每波一票，交付判据见上）** —— 派单前先看登记表,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-03) G-709 **MCP 凭据 store 把损坏 JSON 当空 store ⇒ 下一次保存,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-757 恢复器的结论**没有到人出口**:`recoverStaleSwapArtifa,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-03) G-791 第二十七批的**待命与不抄登记**(八条,各带可判重开条件;写下来是为了让下一个,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-760 **把 `redactChildOutput` 的同形副本收成一份实现（承 L1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-770 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-778 **A1 改道校验只比大小不比内容（可立即修；归属：§26 C 盘改道线，本票持,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-780 **A3 sso/mobile-auth 的 redirect 未过 origi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-781 **A4+A10 两处"注释承诺而未兑现"（待我复验后落地）** —— 名称档码,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-814407 非交互且无审批面 ⇒ deny,且拒绝文案取自**单一出口**:上游 `h,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) **存量漂移一条(另票,本票未代改)**:`packages/types/src/hooks,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-03) G-709 **MCP 凭据 store 把损坏 JSON 当空 store ⇒ 下一次保存,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-694 成对清理纪律:超时/取消路径必须与成功路径同样摘监听器并释放流。我方 `send,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-814406 无头(--print/--json)退出前等待在飞后台任务与通知回合:上游,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-403 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-391 **守门 37 的两格已知盲区(2026-09-28 随 G-225 出路②落地,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-466 **守门 8 的假绿灯：一版收紧能把 3 处从"看不见"变成判红，但其中 1 处,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-815427 **收敛落地闸声明的 F1 出口本轮没被自动归并消费(`plan-task,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:**real 测试面的归属待定（需人定方向，未认领）**：`apps/api/vitest.config.ts` 把 `,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) O86b 托盘退出「设上限≠修好」:120s 兜底被用户驳回,改租约模型(默认 5s 必退),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) **G-269 备份在线还原演练实测(2026-09-27,机主授权"临时授 beifen ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-393 **门 33 的 provider 名单该由谁供给(归属:守门 33 持有人;等,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-396 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)G-406 **棘轮锚点把量值编进指纹 + `--changed` 不沿反向依赖（可落地；归属,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-415 **A7+A8+A9 三格"尺子盲区"（可立即修，逐条一票）** —— 消费投影,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) D163 回退与预览失败必须声明「工作区未发生变化」,并把 Diff 快捷预览从三态补到五态,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-421 **台账里五条挂着"未完成"的登记，本会话逐条现读到"实现已在 HEAD"——只,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-422 MCP 工具按服务器裸名注册、同名静默跨服覆盖（等人拍板）—— 上游 `core,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-425 输出被 max_tokens 截断时没有任何"续写"链路，且端上看不到截断（等人,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-426 子代理超时是墙钟而非"无活动"，仍在推进的慢子代理会被杀（等人拍板）—— 上游 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:G-428 会扩大权限面的键必须三值：缺席 / 无效 / 空表；仓库内输入不得抬权（等人拍板 + 可小成本先修解析层）—,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-536 同型未普查的一格(登记,未修):全仓还有多少条路由把**任意字符串**喂给 `u,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-469 同一屏**没被端到端证明**的那一格(登记,未做):选了轴之后列表是否真按 `p,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-318 **公网路径抖动比部署换流大一个量级,且全仓无常驻探测器**（**等环境取证**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-327 **G-284 的尺子已入库并注册为 warn,但它自己那 4 条未勾行正文互不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-331 **守门 41 的注册条目与实现矛盾(onFailHint 仍在喊"删分支"),,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-334 **把 `redactChildOutput` 的同形副本收成一份实现（承 L1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-341 **`plan-tasks-merge.mjs --heal` 在同一次运行里给,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-1018238 **`ihui-auth-user` 里存了 `isAuthentica,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-326 **F6 漂移块的逐块裁决已做完,执行(摘短份)另计一票 —— 结论写在行内,不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) **把 `redactChildOutput` 的同形副本收成一份实现（承 L13210 收,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-581 **共享工作树里的 `PROJECT_PLAN.md` 此刻挂着一对未解决冲突标,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-425 截断可见提示：先只做可见提示、不新增跨端 SSE 字段、不自动续写。已验证的事实,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) （【归并】重复登记副本·同题不同编号·2026-09-29·本行与同题登记的持有行重复,现摘,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) ✅(2026-09-28)**G-602 小程序产物落地门补 C0「产物新鲜度」维 —— 旧,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) （待派）G-628 **共用层出口的"返回形状"必须被测试钉住:`casUpdateRef`,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-625 **守门 90 的镜像有一条正控已失效:它拿"注释里的两个名字"当诱饵,而票㉑ ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-627 **第十六批登记:第四路只读取证(ui 1492/191、desktop 265,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)（进行中@2026-09-28/UUIDCENSUS,本会话已派只读普查代理,逐条 A敞口/B,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-624 **把两条共享 `idParamSchema` 收紧成 UUID 校验:216 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-632 分支代际计数器:异步解算期间分支被切换 ⇒ 本轮结果必须作废而非落地。落点 ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-658 插件同名 fail-closed + 结构化诊断面:同名不同 rootPath ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)（进行中@2026-10-04/值守）G-977960 **union-converge 的两,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-659 队列 durable admission 账本:admitted→promote,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-675 互斥身份用类型表达:两种后台来源标记用 `?: never` 做成不可构造(现全,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-677 归属窗口随请求 settle 关闭:AsyncLocalStorage stor,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-679 可寻址性守恒尺:渲染出来的每个行内动作/按钮,target 必须能被同一次冷 m,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **D159 审批弹窗不显示执行环境(沙箱内/外、被拦的网络目标),用户是在信息不足的情况下,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-686 进程级按 provider/model 分桶的 AIMD 准入:闸门粒度=每一次,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-687 孤儿收敛挂在构造时刻:进程被杀遗留的非终态行只在"本实例名下零在飞"那一刻可判定,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-628 **守门 35(mypy)按磁盘判、结构上没有 HEAD 档:它会把邻居的未跟踪,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1102637 **`POST /api/agents/create` 的 `.pars,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-431 同型未普查的一格(登记,未修):全仓还有多少条路由把**任意字符串**喂给 `u,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-711 修复预算与"违规必须描述模型可改的形态":typed 结果提交有两条独立预算(`,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-712 schema 缺席 ⇒ 硬失败,绝不静默降级为"无校验":上游 `schema/,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-742 **共享工作区今日被宿主清理层删掉 65 个"当天新入库"的跟踪文件,并被某个流,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-787 crew 会话与备份作业的 status 写**没有 DB 级终态守卫**,迟到,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-03) G-791 第二十七批的**待命与不抄登记**(八条,各带可判重开条件;写下来是为了让下一个,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-760 **把 `redactChildOutput` 的同形副本收成一份实现（承 L1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-762 **门 33 的 provider 名单该由谁供给(归属:守门 33 持有人;等,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) （【归并】重复登记副本·同题不同编号·2026-10-08·本行与同题登记的持有行重复,现摘,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-770 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-778 **A1 改道校验只比大小不比内容（可立即修；归属：§26 C 盘改道线，本票持,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-780 **A3 sso/mobile-auth 的 redirect 未过 origi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-781 **A4+A10 两处"注释承诺而未兑现"（待我复验后落地）** —— 名称档码,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-814406 无头(--print/--json)退出前等待在飞后台任务与通知回合:上游,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-391 **守门 37 的两格已知盲区(2026-09-28 随 G-225 出路②落地,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-815912 **差分归因对"判远端态"的门会把基线面跑成假绿,于是每次真分叉期间的提交,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08)G-815919 **会话"归档"是一等列而不是删除的副产品 ⇒ 我方只有硬删,没有任何可追认,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29 由 1a3d45b63f 完成,2026-10-05 本会话核验并翻勾) G-815926 *,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-815935 **断流(用户点停止)时已到达的正文必须落库并进契约,而不是只喊一个没人听,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-815936 **「这个操作我做不了」也要留一份可查事实,并把逐文件的失败点名给调用方*,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)G-815987 `check-migration-bookkeeping.mjs` 的 ps,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **D174 SSE 帧内级 trace 回带(承 D147;等并行会话释放 `sse_co,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)（进行中@2026-09-29/主会话-Qoder）G-815938 **SSE 的"排空在终,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-815939 **入站 SSE 解析的尾帧残留既不排空也不记账**(G-815921 复,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) （【归并】重复登记副本·同题不同编号·2026-09-29·本行与同题登记的持有行 **G-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-815950 **`scripts/plan-tasks-merge.mjs --hea,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-815949 **同一批五张票在 HEAD 面各有一份短副本登记(G-815413/41,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **D131 对话流保真③:连接状态件从未上屏 + 重连后待决审批恢复无取证(承 V4 #8,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09) G-815946 **归属:chat/web 在飞会话 + 小程序端持有人 —— 线上停在 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-815925 **同一天里台账分叉从 0 涨到 96 组（F1 同主键两态并存），本会话,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-815954 **jsonb 整列覆盖式 upsert 会吃掉"显式清空"的墓碑:只许具,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-815961 **文件系统故障注入是一等测试面:守门 122 只判"有没有走原子写出口",完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-815963 **未知枚举的兜底档必须是"不再产生副作用"那一档——兜到初始态等于把已终,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) G-1058640 **G-815966 的门体入库:镜像测试早已入库而门体是未跟踪 orp,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-815967 **异步回调回来必须复核"我等的还是不是原来那个作业"——只判 mount,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)（进行中@2026-09-29/主会话-Qoder）G-815968 **dragleave ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-815971 **限额/配额收口的那一轮,禁止再触发任何"会重新打开模型请求"的续跑通道,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-815973 **终态写入要 first-writer-wins 闩锁,并给"刚出队还没,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-815979 **已入库的一条反向锁因"同词不同义"恒红,今天由我改判据口径清掉(不是放,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-815995 **发给 provider 的面与落库的面必须是两次投影,恢复脚手架不得进,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-815994 **steer/队列条目的类型轴按上游两组切,不要照抄它的 priorit,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-815983 **`truncated` 语义在"恰好等于 limit"时不得缺席,且同,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-815984 **写入时刻必须原样回给调用方,不能让"刚写的事件"没有时刻**(上游 `,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-815986 **空集合参数必须在任何 IO 之前拒绝,否则"撤销全部"与"没有目标"在,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-815989 **敏感路由前缀未显式声明网络分段时默认"公网可达"——这条默认档方向需要,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-815991 **"空契约"这一型判不了,如实登记而不是假装已覆盖**(上游 `pack,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-815925 **同一天里台账分叉从 0 涨到 96 组（F1 同主键两态并存），本会话,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-815997 **web 侧另有三处独立 CSV writer 无公式注入中和**(安全,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-816001 **分支代 fencing:rewind/fork 之后旧生命的唤醒必须被,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08)G-816004 **审批注册/结算的代际 CAS:两把锁各给各的 reasonCode**(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) 〔落账性质:**判定作废、非实现**——本票未交付任何代码/判据;上一轮否证(三条现读取证在,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) G-816015 **token 估算必须有独立投影,不得复用"可见正文"投影(它刻意隐藏 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-1058650 **压缩双端 parity 夹具里没有"带 reasoning 的消息",完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-816016 **守门 163 剩下的 52 处"判不出"要靠"间接派发要有可解析形状",完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-816018 **`apps/api/tsconfig.json` 的 `"exclud,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-816019 **`message-input.tsx:846` 的外部 Enter 分,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-816023 **CLI 侧同类上报面未接 URL 凭据剥离**(小,可立即修;归属:c,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-816025 **后台结果回灌历史前要有五道有序校验,"无可观察源"要判 lost 且仍,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-816026 **停止必须留"谁发起的",且 `timedOut` 不得由"收到 SIG,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-816027 **枚举未声明即取宽档要有判据:`switch` 的 `default` ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-816028 **截断必须同时给"省略了多少"和"全量去哪取",不许只说一句"被截断"*,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-816030 **ACK 之前的帧要按订阅所有权有界暂存,越界整批丢弃并让订阅明确失败(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-816032 **分片上传要有"提交后发布 + 失败必撤销 + 服务端续点",我方后端两,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) G-816034 **接口新增成员 ⇒ 稳定身份必须同步长出转发;现存一个"有测试无调用"的,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-816036 **列表稳定化不得按 `JSON.stringify` 键序判等;派生列表,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-816039 **工具结果必须拆成三条独立投影(给模型的 / 给人看的 / 落库的),我,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-816040 **四份 ui-routes 派生态零对账:把"重跑生成器 + 逐字节等值,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) P1 **守门 8 `check-api-routes` 只扫 `apps/web`,三端死,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) 81 跨端 UI 单一源:小程序端与 App(RN)端逐档同值 + 改一端另一端自动生效(除,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-820 活动时钟必须单调且"维护性写入只拥有自己的列" —— **Python 半边已落,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-843 **【正确性/优先级高于任何新增】# 上下文选择器开着时按 Enter 是"发消,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-851 **【正确性/可立即修】跨域图片"下载"点了没存还报成功**（归属:web 媒体,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) 〔【归并】重复登记副本(2026-09-29,主会话代判):本行与 G-755 主件同题而正,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) -311 **`union-converge` 的"归并不得放大台账分叉"那道判据，对它立项,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) -464 逐工具 `strict`（provider 约束解码资格）缺声明位（等人拍板）——,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)G-622 **第十三批:ZCode 取证票落地六枚 + 一枚分裂交付已补 + 两处"我自己造,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-668 忙时收到的 tick 不得丢:`if (ticking) return` 三处须,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) 81 跨端 UI 单一源:小程序端与 App(RN)端逐档同值 + 改一端另一端自动生效(除,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-815917（等台账持有人逐行裁决 8 行的权威正文;可判的重开条件写在末句）**跨端 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) **G-257(新登记)**:`scripts/check-agent-engine-par,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-608 **第十一批:沙箱默认严档落地 + 两路只读取证的 24 条发现落成可执行票(每,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) ✅(2026-09-28)**G-602 小程序产物落地门补 C0「产物新鲜度」维 —— 旧,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-816708 计划文档的**自愈层对"旁路落地"结构性失明** —— 台账被滞台副本写回,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)（进行中@2026-09-29/运维主会话）G-816712 **CI 的 `Ruff che,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-668 忙时收到的 tick 不得丢:`if (ticking) return` 三处须,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-464 逐工具 `strict`（provider 约束解码资格）缺声明位（等人拍板）—,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **D145 引擎一致性:子代理词汇双轨与状态词汇三域(承 V4 #102;取证 2026-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-404 **瞬时假值覆盖上一个可信值：上下文占用把"短暂 0"当"真的清空"（可落地；归,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **D36 输入草稿与历史(G-55)**:对标 Codex `prompt-history,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-815923 **小程序 i18n 生成器伸手进根工具层 ⇒ 守门 103 一次产出三处,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-815925 **同一天里台账分叉从 0 涨到 96 组（F1 同主键两态并存），本会话,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-255 同一块 metadata 的第二种被冲法:`thread/metadata` 整,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **G-240 enforce 档的下一步不是翻默认，而是"用台账修描述"**：影子/enf,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) （待认领）**G-189 两格已量化、刻意不当场执行的事项(附现成判据与取证,下一步可直接做,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-816408 **合并面 F9 撞号已把全机交付堵死(现读 53 枚提交同步不出去(数字,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-896415 **权限层三条 fail-closed 我方已有等价;真正缺的是"双层 a,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-896418 **SSE 信封的 `unknown`+as 收口:我方比上游还少一层(连,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **D174 SSE 帧内级 trace 回带(承 D147;等并行会话释放 `sse_co,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) **G-916415 帧级 traceId 的到端那一半(D174 交回清单里唯一仍可做的一,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) B15 本目标下**仍未闭环**的一件事(② 已于 2026-09-26 实测收口):① 移,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) `--allow-dangerous` 确认旁路仍在调用方(`commands/agent.,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) P1 **守门 8 `check-api-routes` 只扫 `apps/web`,三端死,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) 84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **O82续三·D35后续①**：`projectionState` 的**写入**方仍无人,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) **⑤剩余那一半:内部令牌换一次性短期票**(承第三十八批已修的计时维)——原 ticket,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **G-261. 同型「500 掩盖 400」站点的余量清偿**:粗筛 = 10 个路由文件,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **D130 对话流保真②:推理强度档位前端零通道(承 V4 #88;取证 2026-09-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) O14 SDK 真正发布（现 0 tag / brew sha256 占位）：npm/PyP,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)**把 `POST /rules/auto-generate` 从"永远拿不到东西"修成端到端,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) **存量漂移一条(另票,本票未代改)**:`packages/types/src/hooks,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()`(`chec,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) **守门 81** `check-brand-email-channel.mjs`(bloc,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) **node `spawnSync` 对原生 exe 持续 EBUSY**(`schtask,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) P1 **返回键同一型跨端清账(本票的直接续作)**:① `packages/app/src,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **`CourseScreen:113` 那格盲区的精确成因(不再是"未知失配"),以及为什,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **RN/desktop 端设备指纹只有 2 个可能值（本批新量到，需 owner 定性，非,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) 81 跨端 UI 单一源:小程序端与 App(RN)端逐档同值 + 改一端另一端自动生效(除,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **G-299. 门 8 清账后遗留的三枚"有消费方的待实装路由"(2026-09-28 登,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) O13 多租户隔离重建（tenant RLS 被 0214 删除后，按 catalog da,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) P1 **返回键同一型跨端清账(本票的直接续作)**:① `packages/app/src,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **O82续三·D35后续①**：`projectionState` 的**写入**方仍无人,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) D19 desktop/miniapp/mobile-rn 对话流 parity(termi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **RN「记住密码」把账号+密码明文写进 AsyncStorage,而它正是票#20 那条自,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **`ihui-auth-user` 里存了 `isAuthenticated`:登录态的第,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) **CSRF「按凭据存在性豁免」这一型无判据:票#23 修了一处,型还在** —— `plu,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **D145 引擎一致性:子代理词汇双轨与状态词汇三域(承 V4 #102;取证 2026-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)**把 `POST /rules/auto-generate` 从"永远拿不到东西"修成端到端,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08)承「图源池的层序违规已清零(落地枚 f1638d8),但留了三格未闭合」那条的第 ③ 格:畸形,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-814387 **取号空间被"畸形号的二次修正"污染:四行 6 位号把该族 max 从 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:**`stream-tool-ledger` 未入库**:模块与单测已绿(`apps/cli/src/stream-to,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) P1 **`check-auth-refresh-singleton`(hook 批外步骤),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) 59. 消息级版本切换 ← 1/3 →(regenerate 改为新增 sibling 而非,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) 73. `apps/miniapp-taro` AI 对话页(移植 `packages/ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) 84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) P1 **CI 装不上而门 101 报绿：锁只记「条目在不在」，不看它落在哪个依赖段**（2,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:**real 测试面的归属待定（需人定方向，未认领）**：`apps/api/vitest.config.ts` 把 `,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)（进行中@2026-09-27/v3wave4）84. 26h 级耐久任务底座(依赖 51 +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) **⑤剩余那一半:内部令牌换一次性短期票**(承第三十八批已修的计时维)——原 ticket,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) O81 票⑰ —— **`2f-ext` 升 blocking 已量好前置,按用户指令暂缓落,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) **ai-service 退化指纹的等值处置未拍板**:三选项 A 保留现状 + 消费侧基数,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-284. **§26"临时夹具唯一落点 = scratch-dir"对镜像测试面零覆盖*,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-369 **门 130 自己有两条"报了却没报全"的缺陷,都在他人持有的文件里,本票只登,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-374 **设置项"显式清空"与"从未设置"无差，且读侧同一含义两键相反（需拍板；归属：,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-375 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **G-392. `scripts/cleanup-external-junk.ps1` 的,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) **架构契约表最后一块 `packages/types` 翻不正面 —— 台账旧句"0 个模,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) **D141 尺子③:竞品控制帧↔我方能力的等价性判定表从未做过(本轮新开;取证 2026-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-383 **实测敞口:守门 84 对"混合体回写台账"结构失明,而今天两轮归档的成果正处,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-385 **A1 改道校验只比大小不比内容（可立即修；归属：§26 C 盘改道线，本票持,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-386 **A2 deploy-lock 未来时间戳使锁龄恒 0（可立即修；归属：部署锁,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-389 **A7+A8+A9 三格"尺子盲区"（可立即修，逐条一票）** —— 消费投影,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) **O59⑤ D48 的验收在盘上仍不成立 —— 根因已定位并修掉(据实收口)**:原票判据,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:**本波自己踩到的取证纪律（已在上一批记过，仍复发，所以再记一次）**：`cmd 2>&1 | tail -N` 之后 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:**`BROWSER_ACTIONS` 手抄清单不照 page 族那样派生(经取证否决,非疏漏)**: 〔清账@2026,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) **测试**:`apps/api/tests/notify-deploy-failure.t,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) **本票未做的两件(归属明确,不是遗漏)**:① **同族修法早已存在,收敛器只是最后一个*,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()`(`chec,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) **传输层单点化**:`notify-deploy-failure.ts` 扩为通用品牌告警,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:`/api/agent/goal-verify` **无生产消费方**(端点已注册、测试已断言路由存在,但 goal 运,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) `config/architecture-policy.yaml` 目前 0 个模块 `ma,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) P1 **返回键同一型跨端清账(本票的直接续作)**:① `packages/app/src,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) **`CourseScreen:113` 那格盲区的精确成因(不再是"未知失配"),以及为什,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **RN/desktop 端设备指纹只有 2 个可能值（本批新量到，需 owner 定性，非,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) **第二十八批:布尔 ack 的键族从 `deleted` 扩到 `removed / re,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) （登记，非本线）relay admin 4 个删除端点零测试覆盖、`o13-bg-rls-l,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) G-286. **`G:/DevEnv/Temp/ihui-scratch/` 内嵌了一份 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-307 **计划文档的两层自愈互相打架:两小时内产出 24 枚"恢复型"提交,并使门 1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-334 **把 `redactChildOutput` 的同形副本收成一份实现（承 L1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) 86. 证据级可追溯执行流水(每次工具调用带 invocation id + 输入/输出哈希,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) P1 **返回键同一型跨端清账(本票的直接续作)**:① `packages/app/src,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) （登记，非本线）relay admin 4 个删除端点零测试覆盖、`o13-bg-rls-l,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) O19b 剩余 4 列**故意不并**,各有明确理由:① `users/projects/f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) **台账"两层自愈互咬"的机制票 G-307 交了半成品:熔断行级判据在盘、端到端那一例红*,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-334 **把 `redactChildOutput` 的同形副本收成一份实现（承 L1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-286. **`G:/DevEnv/Temp/ihui-scratch/` 内嵌了一份 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-1018239 **`ihui-auth-user` 里存了 `isAuthentica,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-364 **vitest 把 `@ihui/shared/auth` 别名指到端内 st,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-1018280 **CSRF「按凭据存在性豁免」这一型无判据:票#23 修了一处,型还在,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-431 同型未普查的一格(登记,未修):全仓还有多少条路由把**任意字符串**喂给 `u,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) **RN「记住密码」把账号+密码明文写进 AsyncStorage,而它正是票#20 那条自,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) **CSRF「按凭据存在性豁免」这一型无判据:票#23 修了一处,型还在** —— `plu,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) ✅(2026-09-28)**G-602 小程序产物落地门补 C0「产物新鲜度」维 —— 旧,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)**把 `POST /rules/auto-generate` 从"永远拿不到东西"修成端到端,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-466 **守门 8 的假绿灯：一版收紧能把 3 处从"看不见"变成判红，但其中 1 处,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-593. **api-client 的"上行应答接受性"守卫测试还在锁旧实现形状,而实现,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-400 **把 `redactChildOutput` 的同形副本收成一份实现（承 L1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-691 `tools/call` 的 `isError` 是结果里的错误,不是传输级错误,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-431 同型未普查的一格(登记,未修):全仓还有多少条路由把**任意字符串**喂给 `u,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-354 **门 33 的 provider 名单该由谁供给(归属:守门 33 持有人;等,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-374 **设置项"显式清空"与"从未设置"无差，且读侧同一含义两键相反（需拍板；归属：,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-375 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:G-385 **A1 改道校验只比大小不比内容（可立即修；归属：§26 C 盘改道线，本票持有人即我）** —— 见上文,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-386 **A2 deploy-lock 未来时间戳使锁龄恒 0（可立即修；归属：部署锁,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-389 **A7+A8+A9 三格"尺子盲区"（可立即修，逐条一票）** —— 消费投影,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-710 **重试决策不得由错误文本决定**:上游 `engine/errors.ts:9,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-786 【安全】git clone 的 URL **无形状白名单、参数无 `--` 分隔,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-798 【前置=现读存量,不是拍板】`https://user:token@host` ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08)承「图源池的层序违规已清零(落地枚 f1638d8),但留了三格未闭合」那条的第 ③ 格:畸形,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) **G-261. 同型「500 掩盖 400」站点的余量清偿**:粗筛 = 10 个路由文件,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-916424 **hook 只能"拦"不能"答"是我方审批链缺的半边:modify + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-916425 **进程收尾要有共享 deadline 预算:单项挂起不得拖死也不得吞掉其,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-916934 **CLI 保存自定义命令后没有任何用户可见回执:`cli.custom.,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-916938 **系统时钟已连续 13.8 小时未成功同步(2026-09-29 现读红,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08)**G-916940 上下文容量分母写死的其余站点(web 那一处已修)。** 起因与已做:任,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:G-1101879 用量帧真分母:agent-task-progress-pane.tsx:909 的 pane 注释自,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09) **等持有人拍板（不挂进行中：登记人此刻不动它，挂了租约就是给后来人留假锁）** G-814,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-937951 **[A3] Bash 前台终态映射与 interrupted 语义全链*,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-977965 **[b74-1#1] shell 工具调用 explore/execut,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) **★ 抓到本仓一处"造好没装车"：`apps/cli/src/tools/argument,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)（进行中@2026-09-25/记忆链票） **把 `POST /rules/auto-gen,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) **本线仍未闭环的一件(归属明确,不是遗漏)**:守门 93 的 **R1/R2/R4/R5,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-796 **「把守门 149 的 barrel 射程扩到端内」这一票两枚代理都死在 15,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O86附 守门 137「名字承诺/实现兑现对账」接进提交链（2026-09-27 立并完成 ✅，O86 的另一半）,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:第五十一波·续末三 —— G-229 告警去重的账收进发信唯一出口 + 两道红门把全队守门顶成 --no-verify(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O86附⑩ 桌面端「退不掉」这条线到此收口:托盘/Ctrl+Q 立即退出 + 退出遮罩整条移除 + feed 变窄护栏(,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:第五十一波·续末 —— G-227 家目录改道自愈在系统身份下"拿错搬运对象"(2026-09-27 立并完成 ✅,运维,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O81 webhook 通知分支补测 + 一次"未跟踪目录遮蔽模块"的事故登记(2026-09-25 完成 ✅),随块带走的归并落账注记: 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O86 报警邮件里的经纬度坐标溯源 + "名为哈希/脱敏实为明文"四型收口（2026-09-27 立并完成 ✅，comm,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O86附② 生产机实测收口"服务端历史明文行"这一项（2026-09-27 立并完成 ✅，本机是空开发库不作数）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:P0 2026-09-27 桌面端「正在退出...」永久转圈退不掉 —— 退出链补「必然终止」兜底(单端:desktop,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:第五十一波·续末二 —— G-228 部署环撞分叉不再直接报警(2026-09-27 立并完成 ✅,机主投诉「一直在寄告,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:第五十一波·续末五 —— G-231 穷尽式恒红门审计 + 告警/跳门总量首次可量 + 收敛器不再自造全链跳门(2026,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:第五十一波·续末四 —— G-230 今天第三道"对 HEAD 恒红"的 blocking 门(mypy)+ 顺手抓到 ,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O61 safe-commit 的"钩子失败归因"从抄来的结论改成量出来的结论（2026-09-25 立并完成 ✅）,随块带走的归并落账注记: 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O62 取材层收口成一一份 + 顺带修掉它引出的两个连锁缺陷（2026-09-25 立并完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O63 八道门迁入取材层的第三波:6 道落地 + 2 道按住,并把"量等价"这件事从比旧基线改成同瞬间 A/B(2026,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O59 Esc 层栈迁移收尾 + 台账与 HEAD 对账改判(2026-09-24 立并完成 ✅,跨端:apps/web,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O45 C 盘"还有我们的东西"第四类真因:守门只看自己的 TEMP,真凶在服务身份的 TEMP(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O27 守门 75/76 让号至 83/84 —— runner 的 id 唯一性自检由红转静默(2026-09-24 ,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O36 守门"接线层"根治 —— 补装三枚造好没装车的门、修一道假阳性、摘掉两处恒绿登记(2026-09-24 立并完成,随块带走的归并落账注记: 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O42 台账也不能撒谎 —— 门 89 新增 R7「豁免依据必须可核验」，并当场抓到一条已入库的假依据(2026-09-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O41 C 盘自动维护任务真正装上 + 盘根 71 项待定性复核(2026-09-24 立并完成 ✅,单端工程治理:sc,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O28 门 53 白名单按新判据重算收紧 + D71② 真实障碍与"第二张错误表"预警(2026-09-24 立并完成 ,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O45 C 盘"还有我们的东西"第四类真因:守门只看自己的 TEMP,真凶在服务身份的 TEMP(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O62 品牌实底「大面积反色」全栈收口 + Tailwind v3 端 /alpha 修饰符落地(2026-09-25 ,随块带走的归并落账注记: 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O39 守门接线层第二批 —— 门 91 补装、8 枚结构性豁免、门 89 新增 R4 反向对账、tag 远端备份改 f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O52 shim 完整性判据的取证反转 —— 我原来的"基线未证明"是破损现场给的错觉，判红落点因此放在提交链之外(20,随块带走的归并落账注记: 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O25 部署失败邮件走纯文本通道 —— 品牌模板层合并根治 + 守门 81(2026-09-23 立并完成 ✅,单端工程,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:P1 工作区存续自愈被"暂存删除"打崩已修 + 244 处判读子代理超时未交付(产物已量化交接)(2026-09-23 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O35 镜像配额根因链收口(Gitee 内部备份标签清零)+ 守门 71 补任务标题族 + vbs 生成器/产物漂移(2,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:P1 2026-09-23 C 盘污染收口:13.2GB 构建备份 + 单日 45 个夹具的来源查清并归零(单端:工程治,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:P1 工作区存续自愈被"暂存删除"打崩已修 + 244 处判读子代理超时未交付(产物已量化交接)(2026-09-23 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O81 webhook 通知分支补测 + 一次"未跟踪目录遮蔽模块"的事故登记(2026-09-25 完成 ✅),随块带走的归并落账注记: 〔【归并】D64 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O86 报警邮件里的经纬度坐标溯源 + "名为哈希/脱敏实为明文"四型收口（2026-09-27 立并完成 ✅，comm,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O86附 守门 137「名字承诺/实现兑现对账」接进提交链（2026-09-27 立并完成 ✅，O86 的另一半）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) O81 票⑬ —— **读数补三条 + 真 A 类一枚 + 13 族差异逐条登记理由**。承,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-239」),是被并发并集留下的未翻勾副本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **更正我自己刚才那枚登记的提交标题**:`f669280a69d` 的标题写着「O81 票,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **先量事实,再定性**:今天部署环寄信按小时分解 = 02 点 1 封 / 03 点 3 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末二 —— G-228 部署环撞分叉不再直接报警(2026-09-27 立并完成 ✅,机主投诉「一直在寄告,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27,提交 `4b6c18348` + `f939e1586` + `ba0575f9b`)**第五,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27,提交 `26f88c49e`)**G-208 留下的第三格:API 启动前置 PostgreS,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27 翻勾:止血 + 判据 + 覆盖面补强三件齐,证据 `a980463fc` / `0e1e51c,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) O81 票⑮(同会话续做,但主题已越出 O81)—— **提交链上两道 blocking 门,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27,提交 `d3ca3a369`)**新尺子 `scripts/check-plan-sha-re,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27,提交 `bd35f4f54`)**G-240 的第②步出口:影子台账 → 可排期的问责清单 `,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) 进行中@2026-09-27/主会话）O81 票⑰ —— **`2f-ext` 升 bloc,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **`scripts/check-credential-health.mjs:832` 的正,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27,提交 `f8f212018`)**门 89 的 R4 抓到我自己的一处"装了没登记"**。批量,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27,提交 `ac0e6dd96` + AGENTS 登记 `48c6cc559`)**根治波第一格,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **G-254 计划任务越做越多的根治:台账加「归属分层 + 交代/寿命」两维(守门 130,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) 进行中）**真机走查(2026-09-24,v0.0.5/code7)三项新发现的收口状态*,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:G-249 线程 metadata 整写抹掉已持久化身份 —— 第六十批收口(ab622df09),含"补写 metad,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-254」),是被并发并集留下的未翻勾副本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-255 同一块 metadata 的第二种被冲法:`thread/metadata` 整,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-256」),是被并发并集留下的未翻勾副本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **O87 台账主键族对"行首裸编号"整族失明(F1/F4/归并器三处同盲 ⇒ 已完成的票被,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **G-255 超 2 天台账第一批逐行收尾(26 行 → 5 行结清 / 21 行按理由保,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **86F. 导出信封与审计链的"链锚"绑定 + `canonicalStringify` ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **86H. agent 审批的权限决策落审计链(#86 维度③残余)**（归属：本线,已落,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-257」),是被并发并集留下的未翻勾副本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-258」),是被并发并集留下的未翻勾副本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-257」),是被并发并集留下的未翻勾副本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:G-270 备份端到端还原实证(2026-09-27 ✅,机主单次授权的人工演练,不改 scripts/pg-resto,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **O87a 死调用 `/api/courses` 改走真实端点**:现场实测 `GET h,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **O87h 课程列表缺「难度/价格」查询轴与真分页(属 API+schema 决策,不是清,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **G-263 线上 prometheus 收口成"仓库唯一源",挖出两条"账面绿而告警永不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **G-265. 守门 `check-stale-dist.mjs` 对 `@ihui/ty,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「86D · 保留策略与墓碑」),是被并发并集,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) **G-269 备份在线还原演练实测(2026-09-27,机主授权"临时授 beifen ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **G-267 windows_exporter 401 的真因是"文件形状",并推翻本会话,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **86G-1. 免鉴权验签公钥端点已落地(86G 的第一半;用户拍板"开免鉴权公钥端点"),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **G-264 三件"看起来存在、实际永不生效"的东西一起收口(枚 `0b2c28386`),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **G-275 D35 长会话分页投影收口:读路径第一次有可执行入口** —— 共享层那句『,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **G-281 "本机绿而 CI 红"这一格今天清到底:三处成因逐个钉死** —— ① **,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **G-282 实况更正并结清:票面障碍(已入库红灯挡 CI 连绿)已解除** —— ① `,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) G-285. **`scripts/run-evidence.mjs` 结构上不能用于"cw,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **G-290`QuitUpdateOverlay` 引用了四个谁都没写的键 —— 安静存量,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **G-290(归并:本行是同编号的过期未勾副本,现行结论见另一条已完成登记)** —— 现,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「O14b2」),是被并发并集留下的未翻勾副本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-104 · 规格补强三条」),是被并发并,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28):P0 AI 对话输入框上方任务进度状态条(2026-09-21 立并完成 ✅,跨端:packages/shared + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28):P0 消息流活动区统一设计语言(2026-09-21 立并完成 ✅,web + packages/shared + i1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28):P1 侧边栏底部 5 工具按钮收进用户行下拉菜单(2026-09-21 立并完成 ✅,平台独占:仅 apps/web),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-256」),是被并发并集留下的未翻勾副本,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86附⑩ 桌面端「退不掉」这条线到此收口:托盘/Ctrl+Q 立即退出 + 退出遮罩整条移除 + feed 变窄护栏(,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O62 品牌实底「大面积反色」全栈收口 + Tailwind v3 端 /alpha 修饰符落地(2026-09-25 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 2026-09-23 磁盘清理 13.9GB + 三道守门加固 + 凭据库防误删(单端:工程治理/守门脚本,已完成,随块带走的归并落账注记: 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O28 门 53 白名单按新判据重算收紧 + D71② 真实障碍与"第二张错误表"预警(2026-09-24 立并完成 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O27 守门 75/76 让号至 83/84 —— runner 的 id 唯一性自检由红转静默(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O26 推送与提交链两道静默失效根治:门 53 升 blocking(前置补 roleId 来源排除)+ 暂存还原批量失,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O33 主线推送恢复实证：allow-secret 已放行 + 夹具拆写 + 告警按 used_in_tests 关闭（,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O45 C 盘"还有我们的东西"第四类真因:守门只看自己的 TEMP,真凶在服务身份的 TEMP(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O44 编号连环撞车收口 + 假逃生舱清零 + 水印语法门装车：守门 89 的 R3/R5/R7 同时归零(2026-0,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O43 凭据健康巡检两处实测缺陷修复：import 即发告警（缺 §22d 守卫）+ 部署停摆项在非部署机恒红（2026,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O45 C 盘"还有我们的东西"第四类真因:守门只看自己的 TEMP,真凶在服务身份的 TEMP(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O47 桌面端更新 feed 的平台覆盖收口:主端点从「只有 windows 一个键」改为四平台,并证伪「缺键会自动回落,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O55 合并吞并已入库内容这一整类:新守门 100 + 两次 union converge(35 路径 / 净 −120,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O49 文档隐形即拦 —— 守门 89 的 R4 升 blocking(带双向端到端证明),顺带修掉一处被并行提交截断的,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O52 C 盘"怎么占了这么多"全量对账:34.75GB 逐项验身份后回收,并把三类系统自产残骸接进每日维护(2026-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O51 守门 78 装上"链接内容 / 命令可解析"两维并当场咬出全机门禁停摆 —— 含我自己造成的重复票与一次误删链接,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O52 shim 完整性判据的取证反转 —— 我原来的"基线未证明"是破损现场给的错觉，判红落点因此放在提交链之外(20,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O53 shim 完整性判据的取证反转 —— 我原来的"基线未证明"是破损现场给的错觉，判红落点因此放在提交链之外(20,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O54 守门 78 补第五维 + 深扫 .pnpm 闭包、守门 89 文档面改判 HEAD∪索引 —— O52 三条残余,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O54 §26 改道自愈的第三层:悬空 junction 必须能重建 + 冷却不得拦住人工窗口(2026-09-24 立,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O56 合并吞并的修复出口 `union-converge` + 守门 96 被旧基线回写后的复位(2026-09-24,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O60 守门 91 的取材口径改判 HEAD/索引 blob —— 它按磁盘判，产出的正是最坏的那一类错（2026-09,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O74 收敛器不再拿"会被清掉的本地指针"当远端真值(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O76 "远端现在在哪"上移到取材层:三处同族残留收口 + 一把防回潮尺子(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O78 收敛器收尾对齐"长期失败"接上到人出口(2026-09-25 完成 ✅,闭合 O74 的 ②),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O79 复测两条幻影债:那"4 道恒红的 blocking 门"与"0 个纳管模块"都不复存在(2026-09-25 完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O80 Hook 通知渠道三面漂移收口:定性靠生产者/消费者双证据,对账改成四面 + 一张带到期日的欠条(2026-09,随块带走的归并落账注记: 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O82 计划文档任务状态分叉归并（2026-09-26 立并完成 ✅，守门 130 配套）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O82附 收敛器侧的同一道自证（2026-09-26 立并完成 ✅，守门 130 的盲区补票）,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O39 守门接线层第二批 —— 门 91 补装、8 枚结构性豁免、门 89 新增 R4 反向对账、tag 远端备份改 f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O36 守门"接线层"根治 —— 补装三枚造好没装车的门、修一道假阳性、摘掉两处恒绿登记(2026-09-24 立并完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O58 四道门的"判了修不了 / 崩了像红了"收口 + 守护首次真能喊人(2026-09-24 立并完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O25 部署失败邮件走纯文本通道 —— 品牌模板层合并根治 + 守门 81(2026-09-23 立并完成 ✅,单端工程,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) P1 **返回键同一型跨端清账(本票的直接续作)**:① `packages/app/src,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **`CourseScreen:113` 那格 GA4/GA5 遍历盲区 —— 已归零;本行,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:**real 测试面的归属待定（需人定方向，未认领）**：`apps/api/vitest.config.ts` 把 `,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **86F. 导出信封与审计链的"链锚"绑定 + `canonicalStringify` ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **G-257(新登记)**:`scripts/check-agent-engine-par,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) O14b2 取舍待定:若把 Go SDK 提到根模块(如 `github.com/IHUI-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **规格补强三条(不新增任务,写入既有任务描述)**:①G-104 两套撤销语义分离(`ro,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 81. MTC 工作面(对标 Trae SOLO MTC:文档/数据表/报表/演示/竞品调研,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 74. CLI 全屏 TUI 决策(三选一,建议 **A 真上 ink**:补依赖 + `t,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 62. 会话搜索栏挂载 + 侧栏批量选择(`ChatSearchBar`/`useChatS,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 51. `run_in_background` 真实任务类型 + DAG 真实执行器(注册 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **O82续三·D35后续②**：`packages/shared/src/chat/ind,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 51. `run_in_background` 真实任务类型 + DAG 真实执行器(注册 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **G-243 最低版本闸门不可远程切换**（归属：对外能力决策 ⇒ 需用户确认，§24） ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **G-246 PROJECT_PLAN 里 44 枚 sha 形态引用在对象库里解析不到（,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) 进行中@2026-09-27/主会话）**G-278 D6-G1 v2 执行器适配器已入库并,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-283. **ai-service 引擎会话库的默认落点是相对 cwd 的 ⇒ 从仓根起,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-285. **`scripts/run-evidence.mjs` 结构上不能用于"cw,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-286. **`G:/DevEnv/Temp/ihui-scratch/` 内嵌了一份 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **G-298 备份脚本仍硬编码两处盘符,按 §15b 属应收口项 —— 单列是因为它不该和,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **G-336. 分叉合并这次"丢掉的东西"与"互相矛盾的两行文档",按归属交接,不由合并代,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 74. CLI 全屏 TUI 决策(三选一,建议 **A 真上 ink**:补依赖 + `t,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) **把 `redactChildOutput` 的同形副本收成一份实现（承 L13210 收,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 62. 会话搜索栏挂载 + 侧栏批量选择(`ChatSearchBar`/`useChatS,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 62. 会话搜索栏挂载 + 侧栏批量选择(`ChatSearchBar`/`useChatS,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 51. `run_in_background` 真实任务类型 + DAG 真实执行器(注册 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 51. `run_in_background` 真实任务类型 + DAG 真实执行器(注册 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-353 **推送失败的分诊会把人支去改仓库设置,而真因是并发插队(2026-09-28 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28) **G-189 两格已量化、刻意不当场执行的事项(附现成判据与取证,下一步可直接做)**:①,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-299 **本机交付被远端分支保护拒收——所有已提交内容现在只在这台机上,远端收不下**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **O87h 课程列表缺「难度/价格」查询轴与真分页(属 API+schema 决策,不是清,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-21)**D54 工具名本地化覆盖率收口(G-80,第 5 轮已定档——原判"我方可能没词表"是幻影,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-21) **D80 待自证定档完成**,四条判定全部出结论(报告 §14,逐条带我方代码文件:行):,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-07-30) **P0 ai_pricing 数据状态收尾** — 验证 `ai_pricing.step,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-08-01) **P0-1 API Key 安全粒度 4 字段 + 鉴权强制执行**(subagent-1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-08-01) **P0-17 /v1/responses 端点(OpenAI Responses API ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-08-04) **P1: auth.ts QR 扫码登录**(2 端点 501 → 真实实装 + 新增 /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-08-04) **P0: user_token_balance 表补建**(预先存在的 schema 缺口,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-07-30) **P2-F.1**(本批次立即):已完成 H1-H5,4 适配层 + barrel + R,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅ **逐项定性(每项都有可复算证据,不靠猜)**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 2026-09-23 C 盘污染收口:13.2GB 构建备份 + 单日 45 个夹具的来源查清并归零(单端:工程治,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **止血① 落点收口**:新增 `scripts/lib/scratch-dir.mjs`(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23)单一真相源 `packages/design-tokens/src/radius.js`(`x,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23)基础设施自伤已修:`pnpm install --filter @ihui/extension,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23)真机交付:arm64 `assembleRelease` 出包(66MB)→ `adb ins,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23,本票补记)**第一次落地被并发会话的无 CAS `update-ref` 从 main 线上抹,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **23 文件硬编码中文归零,词表 93 枚 × 5 语言**:web 侧 `agentWo,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D44 白名单兜底事件逐个补渲染位(G-62)**:`scripts/check-age,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23 进行中,**①已收口**) **D49 我方自证缺陷包(G-61)**:① 点赞/点踩落库(现,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D51 对话流元素覆盖守门**:新建 `scripts/check-chat-eleme,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D57 对标文档证据等级标注(卫生项,防二手当一手)**:`docs/AI_CHAT_B,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D61 自动化执行后果预演(G-78,与 D30 强协同)**:建/改 automati,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D90 预览降级三态与"文件已更新"提示(G-123)**:对标 Qoder `工具记录,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D90 预览降级三态与"文件已更新"提示(G-123)**:对标 Qoder `工具记录,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D90 预览降级三态与"文件已更新"提示(G-123)**:对标 Qoder `工具记录,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D96 对话内写作块(G-129)**:流内可编辑文本块 + **逐块`接受`/`全部接,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **H28 前置验证任务(必须先于 D83/D54/D90/D91 的措辞实现)**:对话流,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D98 审阅态与差异可读性收口(G-134/G-135)**:对标 `codex.rev,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D101 端中立措辞引擎(G-139;H28 的前置，非可选项)**:落点 `packa,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-22) **P2-F.9 守门 67 判据补齐:从"认变量名"升级到"认响应体出处",同日再修两处同,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 移动端输入框大框化 + 全项目加号统一 AddPanel(2026-09-22 立并完成 ✅,平台独占:apps/,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **消掉一个必然阻塞**:`App.tsx` 的 `if (!fontsLoaded) re,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **自愈崩溃已修(严重度高于表面)**:`refreshStaleIndex()` 把 `g,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O23 前几批交付的合流后回归核验 + D92/D71 同源约束锁定(2026-09-23 立并完成 ✅,单端工程治理:,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O25 部署失败邮件走纯文本通道 —— 品牌模板层合并根治 + 守门 81(2026-09-23 立并完成 ✅,单端工程,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **根因定位(已确证)**:`deploy/win/ihui-deploy.ps1` 的 `,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **G-295(进行中@2026-09-28/主会话+子代理A)给 `object-spac,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28) G-459 **CSRF「按凭据存在性豁免」这一型无判据:票#23 修了一处,型还在** —,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) O14b2 取舍待定:若把 Go SDK 提到根模块(如 `github.com/IHUI-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **规格补强三条(不新增任务,写入既有任务描述)**:①G-104 两套撤销语义分离(`ro,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 81. MTC 工作面(对标 Trae SOLO MTC:文档/数据表/报表/演示/竞品调研,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **G-246 PROJECT_PLAN 里 44 枚 sha 形态引用在对象库里解析不到（,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-250 引擎只读/销毁面(`thread.search` / `items.list` ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-361. CLI 全屏 TUI 决策 —— **拍板③"真上全屏终端界面"已落地,枚 `,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 62. 会话搜索栏挂载 + 侧栏批量选择(`ChatSearchBar`/`useChatS,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-368 **守门 130 的恒红今天真正收口了(第三轮):三档读数 `--gate` /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **P1 品牌 CTA 独立成档 `--color-cta`(全栈:web/小程序/RN/共,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25)**`safe-commit.mjs` 在首次 commit 失败后打印「按用户规则"hook,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **G-261. 把「取到已验证身份却一次都没用它」做成常驻对账门(ai-service 侧,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-285. **`scripts/run-evidence.mjs` 结构上不能用于"cw,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-299 **本机交付被远端分支保护拒收——所有已提交内容现在只在这台机上,远端收不下**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 62. 会话搜索栏挂载 + 侧栏批量选择(`ChatSearchBar`/`useChatS,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-250 引擎只读/销毁面(`thread.search` / `items.list` ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **`ihui-auth-user` 里存了 `isAuthenticated`:登录态的第,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O62 品牌实底「大面积反色」全栈收口 + Tailwind v3 端 /alpha 修饰符落地(2026-09-25 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O61 safe-commit 的"钩子失败归因"从抄来的结论改成量出来的结论（2026-09-25 立并完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 2026-09-23 C 盘污染收口:13.2GB 构建备份 + 单日 45 个夹具的来源查清并归零(单端:工程治,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O39 守门接线层第二批 —— 门 91 补装、8 枚结构性豁免、门 89 新增 R4 反向对账、tag 远端备份改 f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O36 守门"接线层"根治 —— 补装三枚造好没装车的门、修一道假阳性、摘掉两处恒绿登记(2026-09-24 立并完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O58 四道门的"判了修不了 / 崩了像红了"收口 + 守护首次真能喊人(2026-09-24 立并完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 2026-09-23 生产上线链冻结两日 —— 根因与修复(本机即生产机;已完成 ✅),随块带走的归并落账注记: 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 移动端输入框大框化 + 全项目加号统一 AddPanel(2026-09-22 立并完成 ✅,平台独占:apps/,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O22 P0 推送通道三类失效根治:partial-clone 预检 + git-lock 路径与 stdio + HU,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O23 前几批交付的合流后回归核验 + D92/D71 同源约束锁定(2026-09-23 立并完成 ✅,单端工程治理:,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O25 部署失败邮件走纯文本通道 —— 品牌模板层合并根治 + 守门 81(2026-09-23 立并完成 ✅,单端工程,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O28 门 53 白名单按新判据重算收紧 + D71② 真实障碍与"第二张错误表"预警(2026-09-24 立并完成 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O27 守门 75/76 让号至 83/84 —— runner 的 id 唯一性自检由红转静默(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O26 推送与提交链两道静默失效根治:门 53 升 blocking(前置补 roleId 来源排除)+ 暂存还原批量失,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O33 主线推送恢复实证：allow-secret 已放行 + 夹具拆写 + 告警按 used_in_tests 关闭（,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O36 守门"接线层"根治 —— 补装三枚造好没装车的门、修一道假阳性、摘掉两处恒绿登记(2026-09-24 立并完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O39 守门接线层第二批 —— 门 91 补装、8 枚结构性豁免、门 89 新增 R4 反向对账、tag 远端备份改 f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O45 C 盘"还有我们的东西"第四类真因:守门只看自己的 TEMP,真凶在服务身份的 TEMP(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O42 台账也不能撒谎 —— 门 89 新增 R7「豁免依据必须可核验」，并当场抓到一条已入库的假依据(2026-09-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O44 编号连环撞车收口 + 假逃生舱清零 + 水印语法门装车：守门 89 的 R3/R5/R7 同时归零(2026-0,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O43 凭据健康巡检两处实测缺陷修复：import 即发告警（缺 §22d 守卫）+ 部署停摆项在非部署机恒红（2026,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O42 台账也不能撒谎 —— 门 89 新增 R7「豁免依据必须可核验」，并当场抓到一条已入库的假依据(2026-09-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O45 C 盘"还有我们的东西"第四类真因:守门只看自己的 TEMP,真凶在服务身份的 TEMP(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O47 桌面端更新 feed 的平台覆盖收口:主端点从「只有 windows 一个键」改为四平台,并证伪「缺键会自动回落,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O55 合并吞并已入库内容这一整类:新守门 100 + 两次 union converge(35 路径 / 净 −120,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O49 文档隐形即拦 —— 守门 89 的 R4 升 blocking(带双向端到端证明),顺带修掉一处被并行提交截断的,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O52 C 盘"怎么占了这么多"全量对账:34.75GB 逐项验身份后回收,并把三类系统自产残骸接进每日维护(2026-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O51 守门 78 装上"链接内容 / 命令可解析"两维并当场咬出全机门禁停摆 —— 含我自己造成的重复票与一次误删链接,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O52 shim 完整性判据的取证反转 —— 我原来的"基线未证明"是破损现场给的错觉，判红落点因此放在提交链之外(20,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O53 shim 完整性判据的取证反转 —— 我原来的"基线未证明"是破损现场给的错觉，判红落点因此放在提交链之外(20,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O54 守门 78 补第五维 + 深扫 .pnpm 闭包、守门 89 文档面改判 HEAD∪索引 —— O52 三条残余,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O54 §26 改道自愈的第三层:悬空 junction 必须能重建 + 冷却不得拦住人工窗口(2026-09-24 立,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O56 合并吞并的修复出口 `union-converge` + 守门 96 被旧基线回写后的复位(2026-09-24,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O59 Esc 层栈迁移收尾 + 台账与 HEAD 对账改判(2026-09-24 立并完成 ✅,跨端:apps/web,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O60 守门 91 的取材口径改判 HEAD/索引 blob —— 它按磁盘判，产出的正是最坏的那一类错（2026-09,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O62 取材层收口成一一份 + 顺带修掉它引出的两个连锁缺陷（2026-09-25 立并完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O63 八道门迁入取材层的第三波:6 道落地 + 2 道按住,并把"量等价"这件事从比旧基线改成同瞬间 A/B(2026,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O74 收敛器不再拿"会被清掉的本地指针"当远端真值(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O76 "远端现在在哪"上移到取材层:三处同族残留收口 + 一把防回潮尺子(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O78 收敛器收尾对齐"长期失败"接上到人出口(2026-09-25 完成 ✅,闭合 O74 的 ②),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O79 复测两条幻影债:那"4 道恒红的 blocking 门"与"0 个纳管模块"都不复存在(2026-09-25 完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O80 Hook 通知渠道三面漂移收口:定性靠生产者/消费者双证据,对账改成四面 + 一张带到期日的欠条(2026-09,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O81 webhook 通知分支补测 + 一次"未跟踪目录遮蔽模块"的事故登记(2026-09-25 完成 ✅),随块带走的归并落账注记: 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O82 计划文档任务状态分叉归并（2026-09-26 立并完成 ✅，守门 130 配套）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O82附 收敛器侧的同一道自证（2026-09-26 立并完成 ✅，守门 130 的盲区补票）,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86 报警邮件里的经纬度坐标溯源 + "名为哈希/脱敏实为明文"四型收口（2026-09-27 立并完成 ✅，comm,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86附 守门 137「名字承诺/实现兑现对账」接进提交链（2026-09-27 立并完成 ✅，O86 的另一半）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末 —— G-227 家目录改道自愈在系统身份下"拿错搬运对象"(2026-09-27 立并完成 ✅,运维,随块带走的归并落账注记: 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86附② 生产机实测收口"服务端历史明文行"这一项（2026-09-27 立并完成 ✅，本机是空开发库不作数）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 2026-09-27 桌面端「正在退出...」永久转圈退不掉 —— 退出链补「必然终止」兜底(单端:desktop,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末二 —— G-228 部署环撞分叉不再直接报警(2026-09-27 立并完成 ✅,机主投诉「一直在寄告,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末五 —— G-231 穷尽式恒红门审计 + 告警/跳门总量首次可量 + 收敛器不再自造全链跳门(2026,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末四 —— G-230 今天第三道"对 HEAD 恒红"的 blocking 门(mypy)+ 顺手抓到 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末三 —— G-229 告警去重的账收进发信唯一出口 + 两道红门把全队守门顶成 --no-verify(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-372 **完成即归档排空 + 它连出的第四笔账(2026-09-28 立;①②③⑤已落,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 62. 会话搜索栏挂载 + 侧栏批量选择(`ChatSearchBar`/`useChatS,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 51. `run_in_background` 真实任务类型 + DAG 真实执行器(注册 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **G-282 CI 连绿现在被一枚 mobile-rn 的已入库类型红灯挡着 —— 归属该,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-285. **`scripts/run-evidence.mjs` 结构上不能用于"cw,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-250 引擎只读/销毁面(`thread.search` / `items.list` ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-368 **我自己的一次越权已前向撤回:我在 post-commit 里补的 `--da,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-299 **本机交付被远端分支保护拒收——所有已提交内容现在只在这台机上,远端收不下**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 62. 会话搜索栏挂载 + 侧栏批量选择(`ChatSearchBar`/`useChatS,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-250 引擎只读/销毁面(`thread.search` / `items.list` ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-369 **门 130 自己有两条"报了却没报全"的缺陷,都在他人持有的文件里,本票只登,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) 62. 会话搜索栏挂载 + 侧栏批量选择(`ChatSearchBar`/`useChatS,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **O87h 课程列表缺「难度/价格」查询轴与真分页(属 API+schema 决策,不是清,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) G-384 **守门 108 的记账面补上"存档面"这一档(枚 `d374766e8`),并,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25)**`safe-commit.mjs` 在首次 commit 失败后打印「按用户规则"hook,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O62 品牌实底「大面积反色」全栈收口 + Tailwind v3 端 /alpha 修饰符落地(2026-09-25 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O61 safe-commit 的"钩子失败归因"从抄来的结论改成量出来的结论（2026-09-25 立并完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 2026-09-23 C 盘污染收口:13.2GB 构建备份 + 单日 45 个夹具的来源查清并归零(单端:工程治,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O39 守门接线层第二批 —— 门 91 补装、8 枚结构性豁免、门 89 新增 R4 反向对账、tag 远端备份改 f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O36 守门"接线层"根治 —— 补装三枚造好没装车的门、修一道假阳性、摘掉两处恒绿登记(2026-09-24 立并完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O58 四道门的"判了修不了 / 崩了像红了"收口 + 守护首次真能喊人(2026-09-24 立并完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 2026-09-23 磁盘清理 13.9GB + 三道守门加固 + 凭据库防误删(单端:工程治理/守门脚本,已完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 2026-09-23 生产上线链冻结两日 —— 根因与修复(本机即生产机;已完成 ✅),随块带走的归并落账注记: 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 移动端输入框大框化 + 全项目加号统一 AddPanel(2026-09-22 立并完成 ✅,平台独占:apps/,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 主 CTA 深色档立档(brand.ctaFill/ctaText)+ 30 处成对迁移 + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 测试基建根治:色板镜像漂移 + 12 个测试文件从未执行 + 主题单例浅拷贝污染(live) ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 工作区存续自愈被"暂存删除"打崩已修 + 244 处判读子代理超时未交付(产物已量化交接)(2026-09-23 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 `.git` 存续事故处置 + 守门 77「提交内容含冲突标记」+ Esc 无层栈协议落地(2026-09-23 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O22 P0 推送通道三类失效根治:partial-clone 预检 + git-lock 路径与 stdio + HU,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O23 前几批交付的合流后回归核验 + D92/D71 同源约束锁定(2026-09-23 立并完成 ✅,单端工程治理:,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O25 部署失败邮件走纯文本通道 —— 品牌模板层合并根治 + 守门 81(2026-09-23 立并完成 ✅,单端工程,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O28 门 53 白名单按新判据重算收紧 + D71② 真实障碍与"第二张错误表"预警(2026-09-24 立并完成 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O27 守门 75/76 让号至 83/84 —— runner 的 id 唯一性自检由红转静默(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O26 推送与提交链两道静默失效根治:门 53 升 blocking(前置补 roleId 来源排除)+ 暂存还原批量失,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O35 镜像配额根因链收口(Gitee 内部备份标签清零)+ 守门 71 补任务标题族 + vbs 生成器/产物漂移(2,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O33 主线推送恢复实证：allow-secret 已放行 + 夹具拆写 + 告警按 used_in_tests 关闭（,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O36 守门"接线层"根治 —— 补装三枚造好没装车的门、修一道假阳性、摘掉两处恒绿登记(2026-09-24 立并完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O39 守门接线层第二批 —— 门 91 补装、8 枚结构性豁免、门 89 新增 R4 反向对账、tag 远端备份改 f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O45 C 盘"还有我们的东西"第四类真因:守门只看自己的 TEMP,真凶在服务身份的 TEMP(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O42 台账也不能撒谎 —— 门 89 新增 R7「豁免依据必须可核验」，并当场抓到一条已入库的假依据(2026-09-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O44 编号连环撞车收口 + 假逃生舱清零 + 水印语法门装车：守门 89 的 R3/R5/R7 同时归零(2026-0,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O43 凭据健康巡检两处实测缺陷修复：import 即发告警（缺 §22d 守卫）+ 部署停摆项在非部署机恒红（2026,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O42 台账也不能撒谎 —— 门 89 新增 R7「豁免依据必须可核验」，并当场抓到一条已入库的假依据(2026-09-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O45 C 盘"还有我们的东西"第四类真因:守门只看自己的 TEMP,真凶在服务身份的 TEMP(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O47 桌面端更新 feed 的平台覆盖收口:主端点从「只有 windows 一个键」改为四平台,并证伪「缺键会自动回落,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O55 合并吞并已入库内容这一整类:新守门 100 + 两次 union converge(35 路径 / 净 −120,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O49 文档隐形即拦 —— 守门 89 的 R4 升 blocking(带双向端到端证明),顺带修掉一处被并行提交截断的,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O52 C 盘"怎么占了这么多"全量对账:34.75GB 逐项验身份后回收,并把三类系统自产残骸接进每日维护(2026-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O51 守门 78 装上"链接内容 / 命令可解析"两维并当场咬出全机门禁停摆 —— 含我自己造成的重复票与一次误删链接,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O52 shim 完整性判据的取证反转 —— 我原来的"基线未证明"是破损现场给的错觉，判红落点因此放在提交链之外(20,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O53 shim 完整性判据的取证反转 —— 我原来的"基线未证明"是破损现场给的错觉，判红落点因此放在提交链之外(20,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O54 守门 78 补第五维 + 深扫 .pnpm 闭包、守门 89 文档面改判 HEAD∪索引 —— O52 三条残余,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O54 §26 改道自愈的第三层:悬空 junction 必须能重建 + 冷却不得拦住人工窗口(2026-09-24 立,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O56 合并吞并的修复出口 `union-converge` + 守门 96 被旧基线回写后的复位(2026-09-24,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O59 Esc 层栈迁移收尾 + 台账与 HEAD 对账改判(2026-09-24 立并完成 ✅,跨端:apps/web,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O60 守门 91 的取材口径改判 HEAD/索引 blob —— 它按磁盘判，产出的正是最坏的那一类错（2026-09,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O62 取材层收口成一一份 + 顺带修掉它引出的两个连锁缺陷（2026-09-25 立并完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O63 八道门迁入取材层的第三波:6 道落地 + 2 道按住,并把"量等价"这件事从比旧基线改成同瞬间 A/B(2026,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O74 收敛器不再拿"会被清掉的本地指针"当远端真值(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O76 "远端现在在哪"上移到取材层:三处同族残留收口 + 一把防回潮尺子(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O78 收敛器收尾对齐"长期失败"接上到人出口(2026-09-25 完成 ✅,闭合 O74 的 ②),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O79 复测两条幻影债:那"4 道恒红的 blocking 门"与"0 个纳管模块"都不复存在(2026-09-25 完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O80 Hook 通知渠道三面漂移收口:定性靠生产者/消费者双证据,对账改成四面 + 一张带到期日的欠条(2026-09,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O81 webhook 通知分支补测 + 一次"未跟踪目录遮蔽模块"的事故登记(2026-09-25 完成 ✅),随块带走的归并落账注记: 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O82 计划文档任务状态分叉归并（2026-09-26 立并完成 ✅，守门 130 配套）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O82附 收敛器侧的同一道自证（2026-09-26 立并完成 ✅，守门 130 的盲区补票）,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86 报警邮件里的经纬度坐标溯源 + "名为哈希/脱敏实为明文"四型收口（2026-09-27 立并完成 ✅，comm,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86附 守门 137「名字承诺/实现兑现对账」接进提交链（2026-09-27 立并完成 ✅，O86 的另一半）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末 —— G-227 家目录改道自愈在系统身份下"拿错搬运对象"(2026-09-27 立并完成 ✅,运维,随块带走的归并落账注记: 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86附② 生产机实测收口"服务端历史明文行"这一项（2026-09-27 立并完成 ✅，本机是空开发库不作数）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 2026-09-27 桌面端「正在退出...」永久转圈退不掉 —— 退出链补「必然终止」兜底(单端:desktop,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末二 —— G-228 部署环撞分叉不再直接报警(2026-09-27 立并完成 ✅,机主投诉「一直在寄告,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O62 品牌实底「大面积反色」全栈收口 + Tailwind v3 端 /alpha 修饰符落地(2026-09-25 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O61 safe-commit 的"钩子失败归因"从抄来的结论改成量出来的结论（2026-09-25 立并完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O58 四道门的"判了修不了 / 崩了像红了"收口 + 守护首次真能喊人(2026-09-24 立并完成 ✅),随块带走的归并落账注记: 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末 —— G-227 家目录改道自愈在系统身份下"拿错搬运对象"(2026-09-27 立并完成 ✅,运维,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O27 守门 75/76 让号至 83/84 —— runner 的 id 唯一性自检由红转静默(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O26 推送与提交链两道静默失效根治:门 53 升 blocking(前置补 roleId 来源排除)+ 暂存还原批量失,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O33 主线推送恢复实证：allow-secret 已放行 + 夹具拆写 + 告警按 used_in_tests 关闭（,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O36 守门"接线层"根治 —— 补装三枚造好没装车的门、修一道假阳性、摘掉两处恒绿登记(2026-09-24 立并完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O39 守门接线层第二批 —— 门 91 补装、8 枚结构性豁免、门 89 新增 R4 反向对账、tag 远端备份改 f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O45 C 盘"还有我们的东西"第四类真因:守门只看自己的 TEMP,真凶在服务身份的 TEMP(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O42 台账也不能撒谎 —— 门 89 新增 R7「豁免依据必须可核验」，并当场抓到一条已入库的假依据(2026-09-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O42 台账也不能撒谎 —— 门 89 新增 R7「豁免依据必须可核验」，并当场抓到一条已入库的假依据(2026-09-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O41 C 盘自动维护任务真正装上 + 盘根 71 项待定性复核(2026-09-24 立并完成 ✅,单端工程治理:sc,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O45 C 盘"还有我们的东西"第四类真因:守门只看自己的 TEMP,真凶在服务身份的 TEMP(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O52 shim 完整性判据的取证反转 —— 我原来的"基线未证明"是破损现场给的错觉，判红落点因此放在提交链之外(20,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O59 Esc 层栈迁移收尾 + 台账与 HEAD 对账改判(2026-09-24 立并完成 ✅,跨端:apps/web,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O62 取材层收口成一一份 + 顺带修掉它引出的两个连锁缺陷（2026-09-25 立并完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O63 八道门迁入取材层的第三波:6 道落地 + 2 道按住,并把"量等价"这件事从比旧基线改成同瞬间 A/B(2026,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O74 收敛器不再拿"会被清掉的本地指针"当远端真值(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O76 "远端现在在哪"上移到取材层:三处同族残留收口 + 一把防回潮尺子(2026-09-25 完成 ✅),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O78 收敛器收尾对齐"长期失败"接上到人出口(2026-09-25 完成 ✅,闭合 O74 的 ②),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O79 复测两条幻影债:那"4 道恒红的 blocking 门"与"0 个纳管模块"都不复存在(2026-09-25 完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O80 Hook 通知渠道三面漂移收口:定性靠生产者/消费者双证据,对账改成四面 + 一张带到期日的欠条(2026-09,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O81 webhook 通知分支补测 + 一次"未跟踪目录遮蔽模块"的事故登记(2026-09-25 完成 ✅),随块带走的归并落账注记: 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O82 计划文档任务状态分叉归并（2026-09-26 立并完成 ✅，守门 130 配套）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O82附 收敛器侧的同一道自证（2026-09-26 立并完成 ✅，守门 130 的盲区补票）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86 报警邮件里的经纬度坐标溯源 + "名为哈希/脱敏实为明文"四型收口（2026-09-27 立并完成 ✅，comm,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86附 守门 137「名字承诺/实现兑现对账」接进提交链（2026-09-27 立并完成 ✅，O86 的另一半）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86附② 生产机实测收口"服务端历史明文行"这一项（2026-09-27 立并完成 ✅，本机是空开发库不作数）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 2026-09-27 桌面端「正在退出...」永久转圈退不掉 —— 退出链补「必然终止」兜底(单端:desktop,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末五 —— G-231 穷尽式恒红门审计 + 告警/跳门总量首次可量 + 收敛器不再自造全链跳门(2026,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86附⑩ 桌面端「退不掉」这条线到此收口:托盘/Ctrl+Q 立即退出 + 退出遮罩整条移除 + feed 变窄护栏(,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末四 —— G-230 今天第三道"对 HEAD 恒红"的 blocking 门(mypy)+ 顺手抓到 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末三 —— G-229 告警去重的账收进发信唯一出口 + 两道红门把全队守门顶成 --no-verify(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O25 部署失败邮件走纯文本通道 —— 品牌模板层合并根治 + 守门 81(2026-09-23 立并完成 ✅,单端工程,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:**D131 对话流保真③:连接状态件从未上屏 + 重连后待决审批恢复无取证(承 V4 #89;取证 2026-09-2,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) **D160 我方侧对话流穷举两路代理均撞轮次上限,对账矩阵缺一侧(实测 2026-09-2,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **P1 品牌 CTA 独立成档 `--color-cta`(全栈:web/小程序/RN/共,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) 计划任务 `IHUI-C-Drive-AutoMaintain` 已注册(2026-09-2,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)**D37 内联系统注入条 + 上下文装配查看器(G-40/G-41,并扩 D13 口径四类→,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) `apps/mobile-rn/src/screens/HomeScreen.tsx` 的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **做了什么**:.ihui-agent/tmp/copay-plan-registrati,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **G-208 一次重启把 API 与部署环同时打死,而两者的成因是同一个:判"活着"用的是,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **[归并]** 本行与已完成登记同题(主键 「O82」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **为什么要单独发这一票**:本日 `.git` 事故之后主线被并发会话快进 + `git-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28,提交 `a45c5304ae`) **G-353 **推送失败的分诊会把人支去改仓库设置,而真,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) D163 回退与预览失败必须声明「工作区未发生变化」,并把 Diff 快捷预览从三态补到五态,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **P1 品牌 CTA 独立成档 `--color-cta`(全栈:web/小程序/RN/共,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 2026-09-23 C 盘污染收口:13.2GB 构建备份 + 单日 45 个夹具的来源查清并归零(单端:工程治,随块带走的归并落账注记: 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 主 CTA 深色档立档(brand.ctaFill/ctaText)+ 30 处成对迁移 + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) P1 **返回键同一型跨端清账(本票的直接续作)**:① `packages/app/src,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 测试基建根治:色板镜像漂移 + 12 个测试文件从未执行 + 主题单例浅拷贝污染(live) ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 `.git` 存续事故处置 + 守门 77「提交内容含冲突标记」+ Esc 无层栈协议落地(2026-09-23 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O28 门 53 白名单按新判据重算收紧 + D71② 真实障碍与"第二张错误表"预警(2026-09-24 立并完成 ,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O62 品牌实底「大面积反色」全栈收口 + Tailwind v3 端 /alpha 修饰符落地(2026-09-25 ,随块带走的归并落账注记: 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末 —— G-227 家目录改道自愈在系统身份下"拿错搬运对象"(2026-09-27 立并完成 ✅,运维,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 工作区存续自愈被"暂存删除"打崩已修 + 244 处判读子代理超时未交付(产物已量化交接)(2026-09-23 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O27 守门 75/76 让号至 83/84 —— runner 的 id 唯一性自检由红转静默(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O35 镜像配额根因链收口(Gitee 内部备份标签清零)+ 守门 71 补任务标题族 + vbs 生成器/产物漂移(2,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O39 守门接线层第二批 —— 门 91 补装、8 枚结构性豁免、门 89 新增 R4 反向对账、tag 远端备份改 f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O45 C 盘"还有我们的东西"第四类真因:守门只看自己的 TEMP,真凶在服务身份的 TEMP(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O42 台账也不能撒谎 —— 门 89 新增 R7「豁免依据必须可核验」，并当场抓到一条已入库的假依据(2026-09-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O41 C 盘自动维护任务真正装上 + 盘根 71 项待定性复核(2026-09-24 立并完成 ✅,单端工程治理:sc,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O45 C 盘"还有我们的东西"第四类真因:守门只看自己的 TEMP,真凶在服务身份的 TEMP(2026-09-24 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O52 shim 完整性判据的取证反转 —— 我原来的"基线未证明"是破损现场给的错觉，判红落点因此放在提交链之外(20,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O59 Esc 层栈迁移收尾 + 台账与 HEAD 对账改判(2026-09-24 立并完成 ✅,跨端:apps/web,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O81 webhook 通知分支补测 + 一次"未跟踪目录遮蔽模块"的事故登记(2026-09-25 完成 ✅),随块带走的归并落账注记: 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86 报警邮件里的经纬度坐标溯源 + "名为哈希/脱敏实为明文"四型收口（2026-09-27 立并完成 ✅，comm,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86附② 生产机实测收口"服务端历史明文行"这一项（2026-09-27 立并完成 ✅，本机是空开发库不作数）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 2026-09-27 桌面端「正在退出...」永久转圈退不掉 —— 退出链补「必然终止」兜底(单端:desktop,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末二 —— G-228 部署环撞分叉不再直接报警(2026-09-27 立并完成 ✅,机主投诉「一直在寄告,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末四 —— G-230 今天第三道"对 HEAD 恒红"的 blocking 门(mypy)+ 顺手抓到 ,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O23 前几批交付的合流后回归核验 + D92/D71 同源约束锁定(2026-09-23 立并完成 ✅,单端工程治理:,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O39 守门接线层第二批 —— 门 91 补装、8 枚结构性豁免、门 89 新增 R4 反向对账、tag 远端备份改 f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-421 **台账里五条挂着"未完成"的登记，本会话逐条现读到"实现已在 HEAD"——只,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-28) **归档器的冲突标记闸少判了一侧,已补齐(枚 52083cccc)**:台账侧那道闸(`ma,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25)**`safe-commit.mjs` 在首次 commit 失败后打印「按用户规则"hook,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O62 品牌实底「大面积反色」全栈收口 + Tailwind v3 端 /alpha 修饰符落地(2026-09-25 ,随块带走的归并落账注记: 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末 —— G-227 家目录改道自愈在系统身份下"拿错搬运对象"(2026-09-27 立并完成 ✅,运维,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O59 Esc 层栈迁移收尾 + 台账与 HEAD 对账改判(2026-09-24 立并完成 ✅,跨端:apps/web,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O81 webhook 通知分支补测 + 一次"未跟踪目录遮蔽模块"的事故登记(2026-09-25 完成 ✅),随块带走的归并落账注记: 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86 报警邮件里的经纬度坐标溯源 + "名为哈希/脱敏实为明文"四型收口（2026-09-27 立并完成 ✅，comm,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86附② 生产机实测收口"服务端历史明文行"这一项（2026-09-27 立并完成 ✅，本机是空开发库不作数）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 2026-09-27 桌面端「正在退出...」永久转圈退不掉 —— 退出链补「必然终止」兜底(单端:desktop,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末二 —— G-228 部署环撞分叉不再直接报警(2026-09-27 立并完成 ✅,机主投诉「一直在寄告,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末四 —— G-230 今天第三道"对 HEAD 恒红"的 blocking 门(mypy)+ 顺手抓到 ,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O23 前几批交付的合流后回归核验 + D92/D71 同源约束锁定(2026-09-23 立并完成 ✅,单端工程治理:,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O39 守门接线层第二批 —— 门 91 补装、8 枚结构性豁免、门 89 新增 R4 反向对账、tag 远端备份改 f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O28 门 53 白名单按新判据重算收紧 + D71② 真实障碍与"第二张错误表"预警(2026-09-24 立并完成 ,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **P1 品牌 CTA 独立成档 `--color-cta`(全栈:web/小程序/RN/共,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 2026-09-23 C 盘污染收口:13.2GB 构建备份 + 单日 45 个夹具的来源查清并归零(单端:工程治,随块带走的归并落账注记: 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O25 部署失败邮件走纯文本通道 —— 品牌模板层合并根治 + 守门 81(2026-09-23 立并完成 ✅,单端工程,随块带走的归并落账注记: 〔【归并】O76 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) **D165 会话分组缺「移动到分组 / 移动所选 / 分组置顶」三个动作,且失败不给原因(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末五 —— G-231 穷尽式恒红门审计 + 告警/跳门总量首次可量 + 收敛器不再自造全链跳门(2026,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末 —— G-227 家目录改道自愈在系统身份下"拿错搬运对象"(2026-09-27 立并完成 ✅,运维,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O81 webhook 通知分支补测 + 一次"未跟踪目录遮蔽模块"的事故登记(2026-09-25 完成 ✅),随块带走的归并落账注记: 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86 报警邮件里的经纬度坐标溯源 + "名为哈希/脱敏实为明文"四型收口（2026-09-27 立并完成 ✅，comm,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O86附② 生产机实测收口"服务端历史明文行"这一项（2026-09-27 立并完成 ✅，本机是空开发库不作数）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 2026-09-27 桌面端「正在退出...」永久转圈退不掉 —— 退出链补「必然终止」兜底(单端:desktop,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末二 —— G-228 部署环撞分叉不再直接报警(2026-09-27 立并完成 ✅,机主投诉「一直在寄告,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:第五十一波·续末四 —— G-230 今天第三道"对 HEAD 恒红"的 blocking 门(mypy)+ 顺手抓到 ,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O28 门 53 白名单按新判据重算收紧 + D71② 真实障碍与"第二张错误表"预警(2026-09-24 立并完成 ,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 2026-09-23 C 盘污染收口:13.2GB 构建备份 + 单日 45 个夹具的来源查清并归零(单端:工程治,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O52 shim 完整性判据的取证反转 —— 我原来的"基线未证明"是破损现场给的错觉，判红落点因此放在提交链之外(20,随块带走的归并落账注记: 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O39 守门接线层第二批 —— 门 91 补装、8 枚结构性豁免、门 89 新增 R4 反向对账、tag 远端备份改 f,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O63 八道门迁入取材层的第三波:6 道落地 + 2 道按住,并把"量等价"这件事从比旧基线改成同瞬间 A/B(2026,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-468 **`check-adapter-wiring.mjs`(守门 64)的取材面收,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **P1 品牌 CTA 独立成档 `--color-cta`(全栈:web/小程序/RN/共,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅ **逐项定性(每项都有可复算证据,不靠猜)**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **D38 队列语义完整交互(G-42)**:拖拽重排 / 撤回 / 编辑队列项 / 「打断,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 2026-09-23 磁盘清理 13.9GB + 三道守门加固 + 凭据库防误删(单端:工程治理/守门脚本,已完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-21)**D54 工具名本地化覆盖率收口(G-80,第 5 轮已定档——原判"我方可能没词表"是幻影,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-21) **D80 待自证定档完成**,四条判定全部出结论(报告 §14,逐条带我方代码文件:行):,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-07-30) **P0 ai_pricing 数据状态收尾** — 验证 `ai_pricing.step,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-22) **P2-F.9 守门 67 判据补齐:从"认变量名"升级到"认响应体出处",同日再修两处同,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 深色模式接线与底色统一(2026-09-23 立,主体完成 ✅,平台独占:apps/mobil,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 深色复核收尾:Drawer/NativeWind 残余清零 + Profile 对比度修复 +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 共享工作区幻影滞后根治:137 个被删跟踪文件恢复 + 503 文件对齐 HEAD + gitdir 备份重建 +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P0 G-168 桌面端正常使用被封 IP —— 反自动化封禁面五点收口(2026-09-23 立并完成 ✅,跨端:ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 我的页深色复核第二轮:离板色/低对比前景收口 + 首屏超时真重试(2026-09-23 立并完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 mobile-rn 主 CTA 深色档立档(brand.ctaFill/ctaText)+ 30 处成对迁移 + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 守门 75 扩 R3「纯白填充」棘轮 + 补 R1 共享包盲区(2026-09-23 立并完成 ✅,单端工程治理:,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 自愈层判据缺口补齐:旁路提交后"工作区==HEAD 而索引停在祖先版本"此前永不刷新(2026-09-23 立并完,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 工作区存续自愈被"暂存删除"打崩已修 + 244 处判读子代理超时未交付(产物已量化交接)(2026-09-23 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O35 镜像配额根因链收口(Gitee 内部备份标签清零)+ 守门 71 补任务标题族 + vbs 生成器/产物漂移(2,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) 进行中@2026-09-29/UUIDNARROW） G-624 **把两条共享 `idPa,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O36 守门"接线层"根治 —— 补装三枚造好没装车的门、修一道假阳性、摘掉两处恒绿登记(2026-09-24 立并完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O59 Esc 层栈迁移收尾 + 台账与 HEAD 对账改判(2026-09-24 立并完成 ✅,跨端:apps/web,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O62 取材层收口成一一份 + 顺带修掉它引出的两个连锁缺陷（2026-09-25 立并完成 ✅）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-583 **台账里 37 行待办的"重复登记副本"注记机器剥不掉,恢复出口按纪律拒绝动它,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-801 **`object-space-land` 的提交面回读把非 ASCII 路径误,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-21) **D80 待自证定档完成**,四条判定全部出结论(报告 §14,逐条带我方代码文件:行):,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28) **本轮未落地、需重做的一批(web 86 处内的键名对齐)**:该批次报告改了 4 个文件,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:第五十一波·续末三 —— G-229 告警去重的账收进发信唯一出口 + 两道红门把全队守门顶成 --no-verify(,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O25 部署失败邮件走纯文本通道 —— 品牌模板层合并根治 + 守门 81(2026-09-23 立并完成 ✅,单端工程,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O23 前几批交付的合流后回归核验 + D92/D71 同源约束锁定(2026-09-23 立并完成 ✅,单端工程治理:,随块带走的归并落账注记: 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:P1 2026-09-23 C 盘污染收口:13.2GB 构建备份 + 单日 45 个夹具的来源查清并归零(单端:工程治,随块带走的归并落账注记: 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】D58 落账:复测 2026-09-26 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:P0 教育学费账目单一真相源 — 修掉「录了缴费仍催缴 / 退费不冲销 / 并发双入账」三笔资金级缺陷(2026-09-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **P0-① 守门 128 的 `stagedTriggers` 纳入 `packages/,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09) **并档那一格(在等:全端观感裁决,不是本票漏改)**:`outline` / `ghost,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **P1-① 扩共享层首批 —— 票面前提已被实测否证,剩余只有 4 件(在等:逐件判定谁在,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-916428 **孤儿位图 `apps/mobile-rn/assets/images/,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:**G-937990 P0 待办:HEAD 引用了一个没入库的模块(内网短期票模块只在他人工作树)。** 现读:HEAD,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **G-937952 修掉一处"提交着的代码 import 了一个仓库里从未存在过的模块"(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) **G-937953 新登记的判据缺口:Python 侧的"悬空导入"当前零尺子 —— 等守,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) **G-977954 既有红用例已定位到判据分叉点(不是本线任何一枚提交引入的)。** 用例,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **G-977955 R6 那条既有红已修（定性=夹具缺一步，不是生产缺陷）。** 分辨实验,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **G-977956 D162 ① 落地：被拒动作现在同时给出"为什么不能"（三因三条文案，,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) **D175 任务监控「任务内容聚合」分组视图(7 行,对标 Qoder `chatSess,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) **D176 任务回顾与「移交到新任务」全流程(14 行,对标 `chatSession.h,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) **D177 任务环境「本地服务」探测(3 行,对标 `chatSession.highli,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) **D182 AI 面板头部 a11y 组名+工作面全屏+门槛态(4 行,对标 `chatS,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) **D196 Mermaid 图缩放控件(3 行,对标 misc `resetZoom|zo,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-814411 令牌刷新写回前加「旧 token 仍是当前值」的 CAS 复核:上游 `o,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-658 插件同名 fail-closed + 结构化诊断面:同名不同 rootPath ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) **D155 协议通道⑤:下行告警只有一档 `budget`,配置/弃用/守护警告无通道(取,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-977961 **更正 G-916428 的账面状态:那一行的 `[x] ✅(2026-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) P1 **守门 8 `check-api-routes` 只扫 `apps/web`,三端死,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-797 【安全·默认档已定】回环 http 白名单今天**不分调用者** ⇒ 远端 ma,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09) G-977963 **本机两处"文档/默认值与实际不符"的实测事实(2026-09-30 凌,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-666 lint 抑制新增须同笔带到期豁免:守门 34 是 warn、门 108 的 E,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09) **P1-① 扩共享层首批 —— 票面前提已被实测否证,剩余只有 4 件(在等:逐件判定谁在,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) 副本指针(编号 P1-①):本行折叠自旧形态行 **P1-① 扩共享层首批(在等:逐屏清单裁,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-977965 **部署环两条失败路径接上了到人邮件:构建连败与"门禁未过已回滚"此前对人,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-977966 **教育财务线第二十六批:催缴短信专用模板经阿里云 API 申请成功 + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-977967 **教育财务线第二十七批:催缴短信模板首版被拒审整改后过审(SMS_512,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-977997 【归并】取号竞态同号两事:权威行先登(2026-09-30 01:18 e,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) **G-978003 线上构建被**已入库**的一行 TS 判空挡住(不是别人在飞的副本)—,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-977998 【归并】取号竞态同号两事:权威行先登(2026-09-30 01:19 3,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) **`ihui-auth-user` 里存了 `isAuthenticated`:登录态的第,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-978007 **RN/小程序还有 61 个输入框完全没有聚焦态(墨档描边)—— 缺口已,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-977999 【归并】同号两事的让号残件:本行是「守门150组件名档」登记的让号前旧形,,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) (2026-09-30) G-978008 **[b75-1#1] cron builder,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-978043 主机时区被静默改成 UTC 25 天的**定性、改回、并第一次给"机器事实,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-978045 守门 83 的 R8 两处"干净 HEAD 恒红"已清 —— 判据读 HE,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-362 **上述②的两格"审面根因"分别是独立一票,现各写清归属与解阻前置**:① **,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-978054 **教育财务线·第三十批 小程序账单页 i18n 接入(补记)** —— ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-807 【优先级高于任何新增】刚入库的恢复器用例**不稳定**,主会话自己复现到 1/4,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:G-978050 **守门 128 的 web 腿已装上并首锚;水印损坏 6 件与"整 blob 等值"量纲错同批收口;,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-978056 **一处" landed 而无人复量"的 RN 类型错误:测试引了屏幕文件,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-978057 **web AI 输入卡描边四态真落地:同一条未分层 `*` 规则把整族 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-978059 **守门 150(角色档合规对账)的"非 UI 提交被空扫判死"自锁已解除,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-978062 **「运维告警到人」这条腿在本机其实是哑的：`apps/api/.env`,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-978064 **通知短信那条腿一直在"把没发出去的记成已发送"：未配通知模板时借用验证,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-978065 **守门 90（SSE 端内 dispatch 覆盖）在干净 HEAD 上,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-978066 **D136 RN 端工具审批：代码与测试已交付并复验通过，但因同文件被他,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-998076 票1：跨边界/落库载荷的 strict 未知字段策略 + 读前 scrub,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-998083 票1：失败 kind 决定「可重试」还是「必须换一条路」（强推）（出处 b,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-998084 票3：短时效一次性 capability——先删后判 + 角色不可自提升（,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-998087 票1：崩溃预算四件套（窗口 + 档数上限 + 耗尽终态 + 预算快照字段）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-998089 票3：启动/装配失败先收口自有资源才放锁（释放条件 = 子进程终态 ∧ 通,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-998091 票 1（强推）provider-key 级 AIMD 并发治理器，替掉静态,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-998097 票1：SSE parity 门从「事件名」扩到「payload 字段级」，,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08)G-998100 票5：投递档位过滤必须配"收口不变量"+两档终态逐字节一致测试；我方若给重连,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-03) G-998102 票1：安全/授权判据查询只取授权列，不与展示映射共用一条查询（强推）（出处,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-998104 票3：锁指标补"锁实例抖动"维度（按实例计数而非按路径计数）（观察）（出处,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-998105 票4：等待预算耗尽不得升级为抢占（观察）（出处 b76-06）：- 机制：,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-998108 【强推】票 07-B：按范围提交必须走临时索引，禁止整体替换真实索引（保护,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-998115 票1：子进程退出归因三态 + stderr 有界脱敏尾巴（强推）（出处 b,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:（✅@2026-10-05/g2-alltasks） G-998119 票5：出站字段兼容降级白名单——身份/约束类字段,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-998121 票1：帧解析失败必须判整条连接关闭，而不是"跳过该消息"继续读（强推）（出,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-998126 票 2（强推）身份精度：`START_TOLERANCE_SEC = 2`,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-998128 票 4（观察）Windows `Path` / `PATH` 双键收口：往,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) G-998129 票 5（观察）派生 env 一次性注入 UTF-8 双键（`PYTHONU,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-998130 票1：force 只打"已验证目标集"，身份核不上时禁止沿裸 PID 杀进,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-998133 票4：双 deadline 夹逼与"无信号目标不预留命令超时"（观察）（出,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-998136 票1：CAS 拒绝必须把"裁决时事实"作为结构化字段回报（强推）（出处 b,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-998139 票4：POSIX bootstrap PATH 兜底 + 子进程 spaw,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-998141 票1：冷恢复/resume 必须沿用 create 的权限与工具面（强推）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08)G-998142 票3：状态机守卫写进 SQL 的 `changes !== 1 ⇒ 未发生`,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-998143 票4：失败原因可枚举 ⇒ 响应体不携 errorMessage 供分流（观,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-998144 票1：图语法发射/解析侧的「任意文本不可破坏语法」契约（强推）（出处 b7,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-998147 票1：进持久记录的错误文案必须"只描述形状"，上限度量按 UTF-8 字节,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-998150 票 1（强推）去重集用「有界 id 集合 + 淘汰最早」会在重放时让旧指令,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-998151 票 2（强推）协议边界缺「控制面 strict / 装饰面 .catch(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-998154 票1：内容级相等判据只有一份实现，且键序不参与判定（强推）（出处 b76-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-998158 票1：认领的"时间阈复位 + 只回收自己的僵尸"（强推）（出处 b76-1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-998162 票5：本地真 HTTP mock 网关 = 一条与联调同形的验证档（观察）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-998163 票3：昂贵/不可逆动作前的恢复点复查 + 在飞启动按 key 收敛（强推）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-998166 票 1【强推】异步句柄的「await 后对象身份复核」+ disposed,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-998170 票3：续传锚点必须「身份 + 序号」共同判定，序号只在同一 epoch 内,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-998171 票1：帧水位与纪元（logEpoch + (fromSeq,toSeq] ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-998176 票1：工具入参的闭合声明与校验必须**递归到每一层**（强推）（出处 b7,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-998178 票3：相关可选字段组的"整组同现/整组同缺"与特性缺席时产物逐字节不变（观,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-998069 **门 118「清单与内容同面」的自犯缺陷已修 —— HEAD 面 `无法,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:**存量漂移一条(另票,本票未代改)**:`packages/types/src/hooks.ts` 的 `HookNo,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-978006 **解析器把解构参数当函数体 ⇒ 守门 150 的组件名档(C5)对多数 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-30:让号旧编号的复活副本(原 G 号那一条,正文与上方现号行同文),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-978068 **选中态色档落地:三端登录分段控件的「选中胶囊」暗档统一到纯黑** ——,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-978004 线上冻结 5 小时 / 落后 205 枚的真因是**已入库代码红在类型层*,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-978069 **并发提交把三端圆角统一整批写回旧态,已前向回补;判据缺口在"旧副本恰等,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-998072 **并发提交把三端圆角统一整批写回旧态,已前向回补;判据缺口在"旧副本恰等,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) D19 desktop/miniapp/mobile-rn 对话流 parity(termi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) （【归并】重复登记副本·同题不同编号·2026-09-29·本行与同题登记的持有行重复,现摘,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) 73. `apps/miniapp-taro` AI 对话页(移植 `packages/ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:**real 测试面的归属待定（需人定方向，未认领）**：`apps/api/vitest.config.ts` 把 `,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) **⑤剩余那一半:内部令牌换一次性短期票**(承第三十八批已修的计时维)——原 ticket,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) **G-257(新登记)**:`scripts/check-agent-engine-par,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-369 **门 130 自己有两条"报了却没报全"的缺陷,都在他人持有的文件里,本票只登,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-374 **设置项"显式清空"与"从未设置"无差，且读侧同一含义两键相反（需拍板；归属：,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-375 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) **D141 尺子③:竞品控制帧↔我方能力的等价性判定表从未做过(本轮新开;取证 2026-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-385 **A1 改道校验只比大小不比内容（可立即修；归属：§26 C 盘改道线，本票持,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-386 **A2 deploy-lock 未来时间戳使锁龄恒 0（可立即修；归属：部署锁,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-389 **A7+A8+A9 三格"尺子盲区"（可立即修，逐条一票）** —— 消费投影,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) **O59⑤ D48 的验收在盘上仍不成立 —— 根因已定位并修掉(据实收口)**:原票判据,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-286. **`G:/DevEnv/Temp/ihui-scratch/` 内嵌了一份 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-334 **把 `redactChildOutput` 的同形副本收成一份实现（承 L1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) 86. 证据级可追溯执行流水(每次工具调用带 invocation id + 输入/输出哈希,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) O19b 剩余 4 列**故意不并**,各有明确理由:① `users/projects/f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-334 **把 `redactChildOutput` 的同形副本收成一份实现（承 L1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) -311 **`union-converge` 的"归并不得放大台账分叉"那道判据，对它立项,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-363**(归属:分叉合并归并线;本会话不再动台账结构,理由写在行内)** **守门 1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) ✅(2026-09-28)**G-602 小程序产物落地门补 C0「产物新鲜度」维 —— 旧,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-466 **守门 8 的假绿灯：一版收紧能把 3 处从"看不见"变成判红，但其中 1 处,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-400 **把 `redactChildOutput` 的同形副本收成一份实现（承 L1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-694 成对清理纪律:超时/取消路径必须与成功路径同样摘监听器并释放流。我方 `send,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-431 同型未普查的一格(登记,未修):全仓还有多少条路由把**任意字符串**喂给 `u,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-374 **设置项"显式清空"与"从未设置"无差，且读侧同一含义两键相反（需拍板；归属：,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-375 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-385 **A1 改道校验只比大小不比内容（可立即修；归属：§26 C 盘改道线，本票持,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-386 **A2 deploy-lock 未来时间戳使锁龄恒 0（可立即修；归属：部署锁,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-389 **A7+A8+A9 三格"尺子盲区"（可立即修，逐条一票）** —— 消费投影,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-03) G-709 **MCP 凭据 store 把损坏 JSON 当空 store ⇒ 下一次保存,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-786 【安全】git clone 的 URL **无形状白名单、参数无 `--` 分隔,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-755 【等人工拍板 · 整档批量删行】把 `--dedupe-open-rows` 量,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-798 **活文档合并落地闸"无论清多少都不会点头"这一型已挡停部署 2.5 小时:同一,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-458 **守门 150(角色档合规)在 HEAD 面判红 471 族,而它是 bloc,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-03) G-709 **MCP 凭据 store 把损坏 JSON 当空 store ⇒ 下一次保存,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-716 供应商健康状态是裸 string 且把原始英文枚举直接渲染进徽章(真缺陷):上游,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-694 成对清理纪律:超时/取消路径必须与成功路径同样摘监听器并释放流。我方 `send,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) **G-290(进行中@2026-09-27/主会话)`QuitUpdateOverlay`,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-644 分层配置的三态补丁:patch 只能从 draft 派生,`undefined`,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-916428 **孤儿位图 `apps/mobile-rn/assets/images/,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-816043 **给守门 121 补一维:枚举成员"有译文却零生产者"是它现在看不见的一,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) （待派）G-630 **`live-doc-edit` 的号段基准把"行首是认领形态"的编号,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-998073 **heal 的整批拒绝改逐行处置 + 并集复活态完成翻勾 + 裁决账(2,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-998074 **live-doc-stale-recovery 的 D 系七例在 HE,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30)G-815933 **只在 hover 出现的操作入口,在触屏与远程控制上不可达**(上游出处,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-998181 **守门 172(跳门变量承诺/兑现对账)交付并接线:文档承诺的 `HUS,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-655 确定性归档与内容寻址哈希:排序目录项、mode 仅取执行位、gzip mtime,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) **D193 任务决策收件箱(2 行,需产品拍板;对标 misc `myWork.descr,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-664 关停期新建实例立即回收:stopping 后 create() 出来的对象当场 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-664 关停期新建实例立即回收:stopping 后 create() 出来的对象当场 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-814410 公开投影改「allow-list 逐 kind 重建 + 穷尽 switc,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) **G-814430 readnum/readnum2 双 worktree 收编闭环 + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30)G-319 **O88 的第四型:让号动作自己留下的"旧号副本"——本轮实测改写通道在高并发窗,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) **G-814434 README 重写收编重做(基于当前 main 版本重新提取,等环境条,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) **G-814436 devEnvRoot 双形态推导 + secrets 双路径(G-81,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) G-814435 【归并】回捞复位旧形再收拢(2026-10-02 批②b):本行与邻行【归,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) **发布账号「已禁用」文案歧义整改 + 生产部署冻结双根因修复(用户反馈闭环,主会话)** ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) **chrome_import 消费端整条闭环(承 G-814438 路由挂载;提交 f93,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) **超窗分支清账(守门 41 把全机提交链冻死:16 个 ref 超 48h 在飞窗口;本轮,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-1018190 21 个 IHUI 服务**全部没有 SCM 恢复动作**(现读 `Fa,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:G-978122 门 41(单分支开发)自 2026-10-01 起在 **HEAD 面恒红**:9 条远程旁支超 48,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-814410 公开投影改「allow-list 逐 kind 重建 + 穷尽 switc,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) P1 **守门 8 `check-api-routes` 只扫 `apps/web`,三端死,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **RN「记住密码」把账号+密码明文写进 AsyncStorage,而它正是票#20 那条自,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) **CSRF「按凭据存在性豁免」这一型无判据:票#23 修了一处,型还在** —— `plu,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)**把 `POST /rules/auto-generate` 从"永远拿不到东西"修成端到端,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08)承「图源池的层序违规已清零(落地枚 f1638d8),但留了三格未闭合」那条的第 ③ 格:畸形,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-755 【等人工拍板 · 整档批量删行】把 `--dedupe-open-rows` 量,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) `--allow-dangerous` 确认旁路仍在调用方(`commands/agent.,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) 84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:**real 测试面的归属待定（需人定方向，未认领）**：`apps/api/vitest.config.ts` 把 `,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) **⑤剩余那一半:内部令牌换一次性短期票**(承第三十八批已修的计时维)——原 ticket,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) **G-257(新登记)**:`scripts/check-agent-engine-par,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)**把 `POST /rules/auto-generate` 从"永远拿不到东西"修成端到端,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()`(`chec,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) **守门 81** `check-brand-email-channel.mjs`(bloc,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) **node `spawnSync` 对原生 exe 持续 EBUSY**(`schtask,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) **传输层单点化**:`notify-deploy-failure.ts` 扩为通用品牌告警,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) P1 **返回键同一型跨端清账(本票的直接续作)**:① `packages/app/src,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **`CourseScreen:113` 那格盲区的精确成因(不再是"未知失配"),以及为什,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **RN/desktop 端设备指纹只有 2 个可能值（本批新量到，需 owner 定性，非,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-286. **`G:/DevEnv/Temp/ihui-scratch/` 内嵌了一份 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08)（登记，非本线）relay admin 4 个删除端点零测试覆盖、`o13-bg-rls-li,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-286. **`G:/DevEnv/Temp/ihui-scratch/` 内嵌了一份 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-367 **SSO 深链换到令牌后界面仍停登录页:现象已实测,根因未定** —— 真机(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) **D165 会话分组缺「移动到分组 / 移动所选 / 分组置顶」三个动作,且失败不给原因(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) **Esc 无层栈协议**(方案已定稿,待实施):20+ 处 document/window,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-09-25) page_* 动词的**跨端登记**未做:web / miniapp-taro / RN /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) **Esc 无层栈协议**(方案已定稿,待实施):20+ 处 document/window,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-978073 终局批:提交链零结构性跳门 —— ① 单分支门回绿:三条 09-28 超窗,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-596 同型未普查的一格(登记,未修):全仓还有多少条路由把**任意字符串**喂给 `u,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-669 重试按确定性分流:permanent 置终态、仅 transient 回队并有界,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-742 **共享工作区今日被宿主清理层删掉 65 个"当天新入库"的跟踪文件,并被某个流,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-669 重试按确定性分流:permanent 置终态、仅 transient 回队并有界,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) **D165 会话分组缺「移动到分组 / 移动所选 / 分组置顶」三个动作,且失败不给原因(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-657 迁移不可变对账的锁内一格(对 G-609 的增量,不重复立项):checksum,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-669 重试按确定性分流:permanent 置终态、仅 transient 回队并有界,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-786 【安全】git clone 的 URL **无形状白名单、参数无 `--` 分隔,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-978121 22 个 IHUI 服务的重启名单与三层落地(机主同日拍板"按方案动手",,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-1018191 **守门 130 缺一个维度:F1 只判"同主键既有已勾又有未勾",而翻,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-638 钩子改写参数后必须重过权限判定:hook 对 tool input 的改写不得绕,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) **D207 逐类目对账矩阵(D160 拆票收口):我方 4 张清单 ∪ `ours/fra,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02)G-1018192 web 语言包两处"代码还在引用、词包已经没有了"的回归修复(五语言 ×2,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-1018194 **sso 回跳安全判据还有两份同形实现带着同一个反斜杠洞(等什么:先证,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) **一条否证:守门 130 的 F9 那 112 组撞号不是尺子过宽,是真的多标题**(给 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-1018197 **`seal-c-root-stray` 删源前的对账只看"路径存在",完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-1018198 **§26 封口器 seal-c-root-stray 在干净 HEAD,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-1018199 **镜像测试点名的那格才是 seal-c-root-stray 剩下的红,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-1018201 **`.ihui-agent/tmp/**` 里他人留下的 HEAD 整,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09) P1 **首页「独家开发 AI Agent 应用」宫格中间列两张卡文字重叠**,另有一个机器,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) P1 **广场(AI需求广场)首屏直接进错误态**:文案「提交的信息有误,请检查后重试」属 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-586 **api 启动期把 2170 行 ajv strict 告警刷进 stderr,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02)G-1018200 接 `G-1018192` 那条:同一批里还留着 7 枚**重复副本** ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) P2 **设置页双层页头** —— 代码侧已拆 + 判据已在位,本轮只做收口核验(2026-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) `--allow-dangerous` 确认旁路仍在调用方(`commands/agent.,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) **ai-service `.venv` 半损坏** —— 票面所述故障已不复现,本轮现跑复,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-284. **§26"临时夹具唯一落点 = scratch-dir"对镜像测试面零覆盖*,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) D163 回退与预览失败必须声明「工作区未发生变化」,并把 Diff 快捷预览从三态补到五态,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-713 改并发上界必须同时给出唤醒入口:上游 `engine/scheduler.ts:,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) D163 回退与预览失败必须声明「工作区未发生变化」,并把 Diff 快捷预览从三态补到五态,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-713 改并发上界必须同时给出唤醒入口:上游 `engine/scheduler.ts:,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) D163 回退与预览失败必须声明「工作区未发生变化」,并把 Diff 快捷预览从三态补到五态,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-816041 **给守门 68 补一维:"参与权限判定的值必须从注册表映射读出,不得写字,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) **D160 我方侧对话流穷举两路代理均撞轮次上限,对账矩阵缺一侧(实测 2026-09-2,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) D163 回退与预览失败必须声明「工作区未发生变化」,并把 Diff 快捷预览从三态补到五态,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-1018205 **未推送项清点 + 两台守门恒红/半落地修口(本轮只读核验为始,落地为,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-389 **A7+A8+A9 三格"尺子盲区"（可立即修，逐条一票）** —— 消费投影,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-1038452 **`ihui-auth-user` 里存了 `isAuthentica,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-1038431 **`ihui-auth-user` 里存了 `isAuthentica,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-1038487 **第十一批:沙箱默认严档落地 + 两路只读取证的 24 条发现落成可执,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-1038453 **`ihui-auth-user` 里存了 `isAuthentica,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-389 **A7+A8+A9 三格"尺子盲区"（可立即修，逐条一票）** —— 消费投影,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-01) G-1038480 **`scripts/lib/face-reader.mjs` 没有二进,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) （待派/QODER-O81）G-1038490 **守门 149(包入口 barrel 漏 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-1038476 看板把 `cancelled/failed/quota_exceeded,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-1038454 **`ihui-auth-user` 里存了 `isAuthentica,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-389 **A7+A8+A9 三格"尺子盲区"（可立即修，逐条一票）** —— 消费投影,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-03) G-1038420 **`--self-test` 的"登记侧不求值"洞已逐门普查完:41 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-389 **A7+A8+A9 三格"尺子盲区"（可立即修，逐条一票）** —— 消费投影,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-389 **A7+A8+A9 三格"尺子盲区"（可立即修，逐条一票）** —— 消费投影,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-896417 **session 域的原子性承诺要上移到契约注释:账本置位与消息持久化必,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-389 **A7+A8+A9 三格"尺子盲区"（可立即修，逐条一票）** —— 消费投影,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-654 派生运行计数 + 身份守卫:计数由各集合求和派生、同值不发事件、`remove(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-675 互斥身份用类型表达:两种后台来源标记用 `?: never` 做成不可构造(现全,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-03) G-1038502 **裁决账只接在报告档(`verifyMerge`)上、落地档(`hea,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-416 **W4-W7 四波覆盖票（每波一票，交付判据见上）** —— 派单前先看登记表,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-675 互斥身份用类型表达:两种后台来源标记用 `?: never` 做成不可构造(现全,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-02) G-685 超限钳制而非报错 + 去重即安全特性:并发请求超上限时钳到 ceiling(不抛,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-675 互斥身份用类型表达:两种后台来源标记用 `?: never` 做成不可构造(现全,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-03) G-1038503 **守门 30a 把「fsck 取不到」读成「零悬空」:真值 788 枚,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-03) G-1038310 **架构转向拍板（机主 2026-10-03 晨定）**：G-10182,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-740 **`tests/test_thread_identity_immutable.,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) 【归并】重复登记副本(2026-09-28,幂等折叠):这一行与同题的持有行是同一件事,持有,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-374 **`ihui-auth-user` 里存了 `isAuthenticated`,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-362 **`ihui-auth-user` 里存了 `isAuthenticated`,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) **第十一批:沙箱默认严档落地 + 两路只读取证的 24 条发现落成可执行票(每条带落点与验,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-374 **`ihui-auth-user` 里存了 `isAuthenticated`,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-740 **`tests/test_thread_identity_immutable.,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-740 **`tests/test_thread_identity_immutable.,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-374 **`ihui-auth-user` 里存了 `isAuthenticated`,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-374 **`ihui-auth-user` 里存了 `isAuthenticated`,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) **G-385. 生产备份链日志的写入侧编码要改成 UTF-8(2026-09-28 逐行 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-30) （【归并】重复登记副本·同题不同编号·2026-09-28·本行与同题登记的持有行重复,现摘,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-1058512 **审批授权由「本轮」升成「本会话」全链闭环 + 一夜收敛落地(含两处",完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-28)G-1058516 续七 那条"改完待真机复测"的账已偿:VC66 装机后同一对实验翻过页来了,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-1058511 **第十一批:沙箱默认严档落地 + 两路只读取证的 24 条发现落成可执,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-1058510 provider 调用记录表补 trace 关联列(承 D147)—— ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1058522 **跨目录同 timestamp 迁移重复无守门——drizzle/ 与,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()`(`chec,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) **ai-service `.venv` 处于半损坏态**:`.venv/pyvenv.cf,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) `config/architecture-policy.yaml` 目前 0 个模块 `ma,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-536 同型未普查的一格(登记,未修):全仓还有多少条路由把**任意字符串**喂给 `u,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04) G-431 同型未普查的一格(登记,未修):全仓还有多少条路由把**任意字符串**喂给 `u,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-04)G-1018213 `mapStatus` 把未登记的原始值**断言**成合法档（等人拍板，可,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) `--allow-dangerous` 确认旁路仍在调用方(`commands/agent.,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) **★ 抓到本仓一处"造好没装车"：`apps/cli/src/tools/argument,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-1058603 凭据在场豁免门『scripts/check-credential-pre,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-1058607 **F2 的「作废令牌」是散文里也会出现的普通短语 ⇒ 挂在提交链上的归,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:G-1058609 **守门 98 在干净 HEAD 上判红 1 处,而修复此刻正躺在别人的未提交副本里(§12f 那一,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:G-1058610 **机主 2026-10-05 拍板九条(解除九行旧账的「等人拍板」状态;九条各自开工,本行只做归口,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-1058612. **台账归属分层两处判据缺陷已修(承 G-1058610 病①②),病,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-815976跨端补接(上行的登记遗留:四端 missing 声明的「补接归各端票」即本票,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-1058615 **zh-TW 简体残留清至七面全绿(web 4 / api 5 / m,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05)（待认领）G-1058616 **miniapp-taro 的 `check-i18n-key,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) 84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-464 逐工具 `strict`（provider 约束解码资格）缺声明位（等人拍板）—,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-464 逐工具 `strict`（provider 约束解码资格）缺声明位（等人拍板）—,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-462 看板把 `cancelled/failed/quota_exceeded/pre,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05)（原待认领,本会话接收办理）G-1058617 **死键清理器把"带兜底文案的 `tt()` ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05)**【僵尸行归并,零损失】本行是 G-1058617 的**原始待认领登记行**,已被同票的结,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05)（主会话登记并当场结清）G-1058620 **收敛器把"临时目录删不掉"读成了"子进程崩了",完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) （待认领,归属:IM 网关 + 服务端出站文案持有人 `apps/api/src/servi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-815926 **出站文案仍是中文硬编码,没走语言包**(G-815417 收口时顺带量,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05)（主会话登记并当日量表结清第一问；量表口径当日复核后订正）G-1058622 **合并器的"搬,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) **G-1058624 automations 路由层校验正则比协议层宽松，同一件事两套判据,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) **G-1058625 迁移票:ai_model_config_models.extra_m,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) （进行中@2026-10-05/g2-alltasks） 84. 26h 级耐久任务底座(依,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) G-1058627 **apps/web/src/stores/auth.ts:172-17,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-1058631 **小程序端 feishu.png 是零引用孤儿资产，而 LoginSc,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) G-1058633 **contract.ts 把 tool-delta 载荷注释成"本次增,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) G-1058630 **safe-commit 用法错(漏 `-- <文件清单>`)时打印 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09) P1 **首页「独家开发 AI Agent 应用」宫格中间列两张卡文字重叠**,另有一个机器,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) 73. `apps/miniapp-taro` AI 对话页(移植 `packages/ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **O59⑤ D48 的验收在盘上仍不成立(本票实测,交持有桌面端运行条件的人)**:加密层,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) P1 **返回键同一型跨端清账(本票的直接续作)**:① `packages/app/src,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **RN「记住密码」把账号+密码明文写进 AsyncStorage,而它正是票#20 那条自,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) `--allow-dangerous` 确认旁路仍在调用方(`commands/agent.,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) 73. `apps/miniapp-taro` AI 对话页(移植 `packages/ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-07) G-403 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-814408 事件流「单一写者」——常驻订阅与 per-turn sink 二选一,而不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-814409 裁剪必须自报丢了多少:上游 `commands-command.ts:16,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) 73. `apps/miniapp-taro` AI 对话页(移植 `packages/ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) P1 **返回键同一型跨端清账(本票的直接续作)**:① `packages/app/src,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) P1 **返回键同一型跨端清账(本票的直接续作)**:① `packages/app/src,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-998153 票 4（观察）写库前不问「到底有没有变」：`.set({ ...data,,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-998157 票5：复合键的构造与解析成对导出在协议层（观察）（出处 b76-12d）：,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) 73. `apps/miniapp-taro` AI 对话页(移植 `packages/ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-814416 **provider 健康四档今天没有任何提交链判据,而第二份同值域声明已,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-675 互斥身份用类型表达:两种后台来源标记用 `?: never` 做成不可构造(现全,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) `--allow-dangerous` 确认旁路仍在调用方(`commands/agent.,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) P2 **设置页双层页头**:顶上「设置 + 菜单」一条栏,下面又一条「`<` 设置」(`p,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) G-1058627 **apps/web/src/stores/auth.ts:172-17,随块带走的归并落账注记: 〔【归并】同主键已有已完成登记,本行为并发并集留下的未翻勾副本,落账:复测 2026-10-06,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) G-1058643 **注册表类文件(package.json / `scripts/gua,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-1058644 **G-364 的实现早已入库,但它的编号被"一号两事 + 4 份漂移副,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-1058645 **后台任务台账的写侧没有世代围栏:结算与折叠都按可复用的 `task.,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-1058647 **未声明 `dangerLevel` 的工具在默认权限档下被映射为 a,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-1058648 **F9 基线外 61 组撞号已逐组量清形态：42 组「全已完成」无须归,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-1058651 **四枚守门门体没有 §22d `isDirectRun` 守卫且顶层直,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-07) G-1058652 **守门 189(Python import 入库存续性)在 `--st,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) **G-1058653 派单口径漏认第二个副本指针形态：`副本指针(编号 …)` 行首族 9,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) **G-1058654 F9 基线外 61 组逐组裁决走完 —— 结论是「技术与语义两条路都,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-07) **G-1058655 F9 这 61 组在语义层面**无解** —— 根因是判据与台账现实,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)（进行中@2026-09-27/v3wave4）84. 26h 级耐久任务底座(依赖 51 +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) O81 跨端 UI 单一源:小程序端与 App(RN)端逐档同值 + 改一端另一端自动生效(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)（进行中@2026-09-25/记忆链票） **把 `POST /rules/auto-gen,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) **G-278 D6-G1 v2 执行器适配器已入库并单测真跑,但四个生产 surface ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) **WP-8 上下文占用归因 + 流式工具账本 + 目标完成独立校验轮**。后者是补 〔PR,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-26) **[归并]** 本行与已完成登记同题(主键 「D38」),是被并发并集留下的未翻勾副本 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) O81 票⑰ —— **`2f-ext` 升 blocking 已量好前置,按用户指令暂缓落,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)（进行中@2026-09-27/v3wave4）84. 26h 级耐久任务底座(依赖 51 +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05)（进行中@2026-09-28/值守） **把 `POST /rules/auto-gener,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-07) **G-1058656 F9 定级落地：「组内每一行都已勾选」的撞号组降为只报数，基线外 6,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) G-816034 **接口新增成员 ⇒ 稳定身份必须同步长出转发;现存一个"有测试无调用"的,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-07) **G-1058657 F4c 的点名出口补齐 —— 478 对前缀套叠副本此前只剩两个整数,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-1059131 `check-disk-root-hygiene.mjs --self-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-06) G-1058628 **face-reader 镜像测试 T20 断言滞后**:G-467 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-07) **G-1059135（曾两度被并发会话取号抢占，本号为其第三次让出）waiting-hum,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-1059137 `check-db-schema-drift.mjs` 的镜像测试在 H,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-1059133 `HookAction` 的 `type` ↔ `config` **跨,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-1059136 `scripts/lib/code-mask.mjs` 的分词把**上一,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) G-1059139 **各门自带跳过变量的"自跳"在提交链上不留任何结构化痕迹 ⇒ 报告只能,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-1059141 **两道守门自己带着死配置(由补 §22c 镜像测试的那一路现读量出,此,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08)G-1079146 **短 sha 当出处指针的腐烂已被逐枚量清:35 枚分四堆(A 尺子瞎 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-1059143 **自动归档停摆根治——单条超预算强制放行(2026-10-07 用户拍,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-09-30) G-998185 **Web 个性化页登录态门整类 campaign(P2 机械化批量,复用,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) D19 desktop/miniapp/mobile-rn 对话流 parity(termi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **根因定位(已确证)**:`deploy/win/ihui-deploy.ps1` 的 `,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **守门 41 面:幻影漂移对齐挂进 git-guardian 每 2 分钟一趟**(com,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **守门 44 恒红解除 = 恢复全链守门**:一级目录 11 项 `.git.broken,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **O28① 白名单额度对齐新判据(commit `4b00fa5c907`)**:上一票给,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **O28③ 顺带查清两个坑并留档**:① `apps/web/src/components,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O28 门 53 白名单按新判据重算收紧 + D71② 真实障碍与"第二张错误表"预警(2026-09-24 立并完成 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **4 道 blocking 门红在 HEAD(union 复活的裸副本,勿照本行派单 ——,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O36 守门"接线层"根治 —— 补装三枚造好没装车的门、修一道假阳性、摘掉两处恒绿登记(2026-09-24 立并完成,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-25) **ai-service `.venv` 处于半损坏态**:`.venv/pyvenv.cf,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-02) **守卫票: `scripts/i18n-apply.mjs` 把未知参数当"无参",`--,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-01) P1 **广场(AI需求广场)首屏直接进错误态**:文案「提交的信息有误,请检查后重试」属 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O26 推送与提交链两道静默失效根治:门 53 升 blocking(前置补 roleId 来源排除)+ 暂存还原批量失,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O33 主线推送恢复实证：allow-secret 已放行 + 夹具拆写 + 告警按 used_in_tests 关闭（,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O44 编号连环撞车收口 + 假逃生舱清零 + 水印语法门装车：守门 89 的 R3/R5/R7 同时归零(2026-0,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O43 凭据健康巡检两处实测缺陷修复：import 即发告警（缺 §22d 守卫）+ 部署停摆项在非部署机恒红（2026,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O49 文档隐形即拦 —— 守门 89 的 R4 升 blocking(带双向端到端证明),顺带修掉一处被并行提交截断的,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O52 C 盘"怎么占了这么多"全量对账:34.75GB 逐项验身份后回收,并把三类系统自产残骸接进每日维护(2026-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O51 守门 78 装上"链接内容 / 命令可解析"两维并当场咬出全机门禁停摆 —— 含我自己造成的重复票与一次误删链接,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O53 shim 完整性判据的取证反转 —— 我原来的"基线未证明"是破损现场给的错觉，判红落点因此放在提交链之外(20,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O54 守门 78 补第五维 + 深扫 .pnpm 闭包、守门 89 文档面改判 HEAD∪索引 —— O52 三条残余,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O54 §26 改道自愈的第三层:悬空 junction 必须能重建 + 冷却不得拦住人工窗口(2026-09-24 立,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O56 合并吞并的修复出口 `union-converge` + 守门 96 被旧基线回写后的复位(2026-09-24,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O23 前几批交付的合流后回归核验 + D92/D71 同源约束锁定(2026-09-23 立并完成 ✅,单端工程治理:,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) O14 SDK 真正发布（现 0 tag / brew sha256 占位）：npm/PyP,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23)单一真相源 `packages/design-tokens/src/radius.js`(`x,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23,本票补记)**第一次落地被并发会话的无 CAS `update-ref` 从 main 线上抹,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D44 白名单兜底事件逐个补渲染位(G-62)**:`scripts/check-age,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **D51 对话流元素覆盖守门**:新建 `scripts/check-chat-eleme,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:P1 移动端输入框大框化 + 全项目加号统一 AddPanel(2026-09-22 立并完成 ✅,平台独占:apps/,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **自愈崩溃已修(严重度高于表面)**:`refreshStaleIndex()` 把 `g,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-23) **根因定位(已确证)**:`deploy/win/ihui-deploy.ps1` 的 `,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-361 **RN「记住密码」把账号+密码明文写进 AsyncStorage,而它正是票#,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O39 守门接线层第二批 —— 门 91 补装、8 枚结构性豁免、门 89 新增 R4 反向对账、tag 远端备份改 f,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O47 桌面端更新 feed 的平台覆盖收口:主端点从「只有 windows 一个键」改为四平台,并证伪「缺键会自动回落,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O55 合并吞并已入库内容这一整类:新守门 100 + 两次 union converge(35 路径 / 净 −120,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O60 守门 91 的取材口径改判 HEAD/索引 blob —— 它按磁盘判，产出的正是最坏的那一类错（2026-09,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-09-29) G-372 **完成即归档排空 + 它连出的第四笔账(2026-09-28 立;①②③⑤已落,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:O28 门 53 白名单按新判据重算收紧 + D71② 真实障碍与"第二张错误表"预警(2026-09-24 立并完成 ,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-02) G-421 **台账里五条挂着"未完成"的登记，本会话逐条现读到"实现已在 HEAD"——只,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-21)**D54 工具名本地化覆盖率收口(G-80,第 5 轮已定档——原判"我方可能没词表"是幻影,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-07-30) **P0 ai_pricing 数据状态收尾** — 验证 `ai_pricing.step,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-09-29) 进行中@2026-09-29/UUIDNARROW） G-624 **把两条共享 `idPa,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-06) G-816015 **token 估算必须有独立投影,不得复用"可见正文"投影(它刻意隐藏 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-09-29) G-816028 **截断必须同时给"省略了多少"和"全量去哪取",不许只说一句"被截断"*,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **O26① 守门 53 升 blocking(commit `3ddf3dddc88`)*,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **守门 41 由红转绿,解除全队被迫 `--no-verify`**:并发建立的重复 re,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **O30① O13b 第二段 ① 实质收口(commit `369a750e2eb`)**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **同一红点的第二轮根因(只删 remote 会以为已修完)**:移除 `gh` 后守门 4,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **D92 的阻塞点原来不在"没人建表",而在码被丢掉**:`formatSSEError`,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)**守门 57 改判「仓库内容」而非共享工作树快照**:本会话只改守门脚本,[57] 却报 5,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24)**根目录整洁(守门 44)归绿 + 归档落点收口**:一级目录 7 项 `.git.brok,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-09-28:✅(2026-09-24) **本会话最干净的一次自证:我登记守门 91 的同一分钟,并发会话在同一位置也登记了一道 9,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:第五十一波·续末四 —— G-230 今天第三道"对 HEAD 恒红"的 blocking 门(mypy)+ 顺手抓到 ,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O62 品牌实底「大面积反色」全栈收口 + Tailwind v3 端 /alpha 修饰符落地(2026-09-25 ,随块带走的归并落账注记: 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O86 报警邮件里的经纬度坐标溯源 + "名为哈希/脱敏实为明文"四型收口（2026-09-27 立并完成 ✅，comm,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】同主键已有已完成登记,本行为并发并集留下的未翻勾副本,落账:复测 2026-10-06,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) O81 跨端 UI 单一源:小程序端与 App(RN)端逐档同值 + 改一端另一端自动生效(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O25 部署失败邮件走纯文本通道 —— 品牌模板层合并根治 + 守门 81(2026-09-23 立并完成 ✅,单端工程,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:P1 工作区存续自愈被"暂存删除"打崩已修 + 244 处判读子代理超时未交付(产物已量化交接)(2026-09-23 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O35 镜像配额根因链收口(Gitee 内部备份标签清零)+ 守门 71 补任务标题族 + vbs 生成器/产物漂移(2,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) G-807 【优先级高于任何新增】刚入库的恢复器用例**不稳定**,主会话自己复现到 1/4,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-09-29) G-814394 **代落 `constExprPx` —— HEAD 上圆角三道 bloc,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) **G-1079147 i18n 两道全量红清偿:web 表格工具条 8 键 × 5 语言补,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1079148 **门 2 `check-i18n-keys` 对运行时拼键静态失明:同,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:G-1114913 〔千段租约〕 本机=前台-694a78bf 段=G-1113914~G-1114913(取号器专用行,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:G-1106293 〔千段租约〕 本机=lichunchuan-ef4a9deb 段=G-1105294~G-11062,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:G-1103635 〔千段租约〕 本机=lichunchuan-66b628bc 段=G-1102636~G-11036,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) **G-1079149 两路会话同日补同一个 i18n 红,union 合并把两份都留下 ⇒,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) **G-1079150 全量守门复跑收尾:五条红就地清偿(3 道 i18n + 门 105 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07):G-1079151 让号副本登记行(现行登记为 G-1079154),完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07):G-1079151 让号期间的指针行,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) **G-1079154 机主拍板后落地依赖去重:门 7 由 rc=1 → rc=0(枚 `d,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) **G-1079155 仓库垃圾清理(用户令"执行到底"):578 文件删除 + 13 文件,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) **G-1080880 required 检查 `CI / lint-typecheck-t,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) 86. 证据级可追溯执行流水(每次工具调用带 invocation id + 输入/输出哈希,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) **G-1058625 迁移票:ai_model_config_models.extra_m,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) **G-1080881 `c6544f1bd2`(本侧 sha;远端同一枚清理记作 `bab,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-08) P1 **mobile-rn 有一条断言红落在干净 HEAD 上，而提交链没有一处会喊**：,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **G-1102636 F9 撞号 11 组逐组裁决已量清(只读取证轮交付;本行给的是"哪几,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-862 **IME 组合守卫在 `contextSelector` 之后,组合期按 En,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-815400 **取号令牌在两台机器上会发出同一个号 —— 本轮只用"预留号段"止血,机,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-628 **守门 35(mypy)按磁盘判、结构上没有 HEAD 档:它会把邻居的未跟踪,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-815912 **差分归因对"判远端态"的门会把基线面跑成假绿,于是每次真分叉期间的提交,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-815919 **会话"归档"是一等列而不是删除的副产品 ⇒ 我方只有硬删,没有任何可追,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-815960 **取消检查与提交之间不得有异步重入窗口——这条纪律要写成能判的一格**(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:✅(2026-10-05) G-815961 **文件系统故障注入是一等测试面:守门 122 只判"有没有走原子写出口",完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-815966 **状态→展示映射要按联合类型做成完备 Record,让"新增一档忘了配展,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-815971 **限额/配额收口的那一轮,禁止再触发任何"会重新打开模型请求"的续跑通道,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) O81 票⑰ —— **`2f-ext` 升 blocking 已量好前置,按用户指令暂缓落,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-286. **`G:/DevEnv/Temp/ihui-scratch/` 内嵌了一份 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-692 重连共享 promise + 代次守卫:`reconnect()`(`:1198,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-388 **A4+A10 两处"注释承诺而未兑现"（待我复验后落地）** —— 名称档码,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-916938 **系统时钟已连续 13.8 小时未成功同步(2026-09-29 现读红,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-916939 **所谓"异地容灾"此刻不成立:备份的"异地"副本与源在同一块物理盘上,而,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08)**G-916940 上下文容量分母写死的其余站点(web 那一处已修)。** 起因与已做:任,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O25 部署失败邮件走纯文本通道 —— 品牌模板层合并根治 + 守门 81(2026-09-23 立并完成 ✅,单端工程,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:P1 工作区存续自愈被"暂存删除"打崩已修 + 244 处判读子代理超时未交付(产物已量化交接)(2026-09-23 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-07:O35 镜像配额根因链收口(Gitee 内部备份标签清零)+ 守门 71 补任务标题族 + vbs 生成器/产物漂移(2,随块带走的归并落账注记: 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】O76 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-998100 票5：投递档位过滤必须配"收口不变量"+两档终态逐字节一致测试；我方若给重,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **G-1105300 Path/PATH 站点接线:归一之后还必须在返回对象上显式赋值一次,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-998142 票3：状态机守卫写进 SQL 的 `changes !== 1 ⇒ 未发生,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-657 迁移不可变对账的锁内一格(对 G-609 的增量,不重复立项):checksum,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-814409 裁剪必须自报丢了多少:上游 `commands-command.ts:16,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-814416 **provider 健康四档今天没有任何提交链判据,而第二份同值域声明已,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) O81 跨端 UI 单一源:小程序端与 App(RN)端逐档同值 + 改一端另一端自动生效(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) **G-278 D6-G1 v2 执行器适配器已入库并单测真跑,但四个生产 surface ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) **CSRF「按凭据存在性豁免」这一型无判据:票#23 修了一处,型还在** —— `plu,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07)（进行中@2026-09-28/值守） **把 `POST /rules/auto-gener,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) O81 票⑰ —— **`2f-ext` 升 blocking 已量好前置,按用户指令暂缓落,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1059132 **现场保全快照会按滞后工作树副本提交,把别人已入库的行整批写回旧态(2,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) O81 跨端 UI 单一源:小程序端与 App(RN)端逐档同值 + 改一端另一端自动生效(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) **G-278 D6-G1 v2 执行器适配器已入库并单测真跑,但四个生产 surface ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:✅(2026-10-07) **G-1059145 值守收尾三件:小程序派生产物清偿、门 4 恒红根因修复、assist,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:G-1103635 〔千段租约〕 本机=lichunchuan-66b628bc 段=G-1102636~G-11036,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:G-1080146 〔千段租约〕 本机=WIN-20251101PXT-011f526c 段=G-1079147~G-1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **G-1080881 `bab33e6f5b`(G-1079155 仓库垃圾清理,578 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-815975 **队列吸收要有"类型轴":遇到会改变后续语义的那类条目必须停在这里;未消,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:G-1101879 用量帧真分母:agent-task-progress-pane.tsx:909 的 pane 注释自,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:G-1103635 〔千段租约〕 本机=lichunchuan-66b628bc 段=G-1102636~G-11036,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-307 **计划文档的两层自愈互相打架:两小时内产出 24 枚"恢复型"提交,并使门 1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-388 **A4+A10 两处"注释承诺而未兑现"（待我复验后落地）** —— 名称档码,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-388 **A4+A10 两处"注释承诺而未兑现"（待我复验后落地）** —— 名称档码,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-388 **A4+A10 两处"注释承诺而未兑现"（待我复验后落地）** —— 名称档码,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-307 **计划文档的两层自愈互相打架:两小时内产出 24 枚"恢复型"提交,并使门 1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-608 **第十一批:沙箱默认严档落地 + 两路只读取证的 24 条发现落成可执行票(每,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-388 **A4+A10 两处"注释承诺而未兑现"（待我复验后落地）** —— 名称档码,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) （【归并】重复登记副本·同题不同编号·2026-09-29·本行与同题登记的持有行重复,现摘,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-388 **A4+A10 两处"注释承诺而未兑现"（待我复验后落地）** —— 名称档码,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-388 **A4+A10 两处"注释承诺而未兑现"（待我复验后落地）** —— 名称档码,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-388 **A4+A10 两处"注释承诺而未兑现"（待我复验后落地）** —— 名称档码,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-815966 **状态→展示映射要按联合类型做成完备 Record,让"新增一档忘了配展,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-388 **A4+A10 两处"注释承诺而未兑现"（待我复验后落地）** —— 名称档码,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-388 **A4+A10 两处"注释承诺而未兑现"（待我复验后落地）** —— 名称档码,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-694 成对清理纪律:超时/取消路径必须与成功路径同样摘监听器并释放流。我方 `send,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-1038487 **第十一批:沙箱默认严档落地 + 两路只读取证的 24 条发现落成可执,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:G-1103635 〔千段租约〕 本机=lichunchuan-66b628bc 段=G-1102636~G-11036,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **签到助手 Phase1c+1d 全量收尾(桌面会话交接单《修复签到助手页面加载错误.md,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1106295 **live-doc-edit 的取号令牌(NEXT_ID:G)无千段租,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1105296 **main CI 另三条红逐枚定位并修两条半(枚 `535d0d524,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1105297 **门 157「凭据在场即豁免」还有两型零判据:条件先存进变量再判、以及,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09)  G-1105298 **`apps/api` 的 vitest 在本机 96/96 文件整,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1105301 **CI 第四条红:lint 步既存债收口(枚 `99cfceebde`,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1105303 **§26「临时夹具唯一落点」这一维在 HEAD 面真闭合:一处真违规夹,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1105305 **派单口径补认"行尾自述不再派单"这一族副本(判据 SELF_DEDI,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1105306 **`scripts/tests/plan-tasks.test.mjs,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1105307 **派单口径不看文件,于是两件"可做"的活会撞在同一份在飞副本上(202,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09)G-1105313 **台账只增不减的真成因已被量清并在登记入口掐住** —— 实测:14 天,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) 双端功能矩阵维护(2026-08-26 立,跨端:apps/web + apps/mobil,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) 计划任务 `IHUI-C-Drive-AutoMaintain` 仍未注册(注册 = 影响全,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **C 组刻意没动,待用户定性**:`C:\ai_zhs\cert\*.pem`(5 个,每,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **RN/desktop 端设备指纹只有 2 个可能值（本批新量到，需 owner 定性，非,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) `--allow-dangerous` 确认旁路仍在调用方(`commands/agent.,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()`(`chec,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()`(`chec,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) 计划任务 `IHUI-C-Drive-AutoMaintain` 仍未注册(注册 = 影响全,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) 计划任务 `IHUI-C-Drive-AutoMaintain` 仍未注册(注册 = 影响全,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **RN「记住密码」把账号+密码明文写进 AsyncStorage,而它正是票#20 那条自,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) **CSRF「按凭据存在性豁免」这一型无判据:票#23 修了一处,型还在** —— `plu,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-816000 **跨域图片"保存"取不到字节时,要补一个能真用出去的兜底入口(不是只报失,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-832 **G-808 的残余两格:读侧同名行的取舍,以及"两个市场同名插件"要不要加列,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08)承「图源池的层序违规已清零(落地枚 f1638d8),但留了三格未闭合」那条的第 ③ 格:畸形,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) 计划任务 `IHUI-C-Drive-AutoMaintain` 仍未注册(注册 = 影响全,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-1018300 **第十一批:沙箱默认严档落地 + 两路只读取证的 24 条发现落成可执,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-341 **`plan-tasks-merge.mjs --heal` 在同一次运行里给,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-627 **第十六批登记:第四路只读取证(ui 1492/191、desktop 265,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1102637 **`POST /api/agents/create` 的 `.pars,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-815946 **归属:chat/web 在飞会话 + 小程序端持有人 —— 线上停在 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-815983 **`truncated` 语义在"恰好等于 limit"时不得缺席,且同,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-815991 **"空契约"这一型判不了,如实登记而不是假装已覆盖**(上游 `pack,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-816027 **枚举未声明即取宽档要有判据:`switch` 的 `default` ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-851 **【正确性/可立即修】跨域图片"下载"点了没存还报成功**（归属:web 媒体,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-815917（等台账持有人逐行裁决 8 行的权威正文;可判的重开条件写在末句）**跨端 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-608 **第十一批:沙箱默认严档落地 + 两路只读取证的 24 条发现落成可执行票(每,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) `--allow-dangerous` 确认旁路仍在调用方(`commands/agent.,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()`(`chec,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **RN/desktop 端设备指纹只有 2 个可能值（本批新量到，需 owner 定性，非,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) **CSRF「按凭据存在性豁免」这一型无判据:票#23 修了一处,型还在** —— `plu,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08)承「图源池的层序违规已清零(落地枚 f1638d8),但留了三格未闭合」那条的第 ③ 格:畸形,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) **架构契约表最后一块 `packages/types` 翻不正面 —— 台账旧句"0 个模,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) **本票未做的两件(归属明确,不是遗漏)**:① **同族修法早已存在,收敛器只是最后一个*,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) **`CourseScreen:113` 那格盲区的精确成因(不再是"未知失配"),以及为什,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **RN/desktop 端设备指纹只有 2 个可能值（本批新量到，需 owner 定性，非,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-307 **计划文档的两层自愈互相打架:两小时内产出 24 枚"恢复型"提交,并使门 1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) **台账"两层自愈互咬"的机制票 G-307 交了半成品:熔断行级判据在盘、端到端那一例红*,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08)承「图源池的层序违规已清零(落地枚 f1638d8),但留了三格未闭合」那条的第 ③ 格:畸形,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **等持有人拍板（不挂进行中：登记人此刻不动它，挂了租约就是给后来人留假锁）** G-814,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **P1-① 扩共享层首批 —— 票面前提已被实测否证,剩余只有 4 件(在等:逐件判定谁在,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-797 【安全·默认档已定】回环 http 白名单今天**不分调用者** ⇒ 远端 ma,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **P1-① 扩共享层首批 —— 票面前提已被实测否证,剩余只有 4 件(在等:逐件判定谁在,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-998089 票3：启动/装配失败先收口自有资源才放锁（释放条件 = 子进程终态 ∧ 通,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-998104 票3：锁指标补"锁实例抖动"维度（按实例计数而非按路径计数）（观察）（出处,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-978004 线上冻结 5 小时 / 落后 205 枚的真因是**已入库代码红在类型层*,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09) **RN「记住密码」把账号+密码明文写进 AsyncStorage,而它正是票#20 那条自,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) **CSRF「按凭据存在性豁免」这一型无判据:票#23 修了一处,型还在** —— `plu,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08)承「图源池的层序违规已清零(落地枚 f1638d8),但留了三格未闭合」那条的第 ③ 格:畸形,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) `--allow-dangerous` 确认旁路仍在调用方(`commands/agent.,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()`(`chec,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **RN/desktop 端设备指纹只有 2 个可能值（本批新量到，需 owner 定性，非,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) `--allow-dangerous` 确认旁路仍在调用方(`commands/agent.,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-1038487 **第十一批:沙箱默认严档落地 + 两路只读取证的 24 条发现落成可执,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) **第十一批:沙箱默认严档落地 + 两路只读取证的 24 条发现落成可执行票(每条带落点与验,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-1058511 **第十一批:沙箱默认严档落地 + 两路只读取证的 24 条发现落成可执,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1058522 **跨目录同 timestamp 迁移重复无守门——drizzle/ 与,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1058635 **小程序端 ui-routes 产物缺自述钉：重跑一条命令即可，但它结,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **RN「记住密码」把账号+密码明文写进 AsyncStorage,而它正是票#20 那条自,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) **`BROWSER_ACTIONS` 手抄清单不照 page 族那样派生(经取证否决,非疏,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-998153 票 4（观察）写库前不问「到底有没有变」：`.set({ ...data,,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09) G-998157 票5：复合键的构造与解析成对导出在协议层（观察）（出处 b76-12d）：,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) `--allow-dangerous` 确认旁路仍在调用方(`commands/agent.,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-1058644 **G-364 的实现早已入库,但它的编号被"一号两事 + 4 份漂移副,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09) G-1079148 **门 2 `check-i18n-keys` 对运行时拼键静态失明:同,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:G-1106293 〔千段租约〕 本机=lichunchuan-ef4a9deb 段=G-1105294~G-11062,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **G-1102636 F9 撞号 11 组逐组裁决已量清(只读取证轮交付;本行给的是"哪几,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-862 **IME 组合守卫在 `contextSelector` 之后,组合期按 En,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-628 **守门 35(mypy)按磁盘判、结构上没有 HEAD 档:它会把邻居的未跟踪,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-815919 **会话"归档"是一等列而不是删除的副产品 ⇒ 我方只有硬删,没有任何可追,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-815960 **取消检查与提交之间不得有异步重入窗口——这条纪律要写成能判的一格**(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-815966 **状态→展示映射要按联合类型做成完备 Record,让"新增一档忘了配展,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1058650 **压缩双端 parity 夹具里没有"带 reasoning 的消息",完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-816708 计划文档的**自愈层对"旁路落地"结构性失明** —— 台账被滞台副本写回,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-286. **`G:/DevEnv/Temp/ihui-scratch/` 内嵌了一份 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-692 重连共享 promise + 代次守卫:`reconnect()`(`:1198,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-388 **A4+A10 两处"注释承诺而未兑现"（待我复验后落地）** —— 名称档码,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-916938 **系统时钟已连续 13.8 小时未成功同步(2026-09-29 现读红,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08)**G-916940 上下文容量分母写死的其余站点(web 那一处已修)。** 起因与已做:任,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-998100 票5：投递档位过滤必须配"收口不变量"+两档终态逐字节一致测试；我方若给重,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-998142 票3：状态机守卫写进 SQL 的 `changes !== 1 ⇒ 未发生,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-657 迁移不可变对账的锁内一格(对 G-609 的增量,不重复立项):checksum,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-814409 裁剪必须自报丢了多少:上游 `commands-command.ts:16,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) P1 **返回键同一型跨端清账(本票的直接续作)**:① `packages/app/src,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-689 MCP stdio 子进程必须有 stderr 尾缓冲与 error/exit ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-814416 **provider 健康四档今天没有任何提交链判据,而第二份同值域声明已,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) **CSRF「按凭据存在性豁免」这一型无判据:票#23 修了一处,型还在** —— `plu,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1059132 **现场保全快照会按滞后工作树副本提交,把别人已入库的行整批写回旧态(2,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:G-1103635 〔千段租约〕 本机=lichunchuan-66b628bc 段=G-1102636~G-11036,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-816004 **审批注册/结算的代际 CAS:两把锁各给各的 reasonCode**,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-816010 **分页结果双重复核防"已删历史行复活",游标未推进必须判失败**(上游 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:G-1101879 用量帧真分母:agent-task-progress-pane.tsx:909 的 pane 注释自,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-307 **计划文档的两层自愈互相打架:两小时内产出 24 枚"恢复型"提交,并使门 1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-388 **A4+A10 两处"注释承诺而未兑现"（待我复验后落地）** —— 名称档码,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-388 **A4+A10 两处"注释承诺而未兑现"（待我复验后落地）** —— 名称档码,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-388 **A4+A10 两处"注释承诺而未兑现"（待我复验后落地）** —— 名称档码,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-307 **计划文档的两层自愈互相打架:两小时内产出 24 枚"恢复型"提交,并使门 1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-608 **第十一批:沙箱默认严档落地 + 两路只读取证的 24 条发现落成可执行票(每,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-388 **A4+A10 两处"注释承诺而未兑现"（待我复验后落地）** —— 名称档码,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-388 **A4+A10 两处"注释承诺而未兑现"（待我复验后落地）** —— 名称档码,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-388 **A4+A10 两处"注释承诺而未兑现"（待我复验后落地）** —— 名称档码,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-388 **A4+A10 两处"注释承诺而未兑现"（待我复验后落地）** —— 名称档码,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-815966 **状态→展示映射要按联合类型做成完备 Record,让"新增一档忘了配展,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-388 **A4+A10 两处"注释承诺而未兑现"（待我复验后落地）** —— 名称档码,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-388 **A4+A10 两处"注释承诺而未兑现"（待我复验后落地）** —— 名称档码,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-694 成对清理纪律:超时/取消路径必须与成功路径同样摘监听器并释放流。我方 `send,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-1038487 **第十一批:沙箱默认严档落地 + 两路只读取证的 24 条发现落成可执,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09) G-1103636 **CI Build 存量红登记(归属判定完毕·登记不越界):G-107,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **签到助手 Phase1c+1d 全量收尾(桌面会话交接单《修复签到助手页面加载错误.md,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1106295 **live-doc-edit 的取号令牌(NEXT_ID:G)无千段租,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1105296 **main CI 另三条红逐枚定位并修两条半(枚 `535d0d524,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1105297 **门 157「凭据在场即豁免」还有两型零判据:条件先存进变量再判、以及,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09)  G-1105298 **`apps/api` 的 vitest 在本机 96/96 文件整,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1105301 **CI 第四条红:lint 步既存债收口(枚 `99cfceebde`,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1105303 **§26「临时夹具唯一落点」这一维在 HEAD 面真闭合:一处真违规夹,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1105305 **派单口径补认"行尾自述不再派单"这一族副本(判据 SELF_DEDI,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1105306 **`scripts/tests/plan-tasks.test.mjs,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1105307 **派单口径不看文件,于是两件"可做"的活会撞在同一份在飞副本上(202,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) page_* 动词的**跨端登记**未做:web / miniapp-taro / RN /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **RN「记住密码」把账号+密码明文写进 AsyncStorage,而它正是票#20 那条自,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-815991 **"空契约"这一型判不了,如实登记而不是假装已覆盖**(上游 `pack,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **RN「记住密码」把账号+密码明文写进 AsyncStorage,而它正是票#20 那条自,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **RN「记住密码」把账号+密码明文写进 AsyncStorage,而它正是票#20 那条自,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) page_* 动词的**跨端登记**未做:web / miniapp-taro / RN /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-998157 票5：复合键的构造与解析成对导出在协议层（观察）（出处 b76-12d）：,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1079148 **门 2 `check-i18n-keys` 对运行时拼键静态失明:同,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1103636 **CI Build 存量红登记(归属判定完毕·登记不越界):G-107,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-815949 **同一批五张票在 HEAD 面各有一份短副本登记(G-815413/41,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-815995 **发给 provider 的面与落库的面必须是两次投影,恢复脚手架不得进,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-09-25) page_* 动词的**跨端登记**未做:web / miniapp-taro / RN /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1079148 **门 2 `check-i18n-keys` 对运行时拼键静态失明:同,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-815971 **限额/配额收口的那一轮,禁止再触发任何"会重新打开模型请求"的续跑通道,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-815975 **队列吸收要有"类型轴":遇到会改变后续语义的那类条目必须停在这里;未消,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) 计划任务 `IHUI-C-Drive-AutoMaintain` 仍未注册(注册 = 影响全,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) `--allow-dangerous` 确认旁路仍在调用方(`commands/agent.,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()`(`chec,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()`(`chec,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) **CSRF「按凭据存在性豁免」这一型无判据:票#23 修了一处,型还在** —— `plu,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-815983 **`truncated` 语义在"恰好等于 limit"时不得缺席,且同,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-816027 **枚举未声明即取宽档要有判据:`switch` 的 `default` ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) `--allow-dangerous` 确认旁路仍在调用方(`commands/agent.,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()`(`chec,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) **CSRF「按凭据存在性豁免」这一型无判据:票#23 修了一处,型还在** —— `plu,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) **架构契约表最后一块 `packages/types` 翻不正面 —— 台账旧句"0 个模,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-307 **计划文档的两层自愈互相打架:两小时内产出 24 枚"恢复型"提交,并使门 1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) **台账"两层自愈互咬"的机制票 G-307 交了半成品:熔断行级判据在盘、端到端那一例红*,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-797 【安全·默认档已定】回环 http 白名单今天**不分调用者** ⇒ 远端 ma,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) **CSRF「按凭据存在性豁免」这一型无判据:票#23 修了一处,型还在** —— `plu,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) `--allow-dangerous` 确认旁路仍在调用方(`commands/agent.,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) **`BROWSER_ACTIONS` 手抄清单不照 page 族那样派生(经取证否决,非疏,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-998157 票5：复合键的构造与解析成对导出在协议层（观察）（出处 b76-12d）：,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-815960 **取消检查与提交之间不得有异步重入窗口——这条纪律要写成能判的一格**(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-815966 **状态→展示映射要按联合类型做成完备 Record,让"新增一档忘了配展,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1058650 **压缩双端 parity 夹具里没有"带 reasoning 的消息",完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-689 MCP stdio 子进程必须有 stderr 尾缓冲与 error/exit ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-815949 **同一批五张票在 HEAD 面各有一份短副本登记(G-815413/41,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-09-25) page_* 动词的**跨端登记**未做:web / miniapp-taro / RN /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **RN/desktop 端设备指纹只有 2 个可能值（本批新量到，需 owner 定性，非,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **P1-① 扩共享层首批 —— 票面前提已被实测否证,剩余只有 4 件(在等:逐件判定谁在,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09) **P1-① 扩共享层首批 —— 票面前提已被实测否证,剩余只有 4 件(在等:逐件判定谁在,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-998085 票4：single-flight 的失败不固化 + 等锁者按自己声明的必需,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09) G-1058635 **小程序端 ui-routes 产物缺自述钉：重跑一条命令即可，但它结,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+- [x] ✅(2026-10-11) **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN / miniapp 未消费 tailPreview` —— 两端 1742 个跟踪文件里命中 0,唯一消费者是 web;难点不是接一行,而是两端如何取到 `context-attribution` 这份共享引擎(实测两端对它**零引用**,共享引擎在移动端没有装载路径)。② `apps/api` 侧 `page_*` 只有测试面引用、无生产侧登记(一格小账)。〔2026-09-28 复判(② 本格):**判"无消费方,登记即造假",不硬接、保持未勾、不再派单** —— HEAD 复跑:7 条 `page_*` 动词字面量在 `apps/api/src` 命中 0(git grep HEAD),仅测试面 `tests/agent-control-ui.test.ts` L874-882 引用,"只有测试面引用"仍成立。api 侧既有出口形态是**动词不透明的纯转发/计数面**:`capabilitySchema.browserPageActions=z.array(z.string()).max(20)`(routes/agent-control.ts:218)+ `/status` 计数(:463)+ `executeSchema.action=z.string()`(:232,不解释动词名直接 WS 转发);且**六族动词(browser/computer/ui/app_ui/miniapp_ui/ext_ui)在 api 生产面同样零动词字面量** —— page_* 不是特例,是转发面的设计常态。与单源的类型级衔接已由 `AgentControlCapability` cast 承担(字段类型 `BrowserPageControlActionType[]` 即 packages/types 单源);动词名的真实消费方在 extension(`@ihui/dom-actions` PAGE_ACTIONS,编译期护栏)与 CLI,服务端授权闸读的是 `browserPageActions` **计数>0** 而非动词名(ai-service `control_autonomy.py:233`)。硬"登记"只有两条路:在 api 侧另抄一份成员清单(§1 状态词汇四份副本的教训,明令禁止),或只为本族加运行期枚举校验(与其余六族形态不一致,且 schema 注释已记过失败模式"端上多报一条⇒整条 capability 上报 400 静默失去该端全部能力")。⇒ 本格按"平台域外/无消费方"收口,登记即造假,不硬造。取证:`check-capability-catalog` 全量绿(62 scope / 180 handler 0 未覆盖 / D 0 腐化,EXIT 0)、`@ihui/api` typecheck 0 错、`agent-control-ui.test.ts` 25/25 过(含 ㉕ 句柄族 7 动词计数)。〕 〔【归并】重复登记副本(2026-09-29):逐字相同的另一条登记(与本行正文逐字相同,可按正文检索),派单以那条为准,本行不再单独派单。〕〔2026-10-11 归并翻勾(副本随正主,§1「修法只有归并 —— 副本翻勾并写明归并到谁」):正主的 ✅ 形态已入库(枚 47ad7d2f78ab36dd42ba8694a0c9fa03f760aa7b 所载归档件 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md` 与 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md`,标题逐字同本行),本行是同题滞后副本。现读复验:① 「未消费」再次证伪 —— 装载枚 21af9704ffa173825b9056e4c8cabac69baae079 与共享引擎枚 67cefc6f6321f006f1e4c24dcb82985607cee9d7 之后,两端消费点各自在位:`apps/miniapp-taro/src/pkg-ai/ai/chat.tsx:1406` 挂 `<ContextUsageStrip>`、同目录 `context-usage-strip.tsx:103` 取 `detail.tailPreview ?? detail.label`;`packages/app/src/features/chat/ChatScreen.tsx:144` 挂 `<ContextUsagePanel>`、同目录 `ContextUsagePanel.tsx:117` 同一优先级(共享 RN 屏即 mobile-rn 的屏)。② 「zh-TW/en/ja/ko 四语归因译文」由本席逐条读毕(两端 × 5 语言 × 15 键:title / segSystem / segToolSchema / segSkill / segRoleUser / segRoleAssistant / segRoleToolCall / segRoleToolResult / segSystemPrompt / unnamedItem / resultSuffix / unobservedServerOnly / unobservedNotSupplied / detailsTruncated / residualLabel):zh-TW 逐条繁体字形、ko 全谚文、ja 假名 + 日本习惯汉字、en 无破碎机翻;`{count}` 占位五语言逐档原样保留;无「同名自套一层」。机器侧入口一律现跑并封缄:`check-i18n-locale-content-language.mjs --strict` 判定面 HEAD ⇒ rc 0 / 文件 35 / 判红 0 / 未判定 0(同器 `--self-test` 64 条含「ja 整块繁体 ⇒ 候选」「zh-TW 整块谚文 ⇒ 候选」两条阳性对照 ⇒ 不是空尺子)、`scan-i18n-zh-residue.mjs zh-TW|ko --target=miniapp-taro|mobile-rn` 四路 rc 0、`check-icu-locale-support.mjs` rc 0(含 ICU 键 349 个)。**如实登记的覆盖边界**:`check-i18n-broken-en.mjs` 对本两端**不覆盖**,当场 rc 1 并打印「api/cli/miniapp-taro/mobile-rn 的 en.json 尚未覆盖」而拒绝回落扫 web ⇒ en 一档的结论来自本席逐条读,不冒充"机器已判"。③ ② 子项 `page_*` 不随本行新增裁决:带复判注的那几份副本已结为「无消费方、登记即造假,不硬接、不再派单」(四端无 `@ihui/dom-actions` 调用点,服务端授权闸读计数而非动词名)。正文一字未删,勾选位由 `[ ]` 翻成 `[x]` 并写明归并到谁。〕
+<!-- 已归档(2026-10-10:✅(2026-10-10) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+- [x] ✅(2026-10-11) **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN / miniapp 未消费 tailPreview` —— 两端 1742 个跟踪文件里命中 0,唯一消费者是 web;难点不是接一行,而是两端如何取到 `context-attribution` 这份共享引擎(实测两端对它**零引用**,共享引擎在移动端没有装载路径)。② `apps/api` 侧 `page_*` 只有测试面引用、无生产侧登记(一格小账)。 〔【归并】重复登记副本(2026-09-29):逐字相同的另一条登记(与本行正文逐字相同,可按正文检索),派单以那条为准,本行不再单独派单。〕〔2026-10-11 归并翻勾(副本随正主,§1「修法只有归并 —— 副本翻勾并写明归并到谁」):正主的 ✅ 形态已入库(枚 47ad7d2f78ab36dd42ba8694a0c9fa03f760aa7b 所载归档件 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md` 与 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md`,标题逐字同本行),本行是同题滞后副本。现读复验:① 「未消费」再次证伪 —— 装载枚 21af9704ffa173825b9056e4c8cabac69baae079 与共享引擎枚 67cefc6f6321f006f1e4c24dcb82985607cee9d7 之后,两端消费点各自在位:`apps/miniapp-taro/src/pkg-ai/ai/chat.tsx:1406` 挂 `<ContextUsageStrip>`、同目录 `context-usage-strip.tsx:103` 取 `detail.tailPreview ?? detail.label`;`packages/app/src/features/chat/ChatScreen.tsx:144` 挂 `<ContextUsagePanel>`、同目录 `ContextUsagePanel.tsx:117` 同一优先级(共享 RN 屏即 mobile-rn 的屏)。② 「zh-TW/en/ja/ko 四语归因译文」由本席逐条读毕(两端 × 5 语言 × 15 键:title / segSystem / segToolSchema / segSkill / segRoleUser / segRoleAssistant / segRoleToolCall / segRoleToolResult / segSystemPrompt / unnamedItem / resultSuffix / unobservedServerOnly / unobservedNotSupplied / detailsTruncated / residualLabel):zh-TW 逐条繁体字形、ko 全谚文、ja 假名 + 日本习惯汉字、en 无破碎机翻;`{count}` 占位五语言逐档原样保留;无「同名自套一层」。机器侧入口一律现跑并封缄:`check-i18n-locale-content-language.mjs --strict` 判定面 HEAD ⇒ rc 0 / 文件 35 / 判红 0 / 未判定 0(同器 `--self-test` 64 条含「ja 整块繁体 ⇒ 候选」「zh-TW 整块谚文 ⇒ 候选」两条阳性对照 ⇒ 不是空尺子)、`scan-i18n-zh-residue.mjs zh-TW|ko --target=miniapp-taro|mobile-rn` 四路 rc 0、`check-icu-locale-support.mjs` rc 0(含 ICU 键 349 个)。**如实登记的覆盖边界**:`check-i18n-broken-en.mjs` 对本两端**不覆盖**,当场 rc 1 并打印「api/cli/miniapp-taro/mobile-rn 的 en.json 尚未覆盖」而拒绝回落扫 web ⇒ en 一档的结论来自本席逐条读,不冒充"机器已判"。③ ② 子项 `page_*` 不随本行新增裁决:带复判注的那几份副本已结为「无消费方、登记即造假,不硬接、不再派单」(四端无 `@ihui/dom-actions` 调用点,服务端授权闸读计数而非动词名)。正文一字未删,勾选位由 `[ ]` 翻成 `[x]` 并写明归并到谁。〕
+<!-- 已归档(2026-10-10:✅(2026-10-10) P1 **返回键同一型跨端清账(本票的直接续作)**:① `packages/app/src,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **RN「记住密码」把账号+密码明文写进 AsyncStorage,而它正是票#20 那条自,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-585 **归档件"人工归并出口"没有防重复的那一半:用 `git merge-file,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+- [x] ✅(2026-10-11) **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN / miniapp 未消费 tailPreview` —— 两端 1742 个跟踪文件里命中 0,唯一消费者是 web;难点不是接一行,而是两端如何取到 `context-attribution` 这份共享引擎(实测两端对它**零引用**,共享引擎在移动端没有装载路径)。② `apps/api` 侧 `page_*` 只有测试面引用、无生产侧登记(一格小账)。 〔【归并】重复登记副本(2026-09-30):逐字相同的另一条登记(与本行正文逐字相同,可按正文检索),派单以那条为准,本行不再单独派单。〕〔2026-10-11 归并翻勾(副本随正主,§1「修法只有归并 —— 副本翻勾并写明归并到谁」):正主的 ✅ 形态已入库(枚 47ad7d2f78ab36dd42ba8694a0c9fa03f760aa7b 所载归档件 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md` 与 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md`,标题逐字同本行),本行是同题滞后副本。现读复验:① 「未消费」再次证伪 —— 装载枚 21af9704ffa173825b9056e4c8cabac69baae079 与共享引擎枚 67cefc6f6321f006f1e4c24dcb82985607cee9d7 之后,两端消费点各自在位:`apps/miniapp-taro/src/pkg-ai/ai/chat.tsx:1406` 挂 `<ContextUsageStrip>`、同目录 `context-usage-strip.tsx:103` 取 `detail.tailPreview ?? detail.label`;`packages/app/src/features/chat/ChatScreen.tsx:144` 挂 `<ContextUsagePanel>`、同目录 `ContextUsagePanel.tsx:117` 同一优先级(共享 RN 屏即 mobile-rn 的屏)。② 「zh-TW/en/ja/ko 四语归因译文」由本席逐条读毕(两端 × 5 语言 × 15 键:title / segSystem / segToolSchema / segSkill / segRoleUser / segRoleAssistant / segRoleToolCall / segRoleToolResult / segSystemPrompt / unnamedItem / resultSuffix / unobservedServerOnly / unobservedNotSupplied / detailsTruncated / residualLabel):zh-TW 逐条繁体字形、ko 全谚文、ja 假名 + 日本习惯汉字、en 无破碎机翻;`{count}` 占位五语言逐档原样保留;无「同名自套一层」。机器侧入口一律现跑并封缄:`check-i18n-locale-content-language.mjs --strict` 判定面 HEAD ⇒ rc 0 / 文件 35 / 判红 0 / 未判定 0(同器 `--self-test` 64 条含「ja 整块繁体 ⇒ 候选」「zh-TW 整块谚文 ⇒ 候选」两条阳性对照 ⇒ 不是空尺子)、`scan-i18n-zh-residue.mjs zh-TW|ko --target=miniapp-taro|mobile-rn` 四路 rc 0、`check-icu-locale-support.mjs` rc 0(含 ICU 键 349 个)。**如实登记的覆盖边界**:`check-i18n-broken-en.mjs` 对本两端**不覆盖**,当场 rc 1 并打印「api/cli/miniapp-taro/mobile-rn 的 en.json 尚未覆盖」而拒绝回落扫 web ⇒ en 一档的结论来自本席逐条读,不冒充"机器已判"。③ ② 子项 `page_*` 不随本行新增裁决:带复判注的那几份副本已结为「无消费方、登记即造假,不硬接、不再派单」(四端无 `@ihui/dom-actions` 调用点,服务端授权闸读计数而非动词名)。正文一字未删,勾选位由 `[ ]` 翻成 `[x]` 并写明归并到谁。〕
+<!-- 已归档(2026-10-10:✅(2026-10-10) P1 **返回键同一型跨端清账(本票的直接续作)**:① `packages/app/src,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+- [x] ✅(2026-10-11) **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN / miniapp 未消费 tailPreview` —— 两端 1742 个跟踪文件里命中 0,唯一消费者是 web;难点不是接一行,而是两端如何取到 `context-attribution` 这份共享引擎(实测两端对它**零引用**,共享引擎在移动端没有装载路径)。② `apps/api` 侧 `page_*` 只有测试面引用、无生产侧登记(一格小账)。〔2026-09-28 复判(② 本格):**判"无消费方,登记即造假",不硬接、保持未勾、不再派单** —— HEAD 复跑:7 条 `page_*` 动词字面量在 `apps/api/src` 命中 0(git grep HEAD),仅测试面 `tests/agent-control-ui.test.ts` L874-882 引用,"只有测试面引用"仍成立。api 侧既有出口形态是**动词不透明的纯转发/计数面**:`capabilitySchema.browserPageActions=z.array(z.string()).max(20)`(routes/agent-control.ts:218)+ `/status` 计数(:463)+ `executeSchema.action=z.string()`(:232,不解释动词名直接 WS 转发);且**六族动词(browser/computer/ui/app_ui/miniapp_ui/ext_ui)在 api 生产面同样零动词字面量** —— page_* 不是特例,是转发面的设计常态。与单源的类型级衔接已由 `AgentControlCapability` cast 承担(字段类型 `BrowserPageControlActionType[]` 即 packages/types 单源);动词名的真实消费方在 extension(`@ihui/dom-actions` PAGE_ACTIONS,编译期护栏)与 CLI,服务端授权闸读的是 `browserPageActions` **计数>0** 而非动词名(ai-service `control_autonomy.py:233`)。硬"登记"只有两条路:在 api 侧另抄一份成员清单(§1 状态词汇四份副本的教训,明令禁止),或只为本族加运行期枚举校验(与其余六族形态不一致,且 schema 注释已记过失败模式"端上多报一条⇒整条 capability 上报 400 静默失去该端全部能力")。⇒ 本格按"平台域外/无消费方"收口,登记即造假,不硬造。取证:`check-capability-catalog` 全量绿(62 scope / 180 handler 0 未覆盖 / D 0 腐化,EXIT 0)、`@ihui/api` typecheck 0 错、`agent-control-ui.test.ts` 25/25 过(含 ㉕ 句柄族 7 动词计数)。〕 〔【归并】重复登记副本(2026-09-30):逐字相同的另一条登记(与本行正文逐字相同,可按正文检索),派单以那条为准,本行不再单独派单。〕〔2026-10-11 归并翻勾(副本随正主,§1「修法只有归并 —— 副本翻勾并写明归并到谁」):正主的 ✅ 形态已入库(枚 47ad7d2f78ab36dd42ba8694a0c9fa03f760aa7b 所载归档件 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md` 与 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md`,标题逐字同本行),本行是同题滞后副本。现读复验:① 「未消费」再次证伪 —— 装载枚 21af9704ffa173825b9056e4c8cabac69baae079 与共享引擎枚 67cefc6f6321f006f1e4c24dcb82985607cee9d7 之后,两端消费点各自在位:`apps/miniapp-taro/src/pkg-ai/ai/chat.tsx:1406` 挂 `<ContextUsageStrip>`、同目录 `context-usage-strip.tsx:103` 取 `detail.tailPreview ?? detail.label`;`packages/app/src/features/chat/ChatScreen.tsx:144` 挂 `<ContextUsagePanel>`、同目录 `ContextUsagePanel.tsx:117` 同一优先级(共享 RN 屏即 mobile-rn 的屏)。② 「zh-TW/en/ja/ko 四语归因译文」由本席逐条读毕(两端 × 5 语言 × 15 键:title / segSystem / segToolSchema / segSkill / segRoleUser / segRoleAssistant / segRoleToolCall / segRoleToolResult / segSystemPrompt / unnamedItem / resultSuffix / unobservedServerOnly / unobservedNotSupplied / detailsTruncated / residualLabel):zh-TW 逐条繁体字形、ko 全谚文、ja 假名 + 日本习惯汉字、en 无破碎机翻;`{count}` 占位五语言逐档原样保留;无「同名自套一层」。机器侧入口一律现跑并封缄:`check-i18n-locale-content-language.mjs --strict` 判定面 HEAD ⇒ rc 0 / 文件 35 / 判红 0 / 未判定 0(同器 `--self-test` 64 条含「ja 整块繁体 ⇒ 候选」「zh-TW 整块谚文 ⇒ 候选」两条阳性对照 ⇒ 不是空尺子)、`scan-i18n-zh-residue.mjs zh-TW|ko --target=miniapp-taro|mobile-rn` 四路 rc 0、`check-icu-locale-support.mjs` rc 0(含 ICU 键 349 个)。**如实登记的覆盖边界**:`check-i18n-broken-en.mjs` 对本两端**不覆盖**,当场 rc 1 并打印「api/cli/miniapp-taro/mobile-rn 的 en.json 尚未覆盖」而拒绝回落扫 web ⇒ en 一档的结论来自本席逐条读,不冒充"机器已判"。③ ② 子项 `page_*` 不随本行新增裁决:带复判注的那几份副本已结为「无消费方、登记即造假,不硬接、不再派单」(四端无 `@ihui/dom-actions` 调用点,服务端授权闸读计数而非动词名)。正文一字未删,勾选位由 `[ ]` 翻成 `[x]` 并写明归并到谁。〕
+<!-- 已归档(2026-10-10:✅(2026-10-10) P1 **返回键同一型跨端清账(本票的直接续作)**:① `packages/app/src,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09)  **`git fsck` 恒报 166216 条 broken link/missing，,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09) **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09) **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN /,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09) G-322 **带值旗标吞掉紧邻旗标这一族的普查结果(只读普查,主会话派代理跑,未修任何一处,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **RN「记住密码」把账号+密码明文写进 AsyncStorage,而它正是票#20 那条自,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+- [x] ✅(2026-10-11) **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN / miniapp 未消费 tailPreview` —— 两端 1742 个跟踪文件里命中 0,唯一消费者是 web;难点不是接一行,而是两端如何取到 `context-attribution` 这份共享引擎(实测两端对它**零引用**,共享引擎在移动端没有装载路径)。② `apps/api` 侧 `page_*` 只有测试面引用、无生产侧登记(一格小账)。 〔【归并】重复登记副本(2026-10-01):逐字相同的另一条登记(与本行正文逐字相同,可按正文检索),派单以那条为准,本行不再单独派单。〕〔2026-10-11 归并翻勾(副本随正主,§1「修法只有归并 —— 副本翻勾并写明归并到谁」):正主的 ✅ 形态已入库(枚 47ad7d2f78ab36dd42ba8694a0c9fa03f760aa7b 所载归档件 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md` 与 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md`,标题逐字同本行),本行是同题滞后副本。现读复验:① 「未消费」再次证伪 —— 装载枚 21af9704ffa173825b9056e4c8cabac69baae079 与共享引擎枚 67cefc6f6321f006f1e4c24dcb82985607cee9d7 之后,两端消费点各自在位:`apps/miniapp-taro/src/pkg-ai/ai/chat.tsx:1406` 挂 `<ContextUsageStrip>`、同目录 `context-usage-strip.tsx:103` 取 `detail.tailPreview ?? detail.label`;`packages/app/src/features/chat/ChatScreen.tsx:144` 挂 `<ContextUsagePanel>`、同目录 `ContextUsagePanel.tsx:117` 同一优先级(共享 RN 屏即 mobile-rn 的屏)。② 「zh-TW/en/ja/ko 四语归因译文」由本席逐条读毕(两端 × 5 语言 × 15 键:title / segSystem / segToolSchema / segSkill / segRoleUser / segRoleAssistant / segRoleToolCall / segRoleToolResult / segSystemPrompt / unnamedItem / resultSuffix / unobservedServerOnly / unobservedNotSupplied / detailsTruncated / residualLabel):zh-TW 逐条繁体字形、ko 全谚文、ja 假名 + 日本习惯汉字、en 无破碎机翻;`{count}` 占位五语言逐档原样保留;无「同名自套一层」。机器侧入口一律现跑并封缄:`check-i18n-locale-content-language.mjs --strict` 判定面 HEAD ⇒ rc 0 / 文件 35 / 判红 0 / 未判定 0(同器 `--self-test` 64 条含「ja 整块繁体 ⇒ 候选」「zh-TW 整块谚文 ⇒ 候选」两条阳性对照 ⇒ 不是空尺子)、`scan-i18n-zh-residue.mjs zh-TW|ko --target=miniapp-taro|mobile-rn` 四路 rc 0、`check-icu-locale-support.mjs` rc 0(含 ICU 键 349 个)。**如实登记的覆盖边界**:`check-i18n-broken-en.mjs` 对本两端**不覆盖**,当场 rc 1 并打印「api/cli/miniapp-taro/mobile-rn 的 en.json 尚未覆盖」而拒绝回落扫 web ⇒ en 一档的结论来自本席逐条读,不冒充"机器已判"。③ ② 子项 `page_*` 不随本行新增裁决:带复判注的那几份副本已结为「无消费方、登记即造假,不硬接、不再派单」(四端无 `@ihui/dom-actions` 调用点,服务端授权闸读计数而非动词名)。正文一字未删,勾选位由 `[ ]` 翻成 `[x]` 并写明归并到谁。〕
+<!-- 已归档(2026-10-10:✅(2026-10-10) P1 **返回键同一型跨端清账(本票的直接续作)**:① `packages/app/src,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+- [x] ✅(2026-10-11) **本票复测后仍然开放、且值得派单的两件**(不是遗漏,是量完之后的真残余):① `RN / miniapp 未消费 tailPreview` —— 两端 1742 个跟踪文件里命中 0,唯一消费者是 web;难点不是接一行,而是两端如何取到 `context-attribution` 这份共享引擎(实测两端对它**零引用**,共享引擎在移动端没有装载路径)。② `apps/api` 侧 `page_*` 只有测试面引用、无生产侧登记(一格小账)。〔2026-09-28 复判(② 本格):**判"无消费方,登记即造假",不硬接、保持未勾、不再派单** —— HEAD 复跑:7 条 `page_*` 动词字面量在 `apps/api/src` 命中 0(git grep HEAD),仅测试面 `tests/agent-control-ui.test.ts` L874-882 引用,"只有测试面引用"仍成立。api 侧既有出口形态是**动词不透明的纯转发/计数面**:`capabilitySchema.browserPageActions=z.array(z.string()).max(20)`(routes/agent-control.ts:218)+ `/status` 计数(:463)+ `executeSchema.action=z.string()`(:232,不解释动词名直接 WS 转发);且**六族动词(browser/computer/ui/app_ui/miniapp_ui/ext_ui)在 api 生产面同样零动词字面量** —— page_* 不是特例,是转发面的设计常态。与单源的类型级衔接已由 `AgentControlCapability` cast 承担(字段类型 `BrowserPageControlActionType[]` 即 packages/types 单源);动词名的真实消费方在 extension(`@ihui/dom-actions` PAGE_ACTIONS,编译期护栏)与 CLI,服务端授权闸读的是 `browserPageActions` **计数>0** 而非动词名(ai-service `control_autonomy.py:233`)。硬"登记"只有两条路:在 api 侧另抄一份成员清单(§1 状态词汇四份副本的教训,明令禁止),或只为本族加运行期枚举校验(与其余六族形态不一致,且 schema 注释已记过失败模式"端上多报一条⇒整条 capability 上报 400 静默失去该端全部能力")。⇒ 本格按"平台域外/无消费方"收口,登记即造假,不硬造。取证:`check-capability-catalog` 全量绿(62 scope / 180 handler 0 未覆盖 / D 0 腐化,EXIT 0)、`@ihui/api` typecheck 0 错、`agent-control-ui.test.ts` 25/25 过(含 ㉕ 句柄族 7 动词计数)。〕 〔【归并】重复登记副本(2026-10-01):逐字相同的另一条登记(与本行正文逐字相同,可按正文检索),派单以那条为准,本行不再单独派单。〕〔2026-10-11 归并翻勾(副本随正主,§1「修法只有归并 —— 副本翻勾并写明归并到谁」):正主的 ✅ 形态已入库(枚 47ad7d2f78ab36dd42ba8694a0c9fa03f760aa7b 所载归档件 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md` 与 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md`,标题逐字同本行),本行是同题滞后副本。现读复验:① 「未消费」再次证伪 —— 装载枚 21af9704ffa173825b9056e4c8cabac69baae079 与共享引擎枚 67cefc6f6321f006f1e4c24dcb82985607cee9d7 之后,两端消费点各自在位:`apps/miniapp-taro/src/pkg-ai/ai/chat.tsx:1406` 挂 `<ContextUsageStrip>`、同目录 `context-usage-strip.tsx:103` 取 `detail.tailPreview ?? detail.label`;`packages/app/src/features/chat/ChatScreen.tsx:144` 挂 `<ContextUsagePanel>`、同目录 `ContextUsagePanel.tsx:117` 同一优先级(共享 RN 屏即 mobile-rn 的屏)。② 「zh-TW/en/ja/ko 四语归因译文」由本席逐条读毕(两端 × 5 语言 × 15 键:title / segSystem / segToolSchema / segSkill / segRoleUser / segRoleAssistant / segRoleToolCall / segRoleToolResult / segSystemPrompt / unnamedItem / resultSuffix / unobservedServerOnly / unobservedNotSupplied / detailsTruncated / residualLabel):zh-TW 逐条繁体字形、ko 全谚文、ja 假名 + 日本习惯汉字、en 无破碎机翻;`{count}` 占位五语言逐档原样保留;无「同名自套一层」。机器侧入口一律现跑并封缄:`check-i18n-locale-content-language.mjs --strict` 判定面 HEAD ⇒ rc 0 / 文件 35 / 判红 0 / 未判定 0(同器 `--self-test` 64 条含「ja 整块繁体 ⇒ 候选」「zh-TW 整块谚文 ⇒ 候选」两条阳性对照 ⇒ 不是空尺子)、`scan-i18n-zh-residue.mjs zh-TW|ko --target=miniapp-taro|mobile-rn` 四路 rc 0、`check-icu-locale-support.mjs` rc 0(含 ICU 键 349 个)。**如实登记的覆盖边界**:`check-i18n-broken-en.mjs` 对本两端**不覆盖**,当场 rc 1 并打印「api/cli/miniapp-taro/mobile-rn 的 en.json 尚未覆盖」而拒绝回落扫 web ⇒ en 一档的结论来自本席逐条读,不冒充"机器已判"。③ ② 子项 `page_*` 不随本行新增裁决:带复判注的那几份副本已结为「无消费方、登记即造假,不硬接、不再派单」(四端无 `@ihui/dom-actions` 调用点,服务端授权闸读计数而非动词名)。正文一字未删,勾选位由 `[ ]` 翻成 `[x]` 并写明归并到谁。〕
+<!-- 已归档(2026-10-10:✅(2026-10-10) P1 **返回键同一型跨端清账(本票的直接续作)**:① `packages/app/src,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-07) G-1058651 **四枚守门门体没有 §22d `isDirectRun` 守卫且顶层直,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) P1 **返回键同一型跨端清账(本票的直接续作)**:① `packages/app/src,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08)G-1079146 **短 sha 当出处指针的腐烂已被逐枚量清:35 枚分四堆(A 尺子瞎 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-815991 **"空契约"这一型判不了,如实登记而不是假装已覆盖**(上游 `pack,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09)  **`git fsck` 恒报 166216 条 broken link/missing，,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-322 **带值旗标吞掉紧邻旗标这一族的普查结果(只读普查,主会话派代理跑,未修任何一处,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) **`BROWSER_ACTIONS` 手抄清单不照 page 族那样派生(经取证否决,非疏,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-998153 票 4（观察）写库前不问「到底有没有变」：`.set({ ...data,,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-998157 票5：复合键的构造与解析成对导出在协议层（观察）（出处 b76-12d）：,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-07) G-1058651 **四枚守门门体没有 §22d `isDirectRun` 守卫且顶层直,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **G-1059146 守门 52 把另一道门体内的自检夹具字符串当成真调用点(全量档 2 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1079148 **门 2 `check-i18n-keys` 对运行时拼键静态失明:同,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:G-1106293 〔千段租约〕 本机=lichunchuan-ef4a9deb 段=G-1105294~G-11062,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **G-1102636 F9 撞号 11 组逐组裁决已量清(只读取证轮交付;本行给的是"哪几,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-07) G-393 **门 33 的 provider 名单该由谁供给(归属:守门 33 持有人;等,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-07) G-815963 **未知枚举的兜底档必须是"不再产生副作用"那一档——兜到初始态等于把已终,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-815964 **长任务提交要有全局作业注册表:按 jobId 取、按 jobId 丢,,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-07) **G-916415 帧级 traceId 的到端那一半(D174 交回清单里唯一仍可做的一,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-07) G-978056 **一处" landed 而无人复量"的 RN 类型错误:测试引了屏幕文件,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-998133 票4：双 deadline 夹逼与"无信号目标不预留命令超时"（观察）（出,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-1038476 看板把 `cancelled/failed/quota_exceeded,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-07) G-1058612. **台账归属分层两处判据缺陷已修(承 G-1058610 病①②),病,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-07) （待认领,归属:IM 网关 + 服务端出站文案持有人 `apps/api/src/servi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-08) G-689 MCP stdio 子进程必须有 stderr 尾缓冲与 error/exit ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-814416 **provider 健康四档今天没有任何提交链判据,而第二份同值域声明已,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1059132 **现场保全快照会按滞后工作树副本提交,把别人已入库的行整批写回旧态(2,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-07) G-807 【优先级高于任何新增】刚入库的恢复器用例**不稳定**,主会话自己复现到 1/4,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:G-1103635 〔千段租约〕 本机=lichunchuan-66b628bc 段=G-1102636~G-11036,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-815975 **队列吸收要有"类型轴":遇到会改变后续语义的那类条目必须停在这里;未消,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-07) G-628 **守门 35(mypy)按磁盘判、结构上没有 HEAD 档:它会把邻居的未跟踪,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-694 成对清理纪律:超时/取消路径必须与成功路径同样摘监听器并释放流。我方 `send,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) **签到助手 Phase1c+1d 全量收尾(桌面会话交接单《修复签到助手页面加载错误.md,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1106295 **live-doc-edit 的取号令牌(NEXT_ID:G)无千段租,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1105296 **main CI 另三条红逐枚定位并修两条半(枚 `535d0d524,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1105297 **门 157「凭据在场即豁免」还有两型零判据:条件先存进变量再判、以及,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09)  G-1105298 **`apps/api` 的 vitest 在本机 96/96 文件整,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1105301 **CI 第四条红:lint 步既存债收口(枚 `99cfceebde`,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1105303 **§26「临时夹具唯一落点」这一维在 HEAD 面真闭合:一处真违规夹,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1105305 **派单口径补认"行尾自述不再派单"这一族副本(判据 SELF_DEDI,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1105306 **`scripts/tests/plan-tasks.test.mjs,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1105307 **派单口径不看文件,于是两件"可做"的活会撞在同一份在飞副本上(202,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09)G-1105313 **台账只增不减的真成因已被量清并在登记入口掐住** —— 实测:14 天,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1058635 **小程序端 ui-routes 产物缺自述钉：重跑一条命令即可，但它结,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-998157 票5：复合键的构造与解析成对导出在协议层（观察）（出处 b76-12d）：,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1079148 **门 2 `check-i18n-keys` 对运行时拼键静态失明:同,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:✅(2026-10-09) G-1103636 **CI Build 存量红登记(归属判定完毕·登记不越界):G-107,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09) G-1113914 **四端 `ui-routes.generated.*` 派生产物接进提,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **本轮未落地、需重做的一批(web 86 处内的键名对齐)**:该批次报告改了 4 个文件,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:**G-603 两道 blocking 门红在"干净 HEAD"上,现在每一次提交都在合法跳门(2026-09-28 现,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:G-815407 **`G-364` 是一号两事,且它的一行有 3 份漂移副本(2026-09-29 现读;按 §1「一,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10)（进行中） **D17(生态统一入口)页面已写完但缺语言包,按住**:`apps/web/ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10)G-426 子代理超时是墙钟而非"无活动"，仍在推进的慢子代理会被杀（等人拍板）—— 上游 `,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-09)G-326 **F6 漂移块的逐块裁决已做完,执行(摘短份)另计一票 —— 结论写在行内,不依,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-09)**G-816103 尺子②的两条在账欠口(承 D140 落地,等环境条件)。** ① **未,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10)**G-937950 D162 的成套改动已备好、但刻意不单独落地(等五份 web 语言包同时,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-09) G-1058523 **门 130 的 F9 撞号基线在 HEAD 面判红 ⇒ 全队每次提交,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-1058606 **守门 52 打印"判定面:HEAD blob",却把**未跟踪文件*,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:G-1106293 〔千段租约〕 本机=lichunchuan-ef4a9deb 段=G-1105294~G-11062,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->〔sha消歧:f766a59f/ef4a9deb/66b628bc/011f526c/d4634eb6=租约机名尾缀(lichunchuan-*/WIN-*),非commit〕
+<!-- 已归档(2026-10-08:G-1103635 〔千段租约〕 本机=lichunchuan-66b628bc 段=G-1102636~G-11036,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->〔sha消歧:f766a59f/ef4a9deb/66b628bc/011f526c/d4634eb6=租约机名尾缀(lichunchuan-*/WIN-*),非commit〕
+<!-- 已归档(2026-10-08:✅(2026-10-07) **G-1080881 `c6544f1bd2`(本侧 sha;远端同一枚清理记作 `bab,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->〔sha无从找回:c6544f1bd2=G-1080881本侧sha,远端同一枚清理记作bab33e6f5b(可解析),指回该锚点〕
+<!-- 已归档(2026-10-11:✅(2026-10-09) G-815912 **差分归因对"判远端态"的门会把基线面跑成假绿,于是每次真分叉期间的提交,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **G-1105300 Path/PATH 站点接线:归一之后还必须在返回对象上显式赋值一次,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:G-1103635 〔千段租约〕 本机=lichunchuan-66b628bc 段=G-1102636~G-11036,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->〔sha消歧:f766a59f/ef4a9deb/66b628bc/011f526c/d4634eb6=租约机名尾缀(lichunchuan-*/WIN-*),非commit〕
+<!-- 已归档(2026-10-08:G-1080146 〔千段租约〕 本机=WIN-20251101PXT-011f526c 段=G-1079147~G-1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->〔sha消歧:f766a59f/ef4a9deb/66b628bc/011f526c/d4634eb6=租约机名尾缀(lichunchuan-*/WIN-*),非commit〕
+<!-- 已归档(2026-10-11:✅(2026-10-09) **G-1080881 `bab33e6f5b`(G-1079155 仓库垃圾清理,578 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:G-1103635 〔千段租约〕 本机=lichunchuan-66b628bc 段=G-1102636~G-11036,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->〔sha消歧:f766a59f/ef4a9deb/66b628bc/011f526c/d4634eb6=租约机名尾缀(lichunchuan-*/WIN-*),非commit〕
+<!-- 已归档(2026-10-08:G-1103635 〔千段租约〕 本机=lichunchuan-66b628bc 段=G-1102636~G-11036,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->〔sha消歧:f766a59f/ef4a9deb/66b628bc/011f526c/d4634eb6=租约机名尾缀(lichunchuan-*/WIN-*),非commit〕
+<!-- 已归档(2026-10-11:G-1105311 **门 35(mypy --strict)在 HEAD 面的现读已换成另一副样子(原票面那 4 处不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:G-1106293 〔千段租约〕 本机=lichunchuan-ef4a9deb 段=G-1105294~G-11062,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->〔sha消歧:f766a59f/ef4a9deb/66b628bc/011f526c/d4634eb6=租约机名尾缀(lichunchuan-*/WIN-*),非commit〕
+<!-- 已归档(2026-10-09:G-1103635 〔千段租约〕 本机=lichunchuan-66b628bc 段=G-1102636~G-11036,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->〔sha消歧:f766a59f/ef4a9deb/66b628bc/011f526c/d4634eb6=租约机名尾缀(lichunchuan-*/WIN-*),非commit〕
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-1104168 **agent 会话快照的「中断痕迹」展示面(自 G-815969 残余,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) 84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) （进行中@2026-10-05/g2-alltasks） 84. 26h 级耐久任务底座(依,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) 双端功能矩阵维护(2026-08-26 立,跨端:apps/web + apps/mobil,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:**阻塞主体(需用户操作,非本会话代码可解)**:`git push` 被 GitHub push protection,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **C 组刻意没动,待用户定性**:`C:\ai_zhs\cert\*.pem`(5 个,每,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) **余 38 处布尔 ack 的四格分解与下一跳的判据扩展**(现读法:`node scri,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) 84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-326 **F6 漂移块的逐块裁决已做完,执行(摘短份)另计一票 —— 结论写在行内,不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) 〔【归并】重复登记副本(2026-09-28,到期租约已让渡):本行是活文档按行 union,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) **node `spawnSync` 对原生 exe 持续 EBUSY**(`schtask,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) 84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **G-392. `scripts/cleanup-external-junk.ps1` 的,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-396 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)G-406 **棘轮锚点把量值编进指纹 + `--changed` 不沿反向依赖（可落地；归属,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-426 子代理超时是墙钟而非"无活动"，仍在推进的慢子代理会被杀（等人拍板）—— 上游 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)（进行中@2026-09-28/UUIDCENSUS,本会话已派只读普查代理,逐条 A敞口/B,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-326 **F6 漂移块的逐块裁决已做完,执行(摘短份)另计一票 —— 结论写在行内,不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-375 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-585 **归档件"人工归并出口"没有防重复的那一半:用 `git merge-file,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) （【归并】重复登记副本·同题不同编号·2026-09-28·本行与同题登记的持有行重复,现摘,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)**把 `POST /rules/auto-generate` 从"永远拿不到东西"修成端到端,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)（进行中@2026-09-28/UUIDCENSUS,本会话已派只读普查代理,逐条 A敞口/B,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)（进行中@2026-09-28/UUIDCENSUS,本会话已派只读普查代理,逐条 A敞口/B,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)（进行中@2026-09-28/UUIDCENSUS,本会话已派只读普查代理,逐条 A敞口/B,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-787 crew 会话与备份作业的 status 写**没有 DB 级终态守卫**,迟到,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-820 活动时钟必须单调且"维护性写入只拥有自己的列" —— **Python 半边已落,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)G-830 **派单模板必须自带"前提自检",否则负责人写的'我方已有'会关掉真待办**(可立,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-845 **空输入框上按 Backspace 删除最后一个附件**(小,可落地;归属:w,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-765 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-770 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-375 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-386 **A2 deploy-lock 未来时间戳使锁龄恒 0（可立即修；归属：部署锁,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-375 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-814403 **同题"前缀套叠"副本对全部判据隐身：给尺子加一档只报数的同题前缀族(可,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-403 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-815923 **小程序 i18n 生成器伸手进根工具层 ⇒ 守门 103 一次产出三处,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:-300 `USDT_TRC20_ADDRESS` 仍空（**等机主给值**——它是平台自己的 USDT-TRC20 收,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)（【归并】重复登记副本·同题不同编号·2026-09-28·本行与同题登记的持有行重复,现摘掉,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-815400 **取号令牌在两台机器上会发出同一个号 —— 本轮只用"预留号段"止血,机,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-396 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)G-406 **棘轮锚点把量值编进指纹 + `--changed` 不沿反向依赖（可落地；归属,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-426 子代理超时是墙钟而非"无活动"，仍在推进的慢子代理会被杀（等人拍板）—— 上游 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-327 **G-284 的尺子已入库并注册为 warn,但它自己那 4 条未勾行正文互不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-326 **F6 漂移块的逐块裁决已做完,执行(摘短份)另计一票 —— 结论写在行内,不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-585 **归档件"人工归并出口"没有防重复的那一半:用 `git merge-file,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)G-622 **第十三批:ZCode 取证票落地六枚 + 一枚分裂交付已补 + 两处"我自己造,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)（进行中@2026-09-28/UUIDCENSUS,本会话已派只读普查代理,逐条 A敞口/B,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-675 互斥身份用类型表达:两种后台来源标记用 `?: never` 做成不可构造(现全,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-375 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-765 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-770 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-403 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-815427 **收敛落地闸声明的 F1 出口本轮没被自动归并消费(`plan-task,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:-422 MCP 工具按服务器裸名注册、同名静默跨服覆盖（等人拍板）—— 上游 `core/src/mcp/name.t,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:-428 会扩大权限面的键必须三值：缺席 / 无效 / 空表；仓库内输入不得抬权（等人拍板 + 可小成本先修解析层）——,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-326 **F6 漂移块的逐块裁决已做完,执行(摘短份)另计一票 —— 结论写在行内,不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-625 **守门 90 的镜像有一条正控已失效:它拿"注释里的两个名字"当诱饵,而票㉑ ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)（进行中@2026-09-28/UUIDCENSUS,本会话已派只读普查代理,逐条 A敞口/B,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)（进行中@2026-10-04/值守）G-977960 **union-converge 的两,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-762 **门 33 的 provider 名单该由谁供给(归属:守门 33 持有人;等,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-765 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-770 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-780 **A3 sso/mobile-auth 的 redirect 未过 origi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-815912 **差分归因对"判远端态"的门会把基线面跑成假绿,于是每次真分叉期间的提交,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)G-815987 `check-migration-bookkeeping.mjs` 的 ps,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)（进行中@2026-09-29/主会话-Qoder）G-815938 **SSE 的"排空在终,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-815954 **jsonb 整列覆盖式 upsert 会吃掉"显式清空"的墓碑:只许具,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-815964 **长任务提交要有全局作业注册表:按 jobId 取、按 jobId 丢,,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-815974 **陈旧性不能只在入队时判,必须在"持久化与注入 provider 之前",完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-815989 **敏感路由前缀未显式声明网络分段时默认"公网可达"——这条默认档方向需要,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-816018 **`apps/api/tsconfig.json` 的 `"exclud,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-624 **把两条共享 `idParamSchema` 收紧成 UUID 校验:216 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-624 **把两条共享 `idParamSchema` 收紧成 UUID 校验:216 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)（进行中@2026-09-29/运维主会话）G-816712 **CI 的 `Ruff che,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-815923 **小程序 i18n 生成器伸手进根工具层 ⇒ 守门 103 一次产出三处,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) **G-916415 帧级 traceId 的到端那一半(D174 交回清单里唯一仍可做的一,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)**把 `POST /rules/auto-generate` 从"永远拿不到东西"修成端到端,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) 84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)（进行中@2026-09-27/v3wave4）84. 26h 级耐久任务底座(依赖 51 +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **门 35(mypy,blocking)此刻对 HEAD 内容就是红的**:一轮 `myp,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-375 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-386 **A2 deploy-lock 未来时间戳使锁龄恒 0（可立即修；归属：部署锁,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) **传输层单点化**:`notify-deploy-failure.ts` 扩为通用品牌告警,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) P1 残余②:桌面端 `tauri_plugin_log` 注册处只给了 `.level(I,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) 86. 证据级可追溯执行流水(每次工具调用带 invocation id + 输入/输出哈希,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-286. **`G:/DevEnv/Temp/ihui-scratch/` 内嵌了一份 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-364 **vitest 把 `@ihui/shared/auth` 别名指到端内 st,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)**把 `POST /rules/auto-generate` 从"永远拿不到东西"修成端到端,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-691 `tools/call` 的 `isError` 是结果里的错误,不是传输级错误,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-354 **门 33 的 provider 名单该由谁供给(归属:守门 33 持有人;等,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-375 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-386 **A2 deploy-lock 未来时间戳使锁龄恒 0（可立即修；归属：部署锁,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-916934 **CLI 保存自定义命令后没有任何用户可见回执:`cli.custom.,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-916938 **系统时钟已连续 13.8 小时未成功同步(2026-09-29 现读红,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)（进行中@2026-09-25/记忆链票） **把 `POST /rules/auto-gen,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-755 【等人工拍板 · 整档批量删行】把 `--dedupe-open-rows` 量,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **并档那一格(在等:全端观感裁决,不是本票漏改)**:`outline` / `ghost,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-807 【优先级高于任何新增】刚入库的恢复器用例**不稳定**,主会话自己复现到 1/4,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-978056 **一处" landed 而无人复量"的 RN 类型错误:测试引了屏幕文件,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998105 票4：等待预算耗尽不得升级为抢占（观察）（出处 b76-06）：- 机制：,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998133 票4：双 deadline 夹逼与"无信号目标不预留命令超时"（观察）（出,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998139 票4：POSIX bootstrap PATH 兜底 + 子进程 spaw,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998143 票4：失败原因可枚举 ⇒ 响应体不携 errorMessage 供分流（观,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998162 票5：本地真 HTTP mock 网关 = 一条与联调同形的验证档（观察）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998178 票3：相关可选字段组的"整组同现/整组同缺"与特性缺席时产物逐字节不变（观,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998072 **并发提交把三端圆角统一整批写回旧态,已前向回补;判据缺口在"旧副本恰等,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-375 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-375 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998074 **live-doc-stale-recovery 的 D 系七例在 HE,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-1018190 21 个 IHUI 服务**全部没有 SCM 恢复动作**(现读 `Fa,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)**把 `POST /rules/auto-generate` 从"永远拿不到东西"修成端到端,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) 84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)**把 `POST /rules/auto-generate` 从"永远拿不到东西"修成端到端,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) **Esc 无层栈协议**(方案已定稿,待实施):20+ 处 document/window,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) 84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) （待认领,归属:IM 网关 + 服务端出站文案持有人 `apps/api/src/servi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) （进行中@2026-10-05/g2-alltasks） 84. 26h 级耐久任务底座(依,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-814408 事件流「单一写者」——常驻订阅与 per-turn sink 二选一,而不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) P1 **返回键同一型跨端清账(本票的直接续作)**:① `packages/app/src,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-1058651 **四枚守门门体没有 §22d `isDirectRun` 守卫且顶层直,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-1059131 `check-disk-root-hygiene.mjs --self-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-01) P1 **广场(AI需求广场)首屏直接进错误态**:文案「提交的信息有误,请检查后重试」属 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-09-29) G-816028 **截断必须同时给"省略了多少"和"全量去哪取",不许只说一句"被截断"*,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-09-29) G-814394 **代落 `constExprPx` —— HEAD 上圆角三道 bloc,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:G-1081878 〔千段租约〕 本机=WIN-20251101PXT-d4634eb6 段=G-1080879~G-1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:G-1080885 **字体跨端重复：AlimamaFangYuanTiVF-Thin.ttf 7.4MB 在 mobi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-09) G-815400 **取号令牌在两台机器上会发出同一个号 —— 本轮只用"预留号段"止血,机,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+- [x] ✅(2026-10-11) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 zh-TW/en/ja/ko 四语归因译文待人复核。 〔【归并】重复登记副本(2026-09-29):逐字相同的另一条登记(与本行正文逐字相同,可按正文检索),派单以那条为准,本行不再单独派单。〕〔2026-10-11 归并翻勾(副本随正主,§1「修法只有归并 —— 副本翻勾并写明归并到谁」):正主的 ✅ 形态已入库(枚 47ad7d2f78ab36dd42ba8694a0c9fa03f760aa7b 所载归档件 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md` 与 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md`,标题逐字同本行),本行是同题滞后副本。现读复验:① 「未消费」再次证伪 —— 装载枚 21af9704ffa173825b9056e4c8cabac69baae079 与共享引擎枚 67cefc6f6321f006f1e4c24dcb82985607cee9d7 之后,两端消费点各自在位:`apps/miniapp-taro/src/pkg-ai/ai/chat.tsx:1406` 挂 `<ContextUsageStrip>`、同目录 `context-usage-strip.tsx:103` 取 `detail.tailPreview ?? detail.label`;`packages/app/src/features/chat/ChatScreen.tsx:144` 挂 `<ContextUsagePanel>`、同目录 `ContextUsagePanel.tsx:117` 同一优先级(共享 RN 屏即 mobile-rn 的屏)。② 「zh-TW/en/ja/ko 四语归因译文」由本席逐条读毕(两端 × 5 语言 × 15 键:title / segSystem / segToolSchema / segSkill / segRoleUser / segRoleAssistant / segRoleToolCall / segRoleToolResult / segSystemPrompt / unnamedItem / resultSuffix / unobservedServerOnly / unobservedNotSupplied / detailsTruncated / residualLabel):zh-TW 逐条繁体字形、ko 全谚文、ja 假名 + 日本习惯汉字、en 无破碎机翻;`{count}` 占位五语言逐档原样保留;无「同名自套一层」。机器侧入口一律现跑并封缄:`check-i18n-locale-content-language.mjs --strict` 判定面 HEAD ⇒ rc 0 / 文件 35 / 判红 0 / 未判定 0(同器 `--self-test` 64 条含「ja 整块繁体 ⇒ 候选」「zh-TW 整块谚文 ⇒ 候选」两条阳性对照 ⇒ 不是空尺子)、`scan-i18n-zh-residue.mjs zh-TW|ko --target=miniapp-taro|mobile-rn` 四路 rc 0、`check-icu-locale-support.mjs` rc 0(含 ICU 键 349 个)。**如实登记的覆盖边界**:`check-i18n-broken-en.mjs` 对本两端**不覆盖**,当场 rc 1 并打印「api/cli/miniapp-taro/mobile-rn 的 en.json 尚未覆盖」而拒绝回落扫 web ⇒ en 一档的结论来自本席逐条读,不冒充"机器已判"。③ ② 子项 `page_*` 不随本行新增裁决:带复判注的那几份副本已结为「无消费方、登记即造假,不硬接、不再派单」(四端无 `@ihui/dom-actions` 调用点,服务端授权闸读计数而非动词名)。正文一字未删,勾选位由 `[ ]` 翻成 `[x]` 并写明归并到谁。〕
+- [x] ✅(2026-10-11) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 zh-TW/en/ja/ko 四语归因译文待人复核。〔现读更正(2026-09-28):前半**已被证伪** —— tailPreview 消费面在 HEAD 实测命中 `apps/miniapp-taro/src/pkg-ai/ai/chat.tsx` 与 `context-usage-strip.tsx`、`packages/app/src/features/chat/ChatScreen.tsx` 与 `ContextUsagePanel.tsx`(共享 RN 屏即 mobile-rn 消费路径)⇒ "未消费"不成立,不得再按本行前半派单。本行唯一残余=后半"四语归因译文待人复核"(明文等人,不由机器代判)。〕 〔【归并】重复登记副本(2026-09-29):逐字相同的另一条登记(与本行正文逐字相同,可按正文检索),派单以那条为准,本行不再单独派单。〕〔2026-10-11 归并翻勾(副本随正主,§1「修法只有归并 —— 副本翻勾并写明归并到谁」):正主的 ✅ 形态已入库(枚 47ad7d2f78ab36dd42ba8694a0c9fa03f760aa7b 所载归档件 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md` 与 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md`,标题逐字同本行),本行是同题滞后副本。现读复验:① 「未消费」再次证伪 —— 装载枚 21af9704ffa173825b9056e4c8cabac69baae079 与共享引擎枚 67cefc6f6321f006f1e4c24dcb82985607cee9d7 之后,两端消费点各自在位:`apps/miniapp-taro/src/pkg-ai/ai/chat.tsx:1406` 挂 `<ContextUsageStrip>`、同目录 `context-usage-strip.tsx:103` 取 `detail.tailPreview ?? detail.label`;`packages/app/src/features/chat/ChatScreen.tsx:144` 挂 `<ContextUsagePanel>`、同目录 `ContextUsagePanel.tsx:117` 同一优先级(共享 RN 屏即 mobile-rn 的屏)。② 「zh-TW/en/ja/ko 四语归因译文」由本席逐条读毕(两端 × 5 语言 × 15 键:title / segSystem / segToolSchema / segSkill / segRoleUser / segRoleAssistant / segRoleToolCall / segRoleToolResult / segSystemPrompt / unnamedItem / resultSuffix / unobservedServerOnly / unobservedNotSupplied / detailsTruncated / residualLabel):zh-TW 逐条繁体字形、ko 全谚文、ja 假名 + 日本习惯汉字、en 无破碎机翻;`{count}` 占位五语言逐档原样保留;无「同名自套一层」。机器侧入口一律现跑并封缄:`check-i18n-locale-content-language.mjs --strict` 判定面 HEAD ⇒ rc 0 / 文件 35 / 判红 0 / 未判定 0(同器 `--self-test` 64 条含「ja 整块繁体 ⇒ 候选」「zh-TW 整块谚文 ⇒ 候选」两条阳性对照 ⇒ 不是空尺子)、`scan-i18n-zh-residue.mjs zh-TW|ko --target=miniapp-taro|mobile-rn` 四路 rc 0、`check-icu-locale-support.mjs` rc 0(含 ICU 键 349 个)。**如实登记的覆盖边界**:`check-i18n-broken-en.mjs` 对本两端**不覆盖**,当场 rc 1 并打印「api/cli/miniapp-taro/mobile-rn 的 en.json 尚未覆盖」而拒绝回落扫 web ⇒ en 一档的结论来自本席逐条读,不冒充"机器已判"。③ ② 子项 `page_*` 不随本行新增裁决:带复判注的那几份副本已结为「无消费方、登记即造假,不硬接、不再派单」(四端无 `@ihui/dom-actions` 调用点,服务端授权闸读计数而非动词名)。正文一字未删,勾选位由 `[ ]` 翻成 `[x]` 并写明归并到谁。〕
+- [x] ✅(2026-10-11) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 zh-TW/en/ja/ko 四语归因译文待人复核。 〔【归并】重复登记副本(2026-09-30):逐字相同的另一条登记(与本行正文逐字相同,可按正文检索),派单以那条为准,本行不再单独派单。〕〔2026-10-11 归并翻勾(副本随正主,§1「修法只有归并 —— 副本翻勾并写明归并到谁」):正主的 ✅ 形态已入库(枚 47ad7d2f78ab36dd42ba8694a0c9fa03f760aa7b 所载归档件 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md` 与 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md`,标题逐字同本行),本行是同题滞后副本。现读复验:① 「未消费」再次证伪 —— 装载枚 21af9704ffa173825b9056e4c8cabac69baae079 与共享引擎枚 67cefc6f6321f006f1e4c24dcb82985607cee9d7 之后,两端消费点各自在位:`apps/miniapp-taro/src/pkg-ai/ai/chat.tsx:1406` 挂 `<ContextUsageStrip>`、同目录 `context-usage-strip.tsx:103` 取 `detail.tailPreview ?? detail.label`;`packages/app/src/features/chat/ChatScreen.tsx:144` 挂 `<ContextUsagePanel>`、同目录 `ContextUsagePanel.tsx:117` 同一优先级(共享 RN 屏即 mobile-rn 的屏)。② 「zh-TW/en/ja/ko 四语归因译文」由本席逐条读毕(两端 × 5 语言 × 15 键:title / segSystem / segToolSchema / segSkill / segRoleUser / segRoleAssistant / segRoleToolCall / segRoleToolResult / segSystemPrompt / unnamedItem / resultSuffix / unobservedServerOnly / unobservedNotSupplied / detailsTruncated / residualLabel):zh-TW 逐条繁体字形、ko 全谚文、ja 假名 + 日本习惯汉字、en 无破碎机翻;`{count}` 占位五语言逐档原样保留;无「同名自套一层」。机器侧入口一律现跑并封缄:`check-i18n-locale-content-language.mjs --strict` 判定面 HEAD ⇒ rc 0 / 文件 35 / 判红 0 / 未判定 0(同器 `--self-test` 64 条含「ja 整块繁体 ⇒ 候选」「zh-TW 整块谚文 ⇒ 候选」两条阳性对照 ⇒ 不是空尺子)、`scan-i18n-zh-residue.mjs zh-TW|ko --target=miniapp-taro|mobile-rn` 四路 rc 0、`check-icu-locale-support.mjs` rc 0(含 ICU 键 349 个)。**如实登记的覆盖边界**:`check-i18n-broken-en.mjs` 对本两端**不覆盖**,当场 rc 1 并打印「api/cli/miniapp-taro/mobile-rn 的 en.json 尚未覆盖」而拒绝回落扫 web ⇒ en 一档的结论来自本席逐条读,不冒充"机器已判"。③ ② 子项 `page_*` 不随本行新增裁决:带复判注的那几份副本已结为「无消费方、登记即造假,不硬接、不再派单」(四端无 `@ihui/dom-actions` 调用点,服务端授权闸读计数而非动词名)。正文一字未删,勾选位由 `[ ]` 翻成 `[x]` 并写明归并到谁。〕
+- [x] ✅(2026-10-11) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 zh-TW/en/ja/ko 四语归因译文待人复核。〔现读更正(2026-09-28):前半**已被证伪** —— tailPreview 消费面在 HEAD 实测命中 `apps/miniapp-taro/src/pkg-ai/ai/chat.tsx` 与 `context-usage-strip.tsx`、`packages/app/src/features/chat/ChatScreen.tsx` 与 `ContextUsagePanel.tsx`(共享 RN 屏即 mobile-rn 消费路径)⇒ "未消费"不成立,不得再按本行前半派单。本行唯一残余=后半"四语归因译文待人复核"(明文等人,不由机器代判)。〕 〔【归并】重复登记副本(2026-09-30):逐字相同的另一条登记(与本行正文逐字相同,可按正文检索),派单以那条为准,本行不再单独派单。〕〔2026-10-11 归并翻勾(副本随正主,§1「修法只有归并 —— 副本翻勾并写明归并到谁」):正主的 ✅ 形态已入库(枚 47ad7d2f78ab36dd42ba8694a0c9fa03f760aa7b 所载归档件 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md` 与 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md`,标题逐字同本行),本行是同题滞后副本。现读复验:① 「未消费」再次证伪 —— 装载枚 21af9704ffa173825b9056e4c8cabac69baae079 与共享引擎枚 67cefc6f6321f006f1e4c24dcb82985607cee9d7 之后,两端消费点各自在位:`apps/miniapp-taro/src/pkg-ai/ai/chat.tsx:1406` 挂 `<ContextUsageStrip>`、同目录 `context-usage-strip.tsx:103` 取 `detail.tailPreview ?? detail.label`;`packages/app/src/features/chat/ChatScreen.tsx:144` 挂 `<ContextUsagePanel>`、同目录 `ContextUsagePanel.tsx:117` 同一优先级(共享 RN 屏即 mobile-rn 的屏)。② 「zh-TW/en/ja/ko 四语归因译文」由本席逐条读毕(两端 × 5 语言 × 15 键:title / segSystem / segToolSchema / segSkill / segRoleUser / segRoleAssistant / segRoleToolCall / segRoleToolResult / segSystemPrompt / unnamedItem / resultSuffix / unobservedServerOnly / unobservedNotSupplied / detailsTruncated / residualLabel):zh-TW 逐条繁体字形、ko 全谚文、ja 假名 + 日本习惯汉字、en 无破碎机翻;`{count}` 占位五语言逐档原样保留;无「同名自套一层」。机器侧入口一律现跑并封缄:`check-i18n-locale-content-language.mjs --strict` 判定面 HEAD ⇒ rc 0 / 文件 35 / 判红 0 / 未判定 0(同器 `--self-test` 64 条含「ja 整块繁体 ⇒ 候选」「zh-TW 整块谚文 ⇒ 候选」两条阳性对照 ⇒ 不是空尺子)、`scan-i18n-zh-residue.mjs zh-TW|ko --target=miniapp-taro|mobile-rn` 四路 rc 0、`check-icu-locale-support.mjs` rc 0(含 ICU 键 349 个)。**如实登记的覆盖边界**:`check-i18n-broken-en.mjs` 对本两端**不覆盖**,当场 rc 1 并打印「api/cli/miniapp-taro/mobile-rn 的 en.json 尚未覆盖」而拒绝回落扫 web ⇒ en 一档的结论来自本席逐条读,不冒充"机器已判"。③ ② 子项 `page_*` 不随本行新增裁决:带复判注的那几份副本已结为「无消费方、登记即造假,不硬接、不再派单」(四端无 `@ihui/dom-actions` 调用点,服务端授权闸读计数而非动词名)。正文一字未删,勾选位由 `[ ]` 翻成 `[x]` 并写明归并到谁。〕
+<!-- 已归档(2026-10-11:✅(2026-10-10) **P1-① 扩共享层首批 —— 票面前提已被实测否证,剩余只有 4 件(在等:逐件判定谁在,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+- [x] ✅(2026-10-11) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 zh-TW/en/ja/ko 四语归因译文待人复核。 〔【归并】重复登记副本(2026-10-01):逐字相同的另一条登记(与本行正文逐字相同,可按正文检索),派单以那条为准,本行不再单独派单。〕〔2026-10-11 归并翻勾(副本随正主,§1「修法只有归并 —— 副本翻勾并写明归并到谁」):正主的 ✅ 形态已入库(枚 47ad7d2f78ab36dd42ba8694a0c9fa03f760aa7b 所载归档件 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md` 与 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md`,标题逐字同本行),本行是同题滞后副本。现读复验:① 「未消费」再次证伪 —— 装载枚 21af9704ffa173825b9056e4c8cabac69baae079 与共享引擎枚 67cefc6f6321f006f1e4c24dcb82985607cee9d7 之后,两端消费点各自在位:`apps/miniapp-taro/src/pkg-ai/ai/chat.tsx:1406` 挂 `<ContextUsageStrip>`、同目录 `context-usage-strip.tsx:103` 取 `detail.tailPreview ?? detail.label`;`packages/app/src/features/chat/ChatScreen.tsx:144` 挂 `<ContextUsagePanel>`、同目录 `ContextUsagePanel.tsx:117` 同一优先级(共享 RN 屏即 mobile-rn 的屏)。② 「zh-TW/en/ja/ko 四语归因译文」由本席逐条读毕(两端 × 5 语言 × 15 键:title / segSystem / segToolSchema / segSkill / segRoleUser / segRoleAssistant / segRoleToolCall / segRoleToolResult / segSystemPrompt / unnamedItem / resultSuffix / unobservedServerOnly / unobservedNotSupplied / detailsTruncated / residualLabel):zh-TW 逐条繁体字形、ko 全谚文、ja 假名 + 日本习惯汉字、en 无破碎机翻;`{count}` 占位五语言逐档原样保留;无「同名自套一层」。机器侧入口一律现跑并封缄:`check-i18n-locale-content-language.mjs --strict` 判定面 HEAD ⇒ rc 0 / 文件 35 / 判红 0 / 未判定 0(同器 `--self-test` 64 条含「ja 整块繁体 ⇒ 候选」「zh-TW 整块谚文 ⇒ 候选」两条阳性对照 ⇒ 不是空尺子)、`scan-i18n-zh-residue.mjs zh-TW|ko --target=miniapp-taro|mobile-rn` 四路 rc 0、`check-icu-locale-support.mjs` rc 0(含 ICU 键 349 个)。**如实登记的覆盖边界**:`check-i18n-broken-en.mjs` 对本两端**不覆盖**,当场 rc 1 并打印「api/cli/miniapp-taro/mobile-rn 的 en.json 尚未覆盖」而拒绝回落扫 web ⇒ en 一档的结论来自本席逐条读,不冒充"机器已判"。③ ② 子项 `page_*` 不随本行新增裁决:带复判注的那几份副本已结为「无消费方、登记即造假,不硬接、不再派单」(四端无 `@ihui/dom-actions` 调用点,服务端授权闸读计数而非动词名)。正文一字未删,勾选位由 `[ ]` 翻成 `[x]` 并写明归并到谁。〕
+- [x] ✅(2026-10-11) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 zh-TW/en/ja/ko 四语归因译文待人复核。〔现读更正(2026-09-28):前半**已被证伪** —— tailPreview 消费面在 HEAD 实测命中 `apps/miniapp-taro/src/pkg-ai/ai/chat.tsx` 与 `context-usage-strip.tsx`、`packages/app/src/features/chat/ChatScreen.tsx` 与 `ContextUsagePanel.tsx`(共享 RN 屏即 mobile-rn 消费路径)⇒ "未消费"不成立,不得再按本行前半派单。本行唯一残余=后半"四语归因译文待人复核"(明文等人,不由机器代判)。〕 〔【归并】重复登记副本(2026-10-01):逐字相同的另一条登记(与本行正文逐字相同,可按正文检索),派单以那条为准,本行不再单独派单。〕〔2026-10-11 归并翻勾(副本随正主,§1「修法只有归并 —— 副本翻勾并写明归并到谁」):正主的 ✅ 形态已入库(枚 47ad7d2f78ab36dd42ba8694a0c9fa03f760aa7b 所载归档件 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md` 与 `.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md`,标题逐字同本行),本行是同题滞后副本。现读复验:① 「未消费」再次证伪 —— 装载枚 21af9704ffa173825b9056e4c8cabac69baae079 与共享引擎枚 67cefc6f6321f006f1e4c24dcb82985607cee9d7 之后,两端消费点各自在位:`apps/miniapp-taro/src/pkg-ai/ai/chat.tsx:1406` 挂 `<ContextUsageStrip>`、同目录 `context-usage-strip.tsx:103` 取 `detail.tailPreview ?? detail.label`;`packages/app/src/features/chat/ChatScreen.tsx:144` 挂 `<ContextUsagePanel>`、同目录 `ContextUsagePanel.tsx:117` 同一优先级(共享 RN 屏即 mobile-rn 的屏)。② 「zh-TW/en/ja/ko 四语归因译文」由本席逐条读毕(两端 × 5 语言 × 15 键:title / segSystem / segToolSchema / segSkill / segRoleUser / segRoleAssistant / segRoleToolCall / segRoleToolResult / segSystemPrompt / unnamedItem / resultSuffix / unobservedServerOnly / unobservedNotSupplied / detailsTruncated / residualLabel):zh-TW 逐条繁体字形、ko 全谚文、ja 假名 + 日本习惯汉字、en 无破碎机翻;`{count}` 占位五语言逐档原样保留;无「同名自套一层」。机器侧入口一律现跑并封缄:`check-i18n-locale-content-language.mjs --strict` 判定面 HEAD ⇒ rc 0 / 文件 35 / 判红 0 / 未判定 0(同器 `--self-test` 64 条含「ja 整块繁体 ⇒ 候选」「zh-TW 整块谚文 ⇒ 候选」两条阳性对照 ⇒ 不是空尺子)、`scan-i18n-zh-residue.mjs zh-TW|ko --target=miniapp-taro|mobile-rn` 四路 rc 0、`check-icu-locale-support.mjs` rc 0(含 ICU 键 349 个)。**如实登记的覆盖边界**:`check-i18n-broken-en.mjs` 对本两端**不覆盖**,当场 rc 1 并打印「api/cli/miniapp-taro/mobile-rn 的 en.json 尚未覆盖」而拒绝回落扫 web ⇒ en 一档的结论来自本席逐条读,不冒充"机器已判"。③ ② 子项 `page_*` 不随本行新增裁决:带复判注的那几份副本已结为「无消费方、登记即造假,不硬接、不再派单」(四端无 `@ihui/dom-actions` 调用点,服务端授权闸读计数而非动词名)。正文一字未删,勾选位由 `[ ]` 翻成 `[x]` 并写明归并到谁。〕
+<!-- 已归档(2026-10-11:✅(2026-10-10) **P1-① 扩共享层首批 —— 票面前提已被实测否证,剩余只有 4 件(在等:逐件判定谁在,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) 双端功能矩阵维护(2026-08-26 立,跨端:apps/web + apps/mobil,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **P1-① 扩共享层首批 —— 票面前提已被实测否证,剩余只有 4 件(在等:逐件判定谁在,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-01) P1 **广场(AI需求广场)首屏直接进错误态**:文案「提交的信息有误,请检查后重试」属 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-396 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-396 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) 84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) （进行中@2026-10-05/g2-alltasks） 84. 26h 级耐久任务底座(依,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) **余 38 处布尔 ack 的四格分解与下一跳的判据扩展**(现读法:`node scri,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) 84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) **node `spawnSync` 对原生 exe 持续 EBUSY**(`schtask,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) 84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)G-406 **棘轮锚点把量值编进指纹 + `--changed` 不沿反向依赖（可落地；归属,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)（进行中@2026-09-28/UUIDCENSUS,本会话已派只读普查代理,逐条 A敞口/B,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-375 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)**把 `POST /rules/auto-generate` 从"永远拿不到东西"修成端到端,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)（进行中@2026-09-28/UUIDCENSUS,本会话已派只读普查代理,逐条 A敞口/B,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)（进行中@2026-09-28/UUIDCENSUS,本会话已派只读普查代理,逐条 A敞口/B,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)（进行中@2026-09-28/UUIDCENSUS,本会话已派只读普查代理,逐条 A敞口/B,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-820 活动时钟必须单调且"维护性写入只拥有自己的列" —— **Python 半边已落,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)G-830 **派单模板必须自带"前提自检",否则负责人写的'我方已有'会关掉真待办**(可立,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-845 **空输入框上按 Backspace 删除最后一个附件**(小,可落地;归属:w,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-770 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-375 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-386 **A2 deploy-lock 未来时间戳使锁龄恒 0（可立即修；归属：部署锁,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-375 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-814403 **同题"前缀套叠"副本对全部判据隐身：给尺子加一档只报数的同题前缀族(可,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-403 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-815923 **小程序 i18n 生成器伸手进根工具层 ⇒ 守门 103 一次产出三处,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:-300 `USDT_TRC20_ADDRESS` 仍空（**等机主给值**——它是平台自己的 USDT-TRC20 收,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-815400 **取号令牌在两台机器上会发出同一个号 —— 本轮只用"预留号段"止血,机,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)G-406 **棘轮锚点把量值编进指纹 + `--changed` 不沿反向依赖（可落地；归属,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)G-622 **第十三批:ZCode 取证票落地六枚 + 一枚分裂交付已补 + 两处"我自己造,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)（进行中@2026-09-28/UUIDCENSUS,本会话已派只读普查代理,逐条 A敞口/B,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-675 互斥身份用类型表达:两种后台来源标记用 `?: never` 做成不可构造(现全,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-375 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-770 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-403 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:-422 MCP 工具按服务器裸名注册、同名静默跨服覆盖（等人拍板）—— 上游 `core/src/mcp/name.t,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:-428 会扩大权限面的键必须三值：缺席 / 无效 / 空表；仓库内输入不得抬权（等人拍板 + 可小成本先修解析层）——,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-625 **守门 90 的镜像有一条正控已失效:它拿"注释里的两个名字"当诱饵,而票㉑ ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)（进行中@2026-09-28/UUIDCENSUS,本会话已派只读普查代理,逐条 A敞口/B,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)（进行中@2026-10-04/值守）G-977960 **union-converge 的两,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-762 **门 33 的 provider 名单该由谁供给(归属:守门 33 持有人;等,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-770 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-780 **A3 sso/mobile-auth 的 redirect 未过 origi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-815912 **差分归因对"判远端态"的门会把基线面跑成假绿,于是每次真分叉期间的提交,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)G-815987 `check-migration-bookkeeping.mjs` 的 ps,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)（进行中@2026-09-29/主会话-Qoder）G-815938 **SSE 的"排空在终,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-815954 **jsonb 整列覆盖式 upsert 会吃掉"显式清空"的墓碑:只许具,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-815989 **敏感路由前缀未显式声明网络分段时默认"公网可达"——这条默认档方向需要,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-816018 **`apps/api/tsconfig.json` 的 `"exclud,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)（进行中@2026-09-29/运维主会话）G-816712 **CI 的 `Ruff che,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-815923 **小程序 i18n 生成器伸手进根工具层 ⇒ 守门 103 一次产出三处,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) **G-916415 帧级 traceId 的到端那一半(D174 交回清单里唯一仍可做的一,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)**把 `POST /rules/auto-generate` 从"永远拿不到东西"修成端到端,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) 84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)（进行中@2026-09-27/v3wave4）84. 26h 级耐久任务底座(依赖 51 +,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-375 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-386 **A2 deploy-lock 未来时间戳使锁龄恒 0（可立即修；归属：部署锁,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) **传输层单点化**:`notify-deploy-failure.ts` 扩为通用品牌告警,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) **第二十八批:布尔 ack 的键族从 `deleted` 扩到 `removed / re,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) P1 残余②:桌面端 `tauri_plugin_log` 注册处只给了 `.level(I,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) 【归并】重复登记副本·双前缀畸形号(2026-09-28):行首那个号是改派工具把前缀又贴一,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **`plan-tasks-merge.mjs --dedupe-blocks` 的阈值覆盖,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) （进行中@2026-10-05/g2-alltasks） 84. 26h 级耐久任务底座(依,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-375 **cache token 过了服务端、没上客户端边界，三处消费端硬编码 nul,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)**把 `POST /rules/auto-generate` 从"永远拿不到东西"修成端到端,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)**把 `POST /rules/auto-generate` 从"永远拿不到东西"修成端到端,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-814416 **provider 健康四档今天没有任何提交链判据,而第二份同值域声明已,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **并档那一格(在等:全端观感裁决,不是本票漏改)**:`outline` / `ghost,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) 86. 证据级可追溯执行流水(每次工具调用带 invocation id + 输入/输出哈希,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-286. **`G:/DevEnv/Temp/ihui-scratch/` 内嵌了一份 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-364 **vitest 把 `@ihui/shared/auth` 别名指到端内 st,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-691 `tools/call` 的 `isError` 是结果里的错误,不是传输级错误,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-354 **门 33 的 provider 名单该由谁供给(归属:守门 33 持有人;等,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-916934 **CLI 保存自定义命令后没有任何用户可见回执:`cli.custom.,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-916938 **系统时钟已连续 13.8 小时未成功同步(2026-09-29 现读红,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)（进行中@2026-09-25/记忆链票） **把 `POST /rules/auto-gen,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-807 【优先级高于任何新增】刚入库的恢复器用例**不稳定**,主会话自己复现到 1/4,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-978056 **一处" landed 而无人复量"的 RN 类型错误:测试引了屏幕文件,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998105 票4：等待预算耗尽不得升级为抢占（观察）（出处 b76-06）：- 机制：,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998133 票4：双 deadline 夹逼与"无信号目标不预留命令超时"（观察）（出,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998139 票4：POSIX bootstrap PATH 兜底 + 子进程 spaw,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998143 票4：失败原因可枚举 ⇒ 响应体不携 errorMessage 供分流（观,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998162 票5：本地真 HTTP mock 网关 = 一条与联调同形的验证档（观察）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998178 票3：相关可选字段组的"整组同现/整组同缺"与特性缺席时产物逐字节不变（观,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998072 **并发提交把三端圆角统一整批写回旧态,已前向回补;判据缺口在"旧副本恰等,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998074 **live-doc-stale-recovery 的 D 系七例在 HE,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) **Esc 无层栈协议**(方案已定稿,待实施):20+ 处 document/window,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-657 迁移不可变对账的锁内一格(对 G-609 的增量,不重复立项):checksum,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) （待认领,归属:IM 网关 + 服务端出站文案持有人 `apps/api/src/servi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-814408 事件流「单一写者」——常驻订阅与 per-turn sink 二选一,而不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-1058651 **四枚守门门体没有 §22d `isDirectRun` 守卫且顶层直,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-1059131 `check-disk-root-hygiene.mjs --self-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) 86. 证据级可追溯执行流水(每次工具调用带 invocation id + 输入/输出哈希,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-286. **`G:/DevEnv/Temp/ihui-scratch/` 内嵌了一份 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-364 **vitest 把 `@ihui/shared/auth` 别名指到端内 st,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-691 `tools/call` 的 `isError` 是结果里的错误,不是传输级错误,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-354 **门 33 的 provider 名单该由谁供给(归属:守门 33 持有人;等,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-916934 **CLI 保存自定义命令后没有任何用户可见回执:`cli.custom.,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-916938 **系统时钟已连续 13.8 小时未成功同步(2026-09-29 现读红,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)（进行中@2026-09-25/记忆链票） **把 `POST /rules/auto-gen,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-807 【优先级高于任何新增】刚入库的恢复器用例**不稳定**,主会话自己复现到 1/4,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-978056 **一处" landed 而无人复量"的 RN 类型错误:测试引了屏幕文件,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998105 票4：等待预算耗尽不得升级为抢占（观察）（出处 b76-06）：- 机制：,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998133 票4：双 deadline 夹逼与"无信号目标不预留命令超时"（观察）（出,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998139 票4：POSIX bootstrap PATH 兜底 + 子进程 spaw,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998143 票4：失败原因可枚举 ⇒ 响应体不携 errorMessage 供分流（观,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998162 票5：本地真 HTTP mock 网关 = 一条与联调同形的验证档（观察）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998178 票3：相关可选字段组的"整组同现/整组同缺"与特性缺席时产物逐字节不变（观,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998072 **并发提交把三端圆角统一整批写回旧态,已前向回补;判据缺口在"旧副本恰等,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-998074 **live-doc-stale-recovery 的 D 系七例在 HE,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) **Esc 无层栈协议**(方案已定稿,待实施):20+ 处 document/window,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) （待认领,归属:IM 网关 + 服务端出站文案持有人 `apps/api/src/servi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-814408 事件流「单一写者」——常驻订阅与 per-turn sink 二选一,而不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-1058651 **四枚守门门体没有 §22d `isDirectRun` 守卫且顶层直,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07) G-1059131 `check-disk-root-hygiene.mjs --self-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-07)84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-1117437 **`apps/ai-service/app/types/api_cli,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) （【归并】重复登记副本·同题不同编号·2026-09-28·本行与同题登记的持有行重复,现摘,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **`plan-tasks-merge.mjs --dedupe-blocks` 的阈值覆盖,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) 【归并】重复登记副本·双前缀畸形号(2026-09-28):行首那个号是改派工具把前缀又贴一,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) 【归并】重复登记副本(2026-09-28):本行行首那个号是**双前缀畸形号** —— 改,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **G-603 两道 blocking 门红在"干净 HEAD"上,现在每一次提交都在合法跳,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) 【归并】重复登记副本(2026-10-08):本行行首那个号是**六位接号畸形号** —— ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-815427 **收敛落地闸声明的 F1 出口本轮没被自动归并消费(`plan-task,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-396 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-426 子代理超时是墙钟而非"无活动"，仍在推进的慢子代理会被杀（等人拍板）—— 上游 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-327 **G-284 的尺子已入库并注册为 warn,但它自己那 4 条未勾行正文互不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-326 **F6 漂移块的逐块裁决已做完,执行(摘短份)另计一票 —— 结论写在行内,不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-624 **把两条共享 `idParamSchema` 收紧成 UUID 校验:216 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-787 crew 会话与备份作业的 status 写**没有 DB 级终态守卫**,迟到,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) （【归并】重复登记副本·同题不同编号·2026-10-08·本行与同题登记的持有行重复,现摘,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **`plan-tasks-merge.mjs --dedupe-blocks` 的阈值覆盖,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **`plan-tasks-merge.mjs --dedupe-blocks` 的阈值覆盖,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **G-392. `scripts/cleanup-external-junk.ps1` 的,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **`plan-tasks-merge.mjs --dedupe-blocks` 的阈值覆盖,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-814398 **`packages/types/src/capability-cata,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-814401 **主干 `pnpm --filter @ihui/web typeche,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **P1-① 扩共享层首批 —— 票面前提已被实测否证,剩余只有 4 件(在等:逐件判定谁在,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) 副本指针(编号 P1-①):本行折叠自旧形态行 **P1-① 扩共享层首批(在等:逐屏清单裁,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-978066 **D136 RN 端工具审批：代码与测试已交付并复验通过，但因同文件被他,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-1018190 21 个 IHUI 服务**全部没有 SCM 恢复动作**(现读 `Fa,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **`plan-tasks-merge.mjs --dedupe-blocks` 的阈值覆盖,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-1058639 **有一族登记行有编号却取不出复合主键 ⇒ 台账状态层(F1/F4/折叠,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **O59⑤ D48 的验收在盘上仍不成立(本票实测,交持有桌面端运行条件的人)**:加密层,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:G-1118434 〔千段租约〕 本机=lichunchuan-a298f1c1 段=G-1117435~G-11184,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-815400 **取号令牌在两台机器上会发出同一个号 —— 本轮只用"预留号段"止血,机,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-815912 **差分归因对"判远端态"的门会把基线面跑成假绿,于是每次真分叉期间的提交,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-916939 **所谓"异地容灾"此刻不成立:备份的"异地"副本与源在同一块物理盘上,而,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **G-1105300 Path/PATH 站点接线:归一之后还必须在返回对象上显式赋值一次,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **G-1080881 `bab33e6f5b`(G-1079155 仓库垃圾清理,578 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **P1-① 扩共享层首批 —— 票面前提已被实测否证,剩余只有 4 件(在等:逐件判定谁在,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **P1-① 扩共享层首批 —— 票面前提已被实测否证,剩余只有 4 件(在等:逐件判定谁在,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-585 **归档件"人工归并出口"没有防重复的那一半:用 `git merge-file,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **本轮未落地、需重做的一批(web 86 处内的键名对齐)**:该批次报告改了 4 个文件,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10)（进行中） **D17(生态统一入口)页面已写完但缺语言包,按住**:`apps/web/ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10)G-426 子代理超时是墙钟而非"无活动"，仍在推进的慢子代理会被杀（等人拍板）—— 上游 `,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09)G-326 **F6 漂移块的逐块裁决已做完,执行(摘短份)另计一票 —— 结论写在行内,不依,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09)**G-816103 尺子②的两条在账欠口(承 D140 落地,等环境条件)。** ① **未,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10)**G-937950 D162 的成套改动已备好、但刻意不单独落地(等五份 web 语言包同时,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09) G-1058523 **门 130 的 F9 撞号基线在 HEAD 面判红 ⇒ 全队每次提交,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-1058606 **守门 52 打印"判定面:HEAD blob",却把**未跟踪文件*,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09) G-815912 **差分归因对"判远端态"的门会把基线面跑成假绿,于是每次真分叉期间的提交,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **G-1105300 Path/PATH 站点接线:归一之后还必须在返回对象上显式赋值一次,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09) **G-1080881 `bab33e6f5b`(G-1079155 仓库垃圾清理,578 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:G-1105311 **门 35(mypy --strict)在 HEAD 面的现读已换成另一副样子(原票面那 4 处不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-1104168 **agent 会话快照的「中断痕迹」展示面(自 G-815969 残余,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-07)84. 26h 级耐久任务底座(依赖 51 + 已有 checkpoint/resume + ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:**阻塞主体(需用户操作,非本会话代码可解)**:`git push` 被 GitHub push protection,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **C 组刻意没动,待用户定性**:`C:\ai_zhs\cert\*.pem`(5 个,每,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-326 **F6 漂移块的逐块裁决已做完,执行(摘短份)另计一票 —— 结论写在行内,不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **G-392. `scripts/cleanup-external-junk.ps1` 的,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-396 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-426 子代理超时是墙钟而非"无活动"，仍在推进的慢子代理会被杀（等人拍板）—— 上游 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-326 **F6 漂移块的逐块裁决已做完,执行(摘短份)另计一票 —— 结论写在行内,不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-585 **归档件"人工归并出口"没有防重复的那一半:用 `git merge-file,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-787 crew 会话与备份作业的 status 写**没有 DB 级终态守卫**,迟到,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-761 **`plan-tasks-merge.mjs --dedupe-blocks`,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-765 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-811336 **`plan-tasks-merge.mjs --dedupe-bloc,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-396 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-426 子代理超时是墙钟而非"无活动"，仍在推进的慢子代理会被杀（等人拍板）—— 上游 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-327 **G-284 的尺子已入库并注册为 warn,但它自己那 4 条未勾行正文互不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-326 **F6 漂移块的逐块裁决已做完,执行(摘短份)另计一票 —— 结论写在行内,不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-585 **归档件"人工归并出口"没有防重复的那一半:用 `git merge-file,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-761 **`plan-tasks-merge.mjs --dedupe-blocks`,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-765 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-811336 **`plan-tasks-merge.mjs --dedupe-bloc,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10)G-814409 裁剪必须自报丢了多少:上游 `commands-command.ts:167,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-815427 **收敛落地闸声明的 F1 出口本轮没被自动归并消费(`plan-task,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-326 **F6 漂移块的逐块裁决已做完,执行(摘短份)另计一票 —— 结论写在行内,不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-761 **`plan-tasks-merge.mjs --dedupe-blocks`,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-765 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-811336 **`plan-tasks-merge.mjs --dedupe-bloc,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-815964 **长任务提交要有全局作业注册表:按 jobId 取、按 jobId 丢,,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-815974 **陈旧性不能只在入队时判,必须在"持久化与注入 provider 之前",完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-624 **把两条共享 `idParamSchema` 收紧成 UUID 校验:216 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-624 **把两条共享 `idParamSchema` 收紧成 UUID 校验:216 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **门 35(mypy,blocking)此刻对 HEAD 内容就是红的**:一轮 `myp,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-755 【等人工拍板 · 整档批量删行】把 `--dedupe-open-rows` 量,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **并档那一格(在等:全端观感裁决,不是本票漏改)**:`outline` / `ghost,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-797 【安全·默认档已定】回环 http 白名单今天**不分调用者** ⇒ 远端 ma,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-814398 **`packages/types/src/capability-cata,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-814401 **主干 `pnpm --filter @ihui/web typeche,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10)G-814409 裁剪必须自报丢了多少:上游 `commands-command.ts:167,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-1018190 21 个 IHUI 服务**全部没有 SCM 恢复动作**(现读 `Fa,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10)G-814409 裁剪必须自报丢了多少:上游 `commands-command.ts:167,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-814398 **`packages/types/src/capability-cata,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-814401 **主干 `pnpm --filter @ihui/web typeche,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-1117437 **`apps/ai-service/app/types/api_cli,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-1117442 **守门 173 的英文支看不见带逗号分组的数字 ⇒ `README.e,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-1038466 **全量守门盘点(187 项跑完再汇总)在干净 HEAD 上剩两处无人认,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-1058635 **小程序端 ui-routes 产物缺自述钉：重跑一条命令即可，但它结,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10)G-814409 裁剪必须自报丢了多少:上游 `commands-command.ts:167,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-998157 票5：复合键的构造与解析成对导出在协议层（观察）（出处 b76-12d）：,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-1058626 **plan-tasks-merge.mjs --self-test 在,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:G-1080885 **字体跨端重复：AlimamaFangYuanTiVF-Thin.ttf 7.4MB 在 mobi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-09) G-815400 **取号令牌在两台机器上会发出同一个号 —— 本轮只用"预留号段"止血,机,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-1108372 **守门 152 在提交链上从未真的判过一次:它恒落"机器态未判定",而,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-1110084 **反极性判据只有一把局部的尺子:"派生把结论通道丢掉、调用方还去读它",完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) O1820 部署净面(clean-build)默认根迁出仓库 + 路径守卫扩成可追加授权根表,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **并档那一格(在等:全端观感裁决,不是本票漏改)**:`outline` / `ghost,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-978066 **D136 RN 端工具审批：代码与测试已交付并复验通过，但因同文件被他,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-998153 票 4（观察）写库前不问「到底有没有变」：`.set({ ...data,,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **并档那一格(在等:全端观感裁决,不是本票漏改)**:`outline` / `ghost,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) 双端功能矩阵维护(2026-08-26 立,跨端:apps/web + apps/mobil,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **`CourseScreen:113` 那格盲区的精确成因(不再是"未知失配"),以及为什,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) P2 **设置页双层页头**:顶上「设置 + 菜单」一条栏,下面又一条「`<` 设置」(`p,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) **P1-① 扩共享层首批 —— 票面前提已被实测否证,剩余只有 4 件(在等:逐件判定谁在,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-814398 **`packages/types/src/capability-cata,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-814398 **`packages/types/src/capability-cata,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-1080890 部署环「生产环境部署失败」邮件补终态:成功切流即清偿切流受阻类身份与其抑,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-1117437 **`apps/ai-service/app/types/api_cli,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:✅(2026-10-10) G-1058609 **守门 98 在干净 HEAD 上判红 1 处,而修复此刻正躺在别人的,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) 双端功能矩阵维护(2026-08-26 立,跨端:apps/web + apps/mobil,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) **本批刻意不碰的他人半落地内容(证据已给全,免得下一个人重新猜)**: 〔核真@2026-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) **门 35(mypy,blocking)此刻对 HEAD 内容就是红的**:一轮 `myp,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **`CourseScreen:113` 那格盲区的精确成因(不再是"未知失配"),以及为什,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) **G-1018270. 分叉合并这次"丢掉的东西"与"互相矛盾的两行文档",按归属交接,不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-815427 **收敛落地闸声明的 F1 出口本轮没被自动归并消费(`plan-task,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-396 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-426 子代理超时是墙钟而非"无活动"，仍在推进的慢子代理会被杀（等人拍板）—— 上游 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-327 **G-284 的尺子已入库并注册为 warn,但它自己那 4 条未勾行正文互不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-326 **F6 漂移块的逐块裁决已做完,执行(摘短份)另计一票 —— 结论写在行内,不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-624 **把两条共享 `idParamSchema` 收紧成 UUID 校验:216 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-787 crew 会话与备份作业的 status 写**没有 DB 级终态守卫**,迟到,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-815954 **jsonb 整列覆盖式 upsert 会吃掉"显式清空"的墓碑:只许具,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) **门 35(mypy,blocking)此刻对 HEAD 内容就是红的**:一轮 `myp,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **`CourseScreen:113` 那格盲区的精确成因(不再是"未知失配"),以及为什,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) **门 35(mypy,blocking)此刻对 HEAD 内容就是红的**:一轮 `myp,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **G-392. `scripts/cleanup-external-junk.ps1` 的,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) **G-335. 分叉合并带进来的三组跨分支撞号(G-300 / G-301 / G-310,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11)G-311 **`union-converge` 的"归并不得放大台账分叉"那道判据，对它立项,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) **G-352. 分叉合并把 12 个"首行相同、正文已漂移"的重复登记块并到了一起(台账锚,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) 副本指针(编号 P1-①):本行折叠自旧形态行 **P1-① 扩共享层首批(在等:逐屏清单裁,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-978066 **D136 RN 端工具审批：代码与测试已交付并复验通过，但因同文件被他,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) **门 35(mypy,blocking)此刻对 HEAD 内容就是红的**:一轮 `myp,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **`CourseScreen:113` 那格盲区的精确成因(不再是"未知失配"),以及为什,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **O59⑤ D48 的验收在盘上仍不成立(本票实测,交持有桌面端运行条件的人)**:加密层,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:G-1114913 〔千段租约〕 本机=前台-694a78bf 段=G-1113914~G-1114913(取号器专用行,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->〔sha消歧:694a78bf=千段租约行的机器身份尾串(本机=前台-694a78bf),非commit〕
+<!-- 已归档(2026-10-10:G-1106293 〔千段租约〕 本机=lichunchuan-ef4a9deb 段=G-1105294~G-11062,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->〔sha消歧:ef4a9deb=租约机名尾缀(lichunchuan-*/WIN-*),非commit〕
+<!-- 已归档(2026-10-08:G-1103635 〔千段租约〕 本机=lichunchuan-66b628bc 段=G-1102636~G-11036,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->〔sha消歧:66b628bc=租约机名尾缀(lichunchuan-*/WIN-*),非commit〕
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-815400 **取号令牌在两台机器上会发出同一个号 —— 本轮只用"预留号段"止血,机,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-815912 **差分归因对"判远端态"的门会把基线面跑成假绿,于是每次真分叉期间的提交,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-916939 **所谓"异地容灾"此刻不成立:备份的"异地"副本与源在同一块物理盘上,而,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **G-1105300 Path/PATH 站点接线:归一之后还必须在返回对象上显式赋值一次,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-816035 **`tool-delta` 的载荷语义在三处互相矛盾:契约说"不是全量",完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11)G-814413(等用户拍板,§24 属新增能力,不是清理)自定义命令展开链:`$ARGUME,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:G-1103635 〔千段租约〕 本机=lichunchuan-66b628bc 段=G-1102636~G-11036,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->〔sha消歧:66b628bc=租约机名尾缀(lichunchuan-*/WIN-*),非commit〕
+<!-- 已归档(2026-10-08:G-1080146 〔千段租约〕 本机=WIN-20251101PXT-011f526c 段=G-1079147~G-1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->〔sha消歧:011f526c=租约机名尾缀(lichunchuan-*/WIN-*),非commit〕
+<!-- 已归档(2026-10-11:✅(2026-10-10) **G-1080881 `bab33e6f5b`(G-1079155 仓库垃圾清理,578 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:G-1103635 〔千段租约〕 本机=lichunchuan-66b628bc 段=G-1102636~G-11036,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->〔sha消歧:66b628bc=租约机名尾缀(lichunchuan-*/WIN-*),非commit〕
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-807 【优先级高于任何新增】刚入库的恢复器用例**不稳定**,主会话自己复现到 1/4,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-08:G-1103635 〔千段租约〕 本机=lichunchuan-66b628bc 段=G-1102636~G-11036,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->〔sha消歧:66b628bc=租约机名尾缀(lichunchuan-*/WIN-*),非commit〕
+<!-- 已归档(2026-10-09:G-1106293 〔千段租约〕 本机=lichunchuan-ef4a9deb 段=G-1105294~G-11062,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->〔sha消歧:ef4a9deb=租约机名尾缀(lichunchuan-*/WIN-*),非commit〕
+<!-- 已归档(2026-10-09:G-1103635 〔千段租约〕 本机=lichunchuan-66b628bc 段=G-1102636~G-11036,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->〔sha消歧:66b628bc=租约机名尾缀(lichunchuan-*/WIN-*),非commit〕
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-585 **归档件"人工归并出口"没有防重复的那一半:用 `git merge-file,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-09:G-1106293 〔千段租约〕 本机=lichunchuan-ef4a9deb 段=G-1105294~G-11062,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->〔sha消歧:ef4a9deb=租约机名尾缀(lichunchuan-*/WIN-*),非commit〕
+<!-- 已归档(2026-10-09:G-1103635 〔千段租约〕 本机=lichunchuan-66b628bc 段=G-1102636~G-11036,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->〔sha消歧:66b628bc=租约机名尾缀(lichunchuan-*/WIN-*),非commit〕
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-1113917 **守门 118 现读仍有 1 枚半接线未收:`scripts/guar,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **本轮未落地、需重做的一批(web 86 处内的键名对齐)**:该批次报告改了 4 个文件,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10)（进行中） **D17(生态统一入口)页面已写完但缺语言包,按住**:`apps/web/ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10)G-426 子代理超时是墙钟而非"无活动"，仍在推进的慢子代理会被杀（等人拍板）—— 上游 `,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-09)G-326 **F6 漂移块的逐块裁决已做完,执行(摘短份)另计一票 —— 结论写在行内,不依,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-09)**G-816103 尺子②的两条在账欠口(承 D140 落地,等环境条件)。** ① **未,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10)**G-937950 D162 的成套改动已备好、但刻意不单独落地(等五份 web 语言包同时,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-09) G-1058523 **门 130 的 F9 撞号基线在 HEAD 面判红 ⇒ 全队每次提交,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-1058606 **守门 52 打印"判定面:HEAD blob",却把**未跟踪文件*,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-09) G-815912 **差分归因对"判远端态"的门会把基线面跑成假绿,于是每次真分叉期间的提交,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **G-1105300 Path/PATH 站点接线:归一之后还必须在返回对象上显式赋值一次,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-09) **G-1080881 `bab33e6f5b`(G-1079155 仓库垃圾清理,578 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:G-1105311 **门 35(mypy --strict)在 HEAD 面的现读已换成另一副样子(原票面那 4 处不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-1104168 **agent 会话快照的「中断痕迹」展示面(自 G-815969 残余,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:**阻塞主体(需用户操作,非本会话代码可解)**:`git push` 被 GitHub push protection,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **C 组刻意没动,待用户定性**:`C:\ai_zhs\cert\*.pem`(5 个,每,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) H2 FIM/Monaco 闭环:Web 编辑器 inline completion 接入 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-326 **F6 漂移块的逐块裁决已做完,执行(摘短份)另计一票 —— 结论写在行内,不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **G-392. `scripts/cleanup-external-junk.ps1` 的,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-426 子代理超时是墙钟而非"无活动"，仍在推进的慢子代理会被杀（等人拍板）—— 上游 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-326 **F6 漂移块的逐块裁决已做完,执行(摘短份)另计一票 —— 结论写在行内,不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-585 **归档件"人工归并出口"没有防重复的那一半:用 `git merge-file,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-787 crew 会话与备份作业的 status 写**没有 DB 级终态守卫**,迟到,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-816000 **跨域图片"保存"取不到字节时,要补一个能真用出去的兜底入口(不是只报失,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-765 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-1018300 **第十一批:沙箱默认严档落地 + 两路只读取证的 24 条发现落成可执,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-815405 **收敛落地闸当场拒收一次真实合并(2026-09-29 01:21 实测,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-426 子代理超时是墙钟而非"无活动"，仍在推进的慢子代理会被杀（等人拍板）—— 上游 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-327 **G-284 的尺子已入库并注册为 warn,但它自己那 4 条未勾行正文互不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-326 **F6 漂移块的逐块裁决已做完,执行(摘短份)另计一票 —— 结论写在行内,不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-585 **归档件"人工归并出口"没有防重复的那一半:用 `git merge-file,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-765 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-815427 **收敛落地闸声明的 F1 出口本轮没被自动归并消费(`plan-task,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-341 **`plan-tasks-merge.mjs --heal` 在同一次运行里给,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-326 **F6 漂移块的逐块裁决已做完,执行(摘短份)另计一票 —— 结论写在行内,不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11)G-628 **守门 35(mypy)按磁盘判、结构上没有 HEAD 档:它会把邻居的未跟踪现,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-765 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-815919 **会话"归档"是一等列而不是删除的副产品 ⇒ 我方只有硬删,没有任何可追,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-815963 **未知枚举的兜底档必须是"不再产生副作用"那一档——兜到初始态等于把已终,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-815964 **长任务提交要有全局作业注册表:按 jobId 取、按 jobId 丢,,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-815969 **用户按停止时,"已到达本进程的半截回答"必须显式落库,不能只等成功路径,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-815971 **限额/配额收口的那一轮,禁止再触发任何"会重新打开模型请求"的续跑通道,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-815973 **终态写入要 first-writer-wins 闩锁,并给"刚出队还没,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-815974 **陈旧性不能只在入队时判,必须在"持久化与注入 provider 之前",完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-815975 **队列吸收要有"类型轴":遇到会改变后续语义的那类条目必须停在这里;未消,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-815994 **steer/队列条目的类型轴按上游两组切,不要照抄它的 priorit,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-815991 **"空契约"这一型判不了,如实登记而不是假装已覆盖**(上游 `pack,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-816001 **分支代 fencing:rewind/fork 之后旧生命的唤醒必须被,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-816003 **状态词汇 = 一张 const 表 × 每消费面一列,并按 stop ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-816005 **权限授权两阶段提交:receipt 幂等 + 范围快照钉死 + 崩溃后,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-816008 **待对账命令账本:TTL 锚首次登记时间、queue 投影即接收收据、损,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-816010 **分页结果双重复核防"已删历史行复活",游标未推进必须判失败**(上游 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-816011 **失败也是共享事实:失败要广播给所有订阅者,且失败过就不供缓存**(上游,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-1058650 **压缩双端 parity 夹具里没有"带 reasoning 的消息",完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-816025 **后台结果回灌历史前要有五道有序校验,"无可观察源"要判 lost 且仍,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-816032 **分片上传要有"提交后发布 + 失败必撤销 + 服务端续点",我方后端两,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-816039 **工具结果必须拆成三条独立投影(给模型的 / 给人看的 / 落库的),我,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-624 **把两条共享 `idParamSchema` 收紧成 UUID 校验:216 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-624 **把两条共享 `idParamSchema` 收紧成 UUID 校验:216 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-896418 **SSE 信封的 `unknown`+as 收口:我方比上游还少一层(连,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **门 35(mypy,blocking)此刻对 HEAD 内容就是红的**:一轮 `myp,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) **G-916940 上下文容量分母写死的其余站点(web 那一处已修)。** 起因与已做:,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-755 【等人工拍板 · 整档批量删行】把 `--dedupe-open-rows` 量,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) **G-977953 台账脏号的真实边界:232 行畸形号一行都不能机械修、112 组撞号两,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) **G-977954 既有红用例已定位到判据分叉点(不是本线任何一枚提交引入的)。** 用例,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11)**D176 任务回顾与「移交到新任务」全流程(14 行,对标 `chatSession.hi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-977961 **更正 G-916428 的账面状态:那一行的 `[x] ✅(2026-,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-998089 票3：启动/装配失败先收口自有资源才放锁（释放条件 = 子进程终态 ∧ 通,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-998111 【观察】票 07-E：遥测身份只传不可读 subject（账号/邮箱/登录,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-1038487 **第十一批:沙箱默认严档落地 + 两路只读取证的 24 条发现落成可执,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-1104170 **第十一批:沙箱默认严档落地 + 两路只读取证的 24 条发现落成可执,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-1058511 **第十一批:沙箱默认严档落地 + 两路只读取证的 24 条发现落成可执,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-1058648 **F9 基线外 61 组撞号已逐组量清形态：42 组「全已完成」无须归,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) **G-1059146 守门 52 把另一道门体内的自检夹具字符串当成真调用点(全量档 2 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:G-1081878 〔千段租约〕 本机=WIN-20251101PXT-d4634eb6 段=G-1080879~G-1,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->〔sha消歧:d4634eb6=租约机名尾缀(lichunchuan-*/WIN-*),非commit〕
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-1080884 **本机 main 线与 origin/main 的 union 合并停,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:G-1080885 **字体跨端重复：AlimamaFangYuanTiVF-Thin.ttf 7.4MB 在 mobi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-09) G-815400 **取号令牌在两台机器上会发出同一个号 —— 本轮只用"预留号段"止血,机,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) **并档那一格(在等:全端观感裁决,不是本票漏改)**:`outline` / `ghost,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) P2 **设置页双层页头**:顶上「设置 + 菜单」一条栏,下面又一条「`<` 设置」(`p,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-1115908 按钮并档后仍未统一的三格(归设计规范统一批:动它等于全站 RN 按钮改尺,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) **App 一级屏顶部灰色带:chrome 单立一档、全端 23 屏收口,深浅两档真机已验(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-1117437 **`apps/ai-service/app/types/api_cli,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-1117441 **`scripts/guard-status-where.mjs` 在,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-1117437 **`apps/ai-service/app/types/api_cli,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-10:G-1118434 〔千段租约〕 本机=lichunchuan-a298f1c1 段=G-1117435~G-11184,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->〔sha消歧:a298f1c1=千段租约行的机器身份尾串(本机=lichunchuan-a298f1c1),非commit〕
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-1104173 **守门 173 的 testFiles / wsEndpoints 两,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-1080895 **守门 30a(check-commit-loss-guard)从恒红,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-1080898 **超窗悬空对象 9785 枚的 §29 处置已裁定:不销毁(机主授权",完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-814417 **归并器自己产出的「〔【归并】…〕指针」被 titleOf 当标题 ⇒ ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-815949 **同一批五张票在 HEAD 面各有一份短副本登记(G-815413/41,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-815960 **取消检查与提交之间不得有异步重入窗口——这条纪律要写成能判的一格**(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-1111918 **守门 199 剩下的未判定档要"跟随取值"才判得出 —— 三条前置各,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) **G-1118435 file_editor 的工作区白名单仍在模块加载期求值一次 —— ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:**G-1118436 HEAD 面能否类型检查缺一个主动出口 —— 已有的是"构建失败时归因"(巡检 P5b),没有的,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:**G-1118437 「跑了门且全绿」的正证一条都没绑上 —— 一方记录写了 294 条、其中零失败那 16 条**无,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-815994 **steer/队列条目的类型轴按上游两组切,不要照抄它的 priorit,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-11) G-816003 **状态词汇 = 一张 const 表 × 每消费面一列,并按 stop ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+- [x] ✅(2026-10-10) G-1018190 21 个 IHUI 服务**全部没有 SCM 恢复动作**(现读 `FailureActions` 键不存在;`IHUI-PG-BACKUP` 已逐条验):进程异常退出后端不会自愈,而"备份/监控服务静默停摆"正是本仓记过两次的失效形态(RSSHub 停 3 天无人知、部署环冻结 11h50m)。加 `sc failure ... actions= restart/60000/…` 属**服务恢复策略**,且改的是 21 个在跑服务的机器状态 ⇒ 等机主拍板(哪些服务该自动重启、哪些宁可停着等人工),不得由会话逐个代决。【让号@2026-10-01:原编号 G-978121;union-converge F9 归并新增撞号组,未推的本地面让号;改前整行原文逐字见 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md】 〔拍板@2026-10-08 机主:采纳——21 个 IHUI 服务加 sc failure 恢复动作;但本机无这些服务(Get-Service/注册表双查 0 命中)⇒ 须在部署主机执行,本行不在本机结清〕 〔拍板@2026-10-09 机主授权代行:21 个服务全加 SCM 自动恢复,须在部署主机执行(本机无这些服务),随下次上生产窗口。〕 （[归并] 本行与已完成登记同题(主键 「G-1018190 · 21个IHUI服务全部没有SCM恢复动作」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、正文逐字保留于前、不删行、不重复计账）
