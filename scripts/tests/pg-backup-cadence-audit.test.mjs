@@ -261,10 +261,44 @@ test('落盘窗口:任一份落在 03:00±2h 即算在点(只看最早那份会�
   assert.equal(A.judgeLanding([f(dumpName('20260926', '004500'))], 3).state, 'off-window')
 })
 
+// 2026-10-11 实测假阳:计划轮的文件名是 dump **起始**时刻 02:59:59(mtime 03:00:22、流水"备份完成"),
+// 旧判据按小时截断且只给迟到一侧宽限 ⇒ 把它报成 OFF_WINDOW_LAND。以下三条钉住这一族。
+test('落盘窗口按分钟量:跨了分钟界的计划轮(02:59:59)算在点,且仍留观察注记', () => {
+  const land = A.judgeLanding([f(dumpName('20261011', '025959'))], 3)
+  assert.equal(land.state, 'on-schedule', '早 1 秒不是故障:窗口须与报告行"±2h"的措辞同形')
+  assert.deepEqual(land.window, [60, 300], '窗口 = 计划时刻两侧各 2h')
+  assert.equal(land.early.length, 1, '但"落在计划时刻之前"这一维必须被量出来,不得静默')
+  const d = A.judgeDay({ ymd: '20261011', files: [f(dumpName('20261011', '025959'))], window: WINDOW, todayStr: TODAY, nowHour: 12, schedHour: 3 })
+  assert.ok(!d.findings.some((x) => x.code === 'OFF_WINDOW_LAND'), d.findings.map((x) => x.code).join(','))
+  assert.ok(d.notes.some((n) => n.includes('落在计划时刻之前')), '在点≠不报名:注行必须写进报告')
+  assert.equal(A.decideVerdict([d]).verdict, 'ok', '真·正常轮不得再产出一封假信')
+})
+
+test('落盘窗口边界成对:01:00/05:00 在点,00:59:59 判 off-window,05:00:01 判 late(单边放宽即翻红)', () => {
+  assert.equal(A.judgeLanding([f(dumpName('20261011', '010000'))], 3).state, 'on-schedule')
+  assert.equal(A.judgeLanding([f(dumpName('20261011', '050000'))], 3).state, 'on-schedule')
+  assert.equal(A.judgeLanding([f(dumpName('20261011', '005959'))], 3).state, 'off-window', '早于整个窗口仍须判红 —— 牙齿没被削弱')
+  assert.equal(A.judgeLanding([f(dumpName('20261011', '050001'))], 3).state, 'late')
+  const d = A.judgeDay({ ymd: '20261011', files: [f(dumpName('20261011', '004500'))], window: WINDOW, todayStr: TODAY, nowHour: 12, schedHour: 3 })
+  assert.ok(d.findings.some((x) => x.code === 'OFF_WINDOW_LAND'), 'off-window 这一档必须真能红')
+  assert.ok(d.findings.find((x) => x.code === 'OFF_WINDOW_LAND').text.includes('00:45'), `报告须给 HH:MM 而不是裸小时整数`)
+})
+
+test('时间戳读不出 ⇒ 落 off-window 并点名,不得因为"没量到"就发合格证', () => {
+  assert.ok(Number.isNaN(A.minuteOfDay('')))
+  assert.ok(Number.isNaN(A.minuteOfDay('20261011')))
+  assert.equal(A.hhmm(A.minuteOfDay('025959')), '02:59')
+  assert.equal(A.hhmm(NaN), '??:??')
+  const bad = f(dumpName('20261011', '025959'))
+  bad.hms = 'zzzzzz'
+  assert.equal(A.judgeLanding([bad], 3).state, 'off-window')
+})
+
 test('延迟落盘 ⇒ LATE_LAND(degraded),它不是 MISSING 但必须被看见', () => {
   const d = A.judgeDay({ ymd: '20260926', files: [f(dumpName('20260926', '113000'))], window: WINDOW, todayStr: TODAY, nowHour: 12, schedHour: 3 })
   assert.equal(d.status, 'ok', '文件在且完整 —— 日状态与"是否在点"是两个维度,不得混成一个')
   assert.ok(d.findings.some((x) => x.code === 'LATE_LAND'))
+  assert.ok(d.findings.find((x) => x.code === 'LATE_LAND').text.includes('11:30'), '措辞须给得出具体时刻')
   assert.equal(A.decideVerdict([d]).verdict, 'degraded')
 })
 

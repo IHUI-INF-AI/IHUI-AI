@@ -816,3 +816,195 @@ test('形状锁(摘号指纹):D 族无连字符编号(D173)必须被剥掉 —�
   assert.ok(fp.startsWith('断线窗口待决审批的重放'), `指纹应从正文开始,实测 ${fp}`)
 })
 
+// ─────────────────────────────────────────────────────────────────────────────
+// G-307 票一③(2026-10-11 移植):两层自动自愈的**互咬熔断**。
+// 回捞层补回的未勾形态被归并器立刻翻勾、再翻勾又被回捞层读成丢行 ⇒ 近 7 天实测
+// 76 枚空转的"恢复型"提交。判据一律取自源文件**具名导出**(§22c:__test__ 或具名导出皆可,
+// 测试内不复制实现);行为证明用**构造面**(真仓提交数是瞬时状态,不是判据),端到端夹具
+// 自己造出"自动层提交"来喂循环。退出码一律 0(§12e:熔断不参与退出码)。
+// ─────────────────────────────────────────────────────────────────────────────
+test('熔断纯函数三态(构造面):空清单不触发;达到阈值触发;人工提交一张票都不计', () => {
+  const auto = (n) => ({
+    sha: 'a'.repeat(40),
+    subject: `docs(plan): 自动回捞 ${n} 条被并发旧基线提交抹掉的登记行`,
+  })
+  // ① 触碰清单为空 ⇒ tripped false(空 ≠ 在循环,也不是"未判定"——纯函数面没有 git)
+  const empty = PLAN_LOSS_SRC.loopBreakerDecision([], 3)
+  assert.equal(empty.tripped, false, '空触碰清单必须不触发')
+  assert.equal(empty.touches, 0)
+  // ② 达到阈值 ⇒ tripped true(2 票不足,第 3 票触发 ——阈值边界不许漂)
+  assert.equal(PLAN_LOSS_SRC.loopBreakerDecision([auto(1), auto(2)], 3).tripped, false, '差一票不得触发')
+  const hit = PLAN_LOSS_SRC.loopBreakerDecision([auto(1), auto(2), auto(3)], 3)
+  assert.equal(hit.tripped, true, '达到阈值必须触发')
+  assert.equal(hit.touches, 3)
+  // ③ 人工提交(subject 不匹配 AUTO_LAYER_SUBJECT_RE)⇒ 不计票:一堆人工提交攒得再多也不熔断
+  const manual = { sha: 'b'.repeat(40), subject: 'docs(plan): 登记一条新票并写明归属' }
+  const allManual = PLAN_LOSS_SRC.loopBreakerDecision([manual, manual, manual, manual, manual], 3)
+  assert.equal(allManual.touches, 0, '人工提交必须一张票都不计(计票只认两层自动层的产出)')
+  assert.equal(allManual.tripped, false)
+  // 混合面:3 人工 + 3 自动 ⇒ 只算自动那 3 票,恰好触发(计票口径 = 自动层票数)
+  const mixed = PLAN_LOSS_SRC.loopBreakerDecision(
+    [manual, manual, manual, auto(1), auto(2), auto(3)],
+    3,
+  )
+  assert.equal(mixed.touches, 3)
+  assert.equal(mixed.tripped, true)
+})
+
+test('熔断成对正则(AUTO_LAYER_SUBJECT_RE):两条自动层前缀必须命中,近似的人工前缀必须不命中', () => {
+  const re = PLAN_LOSS_SRC.AUTO_LAYER_SUBJECT_RE
+  // 命中臂一:回捞层 commit-tree 的 message 首行(check-plan-line-loss.mjs --heal --commit)
+  assert.match('docs(plan): 自动回捞 1 条被并发旧基线提交抹掉的登记行', re)
+  // 命中臂二:归并层 commit-tree 的 message 首行(plan-tasks-merge.mjs)
+  assert.match('fix(plan): 自愈被回写的任务状态副本(守门 130 的 post-commit 层)', re)
+  // 反向:同族的人工前缀(docs(plan): 开头但不是自动回捞)绝不许命中 —— 否则熔断开始吃人工提交
+  assert.doesNotMatch('docs(plan): 登记一条新票并写明归属', re)
+  // 反向:前缀在句中出现不算(锚在行首,提交信息首行才是唯一真相)
+  assert.doesNotMatch('chore: 上一轮 docs(plan): 自动回捞 的残留说明', re)
+})
+
+test('熔断上限与未判定(loopTripsForMarkers):超出上限的 marker 必须落 undetermined 并写明原因', () => {
+  // 构造仓:仅一枚提交动过计划文档 ⇒ 窗口量不出循环(前 24 个走 git 那一支必落"未判定"),
+  // 而超出 LOOP_BREAKER_MAX_MARKERS 的部分落另一条原因("上限")—— 两条未判定各有各的原因,
+  // 不猜、也不静默放行(把"没量到"折成"不在循环"正是本仓最高频失效型)。
+  const dir = mkScratch('ihui-loopcap-')
+  try {
+    git(dir, 'init', '-q', '-b', 'main')
+    git(dir, 'config', 'user.email', 't@t.local')
+    git(dir, 'config', 'user.name', 't')
+    git(dir, 'config', 'commit.gpgsign', 'false')
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), V1, 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    git(dir, 'commit', '-q', '-m', 'init plan')
+    const total = PLAN_LOSS_SRC.LOOP_BREAKER_MAX_MARKERS + 2
+    const markers = Array.from({ length: total }, (_, i) => `G-990${i} 超上限夹具登记行第 ${i} 号`)
+    const r = PLAN_LOSS_SRC.loopTripsForMarkers(markers, { root: dir })
+    assert.equal(r.checked, total)
+    assert.equal(r.capped, 2, `超出上限的个数必须照实计量,实得 ${r.capped}`)
+    assert.deepEqual(r.tripped, [], '窗口内提交太少 ⇒ 一个都不许判"在循环"(没量到 ≠ 在循环)')
+    const capped = r.undetermined.filter((u) => u.reason.includes('超出单次熔断检查上限'))
+    assert.equal(capped.length, 2, '超出上限的 2 个必须落 undetermined 且原因是"上限"那一条')
+    assert.deepEqual(
+      capped.map((u) => u.marker).sort(),
+      [markers[PLAN_LOSS_SRC.LOOP_BREAKER_MAX_MARKERS], markers[total - 1]].sort(),
+      '落进上限未判定的必须正是越界的那两个 marker',
+    )
+    for (const u of r.undetermined)
+      assert.ok(u.reason && u.reason.length > 4, `每条未判定都必须写明原因,实得 ${JSON.stringify(u)}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('端到端(熔断未判定 ⇒ 照旧执行):量不出循环的现场必须仍回捞,并大声点名"未判定"', () => {
+  const dir = tempPlanRepo(V1)
+  try {
+    // 只有 1 枚提交动过计划文档 ⇒ 窗口不足,熔断这一格是"未判定" ——必须照旧回捞
+    // (绝不把"没量到"读成"在循环",也绝不读成"不在循环"而闭嘴)。
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), STALE, 'utf8')
+    const r = runGate(dir, ['--heal'])
+    const out = `${r.stdout}\n${r.stderr}`
+    assert.equal(r.status, 0, `未判定不是错误,实得 ${r.status}\n${out}`)
+    assert.match(out, /熔断未判定/, '没量到必须大声点名(静默 = 替没跑成的判定发合格证)')
+    assert.match(out, /照旧回捞,不据"没量到"下结论/, '未判定必须写明"照旧回捞"的处置')
+    assert.doesNotMatch(out, /本轮只发现熔断项/, '未判定不得被读成熔断命中')
+    assert.match(out, /→ 回插 \d+ 条/, '未判定不挡回捞:这一轮照常把丢行插回去')
+    assert.ok(
+      readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8').includes(HEADING),
+      '未判定时标题行必须已被回插(把"没量到"当"在循环"挡回捞 = 门失灵)',
+    )
+    // 判据 3(完全无缺失 ⇒ 既有文案一字不变):回捞完成后复跑,那句老话照旧,且不得无端冒熔断告警
+    const again = runGate(dir, ['--heal'])
+    const aout = `${again.stdout}\n${again.stderr}`
+    assert.match(aout, /无缺失,无需回捞/, '完全无缺失时既有文案必须原样')
+    assert.doesNotMatch(aout, /循环熔断/, '无缺失时不得无端打熔断告警')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('端到端(熔断命中 ⇒ 只挡被点名的 marker):同轮另一条可回捞项照常回插', () => {
+  // 语料 6 条登记行:2 缺 = 33%,不触规模安全闸(那一闸测的是基线错,与熔断无关)。
+  const EXTRA_A = '- **G-901 熔断夹具行甲**:足够长的一行,把规模安全闸的分母抬起来,缺失 2/6 不超 40%。'
+  const EXTRA_B = '- **G-902 熔断夹具行乙**:足够长的一行,与甲同用,语料够肥回捞闸才不掺和。'
+  const V_MIX = ['# 计划', '', HEADING, '', SIBLING_BOLD, SIBLING_CB, '', '### 另一节', OTHER, '', EXTRA_A, EXTRA_B, ''].join('\n')
+  const STALE_MIX = V_MIX.split('\n').filter((l) => l !== HEADING).join('\n')
+  // 现场:HEADING(O42)被三枚**自动层提交**反复抹掉/补回(触碰 3 次 ⇒ 命中熔断),
+  // 同一轮 HEAD/工作区还缺 OTHER(G-900,只有人工提交动过它 ⇒ 0 票,可回捞)。
+  const dir = tempPlanRepo(V_MIX)
+  try {
+    const AUTO_FIX = 'fix(plan): 自愈被回写的任务状态副本(守门 130 的 post-commit 层)'
+    const AUTO_HEAL = 'docs(plan): 自动回捞 1 条被并发旧基线提交抹掉的登记行'
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), STALE_MIX, 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    git(dir, 'commit', '-q', '-m', AUTO_FIX)
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), V_MIX, 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    git(dir, 'commit', '-q', '-m', AUTO_HEAL)
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), STALE_MIX, 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    git(dir, 'commit', '-q', '-m', AUTO_FIX)
+    writeFileSync(
+      join(dir, 'PROJECT_PLAN.md'),
+      STALE_MIX.split('\n').filter((l) => l !== OTHER).join('\n'),
+      'utf8',
+    )
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    git(dir, 'commit', '-q', '-m', 'chore(plan): 手工摘掉 G-900 那一行(人工夹具,不计票)')
+    const r = runGate(dir, ['--heal'])
+    const out = `${r.stdout}\n${r.stderr}`
+    assert.equal(r.status, 0, `熔断命中时退出码仍为 0(§12e),实得 ${r.status}\n${out}`)
+    assert.match(out, /循环熔断/, '熔断命中必须大声点名')
+    assert.match(out, /「O42[^\n]*触碰 3 次/, '点名必须落到 marker 与触碰次数')
+    // 报数行:两档各自带上"(可回捞 N / 熔断 M)"(索引档只报名,不参与筛选)
+    assert.match(
+      out,
+      /工作树副本缺 2 条\(可回捞 1 \/ 熔断 1\) \/ HEAD 提交树缺 2 条\(可回捞 1 \/ 熔断 1\)/,
+      `三腿结论报数行必须把"缺多少"与"这轮还能动多少"分开:\n${out}`,
+    )
+    const healed = readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8')
+    assert.ok(healed.includes(OTHER), '判据 1:同轮的可回捞项必须照常回插(熔断只挡被点名的 marker)')
+    assert.ok(!healed.includes(HEADING), '被点名熔断的 O42 标题本轮绝不得回插')
+    assert.match(out, /另有 1 条已熔断不回捞/, '回捞报告必须写明熔断掉几条,不得静默少做')
+    assert.doesNotMatch(out, /无缺失,无需回捞/, '还有缺失时不得宣布"无缺失"')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('端到端(只有熔断项 ⇒ 判据 2):不回捞、不建提交、退出码 0,且输出点名 marker', () => {
+  const dir = tempPlanRepo(V1)
+  try {
+    // 三枚自动层提交反复抹掉/补回 O42 标题,最后停在"缺"的形态 ⇒ 工作区与 HEAD 都缺它,
+    // 且它的 marker 在窗口内被自动层触碰 3 次(第 3 次刚达阈值)⇒ 本轮唯一发现的就是熔断项。
+    const AUTO_FIX = 'fix(plan): 自愈被回写的任务状态副本(守门 130 的 post-commit 层)'
+    const AUTO_HEAL = 'docs(plan): 自动回捞 1 条被并发旧基线提交抹掉的登记行'
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), STALE, 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    git(dir, 'commit', '-q', '-m', AUTO_FIX)
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), V1, 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    git(dir, 'commit', '-q', '-m', AUTO_HEAL)
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), STALE, 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    git(dir, 'commit', '-q', '-m', AUTO_FIX)
+    const headBefore = git(dir, 'rev-parse', 'HEAD').trim()
+    const r = runGate(dir, ['--heal', '--commit'])
+    const out = `${r.stdout}\n${r.stderr}`
+    assert.equal(r.status, 0, `只有熔断项时退出码必须 0(熔断不参与退出码),实得 ${r.status}\n${out}`)
+    assert.match(r.stdout, /本轮只发现熔断项 ⇒ 不回捞、不建提交/, `结论行必须上 stdout:\n${out}`)
+    assert.match(out, /工作树副本缺 1 条\(可回捞 0 \/ 熔断 1\) \/ HEAD 提交树缺 1 条\(可回捞 0 \/ 熔断 1\)/, out)
+    assert.match(r.stdout, /\[点名\/工作树\][^\n]*O42/, '点名必须上 stdout(派生层只回读 stdout)')
+    assert.match(r.stdout, /\[点名\/HEAD\][^\n]*O42/, 'HEAD 档同样必须点名')
+    assert.match(out, /「O42[^\n]*触碰 3 次/, '熔断详情必须点名 marker 与触碰次数')
+    assert.doesNotMatch(out, /无缺失,无需回捞/, '有缺失(哪怕全熔断)时不得宣布"无缺失"')
+    assert.equal(git(dir, 'rev-parse', 'HEAD').trim(), headBefore, '不建提交:HEAD 必须原地不动')
+    assert.ok(
+      !readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8').includes(HEADING),
+      '不回捞:工作区那行必须仍缺着(交人工,不是让自动层再顶一轮)',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+

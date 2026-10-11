@@ -19,6 +19,12 @@
  *    并桶用的是"精确前缀"而不是相似度 ⇒ 分叉形态(甲 ⊂ 甲乙 与 甲 ⊂ 甲丙)必须仍剩 2 个标题。
  *  - **变异自证**:把三型各自的补丁摘掉,对应反向用例必须**翻红**;不红就说明那条用例是假的
  *    ("判据失效的表现永远是安静" —— §22c / 守门 70/76/81/103 同族)。
+ *  - **阳性对照不得拿台账当下的欠账当前提**(2026-10-10 由三枚自伤逼出,承票 G-814417 验收 ③):
+ *    本文件原先要求"HEAD 面 F9 读得出组"、"摘掉 ② 后 `G-278` 必须重新成组"、"摘掉 ①+② 后 `74` 必须成组",
+ *    而这三笔存量已被归并轮**付清**(现读 `G-278` / `74` 的待办行数均为 0)⇒ 断言当场变成恒红。
+ *    账还完的那天尺子从防线变成缺陷,正是本票要防的形状。正解是把对照**种进真仓字节**
+ *    (见下方 `plantOnHead`):生产尺子必须看不见它(证明归一收得住)、摘掉对应一档必须重新看见它
+ *    (证明判据有牙)—— 两头都不依赖仓库此刻欠多少账,同时仍跑在 3 MB 的实际取材面上(证明不是小夹具自证)。
  *
  * 只读生产文件;变异跑在临时目录的复制件上(共享工作区里改生产文件会伤到并发会话,§12)。
  * §5c 溯源水印:本文件受 `scripts/watermark.mjs` 管理。
@@ -59,6 +65,12 @@ const headPlan = () => {
 }
 const groupsOf = (content) => f9Faces(content).collisions
 const declaredKeys = (content) => groupsOf(content).map((g) => [String(g.key), g.titleCount])
+/**
+ * 把夹具**接到真仓面尾巴上** —— 判据吃的仍是 HEAD 的那 3 MB 字节,
+ * 只是额外带上我们要观察的那几行。种进去的行用的都是 `G-5xx` / 已作废的号段,
+ * 不会与台账里的真行混淆(见下方 `PLANT_*` 注释)。
+ */
+const plantOnHead = (extra) => headPlan().replace(/\n+$/, '\n') + '\n' + extra + '\n'
 
 // ── 夹具:三型假阳性(修前红 / 修后必须绿)──────────────────────────────────
 const F_TAIL =
@@ -128,7 +140,15 @@ test('真仓 HEAD 面**性质**锁(不判数量 ⇒ 不因并发提交闪红):�
   const txt = headPlan()
   assert.ok(txt.length > 100000, 'HEAD 台账读数过短 ⇒ 取材失败,不算通过')
   const face = f9Faces(txt)
-  assert.ok(face.collisions.length > 0, '真仓面上 F9 读 0 组 ⇒ 尺子失明(存量撞号是非零大数,这是前提)')
+  // 尺子活性**不靠"台账此刻还欠着撞号"来证明**(那是刚才三枚恒红的成因)。
+  // 改为:把一对真撞号种进同一份 HEAD 字节 —— 读不出组就是尺子瞎,与仓库欠多少账无关。
+  const sighted = f9Faces(plantOnHead(TRUE_PAIR)).collisions.map((g) => String(g.key))
+  assert.ok(
+    sighted.includes('G-502'),
+    `种进真仓面的真撞号都读不出 ⇒ 尺子失明(不是"台账没欠账"),实测 ${JSON.stringify(sighted)}`,
+  )
+  // 真仓读数只报名不判:归并轮会随时改变它,把它当前提就等于把防线做成定时炸弹。
+  console.info(`ℹ 真仓面现读:F9 声明位组 ${face.collisions.length} · 宽口径 ${face.wide.length}(不判数量,只判残留)`)
   const residue = []
   for (const g of face.collisions) {
     const names = g.titles.map((t) => t.title)
@@ -147,9 +167,15 @@ test('真仓 HEAD 面**性质**锁(不判数量 ⇒ 不因并发提交闪红):�
     }
   }
   assert.deepEqual(residue, [], `真仓面仍有 ${residue.length} 处三型残留:${JSON.stringify(residue.slice(0, 6))}`)
-  // 共用出口没有被改坏:F4c 在真仓面仍成对报数,且每一对都过同一条精确前缀关系
+  // 共用出口没有被改坏:F4c 与 F9 吃同一份归一,种一对尾注副本进真仓面必须报出逐字前缀对。
+  // (同上:不拿"真仓此刻还有多少对"当前提 —— 那笔账也会被归并轮付掉。)
+  const plantedNested = findPrefixNestedCopies(plantOnHead(F_TAIL)).pairs.filter((p) => /^68#/.test(String(p.key)))
+  assert.ok(
+    plantedNested.length > 0,
+    '种进真仓面的尾注副本对在 F4c 上读 0 对 ⇒ 共用出口被改坏(或行首编号族取不到键),实测 68# 对数 0',
+  )
   const nested = findPrefixNestedCopies(txt)
-  assert.ok(nested.pairs.length > 0 && nested.groupKeys.length > 0, 'F4c 在真仓面读 0 ⇒ 共用出口被改坏')
+  console.info(`ℹ 真仓面现读:F4c 前缀对 ${nested.pairs.length} · 族 ${nested.groupKeys.length}(只报名,不判数量)`)
   for (const p of nested.pairs)
     assert.ok(isExactPrefixNesting(p.short.raw, p.long.raw), `F4c 报了对不是精确前缀的行(L${p.short.line})`)
 })
@@ -173,14 +199,24 @@ const TAIL_A = '- [ ] 68. 流式中切换模型 → 终止后自动带入新模�
 const TAIL_B =
   '- [ ] 68. 流式中切换模型 → 终止后自动带入新模型 〔【归并】重复登记副本(2026-09-29):同主键的另一条登记,派单以那条为准。〕'
 
+// 第 5 格 = "种进真仓字节后必须重新成组"的那一对 `{plant, key}`。
+// 2026-10-10 由 `['G-278']` / `['68','74']` 改来:那三笔存量已被归并轮付清
+// (现读 `G-278` / `74` 的待办行数 = 0),拿它当前提就是三枚恒红的成因。
+// 夹具的编号取 `G-500/501` 这类台账里没有的号 ⇒ 种进去只观察归一行为,不与真行混淆。
 const MUTATIONS = [
-  ['①尾注截断(cleanTitle)⇒ 复合主键必须漂', MUT_KEY_1, F_TAIL, 'key', []],
-  ['②前缀并桶(f9CollapsePrefixNested)⇒ 组数必须回红', MUT_GROUP_2, F_NEST, 'group', ['G-278']],
-  ['③他号让位(f9DropForeignLead)⇒ 组数必须回红', MUT_GROUP_3, F_FOREIGN, 'group', []],
-  ['①+② 同时摘掉 ⇒ 尾注型必须重新成组', (src) => MUT_GROUP_2(MUT_KEY_1(src)), F_TAIL, 'group', ['68', '74']],
+  ['①尾注截断(cleanTitle)⇒ 复合主键必须漂', MUT_KEY_1, F_TAIL, 'key', null],
+  ['②前缀并桶(f9CollapsePrefixNested)⇒ 组数必须回红', MUT_GROUP_2, F_NEST, 'group', { plant: F_NEST, key: 'G-500' }],
+  ['③他号让位(f9DropForeignLead)⇒ 组数必须回红', MUT_GROUP_3, F_FOREIGN, 'group', { plant: F_FOREIGN, key: 'G-501' }],
+  [
+    '①+② 同时摘掉 ⇒ 尾注型必须重新成组',
+    (src) => MUT_GROUP_2(MUT_KEY_1(src)),
+    F_TAIL,
+    'group',
+    { plant: F_TAIL, key: '68' },
+  ],
 ]
 
-for (const [name, mutate, fixture, mode, realKeys] of MUTATIONS) {
+for (const [name, mutate, fixture, mode, planted] of MUTATIONS) {
   test(`真变异:摘掉 ${name} ⇒ 对应反向证据翻红,而真撞号不受影响`, async () => {
     const dir = mkScratch('plan-task-index-f9-norm-mut-')
     try {
@@ -219,10 +255,20 @@ for (const [name, mutate, fixture, mode, realKeys] of MUTATIONS) {
         )
       }
       assert.equal(mod.f9Faces(TRUE_PAIR).collisions.length, 1, `真撞号在变异面下仍应判红(它本来就该红;${name})`)
-      if (realKeys.length) {
-        const keys = mod.f9Faces(headPlan()).collisions.map((g) => String(g.key))
-        for (const k of realKeys)
-          assert.ok(keys.includes(k), `摘掉${name}后真仓 ${k} 必须重新成组(它今天不成组 = 这一型确实被归一收住了)`)
+      if (planted) {
+        // 同一份真仓字节跑 A/B:生产尺子看不见这一型(证明夹具是**假阳性对照**),
+        // 摘掉这一档就重新看见(证明判据有牙)。两头都不依赖台账此刻欠多少账。
+        const face = plantOnHead(planted.plant)
+        const prodKeys = f9Faces(face).collisions.map((g) => String(g.key))
+        assert.ok(
+          !prodKeys.includes(planted.key),
+          `种进真仓面的这一型在生产尺子上已经成组 ⇒ 它不是假阳性对照,摘掉${name}什么也证明不了,实测 ${JSON.stringify(prodKeys)}`,
+        )
+        const mutKeys = mod.f9Faces(face).collisions.map((g) => String(g.key))
+        assert.ok(
+          mutKeys.includes(planted.key),
+          `摘掉${name}后,种在真仓字节上的这一型必须重新成组(3 MB 实际取材面上),生产面 ${JSON.stringify(prodKeys)} / 变异面 ${JSON.stringify(mutKeys)}`,
+        )
       }
     } finally {
       rmScratch(dir)

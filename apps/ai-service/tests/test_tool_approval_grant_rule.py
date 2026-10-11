@@ -75,8 +75,8 @@ async def test_非run_command的grant_rule不落规则(loop):
 
 
 async def test_同前缀下一次免弹窗_不同前缀仍弹(loop):
-    from app.services import approval_persistence as ap
     from app.routers import llm as llm_mod
+    from app.services import approval_persistence as ap
 
     sid, aid = "s-g5", "a-g5"
     loop._approval_sessions[sid] = {

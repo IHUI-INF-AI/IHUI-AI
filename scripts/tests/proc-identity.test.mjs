@@ -339,6 +339,138 @@ test('缓存只服务真测:注入的假 run 不得共享缓存(否则测试读�
   P.clearCache()
 })
 
+// ═════════ 一之二、探针可用性分档(L11519:三态之上加"永久/瞬态/未判定"一维) ═════════
+
+/**
+ * 失败形态夹具 —— 每一档都照**真实 errno 形状**造(不是只给个 code 字符串):
+ *  - spawn 层失败实测带 `syscall:'spawnSync <bin>'` + `path:<bin>`(本仓 win32 实证);
+ *  - procfs 层失败带 `syscall:'open'` + `path:'/proc/<pid>/stat'`;
+ *  - 非零退出带 `status`(数字)与 stderr 文本;超时带 `killed:true` + `signal`。
+ * 层认不出来就归不了档 ⇒ 落"未判定",所以夹具必须把层造出来。
+ */
+const spawnErr = (code, bin = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe') =>
+  Object.assign(new Error(`spawnSync ${bin} ${code}`), {
+    code,
+    errno: -4058,
+    syscall: `spawnSync ${bin}`,
+    path: bin,
+  })
+const procfsErr = (code, pid = 4242) =>
+  Object.assign(new Error(`${code}: no such file or directory, open '/proc/${pid}/stat'`), {
+    code,
+    syscall: 'open',
+    path: `/proc/${pid}/stat`,
+  })
+// 非零退出:execFileSync 的 message 实测把 stderr 也带在后面,所以文本分档读得到它
+const exitErr = (status, stderr) =>
+  Object.assign(new Error(`Command failed: powershell.exe\n${stderr}`), { status, stderr, signal: null })
+const timeoutErr = () => Object.assign(new Error('Command timed out'), { killed: true, signal: 'SIGTERM' })
+
+/** 注入某种失败形态跑一次秒级档现测(不派生任何进程)。 */
+const probeFail = (err) => P.processStartEpoch(9001, { run: () => { throw err } })
+
+test('可用性分档:每一档按 errno/失败形态归类正确(永久/瞬态/未判定)', () => {
+  const { PERMANENT: PERM, TRANSIENT: TRAN, UNKNOWN: UNK } = P.PROBE_AVAILABILITY
+  for (const [name, err, wantAvail, wantScope] of [
+    ['PowerShell 不在 PATH(spawn ENOENT)', spawnErr('ENOENT'), PERM, 'engine'],
+    ['引擎被 WDAC 拦(spawn EPERM)', spawnErr('EPERM'), PERM, 'engine'],
+    ['引擎无权执行(spawn EACCES)', spawnErr('EACCES'), PERM, 'engine'],
+    ['执行策略禁脚本(非零退出 + 文本)', exitErr(1, 'File cannot be loaded because the execution of scripts is disabled'), PERM, 'engine'],
+    ['探针超时(killed+SIGTERM)', timeoutErr(), TRAN, 'sample'],
+    ['进程恰好退出(非零退出 + no such process)', exitErr(1, 'Get-CimInstance : no such process'), TRAN, 'sample'],
+    ['进程恰好退出(procfs ENOENT)', procfsErr('ENOENT'), TRAN, 'sample'],
+    ['无权读该 pid 的 procfs(EACCES)', procfsErr('EACCES'), PERM, 'sample'],
+    ['spawn EBUSY(本机实证:errno 不区分)', Object.assign(new Error('spawnSync pwsh EBUSY'), { code: 'EBUSY', errno: -4082, syscall: 'spawnSync pwsh.exe' }), UNK, 'unknown'],
+    ['裸 Error(无 code 无 status)', new Error('夹具:PowerShell 不可达'), UNK, 'unknown'],
+    ['非零退出但文本两不像', exitErr(7, 'something odd happened'), UNK, 'unknown'],
+  ]) {
+    const r = probeFail(err)
+    assert.equal(r.epoch, null, `${name}:失败档不得出值`)
+    assert.equal(r.availability, wantAvail, `${name}:实得 ${r.availability}/${r.scope} — ${r.probeWhy}`)
+    assert.equal(r.scope, wantScope, `${name}:scope 实得 ${r.scope} — ${r.probeWhy}`)
+    // retryable 是"调用方能不能读到"的布尔出口,必须跟着档位走,不许各写一遍
+    assert.equal(r.retryable, wantAvail === TRAN, `${name}:retryable 与档位不一致(${r.availability}/${r.retryable})`)
+    // 未判定档必须**点名**原始形态(不许只写"未判定")
+    if (wantAvail === UNK) assert.match(r.probeWhy, /未判定/)
+  }
+  // 量到了 ⇒ available(没有失败要归)
+  const ok = P.processStartEpoch(9002, { run: fakeRun(SELF_START) })
+  assert.equal(ok.availability, P.PROBE_AVAILABILITY.AVAILABLE)
+})
+
+test('分档依据要可判:同一个 ENOENT 在 engine 层与 procfs 层必须分出两档(不许只认 code)', () => {
+  // 这条是"分档依据"的牙:只看 code 的实现会把这两种 ENOENT 归成一档,必然翻红。
+  const engine = P.classifyProbeFailure(spawnErr('ENOENT'))
+  const procfs = P.classifyProbeFailure(procfsErr('ENOENT', 4242))
+  assert.equal(engine.availability, P.PROBE_AVAILABILITY.PERMANENT, '引擎不在 ⇒ 硬不可用')
+  assert.equal(procfs.availability, P.PROBE_AVAILABILITY.TRANSIENT, '/proc 条目没了 ⇒ 进程恰好退出')
+  // 层认不出来(裸 errno,没 syscall/path)⇒ 不许猜,落未判定并点名
+  const bare = P.classifyProbeFailure(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }))
+  assert.equal(bare.availability, P.PROBE_AVAILABILITY.UNKNOWN, `层都认不出来还敢判档:${bare.why}`)
+  assert.match(bare.why, /未判定/)
+  assert.equal(bare.scope, 'unknown')
+})
+
+test('能力位出口:外部可读写"是否硬不可用";注入的夹具不得污染它', () => {
+  P.resetProbeCapability()
+  try {
+    assert.equal(P.isProbeHardUnavailable(), false)
+    assert.deepEqual(P.probeCapability(), { hardUnavailable: false, at: null, why: null })
+    // 注入的桩撞上 permanent+engine 也不闩位:夹具是假失败,不该让"真机"背上能力位
+    probeFail(spawnErr('ENOENT'))
+    assert.equal(P.isProbeHardUnavailable(), false, '测试夹具把能力位闩上了 ⇒ 真机永远不再问')
+    // 显式记账 ⇒ 读得回来(调用方的"别再重试"出口)
+    const bit = P.noteProbeHardUnavailable('夹具:本机没有可用 PowerShell 引擎')
+    assert.equal(bit.hardUnavailable, true)
+    assert.equal(P.isProbeHardUnavailable(), true)
+    assert.match(P.probeCapability().why, /没有可用 PowerShell/)
+    // 同档能力的**结果**字段也必须读得到(不是只有模块级布尔)
+    const r = probeFail(spawnErr('ENOENT'))
+    assert.equal(r.availability, P.PROBE_AVAILABILITY.PERMANENT)
+    assert.equal(r.retryable, false)
+  } finally {
+    P.resetProbeCapability()
+    assert.equal(P.isProbeHardUnavailable(), false, '复位没生效 ⇒ 下一条用例会读到别人的能力位')
+  }
+})
+
+test('反向锁:加了一维之后三种失败原因**仍各自可辨**(三态不得收窄)', () => {
+  const meta = { pid: 1234, pidStart: SELF_START, host: '本机' }
+  const ask = (err) => P.verifyHolder(meta, { host: '本机', run: () => { throw err } })
+  const gone = ask(exitErr(1, 'Get-CimInstance : no such process')) // 进程不存在
+  const denied = ask(spawnErr('EPERM')) // 无权限(WDAC 拦截)
+  const noPs = ask(spawnErr('ENOENT')) // PowerShell 不在 PATH
+  // ① 三态本身一条没改:三种原因**全**落 unverifiable,没有一个被折成 match/mismatch
+  for (const [name, v] of [['进程不存在', gone], ['无权限', denied], ['PowerShell 不在', noPs]]) {
+    assert.equal(v.kind, 'unverifiable', `${name} 被折成了 ${v.kind} ⇒ 三态被收窄`)
+  }
+  // ② 三种原因仍然各自点名(不得合并成一句"取不到")
+  assert.equal(new Set([gone.why, denied.why, noPs.why]).size, 3, `${[gone.why, denied.why, noPs.why]}`)
+  assert.match(gone.why, /process|进程/)
+  assert.match(denied.why, /EPERM/)
+  assert.match(noPs.why, /ENOENT/)
+  // ③ 新加的一维把"要不要重试"分开了:进程退出 ⇒ 瞬态,另两种 ⇒ 永久
+  assert.equal(gone.availability, P.PROBE_AVAILABILITY.TRANSIENT, gone.probeWhy)
+  assert.equal(denied.availability, P.PROBE_AVAILABILITY.PERMANENT, denied.probeWhy)
+  assert.equal(noPs.availability, P.PROBE_AVAILABILITY.PERMANENT, noPs.probeWhy)
+  assert.equal(gone.retryable, true)
+  assert.equal(denied.retryable, false)
+  assert.equal(noPs.retryable, false)
+})
+
+test('未判定档不许猜:输出噪音 / 裸报错 ⇒ unknown 且点名,不冒充硬不可用', () => {
+  // 引擎跑完了却解不出时间戳:既不是"引擎不在"也不是"进程退出"的确证
+  const noise = P.processStartEpoch(9003, { run: () => 'Get-CimInstance : no such process' })
+  assert.equal(noise.epoch, null)
+  assert.equal(noise.availability, P.PROBE_AVAILABILITY.UNKNOWN, `有输出但解不出值 ⇒ 不得判档:${noise.probeWhy}`)
+  assert.match(noise.probeWhy, /未判定/)
+  assert.equal(noise.retryable, false, '未判定档不授权重试(少派生一次的方向)')
+  // 三态仍然不受影响
+  const v = P.verifyHolder({ pid: 1234, pidStart: SELF_START }, { run: () => 'no such process' })
+  assert.equal(v.kind, 'unverifiable')
+  assert.equal(v.availability, P.PROBE_AVAILABILITY.UNKNOWN)
+})
+
 // ═════════════ 二、git-lock 接线:判定 + 端到端(夹具目录 + 假 run) ═════════════
 
 test('git-lock·写侧 writeMeta 落 host + pidStart,且量不到时退回旧形态', () => {

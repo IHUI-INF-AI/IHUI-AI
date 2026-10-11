@@ -33,6 +33,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join, resolve } from 'node:path'
+import { parseGrepRow } from './lib/git-grep-rows.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -68,9 +69,11 @@ function readFace() {
   const perFile = new Map() // file -> Array<{line, text}>
   for (const row of (r.stdout || '').split('\n')) {
     if (!row) continue
-    const m = row.match(/^HEAD:([^:]+):(\d+):(.*)$/)
-    if (!m) continue
-    const [, file, line, text] = m
+    // 行格式解析只有一份(scripts/lib/git-grep-rows.mjs)—— 与镜像测试
+    // clamp-percent-single-source.test.mjs 曾各写一遍同一拆解,守门 191 报的那对复制即此。
+    const parsed = parseGrepRow(row, 'HEAD')
+    if (!parsed) continue
+    const { path: file, line, text } = parsed
     if (!perFile.has(file)) perFile.set(file, [])
     perFile.get(file).push({ line: Number(line), text })
   }
@@ -271,5 +274,21 @@ function selfTestRun(asJson) {
   if (asJson) console.log(JSON.stringify({ fail }))
 }
 
-main()
+// §22d 双形态入口守卫:此前顶层裸 `main()`,任何测试 import 本文件都会把 CLI 主流程跑一遍
+// (G-1058651 那族缺陷在本门的最后一条存量)。`main()` 用 `process.exitCode` 赋值表达退出码而非 return,
+// 所以这里不能写成 `process.exit(main())` —— 那会把 1 折成 0。
+import { pathToFileURL } from 'node:url'
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  try {
+    main()
+  } catch (e) {
+    console.error(`❌ 脚本自身异常(exit 2): ${e?.message ?? e}\n${e?.stack ?? ''}`)
+    process.exit(2)
+  }
+}
+
+export const __test__ = { judgeLine }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
