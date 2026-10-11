@@ -12574,3 +12574,77 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - [ ] P1 **返回键同一型跨端清账(本票的直接续作)**:① `packages/app/src/features/**` 与两个共享 `NavBar` / `PayResultScreen` 的 ‹;② `apps/mobile-rn/src/screens/**` 及其端内 `NavBar`(RN 侧写法是 `lucide-react-native ChevronLeft`,端内 `apps/mobile-rn/src/screens/AboutScreen.tsx` 已有现成范例);③ `apps/extension` 那处「字符箭头 + 文字」双写(属 102 的 GA1 族而非 GA4)。做法与本票同:先复用该端既有矢量出口,再按文件收编,顺带删各自失效的样式工厂。**存量数字一律按上面那条命令现取,勿照任何文档里的历史数派单。** GA4 棘轮已把这些位置钉成"不得再加",但棘轮不会自动变小 —— 存量清零前,GA4 在这三端始终只是"没恶化",不是"已合规"。 【2026-09-28 清账注记(枚 140c783c3)】现取存量(按 GA4 判据剥 back-label-exempt 后实跑 auditFile):packages/app **45 处/42 文件**(features 错误/空态文字返回 41 + Selecter 字面量 1 + MessageInput 双写 1 + 翻页文字按钮 2;历史数 223/168 已失真)、mobile-rn **1 处/1 文件**(ModelConfigDialog 双写;screens 与端内 NavBar 实测已矢量,`‹`/`←` 存量 0)、extension **1 处/1 文件**(AgentPage 矢量+文字双写)⇒ 三端 47 处**全部收编矢量出口清零**(原可点容器内换 lucide ChevronLeft + accessibilityLabel/aria-label,删失效样式工厂与豁免标记;PayResultScreen 实测已是 BackChevron 无存量;共享 NavBar.tsx 为他人未跟踪在飞件,未动未计)。GA4 复跑:三端违规 0、行内豁免 59→12(余 12 属 miniapp/web 非本票范围)、盲区 0、门自检 104/104;packages/app tsc 0 错/vitest 17 全过,extension tsc 0 错/292 全过,mobile-rn 仅他人在飞未跟踪测试(chat-disclosure-tier-approval.test.tsx)红与本票无关。派单时 packages/app 存量 42 文件 >30,按票规保持未勾;实际剩余存量=0,复核 GA4 读数后即可翻勾。】 〔【归并】重复登记副本(2026-10-01):逐字相同的另一条登记(与本行正文逐字相同,可按正文检索),派单以那条为准,本行不再单独派单。〕
 - [ ] P1 **返回键同一型跨端清账(本票的直接续作)**:① `packages/app/src/features/**` 与两个共享 `NavBar` / `PayResultScreen` 的 ‹;② `apps/mobile-rn/src/screens/**` 及其端内 `NavBar`(RN 侧写法是 `lucide-react-native ChevronLeft`,端内 `apps/mobile-rn/src/screens/AboutScreen.tsx` 已有现成范例);③ `apps/extension` 那处「字符箭头 + 文字」双写(属 102 的 GA1 族而非 GA4)。做法与本票同:先复用该端既有矢量出口,再按文件收编,顺带删各自失效的样式工厂。**存量数字一律按上面那条命令现取,勿照任何文档里的历史数派单。** GA4 棘轮已把这些位置钉成"不得再加",但棘轮不会自动变小 —— 存量清零前,GA4 在这三端始终只是"没恶化",不是"已合规"。 【2026-09-28 清账注记(枚 140c783c3)】现取存量(按 GA4 判据剥 back-label-exempt 后实跑 auditFile):packages/app **45 处/42 文件**(features 错误/空态文字返回 41 + Selecter 字面量 1 + MessageInput 双写 1 + 翻页文字按钮 2;历史数 223/168 已失真)、mobile-rn **1 处/1 文件**(ModelConfigDialog 双写;screens 与端内 NavBar 实测已矢量,`‹`/`←` 存量 0)、extension **1 处/1 文件**(AgentPage 矢量+文字双写)⇒ 三端 47 处**全部收编矢量出口清零**(原可点容器内换 lucide ChevronLeft + accessibilityLabel/aria-label,删失效样式工厂与豁免标记;PayResultScreen 实测已是 BackChevron 无存量;共享 NavBar.tsx 为他人未跟踪在飞件,未动未计)。GA4 复跑:三端违规 0、行内豁免 59→12(余 12 属 miniapp/web 非本票范围)、盲区 0、门自检 104/104;packages/app tsc 0 错/vitest 17 全过,extension tsc 0 错/292 全过,mobile-rn 仅他人在飞未跟踪测试(chat-disclosure-tier-approval.test.tsx)红与本票无关。派单时 packages/app 存量 42 文件 >30,按票规保持未勾;实际剩余存量=0,复核 GA4 读数后即可翻勾。】
 - [ ] G-1113920 **App 常驻「网络已断开,部分功能不可用」横幅与设备实际连通性矛盾(2026-10-10/11 两次真机撞见,值守会话现读)** —— 同屏证据:`adb shell ping -c 2 aizhs.top` 回 **2 packets transmitted, 2 received, 0% packet loss**(RTT 408–505ms),`dumpsys connectivity` 两条 NetworkAgentInfo(WIFI + MOBILE[NR])均带 `VALIDATED` 且 `NOT_SUSPENDED`,而 App 顶部横幅一路亮红常驻,首页与广场两屏都拍到。**它在等什么**:等一次源码级定位 —— 先答"在线判据探的是哪个目标、超时/失败阈值多少、是否把'探测目标不可达'与'设备无网'并成同一结论",再判该不该改成 fail-visible 的分级提示(慢网 ≠ 断网)。属**等环境条件之外的独立一格**:与顶栏 chrome 票同屏撞见但不同因,不得并档。**为什么现在只登记不顺手改**:横幅文案与判据同族改动会牵动四端离线提示语义,而本轮真机时间窗已用于顶栏取证。
+<!-- 已归档(2026-10-11:✅(2026-10-10) 双端功能矩阵维护(2026-08-26 立,跨端:apps/web + apps/mobil,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **`CourseScreen:113` 那格盲区的精确成因(不再是"未知失配"),以及为什,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-815427 **收敛落地闸声明的 F1 出口本轮没被自动归并消费(`plan-task,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-396 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-426 子代理超时是墙钟而非"无活动"，仍在推进的慢子代理会被杀（等人拍板）—— 上游 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-327 **G-284 的尺子已入库并注册为 warn,但它自己那 4 条未勾行正文互不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-326 **F6 漂移块的逐块裁决已做完,执行(摘短份)另计一票 —— 结论写在行内,不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-624 **把两条共享 `idParamSchema` 收紧成 UUID 校验:216 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-787 crew 会话与备份作业的 status 写**没有 DB 级终态守卫**,迟到,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **`CourseScreen:113` 那格盲区的精确成因(不再是"未知失配"),以及为什,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **G-392. `scripts/cleanup-external-junk.ps1` 的,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **P1-① 扩共享层首批 —— 票面前提已被实测否证,剩余只有 4 件(在等:逐件判定谁在,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) 副本指针(编号 P1-①):本行折叠自旧形态行 **P1-① 扩共享层首批(在等:逐屏清单裁,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-978066 **D136 RN 端工具审批：代码与测试已交付并复验通过，但因同文件被他,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-1018190 21 个 IHUI 服务**全部没有 SCM 恢复动作**(现读 `Fa,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **`CourseScreen:113` 那格盲区的精确成因(不再是"未知失配"),以及为什,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **O59⑤ D48 的验收在盘上仍不成立(本票实测,交持有桌面端运行条件的人)**:加密层,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-815400 **取号令牌在两台机器上会发出同一个号 —— 本轮只用"预留号段"止血,机,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-815912 **差分归因对"判远端态"的门会把基线面跑成假绿,于是每次真分叉期间的提交,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-916939 **所谓"异地容灾"此刻不成立:备份的"异地"副本与源在同一块物理盘上,而,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **G-1105300 Path/PATH 站点接线:归一之后还必须在返回对象上显式赋值一次,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **G-1080881 `bab33e6f5b`(G-1079155 仓库垃圾清理,578 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **P1-① 扩共享层首批 —— 票面前提已被实测否证,剩余只有 4 件(在等:逐件判定谁在,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **P1-① 扩共享层首批 —— 票面前提已被实测否证,剩余只有 4 件(在等:逐件判定谁在,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-585 **归档件"人工归并出口"没有防重复的那一半:用 `git merge-file,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **本轮未落地、需重做的一批(web 86 处内的键名对齐)**:该批次报告改了 4 个文件,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10)（进行中） **D17(生态统一入口)页面已写完但缺语言包,按住**:`apps/web/ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10)G-426 子代理超时是墙钟而非"无活动"，仍在推进的慢子代理会被杀（等人拍板）—— 上游 `,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-09)G-326 **F6 漂移块的逐块裁决已做完,执行(摘短份)另计一票 —— 结论写在行内,不依,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-09)**G-816103 尺子②的两条在账欠口(承 D140 落地,等环境条件)。** ① **未,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) RN / miniapp 未消费 `tailPreview`(§9 跨端同步);本次补译的 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10)**G-937950 D162 的成套改动已备好、但刻意不单独落地(等五份 web 语言包同时,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-09) G-1058523 **门 130 的 F9 撞号基线在 HEAD 面判红 ⇒ 全队每次提交,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-1058606 **守门 52 打印"判定面:HEAD blob",却把**未跟踪文件*,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-09) G-815912 **差分归因对"判远端态"的门会把基线面跑成假绿,于是每次真分叉期间的提交,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **G-1105300 Path/PATH 站点接线:归一之后还必须在返回对象上显式赋值一次,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-09) **G-1080881 `bab33e6f5b`(G-1079155 仓库垃圾清理,578 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:G-1105311 **门 35(mypy --strict)在 HEAD 面的现读已换成另一副样子(原票面那 4 处不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-1104168 **agent 会话快照的「中断痕迹」展示面(自 G-815969 残余,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) 双端功能矩阵维护(2026-08-26 立,跨端:apps/web + apps/mobil,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:**阻塞主体(需用户操作,非本会话代码可解)**:`git push` 被 GitHub push protection,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **C 组刻意没动,待用户定性**:`C:\ai_zhs\cert\*.pem`(5 个,每,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-326 **F6 漂移块的逐块裁决已做完,执行(摘短份)另计一票 —— 结论写在行内,不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **G-392. `scripts/cleanup-external-junk.ps1` 的,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-396 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-426 子代理超时是墙钟而非"无活动"，仍在推进的慢子代理会被杀（等人拍板）—— 上游 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-326 **F6 漂移块的逐块裁决已做完,执行(摘短份)另计一票 —— 结论写在行内,不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-585 **归档件"人工归并出口"没有防重复的那一半:用 `git merge-file,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-787 crew 会话与备份作业的 status 写**没有 DB 级终态守卫**,迟到,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-765 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-396 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-426 子代理超时是墙钟而非"无活动"，仍在推进的慢子代理会被杀（等人拍板）—— 上游 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-327 **G-284 的尺子已入库并注册为 warn,但它自己那 4 条未勾行正文互不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-326 **F6 漂移块的逐块裁决已做完,执行(摘短份)另计一票 —— 结论写在行内,不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-585 **归档件"人工归并出口"没有防重复的那一半:用 `git merge-file,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-765 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-815427 **收敛落地闸声明的 F1 出口本轮没被自动归并消费(`plan-task,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-326 **F6 漂移块的逐块裁决已做完,执行(摘短份)另计一票 —— 结论写在行内,不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-765 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-815964 **长任务提交要有全局作业注册表:按 jobId 取、按 jobId 丢,,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-815974 **陈旧性不能只在入队时判,必须在"持久化与注入 provider 之前",完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-624 **把两条共享 `idParamSchema` 收紧成 UUID 校验:216 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-624 **把两条共享 `idParamSchema` 收紧成 UUID 校验:216 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **门 35(mypy,blocking)此刻对 HEAD 内容就是红的**:一轮 `myp,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-357 **非会话 401 被当成会话死亡(需拍板,会改用户可见语义)** —— `ap,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) G-755 【等人工拍板 · 整档批量删行】把 `--dedupe-open-rows` 量,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-10) **并档那一格(在等:全端观感裁决,不是本票漏改)**:`outline` / `ghost,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:G-1080885 **字体跨端重复：AlimamaFangYuanTiVF-Thin.ttf 7.4MB 在 mobi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
+<!-- 已归档(2026-10-11:✅(2026-10-09) G-815400 **取号令牌在两台机器上会发出同一个号 —— 本轮只用"预留号段"止血,机,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-11_auto-archive.md -->
