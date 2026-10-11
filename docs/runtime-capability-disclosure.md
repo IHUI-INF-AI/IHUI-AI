@@ -592,12 +592,12 @@ ai-gateway.vercel.sh          api.ainative.studio        api.cerebras.ai
 api.cloudflare.com            api.cohere.ai              api.deepseek.com
 api.inference.net             api.mistral.ai             api.nlpcloud.io
 api.reka.ai                   api.routeway.ai            api.scaleway.ai
-api.x5m5x.com                 api.xiaomimimo.com         apihub.agnes-ai.com
+new.x5m5x.com                api.xiaomimimo.com         apihub.agnes-ai.com
 bailian-intl.alibabacloud.com bazaarlink.ai              dashscope.aliyuncs.com
 generativelanguage.googleapis.com                        integrate.api.nvidia.com
 k.token6688.com               modal.com                  models.inference.ai.azure.com
 open.bigmodel.cn              opencode.ai                pnywsahxhac1qjbo.us-east-2.aws.endpoints.huggingface.cloud
-router.huggingface.co         us-api.x5m5x.com           aizhs.top
+router.huggingface.co         us-new.x5m5x.com          aizhs.top
 ```
 
 实际启用哪些由 `LLM_PROVIDERS(_JSON)` 环境变量决定（`apps/ai-service/app/core/config.py`），

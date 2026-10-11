@@ -19,7 +19,7 @@ export * from './stream-error'
 export * from './permission-tier'
 // D79 等待态文案池(分象限×分阶段轮换,seed 取模确定性,跨端共用)
 export * from './waiting-pool'
-// D55 步骤决策词汇表(15 个后端字面量的唯一映射,跨端共用;认不出不编造)
+// D55 步骤决策词汇表(19 个后端字面量的唯一映射,跨端共用;认不出不编造)
 export * from './step-decision'
 // D36 会话内输入历史栈(纯逻辑:push/去重/50 上限/游标导航;平台无关,web 接线在 use-prompt-history)
 export * from './prompt-history'

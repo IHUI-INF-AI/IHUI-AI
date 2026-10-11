@@ -25,42 +25,42 @@ const longCmd = isWindows ? 'cmd /c ping -n 10 127.0.0.1' : "sh -c 'sleep 10'";
 const medCmd = isWindows ? 'cmd /c ping -n 4 127.0.0.1' : "sh -c 'sleep 3'";
 
 describe('runSessionStartHooks', () => {
-  it('config 为 null 时返回 proceed=true 且无 reason', () => {
-    const result = runSessionStartHooks(null, { workspacePath: '/tmp' });
+  it('config 为 null 时返回 proceed=true 且无 reason', async () => {
+    const result = await runSessionStartHooks(null, { workspacePath: '/tmp' });
     expect(result.proceed).toBe(true);
     expect(result.reason).toBeUndefined();
   });
 
-  it('config.sessionStart 为空数组时返回 proceed=true', () => {
+  it('config.sessionStart 为空数组时返回 proceed=true', async () => {
     const config: HooksConfig = { sessionStart: [] };
-    const result = runSessionStartHooks(config, { workspacePath: '/tmp' });
+    const result = await runSessionStartHooks(config, { workspacePath: '/tmp' });
     expect(result.proceed).toBe(true);
   });
 
-  it('config.sessionStart 为 undefined 时返回 proceed=true', () => {
+  it('config.sessionStart 为 undefined 时返回 proceed=true', async () => {
     const config: HooksConfig = { preToolCall: [] };
-    const result = runSessionStartHooks(config, { workspacePath: '/tmp' });
+    const result = await runSessionStartHooks(config, { workspacePath: '/tmp' });
     expect(result.proceed).toBe(true);
   });
 
-  it('单个 hook 成功(command 退出 0)时返回 proceed=true', () => {
+  it('单个 hook 成功(command 退出 0)时返回 proceed=true', async () => {
     const config: HooksConfig = {
       sessionStart: [{ name: 'ok', command: exit0 }],
     };
-    const result = runSessionStartHooks(config, { workspacePath: '/tmp' });
+    const result = await runSessionStartHooks(config, { workspacePath: '/tmp' });
     expect(result.proceed).toBe(true);
   });
 
-  it('单个 hook 失败(command 退出非 0)时返回 proceed=false 且 reason 含钩子名', () => {
+  it('单个 hook 失败(command 退出非 0)时返回 proceed=false 且 reason 含钩子名', async () => {
     const config: HooksConfig = {
       sessionStart: [{ name: 'fail-hook', command: exit1 }],
     };
-    const result = runSessionStartHooks(config, { workspacePath: '/tmp' });
+    const result = await runSessionStartHooks(config, { workspacePath: '/tmp' });
     expect(result.proceed).toBe(false);
     expect(result.reason).toContain('fail-hook');
   });
 
-  it('多个 hook 第一个失败时不执行第二个', () => {
+  it('多个 hook 第一个失败时不执行第二个', async () => {
     const config: HooksConfig = {
       sessionStart: [
         { name: 'first-fail', command: exit1 },
@@ -68,7 +68,7 @@ describe('runSessionStartHooks', () => {
       ],
     };
     const start = Date.now();
-    const result = runSessionStartHooks(config, { workspacePath: '/tmp' });
+    const result = await runSessionStartHooks(config, { workspacePath: '/tmp' });
     const elapsed = Date.now() - start;
     expect(result.proceed).toBe(false);
     expect(result.reason).toContain('first-fail');
@@ -77,23 +77,23 @@ describe('runSessionStartHooks', () => {
     expect(elapsed).toBeLessThan(10_000);
   });
 
-  it('多个 hook 全部成功时返回 proceed=true', () => {
+  it('多个 hook 全部成功时返回 proceed=true', async () => {
     const config: HooksConfig = {
       sessionStart: [
         { name: 'ok1', command: exit0 },
         { name: 'ok2', command: exit0 },
       ],
     };
-    const result = runSessionStartHooks(config, { workspacePath: '/tmp' });
+    const result = await runSessionStartHooks(config, { workspacePath: '/tmp' });
     expect(result.proceed).toBe(true);
   });
 
-  it('HookEntry 含 timeout 字段时正确传递(超时杀掉长命令)', () => {
+  it('HookEntry 含 timeout 字段时正确传递(超时杀掉长命令)', async () => {
     const config: HooksConfig = {
       sessionStart: [{ name: 'slow', command: longCmd, timeout: 300 }],
     };
     const start = Date.now();
-    const result = runSessionStartHooks(config, { workspacePath: '/tmp' });
+    const result = await runSessionStartHooks(config, { workspacePath: '/tmp' });
     const elapsed = Date.now() - start;
     expect(result.proceed).toBe(false);
     expect(elapsed).toBeGreaterThanOrEqual(250);
@@ -102,18 +102,18 @@ describe('runSessionStartHooks', () => {
 });
 
 describe('runSessionEndHooks', () => {
-  it('config 为 null 时不报错', () => {
-    expect(() => runSessionEndHooks(null, { workspacePath: '/tmp' })).not.toThrow();
+  it('config 为 null 时不报错', async () => {
+    await runSessionEndHooks(null, { workspacePath: '/tmp' });
   });
 
-  it('单个 hook 失败时不抛出异常(sessionEnd 失败不阻塞退出)', () => {
+  it('单个 hook 失败时不抛出异常(sessionEnd 失败不阻塞退出)', async () => {
     const config: HooksConfig = {
       sessionEnd: [{ name: 'fail', command: exit1 }],
     };
-    expect(() => runSessionEndHooks(config, { workspacePath: '/tmp' })).not.toThrow();
+    await runSessionEndHooks(config, { workspacePath: '/tmp' });
   });
 
-  it('多个 hook 全部失败时不抛出异常', () => {
+  it('多个 hook 全部失败时不抛出异常', async () => {
     const config: HooksConfig = {
       sessionEnd: [
         { name: 'fail1', command: exit1 },
@@ -121,7 +121,7 @@ describe('runSessionEndHooks', () => {
         { name: 'fail3', command: 'nonexistent-command-xyz-12345' },
       ],
     };
-    expect(() => runSessionEndHooks(config, { workspacePath: '/tmp' })).not.toThrow();
+    await runSessionEndHooks(config, { workspacePath: '/tmp' });
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

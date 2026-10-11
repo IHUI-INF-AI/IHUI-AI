@@ -436,6 +436,28 @@ export function buildProcessListScript() {
   ].join('\n')
 }
 
+/**
+ * 执行面形状锁:`buildProcessListScript()` 产出的脚本必须真的写下这三段
+ * (取启动时刻的 ticks / SV 行的第 4 段 / SVSUM 汇总)。
+ *
+ * §22c:这张表同时喂本门自检(RF-10)与镜像测试(RF-4)—— 形状在两处各写一遍,
+ * 生成器改口径而其中一处照绿就是假绿(新鲜度维静默归零那一型)。
+ */
+export const PROC_SCRIPT_SHAPE_FORMS = [
+  {
+    re: /\$tk = \[string\]\$pr\.StartTime\.ToUniversalTime\(\)\.Ticks/,
+    why: '不再取 StartTime ⇒ 启动时刻整维没采',
+  },
+  {
+    re: /'SV\|' \+ \$s\.Name \+ '\|' \+ \[string\]\$s\.ProcessId \+ '\|' \+ \$tk/,
+    why: 'SV 行退回三段 ⇒ 既有测试仍绿而新鲜度维已经瞎了',
+  },
+  {
+    re: /Write-Output \('SVSUM\|' \+ \$svStart\)/,
+    why: '没有 SVSUM ⇒ 采集覆盖面无从自证(0 条会被读成 0 个 stale)',
+  },
+]
+
 /** 该通道的折叠:哨兵/计数行不齐 ⇒ unmeasured;行解不出 ⇒ 进 unparsed 并汇进未判定(不静默丢)。 */
 export function interpretProcessList(text) {
   const lines = String(text ?? '').replace(/\r\n/g, '\n').split('\n')
@@ -1526,9 +1548,8 @@ function selfTest(opts) {
   })())
   ok('RF-10 生成器真把第 4 段与 SVSUM 写进了执行面(形状锁:退回三段 ⇒ 本维静默归零,必须能被发现)', (() => {
     const ps = buildProcessListScript()
-    return /\$tk = \[string\]\$pr\.StartTime\.ToUniversalTime\(\)\.Ticks/.test(ps) &&
-      /'SV\|' \+ \$s\.Name \+ '\|' \+ \[string\]\$s\.ProcessId \+ '\|' \+ \$tk/.test(ps) &&
-      /Write-Output \('SVSUM\|' \+ \$svStart\)/.test(ps)
+    // 形状表只有一份(见模块顶部 PROC_SCRIPT_SHAPE_FORMS);镜像测试 RF-4 引的就是这张
+    return PROC_SCRIPT_SHAPE_FORMS.length >= 3 && PROC_SCRIPT_SHAPE_FORMS.every(({ re }) => re.test(ps))
   })())
 
   ok('S2c 多值参数保留全部行:OLLAMA 型(port 在第 2 行)不得被读成"没声明";反向对照单行值不受影响', (() => {
@@ -1918,6 +1939,7 @@ export const __test__ = {
   parseRegistryOutput, compileFilter, pickPowerShell, resolveApplication, resolveNssmManaged,
   resolvePorts, existenceOf, judgeService, computeExitCode, parseArgs, renderText, main, selfTest,
   interpretNetstatListening, splitHostPort, buildProcessListScript, interpretProcessList, buildProcessTree,
+  PROC_SCRIPT_SHAPE_FORMS,
   attributeListening, probeHostForBind, buildProbeTargets, foldProbeOutcome, computeObservedListening,
   ticksToMs, resolveLoadedScript, judgeRuntimeFreshness, TICKS_EPOCH_DIFF_MS,
   ENUM_HEAD, ENUM_TAIL, PROC_HEAD, PROC_TAIL, REG_NO_PARAMS, REG_ENCODE_ERROR, PS_CANDIDATES, NSSM_CANDIDATES,

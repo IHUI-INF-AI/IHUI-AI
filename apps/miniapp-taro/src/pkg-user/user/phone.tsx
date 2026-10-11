@@ -4,8 +4,9 @@
 
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text } from '@tarojs/components'
-import { FocusInput } from '@/components/FocusField'
+import { View, Text, Input } from '@tarojs/components'
+// 描边画在外层输入盒上 ⇒ 走 hook 文档的 WRAP 形态②:handlers 留 Input、focusStyle 铺容器。
+import { useFieldFocus } from '@/hooks/use-field-focus'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef, useCallback } from 'react'
 import { getProfile, sendSmsCode, bindPhone, pwdExist } from '@/api'
@@ -23,6 +24,10 @@ export default function Phone() {
   const [newCode, setNewCode] = useState('')
   const [newCountdown, setNewCountdown] = useState(0)
   const [submitting, setSubmitting] = useState(false)
+  // 三个输入盒各自的运行时聚焦档(描边都在盒子上,不在 Input 上)
+  const ffOldCode = useFieldFocus()
+  const ffNewPhone = useFieldFocus()
+  const ffNewCode = useFieldFocus()
   const oldTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const newTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -183,9 +188,13 @@ export default function Phone() {
               {tt('user.phone.currentLabel', '当前手机号')}: {maskedPhone}
             </Text>
             <View className="mb-[32rpx]">
-              <View className="box-border flex h-[100rpx] items-center rounded-xl border border-[var(--color-border)] bg-muted px-[24rpx]">
-                <FocusInput
+              <View
+                className="box-border flex h-[100rpx] items-center rounded-xl border border-[var(--color-border)] bg-muted px-[24rpx]"
+                style={ffOldCode.focusStyle}
+              >
+                <Input
                   className="h-full flex-1 text-[length:32rpx] text-foreground"
+                  {...ffOldCode.spread}
                   type="number"
                   maxlength={6}
                   placeholder={tt('user.phone.codePlaceholder', '请输入验证码')}
@@ -229,9 +238,13 @@ export default function Phone() {
                 : tt('user.phone.bindDesc', '绑定后可用于登录、找回密码、接收通知')}
             </Text>
             <View className="mb-[32rpx]">
-              <View className="box-border flex h-[100rpx] items-center rounded-xl border border-[var(--color-border)] bg-muted px-[24rpx]">
-                <FocusInput
+              <View
+                className="box-border flex h-[100rpx] items-center rounded-xl border border-[var(--color-border)] bg-muted px-[24rpx]"
+                style={ffNewPhone.focusStyle}
+              >
+                <Input
                   className="h-full flex-1 text-[length:32rpx] text-foreground"
+                  {...ffNewPhone.spread}
                   type="number"
                   maxlength={11}
                   placeholder={tt('user.phone.newPhonePlaceholder', '请输入新手机号')}
@@ -241,9 +254,13 @@ export default function Phone() {
               </View>
             </View>
             <View className="mb-[32rpx]">
-              <View className="box-border flex h-[100rpx] items-center rounded-xl border border-[var(--color-border)] bg-muted px-[24rpx]">
-                <FocusInput
+              <View
+                className="box-border flex h-[100rpx] items-center rounded-xl border border-[var(--color-border)] bg-muted px-[24rpx]"
+                style={ffNewCode.focusStyle}
+              >
+                <Input
                   className="h-full flex-1 text-[length:32rpx] text-foreground"
+                  {...ffNewCode.spread}
                   type="number"
                   maxlength={6}
                   placeholder={tt('user.phone.codePlaceholder', '请输入验证码')}

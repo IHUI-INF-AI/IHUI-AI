@@ -318,6 +318,38 @@ export function getToken(): string | null {
 }
 
 /**
+ * 刷新瞬时失败标记(2026-10-09 根治「自动登录总被清掉」)。
+ *
+ * 各端 refreshAccessToken 实现对**网络错误/超时/5xx/无 status** 这类"服务暂不可用"
+ * 的失败抛本错误 —— 是否瞬时的判据复用 `@ihui/shared/auth/auto-login-policy` 的
+ * `classifyRefreshFailureStatus`(唯一出口,本包零依赖不重复实现判据);
+ * 返回 null 仍表示"凭据被服务端明确拒绝(401/403)"。
+ *
+ * api-client 据此让 401 续期失败出口分型:瞬时失败**不**触发 notifyUnauthorized ——
+ * 否则端内出口(RN/小程序/扩展的会话终结出口)会把一次网络抖动/api 重启当成会话
+ * 彻底失效,结束本地会话并写持久登出标记,30 天 refresh 凭据被永久废掉,
+ * 用户被迫反复手动登录(与 web 冷启动 bootstrap 同一根因,同批根治)。
+ */
+export class TransientRefreshError extends Error {
+  constructor(message = 'refresh transient failure (network/5xx)') {
+    super(message)
+    this.name = 'TransientRefreshError'
+  }
+}
+
+/**
+ * 最近一次刷新失败是否为瞬时性质。
+ * 与 refreshInFlight/refreshFailCooldown 同步串行:消费点在 await 该轮刷新后同步读取,
+ * 冷却窗口内不会有新一轮刷新改写本标志(5s 冷却 > 读取点的微任务间隙)。
+ */
+let lastRefreshWasTransient = false
+
+/** 读取最近一次刷新失败的瞬时标志(fetchApi 的 401 出口与测试用) */
+export function wasLastRefreshTransient(): boolean {
+  return lastRefreshWasTransient
+}
+
+/**
  * 401 自动续期核心(2026-08-06 立)。
  * 并发去重:多个请求同时 401 时共享同一个刷新 promise,只调用一次 refreshAccessToken。
  * 刷新失败返回 null,由调用方决定是否走登出/错误流程。
@@ -352,6 +384,8 @@ export async function refreshAccessTokenOnce(): Promise<string | null> {
   refreshInFlight = Promise.resolve()
     .then(() => refreshImpl())
     .then((t) => {
+      // 走到这里(含 CAS 丢弃)说明端内实现没有抛瞬时错误:成功或明确拒绝
+      lastRefreshWasTransient = false
       const newToken = t ?? null
       // 2026-09-29 CAS 复核(台账票 G-814411):响应返回后、写回前,三者比对 ——
       // active provider 未切换,且旧 accessToken 仍是当前值(或已被本刷新自己
@@ -366,9 +400,13 @@ export async function refreshAccessTokenOnce(): Promise<string | null> {
       clearRefreshFailCooldown()
       return newToken
     })
-    .catch(() => {
+    .catch((err) => {
       // 刷新失败:进入冷却窗口,阻止后续 401 在窗口内重复刷新
       startRefreshFailCooldown()
+      // 2026-10-09 分型:端内实现抛 TransientRefreshError = 网络/5xx 性质的失败,
+      // 不构成"会话不可恢复" —— fetchApi 的 401 出口据此外置标志跳过 notifyUnauthorized,
+      // 防止端内出口把瞬时失败当会话终结(写持久登出标记 → 30 天 refresh 凭据被永久废掉)。
+      lastRefreshWasTransient = err instanceof TransientRefreshError
       return null
     })
     .finally(() => {
@@ -404,6 +442,7 @@ function clearRefreshFailCooldown(): void {
 export function __resetRefreshStateForTest(): void {
   refreshInFlight = null
   clearRefreshFailCooldown()
+  lastRefreshWasTransient = false
 }
 
 /**
@@ -834,6 +873,11 @@ export async function fetchApi<T>(
                 authRetried = true
                 continue
               }
+              // 2026-10-09 分型(根治「自动登录总被清掉」):刷新失败若为瞬时性质
+              // (网络抖动/5xx/api 重启窗口,端内实现以 TransientRefreshError 标注),
+              // 不是"会话不可恢复" —— 不通知端内出口(其语义是终结本地会话,会写
+              // 持久登出标记把 30 天 refresh 凭据永久废掉),返回原 401 结果交调用方。
+              if (wasLastRefreshTransient()) return result as ApiResult<T>
               // 401 且续期没拿到 token(未注入续期实现 / 续期失败)→ 通知端内(2026-09-25)
               // 2026-09-29 凭据复核(台账票 G-814411):续期响应被 CAS 丢弃 = 刷新在飞
               // 期间凭据已被换人,这个 401 属于旧凭据 —— 通知出去会误清新凭据,跳过。
@@ -885,7 +929,10 @@ export async function fetchApi<T>(
           // 401 且续期没拿到 token → 通知端内(与上方无熔断分支同一出口,2026-09-25)
           // 2026-09-29 凭据复核(台账票 G-814411):同无熔断分支,CAS 丢弃 = 凭据已
           // 被换人,401 属于旧凭据,通知会误清新凭据的登录态。
-          if (isTokenStillCurrent(token)) notifyUnauthorized(normalizedUrl, restOptions.method)
+          // 2026-10-09 分型:瞬时失败(网络/5xx)不通知,与无熔断分支同处置。
+          if (!wasLastRefreshTransient() && isTokenStillCurrent(token)) {
+            notifyUnauthorized(normalizedUrl, restOptions.method)
+          }
         }
       }
       return result as ApiResult<T>
@@ -1127,15 +1174,15 @@ export interface MemoryUpdatesEvent {
 /** 终端命令执行期间的实时输出增量事件(2026-09-18 立,消息级 terminal inline 实时回显)。
  *  后端在命令执行期间逐块下发 `event: terminal_delta` + `data: {"type":"terminal_delta",...}`,
  *  前端按 terminalId 累加到 store.terminalOutputs,供 TerminalSection 实时回显 stdout/stderr。 */
-/** 文件写类工具流中 diff 预览事件(D113,2026-09-27 立,G-227)。
- *  后端在工具执行前从纯参数推导"将要写入的内容",逐帧下发累积文本;
- *  tool-result 到达即被前端清除(最终 diff 以 tool-result 为准,本帧不入库)。 */
+/** 文件写类工具流中 diff 预览事件(D113,2026-09-27 立,G-227;G-816035 于 2026-10-08 改增量口径)。
+ *  后端在工具执行前从纯参数推导"将要写入的内容",逐帧下发**增量**正文(仅本批新增行);
+ *  消费端按 `seq` 收敛**追加**;tool-result 到达即被前端清除(最终 diff 以 tool-result 为准,本帧不入库)。 */
 export interface ToolDeltaEvent {
   /** 与 tool-call-start 的 toolCallId 一致 */
   toolCallId: string
-  /** 单调递增帧序(重放幂等:同 seq 覆盖) */
+  /** 同一 toolCallId 内的递增序号(从 1 起),参与收敛/排序:消费端按它判新旧 */
   seq: number
-  /** 截至当前的预览文本(累积式,整帧替换渲染) */
+  /** 增量正文(仅本批新增):消费端按 seq 收敛追加,不得整帧覆盖 */
   partialText: string
   /** 预览超预算被截断(总 400 行 / 32KB / 10 帧封顶) */
   truncated?: boolean
@@ -3707,7 +3754,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
      *  - 后端逐块下发 `event: terminal_delta` + `data: {"type":"terminal_delta",...}`
      *  - 按 terminalId 累加到 store.terminalOutputs(TerminalSection 实时回显),不落正文。
      *  - 与 tryParseTerminal(任务级 start/end)互补:本函数只处理执行中的流式文本。 */
-    // D113:tool-delta 流中预览帧解析(累积文本整帧透传;同 seq 由前端覆盖,天然幂等)
+    // D113:tool-delta 流中预览帧解析(增量正文透传;seq 升格为收敛判据,消费端按 seq 收敛追加)
     const tryParseToolDelta = (line: string): void => {
       if (!hasToolDelta) return
       if (!line || line.startsWith(':')) return
@@ -3722,9 +3769,12 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         const json = JSON.parse(data) as Record<string, unknown>
         if (json?.type !== 'tool-delta') return
         if (typeof json.toolCallId !== 'string') return
+        // G-816035(2026-10-08):seq 是收敛判据,必须为 >= 1 的整数,否则整帧不投递
+        // (修复"字段缺席落 0"的未声明即放行形态 —— 落 0 既掩盖缺字段,又被消费端当成陈旧帧)。
+        if (typeof json.seq !== 'number' || !Number.isInteger(json.seq) || json.seq < 1) return
         opts.onToolDelta!({
           toolCallId: json.toolCallId,
-          seq: typeof json.seq === 'number' ? json.seq : 0,
+          seq: json.seq,
           partialText: typeof json.partialText === 'string' ? json.partialText : '',
           ...(json.truncated === true ? { truncated: true } : {}),
         })

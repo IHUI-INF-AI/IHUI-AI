@@ -53,9 +53,24 @@
 // (103)。判据变宽的唯一来源是"归档件在同面上确实带着那一行",不是把阈值调低。
 // 三态不许并桶:归档件列到 0 个候选 ⇒ exit 2「无法判定」(枚举失效不是通过);清单里有名字而 blob
 // 取不到 ⇒ **点名并计数**且 exit 2 拒绝出具合格证(把"没判"写成"判过了"是本仓最高频失效型)。
+//
+// 2026-10-08(gitRaw 型 B 收尾批)git 出口收口:本文件唯一自拼派生 `gitAt()`(三个调用面:
+// nameSet 的两把 `git diff --name-only` 清单、取 blob 的 `git show :<rel>` / `git show HEAD:<rel>`)
+// 迁取材层 scripts/lib/face-reader.mjs 的 `gitRaw`;`const GIT_BIN = process.env.GIT_BIN || …`
+// 与 execFileSync import 随之删除。行为面对照:
+//  · 二进制:旧 `process.env.GIT_BIN || win32 硬编码 bin/git.exe || 'git'` → 层内
+//    `resolveGitBin() || 'git'` —— GIT_BIN env 是层候选链第一格且经 --version 验证,逃生舱语义
+//    保留;win32 硬编码路径收进层验证链(旧码路径缺失 ⇒ 派生必败 ⇒ repoUsable 闩跳闸全量退化;
+//    层会试下一候选,净收益)。
+//  · 旧 `cwd: ROOT` → 层 `-C <ROOT>` 同效;`-c safe.directory=*` 同;层另带
+//    core.quotepath=false(两把清单直接充当 blob 规格素材,非 ASCII 名可对回真实文件,净收益);
+//    stdio 旧 ['ignore','pipe','ignore'] → 层无 input 态 ['ignore','pipe','pipe'],stderr 由层
+//    收进异常消息 —— 本函数 catch 折 null 弃错误 ⇒ 可观察面同;timeout 旧 30s 显式保留
+//    ({timeout:30_000});maxBuffer 旧 64MB → 层 64MB 同值。
+//  · 失败折值一字未动:catch → null;repoUsable 闩(nameSet 失败即置 false,此后 gitAt 一律
+//    null ⇒ 内容读退化 readDisk)与闩前置短路次序逐字保留;"判哪一面"三支判据一字未动。
 
 import { existsSync, readFileSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, gitRaw, selectFace, FACE_LABEL, Undetermined } from './lib/face-reader.mjs'
@@ -83,19 +98,11 @@ function loadJson(path) {
  *   该路径只有工作树改动(未暂存)→ 取 **HEAD blob** = 别人没提交的东西不算本仓状态;
  *   与 HEAD 一致 → 直读磁盘(三者等价,免为 66 个锚定文件逐个开进程)。
  */
-const GIT_BIN = process.env.GIT_BIN || (process.platform === 'win32' ? 'C:/Program Files/Git/bin/git.exe' : 'git')
 let repoUsable = true
 function gitAt(args) {
   if (!repoUsable) return null
   try {
-    return execFileSync(GIT_BIN, ['-c', 'safe.directory=*', ...args], {
-      cwd: ROOT,
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024,
-      windowsHide: true,
-      timeout: 30_000,
-      stdio: ['ignore', 'pipe', 'ignore'],
-    })
+    return gitRaw(args, ROOT, { timeout: 30_000 })
   } catch {
     return null
   }

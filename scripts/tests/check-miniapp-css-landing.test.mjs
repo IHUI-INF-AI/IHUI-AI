@@ -62,7 +62,11 @@ function rmTmp(p) {
 /* ─────────────── 1. 判据有牙:C1 算术(纯函数 + 构造面) ─────────────── */
 
 test('C1 全缺失必判 0 覆盖并点名样例(该红必红)', () => {
-  const c = G.computeCoverage(['flex', 'text-sm', 'w-full'], new Set(['flex', 'text-sm', 'w-full']), new Set())
+  const c = G.computeCoverage(
+    ['flex', 'text-sm', 'w-full'],
+    new Set(['flex', 'text-sm', 'w-full']),
+    new Set(),
+  )
   assert.equal(c.pct, 0)
   assert.equal(c.demandedKinds, 3)
   assert.equal(c.missKinds, 3)
@@ -70,7 +74,11 @@ test('C1 全缺失必判 0 覆盖并点名样例(该红必红)', () => {
 })
 
 test('C1 全落地必判 1 覆盖(该绿必绿)', () => {
-  const c = G.computeCoverage(['flex', 'text-sm'], new Set(['flex', 'text-sm']), new Set(['flex', 'text-sm']))
+  const c = G.computeCoverage(
+    ['flex', 'text-sm'],
+    new Set(['flex', 'text-sm']),
+    new Set(['flex', 'text-sm']),
+  )
   assert.equal(c.pct, 1)
   assert.equal(c.missKinds, 0)
 })
@@ -78,7 +86,11 @@ test('C1 全落地必判 1 覆盖(该绿必绿)', () => {
 test('C1 分母不收参考层外的自有类(否则恒红)', () => {
   // action-btn / my-title 是端内自有语义类,Tailwind 结构上不会产出它们,
   // 把它们算进分母会让覆盖率永远到不了 100% —— 那是一把恒红的尺子。
-  const c = G.computeCoverage(['flex', 'action-btn', 'my-title'], new Set(['flex']), new Set(['flex']))
+  const c = G.computeCoverage(
+    ['flex', 'action-btn', 'my-title'],
+    new Set(['flex']),
+    new Set(['flex']),
+  )
   assert.equal(c.demandedKinds, 1)
   assert.equal(c.pct, 1)
 })
@@ -96,7 +108,10 @@ test('任意值/感叹号前缀的转义类名必须被认出来', () => {
 
 test('裸类名(无规则体)不得算落地,注释里的假规则不得算定义', () => {
   assert.deepEqual([...G.harvestLandedSelectors('.parent .child')], [])
-  assert.deepEqual([...G.harvestClassDeclarations('/* .fake{color:red} */ .real{color:red}').keys()], ['real'])
+  assert.deepEqual(
+    [...G.harvestClassDeclarations('/* .fake{color:red} */ .real{color:red}').keys()],
+    ['real'],
+  )
 })
 
 /* ─────────────── 2b. weapp 类名转写比对(2026-09-25 C1 收紧) ─────────────── */
@@ -119,10 +134,16 @@ test('裸类名(无规则体)不得算落地,注释里的假规则不得算定�
 test('转写函数:样本逐字取自 2026-09-25 真 weapp 构建产物(非立票猜测)', () => {
   assert.equal(G.weappMangleClassName('-top-[8rpx]'), '-top-_b8rpx_B')
   assert.equal(G.weappMangleClassName('top-1/2'), 'top-1_f2')
-  assert.equal(G.weappMangleClassName('bg-[var(--color-black-50)]'), 'bg-_bvar_p--color-black-50_P_B')
+  assert.equal(
+    G.weappMangleClassName('bg-[var(--color-black-50)]'),
+    'bg-_bvar_p--color-black-50_P_B',
+  )
   assert.equal(G.weappMangleClassName('bg-[rgba(0,0,0,0.4)]'), 'bg-_brgba_p0_m0_m0_m0_d4_P_B')
   assert.equal(G.weappMangleClassName('dark:text-foreground'), 'dark_ctext-foreground')
-  assert.equal(G.weappMangleClassName('pb-[calc(20rpx+env(safe-area-inset-bottom,0))]'), 'pb-_bcalc_p20rpx_uenv_psafe-area-inset-bottom_m0_P_P_B')
+  assert.equal(
+    G.weappMangleClassName('pb-[calc(20rpx+env(safe-area-inset-bottom,0))]'),
+    'pb-_bcalc_p20rpx_uenv_psafe-area-inset-bottom_m0_P_P_B',
+  )
   // 表外标点原样保留 —— 未实测的转写不得写进表(猜错的方向是"把真没落地的判成落地")
   // `!` 已从"待验"升为"表内":真产物里有三条逐字证 `._ebg-muted{…!important}`、`._ebg-cta{…}`、
   // `._ebg-primary{…}`(同一次 weapp 构建)。立票时按 CSS 规范的 `\!` 形态去找 ⇒ 零命中,
@@ -135,7 +156,11 @@ test('转写函数:样本逐字取自 2026-09-25 真 weapp 构建产物(非立�
   assert.equal(G.weappMangleClassName('max-w-[78%]'), 'max-w-_b78_v_B')
   assert.equal(G.weappMangleClassName('w-[calc(50%_-_8rpx)]'), 'w-_bcalc_p50_v_-_8rpx_P_B')
   assert.deepEqual(G.unmappedPunctIn('max-w-[78%]'), [], '% 已进表,不得再被说成含表外标点')
-  assert.deepEqual(G.unmappedPunctIn('w-[50@]'), ['@'], '连字符/字母不算标点;@ 仍未实测到转写,须留在表外')
+  assert.deepEqual(
+    G.unmappedPunctIn('w-[50@]'),
+    ['@'],
+    '连字符/字母不算标点;@ 仍未实测到转写,须留在表外',
+  )
   assert.deepEqual(G.unmappedPunctIn('bg-muted'), [], '反向对照:普通名字不得被说成"含表外标点"')
 })
 
@@ -164,13 +189,24 @@ test('阳性对照(真 dist):旧判据命中不足、收紧后已知落地事实
   // A 臂 = 旧判据(只比原名);B 臂 = 收紧后(原名 ∪ 转写名)。同一份 landed,只差判据。
   const oldHits = KNOWN_LANDED.filter((n) => landed.has(n))
   const newHits = KNOWN_LANDED.filter((n) => landed.has(n) || landed.has(G.weappMangleClassName(n)))
-  assert.ok(oldHits.length < KNOWN_LANDED.length, `旧判据竟把 ${oldHits.length}/${KNOWN_LANDED.length} 都判了命中 ⇒ 产物形态变了,本对照失去判别力,需人工复核`)
-  assert.equal(newHits.length, KNOWN_LANDED.length, `收紧后仍有已知落地事实未命中:${KNOWN_LANDED.filter((n) => !newHits.includes(n)).join(', ')}`)
+  assert.ok(
+    oldHits.length < KNOWN_LANDED.length,
+    `旧判据竟把 ${oldHits.length}/${KNOWN_LANDED.length} 都判了命中 ⇒ 产物形态变了,本对照失去判别力,需人工复核`,
+  )
+  assert.equal(
+    newHits.length,
+    KNOWN_LANDED.length,
+    `收紧后仍有已知落地事实未命中:${KNOWN_LANDED.filter((n) => !newHits.includes(n)).join(', ')}`,
+  )
   // 走门自己的算术:这些命中必须全部记在"转写后中"这一态上(表确实参与判定,不是直白的恒真)
   const c = G.computeCoverage(KNOWN_LANDED, new Set(KNOWN_LANDED), landed)
   assert.ok(c.hitMangledKinds > 0, 'hitMangledKinds=0 ⇒ 转写判据没参与真实产物,整组对照是摆设')
   assert.equal(c.hitKinds + c.missKinds, c.demandedKinds)
-  assert.equal(c.missKinds, 0, `转写后仍缺:${(c.missFamilies || []).map((f) => f.family).join(', ')}`)
+  assert.equal(
+    c.missKinds,
+    0,
+    `转写后仍缺:${(c.missFamilies || []).map((f) => f.family).join(', ')}`,
+  )
 })
 
 test('反向对照(真 dist):凭空造的名字收紧后仍必须判缺(否则=让门更容易点头)', (t) => {
@@ -187,25 +223,63 @@ test('反向对照(真 dist):凭空造的名字收紧后仍必须判缺(否则=�
     return
   }
   const FAKE = 'bg-does-not-exist-tier'
-  assert.ok(!landed.has(FAKE) && !landed.has(G.weappMangleClassName(FAKE)), '凭空名字竟在产物里 ⇒ 产物不干净,本对照失去判别力')
+  assert.ok(
+    !landed.has(FAKE) && !landed.has(G.weappMangleClassName(FAKE)),
+    '凭空名字竟在产物里 ⇒ 产物不干净,本对照失去判别力',
+  )
   const c = G.computeCoverage([FAKE], new Set([FAKE]), landed)
-  assert.deepEqual([c.hitKinds, c.missKinds, c.unmangledPunctMisses, c.definiteMissKinds], [0, 1, 0, 1])
-  assert.deepEqual(c.missFamilies, [{ family: 'bg', count: 1 }], '真缺项仍须成族可读,归族不得被转写表带跑')
+  assert.deepEqual(
+    [c.hitKinds, c.missKinds, c.unmangledPunctMisses, c.definiteMissKinds],
+    [0, 1, 0, 1],
+  )
+  assert.deepEqual(
+    c.missFamilies,
+    [{ family: 'bg', count: 1 }],
+    '真缺项仍须成族可读,归族不得被转写表带跑',
+  )
 })
 
 test('装车证明:转写判据真挂在 computeCoverage / runCheck / report 上(定义了没接 = 没有)', () => {
   const src = readFileSync(GATE, 'utf8')
-  assert.match(src, /landedNames\.has\(weappMangleClassName\(n\)\)/, 'computeCoverage 没有真比转写名')
+  assert.match(
+    src,
+    /landedNames\.has\(weappMangleClassName\(n\)\)/,
+    'computeCoverage 没有真比转写名',
+  )
   // (2026-09-25 换形)runCheck 的 missOccurrences 原先在原地重写第二份 miss 谓词,靠这条断言钉"同谓词"。
   // 第三态一出来第二份谓词就真的漂移了(复合首族命中的名字会被旧双写重新算成 miss)—— 这正是它当初
   // 警告的"两处各写一遍必然漂移"。现 runCheck 直接吃 computeCoverage 返回的 missNames(单一判据源),
   // 断言改成钉这个单一源,并反向锁旧的双写不得回来。
-  assert.match(src, /coverage\.missNames\.reduce/, 'runCheck 的 missOccurrences 没吃 computeCoverage 的 miss 全集 ⇒ 两处数字不同源')
-  assert.doesNotMatch(src, /const miss = \[\.\.\.usedTokens\.keys\(\)\]\.filter/, 'runCheck 里手写的第二份 miss 谓词不得回来')
-  assert.match(src, /miss\.filter\(\(n\) => unmappedPunctIn\(n\)\.length > 0\)/, '表外标点桶定义了却没挂上')
-  assert.match(src, /原名直中 \$\{c\.hitOriginalKinds\} \+ weapp 转写后中·token 抽取 \$\{c\.hitMangledKinds\}[\s\S]{0,140}转写后中·全文目击 \$\{c\.hitSightedKinds\}/, '四态计数没全进报告(第 3 态被并进合计 = "抽取器漏一整型"这件事又看不见了;两态同理)')
-  assert.match(src, /待验字符:\$\{c\.unmangledPunctChars\.join\(' '\)\}/, '表外字符没在报告里点名 ⇒ 下一次实测不知道表还缺哪几条')
-  assert.match(src, /按族分布\(共 \$\{c\.missFamilies\.length\} 族,top5\)/, '缺项归族没进报告 ⇒ 样例仍是扁平截断,"成族"信号不可读')
+  assert.match(
+    src,
+    /coverage\.missNames\.reduce/,
+    'runCheck 的 missOccurrences 没吃 computeCoverage 的 miss 全集 ⇒ 两处数字不同源',
+  )
+  assert.doesNotMatch(
+    src,
+    /const miss = \[\.\.\.usedTokens\.keys\(\)\]\.filter/,
+    'runCheck 里手写的第二份 miss 谓词不得回来',
+  )
+  assert.match(
+    src,
+    /miss\.filter\(\(n\) => unmappedPunctIn\(n\)\.length > 0\)/,
+    '表外标点桶定义了却没挂上',
+  )
+  assert.match(
+    src,
+    /原名直中 \$\{c\.hitOriginalKinds\} \+ weapp 转写后中·token 抽取 \$\{c\.hitMangledKinds\}[\s\S]{0,140}转写后中·全文目击 \$\{c\.hitSightedKinds\}/,
+    '四态计数没全进报告(第 3 态被并进合计 = "抽取器漏一整型"这件事又看不见了;两态同理)',
+  )
+  assert.match(
+    src,
+    /待验字符:\$\{c\.unmangledPunctChars\.join\(' '\)\}/,
+    '表外字符没在报告里点名 ⇒ 下一次实测不知道表还缺哪几条',
+  )
+  assert.match(
+    src,
+    /按族分布\(共 \$\{c\.missFamilies\.length\} 族,top5\)/,
+    '缺项归族没进报告 ⇒ 样例仍是扁平截断,"成族"信号不可读',
+  )
   // 负锁:未实测的标点不得被"顺手补进"转写表。只认**映射条目形态** `['X', '_y']` ——
   // 第一版写成 /\['!'/ 把 self-test 里"unmangledPunctChars 期望值"这条正当夹具也判了红,
   // 那正是本仓反复记的"门看不见自己产出的形态";判据失效方向错了会挡死合法收紧。
@@ -232,8 +306,16 @@ test('装车证明:转写判据真挂在 computeCoverage / runCheck / report 上
 
 test('装车证明:第三态的输入(参考层裸类子集 / 产物首族集合)真挂在 runCheck 与 report 上', () => {
   const src = readFileSync(GATE, 'utf8')
-  assert.match(src, /bareNames: harvestLandedSelectors\(css\)/, '参考层没算"裸类产出子集" ⇒ 第三态的开关没接到产出形状上')
-  assert.match(src, /compoundLeads = got\.compoundLeads/, 'collectLandedFromDist 的首族集合没被 runCheck 接走')
+  assert.match(
+    src,
+    /bareNames: harvestLandedSelectors\(css\)/,
+    '参考层没算"裸类产出子集" ⇒ 第三态的开关没接到产出形状上',
+  )
+  assert.match(
+    src,
+    /compoundLeads = got\.compoundLeads/,
+    'collectLandedFromDist 的首族集合没被 runCheck 接走',
+  )
   // 归一化空白再比:这一条判的是"参数有没有喂进去",不是"调用写成几行"。
   // 旧写法把整段调用当字面量匹配,prettier 一折行就红 —— 那是把格式当判据(本仓记过多次的假红型)。
   {
@@ -245,7 +327,11 @@ test('装车证明:第三态的输入(参考层裸类子集 / 产物首族集合
     )
     // 单一物化点必须存在且**只有一处**:`Map#keys()` 是一次性迭代器,下游任一消费者再拿它就得到空序列。
     // 这条真实缺陷曾在真产物上把 485 条转写档整批伪装成"确定缺失"、同时让 C5 退成"未判定"。
-    assert.match(flat, /const usedTokenList = \[\s*\.\.\.usedTokens\.keys\(\)\s*\]/, '没有单一物化点 ⇒ 迭代器会被消费两次')
+    assert.match(
+      flat,
+      /const usedTokenList = \[\s*\.\.\.usedTokens\.keys\(\)\s*\]/,
+      '没有单一物化点 ⇒ 迭代器会被消费两次',
+    )
     assert.equal(
       (src.match(/usedTokens\.keys\(\)/g) || []).length,
       1,
@@ -253,11 +339,21 @@ test('装车证明:第三态的输入(参考层裸类子集 / 产物首族集合
     )
     // C4 的 token 维与 C5 的全文维必须**一次取材**(读同一份磁盘快照)。各读一遍 dist,
     // 期间同端一次 taro build 就会把整目录换掉(本仓实测踩过),两维量的就不是同一次构建。
-    assert.match(flat, /runtime = collectRuntimeFace\(distDir\)/, 'C4/C5 的运行时语料没在 runCheck 里采集(定义了没接 = 没有)')
+    assert.match(
+      flat,
+      /runtime = collectRuntimeFace\(distDir\)/,
+      'C4/C5 的运行时语料没在 runCheck 里采集(定义了没接 = 没有)',
+    )
     // 只在 **runCheck 函数体内**数取材调用点:兼容出口 `collectRuntimeClassTokens` 里那句
     // `= collectRuntimeFace(distDir)` 是正当的委托(它就是把活交给同一份实现),不在射程内。
-    const runCheckBody = src.slice(src.indexOf('export async function runCheck(opts) {'), src.indexOf('/* ───────────────────────── 输出'))
-    assert.ok(runCheckBody.length > 1000, 'runCheck 函数体切不出来 ⇒ 本条断言会退化成恒真,别让它裸奔')
+    const runCheckBody = src.slice(
+      src.indexOf('export async function runCheck(opts) {'),
+      src.indexOf('/* ───────────────────────── 输出'),
+    )
+    assert.ok(
+      runCheckBody.length > 1000,
+      'runCheck 函数体切不出来 ⇒ 本条断言会退化成恒真,别让它裸奔',
+    )
     assert.equal(
       (runCheckBody.match(/collectRuntimeFace\(distDir\)/g) || []).length,
       1,
@@ -266,10 +362,26 @@ test('装车证明:第三态的输入(参考层裸类子集 / 产物首族集合
     // C5 的两维:面 1 只能来自 coverage 自己算的那一个数,面 2 只能来自共用实现。
     // ⚠ 这里刻意要 `usedTokenList` 而**不是** `usedTokens.keys()`:那是一次性迭代器,
     // 第二次消费就得到空序列 —— 真产物上曾把 485 条转写档整批伪装成"确定缺失"、又让 C5 退成"未判定"。
-    assert.match(flat, /const mangleDemand = mangledOnlyNames\(\s*usedTokenList,\s*reference\.names,\s*landed\s*\)/, 'C5 的面 1 另写了一遍谓词(或又在消费一次性迭代器)⇒ 与 C4 不同源必漂移')
-    assert.match(flat, /demandKinds: coverage\.mangleDemandKinds/, 'C5 的面 1 没吃 coverage 的单一读数')
-    assert.match(flat, /sightingKinds: runtimeSighted instanceof Set \? runtimeSighted\.size : NaN/, '面 2 没量到时必须传 NaN ⇒ 让 auditMangleLeg 判"未判定",不得冒红也不得记绿')
-    assert.match(flat, /findMangledSightings\(runtime\.haystack, mangleDemand\)/, 'C5 的面 2 与 C4 的第 3 态没共用同一份全文实现')
+    assert.match(
+      flat,
+      /const mangleDemand = mangledOnlyNames\(\s*usedTokenList,\s*reference\.names,\s*landed\s*\)/,
+      'C5 的面 1 另写了一遍谓词(或又在消费一次性迭代器)⇒ 与 C4 不同源必漂移',
+    )
+    assert.match(
+      flat,
+      /demandKinds: coverage\.mangleDemandKinds/,
+      'C5 的面 1 没吃 coverage 的单一读数',
+    )
+    assert.match(
+      flat,
+      /sightingKinds: runtimeSighted instanceof Set \? runtimeSighted\.size : NaN/,
+      '面 2 没量到时必须传 NaN ⇒ 让 auditMangleLeg 判"未判定",不得冒红也不得记绿',
+    )
+    assert.match(
+      flat,
+      /findMangledSightings\(runtime\.haystack, mangleDemand\)/,
+      'C5 的面 2 与 C4 的第 3 态没共用同一份全文实现',
+    )
   }
   // 同上一条的口径:这三把锁判的是**形状是否存在**,不是格式。HEAD 面上它们已经因为
   // prettier 把 `!referenceBareNames.has(n) && (…)` 折成多行而恒红(与本票无关的既有红,
@@ -277,12 +389,28 @@ test('装车证明:第三态的输入(参考层裸类子集 / 产物首族集合
   // 但归一化只能"抹平空白",不得顺手放宽成子串搜索 —— 所以两边都用 `\s+ → ' '` 后精确匹配。
   {
     const flatSrc = src.replace(/\s+/g, ' ')
-    assert.match(flatSrc, /!referenceBareNames\.has\(n\) && \(compoundLeadNames\.has\(n\) \|\| compoundLeadNames\.has\(weappMangleClassName\(n\)\)\)/, 'computeCoverage 没按"参考层是否裸产出"分流,或没同时认转写名 ⇒ 要么放松了裸类锁,要么转写档在第三态隐身')
-    assert.match(src, /referenceBareNames instanceof Set && compoundLeadNames instanceof Set/, '两参缺一不开启第三态的护栏不在 ⇒ 旧三参调用行为会变')
-    assert.match(src, /复合首族 \$\{c\.hitCompoundKinds\}/, '第三态计数没进报告(合计当数会把"复合形态整片隐身"藏起来,与两态同理)')
+    assert.match(
+      flatSrc,
+      /!referenceBareNames\.has\(n\) && \(compoundLeadNames\.has\(n\) \|\| compoundLeadNames\.has\(weappMangleClassName\(n\)\)\)/,
+      'computeCoverage 没按"参考层是否裸产出"分流,或没同时认转写名 ⇒ 要么放松了裸类锁,要么转写档在第三态隐身',
+    )
+    assert.match(
+      src,
+      /referenceBareNames instanceof Set && compoundLeadNames instanceof Set/,
+      '两参缺一不开启第三态的护栏不在 ⇒ 旧三参调用行为会变',
+    )
+    assert.match(
+      src,
+      /复合首族 \$\{c\.hitCompoundKinds\}/,
+      '第三态计数没进报告(合计当数会把"复合形态整片隐身"藏起来,与两态同理)',
+    )
   }
   // 分流必须复用同一把判据,不许出现第二份形状规则(§"两处算同一件事必须共用一份实现")
-  assert.match(src, /function harvestCompoundLeadNames[\s\S]{0,700}isBareUtilitySelector\(/, 'harvestCompoundLeadNames 没复用 isBareUtilitySelector 排除裸类分支 ⇒ 又写了第二份形状判据,或裸/复合两态会重叠计数')
+  assert.match(
+    src,
+    /function harvestCompoundLeadNames[\s\S]{0,700}isBareUtilitySelector\(/,
+    'harvestCompoundLeadNames 没复用 isBareUtilitySelector 排除裸类分支 ⇒ 又写了第二份形状判据,或裸/复合两态会重叠计数',
+  )
 })
 
 test('反向锁(构造 dist 文本):只有后代手写 `.card-list .space-x-2{}` 与 `.text-muted{}` ⇒ space-x-2 仍判缺', () => {
@@ -294,25 +422,67 @@ test('反向锁(构造 dist 文本):只有后代手写 `.card-list .space-x-2{}`
     writeFileSync(join(d, 'app.wxss'), '.card-list .space-x-2{margin:0}\n.text-muted{color:red}')
     const got = G.collectLandedFromDist(d)
     assert.equal(got.landed.has('space-x-2'), false, '后代手写竟被裸类判据放进来 ⇒ 原 bug 的锁没了')
-    assert.equal(got.compoundLeads.has('space-x-2'), false, '名字不是首族却进了第三态集合 ⇒ "接受复合"被写成了"提到就算"')
-    assert.equal(got.landed.has('text-muted'), true, '阳性对照:同份夹具里的真裸类必须可收,否则上面两条是恒真的空尺')
+    assert.equal(
+      got.compoundLeads.has('space-x-2'),
+      false,
+      '名字不是首族却进了第三态集合 ⇒ "接受复合"被写成了"提到就算"',
+    )
+    assert.equal(
+      got.landed.has('text-muted'),
+      true,
+      '阳性对照:同份夹具里的真裸类必须可收,否则上面两条是恒真的空尺',
+    )
     // 夹具自证:名字在这份 dist 里**确实被"提到"且有规则体**(旧的全位置判据会在这里点头)。
     // 首族判据与它在同一份输入上结论相反,才说明"仍判缺"是判据给的结论,而不是根本没扫到。
-    assert.equal(G.harvestClassDeclarations('.card-list .space-x-2{margin:0}\n.text-muted{color:red}').has('space-x-2'), true, '夹具失效:这份文本里连"提到 space-x-2"都不成立,上面的判缺没有判别力')
+    assert.equal(
+      G.harvestClassDeclarations('.card-list .space-x-2{margin:0}\n.text-muted{color:red}').has(
+        'space-x-2',
+      ),
+      true,
+      '夹具失效:这份文本里连"提到 space-x-2"都不成立,上面的判缺没有判别力',
+    )
     // 参考层该名为复合形态(bareNames 不含)—— 三参全接上后仍必须判缺
-    const c = G.computeCoverage(['space-x-2'], new Set(['space-x-2']), got.landed, new Set(), got.compoundLeads)
-    assert.deepEqual([c.hitCompoundKinds, c.missKinds, c.definiteMissKinds, c.pct], [0, 1, 1, 0], '后代手写形态下 space-x-2 竟被判落地')
+    const c = G.computeCoverage(
+      ['space-x-2'],
+      new Set(['space-x-2']),
+      got.landed,
+      new Set(),
+      got.compoundLeads,
+    )
+    assert.deepEqual(
+      [c.hitCompoundKinds, c.missKinds, c.definiteMissKinds, c.pct],
+      [0, 1, 1, 0],
+      '后代手写形态下 space-x-2 竟被判落地',
+    )
   } finally {
     rmTmp(base)
   }
 })
 
 test('反向锁边界三条:多类紧随 `.a.b`、前缀名 `.space-x-20`、裸产出档 `.flex>view` 都不得冒充首族', () => {
-  assert.equal(G.harvestCompoundLeadNames('.space-x-2.own-hand{a:b}').has('space-x-2'), false, '第二个类紧随(手写多类复合)竟算首族')
-  assert.equal(G.harvestCompoundLeadNames('.space-x-20>view+view{a:b}').has('space-x-2'), false, '前缀名救活长尾名 ⇒ 首族匹配没取整段')
+  assert.equal(
+    G.harvestCompoundLeadNames('.space-x-2.own-hand{a:b}').has('space-x-2'),
+    false,
+    '第二个类紧随(手写多类复合)竟算首族',
+  )
+  assert.equal(
+    G.harvestCompoundLeadNames('.space-x-20>view+view{a:b}').has('space-x-2'),
+    false,
+    '前缀名救活长尾名 ⇒ 首族匹配没取整段',
+  )
   // 参考层是**裸产出**的名字不吃第三态:flex 在参考层有 `.flex{}`,产物只给 `.flex>view+view{}` ⇒ 仍判缺
-  const c = G.computeCoverage(['flex'], new Set(['flex']), new Set(), new Set(['flex']), G.harvestCompoundLeadNames('.flex>view+view{a:b}'))
-  assert.deepEqual([c.hitCompoundKinds, c.missKinds], [0, 1], '裸产出档接受了复合冒充 ⇒ 为绿放松了 99.89% 那一版收紧的判据')
+  const c = G.computeCoverage(
+    ['flex'],
+    new Set(['flex']),
+    new Set(),
+    new Set(['flex']),
+    G.harvestCompoundLeadNames('.flex>view+view{a:b}'),
+  )
+  assert.deepEqual(
+    [c.hitCompoundKinds, c.missKinds],
+    [0, 1],
+    '裸产出档接受了复合冒充 ⇒ 为绿放松了 99.89% 那一版收紧的判据',
+  )
 })
 
 test('阳性对照(真 dist + 真参考层):space-x-2/space-x-3/space-y-2 走第三态,且开关确实由参考层产出形状决定', async (t) => {
@@ -330,18 +500,42 @@ test('阳性对照(真 dist + 真参考层):space-x-2/space-x-3/space-y-2 走第
   }
   const SPACE = ['space-x-2', 'space-x-3', 'space-y-2']
   for (const n of SPACE) {
-    assert.equal(got.landed.has(n), false, `${n} 在产物里竟有裸类规则 —— 产物形态变了,本对照失去判别力,需人工复核`)
-    assert.equal(got.compoundLeads.has(n), true, `${n} 在真产物里没有以它为**首族**的复合规则 —— 与本票立项实测矛盾,判据或产物之一变了`)
+    assert.equal(
+      got.landed.has(n),
+      false,
+      `${n} 在产物里竟有裸类规则 —— 产物形态变了,本对照失去判别力,需人工复核`,
+    )
+    assert.equal(
+      got.compoundLeads.has(n),
+      true,
+      `${n} 在真产物里没有以它为**首族**的复合规则 —— 与本票立项实测矛盾,判据或产物之一变了`,
+    )
   }
   // 关键一步:开关取自**真 v4 参考层的产出形状**(names 含它、bareNames 不含 ⇒ 参考层本就复合)。
   // 若参考层哪天把它改成裸产出,第三态自动失效、该名字回到裸类口径 —— 判什么恒等于写什么。
-  const ref = await G.buildUtilityReferenceV4({ root: ROOT, appDir: join(ROOT, 'apps', 'miniapp-taro'), candidates: SPACE })
+  const ref = await G.buildUtilityReferenceV4({
+    root: ROOT,
+    appDir: join(ROOT, 'apps', 'miniapp-taro'),
+    candidates: SPACE,
+  })
   for (const n of SPACE) {
-    assert.equal(ref.names.has(n), true, `${n} 不在参考层可选集 ⇒ 它根本进不了 C1 分母,本对照失去前提`)
-    assert.equal(ref.bareNames.has(n), false, `${n} 在参考层竟是裸产出 ⇒ 第三态对它结构上不会开启,上面 landed.has=false 是真缺陷不是形状盲区`)
+    assert.equal(
+      ref.names.has(n),
+      true,
+      `${n} 不在参考层可选集 ⇒ 它根本进不了 C1 分母,本对照失去前提`,
+    )
+    assert.equal(
+      ref.bareNames.has(n),
+      false,
+      `${n} 在参考层竟是裸产出 ⇒ 第三态对它结构上不会开启,上面 landed.has=false 是真缺陷不是形状盲区`,
+    )
   }
   const c = G.computeCoverage(SPACE, ref.names, got.landed, ref.bareNames, got.compoundLeads)
-  assert.deepEqual([c.hitCompoundKinds, c.missKinds, c.pct], [3, 0, 1], '真 dist 上第三态没把这族认回来 ⇒ 判据没吃到产物首族集合,或分流开关接错了')
+  assert.deepEqual(
+    [c.hitCompoundKinds, c.missKinds, c.pct],
+    [3, 0, 1],
+    '真 dist 上第三态没把这族认回来 ⇒ 判据没吃到产物首族集合,或分流开关接错了',
+  )
 })
 
 /**
@@ -370,7 +564,10 @@ function mkDistFixture(tag, { wxss, js = '', wxml = '<view/>' }) {
 
 test('C4 三态(构造 dist):CSS 有转写规则而运行时全文一个字都没有 ⇒ 判 dead,不被"全文搜索"洗白', () => {
   // 反向锁 —— 这一条是 C4 第 3 态与 C5 面 2 **共用的牙齿**:加了全文搜索之后,真死规则仍必须判 dead。
-  const f = mkDistFixture('c4-dead', { wxss: '.z-_b1001_B{z-index:1001}', js: 'var el={className:"sticky flex"};' })
+  const f = mkDistFixture('c4-dead', {
+    wxss: '.z-_b1001_B{z-index:1001}',
+    js: 'var el={className:"sticky flex"};',
+  })
   try {
     const landed = G.collectLandedFromDist(f.dist).landed
     const face = G.collectRuntimeFace(f.dist)
@@ -379,7 +576,11 @@ test('C4 三态(构造 dist):CSS 有转写规则而运行时全文一个字都�
     const sighted = G.findMangledSightings(face.haystack, demand)
     const c = G.computeCoverage(used, new Set(used), landed, null, null, face.tokens, sighted)
     assert.deepEqual([demand.length, sighted.size], [1, 0], '夹具失效:name 的转写名竟出现在 JS 里')
-    assert.deepEqual([c.hitMangledKinds, c.hitSightedKinds, c.deadRuleKinds, c.hitKinds, c.pct], [0, 0, 1, 0, 0], '全文搜索把真死规则洗白了 ⇒ 第 3 态成了放水口')
+    assert.deepEqual(
+      [c.hitMangledKinds, c.hitSightedKinds, c.deadRuleKinds, c.hitKinds, c.pct],
+      [0, 0, 1, 0, 0],
+      '全文搜索把真死规则洗白了 ⇒ 第 3 态成了放水口',
+    )
   } finally {
     rmTmp(f.base)
   }
@@ -400,10 +601,18 @@ test('C4 三态(构造 dist):拼接 class 的转写名只在 .concat() 参数里
     // 夹具自证:抽取器**确实**看不见它(否则下面"全文维救回来"没有判别力,整条是恒真)
     assert.equal(face.tokens.has('z-_b1001_B'), false, '夹具失效:这条写法本应被抽取器漏掉,却抽到了')
     const c = G.computeCoverage(used, new Set(used), landed, null, null, face.tokens, sighted)
-    assert.deepEqual([sighted.size, c.hitMangledKinds, c.hitSightedKinds, c.deadRuleKinds, c.pct], [1, 0, 1, 0, 1], '拼接 class 仍被记成死规则 ⇒ C4 的修口没生效(死维度高估)')
+    assert.deepEqual(
+      [sighted.size, c.hitMangledKinds, c.hitSightedKinds, c.deadRuleKinds, c.pct],
+      [1, 0, 1, 0, 1],
+      '拼接 class 仍被记成死规则 ⇒ C4 的修口没生效(死维度高估)',
+    )
     // 反向:去掉全文维(旧口径)必须退回"判 dead"—— 证明这一格真的是第 3 态救的,不是别处松了
     const legacy = G.computeCoverage(used, new Set(used), landed, null, null, face.tokens)
-    assert.deepEqual([legacy.hitSightedKinds, legacy.deadRuleKinds], [0, 1], '不喂全文维时竟也算可达 ⇒ 第 3 态被接到了别的地方')
+    assert.deepEqual(
+      [legacy.hitSightedKinds, legacy.deadRuleKinds],
+      [0, 1],
+      '不喂全文维时竟也算可达 ⇒ 第 3 态被接到了别的地方',
+    )
   } finally {
     rmTmp(f.base)
   }
@@ -413,9 +622,15 @@ test('C5(构造 dist)两个方向:JS/WXML 腿整轮空转 ⇒ 必判 idle;腿在
   const WXSS = '.z-_b1001_B{z-index:1001}\n.w-_b100rpx_B{width:100rpx}'
   const used = ['z-[1001]', 'w-[100rpx]']
   // A 臂 = 2026-09-25 22:35 那一型的复现:wxss 全转写、JS 侧一个转写名都没有(只有源名)
-  const idle = mkDistFixture('c5-idle', { wxss: WXSS, js: 'var a={className:"z-[1001] w-[100rpx] flex"};' })
+  const idle = mkDistFixture('c5-idle', {
+    wxss: WXSS,
+    js: 'var a={className:"z-[1001] w-[100rpx] flex"};',
+  })
   // B 臂 = 05:16 那一型:JS 侧同样被改名 ⇒ 面 2 > 0
-  const live = mkDistFixture('c5-live', { wxss: WXSS, js: 'var a={className:"z-_b1001_B w-_b100rpx_B flex"};' })
+  const live = mkDistFixture('c5-live', {
+    wxss: WXSS,
+    js: 'var a={className:"z-_b1001_B w-_b100rpx_B flex"};',
+  })
   try {
     const measure = (dist) => {
       const landed = G.collectLandedFromDist(dist).landed
@@ -423,14 +638,30 @@ test('C5(构造 dist)两个方向:JS/WXML 腿整轮空转 ⇒ 必判 idle;腿在
       const demand = G.mangledOnlyNames(used, new Set(used), landed)
       const sighted = G.findMangledSightings(face.haystack, demand)
       const c = G.computeCoverage(used, new Set(used), landed, null, null, face.tokens, sighted)
-      return [G.auditMangleLeg({ demandKinds: c.mangleDemandKinds, sightingKinds: sighted.size, sampleNames: demand }), c.mangleDemandKinds, sighted.size]
+      return [
+        G.auditMangleLeg({
+          demandKinds: c.mangleDemandKinds,
+          sightingKinds: sighted.size,
+          sampleNames: demand,
+        }),
+        c.mangleDemandKinds,
+        sighted.size,
+      ]
     }
     const [a, aDemand, aSight] = measure(idle.dist)
     const [b, bDemand, bSight] = measure(live.dist)
-    assert.deepEqual([aDemand, aSight, a.verdict], [2, 0, 'idle'], 'A 臂:腿整轮没跑却没判 idle ⇒ C5 就是本票要补的那一格,它必须能翻红')
+    assert.deepEqual(
+      [aDemand, aSight, a.verdict],
+      [2, 0, 'idle'],
+      'A 臂:腿整轮没跑却没判 idle ⇒ C5 就是本票要补的那一格,它必须能翻红',
+    )
     assert.match(a.reason, /JS\/WXML 转写腿空转/)
     assert.equal(a.sampleNames.length, 2)
-    assert.deepEqual([bDemand, bSight, b.verdict], [2, 2, 'in'], 'B 臂:腿在跑却被判空转 ⇒ 新判据误杀健康构建')
+    assert.deepEqual(
+      [bDemand, bSight, b.verdict],
+      [2, 2, 'in'],
+      'B 臂:腿在跑却被判空转 ⇒ 新判据误杀健康构建',
+    )
   } finally {
     rmTmp(idle.base)
     rmTmp(live.base)
@@ -439,8 +670,16 @@ test('C5(构造 dist)两个方向:JS/WXML 腿整轮空转 ⇒ 必判 idle;腿在
 
 test('C5 饿死方向(构造面):面 1 == 0 ⇒ 只能"未判定",绝不记为通过(空扫报绿是本仓最高频失效型)', () => {
   // 面 1 == 0 的现实形态:产物里**没有**任何"只有转写名"的规则(全原名直中,或全无)
-  const r = G.auditMangleLeg({ demandKinds: G.computeCoverage(['flex'], new Set(['flex']), new Set(['flex'])).mangleDemandKinds, sightingKinds: 0, sampleNames: [] })
-  assert.deepEqual([r.verdict, r.verdict === 'in', r.sampleNames.length], ['undetermined', false, 0])
+  const r = G.auditMangleLeg({
+    demandKinds: G.computeCoverage(['flex'], new Set(['flex']), new Set(['flex']))
+      .mangleDemandKinds,
+    sightingKinds: 0,
+    sampleNames: [],
+  })
+  assert.deepEqual(
+    [r.verdict, r.verdict === 'in', r.sampleNames.length],
+    ['undetermined', false, 0],
+  )
   assert.match(r.reason, /无可观测转写需求/)
 })
 
@@ -466,8 +705,16 @@ test('C4/C5(真 dist,只断与轮次无关的不变量):三态守恒 + 合计口
   // 不变量 1:**守恒** —— 面 1 = 三个可达/死态之和,且第 1 态必须等于"独立算出的 token 可见集"
   // (两条都不是恒真:第一条会因"死规则被重复计/漏计"而崩,第二条会因"两维取材不同一轮"而崩)
   const byToken = demand.filter((n) => face.tokens.has(G.weappMangleClassName(n)))
-  assert.equal(cc.mangleDemandKinds, cc.hitMangledKinds + cc.hitSightedKinds + cc.deadRuleKinds, '三态之和不等于面 1 ⇒ 有一个桶在漏计/重计')
-  assert.equal(cc.hitMangledKinds, byToken.length, '第 1 态与独立算出的 token 可见集不等 ⇒ 判据内部不同形')
+  assert.equal(
+    cc.mangleDemandKinds,
+    cc.hitMangledKinds + cc.hitSightedKinds + cc.deadRuleKinds,
+    '三态之和不等于面 1 ⇒ 有一个桶在漏计/重计',
+  )
+  assert.equal(
+    cc.hitMangledKinds,
+    byToken.length,
+    '第 1 态与独立算出的 token 可见集不等 ⇒ 判据内部不同形',
+  )
   // 不变量 2:全文维看见的必须是 token 维看见的**超集**(同一份快照下 token ⊆ 全文)
   assert.ok(
     byToken.every((n) => sighted.has(n)),
@@ -478,52 +725,91 @@ test('C4/C5(真 dist,只断与轮次无关的不变量):三态守恒 + 合计口
   // 那次构建的 JS/WXML 腿真的整轮没跑 ⇒ 若这里断"不得判 idle",等于把一次偶发的坏构建钉成永久事实
   // (本仓反复记的"别把移动量钉成健康期望值"),而恒红门的已知结局是逼人绕钩子、连带废掉全部守门。
   // in/idle 两个方向的正反证明交给上面的构造夹具;这里只断"判据与自己的输入同形"。
-  const leg = G.auditMangleLeg({ demandKinds: demand.length, sightingKinds: sighted.size, sampleNames: demand })
+  const leg = G.auditMangleLeg({
+    demandKinds: demand.length,
+    sightingKinds: sighted.size,
+    sampleNames: demand,
+  })
   const expect = demand.length === 0 ? 'undetermined' : sighted.size === 0 ? 'idle' : 'in'
-  assert.equal(leg.verdict, expect, `C5 的结论与它自己的两面输入不等价(应 ${expect},实 ${leg.verdict}) ⇒ 判据在凭别的东西下结论`)
-  console.info(`   [真 dist 读数] 面 1=${demand.length} 面 2=${sighted.size} verdict=${leg.verdict} runtimeFiles=${face.files}`)
+  assert.equal(
+    leg.verdict,
+    expect,
+    `C5 的结论与它自己的两面输入不等价(应 ${expect},实 ${leg.verdict}) ⇒ 判据在凭别的东西下结论`,
+  )
+  console.info(
+    `   [真 dist 读数] 面 1=${demand.length} 面 2=${sighted.size} verdict=${leg.verdict} runtimeFiles=${face.files}`,
+  )
 })
-
 
 test('装车证明:C5 真挂在报告 / JSON / 退出码上,且它的红**不受 --min-coverage 管辖**', () => {
   const src = readFileSync(GATE, 'utf8')
-  assert.match(src, /failing\.push\(\.\.\.failingC5\)/, 'C5 判 idle 却没合进 failing ⇒ 喊了红但不改退出码(定义了没接 = 没有)')
+  assert.match(
+    src,
+    /failing\.push\(\.\.\.failingC5\)/,
+    'C5 判 idle 却没合进 failing ⇒ 喊了红但不改退出码(定义了没接 = 没有)',
+  )
   // 顺序即语义:C5 的收口必须落在 minCoverage 那道闸**之外**。写成闸内就等于让观测档
   // (`--min-coverage 0`,恰是最需要发现"腿整轮没跑"的那一档)把它一起免检。
   assert.ok(
     src.indexOf('failing.push(...failingC5)') > src.indexOf('coverage.pct < minCoverage'),
     'C5 的红被 minCoverage 管住了 ⇒ 本票要防的"量级判据冒充结构判据"原样回来',
   )
-  assert.match(src, /const exit = undetermined\.length \? 2 : failing\.length \? 1 : 0/, '退出码口径变了 ⇒ C5 的红可能不落地')
+  assert.match(
+    src,
+    /const exit = undetermined\.length \? 2 : failing\.length \? 1 : 0/,
+    '退出码口径变了 ⇒ C5 的红可能不落地',
+  )
   assert.match(src, /C5 转写腿/, 'C5 结论没进人读报告')
   assert.match(src, /mangleLeg,/, 'C5 结论没进返回对象 ⇒ --json 拿不到')
   // 端到端两问:非 JSON 报告里有这一行;JSON 里这个键在位且取值合法(产物缺失时也必须在,写"未判定")
   const txt = runGate(['--min-coverage', '0'])
-  assert.match(txt.out, /C5 转写腿|❌ C5/, '报告里没有 C5 那一行(任何一次运行都得把它说出来,包括弃权轮)')
+  assert.match(
+    txt.out,
+    /C5 转写腿|❌ C5/,
+    '报告里没有 C5 那一行(任何一次运行都得把它说出来,包括弃权轮)',
+  )
   const j = JSON.parse(runGate(['--json', '--min-coverage', '0']).out.replace(/^[^{]*/, ''))
-  assert.ok(['in', 'idle', 'undetermined'].includes(j.mangleLeg?.verdict), `JSON 里的 C5 verdict 取值非法:${j.mangleLeg?.verdict}`)
+  assert.ok(
+    ['in', 'idle', 'undetermined'].includes(j.mangleLeg?.verdict),
+    `JSON 里的 C5 verdict 取值非法:${j.mangleLeg?.verdict}`,
+  )
 })
 
 /* ─────────────── 3. 同名双义三档分类,各一正一反 ─────────────── */
 
 test('white-on-white:浅色 color × 浅色 background 且自有不设 color', () => {
   assert.equal(
-    G.classifyDualMeaning(['color:var(--color-card)'], ['background:var(--color-card)', 'padding:28rpx']),
+    G.classifyDualMeaning(
+      ['color:var(--color-card)'],
+      ['background:var(--color-card)', 'padding:28rpx'],
+    ),
     'white-on-white',
   )
 })
 
 test('反向对照:深色 background / 自己设 color / utility 不出 color,都不得判成白底事故', () => {
-  assert.notEqual(G.classifyDualMeaning(['color:var(--color-card)'], ['background:#111827']), 'white-on-white')
-  assert.notEqual(G.classifyDualMeaning(['color:var(--color-card)'], ['background:#fff', 'color:#333']), 'white-on-white')
-  assert.notEqual(G.classifyDualMeaning(['display:flex'], ['background:var(--color-card)']), 'white-on-white')
+  assert.notEqual(
+    G.classifyDualMeaning(['color:var(--color-card)'], ['background:#111827']),
+    'white-on-white',
+  )
+  assert.notEqual(
+    G.classifyDualMeaning(['color:var(--color-card)'], ['background:#fff', 'color:#333']),
+    'white-on-white',
+  )
+  assert.notEqual(
+    G.classifyDualMeaning(['display:flex'], ['background:var(--color-card)']),
+    'white-on-white',
+  )
 })
 
 test('盲区判据只在 Tailwind 命名空间里成立(1500+ 条噪声会把真那一条埋掉)', () => {
   // text-card 前缀 text 下有 text-sm ⇒ 它可能是候选,参考层看不见就必须点名
   assert.deepEqual(G.findBlindSpots(['text-card'], new Set(['text-sm'])), ['text-card'])
   // action-btn 前缀 action 下没有任何 Tailwind 规则 ⇒ 结构上不可能,不得混进来
-  assert.deepEqual(G.findBlindSpots(['action-btn', 'agent-avatar'], new Set(['text-sm', 'flex'])), [])
+  assert.deepEqual(
+    G.findBlindSpots(['action-btn', 'agent-avatar'], new Set(['text-sm', 'flex'])),
+    [],
+  )
   assert.equal(G.namespacePrefix('text-muted-foreground'), 'text-muted')
   assert.equal(G.namespacePrefix('visible'), 'visible')
 })
@@ -617,16 +903,32 @@ test('形态分类是"能不能判定"的唯一分派点(四种形态各自的�
     assert.equal(G.classifyDist(absent).kind, 'absent', '目录不存在必须判 absent,不得报 0% 覆盖')
     const h5 = join(base, 'h5')
     writeDist(h5, { indexHtml: true })
-    assert.equal(G.classifyDist(h5).kind, 'wrong-platform', 'h5 的 dist(有 index.html 无 wxml)必须判 wrong-platform')
+    assert.equal(
+      G.classifyDist(h5).kind,
+      'wrong-platform',
+      'h5 的 dist(有 index.html 无 wxml)必须判 wrong-platform',
+    )
     const empty = join(base, 'empty')
     writeDist(empty)
-    assert.equal(G.classifyDist(empty).kind, 'wrong-platform', '一个 .wxml 都没有 ⇒ 不是 weapp 产物')
+    assert.equal(
+      G.classifyDist(empty).kind,
+      'wrong-platform',
+      '一个 .wxml 都没有 ⇒ 不是 weapp 产物',
+    )
     const broken = join(base, 'broken')
     writeDist(broken, { wxml: 2 })
-    assert.equal(G.classifyDist(broken).kind, 'wrong-platform', '有 .wxml 但 .wxss 为 0 ⇒ 产物不完整,不得按 0% 判红')
+    assert.equal(
+      G.classifyDist(broken).kind,
+      'wrong-platform',
+      '有 .wxml 但 .wxss 为 0 ⇒ 产物不完整,不得按 0% 判红',
+    )
     const good = join(base, 'good')
     writeDist(good, { wxss: 2, wxml: 2 })
-    assert.equal(G.classifyDist(good).kind, 'weapp', '正向对照:完整 weapp 产物必须被认出来(否则上面四条是恒真)')
+    assert.equal(
+      G.classifyDist(good).kind,
+      'weapp',
+      '正向对照:完整 weapp 产物必须被认出来(否则上面四条是恒真)',
+    )
   } finally {
     rmScratch(base)
   }
@@ -635,14 +937,23 @@ test('形态分类是"能不能判定"的唯一分派点(四种形态各自的�
 test('真仓跑一次:退出码只能是 0/1/2,且弃权时必须说"未判定"', () => {
   const r = runGate([])
   assert.ok([0, 1, 2].includes(r.code), `退出码越界(${r.code})⇒ 门自身异常,不得当作结论`)
-  if (r.code === 2) assert.match(r.out, /未判定|无法判定/, 'exit 2 却没写"未判定" ⇒ 把工具失效冒充成了业务结论')
+  if (r.code === 2)
+    assert.match(r.out, /未判定|无法判定/, 'exit 2 却没写"未判定" ⇒ 把工具失效冒充成了业务结论')
   if (r.code === 1) assert.match(r.out, /判红/)
   if (r.code === 0) assert.doesNotMatch(r.out, /判红/)
   // 同面改造后的对外契约(2026-09-25):报告只报**一把判定面**,且不再出现两条自我否定。
   // 旧形态"源码 = head,产物 = 磁盘"配合一条"参考层取材=worktree … 两把不同面"的 notice,
   // 等于门自己承认基准错位还照样给结论 —— 那把尺要钉死不得回来。
-  assert.match(r.out, /取材面:单一判定面 = (head|staged|worktree)/, '默认档必须只报一把判定面(源码 ↔ 参考层同面)')
-  assert.doesNotMatch(r.out, /两把不同面|不得据以决策/, '作废的自我否定措辞不得回到任何一次运行输出里')
+  assert.match(
+    r.out,
+    /取材面:单一判定面 = (head|staged|worktree)/,
+    '默认档必须只报一把判定面(源码 ↔ 参考层同面)',
+  )
+  assert.doesNotMatch(
+    r.out,
+    /两把不同面|不得据以决策/,
+    '作废的自我否定措辞不得回到任何一次运行输出里',
+  )
 })
 
 /* ─────────────── 6b. 同面/异面判据:同一份构造输入,只换面,结论必须换 ─────────────── */
@@ -653,14 +964,27 @@ test('真仓跑一次:退出码只能是 0/1/2,且弃权时必须说"未判定"'
  */
 test('异面必拒 / 同面必判:v3 参考层 × head 面 ⇒ 判"无法判定";× worktree ⇒ 正常出结论(只差一个面)', () => {
   const away = G.planReferenceFace({ face: 'head', engine: 'v3', explicit: false })
-  assert.equal(away.action, 'abstain', 'v3 生成器只能读磁盘,配 head 源码面必须拒绝出判定数(旧写法只挂 notice 照常判红)')
+  assert.equal(
+    away.action,
+    'abstain',
+    'v3 生成器只能读磁盘,配 head 源码面必须拒绝出判定数(旧写法只挂 notice 照常判红)',
+  )
   assert.equal(away.judged, false)
   assert.equal(away.sameFace, false)
   assert.match(away.reason, /异面/)
   const same = G.planReferenceFace({ face: 'worktree', engine: 'v3', explicit: false })
-  assert.deepEqual([same.action, same.sameFace, same.judged], ['build', true, true], '反向对照:全磁盘面(worktree)下 v3 生成器就是同面,不得连这个也拒 ⇒ 那 P1 就成了恒拒的摆设')
+  assert.deepEqual(
+    [same.action, same.sameFace, same.judged],
+    ['build', true, true],
+    '反向对照:全磁盘面(worktree)下 v3 生成器就是同面,不得连这个也拒 ⇒ 那 P1 就成了恒拒的摆设',
+  )
   // v4 候选由被审面喂入 ⇒ 任何源码面都同面
-  assert.deepEqual(G.planReferenceFace({ face: 'staged', engine: 'v4' }), { sameFace: true, judged: true, action: 'build', reason: '' })
+  assert.deepEqual(G.planReferenceFace({ face: 'staged', engine: 'v4' }), {
+    sameFace: true,
+    judged: true,
+    action: 'build',
+    reason: '',
+  })
 })
 
 test('人工对比档:异面照样出**读数**但结构上判不了红(judged=false)', () => {
@@ -670,10 +994,26 @@ test('人工对比档:异面照样出**读数**但结构上判不了红(judged=f
 
 test('装车证明:runCheck 必须真消费 planReferenceFace,abstain 折进「无法判定」;旧的两面 notice 不得回来', () => {
   const src = readFileSync(GATE, 'utf8')
-  assert.match(src, /planReferenceFace\(\{ face, engine: picked\.engine, explicit: picked\.explicit \}\)/, '同面判据定义了却没被 runCheck 调用 = 没有(§70/76/81 同型)')
-  assert.match(src, /facePlan\.action === 'abstain'[\s\S]{0,120}undetermined\.push/, 'abstain 没有折进 undetermined ⇒ 会表现为"没数但绿"')
-  assert.match(src, /c1Judged = !!coverage && !engineMismatch && referenceJudged/, 'C1 判红没吃同面闸 ⇒ 异面读数照样能判红')
-  assert.doesNotMatch(src, /参考层取材 = \$\{referenceFace\},源码面 = \$\{face\} —— 两把不同面/, '"两把不同面还照样出结论"那条 notice 形态不得复原')
+  assert.match(
+    src,
+    /planReferenceFace\(\{ face, engine: picked\.engine, explicit: picked\.explicit \}\)/,
+    '同面判据定义了却没被 runCheck 调用 = 没有(§70/76/81 同型)',
+  )
+  assert.match(
+    src,
+    /facePlan\.action === 'abstain'[\s\S]{0,120}undetermined\.push/,
+    'abstain 没有折进 undetermined ⇒ 会表现为"没数但绿"',
+  )
+  assert.match(
+    src,
+    /c1Judged = !!coverage && !engineMismatch && referenceJudged/,
+    'C1 判红没吃同面闸 ⇒ 异面读数照样能判红',
+  )
+  assert.doesNotMatch(
+    src,
+    /参考层取材 = \$\{referenceFace\},源码面 = \$\{face\} —— 两把不同面/,
+    '"两把不同面还照样出结论"那条 notice 形态不得复原',
+  )
 })
 
 /* ─────────────── 7. 本门不得被静默摘线(装车形状对账) ─────────────── */
@@ -683,10 +1023,21 @@ test('WIRING_MODE 与实际接线必须双向一致', () => {
   const runner = readFileSync(RUNNER, 'utf8')
   const wired = /check-miniapp-css-landing\.mjs/.test(runner)
   if (WIRING_MODE === 'manual') {
-    assert.equal(wired, false, '声明为手动/CI 门,但 guardian-runner 里出现了它 —— 有人把它接进了提交链而没改声明。接成 blocking 会让提交者因"产物不存在"被逼 --no-verify(§12e)。')
+    assert.equal(
+      wired,
+      false,
+      '声明为手动/CI 门,但 guardian-runner 里出现了它 —— 有人把它接进了提交链而没改声明。接成 blocking 会让提交者因"产物不存在"被逼 --no-verify(§12e)。',
+    )
   } else {
-    assert.equal(wired, true, '声明已接提交链,但 runner 里没有它 —— 本门被摘线了(造好没装车,本仓最高频那一型)。')
-    const block = runner.slice(Math.max(0, runner.indexOf('check-miniapp-css-landing.mjs') - 600), runner.indexOf('check-miniapp-css-landing.mjs') + 600)
+    assert.equal(
+      wired,
+      true,
+      '声明已接提交链,但 runner 里没有它 —— 本门被摘线了(造好没装车,本仓最高频那一型)。',
+    )
+    const block = runner.slice(
+      Math.max(0, runner.indexOf('check-miniapp-css-landing.mjs') - 600),
+      runner.indexOf('check-miniapp-css-landing.mjs') + 600,
+    )
     assert.match(block, /skipEnv/, '接线成提交链的门必须留应急出口')
   }
 })
@@ -695,13 +1046,18 @@ test('源码里必须写着「当前为手动 / CI 门」,且结论行也要说�
   const src = readFileSync(GATE, 'utf8')
   assert.match(src, /手动 \/ CI 门/, '头注必须如实登记定级,否则下一个人会以为它在守提交')
   const r = runGate(['--min-coverage', '0'])
-  assert.match(r.out, /未接进提交链/, '运行输出也要说明定级(只看代码的人不会跑代码,跑一次的人应当被告知)')
+  assert.match(
+    r.out,
+    /未接进提交链/,
+    '运行输出也要说明定级(只看代码的人不会跑代码,跑一次的人应当被告知)',
+  )
 })
 
 /* ─────────────── 8. 产物引擎判据:必须"被算出来"且"被说出来" ─────────────── */
 
 test('引擎判据三向可分(只有 v4 指纹 / 只有 v3 指纹 / 两版都有 ⇒ unknown)', () => {
-  const V4 = '--tw-leading:;--tw-tracking:;--tw-gradient-position:initial;--tw-drop-shadow-size:;--tw-duration:initial;--tw-ease:initial;'
+  const V4 =
+    '--tw-leading:;--tw-tracking:;--tw-gradient-position:initial;--tw-drop-shadow-size:;--tw-duration:initial;--tw-ease:initial;'
   const V3 = '--tw-bg-opacity:1;--tw-text-opacity:1;--tw-border-opacity:1;'
   const base = mkScratch('ihui-eng-')
   try {
@@ -713,9 +1069,17 @@ test('引擎判据三向可分(只有 v4 指纹 / 只有 v3 指纹 / 两版都�
     const a = G.detectProductTailwindMajor(d)
     assert.deepEqual([a.major, a.preflight, a.v4Hits, a.v3Hits], ['v4', true, 6, 0])
     w(`page{margin:0}${V3}`)
-    assert.equal(G.detectProductTailwindMajor(d).major, 'v3', '反向对照:只有 v3 指纹必须答 v3,否则本判据等于恒答 v4')
+    assert.equal(
+      G.detectProductTailwindMajor(d).major,
+      'v3',
+      '反向对照:只有 v3 指纹必须答 v3,否则本判据等于恒答 v4',
+    )
     w(`${V4}${V3}`)
-    assert.equal(G.detectProductTailwindMajor(d).major, 'unknown', '两版指纹同时出现时必须承认判不出,不得猜一个方向')
+    assert.equal(
+      G.detectProductTailwindMajor(d).major,
+      'unknown',
+      '两版指纹同时出现时必须承认判不出,不得猜一个方向',
+    )
   } finally {
     rmScratch(base)
   }
@@ -725,15 +1089,30 @@ test('引擎不一致时必须把"不得据以决策"打在输出里(判据存�
   const src = readFileSync(GATE, 'utf8')
   // 装车证明①:必须真调用,且把结果放进返回对象(只定义不调用 = 没有这道判据)
   assert.match(src, /productEngine = detectProductTailwindMajor\(/, '没真正调用产物引擎判据')
-  assert.match(src, /productEngine,\s*\n\s*engineMismatch,/, '算出来了却没放进返回对象 ⇒ 报告拿不到')
+  assert.match(
+    src,
+    /productEngine,\s*\n\s*engineMismatch,/,
+    '算出来了却没放进返回对象 ⇒ 报告拿不到',
+  )
   // 装车证明②(2026-09-25 换形):C3 那句"若开启 utilities…装不装得下"的**假设算术**已随链开落地作废
   // (主包/余量现在是含 utilities 落地量的实测现值),所以"引擎失配必须喊出来"落在两处,都要钉住:
   //  ① 引擎不一致的 ⚠️ 段必须明说"不构成依据";② C1 在非判红档必须标"只是读数,不计红"。
-  assert.match(src, /都不构成"该不该开链"的依据/, '引擎不一致却没在输出里说"不构成依据" ⇒ 人照样会拿这个数决策')
-  assert.match(src, /r\.c1Judged \? '' : ' 〔对比档/, 'C1 在参考层不同引擎/不同面时必须自标"只是读数,不计红"')
+  assert.match(
+    src,
+    /都不构成"该不该开链"的依据/,
+    '引擎不一致却没在输出里说"不构成依据" ⇒ 人照样会拿这个数决策',
+  )
+  assert.match(
+    src,
+    /r\.c1Judged \? '' : ' 〔对比档/,
+    'C1 在参考层不同引擎/不同面时必须自标"只是读数,不计红"',
+  )
   // 注意这里**不能**判"源码里不许出现 (装得下) 这几个字" —— 上面那句引擎失配的注释里
   // 正当引用了它(正是为了说明为什么作废)。要拦的是**产出那句结论的表达式**本身。
-  assert.ok(!src.includes("slack >= 0 ? '(装得下)'"), '作废的"若开启…装不装得下"假设算术不得回来(链已开,那组前置数实测方向是反的)')
+  assert.ok(
+    !src.includes("slack >= 0 ? '(装得下)'"),
+    '作废的"若开启…装不装得下"假设算术不得回来(链已开,那组前置数实测方向是反的)',
+  )
 })
 
 /* ─────────────── 8b. 参考层必须与产物**同引擎**(换档的全部理由) ─────────────── */
@@ -754,16 +1133,31 @@ test('参考层真换成 v4:两把尺子结论不同的名字 + 分母读数确�
   const v3 = await G.buildUtilityReference(appDir)
   assert.equal(v4.engine, 'v4')
   assert.match(v4.tailwindVersion, /^4\./, `v4 档拿到的却是 ${v4.tailwindVersion}`)
-  assert.ok(v4.names.has('px-4') && v4.names.has('text-sm'), 'theme 没喂进去时 v4 只出 arbitrary 那一半 —— px-4/text-sm 缺失即输入不一致')
+  assert.ok(
+    v4.names.has('px-4') && v4.names.has('text-sm'),
+    'theme 没喂进去时 v4 只出 arbitrary 那一半 —— px-4/text-sm 缺失即输入不一致',
+  )
   // ① 阳性对照(先钉夹具前提:v3 那侧确实没有,否则这条断言是恒真)
-  assert.equal(v3.names.has('invisible'), false, '夹具前提变了:v3 参考层如今含 invisible,本对照失去判别力,换一个两把尺不同的名字')
+  assert.equal(
+    v3.names.has('invisible'),
+    false,
+    '夹具前提变了:v3 参考层如今含 invisible,本对照失去判别力,换一个两把尺不同的名字',
+  )
   assert.equal(v4.names.has('invisible'), true, '换成 v4 后参考层必须真的变了')
   // ② 分母读数确实变了
   const c4 = G.computeCoverage(candidates, v4.names, new Set())
   const c3 = G.computeCoverage(candidates, v3.names, new Set())
-  assert.notEqual(c4.demandedKinds, c3.demandedKinds, `v3/v4 两把尺的分母一样(${c3.demandedKinds})⇒ "换引擎"没落到读数上`)
+  assert.notEqual(
+    c4.demandedKinds,
+    c3.demandedKinds,
+    `v3/v4 两把尺的分母一样(${c3.demandedKinds})⇒ "换引擎"没落到读数上`,
+  )
   // ③ 反向对照:不存在的类名不得进参考层
-  assert.equal(v4.names.has('not-a-class-xyz'), false, '参考层把不存在的类名也认作候选 ⇒ 是一把"全都算"的假尺')
+  assert.equal(
+    v4.names.has('not-a-class-xyz'),
+    false,
+    '参考层把不存在的类名也认作候选 ⇒ 是一把"全都算"的假尺',
+  )
 })
 
 test('auto 档必须先看产物引擎再决定参考层(顺序反了就是先射箭再画靶)', () => {
@@ -773,7 +1167,11 @@ test('auto 档必须先看产物引擎再决定参考层(顺序反了就是先�
   const pickAt = src.indexOf('pickReferenceEngine({ productMajor: productEngine')
   assert.ok(engineAt > 0 && pickAt > engineAt, 'pickReferenceEngine 必须在产物引擎判完之后调用')
   // C1 判红必须过 c1Judged 这道闸(人工对比档不得判红)
-  assert.match(src, /!undetermined\.length && c1Judged && coverage\.pct < minCoverage/, 'C1 判红没走 c1Judged ⇒ 错引擎的参考层照样能判红')
+  assert.match(
+    src,
+    /!undetermined\.length && c1Judged && coverage\.pct < minCoverage/,
+    'C1 判红没走 c1Judged ⇒ 错引擎的参考层照样能判红',
+  )
   assert.match(src, /参考层引擎无法确定/, '同引擎做不到时必须登记「无法判定」而不是继续出数')
 })
 
@@ -802,8 +1200,16 @@ test('产物引擎判不出 ⇒ exit 2 且不得输出任何 C1 覆盖率数字'
     assert.doesNotMatch(r.out, /C1 覆盖 \d+\/\d+/, '引擎判不出却照样报了覆盖率')
     // 必须点名"是因为引擎判不出才弃权"—— 只看"未判定"三个字会把别的故障(取不到源码清单等)
     // 也算成这条判据通过,那这条反向对照就没有牙了。
-    assert.match(r.out, /参考层引擎无法确定/, '没有点名弃权原因是"引擎对不上" ⇒ 无法区分是不是本判据在起作用')
-    assert.match(r.out, /major = unknown/, '必须把判不出的那个指纹结论说出来(unknown 而不是猜一个方向)')
+    assert.match(
+      r.out,
+      /参考层引擎无法确定/,
+      '没有点名弃权原因是"引擎对不上" ⇒ 无法区分是不是本判据在起作用',
+    )
+    assert.match(
+      r.out,
+      /major = unknown/,
+      '必须把判不出的那个指纹结论说出来(unknown 而不是猜一个方向)',
+    )
   } finally {
     rmTmp(base)
   }
@@ -820,7 +1226,10 @@ test('v4 工具链不可得 ⇒ exit 2,不得悄悄回落到 v3 出一份数', (
     const dist = join(app, 'dist')
     mkdirSync(join(dist, 'pages'), { recursive: true })
     writeFileSync(join(dist, 'app.json'), JSON.stringify({ pages: ['pages/i'] }))
-    writeFileSync(join(dist, 'app.wxss'), 'page{--tw-leading:;--tw-tracking:;--tw-gradient-position:initial}')
+    writeFileSync(
+      join(dist, 'app.wxss'),
+      'page{--tw-leading:;--tw-tracking:;--tw-gradient-position:initial}',
+    )
     writeFileSync(join(dist, 'pages', 'i.wxml'), '<view/>')
     writeFileSync(join(dist, 'pages', 'i.wxss'), '.flex{display:flex}')
     const r = runGate(['--root', base, '--worktree', '--json'])
@@ -828,7 +1237,11 @@ test('v4 工具链不可得 ⇒ exit 2,不得悄悄回落到 v3 出一份数', (
     const j = JSON.parse(r.out.slice(r.out.indexOf('{')))
     assert.equal(j.coverage, null, '拿不到同引擎工具链却仍产出了 coverage 对象')
     assert.equal(j.referenceEngine, null, 'referenceEngine 不为空说明它回落到了别的引擎')
-    assert.match(r.out, /参考层判不出\(v4 档\)|参考层引擎无法确定/, '未判定原因必须点名是 v4 档拿不到')
+    assert.match(
+      r.out,
+      /参考层判不出\(v4 档\)|参考层引擎无法确定/,
+      '未判定原因必须点名是 v4 档拿不到',
+    )
   } finally {
     rmTmp(base)
   }
@@ -836,9 +1249,16 @@ test('v4 工具链不可得 ⇒ exit 2,不得悄悄回落到 v3 出一份数', (
 
 test('嵌套规则不得从两侧隐身(v4 把 @supports 嵌在类规则自己身上,扁平解析会整条漏掉)', () => {
   // 阳性:参考层侧漏收会让分母变小(覆盖率虚高),产物侧漏收会把已落地的判成没落地
-  assert.ok(G.harvestLandedSelectors('.bg-primary\\/10{background-color:var(--c);@supports (color:color-mix(in lab,r 50%,b)){background-color:color-mix(in oklab,var(--c)10%,var(--b))}}').has('bg-primary/10'))
+  assert.ok(
+    G.harvestLandedSelectors(
+      '.bg-primary\\/10{background-color:var(--c);@supports (color:color-mix(in lab,r 50%,b)){background-color:color-mix(in oklab,var(--c)10%,var(--b))}}',
+    ).has('bg-primary/10'),
+  )
   const src = readFileSync(GATE, 'utf8')
-  assert.ok(!src.includes('/([^{}]+)\\{([^{}]*)\\}/g'), '旧的扁平规则正则不得回来(它会把 v4 嵌套规则整条漏掉)')
+  assert.ok(
+    !src.includes('/([^{}]+)\\{([^{}]*)\\}/g'),
+    '旧的扁平规则正则不得回来(它会把 v4 嵌套规则整条漏掉)',
+  )
   assert.match(src, /function ruleNodes\(/, '花括号树解析器必须在位')
   assert.match(src, /function declarationsOf\(/, '自身+后代的声明收集必须在位(空壳规则不得算落地)')
 })
@@ -847,7 +1267,10 @@ test('嵌套规则不得从两侧隐身(v4 把 @supports 嵌在类规则自己�
 
 test('§22d:源文件必须有 isDirectRun 守卫(被 import 时不得触发 main)', () => {
   const src = readFileSync(GATE, 'utf8')
-  assert.match(src, /const isDirectRun = process\.argv\[1\] && import\.meta\.url === pathToFileURL\(process\.argv\[1\]\)\.href/)
+  assert.match(
+    src,
+    /const isDirectRun = process\.argv\[1\] && import\.meta\.url === pathToFileURL\(process\.argv\[1\]\)\.href/,
+  )
   assert.match(src, /if \(isDirectRun\) \{/)
   assert.match(src, /pathToFileURL/, 'Windows 反斜杠路径必须经 pathToFileURL 归一,裸拼永不匹配')
 })
@@ -894,10 +1317,18 @@ test('§22c:__test__ 必须导出判据函数本体(不得让测试复制第二�
   {
     const self = readFileSync(new URL(import.meta.url), 'utf8')
     const evidenced = new Set()
-    for (const m of self.matchAll(/weappMangleClassName\('([^']*)'\)/g)) for (const ch of m[1]) evidenced.add(ch)
+    for (const m of self.matchAll(/weappMangleClassName\('([^']*)'\)/g))
+      for (const ch of m[1]) evidenced.add(ch)
     const unsourced = [...G.WEAPP_CLASS_MANGLE_TABLE.keys()].filter((k) => !evidenced.has(k))
-    assert.deepEqual(unsourced, [], `转写表里这些键没有任何逐字样本作证:${unsourced.join(' ')} —— 补条目必须同笔补真产物样本`)
-    assert.ok(G.WEAPP_CLASS_MANGLE_TABLE.size >= 9, '转写表缩水到不足 9 条(真产物实测有这么多;删条目要说明理由)')
+    assert.deepEqual(
+      unsourced,
+      [],
+      `转写表里这些键没有任何逐字样本作证:${unsourced.join(' ')} —— 补条目必须同笔补真产物样本`,
+    )
+    assert.ok(
+      G.WEAPP_CLASS_MANGLE_TABLE.size >= 9,
+      '转写表缩水到不足 9 条(真产物实测有这么多;删条目要说明理由)',
+    )
   }
 })
 
@@ -919,29 +1350,54 @@ test('--self-test 必须全绿(判据自身的成对正反例)', () => {
  */
 test('本门只读:源码里不得存在写向 产物/端源码/门自身 的调用', () => {
   const src = readFileSync(GATE, 'utf8')
-  const code = src.replace(/^\s*\/\/.*$/gm, '') // 注释里提到 writeFileSync 不算
-  // 判"写向仓库路径"而不是"有没有写":--self-test 往临时目录造夹具是合法的,
-  // 用标识符白名单去枚举它必然假红(实测第一版就把 join(w,…)/join(partial,…) 全报成可疑)。
-  // 唯一可靠的性质是:**写调用的参数里不得出现任何模块级仓库路径常量或字面量端路径**。
-  const REPO_PATHS = ['ROOT', 'DEFAULT_ROOT', 'APP_REL', 'SRC_PREFIX', 'process.cwd']
-  const writers = [...code.matchAll(/\b(writeFileSync|appendFileSync|copyFileSync|rmSync|unlinkSync|rmdirSync|mkdirSync|createWriteStream)\s*\(([\s\S]{0,160}?)\)/g)]
-  const offending = writers.filter((m) => REPO_PATHS.some((p) => new RegExp(`\\b${p.replace(/\./g, '\\.')}\\b`).test(m[2])))
+  /**
+   * 名单、剥注释与裁定**全在门里**(§22c:`G.readOnlyRepoPathWrites` 是唯一那一份判据本体)。
+   * 这一格历史上抄过两次:先是测试自己写 `REPO_PATHS` + 8 个写调用名的正则(且正向臂与阳性对照
+   * 各写一遍),后是残留的一条窄判据(只盯字面量端路径)—— 两者都属守门 191 报的 F2 半复制。
+   * 现在第二维收回门里(见门体 P96 的成对臂),测试连剥注释都不自己做,只喂夹具、只调生产入口。
+   */
+  const v = G.readOnlyRepoPathWrites(src)
+  assert.ok(v.sampled > 0, `一条写调用都没量到(sampled=${v.sampled})⇒ 这把尺已经失明,失明不是合规`)
   assert.deepEqual(
-    offending.map(([, fn, args]) => `${fn}(${args.replace(/\s+/g, ' ').slice(0, 70)})`),
+    v.offenders.map((o) => `${o.call}(${o.token}:${o.args})`),
     [],
     '发现写调用参数里出现了仓库路径常量 ⇒ 本门不再只读',
   )
-  assert.doesNotMatch(code, /writeFileSync\([^)]*['"]apps\//, '不得写端源码')
-
-  // 阳性对照:上面那三条必须是"会响的尺",不是恒真断言。
-  // 做法:把同一段判据套到一份**故意写坏**的源码上,要求它判红。
-  const judge = (text) => {
-    const t = text.replace(/^\s*\/\/.*$/gm, '')
-    const ws = [...t.matchAll(/\b(writeFileSync|appendFileSync|copyFileSync|rmSync|unlinkSync|rmdirSync|mkdirSync|createWriteStream)\s*\(([\s\S]{0,160}?)\)/g)]
-    return ws.filter((m) => REPO_PATHS.some((p) => new RegExp(`\\b${p.replace(/\./g, '\\.')}\\b`).test(m[2]))).length
-  }
-  assert.equal(judge(`writeFileSync(join(base, 'x.wxss'), '')`), 0, '正向对照:写临时夹具不该被判红(否则上面那条是恒红尺)')
-  assert.equal(judge(`writeFileSync(join(ROOT, 'apps/miniapp-taro/dist/app.wxss'), '')`), 1, '阳性对照:写仓库路径必须判红,量到 0 ⇒ 本条尺子没有牙')
+  /**
+   * 阳性对照:上面那条必须是"会响的尺",不是恒真断言 —— 把**同一条判据**(门里那一份)套到一份
+   * 故意写坏的源码上,要求它判红。夹具里的动作名取自裁定回报的 `checkedNames`(副产品),
+   * 不在测试里字面写死:写死就是名单两边各一份,而门体反而成了第二个持有者(守门 191 F2 同型)。
+   */
+  const mutator = v.checkedNames[0]
+  assert.deepEqual(
+    G.readOnlyRepoPathWrites(`${mutator}(join(base, 'x.wxss'), '')`).offenders,
+    [],
+    '正向对照:写临时夹具不该被判红(否则上面那条是恒红尺)',
+  )
+  const hit = G.readOnlyRepoPathWrites(`${mutator}(join(ROOT, 'app.wxss'), '')`)
+  assert.equal(hit.offenders.length, 1, '阳性对照:写仓库路径必须判红,量到 0 ⇒ 本条尺子没有牙')
+  assert.equal(hit.offenders[0].token, 'ROOT', '缺项必须点名是哪一条仓库路径被写进了参数')
+  assert.equal(hit.offenders[0].call, mutator, '缺项必须点名拦下的是哪个动作')
+  /**
+   * 第二维(字面量端路径):这一格原先是测试自己写的一条窄判据
+   * (`assert.doesNotMatch(maskComments(src), /writeFileSync\([^)]*['"]apps\//)`)——
+   * 与本文件的正向臂各判各的,正是守门 191 报的那对 F2。现在两维都由门里那一份裁定,
+   * 测试只喂夹具。仓库根名字照样拆开拼(见门体 P96 同一课):测试文本里若留着连写的字面量,
+   * 任何拿这把尺扫测试面的调用就会自报违规。
+   */
+  const litTarget = "'" + ['app', 's/'].join('') + "miniapp-taro/src/app.wxss', ''"
+  const litHit = G.readOnlyRepoPathWrites(`${mutator}(${litTarget})`)
+  assert.equal(
+    litHit.offenders.length,
+    1,
+    '绕开常量、直接写字面量端路径也必须被同一把尺判出 —— 量到 0 ⇒ 第二维没有牙',
+  )
+  assert.equal(litHit.offenders[0].token, 'literal:apps/', '缺项必须点名是哪一条仓库根被字面量写中')
+  assert.deepEqual(
+    G.readOnlyRepoPathWrites(`${mutator}('h5/index.html', '')`).offenders,
+    [],
+    '非仓库根的字面量不得误拦(否则上一条是恒红尺)',
+  )
 })
 
 /* ── 报告面形状锁:C6 与 C7 必须是**两次**独立打印(2026-09-26 实测过一次的缺陷形态) ── */
@@ -949,9 +1405,16 @@ test('report() 里 C6/C7 的 console.log 必须各自闭合 —— 少一个闭�
   const src = readFileSync(join(ROOT, 'scripts', 'check-miniapp-css-landing.mjs'), 'utf8')
   // 形状锁一律先归一化空白:prettier 一折行,按原样缩进写的锁就会造出与正确性无关的假红
   const flat = src.replace(/\s+/g, ' ')
-  const SHAPE = /C6 CSS 腿:\$\{r\.cssLeg\.verdict\}[\s\S]*?已被排除`\), \) console\.log\( `C7 spacing/
-  const brokenText = flat.replace('已被排除`), ) console.log( `C7 spacing', '已被排除`), console.log( `C7 spacing')
-  assert.ok(SHAPE.test(flat), 'C6 的 console.log 必须在下一次 console.log 之前闭合(实测旧形态少一个 `)`,于是打印顺序倒过来、尾部拖 `undefined`)')
+  const SHAPE =
+    /C6 CSS 腿:\$\{r\.cssLeg\.verdict\}[\s\S]*?已被排除`\), \) console\.log\( `C7 spacing/
+  const brokenText = flat.replace(
+    '已被排除`), ) console.log( `C7 spacing',
+    '已被排除`), console.log( `C7 spacing',
+  )
+  assert.ok(
+    SHAPE.test(flat),
+    'C6 的 console.log 必须在下一次 console.log 之前闭合(实测旧形态少一个 `)`,于是打印顺序倒过来、尾部拖 `undefined`)',
+  )
   // 反向对照:把源码改成缺陷形态,上面那条判据必须翻红 —— 否则它是一条恒真断言
   assert.notEqual(brokenText, flat, '变异夹具没生效 ⇒ 锚点文本漂了,本条锁正在失去判别力')
   assert.equal(SHAPE.test(brokenText), false, '变异后仍判通过 ⇒ 本条尺子没有牙')
@@ -961,7 +1424,10 @@ test('report() 里 C6/C7 的 console.log 必须各自闭合 —— 少一个闭�
 function mkFakeApp(base) {
   const app = join(base, 'apps', 'miniapp-taro')
   mkdirSync(join(app, 'src', 'pages'), { recursive: true })
-  writeFileSync(join(app, 'src', 'pages', 'i.tsx'), 'export const X = () => <View className="flex text-card" />')
+  writeFileSync(
+    join(app, 'src', 'pages', 'i.tsx'),
+    'export const X = () => <View className="flex text-card" />',
+  )
   writeFileSync(join(app, 'src', 'app.css'), '.text-card{background:var(--color-card)}')
   return app
 }
@@ -977,9 +1443,21 @@ function mkFakeApp(base) {
 test('C0 装车锁:runCheck 必须真的调用 decideArtifactFreshness,并把 stale 落进 undetermined(不是只导出)', () => {
   const src = readFileSync(join(ROOT, 'scripts', 'check-miniapp-css-landing.mjs'), 'utf8')
   const body = src.slice(src.indexOf('export async function runCheck'))
-  assert.match(body, /decideArtifactFreshness\(/, 'runCheck 体内必须调用它,否则 C0 只是 __test__ 里一个没人问的函数')
-  assert.match(body, /state === 'stale'[\s\S]{0,200}undetermined\.push/, 'stale 必须进 undetermined(exit 2 未判定)—— 落 failing 就是把"取证不完整"冒充成"端有缺陷"')
-  assert.match(body, /state === 'undetermined'[\s\S]{0,120}undetermined\.push/, '量不到也必须点名,不得静默当成新鲜')
+  assert.match(
+    body,
+    /decideArtifactFreshness\(/,
+    'runCheck 体内必须调用它,否则 C0 只是 __test__ 里一个没人问的函数',
+  )
+  assert.match(
+    body,
+    /state === 'stale'[\s\S]{0,200}undetermined\.push/,
+    'stale 必须进 undetermined(exit 2 未判定)—— 落 failing 就是把"取证不完整"冒充成"端有缺陷"',
+  )
+  assert.match(
+    body,
+    /state === 'undetermined'[\s\S]{0,120}undetermined\.push/,
+    '量不到也必须点名,不得静默当成新鲜',
+  )
 })
 
 test('C0 端到端双向锁:同一份临时 dist/src,src 更新⇒stale、dist 更新⇒fresh、量不到⇒undetermined', () => {
@@ -1002,25 +1480,45 @@ test('C0 端到端双向锁:同一份临时 dist/src,src 更新⇒stale、dist �
     // 阳性对照:两个采集器都必须真量到值 —— 只判状态而量不到,状态就成了猜的
     const dn = G.newestMtimeInDir(dist)
     const sn = G.newestMtimeOfPaths(base, srcFiles)
-    assert.equal(typeof dn.ms, 'number', 'dist 最新 mtime 必须量得到(量不到说明 walkFiles/stat 姿势错了)')
+    assert.equal(
+      typeof dn.ms,
+      'number',
+      'dist 最新 mtime 必须量得到(量不到说明 walkFiles/stat 姿势错了)',
+    )
     assert.equal(typeof sn.ms, 'number', '源码最新 mtime 必须量得到')
     assert.equal(sn.unreadable, 0, '夹具里两个源码文件都该 stat 成功')
 
-    assert.equal(G.decideArtifactFreshness(dn2a(dn, sn)).state, 'fresh', 'dist 比源码新 ⇒ 必须判新鲜(判成旧就是造一台恒红门)')
+    assert.equal(
+      G.decideArtifactFreshness(dn2a(dn, sn)).state,
+      'fresh',
+      'dist 比源码新 ⇒ 必须判新鲜(判成旧就是造一台恒红门)',
+    )
 
     // 反向:把源码改到比 dist 新 —— 这一格必须翻成 stale,且给出可复核的毫秒差
     utimesSync(join(app, 'src', 'app.css'), T_NEW, T_NEW)
     utimesSync(join(dist, 'base.wxml'), T_OLD, T_OLD)
     utimesSync(join(dist, 'pages', 'i.wxml'), T_OLD, T_OLD)
     utimesSync(join(dist, 'pages', 'i.wxss'), T_OLD, T_OLD)
-    const r = G.decideArtifactFreshness(dn2a(G.newestMtimeInDir(dist), G.newestMtimeOfPaths(base, srcFiles)))
+    const r = G.decideArtifactFreshness(
+      dn2a(G.newestMtimeInDir(dist), G.newestMtimeOfPaths(base, srcFiles)),
+    )
     assert.equal(r.state, 'stale', '源码里有比产物新的改动 ⇒ 这份产物不可能含它,读数不是缺陷计数')
     assert.ok(r.ageMs > 0, 'stale 必须带毫秒差,否则报告只会喊"旧"而说不出旧多少')
 
     // 第三臂:任一度量取不到 ⇒ undetermined(把"没量到"写成"没问题"是本仓最高频失效型)
-    assert.equal(G.decideArtifactFreshness({ distNewestMs: null, srcNewestMs: 1 }).state, 'undetermined')
-    assert.equal(G.decideArtifactFreshness({ distNewestMs: 1, srcNewestMs: null }).state, 'undetermined')
-    assert.equal(G.newestMtimeInDir(join(base, 'no-such-dir')).ms, null, '不存在的目录必须量出 null 而不是抛错或报 0')
+    assert.equal(
+      G.decideArtifactFreshness({ distNewestMs: null, srcNewestMs: 1 }).state,
+      'undetermined',
+    )
+    assert.equal(
+      G.decideArtifactFreshness({ distNewestMs: 1, srcNewestMs: null }).state,
+      'undetermined',
+    )
+    assert.equal(
+      G.newestMtimeInDir(join(base, 'no-such-dir')).ms,
+      null,
+      '不存在的目录必须量出 null 而不是抛错或报 0',
+    )
   } finally {
     rmTmp(base)
   }
@@ -1050,7 +1548,11 @@ test('C8 装车锁:runCheck 必须真算分族、真比锚点、红必须进 fai
   const body = GATE_SRC.slice(GATE_SRC.indexOf('export async function runCheck'))
   assert.match(body, /tallyDeadRuleFamilies\(/, '死规则集合必须按族统计,否则台账没有可比的读数')
   assert.match(body, /auditDeadRuleRatchet\(\{/, '锚点比对必须真的发生')
-  assert.match(body, /foldDeadRuleRatchet\(\{/, '结论折档(默认只报名 / --strict 拒出合格证)必须由纯函数给,不在门里重写一遍')
+  assert.match(
+    body,
+    /foldDeadRuleRatchet\(\{/,
+    '结论折档(默认只报名 / --strict 拒出合格证)必须由纯函数给,不在门里重写一遍',
+  )
   const push = body.indexOf('failing.push(...ratchetFold.failing)')
   assert.ok(push > 0, '增长必须进 failing(判红)。只 console.log 不 push = 判对了也没人被打断')
   // 与 C3/C5 同族:结构性回归不得被覆盖率阈值管辖 —— 它在 C1 那条 if 之后作为兄弟语句出现。
@@ -1093,19 +1595,38 @@ test('C8 台账对账:真文件必须被同一把尺子读通,且族名集合与
 })
 
 test('C8 --strict 真的被消费:parseArgs 认这条旗、runCheck 把它喂给折档函数', () => {
-  assert.match(GATE_SRC, /else if \(a === .--strict.\) o\.strict = true/, '--strict 没进 parseArgs ⇒ 文档写了个跑不通的出路')
-  assert.match(GATE_SRC, /foldDeadRuleRatchet\(\{[^}]*strict: !!opts\.strict/s, 'strict 没传进折档判据 ⇒ "拒绝出合格证"是句空话')
+  assert.match(
+    GATE_SRC,
+    /else if \(a === .--strict.\) o\.strict = true/,
+    '--strict 没进 parseArgs ⇒ 文档写了个跑不通的出路',
+  )
+  assert.match(
+    GATE_SRC,
+    /foldDeadRuleRatchet\(\{[^}]*strict: !!opts\.strict/s,
+    'strict 没传进折档判据 ⇒ "拒绝出合格证"是句空话',
+  )
 })
 
 test('C8 重锚出口只打印、非新鲜拒收(本门只读由上面那条写调用锁保证)', () => {
   const body = GATE_SRC.slice(GATE_SRC.indexOf('async function main'))
   assert.match(body, /opts\.emitDeadRuleBaseline/, '--emit-dead-rule-baseline 没接进 main')
-  assert.match(body, /draft\.ok \|\| !r\.deadRuleCurrent[\s\S]{0,220}return 2/, '产物非新鲜 / 没读数时必须拒收并 exit 2,而不是吐一份垃圾锚点')
-  assert.doesNotMatch(body, /writeFileSync\([^)]*dead-rule-baseline/, '重锚出口不得自己写台账:写盘是人的决定,门的职责是把草案打印出来')
+  assert.match(
+    body,
+    /draft\.ok \|\| !r\.deadRuleCurrent[\s\S]{0,220}return 2/,
+    '产物非新鲜 / 没读数时必须拒收并 exit 2,而不是吐一份垃圾锚点',
+  )
+  assert.doesNotMatch(
+    body,
+    /writeFileSync\([^)]*dead-rule-baseline/,
+    '重锚出口不得自己写台账:写盘是人的决定,门的职责是把草案打印出来',
+  )
   // 纯函数那一侧同样拒收(G.auditDeadRuleRatchet 的 stale 分支由 --self-test P90 成对钉住)。
   assert.equal(
-    G.draftDeadRuleBaseline({ current: { fractional: 0, prefixed: 0, other: 0, total: 0 }, freshness: 'stale', face: 'head' })
-      .ok,
+    G.draftDeadRuleBaseline({
+      current: { fractional: 0, prefixed: 0, other: 0, total: 0 },
+      freshness: 'stale',
+      face: 'head',
+    }).ok,
     false,
   )
 })

@@ -26,27 +26,29 @@
  * 由调用方 exit 1,绝不"看起来全绿"。
  */
 
-import { execFileSync } from 'node:child_process'
-
-const GIT = 'git'
+// 2026-10-08(gitRaw 型 B 收尾批)git 出口收口:本文件唯一自拼派生 `lsFiles()` 迁取材层
+// scripts/lib/face-reader.mjs 的 `gitRaw`,`const GIT = 'git'` 随之删除。行为面对照:
+//  · 二进制:旧裸 'git'(依赖 PATH)→ 层内 `resolveGitBin() || 'git'` 绝对路径兜底链
+//    (净收益,§5b"git 调用不得依赖环境"同规);`-c safe.directory=*` 同;`-C <root>`
+//    与旧 `cwd: root` 同效(路径解析面一致)。
+//  · 层另带 `-c core.quotepath=false`:本文件头注自述的 quotePath 八进制转义痛点(非
+//    ASCII 文件名对不上真实文件)由层内直接消除,清单可对回真实文件 —— 与本文件意图
+//    同向,两份清单(跟踪/未跟踪)的判定面只宽不窄。
+//  · stdio:旧 ['ignore','pipe','pipe'](stdin 置 ignore 防 pipe-stdin spawn git 确定性
+//    EBUSY)→ 层无 input 态同形(gitRaw 两态规则),EBUSY 兜底由层承担;
+//    maxBuffer 旧 64MB → 层 64MB 同值;timeout 旧无 → 层默认 60s(净收益,ls-files 本地即时)。
+//  · 失败折值一字未动:catch 仍返 {lines:null, error:首行},error 文案换源(execFileSync
+//    原始错误消息 → 层 Undetermined 消息,含 git stderr 首行),coverageFileSet 的
+//    "取不到 ≠ 空集合"分档与上层 exit 1 路径不受影响。
+import { gitRaw } from './face-reader.mjs'
 
 /**
- * 一次 `-z` 取清单。默认输出会按 core.quotePath 把非 ASCII 文件名转义成八进制串,
- * 那种路径永远对不上真实文件。
+ * 一次 `-z` 取清单。层的 `-c core.quotepath=false` 让非 ASCII 文件名原样返回,
+ * 不再被 core.quotePath 转义成八进制串(那种路径永远对不上真实文件)。
  */
 function lsFiles(args, root) {
   try {
-    const out = execFileSync(GIT, ['-c', 'safe.directory=*', 'ls-files', '-z', ...args], {
-      cwd: root,
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024,
-      windowsHide: true,
-      // 本机交互会话里 Node 给子进程**建 stdin 管道**确定性 EBUSY(errno -4082),而
-      // `ls-files` 不吃 stdin ⇒ stdio[0] 必须 'ignore'。默认(不写 stdio)是全管道,必中招。
-      // 注意与 `cat-file --batch` 那一族相反:那些**要**喂 rev 清单,设 'ignore' 会把清单
-      // 静默丢弃而 git 不报错,只回一句 "missing"。本函数无 input 参数,所以是安全的 ignore 侧。
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    const out = gitRaw(['ls-files', '-z', ...args], root)
     return { lines: out.split('\0').map((s) => s.trim()).filter(Boolean), error: null }
   } catch (e) {
     return { lines: null, error: String(e?.message ?? e).split('\n')[0] }

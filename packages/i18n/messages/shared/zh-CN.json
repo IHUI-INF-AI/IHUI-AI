@@ -2123,6 +2123,7 @@
       "planBlocked": "计划受阻",
       "securityBlocked": "被安全策略拦截",
       "roleDenied": "角色权限拒绝",
+      "turnDenied": "本轮已禁用",
       "rejectedByUser": "你已拒绝",
       "approvalTimeout": "审批超时",
       "toolMissing": "工具不存在",

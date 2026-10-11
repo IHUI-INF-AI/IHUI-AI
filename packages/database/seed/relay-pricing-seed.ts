@@ -33,7 +33,7 @@ export async function seedRelayPricing(): Promise<void> {
   // ── 2. swiftapi 渠道进价快照(2026-09-13 取自上游报价页「到手」价,元/百万 token ÷ 10 = 分/千 token)。
   //      幂等:INSERT ... WHERE NOT EXISTS(ai_pricing 无 model_id 唯一约束,ON CONFLICT 不适用);
   //      已有记录仅当 0/0 时升价(不覆盖管理员手动调价)。
-  //      数据源:https://api.x5m5x.com/pricing/(按量计费 · 到手价)
+  //      数据源:https://new.x5m5x.com/pricing/(按量计费 · 到手价)
   const snapshotRes = await db.execute(sql`
     INSERT INTO ai_pricing (model_id, input_token_price, output_token_price, region_pricing, currency)
     SELECT v.model_id, v.ip, v.op, '{"cn":1.0}'::jsonb, 'CNY'

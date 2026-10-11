@@ -57,19 +57,33 @@
  *       仓库不可问 / 全量枚举到 0 条前提)。
  * 一条不许漂:**不许放宽既有判据换绿**。本门是新增面,不改任何既有门的 mode/退出码语义;
  * "缺 premises"宁可 exit 2 也不当通过(否则"没写前提"会被读成"没有过期前提")。
+ *
+ * 2026-10-08(gitRaw 型 B 收尾批)git 出口收口:本文件两处 spawnSync 直派生(readFace 的
+ * `git grep -c -F` 三态现读、main 的 `rev-parse HEAD`)迁取材层 scripts/lib/face-reader.mjs 的
+ * `gitRaw`;`const GIT_BIN = resolveGitBin() || 'git'` 与 spawnSync / resolveGitBin 两行 import
+ * 随之删除。行为面对照:
+ *  · 二进制:旧 GIT_BIN 与层内 `resolveGitBin() || 'git'` 字面恒等 ⇒ 同一条兜底链;
+ *    `-c safe.directory=*` + `-C <root>` 由层内建;stdio 旧 ['ignore','pipe','pipe'] → 层无
+ *    input 态同形;readFace timeout 120s / rev-parse timeout 60s 各自显式保留;
+ *    maxBuffer 旧 64MB → 层 64MB 同值;windowsHide 由层带。
+ *  · 三态语义一字未动(下方 readFace 头注"rc=1 是主信号"原判据):rc=0 → sumHits(stdout);
+ *    rc=1 → 0 命中(层把退出码带到 Undetermined.status,按 e.status===1 判);rc≥128 →
+ *    problems(`git grep rc=…(非 0/1 ⇒ 判不出,不判通过):` 措辞一字未动,stderr 文案换源为
+ *    层 Undetermined 消息,含 git stderr 首行);spawn 失败/超时(status null/undefined)→
+ *    problems(`git grep 判不出(…)` 措辞一字未动,内文案换源)。
+ *  · rev-parse:旧 status!==0 ⇒ head='' ⇒ exit 2("不是可用仓库"路径一字未动);层失败抛
+ *    Undetermined ⇒ catch 折 '' 同折值。sumHits 解析一字未动。
  */
 
-import { spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { scratchRoot } from './lib/scratch-dir.mjs'
 import { dirname, isAbsolute, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { resolveGitBin } from './lib/gitdir.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const SELF_PATH = fileURLToPath(import.meta.url)
 const REPO_ROOT = resolve(dirname(SELF_PATH), '..')
-const GIT_BIN = resolveGitBin() || 'git'
 
 /** 票面 JSON 的合法 schema(缺一项即 exit 2,不当通过)。 */
 export const TICKET_FIELDS = ['ticket', 'premises']
@@ -238,8 +252,9 @@ export function loadTicket(file) {
  * ⚠️ 为什么不用 `lib/bypass-git.mjs` 的 `git(..., {allowFail:true})`:它的 allowFail 是**二值**
  * 通道(非零 ⇒ 一律 `null`),而 `git grep` 的 **rc=1 恰恰是"0 命中"** —— 那正是本门要判的**主信号**。
  * 走二值通道会把"这条前提已腐烂"与"git 不可用"折叠成同一个 `null`,于是最该红的那一支被读成
- * "取不到读数"(仓里 `isAncestor` 的头注记过同一型:三态判据不许折叠成二值)。所以这里用
- * `spawnSync` 直接取 `status` 三态:0 = 有命中、1 = **0 命中(判 Rotten 的主信号)**、其它 = 判不出。
+ * "取不到读数"(仓里 `isAncestor` 的头注记过同一型:三态判据不许折叠成二值)。所以这里直接取
+ * `status` 三态(2026-10-08 起经 gitRaw 层派生,层把退出码带到 Undetermined.status):
+ * 0 = 有命中、1 = **0 命中(判 Rotten 的主信号)**、其它 = 判不出。
  */
 export function readFace({ root, premises }) {
   const byToken = new Map()
@@ -248,39 +263,27 @@ export function readFace({ root, premises }) {
   const problems = []
   for (const [token, p] of byToken) {
     const scope = effectiveScope(p.scope)
-    const args = [
-      '-c',
-      'safe.directory=*',
-      '-C',
-      root,
-      'grep',
-      '-c',
-      '-F',
-      token,
-      'HEAD',
-      '--',
-      ...scope,
-    ]
-    const r = spawnSync(GIT_BIN, args, {
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 120_000,
-      maxBuffer: 64 << 20,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-    const status = r.status
-    if (status === null || status === undefined) {
-      problems.push(`${token}:git grep 判不出(${r.error?.message ?? 'spawn 失败'})`)
+    const args = ['grep', '-c', '-F', token, 'HEAD', '--', ...scope]
+    let hits
+    try {
+      const out = gitRaw(args, root, { timeout: 120_000 })
+      hits = sumHits(out)
+    } catch (e) {
+      if (e?.status === 1) {
+        // rc 1 = 0 命中(逐文件 `-c` 无输出),读数就是 0 —— 不当失败、不当"取不到"。
+        readings.push({ token, hits: 0 })
+        continue
+      }
+      if (typeof e?.status !== 'number') {
+        problems.push(`${token}:git grep 判不出(${e?.message ?? 'spawn 失败'})`)
+        continue
+      }
+      problems.push(
+        `${token}:git grep rc=${e.status}(非 0/1 ⇒ 判不出,不判通过):${String(e?.message ?? '').split(/\r?\n/)[0] ?? ''}`,
+      )
       continue
     }
-    if (status === 0 || status === 1) {
-      // rc 1 = 0 命中(逐文件 `-c` 无输出),读数就是 0 —— 不当失败、不当"取不到"。
-      readings.push({ token, hits: status === 1 ? 0 : sumHits(r.stdout) })
-      continue
-    }
-    problems.push(
-      `${token}:git grep rc=${status}(非 0/1 ⇒ 判不出,不判通过):${String(r.stderr ?? '').split(/\r?\n/)[0] ?? ''}`,
-    )
+    readings.push({ token, hits })
   }
   return { readings, problems, probeCount: byToken.size }
 }
@@ -437,13 +440,12 @@ async function main() {
     process.exit(2)
   }
   const root = REPO_ROOT
-  const headR = spawnSync(GIT_BIN, ['-c', 'safe.directory=*', '-C', root, 'rev-parse', 'HEAD'], {
-    encoding: 'utf8',
-    windowsHide: true,
-    timeout: 60_000,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-  const head = headR.status === 0 ? String(headR.stdout ?? '').trim() : ''
+  let head = ''
+  try {
+    head = gitRaw(['rev-parse', 'HEAD'], root, { timeout: 60_000 }).trim()
+  } catch {
+    head = ''
+  }
   if (!head) {
     console.error(`❌ ${root} 不是可用仓库(HEAD 取不到)⇒ 判不出,不判通过`)
     process.exit(2)

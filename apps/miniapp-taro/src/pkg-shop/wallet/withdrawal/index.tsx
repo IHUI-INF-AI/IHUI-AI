@@ -3,8 +3,9 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt } from '@/i18n'
-import { View, Text, Button } from '@tarojs/components'
-import { FocusInput } from '@/components/FocusField'
+import { View, Text, Button, Input } from '@tarojs/components'
+// 描边画在外层输入盒上 ⇒ 走 hook 文档的 WRAP 形态②:handlers 留 Input、focusStyle 铺容器。
+import { useFieldFocus } from '@/hooks/use-field-focus'
 import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef } from 'react'
@@ -22,6 +23,8 @@ export default function WithdrawalPage() {
   const [amount, setAmount] = useState('')
   const [method, setMethod] = useState('wechat')
   const [submitting, setSubmitting] = useState(false)
+  // 提现金额输入盒的运行时聚焦档(描边在盒子上,不在 Input 上)
+  const ffAmount = useFieldFocus()
   const availableRef = useRef(0)
 
   const methods = [
@@ -100,10 +103,14 @@ export default function WithdrawalPage() {
           <Text className="block text-[length:28rpx] text-muted-foreground">
             {tt('wallet.withdrawal.amountLabel', '提现金额')}
           </Text>
-          <View className="flex items-center mt-[16rpx] h-[100rpx] px-[28rpx] rounded-xl border-[length:2rpx] border-border bg-[var(--color-muted)]">
+          <View
+            className="flex items-center mt-[16rpx] h-[100rpx] px-[28rpx] rounded-xl border-[length:2rpx] border-border bg-[var(--color-muted)]"
+            style={ffAmount.focusStyle}
+          >
             <Text className="text-[length:32rpx] font-semibold text-foreground">¥</Text>
-            <FocusInput
+            <Input
               className="flex-1 text-[length:32rpx] text-foreground ml-[12rpx]"
+              {...ffAmount.spread}
               type="digit"
               value={amount}
               onInput={(e) => setAmount(e.detail.value)}
