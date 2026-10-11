@@ -92,7 +92,7 @@ const GlobalTopBarMemo = React.memo(GlobalTopBar)
 // 没有 dynamic 内层边界,两者机制不同。
 // 占位几何与真实容器对齐:width 引用 layout.tsx inline script 预设的 --ai-panel-width
 // (读 localStorage ihui-ai-panel state.width,范围 320-720,fallback 380),
-// hidden + min-[768px]:block 复制真实容器响应式显隐,mr-1.5 py-2 shrink-0 对齐展开态。
+// hidden + min-[640px]:block 复制真实容器响应式显隐,mr-1.5 py-2 shrink-0 对齐展开态。
 /**
  * AI 面板加载占位(2026-09-30 升级为骨架屏)
  *
@@ -105,14 +105,14 @@ const GlobalTopBarMemo = React.memo(GlobalTopBar)
  *
  * 几何约束(改动前必读,破一条就回归历史 bug):
  * - width: var(--ai-panel-width) —— 与真实容器同一变量,挂载时不跳变
- * - hidden + min-[768px]:block  —— <768px 不占 flex 空间(老 bug:占位把 work-area 推出视口)
+ * - hidden + min-[640px]:block  —— <640px 不占 flex 空间(老 bug:占位把 work-area 推出视口)
  * - shrink-0 / mr-1.5 / py-2 / h-full —— 与真实容器 class 逐项对齐(mr-1.5 对应 --ai-panel-occupy = width+6)
  * - aria-hidden —— 骨架不得被读屏/a11y 断言命中
  */
-const AiPanelPlaceholder = () => (
+export const AiPanelPlaceholder = () => (
   <div
     aria-hidden
-    className="relative hidden h-full shrink-0 mr-1.5 py-2 min-[768px]:block"
+    className="relative hidden h-full shrink-0 mr-1.5 py-2 min-[640px]:block"
     style={{ width: 'var(--ai-panel-width, 480px)' }}
   >
     {/* 骨架同构(2026-09-30):header 条 + 消息流 + 输入区,版式对齐真实面板。
@@ -232,7 +232,11 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   // 派发语义一字未改,只把失败喊出来(与本仓"失败必须响 / 不得把没判写成判过了"同一条禁令)。
   useNativeShortcuts((id) => {
     void dispatchMenuAction(id).catch((e: unknown) => {
-      console.warn('[desktop-shortcut] dispatchMenuAction failed:', id, e instanceof Error ? e.message : String(e))
+      console.warn(
+        '[desktop-shortcut] dispatchMenuAction failed:',
+        id,
+        e instanceof Error ? e.message : String(e),
+      )
     })
   })
 
@@ -246,7 +250,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   }, [aiOpen, aiWidth, aiFloatMode, aiFloatMinimized])
 
   // 小尺寸侧边栏折叠(2026-09-09 修订注释,反映现行双层方案):
-  // - JS 层:Sidebar 内部 useMediaQuery('(min-width: 768px) and (max-width: 1023px)')
+  // - JS 层:Sidebar 内部 useMediaQuery('(min-width: 640px) and (max-width: 1023px)')
   //   → effectiveCollapsed,平板区间渲染折叠态(竖排 footer、方形 logo、隐藏文字)。
   //   useMediaQuery 已改为 isomorphic layout effect(2026-09-09),hydration 后 paint 前
   //   完成纠正,无可见闪烁;SSR 初始值 false 与服务端一致,无 hydration mismatch。
@@ -326,7 +330,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   //   的搜索/Plus/chevron/窗口控制 4 类按钮字节级一致(同 bg-card / hover:bg-accent / focus-visible:bg-accent)
   // - icon 用 h-3.5 w-3.5 (14px) 跟顶栏 Plus / 窗口控制 X 完全统一;h-9 w-9 经 TOPBAR_BTN_W9 应用
   // - 跟 X 关闭按钮共用 base 后,移动端两个按钮视觉/交互/焦点环完全一致
-  // - 仅 <768px 显示(min-[768px]:hidden);抽屉打开时提升 z-popover(2001) 保证可点回
+  // - 仅 <640px 显示(min-[640px]:hidden);抽屉打开时提升 z-popover(2001) 保证可点回
   const mobileMenuNode = React.useMemo(
     () => (
       <Button
@@ -334,7 +338,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
         size="icon"
         onClick={() => setMobileOpen((o) => !o)}
         className={cn(
-          'relative ml-1.5 shrink-0 min-[768px]:hidden',
+          'relative ml-1.5 shrink-0 min-[640px]:hidden',
           mobileOpen && 'z-popover',
           TOPBAR_BTN_BASE,
           TOPBAR_BTN_W9,
@@ -418,7 +422,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
               // 压到 734px —— 一次性 0.26 CLS。修复:fallback 渲染等宽占位:
               // - width 引用 layout.tsx inline script 预设的 --ai-panel-width(读 localStorage
               //   ihui-ai-panel state.width,范围 320-720,fallback 380),与真实面板宽度策略一致
-              // - hidden + min-[768px]:block 复制真实容器的响应式显隐(<768px 走浮窗不占 flex 空间)
+              // - hidden + min-[640px]:block 复制真实容器的响应式显隐(<640px 走浮窗不占 flex 空间)
               // - mr-1.5 py-2 shrink-0 与真实容器(展开态)class 一致,占位与实体几何对齐
               // - open 恒为 true(store merge 强制)、floatMode/workAreaCollapsed 恒为默认 false
               //   (不持久化),首帧占位宽度与挂载后真实宽度必然一致
@@ -453,8 +457,10 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
                   → 根因:与 TagsViewSearchButton (36x36 bg-card,同位置 left:0) 物理重叠,
                     即使 z-modal 也无法在所有 stacking context 下稳定覆盖
                 - 新方案:作为 GlobalTopBar flex 流的第 0 个元素,物理上不重叠任何现有按钮
-                - 仅 <768px 显示(min-[768px]:hidden,2026-09-07 从 1024 下调:
-                  768-1023px 侧边栏常驻 60px 图标条,无需抽屉入口,且消除 46px 内容左偏移) */}
+                - 仅 <640px 显示(min-[640px]:hidden,2026-09-07 从 1024 下调、
+                  2026-10-11 再下调 768→640 —— Trae 内置浏览器 ~718px 窄面板里 768 断点
+                  会把桌面侧栏整条隐藏):
+                  640-1023px 侧边栏常驻 60px 图标条,无需抽屉入口,且消除 46px 内容左偏移) */}
               {/* 子页面统一返回键自动声明器(2026-09-09 立,用户反馈"还有页面有遗漏"):
                   路径深度 ≥ 2 的子页面自动向顶栏声明返回意图(一级父路由为降级落点),
                   页面级自定义声明(useTopBarBack/<BackButton/>)优先,一级列表/营销/分享页不声明。
@@ -485,8 +491,10 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         {/* PWA 提示:固定悬浮于右下角,不影响主布局。层级 z-modal(2000,引用 --z-modal)。
-            2026-09-05 移动端:手机(<768px)改挂顶栏下方通栏——右下角悬浮条实测遮挡聊天输入框。 */}
-        <div className="pointer-events-none fixed bottom-4 right-4 z-modal flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2 max-[767px]:bottom-auto max-[767px]:left-3 max-[767px]:right-3 max-[767px]:top-14 max-[767px]:w-auto">
+            2026-09-05 移动端:手机(<640px)改挂顶栏下方通栏——右下角悬浮条实测遮挡聊天输入框。
+            2026-10-11 断点 767→639(与侧栏 768→640 同步):640-1023px 窄窗口已恢复 60px 图标条,
+            属桌面式布局,PWA 提示按桌面态挂右下角。 */}
+        <div className="pointer-events-none fixed bottom-4 right-4 z-modal flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2 max-[639px]:bottom-auto max-[639px]:left-3 max-[639px]:right-3 max-[639px]:top-14 max-[639px]:w-auto">
           <div className="pointer-events-auto">
             <PWAInstallPrompt />
           </div>
