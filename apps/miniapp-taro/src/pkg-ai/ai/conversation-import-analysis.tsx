@@ -38,9 +38,10 @@
  * 由其既有 sendMessage(→ api/index 的 chatStream)发出,历史里的导入记录即本轮上下文。
  */
 import { useCallback, useMemo, useState } from 'react'
-import { View, Text, Input, ScrollView } from '@tarojs/components'
+import { View, Text, ScrollView } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 import ThemeRoot from '@/components/ThemeRoot'
+import { FocusInput } from '@/components/FocusField'
 import { buildAnalysisPrompt, type ImportSource } from '@ihui/shared/import-analysis'
 import {
   listCategories,
@@ -253,7 +254,7 @@ export function ImportAnalysisPanel({
                         <Text className="block text-[length:22rpx] text-muted-foreground mb-[8rpx]">
                           {name}
                         </Text>
-                        <Input
+                        <FocusInput
                           className="h-[72rpx] px-[20rpx] text-[length:26rpx] text-foreground bg-card rounded-sm border border-border"
                           value={variables[name] ?? ''}
                           placeholder={tt(
