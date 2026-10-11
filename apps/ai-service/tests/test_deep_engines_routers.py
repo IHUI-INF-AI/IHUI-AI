@@ -21,6 +21,7 @@ fastapi TestClient 驱动;鉴权依赖 get_current_user_id 用 dependency_overri
 
 from __future__ import annotations
 
+import os
 import sys
 from collections.abc import Iterator
 from pathlib import Path
@@ -73,12 +74,19 @@ def sandbox_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     """sandbox_exec router 客户端(真实执行走当前平台默认后端)。
 
     2026-09-30 夹具翻转(G-258 B 组):策略档位改为"只能来自服务端登记表",而档位的
-    可读根来自配置键 ``MCP_WORKSPACE_ROOTS``。这里显式登记为**进程工作目录**(即
-    ``sys.executable`` 与默认 cwd 都在授予范围内),使本文件的两条沙箱用例断言的
-    仍是它们原本在乎的事("命令能跑通"/"越出授予根的路径被拒"),而不是被环境的
-    真实 .env 值带偏。
+    可读根来自配置键 ``MCP_WORKSPACE_ROOTS``。这里显式登记**进程工作目录 + 当前
+    解释器所在目录**,使本文件的两条沙箱用例断言的仍是它们原本在乎的事
+    ("命令能跑通"/"越出授予根的路径被拒"),而不是被环境的真实 .env 值带偏。
+
+    2026-10-11 修(CI run 38084051334):原先只登记 ``Path.cwd()`` —— 开发机上
+    venv 就在 cwd 之下,``sys.executable`` 顺带落在授予范围内;CI 的解释器在
+    /opt/hostedtoolcache(与 cwd 无关)⇒ read_only 档判"读取越权" 403。把
+    解释器目录显式入册,登记面才与注释宣称的语义一致。
     """
-    monkeypatch.setenv("MCP_WORKSPACE_ROOTS", str(Path.cwd()))
+    monkeypatch.setenv(
+        "MCP_WORKSPACE_ROOTS",
+        os.pathsep.join({str(Path.cwd()), str(Path(sys.executable).parent)}),
+    )
     yield TestClient(_make_app(sandbox_router))
 
 

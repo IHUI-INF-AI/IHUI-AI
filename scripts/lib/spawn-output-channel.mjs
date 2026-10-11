@@ -222,6 +222,47 @@ function resolveIdentifier(struct, raw, comments, name) {
 }
 
 /**
+ * **stdout 通道取值的 fd 档**(G-1111918 档③,2026-10-11)。判据原先只认引号字面量,于是
+ * `stdio: ['ignore', fd, fd]`(fd 是 `openSync` 的返回值)与 `process.stdout` 这类**本仓真实在用的
+ * 写法**整族停在"读不出"——现读 HEAD 面剩下的未判定全是这一族。它们与 `'ignore'` 的关系不是
+ * "另一种合法",而是**同一类后果**:本进程拿不到子进程的 stdout。所以归一之后必须继续走命中路径,
+ * 而不是把"我没判"写成"没违规"。四条不许漂:
+ *  ① 只允许**同文件一跳**回溯(与 stdio 那一档同一纪律,复用 `resolveIdentifier` 的"绑定数≠1 就不猜"),
+ *     跨文件与第二跳不判;
+ *  ② `openSync(...)` 得到的是**文件句柄** ⇒ 归 `file-handle`:它既不是 `inherit`(不污染终端)
+ *     也不是 `ignore`(输出确实落了盘),但"读 `.stdout`"同样恒 `undefined` ⇒ **后果档与前两者同**;
+ *  ③ 数字只认 fd 表上真实存在的 0/1/2:`1`(stdout)/`2`(stderr)⇒ 等价 `inherit`,其它数字一律
+ *     未判定 —— 猜"3 大概也是句柄"就是把没判写成判过了;
+ *  ④ 回溯不到(值来自形参、解构、别的模块)⇒ **保持未判定并点名原因**,绝不折成通过。
+ */
+function classifyChannelToken(struct, raw, comments, token) {
+  const t = String(token ?? '').trim()
+  if (/^['"]/.test(t)) {
+    const bare = t.slice(1, -1)
+    if (bare === 'pipe') return { kind: 'pipe' }
+    if (bare === 'ignore' || bare === 'inherit') return { kind: bare, channel: bare }
+    return { kind: 'unknown', reason: `stdout 通道取值不认识(${bare})` }
+  }
+  if (/^\d$/.test(t)) {
+    if (t === '1' || t === '2') return { kind: 'inherit', channel: 'fd', via: `数字 fd ${t}` }
+    return { kind: 'unknown', reason: `stdout 通道是数字 ${t} 而 fd 表只认 0/1/2` }
+  }
+  if (/^process\s*\.\s*(stdout|stderr)$/.test(t)) return { kind: 'inherit', channel: 'process-stream', via: t }
+  const idm = t.match(/^([A-Za-z_$][\w$]*)$/)
+  if (!idm) return { kind: 'unknown', reason: `stdout 通道写法读不出(${t.slice(0, 24)})` }
+  const name = idm[1]
+  const decl = new RegExp(`\\b(?:const|let|var)\\s+${name.replace(/\$/g, '\\$')}\\b`, 'g')
+  const at = [...struct.matchAll(decl)]
+  if (at.length !== 1) return { kind: 'unknown', reason: `stdout 取自变量 ${name} 而同文件绑定数=${at.length}(不唯一 ⇒ 不猜)` }
+  const eq = firstSigAt(struct, at[0].index + at[0][0].length)
+  if (struct[eq] !== '=') return { kind: 'unknown', reason: `stdout 取自变量 ${name} 而找不到赋值点` }
+  const nl = raw.indexOf('\n', eq + 1)
+  const rhs = raw.slice(eq + 1, nl < 0 ? raw.length : nl).split(';')[0].trim()
+  if (/\b(?:fs\.)?openSync\s*\(/.test(rhs)) return { kind: 'file-handle', channel: 'file-handle', via: `${name}=openSync(…)` }
+  return classifyChannelToken(struct, raw, comments, rhs)
+}
+
+/**
  * 简写属性那一档的入口:属性名固定是 `stdio`,回溯本身与显式赋值共用一份实现。
  */
 function traceIdentifier(struct, raw, comments, name = 'stdio') {
@@ -284,17 +325,13 @@ export function findBlindOutputSpawns(text) {
       spec = r.text
     }
     const channels = spec.startsWith('[') ? spec.slice(1, -1).split(',').map((s) => s.trim()) : [spec, spec, spec]
-    const stdoutCh = channels[1]
-    if (!stdoutCh || !/^['"]/.test(stdoutCh)) {
-      undetermined.push({ line: lineOf(body, m.index), reason: `stdout 通道写法读不出(${String(stdoutCh).slice(0, 24)})` })
+    const ch = classifyChannelToken(body, text, comments, channels[1])
+    if (ch.kind === 'unknown') {
+      undetermined.push({ line: lineOf(body, m.index), reason: ch.reason })
       continue
     }
-    const bare = stdoutCh.slice(1, -1)
-    if (bare === 'pipe') continue
-    if (bare !== 'ignore' && bare !== 'inherit') {
-      undetermined.push({ line: lineOf(body, m.index), reason: `stdout 通道取值不认识(${bare})` })
-      continue
-    }
+    if (ch.kind === 'pipe') continue // 正当写法:stdout 走管道,调用方读得到
+    const bare = ch.channel ?? ch.kind
     const enclosing = blocks.filter(([s, e]) => s <= m.index && m.index < e).sort((a, b) => a[1] - a[0] - (b[1] - b[0]))[0]
     // 活区右界:同名变量的下一个绑定/再赋值点。越过它的读取点属于**另一个**绑定,
     // 借来定罪就是假阳(普查 8 处候选里 7 处是这个形状)。
@@ -317,6 +354,7 @@ export const __test__ = {
   traceIdentifier,
   resolveStdioValue,
   resolveIdentifier,
+  classifyChannelToken,
   firstSigAt,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

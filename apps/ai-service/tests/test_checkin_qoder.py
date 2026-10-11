@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import base64
+import datetime
 import json
 import time
 
@@ -32,6 +33,7 @@ from app.services.checkin_qoder import (
     qoder_jwt_exp,
     qoder_query_credits,
     qoder_refresh_token,
+    qoder_session_expiry,
 )
 
 UID = "990011"
@@ -98,6 +100,84 @@ class TestJwtParsing:
     def test_jwt_exp_missing(self):
         token = f"x.{_b64({'sub': UID})}.y"
         assert qoder_jwt_exp(token) == (None, None)
+
+
+# ---------------------------------------------------------------------------
+# 会话 expiresAt 过期预检(真机实证 2026-10-11:auth.v1.dat 含 ISO 8601 expiresAt)
+# ---------------------------------------------------------------------------
+
+
+def _iso_utc(hours: float) -> str:
+    """now(UTC)+hours → auth.v1.dat 同款 ISO 8601 字符串(Z 后缀,真 UTC 时刻)。"""
+    dt = datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=hours)
+    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+class TestSessionExpiry:
+    def test_future_iso(self):
+        """未来 expiresAt(ISO 8601)→ remaining > 0,数值与偏移吻合。"""
+        dm = {"expires_at": _iso_utc(48)}
+        exp_dt, remaining = qoder_session_expiry(dm)
+        assert exp_dt is not None and remaining is not None
+        assert 47.0 < remaining < 49.0
+
+    def test_past_iso(self):
+        """过去 expiresAt → remaining < 0(过期)。"""
+        dm = {"expires_at": _iso_utc(-24)}
+        exp_dt, remaining = qoder_session_expiry(dm)
+        assert exp_dt is not None and remaining is not None
+        assert remaining < 0
+
+    def test_missing(self):
+        """缺失(含桌面端现状 expires_at=0)→ (None, None),绝不误判过期。"""
+        assert qoder_session_expiry({}) == (None, None)
+        assert qoder_session_expiry({"expires_at": 0}) == (None, None)
+        assert qoder_session_expiry({"expires_at": None}) == (None, None)
+
+    def test_bad_format(self):
+        """坏格式 → (None, None),不抛栈。"""
+        assert qoder_session_expiry({"expires_at": "not-a-date"}) == (None, None)
+        assert qoder_session_expiry({"expires_at": "2026-13-99T99:99:99Z"}) == (None, None)
+        assert qoder_session_expiry({"expires_at": True}) == (None, None)
+        assert qoder_session_expiry({"expires_at": ["x"]}) == (None, None)
+
+    def test_epoch_seconds_form(self):
+        """刷新链路写回的 epoch 秒数形态 → 与 qoder_jwt_exp 同语义。"""
+        dm = {"expires_at": time.time() + 3600.0}
+        exp_dt, remaining = qoder_session_expiry(dm)
+        assert exp_dt is not None and remaining is not None
+        assert 0.5 < remaining < 1.5
+
+    def test_session_key_alias_and_negative_epoch(self):
+        """auth.v1.dat 原文键 expiresAt 也可解析;epoch 负值视为缺失。"""
+        dm = {"expiresAt": _iso_utc(10)}
+        _, remaining = qoder_session_expiry(dm)
+        assert remaining is not None and 9.0 < remaining < 11.0
+        assert qoder_session_expiry({"expires_at": -5}) == (None, None)
+
+    def test_refresh_token_expiry_fallback(self):
+        """expiresAt 缺失时回落 refreshTokenExpiresAt(snake/camel 两形态)。"""
+        future = _iso_utc(72)
+        _, remaining = qoder_session_expiry({"refresh_token_expires_at": future})
+        assert remaining is not None and remaining > 70.0
+        _, remaining = qoder_session_expiry({"refreshTokenExpiresAt": future})
+        assert remaining is not None and remaining > 70.0
+
+    def test_session_expiry_preferred_over_refresh(self):
+        """两者都在时优先更紧迫的会话 expiresAt。"""
+        dm = {
+            "expires_at": _iso_utc(5),
+            "refresh_token_expires_at": _iso_utc(720),
+        }
+        _, remaining = qoder_session_expiry(dm)
+        assert remaining is not None and 4.0 < remaining < 6.0
+
+    def test_aware_offset_iso(self):
+        """带时区偏移的 ISO 8601(+08:00)→ 转本地后语义一致。"""
+        dm = {"expires_at": "2026-10-31T12:56:16+08:00"}
+        exp_dt, remaining = qoder_session_expiry(dm)
+        assert exp_dt is not None and remaining is not None
+        assert exp_dt.tzinfo is None  # 与 qoder_jwt_exp 同为 naive 本地语义
 
 
 class TestCosyHeaders:

@@ -22,6 +22,7 @@ import json
 import os
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -70,29 +71,79 @@ _MANAGED_VARS = (
 
 
 def _load_ts_facts(urls: list[str]) -> list[dict]:
-    """用 node 22 原生 type-stripping 直接加载生产判据本体(.ts),同一份 env 逐 URL 取事实。"""
+    """用 node 22 原生 type-stripping 直接加载生产判据本体(.ts),同一份 env 逐 URL 取事实。
+
+    2026-10-11 修(CI run 38084051334 红因①):CI 的 test-python job 只装 python 依赖
+    (uv pip install),**没有 npm install** —— proxy-dispatcher.ts 顶部裸说明符
+    `import ... from 'undici'` 与 `from '@ihui/types'` 在 node 的 ESM resolve 阶段
+    直接 ERR_MODULE_NOT_FOUND(exit=1),判据根本没被加载。修法是给子进程挂一个
+    module resolve 钩子(node ≥20.6 的 module.register 正道,不动生产文件):
+
+      1. '@ihui/types' → 仓库内真实 TS 源 packages/types/src/egress-facts.ts。
+         判据常量(EGRESS_ENV_PROXY_VAR_NAMES)与工厂(createEgressFacts)的**真身**,
+         不做任何桩 —— 等值断言两头仍是生产代码。
+      2. 'undici' → 最小桩(空 ProxyAgent 类 + 透传 fetch)。collectEgressFacts 是
+         纯 env/URL 判据,不触网不建 agent(ProxyAgent 只在真实派发函数里 new),
+         桩不触及任何被断言的字段。
+
+    CI 的 actions/checkout 默认 fetch-depth=1 也照常可跑(不需要 git 历史/node_modules)。
+    """
     node = shutil.which("node")
     if not node:
         pytest.fail("PATH 上找不到 node:TS 侧判据无法加载,等值断言无法判定(宁红不跳)")
-    code = (
-        "const urls = JSON.parse(process.argv[1]);"
-        "import(process.argv[2]).then((m) => {"
-        "process.stdout.write(JSON.stringify(urls.map((u) => m.collectEgressFacts(u))));"
-        "});"
+    types_src = REPO_ROOT / "packages" / "types" / "src" / "egress-facts.ts"
+    if not TS_DISPATCHER.is_file():
+        pytest.fail(f"生产判据本体不存在:{TS_DISPATCHER}(判据失明,宁红不跳)")
+    if not types_src.is_file():
+        pytest.fail(f"@ihui/types 判据源不存在:{types_src}(判据失明,宁红不跳)")
+
+    undici_stub = (
+        "export class ProxyAgent {}\n"
+        "export const fetch = globalThis.fetch;\n"
+        "export default { ProxyAgent, fetch };\n"
     )
-    # env 侧与 python 侧同一份语料 env:先剥宿主壳里可能存在的同名变量再灌入
-    child_env = {k: v for k, v in os.environ.items() if k not in _MANAGED_VARS}
-    child_env.update(PARITY_ENV)
-    proc = subprocess.run(
-        [node, "-e", code, json.dumps(urls), TS_DISPATCHER.as_uri()],
-        capture_output=True,
-        text=True,
-        timeout=120,
-        env=child_env,
-    )
-    if proc.returncode != 0:
-        pytest.fail(f"TS 侧判据加载失败(exit={proc.returncode}):{proc.stderr[-500:]}")
-    return json.loads(proc.stdout)
+    with tempfile.TemporaryDirectory(prefix="egress-parity-hooks-") as td:
+        hooks = Path(td) / "egress-parity-hooks.mjs"
+        hooks.write_text(
+            "export async function resolve(specifier, context, nextResolve) {\n"
+            "  if (specifier === '@ihui/types') {\n"
+            f"    return {{ url: {json.dumps(types_src.as_uri())}, shortCircuit: true }};\n"
+            "  }\n"
+            "  if (specifier === 'undici') {\n"
+            "    return { url: 'data:text/javascript,' + encodeURIComponent(\n"
+            f"      {json.dumps(undici_stub)}\n"
+            "    ), shortCircuit: true };\n"
+            "  }\n"
+            "  return nextResolve(specifier, context);\n"
+            "}\n",
+            encoding="utf-8",
+        )
+        entry = Path(td) / "egress-parity-register.mjs"
+        entry.write_text(
+            "import { register } from 'node:module';\n"
+            "register(new URL('./egress-parity-hooks.mjs', import.meta.url));\n",
+            encoding="utf-8",
+        )
+
+        code = (
+            "const urls = JSON.parse(process.argv[1]);"
+            "import(process.argv[2]).then((m) => {"
+            "process.stdout.write(JSON.stringify(urls.map((u) => m.collectEgressFacts(u))));"
+            "});"
+        )
+        # env 侧与 python 侧同一份语料 env:先剥宿主壳里可能存在的同名变量再灌入
+        child_env = {k: v for k, v in os.environ.items() if k not in _MANAGED_VARS}
+        child_env.update(PARITY_ENV)
+        proc = subprocess.run(
+            [node, "--import", entry.as_uri(), "-e", code, json.dumps(urls), TS_DISPATCHER.as_uri()],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            env=child_env,
+        )
+        if proc.returncode != 0:
+            pytest.fail(f"TS 侧判据加载失败(exit={proc.returncode}):{proc.stderr[-500:]}")
+        return json.loads(proc.stdout)
 
 
 def test_dual_side_parity_full_fields() -> None:
