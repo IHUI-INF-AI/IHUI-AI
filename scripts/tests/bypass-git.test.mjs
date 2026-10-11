@@ -20,6 +20,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import * as bg from '../lib/bypass-git.mjs'
+import { ledgerPath, readLedgerRecords } from '../lib/commit-attestation.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { resolveGitBin } from '../lib/gitdir.mjs'
 
@@ -42,7 +43,7 @@ function makeRepo(t) {
 }
 
 test('T1 导出面(§22c phase B):plumbing 原语必须全部可取', () => {
-  for (const k of ['git', 'headBlobOf', 'indexBlobOf', 'writeBlob', 'writeBlobOfWorktree', 'commitTreeWithIndex', 'casUpdateRef', 'sameLines', 'alignSharedIndex', 'resolveHeadRef', 'sleepMs', 'isAncestor']) {
+  for (const k of ['git', 'headBlobOf', 'indexBlobOf', 'writeBlob', 'writeBlobOfWorktree', 'commitTreeWithIndex', 'casUpdateRef', 'sameLines', 'alignSharedIndex', 'resolveHeadRef', 'sleepMs', 'isAncestor', 'attestBypassCommit']) {
     assert.equal(typeof bg[k], 'function', `bypass-git.${k} 缺失`)
   }
 })
@@ -433,5 +434,144 @@ test('T14b 判据有牙(构造面成对,G-628):B 维跨行型必须命中,正当
   assert.deepEqual(hit(`const r = ${E}(a, b, { root })\nif (!r) retry()\n`), [], '真值判(!r)是正当写法,不得判红')
   assert.deepEqual(hit(`const r = ${E}(a, b, { root })\nif (r === true) retry()\n`), [], '等值判(r === true)是正当写法,不得判红')
   assert.deepEqual(hit(`const other = { landed: 1 }\nif (!other.landed) retry()\n`), [], '不同名变量的属性访问与本判据无关,不得误伤')
+})
+
+// ===== G-1118437 续:旁路落地留痕的常驻锁(attestBypassCommit) =====
+// 立因(现读事实,不是预防):§12f 那句"旁路落地不跑钩子 ⇒ HEAD 是否绿是调用方自己的责任",
+// 落地器里只有 object-space-land / live-doc-edit / plan-tasks-merge / union-converge 四家真写了留痕;
+// 另有五枚同样走 commit-tree + CAS 的落地器(台账排空器 / 归档器 / 台账自愈 / 注册表插入 / 副本清行)
+// 一声不响。后果不是"少一行日志",而是统计器把那五枚读成 unknown,而 unknown 读起来像"没人绕门"
+// —— 把没判写成判过了,本仓最高频的失效型。
+const CAS = 'cas' + 'UpdateRef'
+const ATTEST_NAMES = ['attestBypassCommit', 'recordBypassLanding', 'attestLanding']
+
+function ledgerRecordsOf(dir) {
+  const r = readLedgerRecords(dir)
+  return r.ok ? r.records : []
+}
+
+test('T15 attestBypassCommit 端到端:声明面自取、绑到 landedSha、gatesRun 恒 false', (t) => {
+  const dir = makeRepo(t)
+  const parent = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  writeFileSync(join(dir, 'a.txt'), 'v2\n')
+  writeFileSync(join(dir, 'sub', 'added.txt'), 'new\n')
+  runGit(dir, ['add', '-A'])
+  runGit(dir, ['commit', '-q', '-m', 'change'])
+  const sha = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  const r = bg.attestBypassCommit(sha, { root: dir, headBefore: parent, source: 'e2e:test' })
+  assert.equal(r.ok, true, `留痕应写入,实得:${r.why}`)
+  const recs = ledgerRecordsOf(dir)
+  assert.equal(recs.length, 1, '应当恰好一行')
+  const raw = readFileSync(ledgerPath(dir), 'utf8').split(/\r?\n/).filter((l) => l.trim() !== '')
+  const o = JSON.parse(raw[0])
+  assert.equal(o.landedSha, sha, '留痕必须绑到具体提交,否则统计器无法归因')
+  assert.equal(o.headBefore, parent)
+  assert.equal(o.kind, 'bypass-landing')
+  assert.equal(o.gatesRun, false, '旁路一律 gatesRun:false —— 这一维不许被调用方覆盖成 true')
+  assert.equal(o.source, 'e2e:test')
+  assert.deepEqual([...o.declaredFiles].sort(), ['a.txt', 'sub/added.txt'], '声明面必须自取(不靠调用方手填)')
+})
+
+test('T16 去重:同一 landedSha 第二次不得再写一行(重试/CAS 循环会把台账灌成重复)', (t) => {
+  const dir = makeRepo(t)
+  const parent = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  writeFileSync(join(dir, 'a.txt'), 'v2\n')
+  runGit(dir, ['add', '-A'])
+  runGit(dir, ['commit', '-q', '-m', 'change'])
+  const sha = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  const first = bg.attestBypassCommit(sha, { root: dir, headBefore: parent, source: 'e2e:test' })
+  assert.equal(first.ok, true, `首次应写入:${first.why}`)
+  const second = bg.attestBypassCommit(sha, { root: dir, headBefore: parent, source: 'e2e:test' })
+  assert.equal(second.ok, true, '去重不是失败,不得让调用方误报"留痕未写入"')
+  assert.equal(second.skipped, 'already-recorded', '必须明写跳过原因,否则"没写"与"已写过"同形')
+  assert.equal(ledgerRecordsOf(dir).length, 1, '第二次不得追加第二行')
+})
+
+test('T17 空声明面拒写:提交里一个路径都没有 ⇒ 不留痕(留了等于伪造声明)', (t) => {
+  const dir = makeRepo(t)
+  const emptyTree = execFileSync(
+    GIT,
+    ['-c', 'safe.directory=*', '-C', dir, 'mktree'],
+    { ...runOpts, input: '', stdio: ['pipe', 'pipe', 'pipe'] },
+  ).trim()
+  const sha = runGit(dir, ['commit-tree', emptyTree, '-m', 'empty']).trim()
+  const r = bg.attestBypassCommit(sha, { root: dir, source: 'e2e:empty' })
+  assert.equal(r.ok, false, '零路径提交不得留痕')
+  assert.match(String(r.why), /空声明面|伪造声明/, `原因要点名这一型,实得:${r.why}`)
+  assert.equal(ledgerRecordsOf(dir).length, 0, '台账里不得出现这一行')
+})
+
+test('T18 永不抛:sha 问不到时只回 {ok:false,why},不得把落地结论改成失败', (t) => {
+  const dir = makeRepo(t)
+  let threw = null
+  let r = null
+  try {
+    r = bg.attestBypassCommit('0'.repeat(40), { root: dir, source: 'e2e:missing' })
+  } catch (e) {
+    threw = e
+  }
+  assert.equal(threw, null, `留痕出口绝不允许抛:${threw && threw.message}`)
+  assert.equal(r.ok, false, '取不到 ⇒ 只能报"未写入",不得冒 ok')
+  assert.equal(typeof r.why, 'string')
+  assert.ok(r.why.length > 0, 'why 必须是要打给人看的那一行原因,不能是空串')
+  assert.equal(ledgerRecordsOf(dir).length, 0)
+})
+
+// 生产面不变量的判据:凡调用 CAS 的文件必须同时出现某个留痕出口名。
+// 测试面(*.test.mjs)刻意排除并如实声明代价:夹具在临时仓里调 CAS 是正当写法,
+// 把它们判红就等于禁止给这套 plumbing 写测试(守门 131 同一条已声明代价)。
+function sitesWithoutAttestation(scriptsDir) {
+  const out = []
+  const walk = (d) => {
+    for (const name of readdirSync(d, { withFileTypes: true })) {
+      if (name.name === 'node_modules' || name.name === '.git' || name.name === 'scratch') continue
+      const p = join(d, name.name)
+      if (name.isDirectory()) walk(p)
+      else if (name.name.endsWith('.mjs')) {
+        const rel = p.slice(scriptsDir.length + 1).replace(/\\/g, '/')
+        if (rel.endsWith('.test.mjs')) continue
+        if (rel === 'lib/bypass-git.mjs') continue
+        const text = readFileSync(p, 'utf8')
+        const callsCas = text.includes(`${CAS}(`)
+        if (!callsCas) continue
+        if (ATTEST_NAMES.some((n) => text.includes(`${n}(`))) continue
+        out.push(rel)
+      }
+    }
+  }
+  walk(scriptsDir)
+  return out.sort()
+}
+
+test('T19 生产面不变量:凡走 CAS 推进 ref 的落地器必须留痕(真仓 0 处 + 构造面有牙)', (t) => {
+  const scriptsDir = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+  assert.deepEqual(
+    sitesWithoutAttestation(scriptsDir),
+    [],
+    '这些文件调用 CAS 却不写留痕 ⇒ 统计器会把它们落地的提交读成 unknown(把没判写成判过了)',
+  )
+  // 有牙证明:造一个临时 scripts 面,三臂 —— 无留痕必点名 / 有留痕必不点名 / 测试面必不点名
+  const dir = mkScratch('bypass-attest-')
+  t.after(() => rmScratch(dir))
+  mkdirSync(join(dir, 'lib'), { recursive: true })
+  writeFileSync(join(dir, 'bare-lander.mjs'), `import { ${CAS} } from './lib/bypass-git.mjs'\nconst r = ${CAS}(a, b, { root })\nif (!r) bail()\n`)
+  writeFileSync(join(dir, 'honest-lander.mjs'), `import { ${CAS}, attestBypassCommit } from './lib/bypass-git.mjs'\nconst r = ${CAS}(a, b, { root })\nattestBypassCommit(r2, { root })\n`)
+  writeFileSync(join(dir, 'fixture.test.mjs'), `import { ${CAS} } from './lib/bypass-git.mjs'\n${CAS}(a, b, { root })\n`)
+  writeFileSync(join(dir, 'lib', 'bypass-git.mjs'), `export function ${CAS}() {}\nexport function attestBypassCommit() {}\n`)
+  assert.deepEqual(sitesWithoutAttestation(dir), ['bare-lander.mjs'], '无留痕的那枚必须被点名,而有留痕与测试面不得被点名')
+})
+
+test('T20 留痕出口不得开第二本台账:写盘只许委托 commit-attestation 那一份实现', () => {
+  const src = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'lib', 'bypass-git.mjs'), 'utf8')
+  const body = src.slice(src.indexOf(`export function attestBypassCommit`))
+  assert.ok(!/appendFileSync\s*\(/.test(body), 'attestBypassCommit 体内不得自己 append —— 第二本台账就是第二份真相')
+  assert.ok(
+    /import\s*\{[^}]*recordBypassLanding[^}]*\}\s*from\s*'\.\/commit-attestation\.mjs'/.test(src),
+    '留痕必须经 recordBypassLanding 那唯一出口',
+  )
+  assert.ok(
+    /import\s*\{[^}]*readLedgerRecords[^}]*\}\s*from\s*'\.\/commit-attestation\.mjs'/.test(src),
+    '去重要问同一本台账(readLedgerRecords 未 import 就会永远判"没写过")',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
