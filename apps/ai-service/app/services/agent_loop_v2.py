@@ -55,7 +55,7 @@ import random
 import threading
 import time
 import uuid
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
@@ -1627,7 +1627,7 @@ AUTOMATION_TURN_TOOL_DENYLIST: frozenset[str] = frozenset(
 
 def merge_turn_scoped_denylist(
     caller_denylist: Sequence[str] | None,
-    turn_additions: Sequence[str] | None,
+    turn_additions: Iterable[str] | None,
 ) -> frozenset[str]:
     """轮次 denylist 合并:基础档 ∪ 轮次附加集,绝不覆盖/替换调用方传入集合。
 
@@ -1761,7 +1761,7 @@ class AgentLoopV2:
         # 生效集 = 基础档 ∪ 附加集,绝不替换基础档;只作用于本轮构造,
         # 不写回会话/checkpoint,绑定会话不会被永久视为 automation 执行上下文。
         deny_tools: Sequence[str] | None = None,
-        turn_denylist: Sequence[str] | None = None,
+        turn_denylist: Iterable[str] | None = None,
     ):
         """
         Args:
