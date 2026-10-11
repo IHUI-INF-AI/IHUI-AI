@@ -25,7 +25,7 @@
  */
 
 import { execFile, spawn, type ChildProcess, type StdioOptions } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import * as os from 'node:os'
 // G-695:等 close 的站点必须走补发器 —— once('close') 挂在已 fire 的 EventEmitter 上永不触发。
@@ -158,6 +158,12 @@ export function killProcessTree(child: ChildProcess): void {
     // (无权发信号 ≠ 组已死),才退到单进程补刀。旧写法不看存活性一律补刀。
     if (isPosixProcessGroupAlive(child.pid)) {
       try { child.kill('SIGKILL') } catch {}
+    } else {
+      // L11520:组已消亡(ESRCH)不等于全员死透 —— setsid 脱组的 detached 后代
+      // 不在原进程组里,组 kill 永远够不着;按生前快照逐个补信号(win32 快照
+      // 是 unsupported,这里结构性 no-op,绝无信号发出)。
+      const snapshot = processGroupSnapshotRegistry.get(child)
+      if (snapshot) signalDetachedGroupMembers(snapshot)
     }
   }
 }
@@ -180,6 +186,120 @@ export function isPosixProcessGroupAlive(
     return (e as NodeJS.ErrnoException).code !== 'ESRCH'
   }
 }
+
+// =============================================================================
+// L11520(票):POSIX 进程组"生前快照"——派生时把 PGID/组成员先记下来,之后组
+// kill 报 ESRCH(组已消亡)时对"组外 detached 后代"逐个补信号。
+//
+// 病灶:setsid 脱组的 detached 后代不在原进程组里,kill(-pgid) 永远够不着它;
+// 组 kill 成功时它跟着组死,组 kill 报 ESRCH 时它可能还活着 —— 唯一线索是
+// **生前**(尚在本端所有权内、未发任何信号前)采集的组成员快照。
+//
+// Windows 侧显式声明:win32 没有 POSIX 进程组语义,快照采集出口在 win32 上是
+// **明确 no-op**(返回 kind:'unsupported' 快照,不采集、不导出任何可用数据),
+// 补信号出口对非 posix 快照结构性 no-op(返回 [],不发任何信号)。杀进程树在
+// Windows 上继续走 taskkill /T(见 killProcessTree),绝不假装这些出口在
+// Windows 上"也能用"。
+// =============================================================================
+
+/**
+ * POSIX 进程组成员快照(判别式联合 —— "可判"指调用方按 kind 收窄):
+ *   - posix:POSIX 平台上生前采集的组成员表(pgid = detached child 的 pid,即组 leader);
+ *   - unsupported:非 POSIX 平台(如 win32)或采集条件不满足 ⇒ 明确 no-op,绝无成员数据。
+ */
+export type ProcessGroupSnapshot =
+  | { kind: 'posix'; pgid: number; memberPids: number[]; capturedAtMs: number }
+  | { kind: 'unsupported'; reason: string }
+
+/** 组成员枚举口(注入;缺省 linux /proc 扫描,非 linux POSIX 只落 leader)。 */
+export type ProcessGroupMemberProbe = (pgid: number) => number[]
+
+/**
+ * 缺省组成员探针:linux 扫 /proc/<pid>/stat 第 5 字段(pgrp)=== pgid 者即成员;
+ * 其余 POSIX 平台(darwin 等)量不到组表 ⇒ 只落 leader(fail-safe 下限:组 kill
+ * 报 ESRCH 时至少单独补刀 leader,不引入未经真机验证的 ps 枚举)。win32 到不了
+ * 这里(captureProcessGroupSnapshot 已按平台先行 no-op)。
+ */
+export const defaultProcessGroupMemberProbe: ProcessGroupMemberProbe = (pgid) => {
+  if (os.platform() !== 'linux') return [pgid]
+  const members: number[] = []
+  let entries: string[]
+  try {
+    entries = readdirSync('/proc')
+  } catch {
+    return [pgid]
+  }
+  for (const entry of entries) {
+    if (!/^\d+$/.test(entry)) continue
+    try {
+      // stat:pid (comm) state ppid pgrp ... — ')' 后首字段是 state(第 3 字段),
+      // pgrp(第 5 字段)偏移 5-3=2
+      const stat = readFileSync(`/proc/${entry}/stat`, 'latin1')
+      const tail = stat.slice(stat.lastIndexOf(')') + 1).trim().split(' ')
+      if (Number(tail[2]) === pgid) members.push(Number(entry))
+    } catch {
+      // /proc 竞态:进程刚好退出,跳过(不放大)
+    }
+  }
+  return members
+}
+
+/**
+ * 生前快照出口:进程派生成功后(未发任何信号前)调一次,把 PGID/组成员先记下来。
+ * win32(可注入 platform)⇒ 返回 kind:'unsupported' 的明确 no-op 快照。
+ */
+export function captureProcessGroupSnapshot(
+  pgid: number,
+  probe: ProcessGroupMemberProbe = defaultProcessGroupMemberProbe,
+  platform: () => string = () => os.platform(),
+): ProcessGroupSnapshot {
+  if (platform() === 'win32') {
+    return {
+      kind: 'unsupported',
+      reason: 'win32 无 POSIX 进程组语义:组成员快照不采集,杀树走 taskkill /T(见 killProcessTree)',
+    }
+  }
+  return { kind: 'posix', pgid, memberPids: probe(pgid), capturedAtMs: Date.now() }
+}
+
+export interface SignalDetachedGroupMembersDeps {
+  /** 组存活判定(缺省 isPosixProcessGroupAlive,真 probe);注入假判定驱动单测。 */
+  isGroupAlive?: (pgid: number) => boolean
+  /** 单成员信号口(缺省 process.kill(pid,'SIGKILL'));注入收集调用序列断言。 */
+  signalMember?: (pid: number) => void
+}
+
+/**
+ * 补信号出口:组 kill 报 ESRCH(组已消亡)后,按生前快照逐个补信号。
+ *   - 非 posix 快照(含 win32 采集产物)⇒ 结构性 no-op,返回 [] 且不发任何信号;
+ *   - 组仍存活 ⇒ 组信号已覆盖全部成员,返回 [](不重复补);
+ *   - 组已死 ⇒ 按快照顺序对每个成员发信号,抛错(ESRCH=已死)者跳过,
+ *     返回实际命中(信号未抛)的 pid 序列 —— 组外 detached 后代就在这里被补到。
+ */
+export function signalDetachedGroupMembers(
+  snapshot: ProcessGroupSnapshot,
+  deps: SignalDetachedGroupMembersDeps = {},
+): number[] {
+  if (snapshot.kind !== 'posix') return []
+  const alive =
+    deps.isGroupAlive ?? ((p: number) => isPosixProcessGroupAlive(p))
+  if (alive(snapshot.pgid)) return []
+  const signal =
+    deps.signalMember ?? ((pid: number) => { process.kill(pid, 'SIGKILL') })
+  const hit: number[] = []
+  for (const pid of snapshot.memberPids) {
+    try {
+      signal(pid)
+      hit.push(pid)
+    } catch {
+      // ESRCH:该成员已死,跳过(组内成员多半如此;组外后代这里被命中)
+    }
+  }
+  return hit
+}
+
+/** 生前快照登记表:spawnIsolated 在 spawn 成功后采集登记,killProcessTree 回收时取用。 */
+const processGroupSnapshotRegistry = new WeakMap<ChildProcess, ProcessGroupSnapshot>()
 
 // =============================================================================
 // G-998130(票1):force 只打"已验证目标集",身份核不上时禁止沿裸 PID 杀进程树。
@@ -732,6 +852,16 @@ export async function spawnIsolated(
   // G-998130:生前抓 root 创建标识快照(fire-and-forget,探针自身不 reject,失败静默)。
   // 快照落在生前登记表,供 killProcessTreeVerified 在回收前做身份对账 —— 防 PID 复用误认。
   void captureRootCreationIdentity(child).catch(() => {})
+
+  // L11520:生前抓 POSIX 进程组成员快照(仅 detached 且有 pid 时;win32 上
+  // captureProcessGroupSnapshot 返回 unsupported 明确 no-op,不登记)。同步采集:
+  // 必须赶在任何信号发出之前,否则组员生死已失真,快照不再是"生前"。
+  if (child.pid && (options.detached ?? true)) {
+    const groupSnapshot = captureProcessGroupSnapshot(child.pid)
+    if (groupSnapshot.kind === 'posix') {
+      processGroupSnapshotRegistry.set(child, groupSnapshot)
+    }
+  }
 
   // stdin payload(如果有)— 写完即关,不阻塞 wait
   if (options.stdin !== undefined && child.stdin) {
