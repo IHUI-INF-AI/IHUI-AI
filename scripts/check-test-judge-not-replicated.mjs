@@ -724,8 +724,12 @@ function audit(contents, { strict = false } = {}) {
               state = 'pass'
               why = `P3 行内豁免:${reason}`
             } else if (ent.role === 'scope') {
-              state = 'undetermined'
-              why = `门侧 ${ent.name} 是取景/解析谓词(不是被审对象的形态)⇒ 同形只算漂移风险,逐条点名不判红`
+              // 门侧那个符号是"取景/解析谓词"(决定扫哪些文件、怎么切行),不是被审对象的形态 ——
+              // 这是**已经做出的判定**,所以它记 P5 放过而不是留在"未判定"(把判过的写成没判,与把没判的写成判过,
+              // 是同一类事故的两个方向)。同一条形态若在别门是清单,F1/F2 那条入口照旧命中:
+              // push() 按 (test,gate,shape) 分键,不同门各留一条记录,低秩的放过不会顶掉高秩的命中。
+              state = 'pass'
+              why = `P5 门侧 ${ent.name} 是取景/解析谓词(不是被审对象的形态)⇒ 同形只算漂移风险,不记为复制`
             } else if (role.shapeLock) {
               state = 'pass'
               why = `P2 形状锁:主语 ${role.subject} 是某文件的正文,钉的是写法不是被审对象形态`
@@ -1012,6 +1016,27 @@ function selfTest() {
     const g = 'const TEST_PATH_RE = /(^|\\/)(tests|__tests__|e2e)\\//\n'
     const x = `import { __test__ as gate } from '../check-demo-judge.mjs'\nconst TEST_PATH_RE = /(^|\\/)(tests|__tests__|e2e)\\//\nvoid gate\n`
     return a({ [GATE]: g, [TEST]: x }).counts.hits === 0
+  })())
+  t('P5 是"已判定"不是"没判":门侧谓词同形 ⇒ 记放过且不得再留未判定', (() => {
+    const g = 'const TEST_PATH_RE = /(^|\\/)(tests|__tests__|e2e)\\//\n'
+    const x = `import { __test__ as gate } from '../check-demo-judge.mjs'\nconst TEST_PATH_RE = /(^|\\/)(tests|__tests__|e2e)\\//\nvoid gate\n`
+    const r = a({ [GATE]: g, [TEST]: x })
+    return r.counts.undetermined === 0 && r.items.some((i) => i.state === 'pass' && i.why.startsWith('P5'))
+  })())
+  t('P5 不吞真复制:同一条形态在别门是清单 ⇒ 那一门照旧命中(一条 pass 不顶掉另一条 hit)', (() => {
+    const scopeGate = 'const TEST_PATH_RE = /(^|\\/)(tests|__tests__|e2e)\\//\n'
+    const listGate = "const PATTERNS = [\n  { re: /(^|\\/)(tests|__tests__|e2e)\\// },\n]\nexport const __test__ = { PATTERNS }\n"
+    const copy = `import { __test__ as gate } from '../check-list-judge.mjs'\nconst PATTERNS = [/(^|\\/)(tests|__tests__|e2e)\\//]\nPATTERNS.forEach((re) => re.test(p))\nvoid gate\n`
+    const r = a({
+      [GATE]: scopeGate,
+      'scripts/check-list-judge.mjs': listGate,
+      'scripts/tests/check-list-judge.test.mjs': copy,
+    })
+    return (
+      r.items.some((i) => i.state === 'pass' && i.why.startsWith('P5')) &&
+      r.items.some((i) => i.state === 'hit' && i.shape === 'F1') &&
+      r.items.some((i) => i.state === 'hit' && i.shape === 'F2')
+    )
   })())
   t('单元是数据而非判据 ⇒ 未判定(不冒红也不静默)', (() => {
     const r = a({ [GATE]: gateBody, [TEST]: `const keep = /${TFORM}/\nconsole.log(keep)\n` })
