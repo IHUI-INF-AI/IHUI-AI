@@ -499,6 +499,12 @@
     "search": "搜索",
     "searchPlaceholder": "搜索文档..."
   },
+  "network": {
+    "offline": "网络已断开,部分功能不可用",
+    "slow": "网络较慢,响应可能延迟",
+    "serverUnreachable": "暂时连不上服务器,您的网络正常",
+    "probeUnavailable": "暂时无法确认网络状态"
+  },
   "aiAssistant": {
     "title": "AI 助手",
     "subtitle": "选择智能体开始对话",
