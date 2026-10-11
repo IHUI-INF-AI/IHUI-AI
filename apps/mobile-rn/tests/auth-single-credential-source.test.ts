@@ -40,13 +40,23 @@ const { apiClient, capturedProvider } = vi.hoisted(() => {
   }
 })
 
-vi.mock('@ihui/api-client', () => apiClient)
+vi.mock('@ihui/api-client', async () => {
+  // 2026-10-09 分型:补真实 TransientRefreshError —— lib/token.ts 的 refresh 瞬时分支
+  // 会 new 它,mock 缺这个名会在访问时报 "No export is defined on the mock";
+  // 断言侧的 instanceof 也必须拿到同一个类对象。
+  const actual = await vi.importActual<typeof import('@ihui/api-client')>('@ihui/api-client')
+  return { ...apiClient, TransientRefreshError: actual.TransientRefreshError }
+})
 vi.mock('@ihui/shared/stores', async () => {
   const real = await import('../../../packages/shared/src/stores/auth-store')
-  return { createAuthStore: real.createAuthStore, selectIsAuthenticated: real.selectIsAuthenticated }
+  return {
+    createAuthStore: real.createAuthStore,
+    selectIsAuthenticated: real.selectIsAuthenticated,
+  }
 })
 
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { TransientRefreshError } from '@ihui/api-client'
 import storageMock, { resetAsyncStorageMock } from './__mocks__/async-storage'
 import { _resetSecureStoreBackendForTest } from '../src/lib/auth/secure-store'
 import { initApi, getToken, getRefreshToken, clearToken } from '../src/lib/token'
@@ -170,7 +180,8 @@ describe('RN 凭据单一数据源', () => {
 
     const { createAsyncStorageTransport } = await import('../src/stores/storage-adapter')
     const { tokenStore: realTokenStore } = await import('../src/lib/token')
-    const { createAuthStore: realCreateAuthStore } = await import('../../../packages/shared/src/stores/auth-store')
+    const { createAuthStore: realCreateAuthStore } =
+      await import('../../../packages/shared/src/stores/auth-store')
     const rebooted = realCreateAuthStore({
       tokenStore: realTokenStore,
       userTransport: createAsyncStorageTransport(),
@@ -191,6 +202,43 @@ describe('RN 凭据单一数据源', () => {
     s.setUser(USER)
     await new Promise((r) => setTimeout(r, 30))
     expect(Object.keys(persistedSnapshot()?.state ?? {})).toEqual(['user'])
+  })
+
+  describe('refreshAccessToken 失败分型(2026-10-09 判据唯一出口 = classifyRefreshFailureStatus)', () => {
+    // refreshAccessToken 是模块私有回调,只能经 initApi → bindTokenStoreToApiClient 注册的
+    // provider 捕获直调。分型契约:5xx/无 status → 抛 TransientRefreshError(refreshAccessTokenOnce
+    // catch 进冷却,凭据不清);401 → 返回 null(既有 rejected 契约)。
+    async function capturedRefresh(): Promise<() => Promise<string | null>> {
+      await initApi()
+      await rnAuthStore.getState().setAuth({ token: 'T', refreshToken: 'R', user: USER })
+      const refresh = capturedProvider.value?.refreshAccessToken
+      expect(typeof refresh, 'provider 未捕获 refreshAccessToken ⇒ 判据失明').toBe('function')
+      return refresh!
+    }
+
+    it('500 → 抛 TransientRefreshError,且本地凭据不清', async () => {
+      const refresh = await capturedRefresh()
+      apiClient.fetchApi.mockResolvedValue({ success: false, status: 500, error: 'Server Error' })
+
+      await expect(refresh()).rejects.toBeInstanceOf(TransientRefreshError)
+      expect(getToken()).toBe('T')
+      expect(getRefreshToken()).toBe('R')
+    })
+
+    it('无 status(网络错误/超时) → 同样抛 TransientRefreshError', async () => {
+      const refresh = await capturedRefresh()
+      apiClient.fetchApi.mockResolvedValue({ success: false, error: 'network down' })
+
+      await expect(refresh()).rejects.toBeInstanceOf(TransientRefreshError)
+      expect(getToken()).toBe('T')
+    })
+
+    it('401 → 返回 null 不抛(rejected,凭据确已失效)', async () => {
+      const refresh = await capturedRefresh()
+      apiClient.fetchApi.mockResolvedValue({ success: false, status: 401, error: 'Unauthorized' })
+
+      await expect(refresh()).resolves.toBeNull()
+    })
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
