@@ -561,8 +561,15 @@ test('T20 方向形态真仓阳性对照 + 窄正则不得回来(漏计一侧 = 
   assert.match(libSrc, /tr\|tl\|br\|bl/, '方向分支被退回窄正则 ⇒ 整族底部弹层再次隐身,而账面只会变好看')
   assert.deepEqual(radiusSetOf('<View className="rounded-full" />', tbl), [], 'rounded-full 归守门 11,不得被这一维计成档')
   assert.deepEqual(radiusSetOf('<View className="rounded-none" />', tbl), [], 'rounded-none 是 0,不是"该取哪档"的判断')
-  // 反向回归锁:门自检里那条方向用例被整文件回写抹掉时,本测试必须红(否则下一个人只会看到读数变少、账面变好看)
-  const gateSrc = readFileSync(SELF, 'utf8').replace(/\s+/g, ' ')
+  // 反向回归锁:门自检里那条方向用例被整文件回写抹掉时,本测试必须红(否则下一个人只会看到读数变少、账面变好看)。
+  // 自检/fixture 段已拆到 scripts/lib/cross-end-ui-parity-selftest.mjs ⇒ 锁读两份拼面:
+  // 用例搬家不算被抹,判据仍要求它在门的源码面里存在。
+  const gateSrc = [
+    readFileSync(SELF, 'utf8'),
+    readFileSync(resolve(ROOT, 'scripts/lib/cross-end-ui-parity-selftest.mjs'), 'utf8'),
+  ]
+    .join('\n')
+    .replace(/\s+/g, ' ')
   assert.match(gateSrc, /方向与角形态必须与整格形态同判/, '自检里的方向用例不见了 ⇒ 判据被回退')
 })
 
