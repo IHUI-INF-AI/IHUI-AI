@@ -40,6 +40,10 @@ HEAD_SNAPSHOT_PATH = "apps/ai-service/app/core/provider_capability_snapshot.py"
 # 一条空转的同形比对却长得像通过(本仓把这条写成规矩:阳性对照钉出处不钉 HEAD)。
 # `^` 取的是那枚落地提交的父版本 = 改动前的真身。
 BASELINE_REF = "5cf78e1a0c^"
+# 按 sha 浅取只吃完整 40 位(GitHub allowAnySHA1InWant 不解析短 sha ⇒ "couldn't
+# find remote ref"),而短 sha → 全 sha 的 rev-parse 又要求对象已在本地 —— fetch
+# 前对象恰恰不在。故全 sha 硬编码在此,fetch 通道专用。
+BASELINE_SHA_FULL = "5cf78e1a0cb8a74e6093de9f64e342af718eb940"
 GIT_BIN = shutil.which("git")
 
 
@@ -301,6 +305,15 @@ def _ensure_baseline_history_available() -> None:
     if probe.returncode == 0:
         return
     base_sha = BASELINE_REF.removesuffix("^")
+    # CI shallow 仓按 sha 浅取只吃完整 40 位:GitHub 的 allowAnySHA1InWant 不解析短
+    # sha,短 sha 直接 "couldn't find remote ref"(CI run 38114526561 实测 rc=128)。
+    # 而 rev-parse 解析短 sha 又要求对象已在本地 —— 恰是需要 fetch 的场景里最缺的。
+    # 故 fetch 一律用硬编码全 sha(BASELINE_REF 的短写仅供人读/probe 用)。
+    full_sha = (
+        BASELINE_SHA_FULL
+        if base_sha == BASELINE_SHA_FULL[: len(base_sha)]
+        else base_sha
+    )
     fetch = subprocess.run(
         [
             GIT_BIN,
@@ -314,7 +327,7 @@ def _ensure_baseline_history_available() -> None:
             "fetch",
             "--depth=2",
             "origin",
-            base_sha,
+            full_sha,
         ],
         stdin=subprocess.DEVNULL,
         capture_output=True,
