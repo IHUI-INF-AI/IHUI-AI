@@ -27,6 +27,9 @@ export default function ModelsPageClient() {
     queryKey: ['models'],
     queryFn: fetchModels,
     staleTime: 5 * 60 * 1000,
+    // 上游模型自动同步(2026-10-09):页面常驻时每 5 分钟后台静默刷新,
+    // 同步任务上架/下架模型后无需手动刷新页面
+    refetchInterval: 5 * 60 * 1000,
   })
 
   // 分时(高峰/低谷)定价规则(2026-09-16 立):独立 queryKey,失败降级空数组不阻塞模型列表
@@ -34,6 +37,7 @@ export default function ModelsPageClient() {
     queryKey: ['models', 'peak-windows'],
     queryFn: fetchRelayPeakWindows,
     staleTime: 5 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
   })
 
   const { active, list } = useMemo(() => {

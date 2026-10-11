@@ -3350,6 +3350,7 @@ pub fn run() {
     qoder_reset::qoder_quarantine_restore,
     qoder_reset::qoder_quarantine_delete,
     qoder_reset::qoder_reset_history,
+    qoder_reset::checkin_audit_qoder_residual,
     workbuddy_reset::workbuddy_reset_factory
         ])
         .run(tauri::generate_context!())

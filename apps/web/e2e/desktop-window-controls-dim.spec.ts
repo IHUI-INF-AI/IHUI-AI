@@ -610,18 +610,18 @@ test.describe('桌面端窗口控制按钮 — 模态压暗 + 失焦降亮(真�
 
   test('分支2:Sheet 浅色"变亮"遮罩(bg-white/80)驱动压暗层变亮而非压黑', async ({ page }) => {
     // 真实入口:/docs 是 proxy PUBLIC_PATHS 白名单内的游客可达页(见 src/lib/login-dialog-trigger.ts),
-    // 其 layout 用 CategoryShell → <768px 渲染 SheetTrigger(aria-label="打开导航菜单"),
+    // 其 layout 用 CategoryShell → <640px 渲染 SheetTrigger(aria-label="打开导航菜单"),
     // SheetContent 的遮罩为 packages/ui-react sheet.tsx:72 `bg-white/80 dark:bg-black/80`。
     await installTauriStub(page)
     await installTheme(page, 'light')
-    await page.setViewportSize({ width: 767, height: 900 })
+    await page.setViewportSize({ width: 500, height: 900 })
     await page.goto('/docs', { waitUntil: 'domcontentloaded' })
     await page.locator(WINDOW_CONTROLS_SELECTOR).waitFor({ state: 'attached', timeout: 90_000 })
 
     const theme = await probeIsDark(page)
     expect(theme.htmlClass, '浅色主题下 html 不应挂 .dark').not.toContain('dark')
 
-    // 手机视口(<768px)会强制 AI 面板进入全屏浮窗(ai-side-panel.tsx:1099
+    // 手机视口(<640px)会强制 AI 面板进入全屏浮窗(ai-side-panel.tsx:1099
     // `ai-panel-root fixed inset-0 z-sticky`)。两件事在此一并取证:
     //  1) 它是全屏 + 不透明 + fixed,但 z-sticky=990 < 2000 → **不得**触发压暗(反向判据);
     //  2) 它盖住页面,真实用户须先点其"最小化"(Minus 图标)收成 FAB 才能点到导航抽屉。

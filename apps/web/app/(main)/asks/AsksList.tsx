@@ -7,6 +7,7 @@
 import Link from 'next/link'
 import { HelpCircle, Loader2, MessageSquare, Eye, CheckCircle2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import type { AskItem } from './types'
@@ -28,8 +29,11 @@ export function AsksList({ list, isLoading, error }: Props) {
     )
   if (error)
     return (
+      // 身份必须走到文案这一层:helpers.api() 交出的 Error 带着 status/errorCode,
+      // 而这里若直读 `error.message` 就把服务端原文(如 "Invalid or expired token")直接摊给用户;
+      // 判序唯一出口 = toUserFriendlyMessage(与 /plaza 的 AsksPanel、RN 端 PlazaScreen 同一份)。
       <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-        {error.message}
+        {toUserFriendlyMessage(error)}
       </div>
     )
   if (list.length === 0)

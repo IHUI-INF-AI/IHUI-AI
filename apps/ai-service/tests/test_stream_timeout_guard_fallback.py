@@ -93,7 +93,7 @@ async def test_guard_stream_falls_back_to_non_stream(monkeypatch):
     """guard 占位流 → 放弃并回退非流式:内容不泄漏、tool_calls/usage/done 齐全。"""
     monkeypatch.setattr(settings, "llm_providers", json.dumps({"ihui_relay": {"api_key": "sk-test"}}))
     # 避免 TCP 竞速探测真实端点,固定 base
-    monkeypatch.setattr("app.core.llm_gateway._detect_ihui_relay_base", lambda: "https://api.x5m5x.com/v1")
+    monkeypatch.setattr("app.core.llm_gateway._detect_ihui_relay_base", lambda: "https://new.x5m5x.com/v1")
     call_log: list[dict] = []
     guard_stream_chunks = [
         _delta_chunk(_GUARD_CHUNK_ID, _GUARD_CONTENT),
@@ -130,7 +130,7 @@ async def test_guard_stream_falls_back_to_non_stream(monkeypatch):
 async def test_normal_stream_does_not_fallback(monkeypatch):
     """负向:正常流(id 非守卫)不触发回退,acompletion 仅调用一次。"""
     monkeypatch.setattr(settings, "llm_providers", json.dumps({"ihui_relay": {"api_key": "sk-test"}}))
-    monkeypatch.setattr("app.core.llm_gateway._detect_ihui_relay_base", lambda: "https://api.x5m5x.com/v1")
+    monkeypatch.setattr("app.core.llm_gateway._detect_ihui_relay_base", lambda: "https://new.x5m5x.com/v1")
     call_log: list[dict] = []
     normal_chunks = [
         _delta_chunk("chatcmpl-abc123", "你好"),
