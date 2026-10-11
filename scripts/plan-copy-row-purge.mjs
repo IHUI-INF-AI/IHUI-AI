@@ -93,6 +93,7 @@ import {
 } from './lib/plan-task-index.mjs'
 import {
   alignSharedIndex,
+  attestBypassCommit,
   casUpdateRef,
   commitTreeWithIndex,
   git,
@@ -553,6 +554,11 @@ function main() {
   const parentShaLiteral = git(['rev-parse', `${committed.commit}^`], { root: ROOT })
   const aligned = alignSharedIndex({ root: ROOT, paths: [LEDGER, trailRel], parentRef: parentShaLiteral })
   console.log(`✅ 共享索引对齐 moved=${aligned.moved.length} already=${aligned.already.length} skipped=${aligned.skipped.length}(工作树滞后一格,收尾由调用方对齐)`)
+  // 旁路 CAS 不跑钩子 ⇒ 必须进跳门留痕台账(2026-10-11:本器是第五家落地器,由 bypass-git 镜像的
+  // 「用 casUpdateRef 而不留痕」不变量锁当场点出)。上面的 md 逐行留痕记的是**删了哪些行**,
+  // 与本台账记的是**这枚提交绕过了门禁**两件事,后者不可由前者代替。
+  const at = attestBypassCommit(committed.commit, { root: ROOT, headBefore: parentShaLiteral, source: 'plan-copy-row-purge' })
+  if (!at.ok) console.error(`⚠️ 旁路留痕未写入(${at.why})⇒ 这一枚在跳门总量台账里仍是 unknown`)
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
