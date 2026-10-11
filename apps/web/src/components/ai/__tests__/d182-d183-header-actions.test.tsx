@@ -85,7 +85,7 @@ describe('D182 锚点层:头部动作组/全屏按钮/门槛态/portal 退出键
     expect(host).toContain('const workspaceUnavailable = !storeConversationId')
   })
 
-  it('全屏态:面板 inline display:none 让位工作面(优先级高于 min-[768px]:block)+ portal 退出按钮挂 #work-area-portal-root', () => {
+  it('全屏态:面板 inline display:none 让位工作面(优先级高于 min-[640px]:block)+ portal 退出按钮挂 #work-area-portal-root', () => {
     expect(host).toContain("{ display: 'none' }")
     expect(host).toContain("import { createPortal } from 'react-dom'")
     expect(host).toContain('createPortal(')
