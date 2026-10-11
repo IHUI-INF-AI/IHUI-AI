@@ -35,6 +35,11 @@ export {
   // 2026-08-14 补充 re-export:401 自动续期全局单例,web useAuthBootstrap 复用
   // (并行改动 use-auth-bootstrap.ts 依赖它;client.ts 已实现,入口遗漏导致编译失败)
   refreshAccessTokenOnce,
+  // 2026-10-09 分型(根治「自动登录总被清掉」):端内 refresh 实现对网络/5xx 性质失败
+  // 抛 TransientRefreshError,fetchApi 的 401 出口据 wasLastRefreshTransient 跳过
+  // notifyUnauthorized —— 显式命名清单,漏导出端内拿到 undefined(守门 149 同一型)。
+  TransientRefreshError,
+  wasLastRefreshTransient,
   isAbortError,
   // 2026-09-25 补能力:401 处理器注册口 —— 端内改走本包端点函数后仍能拿到"弹登录框"反馈
   setUnauthorizedHandler,

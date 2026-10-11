@@ -38,6 +38,8 @@ from pathlib import Path
 from typing import Any, cast
 
 from ..core.llm_gateway import llm_gateway
+from . import rg_fallback_parity as _rgp
+from .rg_fallback_parity import EnumerationProvenance
 
 logger = logging.getLogger(__name__)
 
@@ -172,6 +174,12 @@ class IndexResult:
     files_unchanged: int = 0  # 内容未变被跳过的文件数(零 embedding 成本)
     files_deleted: int = 0  # 已删除并同步清除切片的文件数
     merkle_root: str = ""  # 本轮快照根 hash(可跨轮比较 O(1) 判断整仓变更)
+    # V75 判据 4:本轮**遍历出处**必须到端可见,不得只在日志里 —— 降级成 Python
+    # 串行遍历与走 ripgrep 是两种成本完全不同的运行,响应上看不见就等于没降级过。
+    traversal_engine: str = ""  # rg_fallback_parity.ENGINE_* 之一;"" = 没跑过枚举
+    traversal_duration_s: float = 0.0  # 这一趟枚举的实际耗时
+    traversal_files_seen: int = 0  # 通道自报的计数(触顶时 = 上限,不是全仓规模)
+    traversal_degraded_reason: str | None = None  # 非 None = 走了回退通道,原委在此
 
 
 class CodebaseIndexer:
@@ -446,20 +454,46 @@ class CodebaseIndexer:
                 break
         return chunks[:MAX_CHUNKS_PER_FILE]
 
+    def collect_code_files_with_provenance(
+        self, root: Path
+    ) -> tuple[list[tuple[Path, str]], EnumerationProvenance]:
+        """扫描仓库收集代码文件,并**把这一趟用了哪条通道带回来**。
+
+        V75 判据 4:本方法是懒索引护栏(`MAX_FILES_PER_INDEX`)唯一的分母来源,也是
+        `index_repository` 唯一的枚举入口 —— 枚举语义只许住在
+        `rg_fallback_parity.enumerate_code_files` 一处,这里只做"相对 posix 路径 →
+        (绝对 Path, language)"的还原,不再第二遍 `os.walk`(两处算同一件事必漂移)。
+
+        降级不静默:rg 通道跑了但坏了时,`provenance.degraded_reason` /
+        `fallback_detail` 带原委,由 `index_repository` 透出到 `IndexResult` 上,
+        所以"这次索引走的是 ripgrep 还是回退遍历"在响应里看得见,不必翻日志。
+        """
+        rel_paths, prov = _rgp.enumerate_code_files(
+            root,
+            ignored_dirs=_IGNORED_DIRS,
+            suffixes=tuple(_EXT_TO_LANG),
+            max_files=MAX_FILES_PER_INDEX,
+        )
+        collected: list[tuple[Path, str]] = []
+        for rel in rel_paths:
+            fname = rel.rsplit("/", 1)[-1]
+            lang = _EXT_TO_LANG.get(os.path.splitext(fname)[1].lower())
+            if not lang:
+                # 枚举出口按 suffixes 白名单收过,理论上到不了这里;真到了就是两通道
+                # 对扩展名的判定漂移了 —— 宁可丢这一条也不得给索引塞一个未知语言切片。
+                logger.warning("枚举出口返回了白名单外的扩展名,已跳过: %s", rel)
+                continue
+            collected.append((root / Path(*rel.split("/")), lang))
+        return collected, prov
+
     def _collect_code_files(self, root: Path) -> list[tuple[Path, str]]:
-        """扫描仓库,收集代码文件 → [(file_path, language), ...]。"""
-        result: list[tuple[Path, str]] = []
-        for dirpath, dirnames, filenames in os.walk(root):
-            dirnames[:] = [d for d in dirnames if d not in _IGNORED_DIRS]
-            for fname in filenames:
-                ext = os.path.splitext(fname)[1].lower()
-                lang = _EXT_TO_LANG.get(ext)
-                if not lang:
-                    continue
-                result.append((Path(dirpath) / fname, lang))
-                if len(result) >= MAX_FILES_PER_INDEX:
-                    return result
-        return result
+        """扫描仓库,收集代码文件 → [(file_path, language), ...]。
+
+        本体已收口到 `collect_code_files_with_provenance`(V75):护栏分母与索引分母
+        必须是同一个数,所以这里只剥掉 provenance,不保留第二份遍历实现。
+        """
+        collected, _prov = self.collect_code_files_with_provenance(root)
+        return collected
 
     async def _generate_embeddings_batch(
         self, chunks: list[CodeChunk]
@@ -727,8 +761,13 @@ class CodebaseIndexer:
             repo_id = f"local-{path_hash}"
 
         result = IndexResult(repo_id=repo_id)
-        files = self._collect_code_files(root)
+        files, traversal_prov = self.collect_code_files_with_provenance(root)
         result.files_scanned = len(files)
+        # V75 判据 4:遍历出处与耗时随响应透出(降级不得只在日志里)。
+        result.traversal_engine = traversal_prov.engine
+        result.traversal_duration_s = traversal_prov.duration_s
+        result.traversal_files_seen = traversal_prov.counted
+        result.traversal_degraded_reason = traversal_prov.degraded_reason
 
         # --- Merkle 增量:计算本轮文件 hash 并与快照对比 ---
         prev_snapshot = self._load_snapshot(repo_id, root) if incremental else {}

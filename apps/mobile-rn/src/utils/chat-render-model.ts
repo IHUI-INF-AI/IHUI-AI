@@ -59,9 +59,11 @@ export interface ToolCallItem {
   videoUrl?: string
   /** 异步任务 ID */
   taskId?: string
-  /** D113 流中 diff 预览(tool-delta 帧累积文本,整帧覆盖写入;tool-result 到达即清除,
+  /** D113 流中 diff 预览(tool-delta 帧的增量正文按 seq 收敛追加;tool-result 到达即清除,
    *  最终 diff 以 result 为准。对齐 web ToolCall.partialDiff 语义) */
   partialDiff?: string
+  /** D113:已收敛消费的最大 tool-delta `seq`(缺省视为 0;收敛判据 `event.seq>partialSeq`)。 */
+  partialSeq?: number
 }
 
 /** Plan 步骤可渲染项 */
@@ -138,6 +140,7 @@ export function applyToolCallEvent(
           serverName: event.serverName ?? current?.serverName,
           startedAtMs: current?.startedAtMs ?? nowMs,
           partialDiff: current?.partialDiff,
+          partialSeq: current?.partialSeq,
         }
       : {
           id: event.toolCallId,
@@ -158,6 +161,7 @@ export function applyToolCallEvent(
           taskId: event.task_id,
           // D113:tool-result 到达即清流中预览,不继承 current.partialDiff
           partialDiff: undefined,
+          partialSeq: undefined,
         }
 
   if (idx >= 0) prev[idx] = next
@@ -167,20 +171,26 @@ export function applyToolCallEvent(
 
 /**
  * D113 tool-delta 帧折叠(纯函数):文件写类工具流中 diff 预览。
- * 载荷 partialText 为累积文本,按 toolCallId **覆盖式**写入 partialDiff
- * (同 seq 重放/乱序天然幂等,seq 不参与判断,对齐 web createToolDeltaHandler)。
+ * 载荷 partialText 为**增量**正文,按 toolCallId 以 seq 收敛**追加**
+ * (`event.seq<=已存 partialSeq` 即丢弃,重传/乱序幂等,缺口照追加,对齐 web createToolDeltaHandler)。
  * - 空 toolCallId → 整帧丢弃,零写入
  * - 列表中无该 toolCallId(start 帧未到)→ 不凭空造条目,原样返回
  */
 export function applyToolDelta(
   list: readonly ToolCallItem[] | undefined,
-  event: Pick<ToolDeltaEvent, 'toolCallId' | 'partialText'>,
+  event: Pick<ToolDeltaEvent, 'toolCallId' | 'seq' | 'partialText'>,
 ): ToolCallItem[] {
   const prev = list ? [...list] : []
   if (!event.toolCallId) return prev
   if (!prev.some((item) => item.id === event.toolCallId)) return prev
   return prev.map((item) =>
-    item.id === event.toolCallId ? { ...item, partialDiff: event.partialText } : item,
+    item.id === event.toolCallId && event.seq > (item.partialSeq ?? 0)
+      ? {
+          ...item,
+          partialDiff: (item.partialDiff ?? '') + event.partialText,
+          partialSeq: event.seq,
+        }
+      : item,
   )
 }
 
@@ -379,7 +389,7 @@ export function applyTerminalEnd(
 /** D135 执行帧折叠的判别式入参:主聊天屏把 SSE 执行族帧统一喂进这一个出口 */
 export type AssistantExecutionFrame =
   | { kind: 'tool-call'; event: ToolCallEvent }
-  | { kind: 'tool-delta'; event: Pick<ToolDeltaEvent, 'toolCallId' | 'partialText'> }
+  | { kind: 'tool-delta'; event: Pick<ToolDeltaEvent, 'toolCallId' | 'seq' | 'partialText'> }
   | { kind: 'plan-update'; event: PlanUpdateEvent }
   | { kind: 'terminal-start'; event: TerminalStartEvent }
   | { kind: 'terminal-end'; event: TerminalEndEvent }
