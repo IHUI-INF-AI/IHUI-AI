@@ -26,6 +26,8 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from app.core.cn_time import CN_TZ
+
 from app.services.publish.platform_rule_versions import (
     RuleVersion,
     RuleVersionManager,
@@ -262,7 +264,10 @@ class TestRecordRuleChange:
         )
         assert result is True
         assert rv.current_version == "2026.12.31"
-        assert rv.last_updated == datetime.now().strftime("%Y-%m-%d")
+        # 写侧口径 = 东八区(见 platform_rule_versions.py _CN_TZ 注释:人工日历日期
+        # 与自动写入必须同义,宿主被静默改成 UTC 后 naive now() 会差一天 —— CI
+        # run 38084051334 实证 20:37 UTC 断成两天)。断言必须用同一时钟,不是 naive now()。
+        assert rv.last_updated == datetime.now(CN_TZ).strftime("%Y-%m-%d")
         assert len(rv.change_log) == 1
         assert "2026.12.31" in rv.change_log[0]
         assert "标题字数 64→80" in rv.change_log[0]
