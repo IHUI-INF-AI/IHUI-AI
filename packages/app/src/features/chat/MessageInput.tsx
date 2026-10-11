@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { TextField } from '../../components/TextField'
 import type { MessageInputAgentVariable, MessageInputFile, MessageInputProps } from '../../types'
 import {
   FileText,
@@ -111,7 +112,8 @@ export function MessageInput({
                 {v.name || v.description}
               </Text>
               {v.type === 'text' ? (
-                <TextInput
+                <TextField
+                  colorScheme={colorScheme}
                   style={styles.agentVarInput}
                   value={v.value}
                   onChangeText={(val: string) => onAgentVariableTextChange?.(i, val)}
