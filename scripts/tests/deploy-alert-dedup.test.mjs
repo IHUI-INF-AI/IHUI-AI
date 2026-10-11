@@ -25,6 +25,12 @@
 //      但互不顶账。T14 是反向源码锁:监控侧不得再回到"无条件 return",且必须真调用该出口。
 //      两条变异各自实测翻红过(把到期判据短路 ⇒ T10 红;把监控分支改回无条件 return ⇒ T14 红),
 //      还原后 13/13 且两个文件 sha1 与变异前逐字相同。
+//  T16 时间戳的三种书写形态(Z / ±hh:mm / 裸)必须解析成同一个时刻,且写回档案时一律带时区
+//      —— 2026-10-11 的实测根因:`ConvertFrom-Json` 自动把 ISO 串转成 DateTime,而旧写法接着用
+//      `[string]` 转回文本,区域格式不带时区 ⇒ UTC 墙钟被当本地墙钟(本机差 8 小时),4h 窗口与
+//      20min 宽限全都算错。T6/T10 那两根红就是它,生产档案里当场有坏值。
+//  T17 源码锁:上述规范化只许经 ConvertTo-AlertInstant / ConvertTo-AlertTimestampText 这一对出口,
+//      四个边界函数必须真调用它,且函数体内不得再出现 `[string]`/`[datetime]` 裸转时间戳。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
@@ -478,5 +484,135 @@ test('T15 抑制行必须写出"压住的是哪件事"(只补出处,判定一字
   } finally {
     rmScratch(scratch)
   }
+})
+
+// T16 / T17 由 2026-10-11 的一次实测逼出,根因与 T6/T10 那两根红是同一个,不是两个缺陷:
+// `ConvertFrom-Json` 会把 ISO 串**自动转成 DateTime**(Z⇒Utc、+08:00⇒Local、裸⇒Unspecified),
+// 而模块原先在档案边界上用 `[string]$x` 把它又转回文本 —— `[string]` 走当前区域格式
+// (本机 `10/11/2026 17:31:30`),**区域格式不带时区** ⇒ UTC 墙钟被当成本地墙钟,在 +08:00 的
+// 这台机上整整差 8 小时;而 4h 重发窗口与 20min 抑制宽限就是拿这个差值算的。
+// 生产档案 `deploy\win\.alert-notify-state.json` 当场就带着两种坏值(裸 ISO 与区域串),
+// 所以这一型不是夹具现象。T16 钉行为,钉不住就回到散文;T17 钉边界写法,防止有人在下一个
+// 站点又抄一份 `[string]`。
+test('T16 档案里三种时间戳书写形态必须解析成同一个时刻,写回去必须带时区', () => {
+  const scratch = mkScratch('alert-dedup-tz')
+  try {
+    const sf = join(scratch, 'state.json').replace(/\\/g, '/')
+    const script = [
+      `$ErrorActionPreference='Stop'`,
+      `. '${MODULE.replace(/\\/g, '/')}'`,
+      `$sf = '${sf}'`,
+      `$t = (Get-Date).AddMinutes(-30)`,
+      // 同一个时刻的三种书写:外部生产者(node/python 的 toISOString)、PowerShell 自己、
+      // 以及本缺陷自己写坏过的那种裸串。第三种按本地墙钟解释(它已无法自证出处)。
+      `$z = $t.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ')`,
+      `$off = $t.ToString('yyyy-MM-ddTHH:mm:ss.fffzzz')`,
+      `$bare = $t.ToString('yyyy-MM-ddTHH:mm:ss.fff')`,
+      `$sigs = 'Z形态','偏移形态','裸形态'`,
+      `$text = @{ 'Z形态' = $z; '偏移形态' = $off; '裸形态' = $bare }`,
+      `$alerts = [ordered]@{}`,
+      `foreach ($s in $sigs) {`,
+      `  $k = Get-AlertDedupKey -Sig $s`,
+      `  $v = $text[$s]`,
+      `  $alerts[$k] = [ordered]@{ sigTs = $v; firstTs = $v; repeatNo = 0; lastSend = $v; label = $s; stall = $false }`,
+      `}`,
+      `[System.IO.File]::WriteAllText($sf, (ConvertTo-Json @{ version = 2; alerts = $alerts } -Depth 5), (New-Object System.Text.UTF8Encoding($false)))`,
+      `Write-Output ("ZONE=" + (Get-Date).ToString('zzz'))`,
+      // 判定面:三条都必须落在 4h 窗口内 ⇒ window-hit。旧写法会把 Z 那条读成 8 小时前 ⇒ due-repeat。
+      `foreach ($s in $sigs) {`,
+      `  $x = Test-AlertDueByIdentity -Sig $s -StateFile $sf -RepeatHours 4`,
+      `  Write-Output ("$s=" + $x.Decision)`,
+      `}`,
+      // 写回面:宽限出口一定会落盘,所以用它验证"档案里不允许再出现不带时区的串"。
+      // 它用的是 `grace:` 前缀的另一个键 ⇒ 原来三条只能经"读出→再写回"这条路回来,正是本判据要的地方。
+      // 而且必须按**盘上原文**判:ConvertFrom-Json 会把 ISO 串又转成 DateTime,拿 `[string]` 读回来
+      // 得到的是区域格式 —— 那正是本缺陷在生产档案里留下的形态,用它当 oracle 等于让尺子重犯被测的病。
+      `Test-AlertSuppressionGrace -Sig 'Z形态' -StateFile $sf -GraceMinutes 60 | Out-Null`,
+      `$raw = [System.IO.File]::ReadAllText($sf)`,
+      `$seen = 0`,
+      `$bad = 0`,
+      `foreach ($m in [regex]::Matches($raw, '"(sigTs|firstTs|lastSend)":\\s*"([^"]*)"')) {`,
+      `  $seen++`,
+      `  $val = $m.Groups[2].Value`,
+      `  if ($val -and -not ($val -match '(Z|[+-]\\d{2}:\\d{2})$')) { $bad++ }`,
+      `}`,
+      `Write-Output ("SEEN=" + $seen)`,
+      `Write-Output ("BAD=" + $bad)`,
+    ].join('\n')
+    const { out, status } = pwsh(script)
+    requireShell(out)
+    assert.equal(status, 0, `pwsh 非零退出: ${out}`)
+    const lines = out.split(/\r?\n/)
+    const zone = (lines.find((l) => l.startsWith('ZONE=')) || 'ZONE=?').slice(5)
+    // 如实登记这一维的覆盖边界:主机偏移为 ±00:00 时 Z 形态与本地形态同值,T16 的判定面失去鉴别力
+    // (写回面仍在)。所以偏移打进了每一条断言的措辞里 —— 拿绿之前先看它。
+    for (const s of ['Z形态', '偏移形态', '裸形态']) {
+      assert.match(
+        lines.join('\n'),
+        new RegExp(`${s}=window-hit`),
+        `${s} 没落进 4h 窗口(主机偏移 ${zone}): ${out}`,
+      )
+    }
+    // 阳性对照:扫描必须真看到字段,否则 "BAD=0" 可能只是"一条都没匹配上"(把没量写成量过)。
+    const seen = Number((lines.find((l) => l.startsWith('SEEN=')) || 'SEEN=0').slice(5))
+    assert.ok(seen >= 12, `盘上只扫到 ${seen} 个时间戳字段,不足以证明这一维被看过: ${out}`)
+    const bad = Number((lines.find((l) => l.startsWith('BAD=')) || 'BAD=-1').slice(4))
+    assert.equal(bad, 0, `档案里存在不带时区的时间戳 ⇒ [string] 中转回来了(偏移 ${zone}): ${out}`)
+  } finally {
+    rmScratch(scratch)
+  }
+})
+
+test('T17 源码锁:时间戳进出档案只能经那一对规范化出口,不得再抄 [string]/[datetime] 裸转', () => {
+  const src = readFileSync(MODULE, 'utf8')
+  const fn = (name) => {
+    const at = src.indexOf(`function ${name} {`)
+    assert.ok(at >= 0, `模块里找不到 ${name}(整条锁失去对象)`)
+    const next = src.indexOf('\nfunction ', at + 1)
+    return src.slice(at, next < 0 ? src.length : next)
+  }
+  // 两个出口必须在位,且不是"定义了没人调"—— 本仓最高频失效型就是"机制在、没接线"。
+  assert.match(
+    src,
+    /function ConvertTo-AlertInstant \{/,
+    '缺 ConvertTo-AlertInstant(丢时区那一型没有出口)',
+  )
+  assert.match(src, /function ConvertTo-AlertTimestampText \{/, '缺 ConvertTo-AlertTimestampText')
+  // 四个边界函数都必须真调用它们(读两处 + 写一处 + 两个判定函数)。
+  for (const name of [
+    'Read-AlertDedupState',
+    'Write-AlertDedupState',
+    'Test-AlertDueByIdentity',
+    'Test-AlertSuppressionGrace',
+  ]) {
+    assert.match(
+      fn(name),
+      /ConvertTo-Alert/,
+      `${name} 没有经规范化出口处理时间戳 ⇒ 那一型会从这里重新长回来`,
+    )
+  }
+  // 反向:边界上的裸转换写法不得回来。只搜四个函数体,不搜注释/头注(散文里解释旧写法是证据,不是违规)。
+  const bodies = [
+    'Read-AlertDedupState',
+    'Write-AlertDedupState',
+    'Test-AlertDueByIdentity',
+    'Test-AlertSuppressionGrace',
+  ]
+    .map((n) => fn(n))
+    .join('\n')
+  const code = bodies
+    .split('\n')
+    .filter((l) => !l.trimStart().startsWith('#'))
+    .join('\n')
+  assert.doesNotMatch(
+    code,
+    /(sigTs|firstTs|lastSend)\s*=\s*\[string\]/,
+    '档案边界又出现 [string] 直转时间戳(丢时区的正是这一步)',
+  )
+  assert.doesNotMatch(
+    code,
+    /\[datetime\]\$(e|entry|p|obj)\.?(Value\.)?(sigTs|firstTs|lastSend)/,
+    '档案边界又出现 [datetime] 裸 cast',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
