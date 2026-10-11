@@ -13,10 +13,12 @@
 import { describe, expect, it } from 'vitest';
 import type { ChildProcess } from 'node:child_process';
 import {
+  captureProcessGroupSnapshot,
   createStopMachine,
   destroyChildOutputStreams,
   FORCE_EXIT_GRACE_MS,
   isPosixProcessGroupAlive,
+  signalDetachedGroupMembers,
   type StopMachineDeps,
 } from '../src/util/spawn-isolated.js';
 
@@ -184,6 +186,96 @@ describe('毁流(destroyChildOutputStreams)', () => {
     const fake = { stdio: [grumpy] } as unknown as ChildProcess;
     expect(() => destroyChildOutputStreams(fake)).not.toThrow();
     expect(calls).toBe(1);
+  });
+});
+
+describe('L11520 POSIX 进程组生前快照(全部注入,不真杀任何进程)', () => {
+  const posixSnapshot = (pgid: number, memberPids: number[]) =>
+    ({ kind: 'posix', pgid, memberPids, capturedAtMs: 0 }) as const;
+
+  it('captureProcessGroupSnapshot:注入 probe 记录 N 个成员,快照可判可测', () => {
+    const members = [4100, 4101, 4102];
+    const snap = captureProcessGroupSnapshot(
+      4100,
+      () => members,
+      () => 'linux',
+    );
+    expect(snap.kind).toBe('posix');
+    if (snap.kind !== 'posix') return; // 收窄,类型层面排除 unsupported
+    expect(snap.pgid).toBe(4100);
+    expect(snap.memberPids).toEqual([4100, 4101, 4102]);
+    expect(typeof snap.capturedAtMs).toBe('number');
+  });
+
+  it('captureProcessGroupSnapshot:win32 ⇒ kind unsupported 明确 no-op,不调 probe、无成员数据', () => {
+    let probeCalled = 0;
+    const snap = captureProcessGroupSnapshot(
+      4100,
+      () => {
+        probeCalled += 1;
+        return [4100];
+      },
+      () => 'win32',
+    );
+    expect(snap.kind).toBe('unsupported');
+    if (snap.kind !== 'unsupported') return;
+    expect(snap.reason).toContain('win32');
+    expect(probeCalled).toBe(0); // win32 上根本不采集,不制造"Windows 也能用"的假象
+  });
+
+  it('正向:快照记录 3 个成员 + 组已死 ⇒ 补信号按快照顺序逐个命中', () => {
+    const signals: number[] = [];
+    const hit = signalDetachedGroupMembers(posixSnapshot(4100, [4100, 4101, 4102]), {
+      isGroupAlive: () => false, // 注入:组已消亡(ESRCH 档)
+      signalMember: (pid) => {
+        signals.push(pid);
+      },
+    });
+    expect(signals).toEqual([4100, 4101, 4102]); // 逐个命中,顺序 = 快照顺序
+    expect(hit).toEqual([4100, 4101, 4102]);
+  });
+
+  it('组仍存活 ⇒ 不补信号(组信号已覆盖全部成员)', () => {
+    let signalCalled = 0;
+    const hit = signalDetachedGroupMembers(posixSnapshot(4100, [4100, 4101]), {
+      isGroupAlive: () => true,
+      signalMember: () => {
+        signalCalled += 1;
+      },
+    });
+    expect(hit).toEqual([]);
+    expect(signalCalled).toBe(0);
+  });
+
+  it('反向:组已死,组内成员 ESRCH 跳过,组外 detached 后代被单独补信号', () => {
+    // 场景:4100/4101 随组死(组内),4102 曾 setsid 脱组 —— 组 kill 够不着,快照补到它
+    const signals: number[] = [];
+    const hit = signalDetachedGroupMembers(posixSnapshot(4100, [4100, 4101, 4102]), {
+      isGroupAlive: () => false,
+      signalMember: (pid) => {
+        if (pid !== 4102) {
+          throw Object.assign(new Error('ESRCH'), { code: 'ESRCH' });
+        }
+        signals.push(pid);
+      },
+    });
+    expect(signals).toEqual([4102]); // 只有组外 detached 后代被命中
+    expect(hit).toEqual([4102]);
+  });
+
+  it('win32(unsupported 快照)⇒ 结构性 no-op:返回 [],一个信号都不发', () => {
+    let signalCalled = 0;
+    const hit = signalDetachedGroupMembers(
+      { kind: 'unsupported', reason: 'win32 无 POSIX 进程组语义' },
+      {
+        isGroupAlive: () => false,
+        signalMember: () => {
+          signalCalled += 1;
+        },
+      },
+    );
+    expect(hit).toEqual([]);
+    expect(signalCalled).toBe(0);
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
