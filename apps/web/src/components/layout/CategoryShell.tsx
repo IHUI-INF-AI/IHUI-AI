@@ -33,7 +33,7 @@ import { cn } from '@/lib/utils'
  *   - 标题区 shrink-0 固定
  *   - 主体 flex-1 min-h-0,侧边栏 + 内容区各自内部滚动
  *   - 当前路由高亮(与全局 Tabs 统一:bg-white dark:bg-black)
- *   - 桌面端(≥768px)侧边栏固定显示;移动端折叠为 Sheet/Select
+ *   - 桌面端(≥640px)侧边栏固定显示;移动端折叠为 Sheet/Select
  */
 
 export interface CategoryNavItem {
@@ -94,7 +94,7 @@ export function CategoryShell({
   // 2026-09-16 根治静态导出预渲染崩溃:移动端抽屉(Sheet=Radix Dialog)是纯交互组件,
   // React19 prerender 中 Radix 内部 context 断裂导致 SheetTrigger/DialogPortal 抛
   // "must be used within Dialog"(CI 4 平台实证,run#42-44;/models 与 /developer/api-docs)。
-  // 该抽屉 <768px 显示且 open=false,SSR HTML 无 SEO/首屏价值——延迟到客户端挂载后渲染。
+  // 该抽屉 <640px 显示且 open=false,SSR HTML 无 SEO/首屏价值——延迟到客户端挂载后渲染。
   const [mounted, setMounted] = React.useState(false)
   React.useEffect(() => {
     setMounted(true)
@@ -159,13 +159,13 @@ export function CategoryShell({
       {/* 标题区(shrink-0 固定) */}
       <div className="shrink-0 px-4 pt-3 pb-2">
         <div className="flex items-center gap-2">
-          {/* 移动端抽屉触发器(<768px 显示;客户端挂载后才渲染,见上方 mounted 注释) */}
+          {/* 移动端抽屉触发器(<640px 显示;客户端挂载后才渲染,见上方 mounted 注释) */}
           {mounted && (
             <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
               <SheetTrigger asChild>
                 <button
                   type="button"
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground min-[768px]:hidden"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground min-[640px]:hidden"
                   aria-label={t('openNavMenu')}
                 >
                   <Menu className="h-4 w-4" />
@@ -183,9 +183,9 @@ export function CategoryShell({
             <h1 className="text-xl font-bold tracking-tight">{title}</h1>
             {description && <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>}
           </div>
-          {/* 移动端当前项指示(<768px 显示) */}
+          {/* 移动端当前项指示(<640px 显示) */}
           {activeItem && (
-            <p className="hidden min-w-0 max-w-[40%] truncate text-xs text-muted-foreground min-[768px]:hidden">
+            <p className="hidden min-w-0 max-w-[40%] truncate text-xs text-muted-foreground min-[640px]:hidden">
               {activeItem.label}
             </p>
           )}
@@ -194,10 +194,10 @@ export function CategoryShell({
 
       {/* 主体:侧边栏 + 内容区 */}
       <div className="flex min-h-0 flex-1 gap-3 px-4 pb-3">
-        {/* 桌面端侧边栏(≥768px 固定显示) */}
+        {/* 桌面端侧边栏(≥640px 固定显示) */}
         <aside
           className={cn(
-            'hidden min-h-0 shrink-0 flex-col overflow-y-auto min-[768px]:flex',
+            'hidden min-h-0 shrink-0 flex-col overflow-y-auto min-[640px]:flex',
             sidebarWidth,
           )}
           aria-label={title}
