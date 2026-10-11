@@ -41,7 +41,6 @@ from pathlib import Path
 from typing import Any
 
 from .cloud_run_store import CloudRunStore, cloud_run_store
-from .session_store import owner_scoped_allows
 from .command_streamer import (
     FRAME_READ_EOF,
     FRAME_READ_LINE,
@@ -49,6 +48,7 @@ from .command_streamer import (
     PROTOCOL_FRAME_LIMIT_BYTES,
     read_protocol_frame,
 )
+from .session_store import owner_scoped_allows
 
 logger = logging.getLogger(__name__)
 

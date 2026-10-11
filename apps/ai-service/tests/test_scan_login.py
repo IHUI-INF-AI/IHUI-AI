@@ -1131,12 +1131,12 @@ def test_session_snapshot_roundtrip_and_empty_guard(monkeypatch, tmp_path):
 
 
 class _IxTaskLocator:
-    def __init__(self, page: "_IxTaskPage", selector: str) -> None:
+    def __init__(self, page: _IxTaskPage, selector: str) -> None:
         self._page = page
         self._selector = selector
 
     @property
-    def first(self) -> "_IxTaskLocator":
+    def first(self) -> _IxTaskLocator:
         return self
 
     def wait_for(self, state: str | None = None, timeout: int | None = None) -> bool:
@@ -1156,7 +1156,7 @@ class _IxTaskLocator:
 
 
 class _IxTaskMouse:
-    def __init__(self, page: "_IxTaskPage") -> None:
+    def __init__(self, page: _IxTaskPage) -> None:
         self._page = page
 
     def move(self, x: float, y: float) -> None:

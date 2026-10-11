@@ -4,7 +4,12 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { ErrorCode, ERROR_CODE_CATEGORY, categoryOf, type ErrorCodeKey } from '../src/errors/codes.js'
+import {
+  ErrorCode,
+  ERROR_CODE_CATEGORY,
+  categoryOf,
+  type ErrorCodeKey,
+} from '../src/errors/codes.js'
 import { ERROR_CATEGORIES } from '@ihui/types'
 
 /**

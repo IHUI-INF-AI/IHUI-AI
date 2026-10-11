@@ -135,6 +135,16 @@ export function skipQuoted(src, start, quote) {
  * **同一根因第二次复发,说明修的是落点不是判据**。
  * 修法:正则区间的识别**只从 `lib/code-mask.mjs` 的 `scanSpans` 取**(§22c 不得另写一份分词器)。
  * 方向锁:正则体是**模式不是代码**,掩掉它只会让判据更准、不会放过真调用 ⇒ 这一维**只紧不松**。
+ *
+ * ── G-1059146(2026-10-11 归属收口:方向①"字符串字面量内部的代码形态不算调用点")──────
+ * 票面记的两处假阳 `check-spawn-stdio.mjs:728`/`:733` 与上面记的 `:719`/`:724` 是**同一对
+ * 夹具行**(对方文件后续编辑使行号前移),形态是「受审文件本身是生产脚本,而被判的调用写在
+ * 它体内那张自检用例表 `[用例名, 被检文本, 期望结论]` 的**字符串字面量**里」。
+ * 门头"测试代码降为 warn"是**路径级**豁免,天然看不见"文件是生产脚本、字符串内容是夹具"
+ * 这一格 ⇒ 这一维只能在取材遮罩上判,判据即本函数:命中起点落在字符串/模板字面量、正则、
+ * 注释 token 内 ⇒ 夹具,不算调用点;落在代码 token 上 ⇒ 照判(遮罩只吃字面量**内部**)。
+ * 反向锁(不得顺手遮掉真缺口):自检 R3/R4 与镜像测试「G-1059146 ②」——同一段夹具表之后的
+ * 真实调用点仍须判红并点名 file/line/fn;全量档现读真漏参也不因此变少。
  */
 export function maskInert(src) {
   const mask = new Uint8Array(src.length)
@@ -619,6 +629,22 @@ function selfTest() {
       // 防越界:`/` 在除法位置不得被当成正则起点,否则其后的真调用会被误掩放过。
       name: 'R4 除法表达式后的真实调用仍判红(正则起点判定不越界)',
       src: `const q = total / count / 2\nconst r = spawnSync('git', ['x'], {})`,
+      want: 1,
+    },
+    // --- G-1059146(2026-10-11,方向①):生产脚本体内的夹具表字符串 ≠ 调用点 ---
+    // 形态 [用例名, 被检文本, 期望结论]:受审文件本身是生产脚本(路径级"测试降 warn"看不见它),
+    // 而被判的调用写在**另一道门的自检用例表**的字符串字面量里 —— 真实站点
+    // scripts/check-spawn-stdio.mjs:728/733(期望值 skip-eats-stdin)。夹具照它那把尺子的
+    // 判据必须"故意写成缺参的样子",给它补 windowsHide 就是改掉别人的判据输入 ⇒ 只能在本门
+    // 遮罩侧认:命中起点落在字面量 token 内 ⇒ 不算调用点。反向锁在下一条与镜像测试 ②。
+    {
+      name: 'G-1059146 生产脚本夹具表行(代码形态包在字符串字面量内)→ 不判',
+      src: `['调用后 proc.stdin.write ⇒ skip-eats-stdin', 'const proc = spawnSync("node", ["-e", "s"], { encoding: "utf8" })\\nproc.stdin.write(payload)', 'skip-eats-stdin']`,
+      want: 0,
+    },
+    {
+      name: 'G-1059146 反向锁:同一段夹具表之后的真实调用点仍判红(遮罩只吃字面量内部)',
+      src: `['调用后 proc.stdin.write ⇒ skip-eats-stdin', 'const proc = spawnSync("node", ["-e", "s"], { encoding: "utf8" })\\nproc.stdin.write(payload)', 'skip-eats-stdin']\nspawnSync("node", ["-e", "s"], { encoding: "utf8" })`,
       want: 1,
     },
   ]

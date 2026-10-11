@@ -47,10 +47,10 @@ from app.services.file_editor import (
 @pytest.fixture(autouse=True)
 def _isolate_workspace(monkeypatch, tmp_path):
     """每个测试前:
-    - 把 _WORKSPACE_ROOTS 替换为 [tmp_path](白名单只含临时目录)
+    - 把 _workspace_roots 打桩成 [tmp_path](白名单只含临时目录)
     - 把 _BACKUP_ROOT 重定向到 tmp_path/file_edit_backup(防污染项目目录)
     """
-    monkeypatch.setattr(file_editor, "_WORKSPACE_ROOTS", [str(tmp_path)])
+    monkeypatch.setattr(file_editor, "_workspace_roots", lambda: [str(tmp_path)])
     monkeypatch.setattr(file_editor, "_BACKUP_ROOT", tmp_path / "file_edit_backup")
 
 
@@ -372,3 +372,40 @@ def test_generate_diff_truncates_long_diff():
     # 截断后行数不超过 MAX_DIFF_LINES(200)+少量 header
     assert diff_line_count <= 205, f"diff 行数 {diff_line_count} 未截断到 200 行以内"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+
+def test_workspace_roots_are_computed_per_call(tmp_path, monkeypatch):
+    """G-1118435 时序对照:白名单每次调用现算,不停在 import 期的那一份。
+
+    修复前 _WORKSPACE_ROOTS 是模块级常量,求值发生在 import 那一刻,而 main.py 把 settings 同步进
+    os.environ 在那之后 ⇒ 白名单被钉成 import 期的 env(常为空)∪ cwd,运行期再改 env 也不跟着动。
+    两条断言都不依赖 cwd 或环境巧合(第一版依赖过,于是红在我自己的断言上而不是产品上)。
+    """
+    root_a = tmp_path / "rootA"
+    root_b = tmp_path / "rootB"
+    # 本文件的 autouse 夹具 _isolate_workspace 把 _workspace_roots 打桩成 [tmp_path];
+    # 要判"每次调用现算"这一维,必须问未被打桩的真实实现 _resolve_workspace_roots。
+    monkeypatch.setenv("MCP_WORKSPACE_ROOTS", str(root_a))
+    assert file_editor._resolve_workspace_roots() == [os.path.abspath(str(root_a))], "第一次现算必须取到 A"
+    monkeypatch.setenv("MCP_WORKSPACE_ROOTS", str(root_b))
+    got = file_editor._resolve_workspace_roots()
+    assert got == [os.path.abspath(str(root_b))], "改了 env 之后仍读到旧根 ⇒ 求值又被缓存了:" + repr(got)
+
+
+def test_no_load_time_workspace_constant_survives():
+    """G-1118435 结构对照:模块面上不得再有加载期常量 —— 有它就意味着求值时机回到 import。"""
+    assert not hasattr(file_editor, "_WORKSPACE_ROOTS"), (
+        "_WORKSPACE_ROOTS 又回来了:\u5b83在 import 期求值,而 main.py 同步 environ 在那之后"
+    )
+def test_validate_path_consumes_the_function_not_a_stale_constant(tmp_path, monkeypatch):
+    """G-1118435 反向对照:旧常量名打进去不得影响校验。
+
+    这条是"测试从防线变成掩体"的防线:若有人把消费点写回 _WORKSPACE_ROOTS(即恢复模块加载期
+    求值),下面这次校验会拿到 /nonexistent-root 而拒绝合法路径 ⇒ 本用例翻红。
+    """
+    monkeypatch.setattr(file_editor, "_WORKSPACE_ROOTS", ["/nonexistent-root-should-not-matter"], raising=False)
+    monkeypatch.setattr(file_editor, "_workspace_roots", lambda: [str(tmp_path)])
+    target = tmp_path / "note.txt"
+    target.write_text("hi", encoding="utf-8")
+    ok, err = file_editor.validate_path(str(target))
+    assert ok is True, "校验必须读函数出口,实测被拒:" + str(err)

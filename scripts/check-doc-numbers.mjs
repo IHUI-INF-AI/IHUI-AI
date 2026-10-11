@@ -127,7 +127,10 @@ export const CLAIMS = [
   {
     key: 'wsEndpoints',
     label: 'WebSocket 端点数',
-    re: /(?<![\d,])(\d{1,4})(?![\d,])\s*(?:个|条)?\s*(?:WebSocket|WS)\s*(?:端点|通道)|(?:WebSocket|WS)\s*(?:端点|通道)\s*[（(]?\s*(\d{1,4})/gi,
+    // 英文支 2026-10-11 补(G-1104173):README.en.md 头条 "25 WebSocket endpoints" 此前 checked=0。
+    // 词表英中并列(endpoints/channels 与 端点/通道),两个方向(数在前/数在后)同步补;
+    // 数字仍走 \d{1,4}(本指标量级 10^1,无千位分组形态 ⇒ 不涉 NUM 锁),位数下限与假阳护栏逐字不变。
+    re: /(?<![\d,])(\d{1,4})(?![\d,])\s*(?:个|条)?\s*(?:WebSocket|WS)\s*(?:端点|通道|endpoints?|channels?)|(?:WebSocket|WS)\s*(?:端点|通道|endpoints?|channels?)\s*[（(]?\s*(\d{1,4})/gi,
     pick: (m) => m[1] ?? m[2],
     sample: '<N> 个 WebSocket 端点',
     probe: '25',
@@ -154,8 +157,15 @@ export const CLAIMS = [
   {
     key: 'testFiles',
     label: '测试文件数',
-    re: new RegExp(`(?<![\\d,])(${NUM(3, 6)})(?![\\d,])\\s*(?:个)?\\s*测试文件`, 'gi'),
-    pick: (m) => m[1],
+    // 英文支 2026-10-11 补(G-1104173):README.en.md 头条 "2,778 test files" 与 README.md FAQ 的
+    // "719 test files" 此前整型隐身 —— 缺的不是逗号归一而是整个英文分支(与 G-1117442 同型)。
+    // 措辞逐字取自真 README 文本("N test files"),两支共用 NUM(3,6):位数下限(≥3 位)与
+    // 数字两侧禁粘的假阳护栏逐字对齐中文支,于是 "3 test files" 这类子量级仍不判。
+    re: new RegExp(
+      `(?<![\\d,])(${NUM(3, 6)})(?![\\d,])\\s*(?:个)?\\s*测试文件|(?<![\\d,])(${NUM(3, 6)})(?![\\d,])\\s+test\\s+files?\\b`,
+      'gi',
+    ),
+    pick: (m) => m[1] ?? m[2],
     sample: '<N> 测试文件',
     probe: '2104',
   },
@@ -533,6 +543,23 @@ export function selfTest() {
       // 阳性对照:把旧的死写法(首段仍要求 ≥2 位)喂同一把锁,必须被判成"不是 NUM 的产物"
       !usesNumFabric(new RegExp(`(\\d{2,6}(?:,\\d{3})*)x`, 'gi').source) &&
       usesNumFabric(NUM(2, 6)),
+  )
+  // S24 英文措辞分支(G-1104173):README.en.md 头条的英文总量声明必须真被看见 ——
+  //     ① 阳性:真历史文本 "2,432 test files" 被点名(2432≠2103),"25 WebSocket endpoints" 计入 checked;
+  //     ② 阴性:假阳护栏逐字对齐中文支 —— <3 位的 "3/25 test files" 不判,没有数字的裸词
+  //        "WebSocket endpoints" 不算声明(补支不许顺手放宽护栏,假阳比漏报贵)。
+  const s24a = findStaleClaims(`2,432 test files · 25 WebSocket endpoints\n${BLOCK_BEGIN}\nx\n${BLOCK_END}`, numbers)
+  ok(
+    'S24a 英文声明必被抓:testFiles 2432≠2103 点名,wsEndpoints 25==25 计入 checked',
+    s24a.checked === 2 &&
+      s24a.violations.length === 1 &&
+      s24a.violations[0].key === 'testFiles' &&
+      s24a.violations[0].found === 2432,
+  )
+  const s24b = findStaleClaims(`3 test files · 25 test files · WebSocket endpoints support\n${BLOCK_BEGIN}\nx\n${BLOCK_END}`, numbers)
+  ok(
+    'S24b 英文支假阳护栏:test files 下限≥3 位,裸 "WebSocket endpoints" 不算声明',
+    s24b.checked === 0 && s24b.violations.length === 0,
   )
   console.log(`\n自检:pass ${pass} / fail ${fail}`)
   return fail === 0 ? 0 : 1
