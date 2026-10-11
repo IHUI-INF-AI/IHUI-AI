@@ -46,6 +46,70 @@ export interface HooksDirs {
   user: string;
 }
 
+/**
+ * 发现诊断判别码(封闭集,与 plugins/types.ts 的 PLUGIN_DIAGNOSTIC_CODES 同一形态)。
+ * 三处都是 scanDir/parseFrontmatter 里原本 `catch { 静默跳过 }` 的吞错点 —— 现在编码成数据。
+ */
+export const HOOK_DISCOVERY_DIAGNOSTIC_CODES = [
+  /** 整个 hooks 目录读不出(readdirSync 失败,ENOENT 除外=正常缺席):该目录下 hooks 全部缺席 */
+  'hooks-dir-unreadable',
+  /** 扩展名命中的 hook 文件 stat 失败:该文件缺席(计入 totalDiscovered,不计入 hooks) */
+  'hook-file-stat-failed',
+  /** hook 文件本体读不出:仍按"无 frontmatter 默认值"装载,但 frontmatter 内容被忽略 */
+  'hook-frontmatter-unreadable',
+] as const;
+
+export type HookDiscoveryDiagnosticCode = (typeof HOOK_DISCOVERY_DIAGNOSTIC_CODES)[number];
+
+/** 诊断严重级:`error` = 发现了却没装载;`warning` = 装载了但有内容被忽略 */
+export type HookDiscoveryDiagnosticSeverity = 'error' | 'warning';
+
+/**
+ * 判别码 → 严重级的唯一映射(与 plugins/loader.ts 的 DIAGNOSTIC_SEVERITY 同一纪律:
+ * `Record<Code, Severity>` 键穷尽,新增码忘定档编译期就红)。
+ */
+const HOOK_DIAGNOSTIC_SEVERITY: Record<HookDiscoveryDiagnosticCode, HookDiscoveryDiagnosticSeverity> = {
+  'hooks-dir-unreadable': 'error',
+  'hook-file-stat-failed': 'error',
+  'hook-frontmatter-unreadable': 'warning',
+};
+
+/** 一条发现诊断 — "哪些 hook 该在而没在/为什么被降级"的可机读记录。 */
+export interface HookDiscoveryDiagnostic {
+  /** 稳定判别码(封闭集,见 HOOK_DISCOVERY_DIAGNOSTIC_CODES) */
+  code: HookDiscoveryDiagnosticCode;
+  /** 严重级(由 code 唯一决定,产出点不各写一遍) */
+  severity: HookDiscoveryDiagnosticSeverity;
+  /** 触发该诊断的目录/文件绝对路径 */
+  file: string;
+  /** 人类可读说明(ASCII:诊断要能进日志,不得被控制台码页吃掉) */
+  message: string;
+}
+
+/** 发现结果信封:成功条目 + 发现总数 + 诊断(无异常时缺席) */
+export interface HookDiscoveryResult {
+  /** 成功发现的 hooks(与 discover() 旧契约同一集合) */
+  hooks: DiscoveredHook[];
+  /** 发现总数:扩展名命中的条目总数,含被 diagnostics 记下的那部分(stat 失败的文件) */
+  totalDiscovered: number;
+  /** 诊断:无异常时缺席(不是空数组) */
+  diagnostics?: HookDiscoveryDiagnostic[];
+}
+
+/** 错误文本(unknown 收窄,零 any) */
+function errorText(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+/** 造一条诊断:severity 由码唯一决定,产出点不得自行挑档 */
+function hookDiagnostic(
+  code: HookDiscoveryDiagnosticCode,
+  file: string,
+  message: string,
+): HookDiscoveryDiagnostic {
+  return { code, severity: HOOK_DIAGNOSTIC_SEVERITY[code], file, message };
+}
+
 interface ParsedFrontmatter {
   name?: string;
   enabled?: boolean;
@@ -101,13 +165,25 @@ export class HooksDiscovery {
 
   /** 扫描两目录,返回全部发现的 hooks(按 priority 降序 + name 升序)。 */
   discover(): DiscoveredHook[] {
+    return this.discoverWithDiagnostics().hooks;
+  }
+
+  /**
+   * discover 的信封版:同时返回成功条目、诊断(封闭 code + severity)与发现总数。
+   * L11495(G-998082):发现类接口要有"部分失败"信封 —— 诊断记录被静默跳过的
+   * 目录/文件,无异常时 diagnostics 缺席;totalDiscovered 是量出来的条目总数,
+   * 含被 diagnostics 记下的那部分。discover() 保留旧契约,既有调用方零改动。
+   */
+  discoverWithDiagnostics(): HookDiscoveryResult {
     const dirs = this.getDirs();
     const state = this.loadState();
-    const hooks: DiscoveredHook[] = [];
-    this.scanDir(dirs.cli, 'cli', state, hooks);
-    this.scanDir(dirs.user, 'user', state, hooks);
-    hooks.sort((a, b) => b.priority - a.priority || a.name.localeCompare(b.name));
-    return hooks;
+    const acc = { hooks: [] as DiscoveredHook[], diagnostics: [] as HookDiscoveryDiagnostic[], discovered: 0 };
+    this.scanDir(dirs.cli, 'cli', state, acc);
+    this.scanDir(dirs.user, 'user', state, acc);
+    acc.hooks.sort((a, b) => b.priority - a.priority || a.name.localeCompare(b.name));
+    const result: HookDiscoveryResult = { hooks: acc.hooks, totalDiscovered: acc.discovered };
+    if (acc.diagnostics.length > 0) result.diagnostics = acc.diagnostics;
+    return result;
   }
 
   /** discover 别名(语义化)。 */
@@ -139,12 +215,17 @@ export class HooksDiscovery {
     dir: string,
     source: 'cli' | 'user',
     state: HookState,
-    out: DiscoveredHook[],
+    acc: { hooks: DiscoveredHook[]; diagnostics: HookDiscoveryDiagnostic[]; discovered: number },
   ): void {
     let files: string[];
     try {
       files = fs.readdirSync(dir);
-    } catch {
+    } catch (e) {
+      // ENOENT = 目录不存在,是常态(多数用户没有 user hooks 目录),不算异常
+      if ((e as NodeJS.ErrnoException)?.code === 'ENOENT') return;
+      acc.diagnostics.push(
+        hookDiagnostic('hooks-dir-unreadable', dir, `Hooks directory unreadable: ${errorText(e)}`),
+      );
       return;
     }
     for (const file of files) {
@@ -152,14 +233,29 @@ export class HooksDiscovery {
       const ext = path.extname(file).toLowerCase();
       if (!HOOK_EXTENSIONS.has(ext)) continue;
       const filePath = path.join(dir, file);
+      // 扩展名命中即计入发现总数;该条目若被下面的诊断跳过,仍留在 totalDiscovered 里
       let stat: fs.Stats;
       try {
         stat = fs.statSync(filePath);
-      } catch {
+      } catch (e) {
+        acc.discovered += 1;
+        acc.diagnostics.push(
+          hookDiagnostic('hook-file-stat-failed', filePath, `Hook file stat failed: ${errorText(e)}`),
+        );
         continue;
       }
       if (!stat.isFile()) continue;
-      const fm = this.parseFrontmatter(filePath);
+      const fmResult = this.parseFrontmatter(filePath);
+      if (fmResult.readFailed) {
+        acc.diagnostics.push(
+          hookDiagnostic(
+            'hook-frontmatter-unreadable',
+            filePath,
+            'Hook file unreadable; loaded with default frontmatter',
+          ),
+        );
+      }
+      const fm = fmResult.fm;
       const stem = path.basename(file, ext);
       const id = `${source}:${stem}`;
       const fmEnabled = fm.enabled ?? true;
@@ -169,7 +265,8 @@ export class HooksDiscovery {
       const priority = stateEntry?.priority ?? fmPriority;
       const name = fm.name ?? stem;
       const type = this.resolveType(fm.type, stem);
-      out.push({ id, name, type, enabled, source, priority, filePath });
+      acc.hooks.push({ id, name, type, enabled, source, priority, filePath });
+      acc.discovered += 1;
     }
   }
 
@@ -184,17 +281,18 @@ export class HooksDiscovery {
     return 'unknown';
   }
 
-  private parseFrontmatter(filePath: string): ParsedFrontmatter {
+  /** 读 frontmatter;文件本体读不出时 readFailed=true(调用方记一条 warning 诊断) */
+  private parseFrontmatter(filePath: string): { fm: ParsedFrontmatter; readFailed: boolean } {
     let content: string;
     try {
       content = fs.readFileSync(filePath, 'utf-8');
     } catch {
-      return {};
+      return { fm: {}, readFailed: true };
     }
     const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-    if (!fmMatch) return {};
+    if (!fmMatch) return { fm: {}, readFailed: false };
     const block = fmMatch[1];
-    if (!block) return {};
+    if (!block) return { fm: {}, readFailed: false };
     const result: ParsedFrontmatter = {};
     for (const line of block.split('\n')) {
       const idx = line.indexOf(':');
@@ -212,7 +310,7 @@ export class HooksDiscovery {
         result.type = rawValue.replace(/^["']|["']$/g, '');
       }
     }
-    return result;
+    return { fm: result, readFailed: false };
   }
 
   private loadState(): HookState {
@@ -248,6 +346,11 @@ function getDefault(): HooksDiscovery {
 
 export function discoverHooks(): DiscoveredHook[] {
   return getDefault().discover();
+}
+
+/** discoverHooks 的信封版:同 discoverWithDiagnostics(诊断 + totalDiscovered)。 */
+export function discoverHooksWithDiagnostics(): HookDiscoveryResult {
+  return getDefault().discoverWithDiagnostics();
 }
 
 export function listDiscoveredHooks(): DiscoveredHook[] {
