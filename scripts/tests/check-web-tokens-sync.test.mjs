@@ -125,33 +125,45 @@ test('J1 合规副本判绿且退出码 0 —— 本门不是恒红门(恒红的
 test('J2 顶层 :root 重宣 @theme 档 ⇒ 判红并点名该档(阳性对照:看不见存量就不算判据)', () => {
   const r = gate.judge({ webCss: DUP, tokensCss: TOKENS_FIX })
   assert.equal(r.exitCode, 1, JSON.stringify(r))
-  assert.match(r.errors.join('\n'), /hand-copies tokens\.css @theme vars/)
+  // 点名文案取自门体那一份(MSG_*),本文件只补"点到了哪一档"这一件门没替我说的话
+  assert.ok(r.errors.includes(gate.MSG_DUP_THEME_VARS), `未点名重宣档:${JSON.stringify(r.errors)}`)
   assert.match(r.errors.join('\n'), /--color-alpha/)
 })
 
 test('J3 两条 @import 各判一条,红只来自被摘的那一条(门 89 台账引用的正是"@import 存在性")', () => {
   const noTokens = gate.judge({ webCss: NO_IMPORT, tokensCss: TOKENS_FIX })
   assert.equal(noTokens.exitCode, 1, JSON.stringify(noTokens))
-  assert.match(noTokens.errors.join('\n'), /missing @import tokens\.css/)
-  assert.doesNotMatch(
-    noTokens.errors.join('\n'),
-    /missing @import base\.css/,
+  assert.ok(
+    noTokens.errors.includes(gate.MSG_MISSING_TOKENS_IMPORT),
+    `摘掉 tokens 的 @import 必须点名:${JSON.stringify(noTokens.errors)}`,
+  )
+  assert.ok(
+    !noTokens.errors.includes(gate.MSG_MISSING_BASE_IMPORT),
     'base 还在,不得连带点名',
   )
 
-  const noBase = gate.judge({
-    webCss: CLEAN.replace(/@import[^;]*base\.css";\n/, ''),
-    tokensCss: TOKENS_FIX,
-  })
+  // "摘掉 base 那一条"用门体自己的认形(BASE_IMPORT_RE)删行,不在本文件再抄一条 @import 形态
+  const noBaseCss = CLEAN
+    .split('\n')
+    .filter((l) => !gate.BASE_IMPORT_RE.test(l))
+    .join('\n')
+  assert.notEqual(noBaseCss, CLEAN, '删行夹具必须真的删掉点什么(否则本条什么都没判)')
+  const noBase = gate.judge({ webCss: noBaseCss, tokensCss: TOKENS_FIX })
   assert.equal(noBase.exitCode, 1, JSON.stringify(noBase))
-  assert.match(noBase.errors.join('\n'), /missing @import base\.css/)
-  assert.doesNotMatch(noBase.errors.join('\n'), /missing @import tokens\.css/)
+  assert.ok(
+    noBase.errors.includes(gate.MSG_MISSING_BASE_IMPORT),
+    `摘掉 base 的 @import 必须点名:${JSON.stringify(noBase.errors)}`,
+  )
+  assert.ok(
+    !noBase.errors.includes(gate.MSG_MISSING_TOKENS_IMPORT),
+    'tokens 还在,不得连带点名',
+  )
 })
 
 test('J4 源头 @theme 为空只出 WARN 且退出码仍 0(收口前的退出码语义保持,没被顺手改成判红)', () => {
   const r = gate.judge({ webCss: CLEAN, tokensCss: ':root { --color-nothing: red; }\n' })
   assert.equal(r.exitCode, 0, JSON.stringify(r))
-  assert.deepEqual(r.errors, ['[check-web-tokens-sync] WARN: tokens.css @theme has no vars'])
+  assert.deepEqual(r.errors, [gate.MSG_THEME_VARS_EMPTY])
 })
 
 test('J5 @media / @layer 内的 :root 不进射程(高对比覆盖是有意设计,不得被当重宣)', () => {
@@ -225,16 +237,21 @@ test('F3 CLI 三面三答:默认绿 / --staged 红在重宣档 / --worktree 红�
       1,
       '索引里躺着一次重宣,@import 之后又被改回磁盘也不算修好:\n' + staged.out,
     )
-    assert.match(staged.out, /hand-copies tokens\.css @theme vars/)
-    assert.doesNotMatch(staged.out, /missing @import tokens\.css/, 'staged 面读到磁盘那份 = 混面')
+    assert.ok(
+      staged.out.includes(gate.MSG_DUP_THEME_VARS),
+      `staged 面必须点名重宣档:\n${staged.out}`,
+    )
+    assert.ok(
+      !staged.out.includes(gate.MSG_MISSING_TOKENS_IMPORT),
+      'staged 面读到磁盘那份 = 混面',
+    )
     assert.match(lastLine(staged.out), /取材面:索引 blob/)
 
     const wt = runCli(dir, ['--worktree'])
     assert.equal(wt.code, 1, `逃生舱必须看到磁盘那一份:\n${wt.out}`)
-    assert.match(wt.out, /missing @import tokens\.css/)
-    assert.doesNotMatch(
-      wt.out,
-      /hand-copies tokens\.css @theme vars/,
+    assert.ok(wt.out.includes(gate.MSG_MISSING_TOKENS_IMPORT), 'worktree 面必须点名缺失的 @import')
+    assert.ok(
+      !wt.out.includes(gate.MSG_DUP_THEME_VARS),
       'worktree 面读到索引那份 = 混面',
     )
     assert.match(lastLine(wt.out), /取材面:工作树/)
@@ -305,7 +322,10 @@ test('F6 有仓无 HEAD ⇒ 默认档 exit 2(不许悄悄退成索引/磁盘那�
     // 对照:同一夹具的 --staged 面可判(索引里有内容),且它看到的是违规那份
     const staged = runCli(dir, ['--staged'])
     assert.equal(staged.code, 1, `索引面可判却判不了:\n${staged.out}`)
-    assert.match(staged.out, /hand-copies tokens\.css @theme vars/)
+    assert.ok(
+      staged.out.includes(gate.MSG_DUP_THEME_VARS),
+      `索引面看到的内容必须是"重宣档"那一份:\n${staged.out}`,
+    )
   } finally {
     rmScratch(dir)
   }

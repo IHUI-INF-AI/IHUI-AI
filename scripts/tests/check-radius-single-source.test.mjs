@@ -12,6 +12,8 @@ import { join, dirname } from 'node:path'
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+// §22c:档位表(A 判据)与 A3 的认形都取自门体这一份 —— 本文件不得再抄一份档名列表/形状
+import { __test__ as gate } from '../check-radius-single-source.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const GUARD = join(ROOT, 'scripts/check-radius-single-source.mjs')
@@ -28,28 +30,22 @@ test('守门 77 自检全通过(含真实档位表端到端对账 + TS 内嵌 CS
   assert.doesNotMatch(out, /❌/)
 })
 
-test('档位表四处同源:tokens.css 与 radius.js 逐档同值', async () => {
-  const mod = await import(`file://${join(ROOT, 'packages/design-tokens/src/radius.js').replaceAll('\\', '/')}`)
-  const css = readFileSync(join(ROOT, 'packages/design-tokens/src/styles/tokens.css'), 'utf8')
-  const expect = {
-    '--radius': mod.RADIUS_STEPS.DEFAULT,
-    '--radius-xs': mod.RADIUS_STEPS.xs,
-    '--radius-sm': mod.RADIUS_STEPS.sm,
-    '--radius-md': mod.RADIUS_STEPS.md,
-    '--radius-lg': mod.RADIUS_STEPS.lg,
-    '--radius-xl': mod.RADIUS_STEPS.xl,
-    '--radius-2xl': mod.RADIUS_STEPS['2xl'],
-  }
-  for (const [name, px] of Object.entries(expect)) {
-    const m = new RegExp(`^\\s*${name}:\\s*([0-9.]+)rem`, 'm').exec(css)
-    assert.ok(m, `tokens.css 缺少 ${name} 定义`)
-    assert.equal(Number(m[1]) * 16, px, `tokens.css ${name} 与 radius.js 漂移`)
-  }
+/**
+ * 档位表四处同源(tokens.css / radius.js / miniapp app.css / preset)由**门体的读取出口**裁定:
+ * 它自己现读 packages/design-tokens 的那几份并逐档比对,本测试只证"这条判据接得上、真仓判得出"。
+ * 旧写法是在测试里再拼一份 `{'--radius': …DEFAULT, '--radius-xs': …xs, …}` 档名表并自己读源文件
+ * —— 那是第二份真相(门改档名口径而测试照绿 = 假绿,守门 191 的 F1/F2 就是这么造的)。
+ */
+test('档位表四处同源:门体 A 判据在真实仓上判得出且报零漂移', async () => {
+  const { errors, table } = await gate.checkTableConsistency()
+  assert.ok(Object.keys(table).length > 0, '门体必须真的读到档位表(空表 = 判据没跑,不得当作通过)')
+  assert.deepEqual(errors, [], `真实仓档位表对账报出名:${errors.join(' | ')}`)
 })
 
 test('tailwind preset 不得重新内联档位字面量(必须引用 RADIUS_REM)', () => {
   const preset = readFileSync(join(ROOT, 'packages/design-tokens/src/tailwind-preset.js'), 'utf8')
-  assert.match(preset, /borderRadius:\s*RADIUS_REM\s*,/)
+  // 引用形取自门体 A3 那一份(PRESET_RADIUS_REF_RE);本文件只补它没写的另一格:不得内联字面量表
+  assert.ok(gate.PRESET_RADIUS_REF_RE.test(preset), 'preset 的 borderRadius 必须引用 RADIUS_REM')
   assert.doesNotMatch(preset, /borderRadius:\s*\{[\s\S]{0,200}?0\.375rem/)
 })
 

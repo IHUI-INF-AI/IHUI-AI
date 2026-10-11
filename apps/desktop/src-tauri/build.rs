@@ -63,6 +63,7 @@ fn main() {
             "checkin_get_public_ip",
             "checkin_one_click_reset",
             "checkin_audit_trae_residual",
+            "checkin_audit_qoder_residual",
             "checkin_snapshot_backup",
             "checkin_snapshot_restore",
             "checkin_snapshot_list",

@@ -15,7 +15,13 @@
  * 调用方:`setToken` / `setRefreshToken` / `clearToken` / `getToken` / `getRefreshToken`。
  * `getToken` / `getRefreshToken` 返回同步缓存值(避免每次 HTTP 都 await SecureStore)。
  */
-import { fetchApi, setBaseUrl, setDeviceFingerprintProvider, setUserAgent } from '@ihui/api-client'
+import {
+  fetchApi,
+  setBaseUrl,
+  setDeviceFingerprintProvider,
+  setUserAgent,
+  TransientRefreshError,
+} from '@ihui/api-client'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import {
   API_BASE_URL,
@@ -25,6 +31,7 @@ import {
 } from './config'
 import { mobileRnDeviceFingerprintCollector } from './device-fingerprint'
 import { deleteSecureItem, getSecureItem, setSecureItem } from './auth/secure-store'
+import { classifyRefreshFailureStatus } from './auto-login-policy'
 import {
   bindTokenStoreToApiClient,
   createInMemoryTokenStore,
@@ -188,7 +195,11 @@ export function isSessionLoggedOut(): boolean {
  * agent-control 能力上报每 60s 刷 "Invalid or expired token" 警告。
  * 走 fetchApi 自身(/auth/refresh 属 auth 端点,401 拦截器豁免,不递归续期)。
  * 成功:轮转写入新 token + refreshToken(SecureStore 持久化),返回新 access token;
- * 失败:refreshToken 也已失效 → 返回 null,由 api-client 失败冷却兜底,调用方按登录过期处理。
+ * 失败分型(2026-10-09,判据唯一出口 = classifyRefreshFailureStatus):
+ * - rejected(401/403):refreshToken 已被服务端明确否定 → 返回 null,由 api-client 失败冷却兜底;
+ * - transient(网络/超时/5xx/无 status):凭据没死只是问不出答案 → 抛 TransientRefreshError,
+ *   refreshAccessTokenOnce catch 住进冷却并置 wasLastRefreshTransient(401 出口据此跳过
+ *   notifyUnauthorized),不会外溢给调用方,也不会把会话判死。
  * 响应落地时若本地会话已结束(代次已推进),同样返回 null,由调用方按登录过期处理。
  */
 async function refreshAccessToken(): Promise<string | null> {
@@ -201,7 +212,12 @@ async function refreshAccessToken(): Promise<string | null> {
       body: JSON.stringify(storedRefresh ? { refreshToken: storedRefresh } : {}),
     },
   )
-  if (!res.success || !res.data?.accessToken) return null
+  if (!res.success) {
+    if (classifyRefreshFailureStatus(res.status) === 'transient') throw new TransientRefreshError()
+    return null
+  }
+  // success 但缺 accessToken:契约异常,保守按失败处理(不抛,不写凭据)
+  if (!res.data?.accessToken) return null
   const accessToken = res.data.accessToken
   const rotatedRefresh = res.data.refreshToken
   return serializeCredentialWrite(async () => {

@@ -309,46 +309,67 @@ class BackgroundTaskManager:
         record = self._tasks.get(task_id)
         if record is None:
             return
+        # G-815973-bis(本票补的那一格):**代次栅栏**。`attempt_count` 在入口处取一次,
+        # 此后每一次"写这条记录"之前都要确认它还是当代。
+        # 病根:`cancel()` 走 `handle.cancel()` 让旧 `_run` 解栈,而 CancelledError 是
+        # **稍后**才被那个协程收到的;若这中间用户按同一幂等键续跑(`submit_typed` 的
+        # resume 分支与 `resume` 端点都会 `_terminal_claimed = False` 复位名额),旧一代
+        # 醒来后会 claim 成功 —— 于是新一代跑完 claim 不到名额,屏幕上留的是「已取消」,
+        # 真实结论却是「已成功」,而成功通知也被顺带掐掉。这正是 G-815973 闩锁想防的
+        # "后到者改写终态",只是它把闸门只装在同一代内,换代时把闸门自己抬了起来。
+        # 失效方向:栅栏只会让**旧代**少写(它本来就不该写),当代所有分支逐字照旧。
+        attempt = record.attempt_count
+
+        def current() -> bool:
+            return record.attempt_count == attempt
+
         record.state = TaskState.RUNNING
         record.started_at = _now()
         try:
             coro = coro_factory()
             result = await asyncio.wait_for(coro, timeout=record.timeout_s)
+            if not current():
+                return  # 已被续跑换代:本代的结果不属于这条记录,一个字段都不写
             record.result = self._summarize(result)
             # G-815973:终态名额先到先得。此处与 await 返回之间无让出点,
             # 正常完成必然 claim 成功(行为逐字不变);claim 失败仅可能来自
             # 未来新增的并发入口,届时以先到终态为准。
             record.claim_terminal(TaskState.SUCCEEDED)
         except TimeoutError:
-            record.claim_terminal(TaskState.TIMEOUT)
-            logger.warning(
-                "[BackgroundTask] 超时 task_id=%s timeout_s=%s", task_id, record.timeout_s
-            )
+            if current():
+                record.claim_terminal(TaskState.TIMEOUT)
+                logger.warning(
+                    "[BackgroundTask] 超时 task_id=%s timeout_s=%s", task_id, record.timeout_s
+                )
         except asyncio.CancelledError:
             # 任务被取消:cancel() 已先经 claim_terminal 落 CANCELLED(G-815973),
             # 此处 claim 只是进程关闭等"无人 claim 的取消"的兜底;claim 失败 ⇒
             # 终态已被先写,不再变更(执行侧自己跳过,防二次改写)。
-            record.claim_terminal(TaskState.CANCELLED)
-            record.error = record.error or "任务被取消"
+            # 已过栅栏的取消(换代后旧代解栈)一个字段都不写,见上方 current()。
+            if current():
+                record.claim_terminal(TaskState.CANCELLED)
+                record.error = record.error or "任务被取消"
             raise
         except Exception as e:  # noqa: BLE001 — 必须兜底,否则后台任务异常会污染事件循环
-            record.claim_terminal(TaskState.FAILED)
-            record.error = _truncate(str(e), _ERROR_TRUNCATE)
-            logger.warning("[BackgroundTask] 执行异常 task_id=%s error=%s", task_id, record.error)
+            if current():
+                record.claim_terminal(TaskState.FAILED)
+                record.error = _truncate(str(e), _ERROR_TRUNCATE)
+                logger.warning("[BackgroundTask] 执行异常 task_id=%s error=%s", task_id, record.error)
         finally:
-            record.finished_at = _now()
-            if record.started_at is not None and record.finished_at is not None:
-                record.duration_ms = (
-                    record.finished_at - record.started_at
-                ).total_seconds() * 1000.0
-            if (
-                record.state in _TERMINAL_STATES
-                and record.notify_on_done
-                # G-815974 复校点①:结果落地(寄通知)前查分支代数当前值 ——
-                # 任务在飞期间会话被恢复/fork ⇒ 旧令牌过期,不寄通知、不写历史。
-                and not self._result_superseded(record)
-            ):
-                await self._notify(record)
+            if current():
+                record.finished_at = _now()
+                if record.started_at is not None and record.finished_at is not None:
+                    record.duration_ms = (
+                        record.finished_at - record.started_at
+                    ).total_seconds() * 1000.0
+                if (
+                    record.state in _TERMINAL_STATES
+                    and record.notify_on_done
+                    # G-815974 复校点①:结果落地(寄通知)前查分支代数当前值 ——
+                    # 任务在飞期间会话被恢复/fork ⇒ 旧令牌过期,不寄通知、不写历史。
+                    and not self._result_superseded(record)
+                ):
+                    await self._notify(record)
 
     @staticmethod
     def _summarize(result: Any) -> Any:
