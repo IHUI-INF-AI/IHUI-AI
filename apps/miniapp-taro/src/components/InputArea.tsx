@@ -43,6 +43,9 @@ import {
 // (`<LineIcon name="…">`,CSS mask 渲染 ⇒ 随 token 换色)。字形名对照见交付报告。
 import LineIcon from '@/components/LineIcon'
 import { rpx } from '@/utils/rpx'
+// 聚焦态描边:ai-home 的描边画在外层 .search-box-bor 容器上 ⇒ hook 文档的 WRAP 形态②
+// (handlers 留 Textarea,focusStyle 铺容器);取色只有 use-field-focus 那一处。
+import { useFieldFocus } from '@/hooks/use-field-focus'
 
 /**
  * 几何档 → 本平台数值的唯一换算点(形状同 `components/IntelligentAssistant.tsx`):
@@ -151,6 +154,8 @@ export default function InputArea({
   const [isFangdaActive, setIsFangdaActive] = useState(false) // 全屏放大
   const [inputBottom, setInputBottom] = useState(0) // 键盘高度(px)
   const [isamplify, setIsamplify] = useState(false) // 放大按钮阈值
+  // ai-home 输入盒的运行时聚焦档(描边在容器上,只换色不换宽 ⇒ 零布局跳动)
+  const ff = useFieldFocus()
   // AI 操控通道(2026-09-21):普通态与全屏放大态两个 Textarea 共用同一个 value + handleInput
   // 受控通道,故只登记一次(两个 id 指向同一真相源反而更含糊)。
   // 只有父组件真的给了 onInput 才登记 —— 没有它"填进去"改变不了任何状态,登记即假成功。
@@ -244,17 +249,19 @@ export default function InputArea({
     (e?: { detail: { height?: number } }) => {
       const h = e?.detail?.height || 0
       if (h > 0) setInputBottom(h)
+      ff.onFocus()
       onFocus?.()
     },
-    [onFocus],
+    [onFocus, ff],
   )
 
   const handleBlur = useCallback(() => {
+    ff.onBlur()
     setTimeout(() => {
       setInputBottom(0)
       onBlur?.()
     }, 150)
-  }, [onBlur])
+  }, [onBlur, ff])
 
   const handleKeyboardHeightChange = useCallback(
     (e: { detail: { height: number } }) => {
@@ -379,6 +386,7 @@ export default function InputArea({
             )}
             style={{
               backgroundColor: mode === 'voice' ? 'var(--color-link-bg)' : 'var(--color-card)',
+              ...ff.focusStyle,
             }}
           >
             {/* 附件列表 imgs-list(对标原项目 .imgs_list,横向滚动,底部 1px 灰线分隔) */}
@@ -859,7 +867,11 @@ export default function InputArea({
               className={`w-9 h-9 flex items-center justify-center rounded-sm ${showEmoji ? 'text-primary' : 'text-muted-foreground'}`}
               onClick={toggleEmoji}
             >
-              <LineIcon name="smile" size={toUnit(INPUT_AREA_GLYPH_MD_PX)} color={showEmoji ? 'var(--color-primary)' : 'var(--color-muted-foreground)'} />
+              <LineIcon
+                name="smile"
+                size={toUnit(INPUT_AREA_GLYPH_MD_PX)}
+                color={showEmoji ? 'var(--color-primary)' : 'var(--color-muted-foreground)'}
+              />
             </View>
           ) : null}
           <View className="flex flex-col items-center ml-1">
