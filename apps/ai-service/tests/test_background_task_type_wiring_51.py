@@ -547,14 +547,37 @@ def test_long_running_command_is_declared_non_resumable_and_still_converges(
     单列一条而不是塞进上面那张参数表,是因为它的"等价"含义不同 ——
     续跑等价 = 不重做已完成单元;不可续跑的等价 = 重做但结论一致。
     把两者混在一个参数表里,就等于用一条断言同时宣称两种语义。
+
+    **取消的时机改过(2026-10-08 这一轮)**:旧写法先 `_wait_terminal` 再 `cancel()`,
+    而 G-815973(枚 128f9b8e89)把终态名额定成 first-writer-wins —— 往已落终态的任务上
+    打 cancel 一律回 `ok: False`「不再变更」(病根是"成功通知寄完又被补一条已取消")。
+    于是那条写法测的已经不是本票那一格,而是"能不能撤掉一条已成功的终态"。
+    现在把取消挪回**任务仍在跑**的那一刻(与本文件 `test_...wired...` 里对 batch_llm
+    的同一形态一致),并让第一趟写完 'x' 再长跑 —— 这样"整件重跑 ⇒ 副作用两次"才是
+    被真的走了一遍,而不是被一条已结束的旧记录顺带满足。
     """
     marker = tmp_path / "lrc.txt"
     args = {
-        "command": [sys.executable, "-c", f"open(r{str(marker)!r},'a').write('x')"],
+        # 先落一次副作用,再停在 sleep 上等人来取消 —— 没有后半段,第一趟会在被取消前
+        # 就跑完并占掉终态名额,这一格就退化成"取消已终止任务"(那是另一条判据)。
+        "command": [
+            sys.executable, "-c",
+            f"open(r{str(marker)!r},'a').write('x');import time;time.sleep(30)",
+        ],
         "timeout_s": 60,
     }
     spec = te.get_spec("long_running_command")
     assert spec.resumable is False
+
+    async def _wait_first_side_effect(path: Path, timeout: float = 30.0) -> None:
+        """等第一趟真的把 'x' 落进文件(不是等任务终态 —— 终态一到就轮不到取消了)。"""
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+        while loop.time() < deadline:
+            if path.is_file() and path.read_text(encoding="utf-8"):
+                return
+            await asyncio.sleep(0.05)
+        raise AssertionError("长跑命令的第一趟副作用没发生 ⇒ 取消点无从谈起")
 
     async def drive() -> None:
         manager = BackgroundTaskManager()
@@ -563,9 +586,10 @@ def test_long_running_command_is_declared_non_resumable_and_still_converges(
             "long_running_command", args, name="取消它", user_id=None,
             notify_on_done=False, idempotency_key=key,
         )
-        await _wait_terminal(manager, str(first["task_id"]))
+        await _wait_first_side_effect(marker)
         cancelled = await manager.cancel(str(first["task_id"]))
-        assert cancelled["ok"] is True
+        assert cancelled["ok"] is True, f"在跑的任务取消失败:{cancelled}"
+        assert cancelled["state"] == TaskState.CANCELLED.value, cancelled
         again = await manager.submit_typed(
             "long_running_command", args, name="取消它", user_id=None,
             notify_on_done=False, idempotency_key=key,
