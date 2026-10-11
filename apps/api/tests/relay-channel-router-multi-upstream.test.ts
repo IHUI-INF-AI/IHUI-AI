@@ -120,7 +120,7 @@ const KEY_A = {
   apiKeyEnc: '{"iv":"i","ciphertext":"c","tag":"t"}',
   providerCode: 'swiftapi',
   weight: 5,
-  extraMetadata: { baseUrl: 'https://api.x5m5x.com/v1' },
+  extraMetadata: { baseUrl: 'https://new.x5m5x.com/v1' },
 }
 const KEY_B = {
   id: 'key-b',
@@ -160,7 +160,7 @@ describe('selectChannelCandidates 多上游同模型路由', () => {
     expect(candidates).toHaveLength(3)
     const byKey = new Map(candidates.map((c) => [c.keyPoolId, c]))
     // key 级覆盖:key-a 用 extraMetadata.baseUrl,而非 config.baseUrl
-    expect(byKey.get('key-a')?.baseUrl).toBe('https://api.x5m5x.com/v1')
+    expect(byKey.get('key-a')?.baseUrl).toBe('https://new.x5m5x.com/v1')
     // 无覆盖:key-b 回退 config.baseUrl
     expect(byKey.get('key-b')?.baseUrl).toBe('https://k.swiftapi-base.example/v1')
     // 另一上游 token6688 的 key 也成为候选(跨上游择优/切换的基础)

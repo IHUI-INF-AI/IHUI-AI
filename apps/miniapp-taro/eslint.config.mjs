@@ -18,6 +18,11 @@ export default [
       'scripts/**',
       // i18n 生成文件超长 base64,跳过 lint(源由 scripts/gen-i18n-compressed.mjs 校验)
       'src/i18n/generated/**',
+      // 取证/临时产物一律不进 lint:`eslint .` 会把包内任何未忽略目录全吃进来,而 .gitignore
+      // 的 `.tmp-*` 只挡 git 不挡 eslint —— 一次真机构建取证(5.5MB weapp 产物副本)就让
+      // `pnpm turbo run lint` 在本机报 7446 条假错,账面像"小程序端代码烂了"。
+      '**/.tmp-*/',
+      '**/.tmp-*',
     ],
   },
   {

@@ -22,6 +22,9 @@ const src = (p) => readFileSync(join(REPO, p), 'utf8')
 const mod = await import(pathToFileURL(join(REPO, 'scripts', 'check-ops-patrol.mjs')).href)
 const { scratchRoot, mkScratch, rmScratch } = await import(pathToFileURL(join(REPO, 'scripts', 'lib', 'scratch-dir.mjs')).href)
 const { measureDir, ageVerdict, parseLastSync, patrol } = mod.__test__
+// §22c:装车锁的锚点名单与装配段取景**只有门里那一份**;这一枚别名就是把断言交给它裁定的出口,
+// 测试不再自己写 `/applyAdjudications\(/` 这类锚点(两处各写必漂开 —— 守门 191 的 F1 靶子)。
+const gate = mod.__test__
 const { parseAlertRules, metricRefsFromExpr, checkInertAlertRules } = mod.__test__
 // P7(2026-09-29 补,机主裁决"副本没出机就喊")—— 一律 import 源文件的尺子,不在此重抄判定(§22c)。
 const { checkBackupReplicaPresence, sha256File, P7_BOUNDARY_NOTE, LIMITS } = mod.__test__
@@ -370,7 +373,7 @@ test('T22 P7 不越界:不接管进程维、不假装能验"出机";机主那句
   const occ = [...s.matchAll(/不证明它已离开这台机器/g)].length
   assert.ok(occ >= 2, `能力边界原话只出现 ${occ} 次 ⇒ 头注与 detail(常量)必须各有一处`)
   assert.match(s, /真正的出机依赖第三方同步客户端在跑/)
-  assert.ok(P7_BOUNDARY_NOTE.includes('两者同在 D: 卷') && P7_BOUNDARY_NOTE.includes('P7 不重复计账'))
+  assert.ok(P7_BOUNDARY_NOTE.includes('两者同在 Disk 0 物理盘') && P7_BOUNDARY_NOTE.includes('P7 不重复计账'))
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -430,10 +433,19 @@ test('T25 台账腐烂只报名不判红:登记的 anchor 在本轮根本没有�
 })
 
 test('T26 装车锁:降级真接在 patrol 里,且摘掉台账后那一格必须回到红档(承重证明)', async () => {
-  const src = readFileSync(join(REPO, 'scripts/check-ops-patrol.mjs'), 'utf8')
-  const body = src.slice(src.indexOf('export async function patrol'), src.indexOf('export function loadAdjudications'))
-  assert.match(body, /applyAdjudications\(/, 'patrol 没调降级 ⇒ 台账成了没人读的装饰')
-  assert.match(body, /loadAdjudications\(/, 'patrol 没读台账 ⇒ 同上')
+  const gateSrc = readFileSync(join(REPO, 'scripts/check-ops-patrol.mjs'), 'utf8')
+  /**
+   * 锚点与装配段取景**都取自门导出的那一份判据本体**(§22c)。原先这里自己 `slice(indexOf('export
+   * async function patrol'))` 再手写 `/applyAdjudications\(/` —— 那是同一判据的第二份:门改了锚点
+   * 而测试没改,账面照样绿,而这把尺子恰好量不到"判据写了没装车"那一型。
+   */
+  const assembly = gate.patrolAssemblyText(gateSrc)
+  assert.ok(assembly !== null, 'patrol 装配段取不到 ⇒ 装车锁无从证明,不得当成通过')
+  assert.deepEqual(
+    gate.patrolWiringGaps(assembly, ['ledger-read', 'ledger-apply', 'ledger-bucket']),
+    [],
+    '降级台账这一组接线有缺项 ⇒ 台账成了没人读的装饰(缺项里带着每一格"为什么必须是它")',
+  )
   /**
    * 断言锚在**那一格的身份**上,不是"红读数变多"—— 这台机上两轮巡检之间部署环/备份心跳本来就会漂,
    * 用计数差当证据会在别人正常收尾时误红(把夹具的抖动读成判据失效)。
@@ -616,14 +628,27 @@ test('TP3 P9 节流单位:24 小时不是 24 分钟,tick 取不到一律视为�
 
 test('TP4 P9/P10 必须真住在 patrol 的装配里,而 P10 的裁决台账必须被喂进判据', () => {
   const s = src('scripts/check-ops-patrol.mjs')
-  const body = s.slice(s.indexOf('export async function patrol'), s.indexOf('export function loadAdjudications'))
-  assert.match(body, /await checkMailChannelLiveness\(/, 'P9 写了没接线 = 没有这台尺子')
-  assert.match(body, /checkUndeliveredAlertDebt\(/, 'P10 写了没接线 = 没有这台尺子')
-  assert.match(body, /loadDebtAcks\(\)/, '裁决台账没人读 ⇒ 这条队列没有死亡机制,会一路红到有人删判据')
-  assert.match(body, /acks: debtAcks\.entries/, '读了台账却不喂给判据 ⇒ "已裁"在账面上永远不生效')
-  // 构造面反向对照:上面那条正则必须真会因摘线而不匹配(否则它是个恒真断言)
-  const unwired = body.replace('acks: debtAcks.entries })', '})')
-  assert.doesNotMatch(unwired, /acks: debtAcks\.entries/, '这条锁自己无牙:摘掉喂线它仍然匹配')
+  // 锚点与取景一律走门导出的那一份判据本体(§22c / 守门 191 F1):测试不再自己写锚点正则。
+  const body = gate.patrolAssemblyText(s)
+  assert.ok(body !== null, 'patrol 装配段取不到 ⇒ 装车锁无从证明,不得当成通过')
+  assert.deepEqual(
+    gate.patrolWiringGaps(body, ['P8', 'P9', 'P10', 'P10-ack-read', 'P10-ack-feed']),
+    [],
+    'P8/P9/P10 这一组有一格没接进巡检 = 判据写出来而没装车(本仓最高频失效型)',
+  )
+  /**
+   * 构造面反向对照(逐条摘线,用门自己那份名单里的锚点摘,测试不另立名单):
+   * 摘掉任意一条接线,门的那份判据必须**认出正是这一格** —— 证明这一组尺子每条都有牙,
+   * 而不是只在装配好的今天恰好绿。
+   */
+  for (const w of gate.PATROL_WIRING) {
+    const gutted = body.split(w.needle).join('')
+    assert.notEqual(gutted, body, `夹具前提:${w.id} 的锚点在装配段里找不到 ⇒ 这条对照没在摘任何东西`)
+    assert.ok(
+      gate.patrolWiringGaps(gutted).some((g) => g.id === w.id),
+      `这条锁自己无牙:摘掉 ${w.id} 的接线它仍然判"已接线"`,
+    )
+  }
 })
 
 test('TP5 P10 逐条裁决:免掉必须当场对上一次真投递,缺字段/到期/指纹或时刻不符都不放行', () => {
@@ -719,11 +744,10 @@ test('TP6 P10 三态与出口:挂账红 / 逐条裁过绿且报名 / 台账坏 J
  */
 test('TP7 P11 promtool:必须真住在 patrol 装配里,且 promtool/用例取不到不得判红', () => {
   const body = src('scripts/check-ops-patrol.mjs')
-  const inPatrol = body.slice(
-    body.indexOf('export async function patrol'),
-    body.indexOf('export function loadAdjudications'),
-  )
-  assert.match(inPatrol, /checkPromtoolRules\(/, 'P11 写了没接线 = 没有这台尺子')
+  // 装配段取景与锚点都走门导出的那一份(§22c):测试里不再自己写一遍"什么算接上了"。
+  const inPatrol = gate.patrolAssemblyText(body)
+  assert.ok(inPatrol !== null, 'patrol 装配段取不到 ⇒ 装车锁无从证明,不得当成通过')
+  assert.deepEqual(gate.patrolWiringGaps(inPatrol, ['P11']), [], 'P11 写了没接线 = 没有这台尺子')
   const { checkPromtoolRules } = mod.__test__
   const noTool = checkPromtoolRules({
     devEnv: join(REPO, '__no_dev_env__'),

@@ -77,7 +77,7 @@ describe('P2-4 runHook Turn 级事件触发', () => {
     else process.env.IHUI_HOOKS_CONFIG = origConfig;
   });
 
-  it('turnStart 事件触发钩子(命令成功 → proceed=true)', () => {
+  it('turnStart 事件触发钩子(命令成功 → proceed=true)', async () => {
     const cmd = isWindows
       ? `cmd /c echo start > "${markerPath}"`
       : `sh -c 'echo start > "${markerPath}"'`;
@@ -87,13 +87,13 @@ describe('P2-4 runHook Turn 级事件触发', () => {
     fs.writeFileSync(hooksPath, JSON.stringify(hooks));
     process.env.IHUI_HOOKS_CONFIG = hooksPath;
 
-    const result = runHook('turnStart', { turnNumber: 1, maxTurns: 5 });
+    const result = await runHook('turnStart', { turnNumber: 1, maxTurns: 5 });
     expect(result.proceed).toBe(true);
     expect(fs.existsSync(markerPath)).toBe(true);
     expect(fs.readFileSync(markerPath, 'utf-8')).toContain('start');
   });
 
-  it('turnEnd 事件触发钩子(命令成功 → proceed=true)', () => {
+  it('turnEnd 事件触发钩子(命令成功 → proceed=true)', async () => {
     const cmd = isWindows
       ? `cmd /c echo end > "${markerPath}"`
       : `sh -c 'echo end > "${markerPath}"'`;
@@ -103,13 +103,13 @@ describe('P2-4 runHook Turn 级事件触发', () => {
     fs.writeFileSync(hooksPath, JSON.stringify(hooks));
     process.env.IHUI_HOOKS_CONFIG = hooksPath;
 
-    const result = runHook('turnEnd', { turnNumber: 2 });
+    const result = await runHook('turnEnd', { turnNumber: 2 });
     expect(result.proceed).toBe(true);
     expect(fs.existsSync(markerPath)).toBe(true);
     expect(fs.readFileSync(markerPath, 'utf-8')).toContain('end');
   });
 
-  it('turnError 事件触发钩子(默认不阻塞,proceed=true)', () => {
+  it('turnError 事件触发钩子(默认不阻塞,proceed=true)', async () => {
     const hooks: HooksConfig = {
       turnError: [{ name: 'err-hook', command: exit1 }],
     };
@@ -117,23 +117,23 @@ describe('P2-4 runHook Turn 级事件触发', () => {
     process.env.IHUI_HOOKS_CONFIG = hooksPath;
 
     // turnError 默认 blockOnError=false(非 preToolCall/sessionStart)
-    const result = runHook('turnError', { turnNumber: 1, error: 'oops' });
+    const result = await runHook('turnError', { turnNumber: 1, error: 'oops' });
     expect(result.proceed).toBe(true);
   });
 
-  it('turnError 事件 blockOnError=true 时命令失败阻塞(proceed=false)', () => {
+  it('turnError 事件 blockOnError=true 时命令失败阻塞(proceed=false)', async () => {
     const hooks: HooksConfig = {
       turnError: [{ name: 'err-block', command: exit1, blockOnError: true }],
     };
     fs.writeFileSync(hooksPath, JSON.stringify(hooks));
     process.env.IHUI_HOOKS_CONFIG = hooksPath;
 
-    const result = runHook('turnError', { turnNumber: 1, error: 'oops' });
+    const result = await runHook('turnError', { turnNumber: 1, error: 'oops' });
     expect(result.proceed).toBe(false);
     expect(result.reason).toContain('err-block');
   });
 
-  it('turnComplete 事件触发钩子(默认不阻塞,proceed=true)', () => {
+  it('turnComplete 事件触发钩子(默认不阻塞,proceed=true)', async () => {
     const cmd = isWindows
       ? `cmd /c echo complete > "${markerPath}"`
       : `sh -c 'echo complete > "${markerPath}"'`;
@@ -143,22 +143,22 @@ describe('P2-4 runHook Turn 级事件触发', () => {
     fs.writeFileSync(hooksPath, JSON.stringify(hooks));
     process.env.IHUI_HOOKS_CONFIG = hooksPath;
 
-    const result = runHook('turnComplete', { totalTurns: 3, stopReason: 'end_turn' });
+    const result = await runHook('turnComplete', { totalTurns: 3, stopReason: 'end_turn' });
     expect(result.proceed).toBe(true);
     expect(fs.existsSync(markerPath)).toBe(true);
     expect(fs.readFileSync(markerPath, 'utf-8')).toContain('complete');
   });
 
-  it('无配置时 4 种 Turn 级事件均返回 proceed=true', () => {
+  it('无配置时 4 种 Turn 级事件均返回 proceed=true', async () => {
     process.env.IHUI_HOOKS_CONFIG = path.join(os.tmpdir(), 'nonexistent-turn-hooks-' + Date.now() + '.json');
     for (const e of TURN_EVENTS) {
-      const result = runHook(e, { turnNumber: 1 });
+      const result = await runHook(e, { turnNumber: 1 });
       expect(result.proceed).toBe(true);
       expect(result.reason).toBeUndefined();
     }
   });
 
-  it('Turn 级事件全字段传入不抛异常', () => {
+  it('Turn 级事件全字段传入不抛异常', async () => {
     const ctx: HookContext = {
       workspacePath: '/tmp',
       sessionId: 'sess-1',
@@ -169,7 +169,7 @@ describe('P2-4 runHook Turn 级事件触发', () => {
       error: 'some error',
     };
     for (const e of TURN_EVENTS) {
-      expect(() => runHook(e, ctx)).not.toThrow();
+      await runHook(e, ctx);
     }
   });
 });
@@ -200,7 +200,7 @@ describe('P2-4 Turn 级环境变量传递', () => {
     else process.env.IHUI_HOOKS_CONFIG = origConfig;
   });
 
-  it('turnNumber/maxTurns 通过 IHUI_TURN_NUMBER/IHUI_MAX_TURNS 传递给 turnStart 钩子', () => {
+  it('turnNumber/maxTurns 通过 IHUI_TURN_NUMBER/IHUI_MAX_TURNS 传递给 turnStart 钩子', async () => {
     const cmd = isWindows
       ? `cmd /c echo %IHUI_TURN_NUMBER%/%IHUI_MAX_TURNS% > "${envPath}"`
       : `sh -c 'echo "$IHUI_TURN_NUMBER/$IHUI_MAX_TURNS" > "${envPath}"'`;
@@ -210,7 +210,7 @@ describe('P2-4 Turn 级环境变量传递', () => {
     fs.writeFileSync(hooksPath, JSON.stringify(hooks));
     process.env.IHUI_HOOKS_CONFIG = hooksPath;
 
-    runHook('turnStart', { turnNumber: 3, maxTurns: 10 });
+    await runHook('turnStart', { turnNumber: 3, maxTurns: 10 });
 
     expect(fs.existsSync(envPath)).toBe(true);
     const content = fs.readFileSync(envPath, 'utf-8').trim();
@@ -218,7 +218,7 @@ describe('P2-4 Turn 级环境变量传递', () => {
     expect(content).toContain('10');
   });
 
-  it('totalTurns/stopReason 通过 IHUI_TOTAL_TURNS/IHUI_STOP_REASON 传递给 turnComplete 钩子', () => {
+  it('totalTurns/stopReason 通过 IHUI_TOTAL_TURNS/IHUI_STOP_REASON 传递给 turnComplete 钩子', async () => {
     const cmd = isWindows
       ? `cmd /c echo %IHUI_TOTAL_TURNS%/%IHUI_STOP_REASON% > "${envPath}"`
       : `sh -c 'echo "$IHUI_TOTAL_TURNS/$IHUI_STOP_REASON" > "${envPath}"'`;
@@ -228,7 +228,7 @@ describe('P2-4 Turn 级环境变量传递', () => {
     fs.writeFileSync(hooksPath, JSON.stringify(hooks));
     process.env.IHUI_HOOKS_CONFIG = hooksPath;
 
-    runHook('turnComplete', { totalTurns: 7, stopReason: 'max_iterations' });
+    await runHook('turnComplete', { totalTurns: 7, stopReason: 'max_iterations' });
 
     expect(fs.existsSync(envPath)).toBe(true);
     const content = fs.readFileSync(envPath, 'utf-8').trim();
@@ -236,7 +236,7 @@ describe('P2-4 Turn 级环境变量传递', () => {
     expect(content).toContain('max_iterations');
   });
 
-  it('error 通过 IHUI_ERROR 传递给 turnError 钩子', () => {
+  it('error 通过 IHUI_ERROR 传递给 turnError 钩子', async () => {
     const cmd = isWindows
       ? `cmd /c echo %IHUI_ERROR% > "${envPath}"`
       : `sh -c 'echo "$IHUI_ERROR" > "${envPath}"'`;
@@ -246,7 +246,7 @@ describe('P2-4 Turn 级环境变量传递', () => {
     fs.writeFileSync(hooksPath, JSON.stringify(hooks));
     process.env.IHUI_HOOKS_CONFIG = hooksPath;
 
-    runHook('turnError', { turnNumber: 1, error: 'sample-error' });
+    await runHook('turnError', { turnNumber: 1, error: 'sample-error' });
 
     expect(fs.existsSync(envPath)).toBe(true);
     const content = fs.readFileSync(envPath, 'utf-8').trim();

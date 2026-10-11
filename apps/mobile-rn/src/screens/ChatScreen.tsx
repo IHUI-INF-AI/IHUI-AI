@@ -191,7 +191,6 @@ import { rpx } from '../utils/rpx'
 import { parseMessageContent } from '../utils/message-parse'
 
 import { rnRadius } from '@ihui/design-tokens'
-import { NavChrome } from '../components/NavChrome'
 
 // ── 类型定义(强类型,禁用 any) ──
 
@@ -619,15 +618,14 @@ export function ChatScreen() {
    * 只盖 title:抽屉行没有归档列,`model` 在抽屉里是 modelConfig(名字档),
    * 把没有呈现面的字段算成"已同步"就是第二种分叉 —— 所以这条链路始终喊 pullOnly。
    */
-  const drawerConversationsForRender = useMemo(() => {
-    // 读一次版本键:账本改动不发请求,失效全靠它 —— 不读它则 eslint 判"多余依赖"而删掉即退化成
-    // "另一端改了标题、本端不重算"(与上面那句注释是同一件事的两种写法,取能被静态检查看见的那一种)。
-    void broadcastMetaVersion
-    return drawerConversations.map((item) => {
-      const title = conversationMetaLedger.titleFor(item.id, item.title)
-      return title === item.title ? item : { ...item, title }
-    })
-  }, [drawerConversations, broadcastMetaVersion])
+  const drawerConversationsForRender = useMemo(
+    () =>
+      drawerConversations.map((item) => {
+        const title = conversationMetaLedger.titleFor(item.id, item.title)
+        return title === item.title ? item : { ...item, title }
+      }),
+    [drawerConversations, broadcastMetaVersion],
+  )
 
   // ── 智汇值卡余额加载(getTokenBalance;接口异常静默降级为 0,不阻塞页面) ──
   useEffect(() => {
@@ -811,7 +809,7 @@ export function ChatScreen() {
       onToolCall: (event) => {
         foldExecutionFrame({ kind: 'tool-call', event })
       },
-      // D113 文件写类工具流中 diff 预览:覆盖写 partialDiff,tool-result 到达即清(同一出口)
+      // D113 文件写类工具流中 diff 预览:按 seq 收敛追加 partialDiff,tool-result 到达即清(同一出口)
       onToolDelta: (event) => {
         foldExecutionFrame({ kind: 'tool-delta', event })
       },
@@ -1958,7 +1956,6 @@ export function ChatScreen() {
       rateMessage,
       retryLastTurn,
       t,
-      workspaceTier,
     ],
   )
 
@@ -2575,31 +2572,29 @@ export function ChatScreen() {
           此处曾另挂一份,两者读同一个 store 的 visible,打开通知会叠出两个相同面板。 */}
 
       {/* 顶部导航区(对齐 Uniapp navigation-bars:菜单 + 标题 + 加入) */}
-      <NavChrome>
-        <NavBar
-          title="智汇AI"
-          rightAction={
-            <View style={styles.navRight}>
-              <Pressable
-                hitSlop={8}
-                onPress={() => setDrawerVisible(true)}
-                accessibilityLabel="打开菜单"
-              >
-                <Menu size={22} color={tokens.text.primary} />
-              </Pressable>
-              <Pressable hitSlop={8} onPress={showAgentList} accessibilityLabel="选择 Agent">
-                <Bot size={22} color={tokens.text.primary} />
-              </Pressable>
-              <Pressable hitSlop={8} onPress={goToMyPage} accessibilityLabel="个人中心">
-                <Share2 size={22} color={tokens.text.primary} />
-              </Pressable>
-              <Pressable hitSlop={8} onPress={showQrCode} accessibilityLabel="加入社区">
-                <QrCode size={22} color={tokens.text.primary} />
-              </Pressable>
-            </View>
-          }
-        />
-      </NavChrome>
+      <NavBar
+        title="智汇AI"
+        rightAction={
+          <View style={styles.navRight}>
+            <Pressable
+              hitSlop={8}
+              onPress={() => setDrawerVisible(true)}
+              accessibilityLabel="打开菜单"
+            >
+              <Menu size={22} color={tokens.text.primary} />
+            </Pressable>
+            <Pressable hitSlop={8} onPress={showAgentList} accessibilityLabel="选择 Agent">
+              <Bot size={22} color={tokens.text.primary} />
+            </Pressable>
+            <Pressable hitSlop={8} onPress={goToMyPage} accessibilityLabel="个人中心">
+              <Share2 size={22} color={tokens.text.primary} />
+            </Pressable>
+            <Pressable hitSlop={8} onPress={showQrCode} accessibilityLabel="加入社区">
+              <QrCode size={22} color={tokens.text.primary} />
+            </Pressable>
+          </View>
+        }
+      />
 
       <KeyboardAvoidingView
         style={styles.body}

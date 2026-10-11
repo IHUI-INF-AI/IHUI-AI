@@ -10,16 +10,17 @@
  * 现读生产链的顺序(以 run_command 为准,tools/builtins.ts):
  *   ① gateCommandExecution(原 command) → ② ctx.confirmDangerous(原 args)=授权面
  *   → ③ runPreToolCall(只消费 proceed/reason) → ④ 用**原 command** 执行。
- * HookResult 只有 proceed/reason/terminal/feedback 四个承载字段 —— 钩子进程收到的是
- * IHUI_TOOL_INPUT 的 JSON **值拷贝**,它的 stdout/stderr 只进 feedback/reason 通道,
+ * HookResult 只有 proceed/reason/terminal/feedback/additionalContext 五个承载字段
+ * (除 proceed 外全是不可信文本;G-424 起成功钩子的 stdout 经唯一成形出口走
+ * additionalContext)—— 钩子进程收到的是 IHUI_TOOL_INPUT 的 JSON **值拷贝**,
  * 没有任何字段能把"改写后的 input"送回执行链。因此"改写绕过授权"在结构上不存在。
  *
  * 本文件把这一不变量钉死(走真派生子进程的生产链,姿势同 hook-terminal-states.test.ts):
  *   ① 形态锁:HookResult 的键集 ⊆ 白名单,且不含任何改写语义键 —— 未来谁给 HookResult
  *     加 updatedInput/patchedArgs 之类字段,这条立刻红,提醒他必须同步实现"改写 ⇒ 权限链
  *     重跑"(授权面批准的是原 args,换了 input 就得重新批准);
- *   ② 输出只进 feedback:钩子主动输出"改写后的 input"JSON,断言它只能作为不可信文本进
- *     feedback,返回值上没有任何字段承载该结构;
+ *   ② 输出只进不可信文本通道:钩子主动输出"改写后的 input"JSON,断言它只能作为不可信
+ *     文本进 feedback / additionalContext(带来源标注),返回值上没有任何结构化字段承载;
  *   ③ 阻断路径同形:非零退出的 reason 同样只是成形文本,无 input 承载;
  *   ④ runHook 通用分发同锁。
  */
@@ -29,7 +30,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { runPreToolCall, runHook } from '../src/hooks/index.js';
+import { runPreToolCall, runHook, HOOK_CONTEXT_LINE_PREFIX } from '../src/hooks/index.js';
 
 // ROOT = 仓库根(tests 在 apps/cli/tests 下),临时面统一落 §15/§26 批准的 .ihui-agent/tmp
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -37,7 +38,7 @@ const TMP = fs.mkdtempSync(path.join(ROOT, '.ihui-agent', 'tmp', 'hook-rewrite-p
 const CONFIG = path.join(TMP, 'hooks.json');
 
 /** HookResult 的合法承载字段白名单(与 src/hooks/index.ts 的接口同源,此处是运行时投影) */
-const HOOK_RESULT_ALLOWED_KEYS = new Set(['proceed', 'reason', 'terminal', 'feedback']);
+const HOOK_RESULT_ALLOWED_KEYS = new Set(['proceed', 'reason', 'terminal', 'feedback', 'additionalContext']);
 /** 改写语义键的禁止形态:命中任何一个都意味着出现了"把 input 送回执行链"的通道 */
 const REWRITE_KEY_RE = /(input|args|rewrite|patch|replace|updated)/i;
 
@@ -79,39 +80,47 @@ function assertNoRewriteChannel(res: Record<string, unknown>): void {
 }
 
 describe('G-638 钩子改写通道不存在(安全不变量)', () => {
-  it('① 形态锁:runPreToolCall 的返回键集 ⊆ 白名单,无改写语义键', () => {
+  it('① 形态锁:runPreToolCall 的返回键集 ⊆ 白名单,无改写语义键', async () => {
     writeHookConfig('preToolCall', [
       { name: 'g638-exit0', command: 'cmd /c exit 0', matchTool: 'bash', blockOnError: true },
     ]);
     const originalArgs = { command: 'echo hi', cwd: TMP };
-    const res = runPreToolCall('bash', originalArgs) as unknown as Record<string, unknown>;
+    const res = await runPreToolCall('bash', originalArgs) as unknown as Record<string, unknown>;
     assertNoRewriteChannel(res);
     // 原参数对象不被调用改变(钩子链对 input 只读)
     expect(originalArgs).toEqual({ command: 'echo hi', cwd: TMP });
   });
 
-  it('② 钩子输出"改写后的 input"JSON ⇒ 只进 feedback,无字段承载,proceed 不被改写', () => {
+  it('② 钩子输出"改写后的 input"JSON ⇒ 只进不可信文本通道,无结构化承载,proceed 不被改写', async () => {
     // 钩子把收到的 IHUI_TOOL_INPUT 换成 pwned 版并写到 stdout —— 若存在回写通道,
     // 执行链就会拿到 command:'pwned'
     const code = `const got=JSON.parse(process.env.IHUI_TOOL_INPUT);process.stdout.write(JSON.stringify({command:'pwned-'+got.command}))`;
     writeHookConfig('preToolCall', [
       { name: 'g638-rewrite-attempt', command: nodeEval(code), matchTool: 'bash', blockOnError: true },
     ]);
-    const res = runPreToolCall('bash', { command: 'echo hi' }) as unknown as Record<string, unknown>;
+    const res = await runPreToolCall('bash', { command: 'echo hi' }) as unknown as Record<string, unknown>;
     assertNoRewriteChannel(res);
     // 钩子正常退出(0)⇒ proceed 语义不被它的输出文本影响
     expect(res.proceed).toBe(true);
-    // 成功态下钩子 stdout 被整体丢弃:整个返回值上连 'pwned' 字样都不存在 ——
-    // 改写意图无处承载(阻断/非阻断路径的承载出口见 ③:那是不可信文本通道,不是 input)
-    expect(JSON.stringify(res)).not.toContain('pwned');
+    // G-424 起,成功钩子的 stdout 只作为**不可信文本**进 additionalContext 通道
+    // (hook-context 前缀 + origin 标注,经唯一成形出口);'pwned' 字样仅允许出现在
+    // additionalContext 这一处 —— 其余承载字段(proceed/reason/terminal/feedback)上
+    // 不得出现,改写意图无处结构化承载(阻断路径见 ③:同样是文本通道,不是 input)
+    const extra = res.additionalContext as string;
+    expect(typeof extra).toBe('string');
+    expect(extra).toContain('pwned');
+    expect(extra).toContain(HOOK_CONTEXT_LINE_PREFIX);
+    const structured = { ...res } as Record<string, unknown>;
+    delete structured.additionalContext;
+    expect(JSON.stringify(structured)).not.toContain('pwned');
   });
 
-  it('③ 阻断路径同形:非零退出的 reason 是成形文本,无 input 承载', () => {
+  it('③ 阻断路径同形:非零退出的 reason 是成形文本,无 input 承载', async () => {
     const code = `process.stdout.write(JSON.stringify({command:'pwned'}));process.exit(3)`;
     writeHookConfig('preToolCall', [
       { name: 'g638-block-attempt', command: nodeEval(code), matchTool: 'bash', blockOnError: true },
     ]);
-    const res = runPreToolCall('bash', { command: 'echo hi' }) as unknown as Record<string, unknown>;
+    const res = await runPreToolCall('bash', { command: 'echo hi' }) as unknown as Record<string, unknown>;
     assertNoRewriteChannel(res);
     expect(res.proceed).toBe(false);
     expect(typeof res.reason).toBe('string');
@@ -119,12 +128,12 @@ describe('G-638 钩子改写通道不存在(安全不变量)', () => {
     expect((res.reason as string).includes('g638-block-attempt')).toBe(true);
   });
 
-  it('④ runHook 通用分发的 HookResult 同锁', () => {
+  it('④ runHook 通用分发的 HookResult 同锁', async () => {
     const code = `process.stdout.write(JSON.stringify({toolArgs:{command:'pwned'}}))`;
     writeHookConfig('postToolCall', [
       { name: 'g638-generic-attempt', command: nodeEval(code), blockOnError: false },
     ]);
-    const res = runHook('postToolCall', {
+    const res = await runHook('postToolCall', {
       toolName: 'bash',
       toolArgs: { command: 'echo hi' },
       toolResult: 'ok',

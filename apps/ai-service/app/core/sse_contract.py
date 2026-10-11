@@ -64,10 +64,10 @@ SSE_EVENTS: frozenset[str] = frozenset(
         # deny/超时产出 errorCode=TOOL_APPROVAL_DENIED / TOOL_APPROVAL_TIMEOUT 的失败
         # tool-result,工具不执行。bypassPermissions 档不拦截。
         "tool-approval",
-        # D113(2026-09-27,G-227):文件写类工具流中 diff 预览帧。
+        # D113(2026-09-27,G-227;G-816035 2026-10-08 改增量):文件写类工具流中 diff 预览帧。
         # 在 tool-call-start 之后、工具实际执行期间逐帧下发,载荷
-        # {toolCallId, seq, partialText, truncated?};partialText 为截至当前的
-        # 预览文本(累积式,前端整帧替换渲染),seq 单调递增保证重放幂等。
+        # {toolCallId, seq, partialText, truncated?};partialText 为**增量正文**(仅本批新增行,
+        # 非末批次帧尾部补一个 "\n"),seq 从 1 递增、参与收敛(消费端按 seq 收敛**追加**)。
         # tool-result 到达即清预览(最终 diff 以 tool-result 落库面为准,本帧不入库)。
         # 必须与 packages/shared/src/sse/contract.ts 同步(两份集合由 parity 断言看护)。
         "tool-delta",

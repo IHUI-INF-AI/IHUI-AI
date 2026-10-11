@@ -3,8 +3,9 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt, useI18n, t } from '@/i18n'
-import { View, Text } from '@tarojs/components'
-import { FocusInput } from '@/components/FocusField'
+import { View, Text, Input } from '@tarojs/components'
+// 描边画在外层容器 `.reg-input-box` 上 ⇒ 走 hook 文档的 WRAP 形态②:handlers 留 Input、focusStyle 铺容器。
+import { useFieldFocus } from '@/hooks/use-field-focus'
 import Taro from '@tarojs/taro'
 import { useState, useEffect } from 'react'
 import { register, sendSmsCode } from '@/api'
@@ -52,6 +53,11 @@ export default function RegisterIndex() {
   // 视觉状态:区号 / 密码可见性(RN 输入框无聚焦样式,聚焦态仅区号选择器内部使用)
   const [phoneHead, setPhoneHead] = useState('+86')
   const [showPwd, setShowPwd] = useState(false)
+
+  // 聚焦态描边:三个输入盒的描边都在外层 .reg-input-box 上,故各取一份运行时聚焦档
+  const ffPhone = useFieldFocus()
+  const ffCode = useFieldFocus()
+  const ffPwd = useFieldFocus()
 
   // 用 @ihui/shared useRegisterForm 替代本地 useState + onSendCode + onSubmit
   const form = useRegisterForm({
@@ -124,10 +130,11 @@ export default function RegisterIndex() {
         <View className="reg-card">
           {/* 手机号输入框 + 区号 */}
           <Text className="reg-label">{tt('register.phone', '手机号')}</Text>
-          <View className="reg-input-box">
+          <View className="reg-input-box" style={ffPhone.focusStyle}>
             <PhoneAreaCodePicker value={phoneHead} onChange={setPhoneHead} />
-            <FocusInput
+            <Input
               className="reg-input"
+              {...ffPhone.spread}
               type="number"
               maxlength={11}
               placeholder={tt('register.phonePlaceholder', '请输入手机号')}
@@ -140,9 +147,10 @@ export default function RegisterIndex() {
           {/* 验证码输入框 + 发送按钮(对齐 RN codeRow/codeBtn) */}
           <Text className="reg-label">{tt('register.code', '验证码')}</Text>
           <View className="reg-coderow">
-            <View className="reg-input-box reg-input-box-flex">
-              <FocusInput
+            <View className="reg-input-box reg-input-box-flex" style={ffCode.focusStyle}>
+              <Input
                 className="reg-input"
+                {...ffCode.spread}
                 type="number"
                 maxlength={6}
                 placeholder={tt('register.codePlaceholder', '请输入验证码')}
@@ -162,9 +170,10 @@ export default function RegisterIndex() {
 
           {/* 密码输入框 + 可见性切换 */}
           <Text className="reg-label">{tt('register.password', '密码')}</Text>
-          <View className="reg-input-box">
-            <FocusInput
+          <View className="reg-input-box" style={ffPwd.focusStyle}>
+            <Input
               className="reg-input"
+              {...ffPwd.spread}
               password={!showPwd}
               maxlength={20}
               placeholder={tt('register.passwordPlaceholder', '请输入密码')}

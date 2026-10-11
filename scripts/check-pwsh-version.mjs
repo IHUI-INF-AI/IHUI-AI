@@ -40,8 +40,21 @@
 //   .tmp-wechat-test/watch.ps1,来自本机 Android SDK 目录与临时试验目录)都会让**每一次
 //   提交**被阻断;而这些文件在干净 checkout / CI 里根本不存在 —— 守门拦的是本地垃圾,
 //   不是项目代码。修法:真正解析 --staged,按 `git diff --cached` 的清单检查。
+//
+// 2026-10-08(gitRaw 型 B 收尾批)git 出口收口:本文件唯一自拼派生(暂存清单枚举
+// `listStagedFiles()`)迁取材层 scripts/lib/face-reader.mjs 的 `gitRaw`;`const GIT_BIN =
+// resolveGitBin() || 'git'` 与 execFileSync / resolveGitBin 两行 import 随之删除
+// (grepPowershellHits / runHead 早已走层)。行为面对照:
+//  · 二进制:旧 GIT_BIN 与层内 `resolveGitBin() || 'git'` 字面恒等 ⇒ 同一条兜底链;
+//    `-c safe.directory=*` + `-c core.quotepath=false` 同名同序;`-C <ROOT>` 与旧
+//    `cwd: ROOT` 同效;windowsHide 由层带。
+//  · stdio:旧 ['ignore','pipe','ignore'] → 层无 input 态 ['ignore','pipe','pipe'],
+//    stderr 由层收进异常消息;本函数 catch 折 null 弃错误 ⇒ 可观察面同。
+//  · timeout 旧 60s 显式保留({timeout:60_000});maxBuffer 旧 32MB → 层 64MB(放宽,
+//    净收益;本清单直接充当 catBatch 的索引规格素材,余量更足只有利)。
+//  · 失败折值一字未动:git 不可达/不可用 ⇒ return null ⇒ 调用方退化为全树扫描(WARN),
+//    判定面无一分支改写。
 
-import { execFileSync } from 'node:child_process'
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -54,13 +67,11 @@ import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 // 脚本系(.ps1/.sh/.bat/.cmd/.vbs)另走同一份 lib 的 `maskScriptComments` 方言档:注释语法是
 // `#` / `REM` / `::` / `'`,与 JS 词法不同形;而**字符串不遮**(那正是"引号里的真调用"所在)。
 import { maskCommentsAndStrings, maskScriptComments } from './lib/code-mask.mjs'
-import { resolveGitBin } from './lib/gitdir.mjs'
 // 判定面取材只走这一层(票 G-814393)。⚠️ 半接线形态(import 了层却仍自己 git show / 按磁盘
 // readFileSync 读内容)正是守门 118 判红的 half-wired —— "引了层"不构成合规,必须**真调用**
 // 层的读取入口(catBatch)取内容;镜像 T13 拿分类器按脚本名反查这道门的分类钉住这一点。
 import { catBatch, gitRaw, selectFace, FACE_LABEL, Undetermined } from './lib/face-reader.mjs'
 
-const GIT_BIN = resolveGitBin() || 'git'
 /** 取材档的 git 派生上限:枚举(ls-tree/grep)与内容(catBatch)共用同一个数,不各写各的。 */
 const GIT_FACE_TIMEOUT = 120_000
 
@@ -372,31 +383,14 @@ function scan(dir) {
  * 规格素材**(`:<rel>`),非 ASCII 名若被转义成 `"...\346..."`,一次转写就把"清单来自索引、
  * 内容取不到"变成常态(转写名在盘上必然不存在 ⇒ 被记成"在途消失"而静默少扫)。清单与内容
  * 必须解同一份名字,这是同面同轮的另一半。
+ * 2026-10-08(型 B 收尾批):派生改走 gitRaw 层,行为对照见文件头注记。
  */
 function listStagedFiles() {
   let out
   try {
-    out = execFileSync(
-      GIT_BIN,
-      [
-        '-c',
-        'safe.directory=*',
-        '-c',
-        'core.quotepath=false',
-        'diff',
-        '--cached',
-        '--name-only',
-        '--diff-filter=ACMR',
-      ],
-      {
-        cwd: ROOT,
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-        windowsHide: true,
-        timeout: 60_000,
-        maxBuffer: 32 << 20,
-      },
-    )
+    out = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMR'], ROOT, {
+      timeout: 60_000,
+    })
   } catch {
     return null
   }
