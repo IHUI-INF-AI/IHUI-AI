@@ -140,7 +140,16 @@ def test_cwd_implicit_writable_root():
 
 
 # 11. Windows 盘符/大小写(normcase)兼容 → 判定为可写
-def test_windows_case_insensitive_normcase():
+def test_windows_case_insensitive_normcase(monkeypatch):
+    # 2026-10-11 CI 对账(run 38084051334):本条锁的是"Windows 下盘符/大小写差异
+    # 不影响可写判定",而大小写折叠是 os.path.normcase 的平台语义(Windows 折叠,
+    # POSIX 恒等)。Linux CI 上恒等 normcase 使 'C:/proj' 与 'c:/proj' 不等 ⇒ 红。
+    # 判据链(assess_patch_safety → normcase → 组件级前缀)不动,只把 normcase 的
+    # 平台语义注入成 Windows 档,让本条平台无关地钉住同一份行为。
+    monkeypatch.setattr(
+        "app.core.patch_safety.os.path.normcase",
+        lambda p: p.replace("/", "\\").lower(),
+    )
     # 根用小写盘符,路径用大写盘符+大写文件名,应当判为可写
     d = assess_patch_safety(
         approval_policy=APPROVAL_POLICY_ON_REQUEST,
