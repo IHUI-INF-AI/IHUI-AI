@@ -99,6 +99,78 @@ function run(label, cmd) {
   }
 }
 
+// ─── 守门批捕获(run + 汇总行解析,2026-10-11 立,G-1118437)──────────────────────
+// 为什么要有本地 runCapturing:守门批实测最坏 244s(push 门实测),而本文件的旧 run() 硬编码 60_000ms 超时
+// —— 60s 一到,守门批整批被杀、pre-commit 看起来"跑完了"而其实一半都没判(§12f 记的恒红/假绿两侧同源)。
+// 300s 是"push 门实测上界 + 余量"，不是拍脑袋。
+//
+// 为什么 capture 而不读 .workbuddy/hook-logs/pre-commit.log:那份日志是 shell 层 tee 的产物，
+// 写入与本进程读取之间没有同步点(tee 缓冲 + 文件系统延迟)，刚跑完就 readFileSync 会拿到半截
+// —— 本仓 §12 记过一次同型(hook 日志当第二输入源而没有轮次绑定锁)。
+// 管道直采不经过文件，没有这个窗口。
+//
+// 解析失败不等于门失败:parseGateSummary 拿不到"总检查数"时返回 total:null +
+// timedOut:true(可能被杀/可能格式漂移)，但 runCapturing 的 ok 才是真退出码 ——
+// guardian-runner 跑完且 blocking 门全绿 => ok:true => 本门放行；汇总行只是给
+// ROUND.gatesRan/failed/total 记账用，判据不依赖它。
+
+/** 剥 ANSI 色码(与 reporter 的 stripAnsi 同式;CJS 不能 require ESM)。 */
+function stripAnsi(text) {
+  const ESC = String.fromCharCode(27)
+  const ansiRe = new RegExp(ESC + '\\[[0-9;]*m', 'g')
+  return String(text ?? '').replace(ansiRe, '')
+}
+
+/**
+ * 跑一条命令并捕获 stdout/stderr(不写 .log —— 那份日志有 tee 缓冲窗口)。
+ * ok 只看退出码；output 原样透传给 parseGateSummary。
+ */
+function runCapturing(label, cmd, timeoutMs = 300000) {
+  console.log(label)
+  try {
+    const stdout = execSync(cmd, {
+      cwd: process.cwd(),
+      windowsHide: true,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: timeoutMs,
+    })
+    process.stdout.write(stdout)
+    return { ok: true, output: stdout || '' }
+  } catch (error) {
+    // execSync 失败时 stdout/stderr 挂在 error 上(stdio: 'pipe')；写出去再返回。
+    const stdout = typeof error?.stdout === 'string' ? error.stdout : ''
+    const stderr = typeof error?.stderr === 'string' ? error.stderr : ''
+    process.stdout.write(stdout)
+    process.stderr.write(stderr)
+    console.error(`\n❌ ${label}失败，提交已阻止`)
+    return { ok: false, output: stdout + '\n' + stderr }
+  }
+}
+
+/**
+ * 从 guardian-runner 的 stdout 提取「总检查数 / 失败」汇总行。
+ * 拿不到(格式漂移/被杀) => total:null + timedOut:true —— 未判定，不冒 0。
+ */
+function parseGateSummary(output) {
+  const lines = stripAnsi(output).split(/\\r?\\n/)
+  let total = null
+  let failed = null
+  for (const line of lines) {
+    const m = line.match(/^\s*总检查数:\s*(\d+)/)
+    if (m) {
+      total = Number(m[1])
+    }
+    const f = line.match(/^\s*失败:\s*(\d+)/)
+    if (f) {
+      failed = Number(f[1])
+    }
+  }
+  // runner 只在 failed>0 时打印"失败:"行；没打印 = 0(不是解析不出)。
+  const timedOut = total === null
+  return { total, failed: timedOut ? null : (failed ?? 0), timedOut }
+}
+
 // ─── 轮次正证(round witness,2026-09-30 立)───────────────────────────
 // 要补的那一格:`scripts/plan-bypass-ledger-report.mjs` 想回答"这枚提交到底有没有被守门看过",
 // 但它过去的唯一正证是**去钩子日志里找一段与提交文件集逐字等值的回显** —— 那条件太脆:
@@ -117,8 +189,21 @@ const ROUND = {
   ts: new Date().toISOString(),
   headBefore: '',
   stagedFiles: [],
+  // safe-commit 经 env 传入的声明文件清单(逐行一项);普通 git commit 下 env 不存在 ⇒ []
+  // 空清单让 first-party 匹配落到 ⊆-weak 分支(见 plan-bypass-ledger-report.mjs L596+),这是设计而非缺陷
+  declaredFiles: (process.env.IHUI_DECLARED_FILES || '')
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean),
   gatesRan: false,
-  gatesPassed: null,
+  // 初始必须是 false(布尔),不能是 null —— 闸内任何提前 exit 时这条记录对统计器
+  // 仍可读(gatesPassed:false + gatesRan:false = "没跑到",而 null 在分类器眼里是坏形状)
+  gatesPassed: false,
+  failed: null,
+  total: null,
+  gatesTimedOut: false,
+  // 只读档:runner 一律以 --staged 跑(pre-commit 语义),此字段防统计器把它读成全量
+  stagedMode: true,
 }
 let roundWritten = false
 function writeRoundRecord(exitCode) {
@@ -602,9 +687,17 @@ try {
 } catch {
   /* 取不到就留空 ⇒ 这条记录对统计器等于"无从证",不会被误用 */
 }
-const gatesOk = run('🛡️ 运行守门脚本批量检查...', 'node scripts/guardian-runner.mjs --staged')
+const gates = runCapturing(
+  '🛡️ 运行守门脚本批量检查...',
+  'node scripts/guardian-runner.mjs --staged',
+)
+const gatesOk = gates.ok
+const gateSummary = parseGateSummary(gates.output)
 ROUND.gatesRan = true
 ROUND.gatesPassed = gatesOk
+ROUND.failed = gateSummary.failed
+ROUND.total = gateSummary.total
+ROUND.gatesTimedOut = gateSummary.timedOut
 if (!gatesOk) {
   process.exit(1)
 }
