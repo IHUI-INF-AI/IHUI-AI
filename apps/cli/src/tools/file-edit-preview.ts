@@ -43,7 +43,7 @@ export const FILE_EDIT_PREVIEW_KEYS: Readonly<Record<string, readonly string[]>>
 // ── 预算常量:与服务端 `_PREVIEW_*`(llm.py)逐值同形,改动必须两侧同步 ──
 /** 单次预览最多发出的帧数 */
 export const PREVIEW_MAX_FRAMES = 10;
-/** 每帧累积多少行(第 N 帧带前 N×40 行) */
+/** 每帧多少行(增量产帧:每帧只带本批 40 行) */
 export const PREVIEW_LINES_PER_FRAME = 40;
 /** 预览文本总行上限 */
 export const PREVIEW_MAX_LINES = 400;
@@ -84,16 +84,18 @@ export function fileEditPreviewText(
   return null;
 }
 
-/** 一帧预览:`partialText` 是**累积**文本(整帧替换渲染),`truncated` 只在末帧为真 */
+/** 一帧预览:`partialText` 是**本批新增行**(增量正文;非末批帧尾补一个 `\n`),`truncated` 只在末帧为真 */
 export interface PreviewFrame {
   partialText: string;
   truncated: boolean;
 }
 
 /**
- * 把预览文本切成累积帧序列 —— 与服务端 `_file_edit_preview_frames` 逐语义同形:
+ * 把预览文本切成**增量**帧序列 —— 与服务端 `_file_edit_preview_frames` 逐语义同形:
  * 先按 splitlines 切行,超 400 行或超 32K 码点即置 `truncated`,再逐行按字符预算裁剪
  * (裁剪命中也置 truncated 并**停止**追加),最后每 40 行出一帧、帧数封顶 10。
+ * 每帧只含**本批新增行**(`"\n".join(batch)`);非末批帧尾补一个 `"\n"`、末批不补 ——
+ * 依 seq 拼接全帧即 == `"\n".join(kept)`(全量正文一次到齐);单帧场景不补 `"\n"`。
  */
 export function fileEditPreviewFrames(text: string): PreviewFrame[] {
   const lines = pySplitlines(text);
@@ -111,8 +113,10 @@ export function fileEditPreviewFrames(text: string): PreviewFrame[] {
   const frames: PreviewFrame[] = [];
   for (let i = 0; i < kept.length; i += PREVIEW_LINES_PER_FRAME) {
     const isLastBatch = i + PREVIEW_LINES_PER_FRAME >= kept.length;
+    const batch = kept.slice(i, i + PREVIEW_LINES_PER_FRAME);
+    // 增量产帧:非末批帧尾补一个 '\n'(诚实标记"还有下一批"),末批不补
     frames.push({
-      partialText: kept.slice(0, i + PREVIEW_LINES_PER_FRAME).join('\n'),
+      partialText: isLastBatch ? batch.join('\n') : `${batch.join('\n')}\n`,
       truncated: truncated && isLastBatch,
     });
   }
@@ -141,9 +145,13 @@ export function buildFileEditPreviewEvents(
   );
 }
 
-/** 某一 toolCallId 当前的预览状态(整帧覆盖后的结果) */
+/** 某一 toolCallId 当前的预览状态(按 seq 收敛**追加**后的累积文本) */
 export interface ToolDeltaPreview {
-  partialText: string;
+  /** 已收敛的增量正文累积(按 seq 逐帧追加) */
+  partialDiff: string;
+  /** 已收敛到的最大 seq(收敛判据;缺省视为 0) */
+  partialSeq: number;
+  /** 该批预览被预算截断(400 行 / 32KB / 10 帧) */
   truncated: boolean;
 }
 
@@ -159,20 +167,20 @@ export function pickToolDeltaPreviewText(input: {
   preview: ToolDeltaPreview | undefined;
 }): string | null {
   if (!input.running) return null;
-  const text = input.preview?.partialText;
+  const text = input.preview?.partialDiff;
   return text ? text : null;
 }
 
 /**
- * 按 `toolCallId` 存流中预览 —— 与其余三端同一条状态语义:
- * **整帧覆盖**(payload 本就是累积文本,故同 seq 重放天然幂等,seq 不参与判断)、
+ * 按 `toolCallId` 存流中预览 —— 与其余消费端同一条状态语义:
+ * **按 seq 收敛追加**(载荷每帧只含本批新增行,故必须逐帧累积;乱序/重传由 seq 幂等丢弃)、
  * 空 `toolCallId` 丢弃、工具落终态(完成/失败)即清除(最终 diff 以 result 为准)。
  *
  * 为什么这一端需要一个本地 store 而不是直接渲染:预览文本可能一次到齐(本地派生)
  * 也可能逐帧到(将来接真流),渲染端只该读"当前累积值",而不是自己拼帧。
  */
 export interface ToolDeltaPreviewStore {
-  /** 应用一帧;`false` = 该帧被丢弃(空 toolCallId) */
+  /** 应用一帧;`false` = 该帧被丢弃(空 toolCallId / seq 落后于已收敛值) */
   apply(event: ToolDeltaEvent): boolean;
   get(toolCallId: string): ToolDeltaPreview | undefined;
   clear(toolCallId: string): void;
@@ -186,8 +194,13 @@ export function createToolDeltaPreviewStore(): ToolDeltaPreviewStore {
   return {
     apply(event) {
       if (!event || typeof event.toolCallId !== 'string' || event.toolCallId === '') return false;
+      const item = byId.get(event.toolCallId);
+      const last = item?.partialSeq ?? 0;
+      // 重传/乱序幂等:seq 不前进即整帧丢弃,零写入(缺口 seq>last+1 照追加:缺口不可回补,不因缺口丢新帧)
+      if (event.seq <= last) return false;
       byId.set(event.toolCallId, {
-        partialText: event.partialText,
+        partialDiff: (item?.partialDiff ?? '') + event.partialText,
+        partialSeq: event.seq,
         truncated: event.truncated === true,
       });
       return true;

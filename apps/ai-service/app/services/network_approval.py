@@ -53,7 +53,7 @@ from __future__ import annotations
 
 import ipaddress
 import logging
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
@@ -321,6 +321,27 @@ def pending_network_targets(
     return facts
 
 
+def select_grantable_target(
+    facts: Sequence[NetworkTargetFacts],
+) -> NetworkTargetFacts | None:
+    """从本次调用的目标清单里取**第一个可放行的**(静态策略没判死的那个)。
+
+    D159 补格(本函数存在的全部理由):写侧 `network_target_from_args` 与帧侧
+    `approval_env_payload` 过去各自取 `targets[0]`,而 `pending_network_targets` 的清单
+    **含被静态策略判死的本地目标** —— 于是"混带本地 + 公网"时帧上给用户看的是本地那个
+    (它永远不可能被放行,三档按钮挂在一个死目标上),而结算落库也落在那条永远不该存在的
+    规则上。更坏的是"全部目标都被判死"时仍会落一条本地免弹窗规则 —— 免弹窗改变不了静态
+    策略,落它等于把"永远该问"写成"永远不问"。
+
+    两处必须同形,所以选择规则**只有这一处实现**(§3「两处算同一件事必漂移」):
+    帧侧与写侧都调本函数,谁也不再自己 `[0]`。
+    """
+    for fact in facts:
+        if fact.reason is None:
+            return fact
+    return None
+
+
 def approval_env_payload(
     tool_name: str,
     args: Mapping[str, object] | None,
@@ -338,9 +359,10 @@ def approval_env_payload(
       ⇒ 弹窗必须显示"未上报",绝不显示"沙箱内/沙箱外";
     - ``available`` 为 True ⇒ 显示真值;``network_target`` 在位时才给三档按钮。
 
-    网络目标只取**第一个**当"本次要放行谁"(与 ``grant_network_target`` 落的键同一份,
-    所以弹窗上点下的档位与库里落的那条规则结构上不可能对不上);其余目标列进
-    ``blocked_network_targets`` 只展示不落档。
+    网络目标取**第一个可放行的**当"本次要放行谁"(与 ``grant_network_target`` 落的键同出一处
+    —— 两侧都走 ``select_grantable_target``,所以弹窗上点下的档位与库里落的那条规则结构上
+    不可能对不上);**已被静态策略判死的目标一律不当可放行目标报给用户**,它们只列进
+    ``blocked_network_targets`` 展示不落档。
     """
     if not ap.env_report_enabled(env):
         return {}
@@ -350,11 +372,12 @@ def approval_env_payload(
         {"available": True, **facts} if facts is not None else {"available": False}
     )
     targets = pending_network_targets(args, owner=owner)
-    if targets:
-        payload["network_target"] = targets[0].to_event_payload()
-        blocked = [t.to_event_payload() for t in targets if t.reason is not None]
-        if blocked:
-            payload["blocked_network_targets"] = blocked
+    grantable = select_grantable_target(targets)
+    if grantable is not None:
+        payload["network_target"] = grantable.to_event_payload()
+    blocked = [t.to_event_payload() for t in targets if t.reason is not None]
+    if blocked:
+        payload["blocked_network_targets"] = blocked
     return payload
 
 
@@ -365,9 +388,11 @@ def network_target_from_args(
 
     服务端把它存在待决条目里,结算时按它落规则 —— 客户端回传只有 scope,选不了目标
     (客户端能自报 target 就等于"批的是 A 连的是 B",本票第 2 条不可漂点名的形态)。
+
+    取值走 ``select_grantable_target``:全部目标都被静态策略判死时**返回 None**
+    (落一条本地/私网的免弹窗规则改变不了静态策略,只会把"永远该问"写成"永远不问")。
     """
-    targets = pending_network_targets(args, owner=owner)
-    return targets[0] if targets else None
+    return select_grantable_target(pending_network_targets(args, owner=owner))
 
 
 def grant_network_target(fact: NetworkTargetFacts, scope: str) -> bool:
@@ -717,6 +742,7 @@ __all__ = [
     "NetworkTargetFacts",
     "describe_network_target",
     "pending_network_targets",
+    "select_grantable_target",
     "network_target_from_args",
     "approval_env_payload",
     "grant_network_target",

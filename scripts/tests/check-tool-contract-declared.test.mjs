@@ -45,7 +45,8 @@ const COMPLETE = `export const demo: Tool = {
 };`
 
 const WITHOUT_SCOPE = gate.toScopelessContract(COMPLETE)
-const WITHOUT_BUDGET = COMPLETE.replace(/resultBudget: \{[^}]*\{[^}]*\}[^}]*\},/, 'legacy: 1,')
+// 缺 resultBudget 夹具走门体导出的同一份配方(§22c:本地再写一份正则就是两份真相)
+const WITHOUT_BUDGET = gate.toBudgetlessContract(COMPLETE)
 
 test('T1 §22c 锚点:__test__ 必须真导出核心判据函数(缺一个 = 测试在驱动空气)', () => {
   for (const key of [
@@ -92,7 +93,7 @@ test('T3 计数棘轮四向:只拦"把绕档加回来"(摘除那一型不归它�
 test('T4 flip-audit 只计"既无契约又无 dangerLevel"(第二阶段要拦的正是这批)', () => {
   const withDanger = gate.extractToolLiterals(BARE)
   assert.equal(gate.flipAuditOf(withDanger).length, 0)
-  const noDanger = gate.extractToolLiterals(BARE.replace(/  dangerLevel: 'read',\n/, ''))
+  const noDanger = gate.extractToolLiterals(gate.stripDangerLevelLine(BARE))
   assert.equal(gate.flipAuditOf(noDanger).length, 1)
   assert.equal(gate.flipAuditOf(gate.extractToolLiterals(COMPLETE)).length, 0, '挂了契约就不算缺省')
 })

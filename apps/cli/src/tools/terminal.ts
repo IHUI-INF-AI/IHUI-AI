@@ -245,7 +245,7 @@ export const terminal_open: Tool = {
         return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${terminal_open.name}` };
       }
     }
-    const preResult = runPreToolCall('terminal', { command, cwd: args.cwd ?? ctx.workspacePath });
+    const preResult = await runPreToolCall('terminal', { command, cwd: args.cwd ?? ctx.workspacePath });
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     // 沙箱预检(sandbox.enabled=true 时生效;默认关闭,完全向后兼容)

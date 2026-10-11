@@ -45,11 +45,13 @@ export interface ToolCallView {
   /** 本地计时的起点时间戳(tool-call-start 到达时刻),tool-result 时折算为 durationMs */
   startedAt?: number
   /**
-   * D113:工具流中 diff 预览(tool-delta 帧的累积文本,整帧覆盖写入)。
+   * D113:工具流中 diff 预览(tool-delta 帧的**增量**正文按 seq 收敛追加)。
    * 只在 running 态渲染;tool-result 到达即清(最终 diff 以 result 为准)。不入库。
    * 语义与 web 的 ToolCall.partialDiff、RN 的 ToolCallItem.partialDiff 同形。
    */
   partialDiff?: string
+  /** D113:已收敛消费的最大 tool-delta `seq`(缺省视为 0;收敛判据 `evt.seq>partialSeq`)。 */
+  partialSeq?: number
 }
 
 /** 端内状态词汇 → 共享层状态词汇(done 即 success),全端同一口径由 @ihui/shared/chat 消费 */
@@ -109,6 +111,7 @@ export function applyToolCallStart(
       serverName: evt.serverName,
       args: evt.args,
       partialDiff: prev?.partialDiff,
+      partialSeq: prev?.partialSeq,
       startedAt,
     },
   ]
@@ -117,18 +120,22 @@ export function applyToolCallStart(
 /**
  * D113(本票):tool-delta 帧归并进工具卡(纯函数,chat.tsx 消费)。
  *
- * 载荷 partialText 是**累积文本**,按 toolCallId 覆盖式写入 partialDiff —— 同 seq 重放 /
- * 乱序天然幂等(seq 不参与判断),与 web createToolDeltaHandler、RN applyToolDelta 同一口径。
+ * 载荷 partialText 是**增量正文**,按 toolCallId 以 seq 收敛**追加** —— `evt.seq<=已存 partialSeq`
+ * 即丢弃(重传/乱序幂等,缺口照追加),与 web createToolDeltaHandler、RN applyToolDelta 同一口径。
  * - 空 toolCallId → 整帧丢弃,零写入
  * - 列表里没有该 toolCallId(start 帧未到)→ 不凭空造条目,原样返回
  */
 export function applyToolDelta(
   calls: readonly ToolCallView[],
-  evt: Pick<ToolDeltaEvent, 'toolCallId' | 'partialText'>,
+  evt: Pick<ToolDeltaEvent, 'toolCallId' | 'seq' | 'partialText'>,
 ): ToolCallView[] {
   if (!evt.toolCallId) return [...calls]
   if (!calls.some((x) => x.id === evt.toolCallId)) return [...calls]
-  return calls.map((x) => (x.id === evt.toolCallId ? { ...x, partialDiff: evt.partialText } : x))
+  return calls.map((x) =>
+    x.id === evt.toolCallId && evt.seq > (x.partialSeq ?? 0)
+      ? { ...x, partialDiff: (x.partialDiff ?? '') + evt.partialText, partialSeq: evt.seq }
+      : x,
+  )
 }
 
 /** 计划步骤卡片数据(由 PlanUpdateEvent.plan 快照映射) */
@@ -185,7 +192,9 @@ export function clearTerminalWaiting(
   terminalId: string,
 ): TerminalTaskView[] {
   if (!terminalId) return tasks
-  return tasks.map((x) => (x.id === terminalId && x.waitingInput ? { ...x, waitingInput: false } : x))
+  return tasks.map((x) =>
+    x.id === terminalId && x.waitingInput ? { ...x, waitingInput: false } : x,
+  )
 }
 
 /** D19:terminal_delta 实时输出累加上限,对齐 web store appendTerminalOutput 的 20000 字符/键(防长命令刷爆 setData) */

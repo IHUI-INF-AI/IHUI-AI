@@ -36,6 +36,13 @@
 //      (它服务的是 acceptEdits 的免审批分支,不是可用性判定,不是同一格)。
 //   M5 表必须有消费者(防"造好没人用"的装饰品):resolve_mode_policy 必须在
 //      llm.py 与 agent_loop_v2.py 的代码面被调用。缺 ⇒ 红。
+//   M6 轮次负向面 turnScopedDenylist(G-998120,2026-10-07 拍板:禁):automation
+//      来源的那一轮,其 denylist 必须恰为「基础档 ∪ 轮次附加集」且不含对调用方
+//      传入集合的覆盖 —— 生效集只许由 merge_turn_scoped_denylist 一处并集实现产出
+//      (判据①合并体保留基础档、②构造器不许绕过合并赋值、③执行入口有再校验、
+//      ④automation 来源判定 + 附加集含自我续排工具、⑤收紧不写回会话/checkpoint,
+//      绑定会话不得被永久视为 automation 执行上下文)。锚点缺失(该面尚未长出
+//      第四维)⇒ 计「未判定」,与解析失败同档:不冒红也不记绿,提交链 exit 2 喊出。
 //
 // 三态口径同 70/77/83/98/101/103:全量判 HEAD blob、--staged 判索引 blob、
 // --worktree 仅人工、两面旗同给 exit 2;任一面取不到 ⇒ exit 2「无法判定」,
@@ -316,6 +323,9 @@ function countCalls(name, code) {
 export function decide(contents) {
   const problems = []
   const notes = []
+  // M6 起可产生「维度级未判定」(锚点缺失等),与输入级 missing 同桶:既不冒红
+  // 也不记绿,调用方(main/runAudit)据此折 exit 2。
+  const undetermined = []
   // 按**期望键集**判缺失,而不是"contents 里恰好有什么":空对象 / 少一份输入都必须算
   // 未判定。旧写法 `Object.entries(contents).filter(...)` 在 c9(零候选)那种输入上
   // 得到空 missing ⇒ 直接往下解析 undefined —— 判据崩溃冒充"通过"是本仓最贵的一型。
@@ -477,7 +487,90 @@ export function decide(contents) {
     }
   }
 
-  return { problems, notes, undetermined: [] }
+  // ---- M6 轮次负向面 turnScopedDenylist(G-998120,2026-10-07 拍板:禁)----
+  // 钉的病(上游同型:zcodeAgentService.buildConversationCommandEnvelope):
+  //   · 把轮次收紧实现成「整体替换调用方已有策略」—— 调用方传的 deny 一个不少
+  //     是底线,合并语义必须是 base ∪ additions;
+  //   · 把收紧粘到会话上 —— 绑定会话被永久视为 automation 执行上下文,用户后续
+  //     主动输入也丢自我续排能力;收紧必须按本轮派发来源,turn-scoped 不粘会话;
+  //   · automation 轮自己能 schedule_task / configure_automation_task 续排自己
+  //     —— 无限自我续排,上游同型即 CronUpdate/CronDelete 禁用。
+  // 判据全部按 agent_loop_v2.py 的**剥注释代码面**现读(注释/文档串里的散文
+  // 不进判据,同 M4 的教训)。锚点缺失 ⇒ 未判定(该面还没长出第四维,不冒红
+  // 也不记绿 —— 本门比被审代码先到检出时,提交链上以 exit 2 喊出来)。
+  const loopCode = codeSurfaces[FILES.pyAgentLoop]
+  if (!loopCode.includes('merge_turn_scoped_denylist')) {
+    undetermined.push(
+      'M6 turnScopedDenylist 锚点缺失(agent_loop_v2.py 无 merge_turn_scoped_denylist 合并实现)—— 第四维无从判定',
+    )
+  } else {
+    // ① 合并体:基础档与轮次附加集都进签名,且做 base | additions 并集
+    const mergeAt = loopCode.indexOf('def merge_turn_scoped_denylist')
+    const endCandidates = ['\nclass ', '\ndef ', '\nasync def ']
+      .map((m) => loopCode.indexOf(m, mergeAt + 1))
+      .filter((i) => i > 0)
+    const mergeBody = loopCode.slice(
+      mergeAt,
+      endCandidates.length > 0 ? Math.min(...endCandidates) : undefined,
+    )
+    if (!/caller_denylist/.test(mergeBody) || !/turn_additions/.test(mergeBody)) {
+      problems.push('M6 合并实现签名缺基础档(caller_denylist)/轮次附加集(turn_additions)参数')
+    }
+    if (!/base\s*\|\s*additions/.test(mergeBody)) {
+      problems.push(
+        'M6 合并实现丢弃基础档(未做 base | additions 并集)= 整体替换调用方传入集合 —— ' +
+          '派发轮收紧必须是「基础档 ∪ 轮次附加集」,不是替换',
+      )
+    }
+    // ② 构造器接线:生效集赋值必须全部经由合并函数(绕过即可能整体替换)。
+    //    注意 `[ \t]` 不是 `\s`:条件行 `if self._effective_denylist:` 的冒号后是
+    //    换行,若放行 `\s` 会跨行吞到下一行的 `=`,把普通条件判断误读成赋值。
+    const assigns = [
+      ...loopCode.matchAll(/self\._effective_denylist(?::[ \t]*[^=\n]+?)?=[ \t]*([^\n]+)/g),
+    ]
+    if (assigns.length === 0) {
+      problems.push('M6 AgentLoopV2 未接线轮次负向面(缺 self._effective_denylist 生效集)')
+    }
+    for (const [, rhs] of assigns) {
+      if (!rhs.includes('merge_turn_scoped_denylist(')) {
+        problems.push(
+          `M6 轮次负向面被绕过合并直接赋值(${rhs.trim().slice(0, 60)})—— ` +
+            '生效集只许出自 merge_turn_scoped_denylist,绕过即把调用方集合替换掉',
+        )
+      }
+    }
+    // ③ 漏斗再校验:执行入口必须有成员判定(schema 收窄只是单保险)
+    if (!/tc\.name\s+in\s+self\._effective_denylist/.test(loopCode)) {
+      problems.push('M6 执行入口缺轮次负向面再校验(tc.name in 生效集)—— 单保险会随 schema 漂移失守')
+    }
+    // ④ 来源判定 + 附加集内容:收紧按本轮派发来源,automation 轮含自我续排禁用
+    if (!/turn_source\s*==\s*['"]automation['"]/.test(loopCode)) {
+      problems.push(
+        'M6 缺 automation 来源判定(turn_source == "automation")—— 收紧必须按本轮派发来源,不得粘会话',
+      )
+    }
+    const automationAdds = parsePyFrozenset(loopCode, 'AUTOMATION_TURN_TOOL_DENYLIST')
+    for (const tool of ['schedule_task', 'configure_automation_task']) {
+      if (!automationAdds.has(tool)) {
+        problems.push(
+          `M6 automation 轮次附加集缺自我续排工具 ${tool}(上游同型:CronUpdate/CronDelete 禁用)`,
+        )
+      }
+    }
+    // ⑤ 不粘会话:负向面不得与持久化状态写入同处出现
+    const leakLines = loopCode
+      .split('\n')
+      .filter((l) => /turn_denylist|_effective_denylist|AUTOMATION_TURN_TOOL_DENYLIST/.test(l))
+      .filter((l) => /(checkpoint|metadata|session_store|redis)/i.test(l))
+    if (leakLines.length > 0) {
+      problems.push(
+        `M6 轮次负向面疑似写回会话/持久化状态(${leakLines.length} 行)—— ` +
+          '收紧只作用于本轮,绑定会话不得被永久视为 automation 执行上下文',
+      )
+    }
+  }
+
+  return { problems, notes, undetermined }
 }
 
 function readContents(root, face) {
@@ -636,6 +729,58 @@ function selfTest() {
   const c9 = {}
   t('零候选(全空面)不得被算作通过', decide(c9).undetermined.length > 0)
 
+  // ---- M6 turnScopedDenylist(G-998120)变异一律走 decide() 生产入口 ----
+  const loopSrc = base[FILES.pyAgentLoop]
+
+  const c10 = clone()
+  // 正例:非 automation 轮不传轮次附加集(附加集为空)是合法形状,不得判红
+  c10[FILES.pyAgentLoop] = loopSrc.replace(
+    'AUTOMATION_TURN_TOOL_DENYLIST if turn_source == "automation" else None',
+    'frozenset() if turn_source == "automation" else None',
+  )
+  t(
+    'M6 正例:轮次附加集为空(非 automation 轮)不得判红',
+    c10[FILES.pyAgentLoop] !== loopSrc &&
+      !decide(c10).problems.some((s) => s.startsWith('M6')),
+  )
+
+  const c11 = clone()
+  // 反例:合并体丢弃基础档(return additions)= 整体替换调用方传入集合 ⇒ 必红
+  c11[FILES.pyAgentLoop] = loopSrc.replace('return base | additions', 'return additions')
+  t(
+    'M6 反例:合并体丢弃基础档(整体替换调用方集合)必红',
+    c11[FILES.pyAgentLoop] !== loopSrc &&
+      decide(c11).problems.some((s) => s.startsWith('M6') && s.includes('整体替换')),
+  )
+
+  const c12 = clone()
+  // 反例:构造器绕过合并、直接用附加集赋值生效集(基础档被替换)⇒ 必红
+  c12[FILES.pyAgentLoop] = loopSrc.replace(
+    /self\._effective_denylist(?::\s*frozenset\[str\])?\s*=\s*merge_turn_scoped_denylist\(\s*deny_tools,\s*turn_denylist\s*\)/,
+    'self._effective_denylist: frozenset[str] = frozenset(turn_denylist or ())',
+  )
+  t(
+    'M6 反例:生效集绕过合并直接取附加集(基础档被替换)必红',
+    c12[FILES.pyAgentLoop] !== loopSrc &&
+      decide(c12).problems.some((s) => s.startsWith('M6') && s.includes('绕过合并')),
+  )
+
+  const c13 = clone()
+  // 反例:收紧写回 checkpoint 元数据(粘会话,绑定会话被永久视为 automation)⇒ 必红
+  c13[FILES.pyAgentLoop] = loopSrc + '\ncheckpoint_data["metadata"]["turn_denylist"] = 1\n'
+  t(
+    'M6 反例:轮次负向面写回 checkpoint 元数据(粘会话)必红',
+    decide(c13).problems.some((s) => s.startsWith('M6') && s.includes('写回')),
+  )
+
+  const c14 = clone()
+  // 锚点缺失(旧 HEAD 面尚未长出第四维)⇒ 计未判定,不冒红也不记绿
+  c14[FILES.pyAgentLoop] = 'TOOLS = {}\n'
+  t(
+    'M6 锚点缺失 ⇒ 计未判定(不冒红不记绿)',
+    decide(c14).undetermined.some((s) => s.startsWith('M6')),
+  )
+
   // 解析器自身的形状锁:TS 括号配平不许被嵌套结构带偏
   const nested = parseTsDict(base[FILES.tsRegistry], 'CHAT_PERMISSION_TOOL_MATRIX')
   t(
@@ -694,7 +839,8 @@ function main() {
   if (res.problems.length === 0) {
     console.log(
       `✅ 模式×权限档矩阵对账通过:${CHAT_MODES.length}×${PERM_MODES.length} 格两侧逐格等值、` +
-        `与三轴推导一致,契约表/只读白名单同值,交集实现处唯一,出口有生产调用点(面=${face})`,
+        `与三轴推导一致,契约表/只读白名单同值,交集实现处唯一,出口有生产调用点,` +
+        `轮次负向面 turnScopedDenylist 为基础档∪附加集且不粘会话(面=${face})`,
     )
     process.exit(0)
   }

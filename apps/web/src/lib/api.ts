@@ -9,6 +9,7 @@ import {
   setDeviceFingerprintProvider,
   setUnauthorizedHandler,
   fetchApi as fetchApiShared,
+  TransientRefreshError,
 } from '@ihui/api-client'
 import type { ApiResult } from '@ihui/types'
 import { useAuthStore } from '@/stores/auth'
@@ -17,13 +18,37 @@ import { getAuthCookie } from '@/lib/cookie-utils'
 import { getDesktopRefreshToken, setDesktopRefreshToken } from '@/lib/desktop-token-vault'
 import { resolveApiBaseUrl, resolveStreamApiBaseUrl } from '@/lib/api-base-url'
 import { webDeviceFingerprintCollector } from '@/hooks/use-device-fingerprint'
-import { canSilentlyReLogin } from '@ihui/shared/auth/auto-login-policy'
+import {
+  canSilentlyReLogin,
+  classifyRefreshFailureStatus,
+  type RefreshFailureKind,
+} from '@ihui/shared/auth/auto-login-policy'
 import { isSessionLoggedOut } from '@/lib/session-marker'
 
 // 2026-07-25 修复 CSRF:内存 token 为 null 时从 auth_token cookie 兜底读取。
-// P2-18 修复(2026-08-06):auth_token 已 httpOnly,getAuthCookie() 恒返回 null,
+// P2-18 修复(2026-08-06):auth_token 已 httpOnly,前端 JS 读不到 cookie,
 // 该兜底自然失效——请求凭内存 token 发 Bearer;内存无 token 时由浏览器自动附带
 // httpOnly cookie(api-client transport 默认 credentials: 'include')兜底认证。
+
+/**
+ * 最近一次静默刷新失败的性质(2026-10-09 根治「自动登录总被清掉」)。
+ *
+ * `refreshAccessTokenOnce`(api-client)只回传 `string | null`,丢失了「为什么失败」——
+ * 而 bootstrap 恰恰需要它来决定这次失败**要不要升级成持久登出标记**:
+ * - `rejected`(401/403):凭据被服务端明确否定 → 允许 logout() 落标记;
+ * - `transient`(网络错误/超时/5xx,api 重启窗口最常见):凭据没死,只是问不出答案 →
+ *   绝不能落标记,否则 api 重启一次就把 30 天 refresh cookie 永久废掉,用户被迫重登。
+ *
+ * 成功刷新置回 `null`。进程内单例即够:写它(刷新实现)与读它(bootstrap 冷启动)
+ * 同属一次冷启动的同一 JS 上下文;跨标签页各自有各自的刷新链。
+ */
+let lastRefreshFailure: RefreshFailureKind | null = null
+
+/** 读取最近一次静默刷新失败的性质;成功过/从未失败返回 null。 */
+export function getLastRefreshFailure(): RefreshFailureKind | null {
+  return lastRefreshFailure
+}
+
 setTokenProvider({
   getToken: () => useAuthStore.getState().token ?? getAuthCookie(),
   // 2026-08-06 401 自动续期:access token 过期(15min)时,api-client 收到 401 会调用
@@ -39,6 +64,10 @@ setTokenProvider({
     // 判据住在 @ihui/shared/auth/auto-login-policy;清除点在登录写入凭据时(stores/auth.ts setToken)。
     if (!canSilentlyReLogin({ sessionLoggedOut: isSessionLoggedOut })) return null
     const storedRefresh = await getDesktopRefreshToken() // 浏览器返回 null → cookie 模式不变
+    // 2026-10-09:失败分型在此落账。fetchApi 网络错误/超时返回无 status 的
+    // { success:false }(见 api-client client.ts fetchOnce→normalizeErrorToResult),
+    // 5xx 带 status —— 二者都是瞬时不可用,只有 401/403 才是凭据被明确拒绝。
+    // 分型供 bootstrap(use-auth-bootstrap)决定要不要 logout() 落持久登出标记。
     const res = await fetchApiShared<{
       accessToken: string
       refreshToken?: string | null
@@ -48,10 +77,18 @@ setTokenProvider({
     })
     if (res.success && res.data?.accessToken) {
       // 更新内存 token;新 refreshToken 由 setToken 写回 vault(桌面)或仅内存(浏览器 cookie 轮转)
+      lastRefreshFailure = null
       useAuthStore.getState().setToken(res.data.accessToken, res.data.refreshToken ?? null)
       return res.data.accessToken
     }
-    // 刷新失败 = refreshToken 已失效:清空桌面 vault,避免每次启动重复失败空转
+    // 刷新失败:先按唯一判据出口落账(bootstrap 的 getLastRefreshFailure 依赖"先记录"这个顺序)。
+    lastRefreshFailure = classifyRefreshFailureStatus(res.status)
+    // 2026-10-09 分型:瞬时失败(网络/超时/5xx/无 status)抛 TransientRefreshError ——
+    // refreshAccessTokenOnce 会 catch 住(进冷却 + 置 wasLastRefreshTransient,401 出口
+    // 据此跳过 notifyUnauthorized),不外溢给调用方;同时**不能**清桌面 vault:凭据没被
+    // 服务端否定,清了下次冷启动就真的无 token 可刷 —— 正是"自动登录总被清掉"的一条腿。
+    if (lastRefreshFailure === 'transient') throw new TransientRefreshError()
+    // rejected(401/403) = refreshToken 已失效:清空桌面 vault,避免每次启动重复失败空转
     if (storedRefresh) await setDesktopRefreshToken(null)
     return null
   },
