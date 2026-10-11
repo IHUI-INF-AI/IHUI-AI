@@ -28,8 +28,11 @@ import {
 } from '../lib/ledger-move-aware.mjs'
 import { parseCompletedTaskBlocks } from '../lib/plan-task-headings.mjs'
 import { maskComments } from '../lib/code-mask.mjs'
+// 夹具的 git 一律走 §5b 唯一出口(与被测工具同一份解析):写死本机安装路径在另一台机
+// (G 盘 checkout)上落点不同 ⇒ 镜像测试自己先 ENOENT,工具修没修好都测不出来(G-1018289)。
+import { resolveGitBin } from '../lib/gitdir.mjs'
 
-const GIT = 'C:/Program Files/Git/cmd/git.exe'
+const GIT = resolveGitBin() || 'git'
 
 function fixture() {
   const dir = mkScratch('union-it-')

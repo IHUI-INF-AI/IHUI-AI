@@ -89,6 +89,12 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { catBatch, FACE_LABEL, gitBinary, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+// 旁路落地通道(commit-tree + CAS)**结构上不跑钩子** ⇒ 必须留痕,写口只有一份:
+// `lib/bypass-git.mjs` 的 `attestBypassCommit`(2026-10-11 立)。此前本器的 `--heal --commit`
+// 落的恢复型提交在留痕台账里一行都没有(现读 `plan-bypass-ledger-report.mjs --since 2026-10-09`
+// 的 18 枚"本机可疑"里 10 枚是本器产物),总量统计只能把它们留在 unknown ——
+// 那与"有人 --no-verify 塞了一枚红"在两行文本上完全同形,而两者该做的处置相反。
+import { attestBypassCommit } from './lib/bypass-git.mjs'
 // 取证夹具唯一落点(§26:既不得往 os.tmpdir() 写,也不得落在仓库树内)
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 // G-307(看守侧):归并器合法翻勾会在行上留注记 —— legacy 形态把注记**前置**在正文之前,
@@ -945,12 +951,23 @@ export function healLegs(seen, { disk, head, index }) {
  *
  * @param {number} seenSize 基线登记行条数(射程读数,必须与缺失一起报名)
  * @param {object} legs `healLegs` 的返回值
+ * @param {object|null} [loop] `loopTripsForMarkers` 的结果(G-307 票一③ 熔断)。
+ *   在场且有命中时,工作树/HEAD 两档的报数行各带 `(可回捞 N / 熔断 M)` —— 报数必须把
+ *   "缺多少"与"这轮还能动多少"分开,否则读数看起来像漏做了;**索引档不带**:它是只点名
+ *   不写盘的档,既无自动动作可熔断,也照旧只报名。无命中时渲染与接入前逐字节一致。
  * @returns {string[]} 第一行是三档总读数,其后每档非绿一行(未判定单列,不并进"缺 0 条")
  */
-export function healLegRoster(seenSize, legs) {
+export function healLegRoster(seenSize, legs, loop = null) {
   const count = (list) => (list === null ? '未判定' : `${list.length} 条`)
+  const trippedSet =
+    loop && loop.tripped && loop.tripped.length ? new Set(loop.tripped.map((t) => t.marker)) : null
+  const tag = (list) => {
+    if (!trippedSet || !list || !list.length) return ''
+    const doable = list.filter((m) => !trippedSet.has(m.marker)).length
+    return doable === list.length ? '' : `(可回捞 ${doable} / 熔断 ${list.length - doable})`
+  }
   const lines = [
-    `   [分档] 历史登记行 ${seenSize} 条 ⇒ 工作树副本缺 ${count(legs.disk)} / HEAD 提交树缺 ${count(legs.head)} / 索引副本缺 ${count(legs.index)}` +
+    `   [分档] 历史登记行 ${seenSize} 条 ⇒ 工作树副本缺 ${count(legs.disk)}${tag(legs.disk)} / HEAD 提交树缺 ${count(legs.head)}${tag(legs.head)} / 索引副本缺 ${count(legs.index)}` +
       `(三档含义不同:前者多为滞后的在飞副本,HEAD 才是已入库行被合掉,索引是下一次提交真要带走的那份)`,
   ]
   for (const [label, list] of [
@@ -1050,6 +1067,160 @@ export function assessHealScale(missingCount, seenCount, ratio = healSuspectRati
     }
   }
   return { ok: true, ratio: r, reason: '' }
+}
+
+/**
+ * ── 两层自动化的**互咬熔断**(2026-09-28 立,G-307 票一③)──────────────────
+ *
+ * 病根(现读复现,不是票面写的"正文截断在 `归因未定:` 处"—— 那一版早被改掉,而循环仍在跑):
+ * 归并器翻勾旧形态把**说明插在正文前面** ⇒ 行首不再是编号 ⇒ 本门的 `registrationOf` 对这一行
+ * 返回 null、`headIdSet` 里该编号消失 ⇒ `stillRegistered` 判"登记行消失" ⇒ post-commit 回捞层
+ * 把**未翻勾原文**补回 ⇒ 门 130 的 F1 再红 ⇒ 再归并再插。两小时 12 枚 `自愈被回写` +
+ * 12 枚 `自动回捞`、同一主键 G-256 被 6 枚提交反复回捞就是这么产出的。
+ * 修法分两半:① **生产者侧**改写形态(正文留在行首 —— 见 `plan-tasks-merge.mjs` 的 rewriteFork,
+ * 并由 `verifyMerge` 的门 71 存续性断言钉住);② 就是本层 —— 给循环本身装刹车,
+ * 因为"根因已除"这句话在并发环境里从来不是事实(别人跳门、别的旧形态残留、别的会话带回旧基线
+ * 都会让同一 marker 再进循环,而那时没有任何东西喊停)。
+ *
+ * 定级(§12e 的规矩照抄,不重新发明):熔断**不参与退出码**。自动档少做一件事不是错误,
+ * 而一台与任何提交都无关的恒红门唯一结局是逼人 `--no-verify`、连带废掉全部守门。
+ * 判不出(git 问不到 / 浅克隆 / 无提交 / 无父)⇒ **未判定**:照旧执行 + 大声点名原因,
+ * 绝不把"没量到"读成"没有在循环",也绝不读成"在循环"。
+ *
+ * 触碰计数只认**两个自动层的产出提交**(提交信息前缀是唯一能把"机器写的提交"与"人写的提交"
+ * 分开的信号,且它就在提交对象里,无需额外状态文件 = 无需会腐烂的登记表)。
+ */
+export const LOOP_WINDOW_COMMITS_DEFAULT = 12
+export const LOOP_BREAKER_MIN_TOUCHES_DEFAULT = 3
+/** 本仓两层自愈各自的提交信息前缀(唯一真相:两处 `commit-tree` 的 message 首行)。 */
+export const AUTO_LAYER_SUBJECT_RE =
+  /^(?:docs\(plan\): 自动回捞|fix\(plan\): 自愈被回写的任务状态副本)/
+/** 一次熔断检查最多问多少个 marker(超出的照实报"未判定",不猜也不放行不吭声)。 */
+export const LOOP_BREAKER_MAX_MARKERS = 24
+
+function numFromEnv(raw, def) {
+  if (raw === undefined || raw === '') return def
+  const v = Number(raw)
+  return Number.isInteger(v) && v > 0 ? v : def
+}
+export function loopWindowCommits() {
+  return numFromEnv(process.env.IHUI_PLAN_LOOP_WINDOW_COMMITS, LOOP_WINDOW_COMMITS_DEFAULT)
+}
+export function loopBreakerMin() {
+  return numFromEnv(process.env.IHUI_PLAN_LOOP_BREAKER_MIN, LOOP_BREAKER_MIN_TOUCHES_DEFAULT)
+}
+
+/**
+ * 熔断判定的**纯函数部分**:给了触碰清单,是否该停?
+ * 只有"来自自动层的提交"才计票(人工/归并出口 `--dedupe-*` 的提交是人在动,不该算循环)。
+ * 单独抽出来是因为镜像测试要用**构造面**证明它有牙(真仓的提交数不是判据,是瞬时状态 ——
+ * 守门 103 T12 那一课:证明行为只能用纯函数 + 构造面)。
+ */
+export function loopBreakerDecision(entries, min = loopBreakerMin()) {
+  const auto = (entries ?? []).filter((e) => e && AUTO_LAYER_SUBJECT_RE.test(String(e.subject ?? '')))
+  return { touches: auto.length, tripped: auto.length >= min, sample: auto.slice(0, 4) }
+}
+
+const LOOP_TOUCH_CACHE = new Map()
+/**
+ * 量某个 marker 在近 W 枚"碰过计划文档的提交"里被**自动层**触碰了几次。
+ * 窗口用提交数而不是时间:`--since` 在两台机器时钟不一致时给出的答案会漂,而本判据要的
+ * 恰好是"循环在跑"这个节奏感(两小时 24 枚那一型,用 12 枚提交窗口足以看见)。
+ */
+export function autoTouchesOfMarker(marker, { windowCommits = loopWindowCommits(), root = ROOT } = {}) {
+  if (typeof marker !== 'string' || !marker) return { undetermined: 'marker 为空(无从计数)' }
+  const key = `${root}\u0000${windowCommits}\u0000${marker}`
+  if (LOOP_TOUCH_CACHE.has(key)) return LOOP_TOUCH_CACHE.get(key)
+  const out = {}
+  try {
+    // 窗口取"近 W+1 枚动过计划文档的提交":第 W+1 枚就是左边界(它本身不算在窗口内)。
+    // 这样**不需要** `oldest^` —— 而 `oldest^` 在"窗口覆盖到根提交"的仓里(独立仓夹具、新仓)
+    // 必然失败,失败就会让熔断在最需要它的现场判不出(第一版就栽在这里:T19 的夹具仓
+    // 只有 6 枚提交,窗口左端正是根提交 ⇒ 熔断静默不响,循环照跑)。
+    const win = gitRaw(
+      ['log', `-n${windowCommits + 1}`, '--format=%H%x09%s', '--', PLAN],
+      root,
+      { timeout: GIT_TIMEOUT },
+    )
+      .split('\n')
+      .filter(Boolean)
+      .map((l) => {
+        const [sha, ...rest] = l.split('\t')
+        return { sha, subject: rest.join('\t') }
+      })
+    if (win.length < 2) {
+      out.undetermined = `窗口内只有 ${win.length} 枚提交动过计划文档(浅克隆/新仓,无从判循环)`
+      LOOP_TOUCH_CACHE.set(key, out)
+      return out
+    }
+    // 窗口左端只有"它自己也有父提交"时才能用 `<oldest>^..HEAD` 这个 range。
+    // 独立仓夹具、新克隆、或整段历史恰好只有 W 枚提交时,oldest 就是根提交 —— `oldest^` 直接
+    // 报 unknown revision,取数失败被读成"未判定",于是熔断在**最需要它的现场静默不响**
+    // (T19 第一版就是这么跑成"落地"而不是"熔断"的)。此时窗口=整段历史,不加 range。
+    const oldest = win[Math.min(windowCommits, win.length) - 1].sha
+    const hasParent = (() => {
+      try {
+        return gitRaw(['rev-parse', '--verify', '-q', `${oldest}^`], root, { timeout: GIT_TIMEOUT }).trim() !== ''
+      } catch {
+        return false
+      }
+    })()
+    const rangeSpec = win.length >= windowCommits && hasParent ? `${oldest}^..HEAD` : null
+    let hits
+    try {
+      hits = gitRaw(
+        ['log', ...(rangeSpec ? [rangeSpec] : []), `-S${marker}`, '--format=%H%x09%s', '--', PLAN],
+        root,
+        { timeout: GIT_TIMEOUT },
+      )
+    } catch (e) {
+      out.undetermined = `git log 取不到(${String(e?.message ?? e).split('\n')[0].slice(0, 90)})`
+      LOOP_TOUCH_CACHE.set(key, out)
+      return out
+    }
+    out.entries = hits
+      .split('\n')
+      .filter(Boolean)
+      .map((l) => {
+        const [sha, ...rest] = l.split('\t')
+        return { sha, subject: rest.join('\t') }
+      })
+    // 窗口首尾两枚都要算:range 的左端 `oldest^..` 含 oldest 本身
+    out.window = win.length
+    return out
+  } finally {
+    if (!LOOP_TOUCH_CACHE.has(key)) LOOP_TOUCH_CACHE.set(key, out)
+  }
+}
+
+/**
+ * 一批 marker ⇒ 哪些必须熔断。调用方(两层自愈)据此**跳过这些行的自动动作**并大声点名。
+ * @returns {{tripped:Array<{marker:string,touches:number,commits:string[]}>,undetermined:Array<{marker:string,reason:string}>,notTripped:string[],checked:number,capped:number}}
+ */
+export function loopTripsForMarkers(markers, opts = {}) {
+  const uniq = [...new Set((markers ?? []).filter(Boolean))]
+  const capped = Math.max(0, uniq.length - LOOP_BREAKER_MAX_MARKERS)
+  const tripped = []
+  const undetermined = []
+  const notTripped = []
+  for (const marker of uniq.slice(0, LOOP_BREAKER_MAX_MARKERS)) {
+    const got = autoTouchesOfMarker(marker, opts)
+    if (got.undetermined) {
+      undetermined.push({ marker, reason: got.undetermined })
+      continue
+    }
+    const d = loopBreakerDecision(got.entries)
+    if (d.tripped)
+      tripped.push({
+        marker,
+        touches: d.touches,
+        commits: d.sample.map((s) => `${String(s.sha).slice(0, 9)} ${s.subject.slice(0, 44)}`),
+      })
+    else notTripped.push(marker)
+  }
+  for (const marker of uniq.slice(LOOP_BREAKER_MAX_MARKERS))
+    undetermined.push({ marker, reason: `超出单次熔断检查上限 ${LOOP_BREAKER_MAX_MARKERS}` })
+  return { tripped, undetermined, notTripped, checked: uniq.length, capped }
 }
 
 /**
@@ -2274,14 +2445,57 @@ function heal(commit) {
   const headMissing = legs.head
   const indexMissing = legs.index
   /**
+   * ── 循环熔断(G-307 票一③)──
+   * 同一 marker 在近若干枚提交里被**两个自动层**反复触碰 ⇒ 这不是"行丢了",而是两层互咬:
+   * 回捞补回的未勾形态会立刻被门 130 再翻勾,再翻勾又被本层读成丢行。此时继续自动动作
+   * 只会往共享历史里塞成对的空转提交,并把别人的真实丢失淹在噪声里。
+   * 处置:**跳过这些行的自动动作 + 大声点名 + 退出码仍为 0**(自动档少做一件事不是错误;
+   * 把它做成 blocking 就是与任何提交无关的恒红门,唯一结局是逼人 --no-verify —— §12e 同型)。
+   * 判不出 ⇒ 照旧执行并点名"未判定",绝不把"没量到"读成"在循环"或"不在循环"。
+   * 只问工作树 + HEAD 两档的 marker:**索引档是只点名不写盘的档**,没有自动动作可言,
+   * 不进熔断筛选、照旧只报名。
+   */
+  const loop = loopTripsForMarkers([...diskMissing, ...headMissing].map((m) => m.marker), {
+    root: ROOT,
+  })
+  const trippedMarkers = new Set(loop.tripped.map((t) => t.marker))
+  const diskDoable = diskMissing.filter((m) => !trippedMarkers.has(m.marker))
+  const headDoable = headMissing.filter((m) => !trippedMarkers.has(m.marker))
+  if (loop.tripped.length) {
+    console.error(
+      `🛑 [plan-line-loss] 循环熔断:${loop.tripped.length} 个 marker 在近 ${loopWindowCommits()} 枚提交内被自动层触碰 ≥${loopBreakerMin()} 次 —— **本轮不回捞这些行**(少做一件事不是错误,交人工判):`,
+    )
+    for (const t of loop.tripped)
+      console.error(
+        `     · 「${t.marker}」触碰 ${t.touches} 次 —— ${t.commits.join(' / ')}\n       出路:确认归并器的翻勾形态是否又把行首编号挪走(现判据:正文必须留在行首),人工把这行定成"已完成"或"仍在做"并写明归属,而不是让两个自动层继续互相顶。`,
+      )
+  }
+  if (loop.undetermined.length)
+    console.error(
+      `   ℹ️ 熔断未判定 ${loop.undetermined.length} 个 marker(${loop.undetermined
+        .slice(0, 3)
+        .map((u) => `${u.reason}`)
+        .join(' / ')}${loop.undetermined.length > 3 ? ' …' : ''})—— 照旧回捞,不据"没量到"下结论`,
+    )
+  /**
    * 三档结论**分开报**,不得合成一个数(2026-09-26):"工作树缺"通常是别人那份滞后的在飞副本,
    * 处置是等它自己的持有者提交;"HEAD 缺"才是已入库的行被旁路提交合掉,处置是前向恢复提交;
    * "索引缺"是下一次提交真要带走的那份,处置是把索引拉回 HEAD(只动暂存面,不动工作树)。
    * 混成一个结论会让人拿工作树去"修"HEAD(= §12 禁止的覆盖),或反之把该恢复的行当成噪音跳过。
    */
-  for (const line of healLegRoster(seen.size, legs)) console.log(line)
+  for (const line of healLegRoster(seen.size, legs, loop)) console.log(line)
   if (legs.allClean) {
     console.log(`✅ [plan-line-loss] 扫描 ${seen.size} 条登记行:无缺失,无需回捞`)
+    return 0
+  }
+  /**
+   * 熔断命中后 `allClean` 不再是正确的早退判据:它只问"缺不缺",而此刻"缺的那些全在熔断清单里"
+   *  ⇒ 缺、但本轮无事可做。所以早退分两句:三面全绿走上面那句既有文案;两档可写盘的缺失
+   * 全部落在熔断清单里走这一句(索引档只点名不写盘,不掺进"有没有事可做"的判断)。
+   * 退出码恒为 0(§12e):熔断不参与退出码,自动档少做一件事不是错误。
+   */
+  if (loop.tripped.length && diskDoable.length === 0 && headDoable.length === 0) {
+    console.log('🛑 [plan-line-loss] 本轮只发现熔断项 ⇒ 不回捞、不建提交(退出码 0:自动档少做一件事不是错误)')
     return 0
   }
   // 规模安全闸:回捞量异常 ⇒ 判为基线错(活文档被并发重排/改写措辞),拒绝自动写盘。
@@ -2308,21 +2522,21 @@ function heal(commit) {
   }
   let inserted = 0
   let appended = 0
-  if (diskMissing.length) {
-    const healed = healContent(disk, diskMissing)
+  if (diskDoable.length) {
+    const healed = healContent(disk, diskDoable)
     inserted = healed.inserted
     appended = healed.appended
     console.warn(
-      `⚠️  [plan-line-loss] 工作区缺 ${diskMissing.length} 条登记行 → 回插 ${inserted} 条(邻居在)+ ${appended} 条(追加):`,
+      `⚠️  [plan-line-loss] 工作区缺 ${diskDoable.length} 条登记行(另有 ${diskMissing.length - diskDoable.length} 条已熔断不回捞)→ 回插 ${inserted} 条(邻居在)+ ${appended} 条(追加):`,
     )
-    for (const m of diskMissing) console.warn(`     · ${m.marker}(回捞自 ${src7(m)})`)
+    for (const m of diskDoable) console.warn(`     · ${m.marker}(回捞自 ${src7(m)})`)
     if (healed.out !== disk) writeFileSync(path.join(ROOT, PLAN), healed.out, 'utf8')
   }
-  if (headMissing.length) {
+  if (headDoable.length) {
     console.warn(
-      `⚠️  [plan-line-loss] HEAD 缺 ${headMissing.length} 条登记行(被旁路提交合掉,工作区可能仍留着):`,
+      `⚠️  [plan-line-loss] HEAD 缺 ${headDoable.length} 条登记行(被旁路提交合掉,工作区可能仍留着;另有 ${headMissing.length - headDoable.length} 条已熔断不回捞):`,
     )
-    for (const m of headMissing) console.warn(`     · ${m.marker}(HEAD 侧,回捞自 ${src7(m)})`)
+    for (const m of headDoable) console.warn(`     · ${m.marker}(HEAD 侧,回捞自 ${src7(m)})`)
   }
   /**
    * 索引档(G-816708 补的第三个比较目标):**只点名,不回写**。
@@ -2357,7 +2571,7 @@ function heal(commit) {
    * 所以这里只报"标题行已回插、层级需人工归并",绝不打"整节已恢复"这类做不到的结论。
    */
   const headingLost = new Map()
-  for (const m of [...diskMissing, ...headMissing])
+  for (const m of [...diskDoable, ...headDoable])
     if (m.shape === 'heading' && !headingLost.has(m.marker)) headingLost.set(m.marker, m)
   if (headingLost.size) {
     const ids = [...new Set([...headingLost.values()].map((m) => m.id ?? m.marker))].join('、')
@@ -2376,12 +2590,14 @@ function heal(commit) {
     console.log('   (未加 --commit:只写工作区,不建提交)')
     return 0
   }
-  if (headMissing.length === 0) {
+  if (headDoable.length === 0) {
     console.log(
-      '   HEAD 已含全部登记行,无需建恢复提交' +
-        (indexMissing && indexMissing.length
-          ? `(但**索引档那 ${indexMissing.length} 行仍未收口** —— 本层不回写共享索引,处置见上面索引档)`
-          : ''),
+      headMissing.length > 0
+        ? `   HEAD 缺的 ${headMissing.length} 条全部落在熔断清单里 ⇒ 不建恢复提交(交人工,见上面 🛑)`
+        : '   HEAD 已含全部登记行,无需建恢复提交' +
+          (indexMissing && indexMissing.length
+            ? `(但**索引档那 ${indexMissing.length} 行仍未收口** —— 本层不回写共享索引,处置见上面索引档)`
+            : ''),
     )
     return 0
   }
@@ -2390,17 +2606,23 @@ function heal(commit) {
   mkdirSync(path.dirname(msgFile), { recursive: true })
   // 提交用的基线**必须是 HEAD**,不能用刚写盘的工作区内容 —— 工作区可能带着别人
   // 尚未提交的行,拿去建提交等于代收(§12 暂存区污染红线)。
-  const healedHead = healContent(head, headMissing).out
+  const healedHead = healContent(head, headDoable).out
   if (healedHead === head) {
     console.log('   回捞后 HEAD 内容与当前一致,不建空提交')
     return 0
   }
   writeFileSync(
     msgFile,
-    `docs(plan): 自动回捞 ${headMissing.length} 条被并发旧基线提交抹掉的登记行\n\n` +
+    // 首行的 `docs(plan): 自动回捞` 前缀是循环熔断认"这一枚出自自动层"的**唯一**凭据
+    // (AUTO_LAYER_SUBJECT_RE),改写措辞可以,前缀不许挪 —— 挪了熔断就看不见自己的产出,
+    // 而熔断看不见产出等于没有熔断(§22c"判据必须覆盖门自己产出的形态")。
+    `docs(plan): 自动回捞 ${headDoable.length} 条被并发旧基线提交抹掉的登记行\n\n` +
       `由 scripts/check-plan-line-loss.mjs --heal --commit 生成:按最近历史逐条取回原文,` +
       `插回各自邻居之后(邻居也缺席则追加到末尾)。只加不减。\n` +
-      (diskMissing.length ? `(同轮工作区另回插 ${inserted}+${appended} 条,不入本次提交。)\n` : ''),
+      (headMissing.length - headDoable.length
+        ? `(另有 ${headMissing.length - headDoable.length} 条因循环熔断本轮**未回捞**,清单见提交时的 🛑 输出。)\n`
+        : '') +
+      (diskDoable.length ? `(同轮工作区另回插 ${inserted}+${appended} 条,不入本次提交。)\n` : ''),
     'utf8',
   )
   const tmp = path.join(ROOT, '.ihui-agent/tmp', `plan.heal.${Date.now()}.md`)
@@ -2446,6 +2668,10 @@ function heal(commit) {
       },
     ).trim()
     g2(['update-ref', 'refs/heads/main', newCommit, parent])
+    // 留痕失败不得改变"回捞已落地"这一结论(提交已在 refs/heads/main 上),但必须喊出来:
+    // 静默少一行留痕,下一次审计就会把这枚当成"绕门塞进来的"。
+    const at = attestBypassCommit(newCommit, { root: ROOT, headBefore: parent, source: 'check-plan-line-loss:heal' })
+    if (!at.ok) console.error(`⚠️ [plan-line-loss] 旁路留痕未写入(${at.why})⇒ 这一枚在跳门总量台账里仍是 unknown`)
     console.log(
       `   已建前向恢复提交 ${newCommit.slice(0, 11)}` +
         (indexMissing && indexMissing.length

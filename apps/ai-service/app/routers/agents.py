@@ -27,6 +27,7 @@ from ..core.sse_buffer import REPLAY_HIT, sse_buffer
 
 # D174/R3:帧级 traceId 的唯一注入点(与 llm 那条对话流共用一份实现,不在本路由再抄一遍判序)
 from ..core.sse_frames import with_frame_trace_id
+from ..core.turn_stop_reason import ensure_turn_stop_reason
 from ..services.agent_checkpoint import AgentLoopCheckpoint
 from ..services.agent_deliverables import get_deliverables
 from ..services.agent_events import (
@@ -62,11 +63,10 @@ from ..services.agent_run_control import (
 
 # V3 #84 生产者侧(2026-10-07):视野硬上限唯一真源,Field(le=) 直接引它,不抄第二份数字。
 from ..services.durable_resume import DURABLE_HORIZON_MAX_SECONDS
-from ..core.turn_stop_reason import ensure_turn_stop_reason
 from ..services.goal_completion_gate import (
+    STOP_VERIFICATION_UNDETERMINED,
     GoalCriterionSpec,
     GoalCriterionSpecError,
-    STOP_VERIFICATION_UNDETERMINED,
     gate_goal_completion,
     validate_specs,
 )

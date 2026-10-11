@@ -67,6 +67,9 @@ import { join, resolve } from 'node:path'
 
 import { gitBinary, gitRaw } from './face-reader.mjs'
 import { mkScratch, rmScratch } from './scratch-dir.mjs'
+// 旁路留痕的写口只有一份(lib/commit-attestation.mjs);这里不另开一本台账、不自己拼 JSONL 行。
+import { readLedgerRecords, recordBypassLanding } from './commit-attestation.mjs'
+import { gitCommitPaths } from './git-paths.mjs'
 // G-816708:旁路落地后补跑台账自愈的**唯一派生出口**(命令行形状、派生参数、失败臂措辞都在那一份里,
 // 与 git-sync-converge / union-converge 用的是同一个器物 —— 不另发明第二套调用协议)。
 import { postMergeLedgerSync } from './post-merge-ledger-sync.mjs'
@@ -262,6 +265,33 @@ export function casUpdateRef(newSha, oldSha, { root, ref }) {
     const t = gitErrText(e)
     if (/cannot lock ref|old value|but expected|was no longer expected/i.test(t)) return false
     throw e
+  }
+}
+
+/**
+ * **自动化旁路提交也要留痕**(2026-10-11 立,判读"本机可疑"那一格时逼出来的洞)。
+ * 现象:每天有若干提交由 post-commit 的归档器 / 台账自愈器 / 排空器 / 注册表插入器 / 副本清行器经
+ * `commit-tree + CAS` 落地 —— 这条通道结构上不跑钩子,而这五个写入者**都不写旁路留痕**,
+ * 于是总量统计只能把它们留在 unknown。现读口径(数字一律重跑,勿照本行派单):
+ * `node scripts/plan-bypass-ledger-report.mjs --since 2026-10-09 --json` 给 `unknownWitnessed` 18,
+ * 按提交主题粗分(启发式,不是留痕判据)得 归档 3 + 自愈回捞 10 = **13 枚属本型**,另 5 枚是普通
+ * `fix/feat` 提交(那一格才是真该逐枚读钩子日志定性的)。留痕不是为了好看:**没有留痕,
+ * "自动化把提交绕过了门禁"这件事和"有人 --no-verify 塞了一枚红"在两行文本上同形。**
+ * 三条不许漂:
+ *  ① 声明面**自己从提交对象取**(`diff-tree --root -z`),不由调用方手抄 —— 抄一份就会漏抄;
+ *  ② 同一枚已有留痕 ⇒ 跳过(调用方自己已 attest 的四家不在此列,去重让"一本台账一种事实"成立);
+ *  ③ 取不到路径 ⇒ 拒写并给原因(`buildBypassRecord` 明令 declaredFiles 非空),**不写空清单**。
+ * 永不抛:留痕失败不得改变调用方的落地结论(它已经在 HEAD 上了),但必须把 why 交回调用方喊出来。
+ */
+export function attestBypassCommit(sha, { root, source = 'bypass-git:casUpdateRef', reason, headBefore } = {}) {
+  try {
+    const existing = readLedgerRecords(root)
+    if (existing.ok && existing.records.some((r) => r.landedSha === sha)) return { ok: true, skipped: 'already-recorded' }
+    const files = gitCommitPaths({ sha, root })
+    if (files.length === 0) return { ok: false, why: '该提交取不到任何路径 ⇒ 空声明面不该留痕(留了等于伪造声明)' }
+    return recordBypassLanding({ root, landedSha: sha, declaredFiles: files, source, ...(headBefore ? { headBefore } : {}), ...(reason ? { reason } : {}) })
+  } catch (e) {
+    return { ok: false, why: `留痕派生失败:${String(e?.message ?? e).slice(0, 200)}` }
   }
 }
 

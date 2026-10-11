@@ -277,14 +277,16 @@ export function normalizeError(
   // 泛化包装词降权成 detail(吸收票判据;上游直接丢弃,本仓保留一线线索):
   // detail 优先取非泛化的下一候选,没有非泛化候选时才退回泛化词。
   const detailMessage =
-    candidates.find((candidate) => candidate !== primaryMessage && !GENERIC_WRAPPER_MESSAGES.has(candidate)) ??
-    candidates.find((candidate) => candidate !== primaryMessage)
+    candidates.find(
+      (candidate) => candidate !== primaryMessage && !GENERIC_WRAPPER_MESSAGES.has(candidate),
+    ) ?? candidates.find((candidate) => candidate !== primaryMessage)
 
   const codeFromError = readFirstStringFromPaths(error, CODE_PATH_LADDER)
   const detailFromError = readFirstStringFromPaths(error, DETAIL_PATH_LADDER)
   // 外层 code 不可信(常是包装码)时,真实业务码从 detail 的 provider_code=NNNN 提取:
   // 先查 detail 路径位,再查候选里降权出来的 detail,两个 detail 面都覆盖。
-  const providerCodeFromDetail = PROVIDER_CODE_IN_DETAIL_RE.exec(detailFromError ?? '')?.[1] ??
+  const providerCodeFromDetail =
+    PROVIDER_CODE_IN_DETAIL_RE.exec(detailFromError ?? '')?.[1] ??
     (detailMessage ? PROVIDER_CODE_IN_DETAIL_RE.exec(detailMessage)?.[1] : undefined)
 
   const underlyingErrorMessage = readFirstStringFromPaths(error, UNDERLYING_MESSAGE_PATH_LADDER)
