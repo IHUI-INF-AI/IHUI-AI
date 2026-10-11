@@ -1445,6 +1445,107 @@ function selfTest() {
     })
     return r.counts.hits >= 1 && !r.items.some((i) => i.why.startsWith('P2'))
   })())
+  /**
+   * Tier-1 成对臂自证(B 档落链的 6 类判据臂,每臂正反成对):正例证明新臂真的放行,
+   * 反例证明收窄没有把真复制一起削掉 —— 只写正例时,"这臂是不是恒放行"无法被钉住。
+   */
+  // ① P2c 变换位 · 正:单元躺在 content.replace(…) 第 1 实参位,接收者初值是 readFileSync。
+  t('P2c 放过:正则躺在 content.replace(…) 第 1 实参位且接收者真取正文', (() => {
+    const r = a({
+      [GATE]: gateBody,
+      [TEST]: `import { readFileSync } from 'node:fs'\nconst content = readFileSync('scripts/check-demo-judge.mjs', 'utf8')\nconst cleaned = content.replace(/${GFORM}/, '')\nvoid cleaned\n`,
+    })
+    return r.counts.hits === 0 && r.items.some((i) => i.state === 'pass' && i.why.startsWith('P2'))
+  })())
+  // 反:声明名是判据族(CONTENT_RE)⇒ 守卫先行,变换位不接 —— 复制仍判命中。
+  t('P2c 守卫:声明名是判据族(CONTENT_RE)⇒ 变换位不接,仍命中', (() => {
+    const r = a({
+      [GATE]: gateBody,
+      [TEST]: `import { readFileSync } from 'node:fs'\nconst content = readFileSync('scripts/check-demo-judge.mjs', 'utf8')\nconst CONTENT_RE = content.replace(/${GFORM}/, '')\nvoid CONTENT_RE\n`,
+    })
+    return r.counts.hits >= 1 && r.items.some((i) => i.shape === 'F1' && i.state === 'hit')
+  })())
+  // ② P2c exec 位 · 正:单元是 .exec( 的接收者,exec 第 1 实参初值真取正文。
+  t('P2c 放过:/…/.exec(txt) 接收者位,文本初值是 readFileSync', (() => {
+    const r = a({
+      [GATE]: gateBody,
+      [TEST]: `import { readFileSync } from 'node:fs'\nconst content = readFileSync('scripts/check-demo-judge.mjs', 'utf8')\nconst hit = /${GFORM}/.exec(content)\nvoid hit\n`,
+    })
+    return r.counts.hits === 0 && r.items.some((i) => i.state === 'pass' && i.why.startsWith('P2'))
+  })())
+  // ③ P5② 用法臂 · 正:门侧非导出符号全部消费位都是条件语境的取景合取位 ⇒ 翻 scope 记 P5 放过。
+  t('P5② 放过:门侧 XX_RE 消费位全是条件合取位(名字像判据也不按名字判)', (() => {
+    const g = `const XX_RE = /${GFORM}/\nexport function pick(p) { return p !== null && XX_RE.test(p) }\nexport const __test__ = { pick }\n`
+    const x = `const KEEP = /${GFORM}/\nvoid KEEP\n`
+    const r = a({ [GATE]: g, [TEST]: x })
+    return r.counts.hits === 0 && r.counts.undetermined === 0 && r.items.some((i) => i.state === 'pass' && i.why.startsWith('P5'))
+  })())
+  // 反:任一消费位是 assert 实参 ⇒ 一票否决不翻角色,测试复制仍判命中。
+  t('P5② 反例:门侧消费位是 assert 实参 ⇒ 不翻角色,测试复制仍命中', (() => {
+    const g = `const XX_RE = /${GFORM}/\nexport function pick(line) { assert.ok(XX_RE.test(line)) }\nexport const __test__ = { pick }\n`
+    const x = `import { __test__ as gate } from '../check-demo-judge.mjs'\nconst XX_RE = [/${TFORM}/]\nXX_RE.forEach((re) => re.test(line))\nvoid gate\n`
+    const r = a({ [GATE]: g, [TEST]: x })
+    return r.counts.hits >= 1 && !r.items.some((i) => i.state === 'pass' && i.why.startsWith('P5'))
+  })())
+  // ④ P5③ 位置臂 · 正:匿名单元落在 splitSections(src, /…/, true) 的实参跨度内且不在裁定位 ⇒ 按位置翻 scope。
+  t('P5③ 放过:匿名单元在解析 callee 实参跨度内(按位置判,不按名字判)', (() => {
+    const g = `export function build(src) {\n  return splitSections(src, /${GFORM}/, true)\n}\nexport const __test__ = {\n  build,\n}\n`
+    const x = `const KEEP = /${GFORM}/\nvoid KEEP\n`
+    const r = a({ [GATE]: g, [TEST]: x })
+    return r.counts.hits === 0 && r.counts.undetermined === 0 && r.items.some((i) => i.state === 'pass' && i.why.startsWith('P5'))
+  })())
+  // 反:同一条正则作 .test( 的接收者(裁定位)⇒ 位置臂一票否决不翻,测试复制仍判命中。
+  t('P5③ 反例:匿名单元在 .test( 裁定位 ⇒ 位置臂不翻,测试复制仍命中', (() => {
+    const g = `const anyLine = (l) => /${GFORM}/.test(l)\nexport const __test__ = {\n  anyLine,\n}\n`
+    const x = `import { __test__ as gate } from '../check-demo-judge.mjs'\nconst PATTERNS = [/${TFORM}/]\nPATTERNS.forEach((re) => re.test(line))\nvoid gate\n`
+    const r = a({ [GATE]: g, [TEST]: x })
+    return r.counts.hits >= 1 && !r.items.some((i) => i.state === 'pass' && i.why.startsWith('P5'))
+  })())
+  // ⑤ P4 出处集两档②(libNames) · 正:主语初值是 ../lib 判据层符号的调用返回值 ⇒ 行为文案断言。
+  t('P4 放过:主语是 ../lib 符号调用的返回值(d.reason 断的是行为文案)', (() => {
+    const r = a({
+      [GATE]: gateBody,
+      [TEST]: `import assert from 'node:assert/strict'\nimport { decideGateOutcome } from '../lib/judge-outcome.mjs'\nconst d = decideGateOutcome({ kind: 'read' })\nassert.match(d.reason, /${GFORM}/)\n`,
+    })
+    return r.counts.hits === 0 && r.items.some((i) => i.state === 'pass' && i.why.startsWith('P4'))
+  })())
+  // 反向臂:该调用的顶层实参指向取正文(且非自源)⇒ 归 P2 管、P4 不放,P2 自源钉也不放 ⇒ 仍命中。
+  t('P4 反例:lib 调用实参指向取正文(非自源)⇒ P4/P2 都不放,仍命中', (() => {
+    const r = a({
+      [GATE]: gateBody,
+      [TEST]: `import assert from 'node:assert/strict'\nimport { readFileSync } from 'node:fs'\nimport { decideGateOutcome } from '../lib/judge-outcome.mjs'\nimport { __test__ as gate } from '../check-demo-judge.mjs'\nconst payload = readFileSync('fixtures/locale.json', 'utf8')\nconst d = decideGateOutcome(payload)\nassert.match(d.reason, /${GFORM}/)\nvoid gate\n`,
+    })
+    return r.counts.hits >= 1 && !r.items.some((i) => i.why.startsWith('P4') || i.why.startsWith('P2'))
+  })())
+  // 成员常量反例:gk.CRASH_MARKERS[0] 没有调用形 ⇒ 出处链走不到,不从 P4 放行。
+  t('P4 反例:成员常量输入无调用形 ⇒ 出处链走不到,仍命中', (() => {
+    const r = a({
+      [GATE]: gateBody,
+      [TEST]: `import assert from 'node:assert/strict'\nimport { __test__ as gk } from '../check-demo-judge.mjs'\nconst crashFirst = gk.CRASH_MARKERS[0]\nassert.match(crashFirst, /${GFORM}/)\nvoid gk\n`,
+    })
+    return r.counts.hits >= 1 && !r.items.some((i) => i.why.startsWith('P4') || i.why.startsWith('P2'))
+  })())
+  // ⑥ P2d helper 自源一跳 · 正:url→new URL('…check-*.mjs')→readFileSync→maskCommentsAndStrings(src)。
+  t('P2d 放过:url→readFileSync→helper(src) 的自源一跳', (() => {
+    const r = a({
+      [GATE]: gateBody,
+      [TEST]: `import assert from 'node:assert/strict'\nimport { readFileSync } from 'node:fs'\nimport { maskCommentsAndStrings } from '../lib/code-mask.mjs'\nconst url = new URL('../check-demo-judge.mjs', import.meta.url)\nconst src = readFileSync(url, 'utf8')\nconst masked = maskCommentsAndStrings(src)\nassert.doesNotMatch(masked, /${GFORM}/)\n`,
+    })
+    return r.counts.hits === 0 && r.items.some((i) => i.state === 'pass' && i.why.startsWith('P2'))
+  })())
+  // 反:helper 实参取的是 locale.json(命中被审数据面,不自源)⇒ 自源钉不放 ⇒ 仍命中。
+  t('P2d 反例:helper 实参取 locale.json(非自源)⇒ 不放过,仍命中', (() => {
+    const r = a({
+      [GATE]: gateBody,
+      [TEST]: `import assert from 'node:assert/strict'\nimport { readFileSync } from 'node:fs'\nimport { maskCommentsAndStrings } from '../lib/code-mask.mjs'\nconst locale = readFileSync('fixtures/locale.json', 'utf8')\nconst masked = maskCommentsAndStrings(locale)\nassert.doesNotMatch(masked, /${GFORM}/)\n`,
+    })
+    return r.counts.hits >= 1 && !r.items.some((i) => i.why.startsWith('P2') || i.why.startsWith('P4'))
+  })())
+  // 前导空格锚回归:initializerOf 捕获组恒带一个前导空格,锚死行首会把实参表切空(P2d/helper 全灭的根因)。
+  t('callArgTokens 放行前导空格(initializerOf 捕获组恒带前导空格)', (() => {
+    const toks = callArgTokens(' maskCommentsAndStrings(src)')
+    return toks.length === 1 && toks[0] === 'src'
+  })())
   let failed = 0
   for (const r of results) {
     if (!r.ok) failed++
