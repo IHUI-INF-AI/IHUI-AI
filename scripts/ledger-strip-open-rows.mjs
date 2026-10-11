@@ -39,7 +39,7 @@ import { maskCommentsAndStrings } from './lib/code-mask.mjs'
 import { partitionPlanBlocks, resolvePlanBase, resolveRequestedFace } from './archive-completed-tasks.mjs'
 import { OPEN_ROW_RE, isCompletedTaskHeading, headingLevel } from './lib/plan-task-headings.mjs'
 import { parseTaskRows } from './lib/plan-task-index.mjs'
-import { alignSharedIndex, casUpdateRef, commitTreeWithIndex, resolveHeadRef } from './lib/bypass-git.mjs'
+import { alignSharedIndex, attestBypassCommit, casUpdateRef, commitTreeWithIndex, resolveHeadRef } from './lib/bypass-git.mjs'
 
 const ROOT = process.cwd()
 const PLAN_REL = 'PROJECT_PLAN.md'
@@ -299,6 +299,9 @@ function main() {
       if ((al.skipped || []).length || (al.undetermined || []).length) {
         console.log('⚠️ 共享主索引有路径未对齐(归属他人/判不出)⇒ 逐条点名,不静默:' + JSON.stringify([...(al.skipped || []), ...(al.undetermined || [])]))
       }
+      // 旁路落地不跑钩子 ⇒ 必须留痕,否则总量统计只能把这枚读成 unknown(与"有人跳门"同形)。
+      const at = attestBypassCommit(commit, { root: ROOT, headBefore: head, source: 'ledger-strip-open-rows' })
+      if (!at.ok) console.log(`⚠️ 旁路留痕未写入(${at.why})⇒ 这一枚在跳门总量台账里仍是 unknown`)
       return 0
     } catch (e) {
       console.log(`   第 ${attempt} 次派生失败,重读面再来:${String(e?.message ?? e).split('\n').pop().slice(0, 140)}`)

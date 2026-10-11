@@ -24,11 +24,7 @@
  */
 
 export type BusinessErrorUiAction =
-  | 'relogin'
-  | 'refresh-quota'
-  | 'switch-model'
-  | 'retry-later'
-  | 'upgrade'
+  'relogin' | 'refresh-quota' | 'switch-model' | 'retry-later' | 'upgrade'
 
 /** 本仓自拟示例业务码(接入真实码表时整体替换,表结构不动) */
 export type BusinessErrorCode = '4291' | '4292' | '4293' | '5001' | '5002' | '5003'

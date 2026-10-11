@@ -36,6 +36,12 @@ async def kill_process_tree(pid: int) -> None:
     """
     if pid <= 0:
         return
+    # POSIX 系统调用(os.getpgid/os.kill)的 pid 形参是 C int;超过 INT_MAX 的 pid
+    # 在 raise 系统调用前就被 CPython 以 OverflowError 拒掉,而清理路径的契约是
+    # "幂等,绝不抛"(CI run 38084051334 实证:kill_process_tree(4_000_000_000) 在
+    # Linux 上抛 OverflowError)。这种 pid 必不存在 ⇒ 与"已死 pid"同档,直接幂等返回。
+    if pid > 0x7FFFFFFF:
+        return
     if os.name == "nt":
         try:
             proc = await asyncio.create_subprocess_exec(
