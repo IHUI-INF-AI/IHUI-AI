@@ -766,7 +766,7 @@ export function buildNewPlanText({ baseText, tasks, today, archiveBaseName }) {
 
 /** 构建本次要**追加**进归档文件的正文块(两条落地路径共用,不得各写一份)。同日重复运行只补一次 header。 */
 function buildArchiveChunk(today, tasks) {
-  const archiveFile = join(ARCHIVE_DIR, `PROJECT_PLAN_${today}_auto-archive.md`)
+  const archiveFile = join(ARCHIVE_DIR, 'PROJECT_PLAN_ARCHIVE.md')
   const archiveHeader =
     `# PROJECT_PLAN 自动归档(${today})\n\n` +
     `> 本文件由 scripts/archive-completed-tasks.mjs 自动生成,归档自 PROJECT_PLAN.md 的已完成任务条目。\n\n---\n\n`
@@ -900,7 +900,7 @@ const MAX_CAS_ATTEMPTS = 12
  */
 async function landThroughObjectSpace({ base, toArchive }) {
   const today = todayStr()
-  const archiveBaseName = `PROJECT_PLAN_${today}_auto-archive.md`
+  const archiveBaseName = 'PROJECT_PLAN_ARCHIVE.md'
   const archiveRel = `.ihui-agent/archive/${archiveBaseName}`
   const { newText, movedRanges } = buildNewPlanText({
     baseText: base.text,
@@ -1536,7 +1536,7 @@ async function main() {
   }
 
   const today = todayStr()
-  const archiveBaseName = `PROJECT_PLAN_${today}_auto-archive.md`
+  const archiveBaseName = 'PROJECT_PLAN_ARCHIVE.md'
   const archiveFile = join(ARCHIVE_DIR, archiveBaseName)
 
   // 构建归档文件内容(追加模式)—— 与对象空间档共用 buildArchiveChunk 那一份
@@ -1607,7 +1607,7 @@ async function main() {
 
   console.log(`${C.green}✅ 已归档 ${toArchive.length} 个条目${C.reset}`)
   console.log(
-    `${C.dim}   归档文件: .ihui-agent/archive/PROJECT_PLAN_${today}_auto-archive.md${C.reset}`,
+    `${C.dim}   归档文件: .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md${C.reset}`,
   )
   console.log(`${C.dim}   PROJECT_PLAN.md 原位置已留归档占位注释${C.reset}`)
 
@@ -1622,7 +1622,7 @@ async function main() {
       // 为什么这个洞今天才暴露:归档器自 2026-09-14 起匹配式与文件真实形态漂开、每次扫到 0 条,
       // 这段代码从没真跑过。**修好匹配式的同一条提交里必须一起修它**,否则"让它能用"就等于"引爆它"。
       const planRel = 'PROJECT_PLAN.md'
-      const archiveRel = `.ihui-agent/archive/PROJECT_PLAN_${today}_auto-archive.md`
+      const archiveRel = '.ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md'
       // 2026-10-08(第五批):`-c safe.directory=*` 随迁入层(gitRaw 自带,另加 quotepath=false)
       // ⇒ gitQ 自拼前缀删;派生层见下面各调用点的 gitRaw。
       // `-f` + 事务性核验 —— 2026-09-25 实测:归档器**第一次真跑**就死在这里。归档目录被
@@ -1706,7 +1706,7 @@ async function main() {
 // 只证明"会放"的自检更糟(它可能什么都放)。见 §22c。
 function runSelfTest() {
   const today = '2099-01-01'
-  const archiveBaseName = `PROJECT_PLAN_${today}_auto-archive.md`
+  const archiveBaseName = 'PROJECT_PLAN_ARCHIVE.md'
   const results = []
   const ok = (name, cond, detail = '') =>
     results.push({ name, pass: cond === true, detail: cond === true ? '' : String(detail) })
