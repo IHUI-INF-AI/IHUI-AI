@@ -59,6 +59,8 @@ import {
   createSession,
   type ChatMessage,
 } from './commands/session.js';
+// G-816014 装配:resume 对账压缩时间线(收敛器在 @ihui/context-compaction,账本介质见该模块头注)。
+import { recoverCompactionTimelinesForSession } from './compaction-timeline-resume.js';
 import { writeAgentsMd, agentsMdExists } from './commands/template.js';
 import {
   loadMcpConfig,
@@ -249,10 +251,20 @@ function resolveGoalCriteria(raw: unknown): GoalHardCriterion[] | undefined {
   return parsed as GoalHardCriterion[];
 }
 
-function resolveSession(opts: Record<string, unknown>): ResolvedSession {
+// 导出仅为测试装配(与 readPromptFile 同例):装配测试必须穿过真实的 resume 漏斗,不许复制其实现。
+export function resolveSession(opts: Record<string, unknown>): ResolvedSession {
   if (opts.continue) {
     const session = getMostRecentSession();
     if (session) {
+      // G-816014 装配点:本函数是 CLI 侧 resume 的必经漏斗 —— `--continue` / `--resume`
+      // 的全部消费方(headless runAgentAndExit、默认命令 REPL、chat 命令,均在本文件
+      // 调 resolveSession 拿 sessionId)离开这里没有任何"恢复会话"的公共入口,见下:
+      //   - runAgentAndExit:`const resumed = resolveSession(opts)`(headless 单发)
+      //   - 默认命令 action / chat action:`const session = resolveSession(opts)`(REPL)
+      // 进程被杀留下的 started/retrying/boundary 悬挂压缩时间线必须在此一次性收敛,
+      // 否则恢复出来的账面会把"压缩死在中途"读成"压缩判过了"。收敛失败(账本损坏/
+      // 落盘失败)向上抛:宁可不 resume,不得拿坏账装成功 —— 本仓"失败必须响"。
+      recoverCompactionTimelinesForSession(session.id);
       console.info(
         chalk.dim(
           t('cli.sessionResumed', { id: session.id, count: session.history.length }),
@@ -266,6 +278,8 @@ function resolveSession(opts: Record<string, unknown>): ResolvedSession {
   if (opts.resume) {
     const session = loadSession(opts.resume as string);
     if (session) {
+      // G-816014 装配点:同上 —— --resume 分支与 --continue 分支是同一个必经漏斗的两面。
+      recoverCompactionTimelinesForSession(session.id);
       console.info(
         chalk.dim(
           t('cli.sessionResumedWithId', { id: session.id, count: session.history.length }),
