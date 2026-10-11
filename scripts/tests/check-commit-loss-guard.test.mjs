@@ -45,12 +45,13 @@ function runScript(args = [], opts = {}) {
   })
 }
 
-// ─── 正则单元测试(源脚本未导出函数,直接测正则规则) ──────
-// 这些正则复制自源脚本,用于验证规则逻辑的正确性
-
-const RESET_REGEX = /reset:\s*moving to HEAD[~@]/
-const STASH_REGEXES = [/^WIP on /, /^On \S+: /, /^index on \S+: /, /^untracked files on /]
-const HASH_EXTRACT_REGEX = /^[A-Za-z ]+on\s+\S+:\s+([0-9a-f]{7,40})\b/
+// ─── 判据单元测试:一律驱动门体导出的那一判据(§22c) ──────
+// 这一族原先在测试里抄了三份正则。其中 stash 那两条早已在 2026-10-03 被源侧从 \S+ 放宽成 \S.*?
+// (detached HEAD 的分支名是含空格的 "(no branch)"),抄的那份没跟着改 ⇒ 它一路测的是自己那份**过期**
+// 规则,源侧的放宽没有任何断言覆盖 —— 比"复读机"更糟一格:连复读都复读了旧版。现在只留导出口。
+const RESET_REGEX = __test__.RESET_LINE_RE
+const isStash = (subject) => __test__.isStashSubject(subject)
+const originalHash = (subject) => __test__.extractOriginalHashFromStash(subject)
 
 test('正则: reset: moving to HEAD~1 → 匹配', () => {
   assert.ok(RESET_REGEX.test('abc1234 HEAD@{0}: reset: moving to HEAD~1'))
@@ -68,34 +69,39 @@ test('正则: commit: → 不匹配(非 reset)', () => {
   assert.ok(!RESET_REGEX.test('abc1234 HEAD@{0}: commit: add feature'))
 })
 
-test('正则: WIP on main: → 匹配 stash subject', () => {
-  assert.ok(STASH_REGEXES.some((re) => re.test('WIP on main: 5ef36e59d fix sidebar')))
+test('门体判据: WIP on main: → 识别为 stash subject', () => {
+  assert.ok(isStash('WIP on main: 5ef36e59d fix sidebar'))
 })
 
-test('正则: index on main: → 匹配 stash subject', () => {
-  assert.ok(STASH_REGEXES.some((re) => re.test('index on main: 5ef36e59d')))
+test('门体判据: index on main: → 识别为 stash subject', () => {
+  assert.ok(isStash('index on main: 5ef36e59d'))
 })
 
-test('正则: index on fix/<branch>: → 匹配 stash subject(非 main 分支)', () => {
-  assert.ok(
-    STASH_REGEXES.some((re) =>
-      re.test('index on fix/test-suite-cleanup-2026-08-17: 8f957984b0 fix(msg)'),
-    ),
-  )
+test('门体判据: index on fix/<branch>: → 识别为 stash subject(非 main 分支)', () => {
+  assert.ok(isStash('index on fix/test-suite-cleanup-2026-08-17: 8f957984b0 fix(msg)'))
 })
 
-test('正则: On fix/<branch>: → 匹配 stash subject(非 main 分支)', () => {
-  assert.ok(STASH_REGEXES.some((re) => re.test('On fix/foo: 5ef36e59d fix(msg)')))
+test('门体判据: On fix/<branch>: → 识别为 stash subject(非 main 分支)', () => {
+  assert.ok(isStash('On fix/foo: 5ef36e59d fix(msg)'))
 })
 
-test('正则: 普通提交 subject → 不匹配 stash', () => {
-  assert.ok(!STASH_REGEXES.some((re) => re.test('feat: add new feature')))
+// 这一条是本次收口的**有牙证明**:源侧 2026-10-03 把分支名放宽成 \S.*? 才认得这一型,
+// 而测试抄的那份(\S+)在这里是假阴 —— 换回抄件本条必红。它钉的不是"测试能跑",
+// 是"测试测的是源里那一判据"。识别与取 hash 两半必须同判:只改识别侧会留下
+// "认得出是 stash、却取不出原 hash"的新格(源侧注释明令两处同改)。
+test('门体判据: 分支名含空格(detached HEAD 的 "(no branch)")→ 必须识别得出且取得出原 hash', () => {
+  const subject = 'index on (no branch): 5ef36e59d wip'
+  assert.ok(isStash(subject), '识别侧失配 = 该提交在备份核对里被当成普通 commit')
+  assert.equal(originalHash(subject), '5ef36e59d', '只改识别侧不改取 hash 侧 = 认得出却追不回原提交')
 })
 
-test('正则: 从 stash subject 提取原 commit hash', () => {
-  const m = 'WIP on main: 5ef36e59d fix sidebar'.match(HASH_EXTRACT_REGEX)
-  assert.ok(m, '应匹配')
-  assert.equal(m[1], '5ef36e59d')
+test('门体判据: 普通提交 subject → 不识别为 stash', () => {
+  assert.ok(!isStash('feat: add new feature'))
+})
+
+test('门体判据: 从 stash subject 提取原 commit hash;非 stash 取空而不抛', () => {
+  assert.equal(originalHash('WIP on main: 5ef36e59d fix sidebar'), '5ef36e59d')
+  assert.equal(originalHash('feat: add new feature'), '')
 })
 
 // ─── CLI 行为测试 ────────────────────────────────────────
