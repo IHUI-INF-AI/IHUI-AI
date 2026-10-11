@@ -845,7 +845,7 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     completer: (line: string) => slashCompleter(line),
   });
 
-  const startResult = runSessionStartHooks(hooksConfig, sessionHookCtx);
+  const startResult = await runSessionStartHooks(hooksConfig, sessionHookCtx);
   if (!startResult.proceed) {
     console.error(chalk.red(`\n❌ 会话启动被钩子阻断: ${startResult.reason ?? '未知'}`));
     process.exit(1);
@@ -1821,11 +1821,11 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       break;
 
     case 'bash':
-      cmdBash(state.opts.workspacePath, args.join(' '), state.checkpoints ?? undefined);
+      await cmdBash(state.opts.workspacePath, args.join(' '), state.checkpoints ?? undefined);
       break;
 
     case 'sh':
-      cmdBash(state.opts.workspacePath, args.join(' '), state.checkpoints ?? undefined);
+      await cmdBash(state.opts.workspacePath, args.join(' '), state.checkpoints ?? undefined);
       break;
 
     default: {

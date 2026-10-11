@@ -68,7 +68,7 @@ afterAll(() => {
 });
 
 describe('G-424 started/terminal 事件成对不变量', () => {
-  it('① 两条钩子(成功+非阻断失败)各得一对事件,outcome 分别为 Succeeded/Failed', () => {
+  it('① 两条钩子(成功+非阻断失败)各得一对事件,outcome 分别为 Succeeded/Failed', async () => {
     const a = hookName('ok');
     const b = hookName('fail-nb');
     writeHookConfig('preToolCall', [
@@ -77,7 +77,7 @@ describe('G-424 started/terminal 事件成对不变量', () => {
     ]);
     const { events, unsubscribe } = collectEvents();
     try {
-      const result = runPreToolCall('bash', {});
+      const result = await runPreToolCall('bash', {});
       expect(result.proceed).toBe(true);
       expect(result.terminal).toBe('non_blocking_error');
       // 每条派发恰好一对,顺序 started→terminal
@@ -97,12 +97,12 @@ describe('G-424 started/terminal 事件成对不变量', () => {
     }
   });
 
-  it('② 超时被杀 ⇒ terminal 事件 TimedOut(与取消/失败可判地分开)', () => {
+  it('② 超时被杀 ⇒ terminal 事件 TimedOut(与取消/失败可判地分开)', async () => {
     const a = hookName('slow');
     writeHookConfig('preToolCall', [{ name: a, command: longCmd, timeout: 400, blockOnError: false }]);
     const { events, unsubscribe } = collectEvents();
     try {
-      const result = runPreToolCall('bash', {});
+      const result = await runPreToolCall('bash', {});
       expect(result.terminal).toBe('timed_out');
       const terminal = events.find(
         (e): e is Extract<HookRunEvent, { type: 'terminal' }> => e.type === 'terminal',
@@ -115,7 +115,7 @@ describe('G-424 started/terminal 事件成对不变量', () => {
     }
   });
 
-  it('③ 父级取消先于派发 ⇒ 该条不执行、事件层报 Cancelled、余下条目不再派发', () => {
+  it('③ 父级取消先于派发 ⇒ 该条不执行、事件层报 Cancelled、余下条目不再派发', async () => {
     const a = hookName('cancel-first');
     const b = hookName('cancel-never');
     writeHookConfig('preToolCall', [
@@ -126,7 +126,7 @@ describe('G-424 started/terminal 事件成对不变量', () => {
     controller.abort(new Error('parent-cancelled'));
     const { events, unsubscribe } = collectEvents();
     try {
-      const result = runPreToolCall('bash', {}, controller.signal);
+      const result = await runPreToolCall('bash', {}, controller.signal);
       // 取消不是完成:旧终态层投影 result_unknown(§30 不渲染成完成)
       expect(result.proceed).toBe(true);
       expect(result.terminal).toBe('result_unknown');
@@ -140,7 +140,7 @@ describe('G-424 started/terminal 事件成对不变量', () => {
     }
   });
 
-  it('④ 取消落在两条之间(经 terminal 事件监听器触发)⇒ 断链,余下不派发', () => {
+  it('④ 取消落在两条之间(经 terminal 事件监听器触发)⇒ 断链,余下不派发', async () => {
     const a = hookName('chain-first');
     const b = hookName('chain-never');
     writeHookConfig('preToolCall', [
@@ -154,7 +154,7 @@ describe('G-424 started/terminal 事件成对不变量', () => {
       if (e.type === 'terminal' && e.hook === a) controller.abort(new Error('mid-chain-cancel'));
     });
     try {
-      const result = runPreToolCall('bash', {}, controller.signal);
+      const result = await runPreToolCall('bash', {}, controller.signal);
       expect(result.proceed).toBe(true);
       expect(result.terminal).toBe('succeeded');
       expect(controller.signal.aborted).toBe(true);
@@ -165,7 +165,7 @@ describe('G-424 started/terminal 事件成对不变量', () => {
     }
   });
 
-  it('⑤ 事件面监听器抛错不改写钩子判定,事件流对第二个监听器仍然完整', () => {
+  it('⑤ 事件面监听器抛错不改写钩子判定,事件流对第二个监听器仍然完整', async () => {
     const a = hookName('throwing-listener');
     writeHookConfig('preToolCall', [{ name: a, command: exit3Cmd, blockOnError: false }]);
     const offThrow = onHookRunEvent(() => {
@@ -173,7 +173,7 @@ describe('G-424 started/terminal 事件成对不变量', () => {
     });
     const { events, unsubscribe } = collectEvents();
     try {
-      const result = runPreToolCall('bash', {});
+      const result = await runPreToolCall('bash', {});
       expect(result.proceed).toBe(true);
       expect(result.terminal).toBe('non_blocking_error');
       expect(events).toHaveLength(2);
@@ -184,12 +184,12 @@ describe('G-424 started/terminal 事件成对不变量', () => {
     }
   });
 
-  it('⑥ runHook 通用分发同样成对(turnStart 事件)', () => {
+  it('⑥ runHook 通用分发同样成对(turnStart 事件)', async () => {
     const a = hookName('generic');
     writeHookConfig('turnStart', [{ name: a, command: exit0Cmd, blockOnError: false }]);
     const { events, unsubscribe } = collectEvents();
     try {
-      const result = runHook('turnStart', { workspacePath: TMP, turnNumber: 1 });
+      const result = await runHook('turnStart', { workspacePath: TMP, turnNumber: 1 });
       expect(result.proceed).toBe(true);
       expect(result.terminal).toBe('succeeded');
       expect(events.map((e) => `${e.type}:${e.hookEvent}`)).toEqual([

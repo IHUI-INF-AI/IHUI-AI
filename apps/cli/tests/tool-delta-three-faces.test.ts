@@ -332,13 +332,15 @@ describe('B. ACP 面:预览落到已有 tool_call_update 形态,非终态、不�
     expect(store.get('card-4')?.truncated).toBe(true);
   });
 
-  it('同一张卡整帧覆盖:两批帧后 store 只留最后一份累积文本', () => {
+  it('同一张卡按 seq 收敛:重启 seq 的批被丢弃,不覆盖已收敛值', () => {
     const store = createToolDeltaPreviewStore();
     planAcpPreviewUpdate({ store, events: previewFramesFor('write_file', 'p-1'), acpToolCallId: 'card-5', open: true });
+    // 另一批(不同源 id)重划到同一卡、seq 又从 1 起 ⇒ 按 seq 收敛整帧丢弃,零写入
     const second = buildFileEditPreviewEvents('p-2', 'write_file', { content: 'only-one-line\n' });
-    const plan = planAcpPreviewUpdate({ store, events: second, acpToolCallId: 'card-5', open: true });
-    expect(plan?.text).toBe('only-one-line');
+    planAcpPreviewUpdate({ store, events: second, acpToolCallId: 'card-5', open: true });
     expect(store.ids()).toEqual(['card-5']);
+    expect(store.get('card-5')?.partialDiff).toBe('line-1\nline-2');
+    expect(store.get('card-5')?.partialSeq).toBe(1);
   });
 });
 
