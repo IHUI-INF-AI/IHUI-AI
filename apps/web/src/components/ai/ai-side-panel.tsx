@@ -421,11 +421,11 @@ export function AISidePanel() {
   const terminalDockOpen = useTerminalDockStore((s) => s.open)
 
   // 移动端深度适配(2026-07-31 立,2026-08-01 阈值对齐,2026-08-02 改默认展开,2026-08-02 阈值回退):
-  // - isMobileSmall 检测 <768px 视口(真正手机),仅手机端自动切换浮窗全屏模式
-  // - 2026-08-02 修复:768-1023px(平板/小笔记本窗口)不再自动全屏,保持 docked 400px,
+  // - isMobileSmall 检测 <640px 视口(真正手机),仅手机端自动切换浮窗全屏模式
+  // - 2026-08-02 修复:640-1023px(平板/小笔记本窗口)不再自动全屏,保持 docked 400px,
   //   解决 a3eb24ffc6 把阈值从 768 改到 1023 导致桌面端小窗口 AI 面板"异常宽"回归
   // - 浮窗展开时全屏覆盖(利用现有 floatMode,移动端样式覆盖)
-  const isMobileSmall = useMediaQuery('(max-width: 767px)')
+  const isMobileSmall = useMediaQuery('(max-width: 639px)')
 
   // 桌面端 + 停靠态:面板标题栏作为窗口拖拽把手(用户习惯抓任意顶部标题栏拖窗口)。
   // 浮窗态不接管——那时标题栏的职责是移动面板自身(handleFloatDragStart)。
@@ -440,9 +440,9 @@ export function AISidePanel() {
     [windowDragFromHeader],
   )
 
-  // 移动端自动切换:进入手机视口(<768px)时,自动切为浮窗展开模式(默认正常态)
+  // 移动端自动切换:进入手机视口(<640px)时,自动切为浮窗展开模式(默认正常态)
   // - 仅在 floatMode=false(docked)且 isMobileSmall=true(手机)时触发
-  // - 768-1023px(平板/小窗口)保持 docked,不自动全屏(2026-08-02 修复)
+  // - 640-1023px(平板/小窗口)保持 docked,不自动全屏(2026-08-02 修复)
   // - 不设 floatMinimized:true(2026-08-02 改,用户规则"默认展开正常态"):
   //   浮窗默认全屏展开,用户可手动点最小化按钮收成 FAB,而非默认就收成 FAB
   // - 桌面端恢复时自动切回 docked(2026-08-06 修复:
@@ -1260,16 +1260,16 @@ export function AISidePanel() {
   // 2026-07-30 彻底根治:容器从 fixed 改为 flex 子元素(relative + shrink-0),
   // width:0 使容器在 flex 流中不占视觉空间;手柄 right-[-12px] 跨越容器右边缘 8px 命中。
   // py-2 与 MainShell 的 pt-2/mb-2 垂直对齐(8px 上下间距)。
-  // 2026-07-31 移动端适配:加 hidden min-[768px]:block 让 docked 关闭态(手柄)在 < 768px 隐藏,
+  // 2026-07-31 移动端适配:加 hidden min-[640px]:block 让 docked 关闭态(手柄)在 < 640px 隐藏,
   // 避免 AISidePanel 在手机视口下占 400px 宽把 work-area 推到 viewport 外。
-  // 2026-08-02 阈值 1024→768:768-1023px(平板/小笔记本)保持 docked 可见,不全屏。
+  // 2026-08-02 阈值 1024→768(2026-10-11 断点 768→640):640-1023px(平板/小笔记本)保持 docked 可见,不全屏。
   // mobile 下 AI 面板入口改用浮窗 FAB(由 floatMode 路径独立渲染,不受此规则影响)。
   if (!open) {
     return (
       <>
         {workspaceNameSync}
         <div
-          className="relative hidden h-full shrink-0 py-2 mr-1.5 min-[768px]:block"
+          className="relative hidden h-full shrink-0 py-2 mr-1.5 min-[640px]:block"
           style={{ width: 0 }}
         >
           {/* 右侧拖拽手柄(关闭态):命中区 right-[-12px] w-2(8px),完全位于 work-area 一侧
@@ -1525,9 +1525,9 @@ export function AISidePanel() {
           // - docked 模式:relative + shrink-0 + py-2,flex 流内布局,mr-1.5 固定 6px 间距
           // - float 模式(桌面/平板):fixed 定位,z-sticky,可拖拽,品牌色微光浮窗视觉(ai-float-glow)
           //   rounded-xl 匹配内层 aside 圆角(光晕跟随圆角呈圆弧),去掉 py-2(浮窗无需上下间距)
-          // - float 模式(手机 <768px):fixed inset-0 全屏覆盖,无光晕无圆角,最大化可用空间
+          // - float 模式(手机 <640px):fixed inset-0 全屏覆盖,无光晕无圆角,最大化可用空间
           // data-testid="ai-panel-root":全局唯一最外层容器标识,DevTools / E2E 可直接选中
-          // 2026-08-02 阈值修复:全屏覆盖仅手机(<768px)触发,平板/小窗口(768-1023px)走浮窗不全屏。
+          // 2026-08-02 阈值修复:全屏覆盖仅手机(<640px)触发,平板/小窗口(640-1023px)走浮窗不全屏。
           data-testid="ai-panel-root"
           className={cn(
             'ai-panel-root',
@@ -1536,7 +1536,7 @@ export function AISidePanel() {
                 ? 'fixed inset-0 z-sticky' // 手机浮窗:全屏覆盖
                 : 'fixed z-sticky ai-float-glow rounded-xl' // 桌面/平板浮窗:品牌色光晕
               : cn(
-                  'relative hidden h-full min-[768px]:block mr-1.5 py-2',
+                  'relative hidden h-full min-[640px]:block mr-1.5 py-2',
                   // 2026-08-17 工作展示区折叠:AI 面板 flex-1 占满右侧(替代固定 width)
                   workAreaCollapsed ? 'flex-1 min-w-0' : 'shrink-0',
                 ),
@@ -1561,7 +1561,7 @@ export function AISidePanel() {
                       transition: floatTransition,
                     }
               : workAreaFullscreen
-                ? // D182 工作面全屏:面板让位(inline display:none,优先级高于 min-[768px]:block),
+                ? // D182 工作面全屏:面板让位(inline display:none,优先级高于 min-[640px]:block),
                   // work-area flex-1 占满;退出入口见上方 portal 按钮
                   { display: 'none' }
                 : workAreaCollapsed
