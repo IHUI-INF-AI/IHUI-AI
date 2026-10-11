@@ -32,6 +32,9 @@ import test from 'node:test'
 
 // 判据的权威实现:门体导出的 __test__(不是复制品)。相对说明符 ⇒ 不经 Windows 裸绝对路径 import 那一坑。
 import { __test__ as gate } from '../check-percent-clamp-single-source.mjs'
+// `git grep -n` 的行格式解析走共用层(与门 check-db-blind-updatedat-set.mjs 同一份)——
+// 本文件此前自己拆过一遍同一格式,守门 191 报的那对复制即此;不得再留第二条。
+import { grepRowPath, parseGrepRow } from '../lib/git-grep-rows.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const GATE_FILE = join(ROOT, 'scripts', 'check-percent-clamp-single-source.mjs')
@@ -90,9 +93,9 @@ const RATCHET_BASELINE = {}
 
 /** 裁定:一条预筛输出(HEAD:path:line:content)是否构成违规 —— 违规与否一律问 gate.findSites */
 function judgeLine(raw) {
-  const m = raw.match(/^HEAD:([^:]+):(\d+):(.*)$/)
-  if (!m) return null
-  const [, path, line, content] = m
+  const parsed = parseGrepRow(raw, 'HEAD')
+  if (!parsed) return null
+  const { path, line, text: content } = parsed
   if (path === CANONICAL_FILE) return null
   if (isTestFace(path)) return null
   const hits = gate.findSites(content)
@@ -246,9 +249,8 @@ test('取景口径对账:测试面排除用的必须是门体那把尺,本文件
 test('装车证明:具名出口必须仍有生产调用方(防"判据在、出口被摘线后无人用")', () => {
   const users = new Set()
   for (const raw of candidateLines('clampPercent')) {
-    const m = raw.match(/^HEAD:([^:]+):/)
-    if (!m) continue
-    const path = m[1]
+    const path = grepRowPath(raw, 'HEAD')
+    if (!path) continue
     if (path === CANONICAL_FILE || isTestFace(path)) continue
     users.add(path)
   }

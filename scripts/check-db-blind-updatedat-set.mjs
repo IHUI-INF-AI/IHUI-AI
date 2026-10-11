@@ -33,6 +33,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join, resolve } from 'node:path'
+import { parseGrepRow } from './lib/git-grep-rows.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -68,9 +69,11 @@ function readFace() {
   const perFile = new Map() // file -> Array<{line, text}>
   for (const row of (r.stdout || '').split('\n')) {
     if (!row) continue
-    const m = row.match(/^HEAD:([^:]+):(\d+):(.*)$/)
-    if (!m) continue
-    const [, file, line, text] = m
+    // 行格式解析只有一份(scripts/lib/git-grep-rows.mjs)—— 与镜像测试
+    // clamp-percent-single-source.test.mjs 曾各写一遍同一拆解,守门 191 报的那对复制即此。
+    const parsed = parseGrepRow(row, 'HEAD')
+    if (!parsed) continue
+    const { path: file, line, text } = parsed
     if (!perFile.has(file)) perFile.set(file, [])
     perFile.get(file).push({ line: Number(line), text })
   }
