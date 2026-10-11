@@ -168,7 +168,10 @@ describe('上报副本截断', () => {
     const head = 'in InnermostErrorComponent\n'
     const componentStack =
       head +
-      Array.from({ length: 300 }, (_, index) => `    at Layer${index} (file:///u/f.tsx:${index}:1)\n`).join('')
+      Array.from(
+        { length: 300 },
+        (_, index) => `    at Layer${index} (file:///u/f.tsx:${index}:1)\n`,
+      ).join('')
 
     reportBoundaryError(new Error('x'), { componentStack })
 
