@@ -694,6 +694,96 @@ test('端到端·超窗: 只报数不拦,同仓 --window-days 0 必翻回拦(量
   }
 })
 
+// ─── 清单出口(--list-unbacked / --list-out-of-window):门点名了债,就必须交出债的名单 ───
+// 立因:超窗那一批按设计**不由提交链拦**,所以它只有一行人读报数("9785 枚,最老一枚 …")。
+// 想按 §29 处置的人只能自己重算窗口,而重算那份必然与本门漂开(§22c)。名单住在门里,
+// 处置才可复现;而 safe-gc.mjs 的破坏性前置直接依赖 "--window-days 0 时 --list-unbacked
+// 交出的是**全部**未备份悬空" 这条契约 —— 契约断了,前置就会把"还有近万枚没备份"读成"干净"。
+const ANSI_RE = /\u001b\[[0-9;]*m/g
+const O40_RE = /^[0-9a-f]{40}$/
+function oidsAfterHeader(text, header) {
+  const lines = String(text)
+    .replace(ANSI_RE, '')
+    .split('\n')
+    .map((l) => l.trim())
+  const at = lines.findIndex((l) => l.startsWith(header))
+  assert.ok(at >= 0, `输出里找不到清单头「${header}」`)
+  const out = []
+  for (const l of lines.slice(at + 1)) {
+    if (l === '') continue
+    if (!O40_RE.test(l)) break
+    out.push(l)
+  }
+  return out
+}
+
+test('清单出口·超窗: --list-out-of-window 逐枚交完整 oid,行形状与 --list-unbacked 同形', () => {
+  const dir = createTempRepo()
+  try {
+    const ancient = makeDangling(dir, 'e2e-list-outwise-XYZ', '2020-01-01T00:00:00 +08:00')
+    const r = runScript(['--blocking', '--filter-stash', __test__.FLAGS.listOutOfWindow], { cwd: dir })
+    assert.equal(r.status, 0, `超窗不得拦,实际 ${r.status}:\n${String(r.stdout).slice(-700)}`)
+    const listed = oidsAfterHeader(r.stdout, '--list-out-of-window:')
+    assert.deepEqual(listed, [ancient], `超窗清单必须恰含那一枚 ${ancient},实际 ${listed}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('清单出口·两桶不互蔽: 窗内与超窗同仓时,一次运行两个清单都必须交出(不得被 if/else 吞掉)', () => {
+  const dir = createTempRepo()
+  try {
+    const recent = makeDangling(dir, 'e2e-list-inwin-XYZ')
+    const ancient = makeDangling(dir, 'e2e-list-outwin-XYZ', '2020-01-01T00:00:00 +08:00')
+    const both = runScript(
+      ['--blocking', '--filter-stash', __test__.FLAGS.listUnbacked, __test__.FLAGS.listOutOfWindow],
+      { cwd: dir },
+    )
+    assert.equal(both.status, 1, `窗内有债必须拦,实际 ${both.status}`)
+    const inWin = oidsAfterHeader(both.stdout, '--list-unbacked:')
+    const outWin = oidsAfterHeader(both.stdout, '--list-out-of-window:')
+    assert.ok(inWin.includes(recent), `窗内清单须含 ${recent},实际 ${inWin}`)
+    assert.ok(!inWin.includes(ancient), '窗内清单不得混入超窗那枚(两桶不得并成一个数)')
+    // 这一条是本用例的全部意义:清单打印若被放回 if/else 链里,窗内有债时超窗名单就整个消失
+    assert.ok(outWin.includes(ancient), `超窗清单须含 ${ancient},实际 ${outWin}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('清单出口·全量档契约: --window-days 0 时 --list-unbacked 必须把超窗一起交出(safe-gc 前置靠这条)', () => {
+  const dir = createTempRepo()
+  try {
+    const ancient = makeDangling(dir, 'e2e-list-fullface-XYZ', '2020-01-01T00:00:00 +08:00')
+    const full = runScript(
+      ['--blocking', '--filter-stash', __test__.FLAGS.listUnbacked, '--window-days', '0'],
+      { cwd: dir },
+    )
+    assert.equal(full.status, 1, `窗维关闭必须照拦,实际 ${full.status}`)
+    const listed = oidsAfterHeader(full.stdout, '--list-unbacked:')
+    assert.ok(listed.includes(ancient), `全量档的未备份清单必须含超窗那枚 ${ancient},实际 ${listed}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('装车证明: 超窗清单旗标必须①在 FLAGS 唯一源头里②被 argv 读取③真的打印(三处分设断言)', () => {
+  const src = readFileSync(SCRIPT_PATH, 'utf8')
+  const flag = __test__.FLAGS.listOutOfWindow
+  assert.ok(/listOutOfWindow:\s*'--list-out-of-window'/.test(src), 'FLAGS 必须声明该旗标(唯一源头)')
+  assert.ok(src.includes(`process.argv.includes(FLAGS.listOutOfWindow)`), 'main 必须从 FLAGS 读,不得写死字面量')
+  assert.ok(/if \(isListOutOfWindow\)/.test(src), '读取点之后必须有真判定点')
+  assert.ok(/for \(const o of win\.outOfWeek\) console\.log\(o\.hash\)/.test(src), '判定必须落到逐枚打印')
+  // 顺序锁:清单打印必须排在 if/else 分桶链**之后**,否则窗内有债时超窗名单会被 else 吞掉
+  const chain = src.lastIndexOf('} else if (unreachable.length > 0) {')
+  const print = src.indexOf('if (isListOutOfWindow)')
+  assert.ok(chain >= 0 && print > chain, `清单打印必须在分桶链之后(chain=${chain}, print=${print})`)
+  assert.ok(
+    __test__.FLAGS && __test__.FLAGS.listOutOfWindow === flag,
+    'FLAGS 必须随 __test__ 导出该键,否则测试只能抄字面量(§22c 的镜像漂移)',
+  )
+})
+
 test('装车证明: 窗维判据必须真挂在 main 的判定链上(函数在而无人调 = 没有)', () => {
   const src = readFileSync(SCRIPT_PATH, 'utf8')
   // 守门 70/76/81 同型教训:判据写完、自检过了,但 main 没调它 ⇒ 提交链上一路绿灯。
