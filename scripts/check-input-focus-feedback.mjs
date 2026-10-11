@@ -49,6 +49,13 @@
  * 存量只报数、本次新增才判红。开工先跑全量看 HEAD 现读数,存量不为 0 时接线前必须清完,
  * 否则当场就是一台与任何提交都无关的恒红门(§12e 那条本仓最高反面教训)。
  *
+ * 第四条认法 = **跨文件一跳**(2026-10-11 立):大写标签若来自 import,**必须沿说明符读到那件源码**
+ * 再判 —— 件内同时给出「聚焦条件」与「可见描边」才算放过;解析不到 / 切不出声明体一律落
+ * **未判定**。立因:`@ihui/ui-native` 的 `Input` 自己就写聚焦墨档(该件 :127),调用点没有聚焦
+ * 措辞是正确写法,把它记成命中就是拿假阳逼下一个人去"修"没坏的东西。**禁止**改用名字白名单解决
+ * (名单必然腐烂:§4 对 `RN_ONLY_BRAND_KEYS`、守门 39 对 `WHITELIST` 各记过一次)。**锚点面必须
+ * 过同一把尺子** —— 尺子变准不等于仓库新增命中。
+ *
  * 取材面同 70/77/83/98/101/103/118/131:全量判 **HEAD blob**、`--staged` 判**索引 blob**、
  * `--worktree` 仅人工逃生舱、两面旗同给 exit 2、清单与内容**同面同轮**、内容取不到**不回退磁盘**
  * ⇒ exit 2 无法判定(不冒红也不记绿)。全部经 lib/face-reader 的 `catBatch`,不散写 `git show`。
@@ -86,6 +93,8 @@ const SCAN_EXT = /\.(tsx|jsx|css)$/
 
 /** 三端各自的书写语言 ⇒ 各自的标签集合与判据分支。 */
 const SINGLE_IMPL = new Set(['TextField', 'FocusField', 'FocusInput', 'FocusTextarea'])
+/** 本仓 workspace 包名形态 —— 只认 `@ihui/<pkg>`,其余一律解析不到(不猜 node_modules) */
+const WS_PKG_RE = /^@ihui\/[\w-]+$/
 const INPUT_TAGS = {
   rn: new Set([
     'TextInput',
@@ -366,6 +375,249 @@ export function judgeJsx(rel, text, end) {
   return { hits, passed, undet, unresolved, scanned: true }
 }
 
+// ─── 跨文件一跳:命中若是「导入件」,先去那件内部取聚焦证据 ────────────────
+/**
+ * 立因(2026-10-11 实测,本门第一次对自己产出的形态失明):`apps/mobile-rn/src/components/
+ * AgentRuntimePanel.tsx:142` 被记成"带描边而无聚焦反馈",而那个 `<Input>` 根本不是裸
+ * `TextInput` —— 它是 `@ihui/ui-native` 的共享件,件内 `:127` 就写着
+ * `focused ? { borderColor: primaryColor }`(墨档,与 TextField 取值同档)。调用点没有
+ * 任何聚焦措辞是**正确写法**:反馈住在件里。按名字白名单(`SINGLE_IMPL`)加一档"Input 也算
+ * 唯一实现"是本仓记过最多次的腐烂形态(§4 对 `RN_ONLY_BRAND_KEYS`、守门 39 对 `WHITELIST`),
+ * 所以这一格只许**按内容证明**:沿 import 说明符解析到件 → 读该件源码 → 在该组件声明体内
+ * 同时看到「聚焦条件」与「可见描边」才放过。
+ * 三条不许漂的口径:① 解析不到 / 目标件不在被审面上 / 声明体切不出来 ⇒ 落 **未判定**,
+ *    既不判红也不放过(把"没看见"写成"确信没有"是本仓最高频失效型);
+ * ② 只在**将被记成命中**的候选上做这一跳(不是全量符号解析,成本与误报都可控);
+ * ③ 小写宿主标签(`input`/`textarea`/`select`)不走这一跳 —— 它们没有"另一份实现"可言。
+ */
+const IMPORT_RE = /import\s+(?:type\s+)?(?:([\w$]+)\s*,\s*)?(?:\{([^}]*)\})?\s*from\s*['"]([^'"]+)['"]/g
+
+/** 从 kept 面(保留字符串、遮注释)取「标识符 → 模块说明符」 */
+export function parseImports(kept) {
+  const map = new Map()
+  IMPORT_RE.lastIndex = 0
+  let m
+  while ((m = IMPORT_RE.exec(kept))) {
+    const spec = m[3]
+    if (m[1]) map.set(m[1], spec)
+    for (const raw of String(m[2] || '').split(',')) {
+      const part = raw.trim()
+      if (!part || part.startsWith('type ')) continue
+      const bits = part.split(/\s+as\s+/)
+      const name = (bits[1] || bits[0] || '').trim()
+      if (/^[\w$]+$/.test(name)) map.set(name, spec)
+    }
+  }
+  return map
+}
+
+/** barrel 里 `export { X } from './y'` → 取 './y';取不到返回 null(不猜) */
+export function followBarrelExport(kept, name) {
+  const re = /export\s*(?:type\s*)?\{[^}]*\}\s*from\s*['"]([^'"]+)['"]/g
+  let m
+  while ((m = re.exec(kept))) {
+    const inside = m[0].slice(m[0].indexOf('{') + 1, m[0].indexOf('}'))
+    const names = inside
+      .split(',')
+      .map((s) => s.trim().replace(/^type\s+/, '').split(/\s+as\s+/).pop())
+      .filter(Boolean)
+    if (names.includes(name)) return m[1]
+  }
+  return null
+}
+
+/** 说明符 → 被审面上的相对路径;解析不出返回 null(不回落磁盘、不猜 node_modules) */
+export function resolveSpecPath(spec, fromFile, nameToDir) {
+  const dir = fromFile.includes('/') ? fromFile.slice(0, fromFile.lastIndexOf('/') + 1) : ''
+  const cands = []
+  if (spec.startsWith('.')) {
+    const joined = normalizeRel(dir + spec)
+    cands.push(`${joined}.tsx`, `${joined}.ts`, `${joined}/index.tsx`, `${joined}/index.ts`)
+  } else {
+    const pkg = WS_PKG_RE.test(spec) ? spec : null
+    const sub = pkg && spec.length > pkg.length + 1 ? spec.slice(pkg.length + 1) : ''
+    const base = pkg ? nameToDir.get(pkg) : null
+    if (base) cands.push(`${base}/src/${sub || 'index'}.tsx`, `${base}/src/${sub || 'index'}.ts`, `${base}/${sub}.tsx`)
+  }
+  return cands
+}
+
+function normalizeRel(p) {
+  const parts = p.split('/')
+  const out = []
+  for (const seg of parts) {
+    if (seg === '.' || seg === '') continue
+    if (seg === '..') out.pop()
+    else out.push(seg)
+  }
+  return out.join('/')
+}
+
+/**
+ * 组件声明体:从 `function Name(` / `const Name = (` 起,取**函数体**那个花括号配平区间。
+ * 两条实测过的坑(都是我第一版自己造的):
+ *  ① RN 共享件普遍写 `export function Input({ className, style, ...rest }: Props) {` ——
+ *     直接取"名字后第一个 `{`"会把**参数解构对象**当函数体,于是体内永远看不到 `focused ? …`,
+ *     跨文件一跳对该族全部失明(表现不是报错,是"命中仍然存在")。
+ *  ② 箭头函数 `const X = (p) => {`,以及泛型 `function X<T>(...)` —— 括号/尖括号都得跳过。
+ * 因此判序固定:名字之后先爬过参数区(圆括号配平,深度回到 0 才算完),再取第一个 `{` 做配平。
+ * 切不出体 ⇒ 返回 null ⇒ 调用处落**未判定**,不猜。
+ */
+export function componentBody(code, name) {
+  const m = new RegExp(`(?:function|const)\\s+${name}\\b`).exec(code)
+  if (!m) return null
+  let i = m.index + m[0].length
+  // 爬过尖括号与参数圆括号,找到函数体的第一个 `{`
+  let angle = 0
+  let paren = 0
+  let seenParen = false
+  for (; i < code.length; i++) {
+    const c = code[i]
+    if (c === '<') angle++
+    else if (c === '>') {
+      if (angle > 0) angle--
+    } else if (angle > 0) continue
+    else if (c === '(') {
+      paren++
+      seenParen = true
+    } else if (c === ')') {
+      paren--
+      if (paren === 0) {
+        // 参数区结束,后面可能是 `): Ret {` 或 `=> {` —— 继续找第一个 `{`
+        const rest = code.slice(i + 1, i + 400)
+        const arrow = /^\s*(?::[^{;]+)?\s*=>/.test(rest)
+        if (arrow) continue
+        const brace = code.indexOf('{', i + 1)
+        if (brace < 0) return null
+        i = brace - 1
+        break
+      }
+      if (paren < 0) return null
+    } else if (c === '{' && !seenParen) {
+      // 无参数形态(如 `function Name() {` 已被上面覆盖;这里处理 `const Name = {` 那种对象 ⇒ 不是函数体)
+      return null
+    }
+  }
+  const bodyStart = code.indexOf('{', i)
+  if (bodyStart < 0) return null
+  let depth = 0
+  for (let j = bodyStart; j < code.length; j++) {
+    if (code[j] === '{') depth++
+    else if (code[j] === '}') {
+      depth--
+      if (depth === 0) return code.slice(m.index, j + 1)
+    }
+  }
+  return null
+}
+
+/** 件内是否同时给出「聚焦条件」与「可见描边」——两半缺一都不算证据 */
+export function bodyProvidesFocus(body) {
+  if (!body) return null
+  const { kept, code } = maskFaces(body)
+  if (!FOCUS_CODE.test(code)) return null
+  const decls = borderDecls(kept).filter((d) => d.visible)
+  if (!decls.length) return null
+  return decls[0].name
+}
+
+/**
+ * 把「即将记成命中」的大写标签候选送去取件内证据。返回 {hits, passed, undet}。
+ * 每枚候选最多两跳(barrel → 实现件),每次跳读**同面**的一个路径(候选量个位数,
+ * 逐路径读比一次性预读整包更省,且不会把"没在候选里的文件"拖进射程)。
+ */
+export function reclassifyHits(hits, face, facePaths, baseText) {
+  const cache = new Map()
+  const nameToDir = new Map()
+  for (const p of facePaths) {
+    const m = /^(packages\/[^/]+)\/package\.json$/.exec(p)
+    if (!m) continue
+    const t = readFaceOne(p, face, cache)
+    if (typeof t !== 'string') continue
+    try {
+      const nm = JSON.parse(t).name
+      if (typeof nm === 'string' && nm.startsWith('@ihui/')) nameToDir.set(nm, m[1])
+    } catch {
+      /* 坏 JSON ⇒ 该包解析不到,调用处落未判定,不猜目录 */
+    }
+  }
+  function readFaceOne(p, fc, store) {
+    if (store.has(p)) return store.get(p)
+    const t = readFace([p], fc).get(p) ?? null
+    store.set(p, t)
+    return t
+  }
+  const textOf = (p) => baseText.get(p) ?? readFaceOne(p, face, cache)
+
+  const passed = []
+  const undet = []
+  const kept = []
+  for (const h of hits) {
+    if (!/^[A-Z]/.test(h.tag)) {
+      kept.push(h)
+      continue
+    }
+    const src = textOf(h.file)
+    if (typeof src !== 'string') {
+      undet.push({ file: h.file, line: h.line, reason: '命中所在文件内容取不到 ⇒ 跨文件一跳无法进行' })
+      continue
+    }
+    const spec = parseImports(maskFaces(src).kept).get(h.tag)
+    if (!spec) {
+      // 没有 import 说明符 ⇒ 可能是本文件内自绘组件。按声明体当场取证;取不到才算未判定。
+      const body = componentBody(maskFaces(src).code, h.tag)
+      const ev = bodyProvidesFocus(body)
+      if (ev) passed.push({ file: h.file, line: h.line, tag: h.tag, why: h.why, by: `本文件内 ${h.tag} 声明体提供聚焦(${ev})` })
+      else if (body) kept.push({ ...h, by: `本文件内 ${h.tag} 声明体无聚焦条件` })
+      else undet.push({ file: h.file, line: h.line, reason: `<${h.tag} 既无 import 说明符也切不出本文件声明体 ⇒ 是否由别处提供聚焦无法判定` })
+      continue
+    }
+    const cands = resolveSpecPath(spec, h.file, nameToDir).filter((p) => facePaths.has(p))
+    if (!cands.length) {
+      undet.push({ file: h.file, line: h.line, reason: `import '${spec}' 在被审面上解析不到实现文件 ⇒ 未判定(不判红也不放过)` })
+      continue
+    }
+    let verdict = null
+    for (const p of cands) {
+      const t = textOf(p)
+      if (typeof t !== 'string') continue
+      const { kept: k, code } = maskFaces(t)
+      const body = componentBody(code, h.tag)
+      if (body) {
+        const ev = bodyProvidesFocus(body)
+        verdict = ev
+          ? { kind: 'passed', by: `导入件 ${p} 内 ${h.tag} 声明体提供聚焦(${ev})` }
+          : { kind: 'hit', by: `导入件 ${p} 内 ${h.tag} 声明体无聚焦条件` }
+        break
+      }
+      const sub = followBarrelExport(k, h.tag)
+      if (sub) {
+        const subCands = resolveSpecPath(sub, p, nameToDir).filter((q) => facePaths.has(q))
+        for (const q of subCands) {
+          const t2 = textOf(q)
+          if (typeof t2 !== 'string') continue
+          const c2 = maskFaces(t2).code
+          const b2 = componentBody(c2, h.tag)
+          if (!b2) continue
+          const ev2 = bodyProvidesFocus(b2)
+          verdict = ev2
+            ? { kind: 'passed', by: `导入件 ${q}(经 barrel ${p})内 ${h.tag} 声明体提供聚焦(${ev2})` }
+            : { kind: 'hit', by: `导入件 ${q}(经 barrel ${p})内 ${h.tag} 声明体无聚焦条件` }
+          break
+        }
+        if (verdict) break
+      }
+    }
+    if (!verdict) {
+      undet.push({ file: h.file, line: h.line, reason: `import '${spec}' 解析到候选文件但切不出 ${h.tag} 声明体 ⇒ 未判定` })
+      continue
+    }
+    if (verdict.kind === 'passed') passed.push({ file: h.file, line: h.line, tag: h.tag, why: h.why, by: verdict.by })
+    else kept.push({ ...h, by: verdict.by })
+  }
+  return { hits: kept, passed, undet }
+}
+
 // ─── CSS 面判定(web 的另一种书写语言)─────────────────────────────────
 
 const CSS_INPUT_SELECTOR = /(^|[\s,>+~(])(input|select|textarea)\b|\.[\w-]*(?:input|textarea|select|combobox|picker|search-box)[\w-]*/i
@@ -522,9 +774,10 @@ function readFace(paths, face) {
 
 export function analyze(face) {
   const all = listFacePaths(face)
+  const facePaths = new Set(all)
   const files = all.filter((p) => endOf(p) && SCAN_EXT.test(p))
   const contents = readFace(files, face)
-  const hits = []
+  let hits = []
   const passed = []
   const undetermined = []
   const counts = new Map()
@@ -548,17 +801,29 @@ export function analyze(face) {
       hits.push(...r.hits)
     }
   }
+  // 跨文件一跳:大写标签的命中先看件内证据(见 reclassifyHits 头注的立因)。
+  const rc = reclassifyHits(hits, face, facePaths, contents)
+  hits = rc.hits
+  passed.push(...rc.passed)
+  undetermined.push(...rc.undet)
+  counts.clear()
+  for (const h of hits) counts.set(h.file, (counts.get(h.file) || 0) + 1)
   // 棘轮锚点:同一批文件在 **HEAD** 自身的命中数。判 head 面时两者同一次读数 ⇒ 存量恒等于本轮,
   // 这正是"全量档只报数"的语义;判 staged/worktree 面时才真读到上一枚提交。
   if (face === 'head') {
     for (const [f, n] of counts) headCounts.set(f, n)
   } else {
     const headMap = readFace(files, 'head')
+    const headPaths = new Set(listFacePaths('head'))
+    const headHits = []
     for (const f of files) {
       const t = headMap.get(f)
       if (typeof t !== 'string') continue
-      headCounts.set(f, judgeText(f, t).hits.length)
+      headHits.push(...judgeText(f, t).hits)
     }
+    // 锚点必须与本轮**同一把尺子**(含跨文件一跳),否则"尺子变准"会被读成"仓库新增命中"。
+    const rcHead = reclassifyHits(headHits, 'head', headPaths, headMap)
+    for (const h of rcHead.hits) headCounts.set(h.file, (headCounts.get(h.file) || 0) + 1)
   }
   const red = []
   for (const [f, n] of [...counts].sort()) {
@@ -751,6 +1016,87 @@ textarea {
   ok('S9a 裸标记(input-focus-exempt:)不得放行', (() => { const r = J(MP, `<Input\n  // input-focus-exempt:\n  className="border border-border"\n/>`); return r.hits.length === 1 })())
   ok('S9b 带原因的豁免标记放行', (() => { const r = J(MP, `<Input\n  // input-focus-exempt: 只读展示框,永不聚焦\n  className="border border-border"\n/>`); return r.hits.length === 0 })())
 
+  // ── 跨文件一跳(本门第一次对自己产出的形态失明的那一格)──────────────────
+  // 立因是真站点的假阳:`AgentRuntimePanel.tsx:142` 的 `<Input>` 来自 `@ihui/ui-native`,
+  // 件内 `:127` 就有 `focused ? { borderColor: primaryColor }`。尺子看不见 ⇒ 把正确写法判成债。
+  const CALL = 'apps/mobile-rn/src/components/X.tsx'
+  const IMPL = 'packages/ui-native/src/input.tsx'
+  const BARREL = 'packages/ui-native/src/index.ts'
+  const PKGJSON = 'packages/ui-native/package.json'
+  const callText = `import { Input } from '@ihui/ui-native'\nexport const P = () => (\n  <Input className="border p-2" style={{ borderColor: tk.border.light }} />\n)\n`
+  const mkImpl = (body) =>
+    `function Input({\n  className,\n  style,\n  onFocus,\n}: Props) {\n  return <TextInput style={[style, ${body}]} className={className} />\n}\nexport { Input }\n`
+  const okImpl = mkImpl('focused ? { borderColor: primaryColor } : null')
+  const badImpl = mkImpl('null')
+  const pkgJson = '{"name":"@ihui/ui-native"}'
+  const barrelText = `export { Input, type InputProps } from './input'\n`
+  const face4 = new Set([CALL, IMPL, BARREL, PKGJSON])
+  const RC = (map) => reclassifyHits([{ file: CALL, end: 'rn', line: 3, tag: 'Input', why: 'border' }], 'head', face4, map)
+  ok(
+    'S10 导入件内部提供聚焦 ⇒ 命中转放过(且命中归零、放过带出处)',
+    (() => {
+      const r = RC(new Map([[CALL, callText], [IMPL, okImpl], [PKGJSON, pkgJson]]))
+      return r.hits.length === 0 && r.passed.length === 1 && /声明体提供聚焦/.test(r.passed[0].by)
+    })(),
+  )
+  ok(
+    'S11 导入件内没有聚焦条件 ⇒ 仍记命中(看不见不等于放过)',
+    (() => {
+      const r = RC(new Map([[CALL, callText], [IMPL, badImpl], [PKGJSON, pkgJson]]))
+      return r.hits.length === 1 && r.passed.length === 0 && /无聚焦条件/.test(r.hits[0].by)
+    })(),
+  )
+  ok(
+    'S12 说明符在被审面上解析不到 ⇒ 落未判定,既不判红也不放过',
+    (() => {
+      const f = new Set([CALL, PKGJSON]) // 目标件不在面上
+      const r = reclassifyHits([{ file: CALL, end: 'rn', line: 3, tag: 'Input', why: 'border' }], 'head', f, new Map([[CALL, callText], [PKGJSON, pkgJson]]))
+      return r.hits.length === 0 && r.undet.length === 1 && /解析不到实现文件/.test(r.undet[0].reason)
+    })(),
+  )
+  ok(
+    'S13 参数解构形态必须取到函数体(变异自证:取"名字后第一个 {"会截到参数对象)',
+    (() => {
+      const { code } = maskFaces(okImpl)
+      const body = componentBody(code, 'Input')
+      // 旧写法(body 只到参数对象闭合)必然不含 `focused ?`;新写法必须同时含参数区与返回体
+      return !!body && /focused \? \{ borderColor: primaryColor \}/.test(body) && body.includes('className,')
+    })(),
+  )
+  ok(
+    'S14 无 import 的本文件自绘组件 ⇒ 按声明体取证,正反各一条',
+    (() => {
+      const selfDrawn = `function Input({ style }: Props) {\n  return <TextInput style={[style, focused ? { borderColor: tk.brand.DEFAULT } : null]} />\n}\n`
+      const selfBad = `function Input({ style }: Props) {\n  return <TextInput style={[style, null]} />\n}\n`
+      const hit = { file: CALL, end: 'rn', line: 1, tag: 'Input', why: 'border' }
+      const a = reclassifyHits([hit], 'head', new Set([CALL]), new Map([[CALL, selfDrawn]]))
+      const b = reclassifyHits([hit], 'head', new Set([CALL]), new Map([[CALL, selfBad]]))
+      return a.hits.length === 0 && a.passed.length === 1 && b.hits.length === 1 && b.passed.length === 0
+    })(),
+  )
+  ok(
+    'S15 经 barrel 一跳也能取证(ui-native 的真实形态就是 index.ts 转发)',
+    (() => {
+      const r = RC(new Map([[CALL, callText], [BARREL, barrelText], [IMPL, okImpl], [PKGJSON, pkgJson]]))
+      return r.hits.length === 0 && r.passed.length === 1 && /经 barrel/.test(r.passed[0].by)
+    })(),
+  )
+  ok(
+    'S16 小写宿主标签不走跨文件一跳(它没有"另一份实现"可言)',
+    (() => {
+      const r = reclassifyHits([{ file: 'apps/web/a.tsx', end: 'web', line: 2, tag: 'textarea', why: 'border' }], 'head', face4, new Map())
+      return r.hits.length === 1 && r.undet.length === 0
+    })(),
+  )
+  ok(
+    'S17 真仓阳性对照:AgentRuntimePanel:142 必须被这一跳救成放过(钉 HEAD 面读数,不钉本文数字)',
+    (() => {
+      const a = analyze('head')
+      const still = (a.sites || []).some((s) => s.file === 'apps/mobile-rn/src/components/AgentRuntimePanel.tsx' && s.line === 142)
+      return !still
+    })(),
+  )
+
   console.log(`--self-test: ${fail === 0 ? '全部通过' : `${fail} 条失败`}`)
   return fail
 }
@@ -854,5 +1200,12 @@ export const __test__ = {
   INPUT_TAGS,
   SINGLE_IMPL,
   SCAN_ROOTS,
+  // 跨文件一跳的六个出口(镜像测试一律经这些生产入口,不得在测试里另写一份解析规则,§22c)
+  reclassifyHits,
+  componentBody,
+  parseImports,
+  followBarrelExport,
+  resolveSpecPath,
+  bodyProvidesFocus,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
