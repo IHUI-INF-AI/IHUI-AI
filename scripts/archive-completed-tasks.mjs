@@ -10,7 +10,7 @@
  * 功能:
  *   - 扫描 PROJECT_PLAN.md 中的已完成任务条目(§1 粒度 = ##/### 两级,标题含 ✅;
  *     兼容旧写法 `### [x] ✅(YYYY-MM-DD)`;识别实现与守门 13c 共用 scripts/lib/plan-task-headings.mjs)
- *   - 把完成日期 ≥ 阈值天数的条目移动到 .ihui-agent/archive/PROJECT_PLAN_YYYY-MM-DD_auto-archive.md
+ *   - 把完成日期 ≥ 阈值天数的条目移动到 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md(全项目唯一统一件,2026-10-11 归一)
  *   - 原位置留 HTML 注释占位(符合 AGENTS.md §1 归档规则 + check-project-plan-archive.mjs 守门)
  *
  * 用法:
