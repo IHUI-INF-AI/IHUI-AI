@@ -120,7 +120,6 @@ import {
 import { NavBar } from '../components/NavBar'
 import { InputArea } from '../components/InputArea'
 import { TaskStatusBar } from '../components/ai/TaskStatusBar'
-import { useToolApprovalQueue } from '../components/ai/ToolApprovalSheet'
 import { VoiceInput } from '../components/VoiceInput'
 import { ModelConfigDialog, type ModelConfig } from '../components/ModelConfigDialog'
 import ModelPickerList, { type ModelListItem } from '../components/ModelPickerList'
@@ -166,7 +165,6 @@ import {
   type TerminalTaskItem,
   type ToolCallItem,
 } from '../utils/chat-render-model'
-import { NavChrome } from '../components/NavChrome'
 
 /**
  * 操控本端界面的工具族闸门(2026-09-21 立,agent-control RN 侧)。
@@ -1149,9 +1147,6 @@ export default function AiAssistantN8nScreen() {
   // 图片预览(对齐 Uniapp previewImage)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
 
-  // D136:高危工具审批。复用 ChatScreen 同一出口(不在本屏另写队列)。
-  const toolApproval = useToolApprovalQueue()
-
   // FloatBox 浮层提示状态(替代单按钮 Alert.alert 的非阻塞反馈,对齐 ChatScreen showToast 模式)
   const [toastVisible, setToastVisible] = useState(false)
   const [toastType, setToastType] = useState<FloatBoxType>('info')
@@ -1546,7 +1541,7 @@ export default function AiAssistantN8nScreen() {
           scrollToEnd()
         },
         // D113(2026-09-27 对齐 web G-227):文件写类工具流中 diff 预览。
-        // tool-delta 帧载荷为累积文本,按 toolCallId 覆盖写入 partialDiff(重放幂等);
+        // tool-delta 帧载荷为增量正文,按 toolCallId 以 seq 收敛追加 partialDiff(重传/乱序幂等);
         // 仅 running 态渲染,tool-result 到达由 applyToolCallEvent 清除(最终 diff 以 result 为准)。
         onToolDelta: (event) => {
           setMessages((prev) => {
@@ -1701,11 +1696,6 @@ export default function AiAssistantN8nScreen() {
               after: info.tokensAfter,
             }),
           )
-        },
-        // D136:审批帧的载荷由 streamChat 内置解析(api-client tryParseToolApproval,与 web 同一投影),
-        // 这里只交给队列 —— 不注册回调 ⇒ 帧静默丢弃,手机上高危操作一个弹窗都不出。
-        onToolApproval: (event) => {
-          toolApproval.onToolApproval(event)
         },
         onError: (err, info) => {
           // info 透传:errorCode 是"厂商账号额度耗尽"等稳定码的唯一判据(HTTP 仍回落默认 502)
@@ -1901,13 +1891,11 @@ export default function AiAssistantN8nScreen() {
 
   return (
     <View style={styles.root}>
-      <NavChrome>
-        <NavBar
-          title={navTitle}
-          onBack={() => navigation.goBack()}
-          rightActions={[{ icon: '≡', label: '', onPress: () => setDrawerVisible(true) }]}
-        />
-      </NavChrome>
+      <NavBar
+        title={navTitle}
+        onBack={() => navigation.goBack()}
+        rightActions={[{ icon: '≡', label: '', onPress: () => setDrawerVisible(true) }]}
+      />
       {/* 智汇值卡(对齐 Uniapp ai_assistant_n8n.vue 顶部 intelligent-assistant:
           小方欢迎卡 + 剩余智汇值 + 充值;余额接 getTokenBalance,加载失败保持 0,充值入口可用) */}
       <View style={styles.valueCardWrap}>
@@ -2060,10 +2048,6 @@ export default function AiAssistantN8nScreen() {
           </View>
         ) : null}
       </KeyboardAvoidingView>
-
-      {/* D136:审批面板 + 常驻待审批胶囊挂在本屏既有浮层同级(与下面的 Modal/FloatBox 平铺),
-          面板自身走 RN Modal ⇒ 不新造 z-index。 */}
-      {toolApproval.host}
 
       {/* 模型选择器底部弹层(对齐 Uniapp ModelList sourceIs 弹出) */}
       <Modal
