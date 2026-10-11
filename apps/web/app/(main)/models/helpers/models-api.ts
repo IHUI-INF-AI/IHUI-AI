@@ -71,7 +71,8 @@ export async function fetchModels(): Promise<Model[]> {
           name: string
           provider: Provider
           context_length: number
-          input_price: number
+          /** 可空:上游聚合的部分模型(本地/聚合渠道等)不带定价,前端按「—」展示 */
+          input_price: number | null
           /** 2026-08-29 立:后端 model_catalog 分类字段(老后端无此字段) */
           category?: ModelUsageCategory
           model_tier?: ModelTier
@@ -118,7 +119,7 @@ export async function fetchModels(): Promise<Model[]> {
         provider: m.provider,
         description: desc.description,
         contextLength: m.context_length,
-        inputPrice: m.input_price,
+        inputPrice: m.input_price ?? undefined,
         features: desc.features,
         // P0-5g 中转站字段(若模型已上架到中转站,relayMap 命中)
         relayPublic: !!relay,
