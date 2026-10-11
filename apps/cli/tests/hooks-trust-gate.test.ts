@@ -15,14 +15,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as path from 'node:path';
 
-const { spawnSyncMock, gateHookMock } = vi.hoisted(() => ({
-  spawnSyncMock: vi.fn(() => ({ status: 0, stdout: '', stderr: '', signal: null })),
+const { spawnMock, gateHookMock } = vi.hoisted(() => ({
+  spawnMock: vi.fn(),
   gateHookMock: vi.fn(() => ({ allowed: true as boolean })),
 }));
 
 vi.mock('node:child_process', async (importOriginal) => {
   const actual = (await importOriginal()) as object;
-  return { ...actual, default: { ...actual, spawnSync: spawnSyncMock }, spawnSync: spawnSyncMock };
+  return { ...actual, default: { ...actual, spawn: spawnMock }, spawn: spawnMock };
 });
 
 vi.mock('../src/hooks/trust.js', async (importOriginal) => {
@@ -41,6 +41,78 @@ import {
 import { tryParseJson, isRecord } from '../src/util/json.js';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
+import { EventEmitter } from 'node:events';
+
+type FakeChild = EventEmitter & {
+  stdout: EventEmitter & { setEncoding: (e: string) => void; destroy: () => void };
+  stderr: EventEmitter & { setEncoding: (e: string) => void; destroy: () => void };
+  kill: () => boolean;
+  pid: number;
+};
+
+/** 假 ChildProcess:异步执行面(runCommandHookAsync/runWebhookAsync)挂事件用;close 微任务后到 */
+function fakeChild(): FakeChild {
+  const child = new EventEmitter() as FakeChild;
+  const mkStream = (): FakeChild['stdout'] => {
+    const s = new EventEmitter() as FakeChild['stdout'];
+    s.setEncoding = () => undefined;
+    s.destroy = () => undefined;
+    return s;
+  };
+  child.stdout = mkStream();
+  child.stderr = mkStream();
+  child.kill = () => true;
+  child.pid = 424242;
+  return child;
+}
+
+/** 默认派发剧本:正常退出 0;webhook 形态另带 200 响应 stdout(command 形态多出的 stdout 无害) */
+function stubSpawnDefault(): void {
+  spawnMock.mockImplementation(() => {
+    const child = fakeChild();
+    queueMicrotask(() => {
+      child.stdout.emit('data', '{"kind":"response","status":200,"body":"ok"}');
+      child.emit('close', 0);
+    });
+    return child;
+  });
+}
+import { EventEmitter } from 'node:events';
+
+type FakeChild = EventEmitter & {
+  stdout: EventEmitter & { setEncoding: (e: string) => void; destroy: () => void };
+  stderr: EventEmitter & { setEncoding: (e: string) => void; destroy: () => void };
+  kill: () => boolean;
+  pid: number;
+};
+
+/** 假 ChildProcess:异步执行面(runCommandHookAsync/runWebhookAsync)挂事件用;close 微任务后到 */
+function fakeChild(): FakeChild {
+  const child = new EventEmitter() as FakeChild;
+  const mkStream = (): FakeChild['stdout'] => {
+    const s = new EventEmitter() as FakeChild['stdout'];
+    s.setEncoding = () => undefined;
+    s.destroy = () => undefined;
+    return s;
+  };
+  child.stdout = mkStream();
+  child.stderr = mkStream();
+  child.kill = () => true;
+  child.pid = 424242;
+  return child;
+}
+
+/** 默认派发剧本:正常退出 0;webhook 形态另带 200 响应 stdout(command 形态多出的 stdout 无害) */
+function stubSpawnDefault(): void {
+  spawnMock.mockImplementation(() => {
+    const child = fakeChild();
+    queueMicrotask(() => {
+      child.stdout.emit('data', '{"kind":"response","status":200,"body":"ok"}');
+      child.emit('close', 0);
+    });
+    return child;
+  });
+}
 
 const NOT_TRUSTED = {
   allowed: false,
@@ -54,7 +126,7 @@ const DISABLED_BY_USER = {
 };
 
 /** 走 sessionStart 是因为它的 blockOnError 默认 true —— 跳过若返回非 0 就会阻断,最容易暴露 */
-function dispatch(entry: HookEntry): { proceed: boolean; reason?: string } {
+async function dispatch(entry: HookEntry): Promise<{ proceed: boolean; reason?: string }> {
   const config: HooksConfig = { sessionStart: [entry] };
   return runSessionStartHooks(config, { workspacePath: entry.sourceFolder ?? process.cwd() });
 }
@@ -72,7 +144,8 @@ describe('project 来源钩子的目录信任门', () => {
   beforeEach(() => {
     origTrust = process.env.IHUI_TRUST_WORKSPACE;
     delete process.env.IHUI_TRUST_WORKSPACE;
-    spawnSyncMock.mockClear();
+    spawnMock.mockClear();
+    stubSpawnDefault();
     gateHookMock.mockReset();
   });
   afterEach(() => {
@@ -80,22 +153,22 @@ describe('project 来源钩子的目录信任门', () => {
     else process.env.IHUI_TRUST_WORKSPACE = origTrust;
   });
 
-  it('未信任目录里的 project command 钩子:不执行,且不得反过来阻断工具调用', () => {
+  it('未信任目录里的 project command 钩子:不执行,且不得反过来阻断工具调用', async () => {
     gateHookMock.mockReturnValue(NOT_TRUSTED);
 
-    const result = dispatch(projectEntry());
+    const result = await dispatch(projectEntry());
 
     expect(gateHookMock).toHaveBeenCalledTimes(1);
     // 按**来源目录**判,而不是按当前进程 cwd
     expect(gateHookMock.mock.calls[0]![0]).toMatchObject({ name: 'p-hook' });
     expect(gateHookMock.mock.calls[0]![1]).toBe('C:\\clone-of-stranger');
-    expect(spawnSyncMock).not.toHaveBeenCalled();
+    expect(spawnMock).not.toHaveBeenCalled();
     // 跳过 = exitCode 0 → blockOnError 不触发,proceed 仍为 true
     expect(result.proceed).toBe(true);
     expect(result.reason).toBeUndefined();
   });
 
-  it('跳过要喊得响:原因与信任出口经 stderr 提示一次(不阻断、不静默)', () => {
+  it('跳过要喊得响:原因与信任出口经 stderr 提示一次(不阻断、不静默)', async () => {
     gateHookMock.mockReturnValue(NOT_TRUSTED);
     const writes: string[] = [];
     const spy = vi
@@ -105,13 +178,13 @@ describe('project 来源钩子的目录信任门', () => {
         return true;
       });
 
-    const first = dispatch(projectEntry({ name: 'p-hook-stderr-probe' }));
-    const second = dispatch(projectEntry({ name: 'p-hook-stderr-probe' }));
+    const first = await dispatch(projectEntry({ name: 'p-hook-stderr-probe' }));
+    const second = await dispatch(projectEntry({ name: 'p-hook-stderr-probe' }));
     spy.mockRestore();
 
     // 先确认确实走了跳过分支(否则下面的文案断言是在测一条没跑过的路)
     expect(gateHookMock).toHaveBeenCalledTimes(2);
-    expect(spawnSyncMock).not.toHaveBeenCalled();
+    expect(spawnMock).not.toHaveBeenCalled();
     // 跳过 ≠ 阻断:两次都必须 proceed
     expect(first.proceed).toBe(true);
     expect(second.proceed).toBe(true);
@@ -124,49 +197,49 @@ describe('project 来源钩子的目录信任门', () => {
     expect(writes).toHaveLength(1);
   });
 
-  it('已信任目录里的 project 钩子:照旧执行', () => {
+  it('已信任目录里的 project 钩子:照旧执行', async () => {
     gateHookMock.mockReturnValue({ allowed: true });
 
-    dispatch(projectEntry());
+    await dispatch(projectEntry());
 
-    expect(spawnSyncMock).toHaveBeenCalledTimes(1);
-    expect(spawnSyncMock.mock.calls[0]![0]).toBe('echo from-project-hook');
+    expect(spawnMock).toHaveBeenCalledTimes(1);
+    expect(spawnMock.mock.calls[0]![0]).toBe('echo from-project-hook');
   });
 
-  it('IHUI_TRUST_WORKSPACE=1 视同已信任(非交互出口)', () => {
+  it('IHUI_TRUST_WORKSPACE=1 视同已信任(非交互出口)', async () => {
     process.env.IHUI_TRUST_WORKSPACE = '1';
     gateHookMock.mockReturnValue(NOT_TRUSTED);
 
-    dispatch(projectEntry());
+    await dispatch(projectEntry());
 
-    expect(spawnSyncMock).toHaveBeenCalledTimes(1);
+    expect(spawnMock).toHaveBeenCalledTimes(1);
   });
 
-  it('IHUI_TRUST_WORKSPACE=1 不得复活用户逐条禁用的钩子', () => {
+  it('IHUI_TRUST_WORKSPACE=1 不得复活用户逐条禁用的钩子', async () => {
     process.env.IHUI_TRUST_WORKSPACE = '1';
     gateHookMock.mockReturnValue(DISABLED_BY_USER);
 
-    dispatch(projectEntry());
+    await dispatch(projectEntry());
 
-    expect(spawnSyncMock).not.toHaveBeenCalled();
+    expect(spawnMock).not.toHaveBeenCalled();
   });
 
-  it('未盖章(source 缺失)按 project 处理:来源不明不是免检通道', () => {
+  it('未盖章(source 缺失)按 project 处理:来源不明不是免检通道', async () => {
     gateHookMock.mockReturnValue(NOT_TRUSTED);
 
-    dispatch({ name: 'unstamped', command: 'echo x' });
+    await dispatch({ name: 'unstamped', command: 'echo x' });
 
     expect(gateHookMock).toHaveBeenCalledTimes(1);
-    expect(spawnSyncMock).not.toHaveBeenCalled();
+    expect(spawnMock).not.toHaveBeenCalled();
   });
 
-  it('反向对照:user 来源 + 未信任 → 行为完全不变(不查门,照常执行)', () => {
+  it('反向对照:user 来源 + 未信任 → 行为完全不变(不查门,照常执行)', async () => {
     gateHookMock.mockReturnValue(NOT_TRUSTED);
 
-    dispatch(projectEntry({ source: 'user', name: 'u-hook' }));
+    await dispatch(projectEntry({ source: 'user', name: 'u-hook' }));
 
     expect(gateHookMock).not.toHaveBeenCalled();
-    expect(spawnSyncMock).toHaveBeenCalledTimes(1);
+    expect(spawnMock).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -183,7 +256,8 @@ describe('webhook 形态钩子同样过目录信任门', () => {
   beforeEach(() => {
     origTrust = process.env.IHUI_TRUST_WORKSPACE;
     delete process.env.IHUI_TRUST_WORKSPACE;
-    spawnSyncMock.mockClear();
+    spawnMock.mockClear();
+    stubSpawnDefault();
     gateHookMock.mockReset();
   });
   afterEach(() => {
@@ -201,56 +275,56 @@ describe('webhook 形态钩子同样过目录信任门', () => {
     ...over,
   });
 
-  it('未信任目录里的 project webhook:一次请求都不发', () => {
+  it('未信任目录里的 project webhook:一次请求都不发', async () => {
     gateHookMock.mockReturnValue(NOT_TRUSTED);
 
-    const result = dispatch(webhookEntry());
+    const result = await dispatch(webhookEntry());
 
     // 门被查询过,且是按**来源目录**查的
     expect(gateHookMock).toHaveBeenCalledTimes(1);
     expect(gateHookMock.mock.calls[0]![1]).toBe('C:\\clone-of-stranger');
-    // webhook 走 spawnSync(process.execPath, ['-e', WEBHOOK_SCRIPT]) —— 没被调用即没发出请求
-    expect(spawnSyncMock).not.toHaveBeenCalled();
+    // webhook 走 spawn(process.execPath, ['-e', WEBHOOK_SCRIPT]) —— 没被调用即没发出请求
+    expect(spawnMock).not.toHaveBeenCalled();
     // 跳过 ≠ 阻断
     expect(result.proceed).toBe(true);
   });
 
-  it('已信任目录里的 project webhook:照常执行(门不是把 webhook 整条关掉)', () => {
+  it('已信任目录里的 project webhook:照常执行(门不是把 webhook 整条关掉)', async () => {
     gateHookMock.mockReturnValue({ allowed: true });
 
-    dispatch(webhookEntry());
+    await dispatch(webhookEntry());
 
-    expect(spawnSyncMock).toHaveBeenCalledTimes(1);
-    expect(spawnSyncMock.mock.calls[0]![0]).toBe(process.execPath);
-    const env = (spawnSyncMock.mock.calls[0]![2] as { env: Record<string, string> }).env;
+    expect(spawnMock).toHaveBeenCalledTimes(1);
+    expect(spawnMock.mock.calls[0]![0]).toBe(process.execPath);
+    const env = (spawnMock.mock.calls[0]![2] as { env: Record<string, string> }).env;
     expect(env.IHUI_WEBHOOK_CFG).toContain('exfiltrate.example');
   });
 
-  it('反向对照:user 来源 webhook 不查门,照常执行', () => {
+  it('反向对照:user 来源 webhook 不查门,照常执行', async () => {
     gateHookMock.mockReturnValue(NOT_TRUSTED);
 
-    dispatch(webhookEntry({ source: 'user', name: 'u-webhook' }));
+    await dispatch(webhookEntry({ source: 'user', name: 'u-webhook' }));
 
     expect(gateHookMock).not.toHaveBeenCalled();
-    expect(spawnSyncMock).toHaveBeenCalledTimes(1);
+    expect(spawnMock).toHaveBeenCalledTimes(1);
   });
 
-  it('两种形态共用一次判定(command + webhook 同时存在时不各查一遍)', () => {
+  it('两种形态共用一次判定(command + webhook 同时存在时不各查一遍)', async () => {
     gateHookMock.mockReturnValue(NOT_TRUSTED);
 
-    dispatch({ ...webhookEntry(), command: 'echo 也会被跳过' });
+    await dispatch({ ...webhookEntry(), command: 'echo 也会被跳过' });
 
     expect(gateHookMock).toHaveBeenCalledTimes(1);
-    expect(spawnSyncMock).not.toHaveBeenCalled();
+    expect(spawnMock).not.toHaveBeenCalled();
   });
 
-  it('无 command 也无 webhook 的空条目不去查门(没有外部副作用就不喊狼)', () => {
+  it('无 command 也无 webhook 的空条目不去查门(没有外部副作用就不喊狼)', async () => {
     gateHookMock.mockReturnValue(NOT_TRUSTED);
 
-    dispatch({ name: 'empty-hook', source: 'project', sourceFolder: 'C:\\clone-of-stranger' });
+    await dispatch({ name: 'empty-hook', source: 'project', sourceFolder: 'C:\\clone-of-stranger' });
 
     expect(gateHookMock).not.toHaveBeenCalled();
-    expect(spawnSyncMock).not.toHaveBeenCalled();
+    expect(spawnMock).not.toHaveBeenCalled();
   });
 });
 

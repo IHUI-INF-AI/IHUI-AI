@@ -29,18 +29,13 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 
 /** 只 mock 进程派生(= webhook 的实际外呼载体),信任门保持真实实现 */
-const { spawnSyncMock } = vi.hoisted(() => ({
-  spawnSyncMock: vi.fn(() => ({
-    status: 0,
-    stdout: '{"kind":"response","status":200,"body":"ok"}',
-    stderr: '',
-    signal: null,
-  })),
+const { spawnMock } = vi.hoisted(() => ({
+  spawnMock: vi.fn(),
 }));
 
 vi.mock('node:child_process', async (importOriginal) => {
   const actual = (await importOriginal()) as object;
-  return { ...actual, default: { ...actual, spawnSync: spawnSyncMock }, spawnSync: spawnSyncMock };
+  return { ...actual, default: { ...actual, spawn: spawnMock }, spawn: spawnMock };
 });
 
 import {
@@ -51,6 +46,78 @@ import {
   type HooksConfig,
 } from '../src/hooks/index.js';
 import { isFolderTrusted } from '../src/hooks/trust.js';
+import { EventEmitter } from 'node:events';
+
+type FakeChild = EventEmitter & {
+  stdout: EventEmitter & { setEncoding: (e: string) => void; destroy: () => void };
+  stderr: EventEmitter & { setEncoding: (e: string) => void; destroy: () => void };
+  kill: () => boolean;
+  pid: number;
+};
+
+/** 假 ChildProcess:异步执行面(runWebhookAsync)挂 stdout/事件用;close 微任务后到 */
+function fakeChild(): FakeChild {
+  const child = new EventEmitter() as FakeChild;
+  const mkStream = (): FakeChild['stdout'] => {
+    const s = new EventEmitter() as FakeChild['stdout'];
+    s.setEncoding = () => undefined;
+    s.destroy = () => undefined;
+    return s;
+  };
+  child.stdout = mkStream();
+  child.stderr = mkStream();
+  child.kill = () => true;
+  child.pid = 424242;
+  return child;
+}
+
+/** 默认派发剧本:回报上游 200 响应(与旧 spawnSync mock 同一观察面),随后正常退出 */
+function stubSpawnDefault(): void {
+  spawnMock.mockImplementation(() => {
+    const child = fakeChild();
+    queueMicrotask(() => {
+      child.stdout.emit('data', '{"kind":"response","status":200,"body":"ok"}');
+      child.emit('close', 0);
+    });
+    return child;
+  });
+}
+import { EventEmitter } from 'node:events';
+
+type FakeChild = EventEmitter & {
+  stdout: EventEmitter & { setEncoding: (e: string) => void; destroy: () => void };
+  stderr: EventEmitter & { setEncoding: (e: string) => void; destroy: () => void };
+  kill: () => boolean;
+  pid: number;
+};
+
+/** 假 ChildProcess:异步执行面(runWebhookAsync)挂 stdout/事件用;close 微任务后到 */
+function fakeChild(): FakeChild {
+  const child = new EventEmitter() as FakeChild;
+  const mkStream = (): FakeChild['stdout'] => {
+    const s = new EventEmitter() as FakeChild['stdout'];
+    s.setEncoding = () => undefined;
+    s.destroy = () => undefined;
+    return s;
+  };
+  child.stdout = mkStream();
+  child.stderr = mkStream();
+  child.kill = () => true;
+  child.pid = 424242;
+  return child;
+}
+
+/** 默认派发剧本:回报上游 200 响应(与旧 spawnSync mock 同一观察面),随后正常退出 */
+function stubSpawnDefault(): void {
+  spawnMock.mockImplementation(() => {
+    const child = fakeChild();
+    queueMicrotask(() => {
+      child.stdout.emit('data', '{"kind":"response","status":200,"body":"ok"}');
+      child.emit('close', 0);
+    });
+    return child;
+  });
+}
 
 const dirs: string[] = [];
 function mkDir(label: string): string {
@@ -82,7 +149,8 @@ function gateEntry(folder: string, name: string): HookEntry {
 const GUARDED_ENV = ['IHUI_TRUST_WORKSPACE', 'IHUI_HOOKS_CONFIG', 'IHUI_HOOK_TRUST_ALLOW_STALE'] as const;
 const savedEnv: Array<[string, string | undefined]> = [];
 beforeEach(() => {
-  spawnSyncMock.mockClear();
+  spawnMock.mockClear();
+  stubSpawnDefault();
   for (const key of GUARDED_ENV) {
     savedEnv.push([key, process.env[key]]);
     delete process.env[key];
@@ -195,7 +263,7 @@ describe('W1 真实四道门:webhook 形态与 command 形态同判(信任文本
 
 describe('W2 派发收口点 × 真实信任门:未信任时 webhook 一次外呼都不发起;逃生舱对两形态同权', () => {
   /** 走 sessionStart:blockOnError 默认 true,跳过若误返回非 0 会当场暴露 */
-  function dispatch(entry: HookEntry): { proceed: boolean; reason?: string } {
+  async function dispatch(entry: HookEntry): Promise<{ proceed: boolean; reason?: string }> {
     const config: HooksConfig = { sessionStart: [entry] };
     return runSessionStartHooks(config, { workspacePath: entry.sourceFolder ?? process.cwd() });
   }
@@ -212,7 +280,7 @@ describe('W2 派发收口点 × 真实信任门:未信任时 webhook 一次外�
         writes.push(String(chunk));
         return true;
       });
-    const result = dispatch({
+    const result = await dispatch({
       name: 'w2a-untrusted-webhook',
       webhook: 'https://collect.example/never',
       method: 'POST',
@@ -222,8 +290,8 @@ describe('W2 派发收口点 × 真实信任门:未信任时 webhook 一次外�
     });
     spy.mockRestore();
 
-    // runWebhookSync 经 spawnSync(process.execPath, ['-e', WEBHOOK_SCRIPT]) 外呼 —— 零调用即零请求
-    expect(spawnSyncMock).not.toHaveBeenCalled();
+    // runWebhookAsync 经 spawn(process.execPath, ['-e', WEBHOOK_SCRIPT]) 外呼 —— 零调用即零请求
+    expect(spawnMock).not.toHaveBeenCalled();
     expect(result.proceed).toBe(true);
     expect(result.reason).toBeUndefined();
     const text = writes.join('');
@@ -237,7 +305,7 @@ describe('W2 派发收口点 × 真实信任门:未信任时 webhook 一次外�
     expect(isFolderTrusted(folder), `夹具目录意外已被信任: ${folder}`).toBe(false);
     process.env.IHUI_TRUST_WORKSPACE = '1';
 
-    const result = dispatch({
+    const result = await dispatch({
       name: 'w2b-escape-webhook',
       webhook: 'https://collect.example/escape-me',
       method: 'POST',
@@ -246,9 +314,9 @@ describe('W2 派发收口点 × 真实信任门:未信任时 webhook 一次外�
       sourceFolder: folder,
     });
 
-    expect(spawnSyncMock).toHaveBeenCalledTimes(1);
-    expect(spawnSyncMock.mock.calls[0]![0]).toBe(process.execPath);
-    const opts = spawnSyncMock.mock.calls[0]![2] as { env: Record<string, string> };
+    expect(spawnMock).toHaveBeenCalledTimes(1);
+    expect(spawnMock.mock.calls[0]![0]).toBe(process.execPath);
+    const opts = spawnMock.mock.calls[0]![2] as { env: Record<string, string> };
     // 出网目标(URL)与非网变量(sessionId/workspacePath 喂模板)在派发边界逐字可见 → 可审计
     expect(opts.env.IHUI_WEBHOOK_CFG).toContain('collect.example/escape-me');
     expect(result.proceed).toBe(true);
