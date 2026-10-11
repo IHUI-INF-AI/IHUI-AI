@@ -499,6 +499,12 @@
     "search": "Search",
     "searchPlaceholder": "Search documents..."
   },
+  "network": {
+    "offline": "You're offline. Some features are unavailable.",
+    "slow": "Your connection is slow, responses may be delayed.",
+    "serverUnreachable": "We can't reach our server right now. Your network looks fine.",
+    "probeUnavailable": "We can't check your network status right now."
+  },
   "aiAssistant": {
     "title": "AI Assistant",
     "subtitle": "Select an agent to start",
