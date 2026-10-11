@@ -26,13 +26,7 @@ vi.mock('@ihui/api-client', () => ({
   streamChat: streamChatMock,
   setBaseUrl: vi.fn(),
   setTokenProvider: vi.fn(),
-  // [调和 2026-10-11] G-916940③(e0f1e578ca)起 runToolLoop 无条件引用容量出口
-  // (src/commands/agent.ts:1586 `opts.contextLimit ?? getModelContextCapacity(opts.modelId)`),
-  // 而本 mock 工厂只给了网络边界四个导出 —— 缺这一项时本用例三条都在 runToolLoop
-  // 启动行(102/127/145/159)崩于 "No \"getModelContextCapacity\" export is defined on
-  // the \"@ihui/api-client\" mock",与 CI 红点逐行吻合。桩值 128_000 与真实出口对未知
-  // modelId('test')的回落档等值(model-context-capacity.ts: DEFAULT_CONTEXT_CAPACITY
-  // = 128_000),复用既有缺省语义而非新造档位;判据本体(帧时序/载荷/seq)一字未放宽。
+  // G-916940③ 起真实 runToolLoop 还引用容量出口;本面只 mock 网络边界,容量给缺省档等值桩
   getModelContextCapacity: () => 128_000,
   formatSSEError: (err: unknown) => ({
     severity: 'unknown' as const,
@@ -125,7 +119,7 @@ describe('D113 runToolLoop 预览帧接线(执行前派生、旁路不发空帧)
     return frames;
   }
 
-  it('写类工具:帧在 execute 之前到达,载荷是累积文本且 seq 从 1 起', async () => {
+  it('写类工具:帧在 execute 之前到达,载荷是增量文本且 seq 从 1 起', async () => {
     emitToolCall('write_file');
     registerTools([
       writeTool('write_file', () => {

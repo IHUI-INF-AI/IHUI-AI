@@ -1759,7 +1759,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       await opts.onIteration?.(iterations, opts.maxIterations);
 
       // P2-4 agent-lifecycle:turnStart hook(每轮开始触发,粒度细于 sessionStart)
-      runHook('turnStart', {
+      await runHook('turnStart', {
         workspacePath: opts.ctx.workspacePath,
         sessionId: opts.sessionId,
         turnNumber: iterations,
@@ -2031,7 +2031,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
 
       if (iterError) {
         // P2-4 agent-lifecycle:turnError hook(本轮出错,单轮失败不等于 agent 终止)
-        runHook('turnError', {
+        await runHook('turnError', {
           workspacePath: opts.ctx.workspacePath,
           sessionId: opts.sessionId,
           turnNumber: iterations,
@@ -2160,7 +2160,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
             verification = decision.verification;
             // 这一路是 hook/审计流水,刻意用 ASCII 键值形态:结论的人话版本由命令层
             // 经 i18n 出口打印(§19),此处只求"任何抓日志的人都能机器判读档位"。
-            runHook('notification', {
+            await runHook('notification', {
               workspacePath: opts.ctx.workspacePath,
               sessionId: opts.sessionId,
               notificationText:
@@ -2184,7 +2184,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         // P0-3 end_turn(LLM 主动结束)时重置连续签名检测器,表示对话正常推进
         signatureDetector.reset();
         // P2-4 agent-lifecycle:turnEnd hook(本轮成功结束 - end_turn)
-        runHook('turnEnd', {
+        await runHook('turnEnd', {
           workspacePath: opts.ctx.workspacePath,
           sessionId: opts.sessionId,
           turnNumber: iterations,
@@ -2332,7 +2332,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         if (call.name === 'dispatch_subagent') {
           const subId = String(call.arguments.subagentId ?? call.arguments.task ?? '').slice(0, 80);
           const subType = String(call.arguments.persona ?? 'general');
-          runHook('subagentStart', {
+          await runHook('subagentStart', {
             workspacePath: opts.ctx.workspacePath,
             sessionId: opts.sessionId,
             subagentId: subId,
@@ -2389,7 +2389,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
             : await executeToolCall(call, opts.ctx);
           if (call.name === 'dispatch_subagent') {
             const subId = String(call.arguments.subagentId ?? call.arguments.task ?? '').slice(0, 80);
-            runHook('subagentStop', {
+            await runHook('subagentStop', {
               workspacePath: opts.ctx.workspacePath,
               sessionId: opts.sessionId,
               subagentId: subId,
@@ -2498,7 +2498,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       finalizeLedger();
 
       // P2-4 agent-lifecycle:turnEnd hook(本轮成功结束 - 工具调用执行完毕)
-      runHook('turnEnd', {
+      await runHook('turnEnd', {
         workspacePath: opts.ctx.workspacePath,
         sessionId: opts.sessionId,
         turnNumber: iterations,
@@ -2512,7 +2512,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       const msg = err instanceof Error ? err.message : String(err);
       lastErrorMessage = msg;
       // P2-4 agent-lifecycle:turnError hook(本轮异常 - catch 块)
-      runHook('turnError', {
+      await runHook('turnError', {
         workspacePath: opts.ctx.workspacePath,
         sessionId: opts.sessionId,
         turnNumber: iterations,
@@ -2603,7 +2603,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       await opts.onGoalVerification?.(verification);
       // 这一路是 hook/审计流水,刻意用 ASCII 键值形态:结论的**人话版本**由命令层
       // 经 i18n 出口打印(§19),此处只求"任何抓日志的人都能机器判读档位"。
-      runHook('notification', {
+      await runHook('notification', {
         ...hookCtx,
         notificationText:
           `goal-verification status=${verification.goal_status} ` +
@@ -2616,22 +2616,22 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   }
 
   if (stopReason === 'error') {
-    runHook('stopFailure', { ...hookCtx, error: lastErrorMessage || 'unknown error' }, { signal: opts.signal });
-    runHook('notification', { ...hookCtx, notificationText: `Agent 因错误终止: ${lastErrorMessage || 'unknown'}` }, { signal: opts.signal });
+    await runHook('stopFailure', { ...hookCtx, error: lastErrorMessage || 'unknown error' }, { signal: opts.signal });
+    await runHook('notification', { ...hookCtx, notificationText: `Agent 因错误终止: ${lastErrorMessage || 'unknown'}` }, { signal: opts.signal });
   } else if (stopReason === 'doom_loop') {
-    runHook('notification', { ...hookCtx, notificationText: `Agent 因死循环检测终止 (连续 2 轮重复工具调用)` }, { signal: opts.signal });
+    await runHook('notification', { ...hookCtx, notificationText: `Agent 因死循环检测终止 (连续 2 轮重复工具调用)` }, { signal: opts.signal });
   } else if (stopReason === 'max_iterations') {
-    runHook('notification', { ...hookCtx, notificationText: `Agent 达到最大迭代数 ${opts.maxIterations}` }, { signal: opts.signal });
+    await runHook('notification', { ...hookCtx, notificationText: `Agent 达到最大迭代数 ${opts.maxIterations}` }, { signal: opts.signal });
   } else if (stopReason === 'budget_limited') {
-    runHook('notification', { ...hookCtx, notificationText: `Agent 因预算上限停止 (cost >= ${opts.maxCostUsd ?? 'N/A'})` }, { signal: opts.signal });
+    await runHook('notification', { ...hookCtx, notificationText: `Agent 因预算上限停止 (cost >= ${opts.maxCostUsd ?? 'N/A'})` }, { signal: opts.signal });
   } else if (stopReason === 'plan_approval_required') {
     // P0-C:plan 待审批通知 — 提示用户用 --auto-approve-plan 或交互模式审批
-    runHook('notification', { ...hookCtx, notificationText: 'Agent 因 plan 待用户审批而暂停 (plan_approval_required)' }, { signal: opts.signal });
+    await runHook('notification', { ...hookCtx, notificationText: 'Agent 因 plan 待用户审批而暂停 (plan_approval_required)' }, { signal: opts.signal });
   }
-  runHook('stop', hookCtx, { signal: opts.signal });
+  await runHook('stop', hookCtx, { signal: opts.signal });
 
   // P2-4 agent-lifecycle:turnComplete hook(agent 完成所有轮次,与 stop 配对,携带最终 stopReason)
-  runHook('turnComplete', {
+  await runHook('turnComplete', {
     ...hookCtx,
     totalTurns: iterations,
     stopReason,
@@ -2661,7 +2661,7 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     workspacePath: opts.workspacePath,
     sessionId: opts.session?.id,
   };
-  const startResult = runSessionStartHooks(hooksConfig, sessionHookCtx, opts.signal);
+  const startResult = await runSessionStartHooks(hooksConfig, sessionHookCtx, opts.signal);
   if (!startResult.proceed) {
     const errMsg = startResult.reason ?? 'sessionStart hook blocked';
     if (opts.jsonMode === true) {
@@ -2788,7 +2788,8 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
   }
 
   const messages: ChatMessage[] = [
-    { role: 'system', content: systemPrompt },
+    // G-424 ③:sessionStart 钩子回传的 additionalContext 并入系统提示(内容已过唯一成形出口)。
+    { role: 'system', content: startResult.additionalContext !== undefined ? `${systemPrompt}\n\n${startResult.additionalContext}` : systemPrompt },
     { role: 'user', content: opts.prompt },
   ];
 
@@ -2801,12 +2802,31 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     }
   }
 
-  // Hook 埋点:userPromptSubmit
-  runHook('userPromptSubmit', {
+  // Hook 埋点:userPromptSubmit(G-424 ③:接上游约定 —— exit 2 = 本次阻断;成功钩子
+  // stdout 经 additionalContext 通道并入本轮模型输入,即上游 UserPromptSubmit stdout→context)。
+  const promptHook = await runHook('userPromptSubmit', {
     workspacePath: opts.workspacePath,
     sessionId: opts.session?.id,
     prompt: opts.prompt,
   }, { signal: opts.signal });
+  if (!promptHook.proceed) {
+    const errMsg = promptHook.reason ?? 'userPromptSubmit hook blocked';
+    if (opts.jsonMode === true) {
+      process.stdout.write(JSON.stringify({ type: 'error', message: errMsg }) + '\n');
+    } else {
+      console.error(chalk.red(`\n❌ ${errMsg}`));
+    }
+    return {
+      stopReason: 'error',
+      assistantText: '',
+      iterations: 0,
+      usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, estimatedCostUsd: 0 },
+    };
+  }
+  if (promptHook.additionalContext !== undefined) {
+    // 上游 ContextualUserFragment:钩子上下文以 user 片段并入本轮输入(内容已过唯一成形出口)。
+    messages.push({ role: 'user', content: promptHook.additionalContext });
+  }
 
   // P3-2 Telemetry:记录 session 起始时间(用于 finally 块中计算 durationMs)
   const sessionStartTime = Date.now();
@@ -3007,7 +3027,7 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
   } finally {
     // W10 异常路径也 flush 残留 markdown(重复调用幂等:pending 清空后 flush 返回空)
     flushMdStream();
-    runSessionEndHooks(hooksConfig, sessionHookCtx, opts.signal);
+    await runSessionEndHooks(hooksConfig, sessionHookCtx, opts.signal);
     // P1-6 Codegraph 增量索引:退出时持久化缓存(供下次启动加载)
     if (codegraphSettings.codegraphIncremental?.enabled === true) {
       try {

@@ -35,7 +35,7 @@ export type TranscriptBlock =
       state: ToolState
       /** 结果首行摘要(verbose 档才展开多行) */
       resultSummary: string
-      /** tool_delta 预览帧(D113 流中 diff),整帧替换语义 */
+      /** tool_delta 预览帧(D113 流中 diff),增量正文逐帧追加 */
       preview: string
     }
   | { kind: 'notice'; tone: Tone; text: string }
@@ -195,7 +195,8 @@ export function foldEvent(tr: Transcript, ev: AgentEvent): Transcript {
     case 'tool_delta': {
       const found = findToolBack(tr.blocks, (b) => b.state === 'running')
       if (!found) return tr
-      const body = (ev.partialText ?? '').slice(0, PREVIEW_KEEP)
+      // 增量正文:每帧只含本批新增行,故逐帧**追加**(整帧替换会丢前段正文)
+      const body = (found.block.preview + (ev.partialText ?? '')).slice(0, PREVIEW_KEEP)
       return {
         ...tr,
         blocks: replaceAt(tr.blocks, found.index, {

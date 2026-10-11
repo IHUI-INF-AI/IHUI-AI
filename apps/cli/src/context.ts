@@ -23,6 +23,10 @@ export {
   summarizeMessage,
   buildStructuredSummary,
   compressContext,
+  // P2:压缩决策原因的闭集类型(端内一律经本文件取词,不各自深读共享包)
+  type CompactionDecisionReason,
+  COMPACTION_DECISION_REASONS,
+  isCompactionDecisionReason,
   type ChatMessage,
   type CompressionResult,
   type CompressionOptions,
@@ -263,15 +267,18 @@ export function compressContextIfNeeded(
   opts: CLICompressionOptions,
 ): CompressionResult {
   const hooks: CompactionHooks = {
+    // G-424 ②:钩子执行面已异步化。本回调宿主(shared 压缩钩子接口)是同步形状,
+    // 这里以显式 void 后台化 —— 压缩流程不被钩子执行时长牵制,结果(feedback/终态)经
+    // 事件流与 stderr 观察面出境。
     preCompact: ({ compactedTokensBefore }) => {
-      runHook('preCompact', {
+      void runHook('preCompact', {
         workspacePath: opts.workspacePath,
         sessionId: opts.sessionId,
         compactedTokensBefore,
       });
     },
     postCompact: ({ compactedTokensBefore, compactedTokensAfter }) => {
-      runHook('postCompact', {
+      void runHook('postCompact', {
         workspacePath: opts.workspacePath,
         sessionId: opts.sessionId,
         compactedTokensBefore,
