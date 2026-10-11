@@ -16,6 +16,8 @@ import { describe, it, expect } from 'vitest'
 import {
   canSilentlyReLogin,
   shouldAttemptAutoLogin,
+  shouldMarkSessionLoggedOut,
+  classifyRefreshFailureStatus,
   SESSION_LOGGED_OUT_STORAGE_KEY,
 } from '../../src/auth/auto-login-policy'
 
@@ -88,6 +90,51 @@ describe('canSilentlyReLogin(各端自定义准入条件)', () => {
 
   it('三端共用同一个 storage key(名字漂移 = 三端各有各的标记)', () => {
     expect(SESSION_LOGGED_OUT_STORAGE_KEY).toBe('ihui-session-logged-out')
+  })
+})
+
+describe('classifyRefreshFailureStatus(刷新失败分型)', () => {
+  it('401/403 = 凭据被明确拒绝', () => {
+    expect(classifyRefreshFailureStatus(401)).toBe('rejected')
+    expect(classifyRefreshFailureStatus(403)).toBe('rejected')
+  })
+
+  it('5xx = 瞬时不可用(不能误判成凭据失效)', () => {
+    expect(classifyRefreshFailureStatus(500)).toBe('transient')
+    expect(classifyRefreshFailureStatus(502)).toBe('transient')
+    expect(classifyRefreshFailureStatus(503)).toBe('transient')
+  })
+
+  it('无 status(网络错误/超时,api 重启窗口的典型返回)与 0 = 瞬时', () => {
+    expect(classifyRefreshFailureStatus(undefined)).toBe('transient')
+    expect(classifyRefreshFailureStatus(0)).toBe('transient')
+  })
+
+  it('其余 4xx 一律瞬时(只有 401/403 才构成"凭据被否定")', () => {
+    expect(classifyRefreshFailureStatus(400)).toBe('transient')
+    expect(classifyRefreshFailureStatus(404)).toBe('transient')
+    expect(classifyRefreshFailureStatus(429)).toBe('transient')
+  })
+})
+
+describe('shouldMarkSessionLoggedOut(要不要落持久登出标记)', () => {
+  it('rejected ⇒ 落标记(会话真死,与主动登出同处置)', () => {
+    expect(shouldMarkSessionLoggedOut('rejected')).toBe(true)
+  })
+
+  it('transient ⇒ 绝不落标记(2026-10-09 根治「自动登录总被清掉」:api 重启/网络抖动一次就把 30 天 cookie 永久废掉的旧病根)', () => {
+    expect(shouldMarkSessionLoggedOut('transient')).toBe(false)
+  })
+
+  it('null(性质未知:刷新结果被 CAS 丢弃/未注入续期实现)一律不落标记 —— 与 session-marker 同失效方向,未知不得触发用户可见行为改变', () => {
+    expect(shouldMarkSessionLoggedOut(null)).toBe(false)
+  })
+
+  it('端到端投影:分型 → 落标决策,仅 401/403 这一条链路能写出标记', () => {
+    for (const status of [401, 403, 500, 502, 503, 400, 404, 429, 0, undefined]) {
+      const expected = status === 401 || status === 403
+      expect(shouldMarkSessionLoggedOut(classifyRefreshFailureStatus(status))).toBe(expected)
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
