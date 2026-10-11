@@ -3513,11 +3513,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 # G-815971:网关内部重试(httpStatus=429)与额度等效降级
                                 # (reason=quota*)都是"限额命中且循环继续"的信号 ——
                                 # 本轮续期通道一并闩死,防额度在续期轮里继续被烧。
-                                if _evt_type == "retry_scheduled" and evt.get("httpStatus") == 429:
-                                    _budget_exhausted_this_turn = True
-                                elif _evt_type == "fallback" and str(
-                                    evt.get("reason") or ""
-                                ).startswith("quota"):
+                                if (_evt_type == "retry_scheduled" and evt.get("httpStatus") == 429) or (
+                                    _evt_type == "fallback"
+                                    and str(evt.get("reason") or "").startswith("quota")
+                                ):
                                     _budget_exhausted_this_turn = True
                                 if _evt_type == "chunk":
                                     # 逐 token 透传 + 提问标记解析(与 1144-1146 行格式一致)
@@ -3681,11 +3680,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 # G-815971:网关内部重试(httpStatus=429)与额度等效降级
                                 # (reason=quota*)都是"限额命中且循环继续"的信号 ——
                                 # 本轮续期通道一并闩死,防额度在续期轮里继续被烧。
-                                if _evt_type == "retry_scheduled" and evt.get("httpStatus") == 429:
-                                    _budget_exhausted_this_turn = True
-                                elif _evt_type == "fallback" and str(
-                                    evt.get("reason") or ""
-                                ).startswith("quota"):
+                                if (_evt_type == "retry_scheduled" and evt.get("httpStatus") == 429) or (
+                                    _evt_type == "fallback"
+                                    and str(evt.get("reason") or "").startswith("quota")
+                                ):
                                     _budget_exhausted_this_turn = True
                                 if _evt_type == "chunk":
                                     clean_text, questions = question_parser.feed(evt.get("content", ""))
