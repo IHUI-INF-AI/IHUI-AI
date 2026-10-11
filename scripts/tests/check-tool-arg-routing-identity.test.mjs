@@ -226,11 +226,14 @@ test('5 反向对照:判据失效不得表现为"扫 0 记绿"(夹具里没有�
 
 test('6 真仓取材可用:三种面都能读到清单与投影源(只读,不改索引)', () => {
   for (const face of ['head', 'staged', 'worktree']) {
-    const src = __test__.readRulerSource(REPO, face, __test__.NAME_SOURCE, (t) =>
-      /ROUTING_IDENTITY_KEYS/.test(t),
-    )
+    // 标记判据取自门体那一份 `hasListMarker`(它同时是 analyze 自己用的那颗):
+    // 测试里再写一遍 /清单常量名/ 就是第二份真相,门改标记而测试照绿 = 假绿。
+    const src = __test__.readRulerSource(REPO, face, __test__.NAME_SOURCE, __test__.hasListMarker)
     if (typeof src.text === 'string')
-      assert.match(src.text, /ROUTING_IDENTITY_KEYS/, `${face} 面读到的清单源不含标记`)
+      assert.ok(
+        __test__.hasListMarker(src.text),
+        `${face} 面读到的清单源不含门体要求的清单标记(${__test__.NAME_SOURCE})`,
+      )
     else assert.ok(src.notices.length > 0, `${face} 面取不到却不报原因`)
   }
   const proj = __test__.auditProjection(

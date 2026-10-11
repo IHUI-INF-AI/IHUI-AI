@@ -42,6 +42,7 @@
     "dev:stack:check": "node scripts/dev-stack.mjs --check",
     "i18n:apply": "node scripts/i18n-apply.mjs",
     "check:staged-typecheck": "node scripts/check-staged-typecheck.mjs",
+    "check:head-typecheck": "node scripts/check-head-typecheck.mjs",
     "check:provenance": "node scripts/provenance-ledger.mjs",
     "check:exemption-expiry": "node scripts/check-exemption-expiry.mjs --all",
     "check:task-claims": "node scripts/check-task-claims.mjs --check-gate",

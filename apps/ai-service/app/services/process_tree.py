@@ -36,6 +36,12 @@ async def kill_process_tree(pid: int) -> None:
     """
     if pid <= 0:
         return
+    # POSIX 系统调用(os.getpgid/os.kill)的 pid 形参是 C int;超过 INT_MAX 的 pid
+    # 在 raise 系统调用前就被 CPython 以 OverflowError 拒掉,而清理路径的契约是
+    # "幂等,绝不抛"(CI run 38084051334 实证:kill_process_tree(4_000_000_000) 在
+    # Linux 上抛 OverflowError)。这种 pid 必不存在 ⇒ 与"已死 pid"同档,直接幂等返回。
+    if pid > 0x7FFFFFFF:
+        return
     if os.name == "nt":
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -62,16 +68,16 @@ async def kill_process_tree(pid: int) -> None:
     # POSIX:先按进程组杀(子进程同组时整组退场),拿不到组再单杀。
     # os.getpgid/killpg 是 POSIX-only,Windows 的 mypy 存根没有 —— 静态存根缺位,非真错误。
     try:
-        pgid = os.getpgid(pid)  # type: ignore[attr-defined]
+        pgid = os.getpgid(pid)  # type: ignore[attr-defined, unused-ignore]
     except ProcessLookupError:
         return
     except OSError:
         pgid = None
     try:
         if pgid:
-            os.killpg(pgid, signal.SIGKILL)  # type: ignore[attr-defined]
+            os.killpg(pgid, signal.SIGKILL)  # type: ignore[attr-defined, unused-ignore]
         else:
-            os.kill(pid, signal.SIGKILL)  # type: ignore[attr-defined]
+            os.kill(pid, signal.SIGKILL)  # type: ignore[attr-defined, unused-ignore]
     except ProcessLookupError:
         pass
     except OSError as e:

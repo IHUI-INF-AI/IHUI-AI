@@ -228,15 +228,51 @@ export function judgeIntraDay(files, t = THRESHOLDS) {
   return out
 }
 
-/** 落盘时刻是否在计划窗口内(注意:同日多轮时,只要**任一份**落在窗口内就算在点 —— 实测 09-25 有 8 份、最早 02:21,若只看最早那份会误判成"没在点") */
+/** "HHMMSS" → 当日分钟数(含秒的小数,边界判据才不被截断吞掉);读不出 → NaN,由调用方落"判不出"档 */
+export function minuteOfDay(hms) {
+  const s = String(hms ?? '')
+  if (!/^\d{6}$/.test(s)) return NaN
+  return Number(s.slice(0, 2)) * 60 + Number(s.slice(2, 4)) + Number(s.slice(4, 6)) / 60
+}
+
+/** 分钟数 → HH:MM。**向下取整**:02:59:59 必须印成 02:59 —— 四舍五入会把它印成 03:00,
+ *  而"比计划时刻早数秒"正是这一维要报名的东西,把它抹掉等于注记自己把自己藏起来。 */
+export function hhmm(min) {
+  if (!Number.isFinite(min)) return '??:??'
+  const m = ((Math.floor(min) % 1440) + 1440) % 1440
+  const p = (x) => String(x).padStart(2, '0')
+  return `${p(Math.floor(m / 60))}:${p(m % 60)}`
+}
+
+/**
+ * 落盘时刻是否在计划窗口内(注意:同日多轮时,只要**任一份**落在窗口内就算在点 —— 实测 09-25 有 8 份、最早 02:21,若只看最早那份会误判成"没在点")
+ *
+ * **量纲必须是分钟,不能是小时。** 文件名里的时间戳是 pg_dump 的**起始**时刻,而调度器睡到的目标是整分
+ * (03:00:00);唤醒 + 取时间戳有 ±数秒抖动,按小时截断会把"比标称分钟早 1 秒"那一轮推进上一格(02),
+ * 于是同一批 03:00±3s 的产出里,只有恰好跨了分钟界的那一天被判成窗口外。2026-10-11 实测:`025959`
+ * 那一份 mtime `03:00:22`、流水打了 `备份完成 03:00:22` 且已排 `下次备份 2026-10-12 03:00:00` ——
+ * 它就是计划那一轮,却被旧判据报成 OFF_WINDOW_LAND。**间歇性假阳与恒绿同罪**:它把正常轮说成故障,
+ * 代价是让人学会忽略这一维(§5e-1「训练收信人忽略这封信」同一条禁令)。
+ *
+ * 窗口按计划时刻**两侧各放 `scheduleGraceHours` 小时**,与报告行"03:00 ±2h"的措辞同形 ——
+ * 旧实现 `lo = schedHour` 只给迟到一侧宽限,即**措辞承诺 ± 而代码只给单边**,是本门对自己文案的盲视。
+ * 早于整个窗口(00:45 那一类)仍判 `off-window`:这一档的牙齿没有被削弱,由成对用例与变异自证钉住。
+ */
 export function judgeLanding(files, schedHour, t = THRESHOLDS) {
   const dumps = (files || []).filter((f) => f.family === 'dump')
-  if (dumps.length === 0) return { state: 'none' }
-  const hours = dumps.map((f) => Number(f.hms.slice(0, 2)))
-  const lo = schedHour, hi = schedHour + t.scheduleGraceHours
-  if (hours.some((h) => h >= lo && h <= hi)) return { state: 'on-schedule', hours }
-  if (hours.every((h) => h > hi)) return { state: 'late', hours }
-  return { state: 'off-window', hours }
+  if (dumps.length === 0) return { state: 'none', hours: [], minutes: [], window: null }
+  const minutes = dumps.map((f) => minuteOfDay(f.hms))
+  const known = minutes.filter((n) => Number.isFinite(n))
+  // 时间戳一律读不出 ⇒ 落 off-window(与旧实现同结论),不得因为"没量到"就发合格证
+  if (known.length === 0) return { state: 'off-window', hours: [], minutes: [], window: null }
+  const planned = schedHour * 60
+  const lo = planned - t.scheduleGraceHours * 60
+  const hi = planned + t.scheduleGraceHours * 60
+  const hours = known.map((m) => Math.floor(m / 60))
+  const early = known.filter((m) => m < planned)
+  if (known.some((m) => m >= lo && m <= hi)) return { state: 'on-schedule', hours, minutes: known, window: [lo, hi], early }
+  if (known.every((m) => m > hi)) return { state: 'late', hours, minutes: known, window: [lo, hi], earliest: Math.min(...known) }
+  return { state: 'off-window', hours, minutes: known, window: [lo, hi], latest: Math.max(...known) }
 }
 
 /**
@@ -302,9 +338,16 @@ export function judgeDay({ ymd, files, window, todayStr, nowHour, schedHour, int
   let status = 'ok'
   if (counts.truncated > 0) status = counts.complete > 0 ? 'ok-with-truncated' : 'TRUNCATED'
   else if (counts.undetermined > 0 && counts.complete === 0) status = 'UNDETERMINED'
-  const land = judgeLanding(dumps, schedHour ?? 3)
-  if (land.state === 'late') findings.push({ code: 'LATE_LAND', severity: 'degraded', db, text: `${who}${ymd} 没在计划 ${String(schedHour).padStart(2, '0')}:00±${THRESHOLDS.scheduleGraceHours}h 落盘,最早落在 ${land.hours.slice().sort((a, b) => a - b)[0]}:xx —— 调度器延迟或在重试` })
-  else if (land.state === 'off-window') findings.push({ code: 'OFF_WINDOW_LAND', severity: 'degraded', db, text: `${who}${ymd} 落盘时刻 ${land.hours.join('/')} 全在计划窗口外(常见于服务启动即备份那一轮)` })
+  const sched = schedHour ?? 3
+  const land = judgeLanding(dumps, sched)
+  const winText = land.window ? `${hhmm(land.window[0])}–${hhmm(land.window[1])}` : '窗口算不出'
+  if (land.state === 'late')
+    findings.push({ code: 'LATE_LAND', severity: 'degraded', db, text: `${who}${ymd} 没在计划 ${String(sched).padStart(2, '0')}:00±${THRESHOLDS.scheduleGraceHours}h(即 ${winText})落盘,最早落在 ${hhmm(land.earliest)} —— 调度器延迟或在重试` })
+  else if (land.state === 'off-window')
+    findings.push({ code: 'OFF_WINDOW_LAND', severity: 'degraded', db, text: `${who}${ymd} 落盘时刻 ${(land.minutes || []).map(hhmm).join('/') || '(时间戳读不出)'} 全在计划窗口 ${winText} 外(常见于服务启动即备份那一轮,或调度时刻被改动)` })
+  else if (land.state === 'on-schedule' && (land.early || []).length > 0)
+    // 在点但落在计划时刻**之前** —— 不算故障,但也不能悄悄过去(它正是"调度器提前数秒唤醒"的指纹)
+    notes.push(`本日 ${land.early.map(hhmm).join('/')} 落在计划时刻之前,仍在 ±${THRESHOLDS.scheduleGraceHours}h 宽限内 ⇒ 算在点(常见于调度器提前数秒唤醒、文件名取的是 dump 起始时刻)`)
   return { ymd, status, findings, notes, counts, kind, landing: land, foreign: foreign.length }
 }
 
@@ -947,6 +990,8 @@ export const __test__ = {
   judgeShrink,
   judgeIntraDay,
   judgeLanding,
+  minuteOfDay,
+  hhmm,
   judgeDay,
   judgeVersionDrift,
   judgeTableDrift,

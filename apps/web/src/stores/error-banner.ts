@@ -59,7 +59,11 @@ export const useErrorBannerStore = create<ErrorBannerState>((set) => ({
     set((s) => {
       // G-641:溢出丢最旧但丢弃条数必须入账,消费面(GlobalErrorBanner)据 dropped
       // 渲染 "…(dropped N)" 计数行,不许残缺被读成完整。
-      const { items, dropped } = boundedAppend(s.errors, { id, message, timestamp: Date.now() }, MAX_ERRORS)
+      const { items, dropped } = boundedAppend(
+        s.errors,
+        { id, message, timestamp: Date.now() },
+        MAX_ERRORS,
+      )
       return { errors: items, dropped: s.dropped + dropped }
     })
     return id

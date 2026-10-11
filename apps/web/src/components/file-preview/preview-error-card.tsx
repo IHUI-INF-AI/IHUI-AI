@@ -17,12 +17,7 @@ import { cn } from '@/lib/utils'
 
 /** 失败判据(封闭集):新增一态必须同时补文案与测试,不得折进 'failed'。 */
 export type FilePreviewFailure =
-  | 'tooLarge'
-  | 'typeMismatch'
-  | 'corrupt'
-  | 'empty'
-  | 'unsupported'
-  | 'failed'
+  'tooLarge' | 'typeMismatch' | 'corrupt' | 'empty' | 'unsupported' | 'failed'
 
 export interface PreviewErrorCardProps {
   readonly failure: FilePreviewFailure
@@ -45,13 +40,7 @@ const FAILURE_ICON: Record<FilePreviewFailure, typeof FileWarning> = {
   failed: FileWarning,
 }
 
-export function PreviewErrorCard({
-  failure,
-  ext,
-  href,
-  detail,
-  className,
-}: PreviewErrorCardProps) {
+export function PreviewErrorCard({ failure, ext, href, detail, className }: PreviewErrorCardProps) {
   const t = useTranslations('chat')
   const Icon = FAILURE_ICON[failure]
 

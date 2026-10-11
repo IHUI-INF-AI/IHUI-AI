@@ -126,26 +126,105 @@ export async function loadSessionFromDb(id: string): Promise<Session | null> {
   }
 }
 
-// 列出持久化的会话(重启后 GET /sessions 不再返回空列表)
-export async function listPersistedSessions(filter?: {
+// ── G-815983:「是否还有下一条」的唯一出口 ─────────────────────────────────
+// 论证只写这一遍(此前同一论证在 apps/api/src/db/chat-queries.ts、routes/message.ts、
+// routes/task-messages.ts、utils/cursor-page.ts 各手写一份,站点清单与逐条定性见本票交付报告):
+//   1. 别在这一层加自己的天花板 —— 无名的 clamp 让「取满了」与「到底了」在响应上完全同形,
+//      于是账面能在恰好取满 limit 处报出「没有更多了」(其实还有),分页永不收敛。
+//   2. 正解是多取 PAGE_PROBE_ROWS 条**探测行**,由 resolveTruncation 判完再剥掉;
+//      任何中间层都不得在判定之前把探测行裁掉 —— 裁掉 ⇒ 判据在 limit 边界处恒假。
+//   3. 取不到探测行的既有形态只能保守判:恰满即 truncated = true
+//      (失效方向是「多一跳空页」,不是「断链」)。
+// 两条规则同住这一个函数,所以「按哪条规则判」是调用方显式声明的,不是各处自行猜。
+
+/** 探测行条数:判「是否还有下一条」的唯一取数形状(`limit + PAGE_PROBE_ROWS`)。 */
+export const PAGE_PROBE_ROWS = 1
+
+/** 本层默认取数上限:具名,禁无名 clamp(无名 clamp 正是上面第 1 条的成因)。 */
+export const DEFAULT_SESSION_LIST_LIMIT = 200
+
+export type TruncationRule =
+  /** 调用方按 `limit + PAGE_PROBE_ROWS` 取数:恰满 = 真的到底(精确,不多给空页) */
+  | 'probed'
+  /** 调用方只取到 limit:恰满 = 可能还有下一条(保守,不断链) */
+  | 'page-full'
+
+export interface PageTruncation<T> {
+  readonly items: T[]
+  readonly truncated: boolean
+  /** 计数兄弟键:`truncated` 不得裸奔(守门 check-truncation-accounting 的 DTO 面判据) */
+  readonly appliedLimit: number
+  readonly fetchedCount: number
+}
+
+/**
+ * 判定一页数据是否被截断 —— 全仓这一论证的唯一出口。
+ * `limit` 必须是非负整数(由调用方的具名上限出口 sanitize)。
+ */
+export function resolveTruncation<T>(
+  rows: readonly T[],
+  limit: number,
+  rule: TruncationRule,
+): PageTruncation<T> {
+  return {
+    items: rows.slice(0, limit),
+    truncated: rule === 'probed' ? rows.length > limit : rows.length === limit,
+    appliedLimit: limit,
+    fetchedCount: rows.length,
+  }
+}
+
+/** 取数上限的 sanitize:未给 → 具名默认;非有限值/负数 → 具名默认;其余取整。 */
+function appliedSessionListLimit(limit?: number): number {
+  if (limit === undefined || !Number.isFinite(limit) || limit < 0) return DEFAULT_SESSION_LIST_LIMIT
+  return Math.floor(limit)
+}
+
+export interface SessionPage {
+  readonly sessions: Session[]
+  readonly truncated: boolean
+  readonly appliedLimit: number
+  /** null = 库不可用或读失败,这一维判不了;不得把「没判」写成「没有更多」 */
+  readonly fetchedCount: number | null
+}
+
+/** 列出持久化会话并如实交代截断(恰满也交代,不留盲区)。 */
+export async function listPersistedSessionPage(filter?: {
   status?: SessionStatus
   limit?: number
-}): Promise<Session[]> {
+}): Promise<SessionPage> {
+  const appliedLimit = appliedSessionListLimit(filter?.limit)
   const db = await getDb()
-  if (!db) return []
+  if (!db) return { sessions: [], truncated: false, appliedLimit, fetchedCount: null }
   try {
     const conds: SQL[] = []
     if (filter?.status) conds.push(eq(agentRuntimeSessions.status, filter.status))
     const query = db.select().from(agentRuntimeSessions)
     const rows = await (conds.length > 0 ? query.where(and(...conds)) : query)
       .orderBy(desc(agentRuntimeSessions.updatedAt))
-      .limit(filter?.limit ?? 200)
-    return rows.map(toSession)
+      .limit(appliedLimit + PAGE_PROBE_ROWS)
+    const verdict = resolveTruncation(rows, appliedLimit, 'probed')
+    return {
+      sessions: verdict.items.map(toSession),
+      truncated: verdict.truncated,
+      appliedLimit: verdict.appliedLimit,
+      fetchedCount: verdict.fetchedCount,
+    }
   } catch (err) {
     dbDisabled = true
     console.warn('[agent-runtime-session-store] list failed, fallback to memory:', err)
-    return []
+    return { sessions: [], truncated: false, appliedLimit, fetchedCount: null }
   }
+}
+
+// 列出持久化的会话(重启后 GET /sessions 不再返回空列表)。
+// 本函数是 listPersistedSessionPage 的投影,只取 sessions —— 需要知道
+// 「是否还有下一条」的调用方必须走 page 出口,不得在这里再算一遍截断。
+export async function listPersistedSessions(filter?: {
+  status?: SessionStatus
+  limit?: number
+}): Promise<Session[]> {
+  return (await listPersistedSessionPage(filter)).sessions
 }
 
 export async function deletePersistedSession(id: string): Promise<void> {

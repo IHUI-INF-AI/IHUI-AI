@@ -67,6 +67,11 @@ test('1 §22c:源模块导出判据所需的纯函数', () => {
     'decide',
     'analyze',
     'listCandidates',
+    'listExecSites',
+    'enclosingFunctionBody',
+    'findEarlyReturnLines',
+    'auditShadowCoverage',
+    'formatCoverage',
   ])
     assert.equal(typeof __test__[k], 'function', `__test__.${k} 缺失`)
   assert.equal(
@@ -189,5 +194,130 @@ test('6 判据失效不得记绿:空仓 ⇒ exit 2;两面旗同给 ⇒ exit 2;--
   assert.equal(both.status, 2, `两面旗同给必须 exit 2,实得 ${both.status}`)
   const st = runGuard(['--self-test'])
   assert.equal(st.status, 0, `自检必须全绿,实得 ${st.status}:${st.stdout}${st.stderr}`)
+})
+
+// —— 以下两例钉 L9264 补的「影子档实际覆盖面」读数。一律调 __test__ 导出口(§22c),
+//    不在测试里手抄门体的固定串/正则:下面的夹具全部用门体导出的常量拼出来。
+
+const EXEC_SITE = __test__.EXEC_SITE_PATTERN
+const SHADOW_ENTRY = __test__.SHADOW_ENTRY_PATTERN
+
+/** 拼一个执行器函数:early=是否带早退分支 / wired=是否接影子档 / site=是否有执行站点。 */
+function makeExecutor({ early = true, wired = true, site = true } = {}) {
+  const body = ['export async function executeToolCall(call, ctx) {']
+  if (early) body.push('  if (ctx.hub) return { success: false }')
+  if (wired) body.push(`  ${SHADOW_ENTRY}tool, call.arguments)`)
+  if (site) body.push(`  return ${EXEC_SITE}call.arguments, ctx)`)
+  body.push('}')
+  return `${body.join('\n')}\n`
+}
+
+/** 无接线的旁路文件:一个执行站点,文件里没有任何影子档接线点。 */
+const BYPASS = `export function adapt(tool, args, ctx) {\n  return ${EXEC_SITE}args, ctx);\n}\n`
+
+/** 同一文件里一个接线点之前 + 之后各一个执行站点 —— 钉"行序"这一维。 */
+const SPLIT = [
+  'export function fast(tool, args, ctx) {',
+  `  return ${EXEC_SITE}args, ctx);`,
+  '}',
+  'export function slow(tool, args, ctx) {',
+  '  if (!args) return null',
+  `  ${SHADOW_ENTRY}tool, args)`,
+  `  return ${EXEC_SITE}args, ctx);`,
+  '}',
+  '',
+].join('\n')
+
+const REL_EXECUTOR = 'apps/cli/src/tools/index.ts'
+const REL_BYPASS = 'apps/cli/src/tools/hub/adapter.ts'
+const REL_SPLIT = 'apps/cli/src/tools/hub/resolver.ts'
+
+test('7 影子档覆盖面读数 = 实测值(4 个候选站点,影子档只覆盖其中 2 个)', () => {
+  const cov = __test__.auditShadowCoverage([
+    { rel: REL_EXECUTOR, text: makeExecutor() },
+    { rel: REL_BYPASS, text: BYPASS },
+    { rel: REL_SPLIT, text: SPLIT },
+  ])
+  assert.equal(cov.state, 'measured', `必须量得出来,实得 ${JSON.stringify(cov.undetermined)}`)
+  // 候选 4 = 执行器 1 + 旁路 1 + 同文件前后各 1;命中 2 = 执行器 1 + SPLIT 中接线点之后那 1 个
+  assert.equal(cov.total, 4, `候选站点总数必须等于实测,实得 ${JSON.stringify(cov.execSites)}`)
+  assert.equal(cov.coveredCount, 2, `命中数必须等于实测,实得 ${JSON.stringify(cov.covered)}`)
+  assert.equal(cov.covered.length + cov.uncovered.length, cov.total, '命中 + 未覆盖 必须 = 候选')
+  // 未覆盖清单必须逐条点名(接线点之前的执行点 + 完全没有接线的旁路文件)
+  const named = cov.uncovered.map((s) => `${s.rel}:${s.line}`).sort()
+  assert.deepEqual(
+    named,
+    [`${REL_BYPASS}:2`, `${REL_SPLIT}:2`].sort(),
+    '未覆盖站点清单必须逐条点名',
+  )
+  // 早退分支读数:执行器 1 处(第 2 行)+ SPLIT 的 slow 里 1 处(第 5 行)
+  assert.equal(
+    cov.earlyReturns.length,
+    2,
+    `早退分支数必须等于实测,实得 ${JSON.stringify(cov.earlyReturns)}`,
+  )
+  assert.ok(
+    cov.earlyReturns.some((r) => r.rel === REL_EXECUTOR && r.line === 2),
+    '早退分支必须点名分支所在行',
+  )
+})
+
+test('8 覆盖面三态不同形,且失败方向保守(摘接线 / 取不到正文 ⇒ 未判定,不折 0、不折绿)', () => {
+  // ①摘掉影子档接线 ⇒ 必须落未判定,绝不能折成"0 覆盖"或"通过"
+  const noWire = __test__.auditShadowCoverage([{ rel: REL_BYPASS, text: BYPASS }])
+  assert.equal(noWire.state, 'undetermined', '没有影子档接线点 ⇒ 覆盖面不可考,不得折 0')
+  assert.ok(noWire.undetermined.length > 0, '未判定必须点名原因')
+
+  // ②取不到正文 ⇒ 未判定并点名该文件(不得折成 0 覆盖)
+  const unreadable = __test__.auditShadowCoverage([
+    { rel: REL_EXECUTOR, text: makeExecutor() },
+    { rel: REL_BYPASS, text: null },
+  ])
+  assert.equal(unreadable.state, 'undetermined', '取不到正文 ⇒ 未判定')
+  assert.ok(
+    unreadable.undetermined.some((u) => u.rel === REL_BYPASS),
+    `未判定必须点名取不到正文的文件,实得 ${JSON.stringify(unreadable.undetermined)}`,
+  )
+
+  // ③有接线但 0 个候选站点 ⇒ no-sites(不得读作"全覆盖")
+  const noSites = __test__.auditShadowCoverage([
+    { rel: REL_EXECUTOR, text: makeExecutor({ site: false }) },
+  ])
+  assert.equal(noSites.state, 'no-sites', '候选 0 与"全覆盖"必须不同形')
+  assert.equal(noSites.total, 0)
+
+  // ④早退分支读数随早退分支增减(判别力证明)
+  const withEarly = __test__.auditShadowCoverage([
+    { rel: REL_EXECUTOR, text: makeExecutor({ early: true }) },
+  ])
+  const withoutEarly = __test__.auditShadowCoverage([
+    { rel: REL_EXECUTOR, text: makeExecutor({ early: false }) },
+  ])
+  assert.equal(withEarly.earlyReturns.length, 1, '有早退分支 ⇒ 读数 > 0')
+  assert.equal(withoutEarly.earlyReturns.length, 0, '摘掉早退分支 ⇒ 读数归 0')
+
+  // ⑤三态在输出里必须不同形(同一条 formatCoverage,三种 state 三种字样)
+  const out = [
+    __test__.formatCoverage(withEarly),
+    __test__.formatCoverage(noSites),
+    __test__.formatCoverage(noWire),
+  ]
+  assert.equal(new Set(out).size, 3, `三态输出不得同形:\n${out.join('\n')}`)
+  assert.match(out[0], /命中 1 \/ 候选 1/)
+  assert.match(out[1], /候选站点 0 个/)
+  assert.match(out[2], /未判定/)
+
+  // ⑥真仓 HEAD 面必须真量出这一维(读数不是常量)
+  const real = __test__.analyze(REPO, 'head')
+  assert.equal(
+    real.coverage.state,
+    'measured',
+    `真仓必须量得出覆盖面,实得 ${JSON.stringify(real.coverage.undetermined)}`,
+  )
+  assert.ok(real.coverage.total > 0, '真仓候选站点数必须 > 0(读数不是常量)')
+  assert.ok(
+    real.coverage.coveredCount + real.coverage.uncovered.length === real.coverage.total,
+    '命中 + 未覆盖 必须 = 候选总数',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

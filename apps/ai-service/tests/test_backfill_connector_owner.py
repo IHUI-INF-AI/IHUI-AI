@@ -22,7 +22,6 @@ import pytest
 
 from scripts.backfill_connector_owner import main
 
-
 SECRET = "super-secret-app-secret-DO-NOT-ECHO"
 
 

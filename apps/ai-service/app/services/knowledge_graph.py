@@ -638,7 +638,7 @@ class FileGraphStore(InMemoryGraphStore):
                 try:
                     os.replace(tmp_path, self.path)
                     return
-                except OSError as e:
+                except OSError:
                     if attempt == 2:
                         raise
                     time.sleep(0.05 * (attempt + 1))

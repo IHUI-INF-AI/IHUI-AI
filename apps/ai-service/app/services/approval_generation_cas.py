@@ -32,8 +32,9 @@ from __future__ import annotations
 import hashlib
 import json
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 # 两把锁各自的 reasonCode(分形是判据本身,不许并码)
 REASON_SUPERSEDED = "superseded"

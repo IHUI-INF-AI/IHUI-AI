@@ -10,13 +10,15 @@
 // 跑法:node --test scripts/tests/check-tool-contract-declared.test.mjs
 import assert from 'node:assert/strict'
 import path from 'node:path'
-import { readFileSync, mkdirSync, writeFileSync, cpSync } from 'node:fs'
+import { readFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 
 // 临时夹具唯一落点(AGENTS §26:**禁止**往 os.tmpdir() 写 —— 活进程的 TEMP 可能仍钉在 C 盘)
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+// 演练仓的导入闭包由**共用出口推导**,不在本文件手抄清单(§22c 同一道理:两处算同一件事必漂移)。
+import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
 
 import { __test__ as gate } from '../check-tool-contract-declared.mjs'
 
@@ -42,7 +44,7 @@ const COMPLETE = `export const demo: Tool = {
   async execute() { return { success: true, output: 'ok' } },
 };`
 
-const WITHOUT_SCOPE = COMPLETE.replace(/effectScope: 'none', /, '')
+const WITHOUT_SCOPE = gate.toScopelessContract(COMPLETE)
 const WITHOUT_BUDGET = COMPLETE.replace(/resultBudget: \{[^}]*\{[^}]*\}[^}]*\},/, 'legacy: 1,')
 
 test('T1 §22c 锚点:__test__ 必须真导出核心判据函数(缺一个 = 测试在驱动空气)', () => {
@@ -279,7 +281,7 @@ test('T17 真仓全量档复跑:末行三读数仍在且 exit 0(换锚点后存�
 //
 // 下面所有断言**只驱动源文件的 __test__ 出口**,不复制判据实现(§22c 红线)。
 
-const PARTIAL = COMPLETE.replace(/ effectScope: 'none',/, '')
+const PARTIAL = gate.toPartialContract(COMPLETE)
 const DEMO_REL = 'apps/cli/src/tools/demo.ts'
 const DEMO_KEY = `${DEMO_REL}#demo`
 const HELPER_REL = 'apps/cli/src/tools/command-policy/tokenizer.ts'
@@ -347,11 +349,15 @@ function scratchRepo() {
   mkdirSync(path.join(dir, 'scripts', 'lib'), { recursive: true })
   mkdirSync(path.join(dir, 'apps', 'cli', 'src', 'tools', 'command-policy'), { recursive: true })
   mkdirSync(path.join(dir, 'packages', 'types', 'src'), { recursive: true })
-  cpSync(SCRIPT, path.join(dir, 'scripts', 'check-tool-contract-declared.mjs'))
-  // face-reader → gitdir → scratch-dir 是**导入链**,少拷一环临时仓里的门直接 ERR_MODULE_NOT_FOUND
-  // (2026-09-29 实测:T19/T22 同时红在 "Cannot find module .../scratch-dir.mjs" —— 不是判据错,是夹具缺件)。
-  for (const f of ['face-reader.mjs', 'gitdir.mjs', 'scratch-dir.mjs'])
-    cpSync(path.join(ROOT, 'scripts', 'lib', f), path.join(dir, 'scripts', 'lib', f))
+  // 闭包由共用出口**推导**(gate 自身 + 它经 face-reader → gitdir 的相对 import 全链)。
+  // 原来这里手抄三份清单,而 `lib/gitdir.mjs` 在 2026-09-30 长出 `../seal-c-root-stray.mjs` 一跳后
+  // 清单静默少拷一支 —— 症状不是"少个功能",是 T19/T22 红在 ERR_MODULE_NOT_FOUND 上,
+  // 读起来像被测判据坏了(本仓"夹具缺件伪装成判据结论"那一型)。expect 仍逐跳钉,少拷当场拒跑。
+  copyScriptWithClosure(path.join(ROOT, 'scripts'), 'check-tool-contract-declared.mjs', path.join(dir, 'scripts'), [
+    'lib/face-reader.mjs',
+    'lib/gitdir.mjs',
+    'lib/scratch-dir.mjs',
+  ])
   // TC4 取材需要投影文件**在面上存在**(真仓 HEAD 有此文件但 humanApprovalMandated 尚未落地 ⇒
   // 判 unwired 不判红不判死)。临时仓里完全不放这个文件,TC4 会先以"取不到 ⇒ 无法判定"exit 2,
   // 后面的 TC5/TRD/TC3 各臂根本没被跑到 —— 夹具缺件伪装成判据结论,正是本仓"把没跑到读成读过了"那一型。
