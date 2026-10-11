@@ -40,6 +40,49 @@ function Get-AlertDedupKey {
     }
 }
 
+function ConvertTo-AlertInstant {
+    <#
+      档案里的时间戳 → **一个本地时刻的 DateTime**;取不到有效时刻返回 $null(调用方按未判定处理)。
+      为什么必须有这一层(2026-10-11 实测,不是假想):`ConvertFrom-Json` 会把 ISO 串**自动转成 DateTime**
+      (串尾 `Z`⇒Kind=Utc、`+08:00`⇒Local、裸串⇒Unspecified),而旧写法紧接着用 `[string]$x` 把它
+      又转回文本 —— `[string]` 走**当前区域**格式(本机渲染成 `10/11/2026 17:31:30`),而区域格式
+      **不带时区** ⇒ 一次 UTC 墙钟被当成一次本地墙钟,在本机(+08:00)整整差 8 小时。
+      差 8 小时的后果就是本模块存在的理由本身失效:4h 重发窗口与 20min 抑制宽限全都算错,
+      而且算错的方向是"到得比该到的早/晚",账面却完全安静。生产档案里当场能看到两种坏值
+      (裸 ISO `...T17:16:32.0000000` 与区域串 `10/11/2026 17:31:30`),所以这不是测试夹具现象。
+      三条不许漂的写法:
+        1) DateTime 一律就地用,绝不再经 `[string]` 中转(那一步就是丢时区的那一步);
+        2) Kind=Utc 必须 ToLocalTime();
+        3) Kind=Unspecified(裸串)按**本地墙钟**解释,并显式 SpecifyKind 成 Local —— 它已无法自证出处,
+           猜成 UTC 会凭空挪 8 小时,而"按本地墙钟用"与改动前所有本地生产者写入的数字逐字一致。
+    #>
+    param($Value)
+    if ($null -eq $Value) { return $null }
+    $d = $null
+    if ($Value -is [datetime]) {
+        $d = $Value
+    } else {
+        $s = ([string]$Value).Trim()
+        if (-not $s) { return $null }
+        try { $d = [datetime]$s } catch { return $null }
+    }
+    if ($d.Kind -eq [System.DateTimeKind]::Utc) { return $d.ToLocalTime() }
+    if ($d.Kind -eq [System.DateTimeKind]::Unspecified) {
+        return [System.DateTime]::SpecifyKind($d, [System.DateTimeKind]::Local)
+    }
+    return $d
+}
+
+function ConvertTo-AlertTimestampText {
+    # 时间戳进出档案的**唯一**文本形态:可 round-trip 的 ISO(必带偏移)。
+    # 解析不出来的原样返回文本,让读侧把它报成未判定 —— 不得凭空造一个时刻,也不得悄悄丢一格。
+    param($Value)
+    if ($null -eq $Value) { return '' }
+    $d = ConvertTo-AlertInstant -Value $Value
+    if (-not $d) { return [string]$Value }
+    return $d.ToString('o')
+}
+
 function Read-AlertDedupState {
     # 返回 @{ Found=$true|$false; Map=<key → entry>; Error='<判不出的原因>' }
     # 三态严格分开:文件不存在 = 没有历史(正常首寄);文件存在但读不懂 = undetermined(必须喊出来)。
@@ -65,7 +108,7 @@ function Read-AlertDedupState {
             if (-not $p.Value) { continue }
             $stall = $false
             if ($null -ne $p.Value.stall) { [void]([bool]::TryParse([string]$p.Value.stall, [ref]$stall)) }
-            $map[$p.Name] = @{ sigTs = [string]$p.Value.sigTs; firstTs = [string]$p.Value.firstTs; repeatNo = [int]$p.Value.repeatNo; lastSend = [string]$p.Value.lastSend; label = [string]$p.Value.label; stall = $stall }
+            $map[$p.Name] = @{ sigTs = ConvertTo-AlertTimestampText -Value $p.Value.sigTs; firstTs = ConvertTo-AlertTimestampText -Value $p.Value.firstTs; repeatNo = [int]$p.Value.repeatNo; lastSend = ConvertTo-AlertTimestampText -Value $p.Value.lastSend; label = [string]$p.Value.label; stall = $stall }
         }
         return @{ Found = $true; Map = $map; Error = $null }
     }
@@ -75,7 +118,7 @@ function Read-AlertDedupState {
         $key = Get-AlertDedupKey -Sig ([string]$obj.sig)
         $label = [string]$obj.sig
         if ($label.Length -gt 120) { $label = $label.Substring(0, 120) }
-        $map[$key] = @{ sigTs = [string]$obj.sigTs; firstTs = [string]$obj.sigTs; repeatNo = 0; lastSend = [string]$obj.sigTs; label = $label }
+        $map[$key] = @{ sigTs = ConvertTo-AlertTimestampText -Value $obj.sigTs; firstTs = ConvertTo-AlertTimestampText -Value $obj.sigTs; repeatNo = 0; lastSend = ConvertTo-AlertTimestampText -Value $obj.sigTs; label = $label }
         return @{ Found = $true; Map = $map; Error = '状态文件是旧单槽格式,已按一条历史记录迁入分槽表' }
     }
     return @{ Found = $true; Map = @{}; Error = '状态文件里没有可解析的去重记录(alerts 与 sig 两形态都缺)' }
@@ -93,18 +136,22 @@ function Write-AlertDedupState {
     foreach ($k in $Map.Keys) {
         $ls = $Map[$k].lastSend
         $t = [DateTime]::MinValue
-        if ($ls) { try { $t = [datetime]$ls } catch { $t = [DateTime]::MinValue } }
+        $cand = ConvertTo-AlertInstant -Value $ls
+        if ($cand) { $t = $cand }
         $sortHelp[$k] = $t
     }
     $ordered = @($Map.Keys | Sort-Object { $sortHelp[$_] } -Descending)
     if ($ordered.Count -gt $MaxEntries) { $ordered = @($ordered[0..($MaxEntries - 1)]) }
     $alerts = [ordered]@{}
     foreach ($k in $ordered) {
+        # 三个时间戳必须走同一个文本出口:这里曾是 `[string]$Map[$k].sigTs`,而 `[string]` 作用在
+        # DateTime 上走当前区域格式(不带时区)—— 写出去的那一刻就把这一格永久降级成"读不回来的串",
+        # 而档案里那些 `10/11/2026 17:31:30` 就是这么攒出来的(见 ConvertTo-AlertInstant 头注)。
         $alerts[$k] = [ordered]@{
-            sigTs    = [string]$Map[$k].sigTs
-            firstTs  = [string]$Map[$k].firstTs
+            sigTs    = ConvertTo-AlertTimestampText -Value $Map[$k].sigTs
+            firstTs  = ConvertTo-AlertTimestampText -Value $Map[$k].firstTs
             repeatNo = [int]$Map[$k].repeatNo
-            lastSend = [string]$Map[$k].lastSend
+            lastSend = ConvertTo-AlertTimestampText -Value $Map[$k].lastSend
             label    = [string]$Map[$k].label
             stall    = [bool]$Map[$k].stall
         }
@@ -152,7 +199,7 @@ function Test-AlertDueByIdentity {
     if ($map.ContainsKey($key)) {
         $e = $map[$key]
         $prev = $null
-        if ($e.sigTs) { try { $prev = [datetime]$e.sigTs } catch { $prev = $null } }
+        if ($e.sigTs) { $prev = ConvertTo-AlertInstant -Value $e.sigTs }
         if ($prev) {
             $ageH = ($now - $prev).TotalHours
             if ($ageH -ge 0 -and $ageH -lt $RepeatHours) {
@@ -166,7 +213,7 @@ function Test-AlertDueByIdentity {
                 return @{ Due = $false; Decision = 'window-hit'; Key = $key; Note = "同身份告警 $([Math]::Round($ageH, 1))h 前已寄过(未到 ${RepeatHours}h 重发周期),本轮跳过 | 身份=$key | 摘要=$short" }
             }
             $firstTs = $prev
-            if ($e.firstTs) { try { $firstTs = [datetime]$e.firstTs } catch { $firstTs = $prev } }
+            if ($e.firstTs) { $ff = ConvertTo-AlertInstant -Value $e.firstTs; if ($ff) { $firstTs = $ff } }
             $repeatNo = [int]$e.repeatNo + 1
             $durH = [Math]::Round(($now - $firstTs).TotalHours, 1)
             $note = "`n- 备注: 同一故障已持续 ${durH} 小时,本条为第 $($repeatNo + 1) 次重发(每 $RepeatHours 小时一次;其他身份的变化不影响本条)" + $undeterminedNote
@@ -234,9 +281,9 @@ function Test-AlertSuppressionGrace {
     $anchor = $null
     $lastSeen = $null
     if ($entry) {
-        if ($entry.firstTs) { try { $anchor = [datetime]$entry.firstTs } catch { $anchor = $null } }
-        if ($entry.lastSend) { try { $lastSeen = [datetime]$entry.lastSend } catch { $lastSeen = $null } }
-        if (-not $lastSeen -and $entry.sigTs) { try { $lastSeen = [datetime]$entry.sigTs } catch { $lastSeen = $null } }
+        if ($entry.firstTs) { $anchor = ConvertTo-AlertInstant -Value $entry.firstTs }
+        if ($entry.lastSend) { $lastSeen = ConvertTo-AlertInstant -Value $entry.lastSend }
+        if (-not $lastSeen -and $entry.sigTs) { $lastSeen = ConvertTo-AlertInstant -Value $entry.sigTs }
     }
 
     $decision = $null
