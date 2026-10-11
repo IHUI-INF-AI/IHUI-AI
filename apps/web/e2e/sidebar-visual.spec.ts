@@ -732,7 +732,7 @@ test.describe('Sidebar 折叠/展开布局方向守门', () => {
   // (实测 failed + teardown 连锁超时;单跑恒过,纯预算问题)。
   test.describe.configure({ timeout: 90_000 })
 
-  test('平板视口(768-1023px)折叠态:用户行完整落在 60px aside 界内', async ({
+  test('平板视口(640-1023px)折叠态:用户行完整落在 60px aside 界内', async ({
     authenticatedPage,
   }) => {
     // 平板区间:不注入 localStorage 偏好,验证的是"视口强制折叠"本身
@@ -845,7 +845,7 @@ test.describe('Sidebar 折叠/展开布局方向守门', () => {
     expect(d.spans[1]!.text.length, '昵称 span 应有文字').toBeGreaterThan(0)
   })
 
-  test('移动视口(<768px):折叠偏好 true 时抽屉用户行仍恒展开', async ({ authenticatedPage }) => {
+  test('移动视口(<640px):折叠偏好 true 时抽屉用户行仍恒展开', async ({ authenticatedPage }) => {
     await authenticatedPage.setViewportSize({ width: 375, height: 667 })
     // 注入桌面折叠偏好(2026-09-09 修复的泄漏场景:旧实现会把它传给抽屉)
     await authenticatedPage.addInitScript(() => {
@@ -868,7 +868,7 @@ test.describe('Sidebar 折叠/展开布局方向守门', () => {
       await authenticatedPage.waitForTimeout(500)
     }
 
-    // 顶栏汉堡按钮(min-[768px]:hidden,只在 <768px 可见)——
+    // 顶栏汉堡按钮(min-[640px]:hidden,只在 <640px 可见;640-1023px 隐藏)——
     // 图标 PanelLeftOpen 为页面唯一 lucide-panel-left-open,作稳定定位器
     const menuBtn = authenticatedPage.locator('button:has(svg.lucide-panel-left-open)').first()
     await expect(menuBtn).toBeVisible({ timeout: 15000 })
