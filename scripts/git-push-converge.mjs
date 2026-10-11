@@ -64,7 +64,7 @@ import { resolveGitBin } from './lib/gitdir.mjs'
 /**
  * 仓根与 git 二进制都必须**由本文件自身位置/唯一出口**定,不能跟着调用方的终端走
  * (台账 G-1018289 ③,2026-10-08 收口)。改动前两处各自依赖调用环境:
- *  - push-state 与 guard 脚本路径按 `process.cwd()`/相对路径解析,
+ *  - push-state 与 guard 脚本路径按调用方终端的当前工作目录/相对路径解析,
  *  - git 调用按裸 `'git'`(PATH)且不传 `cwd`,
  * 于是从别的目录跑这一把时,**报告里混的是两个不同仓的事实**:HEAD/ls-remote 读的是
  * "调用方那一棵树",而 `.workbuddy/push-state.json` 与 `scripts/git-push-guard.mjs` 也按
@@ -290,7 +290,7 @@ for (const remote of remotes) {
     }
     // 本地领先 → 推(镜像仓:直推但放宽超时,门禁由 CI 承担)
     const pushArgs = ['push', remote, `HEAD:refs/heads/${branch}`]
-    const pushRes = gitWithOutput(pushArgs, 'git', { timeout: 600_000 })
+    const pushRes = gitWithOutput(pushArgs, GIT_BIN, { timeout: 600_000 })
     if (!pushRes.ok) {
       results.push({ remote, status: 'PUSH_FAILED' })
       const tail = tailEvidence(pushRes.text)

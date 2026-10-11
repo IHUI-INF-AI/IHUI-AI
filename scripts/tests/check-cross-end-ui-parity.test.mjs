@@ -1000,3 +1000,138 @@ test('T30 ③ 的机制复核:web 腿端入口剔除必须真在判,且剔掉的
       `web 腿豁免 ${name} 没有可复核的理由(接管式登记也是登记,不是消红通道)`,
     )
 })
+
+/**
+ * T31 —— G-629 的核心断言(镜像 KW,但在**判据单元 + 差值棘轮**这一层):
+ * 票面那个错误推断是"两端文件级档集合相等 ⇒ 两端同值"。这里构造的正是那一型 ——
+ * 两个文件的圆角**集合**逐字相等(都是 {8,16}),而同一个元素的圆角一端声明在组件根、
+ * 另一端声明在组件内层(屏幕上并不一样)。RS 必须点名,棘轮必须把它判成新增红。
+ */
+test('T31 核心正向:两端档集合逐字相等而同一元素声明于不同层 ⇒ RS 必须点名,差值棘轮判新增红', () => {
+  const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+  const pairs = { pairs: [{ name: 'Foo', miniapp: 'a/Foo.tsx', rn: 'b/Foo.tsx' }] }
+  const text = {
+    // 小程序:2xl 在组件根(屏幕上就是圆角容器);RN:根是素 View,2xl 落在内层。
+    'a/Foo.tsx':
+      'export default function Foo() {\n  return (\n    <View className="rounded-2xl">\n      <View className="rounded-lg" />\n    </View>\n  )\n}\n',
+    'b/Foo.tsx':
+      'export default function Foo() {\n  return (\n    <View>\n      <View className="rounded-2xl" />\n      <View className="rounded-lg" />\n    </View>\n  )\n}\n',
+  }
+  // 前提必须成立:RD(文件级集合差)读 0 —— 否则这条用例根本没在测"集合相等"那一型。
+  const rd = src.audit(pairs, text, {}, {}, tbl)
+  assert.equal(
+    rd.findings.some((f) => f.name === 'Foo'),
+    false,
+    'RD 前提失守:两侧集合不相等 ⇒ 这条用例退回成普通差异用例,票面那一型没被覆盖',
+  )
+  const rs = src.rootSlotAudit(pairs, text, tbl)
+  assert.equal(rs.undetermined.length, 0, '这一族必须读得出(读不出=没看,不得当一致)')
+  assert.deepEqual(
+    rs.findings,
+    [{ name: 'Foo', miniapp: [16], rn: [] }],
+    'RS 必须点名:同一元素的圆角在一端声明于组件根、另一端只在内层 —— 这正是"集合相等但不同层"',
+  )
+  // 差值棘轮:HEAD 面没有这一族 ⇒ 新增红并点名;HEAD 面已有 ⇒ 不重复红(存量纪律,门不恒红)。
+  assert.deepEqual(
+    src.rootSlotDelta(rs.findings, []).map((f) => f.name),
+    ['Foo'],
+    '新增的层分叉必须判红(只打印不判红 = 提交链上一路绿灯)',
+  )
+  assert.equal(
+    src.rootSlotDelta(rs.findings, rs.findings).length,
+    0,
+    'HEAD 面已有这一族 ⇒ 不得再算新增(存量当场判红就是一台恒红门)',
+  )
+})
+
+/**
+ * T32 —— 阳性对照的可复跑形态(G-629 立票读数):真仓 HEAD 的 Carousel 两侧。
+ * 票面登记的现状是"RS 整维零读数(15 对全部未判定)",修法必须让它读得出:
+ * 两侧都 anchored + 非间接 + tiers [16](组件根同层同档);而从业务文件 import 的同名组件
+ * 仍必须判"读不出" —— 放宽成"读得出"就会把代渲染当根槽位,原投诉会被再判一次绿。
+ */
+test('T32 阳性对照(真仓 HEAD Carousel):参数解构 + 平台宿主 import 两侧必须读出同层 [16];业务 import 仍判读不出', () => {
+  const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+  const show = (p) => {
+    const r = git(['show', `HEAD:${p}`])
+    assert.equal(r.status, 0, `读不到 HEAD:${p} —— 阳性对照的前提是真仓面还在`)
+    return r.stdout
+  }
+  const mp = src.rootSlotRadiiOf(show('apps/miniapp-taro/src/components/Carousel.tsx'), tbl)
+  const rn = src.rootSlotRadiiOf(show('apps/mobile-rn/src/components/Carousel.tsx'), tbl)
+  assert.deepEqual(
+    [mp.anchored, mp.indirect, mp.tiers],
+    [true, false, [16]],
+    '小程序 Carousel(参数解构 + @tarojs/components)必须读得出根槽位 = 16 —— 读不出就是 G-629 立票时的零读数',
+  )
+  assert.deepEqual(
+    [rn.anchored, rn.indirect, rn.tiers],
+    [true, false, [16]],
+    'RN Carousel(参数解构 + react-native)必须读得出根槽位 = 16:两端同层 [16]/[16],现存量已同层',
+  )
+  // 反向:同名组件从业务文件 import ⇒ 根由子组件代渲染,必须仍是"没看"而不是"根上无档"。
+  const indirect = src.rootSlotRadiiOf(
+    "import { View } from './view'\nexport default function Foo() {\n  return <View className=\"rounded-2xl\" />\n}\n",
+    tbl,
+  )
+  assert.deepEqual(
+    [indirect.anchored, indirect.indirect, indirect.tiers],
+    [true, true, null],
+    '业务 import 放行成"读得出" ⇒ 代渲染组件的内层会被当根槽位比,收紧变成放宽',
+  )
+  // 真仓面读数:RS 不得再整维零读数(未判定族必须显著少于配对总数),且人读面要点名未判定原因。
+  const r = spawnSync(process.execPath, [SELF, '--json'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 600000,
+    maxBuffer: 128 * 1024 * 1024,
+  })
+  assert.ok(r.status === 0 || r.status === 1, `真仓面跑不动 rc=${r.status}`)
+  const j = JSON.parse(r.stdout)
+  assert.ok(j.rootSlot, '--json 必须暴露 rootSlot(不暴露 ⇒ 点名无源可查)')
+  assert.ok(
+    j.rootSlot.undetermined.length < j.pairCount,
+    `RS 仍整维零读数:未判定 ${j.rootSlot.undetermined.length} / 配对 ${j.pairCount} —— 判据致盲没修`,
+  )
+  assert.ok(
+    !j.rootSlot.undetermined.some((u) => u.name === 'Carousel'),
+    'Carousel 仍读不出 ⇒ 参数解构/宿主 import 两型致盲回归',
+  )
+})
+
+/**
+ * T33 —— 同批登记的读数矛盾(G-629 票面"14 与 20 不在档位表内"):
+ * 现读实测 14/20 只出现在**几何维**(text-sm/text-xl 字号折 px),圆角集合两侧都与 14/20 无关;
+ * 人读面之所以被误读成"圆角档",是几何段没有维度前缀而 RD 段有。修法是给几何段加 `几何` 前缀
+ * (判据更准:不删任何命中、子串保留),并用形状锁钉住,防退回混读。
+ */
+test('T33 读数矛盾:14/20 是字号折出的几何档不是圆角档;几何段必须带维度前缀(RD 段前缀不动)', () => {
+  const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+  const line = '<View className="text-sm text-xl rounded-2xl" />'
+  // 圆角维:只有 rounded-2xl ⇒ 16,14/20 从不进圆角集合(票面怀疑"当圆角档收进集合"不成立)。
+  const rs = radiusSetOf(line, tbl)
+  assert.deepEqual(rs, [16], '圆角集合只该有 16 —— 14/20 若进来,就是把字号/盒档当圆角档')
+  assert.equal(rs.includes(14) || rs.includes(20), false)
+  // 几何维:同一行的 text-sm/text-xl 折出 14/20(TW_FONT_PX)⇒ 14/20 归几何,不归圆角。
+  const geo = src.readGeometry(line, 'miniapp')
+  assert.ok(geo.values.has(14) && geo.values.has(20), '几何维收 14/20(字号档)—— 两维各说各话')
+  // 形状锁:几何段必须带 `几何` 前缀、RD 段前缀原样、子串 `仅小程序档` 保留(runner 帮助文本按子串匹配)。
+  const txt = flat(readFileSync(SELF, 'utf8'))
+  assert.ok(
+    /bits\.push\(`几何仅小程序档 \$\{f\.geometry\.onlyMiniapp\.join\('\/'\)\}`\)/.test(txt),
+    '几何段没有维度前缀 ⇒ 14/20 又会被当圆角档去对档位表(G-629 登记的读数矛盾)',
+  )
+  assert.ok(
+    /bits\.push\(`几何仅 RN 档 \$\{f\.geometry\.onlyRn\.join\('\/'\)\}`\)/.test(txt),
+    '几何 RN 段同样要带前缀(只修一侧 = 混读原样留在另一半)',
+  )
+  assert.ok(
+    /bits\.push\(\s*`RD 仅小程序 \$\{f\.radius\.onlyMiniapp\.join\('\/'\)\}/.test(txt),
+    'RD 段前缀不得被顺手改掉(它是这行读数唯一的维度标识)',
+  )
+  assert.ok(
+    txt.includes('仅小程序档') && txt.includes('仅 RN 档'),
+    '前缀化必须保留子串 —— guardian-runner 帮助文本按子串引用这两个词',
+  )
+})
