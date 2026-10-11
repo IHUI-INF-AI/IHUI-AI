@@ -349,9 +349,10 @@ class TestToolDeltaReachesTheWire:
     async def test_multi_frame_sequence_is_self_consistent_on_the_wire(
         self, client: AsyncClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """断言 2「多帧与序」:内容超一帧 ⇒ 到线多帧,seq 从 1 递增、累积式为前缀链。
+        """断言 2「多帧与序」:内容超一帧 ⇒ 到线多帧,seq 从 1 递增、增量帧按 seq 拼接回全文。
 
-        预算数值本身由 parity 票钉;这里只喂"必然跨帧"的输入并判**帧序列自洽**。
+        预算数值本身由 parity 票钉;这里只喂"必然跨帧"的输入并判**帧序列自洽**:
+        每帧只含本批新增行(非末帧尾部补 "\n"),按 seq 拼接全帧 == 全文。
         """
         content = _lines(_PREVIEW_LINES_PER_FRAME + 5)
         _raw, events, _calls, _rounds = await _drive_stream(
@@ -360,9 +361,12 @@ class TestToolDeltaReachesTheWire:
         deltas = _deltas(events)
         assert len(deltas) >= 2, f"跨帧内容只到线 1 帧:{len(deltas)}"
         assert [d["seq"] for d in deltas] == list(range(1, len(deltas) + 1)), "seq 不是从 1 单调递增"
-        for prev, cur in zip(deltas, deltas[1:], strict=False):  # 相邻滑窗,两侧长度天然差 1
-            assert cur["partialText"].startswith(prev["partialText"]), "累积式帧链断了(后帧不是前帧的超集)"
-        assert deltas[-1]["partialText"] == content, "末帧未覆盖全部预览文本"
+        # 增量语义:按 seq 拼接全帧 == 全文(增量收口后的应然形态)
+        assert "".join(d["partialText"] for d in deltas) == content, "增量帧拼接回不到全文(丢正文/粘行)"
+        # 非末批次帧以 "\n" 收尾(「还有下一批」的诚实形态),末批次帧不补
+        for d in deltas[:-1]:
+            assert d["partialText"].endswith("\n"), "非末帧没有以换行收尾 ⇒ 拼接会粘行"
+        assert not deltas[-1]["partialText"].endswith("\n"), "末帧不应再补换行"
         assert all("truncated" not in d for d in deltas), "未超预算却带上了 truncated"
 
     async def test_over_budget_preview_marks_truncated_only_on_last_frame(
@@ -381,9 +385,9 @@ class TestToolDeltaReachesTheWire:
         assert [d["seq"] for d in deltas] == list(range(1, _PREVIEW_MAX_FRAMES + 1))
         assert deltas[-1].get("truncated") is True, "超预算却没有任何一帧交代 truncated"
         assert all("truncated" not in d for d in deltas[:-1]), "truncated 泄漏到了非末帧(前端会误判已收尾)"
-        # 末帧只覆盖预算内前 N 行,不含被丢弃的尾部 —— 这是"截断"的诚实形状
-        assert content.startswith(deltas[-1]["partialText"])
-        assert deltas[-1]["partialText"] != content
+        # 超预算:拼接全帧 == kept 前缀(预算内前 N 行),不含被丢弃的尾部 —— 这是"截断"的诚实形状
+        assert "".join(d["partialText"] for d in deltas) == _lines(_PREVIEW_MAX_LINES)
+        assert "".join(d["partialText"] for d in deltas) != content
 
     async def test_read_file_tool_call_emits_zero_tool_delta_frames(
         self, client: AsyncClient, monkeypatch: pytest.MonkeyPatch

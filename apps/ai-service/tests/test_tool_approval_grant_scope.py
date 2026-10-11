@@ -139,9 +139,10 @@ def test_gt9_装车锁_调用点必须走那三个出口() -> None:
     """
     import ast as _ast
 
-    with open(llm.__file__ or "", encoding="utf-8") as _f:
-        src = _f.read()
-    tree = _ast.parse(src)
+    src = llm.__file__ or ""
+    with open(src, encoding="utf-8") as _fh:
+        src_text = _fh.read()
+    tree = _ast.parse(src_text)
     allowed_names = {
         "_grant_bucket_key",
         "_grant_lookup",
@@ -154,20 +155,20 @@ def test_gt9_装车锁_调用点必须走那三个出口() -> None:
         if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef)) and node.name in allowed_names:
             allowed_lines.update(range(node.lineno, node.end_lineno + 1))
     # 模块级声明那一行(带类型标注)同样允许
-    for i, line in enumerate(src.splitlines(), start=1):
+    for i, line in enumerate(src_text.splitlines(), start=1):
         if line.startswith("_tool_approval_grants: dict"):
             allowed_lines.add(i)
 
     offenders = [
         (i, line.strip())
-        for i, line in enumerate(src.splitlines(), start=1)
+        for i, line in enumerate(src_text.splitlines(), start=1)
         if "_tool_approval_grants" in line and i not in allowed_lines and not line.strip().startswith("#")
     ]
     assert not offenders, f"绕过出口直接操作授权表:{offenders[:3]}"
 
     # 三个调用点必须真的在链路上(只在测试里调用 helper 不构成装车)
-    assert "_grant_lookup(" in src and "_grant_record(" in src
-    assert "_grant_drop_if_turn_scoped(_grants_bucket())" in src, "收尾清理没接到会话级归属的新形态"
+    assert "_grant_lookup(" in src_text and "_grant_record(" in src_text
+    assert "_grant_drop_if_turn_scoped(_grants_bucket())" in src_text, "收尾清理没接到会话级归属的新形态"
     # 反向锁:改前那句"无条件按本轮 session_id 清桶"不得回来(它会把会话档又降成本轮档)
-    assert "_tool_approval_grants.pop(session_id" not in src
+    assert "_tool_approval_grants.pop(session_id" not in src_text
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
