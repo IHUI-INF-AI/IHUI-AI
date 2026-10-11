@@ -53,9 +53,20 @@ _VOICE_TTS_MAX_CHARS = 3000
 # 是"中介转写委托"链路 —— on 时把 STT 转写经 <realtime_delegation> 片段委托给
 # 引擎,并在首回合注入 <realtime_conversation> start 指令;off 时 transcript
 # 原样进 prompt,与现状逐字节等价。
-_VOICE_REALTIME_CONTEXT_ENABLED = os.environ.get(
-    "ENGINE_VOICE_REALTIME_CONTEXT", "false"
-).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _voice_realtime_context_enabled() -> bool:
+    """读 realtime delegation 开关(env: ENGINE_VOICE_REALTIME_CONTEXT)。
+
+    2026-10-11 修(CI run 38084051334):原先在模块导入时把开关冻结成常量 ——
+    同进程里先有测试 setenv 后 reload 本模块(wiring 测试的正道变通),常量即被
+    冻结成 ON,monkeypatch 恢复环境后也无法翻回,同 worker 的后续用例
+    (test_engine_voice_session)吃到的全是污染值 ⇒ 顺序依赖的红。改为**调用时
+    读 env**:flag 语义不变,冻结窗口归零,wiring 测试的 reload 变通也不再必要。
+    """
+    return os.environ.get("ENGINE_VOICE_REALTIME_CONTEXT", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
 
 
 def _voice_wrap_delegation(transcript: str, *, first_turn: bool) -> str:
@@ -65,7 +76,7 @@ def _voice_wrap_delegation(transcript: str, *, first_turn: bool) -> str:
     语义),随后 user 角色的 <realtime_delegation> 包裹转写文本。转写上限
     4KiB(模块常量),超长中段截断由模块 escape_xml_text_bounded 承担。
     """
-    if not _VOICE_REALTIME_CONTEXT_ENABLED:
+    if not _voice_realtime_context_enabled():
         return transcript
     try:
         from app.core.realtime_context import (

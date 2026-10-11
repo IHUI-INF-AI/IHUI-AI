@@ -34,9 +34,9 @@ from httpx import ASGITransport, AsyncClient
 from app.core.tunables import GOAL_VERIFICATION_MAX_CONSECUTIVE_FAILURES
 from app.routers import goal_verification
 from app.services.goal_round_state import (
+    NOT_FOUND,
     GoalRoundRead,
     GoalRoundState,
-    NOT_FOUND,
     WriteReceipt,
     reset_store,
 )

@@ -83,20 +83,20 @@ from app.routers import (
     web_tools,
 )
 
-# Harness 能力补齐:评估/评测框架(2026-08-11 立)
-from app.routers import eval as eval_router
-
-# D176 任务回顾→移交新任务(2026-09-30 用户拍板立项):交接文档生成出口
-from app.routers import recap as recap_router
-
 # D193 任务决策收件箱(2026-09-30 用户拍板,小切口):「我的待决策」聚合查询
 from app.routers import decisions as decisions_router
+
+# Harness 能力补齐:评估/评测框架(2026-08-11 立)
+from app.routers import eval as eval_router
 
 # D179 会话/新对话 Issue 绑定流(2026-09-30 用户拍板立项):MCP Issue 搜索端点
 from app.routers import issue_search as issue_search_router
 
 # Harness 能力补齐:Prompt 版本管理(2026-08-11 立)
 from app.routers import prompts as prompts_router
+
+# D176 任务回顾→移交新任务(2026-09-30 用户拍板立项):交接文档生成出口
+from app.routers import recap as recap_router
 
 # Harness 能力补齐:Token 用量统计(2026-08-11 立)
 from app.routers import usage as usage_router

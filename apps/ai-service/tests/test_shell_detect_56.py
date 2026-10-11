@@ -173,7 +173,12 @@ def test_default_user_shell_windows_powershell(monkeypatch):
 
 
 def test_default_user_shell_windows_falls_back_to_cmd(monkeypatch):
+    # 2026-10-11 CI 对账(run 38084051334):win32 分支兜底走 ultimate_fallback_shell(),
+    # 它读 os.name 而非 sys.platform —— 只 patch sys.platform 时,Linux CI 上兜底返回
+    # /bin/sh 而非 cmd.exe。补 patch os.name 让本条平台无关地钉住 Windows 语义。
     with patch("app.core.shell_detect.sys.platform", "win32"), patch(
+        "app.core.shell_detect.os.name", "nt"
+    ), patch(
         "app.core.shell_detect.shutil.which", lambda n: None
     ), patch("app.core.shell_detect.os.path.isfile", lambda p: False):
         shell_t, path = default_user_shell()
