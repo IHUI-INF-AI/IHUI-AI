@@ -27,6 +27,7 @@
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
+import type { BroadcastConnectionRole } from '../plugins/ws-broadcast.js'
 import { success, error } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
 import { isSystemAdminUser } from '../db/queries.js'
@@ -43,6 +44,11 @@ interface ConnectionInfo {
   remoteAddress: string
   /** 复合键 user_uuid:model_id:chat_id(WS register 事件后填入) */
   compositeKey?: string
+  /**
+   * L9242(G-998164)连接角色(订阅档位):'all' 收全部(缺省,维持既有语义),
+   * 其余只收同类事件。门控是收窄,不是授权 —— 收信人主体仍由鉴权面决定。
+   */
+  role: BroadcastConnectionRole
   /** 已发送消息计数 */
   sentCount: number
   /** 最近心跳时间 */
@@ -86,6 +92,11 @@ const sendMessageSchema = z.object({
   event: z.string().min(1).max(64),
   data: z.unknown().optional(),
   compositeKey: z.string().optional(),
+  /**
+   * L9242 可选投递档位:声明本帧的事件类别。与连接角色不合的连接对该帧是 no-op
+   * (计入 gatedRole,不报错、不断开)。缺省/填 'all' = 不按角色门控(既有语义)。
+   */
+  role: z.enum(['all', 'conversation', 'mcp']).optional(),
 })
 
 const broadcastSchema = z.object({
@@ -100,6 +111,8 @@ const registerSchema = z.object({
   modelId: z.string().min(1),
   chatId: z.string().min(1),
   remoteAddress: z.string().optional(),
+  /** L9242 连接角色(订阅档位),缺省 'all' 维持既有语义 */
+  role: z.enum(['all', 'conversation', 'mcp']).default('all'),
 })
 
 const configUpdateSchema = z.object({
@@ -180,6 +193,7 @@ export const publicSocketRoutes: FastifyPluginAsync = async (server) => {
           connectedAt: c.connectedAt.toISOString(),
           remoteAddress: c.remoteAddress,
           compositeKey: c.compositeKey ?? null,
+          role: c.role,
           sentCount: c.sentCount,
           lastHeartbeatAt: c.lastHeartbeatAt.toISOString(),
         })),
@@ -195,20 +209,38 @@ export const publicSocketRoutes: FastifyPluginAsync = async (server) => {
     const parsed = sendMessageSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const { userId, event, data, compositeKey } = parsed.data
+    const { userId, event, data, compositeKey, role } = parsed.data
     const conns = activeConnections.get(userId) ?? []
     if (conns.length === 0) {
       pushEvent({ event, userId, compositeKey, payload: data, status: 'skipped' })
       return reply.send(success({ sent: 0, skipped: true, reason: 'userId 无活跃连接' }))
     }
     let sent = 0
+    // L9242:投递档位与连接角色不合 ⇒ 对该连接 no-op(计数、跳过,不报错、不断开)
+    let gatedRole = 0
     for (const c of conns) {
       if (compositeKey && c.compositeKey && c.compositeKey !== compositeKey) continue
+      // 'all' 角色的连接(缺省)不被门控 —— 收窄只作用于显式声明了档位的连接
+      if (
+        role !== undefined &&
+        role !== 'all' &&
+        c.role !== 'all' &&
+        c.role !== role
+      ) {
+        gatedRole += 1
+        continue
+      }
       c.sentCount += 1
       sent += 1
     }
-    pushEvent({ event, userId, compositeKey, payload: data, status: 'success' })
-    return reply.send(success({ sent, total: conns.length }))
+    pushEvent({
+      event,
+      userId,
+      compositeKey,
+      payload: data,
+      status: sent > 0 ? 'success' : 'skipped',
+    })
+    return reply.send(success({ sent, total: conns.length, gatedRole }))
   })
 
   // 4) POST /public-socket/broadcast - 广播
@@ -375,6 +407,7 @@ export const publicSocketRoutes: FastifyPluginAsync = async (server) => {
       connectedAt: now,
       remoteAddress: remoteAddress ?? 'unknown',
       compositeKey,
+      role: parsed.data.role,
       sentCount: 0,
       lastHeartbeatAt: now,
     }
@@ -392,12 +425,18 @@ export const publicSocketRoutes: FastifyPluginAsync = async (server) => {
 
 // 暴露给 ws-broadcast 插件注册的内部 API
 export const _publicSocketInternal = {
-  registerConnection(userId: string, remoteAddress: string): ConnectionInfo {
+  registerConnection(
+    userId: string,
+    remoteAddress: string,
+    // L9242:连接角色,缺省 'all' 维持既有语义
+    role: BroadcastConnectionRole = 'all',
+  ): ConnectionInfo {
     const now = new Date()
     const conn: ConnectionInfo = {
       userId,
       connectedAt: now,
       remoteAddress,
+      role,
       sentCount: 0,
       lastHeartbeatAt: now,
     }
