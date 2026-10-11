@@ -52,14 +52,14 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
   const [collapsed, setCollapsed] = React.useState(false)
   const onToggleCollapse = React.useCallback(() => setCollapsed((c) => !c), [])
 
-  // 视口强制折叠(2026-09-07 修复):768-1023px(平板/窄窗口)globals.css 已强制 aside 60px 图标条,
+  // 视口强制折叠(2026-09-07 修复,2026-10-11 断点 768→640):640-1023px(平板/窄窗口)globals.css 已强制 aside 60px 图标条,
   // 但此前 React collapsed state 仍是 false,继续渲染展开态 UI(任务列表卡片/分组标题/80px 长 logo),
   // 塞进 60px 条导致错位、文字竖排、header 空白(用户反馈"缩回态样式难看")。
   // 现在 effectiveCollapsed 统一驱动渲染态,与 CSS 强制宽度保持一致。
   // hook SSR/首帧默认 false → SSR 输出展开态(与桌面首帧一致,避免桌面用户 60px→160px CLS 闪烁);
   // 平板区间 hydration 前由 globals.css 强制规则兜底宽度并隐藏文字 span,hydration 后本 hook
   // 一个 effect 内切到折叠态,与旧版 CSS-only 行为相比只多了 header/任务列表的折叠化,无新闪烁。
-  const isTabletViewport = useMediaQuery('(min-width: 768px) and (max-width: 1023px)')
+  const isTabletViewport = useMediaQuery('(min-width: 640px) and (max-width: 1023px)')
   const effectiveCollapsed = collapsed || isTabletViewport
 
   // 挂载时从 localStorage 恢复折叠偏好(与 GlobalShell 旧逻辑一致)
@@ -247,7 +247,7 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
     (e: React.PointerEvent<HTMLDivElement>) => {
       e.preventDefault()
       // 折叠态下拖拽手柄:先展开再开始 resize,实现"拖拽即展开"
-      // (平板视口 768-1023px CSS 强制 60px,toggle 无视觉变化,拖拽宽度也被 CSS 覆盖,无害)
+      // (平板视口 640-1023px CSS 强制 60px,toggle 无视觉变化,拖拽宽度也被 CSS 覆盖,无害)
       if (effectiveCollapsed) {
         onToggleCollapse()
       }
@@ -408,18 +408,18 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
   /**
    * 桌面端 sidebar footer:只剩用户行(2026-09-21 迁移:语言/下载/消息/主题/设置
    * 已全部收进 SidebarUserRow 的下拉菜单,Qoder 风格)。
-   * 2026-09-05 修复(历史):原 `hidden min-[1024px]:block` 在 768-1023px 区间
+   * 2026-09-05 修复(历史):原 `hidden min-[1024px]:block` 在 640-1023px 区间
    * 把整组底部按钮隐藏,60px 折叠条下半部空白;现在 footer 常驻渲染。
-   * - <768px 桌面 aside 本就被 CSS display:none(不影响);
-   * - 768-1023px 强制 collapsed(60px 条,用户行只显示头像);
+   * - <640px 桌面 aside 本就被 CSS display:none(不影响);
+   * - 640-1023px 强制 collapsed(60px 条,用户行只显示头像);
    * - ≥1024px 跟随用户折叠偏好。
    */
   // hook SSR/首帧默认 false → SSR 输出展开态,与桌面首帧一致;
   // 2026-09-09 修复"展开时先显示竖向过一会再变回横向"(历史):
   // 新公式与上方 effectiveCollapsed 完全同源(SSR 均为 false),首帧恒展开态:
   // - 桌面(≥1024px):跟随用户折叠偏好 collapsed
-  // - 平板(768-1023px):isTabletViewport 强制折叠(hydration 后生效)
-  // - 手机(<768px):桌面 aside 被 CSS display:none,footer 不可见,无需处理
+  // - 平板(640-1023px):isTabletViewport 强制折叠(hydration 后生效)
+  // - 手机(<640px):桌面 aside 被 CSS display:none,footer 不可见,无需处理
   const footerCollapsed = collapsed || isTabletViewport
   const desktopFooter = (
     <div className="shrink-0">
@@ -439,8 +439,8 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
     <>
       {/* 桌面端固定侧边栏(2026-08-02 改:小尺寸也挂载,纯 CSS 控制显示 60px 图标条)
           - 始终 flex 挂载(不再 hidden min-[1024px]:flex)
-          - 768px-1023px 由 CSS 媒体查询强制 60px 宽 + 隐藏文字 span,只显示图标
-          - 2026-09-05 移动端根治:手机(<768px)由 globals.css display:none 完全隐藏桌面 aside
+          - 640px-1023px 由 CSS 媒体查询强制 60px 宽 + 隐藏文字 span,只显示图标
+          - 2026-09-05 移动端根治:手机(<640px,2026-10-11 断点 768→640)由 globals.css display:none 完全隐藏桌面 aside
             (60px 图标条在手机上导致 logo 文字重叠 + 挤占内容区);
             移动端抽屉(本组件兄弟节点)不受影响,仍由 GlobalTopBar 菜单按钮唤起
           - collapsed prop 控制用户手动折叠态(持久化 localStorage),与 CSS 互不干扰
