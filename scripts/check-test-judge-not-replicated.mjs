@@ -54,7 +54,10 @@
  *
  * 定级:**默认档(全量)= 只报数并逐条点名**,退出码不参与红绿。§12e 写得明白:一条"存量必然非零"
  *   的判据直接 blocking,等于每次提交都逼人 `--no-verify`,连带废掉链上全部守门。`--strict` 是问责档:
- *   命中 ⇒ exit 1,未判定 ⇒ exit 2(拒绝出具合格证)。
+ *   命中 ⇒ exit 1,未判定 ⇒ exit 2(拒绝出具合格证)。**第四态 NP(射程外·零配对关系)不参与退出码**:
+ *   它的定义就是"§22c 那句复制在这里没有主语"(测试与该门之间不 import、不同名、不同锚点四条关系全不成立,
+ *   而这三条同时是 F1/F2 两条命中判据的入口),所以把它从"未判定"里分出来**不会少拦任何一枚红**,
+ *   只是不再让噪声替人按住合格证;它仍逐条点名、**不记为通过**。
  *   ⚠ 升 blocking 的前置(硬条件,不满足就别接线成红门):**真仓 HEAD 面现读命中数 = 0**,且存量逐条
  *   已按"改调门的生产入口"收口。改判据后必须重新现读,不许引用历史数字。
  *
@@ -645,8 +648,8 @@ function candidatesFor(testFrag, index) {
 }
 
 function rankOf(state) {
-  return state === 'hit' ? 3 : state === 'undetermined' ? 2 : 1
-}
+  // nopair 与 pass 同级(都不算待裁),但它是**独立状态**而非"通过":读数里必须看得见条数。
+  return state === 'hit' ? 3 : state === 'undetermined' ? 2 : 1}
 
 function audit(contents, { strict = false } = {}) {
   const gateContents = {}
@@ -721,8 +724,12 @@ function audit(contents, { strict = false } = {}) {
               state = 'pass'
               why = `P3 行内豁免:${reason}`
             } else if (ent.role === 'scope') {
-              state = 'undetermined'
-              why = `门侧 ${ent.name} 是取景/解析谓词(不是被审对象的形态)⇒ 同形只算漂移风险,逐条点名不判红`
+              // 门侧那个符号是"取景/解析谓词"(决定扫哪些文件、怎么切行),不是被审对象的形态 ——
+              // 这是**已经做出的判定**,所以它记 P5 放过而不是留在"未判定"(把判过的写成没判,与把没判的写成判过,
+              // 是同一类事故的两个方向)。同一条形态若在别门是清单,F1/F2 那条入口照旧命中:
+              // push() 按 (test,gate,shape) 分键,不同门各留一条记录,低秩的放过不会顶掉高秩的命中。
+              state = 'pass'
+              why = `P5 门侧 ${ent.name} 是取景/解析谓词(不是被审对象的形态)⇒ 同形只算漂移风险,不记为复制`
             } else if (role.shapeLock) {
               state = 'pass'
               why = `P2 形状锁:主语 ${role.subject} 是某文件的正文,钉的是写法不是被审对象形态`
@@ -743,13 +750,19 @@ function audit(contents, { strict = false } = {}) {
             } else if (anchor && f.length >= STRONG_FRAG_LEN) {
               state = 'hit'
               why = `F1 同锚点强料:两面都点名 ${anchor} 且形态同形(${how})`
+            } else if (!l1 && !l2 && !anchor && !sameName) {
+              // 走到这里四条配对关系全不成立:测试既没 import 这道门、也不是它的同名镜像,
+              // 两面没点同一个被审文件、清单名也不同 —— §22c 的"复制"定义(门体 ∧ 它的镜像测试各写一份)
+              // 在这里**没有主语**,所以它不是"没判"而是"不构成候选"。单列一格而不是塞进未判定,是为了让
+              // 合格证只被"真该人裁的账"拦住;它**逐条点名且不记为通过**,并且本门也不据此
+              // 声称"复制藏在 helper 里的那一型已排除"—— 那一型今天两侧都看不见,是登记在案的射程缺口。
+              state = 'nopair'
+              why = 'NP 射程外:同形但两面零配对关系(不 import、不同名、不同锚点)⇒ §22c 的"复制"在这里没有主语,逐条点名而不算已判'
             } else {
               state = 'undetermined'
               why = anchor
                 ? `同锚点(${anchor})但形长 ${f.length} < 强同形阈值 ${STRONG_FRAG_LEN},不冒判红`
-                : sameName
-                  ? `同名清单 ${ent.name} 住在 ${gateRel},而本文件既不 import 它、也不是它的镜像 ⇒ 不能算复制这道门的判据(跨门同名),逐条点名待裁`
-                  : '材料同形却无 import / 同名 / 同锚点关系,无法确认两面审的是同一对象'
+                : `同名清单 ${ent.name} 住在 ${gateRel},而本文件既不 import 它、也不是它的镜像 ⇒ 不能算复制这道门的判据(跨门同名),逐条点名待裁`
             }
             push({
               state,
@@ -834,6 +847,7 @@ function audit(contents, { strict = false } = {}) {
     hits: items.filter((i) => i.state === 'hit').length,
     passes: items.filter((i) => i.state === 'pass').length,
     undetermined: items.filter((i) => i.state === 'undetermined').length,
+    nopair: items.filter((i) => i.state === 'nopair').length,
   }
   return { items, counts: c, red: c.hits > 0, degraded: index.degraded, strict }
 }
@@ -904,19 +918,22 @@ function main(argv, root = ROOT) {
         `判定面 = ${face} · 门体 ${c.gatesIndexed} 份(唯一形态 ${c.formCount} 条${res.degraded ? ' · 分桶已退化为前缀+后缀+整串' : ''})· 镜像测试 ${c.testsScanned} 份(本门一对按 SELF_EXEMPT 排除)`,
       )
       for (const i of res.items) {
-        const tag = i.state === 'hit' ? '✗ 命中' : i.state === 'pass' ? '· 放过' : '? 未判定'
+        const tag =
+          i.state === 'hit' ? '✗ 命中' : i.state === 'pass' ? '· 放过' : i.state === 'nopair' ? '○ 射程外' : '? 未判定'
         console.log(
           `  ${tag}[${i.shape}] ${i.test}:${i.testLine} ⇄ ${i.gate || '—'}${i.gateLine ? `:${i.gateLine}` : ''} ${i.why}${i.excerpt ? ` 「${i.excerpt}」` : ''}`,
         )
       }
-      console.log(`三态读数(不并桶):命中 = ${c.hits} · 放过 = ${c.passes}(P1 导出口裁定文件 ${c.p1Files} 份)· 未判定 = ${c.undetermined}`)
+      console.log(
+        `四态读数(不并桶):命中 = ${c.hits} · 放过 = ${c.passes}(P1 导出口裁定文件 ${c.p1Files} 份)· 未判定 = ${c.undetermined} · 射程外 NP = ${c.nopair}(同形但零配对关系:逐条点名,**不算已判也不记为通过**)`,
+      )
       console.log(
         strict
           ? c.hits > 0
             ? `结论:--strict 问责档 ⇒ 判红(命中 ${c.hits} 处,未判定 ${c.undetermined} 处)`
             : c.undetermined > 0
               ? `结论:--strict 问责档 ⇒ 出具不了合格证(未判定 ${c.undetermined} 处)`
-              : '结论:--strict 问责档 ⇒ 通过(命中 0 · 未判定 0)'
+              : `结论:--strict 问责档 ⇒ 通过(命中 0 · 未判定 0;另有 NP 射程外 ${c.nopair} 条 —— 它不构成 §22c 的候选,但也不等于"复制藏在 helper 里"那一型已被排除)`
           : '结论:默认档只报数并逐条点名,不参与红绿(升 blocking 的前置 = 真仓 HEAD 面现读命中 = 0)',
       )
     }
@@ -1000,9 +1017,51 @@ function selfTest() {
     const x = `import { __test__ as gate } from '../check-demo-judge.mjs'\nconst TEST_PATH_RE = /(^|\\/)(tests|__tests__|e2e)\\//\nvoid gate\n`
     return a({ [GATE]: g, [TEST]: x }).counts.hits === 0
   })())
+  t('P5 是"已判定"不是"没判":门侧谓词同形 ⇒ 记放过且不得再留未判定', (() => {
+    const g = 'const TEST_PATH_RE = /(^|\\/)(tests|__tests__|e2e)\\//\n'
+    const x = `import { __test__ as gate } from '../check-demo-judge.mjs'\nconst TEST_PATH_RE = /(^|\\/)(tests|__tests__|e2e)\\//\nvoid gate\n`
+    const r = a({ [GATE]: g, [TEST]: x })
+    return r.counts.undetermined === 0 && r.items.some((i) => i.state === 'pass' && i.why.startsWith('P5'))
+  })())
+  t('P5 不吞真复制:同一条形态在别门是清单 ⇒ 那一门照旧命中(一条 pass 不顶掉另一条 hit)', (() => {
+    const scopeGate = 'const TEST_PATH_RE = /(^|\\/)(tests|__tests__|e2e)\\//\n'
+    const listGate = "const PATTERNS = [\n  { re: /(^|\\/)(tests|__tests__|e2e)\\// },\n]\nexport const __test__ = { PATTERNS }\n"
+    const copy = `import { __test__ as gate } from '../check-list-judge.mjs'\nconst PATTERNS = [/(^|\\/)(tests|__tests__|e2e)\\//]\nPATTERNS.forEach((re) => re.test(p))\nvoid gate\n`
+    const r = a({
+      [GATE]: scopeGate,
+      'scripts/check-list-judge.mjs': listGate,
+      'scripts/tests/check-list-judge.test.mjs': copy,
+    })
+    return (
+      r.items.some((i) => i.state === 'pass' && i.why.startsWith('P5')) &&
+      r.items.some((i) => i.state === 'hit' && i.shape === 'F1') &&
+      r.items.some((i) => i.state === 'hit' && i.shape === 'F2')
+    )
+  })())
   t('单元是数据而非判据 ⇒ 未判定(不冒红也不静默)', (() => {
     const r = a({ [GATE]: gateBody, [TEST]: `const keep = /${TFORM}/\nconsole.log(keep)\n` })
     return r.counts.hits === 0 && r.counts.undetermined >= 1
+  })())
+  /**
+   * NP(射程外·零配对关系)两条成对臂。立由是 HEAD 面 65 处"未判定"里有 38 处根本不构成 §22c 的主语:
+   * 测试既不 import 那道门、不是它的同名镜像、两面也不点同一个被审文件 —— 它只是**碰巧**写了同一条形状。
+   * 把它们留在"未判定"里,合格证就被噪声拦住;把它们折进"放过"则是把没判写成判过了。所以第三条状态,
+   * 条数与清单都可见。**第二条臂是这一档的边界锁**:同名跨门那一格仍须落未判定 —— 若 NP 分支写宽了
+   * (不看 sameName 就跳过),第二条必红。
+   */
+  t('NP 单列:同料但零配对关系 ⇒ 不命中、不未判定、也不记为通过', (() => {
+    const r = a({
+      [GATE_B]: `const CALL_RE = [/${OTHER}/]\nexport function b() { return [] }\nexport const __test__ = { CALL_RE }\n`,
+      [TEST]: `const KEEP_FORMS = [/${OTHER}/]\nKEEP_FORMS.forEach((re) => re.test(line))\n`,
+    })
+    return r.counts.hits === 0 && r.counts.undetermined === 0 && r.counts.nopair >= 1 && r.counts.passes === 0
+  })())
+  t('NP 不得吞掉同名跨门那一格(同名 ⇒ 仍未判定并点名持有者)', (() => {
+    const r = a({
+      [GATE_B]: `const CALL_RE = [/${OTHER}/]\nexport function b() { return [] }\nexport const __test__ = { CALL_RE }\n`,
+      [TEST]: `const CALL_RE = [/${OTHER}/]\nCALL_RE.forEach((re) => re.test(line))\n`,
+    })
+    return r.counts.nopair === 0 && r.items.some((i) => i.state === 'undetermined' && /同名清单/.test(i.why))
   })())
   /**
    * P4 三条成对臂。立由不是"数字太大",而是 HEAD 面 13 处命中里逐条读下来,绝大多数是

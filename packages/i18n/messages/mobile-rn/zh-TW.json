@@ -499,6 +499,12 @@
     "search": "搜尋",
     "searchPlaceholder": "搜尋文件..."
   },
+  "network": {
+    "offline": "網路已中斷,部分功能不可用",
+    "slow": "網路較慢,回應可能延遲",
+    "serverUnreachable": "暫時連不上伺服器,您的網路正常",
+    "probeUnavailable": "暫時無法確認網路狀態"
+  },
   "aiAssistant": {
     "title": "AI 助手",
     "subtitle": "選擇智慧體開始對話",
