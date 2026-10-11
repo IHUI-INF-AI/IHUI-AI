@@ -56,7 +56,7 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
   // detail 每次结论变化时留一行可归因的日志:横幅不再只说"断网",而是说得清是哪一格。
   React.useEffect(() => {
     if (value.status === 'unknown' || value.status === 'slow') {
-      console.log(`[network] status=${value.status} reason=${value.reason}`, value.detail)
+      console.info(`[network] status=${value.status} reason=${value.reason}`, value.detail)
     }
   }, [value.status, value.reason, value.detail])
   return <NetworkContext.Provider value={value}>{children}</NetworkContext.Provider>

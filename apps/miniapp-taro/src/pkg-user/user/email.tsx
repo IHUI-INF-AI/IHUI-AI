@@ -4,8 +4,9 @@
 
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text } from '@tarojs/components'
-import { FocusInput } from '@/components/FocusField'
+import { View, Text, Input } from '@tarojs/components'
+// 描边画在外层容器 `.email-input-box` 上 ⇒ 走 hook 文档的 WRAP 形态②:handlers 留 Input、focusStyle 铺容器。
+import { useFieldFocus } from '@/hooks/use-field-focus'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef, useCallback } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
@@ -27,6 +28,9 @@ export default function Email() {
     setValue: setEmail,
   })
   const [code, setCode] = useState('')
+  // 两个输入盒各自的运行时聚焦档(描边在容器上)
+  const ffEmail = useFieldFocus()
+  const ffCode = useFieldFocus()
   const [counting, setCounting] = useState(false)
   const [count, setCount] = useState(60)
   const [submitting, setSubmitting] = useState(false)
@@ -149,9 +153,10 @@ export default function Email() {
           </View>
         )}
         <View className="email-field">
-          <View className="email-input-box">
-            <FocusInput
+          <View className="email-input-box" style={ffEmail.focusStyle}>
+            <Input
               className="email-input"
+              {...ffEmail.spread}
               type="text"
               placeholder={tt('user.email.emailPlaceholder', '请输入邮箱')}
               placeholderClass="email-placeholder"
@@ -161,9 +166,10 @@ export default function Email() {
           </View>
         </View>
         <View className="email-field">
-          <View className="email-input-box">
-            <FocusInput
+          <View className="email-input-box" style={ffCode.focusStyle}>
+            <Input
               className="email-input"
+              {...ffCode.spread}
               type="number"
               maxlength={6}
               placeholder={tt('user.email.codePlaceholder', '请输入验证码')}

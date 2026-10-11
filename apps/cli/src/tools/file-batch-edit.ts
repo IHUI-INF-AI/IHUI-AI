@@ -212,7 +212,7 @@ export function createBatchEditTool(ctx: EditToolContext): Tool {
         return { success: false, output: '', error: '非原子模式(atomic=false)需 confirm=true 才允许部分成功' };
       }
 
-      const preResult = runPreToolCall('batch_edit', {
+      const preResult = await runPreToolCall('batch_edit', {
         count: operations.length,
         atomic,
         dryRun,
@@ -273,7 +273,7 @@ export function createBatchEditTool(ctx: EditToolContext): Tool {
           totalCount: operations.length,
           operations: opResults,
         };
-        runPostToolCall('batch_edit', { dryRun: true, count: operations.length });
+        await runPostToolCall('batch_edit', { dryRun: true, count: operations.length });
         return { success: true, output: JSON.stringify(result, null, 2) };
       }
 
@@ -390,7 +390,7 @@ export function createBatchEditTool(ctx: EditToolContext): Tool {
         checkpointId: atomic && !failureOccurred ? checkpointId : undefined,
       };
 
-      runPostToolCall('batch_edit', {
+      await runPostToolCall('batch_edit', {
         appliedCount,
         totalCount: operations.length,
         rollbackPerformed,
@@ -433,7 +433,7 @@ export function createBatchUndoTool(ctx: EditToolContext): Tool {
         return { success: false, output: '', error: `checkpoint 不存在: ${checkpointId}` };
       }
 
-      const preResult = runPreToolCall('batch_undo', { checkpointId, cwd: ctx.workspacePath });
+      const preResult = await runPreToolCall('batch_undo', { checkpointId, cwd: ctx.workspacePath });
       if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
       let manifest: CheckpointManifest;
@@ -490,7 +490,7 @@ export function createBatchUndoTool(ctx: EditToolContext): Tool {
         }
       }
 
-      runPostToolCall('batch_undo', { checkpointId, successCount, failureCount });
+      await runPostToolCall('batch_undo', { checkpointId, successCount, failureCount });
 
       const output = {
         success: failureCount === 0,

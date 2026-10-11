@@ -926,13 +926,24 @@ function endCostMeter() {
   }
 }
 
+/**
+ * 成本读数的字段名(顺序 = 输出行里的顺序;`[成本读数]` 前缀是机器可 grep 的锚)。
+ * §22c:镜像测试按字段名认读数时**只能引用这一份** —— 字段名在两处各写一遍,门加/改字段
+ * 那天测试照绿,读数的账面价值(给扩容定档用的)就没人看守了。
+ */
+export const COST_READOUT_FIELDS = ['mode', 'paths', 'elapsed_ms', 'git_log', 'ancestor_commits', 'window_truncated']
+
 /** 机器可 grep 的一行成本读数(固定前缀 `[成本读数]`,key=value;挂在 audit 输出尾行)。 */
 export function renderCostLine(cost, { mode }) {
-  return (
-    `📊 [成本读数] mode=${mode} paths=${cost.paths} elapsed_ms=${cost.elapsedMs}` +
-    ` git_log=${cost.gitLog} ancestor_commits=${cost.ancestorCommits}` +
-    ` window_truncated=${cost.truncated.size}`
-  )
+  const valueOf = {
+    mode,
+    paths: cost.paths,
+    elapsed_ms: cost.elapsedMs,
+    git_log: cost.gitLog,
+    ancestor_commits: cost.ancestorCommits,
+    window_truncated: cost.truncated.size,
+  }
+  return `📊 [成本读数] ${COST_READOUT_FIELDS.map((k) => `${k}=${valueOf[k]}`).join(' ')}`
 }
 
 function auditInner(repoRoot, { staged }) {
@@ -1355,6 +1366,7 @@ export const __test__ = {
   RESURRECT_PATH_BUDGET_BYTES,
   RESURRECT_RUN_BUDGET_BYTES,
   renderCostLine,
+  COST_READOUT_FIELDS,
   probeWindowOnce,
   runWindowProbe,
   renderProbe,
