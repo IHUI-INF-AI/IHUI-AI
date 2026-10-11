@@ -19,9 +19,61 @@ import logging
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Final
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# L11501:run 级终态词汇编解码(仓储编解码出口)。
+# 逻辑词汇↔物理列映射只活在这一层:物理存储值恒为 partial/failed/success
+# 三档(零迁移,不动 status 列、不改 DB schema),逻辑终态词汇只作为读写边界的
+# 映射存在。每个物理档位至多注册一个逻辑词,保证 decode∘encode 逐字 round-trip
+# (仿 app/core/queue_ledger.py:_EVENT_TO_STATE 先例)。
+# =============================================================================
+RUN_STATUS_PHYSICAL_STATES: Final[frozenset[str]] = frozenset(
+    {"partial", "failed", "success"}
+)
+#: 逻辑终态词汇 → 物理存储值(单一出处;反向表由它派生,不抄两份)。
+_LOGICAL_RUN_STATUS_TO_PHYSICAL: Final[dict[str, str]] = {
+    "errored": "failed",  # 执行中抛错而终止 → 物理 failed
+    "interrupted": "partial",  # 中途中断、部分完成 → 物理 partial
+    "superseded": "success",  # 被后续 run 取代且结果已被采纳 → 物理 success
+}
+_PHYSICAL_TO_LOGICAL_RUN_STATUS: Final[dict[str, str]] = {
+    physical: logical for logical, physical in _LOGICAL_RUN_STATUS_TO_PHYSICAL.items()
+}
+#: 未注册词汇/未知物理值的判定哨兵:不得猜成任意一档,也不得作为落库值。
+RUN_STATUS_UNDETERMINED: Final[str] = "undetermined"
+
+
+def encode_run_status(logical: str) -> str:
+    """逻辑终态词汇 → 物理存储值(写库出口)。
+
+    既有三档物理值原样透传;未注册词汇 ⇒ 落 RUN_STATUS_UNDETERMINED 并点名,
+    调用方必须视作"不可落库"的拒绝信号,不许猜成任意一档。
+    """
+    if logical in RUN_STATUS_PHYSICAL_STATES:
+        return logical
+    physical = _LOGICAL_RUN_STATUS_TO_PHYSICAL.get(logical)
+    if physical is None:
+        logger.warning("run status 编码:未注册逻辑词汇 %r,落未判定", logical)
+        return RUN_STATUS_UNDETERMINED
+    return physical
+
+
+def decode_run_status(physical: str) -> str:
+    """物理存储值 → 逻辑终态词汇(读库出口)。
+
+    注册过的物理档位还原(canonical 化)为其逻辑词汇;未知物理值 ⇒
+    落 RUN_STATUS_UNDETERMINED 并点名。
+    """
+    logical = _PHYSICAL_TO_LOGICAL_RUN_STATUS.get(physical)
+    if logical is not None:
+        return logical
+    if physical in RUN_STATUS_PHYSICAL_STATES:
+        return physical
+    logger.warning("run status 解码:未注册物理值 %r,落未判定", physical)
+    return RUN_STATUS_UNDETERMINED
 
 
 @dataclass
