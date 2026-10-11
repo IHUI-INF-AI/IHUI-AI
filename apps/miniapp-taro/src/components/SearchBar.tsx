@@ -2,11 +2,12 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useState } from 'react'
 import { t } from '@/i18n'
 import { View, Text, Input, type InputProps } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 import { useUiField } from '@/lib/ui-field-registry'
+// 聚焦态描边走本端唯一实现(墨档 var(--color-primary),只换色不换宽 ⇒ 零布局跳动)
+import { useFieldFocus } from '@/hooks/use-field-focus'
 
 type ConfirmType = NonNullable<InputProps['confirmType']>
 
@@ -39,7 +40,7 @@ export default function SearchBar({
   confirmType = 'search',
   className,
 }: SearchBarProps) {
-  const [focused, setFocused] = useState(false)
+  const ff = useFieldFocus()
   // AI 操控通道:只有父组件真的给了 onInput 才登记写通道 —— 没有 onInput 时"填进去"
   // 改变不了任何状态,登记了就是假成功。onConfirm(键盘搜索键)作为 onPress 一并交出。
   useUiField(
@@ -56,16 +57,16 @@ export default function SearchBar({
   )
   return (
     <View
-      className={`${searchBarWellClassName} ${focused ? 'border-ring' : 'border-border'} ${className ?? 'mx-3 my-2'}`}
+      className={`${searchBarWellClassName} border-border ${className ?? 'mx-3 my-2'}`}
+      style={ff.focusStyle}
     >
       <LineIcon name="search" size={24} color="var(--color-muted-foreground)" />
       <Input
         className="flex-1 text-sm"
+        {...ff.spread}
         placeholder={placeholder}
         value={value}
         confirmType={confirmType}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
         onInput={(e) => onInput?.(e.detail.value)}
         onConfirm={() => onSearch?.()}
       />

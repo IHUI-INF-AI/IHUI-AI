@@ -26,6 +26,7 @@
  */
 import { useI18n } from '@/i18n'
 import { View, Text, ScrollView, Input } from '@tarojs/components'
+import { useFieldFocus } from '@/hooks/use-field-focus'
 import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect } from 'react'
@@ -91,7 +92,9 @@ export default function AiChatDetail() {
   // MessageInput 平台能力(共享层 props 契约对齐)
   const [inputFiles, setInputFiles] = useState<MessageInputFile[]>([])
   const [isInputFullscreen, setIsInputFullscreen] = useState(false)
-  const [isInputFocused, setIsInputFocused] = useState(false)
+  // 聚焦态唯一来源:本端唯一实现 useFieldFocus(描边画在外层胶囊容器上 = hook 文档的 WRAP 形态②,
+  // handlers 留 Input、focusStyle 铺容器;取色只有 hook 那一处 var(--color-primary),本文件不写第二份)。
+  const ff = useFieldFocus()
   const [isVoiceMode, setIsVoiceMode] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [inputError, setInputError] = useState('')
@@ -140,14 +143,6 @@ export default function AiChatDetail() {
     const val = e.detail.value
     setInputValue(val)
     inputRef.current = val
-  }, [])
-
-  const handleInputFocus = useCallback(() => {
-    setIsInputFocused(true)
-  }, [])
-
-  const handleInputBlur = useCallback(() => {
-    setIsInputFocused(false)
   }, [])
 
   const handleFullscreenToggle = useCallback(() => {
@@ -438,9 +433,10 @@ export default function AiChatDetail() {
         </View>
       ) : (
         <View className="px-[20rpx] pt-[10rpx] pb-[20rpx] border-t-[length:2rpx] border-border flex-shrink-0">
-          {/* 对齐 RN MessageInput inputRow:胶囊描边容器(radius 2xl=16px,聚焦态 border primary) */}
+          {/* 对齐 RN MessageInput inputRow:胶囊描边容器(radius 2xl=16px,聚焦态取墨档 = focusStyle) */}
           <View
-            className={`flex flex-row items-end rounded-2xl border-[length:2rpx] bg-card px-[30rpx] py-[12rpx] gap-[20rpx] ${isInputFocused ? 'border-brand-accent-deep' : 'border-border'}`}
+            className="flex flex-row items-end rounded-2xl border-[length:2rpx] border-border bg-card px-[30rpx] py-[12rpx] gap-[20rpx]"
+            style={ff.focusStyle}
           >
             <View
               className="w-[48rpx] h-[48rpx] flex items-center justify-center shrink-0"
@@ -460,15 +456,14 @@ export default function AiChatDetail() {
                 placeholder={tt('aiChatDetail.inputPlaceholder', '输入消息…')}
                 placeholderClass="text-[var(--color-text-tertiary)]"
                 onInput={handleInputChange}
-                onFocus={handleInputFocus}
-                onBlur={handleInputBlur}
+                {...ff.spread}
                 onConfirm={sendMessage}
                 confirmType="send"
                 disabled={sending}
               />
             </View>
             <View className="flex flex-row items-end gap-[8rpx] shrink-0">
-              {isInputFocused ? (
+              {ff.focused ? (
                 <View
                   className="w-[48rpx] h-[48rpx] flex items-center justify-center"
                   onClick={handleFullscreenToggle}
@@ -477,7 +472,7 @@ export default function AiChatDetail() {
                   <LineIcon name="maximize" size={20} color="var(--color-muted-foreground)" />
                 </View>
               ) : null}
-              {isInputFocused ? (
+              {ff.focused ? (
                 <View
                   className="w-[48rpx] h-[48rpx] flex items-center justify-center"
                   onClick={handleAddFile}
