@@ -46,6 +46,11 @@ export default defineConfig({
       // 让**整个测试文件加载不进来**(报 "Test Files N failed",但一条断言都没跑)。
       // src/theme/active-tokens.ts 与 5 个 screen 引它 ⇒ 替身必须存在。
       'expo-file-system': resolve(__dirname, 'tests/__mocks__/expo-file-system.ts'),
+      // expo-device 与 expo-file-system 同一死法:它的 build/Device.js `import { … } from 'expo-modules-core'`,
+      // 而 pnpm 严格布局下 store 里 expo-device 的兄弟面没有 expo-modules-core ⇒ vite 解析失败,
+      // **收集期即失败**("Test Files 1 failed / Tests no tests",一条断言都没跑;实测撤掉本条别名即此形)。
+      // src/lib/device-fingerprint.ts 现按值取它的 modelId(iOS 机型段)⇒ 替身必须存在。
+      'expo-device': resolve(__dirname, 'tests/__mocks__/expo-device.ts'),
       // react-native-restart 与本端其它原生包同一死法,但它是 2026-09-24 才加进 active-tokens.ts
       // 的依赖而**没同步本文件** ⇒ 既无 alias 也不在 inline:被外部化后由 Node 解析,其内部
       // require('react-native') 绕过 alias 命中真实 RN 的 Flow 源码 →
@@ -132,6 +137,18 @@ export default defineConfig({
       '@ihui/shared/utils/image-preview-offset': resolve(
         __dirname,
         '../../packages/shared/src/utils/image-preview-offset.ts',
+      ),
+      // G-1113920:在线/离线判据与横幅映射是**纯逻辑**(只读注入的探测样本,不触 DOM/RN),
+      // 必须指向真实源码 —— 给它们写 mock 就等于"测 mock",而本票的全部价值是让各端共用这一份。
+      // 两条都必须排在下面 '@ihui/shared/utils' / '@ihui/shared/hooks' 父别名**之前**:
+      // 父别名按 startsWith(pattern+'/') 匹配,会把子路径吞成 <mock>/connectivity(收集期 MODULE_NOT_FOUND)。
+      '@ihui/shared/utils/connectivity': resolve(
+        __dirname,
+        '../../packages/shared/src/utils/connectivity.ts',
+      ),
+      '@ihui/shared/hooks/use-connectivity': resolve(
+        __dirname,
+        '../../packages/shared/src/hooks/use-connectivity.ts',
       ),
       '@ihui/shared/utils': resolve(__dirname, 'tests/__mocks__/ihui-shared-utils.ts'),
       '@ihui/shared/hooks': resolve(__dirname, 'tests/__mocks__/ihui-shared-hooks.ts'),
