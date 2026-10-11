@@ -38,10 +38,17 @@
  *   P1 导出口裁定:测试把**门导出的常量**当输入(`import { __test__ as gate }` 后用 `gate.PATTERNS`)
  *      且本文件不复制材料 ⇒ 放过(这正是 §22c 要求的形状)。
  *   P2 形状锁:`assert.match(gateSrc, /…/)` 钉的是**源码写法**而不是"被审对象长什么样" ⇒ 放过。
- *      词法三条件才认:调用形式是 `assert.match|doesNotMatch`、主语首 token 形如 `*Src|*Source|*Text|
- *      *Body|*Code|*Blob|*Raw|src|source|raw`、且本文件确实读了某个文件的正文(readFileSync/catBatch/
- *      `git show`/`gitRaw(['show'…)`)。三条件缺一 ⇒ 落**未判定**并点名,不冒判红也不静默放过。
+ *      词法条件:调用形式是 `assert.*`;主语出处二选一 —— (a) 首 token 形如 `*Src|*Source|*Text|
+ *      *Body|*Code|*Blob|*Raw|src|source|raw` **且**本文件确实读了某个文件的正文(readFileSync/catBatch/
+ *      `git show`/`gitRaw(['show'…)`),(b) 该主语变量的**初值**里就有那次取正文调用(名字不参与判断)。
+ *      (b) 是这一格补的:名字清单必然腐烂,HEAD 面多处形状锁的变量叫 `own`/`txt`/`ps`/`preset`。
+ *      两条出处都不成立 ⇒ 不放过,落判定链后段,不冒判红也不静默放过。
  *      这一格是本票最难的地方,判据是词法而不是语义,所以它的保证只到"不误冒红"。
+ *   P4 行为文案断言:`assert.match(res.out, /门自己打出的那句话/)` —— 测试跑生产入口(派生进程或
+ *      门导出口)再断言它返回的**文本**,这正是 §22c 要求的"改调生产入口",不是第二份判据 ⇒ 放过。
+ *      两条出处条件才认:主语属性链含文本载体(out/err/stdout/stderr/output/errors/message/lines/text),
+ *      且该变量的**初值**确实来自一次派生(spawnSync、execFileSync、fork、run-evidence)或来自调用门体 import
+ *      进来的符号。只看属性名不查实出处,等于给任意叫 `x.out` 的被审数据发合格证。
  *   P3 行内出口:`judge-replica-exempt: <原因>`(原因必填,**只救本行**,不救整文件也不救同名族)。
  *
  * 定级:**默认档(全量)= 只报数并逐条点名**,退出码不参与红绿。§12e 写得明白:一条"存量必然非零"
@@ -108,6 +115,16 @@ const LOCK_SUBJECT_RE = /^(?:[A-Za-z0-9_$]*(?:Src|Source|SourceText|FileText|Bod
 /** 本文件确实有"取正文"的通路(P2 的第二条件;别名 import 也算,`readFileSync as readFsSync` 实测存在)。 */
 const SOURCE_READ_RE =
   /read\w*File\w*\s*\(|catBatch\w*\s*\(|\bgit\s+show\b|\[\s*'show'\s*|from\s*'node:fs|from\s*"node:fs|gitRaw\s*\(\s*\[[^\]]{0,60}'show'/
+/**
+ * P4 的主语形状:断言对象是**某次执行/导出口返回的文本**(`.out`/`.err`/`.stdout`/`.stderr`/
+ * `.output`/`.errors`/`.message`/`.lines`/`.text`),而不是被审数据的结构字段。
+ * 立由:§22c 的第三条正解就是"测试改调生产入口" —— 跑 CLI 或导出口再断言它打出的那句话,
+ * 是行为断言,不是第二份判据;而 F1/F2 抓的是"测试自己声明一张清单拿去裁数据"。
+ */
+const TEXT_CARRIER_RE = /(?:^|\.)(?:out|err|stdout|stderr|outputs?|errors|messages?|lines|text)\b/
+/** 文本载体的两种"出处":派生进程取文本 / 调用门体导出口拿返回值。缺出处就不放过(P2 同一条纪律)。 */
+const RUN_TEXT_RE = /spawnSync|execSync|execFileSync|\bspawn\s*\(|\bexecFile\s*\(|\bfork\s*\(|runEvidence|run-evidence/
+const GATE_RECEIVER_RE = /\b(?:gate|__test__|mod|ns)\b/
 /** 行内出口:`judge-replica-exempt: <原因>`,原因必填,只救本行。 */
 const EXEMPT_MARK = /judge-replica-exempt:\s*(\S[^\n]*)/
 
@@ -340,8 +357,80 @@ function topLevelComma(window) {
   return window.length
 }
 
-/** 单元在这一文件里的角色:拿去裁别人(pattern 位)/ 钉源码写法(形状锁)/ 只是摆着的料。 */
-function unitRole(unit, sites, text, hasSourceRead) {
+/**
+ * 一跳:初值里调的是**本文件自己声明的 helper** 时,把那个 helper 体一起拿来查出处。
+ * 立由见 AGENTS「判据要允许同文件一跳委托」—— 把 `spawnSync` 提成 `runGate()` 是正当重构,
+ * 只按字面初值判会让整族行为断言被算成"复制判据"(HEAD 面现读 6 处 `cli.out`/`w.out`/
+ * `red.out`/`staged.out`/`head.out`/`costLine` 全是这一型)。只跳**一层**、只认同名函数声明,
+ * 不做传递闭包,也不猜动态派发。
+ */
+function oneHopSource(text, init) {
+  const callee = init === null ? null : (init.match(/^\s*(?:await\s+)?([A-Za-z0-9_$.]+)\s*\(/) || [])[1]
+  if (!callee) return init
+  const base = String(callee).split('.')[0]
+  if (!/^[A-Za-z0-9_$]+$/.test(base)) return init
+  const m = new RegExp(
+    `function\\s+${base}\\b|(?:const|let|var)\\s+${base}\\s*=\\s*(?:async\\s*)?(?:function\\b|\\([^()]*\\)|[A-Za-z0-9_$]+)\\s*=>`,
+  ).exec(text)
+  if (!m) return init
+  return `${init}\n${text.slice(m.index, m.index + 1200)}`
+}
+
+/**
+ * P4 的出处链:`res.out` 的 `res` 可以是 ① 直接 spawnSync ② 本文件 helper 里的 spawnSync
+ * ③ 门导出口(`gate.x()` / import 进来的符号)④ 成员链的宿主变量本身是①/②(`out.split(…)` 那种)。
+ * 深度封顶 2 跳;跳不到出处就返回 false —— 放过必须拿得出证据,不是拿"看起来像输出"当证据。
+ */
+function carrierTraced(text, tok, gateNames, depth = 0) {
+  const headOf = (s) => String(s).split('.')[0]
+  const fromGate = (t) => gateNames.has(headOf(t)) || GATE_RECEIVER_RE.test(headOf(t))
+  const init = initializerOf(text, tok)
+  if (init === null) return fromGate(tok)
+  // 多行箭头函数/函数体的初值只能截到首行 ⇒ 一跳取 helper 体,派生往往在那里面
+  const hop = oneHopSource(text, init)
+  if (RUN_TEXT_RE.test(init) || (hop !== init && RUN_TEXT_RE.test(hop))) return true
+  const callee = (init.match(/^\s*(?:await\s+)?([A-Za-z0-9_$.]+)\s*\(/) || [])[1] || null
+  if (!callee) return false
+  if (fromGate(callee)) return true
+  const head = headOf(callee)
+  if (depth < 2 && head !== tok && carrierTraced(text, head, gateNames, depth + 1)) return true
+  return false
+}
+
+/** 取 `const <name> = <初值>` 的初值文本(找不到返回 null);只截到首个行尾分号/换行前的 400 字符。 */
+function initializerOf(text, name) {
+  if (!name) return null
+  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const m = new RegExp(`(?:const|let|var)\\s+${esc}\\s*=([\\s\\S]{0,400}?)(?:;\s*\n|\n|$)`).exec(text)
+  return m ? m[1] : null
+}
+
+/**
+ * 从"门路径"import 进来的**本地符号名**。P4 用它判定"这段文本是门自己产出的",
+ * 而不是把整个文件的任意调用都当导出口(那等于给任意被审数据发合格证)。
+ */
+function gateSymbolNames(text) {
+  const out = new Set()
+  for (const m of text.matchAll(
+    /import\s+(?:\{([^}]*)\}|\*\s+as\s+([A-Za-z0-9_$]+)|([A-Za-z0-9_$]+))?\s*(?:,\s*\{([^}]*)\})?\s*from\s*['"]([^'"]+)['"]/g,
+  )) {
+    if (!/^\.\.\/check[^/]+\.mjs$/.test(m[5] || '')) continue
+    for (const grp of [m[1], m[4]]) {
+      if (!grp) continue
+      for (const part of grp.split(',')) {
+        const nm = part.trim().split(/\s+as\s+/).pop()
+        if (nm && /^[A-Za-z0-9_$]+$/.test(nm)) out.add(nm)
+      }
+    }
+    if (m[2]) out.add(m[2])
+    if (m[3]) out.add(m[3])
+  }
+  return out
+}
+
+/** 单元在这一文件里的角色:拿去裁别人(pattern 位)/ 钉源码写法(形状锁)/ 断言执行返回的文案(行为锁)/ 只是摆着的料。 */
+function unitRole(unit, sites, text, ctx) {
+  const hasSourceRead = ctx.hasSourceRead
   const name = unit.decl ? unit.decl.name : null
   const nameRe = name ? new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`) : null
   for (const s of sites) {
@@ -351,12 +440,36 @@ function unitRole(unit, sites, text, hasSourceRead) {
     const literalBefore = !name && unit.end <= s.dotIdx && unit.end >= s.dotIdx - 80 && /^\s*$/.test(text.slice(unit.end, s.dotIdx))
     if (!(asArg || nameInArgs || asReceiver || literalBefore)) continue
     const subject = asArg ? s.innerArg : s.subject || s.innerArg
-    const firstTok = (String(subject).match(/[A-Za-z0-9_$.]+/) || [''])[0].split('.').pop()
-    const shapeLock = s.kind === 'assert' && LOCK_SUBJECT_RE.test(firstTok) && hasSourceRead
-    return { atPattern: true, shapeLock, subject: String(subject).trim().slice(0, 40), kind: s.kind }
+    const subjStr = String(subject).trim()
+    const toks = subjStr.match(/[A-Za-z0-9_$.]+/) || ['']
+    const firstTok = toks[0].split('.').pop()
+    const baseTok = toks[0].split('.')[0]
+    const initRaw = initializerOf(text, baseTok)
+    const initForLock = initRaw === null ? null : oneHopSource(text, initRaw)
+    const tracedBody = initForLock !== null && SOURCE_READ_RE.test(initForLock)
+    const shapeLock =
+      s.kind === 'assert'
+        ? // 两条出处任一:P2a 主语名字就是"某文件正文"(旧口径,要求本文件有取正文通路);
+          // P2b 主语变量的**初值**真的来自一次取正文 —— 名字清单必然腐烂,HEAD 面多处形状锁的
+          // 变量叫 own/txt/ps/preset,没一个叫 *Src,却被当成"复制判据"点了名。
+          ((LOCK_SUBJECT_RE.test(firstTok) && hasSourceRead) || tracedBody)
+        : // `.test()` 这一路只认查得到出处的:词法器把 `assert.ok(!/…/.test(own))` 记成 proto 位
+          // (它只认到 `.test(`,看不见外面的 assert.ok),旧写法要求 kind 必须是 assert,于是整族
+          // 源码形状锁被算成命中。放宽的是"调用写法",不是"出处证据"。
+          tracedBody
+    /**
+     * P4:主语是"某次派生/导出口调用返回的文本",且该变量的**初值真的来自那种调用** ——
+     * 只按属性名放过会让任何叫 `res.out` 的被审数据escape,所以出处必须查实(与 P2 要求
+     * "确实读了正文"是同一条纪律)。
+     */
+    let behaviorText = false
+    if (s.kind === 'assert' && TEXT_CARRIER_RE.test(subjStr)) {
+      behaviorText = carrierTraced(text, baseTok, ctx.gateNames)
+    }
+    return { atPattern: true, shapeLock, behaviorText, subject: subjStr.slice(0, 40), kind: s.kind }
   }
   const declared = !!unit.decl && (isCriterionName(unit.decl.name) || unit.decl.kind === 'list')
-  return { atPattern: false, shapeLock: false, subject: '', declared }
+  return { atPattern: false, shapeLock: false, behaviorText: false, subject: '', declared }
 }
 
 /** 门侧索引:唯一形 → 出处清单;并按 16 字符窗口分桶以容纳书写差。 */
@@ -507,6 +620,8 @@ function audit(contents, { strict = false } = {}) {
     const imports = importMap(text)
     const mirrors = mirrorNameCandidates(testRel).filter((x) => gateContents[x] !== undefined)
     const usesGateExports = /\bgate\s*\.\s*[A-Za-z0-9_$]+|\b__test__\s*\.\s*[A-Za-z0-9_$]+/.test(struct)
+    /** P4 的出处集:从门文件 import 进来的本地符号名(含 `* as` 与默认导入)。 */
+    const ctx = { hasSourceRead, gateNames: gateSymbolNames(text) }
     // 每个声明里到底有几个单元:光"是个 list"不够,`const appJson = { … }` 这种数据块也满足 list 形状,
     // 里面 0~1 条正则就说明它不是形态清单(把数据块判成"自带清单"是假阳,不是抓漏)。
     const listUnitCount = new Map()
@@ -521,7 +636,7 @@ function audit(contents, { strict = false } = {}) {
     for (const u of units) {
       const frags = splitAlternatives(u.body)
       if (frags.length === 0) continue
-      const role = unitRole(u, sites, text, hasSourceRead)
+      const role = unitRole(u, sites, text, ctx)
       const reason = exemptReason(rawLines, u.line)
       const declaredList = !!(u.decl && (isCriterionName(u.decl.name) || (u.decl.kind === 'list' && listUnitCount.get(u.decl.start) >= 2)))
       for (const f of frags) {
@@ -545,6 +660,9 @@ function audit(contents, { strict = false } = {}) {
             } else if (role.shapeLock) {
               state = 'pass'
               why = `P2 形状锁:主语 ${role.subject} 是某文件的正文,钉的是写法不是被审对象形态`
+            } else if (role.behaviorText) {
+              state = 'pass'
+              why = `P4 行为文案断言:主语 ${role.subject} 的初值来自一次派生/门体导出口调用,断的是门自己打出的那句话(§22c 的"改调生产入口"形态),不是第二份判据`
             } else if (!role.atPattern && !declaredList) {
               state = 'undetermined'
               why = `与门体形态同料(${how}),但该单元在本文件既不在调用位也不在清单声明里 —— 认不出是判据还是数据`
@@ -586,8 +704,11 @@ function audit(contents, { strict = false } = {}) {
 
     if (imports.length > 0) {
       for (const u of ownListUnits) {
-        const role = unitRole(u, sites, text, hasSourceRead)
-        if (!role.atPattern || role.shapeLock) continue
+        const role = unitRole(u, sites, text, ctx)
+        // 形状锁与行为文案锁都不算"另立第二份判据":前者钉源码写法,后者钉门自己打出的那句话
+        // (§22c 的正解就是"改调生产入口再断言输出")。两条都在这里静默出局,不静默记绿 —— F1 那一遍
+        // 仍会为同一条材料写出 P2/P4 的放过记录与理由,报告里查得到是"哪一格、为什么放过"。
+        if (!role.atPattern || role.shapeLock || role.behaviorText) continue
         // F2 也要"对得上同一个被审对象":清单名与门体同名,或材料与门体同形 —— 两条都不满足的本地
         // 正则是测试自己的夹具(测试当然要有自己的断言正则),把它判成复制源判据是假阳。
         const ownGate = imports[0]
@@ -817,6 +938,61 @@ function selfTest() {
     const r = a({ [GATE]: gateBody, [TEST]: `const keep = /${TFORM}/\nconsole.log(keep)\n` })
     return r.counts.hits === 0 && r.counts.undetermined >= 1
   })())
+  /**
+   * P4 三条成对臂。立由不是"数字太大",而是 HEAD 面 13 处命中里逐条读下来,绝大多数是
+   * `assert.match(某次执行返回的文本, /门自己打出的那句话/)` —— 把行为断言当判据复制来判红,
+   * 是在要求测试不许引用它正在验证的那句话(§22c 的正解恰恰是"改调生产入口")。
+   * 放过必须带出处,所以第二臂把派生改成字面对象 ⇒ 必须照旧命中。
+   */
+  t('P4 放过:断言派生进程返回文本里门打出的那句话', (() => {
+    const r = a({
+      [GATE]: gateBody,
+      [TEST]: `import assert from 'node:assert/strict'\nimport { spawnSync } from 'node:child_process'\nconst res = spawnSync(process.execPath, ['scripts/check-demo-judge.mjs'], { encoding: 'utf8' })\nassert.match(res.out, /${GFORM}/)\n`,
+    })
+    return r.counts.hits === 0 && r.items.some((i) => i.state === 'pass' && i.why.startsWith('P4'))
+  })())
+  t('P4 不查实出处就不放过(res 是字面对象 ⇒ 仍命中)', (() => {
+    const r = a({
+      [GATE]: gateBody,
+      [TEST]: `import assert from 'node:assert/strict'\nconst res = { out: input }\nassert.match(res.out, /${GFORM}/)\n`,
+    })
+    return r.counts.hits >= 1 && !r.items.some((i) => i.why.startsWith('P4'))
+  })())
+  t('P4 认门导出口返回的文本(gate.decide(...).errors)', (() => {
+    const r = a({
+      [GATE]: gateBody,
+      [TEST]: `import assert from 'node:assert/strict'\nimport { __test__ as gate } from '../check-demo-judge.mjs'\nconst noTokens = gate.decide(input)\nassert.match(noTokens.errors.join('\\n'), /${GFORM}/)\n`,
+    })
+    return r.counts.hits === 0 && r.items.some((i) => i.state === 'pass' && i.why.startsWith('P4'))
+  })())
+  t('P2b 放过:主语名字不叫 *Src,但初值是 readFileSync 拿来的正文', (() => {
+    const r = a({
+      [GATE]: gateBody,
+      [TEST]: `import assert from 'node:assert/strict'\nimport { readFileSync } from 'node:fs'\nconst own = readFileSync('scripts/check-demo-judge.mjs', 'utf8')\nassert.ok(!/${GFORM}/.test(own), '形状锁')\n`,
+    })
+    return r.counts.hits === 0 && r.items.some((i) => i.state === 'pass' && i.why.startsWith('P2'))
+  })())
+  t('P4 认一跳:spawnSync 提成本文件 helper 后仍算行为断言', (() => {
+    const r = a({
+      [GATE]: gateBody,
+      [TEST]: `import assert from 'node:assert/strict'\nimport { spawnSync } from 'node:child_process'\nconst runGate = (a) => spawnSync(process.execPath, a, { encoding: 'utf8' })\nconst cli = runGate(['x.mjs'])\nassert.match(cli.out, /${GFORM}/)\n`,
+    })
+    return r.counts.hits === 0 && r.items.some((i) => i.state === 'pass' && i.why.startsWith('P4'))
+  })())
+  t('P4 一跳也查不到出处就不放过(helper 里没有派生)', (() => {
+    const r = a({
+      [GATE]: gateBody,
+      [TEST]: `import assert from 'node:assert/strict'\nconst runGate = (a) => ({ out: a.join(' ') })\nconst cli = runGate(['x.mjs'])\nassert.match(cli.out, /${GFORM}/)\n`,
+    })
+    return r.counts.hits >= 1 && !r.items.some((i) => i.why.startsWith('P4'))
+  })())
+  t('P2b 不查实初值就不放过(同名但初值是字面串 ⇒ 仍命中)', (() => {
+    const r = a({
+      [GATE]: gateBody,
+      [TEST]: `import assert from 'node:assert/strict'\nimport { readFileSync } from 'node:fs'\nconst own = 'some unrelated literal'\nassert.match(own, /${GFORM}/)\nvoid readFileSync\n`,
+    })
+    return r.counts.hits >= 1 && !r.items.some((i) => i.why.startsWith('P2'))
+  })())
   t('P2 需要"确实读了正文"才成立(否则不放过)', (() => {
     const r = a({
       [GATE]: gateBody,
@@ -851,6 +1027,8 @@ export const __test__ = {
   declarationSpans,
   matcherSites,
   unitRole,
+  initializerOf,
+  gateSymbolNames,
   splitAlternatives,
   normalizePattern,
   fragMatch,
