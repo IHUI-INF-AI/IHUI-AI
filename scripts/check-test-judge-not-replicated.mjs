@@ -123,7 +123,18 @@ const SOURCE_READ_RE =
  * 是行为断言,不是第二份判据;而 F1/F2 抓的是"测试自己声明一张清单拿去裁数据"。
  */
 const RUN_TEXT_RE = /spawnSync|execSync|execFileSync|\bspawn\s*\(|\bexecFile\s*\(|\bfork\s*\(|runEvidence|run-evidence/
-const GATE_RECEIVER_RE = /\b(?:gate|__test__|mod|ns)\b/
+/**
+ * 动态装载门体(`await import(pathToFileURL(SRC).href)`)。没有 `isDirectRun` 守卫的门,静态 import
+ * 就等于把它的 CLI 主流程跑一遍(实测门 47 就是这样打死过一次测试进程),所以 §22c 那句"改调生产
+ * 入口"在这一型**只能**走动态 import —— 把它当成"没出处"就是要求测试用不了的唯一正解。
+ */
+const MODULE_LOAD_RE = /\bawait\s+import\s*\(|\bimport\s*\(\s*(?:pathToFileURL|['"`]\.\.)/
+/**
+ * 出处链跳数上限(见 `carrierTraced` 的注释:为什么恰好要三跳才够到那条唯一合法入口)。
+ * 抽成常量是为了让"某条臂是在测封顶本身"这件事能被镜像点名 —— 封顶值写死在函数体里时,
+ * 把它从 3 改成 2 只需要动一个字符,而没有任何一条断言会因此翻红。
+ */
+const CARRIER_MAX_HOPS = 3
 /** 行内出口:`judge-replica-exempt: <原因>`,原因必填,只救本行。 */
 const EXEMPT_MARK = /judge-replica-exempt:\s*(\S[^\n]*)/
 
@@ -378,21 +389,31 @@ function oneHopSource(text, init) {
 /**
  * P4 的出处链:`res.out` 的 `res` 可以是 ① 直接 spawnSync ② 本文件 helper 里的 spawnSync
  * ③ 门导出口(`gate.x()` / import 进来的符号)④ 成员链的宿主变量本身是①/②(`out.split(…)` 那种)。
- * 深度封顶 2 跳;跳不到出处就返回 false —— 放过必须拿得出证据,不是拿"看起来像输出"当证据。
+ * 深度封顶 3 跳;跳不到出处就返回 false —— 放过必须拿得出证据,不是拿"看起来像输出"当证据。
+ * 为什么是 3 而不是 2:§22d 的 `isDirectRun` 守卫在无该守卫的门上是**禁路**(顶层就是 CLI 主流程),
+ * 那种门的镜像测试只剩一条合法入口 —— `const mod = await import(pathToFileURL(SRC).href)` →
+ * `const { __test__ } = mod` → `const { fn } = __test__` → `const out = fn(…)`,
+ * 断言的对象离真正的取正文/取模块动作恰好三跳。少一跳就等价于"按书写位置判,不按出处判"。
  */
 function carrierTraced(text, tok, gateNames, depth = 0) {
   const headOf = (s) => String(s).split('.')[0]
-  const fromGate = (t) => gateNames.has(headOf(t)) || GATE_RECEIVER_RE.test(headOf(t))
+  // 只认**静态 import 进来的门体符号**(§22c 的形状);光有一个叫 gate 的变量名不构成证据。
+  const fromGate = (t) => gateNames.has(headOf(t))
   const init = initializerOf(text, tok)
-  if (init === null) return fromGate(tok)
+  if (init === null) {
+    const rhs = destructureRhsOf(text, tok) || tok
+    if (gateNames.has(headOf(rhs))) return true
+    return depth < CARRIER_MAX_HOPS && rhs !== tok && carrierTraced(text, rhs, gateNames, depth + 1)
+  }
   // 多行箭头函数/函数体的初值只能截到首行 ⇒ 一跳取 helper 体,派生往往在那里面
   const hop = oneHopSource(text, init)
-  if (RUN_TEXT_RE.test(init) || (hop !== init && RUN_TEXT_RE.test(hop))) return true
+  const hit = (re) => re.test(init) || (hop !== init && re.test(hop))
+  if (hit(RUN_TEXT_RE) || hit(MODULE_LOAD_RE) || hit(SOURCE_READ_RE)) return true
   const callee = (init.match(/^\s*(?:await\s+)?([A-Za-z0-9_$.]+)\s*\(/) || [])[1] || null
   if (!callee) return false
   if (fromGate(callee)) return true
   const head = headOf(callee)
-  if (depth < 2 && head !== tok && carrierTraced(text, head, gateNames, depth + 1)) return true
+  if (depth < CARRIER_MAX_HOPS && head !== tok && carrierTraced(text, head, gateNames, depth + 1)) return true
   return false
 }
 
@@ -422,6 +443,19 @@ function callArgTokens(subjStr) {
   return out
     .map((a) => (a.match(/[A-Za-z0-9_$]+/) || [''])[0])
     .filter((t) => t && !/^\d/.test(t))
+}
+
+/**
+ * `const { a, b } = gate` 这种解构形:成员本身没有独立初值,但它的**出处就是等号右边那个符号**。
+ * §22c 要求的正是这种形状(判据一律走静态 import 的导出口),不认它就是把"已经改调生产入口"的测试
+ * 继续算成复制判据 —— 而 HEAD 面 RF-4 那一格就是这个形态。
+ */
+function destructureRhsOf(text, tok) {
+  const esc = String(tok).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  for (const m of text.matchAll(/(?:const|let|var)\s*\{([^{}]*)\}\s*=\s*([A-Za-z0-9_$.]+)/g)) {
+    if (new RegExp(`(^|[,{\\s])${esc}(\\s*:[^,}]+)?\\s*(,|$|\\s})`).test(m[1])) return m[2]
+  }
+  return null
 }
 
 /** 取 `const <name> = <初值>` 的初值文本(找不到返回 null);只截到首个行尾分号/换行前的 400 字符。 */
@@ -490,12 +524,13 @@ function unitRole(unit, sites, text, ctx) {
      * 这类同一条事实的写法整族看不见;反过来,光有个 `.out` 名字而查不到派生也不放过)。
      */
     let behaviorText = false
-    if (s.kind === 'assert') {
+    if (s.kind === 'assert' || s.kind === 'proto') {
       // 主语自己查不到出处时,再看它是不是"把派生结果喂给一个纯格式化 helper"
       // (`assert.match(lastLine(head.out), /…/)` 那一型):断言对象的**实参**才是文本载体。
       const argToks = callArgTokens(subjStr)
-      behaviorText =
+      const traced =
         carrierTraced(text, baseTok, ctx.gateNames) || argToks.some((t) => carrierTraced(text, t, ctx.gateNames))
+      behaviorText = traced
     }
     return { atPattern: true, shapeLock, behaviorText, subject: subjStr.slice(0, 40), kind: s.kind }
   }
@@ -1031,12 +1066,47 @@ function selfTest() {
     })
     return r.counts.hits === 0 && r.items.some((i) => i.state === 'pass' && i.why.startsWith('P4'))
   })())
+  t('P4 放过:走 §22c 的解构导出口,再用 test() 的实参位断生成文本', (() => {
+    const r = a({
+      [GATE]: gateBody,
+      [TEST]: `import assert from 'node:assert/strict'\nimport { __test__ as gate } from '../check-demo-judge.mjs'\nconst { buildIt } = gate\nconst ps = buildIt()\nassert.ok(/${GFORM}/.test(ps), '生成文本形状锁')\n`,
+    })
+    return r.counts.hits === 0 && r.items.some((i) => i.state === 'pass' && i.why.startsWith('P4'))
+  })())
+  t('P4 解构右边不是门体符号就不放过(fixtures 解构出来的同名成员仍算复制判据)', (() => {
+    const r = a({
+      [GATE]: gateBody,
+      [TEST]: `import assert from 'node:assert/strict'\nimport { __test__ as gate } from '../check-demo-judge.mjs'\nconst { buildIt } = fixtures\nconst ps = buildIt()\nassert.ok(/${GFORM}/.test(ps), '自建夹具')\nvoid gate\n`,
+    })
+    return r.counts.hits >= 1 && !r.items.some((i) => i.why.startsWith('P4'))
+  })())
+  t('P4 放过:无 isDirectRun 守卫的门只能动态 import,出处链三跳(mod→__test__→fn→ps)', (() => {
+    const r = a({
+      [GATE]: gateBody,
+      [TEST]: `import assert from 'node:assert/strict'\nimport { pathToFileURL } from 'node:url'\nconst mod = await import(pathToFileURL(SRC).href)\nconst { __test__ } = mod\nconst { buildIt } = __test__\nconst ps = buildIt()\nassert.ok(/${GFORM}/.test(ps), '生成文本形状锁')\n`,
+    })
+    return r.counts.hits === 0 && r.items.some((i) => i.state === 'pass' && i.why.startsWith('P4'))
+  })())
+  t('P4 出处链封顶会响:比上限多一跳就仍命中(把上限调大必读绿这一条)', (() => {
+    const r = a({
+      [GATE]: gateBody,
+      [TEST]: `import assert from 'node:assert/strict'\nimport { pathToFileURL } from 'node:url'\nconst mod = await import(pathToFileURL(SRC).href)\nconst { __test__ } = mod\nconst { pair } = __test__\nconst { buildIt } = pair\nconst ps = buildIt()\nassert.ok(/${GFORM}/.test(ps), '形状锁')\n`,
+    })
+    return r.counts.hits >= 1 && !r.items.some((i) => i.why.startsWith('P4'))
+  })())
   t('P2b 不查实初值就不放过(同名但初值是字面串 ⇒ 仍命中)', (() => {
     const r = a({
       [GATE]: gateBody,
       [TEST]: `import assert from 'node:assert/strict'\nimport { readFileSync } from 'node:fs'\nconst own = 'some unrelated literal'\nassert.match(own, /${GFORM}/)\nvoid readFileSync\n`,
     })
     return r.counts.hits >= 1 && !r.items.some((i) => i.why.startsWith('P2'))
+  })())
+  t('P4 光有 gate 这个变量名不构成证据(既非 import 符号也无取正文 ⇒ 仍命中)', (() => {
+    const r = a({
+      [GATE]: gateBody,
+      [TEST]: `import assert from 'node:assert/strict'\nconst gate = 'a hand-written string that is neither a file body nor a run result'\nconst own = gate.replace(/x/g, '')\nassert.ok(/${GFORM}/.test(own))\n`,
+    })
+    return r.counts.hits >= 1 && !r.items.some((i) => i.why.startsWith('P4') || i.why.startsWith('P2'))
   })())
   t('P2 需要"确实读了正文"才成立(否则不放过)', (() => {
     const r = a({
@@ -1075,7 +1145,9 @@ export const __test__ = {
   initializerOf,
   oneHopSource,
   callArgTokens,
+  destructureRhsOf,
   carrierTraced,
+  CARRIER_MAX_HOPS,
   gateSymbolNames,
   splitAlternatives,
   normalizePattern,
