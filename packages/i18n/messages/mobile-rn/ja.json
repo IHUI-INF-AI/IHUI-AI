@@ -499,6 +499,12 @@
     "search": "検索",
     "searchPlaceholder": "ドキュメントを検索..."
   },
+  "network": {
+    "offline": "ネットワークが切断されました。一部の機能は利用できません",
+    "slow": "ネットワークが遅いため、応答に時間がかかる場合があります",
+    "serverUnreachable": "サーバーに接続できません。お客様側の通信は正常です",
+    "probeUnavailable": "ネットワーク状態を確認できません"
+  },
   "aiAssistant": {
     "title": "AIアシスタント",
     "subtitle": "エージェントを選んで対話を開始",
