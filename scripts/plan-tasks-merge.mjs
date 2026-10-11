@@ -78,7 +78,19 @@ import {
 import { archiveFaceEntries } from './check-project-plan-archive.mjs'
 // 折叠形态的**反判据**取自守门 71 自己那一份实现(不另抄):`headIdOf` 判"行首名额"还在不在,
 // `lostMarkers` 判"折叠会不会被防丢层读成整行消失"。见 foldTwins 头注 ① —— 那是两维互咬的接缝。
-import { TASK_ID_PATTERN, headIdOf, lostMarkers } from './check-plan-line-loss.mjs'
+// G-307 票一③:循环熔断的**唯一**实现也住在门 71(它是"登记行存续"那一层的尺子,触碰计数只能
+// 从它的面取)—— 两处各写一份必然漂开,而漂开的代价是循环少一层刹车。`markerOf` 一并从这里取:
+// 熔断按 **marker** 不按行号(§1 同一条禁令:行号在任何一次 append 后都会挪位)。
+import {
+  TASK_ID_PATTERN,
+  headIdOf,
+  lostMarkers,
+  markerOf,
+  loopBreakerDecision,
+  loopBreakerMin,
+  loopTripsForMarkers,
+  loopWindowCommits,
+} from './check-plan-line-loss.mjs'
 // 翻勾注记的形态与"剥注记后正文逐字相等"的成对判据,生产侧与看守侧(守门 71)共用这一份实现
 // (G-307:两层自愈互咬的根因之一就是"注记长什么样"在两边各写一遍)。
 import {
@@ -675,10 +687,15 @@ export function planDupPointerTargets(groups) {
 }
 
 /**
+ * @param {{skipMarkers?: Set<string>|string[]}} [opts] `skipMarkers` = 熔断层给出的**登记 marker**
+ *   集合(G-307 票一③):命中这些 marker 的行本轮一律不动,进 `blocked` 点名而不是进 `refused`。
+ *   刻意按 marker 而不是行号 —— 行号在任何一次 append 后都会挪位(§1 同一条禁令)。
  * @returns {{ text:string, changed:Array<{line:number,kind:string,before:string,after:string}>,
- *             refused:string[], adjudicationNeeded:Array<{line:number,key:string,reason:string}>, dupTwins:string[], before:object }}
+ *             refused:string[], blocked:Array<{line:number,kinds:string,reason:string}>,
+ *             adjudicationNeeded:Array<{line:number,key:string,reason:string}>, dupTwins:string[], before:object }}
  */
-export function buildMerge(content, today) {
+export function buildMerge(content, today, opts = {}) {
+  const skipMarkers = opts.skipMarkers instanceof Set ? opts.skipMarkers : new Set(opts.skipMarkers ?? [])
   const a = audit(content)
   const lines = content.split('\n')
   const dupTwins = []
@@ -712,10 +729,29 @@ export function buildMerge(content, today) {
   for (const c of a.verbatimDups.copies) note(c.row.line, 'F4', c.key)
   const changed = []
   const refused = []
+  /**
+   * blocked = **判据看得见、但这一层刻意不动**的行(G-307 票一③ 熔断:该 marker 在近若干枚提交里
+   * 被两个自动层反复触碰 ⇒ 继续自动动作就是在喂循环)。
+   * 为什么不并进 `refused`:refused 由 `healStopReasons` 计成"拒写 N 项" ⇒ **整轮停手、退出码 1**,
+   * 而熔断的语义恰好相反 —— "自动档少做一件事不是错误"(大声点名 + 退出码 0,§12e:做成恒红门
+   * 唯一结局是逼人 --no-verify)。混进 refused 等于把刹车做成红门;静默跳过又会让红点读起来像
+   * "归并器跑过了" ⇒ 单独一列、逐行点名、且**不进停手计数**(熔断只少做,不判红)。
+   */
+  const blocked = []
   for (const [ln, v] of [...plan.entries()].sort((x, y) => x[0] - y[0])) {
     const before = lines[ln - 1]
     if (before === undefined) {
       refused.push(`L${ln} 越界`)
+      continue
+    }
+    // 熔断命中 ⇒ 本轮对这一行**一个字节都不动**(在做任何改写规划之前就剔除)。
+    const mk = markerOf(before)
+    if (mk && skipMarkers.has(mk)) {
+      blocked.push({
+        line: ln,
+        kinds: v.kinds.slice().sort().join('+'),
+        reason: `熔断:marker「${mk}」在近若干枚提交内被自动层反复触碰`,
+      })
       continue
     }
     // 改写**按行号精确 splice**,所以"面上有同文行"不构成误伤风险(风险在别处:
@@ -794,6 +830,7 @@ export function buildMerge(content, today) {
     text: lines.join('\n'),
     changed,
     refused,
+    blocked,
     adjudicationNeeded,
     dupTwins,
     before: a.counts,
@@ -2909,7 +2946,49 @@ export function healAndLand() {
     console.log('✅ 自愈:HEAD 无状态分叉(也没有可折的同题不同编号孪生副本),不动任何东西')
     return 0
   }
-  const r = buildMerge(src, today)
+  let r = buildMerge(src, today)
+  /**
+   * ── 循环熔断(G-307 票一③)──
+   * 一轮归并**先照计划做**,再问"这些行最近是不是被两个自动层反复触碰过";命中熔断的那些
+   * 从本轮剔除后重算一次(剔除而不是停手:一处循环不该把别人能修的分叉一起冻住),
+   * 留下的那些进 `blocked` 逐行点名 —— "少做一件事"与"判红"是两件事,这里只少做、不判红(退出码 0)。
+   * 熔断实现只有门 71 那一份(`loopTripsForMarkers`):它量的是"登记行存续"这一层的产出提交,
+   * 两处各写一份迟早漂成"一边熔断、一边继续喂循环"。判据只按 **marker** 问,不用行号。
+   */
+  const loop = loopTripsForMarkers(
+    r.changed.map((c) => markerOf(c.before)).filter(Boolean),
+    { root: ROOT },
+  )
+  if (loop.tripped.length) {
+    const skip = new Set(loop.tripped.map((t) => t.marker))
+    console.log(
+      `🛑 自愈熔断:${skip.size} 个 marker 在近 ${loopWindowCommits()} 枚提交内被自动层触碰 ≥${loopBreakerMin()} 次 ⇒ 本轮不动这些行(退出码 0:自动档少做一件事不是错误,恒红门只会逼人 --no-verify —— §12e):`,
+    )
+    for (const t of loop.tripped)
+      console.log(`   · 「${t.marker}」触碰 ${t.touches} 次 —— ${t.commits.join(' / ')}`)
+    if (loop.undetermined.length)
+      console.log(
+        `   ℹ️ 另有 ${loop.undetermined.length} 个 marker 熔断判据未判定:${loop.undetermined
+          .slice(0, 3)
+          .map((u) => u.reason)
+          .join(' / ')} —— 不据"没量到"下结论,照旧只点名`,
+      )
+    r = buildMerge(src, today, { skipMarkers: skip })
+    if (!r.changed.length) {
+      console.log(
+        `   ⛔ 刻意不动 ${r.blocked.length} 行(熔断):${r.blocked
+          .map((b) => `L${b.line}「${b.reason}」`)
+          .join(';')}`,
+      )
+      console.log('   剔除熔断项后本轮无可施加的归并 ⇒ 不落地、不建提交')
+      return 0
+    }
+    console.log(`   ⛔ 刻意不动 ${r.blocked.length} 行(熔断,判据看得见、本轮一个字节都不动):`)
+    for (const b of r.blocked) console.log(`     · L${b.line} [${b.kinds}] ${b.reason}`)
+  } else if (loop.undetermined.length)
+    console.log(
+      `   ℹ️ 熔断未判定 ${loop.undetermined.length} 个 marker(${loop.undetermined[0].reason})—— 照旧归并,不据"没量到"下结论`,
+    )
   /**
    * 折叠维跑在**归并结果之上**这一层:`buildMerge` 只改行内内容、一行不增不删 ⇒ 两维共用同一套
    * 行号坐标,合到一枚提交、一次 CAS 里落地。两维刻意互不干涉:F10 只插注记、绝不碰复选框,
@@ -2935,6 +3014,18 @@ export function healAndLand() {
   )
   bad.push(...verifyTwinFold(r.text, f.text, f.edits, f.refused).problems)
   if (bad.length) {
+    /**
+     * 熔断命中后的**混合现场**:本轮剔除了熔断族,别处照常归并 ⇒ 残留的"归并后未归零"正是
+     * 刻意留下的那些族(熔断行不进 changed,它们的分叉/副本计数当然还在)。这一档是"少做一件
+     * 事",不是故障 ⇒ 大声点名 + 退出码 0;其余任何红(拒写/行数不等/正文未保留…)照旧停手 ——
+     * 熔断绝不当万能遮羞布,它只豁免"因不碰这些行而残留"的那一条读数。
+     */
+    if (loop.tripped.length && bad.every((x) => x === '归并后未归零')) {
+      console.log(
+        `🛑 自愈熔断:${bad.join(' / ')} 由本轮刻意不碰的熔断族留下 ⇒ 不判红、不落地(退出码 0);出路见上面的 🛑 点名,交人工处置。`,
+      )
+      return 0
+    }
     console.log(`❌ 自愈停手:${bad.join(' / ')} —— 现场保留,交人工`)
     return 1
   }
@@ -2954,6 +3045,11 @@ export function healAndLand() {
       `另:F10「同题不同编号」孪生副本现读 ${tw0.groups.length + tw0.undetermined.length} 族可议(成组 ${tw0.groups.length} / 判不出 ${tw0.undetermined.length})⇒ 本枚折掉 ${f.edits.length} 行,每族只留位置最靠前的未完成行当持有行;判不出一律不折、交人工(${f.undetermined.length} 条逐条点名见 --fold-twins 报告)。`,
 
       `行数 ${src.split('\n').length} → ${f.text.split('\n').length}(一行不删一行不加),未参与改写的 ${src.split('\n').length - r.changed.length - f.edits.length} 行逐字不变。`,
+      ...(r.blocked.length
+        ? [
+            `刻意不动 ${r.blocked.length} 行(熔断):这些 marker 在近若干枚提交内被两个自动层反复触碰,清单见提交前的 🛑⛔ 输出。`,
+          ]
+        : []),
       '成因与修法同源:scripts/plan-tasks-merge.mjs 按当次 HEAD 重算行号(绝不用旧行号)。',
       '复活路径是"按内存里旧计划文档整文件提交 + --no-verify 跳过 pre-commit",所以这一层必须挂 post-commit。',
     ].join('\n'),
@@ -4402,6 +4498,70 @@ function selfTest() {
       DUP_POINTER_RE.test(pLines[1]) &&
       DUP_POINTER_RE.test(pLines[3]),
     '持有行逐字不动、两份被指副本各带派单口径指针(L3 无关行不得被误加)',
+  )
+  /**
+   * ── G-307 票一③:熔断必须是**纯函数 + 构造面**(真仓的提交数是瞬时状态,拿它当断言就是假账)──
+   * 三态各一对:未达阈值⇒不熔断 / 达阈值⇒熔断 / 人工提交的触碰⇒不计票;阈值一律走参数,不写死常量。
+   * (判定本体住在门 71 `loopBreakerDecision`,这里只钉"它必须有牙"。)
+   */
+  const autoSub = 'docs(plan): 自动回捞 1 条被并发旧基线提交抹掉的登记行'
+  ok(loopBreakerDecision([], 3).tripped === false, '熔断:没有触碰记录不得判熔断')
+  ok(
+    loopBreakerDecision([{ sha: 'a', subject: autoSub }], 1).tripped === true,
+    '熔断:达阈值必须判熔断(阈值走参数而不是常量,否则这一条测的是写死的那个数)',
+  )
+  ok(
+    loopBreakerDecision(
+      [
+        { sha: 'a', subject: autoSub },
+        { sha: 'b', subject: 'fix(plan): 自愈被回写的任务状态副本(守门 130 的 post-commit 层)' },
+      ],
+      3,
+    ).touches === 2,
+    '熔断:两个自动层各算一票(它们就是互咬的那两侧)',
+  )
+  ok(
+    loopBreakerDecision(
+      Array.from({ length: 5 }, (_, i) => ({ sha: `s${i}`, subject: 'docs(plan): 人工登记一行注记' })),
+      3,
+    ).touches === 0,
+    '熔断:人工提交的触碰不得计票(否则一次大清理就把自动档永久冻结)',
+  )
+  ok(
+    loopBreakerDecision([{ sha: 'a', subject: autoSub }, null, { subject: undefined }], 3).touches === 1,
+    '熔断:清单里混进空项不得炸,也不得多计',
+  )
+  /**
+   * 构造面(skipMarkers → blocked):熔断的落点是**本文件这一侧**的 `buildMerge` —— 命中 marker
+   * 的行进 blocked、原文一字不动;未命中的行照常归并(熔断是"只少做这些行",不是整轮停摆)。
+   * 夹具行刻意写到 40 字符以上并用**裸编号**:`markerOf` 对短行(<40)与 `**加粗编号**` 都返回
+   * null ⇒ 拿短行/加粗行测出来的绿是假绿(熔断对它们结构性失明,这一条同时钉住取样口径)。
+   */
+  const loopDone = '- [x] ✅(2026-09-20) D94 熔断夹具:已完成的那条,题面写得足够长以越过登记行四十字符的长度下限。'
+  const loopOpen = '- [ ] D94 熔断夹具:归因未定,同一主键被两个自动层反复顶来顶去的那一行,题面同样写得很长。'
+  const loopSrc = ['# 计划', loopDone, loopOpen, '- [ ] D98 真待办:谁都没做过,不得被动。'].join('\n')
+  const loopMk = markerOf(loopOpen)
+  ok(!!loopMk, '熔断夹具行必须算得出 marker(否则下一条断言是在空集合上空跑)')
+  const loopPlain = buildMerge(loopSrc, '2026-09-26')
+  ok(loopPlain.changed.length === 1 && loopPlain.blocked.length === 0, '未给 skipMarkers 时行为必须与旧版逐字一致')
+  const loopB = buildMerge(loopSrc, '2026-09-26', { skipMarkers: new Set([loopMk]) })
+  ok(
+    loopB.changed.length === 0 && loopB.blocked.length === 1,
+    `命中熔断的行必须从 changed 剔除并进 blocked,实测 changed=${loopB.changed.length} blocked=${JSON.stringify(loopB.blocked)}`,
+  )
+  ok(
+    !!loopB.blocked[0]?.reason.includes('熔断') && loopB.blocked[0].reason.includes(loopMk),
+    `blocked 理由必须点名熔断与该 marker,实测 ${loopB.blocked[0]?.reason}`,
+  )
+  ok(loopB.text === loopSrc, '熔断命中的产物必须逐字等于原文(本轮对这一行一个字节都不动)')
+  ok(
+    loopB.refused.length === 0,
+    `熔断行不得转记成 refused(拒写会让整轮停手、退出码 1 ⇒ 把刹车做成恒红门),实测 ${JSON.stringify(loopB.refused)}`,
+  )
+  const loopOther = buildMerge(loopSrc, '2026-09-26', { skipMarkers: ['D0 不存在的编号'] })
+  ok(
+    loopOther.changed.length === 1 && loopOther.blocked.length === 0,
+    '未命中的 marker 不得误伤(熔断是选择性的;数组形态同样受支持)',
   )
   console.log(`\n自检:${pass} 通过 / ${fail} 失败`)
   return fail ? 1 : 0

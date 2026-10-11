@@ -72,7 +72,8 @@ function serializeErrorNode(err: Error, depth: number, seen: Set<Error>): Serial
     return out
   }
   try {
-    out.cause = cause instanceof Error ? serializeErrorNode(cause, depth + 1, seen) : fromNonThrown(cause)
+    out.cause =
+      cause instanceof Error ? serializeErrorNode(cause, depth + 1, seen) : fromNonThrown(cause)
   } catch {
     out.truncated = true
   }
@@ -110,8 +111,7 @@ export const SerializedErrorSchema: z.ZodType<SerializedError> = z.strictObject(
 export type SerializedErrorWire = z.infer<typeof SerializedErrorSchema>
 
 export type SerializedErrorParseResult =
-  | { success: true; data: SerializedErrorWire }
-  | { success: false; issues: readonly string[] }
+  { success: true; data: SerializedErrorWire } | { success: false; issues: readonly string[] }
 
 /** 读前校验(不抛):把逐条判据交回调用方裁决。 */
 export function safeParseSerializedError(input: unknown): SerializedErrorParseResult {

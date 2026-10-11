@@ -31,9 +31,9 @@ from __future__ import annotations
 import json
 import logging
 import threading
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 _logger = logging.getLogger(__name__)
 

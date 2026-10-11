@@ -15,7 +15,8 @@
  *     并点名该取数键;改成现算值后必须 exit 0。**只判纯函数的测试证明不了门会红**。
  *  T5 取不到 ⇒ 判死,不记绿(无提交 / 空候选 / 两面旗同给)。
  *  T9 逗号分组只由 NUM 出一份 + 用**真历史文本**做阳性对照(G-1117442)——旧写法对 "4,415"
- *     从未匹配过,而"违规=0"的断言会替瞎掉的尺子发合格证,所以这一条同时钉"写法唯一"与"真能抓到"。
+ *     从未匹配过,而"违规=0"的断言会替瞎掉的尺子发合格证,所以这一条同时钉"写法唯一"与"真能抓到";
+ *     其 ③ 段是英文分支的正向断言(G-1104173:testFiles / wsEndpoints 的英文措辞必被抓点名)。
  */
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -293,18 +294,26 @@ test('T9 逗号分组只由 NUM 出一份 + 真历史文本阳性对照(G-111744
     'Headline claims (same source as the table below, all live-computed): **590 tables · 4,386 API routes ·\n' +
     '25 WebSocket endpoints · 118 catalogued LLMs · 38 platforms auto-publishing · 2,432 test files ·'
   if (!HIST.includes('4,386')) throw new Error('夹具已不含逗号形态,阳性对照无从谈起(形状锁)')
-  const numbers = { dbTables: 595, apiRoutes: 4415, testFiles: 2778 }
+  const numbers = { dbTables: 595, apiRoutes: 4415, testFiles: 2778, wsEndpoints: 25 }
   const r = findStaleClaims(`${HIST}\n${BLOCK_BEGIN}\nx\n${BLOCK_END}`, numbers)
   const api = r.violations.filter((v) => v.key === 'apiRoutes')
   if (api.length !== 1 || api[0].found !== 4386)
     throw new Error(`带逗号的英文路由声明必须被点名 4386≠4415,实得 ${JSON.stringify(r.violations)}`)
 
-  // ③ 把"这一族仍未覆盖"钉成会过期的事实:CLAIMS 的 testFiles / wsEndpoints 两支**只有中文措辞**,
-  //    所以 "2,432 test files" 与 "25 WebSocket endpoints" 至今 checked=0 —— 那与逗号无关,是缺英文分支,
-  //    已由台账另计一票。谁补上英文分支,这一条必须翻红并去销那一票(留着的登记比没有更危险)。
-  if (r.violations.some((v) => v.key === 'testFiles'))
-    throw new Error(
-      'testFiles 的英文措辞已被纳管:本条"未覆盖"登记已过期,请改成正向断言并销台账那一票',
-    )
+  // ③ 英文分支已补(G-1104173,2026-10-11):testFiles / wsEndpoints 两支现在看得见英文措辞 ——
+  //    同一段真历史文本里 "2,432 test files" 必须被点名(2432≠2778),"25 WebSocket endpoints"
+  //    必须计入 checked(25==25 故不判违规,再喂错值 26 必须点名)。本条由"未覆盖"登记翻成正向断言:
+  //    谁把英文分支摘掉,这两条立刻翻红 —— 登记比没有更危险的教训就钉在这里。
+  const tf = r.violations.filter((v) => v.key === 'testFiles')
+  if (tf.length !== 1 || tf[0].found !== 2432)
+    throw new Error(`testFiles 英文分支必须点名 "2,432 test files"(2432≠2778),实得 ${JSON.stringify(r.violations)}`)
+  // HIST 可判数字恰四处:dbTables 590 + apiRoutes 4386 + wsEndpoints 25 + testFiles 2432
+  // (llmModels / publishPlatforms 两支在本夹具的 numbers 里无键 ⇒ 按守门判据跳过,不计 checked)。
+  if (r.checked !== 4)
+    throw new Error(`HIST 应命中 4 处可判数字,实得 checked=${r.checked}(英文分支漏了或多重匹配)`)
+  const r2 = findStaleClaims(`${HIST}\n${BLOCK_BEGIN}\nx\n${BLOCK_END}`, { ...numbers, wsEndpoints: 26 })
+  const ws = r2.violations.filter((v) => v.key === 'wsEndpoints')
+  if (ws.length !== 1 || ws[0].found !== 25)
+    throw new Error(`wsEndpoints 英文分支必须点名 "25 WebSocket endpoints"(25≠26),实得 ${JSON.stringify(r2.violations)}`)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

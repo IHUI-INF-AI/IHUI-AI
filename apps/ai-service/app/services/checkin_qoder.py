@@ -112,6 +112,67 @@ def qoder_jwt_exp(jwt: str) -> tuple[datetime.datetime | None, float | None]:
 
 
 # ---------------------------------------------------------------------------
+# 会话 expiresAt 解析(真机实证 2026-10-11:Qoder device token 非 JWT 不带 exp;
+# auth.v1.dat 会话 JSON 含 expiresAt/refreshTokenExpiresAt,ISO 8601 如
+# "2026-10-31T04:56:16Z",随 device_map 落库后以此补齐过期预检)
+# ---------------------------------------------------------------------------
+
+# 落库键候选:桌面端 CapturedQoderSession serde snake_case 投影 / auth.v1.dat 原文键
+_SESSION_EXPIRY_KEYS: Final = ("expires_at", "expiresAt")
+_REFRESH_EXPIRY_KEYS: Final = ("refresh_token_expires_at", "refreshTokenExpiresAt")
+
+
+def _parse_expiry_value(raw: Any) -> datetime.datetime | None:
+    """单个过期值 → naive 本地 datetime(与 qoder_jwt_exp 的 fromtimestamp 语义一致)。
+
+    接受两种落库形态:ISO 8601 字符串(auth.v1.dat 原文,Z 后缀)与 epoch 秒数
+    (token 刷新链路写回的 expires_at)。epoch<=0 视为缺失(桌面端 as_i64 对
+    ISO 字符串解析失败会 unwrap_or(0) 落 0)。坏格式返回 None,绝不抛栈。
+    """
+    if isinstance(raw, bool):
+        return None
+    if isinstance(raw, str):
+        text = raw.strip()
+        if not text:
+            return None
+        try:
+            exp_dt = datetime.datetime.fromisoformat(text)
+        except ValueError:
+            return None
+        if exp_dt.tzinfo is not None:
+            exp_dt = exp_dt.astimezone().replace(tzinfo=None)
+        return exp_dt
+    if isinstance(raw, (int, float)):
+        if raw <= 0:
+            return None
+        try:
+            return datetime.datetime.fromtimestamp(raw)
+        except (OverflowError, OSError, ValueError):
+            return None
+    return None
+
+
+def qoder_session_expiry(
+    device_map: dict[str, Any]
+) -> tuple[datetime.datetime | None, float | None]:
+    """从 device_map 读会话过期时间,返回 (exp_datetime, remaining_hours) 或 (None, None)。
+
+    优先会话 expiresAt(token 本体到期,更紧迫);缺失/坏格式时回落
+    refreshTokenExpiresAt(刷新凭据到期,仍可据此判「能否自救刷新」)。
+    Qoder 的 device token 非 JWT,qoder_jwt_exp 对其恒 (None, None),
+    本函数是过期预检对 Qoder 生效的通道 —— 当前桌面端未把 ISO expiresAt
+    写入 device_map(checkin_capture.rs as_i64 恒落 0),接入后即生效。
+    """
+    for keys in (_SESSION_EXPIRY_KEYS, _REFRESH_EXPIRY_KEYS):
+        for key in keys:
+            exp_dt = _parse_expiry_value(device_map.get(key))
+            if exp_dt is not None:
+                remaining = (exp_dt - datetime.datetime.now()).total_seconds() / 3600.0
+                return exp_dt, remaining
+    return None, None
+
+
+# ---------------------------------------------------------------------------
 # Cosy-* 设备头(风控面):device_map["cosy"] → 请求头
 # ---------------------------------------------------------------------------
 

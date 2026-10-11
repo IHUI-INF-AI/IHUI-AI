@@ -41,6 +41,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, gitBinary, gitRaw, selectFace, Undetermined } from './lib/face-reader.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { radiusEntriesOf, radiusLookup, radiusPxInLine, radiusSetOf } from './lib/radius-tokens.mjs'
+// 裸档形状单独一行导:把上面那条 import 折成多行会让"行级复活"判据把成员行读成搬回祖先形态(2026-10-11 实测)
+import { bareRoundedOccurrences } from './lib/radius-tokens.mjs'
 import { facePx } from './lib/length-units.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -82,9 +84,15 @@ const OWN_END_PREFIX = { miniapp: 'apps/miniapp-taro/', rn: 'apps/mobile-rn/' }
  * 一不一样**。几何维刻意不判,并在人读面与 `--json` 面**明写"未判"**(不是"已确认相同")。
  *
  * 已知覆盖边界(逐条报出,不当通过):
- *  - 未做端入口可达性剔除(rn 腿那套图是从 RN 入口走的,web 需要另一张图)⇒ 一份死副本
- *    可能进配对;这一条写在报告里,不在代码里偷偷抹。
+ *  - **端入口可达性剔除已装上**(2026-10-08 票 G-978049③):双侧各跑一遍图,种子面
+ *    `SEED_DIRS.web = apps/web/app`(Next 的 page/layout 层就是框架真渲染的入口),`@/` 别名按
+ *    web 的 tsconfig 解析;被剔的族逐条点名(`⊘ WD …… 从web端入口不可达`),web 种子取不到时
+ *    整维**挂起留痕**而不是当成"都活着" —— 挂起那一句里的"本轮未做剔除"说的是这一轮,不是这一腿。
  *  - 只比**档值集合**(RD 量纲),不比元素名(RE 量纲):web 侧没有 StyleSheet 键可归属。
+ *  - **裸档盲区(G-978049②,本腿与主腿同罪)**:档位提取式只认 `rounded-(xs|sm|md|lg|xl|2xl)`,
+ *    裸写 `rounded` / `var(--radius)`(值 = 档位表 DEFAULT)读不出来 ⇒ "一端写裸档、另一端写具名档"
+ *    会被读成"那一端没写档"。补认它必须与守门 77 / 150 的台账**同枚提交各自重锚**,不在本腿单独放宽;
+ *    今天先由 `bareRoundedAudit` **逐条报名**(报数不进判据、不进退出码),给下一票当输入。
  */
 const WEB_DIRS = ['apps/web/src/components', 'packages/ui-react/src/components']
 const WEB_LEDGER = {
@@ -118,8 +126,14 @@ const MAX_GEO_PX = 1200
 /**
  * 剥注释但**保留字符串内容** —— 方向相反会各错一次:剥字符串会把 `className="w-[72rpx]"` 一起抹掉
  * (判据失明),留注释会把说明性数字喂进判据(假阳)。
+ *
+ * `pad = true` 时输出**与输入等长**(注释字符逐个换成空格、换行保留),供"深度走查在遮罩文本上做、
+ * 取材按同一套下标 slice 原文"的调用方使用:默认的删除式会让下标整体左移 —— 真仓实测
+ * Carousel 的 `return (` 与 `<View` 之间夹着注释块,取材切到别处,根上明明是 `rounded-2xl`
+ * 却读回 `tiers:[]`。同一份解析、两种输出,不另起第二份注释解析(两份对"哪里是注释"的分歧
+ * 会变成深度走查与取材对不上的安静错读)。
  */
-export function stripComments(src) {
+export function stripComments(src, pad = false) {
   let out = ''
   let mode = 'code'
   let quote = ''
@@ -130,11 +144,13 @@ export function stripComments(src) {
       if (c === '/' && n === '/') {
         mode = 'line'
         i++
+        out += pad ? '  ' : ''
         continue
       }
       if (c === '/' && n === '*') {
         mode = 'block'
         i++
+        out += pad ? '  ' : ''
         continue
       }
       if (c === '"' || c === "'" || c === '`') {
@@ -148,14 +164,15 @@ export function stripComments(src) {
       if (c === '\n') {
         mode = 'code'
         out += c
-      }
+      } else if (pad) out += ' '
       continue
     }
     if (mode === 'block') {
       if (c === '*' && n === '/') {
         mode = 'code'
         i++
-      }
+        out += pad ? '  ' : ''
+      } else if (pad) out += c === '\n' ? '\n' : ' '
       continue
     }
     if (c === '\\') {
@@ -1875,6 +1892,15 @@ export function collect(
   const geoDecl = hasGeo
     ? geometryDeclCheck(specSources[geoPath], specSources[geoDtsPath])
     : { skipped: true }
+  /**
+   * 裸档报名(G-978049②):**两腿各算各的名单**,且不进判据、不进退出码 —— 它报的是
+   * "这一维今天看不见多少",不是"发现了多少债"。档表取不到 DEFAULT 时 `defaultResolved:false`,
+   * 由打印面如实写成"值未判定",绝不拿一个猜出来的 8 去冒充读数。
+   */
+  const bareRounded = {
+    web: bareRoundedAudit(webPairs, text, radiusTable, 'web'),
+    main: bareRoundedAudit(pairs?.pairs ?? [], text, radiusTable, 'main'),
+  }
   return {
     pairs,
     webPairs,
@@ -1887,6 +1913,7 @@ export function collect(
     blindClasses,
     tiers,
     radius: radiusTable,
+    bareRounded,
     geoDecl,
     rejected: rejectedHits,
     unreachableLegs: unreachable,
@@ -1975,6 +2002,53 @@ function maskStringsForDepth(src) {
 }
 
 /**
+ * `export default` 去掉前缀后的文本里,**函数体**左花括号的偏移;读不到返回 -1。
+ *
+ * 为什么不能 `code.indexOf('{')`:参数是**解构形态**时(`export default function Carousel({
+ * items = [] }: CarouselProps)` —— React 组件最常见的写法),第一个 `{` 是参数解构而不是函数体,
+ * 深度走查在参数表收尾那一处 `}` 上立刻 `depth` 归 0 ⇒ 整族被判成"间接 return"。
+ * 真仓实测代价:15 对配对**全部**落进"根槽位未判定",这一维对真仓零读数 —— 立票那一族
+ * `Carousel` 正是如此(G-629:层要进判据,而判据读不到层 = "没看"与"已同层"在账面上分不开)。
+ *
+ * 括号配平必须在**遮罩后的文本**上做:字符串与模板串里的括号已由 `maskStringsForDepth` 抹成
+ * 空格(长度不变),于是 `className="don't ( break"` 这类写法不会把配平带偏 —— 与本函数其余
+ * 走查同一条前提。
+ *
+ * 参数表之后可能还有一段类型注解(`}: CarouselProps)` / `): JSX.Element =>`),所以取的是
+ * 配平收尾之后的**第一个** `{`。类型注解里若真的内嵌对象类型(`): { a: 1 } {`),取到的是注解的
+ * 花括号 —— 那一格退化成"读不到 return ⇒ 间接",方向是漏判不是误判(宁可"没看"不冒充"同层")。
+ */
+function bodyOffsetOf(after) {
+  let from = 0
+  if (/^(?:async\s+)?function\b/.test(after) || after.startsWith('(')) {
+    const open = after.indexOf('(')
+    if (open < 0) return -1
+    const close = matchParenAt(after, open)
+    if (close < 0) return -1
+    from = close + 1
+  } else if (/^[A-Za-z_$][\w$]*\s*=>/.test(after)) {
+    const gt = after.indexOf('=>')
+    if (gt < 0) return -1
+    from = gt + 2
+  } else if (!/^(?:async\s+)?class\b/.test(after)) return -1
+  return after.indexOf('{', from)
+}
+
+/** 从 `open`(必须是 `(`)起配平到对应的 `)`;读不到返回 -1。 */
+function matchParenAt(text, open) {
+  let depth = 0
+  for (let i = open; i < text.length; i++) {
+    const c = text[i]
+    if (c === '(') depth++
+    else if (c === ')') {
+      depth--
+      if (depth === 0) return i
+    }
+  }
+  return -1
+}
+
+/**
  * 从 `export default` 起,取组件体顶层 `return` 直接吐出的那个元素上的圆角档(px 数组)。
  *
  * @param {string} src 组件源文本
@@ -1982,7 +2056,9 @@ function maskStringsForDepth(src) {
  * @returns {{anchored:boolean, indirect:boolean, tiers:number[]|null}}
  */
 export function rootSlotRadiiOf(src, table) {
-  const code = maskStringsForDepth(stripComments(String(src ?? '')))
+  // 注释遮罩必须**等长**(pad):下面的取材按同一套下标 slice 原文,删注释会让下标左移。
+  const mat = stripComments(String(src ?? ''), true)
+  const code = maskStringsForDepth(mat)
   const defAt = code.search(/\bexport\s+default\b/)
   if (defAt < 0) return { anchored: false, indirect: false, tiers: null }
   /**
@@ -1992,10 +2068,11 @@ export function rootSlotRadiiOf(src, table) {
    *    ⇒ 组件体在别处,本文里没有"顶层 return 直接吐出的那个元素"可读。
    * 这两种都必须**如实报**,不得当成"这个组件根上没有圆角"。
    */
-  const after = code.slice(defAt).replace(/^\s*export\s+default\s+/, '')
+  const whole = code.slice(defAt)
+  const after = whole.replace(/^\s*export\s+default\s+/, '')
   const isFnBody =
     /^(?:async\s+)?(?:function\b|class\b|\(\s*[^)]*\)\s*=>|[A-Za-z_$][\w$]*\s*=>)/.test(after)
-  const bodyOpen = isFnBody ? code.indexOf('{', defAt) : -1
+  const bodyOpen = isFnBody ? defAt + (whole.length - after.length) + bodyOffsetOf(after) : -1
   if (bodyOpen < 0) return { anchored: true, indirect: true, tiers: null }
   // 组件体顶层 return:只在**函数体第一层**找,嵌套函数/回调里的 return 不是根槽位。
   const body = code.slice(bodyOpen)
@@ -2057,15 +2134,16 @@ export function rootSlotRadiiOf(src, table) {
    * ⇒ 真正渲染出来的那个盒在它的定义里,本文的根槽位对它零判据。
    * 宿主元素(`View` / `div` / `Text` / `Image` …)不在本地声明表里 ⇒ 就是根槽位本身。
    */
-  if (isLocallyDeclaredComponent(code, tagName))
+  if (isLocallyDeclaredComponent(code, tagName, src))
     return { anchored: true, indirect: true, tiers: null }
   if (!table) return { anchored: true, indirect: false, tiers: null }
   /**
-   * 取材走**未遮字符串的原文**:圆角档就写在 `className="rounded-lg"` 的**引号内**,
-   * 用遮罩后的文本读会把它抹成空格(判据失明)。深度定位在遮罩上做、取材在原文上做,
-   * 两步的分工是这一格能同时满足"字符串安全"与"读得到真档"的原因。
+   * 取材走**未遮字符串的原文**(`mat`:字符串完整、注释遮成空格且与 `code` 等长下标):圆角档就写在
+   * `className="rounded-lg"` 的**引号内**,用遮罩后的文本读会把它抹成空格(判据失明);而用删除式
+   * 剥注释的原文按下标取,又会被注释块挪位(取到隔壁材料)。深度定位在遮罩上做、取材在等长
+   * 原文上做,两步的分工是这一格能同时满足"字符串安全"与"读到真档"的原因。
    */
-  const tagText = String(src ?? '').slice(exprAt, tagEnd + 1)
+  const tagText = mat.slice(exprAt, tagEnd + 1)
   const pxs = radiusPxInLine(tagText, table)
   return {
     anchored: true,
@@ -2090,17 +2168,44 @@ function findJsxOpenTagEnd(code, from) {
 }
 
 /**
- * 这个标签名是不是**本文件里定义/声明**的组件(而不是宿主元素)。
+ * 这个标签名是不是**本文件里定义/声明**或"从业务文件 import 进来的代渲染组件"
+ * (而不是宿主元素)。
  *
- * 只认三种声明形态(`function Foo` / `class Foo` / `const Foo =`),因为只有这三种能在**同一文件**
- * 里构成"根由子组件代渲染"。从别处 import 进来的组件名同样算 —— 它也不是本文的根槽位。
+ * 只认两种声明形态(`function Foo` / `class Foo` / `const Foo =`)—— 只有它们能构成
+ * "根由子组件代渲染"。
+ *
+ * ⚠️ **平台库 import 的是宿主元素,不是代渲染组件**(2026-10-11 修,G-629 阳性对照逼出来的):
+ * `import { View } from '@tarojs/components'` / `import { View } from 'react-native'` 落在旧写法的
+ * import 分支里,于是真仓每一支组件(它们全都 import 宿主元素)都被判成"根由子组件代渲染",
+ * RS 整维对真仓**零读数**(15 对全部"未判定")。这与本维自己的说明相抵:"宿主元素不在本地声明
+ * 表里 ⇒ 就是根槽位本身" —— 平台包名就是那条边界:react-native* / @tarojs/components 出来的
+ * 名字是**屏幕上的那个盒子本身**,读它的根槽位才是读层;业务文件 import 进来的名字才由别处渲染。
+ * 分界住在包名上而不是名字表上:名字表要跟着平台维护,而"哪个包是平台"一句话说得清。
+ *
+ * ⚠️ import 分支必须在**未遮字符串的原文**上做:`maskStringsForDepth` 保留引号、把内容抹成
+ * 空格,于是 `'@tarojs/components'` 在遮罩里成了 `'   …   '` —— 捕获回来的是空白,包名永远
+ * 匹配不上宿主表,上面那条边界等于白画(实测:平台 import 仍被判成代渲染)。声明形态判断
+ * 用遮罩文本(要吃花括号配平),包名判断吃原文(包名就住在字符串里),两边各取所需。
+ *
+ * ⚠️ import 必须**逐条语句**匹配:`import\s[^;]*\bTag\b[^;]*from` 在本仓(no-semicolon 风格)
+ * 会跨语句 —— 真仓实测它把首条 `import { useTt } from '@/i18n'` 与第 6 行的 `View` 缠在一起,
+ * 再贪婪吃到最后一个 `from '@/utils/rpx'`,捕获到的包名张冠李戴 ⇒ 宿主判定恒 false。
+ * 这里改用「从 `import` 起、条款里不许出现引号/分号、到最近一个 `from '…'` 为止」的逐条式:
+ * 条款含引号即越界(有引号说明撞上了副作用 import `import './x.css'`),天然不跨语句。
  */
-function isLocallyDeclaredComponent(code, tagName) {
+const HOST_PKG_RE = /^(?:react-native(?:$|-)|@tarojs\/components(?:$|\/))/
+const IMPORT_STMT_RE = /\bimport\s+(?!type\b)([^'";]*?)\s+from\s*['"]([^'"]+)['"]/g
+function isLocallyDeclaredComponent(code, tagName, raw) {
   const decl = new RegExp(
-    `(?:^|[\\s;{(])(?:export\\s+default\\s+|export\\s+)?(?:async\\s+)?(?:function\\s+${tagName}\\b|class\\s+${tagName}\\b|(?:const|let|var)\\s+${tagName}\\s*=)|import\\s[^;]*\\b${tagName}\\b[^;]*from`,
+    `(?:^|[\\s;{(])(?:export\\s+default\\s+|export\\s+)?(?:async\\s+)?(?:function\\s+${tagName}\\b|class\\s+${tagName}\\b|(?:const|let|var)\\s+${tagName}\\s*=)`,
     'm',
   )
-  return decl.test(code)
+  if (decl.test(code)) return true
+  // 条款里的名字必须是**整词**命中:`View` 不得被 `ViewGroup` 这类子串骗过。
+  const bound = new RegExp(`(?:^|[\\s,{])${tagName}(?![\\w$])`)
+  for (const m of stripComments(String(raw ?? code)).matchAll(IMPORT_STMT_RE))
+    if (bound.test(m[1])) return !HOST_PKG_RE.test(m[2])
+  return false
 }
 
 /**
@@ -2495,6 +2600,57 @@ export function webRadiusAudit(webPairs, text, radiusTable, styles = {}) {
     })
   }
   return { findings, undetermined }
+}
+
+/**
+ * **裸档取用的报名(G-978049②)—— 只报名,不进任何判据、不进退出码。**
+ *
+ * 为什么必须在尺子里而不是在注释里:提取式读不到裸 `rounded` 这件事,今天的全部表现是
+ * "那一端没写档" —— 与"那一端真的没写档"在账面上**完全同形**。本门已经吃过一次这个形状
+ * (Tooltip 一族被读窄,现读小程序那行改前裸 `rounded` 隐身、只显 web 的 6),而它不是判据错,
+ * 是判据不知道自己没看见。所以这一格的正解是把"看不见多少"跟着读数一起印出来,而不是顺手
+ * 放宽提取式 —— 后者会同时移动守门 77 的 HEAD 棘轮、守门 150 的角色档台账与本门三维锚点,
+ * 票面明令三处必须在同一枚提交里各自重锚(§O81 票⑬:"重锚的正当性靠'中和本次读数改动后的
+ * 旧口径'证明,不靠只降不升")。
+ *
+ * 什么算裸档由 `lib/radius-tokens.mjs` 的 `bareRoundedOccurrences` 那一份实现给 ——
+ * 本门不得再抄一份正则(两处算同一件事必漂移,本仓记过最多次)。
+ *
+ * @param {Array<{name:string,miniapp:string,rn:string}>} pairs 该腿的配对(主腿或 web 腿)
+ * @param {Record<string,string>} text 已按被审面取满的源码
+ * @param {{DEFAULT?: number}|null} table 档位表(取不到 DEFAULT 时 px 落 null 并如实报名)
+ * @param {string} legName 报告里点名是哪条腿(web / main);两腿的名单不得并成一个数,
+ *   因为处置动作不同(web 侧裸档 = web 少一档,主腿裸档 = 某端少一档)
+ */
+export function bareRoundedAudit(pairs, text, table, legName) {
+  const out = []
+  let total = 0
+  for (const p of pairs ?? []) {
+    for (const side of ['miniapp', 'rn']) {
+      const rel = p[side]
+      if (!rel || typeof text[rel] !== 'string') continue
+      const hit = bareRoundedOccurrences(text[rel], table)
+      if (!hit.count) continue
+      total += hit.count
+      out.push({
+        leg: legName,
+        name: p.name,
+        side: side === 'rn' && legName === 'web' ? 'web' : side,
+        file: rel,
+        count: hit.count,
+        px: Number.isFinite(table && table.DEFAULT) ? table.DEFAULT : null,
+        lines: hit.samples.map(
+          (s) => `${s.line}:${s.raw}${s.px === null ? '(值未判定)' : `=${s.px}`}`,
+        ),
+      })
+    }
+  }
+  return {
+    total,
+    defaultPx: Number.isFinite(table && table.DEFAULT) ? table.DEFAULT : null,
+    sites: out,
+    defaultResolved: Number.isFinite(table && table.DEFAULT),
+  }
 }
 
 export function verdictOf(
@@ -2915,6 +3071,9 @@ export function main(argv, repoRoot = ROOT) {
           undetermined: rs.undetermined,
           red: rsRed.map((x) => x.name),
         },
+        // 裸档盲区也要能被机器读(G-978049②):下一票要同批重锚 77/150/128 三本账时,
+        // 它的输入就是这两份名单 —— 只印人读面就等于把取证退回复制粘贴终端输出。
+        bareRounded: collected.bareRounded ?? null,
         // web 腿也要能被机器读:只有人读面的话,下一票(把 web 的几何也纳进来)就得抄终端输出当数据源。
         web: {
           pairCount: web.findings.length,
@@ -3050,8 +3209,16 @@ export function main(argv, repoRoot = ROOT) {
     for (const f of res.findings) {
       const bits = []
       if (f.named.length) bits.push(`同名常量不同值 ${f.named.join(', ')}`)
-      if (f.geometry.onlyMiniapp.length) bits.push(`仅小程序档 ${f.geometry.onlyMiniapp.join('/')}`)
-      if (f.geometry.onlyRn.length) bits.push(`仅 RN 档 ${f.geometry.onlyRn.join('/')}`)
+      /**
+       * 几何段必须带**维度前缀**,与下面的 `RD` / `RE` / `WD` 一样各说各话(G-629 登记的读数矛盾):
+       * 不带前缀时,`○ Carousel … 仅小程序档 2/4/8/14/16/20` 紧挨着 `RD 仅小程序 8` 排在一行,
+       * 读者把 14(text-sm)/20(text-xl)折出的**字号**当成圆角档去对档位表(xs2/sm4/md6/lg8/xl12/2xl16),
+       * 自然对不上 —— 现读实测 14/20 只出现在几何段,圆角集合两侧都是 [4,6,16]。前缀是让
+       * "这是盒档/字档的差,不是圆角差"写在读数上;不改任何集合与命中(子串 `仅小程序档` 保留)。
+       */
+      if (f.geometry.onlyMiniapp.length)
+        bits.push(`几何仅小程序档 ${f.geometry.onlyMiniapp.join('/')}`)
+      if (f.geometry.onlyRn.length) bits.push(`几何仅 RN 档 ${f.geometry.onlyRn.join('/')}`)
       /**
        * 圆角**单独前缀成 `RD`**,不得与几何档混在一行读数里:混了之后"UserInfoCard 差 1 档"
        * 到底是圆角差还是盒档差,看报告的人分不出来,而这两型的处置动作不同(圆角按 RADIUS_ROLES
@@ -3122,6 +3289,26 @@ export function main(argv, repoRoot = ROOT) {
           `  × WD ${r.name}:圆角 ${r.radiusCount} > 该族自己在台账的锚点 ${r.radiusAnchor} —— ` +
             `收口姿势与 RD 同:两端各自引用档位表不是目的,同一元素取同一档才是`,
         )
+      /**
+       * **裸档盲区跟着读数一起印(G-978049②)**。不印的代价是这句会被读成"配对文件里没有裸档":
+       * 提取式今天读不到 `rounded` / `var(--radius)`(值 = 档位表 DEFAULT),所以"读不出"与
+       * "没有"在这条腿的产物里是同一个数。补认它要 77/150/128 三本账同枚重锚(见门内头注),
+       * 不在本腿单独放宽判据 ⇒ 这里只报名,不判红、不改退出码。
+       */
+      {
+        const br = collected.bareRounded ?? { web: { total: 0 }, main: { total: 0 } }
+        const nWeb = br?.web?.total ?? 0
+        const nMain = br?.main?.total ?? 0
+        const valNote =
+          br?.web?.defaultResolved === false
+            ? '(档位表没读到 DEFAULT ⇒ 这些裸档的**值未判定**,不得拿猜的 8 冒充)'
+            : `值 = DEFAULT ${br?.web?.defaultPx}`
+        console.log(
+          `  ⊘ 裸档盲区(不判红、不进退出码):配对文件里读到 ${nWeb} 处(web 腿)/ ${nMain} 处(主腿)` +
+            `裸 rounded / var(--radius),${valNote} —— 它们**未计进档集合**,` +
+            `"一端写裸档、另一端写具名档"会被读成"那一端没写档";逐条见 --json 的 bareRounded`,
+        )
+      }
     }
     /**
      * RE 的**射程边界逐条报名**,不只报数。这一格是这一维存在的全部理由:RD 那些
@@ -5771,6 +5958,49 @@ function runSelfTest() {
       }
     })(),
   )
+  t(
+    'KX 真仓两型致盲 + 取材错位的回归锁(G-629 阳性对照逼出来的):' +
+      '① 参数解构组件必须走出函数体、② 平台宿主 import 不得判成代渲染(跨语句的 import 缠绕不得张冠李戴、' +
+      '业务 import 仍须判代渲染)、③ return 与根标签之间夹注释时取材不得错位(pad 等长)',
+    (() => {
+      const tbl = { xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
+      // Carousel 真仓形态:多条 import(本仓无分号风格)+ 参数解构 + 平台宿主元素作根。
+      const carouselShape = [
+        "import { useTt } from '@/i18n'",
+        "import { View } from '@tarojs/components'",
+        'export default function Foo({',
+        '  items = [],',
+        "  className = '',",
+        '}: FooProps) {',
+        '  return <View className="rounded-2xl" />',
+        '}',
+        '',
+      ].join('\n')
+      const a = rootSlotRadiiOf(carouselShape, tbl)
+      // 同名但从业务文件 import ⇒ 根由子组件代渲染,仍必须是"读不出"。
+      const b = rootSlotRadiiOf(
+        "import { View } from './view'\nexport default function Foo() {\n  return <View className=\"rounded-2xl\" />\n}\n",
+        tbl,
+      )
+      // 注释夹在 `return (` 与根标签之间:等长遮罩使取材下标不左移(删注释会切到隔壁材料)。
+      const c = rootSlotRadiiOf(
+        'export default function Foo() {\n  return (\n    // 层:圆角声明在组件根\n' +
+          '    <View className="rounded-2xl" />\n  )\n}\n',
+        tbl,
+      )
+      const raw = 'a\n/* 注释\n * 若干行 */\nb'
+      return (
+        a.anchored === true &&
+        a.indirect === false &&
+        JSON.stringify(a.tiers) === '[16]' &&
+        b.indirect === true &&
+        b.tiers === null &&
+        c.indirect === false &&
+        JSON.stringify(c.tiers) === '[16]' &&
+        stripComments(raw, true).length === raw.length
+      )
+    })(),
+  )
   console.log(`--self-test:${pass} 通过 / ${fail} 失败`)
   return fail ? 1 : 0
 }
@@ -5812,9 +6042,15 @@ export const __test__ = {
   pruneUnreachableLegs,
   collect,
   audit,
+  webRadiusAudit,
+  bareRoundedAudit,
+  WEB_LEDGER,
   verdictOf,
   emitBaseline,
   anchorRegression,
+  rootSlotRadiiOf,
+  rootSlotAudit,
+  rootSlotDelta,
   elementRadiusDiff,
   elementRadiusCount,
   waiverProblem,

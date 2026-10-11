@@ -362,3 +362,37 @@ test('SC11 闭包完整:取值判据与共用层都在被拷进临时仓的那�
     '按路径 spawn 的 merge-live-doc 不在位',
   )
 })
+
+// ── G-1118437:Step 5 之后写的 sha 绑定正证,必须真能被统计器读成 normal ──
+// 为什么必须在**临时仓里真跑一次 safe-commit**:这条证据的整条链是"落地器写下 → 统计器读回",
+// 任何一环用注入代替都会变成"测我自己写的那段话"。统计侧的构造面在
+// `plan-bypass-ledger-report.mjs --self-test`(四臂:绑定/无 gatesRan/缺 sha/新旧条件对照)。
+test('G-1118437 一次真实的 safe-commit 提交 ⇒ 留痕含 gates-then-commit 且统计器按 sha 判 normal', async (t) => {
+  const { indexLedger, classifyAll } = await import('../plan-bypass-ledger-report.mjs')
+  const { COMMITTED_KIND } = await import('../lib/commit-attestation.mjs')
+  const { dir } = makeRepo(t)
+  writeFileSync(join(dir, 'a.txt'), 'seed\n')
+  git(dir, 'add', '--', 'a.txt')
+  git(dir, 'commit', '-qm', 'base')
+  writeFileSync(join(dir, 'b.txt'), 'change\n')
+  git(dir, 'add', '--', 'b.txt')
+  const ran = runSafe(dir, { files: ['b.txt'], message: 'test: landed proof' })
+  assert.equal(ran.status, 0, `safe-commit 在夹具里失败了:\n${ran.stdout}\n${ran.stderr}`)
+  const sha = git(dir, 'rev-parse', 'HEAD').trim()
+  const ledgerFile = join(dir, '.workbuddy', 'safe-commit-attestation.jsonl')
+  assert.ok(existsSync(ledgerFile), 'Step 5 判干净之后必须落一条正证留痕(没落 = 统计器永远读不到)')
+  const recs = readFileSync(ledgerFile, 'utf8')
+    .trim()
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((l) => JSON.parse(l))
+  const landed = recs.find((r) => r.kind === COMMITTED_KIND)
+  assert.ok(landed, `留痕里找不到 ${COMMITTED_KIND} 一族:${recs.map((r) => r.kind).join(',')}`)
+  assert.equal(landed.landedSha, sha, '正证必须绑到**这一枚**提交,不是别的')
+  assert.equal(landed.gatesRan, true, '钩子没跳过 ⇒ gatesRan 必须为 true')
+  assert.deepEqual(landed.commitFiles, ['b.txt'])
+  const commits = [{ sha, parent: git(dir, 'rev-parse', 'HEAD~1').trim(), ms: Date.now(), day: 'fixture', files: ['b.txt'] }]
+  const r = classifyAll({ commits, index: indexLedger(recs), rounds: [], ledgerReadable: true })
+  assert.equal(r.rows[0].normal, 1, `统计器没把这枚读成 normal:${JSON.stringify(r.detail)}`)
+  assert.equal(r.rows[0].unknown, 0)
+})

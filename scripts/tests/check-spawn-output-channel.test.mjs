@@ -254,6 +254,35 @@ test('M8 无豁免通道:这一型只有"改回管道"一条正解', () => {
   assert.ok(!/exemptions?\.(json|js)\b/.test(src), '门里出现了豁免/基线台账读取')
   assert.ok(!/baseline/i.test(src), '门里出现了基线台账字样 ⇒ 存量已在 M4 证明为零,留台账就是给腐烂留门')
 })
+test('M10 fd 档端到端(票 G-1111918 档③):句柄通道的命中必须在**被审面**判得出,不只是纯函数层', () => {
+  const dir = mkScratch('soc-fd-')
+  const FD_BLIND = "function f(){\n  const fd = openSync(logPath, 'a')\n  const r = spawnSync(py, args, { stdio: ['ignore', fd, fd], encoding: 'utf8' })\n  return JSON.parse(r.stdout)\n}\n"
+  const FD_HONEST = "function f(){\n  const fd = openSync(logPath, 'a')\n  const r = spawnSync(py, args, { stdio: ['ignore', fd, fd] })\n  return r.status\n}\n"
+  const FD_OUTSIDE = "function f(){\n  const r = spawnSync(py, args, { stdio: ['ignore', 7, 7] })\n  return JSON.parse(r.stdout)\n}\n"
+  try {
+    makeRepo(dir, CLEAN)
+    writeFileSync(join(dir, 'scripts/target.mjs'), FD_BLIND, 'utf8')
+    gitIn(dir, ['add', '--', 'scripts/target.mjs'])
+    const red = runGate(dir, ['--staged'])
+    assert.equal(red.code, 1, `fd=openSync(…) 而调用方读 .stdout ⇒ 索引面必须判红(档③生效的装车证明):\n${red.out}`)
+    assert.ok(/scripts\/target\.mjs/.test(red.out), '红必须点名被注入的文件')
+    writeFileSync(join(dir, 'scripts/target.mjs'), FD_HONEST, 'utf8')
+    gitIn(dir, ['add', '--', 'scripts/target.mjs'])
+    const ok = runGate(dir, ['--staged'])
+    assert.equal(ok.code, 0, `同一 fd 写法而没人读 stdout ⇒ 正当,不得因"加了 fd 档"就造恒红:\n${ok.out}`)
+    // fd 表之外(7)判不出:默认档不冒红也不记绿,--strict 拒绝出具合格证。
+    writeFileSync(join(dir, 'scripts/target.mjs'), FD_OUTSIDE, 'utf8')
+    gitIn(dir, ['add', '--', 'scripts/target.mjs'])
+    const soft = runGate(dir, ['--staged'])
+    assert.equal(soft.code, 0, `表外数字只能算未判定,冒红就是把没判写成判过了:\n${soft.out}`)
+    const strict = runGate(dir, ['--staged', '--strict'])
+    assert.equal(strict.code, 2, `--strict 下未判定必须 exit 2(合格证那一半不许发):\n${strict.out}`)
+    assert.ok(/未判定/.test(strict.out), '必须逐条报名未判定原因')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
 test('M9 形状判据有牙:同一函数体内三个通道写法各判一次(构造面,不依赖仓库瞬时状态)', () => {
   assert.equal(findBlindOutputSpawns(BLIND).hits.length, 1, "标量 'ignore' 必须命中")
   assert.equal(findBlindOutputSpawns(CLEAN).hits.length, 0, '数组第二格 pipe 必须放过')

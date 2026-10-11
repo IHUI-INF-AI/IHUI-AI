@@ -3506,9 +3506,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 # G-815971:网关内部重试(httpStatus=429)与额度等效降级
                                 # (reason=quota*)都是"限额命中且循环继续"的信号 ——
                                 # 本轮续期通道一并闩死,防额度在续期轮里继续被烧。
-                                if _evt_type == "retry_scheduled" and evt.get("httpStatus") == 429:
-                                    _budget_exhausted_this_turn = True
-                                elif _evt_type == "fallback" and str(
+                                if _evt_type == "retry_scheduled" and evt.get("httpStatus") == 429 or _evt_type == "fallback" and str(
                                     evt.get("reason") or ""
                                 ).startswith("quota"):
                                     _budget_exhausted_this_turn = True
@@ -3674,9 +3672,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 # G-815971:网关内部重试(httpStatus=429)与额度等效降级
                                 # (reason=quota*)都是"限额命中且循环继续"的信号 ——
                                 # 本轮续期通道一并闩死,防额度在续期轮里继续被烧。
-                                if _evt_type == "retry_scheduled" and evt.get("httpStatus") == 429:
-                                    _budget_exhausted_this_turn = True
-                                elif _evt_type == "fallback" and str(
+                                if _evt_type == "retry_scheduled" and evt.get("httpStatus") == 429 or _evt_type == "fallback" and str(
                                     evt.get("reason") or ""
                                 ).startswith("quota"):
                                     _budget_exhausted_this_turn = True

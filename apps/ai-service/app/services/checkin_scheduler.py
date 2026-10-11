@@ -39,9 +39,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from app.core.logging import get_logger
-from app.services import checkin_credits
-from app.services import checkin_qoder
-from app.services import checkin_store
+from app.services import checkin_credits, checkin_qoder, checkin_store
 from app.services.checkin_engine import checkin_account
 
 logger = get_logger(__name__)
