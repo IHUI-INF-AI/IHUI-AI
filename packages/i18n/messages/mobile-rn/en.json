@@ -28,7 +28,11 @@
     "envNetworkOpen": "Network access allowed this time",
     "envNetworkOff": "Network access is disabled this time",
     "envNetworkBlocked": "Blocked network targets",
-    "envNetworkBlockedOne": "{host}:{port} (reason: {reason})"
+    "envNetworkBlockedOne": "{host}:{port} (reason: {reason})",
+    "grantRuleToggle": "Approve and allow this kind of command",
+    "grantRuleDesc": "Creates an allow rule scoped to the command prefix \"{prefix}…\". It expires automatically after 90 days and can be revoked from the approved rules panel on the web app.",
+    "grantRuleConfirmTitle": "Allow this high-risk command?",
+    "grantRuleConfirmContent": "The command \"{prefix}…\" matches a high-risk operation. Once allowed, similar commands will skip approval for 90 days — you assume the risk of use."
   },
   "nav": {
     "profile": "Profile",
@@ -494,6 +498,12 @@
     "save": "Save",
     "search": "Search",
     "searchPlaceholder": "Search documents..."
+  },
+  "network": {
+    "offline": "You're offline. Some features are unavailable.",
+    "slow": "Your connection is slow, responses may be delayed.",
+    "serverUnreachable": "We can't reach our server right now. Your network looks fine.",
+    "probeUnavailable": "We can't check your network status right now."
   },
   "aiAssistant": {
     "title": "AI Assistant",
