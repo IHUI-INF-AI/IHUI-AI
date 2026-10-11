@@ -1,0 +1,67 @@
+{
+  "_comment": "TEMP/TMP/TMPDIR 落点声明表(2026-10-05 立,票 G-1058525;判据本体 = `scripts/check-temp-landing.mjs`)。AGENTS §26:**落点是第七类机器事实** —— 文档里任何一句'TEMP 已经指向 X'都不许当证据用,只许现读。本表是**唯一声明表**:脚本里不得再抄一份路径字面量,判据一律读本表;表里也不得抄那种'两处算同一件事'的推导根(见 scrubber-default-roots 层)。",
+  "_whySeparateReadings": "2026-10-05 本机实测:HKCU 注册表三个值已写回 `D:\\DevEnv\\Temp`(用户拍板;写回前的整块备份 = `D:\\DevEnv\\backups\\env\\hkcu-environment-20261005-tempfix.reg`),而同一时刻活进程 `node -p \"require('os').tmpdir()\"` = `D:\\tmp`。注册表改动只到达**新开的终端/宿主**,已在跑的 Node/IDE/服务不会改口 ⇒ '注册表值'与'活进程值'是两个读数,**并桶就把'已改未生效'读成'没改'**。所以活进程那一层只报数,绝不据此判红(它重启后自愈,红了一条没人能当场整改 —— 同 §卫生门 2026-10-03 那条一般教训)。",
+  "_howToRead": {
+    "note": "Windows + Git Bash 下 `reg` 的 `/v` 会被 MSYS 当路径吞掉 ⇒ 必须带 `MSYS_NO_PATHCONV=1`(不带时的故障形态是'键不存在',会被误读成'注册表没改')。判据脚本自己走 execFileSync('reg', ...) 不经过 shell,不受此影响。",
+    "registry": "MSYS_NO_PATHCONV=1 reg query \"HKCU\\Environment\" /v TEMP",
+    "liveProcess": "node -p \"require('os').tmpdir()\"",
+    "sentinel": "node scripts/check-temp-landing.mjs          # 报告档(恒 exit 0,warn 尺子)\nnode scripts/check-temp-landing.mjs --json      # 机器可读档(git-guardian 巡检消费)\nnode scripts/check-temp-landing.mjs --strict    # 问责档(drift/未判定 exit 1)"
+  },
+  "tiers": [
+    {
+      "name": "interactive-account",
+      "label": "交互账户 TEMP/TMP/TMPDIR",
+      "purpose": "人开的终端、IDE、Node 会话拿到的临时目录",
+      "registryKey": "HKCU\\Environment",
+      "values": ["TEMP", "TMP", "TMPDIR"],
+      "approved": ["D:\\DevEnv\\Temp"],
+      "judged": true,
+      "readCommand": "MSYS_NO_PATHCONV=1 reg query \"HKCU\\Environment\" /v TEMP",
+      "reason": "用户 2026-10-05 拍板批准落点仍是 `D:\\DevEnv\\Temp`;写回前的整块备份 = `D:\\DevEnv\\backups\\env\\hkcu-environment-20261005-tempfix.reg`。这一层是**能整改的**(改 HKCU + 开新终端即可),所以它是本表唯一挂到人通道的一层。"
+    },
+    {
+      "name": "service-identity",
+      "label": "服务身份(LocalSystem / 服务账户)",
+      "purpose": "计划任务与 nssm 包装的服务进程拿到的临时目录",
+      "registryKey": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager",
+      "registryValue": "Environment",
+      "values": ["TEMP", "TMP"],
+      "approved": ["C:\\Windows\\Temp"],
+      "judged": false,
+      "readCommand": "MSYS_NO_PATHCONV=1 reg query \"HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\" /v Environment",
+      "reason": "AGENTS §26:改道(junction/HKCU)只能改**路径**,改不了**身份** —— 服务账户读不到 HKCU,这一层结构上一直在 `C:\\Windows\\Temp`。2026-10-05 本机现读:该 Environment 值不存在(`reg query` RC=1)⇒ 走系统默认。它红了没人当场能整改(要动 HKLM 或重建服务账户),按'不能整改的判据要么写明理由放行、要么别挂到人通道'只报数、不判红、不寄信。",
+      "notJudgedWhy": "不可整改项挂到人通道 = 训练人忽略这封信(2026-10-03 盘根门实测 27 封同因告警换来的教训)。"
+    },
+    {
+      "name": "scrubber-default-roots",
+      "label": "清扫器默认扫描根",
+      "purpose": "'旧落点是否仍在被写'探针要遍历的那些根",
+      "deriveFrom": "scripts/scrub-temp-fixtures.mjs :: defaultRoots()",
+      "approved": null,
+      "judged": false,
+      "readCommand": "node --input-type=module -e \"const m=await import('./scripts/scrub-temp-fixtures.mjs');const r=m.defaultRoots();console.log(r.roots.join('\\n'));console.error('undetermined='+JSON.stringify(r.undetermined))\"",
+      "reason": "清扫器的根是**推导**出来的(活 `os.tmpdir()` + §15b 唯一外置根 `devEnvRoot()` 派生 + 26 个盘符 × 3 种历史形态现探),把结果抄进本表就是'两处算同一件事'(本仓反复登记的那一型:两处各写一份必然漂移)。所以本层只声明**来源**,不声明字面量;探针直接 import `defaultRoots()`。",
+      "notJudgedWhy": "这一层是清理面不是落点面:它列出的根里出现写入,说明旧落点还活着(该喊人),但该删的归清扫器删 —— 本门不新建删除路径(§5e-2)。"
+    }
+  ],
+  "recentWriteProbe": {
+    "windowMs": 3600000,
+    "depth": "top-level-only",
+    "maxNamesReported": 10,
+    "maxEntriesPerRoot": 20000,
+    "why": "回潮的**行为证据**不是注册表值而是'旧落点还在被写'。注册表可以已改对而活进程照旧(2026-10-05 就是这个状态);只看注册表会把'还在往 D:\\tmp 写'读成'已修好'。窗口取 1 小时(与巡检 30 分钟一趟错开,一轮里不会两次都空)。",
+    "action": "report-only —— 只点名、只计数,不删任何东西。删除归既有清扫器 `scripts/scrub-temp-fixtures.mjs`(2026-10-05 实测已由 git-guardian 的 scrubTempFixtures() 以 24h 档调度,戳 = `.workbuddy/temp-scrub-tick.iso`)。"
+  },
+  "grading": {
+    "tier": "warn / 告警档",
+    "inCommitChain": false,
+    "why": "判的是**本机注册表 + 本机进程环境** = 机器状态。提交者结构上满足不了(同一台机上钩子跑在旧环境里也会红),挂 blocking 就是每台每次被逼 `--no-verify`,而 `--no-verify` 一开就废掉全部守门(AGENTS §12e/§12f)。定级本身是判据的一部分,由 `scripts/tests/check-temp-landing.test.mjs` 的反向锁钉住:本门出现在 `scripts/guardian-runner.mjs` 里 ⇒ 测试红。",
+    "dispatch": "scripts/git-guardian.mjs 健康轮次 `!CHECK_ONLY` 巡检格(auditTempLanding()),与 temp-scrub / healRootSeal / auditDiskRootHygiene 同位",
+    "accountability": "node scripts/check-temp-landing.mjs --strict"
+  },
+  "states": {
+    "match": "该层现读值全部落在 approved 集合内",
+    "drift": "现读值与 approved 不等 ⇒ 必须同时点名'当前值'与'批准值'",
+    "undetermined": "注册表键读不到 / `reg` 派生失败 / 值为空 / 解析不出该值 ⇒ 写明原因,**绝不记为通过**(未判定不是合格证的另一种写法)"
+  }
+}
