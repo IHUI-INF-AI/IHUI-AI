@@ -67,7 +67,8 @@ import {
 } from '../plan-tasks-merge.mjs'
 import { forkPreserved } from '../lib/plan-merge-annotation.mjs'
 // 反向锁与"两维互咬"的判据一律引守门 71 自己那一份实现(§22c:镜像测试不抄第二份判据)
-import { headIdOf, headIdSet, lostMarkers, markerOf } from '../check-plan-line-loss.mjs'
+// T32 熔断接线锁同理:自动层提交首行长什么样,只认门 71 导出的那一份 `AUTO_LAYER_SUBJECT_RE`。
+import { headIdOf, headIdSet, lostMarkers, markerOf, AUTO_LAYER_SUBJECT_RE } from '../check-plan-line-loss.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 /**
@@ -1746,4 +1747,92 @@ test('T31 变异自证:F4 出口的三把刀各打断一环(留终端 / 只加�
   const restored = familyProblems(cleanMod, F4FACE)
   if (restored.length)
     throw new Error(`变异还原后必须全绿,实得:\n  ${restored.join('\n  ')}`)
+})
+
+/**
+ * T32 熔断的**接线锁**(不是再测一遍纯函数):两个自动层都必须真问这把尺子。
+ * 立因:纯函数写完、自测全绿,而调用点漏接 ⇒ 熔断等于没有(守门 70/76/81/115 同族:
+ * 判据失效的表现永远是安静)。
+ */
+test('T32 熔断必须真接在两个自动层的落地点上', () => {
+  const src = readFileSync(path.join(ROOT, 'scripts', 'plan-tasks-merge.mjs'), 'utf8')
+  const healBody = /export function healAndLand\([\s\S]*?\n}\n/.exec(src)
+  if (!healBody) throw new Error('healAndLand 读不到 ⇒ 本锁失效,请连同测试一起改')
+  if (!/loopTripsForMarkers\(/.test(healBody[0]))
+    throw new Error('healAndLand 没问熔断 ⇒ 循环照旧产提交,判据形同虚设')
+  if (!/skipMarkers/.test(healBody[0]))
+    throw new Error('命中熔断的 marker 必须从本轮剔除(只打印不剔除等于继续喂循环)')
+  if (!/return 0/.test(healBody[0]))
+    throw new Error('熔断现场必须能以退出码 0 收场(少做一件事不是错误,做成恒红门就是逼人 --no-verify —— §12e)')
+  const g71 = readFileSync(path.join(ROOT, 'scripts', 'check-plan-line-loss.mjs'), 'utf8')
+  const healFn = /function heal\(commit\)[\s\S]*?\n  if \(!commit\)/.exec(g71)
+  if (!healFn) throw new Error('门 71 的 heal() 形态变了 ⇒ 换一种锁,别删它')
+  if (!/loopTripsForMarkers\(/.test(healFn[0]))
+    throw new Error('门 71 的回捞层没问熔断 ⇒ 补回的未勾原文会被 130 号再翻勾,循环照旧')
+  for (const p of [
+    'docs(plan): 自动回捞 2 条被并发旧基线提交抹掉的登记行',
+    'fix(plan): 自愈被回写的任务状态副本(守门 130 的 post-commit 层)',
+  ]) {
+    if (!AUTO_LAYER_SUBJECT_RE.test(p))
+      throw new Error(`熔断认不出这一枚自动层提交:${p}(看不见自己的产出等于没有刹车)`)
+  }
+  // 反向:人工提交不得计票(否则一次大批量清理会把自动档永久冻结)
+  if (AUTO_LAYER_SUBJECT_RE.test('docs(plan): 登记一条新票并写明归属'))
+    throw new Error('人工提交被当成自动层产出 ⇒ 熔断会误冻自动档')
+  // 而两个自动层**实际写出的**首行必须仍落在同一把尺子里(锁的是产出与判据同形,不是措辞审美)
+  if (!src.includes("'fix(plan): 自愈被回写的任务状态副本(守门 130 的 post-commit 层)'"))
+    throw new Error('归并层写的提交首行与本锁的参照不一致 ⇒ 熔断会瞎,先改回来')
+})
+
+/**
+ * T33 熔断的端到端"少做一件事"证明(票一③ 的退出码要求)。
+ * 现场:同一 marker 在近若干枚提交里被两个自动层反复触碰 ≥3 次 ⇒ 这一轮 `--heal --commit`
+ * **不产出提交、退出码仍 0、输出点名 marker**。把"少做一件事"与"判红"分开是票面的硬要求
+ * (恒红门唯一结局是逼人 --no-verify —— §12e)。
+ *
+ * 构造要点(半成品 T19 第一版的红就红在这里,注释必须留着):
+ *  ① 独立夹具仓只有 6 枚提交,窗口左端正是**根提交** —— 窗口取数必须处理"根提交无父"这一档
+ *    (`oldest^` 报 unknown revision ⇒ 取数失败被读成"未判定" ⇒ 熔断静默不响 ⇒ 本测试会跑成
+ *    "落地"而不是"熔断")。这一档住在门 71 的 `autoTouchesOfMarker` 里(win.length < 窗口或
+ *    oldest 无父时不加 range),搬动它之前先回来跑本条;
+ *  ② 触碰计数走 `git log -S<marker>`(pickaxe 按**出现次数增减**取提交),所以夹具必须让 marker
+ *    在两层提交间真的增减:病形态(旧版翻勾把整行替换掉 ⇒ marker 从面上消失)与回捞态(marker
+ *    补回)交替 4 轮 —— 这恰好就是"两层互咬"本身的形状,不是为了凑数编的现场。
+ */
+test('T33 端到端:熔断现场不得建提交,退出码必须仍是 0 并点名 marker', () => {
+  const DONE = '- [x] ✅(2026-09-20) D94 熔断夹具:已完成的那条,题面写得足够长以越过登记行四十字符的长度下限。'
+  const OPEN = '- [ ] D94 熔断夹具:归因未定,同一主键被两个自动层反复顶来顶去的那一行,题面同样写得很长。'
+  const BAD = '- [x] ✅(2026-09-28) **[归并]** 本行正文被旧版翻勾整行替换,原题面已不在面上 —— 这正是门 71 判丢、回捞层不断补回的病形态。'
+  const mk = markerOf(OPEN)
+  if (!mk) throw new Error('夹具行算不出 marker ⇒ 本证明无从谈起(行须 ≥40 字符且用裸编号)')
+  const STATE_OPEN = ['# 计划', '', DONE, OPEN, ''].join('\n')
+  const STATE_BAD = ['# 计划', '', DONE, BAD, ''].join('\n')
+  if (!STATE_OPEN.includes(mk)) throw new Error('marker 必须逐字出现在"回捞态"里,否则 pickaxe 取不到它的增减')
+  if (BAD.includes(mk)) throw new Error('病形态那一行必须不含 marker,否则出现次数不增减 ⇒ 熔断量不到循环')
+  const env = fixtureRepo(STATE_BAD, 'fixture: 病形态起点(旧版翻勾整行替换)')
+  try {
+    const AUTO_FETCH = 'docs(plan): 自动回捞 1 条被并发旧基线提交抹掉的登记行'
+    const AUTO_HEAL = 'fix(plan): 自愈被回写的任务状态副本(守门 130 的 post-commit 层)'
+    const swing = [
+      [AUTO_FETCH, STATE_OPEN],
+      [AUTO_HEAL, STATE_BAD],
+      [AUTO_FETCH, STATE_OPEN],
+      [AUTO_HEAL, STATE_BAD],
+      [AUTO_FETCH, STATE_OPEN],
+    ]
+    for (const [msg, doc] of swing) {
+      writeFileSync(path.join(env.dir, 'PROJECT_PLAN.md'), doc, 'utf8')
+      gitQ(env.dir, ['add', 'PROJECT_PLAN.md'])
+      gitQ(env.dir, ['commit', '-q', '-m', msg])
+    }
+    const n = countCommits(env.dir)
+    const r = runHeal(env)
+    if (!/熔断/.test(r.out))
+      throw new Error(`现场应点名熔断,实测输出:${r.out.trim().slice(0, 300)}`)
+    if (r.code !== 0)
+      throw new Error(`熔断那一轮退出码必须仍是 0(少做一件事不是错误),实测 ${r.code}:${r.out}`)
+    if (countCommits(env.dir) !== n) throw new Error('熔断那一轮不得产出提交')
+  } finally {
+    rmScratch(env.dir)
+  }
 })
