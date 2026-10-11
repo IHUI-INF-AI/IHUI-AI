@@ -89,8 +89,7 @@ describe('error-normalize(G-977987 错误归一路径阶梯)', () => {
     ).toBeUndefined()
     // 空 failureReason 不采信
     expect(
-      normalizeError({ attribution: { errorSource: 'provider', failureReason: '  ' } })
-        .attribution,
+      normalizeError({ attribution: { errorSource: 'provider', failureReason: '  ' } }).attribution,
     ).toBeUndefined()
   })
 
@@ -102,9 +101,7 @@ describe('error-normalize(G-977987 错误归一路径阶梯)', () => {
     ).toBe('1310')
     expect(normalizeError({ context: { providerCode: '1311' } }).code).toBe('1311')
     // detail 里的 provider_code 压过路径阶梯首位的外层 code
-    expect(
-      normalizeError({ code: '8001', detail: 'provider_code=999' }).code,
-    ).toBe('999')
+    expect(normalizeError({ code: '8001', detail: 'provider_code=999' }).code).toBe('999')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

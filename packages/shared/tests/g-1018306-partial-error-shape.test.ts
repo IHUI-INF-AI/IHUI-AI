@@ -39,7 +39,8 @@ const tsText = readFileSync(resolve(REPO, TS_CONTRACT_REL), 'utf8')
 
 function countOccurrences(haystack: string, needle: string): number {
   let n = 0
-  for (let i = haystack.indexOf(needle); i >= 0; i = haystack.indexOf(needle, i + needle.length)) n++
+  for (let i = haystack.indexOf(needle); i >= 0; i = haystack.indexOf(needle, i + needle.length))
+    n++
   return n
 }
 

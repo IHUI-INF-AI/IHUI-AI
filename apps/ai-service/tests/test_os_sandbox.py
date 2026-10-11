@@ -505,9 +505,11 @@ class TestWindowsJobObject:
         assert child_privs < parent_privs
 
     def test_env_whitelist_applied_to_child(self) -> None:
+        # readable_paths 需覆盖解释器所在目录:venv 不必然落在 cwd 之下
+        # (副本树验证用主仓 venv 跑时实测"读取越权"),判据面是 env 白名单本身。
         h = SandboxHandle(
             _policy(env_whitelist=["SBX_KEEP"], restrict_token=False,
-                    readable_paths=[os.getcwd()]),
+                    readable_paths=[os.getcwd(), os.path.dirname(sys.executable)]),
             backend=BACKEND_WIN_JOB,
         )
         r = h.run(

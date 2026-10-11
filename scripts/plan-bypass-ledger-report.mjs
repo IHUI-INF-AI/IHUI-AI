@@ -57,7 +57,7 @@ import { StringDecoder } from 'node:string_decoder'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { git } from './lib/bypass-git.mjs'
-import { BYPASS_KIND, readLedgerRecords } from './lib/commit-attestation.mjs'
+import { BYPASS_KIND, COMMITTED_KIND, readLedgerRecords } from './lib/commit-attestation.mjs'
 // G-1059139:批次留痕(kind=gate-batch-run)的读侧与同一份 treeDigest 归一出口。
 // 刻意不复用 readLedgerRecords —— 它有字段白名单,会整块丢掉本 kind 的 treeDigest/selfSkipped;
 // 台账路径仍只有 `commit-attestation.mjs` 一份出口(本 lib 从它 import ledgerPath)。
@@ -101,13 +101,26 @@ const dayKey = (iso) => String(iso ?? '').slice(0, 10)
 export function indexLedger(records = []) {
   const bypass = new Map()
   const skip = new Map()
+  const committed = new Map()
   let mine = 0
   let bypassNoSha = 0
   let skipNoParent = 0
+  let committedRejectedNoGate = 0
+  let committedRejectedNoSha = 0
   for (const r of records) {
     if (r.kind === BYPASS_KIND) {
       if (r.landedSha) bypass.set(r.landedSha, r)
       else bypassNoSha++ // kind 对得上却绑不到 sha ⇒ 形同没写,必须报数(否则静默丢一条旁路)
+      continue
+    }
+    // G-1118437:`gates-then-commit` 是 safe-commit 在 Step 5 判"干净"之后写的 **sha 绑定正证**
+    // (钩子没跳过 ∧ 提交成功 ⇒ pre-commit 全绿)。它与 bypass-landing 同为"按 landedSha 绑这一枚",
+    // 但语义相反(一个说"跑了门",一个说"没跑门"),所以**另立一张表**,绝不并进 skip/bypass。
+    // `gatesRan` 为 false 的记录(用了 --no-verify)按设计不进这张表 ⇒ 它永远不会被读成正证。
+    if (r.kind === COMMITTED_KIND) {
+      if (r.landedSha && r.gatesRan === true) committed.set(r.landedSha, r)
+      else if (r.landedSha) committedRejectedNoGate++
+      else committedRejectedNoSha++
       continue
     }
     if (r.kind === 'mine') {
@@ -120,7 +133,7 @@ export function indexLedger(records = []) {
       skip.set(r.headBefore, list)
     } else skipNoParent++
   }
-  return { bypass, skip, mine, bypassNoSha, skipNoParent }
+  return { bypass, skip, committed, mine, bypassNoSha, skipNoParent, committedRejectedNoGate, committedRejectedNoSha }
 }
 
 /**
@@ -286,6 +299,14 @@ export function classifyAll({
     let proof = ''
     if (index.bypass.has(c.sha)) {
       state = 'bypass-landing'
+    } else if (index.committed?.has(c.sha)) {
+      // **sha 绑定正证优先于"按父绑定"的一切**:旧的一条一方正证要求 `headBefore == 提交父`,
+      // 而多席并发下 pre-commit 与真正落地之间 HEAD 会被别人推进 —— 实测 294 条轮次记录里
+      // 16 条 gatesRan∧gatesPassed **命中父集 0 条**,即"跑过门的正常提交也拿不到合格证"。
+      // 这张表由 safe-commit 在 Step 5(已核对提交内容只含预期文件)之后写 ⇒ 它是这一枚的证据。
+      state = 'normal'
+      proof = 'safe-commit-landed'
+      why = `Step 5 已核对提交文件集 ⊆ 声明集(${(index.committed.get(c.sha).commitFiles ?? []).length} 个)且钩子未跳过`
     } else {
       const cand = (index.skip.get(c.parent) || []).filter(
         (r) => c.ms === null || r.ms === null || Math.abs(r.ms - c.ms) <= 6 * 3600_000,
@@ -363,6 +384,7 @@ export function classifyAll({
         unknownBatchAmbiguous: 0,
         normalByRecord: 0,
         normalByEcho: 0,
+        normalByLanded: 0,
         normalByBatch: 0,
         total: 0,
       })
@@ -370,7 +392,8 @@ export function classifyAll({
     row.total++
     if (state === 'normal') {
       row.normal++
-      if (proof === 'round-record') row.normalByRecord++
+      if (proof === 'safe-commit-landed') row.normalByLanded++
+      else if (proof === 'round-record') row.normalByRecord++
       else if (proof === 'gate-batch-run') row.normalByBatch++
       else row.normalByEcho++
     } else if (state === 'skipped') row.skipped++
@@ -821,6 +844,7 @@ async function run({ argv }) {
     unknownUnsplittable: rows.reduce((a, r) => a + r.unknownUnsplittable, 0),
     unknownBatchAmbiguous: rows.reduce((a, r) => a + r.unknownBatchAmbiguous, 0),
     normalByBatch: rows.reduce((a, r) => a + r.normalByBatch, 0),
+    normalByLanded: rows.reduce((a, r) => a + r.normalByLanded, 0),
     normalByRecord: rows.reduce((a, r) => a + r.normalByRecord, 0),
     normalByEcho: rows.reduce((a, r) => a + r.normalByEcho, 0),
   }
@@ -928,7 +952,7 @@ async function run({ argv }) {
     if (hook.ok && hook.capped)
       console.log(`⚠️ 钩子日志 ${hook.size} B 超过 ${HOOK_READ_CAP_BYTES} B 上限,只读了尾部 ${hook.bytesParsed} B(开头 ${hook.skippedBytes} B 没看见)⇒ normal 是**下界**,不是全量`)
     console.log(
-      `  normal 正证来源:一方记录 ${sums.normalByRecord} / 日志回显 ${sums.normalByEcho}` +
+      `  normal 正证来源:sha 绑定(safe-commit Step 5)${sums.normalByLanded ?? 0} 枚 / 一方记录 ${sums.normalByRecord} / 日志回显 ${sums.normalByEcho}` +
         (firstParty.ok
           ? `(一方记录 ${firstParty.records} 条${firstParty.badLines ? `,坏行 ${firstParty.badLines}` : ''})`
           : ` ⇒ 一方记录取不到(${firstParty.state}:${firstParty.why}),normal 只剩"逐字等值回显"这一条脆正证 —— ` +
@@ -1055,6 +1079,35 @@ function selfTest() {
     const idx = indexLedger([rec({ kind: 'mine', headBefore: 'f'.repeat(40) })])
     const r = classifyAll({ commits, index: idx, rounds: [], ledgerReadable: true })
     ok('kind=mine 不得被算成 skipped', r.rows[0].skipped === 0 && idx.mine === 1)
+  }
+  // ── G-1118437:sha 绑定正证(gates-then-commit)四臂 ──
+  {
+    const sha = 'q'.repeat(40)
+    const commits = [C(sha, 'p'.repeat(40), T, ['x.ts'])]
+    const rec0 = rec({ kind: COMMITTED_KIND, landedSha: sha, gatesRan: true, commitFiles: ['x.ts'], declaredFiles: ['x.ts'], headBefore: 'stale-because-HEAD-moved' })
+    const r = classifyAll({ commits, index: indexLedger([rec0]), rounds: [], ledgerReadable: true })
+    ok('committed 正证按 sha 绑定 ⇒ normal=1 且不进 bypass', r.rows[0].normal === 1 && r.rows[0].bypassLanding === 0, JSON.stringify(r.rows))
+    const rNo = classifyAll({
+      commits,
+      index: indexLedger([rec({ ...rec0, gatesRan: false, hookSkipped: true })]),
+      rounds: [],
+      ledgerReadable: true,
+    })
+    ok('--no-verify 那一枚(gatesRan=false)不得被发合格证 ⇒ 仍 unknown', rNo.rows[0].normal === 0 && rNo.rows[0].unknown === 1, JSON.stringify(rNo.rows))
+    const idxShaless = indexLedger([rec({ kind: COMMITTED_KIND, landedSha: '', gatesRan: true })])
+    ok('committed 留痕缺 landedSha ⇒ 报数不静默', idxShaless.committedRejectedNoSha === 1 && idxShaless.committed.size === 0)
+    // 验收①的等价臂:钩子自报的轮次因 HEAD 被别人推进而绑不上(旧条件红),
+    // 同一次提交经 safe-commit 的 sha 绑定必须拿得到证(新条件绿)。
+    const oldOnly = classifyAll({
+      commits,
+      index: indexLedger([]),
+      firstParty: { rounds: [{ headBefore: 'stale-because-HEAD-moved', stagedFiles: ['x.ts'], gatesRan: true, gatesPassed: true, ms: Date.now() }] },
+      rounds: [],
+      ledgerReadable: true,
+    })
+    ok('旧绑定条件在"HEAD 被推进"场景 ⇒ 拿不到证(unknown=1,这就是本票的立因)', oldOnly.rows[0].unknown === 1 && oldOnly.rows[0].normal === 0, JSON.stringify(oldOnly.rows))
+    ok('新绑定条件同场景 ⇒ normal=1', r.rows[0].normal === 1)
+    ok('这一枚必须记在 sha 绑定那一档,不得混进"日志回显"(混了就会有人以为脆判据还在生效)', r.rows[0].normalByLanded === 1 && r.rows[0].normalByEcho === 0, JSON.stringify(r.rows[0]))
   }
   // normal:唯一正证 = 逐字等值 + 失败 0 的钩子轮
   {

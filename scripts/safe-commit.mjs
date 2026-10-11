@@ -64,6 +64,10 @@ import {
   snapshotStagedDeleteIntent,
 } from './lib/staged-delete-intent.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+// G-1118437:sha 绑定正证的构造与落盘只住 `lib/commit-attestation.mjs` 那一份
+// (它同时是旁路留痕的写口与台账的读口;在这里另写一遍 appendFileSync = 第二份 schema,
+//  而两份 schema 的漂开会表现为"写了但统计器永远读不到")。
+import { recordGatesThenCommit } from './lib/commit-attestation.mjs'
 // G-1079146 剩余半格(2026-10-08):活文档 intake 取值。判据**只有 live-doc-edit 那一份** ——
 // 本器 import 它已导出的六个出口,不在这里抄第二条 hex 正则、也不自己 split 做行差集(§22c:
 // 两处算同一件事必漂移,而漂了的那一份会替腐烂发合格证)。该模块顶层有 §22d `isDirectRun` 守卫,
@@ -1216,5 +1220,27 @@ log(
   'ok',
   `commit 干净,仅包含 ${C.cyan}${committedFiles.length}${C.reset} 个预期文件${hookSkipped ? C.yellow + ' (pre-commit hook 已跳过)' : C.reset}`,
 )
+// ─── G-1118437:把"这枚提交跑过门且没红"写成**按 sha 绑定**的一方正证 ───────────
+// 旧的一方证据(pre-commit 的 round witness)用 `headBefore == 提交父` 绑定,而多席并发下
+// pre-commit 与落地之间 HEAD 会被别人推进 —— 现读 294 条轮次记录里 16 条 gatesRan∧gatesPassed
+// **命中父集 0 条** ⇒ 报告里"一方记录 294 条 / 命中 0",正常提交拿不到合格证,读数被压成"没人跑门"。
+// 三条不许漂:
+//  ① 只在 Step 5 判"干净"**之后**写 —— 污染提交/定位不到本次提交的路径都在上面 process.exit 掉了;
+//  ② `gatesRan = !hookSkipped`:带 --no-verify 的那一枚记 false,统计侧按设计不收(它不是正证);
+//  ③ 写失败绝不影响提交(裹 try),缺记录 = 少一张证,失效方向是"宁可少归一类"。
+try {
+  const w = recordGatesThenCommit({
+    root: repoRoot,
+    landedSha: committedSha,
+    headBefore: beforeSha,
+    commitFiles: committedFiles,
+    declaredFiles: expectedFiles.map(normalize),
+    gatesRan: hookSkipped !== true,
+    hookSkipped: hookSkipped === true,
+  })
+  if (!w.ok) log('warn', `⚠️ ${w.why}`)
+} catch (e) {
+  log('warn', `⚠️ 正证留痕未写入(不影响本枚提交):${String(e?.message ?? e).slice(0, 120)}`)
+}
 log('ok', `post-commit hook 将自动调用 git-push-guard 推送`)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
