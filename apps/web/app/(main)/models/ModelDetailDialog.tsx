@@ -90,16 +90,19 @@ export function ModelDetailDialog({
 
   if (!model) return null
 
-  const outputPrice = model.outputPrice ?? model.inputPrice * 3
-  const isOutputEstimated = model.outputPrice === undefined
+  const outputPrice =
+    model.outputPrice ?? (typeof model.inputPrice === 'number' ? model.inputPrice * 3 : undefined)
+  const isOutputEstimated = outputPrice !== undefined && model.outputPrice === undefined
   const vendorLabel = PROVIDER_LABEL[model.provider] ?? '其他'
   const description = model.description ? t(model.description) : t('market.defaultDescription')
 
   // P0-5g 中转站定价计算
   const relayMultiplier = model.relayPriceMultiplier ?? 1
   const hasRelayMultiplier = Math.abs(relayMultiplier - 1) > 0.001
-  const relayInputPrice = model.inputPrice * relayMultiplier
-  const relayOutputPrice = outputPrice * relayMultiplier
+  const relayInputPrice =
+    typeof model.inputPrice === 'number' ? model.inputPrice * relayMultiplier : undefined
+  const relayOutputPrice =
+    typeof outputPrice === 'number' ? outputPrice * relayMultiplier : undefined
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -187,15 +190,23 @@ export function ModelDetailDialog({
             <DetailStat
               icon={<Zap className="h-3.5 w-3.5" />}
               label={t('market.inputPrice')}
-              value={model.inputPrice === 0 ? t('free') : `$${model.inputPrice.toFixed(2)}`}
+              value={
+                typeof model.inputPrice !== 'number'
+                  ? '—'
+                  : model.inputPrice === 0
+                    ? t('free')
+                    : `$${model.inputPrice.toFixed(2)}`
+              }
             />
             <DetailStat
               icon={<Gift className="h-3.5 w-3.5" />}
               label={t('market.outputPrice')}
               value={
-                outputPrice === 0
-                  ? t('free')
-                  : `$${outputPrice.toFixed(2)}${isOutputEstimated ? '*' : ''}`
+                typeof outputPrice !== 'number'
+                  ? '—'
+                  : outputPrice === 0
+                    ? t('free')
+                    : `$${outputPrice.toFixed(2)}${isOutputEstimated ? '*' : ''}`
               }
               hint={isOutputEstimated ? t('detail.estimatedHint') : undefined}
             />
@@ -217,7 +228,11 @@ export function ModelDetailDialog({
                     <span>{t('market.relayInputPrice')}</span>
                   </div>
                   <div className="mt-0.5 font-semibold text-foreground">
-                    {relayInputPrice === 0 ? t('free') : `$${relayInputPrice.toFixed(2)}`}
+                    {typeof relayInputPrice !== 'number'
+                      ? '—'
+                      : relayInputPrice === 0
+                        ? t('free')
+                        : `$${relayInputPrice.toFixed(2)}`}
                   </div>
                 </div>
                 <div>
@@ -225,7 +240,11 @@ export function ModelDetailDialog({
                     <span>{t('market.relayOutputPrice')}</span>
                   </div>
                   <div className="mt-0.5 font-semibold text-foreground">
-                    {relayOutputPrice === 0 ? t('free') : `$${relayOutputPrice.toFixed(2)}`}
+                    {typeof relayOutputPrice !== 'number'
+                      ? '—'
+                      : relayOutputPrice === 0
+                        ? t('free')
+                        : `$${relayOutputPrice.toFixed(2)}`}
                   </div>
                 </div>
               </div>
