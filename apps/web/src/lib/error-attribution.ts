@@ -376,7 +376,10 @@ export function resolveErrorAttribution(evidence: ErrorAttributionEvidence): Err
     evidence.errorCode,
   )
   if (trustedReason) {
-    return { errorSource: resolveSourceFromReason(trustedReason) || 'provider', failureReason: trustedReason }
+    return {
+      errorSource: resolveSourceFromReason(trustedReason) || 'provider',
+      failureReason: trustedReason,
+    }
   }
 
   // -- 强证据 ⑤:HTTP status 阶梯(字段优先,message keyword-gated 提取次之) --
