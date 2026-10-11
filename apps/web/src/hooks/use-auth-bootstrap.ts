@@ -9,9 +9,13 @@ import * as React from 'react'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user'
 import { getAuthCookie } from '@/lib/cookie-utils'
-import { fetchApi } from '@/lib/api'
+import { fetchApi, getLastRefreshFailure } from '@/lib/api'
 import { refreshAccessTokenOnce } from '@ihui/api-client'
-import { canSilentlyReLogin } from '@ihui/shared/auth/auto-login-policy'
+import {
+  canSilentlyReLogin,
+  classifyRefreshFailureStatus,
+  shouldMarkSessionLoggedOut,
+} from '@ihui/shared/auth/auto-login-policy'
 import { isSessionLoggedOut } from '@/lib/session-marker'
 
 export interface UseAuthBootstrapReturn {
@@ -102,11 +106,23 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
             storedToken = refreshed.accessToken
             setToken(refreshed.accessToken, refreshed.refreshToken ?? null)
           } else {
-            // 刷新失败(401):清理幽灵登录态(2026-08-07 修复)
-            // 根因:persist 仅存 isAuthenticated 标志位,httpOnly cookie 失效后
-            // 标志位残留 → 前端误判已登录渲染任务列表 → 请求无凭据 401 → "加载失败"。
-            // 此处必须 logout() 清空标志位,而非仅 setReady(true) 静默返回。
-            logout()
+            // 刷新失败(2026-10-09 分型修复:不再把一切失败都当凭据失效):
+            // - rejected(401/403,服务端明确否定凭据):清理幽灵登录态(2026-08-07 修复)——
+            //   persist 仅存 isAuthenticated 标志位,httpOnly cookie 失效后标志位残留 →
+            //   前端误判已登录渲染任务列表 → 请求无凭据 401 → "加载失败",必须 logout() 清掉;
+            //   同时落持久登出标记,防止冷启动反复撞死 token(与主动登出同处置)。
+            // - transient(网络错误/超时/5xx,api 重启窗口):凭据没有被否定,绝不能 logout()
+            //   —— 那会写持久标记把 30 天 refresh cookie 永久废掉,用户被迫反复手动登录
+            //   (2026-10-09 根治「自动登录总被清掉」)。保持现状收束,下一次冷启动自然重试;
+            //   即便此处留着 isAuthenticated 残留位,api 恢复后首个 401 会走拦截器静默续期接回。
+            if (shouldMarkSessionLoggedOut(getLastRefreshFailure())) {
+              logout()
+            } else {
+              console.warn(
+                '[web-auth] silent refresh hit transient failure (network/5xx), ' +
+                  'keeping session state; auto-login marker NOT written',
+              )
+            }
             setReady(true)
             return
           }
@@ -173,11 +189,31 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
                 status: u.status,
               })
               await fetchProfile()
-            } else {
-              logout()
+            } else if (!cancelled) {
+              // retry(/auth/me)失败 ≠ refresh 失败:分型看 **retry** 的状态码 ——
+              // 401 = 新凭据也被拒(会话真死,落标记);网络/5xx = 瞬时,不落标记。
+              // 顺带堵住原漏洞:`!cancelled && success` 的 else 会把「已卸载」也当失败
+              // 走 logout() 落持久标记(StrictMode/布局切换卸载时误杀自动登录)。
+              if (shouldMarkSessionLoggedOut(classifyRefreshFailureStatus(retry.status))) {
+                logout()
+              } else {
+                console.warn(
+                  '[web-auth] /auth/me retry failed transiently after refresh, ' +
+                    'keeping session state; auto-login marker NOT written',
+                )
+              }
             }
-          } else {
-            logout()
+          } else if (!cancelled) {
+            // refresh 失败:仅当服务端明确拒绝凭据(401/403)才 logout() 落标记;
+            // 瞬时失败(api 重启/网络抖动)保持现状,下一次冷启动自然重试(2026-10-09 根治)。
+            if (shouldMarkSessionLoggedOut(getLastRefreshFailure())) {
+              logout()
+            } else {
+              console.warn(
+                '[web-auth] silent refresh hit transient failure (network/5xx), ' +
+                  'keeping session state; auto-login marker NOT written',
+              )
+            }
           }
         }
       } catch (err) {

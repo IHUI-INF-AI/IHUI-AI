@@ -16,7 +16,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { fileURLToPath, URL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 
 import {
   canSilentlyReLogin,
@@ -55,10 +55,19 @@ vi.mock('@/utils/wechat-login', () => ({ wechatLogin: wechatLoginMock }))
 vi.mock('@/api', () => ({ getProfile: vi.fn(async () => null) }))
 // utils/auth.ts 的 refreshAccessToken 走 @ihui/api-client 的 fetchApi;本用例只数"有没有被叫到",
 // 所以替身固定回一个失败结果 —— 判据生效时它根本不会被调用(见 ① 那一条)。
+// 2026-10-09 分型:固定 401(rejected)—— 无 status 会被判瞬时而抛 TransientRefreshError,
+// 既有 ② 的"照旧续期"断言就会从"返回 null"变成"抛出",那是分型用例的职责,不是这里的。
 const { fetchApiMock } = vi.hoisted(() => ({
-  fetchApiMock: vi.fn(async () => ({ success: false })),
+  fetchApiMock: vi.fn(async (): Promise<{ success: boolean; status?: number; error?: string }> => ({
+    success: false,
+    status: 401,
+  })),
 }))
-vi.mock('@ihui/api-client', () => ({ fetchApi: fetchApiMock }))
+vi.mock('@ihui/api-client', async () => {
+  // 分型断言要与 auth.ts 抛出的是同一个类对象 ⇒ 给真实类,不给替身。
+  const actual = await vi.importActual<typeof import('@ihui/api-client')>('@ihui/api-client')
+  return { fetchApi: fetchApiMock, TransientRefreshError: actual.TransientRefreshError }
+})
 
 import {
   getToken,
@@ -69,6 +78,7 @@ import {
   markSessionLoggedOut,
   refreshAccessToken,
 } from '../auth'
+import { TransientRefreshError } from '@ihui/api-client'
 import { useUserStore } from '@/stores/user'
 
 const USER = { id: 'u-1', nickname: 'tester' } as const
@@ -224,6 +234,41 @@ describe('不经 clearAuth 的两条登出入口必须显式落标记(装车证�
     expect(mark).toBeGreaterThan(-1)
     expect(wipe).toBeGreaterThan(-1)
     expect(mark, '标记必须落在整片擦除之后,否则等于没写').toBeGreaterThan(wipe)
+  })
+})
+
+describe('refreshAccessToken 失败分型(2026-10-09 判据唯一出口 = classifyRefreshFailureStatus)', () => {
+  // 分型契约:5xx/无 status → 抛 TransientRefreshError(refreshAccessTokenOnce catch 进冷却,
+  // 不把会话判死);401 → 返回 null(既有 rejected 契约)。与 RN / web / extension 同一条判据。
+  beforeEach(() => {
+    fetchApiMock.mockClear()
+  })
+
+  function seedCredential() {
+    setToken('tk-1')
+    setRefreshToken('rt-1')
+    delete taroStorage[SESSION_LOGGED_OUT_STORAGE_KEY]
+  }
+
+  it('500 → 抛 TransientRefreshError(瞬时,不得把会话判死)', async () => {
+    seedCredential()
+    fetchApiMock.mockResolvedValueOnce({ success: false, status: 500, error: 'Server Error' })
+
+    await expect(refreshAccessToken()).rejects.toBeInstanceOf(TransientRefreshError)
+  })
+
+  it('无 status(网络错误/超时的 {success:false}) → 同样抛 TransientRefreshError', async () => {
+    seedCredential()
+    fetchApiMock.mockResolvedValueOnce({ success: false, error: 'network down' })
+
+    await expect(refreshAccessToken()).rejects.toBeInstanceOf(TransientRefreshError)
+  })
+
+  it('401 → 返回 null 不抛(rejected,既有契约不变)', async () => {
+    seedCredential()
+    fetchApiMock.mockResolvedValueOnce({ success: false, status: 401, error: 'Unauthorized' })
+
+    await expect(refreshAccessToken()).resolves.toBeNull()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

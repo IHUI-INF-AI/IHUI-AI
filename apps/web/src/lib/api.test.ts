@@ -21,19 +21,30 @@ import type * as Api from './api'
 const mocks = vi.hoisted(() => ({
   fetchApiShared: vi.fn(),
   openLoginDialogOnce: vi.fn(),
+  // 2026-10-09:捕获 api.ts setTokenProvider 注册的 provider —— refreshAccessToken
+  // 是模块私有回调,只有这一条口能拿到它的引用去直调(分型用例的入口)。
+  capturedProvider: null as unknown,
 }))
 
-vi.mock('@ihui/api-client', () => ({
-  fetchApi: mocks.fetchApiShared,
-  setTokenProvider: vi.fn(),
-  setBaseUrl: vi.fn(),
-  streamChat: vi.fn(),
-  setStreamBaseUrl: vi.fn(),
-  setDeviceFingerprintProvider: vi.fn(),
-  // 2026-09-25 接线:api.ts 无条件注册 401 处理器,mock 面必须补上同名导出,
-  // 否则模块求值即抛 "No export is defined on the mock"。
-  setUnauthorizedHandler: vi.fn(),
-}))
+vi.mock('@ihui/api-client', async () => {
+  const actual = await vi.importActual<typeof import('@ihui/api-client')>('@ihui/api-client')
+  return {
+    fetchApi: mocks.fetchApiShared,
+    setTokenProvider: vi.fn((p: unknown) => {
+      mocks.capturedProvider = p
+    }),
+    setBaseUrl: vi.fn(),
+    streamChat: vi.fn(),
+    setStreamBaseUrl: vi.fn(),
+    setDeviceFingerprintProvider: vi.fn(),
+    // 2026-09-25 接线:api.ts 无条件注册 401 处理器,mock 面必须补上同名导出,
+    // 否则模块求值即抛 "No export is defined on the mock"。
+    setUnauthorizedHandler: vi.fn(),
+    // 2026-10-09 分型:必须给**真实**类 —— instanceof 断言要与 api.ts 抛出的同一个对象,
+    // 替身类会让断言空转。
+    TransientRefreshError: actual.TransientRefreshError,
+  }
+})
 
 vi.mock('@/lib/login-dialog-trigger', () => ({
   openLoginDialogOnce: mocks.openLoginDialogOnce,
@@ -147,6 +158,61 @@ describe('fetchApi 401 懒触发策略', () => {
 
     expect(mocks.openLoginDialogOnce).toHaveBeenCalledTimes(1)
     expect(mocks.openLoginDialogOnce).toHaveBeenCalledWith(TEST_PATH)
+  })
+})
+
+describe('refreshAccessToken 失败分型(2026-10-09 根治「自动登录总被清掉」)', () => {
+  /**
+   * 判据唯一出口 = classifyRefreshFailureStatus(shared 层):401/403=rejected,
+   * 其余含无 status=transient。本组锁定端内接线:
+   * - transient → 抛 TransientRefreshError(refreshAccessTokenOnce catch 住进冷却,
+   *   且**不得**走到 setDesktopRefreshToken(null) —— 清桌面 vault 正是被根治的病灶);
+   * - rejected → 返回 null(既有契约,凭据确实死了才允许清)。
+   *
+   * 取材:refreshAccessToken 是 setTokenProvider 注册的模块私有回调,经 mocks.capturedProvider
+   * 捕获直调;'./api' 与 '@ihui/api-client' 都从同一模块注册表取,TransientRefreshError
+   * 与 api.ts 抛出的是同一个类对象(若中途 resetModules 会换代,故本组不 reset)。
+   */
+  async function loadRefresh() {
+    const mod = await import('./api')
+    const apiClient = await import('@ihui/api-client')
+    const provider = mocks.capturedProvider as {
+      refreshAccessToken: () => Promise<string | null>
+    } | null
+    expect(provider, 'setTokenProvider 未捕获 provider ⇒ 判据失明').toBeTruthy()
+    return {
+      refresh: provider!.refreshAccessToken,
+      getLastRefreshFailure: mod.getLastRefreshFailure,
+      TransientRefreshError: apiClient.TransientRefreshError as new () => Error,
+    }
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('500 → 抛 TransientRefreshError,落账 transient', async () => {
+    mocks.fetchApiShared.mockResolvedValue({ success: false, status: 500, error: 'Server Error' })
+    const { refresh, getLastRefreshFailure, TransientRefreshError } = await loadRefresh()
+
+    await expect(refresh()).rejects.toBeInstanceOf(TransientRefreshError)
+    expect(getLastRefreshFailure()).toBe('transient')
+  })
+
+  it('无 status(网络错误/超时的 {success:false}) → 抛 TransientRefreshError', async () => {
+    mocks.fetchApiShared.mockResolvedValue({ success: false, error: 'network down' })
+    const { refresh, getLastRefreshFailure, TransientRefreshError } = await loadRefresh()
+
+    await expect(refresh()).rejects.toBeInstanceOf(TransientRefreshError)
+    expect(getLastRefreshFailure()).toBe('transient')
+  })
+
+  it('401 → 返回 null 不抛,落账 rejected', async () => {
+    mocks.fetchApiShared.mockResolvedValue({ success: false, status: 401, error: 'Unauthorized' })
+    const { refresh, getLastRefreshFailure } = await loadRefresh()
+
+    await expect(refresh()).resolves.toBeNull()
+    expect(getLastRefreshFailure()).toBe('rejected')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
