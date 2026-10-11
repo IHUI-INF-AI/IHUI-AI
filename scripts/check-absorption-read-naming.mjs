@@ -211,7 +211,9 @@ function gather() {
     if (matrixSrc === null) {
       m13Face = '工作树面不存在'
     } else {
-      m13Present = /\bM13\b/.test(matrixSrc)
+      // 粗筛(M13/namedReadOf 落地同批收窄):只认 "M13" 字样会被注释里的提及骗过;
+      // 这把尺子的本体是 matrix 的 namedReadOf 判据函数,两样同时在位才算"在位"。
+      m13Present = /\bM13\b/.test(matrixSrc) && matrixSrc.includes('namedReadOf')
       m13Face = m13Present ? '工作树在位' : '工作树无'
     }
   }
