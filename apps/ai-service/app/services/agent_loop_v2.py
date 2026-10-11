@@ -1611,6 +1611,43 @@ class AgentLoopResult:
     team_relay: dict[str, Any] | None = None
 
 
+# ---------------------------------------------------------------------------
+# G-998120(2026-10-07 拍板:禁)轮次级负向工具面(turn-scoped denylist)
+# ---------------------------------------------------------------------------
+
+#: automation 来源轮的轮次附加集(自我续排禁用)。
+#: 上游同型(zcodeAgentService.buildConversationCommandEnvelope)禁的是
+#: CronUpdate/CronDelete;本仓的等价自我续排能力是 schedule_task
+#: (注册 cron/date/interval 定时任务)与 configure_automation_task
+#: (改写自动化任务配置)—— automation 轮再排 automation = 无限自我续排。
+AUTOMATION_TURN_TOOL_DENYLIST: frozenset[str] = frozenset(
+    {"schedule_task", "configure_automation_task"}
+)
+
+
+def merge_turn_scoped_denylist(
+    caller_denylist: Sequence[str] | None,
+    turn_additions: Sequence[str] | None,
+) -> frozenset[str]:
+    """轮次 denylist 合并:基础档 ∪ 轮次附加集,绝不覆盖/替换调用方传入集合。
+
+    G-998120(2026-10-07,机制对标上游 zcodeAgentService 协议信封处的
+    mergeAutomationMutationToolDenylist):
+    - caller_denylist 是**基础档**(调用方已有策略),一个不少地保留;
+    - turn_additions 是本轮派发来源的附加收紧(automation 轮含自我续排禁用),
+      只做并集;
+    - 两个输入都不被原地修改,返回新 frozenset —— "合并"不是"整体替换";
+    - 轮次附加集为空(None/空集)时结果恰等于基础档:不传附加集不得改变行为
+      (守门 139 第四维正例),把基础档替换掉必红(反例)。
+
+    本函数是全仓唯一的轮次 denylist 合并实现,守门 139 第四维
+    turnScopedDenylist 据此对账;不要在别处再写第二份并集。
+    """
+    base = frozenset(caller_denylist or ())
+    additions = frozenset(turn_additions or ())
+    return base | additions
+
+
 class AgentLoopV2:
     """完整 ReAct 工具调用循环。
 
@@ -1717,6 +1754,14 @@ class AgentLoopV2:
         # 唯独没有发起方写这个键,声明了也永远轮空。None(缺省)= 与现状逐零差异,
         # 不写任何键:不代任何任务决定要活多久。
         durable_horizon_seconds: int | None = None,
+        # G-998120(2026-10-07 立):轮次级负向工具面。deny_tools = 调用方传入的
+        # 基础档(与承载层 spec["deny_tools"] 同名同义);turn_denylist = 本轮
+        # 派发来源的附加收紧(automation 轮由 run_converged_agent 注入
+        # AUTOMATION_TURN_TOOL_DENYLIST)。合并语义见 merge_turn_scoped_denylist:
+        # 生效集 = 基础档 ∪ 附加集,绝不替换基础档;只作用于本轮构造,
+        # 不写回会话/checkpoint,绑定会话不会被永久视为 automation 执行上下文。
+        deny_tools: Sequence[str] | None = None,
+        turn_denylist: Sequence[str] | None = None,
     ):
         """
         Args:
@@ -1756,6 +1801,10 @@ class AgentLoopV2:
                 则此参数可省略。loop 每轮从黑板默认 key(TEAM_RELAY_BLACKBOARD_KEY)读取摘要。
             recorder: AgentStepRecorder(或等价接口)实例,可选注入;None 时默认路径
                 与现状逐零差异(不产生任何 step 记录)。注入后每次工具调用 append 一步。
+            deny_tools: 调用方传入的基础负向集(G-998120;None = 无)。与轮次附加集
+                取并集后在本轮生效,本集合一个不少地保留(合并不做整体替换)。
+            turn_denylist: 本轮派发来源的附加负向集(G-998120;None = 无)。只作用于
+                本次构造的循环实例(即本轮),不写回会话状态,后续用户轮不继承。
         """
         self._llm_complete = llm_complete_fn
         # 2026-09-18 第二批:生成参数透传面(对标 Codex model_reasoning 配置面)。
@@ -1883,6 +1932,22 @@ class AgentLoopV2:
         if len(_allowed_names) != len(self._tools):
             self._tools = {
                 name: td for name, td in self._tools.items() if name in _allowed_names
+            }
+
+        # G-998120(2026-10-07):轮次级负向面。生效集只许经 merge_turn_scoped_denylist
+        # 这一处并集实现产出(守门 139 第四维钉此处),绝不直接用附加集/基础档整体
+        # 赋值 —— 那是把调用方已有策略替换掉。schema 级先收窄(被 deny 的工具不进
+        # LLM 可见工具面),执行入口 _execute_single 再做防御性再校验,与 mode 收窄
+        # 同型双保险。实例属性即本轮作用域:不落 checkpoint、不写会话,续跑轮与
+        # 后续用户轮各按各自构造生效,绑定会话不会因此被永久视为 automation 上下文。
+        self._effective_denylist: frozenset[str] = merge_turn_scoped_denylist(
+            deny_tools, turn_denylist
+        )
+        if self._effective_denylist:
+            self._tools = {
+                name: td
+                for name, td in self._tools.items()
+                if name not in self._effective_denylist
             }
 
         # 1-6 token 治理:预算硬约束开关/支柱/粗估 token(2026-09-02 立)。
@@ -4662,6 +4727,7 @@ class AgentLoopV2:
         触发时机(工具被跳过/免审批):
         - plan 模式拦截白名单外工具 → decision="plan_blocked"
         - auto 模式只读工具免审批直接执行 → decision="auto_skip_approval"
+        - 轮次负向面拦截(G-998120) → decision="turn_denied"
 
         payload 含 mode/tool/decision/session_id。失败仅 warning 降级,绝不阻塞主链路。
 
@@ -5204,6 +5270,33 @@ class AgentLoopV2:
             self._report_tool_error(tc, msg, "permission_denied", 0.0)
             # 模式生效事件:工具被跳过(plan_blocked)
             await self._emit_permission_mode_event(tc.name, "plan_blocked")
+            return ToolResult(
+                tool_call_id=tc.id,
+                name=tc.name,
+                result=None,
+                error=msg,
+                duration_ms=0,
+                error_type="permission_denied",
+            )
+
+        # G-998120(2026-10-07):轮次负向面防御性再校验(与 plan 模式白名单再校验
+        # 同型:构造期已从 schema 收窄,此处兜底)。命中即不执行、不进审批流,错误
+        # 回填与模式拦截同形(permission_denied)。典型场景:automation 派发轮禁用
+        # schedule_task/configure_automation_task 等自我续排能力 —— 收紧只作用于
+        # 本轮,后续用户轮按各自构造生效,不从会话继承。
+        if tc.name in self._effective_denylist:
+            msg = (
+                f"工具 {tc.name} 在本轮执行上下文中被禁用(turn-scoped denylist:"
+                "automation 来源轮次不得自我续排)"
+            )
+            logger.info(
+                "轮次负向面拦截工具 %s(本轮生效集 %d 项), session=%s",
+                tc.name,
+                len(self._effective_denylist),
+                self._session_id or "",
+            )
+            self._report_tool_error(tc, msg, "permission_denied", 0.0)
+            await self._emit_permission_mode_event(tc.name, "turn_denied")
             return ToolResult(
                 tool_call_id=tc.id,
                 name=tc.name,
@@ -6020,6 +6113,12 @@ async def run_converged_agent(
     user_id: str | None = None,
     user_role: int = 0,
     permission_mode: str | None = None,
+    # G-998120(2026-10-07):派发来源标记。本函数是子 agent 派发的协议信封构造点
+    # (对标上游 buildConversationCommandEnvelope 在信封处合并轮次 denylist):
+    # turn_source="automation" 的那一轮注入 AUTOMATION_TURN_TOOL_DENYLIST 轮次
+    # 附加集,禁用 schedule_task/configure_automation_task 自我续排;非 automation
+    # 轮传 None,轮次负向面为空、行为与接线前逐零差异。收紧只随本轮循环实例生效。
+    turn_source: str | None = None,
     progress_callback: Callable[[dict[str, Any]], Any] | None = None,
 ) -> dict[str, Any]:
     """把一个 agent 定义交给 AgentLoopV2 执行,返回 executor_switch 约定的形状。
@@ -6060,6 +6159,11 @@ async def run_converged_agent(
         user_id=user_id,
         user_role=user_role,
         permission_mode=permission_mode,
+        # G-998120:automation 来源轮按轮次附加集收紧(合并在循环构造器内,
+        # 基础档为空即恰为附加集本身;非 automation 轮 None,零差异)。
+        turn_denylist=(
+            AUTOMATION_TURN_TOOL_DENYLIST if turn_source == "automation" else None
+        ),
     )
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": system_prompt},

@@ -92,6 +92,22 @@ export function NUM(min, max) {
   return `(?:\\d{${min},${max}}|\\d{1,3}(?:,\\d{3})+)`
 }
 
+/**
+ * 阳性对照夹具:旧的**死写法**(首段要求 ≥2 位 ⇒ "4,415" 永不匹配)。
+ * S23 自检与镜像测试 T9 必须喂同一把锁,判"不是 NUM 的产物" —— 夹具只许这一份,
+ * 测试侧另抄一份字面量就是第二真相(G-1117442)。
+ */
+export const LEGACY_GROUP_RE = new RegExp(`(\\d{2,6}(?:,\\d{3})*)x`, 'gi')
+
+/**
+ * 分组形态是否逐字由 NUM 产出(判据吃进 RegExp 的**那一串**,不比对源码/注释 ——
+ * 注释里提到该片段是正当的,按文本数会把自己判红)。S23 自检与镜像测试 T9 共用这一份实现。
+ */
+export function usesNumFabric(src) {
+  if (!src.includes(',\\d{3}')) return true // 不含分组形态 ⇒ 与本锁无关
+  return [1, 2, 3, 4, 5, 6].some((max) => [1, 2, 3].some((min) => src.includes(NUM(min, max))))
+}
+
 export const CLAIMS = [
   {
     key: 'dbTables',
@@ -532,16 +548,13 @@ export function selfTest() {
   // S23 逗号分组写法只许 NUM 出一份 —— 判据比对的是**实际吃进 RegExp 的那一串**,不是源码文本
   //     (注释里提到这一片段是正当的,按文本数会把自己判红;而手抄一份 `(?:,\d{3})*` 恰恰就是
   //     本票要防的第二真相:两处算同一件事必漂移,漂开的表现不是报错,是两条判据各自发合格证)。
-  const usesNumFabric = (src) => {
-    if (!src.includes(',\\d{3}')) return true // 不含分组形态 ⇒ 与本锁无关
-    return [1, 2, 3, 4, 5, 6].some((max) => [1, 2, 3].some((min) => src.includes(NUM(min, max))))
-  }
+  //     判据实现(usesNumFabric)与阳性对照夹具(LEGACY_GROUP_RE)都提为模块级导出,镜像测试 T9 吃同一份。
   const s23 = CLAIMS.filter((c) => !usesNumFabric(c.re.source))
   ok(
     'S23 分组写法只由 NUM 出一份(每条 claim 的分组形态必须逐字是 NUM 的产物)',
     s23.length === 0 &&
       // 阳性对照:把旧的死写法(首段仍要求 ≥2 位)喂同一把锁,必须被判成"不是 NUM 的产物"
-      !usesNumFabric(new RegExp(`(\\d{2,6}(?:,\\d{3})*)x`, 'gi').source) &&
+      !usesNumFabric(LEGACY_GROUP_RE.source) &&
       usesNumFabric(NUM(2, 6)),
   )
   // S24 英文措辞分支(G-1104173):README.en.md 头条的英文总量声明必须真被看见 ——

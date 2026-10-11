@@ -101,14 +101,14 @@ export const get_diagnostics: Tool = {
   async execute(args, ctx): Promise<ToolResult> {
     const targetPath = args.path as string | undefined;
     const linter = (args.linter as string) || 'auto';
-    const preResult = runPreToolCall('get_diagnostics', { linter, path: targetPath });
+    const preResult = await runPreToolCall('get_diagnostics', { linter, path: targetPath });
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const diags: Diagnostic[] = [];
     if (linter === 'tsc' || linter === 'auto') diags.push(...runTsc(ctx.workspacePath));
     if (linter === 'eslint' || linter === 'auto') diags.push(...runEslint(ctx.workspacePath, targetPath));
 
-    runPostToolCall('get_diagnostics', { count: diags.length });
+    await runPostToolCall('get_diagnostics', { count: diags.length });
 
     const errors = diags.filter((d) => d.severity === 'error');
     const warnings = diags.filter((d) => d.severity === 'warning');

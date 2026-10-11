@@ -58,12 +58,18 @@ const chromeAlarmsOnAlarmRemove = vi.fn()
 }
 
 // === Mock @ihui/api-client 的 refreshAccessToken ===
+// 2026-10-09 分型:补真实 TransientRefreshError —— token-utils doRefresh 的瞬时分支会 new 它,
+// 断言侧的 instanceof 也必须是同一个类对象(替身类会让断言空转)。
 const mockRefreshAccessToken = vi.fn()
-vi.mock('@ihui/api-client', () => ({
-  setBaseUrl: vi.fn(),
-  setTokenProvider: vi.fn(),
-  refreshAccessToken: (...args: unknown[]) => mockRefreshAccessToken(...args),
-}))
+vi.mock('@ihui/api-client', async () => {
+  const actual = await vi.importActual<typeof import('@ihui/api-client')>('@ihui/api-client')
+  return {
+    setBaseUrl: vi.fn(),
+    setTokenProvider: vi.fn(),
+    refreshAccessToken: (...args: unknown[]) => mockRefreshAccessToken(...args),
+    TransientRefreshError: actual.TransientRefreshError,
+  }
+})
 
 // === Mock defineBackground(WXT API) ===
 ;(globalThis as unknown as { defineBackground: unknown }).defineBackground = (fn: () => void) => fn
@@ -79,12 +85,16 @@ function makeJwt(exp: number): string {
 // 每个测试前重置模块状态(清空 inFlightRefresh / alarmListener 模块级变量)
 async function loadFreshModules() {
   vi.resetModules()
-  // 重新 mock @ihui/api-client(resetModules 后需要重新注册)
-  vi.doMock('@ihui/api-client', () => ({
-    setBaseUrl: vi.fn(),
-    setTokenProvider: vi.fn(),
-    refreshAccessToken: (...args: unknown[]) => mockRefreshAccessToken(...args),
-  }))
+  // 重新 mock @ihui/api-client(resetModules 后需要重新注册;TransientRefreshError 同样给真实类)
+  vi.doMock('@ihui/api-client', async () => {
+    const actual = await vi.importActual<typeof import('@ihui/api-client')>('@ihui/api-client')
+    return {
+      setBaseUrl: vi.fn(),
+      setTokenProvider: vi.fn(),
+      refreshAccessToken: (...args: unknown[]) => mockRefreshAccessToken(...args),
+      TransientRefreshError: actual.TransientRefreshError,
+    }
+  })
   const token = await import('../lib/token')
   const tokenUtils = await import('../lib/token-utils')
   return { token, tokenUtils }
@@ -221,8 +231,29 @@ describe('Extension refresh token 流程', () => {
       expect(token.getRefreshToken()).toBe('new-refresh')
     })
 
-    it('失败路径:refreshAccessToken 返回失败时清 token + 返回 false', async () => {
+    it('失败路径:refreshAccessToken 返回 401(rejected)时清 token + 返回 false', async () => {
       const { token, tokenUtils } = await loadFreshModules()
+      await token.setTokenPair({
+        accessToken: 'access-old',
+        refreshToken: 'refresh-old',
+        expiresIn: 3600,
+      })
+      // 2026-10-09 分型:显式给 401 —— 无 status 会被 classifyRefreshFailureStatus 判瞬时,
+      // 走抛 TransientRefreshError 分支(那是下面分型用例的职责)。
+      mockRefreshAccessToken.mockResolvedValueOnce({
+        success: false,
+        status: 401,
+        error: 'invalid refresh token',
+      })
+      const result = await tokenUtils.doRefresh()
+      expect(result).toBe(false)
+      expect(token.getToken()).toBeNull()
+      expect(token.getRefreshToken()).toBeNull()
+    })
+
+    it('瞬时失败(500)→ 抛 TransientRefreshError,且 token 不清', async () => {
+      const { token, tokenUtils } = await loadFreshModules()
+      const { TransientRefreshError } = await import('@ihui/api-client')
       await token.setTokenPair({
         accessToken: 'access-old',
         refreshToken: 'refresh-old',
@@ -230,12 +261,28 @@ describe('Extension refresh token 流程', () => {
       })
       mockRefreshAccessToken.mockResolvedValueOnce({
         success: false,
-        error: 'invalid refresh token',
+        status: 500,
+        error: 'Server Error',
       })
-      const result = await tokenUtils.doRefresh()
-      expect(result).toBe(false)
-      expect(token.getToken()).toBeNull()
-      expect(token.getRefreshToken()).toBeNull()
+
+      await expect(tokenUtils.doRefresh()).rejects.toBeInstanceOf(TransientRefreshError)
+      expect(token.getToken()).toBe('access-old')
+      expect(token.getRefreshToken()).toBe('refresh-old')
+    })
+
+    it('瞬时失败(无 status,网络错误/超时) → 同样抛 TransientRefreshError,token 不清', async () => {
+      const { token, tokenUtils } = await loadFreshModules()
+      const { TransientRefreshError } = await import('@ihui/api-client')
+      await token.setTokenPair({
+        accessToken: 'access-old',
+        refreshToken: 'refresh-old',
+        expiresIn: 3600,
+      })
+      mockRefreshAccessToken.mockResolvedValueOnce({ success: false, error: 'network down' })
+
+      await expect(tokenUtils.doRefresh()).rejects.toBeInstanceOf(TransientRefreshError)
+      expect(token.getToken()).toBe('access-old')
+      expect(token.getRefreshToken()).toBe('refresh-old')
     })
 
     it('异常路径:refreshAccessToken 抛异常时清 token + 返回 false', async () => {
