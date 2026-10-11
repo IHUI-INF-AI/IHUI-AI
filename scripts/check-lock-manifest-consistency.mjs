@@ -959,6 +959,18 @@ export function decideExitCode(result, strict) {
   return 0
 }
 
+/**
+ * R6 那一行里"双声明豁免"的**措辞本体**(2026-10-08 批次 J 收口,AGENTS §22c)。
+ *
+ * 这条报告行是"放过必须留痕"的唯一凭据:读报告的人靠它区分"这一维判过且干净"与"整维没跑"。
+ * 原先报告、本门自检的覆盖面自证、镜像测试 T36 各写了一遍同样的字样 —— 三份里任何一份改字,
+ * 另外两份就变成一条恒红或恒绿的断言(§22c 说的"两份必漂开"就是这个)。措辞只留这里一份,
+ * 两侧都从这里取。
+ */
+function multiSectionExemptNote(n) {
+  return `同一名字双声明、pnpm 只折一条落段而放过 ${n} 条`
+}
+
 function report(result, mode, face, strict = false) {
   const judged = face ?? result.judgedFace ?? 'worktree'
   console.log(
@@ -984,7 +996,7 @@ function report(result, mode, face, strict = false) {
   console.log(
     `维度 R6 段位置对账:核 ${result.sectionChecked} 条非 peer 声明键(逐段比清单段↔锁段)` +
       ` / 段位置违规 ${result.sectionDrift.length}` +
-      ` / 同一名字双声明、pnpm 只折一条落段而放过 ${(result.multiSectionExempted ?? []).length} 条` +
+      ` / ${multiSectionExemptNote((result.multiSectionExempted ?? []).length)}` +
       ` / peer 声明 ${result.peerSectionSkipped} 条不参与本维` +
       `(实测 lock 的 importer 段集 = [${result.lockSectionNames.map(([s, n]) => `${s}×${n}`).join(', ') || '空'}],` +
       `无 peerDependencies 段可比)` +
@@ -1797,7 +1809,7 @@ export function runSelfTest() {
         const out = captureReport(rDupDev)
         return (
           out.code === 0 &&
-          /同一名字双声明、pnpm 只折一条落段而放过 1 条/.test(out.out) &&
+          out.out.includes(multiSectionExemptNote(1)) &&
           /段位置违规 0/.test(out.out)
         )
       })(),
@@ -2144,6 +2156,8 @@ export const __test__ = {
   certRefusal,
   decideExitCode,
   UNDET_REASON_TEXT,
+  // §22c:R6 豁免那一行的措辞本体(报告 / 本门自检 / 镜像测试共用一份,不再各抄字样)
+  multiSectionExemptNote,
   // 判定面(§22c:面选择本身要能被测试直接调用,不得只活在文件内部)
   makeFaceReader,
   resolveFace,
