@@ -59,8 +59,7 @@ vi.mock('lucide-react', () => {
 vi.mock('@ihui/ui-react', () => {
   // 具名函数表达式而非箭头:react/display-name 判的是"组件定义有没有可显示名",
   // 而 `tag => (props) => …` 柯里化后返回的是匿名箭头 ⇒ 编译期不红、lint 期判 error。
-  const Passthrough =
-    (tag: string) =>
+  const Passthrough = (tag: string) =>
     function PassthroughComponent({ children }: React.PropsWithChildren<Record<string, unknown>>) {
       return <div data-testid={tag}>{children}</div>
     }

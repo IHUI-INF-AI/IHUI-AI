@@ -1274,24 +1274,44 @@ test('M23 恒红门检查:同一把尺子量同一份内容两次,差值必须�
  * 夹具只证明函数会给答案;这条证明的是"没人换拼法时偷偷溜过去"。
  */
 test('M19 族表不得落后于面上实际形态(宽尺命中数必须等于判据命中数)', () => {
-  let sawAny = false
-  // rev 刻意未消费:循环体的取材面写死为索引面(`:PROJECT_PLAN.md`),未随 rev 插值(历史遗留形态)。
-  // 恢复 `${rev}:` 插值会让历史面 64417a25b^ 上的存量对照重新冒红(该面未校准),故保留双轮结构、
-  // 只把变量改名 _rev 表达"刻意未消费",不在此处改取材语义(那属于族表持有人另一票)。
-  for (const _rev of ['64417a25b^', 'HEAD']) {
-    const txt = gitRaw(['show', `:PROJECT_PLAN.md`], ROOT)
-    if (!txt || txt.length < 1000) throw new Error(` 取不到计划文档 ⇒ 尺子无从自证`)
+  // ① 真实面:只问"族表有没有落后于面上形态"。旧写法在这里还要求"面上必须数得到 >0 处",
+  //    那是把**仓库瞬时状态**当成判据前提:2026-10-11 把 F3 腐烂指针清到 0 之后,两个面都数到 0,
+  //    这条断言立刻从"有牙"退化成"恒红"(红在一个不存在的账上,与 §12e 的恒红门同罪)。
+  for (const rev of [':', 'HEAD:']) {
+    const txt = gitRaw(['show', `${rev}PROJECT_PLAN.md`], ROOT)
+    if (!txt || txt.length < 1000) throw new Error(`${rev} 取不到计划文档 ⇒ 尺子无从自证`)
     const { rawRefs, judged } = pointerBlindness(txt)
     if (rawRefs !== judged)
-      throw new Error(`:面上  处行号引用,判据只吃到  处 ⇒ 族表漏一族(补族与出口声明,别削宽尺)`)
-    if (rawRefs > 0) sawAny = true
+      throw new Error(
+        `${rev} 面上 ${rawRefs} 处行号引用,判据只吃到 ${judged} 处 ⇒ 族表漏一族(补族与出口声明,别削宽尺)`,
+      )
   }
-  if (!sawAny)
-    throw new Error('两个版本都数到 0 处行号引用 ⇒ 对照无意义,换一个历史版本而不是让它恒真')
-  // 引用体(「…」与反引号包裹)里写的是"对这个形态的描述",不是指针
-  const cited = '- [ ] **X 说明**:这一型写作「…登记在 L13178」这类拼法。'
-  const onCited = findRotatedPointers(cited)
-  if (onCited.length !== 0)
+  // ② 有牙证明改由**构造面**给:每一族各造一条真指针,断言宽尺与判据吃到同一个非零数。
+  //    新增一族而忘了配样本 ⇒ 下面第一条断言当场红(族表与构造面必须同步演进)。
+  const SAMPLES = {
+    alive: '另见登记:存活于 L5 的同编号登记。',
+    dup: '同主键的另一条登记在 L5,派单以那条为准。',
+    ref: '入库登记参见 L5。',
+  }
+  const fams = POINTER_FAMILIES.map((f) => f.id)
+  for (const id of fams)
+    if (!SAMPLES[id])
+      throw new Error(`族 ${id} 没有构造样本 ⇒ 本条对照对该族失明(补样本,别把族从表里删掉)`)
+  const built = [
+    '# 构造面', // L1
+    '', // L2
+    ...fams.map((id, i) => `- [ ] **X${i} 甲事**:说明。 〔${SAMPLES[id]}〕`), // L3..
+    '- [ ] **X9 乙事**:这一型写作「存活于 L5」只是描述拼法。', // 引用体:两侧都不得计
+    '- [ ] **目标行**:被指的那条。', // L(3+fams.length+1)
+  ].join('\n')
+  const b = pointerBlindness(built)
+  if (!(b.rawRefs > 0)) throw new Error(`构造面数到 0 处 ⇒ 样本或宽尺漂了:${JSON.stringify(b)}`)
+  if (b.rawRefs !== b.judged)
+    throw new Error(`构造面 宽尺=${b.rawRefs} 判据=${b.judged} 不等 ⇒ 族表落后于自己声明的形态`)
+  if (b.rawRefs !== fams.length)
+    throw new Error(`构造面每族各一条,应数到 ${fams.length} 处,实测 ${b.rawRefs}(样本或族表数变了)`)
+  const cited = '- [ ] **X 说明**:这一型写作「存活于 L13178」这类拼法。'
+  if (findRotatedPointers(cited).length !== 0)
     throw new Error('「…」引用体里的样例被判成指针 ⇒ 出口会去改写自己的说明')
 })
 test('M18 F3 对"门自己产出的指针措辞"必须有牙(族表两条各一正一反)', () => {
