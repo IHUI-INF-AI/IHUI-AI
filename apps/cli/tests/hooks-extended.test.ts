@@ -12,7 +12,7 @@
  *   - HookContext 新增字段(compactedTokensBefore/After)通过环境变量正确传递
  *   - deepMergeHooks 合并 14 种事件键
  */
-import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -86,21 +86,22 @@ describe('runHook 异常安全', () => {
     else process.env.IHUI_HOOKS_CONFIG = origConfig;
   });
 
-  it('无配置时所有 14 种事件均返回 proceed=true', () => {
+  it('无配置时所有 14 种事件均返回 proceed=true', async () => {
     for (const e of ALL_EVENTS) {
-      const result = runHook(e, {});
+      const result = await runHook(e, {});
       expect(result.proceed).toBe(true);
       expect(result.reason).toBeUndefined();
     }
   });
 
-  it('未知事件类型不抛异常且返回 proceed=true', () => {
+  it('未知事件类型不抛异常且返回 proceed=true', async () => {
     const unknown = 'unknownEvent' as HookEvent;
-    expect(() => runHook(unknown, {})).not.toThrow();
-    expect(runHook(unknown, {}).proceed).toBe(true);
+    // await 上拒绝即失败:"不抛异常"与 proceed=true 一并锁死
+    const r = await runHook(unknown, {});
+    expect(r.proceed).toBe(true);
   });
 
-  it('HookContext 全字段传入不抛异常', () => {
+  it('HookContext 全字段传入不抛异常', async () => {
     const ctx: HookContext = {
       workspacePath: '/tmp',
       sessionId: 'sess-1',
@@ -117,7 +118,7 @@ describe('runHook 异常安全', () => {
       notificationText: 'notify',
     };
     for (const e of ALL_EVENTS) {
-      expect(() => runHook(e, ctx)).not.toThrow();
+      await runHook(e, ctx);
     }
   });
 });
@@ -135,9 +136,11 @@ describe('compressContextIfNeeded 集成 preCompact/postCompact', () => {
     const echoPre = isWindows
       ? `cmd /c echo pre > "${markerPath}"`
       : `sh -c 'echo pre > "${markerPath}"'`;
+    // post 写入前先等 1s:异步执行面上 pre/post 两条子进程并发在跑,这一秒把 marker 的
+    // 先后顺序(pre 截断写在前、post 追加写在后)从"进程调度运气"钉成确定序,断言才有牙。
     const echoPost = isWindows
-      ? `cmd /c echo post >> "${markerPath}"`
-      : `sh -c 'echo post >> "${markerPath}"'`;
+      ? `cmd /c ping -n 2 127.0.0.1 >nul & echo post >> "${markerPath}"`
+      : `sh -c 'sleep 1; echo post >> "${markerPath}"'`;
     const hooks: HooksConfig = {
       preCompact: [{ name: 'mark-pre', command: echoPre, blockOnError: false }],
       postCompact: [{ name: 'mark-post', command: echoPost, blockOnError: false }],
@@ -171,15 +174,40 @@ describe('compressContextIfNeeded 集成 preCompact/postCompact', () => {
     return msgs;
   }
 
-  it('触发压缩时执行 preCompact 和 postCompact 钩子', () => {
+  /** 异步执行面上钩子是后台跑的:等 marker 里出现 substr(=本用例自己的 post 已落盘)再断言 */
+  async function waitForMarkerContent(substr: string): Promise<string> {
+    let content = '';
+    await vi.waitFor(
+      () => {
+        content = fs.readFileSync(markerPath, 'utf-8');
+        expect(content).toContain(substr);
+      },
+      { timeout: 8000, interval: 50 },
+    );
+    return content;
+  }
+
+  /** 异步执行面上钩子是后台跑的:等 marker 里出现 substr(=本用例自己的 post 已落盘)再断言 */
+  async function waitForMarkerContent(substr: string): Promise<string> {
+    let content = '';
+    await vi.waitFor(
+      () => {
+        content = fs.readFileSync(markerPath, 'utf-8');
+        expect(content).toContain(substr);
+      },
+      { timeout: 8000, interval: 50 },
+    );
+    return content;
+  }
+
+  it('触发压缩时执行 preCompact 和 postCompact 钩子', async () => {
     const messages = buildLargeMessages(20);
     // 分层金字塔摘要后近层保留 200 chars → 压缩候选 ≈530 tokens,
     // trigger 需 > 候选才能接受压缩:contextLimit=700 → trigger=616 > 530 ✓
     const result = compressContextIfNeeded(messages, { contextLimit: 700 });
 
     expect(result.compressed).toBe(true);
-    expect(fs.existsSync(markerPath)).toBe(true);
-    const content = fs.readFileSync(markerPath, 'utf-8');
+    const content = await waitForMarkerContent('post');
     expect(content).toContain('pre');
     expect(content).toContain('post');
   });
@@ -195,18 +223,18 @@ describe('compressContextIfNeeded 集成 preCompact/postCompact', () => {
     expect(fs.existsSync(markerPath)).toBe(false);
   });
 
-  it('preCompact 在 postCompact 之前执行(marker 顺序为 pre 在前)', () => {
+  it('preCompact 在 postCompact 之前执行(marker 顺序为 pre 在前)', async () => {
     const messages = buildLargeMessages(20);
     compressContextIfNeeded(messages, { contextLimit: 500 });
 
-    const content = fs.readFileSync(markerPath, 'utf-8');
+    const content = await waitForMarkerContent('post');
     const preIdx = content.indexOf('pre');
     const postIdx = content.indexOf('post');
     expect(preIdx).toBeGreaterThanOrEqual(0);
     expect(postIdx).toBeGreaterThan(preIdx);
   });
 
-  it('截断降级成功时正常执行 preCompact/postCompact 钩子(truncated 路径)', () => {
+  it('截断降级成功时正常执行 preCompact/postCompact 钩子(truncated 路径)', async () => {
     // 'y' BPE 实测 0.25 token/char:每条 32000 chars ≈ 8000 tokens,2 条非 system ≈ 16015
     // contextLimit=9000 → trigger=7920;kr=1 摘要化候选 ≈8040 >= 7920 压不动 → 截断降级成功
     const longContent = 'y'.repeat(32000);
@@ -220,13 +248,12 @@ describe('compressContextIfNeeded 集成 preCompact/postCompact', () => {
     expect(result.compressed).toBe(true);
     expect(result.trigger).toBe('truncated');
     // 截断成功走正常压缩完成路径,钩子配对触发
-    expect(fs.existsSync(markerPath)).toBe(true);
-    const content = fs.readFileSync(markerPath, 'utf-8');
+    const content = await waitForMarkerContent('post');
     expect(content).toContain('pre');
     expect(content).toContain('post');
   });
 
-  it('防循环返回时仍补发 postCompact 钩子(incompressible 路径配对)', () => {
+  it('防循环返回时仍补发 postCompact 钩子(incompressible 路径配对)', async () => {
     // system 'A'*40000 ≈ 5100 tokens(永不截断),contextLimit=5000 → trigger=4400:
     // 截断 user 消息到最小长度后 system 仍占 5100 ≥ 4400 → incompressible 返回原消息
     const messages: ChatMessage[] = [
@@ -239,8 +266,7 @@ describe('compressContextIfNeeded 集成 preCompact/postCompact', () => {
     expect(result.compressed).toBe(false);
     expect(result.trigger).toBe('incompressible');
     // preCompact 已触发,防循环返回也补发 postCompact(after=before),保持钩子配对语义
-    expect(fs.existsSync(markerPath)).toBe(true);
-    const content = fs.readFileSync(markerPath, 'utf-8');
+    const content = await waitForMarkerContent('post');
     expect(content).toContain('pre');
     expect(content).toContain('post');
   });
@@ -272,7 +298,7 @@ describe('HookContext 字段传递', () => {
     else process.env.IHUI_HOOKS_CONFIG = origConfig;
   });
 
-  it('compactedTokensBefore/After 通过环境变量传递给 postCompact 钩子', () => {
+  it('compactedTokensBefore/After 通过环境变量传递给 postCompact 钩子', async () => {
     const cmd = isWindows
       ? `cmd /c echo %IHUI_COMPACTED_TOKENS_BEFORE%/%IHUI_COMPACTED_TOKENS_AFTER% > "${envPath}"`
       : `sh -c 'echo "$IHUI_COMPACTED_TOKENS_BEFORE/$IHUI_COMPACTED_TOKENS_AFTER" > "${envPath}"'`;
@@ -282,18 +308,18 @@ describe('HookContext 字段传递', () => {
     fs.writeFileSync(hooksPath, JSON.stringify(hooks));
     process.env.IHUI_HOOKS_CONFIG = hooksPath;
 
-    runHook('postCompact', {
+    await runHook('postCompact', {
       compactedTokensBefore: 12345,
       compactedTokensAfter: 6789,
     });
 
-    expect(fs.existsSync(envPath)).toBe(true);
+    await vi.waitFor(() => expect(fs.existsSync(envPath)).toBe(true), { timeout: 5000 });
     const content = fs.readFileSync(envPath, 'utf-8').trim();
     expect(content).toContain('12345');
     expect(content).toContain('6789');
   });
 
-  it('compressContextIfNeeded 传递真实的 token 数值给钩子', () => {
+  it('compressContextIfNeeded 传递真实的 token 数值给钩子', async () => {
     const cmd = isWindows
       ? `cmd /c echo %IHUI_COMPACTED_TOKENS_BEFORE%/%IHUI_COMPACTED_TOKENS_AFTER% > "${envPath}"`
       : `sh -c 'echo "$IHUI_COMPACTED_TOKENS_BEFORE/$IHUI_COMPACTED_TOKENS_AFTER" > "${envPath}"'`;
@@ -314,14 +340,14 @@ describe('HookContext 字段传递', () => {
     const result = compressContextIfNeeded(messages, { contextLimit: 700 });
 
     expect(result.compressed).toBe(true);
-    expect(fs.existsSync(envPath)).toBe(true);
+    await vi.waitFor(() => expect(fs.existsSync(envPath)).toBe(true), { timeout: 5000 });
     const content = fs.readFileSync(envPath, 'utf-8').trim();
     const parts = content.split('/').map((s) => s.trim());
     expect(Number(parts[0])).toBe(result.originalTokens);
     expect(Number(parts[1])).toBe(result.compressedTokens);
   });
 
-  it('workspacePath/sessionId 通过环境变量传递', () => {
+  it('workspacePath/sessionId 通过环境变量传递', async () => {
     const cmd = isWindows
       ? `cmd /c echo %IHUI_WORKSPACE%/%IHUI_SESSION_ID% > "${envPath}"`
       : `sh -c 'echo "$IHUI_WORKSPACE/$IHUI_SESSION_ID" > "${envPath}"'`;
@@ -331,13 +357,13 @@ describe('HookContext 字段传递', () => {
     fs.writeFileSync(hooksPath, JSON.stringify(hooks));
     process.env.IHUI_HOOKS_CONFIG = hooksPath;
 
-    runHook('preCompact', {
+    await runHook('preCompact', {
       workspacePath: '/my/workspace',
       sessionId: 'sess-abc',
       compactedTokensBefore: 100,
     });
 
-    expect(fs.existsSync(envPath)).toBe(true);
+    await vi.waitFor(() => expect(fs.existsSync(envPath)).toBe(true), { timeout: 5000 });
     const content = fs.readFileSync(envPath, 'utf-8').trim();
     expect(content).toContain('/my/workspace');
     expect(content).toContain('sess-abc');
@@ -441,12 +467,12 @@ describe('加载 4 events 配置(preToolCall/postToolCall/sessionStart/sessionEn
     expect(config.sessionEnd?.[0]?.name).toBe('end-4');
   });
 
-  it('4 events 钩子执行均正常(proceed=true 或无异常)', () => {
+  it('4 events 钩子执行均正常(proceed=true 或无异常)', async () => {
     const config = loadHooksConfig();
-    expect(runPreToolCall('bash', {}).proceed).toBe(true);
-    expect(runPostToolCall('bash', {}).proceed).toBe(true);
-    expect(runSessionStartHooks(config, { workspacePath: '/tmp' }).proceed).toBe(true);
-    expect(() => runSessionEndHooks(config, { workspacePath: '/tmp' })).not.toThrow();
+    expect((await runPreToolCall('bash', {})).proceed).toBe(true);
+    expect((await runPostToolCall('bash', {})).proceed).toBe(true);
+    expect((await runSessionStartHooks(config, { workspacePath: '/tmp' })).proceed).toBe(true);
+    await runSessionEndHooks(config, { workspacePath: '/tmp' });
   });
 });
 
@@ -488,41 +514,41 @@ describe('加载旧 2 events 配置(向后兼容)', () => {
     expect(config.sessionEnd).toBeUndefined();
   });
 
-  it('sessionStart/sessionEnd 缺失时不影响 preToolCall/postToolCall 执行', () => {
+  it('sessionStart/sessionEnd 缺失时不影响 preToolCall/postToolCall 执行', async () => {
     const config = loadHooksConfig();
-    expect(runPreToolCall('bash', {}).proceed).toBe(true);
-    expect(runPostToolCall('bash', {}).proceed).toBe(true);
-    expect(runSessionStartHooks(config, { workspacePath: '/tmp' }).proceed).toBe(true);
-    expect(() => runSessionEndHooks(config, { workspacePath: '/tmp' })).not.toThrow();
+    expect((await runPreToolCall('bash', {})).proceed).toBe(true);
+    expect((await runPostToolCall('bash', {})).proceed).toBe(true);
+    expect((await runSessionStartHooks(config, { workspacePath: '/tmp' })).proceed).toBe(true);
+    await runSessionEndHooks(config, { workspacePath: '/tmp' });
   });
 });
 
 describe('runSessionStartHooks fail-open(blockOnError: false)', () => {
   const exit1 = isWindows ? 'cmd /c exit 1' : "sh -c 'exit 1'";
 
-  it('blockOnError: false 时命令失败不阻塞(proceed=true)', () => {
+  it('blockOnError: false 时命令失败不阻塞(proceed=true)', async () => {
     const config: HooksConfig = {
       sessionStart: [{ name: 'fail-open-hook', command: exit1, blockOnError: false }],
     };
-    const result = runSessionStartHooks(config, { workspacePath: '/tmp' });
+    const result = await runSessionStartHooks(config, { workspacePath: '/tmp' });
     expect(result.proceed).toBe(true);
     expect(result.reason).toBeUndefined();
   });
 
-  it('blockOnError: true 时命令失败阻塞(proceed=false)', () => {
+  it('blockOnError: true 时命令失败阻塞(proceed=false)', async () => {
     const config: HooksConfig = {
       sessionStart: [{ name: 'fail-closed-hook', command: exit1, blockOnError: true }],
     };
-    const result = runSessionStartHooks(config, { workspacePath: '/tmp' });
+    const result = await runSessionStartHooks(config, { workspacePath: '/tmp' });
     expect(result.proceed).toBe(false);
     expect(result.reason).toContain('fail-closed-hook');
   });
 
-  it('未设置 blockOnError 时默认阻塞(默认 fail-closed,与现有行为一致)', () => {
+  it('未设置 blockOnError 时默认阻塞(默认 fail-closed,与现有行为一致)', async () => {
     const config: HooksConfig = {
       sessionStart: [{ name: 'default-hook', command: exit1 }],
     };
-    const result = runSessionStartHooks(config, { workspacePath: '/tmp' });
+    const result = await runSessionStartHooks(config, { workspacePath: '/tmp' });
     expect(result.proceed).toBe(false);
     expect(result.reason).toContain('default-hook');
   });
@@ -546,26 +572,26 @@ describe('runSessionEndHooks 执行成功', () => {
     try { fs.unlinkSync(markerPath); } catch { /* 文件不存在忽略 */ }
   });
 
-  it('单个 hook 成功时无异常且副作用生效', () => {
+  it('单个 hook 成功时无异常且副作用生效', async () => {
     const cmd = isWindows
       ? `cmd /c echo ended > "${markerPath}"`
       : `sh -c 'echo ended > "${markerPath}"'`;
     const config: HooksConfig = {
       sessionEnd: [{ name: 'mark-end', command: cmd }],
     };
-    expect(() => runSessionEndHooks(config, { workspacePath: '/tmp' })).not.toThrow();
-    expect(fs.existsSync(markerPath)).toBe(true);
+    await runSessionEndHooks(config, { workspacePath: '/tmp' });
+    await vi.waitFor(() => expect(fs.existsSync(markerPath)).toBe(true), { timeout: 5000 });
     expect(fs.readFileSync(markerPath, 'utf-8')).toContain('ended');
   });
 
-  it('多个 hook 全部成功时无异常', () => {
+  it('多个 hook 全部成功时无异常', async () => {
     const config: HooksConfig = {
       sessionEnd: [
         { name: 'ok1', command: exit0 },
         { name: 'ok2', command: exit0 },
       ],
     };
-    expect(() => runSessionEndHooks(config, { workspacePath: '/tmp' })).not.toThrow();
+    await runSessionEndHooks(config, { workspacePath: '/tmp' });
   });
 });
 
@@ -574,7 +600,7 @@ describe('blockOnError 配置正确(4 events 全覆盖)', () => {
   const exit1 = isWindows ? 'cmd /c exit 1' : "sh -c 'exit 1'";
 
   describe('preToolCall', () => {
-    it('默认 blockOnError(未设置)时命令失败阻塞(fail-closed)', () => {
+    it('默认 blockOnError(未设置)时命令失败阻塞(fail-closed)', async () => {
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-bo-pre-def-'));
       const hooksPath = path.join(tmpDir, 'hooks.json');
       fs.writeFileSync(hooksPath, JSON.stringify({
@@ -583,7 +609,7 @@ describe('blockOnError 配置正确(4 events 全覆盖)', () => {
       const origConfig = process.env.IHUI_HOOKS_CONFIG;
       process.env.IHUI_HOOKS_CONFIG = hooksPath;
       try {
-        const result = runPreToolCall('bash', {});
+        const result = await runPreToolCall('bash', {});
         expect(result.proceed).toBe(false);
         expect(result.reason).toContain('pre-default');
       } finally {
@@ -593,7 +619,7 @@ describe('blockOnError 配置正确(4 events 全覆盖)', () => {
       }
     });
 
-    it('blockOnError: false 时命令失败不阻塞(fail-open)', () => {
+    it('blockOnError: false 时命令失败不阻塞(fail-open)', async () => {
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-bo-pre-fo-'));
       const hooksPath = path.join(tmpDir, 'hooks.json');
       fs.writeFileSync(hooksPath, JSON.stringify({
@@ -602,7 +628,7 @@ describe('blockOnError 配置正确(4 events 全覆盖)', () => {
       const origConfig = process.env.IHUI_HOOKS_CONFIG;
       process.env.IHUI_HOOKS_CONFIG = hooksPath;
       try {
-        expect(runPreToolCall('bash', {}).proceed).toBe(true);
+        expect((await runPreToolCall('bash', {})).proceed).toBe(true);
       } finally {
         if (origConfig === undefined) delete process.env.IHUI_HOOKS_CONFIG;
         else process.env.IHUI_HOOKS_CONFIG = origConfig;
@@ -610,7 +636,7 @@ describe('blockOnError 配置正确(4 events 全覆盖)', () => {
       }
     });
 
-    it('命令成功时始终 proceed=true(无论 blockOnError)', () => {
+    it('命令成功时始终 proceed=true(无论 blockOnError)', async () => {
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-bo-pre-ok-'));
       const hooksPath = path.join(tmpDir, 'hooks.json');
       fs.writeFileSync(hooksPath, JSON.stringify({
@@ -619,7 +645,7 @@ describe('blockOnError 配置正确(4 events 全覆盖)', () => {
       const origConfig = process.env.IHUI_HOOKS_CONFIG;
       process.env.IHUI_HOOKS_CONFIG = hooksPath;
       try {
-        expect(runPreToolCall('bash', {}).proceed).toBe(true);
+        expect((await runPreToolCall('bash', {})).proceed).toBe(true);
       } finally {
         if (origConfig === undefined) delete process.env.IHUI_HOOKS_CONFIG;
         else process.env.IHUI_HOOKS_CONFIG = origConfig;
@@ -638,7 +664,7 @@ describe('blockOnError 配置正确(4 events 全覆盖)', () => {
       const origConfig = process.env.IHUI_HOOKS_CONFIG;
       process.env.IHUI_HOOKS_CONFIG = hooksPath;
       try {
-        expect(runPostToolCall('bash', {}).proceed).toBe(true);
+        expect((await runPostToolCall('bash', {})).proceed).toBe(true);
       } finally {
         if (origConfig === undefined) delete process.env.IHUI_HOOKS_CONFIG;
         else process.env.IHUI_HOOKS_CONFIG = origConfig;
@@ -646,7 +672,7 @@ describe('blockOnError 配置正确(4 events 全覆盖)', () => {
       }
     });
 
-    it('blockOnError: true 时命令失败阻塞(fail-closed)', () => {
+    it('blockOnError: true 时命令失败阻塞(fail-closed)', async () => {
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-bo-post-fc-'));
       const hooksPath = path.join(tmpDir, 'hooks.json');
       fs.writeFileSync(hooksPath, JSON.stringify({
@@ -655,7 +681,7 @@ describe('blockOnError 配置正确(4 events 全覆盖)', () => {
       const origConfig = process.env.IHUI_HOOKS_CONFIG;
       process.env.IHUI_HOOKS_CONFIG = hooksPath;
       try {
-        const result = runPostToolCall('bash', {});
+        const result = await runPostToolCall('bash', {});
         expect(result.proceed).toBe(false);
         expect(result.reason).toContain('post-fc');
       } finally {
@@ -667,20 +693,20 @@ describe('blockOnError 配置正确(4 events 全覆盖)', () => {
   });
 
   describe('sessionStart', () => {
-    it('默认 blockOnError(未设置)时命令失败阻塞(fail-closed)', () => {
+    it('默认 blockOnError(未设置)时命令失败阻塞(fail-closed)', async () => {
       const config: HooksConfig = {
         sessionStart: [{ name: 'start-default', command: exit1 }],
       };
-      const result = runSessionStartHooks(config, { workspacePath: '/tmp' });
+      const result = await runSessionStartHooks(config, { workspacePath: '/tmp' });
       expect(result.proceed).toBe(false);
       expect(result.reason).toContain('start-default');
     });
 
-    it('blockOnError: false 时命令失败不阻塞(fail-open)', () => {
+    it('blockOnError: false 时命令失败不阻塞(fail-open)', async () => {
       const config: HooksConfig = {
         sessionStart: [{ name: 'start-fo', command: exit1, blockOnError: false }],
       };
-      expect(runSessionStartHooks(config, { workspacePath: '/tmp' }).proceed).toBe(true);
+      expect((await runSessionStartHooks(config, { workspacePath: '/tmp' })).proceed).toBe(true);
     });
   });
 
@@ -689,14 +715,14 @@ describe('blockOnError 配置正确(4 events 全覆盖)', () => {
       const config: HooksConfig = {
         sessionEnd: [{ name: 'end-always-open', command: exit1, blockOnError: true }],
       };
-      expect(() => runSessionEndHooks(config, { workspacePath: '/tmp' })).not.toThrow();
+      await runSessionEndHooks(config, { workspacePath: '/tmp' });
     });
 
-    it('命令成功时无异常', () => {
+    it('命令成功时无异常', async () => {
       const config: HooksConfig = {
         sessionEnd: [{ name: 'end-ok', command: exit0 }],
       };
-      expect(() => runSessionEndHooks(config, { workspacePath: '/tmp' })).not.toThrow();
+      await runSessionEndHooks(config, { workspacePath: '/tmp' });
     });
   });
 });

@@ -9,6 +9,8 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+// 描边画在外层容器上(hook 文档的 WRAP 形态②):handlers 留 Input,focusStyle 铺容器。
+import { useFieldFocus } from '@/hooks/use-field-focus'
 
 /** 提问模式(对齐 apps/api 的 /api/ai-tutor 代理:explain 讲解 / hint 提示引导) */
 type TutorMode = 'explain' | 'hint'
@@ -56,6 +58,7 @@ export default function AiTutor() {
   const [sending, setSending] = useState(false)
   const [current, setCurrent] = useState('')
   const [history, setHistory] = useState<TutorHistoryItem[]>([])
+  const ff = useFieldFocus()
 
   const loadHistory = useCallback(async () => {
     try {
@@ -148,11 +151,15 @@ export default function AiTutor() {
         </View>
 
         <View className="flex flex-row items-center gap-[16rpx] px-[20rpx] pb-[48rpx]">
-          <View className="flex-1 rounded-lg bg-card border border-solid border-border px-[20rpx] py-[12rpx]">
+          <View
+            className="flex-1 rounded-lg bg-card border border-solid border-border px-[20rpx] py-[12rpx]"
+            style={ff.focusStyle}
+          >
             <Input
               value={question}
               placeholder={t('ai.inputPlaceholder')}
               placeholderClass="text-[var(--color-text-tertiary)]"
+              {...ff.spread}
               onInput={(e) => setQuestion(e.detail.value)}
               confirmType="send"
               onConfirm={handleSend}

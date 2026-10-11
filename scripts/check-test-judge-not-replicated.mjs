@@ -44,12 +44,31 @@
  *      (b) 是这一格补的:名字清单必然腐烂,HEAD 面多处形状锁的变量叫 `own`/`txt`/`ps`/`preset`。
  *      两条出处都不成立 ⇒ 不放过,落判定链后段,不冒判红也不静默放过。
  *      这一格是本票最难的地方,判据是词法而不是语义,所以它的保证只到"不误冒红"。
+ *      (c) **变换位**:测试对门体正文做加工(`replace(/…/)`、`.split(…)`、`.slice(…)` 等)再断言加工产物,
+ *      主语初值是取正文 + 变换 —— 归 P2 管(断言对象仍是源码写法的加工结果,不是被审对象长什么样)。
+ *      守卫只问 `isCriterionName(unit.decl.name)`(该正则是否是判据族命名),**不查 decl.kind** ——
+ *      变换位的 matcher 常是 replace 第 1 实参里的悬挂 list,kind 不是 'list'/'criterion' 的定式。
+ *      (d) **helper 自源一跳**:主语初值经本文件内的纯格式化 helper(形如 `maskCommentsAndStrings(src)`)
+ *      一跳到达取正文 ⇒ 仍认 (b);helper 实参的初值必须真含取正文调用,查不到照旧不放过。
  *   P4 行为文案断言:`assert.match(res.out, /门自己打出的那句话/)` 与 `assert.match(lastLine(head.out), /…/)` ——
  *      测试跑生产入口(派生进程或门导出口)再断言它返回的**文本**,这正是 §22c 要求的"改调生产入口"形态,
  *      不是第二份判据 ⇒ 放过。判据是**数据流而不是主语叫什么**:主语本身、或它作为纯格式化 helper 的实参,
  *      其初值(含本文件 helper 一跳、成员链宿主一跳,封顶 2 跳)必须真含一次派生(spawnSync、execFileSync、
  *      fork、run-evidence)或确实是 import 进门体的符号调用。查不到出处就照旧命中 —— 属性名叫 `.out` 本身
  *      不构成证据,而"名字不像载体"也不再是拒绝理由(证据在链上,不在拼写上)。
+ *      出处集两档:①`../check-*.mjs` import 的门体符号(调用返回值或解构右值);②`../lib/*.mjs`
+ *      import 的判据层符号 —— **只认"主语初值是该符号的调用返回值"**,成员常量输入
+ *      (`gate.CRASH_MARKERS[0]`)不满足 callee 形不因此放行,且该调用的顶层实参若指向一次取正文
+ *      (加工文件正文)⇒ 归 P2 管,不从本支放行 —— 否则"断言被审数据"会被洗成行为断言。
+ *      另有**纯载体跳板**:`combo = out.stdout + out.stderr` 这类纯标识符/成员/`+` 拼接可沿初值里的
+ *      标识符一跳查出处;混入调用或字符串字面量(取被审内容、判据材料)时语法上就不满足纯载体式 ⇒ 跳不成立。
+ *   P5 门侧取景/解析谓词:门体里那个符号/匿名单元本身就是"决定扫哪些文件、怎么切行"的取景材料,不是
+ *      被审对象的形态 ⇒ 同形只算漂移风险,放过(逐条点名,记 P5 —— 是"已判定"不是"没判")。三条臂:
+ *      ①命名:名字命中取景词表(SCOPE_NAME_RE);②用法:非导出符号的全部消费位都是条件语境里的
+ *      `.test(|.match(` 取景合取位,任一消费位落在断言/抛错/判红位即一票否决(禁止往词表加 test 词 ——
+ *      那会把未来真正的测试面判据整族翻成 scope);③位置:匿名单元落在解析/取景 callee(以
+ *      extract|parse|…|find 开头)的实参位且不在任何裁定位 —— 起 `*_RE` 名会被清单词缀抢判成 criterion,
+ *      l1/l2 双真反变命中,所以位置臂按**位置**判,不按名字判。
  *   P3 行内出口:`judge-replica-exempt: <原因>`(原因必填,**只救本行**,不救整文件也不救同名族)。
  *
  * 定级:**默认档(全量)= 只报数并逐条点名**,退出码不参与红绿。§12e 写得明白:一条"存量必然非零"
@@ -85,7 +104,7 @@
 import { dirname, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { maskCommentsAndStrings, scanSpans } from './lib/code-mask.mjs'
+import { maskCommentsAndStrings, maskCommentsStringsAndRegex, scanSpans } from './lib/code-mask.mjs'
 import { catBatch, gitRaw, readWorktreeFile, selectFace, Undetermined } from './lib/face-reader.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -138,6 +157,17 @@ const MODULE_LOAD_RE = /\bawait\s+import\s*\(|\bimport\s*\(\s*(?:pathToFileURL|[
  * 把它从 3 改成 2 只需要动一个字符,而没有任何一条断言会因此翻红。
  */
 const CARRIER_MAX_HOPS = 3
+/**
+ * P4 纯载体跳板的初值式:只有标识符/成员读取与 `+`(`combo = out.stdout + out.stderr`)。
+ * 字符串字面量与调用(取被审内容、判据材料)在**语法上就不满足**这一条 ⇒ 反向臂由语法钉死,
+ * 不需要在跳板里再写一次"别混入 readFileSync/字面量"的黑名单(写黑名单必然漏)。
+ */
+const PURE_CARRIER_EXPR_RE =
+  /^\s*[A-Za-z_$][A-Za-z0-9_$]*(?:\s*\.\s*[A-Za-z_$][A-Za-z0-9_$]*)?\s*(?:\+\s*[A-Za-z_$][A-Za-z0-9_$]*(?:\s*\.\s*[A-Za-z_$][A-Za-z0-9_$]*)?\s*)*$/
+/** P2b 的自源钉:那次取正文必须指向**门/测试自身源码**;命中被审数据面(locale.json 等)不放过。 */
+const SELF_SOURCE_READ_RE = /['"][^'"]*\bcheck-[^'"]*\.mjs['"]|\bSELF\b/
+/** P5 位置臂的解析/取景 callee 词表:匿名单元落在其实参位 ⇒ 取景材料(按位置判,不按名字判)。 */
+const PARSE_CALLEE_RE = /^(?:extract|parse|locate|split|mask|splice|strip|merge|collect|read|find)\w*/
 /** 行内出口:`judge-replica-exempt: <原因>`,原因必填,只救本行。 */
 const EXEMPT_MARK = /judge-replica-exempt:\s*(\S[^\n]*)/
 
@@ -306,9 +336,17 @@ function isRegExpArg(text, off) {
   return units
 }
 
-/** 调用位:`.match(|.matchAll(|.test(` 与 `assert.(doesNot)Match(`;另收"清单被逐个拿去裁"的迭代位。 */
+/** 调用位:`.match(|.matchAll(|.test(` 与 `assert.(doesNot)Match(`;另收"清单被逐个拿去裁"的迭代位。
+ *
+ * 底座用**认正则的那一档**遮噪(`maskCommentsStringsAndRegex`)而不是 `maskCommentsAndStrings`:
+ * 后者正则档关闭 ⇒ 正则字面量里的引号照旧被当字符串开头,于是一行
+ * `assert.match(src, /from '\.\/lib\/face-reader\.mjs'/)` 会从那个 `'` 起开一段假字符串,
+ * 一路吞到下一处同号引号,把中间真调用位(`.test(`/`.match(`)整段遮掉 —— 主语认不出来,
+ * 该单元就掉进"既不在调用位也不在清单声明里"的未判定。本门判的是**调用位**,分词器必须看见
+ * 正则的边界;门体/测试正文的取材仍走 `maskCommentsAndStrings`(L230/L685),那两处的读数
+ * 是别人的基线,不在本票动。两条档共用同一台 `scanSpans` 分词器,不存在两处算同一件事。 */
 function matcherSites(text) {
-  const struct = maskCommentsAndStrings(text)
+  const struct = maskCommentsStringsAndRegex(text)
   const starts = lineStarts(struct)
   const sites = []
   const RE = /\.(match|matchAll|test)\s*\(|\bassert\.(?:match|doesNotMatch|notMatch)\s*\(/g
@@ -390,6 +428,81 @@ function oneHopSource(text, init) {
 }
 
 /**
+ * P2 (d) **helper 自源一跳**:主语初值是形如 `maskCommentsAndStrings(src)` 的 helper 调用时,
+ * 查它的实参 —— 实参标识符的初值(含本文件 helper 一跳)必须真含一次取正文,且那次取正文
+ * **指向门/测试自身源码**(SELF_SOURCE_READ_RE,头注 P2b 的自源钉:命中被审数据面
+ * locale.json 之类不放过)。实参初值查不到、或不自源,照旧不放过。
+ */
+function helperArgSourceRead(text, initRaw) {
+  if (!initRaw) return false
+  if (!/^\s*(?:await\s+)?[A-Za-z0-9_$.]+\s*\(/.test(initRaw)) return false
+  for (const t of callArgTokens(initRaw)) {
+    const ai = initializerOf(text, t)
+    if (ai === null) continue
+    const hop = oneHopSource(text, ai)
+    const readHit = SOURCE_READ_RE.test(ai) || (hop !== ai && SOURCE_READ_RE.test(hop))
+    if (!readHit) continue
+    // 自源钉沿**取正文那次调用的实参**再走一跳:路径常住在变量里
+    // (`url = new URL('../check-stale-revert.mjs', …)` ⇒ `readFileSync(url, 'utf8')` 看不见扩展名),
+    // 实参初值里找得到 check-*.mjs 才算自源;仍不自源照旧不放过。
+    const selfFromArg = callArgTokens(ai).some((at) => {
+      const ti = initializerOf(text, at)
+      if (ti === null) return false
+      const th = oneHopSource(text, ti)
+      return SELF_SOURCE_READ_RE.test(ti) || (th !== ti && SELF_SOURCE_READ_RE.test(th))
+    })
+    if (SELF_SOURCE_READ_RE.test(ai) || (hop !== ai && SELF_SOURCE_READ_RE.test(hop)) || selfFromArg) return true
+  }
+  return false
+}
+
+/**
+ * P2 (c) **变换位**(头注 (c)):测试对门体正文做加工(`content.replace(/…/)`、`/…/.exec(txt)`)再断言
+ * 加工产物 —— 断言对象是"源码写法的加工结果",不是被审对象长什么样 ⇒ 归 P2 管。两条位置:
+ * ①单元躺在 replace|replaceAll|split|slice|splice 的**第 1 实参位**,且接收者初值(含 helper 一跳)真取正文;
+ * ②单元是 `.exec(` 的**接收者**,exec 第 1 实参的初值(含 helper 一跳)真取正文。任一出处查不到不放行。
+ * 调用位扫描在遮噪面(masked)上做,免得字符串/注释/正则体里写出来的 `.replace(` 被当真调用。
+ * 守卫(声明名是不是判据族)由调用方 `unitRole` 按头注口径先行裁决,本函数只管位置与出处。
+ */
+function transformRole(text, masked, unit) {
+  if (!masked) return null
+  const traceRead = (tok) => {
+    if (!tok) return false
+    const ai = initializerOf(text, tok)
+    if (ai === null) return false
+    return SOURCE_READ_RE.test(oneHopSource(text, ai)) || helperArgSourceRead(text, ai)
+  }
+  const after = masked.slice(unit.end, unit.end + 48)
+  // ② exec 接收者:`/re/.exec(txt)` —— 文本在第 1 实参位,沿实参初值(含 helper 一跳)查取正文。
+  if (/^\s*\.\s*exec\s*\(/.test(after)) {
+    const argToks = callArgTokens(masked.slice(unit.end))
+    if (argToks.length > 0 && traceRead(argToks[0])) {
+      return { atPattern: true, shapeLock: true, behaviorText: false, subject: '.exec 的第 1 实参', kind: 'transform' }
+    }
+    return null
+  }
+  // ① 变换调用的第 1 实参位:逐个 `.(replace|…)(` 调用,确认本单元落在它的首个顶层实参跨度内。
+  const CALL = /\.\s*(?:replace|replaceAll|split|slice|splice)\s*\(/g
+  for (let m; (m = CALL.exec(masked)) !== null; ) {
+    if (m.index >= unit.start) break
+    const openIdx = m.index + m[0].length - 1
+    const win = masked.slice(openIdx + 1, openIdx + 1 + 1200)
+    const argEnd = openIdx + 1 + topLevelComma(win)
+    if (!(unit.start > openIdx && unit.end <= argEnd)) continue
+    const recv = (
+      masked.slice(Math.max(0, m.index - 80), m.index).match(/([A-Za-z_$][A-Za-z0-9_$]*(?:\s*\.\s*[A-Za-z_$][A-Za-z0-9_$]*)*)\s*$/) ||
+      ['']
+    )[1] || null
+    const base = recv ? recv.split('.')[0] : null
+    if (base && traceRead(base)) {
+      return { atPattern: true, shapeLock: true, behaviorText: false, subject: base, kind: 'transform' }
+    }
+    return null
+  }
+  return null
+}
+
+/**
  * P4 的出处链:`res.out` 的 `res` 可以是 ① 直接 spawnSync ② 本文件 helper 里的 spawnSync
  * ③ 门导出口(`gate.x()` / import 进来的符号)④ 成员链的宿主变量本身是①/②(`out.split(…)` 那种)。
  * 深度封顶 3 跳;跳不到出处就返回 false —— 放过必须拿得出证据,不是拿"看起来像输出"当证据。
@@ -398,7 +511,7 @@ function oneHopSource(text, init) {
  * `const { __test__ } = mod` → `const { fn } = __test__` → `const out = fn(…)`,
  * 断言的对象离真正的取正文/取模块动作恰好三跳。少一跳就等价于"按书写位置判,不按出处判"。
  */
-function carrierTraced(text, tok, gateNames, depth = 0) {
+function carrierTraced(text, tok, gateNames, libNames = new Set(), depth = 0) {
   const headOf = (s) => String(s).split('.')[0]
   // 只认**静态 import 进来的门体符号**(§22c 的形状);光有一个叫 gate 的变量名不构成证据。
   const fromGate = (t) => gateNames.has(headOf(t))
@@ -406,24 +519,54 @@ function carrierTraced(text, tok, gateNames, depth = 0) {
   if (init === null) {
     const rhs = destructureRhsOf(text, tok) || tok
     if (gateNames.has(headOf(rhs))) return true
-    return depth < CARRIER_MAX_HOPS && rhs !== tok && carrierTraced(text, rhs, gateNames, depth + 1)
+    return depth < CARRIER_MAX_HOPS && rhs !== tok && carrierTraced(text, rhs, gateNames, libNames, depth + 1)
   }
   // 多行箭头函数/函数体的初值只能截到首行 ⇒ 一跳取 helper 体,派生往往在那里面
   const hop = oneHopSource(text, init)
   const hit = (re) => re.test(init) || (hop !== init && re.test(hop))
   if (hit(RUN_TEXT_RE) || hit(MODULE_LOAD_RE) || hit(SOURCE_READ_RE)) return true
   const callee = (init.match(/^\s*(?:await\s+)?([A-Za-z0-9_$.]+)\s*\(/) || [])[1] || null
-  if (!callee) return false
+  if (!callee) {
+    // **纯载体跳板**(头注 P4):`combo = out.stdout + out.stderr` 这类初值只有标识符/成员读与 `+`
+    // 拼接,载体自身不含任何被审内容,出处在它引用的每个标识符上 ⇒ 逐个沿初值一跳查出处。
+    // 混入调用或字符串字面量(取被审内容、判据材料)时语法上就不满足纯载体式(PURE_CARRIER_EXPR_RE),
+    // 反向臂由语法钉死,不靠黑名单;跳板沿用同一跳数封顶,不另开闸。
+    if (PURE_CARRIER_EXPR_RE.test(init)) {
+      const chains = init.match(/[A-Za-z_$][A-Za-z0-9_$]*(?:\s*\.\s*[A-Za-z_$][A-Za-z0-9_$]*)*/g) || []
+      for (const chain of chains) {
+        const id = chain.split('.')[0]
+        if (id === tok || depth >= CARRIER_MAX_HOPS) continue
+        if (carrierTraced(text, id, gateNames, libNames, depth + 1)) return true
+      }
+    }
+    return false
+  }
   if (fromGate(callee)) return true
+  // 出处集两档②(`../lib/*.mjs` 判据层符号,头注 P4):只认"主语初值是该符号的**调用返回值**",
+  // 与门体符号同一支(不进上面的解构支 —— lib 解构右值不从本支放行)。反向臂:该调用的顶层实参
+  // 若指向一次取正文(加工文件正文)⇒ 归 P2 管,不从本支放行,否则"断言被审数据"会被洗成行为断言。
+  // 成员常量输入(`gate.CRASH_MARKERS[0]`)没有调用形,callee 为 null 时走不到这里,天然不放行。
+  if (libNames.has(headOf(callee))) {
+    const argToks = callArgTokens(init)
+    const argFromSourceRead = argToks.some((t) => {
+      if (SOURCE_READ_RE.test(t)) return true
+      const ai = initializerOf(text, t)
+      return ai !== null && SOURCE_READ_RE.test(oneHopSource(text, ai))
+    })
+    if (argFromSourceRead) return false
+    return true
+  }
   const head = headOf(callee)
-  if (depth < CARRIER_MAX_HOPS && head !== tok && carrierTraced(text, head, gateNames, depth + 1)) return true
+  if (depth < CARRIER_MAX_HOPS && head !== tok && carrierTraced(text, head, gateNames, libNames, depth + 1)) return true
   return false
 }
 
 /** `lastLine(head.out, 2)` → 顶层实参里的标识符首段(`['head']`);嵌套括号内的实参也按顶层逗号切。 */
 function callArgTokens(subjStr) {
   const open = subjStr.indexOf('(')
-  if (open < 0 || !/^[A-Za-z0-9_$.]+\s*\(/.test(subjStr)) return []
+  // 前导空白必须放行:`initializerOf` 的捕获组从等号后起,恒带一个前导空格,锚死行首会让
+  // ` maskCommentsAndStrings(src)` 这类实参表永远切不出 token(P2d/helper 反向臂实测全灭的根因)。
+  if (open < 0 || !/^\s*[A-Za-z0-9_$.]+\s*\(/.test(subjStr)) return []
   const inner = subjStr.slice(open + 1)
   const out = []
   let depth = 0
@@ -470,15 +613,16 @@ function initializerOf(text, name) {
 }
 
 /**
- * 从"门路径"import 进来的**本地符号名**。P4 用它判定"这段文本是门自己产出的",
+ * 从门路径 import 进来的**本地符号名**。P4 用它判定"这段文本是门自己产出的",
  * 而不是把整个文件的任意调用都当导出口(那等于给任意被审数据发合格证)。
+ * pathRe 默认认 `../check*.mjs`(门体);出处集两档②换用 `../lib/*.mjs` 见 `libSymbolNames`。
  */
-function gateSymbolNames(text) {
+function gateSymbolNames(text, pathRe = /^\.\.\/check[^/]+\.mjs$/) {
   const out = new Set()
   for (const m of text.matchAll(
     /import\s+(?:\{([^}]*)\}|\*\s+as\s+([A-Za-z0-9_$]+)|([A-Za-z0-9_$]+))?\s*(?:,\s*\{([^}]*)\})?\s*from\s*['"]([^'"]+)['"]/g,
   )) {
-    if (!/^\.\.\/check[^/]+\.mjs$/.test(m[5] || '')) continue
+    if (!pathRe.test(m[5] || '')) continue
     for (const grp of [m[1], m[4]]) {
       if (!grp) continue
       for (const part of grp.split(',')) {
@@ -490,6 +634,15 @@ function gateSymbolNames(text) {
     if (m[3]) out.add(m[3])
   }
   return out
+}
+
+/**
+ * P4 出处集两档②:`../lib/*.mjs` 判据层 import 进来的本地符号名。与门体符号同一台提取器,
+ * 只换路径判据 —— 只有"主语初值是该符号的调用返回值"才走这一支,且顶层实参指向取正文时归 P2
+ * (反向臂,见 `carrierTraced`)。测试侧的相对路径恒是 `../lib/`(镜像测试住在 scripts/tests/)。
+ */
+function libSymbolNames(text) {
+  return gateSymbolNames(text, /^\.\.\/lib\/[^/]+\.mjs$/)
 }
 
 /** 单元在这一文件里的角色:拿去裁别人(pattern 位)/ 钉源码写法(形状锁)/ 断言执行返回的文案(行为锁)/ 只是摆着的料。 */
@@ -510,7 +663,9 @@ function unitRole(unit, sites, text, ctx) {
     const baseTok = toks[0].split('.')[0]
     const initRaw = initializerOf(text, baseTok)
     const initForLock = initRaw === null ? null : oneHopSource(text, initRaw)
-    const tracedBody = initForLock !== null && SOURCE_READ_RE.test(initForLock)
+    // (b) 主语初值直含取正文;(d) helper 自源一跳(初值是纯格式化 helper 调用、实参初值真取自源码)。
+    const tracedBody =
+      (initForLock !== null && SOURCE_READ_RE.test(initForLock)) || helperArgSourceRead(text, initRaw)
     const shapeLock =
       s.kind === 'assert'
         ? // 两条出处任一:P2a 主语名字就是"某文件正文"(旧口径,要求本文件有取正文通路);
@@ -532,13 +687,95 @@ function unitRole(unit, sites, text, ctx) {
       // (`assert.match(lastLine(head.out), /…/)` 那一型):断言对象的**实参**才是文本载体。
       const argToks = callArgTokens(subjStr)
       const traced =
-        carrierTraced(text, baseTok, ctx.gateNames) || argToks.some((t) => carrierTraced(text, t, ctx.gateNames))
+        carrierTraced(text, baseTok, ctx.gateNames, ctx.libNames) ||
+        argToks.some((t) => carrierTraced(text, t, ctx.gateNames, ctx.libNames))
       behaviorText = traced
     }
     return { atPattern: true, shapeLock, behaviorText, subject: subjStr.slice(0, 40), kind: s.kind }
   }
+  /**
+   * (c) 变换位(头注):站在任何站点上的单元先按站点语义判;只有"不在任何调用位"的单元落到兜底前,
+   * 才问一次它是不是躺在加工调用的第 1 实参位 / `.exec(` 接收者位上。守卫只问
+   * `isCriterionName(unit.decl.name)` —— 不查 decl.kind(变换位的 matcher 常是第 1 实参里
+   * 的悬挂声明,kind 本就不是 'list'/'criterion' 的定式);判据族命名照旧不放行。
+   */
+  if (!(unit.decl && isCriterionName(unit.decl.name))) {
+    const tr = transformRole(text, ctx.masked, unit)
+    if (tr) return tr
+  }
   const declared = !!unit.decl && (isCriterionName(unit.decl.name) || unit.decl.kind === 'list')
   return { atPattern: false, shapeLock: false, behaviorText: false, subject: '', declared }
+}
+
+/**
+ * P5② **用法臂**(头注三臂之二):非导出符号的**全部**消费位都是条件语境里的
+ * `.test(|.match(|.matchAll(` 取景合取位 ⇒ 它是"扫哪些文件/怎么切行"的取景材料,不是被审对象的形态;
+ * 任一消费位落在断言/抛错位、或不是这种形(赋值、传参、别的方法)⇒ 一票否决不改角色;消费位为 0
+ * 也否决(空真不改角色)。按**用法**判,不按名字判 —— `TEST_RE` 这种名字被词缀抢判成 criterion 是
+ * 实测,往 SCOPE_NAME_RE 里加 test 词是被头注明令禁止的(那会把未来真正的测试面判据整族翻成 scope)。
+ */
+function usageIsScoping(masked, name) {
+  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const re = new RegExp(`\\b${esc}\\b`, 'g')
+  let used = 0
+  for (const m of masked.matchAll(re)) {
+    const before = masked.slice(Math.max(0, m.index - 240), m.index)
+    if (/(?:const|let|var)\s+$/.test(before)) continue // 声明位不算消费
+    const after = masked.slice(m.index + name.length, m.index + name.length + 64)
+    if (!/^\s*\.\s*(?:test|match|matchAll)\s*\(/.test(after)) return false // 非条件消费位(赋值/传参/别的方法)
+    if (/assert\s*\.\s*[A-Za-z_$]+\s*\([^()]*$/.test(before)) return false // 断言实参位
+    if (/\bthrow\b[^;{}]*$/.test(before)) return false // 抛错位
+    // 「条件语境/取景合取位」(头注):消费位所在语句必须真的在做条件判断或布尔合取;
+    // `const hit = RE.test(x)` 这种赋值位(条件在别处的 if 里)不算 —— 语句窗按最后的 ; { } 切。
+    const stmt = before.slice(Math.max(before.lastIndexOf(';'), before.lastIndexOf('{'), before.lastIndexOf('}')) + 1)
+    if (!/(?:\bif\s*\(|\bfor\s*\(|\bwhile\s*\(|\breturn\b|&&|\|\||=>)/.test(stmt)) return false
+    used++
+  }
+  return used > 0
+}
+
+/** `(` 的配对闭括号下标(找不到返回 -1);P5③ 判"单元是否落在 callee 实参跨度内"用。 */
+function matchCloseParen(t, open) {
+  let depth = 0
+  for (let i = open; i < t.length; i++) {
+    const c = t[i]
+    if (c === '(') depth++
+    else if (c === ')') {
+      depth--
+      if (depth === 0) return i
+    }
+  }
+  return -1
+}
+
+/** 门侧解析/取景 callee 的实参跨度清单(P5③):每门在遮噪面上扫一次,`{ start: 命中处, close: 配对 ')' }`。 */
+function parseCallSpans(masked) {
+  const out = []
+  for (const m of masked.matchAll(/([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/g)) {
+    if (!PARSE_CALLEE_RE.test(m[1])) continue
+    const open = m.index + m[0].length - 1
+    out.push({ start: m.index, close: matchCloseParen(masked, open) })
+  }
+  return out
+}
+
+/**
+ * P5③ **位置臂**(头注三臂之三):匿名单元落在解析/取景 callee(PARSE_CALLEE_RE)的实参跨度内
+ * 且不在任何裁定位 ⇒ 取景材料。按**位置**判不按名字判 —— 起 `*_RE` 名会被清单词缀抢判成
+ * criterion(l1/l2 双真反变命中),而匿名单元更无名可依。裁定位否决:`.test(|.match(|.matchAll(|
+ * .forEach(|.exec(` 紧跟其后(拿去裁了),或处于 `assert.*` 实参 / `throw` 语境。
+ */
+function inParseCalleeArg(masked, spans, u) {
+  const after = masked.slice(u.end, u.end + 48)
+  if (/^\s*\.\s*(?:test|match|matchAll|forEach|exec)\s*\(/.test(after)) return false // 裁定位
+  const before = masked.slice(Math.max(0, u.start - 240), u.start)
+  if (/assert\s*\.\s*[A-Za-z_$]+\s*\([^()]*$/.test(before)) return false // assert 实参位
+  if (/\bthrow\b[^;{}]*$/.test(before)) return false // 抛错位
+  for (const s of spans) {
+    if (s.start >= u.start) break
+    if (s.close > u.end) return true
+  }
+  return false
 }
 
 /** 门侧索引:唯一形 → 出处清单;并按 16 字符窗口分桶以容纳书写差。 */
@@ -561,6 +798,11 @@ function gateIndex(gateContents) {
         .map((x) => (x.match(/([A-Za-z0-9_$]+)\s*:?/) || [])[1])
         .filter(Boolean),
     )
+    // P5②/③ 共用的遮噪面与解析 callee 跨度:每门各算一次(消费位/实参位都必须看不见字符串、注释与正则体)。
+    const maskedGate = maskCommentsStringsAndRegex(text)
+    const parseSpans = parseCallSpans(maskedGate)
+    /** 同门同名的 P5② 用法判定缓存(一个名字可能出现在多个单元的 decl 上)。 */
+    const usageCache = new Map()
     for (const u of extractUnits(text)) {
       const name = u.decl ? u.decl.name : null
       let role = 'inline'
@@ -570,6 +812,17 @@ function gateIndex(gateContents) {
         else role = 'topconst'
       }
       if (name && exported.has(name)) role = 'criterion'
+      // P5② 用法臂:非导出符号、全部消费位都是条件语境的取景合取位 ⇒ 取景材料(按用法判,不按名字判)。
+      if (name && role !== 'scope' && !exported.has(name)) {
+        let scoped = usageCache.get(name)
+        if (scoped === undefined) {
+          scoped = usageIsScoping(maskedGate, name)
+          usageCache.set(name, scoped)
+        }
+        if (scoped) role = 'scope'
+      }
+      // P5③ 位置臂:匿名单元落在解析/取景 callee 实参位且不在裁定位 ⇒ 取景材料(按位置判,不按名字判)。
+      if (!name && inParseCalleeArg(maskedGate, parseSpans, u)) role = 'scope'
       if (name && role !== 'scope') names.add(name)
       if (name && role !== 'scope') {
         if (!namesByGate.has(rel)) namesByGate.set(rel, new Set())
@@ -689,8 +942,8 @@ function audit(contents, { strict = false } = {}) {
     const imports = importMap(text)
     const mirrors = mirrorNameCandidates(testRel).filter((x) => gateContents[x] !== undefined)
     const usesGateExports = /\bgate\s*\.\s*[A-Za-z0-9_$]+|\b__test__\s*\.\s*[A-Za-z0-9_$]+/.test(struct)
-    /** P4 的出处集:从门文件 import 进来的本地符号名(含 `* as` 与默认导入)。 */
-    const ctx = { hasSourceRead, gateNames: gateSymbolNames(text) }
+    /** P4 的出处集:①从门文件 import 的本地符号名(含 `* as` 与默认导入);②`../lib/*.mjs` 判据层符号;masked 是 P2c 变换位找调用位的遮噪面。 */
+    const ctx = { hasSourceRead, gateNames: gateSymbolNames(text), libNames: libSymbolNames(text), masked: maskCommentsStringsAndRegex(text) }
     // 每个声明里到底有几个单元:光"是个 list"不够,`const appJson = { … }` 这种数据块也满足 list 形状,
     // 里面 0~1 条正则就说明它不是形态清单(把数据块判成"自带清单"是假阳,不是抓漏)。
     const listUnitCount = new Map()
@@ -736,6 +989,18 @@ function audit(contents, { strict = false } = {}) {
             } else if (role.behaviorText) {
               state = 'pass'
               why = `P4 行为文案断言:主语 ${role.subject} 的初值来自一次派生/门体导出口调用,断的是门自己打出的那句话(§22c 的"改调生产入口"形态),不是第二份判据`
+            } else if (!l1 && !l2 && !anchor && !sameName) {
+              // 走到这里四条配对关系(l1 import / l2 同名镜像 / anchor 共同路径字面量 / sameName 清单同名)
+              // 全不成立:测试既没 import 这道门、也不是它的同名镜像,两面没点同一个被审文件、清单名也不同 ——
+              // §22c 的"复制"定义(门体 ∧ 它的镜像测试各写一份)在这里**没有主语**,所以它不是"没判"而是
+              // "不构成候选"。本分支必须排在下面两条"未判定"**之前**:那两条问的是"这单元是判据还是数据"
+              // (call 位/清单声明)与"门侧那个单值常量算不算清单",两个问题都以"存在一个可被指控的对子"为前提;
+              // 配对关系为零时前提不成立,先把无主语的账摘出去,才不会把射程外的同形攒进待裁队列
+              // (攒进去等于让合格证被"根本没人该裁的账"拦住)。单列一格而不是塞进未判定,是因为它
+              // **逐条点名且不记为通过**,并且本门也不据此声称"复制藏在 helper 里的那一型已排除"——
+              // 那一型今天两侧都看不见,是登记在案的射程缺口。
+              state = 'nopair'
+              why = 'NP 射程外:同形但两面零配对关系(不 import、不同名、不同锚点)⇒ §22c 的"复制"在这里没有主语,逐条点名而不算已判'
             } else if (!role.atPattern && !declaredList) {
               state = 'undetermined'
               why = `与门体形态同料(${how}),但该单元在本文件既不在调用位也不在清单声明里 —— 认不出是判据还是数据`
@@ -750,15 +1015,9 @@ function audit(contents, { strict = false } = {}) {
             } else if (anchor && f.length >= STRONG_FRAG_LEN) {
               state = 'hit'
               why = `F1 同锚点强料:两面都点名 ${anchor} 且形态同形(${how})`
-            } else if (!l1 && !l2 && !anchor && !sameName) {
-              // 走到这里四条配对关系全不成立:测试既没 import 这道门、也不是它的同名镜像,
-              // 两面没点同一个被审文件、清单名也不同 —— §22c 的"复制"定义(门体 ∧ 它的镜像测试各写一份)
-              // 在这里**没有主语**,所以它不是"没判"而是"不构成候选"。单列一格而不是塞进未判定,是为了让
-              // 合格证只被"真该人裁的账"拦住;它**逐条点名且不记为通过**,并且本门也不据此
-              // 声称"复制藏在 helper 里的那一型已排除"—— 那一型今天两侧都看不见,是登记在案的射程缺口。
-              state = 'nopair'
-              why = 'NP 射程外:同形但两面零配对关系(不 import、不同名、不同锚点)⇒ §22c 的"复制"在这里没有主语,逐条点名而不算已判'
             } else {
+              // 走到这里 l1/l2 必为假(上面已判 hit)、而四配对全零的那一型已被前面的 NP 分支摘走 ⇒
+              // 只剩两种:有共同锚点但形长不足 24(不冒判红),或跨门同名(名字住在别的门)。两条都点名待裁。
               state = 'undetermined'
               why = anchor
                 ? `同锚点(${anchor})但形长 ${f.length} < 强同形阈值 ${STRONG_FRAG_LEN},不冒判红`
@@ -819,8 +1078,18 @@ function audit(contents, { strict = false } = {}) {
         if (!overlapOwn && !nameLinked && !otherHolder) continue
         const reason = exemptReason(rawLines, u.line)
         const crossGateOnly = !overlapOwn && !nameLinked && !!otherHolder
+        // "跨门同名"只有名字撞上、**全仓零同料**时才降 NP。otherHolder 的第二个析取式本身就会用
+        // "材料与某门同形"找持有者,所以这里再问一遍全仓有没有任何一条门体形态与本清单对得上:
+        // 一条都对不上 ⇒ 撞名纯属巧合(实测:check-public-path-probe 的 CALL_RE,被 import 的门既无
+        // 此名也无此料,全仓另有十几道门用 CALL_RE 这个名字)⇒ §22c 的"复制"在这里同样没有主语。
+        // **反向臂**:只要全仓存在任一同料,立刻退回未判定点名待裁 —— 有同料就是真有一份对子要人裁,
+        // 不许用"跨门"两个字把它洗成射程外。
+        const sameFormRepoWide = fragsOfU.some((f) =>
+          candidatesFor(f, index).some((gf) => fragMatch(f, gf)),
+        )
+        const crossGateNoSubject = crossGateOnly && !sameFormRepoWide
         push({
-          state: reason ? 'pass' : crossGateOnly ? 'undetermined' : 'hit',
+          state: reason ? 'pass' : crossGateNoSubject ? 'nopair' : crossGateOnly ? 'undetermined' : 'hit',
           test: testRel,
           testLine: u.line,
           gate: otherHolder || ownGate,
@@ -830,9 +1099,11 @@ function audit(contents, { strict = false } = {}) {
           frag: normalizePattern(u.body).slice(0, 40),
           why: reason
             ? `P3 行内豁免:${reason}`
-            : crossGateOnly
-              ? `同名清单 ${u.decl.name} 住在 ${otherHolder} 而本文件 import 的是 ${ownGate}(该门无此名)⇒ 不能算复制本门判据,但同名者确实存在 ⇒ 未判定点名待裁`
-              : `F2 半复制:import 了门却自带清单 ${u.decl.name} 并用作裁定输入(${nameLinked ? '清单同名' : '材料与门体同形'})`,
+            : crossGateNoSubject
+              ? `NP 射程外:同名清单 ${u.decl.name} 住在 ${otherHolder}、本文件 import 的是 ${ownGate},而**全仓零同料**(没有任何门体形态与它对得上)⇒ 撞名不构成 §22c 的"复制",逐条点名而不算已判`
+              : crossGateOnly
+                ? `同名清单 ${u.decl.name} 住在 ${otherHolder} 而本文件 import 的是 ${ownGate}(该门无此名)⇒ 不能算复制本门判据,但同名者确实存在且全仓另有同料 ⇒ 未判定点名待裁`
+                : `F2 半复制:import 了门却自带清单 ${u.decl.name} 并用作裁定输入(${nameLinked ? '清单同名' : '材料与门体同形'})`,
           excerpt: (rawLines[u.line - 1] || '').trim().slice(0, 96),
         })
       }

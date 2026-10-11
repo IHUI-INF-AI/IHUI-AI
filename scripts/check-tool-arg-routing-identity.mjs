@@ -890,6 +890,9 @@ export const __test__ = {
   inScanRoot,
   analyze,
   readRulerSource,
+  // §22c:清单标记判据(门自己在 analyze 里用的那一份)—— 镜像测试要认"这一面的源里有没有
+  // 那张表",只能引用这里,不得再抄一条 `/ROUTING_IDENTITY_KEYS/`(两处算同一件事必漂移)。
+  hasListMarker,
   HOLDER_KEYS,
   SELF_SKIP,
   SCAN_ROOT,

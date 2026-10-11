@@ -173,9 +173,16 @@ test('T1 装车与摘线方向锁:声称已接线必须真接线;真接线时条
 
 test('T2 唯一实现锁:三态判据住在 lib,归并器与门都不得有第二份(读 HEAD 面)', () => {
   const gate = readFileSync(GATE, 'utf8')
-  const own = gate.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '')
-  assert.ok(!/function classifyMissing\(/.test(own), '门里不得再算一遍"什么算丢了"(两处各写必漂开)')
-  assert.ok(gate.includes('./lib/live-doc-classify.mjs'), '门必须从 lib 取那一份判据')
+  /**
+   * 裁定**由门导出的那一份判据本体**作出(§22c / 守门 191 的 F1 靶子):原先这一格在测试里
+   * 自己 `.replace(/\/\*…/)` 剥了一遍注释、又写了一遍"什么算第二份实现"的形态正则 ——
+   * 那就是同一判据的第二份,两处各写必漂开(漂开的表现是测试照绿而门看不见副本)。
+   * 剥注释现在也只走 `lib/code-mask.mjs` 那一份实现,由门侧函数内部完成。
+   */
+  const v = __test__.soleClassifyImplVerdict(gate)
+  assert.ok(v.readable, '门体正文取不到 ⇒ 这条锁无从证明,不得当成通过')
+  assert.deepEqual(v.secondImpl, [], '门里不得再算一遍"什么算丢了"(两处各写必漂开)')
+  assert.equal(v.importsLib, true, '门必须从 lib 取那一份判据')
   // merge-live-doc 的 HEAD 面在落地之前仍是旧形态 ⇒ 这一半留到门体入库后由 T1 的同面读法复核,
   // 这里只锁"门这一侧没有第二份",不把"别人那份还没搬"当成红的理由(那是本次提交正在做的事)。
 })

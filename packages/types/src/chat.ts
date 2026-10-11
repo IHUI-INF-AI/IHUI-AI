@@ -50,11 +50,15 @@ export interface ToolCall extends TypesBaseToolCall {
   /** 工具调用错误信息(端独占,与 BaseToolCall.isError 互补) */
   error?: string
   /**
-   * D113:工具流中 diff 预览(tool-delta 帧的累积文本,整帧覆盖写入;tool-result 到达即清)。
+   * D113:工具流中 diff 预览(tool-delta 帧的**增量**正文按 seq 收敛追加;tool-result 到达即清)。
+   * 消费端按 `partialSeq` 收敛:`evt.seq>partialSeq` 才把 `evt.partialText` 追加进本字段,否则丢弃
+   * (重传/乱序幂等;缺口照追加),`partialSeq` 随之推进。
    * 与 web ToolCall.partialDiff、RN ToolCallItem.partialDiff、小程序 ToolCallView.partialDiff 同一语义 ——
    * 四端各自另写过一份字段声明就是本仓最典型的"两处算同一件事",故收敛到这份共享契约。
    */
   partialDiff?: string
+  /** D113:已收敛消费的最大 tool-delta `seq`(缺省视为 0);收敛判据是 `evt.seq>partialSeq`。 */
+  partialSeq?: number
   /** image_generation 工具返回的图片 URL(data URI 或 https URL) */
   image_url?: string
 }
