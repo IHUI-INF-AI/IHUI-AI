@@ -140,7 +140,13 @@ function assertFfRaceGuards(src) {
   if (anc >= 0 && okLine >= 0 && anc > okLine)
     fails.push('R3 复核排在成功结论之后 ⇒ 拦不住按旧提交切流')
   // 复核失败那一支必须是 Fail(只 Log = 门对自己立项那一型全盲)。
-  const after = code.slice(anc, anc + 1400)
+  // 窗口按**语义边界**切:复核点 → 只有 ff 真成功才会走到的归零点 Reset-DivergedStreak。
+  // 不得按固定字符数切 —— 2026-10-11 实测:固定 1400 字符会随文件增删漂到 46 行之外的另一处
+  // `Fail "`,于是"把复核那一刀从 Fail 改成 Log"的变异**根本不翻红**,而这条锁一路报绿。
+  // 恒绿的断言比没有断言更糟:它替人做出"这一格已经被看过"的判断。
+  const settle = anc >= 0 ? code.indexOf('Reset-DivergedStreak', anc) : -1
+  if (anc >= 0 && settle < 0) fails.push('R3 复核之后找不到归零点 ⇒ 复核与成功结论的先后判不出')
+  const after = anc >= 0 && settle > anc ? code.slice(anc, settle) : code.slice(anc, anc + 1400)
   if (!/Fail\s+"/.test(after)) fails.push('R3 复核不成立那支没有 Fail,只喊不构成阻止')
   if (fails.length) throw new Error(`ff 竞态锁不成立:\n  - ${fails.join('\n  - ')}`)
 }
@@ -175,10 +181,25 @@ test('R-NOANC 变异:只删复核那一刀必须翻红(不是靠前面几刀连�
 })
 
 test('R-NOFAIL 变异:复核只 Log 不 Fail 必须翻红', () => {
+  // 夹具与判据必须切**同一段**:复核点 → 归零点。旧写法在这里按"锚点后 1400 字符"切窗口,
+  // 而判据也在原文件上按固定字符数取面 —— 两边一起漂,结果是变异改到了窗口里第一个 Fail、
+  // 判据却在看 46 行外另一个 Fail,断言永远不会红(2026-10-11 实测,红的是"没翻红"这句话本身)。
   const i = SRC.search(/merge-base --is-ancestor \$remoteTip HEAD/)
-  assert.ok(i > 0, '夹具定位失败')
-  const win = SRC.slice(i, i + 1400)
-  const patched = SRC.replace(win, win.replace(/Fail\s+"/, 'Log "'))
+  assert.ok(i > 0, '夹具定位失败(原文件里找不到复核点)')
+  const settle = SRC.indexOf('Reset-DivergedStreak', i)
+  assert.ok(settle > i, '夹具:复核之后找不到归零点 ⇒ 切不出"复核那一支"')
+  const win = SRC.slice(i, settle)
+  const n = (win.match(/Fail\s+"/g) || []).length
+  assert.equal(
+    n,
+    1,
+    `复核那一支必须恰好一个 Fail 出口才允许做这一刀,实得 ${n} 个 —— 多于一个时"改第一个"不翻红,` +
+      '这条锁会静默变成常绿(而注释里若出现 `Fail "` 也会被算进来,那属于夹具该收紧,不是判据该放宽)',
+  )
+  // 替换串用**函数形式**:`String.replace` 会把替换文本里的 `$&` / `$'` / `` $` `` 当特殊序列解释,
+  // 而这段 PowerShell 里全是 `$var` —— 今天恰好没有踩到,但那是运气,不是设计。
+  const patched = SRC.replace(win, () => win.replace(/Fail\s+"/, 'Log "'))
+  assert.notEqual(patched, SRC, '夹具没生效(原档里找不到那段窗口)')
   assert.throws(
     () => assertFfRaceGuards(patched),
     /R3/,
