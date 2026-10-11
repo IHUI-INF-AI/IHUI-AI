@@ -95,8 +95,14 @@ vi.mock('../src/db/usercenter-queries.js', () => ({
 
 vi.mock('@ihui/auth', () => ({
   // 'expired' 这根哨兵字符串模拟 access token 过期 —— 真实路径就是 verify 抛错 → 401。
+  // 形状须与真实 jose 一致:jwtVerify 过期抛 JWTExpired,code='ERR_JWT_EXPIRED'
+  // (plugins/auth.ts 的三分辨靠它把"会话失效"与"依赖故障 502"分开,见票 G-396/G-765/G-357)。
   verifyAccessToken: vi.fn(async (token: string) => {
-    if (token === 'expired') throw new Error('jwt expired')
+    if (token === 'expired') {
+      const err = new Error('jwt expired') as Error & { code: string }
+      err.code = 'ERR_JWT_EXPIRED'
+      throw err
+    }
     return { userId: USER_ID, phone: '13800000000', familyId: 'f-1', roleId: 0 }
   }),
   verifyRefreshToken: vi.fn(),

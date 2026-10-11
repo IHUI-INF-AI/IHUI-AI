@@ -40,6 +40,9 @@ def test_wait_for_cdp_ready_must_disable_trust_env():
 def test_find_browser_executable_returns_first_existing_candidate(tmp_path):
     fake = tmp_path / "chrome.exe"
     fake.write_bytes(b"MZ")
+    # 实现判据是 isfile ∧ os.access(X_OK);POSIX 上 X_OK 需要真实执行位
+    # (Windows 恒真)。补 chmod 让"命中第一个存在的候选"这条判据两侧同形。
+    fake.chmod(0o755)
     with patch.object(m, "_BROWSER_CANDIDATES", [("chrome", [str(fake)])]):
         path, name = m._find_browser_executable()
     assert name == "chrome"
@@ -55,6 +58,7 @@ def test_find_browser_executable_skips_empty_and_env_override(tmp_path):
     """IHUI_CHROME_PATH='' 候选必须被跳过,不能当成真实路径判 isfile。"""
     fake = tmp_path / "edge.exe"
     fake.write_bytes(b"MZ")
+    fake.chmod(0o755)  # POSIX 上 X_OK 需要真实执行位(同上一条的两侧同形处理)
     cands = [("chrome", [""]), ("edge", [str(fake)])]
     with patch.object(m, "_BROWSER_CANDIDATES", cands):
         path, name = m._find_browser_executable()

@@ -264,6 +264,15 @@ def test_detect_login_from_profile_hit(tmp_path: Path, monkeypatch: pytest.Monke
     # 既违反 §5 测试隔离,又让结论随机器状态漂移(本机实测 WinError 216 ⇒ detected=False)。
     monkeypatch.setattr(browser_hub.hub, "read_profile_cookies_with_domains", _fake_read)
     monkeypatch.setattr(scan_login, "_save_account_to_db", _fake_save)
+    # 2026-10-11 修(CI run 38084051334):detect_login_from_profile 在入库前还会查
+    # `_existing_account_row`(scan_login.py:2983 → get_db_conn → 真实 asyncpg 池),
+    # CI 无 DATABASE_URL ⇒ RuntimeError 红。本条判据是"profile 命中 → 关键 cookie
+    # 校验 → 入库并 detected",存量账号查询不在判据面上 —— 与 _save_account_to_db
+    # 同一档桩掉,测试保持零 DB 依赖。
+    async def _fake_existing_row(_user_id: str, _platform: str):
+        return None
+
+    monkeypatch.setattr(scan_login, "_existing_account_row", _fake_existing_row)
 
     result = asyncio.run(scan_login.detect_login_from_profile("bilibili", "u1"))
     assert result["detected"] is True
