@@ -44,11 +44,12 @@
  *      (b) 是这一格补的:名字清单必然腐烂,HEAD 面多处形状锁的变量叫 `own`/`txt`/`ps`/`preset`。
  *      两条出处都不成立 ⇒ 不放过,落判定链后段,不冒判红也不静默放过。
  *      这一格是本票最难的地方,判据是词法而不是语义,所以它的保证只到"不误冒红"。
- *   P4 行为文案断言:`assert.match(res.out, /门自己打出的那句话/)` —— 测试跑生产入口(派生进程或
- *      门导出口)再断言它返回的**文本**,这正是 §22c 要求的"改调生产入口",不是第二份判据 ⇒ 放过。
- *      两条出处条件才认:主语属性链含文本载体(out/err/stdout/stderr/output/errors/message/lines/text),
- *      且该变量的**初值**确实来自一次派生(spawnSync、execFileSync、fork、run-evidence)或来自调用门体 import
- *      进来的符号。只看属性名不查实出处,等于给任意叫 `x.out` 的被审数据发合格证。
+ *   P4 行为文案断言:`assert.match(res.out, /门自己打出的那句话/)` 与 `assert.match(lastLine(head.out), /…/)` ——
+ *      测试跑生产入口(派生进程或门导出口)再断言它返回的**文本**,这正是 §22c 要求的"改调生产入口"形态,
+ *      不是第二份判据 ⇒ 放过。判据是**数据流而不是主语叫什么**:主语本身、或它作为纯格式化 helper 的实参,
+ *      其初值(含本文件 helper 一跳、成员链宿主一跳,封顶 2 跳)必须真含一次派生(spawnSync、execFileSync、
+ *      fork、run-evidence)或确实是 import 进门体的符号调用。查不到出处就照旧命中 —— 属性名叫 `.out` 本身
+ *      不构成证据,而"名字不像载体"也不再是拒绝理由(证据在链上,不在拼写上)。
  *   P3 行内出口:`judge-replica-exempt: <原因>`(原因必填,**只救本行**,不救整文件也不救同名族)。
  *
  * 定级:**默认档(全量)= 只报数并逐条点名**,退出码不参与红绿。§12e 写得明白:一条"存量必然非零"
@@ -116,13 +117,11 @@ const LOCK_SUBJECT_RE = /^(?:[A-Za-z0-9_$]*(?:Src|Source|SourceText|FileText|Bod
 const SOURCE_READ_RE =
   /read\w*File\w*\s*\(|catBatch\w*\s*\(|\bgit\s+show\b|\[\s*'show'\s*|from\s*'node:fs|from\s*"node:fs|gitRaw\s*\(\s*\[[^\]]{0,60}'show'/
 /**
- * P4 的主语形状:断言对象是**某次执行/导出口返回的文本**(`.out`/`.err`/`.stdout`/`.stderr`/
- * `.output`/`.errors`/`.message`/`.lines`/`.text`),而不是被审数据的结构字段。
+ * P4 的两种"文本出处":派生进程取文本 / 调用门体导出口拿返回值。缺出处就不放过 ——
+ * 这一条与 P2 要求"确实读了正文"是同一条纪律:证据必须在数据流上,不在变量的拼写上。
  * 立由:§22c 的第三条正解就是"测试改调生产入口" —— 跑 CLI 或导出口再断言它打出的那句话,
  * 是行为断言,不是第二份判据;而 F1/F2 抓的是"测试自己声明一张清单拿去裁数据"。
  */
-const TEXT_CARRIER_RE = /(?:^|\.)(?:out|err|stdout|stderr|outputs?|errors|messages?|lines|text)\b/
-/** 文本载体的两种"出处":派生进程取文本 / 调用门体导出口拿返回值。缺出处就不放过(P2 同一条纪律)。 */
 const RUN_TEXT_RE = /spawnSync|execSync|execFileSync|\bspawn\s*\(|\bexecFile\s*\(|\bfork\s*\(|runEvidence|run-evidence/
 const GATE_RECEIVER_RE = /\b(?:gate|__test__|mod|ns)\b/
 /** 行内出口:`judge-replica-exempt: <原因>`,原因必填,只救本行。 */
@@ -397,6 +396,34 @@ function carrierTraced(text, tok, gateNames, depth = 0) {
   return false
 }
 
+/** `lastLine(head.out, 2)` → 顶层实参里的标识符首段(`['head']`);嵌套括号内的实参也按顶层逗号切。 */
+function callArgTokens(subjStr) {
+  const open = subjStr.indexOf('(')
+  if (open < 0 || !/^[A-Za-z0-9_$.]+\s*\(/.test(subjStr)) return []
+  const inner = subjStr.slice(open + 1)
+  const out = []
+  let depth = 0
+  let cur = ''
+  for (const ch of inner) {
+    if (ch === '(' || ch === '[' || ch === '{') depth++
+    else if (ch === ')' || ch === ']' || ch === '}') {
+      if (depth === 0) {
+        out.push(cur)
+        break
+      }
+      depth--
+    } else if (ch === ',' && depth === 0) {
+      out.push(cur)
+      cur = ''
+      continue
+    }
+    cur += ch
+  }
+  return out
+    .map((a) => (a.match(/[A-Za-z0-9_$]+/) || [''])[0])
+    .filter((t) => t && !/^\d/.test(t))
+}
+
 /** 取 `const <name> = <初值>` 的初值文本(找不到返回 null);只截到首个行尾分号/换行前的 400 字符。 */
 function initializerOf(text, name) {
   if (!name) return null
@@ -458,13 +485,17 @@ function unitRole(unit, sites, text, ctx) {
           // 源码形状锁被算成命中。放宽的是"调用写法",不是"出处证据"。
           tracedBody
     /**
-     * P4:主语是"某次派生/导出口调用返回的文本",且该变量的**初值真的来自那种调用** ——
-     * 只按属性名放过会让任何叫 `res.out` 的被审数据escape,所以出处必须查实(与 P2 要求
-     * "确实读了正文"是同一条纪律)。
+     * P4:这次断言吃的文本,沿数据流能查到确是"某次派生/门导出口"产出的 —— 证据在链上,
+     * 不在主语拼写上(旧口径要求属性名像 `.out`/`.err`,于是 `costLine`、`lastLine(head.out)`
+     * 这类同一条事实的写法整族看不见;反过来,光有个 `.out` 名字而查不到派生也不放过)。
      */
     let behaviorText = false
-    if (s.kind === 'assert' && TEXT_CARRIER_RE.test(subjStr)) {
-      behaviorText = carrierTraced(text, baseTok, ctx.gateNames)
+    if (s.kind === 'assert') {
+      // 主语自己查不到出处时,再看它是不是"把派生结果喂给一个纯格式化 helper"
+      // (`assert.match(lastLine(head.out), /…/)` 那一型):断言对象的**实参**才是文本载体。
+      const argToks = callArgTokens(subjStr)
+      behaviorText =
+        carrierTraced(text, baseTok, ctx.gateNames) || argToks.some((t) => carrierTraced(text, t, ctx.gateNames))
     }
     return { atPattern: true, shapeLock, behaviorText, subject: subjStr.slice(0, 40), kind: s.kind }
   }
@@ -986,6 +1017,20 @@ function selfTest() {
     })
     return r.counts.hits >= 1 && !r.items.some((i) => i.why.startsWith('P4'))
   })())
+  t('P4 放过:主语名字不像载体,但初值确实是派生调用产出的行', (() => {
+    const r = a({
+      [GATE]: gateBody,
+      [TEST]: `import assert from 'node:assert/strict'\nimport { spawnSync } from 'node:child_process'\nconst res = spawnSync('node', ['x'], { encoding: 'utf8' })\nconst costLine = res.stdout.split('\\n').find((l) => l.includes('[成本读数]'))\nassert.match(costLine, /${GFORM}/)\n`,
+    })
+    return r.counts.hits === 0 && r.items.some((i) => i.state === 'pass' && i.why.startsWith('P4'))
+  })())
+  t('P4 放过:派生结果喂给纯格式化 helper 的实参位', (() => {
+    const r = a({
+      [GATE]: gateBody,
+      [TEST]: `import assert from 'node:assert/strict'\nimport { spawnSync } from 'node:child_process'\nconst lastLine = (s) => s.trim().split('\\n').pop()\nconst head = spawnSync('node', ['x'], { encoding: 'utf8' })\nassert.match(lastLine(head.stdout), /${GFORM}/)\n`,
+    })
+    return r.counts.hits === 0 && r.items.some((i) => i.state === 'pass' && i.why.startsWith('P4'))
+  })())
   t('P2b 不查实初值就不放过(同名但初值是字面串 ⇒ 仍命中)', (() => {
     const r = a({
       [GATE]: gateBody,
@@ -1028,6 +1073,9 @@ export const __test__ = {
   matcherSites,
   unitRole,
   initializerOf,
+  oneHopSource,
+  callArgTokens,
+  carrierTraced,
   gateSymbolNames,
   splitAlternatives,
   normalizePattern,
