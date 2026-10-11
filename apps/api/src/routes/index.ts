@@ -1286,7 +1286,7 @@ export function registerRoutes(server: FastifyInstance) {
   // Anthropic Messages 原生格式端点(POST /v1/anthropic/messages,内部转 OpenAI 格式走 relay 链路)
   // 注:用 /v1/anthropic 前缀而非 /v1,因 v1-knowledge-tools.ts:2380 已注册 POST /v1/messages(发布消息),
   // 同 method+path 会触发 FST_ERR_DUPLICATED_ROUTE 崩溃。Anthropic SDK 用户设
-  // ANTHROPIC_BASE_URL=https://api.x5m5x.com/v1/anthropic 即可走 /v1/anthropic/messages。
+  // ANTHROPIC_BASE_URL=https://new.x5m5x.com/v1/anthropic 即可走 /v1/anthropic/messages。
   server.register(v1MessagesRoutes, { prefix: '/v1/anthropic' })
 
   // ===== P0 第二批次对外端点(2026-07-31 立,8 subagent 并行)=====

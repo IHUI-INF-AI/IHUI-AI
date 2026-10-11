@@ -764,7 +764,7 @@ export const lsp_goto_definition: Tool = {
       return { success: false, output: '', error: '参数错误:需要 file(字符串)、line(数字)、column(数字)' };
     }
 
-    const preResult = runPreToolCall('lsp_goto_definition', { file, line, column });
+    const preResult = await runPreToolCall('lsp_goto_definition', { file, line, column });
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const fileCheck = resolveAndCheckFile(file, ctx.workspacePath);
@@ -787,7 +787,7 @@ export const lsp_goto_definition: Tool = {
       return lspUnavailableResult(toLspError(err));
     }
 
-    runPostToolCall('lsp_goto_definition', { file, line, column, hits: locations.length });
+    await runPostToolCall('lsp_goto_definition', { file, line, column, hits: locations.length });
 
     if (locations.length === 0) {
       return { success: true, output: `LSP 未找到定义(file=${file} line=${line} col=${column})` };
@@ -821,7 +821,7 @@ export const lsp_find_references: Tool = {
       return { success: false, output: '', error: '参数错误:需要 file(字符串)、line(数字)、column(数字)' };
     }
 
-    const preResult = runPreToolCall('lsp_find_references', { file, line, column, includeDeclaration });
+    const preResult = await runPreToolCall('lsp_find_references', { file, line, column, includeDeclaration });
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const fileCheck = resolveAndCheckFile(file, ctx.workspacePath);
@@ -844,7 +844,7 @@ export const lsp_find_references: Tool = {
       return lspUnavailableResult(toLspError(err));
     }
 
-    runPostToolCall('lsp_find_references', { file, line, column, hits: locations.length });
+    await runPostToolCall('lsp_find_references', { file, line, column, hits: locations.length });
 
     if (locations.length === 0) {
       return { success: true, output: `LSP 未找到引用(file=${file} line=${line} col=${column})` };
@@ -872,7 +872,7 @@ export const lsp_diagnostics: Tool = {
       return { success: false, output: '', error: '参数错误:需要 file(字符串)' };
     }
 
-    const preResult = runPreToolCall('lsp_diagnostics', { file });
+    const preResult = await runPreToolCall('lsp_diagnostics', { file });
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const fileCheck = resolveAndCheckFile(file, ctx.workspacePath);
@@ -895,7 +895,7 @@ export const lsp_diagnostics: Tool = {
       return lspUnavailableResult(toLspError(err));
     }
 
-    runPostToolCall('lsp_diagnostics', { file, count: diagnostics.length });
+    await runPostToolCall('lsp_diagnostics', { file, count: diagnostics.length });
 
     if (diagnostics.length === 0) {
       return { success: true, output: `无诊断问题(file=${file})` };
@@ -929,7 +929,7 @@ export const lsp_hover: Tool = {
       return { success: false, output: '', error: '参数错误:需要 file(字符串)、line(数字)、column(数字)' };
     }
 
-    const preResult = runPreToolCall('lsp_hover', { file, line, column });
+    const preResult = await runPreToolCall('lsp_hover', { file, line, column });
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const fileCheck = resolveAndCheckFile(file, ctx.workspacePath);
@@ -952,7 +952,7 @@ export const lsp_hover: Tool = {
       return lspUnavailableResult(toLspError(err));
     }
 
-    runPostToolCall('lsp_hover', { file, line, column });
+    await runPostToolCall('lsp_hover', { file, line, column });
 
     return {
       success: true,
@@ -991,7 +991,7 @@ export const lsp_server_status: Tool = {
   async execute(args, ctx): Promise<ToolResult> {
     const language = typeof args.language === 'string' ? args.language : undefined;
     const file = typeof args.file === 'string' ? args.file : undefined;
-    const preResult = runPreToolCall('lsp_server_status', { language, file });
+    const preResult = await runPreToolCall('lsp_server_status', { language, file });
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     let wanted: string[] | null = null;
@@ -1040,7 +1040,7 @@ export const lsp_server_status: Tool = {
         );
       }
     }
-    runPostToolCall('lsp_server_status', { language, file, probed: rows.length, ready: ready.length });
+    await runPostToolCall('lsp_server_status', { language, file, probed: rows.length, ready: ready.length });
 
     return {
       success: true,

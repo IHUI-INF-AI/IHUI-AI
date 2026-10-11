@@ -259,7 +259,7 @@
   color: var(--color-muted-foreground);
 }
 
-/* D113:工具流中 diff 预览(tool-delta 累积文本,仅 running 态渲染)。
+/* D113:工具流中 diff 预览(tool-delta 增量帧按 seq 收敛后的累计文本,仅 running 态渲染)。
    档位与 App 端逐档对齐(RN 现读:monoText fontSize 11 / lineHeight 16、cardBody
    paddingHorizontal 6dp / paddingBottom 5dp / gap 3dp;1 逻辑 px = 2rpx  ⇒
    22rpx / 32rpx / 12rpx / 10rpx / 6rpx),**不在本端自创第二档**。

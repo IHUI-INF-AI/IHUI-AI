@@ -248,13 +248,14 @@ export function cmdGlob(workspacePath: string, pattern: string): void {
   console.info('')
 }
 
-export function cmdBash(workspacePath: string, command: string, checkpoints?: CheckpointManager): void {
+// G-424 ②:钩子执行面异步化 ⇒ 本命令整体转 async(pre/postToolCall 都要 await)。
+export async function cmdBash(workspacePath: string, command: string, checkpoints?: CheckpointManager): Promise<void> {
   if (!command) {
     console.info(chalk.yellow('用法: /bash <command>'))
     return
   }
 
-  const preResult = runPreToolCall('bash', { command, cwd: workspacePath })
+  const preResult = await runPreToolCall('bash', { command, cwd: workspacePath })
   if (!preResult.proceed) {
     console.info(chalk.yellow(`⛔ ${preResult.reason}`))
     return
@@ -291,7 +292,7 @@ export function cmdBash(workspacePath: string, command: string, checkpoints?: Ch
     console.info(chalk.yellow(`  💡 可用 /rollback ${autoCheckpointId} 回滚到此检查点`))
   }
 
-  const postResult = runPostToolCall('bash', { exitCode: result.exitCode, timedOut: result.timedOut })
+  const postResult = await runPostToolCall('bash', { exitCode: result.exitCode, timedOut: result.timedOut })
   if (!postResult.proceed) {
     console.info(chalk.yellow(`⚠ ${postResult.reason}`))
   }

@@ -12,8 +12,8 @@
  * 三端都是"纯函数 + 薄接线",不得一端有测试另一端只有散文。
  *
  * 三条跨端一致口径(不是本地偏好,是与 web/RN/小程序同值):
- *  1. `partialText` 是**累积文本**,按 `toolCallId` 整帧覆盖 —— `seq` 不参与判断,
- *     所以同帧重放与乱序天然幂等(web `createToolDeltaHandler` 同口径)。
+ *  1. `partialText` 是**增量正文**,按 `toolCallId` 以 `seq` 收敛**追加** —— `evt.seq<=已存 partialSeq`
+ *     即丢弃(重传/乱序幂等,缺口照追加);web `createToolDeltaHandler` 同口径。
  *  2. 空 `toolCallId` 整帧丢弃;列表里没有该 id(start 帧未到)**不凭空造条目**。
  *  3. 重复 start 帧**按 id 原位替换且保留已有预览**(本端此前是 `...list, 新条目`,
  *     重放一次就多一行并把预览抹空;RN `chat-render-model.ts:139` /
@@ -24,13 +24,17 @@
  */
 import type { ToolCall } from '@ihui/types/chat'
 
-export type ToolDeltaFrame = { toolCallId: string; partialText: string }
+export type ToolDeltaFrame = { toolCallId: string; seq: number; partialText: string }
 
-/** 按 toolCallId 整帧覆盖写入流中预览(见文件头第 1、2 条口径)。 */
+/** 按 toolCallId 以 seq 收敛**追加**流中预览(见文件头第 1、2 条口径)。 */
 export function applyToolDelta(calls: readonly ToolCall[], evt: ToolDeltaFrame): ToolCall[] {
   if (!evt.toolCallId) return [...calls]
   if (!calls.some((c) => c.id === evt.toolCallId)) return [...calls]
-  return calls.map((c) => (c.id === evt.toolCallId ? { ...c, partialDiff: evt.partialText } : c))
+  return calls.map((c) =>
+    c.id === evt.toolCallId && evt.seq > (c.partialSeq ?? 0)
+      ? { ...c, partialDiff: (c.partialDiff ?? '') + evt.partialText, partialSeq: evt.seq }
+      : c,
+  )
 }
 
 /**
@@ -60,6 +64,7 @@ export function applyToolCallStart(
       serverId: evt.serverId,
       serverName: evt.serverName,
       partialDiff: prev?.partialDiff,
+      partialSeq: prev?.partialSeq,
     },
   ]
 }

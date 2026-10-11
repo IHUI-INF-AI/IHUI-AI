@@ -8,6 +8,7 @@ import * as React from 'react'
 import { X } from 'lucide-react'
 
 import { Input } from '../input'
+import { isTopOverlay, popOverlay, pushOverlay } from '../../lib/overlay-stack'
 import { cn } from '../../lib/utils'
 import {
   loadLoginHistory,
@@ -74,6 +75,8 @@ export function AccountHistoryInput({
   const [loginHistory, setLoginHistory] = React.useState<string[]>(() => loadLoginHistory())
   const [activeHistoryIndex, setActiveHistoryIndex] = React.useState(-1)
   const innerRef = React.useRef<HTMLInputElement | null>(null)
+  // Esc 层栈(2026-09-26 立):历史下拉 open 期间注册为浮层,Esc 只在栈顶时消费。
+  const escStackId = React.useId()
 
   // 表单激活时重新读取历史(切 tab 回来时刷新)
   React.useEffect(() => {
@@ -97,6 +100,16 @@ export function AccountHistoryInput({
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [showHistory])
+
+  // Esc 层栈(2026-09-26 立):下拉 open 时 pushOverlay,close/unmount 时 popOverlay
+  // (useEffect cleanup 负责注销),与 Dialog/Select 等共用同一份模块级栈。
+  React.useEffect(() => {
+    if (!showHistory) return
+    pushOverlay(escStackId)
+    return () => {
+      popOverlay(escStackId)
+    }
+  }, [showHistory, escStackId])
 
   const selectAccount = (account: string) => {
     onChange(account)
@@ -155,6 +168,8 @@ export function AccountHistoryInput({
             const selected = loginHistory[activeHistoryIndex]
             if (selected) selectAccount(selected)
           } else if (e.key === 'Escape') {
+            // 层栈守卫:非栈顶(上面还压着别的浮层)时不消费 Esc
+            if (!isTopOverlay(escStackId)) return
             setShowHistory(false)
             setActiveHistoryIndex(-1)
           }

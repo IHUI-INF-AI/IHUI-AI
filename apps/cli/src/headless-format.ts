@@ -25,7 +25,7 @@ export type HeadlessEvent =
   /**
    * D113(2026-09-27)流中 diff 预览帧 —— 载荷字段沿用 `@ihui/api-client` 的
    * `ToolDeltaEvent`(toolCallId / seq / partialText / truncated?),`partialText` 是
-   * **累积**文本(整帧替换渲染,同 seq 重放幂等)。`name` 是本端补的关联线索:
+   * **增量**正文(仅本批新增行;消费端按 seq 收敛追加,seq 参与乱序/重传幂等)。`name` 是本端补的关联线索:
    * headless 的 `tool_call`/`tool_result` 都没有 toolCallId,机器消费方只有靠工具名
    * 才能把这一串预览帧归到那一次调用上(派生算法与预算不在这里,见
    * `src/tools/file-edit-preview.ts` 唯一出口;本面**不得**自拼 JSON.stringify(args))。

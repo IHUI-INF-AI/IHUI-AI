@@ -210,7 +210,7 @@ export const ACP_TOOL_DELTA_PREVIEW_MARKER = '[D113 流中预览 · 非终态结
 
 /** 一帧要落到 ACP 卡上的预览(已按卡 id 重划、已读"当前累积值") */
 export interface AcpToolDeltaPreviewPlan {
-  /** 累积预览文本(整帧替换语义,末帧即全量) */
+  /** 按 seq 收敛追加后的累计预览文本(本帧即当前全量) */
   text: string;
   /** 帧序(来自 ToolDeltaEvent,原样带上以便追溯) */
   seq: number;
@@ -236,7 +236,7 @@ export function planAcpPreviewUpdate(input: {
 }): AcpToolDeltaPreviewPlan | null {
   const { store, events, acpToolCallId, open } = input;
   if (!acpToolCallId || events.length === 0) return null;
-  // 重划到卡 id:同一批的累积帧整帧覆盖(同 seq 重放天然幂等)
+  // 重划到卡 id:同一批增量帧按 seq 收敛追加(重传/乱序按 seq 幂等丢弃)
   for (const event of events) {
     store.apply({ ...event, toolCallId: acpToolCallId });
   }

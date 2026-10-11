@@ -333,7 +333,11 @@ def _file_edit_preview_text(tool_name: str, args: dict[str, Any]) -> str | None:
 
 
 def _file_edit_preview_frames(text: str) -> list[tuple[str, bool]]:
-    """把预览文本切成 (partialText, truncated) 帧序列(累积式)。"""
+    """把预览文本切成 (partialText, truncated) 帧序列(增量式:每帧只含本批新增行)。
+
+    非末批次帧尾部补一个 "\n"(即"还有下一批"的诚实形态),末批次帧不补;
+    按 seq 拼接全帧 == "\\n".join(kept);单帧场景正文一次到齐、逐字等于 kept 全量。
+    """
     lines = text.splitlines()
     truncated = len(lines) > _PREVIEW_MAX_LINES or len(text) > _PREVIEW_MAX_CHARS
     kept: list[str] = []
@@ -347,7 +351,10 @@ def _file_edit_preview_frames(text: str) -> list[tuple[str, bool]]:
     frames: list[tuple[str, bool]] = []
     for i in range(0, len(kept), _PREVIEW_LINES_PER_FRAME):
         is_last_batch = i + _PREVIEW_LINES_PER_FRAME >= len(kept)
-        frames.append(("\n".join(kept[: i + _PREVIEW_LINES_PER_FRAME]), truncated and is_last_batch))
+        part = "\n".join(kept[i : i + _PREVIEW_LINES_PER_FRAME])
+        if not is_last_batch:
+            part += "\n"
+        frames.append((part, truncated and is_last_batch))
     return frames[:_PREVIEW_MAX_FRAMES]
 _APPROVAL_TIMEOUT = 120  # 秒:人工决策窗口(人在环延迟高于机器回传,比委托 60s 宽)
 _APPROVAL_KEEPALIVE_INTERVAL = 15  # 秒:等待期间发 SSE 注释行,防前端 30s 读超时掐流
@@ -3506,7 +3513,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 # G-815971:网关内部重试(httpStatus=429)与额度等效降级
                                 # (reason=quota*)都是"限额命中且循环继续"的信号 ——
                                 # 本轮续期通道一并闩死,防额度在续期轮里继续被烧。
-                                if _evt_type == "retry_scheduled" and evt.get("httpStatus") == 429 or _evt_type == "fallback" and str(
+                                if _evt_type == "retry_scheduled" and evt.get("httpStatus") == 429:
+                                    _budget_exhausted_this_turn = True
+                                elif _evt_type == "fallback" and str(
                                     evt.get("reason") or ""
                                 ).startswith("quota"):
                                     _budget_exhausted_this_turn = True
@@ -3672,7 +3681,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 # G-815971:网关内部重试(httpStatus=429)与额度等效降级
                                 # (reason=quota*)都是"限额命中且循环继续"的信号 ——
                                 # 本轮续期通道一并闩死,防额度在续期轮里继续被烧。
-                                if _evt_type == "retry_scheduled" and evt.get("httpStatus") == 429 or _evt_type == "fallback" and str(
+                                if _evt_type == "retry_scheduled" and evt.get("httpStatus") == 429:
+                                    _budget_exhausted_this_turn = True
+                                elif _evt_type == "fallback" and str(
                                     evt.get("reason") or ""
                                 ).startswith("quota"):
                                     _budget_exhausted_this_turn = True
@@ -3991,6 +4002,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             # D113(2026-09-27,G-227):文件写类工具流中 diff 预览帧(执行前纯参数推导)。
                             # 让用户在审批弹窗与执行期间就看到改动走向;不触碰磁盘、不影响执行
                             # 语义,tool-result 到达即被前端清除(最终 diff 以 tool-result 为准)。
+                            # 载荷为增量:seq 从 1 递增,每帧只含本批新增行(消费端按 seq 收敛追加)。
                             if tool_name in _FILE_EDIT_PREVIEW_TOOLS:
                                 _preview_text = _file_edit_preview_text(tool_name, args)
                                 if _preview_text:

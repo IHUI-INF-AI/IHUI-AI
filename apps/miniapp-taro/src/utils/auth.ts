@@ -15,6 +15,7 @@ import {
 } from '@tarojs/taro'
 import {
   fetchApi,
+  TransientRefreshError,
   type LoginResult as SharedLoginResult,
   type AuthUser,
   type UnauthorizedContext,
@@ -28,6 +29,7 @@ import { createInMemoryTokenStore } from '@ihui/shared/auth'
 import type { TokenStoreWithUserInfo } from '@ihui/shared/auth'
 import {
   canSilentlyReLogin,
+  classifyRefreshFailureStatus,
   SESSION_LOGGED_OUT_STORAGE_KEY,
 } from '@ihui/shared/auth/auto-login-policy'
 
@@ -250,7 +252,10 @@ const LOGIN_PAGE = 'pages/login/login'
  * 主题必须同步另一端"在认证链上的同一个洞。
  *
  * 走 fetchApi 自身:`/auth/refresh` 属认证端点,401 拦截器对它豁免,不会递归续期。
- * 成功 → 轮转写回 token(+ refreshToken);失败 → 返回 null,由 api-client 的失败冷却兜底。
+ * 成功 → 轮转写回 token(+ refreshToken);失败分型(2026-10-09,判据唯一出口 =
+ * classifyRefreshFailureStatus):rejected(401/403)→ 返回 null,由 api-client 的失败冷却兜底;
+ * transient(网络/超时/5xx/无 status)→ 抛 TransientRefreshError,refreshAccessTokenOnce
+ * catch 住进冷却并置 wasLastRefreshTransient,不会外溢,也不会把会话判死。
  */
 export async function refreshAccessToken(): Promise<string | null> {
   // 会话已被用户结束 ⇒ 不再静默续期(与 RN lib/token.ts、web lib/api.ts 同一判据同一条闸)。
@@ -264,11 +269,16 @@ export async function refreshAccessToken(): Promise<string | null> {
       body: JSON.stringify(storedRefresh ? { refreshToken: storedRefresh } : {}),
     },
   )
-  if (res.success && res.data?.accessToken) {
+  if (!res.success) {
+    if (classifyRefreshFailureStatus(res.status) === 'transient') throw new TransientRefreshError()
+    return null
+  }
+  if (res.data?.accessToken) {
     setToken(res.data.accessToken)
     if (res.data.refreshToken) setRefreshToken(res.data.refreshToken)
     return res.data.accessToken
   }
+  // success 但缺 accessToken:契约异常,保守按失败处理(不抛,不写凭据)
   return null
 }
 
