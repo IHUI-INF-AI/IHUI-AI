@@ -60,7 +60,8 @@ function serializeErrorNode(err: Error, depth: number, seen: Set<Error>): Serial
     return out
   }
   try {
-    out.cause = cause instanceof Error ? serializeErrorNode(cause, depth + 1, seen) : fromNonThrown(cause)
+    out.cause =
+      cause instanceof Error ? serializeErrorNode(cause, depth + 1, seen) : fromNonThrown(cause)
   } catch {
     out.truncated = true
   }

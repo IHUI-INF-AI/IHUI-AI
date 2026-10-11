@@ -50,7 +50,11 @@ describe('business-error-actions(G-977970 码→UI 动作表 + 包装码兜底)'
 
   it('无 model 限定词的并发文案按账号级恢复 4291(升级型)', () => {
     expect(
-      resolveBusinessCodeFromWrapperCopy('PROVIDER_BUSINESS_ERROR', 'concurrency limit exceeded', 'ihui_relay'),
+      resolveBusinessCodeFromWrapperCopy(
+        'PROVIDER_BUSINESS_ERROR',
+        'concurrency limit exceeded',
+        'ihui_relay',
+      ),
     ).toBe('4291')
     expect(
       resolveBusinessCodeFromWrapperCopy('SEND_FAILED', '并发上限,请升级套餐', 'ihui_relay'),
@@ -76,7 +80,9 @@ describe('business-error-actions(G-977970 码→UI 动作表 + 包装码兜底)'
     expect(
       resolveBusinessCodeFromWrapperCopy('SEND_FAILED', 'disk full', 'ihui_relay'),
     ).toBeUndefined()
-    expect(resolveBusinessCodeFromWrapperCopy('SEND_FAILED', undefined, 'ihui_relay')).toBeUndefined()
+    expect(
+      resolveBusinessCodeFromWrapperCopy('SEND_FAILED', undefined, 'ihui_relay'),
+    ).toBeUndefined()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
