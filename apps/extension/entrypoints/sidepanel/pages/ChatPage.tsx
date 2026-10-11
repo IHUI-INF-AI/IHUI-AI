@@ -476,6 +476,7 @@ export default function ChatPage() {
                   // D113:tool-result 到达即清流中预览(最终 diff 以 result 为准,留着会
                   // "已完成"与"正在写"两份内容同屏;web stream-handlers.ts:122 同一行语义)
                   partialDiff: undefined,
+                  partialSeq: undefined,
                   serverSource: event.serverSource ?? call.serverSource,
                   serverId: event.serverId ?? call.serverId,
                   serverName: event.serverName ?? call.serverName,
@@ -488,8 +489,8 @@ export default function ChatPage() {
           ),
         }))
       },
-      // D113(2026-09-27):文件写类工具的流中 diff 预览。载荷 partialText 是**累积文本**,
-      // 按 toolCallId 整帧覆盖(同 seq 重放天然幂等);未注册本回调时 api-client 根本不解析该帧。
+      // D113(2026-09-27):文件写类工具的流中 diff 预览。载荷 partialText 是**增量正文**,
+      // 按 toolCallId 以 seq 收敛追加(evt.seq<=已存 partialSeq 即丢弃);未注册本回调时 api-client 根本不解析该帧。
       onToolDelta: (event) => {
         updateAssistantMessage((m) => ({
           ...m,
