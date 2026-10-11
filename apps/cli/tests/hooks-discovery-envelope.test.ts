@@ -25,11 +25,11 @@ const testState = vi.hoisted(() => ({
   readFailPath: null as string | null,
 }));
 vi.mock('node:os', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:os')>();
+  const actual = await importOriginal<typeof os>();
   return { ...actual, homedir: () => testState.home };
 });
 vi.mock('node:fs', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:fs')>();
+  const actual = await importOriginal<typeof fs>();
   return {
     ...actual,
     statSync: (p: unknown, ...rest: unknown[]) => {
