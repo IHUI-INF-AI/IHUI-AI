@@ -353,7 +353,7 @@ export const codegraph: Tool = {
   },
   required: [],
   async execute(args, ctx): Promise<ToolResult> {
-    const preResult = runPreToolCall('codegraph', args);
+    const preResult = await runPreToolCall('codegraph', args);
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const files = scanCodeFiles(ctx.workspacePath);
@@ -378,7 +378,7 @@ export const codegraph: Tool = {
       }
     }
 
-    runPostToolCall('codegraph', { files: files.length, edges: edges.length });
+    await runPostToolCall('codegraph', { files: files.length, edges: edges.length });
 
     const targetFile = args.file as string | undefined;
     const reverse = args.reverse === true;
@@ -453,7 +453,7 @@ export const goto_definition: Tool = {
     if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(symbol)) {
       return { success: false, output: '', error: 'symbol 必须是合法标识符' };
     }
-    const preResult = runPreToolCall('goto_definition', { symbol });
+    const preResult = await runPreToolCall('goto_definition', { symbol });
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     // 增量索引路径(feature flag 启用):用 CodeGraphIndex 替代全量扫描
@@ -474,7 +474,7 @@ export const goto_definition: Tool = {
           }
           if (hits.length >= MAX_RESULTS) break;
         }
-        runPostToolCall('goto_definition', { symbol, hits: hits.length });
+        await runPostToolCall('goto_definition', { symbol, hits: hits.length });
         const lines = hits.map(
           (h) => `  ${h.file}:${h.line}:${h.column} [${h.kind}] ${h.preview}`,
         );
@@ -489,7 +489,7 @@ export const goto_definition: Tool = {
     // 全量扫描路径(默认)
     const files = scanCodeFiles(ctx.workspacePath);
     const hits = findDefinitions(symbol, files);
-    runPostToolCall('goto_definition', { symbol, hits: hits.length });
+    await runPostToolCall('goto_definition', { symbol, hits: hits.length });
 
     if (hits.length === 0) {
       return { success: true, output: `未找到符号 "${symbol}" 的定义` };
@@ -519,7 +519,7 @@ export const find_references: Tool = {
     if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(symbol)) {
       return { success: false, output: '', error: 'symbol 必须是合法标识符' };
     }
-    const preResult = runPreToolCall('find_references', { symbol });
+    const preResult = await runPreToolCall('find_references', { symbol });
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     // 增量索引路径(feature flag 启用):用 CodeGraphIndex 替代全量扫描
@@ -541,7 +541,7 @@ export const find_references: Tool = {
           }
           if (hits.length >= MAX_RESULTS) break;
         }
-        runPostToolCall('find_references', { symbol, hits: hits.length });
+        await runPostToolCall('find_references', { symbol, hits: hits.length });
         if (hits.length === 0) {
           return {
             success: true,
@@ -564,7 +564,7 @@ export const find_references: Tool = {
     // 全量扫描路径(默认)
     const files = scanCodeFiles(ctx.workspacePath);
     const hits = findReferences(symbol, files);
-    runPostToolCall('find_references', { symbol, hits: hits.length });
+    await runPostToolCall('find_references', { symbol, hits: hits.length });
 
     if (hits.length === 0) {
       return {

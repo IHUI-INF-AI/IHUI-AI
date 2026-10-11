@@ -180,7 +180,7 @@ export const lsp_workspace_symbol: Tool = {
       return { success: false, output: '', error: '参数错误:需要 query(字符串)' };
     }
 
-    const preResult = runPreToolCall('lsp_workspace_symbol', { query, limit, language });
+    const preResult = await runPreToolCall('lsp_workspace_symbol', { query, limit, language });
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const client = getLspClientByLanguage(ctx.workspacePath, language);
@@ -211,7 +211,7 @@ export const lsp_workspace_symbol: Tool = {
       };
     }
 
-    runPostToolCall('lsp_workspace_symbol', { query, language, hits: symbols.length });
+    await runPostToolCall('lsp_workspace_symbol', { query, language, hits: symbols.length });
 
     if (symbols.length === 0) {
       return { success: true, output: `未找到匹配 "${query}" 的符号(language=${language})` };
@@ -259,7 +259,7 @@ export const lsp_rename_symbol: Tool = {
       };
     }
 
-    const preResult = runPreToolCall('lsp_rename_symbol', { file, line, character, newName, apply, confirm });
+    const preResult = await runPreToolCall('lsp_rename_symbol', { file, line, character, newName, apply, confirm });
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     // apply=true 时必须 confirm=true
@@ -294,7 +294,7 @@ export const lsp_rename_symbol: Tool = {
       };
     }
 
-    runPostToolCall('lsp_rename_symbol', { file, line, character, newName, apply, hasEdit: !!edit });
+    await runPostToolCall('lsp_rename_symbol', { file, line, character, newName, apply, hasEdit: !!edit });
 
     // 只返回预览
     if (!apply || !edit) {
@@ -351,7 +351,7 @@ export const lsp_code_actions: Tool = {
       };
     }
 
-    const preResult = runPreToolCall('lsp_code_actions', { file, line, character, kind });
+    const preResult = await runPreToolCall('lsp_code_actions', { file, line, character, kind });
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const fileCheck = resolveAndCheckFile(file, ctx.workspacePath);
@@ -376,7 +376,7 @@ export const lsp_code_actions: Tool = {
       };
     }
 
-    runPostToolCall('lsp_code_actions', { file, line, character, kind, count: actions.length });
+    await runPostToolCall('lsp_code_actions', { file, line, character, kind, count: actions.length });
 
     if (actions.length === 0) {
       const kindStr = kind ? `(kind=${kind})` : '';
