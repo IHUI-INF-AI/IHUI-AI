@@ -638,6 +638,13 @@ export function checkRoleUnion(roles, declText) {
   return errors
 }
 
+/**
+ * A3 的认形:tailwind preset 的 borderRadius 必须是**对 RADIUS_REM 的引用**,不得重新内联一张
+ * 档位字面量表。§22c:这条形状只有这一份 —— 镜像测试要钉同一件事,引用导出的本常量,
+ * 不得再抄一遍(两处各写一份,门改认法而测试照绿 = 假绿)。
+ */
+export const PRESET_RADIUS_REF_RE = /borderRadius:\s*RADIUS_REM\s*,?/
+
 /** A 判据:四处档位表值一致性。返回红线列表 */
 export async function checkTableConsistency() {
   const mod = await loadTable()
@@ -662,7 +669,7 @@ export async function checkTableConsistency() {
   }
   // 3) tailwind preset 必须引用 RADIUS_REM,不得重新内联字面量表
   const preset = readFileSync(join(ROOT, 'packages/design-tokens/src/tailwind-preset.js'), 'utf8')
-  if (!/borderRadius:\s*RADIUS_REM\s*,?/.test(preset)) errors.push('tailwind-preset.js 的 borderRadius 必须写 `borderRadius: RADIUS_REM`,不得重新内联档位字面量')
+  if (!PRESET_RADIUS_REF_RE.test(preset)) errors.push('tailwind-preset.js 的 borderRadius 必须写 `borderRadius: RADIUS_REM`,不得重新内联档位字面量')
   // 4) 角色名两处对账(档值同形,但历史上只比档值 —— 新角色就是这么在类型面隐身的)
   const roleDecl = (() => {
     try {
@@ -1191,5 +1198,13 @@ if (isDirectRun) {
     console.error(`❌ 守门自身异常:${e?.stack || e}`)
     process.exit(2)
   })
+}
+
+// §22c:导出的必须是**判据本身**,不是给测试的第二份复制品。
+// 本门其余判据单元(scanText / readCssRadius / checkRoleUnion …)本来就是顶层具名导出,
+// 镜像测试直接引那些;这里补的是原先只写在判据体内的两样:A 判据的读取出口与 A3 的认形。
+export const __test__ = {
+  PRESET_RADIUS_REF_RE,
+  checkTableConsistency,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

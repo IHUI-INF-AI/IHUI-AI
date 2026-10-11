@@ -615,7 +615,10 @@ export const VENDORS: Record<string, VendorConfig> = {
   hunyuan: {
     name: 'Hunyuan(腾讯混元)',
     keyEnv: 'HUNYUAN_API_KEY',
-    baseUrl: 'https://api.hunyuan.cloud.tencent.com/v1',
+    // 2026-10-10 机主拍板 A：HUNYUAN_API_KEY 现为腾讯云 TokenHub(腾讯 MaaS)密钥，
+    // 可访问范围「全部模型和服务」(hy4/hy3/GLM-5.3/DeepSeek-V4/Kimi K3/MiniMax-M3 等 35 个)，
+    // 老端点 api.hunyuan.cloud.tencent.com 对该 key 返 401 invalid_api_key，故切到 TokenHub 网关。
+    baseUrl: 'https://tokenhub.tencentmaas.com/v1',
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
   },
   ai360: {

@@ -33,8 +33,20 @@
  *   node scripts/check-workspace-dep-links.mjs --staged   # 仅审计 package.json 被暂存的包
  *   node scripts/check-workspace-dep-links.mjs --self-test
  *   node scripts/check-workspace-dep-links.mjs --root=<dir>  # 指定仓库根(自测夹具必须显式注入)
+ *
+ * 2026-10-08(gitRaw 型 B 收尾批)git 出口收口:本文件唯一 git 派生 helper `git()`(唯一调用点
+ * 是 --staged 档的暂存清单枚举)迁取材层 scripts/lib/face-reader.mjs 的 `gitRaw`;
+ * `const GIT = process.env.GIT_BIN || 'git'` 与 execFileSync import 随之删除。行为面对照:
+ *  · 二进制:旧 `process.env.GIT_BIN || 'git'` → 层内 `resolveGitBin() || 'git'` —— GIT_BIN
+ *    环境变量是层候选链的第一格(gitdir.mjs GIT_CANDIDATES)且经 --version 验证,env 逃生舱
+ *    语义保留;差异:坏 GIT_BIN 值旧码派生必败(→ 警告后按全量),层会试下一候选仍可能找到
+ *    可用 git(净收益,二进制解析更稳;'git' PATH 兜底两态同在)。
+ *  · `-c safe.directory=*` + `-C <REPO>` 同;stdio 旧 ['ignore','pipe','pipe'](stdin 置 ignore
+ *    防 EBUSY)→ 层无 input 态同形;timeout 旧 60s 显式保留({timeout:60_000});
+ *    maxBuffer 旧默认 1MB → 层 64MB(放宽,净收益;本调用 stdout 仅文件清单)。
+ *  · 失败折值:catch 仍 console.warn 后按全量判定(不静默放行),措辞一字未动;仅 e?.message
+ *    换源(execFileSync 原始错误 → 层 Undetermined 消息,含 git stderr 首行)。
  */
-import { execFileSync } from 'node:child_process'
 import {
   existsSync,
   readdirSync,
@@ -48,23 +60,12 @@ import { basename, dirname, join, relative, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = dirname(HERE)
-const GIT = process.env.GIT_BIN || 'git'
 
 const toPosix = (p) => p.split(sep).join('/')
-
-function git(args) {
-  return execFileSync(GIT, ['-c', 'safe.directory=*', '-C', REPO, ...args], {
-    encoding: 'utf8',
-    windowsHide: true,
-    timeout: 60_000,
-    // EBUSY 根治(errno -4082):本机会话里 Node 建子进程 stdin 管道确定性失败。
-    // 调用点全是只读 git(ls-files/ls-tree),不喂 stdin。
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-}
 
 /** 解析 pnpm-workspace.yaml 的 packages: 列表(支持 * 与 **,忽略 ! 取反项) */
 export function parseWorkspacePatterns(yamlText) {
@@ -483,7 +484,7 @@ export function audit({ staged = false, root = REPO, strict = false } = {}) {
     // 正好放过这一整类(而它的表现就是部署环恒红)。全量扫 25 个包实测约 1s,成本可忽略。
     let files = null
     try {
-      files = git(['diff', '--cached', '--name-only'])
+      files = gitRaw(['diff', '--cached', '--name-only'], REPO, { timeout: 60_000 })
         .split('\n')
         .map((l) => l.trim())
         .filter(Boolean)

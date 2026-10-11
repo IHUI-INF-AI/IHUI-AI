@@ -119,7 +119,10 @@
   "expo": {
     "autolinking": {
       "searchPaths": [
-        "../.."
+        "../..",
+        "../../node_modules/react-native-worklets",
+        "../../node_modules/expo-modules-core",
+        "../../node_modules/react-native-reanimated"
       ]
     }
   },
