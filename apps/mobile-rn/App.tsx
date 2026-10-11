@@ -133,7 +133,10 @@ function ThemedNavigation() {
 }
 
 function AppInner() {
-  const { isOnline } = useNetwork()
+  // G-1113920:横幅按**档位**说话(offline / slow / unconfirmed / none),不再接一个布尔。
+  // 旧写法 `isOnline={isOnline}` 把"探测目标不可达""慢网""真断网"三种结论渲染成同一句红色
+  // 「网络已断开」,而真机同屏的 ping 与 dumpsys 证明设备有网。档位判据在共享层那一份。
+  const { banner, reason } = useNetwork()
   return (
     /**
      * 顶部安全区在**这一处单点**注入:RN 0.86 + Expo 强制 edge-to-edge,而全端 180 个共享屏
@@ -146,7 +149,7 @@ function AppInner() {
      * 它们走 RN <Modal>,渲染在本树之外的原生窗口,各自的 insets.top 必须保留。
      */
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
-      <OfflineBanner isOnline={isOnline} />
+      <OfflineBanner banner={banner} reason={reason} />
       <ThemedNavigation />
       <DevErrorToast />
     </SafeAreaView>
