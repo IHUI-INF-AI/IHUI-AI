@@ -303,6 +303,30 @@ test('S2 SELF_EXEMPT 的代价如实可见:只喂本门这一对 ⇒ 空面判�
   assert.throws(() => gate.audit({ [GATE_PATH]: gateSrc, [SELF_TEST_PATH]: selfSrc }), (e) => /空扫不记绿/.test(e.message), '自排必须表现为"扫无可扫"的判死,绝不是一条安静的通过')
 })
 
+/**
+ * C1 出处链的**封顶**由行为钉,不由文本钉。上限若写死在函数体里,把它从 3 改成 4 只需动一个字符,
+ * 而没有任何一条断言会因此翻红 —— 那等于"放过面可以被人随手加宽"无人看守。两条臂方向相反:
+ * 三跳查不到 ⇒ 判据把 §22c 的唯一合法入口判成复制(误伤);四跳查得到 ⇒ 封顶失守(放过面无限加宽)。
+ * 变异自证(本轮实测):`CARRIER_MAX_HOPS` 改 2 ⇒ 第一条红;改 4 ⇒ 第二条红;还原 ⇒ 两条绿。
+ */
+test('C1 出处链封顶双向有牙:三跳必放过、多一跳必仍命中', () => {
+  const three = [
+    'const mod = await import(pathToFileURL(SRC).href)',
+    'const { __test__ } = mod',
+    'const { buildIt } = __test__',
+    'const ps = buildIt()',
+  ].join('\n')
+  const four = [
+    'const mod = await import(pathToFileURL(SRC).href)',
+    'const { __test__ } = mod',
+    'const { pair } = __test__',
+    'const { buildIt } = pair',
+    'const ps = buildIt()',
+  ].join('\n')
+  assert.equal(gate.carrierTraced(three, 'ps', new Set()), true, '三跳链的终点就是动态装载门体,查不到即误伤唯一入口')
+  assert.equal(gate.carrierTraced(four, 'ps', new Set()), false, '封顶失守:多一跳也算有出处,放过面就再没有边界')
+})
+
 function spawnGate(args) {
   try {
     const stdout = execFileSync(process.execPath, [resolve(ROOT, GATE_PATH), ...args], {
