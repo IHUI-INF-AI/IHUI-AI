@@ -67,7 +67,12 @@ describe('ErrorBoundary / 崩溃上报发射前脱敏', () => {
     const secret = 'sk-proj-' + 'AbCdEfGhIjKlMnOpQrStUvWxYz0123456789'
     render(
       <ErrorBoundary>
-        <Throwing error={makeError(`上游鉴权失败 Authorization: Bearer ${secret}`, 'Error\n at x (a.js:1:1)')} />
+        <Throwing
+          error={makeError(
+            `上游鉴权失败 Authorization: Bearer ${secret}`,
+            'Error\n at x (a.js:1:1)',
+          )}
+        />
       </ErrorBoundary>,
     )
     expect(fetch).toHaveBeenCalledTimes(1)
