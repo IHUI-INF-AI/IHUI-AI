@@ -366,13 +366,18 @@ function Send-EmailNotify {
     return $false
 }
 function Invoke-FailNotify {
-    param([string]$m, [switch]$Stall)
+    param([string]$m, [string]$Detail = '', [switch]$Stall)
     # 去重逻辑住在共享模块 deploy/win/alert-dedup.ps1(**按签名分槽**持久),本函数只负责发送。
     # 2026-09-28 之前的这里是"单槽"实现:状态文件只存最后一条签名,于是同一故障的两条措辞
     # ("远端分叉需人工收敛" / "有未提交文件挡住 ff")随现场交替出现时,每次交替都①被当成
     # 新告警立即另发、②顺手把另一条的时间戳覆盖掉 ⇒ 4h 窗口结构上永不命中。
     # 实测代价:近 48h 寄出 47 封,内容全是同一件事"ff 切流被挡"。
     # 这是**按身份去重**,不是总量封顶 —— 无"每日 N 封"计数闸(成因见文件头 §5e 注释块)。
+    #
+    # `$Detail` 只能进正文、**绝不进签名**(§5e-1「同一故障必须按稳定语义身份判,不得吃明细清单」):
+    # 挡路的文件集合随各会话在飞现场逐轮漂移,把它折进 $sig 就是每轮换一次身份 ⇒ 上面那条
+    # 48h/47 封的失效型原地复活。明细的价值是让收信人**当场能判断下一步**(是哪条路径挡的、
+    # 用什么命令分辨幻影漂移与真在飞的活儿),而这与"这是不是同一件事"是两个问题。
     $sig = ($m -replace '\s+', ' ').Trim()
     # 切流受阻类先过"持续够一个可发布周期才算停摆"的宽限窗(阈值出处见 $StallAlertGraceMinutes)。
     # 窗内只在日志留一行并写明"还差多久升级",绝不静默丢弃;超窗或判不出都照常往下走并发信。
@@ -397,9 +402,16 @@ function Invoke-FailNotify {
     # 唯一到人通道:到点即寄,失败=告警从未被人看见,必须留下 UNDELIVERED 标记(参照
     # scripts/check-credential-health.mjs 的 UNDEL 机制),下一次成功投递自动清除。
     $mailOk = $false
+    # 明细进正文、封顶长度(§5e-1 出口①「必须给出可执行的下一步」):没有它,收信人只能看到
+    # "被在飞改动挡住"这一句结论,分不清"等一会自己就好"与"有人得去动手"。
+    # 顺序是"先归一整体、后截断",不得各段先截再拼,也不得截完不标 —— 被静默切掉的尾巴
+    # 读起来像"明细就这么多"(与本仓「报错原因并两流不得先拼再截尾」同一条禁令)。
+    $detailText = ($Detail -replace "`r?`n", ' | ').Trim()
+    if ($detailText.Length -gt 1200) { $detailText = $detailText.Substring(0, 1200) + ' …(明细过长,已截断;完整清单见 deploy-loop.log 的 BLOCKED-WIP 行)' }
+    $detailBlock = if ($detailText) { "`n挡路明细: $detailText" } else { '' }
     try {
         $mailOk = Send-EmailNotify -subject "【生产环境】部署失败" `
-            -text "IHUI-AI 生产部署失败(运维邮件告警)`n`n原因: $m$repeatNote`n时间: $nowTxt`n处置: 已自动回滚或保持当前在线版本`n排查: 服务 IHUI-DEPLOYLOOP / NSSM 日志,或 ssh 后执行 deploy\win\ihui-deploy.ps1 -diagnose"
+            -text "IHUI-AI 生产部署失败(运维邮件告警)`n`n原因: $m$repeatNote$detailBlock`n时间: $nowTxt`n处置: 已自动回滚或保持当前在线版本`n排查: 服务 IHUI-DEPLOYLOOP / NSSM 日志,或 ssh 后执行 deploy\win\ihui-deploy.ps1 -diagnose"
     } catch { $mailOk = $false }
     if ($mailOk) {
         try { Remove-Item -LiteralPath $AlertUndelFile -Force -ErrorAction SilentlyContinue } catch {}
@@ -414,10 +426,11 @@ function Invoke-FailNotify {
     }
 }
 function Fail {
-    param([string]$m)
+    param([string]$m, [string]$Detail = '')
     Log "FAIL  $m"
     # Fail == 本轮以未切流收场 ⇒ 全部走"切流受阻"类(宽限窗 + 成功切流即清偿)。
-    try { Invoke-FailNotify -m $m -Stall } catch {}
+    # $Detail 只落到邮件正文(见 Invoke-FailNotify 里那条"明细绝不进签名"的理由)。
+    try { Invoke-FailNotify -m $m -Detail $Detail -Stall } catch {}
     try { Release-DeployLock } catch {}
     exit 1
 }
@@ -1769,7 +1782,23 @@ if ($behind -gt 0) {
                 }
             }
             if (-not $ffRecovered) {
-                Fail "git merge --ff-only 失败:有未提交文件与本次要更新的路径重叠,挡住 ff(不代提交不删除),已停止,未切流"
+                # 明细只进邮件正文(理由见 Invoke-FailNotify 那条"明细绝不进签名")。给这一格的目的是
+                # §5e-1 出口①:收信人必须能当场分清"等一会自己就好"与"有人得去动手"。此前信里只有
+                # 一句"有未提交文件挡住 ff",而 2026-10-11 那次它挡了 90 分钟,期间信上看不出是谁的
+                # 现场、也看不出该不该干预 —— 判"该不该动"的唯一入口是那条分辨命令。
+                # 另一条本仓自撞过的坑:明细里**不得逐字复述日志锚点字样**(如 ff 成功行的原文)——
+                # `scripts/tests/deploy-diverged-autorecover.test.mjs` 的多处源码锁按那个字面量
+                # `indexOf` 定位,而它取的是**首次出现**;文案里提前出现一次,那些锁就去看错的位置
+                # (实测三把当场翻红)。所以这里只描述"是哪一行",不抄那一行的原文。
+                $liveHit = @($blockers | Where-Object { $LiveDocPaths -contains $_ })
+                $wipDetail = @(
+                    "挡路路径(共 $($blockers.Count) 个,最多列 10):$(($blockers | Select-Object -First 10) -join ' | ')",
+                    "其中属活文档(多会话共写,常态就是脏):$(if ($liveHit.Count -gt 0) { $liveHit -join ' | ' } else { '无' })",
+                    "分辨幻影漂移与真在飞:node scripts/heal-worktree-tracked.mjs --align-drift --dry-run",
+                    "处置:真在飞 ⇒ 等持有该文件的会话自己提交(AGENTS §12 禁止代提交/禁止删除);幻影漂移 ⇒ 下一轮自愈自动对齐,无需干预",
+                    "确认已解除:deploy/win/deploy-loop.log 里本轮之后出现 ff 成功行与切流行"
+                ) -join "`n"
+                Fail "git merge --ff-only 失败:有未提交文件与本次要更新的路径重叠,挡住 ff(不代提交不删除),已停止,未切流" -Detail $wipDetail
             }
         }
         if (-not $ffRecovered) {
