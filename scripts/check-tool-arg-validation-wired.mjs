@@ -12,6 +12,22 @@
 //   V2 影子档必须在位,且**默认档不得是 enforce** —— 直接读模式源里"默认值那一行"。
 //      enforce 是第②③步的活;若某轮把默认翻了,"昨天能跑今天全被拒"会直接进生产。
 //
+// 另出**一条读数(不是判红,L9264 明写)**:影子档的**实际覆盖面**。
+//   立因:V2 只判"影子档在位 / 默认不是 enforce",**不判影子档到底覆盖了多少个工具调用站点**。
+//   于是"装了但覆盖面极低"与"装了且全覆盖"在读数上完全同形 —— 覆盖面被收窄不会让任何一道
+//   门变红,正是上游要防的"局部不生效但无人点名"(`apps/cli/src/tools/index.ts` 的
+//   `hubEnabled && hubResolver` 分支在拿到 Tool 对象之前就 return,那条路径影子不生效)。
+//   量法(全在被审面上现算,不报常量):
+//     · 候选站点 = 生产面里 `tool.execute(` 的调用行(掩噪后、去声明行)—— 一次工具调用
+//       真正被执行的落点;
+//     · 影子档命中 = 该站点所在文件里有影子档入口 `shadowValidateToolArguments(` 的**调用行**,
+//       且接线行号 < 站点行号(静态行序,不是可达性分析 —— 已知限制写在 auditShadowCoverage 头注);
+//     · 未覆盖 = 其余站点,逐条 `rel:line` 点名;
+//     · 早退分支 = 影子档接线点所在函数体内、**位于接线点之前**的 `return` 行 —— 这就是票面要的
+//       "本轮应被记录而因早退未记录的调用数",同样逐条点名。
+//   三态必须不同形:**量得出**(命中 X / 候选 Y) / **候选站点 0**(读数为空,不得读作"全覆盖") /
+//   **未判定**(面里取不到正文、或面上根本没有影子档接线点 ⇒ 不折 0、不折绿,见 auditShadowCoverage)。
+//
 // 取材口径(同 70/77/83/98/101/103):全量判 **HEAD blob**、`--staged` 判**索引 blob**、
 //   `--worktree` 只作人工逃生舱;两旗同给判死;取不到 ⇒ **exit 2 无法判定**;
 //   **枚举到 0 个候选文件判死**(扫描面判空 = 判据失效,绝不表现为 exit 0 的绿)。
@@ -40,6 +56,10 @@ const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 /** 判据要抓的调用形态(定死的固定串,不做正则 —— 正则会把注释里的说明文字也认成调用)。 */
 const CALL_PATTERN = 'validateToolArguments('
+/** 影子档入口 —— 覆盖面读数的"接线点"(同为固定串,同口径)。 */
+const SHADOW_ENTRY_PATTERN = 'shadowValidateToolArguments('
+/** 一次工具调用真正被执行的落点 —— 覆盖面读数的"候选站点"。 */
+const EXEC_SITE_PATTERN = 'tool.execute('
 /** 校验器定义文件本身不算调用方。 */
 const DEFINITION_FILE = 'apps/cli/src/tools/argument-validator.ts'
 /** 影子档模式源(守门 V2 读它的"默认值那一行")。 */
@@ -137,20 +157,27 @@ export function maskNoise(text) {
   return out.join('')
 }
 
-/** 声明形态(定义本身)不是调用方。 */
-export function isDeclarationLine(line) {
-  return /^\s*(export\s+)?(async\s+)?function\s+validateToolArguments\b/.test(line)
+/**
+ * 声明形态(定义本身)不是调用方。
+ * @param {string} line 掩噪后的一行
+ * @param {string} pattern 形如 `xxx(` 的固定串(覆盖面读数复用本函数判影子档入口的声明行)
+ */
+export function isDeclarationLine(line, pattern = CALL_PATTERN) {
+  const name = pattern.replace(/\($/, '')
+  return new RegExp(
+    `^\\s*(export\\s+)?(async\\s+)?function\\s+${name.replace(/\$/g, '\\$')}\\b`,
+  ).test(line)
 }
 
 /** 掩噪后仍含调用形态的行。 */
-export function findCallLines(text) {
+export function findCallLines(text, pattern = CALL_PATTERN) {
   const masked = maskNoise(text)
   const hits = []
   const lines = masked.split(/\r?\n/)
   for (let n = 0; n < lines.length; n++) {
     const line = lines[n]
-    if (!line.includes(CALL_PATTERN)) continue
-    if (isDeclarationLine(line)) continue
+    if (!line.includes(pattern)) continue
+    if (isDeclarationLine(line, pattern)) continue
     hits.push({ line: n + 1, text: line.trim().slice(0, 120) })
   }
   return hits
@@ -176,6 +203,142 @@ export function isTestSurface(rel) {
     /(^|\/)e2e\//.test(rel) ||
     /\.(test|spec)\.[cm]?[jt]sx?$/i.test(rel)
   )
+}
+
+/**
+ * 求 lineIdx(1-based)所在**最外层**函数体的字符区间(在掩噪后文本上做花括号配对)。
+ *
+ * 已知限制(如实登记):认的是花括号,不认箭头函数体与对象字面量的区别 —— 若该行处在一个
+ * 对象字面量里,`{` 会被当成函数体的开括号。失误方向是"函数体取小 ⇒ 早退分支数偏少",
+ * 也就是**把未覆盖洗成已覆盖**那一侧;所以本函数取不到(`null`)时,调用方一律落未判定,
+ * 绝不折成 0。
+ * @returns {{start:number,end:number}|null}
+ */
+export function enclosingFunctionBody(text, lineIdx) {
+  const lines = text.split(/\r?\n/)
+  let pos = 0
+  for (let i = 0; i < lineIdx - 1 && i < lines.length; i++) pos += lines[i].length + 1
+  let start = -1
+  let depth = 0
+  for (let i = Math.min(pos, text.length - 1); i >= 0; i--) {
+    const c = text[i]
+    if (c === '{') {
+      if (depth === 0) {
+        start = i
+        break
+      }
+      depth -= 1
+    } else if (c === '}') depth += 1
+  }
+  if (start < 0) return null
+  let end = -1
+  depth = 0
+  for (let i = start; i < text.length; i++) {
+    const c = text[i]
+    if (c === '{') depth += 1
+    else if (c === '}') {
+      depth -= 1
+      if (depth === 0) {
+        end = i
+        break
+      }
+    }
+  }
+  return end < 0 ? null : { start, end }
+}
+
+/**
+ * 影子档接线点所在函数体内、**位于接线点之前**的 `return` 行 —— 即"应被记录而因早退未记录"的出口。
+ *
+ * 已知限制:嵌套函数自己的 return 也会被算进来(只按行号区间取,不做函数级过滤)。
+ * 失误方向是**早退数偏大 ⇒ 覆盖面读数偏悲观**,不会把早退洗成已覆盖。
+ */
+export function findEarlyReturnLines(text, lineIdx) {
+  const range = enclosingFunctionBody(text, lineIdx)
+  if (!range) return []
+  const lines = text.split(/\r?\n/)
+  const offsets = [0]
+  for (let n = 0; n < lines.length; n++) offsets.push(offsets[n] + lines[n].length + 1)
+  let startLine = 1
+  for (let n = 0; n < lines.length; n++) {
+    if (offsets[n] <= range.start) startLine = n + 1
+    else break
+  }
+  const hits = []
+  for (let n = startLine; n < lineIdx && n <= lines.length; n++) {
+    const raw = lines[n - 1]
+    if (/\breturn\b/.test(raw)) hits.push({ line: n, text: raw.trim().slice(0, 120) })
+  }
+  return hits
+}
+
+/**
+ * 影子档**覆盖面读数**(纯函数,取材在它外面 —— 与 decide 同款,self-test/镜像测试都构造面直喂)。
+ *
+ * @param {Array<{rel:string,text:string|null}>} files 同面读到的正文(规则内自行判 prod 面)
+ * @returns {{state:string,total:number,coveredCount:number,shadowSites:Array,execSites:Array,
+ *            covered:Array,uncovered:Array,earlyReturns:Array,undetermined:Array}}
+ *
+ * state 三态(输出必须不同形):
+ *   'measured'     量出来了:命中 X / 候选 Y + 未覆盖清单 + 早退分支清单
+ *   'no-sites'     影子档有接线,但面上一个候选站点都没有 ⇒ 读数为空(读作"无站点可覆盖",
+ *                  **不得**读作"全覆盖")
+ *   'undetermined' 取不到正文 / 面上根本没有影子档接线点 ⇒ 不可考,**不折 0、不折绿**
+ */
+export function auditShadowCoverage(files) {
+  const shadowSites = []
+  const execSites = []
+  const undetermined = []
+  const prodFiles = []
+  for (const it of files) {
+    if (classifyPath(it.rel) !== 'prod') continue
+    prodFiles.push(it)
+    if (it.text === null) {
+      undetermined.push({
+        rel: it.rel,
+        reason: '该面取不到正文 ⇒ 这一份的覆盖面不可考(不折 0、不折绿)',
+      })
+      continue
+    }
+    for (const h of findCallLines(it.text, SHADOW_ENTRY_PATTERN))
+      shadowSites.push({ rel: it.rel, ...h })
+    for (const h of findCallLines(it.text, EXEC_SITE_PATTERN)) execSites.push({ rel: it.rel, ...h })
+  }
+  const covered = []
+  const uncovered = []
+  for (const site of execSites) {
+    const wired = shadowSites.some((s) => s.rel === site.rel && s.line < site.line)
+    if (wired) covered.push(site)
+    else uncovered.push(site)
+  }
+  const earlyReturns = []
+  const seen = new Set()
+  for (const s of shadowSites) {
+    const key = `${s.rel}@${s.line}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    for (const r of findEarlyReturnLines(files.find((f) => f.rel === s.rel)?.text ?? '', s.line))
+      earlyReturns.push({ rel: s.rel, ...r })
+  }
+  let state = 'measured'
+  if (shadowSites.length === 0)
+    undetermined.push({
+      rel: '(全生产面)',
+      reason: `面上找不到 ${SHADOW_ENTRY_PATTERN} 的调用行 ⇒ 影子档没接线,覆盖面不可考(不折 0)`,
+    })
+  if (undetermined.length > 0) state = 'undetermined'
+  else if (execSites.length === 0) state = 'no-sites'
+  return {
+    state,
+    total: execSites.length,
+    coveredCount: covered.length,
+    shadowSites,
+    execSites,
+    covered,
+    uncovered,
+    earlyReturns,
+    undetermined,
+  }
 }
 
 /**
@@ -240,13 +403,13 @@ export function decide(items, modeSource) {
  * `git grep` 无命中回 exit 1,那是**git 说"没有"**,与"git 没跑成"必须分开:前者返回空清单,
  * 后者由 gitRaw 抛 Undetermined。混起来的话,"仓里没有校验器"会伪装成"没有违规"。
  */
-export function listCandidates(root, face) {
+export function listCandidates(root, face, pattern = CALL_PATTERN) {
   const args =
     face === 'head'
-      ? ['grep', '-F', '-l', CALL_PATTERN, 'HEAD', '--']
+      ? ['grep', '-F', '-l', pattern, 'HEAD', '--']
       : face === 'staged'
-        ? ['grep', '-F', '-l', '--cached', CALL_PATTERN]
-        : ['grep', '-F', '-l', CALL_PATTERN]
+        ? ['grep', '-F', '-l', '--cached', pattern]
+        : ['grep', '-F', '-l', pattern]
   let out
   try {
     out = gitRaw(args, root)
@@ -259,6 +422,14 @@ export function listCandidates(root, face) {
     .map((l) => l.replace(/^HEAD:/, '').trim())
     .filter(Boolean)
     .sort()
+}
+
+/**
+ * 覆盖面读数的候选站点枚举 —— **同一面、同一轮、同一个 gitRaw**,只是换一个 grep 串。
+ * 不另起一份判定面:读正文仍走下面的 readOnFace,与 V1 共用同一批 blob。
+ */
+export function listExecSites(root, face) {
+  return listCandidates(root, face, EXEC_SITE_PATTERN)
 }
 
 function readOnFace(root, face, rel) {
@@ -284,11 +455,20 @@ export function analyze(root, face) {
     modeSource = null
   }
   const verdict = decide(items, modeSource)
+  // 覆盖面读数:候选站点可能在**不含** CALL_PATTERN 的文件里(hub adapter 那一类旁路正是这样
+  // 隐身的),所以枚举用同一面再 grep 一次 EXEC_SITE_PATTERN,正文仍走 readOnFace —— 同面同轮。
+  const execRels = listExecSites(root, face)
+  const unionRels = [...new Set([...rels, ...execRels])].sort()
+  const byRel = new Map(items.map((i) => [i.rel, i]))
+  const coverageFiles = unionRels.map(
+    (rel) => byRel.get(rel) ?? { rel, text: readOnFace(root, face, rel) },
+  )
   return {
     face,
     scanned: rels.length,
     candidateRels: rels,
     modeSourceAvailable: modeSource !== null,
+    coverage: auditShadowCoverage(coverageFiles),
     ...verdict,
   }
 }
@@ -303,8 +483,42 @@ function printVerdict(res, root) {
     `  生产面调用:${res.callerFound ? '✅ 有' : '❌ 无'} | 定义 ${res.counts.definition} / 生产 ${res.counts.prod} / 测试面 ${res.counts.test} / 自豁免 ${res.counts.self} / 文档 ${res.counts.doc}`,
   )
   for (const v of res.violations) console.log(`  ❌ ${v}`)
+  console.log(formatCoverage(res.coverage))
   if (res.violations.length === 0)
-    console.log('  ✅ 校验器有生产调用方,且影子档在位、默认档不是 enforce')
+    console.log(
+      res.coverage && res.coverage.state === 'undetermined'
+        ? '  ✅ 校验器有生产调用方,且影子档在位、默认档不是 enforce · ⚠️ 但覆盖面读数未判定(见上一行,不折 0、不折绿)'
+        : '  ✅ 校验器有生产调用方,且影子档在位、默认档不是 enforce',
+    )
+}
+
+/** 站点清单最多点名 6 条,其余折成"…等 N 个"(台账要的是点名,不是刷屏)。 */
+function siteList(sites) {
+  const names = sites.map((s) => `${s.rel}:${s.line}`)
+  if (names.length <= 6) return names.join(', ')
+  return `${names.slice(0, 6).join(', ')} …等 ${names.length} 个`
+}
+
+/** 覆盖面读数行(三态不同形:量得出 / 候选 0 / 未判定)。 */
+export function formatCoverage(cov) {
+  if (!cov) return '  ❓ 影子档覆盖面:未判定 —— 本轮没产覆盖面读数(不折 0、不折绿)'
+  if (cov.state === 'undetermined') {
+    const why = cov.undetermined.map((u) => `${u.rel} → ${u.reason}`).join('; ')
+    return `  ❓ 影子档覆盖面:未判定 —— ${why}(读数缺失,不折 0、不折绿)`
+  }
+  if (cov.state === 'no-sites')
+    return '  ❓ 影子档覆盖面:候选站点 0 个 ⇒ 读数为空(读作"无站点可覆盖",不得读作"全覆盖")'
+  const pct = cov.total === 0 ? '0.0' : ((cov.coveredCount / cov.total) * 100).toFixed(1)
+  const un =
+    cov.uncovered.length === 0 ? '无' : `${cov.uncovered.length} [${siteList(cov.uncovered)}]`
+  const early =
+    cov.earlyReturns.length === 0
+      ? '0'
+      : `${cov.earlyReturns.length} [${siteList(cov.earlyReturns)}]`
+  return (
+    `  📏 影子档覆盖面(读数,不判红):命中 ${cov.coveredCount} / 候选 ${cov.total} (${pct}%) · ` +
+    `未覆盖 ${un} · 早退分支 ${early}`
+  )
 }
 
 function runSelfTest() {
@@ -480,6 +694,119 @@ function runSelfTest() {
 
     // ⑪声明行本身不算调用
     ok('A11 定义行不计 caller', findCallLines(DEFINITION).length === 0)
+
+    // ⑫⑬⑭⑮ 影子档覆盖面读数(L9264):读数必须**等于实测值**,且三态不同形
+    const SHADOW_DECL = `export function ${SHADOW_ENTRY_PATTERN}tool, args) {\n  return 0\n}\n`
+    const EXECUTOR = [
+      `import { shadowValidateToolArguments } from './argument-validation-telemetry.js'`,
+      `export async function executeToolCall(call, ctx) {`,
+      `  if (ctx.hubEnabled) {`,
+      `    return { success: false, output: '', error: 'hub' }`,
+      `  }`,
+      `  const tool = getTool(call.name)`,
+      `  ${SHADOW_ENTRY_PATTERN}tool, call.arguments)`,
+      `  return ${EXEC_SITE_PATTERN}call.arguments, ctx)`,
+      `}`,
+      ``,
+    ].join('\n')
+    const HUB_ADAPTER = [
+      `export function adapt(tool, args, ctx) {`,
+      `  return ${EXEC_SITE_PATTERN}args, ctx)`,
+      `}`,
+      ``,
+    ].join('\n')
+    const EARLY_EXEC = [
+      `export function fast(tool, args, ctx) {`,
+      `  return ${EXEC_SITE_PATTERN}args, ctx)`,
+      `}`,
+      `export function slow(tool, args, ctx) {`,
+      `  if (!args) return null`,
+      `  ${SHADOW_ENTRY_PATTERN}tool, args)`,
+      `  return ${EXEC_SITE_PATTERN}args, ctx)`,
+      `}`,
+      ``,
+    ].join('\n')
+    const cov = auditShadowCoverage([
+      { rel: 'apps/cli/src/tools/argument-validation-telemetry.ts', text: SHADOW_DECL },
+      { rel: 'apps/cli/src/tools/index.ts', text: EXECUTOR },
+      { rel: 'apps/cli/src/tools/hub/adapter.ts', text: HUB_ADAPTER },
+      { rel: 'apps/cli/src/tools/hub/resolver.ts', text: EARLY_EXEC },
+    ])
+    ok(
+      'C1 覆盖面读数 = 实测值(候选 4 / 命中 2)',
+      cov.state === 'measured' && cov.total === 4 && cov.coveredCount === 2,
+      `state=${cov.state} ${cov.coveredCount}/${cov.total} uncovered=${JSON.stringify(cov.uncovered)}`,
+    )
+    ok(
+      'C1b 未覆盖站点逐条点名(行序:接线点之前的执行点 + 无接线文件)',
+      cov.uncovered.length === 2 &&
+        cov.uncovered.some((s) => s.rel === 'apps/cli/src/tools/hub/adapter.ts' && s.line === 2) &&
+        cov.uncovered.some((s) => s.rel === 'apps/cli/src/tools/hub/resolver.ts' && s.line === 2),
+      JSON.stringify(cov.uncovered),
+    )
+    ok(
+      'C2 早退分支读数 >0 且点名分支所在行',
+      cov.earlyReturns.length === 2 &&
+        cov.earlyReturns.some((r) => r.rel === 'apps/cli/src/tools/index.ts' && r.line === 4) &&
+        cov.earlyReturns.some(
+          (r) => r.rel === 'apps/cli/src/tools/hub/resolver.ts' && r.line === 5,
+        ),
+      JSON.stringify(cov.earlyReturns),
+    )
+    const noEarly = auditShadowCoverage([
+      {
+        rel: 'apps/cli/src/tools/index.ts',
+        text: EXECUTOR.replace(/  if \(ctx\.hubEnabled\) \{\n    return \{[^}]*\}\n  \}\n/, ''),
+      },
+    ])
+    ok(
+      'C2b 摘掉早退分支 ⇒ 早退读数归 0(判别力证明)',
+      noEarly.state === 'measured' && noEarly.earlyReturns.length === 0 && noEarly.total === 1,
+      `state=${noEarly.state} early=${JSON.stringify(noEarly.earlyReturns)} total=${noEarly.total}`,
+    )
+    const noWire = auditShadowCoverage([
+      { rel: 'apps/cli/src/tools/hub/adapter.ts', text: HUB_ADAPTER },
+    ])
+    ok(
+      'C3 摘掉影子档接线 ⇒ 未判定(绝不能折成 0 覆盖)',
+      noWire.state === 'undetermined' && noWire.undetermined.length > 0,
+      `state=${noWire.state} undetermined=${JSON.stringify(noWire.undetermined)}`,
+    )
+    const unreadable = auditShadowCoverage([
+      { rel: 'apps/cli/src/tools/index.ts', text: EXECUTOR },
+      { rel: 'apps/cli/src/tools/hub/adapter.ts', text: null },
+    ])
+    ok(
+      'C4 取不到正文 ⇒ 未判定并点名(不折 0、不折绿)',
+      unreadable.state === 'undetermined' &&
+        unreadable.undetermined.some((u) => u.rel === 'apps/cli/src/tools/hub/adapter.ts'),
+      `state=${unreadable.state} undetermined=${JSON.stringify(unreadable.undetermined)}`,
+    )
+    const noSites = auditShadowCoverage([
+      { rel: 'apps/cli/src/tools/index.ts', text: EXECUTOR.replace(EXEC_SITE_PATTERN, 'runTool(') },
+    ])
+    ok(
+      'C5 影子档有接线但面上 0 个候选站点 ⇒ no-sites(不得读作全覆盖)',
+      noSites.state === 'no-sites' && noSites.total === 0,
+      `state=${noSites.state} total=${noSites.total}`,
+    )
+    // ⑯端到端:读数必须真从**被审面**量出来(走 listExecSites + readOnFace,不是构造面)
+    const e2e = analyze(
+      mk('cov', {
+        'apps/cli/src/tools/argument-validator.ts': DEFINITION,
+        'apps/cli/src/tools/argument-validation-telemetry.ts': MODES_OK,
+        'apps/cli/src/tools/index.ts': EXECUTOR,
+        'apps/cli/src/tools/hub/adapter.ts': HUB_ADAPTER,
+      }),
+      'head',
+    )
+    ok(
+      'C6 经真取材面量出覆盖面(命中 1 / 候选 2)',
+      e2e.coverage.state === 'measured' &&
+        e2e.coverage.total === 2 &&
+        e2e.coverage.coveredCount === 1,
+      `state=${e2e.coverage.state} ${e2e.coverage.coveredCount}/${e2e.coverage.total} uncovered=${JSON.stringify(e2e.coverage.uncovered)}`,
+    )
   } finally {
     for (const d of dirs) {
       try {
@@ -544,6 +871,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 
 export const __test__ = {
   CALL_PATTERN,
+  SHADOW_ENTRY_PATTERN,
+  EXEC_SITE_PATTERN,
   DEFINITION_FILE,
   MODE_SOURCE_FILE,
   SKIP_ENV_NAME,
@@ -551,11 +880,16 @@ export const __test__ = {
   maskNoise,
   findCallLines,
   isDeclarationLine,
+  enclosingFunctionBody,
+  findEarlyReturnLines,
+  auditShadowCoverage,
+  formatCoverage,
   classifyPath,
   isTestSurface,
   auditModeSource,
   decide,
   analyze,
   listCandidates,
+  listExecSites,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
