@@ -25,10 +25,10 @@ from app.api.dag import (
     KanbanTaskCreate,
 )
 from app.services.dag_scheduler import (
-    DAGResult,
-    KanbanTask,
     RUN_STATUS_PHYSICAL_STATES,
     RUN_STATUS_UNDETERMINED,
+    DAGResult,
+    KanbanTask,
     decode_run_status,
     encode_run_status,
 )
@@ -530,7 +530,7 @@ def test_g998100_dispatch_status_vocab_byte_equal():
     """
     from typing import get_args
 
-    from app.services.dag_scheduler import AgentTaskStatus, KANBAN_TASK_STATUSES
+    from app.services.dag_scheduler import KANBAN_TASK_STATUSES, AgentTaskStatus
 
     literal_vocab = tuple(get_args(AgentTaskStatus))
     table_vocab = tuple(KANBAN_TASK_STATUSES)
@@ -560,7 +560,7 @@ def test_g998100_queue_ledger_terminal_vocab_byte_equal():
     )
 
     targets = frozenset(_EVENT_TO_STATE.values())
-    assert TERMINAL_STATES <= targets, "每个终态词都必须有事件可达"
+    assert targets >= TERMINAL_STATES, "每个终态词都必须有事件可达"
     inverted: dict[str, list[str]] = {}
     for event, target in _EVENT_TO_STATE.items():
         inverted.setdefault(target, []).append(event)
