@@ -13,6 +13,8 @@ import { useLoginForm, type LoginApiResult, type LoginUser } from '@ihui/shared/
 import { credentialStorage } from '@/lib/credential-storage'
 import type { UserInfo } from '@/utils/auth'
 import PhoneAreaCodePicker from '@/components/PhoneAreaCodePicker'
+// 聚焦态描边走本端唯一实现(端内 wxss 没有 :focus 可用,只能运行时切档)
+import { FocusInput } from '@/components/FocusField'
 import PasswordVisibilityToggle from '@/components/PasswordVisibilityToggle'
 import LoginPopUp from '@/components/LoginPopUp'
 import ThemeRoot from '@/components/ThemeRoot'
@@ -399,7 +401,7 @@ export default function Login() {
             <View className="login-field">
               <Text className="login-label">{tt('login.email', '邮箱')}</Text>
               <View>
-                <Input
+                <FocusInput
                   className="login-input"
                   type="text"
                   placeholder={tt('login.emailPlaceholder', '请输入邮箱')}
@@ -426,7 +428,7 @@ export default function Login() {
             <View className="login-field">
               <Text className="login-label">{tt('login.code', '验证码')}</Text>
               <View className="login-coderow">
-                <Input
+                <FocusInput
                   className="login-input login-code-input"
                   type="number"
                   maxlength={6}
@@ -503,7 +505,7 @@ export default function Login() {
             <View className="login-field">
               <Text className="login-label">{tt('login.code', '验证码')}</Text>
               <View className="login-coderow">
-                <Input
+                <FocusInput
                   className="login-input login-code-input"
                   type="number"
                   maxlength={6}
@@ -542,7 +544,7 @@ export default function Login() {
             <View className="login-field">
               <Text className="login-label">{tt('login.account', '账号')}</Text>
               <View>
-                <Input
+                <FocusInput
                   className="login-input"
                   type="text"
                   placeholder={tt('login.accountPlaceholder', '手机号 / 邮箱 / 账号')}
@@ -581,7 +583,7 @@ export default function Login() {
                 </Text>
               </View>
               <View className="login-password-row">
-                <Input
+                <FocusInput
                   className="login-input login-password-input"
                   password={!showPwd}
                   placeholder={t('login.passwordPlaceholder')}
