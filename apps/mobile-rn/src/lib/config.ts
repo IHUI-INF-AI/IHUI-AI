@@ -46,4 +46,16 @@ export { TOKEN_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY } from '@ihui/shared/const
 export const WEB_BASE_URL = process.env.EXPO_PUBLIC_WEB_URL || 'http://localhost:8801'
 export const SSO_CLIENT_ID = SSO_CLIENT_IDS.MOBILE_RN
 export const SSO_REDIRECT_URI = 'ihui://sso/callback'
+
+/**
+ * 连通性出口的**旁证**探针地址(台账 G-1113920)。
+ *
+ * 为什么单列一个常量而不是复用 `API_BASE_URL`:后者在开发构建里默认是 `http://localhost:8802`,
+ * 而真机上的 `localhost` 是手机自己 ⇒ 永远拒绝连接。只用它做在线判据,等于把"我这台构建没连上
+ * 开发机"渲染成"用户的网络已断开"(票面现场:设备 ping 通、两条 NetworkAgentInfo 均 VALIDATED,
+ * 横幅却一路亮红)。取 `eas.json` production profile 的同一域名 ⇒ 与装机配置无关,答了就证明
+ * 设备出口是通的。
+ */
+export const EGRESS_PROBE_URL =
+  process.env.EXPO_PUBLIC_EGRESS_PROBE_URL || 'https://aizhs.top/api/health'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
