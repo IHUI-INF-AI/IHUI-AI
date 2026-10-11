@@ -47,7 +47,9 @@ describe('fetchRaw / fetchText 的 HTTP 失败携带元信息', () => {
   })
 
   it('fetchRaw 非 2xx → Error.status = HTTP 状态码', async () => {
-    setTransport(failingTransport(429, '<html><body>Too Many Requests</body></html>') as unknown as Transport)
+    setTransport(
+      failingTransport(429, '<html><body>Too Many Requests</body></html>') as unknown as Transport,
+    )
     const err = await rejection(() => fetchRaw('https://example.test/api/tts'))
     expect((err as Error & { status?: number }).status).toBe(429)
   })
@@ -67,7 +69,11 @@ describe('fetchRaw / fetchText 的 HTTP 失败携带元信息', () => {
       setTransport(failingTransport(429, body) as unknown as Transport)
       const err = await rejection(() => fetchText(`https://example.test/api/x?k=${key}`))
       expect((err as Error & { errorCode?: string }).errorCode, `key=${key}`).toBe(
-        key === 'code' ? 'BUDGET_EXHAUSTED' : key === 'error_code' ? 'RATE_LIMITED' : 'UNAUTHORIZED',
+        key === 'code'
+          ? 'BUDGET_EXHAUSTED'
+          : key === 'error_code'
+            ? 'RATE_LIMITED'
+            : 'UNAUTHORIZED',
       )
     }
   })

@@ -92,7 +92,10 @@ const defaultWarn = (message: string, detail?: unknown): void => {
  * 与 file:///C:/Users 形态)一律替换占位符;随后按上限截断保头部。
  * 只处理上报副本 —— 本地日志与 fallback 恢复继续用原值。
  */
-export function redactTelemetryText(value: string, maxLength: number = BOUNDARY_STACK_MAX_LENGTH): string {
+export function redactTelemetryText(
+  value: string,
+  maxLength: number = BOUNDARY_STACK_MAX_LENGTH,
+): string {
   const redacted = value
     .replace(/(Users[\\/])[^\\/\s"'`()<>,;:]+/gi, '$1<user>')
     .replace(/(home[\\/])[^\\/\s"'`()<>,;:]+/gi, '$1<user>')
@@ -102,7 +105,11 @@ export function redactTelemetryText(value: string, maxLength: number = BOUNDARY_
 /** 任意抛出物 → { name, message, stack? }:边界可能拦到非 Error 抛出物,防御性提取。 */
 function describeError(error: unknown): { name: string; message: string; stack?: string } {
   if (error instanceof Error) {
-    return { name: error.name, message: error.message, ...(error.stack ? { stack: error.stack } : {}) }
+    return {
+      name: error.name,
+      message: error.message,
+      ...(error.stack ? { stack: error.stack } : {}),
+    }
   }
   if (typeof error === 'string') {
     return { name: 'Error', message: error }
