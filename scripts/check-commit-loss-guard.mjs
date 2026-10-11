@@ -105,7 +105,8 @@ const C = {
 const SKIP_ENV = 'HUSKY_SKIP_COMMIT_LOSS_CHECK'
 
 /**
- * 档位旗标的 argv 读取点(**唯一源头**;2026-10-11 起含 `--list-unbacked`,共四项)。
+ * 档位旗标的 argv 读取点(**唯一源头**;2026-10-11 起含 `--list-unbacked` 与
+ * `--list-out-of-window`,共五项)。
  * 镜像测试原先各抄一份 `'--blocking' / '--filter-stash'` 字面量:档位名一旦改,测试传的
  * 就成了没人读的字符串,断言照样绿(§22c 的"镜像常量漂移")。故导出真常量,测试取用。
  */
@@ -114,6 +115,7 @@ const FLAGS = {
   blocking: '--blocking',
   filterStash: '--filter-stash',
   listUnbacked: '--list-unbacked',
+  listOutOfWindow: '--list-out-of-window',
 }
 
 /**
@@ -187,6 +189,7 @@ const isStrict = process.argv.includes(FLAGS.strict)
 const isBlocking = process.argv.includes(FLAGS.blocking)
 const isFilterStash = process.argv.includes(FLAGS.filterStash)
 const isListUnbacked = process.argv.includes(FLAGS.listUnbacked)
+const isListOutOfWindow = process.argv.includes(FLAGS.listOutOfWindow)
 /**
  * `--window-days <N>` 的取值(**只认紧跟的那一个 token**)。
  * 刻意不写成"扫到 flag 之后所有数字里挑一个":仓内已有判据因把别处的数字当自己的参数而误判
@@ -1390,6 +1393,17 @@ async function main() {
         )
       } else if (unreachable.length > 0) {
         issues.push(`${unreachable.length} 个悬空 commit 已全部 tag 备份(防止 git gc 清理)`)
+      }
+      // `--list-out-of-window`:超窗那一批的机器可读名单(每行一枚完整 oid,与 --list-unbacked 同形,
+      // 所以调用方一份解析器就够)。加它的理由不是补功能,而是补一个**结构空档**:超窗存量按设计
+      // 不由提交链拦 ⇒ 门只打印"9785 枚 + 最老一枚",谁想照 §29 做人工 GC 就只能自己重算窗口,
+      // 而重算的那份必然与本门漂开(§22c 同一条理由)。名单不得只存在于人读行里。
+      // 刻意放在 if/else 链**之外**:窗内有债时超窗名单同样要能取到,否则两个桶互相遮蔽。
+      if (isListOutOfWindow) {
+        console.log(
+          `  ${C.cyan}--list-out-of-window:${win.outOfWeek.length} 枚(完整 oid,§29 人工 GC 候选)${C.reset}`,
+        )
+        for (const o of win.outOfWeek) console.log(o.hash)
       }
     }
   }
