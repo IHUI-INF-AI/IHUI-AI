@@ -53,6 +53,7 @@ import { writeFileSync } from 'node:fs'
 import {
   ABSENT,
   alignSharedIndex,
+  attestBypassCommit,
   casUpdateRef,
   commitTreeWithIndex,
   git,
@@ -280,6 +281,10 @@ async function main() {
     process.exit(1)
   }
   console.log(`✅ 回读:id 行单引号在位 1 处 / 双引号 id 增量 0(基线 ${dblBefore})/ script 行在位`)
+  // 本器是**注册表**的落地器:它产出的每一枚提交都改变"有哪些守门在跑",所以它自己更该留痕
+  // (commit-tree + CAS 不跑钩子 ⇒ 不写台账就与"有人绕门塞了一枚"同形,2026-10-11 立)。
+  const at = attestBypassCommit(landed, { root, headBefore: parentSha, source: 'gate-registry-insert' })
+  if (!at.ok) console.error(`⚠️ 旁路留痕未写入(${at.why})⇒ 这一枚在跳门总量台账里仍是 unknown`)
 
   const align = alignSharedIndex({ root, paths: [target], parentRef: parentSha })
   if (align.lockAbandoned) {
