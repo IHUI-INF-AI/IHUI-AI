@@ -364,6 +364,10 @@ function gateIndex(gateContents) {
   const forms = new Map()
   const buckets = new Map()
   const names = new Set()
+  /** 名字 → **是哪道门持有的**(F2 的"清单同名"只认被 import 的那道门,见 audit 内注释)。 */
+  const namesByGate = new Map()
+  /** 形态 → **是哪道门持有的**(F2 的"材料与门体同形"同理,只认被 import 的那道门)。 */
+  const formsByGate = new Map()
   let gateFiles = 0
   let degraded = false
   for (const [rel, text] of Object.entries(gateContents)) {
@@ -385,9 +389,15 @@ function gateIndex(gateContents) {
       }
       if (name && exported.has(name)) role = 'criterion'
       if (name && role !== 'scope') names.add(name)
+      if (name && role !== 'scope') {
+        if (!namesByGate.has(rel)) namesByGate.set(rel, new Set())
+        namesByGate.get(rel).add(name)
+      }
       for (const frag of splitAlternatives(u.body)) {
         if (!forms.has(frag)) forms.set(frag, [])
         forms.get(frag).push({ gate: rel, line: u.line, name, role, type: u.type })
+        if (!formsByGate.has(rel)) formsByGate.set(rel, new Set())
+        formsByGate.get(rel).add(frag)
       }
     }
   }
@@ -403,7 +413,7 @@ function gateIndex(gateContents) {
       buckets.get(k).push(frag)
     }
   }
-  return { forms, buckets, names, gateFiles, degraded, formCount: forms.size }
+  return { forms, formsByGate, buckets, names, namesByGate, gateFiles, degraded, formCount: forms.size }
 }
 
 function pathLiterals(text) {
@@ -475,7 +485,6 @@ function audit(contents, { strict = false } = {}) {
   if (index.formCount === 0) throw new Undetermined('门体索引里 0 条形态(唯一形枚举为空)—— 空扫不记绿')
 
   const items = []
-  const gateListNames = index.names
   const seen = new Set()
   const push = (rec) => {
     const key = `${rec.state}\u0000${rec.test}\u0000${rec.gate}\u0000${rec.gateName || ''}\u0000${rec.shape}`
@@ -542,11 +551,11 @@ function audit(contents, { strict = false } = {}) {
             } else if (ent.role === 'topconst' && !sameName && !l1 && !l2) {
               state = 'undetermined'
               why = `同料但门侧是顶层单值常量(${ent.name || 'inline'}),未证实它是形态清单`
-            } else if (l1 || l2 || sameName) {
+            } else if (l1 || l2) {
               state = 'hit'
               why = sameName
                 ? `F1 同名同料:清单名 ${ent.name} 与材料在两处各写一份(${how})`
-                : `F1 同料:${l1 ? '测试 import 了该门' : l2 ? '同名镜像对' : '同声明名'}却把材料又写了一遍(${how})`
+                : `F1 同料:${l1 ? '测试 import 了该门' : '同名镜像对'}却把材料又写了一遍(${how})`
             } else if (anchor && f.length >= STRONG_FRAG_LEN) {
               state = 'hit'
               why = `F1 同锚点强料:两面都点名 ${anchor} 且形态同形(${how})`
@@ -554,7 +563,9 @@ function audit(contents, { strict = false } = {}) {
               state = 'undetermined'
               why = anchor
                 ? `同锚点(${anchor})但形长 ${f.length} < 强同形阈值 ${STRONG_FRAG_LEN},不冒判红`
-                : '材料同形却无 import / 同名 / 同锚点关系,无法确认两面审的是同一对象'
+                : sameName
+                  ? `同名清单 ${ent.name} 住在 ${gateRel},而本文件既不 import 它、也不是它的镜像 ⇒ 不能算复制这道门的判据(跨门同名),逐条点名待裁`
+                  : '材料同形却无 import / 同名 / 同锚点关系,无法确认两面审的是同一对象'
             }
             push({
               state,
@@ -579,22 +590,49 @@ function audit(contents, { strict = false } = {}) {
         if (!role.atPattern || role.shapeLock) continue
         // F2 也要"对得上同一个被审对象":清单名与门体同名,或材料与门体同形 —— 两条都不满足的本地
         // 正则是测试自己的夹具(测试当然要有自己的断言正则),把它判成复制源判据是假阳。
-        const overlap = splitAlternatives(u.body).some((f) => candidatesFor(f, index).length > 0)
-        const nameLinked = gateListNames.has(u.decl.name)
-        if (!overlap && !nameLinked) continue
+        const ownGate = imports[0]
+        const ownNames = index.namesByGate.get(ownGate) || new Set()
+        const ownForms = index.formsByGate.get(ownGate) || new Set()
+        const fragsOfU = splitAlternatives(u.body)
+        // F2 的两个链接条件都只认**被 import 的那道门**。此前"同名"与"同料"都查全部门的全局集合,
+        // 于是"测试 import 门 A、而那条清单的名字与材料其实住在门 B"会被报成复制了 A 的判据,
+        // 而报告里的归因门还是 A —— 实测假阳:check-public-path-probe 的 CALL_RE(门 A 既无此名也无此料,
+        // 全仓另有十几道门用 CALL_RE 这个名字)。别门确实持有时也**不静默放过**:落未判定并点名
+        // 真正持有者 —— 待裁不是判死,而"把没判写成判过了"与"错怪一道门"同样是造合格证。
+        const overlapOwn = fragsOfU.some((f) =>
+          candidatesFor(f, index).some((gf) => ownForms.has(gf)),
+        )
+        const nameLinked = ownNames.has(u.decl.name)
+        const allGates = new Set([...index.namesByGate.keys(), ...index.formsByGate.keys()])
+        const otherHolder = nameLinked
+          ? null
+          : [...allGates].find(
+              (g) =>
+                g !== ownGate &&
+                ((index.namesByGate.get(g) || new Set()).has(u.decl.name) ||
+                  fragsOfU.some((f) =>
+                    candidatesFor(f, index).some((gf) =>
+                      (index.formsByGate.get(g) || new Set()).has(gf),
+                    ),
+                  )),
+            ) || null
+        if (!overlapOwn && !nameLinked && !otherHolder) continue
         const reason = exemptReason(rawLines, u.line)
+        const crossGateOnly = !overlapOwn && !nameLinked && !!otherHolder
         push({
-          state: reason ? 'pass' : 'hit',
+          state: reason ? 'pass' : crossGateOnly ? 'undetermined' : 'hit',
           test: testRel,
           testLine: u.line,
-          gate: imports[0],
+          gate: otherHolder || ownGate,
           gateLine: 0,
           gateName: u.decl.name,
           shape: 'F2',
           frag: normalizePattern(u.body).slice(0, 40),
           why: reason
             ? `P3 行内豁免:${reason}`
-            : `F2 半复制:import 了门却自带清单 ${u.decl.name} 并用作裁定输入(${nameLinked ? '清单同名' : '材料与门体同形'})`,
+            : crossGateOnly
+              ? `同名清单 ${u.decl.name} 住在 ${otherHolder} 而本文件 import 的是 ${ownGate}(该门无此名)⇒ 不能算复制本门判据,但同名者确实存在 ⇒ 未判定点名待裁`
+              : `F2 半复制:import 了门却自带清单 ${u.decl.name} 并用作裁定输入(${nameLinked ? '清单同名' : '材料与门体同形'})`,
           excerpt: (rawLines[u.line - 1] || '').trim().slice(0, 96),
         })
       }
@@ -736,6 +774,27 @@ function selfTest() {
   t('P2 形状锁不被冒判红(assert.match 钉 gateSrc 且本文件读了正文)', (() => { const r = a({ [GATE]: gateBody, [TEST]: shapeLock }); return r.counts.hits === 0 && r.items.some((i) => i.state === 'pass' && i.why.startsWith('P2')) })())
   t('F2 半复制(import 门却自带同名清单当裁定输入)⇒ 命中', (() => { const r = a({ [GATE]: gateBody, [TEST]: halfCopy }); return r.items.some((i) => i.shape === 'F2' && i.state === 'hit') })())
   t('测试自己的夹具正则(与门体不同名也不同料)不算 F2', (() => { const r = a({ [GATE]: gateBody, [TEST]: ownFixture }); return !r.items.some((i) => i.shape === 'F2') })())
+  // 同名清单属于**另一道门**时,不得把 F2 记在被 import 的那道门上(实测假阳:public-path-probe 的 CALL_RE)。
+  const GATE_B = 'scripts/check-other-judge.mjs'
+  const gateBOther = `const CALL_RE = [/${OTHER}/]\nexport function probe() { return [] }\nexport const __test__ = {\n  CALL_RE,\n}\n`
+  const crossName = `import { __test__ as gate } from '../check-demo-judge.mjs'\nconst CALL_RE = [/${OTHER}/]\nCALL_RE.forEach((re) => re.test(line))\nvoid gate\n`
+  // 反例(锁住"收窄没有把真复制一起削掉"):同名清单就在被 import 的那道门里 ⇒ 仍判命中
+  const gateOwnOther = `const PATTERNS = [\n  { why: '内联钳位', re: /${GFORM}/ },\n]\nconst CALL_RE = [/${OTHER}/]\nexport const __test__ = {\n  PATTERNS,\n  CALL_RE,\n}\n`
+  t('同名清单住在别门 ⇒ 不判 F2 命中,但落未判定并点名真正持有者', (() => {
+    const r = a({ [GATE]: gateBody, [GATE_B]: gateBOther, [TEST]: crossName })
+    const i = r.items.find((x) => x.shape === 'F2')
+    return (
+      r.counts.hits === 0 &&
+      !!i &&
+      i.state === 'undetermined' &&
+      i.gate === GATE_B &&
+      /不能算复制本门判据/.test(i.why)
+    )
+  })())
+  t('同名清单就在被 import 的那道门里 ⇒ F2 照旧命中(收窄没有削掉真复制)', (() => {
+    const r = a({ [GATE]: gateOwnOther, [TEST]: crossName })
+    return r.items.some((x) => x.shape === 'F2' && x.state === 'hit')
+  })())
   t('P3 行内出口(带原因)只救本行', (() => { const r = a({ [GATE]: gateBody, [TEST]: exempted }); return r.counts.hits === 0 && r.items.some((i) => i.why.startsWith('P3')) })())
   t('P3 缺原因不算出口 ⇒ 仍命中', (() => { const r = a({ [GATE]: gateBody, [TEST]: noReason }); return r.counts.hits >= 1 })())
   t('注释里的散文不被判成站点(遮噪只一份)', (() => { const r = a({ [GATE]: gateBody, [TEST]: `// gate.PATTERNS 里那条 /${TFORM}/ 是反面教材,本行不该被当站点\n` }); return r.counts.hits === 0 && r.items.length === 0 })())
