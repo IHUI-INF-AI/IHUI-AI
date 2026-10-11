@@ -45,6 +45,11 @@ function createTempGitRepo() {
   spawnSync('git', ['config', 'user.name', 'Test'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] })
   // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   spawnSync('git', ['config', 'commit.gpgsign', 'false'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] })
+  // 夹具必须与真仓同条件:真仓 .gitignore 忽略 .workbuddy/,而归档器落地后会往那里写一行旁路留痕
+  // (G-1118437 续)。少了这条忽略规则,夹具读到的"工作区不干净"是夹具缺条件,不是仓库缺陷。
+  writeFileSync(join(dir, '.gitignore'), '.workbuddy/\n')
+  spawnSync('git', ['add', '.gitignore'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] })
+  spawnSync('git', ['commit', '-q', '-m', 'init ignore'], { ...opt, stdio: ['ignore', 'pipe', 'pipe'] })
   return dir
 }
 
@@ -418,6 +423,12 @@ test('--auto-commit: 归档后自动 git commit(验证 commit 创建 + 工作区
     // 工作区应干净(归档文件 + PROJECT_PLAN.md 都已 commit)
     const status = execSync('git status --porcelain', { stdio: ['ignore', 'pipe', 'pipe'], cwd: dir, encoding: 'utf8' }).trim()
     assert.equal(status, '', '工作区应干净')
+    // 留痕不是"顺手多写一个文件",它是这一枚提交在门禁账面上唯一的凭据 ⇒ 必须正向断言它在,
+    // 而不是只把它藏进 .gitignore(藏掉就等于把新行为从测试面上抹了)。
+    const headSha = execSync('git rev-parse HEAD', { stdio: ['ignore', 'pipe', 'pipe'], cwd: dir, encoding: 'utf8' }).trim()
+    const ledger = readFileSync(join(dir, '.workbuddy', 'safe-commit-attestation.jsonl'), 'utf8')
+    assert.ok(ledger.includes(headSha), `旁路留痕必须绑到刚落地的枚 ${headSha.slice(0, 12)}`)
+    assert.match(ledger, /"kind":"bypass-landing"/, '留痕的 kind 必须是 bypass-landing(统计器按它归类)')
   } finally {
     rmScratch(dir)
   }
@@ -1002,6 +1013,11 @@ test('B 正当归档仍在工作:条目确实完成 ≥7 天 ⇒ 搬走 + 留占
       '',
       '落地后工作区应干净(索引与工作树都随提交对齐)',
     )
+    // 同 A 臂:留痕必须正向存在且绑到这枚 HEAD,而不是被忽略规则遮掉。
+    const headShaB = spawnSync('git', ['-C', dir, 'rev-parse', 'HEAD'], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true }).stdout.trim()
+    const ledgerB = readFileSync(join(dir, '.workbuddy', 'safe-commit-attestation.jsonl'), 'utf8')
+    assert.ok(ledgerB.includes(headShaB), `旁路留痕必须绑到刚落地的枚 ${headShaB.slice(0, 12)}`)
+    assert.match(ledgerB, /"source":"archive-completed-tasks"/, '留痕必须点名是哪个落地器(否则事后无从归因)')
     const g = spawnSync('node', [GATE_PATH, '--root', dir], {
       stdio: ['ignore', 'pipe', 'pipe'],
       cwd: dir,

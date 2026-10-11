@@ -89,6 +89,12 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { catBatch, FACE_LABEL, gitBinary, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+// 旁路落地通道(commit-tree + CAS)**结构上不跑钩子** ⇒ 必须留痕,写口只有一份:
+// `lib/bypass-git.mjs` 的 `attestBypassCommit`(2026-10-11 立)。此前本器的 `--heal --commit`
+// 落的恢复型提交在留痕台账里一行都没有(现读 `plan-bypass-ledger-report.mjs --since 2026-10-09`
+// 的 18 枚"本机可疑"里 10 枚是本器产物),总量统计只能把它们留在 unknown ——
+// 那与"有人 --no-verify 塞了一枚红"在两行文本上完全同形,而两者该做的处置相反。
+import { attestBypassCommit } from './lib/bypass-git.mjs'
 // 取证夹具唯一落点(§26:既不得往 os.tmpdir() 写,也不得落在仓库树内)
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 // G-307(看守侧):归并器合法翻勾会在行上留注记 —— legacy 形态把注记**前置**在正文之前,
@@ -2446,6 +2452,10 @@ function heal(commit) {
       },
     ).trim()
     g2(['update-ref', 'refs/heads/main', newCommit, parent])
+    // 留痕失败不得改变"回捞已落地"这一结论(提交已在 refs/heads/main 上),但必须喊出来:
+    // 静默少一行留痕,下一次审计就会把这枚当成"绕门塞进来的"。
+    const at = attestBypassCommit(newCommit, { root: ROOT, headBefore: parent, source: 'check-plan-line-loss:heal' })
+    if (!at.ok) console.error(`⚠️ [plan-line-loss] 旁路留痕未写入(${at.why})⇒ 这一枚在跳门总量台账里仍是 unknown`)
     console.log(
       `   已建前向恢复提交 ${newCommit.slice(0, 11)}` +
         (indexMissing && indexMissing.length

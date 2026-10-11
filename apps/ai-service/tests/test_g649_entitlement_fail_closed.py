@@ -283,6 +283,49 @@ def test_bare_string_provider_scope_is_rejected_not_guessed():
 # ---------------------------------------------------------------------------
 
 
+def _ensure_baseline_history_available() -> None:
+    """shallow clone(CI checkout@v4 默认 fetch-depth=1)下按需补对照历史。
+
+    2026-10-11 修(CI run 38084051334):BASELINE_REF = `5cf78e1a0c^` 指向 G-649
+    入库提交的**父**提交 —— depth=1 的 CI checkout 里这个对象根本不在本地,
+    `git show` 以 `invalid object name` 红。判据(对照尺子必须是旧实现本身)不动,
+    只在对象缺席时按需 `fetch --depth=2 origin <sha>`(连同其父一档拉齐;GitHub
+    启用了 allowAnySHA1InWant,按 sha 浅取可用)。历史本就可达时零副作用。
+    """
+    probe = subprocess.run(
+        [GIT_BIN, "-C", str(REPO_ROOT), "rev-parse", "--verify", "--quiet", BASELINE_REF],
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        creationflags=(0x08000000 if sys.platform == "win32" else 0),
+    )
+    if probe.returncode == 0:
+        return
+    base_sha = BASELINE_REF.removesuffix("^")
+    fetch = subprocess.run(
+        [
+            GIT_BIN,
+            # allowAnySHA1InWant:按 sha 浅取在本地的 file:// 服务端默认拒非 advertised
+            # 对象;-c 经 GIT_CONFIG_PARAMETERS 传给同进程 spawn 的 upload-pack;
+            # 远端(GitHub)服务端本就启用该能力,此开关对远端无副作用。
+            "-c",
+            "uploadpack.allowAnySHA1InWant=true",
+            "-C",
+            str(REPO_ROOT),
+            "fetch",
+            "--depth=2",
+            "origin",
+            base_sha,
+        ],
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        creationflags=(0x08000000 if sys.platform == "win32" else 0),
+    )
+    assert fetch.returncode == 0, (
+        f"对照基线 {BASELINE_REF} 不在本地,按需补历史也失败(fetch rc={fetch.returncode}):"
+        f"{fetch.stderr.decode('utf-8', 'replace')[-300:]}"
+    )
+
+
 def _load_head_implementation(tmp_path: Path):
     """从**出处**取改动前那份实现,原样落临时文件后 import(对照尺子必须是旧实现本身)。
 
@@ -320,6 +363,7 @@ def _load_head_implementation(tmp_path: Path):
 
 @pytest.mark.skipif(GIT_BIN is None, reason="本机 PATH 取不到 git ⇒ 旧实现对照无从跑(未判定)")
 def test_clean_assembly_is_byte_identical_to_head_implementation(tmp_path: Path):
+    _ensure_baseline_history_available()
     head = _load_head_implementation(tmp_path)
     try:
         # 两边都在"无额外源"的空面上读(fixture 已把新实现的源表换成空 dict;

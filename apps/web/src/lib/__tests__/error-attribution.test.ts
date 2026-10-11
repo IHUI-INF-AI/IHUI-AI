@@ -135,9 +135,9 @@ describe('resolveErrorAttribution — 阶梯排序', () => {
 
   it('message 中的状态码提取是 keyword-gated:无 http/status 前缀的 401 不提', () => {
     // "quota exceeded (code 401)" 没有 keyword 前缀 ⇒ 不当状态码,落到 quota 文案
-    expect(
-      resolveErrorAttribution({ message: 'quota exceeded (code 401)' }).failureReason,
-    ).toBe('quota_exhausted')
+    expect(resolveErrorAttribution({ message: 'quota exceeded (code 401)' }).failureReason).toBe(
+      'quota_exhausted',
+    )
     // "status 401" 有 keyword 前缀 ⇒ 强证据 auth_failed
     expect(resolveErrorAttribution({ message: 'status 401: quota exceeded' }).failureReason).toBe(
       'auth_failed',
