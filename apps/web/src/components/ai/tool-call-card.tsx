@@ -514,8 +514,7 @@ function pickStr(args: Record<string, unknown> | undefined, keys: string[]): str
 
 /** D134 两族结构化摘要视图模型:kind 区分命令族 / 删除族 */
 export type ToolEffectSummary =
-  | { kind: 'command'; command: string }
-  | { kind: 'delete'; paths: string[]; recursive: boolean }
+  { kind: 'command'; command: string } | { kind: 'delete'; paths: string[]; recursive: boolean }
 
 /**
  * D134(2026-09-29):按副作用分类的结构化摘要 —— 命令族取将执行的命令文本,
@@ -1196,10 +1195,7 @@ export const ToolCallCard = React.memo(function ToolCallCard({
   const showChartArtifact = !!chartArtifact && status === 'success'
 
   // D134(2026-09-29):命令族/删除族按副作用分类的结构化摘要;其余工具为 null 走原 JSON 路径
-  const effectSummary = React.useMemo(
-    () => extractEffectSummary(toolName, args),
-    [toolName, args],
-  )
+  const effectSummary = React.useMemo(() => extractEffectSummary(toolName, args), [toolName, args])
 
   const handleOpenInWorkPanel = React.useCallback(() => {
     if (!extractedUrl) return
@@ -1259,7 +1255,7 @@ export const ToolCallCard = React.memo(function ToolCallCard({
               toolCallId={toolCallId}
             />
           )}
-          {/* D113(2026-09-27):文件写类工具流中 diff 预览——tool-delta 帧累积文本,
+          {/* D113(2026-09-27):文件写类工具流中 diff 预览——tool-delta 增量帧按 seq 收敛后的累计文本,
               仅 running 态渲染;tool-result 到达后 partialDiff 被清,由 diffInfo/result 接管 */}
           {status === 'running' && partialDiff && (
             <div>
@@ -1342,7 +1338,10 @@ export const ToolCallCard = React.memo(function ToolCallCard({
                   <CommandSummaryBlock command={effectSummary.command} />
                 )}
                 {effectSummary?.kind === 'delete' && (
-                  <DeleteSummaryBlock paths={effectSummary.paths} recursive={effectSummary.recursive} />
+                  <DeleteSummaryBlock
+                    paths={effectSummary.paths}
+                    recursive={effectSummary.recursive}
+                  />
                 )}
                 {/* 引用溯源:knowledge_lookup 等返回 citations 时渲染标签组 */}
                 {citations.length > 0 && <CitationsBlock citations={citations} />}

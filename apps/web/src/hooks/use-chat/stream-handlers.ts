@@ -157,6 +157,7 @@ export function createToolCallHandler(assistantMessageId: string) {
       if (event.retryCount !== undefined) updates.retryCount = event.retryCount
       // D113:tool-result 到达即清流中预览(最终 diff 以 result 的 diffInfo 为准)
       updates.partialDiff = undefined
+      updates.partialSeq = undefined
       useChatStore.getState().updateToolCall(assistantMessageId, event.toolCallId, updates)
 
       // tool-result 含 URL:延迟打开(仅当之前 args 没 url 时,result 含 url 的场景)
@@ -171,13 +172,18 @@ export function createToolCallHandler(assistantMessageId: string) {
 
 /**
  * D113 onToolDelta 工厂(2026-09-27 立,G-227):文件写类工具流中 diff 预览。
- * 载荷 partialText 为累积文本,直接覆盖写入 tc.partialDiff(同 seq 重放天然幂等);
- * 仅 running 态渲染,tool-result 处理器负责清除。 */
+ * 载荷 partialText 为**增量**正文,按 toolCallId 以 seq 收敛**追加**(evt.seq<=已存 partialSeq
+ * 即丢弃,重传/乱序幂等;缺口照追加);仅 running 态渲染,tool-result 处理器负责清除。 */
 export function createToolDeltaHandler(assistantMessageId: string) {
   return (event: ToolDeltaEvent) => {
     if (!event.toolCallId) return
+    const message = useChatStore.getState().messages.find((m) => m.id === assistantMessageId)
+    const tc = message?.toolCalls?.find((t) => t.id === event.toolCallId)
+    if (!tc) return
+    if (event.seq <= (tc.partialSeq ?? 0)) return
     useChatStore.getState().updateToolCall(assistantMessageId, event.toolCallId, {
-      partialDiff: event.partialText,
+      partialDiff: (tc.partialDiff ?? '') + event.partialText,
+      partialSeq: event.seq,
     })
   }
 }

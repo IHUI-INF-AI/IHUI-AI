@@ -97,19 +97,34 @@ describe('applyAssistantExecutionFrame(D135 折叠档:纯函数 + 穷尽判别�
     ])
   })
 
-  it('tool-delta 覆盖写 partialDiff;tool-result 到达即清(最终 diff 以 result 为准)', () => {
+  it('tool-delta 按 seq 收敛追加 partialDiff;重传丢弃;tool-result 到达即清(最终 diff 以 result 为准)', () => {
     const first = foldAll([
       { kind: 'tool-call', event: startFrame('c1') },
-      { kind: 'tool-delta', event: { toolCallId: 'c1', partialText: '+a' } as ToolDeltaEvent },
+      {
+        kind: 'tool-delta',
+        event: { toolCallId: 'c1', seq: 1, partialText: '+a' } as ToolDeltaEvent,
+      },
     ])
     expect(first.toolCalls?.[0]?.partialDiff).toBe('+a')
+    expect(first.toolCalls?.[0]?.partialSeq).toBe(1)
     const next = applyAssistantExecutionFrame(first, {
       kind: 'tool-delta',
-      event: { toolCallId: 'c1', partialText: '+a\n+b' } as ToolDeltaEvent,
+      event: { toolCallId: 'c1', seq: 2, partialText: '\n+b' } as ToolDeltaEvent,
     })
     expect(next.toolCalls?.[0]?.partialDiff).toBe('+a\n+b')
-    const done = applyAssistantExecutionFrame(next, { kind: 'tool-call', event: resultFrame('c1') })
+    expect(next.toolCalls?.[0]?.partialSeq).toBe(2)
+    // 重传(seq<=已存 partialSeq)幂等丢弃
+    const replay = applyAssistantExecutionFrame(next, {
+      kind: 'tool-delta',
+      event: { toolCallId: 'c1', seq: 2, partialText: '\n+b' } as ToolDeltaEvent,
+    })
+    expect(replay.toolCalls?.[0]?.partialDiff).toBe('+a\n+b')
+    const done = applyAssistantExecutionFrame(replay, {
+      kind: 'tool-call',
+      event: resultFrame('c1'),
+    })
     expect(done.toolCalls?.[0]?.partialDiff).toBeUndefined()
+    expect(done.toolCalls?.[0]?.partialSeq).toBeUndefined()
     expect(done.toolCalls?.[0]?.status).toBe('success')
   })
 
@@ -158,13 +173,17 @@ describe('applyAssistantExecutionFrame(D135 折叠档:纯函数 + 穷尽判别�
     const viaDelta = foldAll(
       [
         { kind: 'tool-call', event },
-        { kind: 'tool-delta', event: { toolCallId: 'c9', partialText: 'z' } as ToolDeltaEvent },
+        {
+          kind: 'tool-delta',
+          event: { toolCallId: 'c9', seq: 1, partialText: 'z' } as ToolDeltaEvent,
+        },
       ],
       1000,
     )
     expect(viaDelta.toolCalls).toEqual(
       applyToolDelta(applyToolCallEvent(undefined, event, 1000), {
         toolCallId: 'c9',
+        seq: 1,
         partialText: 'z',
       }),
     )
@@ -232,7 +251,9 @@ describe('ChatScreen 屏侧接线(源码级)', () => {
     expect(SCREEN_SOURCE).toMatch(
       /import \{ TaskStatusBar \} from '\.\.\/components\/ai\/TaskStatusBar'/,
     )
-    expect(SCREEN_SOURCE).toMatch(/<TaskStatusBar[\s\S]{0,240}?planSteps=\{planViz\?\.planSteps \?\? \[\]\}/)
+    expect(SCREEN_SOURCE).toMatch(
+      /<TaskStatusBar[\s\S]{0,240}?planSteps=\{planViz\?\.planSteps \?\? \[\]\}/,
+    )
     expect(SCREEN_SOURCE).toMatch(/toolCalls=\{planViz\?\.toolCalls\}/)
     expect(SCREEN_SOURCE).toMatch(/isStreaming=\{isStreaming\}/)
   })
