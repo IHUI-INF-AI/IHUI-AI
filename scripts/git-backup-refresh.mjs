@@ -40,12 +40,25 @@ import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { gitArchiveDir, resolveBackupDir, resolveGitdir, resolveWorktree } from './lib/gitdir.mjs'
+// 仅取二进制兜底链(2026-10-08 型 B 收尾批声明换绑,见下方 GIT 处注记);派生不经本层,
+// 原因(镜像桩活契约)同样记在那条注记里。
+import { gitBinary } from './lib/face-reader.mjs'
 // 单实例守卫的锁语义只有一份实现,住在 git-lock(AGENTS §12「git 写操作全局锁」的地基文件);
 // 本文件**不得**再手写第二把(mkdir/判活/回收的判据抄两遍必漂移)。只加薄薄一层:
 // 「拿不到锁 ⇒ 打印 SKIPPED + exit 0」。
 import { tryAcquireSingleInstance } from './git-lock.mjs'
 
-const GIT = process.env.IHUI_GIT_BIN || 'git'
+// 2026-10-08(gitRaw 型 B 收尾批)声明换绑(刻意**不**迁派生形状):`GIT` 的兜底从裸 'git'
+// 改为层 gitBinary()(scripts/lib/face-reader.mjs,恒等 `resolveGitBin() || 'git'`)——
+// IHUI_GIT_BIN 逃生舱优先级保持第一,声明不再绑裸 'git' ⇒ 文件脱离型 B 口径。
+// gitOut/gitSha/fetch/symbolic-ref/read-tree 等派生形状一处不迁,逐字依据:镜像测试
+// scripts/tests/git-backup-refresh.test.mjs 的 runChild 以 env 注入 IHUI_GIT_BIN=
+// process.execPath(node.exe 桩)作为"零派生"反证的根基 —— 任何一次真 git 派生都会被桩掀成
+// "❌ 自身异常"+exit 2;而 gitRaw 层的候选链不认 IHUI_GIT_BIN,若迁,桩失效,T10/T11 的
+// 反证结构即塌(活契约,复评条件:该镜像测试改用别的方式证零派生时再议)。另:fetch 走网络
+// 无界时长,本就不宜套层默认 60s。行为面:兜底二进制从 PATH 'git' 升级为层验证候选链
+// (净收益);env 舱与全部派生参数、allowFail 折值一字未动。
+const GIT = process.env.IHUI_GIT_BIN || gitBinary()
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..')
 

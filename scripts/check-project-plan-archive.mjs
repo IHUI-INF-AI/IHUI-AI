@@ -365,28 +365,36 @@ function archivedTitleOf(headingLine) {
 }
 
 /**
- * 占位注释里点名的条目标题集。
+ * 单条占位行里点名的条目标题;取不到 ⇒ 返回 `''`(宁漏不误:把整行当标题会让
+ * "复活比对"拿垃圾键乱撞)。
  *
- * 刻意用"最后一个 `,完整内容在`"切分而不是非贪婪正则:标题里本来就带中文逗号
+ * 切分刻意用"最后一个 `,完整内容在`"而不是非贪婪正则:标题里本来就带中文逗号
  * (`O36 追加(同日):对账门 5 枚红点…`),正则会在第一个逗号处断掉。
+ * §22c:本函数是占位标题提取的**唯一实现** —— `placeholderTitles` 与镜像测试
+ * (`check-project-plan-archive.test.mjs`)都从这里取,任何一侧都不得再写第二份解析。
+ */
+function placeholderTitleOf(line) {
+  const end = line.lastIndexOf(',完整内容在')
+  if (end < 0) return ''
+  // 锚点必须覆盖**归档器现行生成形态**(archiver placeholderLine:397 =
+  // `<!-- 已归档(日期:标题…,完整内容在 …` —— 日期后**没有**闭括号)。
+  // 旧散文形态 `(日期):标题` 在真实台账里也有,容忍并存;两把锚点都取不到 ⇒ 跳过该行。
+  // 2026-09-28 实测:本提取原版只认 `):`,而现行占位根本没有这个序列 ⇒ 集合恒空 ⇒
+  // A4 复活检测在生产面上**整条失明**,账面却因"集合空 ⇒ 无复活"一路报绿(本仓最高频失效型)。
+  const modern = /^<!-- 已归档\(\d{4}-\d{2}-\d{2}:/.exec(line)
+  const legacy = line.indexOf('):')
+  if (modern) return line.slice(modern[0].length, end).trim()
+  if (legacy >= 0) return line.slice(legacy + 2, end).trim()
+  return ''
+}
+
+/**
+ * 占位注释里点名的条目标题集(实现只走 `placeholderTitleOf`,不另存一份解析)。
  */
 function placeholderTitles(content) {
   const out = new Set()
   for (const line of placeholderLines(content)) {
-    const end = line.lastIndexOf(',完整内容在')
-    if (end < 0) continue
-    // 锚点必须覆盖**归档器现行生成形态**(archiver placeholderLine:397 =
-    // `<!-- 已归档(日期:标题…,完整内容在 …` —— 日期后**没有**闭括号)。
-    // 旧散文形态 `(日期):标题` 在真实台账里也有,容忍并存;两把锚点都取不到 ⇒ 跳过该行
-    // (宁漏不误:把整行当标题塞进集合会让"复活比对"拿垃圾键乱撞)。
-    // 2026-09-28 实测:本函数原版只认 `):`,而现行占位根本没有这个序列 ⇒ 集合恒空 ⇒
-    // A4 复活检测在生产面上**整条失明**,账面却因"集合空 ⇒ 无复活"一路报绿(本仓最高频失效型)。
-    const modern = /^<!-- 已归档\(\d{4}-\d{2}-\d{2}:/.exec(line)
-    const legacy = line.indexOf('):')
-    let title = ''
-    if (modern) title = line.slice(modern[0].length, end).trim()
-    else if (legacy >= 0) title = line.slice(legacy + 2, end).trim()
-    else continue
+    const title = placeholderTitleOf(line)
     if (title === '') continue
     out.add(title)
     // 归档器把标题截到 60 字再写占位(带归并落账注记时还会再挂尾巴),而复活比对键是
@@ -1077,6 +1085,10 @@ export const __test__ = {
   anchorVerdict,
   planPair,
   LOST_ANCHOR_LEDGER,
+  // 占位标题提取的唯一实现与占位行枚举:镜像测试构造"真实形态占位"夹具时从这里取,
+  // 不得在测试里再抄一份解析(2026-10-11 G-1058642 清偿的就是那份复制品)。
+  placeholderTitleOf,
+  placeholderLines,
   // A1 换射程后镜像测试要用的三件:存量台账(证它只报数)、盘上枚举(证射程是目录意图
   // 而不是名字形状,含子目录/护栏报名)、审面出口(证"是否入库"只由 git 面回答)。
   UNTRACKED_ARCHIVE_LEDGER,

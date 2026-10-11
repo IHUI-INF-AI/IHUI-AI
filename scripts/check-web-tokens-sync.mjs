@@ -230,14 +230,26 @@ function extractThemeVarNames(css) {
 
 // --- 判据(与取材面无关的那一半)---
 
-const TOKEN_IMPORT_RE = /@import\s+['"][^'"]*design-tokens\/src\/styles\/tokens\.css['"]/
+/**
+ * 两条 @import 的认形(§22c:镜像测试要造"摘掉某一条"的夹具时,只能引用这里,
+ * 不得再抄一条 `@import[^;]*base\.css` —— 两处各写一遍,门换认法而测试照绿就是假绿)。
+ */
+export const TOKEN_IMPORT_RE = /@import\s+['"][^'"]*design-tokens\/src\/styles\/tokens\.css['"]/
 // base.css 的 @import 由本文件一并守(2026-09-25):原判据在无调度的
 // scripts/check-web-tokens-import.mjs 里 —— 那道判据今天没有任何调度器执行它(门 89 分类:
 // "有判据但零调用"),而 base.css 一旦不再被 @import,web 端拿不到 base 层样式且不报错。
 // 与小程序端对称:apps/miniapp-taro/src/app.css 的 base.css @import 由
 // scripts/check-miniapp-taro-design-tokens.mjs:247 判。刻意不另挂一道新门(§3 零冗余,
 // 两个漂移源必然各自腐烂)。
-const BASE_IMPORT_RE = /@import\s+['"][^'"]*design-tokens\/src\/styles\/base\.css['"]/
+export const BASE_IMPORT_RE = /@import\s+['"][^'"]*design-tokens\/src\/styles\/base\.css['"]/
+
+/**
+ * 四条点名的整句话(判据 emit 的就是这一份;自检与镜像测试都按同一份认,不各抄一遍片段)。
+ */
+export const MSG_MISSING_TOKENS_IMPORT = '[check-web-tokens-sync] REGRESSION: globals.css missing @import tokens.css!'
+export const MSG_MISSING_BASE_IMPORT = '[check-web-tokens-sync] REGRESSION: globals.css missing @import base.css!'
+export const MSG_DUP_THEME_VARS = '[check-web-tokens-sync] REGRESSION: top-level :root/.dark hand-copies tokens.css @theme vars!'
+export const MSG_THEME_VARS_EMPTY = '[check-web-tokens-sync] WARN: tokens.css @theme has no vars'
 
 /**
  * 纯判据。**判据语义与 2026-09-28 取材面收口之前逐字相同**(什么算违规、WARN 不算红、
@@ -250,7 +262,7 @@ export function judge({ webCss, tokensCss }) {
   let exitCode = 0
 
   if (!TOKEN_IMPORT_RE.test(webCss)) {
-    errors.push('[check-web-tokens-sync] REGRESSION: globals.css missing @import tokens.css!')
+    errors.push(MSG_MISSING_TOKENS_IMPORT)
     errors.push('  web must @import single source token, do not remove.')
     exitCode = 1
   } else {
@@ -258,7 +270,7 @@ export function judge({ webCss, tokensCss }) {
   }
 
   if (!BASE_IMPORT_RE.test(webCss)) {
-    errors.push('[check-web-tokens-sync] REGRESSION: globals.css missing @import base.css!')
+    errors.push(MSG_MISSING_BASE_IMPORT)
     errors.push('  base layer (shared resets) is not loaded by any other means on web.')
     exitCode = 1
   } else {
@@ -268,7 +280,7 @@ export function judge({ webCss, tokensCss }) {
   const themeVarNames = extractThemeVarNames(tokensCss)
   if (themeVarNames.size === 0) {
     // 与收口前同形:源头 @theme 空是 **WARN 到 stderr**,不改退出码(不是"违规")
-    errors.push('[check-web-tokens-sync] WARN: tokens.css @theme has no vars')
+    errors.push(MSG_THEME_VARS_EMPTY)
   } else {
     info.push('[check-web-tokens-sync] tokens.css @theme: ' + themeVarNames.size + ' vars')
   }
@@ -286,9 +298,7 @@ export function judge({ webCss, tokensCss }) {
       if (dups.length > 0) regressions.push({ selector: b.selector, line: b.line, dups })
     }
     if (regressions.length > 0) {
-      errors.push(
-        '[check-web-tokens-sync] REGRESSION: top-level :root/.dark hand-copies tokens.css @theme vars!',
-      )
+      errors.push(MSG_DUP_THEME_VARS)
       errors.push('  Should use @import, duplicate defs cause 3-end drift.')
       for (const r of regressions) {
         errors.push('  ' + r.selector + ' (line ' + r.line + '): ' + r.dups.join(', '))
@@ -334,14 +344,14 @@ function selfTest() {
   })
   ok(
     'S3 摘掉 @import tokens.css ⇒ 必红(阳性对照)',
-    noTokens.exitCode === 1 && noTokens.errors.some((l) => /missing @import tokens\.css/.test(l)),
+    noTokens.exitCode === 1 && noTokens.errors.includes(MSG_MISSING_TOKENS_IMPORT),
     JSON.stringify(noTokens.errors),
   )
 
   const noBase = judge({ webCss: GOOD.replace(/@import[^;]*base\.css";\n/, ''), tokensCss: TOKENS })
   ok(
     'S4 摘掉 @import base.css ⇒ 必红(第二份判据也在位)',
-    noBase.exitCode === 1 && noBase.errors.some((l) => /missing @import base\.css/.test(l)),
+    noBase.exitCode === 1 && noBase.errors.includes(MSG_MISSING_BASE_IMPORT),
     JSON.stringify(noBase.errors),
   )
 
@@ -470,5 +480,11 @@ export const __test__ = {
   AUDITED,
   WEB_GLOBALS_REL,
   TOKENS_REL,
+  TOKEN_IMPORT_RE,
+  BASE_IMPORT_RE,
+  MSG_MISSING_TOKENS_IMPORT,
+  MSG_MISSING_BASE_IMPORT,
+  MSG_DUP_THEME_VARS,
+  MSG_THEME_VARS_EMPTY,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
