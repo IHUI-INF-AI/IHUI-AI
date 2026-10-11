@@ -11,8 +11,6 @@
 # 本机无 PG/Redis/服务监听(实测端口零命中),所以**不**走完整 ASGI 端点:
 # 那条路要先过鉴权、受限模型闸、试用额度三 cooperating 层,不属于本票文件清单。
 # 因此这里判的是端点实际调用的那**一个**解析出口 + 被审源码里的接线证据。
-import io
-import json
 import os
 
 import pytest
@@ -21,7 +19,7 @@ REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')
 
 
 def _read(*rel):
-    return io.open(os.path.join(REPO, *rel), encoding='utf-8').read()
+    return open(os.path.join(REPO, *rel), encoding='utf-8').read()
 
 
 class _Req:

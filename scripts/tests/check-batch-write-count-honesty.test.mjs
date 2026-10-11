@@ -1089,4 +1089,51 @@ test('M24 票134 触发条件可复跑:B2 裸 SQL 维普查(阳性恰命中/RETU
         '\n⇒ B2 那一跳必须接裸 SQL 维:复用 findRawSqlWriteChains 一份实现,被调正文读 indexExportedFns 的 rawBodyText;不得再挂"零存量"。',
     )
 })
+/**
+ * M25(B6 · jsonb 整列覆盖维度,G-815954)—— 门体早就把 B6 的判据函数与夹具族导出给测试面
+ * (头注写着"测试里再抄一份 jsonb 键族或声明正则,就成了第二真相"),但镜像此前对该维度 **0 消费**:
+ * 门自己 `--self-test` 里有五条正反例,而端到端这一层没人跑过 ⇒ "维度在位"与"维度仍被消费"是两件事。
+ * 本条只做一件事:**调生产入口 `scanFileText`**,拿它返回的 `b6` 结果对答案;
+ * 夹具文本一律取门导出的 `FIXTURES`,测试内不写列名清单、不写声明正则、不写 excluded 形态判断。
+ */
+test('M25 B6 jsonb 整列覆盖:镜像必须经生产入口消费该维度(摘线不得被读成已覆盖)', () => {
+  if (typeof T.scanFileText !== 'function')
+    throw new Error('门不再导出 scanFileText ⇒ 生产入口被摘线')
+  if (typeof T.findJsonbUpsertSites !== 'function')
+    throw new Error('门不再导出 findJsonbUpsertSites ⇒ B6 判据被摘线,本条对照失去依据')
+  if (!Array.isArray(T.JSONB_UPSERT_SCAN_DIRS) || T.JSONB_UPSERT_SCAN_DIRS.length === 0)
+    throw new Error('B6 专属面枚举为空 ⇒ 该维度结构上扫不到任何文件,绿灯无意义')
+  const fix = (k) => {
+    const f = T.FIXTURES?.[k]
+    // 夹具形态由门决定(现读为**已拼好的字符串**,自检里的 `v(FIX.b6JsonbSet)` 直接吃它);
+    // 这里两种都接,但绝不在测试里自己拼第二份夹具文本 —— 那才是第二真相。
+    if (typeof f === 'string') return f
+    if (Array.isArray(f)) return f.join('\n')
+    throw new Error(
+      `门的 FIXTURES 里没有 b6 夹具 ${k}(实得 ${typeof f})⇒ 本条失去依据,先核门再改本条`,
+    )
+  }
+  const run = (k) => {
+    const r = T.scanFileText('a.ts', fix(k), { knownPaths: new Set(['a.ts']) })
+    if (!r || !r.b6 || !Array.isArray(r.b6.candidates) || !Array.isArray(r.b6.violations))
+      throw new Error('scanFileText 的返回里没有 b6 这一键 ⇒ 该维度不再随主扫描产出')
+    return [r.b6.candidates.length, r.b6.violations.length]
+  }
+  // [候选, 违规]：红腿必须真红、绿腿必须真绿 —— 只验"有结论"不验方向,等于没验。
+  const arms = [
+    ['b6ExcludedBare', [1, 1], '整块 excluded 覆盖 ⇒ 红(票面红腿)'],
+    ['b6JsonbSet', [1, 0], 'jsonb_set 指定路径 ⇒ 放过'],
+    ['b6NamedMerge', [1, 0], '具名成员合并 ⇒ 放过'],
+    ['b6FullDeclared', [1, 0], '整列覆盖 + 逐列声明 ⇒ 放过(唯一放行通道)'],
+    ['b6FullNoDecl', [1, 1], '整列覆盖而无声明 ⇒ 红'],
+  ]
+  for (const [k, want, why] of arms) {
+    const got = run(k)
+    if (got[0] !== want[0] || got[1] !== want[1])
+      throw new Error(
+        `B6 ${k}(${why}):期望 候选/违规 = ${want.join('/')},实得 ${got.join('/')} ⇒ 判据或取材已漂,先核门再改本条`,
+      )
+  }
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

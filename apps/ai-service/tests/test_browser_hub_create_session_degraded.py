@@ -80,7 +80,7 @@ async def test_正常路径不得误关会话(_patch_hub) -> None:
 
 
 async def test_文案必须给出下一步出路(_patch_hub) -> None:
-    session = _patch_hub(FakeSession(title_error=RuntimeError("boom")))
+    _patch_hub(FakeSession(title_error=RuntimeError("boom")))
     with pytest.raises(HTTPException) as exc:
         await br.create_session(_BODY, user_id="u-1")
     detail = str(exc.value.detail)

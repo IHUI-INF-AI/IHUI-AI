@@ -138,7 +138,11 @@ describe('self-media routes — POST /api/self-media/koubo/generate', () => {
     })
 
     it('token 无效(verifyAccessToken 抛错)返回 401', async () => {
-      mockVerifyAccessToken.mockRejectedValue(new Error('Invalid token'))
+      // 形状须与真实 jose 一致:jwtVerify 失败抛错带 code='ERR_JWT_*'
+      // (plugins/auth.ts 三分辨:无名异常归 502,jose/鉴权结论归 401,票 G-396/G-765/G-357)。
+      mockVerifyAccessToken.mockRejectedValue(
+        Object.assign(new Error('Invalid token'), { code: 'ERR_JWS_INVALID' }),
+      )
       const res = await server.inject({
         method: 'POST',
         url: '/api/self-media/koubo/generate',

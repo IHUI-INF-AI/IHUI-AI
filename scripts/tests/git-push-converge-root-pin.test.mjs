@@ -118,9 +118,16 @@ test('T4 push-state 不得再由 process.cwd() 拼出来(反向锁:回潮即红)
 })
 
 test('T5 遮罩必须真起作用:同一句旧写法只出现在注释里时不得判红,写进代码里必须判红(成对)', () => {
-  // 正例:把旧写法放进注释 → 代码面干净 → T4 型判据必须放过
-  assert.equal(/process\.cwd\(\)/.test(codeFace()), false, '注释里的散文引用被读成了违规(遮罩没生效)')
-  assert.match(readFileSync(TOOL, 'utf8'), /process\.cwd\(\)/, '夹具前提被破坏:原文里已没有那处散文引用,这条成对对照就没有牙了')
+  // 正例:把旧写法放进注释 → 代码面干净 → T4 型判据必须放过。
+  // 夹具**自带**那处注释态引用:G-1018289 收口时 TOOL 头注的散文已改写(源面 grep 不得再
+  // 命中旧写法,验收逐字要 0 命中),正例不能再押在"散文里恰好还留着一处旧痕迹"上。
+  const withProse = `${readFileSync(TOOL, 'utf8')}\n// 夹具(仅注释态):旧写法按 process.cwd() 拼 push-state\n`
+  assert.match(withProse, /process\.cwd\(\)/, '夹具没造出注释态引用 ⇒ 这条正例空跑')
+  assert.equal(
+    /process\.cwd\(\)/.test(maskComments(withProse)),
+    false,
+    '注释里的散文引用被读成了违规(遮罩没生效)',
+  )
   // 反例(构造面):同一形态出现在代码位上必须命中
   const poisoned = codeFace().replace(
     /const ROOT = resolve\(dirname\(fileURLToPath\(import\.meta\.url\)\), '\.\.'\)/,

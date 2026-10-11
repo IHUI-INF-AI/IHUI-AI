@@ -44,6 +44,13 @@ export const LEDGER_REL = join('.workbuddy', 'safe-commit-attestation.jsonl')
 /** 本类记录的 kind(统计侧靠它把"旁路"与"跳门"分开;与 safe-commit 的 kind 族互不重叠)。 */
 export const BYPASS_KIND = 'bypass-landing'
 
+/**
+ * G-1118437:`gates-then-commit` —— safe-commit 在 Step 5 判"提交只含预期文件"**之后**写的 sha 绑定正证。
+ * 语义与 BYPASS_KIND 正好相反(一个说"钩子跑了且没红",一个说"钩子根本没跑"),所以是**独立一族**、
+ * 不并进任何一张既有索引。`gatesRan:false`(用了 --no-verify)的记录统计侧直接不收 —— 它不是正证。
+ */
+export const COMMITTED_KIND = 'gates-then-commit'
+
 /** 默认原因:写清楚"为什么这一枚的门禁没跑",而不是留一个空串让人猜。 */
 export const DEFAULT_BYPASS_REASON =
   '旁路落地(commit-tree + CAS)不触发钩子 ⇒ 提交链上的门禁对本枚未执行'
@@ -117,6 +124,53 @@ export function recordBypassLanding(input = {}) {
 }
 
 /**
+ * 纯函数:造一条 **sha 绑定正证**(G-1118437)—— safe-commit 在 Step 5 核对"提交只含预期文件"之后写。
+ * 与旁路留痕的分工:`bypass-landing` 说"这枚**没跑**门禁",本条说"这枚**跑了**门禁且钩子没跳过"。
+ * `gatesRan:false`(用了 --no-verify)仍然落盘,但统计侧按设计不收它为正证 —— 落而不认,
+ * 比不落更好:事后能分清"跑了门"与"绕了门",而不是两条都读成"没证据"。
+ */
+export function buildCommittedRecord({
+  landedSha,
+  headBefore,
+  commitFiles,
+  declaredFiles,
+  gatesRan,
+  hookSkipped = false,
+  nowIso = new Date().toISOString(),
+} = {}) {
+  const sha = String(landedSha ?? '')
+  if (sha === '') throw new Error('buildCommittedRecord: landedSha 不能为空(正证必须绑到具体提交)')
+  if (!Array.isArray(commitFiles)) throw new Error('buildCommittedRecord: commitFiles 必须是数组(空数组是合法形态:纯删除前的空提交)')
+  return {
+    ts: nowIso,
+    kind: COMMITTED_KIND,
+    landedSha: sha,
+    headBefore: String(headBefore ?? ''),
+    commitFiles: commitFiles.map(String),
+    declaredFiles: (Array.isArray(declaredFiles) ? declaredFiles : []).map(String),
+    gatesRan: gatesRan === true,
+    hookSkipped: hookSkipped === true,
+  }
+}
+
+/** 落一行 sha 绑定正证。**永不抛**(与 recordBypassLanding 同一条契约:留痕不得影响提交)。 */
+export function recordGatesThenCommit(input = {}) {
+  try {
+    const root = input.root ? resolve(input.root) : REPO_ROOT
+    const rec = buildCommittedRecord(input)
+    const path = ledgerPath(root)
+    mkdirSync(dirname(path), { recursive: true })
+    appendFileSync(path, `${JSON.stringify(rec)}\n`)
+    return { ok: true, path, record: rec }
+  } catch (e) {
+    return {
+      ok: false,
+      why: `${String(e?.message ?? e).slice(0, 220)} ⇒ 这一枚拿不到"跑过门"的一方正证,统计器会把它留在 unknown`,
+    }
+  }
+}
+
+/**
  * 读侧唯一出口:把台账解成记录数组,并把三类"看不见"分开报出 ——
  *   - missing:文件不存在(从未写过 ⇒ 不代表没人绕门,只代表没人写)
  *   - unreadable:存在但读不到(权限/占用)
@@ -162,6 +216,11 @@ export function readLedgerRecords(root = REPO_ROOT) {
         ts: String(o.ts ?? ''),
         kind: typeof o.kind === 'string' ? o.kind : '(缺 kind)',
         gatesRun: o.gatesRun === true,
+        // G-1118437:`gatesRan` / `commitFiles` 必须在这份白名单里 —— 读侧只留白名单字段,
+        // 少留一个就等于把"跑过门"这件事在读侧抹掉,而写侧与自检都各自绿(自检是直接把对象喂进
+        // indexLedger 的,根本不经过这里)。这一格由镜像测试的"写→读 round-trip"钉住。
+        gatesRan: o.gatesRan === true,
+        commitFiles: Array.isArray(o.commitFiles) ? o.commitFiles.map(String) : [],
         ranFullBatch: o.ranFullBatch === true,
         declaredFiles: Array.isArray(o.declaredFiles) ? o.declaredFiles.map(String) : [],
         headBefore: typeof o.headBefore === 'string' ? o.headBefore : '',
