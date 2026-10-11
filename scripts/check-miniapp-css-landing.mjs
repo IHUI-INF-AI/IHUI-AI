@@ -141,11 +141,77 @@ import { createRequire } from 'node:module'
 import { basename, dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import { maskComments } from './lib/code-mask.mjs'
 import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const APP_REL = 'apps/miniapp-taro'
 const SRC_PREFIX = `${APP_REL}/src/`
+
+/**
+ * 「本门只读」这条锁的**判据本体**(2026-10-08 批次 J 收口,AGENTS §22c / 守门 191 的 F2 靶子)。
+ *
+ * 头注早就把"只读"写成本门自己的契约(`--emit-dead-rule-baseline` 只把台账**打印**到 stdout),
+ * 而这条尺子原先只住在镜像测试里、还一次写了两份同料清单(正向臂一遍、阳性对照又一遍)。
+ * §22c 要的是"判据住在源文件、测试调它裁定" ⇒ 名单与裁定收到这里,测试只调不再算。
+ *
+ * 为什么判"写向仓库路径"而不是"有没有写调用":`--self-test` 往临时目录造夹具是合法的,
+ * 用标识符白名单去枚举它必然假红(实测第一版就把 `join(w,…)` / `join(partial,…)` 全报成可疑)。
+ * 唯一可靠的性质是:**写调用的参数里不得出现任何模块级仓库路径常量或字面量端路径**。
+ * 遮注释只用 `lib/code-mask.mjs` 那一份实现(测试原先自己 `.replace(/^\s*\/\/.*$/gm, '')`
+ * 是第二台剥注释机,同 103/131 那一族)。
+ *
+ * 返回**违规清单**而不是布尔:只说"没过"不说哪一格的尺子没人能修;`token` 点名是哪一条仓库路径。
+ */
+const REPO_PATH_TOKENS = ['ROOT', 'DEFAULT_ROOT', 'APP_REL', 'SRC_PREFIX', 'process.cwd']
+/**
+ * 上面头注承诺的是「仓库路径**常量或字面量端路径**」两形,而实现此前只跟常量 ——
+ * 于是 `fs.writeFileSync('apps/miniapp-taro/src/app.wxss')` 这种绕开常量的写法对这把尺整型隐身,
+ * 而镜像测试只能在测试里另写一条窄判据补这一格(守门 191 报的那对 F2 就是这么来的)。
+ * 把这一维收回门里:名单与裁定仍然只有一份,测试不得再留第二条。
+ */
+const REPO_ROOT_DIRS = ['apps', 'packages', 'scripts', 'deploy', 'docs', 'monitoring', 'sdks']
+const REPO_LITERAL_WRITE_RE = new RegExp(`['"\`](?:\\./)?(?:${REPO_ROOT_DIRS.join('|')})/`)
+const FS_WRITE_CALL_NAMES = [
+  'writeFileSync',
+  'appendFileSync',
+  'copyFileSync',
+  'rmSync',
+  'unlinkSync',
+  'rmdirSync',
+  'mkdirSync',
+  'createWriteStream',
+]
+const FS_WRITE_CALL_RE = new RegExp(
+  `\\b(${FS_WRITE_CALL_NAMES.join('|')})\\s*\\(([\\s\\S]{0,160}?)\\)`,
+  'g',
+)
+
+function readOnlyRepoPathWrites(sourceText) {
+  const code = maskComments(String(sourceText ?? ''))
+  const offenders = []
+  let sampled = 0
+  for (const m of code.matchAll(FS_WRITE_CALL_RE)) {
+    sampled += 1
+    const args = String(m[2] ?? '')
+    const token = REPO_PATH_TOKENS.find((p) =>
+      new RegExp(`\\b${p.replace(/\./g, '\\.')}\\b`).test(args),
+    )
+    if (token) offenders.push({ call: m[1], token, args: args.replace(/\s+/g, ' ').slice(0, 70) })
+    else {
+      const lit = String(args).match(REPO_LITERAL_WRITE_RE)
+      if (lit)
+        offenders.push({
+          call: m[1],
+          token: `literal:${lit[0].replace(/['"`]/g, '')}`,
+          args: args.replace(/\s+/g, ' ').slice(0, 70),
+        })
+    }
+  }
+  // `sampled` 与 `checkedNames` 是裁定的**副产品**:调用方靠它们证明"这把尺真的量到了东西",
+  // 而不是自己再列一份动作名(名单两边各一份 = 守门 191 的 F2,也是本票要收的那一格)。
+  return { offenders, sampled, checkedNames: FS_WRITE_CALL_NAMES, rootDirs: REPO_ROOT_DIRS }
+}
 /**
  * 本门的接线态**唯一真相源**,由镜像测试与 guardian-runner 实际内容对账。
  * 为什么要有这个常量而不是让人读注释:「手动门」和「已接提交链」都可能是真的,
@@ -743,7 +809,8 @@ export function findCollapsedLengthMisses(missNames, landedSet) {
     const m = /^(.*?)-\[length:(.+)\]$/.exec(n)
     if (!m) continue
     const bare = `${m[1]}-[${m[2]}]`
-    if (landedSet && (landedSet.has(bare) || landedSet.has(weappMangleClassName(bare)))) out.push({ hinted: n, bare })
+    if (landedSet && (landedSet.has(bare) || landedSet.has(weappMangleClassName(bare))))
+      out.push({ hinted: n, bare })
   }
   return out
 }
@@ -774,7 +841,12 @@ export function auditSpacingFamily({ demandedSpacing, renamedSpacing }) {
   if (demandedSpacing < SPACING_FAMILY_MIN_DEMAND)
     return {
       verdict: 'undetermined',
-      reason: '本轮 spacing 刻度档需求仅 ' + demandedSpacing + ' 个(阈值 ' + SPACING_FAMILY_MIN_DEMAND + ')⇒ 这一维判不出,不记通过',
+      reason:
+        '本轮 spacing 刻度档需求仅 ' +
+        demandedSpacing +
+        ' 个(阈值 ' +
+        SPACING_FAMILY_MIN_DEMAND +
+        ')⇒ 这一维判不出,不记通过',
       demandedSpacing,
       renamedSpacing,
     }
@@ -1587,11 +1659,38 @@ export function auditMangleLeg({ demandKinds, sightingKinds, sampleNames = [] })
  * 漏列一个前缀的后果是**保守**的:那条名字落进 `other`,不会把 `fractional` 判成"没涨"。
  */
 const FRACTIONAL_PREFIXES = new Set([
-  'm', 'mx', 'my', 'mt', 'mr', 'mb', 'ml',
-  'p', 'px', 'py', 'pt', 'pr', 'pb', 'pl',
-  'gap', 'gap-x', 'gap-y', 'space', 'space-x', 'space-y',
-  'w', 'h', 'min-w', 'min-h', 'max-w', 'max-h', 'size',
-  'inset', 'top', 'right', 'bottom', 'left',
+  'm',
+  'mx',
+  'my',
+  'mt',
+  'mr',
+  'mb',
+  'ml',
+  'p',
+  'px',
+  'py',
+  'pt',
+  'pr',
+  'pb',
+  'pl',
+  'gap',
+  'gap-x',
+  'gap-y',
+  'space',
+  'space-x',
+  'space-y',
+  'w',
+  'h',
+  'min-w',
+  'min-h',
+  'max-w',
+  'max-h',
+  'size',
+  'inset',
+  'top',
+  'right',
+  'bottom',
+  'left',
 ])
 
 /**
@@ -1630,7 +1729,10 @@ export function tallyDeadRuleFamilies(names) {
  */
 export function parseDeadRuleBaseline(text) {
   if (typeof text !== 'string' || text.trim() === '')
-    return { ok: false, reason: `台账 ${DEAD_RULE_BASELINE_REL} 取不到 ⇒ 棘轮未判定(不得当成 0,也不得当成放过)` }
+    return {
+      ok: false,
+      reason: `台账 ${DEAD_RULE_BASELINE_REL} 取不到 ⇒ 棘轮未判定(不得当成 0,也不得当成放过)`,
+    }
   let doc
   try {
     doc = JSON.parse(text)
@@ -1639,16 +1741,25 @@ export function parseDeadRuleBaseline(text) {
   }
   const fam = doc && typeof doc === 'object' ? doc.families : null
   if (!fam || typeof fam !== 'object' || Object.keys(fam).length === 0)
-    return { ok: false, reason: `台账 ${DEAD_RULE_BASELINE_REL} 没有 families 锚点(空表 = 各族锚点 0,那是恒红而非判据)` }
+    return {
+      ok: false,
+      reason: `台账 ${DEAD_RULE_BASELINE_REL} 没有 families 锚点(空表 = 各族锚点 0,那是恒红而非判据)`,
+    }
   const unknown = Object.keys(fam).filter((k) => !DEAD_RULE_FAMILIES.includes(k))
   if (unknown.length)
-    return { ok: false, reason: `台账里这些族分类函数根本产不出来:${unknown.join(' ')} ⇒ 表与现实脱节,判未判定` }
+    return {
+      ok: false,
+      reason: `台账里这些族分类函数根本产不出来:${unknown.join(' ')} ⇒ 表与现实脱节,判未判定`,
+    }
   for (const [k, v] of Object.entries(fam))
     if (!Number.isInteger(v) || v < 0)
       return { ok: false, reason: `台账 ${k} 锚点不是非负整数:${JSON.stringify(v)}` }
   const sum = DEAD_RULE_FAMILIES.reduce((a, k) => a + (fam[k] ?? 0), 0)
   if (!Number.isInteger(doc.total) || doc.total !== sum)
-    return { ok: false, reason: `台账自相矛盾:total=${JSON.stringify(doc.total)} 而各族之和=${sum} ⇒ 拒绝据它判红` }
+    return {
+      ok: false,
+      reason: `台账自相矛盾:total=${JSON.stringify(doc.total)} 而各族之和=${sum} ⇒ 拒绝据它判红`,
+    }
   return { ok: true, families: { ...fam }, total: doc.total }
 }
 
@@ -1698,8 +1809,15 @@ export function auditDeadRuleRatchet({ current, baseline, freshness }) {
     else if (now < anchor) shrunk.push({ family: f, now, anchor })
   }
   const nowTotal = current?.total ?? 0
-  if (nowTotal > baseline.total) overs.push({ family: 'total', now: nowTotal, anchor: baseline.total, delta: nowTotal - baseline.total })
-  else if (nowTotal < baseline.total) shrunk.push({ family: 'total', now: nowTotal, anchor: baseline.total })
+  if (nowTotal > baseline.total)
+    overs.push({
+      family: 'total',
+      now: nowTotal,
+      anchor: baseline.total,
+      delta: nowTotal - baseline.total,
+    })
+  else if (nowTotal < baseline.total)
+    shrunk.push({ family: 'total', now: nowTotal, anchor: baseline.total })
   return {
     verdict: overs.length ? 'growth' : 'ok',
     reason: overs.length
@@ -1752,9 +1870,17 @@ export function draftDeadRuleBaseline({ current, freshness, face }) {
       {
         $comment:
           'C8 死规则分族棘轮锚点(scripts/check-miniapp-css-landing.mjs)。各族只减不增;重锚 = 跑 --emit-dead-rule-baseline 并人工确认,禁止为让门变绿而调高。',
-        families: { fractional: current.fractional, prefixed: current.prefixed, other: current.other },
+        families: {
+          fractional: current.fractional,
+          prefixed: current.prefixed,
+          other: current.other,
+        },
         total: current.total,
-        provenance: { face, freshness, generatedBy: 'node scripts/check-miniapp-css-landing.mjs --emit-dead-rule-baseline' },
+        provenance: {
+          face,
+          freshness,
+          generatedBy: 'node scripts/check-miniapp-css-landing.mjs --emit-dead-rule-baseline',
+        },
       },
       null,
       2,
@@ -2016,10 +2142,7 @@ export async function runCheck(opts) {
   let freshness = null
   if (shape.kind === 'weapp') {
     const distNew = newestMtimeInDir(distDir)
-    const srcNew = newestMtimeOfPaths(
-      root,
-      [...tsFiles, ...cssFiles],
-    )
+    const srcNew = newestMtimeOfPaths(root, [...tsFiles, ...cssFiles])
     const decided = decideArtifactFreshness({
       distNewestMs: distNew.ms,
       srcNewestMs: srcNew.ms,
@@ -2132,7 +2255,9 @@ export async function runCheck(opts) {
       )
     } catch (e) {
       drift = null
-      notices.push(`工作树↔${face} 面错位对账判不出:${String(e.message).split('\n')[0].slice(0, 120)} —— 这一格不得当成"两侧同世界"`)
+      notices.push(
+        `工作树↔${face} 面错位对账判不出:${String(e.message).split('\n')[0].slice(0, 120)} —— 这一格不得当成"两侧同世界"`,
+      )
     }
     if (drift > 0)
       notices.push(
@@ -2236,8 +2361,8 @@ export async function runCheck(opts) {
     })
     if (mangleLeg.verdict === 'idle')
       failingC5.push(`C5 ${mangleLeg.reason}(样例:${mangleLeg.sampleNames.join(' ')})`)
-  
-  /* ---- C6:weapp CSS 腿整条没跑(改名 + rem2rpx 都没生效)----
+
+    /* ---- C6:weapp CSS 腿整条没跑(改名 + rem2rpx 都没生效)----
        立项实测:三连构建里最坏的那一档 C1 反而读到 99.35% / 死规则 0 / C5=in,
        因为 CSS 用转义选择器 `.z-\[1001\]` 与运行时源名字面相同 —— 名字对得上,平台却未必认。
        所以这一维必须独立存在:C1/C4/C5 结构上答不了"该不该看到这个名字"。 */
@@ -2256,17 +2381,17 @@ export async function runCheck(opts) {
       })
       cssLeg.arbitraryDemand = arbitraryDemand
       if (cssLeg.verdict === 'off') failingC5.push(`C6 ${cssLeg.reason}`)
-    const demandedSpacingSet = new Set(
-      usedTokenList.filter((n) => isSpacingScaleCandidate(n) && reference.names.has(n)),
-    )
-    const renamedSpacing = [...demandedSpacingSet].filter(
-      (n) => runtime && runtime.tokens.has(weappMangleClassName(n)),
-    ).length
-    spacingFamily = auditSpacingFamily({
-      demandedSpacing: demandedSpacingSet.size,
-      renamedSpacing,
-    })
-    if (spacingFamily.verdict === 'off') failingC5.push(`C7 ${spacingFamily.reason}`)
+      const demandedSpacingSet = new Set(
+        usedTokenList.filter((n) => isSpacingScaleCandidate(n) && reference.names.has(n)),
+      )
+      const renamedSpacing = [...demandedSpacingSet].filter(
+        (n) => runtime && runtime.tokens.has(weappMangleClassName(n)),
+      ).length
+      spacingFamily = auditSpacingFamily({
+        demandedSpacing: demandedSpacingSet.size,
+        renamedSpacing,
+      })
+      if (spacingFamily.verdict === 'off') failingC5.push(`C7 ${spacingFamily.reason}`)
     }
     // missOccurrences 与 computeCoverage 的 miss 集**共用同一份判据**(2026-09-25 收口):
     // 旧写法在这里原地重写第二份谓词,注释自己也警告"两处各写一遍必然漂移" ——
@@ -2279,7 +2404,10 @@ export async function runCheck(opts) {
       notices.push(
         `裸/提示坍缩 ${collapsedLengthMisses.length} 档(不是"整档没生成"):源码写 \`X-[length:V]\`,而产物里只有裸形态 \`X-[V]\` 的规则` +
           `(weapp 生成器把两种写法归一成一条候选,再把选择器反写成裸形态)⇒ 运行时挂的是提示名,取不到样式。` +
-          `样例 ${collapsedLengthMisses.slice(0, 3).map((x) => `${x.hinted}→有${x.bare}`).join(' ')}。` +
+          `样例 ${collapsedLengthMisses
+            .slice(0, 3)
+            .map((x) => `${x.hinted}→有${x.bare}`)
+            .join(' ')}。` +
           `修法只有一条:**同一次构建里不得两种形态并存**(加显式 \`length:\` 提示,见守门 93 R7),不得去改生成器`,
       )
     missingSamples = coverage.missingSamples
@@ -2534,7 +2662,9 @@ function report(r, asJson) {
     const cur = r.deadRuleCurrent
     const anchor = rc.anchor
     const fmt = (o) =>
-      o ? `fractional ${o.fractional} / prefixed ${o.prefixed} / other ${o.other} / 合计 ${o.total}` : '(未量)'
+      o
+        ? `fractional ${o.fractional} / prefixed ${o.prefixed} / other ${o.other} / 合计 ${o.total}`
+        : '(未量)'
     console.log(
       `C8 死规则棘轮(${r.deadRuleBaselineRel}):${rc.verdict}` +
         ` —— 现读 ${fmt(cur)} ‖ 锚点 ${fmt(anchor)}` +
@@ -3627,31 +3757,44 @@ export function selfTest() {
   }
 
   /* ---- C6:weapp CSS 腿整条没跑(2026-09-26 三连构建实测里最坏那一档) ---- */
-  eq('P76 C3 主包超硬上限必须判红(它是平台事实,不受 --min-coverage 管辖)',
+  eq(
+    'P76 C3 主包超硬上限必须判红(它是平台事实,不受 --min-coverage 管辖)',
     (() => {
       const over = { mainBytes: 2097153, limitBytes: 2097152, headroomBytes: -1 }
       const ok = { mainBytes: 2069947, limitBytes: 2097152, headroomBytes: 27205 }
       const f = (b) => b.headroomBytes < 0
       return [f(over), f(ok)]
     })(),
-    [true, false])
-  eq('P77 C3 headroom 取不到(非数)时不得判红,也不得当成通过',
+    [true, false],
+  )
+  eq(
+    'P77 C3 headroom 取不到(非数)时不得判红,也不得当成通过',
     [typeof null === 'number', typeof undefined === 'number'],
-    [false, false])
+    [false, false],
+  )
 
-  eq('P70a C7 三向:有需求而命中 0 ⇒ off;需求不足阈值 ⇒ 未判定(不记绿);有命中 ⇒ in',
+  eq(
+    'P70a C7 三向:有需求而命中 0 ⇒ off;需求不足阈值 ⇒ 未判定(不记绿);有命中 ⇒ in',
     [
       auditSpacingFamily({ demandedSpacing: 20, renamedSpacing: 0 }).verdict,
       auditSpacingFamily({ demandedSpacing: 3, renamedSpacing: 0 }).verdict,
       auditSpacingFamily({ demandedSpacing: 20, renamedSpacing: 18 }).verdict,
     ],
-    ['off', 'undetermined', 'in'])
-  eq('P70b isSpacingScaleCandidate 只认 spacing 刻度档(颜色/字号/任意值不算,否则残余死码会把阈值灌满)',
+    ['off', 'undetermined', 'in'],
+  )
+  eq(
+    'P70b isSpacingScaleCandidate 只认 spacing 刻度档(颜色/字号/任意值不算,否则残余死码会把阈值灌满)',
     [
-      ['gap-1.5', '!p-0', 'first:mt-0', 'py-0.5', 'space-x-2', 'mx-0.5'].map(isSpacingScaleCandidate),
+      ['gap-1.5', '!p-0', 'first:mt-0', 'py-0.5', 'space-x-2', 'mx-0.5'].map(
+        isSpacingScaleCandidate,
+      ),
       ['bg-muted', 'text-sm', 'w-[100rpx]', 'z-[1040]', 'flex'].map(isSpacingScaleCandidate),
     ],
-    [[true, true, true, true, true, true], [false, false, false, false, false]])
+    [
+      [true, true, true, true, true, true],
+      [false, false, false, false, false],
+    ],
+  )
 
   eq(
     'P71 C6 阳性:源码有含标点档而产物 0 个转写形态 ⇒ 必须判 off(这是 C1/C4/C5 一致报好的那一档)',
@@ -3693,13 +3836,19 @@ export function selfTest() {
   )
   eq(
     'P78b 重命名行取新路径(旧路径已不存在,按它筛前缀会漏计)',
-    countWorktreeDrift(' R apps/miniapp-taro/src/old.tsx -> apps/miniapp-taro/src/new.tsx', 'apps/miniapp-taro/src/'),
+    countWorktreeDrift(
+      ' R apps/miniapp-taro/src/old.tsx -> apps/miniapp-taro/src/new.tsx',
+      'apps/miniapp-taro/src/',
+    ),
     1,
   )
   eq(
     'P78c 同一文件重复出现只计一次;空/异常输入 ⇒ 0 而不是猜',
     [
-      countWorktreeDrift(' M apps/miniapp-taro/src/a.tsx\nM  apps/miniapp-taro/src/a.tsx', 'apps/miniapp-taro/src/'),
+      countWorktreeDrift(
+        ' M apps/miniapp-taro/src/a.tsx\nM  apps/miniapp-taro/src/a.tsx',
+        'apps/miniapp-taro/src/',
+      ),
       countWorktreeDrift('', 'apps/miniapp-taro/src/'),
       countWorktreeDrift(null, 'apps/miniapp-taro/src/'),
     ].join(','),
@@ -3709,7 +3858,9 @@ export function selfTest() {
   eq(
     'P79 坍缩型缺项识别:裸名以**转写形态**在产物里时也算(真产物就是这一型)',
     JSON.stringify(
-      findCollapsedLengthMisses(['text-[length:28rpx]'], new Set(['text-_b28rpx_B', 'flex'])).map((x) => `${x.hinted}|${x.bare}`),
+      findCollapsedLengthMisses(['text-[length:28rpx]'], new Set(['text-_b28rpx_B', 'flex'])).map(
+        (x) => `${x.hinted}|${x.bare}`,
+      ),
     ),
     JSON.stringify(['text-[length:28rpx]|text-[28rpx]']),
   )
@@ -3721,7 +3872,8 @@ export function selfTest() {
   eq(
     'P79c 变体前缀要同视(dark:text-[length:…] 的裸形态是 dark:text-[…]);非 length 档一律不纳',
     [
-      findCollapsedLengthMisses(['dark:text-[length:32rpx]'], new Set(['dark_ctext-_b32rpx_B'])).length,
+      findCollapsedLengthMisses(['dark:text-[length:32rpx]'], new Set(['dark_ctext-_b32rpx_B']))
+        .length,
       findCollapsedLengthMisses(['w-[50%]'], new Set(['w-_b50_v_B'])).length,
     ].join(','),
     '1,0',
@@ -3739,11 +3891,7 @@ export function selfTest() {
       const r = decideArtifactFreshness({ distNewestMs: 1_000, srcNewestMs: 2_500 })
       return [r.state, r.ageMs, /旧包|不可能/.test(r.reason) || /比产物新/.test(r.reason)]
     })(),
-    [
-      'stale',
-      1500,
-      true,
-    ],
+    ['stale', 1500, true],
   )
   eq(
     'P81 C0 反向:dist 不早于源码 ⇒ fresh,绝不因"刚构建过"以外的理由判旧',
@@ -3802,11 +3950,37 @@ export function selfTest() {
     'P86 tally 守恒:各族之和 == total,且真读数那 31 名的分族 = 15/5/11/31',
     (() => {
       const names = [
-        'gap-1.5', 'h-2.5', 'w-2.5', 'mb-1.5', 'mr-1.5', 'mr-2.5', 'mt-0.5', 'mt-1.5',
-        'mx-0.5', 'p-3.5', 'px-1.5', 'px-2.5', 'py-0.5', 'py-1.5', 'py-2.5',
-        '!p-0', '!px-4', '!py-0', 'first:mt-0', 'last:mb-0',
-        'h-[24px]', 'mt-[2px]', 'pb-[2px]', 'pt-[6px]', 'text-[10px]', 'top-1/2',
-        'w-[24px]', 'w-[400rpx]', 'w-[420rpx]', 'z-[1040]', 'z-[9995]',
+        'gap-1.5',
+        'h-2.5',
+        'w-2.5',
+        'mb-1.5',
+        'mr-1.5',
+        'mr-2.5',
+        'mt-0.5',
+        'mt-1.5',
+        'mx-0.5',
+        'p-3.5',
+        'px-1.5',
+        'px-2.5',
+        'py-0.5',
+        'py-1.5',
+        'py-2.5',
+        '!p-0',
+        '!px-4',
+        '!py-0',
+        'first:mt-0',
+        'last:mb-0',
+        'h-[24px]',
+        'mt-[2px]',
+        'pb-[2px]',
+        'pt-[6px]',
+        'text-[10px]',
+        'top-1/2',
+        'w-[24px]',
+        'w-[400rpx]',
+        'w-[420rpx]',
+        'z-[1040]',
+        'z-[9995]',
       ]
       const t = tallyDeadRuleFamilies(names)
       return [t.fractional, t.prefixed, t.other, t.total, names.length].join('/')
@@ -3822,7 +3996,13 @@ export function selfTest() {
         baseline: b,
         freshness: 'fresh',
       })
-      return [r.verdict, r.overs.length, r.overs[0].family, r.overs[0].delta, /15→16/.test(r.reason)].join(',')
+      return [
+        r.verdict,
+        r.overs.length,
+        r.overs[0].family,
+        r.overs[0].delta,
+        /15→16/.test(r.reason),
+      ].join(',')
     })(),
     // 2 条 = 该族本身 + 合计(合计那一格是"current 各族与 total 不自洽"的一致性护栏,
     // 由 tally 产出时恒等于各族之和;它不额外多判一枚红,只多点名一次)。
@@ -3855,7 +4035,11 @@ export function selfTest() {
         baseline: b,
         freshness: 'fresh',
       })
-      return [r.verdict, r.overs.map((o) => `${o.family}+${o.delta}`).join(' '), r.shrunk.length].join('|')
+      return [
+        r.verdict,
+        r.overs.map((o) => `${o.family}+${o.delta}`).join(' '),
+        r.shrunk.length,
+      ].join('|')
     })(),
     // shrunk 只有 fractional 一条:total 两侧都是 31 ⇒ 不 shrunk 也不 over —— 正是"总数顶名额"失效的那格,
     // 而族级锚点仍把它判红。
@@ -3881,7 +4065,8 @@ export function selfTest() {
       const b = { ok: true, families: { fractional: 15, prefixed: 5, other: 11 }, total: 31 }
       const cur = { fractional: 3, prefixed: 1, other: 2, total: 6 }
       const v = (text) => parseDeadRuleBaseline(text)
-      const r = (parsed) => auditDeadRuleRatchet({ current: cur, baseline: parsed, freshness: 'fresh' })
+      const r = (parsed) =>
+        auditDeadRuleRatchet({ current: cur, baseline: parsed, freshness: 'fresh' })
       return [
         v(null).ok,
         v('{坏 json').ok,
@@ -3904,7 +4089,9 @@ export function selfTest() {
         baseline: b,
         freshness: 'fresh',
       })
-      return [r.verdict, r.overs.map((o) => `${o.family}:${o.anchor}->${o.now}`).join(' ')].join('|')
+      return [r.verdict, r.overs.map((o) => `${o.family}:${o.anchor}->${o.now}`).join(' ')].join(
+        '|',
+      )
     })(),
     // 台账只登记了 fractional 一族 → 新出现的 prefixed 族锚点按 0 计,直接问责(没有存量可躲)。
     'growth|prefixed:0->4',
@@ -3931,7 +4118,12 @@ export function selfTest() {
     (() => {
       const growth = { verdict: 'growth', reason: 'x', overs: [], shrunk: [] }
       const nj = { verdict: 'not-judged', reason: 'y', overs: [], shrunk: [] }
-      const ok = { verdict: 'ok', reason: '', overs: [], shrunk: [{ family: 'fractional', now: 0, anchor: 15 }] }
+      const ok = {
+        verdict: 'ok',
+        reason: '',
+        overs: [],
+        shrunk: [{ family: 'fractional', now: 0, anchor: 15 }],
+      }
       const f = (r, strict) => foldDeadRuleRatchet({ ratchet: r, strict })
       return [
         f(growth, false).failing.length,
@@ -3977,6 +4169,37 @@ export function selfTest() {
       ).ok,
     ].join(' / '),
     'scripts/miniapp-css-dead-rule-baseline.json / fractional|prefixed|other / true',
+  )
+
+  /**
+   * P96 只读锁:判据本体住在门里(`readOnlyRepoPathWrites`),镜像测试调同一份裁定。
+   * 夹具的**动作名取自裁定回报的副产品**(`checkedNames`),不在门体里字面写死连写的
+   * `writeFileSync(`:门里一旦留下那种形状,这条只读锁扫自己时就会自报违规(假红),
+   * 而给锁开例外就等于没有锁。
+   *   两维各自有臂 —— ① 参数里出现仓库路径**常量名**(DEFAULT_ROOT),② 参数里出现绕开常量的
+   * 仓库根**字面量**(`apps/…`)。第二维的夹具目录名在源码里是拆开写的(`['app','s/']` 再 join),
+   * 运行时才拼成字面量:门体自己那份文本里若留着连写的 `'apps/`,扫自身就会假红 ——
+   * 这是"夹具形状"与"被审形状"必须分开的最直白一例。
+   */
+  const vSelf = readOnlyRepoPathWrites(readFileSync(fileURLToPath(import.meta.url), 'utf8'))
+  const writeAt = (v, args) => `${v.checkedNames[0]}(${args})`
+  const litArgs = "'" + ['app', 's/'].join('') + "miniapp-taro/src/app.wxss', ''"
+  const tmpArgs = "'h5/index.html', ''"
+  eq(
+    'P96 只读锁成对:自身源码零违规且确实量到写调用 / 写临时夹具不红 / 常量名必须点名 / 字面量端路径也必须点名(第二维) / 非仓库路径字面量不得误拦',
+    [
+      `${vSelf.offenders.length}/${vSelf.sampled > 0}`,
+      readOnlyRepoPathWrites(writeAt(vSelf, "join(base, 'x.wxss'), ''")).offenders.length,
+      readOnlyRepoPathWrites(writeAt(vSelf, "join(DEFAULT_ROOT, 'x.wxss'), ''")).offenders.length,
+      readOnlyRepoPathWrites(writeAt(vSelf, litArgs)).offenders.length,
+      readOnlyRepoPathWrites(writeAt(vSelf, tmpArgs)).offenders.length,
+    ].join(' | '),
+    '0/true | 0 | 1 | 1 | 0',
+  )
+  eq(
+    'P96 第二维必须点名是哪一条仓库根被字面量写中(只报"有违规"等于没人能修)',
+    readOnlyRepoPathWrites(writeAt(vSelf, litArgs)).offenders[0].token,
+    'literal:apps/',
   )
 
   let failed = 0
@@ -4176,5 +4399,10 @@ export const __test__ = {
   SRC_PREFIX,
   MAIN_PACKAGE_LIMIT,
   MISSING_SAMPLES,
+  // §22c:「本门只读」这条锁的判据本体(镜像测试调它裁定,不得在测试里再列一份写调用清单)。
+  REPO_PATH_TOKENS,
+  REPO_ROOT_DIRS,
+  REPO_LITERAL_WRITE_RE,
+  readOnlyRepoPathWrites,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
