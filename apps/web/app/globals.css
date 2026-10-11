@@ -185,11 +185,12 @@
 }
 
 /* 顶栏内容左偏移(2026-08-01 立,根治移动端搜索按钮与工作区卡片 46px 错位):
-   移动端(<768px):GlobalTopBar 内层 flex 第 0 个元素是移动端汉堡按钮(mobileMenu),
+   移动端(<640px):GlobalTopBar 内层 flex 第 0 个元素是移动端汉堡按钮(mobileMenu),
      占 ml-1.5(6px) + w-9(36px) + gap-1(4px) = 46px,把搜索按钮挤到 left=46px。
      MainShell 工作区卡片无 pl 紧贴 left=0,与搜索按钮错位 46px。
-   桌面端(≥768px):汉堡按钮 min-[768px]:hidden 隐藏(2026-09-07 从 1024 下调:
-     768-1023px 侧边栏常驻 60px 图标条,汉堡按钮纯多余,且曾把工作区卡片 pl 撑到 46px,
+   桌面端(≥640px):汉堡按钮 min-[640px]:hidden 隐藏(2026-09-07 从 1024 下调到 768,
+     2026-10-11 再下调到 640 —— Trae 内置浏览器 ~718px 窄面板曾落在 <768 区间被整条隐藏侧栏):
+     640-1023px 侧边栏常驻 60px 图标条,汉堡按钮纯多余,且曾把工作区卡片 pl 撑到 46px,
      造成 AI 面板与工作区之间 ~52px 大空隙),搜索按钮紧贴 left=0,偏移 0。
    MainShell 外层 pl=var(--topbar-content-left) 让工作区卡片对齐搜索按钮 left。
 
@@ -201,7 +202,7 @@
 :root {
   --topbar-content-left: calc(0.375rem + 2.25rem + 0.25rem);
 }
-@media (min-width: 768px) {
+@media (min-width: 640px) {
   :root {
     --topbar-content-left: 0px;
   }
@@ -823,25 +824,25 @@ iframe::-webkit-scrollbar {
  * 根因:旧方案用 useIsMobile + setCollapsed effect,SSR/CSR 不一致导致 hydration mismatch
  * + 闪烁(首帧展开 → effect 跑 setCollapsed(true) → 重渲染折叠)。
  * 新方案:纯 CSS 媒体查询,不改 JS state,无 hydration 问题,无闪烁。
- * - aside[data-viewport-collapsed] 在 768-1023px 平板区间强制 60px 宽(覆盖 collapsed prop + inline width);
- *   <768px 时桌面 aside 为 display:none(见下方 2026-09-05 分段规则),故本行不覆盖手机
+ * - aside[data-viewport-collapsed] 在 640-1023px 平板区间强制 60px 宽(覆盖 collapsed prop + inline width);
+ *   <640px 时桌面 aside 为 display:none(见下方 2026-09-05 分段规则),故本行不覆盖手机
  * - 导航项文字 span 在 <1024px 隐藏,只显示图标(折叠视觉态)
  * - 导航项本身用 NAV_ITEM_COLLAPSED_CLASS 的 w-9 36×36 正方形布局(已由 collapsed prop 控制
  *   或 CSS 强制居中),此处只补文字隐藏
  * ============================================================
- * 2026-09-05 移动端根治:分段处理,手机(<768px)完全隐藏桌面侧栏,平板(768-1023px)保留 60px 图标条。
- * - 手机视口 <768px:桌面 aside 整体 display:none(logo 竖排文字重叠、60px 图标列挤占内容区的根因);
+ * 2026-09-05 移动端根治:分段处理,手机(<640px)完全隐藏桌面侧栏,平板(640-1023px)保留 60px 图标条。
+ * - 手机视口 <640px:桌面 aside 整体 display:none(logo 竖排文字重叠、60px 图标列挤占内容区的根因);
  *   移动端抽屉是桌面 aside 的兄弟节点(fixed z-modal),不受影响,仍由 GlobalTopBar 菜单按钮唤起。
  *   GlobalShell 的 Sidebar Suspense fallback 占位同样带 data-viewport-collapsed,同步隐藏,几何一致。
- * - 768px-1023px 平板区间:维持原 60px 折叠态(有足够横向空间)。
+ * - 640px-1023px 平板区间:维持原 60px 折叠态(有足够横向空间)。
  * - 桌面端(≥1024px)此规则不生效,完全由 collapsed prop + localStorage 偏好控制
  * ============================================================ */
-@media (max-width: 767px) {
+@media (max-width: 639px) {
   aside[data-viewport-collapsed='true'] {
     display: none;
   }
 }
-@media (min-width: 768px) and (max-width: 1023px) {
+@media (min-width: 640px) and (max-width: 1023px) {
   aside[data-viewport-collapsed='true'] {
     width: 60px;
     min-width: 60px;
@@ -1349,7 +1350,7 @@ button[data-state='closed']:focus-visible {
  * 2. touch-action:浮窗拖拽区域禁用默认触摸行为(防止滚动穿透)
  * 3. -webkit-tap-highlight-color:移除移动端点击灰色高亮
  * 4. 文字大小:移动端最小 14px,防止 iOS Safari 缩放 */
-@media (max-width: 767px) {
+@media (max-width: 639px) {
   /* AI 面板全屏覆盖时,aside 撑满视口 + 安全区 */
   .ai-panel-root.fixed.inset-0 > aside {
     padding-top: env(safe-area-inset-top, 0px);
