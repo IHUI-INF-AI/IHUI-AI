@@ -55,7 +55,11 @@ export function GlobalErrorBanner() {
       ))}
       {dropped > 0 ? (
         // G-641:溢出丢弃必须可见 —— 残缺的错误列表不得伪装成完整,计数行随列表同现
-        <div data-testid="error-banner-dropped" className="text-xs text-muted-foreground" role="status">
+        <div
+          data-testid="error-banner-dropped"
+          className="text-xs text-muted-foreground"
+          role="status"
+        >
           {droppedNotice(dropped)}
         </div>
       ) : null}

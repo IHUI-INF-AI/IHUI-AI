@@ -27,7 +27,6 @@ from datetime import datetime, timedelta
 import pytest
 
 from app.core.cn_time import CN_TZ
-
 from app.services.publish.platform_rule_versions import (
     RuleVersion,
     RuleVersionManager,
