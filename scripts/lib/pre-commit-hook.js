@@ -687,9 +687,11 @@ try {
 } catch {
   /* 取不到就留空 ⇒ 这条记录对统计器等于"无从证",不会被误用 */
 }
+// --timing:逐门耗时落 pre-commit.log(默认关,不改判定/退出码)。提速优化的取数口 —— 238 门
+// 单轮 525~850s 却从无逐门分布,任何并行化/收窄改动都必须先有这份数据才能证明收益。
 const gates = runCapturing(
   '🛡️ 运行守门脚本批量检查...',
-  'node scripts/guardian-runner.mjs --staged',
+  'node scripts/guardian-runner.mjs --staged --timing',
 )
 const gatesOk = gates.ok
 const gateSummary = parseGateSummary(gates.output)
