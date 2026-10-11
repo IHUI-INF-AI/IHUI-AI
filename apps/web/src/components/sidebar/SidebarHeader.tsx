@@ -141,7 +141,7 @@ export function SidebarHeader({
 
   /**
    * 折叠态 header(2026-09-07 重做):方形 logo + 展开按钮竖排。
-   * 此前折叠态只渲染折叠按钮且按钮带 hidden min-[1024px]:flex,在 768-1023px
+   * 此前折叠态只渲染折叠按钮且按钮带 hidden min-[1024px]:flex,在 640-1023px
    * 视口强制折叠区间按钮被 display:none,logo 也被 CSS 隐藏 → header 整块空白(用户反馈红框)。
    * 现在:36×36 方形 logo(/images/logo.png,同 EmptyState 图)+ 20px 展开按钮竖排,
    * 60px 条内水平居中,点击 logo 跳首页(与展开态长 logo 行为一致)。
@@ -204,7 +204,7 @@ export function SidebarHeader({
               className={cn(
                 TOPBAR_BTN_BASE,
                 TOPBAR_BTN_W9,
-                // 注意:不再用 hidden min-[1024px]:flex —— 768-1023px 视口强制折叠时按钮必须可见
+                // 注意:不再用 hidden min-[1024px]:flex —— 640-1023px 视口强制折叠时按钮必须可见
                 'p-0 flex bg-transparent [&>svg]:!h-5 [&>svg]:!w-5',
               )}
               aria-label={t('expand')}
@@ -224,7 +224,7 @@ export function SidebarHeader({
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- 桌面端 Tauri 窗口按下即拖拽(鼠标专属交互,无法用键盘拖拽窗口);键盘用户通过内部折叠 Button + logo 点击提供等价交互
     <div
-      // data-sidebar-header-expanded:标记展开态 header,globals.css 平板区间(768-1023px)
+      // data-sidebar-header-expanded:标记展开态 header,globals.css 平板区间(640-1023px)
       // 用它在 hydration 前隐藏 80px 长 logo 并居中折叠按钮 —— SSR 输出展开态 HTML,
       // 该区间 CSS 已强制 aside 60px,长 logo 会与折叠按钮重叠(2026-09-09 修复)。
       // hydration 后 React 切到折叠态分支(方形 logo + 展开按钮),此标记不再存在。
@@ -242,7 +242,7 @@ export function SidebarHeader({
       )}
       onMouseDown={handleLogoMouseDown}
     >
-      {/* data-sidebar-logo:标识侧边栏长 logo(旧版 CSS 在 768-1023px 隐藏;
+      {/* data-sidebar-logo:标识侧边栏长 logo(旧版 CSS 在 640-1023px 隐藏;
           2026-09-07 起该区间走折叠态分支渲染方形 logo,此 span 仅展开态存在) */}
       <span
         data-sidebar-logo
@@ -292,7 +292,7 @@ export function SidebarHeader({
           // - 追加 [&>svg]:!h-5 [&>svg]:!w-5 覆盖 TOPBAR_BTN_BASE 末尾的 [&>svg]:!h-3.5 [&>svg]:!w-3.5
           //   (tailwind-merge 同 specificity 后定义胜出,确保 20px 生效)
           // 2026-09-07:去掉 hidden min-[1024px]:flex —— 展开态 header 只在侧边栏可见时渲染,
-          // 按钮恒 flex(旧规则曾在 768-1023px 把按钮藏成空白)
+          // 按钮恒 flex(旧规则曾在 640-1023px 把按钮藏成空白)
           className={cn(
             TOPBAR_BTN_BASE,
             TOPBAR_BTN_W9,
