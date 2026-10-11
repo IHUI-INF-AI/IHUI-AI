@@ -126,7 +126,7 @@ import { resurrectAnalysis } from './lib/stale-content-analysis.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 // git 可执行一律经 §5b 唯一出口解析(候选链 + 探活;§5b 明写"脚本一律不得依赖环境取 git")。
-// 旧写法写死 `C:/Program Files/Git/cmd/git.exe`,另一台机(G 盘 checkout)实测 git 落点不同 ⇒ 换机即 ENOENT。
+// 旧写法把 git 钉死在本机 Git 安装目录的一条绝对路径上,另一台机(G 盘 checkout)实测 git 落点不同 ⇒ 换机即 ENOENT。
 const GIT = resolveGitBin()
 if (!GIT) {
   console.error('❌ union-converge:resolveGitBin() 解析不到可用 git(候选链见 scripts/lib/gitdir.mjs)')
