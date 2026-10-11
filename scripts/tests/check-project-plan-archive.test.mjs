@@ -424,15 +424,15 @@ test('A4 真实标题形态:占位与同一条目并存 ⇒ 判本次引入的�
     // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
     { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, windowsHide: true },
   )
-  const ph = head.split('\n').find((l) => /^<!-- 已归档/.test(l))
+  // 占位行的枚举与"行内标题提取"都走门体生产入口(§22c:提取实现只有一份 —— 见下方
+  // 「提取实现只有一份」用例);测试本地不得再留第二份解析配方。
+  const ph = archiveGate.placeholderLines(head)[0]
   assert.ok(ph, 'HEAD 版计划文档里应能找到至少一条归档占位(找不到说明本用例的尺子失效)')
-  // 标题提取必须按**归档器实际生成的形态**(archiver:397 = `<!-- 已归档(日期:标题,完整内容在 …`),
-  // 不是 AGENTS 散文里那个"(日期):标题"旧形 —— 旧提取式 `indexOf('):')` 在现形占位上得 -1,
-  // slice(1,…) 取出一串不含 ✅ 的垃圾"标题",判据 0 命中而本用例恒红(2026-09-28 实测,A4 当场翻红)。
-  // 日期固定 YYYY-MM-DD 形态,所以"日期后那个冒号"是安全锚点;标题内部自带的冒号不受影响。
-  const phTitle = /<!-- 已归档\(\d{4}-\d{2}-\d{2}:([\s\S]*),完整内容在 /.exec(ph)
-  assert.ok(phTitle, '占位行不符合归档器现行生成形态(日期:标题,完整内容在)⇒ 本用例与生成器有一边漂了,先对齐再跑')
-  const title = phTitle[1].trim()
+  const title = archiveGate.placeholderTitleOf(ph)
+  assert.ok(
+    title,
+    '占位行不符合归档器现行生成形态(日期:标题,完整内容在)⇒ 本用例与生成器有一边漂了,先对齐再跑',
+  )
   const face = `### ${title}\n正文一行\n${ph}\n`
 
   const r = resurrectionVerdict('', face)
@@ -462,8 +462,11 @@ test('真实 HEAD 面逐字样本:现行提取式无失明;提取式收窄回"�
     windowsHide: true,
     timeout: 60_000,
   })
-  const sample = head.split(/\r?\n/).find((l) => /^## .+✅/.test(l))
-  assert.ok(sample, 'HEAD 面必有 ##+✅ 行(2026-09-26 实测 71 处);取不到 = 现读失败,本例判死')
+  const sample = head.split(/\r?\n/).find((l) => /^## .+(✅|已完成)/.test(l))
+  assert.ok(
+    sample,
+    'HEAD 面必有 h2 级已完成保护集行(2026-10-11 现读 1 处;2026-09-26 钉的 ##+✅ 71 处已全部归档出正文);取不到 = 现读失败,本例判死',
+  )
   assert.ok(archiveGate.extractCompletedTaskHeadings(head).includes(sample))
   assert.equal(
     libShapeCoverageVerdict(head, { grandfathered: archiveGate.T3_GRANDFATHERED_SHAPES }).red.length,
@@ -473,8 +476,10 @@ test('真实 HEAD 面逐字样本:现行提取式无失明;提取式收窄回"�
   const narrow = (line) => line.startsWith('### ') && (line.includes('✅') || line.includes('已完成'))
   const v = libShapeCoverageVerdict(head, { isCovered: narrow })
   assert.ok(
-    v.red.some((r) => r.includes('h2|✅')),
-    '收窄回 2026-09-26 之前的形态必须被 T3 点名 —— 那次空转(## 级 71 条看不见)从此有哨兵',
+    // 标记前缀放宽到 `h2|`(2026-10-11 现实迁移):HEAD 面 h2|✅ 已归档清零,真实存活的 h2
+    // 保护集行标记是「已完成」;点名到 h2 级即证明"收窄回只认 ###"的失明被抓,标记不限 ✅。
+    v.red.some((r) => r.includes('h2|')),
+    '收窄回 2026-09-26 之前的形态必须被 T3 点名 —— 那次空转(## 级看不见)从此有哨兵',
   )
 })
 
