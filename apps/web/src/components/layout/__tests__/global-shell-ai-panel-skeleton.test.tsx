@@ -171,7 +171,7 @@ describe('GlobalShell · AI 面板加载占位(骨架屏本体契约 P1-P3)', ()
     ).toContain(`var(--ai-panel-width, ${preset}px)`)
 
     const cls = el.className
-    for (const token of ['hidden', 'min-[768px]:block', 'shrink-0', 'mr-1.5', 'py-2', 'h-full']) {
+    for (const token of ['hidden', 'min-[640px]:block', 'shrink-0', 'mr-1.5', 'py-2', 'h-full']) {
       expect(cls.split(/\s+/), `占位 class 应含 ${token}`).toContain(token)
     }
   })
