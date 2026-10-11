@@ -246,4 +246,48 @@ test('T10 头注必须写明证据窗、三态、棘轮锚点与存量恒红告�
   assert.match(src, /恒红门/, '存量不为 0 就接线 = 恒红门,这条告诫不得丢')
   assert.match(src, /HEAD blob/, '取材面必须写在脸上(--staged/--worktree 同理)')
 })
+
+// ─── T11 跨文件一跳的接线锁:本次面与 HEAD 锚点面必须用同一把尺子 ───
+test('T11 reclassifyHits 必须同时接在本次面与锚点面(锚点退回旧写法即红)', () => {
+  const src = readFileSync(GATE, 'utf8')
+  const calls = src.match(/reclassifyHits\(/g) || []
+  assert.ok(
+    calls.length >= 2,
+    `reclassifyHits 至少要有两处调用(本次面 + HEAD 锚点面),实得 ${calls.length} —— 只判本次面会把"尺子变准"读成"仓库新增命中"`,
+  )
+  assert.ok(
+    /headCounts\.set\(h\.file/.test(src),
+    'HEAD 锚点必须由**重分类之后**的 hits 逐文件计数;留着 judgeText(...).hits.length 那支就是两把尺子',
+  )
+})
+
+// ─── T12 声明体切分:参数解构形态必须取到函数体(本门第一版在这里失明) ───
+test('T12 componentBody 跳过参数区取函数体,bodyProvidesFocus 正反各一条', () => {
+  const withFocus =
+    'function Input({\n  className,\n  style,\n}: Props) {\n  return <TextInput style={[style, focused ? { borderColor: primaryColor } : null]} className={className} />\n}\n'
+  const noFocus =
+    'function Input({\n  className,\n  style,\n}: Props) {\n  return <TextInput style={[style, null]} className={className} />\n}\n'
+  const b1 = gate.componentBody(withFocus, 'Input')
+  assert.ok(b1, '切不出函数体 ⇒ 后面一律落未判定,这里必须能切出来')
+  assert.ok(b1.includes('focused'), '函数体必须含返回区(旧写法取"名字后第一个 {"会截到参数对象)')
+  assert.equal(gate.bodyProvidesFocus(b1), 'borderColor', '件内同时有聚焦条件与可见描边 ⇒ 给出证据')
+  const b2 = gate.componentBody(noFocus, 'Input')
+  assert.equal(gate.bodyProvidesFocus(b2), null, '只有描边没有聚焦条件 ⇒ 不构成证据(不许"看不见就当放过")')
+})
+
+// ─── T13 真仓端到端:这一跳救回假阳,但没有把整门读瞎 ───
+test('T13 AgentRuntimePanel 的 Input 不再算命中,而 web 小写标签站点仍必须在命中面(阳性对照)', () => {
+  const { code, out } = runGate(['--json'], ROOT, 240_000)
+  assert.ok(code === 0 || code === 1, `门应给出结论,实得 exit ${code}\n${String(out).slice(-400)}`)
+  const j = JSON.parse(String(out).slice(String(out).indexOf('{')))
+  const sites = j.sites || []
+  assert.ok(
+    !sites.some((s) => s.file === 'apps/mobile-rn/src/components/AgentRuntimePanel.tsx' && s.line === 142),
+    '该站点的 <Input> 由 @ihui/ui-native 件内提供聚焦,仍算命中就是假阳',
+  )
+  assert.ok(
+    sites.some((s) => s.end === 'web' && !/^[A-Z]/.test(s.tag)),
+    '小写宿主标签(input/textarea/select)不该被这一跳救掉;一个都没有 ⇒ 这一跳把整门读瞎了',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
