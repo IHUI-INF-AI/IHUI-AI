@@ -48,7 +48,7 @@ export type AgentEvent =
   /**
    * D113(2026-09-27)文件写类工具的**流中 diff 预览**帧。载荷字段沿用
    * `@ihui/api-client` 的 `ToolDeltaEvent`(toolCallId / seq / partialText / truncated?),
-   * `partialText` 是累积文本(整帧替换渲染)。`name` 是本端补的关联线索 ——
+   * `partialText` 是**增量**正文(仅本批新增行;消费端按 seq 收敛追加)。`name` 是本端补的关联线索 ——
    * `tool_call`/`tool_result` 都不带 toolCallId,HTTP/WS 消费方只能靠工具名归并。
    * 派生算法与预算**不在这里**:唯一出口 `src/tools/file-edit-preview.ts`(与服务端
    * llm.py 同语义),本面只搬运 runToolLoop 本地派生出的帧,不得自拼 JSON.stringify(args)。

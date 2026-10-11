@@ -130,7 +130,7 @@ export const run_tests: Tool = {
     const filter = args.filter as string | undefined;
     const framework = detectTestFramework(ctx.workspacePath);
 
-    const preResult = runPreToolCall('run_tests', { framework, filter });
+    const preResult = await runPreToolCall('run_tests', { framework, filter });
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const cmdArgs: string[] = ['test', '--'];
@@ -159,7 +159,7 @@ export const run_tests: Tool = {
     const stderr = result.stderr ?? '';
     const exitCode = result.status;
 
-    runPostToolCall('run_tests', { exitCode, framework });
+    await runPostToolCall('run_tests', { exitCode, framework });
 
     const summary = framework === 'vitest'
       ? parseVitestJson(stdout)

@@ -979,7 +979,7 @@ export const run_command: Tool = {
         return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${run_command.name}` };
       }
     }
-    const preResult = runPreToolCall('bash', { command, cwd: ctx.workspacePath, background });
+    const preResult = await runPreToolCall('bash', { command, cwd: ctx.workspacePath, background });
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     if (background) {
@@ -1002,8 +1002,8 @@ export const run_command: Tool = {
       }
       const taskId = registerTask(handle.process, command);
       // 异步等待结果,完成后触发 post hook
-      handle.result.then((result) => {
-        runPostToolCall('bash', { exitCode: result.exitCode, timedOut: result.timedOut, background: true, taskId });
+      handle.result.then(async (result) => {
+        await runPostToolCall('bash', { exitCode: result.exitCode, timedOut: result.timedOut, background: true, taskId });
       }).catch(() => { /* ignore */ });
       return {
         success: true,
@@ -1045,10 +1045,10 @@ export const run_command: Tool = {
         }, ADOPTED_BACKGROUND_BUDGET_MS);
         adoptedDeadlineTimers.add(bgDeadline);
         handle.result
-          .then((result) => {
+          .then(async (result) => {
             clearTimeout(bgDeadline);
             adoptedDeadlineTimers.delete(bgDeadline);
-            runPostToolCall('bash', { exitCode: result.exitCode, timedOut: result.timedOut, background: true, taskId });
+            await runPostToolCall('bash', { exitCode: result.exitCode, timedOut: result.timedOut, background: true, taskId });
           })
           .catch(() => {
             /* ignore */
@@ -1067,7 +1067,7 @@ export const run_command: Tool = {
       return settleForegroundCommand(result, command, ctx);
     }
     const result = runSandboxed(command, sandboxOpts);
-    runPostToolCall('bash', { exitCode: result.exitCode, timedOut: result.timedOut });
+    await runPostToolCall('bash', { exitCode: result.exitCode, timedOut: result.timedOut });
     return settleForegroundCommand(result, command, ctx);
   },
 };

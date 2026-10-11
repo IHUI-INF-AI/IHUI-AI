@@ -118,7 +118,7 @@ export const web_search: Tool = {
       return { success: false, output: '', error: '缺少 query 参数' };
     }
 
-    const preResult = runPreToolCall('web_search', { query });
+    const preResult = await runPreToolCall('web_search', { query });
     if (!preResult.proceed) {
       return { success: false, output: '', error: preResult.reason };
     }
@@ -139,7 +139,7 @@ export const web_search: Tool = {
       });
 
       if (!res.ok) {
-        runPostToolCall('web_search', { status: res.status });
+        await runPostToolCall('web_search', { status: res.status });
         return {
           success: false,
           output: '',
@@ -150,7 +150,7 @@ export const web_search: Tool = {
 
       const html = await res.text();
       const results = parseDuckDuckGoResults(html, MAX_RESULTS);
-      runPostToolCall('web_search', {
+      await runPostToolCall('web_search', {
         resultCount: results.length,
         htmlLen: html.length,
       });
@@ -159,7 +159,7 @@ export const web_search: Tool = {
         output: formatResults(query, results),
       };
     } catch (err) {
-      runPostToolCall('web_search', { error: String(err) });
+      await runPostToolCall('web_search', { error: String(err) });
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes('aborted')) {
         return {
