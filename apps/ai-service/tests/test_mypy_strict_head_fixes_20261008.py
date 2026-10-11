@@ -232,16 +232,24 @@ def test_path_search_branch_appends_candidates_in_order(tmp_path):
 
 
 def test_win32_branch_appends_extension_candidates_before_the_bare_name(tmp_path, monkeypatch):
-    """win32 形态:PATHEXT 扩展候选先入册,命中的那一条就是出口(出处序完整)。"""
+    """win32 形态:PATHEXT 扩展候选先入册,命中的那一条就是出口(出处序完整)。
+
+    2026-10-11 CI 对账(run 38084051334):入口文件名原写成小写 `g1008tool.cmd`,
+    而 PATHEXT 语料是大写 `.CMD` —— 大小写不敏感的命中是 **Windows FS 的属性**,
+    Linux CI 的 case-sensitive FS 上 isfile 直接 miss ⇒ resolved=None。本条要钉的
+    判据是"PATHEXT 候选先于裸名、命中即早退、候选序完整",不是 FS 大小写行为
+    (后者在 Windows 上恒真、在 POSIX 上恒假,属平台语义)。故入口文件名与候选
+    同形(大写扩展),两侧平台都能钉同一份候选序判据。
+    """
     bin_dir = tmp_path / "bindir"
     bin_dir.mkdir()
-    target = _mk_executable(bin_dir, "g1008tool.cmd")
+    target = _mk_executable(bin_dir, "g1008tool.CMD")
     monkeypatch.setattr(sys, "platform", "win32")
     out = exec_env.resolve_stdio_command(
         "g1008tool", {"PATH": str(bin_dir), "PATHEXT": ".COM;.EXE;.BAT;.CMD"}
     )
     assert out.resolved is not None and out.resolved.lower() == str(target).lower(), (
-        "命中的必须是那个 .cmd(PATHEXT 给的是大写扩展,文件系统不分大小写)"
+        "命中的必须是那个 .cmd(PATHEXT 扩展候选逐条试,命中即早退)"
     )
     tried_upper = [c.upper() for c in out.tried]
     assert tried_upper[0].endswith("G1008TOOL.COM"), "候选序首位应是 PATHEXT 的第一个扩展"
@@ -478,8 +486,12 @@ async def test_ensure_tables_conn_runs_all_four_statements_on_given_conn(fake_po
     函数名里的 "four" 是历史读数(写这条时建表面是 3 表 + 1 索引)。签到助手 Phase1c/1d
     (枚 a05e4df089)给 `publish/checkin_accounts` 加了 `account_group` 的**幂等加列**语句,
     建表面涨到五条 —— 按旧名去把产品改回四条就是回退那枚功能票。
-    这里**不再数条数**,改成逐字钉"应当执行的就是这五段 DDL、按这个顺序、一条不多一条
-    不少":数条数在涨到 6 时会再次失真,而按模块自己的 DDL 常量对账既抓得住"建表面被摘",
+    2026-10-11 对账 CI run 38084051334 红因②:源码此后又落了两段 —— WP-B 后端半
+    (2026-10-09)的积分每日快照表 `_CREATE_CREDITS_DAILY_SQL` 与平台化(2026-10-10)
+    的 `_ALTER_ACCOUNTS_PLATFORM_SQL`('trae'|'qoder' 加列),建表面为**七段**;
+    测试此前仍钉五段,是测试过期、源码正确 ⇒ 更新期望清单而不是回退产品。
+    这里**不数条数**,逐字钉"应当执行的就是这七段 DDL、按这个顺序、一条不多一条
+    不少":按模块自己的 DDL 常量对账既抓得住"建表面被摘",
     也抓得住"顺序换了 / 塞进一条别的语句"。
     """
     from app.services import checkin_store
@@ -490,7 +502,9 @@ async def test_ensure_tables_conn_runs_all_four_statements_on_given_conn(fake_po
         checkin_store._CREATE_ACCOUNTS_SQL,
         checkin_store._CREATE_RECORDS_SQL,
         checkin_store._CREATE_ERROR_COUNTS_SQL,
+        checkin_store._CREATE_CREDITS_DAILY_SQL,
         checkin_store._ALTER_ACCOUNTS_GROUP_SQL,
+        checkin_store._ALTER_ACCOUNTS_PLATFORM_SQL,
         checkin_store._CREATE_INDEXES_SQL,
-    ], "建表面被摘/被替换/被加料 —— 裸连接入口必须逐段执行这五份 DDL"
+    ], "建表面被摘/被替换/被加料 —— 裸连接入口必须逐段执行这七份 DDL"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
