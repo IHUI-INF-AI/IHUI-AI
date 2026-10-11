@@ -6,7 +6,7 @@
  * G-816014 装配测试:resume 必经点(resolveSession)收敛悬挂压缩时间线。
  *
  * 测试穿过真实入口 apps/cli/src/index.ts 的 resolveSession(--continue / --resume
- * 的公共漏斗),账本落在被 USERPROFILE 钉住的 scratch 目录(同目录=主会话 store),
+ * 的公共漏斗),账本落在被 USERPROFILE + HOME 双钉的 scratch 目录(同目录=主会话 store),
  * 收敛时刻用假时钟钉死 ⇒ 追加终态的 atMs 断言值写死,不写"有变化"。
  */
 
@@ -29,13 +29,17 @@ interface LedgerRecord {
 
 let scratch: string | null = null;
 let prevUserProfile: string | undefined;
+let prevHome: string | undefined;
 
 beforeEach(() => {
   scratch = mkScratch('compaction-timeline-resume');
   prevUserProfile = process.env.USERPROFILE;
-  // getSessionsDir()/os.homedir() 逐次调用读环境(Windows 下 uv_os_homedir 读 USERPROFILE),
-  // 与 compaction-v2-integration.test.ts 的隔离手法同一份。
+  prevHome = process.env.HOME;
+  // getSessionsDir() 走 os.homedir():Windows 读 USERPROFILE,POSIX 读 HOME —— 只钉前者
+  // 在 Linux runner 上等于没隔离,账本会落进 /home/runner/.ihui/sessions 与别的测试文件
+  // 共用(--continue 于是取到别人用真实时钟建的会话)。两个都要钉。
   process.env.USERPROFILE = scratch;
+  process.env.HOME = scratch;
   vi.useFakeTimers();
   vi.setSystemTime(PINNED_NOW_MS);
 });
@@ -44,6 +48,8 @@ afterEach(() => {
   vi.useRealTimers();
   if (prevUserProfile === undefined) delete process.env.USERPROFILE;
   else process.env.USERPROFILE = prevUserProfile;
+  if (prevHome === undefined) delete process.env.HOME;
+  else process.env.HOME = prevHome;
   if (scratch) {
     rmScratch(scratch);
     scratch = null;
