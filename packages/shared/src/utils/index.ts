@@ -14,6 +14,9 @@ export * from './context-attribution'
 export * from './canonical-json'
 
 export * from './content-equal'
+// G-1113920(2026-10-11 立)在线/离线判据的唯一真相源:档位、阈值语义与横幅映射只许这一份,
+// 各端只注入 adapter(怎么探)。端内再抄一份 `if (失败) 离线` 就是把"服务器没答"读成"设备没网"。
+export * from './connectivity'
 // D20 会话组织(文件夹/标签)的归一化、回收与筛选规则唯一实现(端内不得再建第二套)
 export * from './conversation-org'
 export * from './dangerous-command-detector'

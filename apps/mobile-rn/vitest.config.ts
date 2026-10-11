@@ -138,6 +138,18 @@ export default defineConfig({
         __dirname,
         '../../packages/shared/src/utils/image-preview-offset.ts',
       ),
+      // G-1113920:在线/离线判据与横幅映射是**纯逻辑**(只读注入的探测样本,不触 DOM/RN),
+      // 必须指向真实源码 —— 给它们写 mock 就等于"测 mock",而本票的全部价值是让各端共用这一份。
+      // 两条都必须排在下面 '@ihui/shared/utils' / '@ihui/shared/hooks' 父别名**之前**:
+      // 父别名按 startsWith(pattern+'/') 匹配,会把子路径吞成 <mock>/connectivity(收集期 MODULE_NOT_FOUND)。
+      '@ihui/shared/utils/connectivity': resolve(
+        __dirname,
+        '../../packages/shared/src/utils/connectivity.ts',
+      ),
+      '@ihui/shared/hooks/use-connectivity': resolve(
+        __dirname,
+        '../../packages/shared/src/hooks/use-connectivity.ts',
+      ),
       '@ihui/shared/utils': resolve(__dirname, 'tests/__mocks__/ihui-shared-utils.ts'),
       '@ihui/shared/hooks': resolve(__dirname, 'tests/__mocks__/ihui-shared-hooks.ts'),
       // 2026-09-27 收口:stores 从"手写替身"改为直指真实工厂。
