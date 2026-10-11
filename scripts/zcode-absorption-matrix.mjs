@@ -89,6 +89,11 @@ export function decide({ files, lineCounts, registry }) {
   }
 
   const rows = []
+  // M13 三态读数:射程内(全字符串清单)切片数 / 命中(read≠去重长度,红)/ 放过。
+  // 判据在射程内是全函数,不存在"判不出"——未判定那一态由调用方(取材失败)与
+  // check-absorption-read-naming 的 AN3(M13 不在位)负责,这里不越权代管。
+  let m13Scope = 0
+  let m13Red = 0
   for (const s of slices) {
     const counted = bySlice.get(s.path) || 0
     const evidence = Array.isArray(s.evidence) ? s.evidence : []
@@ -144,6 +149,12 @@ export function decide({ files, lineCounts, registry }) {
     if (Array.isArray(s.remaining) && s.remaining.length) {
       warnings.push(`M9 ${s.path} 报名未读 ${s.remaining.length} 个:${s.remaining.slice(0, 6).join(', ')}${s.remaining.length > 6 ? ' …' : ''}`)
     }
+    // M13:全量具名声明(readFiles 全字符串)的等值维 —— read 必须等于清单去重长度。
+    const namedRead = namedReadOf(s, errors)
+    if (namedRead !== null) {
+      m13Scope += 1
+      if (Number.isFinite(readN) && readN !== namedRead) m13Red += 1
+    }
     rows.push({
       path: s.path,
       status,
@@ -152,6 +163,8 @@ export function decide({ files, lineCounts, registry }) {
       // M12:`read` 是自报数;"可复核份数"必须逐条落在被审面上(路径存在 + 行数与现量相符)。
       // 两者差额就是 legacy 自报部分,头条必须把它分开报,不得混成一个数。
       verifiedRead: verifiedReadOf(s, lineCounts, files, errors).length,
+      // M13:全量具名声明下去重清单长度(不在射程为 null)—— 与 read 的差额就是自报水分。
+      namedRead,
       registeredFiles: Number(s.files ?? NaN),
       evidence: evidence.length,
       tickets: Array.isArray(s.tickets) ? s.tickets : [],
@@ -201,6 +214,9 @@ export function decide({ files, lineCounts, registry }) {
     byStatus,
     readTotal,
     verifiedReadTotal,
+    // M13 三态读数:命中(red)/ 放过(pass)/ 未判定恒为 0(射程内全函数,判不出的
+    // 情形都由"不在射程返回 null"落到 M12/M8 的既有口径,不折 0 也不折绿)。
+    m13: { scope: m13Scope, red: m13Red, pass: m13Scope - m13Red },
   }
 }
 
@@ -250,6 +266,31 @@ function verifiedReadOf(s, lineCounts, files, errors) {
   }
   for (const b of bad) errors.push(`M12 ${s.path} 清单不可兑现 ⇒ ${b}`)
   return [...seen]
+}
+
+/**
+ * M13 —— 全量具名声明(readFiles 全字符串)的等值维(2026-10-11 立,G-631 族)。
+ *
+ * 为什么需要它:M12 只保证"清单逐条兑现",不保证"自报数与清单一致" —— 一个切片可以
+ * 挂着 20 条兑现的清单却自报 read=88,账面照样读不出差额。check-absorption-read-naming
+ * (G-815988)的分工头注把这一维点名给 M13:声明为全量具名的切片,`read` 必须等于
+ * 清单去重长度 —— 具名清单是唯一计数来源,数字必须由清单算出,不得另行自报。
+ *
+ * 射程:readFiles 非空且全字符串 —— 与该检查器"读集已逐名登记"的口径同一定义
+ * (其 gather() 的 stringFormSlices 就只数这种形态)。对象形态({p,lines})归 M12
+ * 兑现判据管,不在 M13 射程:真实台账 480 片对象形态清单里 read≠去重长度的 11 片
+ * 属历史自报状态,由 M12/M8 的口径管,不归这把新尺子追溯(否则一落地就翻 11 红,
+ * 变成与任何提交无关的恒红门)。返回去重长度;不在射程返回 null。
+ */
+function namedReadOf(s, errors) {
+  const list = Array.isArray(s.readFiles) ? s.readFiles : []
+  if (list.length === 0 || !list.every((i) => typeof i === 'string')) return null
+  const named = new Set(list).size
+  const readN = Number(s.read ?? 0)
+  if (Number.isFinite(readN) && readN !== named) {
+    errors.push(`M13 切片 ${s.path} 的 read=${s.read} ≠ readFiles 去重后的 ${named} 个(具名清单是唯一计数来源,数字必须由清单算出)`)
+  }
+  return named
 }
 
 function measure(root) {
@@ -407,6 +448,44 @@ function runSelfTest() {
     vLegacy.ok && vLegacy.rows[0].verifiedRead === 0 && vLegacy.rows[0].read === 2,
   ])
 
+  // M13 全量具名等值:readFiles 全字符串的切片,read 必须等于清单去重长度。
+  // 构造面与 M12 那组同面(x/y 都在面上、行数在册),字符串形态同时过 M12 的兑现判据。
+  const mkNamed = (readFiles, read, status = 'deep') =>
+    decide({
+      files: ['packages/a/src/x.ts', 'packages/a/src/y.ts'],
+      lineCounts: { 'packages/a/src/x.ts': 10, 'packages/a/src/y.ts': 20 },
+      registry: {
+        slices: [
+          { path: 'packages/a/src', status, read, evidence: ['packages/a/src/x.ts:1-3'], verified: 'self', readFiles },
+        ],
+      },
+    })
+  const nGood = mkNamed(['packages/a/src/x.ts', 'packages/a/src/y.ts'], 2)
+  cases.push([
+    'M13 read 等于全字符串清单去重长度 ⇒ 不红且 namedRead=2、三态读数命中 0',
+    nGood.ok && nGood.rows[0].namedRead === 2 && nGood.m13.scope === 1 && nGood.m13.red === 0 && nGood.m13.pass === 1,
+  ])
+  const nBad = mkNamed(['packages/a/src/x.ts', 'packages/a/src/y.ts'], 3)
+  cases.push([
+    'M13 read≠清单去重长度必须红并点名(具名清单是唯一计数来源)',
+    nBad.m13.red === 1 && nBad.errors.some((e) => e.startsWith('M13') && e.includes('去重后的 2 个')),
+  ])
+  const nDup = mkNamed(['packages/a/src/x.ts', 'packages/a/src/x.ts'], 1)
+  cases.push([
+    'M13 去重长度按 Set 计(重复路径折掉 read=1=去重 1 不冒 M13 红),重复本身归 M12 红',
+    nDup.rows[0].namedRead === 1 && nDup.m13.red === 0 && nDup.errors.some((e) => e.includes('重复计入')),
+  ])
+  const nObj = mkNamed([{ p: 'packages/a/src/x.ts', lines: 10 }, { p: 'packages/a/src/y.ts', lines: 20 }], 1, 'windowed')
+  cases.push([
+    'M13 对象形态清单不在射程(scope=0 不冒 M13 红),兑现性归 M12',
+    nObj.ok && nObj.m13.scope === 0 && !nObj.errors.some((e) => e.startsWith('M13')),
+  ])
+  const nNone = mkNamed(undefined, 2)
+  cases.push([
+    'M13 无清单的 legacy 自报不在射程(scope=0),不虚构等值判定',
+    nNone.ok && nNone.rows[0].namedRead === null && nNone.m13.scope === 0,
+  ])
+
   const brokenRegistry = decide({ files, lineCounts: lines, registry: {} })
   cases.push(['登记表解析不出切片应判"未判定"而非通过', brokenRegistry.undetermined === true && !brokenRegistry.ok])
 
@@ -511,6 +590,11 @@ function main() {
     `其中可复核(清单逐条落在被审面上、路径存在、行数与现量相符)= ${vr};` +
       `差额 ${result.readTotal - vr} 份属早期自报(无清单)⇒ 不得当已证事实派单 —— ` +
       `本仓"把代理结论当事实"那一型,头条数字也在这条上`,
+  )
+  const m13 = result.m13 ?? { scope: 0, red: 0, pass: 0 }
+  console.log(
+    `M13 全量具名等值:射程 ${m13.scope} 片 / 命中 ${m13.red} / 放过 ${m13.pass}` +
+      `(readFiles 全字符串的切片,read 必须等于清单去重长度;对象形态归 M12,不在射程)`,
   )
   console.log('')
   for (const r of [...result.rows].sort((a, b) => b.files - a.files)) {
