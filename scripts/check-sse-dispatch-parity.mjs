@@ -53,19 +53,32 @@
  *
  * 集成位置:scripts/guardian-runner.mjs 第 90 项(blocking,pre-commit)
  * 紧急跳过:HUSKY_SKIP_SSE_DISPATCH_PARITY=1 git commit ...
+ *
+ * 2026-10-08(gitRaw 型 B 收尾批)git 出口收口:本文件唯一自拼派生 `git()`(唯一调用点是
+ * grepFrameHits 的 `git grep <rev>`)迁取材层 scripts/lib/face-reader.mjs 的 `gitRaw`;
+ * `const GIT_BIN = process.env.IHUI_GIT_BIN || resolveGitBin() || 'git'` 与
+ * execFileSync / resolveGitBin 两行 import 随之删除。行为面对照:
+ *  · 二进制:层内 `resolveGitBin() || 'git'` 绝对路径兜底链(§5b 同规)。差异:旧码的
+ *    IHUI_GIT_BIN 逃生舱不在层候选链 ⇒ 迁后失效——镜像测试核查无该 env 注入(注入面只有
+ *    archive-completed-tasks.test.mjs,不涉本门),非活契约,失效无可观察面。
+ *  · `-c safe.directory=*` + `-C <ROOT>` 同;层另带 core.quotepath=false(本门 grep 的
+ *    pathspec 全 ASCII 代码路径,无涉);stdio 旧 ['ignore','pipe','pipe'] → 层无 input 态
+ *    同形;timeout 旧 120000 显式保留({timeout:120_000});maxBuffer 旧 64MB → 层 64MB 同值。
+ *  · 失败语义三态一字未动:rc=1(无匹配)→ 命中清单空(旧取 e.stdout,git grep 无匹配时
+ *    stdout 恒空 ⇒ 折 '' 等值;层 Undetermined 不携带 stdout,本就无须取);rc≥128 / 派生
+ *    故障 → throw Error('git grep 未能真正运行(exit …)…'),措辞一字未动,仅 stderr 文案
+ *    换源(e.stderr → 层 Undetermined 消息,含 git stderr 首行;exit 2 判据失效路径不变)。
  */
-import { execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { resolveGitBin } from './lib/gitdir.mjs'
 // 判定面取材的唯一出口(2026-09-26 迁):帧清单那份 blob 正文改由共用层读 ——
 // git 绝对路径 / stdio[0]='pipe' / 一次 batch 读完 / maxBuffer 给足,这四件事各门自己写必错。
 // 命中侧仍是一次 `git grep <rev>`:那是"在指定修订上检索"的原语,不把 blob 正文读进 JS。
 // ⚠️ 本段原先还写着"台账与帧清单同面,不存在'表读磁盘 + 内容读 HEAD'的错面" —— 那句是**假的**:
 // readData() 一直是裸 readFileSync(磁盘),而并发会话改这个台账不需要碰任何被审代码。
 // 2026-09-26 由 readLedger() 收口,台账现与帧清单同面同轮取。
-import { catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 import { maskCommentsAndStrings } from './lib/code-mask.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -75,23 +88,6 @@ const API_CLIENT_FILE = join(ROOT, API_CLIENT_PATH)
 const DATA_PATH = ['scripts', 'data', 'sse-dispatch-coverage.json'].join('/')
 const DATA_FILE = join(ROOT, DATA_PATH)
 const SKIP_ENV = 'HUSKY_SKIP_SSE_DISPATCH_PARITY'
-
-// git 二进制不得依赖环境(§5b:服务账户与交互账户的 PATH / safe.directory 互不相通)
-const GIT_BIN = process.env.IHUI_GIT_BIN || resolveGitBin() || 'git'
-
-function git(args, opts = {}) {
-  return execFileSync(GIT_BIN, ['-c', 'safe.directory=*', '-C', ROOT, ...args], {
-    encoding: 'utf8',
-    windowsHide: true,
-    maxBuffer: 64 * 1024 * 1024,
-    timeout: 120000,
-    ...opts,
-    // EBUSY 根治(errno -4082):本机会话里 Node 建子进程 stdin 管道确定性失败。
-    // 调用点全为只读 git,不喂 stdin ⇒ stdio[0]='ignore'。
-    // 写在 ...opts 之后:若将来某调用方要喂 stdin,必须先在这里改成 input 两态判据。
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-}
 
 /**
  * 从 client.ts 源码里取出现的 onXxx 候选(权威帧清单 = 本集合 - toolCallbacks)。
@@ -335,10 +331,11 @@ function* grepFrameHits(data, callbacks, basis) {
         : ['grep', '-o', '-E', alt, 'HEAD', '--', ...paths]
   let raw = ''
   try {
-    raw = git(args)
+    raw = gitRaw(args, ROOT, { timeout: 120_000 })
   } catch (e) {
-    // git grep:0=有匹配 / 1=无匹配 / ≥128=自身失败(fatal)
-    if (e?.status === 1) raw = typeof e?.stdout === 'string' ? e.stdout : ''
+    // git grep:0=有匹配 / 1=无匹配 / ≥128=自身失败(fatal)。
+    // rc=1 ⇒ stdout 恒空(无匹配即无输出行),折 '' 与旧 e.stdout 等值。
+    if (e?.status === 1) raw = ''
     else {
       throw new Error(
         `git grep 未能真正运行(exit ${e?.status}):${String(e?.stderr ?? e?.message ?? e).split('\n')[0]}` +

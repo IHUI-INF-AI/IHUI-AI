@@ -91,6 +91,7 @@
     "allow-checkin-get-public-ip",
     "allow-checkin-one-click-reset",
     "allow-checkin-audit-trae-residual",
+    "allow-checkin-audit-qoder-residual",
     "allow-checkin-snapshot-backup",
     "allow-checkin-snapshot-restore",
     "allow-checkin-snapshot-list",

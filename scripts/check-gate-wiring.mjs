@@ -154,39 +154,53 @@ const DOC_FILES = ['AGENTS.md', 'README.md']
 // 那道 lib 自 2026-09-25 起负责判定"什么形态会让整批门中止",本门若另写一套形状规则,
 // 两边必然漂移(而漂移的方向永远是某道门对合法注册恒红 ⇒ 逼人 --no-verify ⇒ 全部守门作废)。
 import { normalizeTriggers } from './lib/guardian-triggers.mjs'
-import { catBatch, Undetermined } from './lib/face-reader.mjs'
+import { catBatch, gitRaw, Undetermined } from './lib/face-reader.mjs'
 
-// ─── git 二进制解析(§5b:不得依赖环境) ───────────────────────────────────
-let GIT_BIN = 'git'
-async function ensureGitBin() {
-  try {
-    const mod = await import('./lib/gitdir.mjs')
-    const p = typeof mod.resolveGitBin === 'function' ? mod.resolveGitBin() : null
-    if (p && existsSync(p)) {
-      GIT_BIN = p
-      return
-    }
-  } catch {
-    /* 落到显式候选 */
-  }
-  const candidates = [
-    'C:/Program Files/Git/bin/git.exe',
-    'C:/Program Files/Git/cmd/git.exe',
-    'C:/Program Files/Git/mingw64/bin/git.exe',
-  ]
-  for (const c of candidates) if (existsSync(c)) GIT_BIN = c
-}
+// ─── git 派生出口(§5b:不得依赖环境) ───────────────────────────────────
+//
+// 2026-10-08(gitRaw 型 B 收尾批)git 出口收口:本文件自拼派生 `git()`(约 25 个调用面:ls-tree/
+// ls-files/rev-parse/getBlob/gitGrep/gitGrepNumbered/各 --self-test 夹具的 init/add/commit)
+// 迁取材层 scripts/lib/face-reader.mjs 的 `gitRaw`;`let GIT_BIN = 'git'` + ensureGitBin()
+// (动态 import 解析 + 硬编码三候选兜底)与 `await ensureGitBin()` 调用点随之删除 ——
+// 二进制解析由层承担。行为面对照:
+//  · 二进制:旧 ensureGitBin 链(resolveGitBin() → Program Files 三硬编码,不经 --version 验证)
+//    → 层内 `resolveGitBin() || 'git'`(同一 resolveGitBin 主链 + PortableGit 扫描 + 每候选
+//    --version 验证;旧硬编码候选也多在层链覆盖面内)⇒ 同规且更稳,无环境依赖面不变。
+//  · `-c safe.directory=*` + `-C <root>` 同;stdio 旧两支同形 ['ignore','pipe','pipe'] →
+//    层无 input 态同形(opts.quiet 本是 no-op —— 三元两支逐字节相同,随迁省去);
+//    timeout 旧 120000 显式保留({timeout:120_000});maxBuffer 旧 64MB → 层 64MB 同值
+//    (ja 语言包 1.08MB 的历史教训继续由层承担);windowsHide 由层带;层另带
+//    core.quotepath=false 与 EBUSY 兜底(本门 pathspec 全 ASCII,quotepath 无涉)。
+//  · env 维度(opts.env):gitRaw 的 opts {input,timeout,maxBuffer,binary} 无 env 形态 ⇒
+//    走第五批(f0c95f3567)同款**同步派生窗口**配方 —— 派生阻塞事件循环,窗口内无并发 JS
+//    可读 process.env,临时置入 opts.env 键值、finally 逐键还原(含 undefined ⇒ delete)。
+//    本文件 opts.env 的唯一调用面是夹具的 `{ ...process.env, GIT_CONFIG_COUNT: '0' }`
+//    (纯 process.env 全量展开 + 单键覆写):该形态下窗口子进程 env 与旧 `env: opts.env`
+//    全量替换**逐键等值**。⚠️ 边界:若将来出现**缩减式** env(意图剥掉某变量),窗口配方
+//    盖不住(残余变量会漏进子进程),届时不得硬套,须另走显式 env 通道(参照 bypass-git
+//    git() 不迁的同一判定)。无 opts.env 的调用面:旧 `env: opts.env || process.env` 与层
+//    继承 process.env 同面。
+//  · 失败折值一字未动:gitGrep/gitGrepNumbered 的 catch 仍判 err.status===1=无匹配、其余
+//    {ok:false, err:串};err 文案换源(err.stderr → 层 Undetermined 消息,含 git stderr
+//    首行,兜底链 `stderr || message || err` 原样保留自动接住)。rc=0 正常返回 stdout 同。
 
-/** 统一的 git 调用:绝对路径 git + safe.directory + windowsHide + timeout + maxBuffer */
+/** 统一的 git 调用:gitRaw 层派生(绝对路径 git + safe.directory + windowsHide + timeout + maxBuffer)。 */
 function git(args, root, opts = {}) {
-  return execFileSync(GIT_BIN, ['-c', 'safe.directory=*', '-C', root, ...args], {
-    encoding: 'utf8',
-    windowsHide: true,
-    maxBuffer: 64 * 1024 * 1024, // ja 语言包 1.08MB 曾打爆默认 1MB → 被误判「仓库坏了」
-    timeout: 120000,
-    stdio: opts.quiet ? ['ignore', 'pipe', 'pipe'] : ['ignore', 'pipe', 'pipe'],
-    env: opts.env || process.env,
-  })
+  const env = opts.env
+  if (!env) return gitRaw(args, root, { timeout: 120_000 })
+  const saved = []
+  for (const [k, v] of Object.entries(env)) {
+    saved.push([k, process.env[k]])
+    process.env[k] = v
+  }
+  try {
+    return gitRaw(args, root, { timeout: 120_000 })
+  } finally {
+    for (const [k, v] of saved) {
+      if (v === undefined) delete process.env[k]
+      else process.env[k] = v
+    }
+  }
 }
 
 /** git grep 在无匹配时 exit 1:区分「无匹配」与「git 自身异常」,绝不静默放行 */
@@ -1460,7 +1474,7 @@ async function main(argv = process.argv.slice(2)) {
     return 0
   }
 
-  await ensureGitBin()
+  // 2026-10-08(型 B 收尾批):ensureGitBin() 随派生迁 gitRaw 层一并删除,二进制由层解析。
   const root = opts.root
   if (!existsSync(join(root, '.git'))) {
     console.error(`❌ 非 git 仓库根: ${root}`)

@@ -352,6 +352,10 @@ interface DispatchRuntime {
   dagNodeStatus: Map<string, ExtendedDispatchStatus>
   /** agent_tasks 记录 id(subagent dispatch 轨迹持久化关联,2026-08-06 新增) */
   agentTaskId?: string
+  /** G-998156:该 run 的累加读数已被全局统计消费到的步骤水位(已计入 _stats 的 steps 数)。
+   *  undefined/0 = 尚未进账(界下);>0 = 该 run 曾进过账,此后 steps 只会因重试/续跑追加
+   *  —— 即「曾溢出/重放」的那一位(上游 workflow-runs-eviction.ts 的 truncated 同位)。 */
+  statsConsumedSteps?: number
   /** ai-service 编排原始结果(D27 交付清单聚合数据源,仅成功分支赋值;DAG/多轮通信无单一编排结果时为 null) */
   orchestration?: AiOrchestrationResult | null
 }
@@ -2142,12 +2146,28 @@ class SubagentDispatchService {
     }
   }
 
-  /** 更新全局统计 */
+  /**
+   * 更新全局统计。
+   *
+   * G-998156:照上游 workflow-runs-eviction.ts `admitsNewEntry(run, live)` 的形状收紧累加型
+   * 读数 —— `runtime.steps.reduce` 的全量每次都在,**重复进账**(同一 run 的 steps 被再次喂给
+   * 本函数:续跑/重放/多终态分支)会把旧步骤的 token 再加一遍。收紧条件**只挂在坏过的样本上**:
+   *  - `statsConsumedSteps > 0`(该 run 曾进账 = 曾溢出/重放)⇒ 只累计**越过已消费水位**的新增
+   *    步骤(live = 步数越过水位,与上游 advancesWaterMark 同形);
+   *  - 界下(首次进账)一律放行,与旧实现逐字同形 —— 健康路径一条都不动。
+   */
   private _updateStats(runtime: DispatchRuntime): void {
     const durationMs = (runtime.completedAt ?? 0) - (runtime.startedAt ?? 0)
-    const tokens = runtime.steps.reduce((acc, s) => acc + s.tokenUsage.total, 0)
+    const consumedFrom = runtime.statsConsumedSteps ?? 0
+    const truncated = consumedFrom > 0
+    const live = runtime.steps.length > consumedFrom
+    const admitsNewEntry = truncated !== true || live
+    const tokens = admitsNewEntry
+      ? runtime.steps.slice(consumedFrom).reduce((acc, s) => acc + s.tokenUsage.total, 0)
+      : 0
     this._stats.totalTokens += tokens
     this._stats.totalDurationMs += durationMs
+    runtime.statsConsumedSteps = runtime.steps.length
   }
 
   /** 取消派单:仅 pending/running 可取消 */
