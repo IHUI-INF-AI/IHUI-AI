@@ -436,3 +436,47 @@ test('形状锁:listCandidates 全量档必须仍并上 --others(票面②:不�
   assert.ok(body.includes("'--exclude-standard'"), '必须带 --exclude-standard,否则把构建产物全扫进来')
   assert.ok(body.includes('ls-files'), '跟踪面与未跟踪面都要在')
 })
+
+// ── G-1059146(2026-10-11,方向①):生产脚本体内的夹具表字符串 ≠ 调用点 ────────────────
+// 形态:受审文件本身是**生产脚本**(门头"测试代码降为 warn"是路径级豁免,天然看不见这一格),
+// 被判的调用写在它体内那张 `[用例名, 被检文本, 期望结论]` 自检用例表的**字符串字面量**里
+// (真实站点 scripts/check-spawn-stdio.mjs:728/733,期望值 skip-eats-stdin ——
+//  给它补 windowsHide 就是改掉另一道门的判据输入,所以只可能在本门遮罩侧认)。
+// 区分判据只有一条:命中起点落在字符串/正则/注释 token 内 ⇒ 夹具;落在代码 token 上 ⇒ 真调用点。
+// 于是遮罩只吃字面量**内部**:本门"喂一段文本判它有没有漏参"的核心能力照样成立(见 ②)。
+const G1059146_FIXTURE_TABLE = `[
+  ['调用后 proc.stdin.write ⇒ skip-eats-stdin', 'const proc = spawnSync("node", ["-e", "s"], { encoding: "utf8" })\\nproc.stdin.write(payload)', 'skip-eats-stdin'],
+  ['句柄传给 StreamMessageWriter ⇒ skip-eats-stdin', 'const child = spawnSync("node", ["server"], { encoding: "utf8" })\\nnew StreamMessageWriter(child.stdin)', 'skip-eats-stdin'],
+]`
+
+test('G-1059146 ① 夹具表行(代码形态包在字符串字面量内,受审文件是生产脚本)⇒ 不判', () => {
+  assert.equal(
+    src.scanSource(G1059146_FIXTURE_TABLE, 'scripts/check-spawn-stdio.mjs').length,
+    0,
+    '字符串字面量内部的代码形态是夹具,不是调用点',
+  )
+})
+
+test('G-1059146 ② 同一段夹具表之后的真实调用点漏 windowsHide ⇒ 判红并点名 file/line/fn', () => {
+  const mixed = `${G1059146_FIXTURE_TABLE}\nspawnSync("node", ["-e", "s"], { encoding: "utf8" })`
+  const v = src.scanSource(mixed, 'scripts/check-spawn-stdio.mjs')
+  assert.equal(v.length, 1, '遮罩只作用于字符串字面量内部 —— 同文件的真调用点必须仍然被抓')
+  assert.equal(v[0].file, 'scripts/check-spawn-stdio.mjs')
+  assert.equal(v[0].line, 5, '夹具占 4 行 ⇒ 真调用在第 5 行(遮罩不得挪动行号)')
+  assert.equal(v[0].fn, 'spawnSync')
+  assert.equal(v[0].kind, 'visible-spawn')
+})
+
+test('G-1059146 真实站点回归:check-spawn-stdio 自检用例表的夹具行不得被判为调用点', () => {
+  const target = readFileSync(new URL('../check-spawn-stdio.mjs', import.meta.url), 'utf8')
+  // 夹具行的形态:整行以引号起手(表项的被检文本)且体内写着 spawnSync("node" …)
+  const fixtureLines = target
+    .split('\n')
+    .map((l, i) => (l.trim().startsWith("'") && l.includes('spawnSync("node"') ? i + 1 : 0))
+    .filter(Boolean)
+  assert.ok(fixtureLines.length >= 2, `票面那两行夹具应仍存在(实得 ${fixtureLines.length} 行),否则本用例失去钉的意义`)
+  const hitLines = new Set(src.scanSource(target, 'scripts/check-spawn-stdio.mjs').map((x) => x.line))
+  for (const n of fixtureLines) {
+    assert.ok(!hitLines.has(n), `scripts/check-spawn-stdio.mjs:${n} 夹具行被判成调用点(方向①取材遮罩失效)`)
+  }
+})
