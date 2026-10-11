@@ -1226,6 +1226,16 @@ function main(argv) {
 
 // ==================== 自检(纯函数,不碰真仓) ====================
 
+/** §22c 共用配方:把"已声明契约"改成"挂了契约但缺字段"的这一手,门体自检与镜像测试各写一份
+ *  就是两份真相(守门 191 的 F1「同名同料 · PARTIAL」判的正是这一型)。
+ *  ⚠️ 必须声明在 selfTest **之前**:`export const __test__` 按 §22d 落在 isDirectRun 守卫**之后**,
+ *  放在它旁边会让直跑路径读到 TDZ(Cannot access before initialization),而账面只表现为自检崩溃。 */
+const toPartialContract = (src) => src.replace(/ effectScope: 'none',/, '')
+/** 同一条理由的第二手:摘掉 effectScope 及其后分隔符,造"无作用域声明"夹具(门体 1257 行与镜像测试
+ *  的 WITHOUT_SCOPE 是同一件事,两处各写一份正则就是两份真相 —— 两个配方**取值不同**(一处吃前导空格、
+ *  一处吃后随空格),不得合并成一个,否则夹具语义会变。 */
+const toScopelessContract = (src) => src.replace(/effectScope: 'none', /, '')
+
 function selfTest() {
   const results = []
   const ok = (name, cond) => results.push([cond ? 'PASS' : 'FAIL', name])
@@ -1248,7 +1258,7 @@ function selfTest() {
   async execute() { return { success: true, output: 'ok' } },
 };`
   const noBudget = full.replace(/resultBudget: \{[^}]*\{[^}]*\}[^}]*\},?/, 'x: 1,')
-  const noScope = full.replace(/effectScope: 'none', /, '')
+  const noScope = toScopelessContract(full)
 
   const t1 = extractToolLiterals(bare)
   ok('ST1 无契约字面量被识别为工具', t1.length === 1 && t1[0].toolName === 'demo')
@@ -1417,7 +1427,7 @@ function selfTest() {
   // demo2 而 `bare` 叫 demo,直接拿来配对就是"改了名的两枚工具",门判不出摘除属于**定义如此**
   // 而不是缺陷。这里把 declared 夹具改成与 bare 同名,才真正在测"同一枚工具的声明没了"。
   const declaredDemo = full.replace(/demo2/g, 'demo')
-  const PARTIAL = declaredDemo.replace(/ effectScope: 'none',/, '') // 挂了契约但缺字段 ⇒ 1 处 TC2
+  const PARTIAL = toPartialContract(declaredDemo) // 挂了契约但缺字段 ⇒ 1 处 TC2
   const ledger = (src) => declarationLedgerOf(F, extractToolLiterals(src))
   const completeLedger = ledger(declaredDemo)
   const bareLedger = ledger(bare)
@@ -1751,7 +1761,11 @@ if (isDirectRun) {
   process.exitCode = code
 }
 
+/** §22c 共用配方:把"已声明契约"改成"挂了契约但缺字段"的这一手,门体自检与镜像测试各写一份
+ *  就是两份真相(守门 191 的 F1「同名同料 · PARTIAL」判的正是这一型)。 */
 export const __test__ = {
+  toPartialContract,
+  toScopelessContract,
   maskNonCode,
   findObjectRanges,
   collectMembers,
