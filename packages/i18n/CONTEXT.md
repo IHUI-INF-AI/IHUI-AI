@@ -20,7 +20,7 @@
   `apps/web/src/providers/i18n-provider.tsx`、`apps/extension/src/i18n/index.tsx`、
   `apps/extension/src/lib/model-catalog.ts`、`apps/miniapp-taro/src/i18n/index.tsx`、
   `apps/miniapp-taro/src/utils/{model-catalog,wechat-login}.ts`、`apps/mobile-rn/src/i18n/index.tsx`、
-  `apps/mobile-rn/src/lib/ui-action-registry.ts`(+ 生成器 `apps/miniapp-taro/scripts/gen-i18n-compressed.mjs`)
+  `apps/mobile-rn/src/lib/ui-action-registry.ts`(+ 生成器 `scripts/gen-i18n-compressed.mjs`)
 - `'@ihui/i18n/messages/*'`(引用该路径的文件数,含测试与脚本):`web` 102、`shared` 61、`extension` 28、
   `mobile-rn` 22、`miniapp-taro` 21、`cli` 16、`api` 7 —— **7 个命名空间 × 5 语言 = 35 份 JSON**。
 
@@ -67,4 +67,5 @@
   ⇒ 端上表现是"某句没翻"而不是崩,回归只能靠 `tests/cross-engine.test.ts` 与 `tests/h28.test.ts`,
   而这两枚都**不在提交链**(本包 `test` 脚本是 `vitest run`,runner 不调它)。
 - 本包不声明 `contract_files`,也不命中 `contract_file_patterns` ⇒ E2 齐备性由此文档补足。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

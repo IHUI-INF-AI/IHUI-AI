@@ -47,7 +47,7 @@ describe('sse-parse tool-delta(D113:帧不得被静默丢掉,也不得污染正�
     expect(events[0]?.toolDelta).toMatchObject({ toolCallId: 'call-1', seq: 1 })
   })
 
-  it('同 seq 重放幂等:同一帧解析两次得到逐字段等值的载荷(消费端覆盖写天然幂等)', () => {
+  it('同 seq 重放幂等:同一帧解析两次得到逐字段等值的载荷(消费端按 seq 收敛幂等丢弃)', () => {
     const frame = '{"type":"tool-delta","toolCallId":"call-1","seq":3,"partialText":"accumulated"}'
     const first = one(frame)?.toolDelta
     const second = one(frame)?.toolDelta
@@ -74,7 +74,11 @@ describe('sse-parse tool-delta(D113:帧不得被静默丢掉,也不得污染正�
     ).toBeUndefined()
   })
 
-  it('字段收窄口径与 api-client tryParseToolDelta 一致:seq 非 number 归 0,truncated 仅 true 才带键', () => {
+  it('字段收窄:truncated 仅 true 才带键,本腿为透传保留 seq 非 number 归 0(与 api-client 有意分歧)', () => {
+    // 有意分歧(G-816035,2026-10-08):api-client 的 tryParseToolDelta 已要求 seq 为 >= 1 的整数,
+    // 否则整帧不投递;本腿(shared/sse-parse)保持透传,seq 非 number 归 0。这是**刻意的分歧** ——
+    // 消费端按 seq 收敛会把 0 判成陈旧帧丢弃,0 兜底不再有"未声明即放行"的危害。
+    // 本用例测的是本腿自身行为,故下方断言逐字保留。
     const bare = one('{"type":"tool-delta","toolCallId":"c1","partialText":"x"}')?.toolDelta
     expect(bare).toEqual({ toolCallId: 'c1', seq: 0, partialText: 'x' })
     expect(bare && 'truncated' in bare).toBe(false)
