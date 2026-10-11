@@ -276,12 +276,15 @@ test('R2 --self-test 的真实退出码 0(全过才叫过)', () => {
   assert.match(r.stdout, /--self-test 结果:(\d+)\/\1 通过/)
 })
 
-test('R3 全量档(HEAD 面)退出码 0 且末行读数三态分列', () => {
+test('R3 全量档(HEAD 面)退出码 0 且末行把四档分列(未判定与 NP 射程外不得并桶)', () => {
   const r = spawnGate([])
   assert.equal(r.status, 0, r.stderr)
-  const m = /三态读数\(不并桶\):命中 = (\d+) · 放过 = (\d+).*· 未判定 = (\d+)/.exec(r.stdout)
+  const m = /读数\(不并桶\):命中 = (\d+) · 放过 = (\d+).*· 未判定 = (\d+) · 射程外 NP = (\d+)/.exec(r.stdout)
   assert.ok(m, `末行读数缺失:${r.stdout.slice(-300)}`)
-  assert.ok(Number(m[1]) + Number(m[2]) + Number(m[3]) > 0, '三态全 0 = 尺子没扫到东西,不是干净')
+  assert.ok(
+    Number(m[1]) + Number(m[2]) + Number(m[3]) + Number(m[4]) > 0,
+    '四档全 0 = 尺子没扫到东西,不是干净(而 NP 单独成数才证明第四态真在报数,不是被折进放过)',
+  )
   assert.match(r.stdout, /判定面 = head/)
 })
 
