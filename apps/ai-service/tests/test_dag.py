@@ -27,6 +27,10 @@ from app.api.dag import (
 from app.services.dag_scheduler import (
     DAGResult,
     KanbanTask,
+    RUN_STATUS_PHYSICAL_STATES,
+    RUN_STATUS_UNDETERMINED,
+    decode_run_status,
+    encode_run_status,
 )
 
 # =============================================================================
@@ -462,4 +466,129 @@ async def test_node_with_unknown_task_type_raises_not_echoes():
 
     with pytest.raises(TaskExecutionError):
         await dag_module._node_executor(spec)({})
+
+
+# =============================================================================
+# L11501:run 级终态词汇编解码 round-trip
+# (逻辑词汇↔物理列映射只活在仓储编解码出口;物理存储值零迁移零漂移)
+# =============================================================================
+
+
+def test_run_status_round_trip_logical_to_physical_to_logical():
+    """逻辑词汇 → 物理值 → 逻辑词汇,逐字相等。"""
+    for logical in ("errored", "interrupted", "superseded"):
+        physical = encode_run_status(logical)
+        assert physical in RUN_STATUS_PHYSICAL_STATES, f"{logical} 必须落在既有物理三档内"
+        assert decode_run_status(physical) == logical, f"{logical} round-trip 失真"
+
+
+def test_run_status_physical_words_zero_drift():
+    """物理三档零漂移:encode(decode(物理值)) == 物理值(物理存储值不变的硬保证)。"""
+    for physical in ("partial", "failed", "success"):
+        assert encode_run_status(decode_run_status(physical)) == physical
+
+
+def test_run_status_decode_canonicalizes_registered_buckets():
+    """读侧还原逻辑词汇:注册过的物理档位 canonical 化为其逻辑词。"""
+    assert decode_run_status("failed") == "errored"
+    assert decode_run_status("partial") == "interrupted"
+    assert decode_run_status("success") == "superseded"
+
+
+def test_run_status_unregistered_word_lands_undetermined(caplog):
+    """未注册词汇 ⇒ 落未判定并点名,不许猜成任意一档。"""
+    import logging
+
+    with caplog.at_level(logging.WARNING, logger="app.services.dag_scheduler"):
+        assert encode_run_status("stopped") == RUN_STATUS_UNDETERMINED
+        assert encode_run_status("bogus_status") == RUN_STATUS_UNDETERMINED
+    assert "'stopped'" in caplog.text
+    assert "'bogus_status'" in caplog.text
+
+
+def test_run_status_decode_unknown_physical_lands_undetermined(caplog):
+    """未知物理值 ⇒ 落未判定并点名。"""
+    import logging
+
+    with caplog.at_level(logging.WARNING, logger="app.services.dag_scheduler"):
+        assert decode_run_status("cancelled") == RUN_STATUS_UNDETERMINED
+        assert decode_run_status("") == RUN_STATUS_UNDETERMINED
+    assert "'cancelled'" in caplog.text
+
+
+# =============================================================================
+# L11505 / G-998100:投递档位过滤「收口不变量」—— 两处终态词汇逐字节一致。
+# 判据全部从两个源模块各自导入后比对,不抄一份常量进测试(§22c 禁复制门体判据)。
+# =============================================================================
+
+
+def test_g998100_dispatch_status_vocab_byte_equal():
+    """dag_scheduler 两处档位词汇:AgentTaskStatus(Literal) ≡ KANBAN_TASK_STATUSES。
+
+    契约"本 Literal 与下方对齐表必须同笔"(dag_scheduler.py:353)。漂任一词、
+    改顺序、加减成员,本测试当场翻红。
+    """
+    from typing import get_args
+
+    from app.services.dag_scheduler import AgentTaskStatus, KANBAN_TASK_STATUSES
+
+    literal_vocab = tuple(get_args(AgentTaskStatus))
+    table_vocab = tuple(KANBAN_TASK_STATUSES)
+    assert literal_vocab == table_vocab
+    # 字节层再钉一遍:同一顺序同一拼写,无隐形归一。
+    assert [w.encode("utf-8") for w in literal_vocab] == [
+        w.encode("utf-8") for w in table_vocab
+    ]
+
+
+def test_g998100_queue_ledger_terminal_vocab_byte_equal():
+    """queue_ledger 两处终态词汇:跃迁表空集键(终态:空集) ≡ TERMINAL_STATES。
+
+    两份词汇各自独立书写(queue_ledger.py:79 与 :94),漂一词即红;并验证
+    事件→状态映射覆盖全部终态词、每个终态词恰有一个事件源(唯一映射)。
+    """
+    from app.core.queue_ledger import (
+        _ALLOWED_TRANSITIONS,
+        _EVENT_TO_STATE,
+        TERMINAL_STATES,
+    )
+
+    sink_vocab = {state for state, outs in _ALLOWED_TRANSITIONS.items() if not outs}
+    assert sink_vocab == set(TERMINAL_STATES)
+    assert sorted(s.encode("utf-8") for s in sink_vocab) == sorted(
+        s.encode("utf-8") for s in TERMINAL_STATES
+    )
+
+    targets = frozenset(_EVENT_TO_STATE.values())
+    assert TERMINAL_STATES <= targets, "每个终态词都必须有事件可达"
+    inverted: dict[str, list[str]] = {}
+    for event, target in _EVENT_TO_STATE.items():
+        inverted.setdefault(target, []).append(event)
+    for state in sorted(TERMINAL_STATES):
+        assert len(inverted[state]) == 1, f"终态 {state} 必须恰有一个事件源"
+
+
+def test_g998100_write_and_replay_paths_byte_equal(tmp_path):
+    """两条消费路径(写入 _transition / 回放 _load)对同一逻辑事件收敛出的
+    终态字符串逐字节相等,且落在 TERMINAL_STATES 内。"""
+    from app.core.queue_ledger import TERMINAL_STATES, QueueLedger
+
+    # 终态事件 → 公开写入方法(方法名是 API 面,不是词汇表副本)。
+    record_fns = {
+        "confirm": "record_confirmed",
+        "cancel": "record_cancel",
+        "discard": "record_discard",
+        "fail": "record_fail",
+    }
+    for event, fn_name in record_fns.items():
+        item_id = f"i-{event}"
+        ledger_path = tmp_path / f"{event}.jsonl"
+        writer = QueueLedger(ledger_path)  # 路径A:写入收敛
+        assert getattr(writer, fn_name)("t", item_id) is True
+        written_final = writer.state_of("t", item_id)
+        replayer = QueueLedger(ledger_path)  # 路径B:第二实例走 _load 回放收敛
+        replayed_final = replayer.state_of("t", item_id)
+        assert written_final is not None and replayed_final is not None
+        assert written_final.encode("utf-8") == replayed_final.encode("utf-8")
+        assert written_final in TERMINAL_STATES
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
