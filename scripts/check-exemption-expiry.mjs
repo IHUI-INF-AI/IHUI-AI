@@ -247,6 +247,14 @@ const FAMILY_LIFETIME_DAYS = {
    * 逼人删标记,删了又被 IC 判红,两道门互咬(§12e 同型)。判据侧要求带原因。
    */
   'icon-bitmap-exempt': 365,
+  /**
+   * 守门 `check-plan-sha-form.mjs`(票 G-1079146,台账短 sha 出处指针防回潮)的**同笔登记**。取 **30 天** ——
+   * 与它守的台账条目 `reviewBy` 复核窗同寿命。分工写死:**合法性归 form 门** —— 它刻意不认行内豁免
+   * (`plan-sha-noncommit-exempt:` 标记不构成放行,具名台账 `scripts/data/plan-sha-noncommit.json` 的
+   * token+kind+reason+reviewBy 是唯一通道);本表管的只是这枚标记形状的**寿命档**:行内真有人写出
+   * 这个形状时按 30 天到期重判,不落"未登记族"红点(E4)—— 两道门分属寿命与合法性,不互顶账。
+   */
+  'plan-sha-noncommit-exempt': 30,
 }
 /** 标记词表按**形状**发现而不是白名单:清单会腐烂,新门刚加的族必须当天就被看见。 */
 const MARKER_RE = /(?:[a-z][a-z0-9-]*-exempt(?:-file)?|ihui-allow-important)\s*:/gi

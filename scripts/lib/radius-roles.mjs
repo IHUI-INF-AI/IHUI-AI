@@ -399,7 +399,17 @@ export function classStringsInLine(codeLine, rawLine) {
  * 声明作用域表:`function X(...){}` / `const X = () => {}` / `const X = function` 的**行区间**。
  * 取材面必须是已抹注释与字符串的 code 面(否则注释里的假声明会造出不存在的区间)。
  * 括号配平失败(不闭合)⇒ 该声明**不记**,判"归属判不出"而不是猜一个范围。
- * @returns {{name:string, start:number, end:number, exported:boolean}[]} 按 start 升序
+ * @returns {{name:string, start:number, end:number, exported:boolean, bodyLine?:number, bodyCol?:number}[]} 按 start 升序
+ *
+ * `bodyLine` / `bodyCol` 是函数体那个 `{` 的**零基**位置(G-629 补,纯加字段:既有消费方
+ * `check-radius-role-conformance.mjs` 只读 start/end/名字,形状不变)。
+ * 为什么必须由**这一份**给出而不能让调用方自己数括号:"函数体是哪一个 `{`"这件事本身有坑,
+ * 本函数上面那段注释已记过两型 —— 签名里的解构 `{`(`function X({a}: P) {`)与
+ * **表达式体箭头函数**(`const toUnit = (px: number) => px`,整行没有 `{`)。
+ * G-629 实测:调用方自写"往后找第一个 `{`"的两版实现分别栽在这两型上
+ * (v1 深度从签名行就错 1;v2 命中表达式体箭头函数后一路跑下去锁定到后面某个函数),
+ * 两次都是"读出一堆 `no-depth1-return`"—— 判据失明时读起来和"没有缺陷"一模一样。
+ * 深度从 bodyCol 起算,这一格才不必在每个消费方重造。
  */
 export function declarationRanges(codeSource) {
   const lines = String(codeSource || '').split('\n')
@@ -429,7 +439,7 @@ export function declarationRanges(codeSource) {
     let depth = 0
     let braceLine = -1
     let braceCol = -1
-    let k = (m.index || 0) + m[0].length - 1
+    const k = (m.index || 0) + m[0].length - 1
     let j = i
     outer: for (; j < lines.length && j - i <= 40; j++) {
       for (let c = j === i ? k : 0; c < lines[j].length; c++) {
@@ -465,7 +475,15 @@ export function declarationRanges(codeSource) {
       if (end > 0) break
       if (q - braceLine > 1200) break // 病态文件护栏:配平不到就判"判不出",不扫全文件
     }
-    if (end > 0) found.push({ name: m[2], start: i + 1, end, exported: Boolean(m[1]) })
+    if (end > 0)
+      found.push({
+        name: m[2],
+        start: i + 1,
+        end,
+        exported: Boolean(m[1]),
+        bodyLine: braceLine,
+        bodyCol: braceCol,
+      })
   }
   return found
 }
