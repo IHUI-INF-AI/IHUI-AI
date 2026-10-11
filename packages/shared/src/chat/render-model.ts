@@ -88,6 +88,14 @@ export interface ToolRenderBlock {
   serverSource?: ToolCall['serverSource']
   serverId?: string
   serverName?: string
+  /**
+   * D113 流中 diff 预览(tool-delta 帧的增量正文按 seq 收敛追加后的累计文本)。
+   * 投影自 `ToolCall.partialDiff`(四端同一契约,见 packages/types/src/chat.ts)—— **渲染条件在各端**:
+   * 只有 `status==='running'` 且非空才成块,tool-result 到达即被清,最终 diff 由 result 接管。
+   */
+  partialDiff?: string
+  /** D113:已收敛消费的最大 tool-delta `seq`(投影自 `ToolCall.partialSeq`);收敛判据在各端消费点。 */
+  partialSeq?: number
   /** 媒体产物(图/音/视频 URL 或异步任务 ID),无媒体时为 undefined */
   media?: {
     image_url?: string
@@ -213,6 +221,8 @@ function toToolBlock(messageId: string, call: ToolCall, index: number): ToolRend
     serverSource: call.serverSource,
     serverId: call.serverId,
     serverName: call.serverName,
+    partialDiff: call.partialDiff,
+    partialSeq: call.partialSeq,
     ...(hasMedia ? { media } : {}),
   }
 }
