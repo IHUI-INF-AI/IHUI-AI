@@ -45,6 +45,42 @@ interface CacheQualityStats {
 
 type BreakerState = 'closed' | 'open' | 'half_open'
 
+/**
+ * 等锁者声明的「必需项」——一串点分路径，可选数组下标。
+ * 例：`'id'`、`'user.profile.name'`、`'items[0].id'`、`'items.0.name'`。
+ *
+ * 只有等锁者自己知道"这份载荷少了哪个字段我就不能干活"，leader 不知道，缓存条目本身
+ * 也不记录"我是按谁的投影回填的"，所以必需项只能由等锁者在调用点声明。
+ */
+export type CacheRequiredPaths = readonly string[]
+
+/** 复检裁决三态：齐全 / 判缺 / 判不了。 */
+export type RecheckVerdict =
+  | { kind: 'satisfied' }
+  /** 共享结果缺了本调用方声明的必需项 ⇒ 不吃这份缓存，等锁者自己回源重算 */
+  | { kind: 'violated'; missing: string[] }
+  /** 判不了：无从判断这份载荷对本调用方够不够用。既不谎报通过，也不据此把复用全废掉。 */
+  | { kind: 'undecided'; reason: 'no-declaration' | 'unreadable-shape'; detail: string }
+
+/** 最近一次「未判定」的落点（点名：哪个 key、什么原因）。 */
+export interface UndecidedEvent {
+  key: string
+  reason: 'no-declaration' | 'unreadable-shape'
+  detail: string
+}
+
+/** 等锁者复检观测面：三态互斥，合计 = 等锁者（非 leader）参与 singleflight 的次数。 */
+export interface SingleflightRecheckStats {
+  /** 必需项齐全 ⇒ 复用共享结果的次数 */
+  satisfied: number
+  /** 必需项缺失 ⇒ 不吃缓存、自行回源的次数 */
+  violated: number
+  /** 判不了 ⇒ 落未判定并点名的次数 */
+  undecided: number
+  /** 最近一次未判定的落点；从未发生则为 null */
+  lastUndecided: UndecidedEvent | null
+}
+
 interface Breaker {
   state: BreakerState
   failures: number
@@ -66,7 +102,7 @@ declare module 'fastify' {
         key: string,
         ttlSec: number,
         loader: () => Promise<T>,
-        opts?: { nullTtlSec?: number },
+        opts?: { nullTtlSec?: number; requiredPaths?: CacheRequiredPaths },
       ): Promise<T>
       /** 失效单个缓存 key */
       invalidate(key: string): Promise<void>
@@ -78,8 +114,103 @@ declare module 'fastify' {
       avalancheStats(): { tracked: number; prewarmedTotal: number }
       /** 空值回填观测面:区分"跳过空回填 / 哨兵空值条目写入 / 空值条目命中"(不得靠猜) */
       cacheQualityStats(): CacheQualityStats
+      /** 等锁者复检观测面:区分"齐全复用 / 判缺自回源 / 判不了(未判定)"三态 */
+      singleflightRecheckStats(): SingleflightRecheckStats
     }
   }
+}
+
+/** 路径分段黑名单：遍历只走自有属性，拒走原型链（原型污染面）。 */
+const UNSAFE_PATH_SEGMENT = new Set(['__proto__', 'prototype', 'constructor'])
+
+/**
+ * 把 `'a.b[0].c'` / `'a[0]'` / `'a.0'` 归一成段数组；看不懂 ⇒ null（落"未判定"）。
+ * 形状看不懂的判定是**保守方向**：宁可点名说判不了，也不许猜成"这个字段大概在"。
+ */
+export function parseCachePath(path: unknown): string[] | null {
+  if (typeof path !== 'string') return null
+  const trimmed = path.trim()
+  if (!trimmed) return null
+  const segs = trimmed
+    .replace(/\[(\d+)\]/g, '.$1')
+    .split('.')
+    .filter((s) => s.length > 0)
+  if (segs.length === 0) return null
+  if (segs.some((s) => UNSAFE_PATH_SEGMENT.has(s))) return null
+  return segs
+}
+
+/**
+ * 判定路径在 `root` 上是否「齐全」。
+ * 判缺口径固定为：中间节点不是对象/数组 ⇒ 缺；终点严格等于 `undefined` ⇒ 缺。
+ * `null` 是显式空值，**算存在**（否则"字段在但为空"会被误杀成缺字段）。
+ */
+export function cachePathPresent(root: unknown, segs: readonly string[]): boolean {
+  let cur: unknown = root
+  for (const seg of segs) {
+    if (cur === null || cur === undefined) return false
+    if (Array.isArray(cur)) {
+      if (!/^\d+$/.test(seg)) return false
+      const i = Number(seg)
+      if (!Number.isInteger(i) || i < 0 || i >= cur.length) return false
+      cur = cur[i]
+      continue
+    }
+    if (typeof cur !== 'object') return false
+    if (!Object.prototype.hasOwnProperty.call(cur, seg)) return false
+    cur = (cur as Record<string, unknown>)[seg]
+  }
+  return cur !== undefined
+}
+
+/**
+ * 等锁者按**自己**声明的必需项复检共享结果。
+ *
+ * 为什么不能默认复用 leader 那一份：singleflight 只按 key 聚合，而同一个 key 的等锁者未必
+ * 是同一个调用方——列表页只要 `items[].id`，详情页要 `items[].detail`。leader 按它自己的
+ * loader 回源并回填，写进缓存的是 leader 的投影；等锁者盲目复用就会拿到缺字段的载荷，而这个
+ * 缺口在整个 TTL 内不会自愈（后续所有读都命中这份条目）。缺口一旦被回填固化，就与格①
+ * 「未命中不是事实」同源：缓存里存的是"别人够用的那一份"，不是"你必需项齐全的证明"。
+ * 所以等锁者拿到结果后必须按自己的声明再复检一次。
+ */
+export function recheckRequiredPaths(
+  value: unknown,
+  requiredPaths: CacheRequiredPaths | undefined,
+): RecheckVerdict {
+  // ① 声明缺失：调用方压根没声明必需项 ⇒ 我们无从判断这份载荷对它够不够用。
+  //    落"未判定"并点名（见 recordRecheck），不许悄悄折成"satisfied"。
+  if (requiredPaths === undefined || requiredPaths === null) {
+    return { kind: 'undecided', reason: 'no-declaration', detail: 'requiredPaths 未声明' }
+  }
+  // ② 形状看不懂：声明了但不是数组 ⇒ 同样落"未判定"，由调用方去修声明，不替它猜。
+  if (!Array.isArray(requiredPaths)) {
+    return {
+      kind: 'undecided',
+      reason: 'unreadable-shape',
+      detail: `requiredPaths 类型为 ${typeof requiredPaths}，应为 string[]`,
+    }
+  }
+  const missing: string[] = []
+  const unreadable: string[] = []
+  for (const p of requiredPaths) {
+    const segs = parseCachePath(p)
+    if (segs === null) {
+      unreadable.push(String(p))
+      continue
+    }
+    if (!cachePathPresent(value, segs)) missing.push(String(p))
+  }
+  // 只要有一条路径的形状看不懂，整份复检就判不了（不许拿"其余几条都在"折成通过）
+  if (unreadable.length > 0) {
+    return {
+      kind: 'undecided',
+      reason: 'unreadable-shape',
+      detail: `无法解析的必需路径: ${unreadable.join(', ')}`,
+    }
+  }
+  if (missing.length > 0) return { kind: 'violated', missing }
+  // 空声明（paths: []）是"没有必需项"，必需项集合为空 ⇒ 全部齐全，判通过（不是未判定）
+  return { kind: 'satisfied' }
 }
 
 const cacheResiliencePlugin: FastifyPluginAsync = async (server) => {
@@ -205,42 +336,51 @@ const cacheResiliencePlugin: FastifyPluginAsync = async (server) => {
     return idx > 0 ? key.slice(0, idx) : key
   }
 
-  async function getOrLoad<T>(
+  /** 等锁者复检观测面(三态互斥)——"这次够不够用"落在计数与日志上,不落在猜测里 */
+  const recheckStats: SingleflightRecheckStats = {
+    satisfied: 0,
+    violated: 0,
+    undecided: 0,
+    lastUndecided: null,
+  }
+
+  /** 复检裁决落账。未判定必须点名(key + 原因),既不折成通过也不折成全部拒绝。 */
+  function recordRecheck(key: string, verdict: RecheckVerdict): void {
+    if (verdict.kind === 'satisfied') {
+      recheckStats.satisfied += 1
+      return
+    }
+    if (verdict.kind === 'violated') {
+      recheckStats.violated += 1
+      server.log.warn(
+        { key, missing: verdict.missing },
+        'singleflight recheck: 共享结果缺本调用方声明的必需项,等锁者自行回源(不吃这份缓存)',
+      )
+      return
+    }
+    recheckStats.undecided += 1
+    recheckStats.lastUndecided = {
+      key,
+      reason: verdict.reason,
+      detail: verdict.detail,
+    }
+    server.log.warn(
+      { key, reason: verdict.reason, detail: verdict.detail },
+      'singleflight recheck: 判不了,落未判定(既非通过也非拒绝)',
+    )
+  }
+
+  /**
+   * 真正起一次回源并登记到 singleflight（leader 与"不吃缓存"的等锁者共用同一条路径）。
+   * `finally { inflight.delete(key) }` 是既有「失败不固化」语义：无论成功/失败/抛错都摘票，
+   * 不许把一次失败永久留在 inflight 里。本改动不触碰该行。
+   */
+  function runLoad<T>(
     key: string,
     ttlSec: number,
     loader: () => Promise<T>,
-    opts?: { nullTtlSec?: number },
+    opts?: { nullTtlSec?: number; requiredPaths?: CacheRequiredPaths },
   ): Promise<T> {
-    const keyPrefix = extractKeyPrefix(key)
-    // 熔断器开启时跳过缓存直查 DB（降级）
-    if (breakerAllow()) {
-      const probe = await cacheProbe<T>(key)
-      if (probe.kind !== 'miss') {
-        // 缓存命中
-        try {
-          server.recordCache(keyPrefix, true)
-        } catch {
-          /* 指标采集失败不影响业务 */
-        }
-        // 格①：空值哨兵条目也算命中,但观测面单独计数,与"实际值命中""无条目"三者可区分
-        if (probe.kind === 'null-hit') {
-          backfillStats.nullEntryHits += 1
-          server.log.debug({ key }, 'cache null-entry hit (explicit null TTL tier)')
-          return null as unknown as T
-        }
-        return probe.value
-      }
-      // 缓存未命中
-      try {
-        server.recordCache(keyPrefix, false)
-      } catch {
-        /* 指标采集失败不影响业务 */
-      }
-    }
-    // singleflight：相同 key 并发只回源一次
-    const existing = inflight.get(key)
-    if (existing) return existing as Promise<T>
-
     const p = (async (): Promise<T> => {
       try {
         const val = await loader()
@@ -277,6 +417,58 @@ const cacheResiliencePlugin: FastifyPluginAsync = async (server) => {
     return p
   }
 
+  async function getOrLoad<T>(
+    key: string,
+    ttlSec: number,
+    loader: () => Promise<T>,
+    opts?: { nullTtlSec?: number; requiredPaths?: CacheRequiredPaths },
+  ): Promise<T> {
+    const keyPrefix = extractKeyPrefix(key)
+    // 熔断器开启时跳过缓存直查 DB（降级）
+    if (breakerAllow()) {
+      const probe = await cacheProbe<T>(key)
+      if (probe.kind !== 'miss') {
+        // 缓存命中
+        try {
+          server.recordCache(keyPrefix, true)
+        } catch {
+          /* 指标采集失败不影响业务 */
+        }
+        // 格①：空值哨兵条目也算命中,但观测面单独计数,与"实际值命中""无条目"三者可区分
+        if (probe.kind === 'null-hit') {
+          backfillStats.nullEntryHits += 1
+          server.log.debug({ key }, 'cache null-entry hit (explicit null TTL tier)')
+          return null as unknown as T
+        }
+        return probe.value
+      }
+      // 缓存未命中
+      try {
+        server.recordCache(keyPrefix, false)
+      } catch {
+        /* 指标采集失败不影响业务 */
+      }
+    }
+    // singleflight：相同 key 并发只回源一次
+    const existing = inflight.get(key)
+    if (existing) {
+      // 等锁者：拿到别人算完的结果后，**按自己声明的必需项再复检一次**。
+      // leader 的 loader 是 leader 的投影，不等于本调用方必需项齐全的证明（详见
+      // recheckRequiredPaths 注释）。复检不通过 ⇒ 不吃这份缓存，自己回源重算。
+      const shared: unknown = await existing
+      const verdict = recheckRequiredPaths(shared, opts?.requiredPaths)
+      recordRecheck(key, verdict)
+      if (verdict.kind === 'violated') {
+        return runLoad(key, ttlSec, loader, opts)
+      }
+      // satisfied 复用；undecided 判不了 —— 不谎报通过（已单独计数并点名），
+      // 也不折成"全部拒绝"（该复用的照样复用，不废掉 singleflight、不抛错）。
+      return shared as T
+    }
+
+    return runLoad(key, ttlSec, loader, opts)
+  }
+
   async function doubleDelete<T>(
     key: string,
     writeFn: () => Promise<T>,
@@ -298,6 +490,10 @@ const cacheResiliencePlugin: FastifyPluginAsync = async (server) => {
     breakerState: () => breaker.state,
     avalancheStats: () => avalanche.getStats(),
     cacheQualityStats: () => ({ ...backfillStats }),
+    singleflightRecheckStats: () => ({
+      ...recheckStats,
+      lastUndecided: recheckStats.lastUndecided ? { ...recheckStats.lastUndecided } : null,
+    }),
   })
 
   // 应用关闭时清理预热定时器
