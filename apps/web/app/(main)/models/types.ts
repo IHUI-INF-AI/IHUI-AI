@@ -116,7 +116,8 @@ export interface Model {
   provider: Provider
   description: string
   contextLength: number
-  inputPrice: number
+  /** 输入价(美元 / 百万 tokens);上游未提供定价时为 undefined,展示为「—」,不得调用 toFixed */
+  inputPrice?: number
   /** 输出价(美元 / 百万 tokens);未提供时由调用方按 inputPrice 推算 */
   outputPrice?: number
   /** 能力标签,用于快捷筛选 + 卡片标签 */

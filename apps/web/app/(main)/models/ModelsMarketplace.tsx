@@ -231,11 +231,15 @@ export function ModelsMarketplace({ list, peakWindows = [] }: Props) {
         })
       case 'priceAsc':
         return arr.sort(
-          (a, b) => a.inputPrice - b.inputPrice || a.name.localeCompare(b.name, 'zh-CN'),
+          (a, b) =>
+            (a.inputPrice ?? Number.POSITIVE_INFINITY) -
+              (b.inputPrice ?? Number.POSITIVE_INFINITY) || a.name.localeCompare(b.name, 'zh-CN'),
         )
       case 'priceDesc':
         return arr.sort(
-          (a, b) => b.inputPrice - a.inputPrice || a.name.localeCompare(b.name, 'zh-CN'),
+          (a, b) =>
+            (b.inputPrice ?? Number.NEGATIVE_INFINITY) -
+              (a.inputPrice ?? Number.NEGATIVE_INFINITY) || a.name.localeCompare(b.name, 'zh-CN'),
         )
       case 'contextDesc':
         return arr.sort((a, b) => b.contextLength - a.contextLength)
@@ -594,7 +598,8 @@ function ModelCardGrid({
 }) {
   const t = useTranslations('models')
   const router = useRouter()
-  const outputPrice = model.outputPrice ?? model.inputPrice * 3
+  const outputPrice =
+    model.outputPrice ?? (typeof model.inputPrice === 'number' ? model.inputPrice * 3 : undefined)
   const vendorLabel = PROVIDER_LABEL[model.provider] ?? '其他'
   const description = model.description ? t(model.description) : t('market.defaultDescription')
 
@@ -675,14 +680,24 @@ function ModelCardGrid({
             {t('market.inputPrice')}
           </span>
           <span className="font-medium text-foreground">
-            {model.inputPrice === 0 ? t('free') : `$${model.inputPrice.toFixed(2)}`}
+            {typeof model.inputPrice !== 'number'
+              ? '—'
+              : model.inputPrice === 0
+                ? t('free')
+                : `$${model.inputPrice.toFixed(2)}`}
           </span>
         </div>
         <div className="mt-1 flex items-center justify-between [&>span]:translate-y-[var(--text-vcenter-offset)]">
           <span className="text-muted-foreground">{t('market.outputPrice')}</span>
           <span className="font-medium text-foreground">
-            {outputPrice === 0 ? t('free') : `$${outputPrice.toFixed(2)}`}
-            <span className="ml-1 text-muted-foreground">{t('perMillion')}</span>
+            {typeof outputPrice !== 'number'
+              ? '—'
+              : outputPrice === 0
+                ? t('free')
+                : `$${outputPrice.toFixed(2)}`}
+            {typeof outputPrice === 'number' && (
+              <span className="ml-1 text-muted-foreground">{t('perMillion')}</span>
+            )}
           </span>
         </div>
       </div>
@@ -894,8 +909,14 @@ function ModelCardList({
           </span>
           <span className="inline-flex items-center gap-0.5">
             <Zap className="h-3 w-3" />
-            {model.inputPrice === 0 ? t('free') : `$${model.inputPrice.toFixed(2)}`}
-            <span className="text-muted-foreground/70">/{t('perMillion').replace('/', '')}</span>
+            {typeof model.inputPrice !== 'number'
+              ? '—'
+              : model.inputPrice === 0
+                ? t('free')
+                : `$${model.inputPrice.toFixed(2)}`}
+            {typeof model.inputPrice === 'number' && (
+              <span className="text-muted-foreground/70">/{t('perMillion').replace('/', '')}</span>
+            )}
           </span>
           {model.releasedAt && (
             <span className="inline-flex items-center gap-0.5">
