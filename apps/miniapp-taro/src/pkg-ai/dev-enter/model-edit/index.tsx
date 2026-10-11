@@ -4,8 +4,9 @@
 
 import { useTt, useI18n, t } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Picker, ScrollView, Image } from '@tarojs/components'
-import { FocusInput } from '@/components/FocusField'
+import { View, Text, Picker, ScrollView, Image, Input } from '@tarojs/components'
+// 描边画在外层价格输入盒上 ⇒ 走 hook 文档的 WRAP 形态②:handlers 留 Input、focusStyle 铺容器。
+import { useFieldFocus } from '@/hooks/use-field-focus'
 import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -78,6 +79,8 @@ export default function ModelEdit() {
   const [limitedDuration, setLimitedDuration] = useState<LimitedDuration>('7day')
   const [targetGroup, setTargetGroup] = useState<TargetGroup>('individual')
   const [discount, setDiscount] = useState<Discount>('none')
+  // 价格输入盒的运行时聚焦档(描边在盒子上,不在 Input 上)
+  const ffPrice = useFieldFocus()
   const [price, setPrice] = useState('')
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -319,14 +322,18 @@ export default function ModelEdit() {
                       {tt('devEnter.modelEdit.priceLabel', '价格')}
                     </Text>
                     {/* RN priceRow:row/center + border.border.light + r12 + px12 + surface.bg(白底浮出 muted 卡) */}
-                    <View className="flex items-center border border-border rounded-xl px-[24rpx] bg-background">
+                    <View
+                      className="flex items-center border border-border rounded-xl px-[24rpx] bg-background"
+                      style={ffPrice.focusStyle}
+                    >
                       {/* RN priceUnit:18dp→36rpx、600、brand.DEFAULT、mr8→16rpx */}
                       <Text className="text-[length:36rpx] font-semibold text-primary mr-[16rpx]">
                         ¥
                       </Text>
                       {/* RN priceInput:flex1/py14/16dp;placeholder 用 text.tertiary */}
-                      <FocusInput
+                      <Input
                         className="flex-1 h-[96rpx] text-[length:32rpx] text-foreground"
+                        {...ffPrice.spread}
                         type="digit"
                         value={price}
                         placeholder={tt('devEnter.modelEdit.pricePlaceholder', '请输入价格')}
