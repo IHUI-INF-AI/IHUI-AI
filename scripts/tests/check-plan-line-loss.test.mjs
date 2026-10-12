@@ -121,6 +121,7 @@ test('§22c 装车证明:判据符号必须来自源文件导出(__test__ 或具
     'historyMarkers',
     // 编号形态维(G-722):按面选基准的编排出口
     'malformedReport',
+    'idExistsOnFace',
   ])
     assert.equal(typeof G[fn], 'function', `源导出缺判据 ${fn}(§22c 锚点漂移,或该判据被整块删掉)`)
 })
@@ -470,8 +471,16 @@ test('接线自检:脚本被复制进临时夹具仓(五处落点全不存在)�
     // 同样搬整条闭包(见 copyGateClosure):这一例要真跑出 exit 0 才算"夹具不适用",而不是"夹具崩了"
     copyGateClosure(dir)
     // 本门要求跑在 git 仓里(它读 HEAD),所以夹具也得 init 一个仓并放入一份最小 PLAN
+    // ⚠️ stdio 必须是 ['ignore','pipe','pipe'](与本文件上方 runGate 同形):`stdio: 'pipe'`
+    // 三管道 + 无 input 的派生在本机 100% EBUSY(status=null,git 步骤全部静默失败,
+    // 夹具仓连 init 都没成 → 门读到"无提交"退 2)。G-977954 收尾时成组对照实钉。
     const gi = (a) =>
-      spawnSync('git', a, { cwd: dir, encoding: 'utf8', windowsHide: true, stdio: 'pipe' })
+      spawnSync('git', a, {
+        cwd: dir,
+        encoding: 'utf8',
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
     gi(['init', '-q', '-b', 'main'])
     gi(['config', 'user.email', 't@t.t'])
     gi(['config', 'user.name', 't'])
@@ -1008,3 +1017,114 @@ test('端到端(只有熔断项 ⇒ 判据 2):不回捞、不建提交、退出�
   }
 })
 
+test('id 已在被审面(不同 marker 形态)⇒ 自愈不追加,skippedExistingId 计数且输出原样保留面行', () => {
+  // 86H 型:registrationAlreadyPresent 按 marker 逐字比对,marker 形态漂了会误判"缺失";
+  // idExistsOnFace 按复合主键(编号)兜住 —— 自愈器不得把已有编号的行再 append 一份。
+  const _HEADING_86H = '### 86H. 证据流水线补断档'
+  const FACE_ROW = `- [x] 2026-10-08 ✅ **86H. 证据流水线补断档** —— 面上已有这行。`
+  const DIFF_MARKER = `- [ ] 2026-10-08 **86H. 证据流水线补断档** —— 自愈器从缺口找回的副本,marker 与面行不同。`
+  const STALE_SRC = [
+    '# 计划',
+    '',
+    '## P0 证据',
+    '- [x] 2026-10-08 ✅ **86H. 证据流水线补断档** —— 面上已有这行。',
+    '',
+  ].join('\n')
+  const entry = {
+    line: DIFF_MARKER,
+    marker: '【归并】重复登记副本',
+    id: '86H',
+    shape: 'bullet',
+    prev: '### P0 证据',
+  }
+  const result = G.healContent(STALE_SRC, [entry])
+  assert.equal(
+    result.skippedExistingId,
+    1,
+    'id 已在被审面 ⇒ 必须计 skippedExistingId 而不是静默追加',
+  )
+  assert.equal(result.inserted, 0, 'id 已在面 ⇒ inserted 必须为 0')
+  assert.equal(result.appended, 0, 'id 已在面 ⇒ appended 必须为 0')
+  assert.ok(result.out.includes(FACE_ROW), '自愈输出必须原样保留被审面那一行')
+  assert.ok(
+    !result.out.includes(DIFF_MARKER),
+    '自愈器不得把缺口副本再追加一份(86H 重复登记事故的成因)',
+  )
+})
+
+test('id 已在面的真仓 fixture:HEAD/索引/磁盘三态互异,自愈不追加(守门 103 口径)', () => {
+  // 22c:构造面 fixture = 真临时 git 仓,三态互异,不得从真仓现读。
+  const dir = tempPlanRepo(
+    [
+      '# 计划',
+      '',
+      '## P0 证据',
+      '- [x] 2026-10-08 ✅ **86H. 证据流水线补断档** —— 面上已有这行。',
+      '',
+    ].join('\n'),
+  )
+  try {
+    // 索引态:注入一条 marker 不同的缺口副本(未提交)。
+    const DIFF_MARKER = `- [ ] 2026-10-08 **86H. 证据流水线补断档** —— 自愈器从缺口找回的副本。`
+    const planPath = join(dir, 'PROJECT_PLAN.md')
+    const face = readFileSync(planPath, 'utf8')
+    writeFileSync(planPath, face + DIFF_MARKER + '\n', 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    // 磁盘态:再改一次,与索引、HEAD 都不同(三态互异)。
+    writeFileSync(planPath, face + DIFF_MARKER + '\n' + '- [ ] 磁盘独有行\n', 'utf8')
+
+    const entry = {
+      line: DIFF_MARKER,
+      marker: '【归并】重复登记副本',
+      id: '86H',
+      shape: 'bullet',
+      prev: '### P0 证据',
+    }
+    // 按被审面(索引 blob)取底稿 —— 与生产 healContent 的取材口径同形。
+    const indexed = git(dir, 'show', ':PROJECT_PLAN.md')
+    const result = G.healContent(indexed, [entry])
+    assert.equal(result.skippedExistingId, 1, '索引面已有该编号 ⇒ 自愈不得追加(真仓三态 fixture)')
+    assert.equal(result.inserted, 0, '索引面已有该编号 ⇒ inserted 必须为 0')
+    assert.equal(result.appended, 0, '索引面已有该编号 ⇒ appended 必须为 0')
+    assert.ok(result.out.includes('面上已有这行'), '自愈输出必须原样保留索引面那一行')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('id 不在被审面 ⇒ 旧 insert/append 行为不变(skippedExistingId = 0)', () => {
+  const _HEADING_NEW = '### 99Z. 新发现的登记行'
+  const NEW_ROW = '- [ ] 2026-10-11 **99Z. 新发现的登记行** —— 面上没有,自愈应当追加。'
+  const STALE_SRC = ['# 计划', '', '## P0 证据', ''].join('\n')
+  const entry = {
+    line: NEW_ROW,
+    marker: '【归并】重复登记副本',
+    id: '99Z',
+    shape: 'bullet',
+    prev: '### P0 证据',
+  }
+  const result = G.healContent(STALE_SRC, [entry])
+  assert.equal(result.skippedExistingId, 0, 'id 不在面 ⇒ skippedExistingId 必须为 0')
+  assert.ok(
+    result.inserted + result.appended === 1,
+    'id 不在面 ⇒ 旧 insert/append 行为必须不变(恰好一条追加)',
+  )
+  assert.ok(result.out.includes(NEW_ROW), '新行必须出现在自愈输出里')
+})
+
+test('entry.id 为 null ⇒ 不触发 idExistsOnFace 兜底,照旧插入(向后兼容)', () => {
+  const BULLET = '- [ ] 2026-10-11 缺编号的登记行——没有裸编号,旧路径照走。'
+  const STALE_SRC = ['# 计划', '', '## P0 证据', ''].join('\n')
+  // shapeOfRegistration 对无编号行返回 null ⇒ idExistsOnFace 不适用。
+  const entry = {
+    line: BULLET,
+    marker: '【归并】重复登记副本',
+    id: null,
+    shape: 'bullet',
+    prev: '### P0 证据',
+  }
+  const result = G.healContent(STALE_SRC, [entry])
+  assert.equal(result.skippedExistingId, 0, 'id 为 null ⇒ 不计 skippedExistingId')
+  assert.ok(result.inserted + result.appended === 1, 'id 为 null ⇒ 旧路径照旧插入一条(向后兼容)')
+  assert.ok(result.out.includes(BULLET), '输出必须包含原行')
+})
