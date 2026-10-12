@@ -325,6 +325,8 @@ async function resolveFromGitee() {
   const version = release.tag_name.replace(RELEASE_PREFIX, '')
   const releaseDate = (release.created_at || release.published_at || '').slice(0, 10)
   const assets = []
+  /** Gitee 侧 updater 候选(.app.tar.gz / rpm,见循环内 isUpdaterPkg 注释) */
+  const updaterEntries = []
   /** 签名"取不到"(限流/断网/超时)的资产名 —— 与"该 release 没挂 sig"必须分开报 */
   const sigFetchFailures = []
   for (const asset of release.assets || []) {
@@ -353,15 +355,21 @@ async function resolveFromGitee() {
       }
     }
     const mapped = mapAsset({ name: asset.name, browser_download_url: href, size }, version)
+    // 2026-10-12:Gitee 侧也收集 updater 候选(.app.tar.gz / rpm 等 mapAsset 不展示、
+    // 但 inferPlatformForPackage 命中的资产)。历史注释"mac/linux 的 Gitee 直链实测 404"
+    // 已失效——Gitee 资产 2026-10-12 起由 backfill-gitee-assets.py 补齐,直链 200,
+    // updater feed 的 mac/linux 平台键应同样走 Gitee(国内直连可达),GitHub 仅兜底。
+    const isUpdaterPkg =
+      !asset.name.endsWith('.sig') && Boolean(inferPlatformForPackage(asset.name))
+    if (!mapped && !isUpdaterPkg) continue
+    const fetched = await fetchSignature(`${href}.sig`)
+    if (fetched.failed) sigFetchFailures.push(`${asset.name}.sig`)
     if (mapped) {
-      // 2026-09-17:同步抓取 .sig 签名内容(几 KB)→ 供站点 feed 输出 updater 格式。
-      // Gitee 不单独产 updater 条目:windows 键必须与下载页 assets 取同一合并结果
-      // (Gitee 同名平台可能有多个历史资产,assets 的 format|arch 归一已定序);
-      // mac/linux 的 Gitee 直链实测 404,由 GitHub 源补齐。
-      const fetched = await fetchSignature(`${href}.sig`)
       mapped.signature = fetched.sig
-      if (fetched.failed) sigFetchFailures.push(`${asset.name}.sig`)
       assets.push(mapped)
+    }
+    if (isUpdaterPkg) {
+      updaterEntries.push({ name: asset.name, url: href, signature: fetched.sig })
     }
   }
   if (assets.length === 0) return null
@@ -391,6 +399,7 @@ async function resolveFromGitee() {
     giteeReleasesUrl: `https://gitee.com/${owner}/${repo}/releases`,
     resolvedFromTag: release.tag_name,
     assets,
+    updaterEntries,
   }
 }
 
@@ -606,6 +615,18 @@ async function resolveOnline() {
   })
   for (const g of giteeMap.values()) merged.push(g)
 
+  // updater 候选按资产名合并,Gitee 优先(2026-10-12:Gitee 资产已由
+  // backfill-gitee-assets.py 补齐,mac/linux 平台键应走国内直链);Gitee 条目
+  // 签名为空(sig 抓取失败)时回退 GitHub 条目,避免整平台被空签名过滤掉。
+  const ghExtrasByName = new Map((fromGithub.updaterEntries || []).map((e) => [e.name, e]))
+  const mergedUpdaterEntries = [
+    ...(fromGitee.updaterEntries || []).map((e) =>
+      e.signature ? e : (ghExtrasByName.get(e.name) ?? e),
+    ),
+    ...(fromGithub.updaterEntries || []).filter(
+      (e) => !(fromGitee.updaterEntries || []).some((g) => g.name === e.name && g.signature),
+    ),
+  ]
   return withUpdaterPlatforms({
     version: fromGitee.version,
     releaseDate: fromGitee.releaseDate,
@@ -613,9 +634,8 @@ async function resolveOnline() {
     resolvedFromTag: fromGitee.resolvedFromTag,
     resolvedAt: new Date().toISOString(),
     assets: sortAssets(merged),
-    // extras 用 GitHub 全量 updater 候选(含下载页不展示的 .app.tar.gz;
-    // 与 assets 重名者由 withUpdaterPlatforms 去重)
-    updaterEntries: fromGithub.updaterEntries,
+    // 与 assets 重名者由 withUpdaterPlatforms 去重
+    updaterEntries: mergedUpdaterEntries,
   })
 }
 

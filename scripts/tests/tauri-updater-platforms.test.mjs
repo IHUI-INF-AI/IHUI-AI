@@ -8,8 +8,8 @@
 //      apps/web/src/config/desktop-feed.generated.ts 已入库快照,非现写);
 //   ② dmg 永远不得充当 darwin 条目(反例);
 //   ③ 签名缺失/为空的平台键必须不出现(反例);
-//   ④ 输出 URL 的 host 只能落在白名单(github.com;gitee.com 仅限 windows),
-//      相对路径/占位符一律不出键。
+//   ④ 输出 URL 的 host 只能落在白名单(github.com / gitee.com 均可,2026-10-12 起
+//      Gitee 资产已全平台补齐),相对路径/占位符一律不出键。
 // 另含装车证明:两条站点 feed route 必须共用 desktop-feed-payload、生成链必须
 // 共用 scripts/lib/tauri-updater-platforms.mjs(出现第二份 /Windows/i 派生即红)。
 
@@ -161,39 +161,35 @@ test('③ AppImage 无签名时 linux 回落 deb(择低优先级的**有签名**
 
 // ─── ④ host 白名单 ──────────────────────────────────────────
 
-test('④ 相对路径/占位符/未知 host/非 https 一律拒;gitee 仅 windows 可用', () => {
+test('④ 相对路径/占位符/未知 host/非 https 一律拒;gitee 四平台均可用(2026-10-12 资产补齐)', () => {
   assert.equal(isUpdaterUrlAllowed('windows-x86_64', 'AI_0.1.45_x64-setup.exe'), false)
   assert.equal(isUpdaterUrlAllowed('windows-x86_64', '{placeholder}/app.exe'), false)
   assert.equal(isUpdaterUrlAllowed('windows-x86_64', 'http://github.com/x/y'), false)
-  assert.equal(isUpdaterUrlAllowed('darwin-aarch64', `${GITEE}/AI_universal.app.tar.gz`), false)
+  assert.equal(isUpdaterUrlAllowed('darwin-aarch64', `${GITEE}/AI_universal.app.tar.gz`), true)
   assert.equal(isUpdaterUrlAllowed('windows-x86_64', `${GITEE}/AI_0.1.45_x64-setup.exe`), true)
   assert.equal(isUpdaterUrlAllowed('linux-x86_64', `${GH}/AI_0.1.45_amd64.AppImage`), true)
 
   const platforms = buildUpdaterPlatforms(
     [
-      // Gitee 的 linux/darwin 资产实测 404:即便带合法签名也必须被拒
+      // Gitee mac/linux 资产 2026-10-12 已补齐:合法签名允许出键(url 保留 Gitee 直链)
       { name: 'AI_0.1.45_amd64.deb', url: `${GITEE}/AI_0.1.45_amd64.deb`, signature: 'x' },
       {
         name: 'AI_universal.app.tar.gz',
         url: 'releases/download/AI_universal.app.tar.gz',
         signature: 'x',
       },
-      { name: 'AI_0.1.45_amd64.deb', url: `${GH}/AI_0.1.45_amd64.deb`, signature: 'deb-sig' },
     ],
     { version: '0.1.45' },
   )
   assert.deepEqual(Object.keys(platforms), ['linux-x86_64'])
-  assert.equal(platforms['linux-x86_64'].url, `${GH}/AI_0.1.45_amd64.deb`)
+  assert.equal(platforms['linux-x86_64'].url, `${GITEE}/AI_0.1.45_amd64.deb`)
 })
 
-test('④ 入库快照每个键的 host 都在白名单且 mac/linux 只走 GitHub', () => {
+test('④ 入库快照每个键的 host 都在白名单内(github.com / gitee.com)', () => {
   const feed = loadSnapshotFeed()
   for (const [key, entry] of Object.entries(feed.updaterPlatforms || {})) {
     const host = new URL(entry.url).hostname
     assert.ok(['github.com', 'gitee.com'].includes(host), `host 越白名单: ${host}`)
-    if (key !== 'windows-x86_64') {
-      assert.equal(host, 'github.com', `${key} 不得使用 ${host}(Gitee mac/linux 实测 404)`)
-    }
     assert.ok(entry.signature.length > 0, `${key} 出现空签名`)
   }
 })
