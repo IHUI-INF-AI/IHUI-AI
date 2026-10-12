@@ -88,7 +88,24 @@ try {
     Write-Warning 'WARN console-output-encoding NOT set to UTF-8 (takes effect only after service restart anyway)'
 }
 
-$Root     = 'D:\IHUI-AI'
+# ── 仓库根:自脚本位置推导 + $env:IHUI_ROOT 显式覆盖(2026-10-12 立)───────────
+# 旧值把 $Root 写死为生产机盘符根(字面量),只在那台机器成立:同一份仓在开发机落
+# G:\IHUI-AI,两端解析出两个根,看起来"不同步"(deploy 面 23 处同型写死,立因见
+# ihui-root-common.ps1)。解析走该文件的**唯一出口**,与 ihui-deploy.ps1:66 共用
+# 同一份实现,本文件不另写一遍向上爬目录的逻辑(判据唯一出口,同下方
+# deploy-lock-common.ps1 立的规矩)。
+# ⚠️ 生效时机与上面编码那段同一条:本文件由 IHUI-DEPLOYLOOP 服务进程启动时**一次性
+#    读进内存,不重启不生效** —— 本次改根解析、以及日后改 $env:IHUI_ROOT 覆盖值,
+#    都必须重启 IHUI-DEPLOYLOOP 才生效(子进程 ihui-deploy.ps1 那半是每轮新起,
+#    下一轮即生效,但本层的 $Root/$LockFile/$LogFile 驻留内存不刷新)。
+# helper 缺失必须大声死,不退回写死盘符继续跑(同下方 LockCommon 的规矩)。
+$RootCommon = Join-Path $PSScriptRoot 'ihui-root-common.ps1'
+if (-not (Test-Path -LiteralPath $RootCommon)) {
+    Write-Host "FAIL  缺少仓库根解析实现:$RootCommon(部署环拒绝启动,不退回写死盘符)"
+    exit 1
+}
+. $RootCommon
+$Root     = Resolve-IhuiProjectRoot -StartDir $PSScriptRoot
 $WinDir   = Join-Path $Root 'deploy\win'
 $LockFile = Join-Path $WinDir '.deploy-loop.lock'
 $LogFile  = Join-Path $WinDir 'deploy-loop.log'

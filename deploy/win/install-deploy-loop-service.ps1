@@ -23,12 +23,19 @@
 # 用法: pwsh -NoProfile -ExecutionPolicy Bypass -File deploy\win\install-deploy-loop-service.ps1
 # =============================================================================
 $ErrorActionPreference = 'Stop'
+
+# 仓库根不写死盘符(旧版硬编码到生产机盘符):同一份仓在开发机/生产机落在不同路径,
+# 写死后会把错根烤进 nssm 服务注册数据 —— 改了脚本也不生效,
+# 因为生效的那一份在注册表里,不在仓库里。根一律从本文件位置推导。
+. (Join-Path $PSScriptRoot 'ihui-root-common.ps1')
+$Root = Resolve-IhuiProjectRoot -StartDir $PSScriptRoot
+
 $svc      = 'IHUI-DEPLOYLOOP'
 $nssm     = 'C:\windows\system32\nssm.exe'
 $pwshPath = 'C:\Program Files\PowerShell\7\pwsh.exe'
-$loopPath = 'D:\IHUI-AI\deploy\win\ihui-deploy-loop.ps1'
+$loopPath = Join-Path $Root 'deploy\win\ihui-deploy-loop.ps1'
 $logDir   = 'D:\DevEnv\logs'
-$appDir   = 'D:\IHUI-AI'
+$appDir   = $Root
 
 foreach ($p in @($nssm, $pwshPath, $loopPath)) {
     if (-not (Test-Path $p)) { throw "缺失依赖: $p" }
