@@ -34,7 +34,7 @@
 ## 在飞占用(仍欠,但此刻不得派单;占用证据 = 工作区脏/未跟踪)
 
 - **D20**(文件夹/标签/PDF 导出):`apps/api/src/routes/chat.ts`、`packages/database/src/schema/chat.ts` 均为 `M`,且未跟踪 `20260924100000_chat_history_projection.sql` 在途;HEAD 实测 export 仍 `z.enum(['txt','md'])`、folder/tag 零命中。
-- **D14**(镜像缓存/队列/看板):未跟踪 `apps/ai-service/app/services/sandbox/` + `test_sandbox_{image_cache,queue,board}.py` —— 并行会话正在做本票欠项。
+- **D14**(镜像缓存/队列/看板):未跟踪 apps/ai-service/app/services/sandbox/(该目录已于 2026-10-12 随 G-1111920 下线删除) + `test_sandbox_{image_cache,queue,board}.py` —— 并行会话正在做本票欠项。
 - **D64⑤**(问卷宿主接线+结构化落库):`FeedbackSurveyCard` 生产消费者仍 0(命中仅其自身测试);宿主邻域 `MessageList.tsx` 脏,落库另需新表(无 PG 端口)。
 - **D73**(PaneSplitContainer 宿主挂载):未跟踪 `pane-split-mount.test.tsx` —— 正在装车。
 - **D41**(preview/源码切换 + `data-artifact-preview-kind`):HEAD 零命中;`media/__tests__/office-preview.test.tsx`、`office-annotation-anchor.test.tsx` 脏。
