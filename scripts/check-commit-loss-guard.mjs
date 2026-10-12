@@ -75,6 +75,8 @@
  *   现由 `isDirectRun` 守卫执行,判定单元经 `export const __test__` 供测试取用。
  */
 import { pathToFileURL } from 'node:url'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import {
   batchExecFileSync,
   catBatchOids,
@@ -217,7 +219,26 @@ const skip = process.env[SKIP_ENV] === '1'
 // 本地命令可放宽;网络命令(ls-remote)必须限时,防境外 GitHub 访问挂起阻塞 pre-commit
 // (2026-08-17 实测:execSync 无 timeout 时 git ls-remote origin 可无限阻塞 → [30a] 守门卡死,
 //  commit 永远无法完成;超时后按 allowFail 返回空,远程校验安全降级为跳过)
-const REMOTE_TIMEOUT_MS = 15_000
+// 2026-10-12 提速:原两族各发一次 ls-remote × 15s,本机网络下两趟**都正好撞满 15s 超时**
+// (单趟实测 21~27s,7968 条 ref),于是每枚提交固定白烧 30s 且远程校验从不生效。
+// 现改为一次 ls-remote 带两个 pattern,并加 `--refs` + `protocol.version=2` 两件套
+// (peel 行 1004 条直接不传,等价证明见 remoteTagScan 内注释)。上限取 60s 而非 30s:
+// 空载实测 19~21s,但门跑在并行提交链上,同参复现到过 29.9s —— 30s 会让校验间歇性降级
+// (治的正是"从不生效"),60s 装得下负载下的真实往返;网络真挂时下限仍是安全降级跳过。
+const REMOTE_TIMEOUT_MS = 60_000
+/** 远端 tag 扫描成功结果的落盘缓存期(毫秒):期间重复提交直接复用,不再发网络请求 */
+const REMOTE_SCAN_CACHE_TTL_OK_MS = 10 * 60_000
+/** 扫描失败/超时同样落盘:网络挂掉时每 2 分钟才受一次 60s 上限,而不是每枚提交都白等 */
+const REMOTE_SCAN_CACHE_TTL_FAIL_MS = 2 * 60_000
+/**
+ * 缓存文件路径(只放 git 不跟踪的 .git 内;夹具仓 cwd 不同 ⇒ 各仓各一份,互不串)。
+ *
+ * 刻意用 **cwd 相对**而不是 `join(ROOT, …)`:这份 JSON 是 `.git` 下的机器态缓存,
+ * 不是被判定的仓库内容,取它不需要、也不该走"HEAD/索引 blob"取材面 —— 门 118
+ * (check-gate-face-discipline)给的正是这条出路:"判的不是仓库内容 ⇒ 改成不读 ROOT 锚点"。
+ * 本门 `ROOT = process.cwd()`(见上),所以两种写法运行时指向同一个文件,行为零差。
+ */
+const remoteScanCachePath = () => join('.git', 'ihui-remote-tag-scan.json')
 // 本地 git 命令(批量 subject 获取)限时,防单次调用异常挂起
 const LOCAL_GIT_TIMEOUT_MS = 10_000
 /** 旧 `runGit()`(spawnSync 通道)的默认上限;层默认 60s,这里显式保住原值,免得迁移改了失败时机 */
@@ -761,38 +782,84 @@ function parseRemoteTagOutput(stdout) {
     .filter(Boolean)
 }
 
-function listRemoteLostCommitTags() {
-  // ls-remote 可能因网络/凭据失败,失败时返回 null(区别于成功的空集)
-  // 旧注释写"Windows 上 git.exe 在 pipe stdio 模式下 schannel SSL handshake 不稳定,必须用
-  // shell:true 走 cmd 包装器" —— 该前提在迁移时当次实测已不成立:同一份 argv + stdio['ignore',
-  // 'pipe','pipe'] 跑 `ls-remote origin refs/tags/lost-commit/[^ ]*` 取回 4558 行 / 8.4s(本机
-  // origin 走 ssh-over-443)。故撤掉 shell 通道,统一走层;真失败仍由下方 catch 折成 null 降级。
-  // 2026-08-17 加 timeout:境外 GitHub 访问慢时无限阻塞(实测 >12min),导致 pre-commit [30a]
-  // 卡死、commit 无法完成。15s 超时按失败处理(安全降级跳过远程校验)。
-  // 2026-09-06 修复:失败/超时此前返回空集被当成"远端无任何 tag",导致全部本地 tag
-  // 被误报"仅本地 N 千个未 push"(误导性警告)。现失败返回 null,调用方降级跳过远程 diff。
-  let out
+/**
+ * 远端两族 tag 的一次扫描(2026-10-12 提速):原来 lost-commit/* 与 backup/* 各发一次
+ * ls-remote,串行两趟在本机网络上固定烧 30s 且双双撞 15s 超时 ⇒ 校验每次都降级。
+ * 现在:① 一次调用带两个 pattern(一趟往返同时取回两族);② 结果落盘缓存(成功 10 分钟 /
+ * 失败 2 分钟),期间重复提交零网络;③ 任一失败仍按旧契约折成 null ⇒ 调用方 remoteCheckSkipped
+ * 的判定口径**一字未改**(两族同源同趟,失败即两族同 null,与"旧两趟都超时"的结果相同)。
+ */
+function remoteTagScan() {
+  if (remoteTagScanMemo) return remoteTagScanMemo
+  const cachePath = remoteScanCachePath()
   try {
-    out = gitText(['ls-remote', 'origin', 'refs/tags/lost-commit/[^ ]*'], {
-      timeout: REMOTE_TIMEOUT_MS,
-    })
+    const j = JSON.parse(readFileSync(cachePath, 'utf8'))
+    if (j && typeof j.ts === 'number') {
+      const age = Date.now() - j.ts
+      const ttl = j.ok ? REMOTE_SCAN_CACHE_TTL_OK_MS : REMOTE_SCAN_CACHE_TTL_FAIL_MS
+      if (age >= 0 && age <= ttl) {
+        remoteTagScanMemo = j.ok
+          ? { lost: Array.isArray(j.lost) ? j.lost : [], backup: Array.isArray(j.backup) ? j.backup : [] }
+          : { lost: null, backup: null }
+        return remoteTagScanMemo
+      }
+    }
   } catch {
-    return null
+    /* 无缓存/缓存损坏/过期 ⇒ 正常发网络,读缓存失败绝不影响判据 */
   }
-  return parseRemoteTagOutput(out)
+  let parsed = null
+  try {
+    // `--refs` + `protocol.version=2` 是本机实测的提速两件套(2026-10-12):这仓远端两族
+    // tag 有 7968 行,其中 1004 行是 annotated tag 的 `^{}` peel 行 —— 它们只被下面的
+    // parseRemoteTagOutput 过滤掉,是纯传输浪费。`--refs` 让服务端直接不发 peel 行
+    // (6964 行);协议 v2 省掉 v0/v1 的多余往返。等价证明:.ihui-agent/tmp/cmp-lsremote.mjs
+    // 拿同一解析器比对两趟输出,集合 6964 = 6964、双向差集 0。单趟实测 19~21s。
+    // `-c` 必须在子命令前(gitRaw 是在本 args 之前补 safe.directory/quotepath 的,不冲突)。
+    const out = gitText(
+      [
+        '-c',
+        'protocol.version=2',
+        'ls-remote',
+        '--refs',
+        'origin',
+        'refs/tags/lost-commit/[^ ]*',
+        'refs/tags/backup/[^ ]*',
+      ],
+      {
+        timeout: REMOTE_TIMEOUT_MS,
+      },
+    )
+    const all = parseRemoteTagOutput(out)
+    parsed = {
+      lost: all.filter((n) => n.startsWith('lost-commit/')),
+      backup: all.filter((n) => n.startsWith('backup/')),
+    }
+  } catch {
+    parsed = null
+  }
+  try {
+    writeFileSync(
+      cachePath,
+      JSON.stringify(
+        parsed ? { ts: Date.now(), ok: true, ...parsed } : { ts: Date.now(), ok: false, lost: null, backup: null },
+      ),
+      'utf8',
+    )
+  } catch {
+    /* 缓存写不进去只是下次还得再跑一趟,不影响本次判定 */
+  }
+  remoteTagScanMemo = parsed || { lost: null, backup: null }
+  return remoteTagScanMemo
+}
+/** 进程内记忆:同一次提交里两族只问一趟,不因调用点分开而重复发网络 */
+let remoteTagScanMemo = null
+
+function listRemoteLostCommitTags() {
+  return remoteTagScan().lost
 }
 
 function listRemoteBackups() {
-  // 同上:argv 走层,15s 超时防境外网络无限阻塞(2026-08-17);2026-09-06 失败返回 null
-  let out
-  try {
-    out = gitText(['ls-remote', 'origin', 'refs/tags/backup/[^ ]*'], {
-      timeout: REMOTE_TIMEOUT_MS,
-    })
-  } catch {
-    return null
-  }
-  return parseRemoteTagOutput(out)
+  return remoteTagScan().backup
 }
 
 /**
