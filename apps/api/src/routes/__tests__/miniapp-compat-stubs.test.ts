@@ -155,7 +155,7 @@ describe('小程序兼容路由空桩真实化(2026-08-31)', () => {
   // ==========================================================================
   describe('鉴权对齐(无 token → 401)', () => {
     const endpoints: Array<{
-      method: 'GET' | 'POST' | 'DELETE'
+      method: 'GET' | 'POST' | 'PUT' | 'DELETE'
       url: string
       payload?: Record<string, unknown>
     }> = [
@@ -173,6 +173,15 @@ describe('小程序兼容路由空桩真实化(2026-08-31)', () => {
       { method: 'POST', url: '/api/settings/cache/clear' },
       { method: 'GET', url: '/api/settings/cache/size' },
       { method: 'POST', url: '/api/agent/creation/share', payload: { agentId: 'a1' } },
+      // 2026-10-12 P0 安全修复阳性对照:课程/视频管理写端点曾漏挂 checkAuth(匿名可上下架/删课程)
+      { method: 'POST', url: '/api/learn/group', payload: { title: 't' } },
+      { method: 'PUT', url: '/api/learn/course/00000000-0000-4000-8000-000000000001', payload: { title: 't' } },
+      { method: 'DELETE', url: '/api/learn/course/00000000-0000-4000-8000-000000000001' },
+      { method: 'POST', url: '/api/learn/course/00000000-0000-4000-8000-000000000001/issue' },
+      { method: 'POST', url: '/api/learn/course/00000000-0000-4000-8000-000000000001/delist' },
+      { method: 'POST', url: '/api/learn/video', payload: { title: 't' } },
+      { method: 'PUT', url: '/api/learn/video/00000000-0000-4000-8000-000000000001', payload: { title: 't' } },
+      { method: 'DELETE', url: '/api/learn/video/00000000-0000-4000-8000-000000000001' },
     ]
 
     for (const { method, url, payload } of endpoints) {
