@@ -100,7 +100,7 @@ test.describe('TagsView 标签行重叠守门', () => {
     for (const href of hrefs) {
       await adminPage
         .evaluate((h) => {
-          Array.from(document.querySelectorAll('a[href]'))
+          Array.from(document.querySelectorAll<HTMLElement>('a[href]'))
             .find((a) => a.getAttribute('href') === h)
             ?.click()
         }, href)
@@ -117,6 +117,7 @@ test.describe('TagsView 标签行重叠守门', () => {
         if (!tv) throw new Error('[data-tagsview] not found')
         const row = tv.querySelector(':scope > div')
         const wrap = tv.parentElement
+        if (!row || !wrap) throw new Error('[data-tagsview] row/wrap not found')
         const controls = document.querySelector('[data-window-controls]')
         return {
           overflowX: getComputedStyle(row).overflowX,
