@@ -29,6 +29,7 @@ from app.services.checkin_qoder import (
     build_cosy_headers,
     qoder_checkin_account,
     qoder_classify_error,
+    qoder_device_map_uid,
     qoder_extract_uid,
     qoder_jwt_exp,
     qoder_query_credits,
@@ -100,6 +101,21 @@ class TestJwtParsing:
     def test_jwt_exp_missing(self):
         token = f"x.{_b64({'sub': UID})}.y"
         assert qoder_jwt_exp(token) == (None, None)
+
+
+class TestDeviceMapUid:
+    """device_map uid 读取面(真机实证 2026-10-12:token 是 opaque 非 JWT,
+    uid 只能从 device_map 落库值取 —— 桌面端从 user.id 提取)。"""
+
+    def test_uid_key_priority(self):
+        assert qoder_device_map_uid({"uid": "u-1", "user_id": "u-2"}) == "u-1"
+        assert qoder_device_map_uid({"user_id": "u-2"}) == "u-2"
+        assert qoder_device_map_uid({"userId": 42}) == "42"
+
+    def test_missing_or_blank(self):
+        assert qoder_device_map_uid({}) is None
+        assert qoder_device_map_uid({"uid": "  "}) is None
+        assert qoder_device_map_uid({"uid": None}) is None
 
 
 # ---------------------------------------------------------------------------
@@ -367,7 +383,37 @@ class TestCheckinFlow:
     async def test_unparseable_token(self):
         result = await qoder_checkin_account("acc1", "garbage", {})
         assert result["ok"] is False
-        assert "无法从 token 解析 uid" in result["message"]
+        assert "无法解析账号 uid" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_opaque_token_uid_from_device_map(self):
+        """真机实证 2026-10-12:opaque token(非 JWT)时 uid 从 device_map 落库值取,
+        链路不再死在「无法从 token 解析 uid」。mock 网络返回已领取。"""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert request.headers["authorization"] == "Bearer opaque27"
+            now = time.time()
+            return httpx.Response(
+                200,
+                json={
+                    "campaigns": [
+                        {
+                            "campaignId": "c-1",
+                            "actionType": "CLAIM_BENEFIT",
+                            "claimStatus": "CLAIMED",
+                            "startAt": now - 60,
+                            "endAt": now + 3600,
+                        }
+                    ]
+                },
+            )
+
+        result = await qoder_checkin_account(
+            "acc1", "opaque27", {"uid": "019f17c6-0eca"}, client=make_client(handler)
+        )
+        assert result["ok"] is True
+        assert result["user_id"] == "019f17c6-0eca"
+        assert result["status"] == "already"
 
 
 # ---------------------------------------------------------------------------
