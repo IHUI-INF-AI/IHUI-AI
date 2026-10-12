@@ -1553,7 +1553,13 @@ export type WorkbuddyWebLoginProbe =
   | { status: 'no_window' }
   | { status: 'no_cookie' }
   | { status: 'not_logged_in' }
-  | { status: 'ok'; cookie: string; accounts: WorkbuddyWebLoginAccount[] }
+  | {
+      status: 'ok'
+      cookie: string
+      accounts: WorkbuddyWebLoginAccount[]
+      /** 网页登录态能否驱动签到接口(实测;undefined=网络原因未判定) */
+      cookie_checkin_ok?: boolean
+    }
   | { status: 'error'; message: string }
 
 /** 打开(或聚焦)WorkBuddy 网页登录窗口(内嵌 WebView 加载 www.workbuddy.cn)。 */
