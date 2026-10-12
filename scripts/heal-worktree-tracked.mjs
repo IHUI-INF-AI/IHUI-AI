@@ -55,7 +55,7 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 // git 派生一律走共用层 scripts/lib/face-reader.mjs(2026-09-25 收口):绝对路径 git +
 // `safe.directory` + `core.quotepath=false` + windowsHide + 显式接管 stdio(钩子/计划任务
@@ -117,6 +117,17 @@ const INDEX_LOCK_LIVE_MS = 300_000
 const LOCK_PROBE_TIMEOUT_MS = 20_000
 /** git 关于索引锁的两种措辞(builtin/lock.c):命中其一才有资格说"让路"。 */
 const LOCK_TEXT_RE = /index\.lock|Another git process/i
+
+/**
+ * 对齐层永久豁免路径(2026-10-12 立,台账被对齐层两层接力吃掉的根因修复):
+ * PROJECT_PLAN.md 是活文档台账,工作树常态是"去重后的进行时形态",与 HEAD 的 union-merge
+ * 重复行形态**结构性不等** —— 本层两条"回潮"判据(③a 整块等于祖先 / ②′ 行级子集)对它
+ * 都可能给出"看似可证"的祖先性,2026-10-12 13:55 的两层接力(陈旧索引刷新把 index 对齐 HEAD,
+ * 幻影漂移对齐再把工作树 restore 到 HEAD)正是这么吃掉 19339 行台账的。
+ * 对这一格,"防回滚"的正确防线在**提交时**的活文档闸(工作树 ⊇ HEAD),不在对齐层的祖先判据
+ * —— 故本层对它整体绕行,`exempt` / `exemptPaths` 字段逐轮点名,**绝不静默**。
+ */
+export const ALIGN_EXEMPT_PATHS = new Set(['PROJECT_PLAN.md'])
 
 /**
  * 问 git 要锁的真实落点。**不得自己拼 `<root>/.git/index.lock`** —— 本仓真 gitdir 在工作区外
@@ -225,6 +236,10 @@ export function lockSkipAdvice(kind) {
       return '竞争已解除 ⇒ 下一轮自动重试;若反复出现这一行,查的是持锁方而不是本层。'
     case 'undetermined':
       return '锁状态判不出 ⇒ 本轮结论不算"已判定",也不写盘;先修取材(git 可执行/仓库可达)。'
+    case 'write-lock-held':
+      return 'safe-commit 等 git-lock 消费方正持逻辑写锁提交;本层让路,锁释放即自动补上(2026-10-12 立的守卫,只探不抢)。'
+    case 'write-lock-undetermined':
+      return '逻辑写锁状态判不出 ⇒ 本轮不写盘;先修取材(git 可执行/仓库可达)。'
     default:
       return ''
   }
@@ -802,10 +817,31 @@ export function compositeDriftPaths(
 const SUBSET_MAX_BYTES = 2 * 1024 * 1024
 export function refreshStaleIndex(repoRoot, { dryRun = false } = {}) {
   const g = makeGit(repoRoot)
-  const staged = g(['diff', '--name-only', 'HEAD', '--cached', '--no-renames'])
+  // 逻辑写锁守卫(2026-10-12):safe-commit 等 git-lock 消费方在伞下提交时,索引写入窗口实测
+  // 30–62 秒 —— 本层不等判据跑完,先把整轮让出去(探针只读;让路原因走既有 lockSkip 通道)。
+  const wl = probeWriteLock(repoRoot, g)
+  if (wl.state !== 'absent') {
+    return {
+      refreshed: 0,
+      paths: [],
+      deferred: [],
+      held: 0,
+      subsetRefreshed: 0,
+      subsetPaths: [],
+      lockSkip: skipFromWriteProbe(wl),
+      ancestryUndetermined: [],
+      subsetUndetermined: [],
+      exempt: [],
+    }
+  }
+  const stagedAll = g(['diff', '--name-only', 'HEAD', '--cached', '--no-renames'])
     .split('\n')
     .filter(Boolean)
-  if (!staged.length)
+  // 豁免路径先摘出来(2026-10-12):只报数,不判不写 —— 整块祖先与行子集两条通道对活文档
+  // 都可能给出"看似可证"的祖先性,故在本层入口整体绕行,exempt 字段逐轮点名。
+  const exempt = stagedAll.filter((p) => ALIGN_EXEMPT_PATHS.has(normRepoPath(p)))
+  const staged = stagedAll.filter((p) => !ALIGN_EXEMPT_PATHS.has(normRepoPath(p)))
+  if (!stagedAll.length)
     return {
       refreshed: 0,
       paths: [],
@@ -816,6 +852,7 @@ export function refreshStaleIndex(repoRoot, { dryRun = false } = {}) {
       lockSkip: null,
       ancestryUndetermined: [],
       subsetUndetermined: [],
+      exempt: [],
     }
   const idxBlob = new Map()
   for (const l of lsStageChunked(g, staged)) {
@@ -899,6 +936,7 @@ export function refreshStaleIndex(repoRoot, { dryRun = false } = {}) {
       lockSkip: null,
       ancestryUndetermined,
       subsetUndetermined: subsetLoss,
+      exempt,
     }
   if (dryRun)
     return {
@@ -913,6 +951,7 @@ export function refreshStaleIndex(repoRoot, { dryRun = false } = {}) {
       lockSkip: null,
       ancestryUndetermined,
       subsetUndetermined: subsetLoss,
+      exempt,
       dryRun: true,
     }
   const { done, deferred, lockSkip } = writeIndexCacheInfos(g, repoRoot, refreshedPaths)
@@ -927,6 +966,7 @@ export function refreshStaleIndex(repoRoot, { dryRun = false } = {}) {
     lockSkip,
     ancestryUndetermined,
     subsetUndetermined: subsetLoss,
+    exempt,
   }
 }
 
@@ -1034,6 +1074,33 @@ function linesAreSubMultiset(a, b) {
  */
 export function alignDrifts(repoRoot, { dryRun = false } = {}) {
   const g = makeGit(repoRoot)
+  // ── 合并进行中 ⇒ 整轮不写(2026-10-12 立,判据与 probeMergeHead 头注同一案)────────
+  // 本轮三层(陈旧索引刷新 / 旁路孤儿恢复 / 幻影漂移对齐)全部假设「相对 HEAD 的差异 =
+  // 意外」;合并未收口时暂存的是对侧已提交内容、工作树是三方合并结果 —— 差异即意图。
+  // 不设这一格的代价实测过:g-814406 合并暂存项被反复打回 HEAD 旧版(见 probeMergeHead 头注)。
+  const mh = probeMergeHead(repoRoot, g)
+  if (mh.inProgress) {
+    return {
+      aligned: 0,
+      paths: [],
+      driftUndetermined: [],
+      exemptPaths: [],
+      refreshed: 0,
+      refreshDeferred: [],
+      refreshExempt: [],
+      ancestryUndetermined: [],
+      subsetUndetermined: [],
+      layerSkips: [mergeSkipEntry(mh, '对齐层整轮(索引刷新/旁路孤儿/漂移对齐)')],
+      bypassRestored: 0,
+      bypassPaths: [],
+      bypassHeldOnDisk: 0,
+      bypassHeldUnproven: 0,
+      bypassUnprovenPaths: [],
+      bypassSkippedNotBlob: 0,
+      bypassDeferred: [],
+      mergeInProgress: true,
+    }
+  }
   /**
    * G-794:各层**独立让路**。任何一层撞上"索引锁被他人持有"都只关自己那一层,
    * 不得把异常冒到 main() —— 旧行为是一次抛穿让整轮三层(存续恢复 / 漂移对齐 / 索引刷新)
@@ -1047,6 +1114,32 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
     layerSkips.push({ layer, ...verdict })
     return verdict
   }
+  // 逻辑写锁守卫(2026-10-12):整轮先让 —— 本层三层(索引刷新/旁路孤儿/漂移对齐)都会写盘,
+  // 而这一格的写窗口(safe-commit 伞下的索引写入)实测 30–62 秒。让路走 layerSkips 通道,
+  // 透明点名(与各层独立让路的 G-794 同一条设计,只是这一次的让路判据是逻辑锁不是 index.lock)。
+  const wlEntry = probeWriteLock(repoRoot, g)
+  if (wlEntry.state !== 'absent') {
+    return {
+      aligned: 0,
+      paths: [],
+      driftUndetermined: [],
+      layerSkips: [
+        { layer: '对齐层整轮(索引刷新/旁路孤儿/漂移对齐)', ...skipFromWriteProbe(wlEntry) },
+      ],
+      refreshed: 0,
+      refreshDeferred: [],
+      ancestryUndetermined: [],
+      subsetUndetermined: [],
+      exemptPaths: [],
+      bypassRestored: 0,
+      bypassPaths: [],
+      bypassHeldOnDisk: 0,
+      bypassHeldUnproven: 0,
+      bypassUnprovenPaths: [],
+      bypassSkippedNotBlob: 0,
+      bypassDeferred: [],
+    }
+  }
   // 先刷新"落后索引"(CAS/converge 只推进 HEAD 的后遗症),否则下面判据①会把它们全部误挡掉
   let refreshed = {
     refreshed: 0,
@@ -1057,6 +1150,7 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
     lockSkip: null,
     ancestryUndetermined: [],
     subsetUndetermined: [],
+    exempt: [],
   }
   try {
     refreshed = refreshStaleIndex(repoRoot, { dryRun })
@@ -1087,6 +1181,7 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
   const head = () => ({
     refreshed: refreshed.refreshed,
     refreshDeferred: refreshed.deferred || [],
+    refreshExempt: refreshed.exempt || [],
     ancestryUndetermined: refreshed.ancestryUndetermined || [],
     subsetUndetermined: refreshed.subsetUndetermined || [],
     layerSkips,
@@ -1096,9 +1191,10 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
     dirty = g(['diff', '--name-only', 'HEAD', '--no-renames']).split('\n').filter(Boolean)
   } catch (e) {
     noteSkip('幻影漂移判定', e)
-    return { aligned: 0, paths: [], driftUndetermined: [], ...head(), ...bp }
+    return { aligned: 0, paths: [], driftUndetermined: [], exemptPaths: [], ...head(), ...bp }
   }
-  if (!dirty.length) return { aligned: 0, paths: [], driftUndetermined: [], ...head(), ...bp }
+  if (!dirty.length)
+    return { aligned: 0, paths: [], driftUndetermined: [], exemptPaths: [], ...head(), ...bp }
   // ① 索引 == HEAD 的路径才可对齐
   const indexLines = lsStageChunked(g, dirty)
   const indexBlob = new Map()
@@ -1115,7 +1211,11 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
         return [l.slice(i + 1), l.slice(0, i)]
       }),
   )
-  const eligible = dirty.filter((p) => {
+  // 豁免路径先摘出来(2026-10-12):只报数,不判不写 —— ③a 整块祖先与 ③b 逐块拼合两条通道
+  // 对活文档(PROJECT_PLAN.md)都可能给出"看似可证"的回潮结论,故在 eligible 之前整体绕行。
+  const exemptDrift = dirty.filter((p) => ALIGN_EXEMPT_PATHS.has(normRepoPath(p)))
+  const judgeable = dirty.filter((p) => !ALIGN_EXEMPT_PATHS.has(normRepoPath(p)))
+  const eligible = judgeable.filter((p) => {
     const ib = indexBlob.get(p)
     return ib && ib === headBlob.get(p)
   })
@@ -1123,8 +1223,9 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
     return {
       aligned: 0,
       paths: [],
-      skippedStaged: dirty.length,
+      skippedStaged: dirty.length - eligible.length,
       driftUndetermined: [],
+      exemptPaths: exemptDrift,
       ...head(),
       ...bp,
     }
@@ -1155,6 +1256,7 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
       dryRun: true,
       skippedStaged: dirty.length - eligible.length,
       driftUndetermined,
+      exemptPaths: exemptDrift,
       ...head(),
       ...bp,
     }
@@ -1188,8 +1290,118 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
     deferred,
     skippedStaged: dirty.length - eligible.length,
     driftUndetermined,
+    exemptPaths: exemptDrift,
     ...head(),
     ...bp,
+  }
+}
+
+/**
+ * 项目逻辑写锁(ihui-git-write.lock,safe-commit 等 git-lock.mjs 消费方持有)的只读探针。
+ * 立因(2026-10-12):对齐层此前只让路给 git 原生 index.lock,而 git-lock 伞下一次 commit 的
+ * 索引写入实测可持 index.lock 30–62 秒 —— 本层每 2 分钟一轮,恰好撞进写窗口,把别人的提交
+ * 拦死在 index.lock 上(钩子侧当日表现为 lint-staged 连吃 4 次被误报成 EBUSY 的 exit 128)。
+ * 只探不抢:锁的处置属持有人(§12 铁律 + 本文件 §5b);判据是"锁目录在位",
+ * meta.json 只用来把主人讲清楚,读不到**不影响**"在位"结论(fail-safe 方向是让路)。
+ * 与 probeIndexLock 同一纪律:gitdir 用 `--absolute-git-dir` 问 git 要,不自己拼 `<root>/.git`。
+ * @returns {{state:'absent'|'held'|'undetermined',path:string,holder:object|null,ageMs:number,reason:string}}
+ */
+export function probeWriteLock(repoRoot, g = makeGit(repoRoot)) {
+  let base = ''
+  try {
+    base = g(['rev-parse', '--absolute-git-dir'], { timeout: LOCK_PROBE_TIMEOUT_MS }).trim()
+  } catch (e) {
+    return {
+      state: 'undetermined',
+      path: '',
+      holder: null,
+      ageMs: 0,
+      reason: `问不到 gitdir:${String(e?.message ?? e).slice(0, 160)}`,
+    }
+  }
+  const path = join(base, 'ihui-git-write.lock')
+  let st = null
+  try {
+    st = lstatSync(path)
+  } catch (e) {
+    if (e?.code === 'ENOENT')
+      return {
+        state: 'absent',
+        path,
+        holder: null,
+        ageMs: 0,
+        reason: `此刻无 ihui-git-write.lock(${path})`,
+      }
+    return {
+      state: 'undetermined',
+      path,
+      holder: null,
+      ageMs: 0,
+      reason: `量不到 ihui-git-write.lock(${String(e?.code ?? e)} ⇒ 不判为无锁)`,
+    }
+  }
+  let holder = null
+  try {
+    holder = JSON.parse(readFileSync(join(path, 'meta.json'), 'utf8'))
+  } catch {
+    /* meta 不可读不改判:在位就是让路 */
+  }
+  const ageMs = Math.max(0, Date.now() - (Number(st.mtimeMs) || 0))
+  const who = holder ? `unit=${holder.unitId || ''} pid=${holder.pid ?? ''}` : 'meta 不可读'
+  return {
+    state: 'held',
+    path,
+    holder,
+    ageMs,
+    reason: `逻辑写锁在位(${who},${Math.round(ageMs / 1000)}s)@${path}`,
+  }
+}
+
+/** 写锁探针 → 让路结论。kind 与 index.lock 侧的 held/dangling 刻意不同名,两种锁不混同。 */
+function skipFromWriteProbe(probe) {
+  const kind = probe?.state === 'held' ? 'write-lock-held' : 'write-lock-undetermined'
+  return { kind, reason: `本层跳过(项目逻辑写锁)—— ${probe?.reason ?? '未取到探针结论'}` }
+}
+
+/**
+ * 合并进行中探测(2026-10-12 立)。
+ *
+ * 为什么需要它:本脚本所有写索引层的世界观都是「暂存区/工作区相对 HEAD 的差异 = 意外,
+ * 对齐回 HEAD」。合并未收口时这个前提整体翻转 —— 暂存的是**对侧已提交的内容**,
+ * 工作树是**三方合并的结果**,两层差异全部是合并的意图。
+ * 实测真因(历轮「合并过程索引更新丢失」的真相,不是写入抖动):
+ * refreshStaleIndex 把 g-814406 的合并暂存项(对侧删除 2 行后的版本)判成「误暂存的旧快照」
+ * 打回 HEAD —— 该 blob 恰好是我方祖先里的历史版本(判据② proven)、工作区无现场(判据③),
+ * 三条同时成立即刷新;守护每 2 分钟一轮,合并每多挂一分钟暂存区就被打回一次,
+ * 直到 commit 前最后一刻(2026-10-12 同一文件实测两次被打回)。
+ * ⇒ 判据加一格:MERGE_HEAD 在 ⇒ 各写层整轮让路,让合并自己收口(commit / --abort 都会清掉它)。
+ *
+ * MERGE_HEAD 住在 **gitdir** 里,而本仓 gitdir 在工作区之外的指针文件后面 ⇒ 不能
+ * existsSync(join(repoRoot, '.git', 'MERGE_HEAD'))。走 `rev-parse --git-path`(该命令
+ * 在文件不存在时也 exit 0 并给出路径,与 check-commit-scope-consistency.mjs 同一写法),
+ * 再 existsSync + 读 sha。
+ * 失效方向:git 派生失败 ⇒ 按「在」处理(宁可少自愈一轮,不可把合并态当常态写索引)。
+ */
+export function probeMergeHead(repoRoot, g = makeGit(repoRoot)) {
+  try {
+    const p = g(['rev-parse', '--git-path', 'MERGE_HEAD']).trim()
+    if (!p) return { inProgress: false, sha: '' }
+    const abs = isAbsolute(p) ? p : resolve(repoRoot, p)
+    if (!existsSync(abs)) return { inProgress: false, sha: '' }
+    return { inProgress: true, sha: readFileSync(abs, 'utf8').trim() }
+  } catch {
+    return { inProgress: true, sha: '', undetermined: true }
+  }
+}
+
+/** 合并让路条目(layerSkips 形状:layer + reason 是人读的两格,kind 走建议档位)。 */
+function mergeSkipEntry(mh, layer) {
+  return {
+    layer,
+    kind: 'merge-in-progress',
+    reason: `合并进行中(MERGE_HEAD=${mh.sha ? mh.sha.slice(0, 12) : '取不到'})—— 暂存区与工作树相对 HEAD 的差异是合并意图而非漂移,整轮不写,让合并自己收口`,
+    mergeHead: mh.sha || null,
+    ...(mh.undetermined ? { undetermined: true } : {}),
   }
 }
 
@@ -1505,6 +1717,23 @@ function restoreBypassOrphansInner(g, repoRoot, dryRun) {
 }
 
 export function heal(repoRoot, { dryRun = false } = {}) {
+  // 合并进行中 ⇒ 本层两层同样不写(与 alignDrifts 同一判据,2026-10-12 立):
+  // findOrphanedDeletions / reconcileStaleIndexOrphans 的世界观也是「相对 HEAD 的差异 =
+  // 意外」,合并态下暂存的删除与缺失全部可能是合并意图 ⇒ 整轮让路,理由随 layerSkips 带回。
+  const mh = probeMergeHead(repoRoot)
+  if (mh.inProgress) {
+    return {
+      restored: 0,
+      held: 0,
+      reconciled: 0,
+      orphanIndex: 0,
+      paths: [],
+      intentLost: 0,
+      intentLostPaths: [],
+      layerSkips: [mergeSkipEntry(mh, '工作区存续自愈整轮(存续恢复/陈旧索引孤儿对齐)')],
+      mergeInProgress: true,
+    }
+  }
   const { safe, held, orphanIndex, intentLost } = findOrphanedDeletions(repoRoot)
   const rec = reconcileStaleIndexOrphans(repoRoot, { dryRun })
   // 让路原因必须随返回值走:reconcile 跳过 ≠ 无事发生(G-794 —— 旧形状里这一层的跳过只剩
@@ -2040,6 +2269,90 @@ function selfTestRun() {
     }
 
     /* ------------------------------------------------------------------ *
+     * ㉞ 合并未收口(MERGE_HEAD 在)⇒ 各写索引层不得把「对侧已提交内容」打回 HEAD
+     *    (2026-10-12 立。实测真因:g-814406 合并暂存项两次被打回 HEAD 旧版 ——
+     *    该 blob 恰好是我方祖先里的历史版本 + 工作区无现场,refreshStaleIndex 三条
+     *    判据全中。历轮「合并过程索引更新丢失」的真相是判据缺合并感知,不是写入抖动。)
+     *    A/B 对照:同一形态没有 MERGE_HEAD 时必须照旧刷新 —— 证明这不是"永远不刷"。
+     * ------------------------------------------------------------------ */
+    {
+      // 对照组(无合并):c0 a.ts=old → c1 a.ts=v1(HEAD);把 c0 的版本暂存进来 ⇒
+      // 落后索引形态(索引=历史版本 + 工作区==索引),必须被刷新回 HEAD 形态。
+      const tc = mkScratch('wt-heal-mguard-ctl-')
+      try {
+        const q = makeGit(tc)
+        q(['init', '-q', '--initial-branch=main'])
+        q(['config', 'user.email', 't@t'])
+        q(['config', 'user.name', 't'])
+        q(['config', 'core.autocrlf', 'false'])
+        writeFileSync(join(tc, 'a.ts'), 'old\n')
+        q(['add', '-A'])
+        q(['commit', '-qm', 'c0: a.ts=old(将成历史版本)'])
+        writeFileSync(join(tc, 'a.ts'), 'v1\n')
+        q(['commit', '-qam', 'c1: a.ts=v1(HEAD)'])
+        q(['checkout', '-q', 'HEAD~1', '--', 'a.ts']) // 暂存 old + 工作树 old
+        const r0 = alignDrifts(tc)
+        const idxCtl = q(['ls-files', '-s', 'a.ts']).trim().split(/\s+/)[1]
+        const headCtl = q(['rev-parse', 'HEAD:a.ts']).trim()
+        check(
+          '㉞-A 对照(无 MERGE_HEAD):历史版本暂存项照旧被刷新回 HEAD',
+          r0.refreshed === 1 && idxCtl === headCtl,
+        )
+      } finally {
+        rmScratch(tc)
+      }
+    }
+    {
+      // 实验组(合并中):c0 old → c1 v1 → feature 把 a.ts 改回 old(对侧真改)、main 只动 b.ts
+      // ⇒ 自动合并结果 a.ts=old(恰好是 HEAD 祖先 c0 的 blob)—— 与 2026-10-12 真案同形。
+      const t7 = mkScratch('wt-heal-mguard-')
+      try {
+        const q = makeGit(t7)
+        q(['init', '-q', '--initial-branch=main'])
+        q(['config', 'user.email', 't@t'])
+        q(['config', 'user.name', 't'])
+        q(['config', 'core.autocrlf', 'false'])
+        writeFileSync(join(t7, 'a.ts'), 'old\n')
+        writeFileSync(join(t7, 'b.ts'), 'b0\n')
+        q(['add', '-A'])
+        q(['commit', '-qm', 'c0: a.ts=old,b.ts=b0'])
+        const c0 = q(['rev-parse', 'HEAD']).trim()
+        const oldBlob = q(['rev-parse', `${c0}:a.ts`]).trim()
+        writeFileSync(join(t7, 'a.ts'), 'v1\n')
+        q(['commit', '-qam', 'c1: a.ts=v1(合并 base)'])
+        q(['checkout', '-q', '-b', 'feature'])
+        writeFileSync(join(t7, 'a.ts'), 'old\n') // 对侧把 a.ts 改回 c0 的内容(真改动)
+        q(['commit', '-qam', 'feature: a.ts=old'])
+        q(['checkout', '-q', 'main'])
+        writeFileSync(join(t7, 'b.ts'), 'b1\n')
+        q(['commit', '-qam', 'c2: b.ts=b1(HEAD,a.ts 保持 v1)'])
+        q(['merge', '--no-commit', '--no-ff', 'feature', '-m', 'merge']) // 不收口 ⇒ MERGE_HEAD 在
+        // 合并态事实核对(否则后面断言失去意义):MERGE_HEAD 在、索引 a.ts = c0 的历史 blob
+        const mhOk = probeMergeHead(t7).inProgress
+        const idxBefore = q(['ls-files', '-s', 'a.ts']).trim().split(/\s+/)[1]
+        check('㉞-B 前提:合并未收口且暂存项确为历史版本 blob', mhOk && idxBefore === oldBlob)
+        const r1 = alignDrifts(t7)
+        const h1 = heal(t7)
+        const idxAfter = q(['ls-files', '-s', 'a.ts']).trim().split(/\s+/)[1]
+        const wt = readFileSync(join(t7, 'a.ts'), 'utf8')
+        check(
+          '㉞-B 合并中:alignDrifts 整轮不写(mergeInProgress + refreshed=0 + aligned=0)',
+          r1.mergeInProgress === true && r1.refreshed === 0 && r1.aligned === 0,
+        )
+        check(
+          '㉞-B 合并中:heal 整轮不写(mergeInProgress + restored=0)',
+          h1.mergeInProgress === true && h1.restored === 0,
+        )
+        check(
+          '㉞-B 合并中:暂存项未被刷新回 HEAD、工作树未被对齐(内容与索引都保持合并结果)',
+          idxAfter === oldBlob && wt === 'old\n',
+        )
+      } finally {
+        rmScratch(t7)
+      }
+    }
+
+    /* ------------------------------------------------------------------ *
      * G-794 ㉚/㉛ —— 锁被他人持有时的正确结论是"本层跳过 + 一行原因",不是把异常冒到 main()。
      * 造**真** index.lock(不是模拟抛错):模拟只能证明"不崩",证明不了"三层照跑、一条都没写成"。
      * 实测崩点(2026-09-29 05:2x/05:4x,exit 2)就是 refreshStaleIndex 末尾那条裸奔的
@@ -2269,6 +2582,57 @@ function selfTestRun() {
       r2.refreshed === 0 && readFileSync(join(tmp, 'keep.ts'), 'utf8') === '他人暂存的新工作\n',
     )
 
+    // ⑮ 对齐层豁免(2026-10-12 立,台账被两层接力吃掉的回归钉):PROJECT_PLAN.md 在
+    //    ALIGN_EXEMPT_PATHS ⇒ ③a/③b 两条通道整体绕行,只报数不判不写。
+    //    差分形态(不是单测豁免路径):同一轮里非豁免路径(keep2.ts,工作区==祖先)必被对齐,
+    //    豁免路径同轮一字不动 —— 这样"是豁免在拦"与"判据失明"两种全绿成因被分开钉住。
+    //    ⚠️ 提交一律用**显式 pathspec**,不用 -a:-a 会把另一条路径的在飞改动一起扫进
+    //    HEAD(本用例第一版正是如此,台账的 v1 被 K2 的 -a 提交,豁免分支整段没被执行到)。
+    writeFileSync(join(tmp, 'keep2.ts'), 'w1\n')
+    g(['add', 'keep2.ts'])
+    g(['commit', '-qm', 'K1', '--', 'keep2.ts'])
+    writeFileSync(join(tmp, 'keep2.ts'), 'w2\n')
+    g(['add', 'keep2.ts'])
+    g(['commit', '-qm', 'K2', '--', 'keep2.ts'])
+    writeFileSync(join(tmp, 'keep2.ts'), 'w1\n') // == 祖先版本(非豁免对照)
+    writeFileSync(join(tmp, 'PROJECT_PLAN.md'), 'v1\n')
+    g(['add', 'PROJECT_PLAN.md'])
+    g(['commit', '-qm', 'P1', '--', 'PROJECT_PLAN.md'])
+    writeFileSync(join(tmp, 'PROJECT_PLAN.md'), 'v2\n')
+    g(['add', 'PROJECT_PLAN.md'])
+    g(['commit', '-qm', 'P2', '--', 'PROJECT_PLAN.md'])
+    writeFileSync(join(tmp, 'PROJECT_PLAN.md'), 'v1\n') // == 祖先版本 ⇒ ③a 本会命中,若无豁免必被对齐
+    const dDiff = alignDrifts(tmp)
+    check(
+      '⑮ 同轮差分:非豁免被对齐、台账豁免只报数不写',
+      (dDiff.paths || []).includes('keep2.ts') &&
+        !(dDiff.paths || []).includes('PROJECT_PLAN.md') &&
+        readFileSync(join(tmp, 'keep2.ts'), 'utf8') === 'w2\n' &&
+        readFileSync(join(tmp, 'PROJECT_PLAN.md'), 'utf8') === 'v1\n' &&
+        (dDiff.exemptPaths || []).includes('PROJECT_PLAN.md'),
+    )
+
+    // ⑯ 逻辑写锁让路(2026-10-12):gitDir 下出现 ihui-git-write.lock(safe-commit 等
+    //    git-lock 消费方持有)⇒ 整轮跳过 + layerSkips/lockSkip 透明点名,只探不抢。
+    //    锁目录建在 tmp 仓自己的 gitdir 里,与真仓(D:/IHUI-AI-git-repo)无关。
+    const gd = g(['rev-parse', '--absolute-git-dir']).trim()
+    mkdirSync(join(gd, 'ihui-git-write.lock'), { recursive: true })
+    let dLock = null
+    let rLock = null
+    try {
+      dLock = alignDrifts(tmp)
+      rLock = refreshStaleIndex(tmp)
+    } finally {
+      rmSync(join(gd, 'ihui-git-write.lock'), { recursive: true, force: true })
+    }
+    check(
+      '⑯ 逻辑写锁在位 ⇒ 整轮让路且点名(kind=write-lock-held)',
+      dLock.aligned === 0 &&
+        (dLock.layerSkips || []).some((s) => s.kind === 'write-lock-held') &&
+        rLock.refreshed === 0 &&
+        rLock.lockSkip?.kind === 'write-lock-held',
+    )
+
     let fail = 0
     for (const r of out) {
       console.log(`${r.ok ? '✅' : '❌'} ${r.n}`)
@@ -2281,7 +2645,16 @@ function selfTestRun() {
     )
     return fail ? 1 : 0
   } finally {
-    rmSync(tmp, { recursive: true, force: true })
+    // 清理失败不得掩盖真结果(2026-10-12):本会话环境里 WorkBuddy 的 safe-delete shim 会拦
+    // >50 项的 rmSync —— 旧写法让 finally 的清理异常**顶掉** try 里真正的断言输出,
+    // 自测表现为"一行判据都看不见,只剩清理报错",真红被假红吞掉。判据结果第一,清理失败点名即可。
+    try {
+      rmSync(tmp, { recursive: true, force: true })
+    } catch (e) {
+      console.warn(
+        `⚠️ 自测临时目录清理失败(不影响判据结果):${tmp} — ${String(e?.message ?? e).slice(0, 160)}`,
+      )
+    }
   }
 }
 
@@ -2382,7 +2755,16 @@ async function main() {
       else {
         // "无需对齐"这句必须自带它**没**判到的部分,否则读起来像"全部判过且干净"(G-742 账面)
         const caveats = []
-        if (d.layerSkips?.length) caveats.push(`${d.layerSkips.length} 层本轮因锁跳过`)
+        if (d.layerSkips?.length) {
+          // 锁让路与合并让路分措辞(2026-10-12):合并让路不是锁故障,写成"因锁跳过"
+          // 会让人去查持锁方,而真因是合并还没收口 —— 与 G-794"把形态讲错"同一条禁令。
+          const lockSkips = d.layerSkips.filter((s) => s.kind !== 'merge-in-progress').length
+          const mergeSkips = d.layerSkips.length - lockSkips
+          const parts = []
+          if (lockSkips) parts.push(`${lockSkips} 层本轮因锁跳过`)
+          if (mergeSkips) parts.push(`${mergeSkips} 层本轮因合并未收口让路(MERGE_HEAD 在,提交或 abort 后自动补上)`)
+          caveats.push(parts.join(';'))
+        }
         if (d.driftUndetermined?.length)
           caveats.push(`${d.driftUndetermined.length} 处窗口用尽未判定`)
         if (d.ancestryUndetermined?.length)

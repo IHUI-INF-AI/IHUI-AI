@@ -145,6 +145,32 @@ groups:
           summary: 'PostgreSQL 实例不可用'
           description: 'Postgres exporter {{ $labels.instance }} 无指标或 pg_up==0,PostgreSQL 疑似宕机'
 
+      # PostgreSQL 查询延迟(2026-10-12 立,桌面端 SSO 授权故障的最后一环)。
+      # 那场故障的形态是"PG 活着但慢":auth/refresh 18s+ 无响应、用户点了没反应,
+      # 而 PostgresDown 一条都不响(实例没死)。指标源 = postgres_exporter 扩展查询
+      # (monitoring/postgres-exporter/queries.yml,ihui-pg-exporter 的 --extend.query-path
+      # 挂载),取 pg_stat_activity.query_start 语义(内置 pg_stat_activity_max_tx_duration
+      # 是 xact_start,慢的是单条语句也会被漏掉),排除 beifen 备份用户。
+      # 为什么分两条而不是一条加阈值:bridge 去重键是 alertname|instance、窗口 240min ——
+      #   数值恶化(5s→30s)不换身份会被压掉,只有换名才能突破窗口再次触达(§5e-1)。
+      #   反例对照:单条规则 5s→30s 时第二封邮件永远发不出去,用户侧已经全站变慢。
+      - alert: PgSlowQuery
+        expr: max(pg_query_max_duration_seconds) > 5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'PostgreSQL 查询延迟超 5s'
+          description: '最长活跃查询已运行 {{ $value | humanizeDuration }}s(排除备份用户),PG 疑似退化;登录/续期等轻端点会一起变慢,排查:SELECT pid, now()-query_start, state, query FROM pg_stat_activity WHERE state=''active'' ORDER BY 2 DESC'
+      - alert: PgVerySlowQuery
+        expr: max(pg_query_max_duration_seconds) > 30
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'PostgreSQL 查询延迟超 30s'
+          description: '最长活跃查询已运行 {{ $value | humanizeDuration }}s(排除备份用户),PG 严重退化,用户端已可感知卡顿;排查同上 SQL 定位长事务,确认误伤后可 SELECT pg_terminate_backend(pid)'
+
       # Redis 实例 down
       - alert: RedisDown
         expr: up{job="redis"} == 0 or redis_up == 0

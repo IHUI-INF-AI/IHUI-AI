@@ -56,6 +56,10 @@ function runCli(...argv) {
     windowsHide: true,
     timeout: 60000,
     cwd: REPO,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    // (2026-10-12 发现本文件漏改:三 pipe 无 input 的形态在本机 100% 起不来,
+    //  表现为"派生 safe-commit 失败"而不是它的结论;按坑册原样补)
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   assert.ok(!r.error, `派生 safe-commit 失败(不是它的结论):${r.error && r.error.message}`)
   return r

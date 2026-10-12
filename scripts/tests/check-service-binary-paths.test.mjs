@@ -42,6 +42,8 @@ const {
   ticksToMs,
   resolveLoadedScript,
   judgeRuntimeFreshness,
+  extractDotSourcedScripts,
+  DOT_SOURCE_MAX,
   TICKS_EPOCH_DIFF_MS,
   LOOPBACK_PROBE_HOST,
   PROC_HEAD,
@@ -215,6 +217,14 @@ function healthyDeps(over = {}) {
         if (iso === null) return { ok: false, why: '夹具:ENOENT' }
         return { ok: true, mtimeMs: Date.parse(iso ?? FIX_SCRIPT_WRITE_ISO) }
       }),
+    /** 脚本正文(dot-source 层用,2026-10-12 补):生产 defaultDeps 一直注着这个出口,夹具不注
+     *  就会让 dot-source 层每轮落"没有读取出口"的未判定 —— 修复前它被"verdict 落 fresh"的洞吞掉、
+     *  测试全绿,修复后(量不到绝不写成新鲜)它会正确地把这一维拖成未判定,所以夹具必须建模生产。
+     *  默认正文不含任何 dot-source ⇒ "量到的空"(note),加载目标仍判 fresh;要造模块层场景用
+     *  over.readScriptText 覆写。 */
+    readScriptText:
+      over.readScriptText ??
+      ((p) => ({ ok: true, text: `# 夹具脚本:${p}\nparam([string]$WhatIf)\nWrite-Output 'fixture'\n` })),
     // 探针**必须按传进来的 host 判** —— 这正是缺陷②:写死回环就把只绑网卡的端口报成失败。
     tcpProbe: over.tcpProbe ?? (async (port, host = LOOPBACK_PROBE_HOST) => (answers.has(`${host}:${port}`) ? { status: 'open' } : { status: 'closed' })),
   }
@@ -291,7 +301,7 @@ test('T2 形状锁(判据④):只读 —— 锁指"真会被执行的那一面",
   // 新通道:绝对路径取材(不依赖 PATH)+ 各自的超时值,不得退回写死回环的探测。
   assert.ok(/NETSTAT_CANDIDATES\.find\(\(p\) => existsSync\(p\)\)/.test(src), 'netstat 不再按绝对路径候选择 ⇒ 服务身份与交互账户 PATH 不相通时整维失明')
   assert.ok(/defaultSpawn\(bin, \['-ano'\], NETSTAT_TIMEOUT_MS\)/.test(src), 'netstat 派生没有超时值')
-  assert.ok(/buildProcessListScript\(\)\], PROC_TIMEOUT_MS\)/.test(src), '进程树派生没有超时值')
+  assert.ok(/buildProcessListScript\(\)\],\s*PROC_TIMEOUT_MS,?\s*\)/.test(src), '进程树派生没有超时值')
 })
 
 test('T3 UTF-16 解码与"值为空 vs 取不到"分岔(真机实测形态)', () => {
@@ -795,6 +805,189 @@ test('RF-6 加载目标抽取:带空格的引号路径与 node 绝对路径都�
   assert.match(resolveLoadedScript(['D:\\DevEnv\\runtimes\\node\\node.exe D:\\r\\scripts\\git-guardian.mjs --daemon']).value, /git-guardian\.mjs$/)
   assert.equal(resolveLoadedScript(['--config D:\\logs\\run.log']).kind, 'unmeasured', '把日志/配置路径当加载目标会凭空造出 stale 红')
   assert.equal(resolveLoadedScript([]).kind, 'unmeasured', '"空值"与"没量到"都不许被读成"这台机没有脚本"')
+})
+
+// ──────────────────────────────────────────────────────────────────────────────
+// dot-source 层(2026-10-11 票 G-1080903,2026-10-12 补测试):被 -File 那份脚本 `. ` 进来的
+// 共享模块同样是启动那一刻读进内存的;当天真实自伤(ihui-monitor.ps1 dot-source
+// alert-dedup.ps1)就在这一型 —— 旧口径只比 -File 那一份,全程绿着。
+// 纯函数(抽取/静态求值)与端到端(judgeRuntimeFreshness 的层)分开钉,正反臂成对。
+// ──────────────────────────────────────────────────────────────────────────────
+const DS_SCRIPT = 'C:\\app\\run.ps1'
+const DS_MODULE = 'C:\\app\\alert-dedup.ps1'
+const DS_START = { kind: 'ticks', ticks: ticksOf(FIX_START_ISO) }
+const DS_OLD_MS = Date.parse(FIX_SCRIPT_WRITE_ISO) // 08:00,早于进程启动(09:00)⇒ -File 是新的
+const DS_NEW_MS = Date.parse('2026-10-01T10:00:00Z') // 晚于进程启动 60 分钟
+const dsDeps = (statMap, readMap) => ({
+  statFile: (p) =>
+    Object.prototype.hasOwnProperty.call(statMap, p)
+      ? { ok: true, mtimeMs: statMap[p] }
+      : { ok: false, why: 'ENOENT(夹具)' },
+  readScriptText: (p) =>
+    Object.prototype.hasOwnProperty.call(readMap, p)
+      ? { ok: true, text: readMap[p] }
+      : { ok: false, why: '读不到(夹具)' },
+})
+const dsJudge = (over) =>
+  judgeRuntimeFreshness({
+    state: 'RUNNING',
+    start: DS_START,
+    paramsTexts: [`-NoProfile -File "${DS_SCRIPT}"`],
+    ...over,
+  })
+
+test('DS-1 抽取层纯函数:点号族三形态认得出;$PSScriptRoot/Join-Path 静态求值;注释与块注释不误伤;& 不认', () => {
+  const ex = (text, dir = 'C:\\app') => extractDotSourcedScripts({ text, scriptDir: dir })
+  // 阳性①:本仓真实书写形态(deploy/win/ihui-monitor.ps1 第 120 行现读)
+  const a = ex(". (Join-Path $PSScriptRoot 'alert-dedup.ps1')\n")
+  assert.equal(a.kind, 'measured')
+  assert.deepEqual(a.value.paths, ['C:\\app\\alert-dedup.ps1'])
+  // 阳性②:单引号相对路径按被 dot-source 的那份脚本自己所在目录解析(不是仓库根)
+  assert.deepEqual(ex(". 'lib\\shared.ps1'").value.paths, ['C:\\app\\lib\\shared.ps1'])
+  // 阳性③:Dot-Source 全称 + 双引号里的 $PSScriptRoot + 行尾注释剥掉
+  assert.deepEqual(ex('Dot-Source "$PSScriptRoot\\sub\\mod.ps1" # 尾注释').value.paths, [
+    'C:\\app\\sub\\mod.ps1',
+  ])
+  // 阳性④:绝对路径字面量
+  assert.deepEqual(ex('. C:\\abs\\lib.ps1').value.paths, ['C:\\abs\\lib.ps1'])
+  // 阳性⑤:引号内的 # 不是注释分隔(`. 'a#b.ps1' # 说明` 必须整份收下)
+  assert.deepEqual(ex(". 'a#b.ps1' # 说明").value.paths, ['C:\\app\\a#b.ps1'])
+  // 去重:同一路径 dot-source 两次 ⇒ paths 一份(重复登记不得算成两份 mtime 账)
+  assert.deepEqual(ex(". 'x.ps1'\n. 'x.ps1'").value.paths, ['C:\\app\\x.ps1'])
+  // 注释行与块注释里的点号不算
+  assert.deepEqual(ex("# . 'x.ps1'").value.paths, [])
+  assert.deepEqual(ex("<#\n. 'x.ps1'\n#>").value.paths, [])
+  // `&` 是调用不是载入(G-1080903 取舍):收了就会把"改了立刻生效"的正常形态算成假 stale
+  const call = ex("& 'C:\\app\\run.ps1'")
+  assert.deepEqual(call.value.paths, [])
+  assert.equal(call.value.items.length, 0, '& 调用不是 dot-source,连 item 都不该进')
+  // 解析不出 ⇒ 逐条带 why 进 items(不是静默丢),paths 为空
+  const v = ex('. $LockCommon\\mod.ps1')
+  assert.deepEqual(v.value.paths, [])
+  assert.equal(v.value.items.length, 1)
+  assert.match(v.value.items[0].why, /变量/)
+  // 不在射程的扩展名 ⇒ ignored(报名,不是失明)
+  const ig = ex(". 'lib.dll'")
+  assert.equal(ig.value.items[0].ignored, true)
+  assert.deepEqual(ig.value.paths, [])
+  // 点号后只有注释 ⇒ "没有参数"(不是"没有 dot-source")
+  assert.match(ex('. # 只是注释').value.items[0].why, /没有参数/)
+  // "没量到"与"量到的空"分档:空正文 / scriptDir 不是绝对路径 ⇒ unmeasured
+  assert.equal(ex('').kind, 'unmeasured')
+  assert.equal(
+    extractDotSourcedScripts({ text: ". 'x.ps1'", scriptDir: 'relative' }).kind,
+    'unmeasured',
+  )
+  // 封顶:超出 DOT_SOURCE_MAX 如实报 truncated + declaredTotal,不得静默截断
+  const many = Array.from({ length: DOT_SOURCE_MAX + 1 }, (_, i) => `. 'm${i}.ps1'`).join('\n')
+  const t = ex(many)
+  assert.equal(t.kind, 'measured')
+  assert.equal(t.value.truncated, true)
+  assert.equal(t.value.paths.length, DOT_SOURCE_MAX)
+  assert.equal(t.value.declaredTotal, DOT_SOURCE_MAX + 1)
+})
+
+test('DS-2 端到端(本票主判据):-File 那份是新的,但 dot-source 进来的模块比进程新 ⇒ stale', () => {
+  const r = dsJudge(
+    dsDeps(
+      { [DS_SCRIPT]: DS_OLD_MS, [DS_MODULE]: DS_NEW_MS },
+      // 模块正文必须可读:读不到会按 2026-10-12 补的洞走 undetermined(那是 DS-3 ② 的场景),
+      // 本臂要钉的是"完全量到的 stale",两件事不得混在一个臂里。
+      { [DS_SCRIPT]: ". (Join-Path $PSScriptRoot 'alert-dedup.ps1')\n", [DS_MODULE]: '# 夹具模块:第一层,无第二层\n' },
+    ),
+  )
+  assert.equal(r.kind, 'measured')
+  assert.equal(r.value.verdict, 'stale', '只看 -File 会一路报绿的那一型,必须红')
+  assert.equal(r.value.modulesScanned, 1)
+  assert.equal(r.value.modulesStale.length, 1)
+  assert.equal(r.value.modulesStale[0].path, DS_MODULE)
+  assert.equal(r.value.modulesStale[0].mins, 60)
+  assert.equal(r.value.modulesUndetermined.length, 0, '主臂必须是完全量到的场景')
+  assert.match(r.value.detail, /dot-source/)
+  // judgeService 消费侧:这一维红 ⇒ issue,且红话点名(不是只藏在 JSON 里)
+  const j = judgeService({
+    name: 'X',
+    state: measured('RUNNING'),
+    application: measured(DEFAULT_APP),
+    appExists: measured('file'),
+    appDirectory: measured(DEFAULT_DIR),
+    appDirectoryExists: measured('dir'),
+    ports: measured([]),
+    probe: measured({ listening: true, ports: [] }),
+    nssmManaged: measured(true),
+    runtime: r,
+  })
+  assert.equal(j.level, 'issue')
+  assert.match(j.problems.join(';'), /运行时代码新鲜度/)
+  // 反臂:模块也早于进程启动 ⇒ fresh(证明不是"有模块就红"的恒真式)
+  const ok = dsJudge(
+    dsDeps(
+      { [DS_SCRIPT]: DS_OLD_MS, [DS_MODULE]: DS_OLD_MS },
+      // 模块正文同主臂必须可读:缺了它,undetermined 会把反臂按 DS-3 ② 的语义打成未判定,
+      // 而本臂要证的恰是"量全了 still fresh"——夹具缺料会让这条反臂失去判别力。
+      { [DS_SCRIPT]: ". 'alert-dedup.ps1'\n", [DS_MODULE]: '# 夹具模块:第一层,无第二层\n' },
+    ),
+  )
+  assert.equal(ok.kind, 'measured')
+  assert.equal(ok.value.verdict, 'fresh')
+  assert.equal(ok.value.modulesStale.length, 0)
+  assert.equal(ok.value.modulesScanned, 1)
+  assert.equal(ok.value.modulesUndetermined.length, 0, '反臂同样必须是完全量到的场景')
+})
+
+test('DS-3 量不到的模块绝不写成新鲜(2026-10-12 补的洞:此前 verdict 落 fresh,modulesUndetermined 无任何消费方)', () => {
+  // ① 模块 mtime 读不到 ⇒ 整维未判定并点名(不是 fresh,也不是红)
+  const a = dsJudge(dsDeps({ [DS_SCRIPT]: DS_OLD_MS }, { [DS_SCRIPT]: ". 'alert-dedup.ps1'\n" }))
+  assert.equal(a.kind, 'unmeasured')
+  assert.match(a.reason, /alert-dedup\.ps1/)
+  // judgeService 消费侧:未判定 ⇒ 不出合格证(unattested),不得 ok
+  const j = judgeService({
+    name: 'X',
+    state: measured('RUNNING'),
+    application: measured(DEFAULT_APP),
+    appExists: measured('file'),
+    appDirectory: measured(DEFAULT_DIR),
+    appDirectoryExists: measured('dir'),
+    ports: measured([]),
+    probe: measured({ listening: true, ports: [] }),
+    nssmManaged: measured(true),
+    runtime: a,
+  })
+  assert.equal(j.level, 'unattested')
+  assert.equal(j.problems.length, 0, '量不到不是判红,是没判')
+  // ② 模块正文读不到(第二层无从判定)⇒ 同样未判定
+  const b = dsJudge(
+    dsDeps(
+      { [DS_SCRIPT]: DS_OLD_MS, [DS_MODULE]: DS_OLD_MS },
+      { [DS_SCRIPT]: ". 'alert-dedup.ps1'\n" },
+    ),
+  )
+  assert.equal(b.kind, 'unmeasured')
+  assert.match(b.reason, /第二层|正文/)
+  // ③ 调用方没递 readScriptText ⇒ 未判定(不是"没有 dot-source")
+  const c = dsJudge({ statFile: () => ({ ok: true, mtimeMs: DS_OLD_MS }) })
+  assert.equal(c.kind, 'unmeasured')
+  assert.match(c.reason, /readScriptText/)
+  // 对照④:加载目标不是 .ps1 ⇒ "不适用"的 note,仍可 fresh(不是失明)
+  const d = dsJudge({
+    paramsTexts: ['D:\\DevEnv\\runtimes\\node\\node.exe D:\\r\\scripts\\git-guardian.mjs --daemon'],
+    statFile: () => ({ ok: true, mtimeMs: DS_OLD_MS }),
+    readScriptText: () => ({ ok: false, why: '夹具:不该被调用' }),
+  })
+  assert.equal(d.kind, 'measured')
+  assert.equal(d.value.verdict, 'fresh')
+  assert.match(d.value.modulesNotes.join(';'), /不适用/)
+  // 对照⑤:第二层存在 ⇒ 报名 modulesNested 但不判红(封顶 1 的设计)
+  const e = dsJudge(
+    dsDeps(
+      { [DS_SCRIPT]: DS_OLD_MS, [DS_MODULE]: DS_OLD_MS },
+      { [DS_SCRIPT]: ". 'alert-dedup.ps1'\n", [DS_MODULE]: ". 'deep.ps1'\n" },
+    ),
+  )
+  assert.equal(e.kind, 'measured')
+  assert.equal(e.value.verdict, 'fresh')
+  assert.equal(e.value.modulesNested.length, 1)
+  assert.match(e.value.modulesNested[0], /deep\.ps1/)
 })
 
 

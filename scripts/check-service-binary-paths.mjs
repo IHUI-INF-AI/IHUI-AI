@@ -922,6 +922,19 @@ const defaultDeps = {
       return { ok: false, why: e?.code ?? e?.message ?? 'statSync 抛错' }
     }
   },
+  /** 脚本正文(dot-source 层用):只读,不解码即下结论 —— PowerShell 文件在本仓既有 UTF-8(带/不带 BOM)
+   *  也有 UTF-16LE,按错码页读会得到夹杂 NUL 的文本,提取结果因此必须是"读到了什么就是什么"而不是空串冒充。
+   *  取不到必须带原因返回 ok:false ⇒ 上层落「未判定」(把读不到写成没有 = 本维最坏的失效方向)。 */
+  readScriptText: (p) => {
+    try {
+      const { text } = decodeNssm(readFileSync(p))
+      // decodeNssm 只剥 UTF-16 BOM;UTF-8 with BOM 的 .ps1(§27 的写盘规矩)首行会带一个 U+FEFF,
+      // 用码位比较而不是把 BOM 写进源码:字面 BOM 在文件里不可见,而它一旦被编辑链丢掉,这行就静默变成 no-op。
+      return { ok: true, text: text.charCodeAt(0) === 0xfeff ? text.slice(1) : text }
+    } catch (e) {
+      return { ok: false, why: e?.code ?? e?.message ?? 'readFileSync 抛错' }
+    }
+  },
   /** netstat -ano:一次派生、只读;SystemRoot 推导的绝对路径优先,不依赖 PATH。 */
   netstatSnapshot: () => {
     const bin = NETSTAT_CANDIDATES.find((p) => existsSync(p)) ?? null
@@ -1012,40 +1025,388 @@ export function resolveLoadedScript(paramsTexts) {
   return unmeasured(`AppParameters 里没有判得出的加载目标(既无 -File <脚本>,也无绝对路径的 .mjs/.cjs/.js 词元):${texts.join(' ⎯ ').slice(0, 200)}`)
 }
 
-/** 运行时代码新鲜度:进程启动时刻 vs 它加载的那份脚本的 mtime。
+/** dot-source 条数上限:超出即如实报"未跟完"(与 TREE_MAX_* 同一条取向 —— 封顶必须可见,不得静默截断)。 */
+export const DOT_SOURCE_MAX = 32
+
+/** 把一个 PowerShell 操作数静态求值成路径。只认三类确定形态:
+ *  ① 字面量(单引号串、双引号串内**不含**变量、裸路径)
+ *  ② `$PSScriptRoot` / `$PSScriptDir` 打头(这两个是"该脚本自己所在目录",由 -File 那份脚本的位置定死)
+ *  ③ `(Join-Path <上面两类> <上面两类> …)` 的静态组合
+ *  其余(任何别的变量、`$env:`、子表达式、格式化)一律返回 why —— 判"解析不出"而不是猜。
+ *  ⚠ 为什么 $PSScriptRoot 算"确定"而 $LockCommon 不算:本票要抓的那一次真实自伤(`ihui-monitor.ps1`
+ *  dot-source `alert-dedup.ps1`)在本仓的真实书写形态就是 `. (Join-Path $PSScriptRoot 'alert-dedup.ps1')`
+ *  (deploy/win/ihui-monitor.ps1 现读第 120 行)。把它判成"带变量、解析不出",这一维对本票的立项由头
+ *  仍然零判据 —— 那就是白改。相对路径按**被 dot-source 的那份脚本自己所在目录**解析(不是仓库根)。 */
+function resolveDotSourceOperand(tok, scriptDir) {
+  const s = String(tok ?? '').trim()
+  if (s === '') return { why: '点号/Dot-Source 后面没有可解析的参数' }
+  if (s.startsWith('(') && s.endsWith(')')) {
+    const inner = s.slice(1, -1).trim()
+    const m = /^Join-Path\s+(.+)$/is.exec(inner)
+    if (!m) return { why: `括号里不是可静态求值的 Join-Path(${inner.slice(0, 60)})` }
+    const parts = splitPowerShellArgs(m[1])
+    if (parts.length === 0) return { why: `Join-Path 的参数切不开(${inner.slice(0, 60)})` }
+    let acc = null
+    for (const part of parts) {
+      // Join-Path 的首段常常就是**裸** `$PSScriptRoot`(= 该脚本自己所在目录):作为整体操作数时
+      // 它是"目录不是脚本"必须拒(expandScriptRootToken 那一支),但作为 Join-Path 的基座它正是
+      // 基目录 —— 本票立项由头的真实书写形态(deploy/win/ihui-monitor.ps1 第 120 行
+      // `. (Join-Path $PSScriptRoot 'alert-dedup.ps1')`)就是这个,不认它这一维对真实自伤零判据。
+      const r = /^\$PS(?:ScriptRoot|ScriptDir)$/i.test(part.trim())
+        ? { path: scriptDir }
+        : resolveDotSourceOperand(part, scriptDir)
+      if (r.why) return r
+      acc = acc === null ? r.path : path.win32.resolve(acc, r.path)
+    }
+    return acc === null ? { why: 'Join-Path 没有参数' } : { path: acc }
+  }
+  if (s.length > 1 && s.startsWith("'") && s.endsWith("'"))
+    return { path: path.win32.resolve(scriptDir, s.slice(1, -1)) }
+  if (s.length > 1 && s.startsWith('"') && s.endsWith('"'))
+    return expandScriptRootToken(s.slice(1, -1), scriptDir)
+  if (s.startsWith('$')) return expandScriptRootToken(s, scriptDir)
+  if (/[$()`]/.test(s))
+    return { why: `参数含变量或子表达式(${s.slice(0, 60)})⇒ 静态读不出实际落点,本维不猜` }
+  return { path: path.win32.resolve(scriptDir, s) }
+}
+
+/** `$PSScriptRoot` / `$PSScriptDir` 打头的串/裸词元 ⇒ 脚本自己所在目录 + 尾段;其余带 `$` 的一律读不出。 */
+function expandScriptRootToken(s, scriptDir) {
+  const m = /^\$PS(?:ScriptRoot|ScriptDir)\b(.*)$/is.exec(s)
+  if (!m) return { why: `路径含变量(${s.slice(0, 60)})⇒ 实际落点要等运行时才知道,本维不猜` }
+  const tail = m[1].replace(/^['"]/, '').replace(/['"]$/, '')
+  if (tail.includes('$')) return { why: `路径含第二个变量(${s.slice(0, 60)})⇒ 静态读不出` }
+  const cleaned = tail.replace(/^[\\/]+/, '')
+  if (cleaned === '')
+    return { why: `$PSScriptRoot 本身是目录不是脚本(${s.slice(0, 60)})⇒ 没有可比的 mtime` }
+  return { path: path.win32.resolve(scriptDir, cleaned) }
+}
+
+/** PowerShell 参数表切分:逗号与空白等价,引号串与嵌套括号整体保留。 */
+function splitPowerShellArgs(s) {
+  const out = []
+  let cur = ''
+  let quote = null
+  let i = 0
+  while (i < s.length) {
+    const c = s[i]
+    if (quote) {
+      cur += c
+      if (c === quote) quote = null
+      i++
+      continue
+    }
+    if (c === "'" || c === '"') {
+      quote = c
+      cur += c
+      i++
+      continue
+    }
+    if (c === '(') {
+      let depth = 1
+      cur += c
+      i++
+      while (i < s.length && depth > 0) {
+        if (s[i] === '(') depth++
+        else if (s[i] === ')') depth--
+        cur += s[i]
+        i++
+      }
+      continue
+    }
+    if (c === ',' || /\s/.test(c)) {
+      if (cur !== '') out.push(cur)
+      cur = ''
+      i++
+      continue
+    }
+    cur += c
+    i++
+  }
+  if (cur !== '') out.push(cur)
+  return out
+}
+
+/** 行尾注释只在引号/括号之外才算注释(`. 'a#b.ps1' # 说明` 里的 `#` 不是分隔)。 */
+function cutTrailingComment(s) {
+  let quote = null
+  let depth = 0
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]
+    if (quote) {
+      if (c === quote) quote = null
+      continue
+    }
+    if (c === "'" || c === '"') {
+      quote = c
+      continue
+    }
+    if (c === '(') depth++
+    else if (c === ')') depth--
+    else if (c === '#' && depth === 0 && /(^|\s)$/.test(s.slice(0, i))) return s.slice(0, i)
+  }
+  return s
+}
+
+/** 从一份 PowerShell 脚本文本里抽出它 dot-source 的仓内脚本。
+ *  **只认点号族与 Dot-Source,不认 `&`**(2026-10-11 票 G-1080903 的取舍,不是漏):`&` 是调用不是载入,
+ *  被它调的子脚本按**调用时刻**读取、改了立刻生效 —— 把 `&` 也收进来会把这类正常形态错算成"必须重启才生效",
+ *  产出的不是少判而是**假 stale**(与本文件 resolveLoadedScript 那段"模糊匹配产出假 stale"同一条禁令)。
+ *  已知看不见形态(如实登记,不得读成"已确认没有"):here-string(`@' … '@`)与块注释中部起始不在行首的
+ *  `<#` 里的 dot-source。**这一漏的代价是有界的**:抽错出来的假路径下一步必然走 statFile 失败 ⇒ 落未判定并点名,
+ *  不会被读成"新鲜";而抽漏的那一条只是这一维没覆盖到,不是给仓库发合格证。 */
+export function extractDotSourcedScripts({ text, scriptDir }) {
+  if (typeof text !== 'string' || text === '')
+    return unmeasured(
+      'dot-source 取材没有正文(调用方没读到文本)⇒ 这一维没量到,不得记成"这份脚本没有 dot-source"',
+    )
+  if (typeof scriptDir !== 'string' || !/^[A-Za-z]:[\\/]/.test(scriptDir))
+    return unmeasured(
+      `dot-source 的相对落点无从确定(scriptDir=${scriptDir ?? '(未给)'})⇒ 不猜绝对路径`,
+    )
+  const items = []
+  let inBlockComment = false
+  for (const lineRaw of text.split(/\r?\n/)) {
+    const line = lineRaw.trim()
+    if (line === '') continue
+    if (inBlockComment) {
+      if (line.includes('#>')) inBlockComment = false
+      continue
+    }
+    if (/^<#/.test(line)) {
+      if (!line.includes('#>')) inBlockComment = true
+      continue
+    }
+    if (line.startsWith('#')) continue
+    const m = /^(?:\.|Dot-Source)\s+(\S.*)$/i.exec(line)
+    if (!m) continue
+    const arg = cutTrailingComment(m[1]).trim()
+    if (arg === '') {
+      items.push({ raw: m[1].trim(), path: null, why: '点号后没有参数' })
+      continue
+    }
+    // 一条行只取第一个操作数;多操作数(`. (Join-Path a b c)`)整体交给 resolveDotSourceOperand。
+    const first = splitPowerShellArgs(arg)[0] ?? arg
+    const r = resolveDotSourceOperand(first, scriptDir)
+    if (r.why) {
+      items.push({ raw: arg, path: null, why: r.why })
+      continue
+    }
+    if (!/\.ps1$/i.test(r.path)) {
+      items.push({
+        raw: arg,
+        path: null,
+        why: `点号目标不是 .ps1(${r.path})⇒ 不在本维射程(dot-source 别的扩展名极少见,收了只会造出读不出的路径)`,
+        ignored: true,
+      })
+      continue
+    }
+    items.push({ raw: arg, path: r.path })
+  }
+  const paths = []
+  const seen = new Set()
+  for (const it of items) {
+    if (!it.path) continue
+    const key = it.path.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    paths.push(it.path)
+  }
+  const truncated = paths.length > DOT_SOURCE_MAX
+  return measured({
+    items,
+    paths: truncated ? paths.slice(0, DOT_SOURCE_MAX) : paths,
+    declaredTotal: paths.length,
+    truncated,
+  })
+}
+
+/** dot-source 层的取材与比较(深度**封顶 1**:只跟 -File 那份脚本的直接 dot-source,不再往下爬)。
+ *  封顶理由两条,缺一不可写:① 循环 dot-source(a→b→a)不加封顶就是无限递归;② 封顶不等于"第二层不存在",
+ *  所以**读了每个模块的正文只为判它自己有没有第二层**,有就报名"已知未覆盖"并点名模块,绝不静默 ——
+ *  否则"第二层没跟到"这件事会以"这一维绿着"的形态存在(本仓最高频失效型:判据失效的表现永远是安静)。
+ *  四条失效出口都落 undetermined 并各带原因:没有读取出口 / 读不到 -File 正文 / 模块 statFile 失败 /
+ *  模块正文读不到(第二层因此无从判定)。而"量到的空"与"没量到"分档:
+ *  PowerShell 脚本里确实没有 dot-source ⇒ note(量到的空),加载目标根本不是 .ps1 ⇒ note(不适用)——
+ *  两者都不是"这一维失明",把它们写成失明会让每台 PowerShell 服务都拿不到合格证(与 item4 的字面不同、
+ *  与本文件 computeObservedListening 那句"量到的空 vs 没量到"同一条纪律)。 */
+function collectDotSourceLayer({ scriptPath, startMs, statFile, readScriptText }) {
+  const out = { scanned: 0, stale: [], undetermined: [], nested: [], notes: [] }
+  if (!/\.ps1$/i.test(scriptPath)) {
+    out.notes.push(
+      `加载目标不是 .ps1(${scriptPath})⇒ dot-source 是 PowerShell 语法,这一维对它没有对象(是"不适用",不是"已确认没有")`,
+    )
+    return out
+  }
+  if (typeof readScriptText !== 'function') {
+    out.undetermined.push(
+      `调用方没有注入 readScriptText 出口 ⇒ 读不到 ${scriptPath} 的正文,dot-source 清单无从得出`,
+    )
+    return out
+  }
+  const rd = readScriptText(scriptPath)
+  if (!rd || rd.ok !== true) {
+    out.undetermined.push(
+      `读不到 -File 那份脚本的正文(${scriptPath}):${rd?.why ?? '读取出口没给原因'}`,
+    )
+    return out
+  }
+  const ex = extractDotSourcedScripts({ text: rd.text, scriptDir: path.win32.dirname(scriptPath) })
+  if (ex.kind === 'unmeasured') {
+    out.undetermined.push(`dot-source 抽取无法判定(${scriptPath}):${ex.reason}`)
+    return out
+  }
+  const found = ex.value
+  for (const it of found.items) {
+    if (it.path) continue
+    if (it.ignored) out.notes.push(`抽到一个点号目标但不在射程:${it.raw} —— ${it.why}`)
+    else out.undetermined.push(`抽到一个 dot-source 而路径读不出:${it.raw} —— ${it.why}`)
+  }
+  if (found.truncated)
+    out.undetermined.push(
+      `${scriptPath} 的 dot-source 超过上限 ${DOT_SOURCE_MAX}(共 ${found.declaredTotal} 条)⇒ 只跟前 ${DOT_SOURCE_MAX} 份,其余这一轮没量到`,
+    )
+  if (found.paths.length === 0 && out.undetermined.length === 0)
+    out.notes.push(`${scriptPath} 未 dot-source 任何 .ps1 ⇒ 这一维没有对象(量到的空,不是没量到)`)
+  for (const mp of found.paths) {
+    const st =
+      typeof statFile === 'function'
+        ? statFile(mp)
+        : { ok: false, why: '调用方未提供 statFile 出口' }
+    if (!st?.ok) {
+      out.undetermined.push(
+        `读不到模块 mtime(${mp}):${st?.why ?? '未知原因'} ⇒ 这一份没量到,不得记成新鲜`,
+      )
+      continue
+    }
+    out.scanned++
+    const deltaMs = st.mtimeMs - startMs
+    if (deltaMs > 0) out.stale.push({ path: mp, mins: Math.round(deltaMs / 60000) })
+    const rd2 = readScriptText(mp)
+    if (!rd2 || rd2.ok !== true) {
+      out.undetermined.push(
+        `读不到模块正文(${mp}):${rd2?.why ?? '读取出口没给原因'} ⇒ 它自己有没有第二层无从判定`,
+      )
+      continue
+    }
+    const ex2 = extractDotSourcedScripts({ text: rd2.text, scriptDir: path.win32.dirname(mp) })
+    if (ex2.kind === 'unmeasured') {
+      out.undetermined.push(`模块 ${mp} 的第二层抽取判不出:${ex2.reason}`)
+      continue
+    }
+    if (ex2.value.paths.length > 0)
+      out.nested.push(
+        `${mp} 自身还 dot-source ${ex2.value.paths.length} 份(${ex2.value.paths.map((p) => path.win32.basename(p)).join(', ')})` +
+          '⇒ 深度封顶 1,这一层**已知未覆盖**(不判红,也不得读成"已确认它们新鲜")',
+      )
+  }
+  return out
+}
+
+/** 运行时代码新鲜度:进程启动时刻 vs 它加载的那份脚本的 mtime,**以及那份脚本 dot-source 进来的共享模块**。
  *  立因(2026-10-01 实测):改完生产脚本、镜像了运行副本、**没重启服务** ⇒ 线上仍跑旧版式;
  *  当天 09:08 那班备份失败后没触发重试,正是因为那个进程 09:08 启动时读到的还是重试层落地
  *  (`43a0b7c01c`,14:16)之前的旧副本 —— 账面"已修",线上跑的却是没修的代码,而全链没有任何一处会喊。
- *  射程边界(必须写进结论,否则下一个人去修不存在的东西):**只判进程启动时 -File 加载的那一份**。
- *  那份脚本运行时用 `&` 调用的子脚本按调用时刻读取,改了立刻生效,不属本维、也不该被算成 stale。 */
-export function judgeRuntimeFreshness({ state, start, paramsTexts, paramsUnmeasuredReason, statFile }) {
-  if (state !== 'RUNNING') return unmeasured(`服务态=${state ?? '(未量到)'},非 RUNNING ⇒ 没有活进程可与脚本比(它停着这件事由 STATE 维负责,本维不重复计账)`)
+ *  射程边界(2026-10-11 按 G-1080903 扩了一格,旧那句"只判 -File 那一份"曾是**本维自己的洞**):
+ *  ① 进程启动那一刻读进内存的,除 -File 那份脚本之外,还有它 `. ` / `Dot-Source` 进来的共享模块 ——
+ *     当天真实自伤就是这一型:改的是被 `ihui-monitor.ps1` dot-source 进去的 `alert-dedup.ps1`,
+ *     这一维全程无信号,"改完没生效"没人喊,只能人工比对进程启动时刻与落地提交才判出要重启。
+ *  ② 那份脚本运行时用 `&` 调用的子脚本按调用时刻读取,改了立刻生效,**不属本维、也不该被算成 stale**
+ *     (这就是抽取层不认 `&` 的理由,见 extractDotSourcedScripts 头注)。
+ *  ③ 第二层 dot-source 一律**不判红但报名**(封顶 1);量不到的一律落未判定并点名,绝不写成新鲜。 */
+export function judgeRuntimeFreshness({
+  state,
+  start,
+  paramsTexts,
+  paramsUnmeasuredReason,
+  statFile,
+  readScriptText,
+}) {
+  if (state !== 'RUNNING')
+    return unmeasured(
+      `服务态=${state ?? '(未量到)'},非 RUNNING ⇒ 没有活进程可与脚本比(它停着这件事由 STATE 维负责,本维不重复计账)`,
+    )
   if (!start) return unmeasured('进程枚举里没有这个服务的启动时刻条目 ⇒ 无从比较')
   if (start.kind === 'na') return unmeasured('服务 pid=0(未运行或非进程型)⇒ 读不到启动时刻')
   if (start.kind === 'err') return unmeasured('读不到进程启动时刻(权限不足或进程在读取得已退出)')
-  if (start.kind === 'gone') return unmeasured('pid>0 但已查不到该进程(取样与读取之间进程替换)⇒ 这一轮不判')
-  if (start.kind !== 'ticks') return unmeasured('进程枚举给的是旧版式三段 SV 行,启动时刻未采集(是"没采",不是"没有")')
+  if (start.kind === 'gone')
+    return unmeasured('pid>0 但已查不到该进程(取样与读取之间进程替换)⇒ 这一轮不判')
+  if (start.kind !== 'ticks')
+    return unmeasured('进程枚举给的是旧版式三段 SV 行,启动时刻未采集(是"没采",不是"没有")')
   const startMs = ticksToMs(start.ticks)
   if (startMs === null) return unmeasured(`启动时刻 ticks 解不出(${start.ticks})⇒ 不猜`)
-  const target = paramsTexts === undefined || paramsTexts === null || (Array.isArray(paramsTexts) && paramsTexts.length === 0)
-    ? unmeasured(paramsUnmeasuredReason ?? 'AppParameters 未量到 ⇒ 判不出加载目标')
-    : resolveLoadedScript(paramsTexts)
+  const target =
+    paramsTexts === undefined ||
+    paramsTexts === null ||
+    (Array.isArray(paramsTexts) && paramsTexts.length === 0)
+      ? unmeasured(paramsUnmeasuredReason ?? 'AppParameters 未量到 ⇒ 判不出加载目标')
+      : resolveLoadedScript(paramsTexts)
   if (target.kind === 'unmeasured') return target
   const path = target.value
-  if (!/^[A-Za-z]:[\\/]/.test(path)) return unmeasured(`加载目标不是绝对路径(${path})⇒ 落点由工作目录决定,本维不判`)
-  const st = typeof statFile === 'function' ? statFile(path) : { ok: false, why: '调用方未提供 statFile 出口' }
+  if (!/^[A-Za-z]:[\\/]/.test(path))
+    return unmeasured(`加载目标不是绝对路径(${path})⇒ 落点由工作目录决定,本维不判`)
+  const st =
+    typeof statFile === 'function'
+      ? statFile(path)
+      : { ok: false, why: '调用方未提供 statFile 出口' }
   if (!st.ok) return unmeasured(`读不到脚本 mtime(${path}):${st.why ?? '未知原因'}`)
   const deltaMs = st.mtimeMs - startMs
   const mins = Math.round(deltaMs / 60000)
   const stamp = (ms) => new Date(ms).toISOString().slice(0, 16).replace('T', ' ')
+  // dot-source 层(-File 本身那一维已在上面算完,下面这一段不改它的结论,只补"还有别的文件也是启动时载入的")
+  const layer = collectDotSourceLayer({ scriptPath: path, startMs, statFile, readScriptText })
+  const shape = {
+    modulesScanned: layer.scanned,
+    modulesStale: layer.stale,
+    modulesUndetermined: layer.undetermined,
+    modulesNested: layer.nested,
+    modulesNotes: layer.notes,
+  }
+  const moduleTail = layer.stale.length
+    ? `;另有 ${layer.stale.length} 份被 dot-source 进来的共享模块同样新于进程:` +
+      layer.stale.map((m) => `${m.path}(旧 ${m.mins} 分钟)`).join('、')
+    : ''
   if (deltaMs > 0)
     return measured({
       verdict: 'stale',
       path,
-      detail: `运行中的进程比它加载的脚本旧 ${mins} 分钟 ⇒ 线上跑的是旧代码(${path}:进程启动 ${stamp(startMs)} / 脚本改写 ${stamp(st.mtimeMs)};` +
-        `判的仅是启动时加载的那一份,它运行中用 & 调的子脚本按调用时刻生效,不在本维)`,
+      detail:
+        `运行中的进程比它加载的脚本旧 ${mins} 分钟 ⇒ 线上跑的是旧代码(${path}:进程启动 ${stamp(startMs)} / 脚本改写 ${stamp(st.mtimeMs)};` +
+        `判的是启动那一刻载入的脚本本体与它 dot-source 进来的共享模块;它运行中用 & 调的子脚本按调用时刻生效,不在本维)${moduleTail}`,
+      ...shape,
     })
-  return measured({ verdict: 'fresh', path, detail: `${path}:进程启动(${stamp(startMs)})晚于或等于脚本改写(${stamp(st.mtimeMs)})⇒ 加载的就是这份内容` })
+  // -File 那一份是新的,但被 dot-source 进来的模块比进程新 ⇒ 仍然 stale:那一份内容根本没进过这个进程
+  // (2026-10-11 那一次改的就是这种文件,而旧口径全程无信号)。
+  if (layer.stale.length > 0)
+    return measured({
+      verdict: 'stale',
+      path,
+      detail:
+        `运行中的进程比它 dot-source 进来的共享模块旧 ⇒ 线上跑的是旧代码,且**该模块是被 dot-source 进去的、不是 -File 那一份**:` +
+        layer.stale
+          .map((m) => `${m.path}(进程启动 ${stamp(startMs)} / 模块改写后 ${m.mins} 分钟)`)
+          .join('、') +
+        `(-File 那一份本身 ${path} 的 mtime 早于进程启动,所以只看它会一路报绿)`,
+      ...shape,
+    })
+  // dot-source 层有量不到出口 ⇒ 整维**未判定**并点名(2026-10-12 补的洞):此前这里直接落
+  // fresh,而 judgeService 只认 verdict ⇒ 模块 mtime/正文读不到会被静默发"新鲜"——
+  // modulesUndetermined 无任何消费方、renderText 也不披露,正是本文件头注
+  // "量不到的一律落未判定并点名,绝不写成新鲜"禁止的那一型(判据失效的表现永远是安静)。
+  // notes(量到的空/不适用)与 nested(第二层已知未覆盖)不在此列:那两档是**已登记的有界边界**,
+  // 头注明确它们不判红也不失明;只有"试了而没量到"的四条出口(无读取出口/读不到 -File 正文/
+  // 模块 statFile 失败/模块正文读不到)才把整维拖成未判定。
+  if (layer.undetermined.length > 0)
+    return unmeasured(
+      `dot-source 层有 ${layer.undetermined.length} 处没量到(点名,不得记成新鲜):` +
+        layer.undetermined.join(';'),
+    )
+  return measured({
+    verdict: 'fresh',
+    path,
+    detail: `${path}:进程启动(${stamp(startMs)})晚于或等于脚本改写(${stamp(st.mtimeMs)})⇒ 加载的就是这份内容`,
+    ...shape,
+  })
 }
 
 
@@ -1116,6 +1477,9 @@ async function inspectService({ name, stateValue, regRow, regChannelMeasured, in
       paramsTexts: nssmParameters.kind === 'measured' ? nssmParameters.value : null,
       paramsUnmeasuredReason: nssmParameters.kind === 'unmeasured' ? nssmParameters.reason : null,
       statFile: deps.statFile,
+      // dot-source 层(2026-10-11 票 G-1080903):被 -File 那份脚本 `. ` 进去的共享模块同样是启动那一刻读进内存的。
+      // 这个出口不递进去,新那一层就会对每一次真实运行都落"没有读取出口"的未判定 —— 形状锁在镜像测试里。
+      readScriptText: deps.readScriptText,
     }),
   }
   const verdict = judgeService(rec)
@@ -1942,6 +2306,7 @@ export const __test__ = {
   PROC_SCRIPT_SHAPE_FORMS,
   attributeListening, probeHostForBind, buildProbeTargets, foldProbeOutcome, computeObservedListening,
   ticksToMs, resolveLoadedScript, judgeRuntimeFreshness, TICKS_EPOCH_DIFF_MS,
+  extractDotSourcedScripts, DOT_SOURCE_MAX,
   ENUM_HEAD, ENUM_TAIL, PROC_HEAD, PROC_TAIL, REG_NO_PARAMS, REG_ENCODE_ERROR, PS_CANDIDATES, NSSM_CANDIDATES,
   NETSTAT_CANDIDATES, LOOPBACK_PROBE_HOST, SYSTEM_PID_FLOOR, MAX_PROBE_PORTS, TREE_MAX_DEPTH, TREE_MAX_NODES,
   NSSM_TIMEOUT_MS, TCP_TIMEOUT_MS, NETSTAT_TIMEOUT_MS, PROC_TIMEOUT_MS, defaultDeps,

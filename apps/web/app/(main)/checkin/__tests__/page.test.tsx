@@ -32,20 +32,31 @@ import {
 import { useTauriIpcReady } from '@/hooks/use-desktop'
 import type { CheckinAccount, CheckinRecord, CheckinCreditsHistoryItem } from '@ihui/api-client'
 
-const { listAccounts, listRecords, listCredits, createAccount, deleteAccount, setEnabled, manualCheckin, updateJwt, updateGroup, schedulerStatus, fetchAiService } =
-  vi.hoisted(() => ({
-    listAccounts: vi.fn(),
-    listRecords: vi.fn(),
-    listCredits: vi.fn(),
-    createAccount: vi.fn(),
-    deleteAccount: vi.fn(),
-    setEnabled: vi.fn(),
-    manualCheckin: vi.fn(),
-    updateJwt: vi.fn(),
-    updateGroup: vi.fn(),
-    schedulerStatus: vi.fn(),
-    fetchAiService: vi.fn(),
-  }))
+const {
+  listAccounts,
+  listRecords,
+  listCredits,
+  createAccount,
+  deleteAccount,
+  setEnabled,
+  manualCheckin,
+  updateJwt,
+  updateGroup,
+  schedulerStatus,
+  fetchAiService,
+} = vi.hoisted(() => ({
+  listAccounts: vi.fn(),
+  listRecords: vi.fn(),
+  listCredits: vi.fn(),
+  createAccount: vi.fn(),
+  deleteAccount: vi.fn(),
+  setEnabled: vi.fn(),
+  manualCheckin: vi.fn(),
+  updateJwt: vi.fn(),
+  updateGroup: vi.fn(),
+  schedulerStatus: vi.fn(),
+  fetchAiService: vi.fn(),
+}))
 
 // 残留审计基线报告(无残留)。vi.hoisted 提前:vi.mock 工厂在 import 期就要用它做默认值。
 const { cleanAudit } = vi.hoisted(() => ({
@@ -88,21 +99,18 @@ vi.mock('@/components/charts/EChart', () => ({
 }))
 
 vi.mock('next-intl', () => ({
-  useTranslations:
-    () =>
-    (key: string, values?: Record<string, unknown>) => {
-      if (values && 'name' in values) return `${key}:${values.name}`
-      if (values && 'days' in values) return `${key}:${values.days}`
-      if (values && 'time' in values) return `${key}:${values.time}`
-      if (values && 'delta' in values) return `${key}:${values.delta}`
-      if (values && 'ok' in values) return `${key}:${values.ok}/${values.total}`
-      if (values && 'ip' in values) return `${key}:${values.ip}`
-      if (values && 'hours' in values) return `${key}:${values.hours}`
-      if (values && 'n' in values) return `${key}:${values.n}`
-      if (values && 'files' in values)
-        return `${key}:${values.files}/${values.mb}/${values.sites}`
-      return key
-    },
+  useTranslations: () => (key: string, values?: Record<string, unknown>) => {
+    if (values && 'name' in values) return `${key}:${values.name}`
+    if (values && 'days' in values) return `${key}:${values.days}`
+    if (values && 'time' in values) return `${key}:${values.time}`
+    if (values && 'delta' in values) return `${key}:${values.delta}`
+    if (values && 'ok' in values) return `${key}:${values.ok}/${values.total}`
+    if (values && 'ip' in values) return `${key}:${values.ip}`
+    if (values && 'hours' in values) return `${key}:${values.hours}`
+    if (values && 'n' in values) return `${key}:${values.n}`
+    if (values && 'files' in values) return `${key}:${values.files}/${values.mb}/${values.sites}`
+    return key
+  },
 }))
 
 vi.mock('lucide-react', () => {
@@ -141,8 +149,7 @@ vi.mock('@/lib/tauri-bridge', () => ({
 }))
 
 vi.mock('@ihui/ui-react', () => {
-  const Passthrough =
-    (tag: string, testId?: string) =>
+  const Passthrough = (tag: string, testId?: string) =>
     function Passthrough({ children, ...rest }: React.PropsWithChildren<Record<string, unknown>>) {
       return (
         <div data-testid={testId ?? tag} {...rest}>
@@ -343,9 +350,7 @@ describe('签到助手页面 · 账号列表与记录', () => {
 
   it('删除:确认对话框中确认后调用删除端点', async () => {
     render(<CheckinPage />)
-    const delBtn = await waitFor(() =>
-      screen.getByRole('button', { name: 'delete' }),
-    )
+    const delBtn = await waitFor(() => screen.getByRole('button', { name: 'delete' }))
     fireEvent.click(delBtn)
     expect(screen.getByText('deleteTitle')).toBeTruthy()
     expect(screen.getByText('deleteDescription:主账号')).toBeTruthy()
@@ -426,12 +431,14 @@ describe('签到助手页面 · 更新JWT/徽章/调度/过滤/加载更多', ()
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
     expect(screen.getByText('jwtExpired')).toBeTruthy()
-    expect(screen.getByText(`cooldownUntil:${cooldownIso.slice(5, 16).replace('T', ' ')}`)).toBeTruthy()
+    expect(
+      screen.getByText(`cooldownUntil:${cooldownIso.slice(5, 16).replace('T', ' ')}`),
+    ).toBeTruthy()
     expect(screen.getByText('jwtExpiresSoon:3')).toBeTruthy()
     expect(screen.getByText(normalIso.slice(0, 10))).toBeTruthy()
   })
 
-  it('最近签到失败信息:ok=false 且有 message 时追加小字(截断 40)', async () => {
+  it('最近签到失败信息:ok=false 且有 message 时追加小字(TruncatedText 溢出省略,禁原生 title)', async () => {
     const failedMessage = 'y'.repeat(45)
     const failed = makeAccount({
       id: 1,
@@ -445,8 +452,9 @@ describe('签到助手页面 · 更新JWT/徽章/调度/过滤/加载更多', ()
     })
     mockLoadSuccess({ accounts: [failed] })
     render(<CheckinPage />)
-    const el = await waitFor(() => screen.getByTitle(failedMessage))
-    expect(el.textContent).toBe(`${'y'.repeat(40)}…`)
+    const el = await waitFor(() => screen.getByText(failedMessage))
+    expect(el.className).toContain('truncate')
+    expect(el.getAttribute('title')).toBeNull()
   })
 
   it('记录表信息列:colMessage 渲染,长 message 截断 60 并悬浮全文', async () => {
@@ -556,7 +564,10 @@ describe('签到助手页面 · 更新JWT/徽章/调度/过滤/加载更多', ()
 
   it('分组筛选:选择分组后账号表只显示该组账号(下拉 option 不受影响)', async () => {
     mockLoadSuccess({
-      accounts: [makeAccount({ id: 1, group: '主力' }), makeAccount({ id: 2, name: '小号', group: '' })],
+      accounts: [
+        makeAccount({ id: 1, group: '主力' }),
+        makeAccount({ id: 2, name: '小号', group: '' }),
+      ],
     })
     render(<CheckinPage />)
     const select = (await waitFor(() => screen.getByTestId('group-filter'))) as HTMLSelectElement
@@ -569,15 +580,17 @@ describe('签到助手页面 · 更新JWT/徽章/调度/过滤/加载更多', ()
     expect(screen.getAllByText('小号').length).toBe(2)
   })
 
-  it('调度状态徽章:运行中显示启用与下次执行时间', async () => {
+  it('调度状态徽章:运行中在标题下方显示弱化状态(不显示下次执行时间)', async () => {
     schedulerStatus.mockResolvedValue({
       enabled: true,
       started: true,
       next_run: '2026-10-09T08:00:00+00:00',
+      next_run_qoder: '2026-10-09T10:00:00+00:00',
     })
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getByText('schedulerEnabled')).toBeTruthy())
-    expect(screen.getByText('schedulerNextRun:10-09 08:00')).toBeTruthy()
+    // 2026-10-12 机主要求:徽章移到标题下方,不再展示下次执行时间
+    expect(screen.queryByText(/schedulerNextRun/)).toBeNull()
   })
 
   it('调度状态拉取失败:静默不显示徽章', async () => {
@@ -593,9 +606,7 @@ describe('签到助手页面 · 更新JWT/徽章/调度/过滤/加载更多', ()
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
     const select = screen.getByTestId('record-filter') as HTMLSelectElement
     fireEvent.change(select, { target: { value: '1' } })
-    await waitFor(() =>
-      expect(listRecords).toHaveBeenLastCalledWith({ accountId: 1, limit: 100 }),
-    )
+    await waitFor(() => expect(listRecords).toHaveBeenLastCalledWith({ accountId: 1, limit: 100 }))
     expect(listAccounts).toHaveBeenCalledTimes(2)
   })
 
@@ -666,7 +677,9 @@ describe('签到助手页面 · 一键解决风控向导', () => {
 
   it('全流程:一键重置 → 显示基准 IP → 换网验证通过 → 冷却完成态+重新开始', async () => {
     await openMaint()
-    vi.mocked(checkinOneClickReset).mockResolvedValue({ layers: Array.from({ length: 14 }, (_, i) => wizardLayer(i)) })
+    vi.mocked(checkinOneClickReset).mockResolvedValue({
+      layers: Array.from({ length: 14 }, (_, i) => wizardLayer(i)),
+    })
     vi.mocked(checkinGetPublicIp)
       .mockResolvedValueOnce({ ip: '1.2.3.4', location: '中国 吉林 长春 电信' })
       .mockResolvedValueOnce({ ip: '5.6.7.8', location: '' })
@@ -899,7 +912,10 @@ describe('Qoder 平台化(2026-10-10)', () => {
     expect(arg.platform).toBe('qoder')
     expect(arg.jwt).toBe('tok-1')
     expect(arg.name).toContain('Qoder-cn')
+    // 2026-10-12:uid 落 device_map(Qoder token 是 opaque 非 JWT,服务端 uid 只能从这里读)
+    expect(arg.device_map.uid).toBe('q-1')
     expect(arg.device_map.refresh_token).toBe('rt-1')
+    expect(arg.device_map.expires_at).toBe(123)
     expect(arg.device_map.cosy.machine_id).toBe('mid')
     expect(arg.device_map.cosy.client_type).toBe('10')
   })
