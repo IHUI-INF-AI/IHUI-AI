@@ -8,7 +8,15 @@
   "declaredOn": "2026-10-02",
   "purpose": "本文件是 postgres_exporter 采集器开关的**入库真相源**。处置(关掉 wal 采集器)原先只存在于本机 nssm 服务配置里,换机/重装会静默回潮成每 15 秒一次 `pq: permission denied for function pg_ls_waldir`;把它写进仓里,再由 scripts/check-wal-collector-state.mjs 按同一份声明与机器实际状态对账。",
   "reconciledBy": "scripts/check-wal-collector-state.mjs",
-  "expectedAppParameters": ["--web.listen-address=127.0.0.1:9187", "--no-collector.wal"],
+  "expectedAppParameters": ["--web.listen-address=127.0.0.1:9187", "--no-collector.wal", "--extend.query-path=<仓库根>/monitoring/postgres-exporter/queries.yml"],
+  "extendQueryPath": {
+    "flag": "--extend.query-path=<仓库根>/monitoring/postgres-exporter/queries.yml",
+    "why": "PG 查询延迟(慢查询)指标的唯一采集入口。queries.yml 定义 pg_query_max_duration_seconds(pg_stat_activity.query_start 语义,排除 beifen 备份用户),供 alerts.yml 的 PgSlowQuery/PgVerySlowQuery 消费。2026-10-12 桌面端 SSO 授权故障(生产 PG 半死、auth/refresh 18s+ 挂起)暴露'活着但慢'无尺子 —— PostgresDown 一条都不响,故补这一格。",
+    "appliedOn": "2026-10-12(与本文件同笔入库;生产机 nssm set + Restart-Service ihui-pg-exporter 由监控面持有人执行)",
+    "verify": "重启后等一个采集周期(15s):`curl -s http://127.0.0.1:9187/metrics | grep pg_query_max_duration_seconds` 应有序列;随后 prometheus reload,`curl -s http://127.0.0.1:8815/api/v1/label/__name__/values | grep -c pg_query_max_duration_seconds` 转正后,scripts/data/inert-alert-rules.json 里 PgSlowQuery/PgVerySlowQuery 两条待偿条目必须撤掉。",
+    "undoCommand": "nssm set ihui-pg-exporter AppParameters \"--web.listen-address=127.0.0.1:9187 --no-collector.wal\"",
+    "undoNote": "撤销 = 去掉 --extend.query-path(改完必须重启服务才生效)。撤了指标即消失,两条告警回到 inert —— 那时应按 P6 台账裁 deferred 而不是让它们裸红。"
+  },
   "disabledCollectors": [
     {
       "name": "wal",
