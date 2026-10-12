@@ -161,7 +161,7 @@ groups:
           severity: warning
         annotations:
           summary: 'PostgreSQL 查询延迟超 5s'
-          description: '最长活跃查询已运行 {{ $value | humanizeDuration }}s(排除备份用户),PG 疑似退化;登录/续期等轻端点会一起变慢,排查:SELECT pid, now()-query_start, state, query FROM pg_stat_activity WHERE state=''active'' ORDER BY 2 DESC'
+          description: '最长活跃查询已运行 {{ $value | humanizeDuration }}(排除备份用户),PG 疑似退化;登录/续期等轻端点会一起变慢,排查:SELECT pid, now()-query_start, state, query FROM pg_stat_activity WHERE state=''active'' ORDER BY 2 DESC'
       - alert: PgVerySlowQuery
         expr: max(pg_query_max_duration_seconds) > 30
         for: 1m
@@ -169,7 +169,7 @@ groups:
           severity: critical
         annotations:
           summary: 'PostgreSQL 查询延迟超 30s'
-          description: '最长活跃查询已运行 {{ $value | humanizeDuration }}s(排除备份用户),PG 严重退化,用户端已可感知卡顿;排查同上 SQL 定位长事务,确认误伤后可 SELECT pg_terminate_backend(pid)'
+          description: '最长活跃查询已运行 {{ $value | humanizeDuration }}(排除备份用户),PG 严重退化,用户端已可感知卡顿;排查同上 SQL 定位长事务,确认误伤后可 SELECT pg_terminate_backend(pid)'
 
       # Redis 实例 down
       - alert: RedisDown
