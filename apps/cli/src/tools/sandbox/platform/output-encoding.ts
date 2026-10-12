@@ -164,6 +164,7 @@ function defaultChcpProbe(comspec: string): string | null {
       timeout: CHCP_PROBE_TIMEOUT_MS,
       windowsHide: true,
       // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      // (2026-10-12 G-977954 收尾时发现被整文件重写挤掉,按坑册原样恢复)
       stdio: ['ignore', 'pipe', 'pipe'],
     });
   } catch {
