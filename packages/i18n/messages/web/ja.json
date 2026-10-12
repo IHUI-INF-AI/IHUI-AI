@@ -14439,17 +14439,8 @@
     "sections": "セクション目次"
   },
   "eduCoursesPage": {
-    "empty": "コースがありません",
-    "loading": "読み込み中...",
-    "progress": "進捗 {n}%",
-    "searchAriaLabel": "コースを検索",
-    "searchPlaceholder": "コースを検索...",
-    "statusCompleted": "完了",
-    "statusInProgress": "受講中",
-    "statusNotStarted": "未開始",
     "subtitle": "受講済みの全コースを管理",
-    "title": "マイコース",
-    "total": "全 {n} 件"
+    "title": "マイコース"
   },
   "eduDashboardPage": {
     "coursesCard": {
@@ -19069,6 +19060,15 @@
     "captureQoderDescription": "本機にログイン済みの Qoder クライアントのセッション資格情報（auth.v1.dat）を復号し、デバイスフィンガープリントを自動で付与します。Qoder にログインした同じ Windows ユーザーで本アプリを実行してください。",
     "captureQoderScan": "Qoder セッションをスキャン",
     "captureQoderEmpty": "ログイン済みの Qoder セッションが見つかりません（クライアントのサインインを確認してください）",
+    "platformWorkbuddy": "WorkBuddy",
+    "captureWbButton": "WorkBuddy を取得",
+    "captureWbTitle": "ローカルの WorkBuddy デスクトップから取得",
+    "captureWbDescription": "ローカルでログイン中の WorkBuddy デスクトップの認証情報(workbuddy-desktop.info)を読み取ります。クライアント 5.8+ はトークンを暗号化するため、該当アカウントはトークンを貼り付けてから取り込んでください(WorkBuddy のタスクで自身の環境変数を読めば取得できます)。",
+    "captureWbScan": "WorkBuddy のログイン状態をスキャン",
+    "captureWbEmpty": "ログイン済みの WorkBuddy 認証情報が見つかりません(デスクトップアプリのサインインを確認してください)",
+    "captureWbEncrypted": "トークンが必要",
+    "captureWbTokenPlaceholder": "WorkBuddy トークン(accessToken)を貼り付け",
+    "captureWbTokenRequired": "トークンが空です:このアカウントの認証情報は暗号化されているため、先にトークンを貼り付けてから取り込んでください",
     "captureDirFound": "ローカルの TRAE データディレクトリを検出しました：{dir}",
     "captureDirMissing": "ローカルの TRAE データディレクトリが見つかりません（環境変数 IHUI_TRAE_DIR で指定できます）",
     "captureEmpty": "ローカルのデータディレクトリから利用可能な JWT を検出できませんでした",

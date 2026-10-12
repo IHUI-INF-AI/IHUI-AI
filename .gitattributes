@@ -49,3 +49,6 @@ server/sdk/typescript-axios/api.ts filter=lfs diff=lfs merge=lfs -text
 *.tar.gz binary
 *.tgz binary
 *.7z binary
+
+# 影子对成员逐字节对账:禁任何换行归一(autocrlf 双机会让 S3 比对假漂移)
+deploy/scripts/prod-bundle/rdp-connector.bat -text
