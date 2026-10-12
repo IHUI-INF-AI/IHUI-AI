@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: f3cff5e2db273a4676e7aed661e83fc402c5c621
-// inputsSha256: 9eb3d0fb81d7a0db30c1e05b92792bdfd6ae0562e1494006a7a7014f14bb7342
+// sourceCommit: 7386d9457089d0eb9666d66f8894d6720099851c
+// inputsSha256: d663819aaf230dac1c8e0e0323cf25cb906d469f75cc4c6b167b8228fe1469a2
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx 3d3cf195c8dcb8ec142e08a1d50b9016687a48c3503839f0db0dff7f9bbce67e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -420,7 +420,7 @@
 // input: apps/web/app/(main)/chat/settings/page.tsx ac7b78cfb765452ecca82c101a7b659847744af0d2bf9a750e0e0f464edcf561
 // input: apps/web/app/(main)/chat/share/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/chat/templates/page.tsx d4171e1f2cb0c2069094468b9138c299e62f00f4c43426ce5cf35846528c26d8
-// input: apps/web/app/(main)/checkin/page.tsx 629ab34b3744fc54510c7d29e2d208dd3f5ec12be90224145bbbcec8c76a1617
+// input: apps/web/app/(main)/checkin/page.tsx 676eb56143bc2b26353f459d95a847ba8ce9714d2df9f2f864929fafe39cc047
 // input: apps/web/app/(main)/circles/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/circles/page.tsx 5dc5b147cc4e060a352c51f9480deb7b0063dfeae971c07933cd0a4fbbfd9cdd
 // input: apps/web/app/(main)/circles/post/page.tsx c0fe168de566874d24fbcc1208b6f93b142e9f2dc6c2874b51f422a9eed6dc57
@@ -915,7 +915,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 6df145382f287882d4dfd57434356f055a22a13afc39f5a8efff3edf6f8460a2
 // input: apps/web/app/status/page.tsx 73f528f7654b7eb8bf5d08493a07afa63ed1de621f5a792399270a41505bf2fd
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-10-12T17:07:47.157Z
+// generatedAt: 2026-10-12T18:39:24.350Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
