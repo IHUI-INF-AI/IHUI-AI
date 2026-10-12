@@ -65,9 +65,12 @@ param(
 $ErrorActionPreference = "Continue"
 
 # 仓库根按 $PSScriptRoot 推导,不写死盘符:本仓从 G: 迁到 D: 时,写死绝对路径的脚本集体失效过
-# 一次(AGENTS.md 顶部说明)。取不到再回落到本机实际路径。
-$Root = if ($PSScriptRoot) { Split-Path $PSScriptRoot -Parent | Split-Path -Parent } else { 'D:\IHUI-AI' }
-if (-not (Test-Path (Join-Path $Root 'package.json'))) { $Root = 'D:\IHUI-AI' }
+# 一次(AGENTS.md 顶部说明)。推导收敛到唯一实现 ihui-root-common.ps1(与 install-*-service.ps1
+# 同一份判据,禁止各写一遍 Split-Path 向上爬):$env:IHUI_ROOT 覆盖 → 自本文件目录逐级向上找
+# package.json → git toplevel → 回落旧根。旧版是"向上爬两层 + 手工 Test-Path 回落字面量"
+# 的半吊子版本:盘符回萔回 D:\IHUI-AI,换机后解析出另一个根。
+. (Join-Path $PSScriptRoot 'ihui-root-common.ps1')
+$Root = Resolve-IhuiProjectRoot -StartDir $PSScriptRoot
 
 # 运行态路径一律可被环境变量覆盖:否则 -Once 自检会写进服务的去重档案与告警日志,
 # 自检与服务互相吞告警(互相以为"对方已发过")。
