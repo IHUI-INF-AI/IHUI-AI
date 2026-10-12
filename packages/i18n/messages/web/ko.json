@@ -14439,17 +14439,8 @@
     "sections": "섹션 목차"
   },
   "eduCoursesPage": {
-    "empty": "강의가 없습니다",
-    "loading": "로딩 중...",
-    "progress": "진행률 {n}%",
-    "searchAriaLabel": "강의 검색",
-    "searchPlaceholder": "강의 검색...",
-    "statusCompleted": "완료",
-    "statusInProgress": "진행 중",
-    "statusNotStarted": "시작 전",
     "subtitle": "수강 신청한 모든 강의 관리",
-    "title": "내 강의",
-    "total": "총 {n}건"
+    "title": "내 강의"
   },
   "eduDashboardPage": {
     "coursesCard": {
@@ -19064,6 +19055,15 @@
     "captureQoderDescription": "이 머신에 로그인된 Qoder 클라이언트의 세션 자격 증명(auth.v1.dat)을 복호화하고 디바이스 지문을 자동으로 포함합니다. Qoder에 로그인한 것과 동일한 Windows 사용자로 이 앱을 실행해야 합니다.",
     "captureQoderScan": "Qoder 세션 스캔",
     "captureQoderEmpty": "로그인된 Qoder 세션을 찾지 못했습니다(클라이언트 로그인 상태를 확인하세요)",
+    "platformWorkbuddy": "WorkBuddy",
+    "captureWbButton": "WorkBuddy 캡처",
+    "captureWbTitle": "로컬 WorkBuddy 데스크톱에서 캡처",
+    "captureWbDescription": "로컬에 로그인된 WorkBuddy 데스크톱 자격 증명(workbuddy-desktop.info)을 읽습니다. 클라이언트 5.8+는 토큰을 암호화하므로, 해당 계정은 토큰을 붙여넣은 후 가져와야 합니다(WorkBuddy 작업에서 자체 환경 변수를 읽어 추출 가능).",
+    "captureWbScan": "WorkBuddy 로그인 상태 스캔",
+    "captureWbEmpty": "로그인된 WorkBuddy 자격 증명을 찾지 못했습니다(데스크톱 앱 로그인 상태를 확인하세요)",
+    "captureWbEncrypted": "토큰 필요",
+    "captureWbTokenPlaceholder": "WorkBuddy 토큰(accessToken) 붙여넣기",
+    "captureWbTokenRequired": "토큰이 비어 있습니다: 이 계정의 자격 증명은 암호화되어 있으므로 먼저 토큰을 붙여넣은 후 가져오세요",
     "captureDirFound": "로컬 TRAE 데이터 디렉터리를 감지했습니다: {dir}",
     "captureDirMissing": "로컬 TRAE 데이터 디렉터리를 찾을 수 없습니다(환경 변수 IHUI_TRAE_DIR로 지정 가능)",
     "captureEmpty": "로컬 데이터 디렉터리에서 사용 가능한 JWT를 찾지 못했습니다",
