@@ -586,7 +586,10 @@ export default function CheckinPage() {
         setWbWebLoginMsg(t('captureWbWebWindowClosed'))
         return true
       }
-      // ok:自动逐账号入库
+      // ok:自动逐账号入库(若签到接口不认 Cookie,如实告知但不阻断 —— 失败由冷却/提示兜底)
+      if (probe.cookie_checkin_ok === false) {
+        setWbWebLoginMsg(t('captureWbWebCheckinUncertain'))
+      }
       setWbWebLoginState('importing')
       setWbWebLoginMsg(t('captureWbWebImporting'))
       const failures: string[] = []
@@ -613,7 +616,11 @@ export default function CheckinPage() {
       setWbWebLoginState('done')
       setWbWebLoginMsg('')
       setWbCaptureOpen(false)
-      setBatchNotice(t('captureWbWebDone', { count: okCount }))
+      setBatchNotice(
+        probe.cookie_checkin_ok === false
+          ? `${t('captureWbWebDone', { count: okCount })} ${t('captureWbWebCheckinUncertain')}`
+          : t('captureWbWebDone', { count: okCount }),
+      )
       await loadAll()
       return true
     }
