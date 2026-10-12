@@ -539,12 +539,19 @@ if (!existsSync(TARGET)) {
 
 const current = readFileSync(TARGET, 'utf8').replaceAll('\r\n', '\n');
 if (current === expected) {
-  console.log(`[desktop-nsis-template] OK:仓库模板 == 当前 Tauri CLI 内置模板 + ${PATCHES.length} 处 IHUI 补丁`);
-  process.exit(0);
+  // ⚠️ 这里**不能**写成 `console.log(…)` 之后紧跟 `process.exit(0)`(2026-10-12 实测):
+  // stdout 是 pipe 时(守门并行派发 stdio: ['ignore','pipe','pipe']),本机 Node v24 上
+  // 该写法以 3/6~5/6 的概率打完 OK 文案后永不退出 ⇒ 子进程不死 ⇒ 守门链无界挂起。
+  // 改为「stdout 写完成回调里再退出」:退出发生在 libuv 写完成之后,不再与在途写竞争。
+  // 同法对照(各 6 次):E0 console.log+exit(0) 挂 3;本写法 0 挂。串行档 inherit 不受影响。
+  process.stdout.write(
+    `[desktop-nsis-template] OK:仓库模板 == 当前 Tauri CLI 内置模板 + ${PATCHES.length} 处 IHUI 补丁\n`,
+    () => process.exit(0),
+  )
+} else {
+  console.error('[desktop-nsis-template] DRIFT:仓库模板与当前 Tauri CLI 内置模板不一致,请 diff 后执行 --write');
+  console.error(`  仓库:${TARGET}`);
+  console.error(`  上游:${bin}`);
+  process.exit(1);
 }
-
-console.error('[desktop-nsis-template] DRIFT:仓库模板与当前 Tauri CLI 内置模板不一致,请 diff 后执行 --write');
-console.error(`  仓库:${TARGET}`);
-console.error(`  上游:${bin}`);
-process.exit(1);
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
