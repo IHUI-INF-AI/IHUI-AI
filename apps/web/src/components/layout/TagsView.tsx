@@ -496,10 +496,27 @@ export function TagsView() {
         // 窗口会恒定滞后约 40px(手感即"推着不动、停一下才跟上")。标签 a 自带 HTML5
         // 拖拽排序,不在此元素上,故不受影响。
         data-tauri-drag-region
-        className="hover-scroll flex h-full flex-1 items-center gap-1 whitespace-nowrap"
+        // 2026-10-12 修复「桌面端右上角窗口三按钮与标签行重叠」:
+        // - 根因:本行是 flex-1 的 flex item,overflow:visible 时自动最小尺寸 = min-content
+        //   (子标签 whitespace-nowrap + TOPBAR_BTN_BASE shrink-0 撑出 972px),于是行盒被
+        //   内容顶开,越过外层 min-w-0 的 wrap(实测 1280 宽下 wrap 仅 310px、row 却 972px)
+        //   直接伸到 Min/Max/Close 下方 —— 即用户看到的"标签行没有右侧宽度限制"。
+        // - 修法三件套:① overflow-x-auto 让本行成为滚动容器 → 自动最小尺寸归 0(行盒不再
+        //   被内容撑开)+ 越界标签被行盒裁掉(不再画到窗口按钮下面),onWheel 横向滚动随之
+        //   复活(此前不是滚动容器,scrollLeft 恒 0,溢出标签物理上无法触达);
+        // - ② -my-1 + h-[calc(100%_+_8px)] + 标签 h-9:滚动容器会连竖直方向一起裁,而
+        //   active 态 outline-2 外描边上下各出 2px(GlobalTopBar 2026-08-12 定稿"必须真外露")。
+        //   行盒向上下各扩 4px(落在顶栏 pt/pb 的 padding 里,不可见),标签锁定 h-9=36px 居中,
+        //   描边恰好完整落在裁剪盒(padding box)内,视觉与修复前逐像素一致;
+        // - ③ 左侧 2px 描边预留放在外层 wrap(GlobalTopBar)的 pl-0.5,不放本行:
+        //   行盒是滚动容器,必须能被 wrap 0 宽完全压到 0,否则行自身 padding 会形成
+        //   最小 border-box(padding > 0 ⇒ min 2px)水平溢出 wrap(2026-10-12 e2e 实测)。
+        className="hover-scroll -my-1 flex h-[calc(100%_+_8px)] min-w-0 flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap"
         onWheel={(e) => {
-          // 2026-08-13 水平滚动:去掉 overflow-x:auto 后 outline 不被裁剪,
-          // 用 onWheel 把垂直滚动转为水平滚动,保持标签可滚动。
+          // 2026-08-13 立 / 2026-10-12 复活:把垂直滚轮转为横向滚动,滚动标签行。
+          // 2026-08-12 曾为放开 outline 去掉 overflow-x:auto,副作用是行不再是滚动容器、
+          // scrollLeft 恒 0(死代码);2026-10-12 重叠修复把滚动容器加回(见上方注释,
+          // 行盒已上下扩容,outline 不再被裁),本 onWheel 恢复生效。
           if (e.deltaY !== 0) {
             e.currentTarget.scrollLeft += e.deltaY
           }
@@ -551,8 +568,11 @@ export function TagsView() {
                   // - 拖拽视觉简化:目标位 + 源项共用 opacity-50,无 border-dashed 残留
                   // - pl-2.5 (10px) + 图标 (14px) + gap-1 (4px) = 28px 文字到左边缘
                   //   pl-8 → pl-2.5:原 pl-8 为与关闭按钮对称的空白,现改为图标填充左侧空间
+                  // 2026-10-12:行盒为容纳 outline 外描边扩容到 44px(见行首注释),TOPBAR_BTN_BASE
+                  //   的 h-full 会把标签跟着拉成 44px(比窗口按钮/搜索/Plus 的 36px 高 8px),
+                  //   故用 h-9 显式锁回 36px(twMerge 后写覆盖前写)。
                   TOPBAR_BTN_BASE,
-                  'group relative min-w-0 max-w-[200px] cursor-pointer gap-1 pl-8 pr-1 text-xs',
+                  'group relative h-9 min-w-0 max-w-[200px] cursor-pointer gap-1 pl-8 pr-1 text-xs',
                   active
                     ? // active(当前显示页面):外描边突出当前页,不占元素内部空间。
                       //   2026-08-13 用户反馈:pure black/white 太突兀,定稿 outline-2 outline-border(主题灰)。
@@ -609,7 +629,7 @@ export function TagsView() {
                   className={cn(
                     'inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground/70 transition-all duration-200 will-change-transform ml-0.5',
                     'hover:bg-destructive/20 hover:text-destructive hover:rotate-90 active:scale-90',
-                    'opacity-0 group-hover:opacity-100 motion-reduce:opacity-60 motion-reduce:hover:rotate-0 motion-reduce:active:scale-100',
+                    'opacity-0 group-hover:opacity-100 touch-reveal motion-reduce:opacity-60 motion-reduce:hover:rotate-0 motion-reduce:active:scale-100',
                     'focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                   )}
                   aria-label={tCommon('close')}
