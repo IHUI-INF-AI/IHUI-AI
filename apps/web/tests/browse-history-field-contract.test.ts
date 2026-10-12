@@ -10,9 +10,10 @@
  * 无论读哪个字段名都能渲染出东西,只有两侧字段名**不一致**时才空。
  * 直接钉住"这三个文件里不许再出现 resourceType/resourceId"更贴判据。
  *
- * 口径来源(已拍板,勿反向):共享契约 packages/types/src/app.ts:196-197 的
- * BookmarkItem 用 targetId/targetType,其注释明写"与后端 /api/favorites 契约对齐";
+ * 口径来源(已拍板,勿反向):共享契约 packages/types/src/app-engagement.ts 的
+ * BookmarkItem 用 targetId/targetType,其注释明写"字段对齐 @ihui/api-client FavoriteItem";
  * 前端 member/history 页此前是 resource*,本次改成 target* 对齐共享契约。
+ * (2026-10-12:BookmarkItem 随 types 包重组从 app.ts 迁到 app-engagement.ts,本测试指向随之更新。)
  *
  * 变异验证:把 member/history/page.tsx 的 targetType 退回 resourceType ⇒
  * 本文件立刻红(见"页面不许回退成 resource*"一例)。
@@ -25,7 +26,7 @@ import { join } from 'node:path'
 const WEB_ROOT = join(__dirname, '..')
 const REPO_ROOT = join(WEB_ROOT, '..', '..')
 const PAGE = join(WEB_ROOT, 'app', '(main)', 'member', 'history', 'page.tsx')
-const SHARED_TYPES = join(REPO_ROOT, 'packages', 'types', 'src', 'app.ts')
+const SHARED_TYPES = join(REPO_ROOT, 'packages', 'types', 'src', 'app-engagement.ts')
 const API_ROUTES = join(REPO_ROOT, 'apps', 'api', 'src', 'routes', 'other', 'history-routes.ts')
 
 const read = (p: string) => readFileSync(p, 'utf8')
