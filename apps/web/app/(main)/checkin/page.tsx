@@ -839,6 +839,52 @@ export default function CheckinPage() {
     }
   }, [])
 
+  // 添加账号对话框「一键获取」(2026-10-13 三平台统一零 token):
+  // trae/qoder 从本机客户端登录态直读回填;workbuddy 打开捕获对话框(内含网页登录)。
+  // 回填而非直接入库 —— 名字/分组留给用户改,但 token 由机器填,普通用户零理解成本。
+  const [autoFetching, setAutoFetching] = React.useState(false)
+  const [autoFetchMsg, setAutoFetchMsg] = React.useState('')
+
+  const autoFetchAccount = async () => {
+    setAutoFetching(true)
+    setAutoFetchMsg('')
+    setFormError(null)
+    try {
+      if (addPlatform === 'workbuddy') {
+        // WorkBuddy:登录态可能加密 ⇒ 走捕获对话框(网页登录 / 本机扫描两条路)
+        setAddOpen(false)
+        openWbCapture()
+        return
+      }
+      if (addPlatform === 'qoder') {
+        const found = await checkinCaptureQoder()
+        if (found.length === 0) {
+          setAutoFetchMsg(t('captureQoderEmpty'))
+          return
+        }
+        const item = found[0]!
+        setJwt(item.access_token)
+        setDeviceMapText(JSON.stringify(qoderDeviceMap(item), null, 2))
+        setName((prev) => prev.trim() || `Qoder-${(item.uid || '本机').slice(0, 8)}`)
+        setAutoFetchMsg(t('addAutoFilled', { count: found.length }))
+        return
+      }
+      const found = await checkinCaptureJwts()
+      if (found.length === 0) {
+        setAutoFetchMsg(t('captureEmpty'))
+        return
+      }
+      const item = found[0]!
+      setJwt(item.jwt)
+      setName((prev) => prev.trim() || `本机-${item.user_id}`)
+      setAutoFetchMsg(t('addAutoFilled', { count: found.length }))
+    } catch (e) {
+      setAutoFetchMsg((e as Error).message)
+    } finally {
+      setAutoFetching(false)
+    }
+  }
+
   const submitAdd = async () => {
     const trimmedName = name.trim()
     const trimmedJwt = jwt.trim()
@@ -1314,7 +1360,14 @@ export default function CheckinPage() {
               {t('checkinSelected', { count: selectedIds.size })}
             </Button>
           )}
-          <Button size="sm" onClick={() => setAddOpen(true)}>
+          <Button
+            size="sm"
+            onClick={() => {
+              setAutoFetchMsg('')
+              setFormError(null)
+              setAddOpen(true)
+            }}
+          >
             <Plus className="h-4 w-4" />
             {t('addAccount')}
           </Button>
@@ -1842,28 +1895,59 @@ export default function CheckinPage() {
                 maxLength={100}
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="checkin-jwt">{t('jwt')}</Label>
-              <textarea
-                id="checkin-jwt"
-                value={jwt}
-                onChange={(e) => setJwt(e.target.value)}
-                rows={4}
-                placeholder={t('jwtPlaceholder')}
-                className="w-full resize-y rounded-sm border bg-background p-2 text-xs outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="checkin-device-map">{t('deviceMap')}</Label>
-              <textarea
-                id="checkin-device-map"
-                value={deviceMapText}
-                onChange={(e) => setDeviceMapText(e.target.value)}
-                rows={3}
-                placeholder={t('deviceMapPlaceholder')}
-                className="w-full resize-y rounded-sm border bg-background p-2 text-xs outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
+            {/* 一键获取(2026-10-13 三平台统一零 token):token 由机器填,普通用户无需理解 */}
+            {desktop && (
+              <div className="space-y-2 rounded-sm border bg-muted/40 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{t('addAutoFetchTitle')}</p>
+                    <p className="text-xs text-muted-foreground">{t('addAutoFetchHint')}</p>
+                  </div>
+                  <Button size="sm" disabled={autoFetching} onClick={() => void autoFetchAccount()}>
+                    {autoFetching && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                    {addPlatform === 'trae'
+                      ? t('addAutoFetchTrae')
+                      : addPlatform === 'qoder'
+                        ? t('addAutoFetchQoder')
+                        : t('addAutoFetchWorkbuddy')}
+                  </Button>
+                </div>
+                {autoFetchMsg && (
+                  <p data-testid="add-auto-fetch-msg" className="text-xs text-amber-600">
+                    {autoFetchMsg}
+                  </p>
+                )}
+              </div>
+            )}
+            <details className="group">
+              <summary className="cursor-pointer text-xs text-muted-foreground">
+                {t('addManualAdvanced')}
+              </summary>
+              <div className="mt-3 space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="checkin-jwt">{t('jwt')}</Label>
+                  <textarea
+                    id="checkin-jwt"
+                    value={jwt}
+                    onChange={(e) => setJwt(e.target.value)}
+                    rows={4}
+                    placeholder={t('jwtPlaceholder')}
+                    className="w-full resize-y rounded-sm border bg-background p-2 text-xs outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="checkin-device-map">{t('deviceMap')}</Label>
+                  <textarea
+                    id="checkin-device-map"
+                    value={deviceMapText}
+                    onChange={(e) => setDeviceMapText(e.target.value)}
+                    rows={3}
+                    placeholder={t('deviceMapPlaceholder')}
+                    className="w-full resize-y rounded-sm border bg-background p-2 text-xs outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+              </div>
+            </details>
             <div className="space-y-1.5">
               <Label htmlFor="checkin-group">{t('groupLabel')}</Label>
               <Input
