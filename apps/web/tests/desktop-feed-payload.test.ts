@@ -43,11 +43,11 @@ describe('buildDesktopFeedPayload — 现状快照(四平台 updaterPlatforms)',
     expect(payload.pub_date).toBe(new Date('2026-09-28T00:00:00Z').toISOString())
   })
 
-  it('mac/linux 键存在、指向 GitHub 直链、签名非空、dmg 不出现', () => {
+  it('mac/linux 键存在、host 在白名单(gitee/github 均可,2026-10-12 起 Gitee 已补齐)、签名非空、dmg 不出现', () => {
     for (const key of ['linux-x86_64', 'darwin-x86_64', 'darwin-aarch64']) {
       const entry = payload.platforms[key]
       expect(entry, `缺平台键 ${key}`).toBeTruthy()
-      expect(new URL(entry.url).hostname).toBe('github.com')
+      expect(['github.com', 'gitee.com']).toContain(new URL(entry.url).hostname)
       expect(entry.signature.length).toBeGreaterThan(0)
       expect(entry.url).not.toMatch(/\.dmg$/)
     }
