@@ -9,18 +9,6 @@
       "reviewBy": "2026-10-29"
     },
     {
-      "anchor": "PgSlowQuery",
-      "reason": "待偿型:指标采集件已入库、机器侧未挂载。规则 expr = `max(pg_query_max_duration_seconds) > 5`,指标由 postgres_exporter 扩展查询产出(monitoring/postgres-exporter/queries.yml 已入库,2026-10-12),但生产 ihui-pg-exporter 服务的 AppParameters 还没有 `--extend.query-path=<仓库>/monitoring/postgres-exporter/queries.yml`,故该序列今天不在采。取证三条:① `curl -s http://127.0.0.1:8815/api/v1/label/__name__/values | grep -c pg_query_max_duration_seconds` ⇒ 0(rc=1)⇒ 结构上永不触发;② `curl -s http://127.0.0.1:9187/metrics | grep -c pg_query_max_duration_seconds` ⇒ 0(rc=1,exporter 自己也没吐)⇒ 缺的是服务旗标不是指标名笔误;③ `grep -n 'PgSlowQuery' monitoring/prometheus/alerts.yml` ⇒ 规则在位(infrastructure-alerts 组,与 PgVerySlowQuery 分层成对)。立因:2026-10-12 桌面端 SSO 授权故障(生产 PG 半死、auth/refresh 18s+ 挂起)暴露'活着但慢'无尺子,PostgresDown 一条都不响。解阻前置/失效条件:生产机执行 `nssm set ihui-pg-exporter AppParameters \"--web.listen-address=127.0.0.1:9187 --no-collector.wal --extend.query-path=<路径>\"` + `Restart-Service ihui-pg-exporter` + prometheus reload,并实测 ① 转正(`grep -c` ≥ 1)且 ② 后,本条**立即失效必须撤掉**;reviewBy 到期未撤 ⇒ 按'已到期未复裁'判红,逼出部署动作。",
-      "owner": "监控面持有人(生产机 ihui-pg-exporter 服务参数与 prometheus reload 的执行者)",
-      "reviewBy": "2026-10-19"
-    },
-    {
-      "anchor": "PgVerySlowQuery",
-      "reason": "与 PgSlowQuery 同批同因的分层 critical 档(expr = `max(pg_query_max_duration_seconds) > 30`,for:1m):指标采集件已入库(monitoring/postgres-exporter/queries.yml),生产 ihui-pg-exporter 未挂 `--extend.query-path`,序列今天不在采。取证三条:① `curl -s http://127.0.0.1:8815/api/v1/label/__name__/values | grep -c pg_query_max_duration_seconds` ⇒ 0(rc=1)⇒ 结构上永不触发;② `curl -s http://127.0.0.1:9187/metrics | grep -c pg_query_max_duration_seconds` ⇒ 0(rc=1)⇒ 缺服务旗标非笔误;③ `grep -n 'PgVerySlowQuery' monitoring/prometheus/alerts.yml` ⇒ 规则在位。分层理由(为何不是一条规则加阈值):bridge 去重键 alertname|instance、窗口 240min,数值恶化 5s→30s 不换身份会被压掉,只有换名才能突破窗口再次触达(§5e-1);正反用例见 monitoring/prometheus/tests/pg-slow-query.test.yml(P11)。解阻前置/失效条件:同 PgSlowQuery 条目 —— exporter 挂载 + reload 且 ① 转正后,本条**立即失效必须撤掉**;到期未撤按'已到期未复裁'判红。",
-      "owner": "监控面持有人(生产机 ihui-pg-exporter 服务参数与 prometheus reload 的执行者)",
-      "reviewBy": "2026-10-19"
-    },
-    {
       "anchor": "LlmProviderErrorBurst",
       "reason": "预留待指标出现(引用注释)。规则自带的注释即此意:alerts.yml:86 '`ihui_llm_provider_errors_total` 为按需采样计数(无事件时不出现), 用 `or on() vector(0)` 兜底为 0,指标一出现即生效'。取证三条:① `curl -s http://127.0.0.1:8815/api/v1/label/__name__/values | grep -c ihui_llm_provider_errors_total` ⇒ 0(rc=1,同上 1876 个名字里无此序列)⇒ 该规则永不触发;② `grep -n ihui_llm_provider_errors_total apps/ai-service/app/middleware/llm_metrics.py` ⇒ 38 行有定义 ⇒ 待偿型而非笔误型;③ `grep -n 'LlmProviderErrorBurst' monitoring/prometheus/alerts.yml` ⇒ 规则在位。特别一条:**按需计数(无事件时不出现)与'永不触发'是两件事** —— 该 expr 有 `or on() vector(0)` 兜底,所以指标在采而零事件时 sum 侧为空、兜底给 0,0 > 0 为假;指标完全缺席时同理。真正会漏的是'provider 出错但 ai-service 没跑/没被采'那一型,这条 P6 判据管不到(它只看指标名在不在 Prometheus 已知集合里),需要靠 ihui_alertbridge_up / up 那一维去兜。解阻前置/失效条件:ai-service 一旦被采到 `ihui_llm_provider_errors_total`,本条立即失效并必须撤条目;若 llm_metrics.py 里该计数器改名,本 anchor 随之按'清单腐烂'判红而不是自动续期。",
       "owner": "LLM 指标面持有人(ai-service 打点侧,apps/ai-service/app/middleware/llm_metrics.py 的维护者)",
