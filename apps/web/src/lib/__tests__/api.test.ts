@@ -3,8 +3,9 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { fetchApi } from '../api'
+import { fetchApi, getLastRefreshFailure } from '../api'
 import { useAuthStore } from '@/stores/auth'
+import { clearSessionLoggedOutMarker } from '@/lib/session-marker'
 
 /**
  * 登录弹窗 store 的**忠实**替身(2026-09-25 加,配 401 接线票)。
@@ -316,6 +317,141 @@ describe('401 → 登录弹窗接线', () => {
 
     expect(dialogMock.state.openCount).toBe(0)
     useAuthStore.setState({ isAuthenticated: false })
+  })
+})
+
+/**
+ * 2026-10-12 PG 退化根治(桌面端 SSO 授权故障的最后两环)。
+ *
+ * 故障链:生产 PG 半死 → /auth/refresh 18s+ 无响应 → 续期链路干等 →
+ * 用户端"授权并跳转点了没反应"。两环各有一条测试钉住:
+ *  1. 超时透传:web 的 refreshAccessToken 必须显式带 timeoutMs:10s,
+ *     不再吃 fetchApi 默认 30s(否则 PG 退化时每个 401 业务请求都陪等 30s);
+ *  2. 瞬时分型:refresh 因网络/超时失败(无 status)必须判 'transient' ——
+ *     不弹登录窗、不写持久登出语义(30 天自动登录不被一次网络抖动误杀)。
+ *     对照组是 rejected(401/403):那才会弹窗,由上一个 describe 的用例覆盖。
+ */
+describe('auth/refresh 超时与瞬时失败分型(2026-10-12)', () => {
+  const originalFetchForRefresh = global.fetch
+  /** 端内 401 出口的原始处理器(web 包装层注册的那个),用间谍替换、用后还原 */
+  let savedUnauthorizedHandler: unknown = null
+
+  beforeEach(async () => {
+    dialogMock.state.openCount = 0
+    dialogMock.state.close()
+    useAuthStore.getState().setToken(null)
+    // setToken(null) 会写"已登出"持久标记(stores/auth.ts 的 logout 语义),而 web 的
+    // refreshAccessToken 第一道门就是 canSilentlyReLogin(sessionLoggedOut) —— 标记在
+    // 就永远返回 null、根本不发 /auth/refresh。本组要验的正是"refresh 真的发出去了",
+    // 所以必须把标记清掉(真实用户路径里,登录写入凭据时同样会清)。
+    clearSessionLoggedOutMarker()
+    const client = await import('@ihui/api-client/client')
+    savedUnauthorizedHandler = client.getUnauthorizedHandler()
+    // 注意:刷新失败冷却(5s)的清理放在每个用例入口做(__resetRefreshStateForTest)——
+    // 上一个 describe 的用例把刷新打进了冷却窗口,不清则本组用例的
+    // refreshAccessTokenOnce 直接复用共享失败 promise,provider 根本不被调用。
+  })
+
+  afterEach(async () => {
+    // 假计时器必须显式还原:vi.restoreAllMocks 不管计时器,漏还会让后续文件/用例的
+    // setTimeout 全部被假时钟接管(表现是"测试莫名其妙全挂起")。
+    vi.useRealTimers()
+    global.fetch = originalFetchForRefresh
+    vi.restoreAllMocks()
+    const client = await import('@ihui/api-client/client')
+    client.setUnauthorizedHandler(savedUnauthorizedHandler as never)
+  })
+
+  it('auth/refresh 10s 超时真生效:挂起 9s 未决、10s 超时判 transient(不陪等 30s)', async () => {
+    const client = await import('@ihui/api-client/client')
+    client.__resetRefreshStateForTest()
+    const notifySpy = vi.fn()
+    client.setUnauthorizedHandler(notifySpy)
+    vi.useFakeTimers()
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url.includes('/auth/refresh')) {
+        // 挂起:直到超时 signal abort 才以 AbortError 拒绝(模拟 PG 退化时永不返回)
+        return new Promise((_resolve, reject) => {
+          const signal = init?.signal
+          if (signal?.aborted) {
+            reject(new DOMException('aborted', 'AbortError'))
+            return
+          }
+          signal?.addEventListener('abort', () =>
+            reject(new DOMException('aborted', 'AbortError')),
+          )
+        })
+      }
+      return Promise.resolve({
+        ok: false,
+        status: 401,
+        headers: new Headers(),
+        text: async () => 'unauthorized',
+      })
+    })
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    // POST:GET 的 401 本来就不弹窗(懒触发),拿它做对照会恒真、测不出分型
+    const promise = fetchApi('/api/test', { method: 'POST', body: '{}' })
+    let settled = false
+    void promise.then(
+      () => {
+        settled = true
+      },
+      () => {
+        settled = true
+      },
+    )
+
+    // 先把 401 → 续期链路推到"refresh 已挂起"态(全微任务,无计时器)
+    await vi.advanceTimersByTimeAsync(1_000)
+    // 前提自证:refresh 真的发出了(否则后面"未决"会因为链路没走而恒真)
+    expect(fetchMock.mock.calls.some((c) => String(c[0]).includes('/auth/refresh'))).toBe(true)
+
+    await vi.advanceTimersByTimeAsync(8_000) // 累计 9s
+    expect(settled).toBe(false) // 9s 未决 ⇒ 不是"立即失败",也不是默认 30s(30s 到点远未到)
+
+    await vi.advanceTimersByTimeAsync(1_000) // 累计 10s
+    expect(settled).toBe(true) // 10s 整超时 ⇒ 显式 timeoutMs 生效(默认 30s 到不了这一格)
+
+    const r = await promise
+    expect(r.success).toBe(false)
+    if (!r.success) expect(r.status).toBe(401)
+    // 超时(无 status)⇒ 瞬时失败 ⇒ 不走端内 401 出口(它的语义是终结本地会话、
+    // 写持久登出标记,会把 30 天 refresh 凭据永久废掉)。web 包装层自己对非 GET 401
+    // 的弹窗是 2026-09-25 的另一条既有路径,与本契约无关,故不断言 openCount。
+    expect(notifySpy).not.toHaveBeenCalled()
+    // web 侧分型落账:bootstrap 据此不写持久登出标记
+    expect(getLastRefreshFailure()).toBe('transient')
+  })
+
+  it('refresh 网络失败(无 status)判 transient:不走"会话终结"通知', async () => {
+    const client = await import('@ihui/api-client/client')
+    client.__resetRefreshStateForTest()
+    const notifySpy = vi.fn()
+    client.setUnauthorizedHandler(notifySpy)
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      // refresh 走网络异常路径:fetchApi 内部重试一次后仍无 status
+      if (url.includes('/auth/refresh')) return Promise.reject(new Error('network down'))
+      return Promise.resolve({
+        ok: false,
+        status: 401,
+        headers: new Headers(),
+        text: async () => 'unauthorized',
+      })
+    })
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    // 用 POST:GET 的 401 本来就不弹窗(懒触发),拿它做对照会恒真、测不出分型
+    const r = await fetchApi('/api/test', { method: 'POST', body: '{}' })
+
+    expect(r.success).toBe(false)
+    if (!r.success) expect(r.status).toBe(401)
+    // 瞬时失败 ⇒ 不通知端内出口(若分型坏了,这里会是 1 次调用)
+    expect(notifySpy).not.toHaveBeenCalled()
+    // web 侧分型落账:bootstrap 的 getLastRefreshFailure 据此不写持久登出标记,
+    // 30 天 refresh 凭据不被一次网络抖动永久废掉
+    expect(getLastRefreshFailure()).toBe('transient')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

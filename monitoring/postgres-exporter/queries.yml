@@ -1,0 +1,44 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+# postgres_exporter 扩展查询 —— PG 查询延迟(慢查询)指标
+#
+# 立因(2026-10-12 桌面端 SSO 授权故障):生产 PG 半死期间,api 的 auth/refresh
+# 18s+ 挂起、用户端表现为"点了没反应"。去重后根因链末端的"最后可见信号"
+# 是 PG 查询延迟飙高,而现有监控只判"pg_up==0(实例死没死)",对"活着但慢"
+# 完全没有尺子 —— 用户先撞上慢,我们后知后觉。本文件补上这把尺子。
+#
+# 为什么不用内置的 pg_stat_activity_max_tx_duration:
+#   那个口径是 xact_start(事务开启时长),慢的是单条语句也会被漏掉。这里自定义
+#   查询直接取 query_start,语义 = 当前活跃语句已运行的秒数,正是"慢查询"的定义。
+#
+# 为什么只有 max 一个指标、不带 count:本仓纪律是"每个指标都有消费者" ——
+# 告警规则(alerts.yml 的 PgSlowQuery / PgVerySlowQuery)只消费 max 形态,
+#   "同时几条慢"不改变"用户已经在等"这个判红事实,多一个没有消费者的序列
+#   就是给未来留一份没人核的表(§4 登记表腐烂同型),故不采集。
+#
+# 排除 usename <> 'beifen':备份账号跑的是 pg_dump/物理备份长事务,属正常业务,
+#   不纳入告警口径(生产库备份用户名为 beifen,2026-10-12 实测确认)。
+#
+# 采集方式:由 postgres_exporter 的 --extend.query-path 挂载本文件,
+#   重启 exporter 后 /metrics 出现 pg_query_max_duration_seconds 序列。
+#   告警规则在同仓 monitoring/prometheus/alerts.yml 的 infrastructure-alerts 组;
+#   正反用例在 monitoring/prometheus/tests/pg-slow-query.test.yml(P11)。
+#   指标未上采前,两条规则按 scripts/data/inert-alert-rules.json 的待偿账裁 deferred。
+
+pg_query_max_duration_seconds:
+  query: |
+    SELECT datname,
+           COALESCE(MAX(EXTRACT(EPOCH FROM (now() - query_start))), 0) AS seconds
+    FROM pg_stat_activity
+    WHERE state = 'active'
+      AND usename <> 'beifen'
+    GROUP BY datname
+  metrics:
+    - datname:
+        usage: LABEL
+        description: "Database name"
+    - seconds:
+        usage: GAUGE
+        description: "Max duration in seconds of currently active (running) queries, excluding backup user"
