@@ -4760,6 +4760,30 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- mobile-rn 版本号单调递增对账(1 项,blocking)---
+  {
+    id: '201',
+    label:
+      '📱 mobile-rn Expo 配置必须产出单调递增的 versionCode/buildNumber(app.json 无 versionCode ⇒ Expo 默认恒 1,覆盖安装必被 Android 降级保护拒;2026-10-12 装机实测)',
+    script: 'check-mobile-version-code.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_MOBILE_VERSION_CODE',
+    stagedTriggers: ['apps/mobile-rn/', 'scripts/check-mobile-version-code.mjs'],
+    onFailHint: [
+      '',
+      '  ❌ 本门拦的是"版本号回潮":app.json 不声明 android.versionCode 时 Expo prebuild 默认恒为 1,',
+      '     CI nightly 包覆盖任何更高版本号的构建必被降级保护拒(install -r / -d / uninstall -k 全试过,',
+      '     只有全删重装一条路,本地登录态全丢)。iOS 同病:无 ios.buildNumber ⇒ CFBundleVersion 恒 1。',
+      '  💡 判据不扫源码正则,而是以 Expo 同构语义执行被审面 app.config.js(type:module,落 .cjs 载入),',
+      '     审计产出的 android.versionCode / ios.buildNumber;号段边界 FLOOR/CEILING 由 app.config.js',
+      '     导出、本门读取,不写第二份。修复出口(二选一):① 恢复 resolveBuildNumber 注入;',
+      '     ② 确需钉号设 IHUI_VERSION_CODE(正整数 ∈ [26010100, 2100000000])。不得为消红删导出或削判据。',
+      '  📖 单复验:node scripts/check-mobile-version-code.mjs --self-test / --staged / --worktree / --json',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
