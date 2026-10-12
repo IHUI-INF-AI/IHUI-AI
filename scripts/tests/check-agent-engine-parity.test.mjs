@@ -20,7 +20,7 @@
 
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
@@ -28,6 +28,8 @@ import test from 'node:test'
 // 夹具与反向锁共用的遮罩唯一实现(§3 共享层优先:两处实现必漂移)。
 import { gitBinary } from '../lib/face-reader.mjs'
 import { maskCommentsAndStrings } from '../lib/code-mask.mjs'
+// T5 的门体夹具按 import 闭包整条拷(scratch-module-closure 推导)—— 手抄 lib 清单必然晚一拍。
+import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
@@ -126,16 +128,20 @@ test('T4 形状锁:ROOT 由脚本自身位置推导,process.cwd() 定根不得�
 })
 
 test('T5 失效必须响:被审面取不到 ⇒ exit 2 并点名,绝不记绿(临时构造面,不靠真仓状态)', async () => {
-  // 在一个只放了门体 + 它所 import 的三个 lib 的临时 git 仓里,HEAD 没有那三份被审文件
+  // 在一个只放了门体 + 它整条相对 import 闭包的临时 git 仓里,HEAD 没有那三份被审文件
   // ⇒ 唯一正确结论是 exit 2「无法判定」。把"取不到"记成通过的实现,这条先红。
+  // 闭包由 scratch-module-closure 推导、不手抄:手抄"三个 lib"的清单在 gitdir.mjs 长出
+  // scratch-dir / seal-c-root-stray 两跳后,夹具就是 ERR_MODULE_NOT_FOUND + exit 1 ——
+  // 门没跑成被读成"该红没红"(2026-10-12 实测,与该模块头注记的两次同型)。
   const { mkScratch, rmScratch } = await import('../lib/scratch-dir.mjs')
   const scratch = mkScratch('aep-')
   try {
-    mkdirSync(join(scratch, 'scripts', 'lib'), { recursive: true })
-    copyFileSync(SCRIPT, join(scratch, 'scripts', 'gate.mjs'))
-    for (const lib of ['face-reader.mjs', 'gitdir.mjs', 'logger.mjs']) {
-      copyFileSync(join(REPO, 'scripts', 'lib', lib), join(scratch, 'scripts', 'lib', lib))
-    }
+    copyScriptWithClosure(
+      join(REPO, 'scripts'),
+      'check-agent-engine-parity.mjs',
+      join(scratch, 'scripts'),
+      ['lib/face-reader.mjs', 'lib/gitdir.mjs', 'lib/logger.mjs'],
+    )
     // 夹具里的 git 经共用层取绝对路径(§5b:"git 调用不得依赖环境" —— 服务账户与交互账户
     // 的 PATH 互不相通,裸 'git' 会在某些宿主下静默失败,让本条退化成"取不到也算通过")。
     const GIT_BIN = gitBinary()
@@ -158,7 +164,7 @@ test('T5 失效必须响:被审面取不到 ⇒ exit 2 并点名,绝不记绿(�
       inited = false // 派生 git 不可用时仍是"取不到输入",结论方向不变,只是面更空
     }
     assert.ok(inited, '夹具应能建起临时仓(建不起也不得因此判绿 —— 下面仍要求 exit 2)')
-    const { code, out } = runScript(join(scratch, 'scripts', 'gate.mjs'), [], scratch, 120000)
+    const { code, out } = runScript(join(scratch, 'scripts', 'check-agent-engine-parity.mjs'), [], scratch, 120000)
     assert.equal(
       code,
       2,
