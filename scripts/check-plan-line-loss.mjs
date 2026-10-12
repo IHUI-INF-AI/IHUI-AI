@@ -1310,6 +1310,29 @@ export function registrationAlreadyPresent(targetSrc, entry) {
   return !!slot && slot.markers.has(entry.marker)
 }
 
+/**
+ * 「同编号的**任务行形态**已在被审面吗」—— 回捞侧专用的跨形态兜底判据(G-977954,86H 事故第二道闸)。
+ *
+ * 为什么 `registrationAlreadyPresent` 不够:它按 **(形态,编号)** 复合主键查行首名额,而重复
+ * 登记的真实形态恰恰是**同编号跨形态** —— 面上是 `- [x] 2026-10-08 ✅ **86H. …**`(checkbox,
+ * 且编号埋在日期+勾+加粗之后,`headIdOf` 提不出)而缺口副本是 `- [ ]`(bullet)⇒ 形态对不上、
+ * 行首名额也不重合 ⇒ 幂等守卫漏过 ⇒ 自愈器把缺口副本又追加一份(86H 重复登记事故成因)。
+ *
+ * 判据取"编号紧跟标题分隔符(`.`/`、`)"这一**任务行形态**在全面的命中 —— 刻意**不**收编行首
+ * 名额语义(`## O42 台账…` 这类不带分隔符的标题、同节 `- **O42 残余…` bullet):同编号在其它
+ * 形态的登记点是否占名额,由 `registrationAlreadyPresent` / `multiSlot` 那套组判据管;兜底若连
+ * 它们也判"已在面",标题级回捞(O42 事故的正主)就会被同节残余 bullet 误伤,永远捞不回来。
+ * 方向上宁可多判"已在面"(少插一条,且 `healContent` 以 `skippedExistingId` 点名,绝不静默),
+ * 也不把缺口副本插成第二行。边界用 `(?<![A-Za-z0-9])` 而不是 `\b`:`\b` 以 `[A-Za-z0-9_]` 定义,
+ * `守门` 这类中文编号族前后都是非 `\w`,会匹配失败。
+ */
+export function idExistsOnFace(targetSrc, id) {
+  if (!id) return false
+  const escaped = String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`(?<![A-Za-z0-9])${escaped}[.、]`).test(targetSrc)
+}
+
+
 export function healContent(targetSrc, missing) {
   const eol = targetSrc.includes('\r\n') ? '\r\n' : '\n'
   const lines = targetSrc.split(eol)
@@ -1322,12 +1345,27 @@ export function healContent(targetSrc, missing) {
    */
   const candidates = (missing ?? []).filter((e) => !registrationAlreadyPresent(targetSrc, e))
   /**
+   * idExistsOnFace 兜底(G-977954,86H 重复登记事故的第二道闸):`registrationAlreadyPresent`
+   * 按 **(形态,编号)** 复合主键查,而重复登记的真实形态恰恰是**同编号跨形态** —— 面上是
+   * `- [x]`(checkbox)、缺口副本是 `- [ ]`(bullet),形态对不上 ⇒ 幂等守卫漏过 ⇒ 自愈器把
+   * 缺口副本又追加一份(86H 事故成因)。所以这里再叠一道**只认编号、跨形态**的兜底:编号仍在
+   * 被审面的任何位置 ⇒ 判"这一条已在面" ⇒ 跳过插入并计入 `skippedExistingId`(点名给上层,
+   * 绝不静默)。`id == null` 的行(加粗族/无编号)不适用此判据,照旧走旧路径(向后兼容,有测试钉)。
+   *
    * `multiSlot` 那一类**只点名不回捞**(见 `resolveRegistrationLoss` 的头注):同编号在目标面
    * 还有登记点,机器无从判断"少掉的那行"是被吞还是被正当改号/归并,自动插回去等于替台账造重复
-   * 登记 —— 那比原来的丢行更响(§1"把没做的记成做过的比原病更响"同一条判断)。
+   * 登记 —— 那比原来的丢行更响(§1"把没做的记成做过的比原病更响"同一条判断)。两道闸都在
+   * `candidates` 之后:先计 `skippedExistingId`,再滤 `multiSlot`,`withheld` 只计后者。
    */
-  const pending = candidates.filter((e) => !e.multiSlot)
-  const withheld = candidates.length - pending.length
+  let skippedExistingId = 0
+  const pending = candidates.filter((e) => {
+    if (e.id && idExistsOnFace(targetSrc, e.id)) {
+      skippedExistingId += 1
+      return false
+    }
+    return !e.multiSlot
+  })
+  const withheld = candidates.length - pending.length - skippedExistingId
   let appended = 0
   let inserted = 0
   for (const entry of pending) {
@@ -1342,7 +1380,7 @@ export function healContent(targetSrc, missing) {
       appended += 1
     }
   }
-  return { out: lines.join(eol), inserted, appended, withheld }
+  return { out: lines.join(eol), inserted, appended, withheld, skippedExistingId }
 }
 
 /**
@@ -2920,6 +2958,7 @@ export const __test__ = {
   registrationSlots,
   resolveRegistrationLoss,
   registrationAlreadyPresent,
+  idExistsOnFace,
   shapeOfRegistration,
   // 历史面窗口:枚数出口 + 覆盖范围报名
   historyDepth,
