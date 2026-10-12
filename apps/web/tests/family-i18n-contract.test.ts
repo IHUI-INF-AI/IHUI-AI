@@ -228,11 +228,11 @@ const FAMILIES: Family[] = [
     minReferenced: 6,
   },
   {
-    name: 'eduCourses',
-    nsLiteral: 'eduCourses',
-    nsPath: ['eduCourses'],
-    sources: ['app/(main)/edu/courses/[id]/PageClient.tsx'],
-    minReferenced: 4,
+    name: 'eduCoursesPage',
+    nsLiteral: 'eduCoursesPage',
+    nsPath: ['eduCoursesPage'],
+    sources: ['app/(main)/learn/page.tsx'],
+    minReferenced: 2,
   },
   // aiGeneration(6 文件族内新增 15 枚;块内另有 226 枚属他人在用,故 onlyKeys 收窄)
   {
