@@ -14439,17 +14439,8 @@
     "sections": "章节目录"
   },
   "eduCoursesPage": {
-    "empty": "暂无课程",
-    "loading": "加载中...",
-    "progress": "进度 {n}%",
-    "searchAriaLabel": "搜索课程",
-    "searchPlaceholder": "搜索课程...",
-    "statusCompleted": "已完成",
-    "statusInProgress": "进行中",
-    "statusNotStarted": "未开始",
     "subtitle": "管理已报名的全部课程",
-    "title": "我的课程",
-    "total": "共 {n} 条"
+    "title": "我的课程"
   },
   "eduDashboardPage": {
     "coursesCard": {

@@ -14439,17 +14439,8 @@
     "sections": "セクション目次"
   },
   "eduCoursesPage": {
-    "empty": "コースがありません",
-    "loading": "読み込み中...",
-    "progress": "進捗 {n}%",
-    "searchAriaLabel": "コースを検索",
-    "searchPlaceholder": "コースを検索...",
-    "statusCompleted": "完了",
-    "statusInProgress": "受講中",
-    "statusNotStarted": "未開始",
     "subtitle": "受講済みの全コースを管理",
-    "title": "マイコース",
-    "total": "全 {n} 件"
+    "title": "マイコース"
   },
   "eduDashboardPage": {
     "coursesCard": {

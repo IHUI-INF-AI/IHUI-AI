@@ -14439,17 +14439,8 @@
     "sections": "섹션 목차"
   },
   "eduCoursesPage": {
-    "empty": "강의가 없습니다",
-    "loading": "로딩 중...",
-    "progress": "진행률 {n}%",
-    "searchAriaLabel": "강의 검색",
-    "searchPlaceholder": "강의 검색...",
-    "statusCompleted": "완료",
-    "statusInProgress": "진행 중",
-    "statusNotStarted": "시작 전",
     "subtitle": "수강 신청한 모든 강의 관리",
-    "title": "내 강의",
-    "total": "총 {n}건"
+    "title": "내 강의"
   },
   "eduDashboardPage": {
     "coursesCard": {
