@@ -650,4 +650,37 @@ test('全量模式: 扫描 PROJECT_PLAN.md 单文件(脚本仅 visit 该文件)'
     rmScratch(root)
   }
 })
+
+// ─── 27. 归档快照豁免(2026-10-12 立,.ihui-agent/archive/ 前缀) ──
+// 立因:把门 13c 要求的历史归档散件 git add 进审面时,其正文里"已闭环"与"后续建议"
+// 并存被本门判红 —— 要求为消红改三周前的原文已被归档件自身留痕判为"越权"。
+test('staged: .ihui-agent/archive/ 下的归档快照含矛盾措辞 → 跳过 exit 0(冻结历史正文)', () => {
+  const root = createTempRepo()
+  try {
+    stageMd(
+      root,
+      '.ihui-agent/archive/PROJECT_PLAN_snapshot.md',
+      '# Archive\n\n## 旧任务 (2026-09-29)\n\n已闭环,仍有后续建议。\n',
+    )
+    const r = runScript(root, ['--staged'])
+    assert.equal(r.status, 0, `归档快照应 exit 0,实际 ${r.status}\n${r.stdout}`)
+    assert.match(r.stdout, /归档快照 1 份跳过/, '应显式打印跳过了几份归档快照')
+  } finally {
+    rmScratch(root)
+  }
+})
+
+// ─── 28. 归档豁免不得外溢:前缀之外的同款矛盾仍判红 ──────────
+test('边界: 归档豁免只认 .ihui-agent/archive/ —— docs/ 下同款矛盾仍判红', () => {
+  const root = createTempRepo()
+  try {
+    stageMd(root, 'docs/report.md', '# Report\n\n## 任务 X (2026-09-29)\n\n已闭环,仍有后续建议。\n')
+    const r = runScript(root, ['--staged'])
+    assert.equal(r.status, 1, `前缀外应 exit 1,实际 ${r.status}\n${r.stdout}`)
+    assert.match(r.stdout, /已闭环/)
+    assert.doesNotMatch(r.stdout, /归档快照 1 份跳过/)
+  } finally {
+    rmScratch(root)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
