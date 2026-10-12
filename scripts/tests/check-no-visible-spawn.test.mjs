@@ -4,10 +4,11 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { execFileSync, spawnSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { tmpdir } from 'node:os'
 
 // §22c:直接 import 源脚本导出的 __test__,不维护任何"镜像常量",杜绝源/测两份真相漂移。
 // §22d:源脚本的 main() 受 isDirectRun 守护,被 import 时不得有任何副作用。
@@ -478,5 +479,132 @@ test('G-1059146 真实站点回归:check-spawn-stdio 自检用例表的夹具行
   const hitLines = new Set(src.scanSource(target, 'scripts/check-spawn-stdio.mjs').map((x) => x.line))
   for (const n of fixtureLines) {
     assert.ok(!hitLines.has(n), `scripts/check-spawn-stdio.mjs:${n} 夹具行被判成调用点(方向①取材遮罩失效)`)
+  }
+})
+
+// ── G-1058602 ①段(2026-10-12):「面标签 / [未入库] 逐条标注 / 退出码」三件套对账 ──────────
+// 此前镜像测试对内容面零锁:取材面掺了工作树读数、标签怎么说、rc 按哪一桶算,全都没有钉子。
+// 机主拍板 B 案:判定强度一字不改,只把"标签-标注-退出码"修到与 listCandidates/readFaceContent
+// 的实际行为一致。下面 ① 钉标签(行为级),② 钉标签↔取材对账(源形状级),③ 端到端真跑 CLI。
+// (源脚本 --self-test 的取材面⑥⑦⑧已被 G-1058606 占用,新增两例按既有惯例顺延为⑨⑩。)
+
+test('G-1058602 ① 标签对账:掺在飞 ⇒ 标签必须披露「(未入库件走工作树,逐条标注)」;纯面/人工档不披露', () => {
+  const mixed = src.faceLabel('head', 1)
+  for (const word of ['未入库', '走工作树', '逐条标注']) {
+    assert.ok(mixed.includes(word), `掺了在飞,标签必须披露「${word}」: ${mixed}`)
+  }
+  assert.ok(!src.faceLabel('head', 0).includes('未入库'), '没掺不得声称掺了(披露即承认本轮判了非面内容)')
+  assert.ok(!src.faceLabel('staged', 0).includes('未入库'), 'staged 纯面同理(staged 取材不并 --others,本就不该有未入库件)')
+  assert.ok(!src.faceLabel('worktree', 5).includes('未入库'), '人工档没有被审面可言,永不披露(那会给人免检位)')
+})
+
+test('G-1058602 ② 取材对账:标签说的每一句都要有真实机制背书(--others 面 / readWorktreeFile 回退 / 行级 [未入库] / 汇总点名)', () => {
+  const self = readFileSync(new URL('../check-no-visible-spawn.mjs', import.meta.url), 'utf8')
+  const fnBody = (sig) => {
+    const i = self.indexOf(sig)
+    assert.ok(i > 0, `缺少 ${sig}`)
+    return self.slice(i, self.indexOf('\n}', i))
+  }
+  assert.ok(
+    fnBody('export function faceLabel(').includes('未入库件走工作树'),
+    '标签必须如实披露「未入库件走工作树」',
+  )
+  assert.ok(
+    fnBody('export function listCandidates(').includes("'--others'"),
+    '标签说了未入库,取材就必须真的并上未跟踪未忽略面(--others)—— 否则披露是说谎',
+  )
+  assert.ok(
+    fnBody('export function readFaceContent(').includes('readWorktreeFile'),
+    '「走工作树」必须有真实回退机制(HEAD 取不到 ⇒ readWorktreeFile),不是嘴上说说',
+  )
+  const mainBody = fnBody('async function main(')
+  assert.ok(mainBody.includes('[未入库]'), '「逐条标注」必须真实落在命中输出行')
+  assert.ok(mainBody.includes('未入库件'), '汇总必须点名未入库件数')
+  assert.ok(mainBody.includes('命中不进退出码'), '汇总必须说清「命中不进退出码」')
+})
+
+test('G-1058602 ③ 端到端(临时仓真跑 CLI):未入库件命中 ⇒ [未入库] 标注 + rc=0 + 汇总点名;同一件入库后 ⇒ rc=1 且无标注', () => {
+  // 故意漏 windowsHide 的真实违规形态(写在本测试的字符串字面量里,对本门自身惰性)
+  const VIOLATION = "spawnSync('git', ['status'])\n"
+  const tmp = mkdtempSync(join(tmpdir(), 'ihui-g1058602-'))
+  try {
+    mkdirSync(join(tmp, 'scripts'), { recursive: true })
+    // ROOT 由脚本自身位置推导(§15)⇒ 把门脚本放进临时仓 scripts/ 下,判定面即落在临时仓。
+    // 仓外运行只有两条 lib 模块说明符解析不了 ⇒ 改指真仓绝对 file: URL(lib 全部 root 参数化)。
+    // 除这两行外必须与仓内脚本逐字一致(下面自证)—— 取材/判定/输出/rc 全是真代码,不是重写副本。
+    const orig = readFileSync(new URL('../check-no-visible-spawn.mjs', import.meta.url), 'utf8')
+    const lib = (name) => JSON.stringify(new URL(`../lib/${name}`, import.meta.url).href)
+    const patched = orig
+      .replaceAll("'./lib/face-reader.mjs'", lib('face-reader.mjs'))
+      .replaceAll("'./lib/code-mask.mjs'", lib('code-mask.mjs'))
+    const a = orig.split('\n')
+    const b = patched.split('\n')
+    assert.equal(a.length, b.length, '夹具与真门行数必须相等')
+    const changed = a.map((l, i) => (l !== b[i] ? i : -1)).filter((i) => i >= 0)
+    assert.equal(changed.length, 2, `只允许两条 lib import 行有差异(实得 ${changed.length} 行)`)
+    assert.deepEqual(
+      changed.filter((i) => !a[i].includes("'./lib/")),
+      [],
+      '有差异的行必须全是 lib import 行',
+    )
+    // 门脚本与基线一起入库(在真仓里它也是 tracked);违规件保持未跟踪 —— 与真仓在飞形态同构
+    writeFileSync(join(tmp, 'scripts', 'check-no-visible-spawn.mjs'), patched)
+    writeFileSync(join(tmp, 'baseline.mjs'), 'const baseline = 1\n')
+
+    const git = (...args) =>
+      execFileSync('git', ['-c', 'safe.directory=*', '-c', 'commit.gpgsign=false', ...args], {
+        cwd: tmp,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 60000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+    git('init', '-q')
+    git('add', 'baseline.mjs', 'scripts/check-no-visible-spawn.mjs')
+    git('-c', 'user.name=g', '-c', 'user.email=g@x', 'commit', '-q', '-m', 'init')
+    writeFileSync(join(tmp, 'untracked-violation.mjs'), VIOLATION)
+
+    const run = () =>
+      spawnSync(process.execPath, ['scripts/check-no-visible-spawn.mjs'], {
+        cwd: tmp,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 120000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+
+    // 第一轮:违规件未跟踪(不在 HEAD 面)⇒ 走工作树,[未入库] 标注,不进退出码
+    const r1 = run()
+    assert.equal(r1.status, 0, `仅未入库命中 ⇒ rc 必须 0\nstdout:\n${r1.stdout}\nstderr:\n${r1.stderr}`)
+    assert.ok(
+      r1.stdout.includes('判定面:HEAD blob ⊕ 在飞(未入库件走工作树,逐条标注)'),
+      `报告头标签必须披露\n${r1.stdout}`,
+    )
+    assert.ok(
+      r1.stdout.includes('未入库件 1 条(走工作树,命中不进退出码'),
+      `汇总必须点名未入库件数\n${r1.stdout}`,
+    )
+    assert.ok(r1.stdout.includes('本次命中 1 处'), `汇总必须点名未入库命中件数\n${r1.stdout}`)
+    const hitLine = r1.stdout.split('\n').find((l) => l.includes('untracked-violation.mjs:1'))
+    assert.ok(hitLine, `命中行必须点名文件:行号\n${r1.stdout}`)
+    assert.ok(hitLine.includes('[未入库]'), `命中行必须带 [未入库] 后缀: ${hitLine}`)
+    assert.ok(r1.stdout.includes('生产代码 0 违规'), `未入库命中不得计入生产代码\n${r1.stdout}`)
+
+    // 第二轮:同一文件、同一违规形态,只换"在不在被审面"这一个变量
+    git('add', 'untracked-violation.mjs')
+    git('-c', 'user.name=g', '-c', 'user.email=g@x', 'commit', '-q', '-m', 'track it')
+    const r2 = run()
+    assert.equal(r2.status, 1, `入库件命中仍必须 rc=1\nstdout:\n${r2.stdout}\nstderr:\n${r2.stderr}`)
+    assert.ok(r2.stdout.includes('生产代码 1 处'), `入库命中必须计入生产代码\n${r2.stdout}`)
+    assert.ok(r2.stdout.includes('判定面:HEAD blob)'), `没掺在飞,标签必须回到纯 HEAD blob\n${r2.stdout}`)
+    assert.ok(!r2.stdout.includes('[未入库]'), `入库件的命中不得带 [未入库] 标注(那是免检通道)\n${r2.stdout}`)
+    assert.ok(!r2.stdout.includes('未入库件'), `入库后汇总不得再点名未入库档\n${r2.stdout}`)
+  } finally {
+    // .git 松散对象带只读属性,Windows 上 rmSync 可能 EPERM —— 退到 cmd rmdir 兜底
+    try {
+      rmSync(tmp, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 })
+    } catch {
+      execFileSync('cmd.exe', ['/d', '/s', '/c', `rmdir /s /q "${tmp}"`], { windowsHide: true, stdio: 'ignore' })
+    }
   }
 })
