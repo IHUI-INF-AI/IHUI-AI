@@ -65,13 +65,20 @@ pub struct WbWebAccount {
     pub nickname: String,
 }
 
-/// 解析 /console/accounts 响应体 → 账号列表(data.accounts[],uid 必填,
-/// nickname 是服务端明文;非 JSON / 结构不符返回空表)。
+/// 解析 /console/accounts 响应体 → 账号列表(uid 必填,nickname 是服务端明文)。
+///
+/// 响应结构双形态兼容(asar 侧 `http.get('/console/accounts')?.data?.accounts` 存在
+/// axios 封装歧义:body 可能是 `{data:{accounts:[…]}}` 也可能直接 `{accounts:[…]}`)。
 pub fn parse_accounts_body(body: &str) -> Vec<WbWebAccount> {
     let Ok(v) = serde_json::from_str::<serde_json::Value>(body) else {
         return Vec::new();
     };
-    let Some(list) = v.get("data").and_then(|d| d.get("accounts")).and_then(|a| a.as_array()) else {
+    let list = v
+        .get("data")
+        .and_then(|d| d.get("accounts"))
+        .or_else(|| v.get("accounts"))
+        .and_then(|a| a.as_array());
+    let Some(list) = list else {
         return Vec::new();
     };
     let mut out = Vec::new();
@@ -99,6 +106,29 @@ pub fn parse_accounts_body(body: &str) -> Vec<WbWebAccount> {
     out
 }
 
+/// 用 Cookie 直调本域签到状态接口,验证「网页登录态能否驱动签到」。
+///
+/// 背景:签到 UI 只在桌面客户端(asar 实证),网页版 bundle 无 meter 端点 ⇒
+/// 「Cookie 能否过 /v2/billing/meter/* 的鉴权」没有静态证据,只能真机探。
+/// 该自检在 probe 的 ok 分支执行:200 ⇒ cookie_checkin_ok=true;401/403 ⇒ false
+/// (登录态本身有效但签到接口不认 Cookie,前端如实告知用户);网络/其它 ⇒ None(未知)。
+pub async fn probe_cookie_checkin(cookie_header: &str) -> Option<bool> {
+    let resp = shared_client()
+        .post(format!("{WB_WEB_ORIGIN}/v2/billing/meter/checkin-status"))
+        .header("accept", "application/json")
+        .header("content-type", "application/json")
+        .header("cookie", cookie_header)
+        .header(
+            "user-agent",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) IHUI-Desktop-Checkin",
+        )
+        .body("{}".to_string())
+        .send()
+        .await
+        .ok()?;
+    Some(matches!(resp.status().as_u16(), 200..=299))
+}
+
 // ---------------------------------------------------------------------------
 // 探测结果(前端契约)
 // ---------------------------------------------------------------------------
@@ -113,9 +143,11 @@ pub enum WebLoginProbe {
     /// 有 cookie 但服务端说未登录(登录中/会话失效)。
     NotLoggedIn,
     /// 验证通过:cookie + 账号齐全,前端可自动回填。
+    /// `cookie_checkin_ok`:网页登录态能否驱动签到接口(实测;None=网络原因未判定)。
     Ok {
         cookie: String,
         accounts: Vec<WbWebAccount>,
+        cookie_checkin_ok: Option<bool>,
     },
     /// 本地/网络错误。
     Error { message: String },
@@ -197,9 +229,11 @@ pub async fn checkin_workbuddy_web_login_probe(app: AppHandle) -> Result<WebLogi
                 // 200 但解析不到账号:结构不符或登录态名存实亡
                 return Ok(WebLoginProbe::NotLoggedIn);
             }
+            let cookie_checkin_ok = probe_cookie_checkin(&cookie_header).await;
             Ok(WebLoginProbe::Ok {
                 cookie: cookie_header,
                 accounts,
+                cookie_checkin_ok,
             })
         }
         s if s == 401 || s == 403 => Ok(WebLoginProbe::NotLoggedIn),
@@ -257,6 +291,16 @@ mod tests {
         assert!(parse_accounts_body(r#"{"code":401,"msg":"unauthorized"}"#).is_empty());
         // accounts 非 list
         assert!(parse_accounts_body(r#"{"data":{"accounts":null}}"#).is_empty());
+    }
+
+    #[test]
+    fn parse_accounts_body_top_level_accounts_fallback() {
+        // 响应结构双形态:axios 封装歧义下 body 可能直接是顶层 accounts
+        let body = r#"{"accounts":[{"uid":"u-top","nickname":"顶层"}]}"#;
+        let accounts = parse_accounts_body(body);
+        assert_eq!(accounts.len(), 1);
+        assert_eq!(accounts[0].uid, "u-top");
+        assert_eq!(accounts[0].nickname, "顶层");
     }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

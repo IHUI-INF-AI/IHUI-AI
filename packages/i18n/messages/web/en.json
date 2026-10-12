@@ -19094,6 +19094,7 @@
     "captureWbWebDone": "Web login import complete ({count} account(s))",
     "captureWbWebWindowClosed": "Login window was closed. Click \"Open login window\" to try again.",
     "captureWbManualDivider": "Or capture the desktop login state manually",
+    "captureWbWebCheckinUncertain": "Note: the check-in API hasn't been confirmed to accept web login state. If check-in fails (401), switch to the token method and let us know.",
     "captureDirFound": "Local TRAE data directory detected: {dir}",
     "captureDirMissing": "Local TRAE data directory not found (set the IHUI_TRAE_DIR environment variable)",
     "captureEmpty": "No usable JWT found in local data directory",

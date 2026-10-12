@@ -19084,6 +19084,7 @@
     "captureWbWebDone": "Web ログインの取り込みが完了しました({count} 件)",
     "captureWbWebWindowClosed": "ログイン画面が閉じられました。もう一度「ログイン画面を開く」をクリックしてください。",
     "captureWbManualDivider": "またはデスクトップのログイン情報を手動で取得",
+    "captureWbWebCheckinUncertain": "注意:チェックイン API が Web ログイン状態を受け付けるか未確認です。チェックインが失敗した場合(401)はトークン方式に切り替え、お知らせください。",
     "captureDirFound": "ローカルの TRAE データディレクトリを検出しました：{dir}",
     "captureDirMissing": "ローカルの TRAE データディレクトリが見つかりません（環境変数 IHUI_TRAE_DIR で指定できます）",
     "captureEmpty": "ローカルのデータディレクトリから利用可能な JWT を検出できませんでした",
