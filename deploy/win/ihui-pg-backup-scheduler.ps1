@@ -20,9 +20,19 @@ $ErrorActionPreference = "Continue"
 $script:BackupOk = $true
 $script:RetryCount = 0
 
+# 仓库根走唯一解析实现(ihui-root-common.ps1),不写死盘符:硬编码 D:\IHUI-AI 在换机/换盘后
+# 指向另一个根,而本调度器由 nssm 服务 IHUI-PG-BACKUP 常驻跑,错根会每轮"照常"跑空。
+# 目标脚本先验在位再调用 —— 服务/计划任务里的失败必须当场大声,不许空转到下一班 03:00。
+. (Join-Path $PSScriptRoot 'ihui-root-common.ps1')
+$Root = Resolve-IhuiProjectRoot -StartDir $PSScriptRoot
+$backupScript = Join-Path $Root 'deploy\prod-bundle\pg-backup.ps1'
+if (-not (Test-Path -LiteralPath $backupScript)) {
+    throw "找不到备份脚本: $backupScript —— 拒绝带着错根继续(本脚本由 nssm 服务 IHUI-PG-BACKUP 常驻跑)"
+}
+
 function Run-Backup {
     try {
-        & "D:\IHUI-AI\deploy\prod-bundle\pg-backup.ps1"
+        & $backupScript
         # ⚠️ PowerShell 的 `&` **不会**因为被调脚本 `exit 1` 抛异常 ⇒ 旧结构里 catch 永远抓不到
         # 备份失败,失败轮照样打"备份完成"。2026-09-24 实测到后果:pg_hba 在 04:47 被改成
         # scram-sha-256(全链路不再免密),而本脚本用的是 postgres + 显式空口令 ——
