@@ -30,6 +30,8 @@ vi.mock('@ihui/api-client', () => ({
   setTokenProvider: vi.fn(),
   setBaseUrl: vi.fn(),
   setStreamBaseUrl: vi.fn(),
+  // 2026-10-12 补:69b7437f73 给 api.ts 加了模块顶层 setAiServiceBase 调用,缺这个导出整文件收集期即炸。
+  setAiServiceBase: vi.fn(),
   setDeviceFingerprintProvider: vi.fn(),
   setUnauthorizedHandler: vi.fn(),
   searchIssues: mockSearchIssues,
