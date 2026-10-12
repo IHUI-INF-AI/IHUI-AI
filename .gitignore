@@ -468,7 +468,7 @@ apps/ai-service/.mcp-linear-token.json
 # DESKTOP_TAURI_KEY_PASSWORD.txt(私钥密码)——泄漏 = 任何人可冒充签名发布桌面客户端。
 # GITHUB-SECRETS-填写指南.md 也含凭据填写指引,整目录一律忽略。
 # ============================================================================
-outputs/
+outputs/*
 # 例外(2026-10-02,D122):压缩评测基线报告入库;该目录只产 .md 报告,不得存放任何凭据/私钥
 !apps/ai-service/scripts/compaction_eval/outputs/
 !apps/ai-service/scripts/compaction_eval/outputs/**
