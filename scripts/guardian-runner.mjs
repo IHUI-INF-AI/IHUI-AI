@@ -31,7 +31,7 @@
  *   stagedTriggers 路径前缀数组;声明后该项**仅在暂存区触及这些路径时**执行(见执行循环),
  *                  用于把与绝大多数提交无关的领域守门(桌面安装器等)挂上而不拖慢/误伤
  */
-import { execFileSync, spawnSync } from 'node:child_process'
+import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createHash } from 'node:crypto'
@@ -5078,6 +5078,24 @@ const pushGateChecks = [
 const cliArgs = process.argv.slice(2)
 const passStaged = cliArgs.includes('--staged')
 const showTiming = cliArgs.includes('--timing')
+// ── --timing 的机读旁路(2026-10-12 立) ─────────────────────────────────────
+// 为什么需要:并行档把所有门头一次性打印在前、各门的 ⏱ 行随后按完成序回放,
+// 于是「日志里第 N 个 ⏱ 对应哪道门」不可解析(实测 235 个门头只有 16 个能靠
+// 邻接配对)⇒ 只能拿汇总总耗时,做不了逐门针对性提速。
+// 出路:applyGateResult 收口处按 check.id 落一份 JSON(仅 --timing 时写),
+// 与控制台输出互不干扰,分析脚本读它,不再靠正则配对日志。
+const timingRows = []
+if (showTiming) {
+  process.on('exit', () => {
+    try {
+      const out = resolve(process.cwd(), '.ihui-agent/tmp/guardian-timing.json')
+      writeFileSync(out, JSON.stringify({ generatedAt: new Date().toISOString(), rows: timingRows }, null, 2) + '\n')
+      process.stderr.write(`⏱  逐门耗时已落盘: ${out}(${timingRows.length} 行)\n`)
+    } catch {
+      /* 落盘失败不得影响守门结论 —— 只是少一份分析材料 */
+    }
+  })
+}
 const showHelp = cliArgs.includes('--help') || cliArgs.includes('-h')
 const pushGate = cliArgs.includes('--push-gate')
 
@@ -5401,52 +5419,213 @@ function assertSubstrateUsable() {
 
 assertSubstrateUsable()
 
-for (const check of effectiveChecks) {
-  // 逐项应急放行(2026-09-21 立):与各门脚本内部 HUSKY_SKIP_* 惯例一致,由 item 的
-  // skipEnv 字段声明变量名。适用场景 = 并发会话未提交 WIP 造成"工作区级"漂移,
-  // 阻塞与本任务无关的提交(本次改动不含该目录时,门的结论是假阳性)。
-  // 纪律:commit message 必须写明责任归属;默认行为不变(不设变量照常阻塞)。
-  if (check.skipEnv && process.env[check.skipEnv] === '1') {
-    skipped++
-    selfSkippedGates.push({ id: String(check.id), label: check.label, skipEnv: check.skipEnv })
-    console.log(`⏭  [${check.id}] ${check.label}(跳过:${check.skipEnv}=1)`)
-    continue
-  }
-  // 条件触发(2026-09-22 立,见上方 stagedPathsTouch):暂存区未触及声明路径 → 不执行。
-  // 与 skipEnv 同计入"跳过",并打印触发清单,避免"静默没跑"。
-  if (check.stagedTriggers && passStaged && !stagedPathsTouch(check.stagedTriggers)) {
-    skipped++
-    notTriggeredGates.push({
-      id: String(check.id),
-      label: check.label,
-      triggers: normalizeTriggers(check.stagedTriggers),
-    })
-    console.log(
-      `⏭  [${check.id}] ${check.label}(暂存区未触及:${normalizeTriggers(check.stagedTriggers).join(' / ')},跳过)`,
-    )
-    continue
-  }
-  const cmdArgs = [...check.args]
-  if (passStaged) cmdArgs.push('--staged')
-  // (旧版这里拼一条 shell 字符串给 execSync;改 spawnSync 用 argv 数组后不再需要,
-  //  顺带去掉 shell 一层。复现命令由汇总段按 `node scripts/<script>` 现拼,不在此处留变量。)
+// === 只读门并行白名单(方案A 外置层)===
+// 只有收录于此的门进并行池;未收录的门(含未来新增门)默认串行 = 安全向;写者门永列不入。
+// 为什么不写成 checks 条目字段:守门 192(注册表工作树超集,--staged 问责)按「条目行逐字等值」
+// 比对 HEAD↔索引 —— 给既有条目插一行 `par: true` 会被判 228 条 P2 改写(2026-10-12 实测即红,
+// 提交被拦);白名单住顶层常量 ⇒ checks 条目字节与 HEAD 逐字一致,192 零命中,并行语义不变。
+// 新增只读门提速:在此加一行 id 即可(现有 228 门)。
+const PAR_GATE_IDS = new Set([
+  '1', '2', '2b', '2c', '2e', '2e-dupns', '2g-web', '3',
+  '4', '4b', '4c', '6', '7', '8', '11', '11b',
+  '11c', '11d', '11h', '11e', '11f', '11g', '12', '13c',
+  '17', '18', '20', '24a', '25', '26', '27', '28',
+  '29', '30', '30a', '30c', '30b', '16c', '45', '35',
+  '36', '37', '38', '39', '40', '41', '2d', '2o-shared',
+  '2o-miniapp-taro', '2o-mobile-rn', '2f-ext', '2f-shared', '2g-ext', '2h-ext', '2i-ext', '2j-shared',
+  '2p-api', '2q-cli', '2r-miniapp-taro', '2s-mobile-rn', '2t-api', '2u-cli', '2v-miniapp-taro', '2w-mobile-rn',
+  '2k-shared', '2m-shared', '2n-web', '2f-mobile-rn', '2f-cli', '9', '13b', '19',
+  '21', '22', '24b', '34', '33', '42', '44', '46',
+  '48', '49', '50', '51', '52', '53', '54', '55',
+  '59', '57', '58', '60', '56', '61', '62', '63',
+  '68', '64', '66', '67', '69', '70', '71', '72',
+  '73', '74', '75', '76', '77', '93', '91', '10',
+  '65', '83', '84', '78', '80', '79', '81', '85',
+  '86', '87', '88', '89', '92', '90', '94', '95',
+  '96', '97', '98', '99', '101', '102', '103', '104',
+  '105', '106', '107', '108', '109', '110', '111', '112',
+  '113', '114', '115', '116', '117', '118', '119', '120',
+  '121', '122', '123', '124', '125', '126', '127', '128',
+  '129', '130', '131', '132', '133', '134', '135', '136',
+  '137', '138', '139', '140', '141', '142', '143', '144',
+  '145', '146', '147', '148', '149', '151', '152', '153',
+  '154', '155', '156', '157', '158', '159', '160', '161',
+  '163', '164', '165', '166', '167', '171', '173', '174',
+  '175', '176', '177', '178', '179', '180', '181', '182',
+  '183', '184', '185', '189', '190', '191', '192', '194',
+  '195', '199', '200', '23', '150', '172', '186', '187',
+  '188', '196', '197', '198',
+])
+// === 只读门并行池(方案A;逃生舱:GUARDIAN_SERIAL=1 退回全串行,GUARDIAN_PAR=<n> 调并发度) ===
+// 契约(与串行版逐字对齐的三条):
+//   ① 只有 PAR_GATE_IDS 白名单收录的门进池(新门默认串行 = 安全向);写者门(git 索引/共享文件)照旧串行,
+//      且执行前先 flushParBuffer() 全屏障 —— 池内零在飞子进程时才跑写者 ⇒ 与只读门零交叠。
+//   ② 子进程 stdout/stderr 全部缓冲,flush 时按 checks **原序**回放(表头在派发时按序打印,
+//      结论/输出在 flush 按序吐)⇒ 结论顺序与串行版一致(表头可能先于前段结论,属观感差异)。
+//   ③ 退出码语义不变:flush 走同一份 applyGateResult(75/128+N 中断传播、stopOnFirst 早退、
+//      崩溃/判红分流原样);任何 process.exit 路径由 exit 钩子杀掉在飞子进程,不留孤儿。
+const guardianSerial = process.env.GUARDIAN_SERIAL === '1'
+const parMaxRaw = Number.parseInt(process.env.GUARDIAN_PAR || '', 10)
+const parMax = Number.isFinite(parMaxRaw) && parMaxRaw >= 1 ? parMaxRaw : 6
+const parPending = [] // 按派发序(checks 原序)排队的在途任务;flush 只消费队头
+const parLive = new Set() // 在飞子进程句柄;exit 钩子统一收割,防孤儿门进程
+let parSlots = parMax // 并发信号量:限制同时在飞的子进程数
+const parSlotWaiters = []
 
-  console.log(`[${check.id}] ${check.label}...`)
-  const checkStart = Date.now()
+function acquireParSlot() {
+  if (parSlots > 0) {
+    parSlots -= 1
+    return Promise.resolve()
+  }
+  return new Promise((ok) => {
+    parSlotWaiters.push(ok)
+  })
+}
 
-  // 2026-09-29:执行改走 spawnSync —— 唯一理由是**要读到子进程 stderr**(崩溃指纹只在那里)。
-  // execSync 在 stdio:'pipe' 下只回 stdout,成功门的 stderr 会被**吞掉**,那是比"分不清崩溃与判红"
-  // 更糟的回归(判据失效的表现永远是安静)。stdout 仍 'inherit' 实时输出,观感与逐门进度一字不变;
-  // 失败路径合成一个带 status/signal 的 Error,使下方 shouldPropagateAsInterrupt(G-611 的中断传播)
-  // 与所有旧分支的读法保持同形 —— 退出码语义不因这次改动而变化:崩溃仍然计失败,不静默放行。
-  const r = spawnSync(process.execPath, [`scripts/${check.script}`, ...cmdArgs], {
+function releaseParSlot() {
+  const next = parSlotWaiters.shift()
+  if (next) next() // 槽位直接交接给等待者(不回加计数)
+  else parSlots += 1
+}
+
+// 中断传播 / stopOnFirst / 正常收口都走 process.exit:统一在此收割在飞子进程。
+process.on('exit', () => {
+  for (const child of parLive) {
+    try {
+      child.kill()
+    } catch {
+      /* 子进程已退出 */
+    }
+  }
+})
+
+/** 派发一道只读门:先按 checks 原序入队(保回放序),再等槽;完成后 job.done 置位。 */
+async function dispatchPar(check, cmdArgs) {
+  const job = { check, runtime: 0, error: null, status: null, signal: null, stdout: '', stderr: '' }
+  let markDone
+  job.done = new Promise((ok) => {
+    markDone = ok
+  })
+  parPending.push(job)
+  await acquireParSlot()
+  const spawnedAt = Date.now()
+  const child = spawn(process.execPath, [`scripts/${check.script}`, ...cmdArgs], {
     cwd: process.cwd(),
     windowsHide: true,
-    stdio: ['ignore', 'inherit', 'pipe'],
-    maxBuffer: 20 * 1024 * 1024,
-    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' },
   })
+  parLive.add(child)
+  // 输出上限与 spawnSync maxBuffer 同档(≈20MB):超限合成 ENOBUFS error,与 spawnSync
+  // 超限同走 applyGateResult 的 crash 分流 —— 绝不把"输出被截断"静默洗成通过。
+  const CAP = 20 * 1024 * 1024
+  const outChunks = []
+  const errChunks = []
+  let outBytes = 0
+  let errBytes = 0
+  let overCap = false
+  child.stdout.on('data', (d) => {
+    outBytes += d.length
+    if (outBytes <= CAP) outChunks.push(d)
+    else overCap = true
+  })
+  child.stderr.on('data', (d) => {
+    errBytes += d.length
+    if (errBytes <= CAP) errChunks.push(d)
+    else overCap = true
+  })
+  let finished = false
+  let gateTimer = null
+  const finish = (apply) => {
+    if (finished) return
+    finished = true
+    if (gateTimer) {
+      clearTimeout(gateTimer)
+      gateTimer = null
+    }
+    job.runtime = Date.now() - spawnedAt
+    parLive.delete(child)
+    releaseParSlot()
+    apply()
+    markDone()
+  }
+  child.on('error', (e) => {
+    finish(() => {
+      job.error = e
+    })
+  })
+  child.on('close', (code, signal) => {
+    finish(() => {
+      job.status = code
+      job.signal = signal
+      job.stdout = Buffer.concat(outChunks).toString('utf8')
+      job.stderr = Buffer.concat(errChunks).toString('utf8')
+      if (overCap && !job.error) {
+        const capErr = new Error(`gate stdout/stderr exceeded 20MB cap (${check.id})`)
+        capErr.code = 'ENOBUFS'
+        job.error = capErr
+      }
+    })
+  })
+  // ─── 单门超时兜底(2026-10-12 立,守门无界的第二道闸) ──────────────────
+  // 成因实测:desktop-nsis-template.mjs --check 走「console.log 后立刻 process.exit(0)」,
+  // 在 **stdout 是 pipe** 时(并行派发 stdio: ['ignore','pipe','pipe'])于本机 Node v24 上
+  // 以 3/6、5/6 的概率打完 OK 文案后永不退出 —— 串行档 stdio inherit 无此病,故并行档首曝。
+  // 子进程不死 ⇒ parPending 队头永远等不到 job.done ⇒ 整条提交链无界挂起(比判红更难查)。
+  // 处置与门 80(热路径 git 只读调用必须带 timeout)同一口径:**任何子检查都不得无界**。
+  // 超时 → kill 子进程 + job.error.code = 'ETIMEDOUT',走 applyGateResult 的 r.error 分支
+  // (与 ENOBUFS 同路)⇒ 崩溃分流、点名、非零退出,绝不静默洗成通过。
+  // 旋钮:GUARDIAN_GATE_TIMEOUT_MS=0 关闭(仅排障用),默认 300s(正常门实测均在秒级)。
+  const gateTimeoutMs = Number(process.env.GUARDIAN_GATE_TIMEOUT_MS ?? 300_000)
+  if (Number.isFinite(gateTimeoutMs) && gateTimeoutMs > 0) {
+    gateTimer = setTimeout(() => {
+      if (finished) return
+      const te = new Error(`守门脚本超时未退出(${gateTimeoutMs}ms)—— ${check.id} ${check.script}`)
+      te.code = 'ETIMEDOUT'
+      try {
+        child.kill('SIGKILL')
+      } catch {
+        /* kill 失败也要 finish,不能把兜底本身变成新的挂起点 */
+      }
+      finish(() => {
+        job.error = te
+        job.stdout = Buffer.concat(outChunks).toString('utf8')
+        job.stderr = Buffer.concat(errChunks).toString('utf8')
+      })
+    }, gateTimeoutMs)
+  }
+}
+
+/**
+ * 全屏障:队头起逐个等完并按 checks 原序回放(先 stdout,再 stderr+结论)。
+ * 串行门(写者/跳过/汇总)执行前各调一次 ⇒ 共享状态只在池内零在飞时被触碰。
+ */
+async function flushParBuffer() {
+  while (parPending.length > 0) {
+    const job = parPending[0]
+    await job.done
+    parPending.shift()
+    if (job.stdout) process.stdout.write(job.stdout)
+    // checkStart 回推:⏱ 显示子进程真实运行时长,而非"等到 flush 才开始计时"
+    applyGateResult(job.check, job, Date.now() - job.runtime)
+  }
+}
+
+// 串行 spawnSync 的结果判定体原样抽出(par 与 serial 共用同一份,退出码语义不分叉)。
+function applyGateResult(check, r, checkStart) {
   const gateStderr = typeof r.stderr === 'string' ? r.stderr : ''
+  if (showTiming) {
+    // 三条出口(pass / blocking失败 / warn·info)统一在此记账,含被判红的门 ——
+    // 慢门往往正是被判红或做过重活的那几道,漏掉它们等于只统计了"好消息"。
+    timingRows.push({
+      id: check.id,
+      label: check.label,
+      script: check.script,
+      mode: check.mode,
+      ms: Date.now() - checkStart,
+      ok: !r.error && r.status === 0 && r.signal === null,
+    })
+  }
   try {
     if (gateStderr.length > 0) process.stderr.write(gateStderr)
     if (r.error) throw r.error
@@ -5526,6 +5705,65 @@ for (const check of effectiveChecks) {
     }
   }
 }
+
+for (const check of effectiveChecks) {
+  // 逐项应急放行(2026-09-21 立):与各门脚本内部 HUSKY_SKIP_* 惯例一致,由 item 的
+  // skipEnv 字段声明变量名。适用场景 = 并发会话未提交 WIP 造成"工作区级"漂移,
+  // 阻塞与本任务无关的提交(本次改动不含该目录时,门的结论是假阳性)。
+  // 纪律:commit message 必须写明责任归属;默认行为不变(不设变量照常阻塞)。
+  if (check.skipEnv && process.env[check.skipEnv] === '1') {
+    await flushParBuffer()
+    skipped++
+    selfSkippedGates.push({ id: String(check.id), label: check.label, skipEnv: check.skipEnv })
+    console.log(`⏭  [${check.id}] ${check.label}(跳过:${check.skipEnv}=1)`)
+    continue
+  }
+  // 条件触发(2026-09-22 立,见上方 stagedPathsTouch):暂存区未触及声明路径 → 不执行。
+  // 与 skipEnv 同计入"跳过",并打印触发清单,避免"静默没跑"。
+  if (check.stagedTriggers && passStaged && !stagedPathsTouch(check.stagedTriggers)) {
+    await flushParBuffer()
+    skipped++
+    notTriggeredGates.push({
+      id: String(check.id),
+      label: check.label,
+      triggers: normalizeTriggers(check.stagedTriggers),
+    })
+    console.log(
+      `⏭  [${check.id}] ${check.label}(暂存区未触及:${normalizeTriggers(check.stagedTriggers).join(' / ')},跳过)`,
+    )
+    continue
+  }
+  const cmdArgs = [...check.args]
+  if (passStaged) cmdArgs.push('--staged')
+  // (旧版这里拼一条 shell 字符串给 execSync;改 spawnSync 用 argv 数组后不再需要,
+  //  顺带去掉 shell 一层。复现命令由汇总段按 `node scripts/<script>` 现拼,不在此处留变量。)
+
+  if (PAR_GATE_IDS.has(check.id) && !guardianSerial) {
+    console.log(`[${check.id}] ${check.label}...`)
+    await dispatchPar(check, cmdArgs)
+    continue
+  }
+  await flushParBuffer()
+  console.log(`[${check.id}] ${check.label}...`)
+  const checkStart = Date.now()
+
+  // 2026-09-29:执行改走 spawnSync —— 唯一理由是**要读到子进程 stderr**(崩溃指纹只在那里)。
+  // execSync 在 stdio:'pipe' 下只回 stdout,成功门的 stderr 会被**吞掉**,那是比"分不清崩溃与判红"
+  // 更糟的回归(判据失效的表现永远是安静)。stdout 仍 'inherit' 实时输出,观感与逐门进度一字不变;
+  // 失败路径合成一个带 status/signal 的 Error,使下方 shouldPropagateAsInterrupt(G-611 的中断传播)
+  // 与所有旧分支的读法保持同形 —— 退出码语义不因这次改动而变化:崩溃仍然计失败,不静默放行。
+  const r = spawnSync(process.execPath, [`scripts/${check.script}`, ...cmdArgs], {
+    cwd: process.cwd(),
+    windowsHide: true,
+    stdio: ['ignore', 'inherit', 'pipe'],
+    maxBuffer: 20 * 1024 * 1024,
+    encoding: 'utf8',
+  })
+  applyGateResult(check, r, checkStart)
+}
+
+// 汇总前收口:把剩余在飞/缓冲的并行结果按原序全部回放(全屏障)。
+await flushParBuffer()
 
 // === 汇总 ===
 
