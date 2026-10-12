@@ -221,6 +221,11 @@ export const PAIRS = [
     runner: 'deploy/prod-bundle/rdp-connector.bat',
     why: 'RDP 云上运维连接器(cloudflared access tcp → localhost:3389);入库版已脱敏原第 29 行明文口令,生产运行副本同步为脱敏版',
   },
+  {
+    tracked: 'deploy/scripts/prod-bundle/alert-webhook-bridge.cjs',
+    runner: 'deploy/prod-bundle/alert-webhook-bridge.cjs',
+    why: 'Alertmanager webhook 桥(nssm 服务 ihui-alert-bridge)的运行副本入口 = 单一转发器(2026-09-24 收口"源-运行分裂"),真相源 monitoring/alertbridge/alert-webhook-bridge.cjs;--strict 实测点名(2026-10-12),此前 .cjs 不在"脚本类"枚举视野',
+  },
 ]
 
 const sha1 = (buf) => createHash('sha1').update(buf).digest('hex')
