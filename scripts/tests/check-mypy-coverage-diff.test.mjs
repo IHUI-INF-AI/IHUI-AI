@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 镜像测试:G-1117435 —— mypy 守门那条"覆盖面"提示必须自己说清讲的是哪些文件。
-/* eslint-disable no-console -- 测试夹具脚本,诊断信息走 console */
+ 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
@@ -262,13 +262,16 @@ const REPO_ROOT = join(__dirname, '..', '..')
 const REAL_API_CLIENT_PY = 'apps/ai-service/app/types/api_client.py'
 const REAL_API_CLIENT_PYI = 'apps/ai-service/app/types/api_client.pyi'
 const REAL_SANDBOX_PY = 'apps/ai-service/app/services/sandbox.py'
+// G-1111920(2026-10-12):sandbox/ 死载体(无 __init__.py 的 PEP 420 片段)已按零消费者证据从
+// 工作树删除并随本批入库。models.py/pkg-dir 的绝对态会随 HEAD 演进,故 sandbox 维度重钉为
+// 「面自洽」锁(见 T8 内),不再是恒在场断言 —— 方向是从严(两态漂移即红),不是放宽。
 const REAL_SANDBOX_MODELS = 'apps/ai-service/app/services/sandbox/models.py'
 const REAL_SANDBOX_PKG_DIR = 'apps/ai-service/app/services/sandbox/'
 
 test('T8 阳性对照(真仓 HEAD 面):api_client/sandbox 两格必须被命中,且每条带"被谁挤掉 + 依据"', () => {
   const face = gate.appSourcePaths(gate.listFacePaths(REPO_ROOT, 'head')) // 真读数,不是夹具
   assert.ok(face.length > 500, `真仓 HEAD 面应有真实规模,实得 ${face.length}`)
-  for (const p of [REAL_API_CLIENT_PY, REAL_API_CLIENT_PYI, REAL_SANDBOX_PY, REAL_SANDBOX_MODELS]) {
+  for (const p of [REAL_API_CLIENT_PY, REAL_API_CLIENT_PYI, REAL_SANDBOX_PY]) {
     assert.ok(
       face.includes(p),
       `HEAD 面真清单里应现读到 ${p};不在位说明钉的对象变了 —— 要按 HEAD 现状重钉,不得放宽本条`,
@@ -295,11 +298,21 @@ test('T8 阳性对照(真仓 HEAD 面):api_client/sandbox 两格必须被命中,
   assert.equal(stub.kind, 'stub')
   assert.ok(stub.rule && stub.rule.length > 0, '出处(依据)必须挂在这条记录自己身上,不能只在头部说明里')
   assert.match(stub.rule, /find_sources\.py/, '依据要能查到 mypy 的哪一条口径')
-  const pkg = v.shadowItems.find((d) => d.path === REAL_SANDBOX_PY)
-  assert.ok(pkg, 'sandbox.py 那一格同样必须点名(真仓另一处占位)')
-  assert.equal(pkg.by, REAL_SANDBOX_PKG_DIR)
-  assert.equal(pkg.kind, 'pkg-dir')
-  assert.match(pkg.rule, /find_sources\.py:110-136/)
+  // sandbox 维度(G-1111920 重钉):pkg-dir 遮蔽格与死载体 models.py 在面必须同进同退 ——
+  // 提交前(HEAD 含 models.py)两者都在且逐条点名;删除入库后两者都消失。唯一恒真的是
+  // 枚举与遮蔽判定对同一面的自洽;单独恢复其一(半删除/半复活)即红。
+  const faceHasModels = face.includes(REAL_SANDBOX_MODELS)
+  const pkgEntry = v.shadowItems.find((d) => d.path === REAL_SANDBOX_PY)
+  assert.equal(
+    Boolean(pkgEntry),
+    faceHasModels,
+    `sandbox pkg-dir 遮蔽与死载体在场必须同进同退(面自洽):models在面=${faceHasModels} pkg格=${Boolean(pkgEntry)} 清单=${v.shadowItems.map((d) => d.path).join(', ')}`,
+  )
+  if (pkgEntry) {
+    assert.equal(pkgEntry.by, REAL_SANDBOX_PKG_DIR)
+    assert.equal(pkgEntry.kind, 'pkg-dir')
+    assert.match(pkgEntry.rule, /find_sources\.py:110-136/)
+  }
   assert.ok(
     v.shadowItems.every((d) => d.path && d.by && d.kind && d.rule),
     '一条没有出处的遮蔽记录 = 这一维等于没有',
