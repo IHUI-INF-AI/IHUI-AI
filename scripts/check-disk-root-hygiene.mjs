@@ -122,7 +122,13 @@ function rootJoined(root, entry) {
  */
 export function normalizeRootKey(rawRoot, platformSep = sep) {
   if (!rawRoot) return null
-  return String(rawRoot).replace(/[\\/]+$/, '') + platformSep
+  const key = String(rawRoot).replace(/[\\/]+$/, '') + platformSep
+  // Windows 盘符不区分大小写,但 config.roots 的键是固定写法:cwd 传小写盘符时
+  // parse(...).root 得 'd:\',与键 'D:\' 匹配不上 ⇒ 同一块盘在 roots 并集里出现两次
+  // (重复扫描),且归一后的 here 永远查不到 conf ⇒ --strict 恒多一条"未判定"
+  // (2026-10-12 实证:26/0/0/1 里那条未判定就是它,verdict 因此永红)。盘符段归一
+  // 成大写;POSIX 根 '/' 无盘符段,不命中替换,行为不变。
+  return platformSep === '\\' ? key.replace(/^[a-z]:/, (m) => m.toUpperCase()) : key
 }
 
 /** 本机仓根所在盘根,归一到与 config.roots 的键同形。取不到 ⇒ null。 */
@@ -342,7 +348,9 @@ export function selfTest() {
 
   t('currentDriveRoot 与 config.roots 的键同形(反斜杠收尾)', () => {
     const r = currentDriveRoot(join(REPO_ROOT, 'scripts'))
-    assert(r === parse(resolve(REPO_ROOT)).root.replace(/[\\/]+$/, '') + '\\', `实得 ${r}`)
+    // 右侧必须走同一个归一出口(normalizeRootKey),不得手抄归一式 —— 2026-10-12 盘符
+    // 大小写归一进 normalizeRootKey 后,这里再抄一份"只收尾不归一盘符"的旧式就会两处分叉。
+    assert(r === normalizeRootKey(parse(resolve(REPO_ROOT)).root), `实得 ${r}`)
     assert(/\\$/.test(r ?? ''), '键必须与 config 里 "G:\\\\" 同形,否则本机盘根永远匹配不上声明')
   })
 
