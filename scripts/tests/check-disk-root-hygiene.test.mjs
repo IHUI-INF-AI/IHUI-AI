@@ -235,6 +235,8 @@ test('T15 键形归一必须跟平台走(必需 job 在 ubuntu-latest,写死反�
   assert.equal(normalizeRootKey('/', '/'), '/', `POSIX 根必须归一成 "/",实得 ${JSON.stringify(normalizeRootKey('/', '/'))}`)
   assert.equal(normalizeRootKey('D:\\', '\\'), 'D:\\', 'Windows 根必须归一成 "D:\\\\"')
   assert.equal(normalizeRootKey('D:/', '\\'), 'D:\\', '混写分隔符不得影响键形')
+  assert.equal(normalizeRootKey('d:\\', '\\'), 'D:\\', '小写盘符必须归一成大写 —— cwd 传小写盘符时 parse().root 得 d:\\,config 键是 D:\\,不归一则同盘重复扫描且 here 永远查不到 conf ⇒ --strict 恒多一条未判定(2026-10-12 实证)')
+  assert.equal(normalizeRootKey('d:/', '\\'), 'D:\\', '小写盘符 + 混写分隔符同样归一')
   assert.equal(normalizeRootKey(null, '/'), null, '取不到根必须报 null,不得凭空造一个键')
   assert.notEqual(normalizeRootKey('/', '\\'), '/', '写死反斜杠那一型必须与 POSIX 正解不同形(否则本用例没有牙)')
 })
