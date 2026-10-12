@@ -88,11 +88,43 @@ class UpdateDeviceMapIn(BaseModel):
 _DEVICE_MAP_MAX_BYTES = 16384
 
 
-def _validate_jwt(jwt: str) -> datetime | None:
-    """jwt 必须可解析出 user id,且已声明 exp 时不得已过期;返回声明的 exp(未声明为 None)。
+def _validate_qoder_token(token: str, device_map: dict[str, Any]) -> None:
+    """Qoder device token(opaque 串)校验:非空 + 会话未过期。
 
-    返回值供 PATCH /jwt 直接回显 jwt_exp(解析过的不再解析第二遍)。
+    **真机实证 2026-10-12**:auth.v1.dat 解密后的 token 是 27 字符 opaque
+    单段串(非 JWT,无点号),uid 真源是客户端会话 user.id —— 桌面端捕获时
+    随 device_map.uid 落库,服务端无从从 token 解析。旧实现对 Qoder 也走
+    TRAE 的 extract_user_id(data.id) ⇒ 导入 100% 400「无法解析出 user id」。
+    过期判据复用 checkin_qoder.qoder_session_expiry(ISO 8601 / epoch 双形态,
+    取值键 expires_at/expiresAt → refresh_token_expires_at/refreshTokenExpiresAt)。
     """
+    tok = (token or "").strip()
+    if len(tok) < 8:
+        raise HTTPException(status_code=400, detail="Qoder token 为空或过短,请重新抓取")
+    exp_dt, _remaining = checkin_qoder.qoder_session_expiry(device_map)
+    if exp_dt is not None and exp_dt <= datetime.now():
+        raise HTTPException(
+            status_code=400,
+            detail=f"Qoder 会话已过期({exp_dt:%Y-%m-%d %H:%M}),请在 Qoder 客户端重新登录后重新抓取",
+        )
+
+
+def _validate_jwt(
+    jwt: str,
+    platform: str = "trae",
+    device_map: dict[str, Any] | None = None,
+) -> datetime | None:
+    """jwt/token 必须可通过对应平台判据,且已声明 exp 时不得已过期;
+    返回 TRAE 平台声明的 exp(未声明为 None),供 PATCH /jwt 直接回显。
+
+    按平台分流(2026-10-12 平台化修正):
+    - trae:extract_user_id(data.id/auth_id/sub)必须命中,get_jwt_exp 判过期;
+    - qoder:token 是 opaque 非 JWT(真机实证),只校验非空 + device_map 会话
+      过期时间(见 _validate_qoder_token)—— 绝不再要求从 token 解析 uid。
+    """
+    if platform == "qoder":
+        _validate_qoder_token(jwt, device_map or {})
+        return None
     user_id = extract_user_id(jwt)
     if not user_id:
         raise HTTPException(status_code=400, detail="jwt 无法解析出 user id,请重新抓取")
@@ -116,7 +148,7 @@ async def create_account(
         raise HTTPException(
             status_code=400, detail=f"不支持的平台: {body.platform}(可选: {'/'.join(_ACCOUNT_PLATFORMS)})"
         )
-    _validate_jwt(body.jwt)
+    _validate_jwt(body.jwt, body.platform, body.device_map)
     try:
         account = await checkin_store.create_account(
             current_user,
@@ -176,8 +208,13 @@ async def update_account_jwt(
     body: UpdateJwtIn,
     current_user: str = Depends(require_request_user_id),
 ) -> dict[str, Any]:
-    """更换账号 jwt:先校验可解析 + 未过期(400),属主命中后重加密落库,未命中 404。"""
-    exp_dt = _validate_jwt(body.jwt)
+    """更换账号 jwt:先按账号平台校验(可解析/未过期,400),属主命中后重加密落库,未命中 404。"""
+    # 平台分流(2026-10-12):Qoder token 是 opaque 非 JWT,不能走 TRAE 判据;
+    # 路由只收 jwt,先查账号平台再校验。查不到 = 不存在/非属主,直接 404。
+    platform = await checkin_store.get_account_platform(account_id, current_user)
+    if platform is None:
+        raise HTTPException(status_code=404, detail=f"账号不存在: {account_id}")
+    exp_dt = _validate_jwt(body.jwt, platform)
     updated = await checkin_store.update_jwt(account_id, current_user, body.jwt)
     if not updated:
         raise HTTPException(status_code=404, detail=f"账号不存在: {account_id}")
