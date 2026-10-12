@@ -123,53 +123,56 @@ const BUILD_DIRS = ['dist', 'build', 'lib', 'out']
  * 把同一行的真 `export { a } from './x'` 抹掉 ⇒ 少算一条出口边 ⇒ **产假红**。
  * 等长替换,行号与列位不变(报告要给 file:line)。
  */
+/** 下一个「注释起点或引号」的位置 —— 只为把逐字符推进改成整段跳,判定口径与逐字符版完全一致 */
+const MASK_SPECIAL = /\/\/|\/\*|['"`]/g
 export function maskComments(src) {
-  const out = []
+  // 快路径:全文既无 // 也无 /* ⇒ 结构上不可能起注释,字符串也无须认(遮噪只动注释)。
+  // 慢路径下这些字符同样是原样透传,故两路输出逐字节一致。
+  if (!src.includes('//') && !src.includes('/*')) return src
+  const n = src.length
+  let out = ''
   let i = 0
-  const blankTo = (end) => {
-    while (i < end) {
-      out.push(src[i] === '\n' ? '\n' : ' ')
-      i += 1
-    }
+  const blank = (end) => {
+    const seg = src.slice(i, end)
+    out += seg.indexOf('\n') < 0 ? ' '.repeat(seg.length) : seg.replace(/[^\n]/g, ' ')
+    i = end
   }
-  while (i < src.length) {
-    const ch = src[i]
-    if (src.startsWith('//', i)) {
-      let e = src.indexOf('\n', i)
-      if (e < 0) e = src.length
-      blankTo(e)
+  while (i < n) {
+    MASK_SPECIAL.lastIndex = i
+    const m = MASK_SPECIAL.exec(src)
+    if (!m) {
+      out += src.slice(i)
+      break
+    }
+    const at = m.index
+    out += src.slice(i, at) // 普通文本整段推,不再逐字符 push(2026-10-12 提速)
+    i = at // 空白段必须从特殊点起算,否则会把刚推过的普通文本再重复推一遍
+    if (m[0] === '//') {
+      const e = src.indexOf('\n', at)
+      blank(e < 0 ? n : e)
       continue
     }
-    if (src.startsWith('/*', i)) {
-      let e = src.indexOf('*/', i + 2)
-      e = e < 0 ? src.length : e + 2
-      blankTo(e)
+    if (m[0] === '/*') {
+      const e = src.indexOf('*/', at + 2)
+      blank(e < 0 ? n : e + 2)
       continue
     }
-    if (ch === '"' || ch === "'" || ch === '`') {
-      // 字符串/模板整段原样保留(里面的 `//`、`/*` 不是注释)
-      const q = ch
-      out.push(ch)
-      i += 1
-      while (i < src.length) {
-        if (src[i] === '\\') {
-          out.push(src[i], src[i + 1] ?? '')
-          i += 2
-          continue
-        }
-        out.push(src[i])
-        if (src[i] === q) {
-          i += 1
-          break
-        }
-        i += 1
+    const q = m[0]
+    let e = at + 1
+    while (e < n) {
+      const c = src[e]
+      if (c === '\\') {
+        e += 2
+        continue
       }
-      continue
+      e += 1
+      if (c === q) break
     }
-    out.push(ch)
-    i += 1
+    const end = e > n ? n : e
+    out += src.slice(at, end) // 字符串整段原样保留(里面的 //、/* 不是注释)
+    i = end
   }
-  return out.join('')
+  return out
 }
 
 /**
@@ -179,6 +182,8 @@ export function maskComments(src) {
  * 单/双引号按词法不得跨行;模板字符串可以跨行,所以那一支按字符走、原样留 `\n`。
  */
 export function blankStrings(masked) {
+  // 快路径:一个引号都没有 ⇒ 三趟 replace 都不会命中,直接原样返回(输出与逐趟跑完全一致)
+  if (!masked.includes("'") && !masked.includes('"') && !masked.includes('`')) return masked
   return masked
     .replace(/'(?:\\[\s\S]|[^'\\\n])*'?/g, (s) => keepNewlines(s, "'"))
     .replace(/"(?:\\[\s\S]|[^"\\\n])*"?/g, (s) => keepNewlines(s, '"'))
@@ -191,8 +196,9 @@ function keepNewlines(s, quote = "'") {
   const body = s.slice(head.length)
   const tail = body.endsWith(quote) ? quote : ''
   const inner = tail ? body.slice(0, body.length - tail.length) : body
-  const blanked = inner.replace(/[^\n]/g, ' ')
-  return head + blanked + tail
+  // 快路径:单行片段(inner 无换行)一次 repeat 出结果 —— 逐字符 replace 是本门热区(实测 2.7s)
+  if (inner.indexOf('\n') < 0) return head + ' '.repeat(inner.length) + tail
+  return head + inner.replace(/[^\n]/g, ' ') + tail
 }
 
 // ───────────────────────────────────────────────────────── 包清单与入口解析
@@ -286,33 +292,37 @@ export function entrySourceCandidates(target, dir, has) {
  */
 export function parseModule(text) {
   const masked = maskComments(text)
-  const lines = masked.split('\n')
   const value = new Set()
   const type = new Set()
   const edges = []
   let opaque = false
 
   const stmts = []
-  for (let i = 0; i < lines.length; i += 1) {
-    if (!/^export\b/.test(lines[i])) continue
-    let stmt = lines[i]
-    let depth = bracesOf(stmt)
-    let j = i
-    while (depth > 0) {
-      j += 1
-      if (j >= lines.length) {
-        stmt = ''
+  // 快路径:遮噪后全文连 `export` 这个词都没有 ⇒ 一条导出语句都没有,
+  // 关键字数也必为 0(遮噪只会删字符,不会凭空造词)⇒ 与逐行扫的结果逐字段一致。
+  if (masked.includes('export')) {
+    const lines = masked.split('\n')
+    for (let i = 0; i < lines.length; i += 1) {
+      if (!/^export\b/.test(lines[i])) continue
+      let stmt = lines[i]
+      let depth = bracesOf(stmt)
+      let j = i
+      while (depth > 0) {
+        j += 1
+        if (j >= lines.length) {
+          stmt = ''
+          break
+        }
+        depth += bracesOf(lines[j])
+        stmt += '\n' + lines[j]
+      }
+      if (!stmt) {
+        opaque = true // 括号到文件尾都没闭合 ⇒ 这份文件的名单不可枚举
         break
       }
-      depth += bracesOf(lines[j])
-      stmt += '\n' + lines[j]
+      stmts.push(stmt.replace(/\s+/g, ' ').trim())
+      i = j
     }
-    if (!stmt) {
-      opaque = true // 括号到文件尾都没闭合 ⇒ 这份文件的名单不可枚举
-      break
-    }
-    stmts.push(stmt.replace(/\s+/g, ' ').trim())
-    i = j
   }
 
   for (const t of stmts) {
@@ -550,14 +560,22 @@ export function analyze({ readFace, files, consumerFilter = null, requireBarrels
     }
     return cache.get(p)
   }
+  // 解析结果按路径记忆:同一文件在「包面 + barrel 面 + 消费者面」常被问到多次,
+  // parseModule 是纯函数,缓存不改判据,只省重复解析(2026-10-12 提速)
+  const modCache = new Map()
   const moduleOf = (p) => {
+    if (modCache.has(p)) return modCache.get(p)
     const t = read(p)
-    if (t === null) return null
-    try {
-      return parseModule(t)
-    } catch {
-      return null
+    let mod = null
+    if (t !== null) {
+      try {
+        mod = parseModule(t)
+      } catch {
+        mod = null
+      }
     }
+    modCache.set(p, mod)
+    return mod
   }
 
   // 1) workspace 包表
