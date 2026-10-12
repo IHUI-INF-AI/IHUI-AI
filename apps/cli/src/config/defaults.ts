@@ -11,14 +11,23 @@
 
 import type { Settings } from '../commands/settings.js'
 
-export const DEFAULT_SETTINGS: Settings = {
-  apiUrl: 'http://localhost:8802',
-  defaultModel: 'default',
-  maxIterations: 25,
+/**
+ * 策略四档的唯一字面量落点(G-816013):first-run.ts / DEFAULT_SETTINGS 一律经展开引用,
+ * 不得重述第二份字面量 —— apps/cli/tests/policy-bundle-single-source.test.ts 逐字节冻结取值,
+ * ②⑤两条用例分别钉「DEFAULT_SETTINGS 带着同一份」与「本文件内字面量恰为 1 次」。
+ */
+export const DEFAULT_POLICY_OPTIONS = {
   auditEnabled: true,
   allowDangerous: false,
   planFirst: false,
   enableMcp: false,
+} as const;
+
+export const DEFAULT_SETTINGS: Settings = {
+  apiUrl: 'http://localhost:8802',
+  defaultModel: 'default',
+  maxIterations: 25,
+  ...DEFAULT_POLICY_OPTIONS,
   sandbox: { profile: 'trusted' },
   sampler: { temperature: 0.7, maxTokens: 4096 },
   locale: 'zh-CN',
