@@ -21,6 +21,7 @@ import {
   IPV6_EMBEDDED_V4_PREFIXES,
   assertSafeFetchUrl,
   isPrivateOrReservedIp,
+  parseIpAddress,
 } from '../ssrf-guard'
 
 /**
@@ -249,6 +250,42 @@ describe('SSRF · 自托管信任不得被"嵌进 IPv6 的内网"绕过', () => 
     const url = 'http://127.0.0.1:8803/mcp'
     expect((await assertSafeFetchUrl(url)).safe).toBe(false)
     expect((await assertSafeFetchUrl(url, { selfHosted: trust(url) })).safe).toBe(true)
+  })
+})
+
+describe('G-1105310 · IP 字面量归一化唯一出口(parseIpAddress)', () => {
+  it('IPv4-mapped(::ffff:0:0/96)折回 family 4 —— 点分尾与十六进制两种写法等值', () => {
+    expect(parseIpAddress('::ffff:192.168.0.1')).toEqual({ family: 4, value: 0xc0a80001n })
+    // `http://[::ffff:127.0.0.1]` 经 WHATWG URL 规范化后就是这一形态(纯十六进制分组)
+    expect(parseIpAddress('::ffff:7f00:1')).toEqual({ family: 4, value: 0x7f000001n })
+    expect(parseIpAddress('::FFFF:8.8.8.8')).toEqual({ family: 4, value: 0x08080808n })
+  })
+
+  it('容忍方括号 / %zone 区域索引;嵌入 v4 不在解析器折(判据层各管各的名单)', () => {
+    expect(parseIpAddress('[::1]')).toEqual({ family: 6, value: 1n })
+    expect(parseIpAddress('fe80::1%eth0')).toEqual({ family: 6, value: (0xfe80n << 112n) | 1n })
+    expect(parseIpAddress('64:ff9b::a9fe:a9fe')).toEqual({
+      family: 6,
+      value: (0x64ff9bn << 96n) | 0xa9fea9fen,
+    })
+  })
+
+  it('`::` 分组补零归一,数值表示统一为 bigint(此前两份副本一个 v4 走 number、一个走 bigint)', () => {
+    expect(parseIpAddress('1:2::3')).toEqual({
+      family: 6,
+      value: (1n << 112n) | (2n << 96n) | 3n,
+    })
+    expect(parseIpAddress('0:0:0:0:0:0:0:1')).toEqual({ family: 6, value: 1n })
+    expect(parseIpAddress('8.8.8.8')).toEqual({ family: 4, value: 0x08080808n })
+  })
+
+  it('裁定钉:严格档 —— BSD 缩写 v4 与 v6 尾部缩写点分一律解析不出(RFC 4291 形态 3 恰四段)', () => {
+    for (const junk of ['1.2', '1.2.3', '::ffff:1.2', 'not-an-ip']) {
+      expect(
+        parseIpAddress(junk),
+        `${junk} 缩写/非法形态必须解析不出(fail-closed 由判据层执行)`,
+      ).toBeNull()
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
