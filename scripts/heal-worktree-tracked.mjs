@@ -119,6 +119,17 @@ const LOCK_PROBE_TIMEOUT_MS = 20_000
 const LOCK_TEXT_RE = /index\.lock|Another git process/i
 
 /**
+ * 对齐层永久豁免路径(2026-10-12 立,台账被对齐层两层接力吃掉的根因修复):
+ * PROJECT_PLAN.md 是活文档台账,工作树常态是"去重后的进行时形态",与 HEAD 的 union-merge
+ * 重复行形态**结构性不等** —— 本层两条"回潮"判据(③a 整块等于祖先 / ②′ 行级子集)对它
+ * 都可能给出"看似可证"的祖先性,2026-10-12 13:55 的两层接力(陈旧索引刷新把 index 对齐 HEAD,
+ * 幻影漂移对齐再把工作树 restore 到 HEAD)正是这么吃掉 19339 行台账的。
+ * 对这一格,"防回滚"的正确防线在**提交时**的活文档闸(工作树 ⊇ HEAD),不在对齐层的祖先判据
+ * —— 故本层对它整体绕行,`exempt` / `exemptPaths` 字段逐轮点名,**绝不静默**。
+ */
+export const ALIGN_EXEMPT_PATHS = new Set(['PROJECT_PLAN.md'])
+
+/**
  * 问 git 要锁的真实落点。**不得自己拼 `<root>/.git/index.lock`** —— 本仓真 gitdir 在工作区外
  * (题面那次的报错原文就是 `D:/IHUI-AI-git-repo/index.lock`),linked worktree / `--separate-git-dir`
  * 两种形态拼出来的路径都不存在,那样探到的"absent"是一次假阴性(把有锁读成没锁 = 反过来骗人抢写)。
@@ -225,6 +236,10 @@ export function lockSkipAdvice(kind) {
       return '竞争已解除 ⇒ 下一轮自动重试;若反复出现这一行,查的是持锁方而不是本层。'
     case 'undetermined':
       return '锁状态判不出 ⇒ 本轮结论不算"已判定",也不写盘;先修取材(git 可执行/仓库可达)。'
+    case 'write-lock-held':
+      return 'safe-commit 等 git-lock 消费方正持逻辑写锁提交;本层让路,锁释放即自动补上(2026-10-12 立的守卫,只探不抢)。'
+    case 'write-lock-undetermined':
+      return '逻辑写锁状态判不出 ⇒ 本轮不写盘;先修取材(git 可执行/仓库可达)。'
     default:
       return ''
   }
@@ -802,10 +817,31 @@ export function compositeDriftPaths(
 const SUBSET_MAX_BYTES = 2 * 1024 * 1024
 export function refreshStaleIndex(repoRoot, { dryRun = false } = {}) {
   const g = makeGit(repoRoot)
-  const staged = g(['diff', '--name-only', 'HEAD', '--cached', '--no-renames'])
+  // 逻辑写锁守卫(2026-10-12):safe-commit 等 git-lock 消费方在伞下提交时,索引写入窗口实测
+  // 30–62 秒 —— 本层不等判据跑完,先把整轮让出去(探针只读;让路原因走既有 lockSkip 通道)。
+  const wl = probeWriteLock(repoRoot, g)
+  if (wl.state !== 'absent') {
+    return {
+      refreshed: 0,
+      paths: [],
+      deferred: [],
+      held: 0,
+      subsetRefreshed: 0,
+      subsetPaths: [],
+      lockSkip: skipFromWriteProbe(wl),
+      ancestryUndetermined: [],
+      subsetUndetermined: [],
+      exempt: [],
+    }
+  }
+  const stagedAll = g(['diff', '--name-only', 'HEAD', '--cached', '--no-renames'])
     .split('\n')
     .filter(Boolean)
-  if (!staged.length)
+  // 豁免路径先摘出来(2026-10-12):只报数,不判不写 —— 整块祖先与行子集两条通道对活文档
+  // 都可能给出"看似可证"的祖先性,故在本层入口整体绕行,exempt 字段逐轮点名。
+  const exempt = stagedAll.filter((p) => ALIGN_EXEMPT_PATHS.has(normRepoPath(p)))
+  const staged = stagedAll.filter((p) => !ALIGN_EXEMPT_PATHS.has(normRepoPath(p)))
+  if (!stagedAll.length)
     return {
       refreshed: 0,
       paths: [],
@@ -816,6 +852,7 @@ export function refreshStaleIndex(repoRoot, { dryRun = false } = {}) {
       lockSkip: null,
       ancestryUndetermined: [],
       subsetUndetermined: [],
+      exempt: [],
     }
   const idxBlob = new Map()
   for (const l of lsStageChunked(g, staged)) {
@@ -899,6 +936,7 @@ export function refreshStaleIndex(repoRoot, { dryRun = false } = {}) {
       lockSkip: null,
       ancestryUndetermined,
       subsetUndetermined: subsetLoss,
+      exempt,
     }
   if (dryRun)
     return {
@@ -913,6 +951,7 @@ export function refreshStaleIndex(repoRoot, { dryRun = false } = {}) {
       lockSkip: null,
       ancestryUndetermined,
       subsetUndetermined: subsetLoss,
+      exempt,
       dryRun: true,
     }
   const { done, deferred, lockSkip } = writeIndexCacheInfos(g, repoRoot, refreshedPaths)
@@ -927,6 +966,7 @@ export function refreshStaleIndex(repoRoot, { dryRun = false } = {}) {
     lockSkip,
     ancestryUndetermined,
     subsetUndetermined: subsetLoss,
+    exempt,
   }
 }
 
@@ -1047,6 +1087,32 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
     layerSkips.push({ layer, ...verdict })
     return verdict
   }
+  // 逻辑写锁守卫(2026-10-12):整轮先让 —— 本层三层(索引刷新/旁路孤儿/漂移对齐)都会写盘,
+  // 而这一格的写窗口(safe-commit 伞下的索引写入)实测 30–62 秒。让路走 layerSkips 通道,
+  // 透明点名(与各层独立让路的 G-794 同一条设计,只是这一次的让路判据是逻辑锁不是 index.lock)。
+  const wlEntry = probeWriteLock(repoRoot, g)
+  if (wlEntry.state !== 'absent') {
+    return {
+      aligned: 0,
+      paths: [],
+      driftUndetermined: [],
+      layerSkips: [
+        { layer: '对齐层整轮(索引刷新/旁路孤儿/漂移对齐)', ...skipFromWriteProbe(wlEntry) },
+      ],
+      refreshed: 0,
+      refreshDeferred: [],
+      ancestryUndetermined: [],
+      subsetUndetermined: [],
+      exemptPaths: [],
+      bypassRestored: 0,
+      bypassPaths: [],
+      bypassHeldOnDisk: 0,
+      bypassHeldUnproven: 0,
+      bypassUnprovenPaths: [],
+      bypassSkippedNotBlob: 0,
+      bypassDeferred: [],
+    }
+  }
   // 先刷新"落后索引"(CAS/converge 只推进 HEAD 的后遗症),否则下面判据①会把它们全部误挡掉
   let refreshed = {
     refreshed: 0,
@@ -1057,6 +1123,7 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
     lockSkip: null,
     ancestryUndetermined: [],
     subsetUndetermined: [],
+    exempt: [],
   }
   try {
     refreshed = refreshStaleIndex(repoRoot, { dryRun })
@@ -1087,6 +1154,7 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
   const head = () => ({
     refreshed: refreshed.refreshed,
     refreshDeferred: refreshed.deferred || [],
+    refreshExempt: refreshed.exempt || [],
     ancestryUndetermined: refreshed.ancestryUndetermined || [],
     subsetUndetermined: refreshed.subsetUndetermined || [],
     layerSkips,
@@ -1096,9 +1164,10 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
     dirty = g(['diff', '--name-only', 'HEAD', '--no-renames']).split('\n').filter(Boolean)
   } catch (e) {
     noteSkip('幻影漂移判定', e)
-    return { aligned: 0, paths: [], driftUndetermined: [], ...head(), ...bp }
+    return { aligned: 0, paths: [], driftUndetermined: [], exemptPaths: [], ...head(), ...bp }
   }
-  if (!dirty.length) return { aligned: 0, paths: [], driftUndetermined: [], ...head(), ...bp }
+  if (!dirty.length)
+    return { aligned: 0, paths: [], driftUndetermined: [], exemptPaths: [], ...head(), ...bp }
   // ① 索引 == HEAD 的路径才可对齐
   const indexLines = lsStageChunked(g, dirty)
   const indexBlob = new Map()
@@ -1115,7 +1184,11 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
         return [l.slice(i + 1), l.slice(0, i)]
       }),
   )
-  const eligible = dirty.filter((p) => {
+  // 豁免路径先摘出来(2026-10-12):只报数,不判不写 —— ③a 整块祖先与 ③b 逐块拼合两条通道
+  // 对活文档(PROJECT_PLAN.md)都可能给出"看似可证"的回潮结论,故在 eligible 之前整体绕行。
+  const exemptDrift = dirty.filter((p) => ALIGN_EXEMPT_PATHS.has(normRepoPath(p)))
+  const judgeable = dirty.filter((p) => !ALIGN_EXEMPT_PATHS.has(normRepoPath(p)))
+  const eligible = judgeable.filter((p) => {
     const ib = indexBlob.get(p)
     return ib && ib === headBlob.get(p)
   })
@@ -1123,8 +1196,9 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
     return {
       aligned: 0,
       paths: [],
-      skippedStaged: dirty.length,
+      skippedStaged: dirty.length - eligible.length,
       driftUndetermined: [],
+      exemptPaths: exemptDrift,
       ...head(),
       ...bp,
     }
@@ -1155,6 +1229,7 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
       dryRun: true,
       skippedStaged: dirty.length - eligible.length,
       driftUndetermined,
+      exemptPaths: exemptDrift,
       ...head(),
       ...bp,
     }
@@ -1188,9 +1263,77 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
     deferred,
     skippedStaged: dirty.length - eligible.length,
     driftUndetermined,
+    exemptPaths: exemptDrift,
     ...head(),
     ...bp,
   }
+}
+
+/**
+ * 项目逻辑写锁(ihui-git-write.lock,safe-commit 等 git-lock.mjs 消费方持有)的只读探针。
+ * 立因(2026-10-12):对齐层此前只让路给 git 原生 index.lock,而 git-lock 伞下一次 commit 的
+ * 索引写入实测可持 index.lock 30–62 秒 —— 本层每 2 分钟一轮,恰好撞进写窗口,把别人的提交
+ * 拦死在 index.lock 上(钩子侧当日表现为 lint-staged 连吃 4 次被误报成 EBUSY 的 exit 128)。
+ * 只探不抢:锁的处置属持有人(§12 铁律 + 本文件 §5b);判据是"锁目录在位",
+ * meta.json 只用来把主人讲清楚,读不到**不影响**"在位"结论(fail-safe 方向是让路)。
+ * 与 probeIndexLock 同一纪律:gitdir 用 `--absolute-git-dir` 问 git 要,不自己拼 `<root>/.git`。
+ * @returns {{state:'absent'|'held'|'undetermined',path:string,holder:object|null,ageMs:number,reason:string}}
+ */
+export function probeWriteLock(repoRoot, g = makeGit(repoRoot)) {
+  let base = ''
+  try {
+    base = g(['rev-parse', '--absolute-git-dir'], { timeout: LOCK_PROBE_TIMEOUT_MS }).trim()
+  } catch (e) {
+    return {
+      state: 'undetermined',
+      path: '',
+      holder: null,
+      ageMs: 0,
+      reason: `问不到 gitdir:${String(e?.message ?? e).slice(0, 160)}`,
+    }
+  }
+  const path = join(base, 'ihui-git-write.lock')
+  let st = null
+  try {
+    st = lstatSync(path)
+  } catch (e) {
+    if (e?.code === 'ENOENT')
+      return {
+        state: 'absent',
+        path,
+        holder: null,
+        ageMs: 0,
+        reason: `此刻无 ihui-git-write.lock(${path})`,
+      }
+    return {
+      state: 'undetermined',
+      path,
+      holder: null,
+      ageMs: 0,
+      reason: `量不到 ihui-git-write.lock(${String(e?.code ?? e)} ⇒ 不判为无锁)`,
+    }
+  }
+  let holder = null
+  try {
+    holder = JSON.parse(readFileSync(join(path, 'meta.json'), 'utf8'))
+  } catch {
+    /* meta 不可读不改判:在位就是让路 */
+  }
+  const ageMs = Math.max(0, Date.now() - (Number(st.mtimeMs) || 0))
+  const who = holder ? `unit=${holder.unitId || ''} pid=${holder.pid ?? ''}` : 'meta 不可读'
+  return {
+    state: 'held',
+    path,
+    holder,
+    ageMs,
+    reason: `逻辑写锁在位(${who},${Math.round(ageMs / 1000)}s)@${path}`,
+  }
+}
+
+/** 写锁探针 → 让路结论。kind 与 index.lock 侧的 held/dangling 刻意不同名,两种锁不混同。 */
+function skipFromWriteProbe(probe) {
+  const kind = probe?.state === 'held' ? 'write-lock-held' : 'write-lock-undetermined'
+  return { kind, reason: `本层跳过(项目逻辑写锁)—— ${probe?.reason ?? '未取到探针结论'}` }
 }
 
 /**
@@ -2269,6 +2412,57 @@ function selfTestRun() {
       r2.refreshed === 0 && readFileSync(join(tmp, 'keep.ts'), 'utf8') === '他人暂存的新工作\n',
     )
 
+    // ⑮ 对齐层豁免(2026-10-12 立,台账被两层接力吃掉的回归钉):PROJECT_PLAN.md 在
+    //    ALIGN_EXEMPT_PATHS ⇒ ③a/③b 两条通道整体绕行,只报数不判不写。
+    //    差分形态(不是单测豁免路径):同一轮里非豁免路径(keep2.ts,工作区==祖先)必被对齐,
+    //    豁免路径同轮一字不动 —— 这样"是豁免在拦"与"判据失明"两种全绿成因被分开钉住。
+    //    ⚠️ 提交一律用**显式 pathspec**,不用 -a:-a 会把另一条路径的在飞改动一起扫进
+    //    HEAD(本用例第一版正是如此,台账的 v1 被 K2 的 -a 提交,豁免分支整段没被执行到)。
+    writeFileSync(join(tmp, 'keep2.ts'), 'w1\n')
+    g(['add', 'keep2.ts'])
+    g(['commit', '-qm', 'K1', '--', 'keep2.ts'])
+    writeFileSync(join(tmp, 'keep2.ts'), 'w2\n')
+    g(['add', 'keep2.ts'])
+    g(['commit', '-qm', 'K2', '--', 'keep2.ts'])
+    writeFileSync(join(tmp, 'keep2.ts'), 'w1\n') // == 祖先版本(非豁免对照)
+    writeFileSync(join(tmp, 'PROJECT_PLAN.md'), 'v1\n')
+    g(['add', 'PROJECT_PLAN.md'])
+    g(['commit', '-qm', 'P1', '--', 'PROJECT_PLAN.md'])
+    writeFileSync(join(tmp, 'PROJECT_PLAN.md'), 'v2\n')
+    g(['add', 'PROJECT_PLAN.md'])
+    g(['commit', '-qm', 'P2', '--', 'PROJECT_PLAN.md'])
+    writeFileSync(join(tmp, 'PROJECT_PLAN.md'), 'v1\n') // == 祖先版本 ⇒ ③a 本会命中,若无豁免必被对齐
+    const dDiff = alignDrifts(tmp)
+    check(
+      '⑮ 同轮差分:非豁免被对齐、台账豁免只报数不写',
+      (dDiff.paths || []).includes('keep2.ts') &&
+        !(dDiff.paths || []).includes('PROJECT_PLAN.md') &&
+        readFileSync(join(tmp, 'keep2.ts'), 'utf8') === 'w2\n' &&
+        readFileSync(join(tmp, 'PROJECT_PLAN.md'), 'utf8') === 'v1\n' &&
+        (dDiff.exemptPaths || []).includes('PROJECT_PLAN.md'),
+    )
+
+    // ⑯ 逻辑写锁让路(2026-10-12):gitDir 下出现 ihui-git-write.lock(safe-commit 等
+    //    git-lock 消费方持有)⇒ 整轮跳过 + layerSkips/lockSkip 透明点名,只探不抢。
+    //    锁目录建在 tmp 仓自己的 gitdir 里,与真仓(D:/IHUI-AI-git-repo)无关。
+    const gd = g(['rev-parse', '--absolute-git-dir']).trim()
+    mkdirSync(join(gd, 'ihui-git-write.lock'), { recursive: true })
+    let dLock = null
+    let rLock = null
+    try {
+      dLock = alignDrifts(tmp)
+      rLock = refreshStaleIndex(tmp)
+    } finally {
+      rmSync(join(gd, 'ihui-git-write.lock'), { recursive: true, force: true })
+    }
+    check(
+      '⑯ 逻辑写锁在位 ⇒ 整轮让路且点名(kind=write-lock-held)',
+      dLock.aligned === 0 &&
+        (dLock.layerSkips || []).some((s) => s.kind === 'write-lock-held') &&
+        rLock.refreshed === 0 &&
+        rLock.lockSkip?.kind === 'write-lock-held',
+    )
+
     let fail = 0
     for (const r of out) {
       console.log(`${r.ok ? '✅' : '❌'} ${r.n}`)
@@ -2281,7 +2475,16 @@ function selfTestRun() {
     )
     return fail ? 1 : 0
   } finally {
-    rmSync(tmp, { recursive: true, force: true })
+    // 清理失败不得掩盖真结果(2026-10-12):本会话环境里 WorkBuddy 的 safe-delete shim 会拦
+    // >50 项的 rmSync —— 旧写法让 finally 的清理异常**顶掉** try 里真正的断言输出,
+    // 自测表现为"一行判据都看不见,只剩清理报错",真红被假红吞掉。判据结果第一,清理失败点名即可。
+    try {
+      rmSync(tmp, { recursive: true, force: true })
+    } catch (e) {
+      console.warn(
+        `⚠️ 自测临时目录清理失败(不影响判据结果):${tmp} — ${String(e?.message ?? e).slice(0, 160)}`,
+      )
+    }
   }
 }
 
