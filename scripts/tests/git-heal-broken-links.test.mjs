@@ -87,7 +87,11 @@ test('T2 深度与基 ref:~4⇒5、^^⇒3,无归属不进计划', () => {
   assert.equal(depthOf('refs/tags/a'), 1)
   assert.equal(depthOf('refs/tags/a~4'), 5)
   assert.equal(depthOf('refs/tags/a^^'), 3)
-  const plans = planFetches([{ refExpr: 'refs/tags/a~4' }, { refExpr: 'refs/tags/a~13' }, { refExpr: '' }])
+  const plans = planFetches([
+    { refExpr: 'refs/tags/a~4' },
+    { refExpr: 'refs/tags/a~13' },
+    { refExpr: '' },
+  ])
   assert.equal(plans.length, 1)
   assert.equal(plans[0].depth, 14)
 })
@@ -100,10 +104,20 @@ test('T3 内容地址一致才算取回:不符/空返回/报错三型都不得�
 })
 
 test('T4 检出需要与只住备份标签分两桶,去重按缺失对象', () => {
-  const rows = [{ missingOid: 'x', refExpr: 'refs/tags/t' }, { missingOid: 'x', refExpr: 'refs/tags/t' }, { missingOid: 'y', refExpr: 'refs/tags/t' }]
+  const rows = [
+    { missingOid: 'x', refExpr: 'refs/tags/t' },
+    { missingOid: 'x', refExpr: 'refs/tags/t' },
+    { missingOid: 'y', refExpr: 'refs/tags/t' },
+  ]
   const cls = classifyNeeds(rows, (oid) => oid === 'x')
-  assert.deepEqual(cls.needed.map((r) => r.missingOid), ['x'])
-  assert.deepEqual(cls.backupOnly.map((r) => r.missingOid), ['y'])
+  assert.deepEqual(
+    cls.needed.map((r) => r.missingOid),
+    ['x'],
+  )
+  assert.deepEqual(
+    cls.backupOnly.map((r) => r.missingOid),
+    ['y'],
+  )
   assert.equal(cls.distinct, 2)
 })
 
@@ -117,12 +131,17 @@ test('T5 端到端·正向:origin 在位时断链真的被补回,复测归零', 
       g(dir, ['remote', 'add', 'origin', origin])
       g(dir, ['push', '-q', '-u', 'origin', 'HEAD'])
     })
+    // stdio 必须显式写:本机宿主病窗(2026-10-12 成组对照实锤)杀一切 stdio[0]='pipe' 的
+    // 派生 —— 不写 stdio(默认三管 pipe)3/3 EBUSY,['ignore','pipe','pipe'] 5/5 成功;
+    // 被测器不读 stdin,'ignore' 语义正确。病窗内子进程起不来会表现成 stdout 空 + 断言
+    // "实际输出:''",看似被测器坏了,实为夹具自己的派生面缺陷。
     const res = spawnSync(process.execPath, [TOOL, '--apply'], {
       cwd: ROOT,
       encoding: 'utf8',
       windowsHide: true,
       timeout: 300000,
       env: { ...process.env, IHUI_HEAL_ROOT: work },
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     const out = `${res.stdout || ''}${res.stderr || ''}`
     assert.match(out, /取回落库 [1-9]/, `应报"取回落库 ≥1",实际输出:${out.slice(0, 400)}`)
@@ -140,16 +159,22 @@ test('T5 端到端·正向:origin 在位时断链真的被补回,复测归零', 
 test('T6 端到端·反向:origin 取不到时只报未判定,不做任何写动作', () => {
   const work = makeBrokenRepo('e2e-noorigin')
   try {
+    // stdio 显式写,同 T5 处注释:病窗杀 pipe-stdin 派生,不写 = 子进程根本起不来。
     const res = spawnSync(process.execPath, [TOOL, '--apply'], {
       cwd: ROOT,
       encoding: 'utf8',
       windowsHide: true,
       timeout: 300000,
       env: { ...process.env, IHUI_HEAL_ROOT: work },
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     const out = `${res.stdout || ''}${res.stderr || ''}`
     assert.match(out, /未判定/, `应喊未判定,实际:${out.slice(0, 300)}`)
-    assert.doesNotMatch(out, /取回落库 [1-9]/, `无 origin 却取回落库 = 判据说谎:${out.slice(0, 300)}`)
+    assert.doesNotMatch(
+      out,
+      /取回落库 [1-9]/,
+      `无 origin 却取回落库 = 判据说谎:${out.slice(0, 300)}`,
+    )
     assert.equal(res.status, 2, `取不到 origin 的收尾档应 rc=2,实际 ${res.status}`)
     assert.throws(() => g(work, ['cat-file', '-e', g(work, ['rev-parse', 'HEAD:a.txt']).trim()]))
   } finally {
