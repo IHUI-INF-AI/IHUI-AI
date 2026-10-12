@@ -18951,8 +18951,7 @@
     "planTruncated": "仅显示体量最大的前 8 项，其余见执行层详情。",
     "planEmpty": "无待执行条目(本就不存在或已清空)。",
     "entriesShowAll": "显示全部条目",
-    "entriesShowLess": "收起"
-  ,
+    "entriesShowLess": "收起",
     "wizardTitle": "Qoder 登录被风控？一键解决",
     "wizardIntro": "自动完成 14 层设备身份彻底重置（含硬件指纹 MAC 改写，旧值全程自动备份，期间网络会闪断几秒），然后一步步引导你更换网络出口。全程无需任何专业知识。⚠️ 重置完成后 24 小时内【切勿】登录 Qoder——每次尝试登录都会让风控重新计时，等于白重置；明天此时再正常登录。",
     "wizardCriticalFailNote": "⚠️ 有必选层未能完成（见上方明细）。效果可能不完整，请重试，或以管理员身份运行本程序后再试。",
@@ -19134,9 +19133,6 @@
     "loadMore": "加载更多",
     "schedulerDisabled": "自动签到未开启",
     "schedulerEnabled": "自动签到已开启",
-    "schedulerNextRun": "下次 {time}",
-    "schedulerNextRunQoder": "Qoder 下次 {time}"
-  ,
     "deviceMapUpdated": "设备指纹已更新",
     "editDeviceMap": "编辑设备指纹",
     "editDeviceMapTitle": "编辑设备指纹",
