@@ -33,7 +33,6 @@ import {
   getLiveStatistics,
   getPointStatistics,
   getResourceStatistics,
-  getUserCenterStatistics,
   findVisitLogList,
 } from '../db/statistics-queries.js'
 // 个人口径的三个计数复用社交域既有出口(不在本文件重算一遍 count,那是第二把尺子)
@@ -650,11 +649,11 @@ export const adminStatisticsRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ statistics }))
   })
 
-  // GET /statistics/user-center - 用户中心统计
-  server.get('/statistics/user-center', async (_request, reply) => {
-    const statistics = await getUserCenterStatistics()
-    return reply.send(success({ statistics }))
-  })
+  // 2026-10-12 删除:此处曾重复注册 `/statistics/user-center`(平台级 `getUserCenterStatistics()`,
+  // **不取 request.userId、无任何鉴权**)。同路径的**用户口径**实现在上面第 95 行(令牌主体取数、
+  // 未登录 401,响应与 api-client 的 UserStatistics 逐字段对齐),两处同名 ⇒ Fastify 按注册顺序
+  // 只有先注册者生效,后者是随时可能因顺序变动而暴露的死代码;而它一旦生效就是"未登录可读全站
+  // 用户统计"(平台级口径本就该挂在 /api/admin 前缀下,注释亦自认)。故整块删除,不保留 stub。
 
   // GET /visit-tracking/visits - 访问明细列表
   server.get('/visit-tracking/visits', async (request, reply) => {
