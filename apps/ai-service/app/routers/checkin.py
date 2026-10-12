@@ -118,11 +118,21 @@ def _validate_workbuddy_token(token: str, device_map: dict[str, Any]) -> None:
     本体 ⇒ token 只做非空硬校验,uid 以 device_map.uid 为真源(捕获落库)。
     过期判据复用 checkin_workbuddy.workbuddy_session_expiry
     (epoch 秒/毫秒/ISO 三形态;auth.expiresAt 真机实证为毫秒)。
+
+    Web 模式(2026-10-12 立「网页登录自动添加」):device_map.login_type=="web"
+    时 jwt 字段存的是**网页登录 Cookie 串**(桌面端 WebView cookie jar 全量,
+    含 HttpOnly,加密落库)——只做非空校验,无 expiresAt 声明(网页 Cookie
+    服务端滚动刷新,过期由签到 401 → SessionDead 承载)。
     """
     tok = (token or "").strip()
     if len(tok) < 8:
+        if checkin_workbuddy.workbuddy_is_web_mode(device_map or {}):
+            raise HTTPException(
+                status_code=400,
+                detail="WorkBuddy 网页登录 Cookie 为空或过短,请重新网页登录获取",
+            )
         raise HTTPException(status_code=400, detail="WorkBuddy token 为空或过短,请重新提取")
-    exp_dt, _remaining = checkin_workbuddy.workbuddy_session_expiry(device_map)
+    exp_dt, _remaining = checkin_workbuddy.workbuddy_session_expiry(device_map or {})
     if exp_dt is not None and exp_dt <= datetime.now():
         raise HTTPException(
             status_code=400,

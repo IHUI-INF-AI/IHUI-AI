@@ -55,6 +55,15 @@ PATH_CHECKIN_STATUS: Final = "/billing/meter/checkin-status"
 PATH_DAILY_CHECKIN: Final = "/billing/meter/daily-checkin"
 _USER_AGENT: Final = "WorkBuddy/checkin"
 
+# Web Cookie 模式(2026-10-12 立「网页登录自动添加」):签到接口本域双网关同服务
+# (asar 实证 /v2/billing/meter/daily-checkin 与 copilot.tencent.com 并存),
+# 网页版全 Cookie 认证(asar 原话「Web 端已由浏览器 Cookie 保持登录态」)。
+# 桌面端 WebView 登录后 cookie jar 全量(含 HttpOnly)落库到 jwt 字段(加密),
+# device_map.login_type="web" 标记模式。
+WB_WEB_BASE: Final = "https://www.workbuddy.cn"
+PATH_WEB_CHECKIN_STATUS: Final = "/v2/billing/meter/checkin-status"
+PATH_WEB_DAILY_CHECKIN: Final = "/v2/billing/meter/daily-checkin"
+
 # 业务码:0=成功;10001=今日已签(幂等成功)。其余非零按失败分类。
 _CODE_OK: Final = 0
 _CODE_ALREADY: Final = 10001
@@ -92,6 +101,11 @@ def workbuddy_device_map_uid(device_map: dict[str, Any]) -> str | None:
         if isinstance(val, (str, int)) and str(val).strip():
             return str(val).strip()
     return None
+
+
+def workbuddy_is_web_mode(device_map: dict[str, Any]) -> bool:
+    """device_map.login_type == "web" ⇒ 网页登录 Cookie 模式(jwt 字段存 Cookie 串)。"""
+    return str((device_map or {}).get("login_type") or "").strip().lower() == "web"
 
 
 def _parse_expiry_value(raw: Any) -> datetime.datetime | None:
@@ -215,6 +229,37 @@ async def _wb_post(
         return resp.status_code, None
 
 
+async def _wb_post_web(
+    path: str,
+    cookie_header: str,
+    timeout: float = DEFAULT_TIMEOUT,
+    client: httpx.AsyncClient | None = None,
+) -> tuple[int, Any]:
+    """POST www.workbuddy.cn 本域 /v2 网关,Cookie 鉴权 + 空 JSON 体(与网页版同机制)。
+
+    返回契约与 _wb_post 完全一致:(0/-1, None)=网络异常;(status, None)=非 JSON。
+    """
+    headers: dict[str, str] = {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) IHUI-Desktop-Checkin",
+        "cookie": cookie_header,
+    }
+    http = client if client is not None else get_http_client()
+    try:
+        resp = await http.post(
+            WB_WEB_BASE.rstrip("/") + path, json={}, headers=headers, timeout=timeout
+        )
+    except httpx.TimeoutException:
+        return 0, None
+    except Exception as e:
+        return -1, f"{type(e).__name__}: {e}"
+    try:
+        return resp.status_code, json.loads(resp.text)
+    except Exception:
+        return resp.status_code, None
+
+
 # ---------------------------------------------------------------------------
 # 编排:单账号签到流程(契约与 checkin_engine.checkin_account 一致)
 # ---------------------------------------------------------------------------
@@ -269,32 +314,51 @@ async def workbuddy_checkin_account(
 ) -> dict[str, Any]:
     """对单个 WorkBuddy 账号执行每日签到,返回结构化 dict(契约见模块 docstring)。
 
-    流程:过期预检告警 → POST daily-checkin → code 0=成功(credit/streak_days)/
-    10001=今日已签(幂等成功)/ 401/403=SessionDead。无自刷新(refreshToken
-    被客户端信封加密,不可得;过期即提示重抓)。
+    双凭据模式(按 device_map.login_type 分流):
+    - token(默认):jwt 字段 = Bearer token → copilot.tencent.com;
+    - web:jwt 字段 = 网页登录 Cookie 串 → www.workbuddy.cn /v2 网关
+      (桌面端 WebView 登录自动获取,普通用户零 token)。
+    流程:过期预检告警(web 模式无 exp 声明,跳过)→ POST daily-checkin →
+    code 0=成功(credit/streak_days)/ 10001=今日已签(幂等成功)/
+    401/403=SessionDead。无自刷新(refreshToken 不可得;过期即提示重抓/重登)。
     """
     result = _base_result(name, None)
+    web_mode = workbuddy_is_web_mode(device_map)
 
     if not (jwt or "").strip():
-        result["message"] = "未配置 token"
+        result["message"] = "未配置 token" if not web_mode else "未配置网页登录 Cookie,请重新网页登录"
         return result
 
-    user_id = workbuddy_device_map_uid(device_map) or workbuddy_extract_uid(jwt)
+    user_id = workbuddy_device_map_uid(device_map) or (None if web_mode else workbuddy_extract_uid(jwt))
     result["user_id"] = user_id
     if not user_id:
-        result["message"] = "无法解析账号 uid(device_map.uid 缺失且 token 非 JWT),请重新抓取"
+        if web_mode:
+            result["message"] = "无法解析账号 uid(device_map.uid 缺失),请重新网页登录获取"
+        else:
+            result["message"] = "无法解析账号 uid(device_map.uid 缺失且 token 非 JWT),请重新抓取"
         return result
 
-    result["warning"] = _expired_warning(jwt, device_map)
+    if not web_mode:
+        result["warning"] = _expired_warning(jwt, device_map)
 
-    status, data = await _wb_post(PATH_DAILY_CHECKIN, jwt.strip(), timeout, client)
+    if web_mode:
+        status, data = await _wb_post_web(PATH_WEB_DAILY_CHECKIN, jwt.strip(), timeout, client)
+    else:
+        status, data = await _wb_post(PATH_DAILY_CHECKIN, jwt.strip(), timeout, client)
     result["http_status"] = status if status > 0 else None
     if status in (0, -1):
         result["message"] = "网络异常" if status == 0 else (f"网络异常: {data}" if data else "网络异常")
         return result
     if status in (401, 403):
         error_type, cooldown_secs = workbuddy_classify_error(status)
-        result["message"] = f"token 已过期或无权限(HTTP {status}),请打开 WorkBuddy 桌面端刷新登录态后重新抓取"
+        if web_mode:
+            result["message"] = (
+                f"网页登录已过期(HTTP {status}),请重新点「网页登录 WorkBuddy」获取"
+            )
+        else:
+            result["message"] = (
+                f"token 已过期或无权限(HTTP {status}),请打开 WorkBuddy 桌面端刷新登录态后重新抓取"
+            )
         result["classified_error"] = {"type": error_type, "cooldown_seconds": cooldown_secs}
         return result
     if status >= 400:
@@ -349,16 +413,31 @@ async def workbuddy_query_credits(
     error,不编造数值(2026-10-12 立此契约:宁缺勿假)。
     """
     token = (jwt or "").strip()
+    web_mode = workbuddy_is_web_mode(device_map)
     if not token:
-        return {"remaining": None, "error": "未配置 token"}
-    exp_dt, remaining = workbuddy_session_expiry(device_map)
-    if remaining is not None and remaining < 0:
-        return {"remaining": None, "error": f"会话已过期({exp_dt:%Y-%m-%d %H:%M})"}
-    status, data = await _wb_post(PATH_CHECKIN_STATUS, token, timeout, client)
+        return {
+            "remaining": None,
+            "error": "未配置网页登录 Cookie,请重新网页登录" if web_mode else "未配置 token",
+        }
+    if not web_mode:
+        exp_dt, remaining = workbuddy_session_expiry(device_map)
+        if remaining is not None and remaining < 0:
+            return {"remaining": None, "error": f"会话已过期({exp_dt:%Y-%m-%d %H:%M})"}
+    if web_mode:
+        status, data = await _wb_post_web(PATH_WEB_CHECKIN_STATUS, token, timeout, client)
+    else:
+        status, data = await _wb_post(PATH_CHECKIN_STATUS, token, timeout, client)
     if status in (0, -1):
         return {"remaining": None, "error": "网络异常"}
     if status in (401, 403):
-        return {"remaining": None, "error": f"token 已过期或无权限(HTTP {status})"}
+        return {
+            "remaining": None,
+            "error": (
+                f"网页登录已过期(HTTP {status}),请重新网页登录"
+                if web_mode
+                else f"token 已过期或无权限(HTTP {status})"
+            ),
+        }
     if status != 200 or not isinstance(data, dict):
         return {"remaining": None, "error": f"状态查询失败(HTTP {status})"}
     payload = data.get("data")
