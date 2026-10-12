@@ -1516,6 +1516,32 @@ export async function checkinCaptureQoder(): Promise<CapturedQoderSession[]> {
   return await invokeIpc<CapturedQoderSession[]>('checkin_capture_qoder')
 }
 
+/** 本机捕获到的 WorkBuddy 登录态(与 Rust `CapturedWorkbuddySession` 逐字段对齐,2026-10-12)。
+ *  源文件 `%LOCALAPPDATA%\CodeBuddyExtension\Data\Public\auth\workbuddy-desktop.info`
+ *  (回退 %APPDATA% 同路径)。WorkBuddy 桌面端 5.8+ 把 accessToken 包进
+ *  {$wbEncrypted} 信封(AES-256-GCM,密钥只活在客户端进程内)⇒ encrypted=true
+ *  时 access_token 为空,uid/nickname/domain/expiresAt 照常带出,token 需用户
+ *  手动粘贴补齐(WorkBuddy 会话内可读自身环境变量,能自取)。 */
+export interface CapturedWorkbuddySession {
+  auth_file: string
+  uid: string
+  nickname: string
+  /** auth.domain(如 www.workbuddy.cn) */
+  domain: string
+  /** token 本体;加密信封形态下为空串 */
+  access_token: string
+  /** true = accessToken 是加密信封,需手动粘贴 token */
+  encrypted: boolean
+  /** auth.expiresAt(epoch 秒,缺失 0) */
+  expires_at: number
+}
+
+/** 从本机 WorkBuddy 桌面端捕获登录态(明文直读;加密形态带 encrypted 标志返回)。 */
+export async function checkinCaptureWorkbuddy(): Promise<CapturedWorkbuddySession[]> {
+  requireTauri()
+  return await invokeIpc<CapturedWorkbuddySession[]>('checkin_capture_workbuddy')
+}
+
 /** 十四层设备标识重置;includeMachineGuid=true 额外尝试注册表 MachineGuid(需 UAC);
  *  cleanBrowserCookies=true 额外清理 Chrome/Edge 中 TRAE 域 Cookie(浏览器运行中该层会失败并报告);
  *  deepReset=true 额外执行深度扩面层(TRAE webview Cookies 库本体/state.vscdb 身份凭据键/日志缓存/

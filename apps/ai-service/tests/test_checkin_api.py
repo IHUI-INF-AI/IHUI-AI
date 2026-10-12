@@ -490,6 +490,62 @@ async def test_create_qoder_rejects_blank_token(client, fake_store):
 
 
 
+async def test_create_workbuddy_accepts_token_with_uid(client, fake_store):
+    """WorkBuddy 平台(2026-10-12 立):token 本体是 JWT 但 5.8+ 登录态加密可能
+    取不到 ⇒ 只校验非空 + uid 走 device_map;auth.expiresAt(毫秒)落 expires_at。"""
+    future_ms = int(time.time() * 1000) + 24 * 3600 * 1000
+    resp = await client.post(
+        "/api/checkin/accounts",
+        json={
+            "name": "WorkBuddy-main",
+            "jwt": "wb_opaque_token_placeholder_12345",
+            "platform": "workbuddy",
+            "device_map": {"uid": "14f939c3-889b", "expires_at": future_ms},
+        },
+    )
+    assert resp.status_code == 200
+    created = resp.json()
+    assert created["platform"] == "workbuddy"
+    stored = fake_store.accounts[created["id"]]
+    assert stored["device_map"]["uid"] == "14f939c3-889b"
+
+
+async def test_create_workbuddy_rejects_expired_session(client, fake_store):
+    """WorkBuddy 会话已过期(device_map 毫秒 expiresAt 在过去)→ 400。"""
+    past_ms = int(time.time() * 1000) - 3600 * 1000
+    resp = await client.post(
+        "/api/checkin/accounts",
+        json={
+            "name": "WorkBuddy-expired",
+            "jwt": "wb_opaque_token_placeholder_12345",
+            "platform": "workbuddy",
+            "device_map": {"uid": "u-x", "expires_at": past_ms},
+        },
+    )
+    assert resp.status_code == 400
+    assert "已过期" in resp.json()["detail"]
+
+
+async def test_create_workbuddy_rejects_blank_token(client, fake_store):
+    """WorkBuddy token 过短 → 400。"""
+    resp = await client.post(
+        "/api/checkin/accounts",
+        json={"name": "WorkBuddy-blank", "jwt": "short", "platform": "workbuddy"},
+    )
+    assert resp.status_code == 400
+
+
+async def test_create_rejects_unknown_platform(client, fake_store):
+    """未登记平台 → 400(白名单三平台:trae/workbuddy/qoder)。"""
+    resp = await client.post(
+        "/api/checkin/accounts",
+        json={"name": "x", "jwt": "whatever-token", "platform": "cursor"},
+    )
+    assert resp.status_code == 400
+    assert "不支持的平台" in resp.json()["detail"]
+
+
+
 async def test_update_jwt_qoder_platform_split(client, fake_store):
     """PATCH /jwt 按账号平台分流:qoder 账号换 opaque token 不被 TRAE 判据误杀。"""
     resp = await client.post(

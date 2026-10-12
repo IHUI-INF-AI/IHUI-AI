@@ -3325,6 +3325,7 @@ pub fn run() {
             checkin_capture::checkin_detect_trae_dir,
             checkin_capture::checkin_capture_jwts,
             checkin_capture::checkin_capture_qoder,
+            checkin_capture::checkin_capture_workbuddy,
             checkin_capture::checkin_reset_device_ids,
             checkin_capture::checkin_get_public_ip,
             checkin_capture::checkin_one_click_reset,
