@@ -18966,8 +18966,7 @@
     "planTruncated": "Showing the 8 largest items; see layer detail at run time for the rest.",
     "planEmpty": "Nothing to do (nothing exists or already clean).",
     "entriesShowAll": "Show all entries",
-    "entriesShowLess": "Show less"
-  ,
+    "entriesShowLess": "Show less",
     "wizardTitle": "Qoder login blocked by risk control? One-click fix",
     "wizardIntro": "Automatically completes a full 14-layer device identity reset (including MAC hardware fingerprint rewrite, old values auto-backed up; network blips for seconds), then walks you through changing your network exit step by step. Zero expertise required. ⚠️ Within 24 hours after reset, do NOT log into Qoder — every login attempt restarts the risk-control timer, wasting the reset. Just log in normally tomorrow at this time.",
     "wizardCriticalFailNote": "⚠️ Some required layers failed (see details above). The result may be incomplete — retry, or run this app as administrator and try again.",
@@ -19149,9 +19148,6 @@
     "loadMore": "Load more",
     "schedulerDisabled": "Auto check-in off",
     "schedulerEnabled": "Auto check-in on",
-    "schedulerNextRun": "Next {time}",
-    "schedulerNextRunQoder": "Qoder next {time}"
-  ,
     "deviceMapUpdated": "Device fingerprint updated",
     "editDeviceMap": "Edit device fingerprint",
     "editDeviceMapTitle": "Edit device fingerprint",
