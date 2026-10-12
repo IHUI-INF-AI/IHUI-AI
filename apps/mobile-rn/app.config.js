@@ -12,6 +12,53 @@
  */
 const pkg = require('./package.json')
 
+/**
+ * 版本号单调递增的单一数据源(2026-10-12 立,立因是装机实测而非预防):
+ *
+ *   app.json 从未声明 android.versionCode(git 全史 -S 检索零命中)⇒ Expo prebuild
+ *   默认 versionCode 恒为 1;iOS 同病(无 ios.buildNumber)⇒ CFBundleVersion 恒为 1。
+ *   2026-10-12 实测后果:CI nightly 包(vc=1)覆盖手机上 vc=4 的构建时,Android 16
+ *   降级保护连拒 `install -r`、`-r -d`、`uninstall -k` 后的重装(DELETE_KEEP_DATA
+ *   残留记录仍记旧 vc),只有全删重装一条路 —— 本地登录态全丢。号段一旦分配出去
+ *   就只会单调向上走,这是 Android 更新的硬约束,没有"重新从 1 开始"的选项。
+ *
+ * 号段策略:UTC 时钟 YYMMDDHH(8 位,2099-12-31 23 时 = 99123123,低于 2.1B 上限)。
+ *   · 小时粒度:同一小时多次构建同号;同号更新(install -r)合法,不构成降级;
+ *   · 不取 git commit count:本仓主干会被并行会话整谱系重写,计数会缩,缩一次
+ *     就等于给全量已装机用户发一个"永远装不上"的版本;
+ *   · 不取 EAS 远端计数器:eas.json appVersionSource=remote,EAS 自管(见下)。
+ *
+ * 覆盖口 IHUI_VERSION_CODE(CI/手工受控构建):须为正整数且 ∈ [26010100, 2100000000]。
+ *   非法值**抛错**而不是静默回落时间戳 —— 静默回落会把"拼错的环境变量"重新变成
+ *   vc=1 事故,而那正是本函数存在的理由。
+ *
+ * 与 EAS 的边界:eas.json appVersionSource=remote ⇒ EAS 构建走 Expo 远端计数器,
+ *   与本函数的 YYMMDDHH 号段永不交叠 ⇒ prebuild/CI 包可覆盖 EAS 包;反向(EAS 包
+ *   覆盖 CI 包)被降级保护拒属预期,内部署手机以 CI nightly 为准。
+ */
+function resolveBuildNumber() {
+  const override = process.env.IHUI_VERSION_CODE
+  if (override !== undefined && override !== '') {
+    if (!/^\d+$/.test(override)) {
+      throw new Error(`[app.config] IHUI_VERSION_CODE 非法:'${override}'(须为十进制正整数)`)
+    }
+    const n = Number(override)
+    if (n < 26010100 || n > 2100000000) {
+      throw new Error(
+        `[app.config] IHUI_VERSION_CODE 越界:'${override}'(须 ∈ [26010100, 2100000000];` +
+          '下限防退回 vc=1 时代,上限是 Android/Play 的 versionCode 天花板)',
+      )
+    }
+    return n
+  }
+  const now = new Date()
+  const yy = String(now.getUTCFullYear() % 100).padStart(2, '0')
+  const mm = String(now.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(now.getUTCDate()).padStart(2, '0')
+  const hh = String(now.getUTCHours()).padStart(2, '0')
+  return Number(`${yy}${mm}${dd}${hh}`)
+}
+
 module.exports = ({ config }) => {
   // 统一从 process.env 读取(单一数据源),fallback 到 app.json extra(向后兼容)
   // eslint 兼容 EAS:WX_APP_APPID 已在 eas.json production env 注入(非 EXPO_PUBLIC_ 前缀,
@@ -33,9 +80,15 @@ module.exports = ({ config }) => {
   const carrierWebSdkUrl =
     process.env.EXPO_PUBLIC_CARRIER_WEB_SDK_URL || config.extra?.CARRIER_WEB_SDK_URL
 
+  // 版本号:android.versionCode 与 ios.buildNumber 同源(见 resolveBuildNumber 头注)。
+  // prebuild 时分别写入 build.gradle 与 Info.plist;EAS(remote 源)不读这两个值。
+  const buildNumber = resolveBuildNumber()
+
   return {
     ...config,
     version: pkg.version,
+    android: { ...config.android, versionCode: buildNumber },
+    ios: { ...config.ios, buildNumber: String(buildNumber) },
     plugins: [
       'expo-secure-store',
       ...(config.plugins || []),
@@ -61,4 +114,10 @@ module.exports = ({ config }) => {
     ],
   }
 }
+
+// 号段边界随模块导出:守门 scripts/check-mobile-version-code.mjs 与上面的覆盖口检查
+// **同读这两个值**,不写第二份(两处算同一件事必漂移,AGENTS §22c)。 Expo/EAS 只调用
+// 上面的函数,附加属性对它们不可见;本仓守门经 createRequire 以 CJS 载入本模块后读取。
+module.exports.VERSION_CODE_FLOOR = 26010100 // 2026-01-01 00 时 —— 低于此值即"退回 vc=1 时代"
+module.exports.VERSION_CODE_CEILING = 2100000000 // Android/Play 的 versionCode 天花板
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
