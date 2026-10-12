@@ -19079,6 +19079,7 @@
     "captureWbWebDone": "网页登录导入完成(共 {count} 个账号)",
     "captureWbWebWindowClosed": "登录窗口已关闭。重新点「打开登录窗口」可再试。",
     "captureWbManualDivider": "或手动捕获桌面端登录态",
+    "captureWbWebCheckinUncertain": "提示:签到接口暂未确认接受网页登录态,该账号若签到失败(401)请改用 token 方式并反馈我们。",
     "captureDirFound": "已检测到本机 TRAE 数据目录：{dir}",
     "captureDirMissing": "未检测到本机 TRAE 数据目录（可在环境变量 IHUI_TRAE_DIR 指定）",
     "captureEmpty": "未在本机数据目录中捕获到可用 JWT",

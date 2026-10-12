@@ -19079,6 +19079,7 @@
     "captureWbWebDone": "網頁登入匯入完成(共 {count} 個帳號)",
     "captureWbWebWindowClosed": "登入視窗已關閉。重新點「開啟登入視窗」可再試。",
     "captureWbManualDivider": "或手動擷取桌面端登入態",
+    "captureWbWebCheckinUncertain": "提示:簽到介面暫未確認接受網頁登入態,該帳號若簽到失敗(401)請改用 token 方式並回報我們。",
     "captureDirFound": "已偵測到本機 TRAE 資料目錄：{dir}",
     "captureDirMissing": "未偵測到本機 TRAE 資料目錄（可在環境變數 IHUI_TRAE_DIR 指定）",
     "captureEmpty": "未在本機資料目錄中擷取到可用 JWT",
