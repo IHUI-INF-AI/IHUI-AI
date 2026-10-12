@@ -114,11 +114,28 @@ test('T1a 本门在 guardian-runner 的**提交链**上:blocking + skipEnv + 编
 test('T1b 本门同时挂在根 package.json 的 check:all 链上', () => {
   const pkg = JSON.parse(readFileSync(join(REPO, 'package.json'), 'utf8'))
   const chain = pkg.scripts?.['check:all'] ?? ''
-  if (!chain.includes('node scripts/check-prod-bundle-shadow.mjs')) {
-    throw new Error('check:all 不再调用本门 —— 登记表与运行副本再无人对账')
+  const SELF_CALL = 'node scripts/check-prod-bundle-shadow.mjs'
+  // check:all 是**间接**挂载:根链只写 `node scripts/all-checks-runner.mjs`,本门由该 runner
+  // 的命令清单(all-checks-runner.mjs:64)调起。只认 check:all 里的字面量会把"接线正确"
+  // 判成红 —— 2026-10-12 实测 HEAD 与工作区的 check:all 都是 `node scripts/all-checks-runner.mjs`,
+  // 于是这条断言自立门起就是恒红(判据指错了层,不是门没装车)。故两条路都算装车,
+  // 但**任一条都必须真在调用**:
+  if (chain.includes(SELF_CALL)) return
+  if (chain.includes('all-checks-runner')) {
+    const runner = readFileSync(join(REPO, 'scripts', 'all-checks-runner.mjs'), 'utf8')
+    if (!runner.includes(SELF_CALL)) {
+      throw new Error(
+        'check:all 经 all-checks-runner.mjs 间接挂载,但该 runner 的命令清单里没有本门 —— 仍然是没装车',
+      )
+    }
+    // 阳性对照:同一把尺子必须还能看见清单里另一条**确实存在**的门,
+    // 否则"包含"可能只是读到了一个空文件/结构变了的清单(恒真断言)
+    if (!runner.includes('node scripts/check-agent-event-parity.mjs')) {
+      throw new Error('尺子失效:all-checks-runner 的清单读不出任何已知门命令')
+    }
+    return
   }
-  // 阳性对照:同一把尺子扫一条确实存在的其它门,证明不是"字符串恒包含"
-  if (!chain.includes('check-prod-bundle-shadow')) throw new Error('尺子失效')
+  throw new Error('check:all 不再调用本门 —— 登记表与运行副本再无人对账')
 })
 
 // ── T2 登记表形状 + 落点规则 ────────────────────────────────────────────────
