@@ -58,8 +58,12 @@ trap {
 }
 
 $script:AlertSent = $false
-# 本部署包专用于本机 D:\IHUI-AI,使用绝对路径(嵌套调用时 MyInvocation 不可靠)
-$ProjectRoot = "D:\IHUI-AI"
+# 保留"用绝对路径"的理由:嵌套调用时 MyInvocation 不可靠,所以根绝不能从调用栈里猜 —— 必须
+# 是一个算好的绝对路径。改走唯一解析实现 ihui-root-common.ps1 后这一点依然成立:它只认显式传入
+# 的 -StartDir($PSScriptRoot,本文件自己的位置),完全不看调用栈,照样解析出绝对根;而盘符字面量
+# D:\IHUI-AI 的写死被去掉 —— 同一份仓在开发机(G:)与生产机(D:)落在不同路径,写死会解析出两个根。
+. (Join-Path $PSScriptRoot 'ihui-root-common.ps1')
+$ProjectRoot = Resolve-IhuiProjectRoot -StartDir $PSScriptRoot
 # G-298(2026-09-28)落点解析:DevEnv 族不再把盘符字面当唯一真相 —— 环境变量
 # IHUI_DEVENV_ROOT 优先,否则按 $ProjectRoot 所在盘符派生(<drive>:\DevEnv),
 # 与 scripts/seal-c-root-stray.mjs 的 devEnvRoot() 同一条纪律(覆盖 + 派生,两档)。
