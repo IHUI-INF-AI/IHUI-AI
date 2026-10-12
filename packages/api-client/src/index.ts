@@ -11,6 +11,8 @@ export {
   setDeviceFingerprintProvider,
   getDeviceFingerprintProvider,
   setBaseUrl,
+  // 2026-10-12:ai-service 专用基址注入(根治桌面端 dev 签到页 404,见 client.ts 注释)
+  setAiServiceBase,
   setUserAgent,
   getUserAgent,
   setStreamBaseUrl,

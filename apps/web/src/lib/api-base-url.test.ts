@@ -6,6 +6,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest'
 import {
   isRemoteWindow,
   isTauriRuntime,
+  resolveAiServiceBaseUrl,
   resolveApiBaseUrl,
   resolveStreamApiBaseUrl,
   resolveWsApiBaseUrl,
@@ -64,6 +65,7 @@ function clearBakedEnv(): void {
   vi.stubEnv('NEXT_PUBLIC_API_BASE_URL', '')
   vi.stubEnv('NEXT_PUBLIC_STREAM_API_BASE_URL', '')
   vi.stubEnv('NEXT_PUBLIC_WS_BASE_URL', '')
+  vi.stubEnv('NEXT_PUBLIC_AI_SERVICE_URL', '')
 }
 
 afterEach(() => {
@@ -127,6 +129,70 @@ describe('浏览器语义零回归', () => {
     expect(resolveApiBaseUrl()).toBe('')
     expect(resolveStreamApiBaseUrl()).toBe('')
     expect(resolveWsApiBaseUrl()).toBe('https://aizhs.top')
+  })
+})
+
+/**
+ * ai-service 基址判定(2026-10-12 立)。
+ *
+ * 锁定真实故障:桌面端 Tauri dev(窗口 origin=localhost:8801)下 REST 共享基址是
+ * 本机 API 8802,而签到等路由只在 ai-service(8803) —— fetchAiServiceJson 复用共享
+ * 基址把 /api/checkin/* 打到 8802 → Fastify 404
+ * (信封 `Route GET:/api/checkin/accounts not found`)。
+ */
+describe('ai-service 基址判定(桌面端 dev 签到页 404 回归锁)', () => {
+  it('桌面端 + 本地 dev(8801)直连本机 ai-service 8803,绝不再落 8802', () => {
+    setTauriRuntime(true)
+    setWindowLocation('http://localhost:8801/checkin')
+    clearBakedEnv()
+
+    expect(resolveAiServiceBaseUrl()).toBe('http://127.0.0.1:8803')
+    // 显式断言坏值不再出现(404 的直接原因:共享基址 8802)
+    expect(resolveAiServiceBaseUrl()).not.toContain('8802')
+    // REST 共享基址判定保持原样(本地联调语义不变)
+    expect(resolveApiBaseUrl()).toBe('http://127.0.0.1:8802')
+  })
+
+  it('桌面端 + tauri.localhost 本地壳直连本机 ai-service 8803', () => {
+    setTauriRuntime(true)
+    setWindowLocation('http://tauri.localhost/checkin')
+    clearBakedEnv()
+
+    expect(resolveAiServiceBaseUrl()).toBe('http://127.0.0.1:8803')
+  })
+
+  it('桌面端 + 远端站点(生产薄壳)走同源,绝不回退本机 8803', () => {
+    setTauriRuntime(true)
+    setWindowLocation('https://aizhs.top/checkin')
+    clearBakedEnv()
+
+    expect(resolveAiServiceBaseUrl()).toBe('')
+    expect(resolveAiServiceBaseUrl()).not.toContain('127.0.0.1')
+    expect(resolveAiServiceBaseUrl()).not.toContain('8803')
+  })
+
+  it('浏览器 dev(8801)走同源(经 next rewrites 转发 8803),行为零回归', () => {
+    setTauriRuntime(false)
+    setWindowLocation('http://localhost:8801/checkin')
+    clearBakedEnv()
+
+    expect(resolveAiServiceBaseUrl()).toBe('')
+  })
+
+  it('浏览器生产 origin 走同源(nginx 反代),行为零回归', () => {
+    setTauriRuntime(false)
+    setWindowLocation('https://aizhs.top/checkin')
+    clearBakedEnv()
+
+    expect(resolveAiServiceBaseUrl()).toBe('')
+  })
+
+  it('NEXT_PUBLIC_AI_SERVICE_URL 显式非空时覆盖一切判定(与 aiServiceBaseUrl() 同一 env 名)', () => {
+    setTauriRuntime(true)
+    setWindowLocation('http://localhost:8801/checkin')
+    vi.stubEnv('NEXT_PUBLIC_AI_SERVICE_URL', 'https://ai-staging.example.com')
+
+    expect(resolveAiServiceBaseUrl()).toBe('https://ai-staging.example.com')
   })
 })
 
