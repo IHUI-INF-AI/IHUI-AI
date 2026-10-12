@@ -12,8 +12,14 @@
 //          → 统一走 Start-Process 真正脱离父进程 + 日志落盘(.tmp-sync/dev-stack-*.log)
 //   根因3: 手机重启后 adb reverse 丢失 → --device 建转发,watch 模式周期性重建
 //
-// 端口真值(与 apps/api/.env / scripts/dev-port-registry.json 对齐,勿凭印象改):
-//   postgres 8810 · redis 8811 · api 8802(/health) · web 8801 · ai-service 8803
+// 端口真值(2026-10-12 更正 ⇒ 以 apps/api/.env 的 DSN 为权威,勿再抄约定端口):
+//   postgres / redis 的探活端口**从 DSN 解析**(DATABASE_URL / REDIS_URL):本机实况
+//   PG=5432(postgresql-x64-18)、Redis=6379(Memurai),而 docs/port-management.md §2.2
+//   与本脚本旧注写的 8810/8811 是 docker-compose 那套**约定端口 / 另一台机的形态** ——
+//   拿它当引擎存在性判据必然假阴性(端口从未通 ⇒ 每轮体检都判 down ⇒ 每 30s 反复
+//   `sc start` 一个不存在的服务名)。同族裁决见 AGENTS.md「判某引擎在不在必须先读被
+//   审应用自己那份 DSN」与 README.md 端口段落,勿改回固定 8810/8811。
+//   应用端口不受影响:api 8802(/health)· web 8801 · ai-service 8803(/health)(约定=实况)。
 //   metro 8081 —— 手机 dev client 的 bundle 地址指向 localhost:8081(RN 默认),
 //   仓库 start 脚本虽是 expo --port 8805,但手机实机链路以 8081 为准。
 //   web-preview 8806(浏览器打开手机 App)· prod-proxy 8807(它的 API 出口 → aizhs.top)
@@ -50,6 +56,49 @@ const PG_SERVICE = 'PostgreSQL16IHUI';
 const API_DIR = path.join(ROOT, 'apps', 'api');
 const AI_DIR = path.join(ROOT, 'apps', 'ai-service');
 const RN_DIR = path.join(ROOT, 'apps', 'mobile-rn');
+
+// —— DSN 派生的基础设施端口 ——
+// 权威源是应用自己的连接串(.env 的 DATABASE_URL / REDIS_URL),不是端口注册表:
+// 端口表记的是"约定形态",回答不了"这台机上引擎在哪个端口"。解析不出(缺 key /
+// URL 不合法)才回退协议默认端口 —— 5432 / 6379,而非 8810 / 8811(那两位本机从不成立)。
+function dsnPort(envKey, fallbackPort) {
+  try {
+    const text = fs.readFileSync(path.join(API_DIR, '.env'), 'utf8');
+    const m = text.match(new RegExp(`^${envKey}=(.+)$`, 'm'));
+    if (!m) return fallbackPort;
+    const u = new URL(m[1].trim());
+    const port = Number(u.port);
+    return Number.isInteger(port) && port > 0 ? port : fallbackPort;
+  } catch {
+    return fallbackPort;
+  }
+}
+const PG_PORT = dsnPort('DATABASE_URL', 5432);
+const REDIS_PORT = dsnPort('REDIS_URL', 6379);
+
+// Windows 服务名按本机实况探测,不手抄:PG 的服务名在不同机器上是
+// postgresql-x64-17/18/postgresql(本机实为 postgresql-x64-18),写死一个历史名
+// 会让"服务真没起"那一档永远拉不起来(sc start 一个不存在的名字)。
+// 结果缓存一次:watch 每 30s 复检,不该每轮 spawn 一次 sc。
+let winServicesCache = null;
+function listWindowsServices() {
+  if (winServicesCache) return winServicesCache;
+  try {
+    const r = spawnSync('sc', ['query', 'type=', 'service', 'state=', 'all'], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 20000,
+      // 不吃的子进程必须给 stdio(本仓记过 spawnSync EBUSY)
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    // SERVICE_NAME 段是 ASCII,中文系统的 OEM 乱码只影响描述文字,不影响这一段
+    winServicesCache = [...`${r.stdout ?? ''}`.matchAll(/SERVICE_NAME:\s*(\S+)/g)].map((m) => m[1]);
+  } catch {
+    winServicesCache = [];
+  }
+  return winServicesCache;
+}
+const findWindowsService = (re) => listWindowsServices().find((n) => re.test(n)) || null;
 
 // 日志落盘:服务启动失败时能直接看到原因,避免「无输出盲等」
 function logPaths(name) {
@@ -151,21 +200,31 @@ function startSvc(svc) {
 const SERVICES = [
   {
     name: 'postgres',
-    port: 8810,
+    port: PG_PORT,
     required: true,
     probe: 'tcp',
-    describe: 'PostgreSQL 16(Windows 服务,开机自启)',
-    start: () => spawn('sc', ['start', PG_SERVICE], { stdio: 'ignore', windowsHide: true }),
-    hint: `Windows 服务 ${PG_SERVICE} 未运行,请确认服务名(services.msc)`,
+    describe: `PostgreSQL(Windows 服务,端口 ${PG_PORT} ← apps/api/.env 的 DATABASE_URL)`,
+    start: () => {
+      // 服务名现探(不同机器是 postgresql-x64-17/18 等),探不到才退回历史名 PG_SERVICE
+      const svc = findWindowsService(/^PostgreSQL/i) || PG_SERVICE;
+      return spawn('sc', ['start', svc], { stdio: 'ignore', windowsHide: true });
+    },
+    hint: `PG 未监听 :${PG_PORT} 且未能自动拉起:到 services.msc 确认服务(名形如 postgresql-x64-18),或核对 apps/api/.env 的 DATABASE_URL 端口`,
   },
   {
     name: 'redis',
-    port: 8811,
+    port: REDIS_PORT,
     required: true,
     probe: 'tcp',
-    describe: 'Redis 6.2(队列 / 会话,D:\\ihui-redis-6.2)',
-    start: () => launchDetached(REDIS_EXE, ['redis-6.2.conf'], REDIS_DIR, 'redis'),
-    hint: `Redis 可执行文件不存在:${REDIS_EXE}`,
+    describe: `Redis/Memurai(队列 / 会话,端口 ${REDIS_PORT} ← apps/api/.env 的 REDIS_URL)`,
+    start: () => {
+      // 首选 Windows 服务(本机 Memurai / redis 均 Running+Automatic),便携版 exe 只作回退:
+      // 旧形态直奔 REDIS_EXE,而该路径在本机已不存在 ⇒ canStart 恒假 ⇒ 永远 cannot-start。
+      const svc = findWindowsService(/^(Memurai|redis)$/i);
+      if (svc) return spawn('sc', ['start', svc], { stdio: 'ignore', windowsHide: true });
+      return launchDetached(REDIS_EXE, ['redis-6.2.conf'], REDIS_DIR, 'redis');
+    },
+    hint: `Redis 未监听 :${REDIS_PORT} 且未能自动拉起:确认 Windows 服务(Memurai / redis)已安装,或便携版是否存在 ${REDIS_EXE}`,
   },
   {
     name: 'api',
@@ -248,14 +307,29 @@ const SERVICES = [
     required: false,
     probe: 'tcp',
     describe: 'Expo Web 预览(浏览器打开手机 App,可选,API 走 8807 反代到生产)',
-    start: () =>
-      launchDetached(
+    start: () => {
+      const child = launchDetached(
         NODE_EXE,
         [EXPO_ENTRY, 'start', '--web', '--port', '8806'],
         RN_DIR,
         'web-preview',
         { EXPO_PUBLIC_API_BASE_URL: 'http://localhost:8807' },
-      ),
+      );
+      // 自动刷新看守(台账 G-977963 第②半):订阅 Metro 的 /hot 重编译事件,改动后经
+      // /message 广播 reload 让预览页整页重载。桥自带单实例(pid 文件判重),
+      // web-preview 反复重启也不会堆积;拉起失败不阻塞主服务。
+      try {
+        launchDetached(
+          NODE_EXE,
+          [path.join(ROOT, 'scripts', 'web-preview-live-reload.mjs'), '--port', '8806'],
+          ROOT,
+          'web-preview-reload',
+        );
+      } catch {
+        /* 桥起不来由 check-web-preview-live-reload.mjs 的 E 轴点名 */
+      }
+      return child;
+    },
     hint: '浏览器打开 http://localhost:8806(微信 SDK / 闪验 / 本地推送等平台独占能力会降级,真机仍需另验),看 .tmp-sync/dev-stack-web-preview.log',
   },
 ];
@@ -327,7 +401,7 @@ async function waitReady(svc, timeoutMs = readyTimeoutMs) {
 
 function canStart(svc) {
   if (svc.name === 'postgres') return true; // 走 Windows 服务,缺失由 sc 报错
-  if (svc.name === 'redis') return fs.existsSync(REDIS_EXE);
+  if (svc.name === 'redis') return fs.existsSync(REDIS_EXE) || !!findWindowsService(/^(Memurai|redis)$/i);
   if (svc.name === 'api') {
     // 根因封堵:.env 缺失或 tsx 入口缺失时 API 必然起不来,不盲启动,直接给出指引
     return fs.existsSync(path.join(API_DIR, '.env')) && fs.existsSync(TSX_ENTRY);
