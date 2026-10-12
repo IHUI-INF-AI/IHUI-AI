@@ -5078,6 +5078,24 @@ const pushGateChecks = [
 const cliArgs = process.argv.slice(2)
 const passStaged = cliArgs.includes('--staged')
 const showTiming = cliArgs.includes('--timing')
+// ── --timing 的机读旁路(2026-10-12 立) ─────────────────────────────────────
+// 为什么需要:并行档把所有门头一次性打印在前、各门的 ⏱ 行随后按完成序回放,
+// 于是「日志里第 N 个 ⏱ 对应哪道门」不可解析(实测 235 个门头只有 16 个能靠
+// 邻接配对)⇒ 只能拿汇总总耗时,做不了逐门针对性提速。
+// 出路:applyGateResult 收口处按 check.id 落一份 JSON(仅 --timing 时写),
+// 与控制台输出互不干扰,分析脚本读它,不再靠正则配对日志。
+const timingRows = []
+if (showTiming) {
+  process.on('exit', () => {
+    try {
+      const out = resolve(process.cwd(), '.ihui-agent/tmp/guardian-timing.json')
+      writeFileSync(out, JSON.stringify({ generatedAt: new Date().toISOString(), rows: timingRows }, null, 2) + '\n')
+      process.stderr.write(`⏱  逐门耗时已落盘: ${out}(${timingRows.length} 行)\n`)
+    } catch {
+      /* 落盘失败不得影响守门结论 —— 只是少一份分析材料 */
+    }
+  })
+}
 const showHelp = cliArgs.includes('--help') || cliArgs.includes('-h')
 const pushGate = cliArgs.includes('--push-gate')
 
@@ -5517,9 +5535,14 @@ async function dispatchPar(check, cmdArgs) {
     else overCap = true
   })
   let finished = false
+  let gateTimer = null
   const finish = (apply) => {
     if (finished) return
     finished = true
+    if (gateTimer) {
+      clearTimeout(gateTimer)
+      gateTimer = null
+    }
     job.runtime = Date.now() - spawnedAt
     parLive.delete(child)
     releaseParSlot()
@@ -5544,6 +5567,33 @@ async function dispatchPar(check, cmdArgs) {
       }
     })
   })
+  // ─── 单门超时兜底(2026-10-12 立,守门无界的第二道闸) ──────────────────
+  // 成因实测:desktop-nsis-template.mjs --check 走「console.log 后立刻 process.exit(0)」,
+  // 在 **stdout 是 pipe** 时(并行派发 stdio: ['ignore','pipe','pipe'])于本机 Node v24 上
+  // 以 3/6、5/6 的概率打完 OK 文案后永不退出 —— 串行档 stdio inherit 无此病,故并行档首曝。
+  // 子进程不死 ⇒ parPending 队头永远等不到 job.done ⇒ 整条提交链无界挂起(比判红更难查)。
+  // 处置与门 80(热路径 git 只读调用必须带 timeout)同一口径:**任何子检查都不得无界**。
+  // 超时 → kill 子进程 + job.error.code = 'ETIMEDOUT',走 applyGateResult 的 r.error 分支
+  // (与 ENOBUFS 同路)⇒ 崩溃分流、点名、非零退出,绝不静默洗成通过。
+  // 旋钮:GUARDIAN_GATE_TIMEOUT_MS=0 关闭(仅排障用),默认 300s(正常门实测均在秒级)。
+  const gateTimeoutMs = Number(process.env.GUARDIAN_GATE_TIMEOUT_MS ?? 300_000)
+  if (Number.isFinite(gateTimeoutMs) && gateTimeoutMs > 0) {
+    gateTimer = setTimeout(() => {
+      if (finished) return
+      const te = new Error(`守门脚本超时未退出(${gateTimeoutMs}ms)—— ${check.id} ${check.script}`)
+      te.code = 'ETIMEDOUT'
+      try {
+        child.kill('SIGKILL')
+      } catch {
+        /* kill 失败也要 finish,不能把兜底本身变成新的挂起点 */
+      }
+      finish(() => {
+        job.error = te
+        job.stdout = Buffer.concat(outChunks).toString('utf8')
+        job.stderr = Buffer.concat(errChunks).toString('utf8')
+      })
+    }, gateTimeoutMs)
+  }
 }
 
 /**
@@ -5564,6 +5614,18 @@ async function flushParBuffer() {
 // 串行 spawnSync 的结果判定体原样抽出(par 与 serial 共用同一份,退出码语义不分叉)。
 function applyGateResult(check, r, checkStart) {
   const gateStderr = typeof r.stderr === 'string' ? r.stderr : ''
+  if (showTiming) {
+    // 三条出口(pass / blocking失败 / warn·info)统一在此记账,含被判红的门 ——
+    // 慢门往往正是被判红或做过重活的那几道,漏掉它们等于只统计了"好消息"。
+    timingRows.push({
+      id: check.id,
+      label: check.label,
+      script: check.script,
+      mode: check.mode,
+      ms: Date.now() - checkStart,
+      ok: !r.error && r.status === 0 && r.signal === null,
+    })
+  }
   try {
     if (gateStderr.length > 0) process.stderr.write(gateStderr)
     if (r.error) throw r.error
