@@ -14439,17 +14439,8 @@
     "sections": "章节目录"
   },
   "eduCoursesPage": {
-    "empty": "暂无课程",
-    "loading": "加载中...",
-    "progress": "进度 {n}%",
-    "searchAriaLabel": "搜索课程",
-    "searchPlaceholder": "搜索课程...",
-    "statusCompleted": "已完成",
-    "statusInProgress": "进行中",
-    "statusNotStarted": "未开始",
     "subtitle": "管理已报名的全部课程",
-    "title": "我的课程",
-    "total": "共 {n} 条"
+    "title": "我的课程"
   },
   "eduDashboardPage": {
     "coursesCard": {
@@ -19064,6 +19055,15 @@
     "captureQoderDescription": "解密本机已登录 Qoder 客户端的会话凭据（auth.v1.dat），自动带上设备指纹；须以登录 Qoder 的同一 Windows 用户运行本应用。",
     "captureQoderScan": "扫描 Qoder 会话",
     "captureQoderEmpty": "未找到已登录的 Qoder 会话（确认客户端已登录）",
+    "platformWorkbuddy": "WorkBuddy",
+    "captureWbButton": "捕获 WorkBuddy",
+    "captureWbTitle": "从本机 WorkBuddy 桌面端捕获",
+    "captureWbDescription": "读取本机已登录 WorkBuddy 桌面端的登录态(workbuddy-desktop.info)。客户端 5.8+ 对 token 加密存储:此类账号需在行内粘贴 token 后导入(在 WorkBuddy 对话里让它读自身环境变量即可取出)。",
+    "captureWbScan": "扫描 WorkBuddy 登录态",
+    "captureWbEmpty": "未找到已登录的 WorkBuddy 登录态(确认桌面端已登录)",
+    "captureWbEncrypted": "需粘贴 token",
+    "captureWbTokenPlaceholder": "粘贴 WorkBuddy token(accessToken)",
+    "captureWbTokenRequired": "token 为空:该账号登录态已加密,请先在行内粘贴 token 再导入",
     "captureDirFound": "已检测到本机 TRAE 数据目录：{dir}",
     "captureDirMissing": "未检测到本机 TRAE 数据目录（可在环境变量 IHUI_TRAE_DIR 指定）",
     "captureEmpty": "未在本机数据目录中捕获到可用 JWT",

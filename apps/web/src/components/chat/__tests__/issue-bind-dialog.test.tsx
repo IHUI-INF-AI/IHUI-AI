@@ -25,6 +25,15 @@ const { mockSearchIssues, mockBindIssue, mockUnbindIssue, mockGetConversation } 
 }))
 
 vi.mock('@ihui/api-client', () => ({
+  // src/lib/api.ts 在模块顶层无条件调这 5 个 setter(同型见 src/lib/api.test.ts),依赖链
+  // IssueBindDialog → @/lib/api 会拉到它。缺任一同名导出 ⇒ 模块求值即抛,整文件收集期红。
+  setTokenProvider: vi.fn(),
+  setBaseUrl: vi.fn(),
+  setStreamBaseUrl: vi.fn(),
+  // 2026-10-12 补:69b7437f73 给 api.ts 加了模块顶层 setAiServiceBase 调用,缺这个导出整文件收集期即炸。
+  setAiServiceBase: vi.fn(),
+  setDeviceFingerprintProvider: vi.fn(),
+  setUnauthorizedHandler: vi.fn(),
   searchIssues: mockSearchIssues,
   bindIssue: mockBindIssue,
   unbindIssue: mockUnbindIssue,

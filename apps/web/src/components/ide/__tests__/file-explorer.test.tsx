@@ -36,6 +36,15 @@ vi.mock('next-intl', () => ({
 
 // 时间线子Tab会调 runCommand 拉取 git log,mock 掉避免测试环境真实网络请求
 vi.mock('@ihui/api-client', () => ({
+  // src/lib/api.ts 在模块顶层无条件调这 5 个 setter(同型见 src/lib/api.test.ts),被测组件经
+  // @/lib/api 拉到它。缺任一同名导出 ⇒ 模块求值即抛,整文件在**收集期**红,与 FileExplorer 无关。
+  setTokenProvider: vi.fn(),
+  setBaseUrl: vi.fn(),
+  setStreamBaseUrl: vi.fn(),
+  // 2026-10-12 补:69b7437f73 给 api.ts 加了模块顶层 setAiServiceBase 调用,缺这个导出整文件收集期即炸。
+  setAiServiceBase: vi.fn(),
+  setDeviceFingerprintProvider: vi.fn(),
+  setUnauthorizedHandler: vi.fn(),
   runCommand: vi.fn().mockResolvedValue({ success: false, data: { stdout: '', stderr: '' } }),
 }))
 
