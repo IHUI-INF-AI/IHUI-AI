@@ -101,8 +101,10 @@ const ICU_KEYS: readonly IcuKey[] = [
   // 其他含占位符的 web 端 key(用于扩展覆盖)
   // 注:实际 JSON 路径以 getByPath 为准 — 这些 key 都经过多语言 grep 验证存在
   { key: 'certificate.detail.issuerAria', placeholders: ['org', 'name'], braceStyle: 'single' },
-  { key: 'course.tabs.certNo', placeholders: ['no'], braceStyle: 'single' },
-  { key: 'course.chapters.sectionCount', placeholders: ['count'], braceStyle: 'single' },
+  // 2026-10-12 移除 course.tabs.certNo / course.chapters.sectionCount 两行:旧课程详情页
+  // (edu/courses/[id]/PageClient.tsx)已随 7748f62c51 复活件清理删除,两键零代码引用、
+  // 5 语言包亦无此键(实测 undefined);新 learn/PageClient 用 eduCourseLearnPage 命名空间,
+  // 其全部键无占位符(实测扫描零命中),无 ICU 可锁。
 ] as const
 
 // ── 2 处修复后的源文件(用于反模式静态扫)─────────────────────────────────
