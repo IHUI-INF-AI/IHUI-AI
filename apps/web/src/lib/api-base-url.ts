@@ -34,6 +34,9 @@ const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1', '[::1]', 'taur
 /** 本机 API(本地三端联调)。用 127.0.0.1 避免系统代理/PAC 影响 */
 const LOCAL_API_BASE = 'http://127.0.0.1:8802'
 
+/** 本机 ai-service(本地三端联调)。用 127.0.0.1 避免系统代理/PAC 影响 */
+const LOCAL_AI_SERVICE_BASE = 'http://127.0.0.1:8803'
+
 /** 本机 SSE 基址。用 localhost:PAC 常把 127.0.0.1 路由到代理导致 ERR_CONNECTION_REFUSED */
 const LOCAL_STREAM_BASE = 'http://localhost:8802'
 
@@ -68,6 +71,32 @@ export function resolveApiBaseUrl(): string {
   if (env) return env
   if (typeof window === 'undefined') return ''
   if (isTauriRuntime()) return isRemoteWindow() ? '' : LOCAL_API_BASE
+  return ''
+}
+
+/**
+ * ai-service(/api/checkin/*、/api/mcp/*、/api/agents/* 等)基址判定
+ * (2026-10-12 立,根治「桌面端 dev 签到页报 Route GET:/api/checkin/accounts not found」)。
+ *
+ * 为什么单独一条:REST 共享基址在"Tauri + 本地 origin"下是本机 API 8802,而签到等
+ * ai-service 路由只存在于 ai-service(8803) —— fetchAiServiceJson 复用共享基址会把
+ * /api/checkin/* 直接打到 8802 → Fastify 404(信封 Route GET:… not found)。
+ * 浏览器 dev 不受影响:共享基址是 ''(同源),经 next rewrites 转发到 8803。
+ *
+ * 判定口径与 resolveApiBaseUrl 同族(按窗口 origin,不按"是不是 Tauri"):
+ *   1. NEXT_PUBLIC_AI_SERVICE_URL 显式非空 → 最高优先(与 api-client 的
+ *      aiServiceBaseUrl() 同一 env 名,不抄第二份真值);
+ *   2. Tauri + 本地 origin(8801 dev / tauri.localhost 本地壳)→ 本机 8803。
+ *      放行前提均已实测:ai-service CORS_ORIGIN 含 http://localhost:8801;
+ *      web dev CSP connect-src 放行本机端口;tauri.conf.json csp=null。
+ *   3. 其余(浏览器 dev / 生产 / Tauri 远端窗口)→ '' 同源:浏览器 dev 走
+ *      next rewrites → 8803,生产走 nginx 同源反代,行为零变化。
+ */
+export function resolveAiServiceBaseUrl(): string {
+  const env = process.env.NEXT_PUBLIC_AI_SERVICE_URL
+  if (env) return env
+  if (typeof window === 'undefined') return ''
+  if (isTauriRuntime()) return isRemoteWindow() ? '' : LOCAL_AI_SERVICE_BASE
   return ''
 }
 
