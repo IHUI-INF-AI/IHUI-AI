@@ -19375,3 +19375,41 @@ next dev / expo 这类 supervisor 内部 spawn worker 时**不带** windowsHide(
 平台独占:仅 Windows 开发机本地启动链,不触及任何跨端契约 / 共享层。
 - [x] ✅(2026-10-12) **签到助手页「自动签到已开启」徽章移到标题下方弱化展示、且不再显示下次执行时间**:机主 2026-10-12 依截图点名(原徽章为标题右侧绿色胶囊,内嵌「下次 10-13 08:05 Qoder 下次 10-13 10:05」两段文案被挤换行)。改动 = `apps/web/app/(main)/checkin/page.tsx` 头部:徽章降为标题下方 `text-[11px] font-normal text-muted-foreground` 状态行(6px 圆点 + `schedulerEnabled/disabled` 文案),删除 `scheduler.next_run` / `scheduler.next_run_qoder` 两处 `t()` 消费;连带 5 个 i18n 语言包删键 `schedulerNextRun` / `schedulerNextRunQoder`,并按 KR 判据在 `scripts/data/i18n-key-removals.json` 逐文件声明(至 2027-10-12)。验证:单测 / i18n 死 key 扫描 / KR / typecheck / eslint 全绿 + 浏览器 4 状态截图与 DOM 数值(11px、rgb(102,102,102)、背景透明、borderRadius 0、isBelowTitle=true、「下次」出现 0 次、dark 态 rgb(163,163,163)),截图在 `.ihui-agent/tmp/checkin-badge/`。
 - [x] ✅(2026-10-12) G-1118440 **签到助手本机导入双平台全断:Qoder「无法解析出 user_id」+ Trae「检测不到」,真机取证三条根因一次根治(桌面端 Rust + ai-service 校验分流 + 前端 device_map.uid)** —— 用户 2026-10-12 报「Qoder 导入 400、Trae 本机导入检测不到」。真机取证(DPAPI+AES-GCM 解密 auth.v1.dat / leveldb 扫描):① Qoder 现役客户端 token 是 27 字符 opaque 单段串(非 JWT),uid 真源=会话 JSON 的 user.id,expiresAt 是 ISO 8601;三层连锁失败(Rust qoder_jwt_uid 恒 None → ai-service _validate_jwt 对所有平台走 TRAE extract_user_id → 必 400;调度器同因恒失败)。② Trae:本机三现场并存,TRAE SOLO CN 只有 machineid 纯空壳而 detect_trae_dir 第一个命中它 ⇒ 捕获通道两路径不存在 ⇒ 0 账号;现役 Trae CN 的 JWT 在 Partitions/trae-webview/Local Storage/leveldb,payload 无 data.id 且 uid 在 sub(GUID 形态)—— Rust jwt_payload_user_id 旧判据「只认 data.id 纯数字」扫到也全丢。修复面(全部带单测):Rust checkin_capture.rs —— qoder_session_uid(user.id 优先,token JWT 兜底,uid 空跳过该现场)、qoder_parse_iso_expires(手写 Hinnant civil-days,与 Python datetime 对拍 1793422576/偏移 28800s 精确一致,修 as_i64 恒 0 使 device_map.expires_at 从不落库的洞)、jwt_payload_user_id 键序与引擎对齐(data.id→auth_id→sub + sanitize_user_id 卫生约束)、trae_capture_dirs 多现场合并捕获(空壳目录不进清单,全落空回落 detect)、Cookies 库拷贝失败(WinError 32 独占锁)静默改 warn 留痕;ai-service —— _validate_jwt 按平台分流(qoder 只验非空+device_map 会话过期)、get_account_platform(PATCH /jwt 按账号平台分流)、qoder_device_map_uid(引擎 uid 读 device_map 落库值优先)、_account_jwt_exp qoder 从 device_map 派生;前端 —— qoderDeviceMap 落 uid(服务端 uid 标识唯一数据源)。判据:cargo test --lib 181/181;pytest checkin 五件套 103/103;vitest checkin page 46/46;mypy strict 三文件 0 错;ruff 0 错。落地沿革:原提交 4b702aa418 被并行会话基线重写甩出主线(tag lost-commit/4b702aa 防丢),代码经对象空间重落地(6ee250da658),本台账行经 live-doc-edit 单独落避免整文件回写抹另一条历史线登记;桌面端二进制需重构建后真机走查(Tauri 命令在壳里),生产 ai-service/web 随轮询部署生效。
+<!-- 已归档(2026-10-12:✅(2026-10-10) G-815427 **收敛落地闸声明的 F1 出口本轮没被自动归并消费(`plan-task,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-09) G-1058523 **门 130 的 F9 撞号基线在 HEAD 面判红 ⇒ 全队每次提交,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-10) G-1058606 **守门 52 打印"判定面:HEAD blob",却把**未跟踪文件*,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:G-1105311 **门 35(mypy --strict)在 HEAD 面的现读已换成另一副样子(原票面那 4 处不,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-10) G-1104168 **agent 会话快照的「中断痕迹」展示面(自 G-815969 残余,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-11) G-815994 **steer/队列条目的类型轴按上游两组切,不要照抄它的 priorit,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-11) G-816003 **状态词汇 = 一张 const 表 × 每消费面一列,并按 stop ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-11) G-816008 **待对账命令账本:TTL 锚首次登记时间、queue 投影即接收收据、损,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-11) G-816010 **分页结果双重复核防"已删历史行复活",游标未推进必须判失败**(上游 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-11) G-816025 **后台结果回灌历史前要有五道有序校验,"无可观察源"要判 lost 且仍,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-11) G-816029 **子代理被停/结束时,它自己派生的后台任务必须级联结算,不许留孤儿**(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-11) G-816032 **分片上传要有"提交后发布 + 失败必撤销 + 服务端续点",我方后端两,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-11) G-896418 **SSE 信封的 `unknown`+as 收口:我方比上游还少一层(连,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-11) **G-916940 上下文容量分母写死的其余站点(web 那一处已修)。** 起因与已做:,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-12)**G-977954 既有红用例已定位到判据分叉点(不是本线任何一枚提交引入的)。** 用例 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-11) G-998089 票3：启动/装配失败先收口自有资源才放锁（释放条件 = 子进程终态 ∧ 通,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-10) G-1080890 部署环「生产环境部署失败」邮件补终态:成功切流即清偿切流受阻类身份与其抑,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:G-1080885 **字体跨端重复：AlimamaFangYuanTiVF-Thin.ttf 7.4MB 在 mobi,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-10) G-1108372 **守门 152 在提交链上从未真的判过一次:它恒落"机器态未判定",而,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-10) G-1110084 **反极性判据只有一把局部的尺子:"派生把结论通道丢掉、调用方还去读它",完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-10) O1820 部署净面(clean-build)默认根迁出仓库 + 路径守卫扩成可追加授权根表,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-11) **App 一级屏顶部灰色带:chrome 单立一档、全端 23 屏收口,深浅两档真机已验(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-12) G-1113920 **App 常驻「网络已断开,部分功能不可用」横幅与设备实际连通性矛盾(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-12) G-1113920 **App 常驻「网络已断开,部分功能不可用」横幅与设备实际连通性矛盾(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-10) G-1038466 **全量守门盘点(187 项跑完再汇总)在干净 HEAD 上剩两处无人认,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-10) G-1058626 **plan-tasks-merge.mjs --self-test 在,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-11) G-1080895 **守门 30a(check-commit-loss-guard)从恒红,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-11) **G-1118435 file_editor 的工作区白名单仍在模块加载期求值一次 —— ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-11)**G-1118437 「跑了门且全绿」的正证还挂在一条脆条件上,另有一批 unknown 待,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:O2819 〔千段租约〕 本机=WIN-20251101PXT-d4634eb6 段=O1820~O2819(取号器专用,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-10) **G-1080888 承 G-1080887:守门 193 的判据接不住 ES6 属性简写,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-10) G-1018190 21 个 IHUI 服务**全部没有 SCM 恢复动作**(现读 `Fa,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-10) G-585 **归档件"人工归并出口"没有防重复的那一半:用 `git merge-file,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-10) G-585 **归档件"人工归并出口"没有防重复的那一半:用 `git merge-file,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-11) G-1113920 **App 常驻「网络已断开,部分功能不可用」横幅与设备实际连通性矛盾(,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-12) **门 128 尺子超架构契约 C1 行数上限待拆**(2026-10-11 收口现读):`,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:goal 模式目标摘要(2026-10-11 终止 ✅ 2026-10-11),随块带走的归并落账注记: 〔【归并】O7 落账:复测 2026-09-26 〔【归并】D81 落账:复测 2026-09-26 〔【归并】D64 落账:复测 2026-09-26 〔【归并】D62 落账:复测 2026-09-26 〔【归并】D58 落账:复测 2026-09-26 〔【归并】D68 落账:复测 2026-09-26 〔【归并】O76 落账:复测 2026-09-26 〔【归并】同主键已有已完成登记,本行为并发并集留下的未翻勾副本,落账:复测 2026-10-06,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+<!-- 已归档(2026-10-12:✅(2026-10-12) **签到助手页「自动签到已开启」徽章移到标题下方弱化展示、且不再显示下次执行时间**:机主 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
