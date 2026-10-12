@@ -153,6 +153,14 @@ export const PAIRS = [
     runner: 'deploy/prod-bundle/svc/run-ai.ps1',
     why: '服务 IHUI-AI-SERVICE 的执行体(8803)',
   },
+  // 仓库根解析的唯一实现(2026-10-12 随"部署面去硬编码"一起入册)。必须跟着 pg-backup 那对
+  // 一起进 prod-bundle:它们 dot-source 同目录的它,少了这份运行副本,备份脚本会在 EAP=Stop
+  // 下当场抛"找不到 ihui-root-common.ps1" ⇒ 每日 03:00 的全库备份静默归零(§5e 同型)。
+  {
+    tracked: 'deploy/win/ihui-root-common.ps1',
+    runner: 'deploy/prod-bundle/ihui-root-common.ps1',
+    why: 'pg-backup{,-scheduler}.ps1 dot-source 的根解析实现,与二者同目录共存',
+  },
 ]
 
 const sha1 = (buf) => createHash('sha1').update(buf).digest('hex')
