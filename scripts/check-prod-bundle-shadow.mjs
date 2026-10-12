@@ -161,6 +161,66 @@ export const PAIRS = [
     runner: 'deploy/prod-bundle/ihui-root-common.ps1',
     why: 'pg-backup{,-scheduler}.ps1 dot-source 的根解析实现,与二者同目录共存',
   },
+  // ── 2026-10-12 E1 清偿:生产机+本机现读 11 项未登记脚本族全部补源入册 ──────────
+  // 定源纪律:生产与两侧运行副本同哈希的以现读字节为准;deploy.ps1 两机漂移,以生产版
+  // 为准(含 2026-09-14 admin 口令轮换留档提示,本机副本是陈旧旧文案,已随本票同步)。
+  // rdp-connector.bat 入库时脱敏原第 29 行明文 RDP 口令(仓库推远端,凭据不入库),
+  // 生产运行副本已同步为脱敏版。.bat 按仓内先例(run-cdn.bat 等)不带溯源水印头。
+  {
+    tracked: 'deploy/scripts/prod-bundle/deploy.ps1',
+    runner: 'deploy/prod-bundle/deploy.ps1',
+    why: 'Windows 原生形态一键部署(compose 链 deploy.sh 的 PowerShell 姊妹版;两机漂移以生产版为准入库)',
+  },
+  {
+    tracked: 'deploy/scripts/prod-bundle/gen-secrets.ps1',
+    runner: 'deploy/prod-bundle/gen-secrets.ps1',
+    why: '首次部署生成 .env.production 密钥占位(Windows),被 deploy.ps1 调用',
+  },
+  {
+    tracked: 'deploy/scripts/prod-bundle/gen-secrets.sh',
+    runner: 'deploy/prod-bundle/gen-secrets.sh',
+    why: '同上(compose 链 / Linux 形态)',
+  },
+  {
+    tracked: 'deploy/scripts/prod-bundle/health-check.ps1',
+    runner: 'deploy/prod-bundle/health-check.ps1',
+    why: 'Windows 原生形态部署后健康检查(compose 链 health-check.sh 的 PowerShell 版)',
+  },
+  {
+    tracked: 'deploy/scripts/prod-bundle/health-check-bare.ps1',
+    runner: 'deploy/prod-bundle/health-check-bare.ps1',
+    why: '免依赖裸版健康检查(仅 curl/psql 直查,排障用,生产机独有)',
+  },
+  {
+    tracked: 'deploy/scripts/prod-bundle/monitor.ps1',
+    runner: 'deploy/prod-bundle/monitor.ps1',
+    why: '转发器:IHUI-MONITOR nssm AppParameters 指向本文件,单一真相源 deploy/win/ihui-monitor.ps1',
+  },
+  {
+    tracked: 'deploy/scripts/prod-bundle/cloudflared/install-service-linux.sh',
+    runner: 'deploy/prod-bundle/cloudflared/install-service-linux.sh',
+    why: 'cloudflared systemd 服务安装(compose 链隧道形态)',
+  },
+  {
+    tracked: 'deploy/scripts/prod-bundle/cloudflared/install-service-windows.ps1',
+    runner: 'deploy/prod-bundle/cloudflared/install-service-windows.ps1',
+    why: 'cloudflared Windows 服务安装(不用 Docker 容器的开机自启备选方案)',
+  },
+  {
+    tracked: 'deploy/scripts/prod-bundle/scripts/smoke-public-ws.mjs',
+    runner: 'deploy/prod-bundle/scripts/smoke-public-ws.mjs',
+    why: '公网冒烟自检(登录+WS 连通探测,生产机 prod-bundle/scripts/ 下)',
+  },
+  {
+    tracked: 'deploy/scripts/prod-bundle/swap-tunnel-token.ps1',
+    runner: 'deploy/prod-bundle/swap-tunnel-token.ps1',
+    why: '热替换 cloudflared Tunnel 凭据(轮换 token 不重启服务,生产机独有)',
+  },
+  {
+    tracked: 'deploy/scripts/prod-bundle/rdp-connector.bat',
+    runner: 'deploy/prod-bundle/rdp-connector.bat',
+    why: 'RDP 云上运维连接器(cloudflared access tcp → localhost:3389);入库版已脱敏原第 29 行明文口令,生产运行副本同步为脱敏版',
+  },
 ]
 
 const sha1 = (buf) => createHash('sha1').update(buf).digest('hex')
