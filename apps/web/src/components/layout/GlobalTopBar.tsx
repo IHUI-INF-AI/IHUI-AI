@@ -726,9 +726,13 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
           {/* 4. 标签栏(2026-07-30 第十一轮"做减法 v7"用户反馈"a 标签在 chevron/Plus 后面"后位置)
             flex-1 占满剩余空间,只渲染 a 标签 + 关闭按钮(无搜索/无 chevron,已抽出为独立组件)
             2026-08-12 去掉 overflow-hidden:配套 TagsView active 态改用 outline 外描边,
-            1px outline 上下方向会被 overflow-hidden 裁掉,必须放开让 outline 真外露 */}
+            1px outline 上下方向会被 overflow-hidden 裁掉,必须放开让 outline 真外露
+            2026-10-12:溢出裁剪已移入 TagsView 行内(overflow-x-auto 滚动容器,行盒上下各扩
+            4px 容纳 2px 外描边),本 wrap 保持无 overflow 裁剪,详见 TagsView 行内注释;
+            pl-0.5 = 首个标签左侧 2px 外描边预留(放 wrap 不放行盒:行盒需被 0 宽 wrap
+            完全压到 0,行自身 padding 会形成 2px 最小 border-box 溢出) */}
           <React.Suspense fallback={null}>
-            <div className="flex h-full min-w-0 flex-1 items-center">
+            <div className="flex h-full min-w-0 flex-1 items-center pl-0.5">
               <TagsView />
             </div>
           </React.Suspense>
