@@ -89,6 +89,22 @@ describe('字面出口守卫 — 仅字面 IP 判定(无 DNS preflight)', () => 
     expectAllowed('http://[::ffff:8.8.8.8]/');
   });
 
+  it('G-1105310 收敛:IPv6 解析走共享出口 —— URL 规范化后的形态仍判对', () => {
+    // WHATWG URL 会把 `[::ffff:127.0.0.1]` 规范化成 `[::ffff:7f00:1]`(纯十六进制
+    // 分组),守卫收到的永远是规范化形态;共享解析器按同一份数学折叠,结论不变:
+    expectBlocked('http://[::ffff:7f00:1]/'); // = 127.0.0.1
+    expectAllowed('http://[::ffff:808:808]/'); // = 8.8.8.8
+  });
+
+  it('G-1105310 裁定:BSD 缩写 v4 不再按 IP 字面量识别(严格解析为准)', () => {
+    // 共享解析按严格四段判,`127.1` 解析不出 → 非 IP 字面量 → 归名字域(不预解析)。
+    // 可达路径不受影响:fetch_url 只收 http/https,而 WHATWG URL 在那里已把缩写
+    // 规范化(`127.1` → `127.0.0.1`)—— 下一行钉住这道规范化岗:
+    expectBlocked('http://127.1/');
+    // 非特殊 scheme 不经 URL 主机规范化,缩写保持"名字域"语义:
+    expectAllowed('foo://127.1/');
+  });
+
   it('local-use DNS64(64:ff9b:1::/48)整段排除(RFC 8215,无公网目的)', () => {
     expectBlocked('http://[64:ff9b:1::1]/');
     expectBlocked('http://[64:ff9b:1::7f00:1]/');
