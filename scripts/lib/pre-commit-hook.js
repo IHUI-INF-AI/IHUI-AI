@@ -104,6 +104,18 @@ function run(label, cmd) {
 // —— 60s 一到,守门批整批被杀、pre-commit 看起来"跑完了"而其实一半都没判(§12f 记的恒红/假绿两侧同源)。
 // 300s 是"push 门实测上界 + 余量"，不是拍脑袋。
 //
+// ⚠️ 2026-10-12 实测推翻 300s 这一档(合并提交,52 文件宽暂存集):
+//   全量批 237 项检查 / 210 项执行(27 跳过)/ 并行池墙钟 **1023.8s**
+//   (逐门耗时凭证 .ihui-agent/tmp/guardian-timing.json:门内和 2003.7s,最慢真门
+//   check-staged-revert 132s / check-test-collection-runs 110s / provenance-ledger 102s)。
+//   300s 处在 ~30% 进度被掐断:无汇总段、无归因,当日连续 3 次提交被阻的结构性真因
+//   —— 宽暂存集(合并/大批量)触发远多于常规提交的门,批长随暂存面单调增长。
+//   新默认 1_800_000ms = 1023.8s 实测 + ~75% 余量;`HUSKY_GATE_BATCH_TIMEOUT_MS` 可调
+//   (重载合并 / CI 慢机按需上调,与 safe-commit 的 `IHUI_SAFE_COMMIT_BATCH_TIMEOUT_MS`
+//   同型;注意 safe-commit 自跑档默认 900s 也已被同一实测超过,那处是它自己的参数)。
+//   定位是兜底不是判据:单门仍有 `GUARDIAN_GATE_TIMEOUT_MS`(默认 300s)各自封顶,
+//   批内和由并行池收敛;只有"runner 本身死住"才由这层拦,不该有正常批走到这。
+//
 // 为什么 capture 而不读 .workbuddy/hook-logs/pre-commit.log:那份日志是 shell 层 tee 的产物，
 // 写入与本进程读取之间没有同步点(tee 缓冲 + 文件系统延迟)，刚跑完就 readFileSync 会拿到半截
 // —— 本仓 §12 记过一次同型(hook 日志当第二输入源而没有轮次绑定锁)。
@@ -125,7 +137,11 @@ function stripAnsi(text) {
  * 跑一条命令并捕获 stdout/stderr(不写 .log —— 那份日志有 tee 缓冲窗口)。
  * ok 只看退出码；output 原样透传给 parseGateSummary。
  */
-function runCapturing(label, cmd, timeoutMs = 300000) {
+function runCapturing(
+  label,
+  cmd,
+  timeoutMs = Number(process.env.HUSKY_GATE_BATCH_TIMEOUT_MS) || 1_800_000,
+) {
   console.log(label)
   try {
     const stdout = execSync(cmd, {
