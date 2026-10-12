@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /**
  * 活文档点名路径的三面存续性对账(D169,2026-09-30 立)
  *
@@ -33,6 +32,15 @@
  *   ① 索引或工作区缺、而 HEAD 在位 ⇒ **红**(正是事故那一格);
  *   ② 三面齐在 ⇒ 绿;
  *   ③ HEAD 本就没有 ⇒ **报数不算红**,warning 点名(可能是新文档笔误,不是事故)。
+ *   ③b CK 维(2026-10-12 立,票 G-1113921 处置口径③):同一条"HEAD 本就没有"的点名,
+ *      若出自**已勾登记行**(`- [x] …`),它就是一句兑现不了的验收承诺,严重度与纯笔误不同,
+ *      所以**分档不分桶**:`checkedMissing` 单列,锚点 = **该文档在 HEAD 面自身的存量**
+ *      (差值棘轮 —— 存量只报数,本次新增才判红;与改动无关的恒红门只会逼人 `--no-verify`,
+ *      连带废掉全部守门,§12e)。锚点取不到 ⇒ 一律算存量并明说,绝不把"没量到"写成"新增红"。
+ *      问责跑 `--strict`:CK 存量 >0 ⇒ **exit 1 判红**(不是 2 —— 这一维量到了,只是 HEAD
+ *      本就如此;把判过的写成"未判定"与把没判写成判过,是同一条禁令的两个方向)。
+ *   ③c `newlyLanded`(同日补,防本维自己造恒红):验收行点名的路径 HEAD 没有、**被审面上有**
+ *      ⇒ 那是"文件与勾同枚进来"这一正当修法,放过并单独报数,绝不进 CK 红。
  *   为什么 ③ 不判红:把"文档笔误"升成红就是恒红门(§12e),存量按"该文件 HEAD
  *   自身计数"如实报数 —— 现状是缺口不是存量,本门**不照票面去"恢复"任何东西**。
  *
@@ -53,7 +61,7 @@
  * 但红格只有事故那一格 —— 修复出口在 onFailHint 里:`git restore --staged <path>`
  * (找回误删)或同步更新点名它的活文档;**本门只读,不代恢复,不删文件**。
  *
- * 用法:node scripts/check-live-doc-references.mjs [--staged|--json|--self-test]
+ * 用法:node scripts/check-live-doc-references.mjs [--staged|--json|--self-test|--strict]
  * 退出码:0 通过(可含 warning)/ 1 检出红格 / 2 无法判定(取材失败、枚举到 0、零点名)
  */
 import { existsSync } from 'node:fs'
@@ -106,25 +114,31 @@ export function normalizeToken(raw) {
   return { key, form }
 }
 
-function addRef(refs, doc, norm) {
+function addRef(refs, doc, norm, checked) {
   if (!norm) return
   let rec = refs.get(norm.key)
   if (!rec) {
-    rec = { form: norm.form, docs: new Set() }
+    rec = { form: norm.form, docs: new Set(), checkedDocs: new Set() }
     refs.set(norm.key, rec)
   }
   rec.docs.add(doc)
+  if (checked) rec.checkedDocs.add(doc)
 }
 
 /**
  * 从一篇活文档正文提取点名路径(纯函数,自检钉住):只取反引号内的候选 ——
  * 反引号**外**的提及不算引用(守门 99 的教训:叙述≠引用,反过来也一样)。
- * 返回 Map<路径, {form, docs:Set<文档>}>。
+ * 同时记录该点名**是否出自一条已勾登记行**(`- [x] …`):同一句"失踪路径"挂在未勾的待办上
+ * 与挂在"已完成 ✅"的验收上,严重度完全不同(后者是一句兑现不了的承诺),见 CK 维头注。
+ * 返回 Map<路径, {form, docs:Set<文档>, checkedDocs:Set<文档>}>。
  */
 export function extractRefs(text, doc) {
   const out = new Map()
   if (!text) return out
-  for (const m of String(text).matchAll(/`([^`\n]+)`/g)) addRef(out, doc, normalizeToken(m[1]))
+  for (const line of String(text).split(/\r?\n/)) {
+    const checked = /^\s*-\s*\[[xX]\]/.test(line)
+    for (const m of line.matchAll(/`([^`\n]+)`/g)) addRef(out, doc, normalizeToken(m[1]), checked)
+  }
   return out
 }
 
@@ -146,8 +160,16 @@ export function presentIn(set, key, form) {
  *  face='staged' ⇒ 两面:红 = HEAD 在位 ∧ 索引缺(本次提交正把点名文件弄丢);
  *  HEAD 缺 ⇒ warning(报数不算红)。取不到工作区答案(workCheck 抛)⇒ 计入 undetermined。
  */
-export function judgeRefs({ refs, headSet, indexSet, workCheck, face }) {
-  const res = { green: 0, red: [], warn: [], undetermined: [], total: 0 }
+export function judgeRefs({ refs, headSet, indexSet, workCheck, face, checkedAnchor }) {
+  const res = {
+    green: 0,
+    red: [],
+    warn: [],
+    checkedMissing: [],
+    newlyLanded: [],
+    undetermined: [],
+    total: 0,
+  }
   for (const [key, rec] of refs) {
     res.total += 1
     let inHead
@@ -158,7 +180,47 @@ export function judgeRefs({ refs, headSet, indexSet, workCheck, face }) {
       continue
     }
     if (!inHead) {
-      res.warn.push({ path: key, docs: [...rec.docs], why: 'HEAD 本就没有(可能笔误,不算红)' })
+      /**
+       * CK 维(2026-10-12 立,票 G-1113921 处置口径③):同一条"HEAD 本就没有"的点名,
+       * 挂在**已勾登记行**上时是一句兑现不了的验收承诺 —— 那正是"完成的为什么还在这里、
+       * 验收到底谁来复核"这一族的根。它此前与纯笔误混在同一个 518 条 warning 桶里,
+       * 于是"已勾 + 指向失踪基线"这对矛盾在提交链上结构上不会红(台账 G-1113921 现读原话)。
+       * 分档不分桶:笔误仍只 warning;已勾点名的失踪走 `checkedMissing`,由 run 套
+       * **「该文档在 HEAD 面自身的存量」差值棘轮**(存量只报数,本次新增才判红 ——
+       * 与改动无关的恒红门只会逼人 `--no-verify`,连带废掉全部守门,§12e 同型)。
+       */
+      const checked = [...(rec.checkedDocs || [])]
+      // 先问"被审那一份面上有没有":一条验收行与它点名的文件**同枚提交进来**是这条判据
+      // 最希望看到的形态(承诺当场兑现),不得反过来把它判红 —— 否则新增文件的每一次正当提交
+      // 都被挡(§12e:按规矩写就红的门只会逼人跳门)。audit 档另问工作区。
+      let inJudgedFace = presentIn(indexSet, key, rec.form)
+      if (inJudgedFace && face !== 'staged') {
+        let known = true
+        try {
+          inJudgedFace = !!workCheck(key, rec.form)
+        } catch (e) {
+          known = false
+          res.undetermined.push(`工作区在位性取不到:${key}(${e?.message ?? e})`)
+        }
+        // 取不到 ⇒ 整条落未判定:既不记绿,也不把"没量到"升成红(那是另一种"把没判写成判过")
+        if (!known) continue
+      }
+      if (inJudgedFace) {
+        if (checked.length) res.newlyLanded.push({ path: key, docs: checked, form: rec.form })
+        else
+          res.warn.push({ path: key, docs: [...rec.docs], why: 'HEAD 本就没有(本次新增,不算红)' })
+        continue
+      }
+      if (checked.length) {
+        // 锚点取不到(Set 缺席)⇒ 一律算存量:宁可少判一格红,也不把"没量到"写成"新增红"
+        const fresh =
+          checkedAnchor instanceof Set
+            ? checked.filter((d) => !checkedAnchor.has(`${d}|${key}`))
+            : []
+        res.checkedMissing.push({ path: key, docs: checked, fresh, form: rec.form })
+      } else {
+        res.warn.push({ path: key, docs: [...rec.docs], why: 'HEAD 本就没有(可能笔误,不算红)' })
+      }
       continue
     }
     const inIndex = presentIn(indexSet, key, rec.form)
@@ -212,11 +274,11 @@ function materialDocs({ root, face }) {
     .filter((p) => p && MATERIAL_RE.test(p))
 }
 
-function collectTokens({ root, face, docs }) {
-  const args =
-    face === 'staged'
-      ? ['grep', '--cached', '--no-color', '-o', '-E', '`[^`]+`', '--', ...docs]
-      : ['grep', '--no-color', '-o', '-E', '`[^`]+`', 'HEAD', '--', ...docs]
+function grepTokens({ root, face, docs, pattern }) {
+  const sel = face === 'staged' ? ['--cached'] : []
+  const args = ['grep', ...sel, '--no-color', '-o', '-n', '-E', pattern]
+  if (face !== 'staged') args.push('HEAD')
+  args.push('--', ...docs)
   let out
   try {
     out = gitRaw(args, root, { timeout: 120000, maxBuffer: 64 << 20 })
@@ -224,25 +286,111 @@ function collectTokens({ root, face, docs }) {
     if (e?.status === 1) return [] // "无命中"是 grep 的正常非零结论,不是取材失败
     throw e
   }
-  const tokens = []
+  const rows = []
   for (const line of String(out).split(/\r?\n/)) {
-    const i = line.indexOf('`')
-    if (i < 0) continue
-    const j = line.lastIndexOf('`')
-    if (j <= i) continue
-    let path = line.slice(0, i).replace(/:$/, '')
-    if (path.startsWith('HEAD:')) path = path.slice(5)
-    if (!path) continue
-    tokens.push({ doc: path, raw: line.slice(i + 1, j) })
+    if (!line) continue
+    // 形如 `HEAD:docs/a.md:42:…` 或 `docs/a.md:42:…`;行号是第一个纯数字段
+    const parts = line.split(':')
+    let i = 0
+    if (parts[0] === 'HEAD') i = 1
+    const doc = parts
+      .slice(i, parts.length - 1)
+      .filter((p) => !/^\d+$/.test(p))
+      .join(':')
+    const ln = parts.slice(i).find((p) => /^\d+$/.test(p))
+    if (!doc || !ln) continue
+    rows.push({
+      doc,
+      line: Number(ln),
+      rest: line.slice(line.indexOf(`:${ln}:`) + `:${ln}:`.length),
+    })
   }
-  return tokens
+  return rows
+}
+
+/** 反引号候选(带行号,用于判定"这条点名是否出自已勾行") */
+function collectTokens({ root, face, docs }) {
+  const rows = grepTokens({ root, face, docs, pattern: '`[^`]+`' })
+  const out = []
+  for (const r of rows) {
+    const i = r.rest.indexOf('`')
+    if (i < 0) continue
+    const j = r.rest.lastIndexOf('`')
+    if (j <= i) continue
+    out.push({ doc: r.doc, line: r.line, raw: r.rest.slice(i + 1, j) })
+  }
+  return out
+}
+
+/** 已勾登记行的行号集合(`- [x] …`),与候选行号求交 ⇒ 该点名出自验收行 */
+function collectCheckedLines({ root, face, docs }) {
+  const set = new Set()
+  for (const r of grepTokens({
+    root,
+    face,
+    docs,
+    pattern: '^[[:space:]]*-[[:space:]]*\\[[xX]\\]',
+  })) {
+    set.add(`${r.doc}|${r.line}`)
+  }
+  return set
+}
+
+/**
+ * "已勾行点名而 HEAD 无此路径"的配对集合(`${文档}|${路径}`)。
+ * ⚠️ `checkedDocs` 是 **Set** —— 取空必须用 `.size`/展开,问 `.length` 恒得 undefined,
+ * 而 undefined 是假值 ⇒ 锚点静默为空,后果不是"少判一格",是**把全部存量算成本次新增红**
+ * (2026-10-12 实测:真仓 audit 面 ckStock 0 / ckFresh 11 / red 11,而正文与锚点同为 HEAD)。
+ * 锚点与 judgeRefs 共用这一份,不得各写一遍(§22c)。
+ */
+export function checkedMissingPairs(refs, headSet) {
+  const out = []
+  for (const [key, rec] of refs) {
+    const checked = [...(rec.checkedDocs || [])]
+    if (!checked.length) continue
+    if (presentIn(headSet, key, rec.form)) continue
+    for (const d of checked) out.push(`${d}|${key}`)
+  }
+  return out
+}
+
+/**
+ * CK 维的锚点 = **HEAD 面自身**"已勾行点名的失踪路径"集合(存量只报数,本次新增才判红)。
+ * 一律从 HEAD 面算:判 head/audit 面时锚点与本轮同源 ⇒ 恒为存量(这正是"全量档只报数"的语义),
+ * 判 staged 面时才真读到上一枚提交。
+ * 抽成导出函数而不是内联:镜像测试必须问同一把尺子,不得在测试里重抄一遍锚点判据(§22c)。
+ * @returns {{anchor:Set<string>|null, err:string|null}} anchor 为 null ⇒ 锚点取不到,调用方一律算存量
+ */
+export function buildCheckedAnchor({ root, headSet }) {
+  try {
+    const hDocs = materialDocs({ root, face: 'head' })
+    const hTokens = collectTokens({ root, face: 'head', docs: hDocs })
+    const hChecked = collectCheckedLines({ root, face: 'head', docs: hDocs })
+    const hRefs = new Map()
+    for (const t of hTokens) {
+      addRef(hRefs, t.doc, normalizeToken(t.raw), hChecked.has(`${t.doc}|${t.line}`))
+    }
+    return { anchor: new Set(checkedMissingPairs(hRefs, headSet)), err: null }
+  } catch (e) {
+    return { anchor: null, err: oneLine(e) }
+  }
 }
 
 /**
  * 主判定。`face` 只改"从哪面取正文 + 工作区是否参与",三判据本身一字不分档。
  */
 export function run({ root = REPO_ROOT, face = 'audit' } = {}) {
-  const res = { face, docs: 0, refs: 0, green: 0, red: [], warn: [], undetermined: [] }
+  const res = {
+    face,
+    docs: 0,
+    refs: 0,
+    green: 0,
+    red: [],
+    warn: [],
+    checkedMissing: [],
+    newlyLanded: [],
+    undetermined: [],
+  }
   let docs
   try {
     docs = materialDocs({ root, face })
@@ -263,19 +411,27 @@ export function run({ root = REPO_ROOT, face = 'audit' } = {}) {
     return res
   }
   const refs = new Map()
-  for (const { doc, raw } of tokens) addRef(refs, doc, normalizeToken(raw))
+  let checkedLines = new Set()
+  try {
+    checkedLines = collectCheckedLines({ root, face, docs })
+  } catch (e) {
+    res.undetermined.push(`已勾行枚举失败(CK 维停用,主判据不受影响):${oneLine(e)}`)
+  }
+  for (const { doc, line, raw } of tokens) {
+    addRef(refs, doc, normalizeToken(raw), checkedLines.has(`${doc}|${line}`))
+  }
   res.refs = refs.size
   if (refs.size === 0) {
-    res.undetermined.push(
-      `${docs.length} 份活文档里提取到 0 条点名 ⇒ 提取器哑火或取材面为空,判死`,
-    )
+    res.undetermined.push(`${docs.length} 份活文档里提取到 0 条点名 ⇒ 提取器哑火或取材面为空,判死`)
     return res
   }
   let headSet
   let indexSet
   try {
     headSet = new Set(
-      String(gitRaw(['ls-tree', '-r', '--name-only', 'HEAD'], root, { timeout: 60000 }).trim()).split('\n'),
+      String(
+        gitRaw(['ls-tree', '-r', '--name-only', 'HEAD'], root, { timeout: 60000 }).trim(),
+      ).split('\n'),
     )
     indexSet = new Set(
       String(gitRaw(['ls-files', '--'], root, { timeout: 60000 }).trim())
@@ -286,16 +442,29 @@ export function run({ root = REPO_ROOT, face = 'audit' } = {}) {
     res.undetermined.push(`面清单枚举失败:${e?.message ?? e}`)
     return res
   }
+  const { anchor, err } = buildCheckedAnchor({ root, headSet })
+  if (err) res.undetermined.push(`CK 锚点取不到(存量无从区分,本轮一律只报数):${err}`)
+  const checkedAnchor = anchor
   const verdict = judgeRefs({
     refs,
     headSet,
     indexSet,
     workCheck: (key) => workExists(root, key),
     face,
+    checkedAnchor,
   })
   res.green = verdict.green
   res.red = verdict.red
   res.warn = verdict.warn
+  res.checkedMissing = verdict.checkedMissing
+  res.newlyLanded = verdict.newlyLanded
+  if (checkedAnchor) {
+    for (const c of verdict.checkedMissing) {
+      if (c.fresh && c.fresh.length) {
+        res.red.push({ path: c.path, missing: ['head(已勾验收行点名)'], docs: c.fresh })
+      }
+    }
+  }
   res.undetermined.push(...verdict.undetermined)
   return res
 }
@@ -306,35 +475,73 @@ function oneLine(e) {
     .slice(0, 160)
 }
 
-function report(res, { json }) {
+function report(res, { json, strict }) {
+  const ckStock = res.checkedMissing.filter((c) => !c.fresh || !c.fresh.length)
+  const ckFresh = res.checkedMissing.filter((c) => c.fresh && c.fresh.length)
+  // 问责档对"已判定存量"给**红**(rc=1),不给"未判定"(rc=2):这一维量到了,只是
+  // HEAD 本就如此。把判过的写成没判,与把没判写成判过,是同一条禁令的两个方向。
+  const ckStrict = strict && ckStock.length > 0
   if (json) {
-    console.log(JSON.stringify(res, null, 2))
-    return res.red.length ? 1 : res.undetermined.length ? 2 : 0
+    console.log(
+      JSON.stringify(
+        {
+          ...res,
+          ckStock: ckStock.length,
+          ckFresh: ckFresh.length,
+          newlyLanded: (res.newlyLanded || []).length,
+        },
+        null,
+        2,
+      ),
+    )
+    return res.red.length || ckStrict ? 1 : res.undetermined.length ? 2 : 0
   }
-  const label = { audit: 'HEAD 面正文 × 三面在位(审计档)', staged: '索引面正文 × 索引 vs HEAD(提交链档)' }[res.face]
+  const label = {
+    audit: 'HEAD 面正文 × 三面在位(审计档)',
+    staged: '索引面正文 × 索引 vs HEAD(提交链档)',
+  }[res.face]
   console.log(`活文档点名路径存续性对账 · 判定面=${label}`)
   console.log(
     `  取材活文档 ${res.docs} 份 · 点名路径 ${res.refs} 条 · 绿 ${res.green} · 红 ${res.red.length} · warning ${res.warn.length}`,
   )
   for (const r of res.red.slice(0, 12))
-    console.log(`  ❌ ${r.path}(${r.missing.join('+')} 缺,HEAD 在位)← ${r.docs.slice(0, 3).join(', ')}`)
+    console.log(
+      `  ❌ ${r.path}(${r.missing.join('+')} 缺,HEAD 在位)← ${r.docs.slice(0, 3).join(', ')}`,
+    )
   if (res.red.length > 12) console.log(`  … 另 ${res.red.length - 12} 条红`)
   for (const w of res.warn.slice(0, 8))
     console.log(`  ⚠️ ${w.path}(HEAD 本就没有,报数不算红)← ${w.docs.slice(0, 3).join(', ')}`)
   if (res.warn.length > 8) console.log(`  … 另 ${res.warn.length - 8} 条 warning`)
   for (const u of res.undetermined) console.log(`  ❔ 未判定:${u}`)
+  for (const c of ckFresh)
+    console.log(
+      `  ❌ CK ${c.path}(被已勾验收行点名而 HEAD 无此路径 · 本次新增)← ${c.fresh.slice(0, 3).join(', ')}`,
+    )
+  if (ckStock.length) {
+    const s = ckStock[0]
+    console.log(
+      `  ◦ CK 存量 ${ckStock.length} 条:已勾验收行点名而 HEAD 无此路径(HEAD 本就如此 ⇒ 只报数不判红;问责跑 --strict)—— 例:${s.path} ← ${s.docs.slice(0, 2).join(', ')}`,
+    )
+  }
+  if ((res.newlyLanded || []).length) {
+    const n = res.newlyLanded[0]
+    console.log(
+      `  ◦ 本次同枚补齐 ${(res.newlyLanded || []).length} 条:验收行点名的路径 HEAD 没有、而被审面上已有 ⇒ 放过(承诺当场兑现,例:${n.path})`,
+    )
+  }
   if (res.red.length)
     console.log(
       '  修复出口(二选一,本门只读不代恢复):误删 ⇒ `git restore --staged <path>` 找回;' +
         '确属下线 ⇒ 同步更新点名它的活文档。禁止用"改判据/加豁免"消红。',
     )
-  const tail = res.red.length
-    ? '结论:红 ⇒ 判红'
-    : res.undetermined.length
-      ? '结论:未判定 ⇒ 判死(不记绿)'
-      : `结论:绿(${res.green}/${res.refs} 在位${res.warn.length ? `,另有 ${res.warn.length} 条 HEAD 缺席 warning` : ''})`
+  const tail =
+    res.red.length || ckStrict
+      ? `结论:红${ckStrict && !res.red.length ? `(CK 存量 ${ckStock.length} 条 · 问责档照判红)` : ''} ⇒ 判红`
+      : res.undetermined.length
+        ? '结论:未判定 ⇒ 判死(不记绿)'
+        : `结论:绿(${res.green}/${res.refs} 在位${res.warn.length ? `,另有 ${res.warn.length} 条 HEAD 缺席 warning` : ''}${ckStock.length ? `;CK 存量 ${ckStock.length} 条只报数` : ''})`
   console.log(tail)
-  return res.red.length ? 1 : res.undetermined.length ? 2 : 0
+  return res.red.length || ckStrict ? 1 : res.undetermined.length ? 2 : 0
 }
 
 /**
@@ -357,73 +564,349 @@ export function selfTest() {
   const I = new Set(['docs/keep.md', 'docs/dir/child.md', 'scripts/tool.mjs', 'scripts/run.sh'])
   const work = (key) => key !== 'scripts/run.sh' // 构造:工作区唯独缺 run.sh
 
-  t('① 正例:file 点名三面齐在 ⇒ 绿且无红', (() => {
-    const r = judgeRefs({ refs: mk([['docs/keep.md', 'file']]), headSet: H, indexSet: I, workCheck: work, face: 'audit' })
-    return r.green === 1 && r.red.length === 0 && r.warn.length === 0
-  })())
+  t(
+    '① 正例:file 点名三面齐在 ⇒ 绿且无红',
+    (() => {
+      const r = judgeRefs({
+        refs: mk([['docs/keep.md', 'file']]),
+        headSet: H,
+        indexSet: I,
+        workCheck: work,
+        face: 'audit',
+      })
+      return r.green === 1 && r.red.length === 0 && r.warn.length === 0
+    })(),
+  )
 
-  t('② 事故格反例:HEAD 在位、工作区在位、索引记删除 ⇒ 红(missing=index)', (() => {
-    const I2 = new Set([...I].filter((p) => p !== 'docs/keep.md'))
-    const r = judgeRefs({ refs: mk([['docs/keep.md', 'file']]), headSet: H, indexSet: I2, workCheck: work, face: 'audit' })
-    return r.red.length === 1 && r.red[0].missing.includes('index')
-  })())
+  t(
+    '② 事故格反例:HEAD 在位、工作区在位、索引记删除 ⇒ 红(missing=index)',
+    (() => {
+      const I2 = new Set([...I].filter((p) => p !== 'docs/keep.md'))
+      const r = judgeRefs({
+        refs: mk([['docs/keep.md', 'file']]),
+        headSet: H,
+        indexSet: I2,
+        workCheck: work,
+        face: 'audit',
+      })
+      return r.red.length === 1 && r.red[0].missing.includes('index')
+    })(),
+  )
 
-  t('③ 工作区缺而 HEAD+索引在 ⇒ 红(missing=worktree)', (() => {
-    const r = judgeRefs({ refs: mk([['scripts/run.sh', 'file']]), headSet: H, indexSet: I, workCheck: work, face: 'audit' })
-    return r.red.length === 1 && r.red[0].missing.includes('worktree')
-  })())
+  t(
+    '③ 工作区缺而 HEAD+索引在 ⇒ 红(missing=worktree)',
+    (() => {
+      const r = judgeRefs({
+        refs: mk([['scripts/run.sh', 'file']]),
+        headSet: H,
+        indexSet: I,
+        workCheck: work,
+        face: 'audit',
+      })
+      return r.red.length === 1 && r.red[0].missing.includes('worktree')
+    })(),
+  )
 
-  t('④ 笔误档:HEAD 本就没有 ⇒ 只 warning,不红', (() => {
-    const r = judgeRefs({ refs: mk([['docs/typo.md', 'file']]), headSet: H, indexSet: I, workCheck: work, face: 'audit' })
-    return r.red.length === 0 && r.warn.length === 1
-  })())
+  t(
+    '④ 笔误档:HEAD 本就没有 ⇒ 只 warning,不红',
+    (() => {
+      const r = judgeRefs({
+        refs: mk([['docs/typo.md', 'file']]),
+        headSet: H,
+        indexSet: I,
+        workCheck: work,
+        face: 'audit',
+      })
+      return r.red.length === 0 && r.warn.length === 1
+    })(),
+  )
 
-  t('⑤ 提交链档:索引缺而 HEAD 在 ⇒ 红;工作区不参与(盘上改对不算修好)', (() => {
-    const I2 = new Set([...I].filter((p) => p !== 'docs/keep.md'))
-    const r = judgeRefs({ refs: mk([['docs/keep.md', 'file']]), headSet: H, indexSet: I2, workCheck: () => true, face: 'staged' })
-    return r.red.length === 1 && r.red[0].missing.includes('index')
-  })())
+  t(
+    '⑤ 提交链档:索引缺而 HEAD 在 ⇒ 红;工作区不参与(盘上改对不算修好)',
+    (() => {
+      const I2 = new Set([...I].filter((p) => p !== 'docs/keep.md'))
+      const r = judgeRefs({
+        refs: mk([['docs/keep.md', 'file']]),
+        headSet: H,
+        indexSet: I2,
+        workCheck: () => true,
+        face: 'staged',
+      })
+      return r.red.length === 1 && r.red[0].missing.includes('index')
+    })(),
+  )
 
-  t('⑥ 提取:反引号外提及不算引用、braces/glob 丢弃', (() => {
-    const text = '见 docs/outer.md 不带反引号;`scripts/{a,b}.ps1` 与 `docs/*.md` 都不是单一路径;`docs/inner.md` 才算。'
-    const refs = extractRefs(text, 'D.md')
-    return refs.size === 1 && refs.has('docs/inner.md')
-  })())
+  t(
+    '⑥ 提取:反引号外提及不算引用、braces/glob 丢弃',
+    (() => {
+      const text =
+        '见 docs/outer.md 不带反引号;`scripts/{a,b}.ps1` 与 `docs/*.md` 都不是单一路径;`docs/inner.md` 才算。'
+      const refs = extractRefs(text, 'D.md')
+      return refs.size === 1 && refs.has('docs/inner.md')
+    })(),
+  )
 
-  t('⑦ 提取:行号锚/fragment/尾部标点剥离后仍点名同一文件', (() => {
-    const refs = extractRefs('`scripts/release-desktop-local.mjs:66-78`、`scripts/tool.mjs#用法`、`docs/keep.md。`', 'D.md')
-    return refs.has('scripts/release-desktop-local.mjs') && refs.has('scripts/tool.mjs') && refs.has('docs/keep.md') && refs.size === 3
-  })())
+  t(
+    '⑦ 提取:行号锚/fragment/尾部标点剥离后仍点名同一文件',
+    (() => {
+      const refs = extractRefs(
+        '`scripts/release-desktop-local.mjs:66-78`、`scripts/tool.mjs#用法`、`docs/keep.md。`',
+        'D.md',
+      )
+      return (
+        refs.has('scripts/release-desktop-local.mjs') &&
+        refs.has('scripts/tool.mjs') &&
+        refs.has('docs/keep.md') &&
+        refs.size === 3
+      )
+    })(),
+  )
 
-  t('⑧ 提取:目录式点名(尾斜杠/无扩展名)归 form=dir,且剥尾斜杠', (() => {
-    const refs = extractRefs('`docs/benchmark-evidence/` 与 `apps/web`', 'D.md')
-    return refs.get('docs/benchmark-evidence')?.form === 'dir' && refs.get('apps/web')?.form === 'dir'
-  })())
+  t(
+    '⑧ 提取:目录式点名(尾斜杠/无扩展名)归 form=dir,且剥尾斜杠',
+    (() => {
+      const refs = extractRefs('`docs/benchmark-evidence/` 与 `apps/web`', 'D.md')
+      return (
+        refs.get('docs/benchmark-evidence')?.form === 'dir' && refs.get('apps/web')?.form === 'dir'
+      )
+    })(),
+  )
 
-  t('⑨ 在位性:dir 点名走前缀命中,file 点名走精确命中', (() => {
-    return presentIn(H, 'docs/dir', 'dir') && !presentIn(H, 'docs/kee', 'file') && presentIn(H, 'docs/keep.md', 'file')
-  })())
+  t(
+    '⑨ 在位性:dir 点名走前缀命中,file 点名走精确命中',
+    (() => {
+      return (
+        presentIn(H, 'docs/dir', 'dir') &&
+        !presentIn(H, 'docs/kee', 'file') &&
+        presentIn(H, 'docs/keep.md', 'file')
+      )
+    })(),
+  )
 
-  t('⑩ 定级方向锁:audit 档工作区缺判红,同一输入 staged 档不判工作区红', (() => {
-    const refs = mk([['scripts/run.sh', 'file']])
-    const a = judgeRefs({ refs, headSet: H, indexSet: I, workCheck: work, face: 'audit' })
-    const s = judgeRefs({ refs: mk([['scripts/run.sh', 'file']]), headSet: H, indexSet: I, workCheck: work, face: 'staged' })
-    return a.red.length === 1 && s.red.length === 0 && s.green === 1
-  })())
+  t(
+    '⑩ 定级方向锁:audit 档工作区缺判红,同一输入 staged 档不判工作区红',
+    (() => {
+      const refs = mk([['scripts/run.sh', 'file']])
+      const a = judgeRefs({ refs, headSet: H, indexSet: I, workCheck: work, face: 'audit' })
+      const s = judgeRefs({
+        refs: mk([['scripts/run.sh', 'file']]),
+        headSet: H,
+        indexSet: I,
+        workCheck: work,
+        face: 'staged',
+      })
+      return a.red.length === 1 && s.red.length === 0 && s.green === 1
+    })(),
+  )
 
-  t('⑪ 判据只住一份:git grep 候选路径(normalizeToken)与正文路径(extractRefs)同判据等值', (() => {
-    const text = '见 `docs/a.md:12`、`scripts/{x,y}.ps1`、`apps/web/`、bare apps/api 与 `config/missing.yaml。`'
-    const viaText = extractRefs(text, 'D.md')
-    const raws = [...text.matchAll(/`([^`\n]+)`/g)].map((m) => m[1])
-    const viaTokens = new Map()
-    for (const raw of raws) addRef(viaTokens, 'D.md', normalizeToken(raw))
-    if (viaText.size !== viaTokens.size) return false
-    for (const [k, rec] of viaText) {
-      const other = viaTokens.get(k)
-      if (!other || other.form !== rec.form || other.docs.size !== rec.docs.size) return false
-    }
-    return true
-  })())
+  t(
+    '⑪ 判据只住一份:git grep 候选路径(normalizeToken)与正文路径(extractRefs)同判据等值',
+    (() => {
+      const text =
+        '见 `docs/a.md:12`、`scripts/{x,y}.ps1`、`apps/web/`、bare apps/api 与 `config/missing.yaml。`'
+      const viaText = extractRefs(text, 'D.md')
+      const raws = [...text.matchAll(/`([^`\n]+)`/g)].map((m) => m[1])
+      const viaTokens = new Map()
+      for (const raw of raws) addRef(viaTokens, 'D.md', normalizeToken(raw))
+      if (viaText.size !== viaTokens.size) return false
+      for (const [k, rec] of viaText) {
+        const other = viaTokens.get(k)
+        if (!other || other.form !== rec.form || other.docs.size !== rec.docs.size) return false
+      }
+      return true
+    })(),
+  )
+
+  // ── CK 维(已勾验收行点名的失踪路径):分档不分桶 + 差值棘轮 ──────────────
+  const mkCk = (rows2) => {
+    const m = new Map()
+    for (const [p, _form, checked] of rows2) addRef(m, 'D.md', normalizeToken(p), !!checked)
+    return m
+  }
+  t(
+    '⑫ 已勾行点名的失踪路径 ⇒ 进 checkedMissing,不再混进 warn 桶',
+    (() => {
+      const r = judgeRefs({
+        refs: mkCk([['docs/gone-not-in-head.md', 'file', true]]),
+        headSet: H,
+        indexSet: I,
+        workCheck: work,
+        face: 'audit',
+      })
+      return (
+        r.warn.length === 0 &&
+        r.checkedMissing.length === 1 &&
+        r.checkedMissing[0].path === 'docs/gone-not-in-head.md'
+      )
+    })(),
+  )
+  t(
+    '⑬ 未勾行点名同一条失踪路径 ⇒ 仍只 warning(不无谓加严)',
+    (() => {
+      const r = judgeRefs({
+        refs: mkCk([['docs/gone-not-in-head.md', 'file', false]]),
+        headSet: H,
+        indexSet: I,
+        workCheck: work,
+        face: 'audit',
+      })
+      return r.warn.length === 1 && r.checkedMissing.length === 0
+    })(),
+  )
+  t(
+    '⑭ 差值棘轮两向:锚点含同一条 ⇒ 存量(fresh 空,不判红);锚点缺 ⇒ 新增点名',
+    (() => {
+      const refs = mkCk([['docs/gone-not-in-head.md', 'file', true]])
+      const asStock = judgeRefs({
+        refs,
+        headSet: H,
+        indexSet: I,
+        workCheck: work,
+        face: 'audit',
+        checkedAnchor: new Set(['D.md|docs/gone-not-in-head.md']),
+      })
+      const asFresh = judgeRefs({
+        refs: mkCk([['docs/gone-not-in-head.md', 'file', true]]),
+        headSet: H,
+        indexSet: I,
+        workCheck: work,
+        face: 'audit',
+        checkedAnchor: new Set(),
+      })
+      return (
+        asStock.checkedMissing[0].fresh.length === 0 &&
+        asFresh.checkedMissing[0].fresh.length === 1 &&
+        asFresh.checkedMissing[0].fresh[0] === 'D.md'
+      )
+    })(),
+  )
+  t(
+    '⑮ 锚点取不到(checkedAnchor 缺席)⇒ 一律算存量,绝不把"没量到"写成"新增红"',
+    (() => {
+      const r = judgeRefs({
+        refs: mkCk([['docs/gone-not-in-head.md', 'file', true]]),
+        headSet: H,
+        indexSet: I,
+        workCheck: work,
+        face: 'audit',
+      })
+      return r.checkedMissing.length === 1 && r.checkedMissing[0].fresh.length === 0
+    })(),
+  )
+  t(
+    '⑯ 已勾判据只看行首复选框:缩进与大写 X 都算,正文里的 "[x]" 不算',
+    (() => {
+      const text =
+        '  - [X] 甲 `docs/ck-a.md`\n- [x] 乙 `docs/ck-b.md`\n讨论里提到 [x] 丙 `docs/ck-c.md`\n'
+      const refs = extractRefs(text, 'D.md')
+      return (
+        refs.get('docs/ck-a.md').checkedDocs.has('D.md') &&
+        refs.get('docs/ck-b.md').checkedDocs.has('D.md') &&
+        !refs.get('docs/ck-c.md').checkedDocs.size
+      )
+    })(),
+  )
+
+  t(
+    '⑰ CK 夹具必须落在判据射程内(射程外 ⇒ 断言恒假而账面报绿)',
+    (() => {
+      // 本条是 2026-10-12 自检 ⑫⑬ 曾恒假的直接后果:夹具写 `outputs/gone.md`,
+      // 而 normalizeToken 的白名单前缀不含 `outputs/` ⇒ 候选被丢弃 ⇒ checkedMissing 恒空。
+      // "扫到 0"必须先怀疑尺子,所以这里钉的是**夹具本身**可判,不是判据。
+      const ckFixtures = [
+        'docs/gone-not-in-head.md',
+        'docs/ck-a.md',
+        'docs/ck-b.md',
+        'docs/ck-c.md',
+      ]
+      return ckFixtures.every((p) => normalizeToken(p) !== null) && REF_PREFIXES.length > 0
+    })(),
+  )
+
+  t(
+    '⑱ 锚点配对集合非空且与判据同源(Set 不是数组 ⇒ 问 .length 恒空)',
+    (() => {
+      const refs = mkCk([
+        ['docs/gone-not-in-head.md', 'file', true],
+        ['docs/keep.md', 'file', true],
+        ['docs/plain.md', 'file', false],
+      ])
+      if (!(refs.get('docs/gone-not-in-head.md').checkedDocs instanceof Set)) return false
+      const pairs = checkedMissingPairs(refs, H)
+      return (
+        pairs.length === 1 &&
+        pairs[0] === 'D.md|docs/gone-not-in-head.md' &&
+        // 与 judgeRefs 的 checkedMissing 必须逐条同集(同一问题的两把尺子不得分叉)
+        judgeRefs({
+          refs,
+          headSet: H,
+          indexSet: I,
+          workCheck: work,
+          face: 'audit',
+          checkedAnchor: new Set(pairs),
+        }).checkedMissing.every((c) => c.fresh.length === 0)
+      )
+    })(),
+  )
+
+  t(
+    '⑲ 正当修法不误伤:验收行与它点名的文件同枚进来 ⇒ newlyLanded 放过,不进 CK 红',
+    (() => {
+      // 堵住的是本维最容易被自己造出来的恒红:"这次提交同时补文件 + 勾上框"是判据最希望
+      // 看到的形态。缺这一条,每一次新增文件的正当提交都会被 CK 判红(§12e)。
+      const idx = new Set([...I, 'docs/added-now.md']) // 索引里有、HEAD 里没有 = 本次带进来的新文件
+      const refs = mkCk([['docs/added-now.md', 'file', true]])
+      const landed = judgeRefs({
+        refs,
+        headSet: H,
+        indexSet: idx,
+        workCheck: () => true,
+        face: 'staged',
+        checkedAnchor: new Set(),
+      })
+      const stillGone = judgeRefs({
+        refs: mkCk([['docs/added-now.md', 'file', true]]),
+        headSet: H,
+        indexSet: I,
+        workCheck: () => false,
+        face: 'staged',
+        checkedAnchor: new Set(),
+      })
+      return (
+        landed.newlyLanded.length === 1 &&
+        landed.checkedMissing.length === 0 &&
+        landed.red.length === 0 &&
+        stillGone.checkedMissing.length === 1 &&
+        stillGone.newlyLanded.length === 0 &&
+        stillGone.checkedMissing[0].fresh[0] === 'D.md'
+      )
+    })(),
+  )
+
+  t(
+    '⑳ 工作区在位性取不到 ⇒ 未判定必须带**原因与路径**(空串等于把没判写成判过了)',
+    (() => {
+      const refs = mkCk([['docs/added-now.md', 'file', true]])
+      const r = judgeRefs({
+        refs,
+        headSet: H,
+        indexSet: new Set([...I, 'docs/added-now.md']),
+        workCheck: () => {
+          throw new Error('模拟 EBUSY')
+        },
+        face: 'audit',
+        checkedAnchor: new Set(),
+      })
+      return (
+        r.undetermined.length === 1 &&
+        r.undetermined[0].includes('docs/added-now.md') &&
+        r.undetermined[0].includes('EBUSY') &&
+        r.newlyLanded.length === 0 &&
+        r.checkedMissing.length === 0 &&
+        r.red.length === 0
+      )
+    })(),
+  )
 
   const bad = rows.filter((r) => !r.ok)
   console.log(`—— 自检 ${rows.length - bad.length}/${rows.length} 通过${bad.length ? ' ✗' : ' ✅'}`)
@@ -440,7 +923,10 @@ function main(argv) {
     return 2
   }
   try {
-    return report(run({ root: REPO_ROOT, face: picked.face }), { json: has('--json') })
+    return report(run({ root: REPO_ROOT, face: picked.face }), {
+      json: has('--json'),
+      strict: has('--strict'),
+    })
   } catch (e) {
     console.error(`❌ 脚本自身异常:${oneLine(e)}`)
     return 2
@@ -457,6 +943,19 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { run, selfTest, extractRefs, normalizeToken, judgeRefs, presentIn, MATERIAL_RE, REF_PREFIXES }
+export const __test__ = {
+  run,
+  selfTest,
+  extractRefs,
+  normalizeToken,
+  judgeRefs,
+  presentIn,
+  MATERIAL_RE,
+  REF_PREFIXES,
+  buildCheckedAnchor,
+  checkedMissingPairs,
+  addRef,
+  report,
+}
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
