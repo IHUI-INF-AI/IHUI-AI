@@ -545,6 +545,45 @@ async def test_create_rejects_unknown_platform(client, fake_store):
     assert "不支持的平台" in resp.json()["detail"]
 
 
+async def test_create_workbuddy_web_mode_accepts_cookie(client, fake_store):
+    """Web 模式(2026-10-12「网页登录自动添加」):login_type=web 时 jwt 字段存
+    Cookie 串,无 expiresAt 声明也放行(网页 Cookie 服务端滚动刷新)。"""
+    resp = await client.post(
+        "/api/checkin/accounts",
+        json={
+            "name": "WorkBuddy-web",
+            "jwt": "session_id=abc123; wb_uid=u-9; other=v",
+            "platform": "workbuddy",
+            "device_map": {
+                "login_type": "web",
+                "uid": "14f939c3-889b-4ea2-88b7-ca4582f3b435",
+                "nickname": "李总",
+            },
+        },
+    )
+    assert resp.status_code == 200
+    created = resp.json()
+    assert created["platform"] == "workbuddy"
+    stored = fake_store.accounts[created["id"]]
+    assert stored["device_map"]["login_type"] == "web"
+    assert stored["device_map"]["uid"] == "14f939c3-889b-4ea2-88b7-ca4582f3b435"
+
+
+async def test_create_workbuddy_web_mode_rejects_blank_cookie(client, fake_store):
+    """Web 模式 Cookie 过短 → 400(文案指回网页登录)。"""
+    resp = await client.post(
+        "/api/checkin/accounts",
+        json={
+            "name": "WorkBuddy-web-blank",
+            "jwt": "short",
+            "platform": "workbuddy",
+            "device_map": {"login_type": "web", "uid": "u-1"},
+        },
+    )
+    assert resp.status_code == 400
+    assert "网页登录" in resp.json()["detail"]
+
+
 
 async def test_update_jwt_qoder_platform_split(client, fake_store):
     """PATCH /jwt 按账号平台分流:qoder 账号换 opaque token 不被 TRAE 判据误杀。"""

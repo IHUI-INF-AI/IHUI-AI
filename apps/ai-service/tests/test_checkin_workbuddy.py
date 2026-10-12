@@ -334,4 +334,100 @@ class TestQueryCredits:
     async def test_status_blank_token(self):
         result = await workbuddy_query_credits("", {}, client=make_client(_handler_ok()))
         assert result["remaining"] is None and result["error"] == "未配置 token"
+
+
+# ---------------------------------------------------------------------------
+# Web Cookie 模式(2026-10-12「网页登录自动添加」)
+# ---------------------------------------------------------------------------
+
+
+class TestWebMode:
+    """device_map.login_type=="web":jwt 字段存 Cookie 串 → www.workbuddy.cn /v2 网关。"""
+
+    COOKIE = "session_id=abc123; wb_uid=u-9"
+    WEB_MAP = {"uid": UID, "login_type": "web"}
+
+    @pytest.mark.asyncio
+    async def test_web_checkin_uses_cookie_not_bearer(self):
+        """web 模式必须带 Cookie 头打本域 /v2 端点,且不带 Authorization。"""
+        seen: dict = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen["url"] = str(request.url)
+            seen["cookie"] = request.headers.get("cookie")
+            seen["auth"] = request.headers.get("authorization")
+            return httpx.Response(200, json=_wb_response(0, data={"credit": 5, "streak_days": 3}))
+
+        result = await workbuddy_checkin_account(
+            "wb-web", self.COOKIE, dict(self.WEB_MAP), client=make_client(handler)
+        )
+        assert result["ok"] is True and result["status"] == "ok"
+        assert result["credits_delta"] == 5
+        assert seen["url"].startswith("https://www.workbuddy.cn/v2/billing/meter/daily-checkin")
+        assert seen["cookie"] == self.COOKIE
+        assert seen["auth"] is None
+
+    @pytest.mark.asyncio
+    async def test_web_already_10001_idempotent(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json=_wb_response(10001))
+
+        result = await workbuddy_checkin_account(
+            "wb-web", self.COOKIE, dict(self.WEB_MAP), client=make_client(handler)
+        )
+        assert result["ok"] is True and result["status"] == "already"
+
+    @pytest.mark.asyncio
+    async def test_web_401_session_dead_with_relogin_hint(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(401, json={})
+
+        result = await workbuddy_checkin_account(
+            "wb-web", self.COOKIE, dict(self.WEB_MAP), client=make_client(handler)
+        )
+        assert result["ok"] is False
+        assert result["classified_error"] == {"type": "SessionDead", "cooldown_seconds": -1}
+        assert "网页登录" in result["message"] and "401" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_web_uid_from_device_map_only(self):
+        """web 模式 uid 只认 device_map(cookie 不是 JWT,解析不出 uid)。"""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json=_wb_response(0, data={"credit": 1}))
+
+        result = await workbuddy_checkin_account(
+            "wb-web", self.COOKIE, {"login_type": "web"}, client=make_client(handler)
+        )
+        assert result["ok"] is False and "uid" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_web_query_credits(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200, json={"code": 0, "data": {"today_checked_in": True, "credit": 42}}
+            )
+
+        result = await workbuddy_query_credits(self.COOKIE, dict(self.WEB_MAP), client=make_client(handler))
+        assert result == {"remaining": 42, "error": None}
+
+    @pytest.mark.asyncio
+    async def test_web_query_credits_401(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(401, json={})
+
+        result = await workbuddy_query_credits(self.COOKIE, dict(self.WEB_MAP), client=make_client(handler))
+        assert result["remaining"] is None and "网页登录" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_web_blank_cookie_message(self):
+        result = await workbuddy_query_credits("", dict(self.WEB_MAP), client=make_client(_handler_ok()))
+        assert result["remaining"] is None and "网页登录" in result["error"]
+
+    def test_is_web_mode_case_insensitive(self):
+        from app.services.checkin_workbuddy import workbuddy_is_web_mode
+
+        assert workbuddy_is_web_mode({"login_type": "Web"}) is True
+        assert workbuddy_is_web_mode({"login_type": "token"}) is False
+        assert workbuddy_is_web_mode({}) is False
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
