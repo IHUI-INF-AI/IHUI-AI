@@ -31,8 +31,13 @@ OWNER = os.environ.get("GITEE_OWNER", "JLSLSSZWHYXGS_0")
 REPO = os.environ.get("GITEE_REPO", "IHUI-AI")
 GH_REPO = os.environ.get("GITHUB_REPOSITORY", "IHUI-INF-AI/IHUI-AI")
 PROXY_PREFIX = "https://gh-proxy.com/"
-TMP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                       "..", "..", ".ihui-agent", "tmp", "backfill-gitee")
+# 2026-10-12 修正:TMP_DIR 必须按 tag 分子目录 —— 旧实现全局平铺,而 tauri-action 的
+# darwin 产物名(AI_universal.app.tar.gz / AI.app.tar.gz)不带版本号,0.1.50 的缓存
+# 被 0.1.51 复用 ⇒ 错误内容传上 Gitee(签名对不上/旧包冒名,且 Gitee 同名直链永取
+# 第一个、无法覆盖)。历史事故:0.1.51 补齐时两枚 darwin 包体 MISMATCH 实锤。
+def tmp_dir_for(tag):
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        "..", "..", ".ihui-agent", "tmp", "backfill-gitee", tag)
 
 
 def gh_api(path):
@@ -100,9 +105,14 @@ def main():
     ap.add_argument("--tag", required=True)
     ap.add_argument("--no-proxy", action="store_true", help="GitHub 下载不走 gh-proxy 镜像")
     ap.add_argument("--dry-run", action="store_true", help="只打印将补哪些资产,不下载不上传")
+    ap.add_argument("--map", action="append", default=[],
+                    help="上传改名:GH资产名=上传用名(可多次)。用于给 Gitee 上传"
+                         "带版本号的新名副本(Gitee 同名直链永取第一个,坏件无法覆盖,"
+                         "只能以新名上传正确内容并让快照指向新名)")
     args = ap.parse_args()
     if not TOKEN:
         sys.exit("ERROR: 缺 GITEE_TOKEN 环境变量")
+    TMP_DIR = tmp_dir_for(args.tag)
 
     # 1. GH release 资产清单
     rel = gh_api(f"/repos/{GH_REPO}/releases/tags/{args.tag}")
@@ -128,6 +138,20 @@ def main():
     # latest.json 刻意排除:GH 侧版本 url 全指 github.com,补到 Gitee 只会误导
     # (客户端更新端点是 aizhs.top 单端点,仓库快照才是真源,见 release-desktop 注释链)。
     missing = {n: u for n, u in gh_assets.items() if n not in have and n != "latest.json"}
+    # --map 改名上传:目标名不在 Gitee 即视为缺失(源内容取 GH 同名资产)
+    rename = {}
+    for m in args.map:
+        if "=" not in m:
+            sys.exit(f"--map 形态错误(应为 GH资产名=上传用名): {m}")
+        src, dst = m.split("=", 1)
+        if src not in gh_assets:
+            sys.exit(f"--map 源资产不在 GH release: {src}")
+        rename[dst] = src
+        if dst not in have:
+            missing[dst] = gh_assets[src]
+    if not missing:
+        print("[done] Gitee 资产已齐,无需补")
+        return
     if not missing:
         print("[done] Gitee 资产已齐,无需补")
         return
@@ -148,7 +172,7 @@ def main():
                 sys.exit(f"下载失败,中止: {name}")
         local[name] = dest
 
-    # 5. 上传 Gitee(上传后再拉一次资产名单防并发重复;同名跳过)
+    # 5. 上传 Gitee(local 的键即上传用名(--map 时为 dst 新名);同名跳过)
     for name, path in sorted(local.items()):
         if name in have:
             print(f"[gitee] {name} 已存在,跳过")

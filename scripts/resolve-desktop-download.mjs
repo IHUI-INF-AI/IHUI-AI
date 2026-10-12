@@ -369,7 +369,9 @@ async function resolveFromGitee() {
       assets.push(mapped)
     }
     if (isUpdaterPkg) {
-      updaterEntries.push({ name: asset.name, url: href, signature: fetched.sig })
+      // size 必带:合并时按"同名条目 size 一致"防冒名件(Gitee 侧存在历史同名旧版
+      // 包体且直链永取第一个,无法覆盖,只能靠 size 对账弃用——2026-10-12 实锤)。
+      updaterEntries.push({ name: asset.name, url: href, signature: fetched.sig, size })
     }
   }
   if (assets.length === 0) return null
@@ -481,7 +483,12 @@ async function resolveFromGithub() {
       assets.push(mapped)
     }
     if (isUpdaterPkg) {
-      updaterEntries.push({ name: asset.name, url: asset.browser_download_url, signature })
+      updaterEntries.push({
+        name: asset.name,
+        url: asset.browser_download_url,
+        signature,
+        size: asset.size,
+      })
     }
   }
   if (assets.length === 0) {
@@ -618,13 +625,25 @@ async function resolveOnline() {
   // updater 候选按资产名合并,Gitee 优先(2026-10-12:Gitee 资产已由
   // backfill-gitee-assets.py 补齐,mac/linux 平台键应走国内直链);Gitee 条目
   // 签名为空(sig 抓取失败)时回退 GitHub 条目,避免整平台被空签名过滤掉。
-  const ghExtrasByName = new Map((fromGithub.updaterEntries || []).map((e) => [e.name, e]))
+  // 2026-10-12 加 size 对账:Gitee 同名直链永取第一个附件且附件不可删——历史上
+  // 曾有旧版包体冒名占用无版本号资产名(AI_universal.app.tar.gz 实锤,size
+  // 11425039 ≠ GH 0.1.51 的 13126884)。同名且 size 不符的 Gitee 条目一律弃用
+  // (GH 条目兜底);GH 无同名(带版本号新名直链)或 size 一致才采信。
+  const ghByName = new Map((fromGithub.updaterEntries || []).map((e) => [e.name, e]))
+  const giteeTrustable = (g) => {
+    const gh = ghByName.get(g.name)
+    if (!gh) return true
+    if (!g.size || !gh.size) return true // 任一侧取不到 size ⇒ 未判定,不因量不出而误杀
+    return g.size === gh.size
+  }
   const mergedUpdaterEntries = [
-    ...(fromGitee.updaterEntries || []).map((e) =>
-      e.signature ? e : (ghExtrasByName.get(e.name) ?? e),
-    ),
+    ...(fromGitee.updaterEntries || [])
+      .filter((g) => g.signature && giteeTrustable(g))
+      .map((g) => ({ name: g.name, url: g.url, signature: g.signature })),
     ...(fromGithub.updaterEntries || []).filter(
-      (e) => !(fromGitee.updaterEntries || []).some((g) => g.name === e.name && g.signature),
+      (e) => !(fromGitee.updaterEntries || []).some(
+        (g) => g.name === e.name && g.signature && giteeTrustable(g),
+      ),
     ),
   ]
   return withUpdaterPlatforms({
