@@ -2379,6 +2379,12 @@
           "markdownDescription": "Enables the checkin_capture_qoder command without any pre-configured scope."
         },
         {
+          "description": "Enables the checkin_capture_workbuddy command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-checkin-capture-workbuddy",
+          "markdownDescription": "Enables the checkin_capture_workbuddy command without any pre-configured scope."
+        },
+        {
           "description": "Enables the checkin_detect_trae_dir command without any pre-configured scope.",
           "type": "string",
           "const": "allow-checkin-detect-trae-dir",
@@ -2797,6 +2803,12 @@
           "type": "string",
           "const": "deny-checkin-capture-qoder",
           "markdownDescription": "Denies the checkin_capture_qoder command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the checkin_capture_workbuddy command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-checkin-capture-workbuddy",
+          "markdownDescription": "Denies the checkin_capture_workbuddy command without any pre-configured scope."
         },
         {
           "description": "Denies the checkin_detect_trae_dir command without any pre-configured scope.",
