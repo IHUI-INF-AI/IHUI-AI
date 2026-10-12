@@ -180,11 +180,14 @@ function killTree(pid) {
 // 重拉前清掉同名服务的旧进程树:tsx watch/expo/next 父进程在子服务死后仍存活且
 // 不占端口(isUp 探不到),不清就无限堆积(实测 API 假死后父进程残留半日)。
 // postgres 走 Windows 服务无 pid 文件,天然跳过。
+// 2026-10-12 零弹窗第四阶段起,pid 文件记的是隐藏控制台链的树根(wscript,见
+// dev-stack-launch.mjs);旧基线存的可能是服务 node 本体(直启链)。两种形态都认,
+// 否则存量旧树(含带可见窗口的 tsx 链)永远没人收。
 function killStale(svc) {
   const pidFile = path.join(LOG_DIR, `dev-stack-${svc.name}.pid`);
   try {
     const pid = Number(fs.readFileSync(pidFile, 'utf8').trim());
-    if (pidAlive(pid, path.basename(process.execPath))) killTree(pid);
+    if (pidAlive(pid, 'wscript.exe') || pidAlive(pid, path.basename(process.execPath))) killTree(pid);
     fs.rmSync(pidFile, { force: true });
   } catch {
     /* 无 pid 文件 = 旧启动方式拉起的,无从清理,不影响 */
