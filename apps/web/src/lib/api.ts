@@ -5,6 +5,7 @@
 import {
   setTokenProvider,
   setBaseUrl,
+  setAiServiceBase,
   setStreamBaseUrl,
   setDeviceFingerprintProvider,
   setUnauthorizedHandler,
@@ -16,7 +17,11 @@ import { useAuthStore } from '@/stores/auth'
 import { openLoginDialogOnce } from '@/lib/login-dialog-trigger'
 import { getAuthCookie } from '@/lib/cookie-utils'
 import { getDesktopRefreshToken, setDesktopRefreshToken } from '@/lib/desktop-token-vault'
-import { resolveApiBaseUrl, resolveStreamApiBaseUrl } from '@/lib/api-base-url'
+import {
+  resolveApiBaseUrl,
+  resolveStreamApiBaseUrl,
+  resolveAiServiceBaseUrl,
+} from '@/lib/api-base-url'
 import { webDeviceFingerprintCollector } from '@/hooks/use-device-fingerprint'
 import {
   canSilentlyReLogin,
@@ -24,6 +29,19 @@ import {
   type RefreshFailureKind,
 } from '@ihui/shared/auth/auto-login-policy'
 import { isSessionLoggedOut } from '@/lib/session-marker'
+
+/**
+ * /auth/refresh 的显式超时(2026-10-12 立,根治"生产 PG 退化时 web 端干等 18s+")。
+ *
+ * 为什么是 10s:
+ * - refresh 是轻量端点,正常响应 <1s;默认 30s 对"服务已退化"反应过慢,
+ *   401 续期链路上的每个业务请求都要陪等满 30s(实测生产 PG 退化时 18s+ 无响应)。
+ * - 10s 足够区分"瞬时不可用"与"长时间挂起",又不至于把一次正常的慢刷新误杀。
+ * - 超时 ⇒ fetchApi 返回**无 status** 的失败 ⇒ classifyRefreshFailureStatus 判
+ *   'transient' ⇒ bootstrap 不落持久登出标记,不误杀 30 天自动登录
+ *   (见 api.ts 内 lastRefreshFailure 分型与 TransientRefreshError 出口)。
+ */
+const AUTH_REFRESH_TIMEOUT_MS = 10_000
 
 // 2026-07-25 修复 CSRF:内存 token 为 null 时从 auth_token cookie 兜底读取。
 // P2-18 修复(2026-08-06):auth_token 已 httpOnly,前端 JS 读不到 cookie,
@@ -74,6 +92,9 @@ setTokenProvider({
     }>('/auth/refresh', {
       method: 'POST',
       body: JSON.stringify(storedRefresh ? { refreshToken: storedRefresh } : {}),
+      // 2026-10-12:显式 10s 超时(见文件顶部 AUTH_REFRESH_TIMEOUT_MS 注释)——
+      // 不再吃 fetchApi 默认 30s:PG 退化时整条 401 续期链路会陪等满 30s。
+      timeoutMs: AUTH_REFRESH_TIMEOUT_MS,
     })
     if (res.success && res.data?.accessToken) {
       // 更新内存 token;新 refreshToken 由 setToken 写回 vault(桌面)或仅内存(浏览器 cookie 轮转)
@@ -117,6 +138,11 @@ function detectStreamBaseUrl(): string {
 if (typeof window !== 'undefined') {
   setBaseUrl(detectApiBaseUrl())
   setStreamBaseUrl(detectStreamBaseUrl())
+  // 2026-10-12:ai-service 专用基址(根治桌面端 dev 签到页 404)——
+  // Tauri 本地 dev 下 REST 共享基址是本机 8802,而签到等路由只在 ai-service(8803);
+  // fetchAiServiceJson 若沿用共享基址会把 /api/checkin/* 打到 8802 → Fastify 404。
+  // 其余场景注入 ''(同源,浏览器 dev 走 rewrites / 生产走 nginx 反代),行为零变化。
+  setAiServiceBase(resolveAiServiceBaseUrl())
   // 设备维度风控:注入 web 采集器,api-client 自动把指纹塞进 x-device-fingerprint header
   setDeviceFingerprintProvider(webDeviceFingerprintCollector)
 }
