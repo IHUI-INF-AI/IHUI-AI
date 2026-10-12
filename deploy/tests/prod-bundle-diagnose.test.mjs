@@ -20,7 +20,7 @@
 // =============================================================================
 import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs'
-import { dirname, join, resolve, sep } from 'node:path'
+import { delimiter, dirname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 
@@ -38,8 +38,72 @@ const BLUE_GREEN_DEPLOY = 'deploy/scripts/deploy.sh'
 
 const abs = (rel) => join(REPO, rel).replace(/\\/g, '/')
 const read = (rel) => readFileSync(join(REPO, rel), 'utf8')
+
+// ── bash 宿主解析(2026-10-12 收口"4 例红"的根因)───────────────────────────
+// 症状:本文件原先裸用 spawnSync('bash', ...) / execFileSync('bash', ['-n', …]),
+// 而 Windows 的 PATH 把 `C:\Program Files\WindowsApps\bash.exe`(WSL **转发桩**)排在
+// Git Bash 之前 —— 桩只输出"未安装用于 Linux 的 Windows 子系统"并 exit 1,于是依赖
+// bash 的 4 条用例(T3/T5/T6/T7)**在没装 WSL 的机器上恒红**。
+// 这是**机器态**而不是代码缺陷:把机器态写成必过断言 = 每台没装 WSL 的机器一次红,
+// 恒红测试的唯一结局是被人跳过/改判,连带把真正会红的判据一起作废(§12e 同族)。
+// 所以两步走,口径与 apps/cli/benchmarks/runner.ts:133 一致:
+//   ① 显式解析**真 bash**(Git Bash 候选 + PATH 反查,逐个实跑 `-c 'exit 0'` 验真,
+//      并**显式排除** WindowsApps 转发桩 —— 裸 PATH 查出来的第一个很可能是它);
+//   ② 一个都取不到 ⇒ 用例 `t.skip` 并点名原因。**跳过必须喊出为什么**,
+//      "静默跳过"与"判过了"在账面上不可分(把没判写成判过是本仓最高频失效型)。
+const WSL_STUB_MARK = `${sep}WindowsApps${sep}`
+const isWslStub = (p) => String(p).replace(/\//g, sep).includes(WSL_STUB_MARK)
+
+/** 实跑 `-c 'exit 0'`,能退 0 的才是真 bash(转发桩会退 1)。 */
+function bashWorks(candidate) {
+  try {
+    const r = spawnSync(candidate, ['-c', 'exit 0'], { timeout: 15_000, windowsHide: true })
+    return r.status === 0
+  } catch {
+    return false
+  }
+}
+
+function resolveBash() {
+  const candidates = []
+  const pf = process.env.ProgramFiles ?? 'C:\\Program Files'
+  const pf86 = process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)'
+  if (process.platform === 'win32') {
+    candidates.push(join(pf, 'Git', 'bin', 'bash.exe'), join(pf86, 'Git', 'bin', 'bash.exe'))
+    const raw = process.env.PATH ?? process.env.Path ?? ''
+    for (const dir of raw.split(delimiter).filter(Boolean)) candidates.push(join(dir, 'bash.exe'))
+    candidates.push('/usr/bin/bash', '/bin/bash')
+  } else {
+    candidates.push('/bin/bash', '/usr/bin/bash')
+    const raw = process.env.PATH ?? ''
+    for (const dir of raw.split(delimiter).filter(Boolean)) candidates.push(join(dir, 'bash'))
+  }
+  const seen = new Set()
+  for (const c of candidates) {
+    if (!c || seen.has(c)) continue
+    seen.add(c)
+    if (isWslStub(c)) continue // 转发桩:实跑也退 1,直接不试(试了也只是浪费一次 spawn)
+    if (!existsSync(c)) continue
+    if (bashWorks(c)) return c
+  }
+  return null
+}
+
+const BASH = resolveBash()
+
+/** 用例开头调用:没有真 bash 就 skip 并点名(机器态,不判红)。返回 true = 本用例应直接返回。 */
+function needBash(t) {
+  if (BASH) return false
+  t.skip(
+    '本机取不到可用 bash(Git Bash 未安装,或 PATH 上只有 WindowsApps 的 WSL 转发桩)—— ' +
+      '机器态未判定,非代码缺陷;装 Git Bash 后本用例自动恢复执行',
+  )
+  return true
+}
+
 const bash = (script, cwd = REPO) => {
-  const r = spawnSync('bash', ['-c', script], {
+  if (!BASH) throw new Error('bash 宿主缺失(用例本应先 needBash 跳过)')
+  const r = spawnSync(BASH, ['-c', script], {
     cwd,
     encoding: 'utf8',
     timeout: 120_000,
@@ -88,19 +152,21 @@ test('T2 compose 链 ≥4 个失败点各接 ihui_diag_run,且每个都先落 re
 })
 
 // ── T3 语法自检 ───────────────────────────────────────────────────────────
-test('T3 四个 shell 文件 bash -n 全过,mjs node --check 过', () => {
-  for (const f of [TRACKED_LIB, BUNDLE_LIB, BUNDLE_DEPLOY, BUNDLE_HEALTH]) {
-    execFileSync('bash', ['-n', join(REPO, f)], {
-      stdio: 'pipe',
-      timeout: 30_000,
-      windowsHide: true,
-    })
-  }
+test('T3 四个 shell 文件 bash -n 全过,mjs node --check 过', (t) => {
+  // node --check 与 bash 无关,先跑(免得"没装 bash"把这条判据也连带跳过)
   execFileSync(process.execPath, ['--check', join(REPO, TRACKED_MJS)], {
     stdio: 'pipe',
     timeout: 30_000,
     windowsHide: true,
   })
+  if (needBash(t)) return
+  for (const f of [TRACKED_LIB, BUNDLE_LIB, BUNDLE_DEPLOY, BUNDLE_HEALTH]) {
+    execFileSync(BASH, ['-n', join(REPO, f)], {
+      stdio: 'pipe',
+      timeout: 30_000,
+      windowsHide: true,
+    })
+  }
 })
 
 // ── T4 影子副本逐字节对账(§5e:不得只改一边)─────────────────────────────
@@ -123,7 +189,8 @@ test('T4 bundle 副本与入库源逐字节等值,且变异必被发现', () => 
 })
 
 // ── T5 采集库行为:落盘 / 结果 JSON / 退出码不被吞 / 无 key 不炸 ──────────
-test('T5 采集库产三件输入,且不吃掉失败退出码', () => {
+test('T5 采集库产三件输入,且不吃掉失败退出码', (t) => {
+  if (needBash(t)) return
   const dir = mkScratch('lib')
   const script = [
     'set -euo pipefail',
@@ -163,7 +230,8 @@ test('T5 采集库产三件输入,且不吃掉失败退出码', () => {
 })
 
 // ── T6 health-check --json:格式换了,失败判定不能跟着换 ───────────────────
-test('T6 prod-bundle/health-check.sh --json 产合法 JSON 且退出码与 text 模式一致', () => {
+test('T6 prod-bundle/health-check.sh --json 产合法 JSON 且退出码与 text 模式一致', (t) => {
+  if (needBash(t)) return
   const hc = abs(BUNDLE_HEALTH)
   const json = bash(`bash "${hc}" --json`)
   const line = json.stdout.split('\n').find((l) => l.trim().startsWith('{'))
@@ -185,10 +253,12 @@ test('T6 prod-bundle/health-check.sh --json 产合法 JSON 且退出码与 text 
 })
 
 // ── T7 摘线保护:库不见了,部署脚本必须还能跑 ─────────────────────────────
-test('T7 采集库缺失时 bundle deploy.sh 的空函数兜底跑得通', () => {
+test('T7 采集库缺失时 bundle deploy.sh 的空函数兜底跑得通', (t) => {
   const src = read(BUNDLE_DEPLOY)
   if (!src.includes('缺 deploy-diagnose.sh'))
     throw new Error('摘线兜底分支不在 —— 库被摘等于脚本被摘')
+  // 静态判据(读源码)与 bash 无关,先跑完;下面真正要派生 shell 才需要宿主
+  if (needBash(t)) return
   const dir = mkScratch('unwired')
   // 把 bundle deploy.sh 里那段 if/else 兜底原样抽出来执行(SCRIPT_DIR 指向空目录,
   // 于是走 else 分支),再调每个诊断函数:必须是空实现而不是 command not found。

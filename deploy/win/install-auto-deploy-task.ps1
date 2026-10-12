@@ -20,10 +20,23 @@
 #   可执行文件、其余为参数 → exe 路径与脚本路径必须各自带引号。
 # =============================================================================
 $ErrorActionPreference = 'Stop'
+
+# 仓库根不写死盘符(旧版硬编码到生产机盘符):同一份仓在开发机/生产机落在不同路径,
+# 写死后会把错根烤进计划任务的注册数据 —— 改了脚本也不生效,
+# 因为生效的那一份在任务计划程序里,不在仓库里。根一律从本文件位置推导。
+. (Join-Path $PSScriptRoot 'ihui-root-common.ps1')
+$Root = Resolve-IhuiProjectRoot -StartDir $PSScriptRoot
+
 $task = 'IHUI-AutoDeploy'
 $cmd  = "$env:windir\System32\schtasks.exe"
 $pwshPath = 'C:\Program Files\PowerShell\7\pwsh.exe'
-$loopPath = 'D:\IHUI-AI\deploy\win\ihui-deploy-loop.ps1'
+$loopPath = Join-Path $Root 'deploy\win\ihui-deploy-loop.ps1'
+
+# 运行时断言:$loopPath 会被 schtasks 烤进任务注册数据,写错要到下次触发时才暴露,
+# 报错时机离故障时机太远(任务静默不跑) → 宁可在安装时就响。
+if (-not (Test-Path -LiteralPath $loopPath)) {
+    throw "缺失依赖: $loopPath(由仓库根 $Root 派生,ihui-deploy-loop.ps1 不存在)"
+}
 
 # 先删除同名任务(若存在),再创建
 & $cmd /delete /tn $task /f 2>$null | Out-Null

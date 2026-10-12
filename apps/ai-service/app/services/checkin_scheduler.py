@@ -39,7 +39,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from app.core.logging import get_logger
-from app.services import checkin_credits, checkin_qoder, checkin_store
+from app.services import checkin_credits, checkin_qoder, checkin_store, checkin_workbuddy
 from app.services.checkin_engine import checkin_account
 
 logger = get_logger(__name__)
@@ -67,7 +67,9 @@ def partition_platforms(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """按平台拆分账号列表,返回 (非 qoder 走 08:05 主窗口, qoder 走 10:05 窗口)。
 
-    platform 缺失按 'trae' 处理(存量账号语义,与 store 默认列值一致)。纯函数。
+    platform 缺失按 'trae' 处理(存量账号语义,与 store 默认列值一致)。
+    workbuddy 随主窗口跑(2026-10-12:Buddy 加油站每日 00:00(UTC+8)后随时
+    可领,无需独立窗口;引擎分发在 checkin_one 按 platform 进行)。纯函数。
     """
     main_side: list[dict[str, Any]] = []
     qoder_side: list[dict[str, Any]] = []
@@ -274,6 +276,9 @@ class CheckinScheduler:
                         await checkin_store.save_device_map(acc["id"], device_map)
                     except Exception as e:
                         logger.warning("[checkin_scheduler] device_map 写回失败(忽略): %s", e)
+                elif acc.get("platform") == "workbuddy":
+                    wb_dm = dict(acc.get("device_map") or {})
+                    result = await checkin_workbuddy.workbuddy_query_credits(acc["jwt"], wb_dm)
                 else:
                     result = await checkin_credits.query_remaining_credits(acc["jwt"])
                 if result.get("error") is not None or not isinstance(
@@ -311,8 +316,14 @@ class CheckinScheduler:
         """对单个账号执行签到(按 platform 分发引擎),并把引擎可能补齐的
         device_map 写回存储(Qoder 的自刷新新 token 也经此通路落库)。"""
         device_map = dict(account.get("device_map") or {})
-        if account.get("platform") == "qoder":
+        platform = account.get("platform")
+        if platform == "qoder":
             result = await checkin_qoder.qoder_checkin_account(
+                account["name"], account["jwt"], device_map
+            )
+        elif platform == "workbuddy":
+            # WorkBuddy 每日 00:00(UTC+8)后随时可领,随 08:05 主窗口跑
+            result = await checkin_workbuddy.workbuddy_checkin_account(
                 account["name"], account["jwt"], device_map
             )
         else:
