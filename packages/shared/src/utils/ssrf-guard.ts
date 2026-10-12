@@ -14,6 +14,9 @@
  * - 本文件是 IP 分类与 URL 裁决的**唯一**实现。
  * - `apps/api/src/utils/ssrf-guard.ts` 是同型的端内副本(用正则逐段判定),
  *   本票文件清单不含该端,故未在此收编;迁移方式见交付报告的「撞到但没动」。
+ * - 票 G-1105310:IP 字面量归一化同样以本文件为唯一出口 —— `parseIpAddress` 导出给
+ *   `apps/cli/src/tools/fetch-url-egress.ts` 共用,该处原有的第二份 `::ffff:` 折叠 +
+ *   `::` 补零解析副本已删(它只保留自己的公网 allow-list 名单与谓词,解析数学只此一份)。
  *
  * 为什么用 CIDR 表而不是正则表:api 那份把「169.254 走 a===169&&b===254」「组播
  * 走 a>=224&&a<=239」这类逻辑硬编码在函数体里,新增一段保留网段要改判据本体;
@@ -183,10 +186,28 @@ function groupsToBigInt(groups: readonly string[]): bigint {
   return value
 }
 
-type ParsedIp = { family: 4; value: bigint } | { family: 6; value: bigint }
+export type ParsedIpAddress = { family: 4; value: bigint } | { family: 6; value: bigint }
 
-/** 归一化:IPv4-mapped IPv6(`::ffff:a.b.c.d`)折回 IPv4,让 v4 名单对它同样生效。 */
-function parseIp(text: string): ParsedIp | null {
+/**
+ * IP 字面量归一化的唯一出口(票 G-1105310 收敛)。
+ *
+ * 语义:
+ *  - 输入容忍首尾空白、`[...]` 方括号、`%zone` 区域索引;十六进制大小写不敏感。
+ *  - IPv4:严格点分四段(0-255)→ 32 位 bigint。
+ *  - IPv6:`::` 分组补零展开 → 128 位 bigint;尾部点分四段按 RFC 4291 §2.2 形态 3
+ *    折叠(恰好四个十进制八位组)。
+ *  - `::ffff:0:0/96`(IPv4-mapped)折回 family 4,让 v4 名单对它同样生效;
+ *    6to4 / DNS64 的嵌入 v4 **不**在此折 —— 那是判据层语义(SSRF 层走
+ *    `IPV6_EMBEDDED_V4_PREFIXES` 复检,字面出口层自带 64:ff9b::/96 还原),
+ *    解析器只管归一化,不掺名单。
+ *
+ * 两份旧实现差异的裁定(为何取严格档):被删的 fetch-url-egress 副本还认 BSD 缩写
+ * v4(`1.2`/`1.2.3`),但它的唯一入口收的是 WHATWG URL —— http/https 主机在 URL
+ * 解析期已被规范化(缩写 → 四段字面、v6 点分尾 → 十六进制分组),fetch_url 又只在
+ * http/https 上调它,缩写形态到不了解析器。故按更严格的这份为准:缩写一律解析不出,
+ * fail-closed 由各判据层自行执行(SSRF 层判"不安全",字面出口层判"非字面量"归名字域)。
+ */
+export function parseIpAddress(text: string): ParsedIpAddress | null {
   const raw = text.trim().replace(/^\[(.*)\]$/, '$1')
   const v4 = parseIpv4ToNumber(raw)
   if (v4 !== null) return { family: 4, value: BigInt(v4) }
@@ -202,7 +223,7 @@ function parseCidr(cidr: string): { family: 4 | 6; base: bigint; mask: bigint } 
   if (slash < 0) return null
   const host = cidr.slice(0, slash)
   const bits = Number(cidr.slice(slash + 1))
-  const parsed = parseIp(host)
+  const parsed = parseIpAddress(host)
   if (!parsed) return null
   const width = parsed.family === 4 ? 32 : 128
   if (!Number.isInteger(bits) || bits < 0 || bits > width) return null
@@ -252,10 +273,10 @@ const EMBEDDED_V4_RANGES: readonly { entry: Ipv6EmbeddedV4Prefix; range: IpRange
 
 /**
  * 若该地址属于"带嵌入 IPv4"的那一族,返回被嵌进来的那个 32 位值;否则 null。
- * 只在 family 6 上取(family 4 已在原值上判过;而 `::ffff:0:0/96` 由 `parseIp`
+ * 只在 family 6 上取(family 4 已在原值上判过;而 `::ffff:0:0/96` 由 `parseIpAddress`
  * 折回 family 4,结构上不会到这里 —— 那是既有行为,本函数不重复它)。
  */
-function embeddedIpv4Of(parsed: ParsedIp): bigint | null {
+function embeddedIpv4Of(parsed: ParsedIpAddress): bigint | null {
   if (parsed.family !== 6) return null
   for (const { entry, range } of EMBEDDED_V4_RANGES) {
     if (!hitsRange(parsed.value, 6, range)) continue
@@ -267,7 +288,7 @@ function embeddedIpv4Of(parsed: ParsedIp): bigint | null {
 
 /** 与 api 端内副本同名同语义,便于将来该端直接 re-export 本实现。 */
 export function isPrivateOrReservedIp(ip: string): boolean {
-  const parsed = parseIp(ip)
+  const parsed = parseIpAddress(ip)
   if (!parsed) return true // 解析不出来的形态一律按危险处理(fail-closed)
   if (DENIED_RANGES.some(({ range }) => hitsRange(parsed.value, parsed.family, range))) return true
   // 6to4 / 全局 DNS64:按"嵌进来的那个 v4"判,而不是按前缀名整段拒(见 IPV6_EMBEDDED_V4_PREFIXES)
@@ -331,13 +352,13 @@ function isLinkLocalIpv4Value(value: bigint): boolean {
 /**
  * 信任永不放行的网段:链路本地(含 IMDS 169.254.169.254)与 IPv6 链路本地/唯一本地。
  *
- * 取值一律经 `parseIp` 那**一份**解析器(旧写法在此处自己调 `parseIpv4ToNumber` +
+ * 取值一律经 `parseIpAddress` 那**一份**解析器(旧写法在此处自己调 `parseIpv4ToNumber` +
  * `parseIpv6ToBigInt` 两遍,等于同一件事的第二处解析 —— 于是它既看不见 `::ffff:` 折档,
  * 也看不见本票新增的 6to4 / DNS64 嵌入档:`64:ff9b::a9fe:a9fe`(= 经 NAT64 打 IMDS)
  * 会被信任层放行。`fc00::/7` 与 `fe80::/10` 的原有结论逐字保持。)
  */
 function isNeverTrustedAddress(text: string): boolean {
-  const parsed = parseIp(text)
+  const parsed = parseIpAddress(text)
   if (!parsed) return false
   if (parsed.family === 4) return isLinkLocalIpv4Value(parsed.value)
   const top = Number(parsed.value >> 112n)
@@ -421,7 +442,7 @@ export async function assertSafeFetchUrl(
     return decision({ code: 'host-denied', host, deniedTarget: host, reason: '主机名在拒绝名单内' })
   }
 
-  const directIp = parseIp(host)
+  const directIp = parseIpAddress(host)
   if (directIp) {
     if (isPrivateOrReservedIp(host)) {
       if (trustedFor(host, host)) return { safe: true, host, resolvedIps: [host] }

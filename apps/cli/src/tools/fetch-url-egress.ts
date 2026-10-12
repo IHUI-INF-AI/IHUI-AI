@@ -25,8 +25,16 @@
  * Deliberately NOT merged into `@ihui/shared/utils/ssrf-guard`: that module is
  * the deny-list domain (blocks known-bad ranges, does DNS resolution). This
  * module is the allow-list domain (only plain global unicast passes, does no
- * I/O at all). Same parser math, different predicates and different tables.
+ * I/O at all). Different predicates and different tables — but since G-1105310
+ * the IP-literal parser math is shared: the former local copy of the `::ffff:`
+ * fold + `::` group-zero parsing (with BSD-style IPv4 shorthand) is deleted in
+ * favour of `parseIpAddress` from that module. Shorthand never reached this
+ * guard anyway — its only entry takes a WHATWG URL, and http/https hosts are
+ * canonicalized by the URL parser before we see them (G-1105310 adjudication:
+ * the stricter shared parser wins).
  */
+
+import { parseIpAddress } from '@ihui/shared/utils/ssrf-guard';
 
 /** Stable errorType surfaced on ToolResult so callers branch on it, not on prose. */
 export const EGRESS_BLOCKED_ERROR_TYPE = 'egress_blocked';
@@ -75,31 +83,10 @@ function isLocalHostname(hostname: string): boolean {
 }
 
 function isIpLiteral(hostname: string): boolean {
-  return parseIpv4(hostname) !== null || parseIpv6(hostname) !== null;
+  return parseIpAddress(hostname) !== null;
 }
 
 // ───────────────────────────── IPv4 ─────────────────────────────
-
-/**
- * Strict dotted-quad with BSD-style shorthand (1-3 segments, last segment
- * wide). WHATWG URL normalization already canonicalizes IPv4-like hosts before
- * they get here, so shorthand only matters for direct callers.
- */
-function parseIpv4(text: string): bigint | null {
-  const octets = text.split('.');
-  if (octets.length === 0 || octets.length > 4) return null;
-  let value = 0n;
-  const remainingBits = 32 - 8 * (octets.length - 1);
-  for (let i = 0; i < octets.length; i++) {
-    const octet = octets[i]!;
-    if (!/^\d{1,3}$/.test(octet)) return null;
-    const n = Number(octet);
-    const isLast = i === octets.length - 1;
-    if (n > (isLast ? (1 << remainingBits) - 1 : 255)) return null;
-    value = (value << BigInt(isLast ? remainingBits : 8)) | BigInt(n);
-  }
-  return value;
-}
 
 /** IPv4 ranges that are NOT ordinary global unicast (IANA special-purpose). */
 const NON_PUBLIC_IPV4_RANGES: readonly { base: bigint; bits: number }[] = (
@@ -122,7 +109,9 @@ const NON_PUBLIC_IPV4_RANGES: readonly { base: bigint; bits: number }[] = (
   ] as const
 ).map((cidr) => {
   const [base, bits] = cidr.split('/');
-  return { base: parseIpv4(base!)!, bits: Number(bits) };
+  // Bases are strict four-octet literals — the shared parser always resolves
+  // them (same parser math as the addresses being judged, per G-1105310).
+  return { base: parseIpAddress(base!)!.value, bits: Number(bits) };
 });
 
 function isPublicIpv4(value: bigint): boolean {
@@ -133,60 +122,11 @@ function isPublicIpv4(value: bigint): boolean {
 
 // ───────────────────────────── IPv6 ─────────────────────────────
 
-/** IPv6 → 128-bit BigInt; tolerates `::` compression and a trailing dotted quad. */
-function parseIpv6(text: string): bigint | null {
-  let s = text.toLowerCase();
-  if (s.includes('%')) s = s.slice(0, s.indexOf('%'));
-
-  // Trailing dotted quad (::ffff:192.168.0.1) folds into two 16-bit groups first.
-  if (s.includes('.')) {
-    const lastColon = s.lastIndexOf(':');
-    if (lastColon < 0) return null;
-    const v4 = parseIpv4(s.slice(lastColon + 1));
-    if (v4 === null) return null;
-    s = `${s.slice(0, lastColon + 1)}${(v4 >> 16n).toString(16)}:${(v4 & 0xffffn).toString(16)}`;
-  }
-
-  const halves = s.split('::');
-  if (halves.length > 2) return null;
-  const toGroups = (segment: string): string[] | null => {
-    if (segment === '') return [];
-    const raw = segment.split(':');
-    if (raw.some((g) => !/^[0-9a-f]{1,4}$/.test(g))) return null;
-    return raw;
-  };
-
-  const groupsToBigInt = (groups: readonly string[]): bigint => {
-    let value = 0n;
-    for (const g of groups) value = (value << 16n) | BigInt(parseInt(g, 16));
-    return value;
-  };
-
-  if (halves.length === 1) {
-    const groups = toGroups(s);
-    if (!groups || groups.length !== 8) return null;
-    return groupsToBigInt(groups);
-  }
-  const left = toGroups(halves[0] ?? '');
-  const right = toGroups(halves[1] ?? '');
-  if (!left || !right) return null;
-  const fill = 8 - left.length - right.length;
-  if (fill < 0) return null;
-  return groupsToBigInt([...left, ...Array.from({ length: fill }, () => '0'), ...right]);
-}
-
-/** Unwrap carrier forms: return the embedded 32-bit IPv4, or null if not one. */
-function unwrapCarrierIpv6(value: bigint): bigint | null {
-  if (value >> 32n === 0xffffn) return value & 0xffffffffn; // ::ffff:0:0/96 mapped
-  // NAT64/DNS64 well-known prefix (64:ff9b::/96): low 32 bits are the IPv4.
-  if (value >> 96n === 0x64ff9bn) return value & 0xffffffffn;
-  return null;
-}
-
 /**
  * IPv6 ranges that are not ordinary global unicast. Ranges with an embedded
- * IPv4 (mapped / NAT64 well-known) are handled by `unwrapCarrierIpv6` ABOVE
- * and therefore absent here; 64:ff9b:1::/48 (local-use DNS64) has no public
+ * IPv4 are handled by the carrier checks in `isPublicIpAddress` BELOW
+ * (`::ffff:/96` mapped is already folded to family 4 by the shared parser) and
+ * therefore absent here; 64:ff9b:1::/48 (local-use DNS64) has no public
  * purpose at all and is excluded as a whole range.
  */
 const NON_PUBLIC_IPV6_RANGES: readonly { base: bigint; bits: number }[] = (
@@ -206,7 +146,7 @@ const NON_PUBLIC_IPV6_RANGES: readonly { base: bigint; bits: number }[] = (
   ] as const
 ).map((cidr) => {
   const [base, bits] = cidr.split('/');
-  return { base: parseIpv6(base!)!, bits: Number(bits) };
+  return { base: parseIpAddress(base!)!.value, bits: Number(bits) };
 });
 
 function isPublicIpv6(value: bigint): boolean {
@@ -216,13 +156,13 @@ function isPublicIpv6(value: bigint): boolean {
 }
 
 function isPublicIpAddress(address: string): boolean {
-  const v4 = parseIpv4(address);
-  if (v4 !== null) return isPublicIpv4(v4);
-  const v6 = parseIpv6(address);
-  if (v6 === null) return false; // unparseable literal ⇒ fail closed
-  const embedded = unwrapCarrierIpv6(v6);
-  if (embedded !== null) return isPublicIpv4(embedded);
-  return isPublicIpv6(v6);
+  const parsed = parseIpAddress(address);
+  if (parsed === null) return false; // unparseable literal ⇒ fail closed
+  if (parsed.family === 4) return isPublicIpv4(parsed.value); // includes ::ffff:/96, folded by the shared parser
+  // NAT64/DNS64 well-known prefix (64:ff9b::/96): judge by the embedded IPv4
+  // under the same IPv4 policy. (::ffff:-mapped never reaches here.)
+  if (parsed.value >> 96n === 0x64ff9bn) return isPublicIpv4(parsed.value & 0xffffffffn);
+  return isPublicIpv6(parsed.value);
 }
 
 // ─────────────────── egress-proxy allowlist + message hygiene ───────────────────

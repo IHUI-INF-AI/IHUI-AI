@@ -2,6 +2,10 @@
   "$schemaNote": "本清单是守门 99(check-staged-deletions)的显式豁免面。每条必须写 reason —— 没有理由的条目等于把'删除'伪装成'已核实'。",
   "paths": [
     {
+      "path": "apps/ai-service/app/services/sandbox/models.py",
+      "reason": "G-1111920(2026-10-12)有意删除:该文件是 PEP 420 命名空间死载体 —— sandbox/ 目录无 __init__.py,CPython FileFinder 同路径条目先认文件模块,app.services.sandbox 恒解析到 sandbox.py,app.services.sandbox.models 结构上永不可达;HEAD 面零消费者(唯一 import 方在未合入的 WIP 27a102cdd7),已随整目录删除。引用方 scripts/tests/check-mypy-coverage-diff.test.mjs:268 的 REAL_SANDBOX_MODELS 常量不是在役依赖,而是 T8 重钉后的『面自洽锁』:镜像测试断言 pkg-dir 遮蔽记录与该死载体在 mypy 覆盖面里必须同进同退(faceHasModels ⇔ pkgEntry 在场),删除入库前走 pkgEntry 分支、入库后两者皆消失断言仍绿 —— 常量保留正是为了锁住『同名包目录遮蔽』这一型在门 35 覆盖面自证里的可判性,防止回滚删除或将来同型复发时静默失明。问责复跑:node scripts/check-staged-deletions.mjs --staged 与 pnpm 侧 node --test scripts/tests/check-mypy-coverage-diff.test.mjs(10/10)。"
+    },
+    {
       "path": "apps/miniapp-taro/src/components/PageLoading.tsx",
       "reason": "唯一引用方 apps/miniapp-taro/scripts/i18n-migration/codemod-i18n-10.py:23 是一条**已完成使命的一次性 codemod 的规则表项**,不构成在役依赖:该脚本 SRC 指向 `G:/IHUI-AI/apps/miniapp-taro/src`,此路径本机不存在(实测 fs.existsSync=false)⇒ 脚本根本不可执行;同目录 18 个迁移脚本对 `git grep -l i18n-migration`(排除自身目录)零命中 ⇒ 无任何在役调用方;其 RULES 里多个目标文件早于本枚就不存在。被删件自身的存续性已由守门 99 另一条证据排除:全仓 6642 个非测试文件按 import/barrel/JSX 三形态解析后消费者为 0(阳性对照 BackChevron=5、CategoryBar=8、NavBar=5 均 >0,证明尺子有效)。该件的语言包键 tail.8 与其同批删除。⇒ 该 codemod 的归档清理另计,不以本条豁免为终点。"
     },
