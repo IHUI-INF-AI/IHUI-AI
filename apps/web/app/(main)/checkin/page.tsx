@@ -81,6 +81,8 @@ import {
   checkinCaptureJwts,
   checkinCaptureQoder,
   checkinCaptureWorkbuddy,
+  checkinWorkbuddyWebLoginOpen,
+  checkinWorkbuddyWebLoginProbe,
   checkinDetectTraeDir,
   checkinGetPublicIp,
   checkinOneClickReset,
@@ -194,6 +196,24 @@ export default function CheckinPage() {
   const [wbCaptured, setWbCaptured] = React.useState<CapturedWorkbuddySession[]>([])
   const [wbCapturedSelected, setWbCapturedSelected] = React.useState<Set<string>>(new Set())
   const [wbTokenDrafts, setWbTokenDrafts] = React.useState<Record<string, string>>({})
+
+  // WorkBuddy 网页登录(2026-10-12「网页登录自动添加」,普通用户零 token):
+  // 打开内嵌 WebView 登录窗口 → 轮询探测(ok=已登录,cookie+账号由 Rust 读 jar 验证)
+  // → 自动入库(device_map.login_type='web',jwt 字段=Cookie 串加密落库)。
+  const wbWebLoginTimer = React.useRef<ReturnType<typeof setInterval> | null>(null)
+  const [wbWebLoginState, setWbWebLoginState] = React.useState<
+    'idle' | 'waiting' | 'importing' | 'done' | 'closed'
+  >('idle')
+  const [wbWebLoginMsg, setWbWebLoginMsg] = React.useState('')
+
+  const stopWbWebLoginPoll = React.useCallback(() => {
+    if (wbWebLoginTimer.current !== null) {
+      clearInterval(wbWebLoginTimer.current)
+      wbWebLoginTimer.current = null
+    }
+  }, [])
+
+  React.useEffect(() => stopWbWebLoginPoll, [stopWbWebLoginPoll])
 
   // 本机 TRAE 维护(设备重置 + 快照管理,桌面端专属)
   const [maintOpen, setMaintOpen] = React.useState(false)
@@ -469,6 +489,8 @@ export default function CheckinPage() {
     setWbCaptured([])
     setWbCapturedSelected(new Set())
     setWbTokenDrafts({})
+    setWbWebLoginState('idle')
+    setWbWebLoginMsg('')
   }
 
   const runWbCapture = async () => {
@@ -527,6 +549,78 @@ export default function CheckinPage() {
       setBatchNotice(t('captureImported', { count: okCount }))
       await loadAll()
     }
+  }
+
+  // WorkBuddy 网页登录自动导入(2026-10-12):ok 后逐账号入库,普通用户全程零 token。
+  // 先立即探测一轮(窗口已存在且已登录时秒导入),未登录再进 2.5s 轮询。
+  const startWbWebLogin = async () => {
+    setCaptureError(null)
+    setWbWebLoginState('waiting')
+    setWbWebLoginMsg(t('captureWbWebWaiting'))
+    try {
+      await checkinWorkbuddyWebLoginOpen()
+    } catch (e) {
+      setWbWebLoginState('closed')
+      setWbWebLoginMsg((e as Error).message)
+      return
+    }
+    stopWbWebLoginPoll()
+    const tick = async (): Promise<boolean> => {
+      let probe: Awaited<ReturnType<typeof checkinWorkbuddyWebLoginProbe>>
+      try {
+        probe = await checkinWorkbuddyWebLoginProbe()
+      } catch {
+        return false // IPC 瞬时异常:继续等下一轮
+      }
+      if (probe.status === 'no_cookie' || probe.status === 'not_logged_in') {
+        return false // 未登录:等用户在窗口里完成登录
+      }
+      if (probe.status === 'error') {
+        setWbWebLoginMsg(probe.message) // 暂态网络错误:展示但继续轮询
+        return false
+      }
+      stopWbWebLoginPoll()
+      if (probe.status === 'no_window') {
+        // 用户关掉了登录窗口(或窗口创建失败)
+        setWbWebLoginState('closed')
+        setWbWebLoginMsg(t('captureWbWebWindowClosed'))
+        return true
+      }
+      // ok:自动逐账号入库
+      setWbWebLoginState('importing')
+      setWbWebLoginMsg(t('captureWbWebImporting'))
+      const failures: string[] = []
+      let okCount = 0
+      for (const acc of probe.accounts) {
+        try {
+          await createCheckinAccount({
+            name: `WorkBuddy-${acc.nickname || acc.uid.slice(0, 8)}`,
+            jwt: probe.cookie,
+            device_map: { login_type: 'web', uid: acc.uid, nickname: acc.nickname },
+            group: groupFilter !== 'all' ? groupFilter : '',
+            platform: 'workbuddy',
+          })
+          okCount += 1
+        } catch (e) {
+          failures.push(`${acc.nickname || acc.uid}: ${(e as Error).message}`)
+        }
+      }
+      if (failures.length > 0) {
+        setWbWebLoginState('closed')
+        setWbWebLoginMsg(failures.join('；'))
+        return true
+      }
+      setWbWebLoginState('done')
+      setWbWebLoginMsg('')
+      setWbCaptureOpen(false)
+      setBatchNotice(t('captureWbWebDone', { count: okCount }))
+      await loadAll()
+      return true
+    }
+    if (await tick()) return
+    wbWebLoginTimer.current = setInterval(() => {
+      void tick()
+    }, 2500)
   }
 
   // ================== 本机 TRAE 维护(桌面端专属,WP-C) ==================
@@ -2093,6 +2187,42 @@ export default function CheckinPage() {
                 {captureError}
               </p>
             )}
+            {/* 网页登录(推荐·零 token,2026-10-12):内嵌 WebView 登录 → 自动导入 */}
+            <div className="space-y-2 rounded-sm border bg-muted/40 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{t('captureWbWebTitle')}</p>
+                  <p className="text-xs text-muted-foreground">{t('captureWbWebDescription')}</p>
+                </div>
+                <Button
+                  size="sm"
+                  disabled={
+                    wbWebLoginState === 'waiting' || wbWebLoginState === 'importing'
+                  }
+                  onClick={() => void startWbWebLogin()}
+                >
+                  {(wbWebLoginState === 'waiting' || wbWebLoginState === 'importing') && (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  )}
+                  {t('captureWbWebOpen')}
+                </Button>
+              </div>
+              {wbWebLoginMsg && (
+                <p
+                  data-testid="wb-web-login-msg"
+                  className={`text-xs ${
+                    wbWebLoginState === 'done' ? 'text-emerald-600' : 'text-amber-600'
+                  }`}
+                >
+                  {wbWebLoginMsg}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
+              <span>{t('captureWbManualDivider')}</span>
+              <span className="h-px flex-1 bg-border" />
+            </div>
             {wbCaptured.length > 0 && (
               <div className="max-h-72 space-y-2 overflow-y-auto">
                 {wbCaptured.map((item) => {
