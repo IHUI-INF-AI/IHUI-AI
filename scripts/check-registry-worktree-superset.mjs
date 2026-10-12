@@ -31,6 +31,9 @@
  *   **P2 改写**:候选面把那一行改成了另一种写法 ⇒ 判据是**逐行等值**(条目行数组逐元素比);
  *     刻意不用"行数相等"糊过去 —— 行数等而正文漂开正是这一型最常见的形状(自检 S15 钉住:
  *     把这条判据换成行数比较,S15 必须变红)。
+ *     而"正当编辑"(改门禁提示文案 / 挪 args)与"滞后副本写回"在逐行比较下**同形**,所以 P2 与
+ *     P1 共用**同一份**台账出口(S25 与 S25b 成对钉住:登记 ⇒ 只豁免并点名;没登记 ⇒ 同一改写
+ *     照旧判红)。缺这一格时,本门会把每一次合法注册表编辑逼成 `--no-verify`(§12f)。
  *   **未判定**:逐行不等**但语义等值**(JSON 键序变化、prettier 缩进/引号重排)⇒ 落"未判定"
  *     并逐条点名,**既不算 P2 也不算通过**。出路是语义等值比较器(本门的 JSON 值比较 /
  *     runner 字段归一化比较),而不是放松判据。
@@ -69,7 +72,7 @@
  *     写进 `.ihui-agent/` 的引用不叫证据,叫机器-local 巧合。搬进 `scripts/data/` 之后补五型:
  *       ① 条目缺 path/entry/reason/reviewBy 任一 ⇒ **红**(不得当空表用,该条同时不生效);
  *       ② `reviewBy` 过期 ⇒ **红**且豁免即时失效(出路只有"补证据续期"或"删条目并修好实现");
- *       ③ 登记了、而被审面上并没有"HEAD 有、候选面无"的这一条 ⇒ **红(清单腐烂)**:台账是债清单
+ *       ③ 登记了、而被审面上并没有"HEAD 有、候选面不同(整条不见或被改写)"的这一条 ⇒ **红(清单腐烂)**:台账是债清单
  *          不是豁免清单,债已清仍挂账就是腐烂;该路径本轮根本没被审到 ⇒ 落**未判定**,不判腐烂
  *          (把"没看"写成"看了没命中"是本仓最高频的失效型);
  *       ④ 候选面取不到整份台账 ⇒ **红**并点名"出口不在被审面",绝不折成"零豁免"记绿 —— 这一型
@@ -144,7 +147,8 @@ export function extractPkgEntries(text) {
     parseError = `JSON 解析失败:${String(e.message).split(/\r?\n/)[0].slice(0, 90)}`
   }
   // 解析不了就是"读不出",不许退化成"没有条目"(那会把坏文件判成整表 P1 或整表通过)
-  if (parseError) return { ok: false, entries: new Map(), order: [], hasScripts: false, error: parseError }
+  if (parseError)
+    return { ok: false, entries: new Map(), order: [], hasScripts: false, error: parseError }
   let head = null
   for (let i = 0; i < lines.length; i++) {
     const m = /^(\s*)"scripts"\s*:\s*\{/.exec(lines[i])
@@ -158,23 +162,30 @@ export function extractPkgEntries(text) {
       break
     }
   }
-  if (end < 0) return { ok: false, entries: new Map(), order: [], hasScripts: true, error: 'scripts 块右边界未定位' }
-  const keyRe = new RegExp(
-    `^\\s{${head.indent.length + 2},}"((?:[^"\\\\]|\\\\.)*)"\\s*:`,
-  )
+  if (end < 0)
+    return {
+      ok: false,
+      entries: new Map(),
+      order: [],
+      hasScripts: true,
+      error: 'scripts 块右边界未定位',
+    }
+  const keyRe = new RegExp(`^\\s{${head.indent.length + 2},}"((?:[^"\\\\]|\\\\.)*)"\\s*:`)
   const marks = []
   for (let j = head.i + 1; j < end; j++) {
     const m = keyRe.exec(lines[j])
     if (m) marks.push({ j, key: JSON.parse(`"${m[1]}"`) })
   }
-  const scripts = parsed && parsed.scripts && typeof parsed.scripts === 'object' ? parsed.scripts : null
+  const scripts =
+    parsed && parsed.scripts && typeof parsed.scripts === 'object' ? parsed.scripts : null
   const entries = new Map()
   const order = []
   marks.forEach((mk, idx) => {
     const stop = idx + 1 < marks.length ? marks[idx + 1].j : end
     entries.set(mk.key, {
       lines: lines.slice(mk.j, stop),
-      value: scripts && Object.prototype.hasOwnProperty.call(scripts, mk.key) ? scripts[mk.key] : null,
+      value:
+        scripts && Object.prototype.hasOwnProperty.call(scripts, mk.key) ? scripts[mk.key] : null,
     })
     order.push(mk.key)
   })
@@ -286,7 +297,8 @@ export function extract(path, text) {
  * 照样生效 —— 那正是"没人发现自己台账已经烂了一半"的形状;JSON 坏了整份读不出,只能报"无法判定"。
  */
 export function parseLedger(text) {
-  if (text === null || text === undefined) return { ok: new Map(), bad: [], present: false, broken: null }
+  if (text === null || text === undefined)
+    return { ok: new Map(), bad: [], present: false, broken: null }
   let parsed = null
   try {
     parsed = JSON.parse(text)
@@ -298,12 +310,18 @@ export function parseLedger(text) {
       broken: `台账 JSON 解析失败:${String(e.message).split(/\r?\n/)[0].slice(0, 90)}`,
     }
   }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !Array.isArray(parsed.entries)) {
+  if (
+    !parsed ||
+    typeof parsed !== 'object' ||
+    Array.isArray(parsed) ||
+    !Array.isArray(parsed.entries)
+  ) {
     return {
       ok: new Map(),
       bad: [],
       present: true,
-      broken: '台账形状不对:顶层必须是对象且 `entries` 必须是数组 ⇒ 无法判定(坏 JSON 不得当空台账用)',
+      broken:
+        '台账形状不对:顶层必须是对象且 `entries` 必须是数组 ⇒ 无法判定(坏 JSON 不得当空台账用)',
     }
   }
   const ok = new Map()
@@ -320,7 +338,11 @@ export function parseLedger(text) {
     if (!reviewBy) miss.push('reviewBy')
     const key = `${p}#${entry}`
     if (miss.length) {
-      bad.push({ key, path: p, why: `条目字段不齐:缺 ${miss.join('/')}(四字段都必填,裸标记不生效)` })
+      bad.push({
+        key,
+        path: p,
+        why: `条目字段不齐:缺 ${miss.join('/')}(四字段都必填,裸标记不生效)`,
+      })
       continue
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(reviewBy)) {
@@ -343,7 +365,7 @@ export function entryLive(rec, today) {
 
 /**
  * 台账判据核心(判据①②③④,纯函数 ⇒ 全部可构造,不靠真仓状态)。
- * `p1Keys` = 被审面上**真的**"HEAD 有、候选面无"的那些 key(含已被豁免的)⇒ 腐烂只对没站上车的
+ * `p1Keys` = 被审面上**真的**"HEAD 有、候选面不同(整条不见或被改写)"的那些 key(含已被豁免的)⇒ 腐烂只对没站上车的
  * 条目判;`scopePaths` = 本轮真被审到的文件 ⇒ 路径没进射程时判不出腐烂,落未判定(不把"没看"写成
  * "看了没命中")。返回 { defects(红), unjudged(未判定), broken(无法判定), absent }。
  */
@@ -374,13 +396,17 @@ export function judgeLedger({ ledger, p1Keys, scopePaths, today, presentOnBase }
     if (!entryLive(rec, today)) continue // 过期另有判据②,不在同一行上叠第二层红
     if (p1Keys.has(key)) continue
     if (!scopePaths.has(rec.path)) {
-      unjudged.push({ key, path: rec.path, why: '该路径本轮不在射程内(没被审到)⇒ 判不出腐烂,落未判定' })
+      unjudged.push({
+        key,
+        path: rec.path,
+        why: '该路径本轮不在射程内(没被审到)⇒ 判不出腐烂,落未判定',
+      })
       continue
     }
     defects.push({
       key,
       path: rec.path,
-      why: '清单腐烂:登记了豁免,而被审面上并没有"HEAD 有、候选面无"的这一条 ⇒ 台账是债清单不是豁免清单,债已清仍挂账',
+      why: '清单腐烂:登记了豁免,而被审面上并没有"HEAD 有、候选面不同(整条不见或被改写)"的这一条 ⇒ 台账是债清单不是豁免清单,债已清仍挂账',
     })
   }
   return { defects, unjudged, broken: null, absent: false }
@@ -415,10 +441,14 @@ export function judgeFile({ path, headText, candText, candAbsent, ledger }) {
   r.candEntries = C.entries.size
   // 抽取器自己"看不见"的条目不许蒸发:定位失败/重号一律点名成未判定。
   if (H.failed && H.failed.length) {
-    r.und.push({ entry: '(HEAD 侧)', why: `${H.failed.length} 个注册块定位失败:${H.failed.slice(0, 5).join(',')}` })
+    r.und.push({
+      entry: '(HEAD 侧)',
+      why: `${H.failed.length} 个注册块定位失败:${H.failed.slice(0, 5).join(',')}`,
+    })
   }
   for (const f of C.failed || []) {
-    if (H.entries.has(f)) r.und.push({ entry: f, why: '候选面该注册块定位失败 ⇒ 无法判定(不得当成通过)' })
+    if (H.entries.has(f))
+      r.und.push({ entry: f, why: '候选面该注册块定位失败 ⇒ 无法判定(不得当成通过)' })
   }
   for (const d of [...new Set([...(C.dup || []), ...(H.dup || [])])]) {
     r.und.push({ entry: d, why: '同一 id 出现多块 ⇒ 键轴不唯一,交人工(不判绿)' })
@@ -459,7 +489,26 @@ export function judgeFile({ path, headText, candText, candAbsent, ledger }) {
     for (let i = 0; i < max; i++) {
       const a = h.lines[i] ?? '(无)'
       const b = c.lines[i] ?? '(无)'
-      if (a !== b) diff.push(`L${i + 1} HEAD「${String(a).trim().slice(0, 70)}」↔ 候选「${String(b).trim().slice(0, 70)}」`)
+      if (a !== b)
+        diff.push(
+          `L${i + 1} HEAD「${String(a).trim().slice(0, 70)}」↔ 候选「${String(b).trim().slice(0, 70)}」`,
+        )
+    }
+    /**
+     * P2 的正当出口(2026-10-12 补,由本门自己把一次合法编辑逼到跳门才暴露):
+     * 注册条目被**有意改写**(改门禁提示文案、换 onFailHint、挪 args)与"别人那份滞后副本
+     * 把条目写回旧态"在逐行比较下同形 —— 缺出口时唯一剩下的路是 `--no-verify`,而那等于
+     * 该枚提交上全部守门作废(§12e/§12f;本仓另有一条"blocking 门必须自带修复出口")。
+     * 出口与 P1 共用**同一份台账、同四字段、同过期规则**(不另立第二张表);豁免后仍逐条点名,
+     * 且登记了却没用上照旧按"清单腐烂"红 —— 因为 `judgeLedger` 的 p1Keys 已含 exempted。
+     */
+    const recP2 = ledger && ledger.ok ? ledger.ok.get(`${path}#${key}`) : null
+    if (recP2 && String(recP2.reason || '').trim()) {
+      r.exempted.push({
+        entry: key,
+        why: `P2 改写(有意编辑,非滞后写回):逐行 ${h.lines.length}↔${c.lines.length};豁免理由:${recP2.reason}(复核至 ${recP2.reviewBy})`,
+      })
+      continue
     }
     r.p2.push({
       entry: key,
@@ -469,7 +518,10 @@ export function judgeFile({ path, headText, candText, candAbsent, ledger }) {
   const headOrderKey = H.order.join('\u0000')
   const candOrderKey = C.order.filter((k) => H.entries.has(k)).join('\u0000')
   if (headOrderKey !== candOrderKey && r.p1.length === 0) {
-    r.und.push({ entry: '(条目顺序)', why: 'HEAD 与候选面的条目排列不同 ⇒ 未判定(逐行集合等值不解释顺序漂开)' })
+    r.und.push({
+      entry: '(条目顺序)',
+      why: 'HEAD 与候选面的条目排列不同 ⇒ 未判定(逐行集合等值不解释顺序漂开)',
+    })
   }
   // 台账里指向**本文件**的畸形条目就地点名(不再按注册表份数把同一句刷 N 遍;
   // 台账整体判据①②③④住在 judgeLedger,由 run() 汇总 ⇒ 镜像测的 und 计数不双记)。
@@ -511,7 +563,7 @@ export function collect({ root, face }) {
     if (headText === undefined || headText === null) {
       return { path: p, headText: null, candText: null, headAbsent: true }
     }
-    if (face === 'staged') candText = present.includes(p) ? candIndex.get(`:${p}`) ?? null : null
+    if (face === 'staged') candText = present.includes(p) ? (candIndex.get(`:${p}`) ?? null) : null
     else candText = readWorktreeFile(root, p)
     return { path: p, headText, candText, headAbsent: false }
   })
@@ -558,7 +610,8 @@ export function run({ root = REPO_ROOT, face = 'worktree', strict = false, today
   try {
     got = collect({ root, face })
   } catch (e) {
-    res.error = e instanceof Undetermined ? e.message : `取材异常:${String(e && e.message).slice(0, 120)}`
+    res.error =
+      e instanceof Undetermined ? e.message : `取材异常:${String(e && e.message).slice(0, 120)}`
     return res
   }
   if (got.error) {
@@ -594,7 +647,7 @@ export function run({ root = REPO_ROOT, face = 'worktree', strict = false, today
       }),
     )
   }
-  // 台账判据①②③④:p1Keys = 被审面上真的"HEAD 有、候选面无"(含被豁免的);scopePaths = 本轮真审到的路径
+  // 台账判据①②③④:p1Keys = 被审面上真的"HEAD 有、候选面不同(整条不见或被改写)"(含被豁免的);scopePaths = 本轮真审到的路径
   const p1Keys = new Set()
   const scopePaths = new Set()
   for (const d of res.docs) {
@@ -678,7 +731,9 @@ export function report(res, { json = false } = {}) {
     console.log(
       'ℹ️ 缺省档只报数:工作树副本此刻属于别的会话,当场判红 = 把别人的在飞状态算成本提交人的账 ⇒',
     )
-    console.log('   唯一结局是每个会话 --no-verify(§12e,连带约 190 道门作废)。要问责请用 --strict。')
+    console.log(
+      '   唯一结局是每个会话 --no-verify(§12e,连带约 190 道门作废)。要问责请用 --strict。',
+    )
     console.log(
       `   确属有意删除:在候选面落 ${EXEMPT_LEDGER} 的一条 {path,entry,reason,reviewBy}` +
         '(四字段必填,不带原因/复核日不生效;过期即失效;登记了却没用上=清单腐烂)。',
@@ -739,9 +794,14 @@ const RUNNER_A = [
 
 const led = (recs) => parseLedger(JSON.stringify({ entries: recs }))
 /** 台账判据的构造入口(判据住在 judgeLedger,自检只喂面、不抄判据)。 */
-const ledJudge = (recs, { p1Keys = [], scope = ['package.json'], today = '2026-10-06', presentOnBase = true } = {}) =>
+const ledJudge = (
+  recs,
+  { p1Keys = [], scope = ['package.json'], today = '2026-10-06', presentOnBase = true } = {},
+) =>
   judgeLedger({
-    ledger: parseLedger(recs === null ? null : typeof recs === 'string' ? recs : JSON.stringify({ entries: recs })),
+    ledger: parseLedger(
+      recs === null ? null : typeof recs === 'string' ? recs : JSON.stringify({ entries: recs }),
+    ),
     p1Keys: new Set(p1Keys),
     scopePaths: new Set(scope),
     today,
@@ -757,14 +817,28 @@ export function selfTest() {
 
   // S1 干净面:候选==HEAD ⇒ 四维全 0,pass==HEAD 条目数
   const s1 = j('package.json', PKG_A, PKG_A)
-  ok('S1 候选==HEAD ⇒ P1/P2/未判定全 0', s1.p1.length === 0 && s1.p2.length === 0 && s1.und.length === 0 && s1.pass === 5, JSON.stringify(s1))
+  ok(
+    'S1 候选==HEAD ⇒ P1/P2/未判定全 0',
+    s1.p1.length === 0 && s1.p2.length === 0 && s1.und.length === 0 && s1.pass === 5,
+    JSON.stringify(s1),
+  )
   // S2 与 S1 成对:整条键被抹掉 ⇒ 必须点名该键
   const s2 = j('package.json', PKG_A, PKG_DROP_B)
-  ok('S2 少一行 ⇒ P1 恰好点名 check:b', s2.p1.length === 1 && s2.p1[0].entry === 'check:b' && s2.p2.length === 0)
+  ok(
+    'S2 少一行 ⇒ P1 恰好点名 check:b',
+    s2.p1.length === 1 && s2.p1[0].entry === 'check:b' && s2.p2.length === 0,
+  )
   // S3 与 S2 成对:仅仅换序 ⇒ 不得算 P1
   const s3 = j('package.json', PKG_A, PKG_REORDER)
-  ok('S3 纯换序(行内容一致)⇒ 不算 P1 也不算 P2', s3.p1.length === 0 && s3.p2.length === 0 && s3.pass === 5, JSON.stringify(s3.p1.concat(s3.p2).map((x) => x.entry)))
-  ok('S3b 与 S3 成对:换序必须落"未判定"并点名,不许静默', s3.und.length === 1 && s3.und[0].entry === '(条目顺序)')
+  ok(
+    'S3 纯换序(行内容一致)⇒ 不算 P1 也不算 P2',
+    s3.p1.length === 0 && s3.p2.length === 0 && s3.pass === 5,
+    JSON.stringify(s3.p1.concat(s3.p2).map((x) => x.entry)),
+  )
+  ok(
+    'S3b 与 S3 成对:换序必须落"未判定"并点名,不许静默',
+    s3.und.length === 1 && s3.und[0].entry === '(条目顺序)',
+  )
   // S4 未被跟踪的文件不参与:枚举只住在 HEAD 面,候选面多出的注册表进不了射程
   const s4 = filterRegistry([
     'package.json',
@@ -773,8 +847,16 @@ export function selfTest() {
     RUNNER_PATH,
     'src/a.ts',
   ])
-  ok('S4 射程枚举只收 package.json 与 runner(排除 node_modules)', s4.length === 3 && !s4.includes('node_modules/left-pad/package.json') && !s4.includes('src/a.ts'), s4.join(','))
-  const ownSrc = String(readWorktreeFile(REPO_ROOT, 'scripts/check-registry-worktree-superset.mjs') ?? '')
+  ok(
+    'S4 射程枚举只收 package.json 与 runner(排除 node_modules)',
+    s4.length === 3 &&
+      !s4.includes('node_modules/left-pad/package.json') &&
+      !s4.includes('src/a.ts'),
+    s4.join(','),
+  )
+  const ownSrc = String(
+    readWorktreeFile(REPO_ROOT, 'scripts/check-registry-worktree-superset.mjs') ?? '',
+  )
   // 自指导出的字面量:把要禁的东西拆开写,否则这条锁会被自己的源码点亮(2026-10-06 实测踩过)。
   const fsImport = ['from ', "'node:", "fs'"].join('')
   ok(
@@ -783,39 +865,161 @@ export function selfTest() {
   )
   // S5 语义等值而逐行不等 ⇒ 落未判定,并点名,绝不并到 P2 里
   const s5 = j('package.json', PKG_A, PKG_REFLOW)
-  ok('S5 prettier 重排 ⇒ 未判定(不是 P2)', s5.p2.length === 0 && s5.und.length >= 1 && s5.und[0].entry === 'check:b', JSON.stringify(s5))
+  ok(
+    'S5 prettier 重排 ⇒ 未判定(不是 P2)',
+    s5.p2.length === 0 && s5.und.length >= 1 && s5.und[0].entry === 'check:b',
+    JSON.stringify(s5),
+  )
   // S6 与 S5 成对:命令真改了 ⇒ P2,带行级差异
   const s6 = j('package.json', PKG_A, PKG_A.replace('"check:b": "node 2"', '"check:b": "node 9"'))
   ok('S6 值改写 ⇒ P2 点名 check:b', s6.p2.length === 1 && s6.p2[0].entry === 'check:b')
   // S7 runner:整块被抹 ⇒ P1 点名 id
-  const s7 = j(RUNNER_PATH, RUNNER_A, RUNNER_A.replace(/ {2}\{\n {4}id: '11',[\s\S]*?\n {2}\},\n/, ''))
-  ok('S7 runner 少一块 ⇒ P1 点名 id 11', s7.p1.length === 1 && s7.p1[0].entry === '11', JSON.stringify(s7.p1))
+  const s7 = j(
+    RUNNER_PATH,
+    RUNNER_A,
+    RUNNER_A.replace(/ {2}\{\n {4}id: '11',[\s\S]*?\n {2}\},\n/, ''),
+  )
+  ok(
+    'S7 runner 少一块 ⇒ P1 点名 id 11',
+    s7.p1.length === 1 && s7.p1[0].entry === '11',
+    JSON.stringify(s7.p1),
+  )
   // S8 与 S7 成对:字段值漂开 ⇒ P2
-  const s8 = j(RUNNER_PATH, RUNNER_A, RUNNER_A.replace("mode: 'blocking',\n    args: []", "mode: 'advisory',\n    args: []"))
+  const s8 = j(
+    RUNNER_PATH,
+    RUNNER_A,
+    RUNNER_A.replace("mode: 'blocking',\n    args: []", "mode: 'advisory',\n    args: []"),
+  )
   ok('S8 runner 改 mode ⇒ P2 点名 id 10', s8.p2.length === 1 && s8.p2[0].entry === '10')
   // S9 与 S8 成对:引号/缩进写法换了、字段值没换 ⇒ 未判定
-  const s9 = j(RUNNER_PATH, RUNNER_A, RUNNER_A.replace("    id: '10',", "    id: \"10\","))
-  ok('S9 引号换形而语义等值 ⇒ 未判定,不得算 P2', s9.p2.length === 0 && s9.und.length >= 1, JSON.stringify(s9.und))
+  const s9 = j(RUNNER_PATH, RUNNER_A, RUNNER_A.replace("    id: '10',", '    id: "10",'))
+  ok(
+    'S9 引号换形而语义等值 ⇒ 未判定,不得算 P2',
+    s9.p2.length === 0 && s9.und.length >= 1,
+    JSON.stringify(s9.und),
+  )
   // S10 P2 判据是**逐行等值**而不是行数等值:行数同、内容漂 ⇒ 必须 P2
-  const s10 = j(RUNNER_PATH, RUNNER_A, RUNNER_A.replace("    script: 'a.mjs',", "    script: 'z.mjs',"))
-  ok('S10 行数相等而正文漂开 ⇒ P2(换成行数比较就看不见)', s10.p2.length === 1 && s10.p2[0].entry === '10')
+  const s10 = j(
+    RUNNER_PATH,
+    RUNNER_A,
+    RUNNER_A.replace("    script: 'a.mjs',", "    script: 'z.mjs',"),
+  )
+  ok(
+    'S10 行数相等而正文漂开 ⇒ P2(换成行数比较就看不见)',
+    s10.p2.length === 1 && s10.p2[0].entry === '10',
+  )
+  // S25 与 S25b 成对:P2 的正当出口 = 同一份台账(S25 登记 ⇒ 只豁免并点名;S25b 不登记 ⇒ 照旧判红)。
+  // 缺这一格时,任何一次合法的注册表编辑(改门禁文案 / 挪 args)唯一的出路就是 --no-verify(§12f)。
+  const p2Cand = RUNNER_A.replace("    script: 'a.mjs',", "    script: 'z.mjs',")
+  const s25 = j(
+    RUNNER_PATH,
+    RUNNER_A,
+    p2Cand,
+    led([
+      {
+        path: RUNNER_PATH,
+        entry: '10',
+        reason: '有意换 10 号门的 script(票 G-1113921)',
+        reviewBy: '2099-01-01',
+      },
+    ]),
+  )
+  ok(
+    'S25 P2 有台账豁免 ⇒ 进 exempted 且逐条点名,不判红',
+    s25.p2.length === 0 && s25.exempted.length === 1 && s25.exempted[0].entry === '10',
+    JSON.stringify({ p2: s25.p2, ex: s25.exempted }),
+  )
+  const s25b = j(RUNNER_PATH, RUNNER_A, p2Cand, led([]))
+  ok(
+    'S25b 同一改写而无台账 ⇒ P2 照判红(出口不得变成永久放行)',
+    s25b.p2.length === 1 && s25b.p2[0].entry === '10' && s25b.exempted.length === 0,
+  )
+  // S25c 过期那条:P2 与 P1 必须**同形** —— 过期不改变"这一条由台账记账"的事实,失效由台账
+  // 自己那一笔记红承担(两处各判一次 = 同一笔债两本账互相顶掉)。整体仍 blocked。
+  // 这条断言钉的是"新出口不得比旧出口严,也不得比它松"。
+  const s25c = j(
+    RUNNER_PATH,
+    RUNNER_A,
+    p2Cand,
+    led([{ path: RUNNER_PATH, entry: '10', reason: '复核日已过', reviewBy: '2020-01-01' }]),
+  )
+  const s25cP1 = j(
+    RUNNER_PATH,
+    RUNNER_A,
+    RUNNER_A.replace(/ {2}\{\n {4}id: '11',[\s\S]*?\n {2}\},\n/, ''),
+    led([{ path: RUNNER_PATH, entry: '11', reason: '复核日已过', reviewBy: '2020-01-01' }]),
+  )
+  const s25cj = ledJudge(
+    [{ path: RUNNER_PATH, entry: '10', reason: '复核日已过', reviewBy: '2020-01-01' }],
+    { p1Keys: [`${RUNNER_PATH}#10`], scope: [RUNNER_PATH], today: '2026-10-12' },
+  )
+  ok(
+    'S25c 过期豁免:P2 与 P1 同形(都不再记注册表红),失效由台账那一笔记红承担',
+    s25c.p2.length === 0 &&
+      s25cP1.p1.length === 0 &&
+      s25cP1.exempted.length === 1 &&
+      s25cj.defects.length >= 1 &&
+      /已过|过期/.test(s25cj.defects[0].why),
+    JSON.stringify({
+      p2: s25c.p2.length,
+      p1: s25cP1.p1.length,
+      ex: s25cP1.exempted.length,
+      und: s25cP1.und.length,
+      defects: s25cj.defects.map((d) => d.why.slice(0, 18)),
+    }),
+  )
   // S11 候选面 JSON 坏了 ⇒ 未判定,不许静默
   const s11 = j('package.json', PKG_A, '{"scripts": {,}')
-  ok('S11 候选面解析失败 ⇒ 未判定并点名', s11.p2.length === 0 && s11.p1.length === 0 && s11.und.length === 1)
+  ok(
+    'S11 候选面解析失败 ⇒ 未判定并点名',
+    s11.p2.length === 0 && s11.p1.length === 0 && s11.und.length === 1,
+  )
   // S12 候选面整份文件没了 ⇒ 未判定(不是 P1 汇总,也不判绿)
-  const s12 = judgeFile({ path: 'package.json', headText: PKG_A, candText: null, candAbsent: true, ledger: led([]) })
+  const s12 = judgeFile({
+    path: 'package.json',
+    headText: PKG_A,
+    candText: null,
+    candAbsent: true,
+    ledger: led([]),
+  })
   ok('S12 候选面缺文件 ⇒ 未判定,绝不记通过', s12.und.length === 1 && s12.p1.length === 0)
   // S13 豁免账成对:带原因 ⇒ 豁免并点名;裸原因 ⇒ 照红
-  const s13a = j('package.json', PKG_A, PKG_DROP_B, led([{ path: 'package.json', entry: 'check:b', reason: 'G-1 归档两步走', reviewBy: '2027-01-01' }]))
-  const s13b = j('package.json', PKG_A, PKG_DROP_B, led([{ path: 'package.json', entry: 'check:b', reason: '  ', reviewBy: '2027-01-01' }]))
-  ok('S13 豁免带原因 ⇒ 从 P1 转入豁免维(仍点名)', s13a.p1.length === 0 && s13a.exempted.length === 1)
+  const s13a = j(
+    'package.json',
+    PKG_A,
+    PKG_DROP_B,
+    led([
+      { path: 'package.json', entry: 'check:b', reason: 'G-1 归档两步走', reviewBy: '2027-01-01' },
+    ]),
+  )
+  const s13b = j(
+    'package.json',
+    PKG_A,
+    PKG_DROP_B,
+    led([{ path: 'package.json', entry: 'check:b', reason: '  ', reviewBy: '2027-01-01' }]),
+  )
+  ok(
+    'S13 豁免带原因 ⇒ 从 P1 转入豁免维(仍点名)',
+    s13a.p1.length === 0 && s13a.exempted.length === 1,
+  )
   ok('S13b 与 S13 成对:裸标记不生效 ⇒ 照计 P1', s13b.p1.length === 1 && s13b.exempted.length === 0)
   // S13c 判据①:缺必填字段(这里缺 reviewBy)⇒ 条目不生效 + 点名,绝不静默当不存在
-  const s13c = j('package.json', PKG_A, PKG_DROP_B, led([{ path: 'package.json', entry: 'check:b', reason: '有原因但没复核日' }]))
-  ok('S13c 缺 reviewBy ⇒ 条目不生效(照计 P1)并落未判定点名', s13c.p1.length === 1 && s13c.und.some((x) => x.entry === '(豁免账)' && /reviewBy/.test(x.why)))
+  const s13c = j(
+    'package.json',
+    PKG_A,
+    PKG_DROP_B,
+    led([{ path: 'package.json', entry: 'check:b', reason: '有原因但没复核日' }]),
+  )
+  ok(
+    'S13c 缺 reviewBy ⇒ 条目不生效(照计 P1)并落未判定点名',
+    s13c.p1.length === 1 && s13c.und.some((x) => x.entry === '(豁免账)' && /reviewBy/.test(x.why)),
+  )
   // S13d 判据②在 judgeFile 这一侧的形状:过期条目**不再放行**(失效由 run/judgeLedger 记红)
   const s13d = j('package.json', PKG_A, PKG_DROP_B, { ok: new Map(), bad: [], present: true })
-  ok('S13d 过期条目被 run() 摘出 active 后 ⇒ P1 回来(过期即失效,不是继续豁免)', s13d.p1.length === 1 && s13d.exempted.length === 0)
+  ok(
+    'S13d 过期条目被 run() 摘出 active 后 ⇒ P1 回来(过期即失效,不是继续豁免)',
+    s13d.p1.length === 1 && s13d.exempted.length === 0,
+  )
   // S14 三档定级:同一判据,只有 blocking 换 ⇒ 退出码换,计数不换
   const mk = (face, strict) => ({
     face,
@@ -835,18 +1039,58 @@ export function selfTest() {
   ok('S14b --strict 同一计数判红 ⇒ exit 1', report(mk('worktree', true), { json: true }) === 1)
   ok('S14c 提交链档(索引)判红 ⇒ exit 1', report(mk('staged', false), { json: true }) === 1)
   // S14d 台账维的定级(§12e 安全网):台账判据只随 --strict 判红,提交链档不得因"面状态"卡人
-  const mkLed = (face, strict, ledN) => ({ ...mk(face, strict), p1: 0, led: ledN, ledDefects: [{ key: 'k', path: 'package.json', why: '构造' }] })
-  ok('S14d 台账判据 1 条 + 缺省档 ⇒ exit 0(只点名不判红)', report(mkLed('worktree', false, 1), { json: true }) === 0)
-  ok('S14e 台账判据 1 条 + --strict ⇒ exit 1', report(mkLed('worktree', true, 1), { json: true }) === 1)
-  ok('S14f 与 S14e 成对:台账判据 1 条但只 --staged ⇒ 仍 exit 0(升档前置未满足前不得卡提交链)', report(mkLed('staged', false, 1), { json: true }) === 0)
-  ok('S14g ledgerBlocking() 与上面三档口径一致', ledgerBlocking({ strict: true }) === true && ledgerBlocking({ face: 'staged', strict: false }) === false)
+  const mkLed = (face, strict, ledN) => ({
+    ...mk(face, strict),
+    p1: 0,
+    led: ledN,
+    ledDefects: [{ key: 'k', path: 'package.json', why: '构造' }],
+  })
+  ok(
+    'S14d 台账判据 1 条 + 缺省档 ⇒ exit 0(只点名不判红)',
+    report(mkLed('worktree', false, 1), { json: true }) === 0,
+  )
+  ok(
+    'S14e 台账判据 1 条 + --strict ⇒ exit 1',
+    report(mkLed('worktree', true, 1), { json: true }) === 1,
+  )
+  ok(
+    'S14f 与 S14e 成对:台账判据 1 条但只 --staged ⇒ 仍 exit 0(升档前置未满足前不得卡提交链)',
+    report(mkLed('staged', false, 1), { json: true }) === 0,
+  )
+  ok(
+    'S14g ledgerBlocking() 与上面三档口径一致',
+    ledgerBlocking({ strict: true }) === true &&
+      ledgerBlocking({ face: 'staged', strict: false }) === false,
+  )
   // S15 空枚举判死(不记绿)
-  const s15 = report({ face: 'worktree', strict: false, docs: [], p1: 0, p2: 0, und: 0, exempted: 0, enumerated: 0, error: null }, { json: false })
+  const s15 = report(
+    {
+      face: 'worktree',
+      strict: false,
+      docs: [],
+      p1: 0,
+      p2: 0,
+      und: 0,
+      exempted: 0,
+      enumerated: 0,
+      error: null,
+    },
+    { json: false },
+  )
   ok('S15 枚举到 0 个注册表文件 ⇒ exit 2,绝不记绿', s15 === 2)
   // S16 两面旗同给 ⇒ 判死
-  ok('S16 --staged 与 --worktree 同给 ⇒ 判死', selectFace({ staged: true, worktree: true, def: 'worktree' }).error !== null)
+  ok(
+    'S16 --staged 与 --worktree 同给 ⇒ 判死',
+    selectFace({ staged: true, worktree: true, def: 'worktree' }).error !== null,
+  )
   // S17 真仓射程:两份注册表必须都被枚举到
-  ok('S17 射程含根 package.json 与 runner', isRegistryPath('package.json') && isRegistryPath(RUNNER_PATH) && !isRegistryPath('node_modules/x/package.json') && !isRegistryPath('src/a.ts'))
+  ok(
+    'S17 射程含根 package.json 与 runner',
+    isRegistryPath('package.json') &&
+      isRegistryPath(RUNNER_PATH) &&
+      !isRegistryPath('node_modules/x/package.json') &&
+      !isRegistryPath('src/a.ts'),
+  )
 
   // ── S18–S24:台账面判据(台账搬进受版本控制的一面时补的牙)──────────────────────
   // S18 形状锁:旧的那条 gitignored 路径永远不得回潮(字面量按段拼,否则这条锁会被自己的源码点亮)
@@ -863,30 +1107,72 @@ export function selfTest() {
   const s19a = parseLedger('{"entries": [')
   const s19b = parseLedger('{"entries": {}}')
   const s19c = parseLedger(JSON.stringify({ entries: [] }))
-  ok('S19 坏 JSON ⇒ broken 点名(present 仍为真,不当成空表放行)', !!s19a.broken && s19a.present === true && s19a.ok.size === 0)
+  ok(
+    'S19 坏 JSON ⇒ broken 点名(present 仍为真,不当成空表放行)',
+    !!s19a.broken && s19a.present === true && s19a.ok.size === 0,
+  )
   ok('S19b 与 S19 成对:entries 不是数组也判 broken', !!s19b.broken && /形状/.test(s19b.broken))
-  ok('S19c 与 S19 成对:`entries: []` 是合法的如实零豁免', s19c.present === true && !s19c.broken && s19c.ok.size === 0)
+  ok(
+    'S19c 与 S19 成对:`entries: []` 是合法的如实零豁免',
+    s19c.present === true && !s19c.broken && s19c.ok.size === 0,
+  )
   // S20 判据④:候选面取不到整份台账 ⇒ 红(点名),HEAD 有/没有两种归因都要点出来
   const s20a = ledJudge(null, { presentOnBase: false })
   const s20b = ledJudge(null, { presentOnBase: true })
-  ok('S20 台账不在候选面 ⇒ 1 条台账判据(绝不折成零豁免记绿)', s20a.absent === true && s20a.defects.length === 1 && /候选面取不到/.test(s20a.defects[0].why))
-  ok('S20b 与 S20 成对:HEAD 有、候选面没有 ⇒ 归因写成"本提交把唯一出口删掉了"', s20b.defects.length === 1 && /唯一出口删掉了/.test(s20b.defects[0].why))
+  ok(
+    'S20 台账不在候选面 ⇒ 1 条台账判据(绝不折成零豁免记绿)',
+    s20a.absent === true && s20a.defects.length === 1 && /候选面取不到/.test(s20a.defects[0].why),
+  )
+  ok(
+    'S20b 与 S20 成对:HEAD 有、候选面没有 ⇒ 归因写成"本提交把唯一出口删掉了"',
+    s20b.defects.length === 1 && /唯一出口删掉了/.test(s20b.defects[0].why),
+  )
   // S21 判据①:缺任一必填字段 ⇒ 红并点名缺哪个
   const s21 = ledJudge([
     { path: 'package.json', entry: 'check:b', reason: '有' },
     { path: 'package.json', entry: 'check:c', reviewBy: '2027-01-01' },
   ])
-  ok('S21 条目缺 reason / 缺 reviewBy ⇒ 两条台账判据并点名缺的字段', s21.defects.length === 2 && s21.defects.some((x) => /缺 reviewBy/.test(x.why)) && s21.defects.some((x) => /缺 reason/.test(x.why)))
+  ok(
+    'S21 条目缺 reason / 缺 reviewBy ⇒ 两条台账判据并点名缺的字段',
+    s21.defects.length === 2 &&
+      s21.defects.some((x) => /缺 reviewBy/.test(x.why)) &&
+      s21.defects.some((x) => /缺 reason/.test(x.why)),
+  )
   // S22 判据②:过期 ⇒ 红;与"未过期且真被用上"成对(后者零判据)
-  const s22a = ledJudge([{ path: 'package.json', entry: 'check:b', reason: '有', reviewBy: '2025-01-01' }], { p1Keys: ['package.json#check:b'] })
-  const s22b = ledJudge([{ path: 'package.json', entry: 'check:b', reason: '有', reviewBy: '2027-01-01' }], { p1Keys: ['package.json#check:b'] })
-  ok('S22 复核日过期 ⇒ 台账判据红且豁免即时失效', s22a.defects.length === 1 && /复核日/.test(s22a.defects[0].why) && entryLive({ reviewBy: '2025-01-01' }, '2026-10-06') === false)
-  ok('S22b 与 S22 成对:未过期且这条豁免真被用上 ⇒ 零台账判据', s22b.defects.length === 0 && s22b.unjudged.length === 0)
+  const s22a = ledJudge(
+    [{ path: 'package.json', entry: 'check:b', reason: '有', reviewBy: '2025-01-01' }],
+    { p1Keys: ['package.json#check:b'] },
+  )
+  const s22b = ledJudge(
+    [{ path: 'package.json', entry: 'check:b', reason: '有', reviewBy: '2027-01-01' }],
+    { p1Keys: ['package.json#check:b'] },
+  )
+  ok(
+    'S22 复核日过期 ⇒ 台账判据红且豁免即时失效',
+    s22a.defects.length === 1 &&
+      /复核日/.test(s22a.defects[0].why) &&
+      entryLive({ reviewBy: '2025-01-01' }, '2026-10-06') === false,
+  )
+  ok(
+    'S22b 与 S22 成对:未过期且这条豁免真被用上 ⇒ 零台账判据',
+    s22b.defects.length === 0 && s22b.unjudged.length === 0,
+  )
   // S23 判据③:登记了而没被用上 ⇒ 清单腐烂红;路径没进射程 ⇒ 未判定(不把"没看"写成"看了没命中")
-  const s23a = ledJudge([{ path: 'package.json', entry: 'check:ghost', reason: '有', reviewBy: '2027-01-01' }])
-  const s23b = ledJudge([{ path: 'apps/api/package.json', entry: 'build', reason: '有', reviewBy: '2027-01-01' }], { scope: ['package.json'] })
-  ok('S23 登记了而被审面没命中 ⇒ 清单腐烂红', s23a.defects.length === 1 && /腐烂/.test(s23a.defects[0].why))
-  ok('S23b 与 S23 成对:路径本轮没被审到 ⇒ 未判定,不判腐烂', s23b.defects.length === 0 && s23b.unjudged.length === 1)
+  const s23a = ledJudge([
+    { path: 'package.json', entry: 'check:ghost', reason: '有', reviewBy: '2027-01-01' },
+  ])
+  const s23b = ledJudge(
+    [{ path: 'apps/api/package.json', entry: 'build', reason: '有', reviewBy: '2027-01-01' }],
+    { scope: ['package.json'] },
+  )
+  ok(
+    'S23 登记了而被审面没命中 ⇒ 清单腐烂红',
+    s23a.defects.length === 1 && /腐烂/.test(s23a.defects[0].why),
+  )
+  ok(
+    'S23b 与 S23 成对:路径本轮没被审到 ⇒ 未判定,不判腐烂',
+    s23b.defects.length === 0 && s23b.unjudged.length === 1,
+  )
   // S24 键轴唯一性:同一 path#entry 重复登记不生效(交人工),且不产生第二条假豁免
   const s24 = ledJudge(
     [
@@ -897,7 +1183,10 @@ export function selfTest() {
   )
   ok(
     'S24 同一 path#entry 重复登记 ⇒ 台账判据红(键轴不唯一)且只留一条生效',
-    s24.defects.length === 1 && /重复登记/.test(s24.defects[0].why) && s24.absent === false && s24.unjudged.length === 0,
+    s24.defects.length === 1 &&
+      /重复登记/.test(s24.defects[0].why) &&
+      s24.absent === false &&
+      s24.unjudged.length === 0,
     JSON.stringify(s24.defects.map((x) => x.why)),
   )
 
@@ -910,7 +1199,11 @@ export function selfTest() {
 function main(argv) {
   const has = (f) => argv.includes(f)
   if (has('--self-test')) return selfTest()
-  const picked = selectFace({ staged: has('--staged'), worktree: has('--worktree'), def: 'worktree' })
+  const picked = selectFace({
+    staged: has('--staged'),
+    worktree: has('--worktree'),
+    def: 'worktree',
+  })
   if (picked.error) {
     console.error(`❌ ${picked.error} ⇒ 无法判定`)
     return 2
