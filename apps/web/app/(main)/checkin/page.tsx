@@ -74,6 +74,7 @@ import {
   type CheckinRecord,
 } from '@ihui/api-client'
 import { EChart } from '@/components/charts/EChart'
+import { TruncatedText } from '@/components/common/TruncatedText'
 import { useTauriIpcReady } from '@/hooks/use-desktop'
 import {
   checkinAuditTraeResidual,
@@ -364,8 +365,11 @@ export default function CheckinPage() {
   const qoderKey = (s: CapturedQoderSession) => s.uid || s.app_dir
 
   // 会话 → 录入 device_map(Qoder 引擎契约:refresh_token / expires_at / cosy 风控头)
+  // 2026-10-12:uid 一并落库 —— Qoder token 是 opaque 非 JWT(真机实证),
+  // 服务端/引擎的账号 uid 标识只能从 device_map 读(桌面端从 user.id 提取)。
   const qoderDeviceMap = (s: CapturedQoderSession): Record<string, unknown> => {
     const dm: Record<string, unknown> = {}
+    if (s.uid) dm.uid = s.uid
     if (s.refreshToken) dm.refresh_token = s.refreshToken
     if (s.expires_at > 0) dm.expires_at = s.expires_at
     const cosy: Record<string, string> = { client_type: '10' }
@@ -475,7 +479,9 @@ export default function CheckinPage() {
         maintDeepReset,
         maintIncludeMac,
       )
-      return report.layers.map((l) => `[${l.ok ? 'OK' : 'FAIL'}] L${l.layer} ${l.name}: ${l.detail}`)
+      return report.layers.map(
+        (l) => `[${l.ok ? 'OK' : 'FAIL'}] L${l.layer} ${l.name}: ${l.detail}`,
+      )
     })
 
   // 残留指纹审计:与"重置"解耦的独立动作,失败只在向导消息里落一行,不拦流程
@@ -690,9 +696,7 @@ export default function CheckinPage() {
   }
 
   const toggleEnabled = async (account: CheckinAccount, enabled: boolean) => {
-    setAccounts((prev) =>
-      prev.map((a) => (a.id === account.id ? { ...a, enabled } : a)),
-    )
+    setAccounts((prev) => prev.map((a) => (a.id === account.id ? { ...a, enabled } : a)))
     try {
       await setCheckinAccountEnabled(account.id, enabled)
     } catch (e) {
@@ -869,7 +873,10 @@ export default function CheckinPage() {
     setLoadingMoreRecords(true)
     setActionError(null)
     try {
-      const res = await listCheckinRecords({ accountId: recordFilter ?? undefined, limit: requested })
+      const res = await listCheckinRecords({
+        accountId: recordFilter ?? undefined,
+        limit: requested,
+      })
       setRecords((prev) => {
         const seen = new Set(prev.map((r) => r.id))
         return [...prev, ...res.records.filter((r) => !seen.has(r.id))]
@@ -1035,8 +1042,7 @@ export default function CheckinPage() {
   }, [visibleAccounts, credits])
 
   // 是否有三线快照数据(任一日 total 非空即启用三线图,否则降级本地累计)
-  const hasDailySeries =
-    !!creditsDaily && creditsDaily.series.total.some((v) => v !== null)
+  const hasDailySeries = !!creditsDaily && creditsDaily.series.total.some((v) => v !== null)
 
   // 平台徽章(品牌名不进 i18n):qoder 紫 / trae 橙,与分组徽章同形态
   const renderPlatformBadge = (platform: string | undefined) => (
@@ -1061,40 +1067,31 @@ export default function CheckinPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-4">
       <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <CalendarCheck className="h-5 w-5 text-primary" />
-          <h1 className="text-2xl font-bold">{t('title')}</h1>
+        <div>
+          <div className="flex items-center gap-2">
+            <CalendarCheck className="h-5 w-5 text-primary" />
+            <h1 className="text-2xl font-bold">{t('title')}</h1>
+          </div>
           {scheduler && (
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${
-                scheduler.enabled && scheduler.started
-                  ? 'border-green-500/40 bg-green-500/10 text-green-600'
-                  : 'border-amber-500/40 bg-amber-500/10 text-amber-600'
-              }`}
-            >
+            <div className="mt-1 flex items-center gap-1.5 text-[11px] font-normal text-muted-foreground">
               <span
                 className={`h-1.5 w-1.5 rounded-full ${
-                  scheduler.enabled && scheduler.started ? 'bg-green-500' : 'bg-amber-500'
+                  scheduler.enabled && scheduler.started ? 'bg-green-500/70' : 'bg-amber-500/70'
                 }`}
               />
               {scheduler.enabled && scheduler.started
                 ? t('schedulerEnabled')
                 : t('schedulerDisabled')}
-              {scheduler.enabled && scheduler.started && scheduler.next_run && (
-                <span className="font-normal text-muted-foreground">
-                  {t('schedulerNextRun', { time: formatShortTime(scheduler.next_run) })}
-                </span>
-              )}
-              {scheduler.enabled && scheduler.started && scheduler.next_run_qoder && (
-                <span className="font-normal text-muted-foreground">
-                  {t('schedulerNextRunQoder', { time: formatShortTime(scheduler.next_run_qoder) })}
-                </span>
-              )}
-            </span>
+            </div>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => void loadAll()} aria-label={t('refresh')}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void loadAll()}
+            aria-label={t('refresh')}
+          >
             <RefreshCw className="h-4 w-4" />
           </Button>
           <Button
@@ -1154,19 +1151,28 @@ export default function CheckinPage() {
       </div>
 
       {actionError && (
-        <div role="alert" className="mb-4 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
+        <div
+          role="alert"
+          className="mb-4 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive"
+        >
           {actionError}
         </div>
       )}
 
       {jwtNotice && (
-        <div role="status" className="mb-4 rounded-md border border-green-600 bg-green-500/10 p-3 text-sm text-green-600">
+        <div
+          role="status"
+          className="mb-4 rounded-md border border-green-600 bg-green-500/10 p-3 text-sm text-green-600"
+        >
           {jwtNotice}
         </div>
       )}
 
       {batchNotice && (
-        <div role="status" className="mb-4 rounded-md border border-blue-500/40 bg-blue-500/10 p-3 text-sm text-blue-600">
+        <div
+          role="status"
+          className="mb-4 rounded-md border border-blue-500/40 bg-blue-500/10 p-3 text-sm text-blue-600"
+        >
           {batchNotice}
         </div>
       )}
@@ -1178,7 +1184,10 @@ export default function CheckinPage() {
         </div>
       ) : loadError ? (
         <div className="py-16 text-center">
-          <p className="mb-3 text-sm text-destructive">{t('loadFailed')}{loadError ? `: ${loadError}` : ''}</p>
+          <p className="mb-3 text-sm text-destructive">
+            {t('loadFailed')}
+            {loadError ? `: ${loadError}` : ''}
+          </p>
           <Button variant="outline" size="sm" onClick={() => void loadAll()}>
             {t('retry')}
           </Button>
@@ -1224,125 +1233,123 @@ export default function CheckinPage() {
                 )}
               </div>
               <div className="rounded-xl border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-8">
-                      <input
-                        type="checkbox"
-                        aria-label={t('selectAllVisible')}
-                        checked={allVisibleSelected}
-                        onChange={toggleSelectAllVisible}
-                        className="h-3.5 w-3.5 accent-primary"
-                      />
-                    </TableHead>
-                    <TableHead>{t('colName')}</TableHead>
-                    <TableHead>{t('colEnabled')}</TableHead>
-                    <TableHead>{t('colLastCheckin')}</TableHead>
-                    <TableHead>{t('colCredits')}</TableHead>
-                    <TableHead className="text-right">{t('colActions')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {visibleAccounts.map((account) => (
-                    <TableRow key={account.id}>
-                      <TableCell>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-8">
                         <input
                           type="checkbox"
-                          aria-label={t('selectAccount', { name: account.name })}
-                          checked={selectedIds.has(account.id)}
-                          onChange={() => toggleSelected(account.id)}
+                          aria-label={t('selectAllVisible')}
+                          checked={allVisibleSelected}
+                          onChange={toggleSelectAllVisible}
                           className="h-3.5 w-3.5 accent-primary"
                         />
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium">{account.name}</div>
-                        <div className="mt-1 flex flex-wrap items-center gap-1">
-                          {renderPlatformBadge(account.platform)}
-                          {renderGroupBadge(account.group)}
-                          {renderJwtBadge(account.jwt_exp)}
-                          {renderCooldownBadge(account.cooldown_until)}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Switch
-                          checked={account.enabled}
-                          onCheckedChange={(checked) => void toggleEnabled(account, checked)}
-                          aria-label={t('colEnabled')}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {account.last_record ? (
-                          <div className="text-xs">
-                            <div>{renderResult(account.last_record.ok)}</div>
-                            <div className="text-muted-foreground">
-                              {formatTime(account.last_record.created_at)}
-                            </div>
-                            {account.last_record.ok === false && account.last_record.message && (
-                              <div
-                                className="mt-0.5 text-[10px] text-muted-foreground"
-                                title={account.last_record.message}
-                              >
-                                {truncate(account.last_record.message, 40)}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">{t('none')}</span>
-                        )}
-                      </TableCell>
-                      <TableCell>{account.last_record?.credits ?? t('none')}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={checkingId !== null || allChecking}
-                            onClick={() => void runManualCheckin(account)}
-                          >
-                            {checkingId === account.id && (
-                              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                            )}
-                            {checkingId === account.id ? t('checking') : t('manualCheckin')}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            aria-label={t('editJwt')}
-                            onClick={() => openJwtDialog(account)}
-                          >
-                            <KeyRound className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            aria-label={t('editGroup')}
-                            onClick={() => openGroupDialog(account)}
-                          >
-                            <FolderPen className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            aria-label={t('editDeviceMap')}
-                            onClick={() => openDeviceMapDialog(account)}
-                          >
-                            <Laptop className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            aria-label={t('delete')}
-                            onClick={() => setDeleteTarget(account)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
+                      </TableHead>
+                      <TableHead>{t('colName')}</TableHead>
+                      <TableHead>{t('colEnabled')}</TableHead>
+                      <TableHead>{t('colLastCheckin')}</TableHead>
+                      <TableHead>{t('colCredits')}</TableHead>
+                      <TableHead className="text-right">{t('colActions')}</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {visibleAccounts.map((account) => (
+                      <TableRow key={account.id}>
+                        <TableCell>
+                          <input
+                            type="checkbox"
+                            aria-label={t('selectAccount', { name: account.name })}
+                            checked={selectedIds.has(account.id)}
+                            onChange={() => toggleSelected(account.id)}
+                            className="h-3.5 w-3.5 accent-primary"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium">{account.name}</div>
+                          <div className="mt-1 flex flex-wrap items-center gap-1">
+                            {renderPlatformBadge(account.platform)}
+                            {renderGroupBadge(account.group)}
+                            {renderJwtBadge(account.jwt_exp)}
+                            {renderCooldownBadge(account.cooldown_until)}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Switch
+                            checked={account.enabled}
+                            onCheckedChange={(checked) => void toggleEnabled(account, checked)}
+                            aria-label={t('colEnabled')}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {account.last_record ? (
+                            <div className="text-xs">
+                              <div>{renderResult(account.last_record.ok)}</div>
+                              <div className="text-muted-foreground">
+                                {formatTime(account.last_record.created_at)}
+                              </div>
+                              {account.last_record.ok === false && account.last_record.message && (
+                                <TruncatedText
+                                  value={account.last_record.message}
+                                  className="mt-0.5 text-[10px] text-muted-foreground"
+                                />
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">{t('none')}</span>
+                          )}
+                        </TableCell>
+                        <TableCell>{account.last_record?.credits ?? t('none')}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={checkingId !== null || allChecking}
+                              onClick={() => void runManualCheckin(account)}
+                            >
+                              {checkingId === account.id && (
+                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                              )}
+                              {checkingId === account.id ? t('checking') : t('manualCheckin')}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              aria-label={t('editJwt')}
+                              onClick={() => openJwtDialog(account)}
+                            >
+                              <KeyRound className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              aria-label={t('editGroup')}
+                              onClick={() => openGroupDialog(account)}
+                            >
+                              <FolderPen className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              aria-label={t('editDeviceMap')}
+                              onClick={() => openDeviceMapDialog(account)}
+                            >
+                              <Laptop className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              aria-label={t('delete')}
+                              onClick={() => setDeleteTarget(account)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             </>
           )}
@@ -1456,8 +1463,14 @@ export default function CheckinPage() {
                           <TableCell className="text-xs">{formatTime(item.created_at)}</TableCell>
                           <TableCell className="text-xs">{item.action}</TableCell>
                           <TableCell className="text-xs">
-                            <span className={item.credits_delta >= 0 ? 'text-green-600' : 'text-destructive'}>
-                              {item.credits_delta >= 0 ? `+${item.credits_delta}` : item.credits_delta}
+                            <span
+                              className={
+                                item.credits_delta >= 0 ? 'text-green-600' : 'text-destructive'
+                              }
+                            >
+                              {item.credits_delta >= 0
+                                ? `+${item.credits_delta}`
+                                : item.credits_delta}
                             </span>
                           </TableCell>
                           <TableCell className="text-xs">{item.credits ?? '-'}</TableCell>
@@ -1544,7 +1557,13 @@ export default function CheckinPage() {
                                 // 三线:总数/获得/消耗(消耗=|今日总-获得-昨日总|,对齐参考项目)
                                 tooltip: { trigger: 'axis' },
                                 legend: { top: 0 },
-                                grid: { left: 8, right: 16, top: 28, bottom: 8, containLabel: true },
+                                grid: {
+                                  left: 8,
+                                  right: 16,
+                                  top: 28,
+                                  bottom: 8,
+                                  containLabel: true,
+                                },
                                 xAxis: { type: 'category', data: creditsDaily!.days },
                                 yAxis: { type: 'value' },
                                 series: [
@@ -1670,7 +1689,10 @@ export default function CheckinPage() {
             <Button variant="outline" onClick={() => setAddOpen(false)} disabled={submitting}>
               {t('cancel')}
             </Button>
-            <Button onClick={() => void submitAdd()} disabled={submitting || !name.trim() || !jwt.trim()}>
+            <Button
+              onClick={() => void submitAdd()}
+              disabled={submitting || !name.trim() || !jwt.trim()}
+            >
               {submitting && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
               {submitting ? t('submitting') : t('submit')}
             </Button>
@@ -1740,7 +1762,11 @@ export default function CheckinPage() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setGroupTarget(null)} disabled={groupSubmitting}>
+            <Button
+              variant="outline"
+              onClick={() => setGroupTarget(null)}
+              disabled={groupSubmitting}
+            >
               {t('cancel')}
             </Button>
             <Button onClick={() => void submitGroup()} disabled={groupSubmitting}>
@@ -1835,10 +1861,7 @@ export default function CheckinPage() {
             {captured.length > 0 && (
               <div className="max-h-60 space-y-2 overflow-y-auto">
                 {captured.map((item) => (
-                  <label
-                    key={item.user_id}
-                    className="flex items-center gap-2 text-sm"
-                  >
+                  <label key={item.user_id} className="flex items-center gap-2 text-sm">
                     <input
                       type="checkbox"
                       aria-label={`captureAccount:${item.user_id}`}
@@ -1859,7 +1882,12 @@ export default function CheckinPage() {
               </div>
             )}
             <DialogFooter>
-              <Button variant="outline" size="sm" disabled={capturing} onClick={() => void runCapture()}>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={capturing}
+                onClick={() => void runCapture()}
+              >
                 {capturing ? (
                   <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                 ) : (
@@ -1924,7 +1952,12 @@ export default function CheckinPage() {
               </div>
             )}
             <DialogFooter>
-              <Button variant="outline" size="sm" disabled={capturing} onClick={() => void runQoderCapture()}>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={capturing}
+                onClick={() => void runQoderCapture()}
+              >
                 {capturing ? (
                   <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                 ) : (
@@ -2139,13 +2172,14 @@ export default function CheckinPage() {
                     )}
                   </div>
                 )}
-                {wizardStep === 2 && (
-                  wizardCriticalFail ? (
-                    <p className="text-xs font-medium text-destructive">{t('wizardCriticalFailNote')}</p>
+                {wizardStep === 2 &&
+                  (wizardCriticalFail ? (
+                    <p className="text-xs font-medium text-destructive">
+                      {t('wizardCriticalFailNote')}
+                    </p>
                   ) : (
                     <p className="text-xs text-muted-foreground">{t('wizardOptionalNote')}</p>
-                  )
-                )}
+                  ))}
               </div>
               <div>
                 <Label htmlFor="checkin-maint-user-id">{t('maintUserIdLabel')}</Label>
@@ -2201,7 +2235,12 @@ export default function CheckinPage() {
                   />
                   {t('maintIncludeMac')}
                 </label>
-                <Button variant="outline" size="sm" disabled={maintBusy} onClick={() => void backupSnapshot()}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={maintBusy}
+                  onClick={() => void backupSnapshot()}
+                >
                   {t('maintBackup')}
                 </Button>
               </div>
@@ -2217,7 +2256,10 @@ export default function CheckinPage() {
                 ) : (
                   <ul className="space-y-1">
                     {snapshots.map((s) => (
-                      <li key={s.user_id} className="flex items-center justify-between gap-2 text-sm">
+                      <li
+                        key={s.user_id}
+                        className="flex items-center justify-between gap-2 text-sm"
+                      >
                         <span className="truncate font-mono text-xs">{s.user_id}</span>
                         <span className="text-xs text-muted-foreground">{s.kinds.length}</span>
                         <span className="flex shrink-0 gap-1">

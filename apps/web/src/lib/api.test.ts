@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import type * as ApiClient from '@ihui/api-client'
 import type * as Api from './api'
 
 /**
@@ -27,7 +28,9 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@ihui/api-client', async () => {
-  const actual = await vi.importActual<typeof import('@ihui/api-client')>('@ihui/api-client')
+  // 类型注解走文件顶部的 import type(被擦除,不触发 mock);importActual 仍取真实模块,
+  // 保证 TransientRefreshError 与 api.ts 抛出的是同一个类对象。
+  const actual = await vi.importActual<typeof ApiClient>('@ihui/api-client')
   return {
     fetchApi: mocks.fetchApiShared,
     setTokenProvider: vi.fn((p: unknown) => {
@@ -36,6 +39,9 @@ vi.mock('@ihui/api-client', async () => {
     setBaseUrl: vi.fn(),
     streamChat: vi.fn(),
     setStreamBaseUrl: vi.fn(),
+    // 2026-10-12 补:69b7437f73 给 api.ts 加了 setAiServiceBase(桌面端 dev 签到页 404 根治),
+    // 模块顶层无条件调用 —— mock 面缺这个导出会让本文件 12 例全数在模块求值期炸掉。
+    setAiServiceBase: vi.fn(),
     setDeviceFingerprintProvider: vi.fn(),
     // 2026-09-25 接线:api.ts 无条件注册 401 处理器,mock 面必须补上同名导出,
     // 否则模块求值即抛 "No export is defined on the mock"。

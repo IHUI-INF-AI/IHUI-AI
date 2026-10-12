@@ -101,14 +101,35 @@ describe('isBlockedByAuthGuard - 探测口径', () => {
     await expect(isBlockedByAuthGuard('/admin')).resolves.toBe(false)
   })
 
-  it('用 HEAD + redirect:manual 探测(零跟随、无副作用)', async () => {
+  // 2026-10-12:探测加 5s 超时后 fetch 参数多了 signal(AbortController)。
+  // 断言用 objectContaining —— 固定死"仍是 HEAD + manual + include"三要素,
+  // 同时容纳 signal 这一新增键;把 signal 写死成等值比较反而脆弱。
+  it('用 HEAD + redirect:manual + 超时 signal 探测(零跟随、无副作用、不卡死)', async () => {
     fetchMock.mockResolvedValue(probeResponse('basic'))
     await isBlockedByAuthGuard('/admin')
     expect(fetchMock).toHaveBeenCalledWith('/admin', {
       method: 'HEAD',
       redirect: 'manual',
       credentials: 'include',
+      signal: expect.any(AbortSignal),
     })
+  })
+
+  // 探测超时(AbortError)必须判放行:探测绝不能误拦正常跳转。
+  // 这条正是 2026-10-12 SSO 故障的直接教训 —— 裸 fetch 零超时时,
+  // PG 半死期间守卫探测与 refresh 一起把用户点击挂死。
+  it('探测超时(AbortError)判为放行(超时不得变成误拦)', async () => {
+    const err = new Error('The operation was aborted')
+    err.name = 'AbortError'
+    fetchMock.mockRejectedValue(err)
+    await expect(isBlockedByAuthGuard('/admin')).resolves.toBe(false)
+  })
+
+  it('探测信号已 abort 时 fetch 同步抛错也按放行(契约不变)', async () => {
+    fetchMock.mockImplementation(() => {
+      throw new DOMException('The operation was aborted', 'AbortError')
+    })
+    await expect(isBlockedByAuthGuard('/admin')).resolves.toBe(false)
   })
 })
 
