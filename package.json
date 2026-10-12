@@ -63,6 +63,7 @@
     "check:plan-sha": "node scripts/check-plan-sha-resolvable.mjs",
     "check:service-paths": "node scripts/check-service-binary-paths.mjs",
     "check:public-path": "node scripts/check-public-path-probe.mjs --snapshot",
+    "check:status-vocabulary": "node scripts/check-agent-status-vocabulary-parity.mjs --strict",
     "check:plan-tasks": "node scripts/plan-tasks.mjs",
     "check:memory-owner": "node scripts/check-memory-owner-binding.mjs --strict",
     "check:credential-presence": "node scripts/check-credential-presence-bypass.mjs --strict",
