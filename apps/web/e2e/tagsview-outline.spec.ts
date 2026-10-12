@@ -65,4 +65,94 @@ test.describe('TagsView 激活标签描边定稿守门', () => {
     )
   })
 })
+
+/**
+ * 标签行重叠守门 (2026-10-12 立)
+ *
+ * 触发背景(真实回退事故):
+ * 桌面端右上角 Min/Max/Close 三按钮与标签行重叠 —— 标签行是 flex-1 且
+ * overflow:visible,自动最小尺寸 = min-content(nowrap 标签 + shrink-0 撑出 972px),
+ * 行盒被内容顶开越过外层 min-w-0 的 wrap,直接画到窗口按钮下面。
+ * 修法:TagsView 行改 overflow-x-auto 滚动容器(自动最小尺寸归 0 + 越界标签被裁)。
+ *
+ * 防回归断言:
+ *  1. 标签行 computed overflow-x 必须是 auto(滚动容器,行盒不再被内容撑开)
+ *  2. 行盒右缘不得越出外层 wrap(bug 现场即 row.right > wrap.right)
+ *  3. 桌面壳渲染 [data-window-controls] 时,行盒右缘不得触到三按钮左缘
+ */
+test.describe('TagsView 标签行重叠守门', () => {
+  test('标签行受 wrap 宽度限制(overflow-x:auto),不越出窗口三按钮', async ({ adminPage }) => {
+    await adminPage.goto('/chat')
+    await adminPage.waitForSelector('[data-tagsview] > div', { timeout: 15000 })
+
+    // 多开几个标签制造内容溢出(bug 只在内容超出 wrap 时显形)
+    const hrefs = await adminPage.$$eval('a[href]', (as) =>
+      [
+        ...new Set(
+          as
+            .map((a) => a.getAttribute('href'))
+            .filter(
+              (h) => h && h.startsWith('/') && !h.startsWith('//') && !/login|\.\w+$/.test(h),
+            ),
+        ),
+      ].slice(0, 8),
+    )
+    for (const href of hrefs) {
+      await adminPage
+        .evaluate((h) => {
+          Array.from(document.querySelectorAll<HTMLElement>('a[href]'))
+            .find((a) => a.getAttribute('href') === h)
+            ?.click()
+        }, href)
+        .catch(() => {})
+      await adminPage.waitForTimeout(250)
+    }
+
+    // 三个宽度档逐一断言(窄档溢出更严重,宽档贴近真实桌面窗口)
+    for (const width of [1280, 900, 700]) {
+      await adminPage.setViewportSize({ width, height: 800 })
+      await adminPage.waitForTimeout(300)
+      const m = await adminPage.evaluate(() => {
+        const tv = document.querySelector('[data-tagsview]')
+        if (!tv) throw new Error('[data-tagsview] not found')
+        const row = tv.querySelector(':scope > div')
+        const wrap = tv.parentElement
+        if (!row || !wrap) throw new Error('[data-tagsview] row/wrap not found')
+        const controls = document.querySelector('[data-window-controls]')
+        return {
+          overflowX: getComputedStyle(row).overflowX,
+          scrollWidth: row.scrollWidth,
+          clientWidth: row.clientWidth,
+          rowRight: row.getBoundingClientRect().right,
+          wrapRight: wrap.getBoundingClientRect().right,
+          controlsLeft: controls ? controls.getBoundingClientRect().left : null,
+        }
+      })
+
+      // 断言 1:必须是滚动容器(bug 根因:overflow:visible 撑开行盒)
+      expect(m.overflowX, `w=${width} 标签行 overflow-x 必须为 auto(滚动容器)`).toBe('auto')
+
+      // 断言 2:行盒右缘不得越出 wrap(bug 现场 row.right 越出 wrap.right 达 658~968px)
+      expect(
+        m.rowRight,
+        `w=${width} 行盒右缘(${m.rowRight})不得越出 wrap 右缘(${m.wrapRight})`,
+      ).toBeLessThanOrEqual(m.wrapRight + 0.5)
+
+      // 断言 3:桌面壳下不得触到 Min/Max/Close 左缘
+      if (m.controlsLeft !== null) {
+        expect(
+          m.rowRight,
+          `w=${width} 行盒右缘(${m.rowRight})不得触到窗口三按钮左缘(${m.controlsLeft})`,
+        ).toBeLessThanOrEqual(m.controlsLeft)
+      }
+
+      // 断言 4:内容确实溢出时(防"标签不够多"造成的假通过)
+      if (width === 900) {
+        expect(m.scrollWidth, '标签内容应溢出滚动容器(测试自证有效性)').toBeGreaterThan(
+          m.clientWidth,
+        )
+      }
+    }
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

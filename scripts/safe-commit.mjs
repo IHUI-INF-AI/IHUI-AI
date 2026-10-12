@@ -21,7 +21,9 @@
  *                             各自成行列出,删除类提交不再恒误报。Step 5 的 git show 同理。
  *                             D171 起取路径走 lib/git-paths 的 -z 形态:中文名不被
  *                             core.quotePath 八进制转写,声明侧与 git 侧判同值。)
- *   4. git commit -- <path>   git 原生 -- pathspec 终极兜底
+ *   4. git commit           普通提交(不带 pathspec);防污染靠 Step 1-3 已证的
+ *                            "暂存区精确匹配" + 全流程 git 写锁串行(2026-10-12 改,
+ *                            原因见 Step 4 处注记:pathspec 提交与 lint-staged 自碰撞)
  *   5. 不触发 push(让 post-commit hook 处理)
  *
  * 用法:
@@ -454,8 +456,10 @@ log('ok', `暂存区精确匹配预期 ${C.cyan}${stagedFiles.length}${C.reset} 
 // 3e. 活文档"工作树 ⊇ HEAD"行级对账 —— 把 AGENTS §12 从"人肉记得跑"变成机制
 // (2026-09-24 立)。背景:`README.md` / `AGENTS.md` / `PROJECT_PLAN.md` 是多会话共写的文档,
 // 工作树副本**常年滞后于 HEAD**(实测一日三次自伤,分别少 57 / 48 / 54 行)。而本脚本 Step 4
-// 用的是 `git commit -- <pathspec>` —— 按**路径**取工作树版本,所以"只 add 本任务文件"的
-// 规范提交照样会把别人已入库的行整批写回旧态,且 `git status`、diff 行数、typecheck 全看不出来。
+// 落地的是**索引内容**,Step 2 的 `git add -A -- <声明文件>` 刚把工作树字节灌进索引 ⇒
+// 等价于按路径交工作树副本(2026-10-12 前是 pathspec 提交、语义相同),所以"只 add 本任务
+// 文件"的规范提交照样会把别人已入库的行整批写回旧态,且 `git status`、diff 行数、typecheck
+// 全看不出来。
 // 规则本来就写着"提交前先跑 merge-live-doc",但它只存在于文档里 ⇒ 谁忘了都成立,
 // 而忘了的代价是**别人的内容消失**。这里改成:声明了活文档就必须先过对账,不过即拒提交。
 const LIVE_DOCS = ['README.md', 'AGENTS.md', 'PROJECT_PLAN.md']
@@ -505,9 +509,10 @@ if (liveDocsStaged.length && process.env.IHUI_SKIP_LIVE_DOC_CHECK !== '1') {
 //
 // **为什么 safe-commit 有落点(它不重写内容,只是把磁盘副本交上去)**:
 //   实测(2026-10-08 临时 git 仓,先 stage `lineINDEX` 再把磁盘改成 `lineWORKTREE`,然后
-//   `git commit -- PROJECT_PLAN.md`):落库的是 `lineWORKTREE` ⇒ `git commit -- <pathspec>` 取的是
-//   **工作树**版本,而 Step 2 的 `git add -A -- <声明文件>` 刚把工作树字节灌进索引 ⇒ 在 Step 3
-//   这一刻"暂存内容 == 磁盘副本"。所以本器确实不产出行,但它是**整条"按 pathspec 交磁盘副本"
+//   `git commit -- PROJECT_PLAN.md`):落库的是 `lineWORKTREE` ⇒ pathspec 提交取的是
+//   **工作树**版本;2026-10-12 起 Step 4 改普通提交,落地的是索引,而 Step 2 的
+//   `git add -A -- <声明文件>` 刚把工作树字节灌进索引 ⇒ 在 Step 3 这一刻"暂存内容 ==
+//   磁盘副本"两种形态下都成立。所以本器确实不产出行,但它是**整条"交磁盘副本"
 //   通道的入口** —— AGENTS §12 记的一夜三次自伤走的正是这条路,而 live-doc-edit 那一步只管得住
 //   "经它落地"的写入。不接这一格,结论就是"绕过 live-doc-edit 直接改磁盘 + safe-commit 提交 =
 //   零看守",那正好把票面要掐的成因留在原处。可判对象 = 暂存内容与 HEAD 的行差集里、
@@ -653,12 +658,23 @@ if (dryRun) {
   process.exit(0)
 }
 
-// ─── 4. git commit -- <pathspec>(两阶段重试,与 git-push-guard 逻辑一致) ──
+// ─── 4. git commit(普通提交,两阶段重试,与 git-push-guard 逻辑一致)───────────
+// 2026-10-12:去掉 `-- ...expectedFiles` pathspec —— 那是**确定性自碰撞**,不是运气问题:
+// pathspec/--only 提交在钩子运行期间由父 git 持 `.git/index.lock`(GIT_INDEX_FILE=
+// next-index-*.lock;2026-10-08 探针实测 --only 钩子期 LOCK-HELD / plain 提交 NO-LOCK,
+// pre-commit-hook.js "同款指纹的第二种病"一节记着),而 lint-staged 的 `git add` /
+// `git restore --worktree` 要写真实索引 ⇒ 每次都撞 index.lock,退避梯(10s/30s/60s)
+// 全灭。2026-10-12 safe-commit 十连败(每次都是 lint-staged git add exit 128)即此形态,
+// 现场实证:持锁的 git commit 进程与 next-index-<pid>.lock 并存。钩子文件自带的处方
+// 就是"改用普通提交,先确认暂存区只剩本笔文件"—— 本脚本 Step 1-3 正是干这个的:
+// reset → 声明式 add → 暂存区精确匹配,且全流程在 git 写锁伞下串行(LOCK_UNIT)。
+// 活文档对账(3e/3f 与守门 check-live-doc-pathspec 的 --staged 档)判的是**索引**内容,
+// 与提交形态无关,普通提交下依旧成立(索引 == 声明文件的工作树字节,Step 2 保证)。
 // 设计: 首次**不跳过** pre-commit hook, 让 22 项质量守门(API key/i18n/schema
 // drift/lint-staged/check-staged-files 等)正常运行; 失败后再用 --no-verify 重试,
 // 保证多 agent 并行时其他 agent 的 typecheck/lint 错误不阻塞本任务 commit。
 // 修复前: 一律 --no-verify 跳过, 等于把质量守门全关(与"多层防线"设计矛盾)。
-log('info', 'Step 4/5: git commit -- <pathspec> — 首次尝试(含 pre-commit hook)')
+log('info', 'Step 4/5: git commit(普通提交,不带 pathspec)— 首次尝试(含 pre-commit hook)')
 // 并发基线(2026-09-16 修):记录 commit 前的 HEAD,供 Step 5 精确定位"本次创建的提交"。
 // 原 Step 5 直接校验 `git show HEAD`,多 agent 并行时若其他 agent 在本脚本 commit 落地后、
 // Step 5 执行前抢先提交,HEAD 即前移 → 误判"污染事故"并误导 agent 执行 git reset HEAD~1
@@ -676,8 +692,6 @@ const commitArgs = (skipHooks) => [
   ...(skipHooks ? ['--no-verify'] : []),
   '-m',
   finalMessage,
-  '--',
-  ...expectedFiles,
 ]
 const pump = (r) => {
   if (r.stdout) process.stdout.write(r.stdout)
@@ -921,7 +935,7 @@ if (hookFailed && commitResult.status !== 0) {
   if (foreignStaged.length > 0)
     log(
       'info',
-      `索引/工作树里另有 ${foreignStaged.length} 个非本票项(其中索引 ${stagedNow.filter((p) => !expectedFiles.includes(p)).length}、未跟踪 ${untrackedNow.filter((p) => !expectedFiles.includes(p)).length}、已跟踪未暂存 ${worktreeNow.filter((p) => !expectedFiles.includes(p)).length};例:${foreignStaged.slice(0, 6).join(', ')}${foreignStaged.length > 6 ? ' …' : ''}) —— 不随本枚提交走:commit 带 pathspec,只交上面声明的清单,故不中止(第一版在此中止反而自锁:并发会话随时可能 staged 东西,而它本来也进不来)`,
+      `索引/工作树里另有 ${foreignStaged.length} 个非本票项(其中索引 ${stagedNow.filter((p) => !expectedFiles.includes(p)).length}、未跟踪 ${untrackedNow.filter((p) => !expectedFiles.includes(p)).length}、已跟踪未暂存 ${worktreeNow.filter((p) => !expectedFiles.includes(p)).length};例:${foreignStaged.slice(0, 6).join(', ')}${foreignStaged.length > 6 ? ' …' : ''}) —— 不随本枚提交走:普通提交只交索引内容,Step 2/3 已保证索引恰是声明的清单,故不中止(第一版在此中止反而自锁:并发会话随时可能 staged 东西,而它本来也进不来)`,
     )
   const verdict0 = classifyHookFailure({
     text: hookOutput,
@@ -1127,7 +1141,7 @@ if (hookFailed && commitResult.status !== 0) {
       log(
         'info',
         `索引里另有 ${reUnexpected.length} 个非本票文件(${reUnexpected.slice(0, 5).join(',')}…) —— ` +
-          '不随本枚提交走:commit 带 pathspec,只交上面声明的清单,故不中止(第一版在此中止反而自锁:' +
+          '不随本枚提交走:普通提交只交索引内容,而 Step 2/3 已保证索引恰是上面声明的清单,故不中止(第一版在此中止反而自锁:' +
           '并发会话随时可能 staged 东西,而它本来也进不来)',
       )
     }
