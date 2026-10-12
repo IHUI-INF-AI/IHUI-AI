@@ -63,7 +63,18 @@ try {
     Write-Warning 'WARN console-output-encoding NOT set to UTF-8; deploy-loop.log will keep mojibake for CJK lines'
 }
 
-$Root       = 'D:\IHUI-AI'
+# ── 仓库根:一律由脚本自身位置推导,禁止写死盘符(2026-10-12 立)────────────────
+# 旧值把 $Root 直接写死为生产机盘符根(字面量,可查 git 历史),只在那台机器成立:
+# 同一份仓在开发机落在 G:\IHUI-AI,两端就解析出两个根 —— 一边改一边不改,看起来
+# "不同步",实际是同一份代码被操作到了两个目录(ihui-root-common.ps1 立因段
+# 点名的第一处事故就是本行,deploy 面共 23 处同型写死)。与 scripts/build-next-prod.ps1:44 同范式:根目录一律由脚本
+# 自身位置推导(旧盘符写死是事故源);解析走 deploy\win\ihui-root-common.ps1
+# 这个**唯一出口**,本文件不另写一遍向上爬目录的逻辑(判据唯一出口,同
+# deploy-lock-common.ps1 立的规矩)。$env:IHUI_ROOT 可显式覆盖(双根并存/换机
+# 时用),覆盖值没有 package.json 会当场 throw,绝不静默用错根继续。
+# $WebDir/$ApiDir 等均由 $Root 派生,随动即可,无需逐个改。
+. (Join-Path $PSScriptRoot 'ihui-root-common.ps1')
+$Root       = Resolve-IhuiProjectRoot -StartDir $PSScriptRoot
 $WebDir     = "$Root\apps\web"
 $ApiDir     = "$Root\apps\api"
 # ── 构建取源码面:干净导出(worktree @ 目标 SHA)而**不再是共享工作树**(2026-09-29 机主拍板)──

@@ -27,7 +27,11 @@
 #   正反用例在 monitoring/prometheus/tests/pg-slow-query.test.yml(P11)。
 #   指标未上采前,两条规则按 scripts/data/inert-alert-rules.json 的待偿账裁 deferred。
 
-pg_query_max_duration_seconds:
+# 组名刻意叫 pg_query_max_duration(不带 _seconds):postgres_exporter 的扩展查询
+# 指标名 = <组名>_<列名>,列别名叫 seconds ⇒ 最终序列名 pg_query_max_duration_seconds,
+# 与 alerts.yml / P6 台账引用的名字逐字一致(2026-10-12 实测:组名带 _seconds 会拼出
+# pg_query_max_duration_seconds_seconds,规则永远匹配不上 —— "永不匹配的告警与没有规则等价")。
+pg_query_max_duration:
   query: |
     SELECT datname,
            COALESCE(MAX(EXTRACT(EPOCH FROM (now() - query_start))), 0) AS seconds
