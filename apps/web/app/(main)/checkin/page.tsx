@@ -80,6 +80,7 @@ import {
   checkinAuditTraeResidual,
   checkinCaptureJwts,
   checkinCaptureQoder,
+  checkinCaptureWorkbuddy,
   checkinDetectTraeDir,
   checkinGetPublicIp,
   checkinOneClickReset,
@@ -90,6 +91,7 @@ import {
   checkinSnapshotRestore,
   type CapturedQoderSession,
   type CapturedTraeAccount,
+  type CapturedWorkbuddySession,
   type CheckinResidualAuditReport,
   type CheckinSnapshotSummary,
 } from '@/lib/tauri-bridge'
@@ -179,10 +181,19 @@ export default function CheckinPage() {
   const [qoderCaptured, setQoderCaptured] = React.useState<CapturedQoderSession[]>([])
   const [qoderCapturedSelected, setQoderCapturedSelected] = React.useState<Set<string>>(new Set())
 
-  // 平台筛选(平台化,2026-10-10):'all' | 'trae' | 'qoder'
-  const [platformFilter, setPlatformFilter] = React.useState<'all' | 'trae' | 'qoder'>('all')
+  // 平台筛选(平台化,2026-10-10;2026-10-12 增 workbuddy):'all' | 'trae' | 'workbuddy' | 'qoder'
+  const [platformFilter, setPlatformFilter] = React.useState<
+    'all' | 'trae' | 'workbuddy' | 'qoder'
+  >('all')
   // 录入对话框的平台选择(默认 trae 与存量语义一致)
-  const [addPlatform, setAddPlatform] = React.useState<'trae' | 'qoder'>('trae')
+  const [addPlatform, setAddPlatform] = React.useState<'trae' | 'workbuddy' | 'qoder'>('trae')
+
+  // WorkBuddy 本机捕获(2026-10-12 第三平台):复用 capturing/importing/captureError。
+  // 5.8+ 登录态加密 ⇒ encrypted 行 token 为空,wbTokenDrafts 保存每行的手动粘贴值。
+  const [wbCaptureOpen, setWbCaptureOpen] = React.useState(false)
+  const [wbCaptured, setWbCaptured] = React.useState<CapturedWorkbuddySession[]>([])
+  const [wbCapturedSelected, setWbCapturedSelected] = React.useState<Set<string>>(new Set())
+  const [wbTokenDrafts, setWbTokenDrafts] = React.useState<Record<string, string>>({})
 
   // 本机 TRAE 维护(设备重置 + 快照管理,桌面端专属)
   const [maintOpen, setMaintOpen] = React.useState(false)
@@ -433,6 +444,86 @@ export default function CheckinPage() {
       setCaptureError(failures.join('；'))
     } else {
       setQoderCaptureOpen(false)
+      setBatchNotice(t('captureImported', { count: okCount }))
+      await loadAll()
+    }
+  }
+
+  // ================== WorkBuddy 本机捕获(桌面端专属,2026-10-12) ==================
+
+  // 会话去重键(uid 空时退回源文件路径)
+  const wbKey = (s: CapturedWorkbuddySession) => s.uid || s.auth_file
+
+  // 登录态 → 录入 device_map(WorkBuddy 引擎契约:uid / domain / expires_at)
+  const wbDeviceMap = (s: CapturedWorkbuddySession): Record<string, unknown> => {
+    const dm: Record<string, unknown> = {}
+    if (s.uid) dm.uid = s.uid
+    if (s.domain) dm.domain = s.domain
+    if (s.expires_at > 0) dm.expires_at = s.expires_at
+    return dm
+  }
+
+  const openWbCapture = () => {
+    setWbCaptureOpen(true)
+    setCaptureError(null)
+    setWbCaptured([])
+    setWbCapturedSelected(new Set())
+    setWbTokenDrafts({})
+  }
+
+  const runWbCapture = async () => {
+    setCapturing(true)
+    setCaptureError(null)
+    try {
+      const found = await checkinCaptureWorkbuddy()
+      setWbCaptured(found)
+      setWbCapturedSelected(new Set(found.map(wbKey)))
+      // 加密行 token 为空,预填空草稿等用户粘贴
+      const drafts: Record<string, string> = {}
+      for (const s of found) if (s.encrypted) drafts[wbKey(s)] = ''
+      setWbTokenDrafts(drafts)
+      if (found.length === 0) setCaptureError(t('captureWbEmpty'))
+    } catch (e) {
+      setCaptureError((e as Error).message)
+    } finally {
+      setCapturing(false)
+    }
+  }
+
+  // 逐个入库:platform='workbuddy',jwt 字段=token(加密行取用户粘贴的草稿)
+  const importWbCaptured = async () => {
+    const picked = wbCaptured.filter((s) => wbCapturedSelected.has(wbKey(s)))
+    if (picked.length === 0) return
+    setImporting(true)
+    setCaptureError(null)
+    let okCount = 0
+    const failures: string[] = []
+    for (const item of picked) {
+      const token = item.access_token || (wbTokenDrafts[wbKey(item)] || '').trim()
+      if (!token) {
+        failures.push(
+          `${item.nickname || item.uid}: ${t('captureWbTokenRequired')}`,
+        )
+        continue
+      }
+      try {
+        await createCheckinAccount({
+          name: `WorkBuddy-${item.nickname || item.uid || '本机'}`,
+          jwt: token,
+          device_map: wbDeviceMap(item),
+          group: groupFilter !== 'all' ? groupFilter : '',
+          platform: 'workbuddy',
+        })
+        okCount += 1
+      } catch (e) {
+        failures.push(`${item.nickname || item.uid || item.auth_file}: ${(e as Error).message}`)
+      }
+    }
+    setImporting(false)
+    if (failures.length > 0) {
+      setCaptureError(failures.join('；'))
+    } else {
+      setWbCaptureOpen(false)
       setBatchNotice(t('captureImported', { count: okCount }))
       await loadAll()
     }
@@ -1044,16 +1135,18 @@ export default function CheckinPage() {
   // 是否有三线快照数据(任一日 total 非空即启用三线图,否则降级本地累计)
   const hasDailySeries = !!creditsDaily && creditsDaily.series.total.some((v) => v !== null)
 
-  // 平台徽章(品牌名不进 i18n):qoder 紫 / trae 橙,与分组徽章同形态
+  // 平台徽章(品牌名不进 i18n):qoder 紫 / trae 橙 / workbuddy 绿,与分组徽章同形态
   const renderPlatformBadge = (platform: string | undefined) => (
     <span
       className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${
         platform === 'qoder'
           ? 'border-purple-500/40 bg-purple-500/10 text-purple-600'
-          : 'border-orange-500/40 bg-orange-500/10 text-orange-600'
+          : platform === 'workbuddy'
+            ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600'
+            : 'border-orange-500/40 bg-orange-500/10 text-orange-600'
       }`}
     >
-      {platform === 'qoder' ? 'Qoder' : 'TRAE'}
+      {platform === 'qoder' ? 'Qoder' : platform === 'workbuddy' ? 'WorkBuddy' : 'TRAE'}
     </span>
   )
 
@@ -1141,6 +1234,10 @@ export default function CheckinPage() {
                 <Laptop className="mr-1 h-4 w-4" />
                 {t('captureQoderButton')}
               </Button>
+              <Button variant="outline" size="sm" onClick={openWbCapture}>
+                <Laptop className="mr-1 h-4 w-4" />
+                {t('captureWbButton')}
+              </Button>
               <Button variant="outline" size="sm" onClick={() => void openMaint()}>
                 <Wrench className="mr-1 h-4 w-4" />
                 {t('maintTitle')}
@@ -1207,11 +1304,14 @@ export default function CheckinPage() {
                   data-testid="platform-filter"
                   aria-label={t('platformAll')}
                   value={platformFilter}
-                  onChange={(e) => setPlatformFilter(e.target.value as 'all' | 'trae' | 'qoder')}
+                  onChange={(e) =>
+                    setPlatformFilter(e.target.value as 'all' | 'trae' | 'workbuddy' | 'qoder')
+                  }
                   className="h-8 rounded-sm border bg-background px-2 text-xs"
                 >
                   <option value="all">{t('platformAll')}</option>
                   <option value="trae">{t('platformTrae')}</option>
+                  <option value="workbuddy">{t('platformWorkbuddy')}</option>
                   <option value="qoder">{t('platformQoder')}</option>
                 </select>
                 {distinctGroups.length > 0 && (
@@ -1630,10 +1730,11 @@ export default function CheckinPage() {
                 id="checkin-platform"
                 data-testid="platform-select"
                 value={addPlatform}
-                onChange={(e) => setAddPlatform(e.target.value as 'trae' | 'qoder')}
+                onChange={(e) => setAddPlatform(e.target.value as 'trae' | 'workbuddy' | 'qoder')}
                 className="h-9 w-full rounded-sm border bg-background px-2 text-sm"
               >
                 <option value="trae">{t('platformTrae')}</option>
+                <option value="workbuddy">{t('platformWorkbuddy')}</option>
                 <option value="qoder">{t('platformQoder')}</option>
               </select>
             </div>
@@ -1972,6 +2073,98 @@ export default function CheckinPage() {
               >
                 {importing && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
                 {t('captureImport', { count: qoderCapturedSelected.size })}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* 本机 WorkBuddy 捕获对话框(桌面端专属,2026-10-12 第三平台);
+          加密行(5.8+ 信封)展示 token 粘贴框,明文行直接导入 */}
+      {desktop && (
+        <Dialog open={wbCaptureOpen} onOpenChange={setWbCaptureOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('captureWbTitle')}</DialogTitle>
+              <DialogDescription>{t('captureWbDescription')}</DialogDescription>
+            </DialogHeader>
+            {captureError && (
+              <p role="alert" className="text-sm text-destructive">
+                {captureError}
+              </p>
+            )}
+            {wbCaptured.length > 0 && (
+              <div className="max-h-72 space-y-2 overflow-y-auto">
+                {wbCaptured.map((item) => {
+                  const key = wbKey(item)
+                  return (
+                    <div key={key} className="space-y-1">
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          aria-label={`captureWbAccount:${key}`}
+                          checked={wbCapturedSelected.has(key)}
+                          onChange={(e) => {
+                            setWbCapturedSelected((prev) => {
+                              const next = new Set(prev)
+                              if (e.target.checked) next.add(key)
+                              else next.delete(key)
+                              return next
+                            })
+                          }}
+                        />
+                        <span className="font-mono">{item.nickname || item.uid || '本机会话'}</span>
+                        <span className="truncate text-xs text-muted-foreground">
+                          {item.domain}
+                          {item.expires_at > 0
+                            ? ` · ${new Date(item.expires_at * 1000).toLocaleString()}`
+                            : ''}
+                        </span>
+                        {item.encrypted && (
+                          <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600">
+                            {t('captureWbEncrypted')}
+                          </span>
+                        )}
+                      </label>
+                      {item.encrypted && wbCapturedSelected.has(key) && (
+                        <input
+                          data-testid={`wb-token-input:${key}`}
+                          type="password"
+                          autoComplete="off"
+                          value={wbTokenDrafts[key] ?? ''}
+                          onChange={(e) =>
+                            setWbTokenDrafts((prev) => ({ ...prev, [key]: e.target.value }))
+                          }
+                          placeholder={t('captureWbTokenPlaceholder')}
+                          className="ml-6 h-8 w-[calc(100%-1.5rem)] rounded-sm border bg-background px-2 font-mono text-xs"
+                        />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            <DialogFooter>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={capturing}
+                onClick={() => void runWbCapture()}
+              >
+                {capturing ? (
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-1 h-4 w-4" />
+                )}
+                {t('captureWbScan')}
+              </Button>
+              <Button
+                size="sm"
+                disabled={capturing || importing || wbCapturedSelected.size === 0}
+                onClick={() => void importWbCaptured()}
+              >
+                {importing && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                {t('captureImport', { count: wbCapturedSelected.size })}
               </Button>
             </DialogFooter>
           </DialogContent>
