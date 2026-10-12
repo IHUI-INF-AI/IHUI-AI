@@ -20,28 +20,40 @@ const queryArray = z
   .transform((v) => (typeof v === 'string' ? v.split(',').filter(Boolean) : v))
   .pipe(z.array(z.string().max(50)).max(20).optional())
 
+// zod 4 的默认 message 是英文原文,而 error(400, issues[0].message) 会把它原样当
+// 用户可见文案(G-1105302,广场首屏 400 取证顺带量到)⇒ 每个约束显式给中文 message,
+// 与全仓 schema 惯例同形(message 跟着字段走,不做集中映射)。
 const plazaListQuerySchema = z.object({
-  status: z.string().max(20).optional(),
-  taskStatus: z.string().max(20).optional(),
-  search: z.string().max(200).optional(),
-  creator: z.string().max(64).optional(),
+  status: z.string().max(20, 'status 过长').optional(),
+  taskStatus: z.string().max(20, 'taskStatus 过长').optional(),
+  search: z.string().max(200, '搜索词过长').optional(),
+  creator: z.string().max(64, 'creator 过长').optional(),
   types: queryArray,
   categories: queryArray,
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  page: z.coerce.number().int('page 必须是整数').min(1, 'page 至少为 1').default(1),
+  pageSize: z.coerce
+    .number()
+    .int('pageSize 必须是整数')
+    .min(1, 'pageSize 至少为 1')
+    .max(100, 'pageSize 最多为 100')
+    .default(20),
 })
 
 const createPlazaSchema = z.object({
-  title: z.string().trim().min(2).max(200),
-  description: z.string().trim().min(10).max(10000),
-  lowestPrice: z.number().positive().optional(),
-  peakPrice: z.number().positive().optional(),
-  contact: z.string().trim().max(200).optional(),
-  cycle: z.string().trim().max(50).optional(),
-  cycleUnit: z.string().trim().max(20).optional(),
-  closingTime: z.iso.datetime().optional(),
-  types: z.array(z.string().max(50)).max(20).optional(),
-  categories: z.array(z.string().max(50)).max(20).optional(),
+  title: z.string().trim().min(2, '标题至少 2 个字').max(200, '标题最多 200 字'),
+  description: z
+    .string()
+    .trim()
+    .min(10, '描述至少 10 个字')
+    .max(10000, '描述最多 10000 字'),
+  lowestPrice: z.number().positive('价格必须大于 0').optional(),
+  peakPrice: z.number().positive('价格必须大于 0').optional(),
+  contact: z.string().trim().max(200, '联系方式最多 200 字').optional(),
+  cycle: z.string().trim().max(50, '周期最多 50 字').optional(),
+  cycleUnit: z.string().trim().max(20, '周期单位最多 20 字').optional(),
+  closingTime: z.iso.datetime('截止时间格式不正确').optional(),
+  types: z.array(z.string().max(50, '单个类型最多 50 字')).max(20, '类型最多 20 个').optional(),
+  categories: z.array(z.string().max(50, '单个分类最多 50 字')).max(20, '分类最多 20 个').optional(),
 })
 
 // =============================================================================
