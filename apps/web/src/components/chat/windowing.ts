@@ -44,7 +44,18 @@ export interface WindowRange {
 /** 空窗口:start > end(与"没有行"同义,调用侧据此得到 0 行挂载、全量占位)。 */
 const EMPTY_WINDOW: WindowRange = { start: 0, end: -1 }
 
-function isFiniteNumber(value: number): boolean {
+/**
+ * 三态判据:是有限数 ⇒ 收窄成 number。
+ *
+ * 参数必须是 `unknown` 而不是 `number`:本文件所有调用点喂的都是**下标读取**
+ * (`offsets[i]`、`offsets[mid + 1]`、`offsets[count]`),在 `noUncheckedIndexedAccess`
+ * 下类型是 `number | undefined`。上一版把形参写成 `number`,后果不是"少一次检查",而是
+ * ① 四个调用点 TS2345(把可能没值的读数交给只收 number 的函数)、② `isFiniteNumber(here) && here < position`
+ * 这一句里 `here` 完全没有被收窄 ⇒ TS18048,而这正是本函数存在的唯一理由(挡住"量不到"的那一档)。
+ * 声明成类型谓词(`value is number`)之后,判过的分支才真的在类型层脱离 undefined;
+ * `Number.isFinite` 本身对非 number(字符串/NaN/Infinity)一律 false,不做隐式转换,所以放宽入参不放宽语义。
+ */
+function isFiniteNumber(value: unknown): value is number {
   return Number.isFinite(value)
 }
 
