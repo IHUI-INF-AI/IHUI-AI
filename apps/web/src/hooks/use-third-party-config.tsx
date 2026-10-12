@@ -7,6 +7,7 @@
 import * as React from 'react'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
+import { Building2, type LucideIcon } from 'lucide-react'
 
 import { useThirdPartyAuth } from './use-third-party-auth'
 import type { ThirdPartyConfig, ThirdPartyPlatform, ThirdPartyProvider } from '@ihui/ui-react'
@@ -17,11 +18,16 @@ import type { ThirdPartyConfig, ThirdPartyPlatform, ThirdPartyProvider } from '@
  * 2026-07-31 备注:web 端本地 ThirdPartyLoginButtons.tsx 已删除(dead code,
  * LoginDialog 走共享包 LoginForm → 共享 ThirdPartyLoginButtons),本 hook
  * 提供的 8 平台 provider 通过 config 注入到共享包渲染层。
+ *
+ * 图标来源(2026-10-12):品牌平台用 /images/oauth-providers/*.svg;oidc 无品牌标,
+ * 改用项目统一图标库 lucide-react 的 Building2(currentColor 描边,自动适配明暗模式,
+ * 不需要 dark:invert),不再自制 SVG(16px 下糊成一团)。
  */
 const PROVIDER_DEFS: ReadonlyArray<{
   key: ThirdPartyPlatform
   labelKey: string
-  icon: string
+  /** 图标:品牌 SVG 路径(next/image 渲染)或 lucide 图标组件 */
+  icon: string | LucideIcon
   mono?: boolean
   forceDisabled?: boolean
 }> = [
@@ -48,7 +54,7 @@ const PROVIDER_DEFS: ReadonlyArray<{
     mono: true,
     forceDisabled: true,
   },
-  { key: 'oidc', labelKey: 'oidcLogin', icon: '/images/oauth-providers/oidc.svg' },
+  { key: 'oidc', labelKey: 'oidcLogin', icon: Building2 },
 ]
 
 /** URL 回调识别的 8 平台列表(与 useThirdPartyAuth.handleCallback 入参对齐) */
@@ -116,17 +122,22 @@ export function useThirdPartyConfig(): ThirdPartyConfig {
       PROVIDER_DEFS.map((def) => ({
         key: def.key,
         label: t(def.labelKey as 'wechatLogin'),
-        icon: (
-          <Image
-            src={def.icon}
-            alt=""
-            aria-hidden="true"
-            width={16}
-            height={16}
-            className={`h-4 w-4 shrink-0 ${def.mono ? 'dark:invert' : ''}`}
-            unoptimized
-          />
-        ),
+        // 品牌标走 next/image;<img> 内联样式尺寸受控;lucide 组件用 currentColor
+        // 描边,继承按钮文字色,明/暗模式自适应(无需 dark:invert)
+        icon:
+          typeof def.icon === 'string' ? (
+            <Image
+              src={def.icon}
+              alt=""
+              aria-hidden="true"
+              width={16}
+              height={16}
+              className={`h-4 w-4 shrink-0 ${def.mono ? 'dark:invert' : ''}`}
+              unoptimized
+            />
+          ) : (
+            <def.icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+          ),
         enabled: !def.forceDisabled && isPlatformEnabled(def.key),
         forceDisabled: def.forceDisabled,
         mono: def.mono,
