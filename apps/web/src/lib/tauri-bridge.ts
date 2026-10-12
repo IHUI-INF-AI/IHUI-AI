@@ -1542,6 +1542,32 @@ export async function checkinCaptureWorkbuddy(): Promise<CapturedWorkbuddySessio
   return await invokeIpc<CapturedWorkbuddySession[]>('checkin_capture_workbuddy')
 }
 
+/** WorkBuddy 网页登录探测到的账号(与 Rust `WbWebAccount` 对齐,2026-10-12)。 */
+export interface WorkbuddyWebLoginAccount {
+  uid: string
+  nickname: string
+}
+
+/** WorkBuddy 网页登录探测结果(与 Rust `WebLoginProbe` tag= status 逐态对齐)。 */
+export type WorkbuddyWebLoginProbe =
+  | { status: 'no_window' }
+  | { status: 'no_cookie' }
+  | { status: 'not_logged_in' }
+  | { status: 'ok'; cookie: string; accounts: WorkbuddyWebLoginAccount[] }
+  | { status: 'error'; message: string }
+
+/** 打开(或聚焦)WorkBuddy 网页登录窗口(内嵌 WebView 加载 www.workbuddy.cn)。 */
+export async function checkinWorkbuddyWebLoginOpen(): Promise<void> {
+  requireTauri()
+  await invokeIpc<void>('checkin_workbuddy_web_login_open')
+}
+
+/** 轮询探测:读登录窗口 cookie jar(含 HttpOnly)→ Rust 侧验证登录态并取账号。 */
+export async function checkinWorkbuddyWebLoginProbe(): Promise<WorkbuddyWebLoginProbe> {
+  requireTauri()
+  return await invokeIpc<WorkbuddyWebLoginProbe>('checkin_workbuddy_web_login_probe')
+}
+
 /** 十四层设备标识重置;includeMachineGuid=true 额外尝试注册表 MachineGuid(需 UAC);
  *  cleanBrowserCookies=true 额外清理 Chrome/Edge 中 TRAE 域 Cookie(浏览器运行中该层会失败并报告);
  *  deepReset=true 额外执行深度扩面层(TRAE webview Cookies 库本体/state.vscdb 身份凭据键/日志缓存/
