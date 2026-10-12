@@ -25,6 +25,7 @@ import CheckinPage from '../page'
 import {
   checkinAuditTraeResidual,
   checkinCaptureQoder,
+  checkinCaptureJwts,
   checkinCaptureWorkbuddy,
   checkinWorkbuddyWebLoginOpen,
   checkinWorkbuddyWebLoginProbe,
@@ -1046,6 +1047,80 @@ describe('Qoder 平台化(2026-10-10)', () => {
     fireEvent.change(screen.getByTestId('platform-filter'), { target: { value: 'workbuddy' } })
     expect(screen.queryByText('TRAE', { selector: 'span' })).toBeNull()
     expect(screen.getAllByText('WB 账号').length).toBeGreaterThan(0)
+  })
+
+  it('一键获取(TRAE):自动回填 jwt 与名称,用户不必接触 token', async () => {
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    vi.mocked(checkinCaptureJwts).mockResolvedValue([
+      { user_id: 'trae-user-1', jwt: 'eyJtrae.auto', source: 'leveldb:x' },
+      { user_id: 'trae-user-2', jwt: 'eyJtrae.auto2', source: 'leveldb:y' },
+    ])
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('addAccount'))
+    fireEvent.click(screen.getByText('addAutoFetchTrae'))
+    await waitFor(() => expect(screen.getByTestId('add-auto-fetch-msg')).toBeTruthy())
+    const jwtInput = document.getElementById('checkin-jwt') as HTMLTextAreaElement
+    const nameInput = document.getElementById('checkin-name') as HTMLInputElement
+    expect(jwtInput.value).toBe('eyJtrae.auto')
+    expect(nameInput.value).toBe('本机-trae-user-1')
+    expect(screen.getByTestId('add-auto-fetch-msg').textContent).toContain('addAutoFilled')
+    // 回填后点提交即入库(平台默认 trae)
+    fireEvent.click(screen.getByText('submit'))
+    await waitFor(() => expect(createAccount).toHaveBeenCalledTimes(1))
+    expect(createAccount.mock.calls[0]![0].jwt).toBe('eyJtrae.auto')
+  })
+
+  it('一键获取(Qoder):回填 access_token 与 cosy 设备头 device_map', async () => {
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    vi.mocked(checkinCaptureQoder).mockResolvedValue([
+      {
+        app_dir: 'C:/qoder',
+        edition: 'cn',
+        uid: 'qoder-uid-1',
+        access_token: 'qoder-opaque-token',
+        refreshToken: 'rt-1',
+        expires_at: 1794225169,
+        jwt_exp: 0,
+        machine_id: 'mid-1',
+        machine_os: 'win',
+        machine_hostname: 'host-1',
+        machine_token: 'mt-1',
+        machine_code: 'mc-1',
+        machine_type: 'mt',
+        version: '1.0',
+      },
+    ])
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('addAccount'))
+    fireEvent.change(screen.getByTestId('platform-select'), { target: { value: 'qoder' } })
+    fireEvent.click(screen.getByText('addAutoFetchQoder'))
+    await waitFor(() => expect(screen.getByTestId('add-auto-fetch-msg')).toBeTruthy())
+    const jwtInput = document.getElementById('checkin-jwt') as HTMLTextAreaElement
+    const mapInput = document.getElementById('checkin-device-map') as HTMLTextAreaElement
+    expect(jwtInput.value).toBe('qoder-opaque-token')
+    const dm = JSON.parse(mapInput.value)
+    expect(dm.uid).toBe('qoder-uid-1')
+    expect(dm.refresh_token).toBe('rt-1')
+    expect(dm.expires_at).toBe(1794225169)
+    expect(dm.cosy.machine_id).toBe('mid-1')
+    fireEvent.click(screen.getByText('submit'))
+    await waitFor(() => expect(createAccount).toHaveBeenCalledTimes(1))
+    expect(createAccount.mock.calls[0]![0].platform).toBe('qoder')
+  })
+
+  it('一键获取(WorkBuddy):转跳捕获对话框(内含网页登录),不在本框内填 token', async () => {
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('addAccount'))
+    fireEvent.change(screen.getByTestId('platform-select'), { target: { value: 'workbuddy' } })
+    fireEvent.click(screen.getByText('addAutoFetchWorkbuddy'))
+    // 录入框关闭、WorkBuddy 捕获对话框打开(网页登录区块在里面)
+    await waitFor(() => expect(screen.getByText('captureWbTitle')).toBeTruthy())
+    expect(screen.getByText('captureWbWebTitle')).toBeTruthy()
+    expect(checkinCaptureJwts).not.toHaveBeenCalled()
   })
 })
 
