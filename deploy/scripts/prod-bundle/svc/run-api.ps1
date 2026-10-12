@@ -15,7 +15,29 @@ $env:PATH = "D:\DevEnv\runtimes\node;D:\DevEnv\tools\npm-global;$env:PATH"
 if (Test-Path "D:\DevEnv\secrets\swagger-api-key.txt") {
     $env:SWAGGER_API_KEY = (Get-Content "D:\DevEnv\secrets\swagger-api-key.txt" -Raw).Trim()
 }
-Set-Location "D:\IHUI-AI\apps\api"
+
+# 仓库根不再写死(2026-10-12):把仓库路径写死进生产启动脚本,换机/换根后 NSSM 起的服务
+# 会指向错误目录、跑错代码(下方 tsx preflight/loader 的绝对路径写错时 API 直接起不来)。
+# 唯一解析实现在 deploy\win\ihui-root-common.ps1;本脚本有两份落点(入库源
+# deploy\scripts\prod-bundle\svc 与生产实际执行的 deploy\prod-bundle\svc,相差 1 级),
+# 写死相对深度必有一份算错 ⇒ 自 $PSScriptRoot 逐级向上找 helper,找不到当场 throw ——
+# 这是生产启动路径,宁可大声失败也不带着错根继续。
+$ihuiRootCommon = $null
+$ihuiProbe = $PSScriptRoot
+for ($ihuiUp = 0; $ihuiUp -le 12; $ihuiUp++) {
+    $ihuiCandidate = Join-Path $ihuiProbe 'deploy\win\ihui-root-common.ps1'
+    if (Test-Path -LiteralPath $ihuiCandidate) { $ihuiRootCommon = $ihuiCandidate; break }
+    $ihuiParent = Split-Path -Path $ihuiProbe -Parent
+    if ([string]::IsNullOrEmpty($ihuiParent) -or $ihuiParent -eq $ihuiProbe) { break }
+    $ihuiProbe = $ihuiParent
+}
+if (-not $ihuiRootCommon) {
+    throw "run-api.ps1: 自 $PSScriptRoot 向上未找到 deploy\win\ihui-root-common.ps1 —— 解析不出仓库根,拒绝启动服务"
+}
+. $ihuiRootCommon
+$Root = Resolve-IhuiProjectRoot -StartDir $PSScriptRoot
+
+Set-Location (Join-Path $Root 'apps\api')
 
 # =============================================================================
 # PostgreSQL readiness 前置轮询 —— G-208 留下的第三格(2026-09-27 补)
@@ -173,7 +195,7 @@ $pgExe = $null
 $pgEndpoint = $null
 try {
     $pgExe = Resolve-IhuiPgIsReady
-    $pgEndpoint = Get-IhuiApiDbEndpoint -EnvFile "D:\IHUI-AI\apps\api\.env"
+    $pgEndpoint = Get-IhuiApiDbEndpoint -EnvFile (Join-Path $Root 'apps\api\.env')
 } catch {
     Write-Host "[IHUI-API] ⚠ 降级:解析 pg_isready / DATABASE_URL 时异常($($_.Exception.Message)),跳过就绪前置并直接启动" -ForegroundColor Yellow
 }
@@ -182,7 +204,7 @@ if ($PgWaitSeconds -le 0) {
 } elseif (-not $pgExe) {
     Write-Host "[IHUI-API] ⚠ 降级:找不到 pg_isready.exe(候选:PATH / D:\DevEnv\runtimes\pgsql\bin / {C,D}:\Program Files\PostgreSQL\<大版本>\bin),跳过就绪前置并直接启动 —— 本机没有这套前置机制,不等于库已就绪。处置:装 postgresql 客户端工具,或把它的 bin 加进本脚本可见的 PATH。" -ForegroundColor Yellow
 } elseif (-not $pgEndpoint) {
-    Write-Host "[IHUI-API] ⚠ 降级:读不到 D:\IHUI-AI\apps\api\.env 里的 DATABASE_URL,无法确定要等哪个端点 ⇒ 跳过就绪前置并直接启动(API 会按自己的路径因缺 DATABASE_URL 退出,那是另一条已加固的失败出口)。" -ForegroundColor Yellow
+    Write-Host "[IHUI-API] ⚠ 降级:读不到 $(Join-Path $Root 'apps\api\.env') 里的 DATABASE_URL,无法确定要等哪个端点 ⇒ 跳过就绪前置并直接启动(API 会按自己的路径因缺 DATABASE_URL 退出,那是另一条已加固的失败出口)。" -ForegroundColor Yellow
 } else {
     $ready = $true
     try {
@@ -200,8 +222,11 @@ if ($PgWaitSeconds -le 0) {
     }
 }
 
+# tsx loader 走 --import 必须是 file:/// URI:Windows 反斜杠不能直接拼进 URI,先经 [Uri]
+# 规范化成正斜杠 + 百分号转义(AbsoluteUri 形如 file:///D:/... 或 file:///G:/...,三斜杠)。
+$tsxLoaderUri = ([Uri](Join-Path $Root 'apps\api\node_modules\tsx\dist\loader.mjs')).AbsoluteUri
 & "D:\DevEnv\runtimes\node\node.exe" `
-  --require "D:\IHUI-AI\apps\api\node_modules\tsx\dist\preflight.cjs" `
-  --import "file:///D:/IHUI-AI/apps/api/node_modules/tsx/dist/loader.mjs" `
+  --require "$(Join-Path $Root 'apps\api\node_modules\tsx\dist\preflight.cjs')" `
+  --import "$tsxLoaderUri" `
   src/index.ts
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
