@@ -16,14 +16,20 @@
  *   但预热此前只挂在 scripts/start-dev.ps1,普通 `pnpm dev`(含 turbo、
  *   以及 start-dev.ps1 注册表里的 `pnpm --filter @ihui/web dev`)完全没有 →
  *   每个页面首次点击必冷编译。本脚本把预热并入 dev 入口本身:照旧用原命令启动,
- *   无需换命令、不会顺带拉起 api / ai-service。
+ *   无需换命令即可拿到预热。
  *
  * 行为(顺序即安全边界,不可重排):
  *   0. 先拿 dev 锁(**本进程**做持有人,心跳盯自己的 pid,退出经 quit() 交还);
  *   0.5 锁内前置:① `unlock-dev-prefetch.mjs`(改 next dist 的 dev 预取守卫)
  *       ② 缓存治理 —— 默认 `clean-turbopack-cache.mjs`(超阈值才清);带 `--purge` 则整清
  *       `apps/web/.next` + `apps/web/.dev.lock`;
+ *   0.7 后端保证(2026-10-12 根治「前端能开、后端没起」):起 next dev **之前**先经
+ *       `dev-stack.mjs` 把 postgres/redis/api/ai-service 探活并补齐,必需三件套
+ *       (postgres/redis/api)起不来 ⇒ 打印修复指引后 quit(1) 阻断前端启动 —— 否则
+ *       拿到的是一个"页面能访问、接口全 500"的假活前端,比直接起不来更难查。
+ *       详见 BACKEND 段落;逃生档 `--no-backend`(后端由你自己管)。
  *   1. 前台 spawn `next dev [--turbopack] -p 8801`(stdio / 退出码透传);
+ *   1.5 运行期看守:每 30s 复探后端,掉线自动经 dev-stack 重拉(冷却 60s 防刷屏);
  *   2. (仅默认档)等 http://localhost:8801 就绪后,以 detached 后台进程跑
  *      `warm-dev-routes.mjs`(默认 PRIORITY_ROUTES 全量 36 条),
  *      日志 .ihui-agent/tmp/dev-logs/web-warmup.log;
@@ -43,11 +49,13 @@
  *   node scripts/dev-with-warmup.mjs                          # 等价旧 `dev`
  *   node scripts/dev-with-warmup.mjs --purge                  # 等价旧 `dev:clean`
  *   node scripts/dev-with-warmup.mjs --purge --no-turbopack    # 等价旧 `dev:stable`
+ *   node scripts/dev-with-warmup.mjs --no-backend             # 跳过后端保证(后端自管)
  * 未知参数 ⇒ exit 2 并打印用法(静默忽略会让"以为自己在整清"的人拿到一份没整清的启动)。
  */
 
 import { spawn, spawnSync } from 'node:child_process'
 import { mkdirSync, openSync, rmSync } from 'node:fs'
+import net from 'node:net'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { randomBytes } from 'node:crypto'
@@ -65,19 +73,24 @@ const DEPLOY_LOCK_SCRIPT = path.join(REPO_ROOT, 'scripts', 'deploy-lock.mjs')
 // 本进程自己的凭据:acquire 时给定 ⇒ 心跳与释放都凭同一枚,不需要从 stdout 里把别人打印的
 // token 抠回来(那是一条会被改文案打断的隐式契约)。
 const LOCK_TOKEN = randomBytes(16).toString('hex')
-// 参数只有三档,未知参数直接判死(见文件头"用法")。
+// 参数只有四档,未知参数直接判死(见文件头"用法")。
 const ARGV = process.argv.slice(2)
-const UNKNOWN_ARG = ARGV.find((a) => a !== '--purge' && a !== '--no-turbopack')
+const ALLOWED_ARGS = new Set(['--purge', '--no-turbopack', '--no-backend'])
+const UNKNOWN_ARG = ARGV.find((a) => !ALLOWED_ARGS.has(a))
 if (UNKNOWN_ARG) {
   console.error(
     `[dev-warmup] 未知参数:${UNKNOWN_ARG}\n` +
-      '  只接受 --purge(整清 apps/web/.next 与 .dev.lock)与 --no-turbopack(起普通 dev)。\n' +
+      '  只接受 --purge(整清 apps/web/.next 与 .dev.lock)、--no-turbopack(起普通 dev)\n' +
+      '  与 --no-backend(跳过后端保证)。\n' +
       '  静默忽略未知参数 = 让"以为自己在整清"的人拿到一份没整清的启动。',
   )
   process.exit(2)
 }
 const PURGE = ARGV.includes('--purge')
 const TURBOPACK = !ARGV.includes('--no-turbopack')
+// 后端保证的逃生档:只在"后端由别的会话 / 我自己管、不想让本脚本碰它"时用。
+// 它不是默认,也不是推荐 —— 用了它就回到改前那条老路(前端能开、后端没人管)。
+const SKIP_BACKEND = ARGV.includes('--no-backend')
 // 锁内前置要派生的两个脚本(与本脚本同目录,按自身位置推导,不跟 cwd 走)。
 const PREFETCH_SCRIPT = path.join(REPO_ROOT, 'scripts', 'unlock-dev-prefetch.mjs')
 const CACHE_HYGIENE_SCRIPT = path.join(REPO_ROOT, 'scripts', 'clean-turbopack-cache.mjs')
@@ -209,13 +222,273 @@ function runStep(file) {
   }
 }
 
-// 1) 前台 dev server。经 shell 执行,与原来的 `next dev --turbopack -p 8801` 完全等价
-//    (由 npm/pnpm 注入的 PATH 解析 apps/web/node_modules/.bin/next,跨平台通吃)。
-const dev = spawn(`next dev${TURBOPACK ? ' --turbopack' : ''} -p ${PORT}`, {
-  cwd: WEB_DIR,
-  stdio: 'inherit',
-  shell: true,  windowsHide: true, // 防 Windows 弹可见 cmd 窗口
-})
+// ============ 0.7) 后端保证(2026-10-12 根治「前端能开、后端没起」) ============
+// 为什么住在 web 的启动器里,而不是"起 web 时顺手提醒一句":
+//   改前 `pnpm --filter @ihui/web dev`(以及 turbo 里 api 那条挂掉的档)起完 next dev
+//   就算完事,后端死活无人负责 —— 结果就是 8801 能开、接口全 500,比"前端直接起不来"
+//   更难查(你会先怀疑前端)。用户拍板:后端就绪是前端的**硬前置门**,起不来就阻断。
+// 为什么探活与拉起全部委托 dev-stack.mjs,这里不自己拼一份:
+//   探活(双栈 TCP + HTTP)、依赖顺序(postgres→redis→api)、.env 预检(canStart)、
+//   僵尸清理(killStale)、日志落盘(.tmp-sync/dev-stack-*.log)、以及**基础设施端口真值**
+//   (PG/Redis 端口从 apps/api/.env 的 DSN 解析)全都已在那里成文 —— 本机 PG 在 5432、
+//   Redis(Memurai)在 6379,端口表里的 8810/8811 是约定形态,在此处再硬编码一遍端口
+//   就是第二份会漂移的真值(本仓记过多次)。⇒ 这里只认**服务名**,端口一律问 dev-stack。
+// 唯一自探的是 8802:它是应用端口(约定=实况),且要为"正在启动中"的宽限窗口做秒级轮询,
+// 不值得为此 spawn 一次子进程。
+const DEV_STACK_SCRIPT = path.join(REPO_ROOT, 'scripts', 'dev-stack.mjs')
+const BACKEND_REQUIRED = ['postgres', 'redis', 'api'] // 起不来 ⇒ 阻断前端启动
+const BACKEND_OPTIONAL = ['ai-service'] // 挂了只告警(与 dev-stack 的 required:false 同判据)
+const BACKEND_ALL = [...BACKEND_REQUIRED, ...BACKEND_OPTIONAL]
+const API_PORT = 8802 // 应用端口,非基础设施端口,硬编码与 dev-port-registry.json 一致
+const API_HEALTH = `http://localhost:${API_PORT}/health`
+const BACKEND_GRACE_MS = 60_000 // "端口已监听但 /health 未通"的在启动宽限窗口
+const BACKEND_TIMEOUT_S = 240 // dev-stack 单服务就绪等待
+//   240 而非其默认 120:本机 api 冷启动在负载高时(预热 + 编译同跑)实测两次 >120s ——
+//   dev-stack 到点会给还在启动的 api 上 killStale 再开一轮,**每次重试都把冷启动时钟
+//   归零**,于是"永远差一点点"地无限打转(2026-10-12 12:51~12:56 连续两轮 start-timeout
+//   即此型)。把窗口放宽到 240s 给它跑完;随之 spawnSync 上限也放宽(四服务最坏串行)。
+const WATCHDOG_INTERVAL_MS = 30_000 // 运行期复探间隔
+const WATCHDOG_COOLDOWN_MS = 60_000 // 一次重拉失败后的重试冷却(防刷屏)
+
+function tcpOpen(port, timeout = 1200) {
+  return new Promise((resolve) => {
+    const sock = net.connect({ port, host: '127.0.0.1' })
+    const done = (ok) => {
+      sock.destroy()
+      resolve(ok)
+    }
+    sock.setTimeout(timeout)
+    sock.once('connect', () => done(true))
+    sock.once('timeout', () => done(false))
+    sock.once('error', () => done(false))
+  })
+}
+
+async function apiHealthy() {
+  try {
+    const res = await fetch(API_HEALTH, { signal: AbortSignal.timeout(3000) })
+    return res.status < 500
+  } catch {
+    return false
+  }
+}
+
+// 跑一轮 dev-stack(--json 拿结构化结果,便于区分"必需"与"可选"分别处置)。
+// 不用 --json 就只能看退出码 ⇒ 必然把 ai-service 的可选失败也当成阻断,语义就错了。
+// 一次覆盖 BACKEND_ALL:ensure 对已就绪服务只探活、不重复拉起,所以"全探"既是最简单
+// 的调用形态,也天然免去"先自探再决定探哪些"这一步(那需要在本地再写一份端口真值)。
+function runDevStack() {
+  const r = spawnSync(
+    process.execPath,
+    [
+      DEV_STACK_SCRIPT,
+      `--only=${BACKEND_ALL.join(',')}`,
+      '--json',
+      `--timeout=${BACKEND_TIMEOUT_S}`,
+    ],
+    {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 1_000_000, // 四个服务串行等待的上限护栏(4×240s + 启动开销),防 spawnSync 永久挂起
+      maxBuffer: 8 * 1024 * 1024,
+    },
+  )
+  if (r.error) return { ok: false, error: `dev-stack 派生失败:${r.error.message}` }
+  if (r.signal)
+    return { ok: false, error: `dev-stack 被信号 ${r.signal} 终止(信号退出不得读成"后端已就绪")` }
+  const out = `${r.stdout ?? ''}`
+  const m = out.match(/\{[\s\S]*\}/)
+  if (!m) {
+    const tailOut = `${out}\n${r.stderr ?? ''}`.trim().slice(-2000)
+    return { ok: false, error: `dev-stack 输出无法解析(退出码 ${r.status}):\n${tailOut || '(无输出)'}` }
+  }
+  let parsed
+  try {
+    parsed = JSON.parse(m[0])
+  } catch (e) {
+    return { ok: false, error: `dev-stack JSON 解析失败:${e?.message ?? e}` }
+  }
+  return { ok: r.status === 0, results: Array.isArray(parsed.results) ? parsed.results : [] }
+}
+
+function renderBackendResults(results) {
+  for (const r of results) {
+    const required = BACKEND_REQUIRED.includes(r.name)
+    const icon = r.status === 'up' ? '✅' : required ? '❌' : '⚠️'
+    const note =
+      r.status === 'up'
+        ? r.action === 'none'
+          ? '已在跑(复用,未重复拉起)'
+          : `已拉起(${r.action})`
+        : `${r.status}${r.hint ? ` — ${r.hint}` : ''}`
+    log(`  ${icon} ${String(r.name).padEnd(11)} :${r.port}  ${note}`)
+  }
+}
+
+// 后端服务名 → 必需/可选分类,返回 dev-stack 的 result 对象(带 port / status / hint)
+function classify(results) {
+  const pick = (n) => results.find((r) => r.name === n)
+  return {
+    downRequired: BACKEND_REQUIRED.map(pick).filter((r) => r && r.status !== 'up'),
+    downOptional: BACKEND_OPTIONAL.map(pick).filter((r) => r && r.status !== 'up'),
+  }
+}
+
+async function ensureBackend() {
+  if (SKIP_BACKEND) {
+    log('已按 --no-backend 跳过后端保证 ⇒ 后端死活本脚本不再负责')
+    return true
+  }
+  // 宽限窗口:8802 有人监听但 /health 不通 ⇒ 多半是另一路入口(turbo / start-dev.ps1 /
+  // 本脚本的看守)正在启动它。等它起来,而不是立刻丢给 dev-stack —— dev-stack 会对 api
+  // killStale 再拉一个实例(若它由 turbo 起、无 pid 文件 ⇒ 杀不掉,只剩端口冲突 +
+  // 一个僵死的 tsx 父进程)。端口压根没开时这里不等,直接走 dev-stack(冷启动不白等)。
+  if (await tcpOpen(API_PORT)) {
+    log(`8802 已在监听但 /health 未就绪 ⇒ 判为"正在启动中",给 ${BACKEND_GRACE_MS / 1000}s 宽限`)
+    const deadline = Date.now() + BACKEND_GRACE_MS
+    let ready = false
+    while (Date.now() < deadline) {
+      if (await apiHealthy()) {
+        ready = true
+        break
+      }
+      await new Promise((r) => setTimeout(r, 1500))
+    }
+    if (ready) {
+      log('api 已在宽限窗口内就绪 ✅(复用在跑实例)')
+      return afterRun(await runDevStack())
+    }
+    log('宽限窗口内仍未就绪 ⇒ 交给 dev-stack 复置(清掉僵死实例后重拉)')
+  }
+
+  log(`后端就绪检查(委托 dev-stack,覆盖 ${BACKEND_ALL.join('/')})…`)
+  return afterRun(await runDevStack())
+}
+
+// 启动门的判定出口:必需三件套必须全 up,否则阻断;可选失败只告警。
+// 显式取 `results`(而非只看退出码)—— dev-stack 的退出码语义是"必需项全绿",
+// 而我们要在这里按**自己的**必需/可选名单再判一次,免得两处口径漂移。
+async function afterRun(run) {
+  if (!run.results) {
+    log(`❌ ${run.error}`)
+    printBackendAbort(BACKEND_REQUIRED)
+    return false
+  }
+  renderBackendResults(run.results)
+  const { downRequired, downOptional } = classify(run.results)
+  if (downOptional.length) {
+    log(`⚠️ 可选后端未就绪(不阻断前端):${downOptional.map((r) => r.name).join(', ')}`)
+  }
+  if (downRequired.length) {
+    printBackendAbort(downRequired.map((r) => r.name))
+    return false
+  }
+  log('后端必需服务已就绪 ✅')
+  return true
+}
+
+function printBackendAbort(downNames) {
+  console.error(
+    `[dev-warmup] 后端未就绪 ⇒ 已阻断 next dev 启动\n` +
+      `  缺:${downNames.join(' ')}\n` +
+      '  为什么不硬起前端:那样你会拿到"页面能开、接口全 500"的假活前端,查起来更费劲。\n' +
+      '  手动体检/自愈:  node scripts/dev-stack.mjs\n' +
+      '  看失败日志:    .tmp-sync/dev-stack-<服务>.log 与 .err.log\n' +
+      '  常见根因:      apps/api/.env 缺失(DATABASE_URL/JWT_SECRET 未定义 ⇒ api 拒绝启动)、\n' +
+      '                 Windows 服务 postgresql-x64-* / Memurai / redis 未运行、\n' +
+      '                 8802 被上一轮残留进程占用(端口以 .env 的 DSN 为准,不是 8810/8811)\n' +
+      '  逃生档(后端自管,不推荐): pnpm --filter @ihui/web dev -- --no-backend\n',
+  )
+}
+
+// 运行期看守:启动门只保证"起的那一瞬间",后端在前端跑着的时候崩掉同样会造成
+// 「前端能开、后端不好使」。每 30s 跑一轮 dev-stack —— 它本身就是"探活 + 按需重拉",
+// 全绿时只探活、不重复起服务,故这一轮同时兼任"探"与"治"。
+// 60s 冷却:起不来的服务(如 ai-service 的 .venv 缺失)每轮都会重试,但只在冷却期外
+// 打一行,免得 30s 刷一屏把真正的报错淹掉。
+function startBackendWatchdog() {
+  if (SKIP_BACKEND) return
+  let busy = false // spawnSync 同步阻塞 ⇒ 用标志而非 timer 重入
+  let lastAttempt = null
+  const tick = () => {
+    if (busy) return
+    busy = true
+    try {
+      const run = runDevStack()
+      if (!run.results) {
+        const key = `!${(run.error ?? '').slice(0, 80)}`
+        if (!lastAttempt || lastAttempt.key !== key || Date.now() - lastAttempt.ts >= WATCHDOG_COOLDOWN_MS) {
+          lastAttempt = { key, ts: Date.now() }
+          log(`❌ 看守:dev-stack 执行失败:${run.error}`)
+        }
+        return
+      }
+      const { downRequired, downOptional } = classify(run.results)
+      // 本轮发生了实际重拉(探活发现 down ⇒ dev-stack 就地拉起并等到 up):
+      // 不打这行,一次成功的救援就是无声的 —— 排查者只能靠进程列表反推
+      // "它刚才到底掉没掉"。这行就是拍板要的「自动重拉 + 日志提示」里的提示。
+      const revived = run.results.filter((r) => r.status === 'up' && r.action && r.action !== 'none')
+      if (revived.length) {
+        log(
+          `🔁 看守:发现 ${revived.map((r) => `${r.name}(:${r.port})`).join(' ')} 掉线,` +
+            '本轮已自动重拉 ✅',
+        )
+      }
+      const down = [...downRequired, ...downOptional]
+      if (!down.length) {
+        if (lastAttempt) log('后端已恢复 ✅(看守继续)')
+        lastAttempt = null
+        return
+      }
+      const key = down.map((r) => r.name).join(',')
+      if (
+        lastAttempt &&
+        lastAttempt.key === key &&
+        Date.now() - lastAttempt.ts < WATCHDOG_COOLDOWN_MS
+      ) {
+        return // 冷却期内这一组已报过,dev-stack 也已在每轮尝试重拉,无需再刷
+      }
+      lastAttempt = { key, ts: Date.now() }
+      log(
+        `⚠️ 后端未就绪:${down.map((r) => `${r.name}(:${r.port})`).join(' ')} ` +
+          `— dev-stack 本轮已尝试重拉,${WATCHDOG_COOLDOWN_MS / 1000}s 后再试`,
+      )
+      renderBackendResults(run.results)
+      if (downRequired.length) {
+        log(`  ❌ 必需项仍 down:${downRequired.map((r) => r.name).join(', ')}(日志 .tmp-sync/dev-stack-*.log)`)
+      }
+    } catch (e) {
+      log(`❌ 看守异常:${e?.message ?? e}`)
+    } finally {
+      busy = false
+    }
+  }
+  setInterval(tick, WATCHDOG_INTERVAL_MS)
+  log(
+    `后端看守已启动(每 ${WATCHDOG_INTERVAL_MS / 1000}s 跑一轮 dev-stack 探活+按需重拉,` +
+      `告警冷却 ${WATCHDOG_COOLDOWN_MS / 1000}s)`,
+  )
+}
+
+// 0.7 的调用点:必须在 spawn `next dev` **之前**。次序反了就等于没做 ——
+// "前端先起来、后端慢慢补"中间那段窗口正是用户点名要消灭的假活状态。
+if (!(await ensureBackend())) quit(1)
+
+// 1) 前台 dev server。用 next 的**绝对入口**直启(与 dev-stack.mjs 的 NEXT_ENTRY 同口径),
+//    不走 shell + 裸 `next`:后者依赖 pnpm 注入的 node_modules/.bin 到 PATH,而文件头「用法」
+//    允许直接 `node scripts/dev-with-warmup.mjs` —— 那一档没有 .bin 在 PATH 里,裸 `next`
+//    会 "is not recognized"(2026-10-12 实测),与调用方式无关的启动才是真入口。
+const NEXT_ENTRY = path.join(WEB_DIR, 'node_modules', 'next', 'dist', 'bin', 'next')
+const dev = spawn(
+  process.execPath,
+  [NEXT_ENTRY, 'dev', ...(TURBOPACK ? ['--turbopack'] : []), '-p', String(PORT)],
+  {
+    cwd: WEB_DIR,
+    stdio: 'inherit',
+    windowsHide: true, // 防 Windows 弹可见 cmd 窗口
+  },
+)
 dev.on('error', (e) => {
   console.error(`[dev-warmup] 启动 next dev 失败:${e.message}`)
   quit(1)
@@ -223,6 +496,9 @@ dev.on('error', (e) => {
 // 退出必须走 quit():直接 process.exit 会把锁留在原地"按年龄等着被抢",
 // 而这正是心跳要消掉的那段无人保护窗口。
 dev.on('exit', (code) => quit(code ?? 0))
+
+// 1.5) 运行期后端看守(next dev 已在跑 ⇒ 现在掉线不再阻断,改为自动重拉)
+startBackendWatchdog()
 
 // 2) 等 dev server 就绪(180s 上限;dev 已在前台跑,这里只是等待,不阻塞它)
 async function waitReady() {

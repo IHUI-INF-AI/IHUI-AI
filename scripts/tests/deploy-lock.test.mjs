@@ -1309,7 +1309,11 @@ test('HB-M10 启动器顺序锁:dev 前置(打补丁/清缓存/整清)在 acquir
     prefetch: /file:\s*PREFETCH_SCRIPT/,
     hygiene: /file:\s*CACHE_HYGIENE_SCRIPT/,
     purge: /rmSync\(p,\s*\{\s*recursive:\s*true/,
-    spawn: /spawn\(`next dev/,
+    // 2026-10-12 形态改版:spawn 从 shell 串 `next dev …` 换成绝对入口数组
+    // (process.execPath + NEXT_ENTRY,见 dev-with-warmup.mjs 第 1 段头注 —— 裸 `next`
+    // 依赖 pnpm 注入的 .bin PATH,直接 `node scripts/dev-with-warmup.mjs` 必然解析失败)。
+    // 锚点仍取**调用点**的独有写法:`const dev = spawn(` + NEXT_ENTRY 入参,不是脚本名。
+    spawn: /const dev = spawn\(\s*process\.execPath,\s*\[NEXT_ENTRY, 'dev'/,
   }
   const at = (re) => {
     const m = src.match(re)
