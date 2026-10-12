@@ -24,6 +24,18 @@ import { refreshAccessTokenOnce } from '@ihui/api-client'
 import { isSameOriginRelativePath } from '@ihui/shared/auth/sso-core'
 
 /**
+ * 守卫探测(HEAD)的超时(2026-10-12 立)。
+ *
+ * 探测是导航前的旁路检查,绝不允许成为卡死用户点击的那一环 —— 桌面端 SSO 授权
+ * 曾因守卫探测裸 fetch 零超时而整体挂起(与 /auth/refresh 干等同因:请求永不返回)。
+ * 5s 对一次同源 HEAD 足够宽松(正常远小于 1s),又保证坏链路上用户至多等 5s。
+ *
+ * 超时语义:AbortError 天然落进 isBlockedByAuthGuard 既有的
+ * "任何异常一律按放行处理"catch ⇒ 探测超时 = 不拦 = 放行(有意设计,绝非误拦)。
+ */
+const PROBE_TIMEOUT_MS = 5_000
+
+/**
  * 目标是否为"同源相对路径"跳转(受本站登录守卫约束)。跨源绝对地址与自定义协议深链(ihui://…)不受约束。
  *
  * 第二个字符既不得是 `/` 也不得是 `\`(2026-09-28 票 A3/G-413 补反斜杠这一族):
@@ -193,17 +205,26 @@ export async function syncAuthCookie(): Promise<void> {
  * 用 `redirect: 'manual'` —— 同源重定向在浏览器中返回 type === 'opaqueredirect'
  * (status 0),可据此在不跟随跳转的前提下判定守卫是否放行。
  * 任何异常一律按"放行"处理:探测本身绝不能误拦正常跳转。
+ *
+ * 2026-10-12:探测加 5s 超时(AbortController + setTimeout abort + finally clearTimeout,
+ * 与 ai-news ApiRelaysSection.tsx testRelaySpeed 同形)。超时即 abort ⇒ 落进下方
+ * catch ⇒ 按放行处理 —— 契约一字未变:任何异常(含超时)都不得判成"被拦"。
  */
 export async function isBlockedByAuthGuard(target: string): Promise<boolean> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS)
   try {
     const res = await fetch(target, {
       method: 'HEAD',
       redirect: 'manual',
       credentials: 'include',
+      signal: controller.signal,
     })
     return res.type === 'opaqueredirect'
   } catch {
     return false
+  } finally {
+    clearTimeout(timer)
   }
 }
 
