@@ -10326,6 +10326,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 
 
 ## 号段租约登记区(取号器专用,千段租约制)
+- [x] G-1119785 〔千段租约〕 本机=前台-b56c9ad7 段=G-1118786~G-1119785(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
 <!-- 已归档(2026-10-12:G-1119785 〔千段租约〕 本机=前台-b56c9ad7 段=G-1118786~G-1119785(取号器专用行,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
 <!-- 已归档(2026-10-10:G-1114913 〔千段租约〕 本机=前台-694a78bf 段=G-1113914~G-1114913(取号器专用行,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
 <!-- 已归档(2026-10-10:G-1106293 〔千段租约〕 本机=lichunchuan-ef4a9deb 段=G-1105294~G-11062,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-10_auto-archive.md -->
