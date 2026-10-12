@@ -176,6 +176,10 @@ describe('① 下载挂死 —— 必有终态(有界 reject,不是永悬)', () 
     )
     const session = await bridge.checkForUpdates()
     const promise = session!.downloadAndInstall()
+    // 早挂 no-op 处理器:advanceTimersByTimeAsync 会冲刷微任务,超时 rejection 在
+    // 下面 expect 挂上处理器之前就已 settle —— 不早挂(上一用例即早挂形态)就会以
+    // unhandled rejection 形式漏成文件级 error;no-op 不改断言语义,promise 可重复消费。
+    void promise.catch(() => {})
     await vi.advanceTimersByTimeAsync(60 * 60_000)
     await expect(promise).rejects.toThrow(bridge.UPDATE_DOWNLOAD_TIMEOUT_REASON)
 
