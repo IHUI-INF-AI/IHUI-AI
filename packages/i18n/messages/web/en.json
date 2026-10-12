@@ -14449,17 +14449,8 @@
     "sections": "Sections"
   },
   "eduCoursesPage": {
-    "empty": "No courses",
-    "loading": "Loading...",
-    "progress": "Progress {n}%",
-    "searchAriaLabel": "Search courses",
-    "searchPlaceholder": "Search courses...",
-    "statusCompleted": "Completed",
-    "statusInProgress": "In Progress",
-    "statusNotStarted": "Not Started",
     "subtitle": "Manage all enrolled courses",
-    "title": "My Courses",
-    "total": "{n} total"
+    "title": "My Courses"
   },
   "eduDashboardPage": {
     "coursesCard": {

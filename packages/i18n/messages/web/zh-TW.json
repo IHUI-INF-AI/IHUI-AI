@@ -14439,17 +14439,8 @@
     "sections": "章節目錄"
   },
   "eduCoursesPage": {
-    "empty": "暫無課程",
-    "loading": "加載中...",
-    "progress": "進度 {n}%",
-    "searchAriaLabel": "搜索課程",
-    "searchPlaceholder": "搜索課程...",
-    "statusCompleted": "已完成",
-    "statusInProgress": "進行中",
-    "statusNotStarted": "未開始",
     "subtitle": "管理已報名的全部課程",
-    "title": "我的課程",
-    "total": "共 {n} 條"
+    "title": "我的課程"
   },
   "eduDashboardPage": {
     "coursesCard": {

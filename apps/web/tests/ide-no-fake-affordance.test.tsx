@@ -195,9 +195,8 @@ export function S() {
 })
 
 describe('图标钮可访问名(a11y name)', () => {
-  it('UserUpload 附件移除钮有名字', () => {
-    expect(read('user/UserUpload.tsx')).toContain("aria-label={tA11y('removeAttachment')}")
-  })
+  // 2026-10-12 移除"UserUpload 附件移除钮有名字"一例:组件 user/UserUpload.tsx 已随
+  // 7748f62c51(G-1079155 复活件显式再删)删除,removeAttachment 全仓零引用 —— 用例随被测面消亡。
 
   it('UnifiedTaskDashboard @引用 chip 关闭钮有名字', () => {
     expect(read('agents/UnifiedTaskDashboard.tsx')).toContain("aria-label={tA11y('close')}")
