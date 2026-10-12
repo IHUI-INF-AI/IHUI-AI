@@ -25,6 +25,7 @@ import CheckinPage from '../page'
 import {
   checkinAuditTraeResidual,
   checkinCaptureQoder,
+  checkinCaptureWorkbuddy,
   checkinOneClickReset,
   checkinGetPublicIp,
   checkinSnapshotList,
@@ -138,6 +139,7 @@ vi.mock('@/lib/tauri-bridge', () => ({
   checkinDetectTraeDir: vi.fn(),
   checkinCaptureJwts: vi.fn(),
   checkinCaptureQoder: vi.fn(async () => []),
+  checkinCaptureWorkbuddy: vi.fn(async () => []),
   checkinResetDeviceIds: vi.fn(),
   checkinOneClickReset: vi.fn(),
   checkinGetPublicIp: vi.fn(),
@@ -918,6 +920,85 @@ describe('Qoder 平台化(2026-10-10)', () => {
     expect(arg.device_map.expires_at).toBe(123)
     expect(arg.device_map.cosy.machine_id).toBe('mid')
     expect(arg.device_map.cosy.client_type).toBe('10')
+  })
+
+  it('录入对话框:平台下拉含 workbuddy 三选项且随提交上送', async () => {
+    createAccount.mockResolvedValue({ id: 9 })
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('addAccount'))
+    const select = screen.getByTestId('platform-select') as HTMLSelectElement
+    const values = Array.from(select.options).map((o) => o.value)
+    expect(values).toEqual(['trae', 'workbuddy', 'qoder'])
+    fireEvent.change(select, { target: { value: 'workbuddy' } })
+    fireEvent.change(screen.getByLabelText('name'), { target: { value: '手工 WB' } })
+    fireEvent.change(screen.getByLabelText('jwt'), { target: { value: 'wb-token-1' } })
+    fireEvent.click(screen.getByText('submit'))
+    await waitFor(() => expect(createAccount).toHaveBeenCalledTimes(1))
+    expect(createAccount.mock.calls[0]![0].platform).toBe('workbuddy')
+  })
+
+  it('WorkBuddy 捕获:明文行直读入库;加密行粘 token 后入库', async () => {
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    vi.mocked(checkinCaptureWorkbuddy).mockResolvedValue([
+      {
+        auth_file: 'C:/auth/workbuddy-desktop.info',
+        uid: 'wb-1',
+        nickname: '李总',
+        domain: 'www.workbuddy.cn',
+        access_token: 'wb-plain-token',
+        encrypted: false,
+        expires_at: 1794225169,
+      },
+      {
+        auth_file: 'C:/auth/workbuddy-desktop.info',
+        uid: 'wb-2',
+        nickname: '小号',
+        domain: 'www.workbuddy.cn',
+        access_token: '',
+        encrypted: true,
+        expires_at: 1794225169,
+      },
+    ])
+    createAccount.mockResolvedValue({ id: 9 })
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('captureWbButton'))
+    fireEvent.click(screen.getByText('captureWbScan'))
+    await waitFor(() => expect(screen.getByText('captureImport')).toBeTruthy())
+    // 加密行显示「需粘贴 token」徽章
+    expect(screen.getByText('captureWbEncrypted')).toBeTruthy()
+    fireEvent.click(screen.getByText('captureImport'))
+    // 明文行(wb-1)成功入库;加密行(wb-2)token 为空被拦,错误文案出现
+    await waitFor(() => expect(screen.getByText(/captureWbTokenRequired/)).toBeTruthy())
+    expect(createAccount).toHaveBeenCalledTimes(1)
+    expect(createAccount.mock.calls[0]![0].jwt).toBe('wb-plain-token')
+    // 取消勾选已入库的明文行,粘贴 token 后重导加密行
+    fireEvent.click(screen.getByLabelText('captureWbAccount:wb-1'))
+    fireEvent.change(screen.getByTestId('wb-token-input:wb-2'), {
+      target: { value: 'wb-pasted-token' },
+    })
+    fireEvent.click(screen.getByText('captureImport'))
+    await waitFor(() => expect(createAccount).toHaveBeenCalledTimes(2))
+    const second = createAccount.mock.calls[1]![0]
+    expect(second.platform).toBe('workbuddy')
+    expect(second.jwt).toBe('wb-pasted-token')
+    expect(second.name).toContain('WorkBuddy-小号')
+    expect(second.device_map.uid).toBe('wb-2')
+    expect(second.device_map.domain).toBe('www.workbuddy.cn')
+    expect(second.device_map.expires_at).toBe(1794225169)
+  })
+
+  it('WorkBuddy 平台筛选与徽章', async () => {
+    mockLoadSuccess({
+      accounts: [accountFixture, makeAccount({ id: 3, name: 'WB 账号', platform: 'workbuddy' })],
+    })
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('WB 账号').length).toBeGreaterThan(0))
+    expect(screen.getByText('WorkBuddy', { selector: 'span' })).toBeTruthy()
+    fireEvent.change(screen.getByTestId('platform-filter'), { target: { value: 'workbuddy' } })
+    expect(screen.queryByText('TRAE', { selector: 'span' })).toBeNull()
+    expect(screen.getAllByText('WB 账号').length).toBeGreaterThan(0)
   })
 })
 

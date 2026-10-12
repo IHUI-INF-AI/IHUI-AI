@@ -3553,6 +3553,261 @@ pub fn checkin_capture_qoder() -> Result<Vec<CapturedQoderSession>, IpcError> {
     Ok(sessions)
 }
 
+// ================== WorkBuddy 登录态抓取(第三平台,2026-10-12 立)==================
+
+// WorkBuddy 桌面端登录态(逆向自 Coco-katarina/workbuddy-checkin 的
+// decrypt-token.js,MIT;真机实证 2026-10-12):
+//   明文 JSON:%LOCALAPPDATA%\CodeBuddyExtension\Data\Public\auth\workbuddy-desktop.info
+//   (回退 %APPDATA% 同相对路径;客户端 5.8+ 实测写在 LOCALAPPDATA)。
+//   结构:{"account":{uid,nickname,...},"auth":{accessToken,expiresAt,domain,...},
+//          "accounts":[...],"allAccounts":[...]}
+//   token 本体是标准 JWT(sub=uid、exp)。
+//
+// **5.8+ 加密信封(真机实证)**:auth.accessToken 是
+//   {"$wbEncrypted":1,"envelope":{...}} —— envelope 被 .NET 序列化层逐字符展开成
+//   数字键对象(键 "0".."N",值为单字符),拼回即 canonical base64;解码后为
+//   {"suite":1,"keyId","nonce","authTag","ciphertext"}(AES-256-GCM,suite 1)。
+//   密钥经 WORKBUDDY_AT_REST_ENCRYPTION 只注入客户端进程内,磁盘 keyblob 的
+//   master key 也被它包裹 ⇒ **第三方进程不可解**(环境块/堆扫描均零命中)。
+//   抓取策略:明文形态直接出 token;加密形态返回 encrypted=true + token 置空,
+//   uid/nickname/domain/expiresAt 照常带出(它们在信封外,是明文),由用户在
+//   前端手动粘贴 token 补齐(WorkBuddy 会话内可读自身环境变量,能自取)。
+
+/// WorkBuddy 明文登录态文件候选(LOCALAPPDATA 优先,APPDATA 回退 —— 与
+/// decrypt-token.js desktopAuthFileCandidates 同序)。
+pub fn workbuddy_auth_file_candidates() -> Vec<PathBuf> {
+    let rel = PathBuf::from("CodeBuddyExtension")
+        .join("Data")
+        .join("Public")
+        .join("auth")
+        .join("workbuddy-desktop.info");
+    let mut out: Vec<PathBuf> = Vec::new();
+    if let Ok(v) = std::env::var("LOCALAPPDATA") {
+        if !v.trim().is_empty() {
+            out.push(PathBuf::from(v).join(&rel));
+        }
+    }
+    if let Ok(v) = std::env::var("APPDATA") {
+        if !v.trim().is_empty() {
+            out.push(PathBuf::from(v).join(rel));
+        }
+    }
+    out
+}
+
+/// 纯函数:把 accessToken 字段还原为 token 字符串。
+/// - 字符串 → 明文形态,原样返回;
+/// - {$wbEncrypted:1, envelope:{数字键:单字符}} → 逐字符拼回(键按数值排序,
+///   防止 "10" 字典序插到 "2" 前面),返回拼回后的 base64 串;
+/// - 其余形态 → None(不猜)。
+pub fn workbuddy_unwrap_token_field(value: &serde_json::Value) -> Option<String> {
+    match value {
+        serde_json::Value::String(s) => Some(s.clone()),
+        serde_json::Value::Object(map) => {
+            if map.get("$wbEncrypted").and_then(|v| v.as_i64()) != Some(1) {
+                return None;
+            }
+            let envelope = map.get("envelope")?.as_object()?;
+            let mut keys: Vec<&String> = envelope
+                .keys()
+                .filter(|k| k.chars().all(|c| c.is_ascii_digit()))
+                .collect();
+            keys.sort_by_key(|k| k.parse::<u64>().unwrap_or(u64::MAX));
+            if keys.is_empty() {
+                return None;
+            }
+            let mut joined = String::with_capacity(keys.len());
+            for k in keys {
+                match envelope.get(k).and_then(|v| v.as_str()) {
+                    Some(c) => joined.push_str(c),
+                    None => return None,
+                }
+            }
+            Some(joined)
+        }
+        _ => None,
+    }
+}
+
+/// 纯函数:判断拼回的 token 串是否是 WorkBuddy 加密信封(而不是 token 本体)。
+/// 信封判据:canonical base64 解码后为 JSON 且含 suite==1 + 16 位小写 hex keyId。
+pub fn workbuddy_is_encrypted_envelope(joined: &str) -> bool {
+    use base64::Engine as _;
+    let decoded = match base64::engine::general_purpose::STANDARD.decode(joined.trim()) {
+        Ok(d) => d,
+        Err(_) => return false,
+    };
+    let parsed: serde_json::Value = match serde_json::from_slice(&decoded) {
+        Ok(v) => v,
+        Err(_) => return false,
+    };
+    parsed.get("suite").and_then(|v| v.as_i64()) == Some(1)
+        && parsed
+            .get("keyId")
+            .and_then(|v| v.as_str())
+            .map(|k| k.len() == 16 && k.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()))
+            .unwrap_or(false)
+        && parsed.get("nonce").and_then(|v| v.as_str()).is_some()
+        && parsed.get("authTag").and_then(|v| v.as_str()).is_some()
+        && parsed.get("ciphertext").and_then(|v| v.as_str()).is_some()
+}
+
+/// auth.expiresAt(epoch 毫秒)→ epoch 秒;缺失/坏格式 0(与 qoder 契约一致:
+/// 前端/服务端都按「>0 才用」消费;毫秒判据 >1e12,秒级时间戳不受影响)。
+pub fn workbuddy_expires_at_seconds(auth: &serde_json::Value) -> i64 {
+    let raw = auth.get("expiresAt").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    if raw <= 0.0 {
+        return 0;
+    }
+    if raw > 1e12 {
+        (raw / 1000.0) as i64
+    } else {
+        raw as i64
+    }
+}
+
+/// WorkBuddy 登录态解析结果(字段名 serde snake_case,tauri-bridge 原样投影)。
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct CapturedWorkbuddySession {
+    pub auth_file: String,
+    pub uid: String,
+    pub nickname: String,
+    /// auth.domain(真机实证:www.workbuddy.cn)
+    pub domain: String,
+    /// token 本体;加密信封形态下为空串(见 encrypted)
+    pub access_token: String,
+    /// true = accessToken 是 $wbEncrypted 加密信封,第三方进程不可解,
+    /// 需用户在前端手动粘贴 token 补齐
+    pub encrypted: bool,
+    /// auth.expiresAt(epoch 秒,缺失 0)
+    pub expires_at: i64,
+}
+
+/// 纯函数:解析登录态 JSON → 会话列表(当前账号优先,accounts/allAccounts
+/// 中的其他 uid 追加;uid 缺失的条目跳过)。
+pub fn parse_workbuddy_auth_doc(doc: &serde_json::Value, auth_file: &str) -> Vec<CapturedWorkbuddySession> {
+    let auth_obj = doc.get("auth").cloned().unwrap_or(serde_json::Value::Null);
+    let domain = auth_obj
+        .get("domain")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let expires_at = workbuddy_expires_at_seconds(&auth_obj);
+    let token_field = auth_obj.get("accessToken");
+
+    let mut entries: Vec<(String, String)> = Vec::new(); // (uid, nickname)
+    if let Some(acc) = doc.get("account").filter(|v| v.is_object()) {
+        let uid = acc
+            .get("uid")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        if !uid.is_empty() {
+            let nick = acc
+                .get("nickname")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            entries.push((uid, nick));
+        }
+    }
+    for key in ["accounts", "allAccounts"] {
+        if let Some(list) = doc.get(key).and_then(|v| v.as_array()) {
+            for acc in list {
+                let uid = acc
+                    .get("uid")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                if uid.is_empty() || entries.iter().any(|(u, _)| u == &uid) {
+                    continue;
+                }
+                let nick = acc
+                    .get("nickname")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                entries.push((uid, nick));
+            }
+        }
+    }
+
+    // token 只挂在当前 auth 上(多账号的其他条目没有各自 auth,token 同源)
+    let token_field = match token_field {
+        Some(v) if !v.is_null() => v,
+        _ => {
+            return entries
+                .into_iter()
+                .map(|(uid, nickname)| CapturedWorkbuddySession {
+                    auth_file: auth_file.to_string(),
+                    uid,
+                    nickname,
+                    domain: domain.clone(),
+                    access_token: String::new(),
+                    encrypted: true,
+                    expires_at,
+                })
+                .collect();
+        }
+    };
+    let unwrapped = workbuddy_unwrap_token_field(token_field);
+    let (access_token, encrypted) = match unwrapped {
+        Some(t) => {
+            if workbuddy_is_encrypted_envelope(&t) {
+                (String::new(), true)
+            } else {
+                (t, false)
+            }
+        }
+        None => (String::new(), true),
+    };
+
+    entries
+        .into_iter()
+        .map(|(uid, nickname)| CapturedWorkbuddySession {
+            auth_file: auth_file.to_string(),
+            uid,
+            nickname,
+            domain: domain.clone(),
+            access_token: access_token.clone(),
+            encrypted,
+            expires_at,
+        })
+        .collect()
+}
+
+pub fn capture_workbuddy_sessions() -> Vec<CapturedWorkbuddySession> {
+    for path in workbuddy_auth_file_candidates() {
+        if !path.is_file() {
+            continue;
+        }
+        let raw = match std::fs::read(&path) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let doc: serde_json::Value = match serde_json::from_slice(&raw) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let out = parse_workbuddy_auth_doc(&doc, &path.display().to_string());
+        if !out.is_empty() {
+            return out;
+        }
+    }
+    Vec::new()
+}
+
+#[tauri::command]
+pub fn checkin_capture_workbuddy() -> Result<Vec<CapturedWorkbuddySession>, IpcError> {
+    let sessions = capture_workbuddy_sessions();
+    if sessions.is_empty() {
+        return Err(IpcError::not_found(
+            "未找到已登录的 WorkBuddy 桌面端登录态(需本机已安装并登录 WorkBuddy)",
+        ));
+    }
+    Ok(sessions)
+}
+
 // ================== 单测（判据区 + 可落盘的执行层）==================
 
 #[cfg(test)]
@@ -4746,6 +5001,142 @@ mod tests {
                 name.starts_with("com.qoder.app.") || name.starts_with("com.qodercn.app."),
                 "{name}"
             );
+        }
+    }
+
+    // ---------------- WorkBuddy(2026-10-12 立)----------------
+
+    use crate::checkin_capture::{
+        parse_workbuddy_auth_doc, workbuddy_expires_at_seconds, workbuddy_is_encrypted_envelope,
+        workbuddy_unwrap_token_field,
+    };
+
+    /// 构造 5.8+ 加密信封形态的 accessToken 字段(envelope 被逐字符展开,
+    /// 内容是真实信封的 base64 形态 —— suite/keyId/nonce/authTag/ciphertext)。
+    fn wb_encrypted_token_field() -> serde_json::Value {
+        // 真实信封结构样例(值无效但结构/长度判据全真:keyId 16 位小写 hex)
+        let envelope_json = r#"{"suite":1,"keyId":"9127dea1b44020a7","nonce":"aaaaaaaaaaaaaaaa","authTag":"bbbbbbbbbbbbbbbbbbbbbb==","ciphertext":"cccc"}"#;
+        use base64::Engine as _;
+        let b64 = base64::engine::general_purpose::STANDARD.encode(envelope_json.as_bytes());
+        let mut envelope = serde_json::Map::new();
+        for (i, c) in b64.chars().enumerate() {
+            envelope.insert(i.to_string(), serde_json::Value::String(c.to_string()));
+        }
+        serde_json::json!({ "$wbEncrypted": 1, "envelope": envelope })
+    }
+
+    #[test]
+    fn workbuddy_unwrap_token_field_plaintext_and_envelope() {
+        // 明文形态(客户端 5.3.8 时代,真机备份实证)
+        assert_eq!(
+            workbuddy_unwrap_token_field(&serde_json::json!("eyJhbGciOi.J.exp.sig"))
+                .unwrap_or_default(),
+            "eyJhbGciOi.J.exp.sig"
+        );
+        // 加密信封:逐字符拼回(键按数值排序,"10" 不得插到 "2" 前面)
+        let field = wb_encrypted_token_field();
+        let joined = workbuddy_unwrap_token_field(&field).unwrap_or_default();
+        assert!(joined.starts_with("eyJzdWl0"), "{joined}");
+        // 键序验证:envelope 含 100+ 字符时,数值序与字典序不同
+        assert!(joined.len() > 100);
+        // 非法形态
+        assert!(workbuddy_unwrap_token_field(&serde_json::json!(null)).is_none());
+        assert!(workbuddy_unwrap_token_field(&serde_json::json!({"$wbEncrypted": 2, "envelope": {}})).is_none());
+    }
+
+    #[test]
+    fn workbuddy_is_encrypted_envelope_contract() {
+        use base64::Engine as _;
+        let b64 = |s: &str| {
+            base64::engine::general_purpose::STANDARD.encode(s.as_bytes())
+        };
+        // 真信封结构 → true
+        let envelope = r#"{"suite":1,"keyId":"9127dea1b44020a7","nonce":"aaaaaaaaaaaaaaaa","authTag":"bbbbbbbbbbbbbbbbbbbbbb==","ciphertext":"cccc"}"#;
+        assert!(workbuddy_is_encrypted_envelope(&b64(envelope)));
+        // JWT 本体(三段式)→ false(不是信封)
+        assert!(!workbuddy_is_encrypted_envelope("eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1In0.sig"));
+        // keyId 大写/长度不对 → false
+        let bad = r#"{"suite":1,"keyId":"ABCDEF","nonce":"a","authTag":"b","ciphertext":"c"}"#;
+        assert!(!workbuddy_is_encrypted_envelope(&b64(bad)));
+        // 非 base64 → false
+        assert!(!workbuddy_is_encrypted_envelope("not base64!!"));
+    }
+
+    #[test]
+    fn workbuddy_expires_at_seconds_ms_and_s() {
+        // 真机实证 2026-10-12:auth.expiresAt = 1794225169853(毫秒)
+        assert_eq!(workbuddy_expires_at_seconds(&serde_json::json!({"expiresAt": 1_794_225_169_853f64})), 1_794_225_169);
+        assert_eq!(workbuddy_expires_at_seconds(&serde_json::json!({"expiresAt": 1_799_000_000f64})), 1_799_000_000);
+        assert_eq!(workbuddy_expires_at_seconds(&serde_json::json!({"expiresAt": 0f64})), 0);
+        assert_eq!(workbuddy_expires_at_seconds(&serde_json::json!({})), 0);
+    }
+
+    #[test]
+    fn workbuddy_parse_doc_plaintext_session() {
+        let doc: serde_json::Value = serde_json::from_str(
+            r#"{
+                "account": {"uid": "u-1", "nickname": "李总"},
+                "auth": {"accessToken": "eyJ.a.b", "domain": "www.workbuddy.cn", "expiresAt": 1794225169853},
+                "accounts": [{"uid": "u-1", "nickname": "李总"}, {"uid": "u-2", "nickname": "小号"}],
+                "allAccounts": []
+            }"#,
+        )
+        .unwrap();
+        let out = parse_workbuddy_auth_doc(&doc, "C:/auth/workbuddy-desktop.info");
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0].uid, "u-1");
+        assert_eq!(out[0].nickname, "李总");
+        assert_eq!(out[0].domain, "www.workbuddy.cn");
+        assert_eq!(out[0].access_token, "eyJ.a.b");
+        assert!(!out[0].encrypted);
+        assert_eq!(out[0].expires_at, 1_794_225_169);
+        // 第二账号:无独立 auth,token 同源带出
+        assert_eq!(out[1].uid, "u-2");
+        assert_eq!(out[1].access_token, "eyJ.a.b");
+    }
+
+    #[test]
+    fn workbuddy_parse_doc_encrypted_session_flags() {
+        let doc = serde_json::json!({
+            "account": {"uid": "u-1", "nickname": "李总"},
+            "auth": {"accessToken": wb_encrypted_token_field(), "domain": "www.workbuddy.cn", "expiresAt": 1794225169853i64}
+        });
+        let out = parse_workbuddy_auth_doc(&doc, "x");
+        assert_eq!(out.len(), 1);
+        assert!(out[0].encrypted);
+        assert!(out[0].access_token.is_empty());
+        assert_eq!(out[0].uid, "u-1");
+        assert_eq!(out[0].expires_at, 1_794_225_169);
+    }
+
+    #[test]
+    fn workbuddy_parse_doc_missing_access_token_treated_encrypted() {
+        let doc = serde_json::json!({
+            "account": {"uid": "u-1"},
+            "auth": {"domain": "www.workbuddy.cn"}
+        });
+        let out = parse_workbuddy_auth_doc(&doc, "x");
+        assert_eq!(out.len(), 1);
+        assert!(out[0].encrypted);
+        assert_eq!(out[0].expires_at, 0);
+    }
+
+    #[test]
+    fn workbuddy_parse_doc_skips_entries_without_uid() {
+        let doc = serde_json::json!({
+            "account": {"nickname": "no-uid"},
+            "auth": {"accessToken": "tok"}
+        });
+        assert!(parse_workbuddy_auth_doc(&doc, "x").is_empty());
+    }
+
+    #[test]
+    fn workbuddy_auth_file_candidates_cover_local_and_roaming() {
+        let cands = workbuddy_auth_file_candidates();
+        assert!(!cands.is_empty());
+        for p in &cands {
+            let s = p.to_string_lossy().to_lowercase();
+            assert!(s.ends_with(r"codebuddyextension\data\public\auth\workbuddy-desktop.info"), "{s}");
         }
     }
 }
