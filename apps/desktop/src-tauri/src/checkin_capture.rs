@@ -176,9 +176,22 @@ pub fn trae_dir_candidates(
     out
 }
 
-/// 判定：有 storage.json 或 machineid 之一才算 TRAE 数据目录（目录存在 ≠ 目录对）。
+/// 判定：有 storage.json / machineid **或** Cookies 库 / leveldb 扫描目录
+/// 之一才算 TRAE 数据目录（目录存在 ≠ 目录对）。
+///
+/// 2026-10-12 真机实证补判据:本机 `%APPDATA%` 三现场并存——
+/// `TRAE SOLO CN`(只有 machineid,无 Network/Partitions/Local Storage,纯空壳)、
+/// `Trae`(旧版,同样只有 machineid)、`Trae CN`(现役,leveldb 里真有登录 JWT)。
+/// 旧判据下 detect 第一个命中 `TRAE SOLO CN` ⇒ 捕获通道两个路径都不存在 ⇒
+/// 扫出 0 账号,用户侧现象就是「检测不到 trae」。leveldb/Cookies 目录存在
+/// 即证明该现场装着**可捕获的登录态**,与 marker 文件等价有效。
 pub fn looks_like_trae_dir(path: &Path) -> bool {
-    path.join("storage.json").is_file() || path.join("machineid").is_file()
+    if path.join("storage.json").is_file() || path.join("machineid").is_file() {
+        return true;
+    }
+    let has_cookies = COOKIES_DB_CANDIDATES.iter().any(|rel| path.join(rel).is_file());
+    let has_leveldb = LEVELDB_SCAN_DIRS.iter().any(|rel| path.join(rel).is_dir());
+    has_cookies || has_leveldb
 }
 
 /// 6 级回退探测的运行时入口：环境变量覆盖 → 候选列表逐个试，全落空 → None。
@@ -223,23 +236,31 @@ fn is_token_byte(b: u8) -> bool {
     is_token_byte_excl_dot(b) || b == b'.'
 }
 
-/// base64url 解 payload，取 `data.id`（数字串即有效候选；不验签）。
+/// base64url 解 payload 取 user_id,不验签。
+///
+/// 键序与 ai-service `checkin_engine.extract_user_id` **逐字对齐**
+/// (data.id → auth_id → sub)—— 两端判据分叉的代价实测过:2026-10-12 真机
+/// (Trae CN `Partitions/trae-webview/Local Storage/leveldb`)抓到的新版
+/// TRAE JWT payload 只有 `{aud,exp,familyId,iat,iss,phone,roleId,sub}`,
+/// **没有 data.id**,且 sub 是 GUID 形态(`2ea8afb3-...`)。旧判据「只认
+/// data.id 且必须纯数字串」把新版 JWT 全部判死 ⇒ 扫描得到 token 也提取
+/// 不出账号。这里改为三键依序取首个非空标量,并复用 `sanitize_user_id`
+/// 同款卫生约束([A-Za-z0-9_-] 且 ≤64)——GUID 天然满足,别的不明形态宁缺毋滥。
 pub fn jwt_payload_user_id(token: &str) -> Option<String> {
     let payload = token.split('.').nth(1)?;
     let decoded = URL_SAFE_NO_PAD.decode(payload.trim_end_matches('=')).ok()?;
     let v: serde_json::Value = serde_json::from_slice(&decoded).ok()?;
-    let id = v.get("data")?.get("id")?;
-    let s = match id {
+    let raw = v
+        .get("data")
+        .and_then(|d| d.get("id"))
+        .or_else(|| v.get("auth_id"))
+        .or_else(|| v.get("sub"))?;
+    let s = match raw {
         serde_json::Value::Number(n) => n.to_string(),
         serde_json::Value::String(s) => s.clone(),
         _ => return None,
     };
-    // 只认数字串：字符串形态的 id 可能是用户名等别的东西，宁缺毋滥。
-    if !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit()) {
-        Some(s)
-    } else {
-        None
-    }
+    sanitize_user_id(&s)
 }
 
 /// 从任意字节流（leveldb .ldb/.log）里扫 JWT 形态字符串。JWT 的 base64url 首段
@@ -539,7 +560,14 @@ fn extract_cookie_jwts(trae_dir: &Path) -> Vec<CapturedAccount> {
             continue;
         }
         let dst = tmp_dir.join(format!("cookies-{idx}.db"));
-        if std::fs::copy(&src, &dst).is_err() {
+        if let Err(e) = std::fs::copy(&src, &dst) {
+            // 2026-10-12 真机实证:TRAE 运行中 Cookies 库被独占锁(WinError 32),
+            // copy 必败。静默 continue 会让「扫了但 0 账号」无法归因,必须留痕。
+            log::warn!(
+                "[checkin-capture] 拷 Cookies 库失败({} → {}: {e}),该候选跳过(TRAE 运行中库被锁?完全退出后重试)",
+                src.display(),
+                dst.display()
+            );
             continue;
         }
         out.extend(read_jwts_from_cookies_db(&dst, &key, rel));
@@ -587,6 +615,48 @@ pub fn capture_local_jwts(trae_dir: &Path) -> Vec<CapturedAccount> {
     let out = dedup_by_user_id(accounts);
     log::info!("[checkin-capture] 捕获到 {} 个账号候选（目录 {}）", out.len(), trae_dir.display());
     out
+}
+
+/// 全部**存在可捕获数据**的 TRAE 现场目录（Cookies 库或 leveldb 目录至少其一），
+/// 按候选顺序（IHUI_TRAE_DIR > APPDATA > LOCALAPPDATA 的四个变体名）。
+///
+/// 与 `detect_trae_dir` 的分工：detect 只回**第一个**命中给 UI 显示；
+/// 本函数回**全部**有货现场给捕获用。2026-10-12 真机实证的教训：
+/// detect 第一个命中空壳（TRAE SOLO CN 只有 machineid）时，若捕获只认
+/// detect 的那一个目录 ⇒ 0 账号。多版本并存的机器必须逐现场扫、合并去重。
+/// 纯函数不碰 env：候选由调用方喂（测试可注入）。
+pub fn trae_capture_dirs(candidates: &[PathBuf]) -> Vec<PathBuf> {
+    candidates
+        .iter()
+        .filter(|p| {
+            COOKIES_DB_CANDIDATES.iter().any(|rel| p.join(rel).is_file())
+                || LEVELDB_SCAN_DIRS.iter().any(|rel| p.join(rel).is_dir())
+        })
+        .cloned()
+        .collect()
+}
+
+/// 运行时多现场捕获：全部有货目录逐个扫、合并去重；全落空才回落
+/// detect 目录单扫（保底：custom 位置可能不在候选列表里）。
+pub fn capture_local_jwts_all_sites() -> Vec<CapturedAccount> {
+    let read = |k: &str| std::env::var(k).ok().filter(|v| !v.is_empty());
+    let candidates = trae_dir_candidates(
+        read("APPDATA").as_deref(),
+        read("LOCALAPPDATA").as_deref(),
+        read(ENV_TRAE_DIR).as_deref(),
+    );
+    let sites = trae_capture_dirs(&candidates);
+    let mut accounts: Vec<CapturedAccount> = Vec::new();
+    if sites.is_empty() {
+        if let Some(dir) = detect_trae_dir() {
+            accounts.extend(capture_local_jwts(&dir));
+        }
+    } else {
+        for dir in &sites {
+            accounts.extend(capture_local_jwts(dir));
+        }
+    }
+    dedup_by_user_id(accounts)
 }
 
 // ================== 执行层：设备标识 7 层重置 ==================
@@ -2853,8 +2923,16 @@ pub fn checkin_detect_trae_dir() -> Result<Option<String>, IpcError> {
 
 #[tauri::command]
 pub fn checkin_capture_jwts() -> Result<Vec<CapturedAccount>, IpcError> {
-    let dir = require_trae_dir()?;
-    Ok(capture_local_jwts(&dir))
+    // 2026-10-12:多现场合并捕获(不再只认 detect 的第一个目录)。
+    // 真机实证:detect 命中空壳 TRAE SOLO CN ⇒ 单目录捕获 0 账号;
+    // 现役 Trae CN 的 JWT 在 Partitions/trae-webview/Local Storage/leveldb。
+    let accounts = capture_local_jwts_all_sites();
+    if accounts.is_empty() {
+        // 保留旧契约语义:一个都没有时给「未检测到目录」的可操作错误
+        // (detect 也落空才会走到这;detect 命中但无货时走 captureEmpty 文案)。
+        require_trae_dir()?;
+    }
+    Ok(accounts)
 }
 
 #[tauri::command(async)]
@@ -3162,6 +3240,117 @@ pub fn qoder_jwt_uid(token: &str) -> Option<String> {
     None
 }
 
+/// 标量 → 非空字符串(数字/非空字符串;其余 None)。
+fn qoder_scalar_str(v: &serde_json::Value) -> Option<String> {
+    match v {
+        serde_json::Value::String(s) if !s.trim().is_empty() => Some(s.trim().to_string()),
+        serde_json::Value::Number(n) => Some(n.to_string()),
+        _ => None,
+    }
+}
+
+/// 纯函数:Qoder 会话 JSON → uid。
+///
+/// **真机实证 2026-10-12**:auth.v1.dat 解密后的 `token` 是 27 字符 **opaque
+/// 单段串**(非 JWT,无点号)⇒ `qoder_jwt_uid` 对现役客户端恒 None,而 uid 真源
+/// 是会话 JSON 的 `user.id`(本机 `019f17c6-0eca-7510-a4f5-5b22e8305ed4`)。
+/// 键序:`user.{id,userId,uid,user_id}` → session 顶层 `{userId,uid,user_id}`
+/// → 兜底 `qoder_jwt_uid(token)`(将来客户端换回 JWT 时自动接上)。
+pub fn qoder_session_uid(session: &serde_json::Value, token: &str) -> Option<String> {
+    if let Some(user) = session.get("user") {
+        for key in ["id", "userId", "uid", "user_id"] {
+            if let Some(s) = user.get(key).and_then(qoder_scalar_str) {
+                return Some(s);
+            }
+        }
+    }
+    for key in ["userId", "uid", "user_id"] {
+        if let Some(s) = session.get(key).and_then(qoder_scalar_str) {
+            return Some(s);
+        }
+    }
+    qoder_jwt_uid(token)
+}
+
+/// 纯函数:会话 JSON 的 expiresAt → epoch 秒(缺失/坏格式 0)。
+/// ISO 字符串走 `qoder_parse_iso_expires`;数字(epoch)原样(as_i64 失败落 0)。
+pub fn qoder_session_expires_at(session: &serde_json::Value) -> i64 {
+    match session.get("expiresAt") {
+        Some(serde_json::Value::Number(n)) => n.as_i64().unwrap_or(0),
+        Some(serde_json::Value::String(s)) => qoder_parse_iso_expires(s),
+        _ => 0,
+    }
+}
+
+/// 纯函数:ISO 8601(`2026-10-31T04:56:16Z` / `+08:00` 偏移 / 无后缀按 UTC)
+/// → epoch 秒;坏格式一律 0。
+///
+/// 2026-10-12 真机实证:auth.v1.dat 的 expiresAt 是 **ISO 字符串**,旧实现
+/// `session.get("expiresAt").and_then(|v| v.as_i64()).unwrap_or(0)` 对字符串
+/// 恒 0 ⇒ 前端 `qoderDeviceMap` 的 `if (s.expires_at > 0)` 从不成立 ⇒
+/// device_map.expires_at 从不落库 ⇒ ai-service `qoder_session_expiry`
+/// 的过期预检/自刷新对 Qoder 全程失效(那侧的 Python 注释点名了这个洞)。
+/// 不引 chrono(仓里没有):手写 Hinnant days_from_civil,时区偏移按字面换算。
+pub fn qoder_parse_iso_expires(raw: &str) -> i64 {
+    let text = raw.trim();
+    let b = text.as_bytes();
+    // 固定位:YYYY-MM-DDTHH:MM:SS(19 字符,位置 4/7/10/13/16 为分隔符)
+    if b.len() < 19
+        || b[4] != b'-'
+        || b[7] != b'-'
+        || (b[10] != b'T' && b[10] != b' ')
+        || b[13] != b':'
+        || b[16] != b':'
+    {
+        return 0;
+    }
+    let num = |s: &[u8]| -> Option<i64> {
+        if s.is_empty() || !s.iter().all(|c| c.is_ascii_digit()) {
+            return None;
+        }
+        Some(s.iter().fold(0i64, |acc, &c| acc * 10 + (c - b'0') as i64))
+    };
+    let (Some(y), Some(mo), Some(d)) = (num(&b[0..4]), num(&b[5..7]), num(&b[8..10])) else {
+        return 0;
+    };
+    let (Some(h), Some(mi), Some(s)) = (num(&b[11..13]), num(&b[14..16]), num(&b[17..19])) else {
+        return 0;
+    };
+    if !(1..=12).contains(&mo)
+        || !(1..=31).contains(&d)
+        || h > 23
+        || mi > 59
+        || s > 60
+        || !(1970..=9999).contains(&y)
+    {
+        return 0;
+    }
+    // 小数秒(.fff)与 时区(Z / ±HH:MM)都在第 19 字符之后
+    let mut rest = text[19..].trim();
+    if let Some(stripped) = rest.strip_prefix('.') {
+        let digits_end = stripped.find(|c: char| !c.is_ascii_digit()).unwrap_or(stripped.len());
+        rest = stripped[digits_end..].trim();
+    }
+    let mut offset_secs: i64 = 0;
+    if rest.len() >= 6 && (rest.starts_with('+') || rest.starts_with('-')) {
+        let sign: i64 = if rest.starts_with('-') { -1 } else { 1 };
+        let rb = rest.as_bytes();
+        if let (Some(oh), Some(om)) = (num(&rb[1..3]), num(&rb[4..6])) {
+            if oh <= 23 && om <= 59 {
+                offset_secs = sign * (oh * 3600 + om * 60);
+            }
+        }
+    }
+    // Hinnant days_from_civil:proleptic Gregorian 日序(1970-01-01 = 0)
+    let yy = if mo <= 2 { y - 1 } else { y };
+    let era = if yy >= 0 { yy } else { yy - 399 } / 400;
+    let yoe = yy - era * 400;
+    let doy = (153 * (if mo > 2 { mo - 3 } else { mo + 9 }) + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    let days = era * 146097 + doe - 719468;
+    days * 86400 + h * 3600 + mi * 60 + s - offset_secs
+}
+
 /// 读本机架构 → Cosy-MachineOS 形态(与引擎 default_machine_os 同判据)。
 fn qoder_machine_os() -> String {
     let arch = if cfg!(target_arch = "aarch64") { "aarch64" } else { "x86_64" };
@@ -3279,8 +3468,17 @@ pub fn capture_qoder_sessions() -> Vec<CapturedQoderSession> {
         if token.is_empty() {
             continue;
         }
-        let uid = qoder_jwt_uid(token).unwrap_or_default();
-        if out.iter().any(|s| s.uid == uid && !uid.is_empty()) {
+        // uid 真源 = session.user.id(opaque token 实证);解析不出 ⇒ 该会话
+        // 无法录入(服务端/引擎都按 uid 标识账号),跳过并留痕,不推给 UI。
+        let uid = qoder_session_uid(&session, token).unwrap_or_default();
+        if uid.is_empty() {
+            log::warn!(
+                "[checkin-capture] {} 会话解析不出 uid(user.id 缺失且 token 非 JWT),跳过",
+                dir.display()
+            );
+            continue;
+        }
+        if out.iter().any(|s| s.uid == uid) {
             continue; // 同 uid 去重(mtime 最新 = 先到先得)
         }
         let machine_id = std::fs::read_to_string(dir.join("auth.machine-id"))
@@ -3302,7 +3500,9 @@ pub fn capture_qoder_sessions() -> Vec<CapturedQoderSession> {
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string(),
-            expires_at: session.get("expiresAt").and_then(|v| v.as_i64()).unwrap_or(0),
+            // expiresAt 是 ISO 字符串(真机实证);qoder_session_expires_at 兼容
+            // ISO/epoch 两种形态,坏格式落 0(前端/服务端都按「>0 才用」消费)。
+            expires_at: qoder_session_expires_at(&session),
             jwt_exp: jwt_payload_exp(token),
             machine_id,
             machine_os: machine_os.clone(),
@@ -3409,6 +3609,36 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    #[test]
+    fn looks_like_trae_dir_accepts_capture_data_dirs() {
+        // 2026-10-12 真机实证:TRAE SOLO CN 只有 machineid、无任何捕获数据 ⇒
+        // 判据补「Cookies 库 / leveldb 目录存在也算」,现役 Trae CN 的
+        // Partitions/trae-webview/Local Storage/leveldb 即走这条。
+        let dir = scratch("capture-data");
+        let lv = dir.join("Partitions/trae-webview/Local Storage/leveldb");
+        std::fs::create_dir_all(&lv).unwrap();
+        std::fs::write(lv.join("000004.log"), b"x").unwrap();
+        assert!(looks_like_trae_dir(&dir));
+        assert_eq!(trae_capture_dirs(&[dir.clone()]), vec![dir.clone()]);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn trae_capture_dirs_skips_shell_dirs_without_data() {
+        // 空壳目录(只有 machineid)不得进捕获清单;有 Cookies 库的进。
+        let shell = scratch("shell");
+        std::fs::write(shell.join("machineid"), "m").unwrap();
+        assert!(!trae_capture_dirs(&[shell.clone()]).contains(&shell));
+        let rich = scratch("rich");
+        std::fs::create_dir_all(rich.join("Network")).unwrap();
+        std::fs::write(rich.join("Network/Cookies"), b"db").unwrap();
+        let picked = trae_capture_dirs(&[shell.clone(), rich.clone()]);
+        assert!(!picked.contains(&shell));
+        assert!(picked.contains(&rich));
+        let _ = std::fs::remove_dir_all(&shell);
+        let _ = std::fs::remove_dir_all(&rich);
+    }
+
     // ── 2. JWT 形态/校验/提取/去重 ──
 
     #[test]
@@ -3428,11 +3658,33 @@ mod tests {
     }
 
     #[test]
-    fn jwt_user_id_rejects_non_numeric_and_missing() {
-        assert_eq!(jwt_payload_user_id(&make_jwt(r#"{"data":{"id":"abc"}}"#)), None);
+    fn jwt_user_id_reads_auth_id_then_sub() {
+        // 键序 data.id → auth_id → sub,与 ai-service extract_user_id 对齐。
+        assert_eq!(
+            jwt_payload_user_id(&make_jwt(r#"{"auth_id":"777"}"#)).as_deref(),
+            Some("777")
+        );
+        // 2026-10-12 真机实证:新版 Trae JWT 只有 sub 且是 GUID 形态
+        let t = make_jwt(r#"{"sub":"2ea8afb3-363d-4b26-8bbf-034b7e6d59a8","exp":1}"#);
+        assert_eq!(
+            jwt_payload_user_id(&t).as_deref(),
+            Some("2ea8afb3-363d-4b26-8bbf-034b7e6d59a8")
+        );
+    }
+
+    #[test]
+    fn jwt_user_id_rejects_missing_and_malformed() {
+        // data.id 存在但为空/非标量 → 落到下一键;三键全无 → None
         assert_eq!(jwt_payload_user_id(&make_jwt(r#"{"data":{}}"#)), None);
+        assert_eq!(jwt_payload_user_id(&make_jwt(r#"{"data":{"id":null}}"#)), None);
         assert_eq!(jwt_payload_user_id(&make_jwt(r#"{"user":"123"}"#)), None);
         assert_eq!(jwt_payload_user_id("not-a-jwt"), None);
+        // 卫生约束:超 64 或含非法字符(空格/斜杠)一律拒
+        assert_eq!(jwt_payload_user_id(&make_jwt(r#"{"sub":"has space"}"#)), None);
+        assert_eq!(
+            jwt_payload_user_id(&make_jwt(&format!(r#"{{"sub":"{}"}}"#, "a".repeat(65)))),
+            None
+        );
     }
 
     #[test]
@@ -4415,6 +4667,70 @@ mod tests {
         assert_eq!(qoder_jwt_uid(&make_jwt(r#"{"uid":42}"#)).as_deref(), Some("42"));
         assert_eq!(qoder_jwt_uid("garbage"), None);
         assert_eq!(qoder_jwt_uid(""), None);
+    }
+
+    // ── Qoder 会话 uid / ISO 过期(2026-10-12 真机实证:token 是 opaque 单段串,
+    // uid 真源是 user.id,expiresAt 是 ISO 字符串) ──
+
+    #[test]
+    fn qoder_session_uid_prefers_user_dot_id() {
+        let session: serde_json::Value = serde_json::from_str(
+            r#"{"token":"opaque27","user":{"id":"019f17c6-0eca-7510-a4f5-5b22e8305ed4","name":"x"}}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            qoder_session_uid(&session, "opaque27").as_deref(),
+            Some("019f17c6-0eca-7510-a4f5-5b22e8305ed4")
+        );
+    }
+
+    #[test]
+    fn qoder_session_uid_falls_back_to_token_jwt() {
+        // user 缺失时兜底解析 token 本体(客户端将来换回 JWT 的兼容面)
+        let session: serde_json::Value = serde_json::from_str(r#"{"token":"t"}"#).unwrap();
+        let jwt = make_jwt(r#"{"sub":"u-9"}"#);
+        assert_eq!(qoder_session_uid(&session, &jwt).as_deref(), Some("u-9"));
+        // 既无 user.id,token 又不是 JWT ⇒ None(调用方跳过该会话)
+        assert_eq!(qoder_session_uid(&session, "opaque27"), None);
+    }
+
+    #[test]
+    fn qoder_parse_iso_expires_accepts_z_offset_and_naive() {
+        // 精确基准与 ai-service Python datetime.fromisoformat 对拍(2026-10-12):
+        // 2026-10-31T04:56:16Z = 1793422576,+08:00 = 1793393776(差 8h)。
+        let z = qoder_parse_iso_expires("2026-10-31T04:56:16Z");
+        assert_eq!(z, 1_793_422_576, "z={z}");
+        // +08:00 表示本地时间比 UTC 快 8h ⇒ epoch 比同字面 Z 少 8 小时
+        let off = qoder_parse_iso_expires("2026-10-31T04:56:16+08:00");
+        assert_eq!(off, z - 8 * 3600, "off={off}");
+        // 无后缀按 UTC;小数秒容忍
+        assert_eq!(qoder_parse_iso_expires("2026-10-31T04:56:16"), z);
+        assert_eq!(qoder_parse_iso_expires("2026-10-31T04:56:16.500Z"), z);
+        // 1970-01-01T00:00:00Z = 0
+        assert_eq!(qoder_parse_iso_expires("1970-01-01T00:00:00Z"), 0);
+    }
+
+    #[test]
+    fn qoder_parse_iso_expires_rejects_garbage() {
+        assert_eq!(qoder_parse_iso_expires(""), 0);
+        assert_eq!(qoder_parse_iso_expires("not-a-time"), 0);
+        assert_eq!(qoder_parse_iso_expires("2026-13-01T00:00:00Z"), 0, "月份 13");
+        assert_eq!(qoder_parse_iso_expires("2026-10-31 25:00:00Z"), 0, "小时 25");
+        assert_eq!(qoder_parse_iso_expires("2026/10/31T04:56:16Z"), 0, "分隔符不对");
+    }
+
+    #[test]
+    fn qoder_session_expires_at_handles_iso_and_epoch() {
+        let iso: serde_json::Value =
+            serde_json::from_str(r#"{"expiresAt":"2026-10-31T04:56:16Z"}"#).unwrap();
+        assert_eq!(qoder_session_expires_at(&iso), 1_793_422_576);
+        let epoch: serde_json::Value =
+            serde_json::from_str(r#"{"expiresAt":1799000000}"#).unwrap();
+        assert_eq!(qoder_session_expires_at(&epoch), 1799000000);
+        let none: serde_json::Value = serde_json::from_str(r#"{"expiresAt":"bad"}"#).unwrap();
+        assert_eq!(qoder_session_expires_at(&none), 0);
+        let missing: serde_json::Value = serde_json::from_str(r#"{}"#).unwrap();
+        assert_eq!(qoder_session_expires_at(&missing), 0);
     }
 
     #[test]

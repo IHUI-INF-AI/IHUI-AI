@@ -145,6 +145,32 @@ groups:
           summary: 'PostgreSQL 实例不可用'
           description: 'Postgres exporter {{ $labels.instance }} 无指标或 pg_up==0,PostgreSQL 疑似宕机'
 
+      # PostgreSQL 查询延迟(2026-10-12 立,桌面端 SSO 授权故障的最后一环)。
+      # 那场故障的形态是"PG 活着但慢":auth/refresh 18s+ 无响应、用户点了没反应,
+      # 而 PostgresDown 一条都不响(实例没死)。指标源 = postgres_exporter 扩展查询
+      # (monitoring/postgres-exporter/queries.yml,ihui-pg-exporter 的 --extend.query-path
+      # 挂载),取 pg_stat_activity.query_start 语义(内置 pg_stat_activity_max_tx_duration
+      # 是 xact_start,慢的是单条语句也会被漏掉),排除 beifen 备份用户。
+      # 为什么分两条而不是一条加阈值:bridge 去重键是 alertname|instance、窗口 240min ——
+      #   数值恶化(5s→30s)不换身份会被压掉,只有换名才能突破窗口再次触达(§5e-1)。
+      #   反例对照:单条规则 5s→30s 时第二封邮件永远发不出去,用户侧已经全站变慢。
+      - alert: PgSlowQuery
+        expr: max(pg_query_max_duration_seconds) > 5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'PostgreSQL 查询延迟超 5s'
+          description: '最长活跃查询已运行 {{ $value | humanizeDuration }}s(排除备份用户),PG 疑似退化;登录/续期等轻端点会一起变慢,排查:SELECT pid, now()-query_start, state, query FROM pg_stat_activity WHERE state=''active'' ORDER BY 2 DESC'
+      - alert: PgVerySlowQuery
+        expr: max(pg_query_max_duration_seconds) > 30
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'PostgreSQL 查询延迟超 30s'
+          description: '最长活跃查询已运行 {{ $value | humanizeDuration }}s(排除备份用户),PG 严重退化,用户端已可感知卡顿;排查同上 SQL 定位长事务,确认误伤后可 SELECT pg_terminate_backend(pid)'
+
       # Redis 实例 down
       - alert: RedisDown
         expr: up{job="redis"} == 0 or redis_up == 0
@@ -154,6 +180,39 @@ groups:
         annotations:
           summary: 'Redis 实例不可用'
           description: 'Redis exporter {{ $labels.instance }} 无指标或 redis_up==0,Redis 疑似宕机'
+
+      # Redis 持久化失败(2026-10-02 补:"落盘无人看守"这一格)。
+      # 指标源 = redis_exporter(9121)自报,2026-10-02 实测在位:
+      #   redis_rdb_last_bgsave_status / redis_aof_last_bgrewrite_status / redis_aof_last_write_status(1=成功 0=失败)。
+      # 口径:三条只在"引擎自己答出来"时生效 —— 采集断(exporter/进程挂)由 RedisDown 管,不在这里重复判。
+      # 阈值依据(RedisRdbStale):本机 save 策略为 900/1 · 300/10 · 60/10000(redis-ihui.conf 实测),
+      # 取 2h = 最大窗口的 8 倍,且要求 changes>0 —— 空转(无写入)时 last_save 陈旧属正常,不得报警。
+      - alert: RedisPersistenceFailing
+        expr: redis_rdb_last_bgsave_status == 0 or redis_aof_last_bgrewrite_status == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Redis 持久化失败(RDB bgsave / AOF rewrite 报错)'
+          description: 'RDB bgsave 或 AOF rewrite 最后一次状态为失败(instance {{ $labels.instance }}),重启/崩溃随时可能丢数据'
+
+      - alert: RedisAofWriteFailing
+        expr: redis_aof_last_write_status == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Redis AOF 写盘失败'
+          description: 'AOF(everysec)落盘连续报错(instance {{ $labels.instance }}):写命令已无法持久化,常见于磁盘满/权限变化'
+
+      - alert: RedisRdbStale
+        expr: redis_rdb_changes_since_last_save > 0 and (time() - redis_rdb_last_save_timestamp_seconds) > 7200
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Redis RDB 超过 2 小时未成功保存(且有未落盘变更)'
+          description: '存在未落盘变更且最后成功保存距今超过 2 小时(instance {{ $labels.instance }}),检查磁盘与日志'
 
       # ⚠ 原 DiskSpaceLow / MemoryLow 两条已判"结构上永不响",2026-09-27 实测后收口 ——
       #   它们取的是 node_exporter 的 `node_filesystem_*` / `node_memory_*`,而本机 prometheus.yml

@@ -18951,8 +18951,7 @@
     "planTruncated": "체량이 큰 상위 8개 항목만 표시, 나머지는 실행 레이어 상세를 참고하세요.",
     "planEmpty": "실행할 항목이 없습니다(존재하지 않거나 이미 비어 있음).",
     "entriesShowAll": "모두 표시",
-    "entriesShowLess": "접기"
-  ,
+    "entriesShowLess": "접기",
     "wizardTitle": "Qoder 로그인이 리스크 제한됐나요? 원클릭 해결",
     "wizardIntro": "14계층 디바이스 ID 전면 리셋을 자동 수행(하드웨어 지문 MAC 재작성 포함, 이전 값 자동 백업, 네트워크 수초 끊김)한 뒤 네트워크 출구 변경을 단계별로 안내합니다. 전문 지식이 전혀 필요 없습니다. ⚠️ 리셋 후 24시간 내에는 Qoder에 로그인하지 마세요——로그인 시도마다 리스크 타이머가 재시작되어 리셋이 헛수고가 됩니다. 내일 이 시간에 정상 로그인하세요.",
     "wizardCriticalFailNote": "⚠️ 일부 필수 계층이 실패했습니다(위 상세 참조). 결과가 불완전할 수 있으니 재시도하거나, 이 앱을 관리자로 실행하세요.",
@@ -19134,9 +19133,6 @@
     "loadMore": "더 불러오기",
     "schedulerDisabled": "자동 출석 꺼짐",
     "schedulerEnabled": "자동 출석 켜짐",
-    "schedulerNextRun": "다음 {time}",
-    "schedulerNextRunQoder": "Qoder 다음 {time}"
-  ,
     "deviceMapUpdated": "기기 지문이 업데이트되었습니다",
     "editDeviceMap": "기기 지문 편집",
     "editDeviceMapTitle": "기기 지문 편집",
