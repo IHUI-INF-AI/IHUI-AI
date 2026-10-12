@@ -23,6 +23,9 @@
 //   覆盖面的一条刻意例外:HEAD 里不存在的路径(未跟踪但未忽略的文件、别人刚 git add 的新文件)
 //   在全量档改取工作树 —— 那是该路径唯一的存续面,去掉它等于把本门立项要防的那一型
 //   ("新建还没 add 的脚本完全不在视野内")重新放回去。
+//   G-1058602(2026-10-12 ①段):上面那条例外必须让读报告的人看得见 —— 标签补注
+//   「(未入库件走工作树,逐条标注)」,未入库命中行加 `[未入库]` 后缀;未入库命中只报数、
+//   不进退出码(rc=1 ⇔ 入库件命中),汇总点名未入库件数与命中数。取材面与判据一字未动。
 // 手动:
 //   node scripts/check-no-visible-spawn.mjs [--staged|--worktree]   # 判定面见上
 //   node scripts/check-no-visible-spawn.mjs --self-test             # 判据自检(零副作用,注入假 batch)
@@ -503,10 +506,15 @@ export function facePathSet(root, face) {
   )
 }
 
-/** 结论行的面名必须与实际取材一致:掺了在飞副本就不能再一律印 HEAD blob。 */
+/**
+ * 结论行的面名必须与实际取材一致:掺了在飞副本就不能再一律印 HEAD blob(G-1058606),
+ * 且必须如实披露工作树回退这一维(G-1058602)—— 标签不写「未入库件走工作树,逐条标注」,
+ * 读报告的人就会把别人未提交的半成品当成仓库既有违规。只在掺了在飞时披露;
+ * 没掺/人工档不得披露(披露即承认本轮判了非面内容)。
+ */
 export function faceLabel(face, inflightCount) {
   const base = FACE_LABEL_SHORT[face]
-  return inflightCount > 0 && face !== 'worktree' ? `${base} ⊕ 在飞未入库` : base
+  return inflightCount > 0 && face !== 'worktree' ? `${base} ⊕ 在飞(未入库件走工作树,逐条标注)` : base
 }
 
 /** 待扫文件清单。
@@ -729,6 +737,36 @@ function selfTest() {
         return r.inflight.length === 0 && r.tracked.length === 2
       })(),
     },
+    // --- G-1058602(2026-10-12 ①段):标签披露、逐条标注与退出码的对账 ---
+    {
+      name: '取材面⑨:掺了在飞 ⇒ 标签必须披露「(未入库件走工作树,逐条标注)」;纯面/人工档不披露(没掺不许说掺了)',
+      pass:
+        (() => {
+          const mixed = faceLabel('head', 1)
+          return (
+            mixed.includes('未入库') &&
+            mixed.includes('走工作树') &&
+            mixed.includes('逐条标注') &&
+            faceLabel('head', 0) === FACE_LABEL_SHORT.head &&
+            faceLabel('staged', 0) === FACE_LABEL_SHORT.staged &&
+            faceLabel('worktree', 2) === FACE_LABEL_SHORT.worktree
+          )
+        })(),
+    },
+    {
+      name: '取材面⑩:披露条件与分桶条件必须是同一把尺 —— 恰好在 splitByFace 判出在飞时披露,否则两把尺必漂移',
+      pass:
+        (() => {
+          const pure = splitByFace(['a.mjs'], new Set(['a.mjs']))
+          const mixed = splitByFace(['a.mjs', 'b.mjs'], new Set(['a.mjs']))
+          return (
+            pure.inflight.length === 0 &&
+            !faceLabel('head', pure.inflight.length).includes('未入库') &&
+            mixed.inflight.length === 1 &&
+            faceLabel('head', mixed.inflight.length).includes('未入库')
+          )
+        })(),
+    },
   ]
   for (const c of faceCases) {
     if (!c.pass) bad++
@@ -800,18 +838,18 @@ async function main() {
       `⚠️  [check-no-visible-spawn ${mode}] 测试代码 ${test.length} 处(warn-only:测试由终端 runner 派生,子进程继承已有控制台,不新分配窗口)`,
     )
   }
-  if (inflightHits.length) {
+  if (inflight.length) {
+    // G-1058602:未入库件单独成档 —— 汇总必须点名件数与命中数(说清「命中不进退出码」),
+    // 命中逐条带 [未入库] 后缀;它们不影响 rc(rc 只由入库件命中决定,见下方 exit)。
     console.log(
-      `ℹ️  [check-no-visible-spawn ${mode}] 在飞未入库 ${inflightHits.length} 处(路径不在被审面,内容只能按工作树判 ⇒ 只报数、不参与退出码,由持有者自己收口):`,
+      `ℹ️  [check-no-visible-spawn ${mode}] 未入库件 ${inflight.length} 条(走工作树,命中不进退出码;本次命中 ${inflightHits.length} 处)` +
+        (inflightHits.length ? ',逐条标注:' : ''),
     )
-    for (const v of inflightHits.slice(0, 40)) console.log(`   ${v.file}:${v.line}  ${v.snippet}`)
+    for (const v of inflightHits.slice(0, 40)) console.log(`   ${v.file}:${v.line}  ${v.snippet}  [未入库]`)
     if (inflightHits.length > 40) console.log(`   ... 其余 ${inflightHits.length - 40} 处`)
   }
   if (!prod.length)
-    console.log(
-      `✅ [check-no-visible-spawn ${mode}] 扫描 ${files.length} 文件,生产代码 0 违规` +
-        (inflight.length ? `(另有 ${inflight.length} 个在飞未入库路径只报数)` : ''),
-    )
+    console.log(`✅ [check-no-visible-spawn ${mode}] 扫描 ${files.length} 文件,生产代码 0 违规`)
   process.exit(prod.length ? 1 : 0)
 }
 
