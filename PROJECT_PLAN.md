@@ -291,6 +291,55 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 
 ---
 
+## P1 2026-10-12 弹窗根治第四阶段:dev 服务链换隐藏控制台(根治 tsx/next/expo 内部自派 worker 弹窗)
+
+用户报障:「本电脑的 Node.exe 窗口我想改为静默后台启动,不要让我看到窗口」。实测桌面唯一 node
+可见窗口标题为 `C:\Program Files\nodejs\node.exe`,归属 dev api 的 tsx watch 子进程,且 pid 逐次
+翻新 —— 看守每 30s 重拉一次就多弹一扇。
+
+### 根因(2x2 矩阵实证,非推测)
+
+前三阶段把「宿主」全治完了(S4U / vbs / windowsHide),但漏了**服务自身内部 spawn 的 worker**:
+dev-stack 链上人人 detached + windowsHide(CREATE_NO_WINDOW)⇒ 无人持有控制台 ⇒ tsx watch /
+next dev / expo 这类 supervisor 内部 spawn worker 时**不带** windowsHide(tsx dist 内 `windowsHide`
+出现 0 次;该 spawn 点在 node_modules,不可改)⇒ Windows 给每个 worker 新分配一个**可见控制台**。
+逐点补 flag 走不通,因为诱爆点不在我们代码里。计划任务侧本轮复扫
+`node scripts/ensure-silent-tasks.mjs --check` = 0 违规(S4U/vbs 形态未漂移),窗口只剩这一族。
+
+顺带更正一条 2026-09-22 旧结论:「cmd 层 `>>` 重定向对外部 exe 输出继承损坏、日志恒 0 字节」的
+真因不是 detached,而是**派生方持有同文件日志句柄跨 spawn** —— 2x2 矩阵:持 fd 派生,2s 内整树
+必灭且日志全空;不持 fd,父子两级日志齐全。勿再照旧结论回避 cmd 重定向。
+
+### 改法(结构上无窗,不是逐点补 flag)
+
+- 新增 `scripts/dev-stack-hidden-run.vbs`(ASCII-only):wscript(GUI 子系统,自身无控制台)以
+  SW_HIDE 起 cmd ⇒ cmd 持一条**隐藏控制台** ⇒ 服务及其内部自派的全部 worker 继承它 ⇒ 结构上
+  再无可见控制台可分配。与 `hook-run-hidden.vbs`(git hooks)/各 guardian 任务同款已验证技术。
+- `scripts/dev-stack-launch.mjs`:服务改由 `wscript + vbs` 启动(日志走 cmd 的 `>>` / `2>>`
+  重定向写回同一批 dev-stack 日志);**删掉 openSync 持日志 fd 跨 spawn 的写法**(矩阵实证的
+  致死因),错误上报改按需 appendFileSync;pid 文件改记树根 wscript。
+- `scripts/dev-stack.mjs` killStale:接受 `wscript.exe` / `node.exe` 两种树根形态,才杀得到
+  存量旧直启树(含带可见窗口的 tsx 链)。
+- 实证链(G:/tmp-probe):父子两级进程零可见窗口 + 两级日志均落盘 + `taskkill /T` 整树可杀。
+
+### 验证证据(2026-10-12)
+
+- 杀旧 api 树(21424 tsx watch → 35772/18028 全终止)⇒ dev-with-warmup 看守 ~12s 内经新链
+  重拉,`/health` 200,Fastify 请求日志正常落盘。
+- 新树:wscript(树根,pid 文件记录)→ cmd → tsx watch(29928)→ api server(3468),**全树无可见窗口**。
+- `Get-Process -Name node | Where MainWindowTitle` = **0 扇**;桌面可见窗只剩 Trae / WorkBuddy / 输入法。
+- `ensure-silent-tasks.mjs --check` = 0 违规;`check-no-visible-spawn.mjs` 生产代码 0 违规。
+- 其余启动链核查无需改:start-dev.ps1 双通道(WMI `Win32_ProcessStartup ShowWindow=0` /
+  Start-Process `-WindowStyle Hidden`)本就是 cmd 级隐藏控制台,整树继承;husky 四个钩子
+  (pre-commit/pre-push/post-commit/commit-msg)均走 `hook-run-hidden.vbs`;apps/api 的
+  `node --watch --import tsx` 同属内部自派 spawn,已被隐藏控制台链覆盖。
+
+### 多端豁免声明(AGENTS.md §9)
+
+平台独占:仅 Windows 开发机本地启动链,不触及任何跨端契约 / 共享层。
+
+---
+
 ## P0 2026-09-22 生产 ⇄ 开发数据真源收口(根治「桌面端看不到本机扫码的发布账号」)
 
 用户报障:桌面端登录管理员后,发布平台里 09-15~16 扫码添加的 19 个账号全部不显示。
