@@ -1048,7 +1048,13 @@ function resolveDotSourceOperand(tok, scriptDir) {
     if (parts.length === 0) return { why: `Join-Path 的参数切不开(${inner.slice(0, 60)})` }
     let acc = null
     for (const part of parts) {
-      const r = resolveDotSourceOperand(part, scriptDir)
+      // Join-Path 的首段常常就是**裸** `$PSScriptRoot`(= 该脚本自己所在目录):作为整体操作数时
+      // 它是"目录不是脚本"必须拒(expandScriptRootToken 那一支),但作为 Join-Path 的基座它正是
+      // 基目录 —— 本票立项由头的真实书写形态(deploy/win/ihui-monitor.ps1 第 120 行
+      // `. (Join-Path $PSScriptRoot 'alert-dedup.ps1')`)就是这个,不认它这一维对真实自伤零判据。
+      const r = /^\$PS(?:ScriptRoot|ScriptDir)$/i.test(part.trim())
+        ? { path: scriptDir }
+        : resolveDotSourceOperand(part, scriptDir)
       if (r.why) return r
       acc = acc === null ? r.path : path.win32.resolve(acc, r.path)
     }
@@ -1383,6 +1389,18 @@ export function judgeRuntimeFreshness({
         `(-File 那一份本身 ${path} 的 mtime 早于进程启动,所以只看它会一路报绿)`,
       ...shape,
     })
+  // dot-source 层有量不到出口 ⇒ 整维**未判定**并点名(2026-10-12 补的洞):此前这里直接落
+  // fresh,而 judgeService 只认 verdict ⇒ 模块 mtime/正文读不到会被静默发"新鲜"——
+  // modulesUndetermined 无任何消费方、renderText 也不披露,正是本文件头注
+  // "量不到的一律落未判定并点名,绝不写成新鲜"禁止的那一型(判据失效的表现永远是安静)。
+  // notes(量到的空/不适用)与 nested(第二层已知未覆盖)不在此列:那两档是**已登记的有界边界**,
+  // 头注明确它们不判红也不失明;只有"试了而没量到"的四条出口(无读取出口/读不到 -File 正文/
+  // 模块 statFile 失败/模块正文读不到)才把整维拖成未判定。
+  if (layer.undetermined.length > 0)
+    return unmeasured(
+      `dot-source 层有 ${layer.undetermined.length} 处没量到(点名,不得记成新鲜):` +
+        layer.undetermined.join(';'),
+    )
   return measured({
     verdict: 'fresh',
     path,
@@ -2288,6 +2306,7 @@ export const __test__ = {
   PROC_SCRIPT_SHAPE_FORMS,
   attributeListening, probeHostForBind, buildProbeTargets, foldProbeOutcome, computeObservedListening,
   ticksToMs, resolveLoadedScript, judgeRuntimeFreshness, TICKS_EPOCH_DIFF_MS,
+  extractDotSourcedScripts, DOT_SOURCE_MAX,
   ENUM_HEAD, ENUM_TAIL, PROC_HEAD, PROC_TAIL, REG_NO_PARAMS, REG_ENCODE_ERROR, PS_CANDIDATES, NSSM_CANDIDATES,
   NETSTAT_CANDIDATES, LOOPBACK_PROBE_HOST, SYSTEM_PID_FLOOR, MAX_PROBE_PORTS, TREE_MAX_DEPTH, TREE_MAX_NODES,
   NSSM_TIMEOUT_MS, TCP_TIMEOUT_MS, NETSTAT_TIMEOUT_MS, PROC_TIMEOUT_MS, defaultDeps,
