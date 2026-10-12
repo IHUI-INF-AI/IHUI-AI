@@ -365,8 +365,11 @@ export default function CheckinPage() {
   const qoderKey = (s: CapturedQoderSession) => s.uid || s.app_dir
 
   // 会话 → 录入 device_map(Qoder 引擎契约:refresh_token / expires_at / cosy 风控头)
+  // 2026-10-12:uid 一并落库 —— Qoder token 是 opaque 非 JWT(真机实证),
+  // 服务端/引擎的账号 uid 标识只能从 device_map 读(桌面端从 user.id 提取)。
   const qoderDeviceMap = (s: CapturedQoderSession): Record<string, unknown> => {
     const dm: Record<string, unknown> = {}
+    if (s.uid) dm.uid = s.uid
     if (s.refreshToken) dm.refresh_token = s.refreshToken
     if (s.expires_at > 0) dm.expires_at = s.expires_at
     const cosy: Record<string, string> = { client_type: '10' }

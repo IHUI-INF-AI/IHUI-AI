@@ -106,6 +106,12 @@ class FakeStore:
         acc["enabled"] = enabled
         return True
 
+    async def get_account_platform(self, account_id, owner):
+        acc = self.accounts.get(account_id)
+        if acc is None or acc["owner_user_id"] != owner:
+            return None
+        return acc.get("platform", "trae")
+
     async def update_jwt(self, account_id, owner, jwt):
         acc = self.accounts.get(account_id)
         if acc is None or acc["owner_user_id"] != owner:
@@ -328,6 +334,7 @@ def fake_store(monkeypatch):
         "list_accounts",
         "delete_account",
         "set_enabled",
+        "get_account_platform",
         "update_jwt",
         "update_group",
         "get_decrypted_jwt",
@@ -428,6 +435,79 @@ async def test_create_rejects_unparseable_and_expired_jwt(client, fake_store):
     resp = await client.post("/api/checkin/accounts", json={"name": "expired", "jwt": expired})
     assert resp.status_code == 400
     assert "过期" in resp.json()["detail"]
+
+
+
+async def test_create_qoder_accepts_opaque_token(client, fake_store):
+    """Qoder 平台(2026-10-12 真机实证):token 是 27 字符 opaque 非 JWT,
+    uid 在 device_map;旧实现对所有平台走 TRAE extract_user_id ⇒ 必 400。
+    分流后:opaque token + 未来 epoch expires_at → 200,platform/device_map 落库。"""
+    resp = await client.post(
+        "/api/checkin/accounts",
+        json={
+            "name": "Qoder-cn-019f17c6",
+            "jwt": "qoder_opaque_token_27chars",
+            "platform": "qoder",
+            "device_map": {
+                "uid": "019f17c6-0eca-7510-a4f5-5b22e8305ed4",
+                "expires_at": 1793422576,
+                "cosy": {"client_type": "10"},
+            },
+        },
+    )
+    assert resp.status_code == 200
+    created = resp.json()
+    assert created["platform"] == "qoder"
+    stored = fake_store.accounts[created["id"]]
+    assert stored["device_map"]["uid"] == "019f17c6-0eca-7510-a4f5-5b22e8305ed4"
+
+
+
+async def test_create_qoder_rejects_expired_session(client, fake_store):
+    """Qoder token 非空但会话已过期(device_map ISO expiresAt 在过去)→ 400。"""
+    expired = (datetime.now(UTC) - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    resp = await client.post(
+        "/api/checkin/accounts",
+        json={
+            "name": "Qoder-expired",
+            "jwt": "qoder_opaque_token_27chars",
+            "platform": "qoder",
+            "device_map": {"uid": "u-x", "expires_at": expired},
+        },
+    )
+    assert resp.status_code == 400
+    assert "已过期" in resp.json()["detail"]
+
+
+
+async def test_create_qoder_rejects_blank_token(client, fake_store):
+    """Qoder token 空/过短 → 400(空串进不了 Field min_length,这里钉过短分支)。"""
+    resp = await client.post(
+        "/api/checkin/accounts",
+        json={"name": "Qoder-blank", "jwt": "short", "platform": "qoder"},
+    )
+    assert resp.status_code == 400
+
+
+
+async def test_update_jwt_qoder_platform_split(client, fake_store):
+    """PATCH /jwt 按账号平台分流:qoder 账号换 opaque token 不被 TRAE 判据误杀。"""
+    resp = await client.post(
+        "/api/checkin/accounts",
+        json={
+            "name": "Qoder-cn-019f17c6",
+            "jwt": "qoder_opaque_token_27chars",
+            "platform": "qoder",
+            "device_map": {"uid": "019f17c6"},
+        },
+    )
+    account_id = resp.json()["id"]
+    resp = await client.patch(
+        f"/api/checkin/accounts/{account_id}/jwt",
+        json={"jwt": "qoder_opaque_token_27chars_new"},
+    )
+    assert resp.status_code == 200
+    assert fake_store.accounts[account_id]["jwt"] == "qoder_opaque_token_27chars_new"
 
 
 
