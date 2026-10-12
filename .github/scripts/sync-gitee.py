@@ -25,13 +25,8 @@ TAG = os.environ["TAG"]
 GH_REPO = os.environ["GITHUB_REPOSITORY"]
 GITEE_REPO = "IHUI-AI"
 
-# Tauri updater 平台 → 资产名后缀映射
-PLATFORM_MAP = [
-    ("windows-x86_64", "-setup.exe"),
-    ("darwin-aarch64", "aarch64.app.tar.gz"),
-    ("darwin-x86_64", "x64.app.tar.gz"),
-    ("linux-x86_64", ".AppImage.tar.gz"),
-]
+# 2026-10-12:模块级 PLATFORM_MAP 已删除 —— 旧映射后缀与 tauri-action 实际产物名
+# 对不上(两次实锤 mac/linux 全漏),正确映射已内联到 main()(带注释),勿在此复活。
 
 
 def gh_api(path):
@@ -102,44 +97,68 @@ def main():
     rid = grel["id"]
     gitee_assets = {a["name"] for a in (grel.get("assets") or [])}
 
-    # 3. 上传缺的资产(安装包+sig)
+    # 3. 上传缺的资产
+    # 2026-10-12 修正 PLATFORM_MAP(0.1.50/0.1.51 两次实锤 mac/linux 全漏):
+    #   tauri-action universal 构建的实际产物名是 AI_universal.app.tar.gz(不含
+    #   aarch64/x64 字样),旧后缀 aarch64.app.tar.gz / x64.app.tar.gz 永不命中;
+    #   linux 的 updater 产物是 .AppImage 本体(.AppImage.tar.gz 形态不存在)。
+    #   universal 一份签名包覆盖 darwin 双键。
     need = {}
-    for plat, suffix in PLATFORM_MAP:
+    for plat, suffix in [
+        ("windows-x86_64", "-setup.exe"),
+        ("darwin-aarch64", "universal.app.tar.gz"),
+        ("darwin-x86_64", "universal.app.tar.gz"),
+        ("linux-x86_64", ".AppImage"),
+    ]:
         mains = [n for n in assets if n.endswith(suffix)]
         if not mains:
+            print(f"[warn] 平台 {plat} 在 GH release 无命中资产(后缀 {suffix})")
             continue
         main = sorted(mains)[-1]
         sig = main + ".sig"
         need[plat] = (main, sig if sig in assets else None)
 
-    # 3a. 先下载全部所需文件到本地(feed 生成也需要 sig——即使 Gitee 已有同名资产)
+    # 3--extra. 镜像 GH release 全部安装包资产(不只 feed 四键)——下载页的
+    # dmg/deb/rpm 也走 Gitee 优先合并(0.1.51 曾因此回指 GitHub,backfill 兜底
+    # 属人工通道,这里补成 CI 自动)。latest.json 排除(GH 版 url 指 github.com)。
+    upload_set = set()
     for plat, (main, sig) in need.items():
-        for fname in [x for x in (main, sig) if x]:
-            local = f"/tmp/{fname}"
-            if os.path.exists(local):
-                continue
-            gh_url = assets[fname]["browser_download_url"]
-            for attempt in range(1, 4):
-                try:
-                    req = urllib.request.Request(gh_url)
-                    req.add_header("Authorization", f"Bearer {GH_TOKEN}")
-                    open(local, "wb").write(urllib.request.urlopen(req, timeout=1800).read())
-                    print(f"[gh→tmp] {fname}: {os.path.getsize(local)} 字节")
-                    break
-                except Exception as e:
-                    print(f"[gh→tmp] {fname} 第{attempt}次失败: {e}")
-                    time.sleep(5)
-            else:
-                sys.exit(f"资产下载失败: {fname}")
+        upload_set.update(x for x in (main, sig) if x)
+    for name in assets:
+        if name == "latest.json" or name.endswith((".zip", ".tar.gz")):
+            continue
+        upload_set.add(name)
+
+    # 3a. 先下载全部所需文件到本地(feed 生成也需要 sig——即使 Gitee 已有同名资产)
+    # 2026-10-12:临时目录按 TAG 分子目录 —— 跨 tag 平铺会让无版本号资产名
+    # (AI_universal.app.tar.gz 等)把上一版内容当本版上传(backfill 实锤的冒名形态)。
+    tmpdir = f"/tmp/backfill-gitee/{TAG}"
+    os.makedirs(tmpdir, exist_ok=True)
+    for fname in sorted(upload_set):
+        local = f"{tmpdir}/{fname}"
+        if os.path.exists(local):
+            continue
+        gh_url = assets[fname]["browser_download_url"]
+        for attempt in range(1, 4):
+            try:
+                req = urllib.request.Request(gh_url)
+                req.add_header("Authorization", f"Bearer {GH_TOKEN}")
+                open(local, "wb").write(urllib.request.urlopen(req, timeout=1800).read())
+                print(f"[gh→tmp] {fname}: {os.path.getsize(local)} 字节")
+                break
+            except Exception as e:
+                print(f"[gh→tmp] {fname} 第{attempt}次失败: {e}")
+                time.sleep(5)
+        else:
+            sys.exit(f"资产下载失败: {fname}")
 
     # 3b. 上传 Gitee 缺失的资产(幂等:已有同名跳过)
-    for plat, (main, sig) in need.items():
-        for fname in [x for x in (main, sig) if x]:
-            if fname in gitee_assets:
-                print(f"[gitee] {fname} 已存在,跳过上传")
-                continue
-            gitee_upload(rid, f"/tmp/{fname}", fname)
-            gitee_assets.add(fname)
+    for fname in sorted(upload_set):
+        if fname in gitee_assets:
+            print(f"[gitee] {fname} 已存在,跳过上传")
+            continue
+        gitee_upload(rid, f"{tmpdir}/{fname}", fname)
+        gitee_assets.add(fname)
 
     # 4. 生成 latest.json(url → Gitee 直链)
     platforms = {}
@@ -147,7 +166,7 @@ def main():
         if sig is None:
             print(f"[feed] {plat} 无 .sig,跳过")
             continue
-        sig_content = open(f"/tmp/{sig}").read().strip()
+        sig_content = open(f"{tmpdir}/{sig}").read().strip()
         platforms[plat] = {
             "signature": sig_content,
             "url": f"https://gitee.com/{GITEE_OWNER}/{GITEE_REPO}/releases/download/{TAG}/{main}",
