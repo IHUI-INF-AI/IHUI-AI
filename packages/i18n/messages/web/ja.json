@@ -18956,8 +18956,7 @@
     "planTruncated": "体量の大きい上位 8 項目のみ表示。残りは実行時のレイヤー詳細を参照。",
     "planEmpty": "実行対象はありません(存在しない、または既に空)。",
     "entriesShowAll": "すべて表示",
-    "entriesShowLess": "折りたたむ"
-  ,
+    "entriesShowLess": "折りたたむ",
     "wizardTitle": "Qoder ログインがリスク制限に？ワンクリック解決",
     "wizardIntro": "14 層のデバイス ID リセットを自動実行（ハードウェア指紋 MAC 書き換え含む、旧値は自動バックアップ、数秒間ネットワークが一時切断）し、その後ネットワーク出口の変更を段階的に案内します。専門知識は一切不要です。⚠️ リセット後 24 時間は Qoder にログインしないでください——ログインを試みるたびにリスク制御タイマーが再起動し、リセットが無駄になります。明日の今頃に通常ログインしてください。",
     "wizardCriticalFailNote": "⚠️ 必須層の一部が失敗しました（上記詳細）。結果が不完全な可能性があります。再試行するか、本アプリを管理者として実行してください。",
@@ -19139,9 +19138,6 @@
     "loadMore": "さらに読み込む",
     "schedulerDisabled": "自動チェックイン オフ",
     "schedulerEnabled": "自動チェックイン オン",
-    "schedulerNextRun": "次回 {time}",
-    "schedulerNextRunQoder": "Qoder 次回 {time}"
-  ,
     "deviceMapUpdated": "デバイスフィンガープリントを更新しました",
     "editDeviceMap": "デバイスフィンガープリントを編集",
     "editDeviceMapTitle": "デバイスフィンガープリントを編集",

@@ -104,6 +104,18 @@ function run(label, cmd) {
 // —— 60s 一到,守门批整批被杀、pre-commit 看起来"跑完了"而其实一半都没判(§12f 记的恒红/假绿两侧同源)。
 // 300s 是"push 门实测上界 + 余量"，不是拍脑袋。
 //
+// ⚠️ 2026-10-12 实测推翻 300s 这一档(合并提交,52 文件宽暂存集):
+//   全量批 237 项检查 / 210 项执行(27 跳过)/ 并行池墙钟 **1023.8s**
+//   (逐门耗时凭证 .ihui-agent/tmp/guardian-timing.json:门内和 2003.7s,最慢真门
+//   check-staged-revert 132s / check-test-collection-runs 110s / provenance-ledger 102s)。
+//   300s 处在 ~30% 进度被掐断:无汇总段、无归因,当日连续 3 次提交被阻的结构性真因
+//   —— 宽暂存集(合并/大批量)触发远多于常规提交的门,批长随暂存面单调增长。
+//   新默认 1_800_000ms = 1023.8s 实测 + ~75% 余量;`HUSKY_GATE_BATCH_TIMEOUT_MS` 可调
+//   (重载合并 / CI 慢机按需上调,与 safe-commit 的 `IHUI_SAFE_COMMIT_BATCH_TIMEOUT_MS`
+//   同型;注意 safe-commit 自跑档默认 900s 也已被同一实测超过,那处是它自己的参数)。
+//   定位是兜底不是判据:单门仍有 `GUARDIAN_GATE_TIMEOUT_MS`(默认 300s)各自封顶,
+//   批内和由并行池收敛;只有"runner 本身死住"才由这层拦,不该有正常批走到这。
+//
 // 为什么 capture 而不读 .workbuddy/hook-logs/pre-commit.log:那份日志是 shell 层 tee 的产物，
 // 写入与本进程读取之间没有同步点(tee 缓冲 + 文件系统延迟)，刚跑完就 readFileSync 会拿到半截
 // —— 本仓 §12 记过一次同型(hook 日志当第二输入源而没有轮次绑定锁)。
@@ -125,7 +137,11 @@ function stripAnsi(text) {
  * 跑一条命令并捕获 stdout/stderr(不写 .log —— 那份日志有 tee 缓冲窗口)。
  * ok 只看退出码；output 原样透传给 parseGateSummary。
  */
-function runCapturing(label, cmd, timeoutMs = 300000) {
+function runCapturing(
+  label,
+  cmd,
+  timeoutMs = Number(process.env.HUSKY_GATE_BATCH_TIMEOUT_MS) || 1_800_000,
+) {
   console.log(label)
   try {
     const stdout = execSync(cmd, {
@@ -276,6 +292,13 @@ const LINT_STAGED_CMD = 'npx lint-staged --max-arg-length 4096 --no-stash'
 // 拥塞窗口(残留 git.exe 被杀毒/索引扫描钉锁)寿命长于原 2.3s 总退避,探针在窗口消散后
 // 12/20/1 全绿,故拉长梯尾扛窗口;仍保持同步 Atomics.wait 退避,不再加压进程面。
 const LINT_STAGED_EBUSY_BACKOFF_MS = [250, 750, 2000, 5000]
+// index.lock 争用退避(2026-10-12 立):同款指纹的另一种病 —— git 步骤 exit 128
+// "Unable to create '.../index.lock': File exists"(另一写者持锁),被下面 isEbusyShaped
+// 误归为 EBUSY,而 EBUSY 的 8s 总退避对"单次写索引 30-62 秒"的持锁者(guardian 对齐层 /
+// 并行会话 commit 的索引写入,2026-10-12 监视器实测)4 档全灭。判据依赖 execGit 的
+// 失败可见性针(scripts/lib/patch-lint-staged-stdio.mjs 第二针)把真实 stderr 带回来。
+// 退避拉到 10s/30s/60s:30-60s 的索引重写窗口过去后,重试通常一拍就过。
+const LINT_STAGED_INDEX_LOCK_BACKOFF_MS = [10000, 30000, 60000]
 // lint-staged 自己的 git 步骤失败指纹(全部出自 node_modules/lint-staged/lib/messages.js
 // 与 gitWorkflow.js,逐字对齐;含 17.3.0 的原文拼写错误 "hude")。
 const LINT_STAGED_GIT_STEP_FINGERPRINTS = [
@@ -324,15 +347,43 @@ function isEbusyShaped(res) {
   return LINT_STAGED_GIT_STEP_FINGERPRINTS.some((fp) => res.stderrText.includes(fp))
 }
 
+// index.lock 争用形态(2026-10-12 立,与 EBUSY 分诊):git 步骤 exit 128
+// "Unable to create '<gitdir>/index.lock': File exists" + "Another git process seems to be
+// running"。依赖 execGit 失败可见性针(补丁脚本第二针)把真实 stderr 带回钩子;
+// 针没打上时 stderr 只有指纹文案 ⇒ 本判据返回 false,调用方按旧 EBUSY 口径处理(不倒退)。
+// 判据必须锚 "index.lock" + 系统固定句,不锚裸 "File exists"(防普通文案误命中)。
+function isIndexLockShaped(res) {
+  const t = String(res.stderrText || '')
+  if (!/index\.lock/.test(t)) return false
+  return /File exists/.test(t) || /Another git process seems to be running/.test(t)
+}
+
 function runLintStaged() {
   // 用 console.info 而非 console.log:两者都写 stdout(输出逐字不变),但 info 在本仓
-  // eslint 的 no-console 白名单内 —— 不给本文件新增一条告警(基线 34 条,改后仍 34 条)。
+  // eslint 的 no-console 白名单内 —— 不给本文件新增一条告警(基线 35 条,改后仍 35 条,
+  // 2026-10-12 与 HEAD 版本对照实测;此前日志里写的"34"是误记)。
   console.info('🎨 运行 lint-staged...')
   let last = null
-  for (let attempt = 0; attempt <= LINT_STAGED_EBUSY_BACKOFF_MS.length; attempt++) {
+  // 分诊(2026-10-12 立):最近一次失败的真实形态决定退避梯。'index-lock' 走长梯(写索引
+  // 30-62s 的持锁窗口等它过去),'ebusy' 维持原 4 档。顺序铁律:index.lock 判据(带真实
+  // stderr,来自补丁第二针)必须先于泛 EBUSY 指纹 —— 否则指纹恒先命中,真因继续被讲成
+  // EBUSY(2026-10-10 起两天事故的正身)。
+  let shape = 'ebusy'
+  const maxAttempts = Math.max(
+    LINT_STAGED_EBUSY_BACKOFF_MS.length,
+    LINT_STAGED_INDEX_LOCK_BACKOFF_MS.length,
+  )
+  for (let attempt = 0; attempt <= maxAttempts; attempt++) {
     if (attempt > 0) {
-      const wait = LINT_STAGED_EBUSY_BACKOFF_MS[attempt - 1]
-      console.warn(`   ↻ lint-staged 命中 EBUSY 形态,${wait}ms 后重试(第 ${attempt} 次重试)`)
+      const backoff =
+        shape === 'index-lock' ? LINT_STAGED_INDEX_LOCK_BACKOFF_MS : LINT_STAGED_EBUSY_BACKOFF_MS
+      const wait = backoff[attempt - 1]
+      if (wait === undefined) break
+      console.warn(
+        shape === 'index-lock'
+          ? `   ↻ lint-staged 命中 index.lock 争用(另一 git 写者持锁),${wait}ms 后重试(第 ${attempt} 次重试)`
+          : `   ↻ lint-staged 命中 EBUSY 形态,${wait}ms 后重试(第 ${attempt} 次重试)`,
+      )
       // 同步退避:本文件是全同步的 execSync 风格,不能改 async(会改掉后面几十处守门的时序)。
       // Atomics.wait 是唯一能在同步上下文里真睡的原生手段(不用第三方依赖、不 spawn 子进程 ——
       // 在一个正为 EBUSY 难受的进程里再 spawn 只会更糟)。
@@ -341,40 +392,68 @@ function runLintStaged() {
     const res = spawnLintStagedOnce()
     if (res.status === 0) return true
     last = res
+    if (isIndexLockShaped(res)) {
+      shape = 'index-lock'
+      continue
+    }
     if (!isEbusyShaped(res)) {
-      // 不是 EBUSY 形态 ⇒ 是 lint/eslint 自己的真实判定(如 ESLint 报错)。
+      // 不是 EBUSY/index.lock 形态 ⇒ 是 lint/eslint 自己的真实判定(如 ESLint 报错)。
       // 这种情况**一个字都不能改**:它必须原样红,且不该被重试拖慢。
       console.error(`❌ lint-staged 失败,提交已阻止(非 EBUSY 形态,如为 eslint/prettier 真实报错)`)
       return false
     }
+    if (shape !== 'index-lock') shape = 'ebusy'
   }
-  // 重试耗尽:仍然 exit 1(见调用点)。这里只负责把"为什么"讲清楚。
-  console.error(
-    `❌ lint-staged 失败,提交已阻止(EBUSY 形态,已重试 ${LINT_STAGED_EBUSY_BACKOFF_MS.length} 次仍失败)`,
-  )
-  console.error(
-    `   形态:lint-staged 的 git 步骤没跑完 —— git.exe 子进程起不来(errno -4082 EBUSY / status=null)。`,
-  )
-  console.error(
-    `   判据:命中 git 步骤失败指纹或 spawn EBUSY 特征,**不是** lint 规则不通过(真 lint 报错不带这些指纹)。`,
-  )
-  console.error(
-    `   根因:本机 lint-staged 17.3.0 的 git 调用走 tinyexec(不设 stdio,git 继承 stdin 管道)。`,
-  )
-  console.error(
-    `   已做:已给钩子这条 spawn 补 stdio 兜底 + ${LINT_STAGED_EBUSY_BACKOFF_MS.length} 次递增退避重试;仍未通过说明当前是持续句柄争用。`,
-  )
-  console.error(`   怎么绕(按代价从低到高):`)
-  console.error(
-    `     1) 查并发面:tasklist | findstr /i "git node" —— 杀掉残留的 git/node 进程再 commit;`,
-  )
-  console.error(
-    `     2) 原样手工复跑一次(EBUSY 是间歇病,单独跑通常就通):npx lint-staged --max-arg-length 4096 --no-stash`,
-  )
-  console.error(
-    `     3) 仍红则先看 lint-staged 自己的 git 步骤是否真有问题(别把这句 git error 当 lint 报错):`,
-  )
-  console.error(`        npx lint-staged --max-arg-length 4096 --no-stash --debug`)
+  // 重试耗尽:仍然 exit 1(见调用点)。这里只负责把"为什么"讲清楚 —— 讲**真实形态**,
+  // 不再把 index.lock 争用讲成 EBUSY(那正是 2026-10-10 起误导排障两天的根)。
+  if (shape === 'index-lock') {
+    console.error(
+      `❌ lint-staged 失败,提交已阻止(index.lock 争用,已重试 ${LINT_STAGED_INDEX_LOCK_BACKOFF_MS.length} 次仍失败)`,
+    )
+    console.error(
+      `   形态:git 步骤 exit 128 "Unable to create '<gitdir>/index.lock': File exists" —— 另一 git 写者持锁。`,
+    )
+    console.error(
+      `   已知写者:guardian 对齐层/heal(单次写索引实测 30-62 秒)、并行会话的 commit;本机 EBUSY/spawn 问题与本形态无关。`,
+    )
+    console.error(`   怎么绕(按代价从低到高):`)
+    console.error(
+      `     1) 等 1-2 分钟让在飞的写索引动作跑完再 commit(本形态会自行消散,不需杀任何进程);`,
+    )
+    console.error(
+      `     2) 查写者:node scripts/git-lock.mjs check;git status 若长时间不动,看 .workbuddy/git-guardian.out.log;`,
+    )
+    console.error(
+      `     3) 长期修:让 guardian 对齐层守 git 写锁(scripts/heal-worktree-tracked.mjs,2026-10-12 报告已立项)。`,
+    )
+  } else {
+    console.error(
+      `❌ lint-staged 失败,提交已阻止(EBUSY 形态,已重试 ${LINT_STAGED_EBUSY_BACKOFF_MS.length} 次仍失败)`,
+    )
+    console.error(
+      `   形态:lint-staged 的 git 步骤没跑完 —— git.exe 子进程起不来(errno -4082 EBUSY / status=null)。`,
+    )
+    console.error(
+      `   判据:命中 git 步骤失败指纹或 spawn EBUSY 特征,**不是** lint 规则不通过(真 lint 报错不带这些指纹)。`,
+    )
+    console.error(
+      `   根因:本机 lint-staged 17.3.0 的 git 调用走 tinyexec(不设 stdio,git 继承 stdin 管道)。`,
+    )
+    console.error(
+      `   已做:已给钩子这条 spawn 补 stdio 兜底 + ${LINT_STAGED_EBUSY_BACKOFF_MS.length} 次递增退避重试;仍未通过说明当前是持续句柄争用。`,
+    )
+    console.error(`   怎么绕(按代价从低到高):`)
+    console.error(
+      `     1) 查并发面:tasklist | findstr /i "git node" —— 杀掉残留的 git/node 进程再 commit;`,
+    )
+    console.error(
+      `     2) 原样手工复跑一次(EBUSY 是间歇病,单独跑通常就通):npx lint-staged --max-arg-length 4096 --no-stash`,
+    )
+    console.error(
+      `     3) 仍红则先看 lint-staged 自己的 git 步骤是否真有问题(别把这句 git error 当 lint 报错):`,
+    )
+    console.error(`        npx lint-staged --max-arg-length 4096 --no-stash --debug`)
+  }
   // ⚠️ 同款指纹的第二种病(2026-10-08 探针实证,勿再误诊):「Failed to stage changes from tasks」
   //    也可能是 pathspec/--only 提交形态 —— `git commit -- <路径>` 在钩子运行期间父 git 持有
   //    .git/index.lock(GIT_INDEX_FILE=next-index-*.lock),而本薄壳 unset 了 GIT_INDEX_FILE ⇒

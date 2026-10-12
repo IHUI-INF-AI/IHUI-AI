@@ -38,7 +38,16 @@ for (const k of [
   delete process.env[k]
 }
 
-const ROOT = execSync('git rev-parse --show-toplevel', { encoding: 'utf8', windowsHide: true }).trim()
+// ⚠ 本机铁律(2026-10-12 实证):Node 派生的 cmd.exe 子进程**必须**显式 stdio,
+//   默认三 pipe 在本机 100% spawnSync EBUSY(-4082)—— A11 那枚 commit 的 post-commit
+//   就是死在这一行:execSync 内部走 cmd.exe,没给 stdio ⇒ 钩子整体崩在 push guard 之前,
+//   commit 落了地但**自动推送整段静默跳过**(靠 guardian 补推才没丢)。runLogged 里的
+//   execSync 一直都带 stdio(第 59 行),漏的只有这两个顶层调用。
+const ROOT = execSync('git rev-parse --show-toplevel', {
+  encoding: 'utf8',
+  windowsHide: true,
+  stdio: ['ignore', 'pipe', 'pipe'],
+}).trim()
 process.chdir(ROOT)
 const LOG_DIR = join(ROOT, '.workbuddy', 'hook-logs')
 mkdirSync(LOG_DIR, { recursive: true })
@@ -104,7 +113,12 @@ if (!process.env.IHUI_GIT_LOCK_UNIT) {
 }
 
 // ─── 1. Git LFS post-commit(原有) ──────────────────────────
-const lfs = spawnSync('git-lfs', ['version'], { encoding: 'utf8', windowsHide: true })
+// 同第 41 行铁律:spawnSync 默认 stdio 在本机同样 EBUSY(三 pipe 无 input),显式给。
+const lfs = spawnSync('git-lfs', ['version'], {
+  encoding: 'utf8',
+  windowsHide: true,
+  stdio: ['ignore', 'pipe', 'pipe'],
+})
 if (lfs.error || lfs.status !== 0) {
   console.error(
     '\nThis repository is configured for Git LFS but \'git-lfs\' was not found on your path. ' +

@@ -118,6 +118,13 @@ let refreshFailCooldownTimer: ReturnType<typeof setTimeout> | null = null
 // 2026-08-02 设备维度风控:默认空采集器,各端启动时注入实现
 let deviceFingerprintProvider: DeviceFingerprintProvider = nullDeviceFingerprintCollector
 let baseUrl: string = ''
+// ai-service 专用基址覆盖(2026-10-12 立,根治"桌面端 dev 签到页报 Route GET:/api/checkin/accounts not found")。
+// null=未注入(沿用共享 baseUrl,其它端零回归);''=同源(/api/* 经 next rewrites / nginx 反代);
+// 'http://127.0.0.1:8803'=直连本机 ai-service。
+// 背景:web 的 REST 共享基址在"Tauri + 本地 origin"下是本机 API 8802,fetchAiServiceJson 复用它
+// 会把只存在于 ai-service(8803) 的路由(/api/checkin/*、/api/mcp/*、/api/agents/* 等)打到
+// 8802 → Fastify 404(Route GET:/api/checkin/accounts not found)。
+let aiServiceBaseOverride: string | null = null
 /**
  * 首方客户端标识(2026-09-24 立)。RN 的 fetch 由 okhttp 实现、CLI 由 node-fetch/undici
  * 实现,两者都命中后端 bot-detection 的 CURL_LIKE_KEYWORDS,导致自家 App 的每个请求被
@@ -205,6 +212,16 @@ async function injectDeviceFingerprintHeader(
 
 export function setBaseUrl(url: string): void {
   baseUrl = url.replace(/\/$/, '')
+}
+
+/**
+ * 注入 ai-service 专用基址(2026-10-12 立,见 aiServiceBaseOverride 处注释)。
+ * 只影响 fetchAiServiceJson;传 null 恢复"沿用共享 baseUrl"的旧行为(其它端零回归)。
+ * web 端在 src/lib/api.ts 用 resolveAiServiceBaseUrl() 注入
+ * (Tauri 本地 dev → http://127.0.0.1:8803;其余 → '' 同源走 rewrites/nginx 反代)。
+ */
+export function setAiServiceBase(url: string | null): void {
+  aiServiceBaseOverride = url === null ? null : url.replace(/\/$/, '')
 }
 
 /**
@@ -498,7 +515,7 @@ function resolveBody(body: RequestInit['body']): TransportInit['body'] {
   if (body === null) return undefined
   return body as TransportInit['body']
 }
-function normalizeUrl(url: string, useStreamBase = false): string {
+function normalizeUrl(url: string, useStreamBase = false, baseOverride?: string | null): string {
   if (/^https?:\/\//i.test(url)) return url
   const normalized = (() => {
     if (url.startsWith('/api/') || url.startsWith('/uploads/') || url.startsWith('/ws/')) return url
@@ -508,7 +525,14 @@ function normalizeUrl(url: string, useStreamBase = false): string {
     if (url.startsWith('/')) return `/api${url}`
     return `/api/${url}`
   })()
-  const base = useStreamBase && streamBaseUrl ? streamBaseUrl : baseUrl
+  // baseOverride(2026-10-12):fetchAiServiceJson 的 ai-service 专用基址通道 ——
+  // undefined=未注入走默认;''=同源;非空=直连指定 base。优先级最高(含高于 useStreamBase)。
+  const base =
+    baseOverride !== undefined
+      ? baseOverride
+      : useStreamBase && streamBaseUrl
+        ? streamBaseUrl
+        : baseUrl
   return base ? `${base}${normalized}` : normalized
 }
 
@@ -889,9 +913,13 @@ export async function fetchApi<T>(
           // AbortError:用户主动取消或超时,直接返回,不重试
           if (isAbortError(err)) {
             // 区分用户取消 vs 超时:timeoutController 已 abort 说明是超时
+            // 文案按**实际**超时值生成(默认 30s,调用方传 timeoutMs 时随之变化)——
+            // 硬编码 '30s' 会对自定义超时的调用方说谎(2026-10-12 去硬编码)。
             return {
               success: false,
-              error: timeoutController.signal.aborted ? '请求超时(30s)' : '请求已取消',
+              error: timeoutController.signal.aborted
+                ? `请求超时(${Math.round(DEFAULT_TIMEOUT_MS / 1000)}s)`
+                : '请求已取消',
             }
           }
           const result = normalizeErrorToResult(err)
@@ -939,9 +967,12 @@ export async function fetchApi<T>(
     } catch (err) {
       if (err instanceof CircuitOpenError) throw err
       if (isAbortError(err)) {
+        // 同无熔断分支:超时文案按实际超时值生成,不硬编码 '30s'(2026-10-12)
         return {
           success: false,
-          error: timeoutController.signal.aborted ? '请求超时(30s)' : '请求已取消',
+          error: timeoutController.signal.aborted
+            ? `请求超时(${Math.round(DEFAULT_TIMEOUT_MS / 1000)}s)`
+            : '请求已取消',
         }
       }
       return normalizeErrorToResult(err) as ApiResult<T>
@@ -1044,7 +1075,11 @@ export async function fetchAiServiceJson<T>(
   const { params: rawParams, ...restOptions } = options
   // b76-08a:同 fetchApi —— 转发前摘除连接级能力位,客户端自报不出网(唯一出口见 @ihui/types)。
   const params = rawParams ? stripClientCapabilityFields(rawParams) : rawParams
-  let normalizedUrl = normalizeUrl(url)
+  // 2026-10-12:走 ai-service 专用基址通道(aiServiceBaseOverride)——
+  // 未注入(null)沿用共享 baseUrl(其它端零回归);web 端注入后 Tauri 本地 dev 直连 8803,
+  // 不再把 /api/checkin/* 等 ai-service 路由打到本机 API 8802 造成 Fastify 404。
+  // `?? undefined`:normalizeUrl 只认 undefined=未注入(null 会被当成覆盖值吞掉共享基址)。
+  let normalizedUrl = normalizeUrl(url, false, aiServiceBaseOverride ?? undefined)
   if (params) {
     const qs = new URLSearchParams()
     for (const [key, value] of Object.entries(params)) {
@@ -1114,9 +1149,12 @@ export async function fetchAiServiceJson<T>(
     return { success: true, data: json, status: response.status }
   } catch (err) {
     if (isAbortError(err)) {
+      // 超时文案按实际超时值生成(默认 30s,timeoutMs 自定义时随之变化),不硬编码(2026-10-12)
       return {
         success: false,
-        error: timeoutController.signal.aborted ? '请求超时(30s)' : '请求已取消',
+        error: timeoutController.signal.aborted
+          ? `请求超时(${Math.round(DEFAULT_TIMEOUT_MS / 1000)}s)`
+          : '请求已取消',
       }
     }
     return normalizeErrorToResult(err) as ApiResult<T>
