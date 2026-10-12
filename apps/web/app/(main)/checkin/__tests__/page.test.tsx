@@ -26,6 +26,8 @@ import {
   checkinAuditTraeResidual,
   checkinCaptureQoder,
   checkinCaptureWorkbuddy,
+  checkinWorkbuddyWebLoginOpen,
+  checkinWorkbuddyWebLoginProbe,
   checkinOneClickReset,
   checkinGetPublicIp,
   checkinSnapshotList,
@@ -140,6 +142,8 @@ vi.mock('@/lib/tauri-bridge', () => ({
   checkinCaptureJwts: vi.fn(),
   checkinCaptureQoder: vi.fn(async () => []),
   checkinCaptureWorkbuddy: vi.fn(async () => []),
+  checkinWorkbuddyWebLoginOpen: vi.fn(async () => undefined),
+  checkinWorkbuddyWebLoginProbe: vi.fn(async () => ({ status: 'no_window' }) as never),
   checkinResetDeviceIds: vi.fn(),
   checkinOneClickReset: vi.fn(),
   checkinGetPublicIp: vi.fn(),
@@ -987,6 +991,49 @@ describe('Qoder 平台化(2026-10-10)', () => {
     expect(second.device_map.uid).toBe('wb-2')
     expect(second.device_map.domain).toBe('www.workbuddy.cn')
     expect(second.device_map.expires_at).toBe(1794225169)
+  })
+
+  it('WorkBuddy 网页登录:探测 ok 自动入库(login_type=web,jwt 字段=Cookie)', async () => {
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    vi.mocked(checkinWorkbuddyWebLoginOpen).mockResolvedValue(undefined)
+    vi.mocked(checkinWorkbuddyWebLoginProbe).mockResolvedValue({
+      status: 'ok',
+      cookie: 'session_id=abc123; wb_uid=u-9',
+      accounts: [{ uid: '14f939c3-889b', nickname: '李总' }],
+    })
+    createAccount.mockResolvedValue({ id: 11 })
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('captureWbButton'))
+    // 首轮探测立即执行:未等轮询即导入
+    fireEvent.click(screen.getByText('captureWbWebOpen'))
+    await waitFor(() => expect(createAccount).toHaveBeenCalledTimes(1))
+    const payload = createAccount.mock.calls[0]![0]
+    expect(payload.platform).toBe('workbuddy')
+    expect(payload.jwt).toBe('session_id=abc123; wb_uid=u-9')
+    expect(payload.device_map.login_type).toBe('web')
+    expect(payload.device_map.uid).toBe('14f939c3-889b')
+    expect(payload.device_map.nickname).toBe('李总')
+    expect(payload.name).toBe('WorkBuddy-李总')
+    // 对话框自动关闭 + 完成提示
+    await waitFor(() => expect(screen.getByText(/captureWbWebDone/)).toBeTruthy())
+  })
+
+  it('WorkBuddy 网页登录:窗口被关后提示可重试且不入库', async () => {
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    vi.mocked(checkinWorkbuddyWebLoginOpen).mockResolvedValue(undefined)
+    // 打开后的首轮立即探测即 no_window(用户已把窗口关掉)→ 立即提示可重试
+    vi.mocked(checkinWorkbuddyWebLoginProbe).mockResolvedValue({ status: 'no_window' })
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('captureWbButton'))
+    fireEvent.click(screen.getByText('captureWbWebOpen'))
+    await waitFor(() =>
+      expect(screen.getByTestId('wb-web-login-msg').textContent).toContain(
+        'captureWbWebWindowClosed',
+      ),
+    )
+    expect(createAccount).not.toHaveBeenCalled()
   })
 
   it('WorkBuddy 平台筛选与徽章', async () => {
