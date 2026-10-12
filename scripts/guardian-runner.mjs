@@ -5488,6 +5488,17 @@ const PAR_GATE_IDS = new Set([
 //      结论/输出在 flush 按序吐)⇒ 结论顺序与串行版一致(表头可能先于前段结论,属观感差异)。
 //   ③ 退出码语义不变:flush 走同一份 applyGateResult(75/128+N 中断传播、stopOnFirst 早退、
 //      崩溃/判红分流原样);任何 process.exit 路径由 exit 钩子杀掉在飞子进程,不留孤儿。
+// 2026-10-12 parMax A/B(全量档 + --timing,五档九轮,同机连续测量):
+//   par=4  wall 491.8s / 池内合计 1114.8s(并发不足,单门最省但墙钟被卡)
+//   par=6  wall 422.5 / 563.7 / 494.9s(中位 494.9,最快单次) 池内 1155/1671/1266s
+//   par=8  wall 467.1 / 460.0 / 496.8s(中位 467.1,三轮最稳) 池内 1575/1525/1592s
+//   par=10 wall 574.0s(池内 1586.7s) / par=14 wall 583.4s(池内 2030.1s)
+// 结论:① ≥10 单调劣化 —— 并行度上去后单门均值从 5067ms 涨到 8904ms(+76%),
+//        CPU 竞争反噬盖过并发收益;② 4~8 是同一个谷底平台,6 与 8 的中位差(6%)
+//        远小于同档轮间波动(par=6 三轮跨 422~564s = 33%),**判不出显著差异**;
+//        ③ 池内合计(= 真实 CPU 成本)par=8 比 par=6 高 15%。故默认保持 6 不动 ——
+//        没有统计显著的收益就不改默认;真要试,逃生档 GUARDIAN_PAR=8 仍在。
+//        反面教材:单跑一轮就改默认会被 par=6 首轮 422.5s 或次轮 563.7s 带偏(同参 33% 噪声)。
 const guardianSerial = process.env.GUARDIAN_SERIAL === '1'
 const parMaxRaw = Number.parseInt(process.env.GUARDIAN_PAR || '', 10)
 const parMax = Number.isFinite(parMaxRaw) && parMaxRaw >= 1 ? parMaxRaw : 6
