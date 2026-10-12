@@ -561,6 +561,7 @@ function stagedR5Files() {
     encoding: 'utf8',
     windowsHide: true,
     timeout: 30000,
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
     .split('\n')
     .filter((f) => isR5Scope(f))
@@ -640,6 +641,7 @@ function stagedR8WebFiles() {
     encoding: 'utf8',
     windowsHide: true,
     timeout: 30000,
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
     .split('\n')
     .filter((f) => isR8Scope(f))
@@ -1446,6 +1448,10 @@ function listTargetFiles() {
     cwd: ROOT,
     encoding: 'utf8',
     windowsHide: true,
+    // 2026-10-12:不写 stdio = 三通道全管道,stdin 抢句柄撞 EBUSY(本机确定性复现,
+    // 见 ihui-spawn-ebusy-fix 配方第一形态)。不消费 stdin ⇒ ['ignore','pipe','pipe'],
+    // 返回值经 stdout 管道完整保留。
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
     .split('\n')
     .filter((f) => /\.(ts|tsx)$/.test(f))
@@ -1457,6 +1463,7 @@ function stagedFiles() {
     cwd: ROOT,
     encoding: 'utf8',
     windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
     .split('\n')
     .filter((f) => SCAN_DIRS.some((d) => f.startsWith(`${d}/`) && /\.(ts|tsx)$/.test(f)))

@@ -242,6 +242,10 @@ const ALLOWED_HIDDEN_DIRS = new Set([
   // 本条同时解除"守门 44 在 --staged 下恒红 ⇒ 各会话被迫 --no-verify 连带跳过全部守门"的系统性风险。
   '.arts',
   '.codeartsdoer',
+  // 2026-10-12 登记:IDE 工具态家目录(backups/cache/tools/Temp,实测 16GB,2026-09-30 起在盘)。
+  // 与 `.vscode`/`.qoder`/`.workbuddy` 同类:只登记、不搬不删(删了会打断他人正在用的工具态)。
+  // 本条同时解除守门 44 在 --staged 下点名该目录 ⇒ 提交链被迫 --no-verify 的系统性风险(§12e 同型)。
+  '.DevEnv',
   '.deploy.lock',
   // 2026-08-19 立:React Native C++ native 模块编译 staging 产物
   // (expo-modules-core / react-native-reanimated / react-native-screens 构建自动生成,

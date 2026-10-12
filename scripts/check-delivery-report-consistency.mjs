@@ -223,9 +223,10 @@ function checkSection(section) {
  * @returns {string[]} staged 的 .md 相对路径
  */
 function getStagedMdPaths() {
+  let files
   try {
     const output = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACM'], ROOT)
-    return output
+    files = output
       .split('\n')
       .map((f) => f.trim())
       .filter(Boolean)
@@ -233,6 +234,21 @@ function getStagedMdPaths() {
   } catch {
     return []
   }
+  // 归档快照豁免(2026-10-12 立):`.ihui-agent/archive/**` 是历史报告的**冻结快照**。
+  // 把它们 git add 进审面只是兑现门 13c「完整内容在 .ihui-agent/archive/」的存续承诺
+  // (不 add 就是 A1「归档锚点只在本机、未进版本控制」),不是"本次交付了一份报告"。
+  // §10 禁的是同一份**报告**自相矛盾;反向要求 —— 为消红去改三周前的原文 —— 已被
+  // 归档件自己的留痕判为越权(PROJECT_PLAN_superseded-numbering-2026-09-29.md 正文:
+  // 「门 12(AGENTS/PLAN 里"已闭环"与"后续建议"同段并存,改正文=越权)」)。
+  // 只豁免这一个前缀:PROJECT_PLAN.md / AGENTS.md / CHANGELOG / 任何散落 .md 一律照判。
+  const archived = files.filter((f) => f.startsWith('.ihui-agent/archive/'))
+  if (archived.length > 0) {
+    console.log(
+      `${C.dim}⏭  归档快照 ${archived.length} 份跳过(冻结历史正文,非本次交付报告;.ihui-agent/archive/ 前缀内)${C.reset}`,
+    )
+    if (archived.length > 10) console.log(`${C.dim}     (${archived.slice(0, 3).join(', ')} …)${C.reset}`)
+  }
+  return files.filter((f) => !f.startsWith('.ihui-agent/archive/'))
 }
 
 /**
@@ -281,7 +297,7 @@ const entries = [] // {rel, md}
 if (isStaged) {
   const paths = getStagedMdPaths()
   if (paths.length === 0) {
-    console.log(`${C.green}✅ 暂存区无 .md 变更,跳过${C.reset}`)
+    console.log(`${C.green}✅ 暂存区无可判 .md 变更(全为归档快照或无 .md),跳过${C.reset}`)
     process.exit(0)
   }
   // 内容取自**索引 blob**(`:<path>` 规格)——不是磁盘:磁盘副本是别人的在飞现场

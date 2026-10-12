@@ -515,6 +515,12 @@ modules:
       - './utils/*'
       - './hooks'
       - './hooks/*'
+      # 2026-10-12 补登(门 103 D3):jobs 作业注册表两个消费面真的 import 了
+      # `@ihui/shared/jobs/submission-job`(apps/web feedback/page.tsx:14 / shared 判据测试),
+      # 而本表未登记 ⇒ D3 当场判红。`./jobs/*` 在 packages/shared 的 package.json#exports
+      # 里真实存在(32afee2139 随票补的导出);只登通配不登精确名:jobs 无 index.ts,
+      # 精确 `./jobs` 会触发 E1 entrypoint-missing(与 ./skills/* ./tasks/* 同款形态)。
+      - './jobs/*'
       - './validation'
       - './validation/*'
       - './workflows'
