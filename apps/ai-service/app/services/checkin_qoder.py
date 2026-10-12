@@ -93,6 +93,22 @@ def qoder_extract_uid(jwt: str) -> str | None:
     return None
 
 
+def qoder_device_map_uid(device_map: dict[str, Any]) -> str | None:
+    """从 device_map 取账号 uid(桌面端捕获时落库的 uid/user_id/userId)。
+
+    **真机实证 2026-10-12**:现役 Qoder 客户端 auth.v1.dat 的 token 是 27 字符
+    opaque 单段串(非 JWT)⇒ qoder_extract_uid 对其恒 None,而 uid 真源是客户端
+    会话的 user.id(桌面端 checkin_capture.rs 的 qoder_session_uid 提取后,
+    经前端 qoderDeviceMap 落进 device_map)。uid 标识账号(记录/冷却/积分流水
+    都按它归集),桌面端 capture 已修(2026-10-12),这里做服务侧读取面。
+    """
+    for key in ("uid", "user_id", "userId"):
+        val = device_map.get(key)
+        if isinstance(val, (str, int)) and str(val).strip():
+            return str(val).strip()
+    return None
+
+
 def qoder_jwt_exp(jwt: str) -> tuple[datetime.datetime | None, float | None]:
     """从 Qoder JWT payload 取 exp,返回 (exp_datetime, remaining_hours) 或 (None, None)。"""
     parts = (jwt or "").strip().split(".")
@@ -376,10 +392,12 @@ async def qoder_checkin_account(
         result["message"] = "未配置 token"
         return result
 
-    user_id = qoder_extract_uid(jwt)
+    # uid:device_map 落库值优先(桌面端从 user.id 提取),token JWT 兜底
+    # (2026-10-12 真机实证:现役 token 是 opaque 非 JWT,只认 token 必失败)。
+    user_id = qoder_device_map_uid(device_map) or qoder_extract_uid(jwt)
     result["user_id"] = user_id
     if not user_id:
-        result["message"] = "无法从 token 解析 uid"
+        result["message"] = "无法解析账号 uid(device_map.uid 缺失且 token 非 JWT),请重新抓取"
         return result
 
     # 过期预检 + 自刷新(写回 device_map 由调用方 save_device_map 落库)
