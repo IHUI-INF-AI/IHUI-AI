@@ -111,9 +111,15 @@ export default function SsoLoginPage() {
         toast.error(tSso('sessionExpired'))
         return
       }
+      // 2026-10-12:/api/auth/sso/code 与 auth refresh 同链路(都走在"授权并跳转"的
+      // 关键路径上),显式 10s 超时 —— 不吃 fetchApi 默认 30s,生产后端退化时
+      // 授权按钮至多 10s 给出明确失败,而不是让用户对着"点了没反应"干等。
+      // 与 lib/api.ts 的 AUTH_REFRESH_TIMEOUT_MS 同值同理由;不导出复用是为免
+      // 把"auth 续期专用"常量漂成通用超时表(改一处牵动两处语义)。
       const r = await fetchApi<{ code: string; redirectUri: string }>('/api/auth/sso/code', {
         method: 'POST',
         body: JSON.stringify({ clientId, redirectUri: target }),
+        timeoutMs: 10_000,
       })
       if (r.success && r.data?.code) {
         // 幂等构造:先剥离 redirect 里可能残留的 sso_code 再附加(2026-09-22 去重),
