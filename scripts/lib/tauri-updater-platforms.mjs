@@ -20,8 +20,10 @@
  *     Linux = `.AppImage` / deb / rpm(+`.sig`),Windows = NSIS `.exe`(+`.sig`)。
  *   - `.dmg` **不是**可更新产物、没有配套 `.sig` → 永远不得充当 darwin 条目。
  *   - 空签名条目标对客户端是"下载后验签失败",比"没有更新"更糟 → 一律不输出。
- *   - Gitee 镜像的 mac/linux updater 资产实测 404(只有 Windows exe 在),
- *     故 darwin/linux 的 URL 只认 GitHub 直链;windows 允许 Gitee(国内可达)。
+ *   - 2026-10-12 修订:Gitee 镜像的 mac/linux updater 资产曾实测 404(只有 Windows
+ *     exe),该缺口已由 .github/scripts/backfill-gitee-assets.py 全量补齐且直链
+ *     复测 200(app.tar.gz / rpm 逐个验证)→ 四平台均允许 Gitee 直链(国内可达),
+ *     GitHub 降为兜底源。
  */
 
 /** 同平台多产物时的择优优先级(数值大者优先)。darwin 为单产物平台,保留首个。 */
@@ -41,8 +43,17 @@ export const UPDATER_PLATFORM_ORDER = [
 /** 允许出现在 updater feed URL 里的 host(GitHub 资产直链 / Gitee release 直链) */
 const ALLOWED_URL_HOSTS = new Set(['github.com', 'gitee.com'])
 
-/** 允许使用 Gitee 直链的平台 —— 其余平台 Gitee 资产实测 404,一律拒收 */
-const GITEE_ALLOWED_PLATFORMS = new Set(['windows-x86_64'])
+/**
+ * 允许使用 Gitee 直链的平台 —— 2026-10-12 起 Gitee 资产已全平台补齐
+ * (backfill-gitee-assets.py,直链复测 200),四平台全部放行;
+ * 该闸保留形态是为了未来再有"某平台 Gitee 侧缺失"时可单点收窄。
+ */
+const GITEE_ALLOWED_PLATFORMS = new Set([
+  'windows-x86_64',
+  'linux-x86_64',
+  'darwin-x86_64',
+  'darwin-aarch64',
+])
 
 /**
  * 根据 `.sig` 文件名推断 Tauri updater 平台标识 + 产物类型(kind)。
@@ -117,7 +128,7 @@ export function shouldReplacePlatform(platform, newKind, newVerMatch, existingKi
 
 /**
  * updater URL 白名单闸:必须 https、host ∈ {github.com, gitee.com},
- * 且 Gitee 直链仅允许出现在 windows-x86_64(mac/linux 的 Gitee 资产实测 404)。
+ * Gitee 直链四平台均允许(2026-10-12 资产补齐后复测直链 200)。
  * 相对路径 / 占位符 / 未知 host 一律拒(宁缺平台键不出错链)。
  * @param {string} platform
  * @param {string} url
