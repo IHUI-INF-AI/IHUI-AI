@@ -38,14 +38,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.core.jwt_auth import require_request_user_id
-from app.services import checkin_credits, checkin_qoder, checkin_store
+from app.services import checkin_credits, checkin_qoder, checkin_store, checkin_workbuddy
 from app.services import checkin_scheduler as checkin_scheduler_mod
 from app.services.checkin_engine import extract_user_id, get_jwt_exp
 
 router = APIRouter(prefix="/api/checkin", tags=["checkin"])
 
-# 支持的账号平台(2026-10-10 平台化):trae = 存量默认;qoder = 阿里 AI IDE。
-_ACCOUNT_PLATFORMS = ("trae", "qoder")
+# 支持的账号平台(2026-10-10 平台化;2026-10-12 增 workbuddy):
+# trae = 存量默认;qoder = 阿里 AI IDE;workbuddy = 腾讯 WorkBuddy(Buddy 加油站)。
+_ACCOUNT_PLATFORMS = ("trae", "workbuddy", "qoder")
 
 _RECORDS_LIMIT_DEFAULT = 50
 _RECORDS_LIMIT_MAX = 200
@@ -109,6 +110,26 @@ def _validate_qoder_token(token: str, device_map: dict[str, Any]) -> None:
         )
 
 
+def _validate_workbuddy_token(token: str, device_map: dict[str, Any]) -> None:
+    """WorkBuddy token 校验:非空 + 会话未过期(device_map.expiresAt 声明时)。
+
+    WorkBuddy token 本体是标准 JWT(sub=uid、exp),但桌面端 5.8+ 把登录态
+    包进 {$wbEncrypted} 信封(密钥只活在客户端进程内),抓取可能拿不到 token
+    本体 ⇒ token 只做非空硬校验,uid 以 device_map.uid 为真源(捕获落库)。
+    过期判据复用 checkin_workbuddy.workbuddy_session_expiry
+    (epoch 秒/毫秒/ISO 三形态;auth.expiresAt 真机实证为毫秒)。
+    """
+    tok = (token or "").strip()
+    if len(tok) < 8:
+        raise HTTPException(status_code=400, detail="WorkBuddy token 为空或过短,请重新提取")
+    exp_dt, _remaining = checkin_workbuddy.workbuddy_session_expiry(device_map)
+    if exp_dt is not None and exp_dt <= datetime.now():
+        raise HTTPException(
+            status_code=400,
+            detail=f"WorkBuddy 会话已过期({exp_dt:%Y-%m-%d %H:%M}),请打开 WorkBuddy 桌面端刷新登录态后重新提取",
+        )
+
+
 def _validate_jwt(
     jwt: str,
     platform: str = "trae",
@@ -120,10 +141,15 @@ def _validate_jwt(
     按平台分流(2026-10-12 平台化修正):
     - trae:extract_user_id(data.id/auth_id/sub)必须命中,get_jwt_exp 判过期;
     - qoder:token 是 opaque 非 JWT(真机实证),只校验非空 + device_map 会话
-      过期时间(见 _validate_qoder_token)—— 绝不再要求从 token 解析 uid。
+      过期时间(见 _validate_qoder_token)—— 绝不再要求从 token 解析 uid;
+    - workbuddy:token 本体是 JWT 但 5.8+ 登录态加密可能取不到 ⇒ 只校验非空 +
+      device_map 会话过期时间(见 _validate_workbuddy_token)。
     """
     if platform == "qoder":
         _validate_qoder_token(jwt, device_map or {})
+        return None
+    if platform == "workbuddy":
+        _validate_workbuddy_token(jwt, device_map or {})
         return None
     user_id = extract_user_id(jwt)
     if not user_id:
@@ -289,8 +315,8 @@ async def scheduler_status(
 async def query_credits(
     account_id: int, current_user: str = Depends(require_request_user_id)
 ) -> dict[str, Any]:
-    """手动查询账号积分余额:按平台分发(Trae ide_user_ent_usage / Qoder quota usage),
-    成功则 upsert 当日快照。
+    """手动查询账号积分余额:按平台分发(Trae ide_user_ent_usage / Qoder quota
+    usage / WorkBuddy checkin-status),成功则 upsert 当日快照。
 
     属主校验走 get_decrypted_jwt(owner 并入 WHERE,不命中 404);
     查询失败不抛栈,返回 {"ok": false, "error": 明确描述} 且不落快照。
@@ -298,7 +324,8 @@ async def query_credits(
     account = await checkin_store.get_decrypted_jwt(account_id, current_user)
     if account is None:
         raise HTTPException(status_code=404, detail=f"账号不存在: {account_id}")
-    if account.get("platform") == "qoder":
+    platform = account.get("platform")
+    if platform == "qoder":
         device_map = dict(account.get("device_map") or {})
         result = await checkin_qoder.qoder_query_credits(account["jwt"], device_map)
         # 401→refresh 会写回 device_map(新 token),落库持久化
@@ -306,6 +333,9 @@ async def query_credits(
             await checkin_store.save_device_map(account_id, device_map)
         except Exception:
             pass
+    elif platform == "workbuddy":
+        wb_device_map = dict(account.get("device_map") or {})
+        result = await checkin_workbuddy.workbuddy_query_credits(account["jwt"], wb_device_map)
     else:
         result = await checkin_credits.query_remaining_credits(account["jwt"])
     error = result.get("error")
