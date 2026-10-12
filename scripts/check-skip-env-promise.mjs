@@ -322,6 +322,12 @@ export function maskFace(rel, text, d = dialectOf(rel)) {
 }
 
 /**
+ * 遮后正文的按面缓存(2026-10-12 提速:evaluate 逐承诺名重扫同一批面 ⇒ 遮罩被重复 N 次)。
+ * 键=面对象(WeakMap,面对象消亡即释放),条目带正文引用校验 ⇒ 面正文被换掉就重算。
+ */
+const FACE_IDX = new WeakMap()
+
+/**
  * 兑现面搜索:该名字在这些文件里有没有**读点**。
  * ⚠️ 遮罩只在本函数内发生一次(`maskFace` 那一行)—— 变异自证改的就是那一行,
  *    把它换成原文面 ⇒ 注释里的 `process.env.HUSKY_SKIP_X` 会被算成读点 ⇒ 自检必红。
@@ -337,7 +343,19 @@ export function findReads(name, faces) {
     // 夹具面 / 归档面对本门不可见,是刻意的"宁漏不误报",见头注。
     const d = sniffDialect(f.rel, f.text)
     if (!d || !dialectOf(f.rel) || !isConsumerFile(f.rel)) continue
-    const code = maskFace(f.rel, f.text, d) // ← 遮罩唯一调用点
+    // 每面只遮一次(evaluate 对 N 个承诺名会把同一批面重扫 N 遍 ⇒ 同一份正文被字符级
+    // 状态机反复过 N 次,实测占本门 77% CPU)。缓存按面对象 + 正文引用双重取键:
+    // 引用不同即失效重算 ⇒ 与每现算逐字一致(同一实现、同一入参),只是不再重算。
+    let cached = FACE_IDX.get(f)
+    if (!cached || cached.text !== f.text) {
+      const code = maskFace(f.rel, f.text, d) // ← 遮罩唯一调用点
+      cached = { text: f.text, code }
+      FACE_IDX.set(f, cached)
+    }
+    const code = cached.code
+    // 名字不在遮后正文里 ⇒ 本面所有读点语法必然零命中:每条语法都内嵌该名字的字面量
+    // (F-PRE 断言的正是这件事,escapeRe 只加反斜杠不改字面)⇒ 直接短路,不是近似。
+    if (!code.includes(n)) continue
     const taken = []
     /** 每条语法命中去重后登记(via 标注最具体的那条,不虚增计数)。 */
     const record = (via, from, to) => {
@@ -477,7 +495,6 @@ export function evaluate(o) {
     fake.push({ name, where })
   }
 
-  const fakeSet = new Set(fake.map((f) => f.name))
   const newlyFake = baseline ? fake.filter((f) => !baseline.has(f.name)) : fake.filter(() => false)
 
   let exit
@@ -802,10 +819,8 @@ function main(argv) {
   const strict = argv.includes('--strict')
   const json = argv.includes('--json')
   let snap
-  let base = null
   try {
     snap = snapshot(face, ROOT)
-    if (face !== 'head') base = new Set(snapshot('head', ROOT).fake ? [] : [])
   } catch (e) {
     const msg = e instanceof Undetermined ? e.message : (e?.message ?? e)
     console.error(`❌ 无法判定(exit 2): ${msg}`)
