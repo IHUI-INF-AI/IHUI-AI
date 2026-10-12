@@ -34,6 +34,7 @@ from cryptography.fernet import Fernet, InvalidToken
 from app.core.db_pool import get_shared_pool
 from app.core.logging import get_logger
 from app.services.checkin_engine import get_jwt_exp
+from app.services.checkin_qoder import qoder_session_expiry
 
 if TYPE_CHECKING:
     # 只为标注 ensure_tables_conn 的连接参数而引;本文件有 `from __future__ import
@@ -354,6 +355,23 @@ async def set_enabled(account_id: int, owner_user_id: str, enabled: bool) -> boo
     return tag == "UPDATE 1"
 
 
+async def get_account_platform(account_id: int, owner_user_id: str) -> str | None:
+    """账号平台(轻量查询:不解密 jwt)。
+
+    2026-10-12 立:PATCH /jwt 的校验按平台分流(Qoder token 是 opaque 非 JWT,
+    不能走 TRAE 的 extract_user_id),而路由只收到 jwt 不带 platform,
+    故先查一次平台再校验。未命中(不存在/非属主)返回 None,路由层 404。
+    """
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT platform FROM checkin_accounts WHERE id = $1 AND owner_user_id = $2",
+            account_id,
+            owner_user_id,
+        )
+    return row["platform"] if row else None
+
+
 async def update_jwt(account_id: int, owner_user_id: str, jwt: str) -> bool:
     """更换账号 jwt(重加密落库)。返回是否命中行(属主校验并入 WHERE)。"""
     pool = await get_shared_pool()
@@ -459,8 +477,21 @@ async def save_device_map(account_id: int, device_map: dict[str, Any]) -> None:
         )
 
 
-def _account_jwt_exp(jwt_enc: bytes) -> str | None:
-    """解密账号 jwt 并解析 exp → ISO8601;解密/解析失败一律 None(单账号异常不炸整表)。"""
+def _account_jwt_exp(
+    jwt_enc: bytes,
+    platform: str = "trae",
+    device_map: Any = None,
+) -> str | None:
+    """解密账号 jwt 并解析 exp → ISO8601;解密/解析失败一律 None(单账号异常不炸整表)。
+
+    qoder 平台(2026-10-12 分流):token 是 opaque 非 JWT(真机实证),
+    get_jwt_exp 对其恒 (None, None) ⇒ 改从 device_map 的会话 expiresAt 派生
+    (桌面端 capture 落库的 ISO/epoch 双形态,qoder_session_expiry 已兼容)。
+    """
+    if platform == "qoder":
+        dm = device_map if isinstance(device_map, dict) else {}
+        exp_dt, _remaining = qoder_session_expiry(dm)
+        return exp_dt.isoformat() if exp_dt is not None else None
     try:
         jwt = _decrypt_jwt(jwt_enc)
     except ValueError:
@@ -487,7 +518,7 @@ def _account_row(row: Mapping[str, Any]) -> dict[str, Any]:
         "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
     }
     if "jwt_enc" in row:
-        out["jwt_exp"] = _account_jwt_exp(row["jwt_enc"])
+        out["jwt_exp"] = _account_jwt_exp(row["jwt_enc"], out["platform"], out["device_map"])
     if "last_created_at" in row:
         out["last_record"] = (
             {
