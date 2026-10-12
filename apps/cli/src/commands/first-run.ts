@@ -15,6 +15,7 @@ import * as path from 'node:path';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 import { getSettingsPath, type Settings } from './settings.js';
+import { DEFAULT_POLICY_OPTIONS } from '../config/defaults.js';
 
 /** 检测是否需要首次引导(~/.ihui/settings.json 不存在) */
 export function needsFirstRunSetup(): boolean {
@@ -128,10 +129,7 @@ function buildDefaultSettings(overrides?: Partial<FirstRunAnswers>): Settings {
     apiKey: overrides?.apiKey,
     defaultModel: overrides?.defaultModel ?? 'default',
     maxIterations: 25,
-    auditEnabled: true,
-    allowDangerous: false,
-    planFirst: false,
-    enableMcp: false,
+    ...DEFAULT_POLICY_OPTIONS,
     sandbox: { profile: 'trusted' },
     sampler: {
       temperature: 0.7,
