@@ -1429,7 +1429,8 @@ const checks = [
 
   {
     id: '57',
-    label: '🧩 对话流元素覆盖守门(blocking,D51/H13:①锚点漂移 ②契约事件两端不齐 ③清单条目倒退 ④锚点存续性倒退 ⑤注释式摘线)',
+    label:
+      '🧩 对话流元素覆盖守门(blocking,D51/H13:①锚点漂移 ②契约事件两端不齐 ③清单条目倒退 ④锚点存续性倒退 ⑤注释式摘线)',
     script: 'check-chat-element-coverage.mjs',
     args: [],
     mode: 'blocking',
@@ -1880,7 +1881,8 @@ const checks = [
 
   {
     id: '73',
-    label: '🈲 端内绕过 @ihui/api-client 直连后端(blocking,裸 fetch/Taro.request 指向本仓后端即拦,存量走基线只减不增)',
+    label:
+      '🈲 端内绕过 @ihui/api-client 直连后端(blocking,裸 fetch/Taro.request 指向本仓后端即拦,存量走基线只减不增)',
     script: 'check-direct-backend-calls.mjs',
     args: [],
     mode: 'blocking',
@@ -2011,7 +2013,7 @@ const checks = [
     onFailHint: [
       '',
       '  💡 圆角档位唯一真相源 = packages/design-tokens/src/radius.js(xs2/sm4/md6/lg8/xl12/2xl16)。',
-      '     RN/内联 style : borderRadius: rnRadius.lg      (import { rnRadius } from \'@ihui/design-tokens\')',
+      "     RN/内联 style : borderRadius: rnRadius.lg      (import { rnRadius } from '@ihui/design-tokens')",
       '     CSS/SCSS      : border-radius: var(--radius-lg)',
       '     类名          : rounded-lg(禁止 rounded-[24rpx] 这类任意值)',
       '     真圆/头像/胶囊: 用 size/2 几何表达式或等于档位值的档;项目不允许胶囊,也没有豁免标记 —— 写标记本门 B8 判红',
@@ -2074,7 +2076,7 @@ const checks = [
     onFailHint: [
       '',
       '  💡 两类红:',
-      '     ① 漏传 colorScheme —— 共享组件形参默认值是 \'light\',漏传等于静默锁死浅色档案;',
+      "     ① 漏传 colorScheme —— 共享组件形参默认值是 'light',漏传等于静默锁死浅色档案;",
       '        正解 `<X colorScheme={resolvedTheme} />`,值须来自 useTheme()/主题 store。',
       '     ② 写死字面量 "light"/"dark" —— 永远错,后果同①(真机实测即此形)。',
       '     跨行元素要连属性一起看;`{...props}` 展开不算传值(实测 115 处即藏在这里)。',
@@ -2216,7 +2218,7 @@ const checks = [
       '        验收一律实测命令本身(`node_modules/.bin/eslint --version` 与 `tsc --version` 都出版本号),',
       '        只看 node_modules/eslint 在不在等于没测。',
       '     单独复验:node scripts/check-workspace-dep-links.mjs(加 --strict 连 ②深扫 ③一并判红)',
-      "     自检:node scripts/check-workspace-dep-links.mjs --self-test(例数以末行「自检 N/N」为准,不写死防漂移)",
+      '     自检:node scripts/check-workspace-dep-links.mjs --self-test(例数以末行「自检 N/N」为准,不写死防漂移)',
       '     紧急跳过(不推荐):HUSKY_SKIP_WORKSPACE_DEP_LINKS=1 git commit ...',
       '',
     ].join('\n'),
@@ -2305,7 +2307,13 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_BRAND_MAIL_GUARD',
-    stagedTriggers: ['deploy/', 'scripts/', '.github/workflows/', 'monitoring/', 'apps/api/scripts/'],
+    stagedTriggers: [
+      'deploy/',
+      'scripts/',
+      '.github/workflows/',
+      'monitoring/',
+      'apps/api/scripts/',
+    ],
     onFailHint: [
       '',
       '  💡 ops 邮件出现了绕过品牌模板层的形态 —— 用户会收到无样式的纯文本邮件,',
@@ -2425,7 +2433,7 @@ const checks = [
       '     ⚠️ 核查接线点时不要只看 .husky/pre-commit:它自 2026-09-22 起只是薄壳,',
       '        真实 pre-commit 逻辑在 scripts/lib/pre-commit-hook.js(只查薄壳会得出相反结论)。',
       '     单独复验:node scripts/check-gate-wiring.mjs',
-      "     自检:node scripts/check-gate-wiring.mjs --self-test(例数以末行「自检 N 例」为准,不写死防漂移)",
+      '     自检:node scripts/check-gate-wiring.mjs --self-test(例数以末行「自检 N 例」为准,不写死防漂移)',
       '           + node --test scripts/tests/check-gate-wiring.test.mjs',
       '     紧急跳过(不推荐):HUSKY_SKIP_GATE_WIRING=1 git commit ...',
       '',
@@ -2615,7 +2623,7 @@ const checks = [
     onFailHint: [
       '',
       '  💡 三类红,改法各一条:',
-      '     ① S1 单点被摘 —— 顶距唯一源是 `apps/mobile-rn/App.tsx` 的 <SafeAreaView edges={[\'top\']}>;',
+      "     ① S1 单点被摘 —— 顶距唯一源是 `apps/mobile-rn/App.tsx` 的 <SafeAreaView edges={['top']}>;",
       '        它没了就是全屏叠字回来(真机实测差 34dp)。恢复该单点,不要逐屏补。',
       '     ② S2 第二取值口 —— `StatusBar.currentHeight` 在 iOS 恒为 undefined(⇒ 0)见即红;',
       '        `statusBarHeight` 只拦"布局取值"(paddingTop/top/marginTop/= …),共享层"调用方注入、默认 0"的声明不判红。',
@@ -2641,7 +2649,13 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_DANGLING_IMPORTS',
-    stagedTriggers: ['apps/**/*.ts', 'apps/**/*.tsx', 'packages/**/*.ts', 'packages/**/*.tsx', 'scripts/**/*.mjs'],
+    stagedTriggers: [
+      'apps/**/*.ts',
+      'apps/**/*.tsx',
+      'packages/**/*.ts',
+      'packages/**/*.tsx',
+      'scripts/**/*.mjs',
+    ],
     onFailHint: [
       '',
       '  💡 两类红,改法不同:',
@@ -2752,7 +2766,7 @@ const checks = [
     onFailHint: [
       '',
       '  💡 三类红,改法各一条:',
-      '     ① GA1 整格字符箭头(› » → 》 或 {\'>\'})当 chevron 图标 —— 换矢量:RN/共享包用 MoreLink',
+      "     ① GA1 整格字符箭头(› » → 》 或 {'>'})当 chevron 图标 —— 换矢量:RN/共享包用 MoreLink",
       '        (lucide-react-native ChevronRight)、web 用 ViewMoreLink、小程序用 LineIcon',
       '        name="chevron-right"(icons.ts 已含,零新素材)。',
       '     ② GA2 「更多」类标签与同词干 *Arrow* 样式配对后**箭头字号 > 标签字号** —— 两者必须同一',
@@ -2923,7 +2937,8 @@ const checks = [
 
   {
     id: '107',
-    label: '🧾 第三方来源台账对账(blocking,嵌入/复制/覆盖三本账 + 机制来源账:roots 必须真实存在、盘上 vendored 件必须有条目、许可原文必须能自证)',
+    label:
+      '🧾 第三方来源台账对账(blocking,嵌入/复制/覆盖三本账 + 机制来源账:roots 必须真实存在、盘上 vendored 件必须有条目、许可原文必须能自证)',
     script: 'provenance-ledger.mjs',
     args: [],
     mode: 'blocking',
@@ -2974,7 +2989,8 @@ const checks = [
 
   {
     id: '109',
-    label: '🔒 任务认领租约对账(blocking,（进行中）必须带日期与持有者;过期未清账即红,存量裸标记只报数)',
+    label:
+      '🔒 任务认领租约对账(blocking,（进行中）必须带日期与持有者;过期未清账即红,存量裸标记只报数)',
     script: 'check-task-claims.mjs',
     args: ['--check-gate'],
     mode: 'blocking',
@@ -3003,7 +3019,8 @@ const checks = [
 
   {
     id: '110',
-    label: '📦 产物预算对账(warn,交付出去的产物第一次有上限表:主包口径 / 悬空 sourceMappingURL 引用)',
+    label:
+      '📦 产物预算对账(warn,交付出去的产物第一次有上限表:主包口径 / 悬空 sourceMappingURL 引用)',
     script: 'check-artifact-budget.mjs',
     // 必须带 --target:本门刻意「未知/缺 target 即 exit 2、不回落默认档」,空 args 会让它在提交链里
     // 永远跑不起来(实测 G-176)。miniapp 是唯一已校准上限的档;其余档在 CI 里逐档 --target 问责。
@@ -3029,7 +3046,8 @@ const checks = [
   },
   {
     id: '111',
-    label: '🧬 工具契约声明对账(blocking,注册进工具面却没有契约声明即红;棘轮锚点=该文件 HEAD 自身违规数)',
+    label:
+      '🧬 工具契约声明对账(blocking,注册进工具面却没有契约声明即红;棘轮锚点=该文件 HEAD 自身违规数)',
     script: 'check-tool-contract-declared.mjs',
     args: [],
     mode: 'blocking',
@@ -3057,7 +3075,8 @@ const checks = [
 
   {
     id: '112',
-    label: '📐 压缩分母对账(blocking,阈值分母必须经 effectiveContextWindow;存量 8 文件/12 处进棘轮)',
+    label:
+      '📐 压缩分母对账(blocking,阈值分母必须经 effectiveContextWindow;存量 8 文件/12 处进棘轮)',
     script: 'check-compaction-denominator.mjs',
     args: [],
     mode: 'blocking',
@@ -3229,7 +3248,8 @@ const checks = [
   //   若哪天 HEAD 面重新出现未对齐(例:有人 --no-verify 塞进来),先清偿再提其它票,不得削判据。
   {
     id: '117',
-    label: '🔐 记忆端点属主绑定对账(blocking,收 user_id 的端点必须与令牌主体对齐;存量已归零⇒零容忍)',
+    label:
+      '🔐 记忆端点属主绑定对账(blocking,收 user_id 的端点必须与令牌主体对齐;存量已归零⇒零容忍)',
     script: 'check-memory-owner-binding.mjs',
     args: ['--strict'],
     mode: 'blocking',
@@ -3277,7 +3297,7 @@ const checks = [
       '     自检:node scripts/check-gate-face-discipline.mjs --self-test(16 例,含两层遮噪方向的反向锁)',
       '     镜像测试:node --test scripts/tests/check-gate-face-discipline.test.mjs',
       '',
-    ]
+    ],
   },
 
   {
@@ -3297,7 +3317,7 @@ const checks = [
       '     单独复验:node scripts/check-subagent-permission-inherited.mjs',
       '     自检:--self-test(39 例) 镜像:node --test scripts/tests/check-subagent-permission-inherited.test.mjs(12 例)',
       '',
-    ]
+    ],
   },
 
   {
@@ -3316,12 +3336,13 @@ const checks = [
       '     单独复验:node scripts/check-list-predicate-has-positive-proof.mjs',
       '     自检:--self-test(15 条) 镜像:node --test scripts/tests/check-list-predicate-has-positive-proof.test.mjs(6 例)',
       '',
-    ]
+    ],
   },
 
   {
     id: '121',
-    label: '🗑️ 声明策略必须有消费者(blocking,MAX_AGE/TTL/RETENTION/Contract 谓词/清理函数未接线即红,存量棘轮)',
+    label:
+      '🗑️ 声明策略必须有消费者(blocking,MAX_AGE/TTL/RETENTION/Contract 谓词/清理函数未接线即红,存量棘轮)',
     script: 'check-declared-policy-has-consumer.mjs',
     args: [],
     mode: 'blocking',
@@ -3339,7 +3360,7 @@ const checks = [
       '     问责档:node scripts/check-declared-policy-has-consumer.mjs --strict',
       '     自检:--self-test  镜像:node --test scripts/tests/check-declared-policy-has-consumer.test.mjs',
       '',
-    ]
+    ],
   },
 
   {
@@ -3359,7 +3380,7 @@ const checks = [
       '  单独复验:node scripts/check-file-write-safety.mjs',
       '  自检:--self-test(24 例) 镜像:node --test scripts/tests/check-file-write-safety.test.mjs(13 例)',
       '',
-    ]
+    ],
   },
 
   {
@@ -3378,12 +3399,13 @@ const checks = [
       '     单独复验:node scripts/check-tool-exec-budget.mjs',
       '     自检:--self-test(26 例) 镜像:node --test scripts/tests/check-tool-exec-budget.test.mjs(9 例)',
       '',
-    ]
+    ],
   },
 
   {
     id: '124',
-    label: '🎨 小程序原生 chrome 派生对账(blocking,theme.json + THEME_CHROME 必须是 tokens.css 的派生态)',
+    label:
+      '🎨 小程序原生 chrome 派生对账(blocking,theme.json + THEME_CHROME 必须是 tokens.css 的派生态)',
     script: 'check-miniapp-chrome.mjs',
     args: [],
     mode: 'blocking',
@@ -3402,12 +3424,13 @@ const checks = [
       '     已登记的唯一分歧(d2d80c1b23 对齐 rn gray.800)与"登记却已不冲突=清单腐烂"都由本门核。',
       '     单独复验:node scripts/check-miniapp-chrome.mjs(自检 --self-test,镜像 13 例)',
       '',
-    ]
+    ],
   },
 
   {
     id: '125',
-    label: '🧭 派生面登记表自洽对账(blocking,TOKEN_SYNC_TARGETS 每行的触发文件/写回出口/复核门三方必须在位)',
+    label:
+      '🧭 派生面登记表自洽对账(blocking,TOKEN_SYNC_TARGETS 每行的触发文件/写回出口/复核门三方必须在位)',
     script: 'check-token-sync-registry.mjs',
     args: [],
     mode: 'blocking',
@@ -3424,7 +3447,7 @@ const checks = [
       '     修复口径:改表与配门,不得为消红放宽本门判据或把行删掉(删行 = 关掉那端的自动同步)。',
       '     单独复验:node scripts/check-token-sync-registry.mjs(自检 25 例,镜像 11 例)',
       '',
-    ]
+    ],
   },
   {
     id: '126',
@@ -3453,7 +3476,7 @@ const checks = [
       '     共享面(§3 工厂模式),不得为消红去放宽判据或把可达文件改判成不可达。',
       '     单独复验:node scripts/check-shared-nonde-node-purity.mjs(自检 23 例,镜像 18 例)',
       '',
-    ]
+    ],
   },
 
   {
@@ -3470,7 +3493,7 @@ const checks = [
       '     ② 处置二选一 —— 在对侧实现该路由,或删除这行硬编码声明;',
       '     ③ 禁止用基线文件/豁免清单遮红,禁止改阈值让它好看(台账会腐烂而这批是真缺陷)。',
       '',
-    ]
+    ],
   },
   {
     id: '128',
@@ -3496,7 +3519,7 @@ const checks = [
       '     ③ 禁止给单端补一个数字去凑平 —— 那只是把第二份真相挪了个位置,下次又漂;',
       '     ④ 确属平台导致(原生导航栏/输入法/状态栏):在台账 waivers 里写 reason,由守门 108 管到期,不得静默。',
       '',
-    ]
+    ],
   },
   {
     id: '129',
@@ -3515,7 +3538,7 @@ const checks = [
       '     ③ 裸宿主前缀 → 改走 apps/cli/src/utils/prompt-boundary.ts 的 frameSystemReminder,不得再产出 [系统提醒] 字样;',
       '     ④ 禁止为消红放宽判据或另立豁免清单(该门判据输入全部由被审面自身推导,不留会腐烂的白名单)。',
       '',
-    ]
+    ],
   },
   // --- 任务状态一致性 (1 项, 2026-09-26 立) ---
   {
@@ -3526,7 +3549,11 @@ const checks = [
     args: ['--gate'],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_PLAN_TASK_STATE',
-    stagedTriggers: ['PROJECT_PLAN.md', 'scripts/plan-tasks.mjs', 'scripts/lib/plan-task-index.mjs'],
+    stagedTriggers: [
+      'PROJECT_PLAN.md',
+      'scripts/plan-tasks.mjs',
+      'scripts/lib/plan-task-index.mjs',
+    ],
     onFailHint: [
       '',
       '  💡 本门拦的是"这次改动让状态分叉变多",不是"文档里有存量分叉"。存量(F1/F2/F3)默认只报数。',
@@ -3647,7 +3674,7 @@ const checks = [
       '     ① `web/ja :: aiChat.org` 整块是繁体中文、`web/zh-TW :: aiChat.org` 整块是谚文,',
       '     ② `web/ko :: chat.exportMenu.exportPdf` 是日文假名(三向轮转),',
       '     ③ `web/*:: aiChat.toast.orgSaved` 被机械写成 `{orgSaved:{orgSaved:"…"}}` 自套一层,',
-     '        `t()` 取到对象 ⇒ 功能成功但提示永远不响。三型当时五道门全绿。',
+      '        `t()` 取到对象 ⇒ 功能成功但提示永远不响。三型当时五道门全绿。',
       '     判据按**码位族**(han/hira/kata/hangul/latin,区间两两不相交由 lib 机器证明),',
       '     汉字族内部简繁**刻意不判**(日本新字体与中国简化字同码位),判不了就计"未判定"并点名。',
       '     ① 看清单:node scripts/check-i18n-locale-content-language.mjs --all',
@@ -3812,8 +3839,7 @@ const checks = [
   // --- V3 #62/#63 对话流挂载与契约登记对账(拦「件在库而无人挂载」与「契约登记与消费点漂移」)(1 项,blocking)---
   {
     id: '140',
-    label:
-      'V3 #62/#63 对话流挂载与契约登记对账(拦「件在库而无人挂载」与「契约登记与消费点漂移」)',
+    label: 'V3 #62/#63 对话流挂载与契约登记对账(拦「件在库而无人挂载」与「契约登记与消费点漂移」)',
     script: 'check-v3-62-conversation-mount.mjs',
     args: [],
     mode: 'blocking',
@@ -3850,8 +3876,7 @@ const checks = [
   // --- Guardian 复核接线对账(拦「复核出口造好没人调」与「未复核被折叠成通过」)(1 项,blocking)---
   {
     id: '142',
-    label:
-      'Guardian 复核接线对账(拦「复核出口造好没人调」与「未复核被折叠成通过」)',
+    label: 'Guardian 复核接线对账(拦「复核出口造好没人调」与「未复核被折叠成通过」)',
     script: 'check-guardian-review-wired.mjs',
     args: [],
     mode: 'blocking',
@@ -3917,8 +3942,7 @@ const checks = [
   // --- RN 包装器双层页头对账(共享屏自带页头 × RN 屏又加 NavBar ⇒ 同屏两条返回键与两个标题)(1 项,blocking)---
   {
     id: '145',
-    label:
-      'RN 包装器双层页头对账(共享屏自带页头 × RN 屏又加 NavBar ⇒ 同屏两条返回键与两个标题)',
+    label: 'RN 包装器双层页头对账(共享屏自带页头 × RN 屏又加 NavBar ⇒ 同屏两条返回键与两个标题)',
     script: 'check-rn-double-header.mjs',
     args: [],
     mode: 'blocking',
@@ -3937,8 +3961,7 @@ const checks = [
   // --- README 表格完整性对账(TI1 竖排续行判红/T-B 只报数/棘轮锚基线)(1 项,blocking)---
   {
     id: '146',
-    label:
-      'README 表格完整性对账(TI1 竖排续行判红/T-B 只报数/棘轮锚基线)',
+    label: 'README 表格完整性对账(TI1 竖排续行判红/T-B 只报数/棘轮锚基线)',
     script: 'check-readme-table-integrity.mjs',
     args: [],
     mode: 'blocking',
@@ -3956,17 +3979,17 @@ const checks = [
   // --- 模型容量/推理档位跨语言对账(1 项,blocking)---
   {
     id: '147',
-    label:
-      '模型容量/推理档位跨语言对账',
+    label: '模型容量/推理档位跨语言对账',
     script: 'check-model-capacity-parity.mjs',
     args: ['--strict'],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_MODEL_CAPACITY_PARITY',
-    stagedTriggers: ['packages/api-client/src/', 'apps/ai-service/app/core/', 'apps/cli/src/subagents/'],
-    onFailHint: [
-      '',
-      '',
-    ].join('\n'),
+    stagedTriggers: [
+      'packages/api-client/src/',
+      'apps/ai-service/app/core/',
+      'apps/cli/src/subagents/',
+    ],
+    onFailHint: ['', ''].join('\n'),
   },
 
   // --- 会话失效出口对账(1 项,blocking)---
@@ -3989,8 +4012,7 @@ const checks = [
   // --- 包入口 barrel 漏 re-export 对账(G-215)(1 项,blocking)---
   {
     id: '149',
-    label:
-      '包入口 barrel 漏 re-export 对账:端内从裸包名 import 的名字必须由包入口真的递出',
+    label: '包入口 barrel 漏 re-export 对账:端内从裸包名 import 的名字必须由包入口真的递出',
     script: 'check-package-barrel-export.mjs',
     args: [],
     mode: 'blocking',
@@ -4011,13 +4033,17 @@ const checks = [
   // --- 状态词汇对账(1 项,blocking)---
   {
     id: '151',
-    label:
-      '子智能体/后台任务状态词汇跨语言与端内抄本对账(六档是落库/REST/SSE 三重对外契约)',
+    label: '子智能体/后台任务状态词汇跨语言与端内抄本对账(六档是落库/REST/SSE 三重对外契约)',
     script: 'check-agent-status-vocabulary-parity.mjs',
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_STATUS_VOCABULARY_PARITY',
-    stagedTriggers: ['packages/types/src/', 'apps/ai-service/app/services/', 'apps/web/src/components/', 'apps/cli/src/'],
+    stagedTriggers: [
+      'packages/types/src/',
+      'apps/ai-service/app/services/',
+      'apps/web/src/components/',
+      'apps/cli/src/',
+    ],
     onFailHint: [
       '',
       '成员集合的单一真相源 = packages/types/src/agent-runtime.ts 的 AGENT_TASK_STATUSES\\n端内一律 import 它(或由它派生);Python 侧改 KANBAN_TASK_STATUSES + Literal 两处同笔\\n六档值是对外契约:不得改名、不得删成员、不得为变绿放宽判据、不得写豁免清单消账\\n新增一档必须同枚提交补齐 agents.kanban.* 五语言(AGENTS §30)\\n判不出 ⇒ exit 2 报无法判定,不冒红也不记绿',
@@ -4078,38 +4104,29 @@ const checks = [
   // --- 临时夹具 scratch 根二阶嵌套巡检(只报不删,三态含未判定)(1 项,warn)---
   {
     id: '154',
-    label:
-      '临时夹具 scratch 根二阶嵌套巡检(只报不删,三态含未判定)',
+    label: '临时夹具 scratch 根二阶嵌套巡检(只报不删,三态含未判定)',
     script: 'check-scratch-root-no-nesting.mjs',
     args: [],
     mode: 'warn',
     skipEnv: 'HUSKY_SKIP_SCRATCH_NESTING',
-    onFailHint: [
-      '',
-      '',
-    ].join('\n'),
+    onFailHint: ['', ''].join('\n'),
   },
 
   // --- 镜像测试临时夹具落点对账(默认只报名,--strict 才判红)(1 项,warn)---
   {
     id: '155',
-    label:
-      '镜像测试临时夹具落点对账(默认只报名,--strict 才判红)',
+    label: '镜像测试临时夹具落点对账(默认只报名,--strict 才判红)',
     script: 'check-fixture-tmpdir.mjs',
     args: [],
     mode: 'warn',
     skipEnv: 'HUSKY_SKIP_FIXTURE_TMPDIR',
-    onFailHint: [
-      '',
-      '',
-    ].join('\n'),
+    onFailHint: ['', ''].join('\n'),
   },
 
   // --- 自检登记求值配对(1 项,warn)---
   {
     id: '156',
-    label:
-      '自检用例登记侧的求值配对对账(登记不求值 ∧ 用例传函数 ⇒ 才判红;潜伏档只报数)',
+    label: '自检用例登记侧的求值配对对账(登记不求值 ∧ 用例传函数 ⇒ 才判红;潜伏档只报数)',
     script: 'check-selftest-registrant-evaluates.mjs',
     args: [],
     mode: 'warn',
@@ -4129,8 +4146,7 @@ const checks = [
   // --- 🔐 按凭据存在性豁免对账(blocking,G-459:头名在场即跳过安全判定必须逐条裁过)(1 项,blocking)---
   {
     id: '157',
-    label:
-      '🔐 按凭据存在性豁免对账(blocking,G-459:头名在场即跳过安全判定必须逐条裁过)',
+    label: '🔐 按凭据存在性豁免对账(blocking,G-459:头名在场即跳过安全判定必须逐条裁过)',
     script: 'check-credential-presence-bypass.mjs',
     args: [],
     mode: 'blocking',
@@ -4182,7 +4198,13 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_IMAGE_SOURCE_POOL',
-    stagedTriggers: ['packages/database/', 'apps/', 'packages/shared/', 'packages/app/', 'packages/ui-react/'],
+    stagedTriggers: [
+      'packages/database/',
+      'apps/',
+      'packages/shared/',
+      'packages/app/',
+      'packages/ui-react/',
+    ],
     onFailHint: [
       '',
       '',
@@ -4214,8 +4236,7 @@ const checks = [
   // --- 入站契约 .strict() 到达性对账(1 项,blocking)---
   {
     id: '161',
-    label:
-      '入站契约 .strict() 到达性对账',
+    label: '入站契约 .strict() 到达性对账',
     script: 'check-inbound-schema-strict.mjs',
     args: [],
     mode: 'blocking',
@@ -4233,8 +4254,7 @@ const checks = [
   // --- 维护性写归属对账(1 项,blocking)---
   {
     id: '163',
-    label:
-      '维护性写归属/CAS/回报计数三态对账(G-815920)',
+    label: '维护性写归属/CAS/回报计数三态对账(G-815920)',
     script: 'check-write-owner-predicate.mjs',
     args: [],
     mode: 'blocking',
@@ -4250,8 +4270,7 @@ const checks = [
   // --- 源码 U+FFFD 对账(合法编码承载损坏内容那一型)(1 项,blocking)---
   {
     id: '164',
-    label:
-      '源码替换符(U+FFFD)对账 —— 字节级 UTF-8 完整性的缺失维度',
+    label: '源码替换符(U+FFFD)对账 —— 字节级 UTF-8 完整性的缺失维度',
     script: 'check-replacement-chars.mjs',
     args: [],
     mode: 'blocking',
@@ -4272,16 +4291,12 @@ const checks = [
   // --- 🧾 教育欠费口径单一出口对账(blocking,AR1 出口外重写算式/AR2 裸写派生列)(1 项,blocking)---
   {
     id: '165',
-    label:
-      '🧾 教育欠费口径单一出口对账(blocking,AR1 出口外重写算式/AR2 裸写派生列)',
+    label: '🧾 教育欠费口径单一出口对账(blocking,AR1 出口外重写算式/AR2 裸写派生列)',
     script: 'check-edu-arrears-single-source.mjs',
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_EDU_ARREARS_SINGLE_SOURCE',
-    onFailHint: [
-      '',
-      '',
-    ].join('\n'),
+    onFailHint: ['', ''].join('\n'),
   },
 
   // --- 活文档写回对账(1 项,blocking)---
@@ -4308,7 +4323,7 @@ const checks = [
   {
     id: '167',
     label:
-      '🔒 turn 序号分配点上锁(blocking,max(turnOrdinal) 与 insert(chatMessages) 同体 ⇒ 体内必须有 .for(\'update\') 或 db.transaction;全量档只报数)',
+      "🔒 turn 序号分配点上锁(blocking,max(turnOrdinal) 与 insert(chatMessages) 同体 ⇒ 体内必须有 .for('update') 或 db.transaction;全量档只报数)",
     script: 'check-turn-ordinal-lock.mjs',
     args: [],
     mode: 'blocking',
@@ -4320,8 +4335,8 @@ const checks = [
       '     结构上不可用 ⇒ "读 max 再分配"的每一段都必须锁;真库实测无事务的"读 max → 插"',
       '     同会话并发双插撞号率 100%(60 对全撞,turn-ordinal-concurrency.test.ts)。',
       '     红点名的形态 = max(${chatMessages.turnOrdinal}) 与 insert(chatMessages) 落在同一个',
-      '     语句块里,块内既无 .for(\'update\') 也无 db.transaction。',
-      '     修法:把 max 读取与 insert 一并包进 db.transaction,并先对会话行 .for(\'update\')',
+      "     语句块里,块内既无 .for('update') 也无 db.transaction。",
+      "     修法:把 max 读取与 insert 一并包进 db.transaction,并先对会话行 .for('update')",
       '     —— 参照 apps/api/src/db/chat-queries.ts createMessage 与 routes/message.ts 的既有形态。',
       '     本门只咬本次改动动过的文件(apps/api/src);全量档存量红(patrol-scheduler.ts:198)',
       '     只报数 —— 改到它的那一刻必须顺手补锁,不得原样提交。',
@@ -4366,7 +4381,10 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_AI_PANEL_MOUNT_GUARDS',
-    stagedTriggers: ['apps/web/src/components/layout/GlobalShell.tsx', 'apps/web/src/components/ai/ai-side-panel.tsx'],
+    stagedTriggers: [
+      'apps/web/src/components/layout/GlobalShell.tsx',
+      'apps/web/src/components/ai/ai-side-panel.tsx',
+    ],
     onFailHint: [
       '',
       '单独复现:node scripts/check-ai-panel-mount-guards.mjs --staged(或 --worktree 人工排查)',
@@ -4585,13 +4603,23 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_LIVE_DOC_REFERENCES',
-    stagedTriggers: ['PROJECT_PLAN.md', 'AGENTS.md', 'README', 'docs/', 'scripts/', 'apps/', 'packages/', 'config/'],
+    stagedTriggers: [
+      'PROJECT_PLAN.md',
+      'AGENTS.md',
+      'README',
+      'docs/',
+      'scripts/',
+      'apps/',
+      'packages/',
+      'config/',
+    ],
     onFailHint: [
       '',
       '红 = 这次提交面上,活文档正文反引号点名的仓内路径在索引里没了(HEAD 在位)—— 本次提交正把被点名的文件弄丢(D169 事故格)。',
       '1) 误删 ⇒ \`git restore --staged <path>\` 找回;确属下线 ⇒ 同步更新点名它的活文档(两条路,本门只读不代恢复);',
-      '2) 单复验:node scripts/check-live-doc-references.mjs --staged(提交链档)/ 不带旗 = 三面审计档;自检:--self-test(11 例);',
+      '2) 单复验:node scripts/check-live-doc-references.mjs --staged(提交链档)/ 不带旗 = 三面审计档;自检与镜像例数以各命令末行现读为准(文档不钉数字);',
       '3) HEAD 本就没有的点名只 warning(笔误档),不构成红 —— 禁止用改判据/加豁免消红(§12e);',
+      '3b) CK 维:被**已勾**验收行点名而 HEAD 无此路径 ⇒ 存量只报数,本次新增才判红;问责档 --strict 对存量判红(它量到了,不是没判);',
       '4) 紧急跳过(不推荐):HUSKY_SKIP_LIVE_DOC_REFERENCES=1 git commit ...',
       '',
     ].join('\n'),
@@ -4607,17 +4635,13 @@ const checks = [
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_MIGRATION_IMMUTABLE',
     stagedTriggers: ['packages/database/', 'apps/api/src/'],
-    onFailHint: [
-      '',
-      '',
-    ].join('\n'),
+    onFailHint: ['', ''].join('\n'),
   },
 
   // --- Python import 入库存续性对账(1 项,blocking)---
   {
     id: '189',
-    label:
-      'Python import 入库存续性对账',
+    label: 'Python import 入库存续性对账',
     script: 'check-python-import-landed.mjs',
     args: [],
     mode: 'blocking',
@@ -4659,10 +4683,7 @@ const checks = [
     mode: 'warn',
     skipEnv: 'HUSKY_SKIP_TEST_JUDGE_REPLICATED',
     stagedTriggers: ['scripts/check-', 'scripts/tests/'],
-    onFailHint: [
-      '',
-      '',
-    ].join('\n'),
+    onFailHint: ['', ''].join('\n'),
   },
 
   // --- 注册表工作树超集对账(package.json / guardian-runner 的已入库入口被工作树副本整行写回旧态;今日 28 份注册表零存量 ⇒ blocking,只在 --staged 面问责)(1 项,blocking)---
@@ -4675,10 +4696,7 @@ const checks = [
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_REGISTRY_WORKTREE_SUPERSET',
     stagedTriggers: ['package.json', 'scripts/guardian-runner.mjs'],
-    onFailHint: [
-      '',
-      '',
-    ].join('\n'),
+    onFailHint: ['', ''].join('\n'),
   },
 
   // --- §22d 入口守卫对账(1 项,blocking)---
@@ -4692,20 +4710,19 @@ const checks = [
     skipEnv: 'HUSKY_SKIP_DIRECT_RUN_GUARD',
     stagedTriggers: ['scripts/'],
     onFailHint: [
-      "本门判的是:scripts/**.mjs 顶层裸 main() 且全文没有 §22d 的 isDirectRun 双形态入口守卫。",
-      "复现与现读:node scripts/check-direct-run-guard.mjs(全量档判 HEAD blob 只报数,差值棘轮只拦本次新增)",
-      "修法只有一个:在文件末尾按 AGENTS.md §22d 那四行补守卫(main() 位置不动,只决定何时触发),",
-      "  并把判据单元 export 成 __test__ 供 §22c 镜像测试调用;禁止为变绿去删用例或放宽形态清单。",
-      "紧急跳过:HUSKY_SKIP_DIRECT_RUN_GUARD=1(跳过即放弃「新脚本必须可导入」这一不变量,须在提交信息写明理由与清偿票)",
-      "具名台账唯一出口:scripts/data/direct-run-guard-exemptions.json(逐条 path+reason+reviewBy,过期即回到队列)。",
+      '本门判的是:scripts/**.mjs 顶层裸 main() 且全文没有 §22d 的 isDirectRun 双形态入口守卫。',
+      '复现与现读:node scripts/check-direct-run-guard.mjs(全量档判 HEAD blob 只报数,差值棘轮只拦本次新增)',
+      '修法只有一个:在文件末尾按 AGENTS.md §22d 那四行补守卫(main() 位置不动,只决定何时触发),',
+      '  并把判据单元 export 成 __test__ 供 §22c 镜像测试调用;禁止为变绿去删用例或放宽形态清单。',
+      '紧急跳过:HUSKY_SKIP_DIRECT_RUN_GUARD=1(跳过即放弃「新脚本必须可导入」这一不变量,须在提交信息写明理由与清偿票)',
+      '具名台账唯一出口:scripts/data/direct-run-guard-exemptions.json(逐条 path+reason+reviewBy,过期即回到队列)。',
     ].join('\n'),
   },
 
   // --- 事务体内取消探测对账(db.transaction 回调体内不得 throwIfAborted/signal.aborted)(1 项,blocking)---
   {
     id: '195',
-    label:
-      '事务体内取消探测对账(db.transaction 回调体内不得 throwIfAborted/signal.aborted)',
+    label: '事务体内取消探测对账(db.transaction 回调体内不得 throwIfAborted/signal.aborted)',
     script: 'check-txn-cancel-boundary.mjs',
     args: [],
     mode: 'blocking',
@@ -4742,8 +4759,7 @@ const checks = [
   // --- provider 健康四档单一真相源对账(1 项,blocking)---
   {
     id: '200',
-    label:
-      'provider 健康四档单一真相源对账(值域并表后不得再分叉)',
+    label: 'provider 健康四档单一真相源对账(值域并表后不得再分叉)',
     script: 'check-provider-health-vocabulary.mjs',
     args: ['--strict'],
     mode: 'blocking',
@@ -4771,8 +4787,7 @@ const checks = [
   // --- 角色档合规对账(元素类别→档位,77 不判的那一型)(1 项,blocking)---
   {
     id: '150',
-    label:
-      '角色档合规对账(元素类别→档位,77 不判的那一型)',
+    label: '角色档合规对账(元素类别→档位,77 不判的那一型)',
     script: 'check-radius-role-conformance.mjs',
     args: [],
     mode: 'blocking',
@@ -4815,7 +4830,8 @@ const checks = [
   //   假承诺集合做差值棘轮,只拦**新增**假承诺;存量只点名不判红(问责出口 --strict)。
   {
     id: '172',
-    label: '🛡  跳门变量承诺/兑现对账(blocking,文档承诺的 HUSKY_SKIP_* 必须有真实读点;差值棘轮只拦新增)',
+    label:
+      '🛡  跳门变量承诺/兑现对账(blocking,文档承诺的 HUSKY_SKIP_* 必须有真实读点;差值棘轮只拦新增)',
     script: 'check-skip-env-promise.mjs',
     args: [],
     mode: 'blocking',
@@ -4938,7 +4954,8 @@ const checks = [
   // --- 台账短 sha 出处指针防回潮(G-1079146,warn 起步)(1 项)---
   {
     id: '196',
-    label: '📎 PROJECT_PLAN.md 短 sha 出处指针防回潮(新增行裸短 sha 须走台账/声明前缀/文件名通道,warn)',
+    label:
+      '📎 PROJECT_PLAN.md 短 sha 出处指针防回潮(新增行裸短 sha 须走台账/声明前缀/文件名通道,warn)',
     script: 'check-plan-sha-form.mjs',
     args: [],
     mode: 'warn',
@@ -5490,7 +5507,12 @@ for (const check of effectiveChecks) {
         stderr: gateStderr,
       })
       if (kind.kind === 'crash') {
-        crashedGates.push({ id: check.id, label: check.label, script: check.script, reason: kind.reason })
+        crashedGates.push({
+          id: check.id,
+          label: check.label,
+          script: check.script,
+          reason: kind.reason,
+        })
         console.error(
           `${C.yellow}⚠️ [${check.id}] ${check.label} ${kind.reason}${C.reset} —— 跑不起来(未判定),不是检查结论;` +
             `提交仍被阻止,但**请勿把它读成"这道门发现了缺陷"**。先跑全量 pnpm install 再复跑本批。`,

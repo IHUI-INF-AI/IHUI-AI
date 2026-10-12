@@ -55,7 +55,12 @@ import {
 // D171(2026-09-30):取路径一律走 lib/git-paths 的 -z 出口 —— git 默认按 core.quotePath
 // 把非 ASCII 路径八进制转写并加引号,按换行 split 的旧写法把 5 个中文名文件判成
 // 「暂存区出现非预期文件 ⇒ 中止提交」(Step 3)与污染事故(Step 5)。
-import { gitCommitPaths, gitStagedPaths, gitUntrackedPaths, gitWorktreePaths } from './lib/git-paths.mjs'
+import {
+  gitCommitPaths,
+  gitStagedPaths,
+  gitUntrackedPaths,
+  gitWorktreePaths,
+} from './lib/git-paths.mjs'
 // G-1018292(2026-10-04):`git reset HEAD` 清空共享索引时会摘掉他人暂存删除的保护标记,
 // 而 reflog/index 结构上不留痕 ⇒ 只能在清空前那一瞬取样。判据与留底面在此。
 import {
@@ -237,7 +242,15 @@ log('info', `期望暂存 ${C.cyan}${expectedFiles.length}${C.reset} 个文件`)
  * 两份留痕同族同生命周期;③ 落盘**失败不得阻断提交** —— 喊人已经在stdout 里发生了,
  * 账写不进去是次级问题,不该把提交变成一次环境故障(与 Step 1 那个 warn 同取向)。
  */
-function recordClearedStagedDeletions({ root, lost, selfStaged, kept, branch, headBefore, declaredFiles }) {
+function recordClearedStagedDeletions({
+  root,
+  lost,
+  selfStaged,
+  kept,
+  branch,
+  headBefore,
+  declaredFiles,
+}) {
   try {
     mkdirSync(join(root, '.workbuddy'), { recursive: true })
     appendFileSync(
@@ -260,7 +273,10 @@ function recordClearedStagedDeletions({ root, lost, selfStaged, kept, branch, he
     )
     return true
   } catch (e) {
-    log('warn', `删除意图账写入失败(不阻断提交):${String(e && e.message ? e.message : e).slice(0, 120)}`)
+    log(
+      'warn',
+      `删除意图账写入失败(不阻断提交):${String(e && e.message ? e.message : e).slice(0, 120)}`,
+    )
     return false
   }
 }
@@ -275,6 +291,49 @@ const GIT_LOCK_MISS =
 const isGitLockFailure = (status, out) => status === 128 || GIT_LOCK_MISS.test(out)
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
 const LOCK_RETRIES = Number(process.env.IHUI_SAFE_COMMIT_LOCK_RETRIES || 10)
+/** 该路径是否已在索引里(= 已跟踪)。用于区分"已跟踪却被忽略"与"未跟踪的产物"。 */
+function isTrackedInIndex(p) {
+  return (
+    spawnSync('git', ['ls-files', '--error-unmatch', '--', p], {
+      cwd: repoRoot,
+      windowsHide: true,
+      // §12g:三个子进程通道一律显式给;探针不吃输出也不留"顺手删掉 stdio"的空间
+      stdio: ['ignore', 'ignore', 'ignore'],
+    }).status === 0
+  )
+}
+
+/**
+ * 暂存声明清单,带一条窄兜底(2026-10-12 立)。
+ * `git add -A -- <p>` 遇到**已跟踪却被 .gitignore 覆盖**的路径(实测:outputs/ 下那份
+ * 曾被强制加进来的操作单)会整条中止,于是这类文件既走不到 Step 3 的精确性校验、
+ * 也无法经唯一 sanctioned 通道提交 —— 水印门的自愈 `git add` 同样只认这一类,
+ * 结果就是它以"残迹态"长期挂在已跟踪面上。
+ * 出口只有一条:对**已在索引里**的路径换 `add -A -f`;未跟踪项一律不开 -f
+ * (那等于把构建垃圾塞进版本树)。Step 3 的"意外文件即中止"照旧兜底。
+ * @returns {{status:number, stderr:string, forceCount:number}}
+ */
+function stageDeclared(files, label) {
+  const first = gitStep(['add', '-A', '--', ...files], label)
+  if (first.status === 0) return { ...first, forceCount: 0 }
+  const tracked = files.filter(isTrackedInIndex)
+  const rest = files.filter((f) => !tracked.includes(f))
+  if (!tracked.length) return { ...first, forceCount: 0 }
+  const parts = []
+  if (tracked.length) parts.push(['add', '-A', '-f', '--', ...tracked])
+  if (rest.length) parts.push(['add', '-A', '--', ...rest])
+  for (const args of parts) {
+    const r = gitStep(args, `${label}(-f 仅已跟踪被忽略项)`)
+    if (r.status !== 0)
+      return { ...first, stderr: `${first.stderr}\n兜底亦失败: ${r.stderr}`, forceCount: 0 }
+  }
+  log(
+    'warn',
+    `${tracked.length} 个声明路径"已跟踪但被 .gitignore 覆盖",已按 -f 分支暂存(未跟踪项不开 -f;Step 3 精确校验照旧)`,
+  )
+  return { status: 0, stderr: '', forceCount: tracked.length }
+}
+
 function gitStep(args, label) {
   let last = null
   for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
@@ -349,7 +408,8 @@ if (intentSnapshot.ok) {
       `本次清空了他人的 ${C.red}${intentVerdict.lost.length}${C.reset} 项暂存删除 —— ` +
         `删除意图丢失,已无法从 git 侧复原(reflog/index 均不留痕):`,
     )
-    for (const p of intentVerdict.lost) console.log(`     ${C.red}! ${p}${C.reset}(清空前是暂存删除)`)
+    for (const p of intentVerdict.lost)
+      console.log(`     ${C.red}! ${p}${C.reset}(清空前是暂存删除)`)
     log(
       'warn',
       '这些删除**不是本脚本删的**,本脚本也**不会替你恢复或提交**它们(票 G-1018292:只标记与喊人)。' +
@@ -381,7 +441,7 @@ if (intentSnapshot.ok) {
 // 修复(2026-07-22): 原 `git add --` 对已删除文件报错 pathspec did not match。
 // `git add -A --` 同时暂存新增/修改/删除三种变更, 第 3 步校验仍保证精确匹配。
 log('info', `Step 2/5: git add -A <${expectedFiles.length} files> — 只暂存自己声明的文件(含删除)`)
-const addResult = gitStep(['add', '-A', '--', ...expectedFiles], 'git add')
+const addResult = stageDeclared(expectedFiles, 'git add')
 if (addResult.status !== 0) {
   log('err', `git add 失败: ${addResult.stderr}`)
   log('warn', '可能原因: 路径错误/仓库锁定/权限问题')
@@ -467,9 +527,14 @@ if (liveDocsStaged.length && process.env.IHUI_SKIP_LIVE_DOC_CHECK !== '1') {
     const r = spawnSync(
       process.execPath,
       [join(ROOT, 'scripts', 'merge-live-doc.mjs'), '--file', f],
-      { cwd: ROOT, encoding: 'utf8', windowsHide: true, maxBuffer: 64 * 1024 * 1024,
+      {
+        cwd: ROOT,
+        encoding: 'utf8',
+        windowsHide: true,
+        maxBuffer: 64 * 1024 * 1024,
         // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-        stdio: ['ignore', 'pipe', 'pipe'] },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
     )
     if (r.status === 0) {
       log('info', `活文档对账通过:${C.cyan}${f}${C.reset} 工作树 ⊇ HEAD`)
@@ -880,7 +945,12 @@ if (hookFailed && commitResult.status !== 0) {
       }
     if (g.status === null)
       return { ran: false, status: null, output: '', why: `基线面被中断或超时(${timeoutMs}ms)` }
-    return { ran: true, status: g.status ?? 1, output: `${g.stdout || ''}${g.stderr || ''}`, why: null }
+    return {
+      ran: true,
+      status: g.status ?? 1,
+      output: `${g.stdout || ''}${g.stderr || ''}`,
+      why: null,
+    }
   }
   /**
    * 共享索引 / 工作树里"别人挂着的东西"(2026-09-27,G-268 的两面翻版)。
@@ -1014,10 +1084,7 @@ if (hookFailed && commitResult.status !== 0) {
       'err',
       `🚧 阻塞提交的那一步「${verdict.envStep}」自己没跑完 —— **环境性失败,不是你的红,也不是别人的红**`,
     )
-    log(
-      'err',
-      `   指纹:${(verdict.envFingerprint ?? []).join(' ⏎ ')|| '(未取到指纹行)'}`,
-    )
+    log('err', `   指纹:${(verdict.envFingerprint ?? []).join(' ⏎ ') || '(未取到指纹行)'}`)
     log(
       'err',
       '   下一步:① tasklist | findstr /i "git node" 看并发 git/node 进程后重跑本命令;' +
@@ -1075,7 +1142,7 @@ if (hookFailed && commitResult.status !== 0) {
   // 所以:重跑 Step 2 的 add,并**再跑一次 Step 3 的精确性校验** —— 不校验就重试等于放弃
   // "只提交自己声明的文件"这条根约束(窗口期里别人可能刚 staged 了东西)。
   log('info', '跳门重试前重新暂存本票文件(首次失败时 lint-staged 已回滚新增文件的索引态)')
-  const reAdd = gitStep(['add', '-A', '--', ...expectedFiles], 'git add (retry)')
+  const reAdd = stageDeclared(expectedFiles, 'git add (retry)')
   if (reAdd.status !== 0) {
     // **删除型提交的 pathspec 语义与 add 不同**(2026-09-25 临时仓三态实测,不是推测):
     //   A 索引有 + 盘上无 ⇒ `add -A` 成功;
@@ -1091,8 +1158,7 @@ if (hookFailed && commitResult.status !== 0) {
     for (const f of expectedFiles)
       (existsSync(join(repoRoot, normalize(f))) ? onDisk : deleted).push(f)
     let recovered = true
-    if (onDisk.length)
-      recovered = gitStep(['add', '-A', '--', ...onDisk], 'git add (retry: 在场文件)').status === 0
+    if (onDisk.length) recovered = stageDeclared(onDisk, 'git add (retry: 在场文件)').status === 0
     if (deleted.length && recovered)
       recovered =
         gitStep(['rm', '--cached', '--ignore-unmatch', '--', ...deleted], 'git add (retry: 删除态)')
