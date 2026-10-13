@@ -160,6 +160,8 @@ import {
   type GoalVerifyRequest,
 } from '../goal-verification.js';
 import type { GoalHardCriterion, GoalVerification } from '@ihui/api-client';
+// G-815977 收编:AgentStopReason 与回合终态封闭集同族的档位从 canonical 派生(见下方联合)
+import type { AgentTurnStopReason } from '@ihui/types';
 import {
   renderMermaid,
   extractMermaidBlocks,
@@ -241,26 +243,18 @@ export interface AgentOptions {
 
 export type AgentStopReason =
   | 'end_turn'
-  | 'cancelled'
-  | 'max_iterations'
-  | 'budget_limited'
   | 'doom_loop'
-  | 'error'
   // P0-C(2026-09-17 立):plan 审批门修复 — LLM 提出 plan 但无可用审批机制(非交互、无回调、未显式 auto)时终止
   | 'plan_approval_required'
   /**
-   * WP-8③(2026-09-26 立):goal 模式下循环自宣完成,但**独立校验轮没让它过**。
-   * 两个档名与 ai-service `goal_completion_gate.py` 的 `STOP_VERIFICATION_*` 逐字同值 ——
-   * 一族两值,两处必须同形(真源在 Python 侧,这里是对齐不是另立)。
+   * G-815977 收编:与 ai-service 回合终态封闭集(`AGENT_TURN_STOP_REASONS`,跨语言对齐表在
+   * packages/types/src/agent-runtime.ts,Py 侧真源 app/core/turn_stop_reason.py)同族的档位
+   * 从 canonical 派生,不再本地抄第二份成员清单 —— 封闭集改名/删档在此编译期炸出。
+   * completed/canceled/paused/budget_exceeded 四档是 ai-service done 帧的取值,CLI 循环
+   * 不产出,故 Exclude 掉;上面三档是 CLI 循环特有档 —— 派生后成员集与收编前逐字一致。
+   * (goal_blocked 经 canonical 覆盖,原 `typeof STOP_GOAL_BLOCKED` 联合成员随之并入。)
    */
-  | 'verification_not_achieved'
-  | 'verification_undetermined'
-  /**
-   * AGENTS.md §8 第 4 步(2026-09-26 立):goal 模式的独立校验**连续**未过到达上限,
-   * 循环不再续跑。与上面两档是三个不同档 —— 那两档是"这次没验过"(还在跑),
-   * 这一档是"生命周期收口"(别再跑了)。合并任何一档都会让恢复端看不出还剩几次机会。
-   */
-  | typeof STOP_GOAL_BLOCKED;
+  | Exclude<AgentTurnStopReason, 'completed' | 'canceled' | 'paused' | 'budget_exceeded'>;
 
 export interface AgentResult {
   stopReason: AgentStopReason;
