@@ -69,7 +69,7 @@
  */
 import { spawnSync } from 'node:child_process'
 import net from 'node:net'
-import { existsSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { hostname } from 'node:os'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -1027,6 +1027,11 @@ export function resolveLoadedScript(paramsTexts) {
 
 /** dot-source 条数上限:超出即如实报"未跟完"(与 TREE_MAX_* 同一条取向 —— 封顶必须可见,不得静默截断)。 */
 export const DOT_SOURCE_MAX = 32
+/** dot-source 传递闭包的文件总数上限(2026-10-13 按票 G-1080903 从"深度封顶 1"扩成全闭包时配套加的):
+ *  递归跟"被 dot-source 文件自身的 dot-source"必须有总量闸,否则一条病态长链(或两条互相引用的长链)
+ *  就能把一次判定拖成全仓扫描。超限落**未判定**并点名(没跟完 = 没量到,不得读成新鲜),与 TREE_MAX_*
+ *  同一条取向 —— 封顶必须可见。 */
+export const DOT_SOURCE_CLOSURE_MAX = 64
 
 /** 把一个 PowerShell 操作数静态求值成路径。只认三类确定形态:
  *  ① 字面量(单引号串、双引号串内**不含**变量、裸路径)
@@ -1221,15 +1226,21 @@ export function extractDotSourcedScripts({ text, scriptDir }) {
   })
 }
 
-/** dot-source 层的取材与比较(深度**封顶 1**:只跟 -File 那份脚本的直接 dot-source,不再往下爬)。
- *  封顶理由两条,缺一不可写:① 循环 dot-source(a→b→a)不加封顶就是无限递归;② 封顶不等于"第二层不存在",
- *  所以**读了每个模块的正文只为判它自己有没有第二层**,有就报名"已知未覆盖"并点名模块,绝不静默 ——
- *  否则"第二层没跟到"这件事会以"这一维绿着"的形态存在(本仓最高频失效型:判据失效的表现永远是安静)。
- *  四条失效出口都落 undetermined 并各带原因:没有读取出口 / 读不到 -File 正文 / 模块 statFile 失败 /
- *  模块正文读不到(第二层因此无从判定)。而"量到的空"与"没量到"分档:
- *  PowerShell 脚本里确实没有 dot-source ⇒ note(量到的空),加载目标根本不是 .ps1 ⇒ note(不适用)——
- *  两者都不是"这一维失明",把它们写成失明会让每台 PowerShell 服务都拿不到合格证(与 item4 的字面不同、
- *  与本文件 computeObservedListening 那句"量到的空 vs 没量到"同一条纪律)。 */
+/** dot-source 层的取材与比较(**传递闭包**:2026-10-13 按票 G-1080903 从"深度封顶 1"扩全 ——
+ *  只跟直接 dot-source 而把第二层报名"已知未覆盖"的那一版,正是票面要修的洞:闭包里任何一层
+ *  没进 mtime 账,"模块比进程新"就能藏在第二层之下全程绿着。现在递归跟每个被 dot-source 模块
+ *  自身的 dot-source,链上**每份文件**的 mtime 一并纳入与进程启动时刻的比较)。
+ *  三条工程闸,缺一不可:
+ *  ① 每份脚本自身 dot-source 条数仍受 DOT_SOURCE_MAX 封顶(超限如实报 truncated,不静默截断);
+ *  ② 闭包文件总数受 DOT_SOURCE_CLOSURE_MAX 封顶(超限落未判定并点名 —— 没跟完 = 没量到,不得读成新鲜);
+ *  ③ 环保护:visited 集合按规范化路径去重,a→b→a 不无限递归,环上每份文件仍各计一次 mtime 账;
+ *     同一模块被两条边重复 dot-source(菱形)也只计一次账(scanned 不得重复计数)。
+ *  失效出口全部落 undetermined 并各带原因:没有读取出口 / 读不到正文 / 模块 mtime 读不到 / 抽取判不出。
+ *  而"量到的空"与"没量到"分档:根脚本确实没有 dot-source ⇒ note(量到的空),加载目标不是 .ps1 ⇒ note(不适用)
+ *  —— 两者都不是"这一维失明",把它们写成失明会让每台 PowerShell 服务都拿不到合格证。
+ *  兼容注:`nested` 字段随封顶 1 一起退役(闭包之下不再有"已知未覆盖"层),恒为空数组,仅为既有
+ *  JSON 输出形状兼容保留;超限/环路等闭包现象分别走 undetermined(没量到)与"不另立新档"。
+ */
 function collectDotSourceLayer({ scriptPath, startMs, statFile, readScriptText }) {
   const out = { scanned: 0, stale: [], undetermined: [], nested: [], notes: [] }
   if (!/\.ps1$/i.test(scriptPath)) {
@@ -1244,61 +1255,73 @@ function collectDotSourceLayer({ scriptPath, startMs, statFile, readScriptText }
     )
     return out
   }
-  const rd = readScriptText(scriptPath)
-  if (!rd || rd.ok !== true) {
-    out.undetermined.push(
-      `读不到 -File 那份脚本的正文(${scriptPath}):${rd?.why ?? '读取出口没给原因'}`,
-    )
-    return out
-  }
-  const ex = extractDotSourcedScripts({ text: rd.text, scriptDir: path.win32.dirname(scriptPath) })
-  if (ex.kind === 'unmeasured') {
-    out.undetermined.push(`dot-source 抽取无法判定(${scriptPath}):${ex.reason}`)
-    return out
-  }
-  const found = ex.value
-  for (const it of found.items) {
-    if (it.path) continue
-    if (it.ignored) out.notes.push(`抽到一个点号目标但不在射程:${it.raw} —— ${it.why}`)
-    else out.undetermined.push(`抽到一个 dot-source 而路径读不出:${it.raw} —— ${it.why}`)
-  }
-  if (found.truncated)
-    out.undetermined.push(
-      `${scriptPath} 的 dot-source 超过上限 ${DOT_SOURCE_MAX}(共 ${found.declaredTotal} 条)⇒ 只跟前 ${DOT_SOURCE_MAX} 份,其余这一轮没量到`,
-    )
-  if (found.paths.length === 0 && out.undetermined.length === 0)
-    out.notes.push(`${scriptPath} 未 dot-source 任何 .ps1 ⇒ 这一维没有对象(量到的空,不是没量到)`)
-  for (const mp of found.paths) {
-    const st =
-      typeof statFile === 'function'
-        ? statFile(mp)
-        : { ok: false, why: '调用方未提供 statFile 出口' }
-    if (!st?.ok) {
+  const norm = (p) => path.win32.normalize(String(p)).toLowerCase()
+  const visited = new Set() // 正文已读过、dot-source 已抽过的文件(环保护 + 环路去重)
+  const accounted = new Set() // mtime 已计过账的文件(菱形去重:同一模块只计一次)
+  const queue = [scriptPath]
+  let sawRoot = false
+  while (queue.length > 0) {
+    if (visited.size >= DOT_SOURCE_CLOSURE_MAX) {
       out.undetermined.push(
-        `读不到模块 mtime(${mp}):${st?.why ?? '未知原因'} ⇒ 这一份没量到,不得记成新鲜`,
+        `dot-source 传递闭包超过上限 ${DOT_SOURCE_CLOSURE_MAX} 份(已跟 ${visited.size} 份)⇒ 其余这一轮没量到,不得读成新鲜`,
       )
-      continue
+      break
     }
-    out.scanned++
-    const deltaMs = st.mtimeMs - startMs
-    if (deltaMs > 0) out.stale.push({ path: mp, mins: Math.round(deltaMs / 60000) })
-    const rd2 = readScriptText(mp)
-    if (!rd2 || rd2.ok !== true) {
+    const sp = queue.shift()
+    const spKey = norm(sp)
+    if (visited.has(spKey)) continue
+    visited.add(spKey)
+    const isRoot = !sawRoot
+    sawRoot = true
+    const rd = readScriptText(sp)
+    if (!rd || rd.ok !== true) {
       out.undetermined.push(
-        `读不到模块正文(${mp}):${rd2?.why ?? '读取出口没给原因'} ⇒ 它自己有没有第二层无从判定`,
+        isRoot
+          ? `读不到 -File 那份脚本的正文(${sp}):${rd?.why ?? '读取出口没给原因'}`
+          : `读不到模块正文(${sp}):${rd?.why ?? '读取出口没给原因'} ⇒ 它自己 dot-source 进来的更深层无从判定`,
       )
       continue
     }
-    const ex2 = extractDotSourcedScripts({ text: rd2.text, scriptDir: path.win32.dirname(mp) })
-    if (ex2.kind === 'unmeasured') {
-      out.undetermined.push(`模块 ${mp} 的第二层抽取判不出:${ex2.reason}`)
+    const ex = extractDotSourcedScripts({ text: rd.text, scriptDir: path.win32.dirname(sp) })
+    if (ex.kind === 'unmeasured') {
+      out.undetermined.push(`dot-source 抽取无法判定(${sp}):${ex.reason}`)
       continue
     }
-    if (ex2.value.paths.length > 0)
-      out.nested.push(
-        `${mp} 自身还 dot-source ${ex2.value.paths.length} 份(${ex2.value.paths.map((p) => path.win32.basename(p)).join(', ')})` +
-          '⇒ 深度封顶 1,这一层**已知未覆盖**(不判红,也不得读成"已确认它们新鲜")',
+    const found = ex.value
+    for (const it of found.items) {
+      if (it.path) continue
+      if (it.ignored) out.notes.push(`抽到一个点号目标但不在射程:${it.raw} —— ${it.why}`)
+      else out.undetermined.push(`抽到一个 dot-source 而路径读不出:${it.raw} —— ${it.why}`)
+    }
+    if (found.truncated)
+      out.undetermined.push(
+        `${sp} 的 dot-source 超过上限 ${DOT_SOURCE_MAX}(共 ${found.declaredTotal} 条)⇒ 只跟前 ${DOT_SOURCE_MAX} 份,其余这一轮没量到`,
       )
+    if (isRoot && found.paths.length === 0 && out.undetermined.length === 0)
+      out.notes.push(`${sp} 未 dot-source 任何 .ps1 ⇒ 这一维没有对象(量到的空,不是没量到)`)
+    for (const mp of found.paths) {
+      const mKey = norm(mp)
+      // 回边(环路或菱形的已处理侧)先挡:这份的账已有归属 —— 回到 -File 根的那条由本维外的
+      // -File 比较记,回到已处理模块的那条由首条边记;都不在模块层重复计账。
+      if (visited.has(mKey)) continue
+      if (!accounted.has(mKey)) {
+        accounted.add(mKey)
+        const st =
+          typeof statFile === 'function'
+            ? statFile(mp)
+            : { ok: false, why: '调用方未提供 statFile 出口' }
+        if (!st?.ok) {
+          out.undetermined.push(
+            `读不到模块 mtime(${mp}):${st?.why ?? '未知原因'} ⇒ 这一份没量到,不得记成新鲜`,
+          )
+          continue // mtime 读不到 ⇒ 不再往下跟(这一条已在 undetermined 点名,链在此断)
+        }
+        out.scanned++
+        const deltaMs = st.mtimeMs - startMs
+        if (deltaMs > 0) out.stale.push({ path: mp, mins: Math.round(deltaMs / 60000) })
+      }
+      queue.push(mp) // 递归:跟它自身的 dot-source(pop 时的 visited 检查挡住重复排队)
+    }
   }
   return out
 }
@@ -1313,7 +1336,8 @@ function collectDotSourceLayer({ scriptPath, startMs, statFile, readScriptText }
  *     这一维全程无信号,"改完没生效"没人喊,只能人工比对进程启动时刻与落地提交才判出要重启。
  *  ② 那份脚本运行时用 `&` 调用的子脚本按调用时刻读取,改了立刻生效,**不属本维、也不该被算成 stale**
  *     (这就是抽取层不认 `&` 的理由,见 extractDotSourcedScripts 头注)。
- *  ③ 第二层 dot-source 一律**不判红但报名**(封顶 1);量不到的一律落未判定并点名,绝不写成新鲜。 */
+ *  ③ dot-source 链按**传递闭包**递归跟全(2026-10-13 按票 G-1080903 从"深度封顶 1"扩全),链上每份
+ *     文件的 mtime 都参与比较;环路与总量都有封顶且封顶可见;量不到的一律落未判定并点名,绝不写成新鲜。 */
 export function judgeRuntimeFreshness({
   state,
   start,
@@ -1393,9 +1417,9 @@ export function judgeRuntimeFreshness({
   // fresh,而 judgeService 只认 verdict ⇒ 模块 mtime/正文读不到会被静默发"新鲜"——
   // modulesUndetermined 无任何消费方、renderText 也不披露,正是本文件头注
   // "量不到的一律落未判定并点名,绝不写成新鲜"禁止的那一型(判据失效的表现永远是安静)。
-  // notes(量到的空/不适用)与 nested(第二层已知未覆盖)不在此列:那两档是**已登记的有界边界**,
-  // 头注明确它们不判红也不失明;只有"试了而没量到"的四条出口(无读取出口/读不到 -File 正文/
-  // 模块 statFile 失败/模块正文读不到)才把整维拖成未判定。
+  // notes(量到的空/不适用)不在此列:那是**已登记的有界边界**,头注明确它不判红也不失明;
+  // 只有"试了而没量到"的出口(无读取出口/读不到正文/mtime 读不到/抽取判不出/闭包超限)才把整维拖成未判定。
+  // nested 字段已随"深度封顶 1"一起退役(2026-10-13 闭包化),恒空,仅为输出形状兼容保留。
   if (layer.undetermined.length > 0)
     return unmeasured(
       `dot-source 层有 ${layer.undetermined.length} 处没量到(点名,不得记成新鲜):` +
@@ -2306,7 +2330,7 @@ export const __test__ = {
   PROC_SCRIPT_SHAPE_FORMS,
   attributeListening, probeHostForBind, buildProbeTargets, foldProbeOutcome, computeObservedListening,
   ticksToMs, resolveLoadedScript, judgeRuntimeFreshness, TICKS_EPOCH_DIFF_MS,
-  extractDotSourcedScripts, DOT_SOURCE_MAX,
+  extractDotSourcedScripts, DOT_SOURCE_MAX, DOT_SOURCE_CLOSURE_MAX,
   ENUM_HEAD, ENUM_TAIL, PROC_HEAD, PROC_TAIL, REG_NO_PARAMS, REG_ENCODE_ERROR, PS_CANDIDATES, NSSM_CANDIDATES,
   NETSTAT_CANDIDATES, LOOPBACK_PROBE_HOST, SYSTEM_PID_FLOOR, MAX_PROBE_PORTS, TREE_MAX_DEPTH, TREE_MAX_NODES,
   NSSM_TIMEOUT_MS, TCP_TIMEOUT_MS, NETSTAT_TIMEOUT_MS, PROC_TIMEOUT_MS, defaultDeps,

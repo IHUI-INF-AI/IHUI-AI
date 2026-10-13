@@ -55,6 +55,7 @@ import random
 import threading
 import time
 import uuid
+import weakref
 from collections.abc import Awaitable, Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -95,6 +96,16 @@ from .agent_checkpoint import (
     get_agent_checkpoint_manager,
 )
 from .agent_deliverables import DeliverablesCollector, save_deliverables
+from .approval_generation_cas import (
+    REASON_SNAPSHOT_MISMATCH,
+    REASON_SUPERSEDED,
+    STATE_RESOLVED,
+    STATE_TIMED_OUT,
+    ApprovalGenerationCas,
+    ApprovalSpec,
+    SettlementOutcome,
+    content_digest,
+)
 from .durable_resume import (
     DURABLE_HORIZON_METADATA_KEY,
     DURABLE_LAUNCHED_AT_METADATA_KEY,
@@ -184,6 +195,71 @@ class _LoopInterrupted(Exception):
     def __init__(self, reason: str):
         self.reason = reason  # "cancelled" | "paused"
         super().__init__(f"用户{ '取消' if reason == 'cancelled' else '暂停' }(循环内中断)")
+
+
+class HostTurnFault(Exception):
+    """G-815972(2026-10-13):宿主故障身份标记异常。
+
+    宿主侧故障(进程/管道/上游连接断开等,语义上既不是"用户取消"也不是
+    "可重试的瞬时抖动")由宿主在抛出时**主动盖章**:携带 ``code`` 字段
+    (错误族标识,如 "provider_pipe_broken"),沿 ``__cause__`` 链可被
+    :func:`find_declared_host_fault` 认领。分类与重试决策**优先认标记**
+    而非异常消息文本匹配 —— 文本会变、会被包装层吞掉,身份标记不会。
+
+    约定:
+    - code 是错误族(错误分类面),不是具体错误消息;分类/落库事件
+      (checkpoint metadata / hook error)直接以 code 作为 error_type;
+    - 宿主故障**不得**被判成 cancelled(用户取消),也不得进入自动重试。
+    """
+
+    def __init__(self, code: str, message: str | None = None) -> None:
+        self.code = code
+        super().__init__(message or code)
+
+
+def find_declared_host_fault(
+    exc: BaseException, max_depth: int = 6
+) -> HostTurnFault | None:
+    """沿 ``__cause__`` 链查找宿主故障标记(G-815972)。
+
+    从 ``exc`` 自身开始逐层下探 ``__cause__``(只认声明链,不认 ``__context__``
+    —— ``raise … from …`` 的显式声明才构成"宿主盖章"),命中 :class:`HostTurnFault`
+    即返回该标记实例;否则返回 None。
+
+    安全性:
+    - **WeakSet 环检测**:走访过的异常记入 WeakSet,自引用
+      (``e.__cause__ = e``)或环状链在第二圈入口即停,绝不死循环;
+    - **不可弱引用降级**:内建异常实例(如裸 ``RuntimeError``)不支持弱引用,
+      ``WeakSet`` 抛 TypeError ⇒ 自动降级为身份集(id)判环 —— 链上节点被
+      ``exc`` 强引用全程存活,本轮走访内 id 不复用,判环同样可靠;
+    - **深度上限** max_depth(默认 6):超长链(无论有无标记)到限即返 None,
+      终止性由深度上限独立兜底,任何环/降级组合都不可能抛栈或死循环。
+    """
+    seen: weakref.WeakSet[BaseException] | None = weakref.WeakSet()
+    seen_ids: set[int] = set()
+    current: BaseException | None = exc
+    depth = 0
+    while current is not None and depth <= max_depth:
+        visited = False
+        if seen is not None:
+            try:
+                visited = current in seen
+                if not visited:
+                    seen.add(current)
+            except TypeError:
+                # 该异常不可弱引用 ⇒ 环检测降级为身份集(此后所有节点走 id 判环)。
+                seen = None
+        if seen is None:
+            visited = id(current) in seen_ids
+            if not visited:
+                seen_ids.add(id(current))
+        if visited:
+            return None  # 环闭合:链上已无未走访节点,无标记可认领
+        if isinstance(current, HostTurnFault):
+            return current
+        current = current.__cause__
+        depth += 1
+    return None
 
 
 def _summarize_step(value: Any) -> str:
@@ -512,6 +588,15 @@ _ApprovalRecord = _ApprovalEntry | tuple[asyncio.Event, str | None]
 
 _approval_registry: dict[str, _ApprovalRecord] = {}
 
+# G-816004(2026-10-13)审批代际 CAS:注册盖章/结算双比对的判面(独立服务形态,
+# 实现见 approval_generation_cas.py,上游对标 zcode workspace-hook-review-flow)。
+# 与 _approval_registry 同期登记(见 _request_approval 的盖章注释);结算双比对
+# 只对**持章** resolve(generation + snapshot_digest 同时携带)启用 —— 未持章的
+# 既有通道行为逐零差异,CAS 是叠加不是替换,claim_settlement 的一次性结算
+# 语义(G-637)原样保留。锁序约定:_approval_settle_lock(外)→ CAS 自锁(内),
+# 全仓没有任何反序路径,无死锁面。
+_approval_generation_cas = ApprovalGenerationCas()
+
 
 def _as_entry(approval_id: str) -> _ApprovalEntry | None:
     """取注册表条目并归一为 _ApprovalEntry(二元组就地升级,保证后续写入生效在同一对象上)。"""
@@ -615,6 +700,17 @@ class ApprovalOutcome(str, Enum):  # noqa: UP042 — 枚举值进审计事件与
     # 像改写了)。修法是一行:`if outcome is ApprovalOutcome.ALREADY_SETTLED: raise
     # HTTPException(409, …)` —— 归该端点持有人,不得为让本票的门变绿去顺手改别人文件。
     ALREADY_SETTLED = "already_settled"
+    # G-816004(2026-10-13)第五/六态:代际 CAS 双比对的两个拒绝码,**与
+    # approval_generation_cas 的 REASON_SUPERSEDED / REASON_SNAPSHOT_MISMATCH
+    # 逐字同形**(reasonCode 是判据本身,两码不同形,不得并码):
+    # - SUPERSEDED        路由代锁拒:条目缺失/已终态/换代 ⇒ 旧弹窗作废,该重新问用户;
+    # - SNAPSHOT_MISMATCH 内容锁拒:代际相符但内容摘要与盖章时不一致 ⇒ 决策对象不是
+    #                     当前快照,该丢弃而不是重问。
+    # 与第四态同样的已知未闭环:routers/agents.py 只 branch NOT_FOUND/FORBIDDEN,
+    # 本两态会 fall-through 回 200 accepted=true(状态零改写,拒绝原因进了返回值,
+    # 持章调用方以 resolve_approval_for_requester 的返回值为准)。修法归该端点持有人。
+    SUPERSEDED = "superseded"
+    SNAPSHOT_MISMATCH = "snapshot_mismatch"
 
 
 def resolve_approval_for_requester(
@@ -624,6 +720,8 @@ def resolve_approval_for_requester(
     scope: str | None = None,
     reason: str | None = None,
     accept_alternative: bool = False,
+    generation: int | None = None,
+    snapshot_digest: str | None = None,
 ) -> ApprovalOutcome:
     """带属主校验的审批决策回填(三态版,供 HTTP 路由与引擎通道共用)。
 
@@ -638,6 +736,11 @@ def resolve_approval_for_requester(
         accept_alternative: V3 #80 —— 用户勾选"改用 guardian 复核建议的更安全
             等价路径"。缺省 False=维持原请求(合法出口);True 只在复核结论确有
             applicable 替代时被 _request_approval 消费,否则忽略(不猜、不放大)。
+        generation: G-816004 持章结算的路由代(注册盖章时下发,初始 0)。与
+            snapshot_digest **同时携带**才启用 CAS 双比对;任一缺席 = 未持章,
+            走既有路径(叠加不是替换,既有调用方行为逐零差异)。
+        snapshot_digest: G-816004 持章结算的内容摘要(注册盖章时下发的
+            content_digest(决策 payload))。
 
     Returns:
         APPLIED         = 属主匹配,决策已写入且协程被唤醒;
@@ -645,7 +748,12 @@ def resolve_approval_for_requester(
         FORBIDDEN       = id 存在但属主与请求者不符(跨用户决策尝试);
         ALREADY_SETTLED = id 存在、属主也符,但结算名额已被取走(同一请求的第二次
                           应答)—— 本次**不写任何状态**:不改 decision/scope/reason/
-                          accept_alternative、不再 set 事件、不再落持久授权。
+                          accept_alternative、不再 set 事件、不再落持久授权;
+        SUPERSEDED      = G-816004 持章结算被路由代锁拒(条目缺失/已终态/换代)——
+                          旧弹窗作废,零副作用(不取名额、不写决策、不发事件);
+        SNAPSHOT_MISMATCH = G-816004 持章结算被内容锁拒(代际相符但内容摘要与
+                          盖章时不一致)—— 同样零副作用。两码与 CAS 的 REASON_*
+                          逐字同形,不得并码。
 
     判定只有一种:**精确相等**(含 None==None)。不区分"部分匹配"/前缀匹配,
     也不因属主缺失而放行 —— 缺失属主的条目对带身份的请求者一律 FORBIDDEN。
@@ -661,6 +769,15 @@ def resolve_approval_for_requester(
        `settled = _as_entry(...)` 那一行)唤醒后还要回读 decision/scope/reason/
        accept_alternative,摘走等于把功能改坏。被单点取走的是**结算权**这一份
        名额,语义与 `entries.pop(rid, None)` 同形(取不到即分流),但不吃掉读侧。
+
+    G-816004(2026-10-13)代际 CAS 叠加层:持章 resolve 在**取名额之前**先过
+    `_approval_generation_cas.resolve` 双比对(路由代锁先于内容锁,判面在
+    approval_generation_cas,其 12 例单测钉死语义)。比对拒 ⇒ 立即返回,**名额
+    不消耗**(陈旧持章者不得把真正持章者的结算名额吃掉 —— 与属主判定前置同一
+    条反 DoS 纪律);比对过 ⇒ 名额仍由 claim_settlement 一次性仲裁(G-637 原样),
+    CAS 只做内容一致性闸门,不是第二个名额。锁序:settle 锁(外)→ CAS 自锁(内),
+    无反序路径。迟到 resolve(条目已 resolved/timed_out)由 CAS 判面折叠为
+    ALREADY_SETTLED —— 与 G-637 第四态同形,零副作用、不抛异常。
     """
     with _approval_settle_lock:
         entry = _as_entry(approval_id)
@@ -674,6 +791,25 @@ def resolve_approval_for_requester(
                 entry.owner_user_id,
             )
             return ApprovalOutcome.FORBIDDEN
+        # G-816004:持章结算先过代际 CAS 双比对(路由代锁先于内容锁)。
+        # 拒绝路径零副作用:名额未取、决策未写、事件未发;迟到(条目已
+        # resolved/timed_out)折叠为 ALREADY_SETTLED,换代/快照变分形返回。
+        if generation is not None and snapshot_digest is not None:
+            cas_outcome: SettlementOutcome = _approval_generation_cas.resolve(
+                approval_id,
+                decision,
+                generation=generation,
+                snapshot_digest=snapshot_digest,
+                apply=None,  # 决策副作用仍由下方 G-637 临界区独占执行,CAS 只做闸门
+            )
+            if not cas_outcome.applied:
+                if cas_outcome.state in (STATE_RESOLVED, STATE_TIMED_OUT):
+                    # 迟到:先到者已定局,与 G-637 第四态同形(不是"换代"语义)。
+                    return ApprovalOutcome.ALREADY_SETTLED
+                if cas_outcome.reason_code == REASON_SNAPSHOT_MISMATCH:
+                    return ApprovalOutcome.SNAPSHOT_MISMATCH
+                # REASON_SUPERSEDED(换代/条目缺失/显式 superseded 终态)。
+                return ApprovalOutcome.SUPERSEDED
         if not entry.claim_settlement():
             # 只报"已被答过",不重复落任何副作用;这条 info 是重复点击的取证行。
             logger.info(
@@ -695,6 +831,8 @@ def resolve_approval_response(
     approval_id: str,
     decision: str,
     requester_user_id: str | None = None,
+    generation: int | None = None,
+    snapshot_digest: str | None = None,
 ) -> bool:
     """写入审批决策并唤醒等待中的工具执行协程(由审批响应端点/引擎通道调用)。
 
@@ -703,14 +841,24 @@ def resolve_approval_response(
         decision: "approve" 或 "reject"(其他值视为 reject)
         requester_user_id: 调用方 principal;缺省 None 保持"仅无属主条目可结算"的
             历史语义(直接以库方式驱动循环的测试/脚本),对带属主的条目返回 False。
+        generation: G-816004 持章结算的路由代;与 snapshot_digest 同时携带时启用
+            代际 CAS 双比对(缺省 None = 未持章,走既有路径)。
+        snapshot_digest: G-816004 持章结算的内容摘要。
 
     Returns:
         True=决策已写入且协程被唤醒;False=id 不存在 **或** 属主不符 **或** 已被
-        第一次应答结算(G-637 第四态在这一层折叠成 False —— 本函数只有布尔出口,
-        要区分这三类时改用 resolve_approval_for_requester())。
+        第一次应答结算 **或** 持章双比对被拒(superseded/snapshot_mismatch,迟到
+        折叠为 already_settled)—— 本函数只有布尔出口,要区分这五类时改用
+        resolve_approval_for_requester()。
     """
     return (
-        resolve_approval_for_requester(approval_id, decision, requester_user_id)
+        resolve_approval_for_requester(
+            approval_id,
+            decision,
+            requester_user_id,
+            generation=generation,
+            snapshot_digest=snapshot_digest,
+        )
         is ApprovalOutcome.APPLIED
     )
 
@@ -3626,9 +3774,18 @@ class AgentLoopV2:
     def _classify_error(e: BaseException) -> str:
         """错误分类(错误恢复可观测性,2026-08-12 立)。
 
-        返回: timeout / connection / http_5xx / http_4xx / cancelled / unknown。
+        返回: timeout / connection / http_5xx / http_4xx / cancelled / unknown,
+        以及宿主盖章的错误族 code(G-815972,如 "provider_pipe_broken")。
         写入 checkpoint metadata + hook error 事件,供元学习失败聚类与排障使用。
+
+        G-815972:宿主故障标记**优先**于一切启发式 —— 沿 ``__cause__`` 链认领到
+        HostTurnFault 即直接返回其 code(错误族),**不得**落入 cancelled 分支
+        (宿主故障 ≠ 用户取消:混淆会让取消率虚高、元学习把宿主侧故障聚类成
+        "用户不要了",污染失败归因)。标记查找自带环检测与深度上限,开销可忽略。
         """
+        _host_fault = find_declared_host_fault(e)
+        if _host_fault is not None:
+            return _host_fault.code
         if isinstance(e, asyncio.CancelledError):
             return "cancelled"
         name = type(e).__name__
@@ -3917,7 +4074,15 @@ class AgentLoopV2:
                 except Exception as e:  # noqa: BLE001 - 健全化失败不阻塞主链路
                     logger.warning("history_normalization 异常(降级跳过): %s", e)
                 # 1. 调 LLM(带 tools,带指数退避重试);调用前按占用率自动压缩上下文(1-8)
-                messages = await self._maybe_compact_context(messages)
+                # G-815970(2026-10-13):压缩纳入 _wait_interruptible 包裹 —— LLM 语义
+                # 压缩(compress_with_llm)内部的一次完整模型调用此前是裸 await,取消/
+                # 暂停要等压缩跑完才生效。包裹后与主 LLM 调用同一取消信号来源
+                # (_cancel_requested/_pause_requested);压缩正常完成时包裹层原样返回
+                # 结果。_stream_retry_state/退避计数不经过此路径:压缩失败仍在
+                # _maybe_compact_context 内部降级为规则压缩,不触碰重试链路。
+                messages = await self._wait_interruptible(
+                    self._maybe_compact_context(messages)
+                )
                 # 批 40 接线:当前时间提醒(对标 codex maybe_record_current_time_reminder)。
                 # 每次推理前按节流状态机判定;投递则把 developer 片段追加进历史。
                 # time_provider 未注入 = 功能关闭,零行为变化;时钟失败降级注入
@@ -4679,6 +4844,24 @@ class AgentLoopV2:
             tool_name=tc.name,
             args_preview=args_preview,
             created_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        )
+        # G-816004(2026-10-13)注册盖章:approval_generation_cas 权威登记 ——
+        # generation=0(初始路由代;换代路径经 cas.supersede 显式递增,静默换代被
+        # register 拒绝),snapshot_digest=content_digest(决策 payload) —— 用户在批的
+        # 就是"这个工具+这套参数",结算持章方必须拿同一摘要来对(快照变 ⇒ 拒)。
+        # deadline 与弹窗等待超时同源(self._approval_timeout):等待方 wait_for 超时
+        # 放弃的同时,CAS 计时器把条目结算为 timed_out,不留悬空 pending。
+        # request_id 用新生成的 uuid,register 的"pending 同 id 非同代 ⇒ 抛"分支
+        # 结构上不可达(同 id 重放属上游 bug,抛错比静默落账诚实)。
+        _approval_generation_cas.register(
+            ApprovalSpec(
+                request_id=approval_id,
+                session_id=self._session_id or "",
+                tool_name=tc.name,
+                generation=0,
+                snapshot_digest=content_digest({"tool": tc.name, "args": tc.args}),
+                deadline_seconds=self._approval_timeout,
+            )
         )
         # 批 53:登记 persist 旁路键(供引擎侧 approval.respond 携带 persist 时取回落盘)
         _approval_persist_keys[approval_id] = key
