@@ -45,7 +45,7 @@ import { type WorktreeManager } from './worktree.js';
 import { PERSONAS_CONTRACTS, type JSONSchema } from '../personas/index.js';
 // G-426 拍板第三件套「超阈值自动后台化」:转后台落档用的中间态词汇,只引用唯一声明处
 import { SUBAGENT_STATUS_DETACHED_IDLE } from '../subagents/types.js';
-import type { SubagentPersona, CapabilityMode, IsolationMode } from '@ihui/types';
+import type { AgentTurnStopReason, SubagentPersona, CapabilityMode, IsolationMode } from '@ihui/types';
 import { resolveEffectiveOverrides } from '../subagents/precedence.js';
 import type {
   PersonaMap,
@@ -201,8 +201,15 @@ export function applyCapabilityMode(tools: Tool[], mode: CapabilityMode | undefi
  *    context 里,父级拿不到,不清就是孤儿。
  *  - `undefined`:正常完成 ⇒ **不动**在飞任务(长跑任务是用户的,不是孤儿)。
  */
+/**
+ * 子代理结算三态(G-815977 收编):completed/cancelled 两档从回合终态封闭集
+ * (@ihui/types 的 AgentTurnStopReason)派生,failed 是本地执行失败档 ——
+ * 成员集与收编前的本地字面量联合逐字一致;canonical 改名/删档在此编译期炸出。
+ */
+type SubagentSettledStatus = Extract<AgentTurnStopReason, 'completed' | 'cancelled'> | 'failed';
+
 export function resolveSubagentCascadeReason(input: {
-  stopReason: 'completed' | 'failed' | 'cancelled';
+  stopReason: SubagentSettledStatus;
   aborted?: boolean;
 }): BackgroundCascadeReason | undefined {
   if (input.aborted === true || input.stopReason === 'cancelled') return 'subagent_cancelled';
@@ -353,6 +360,19 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
         if (effective.model !== undefined) modelId = effective.model;
         if (effective.capabilityMode !== undefined) capabilityMode = effective.capabilityMode;
         isolation = effective.isolation as IsolationMode;
+        // G-1106297 两案共识的中间态(补档/删档由 CLI 沙箱线持有人裁决,本告警不预判方向):
+        // 'subprocess' 档在执行层等同 'none'(不创建 worktree,靠上面的 cast 收窄进两档
+        // 联合)——显式告警防"picker 接受、执行层静默无隔离"的假档静默传播。precedence
+        // 链的 explicit/role/persona 三源都经 L362 出口,在此判一次即全覆盖。
+        if (effective.isolation === 'subprocess') {
+          try {
+            process.stderr.write(
+              `[subagent] isolation='subprocess' 尚无独立实现,本次执行等同 'none'(同工作区无隔离)——CLI 沙箱线待落地(G-1106297)\n`,
+            );
+          } catch {
+            /* 诊断出口自身抛错不得把执行带崩 */
+          }
+        }
       }
 
       const subagentId = resumeFrom ?? newSubagentId();
@@ -441,7 +461,7 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
       // (begin is a no-op while a window is already open). The 4th ask inside
       // the window is refused as a plain result, not an error — see ask-user.ts.
       beginAskUserEscalationBudget();
-      let stopReason: 'completed' | 'failed' | 'cancelled' = 'completed';
+      let stopReason: SubagentSettledStatus = 'completed';
       let stopError: string | undefined;
       // G-426:exec-budget 到点且仍在推进 ⇒ 转后台(置位见下方 onOuterAbort);
       // 外层 finally 的级联判据与完成通知都要读它,所以声明必须在这一层(跨过内层 try)。
