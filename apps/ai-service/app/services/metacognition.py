@@ -242,6 +242,30 @@ class Metacognition:
     # detect_conflicts:冲突检测
     # ==================================================================
 
+    @staticmethod
+    def _split_doom_loop(pattern: str) -> tuple[str, str] | None:
+        """拆 `doom_loop:<tool>:<摘要尾>`;非该族返回 None。
+
+        L8064:该族 pattern 按"入参不同⇒摘要不同"设计,是**枚举维度**,
+        不是冲突面 —— 拆得出来才有资格谈"同族枚举多样性豁免"。
+        """
+        m = re.fullmatch(r"doom_loop:([^:]+):(.+)", pattern or "")
+        return (m.group(1), m.group(2)) if m else None
+
+    @classmethod
+    def _is_enum_diversity(cls, pa: str, pb: str) -> bool:
+        """同族 doom_loop 且**哈希段不同** ⇒ 枚举多样性(真冲突判据的反面)。
+
+        同哈希段不会走到这里(外层已挡 pattern 相等);所以族内到达这里的
+        全部是"不同入参的沉淀",一律豁免。族外(任一侧非 doom_loop)不豁免:
+        旧明文 pattern 的两两差异仍按真冲突上报,等清洗器收编后再议。
+        """
+        fa, fb = cls._split_doom_loop(pa), cls._split_doom_loop(pb)
+        if fa is None or fb is None:
+            return False
+        # 同工具族(外层已按 tool_name 分组,这里防跨族误配)+ 哈希段不同
+        return fa[0] == fb[0] and fa[1] != fb[1]
+
     async def detect_conflicts(
         self,
         user_id: str,
@@ -335,6 +359,16 @@ class Metacognition:
                         break
                     a, b = items[i], items[j]
                     if a["pattern"] != b["pattern"]:
+                        # L8064(2026-10-13):同 tool_name 下 pattern 不同 ≠ 冲突本身。
+                        # 我方自产记录形如 `doom_loop:<tool>:<sha256(入参)>`——摘要
+                        # 按"入参不同⇒pattern 不同"设计,同一工具沉淀越多枚举越长,
+                        # 把"正常的多样性"逐对记成冲突是枚举维度误判,不是真冲突。
+                        # 真冲突判据(票面解阻判据):同族(同一 doom_loop 前缀)下
+                        # **同 pattern 前缀 + 不同 score 方向**才算;不同入参哈希
+                        # (前缀同、哈希段异)是枚举,跳过。非 doom_loop 族的旧明文
+                        # pattern 维持原判(它们才是清洗器的对象)。
+                        if self._is_enum_diversity(a["pattern"], b["pattern"]):
+                            continue
                         score_diff = abs(a["score"] - b["score"])
                         conflicts.append({
                             "id_a": a["id"],
