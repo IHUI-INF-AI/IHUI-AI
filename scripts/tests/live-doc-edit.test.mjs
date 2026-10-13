@@ -1983,4 +1983,119 @@ test('DU-8 接线锁:主键判据只认 lib 那一份,且闸必须真挂在写�
   assert.ok(blob > at, '闸必须在 writeBlob 之前:内容一旦 commit,再 exit 1 就是把已入库谎报成没落地')
 })
 
+// ── 指纹维(2026-10-13 立):同题不同号。主键 = 编号+题面前缀,换个编号即通过 —— 这正是台账
+// 171 组同题多号的成因(并发取号撞车让号重登/合并回流/回捞复位各抄一份)。判据必须是
+// check-plan-task-duplicates.mjs 那一份 extractTaskFingerprint,本测试不许自造"什么算同题"。
+const FP = (line) => LED.extractTaskFingerprint(line)
+// 同题换号夹具:题面逐字相同、只换编号 ⇒ 主键不同(主键维放过)、指纹相同(指纹维拦)。
+const ROW_703_RENUM = '- [ ] G-900703 端到端题面. 同一件事只该有一行当前状态'
+// 过短题面:指纹权重 <16 不参与对账(拿过短的当同题会钉红一堆正当新登记);
+// 但题面要 ≥4 字,否则复合主键也取不出 ⇒ 落进"未判定"档,测的就不是指纹维了。
+const ROW_SHORT_A = '- [ ] G-900704 登录超时修复'
+const ROW_SHORT_B = '- [ ] G-900705 登录超时修复'
+// 存量已重复时的第三份:同题、又换一个号。
+const ROW_706_THIRD = '- [ ] G-900706 端到端题面. 同一件事只该有一行当前状态'
+
+test('DU-11 指纹维夹具自证:同题换号 ⇒ 主键不同、指纹相同(否则下面用例全白测)', () => {
+  assert.notEqual(KEY(ROW_700), KEY(ROW_703_RENUM), '换号后主键必须不同(主键维天然看不见这一型)')
+  assert.ok(FP(ROW_700), '指纹必须可取(取不出下面无从判)')
+  assert.equal(FP(ROW_700), FP(ROW_703_RENUM), '同题换号的指纹必须相同')
+  assert.equal(FP(ROW_SHORT_A), null, '过短题面必须返回 null(不参与对账)')
+})
+
+test('DU-12 同题不同号必判 blocked + 报告点名「同题不同号」(单元)', () => {
+  const v = LED.judgeNewLineDupes({ baseLines: [ROW_700], newLines: [ROW_703_RENUM] })
+  assert.equal(v.blocked.length, 1, `同题换号必须拦住,实得 ${v.blocked.length}`)
+  assert.equal(v.blocked[0].sameTitle, true, '必须带同题标志(报告要与主键撞区分措辞)')
+  assert.match(v.blocked[0].existingText, /G-900700/, '必须点名已有那一行(内容锚点)')
+  const rep = LED.dupGateReport(v)
+  assert.ok(rep.some((l) => l.kind === 'error' && /同题不同号/.test(l.text)), '报告必须点名这一型')
+  assert.ok(rep.some((l) => /同题指纹撞/.test(l.text)), '逐条必须标出撞的是指纹维')
+})
+
+test('DU-13 让号额度:旧行同批删掉、新行同题换号 ⇒ 不算第二次登记(闸不得与取号器互搏)', () => {
+  const v = LED.judgeNewLineDupes({
+    baseLines: [ROW_700],
+    newLines: [ROW_703_RENUM],
+    removedLines: [ROW_700],
+  })
+  assert.equal(v.blocked.length, 0, `让号(删旧换新)不得判红,实得 ${v.blocked.length}`)
+  assert.equal(v.rewritten.length, 1, '应记为就地改写额度')
+  assert.ok(LED.dupGateReport(v).some((l) => /就地改写/.test(l.text)))
+})
+
+test('DU-14 指纹维的三档放过面与主键维一致:自认副本/逐键声明', () => {
+  const ack = LED.judgeNewLineDupes({
+    baseLines: [ROW_700],
+    newLines: [ROW_703_RENUM + ' 〔【归并】重复登记副本:本行与同标题登记并存〕'],
+  })
+  assert.equal(ack.blocked.length, 0)
+  assert.equal(ack.acknowledged.length, 1, '带归并指针的自认副本在指纹维同样放过')
+  const key = KEY(ROW_703_RENUM)
+  const allowed = LED.judgeNewLineDupes({
+    baseLines: [ROW_700],
+    newLines: [ROW_703_RENUM],
+    allow: LED.parseDupAllow(`${key}=同题但确属另一轮取证`),
+  })
+  assert.equal(allowed.blocked.length, 0)
+  assert.equal(allowed.allowed.length, 1)
+  assert.ok(LED.dupGateReport(allowed).some((l) => /声明放行/.test(l.text) && /同题但确属另一轮取证/.test(l.text)))
+})
+
+test('DU-15 过短指纹不参与:同短题不同号 ⇒ 放过(看不清不等于重复)', () => {
+  const v = LED.judgeNewLineDupes({ baseLines: [ROW_SHORT_A], newLines: [ROW_SHORT_B] })
+  assert.equal(v.blocked.length, 0, '指纹为 null 的行不得被钉红')
+  assert.equal(v.passed, 1)
+})
+
+test('DU-16 本批自己抄自己也认得出:同题两行一次带进来 ⇒ 拦第二份', () => {
+  const v = LED.judgeNewLineDupes({ baseLines: [], newLines: [ROW_700, ROW_703_RENUM] })
+  assert.equal(v.passed, 1, '第一份是正当新登记')
+  assert.equal(v.blocked.length, 1, '同一批里第二份必须拦住(索引随判随补)')
+  assert.equal(v.blocked[0].sameTitle, true)
+})
+
+test('DU-17 存量差值语义在指纹维同样成立:底稿里已有的同题副本不替本次担账', () => {
+  // 底稿本来就有两条同题副本(历史存量),本次又换号登记第三条 ⇒ 拦的是本次带进来的那一条:
+  // 存量两条不替本次担账(不因"已经重复"就把本次放过去),也不把存量判进本次的账。
+  const v = LED.judgeNewLineDupes({ baseLines: [ROW_700, ROW_703_RENUM], newLines: [ROW_706_THIRD] })
+  assert.equal(v.blocked.length, 1, '本次新增这条必须拦')
+  assert.equal(v.blocked[0].sameTitle, true, '拦的理由是同题,不是主键撞')
+  assert.equal(v.openBase, 2, '存量两条照旧计数,不替本次担账也不被放过')
+})
+
+test('DU-18 端到端装车证明:同题换号插账必 rc=1 且一行不落;让号(整行改写档)必须放行', (t) => {
+  const { dir, inputs } = makeDocRepo(t, ['# 标题', '', ROW_700, '', '段落', ''].join('\n'))
+  const docAtHead = () => {
+    const r = git(['show', 'HEAD:DOC.md'], { root: dir, allowFail: true })
+    return r === null ? '' : String(r)
+  }
+  const bf = join(inputs, 'b.txt')
+  const af = join(inputs, 'a.txt')
+  writeFileSync(af, '段落\n')
+  writeFileSync(bf, ROW_703_RENUM + '\n')
+  const dup = runLive(dir, { blockFile: bf, anchorFile: af })
+  assert.equal(dup.status, 1, `同题换号必须拦住,rc=${dup.status} out=${String(dup.stdout + dup.stderr).slice(0, 300)}`)
+  assert.match(`${dup.stdout}${dup.stderr}`, /同题不同号/, '拒绝理由必须点名这一型')
+  assert.equal(docAtHead().includes('G-900703'), false, '拦下后一行都不许落')
+  // 让号 = 整行改写档(旧行删掉、新行同题换号)⇒ 放行,证明 fpQuota 那一档真接在写盘链上。
+  const rep = join(inputs, 'rep-renum.json')
+  writeFileSync(rep, JSON.stringify([{ before: ROW_700, after: ROW_703_RENUM }]), 'utf8')
+  const renum = runLive(dir, { replaceFile: rep })
+  assert.equal(renum.status, 0, `让号必须放行,rc=${renum.status} out=${String(renum.stdout + renum.stderr).slice(0, 300)}`)
+  assert.equal((docAtHead().match(/G-900703/g) || []).length, 1, '让号后新号那一条必须真落地')
+  assert.equal(docAtHead().includes('G-900700'), false, '旧号那一条必须同批消失')
+})
+
+test('DU-19 源码锁:同题判据必须 import 权威那份,本器不得再抄一条指纹正则', () => {
+  const src = readFileSync(join(HERE, '..', 'live-doc-edit.mjs'), 'utf8')
+  assert.match(
+    src,
+    /import\s*\{\s*extractTaskFingerprint[^}]*\}\s*from '\.\/check-plan-task-duplicates\.mjs'/,
+    '必须复用权威门的指纹判据(两处算同一件事必漂移 —— 本仓记过最多次的失效型)',
+  )
+  const body = src.slice(src.indexOf('export function judgeNewLineDupes'), src.indexOf('export function dupGateReport'))
+  assert.ok(!/weight\s*<\s*16/.test(body), '指纹实现(权重门槛等)不得在本器里再抄一份')
+})
+
 

@@ -21,13 +21,24 @@
  * 配套:取号器(live-doc-edit {{NEXT_ID}} 展开处)发号前调 extractTaskFingerprint
  * 查重,命中同题拒发号(2026-10-13 同批接线)。
  * 跳过:HUSKY_SKIP_PLAN_DUP_TITLE=1(慎用:跳过即放行同题漂移回潮)。
+ *
+ * **差值棘轮 `--ratchet`(2026-10-13 补,提交链那一半)**:锚点 = `HEAD:PROJECT_PLAN.md`
+ * 的同题组,候选面 = `--staged`(索引 blob,本次提交真会带走的那一份;`--worktree` 供人工)。
+ * 判据是**成员键计数**(指纹 \t 自持号)只许变少、不许变多:候选里出现锚点没有的成员键
+ * ⇒ 那一行是这次写进来的 ⇒ 判红并逐条点名;存量组只报数。计数而**不是"组数"**:组内多挂
+ * 一个新号、或新增一整组,在计数维上都是"变多",而组数对"清一组 + 新增一组"恒绿。
+ * 取材一律走 `scripts/lib/face-reader.mjs`(与守门 52/80/118 同一条取面纪律),
+ * 取不到面 ⇒ exit 2 拒绝出合格证,不回落、不记绿。
  */
+import { Undetermined, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 import { readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url))
 export const LEDGER_NAME = 'PROJECT_PLAN.md'
+/** 面名的中文标签(报错与结论行都要写明量的是哪一面 —— 换面即换读数,不标就是让人照错的数派单)。 */
+export const FACE_TXT = { head: 'HEAD blob', staged: '索引 blob', worktree: '工作树' }
 
 /** 指纹提取:从登记行提取归一化标题指纹(导出供取号器与镜像测试复用,§22d) */
 export function extractTaskFingerprint(line) {
@@ -116,6 +127,64 @@ function isDirectRun() {
   return arg === path.resolve(fileURLToPath(import.meta.url))
 }
 
+/** 两面旗同给 ⇒ 判死(exit 2),与全仓取面纪律同形;`--ratchet` 缺省取索引面(提交链那一份)。 */
+export function faceFromArgv(argv = [], { ratchet = false } = {}) {
+  const staged = argv.includes('--staged')
+  const worktree = argv.includes('--worktree')
+  const head = argv.includes('--head')
+  if ([staged, worktree, head].filter(Boolean).length > 1) {
+    return { error: '--staged / --worktree / --head 不得同用(判定面互斥,两面旗同给判死)' }
+  }
+  if (head) return { face: 'head', error: null }
+  return selectFace({ staged, worktree, def: ratchet ? 'staged' : 'worktree' })
+}
+
+/**
+ * 按面取台账正文。取不到 ⇒ 抛 Undetermined(调用方 exit 2 拒绝出合格证),
+ * 绝不回落到另一面 —— "换一面尺子再量一次"会把索引面的真红量成工作树的绿。
+ */
+export function readLedgerFace(root, face, rel = LEDGER_NAME) {
+  if (face === 'worktree') {
+    const s = readWorktreeFile(root, rel)
+    if (s === null || s === undefined) throw new Undetermined(`工作树取不到 ${rel}`)
+    return s
+  }
+  const spec = face === 'staged' ? `:${rel}` : `HEAD:${rel}`
+  const out = gitRaw(['show', spec], root, { maxBuffer: 1 << 28 })
+  if (out === null || out === undefined) throw new Undetermined(`取不到 ${spec} 面`)
+  return String(out)
+}
+
+/**
+ * 成员键计数(棘轮的量纲)。键 = `指纹 \t 自持号`(取不出号的行用 `∅`,同键计数照样生效)。
+ * 为什么是计数不是集合:同一枚键在候选里多出第二行(同题同号再抄一份)同样是"这次带进来的",
+ * 集合维对它恒绿 —— 而组数维对"清掉一组 + 新增一组"也恒绿。计数是这两个空档同时闭合的最小量纲。
+ */
+export function memberCounts(groups) {
+  const m = new Map()
+  for (const g of groups)
+    for (const mem of g.members) {
+      const k = `${g.fingerprint}\t${mem.selfId ?? '∅'}`
+      m.set(k, (m.get(k) ?? 0) + 1)
+    }
+  return m
+}
+
+/**
+ * 差值棘轮纯函数:只比"变多"。返回候选面**新增**的成员键(带多出来的份数)。
+ * 锚点里有而候选里没有 ⇒ 收拢/清偿,不判(棘轮只拦新增,存量清偿不该被门挡回去)。
+ */
+export function ratchetAdded(anchorGroups, candidateGroups) {
+  const anchor = memberCounts(anchorGroups)
+  const added = []
+  for (const [k, n] of memberCounts(candidateGroups)) {
+    const base = anchor.get(k) ?? 0
+    if (n > base) added.push({ key: k, fingerprint: k.split('\t')[0], selfId: k.split('\t')[1], extra: n - base })
+  }
+  added.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+  return added
+}
+
 async function main() {
   const argv = process.argv.slice(2)
   const strict = argv.includes('--strict')
@@ -123,17 +192,59 @@ async function main() {
   if (selfTest) {
     return runSelfTest()
   }
-  const ledgerPath = path.resolve(SCRIPT_DIR, '..', LEDGER_NAME)
+  const ratchet = argv.includes('--ratchet')
+  const sel = faceFromArgv(argv, { ratchet })
+  if (sel.error) {
+    console.error(`❌ [plan-dup-title] ${sel.error}`)
+    process.exit(2)
+  }
+  const face = sel.face
+  const root = path.resolve(SCRIPT_DIR, '..')
   let content
   try {
-    content = readFileSync(ledgerPath, 'utf8')
+    content = readLedgerFace(root, face)
   } catch (e) {
-    console.error(`❌ [plan-dup-title] 读不到 ${LEDGER_NAME}: ${e.message}`)
+    console.error(`❌ [plan-dup-title] 读不到 ${LEDGER_NAME}(${FACE_TXT[face]}): ${e?.message ?? e} ⇒ 无法判定,不记为通过`)
     process.exit(2)
   }
   const groups = findDuplicateGroups(content)
   const total = groups.reduce((a, g) => a + g.members.length, 0)
-  console.log(`[plan-dup-title] 同题多号组 ${groups.length} 组 / 涉及行 ${total} 行(判定面:工作树)`)
+
+  // ── 差值棘轮(提交链那一半):锚点 HEAD 面,只判"这次带进来的成员键" ──
+  if (ratchet) {
+    let anchorGroups
+    try {
+      anchorGroups = findDuplicateGroups(readLedgerFace(root, 'head'))
+    } catch (e) {
+      console.error(`❌ [plan-dup-title] 锚点取不到(HEAD:${LEDGER_NAME}): ${e?.message ?? e} ⇒ 无法判定,不记为通过`)
+      process.exit(2)
+    }
+    const anchorTotal = anchorGroups.reduce((a, g) => a + g.members.length, 0)
+    const added = ratchetAdded(anchorGroups, groups)
+    console.log(
+      `[plan-dup-title] 差值棘轮:锚点 HEAD ${anchorGroups.length} 组/${anchorTotal} 行 · ` +
+        `候选面 ${FACE_TXT[face]} ${groups.length} 组/${total} 行 · 新增成员键 ${added.length}`,
+    )
+    for (const a of added.slice(0, 40)) {
+      const g = groups.find((x) => x.fingerprint === a.fingerprint)
+      const mem = g?.members.find((m) => (m.selfId ?? '∅') === a.selfId)
+      console.log(`  ❌ 新增 ${a.selfId}(组 ${g?.distinctIds?.join(' vs ') ?? a.fingerprint}):${mem?.preview ?? '(预览取不到)'}`)
+    }
+    if (added.length > 0) {
+      console.error(
+        `❌ [--ratchet] 本次提交带进 ${added.length} 个锚点没有的同题成员键 ⇒ 判红。` +
+          '同一件事在台账上只许有一行当前状态:① 让号/重登必须**旧行同批加〔【归并】同题多号收拢〕指针**(或删掉),' +
+          '只增不删就是重复登记;② 用整行改写档就地更新已有那一行,不要再抄一份;' +
+          '③ 手填编号会绕过取号器查重,登记一律走 {{NEXT_ID}} 令牌。' +
+          '存量(锚点里已有的组)不拦 —— 判存量就是恒红门(§12e)。',
+      )
+      process.exit(1)
+    }
+    console.log(`结论:通过(存量 ${anchorGroups.length} 组只报数;本次新增成员键 0)`)
+    process.exit(0)
+  }
+
+  console.log(`[plan-dup-title] 同题多号组 ${groups.length} 组 / 涉及行 ${total} 行(判定面:${FACE_TXT[face]})`)
   for (const g of groups.slice(0, 40)) {
     console.log(`  ⚠️ 同题组(${g.distinctIds.join(' vs ')}):`)
     for (const m of g.members) console.log(`     L${m.line} ${m.preview}`)
@@ -143,7 +254,7 @@ async function main() {
     console.error(`❌ [--strict] 同题多号 ${groups.length} 组 ⇒ 判红。收拢:每组保留持有行,其余行补〔【归并】同题多号收拢〕指针后重跑。`)
     process.exit(1)
   }
-  console.log('结论:通过(默认档只报数;--strict 问责)')
+  console.log('结论:通过(默认档只报数;--strict 问责;--ratchet 提交链差值档)')
   process.exit(0)
 }
 
@@ -158,16 +269,50 @@ function runSelfTest() {
     { name: '已勾行不审', lines: ['- [x] G-100 **修复登录超时问题**', '- [ ] G-101 **修复登录超时问题**'], expect: 0 },
     { name: '过短指纹不参与', lines: ['- [ ] G-100 **修超时**', '- [ ] G-101 **修超时**'], expect: 0 },  ]
   let pass = 0
+  let total = 0
+  const ok = (name, cond, detail = '') => {
+    total++
+    if (cond) pass++
+    else console.error(`❌ self-test 失败: ${name}${detail ? ` —— ${detail}` : ''}`)
+  }
   for (const c of cases) {
     const got = findDuplicateGroups(c.lines.join('\n')).length
-    if (got === c.expect) {
-      pass++
-    } else {
-      console.error(`❌ self-test 失败: ${c.name} 期望 ${c.expect} 实测 ${got}`)
-    }
+    ok(c.name, got === c.expect, `期望 ${c.expect} 实测 ${got}`)
   }
-  console.log(`[plan-dup-title] self-test ${pass}/${cases.length}`)
-  process.exit(pass === cases.length ? 0 : 1)
+
+  // ── 差值棘轮维(--ratchet 是提交链上唯一判红的那一半,这里必须四向都量到) ──
+  const G_A = ['- [ ] G-100 **修复登录超时问题** 详情甲', '- [ ] G-999 **修复登录超时问题。** 详情乙']
+  const G_B = ['- [ ] G-888 **修复登录超时问题** 详情丙'] // 同题第三个号
+  const G_C = ['- [ ] G-500 **新增导出报表功能** 说明', '- [ ] G-501 **新增导出报表功能** 补充'] // 另一题的一组
+  const gs = (lines) => findDuplicateGroups(lines.join('\n'))
+  ok('棘轮:锚点已有、候选不变 ⇒ 新增 0', ratchetAdded(gs(G_A), gs(G_A)).length === 0)
+  ok(
+    '棘轮:组内多挂一个号必判 1',
+    ratchetAdded(gs(G_A), gs([...G_A, ...G_B])).length === 1,
+    `实测 ${ratchetAdded(gs(G_A), gs([...G_A, ...G_B])).length}`,
+  )
+  ok('棘轮:整组全新 ⇒ 组内每个成员键都算新增', ratchetAdded(gs(G_A), gs([...G_A, ...G_C])).length === 2)
+  ok('棘轮:清偿(收拢掉一个成员)不判 —— 棘轮只拦新增', ratchetAdded(gs([...G_A, ...G_B]), gs(G_A)).length === 0)
+  ok(
+    '棘轮:组数不变而键集换了照样判(计数维,组数维对它恒绿)',
+    ratchetAdded(gs(G_A), gs(G_C)).length === 2,
+    '锚点 1 组、候选 1 组 ⇒ 组数读数没动,但这是清掉一组 + 新增一组',
+  )
+  const G_A2 = [...G_A, '- [ ] G-100 **修复登录超时问题** 又抄了一份']
+  ok(
+    '棘轮:同题同号再抄一份必判(计数维,集合维对它恒绿)',
+    ratchetAdded(gs(G_A), gs(G_A2)).length === 1,
+    `实测 ${ratchetAdded(gs(G_A), gs(G_A2)).length}`,
+  )
+
+  // ── 取面维:面选错等于换一把尺子,这里必须钉死 ──
+  ok('取面:两面旗同给 ⇒ 判死', Boolean(faceFromArgv(['--staged', '--worktree']).error))
+  ok('取面:--ratchet 缺省索引面(提交链带走的那一份)', faceFromArgv([], { ratchet: true }).face === 'staged')
+  ok('取面:缺省工作树(人读档,行为与接线前逐字一致)', faceFromArgv([]).face === 'worktree')
+  ok('取面:显式 --head 可取', faceFromArgv(['--head'], { ratchet: true }).face === 'head')
+
+  console.log(`[plan-dup-title] self-test ${pass}/${total}`)
+  process.exit(pass === total ? 0 : 1)
 }
 
 /* istanbul ignore next */
