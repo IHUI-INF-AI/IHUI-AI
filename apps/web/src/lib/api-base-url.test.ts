@@ -15,8 +15,8 @@ import {
 /**
  * 后端寻址契约测试(2026-09-21 立)。
  *
- * 锁定真实故障:桌面端是薄壳 —— 主窗口加载线上 https://aizhs.top/agents
- * (apps/desktop/src-tauri/tauri.conf.json windows[0].url),而线上 web 构建
+ * 锁定真实故障:桌面端是薄壳 —— 主窗口加载线上 https://aizhs.top/ 首页
+ * (2026-10-13 起启动页,此前 /agents;apps/desktop/src-tauri/tauri.conf.json windows[0].url),而线上 web 构建
  * 刻意把 NEXT_PUBLIC_API_BASE_URL 置空(scripts/build-next-prod.ps1)。
  * 旧逻辑 `'__TAURI_INTERNALS__' in window ? env || 'http://127.0.0.1:8802' : ...`
  * 把"Tauri 运行时"等同于"本地联调",空 env 被 `||` 吞掉 → 桌面端全部 REST/SSE/WS

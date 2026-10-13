@@ -39,7 +39,7 @@ import { ForgotPasswordForm } from '@/components/login/ForgotPasswordForm'
  * 解决 SSO 与主站 LoginDialog 功能不同步问题(原 SSO 缺少邮箱验证码/手机验证码/扫码登录/注册/忘记密码/协议同意/记住密码/图形验证码)。
  *
  * 2026-09-22 修复桌面端"授权并跳转 / 右上 X 都点了没反应":
- * 现象:桌面端薄壳(窗口直接加载 https://aizhs.top/agents)已登录状态下,点
+ * 现象:桌面端薄壳(窗口直接加载 https://aizhs.top/ 首页,2026-10-13 起启动页,此前 /agents)已登录状态下,点
  * 「授权并跳转」或右上 X 都原地回到本页;WebView2 历史记录里
  * /sso/login?redirect=/edu/... 的 redirect 参数中 sso_code 递归膨胀到 4 层。
  * 根因:cookie 里的 auth_token 是 access JWT(15 分钟过期),而 cookie 自身 30 天;
