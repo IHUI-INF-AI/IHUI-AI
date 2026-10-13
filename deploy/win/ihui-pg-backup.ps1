@@ -376,59 +376,56 @@ $failures = @()
 # 调度器 14:16 起的 30 分钟重试只治"等到下一轮",不治"本轮必败且必发一条假故障告警"。
 # 本门的价值在两处:① 不拿"库还没起来"去冒充"口令/权限坏了";② 未就绪时**不跑任何导出**,
 # 因此日志里出现的失败原因与 pg_dump 的退出码不再同形(旧形态只有一句 exit=1)。
-$pgIsReady = Join-Path $DevEnvRoot 'runtimes\pgsql\bin\pg_isready.exe'
-# 预算默认 120s,可用 IHUI_PG_READY_TIMEOUT_SEC 覆写。解析不出正整数一律回落 120 **并喊出来** ——
-# 绝不回落成"当作已就绪",那等于把门换成一条注释(与本文件头注那条"静默是这类事故唯一的传播方式"同一条禁令)。
-$readyBudgetSec = 120
-if ($env:IHUI_PG_READY_TIMEOUT_SEC) {
-    $parsedReadyBudget = 0
-    if ([int]::TryParse([string]$env:IHUI_PG_READY_TIMEOUT_SEC, [ref]$parsedReadyBudget) -and $parsedReadyBudget -gt 0) {
-        $readyBudgetSec = $parsedReadyBudget
-    } else {
-        Write-Host "[WARN] IHUI_PG_READY_TIMEOUT_SEC='$env:IHUI_PG_READY_TIMEOUT_SEC' 不是正整数,按默认 ${readyBudgetSec}s 等就绪" -ForegroundColor Yellow
-    }
-}
-if (-not (Test-Path -LiteralPath $pgIsReady)) {
+# 2026-10-13 加固:探测从 pg_isready(120s 预算 5s 轮询)换成 psql `SELECT 1` 退避重试 ——
+# 连接方式与下方 pg_dump 完全一致(localhost/$dbPort/$dbUser,PGPASSWORD 已在上方就位,
+# 不新造任何连接参数),--connect-timeout=5 保证开机窗口里单次探测不会卡死;
+# 失败后按 15s/30s/60s/120s/120s 退避重试(日志记"第 n/5 次",纯等待 345s ≈ 6 分钟窗口),
+# 全部失败才走失败路径(沿用 Send-FailureAlert + exit 1)。
+$readyWaitSteps = @(15, 30, 60, 120, 120)
+if (-not (Test-Path -LiteralPath $psql)) {
     # 尺子缺件 ≠ 库没起来。这里刻意 fail-open 继续导出(不比今天差),但必须大声说出跳过了什么 ——
     # 静默跳过会让下一个人以为门一直在生效。
-    Write-Host "[WARN] 就绪门跳过:$pgIsReady 不在位(本轮未做 pg_isready 探测,直接尝试导出)" -ForegroundColor Yellow
+    Write-Host "[WARN] 就绪门跳过:$psql 不在位(本轮未做 psql 探测,直接尝试导出)" -ForegroundColor Yellow
 } else {
     $readyStart = Get-Date
-    $readyDeadline = $readyStart.AddSeconds($readyBudgetSec)
     $readyOk = $false
-    $readyPolls = 0
     $readyLastCode = $null
     $readyLastOut = ''
-    while ((Get-Date) -lt $readyDeadline) {
-        $readyPolls++
+    $readyAttempts = 0
+    while ($true) {
+        $readyAttempts++
         # 原生程序的 stderr 在 EAP=Stop 下会被升成终止错误(本文件 176-182 行已有同一处置惯例),
         # 那会把"库还在恢复"伪装成"脚本自身出错"——正是本门要消灭的同形。
         $prevReadyEap = $ErrorActionPreference
         try {
             $ErrorActionPreference = 'Continue'
-            $readyLastOut = (& $pgIsReady -h localhost -p $dbPort 2>&1 | Out-String).Trim()
+            $readyLastOut = (& $psql -w -h localhost -p $dbPort -U $dbUser -d $dbName --connect-timeout=5 -t -A -c "SELECT 1;" 2>&1 | Out-String).Trim()
             $readyLastCode = $LASTEXITCODE
         } catch {
-            $readyLastOut = "pg_isready 派生异常: $($_.Exception.Message)"
+            $readyLastOut = "psql 探测派生异常: $($_.Exception.Message)"
             $readyLastCode = -1
         } finally {
             $ErrorActionPreference = $prevReadyEap
         }
         if ($readyLastCode -eq 0) { $readyOk = $true; break }
-        Start-Sleep -Seconds 5
+        $retryNo = $readyAttempts   # 本轮失败对应第几次重试(1..5)
+        if ($retryNo -gt $readyWaitSteps.Count) { break }
+        $waitSec = $readyWaitSteps[$retryNo - 1]
+        Write-Host "[WAIT] PG 未就绪(第 $retryNo/5 次),${waitSec}s 后重试(exit=$readyLastCode)" -ForegroundColor Yellow
+        Start-Sleep -Seconds $waitSec
     }
-    $readyElapsed = [int]((Get-Date) - $readyStart).TotalSeconds
+    $readyElapsedSec = [int]((Get-Date) - $readyStart).TotalSeconds
     if ($readyOk) {
-        Write-Host "[OK] 就绪门:数据库可用(第 ${readyPolls} 次探测,耗时 ${readyElapsed}s,port $dbPort)" -ForegroundColor Green
+        Write-Host "[OK] 就绪门:数据库可用(探测 ${readyAttempts} 次,耗时 ${readyElapsedSec}s,port $dbPort)" -ForegroundColor Green
     } else {
-        Write-Host "[ERROR] 就绪门:${readyBudgetSec}s 内数据库未就绪(探测 ${readyPolls} 次,最后一次 exit=$readyLastCode)⇒ 本轮不跑任何导出" -ForegroundColor Red
-        Send-FailureAlert -Reason "数据库在 ${readyBudgetSec} 秒内未就绪,本轮未跑任何导出" -Details @(
-            "pg_isready 最后一次输出: $readyLastOut",
-            "pg_isready 退出码: $readyLastCode | 探测次数: $readyPolls | 目标: localhost:$dbPort",
+        $readyWaitedMin = [int][math]::Round($readyElapsedSec / 60.0)
+        Write-Host "[ERROR] 就绪门:已等待 PG 就绪约 ${readyWaitedMin} 分钟仍失败(探测 ${readyAttempts} 次,最后一次 exit=$readyLastCode)⇒ 本轮不跑任何导出" -ForegroundColor Red
+        Send-FailureAlert -Reason "已等待 PG 就绪约 ${readyWaitedMin} 分钟仍失败,请人工检查 PG($dbPort) 状态;本轮未跑任何导出" -Details @(
+            "psql 最后一次输出: $readyLastOut",
+            "psql 退出码: $readyLastCode | 探测次数: $readyAttempts | 目标: localhost:$dbPort",
             '定性:这一型不是口令/权限问题 —— 真凭据问题由 pg_dump 与随后的逐库复核点名,两者在日志里形态不同',
             '出路一:调度器会按 30 分钟重试(最多 4 次),库恢复后自动补上本轮',
-            '出路二:IHUI_PG_READY_TIMEOUT_SEC=<正整数秒> 调大预算(注意 nssm 服务环境块是整块覆盖语义,按 §5e 事务式做法改)',
-            '出路三:查服务 IHUI-PG 是否在跑、其 postmaster 是否卡在恢复(本门用的端口来自 .env 的 DB_PORT)'
+            '出路二:查服务 IHUI-PG 是否在跑、其 postmaster 是否卡在恢复(本门用的端口来自 .env 的 DB_PORT)'
         )
         exit 1
     }
