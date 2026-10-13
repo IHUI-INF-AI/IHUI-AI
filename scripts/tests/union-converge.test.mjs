@@ -1563,6 +1563,19 @@ test('R-U 装车锁(源码级):折叠判据必须先过"是不是同一件事"�
   assert.match(src, /if \(sim < SIM_THRESHOLD\) continue/, '相似度闸不得被摘掉')
   assert.match(src, /from '\.\/lib\/live-doc-similarity\.mjs'/, '阈值与 Jaccard 必须复用那一份实现,不得在门里再写第二把尺子')
 })
+test('R-V 源码级锁(G-1018289 ③):git 可执行必须来自 §5b 唯一出口,不得写死本机安装路径', () => {
+  const src = maskComments(readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../union-converge.mjs'), 'utf8'))
+  assert.match(src, /from '\.\/lib\/gitdir\.mjs'/, '未引用唯一出口 scripts/lib/gitdir.mjs')
+  assert.match(src, /resolveGitBin\(\)/, 'git 二进制未经 resolveGitBin()(AGENTS §5b:脚本不得依赖环境取 git)')
+  assert.doesNotMatch(src, /Program Files[^'"\n]*git\.exe/i, 'git 可执行仍写死本机安装路径 ⇒ 换机即 ENOENT(唯一出口是 resolveGitBin())')
+  assert.doesNotMatch(src, /execFileSync\(\s*'git'/, '仍有按裸 `git`(PATH)派生的调用(钩子/计划任务不继承 shell env)')
+  // 判据活性自证:同一形态写进代码位必须能命中,防恒绿断言(同 T5 的构造面手法)。
+  assert.match(
+    "execFileSync('C:/Program Files/Git/cmd/git.exe', ['rev-parse'])",
+    /Program Files[^'"\n]*git\.exe/i,
+    '字面量归零判据对真实旧写法不命中 ⇒ 这条锁是空跑',
+  )
+})
 
 test('G-977960 ②:对侧删除 ∧ 本侧相对基底未动 ⇒ 删除随合并传播(合并树里没有它、逐路径点名、零丢失自证过)', () => {
   const { dir, run } = fixture()
