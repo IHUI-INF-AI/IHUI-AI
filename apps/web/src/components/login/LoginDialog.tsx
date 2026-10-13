@@ -13,7 +13,8 @@ import { ExternalLink } from 'lucide-react'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { AuthShell } from '@/components/auth/AuthShell'
 import { resolveSafeRedirectTarget } from '@/lib/sso-redirect-guard'
-import { openExternalUrl } from '@/lib/tauri-bridge'
+import { openExternalUrl, openInGoogleChrome } from '@/lib/tauri-bridge'
+import { rememberSsoChromeWindow } from '@/lib/sso-desktop-bridge'
 import { buildSsoLoginUrl, SSO_CLIENT_IDS, WEB_BASE } from '@ihui/shared'
 import { useDesktop } from '@/hooks/use-desktop'
 import { useIsMobile } from '@/hooks/use-media-query'
@@ -59,7 +60,18 @@ export function LoginDialog() {
         ? window.location.origin
         : WEB_BASE
     const ssoUrl = buildSsoLoginUrl(webBase, 'ihui://sso', SSO_CLIENT_IDS.DESKTOP)
-    await openExternalUrl(ssoUrl)
+    // 2026-10-13(用户要求"在浏览器中登录"必须是内置浏览器):改用 Chrome --app 独立窗口打开
+    // (无地址栏/无标签,登录完成后由 Rust 端 CDP 关掉该窗口),不再拉起系统默认浏览器。
+    // openInGoogleChrome 三态:数字 = CDP 端口(记下,登录成功后关窗);null = 非桌面端已
+    // window.open 降级;字符串 = 打开失败(Chrome 未装等),回退旧路径——按钮仍可用,
+    // 只是没有"自动关窗"这一段收尾。
+    const opened = await openInGoogleChrome(ssoUrl)
+    if (typeof opened === 'number') {
+      rememberSsoChromeWindow(opened, `${webBase}/sso/login`)
+    } else if (opened !== null) {
+      console.warn('[chrome] Chrome 打开失败,回退系统默认浏览器:', opened)
+      await openExternalUrl(ssoUrl)
+    }
   }, [])
 
   const handleLoginSuccess = React.useCallback(() => {
@@ -82,6 +94,16 @@ export function LoginDialog() {
       router.push(target)
     }, 250)
   }, [close, router])
+
+  // 2026-10-13 桌面端"在浏览器中登录"闭环收尾:深链换 token 成功后 use-desktop 会 dispatch
+  // `desktop-sso-success`,而弹窗此前**没有任何**订阅者 —— 登录已完成、登录框却原地留着
+  // (用户感知正是"点了没反应")。落点与表单登录成功同一条 handleLoginSuccess:
+  // 关弹窗 + 有 redirectUrl 时按同一把判据跳转;弹窗没开过时 close 是 no-op、redirectUrl 为 null。
+  React.useEffect(() => {
+    const onSuccess = () => handleLoginSuccess()
+    window.addEventListener('desktop-sso-success', onSuccess)
+    return () => window.removeEventListener('desktop-sso-success', onSuccess)
+  }, [handleLoginSuccess])
 
   const title =
     mode === 'login'

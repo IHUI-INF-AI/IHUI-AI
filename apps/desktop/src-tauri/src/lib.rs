@@ -383,14 +383,80 @@ fn open_in_chrome(url: String) -> Result<u16, IpcError> {
 
     // 端口分配是网络栈动作,失败归 network 档(不按 io 文案反猜:Windows 的 bind 报错措辞并不稳定)。
     let port = pick_free_port().map_err(|e| IpcError::network(format!("分配调试端口失败: {}", e)))?;
+    // profile 目录必须落在用户可写的标准位置:%TEMP%\ihui-chrome-profile。
+    // 旧写法硬编码 /tmp/ihui-chrome-profile 在 Windows 上会被 Chrome 解析成"当前盘符根 \tmp"
+    // (C:\tmp 或 D:\tmp,随进程 CWD 漂移,还可能因权限创建失败 ⇒ 窗口弹不出来,
+    // 用户感知正是"点了没反应");std::env::temp_dir() 恒为 %LOCALAPPDATA%\Temp,无此问题。
+    let profile_dir = std::env::temp_dir().join("ihui-chrome-profile");
     let mut cmd = std::process::Command::new(&chrome);
     cmd.arg(format!("--app={}", trimmed))
         .arg("--new-window")
         .arg(format!("--remote-debugging-port={}", port))
-        .arg("--user-data-dir=/tmp/ihui-chrome-profile");
+        .arg(format!("--user-data-dir={}", profile_dir.display()));
     // spawn 的失败按 ErrorKind 归类(可执行文件被拒 → permission;找不到 → not_found)。
     let _child = cmd.spawn().map_err(IpcError::from)?;
     Ok(port)
+}
+
+/// 2026-10-13:桌面端"在浏览器中登录"闭环收尾 —— 关掉 `open_in_chrome` 打开的那个 Chrome --app 窗口。
+///
+/// 走 CDP(`port` 即 open_in_chrome 的返回值)只关 `url_prefix` 命中的 page target:
+/// 同一 Chrome 实例(--user-data-dir 固定)里工作台等其它 --app 窗口不受影响。
+///
+/// 语义刻意做成**尽力而为**:端口已掉/Chrome 已退/列 target 失败一律返回 Ok(0) 而不是 Err ——
+/// 关窗是登录成功后的收尾动作,失败只由前端记一行 warn,不得让人"已登录"被记成失败。
+/// 只有入参不合法(端口 0 / 前缀非 http[s])才是 permission 档的策略拒绝。
+#[tauri::command]
+async fn close_in_chrome(port: u16, url_prefix: String) -> Result<u32, IpcError> {
+    if port == 0 {
+        return Err(IpcError::permission("非法 CDP 端口(0)"));
+    }
+    let prefix = url_prefix.trim();
+    if !(prefix.starts_with("http://") || prefix.starts_with("https://")) {
+        return Err(IpcError::permission("url_prefix 仅支持 http/https 前缀"));
+    }
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(3))
+        .build()
+        .map_err(|e| IpcError::internal(format!("HTTP 客户端构建失败: {e}")))?;
+    // reqwest 未启用 json feature(default-features=false):取 text 再 serde_json 解析,
+    // 与 checkin_web_login.rs 同一约束,不开第二份依赖。
+    let body = match client.get(format!("http://127.0.0.1:{port}/json/list")).send().await {
+        Ok(resp) => match resp.text().await {
+            Ok(t) => t,
+            Err(_) => return Ok(0),
+        },
+        // 连不上 = Chrome 已退/端口已掉:没有可关的窗,收尾成功(0 个)。
+        Err(_) => return Ok(0),
+    };
+    let targets: Vec<serde_json::Value> = match serde_json::from_str(&body) {
+        Ok(v) => v,
+        Err(_) => return Ok(0),
+    };
+    let mut closed: u32 = 0;
+    for target in &targets {
+        // 只关 page target(不碰 service worker / iframe 等其它 target 类型)。
+        if target.get("type").and_then(|t| t.as_str()) != Some("page") {
+            continue;
+        }
+        let url = target.get("url").and_then(|u| u.as_str()).unwrap_or("");
+        if !url.starts_with(prefix) {
+            continue;
+        }
+        let Some(id) = target.get("id").and_then(|i| i.as_str()) else {
+            continue;
+        };
+        if let Ok(resp) = client
+            .get(format!("http://127.0.0.1:{port}/json/close/{id}"))
+            .send()
+            .await
+        {
+            if resp.status().is_success() {
+                closed += 1;
+            }
+        }
+    }
+    Ok(closed)
 }
 
 /// 启动窗口 resize(P0-1:8 方向边缘缩放,2026-07-27 立)。
@@ -3305,6 +3371,7 @@ pub fn run() {
             git_channel_ipc::git_workspace_status,
             git_channel_ipc::git_channel_info,
             open_in_chrome,
+            close_in_chrome,
             get_admin_window_info,
             toggle_devtools,
             quit_app,
