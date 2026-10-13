@@ -2026,6 +2026,38 @@ Start-Sleep -Seconds 8
 # 控制流改动,已作为补丁提案单独登记,未随本票写入。
 Set-BuildMarker
 
+# ── G-204 独立构建证明(拍板@2026-10-07 机主选 B,2026-10-13 落地)──────────────
+# marker 只证明"构建那一刻的工作树能建",不证明"该提交单独可建"——构建吃的是工作树,
+# 未入库文件会替"单独不可构建的提交"背书(2026-09-28 实测:marker=026d2ac4f 的树里
+# 根本没有 packages/shared/src/utils/conversation-org.ts,全靠当时工作树躺着一份未入库
+# 文件才建过)。拍板:写完 marker 后补跑门 98 全量(判 HEAD blob,同一把尺子判提交树
+# 而不是工作树),结论与 marker 并列写日志;悬空非 0 即在日志把该 marker 标为
+# "未经独立构建证明"。两条刻意保持的边界:
+#   ① 不改写 marker 文件本身 —— Get-BuildStale 用 ^[0-9a-f]{7,40}$ 读它,追加标注文字
+#     会把该 marker 恒判陈旧 → 每轮白付一次整包重建;
+#   ② 门 98 失败不回滚不退出 —— 它是"证明力"问题不是"健康"问题,在线版本该活还得活,
+#     下一轮部署自然重验;门 98 挂死也只记日志(try 包住,不阻塞部署主链)。
+try {
+    Log "门 98 全量(判 HEAD blob)为刚写入的 marker 出独立构建证明"
+    $node98 = Resolve-NodeExe
+    if (-not $node98) {
+        Log "[G-204] 独立构建证明未判定:node.exe 取不到(PATH 与绝对路径兜底均落空)"
+    } else {
+        $g98Out = & $node98 (Join-Path $Root 'scripts\check-dangling-local-imports.mjs') 2>&1
+        $g98Rc = $LASTEXITCODE
+        $g98Sha = (Get-Content "$WebDir\.next\IHUI_BUILD_SHA" -Raw -ErrorAction SilentlyContinue)
+        $g98Sha = if ($g98Sha) { $g98Sha.Trim() } else { '(空)' }
+        if ($g98Rc -eq 0) {
+            Log ("[G-204] IHUI_BUILD_SHA={0} ⇒ 独立构建证明通过(门 98 全量判 HEAD blob,悬空 0)" -f $g98Sha)
+        } else {
+            Log ("[G-204] IHUI_BUILD_SHA={0} ⇒ ⚠️ 未经独立构建证明(门 98 全量 rc={1}:该提交单独检出可能建不过,构建吃的是工作树)" -f $g98Sha, $g98Rc)
+            $g98Out | Select-Object -Last 8 | ForEach-Object { Log ("  [G-204] {0}" -f $_) }
+        }
+    }
+} catch {
+    Log "[G-204] 门 98 补跑异常(不阻塞部署主链):$_"
+}
+
 # 4) 健康门禁(web + api + llm)
 Log "健康门禁检查"
 if (-not (Test-HealthGate)) {
