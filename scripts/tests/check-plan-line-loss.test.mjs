@@ -310,6 +310,28 @@ test('反向回归锁:归档豁免不得退回「按磁盘判」,且必须绑当
   )
 })
 
+test('射程锁(归档豁免):清偿台账 plan-pointer-purge-*.md 必须在豁免射程内 —— 缺了它,清偿与回捞对打成无限循环', () => {
+  // 2026-10-14 实测对打两轮:plan-pointer-purge --apply 删 40 条指针注记(`7826f3b0741`)⇒
+  // 本闸把删除读成"被并发旧基线抹掉"并经 commit-tree 旁路回捞(`2560d82194` 40 行)⇒ 再清
+  // (`a5a15a8b28e`)⇒ 又回捞(`6e8d2e089e` 40 行)。回捞走旁路落地、钩子不跑 ⇒ 守门 13d 的
+  // 差值棘轮拦不到,只能靠归档豁免在判据源头接住(清偿台账里有被删行逐字原文)。
+  const src = readFileSync(join(REPO, SCRIPT_REL), 'utf8')
+  const m = src.match(/^const ARCHIVE_FILE_RE = .*$/m)
+  assert.ok(m, 'ARCHIVE_FILE_RE 常量不见了 ⇒ 归档豁免的射程判据无处取证')
+  assert.match(m[0], /PROJECT_PLAN_/, '既有归档射程 PROJECT_PLAN_* 不得被摘掉(§1 归档两步走靠它)')
+  assert.match(
+    m[0],
+    /plan-pointer-purge/,
+    '清偿台账不在归档射程 ⇒ 清偿删掉的行会被本闸回捞,与守门 13d 形成对打循环',
+  )
+  // 只扩"文件名射程",豁免的实体条件(原文在已入库归档 blob 里找得到)不得跟着放宽
+  const fn = src.slice(
+    src.indexOf('export function archivedCopy'),
+    src.indexOf('export function archiveExemptFor'),
+  )
+  assert.doesNotMatch(fn, /readdirSync\(/, '射程放宽不得顺手把 archivedCopy 退回按磁盘判(G-183 ③ 的洞)')
+})
+
 test('取材面形状锁:缺省面必须是 head,磁盘面只能经取材层,三面各一支且不回落', () => {
   const src = readFileSync(join(REPO, SCRIPT_REL), 'utf8')
   const pick = src.slice(
