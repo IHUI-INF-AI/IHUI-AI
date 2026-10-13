@@ -55,9 +55,13 @@ const GLOBAL_SHELL = 'apps/web/src/components/layout/GlobalShell.tsx'
 const AI_SIDE_PANEL = 'apps/web/src/components/ai/ai-side-panel.tsx'
 const TARGET_FILES = [GLOBAL_SHELL, AI_SIDE_PANEL]
 
+// 断点口径:真实容器 ai-side-panel.tsx:1272 自 2026-07-31 起就是 min-[640px]:block,
+// 占位随之在 2026-10-11(枚 33584a7bc2「侧栏断点 768→640」)改到 640,而本门的期望
+// token 漏同步 ⇒ HEAD 面恒红(门体过期,不是代码回潮)。改回 640 恢复"占位与真实容器
+// 逐项对齐"这条不变量本身,不是削判据。
 const REQUIRED_PLACEHOLDER_CLASSES = [
   'hidden',
-  'min-[768px]:block',
+  'min-[640px]:block',
   'shrink-0',
   'mr-1.5',
   'py-2',
@@ -525,7 +529,7 @@ function runCheck({ root, face }) {
 }
 
 const PLACEHOLDER_CLASSES =
-  'relative hidden h-full shrink-0 mr-1.5 py-2 min-[768px]:block'
+  'relative hidden h-full shrink-0 mr-1.5 py-2 min-[640px]:block'
 // 2026-09-30 架构修订:GOOD 夹具镜像真实 GlobalShell —— AISidePanel 静态 import
 // (0ms 在场不变量)+ Suspense fallback 复用 AiPanelPlaceholder 组件本体。
 const GOOD_GLOBAL_SHELL = `
