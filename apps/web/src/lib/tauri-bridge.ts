@@ -1590,6 +1590,13 @@ export async function checkinWorkbuddyWebLoginOpen(): Promise<void> {
   await invokeIpc<void>('checkin_workbuddy_web_login_open')
 }
 
+/** 关闭(并销毁)WorkBuddy 网页登录窗口(2026-10-13 白屏死锁修复:
+ *  页面加载失败时前端唯一的取消出口;关闭后再打开会重建窗口重新加载)。 */
+export async function checkinWorkbuddyWebLoginClose(): Promise<void> {
+  requireTauri()
+  await invokeIpc<void>('checkin_workbuddy_web_login_close')
+}
+
 /** 轮询探测:读登录窗口 cookie jar(含 HttpOnly)→ Rust 侧验证登录态并取账号。 */
 export async function checkinWorkbuddyWebLoginProbe(): Promise<WorkbuddyWebLoginProbe> {
   requireTauri()
