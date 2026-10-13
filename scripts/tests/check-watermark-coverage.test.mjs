@@ -135,6 +135,11 @@ test('T4 真临时仓:本次携带的缺口 ⇒ 自愈注入 + 载荷可解码 +
     assert.ok(after.includes(BANNER), `自愈必须真的写进文件:\n${after}`)
     assert.ok(after.includes('[IHUI-AI-PROVENANCE]:'), '注入的必须是载荷标记,不只是可见横幅(§5c 判据)')
     assert.ok(String(indexBlob(dir, 'src/demo.mjs')).includes(BANNER), '自愈必须回暂存区,否则提交里仍是无水印版本')
+    assert.match(
+      r.out,
+      /- src\/demo\.mjs \[self-heal-fixed\]/,
+      '自愈清单行必须带结构化豁免键(G-1018220 口径②:归因层只认键豁免"自愈动作点名",报红块不得带键)',
+    )
   } finally {
     rmScratch(dir)
   }

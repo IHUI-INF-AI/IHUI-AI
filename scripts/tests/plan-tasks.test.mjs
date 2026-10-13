@@ -48,6 +48,7 @@ import {
   f9Ratchet,
   gate,
   grewViolations,
+  makeLagJudge,
   newCollisionGroups,
   parseArgs,
   planF9BaselineRewrite,
@@ -2012,5 +2013,213 @@ test('EF4 真仓面对账:被暂移的行数必须恰等于叠层点名的冲突
     throw new Error(`剔活数 ${dropped.length} 与叠层点名 ${cf.conflictList.length} 不等 ⇒ 两份判据在互相顶掉`)
   if (dropped.length === a.claimableRows.length)
     throw new Error('把整个派单面剔空 = 判据失效的表现,不当通过')
+})
+
+// ── LG 族:派单叠层的懒判(G-1105309)——"工作树脏"里混着大量**纯滞后副本**
+//    (工作树 blob 恰是该路径某个历史版本 ⇒ 不是别人在飞),只对被点名的脏路径问祖先:
+//    proven ⇒ 放回不暂移;absent / beyond-window / undetermined(判不了、超 cap)一律照旧让位。
+
+/** 夹具仓的 git 派生:身份/换行/签名在仓内配置钉死,免得读到本机全局配置把断言算歪。 */
+const lgGit = (dir, args) =>
+  execFileSync('git', ['-c', 'safe.directory=*', '-C', dir, ...args], {
+    encoding: 'utf8',
+    windowsHide: true,
+    // 不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY(2026-10-04 全仓同课)
+    stdio: ['ignore', 'pipe', 'pipe'],
+    timeout: 120_000,
+  })
+
+/** 铺一个最小仓(初版入库),由调用方再制造"工作树脏"的现场;返回 scratch 根。 */
+function lgFixtureRepo(prefix, files) {
+  const sc = mkScratch(prefix)
+  lgGit(sc, ['init', '-q', '-b', 'main'])
+  lgGit(sc, ['config', 'user.email', 'lg@fixture.local'])
+  lgGit(sc, ['config', 'user.name', 'lg-fixture'])
+  lgGit(sc, ['config', 'commit.gpgsign', 'false'])
+  // 本机全局 core.autocrlf=true:不钉死则 hash-object 与提交 blob 的取值要多绕一层换行假设
+  lgGit(sc, ['config', 'core.autocrlf', 'false'])
+  for (const [rel, text] of Object.entries(files)) {
+    const abs = path.join(sc, rel)
+    mkdirSync(path.dirname(abs), { recursive: true })
+    writeFileSync(abs, text, 'utf8')
+  }
+  lgGit(sc, ['add', '-A'])
+  lgGit(sc, ['commit', '-q', '-m', 'fixture v1'])
+  return sc
+}
+
+test('LG1 滞后副本不剔行:工作树 blob = 该路径历史版本 ⇒ proven 整行放回(反臂:不传 lagJudge 照旧让位)', () => {
+  const sc = lgFixtureRepo('plan-tasks-lg1', { 'scripts/lg-lag.ts': 'export const lag = 1 // v1\n' })
+  try {
+    // HEAD 前进到 v2,再把工作树写回 v1 ⇒ 脏,但内容恰是祖先版本(纯滞后副本,不是有人在飞)
+    writeFileSync(path.join(sc, 'scripts', 'lg-lag.ts'), 'export const lag = 2 // v2 在飞改的\n', 'utf8')
+    lgGit(sc, ['add', '-A'])
+    lgGit(sc, ['commit', '-q', '-m', 'fixture v2'])
+    writeFileSync(path.join(sc, 'scripts', 'lg-lag.ts'), 'export const lag = 1 // v1\n', 'utf8')
+
+    const dirty = collectDirtyPaths(sc)
+    const head = collectHeadPaths(sc)
+    if (!dirty || !head) throw new Error('夹具 git 面取不到 ⇒ 本用例无从判定(不得记为通过)')
+    if (!dirty.has('scripts/lg-lag.ts')) throw new Error('夹具没造出"脏"现场 ⇒ 本用例无从判定')
+
+    const rows = [{ line: 5, raw: '- [ ] 把 `scripts/lg-lag.ts` 回退到旧版(纯滞后副本)' }]
+    const cf = fileConflictOverlay({ rows, dirtySet: dirty, headSet: head, lagJudge: makeLagJudge(sc) })
+
+    // 惰判射程:只问叠层命中的那 1 条(约束①),且逐字判 proven(约束③),带 commit 证据才可复核
+    if (cf.judgedList.length !== 1 || cf.judgedList[0].path !== 'scripts/lg-lag.ts')
+      throw new Error(`惰判射程应恰是叠层命中的 1 条:${JSON.stringify(cf.judgedList.map((x) => x.path))}`)
+    if (cf.judgedList[0].verdict !== 'proven')
+      throw new Error(`滞后副本必须逐字判 proven,实得 ${JSON.stringify(cf.judgedList[0])}`)
+    if (!/^[0-9a-f]{9}$/.test(String(cf.judgedList[0].commit || '')))
+      throw new Error('proven 必须带 commit 证据,否则"放回"不可复核')
+
+    if (cf.rowsWithConflict !== 0 || cf.conflictList.length !== 0)
+      throw new Error(`滞后副本所在行不得留在冲突档:${JSON.stringify(cf.conflictList)}`)
+    if (cf.releasedList.length !== 1 || cf.releasedList[0].line !== 5)
+      throw new Error(`滞后副本所在行必须整行放回:${JSON.stringify(cf.releasedList)}`)
+    const { kept, dropped } = excludeInflightRows(rows, cf)
+    if (kept.length !== 1 || dropped.length !== 0) throw new Error('放回的行不得被 --exclude-inflight 剔掉')
+
+    // 成对反臂:不传 lagJudge ⇒ 与旧版逐字同值(冲突 1 行、照剔),证明放回来自治据而非夹具没脏
+    const old = fileConflictOverlay({ rows, dirtySet: dirty, headSet: head })
+    if (old.rowsWithConflict !== 1) throw new Error(`不传 lagJudge 必须照旧判冲突,实得 ${old.rowsWithConflict}`)
+    if (excludeInflightRows(rows, old).dropped.length !== 1) throw new Error('反臂:旧行为必须照旧剔这一行')
+
+    // 源码形状锁:祖先判据唯一出口是 heal 的 blobInAncestry,本器不得另抄第二份实现(约束②)
+    const CODE = readFileSync(new URL('../plan-tasks.mjs', import.meta.url), 'utf8')
+    if (!/import \{ blobInAncestry \} from '\.\/heal-worktree-tracked\.mjs'/.test(CODE))
+      throw new Error('blobInAncestry 必须从 heal-worktree-tracked.mjs 导入(同一件事只许一份实现)')
+    if (!/blobInAncestry\(top, key, blob\)/.test(CODE)) throw new Error('惰判必须把 hash-object 的 blob 交给 blobInAncestry')
+    if (/ancestorWindow\(|windowFor\(/.test(CODE)) throw new Error('本器另抄了一份祖先窗口实现 ⇒ 违反"唯一出口"约束')
+    if (!/lagJudge:\s*makeLagJudge\(/.test(CODE)) throw new Error('主流程必须把惰判接线进 fileConflictOverlay')
+  } finally {
+    rmScratch(sc)
+  }
+})
+
+test('LG2 真在飞仍剔行:absent / 盘上不在 / 超 cap 一律让位;惰判射程只到被点名的脏路径(约束①④⑤)', () => {
+  const sc = lgFixtureRepo('plan-tasks-lg2', {
+    'scripts/lg-live.ts': 'export const live = 1\n',
+    'scripts/lg-also.ts': 'export const also = 1\n',
+    'scripts/lg-third.ts': 'export const third = 1\n',
+    'scripts/lg-gone.ts': 'export const gone = 1\n',
+    'scripts/lg-unnamed.ts': 'export const unnamed = 1\n',
+  })
+  try {
+    // live/also/third 改成**从未入库**的新内容 ⇒ absent(真在飞);unnamed 同样脏但没有行点名它
+    for (const rel of ['lg-live.ts', 'lg-also.ts', 'lg-third.ts', 'lg-unnamed.ts'])
+      writeFileSync(path.join(sc, 'scripts', rel), `export const touched = '${rel}' // 真在飞的新内容\n`, 'utf8')
+    // gone 被暂存删除 ⇒ 脏,但盘上不在(约束⑤:不许喂 hash-object,喂进去整条派生 fatal)
+    lgGit(sc, ['rm', '-q', 'scripts/lg-gone.ts'])
+
+    const dirty = collectDirtyPaths(sc)
+    const head = collectHeadPaths(sc)
+    if (!dirty || !head) throw new Error('夹具 git 面取不到 ⇒ 本用例无从判定')
+    for (const p of [
+      'scripts/lg-live.ts',
+      'scripts/lg-also.ts',
+      'scripts/lg-third.ts',
+      'scripts/lg-gone.ts',
+      'scripts/lg-unnamed.ts',
+    ])
+      if (!dirty.has(p)) throw new Error(`夹具现场不齐:${p} 不在脏集合 ⇒ 本用例无从判定`)
+
+    const rows = [
+      { line: 7, raw: '- [ ] 改 `scripts/lg-live.ts`' },
+      { line: 8, raw: '- [ ] 改 `scripts/lg-also.ts`' },
+      { line: 9, raw: '- [ ] 改 `scripts/lg-third.ts`' },
+      { line: 10, raw: '- [ ] 删 `scripts/lg-gone.ts`' },
+    ]
+    const base = makeLagJudge(sc)
+    const asked = []
+    const spy = (k) => {
+      asked.push(k)
+      return base(k)
+    }
+    const cf = fileConflictOverlay({ rows, dirtySet: dirty, headSet: head, lagJudge: spy })
+
+    // 约束①:只对命中短名单逐条问 —— 同样脏的 lg-unnamed.ts 没被行点名,一次都不许问(对整张脏表判会到小时级)
+    if (asked.join(',') !== 'scripts/lg-live.ts,scripts/lg-also.ts,scripts/lg-third.ts,scripts/lg-gone.ts')
+      throw new Error(`懒判射程错了(只该问命中的 4 条):${asked.join(',')}`)
+
+    const by = new Map(cf.judgedList.map((x) => [x.path, x]))
+    const live = by.get('scripts/lg-live.ts')
+    if (live?.verdict !== 'absent')
+      throw new Error(`从未入库的新内容必须判 absent(真在飞),实得 ${JSON.stringify(live)}`)
+    const gone = by.get('scripts/lg-gone.ts')
+    if (gone?.verdict !== 'undetermined' || !String(gone.reason || '').includes('盘上不在'))
+      throw new Error(`盘上不在必须判 undetermined 且理由点名不喂 hash-object,实得 ${JSON.stringify(gone)}`)
+
+    // 真在飞 / 判不了 ⇒ 4 行全部留在冲突档并被剔(约束④的正臂)
+    if (cf.rowsWithConflict !== 4) throw new Error(`4 行都该仍在冲突档,实得 ${cf.rowsWithConflict}`)
+    const { dropped } = excludeInflightRows(rows, cf)
+    if (dropped.length !== 4 || dropped.map((r) => r.line).join(',') !== '7,8,9,10')
+      throw new Error('真在飞的行必须照旧剔出出单面:' + JSON.stringify(dropped.map((r) => r.line)))
+    for (const x of cf.judgedList)
+      if (x.verdict === 'undetermined' && !x.reason) throw new Error(`undetermined 必须逐条带理由报名:${x.path}`)
+
+    // 超预算臂:cap=2 ⇒ 第 3 条起判不了 ⇒ undetermined 且理由带 cap,行数一毫不减(不静默少判)
+    const cf2 = fileConflictOverlay({ rows, dirtySet: dirty, headSet: head, lagJudge: makeLagJudge(sc, { cap: 2 }) })
+    const third = cf2.judgedList.find((x) => x.path === 'scripts/lg-third.ts')
+    if (third?.verdict !== 'undetermined' || !String(third.reason || '').includes('cap=2'))
+      throw new Error(`超 cap 必须回 undetermined 且理由带 cap,实得 ${JSON.stringify(third)}`)
+    if (cf2.rowsWithConflict !== 4) throw new Error(`超 cap 时 4 行仍须全部让位,实得 ${cf2.rowsWithConflict}`)
+    if (excludeInflightRows(rows, cf2).dropped.length !== 4) throw new Error('超 cap 不得少剔任何一行')
+  } finally {
+    rmScratch(sc)
+  }
+})
+
+test('LG3 变异锁:把 verdict 当布尔 ⇒ 必读红(四态对象恒真,布尔化会让功能反向变成永远不避让)', () => {
+  const rows = [
+    { line: 21, raw: '- [ ] 动 `apps/web/lg-a.tsx`' },
+    { line: 22, raw: '- [ ] 动 `apps/web/lg-b.tsx`' },
+    { line: 23, raw: '- [ ] 动 `apps/web/lg-c.tsx`' },
+  ]
+  const keys = ['apps/web/lg-a.tsx', 'apps/web/lg-b.tsx', 'apps/web/lg-c.tsx']
+  const dirtySet = new Set(keys)
+  const headSet = new Set(keys)
+
+  // 臂① 非 proven(absent,对象本身恒真)⇒ 必须 3 行全留冲突。写成 if (res) 会全放回 ⇒ 本断言红。
+  const cf1 = fileConflictOverlay({
+    rows,
+    dirtySet,
+    headSet,
+    lagJudge: () => ({ verdict: 'absent', reason: '真新内容' }),
+  })
+  if (cf1.rowsWithConflict !== 3)
+    throw new Error(`absent 必须照旧让位,实得冲突 ${cf1.rowsWithConflict}(布尔化=对象恒真=永远不避让)`)
+  if (excludeInflightRows(rows, cf1).dropped.length !== 3) throw new Error('absent 命中必须全部剔行')
+
+  // 臂② proven ⇒ 3 行全放回。写成 verdict === 'ancestor'(票面旧取值)永远不命中 ⇒ 本断言红。
+  const cf2 = fileConflictOverlay({
+    rows,
+    dirtySet,
+    headSet,
+    lagJudge: () => ({ verdict: 'proven', commit: 'deadbeef1' }),
+  })
+  if (cf2.rowsWithConflict !== 0 || cf2.releasedList.length !== 3)
+    throw new Error(`proven 必须整行放回:冲突 ${cf2.rowsWithConflict} / 放回 ${cf2.releasedList.length}`)
+
+  // 臂③ beyond-window / undetermined / absent(带 reason)⇒ 仍 3 行冲突,且逐条报名不静默(约束④)
+  const kinds = ['beyond-window', 'undetermined', 'absent']
+  const cf3 = fileConflictOverlay({
+    rows,
+    dirtySet,
+    headSet,
+    lagJudge: (k) => ({ verdict: kinds[keys.indexOf(k)], reason: `示例:${k}` }),
+  })
+  if (cf3.rowsWithConflict !== 3) throw new Error('判不了档必须全部照旧让位')
+  if (cf3.judgedList.length !== 3) throw new Error('每条命中都要报名')
+  for (const j of cf3.judgedList) if (!j.reason) throw new Error(`judgedList 必须逐条带 reason:${j.path}`)
+
+  // 源码形状锁:取值必须逐字比 verdict === 'proven';heal 出口的真值域恰为四态(现读钉死)
+  const CODE = readFileSync(new URL('../plan-tasks.mjs', import.meta.url), 'utf8')
+  if (!/verdict === 'proven'/.test(CODE)) throw new Error('取值判据必须逐字比 verdict 字符串')
+  const HEAL = readFileSync(new URL('../heal-worktree-tracked.mjs', import.meta.url), 'utf8')
+  const domain = new Set([...HEAL.matchAll(/verdict: '([a-z-]+)'/g)].map((m) => m[1]))
+  const want = new Set(['proven', 'absent', 'beyond-window', 'undetermined'])
+  if (domain.size !== want.size || [...want].some((v) => !domain.has(v)))
+    throw new Error(`blobInAncestry 真值域漂了:实得 ${[...domain].sort().join(',')} ⇄ 应为 ${[...want].sort().join(',')}`)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

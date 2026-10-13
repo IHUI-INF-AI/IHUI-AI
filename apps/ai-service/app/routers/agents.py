@@ -27,7 +27,7 @@ from ..core.sse_buffer import REPLAY_HIT, sse_buffer
 
 # D174/R3:帧级 traceId 的唯一注入点(与 llm 那条对话流共用一份实现,不在本路由再抄一遍判序)
 from ..core.sse_frames import with_frame_trace_id
-from ..core.turn_stop_reason import ensure_turn_stop_reason
+from ..core.turn_stop_reason import TurnStopReason, ensure_turn_stop_reason
 from ..services.agent_checkpoint import AgentLoopCheckpoint
 from ..services.agent_deliverables import get_deliverables
 from ..services.agent_events import (
@@ -560,7 +560,11 @@ def _v2_result_to_execute_payload(session_id: str, result: Any) -> dict[str, Any
     success = bool(getattr(result, "success", False))
     if success:
         status = "completed"
-    elif stop_reason in ("cancelled", "canceled", "paused"):
+    elif stop_reason in (
+        TurnStopReason.CANCELLED,  # 新拼写(V2 循环产出)
+        TurnStopReason.CANCELED,  # 旧拼写(V1 兼容档;两式都认 —— 收口不清零)
+        TurnStopReason.PAUSED,
+    ):
         # V1 的取消态用单 l("canceled"),这里两种拼写都归到既有取值上
         status = "canceled"
     else:

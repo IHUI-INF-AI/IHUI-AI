@@ -26,6 +26,8 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
+
 // ───────────────────── 扫描根注入(2026-09-24 自检加固) ─────────────────────
 // 此前 ROOT = process.cwd():自检若只"cd 到夹具"实际仍静默扫真仓(本仓实证事故形态:
 // 14 例里 13 例根本没碰夹具),红绿都不作数。现优先级:
@@ -406,8 +408,11 @@ const FIX_TOOLBAR_TSX = `export const T = () => <Button className="h-7">ui-react
 const FIX_TESTS_TSX = `export const E = () => <Button className="h-7">与 A 同内容,但 tests 目录必须豁免</Button>\n`
 
 async function runSelfTest() {
-  const results = []
-  const ck = (name, cond) => results.push({ name, ok: !!cond })
+  // 登记器走共用出口 scripts/lib/selftest-registrant.mjs(ticket-X:本地自造的
+  // `const ck = (name, cond) => results.push({ name, ok: !!cond })` 收到 `() =>` 用例时
+  // 求的是"函数对象是否为真值"(恒真)⇒ 自检一路报绿却一条都没判过;出口把求值点收进
+  // report(),函数形态用例必被真判,取不到结论一律失败不记绿)。
+  const { t: ck, report } = makeRegistrar()
   const FIX = path.join(SCRIPT_REPO_ROOT, '.ihui-agent', 'tmp', 'button-height', `selftest-${process.pid}`)
   const MAIN = path.join(FIX, 'main')
   const MIN = path.join(FIX, 'min')
@@ -516,14 +521,14 @@ async function runSelfTest() {
       /* 临时夹具清理失败不影响自检结论 */
     }
   }
-  const failed = results.filter((r) => !r.ok)
-  for (const f of failed) console.error(`  ❌ ${f.name}`)
+  const { fail, cases } = report()
+  for (const c of cases) if (!c.pass) console.error(`  ❌ ${c.name}`)
   console.log(
-    failed.length
-      ? `❌ check-button-height self-test FAILED ${failed.length}/${results.length}`
-      : `✅ check-button-height self-test 全部通过(${results.length} 例,正反成对,夹具经 --root 注入未触真仓)`,
+    fail
+      ? `❌ check-button-height self-test FAILED ${fail}/${cases.length}`
+      : `✅ check-button-height self-test 全部通过(${cases.length} 例,正反成对,夹具经 --root 注入未触真仓)`,
   )
-  return failed.length ? 1 : 0
+  return fail ? 1 : 0
 }
 
 // §22d isDirectRun 守卫:直接 node 执行才跑 main();被测试 import 只取 __test__ 导出,零副作用。
