@@ -223,6 +223,13 @@ describe('G-425 有界续写(生产入口 runToolLoop,本地 provider 面)', () 
     // 续写段正常收口:正文 = 首答 + 续写段,只喊过一次截断
     expect(result.assistantText).toBe('前半句后半句' + '前半句后半句');
     expect(countLinesWith(stderr, '长度上限被截断')).toBe(1);
+    // G-1104166 端上徽章:那次截断确实发起了续写 ⇒ 徽章恰好一行(第 1/3 次),键名不得漏出
+    expect(countLinesWith(stderr, '自动续写第')).toBe(1);
+    expect(countLinesWith(stderr, '自动续写第 1/3 次')).toBe(1);
+    expect(stderr).toContain('原因:length');
+    expect(stderr).not.toContain('cli.truncationContinuationBadge');
+    // 全轮累计续写次数透传机器面
+    expect(result.outputContinuationsUsed).toBe(1);
     expect(result.stopReason).toBe('end_turn');
     // finish_reason 透传:终局是续写段自己的 stop,且不得再报"仍被截断"
     expect(result.finishReason).toBe('stop');
@@ -236,13 +243,17 @@ describe('G-425 有界续写(生产入口 runToolLoop,本地 provider 面)', () 
   });
 
   it('② raw 家族(max_tokens)同样触发续写(OpenAI 兼容代理透传上游原生值的形态)', async () => {
-    const { result, requestBodies } = await driveTurn({
+    const { stderr, result, requestBodies } = await driveTurn({
       streams: [textStream('max_tokens'), textStream('stop')],
     });
     expect(requestBodies.length).toBe(2);
     expect(result.finishReason).toBe('stop');
     expect(result.outputTruncated).toBe(false);
     expect(result.stopReason).toBe('end_turn');
+    // G-1104166:raw 家族截断同样发起续写 ⇒ 徽章原因列显示透传值本身
+    expect(countLinesWith(stderr, '自动续写第')).toBe(1);
+    expect(stderr).toContain('原因:max_tokens');
+    expect(result.outputContinuationsUsed).toBe(1);
   });
 
   it('③ 有界:连续 4 次截断 ⇒ 恰好续写 3 次后收口,喊"预算耗尽",不无限烧钱', async () => {
@@ -257,12 +268,16 @@ describe('G-425 有界续写(生产入口 runToolLoop,本地 provider 面)', () 
     // 每次截断都各喊一行可见提示,预算耗尽额外喊一行
     expect(countLinesWith(stderr, '长度上限被截断')).toBe(4);
     expect(countLinesWith(stderr, '已自动续写 3 次')).toBe(1);
+    // G-1104166:三次续写各挂一枚徽章(1/3、2/3、3/3),耗尽行不是徽章(措辞无"第 n/max 次"形)
+    expect(countLinesWith(stderr, '自动续写第')).toBe(MAX_OUTPUT_TOKEN_CONTINUATIONS);
+    expect(countLinesWith(stderr, '自动续写第 3/3 次')).toBe(1);
     // 键名不得漏到界面
     expect(stderr).not.toContain('cli.truncatedContinuationExhausted');
     // 终局 finish_reason=length + outputTruncated=true ⇒ 端上可判"回复不完整"
     expect(result.finishReason).toBe('length');
     expect(result.outputTruncated).toBe(true);
     expect(result.stopReason).toBe('end_turn');
+    expect(result.outputContinuationsUsed).toBe(MAX_OUTPUT_TOKEN_CONTINUATIONS);
   });
 
   it('④ 正常说完(stop)⇒ 不续写、不发第二次请求、一声不响', async () => {
@@ -271,6 +286,9 @@ describe('G-425 有界续写(生产入口 runToolLoop,本地 provider 面)', () 
     expect(requestBodies.length).toBe(1);
     expect(countLinesWith(stderr, '长度上限被截断')).toBe(0);
     expect(countLinesWith(stderr, '已自动续写 3 次')).toBe(0);
+    // G-1104166:没续写过 ⇒ 徽章零行、机器面不带字段(消费方按"未发生"处理)
+    expect(countLinesWith(stderr, '自动续写第')).toBe(0);
+    expect(result.outputContinuationsUsed).toBeUndefined();
     expect(result.stopReason).toBe('end_turn');
     expect(result.finishReason).toBe('stop');
     expect(result.outputTruncated).toBe(false);

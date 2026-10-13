@@ -124,6 +124,7 @@ import { loadSettings, type SamplerSettings, type Settings } from './settings.js
 import {
   createOutputTokenContinuationMessage,
   classifyOutputTokenContinuation,
+  MAX_OUTPUT_TOKEN_CONTINUATIONS,
   isOutputTokenLimitFinishReason,
 } from './agent-output-continuation.js';
 import type { Session } from './session.js';
@@ -272,6 +273,8 @@ export interface AgentResult {
   finishReason?: string;
   /** G-425:最终一次响应是否仍被输出长度上限截断(续写预算耗尽后仍未说完) */
   outputTruncated?: boolean;
+  /** G-1104166:全轮累计自动续写次数(没续写过 ⇒ 不带此字段) */
+  outputContinuationsUsed?: number;
 }
 
 // ==================== P1-5 Headless 多格式输出(实现在 src/headless-format.ts,此处仅 re-export)====================
@@ -1079,6 +1082,8 @@ export interface RunToolLoopResult {
    * 仍没说完)。端上据此提示"回复不完整",与 stderr 的 [truncated] 行同源。
    */
   outputTruncated?: boolean;
+  /** G-1104166:全轮累计自动续写次数(没续写过 ⇒ 不带此字段) */
+  outputContinuationsUsed?: number;
 }
 
 export interface TokenUsage {
@@ -1747,6 +1752,10 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
    * - lastFinishReason:最后一次成功响应的结束原因,终局随 RunToolLoopResult 透传给端上。
    */
   let outputTokenContinuationCount = 0;
+  // G-1104166(2026-10-10 拍板「有界续写 + 端上截断徽章」):全轮累计续写次数 ——
+  // 与上面按恢复段归零的 outputTokenContinuationCount 不同,本数只增不减,随 result
+  // 的 outputContinuationsUsed 透传给端上(headless 'complete' 事件同批)。
+  let outputTokenContinuationsUsed = 0;
   let pendingOutputContinuationPrompt: { role: 'user'; content: string } | null = null;
   let lastFinishReason: string | undefined;
 
@@ -2120,6 +2129,21 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         });
         if (continuationDecision === 'continue') {
           outputTokenContinuationCount += 1;
+          outputTokenContinuationsUsed += 1;
+          // G-1104166 端上截断徽章:续写不能静默 —— 次数(第 n/3 次)与原因(finish_reason
+          // 原文,raw 家族透传值照显)随行可见。前缀用 [auto-continue] 而非 [truncated]:
+          // 后者是只提示门(门 115)的行前缀,其测试按行数钉死口径,徽章混入同族计数
+          // 会把 truncation-visible-notice 两例翻红(实测);正文措辞同样避开
+          // 「长度上限被截断」子串。
+          process.stderr.write(
+            chalk.yellow(
+              `[auto-continue] ${t('cli.truncationContinuationBadge', {
+                count: outputTokenContinuationCount,
+                max: MAX_OUTPUT_TOKEN_CONTINUATIONS,
+                reason: String(samplerResult.finishReason ?? 'unknown'),
+              })}\n`,
+            ),
+          );
           pendingOutputContinuationPrompt = createOutputTokenContinuationMessage();
           continue;
         }
@@ -2650,6 +2674,8 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
     ...(lastFinishReason !== undefined
       ? { finishReason: lastFinishReason, outputTruncated: isOutputTokenLimitFinishReason(lastFinishReason) }
       : {}),
+    // G-1104166:全轮累计续写次数(没续写过 ⇒ 不带,消费方按"未发生"处理)
+    ...(outputTokenContinuationsUsed > 0 ? { outputContinuationsUsed: outputTokenContinuationsUsed } : {}),
   };
 }
 
@@ -3020,6 +3046,10 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
       // G-425:finish_reason 透传给端上(可选字段,远端流拿不到时不带,缺省=未知)
       ...(result.finishReason !== undefined
         ? { finishReason: result.finishReason, outputTruncated: result.outputTruncated === true }
+        : {}),
+      // G-1104166:全轮累计续写次数透传端上(未续写 ⇒ 不带)
+      ...(result.outputContinuationsUsed !== undefined
+        ? { outputContinuationsUsed: result.outputContinuationsUsed }
         : {}),
     });
 
