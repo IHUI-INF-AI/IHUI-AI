@@ -989,6 +989,51 @@ export default function CheckinPage() {
     }
   }
 
+  // ================== 官方积分实时查询(2026-10-13) ==================
+  // 用户诉求:「签到后积分有没有变化、签没签上,得能实时看到」。
+  // 后端 POST /accounts/{id}/query_credits 按平台分流查官方余额并落当日快照;
+  // 前端此前从未调用 ⇒ 积分列只有签到记录的静态快照。现补齐:
+  // 手动签到成功后自动查、一键签到结束后批量查、工具栏手动一键刷新;
+  // delta(较上次查询的变化)显示在余额下方,签到是否生效一眼可见。
+  const [creditsInfo, setCreditsInfo] = React.useState<
+    Record<number, { remaining: number | null; error?: string; delta?: number; ts: number }>
+  >({})
+  const [creditsRefreshing, setCreditsRefreshing] = React.useState<Set<number>>(new Set())
+
+  const refreshCredits = async (ids: number[]) => {
+    if (ids.length === 0) return
+    setCreditsRefreshing((prev) => new Set([...prev, ...ids]))
+    await Promise.all(
+      ids.map(async (id) => {
+        try {
+          const res = await queryCheckinAccountCredits(id)
+          setCreditsInfo((prev) => {
+            const old = prev[id]?.remaining
+            const delta =
+              res.ok && typeof old === 'number' && typeof res.remaining === 'number'
+                ? res.remaining - old
+                : undefined
+            return {
+              ...prev,
+              [id]: { remaining: res.ok ? res.remaining : null, error: res.ok ? undefined : res.error || '', delta, ts: Date.now() },
+            }
+          })
+        } catch (e) {
+          setCreditsInfo((prev) => ({
+            ...prev,
+            [id]: { remaining: null, error: (e as Error).message, ts: Date.now() },
+          }))
+        } finally {
+          setCreditsRefreshing((prev) => {
+            const next = new Set(prev)
+            next.delete(id)
+            return next
+          })
+        }
+      }),
+    )
+  }
+
   const toggleEnabled = async (account: CheckinAccount, enabled: boolean) => {
     setAccounts((prev) => prev.map((a) => (a.id === account.id ? { ...a, enabled } : a)))
     try {
@@ -1007,6 +1052,8 @@ export default function CheckinPage() {
     try {
       await manualCheckinAccount(account.id)
       await loadAll()
+      // 签到成功即查官方余额,变化实时可见
+      void refreshCredits([account.id])
     } catch (e) {
       setActionError((e as Error).message)
     } finally {
@@ -1057,11 +1104,13 @@ export default function CheckinPage() {
     setActionError(null)
     setBatchNotice(null)
     setAllProgress({ done: 0, total: pending.length })
+    const okIds: number[] = []
     try {
       let done = 0
       for (const account of pending) {
         await manualCheckinAccount(account.id)
         done += 1
+        okIds.push(account.id)
         setAllProgress({ done, total: pending.length })
       }
       const notices = [
@@ -1076,6 +1125,8 @@ export default function CheckinPage() {
       setAllProgress(null)
       setSelectedIds(new Set())
       await loadAll()
+      // 结束后批量查官方余额(含中途失败前已成功的),积分变化实时可见
+      if (okIds.length > 0) void refreshCredits(okIds)
     }
   }
 
@@ -1434,6 +1485,16 @@ export default function CheckinPage() {
             <Plus className="h-4 w-4" />
             {t('addAccount')}
           </Button>
+          {/* 官方积分一键刷新:对所有 enabled 账号实时查官方余额(2026-10-13) */}
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={creditsRefreshing.size > 0 || accounts.length === 0}
+            onClick={() => void refreshCredits(accounts.filter((a) => a.enabled).map((a) => a.id))}
+          >
+            {creditsRefreshing.size > 0 && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+            {t('creditRefreshAll')}
+          </Button>
           {desktop && (
             <>
               <Button variant="outline" size="sm" onClick={() => void openCapture()}>
@@ -1608,7 +1669,46 @@ export default function CheckinPage() {
                             <span className="text-xs text-muted-foreground">{t('none')}</span>
                           )}
                         </TableCell>
-                        <TableCell>{account.last_record?.credits ?? t('none')}</TableCell>
+                        <TableCell>
+                          {(() => {
+                            const info = creditsInfo[account.id]
+                            if (creditsRefreshing.has(account.id)) {
+                              return (
+                                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  {t('creditRefreshing')}
+                                </span>
+                              )
+                            }
+                            if (info) {
+                              return (
+                                <div className="text-xs">
+                                  {info.error ? (
+                                    <span className="text-amber-600">{t('creditQueryFail')}</span>
+                                  ) : (
+                                    <>
+                                      <div className="font-medium">{info.remaining ?? '-'}</div>
+                                      {typeof info.delta === 'number' && info.delta !== 0 && (
+                                        <div
+                                          className={
+                                            info.delta > 0 ? 'text-green-600' : 'text-destructive'
+                                          }
+                                        >
+                                          {info.delta > 0 ? `+${info.delta}` : info.delta}
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+                              )
+                            }
+                            return (
+                              account.last_record?.credits ?? (
+                                <span className="text-xs text-muted-foreground">{t('none')}</span>
+                              )
+                            )
+                          })()}
+                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <Button
