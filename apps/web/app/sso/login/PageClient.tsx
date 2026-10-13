@@ -11,7 +11,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
 import { fetchApi } from '@/lib/api'
-import { buildSsoRedirectUrl } from '@ihui/shared'
+import { buildSsoRedirectUrl, SSO_CLIENT_IDS } from '@ihui/shared'
 import { ensureSsoRedirectAllowed, resolveSafeRedirectTarget } from '@/lib/sso-redirect-guard'
 import { Button } from '@ihui/ui-react'
 import { Loader2, ArrowRight } from 'lucide-react'
@@ -66,6 +66,10 @@ export default function SsoLoginPage() {
   const mode = useLoginDialogStore((s) => s.mode)
   const setMode = useLoginDialogStore((s) => s.setMode)
   const [exchanging, setExchanging] = React.useState(false)
+  // 2026-10-13(用户拍板:真实浏览器+手动关):自定义协议深链已交回 OS 后,本页停在
+  // "授权中/授权卡"会让用户以为没完成。置位后渲染完成卡("可关闭此页"),并保留手动
+  // 重签按钮(浏览器外部协议弹窗被拒时,用户还能就地再签一次)。
+  const [handedOff, setHandedOff] = React.useState(false)
 
   // SSO 页面 mount 时初始化 mode='login',unmount 时清理 store 避免污染主站 LoginDialog
   // (ForgotPasswordForm 重置成功后会调 store.open('login') 导致 isOpen=true,需在离开 SSO 时重置)
@@ -94,7 +98,26 @@ export default function SsoLoginPage() {
     })()
   }, [redirectUrl, router])
 
+  // 签发是否已发起(自动或手动各算一次):见下方"桌面深链已登录自动签发"的 effect。
+  // 置位放在回调最前面 —— 自动与手动点击都过这道闸,失败也**不**复位(失败时用户面对
+  // 授权卡上的按钮可手动重试,自动重试只会把一次网络抖动放大成签发风暴)。
+  const issueStartedRef = React.useRef(false)
+
+  // OIDC 回跳自动闭环(2026-09-19):企业 SSO 认证完成后后端 302 回本页并带 sso=oidc 标记,
+  // bootstrap 经共享域 httpOnly cookie 恢复登录态后自动跳转 redirect(默认首页),
+  // 避免用户刚完成 SSO 登录却停在授权卡片/登录表单需再手动操作。
+  const fromOidc = searchParams.get('sso') === 'oidc'
+  // 桌面深链判定(2026-10-13 自下方 effect 上移:generateCodeAndRedirect 里的完成卡
+  // 判定同样要用它,声明必须先于使用)。
+  const isDesktopDeepLink =
+    clientId === SSO_CLIENT_IDS.DESKTOP &&
+    !fromOidc &&
+    !redirectUrl.startsWith('/') &&
+    !redirectUrl.startsWith('http://') &&
+    !redirectUrl.startsWith('https://')
+
   const generateCodeAndRedirect = React.useCallback(async () => {
+    issueStartedRef.current = true
     const currentToken = useAuthStore.getState().token
     if (!currentToken) return
     setExchanging(true)
@@ -132,6 +155,9 @@ export default function SsoLoginPage() {
 
         if (isCustomScheme) {
           window.location.href = finalUrl
+          // 深链已交回 OS(浏览器可能弹"打开智汇AI?"确认框)。此刻起本页的使命完成:
+          // 渲染完成卡告知用户可关闭此页(真实浏览器窗口不可由桌面端代关,用户拍板的方案)。
+          if (isDesktopDeepLink) setHandedOff(true)
         } else {
           router.push(finalUrl)
         }
@@ -143,7 +169,7 @@ export default function SsoLoginPage() {
     } finally {
       setExchanging(false)
     }
-  }, [clientId, redirectUrl, router, tSso])
+  }, [clientId, redirectUrl, router, tSso, isDesktopDeepLink])
 
   const handleLoginSuccess = React.useCallback(() => {
     void generateCodeAndRedirect()
@@ -152,7 +178,6 @@ export default function SsoLoginPage() {
   // OIDC 回跳自动闭环(2026-09-19):企业 SSO 认证完成后后端 302 回本页并带 sso=oidc 标记,
   // bootstrap 经共享域 httpOnly cookie 恢复登录态后自动跳转 redirect(默认首页),
   // 避免用户刚完成 SSO 登录却停在授权卡片/登录表单需再手动操作。
-  const fromOidc = searchParams.get('sso') === 'oidc'
   React.useEffect(() => {
     if (fromOidc && token && user) {
       // 票 A3/G-413 的"那一处裸用":这一跳此前**不经过任何判据**(既不走 ensureSsoRedirectAllowed
@@ -162,8 +187,48 @@ export default function SsoLoginPage() {
     }
   }, [fromOidc, token, user, redirectUrl, router])
 
+  // 桌面深链"已登录自动签发"(2026-10-13,用户要求:已登录直接获取,不再手点授权)。
+  // 桌面端"在浏览器中登录"打开的就是本页(client_id=desktop + redirect=ihui://sso):
+  // - 已登录 ⇒ 自动调 /api/auth/sso/code 并 `location.href = ihui://sso?...` 回跳,
+  //   桌面端换到 token 后自动进入登录态(真实浏览器方案下网页端显示完成卡,可手动关闭);
+  // - 未登录 ⇒ 不满足 token/user,走下方登录表单,登录成功后 handleLoginSuccess
+  //   走同一个 generateCodeAndRedirect,同一条回跳。
+  // 闸只开给这一条路:client_id=desktop **且** redirect 是自定义协议(ihui://)。
+  // OIDC(sso=oidc)有它自己的自动回跳,不在这里重复签发;非深链(站内/外站 redirect)
+  // 维持原状 —— 那是子项目跳来的授权页,直接把用户甩走会砍断它的回跳契约。
+  // (isDesktopDeepLink 定义已上移到 generateCodeAndRedirect 之前,完成卡判定共用。)
+  React.useEffect(() => {
+    if (issueStartedRef.current || !isDesktopDeepLink) return
+    // ready 必须在位:bootstrap 还没恢复完就签发,会把"其实已登录"误判成未登录。
+    if (!ready || !token || !user) return
+    void generateCodeAndRedirect()
+  }, [isDesktopDeepLink, ready, token, user, generateCodeAndRedirect])
+
   // 已登录分支:授权跳转卡片
   if (token && user) {
+    // 深链已交回 OS:完成卡(告知可关闭此页 + 手动重签出口)
+    if (handedOff) {
+      return (
+        <AuthShellPage onClose={handleClose}>
+          <AuthShell title={tSso('desktopHandoffTitle')} subtitle={tSso('desktopHandoffHint')} onClose={handleClose}>
+            <Button
+              size="lg"
+              variant="outline"
+              className="w-full px-4"
+              onClick={() => generateCodeAndRedirect()}
+              disabled={exchanging}
+            >
+              {exchanging ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <ArrowRight className="mr-2 h-4 w-4" />
+              )}
+              {tSso('authorizeAndRedirect')}
+            </Button>
+          </AuthShell>
+        </AuthShellPage>
+      )
+    }
     return (
       <AuthShellPage onClose={handleClose}>
         <AuthShell
