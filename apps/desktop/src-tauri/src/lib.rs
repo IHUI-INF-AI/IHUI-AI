@@ -3414,6 +3414,7 @@ pub fn run() {
             checkin_capture::checkin_capture_workbuddy,
             checkin_web_login::checkin_workbuddy_web_login_open,
             checkin_web_login::checkin_workbuddy_web_login_probe,
+            checkin_web_login::checkin_workbuddy_web_login_close,
             checkin_capture::checkin_reset_device_ids,
             checkin_capture::checkin_get_public_ip,
             checkin_capture::checkin_one_click_reset,
