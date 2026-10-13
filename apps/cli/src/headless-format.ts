@@ -48,6 +48,8 @@ export type HeadlessEvent =
       finishReason?: string
       /** G-425:最终一次响应是否仍被输出长度上限截断(续写预算耗尽后仍未说完) */
       outputTruncated?: boolean
+      /** G-1104166:全轮累计自动续写次数(没续写过 ⇒ 缺省,按"未发生"处理) */
+      outputContinuationsUsed?: number
     }
 
 /**
@@ -129,7 +131,12 @@ export function eventToMarkdown(event: HeadlessEvent): string {
     case 'complete': {
       const u = event.usage
       const cost = u.estimatedCostUsd > 0 ? `$${u.estimatedCostUsd.toFixed(4)}` : 'plan 套餐'
-      return `\n---\n\n## ✨ 完成\n\n- **停止原因**: ${event.stopReason}\n- **迭代轮次**: ${event.iterations}\n- **Tokens**: ${u.totalTokens} (prompt ${u.promptTokens} + completion ${u.completionTokens})\n- **成本**: ${cost}\n`
+      // G-1104166:发生过续写才显示这一行(徽章的人读面与机器面同源)
+      const continuationLine =
+        event.outputContinuationsUsed !== undefined
+          ? `\n- **自动续写**: ${event.outputContinuationsUsed} 次(输出曾被长度上限截断)`
+          : ''
+      return `\n---\n\n## ✨ 完成\n\n- **停止原因**: ${event.stopReason}\n- **迭代轮次**: ${event.iterations}\n- **Tokens**: ${u.totalTokens} (prompt ${u.promptTokens} + completion ${u.completionTokens})\n- **成本**: ${cost}${continuationLine}\n`
     }
     default:
       return ''
