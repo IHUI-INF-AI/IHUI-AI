@@ -312,13 +312,96 @@ async fn refresh_baseline(
 /// 2026-09-28 真机实测「启动后先进托盘」在 8~11 秒后窗口自行转可见，成因就是这里
 /// 在线/离线两个分支都无条件 `w.show()`(窗口以 visible:false 创建，历史上靠这一次
 /// show 解决"永不出现")。同一件事在两处各读一次偏好必然漂移，所以判据只留 lib.rs 那一份。
+/// 读取 Windows 系统代理(WinINET/IE 设置 —— Clash/v2rayN 等代理工具写入的就是它)。
+/// 返回 `http://host:port` 形式的代理 URL;未启用 / 非 Windows / 读失败 ⇒ None。
+///
+/// 2026-10-13 立(遗留票收口,用户实测"按钮没反应"定案后):reqwest 默认只认
+/// env 代理(HTTP(S)_PROXY);本机这类"系统代理必须"的环境里,从开始菜单/任务栏
+/// 启动的壳没有 env ⇒ 探活直连 aizhs.top 超时,而 WebView2 走系统代理能加载线上页
+/// ⇒ 探活与页面加载两条网络路结论相反,出现"探活在线、页面已死"的假在线态
+/// (页面落 chrome-error 后 IPC 全拒,按钮全部静默失灵——见本文件探活成功分支的
+/// webview 落点自愈)。本函数让探活与 webview 同路:env 代理优先(reqwest 默认),
+/// env 缺席时叠读系统代理。
+#[cfg(windows)]
+fn system_proxy_url() -> Option<String> {
+    use winreg::enums::HKEY_CURRENT_USER;
+    use winreg::RegKey;
+    let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+    let settings = hkcu
+        .open_subkey("Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings")
+        .ok()?;
+    let enabled: u32 = settings.get_value("ProxyEnable").ok()?;
+    if enabled != 1 {
+        return None;
+    }
+    let server: String = settings.get_value("ProxyServer").ok()?;
+    // ProxyServer 两种形状:"127.0.0.1:7890"(全协议)或 "http=…;https=…;socks=…"(分协议)。
+    // 分协议时优先 https 条目,退而 http —— 探活目标是 https://aizhs.top。
+    let parsed = if server.contains('=') {
+        let mut https: Option<&str> = None;
+        let mut http: Option<&str> = None;
+        for part in server.split(';') {
+            let mut kv = part.splitn(2, '=');
+            let k = kv.next().unwrap_or("").trim();
+            let v = kv.next().unwrap_or("").trim();
+            if v.is_empty() {
+                continue;
+            }
+            match k {
+                "https" => https = Some(v),
+                "http" => http = Some(v),
+                _ => {}
+            }
+        }
+        https.or(http)?.to_string()
+    } else {
+        server
+    };
+    if parsed.is_empty() {
+        return None;
+    }
+    if parsed.starts_with("http://") || parsed.starts_with("https://") {
+        Some(parsed)
+    } else {
+        Some(format!("http://{parsed}"))
+    }
+}
+
+/// env 代理是否在位(reqwest 默认行为已覆盖它,无需我们再叠系统代理)。
+fn env_proxy_present() -> bool {
+    ["HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy"]
+        .iter()
+        .any(|k| std::env::var_os(k).map(|v| !v.is_empty()).unwrap_or(false))
+}
+
+/// 探活 Client 构建:env 代理缺席时叠读 Windows 系统代理(见 system_proxy_url)。
+fn build_probe_client() -> reqwest::Client {
+    let mut builder = reqwest::Client::builder()
+        .timeout(Duration::from_secs(12))
+        .user_agent("ihui-desktop-auto-refresh");
+    #[cfg(windows)]
+    if !env_proxy_present() {
+        match system_proxy_url() {
+            Some(p) => match reqwest::Proxy::all(&p) {
+                Ok(px) => {
+                    log::info!("[auto-refresh] 探活走系统代理 {p}(与 webview 同路)");
+                    builder = builder.proxy(px);
+                }
+                Err(e) => log::warn!("[auto-refresh] 系统代理 {p} 解析失败,探活退回直连: {e}"),
+            },
+            None => {
+                log::info!("[auto-refresh] 无 env/系统代理,探活直连");
+            }
+        }
+    }
+    builder
+        .build()
+        .expect("auto-refresh: build reqwest client")
+}
+
 pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
     tauri::async_runtime::spawn(async move {
-        let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(12))
-            .user_agent("ihui-desktop-auto-refresh")
-            .build()
-            .expect("auto-refresh: build reqwest client");
+        let client = build_probe_client();
 
         // ── 启动序列:探活决定首屏,永不白屏 ──
         // 启动期用「同轮重试」而非 ON/OFF 阈值滞回:此刻只有"在线/离线"二选一,
