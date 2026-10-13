@@ -292,6 +292,25 @@ pub fn should_migrate_launch_minimized(
     prefs_absent_before && !current && argv_has_minimized
 }
 
+/// 本次启动**是否应当保持隐藏**(不弹主窗口)。两条同时成立才隐藏:
+/// ① 用户开着「启动后先进托盘」;② 本次是**开机自启**(带 `--minimized`,由 autostart
+/// 插件写死,只有这一条路会带)。
+///
+/// 立因(2026-10-13 用户实报:「双击桌面快捷方式,界面没出来,只有右下角托盘图标」):
+/// 此前判据是「只看 `launch_minimized`」,开关一开,**任何**启动方式都不弹窗 —— 包括
+/// 用户双击桌面快捷方式这种明确的"给我打开界面"的意图,表现就是"程序像是没启动"。
+/// 双击必须看见窗口,所以启动来源要进判据:
+/// - 手动双击(不带参数)⇒ 一律显示,开关管不着;
+/// - 开机自启(带 `--minimized`)⇒ 按开关,老用户迁移来的 `launch_minimized=true`
+///   仍保持"开机静默进托盘"的旧行为,不产生行为回归。
+///
+/// 这与 2026-09-28 立的「用户开关压过命令行参数」不冲突:那条要防的是"开关关掉了
+/// 却被 `--minimized` 按回去",本函数里 `argv_has_minimized=false` 的分支天然无此冲突,
+/// 而 `true` 的分支恰恰是开关该生效的场合。
+pub fn should_start_hidden(launch_minimized: bool, argv_has_minimized: bool) -> bool {
+    launch_minimized && argv_has_minimized
+}
+
 // ================== AppHandle 薄壳(lib.rs 只用这三条)==================
 
 pub fn desktop_prefs_path(app: &tauri::AppHandle) -> Option<PathBuf> {
@@ -580,6 +599,24 @@ mod tests {
             !should_migrate_launch_minimized(true, false, false),
             "不带 --minimized(手动双击)⇒ 迁了就是把窗口藏起来,像程序没启动"
         );
+    }
+
+    // ── 2026-10-13「双击快捷方式只有托盘图标」的判据:四象限全锁 ──
+
+    #[test]
+    fn 手动双击时开关按不住窗口_两个开关档位都必须显示() {
+        // 本 bug 的正例:用户开着「启动后先进托盘」,双击桌面快捷方式(不带 --minimized)
+        // ⇒ 必须显示窗口。旧行为(只看 launch_minimized)在这里返回 true,即被报的现象。
+        assert!(!should_start_hidden(true, false), "开关开着也压不住手动双击");
+        assert!(!should_start_hidden(false, false), "开关关着手动启动 ⇒ 显示(默认档)");
+    }
+
+    #[test]
+    fn 开机自启时开关仍然生效_隐藏与显示各一档() {
+        // 迁移来的老用户(开关 true)+ autostart 写死的 --minimized ⇒ 保持"开机静默进托盘",
+        // 不产生行为回归;开关关掉 ⇒ 自启照样弹窗(2026-09-28 那条契约要的效果)。
+        assert!(should_start_hidden(true, true), "开关 ∧ 自启 ⇒ 隐藏");
+        assert!(!should_start_hidden(false, true), "开关关着 ⇒ 自启也显示");
     }
 
     // ── 编码陷阱:非 Rust 写手留下的 BOM 不得让整份偏好静默回退默认值 ──
