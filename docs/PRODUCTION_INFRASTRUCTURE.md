@@ -76,7 +76,7 @@
                          └─────────────────┘
 
   监控栈:
-    Prometheus (9090) ← node-exporter (9100) / api / postgres / redis
+    Prometheus (8815) ← node-exporter (9100) / api / postgres / redis
     Grafana (8816) ← Prometheus + Loki
     Alertmanager (9093) → 飞书 / 邮件
 
@@ -305,7 +305,28 @@ add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" alway
 
 ---
 
-## 12. 相关文档链接
+## 12. 月度维护清单(2026-10-13 立,源自当日全量运维体检)
+
+> 本节是「体检发现无台账」的收口:以下各项**每月执行一次**并在此打勾记录日期,
+> 部署环(deploy-loop)只管代码发布,这一节管的是它不管的部分。
+
+| # | 维护项 | 现状基线(2026-10-13 实测) | 操作 | 核对命令/位置 |
+|---|---|---|---|---|
+| 1 | Windows 补丁 | 无台账 | 手动检查更新,选低峰重启窗口;重启前先 `Stop-Service IHUI-DEPLOYLOOP` 防重启窗口内告警 | 设置 → Windows Update |
+| 2 | PostgreSQL 小版本 | 18.x(`D:\DevEnv\runtimes\pgsql`;同级 `pgsql-18.2-bak` 为旧版备份) | 查小版本更新,升级前确认当日备份已完成(03:00 班) | `D:\DevEnv\runtimes\pgsql\bin\psql --version` |
+| 3 | Redis 版本 | `D:\DevEnv\runtimes\redis`(8811) | 查 security release | `redis-server.exe --version` |
+| 4 | 备份恢复演练 | 备份链健康(每日 03:00 + 百度云同步 + 本地/云侧各留 20 份 + WAL 归档),但**从未做过恢复演练** | 取最近一份 dump 恢复到**临时端口**库(严禁碰 8810 生产),校验表数与行数 | `pg_restore --port=<临时> -d <临时库> D:\BaiduSyncdisk\IHUI-PG-BACKUP\<最新>.dump` |
+| 5 | 证书 | TLS 由 Cloudflare 托管(源站无证书负担);`cert/` 下微信支付 apiclient 证书 2031-07 到期 | 核对 Cloudflare 源证书有效期与微信支付平台证书更新通知 | Cloudflare 控制台 + `openssl x509 -enddate -noout -in cert/apiclient_cert.pem` |
+| 6 | 服务全量巡检 | 25 个 nssm 服务(1 个已知僵尸 IHUI-OLLAMA 已 Disabled) | 全量 State/StartMode 核对 + 端口清单比对(8801/8802/8803/8810/8811/12000/8815/8816/9093/9096/9182) | `Get-CimInstance Win32_Service \| Where-Object Name -match 'ihui\|IHUI'` |
+| 7 | 告警链路演练 | 到人唯一出口 `notify-deploy-failure.ts`;邮件通道 24h 一次零投递探针(P9) | 跑 `--probe`(零投递)确认通道可用;每季度一次 `--probe-deliver` 真发验收 | `node apps/api/scripts/notify-deploy-failure.ts --probe` |
+| 8 | 磁盘与日志 | C 剩 111G / D 剩 370G;deploy-loop.log 已有轮转(20MB×5);净面/构建缓存 `D:\DevEnv\ihui-deploy-build` 可再生 | 核对轮转生效、清理 `D:\DevEnv\Temp` 残留、`logs/` 归档 | `Get-PSDrive C,D` |
+| 9 | 内存水位 | 可用常驻 ~40%(32G 机);MemoryLow <10% warning / **MemoryCritical <5% critical(2026-10-13 加)** 已挂引擎 health=ok | 核对两条规则 health 与近 30 天是否有 firing 记录 | `http://127.0.0.1:8815/api/v1/rules` |
+| 10 | 生产 checkout 一致性 | 生产 = `D:\DevEnv\ihui-prod`(独立克隆,部署环专用);开发 = `D:\IHUI-AI` | 核对生产 HEAD == origin/main、9 个 nssm 服务指向未漂 | `git -C D:\DevEnv\ihui-prod log --oneline -1` + 服务 Parameters |
+
+**执行记录**(月度追加一行):
+- 2026-10-13 首次立账:第 5/6/7/9 项当轮已核(证书 2031 / 服务全绿 / probe 通过 / 规则 health=ok);第 1/2/3/4/8 项待首个维护窗执行,**第 4 项(恢复演练)是唯一从未做过的硬缺口**。
+
+## 13. 相关文档链接
 
 - [部署决策](./INFRASTRUCTURE_DECISION.md) — IaC 决策、K8s 迁移触发条件
 - [事故响应手册](./INCIDENTS.md) — 事故等级、响应流程、Runbook
