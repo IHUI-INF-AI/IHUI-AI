@@ -565,7 +565,10 @@ export async function openExternalUrl(url: string, windowName = '_blank'): Promi
     return window.open(url, windowName) !== null
   }
   try {
-    await invoke('plugin:shell|open', { url })
+    // 2026-10-13 实证(dev+cdp 真机):shell 插件 v2 的 open 命令参数名是 `path`,传 `{url}` 必报
+    // "invalid args: command open missing required key path" ⇒ 默认浏览器路径自桥接手写以来
+    // 一直是坏的(失败落 window.open,在 Tauri webview 里 = 静默无反应,用户感知"按钮没反应")。
+    await invoke('plugin:shell|open', { path: url })
     return true
   } catch (e) {
     console.warn('[shell] open failed:', e)
