@@ -65,6 +65,9 @@ export interface UseMessageSendParams {
 /** 返回值 */
 export interface UseMessageSendResult {
   isDragOver: boolean
+  /** G-863(2026-10-13):三档拒绝聚合出口对语音入口开放 —— 原先只服务选/拖/贴三入口,
+   *  语音录制入口拒绝静默(返回值被忽略);暴露后 message-input 语音回调走同一汇总。 */
+  reportAttachmentRejections: (rejections: AttachmentRejection[]) => void
   handleDragOver: (e: React.DragEvent<HTMLDivElement>) => void
   handleDragLeave: (e: React.DragEvent<HTMLDivElement>) => void
   handleDrop: (e: React.DragEvent<HTMLDivElement>) => void
@@ -351,7 +354,8 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       const pastedFiles: File[] = []
       imageItems.forEach((item) => {
         const file = item.getAsFile()
-        if (file) pastedFiles.push(new File([file], `pasted-${Date.now()}.png`, { type: file.type }))
+        if (file)
+          pastedFiles.push(new File([file], `pasted-${Date.now()}.png`, { type: file.type }))
       })
       if (addFileReferences) {
         reportAttachmentRejections(addFileReferences(pastedFiles))
@@ -360,7 +364,14 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
         pastedFiles.forEach((f) => addFileReference(f))
       }
     },
-    [isStreaming, addFileReference, addFileReferences, addTextReference, reportAttachmentRejections, t],
+    [
+      isStreaming,
+      addFileReference,
+      addFileReferences,
+      addTextReference,
+      reportAttachmentRejections,
+      t,
+    ],
   )
 
   /** 实际发送逻辑(2026-07-25 立,危险命令检测拆分):供 submit / toast action 复用 */
@@ -616,6 +627,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
 
   return {
     isDragOver,
+    reportAttachmentRejections,
     handleDragOver,
     handleDragLeave,
     handleDrop,
