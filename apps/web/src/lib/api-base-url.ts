@@ -6,7 +6,7 @@
  * 后端寻址统一判定(2026-09-21 根治"桌面端连不上生产后端")。
  *
  * 问题:桌面端是薄壳模式 —— tauri.conf.json 的 windows[0].url =
- * https://aizhs.top/agents,主窗口直接加载**线上**前端;而线上 web 构建刻意把
+ * https://aizhs.top/ 首页(2026-10-13 起启动页,此前 /agents),主窗口直接加载**线上**前端;而线上 web 构建刻意把
  * NEXT_PUBLIC_API_BASE_URL 置空(scripts/build-next-prod.ps1:浏览器走同源 /api/* 反代)。
  * 旧逻辑把它写成:
  *   '__TAURI_INTERNALS__' in window ? NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8802' : ...
