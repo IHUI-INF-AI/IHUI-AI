@@ -187,6 +187,26 @@ pub fn checkin_workbuddy_web_login_open(app: AppHandle) -> Result<(), IpcError> 
     Ok(())
 }
 
+/// 关闭(并销毁)WorkBuddy 网页登录窗口。
+///
+/// 2026-10-13 立,修「白屏且无法取消」死锁:www.workbuddy.cn 是 SPA 外壳,
+/// 内嵌 WebView2 一旦加载不到 assets.workbuddy.cn 的 JS(网络受限/CDN 超时),
+/// 窗口就是纯白屏;而 open 命令对"窗口已存在"只做 show+focus 不重载 ⇒
+/// 用户反复点「网页登录」看到的永远是那扇白屏。前端 waiting 态此前也没有
+/// 取消出口(按钮 disabled、轮询无停止条件)⇒  perceived "关不掉"。
+/// 本命令给前端一条确定的关闭通道:取消 = 停轮询 + close 窗口 + 复位状态;
+/// 用户再点「打开登录窗口」时窗口已不存在 ⇒ 重新 build 重新加载。
+/// 窗口 label 不在 on_window_event 的 main/admin 特判里,close() 走默认
+/// 关闭路径,无 prevent_close 拦截。
+#[tauri::command]
+pub fn checkin_workbuddy_web_login_close(app: AppHandle) -> Result<(), IpcError> {
+    if let Some(win) = app.get_webview_window(WB_WEB_LOGIN_LABEL) {
+        win.close()
+            .map_err(|e| IpcError::internal(format!("关闭登录窗口失败: {e}")))?;
+    }
+    Ok(())
+}
+
 /// 轮询探测:读 cookie jar → Rust 侧 GET /console/accounts 验证登录态。
 #[tauri::command]
 pub async fn checkin_workbuddy_web_login_probe(app: AppHandle) -> Result<WebLoginProbe, IpcError> {
