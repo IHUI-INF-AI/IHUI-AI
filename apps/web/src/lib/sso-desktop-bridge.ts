@@ -21,6 +21,7 @@
 import { exchangeSsoCode, extractSsoCode, SSO_CLIENT_IDS } from '@ihui/shared'
 import { useAuthStore } from '@/stores/auth'
 import { resolveApiBaseUrl } from '@/lib/api-base-url'
+import { closeChromeWindow } from '@/lib/tauri-bridge'
 import type { AuthUser } from '@ihui/api-client'
 
 const DESKTOP_CLIENT_ID = SSO_CLIENT_IDS.DESKTOP
@@ -32,6 +33,35 @@ const DESKTOP_CLIENT_ID = SSO_CLIENT_IDS.DESKTOP
 let lastProcessedCode: string | null = null
 
 /**
+ * 本次"在浏览器中登录"打开的 Chrome --app 窗口(CDP 端口 + 地址前缀)。
+ *
+ * 2026-10-13 立:桌面端按钮改走 open_in_chrome 后,登录闭环的最后一环是把浏览器窗关掉
+ * (用户要求"已登录直接获取并关闭浏览器")。会话由 LoginDialog 在打开窗口时记住,
+ * 本模块在换 token 成功后消费它 —— 放在换 token 侧而不是打开侧,是因为**只有换成功**
+ * 才该关窗:失败时窗留着,用户可以就地重试(比如 Chrome 外部协议弹窗没点开)。
+ * 没有会话(Chrome 不可用回退到系统默认浏览器的旧路径)⇒ 无从关起,静默跳过。
+ */
+let pendingSsoChrome: { port: number; urlPrefix: string } | null = null
+
+/** 记住刚用 open_in_chrome 打开的 SSO 登录窗,供登录成功后关闭。 */
+export function rememberSsoChromeWindow(port: number, urlPrefix: string): void {
+  pendingSsoChrome = { port, urlPrefix }
+}
+
+/** 关掉记住的 SSO 登录窗;失败(端口已掉/Chrome 已退)只记一行 warn,不冒泡。 */
+async function closeRememberedSsoChrome(): Promise<void> {
+  const session = pendingSsoChrome
+  if (!session) return
+  // 先清账再关:重复派发的 deep-link 走到这里不该再开第二次关窗请求。
+  pendingSsoChrome = null
+  try {
+    await closeChromeWindow(session.port, session.urlPrefix)
+  } catch (e) {
+    console.warn('[chrome] 关闭 SSO 登录窗失败:', e)
+  }
+}
+
+/**
  * 处理 desktop deep-link URL,完成 SSO 闭环。
  *
  * @param url deep-link URL,格式 `ihui://sso?sso_code=xxx` 或 `ihui://callback?sso_code=xxx`
@@ -41,8 +71,12 @@ export async function handleDesktopDeepLink(url: string): Promise<boolean> {
   const code = extractSsoCode(url)
   if (!code) return false
 
-  // 去重:OS 可能重复派发同一 deep-link,跳过已处理的 sso_code(2026-08-01 P1-1)
-  if (code === lastProcessedCode) return true
+  // 去重:OS 可能重复派发同一 deep-link,跳过已处理的 sso_code(2026-08-01 P1-1)。
+  // 但重复派发同样意味着"浏览器那一侧已经交付过了"——照样把窗收掉(会话已清账,幂等)。
+  if (code === lastProcessedCode) {
+    await closeRememberedSsoChrome()
+    return true
+  }
 
   const apiBase = resolveApiBaseUrl()
   const tokenData = await exchangeSsoCode(apiBase, code, DESKTOP_CLIENT_ID)
@@ -57,6 +91,8 @@ export async function handleDesktopDeepLink(url: string): Promise<boolean> {
   }
   setUser(user)
   lastProcessedCode = code
+  // 登录态已落地,收尾:关掉 Chrome --app 的 SSO 登录窗(失败只 warn,不影响登录结果)。
+  await closeRememberedSsoChrome()
   return true
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
