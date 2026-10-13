@@ -977,17 +977,131 @@ test('DS-3 量不到的模块绝不写成新鲜(2026-10-12 补的洞:此前 verd
   assert.equal(d.kind, 'measured')
   assert.equal(d.value.verdict, 'fresh')
   assert.match(d.value.modulesNotes.join(';'), /不适用/)
-  // 对照⑤:第二层存在 ⇒ 报名 modulesNested 但不判红(封顶 1 的设计)
+  // 对照⑤(2026-10-13 起改传递闭包语义):第二层不再"封顶报名未覆盖",而是递归进账 ——
+  // 旧断言(modulesNested 报名)钉的是被票 G-1080903 推翻的封顶 1 设计。二层量到且旧于进程
+  // ⇒ fresh 且 scanned=2;"二层比进程新"的那条臂在 DS-4 主臂(那里才钉"点名二层路径")。
   const e = dsJudge(
+    dsDeps(
+      { [DS_SCRIPT]: DS_OLD_MS, [DS_MODULE]: DS_OLD_MS, 'C:\\app\\deep.ps1': DS_OLD_MS },
+      { [DS_SCRIPT]: ". 'alert-dedup.ps1'\n", [DS_MODULE]: ". 'deep.ps1'\n", 'C:\\app\\deep.ps1': '# 夹具模块:叶子\n' },
+    ),
+  )
+  assert.equal(e.kind, 'measured')
+  assert.equal(e.value.verdict, 'fresh')
+  assert.equal(e.value.modulesScanned, 2, '闭包:第一层与第二层各计一次账')
+  assert.equal(e.value.modulesNested.length, 0, 'nested 随封顶 1 退役,恒空(仅为输出形状兼容保留)')
+})
+
+// ──────────────────────────────────────────────────────────────────────────────
+// 传递闭包(2026-10-13 票 G-1080903 收尾:从"深度封顶 1"扩全)。票面三组验收各成对:
+//   ① 链上任一模块(含二层)比进程新 ⇒ stale 并点名模块路径(DS-2 钉第一层,DS-4 主臂钉第二层);
+//   ② 跟不到(变量读不出 / mtime 读不到)⇒ 未判定并点名,绝不因"没解析到依赖"落 fresh(DS-5);
+//   ③ 无依赖或整链都旧 ⇒ fresh(防恒红:DS-2 反臂、DS-4 反臂、DS-5 反臂)。
+// 另钉两条工程闸:环路不死循环不重复计账、菱形只计一次账。
+// ──────────────────────────────────────────────────────────────────────────────
+const DS_DEEP = 'C:\\app\\deep.ps1'
+const DS_DEEP_LEAF = '# 夹具模块:叶子,无更深层\n'
+const dsChain = (deepMs) => [
+  { [DS_SCRIPT]: DS_OLD_MS, [DS_MODULE]: DS_OLD_MS, [DS_DEEP]: deepMs },
+  { [DS_SCRIPT]: ". 'alert-dedup.ps1'\n", [DS_MODULE]: ". 'deep.ps1'\n", [DS_DEEP]: DS_DEEP_LEAF },
+]
+
+test('DS-4 传递闭包主判据:第二层模块比进程新 ⇒ stale 并点名二层路径(封顶 1 的旧口径在这里绿着)', () => {
+  // 主臂:root → alert-dedup(第一层,旧)→ deep(第二层,比进程新 60 分钟)
+  const a = dsJudge(dsDeps(...dsChain(DS_NEW_MS)))
+  assert.equal(a.kind, 'measured')
+  assert.equal(a.value.verdict, 'stale', '藏在第二层之下的"比进程新"必须能红,否则改二层文件永远无信号')
+  assert.equal(a.value.modulesScanned, 2, '第一层与第二层各计一次账')
+  assert.deepEqual(a.value.modulesStale.map((m) => m.path), [DS_DEEP], '点名的是二层模块路径本身')
+  assert.equal(a.value.modulesStale[0].mins, 60)
+  assert.match(a.value.detail, /deep\.ps1/)
+  assert.equal(a.value.modulesUndetermined.length, 0, '主臂必须是完全量到的场景')
+  // 反臂:整条链都早于进程启动 ⇒ fresh(防"闭包有东西就红"的恒真式)
+  const b = dsJudge(dsDeps(...dsChain(DS_OLD_MS)))
+  assert.equal(b.kind, 'measured')
+  assert.equal(b.value.verdict, 'fresh')
+  assert.equal(b.value.modulesScanned, 2)
+  assert.equal(b.value.modulesStale.length, 0)
+  assert.equal(b.value.modulesUndetermined.length, 0, '反臂同样必须是完全量到的场景')
+})
+
+test('DS-4b 闭包工程闸:环路不死循环不重复计账;菱形同一模块只计一次', () => {
+  // 环:root → m → root。回边由 visited 挡住;-File 根的 mtime 账归 -File 比较那一层,模块层不重复记。
+  const cyc = dsJudge(
+    dsDeps(
+      { [DS_SCRIPT]: DS_OLD_MS, [DS_MODULE]: DS_OLD_MS },
+      { [DS_SCRIPT]: ". 'alert-dedup.ps1'\n", [DS_MODULE]: ". 'run.ps1'\n" },
+    ),
+  )
+  assert.equal(cyc.kind, 'measured')
+  assert.equal(cyc.value.verdict, 'fresh')
+  assert.equal(cyc.value.modulesScanned, 1, '回边到 -File 根不再计入模块账')
+  assert.equal(cyc.value.modulesUndetermined.length, 0)
+  // 菱形:root → {m, other},m 与 other 都 → shared ⇒ scanned=3,shared 只计一次
+  const dia = dsJudge(
+    dsDeps(
+      { [DS_SCRIPT]: DS_OLD_MS, [DS_MODULE]: DS_OLD_MS, 'C:\\app\\other.ps1': DS_OLD_MS, 'C:\\app\\shared.ps1': DS_OLD_MS },
+      {
+        [DS_SCRIPT]: ". 'alert-dedup.ps1'\n. 'other.ps1'\n",
+        [DS_MODULE]: ". 'shared.ps1'\n",
+        'C:\\app\\other.ps1': ". 'shared.ps1'\n",
+        'C:\\app\\shared.ps1': DS_DEEP_LEAF,
+      },
+    ),
+  )
+  assert.equal(dia.kind, 'measured')
+  assert.equal(dia.value.verdict, 'fresh')
+  assert.equal(dia.value.modulesScanned, 3, 'alert-dedup/other/shared 各一次,shared 被两条边指到不翻倍')
+})
+
+test('DS-5 闭包里跟不到 ⇒ 未判定并点名(票面验收②):变量目标 / 二层 mtime 读不到,绝不落 fresh', () => {
+  // ① 变量目标(deploy/win/ihui-monitor.ps1 第 136 行 `. $LockCommon` 的现读书写形态):
+  //    静态读不出落点 ⇒ 整维未判定,原书写进话(是"没量到",不是"没有依赖",更不是 fresh)
+  const a = dsJudge(
+    dsDeps(
+      { [DS_SCRIPT]: DS_OLD_MS },
+      { [DS_SCRIPT]: "$LockCommon = Join-Path $PSScriptRoot 'deploy-lock-common.ps1'\n. $LockCommon\n" },
+    ),
+  )
+  assert.equal(a.kind, 'unmeasured')
+  assert.match(a.reason, /\$LockCommon/)
+  assert.match(a.reason, /变量/)
+  // 消费侧:点名服务 —— 未判定落 unattested,在该服务行下挂"运行时代码新鲜度:…原因",不得 ok
+  const j = judgeService({
+    name: 'IHUI-MONITOR',
+    state: measured('RUNNING'),
+    application: measured(DEFAULT_APP),
+    appExists: measured('file'),
+    appDirectory: measured(DEFAULT_DIR),
+    appDirectoryExists: measured('dir'),
+    ports: measured([]),
+    probe: measured({ listening: true, ports: [] }),
+    nssmManaged: measured(true),
+    runtime: a,
+  })
+  assert.equal(j.level, 'unattested')
+  assert.equal(j.problems.length, 0, '量不到不是判红,是没判')
+  assert.match(j.blind.join(';'), /运行时代码新鲜度/)
+  assert.match(j.blind.join(';'), /\$LockCommon/)
+  // ② 第二层模块 mtime 读不到 ⇒ 未判定并点名**二层**路径(层次变深不降低"没量到"的分档)
+  const b = dsJudge(
     dsDeps(
       { [DS_SCRIPT]: DS_OLD_MS, [DS_MODULE]: DS_OLD_MS },
       { [DS_SCRIPT]: ". 'alert-dedup.ps1'\n", [DS_MODULE]: ". 'deep.ps1'\n" },
     ),
   )
-  assert.equal(e.kind, 'measured')
-  assert.equal(e.value.verdict, 'fresh')
-  assert.equal(e.value.modulesNested.length, 1)
-  assert.match(e.value.modulesNested[0], /deep\.ps1/)
+  assert.equal(b.kind, 'unmeasured')
+  assert.match(b.reason, /deep\.ps1/)
+  // 反臂:同结构但目标解析得到且量到 ⇒ fresh(证明①不是"有点号就未判定"的恒红)
+  const c = dsJudge(
+    dsDeps(
+      { [DS_SCRIPT]: DS_OLD_MS, 'C:\\app\\deploy-lock-common.ps1': DS_OLD_MS },
+      { [DS_SCRIPT]: ". 'deploy-lock-common.ps1'\n", 'C:\\app\\deploy-lock-common.ps1': DS_DEEP_LEAF },
+    ),
+  )
+  assert.equal(c.kind, 'measured')
+  assert.equal(c.value.verdict, 'fresh')
+  assert.equal(c.value.modulesUndetermined.length, 0)
 })
 
 
