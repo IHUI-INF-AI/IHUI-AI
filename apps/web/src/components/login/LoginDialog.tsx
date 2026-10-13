@@ -60,17 +60,18 @@ export function LoginDialog() {
         ? window.location.origin
         : WEB_BASE
     const ssoUrl = buildSsoLoginUrl(webBase, 'ihui://sso', SSO_CLIENT_IDS.DESKTOP)
-    // 2026-10-13(用户要求"在浏览器中登录"必须是内置浏览器):改用 Chrome --app 独立窗口打开
-    // (无地址栏/无标签,登录完成后由 Rust 端 CDP 关掉该窗口),不再拉起系统默认浏览器。
-    // openInGoogleChrome 三态:数字 = CDP 端口(记下,登录成功后关窗);null = 非桌面端已
-    // window.open 降级;字符串 = 打开失败(Chrome 未装等),回退旧路径——按钮仍可用,
-    // 只是没有"自动关窗"这一段收尾。
-    const opened = await openInGoogleChrome(ssoUrl)
-    if (typeof opened === 'number') {
-      rememberSsoChromeWindow(opened, `${webBase}/sso/login`)
-    } else if (opened !== null) {
-      console.warn('[chrome] Chrome 打开失败,回退系统默认浏览器:', opened)
-      await openExternalUrl(ssoUrl)
+    // 2026-10-13 二轮(用户反馈"弹的不是用户自己电脑的默认浏览器的真实使用窗口"):主路径改回
+    // 系统默认浏览器 —— 日常 profile、已有登录态/扩展/书签全在,登录完成后 OS 经 ihui://sso
+    // 深链派发回桌面端换 token(关弹窗链路 desktop-sso-success 不变)。登录标签页留在用户
+    // 自己的浏览器里(那是他的日常窗口,不该也不可由我们代关)。
+    // 兜底:默认浏览器打不开(openExternalUrl false,极端环境)才用 Chrome --app 隔离窗,
+    // 并记住会话以便登录成功后关窗(兜底窗没有用户日常 profile,用完即收)。
+    const opened = await openExternalUrl(ssoUrl)
+    if (opened) return
+    console.warn('[sso] 默认浏览器打开失败,兜底 Chrome --app 隔离窗')
+    const port = await openInGoogleChrome(ssoUrl)
+    if (typeof port === 'number') {
+      rememberSsoChromeWindow(port, `${webBase}/sso/login`)
     }
   }, [])
 
