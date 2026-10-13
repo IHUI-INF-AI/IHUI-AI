@@ -750,6 +750,60 @@ def list_pending_approvals() -> list[dict[str, Any]]:
     return snapshots
 
 
+def pending_approval_replays(
+    session_id: str | None, owner_user_id: str | None
+) -> list[dict[str, Any]]:
+    """D1047(机主 2026-10-10 拍板口径 A)—— 断线重连时**仍待决**审批的重放载荷。
+
+    病灶(D131 取证①,`test_d131_pending_approval_resume.py`):任务流续传语义是
+    "按游标只补锚点之后的事件",而审批帧几乎总在锚点**之前** ⇒ 断线窗口里
+    "审批已下发但用户还没点"的重连续传把弹窗丢了,且没有任何"重放仍待决条目"
+    的出口(取证当时的否证锁)。本函数就是那个出口的**取数侧**:只读快照,
+    不改登记表、不取结算名额(与 list_pending_approvals 同纪律)。
+
+    过滤两条,都取**精确相等**(与 resolve_approval_for_requester 的属主判定同判据):
+    - thread_id == session_id:D193 钉死 thread_id 就是发起流的 session_id
+      (`_request_approval` 登记处 `thread_id=self._session_id or None`),所以
+      这一条就是"只重放本会话的弹窗",不跨会话串门;
+    - owner_user_id == 调用者主体:O19 属主登记的同一根值;请求者无可证明身份
+      (None)时只能拿到属主同样为 None 的条目 —— fail-closed,与审批结算同向。
+
+    仍待决 = decision 未写入 ∧ 唤醒事件未置(已决条目重放会二次弹窗,是副作用);
+    旧 run 已死/已超时 ⇒ 条目已被 finally pop,天然不在表里,无须额外判活。
+    历史二元组形态((event, decision),无属主无展示字段)不参与,与
+    list_pending_approvals 的口径一致。
+
+    读取在 `_approval_settle_lock` 临界区内:读到的每个条目要么整体待决、要么
+    整体已结算,不存在读到半写状态的窗口。
+
+    Returns:
+        重放载荷列表(每项含 approval_id / tool_name / args_preview / created_at /
+        thread_id);调用方(agents.py 事件流)负责包上 type:"tool-approval" 帧形、
+        replay:true 标记与 sse_buffer 的 id 锚点。
+    """
+    if session_id is None:
+        return []
+    payloads: list[dict[str, Any]] = []
+    with _approval_settle_lock:
+        for approval_id, record in _approval_registry.items():
+            if not isinstance(record, _ApprovalEntry):
+                continue
+            if record.decision is not None or record.event.is_set():
+                continue
+            if record.thread_id != session_id or record.owner_user_id != owner_user_id:
+                continue
+            payloads.append(
+                {
+                    "approval_id": approval_id,
+                    "tool_name": record.tool_name,
+                    "args_preview": record.args_preview,
+                    "created_at": record.created_at,
+                    "thread_id": record.thread_id,
+                }
+            )
+    return payloads
+
+
 # 批 52(2026-09-20):工具审批持久键 + 撤销口(对标 codex-rs PERSIST_SESSION /
 # PERSIST_ALWAYS 的审批决策持久层,落盘实现见 approval_persistence.py)。
 def _tool_approval_cache_key(tool_name: str, args: dict[str, Any]) -> str:
