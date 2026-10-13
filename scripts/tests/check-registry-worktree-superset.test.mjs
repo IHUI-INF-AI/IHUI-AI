@@ -6,7 +6,15 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { copyFileSync, cpSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  copyFileSync,
+  cpSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -22,18 +30,14 @@ const GATE = join(REPO, 'scripts', GATE_NAME)
 
 const GIT = resolveGitBin() || 'git'
 const git = (args, cwd) =>
-  execFileSync(
-    GIT,
-    ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', ...args],
-    {
-      cwd: cwd || REPO,
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 120000,
-      maxBuffer: 64 * 1024 * 1024,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    },
-  )
+  execFileSync(GIT, ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', ...args], {
+    cwd: cwd || REPO,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 120000,
+    maxBuffer: 64 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
 
 /** 夹具:真仓 HEAD 的两份注册表原样落盘(positive control 删的是**真存在的条目行**)。
  *  `opts.ledger`:台账内容 —— 缺省写一份合法的 `{"entries": []}`(模拟本票落地后的仓),
@@ -109,7 +113,9 @@ test('T1 接线方向锁:未注册时源码不得声称已接线;一旦被主会
     )
     assert.ok(/本门尚未接线/.test(src), '源码必须如实写明未接线(注册由主会话单写者做)')
   } else {
-    const m = new RegExp(`script:\\s*'${GATE_NAME}'[\\s\\S]{0,400}?skipEnv:\\s*'([A-Z_]+)'`).exec(runnerHead)
+    const m = new RegExp(`script:\\s*'${GATE_NAME}'[\\s\\S]{0,400}?skipEnv:\\s*'([A-Z_]+)'`).exec(
+      runnerHead,
+    )
     assert.ok(m, '已接线则必须带 skipEnv')
     assert.ok(/mode:\s*'(blocking|advisory)'/.test(runnerHead), '已接线则必须定级')
   }
@@ -117,7 +123,10 @@ test('T1 接线方向锁:未注册时源码不得声称已接线;一旦被主会
 
 test('T2 判据形状锁:P2 用逐行等值、清单只走 HEAD 面、取材只走 face-reader', () => {
   const src = readFileSync(GATE, 'utf8')
-  assert.ok(/for \(let i = 0; i < a\.length; i\+\+\) if \(a\[i\] !== b\[i\]\) return false/.test(src), 'P2 必须逐行比,不是比行数')
+  assert.ok(
+    /for \(let i = 0; i < a\.length; i\+\+\) if \(a\[i\] !== b\[i\]\) return false/.test(src),
+    'P2 必须逐行比,不是比行数',
+  )
   assert.ok(/ls-tree[^\n]*'HEAD'/.test(src), '清单必须取自 HEAD 面')
   const fsImport = ['from ', "'node:", "fs'"].join('')
   assert.ok(!src.includes(fsImport), '本门不得自己 import node:fs 读盘(必须走 face-reader 的档)')
@@ -132,13 +141,18 @@ test('T3 构造面阳性对照(真仓 HEAD 的真条目被删)⇒ 缺省档点�
       ? 'check:percent-clamp'
       : __test__.extractPkgEntries(headPkg).order[0]
     const lines = headPkg.split(/\r?\n/)
-    const at = lines.findIndex((l) => new RegExp(`^\\s*"${entry.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"\\s*:`).test(l))
+    const at = lines.findIndex((l) =>
+      new RegExp(`^\\s*"${entry.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"\\s*:`).test(l),
+    )
     assert.ok(at > 0, `夹具里必须能定位 ${entry} 那一行`)
     lines.splice(at, 1)
     writeFileSync(join(dir, 'package.json'), lines.join('\n'), 'utf8')
     const def = runGate(dir, [])
     assert.equal(def.rc, 0, `缺省档只报数不得判红:${def.out.slice(0, 300)}`)
-    assert.ok(def.out.includes(`[P1 缺失] ${entry}`), `缺省档必须点名 ${entry}:${def.out.slice(0, 300)}`)
+    assert.ok(
+      def.out.includes(`[P1 缺失] ${entry}`),
+      `缺省档必须点名 ${entry}:${def.out.slice(0, 300)}`,
+    )
     assert.match(def.out, /档=只报数\(不判红\)/)
     git(['add', 'package.json'], dir)
     const st = runGate(dir, ['--staged'])
@@ -170,7 +184,7 @@ test('T4 runner 注册块被整块抹掉 ⇒ P1 点名该 id;仅改字段 ⇒ P2
         break
       }
     }
-    assert.ok(id, '夹具里必须有一块带 mode: \'blocking\'')
+    assert.ok(id, "夹具里必须有一块带 mode: 'blocking'")
     writeFileSync(join(dir, __test__.RUNNER_PATH), headRunner.replace(`${block}\n`, ''), 'utf8')
     const gone = runGate(dir, ['--strict'])
     assert.equal(gone.rc, 1, `--strict 必须判红:${gone.out.slice(0, 300)}`)
@@ -191,16 +205,34 @@ test('T4 runner 注册块被整块抹掉 ⇒ P1 点名该 id;仅改字段 ⇒ P2
 
 test('T5 语义等值而逐行不等 ⇒ 只落"未判定",既不算 P2 也不算通过(读 __test__ 判据)', () => {
   const { judgeFile, PKG_A, PKG_REORDER, PKG_REFLOW } = __test__
-  const j = (cand) => judgeFile({ path: 'package.json', headText: PKG_A, candText: cand, candAbsent: false, ledger: { ok: new Map(), bad: [], present: false } })
+  const j = (cand) =>
+    judgeFile({
+      path: 'package.json',
+      headText: PKG_A,
+      candText: cand,
+      candAbsent: false,
+      ledger: { ok: new Map(), bad: [], present: false },
+    })
   const re = j(PKG_REORDER)
   assert.equal(re.p1.length, 0, '纯换序不得算 P1')
   assert.equal(re.p2.length, 0, '纯换序不得算 P2')
-  assert.deepEqual(re.und.map((x) => x.entry), ['(条目顺序)'], '换序必须点名成未判定,不许静默')
+  assert.deepEqual(
+    re.und.map((x) => x.entry),
+    ['(条目顺序)'],
+    '换序必须点名成未判定,不许静默',
+  )
   const rf = j(PKG_REFLOW)
   assert.equal(rf.p2.length, 0, 'prettier 重排不得算 P2')
-  assert.ok(rf.und.some((x) => x.entry === 'check:b'), '重排那一条必须落未判定并被点名')
+  assert.ok(
+    rf.und.some((x) => x.entry === 'check:b'),
+    '重排那一条必须落未判定并被点名',
+  )
   const dirty = j(PKG_A.replace('"check:b": "node 2"', '"check:b": "node 9"'))
-  assert.deepEqual(dirty.p2.map((x) => x.entry), ['check:b'], '与上两条成对:值真改了就是 P2')
+  assert.deepEqual(
+    dirty.p2.map((x) => x.entry),
+    ['check:b'],
+    '与上两条成对:值真改了就是 P2',
+  )
 })
 
 test('T6 豁免账成对:带非空原因 ⇒ 转入豁免维仍点名;裸原因 ⇒ 照红', () => {
@@ -208,8 +240,21 @@ test('T6 豁免账成对:带非空原因 ⇒ 转入豁免维仍点名;裸原因 
   // 夹具格式跟台账本身走(2026-10-06 起为 JSON + 四必填字段),判据仍全部由门体提供。
   const led = (recs) => parseLedger(JSON.stringify({ entries: recs }))
   const base = { path: 'package.json', headText: PKG_A, candText: PKG_DROP_B, candAbsent: false }
-  const withReason = judgeFile({ ...base, ledger: led([{ path: 'package.json', entry: 'check:b', reason: 'G-1058643 有意退役', reviewBy: '2099-01-01' }]) })
-  const bare = judgeFile({ ...base, ledger: led([{ path: 'package.json', entry: 'check:b', reason: '', reviewBy: '2099-01-01' }]) })
+  const withReason = judgeFile({
+    ...base,
+    ledger: led([
+      {
+        path: 'package.json',
+        entry: 'check:b',
+        reason: 'G-1058643 有意退役',
+        reviewBy: '2099-01-01',
+      },
+    ]),
+  })
+  const bare = judgeFile({
+    ...base,
+    ledger: led([{ path: 'package.json', entry: 'check:b', reason: '', reviewBy: '2099-01-01' }]),
+  })
   const malformed = judgeFile({ ...base, ledger: led([{ path: 'package.json' }]) })
   assert.equal(withReason.p1.length, 0)
   assert.equal(withReason.exempted.length, 1, '豁免条目必须仍被点名')
@@ -269,7 +314,10 @@ test('T9 真仓现读:射程必须非空、缺省档不得在干净面上造假�
   assert.ok(r.docs.some((d) => d.path === 'package.json'))
   assert.ok(r.docs.some((d) => d.path === __test__.RUNNER_PATH))
   const runnerDoc = r.docs.find((d) => d.path === __test__.RUNNER_PATH)
-  assert.ok(runnerDoc.headEntries > 150, `runner 注册块数量级必须看得见(实得 ${runnerDoc.headEntries})`)
+  assert.ok(
+    runnerDoc.headEntries > 150,
+    `runner 注册块数量级必须看得见(实得 ${runnerDoc.headEntries})`,
+  )
   const def = runGate(REPO, [])
   assert.equal(def.rc, 0, `缺省档只报数:${def.out.slice(-300)}`)
 })
@@ -288,14 +336,28 @@ test('T10 形状锁:旧的那条 gitignored 台账路径不得回潮,新台账�
   assert.ok(!src.includes(OLD), '源码里再出现旧路径 = "换机即失明"的出口回潮')
   assert.equal(__test__.EXEMPT_LEDGER, 'scripts/data/registry-superset-exemptions.json')
   assert.ok(__test__.EXEMPT_LEDGER.startsWith('scripts/data/'), '台账必须住在受版本控制的目录')
-  assert.ok(__test__.EXEMPT_LEDGER.endsWith('.json'), '格式改成 JSON:坏一行只会整份读不出,不会"半份生效"')
+  assert.ok(
+    __test__.EXEMPT_LEDGER.endsWith('.json'),
+    '格式改成 JSON:坏一行只会整份读不出,不会"半份生效"',
+  )
   assert.deepEqual(__test__.LEDGER_FIELDS, ['path', 'entry', 'reason', 'reviewBy'])
   const raw = readFileSync(join(REPO, __test__.EXEMPT_LEDGER), 'utf8')
   const p = __test__.parseLedger(raw)
   assert.equal(p.present, true, '真仓台账文件必须存在')
   assert.equal(p.broken, null, `真仓台账必须是可解析的合法形状:${p.broken}`)
   assert.ok(Array.isArray(JSON.parse(raw).entries), '顶层 entries 必须是数组')
-  assert.equal(p.ok.size, 0, '当前真仓台账应为如实零豁免(旧路径从未落盘 ⇒ 迁移条目数 0)')
+  // 台账**条数**不是判据 —— 建门当天它是 0,那只是那一刻的状态;把它钉成 `=== 0` 会让
+  // "第一次正当登记"被判成违规(与守门 128 那条「waivers 必须等于 {}」同一个坑,那一课
+  // 已写明:要改判它真正在乎的东西)。这里真正在乎的是:**每一条都必须完整可用**。
+  assert.equal(
+    p.bad.length,
+    0,
+    `真仓台账里不得有字段缺失/日期形状错的条目:${JSON.stringify(p.bad)}`,
+  )
+  for (const [key, rec] of p.ok) {
+    assert.ok(String(rec.reason || '').trim().length > 8, `台账条目缺成句理由:${key}`)
+    assert.ok(/^\d{4}-\d{2}-\d{2}$/.test(String(rec.reviewBy)), `台账条目缺 ISO 复核日:${key}`)
+  }
   // 取版仍只走共用层:门体不得自己按磁盘 join 直读被审内容(守门 118 判 half-wired 那一型)
   assert.ok(!/readFileSync\s*\(/.test(src), '门体一律走 face-reader 的 catBatch / readWorktreeFile')
 })
@@ -306,9 +368,15 @@ test('T11 台账必须在 git ls-files 面上:未 add ⇒ 问责档判红,add �
     // ledger:null ⇒ 夹具里压根没有这份台账(模拟本票落地前 / 作者机上没 add 的状态)
     seedRegistryRepo(dir, { ledger: null })
     const listed = (d) =>
-      String(git(['ls-files', '--', __test__.EXEMPT_LEDGER], d)).split(/\r?\n/).filter(Boolean).length
+      String(git(['ls-files', '--', __test__.EXEMPT_LEDGER], d))
+        .split(/\r?\n/)
+        .filter(Boolean).length
     mkdirSync(join(dir, dirname(__test__.EXEMPT_LEDGER)), { recursive: true })
-    writeFileSync(join(dir, __test__.EXEMPT_LEDGER), JSON.stringify({ entries: [] }, null, 2), 'utf8')
+    writeFileSync(
+      join(dir, __test__.EXEMPT_LEDGER),
+      JSON.stringify({ entries: [] }, null, 2),
+      'utf8',
+    )
     assert.equal(listed(dir), 0, '臂 A 前提:台账未进索引 ⇒ git ls-files 零命中')
     const red = runGate(dir, ['--staged', '--strict'])
     assert.equal(red.rc, 1, `台账不在被审面必须判红(不得折成零豁免记绿):${red.out.slice(-320)}`)
@@ -360,7 +428,10 @@ test('T12 坏 JSON 台账 ⇒ 无法判定(exit 2),绝不静默当空台账;缺�
     const soft = runGate(dir, [])
     assert.equal(soft.rc, 0, `缺省档只报数:${soft.out.slice(-200)}`)
     assert.match(soft.out, /台账·未判定\] \(整份台账\):台账 JSON 解析失败/)
-    assert.ok(!/结论.*台账判据 0 条.*未判定 0 条/.test(soft.out), '坏 JSON 绝不可能读出"未判定 0 条"的清洁单')
+    assert.ok(
+      !/结论.*台账判据 0 条.*未判定 0 条/.test(soft.out),
+      '坏 JSON 绝不可能读出"未判定 0 条"的清洁单',
+    )
     // 与上成对:形状不对(顶层不是对象)也走 broken,而不是当成空表
     writeFileSync(join(dir, __test__.EXEMPT_LEDGER), '[1,2,3]', 'utf8')
     git(['add', __test__.EXEMPT_LEDGER], dir)
@@ -391,7 +462,10 @@ test('T13 台账四维(缺字段/过期/腐烂/不在面)全判红,路径没被�
   ])
   assert.equal(miss.defects.length, 4, JSON.stringify(miss.defects.map((x) => x.why)))
   for (const f of ['reviewBy', 'reason', 'path', 'entry'])
-    assert.ok(miss.defects.some((x) => x.why.includes(f)), `必须点名缺的字段 ${f}`)
+    assert.ok(
+      miss.defects.some((x) => x.why.includes(f)),
+      `必须点名缺的字段 ${f}`,
+    )
   assert.equal(miss.broken, null, '缺字段是红,不是"读不出"')
   // ② 过期:复核日已过 ⇒ 红,且豁免即时失效(entryLive 与判据同源)
   const exp = mk([{ path: 'package.json', entry: 'a', reason: 'r', reviewBy: '2020-01-01' }])
@@ -403,7 +477,9 @@ test('T13 台账四维(缺字段/过期/腐烂/不在面)全判红,路径没被�
   const rot = mk([{ path: 'package.json', entry: 'ghost', reason: 'r', reviewBy: '2030-01-01' }])
   assert.equal(rot.defects.length, 1)
   assert.match(rot.defects[0].why, /腐烂/)
-  const off = mk([{ path: 'apps/api/package.json', entry: 'build', reason: 'r', reviewBy: '2030-01-01' }])
+  const off = mk([
+    { path: 'apps/api/package.json', entry: 'build', reason: 'r', reviewBy: '2030-01-01' },
+  ])
   assert.equal(off.defects.length, 0, '没审到的路径不得判腐烂')
   assert.equal(off.unjudged.length, 1, '但必须落未判定并点名')
   // ④ 整份不在被审面 ⇒ 红(两种归因分开写)
@@ -416,7 +492,13 @@ test('T13 台账四维(缺字段/过期/腐烂/不在面)全判红,路径没被�
   })
   assert.equal(absent.defects.length, 1, '台账不在被审面上不是"零豁免"')
   assert.match(absent.defects[0].why, /候选面取不到台账/)
-  const deleted = judgeLedger({ ledger: parseLedger(null), p1Keys: new Set(), scopePaths: new Set(), today: '2026-10-06', presentOnBase: true })
+  const deleted = judgeLedger({
+    ledger: parseLedger(null),
+    p1Keys: new Set(),
+    scopePaths: new Set(),
+    today: '2026-10-06',
+    presentOnBase: true,
+  })
   assert.match(deleted.defects[0].why, /唯一出口删掉了/)
   // 定级:台账维只随 --strict 判红(§12e 安全网;升档前置写在门头注释里)
   assert.equal(__test__.ledgerBlocking({ face: 'worktree', strict: false }), false)
@@ -424,7 +506,21 @@ test('T13 台账四维(缺字段/过期/腐烂/不在面)全判红,路径没被�
   assert.equal(__test__.ledgerBlocking({ face: 'staged', strict: false }), false)
   const rep = (face, strict, led) =>
     __test__.report(
-      { face, strict, day: '2026-10-06', docs: [], p1: 0, p2: 0, und: 0, exempted: 0, led, ledDefects: led ? [{ key: 'k', path: 'package.json', why: '构造' }] : [], ledUnjudged: [], enumerated: 2, error: null },
+      {
+        face,
+        strict,
+        day: '2026-10-06',
+        docs: [],
+        p1: 0,
+        p2: 0,
+        und: 0,
+        exempted: 0,
+        led,
+        ledDefects: led ? [{ key: 'k', path: 'package.json', why: '构造' }] : [],
+        ledUnjudged: [],
+        enumerated: 2,
+        error: null,
+      },
       { json: true },
     )
   assert.equal(rep('worktree', false, 3), 0, '缺省档:台账判据只点名')
@@ -445,14 +541,22 @@ test('T14 过期豁免端到端:债还在 ⇒ 豁免失效并双红(台账 + P1)
     assert.ok(at > 0, `夹具里必须能定位 ${entry} 那一行`)
     lines.splice(at, 1)
     writeFileSync(join(dir, 'package.json'), lines.join('\n'), 'utf8')
-    const rec = (reviewBy) => JSON.stringify({ entries: [{ path: 'package.json', entry, reason: '构造:票面演练', reviewBy }] }, null, 2)
+    const rec = (reviewBy) =>
+      JSON.stringify(
+        { entries: [{ path: 'package.json', entry, reason: '构造:票面演练', reviewBy }] },
+        null,
+        2,
+      )
     // 臂 A:复核日已过 ⇒ ① 台账判据红(过期)② 豁免即时失效 ⇒ 那一格重新显形为 P1
     writeFileSync(join(dir, __test__.EXEMPT_LEDGER), rec('2000-01-01'), 'utf8')
     git(['add', '-A'], dir)
     const gone = runGate(dir, ['--staged', '--strict'])
     assert.equal(gone.rc, 1, `过期必须判红:${gone.out.slice(-360)}`)
     assert.match(gone.out, /复核日 .* 已过/)
-    assert.ok(gone.out.includes(`[P1 缺失] ${entry}`), `过期即失效:那一行必须重新点名:${gone.out.slice(-360)}`)
+    assert.ok(
+      gone.out.includes(`[P1 缺失] ${entry}`),
+      `过期即失效:那一行必须重新点名:${gone.out.slice(-360)}`,
+    )
     assert.match(gone.out, /台账判据 1 条/)
     // 臂 B:与 A 成对,只把复核日换成"未到期" ⇒ 豁免生效,P1 归零、台账判据归零 ⇒ 绿
     const future = new Date(Date.now() + 86400000).toISOString().slice(0, 10)
@@ -464,7 +568,15 @@ test('T14 过期豁免端到端:债还在 ⇒ 豁免失效并双红(台账 + P1)
     assert.match(live.out, /P1 缺失 0 条/)
     assert.match(live.out, /台账判据 0 条/)
     // 臂 C:与 B 成对,只把 reason 掏空 ⇒ 裸标记不生效(照红),并点名缺 reason
-    writeFileSync(join(dir, __test__.EXEMPT_LEDGER), JSON.stringify({ entries: [{ path: 'package.json', entry, reason: '   ', reviewBy: future }] }, null, 2), 'utf8')
+    writeFileSync(
+      join(dir, __test__.EXEMPT_LEDGER),
+      JSON.stringify(
+        { entries: [{ path: 'package.json', entry, reason: '   ', reviewBy: future }] },
+        null,
+        2,
+      ),
+      'utf8',
+    )
     git(['add', '-A'], dir)
     const bare = runGate(dir, ['--staged', '--strict'])
     assert.equal(bare.rc, 1, `裸原因不生效必须判红:${bare.out.slice(-320)}`)
@@ -483,7 +595,20 @@ test('T15 清单腐烂端到端:登记了却没用上 ⇒ 红;路径没进射程
     // 臂 A:干净面上登记一条"免检"⇒ 没有任何 HEAD-有-候选-无 的站点 ⇒ 腐烂
     writeFileSync(
       join(dir, __test__.EXEMPT_LEDGER),
-      JSON.stringify({ entries: [{ path: 'package.json', entry: 'check:no-such-writeback', reason: '构造:债已清仍挂账', reviewBy: future }] }, null, 2),
+      JSON.stringify(
+        {
+          entries: [
+            {
+              path: 'package.json',
+              entry: 'check:no-such-writeback',
+              reason: '构造:债已清仍挂账',
+              reviewBy: future,
+            },
+          ],
+        },
+        null,
+        2,
+      ),
       'utf8',
     )
     git(['add', '-A'], dir)
@@ -494,7 +619,20 @@ test('T15 清单腐烂端到端:登记了却没用上 ⇒ 红;路径没进射程
     // 臂 B:与 A 成对,路径换成"本轮根本没被审到"的那一枚 ⇒ 判不出腐烂 ⇒ 未判定,不判红
     writeFileSync(
       join(dir, __test__.EXEMPT_LEDGER),
-      JSON.stringify({ entries: [{ path: 'apps/api/package.json', entry: 'build', reason: '构造:射程外', reviewBy: future }] }, null, 2),
+      JSON.stringify(
+        {
+          entries: [
+            {
+              path: 'apps/api/package.json',
+              entry: 'build',
+              reason: '构造:射程外',
+              reviewBy: future,
+            },
+          ],
+        },
+        null,
+        2,
+      ),
       'utf8',
     )
     git(['add', '-A'], dir)
@@ -507,3 +645,78 @@ test('T15 清单腐烂端到端:登记了却没用上 ⇒ 红;路径没进射程
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+test('T16 P2 改写有正当出口(与 P1 共用同一份台账),登记不等于永久放行', () => {
+  const dir = mkScratch('reg192-p2-')
+  try {
+    seedRegistryRepo(dir, { ledger: JSON.stringify({ entries: [] }, null, 2) })
+    const runnerPath = join(dir, __test__.RUNNER_PATH)
+    const src = readFileSync(runnerPath, 'utf8')
+    const m = /^(\s*)script: '([^']+)',\s*$/m.exec(src)
+    assert.ok(m, '夹具 runner 里必须有一条 script 行可改')
+    // 臂 A:同一份注册表,只把一行 script 换掉,台账为空 ⇒ P2 判红
+    writeFileSync(runnerPath, src.replace(m[0], `${m[1]}script: '${m[2]}X',`), 'utf8')
+    git(['add', '-A'], dir)
+    const a = runGate(dir, ['--staged'])
+    assert.equal(a.rc, 1, `无豁免的改写必须判红:${a.out.slice(-320)}`)
+    const idM = /\[P2 改写\] ([^:]+):/.exec(a.out)
+    assert.ok(idM, `结论行必须点名被改写的条目,实得:${a.out.slice(-320)}`)
+    const entryId = idM[1]
+    assert.match(a.out, /P2 改写 1 条/)
+
+    // 臂 B:同样改写 + 台账四字段齐备且未过期 ⇒ 只豁免并逐条点名(出口不改变"改写"这一事实)
+    const future = new Date(Date.now() + 86400000).toISOString().slice(0, 10)
+    writeFileSync(
+      join(dir, __test__.EXEMPT_LEDGER),
+      JSON.stringify(
+        {
+          entries: [
+            {
+              path: __test__.RUNNER_PATH,
+              entry: entryId,
+              reason: '构造:有意编辑该门的 script 一行(测试夹具)',
+              reviewBy: future,
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    )
+    git(['add', '-A'], dir)
+    const b = runGate(dir, ['--staged'])
+    assert.equal(b.rc, 0, `有豁免的同一改写必须放行:${b.out.slice(-320)}`)
+    assert.match(b.out, /豁免 1 条/)
+    assert.match(b.out, /P2 改写 0 条/)
+    // 臂 C 与 B 成对:reason 写成空 ⇒ 该条不生效,改写重新显形(出口不得被空理由掏空)
+    writeFileSync(
+      join(dir, __test__.EXEMPT_LEDGER),
+      JSON.stringify(
+        {
+          entries: [{ path: __test__.RUNNER_PATH, entry: entryId, reason: '  ', reviewBy: future }],
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    )
+    git(['add', '-A'], dir)
+    const c = runGate(dir, ['--staged'])
+    assert.equal(c.rc, 1, `空理由不得放行:${c.out.slice(-320)}`)
+
+    // 形状锁:P1 与 P2 查的是**同一张表**,且台账路径常量只有一份(第二张表必然腐烂)
+    const gateSrc = readFileSync(GATE, 'utf8')
+    assert.ok(
+      (gateSrc.match(/ledger\.ok\.get\(/g) || []).length >= 2,
+      'P2 分支必须与 P1 共用同一次台账查询,不得另立第二份出口',
+    )
+    assert.equal(
+      (gateSrc.match(/const EXEMPT_LEDGER = /g) || []).length,
+      1,
+      '台账路径只能有一个定义',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
