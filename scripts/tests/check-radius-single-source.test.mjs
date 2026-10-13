@@ -31,6 +31,31 @@ test('守门 77 自检全通过(含真实档位表端到端对账 + TS 内嵌 CS
 })
 
 /**
+ * G-589 验收③:B6 的标识符清单与 AGENTS §4 圆角落地判据写的名单**必须同源一份** ——
+ * 各留一份名单就是第二份真相(e84602d861 扩清单时 AGENTS 行漏同步 rnRadiusFor,文档
+ * 与门体漂移了三天无人察觉,本钉让下一次漂移在装车前红)。两侧都从现读文本提取,
+ * 不在本文件里手抄名单。
+ */
+test('B6 标识符清单:门体数组与 AGENTS §4 B6 行同源一份', () => {
+  const gateSrc = readFileSync(GUARD, 'utf8')
+  const agents = readFileSync(join(ROOT, 'AGENTS.md'), 'utf8')
+  // 门体侧:B6 循环的 for-of 数组字面量(唯一一处)
+  const arrM = gateSrc.match(/for \(const name of \[('rnRadius', 'rnRadiusFor', 'RADIUS_CSS_PX')\]\)/)
+  assert.ok(arrM, '门体 B6 清单数组形状变了,请同步更新本钉的提取式')
+  const gateNames = [...arrM[1].matchAll(/'(\w+)'/g)].map((m) => m[1])
+  // 文档侧:AGENTS B6 行(标题含「B6 引用」)反引号名单 —— 只留门体名单里的词,
+  // 若文档漏写名单中任一词,集合不等即红
+  const b6Line = agents.split('\n').find((l) => l.includes('B6 引用 `rnRadius'))
+  assert.ok(b6Line, 'AGENTS §4 的 B6 行丢失')
+  const docNames = [...b6Line.matchAll(/`(\w+)`/g)].map((m) => m[1]).filter((n) => gateNames.includes(n))
+  assert.deepEqual(
+    [...new Set(docNames)].sort(),
+    [...gateNames].sort(),
+    `B6 名单漂移:门体=${gateNames.join(',')} 文档=${[...new Set(docNames)].join(',')}`,
+  )
+})
+
+/**
  * 档位表四处同源(tokens.css / radius.js / miniapp app.css / preset)由**门体的读取出口**裁定:
  * 它自己现读 packages/design-tokens 的那几份并逐档比对,本测试只证"这条判据接得上、真仓判得出"。
  * 旧写法是在测试里再拼一份 `{'--radius': …DEFAULT, '--radius-xs': …xs, …}` 档名表并自己读源文件
