@@ -62,6 +62,7 @@ import { useAgentRuntime } from '@/hooks/use-agent-runtime'
 import type { AgentPlanStepEvent } from '@/hooks/use-agent-runtime'
 import { useHoverPreview } from '@/hooks/use-hover-preview'
 import type { PlanStep, PlanStepStatus, AgentToolCall, Subagent } from '@/hooks/use-agent-progress'
+import type { AgentTaskStatus } from '@ihui/types'
 import {
   formatDuration,
   formatElapsed,
@@ -230,6 +231,12 @@ export function clampPaneAboveAffordanceRail(paneEl: HTMLElement, x: number, y: 
   paneEl.style.transform = `translate(${x}px, ${clampedY}px)`
   return clampedY
 }
+
+// ─── G-815977 SV3 对账锚 ──────────────────────────────────────────────
+// plan 步骤域(PlanStepStatus,ai 契约)与看板任务域(@ihui/types 的 AGENT_TASK_STATUSES)
+// 共享 in_progress 拼写但分属两域、不经此互转;本别名把共享拼写钉在同笔上 —— 任一侧
+// 改掉该拼写,Extract 归空、下行赋值编译期点名,不再冒出无人认领的第三种写法。
+const PLAN_IN_PROGRESS: Extract<PlanStepStatus, AgentTaskStatus> = 'in_progress'
 
 // ─── 状态图标映射(2026-09-19 v2 五态:skipped=Ban 灰 / failed=AlertCircle 红) ──
 const PLAN_ICON: Record<PlanStepStatus, React.ComponentType<{ className?: string }>> = {
@@ -406,7 +413,7 @@ const PlanStepItem = React.memo(function PlanStepItem({
             ? 'failed'
             : tool.status === 'cancelled'
               ? 'skipped'
-              : 'in_progress',
+              : PLAN_IN_PROGRESS,
       meta: tool.durationMs !== undefined ? formatDuration(tool.durationMs) : undefined,
     }))
   }, [relatedTools])

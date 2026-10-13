@@ -53,7 +53,7 @@ import {
   type TaskMessageRow,
   type TaskMessageMention,
 } from '@/lib/agent-kanban-api'
-import type { KanbanTask } from '@ihui/types'
+import type { AgentTaskStatus, AgentTurnStopReason, KanbanTask } from '@ihui/types'
 
 // ---------------------------------------------------------------------------
 // 查询 key
@@ -107,7 +107,20 @@ interface LocalAgentTaskItem {
   startedAt?: string
 }
 
-function kanbanKind(status: string): UnifiedKind {
+/**
+ * 终态档 → UI kind 投影(G-815977 收编):background(派单)/ local(workspace 任务)两源里
+ * 与回合终态封闭集(@ihui/types 的 AGENT_TURN_STOP_REASONS)同拼写的终态档在此统一投影,
+ * 键集经 satisfies 锚定 canonical —— 封闭集改名/删档在此编译期炸出,不再两函数各抄一份;
+ * 两源各自的本地档(failed/pending/running,非封闭集拼写)留在各自函数里。
+ */
+const TERMINAL_KIND_BY_STOP_REASON: Record<string, UnifiedKind | undefined> = {
+  completed: 'done',
+  cancelled: 'blocked',
+  canceled: 'blocked',
+  paused: 'blocked',
+} as const satisfies Partial<Record<AgentTurnStopReason, UnifiedKind>>
+
+function kanbanKind(status: AgentTaskStatus): UnifiedKind {
   if (status === 'in_progress') return 'running'
   if (status === 'done') return 'done'
   if (status === 'blocked') return 'blocked'
@@ -120,17 +133,17 @@ function kanbanKind(status: string): UnifiedKind {
 }
 
 function dispatchKind(status: string): UnifiedKind {
-  if (status === 'completed') return 'done'
+  const terminal = TERMINAL_KIND_BY_STOP_REASON[status]
+  if (terminal) return terminal
   if (status === 'failed') return 'error'
-  if (status === 'cancelled' || status === 'paused') return 'blocked'
   if (status === 'pending') return 'pending'
   return 'running'
 }
 
 function localKind(status: string): UnifiedKind {
-  if (status === 'completed') return 'done'
+  const terminal = TERMINAL_KIND_BY_STOP_REASON[status]
+  if (terminal) return terminal
   if (status === 'failed') return 'error'
-  if (status === 'canceled') return 'blocked'
   if (status === 'running') return 'running'
   return 'pending'
 }
