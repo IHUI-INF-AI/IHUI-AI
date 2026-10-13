@@ -411,11 +411,26 @@ def should_retry_compact_with_current_model(error: BaseException | str | None) -
     批58(十七)修正:标记匹配前把文本的 ``_``/``-``/空白一并归一——真实异常
     消息多为 ``TurnAborted``/``turn aborted``/``session budget exceeded`` 等混合
     形态,只去下划线会漏判带空格的中止/预算类错误(误判为可重试,白烧一次调用)。
+
+    G-815972(2026-10-13):宿主故障身份标记**优先**于文本匹配 —— 沿
+    ``__cause__`` 链认领到 HostTurnFault(宿主盖章,携带错误族 code)⇒ 一律
+    不可重试(换当前模型重试既不尊重宿主故障语义也不经济)。文本匹配保留为
+    兜底:宿主尚未盖章的历史路径/字符串错误仍走原判据,既有行为逐零差异。
+    标记查找自带 WeakSet 环检测与深度上限,绝不抛栈;导入失败降级纯文本
+    匹配(agent_loop_v2 不可达时 compact_with_llm 仍独立可用)。
     """
     if error is None:
         return True
     if isinstance(error, BaseException):
         if isinstance(error, (KeyboardInterrupt, asyncio.CancelledError)):
+            return False
+        try:
+            from .agent_loop_v2 import find_declared_host_fault
+
+            host_fault = find_declared_host_fault(error)
+        except Exception:  # noqa: BLE001 - 导入失败降级文本匹配,不影响判定可用性
+            host_fault = None
+        if host_fault is not None:
             return False
         text = f"{type(error).__name__} {error}"
     else:
