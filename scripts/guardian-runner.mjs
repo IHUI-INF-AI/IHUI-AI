@@ -4814,6 +4814,35 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 台账同题多号差值棘轮对账(1 项,blocking)---
+  {
+    id: '203',
+    label:
+      '🧾 台账同题多号差值棘轮:PROJECT_PLAN.md 索引面不得比 HEAD 面多出「同一件事的第二次登记」(换了个编号也算,2026-10-13 机主拍板根治)',
+    script: 'check-plan-task-duplicates.mjs',
+    args: ['--ratchet'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PLAN_DUP_TITLE',
+    stagedTriggers: ['PROJECT_PLAN.md', 'scripts/check-plan-task-duplicates.mjs', 'scripts/live-doc-edit.mjs'],
+    onFailHint: [
+      '',
+      '  ❌ 本门拦的是「同题多号」—— 同一件事在台账上挂着多个编号。复合主键(编号+题面前缀)',
+      '     换个编号即通过,所以并发取号撞车后让号重登 / union 并集回流 / 回捞复位三条路径',
+      '     每次都往台账各抄一份(立项现读单组最多 22 行),派单口径被同题灌水 ⇒「任务永远做不完」。',
+      '  💡 判据 = 标题指纹(归一化标题,剥编号/日期/〔〕注记)的**成员键计数**只许变少:',
+      '     锚点取 HEAD:PROJECT_PLAN.md,候选取索引 blob(本次提交真会带走的那一份)。',
+      '     存量组只报数不拦(判存量 = 恒红门,§12e);组内多挂一个号、新增一整组、',
+      '     同题同号再抄一份,三型都在计数维上判红(组数维对「清一组 + 新增一组」恒绿)。',
+      '  🛠 修法(择一,禁止为消红放宽判据或摘掉指纹维):',
+      '     ① 让号/重登必须**旧行同批**加〔【归并】同题多号收拢〕指针或删掉 —— 只增不删就是重复登记;',
+      '     ② 确属另一件事 ⇒ 把题面写到取不出同一个指纹(换编号不算改题);',
+      '     ③ 登记一律走 live-doc-edit 的 {{NEXT_ID}} 令牌(发号前已查同题,命中拒发),别手填号。',
+      '  📖 单复验:node scripts/check-plan-task-duplicates.mjs --self-test(18 例) / --ratchet(索引面 vs HEAD 面) / --staged --ratchet;默认档只报数,--strict 问责。',
+      '  ⚠️ 应急跳过:HUSKY_SKIP_PLAN_DUP_TITLE=1(跳过即放弃「同一件事只有一行当前状态」这条不变量,须在提交信息写明理由与清偿票)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
