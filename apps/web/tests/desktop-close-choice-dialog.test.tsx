@@ -114,6 +114,23 @@ describe('CloseChoiceDialog', () => {
     expect(resolveMock).toHaveBeenCalledTimes(1)
   })
 
+  it('打开/收口关闭询问时广播 desktop-close-ask(供顶栏抑制控件压暗)', () => {
+    let last: { open: boolean } | null = null
+    const handler = (e: Event) => {
+      last = (e as CustomEvent<{ open: boolean }>).detail
+    }
+    window.addEventListener('desktop-close-ask', handler)
+    try {
+      render(<CloseChoiceDialog />)
+      ask()
+      expect(last).toEqual({ open: true })
+      fireEvent.click(screen.getByRole('button', { name: 'settings.desktopAskHide' }))
+      expect(last).toEqual({ open: false })
+    } finally {
+      window.removeEventListener('desktop-close-ask', handler)
+    }
+  })
+
   it('关闭动作(Esc / 遮罩)也按 cancel 留下结论,不是只把窗关掉', () => {
     const { unmount } = render(<CloseChoiceDialog />)
     ask()

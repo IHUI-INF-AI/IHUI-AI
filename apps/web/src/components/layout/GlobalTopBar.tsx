@@ -225,6 +225,14 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
   // 桌面端:模态遮罩等效压暗态(按钮挂 z-max=10003 盖不住 z-modal=2000 遮罩,只能自压)
   const [modalDim, setModalDim] = React.useState<ModalDimState>(getModalDimState)
   const { active: dimActive, color: dimColor } = modalDim
+  // 桌面端:关闭询问弹窗进行中(点 × → Rust 询问"隐藏/退出/取消")。此期间抑制三按钮的
+  // 两种压暗(失焦 gray + 模态遮罩层):它本身就是窗口的焦点交互,其遮罩不该压暗触发它的控件,
+  // 否则点 × 瞬间按钮会闪一下深灰又复原(用户可见瑕疵)。CloseChoiceDialog 通过
+  // `desktop-close-ask` 事件广播开/合(事件名三处同形由 check-desktop-event-wiring.mjs 对账)。
+  const [closeAskOpen, setCloseAskOpen] = React.useState(false)
+  // 关闭询问进行中强制维持"活动 + 无模态压暗"外观;其余情况沿用原逻辑(失焦/模态两态不变)。
+  const effectiveWindowInactive = closeAskOpen ? undefined : windowFocused ? undefined : 'true'
+  const effectiveDimActive = closeAskOpen ? false : dimActive
 
   // 拖拽 + 双击最大化:实现见 lib/window-drag.ts(2026-09-21 按下即拖改造)
 
@@ -267,6 +275,13 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
       focusEventArrived = true
       setWindowFocused(focused)
     })
+    // 关闭询问开/合:与 CloseChoiceDialog 的 `desktop-close-ask` 事件对齐,询问期间
+    // 抑制三按钮压暗(见 closeAskOpen 注释)。cancel/quit/hide 三种收口都过 answer() 广播。
+    const onCloseAsk = (e: Event) => {
+      const detail = (e as CustomEvent<{ open: boolean }>).detail
+      if (detail && typeof detail.open === 'boolean') setCloseAskOpen(detail.open)
+    }
+    window.addEventListener('desktop-close-ask', onCloseAsk)
     // 事件只报"变化"不报现状,故挂载时补查一次初值;已收到事件则丢弃(避免用旧值覆盖新状态)
     void isWindowFocused().then((focused) => {
       if (!cancelled && !focusEventArrived) setWindowFocused(focused)
@@ -275,6 +290,7 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
       cancelled = true
       unsubscribeDim()
       unlistenFocus()
+      window.removeEventListener('desktop-close-ask', onCloseAsk)
     }
   }, [isDesktop])
 
@@ -750,8 +766,8 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
               // 未登录时被登录窗挡住就关不掉应用。压暗层自身 pointer-events-none 不会挡点击。
               className="relative z-max pointer-events-auto flex h-full shrink-0 items-center gap-0.5 rounded-md"
               data-window-controls
-              data-modal-dim={dimActive ? '1' : undefined}
-              data-window-inactive={windowFocused ? undefined : 'true'}
+              data-modal-dim={effectiveDimActive ? '1' : undefined}
+              data-window-inactive={effectiveWindowInactive}
             >
               {/* 模态遮罩"等效压暗"层(2026-09-22 立,同族第 3 次复发):
                   按钮容器挂 z-max=10003(必须高过 resize 抓手 z-loading=10000,否则右上角拖不动
@@ -767,7 +783,7 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
                 style={{ backgroundColor: dimColor ?? 'transparent' }}
                 className={cn(
                   'pointer-events-none absolute inset-0 rounded-md opacity-0 transition-opacity duration-(--duration-unified) ease-unified',
-                  dimActive && 'opacity-100 duration-0',
+                  effectiveDimActive && 'opacity-100 duration-0',
                 )}
               />
               <WindowControlButton
