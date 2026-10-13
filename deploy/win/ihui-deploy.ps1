@@ -269,6 +269,14 @@ $MigAlertStateFile = "$Root\deploy\win\.migrate-alert-state.json"
 # 同一失败 ⇒ 首发之后整天彻底静默(实测一次持续两天的故障只被通知过 1 次)。告警的判据应当是
 # 「故障还在发生」而不是「上次发过了」,故改为到点周期性重发;失败签名变化一律立即发。
 $FailAlertRepeatHours = 4
+# ── 夜间静默窗(2026-10-13 加):本地时间 23:00–07:30 之间,severity=warning/info 的告警
+#    只写台账(.alert-quiet-ledger.jsonl,一行一条 JSON)不寄信,severity=critical 照寄。
+#    起止可用环境变量 IHUI_ALERT_QUIET_START / IHUI_ALERT_QUIET_END 覆写(格式 HH:mm)。
+#    判定挂在 Invoke-FailNotify 派发入口、且必须排在 Test-AlertDueByIdentity 之前 ——
+#    静默不是已寄,dedupe 状态不得因静默窗顺延,恢复后同身份仍要能寄出第一次。
+$AlertQuietStart = '23:00'; if ($env:IHUI_ALERT_QUIET_START) { $AlertQuietStart = $env:IHUI_ALERT_QUIET_START }
+$AlertQuietEnd   = '07:30'; if ($env:IHUI_ALERT_QUIET_END)   { $AlertQuietEnd   = $env:IHUI_ALERT_QUIET_END }
+$AlertQuietLedgerFile = "$Root\deploy\win\.alert-quiet-ledger.jsonl"
 # 切流受阻类告警的宽限窗(分钟,2026-10-10 加)。阈值是量出来的,不是拍的:
 #   · 轮询节奏实测 ~70 秒/轮(10-10 10:56:37→11:03:06 六轮,间隔 70±6s)⇒ 15 分钟 = 13 轮
 #   · 被挡段时长分布(10-04→10-10 全日志,37 段)min 8 / p50 32 / p90 288 分钟 ⇒ 37 段里 13 段(35%)
@@ -376,8 +384,22 @@ function Send-EmailNotify {
     Log "MAIL  邮件告警发送失败:品牌与降级两条通道均未送达 $NotifyEmailTo"
     return $false
 }
+function Test-AlertQuietWindow {
+    # 夜间静默窗判定(2026-10-13 加),只在告警派发入口(Invoke-FailNotify)调用。
+    # 返回 @{ InWindow=[bool]; Note=string }。支持跨午夜窗(23:00→07:30)。
+    # 配置不可解析时一律判"不在窗内"(fail-open):配置坏了绝不能变成压告警的新手段。
+    $s = $null; $e = $null
+    try { $s = [TimeSpan]::Parse($AlertQuietStart) } catch {}
+    try { $e = [TimeSpan]::Parse($AlertQuietEnd) } catch {}
+    if ($null -eq $s -or $null -eq $e) {
+        return @{ InWindow = $false; Note = "静默窗配置不可解析(start=$AlertQuietStart end=$AlertQuietEnd),按不在窗内处理" }
+    }
+    $t = (Get-Date).TimeOfDay
+    $in = if ($s -le $e) { ($t -ge $s -and $t -lt $e) } else { ($t -ge $s -or $t -lt $e) }
+    return @{ InWindow = $in; Note = "静默窗=$AlertQuietStart-$AlertQuietEnd 当前=$($t.ToString('hh\:mm'))" }
+}
 function Invoke-FailNotify {
-    param([string]$m, [string]$Detail = '', [switch]$Stall)
+    param([string]$m, [string]$Detail = '', [switch]$Stall, [string]$Severity = 'critical')
     # 去重逻辑住在共享模块 deploy/win/alert-dedup.ps1(**按签名分槽**持久),本函数只负责发送。
     # 2026-09-28 之前的这里是"单槽"实现:状态文件只存最后一条签名,于是同一故障的两条措辞
     # ("远端分叉需人工收敛" / "有未提交文件挡住 ff")随现场交替出现时,每次交替都①被当成
@@ -399,6 +421,20 @@ function Invoke-FailNotify {
             return
         }
         Log "ALERT 切流受阻超出宽限窗,转正式告警:$($grace.Note)"
+    }
+    # 夜间静默窗(2026-10-13 加):warning/info 只写台账不寄信,critical 照寄。位置刻意在
+    # Test-AlertDueByIdentity 之前 —— dedupe 状态不能因静默窗顺延(静默不是已寄,恢复后
+    # 同身份仍要能寄出第一次);也绝不改写 $AlertNotifyStateFile 的任何时间戳。
+    if ($Severity -ne 'critical') {
+        $quiet = Test-AlertQuietWindow
+        if ($quiet.InWindow) {
+            try {
+                $rec = @{ ts = (Get-Date).ToString('o'); sig = $sig; severity = $Severity; note = '夜间静默窗内压下,未寄信' }
+                [System.IO.File]::AppendAllText($AlertQuietLedgerFile, (($rec | ConvertTo-Json -Compress) + "`r`n"), [System.Text.UTF8Encoding]::new($false))
+            } catch { Log "ALERT 夜间静默窗台账写入失败(本条告警仍被压下,按台账缺失人工核查):$_" }
+            Log "ALERT 夜间静默窗内已记台账不寄($AlertQuietEnd 后可人工核查) | 身份=$($sig)"
+            return
+        }
     }
     $due = Test-AlertDueByIdentity -Sig $sig -StateFile $AlertNotifyStateFile -RepeatHours $FailAlertRepeatHours -Stall:$Stall
     if (-not $due.Due) {
@@ -845,12 +881,33 @@ function Set-BuildCooldown {
     $sha = (& git -C $Root rev-parse HEAD 2>&1 | Out-String).Trim()
     try { Set-Content -Path $BuildCooldownFile -Value (@{ ts = (Get-Date).ToString('o'); head = $sha } | ConvertTo-Json -Compress) -NoNewline -ErrorAction SilentlyContinue } catch {}
 }
+# G-916430②:源码子树指纹 = HEAD:apps + HEAD:packages 树 hash(与 guardian-runner 的
+# computeGateFingerprint 同源)。HEAD 每 1-2 分钟被并发会话推进一次,但多为台账/文档提交
+# —— 只比"源码子树",台账提交不触碰冷却,真失败节流仍然成立;源码子树变了 ⇒ 失败根因
+# 可能已随新提交消除 ⇒ 放行本轮重试,保住 push→部署及时性(2026-09-29 实测旧口径
+# 08:06 真失败写下的冷却,08:24 HEAD 解阻后仍白拦 9 轮,用户多看 12 分钟旧版)。
+function Get-BuildSrcFingerprint {
+    param([string]$Sha)
+    if (-not $Sha) { return '' }
+    $out = (& git -C $Root rev-parse "$Sha`:apps" "$Sha`:packages" 2>$null | Out-String)
+    $parts = @($out -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^[0-9a-f]{40}$' })
+    if ($parts.Count -lt 2) { return '' }
+    return ($parts -join '/')
+}
 function Test-BuildCooldown {
     # 返回 $true 表示仍在 30 分钟冷却期内(上轮构建/门禁失败后跳过本轮重建)
+    # 判定顺序:①时间窗(原口径,不变) ②源码子树指纹 —— 与失败时记录的 head 现算
+    # 指纹对比,子树已变 ⇒ 放行。指纹任一侧取不到(异常面/浅克隆)时退回纯时间戳口径,
+    # 不把"没判成"当"判过"。
     try {
         $st = Get-Content $BuildCooldownFile -Raw -ErrorAction Stop | ConvertFrom-Json
         $ageMin = ((Get-Date) - [datetime]$st.ts).TotalMinutes
-        return ($ageMin -ge 0 -and $ageMin -lt 30)
+        if ($ageMin -lt 0 -or $ageMin -ge 30) { return $false }
+        $oldFp = Get-BuildSrcFingerprint ([string]$st.head)
+        $curHead = (& git -C $Root rev-parse HEAD 2>&1 | Out-String).Trim()
+        $curFp = Get-BuildSrcFingerprint $curHead
+        if ($oldFp -and $curFp -and $curFp -ne $oldFp) { return $false }
+        return $true
     } catch { return $false }
 }
 function Clear-BuildCooldown {
@@ -1015,6 +1072,23 @@ function Build-Web {
         Log "重建 $pkg dist ..."
         & "D:\DevEnv\tools\npm-global\pnpm.cmd" --filter $pkg run build
         if ($LASTEXITCODE -ne 0) { throw "workspace 包 $pkg dist 重建失败(exit $LASTEXITCODE)" }
+    }
+    # ── 主仓 dist 同步(2026-10-13 加,生产 checkout 解耦后补的结构性缺口):api 以 tsx
+    #    直跑**主仓**源码并 import 主仓 packages/*/dist,而上面的净面重建只喂 web build
+    #    (pnpm --filter 在净面 cwd 执行,dist 落净面)。解耦前主仓 dist 由同区的开发会话
+    #    自然保鲜;解耦后主仓 dist 无维护方 ⇒ 远端新提交改了 workspace 源码时,api 会
+    #    静默滞留旧 dist(web 新 api 旧,漂移不可见)。故净面重建后在主仓按**同一清单、
+    #    同一拓扑序**逐包重建。失败不中止部署(api 当前轮仍可跑旧 dist),但必须 WARN
+    #    点名,不允许静默漂移。
+    Push-Location $Root
+    try {
+        foreach ($pkg in @('@ihui/types','@ihui/i18n','@ihui/dom-actions','@ihui/context-compaction','@ihui/api-client','@ihui/design-tokens','@ihui/shared','@ihui/auth','@ihui/ui-react')) {
+            Log "主仓重建 $pkg dist ..."
+            & "D:\DevEnv\tools\npm-global\pnpm.cmd" --filter $pkg run build
+            if ($LASTEXITCODE -ne 0) { Log "WARN  主仓 $pkg dist 重建失败(exit $LASTEXITCODE),api 可能滞留旧 dist,需人工核查" }
+        }
+    } finally {
+        Pop-Location
     }
     # 2026-09-07 可靠性加固(实测):Tailwind v4 展开成 ~271KB 单行 CSS,Next 前端 CSS
     # 管线(lightningcss,与 Turbopack/webpack 无关)偶发在此巨行上报假性
@@ -1458,7 +1532,11 @@ function Note-MigrateFailure {
         Set-Content -Path $MigAlertStateFile -Value (@{ sig = $sig; ts = (Get-Date).ToString('o') } | ConvertTo-Json -Compress) -NoNewline
     } catch {}
     try {
-        Invoke-FailNotify -m "DB 迁移未落地(原因:$reason;仍待应用 $pendingTxt)。部署循环按设计继续发布,但生产库结构已落后代码 —— 逐文件复现办法:BEGIN;<迁移文件>;ROLLBACK(零写生产)。详见 deploy\win\deploy-loop.log 的 MIG 行"
+        # severity=warning(2026-10-13):迁移未落地但部署按设计继续,属警告级 —— 夜间静默窗
+        # 内只记台账不寄信;critical(如 fetch/切流失败)不受影响,照寄。
+        $migMsg = "DB 迁移未落地(原因:$reason;仍待应用 $pendingTxt)。部署循环按设计继续发布,但生产库结构已落后代码 —— 逐文件复现办法:BEGIN;<迁移文件>;ROLLBACK(零写生产)。详见 deploy\win\deploy-loop.log 的 MIG 行"
+        if ($script:MigRetryNote) { $migMsg = "$migMsg`n$($script:MigRetryNote)" }
+        Invoke-FailNotify -m $migMsg -Severity warning
     } catch { Log "MIG   告警推送异常: $_" }
 }
 
@@ -1542,6 +1620,7 @@ function Invoke-DbMigrate {
     }
     Push-Location "$Root\packages\database"
     try {
+        $script:MigRetryNote = ''   # 瞬时失败重试说明(2026-10-13 加),Note-MigrateFailure 读它追加到告警文案
         $migBudgetSec = Get-MigrateBudgetSec
         Log "MIG   db:migrate 硬预算=${migBudgetSec}s(env IHUI_DEPLOY_MIGRATE_TIMEOUT_SEC 可覆写;生效值以此行为准)"
         $mig = Invoke-MigrateWithBudget -BudgetSec $migBudgetSec
@@ -1566,6 +1645,29 @@ function Invoke-DbMigrate {
             Log "WARN  孤儿迁移检测无法判定(原因:${script:PendingMigrationReason})—— 不计「已核」,也不冒判有孤儿"
         }
         $outcome = Get-MigrateOutcome -MigExit ([int]$migExit) -Pending $pend -TimedOut:$migTimedOut
+        # ── 瞬时失败同轮重试(2026-10-13 加)────────────────────────────────────────
+        # 首次 FAIL(退出码≠0)后等 60 秒独立重跑一次:重试是**新的完整一次执行**,带各自的
+        # 硬预算,IHUI_DEPLOY_MIGRATE_TIMEOUT_SEC 语义不变(180s 按次计,不与首次共享、不合并)。
+        # 超时(TIMEOUT)不触发重试 —— 成败未知的场景重跑不是重试是盲跑。重试成功按正常处理;
+        # 仍失败则 $outcome 落回原 switch 走原失败路径,告警文案经 $script:MigRetryNote 追加。
+        if ($outcome -eq 'FAIL') {
+            Log "WARN  db:migrate 失败(exit $migExit),60 秒后同轮重试 1 次(独立一次新执行,疑似 PG 重启/备份窗口)"
+            Start-Sleep -Seconds 60
+            $mig = Invoke-MigrateWithBudget -BudgetSec $migBudgetSec
+            ($mig.Out) | Write-Host
+            $migExit = $mig.Exit
+            $migTimedOut = [bool]$mig.TimedOut
+            $migOut = $mig.Out
+            $pend = Get-PendingMigrationCount
+            $pendTxt = if ($null -eq $pend) { '未知' } else { "$pend 个" }
+            Log "MIG   待应用迁移=$pendTxt(重试后,journal vs drizzle.__drizzle_migrations)"
+            $outcome = Get-MigrateOutcome -MigExit ([int]$migExit) -Pending $pend -TimedOut:$migTimedOut
+            if ($outcome -eq 'OK') {
+                Ok "MIG 瞬时失败已重试成功,疑似 PG 重启/备份窗口"
+            } else {
+                $script:MigRetryNote = '已同轮重试 1 次仍失败'
+            }
+        }
         switch ($outcome) {
             'FAIL' {
                 # 2026-09-13 加固:失败必须能定位到具体迁移,而不是只报退出码
@@ -1613,8 +1715,20 @@ function Invoke-DbSeedRelayPricing {
     try {
         $seedOut = & "D:\DevEnv\tools\npm-global\pnpm.cmd" exec tsx seed/index.ts --only=13 2>&1 | Out-String
         $seedOut | Write-Host
-        if ($LASTEXITCODE -eq 0) { Ok "seed 完成(exit 0)" }
-        else { Log "WARN  seed 失败(exit $LASTEXITCODE),本轮继续但需人工核查" }
+        if ($LASTEXITCODE -eq 0) {
+            Ok "seed 完成(exit 0)"
+        } else {
+            # 瞬时失败同轮重试(2026-10-13 加):等 60 秒独立重跑一次,重试成功按正常处理;
+            # 仍失败才落回原 WARN(文案标注已重试),本轮继续但需人工核查。seed 无告警腿,只走日志。
+            $seedExit1 = $LASTEXITCODE
+            Log "WARN  seed 失败(exit $seedExit1),60 秒后同轮重试 1 次(独立一次新执行,疑似 PG 重启/备份窗口)"
+            Start-Sleep -Seconds 60
+            $seedOut2 = & "D:\DevEnv\tools\npm-global\pnpm.cmd" exec tsx seed/index.ts --only=13 2>&1 | Out-String
+            $seedOut2 | Write-Host
+            $seedExit2 = $LASTEXITCODE
+            if ($seedExit2 -eq 0) { Log "OK    seed 瞬时失败已重试成功,疑似 PG 重启/备份窗口" }
+            else { Log "WARN  seed 失败(exit $seedExit2,已同轮重试 1 次仍失败),本轮继续但需人工核查" }
+        }
     } finally { Pop-Location }
 }
 if (-not $dryrun) { Invoke-DbSeedRelayPricing }
@@ -1671,7 +1785,7 @@ if ($LASTEXITCODE -eq 0 -and -not ($fetchOut -match 'fatal:|Could not connect|RP
     }
 }
 if (-not $fetched) {
-    Fail "git fetch 全部来源失败(origin + 镜像),fetch 未成功则无法判定是否落后,本轮不部署"
+    Fail "git fetch 全部来源失败(origin + 镜像),fetch 未成功则无法判定是否落后,本轮不部署;请先检查本机 Clash 代理(127.0.0.1:7897)是否在跑,git 网络依赖它"
 }
 # 落后提交数 = 本地未含本轮远端 tip 的提交数
 # 2026-09-13 修复(实测):本机 origin/main 这个嵌套 remote-tracking ref 会被宿主吞掉、永不更新

@@ -29,6 +29,7 @@ import rehypeKatex from 'rehype-katex'
 import { useDebounce } from '@/hooks/use-debounce'
 import { cn } from '@/lib/utils'
 import { MarkdownTableBlock } from './markdown-table-toolbar'
+import { OverflowShadow } from './overflow-shadow'
 import { IconButton } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { useWorkPanelStore } from '@/stores/work-panel'
@@ -571,11 +572,14 @@ const CodeBlockImpl = function CodeBlock({
         {inlinePreview}
         <div className={codeFrameClass}>
           {codeHeader}
-          <pre ref={preRef} className={preClassName}>
-            {copyButton}
-            {collapseButton}
-            <code className="font-mono">{displayCode}</code>
-          </pre>
+          {/* G-827:横滚代码块的方向阴影线索。wrap 档无横向溢出,不套壳(避免无意义 DOM)。 */}
+          <CodeOverflowShell wrap={!!wrap}>
+            <pre ref={preRef} className={preClassName}>
+              {copyButton}
+              {collapseButton}
+              <code className="font-mono">{displayCode}</code>
+            </pre>
+          </CodeOverflowShell>
         </div>
         {runResult && <CodeRunOutput result={runResult} onClose={clearRunResult} />}
       </>
@@ -586,11 +590,13 @@ const CodeBlockImpl = function CodeBlock({
   const fallback = (
     <div className={codeFrameClass}>
       {codeHeader}
-      <pre ref={preRef} className={preClassName}>
-        {copyButton}
-        {collapseButton}
-        <code className={cn('font-mono', language && `language-${language}`)}>{displayCode}</code>
-      </pre>
+      <CodeOverflowShell wrap={!!wrap}>
+        <pre ref={preRef} className={preClassName}>
+          {copyButton}
+          {collapseButton}
+          <code className={cn('font-mono', language && `language-${language}`)}>{displayCode}</code>
+        </pre>
+      </CodeOverflowShell>
     </div>
   )
 
@@ -600,10 +606,11 @@ const CodeBlockImpl = function CodeBlock({
       <CodeBlockErrorBoundary fallback={fallback}>
         <div className={codeFrameClass}>
           {codeHeader}
-          <pre ref={preRef} className={preClassName}>
-            {copyButton}
-            {collapseButton}
-            <SyntaxHighlighter
+          <CodeOverflowShell wrap={!!wrap}>
+            <pre ref={preRef} className={preClassName}>
+              {copyButton}
+              {collapseButton}
+              <SyntaxHighlighter
               language={lang}
               style={syntaxStyle}
               showLineNumbers={!!lineNumberStyle}
@@ -619,7 +626,8 @@ const CodeBlockImpl = function CodeBlock({
             >
               {displayCode}
             </SyntaxHighlighter>
-          </pre>
+            </pre>
+          </CodeOverflowShell>
         </div>
       </CodeBlockErrorBoundary>
       {runResult && <CodeRunOutput result={runResult} onClose={clearRunResult} />}
@@ -629,6 +637,16 @@ const CodeBlockImpl = function CodeBlock({
 
 // React.memo 包裹:code/language/syntaxStyle 不变时跳过重渲染
 const CodeBlock = React.memo(CodeBlockImpl)
+
+/**
+ * G-827 代码块横滚壳:非 wrap 档(横滚)时套 OverflowShadow 出方向阴影;
+ * wrap 档无横向溢出 ⇒ 直接透传 children(不多一层 DOM,也不产生可命中的阴影节点)。
+ * 初始(未测量)时 OverflowShadow 两态皆 false ⇒ 只渲染容器、不渲染阴影,不闪跳。
+ */
+function CodeOverflowShell({ wrap, children }: { wrap: boolean; children: React.ReactNode }) {
+  if (wrap) return <>{children}</>
+  return <OverflowShadow>{children}</OverflowShadow>
+}
 
 /**
  * 主题感知包装层:在 useTheme hook 中读取 resolvedTheme,转成 syntaxStyle 注入 CodeBlock。

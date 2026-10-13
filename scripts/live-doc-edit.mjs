@@ -165,6 +165,9 @@ import {
   malformedLine,
 } from './lib/plan-task-index.mjs'
 import { collectIdFace } from './lib/plan-id-face.mjs'
+
+// 守门 194 同题查重(2026-10-13):指纹判据只此一份,取号器不另写"什么算同题"
+import { extractTaskFingerprint, findSameFingerprint } from './check-plan-task-duplicates.mjs'
 // 复合主键判据的唯一实现(台账层与归并器共用同一份;本器不得再抄一份 —— 两处算同一个键必漂移)。
 import { compositeKeyOf } from './lib/plan-task-index.mjs'
 // G-725:旁路留痕的唯一出口(键名/落点与 safe-commit 那本台账同形,不在本器里另拼 JSON)。
@@ -409,6 +412,7 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
   const leaseBounds = new Map()
   const leaseClaims = []
   const leaseNotes = []
+  const dupTitleNotes = []
   for (const f of families) {
     const used = usedIdsOfPrefix(baseContent, f)
     if (used === null) return { ok: false, reason: `no-such-family:${f}` }
@@ -441,6 +445,30 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
   }
   const got = []
   let exhaustedFamily = null
+  // 守门 194 同题查重(2026-10-13):携带取号令牌的行 = 新登记 ⇒ 发号前先按标题指纹
+  // 在底稿里查同题;命中 ⇒ 拒发号(根治"同题不同号"漂移的源头闸)。
+  // 逃生:LIVE_ID_ALLOW_DUP_TITLE=1 显式放行(留痕),用于确属同题追加执行注记的 rare 形态。
+  if (process.env.LIVE_ID_ALLOW_DUP_TITLE === '1') {
+    // 放行档也要出声:静默放行等于伪装成"查过没有同题"
+    dupTitleNotes.push('LIVE_ID_ALLOW_DUP_TITLE=1 ⇒ 本次跳过同题查重(该行输出即留痕)')
+  } else {
+    // 用无 g 的局部正则判"携带令牌",不得动 ID_TOKEN_RE 的 lastIndex(会毒化下游 matchAll)
+    const hasTokenRe = /\{\{NEXT_ID:[A-Za-z]+\}\}/
+    const newLines = lines.filter((l) => hasTokenRe.test(String(l)))
+    for (const nl of newLines) {
+      const fp = extractTaskFingerprint(String(nl))
+      if (!fp) continue
+      const hits = findSameFingerprint(baseContent, fp)
+      if (hits.length > 0) {
+        return {
+          ok: false,
+          reason: 'duplicate-title',
+          dupFingerprint: fp,
+          dupMembers: hits.map((m) => `L${m.line}(${m.selfId ?? '无号'})`).join(', '),
+        }
+      }
+    }
+  }
   const out = lines.map((l) =>
     String(l).replace(ID_TOKEN_RE, (_, raw) => {
       const f = raw.toUpperCase()
@@ -463,6 +491,7 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
     basis,
     leaseClaims,
     leaseNotes,
+    dupTitleNotes,
   }
 }
 
@@ -1091,7 +1120,18 @@ export function parseDupAllow(raw = '') {
   return m
 }
 
-/** 主键的唯一实现复用台账层那一份(`lib/plan-task-index.mjs` 的 compositeKeyOf),本器不得再抄一份。 */
+/**
+ * 主键的唯一实现复用台账层那一份(`lib/plan-task-index.mjs` 的 compositeKeyOf),本器不得再抄一份。
+ *
+ * 同题指纹那一维(2026-10-13 立)与主键维**并列**跑,不替代它:
+ *  主键 = 编号 + 题面前缀 ⇒ 同一件事换个编号即通过,而这正是台账 171 组同题多号的成因
+ *  (并发取号撞车后让号重登、合并回流、回捞复位三条路径都在往台账各抄一份)。
+ *  指纹 = 归一化标题(剥编号/日期/注记)⇒ 编号换了也认得出是同一件事。
+ *  判据住在 check-plan-task-duplicates.mjs 的 extractTaskFingerprint,本器只 import,
+ *  不另写"什么算同题"(两处算同一件事必漂移 —— 本仓记过最多次的失效型)。
+ *  与主键维同一条差值语义:只判本次带进来的行,别人历史留下的存量副本不替本次担账。
+ *  放过面与主键维一致:作者自认副本(DUP_ACK_RE)、就地改写额度、逐键声明,三者都对指纹维生效。
+ */
 export function judgeNewLineDupes({ baseLines = [], newLines = [], removedLines = [], allow = new Map() } = {}) {
   const existing = new Map()
   let openBase = 0
@@ -1116,6 +1156,21 @@ export function judgeNewLineDupes({ baseLines = [], newLines = [], removedLines 
   const undetermined = []
   const rewritten = []
   let passed = 0
+  // 指纹维的底稿索引:未勾行的归一化标题 ⇒ 首条命中行(点名锚)。编号换了也认得出是同一件事。
+  const fpIndex = new Map()
+  for (const l of baseLines) {
+    if (!OPEN_ROW_RE.test(l)) continue
+    const fp = extractTaskFingerprint(l)
+    if (fp && !fpIndex.has(fp)) fpIndex.set(fp, l)
+  }
+  // 指纹维的就地改写额度 = 被换掉的同指纹行数。**让号**(旧行删掉、新行同题换一个编号)是
+  // 台账的正当动作 —— 不给这一档等于把让号判成重复登记,本闸会当场与取号器互搏。
+  const fpQuota = new Map()
+  for (const l of removedLines) {
+    if (!OPEN_ROW_RE.test(l)) continue
+    const fp = extractTaskFingerprint(l)
+    if (fp) fpQuota.set(fp, (fpQuota.get(fp) || 0) + 1)
+  }
   for (const l of newLines) {
     if (!OPEN_ROW_RE.test(l)) continue
     const k = compositeKeyOf(l)
@@ -1126,7 +1181,30 @@ export function judgeNewLineDupes({ baseLines = [], newLines = [], removedLines 
       continue
     }
     if (!existing.has(k)) {
-      passed++
+      // 主键维通过(编号+题面都没撞),再过指纹维:同题不同号那一型靠这一格拦。
+      const fp = extractTaskFingerprint(l)
+      if (fp && fpIndex.has(fp)) {
+        if (DUP_ACK_RE.test(l)) acknowledged.push({ key: k, lineText: l.slice(0, 90) })
+        else {
+          const leftFp = fpQuota.get(fp) || 0
+          if (leftFp > 0) {
+            fpQuota.set(fp, leftFp - 1)
+            rewritten.push({ key: k, lineText: l.slice(0, 90) })
+          } else {
+            const reasonFp = allow.get(k)
+            if (reasonFp) allowed.push({ key: k, reason: reasonFp, lineText: l.slice(0, 90) })
+            else
+              blocked.push({
+                key: k,
+                lineText: l.slice(0, 90),
+                existingText: fpIndex.get(fp).slice(0, 90),
+                sameTitle: true,
+              })
+          }
+        }
+      } else passed++
+      // 同一批里两个新行同题(本批自己抄自己)也要认得出:索引随判随补。
+      if (fp && !fpIndex.has(fp)) fpIndex.set(fp, l)
       continue
     }
     if (DUP_ACK_RE.test(l)) {
@@ -1174,20 +1252,28 @@ export function dupGateReport(v) {
   if (v.blocked.length === 0 && v.passed > 0)
     lines.push({ kind: 'info', text: `✅ 新登记主键唯一性:${v.passed} 行无一与已有待办撞同题(存量待办 ${v.openBase} 行不担)` })
   if (v.blocked.length > 0) {
-    lines.push({
-      kind: 'error',
-      text: `❌ 本次要新增 ${v.blocked.length} 行「同一件事的第二次登记」(复合主键 = 编号 + 题面前缀,与台账层同一份判据)⇒ 拒绝落该行。**这才是台账只增不减的成因**:同一件事被并发各抄一份,事后判据只能标注不能删除。`,
-    })
+    const sameTitleN = v.blocked.filter((b) => b.sameTitle).length
+    const sameKeyN = v.blocked.length - sameTitleN
+    if (sameKeyN > 0)
+      lines.push({
+        kind: 'error',
+        text: `❌ 本次要新增 ${sameKeyN} 行「同一件事的第二次登记」(复合主键 = 编号 + 题面前缀,与台账层同一份判据)⇒ 拒绝落该行。**这才是台账只增不减的成因**:同一件事被并发各抄一份,事后判据只能标注不能删除。`,
+      })
+    if (sameTitleN > 0)
+      lines.push({
+        kind: 'error',
+        text: `❌ 本次要新增 ${sameTitleN} 行「同题不同号」(标题指纹与台账已有未勾行相同,但换了个编号 ⇒ 主键维放行、指纹维拦下)⇒ 拒绝落该行。**这正是台账同题多号组的成因**:并发取号撞车后让号重登 / 合并回流 / 回捞复位,每次都换新号各抄一份,复合主键(编号+题面)天然看不见。`,
+      })
     for (const b of v.blocked.slice(0, 6)) {
-      lines.push({ kind: 'error', text: `   · 主键:${b.key}` })
+      lines.push({ kind: 'error', text: `   · ${b.sameTitle ? '同题指纹撞' : '主键撞'}:${b.key}` })
       lines.push({ kind: 'error', text: `     新增行:${b.lineText}` })
       lines.push({ kind: 'error', text: `     已有行:${b.existingText}` })
     }
     lines.push({
       kind: 'error',
-      text: `   出路只有三条:① 用整行改写档(LIVE_REPLACE_FILE)就地更新**已有那一行**,不要再抄第二份;② 确属另一件事 ⇒ 把题面写到取不出同一个前缀(主键含题面,不是编号);③ 应急逐键声明 LIVE_LEDGER_DUP_OK=<主键>=<一句话原因>(无原因不算,且必须逐键,不给整片放行)。`,
+      text: `   出路只有四条:① 用整行改写档(LIVE_REPLACE_FILE)就地更新**已有那一行**,不要再抄第二份;② 确属另一件事 ⇒ 把题面写到取不出同一个指纹/前缀(不是换个编号就算);③ 让号重登必须**旧行同批删掉**(本闸给让号留了额度,删旧换新不算第二次登记),只增不删就是重复登记;④ 应急逐键声明 LIVE_LEDGER_DUP_OK=<主键>=<一句话原因>(无原因不算,且必须逐键,不给整片放行)。`,
     })
-    lines.push({ kind: 'error', text: `   **禁止**为了变绿去改本闸的判据或把主键判据换成"只看编号" —— 那会把不同议题并成一件事,归并器就敢把别人的未完成任务翻成已完成。` })
+    lines.push({ kind: 'error', text: `   **禁止**为了变绿去改本闸的判据、把主键判据换成"只看编号"、或摘掉同题指纹维 —— 那会把不同议题并成一件事(或让同题多号继续灌水派单口径),归并器就敢把别人的未完成任务翻成已完成。` })
   }
   return lines
 }
@@ -1256,6 +1342,15 @@ async function main() {
     const remote = families.length ? readRemoteIdBasis({ root, doc, families }) : null
     const tok = resolveIdTokens(targetLines, baseContent, remote, { machineId })
     if (!tok.ok) {
+      if (tok.reason === 'duplicate-title') {
+        console.error(
+          `❌ 守门 194 同题多号拒发号:新登记行的标题指纹与既有行同题 ⇒ 拒绝落地。` +
+            `既有登记:${tok.dupMembers}。请改用 live-doc-edit REPLACE 在既有行上追加执行注记,` +
+            `不要另起新号(根治"同题不同号"漂移,2026-10-13 立)。` +
+            `确属同题补注记且必须走令牌的 rare 形态:LIVE_ID_ALLOW_DUP_TITLE=1 显式放行(留痕)。`,
+        )
+        process.exit(2)
+      }
       if (String(tok.reason).startsWith('lease-exhausted-mid-edit:')) {
         console.error(
           `❌ 千段租约段内容量不足(${tok.reason})⇒ 拒绝落地:单次编辑的取号令牌数超过了段容量(1000),` +
@@ -1277,6 +1372,7 @@ async function main() {
     for (const b of tok.basis ?? []) console.log(describeIdBasis(b, remote))
     // 租约读数逐条交出:段内连号还是新占段、段界在哪,报告必须能对上"号为什么是这一个"。
     for (const n of tok.leaseNotes ?? []) console.log(`ℹ ${n}`)
+    for (const n of tok.dupTitleNotes ?? []) console.log(`⚠️ 守门194:${n}`)
     {
       const gate = idBasisGate({
         families,
@@ -1551,6 +1647,9 @@ export const __test__ = {
   parseDupAllow,
   judgeNewLineDupes,
   dupGateReport,
+  // 同题指纹维:判据从权威门(check-plan-task-duplicates.mjs)经本器 import 后转出,
+  // 镜像测试据此断言"两处算同一件事必漂移"的禁令(§22c),不得自抄第二份。
+  extractTaskFingerprint,
   OPEN_ROW_RE,
   DUP_ACK_RE,
   // G-1079146 取值档:判据全部从这里出去(镜像测试禁止再抄一份,§22c)。
