@@ -29,6 +29,7 @@ import {
   checkinCaptureWorkbuddy,
   checkinWorkbuddyWebLoginOpen,
   checkinWorkbuddyWebLoginProbe,
+  checkinWorkbuddyWebLoginClose,
   checkinOneClickReset,
   checkinGetPublicIp,
   checkinSnapshotList,
@@ -149,8 +150,9 @@ vi.mock('@/lib/tauri-bridge', () => ({
   checkinCaptureJwts: vi.fn(async () => []),
   checkinCaptureQoder: vi.fn(async () => []),
   checkinCaptureWorkbuddy: vi.fn(async () => []),
-  checkinWorkbuddyWebLoginOpen: vi.fn(async () => undefined),
-  checkinWorkbuddyWebLoginProbe: vi.fn(async () => ({ status: 'no_window' }) as never),
+    checkinWorkbuddyWebLoginOpen: vi.fn(async () => undefined),
+    checkinWorkbuddyWebLoginProbe: vi.fn(async () => ({ status: 'no_window' }) as never),
+    checkinWorkbuddyWebLoginClose: vi.fn(async () => undefined),
   checkinResetDeviceIds: vi.fn(),
   checkinOneClickReset: vi.fn(),
   checkinGetPublicIp: vi.fn(),
@@ -1041,6 +1043,33 @@ describe('Qoder 平台化(2026-10-10)', () => {
       ),
     )
     expect(createAccount).not.toHaveBeenCalled()
+  })
+
+  it('WorkBuddy 网页登录:白屏等待中可取消(停轮询+关窗+复位,不入库)', async () => {
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    vi.mocked(checkinWorkbuddyWebLoginOpen).mockResolvedValue(undefined)
+    // 白屏:窗口活着但 SPA 资源没加载出来 ⇒ probe 永远 no_cookie(2026-10-13 死锁场景)
+    vi.mocked(checkinWorkbuddyWebLoginProbe).mockResolvedValue({ status: 'no_cookie' })
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('captureWbButton'))
+    fireEvent.click(screen.getByText('captureWbWebOpen'))
+    // waiting 态:打开按钮换成取消按钮(修复前这里 disabled 且无取消出口)
+    await waitFor(() => expect(screen.getByText('captureWbWebCancel')).toBeTruthy())
+    fireEvent.click(screen.getByText('captureWbWebCancel'))
+    // 取消 ⇒ Rust 侧 close 命令被调 + 提示已取消 + 打开按钮恢复(可重开)
+    await waitFor(() => expect(checkinWorkbuddyWebLoginClose).toHaveBeenCalledTimes(1))
+    await waitFor(() =>
+      expect(screen.getByTestId('wb-web-login-msg').textContent).toContain(
+        'captureWbWebCancelled',
+      ),
+    )
+    expect(screen.getByText('captureWbWebOpen')).toBeTruthy()
+    expect(createAccount).not.toHaveBeenCalled()
+    // 轮询已停:cancel 之后 probe 调用计数不再增长
+    const callsAfterCancel = vi.mocked(checkinWorkbuddyWebLoginProbe).mock.calls.length
+    await new Promise((r) => setTimeout(r, 300))
+    expect(vi.mocked(checkinWorkbuddyWebLoginProbe).mock.calls.length).toBe(callsAfterCancel)
   })
 
   it('WorkBuddy 平台筛选与徽章', async () => {

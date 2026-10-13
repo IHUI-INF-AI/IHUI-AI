@@ -63,6 +63,7 @@ fn main() {
             "checkin_capture_workbuddy",
             "checkin_workbuddy_web_login_open",
             "checkin_workbuddy_web_login_probe",
+            "checkin_workbuddy_web_login_close",
             "checkin_reset_device_ids",
             "checkin_get_public_ip",
             "checkin_one_click_reset",
