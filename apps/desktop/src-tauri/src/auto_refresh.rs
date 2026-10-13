@@ -425,6 +425,29 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
                 }
             } else {
                 consecutive_fails = 0;
+                // ── webview 落点自愈(2026-10-13 实测立,用户反馈"登录按钮又没反应")──
+                // reqwest 探活与 WebView2 网络栈是两条路:探活成功 ≠ 页面加载成功。
+                // 本机 CDP 实测:webview 导航 aizhs.top 三分之二概率 net::ERR_CONNECTION_CLOSED,
+                // 页面落到 chrome-error://chromewebdata/ —— 此时 Tauri IPC 以
+                // "Origin header is not a valid URL" 拒绝**一切** invoke,页面所有按钮
+                // 静默无反应(用户感知即"在浏览器中登录点了没反应"),而壳因探活成功
+                // 恒在线态、既不切离线页也无任何提示。每轮探活成功后校验 webview
+                // 实际落点,落在错误页即自动重导航回线上前端。
+                if let Some(w) = app.get_webview_window("main") {
+                    if let Ok(cur) = w.url() {
+                        if cur.as_str().starts_with("chrome-error://") {
+                            log::warn!(
+                                "[auto-refresh] webview 落在错误页({cur})但探活在环 → 自动重导航回线上"
+                            );
+                            // 导航前复位深链闸门(调用点对账见 lib.rs 测试)
+                            crate::reset_deep_link_gate_for_navigation("main");
+                            // G-379,2026-10-07:导航前过存草稿闸
+                            emit_before_close_for_navigation(&w).await;
+                            let _ = w.eval(&format!("location.href={}", js_string(FRONTEND_URL)));
+                            let _ = w.set_title(&crate::localized_app_name());
+                        }
+                    }
+                }
                 if should_recover(offline, now_healthy) {
                     offline = false;
                     log::info!("[auto-refresh] 连接恢复 → 返回线上前端");
