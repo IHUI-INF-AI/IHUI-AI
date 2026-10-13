@@ -5174,6 +5174,14 @@ const checks = [
       '',
     ].join('\n'),
   },
+  {
+    id: '13d',
+    label: '🚫 PROJECT_PLAN.md 重复登记副本指针棘轮',
+    script: 'check-plan-dup-pointer-ratchet.mjs',
+    args: [],
+    mode: 'blocking',
+    // 2026-10-13 立(用户指令"彻底根治"):存量指针注记已由 scripts/plan-pointer-purge.mjs --apply 一次性清偿并对象空间落地(715d495a9b5)。差值棘轮(同门 130 F7/F8):只拦"本次提交让登记行注记变多",存量不担责 —— 与提交内容无关的恒红门只会逼人 --no-verify 连带废掉全部守门(§12e)。
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
