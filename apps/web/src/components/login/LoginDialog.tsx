@@ -11,6 +11,7 @@ import { Button, Dialog, DialogContent, DialogTitle, DialogDescription } from '@
 import { useTranslations } from 'next-intl'
 import { ExternalLink } from 'lucide-react'
 import { useLoginDialogStore } from '@/stores/login-dialog'
+import { toast } from 'sonner'
 import { AuthShell } from '@/components/auth/AuthShell'
 import { resolveSafeRedirectTarget } from '@/lib/sso-redirect-guard'
 import { openExternalUrl, openInGoogleChrome } from '@/lib/tauri-bridge'
@@ -101,10 +102,16 @@ export function LoginDialog() {
   // (用户感知正是"点了没反应")。落点与表单登录成功同一条 handleLoginSuccess:
   // 关弹窗 + 有 redirectUrl 时按同一把判据跳转;弹窗没开过时 close 是 no-op、redirectUrl 为 null。
   React.useEffect(() => {
-    const onSuccess = () => handleLoginSuccess()
+    const onSuccess = () => {
+      // 2026-10-13(用户实测反馈"登录上后没有任何已登录成功的提示"):深链换 token 成功后
+      // 弹窗只是静默关闭,主页面.auth store 虽已同步但无任何可见反馈。全局常驻 LoginDialog
+      // (root layout)的监听里补一声成功 toast,闭环有了"落地音"。
+      toast.success(t('desktopSsoSuccess'))
+      handleLoginSuccess()
+    }
     window.addEventListener('desktop-sso-success', onSuccess)
     return () => window.removeEventListener('desktop-sso-success', onSuccess)
-  }, [handleLoginSuccess])
+  }, [handleLoginSuccess, t])
 
   const title =
     mode === 'login'
