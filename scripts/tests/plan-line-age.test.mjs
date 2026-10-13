@@ -96,6 +96,44 @@ test('(a) CLI --limit --json:exit 0 + stderr 点名 + stdout 仍是可 parse 的
   }
 })
 
+// ─── (a2) 紧邻旗标被顶值那一支:--staged 早退档也不得绕过点名(G-322 收口复核 2026-10-13) ───
+// 事故形态:`--limit --staged`(runner 尾部常追加 --staged)原先命中 main() 的 staged 早退分支,
+// resolveLimit 根本没跑 ⇒ 无效值静默按默认走、stderr 一个字没有。反例断言点名,放行臂断言
+// 合法值在同档不多打一行(不误伤)。
+test('(a2) CLI --limit --staged:早退档仍点名无效值;--limit 5 --staged 合法值不多打一行(反例+放行成对)', () => {
+  const dir = mkScratch('ihui-plan-line-age-staged-')
+  try {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    const bad = spawnSync('node', [SCRIPT_PATH, '--limit', '--staged'], {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      timeout: 300_000,
+    })
+    assert.equal(bad.status, 0, `退回默认档不该改退出码,实际 ${bad.status}`)
+    assert.match(
+      bad.stderr,
+      /忽略无效的 --limit 值: "--staged"/,
+      `紧邻被顶值的那一支必须点名实得 token,不得静默:${bad.stderr}`,
+    )
+    assert.match(bad.stdout, /索引面没有历史可追溯/, 'staged 档既有语义一字未动(只补点名)')
+
+    const ok = spawnSync('node', [SCRIPT_PATH, '--limit', '5', '--staged'], {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      timeout: 300_000,
+    })
+    assert.equal(ok.status, 0, `放行臂不该被误伤,实际 ${ok.status}`)
+    assert.equal(ok.stderr.trim(), '', `合法值在同档不得多打一行:${ok.stderr}`)
+    assert.match(ok.stdout, /索引面没有历史可追溯/, '放行臂 staged 语义同样不变')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
 // ─── (c) 源码形状锁 ───
 test('(c) 形状锁:--limit 取值必须走 resolveLimit,裸 Number(argv[indexOf+1]) 不得回来', () => {
   const src = fs.readFileSync(SCRIPT_PATH, 'utf8')
