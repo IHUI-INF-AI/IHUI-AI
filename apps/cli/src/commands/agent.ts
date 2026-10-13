@@ -1445,6 +1445,11 @@ export async function decideCompaction(
   },
 ): Promise<CompressionResult> {
   const v2Config = settings.compactionV2;
+  // G-815992 层1(尝试上限):压缩侧有界性的 Auto/非 Auto 分档 —— 自动触发沿用 V2
+  // 内建重试帽(DEFAULT_MAX_ATTEMPTS=3,对齐上游 AUTO_COMPACT_MAX_ATTEMPTS=3);
+  // 非 Auto 触发(手动 /compact 的 triggerRatioOverride 路径)只许 1 次 —— 手动压缩
+  // 用户在场,瞬态失败直接走 V1 兜底比静默重试 3 次更合适。
+  const isManualTrigger = opts.triggerRatioOverride !== null && opts.triggerRatioOverride !== undefined;
   // P2:走到最后的 V1 兜底有两种语义 —— "V2 没开"与"V2 抛了",闭集 reason 必须分清,
   // 否则消费面读到 disabled 会以为没人尝试过摘要。
   let v2AttemptFailed = false;
@@ -1484,6 +1489,8 @@ export async function decideCompaction(
         triggerRatio: opts.triggerRatioOverride ?? v2Config.triggerRatio,
         targetRatio: v2Config.targetRatio,
         samplingTimeoutMs: v2Config.samplingTimeoutMs,
+        // G-815992 层1:非 Auto 触发只 1 次(不透传时 V2 走内建默认 3 次,即 Auto 档)
+        ...(isManualTrigger ? { maxAttempts: 1 as const } : {}),
         sampler,
         observer,
         cachedSummary,
