@@ -8,6 +8,10 @@
  * 票面要件:send-message 增可选投递档位(role);与连接角色不合的请求返回
  * **明确的 no-op 结果**(sent=0 + gatedRole 计数,HTTP 200),不抛错、不断开;
  * 缺省(不传 role)= 既有语义。
+ *
+ * G-1080905:帧类别改由服务端按 `broadcastEventClassOf(event)` 推导 ——
+ * 调用方自报的 role 只许在事件名推导不出类别时作收窄提示;自报与 event
+ * 矛盾或自报 'all' 想放宽 ⇒ 一律以服务端推导为准。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Fastify from 'fastify'
@@ -23,6 +27,7 @@ import { publicSocketRoutes, _publicSocketInternal } from '../src/routes/public-
 
 const U_ALL = 'bbbbbbbb-1111-4111-8111-111111111111'
 const U_MCP = 'cccccccc-1111-4111-8111-111111111111'
+const U_CONV = 'eeeeeeee-1111-4111-8111-111111111111'
 
 async function buildApp() {
   const app = Fastify()
@@ -37,6 +42,7 @@ describe('L9242 public-socket 投递档位与连接角色', () => {
     _publicSocketInternal.eventHistory.length = 0
     _publicSocketInternal.registerConnection(U_ALL, '127.0.0.1')
     _publicSocketInternal.registerConnection(U_MCP, '127.0.0.1', 'mcp')
+    _publicSocketInternal.registerConnection(U_CONV, '127.0.0.1', 'conversation')
   })
 
   it('① 正向:档位与角色合面 ⇒ 照常投递(sentCount 递增)', async () => {
@@ -73,7 +79,7 @@ describe('L9242 public-socket 投递档位与连接角色', () => {
     await app.close()
   })
 
-  it('③ 缺省(不传 role)= 既有语义:mcp 角色连接照收任意事件', async () => {
+  it('③ 缺省(不传 role)不再等于不门控:帧类别按事件名推导,mcp 连接对 conversation:updated 是 no-op(G-1080905 改口径:缺省也压不过事件名)', async () => {
     const app = await buildApp()
     const res = await app.inject({
       method: 'POST',
@@ -81,7 +87,9 @@ describe('L9242 public-socket 投递档位与连接角色', () => {
       payload: { userId: U_MCP, event: 'conversation:updated', data: {} },
     })
     expect(res.statusCode).toBe(200)
-    expect(res.json().data).toMatchObject({ sent: 1, total: 1, gatedRole: 0 })
+    expect(res.json().data).toMatchObject({ sent: 0, total: 1, gatedRole: 1 })
+    // no-op 语义不破:连接保留、不抛错
+    expect(_publicSocketInternal.activeConnections.get(U_MCP)).toHaveLength(1)
     await app.close()
   })
 
@@ -102,7 +110,12 @@ describe('L9242 public-socket 投递档位与连接角色', () => {
     const reg = await app.inject({
       method: 'POST',
       url: '/public-socket/register',
-      payload: { userId: 'dddddddd-1111-4111-8111-111111111111', modelId: 'm', chatId: 'c', role: 'mcp' },
+      payload: {
+        userId: 'dddddddd-1111-4111-8111-111111111111',
+        modelId: 'm',
+        chatId: 'c',
+        role: 'mcp',
+      },
     })
     expect(reg.statusCode).toBe(201)
     const list = await app.inject({
@@ -110,6 +123,91 @@ describe('L9242 public-socket 投递档位与连接角色', () => {
       url: '/public-socket/connections?userId=dddddddd-1111-4111-8111-111111111111',
     })
     expect(list.json().data.list[0]?.role).toBe('mcp')
+    await app.close()
+  })
+})
+
+/**
+ * G-1080905 成对测试:调用方自报档位与 event 矛盾 ⇒ **以服务端推导为准**。
+ * (把服务端推导摘回"信调用方"时,⑥⑦⑧ 必红 —— 变异自证见票面报告。)
+ */
+describe('G-1080905 帧类别由服务端按事件名推导,自报只许收窄不许放宽', () => {
+  beforeEach(() => {
+    _publicSocketInternal.activeConnections.clear()
+    _publicSocketInternal.eventHistory.length = 0
+    _publicSocketInternal.registerConnection(U_MCP, '127.0.0.1', 'mcp')
+    _publicSocketInternal.registerConnection(U_CONV, '127.0.0.1', 'conversation')
+  })
+
+  it('⑥ 矛盾自报:conversation:updated 谎报 role=mcp ⇒ 按 conversation 门控(mcp 连接 no-op、conversation 连接收)', async () => {
+    const app = await buildApp()
+    // 谎报 mcp 档 —— 不得让 mcp 连接收到 conversation 帧(信调用方时这里会 delivered)
+    const toMcp = await app.inject({
+      method: 'POST',
+      url: '/public-socket/send-message',
+      payload: { userId: U_MCP, event: 'conversation:updated', data: {}, role: 'mcp' },
+    })
+    expect(toMcp.statusCode).toBe(200)
+    expect(toMcp.json().data).toMatchObject({ sent: 0, total: 1, gatedRole: 1 })
+    // 同一帧的合面连接照收(no-op 只作用于不合面连接)
+    const toConv = await app.inject({
+      method: 'POST',
+      url: '/public-socket/send-message',
+      payload: { userId: U_CONV, event: 'conversation:updated', data: {}, role: 'mcp' },
+    })
+    expect(toConv.statusCode).toBe(200)
+    expect(toConv.json().data).toMatchObject({ sent: 1, total: 1, gatedRole: 0 })
+    await app.close()
+  })
+
+  it('⑦ 放宽自报 role=all:mcp:status 声明 all 想不门控 ⇒ 仍按 mcp 门控(conversation 连接 no-op)', async () => {
+    const app = await buildApp()
+    const toConv = await app.inject({
+      method: 'POST',
+      url: '/public-socket/send-message',
+      payload: { userId: U_CONV, event: 'mcp:status', data: {}, role: 'all' },
+    })
+    expect(toConv.statusCode).toBe(200)
+    expect(toConv.json().data).toMatchObject({ sent: 0, total: 1, gatedRole: 1 })
+    // 合面连接照收
+    const toMcp = await app.inject({
+      method: 'POST',
+      url: '/public-socket/send-message',
+      payload: { userId: U_MCP, event: 'mcp:status', data: {}, role: 'all' },
+    })
+    expect(toMcp.statusCode).toBe(200)
+    expect(toMcp.json().data).toMatchObject({ sent: 1, total: 1, gatedRole: 0 })
+    await app.close()
+  })
+
+  it('⑧ 收窄允许:事件名推导不出类别时,自报 role 作收窄提示生效(ops:custom 报 mcp ⇒ conversation 连接 no-op)', async () => {
+    const app = await buildApp()
+    const toConv = await app.inject({
+      method: 'POST',
+      url: '/public-socket/send-message',
+      payload: { userId: U_CONV, event: 'ops:custom', data: {}, role: 'mcp' },
+    })
+    expect(toConv.statusCode).toBe(200)
+    expect(toConv.json().data).toMatchObject({ sent: 0, total: 1, gatedRole: 1 })
+    const toMcp = await app.inject({
+      method: 'POST',
+      url: '/public-socket/send-message',
+      payload: { userId: U_MCP, event: 'ops:custom', data: {}, role: 'mcp' },
+    })
+    expect(toMcp.statusCode).toBe(200)
+    expect(toMcp.json().data).toMatchObject({ sent: 1, total: 1, gatedRole: 0 })
+    await app.close()
+  })
+
+  it('⑨ 推导不出且缺省自报 ⇒ 既有语义:不门控', async () => {
+    const app = await buildApp()
+    const res = await app.inject({
+      method: 'POST',
+      url: '/public-socket/send-message',
+      payload: { userId: U_MCP, event: 'ops:custom', data: {} },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data).toMatchObject({ sent: 1, total: 1, gatedRole: 0 })
     await app.close()
   })
 })

@@ -27,7 +27,7 @@
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import type { BroadcastConnectionRole } from '../plugins/ws-broadcast.js'
+import { broadcastEventClassOf, type BroadcastConnectionRole } from '../plugins/ws-broadcast.js'
 import { success, error } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
 import { isSystemAdminUser } from '../db/queries.js'
@@ -93,8 +93,10 @@ const sendMessageSchema = z.object({
   data: z.unknown().optional(),
   compositeKey: z.string().optional(),
   /**
-   * L9242 可选投递档位:声明本帧的事件类别。与连接角色不合的连接对该帧是 no-op
-   * (计入 gatedRole,不报错、不断开)。缺省/填 'all' = 不按角色门控(既有语义)。
+   * G-1080905 可选投递档位:仅在事件名推导不出类别(无 conversation:/mcp: 前缀)时
+   * 作为**收窄**提示生效 —— 帧类别本身由服务端按 `broadcastEventClassOf(event)` 推导,
+   * 自报与事件名矛盾或自报 'all'(想不门控)一律以服务端推导为准:自报只许收窄、不许放宽。
+   * 与连接角色不合的连接对该帧是 no-op(计入 gatedRole,不报错、不断开)。
    */
   role: z.enum(['all', 'conversation', 'mcp']).optional(),
 })
@@ -111,7 +113,11 @@ const registerSchema = z.object({
   modelId: z.string().min(1),
   chatId: z.string().min(1),
   remoteAddress: z.string().optional(),
-  /** L9242 连接角色(订阅档位),缺省 'all' 维持既有语义 */
+  /**
+   * L9242 连接角色(订阅档位),缺省 'all' 维持既有语义。
+   * G-1080905:本字段应改为按**连接来源**推导,但 register 请求可得的信号只有
+   * admin JWT(claims 无平台/来源位),仓内亦无"连接来源"类型 ⇒ 本票未落,缺信号。
+   */
   role: z.enum(['all', 'conversation', 'mcp']).default('all'),
 })
 
@@ -210,23 +216,23 @@ export const publicSocketRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { userId, event, data, compositeKey, role } = parsed.data
+    // G-1080905:帧类别是事件的属性,由服务端按事件名推导,不采信调用方自报。
+    // 自报 role 只在推导不出(无 conversation:/mcp: 前缀)时作收窄提示;
+    // 可推导时自报的 'all'/矛盾值一律被覆盖 ⇒ 自报只许收窄、不许放宽。
+    const derivedClass = broadcastEventClassOf(event)
+    const frameClass = derivedClass ?? (role !== undefined && role !== 'all' ? role : null)
     const conns = activeConnections.get(userId) ?? []
     if (conns.length === 0) {
       pushEvent({ event, userId, compositeKey, payload: data, status: 'skipped' })
       return reply.send(success({ sent: 0, skipped: true, reason: 'userId 无活跃连接' }))
     }
     let sent = 0
-    // L9242:投递档位与连接角色不合 ⇒ 对该连接 no-op(计数、跳过,不报错、不断开)
+    // 门控与连接角色不合 ⇒ 对该连接 no-op(计数、跳过,不报错、不断开)
     let gatedRole = 0
     for (const c of conns) {
       if (compositeKey && c.compositeKey && c.compositeKey !== compositeKey) continue
       // 'all' 角色的连接(缺省)不被门控 —— 收窄只作用于显式声明了档位的连接
-      if (
-        role !== undefined &&
-        role !== 'all' &&
-        c.role !== 'all' &&
-        c.role !== role
-      ) {
+      if (frameClass !== null && c.role !== 'all' && c.role !== frameClass) {
         gatedRole += 1
         continue
       }
