@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { writeFileSync, mkdirSync, copyFileSync } from 'node:fs'
+import { writeFileSync, mkdirSync, copyFileSync, readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
@@ -293,5 +293,40 @@ test('判据直连: gate.isTargetExt 覆盖 ts/tsx/mjs/js/cjs,py 不在范围', 
     assert.equal(gate.isTargetExt(f), true, `${f} 应为目标扩展名`)
   }
   assert.equal(gate.isTargetExt('apps/api/main.py'), false)
+})
+
+// ─── 6. G-1080907 成对用例:真实 safe-gc.test.mjs 的"有抑制⇒红 / 无抑制⇒绿" ───
+// 修法①(删 `// @ts-nocheck` 并过 tsc)的两态锁:fixture 取自**真实**文件,
+// 谁把它重新加回压制注释,"无抑制⇒绿"这半边当场红;光有"有抑制⇒红"半边
+// 只能证明门有牙,证明不了病灶没回来。
+const SAFE_GC_REAL_PATH = join(__dirname, 'safe-gc.test.mjs')
+
+test('成对(有抑制⇒红): 真实 safe-gc.test.mjs 插回 // @ts-nocheck → exit 1 并点名 L1', () => {
+  const dir = createTempRepo()
+  try {
+    const mutated = '// @ts-nocheck\n' + readFileSync(SAFE_GC_REAL_PATH, 'utf8')
+    stageFile(dir, 'scripts/tests/safe-gc.test.mjs', mutated)
+    const r = runScript(dir, ['--staged'])
+    assert.equal(r.status, 1, `插回压制注释应 exit 1\nstdout: ${r.out}`)
+    assert.match(r.out, /scripts\/tests\/safe-gc\.test\.mjs/)
+    assert.match(r.out, /L1:.*@ts-nocheck/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('成对(无抑制⇒绿): 真实 safe-gc.test.mjs 原文 → exit 0(判据逐行取门体 TS_IGNORE_REGEX)', () => {
+  const dir = createTempRepo()
+  try {
+    const real = readFileSync(SAFE_GC_REAL_PATH, 'utf8')
+    const hits = real.split(/\r?\n/).filter((l) => gate.TS_IGNORE_REGEX.test(l))
+    assert.deepEqual(hits, [], `safe-gc.test.mjs 不得含压制性注释(G-1080907 病灶),实得 ${JSON.stringify(hits)}`)
+    stageFile(dir, 'scripts/tests/safe-gc.test.mjs', real)
+    const r = runScript(dir, ['--staged'])
+    assert.equal(r.status, 0, `真实文件(无抑制)被 stage 应 exit 0\nstdout: ${r.out}`)
+    assert.match(r.out, /无新增 @ts-ignore/)
+  } finally {
+    rmScratch(dir)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
