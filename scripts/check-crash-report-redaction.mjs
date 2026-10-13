@@ -54,6 +54,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { assertRepoRoot, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 import { maskCommentsAndStrings } from './lib/code-mask.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 /**
  * 仓库根。默认由脚本自身位置推导(**不是** `process.cwd()` —— 扫哪棵树由调用者站哪决定,
@@ -375,8 +376,10 @@ export function go(error) {
 }
 
 function runSelfTest() {
-  const checks = []
-  const ok = (name, cond, extra = '') => checks.push({ name, pass: !!cond, extra })
+  // 登记器走共用出口 scripts/lib/selftest-registrant.mjs(ticket-X):本地自造的
+  // `checks.push({ name, pass: !!cond })` 收到 `() =>` 用例时 `!!fn` 恒真 ⇒ 自检打印的
+  // N/N 通过与真实判定脱钩;出口把求值点收进 report(),函数形态用例必被真判。
+  const { t: ok, report } = makeRegistrar()
   for (const [k, v] of Object.entries(FIXTURES)) {
     const r = classifySite(v)
     console.log(`· ${k}: role=${r.role} callsExit=${r.callsExit} violation=${r.violation}`)
@@ -426,10 +429,10 @@ function runSelfTest() {
   ok('F24 引用了出口而面上没导出 ⇒ V2 红', v2IsRed({ anyReference: true, exitState: 'missing' }))
   ok('F25 零引用而出口缺失 ⇒ V2 不判红(成对:否则落地前 HEAD 恒红)', !v2IsRed({ anyReference: false, exitState: 'missing' }))
   ok('F26 引用了且出口在位 ⇒ V2 绿(成对)', !v2IsRed({ anyReference: true, exitState: 'ok' }))
-  const allOk = checks.every((c) => c.pass)
-  for (const c of checks) console.log(`${c.pass ? '✅' : '❌'} ${c.name}${c.extra ? ` — ${c.extra}` : ''}`)
-  console.log(`--self-test: ${checks.filter((c) => c.pass).length}/${checks.length} 通过`)
-  process.exitCode = allOk ? 0 : 1
+  const { pass, fail, cases } = report()
+  for (const c of cases) console.log(`${c.pass ? '✅' : '❌'} ${c.name}${c.pass ? '' : ` — ${c.got}`}`)
+  console.log(`--self-test: ${pass}/${cases.length} 通过`)
+  process.exitCode = fail ? 1 : 0
 }
 
 /* ------------------------------- CLI ------------------------------- */

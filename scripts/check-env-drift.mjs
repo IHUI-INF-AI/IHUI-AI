@@ -66,6 +66,7 @@ import {
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 /** 仓库根(磁盘运行态之根)。命名刻意避开大写 ROOT,理由见头注"判定面"一段。 */
 const STATE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -473,8 +474,11 @@ export function verifyGuardianWiring(sourceText) {
 
 // ─── 自检(§26:临时夹具唯一落点 = scripts/lib/scratch-dir.mjs;禁 os.tmpdir / 裸 mkdtempSync)──
 export function selfTest() {
-  const cases = []
-  const assert = (name, cond, detail = '') => cases.push({ name, ok: !!cond, detail })
+  // 登记器走共用出口 scripts/lib/selftest-registrant.mjs(ticket-X):本地自造的
+  // `cases.push({ name, ok: !!cond })` 收到 `() =>` 用例时 `!!fn` 恒真 ⇒ 自检打印的
+  // 通过数与真实判定脱钩;出口把求值点收进 report(),函数形态用例必被真判,
+  // 第三参 detail 照旧在失败行打出实得面(语义与原本地登记器一致)。
+  const { t: assert, report } = makeRegistrar()
   const api = MANAGED_TARGETS[0]
   const rootTarget = MANAGED_TARGETS[1]
   const aiTarget = MANAGED_TARGETS[2]
@@ -753,13 +757,12 @@ export function selfTest() {
     rmScratch(r1)
   }
 
-  const failed = cases.filter((c) => !c.ok)
-  for (const c of cases)
-    console.log(`${c.ok ? '✅' : '❌'} ${c.name}${c.detail && !c.ok ? ` — ${c.detail}` : ''}`)
+  const { fail, cases } = report()
+  for (const c of cases) console.log(`${c.pass ? '✅' : '❌'} ${c.name}${c.pass ? '' : ` — ${c.got}`}`)
   console.log(
-    `\n--self-test:${failed.length ? '有失败' : '全部通过'} 共 ${cases.length} 条,失败 ${failed.length} 条`,
+    `\n--self-test:${fail ? '有失败' : '全部通过'} 共 ${cases.length} 条,失败 ${fail} 条`,
   )
-  return failed.length ? 1 : 0
+  return fail ? 1 : 0
 }
 
 function main() {
