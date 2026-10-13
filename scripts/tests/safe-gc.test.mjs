@@ -2,7 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// @ts-nocheck
 /**
  * safe-gc.mjs 的镜像测试(§22c)。
  *
@@ -31,7 +30,7 @@ const OIDS = ['a'.repeat(40), 'b'.repeat(40)]
 test('缺省档必须给 --prune=never:整理空间而不销毁任何不可达对象', () => {
   assert.deepEqual(T.gcArgsFor({ destructive: false }), ['gc', '--prune=never'])
   assert.ok(
-    !T.gcArgsFor({}).some((a) => String(a).includes('now')),
+    !T.gcArgsFor({}).some(/** @param {unknown} a */ (a) => String(a).includes('now')),
     '缺省档的参数里不得出现 now(销毁通道不能被"顺手默认打开")',
   )
 })
@@ -56,9 +55,9 @@ test('decideGcRun: 破坏性档遇实测违规 ⇒ 拒绝,并把出路逐条带�
   const pre = T.preconditionViolations({ statusLines: ['MM PROJECT_PLAN.md'], stashLines: [], unbackedHashes: OIDS })
   const d = T.decideGcRun({ destructive: true, violations: pre.violations, undetermined: pre.undetermined })
   assert.equal(d.action, 'refuse')
-  assert.ok(d.violations.some((v) => v.name === '工作区干净'), '拒绝理由必须点名是哪一项')
+  assert.ok(d.violations.some(/** @param {{ name: string }} v */ (v) => v.name === '工作区干净'), '拒绝理由必须点名是哪一项')
   assert.ok(
-    d.violations.every((v) => typeof v.remedy === 'string' && v.remedy.length > 0),
+    d.violations.every(/** @param {{ remedy: unknown }} v */ (v) => typeof v.remedy === 'string' && v.remedy.length > 0),
     '每条拒绝必须带一条跑得通的出路(§16"没有出路"与"有出路但很难"在用户眼里同形)',
   )
 })

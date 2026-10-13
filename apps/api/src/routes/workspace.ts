@@ -17,6 +17,7 @@ import { pipeline } from 'node:stream/promises'
 import { Readable } from 'node:stream'
 import { randomUUID } from 'node:crypto'
 import { authenticate } from '../plugins/auth.js'
+import { attributeError } from '@ihui/shared/utils/error-attribution'
 import { validateUploadFile } from '../utils/file-type-validator.js'
 import {
   listProjectsByUserWithFileCount,
@@ -414,8 +415,12 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(201).send(success({ file: serializeFile(file) }))
       })
     } catch (err) {
-      // Bulkhead 并发上限拒绝
-      if ((err as Error).message.includes('Bulkhead rejected')) {
+      // Bulkhead 并发上限拒绝(成因判据走错误归因唯一出口 G-816012)
+      const attribution = attributeError(err)
+      if (
+        attribution.errorSource === 'capacity' &&
+        attribution.failureReason === 'concurrency-limit'
+      ) {
         return reply.status(503).send(error(503, '文件上传并发数已达上限,请稍后重试'))
       }
       throw err
