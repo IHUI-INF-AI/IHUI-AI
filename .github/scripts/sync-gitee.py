@@ -67,15 +67,22 @@ def gitee_upload(release_id, filepath, filename):
     body = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; "
             f"filename=\"{filename}\"\r\nContent-Type: application/octet-stream\r\n\r\n").encode() \
         + data + f"\r\n--{boundary}--\r\n".encode()
-    req = urllib.request.Request(url, data=body, method="POST")
-    req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
-    try:
-        r = urllib.request.urlopen(req, timeout=1800)
-        print(f"[gitee] 上传 {filename}: {r.status}")
-        return True
-    except urllib.error.HTTPError as e:
-        print(f"[gitee] 上传 {filename} 失败: {e.code} {e.read()[:150]}")
-        return False
+    # 2026-10-13 深夜修:Gitee 大文件(79MB AppImage 实锤)写超时为慢性病,
+    # 原实现单次尝试失败即放弃且调用处不检查返回值 ⇒ 资产永久缺角(下版才补)。
+    # 改为 3 次指数退避重试;调用处对 False 记入失败清单并终验,重跑本 job 幂等补齐。
+    for attempt in range(1, 4):
+        req = urllib.request.Request(url, data=body, method="POST")
+        req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+        try:
+            r = urllib.request.urlopen(req, timeout=1800)
+            print(f"[gitee] 上传 {filename}: {r.status}")
+            return True
+        except urllib.error.HTTPError as e:
+            print(f"[gitee] 上传 {filename} 第{attempt}/3次失败: {e.code} {e.read()[:150]}")
+        except Exception as e:
+            print(f"[gitee] 上传 {filename} 第{attempt}/3次异常: {e}")
+        time.sleep(20 * attempt)
+    return False
 
 
 def main():
@@ -153,12 +160,20 @@ def main():
             sys.exit(f"资产下载失败: {fname}")
 
     # 3b. 上传 Gitee 缺失的资产(幂等:已有同名跳过)
+    # 2026-10-13:上传失败不再静默吞——记入失败清单,全部尽力后统一终验,
+    # 有缺口则以非零退出(重跑本 job 幂等补齐),让 job 红 ≠ 资产悄悄缺角。
+    upload_failed = []
     for fname in sorted(upload_set):
         if fname in gitee_assets:
             print(f"[gitee] {fname} 已存在,跳过上传")
             continue
-        gitee_upload(rid, f"{tmpdir}/{fname}", fname)
+        if not gitee_upload(rid, f"{tmpdir}/{fname}", fname):
+            upload_failed.append(fname)
+            continue
         gitee_assets.add(fname)
+    if upload_failed:
+        sys.exit(f"[gitee] 以下资产重试 3 次后仍上传失败: {sorted(upload_failed)}"
+                 f"(重跑本 job 可幂等补齐)")
 
     # 4. 生成 latest.json(url → Gitee 直链)
     platforms = {}
