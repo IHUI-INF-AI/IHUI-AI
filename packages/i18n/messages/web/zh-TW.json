@@ -22310,6 +22310,8 @@
     "authFailed": "授權啟動失敗",
     "authorizeAndRedirect": "授權並跳轉",
     "authorizing": "正在為 {clientId} 授權…",
+    "desktopHandoffHint": "已交回桌面端完成登入，此頁面可以關閉了。",
+    "desktopHandoffTitle": "授權成功",
     "code": "驗證碼",
     "codePlaceholder": "請輸入驗證碼",
     "codeRequired": "請輸入驗證碼",
