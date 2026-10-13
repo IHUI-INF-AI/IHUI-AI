@@ -1375,4 +1375,120 @@ test('态⓪:判远端态的门(自声明 [judges-remote-state])⇒ 未差分,�
   )
 })
 
+// ───────────────────────────────────────────────────────────────────────────
+// G-1018220 口径②(2026-10-13 立):自愈型门的「已修复/已注入」点名不参与"点名即定责"。
+//
+// 立因:自愈型门(门 47 溯源水印是票面载体)在补齐后打印"我刚把哪些文件修好了"的清单行,
+// 与"你的改动有问题"的失败行**同形**;归因层按行取材的铰链无从区分 ⇒ 门替别人/替历史欠账
+// 补的东西被算到下一个提交者头上(判 mine ⇒ 拒绝 --no-verify)。修法 = 门在动作行上打
+// 结构化键 SELF_HEAL_FIXED_MARK,归因层只认键、不认词面。三条成对用例全部从外部 import
+// 生产出口(§22c);①②同时是变异自证的两臂:去掉例外 ⇒ ①翻红;例外扩大成"任何点名都不定责" ⇒ ②翻红。
+// ───────────────────────────────────────────────────────────────────────────
+test('G-1018220-②①:自愈型门点名"它自己刚修复"的声明文件 ⇒ 不判 mine(豁免只认结构化键)', () => {
+  const { classifyHookFailure, SELF_HEAL_FIXED_MARK, SUMMARY, FAIL_29, MY_FILES } = __test__
+  // 最小同形现场:自愈动作行与真 eslint 错误行**逐字同形**,唯一差别是行尾的结构化键 ——
+  // 猜词式判据(修|补齐|fixed…)在这一行上无从下手,只有键可判。
+  // 现场其余部分:门复跑仍红(红因在别处:另一个文件的真失败块)+ 基线面同红(存量)。
+  const healedButMarked =
+    `scripts/foo.mjs:36:10 error 'unused' is defined but never used. no-unused-vars ${SELF_HEAL_FIXED_MARK}`
+  const v = classifyHookFailure({
+    text: SUMMARY + FAIL_29,
+    stagedFiles: MY_FILES,
+    runGate: () => ({
+      status: 1,
+      output:
+        `${healedButMarked}\n` +
+        `[watermark-coverage] ❌ 1 个已跟踪文件缺失/损坏溯源水印(自愈后仍不达标):\n` +
+        `  - apps/api/tests/foreign-file.ts\n`,
+    }),
+    runGateBaseline: () => ({ ran: true, status: 1, output: 'HEAD 面同样红(存量)', why: null }),
+  })
+  assert.notEqual(
+    v.kind,
+    'mine',
+    `自愈动作行(带键)点名不得判 mine —— 它说的是"已修复"不是"你的改动有问题",实得 ${v.kind}:${v.reason}`,
+  )
+  assert.match(v.detail.join('\n'), /未点名本次任何文件/, '明细必须如实写下"带键的动作行不算点名",不得静默')
+})
+
+test('G-1018220-②②(防洗绿锁):普通门同形点名你声明的文件(不带键)⇒ 照旧判 mine', () => {
+  const { classifyHookFailure, SUMMARY, FAIL_29, MY_FILES } = __test__
+  // 与①逐字同形、只差行尾没有键:证明结论是"键给的",不是这行形状本身变得无害。
+  const real = `scripts/foo.mjs:36:10 error 'unused' is defined but never used. no-unused-vars`
+  const v = classifyHookFailure({
+    text: SUMMARY + FAIL_29,
+    stagedFiles: MY_FILES,
+    runGate: () => ({ status: 1, output: real }),
+  })
+  assert.equal(v.kind, 'mine', `无键的真失败点名必须照旧定责,实得 ${v.kind}`)
+  assert.match(v.reason, /禁止 --no-verify/, 'mine 的出口必须落在"修",不是跳门')
+})
+
+test('G-1018220-②③:混合输出(自愈点名 + 真失败点名)⇒ 仍判 mine(真失败不被例外吃掉)', () => {
+  const { classifyHookFailure, SELF_HEAL_FIXED_MARK, SUMMARY, FAIL_29, MY_FILES } = __test__
+  // 门 47 生产形态的混合现场:自愈成功清单(带键)+ 同一轮 reportGap 报红块(不带键,
+  // 自愈后仍不达标的真失败)。报红块点名了本次声明的文件 ⇒ 必须照旧定责。
+  const out =
+    `[watermark-coverage] ✅ 已自动补齐 1 个文件的水印并加入暂存区(无需再跳过门禁):\n` +
+    `  - PROJECT_PLAN.md ${SELF_HEAL_FIXED_MARK}\n` +
+    `[watermark-coverage] ❌ 1 个已跟踪文件缺失/损坏溯源水印(自愈后仍不达标):\n` +
+    `  - scripts/foo.mjs\n`
+  const v = classifyHookFailure({
+    text: SUMMARY + FAIL_29,
+    stagedFiles: MY_FILES,
+    runGate: () => ({ status: 1, output: out }),
+  })
+  assert.equal(v.kind, 'mine', `报红块(不带键)点名本次文件时必须仍判 mine,实得 ${v.kind}:${v.reason}`)
+})
+
+test('G-1018220-②④:门 47 真实自愈块形态(逐字取自钩子日志)在无汇总路径上不得被读成点名', () => {
+  const { classifyHookFailure, blameFromFailedStep, SELF_HEAL_FIXED_MARK, MY_FILES } = __test__
+  // 逐字形态取自 .workbuddy/hook-logs/pre-commit.log:157065-157070(仅按口径②给清单行补键)。
+  const HOOK47 = `[47] 💧 溯源水印覆盖守门(自愈式: 缺失/损坏自动补齐并回暂存区)...
+[watermark-coverage] 🔧 检出 2 个文件水印缺失/损坏, 自动补齐中...
+[watermark-coverage] ✅ 已自动补齐 2 个文件的水印并加入暂存区(无需再跳过门禁):
+  - scripts/foo.mjs ${SELF_HEAL_FIXED_MARK}
+  - PROJECT_PLAN.md ${SELF_HEAL_FIXED_MARK}
+❌ 🎨 运行 lint-staged...失败，提交已阻止
+`
+  assert.equal(
+    blameFromFailedStep(HOOK47, MY_FILES),
+    null,
+    '自愈清单回显不得构成"报错正文点名本次文件"的证据',
+  )
+  const v = classifyHookFailure({
+    text: HOOK47,
+    stagedFiles: MY_FILES,
+    runGate: () => ({ status: 0, output: '' }),
+  })
+  assert.notEqual(v.kind, 'mine', `无汇总路径上自愈回显同样不得定责,实得 ${v.kind}:${v.reason}`)
+})
+
+test('G-1018220-②⑤:豁免键两侧同源 —— 门 47 import 常量、只打在自愈清单行;归因层不靠词面猜', () => {
+  const gateMasked = maskComments(readFileSync(join(here, '..', 'check-watermark-coverage.mjs'), 'utf8'))
+  assert.match(
+    gateMasked,
+    /import\s*\{\s*SELF_HEAL_FIXED_MARK\s*\}\s*from\s*'\.\/lib\/commit-gate-attribution\.mjs'/,
+    '门 47 必须从归因层 import 豁免键(抄字面量必然漂移,与尺子导入 FINDING_LINE_RE 同条纪律)',
+  )
+  // 键在门体的全部落点 = import 一处 + 自愈清单行一处,且必须整个落在报红函数 reportGap 之外
+  const uses = gateMasked.match(/SELF_HEAL_FIXED_MARK/g) ?? []
+  assert.equal(uses.length, 2, `豁免键只允许出现在 import 与自愈清单行两处,实得 ${uses.length} 处`)
+  const gapBody = gateMasked.slice(
+    gateMasked.indexOf('function reportGap'),
+    gateMasked.indexOf('export function decideCoverage'),
+  )
+  assert.ok(
+    !gapBody.includes('SELF_HEAL_FIXED_MARK'),
+    'reportGap 报红块不得带豁免键 —— 带了就是把真失败点名也豁免掉(洗绿方向)',
+  )
+  // 归因层判定体不得出现关键词式自愈识别("已修复/已注入/自动补齐"…):猜词必然随门改措辞而腐烂,
+  // 且猜宽方向就是洗绿;豁免只能来自结构化键。
+  const lib = readFileSync(join(here, '..', 'lib', 'commit-gate-attribution.mjs'), 'utf8')
+  assert.ok(
+    !/已修复|已注入|自动补齐/.test(maskComments(lib)),
+    '归因层判定体里出现了关键词式自愈识别 ⇒ 本例外被改成猜词,必须退回结构化键',
+  )
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
