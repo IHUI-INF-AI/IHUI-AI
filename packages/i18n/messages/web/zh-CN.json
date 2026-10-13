@@ -10374,6 +10374,7 @@
     "loginFailed": "登录失败,请重试",
     "loginInBrowser": "在浏览器中登录",
     "desktopSsoSuccess": "登录成功，已同步到桌面端",
+    "desktopSsoOpenFailed": "打开浏览器失败，请检查网络后重试",
     "loginSubtitle": "登录您的账号以继续",
     "loginSuccess": "登录成功",
     "loginTitle": "登录",

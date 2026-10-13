@@ -73,7 +73,13 @@ export function LoginDialog() {
     const port = await openInGoogleChrome(ssoUrl)
     if (typeof port === 'number') {
       rememberSsoChromeWindow(port, `${webBase}/sso/login`)
+      return
     }
+    // 2026-10-13(实测"按钮又没反应"期间立):两条外开路径全失败时必须给用户
+    // 可见反馈 —— 此前 openInGoogleChrome 的失败只有 console.warn,用户感知就是
+    // "点了没反应"。常见根因是壳内页面加载失败(见 auto_refresh 的 chrome-error
+    // 自愈),提示里给出可自救动作。
+    toast.error(t('desktopSsoOpenFailed'))
   }, [])
 
   const handleLoginSuccess = React.useCallback(() => {
