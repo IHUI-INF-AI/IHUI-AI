@@ -59,8 +59,41 @@ test.describe.parallel('安全专项', () => {
     // X-Content-Type-Options 防 MIME 嗅探
     expect(headers['x-content-type-options'] ?? '').toMatch(/nosniff/i)
     // CSP 内容安全策略
-    const csp = headers['content-security-policy'] ?? headers['content-security-policy-report-only']
+    const cspHeaderName = headers['content-security-policy']
+      ? 'content-security-policy'
+      : 'content-security-policy-report-only'
+    const csp = headers[cspHeaderName]
     expect(csp ?? '').toBeTruthy()
+
+    // 回归断言(防回退):锁死 2026-10-13 的 CSP 修复,避免未来有人精简头、
+    // 漏配域名而不自知——届时桌面端 Tauri IPC 被拦截 / 扫码登录 SDK 加载失败。
+    // 仅断言"修复点本身"的存在性,不约束整条 CSP(指令顺序、临时调试项如 dev 的
+    // http://localhost:* 等在不同环境有差异),保证跨 dev / CI / nginx 部署形态都稳定。
+    // 本 harness 默认直连 Next.js(8801)下发的 CSP;即便 PLAYWRIGHT_BASE_URL 指向
+    // nginx 前置部署,其 CSP 同样含 ipc.localhost 与 5 家 CDN,断言依旧成立。
+    const cspDirectives = (csp ?? '')
+      .split(';')
+      .map((d) => d.trim())
+      .filter(Boolean)
+    const findDirective = (name: string) =>
+      cspDirectives.find((d) => d === name || d.startsWith(`${name} `)) ?? ''
+    const connectSrc = findDirective('connect-src')
+    const scriptSrc = findDirective('script-src')
+    // 1) connect-src 必须放行 ipc.localhost(Tauri 2.11 桌面端 IPC 自定义协议)
+    expect(connectSrc, 'CSP connect-src 缺少 ipc.localhost(Tauri 桌面端 IPC 必需)').toMatch(
+      /\bipc\.localhost\b/,
+    )
+    // 2) script-src 必须放行 5 家扫码登录 CDN 域名(dormant 兜底)
+    const requiredScriptCdn = [
+      'https://res.wx.qq.com',
+      'https://wwcdn.weixin.qq.com',
+      'https://g.alicdn.com',
+      'https://lf-package-cn.feishucdn.com',
+      'https://cdn.jsdelivr.net',
+    ]
+    for (const cdn of requiredScriptCdn) {
+      expect(scriptSrc, `CSP script-src 缺少 CDN 域名 ${cdn}`).toContain(cdn)
+    }
     // HSTS 仅在 HTTPS 下生效,CI 环境断言
     if (IS_CI) {
       expect(headers['strict-transport-security'] ?? '').toBeTruthy()
