@@ -2463,6 +2463,12 @@
           "markdownDescription": "Enables the clipboard_set command without any pre-configured scope."
         },
         {
+          "description": "Enables the close_in_chrome command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-close-in-chrome",
+          "markdownDescription": "Enables the close_in_chrome command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_admin_window_info command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-admin-window-info",
@@ -2899,6 +2905,12 @@
           "type": "string",
           "const": "deny-clipboard-set",
           "markdownDescription": "Denies the clipboard_set command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the close_in_chrome command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-close-in-chrome",
+          "markdownDescription": "Denies the close_in_chrome command without any pre-configured scope."
         },
         {
           "description": "Denies the get_admin_window_info command without any pre-configured scope.",

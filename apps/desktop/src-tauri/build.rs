@@ -21,6 +21,7 @@ fn main() {
             "git_workspace_status",
             "git_channel_info",
             "open_in_chrome",
+            "close_in_chrome",
             "get_admin_window_info",
             "toggle_devtools",
             "quit_app",
