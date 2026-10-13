@@ -202,6 +202,31 @@ describe('decideCompaction feature flag 切换', () => {
     expect(compressContextIfNeededMock).toHaveBeenCalledTimes(1);
     expect(compressContextV2Mock).not.toHaveBeenCalled();
   });
+
+  // G-815992 层1(尝试上限)Auto/非 Auto 分档的接线证明:
+  // 非 Auto 触发(手动 /compact 走 triggerRatioOverride)只许 1 次 sampler 尝试;
+  // Auto 触发不透传,V2 走内建默认帽(DEFAULT_MAX_ATTEMPTS=3,对齐上游 AUTO_COMPACT_MAX_ATTEMPTS=3)。
+  it('G-815992 层1:非 Auto 触发(triggerRatioOverride)→ maxAttempts=1 透传 V2', async () => {
+    compressContextV2Mock.mockResolvedValue(FAKE_COMPRESSION_RESULT);
+    const settings: Settings = { compactionV2: { enabled: true, model: 'gpt-4' } };
+    await decideCompaction(makeMessages(10), settings, {
+      contextLimit: 8000,
+      modelId: 'm1',
+      triggerRatioOverride: 0.87,
+    });
+    expect(compressContextV2Mock).toHaveBeenCalledTimes(1);
+    const manualArgs = compressContextV2Mock.mock.calls[0]![1];
+    expect(manualArgs.maxAttempts).toBe(1);
+  });
+
+  it('G-815992 层1:Auto 触发 → 不透传 maxAttempts(V2 内建默认 3 次)', async () => {
+    compressContextV2Mock.mockResolvedValue(FAKE_COMPRESSION_RESULT);
+    const settings: Settings = { compactionV2: { enabled: true, model: 'gpt-4' } };
+    await decideCompaction(makeMessages(10), settings, { contextLimit: 8000, modelId: 'm1' });
+    expect(compressContextV2Mock).toHaveBeenCalledTimes(1);
+    const autoArgs = compressContextV2Mock.mock.calls[0]![1];
+    expect(autoArgs.maxAttempts).toBeUndefined();
+  });
 });
 
 // ==================== V2 抛错 fallback ====================
