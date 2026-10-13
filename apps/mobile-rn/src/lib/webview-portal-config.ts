@@ -22,6 +22,35 @@ const ENV_WEB_BASE_URL = process.env.EXPO_PUBLIC_WEB_BASE_URL
 
 export const WEB_BASE_URL = ENV_WEB_BASE_URL || 'https://aizhs.top'
 
+/**
+ * 把门户 URL 压成 SSO `redirectUri` 的合规形态(2026-10-13 真机实测立因,别删注释里的因)
+ *
+ * 真机取证(Redmi flame / Android 16 / 已登录态):App 内点开「AI 对话 / 工具」,
+ * WebView 里 web 端仍弹 `AlertDialog`「登录 / 登录您的账号以继续」 ⇒ App→Web 会话打通是断的。
+ * 根因不在 WebView 侧:`POST /api/auth/sso/code` 对**绝对 URL** 走 env 白名单
+ * `SSO_ALLOWED_ORIGINS`(见 `apps/api/src/routes/auth-sso.ts` 的 `isAllowedOrigin`),
+ * 生产未配置该 env ⇒ 返回 400 ⇒ 两端既有的降级分支直开原 URL ⇒ WebView 内拿不到
+ * httpOnly 的 `auth_token` cookie ⇒ 整条链路静默失效(页面照常显示,只是未登录)。
+ * 服务端**内置允许**的形态里本就有「站内相对路径」(`isAllowedRelativePath`),它比 origin
+ * 白名单更严格(天然防 open redirect)且**不依赖 env** ⇒ 同域一律压成相对路径是正解。
+ *
+ * 同 origin ⇒ 返回 pathname(+search+hash);跨域 / 非 http(s) / 解析失败 ⇒ 原样返回,
+ * 保持"服务端不认就降级直开"的既有行为,不引入第二份判据。
+ */
+export function toSsoRedirectUri(url: string): string {
+  try {
+    const base = new URL(WEB_BASE_URL)
+    const parsed = new URL(url)
+    if (parsed.protocol === base.protocol && parsed.host === base.host) {
+      const path = `${parsed.pathname}${parsed.search}${parsed.hash}`
+      return path || '/'
+    }
+  } catch {
+    // 已是相对路径或无法解析:原样交给服务端判(它可能仍认)
+  }
+  return url
+}
+
 export interface WebPortalEntry {
   /** 全局唯一标识(domain 前缀 + 页面,连字符分隔) */
   key: string
