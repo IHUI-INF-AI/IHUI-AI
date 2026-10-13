@@ -90836,4 +90836,30 @@ post-commit 自愈层把这些行认作"原文可寻 = 有意搬迁",而不是�
 
 ---
 
+- [x] G-814397 **`tests/test_file_search_ripgrep_v75.py` 有两条用例引用生产面根本不存在的 API —— V3 #75 的"接线段"登记了一个未落地的接口(2026-09-29 普查现读;归属:#75 接线段持有人,P1)** 〔【归并】重复登记副本(2026-09-30):同主键的另一条登记 「G-814397 · tests/testfilesearchripg」,派单以那条为准,本行不再单独派单。〕〔✅(2026-10-13/goal清偿席)本行与复核持有行(带 2026-10-10 复核更正那条)同票重复登记,与持有行同批翻勾;落地清单三条验讫与 15 passed 自验证据全文见持有行,派单以持有行为准,本行不再单独派单。〕
+- [x] G-814399 **生产提示逻辑按一个"从不被发出的工具名"分支判 —— `mcp_server.py:7804` 的 `if "edit_file" in recent_tool_calls` 结构上永不成立(2026-09-29 顺手量到;归属:提示/建议面持有人,一行级修法但改变用户可见行为)** 〔【归并】重复登记副本(2026-09-30):同主键的另一条登记 「G-814399 · 生产提示逻辑按一个"从不被发出的工具名"分支判—」,派单以那条为准,本行不再单独派单。〕〔✅(2026-10-13/goal清偿席)本行与复核持有行(带 2026-10-10 复核更正那条)同票重复登记,与持有行同批翻勾;修复枚 1fea058127 与测试/自验证据全文见持有行,派单以持有行为准,本行不再单独派单。〕
+
+---
+
+- [x] G-814397 **`tests/test_file_search_ripgrep_v75.py` 有两条用例引用生产面根本不存在的 API —— V3 #75 的"接线段"登记了一个未落地的接口(2026-09-29 普查现读;归属:#75 接线段持有人,P1)** 〔【归并】重复登记副本(2026-10-01):同主键的另一条登记 「G-814397 · tests/testfilesearchripg」,派单以那条为准,本行不再单独派单。〕〔✅(2026-10-13/goal清偿席)本行与复核持有行(带 2026-10-10 复核更正那条)同票重复登记,与持有行同批翻勾;落地清单三条验讫与 15 passed 自验证据全文见持有行,派单以持有行为准,本行不再单独派单。〕
+- [x] G-814399 **生产提示逻辑按一个"从不被发出的工具名"分支判 —— `mcp_server.py:7804` 的 `if "edit_file" in recent_tool_calls` 结构上永不成立(2026-09-29 顺手量到;归属:提示/建议面持有人,一行级修法但改变用户可见行为)** 〔【归并】重复登记副本(2026-10-01):同主键的另一条登记 「G-814399 · 生产提示逻辑按一个"从不被发出的工具名"分支判—」,派单以那条为准,本行不再单独派单。〕〔✅(2026-10-13/goal清偿席)本行与复核持有行(带 2026-10-10 复核更正那条)同票重复登记,与持有行同批翻勾;修复枚 1fea058127 与测试/自验证据全文见持有行,派单以持有行为准,本行不再单独派单。〕
+
+---
+
+- [x] G-814397 **`tests/test_file_search_ripgrep_v75.py` 有两条用例引用生产面根本不存在的 API —— V3 #75 的"接线段"登记了一个未落地的接口(2026-09-29 普查现读;归属:#75 接线段持有人,P1)** 〔复核更正(2026-10-10,判定面 HEAD blob):红的两条不是 file_search 工具级那对(_tool_file_search 与 enum_engine/enum_degraded 在 HEAD 确有,本机 rg 15.0.0 下该文件 15 条里那两条通过),而是 test_lazy_index_guardrail_sees_same_denominator 与 test_index_result_carries_traversal_provenance —— HEAD 面 15 条里 3 条红(第 3 条属 git archive 取证副本"找不到 monorepo 根",记未判定而非缺陷),工作树面 15 条全绿。⇒ 缺口真实存在,只是实现此刻由他席持有(codebase_indexer.py 相对 HEAD 在飞 +53/−14),按"别人在飞只报不动"本票不翻勾、也不补 skip(补 skip 等于删掉刚要生效的覆盖格)。交该在飞改动的落地清单三条:① IndexResult 补 traversal_engine / traversal_duration_s / traversal_files_seen 与降级原因;② 新增 collect_code_files_with_provenance(root) 并把 _collect_code_files 收口成它的委托(护栏分母与索引分母必须同一实现);③ index_repository 调用该出口并回填字段。近义出口 rg_fallback_parity.enumerate_code_files 返回 rel-path 串,与用例要的 (Path, lang) 分母不同型,不得"改名重指"。〕`,〔✅(2026-10-13/goal清偿席)复核行交的落地清单三条今天逐条对 HEAD 验讫全部在库,停手前提(实现由他席在飞)已解除:① IndexResult 补齐 traversal_engine/traversal_duration_s/traversal_files_seen(codebase_indexer.py:179-181,降级原因走 rg_fallback_parity provenance);② collect_code_files_with_provenance(root) 已新增(:457)且 _collect_code_files 已收口成它的委托(:492-495,注释明写"本体已收口到 collect_code_files_with_provenance(V75):护栏分母与索引分母[同一实现]");③ index_repository 调用该出口并回填字段(:764-769 result.traversal_engine/duration_s/files_seen = traversal_prov.*)。自验:pytest tests/test_file_search_ripgrep_v75.py 15 passed(工作树=HEAD 面该文件与 codebase_indexer.py 均干净无在飞,判定面即 HEAD blob);复核行点名红的两条(test_lazy_index_guardrail_sees_same_denominator / test_index_result_carries_traversal_provenance)都在 15 条内通过;git log 证落地链 = d2d4a3d8d1(V3 #75 接线段,枚举收口)+ 9a6b8c7651(懒索引护栏三轴派生)。三条同主键孪生副本同批翻勾。〕
+
+---
+
+- [x] G-814399 **生产提示逻辑按一个"从不被发出的工具名"分支判 —— `mcp_server.py:7804` 的 `if "edit_file" in recent_tool_calls` 结构上永不成立(2026-09-29 顺手量到;归属:提示/建议面持有人,一行级修法但改变用户可见行为)** 〔复核更正(2026-10-10,判定面 HEAD blob):① 票面落点写成 app/mcp_server.py 是错的,真载体在 apps/ai-service/app/services/mcp_server.py(HEAD 面 git grep -c -F edit_file 命中 2 处 = 分支条件与它面向用户的文案);② 注册表里的名字是 file_edit,而 _TOOL_ALIASES 不含 edit_file ⇒ 该分支结构上永不成立,与"没人调用"同形而账面全绿;③ recent_tool_calls 只有声明(input_schema)与一处读取,全仓零生产方写入者 —— 所以这一族还有第二格:即便改了名,当前也没有任何调用方喂得出非空数组。修法 = 分支与用户可见文案一并改 file_edit,并补一条经生产入口 mcp_server.call_tool 的正反用例(传 file_edit 断言建议类型含 explore;传 file_edit + search_codebase 断言不含)。标题里的行号指针刻意不在本行改形态 —— 改标题前缀会使三条同主键副本裂成两个主键,反而造出"同一件事两份账"(§1 复合主键口径)。④ 停手原因:该文件此刻工作树相对 HEAD 脏(+5/−3,且不碰本分支)⇒ 属他席在飞,不覆盖;⑤ 残留另计一条:负向护栏只按字面 search_codebase 比较,别名 code_search / search_symbol 可绕过,比较前须先过 _normalize_tool_name;⑥ 未跑 pytest ⇒ 测试面记"未判定",既非通过也非缺陷。〕`,〔✅(2026-10-13/goal清偿席)复核行③修法已按面执行并推送:枚 1fea058127(fix(ai-service): G-814399 —— proactive_suggestion 按 file_edit(注册名)分支判并前置别名归一)落地 —— ① 分支与用户可见文案一并改 edit_file → file_edit(注册表 _tool_file_edit 名正是 file_edit,_TOOL_ALIASES 无 edit_file,原分支结构上永不成立,explore 建议从未产出);② 复核行⑤残留格同批收口:recent_tool_calls 先过 _normalize_tool_name(str) 归一再比较,负向判据(code_search/search_symbol 别名绕过)不再成立;③ 正反用例照面补齐 4 条进 apps/ai-service/tests/test_mcp_server.py:file_edit 触发 explore / file_edit+search_codebase 不触发 / code_search+search_symbol 两别名归一后不触发 / 经生产入口 mcp_server.call_tool 正反两段;④ 自验:pytest tests/test_mcp_server.py -k proactive_suggestion 7 passed(3 旧+4 新),全文件 176 passed 无回归,守门批全过(pre-commit 通过,含父目录污染巡查——处置了 D:\DevEnv\Temp\ihui_lstree.txt 一枚 agent 临时产物残留与本轮无关但阻塞提交)。复核行④停手前提已解除:该文件当时工作树脏属他席在飞,本轮 HEAD 面干净后改动,git status 确认仅本票两文件。三条同主键副本同批指针化。〕
+
+---
+
+- [x] G-814397 **`tests/test_file_search_ripgrep_v75.py` 有两条用例引用生产面根本不存在的 API —— V3 #75 的"接线段"登记了一个未落地的接口(2026-09-29 普查现读;归属:#75 接线段持有人,P1)** 〔【归并】重复登记副本(2026-10-10):同主键的另一条登记 「G-814397 · tests/testfilesearchripg」,派单以那条为准,本行不再单独派单。〕〔✅(2026-10-13/goal清偿席)本行与复核持有行(带 2026-10-10 复核更正那条)同票重复登记,与持有行同批翻勾;落地清单三条验讫与 15 passed 自验证据全文见持有行,派单以持有行为准,本行不再单独派单。〕
+
+---
+
+- [x] G-814399 **生产提示逻辑按一个"从不被发出的工具名"分支判 —— `mcp_server.py:7804` 的 `if "edit_file" in recent_tool_calls` 结构上永不成立(2026-09-29 顺手量到;归属:提示/建议面持有人,一行级修法但改变用户可见行为)** 〔【归并】重复登记副本(2026-10-10):同主键的另一条登记 「G-814399 · 生产提示逻辑按一个"从不被发出的工具名"分支判—」,派单以那条为准,本行不再单独派单。〕〔✅(2026-10-13/goal清偿席)本行与复核持有行(带 2026-10-10 复核更正那条)同票重复登记,与持有行同批翻勾;修复枚 1fea058127 与测试/自验证据全文见持有行,派单以持有行为准,本行不再单独派单。〕
+
+---
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
