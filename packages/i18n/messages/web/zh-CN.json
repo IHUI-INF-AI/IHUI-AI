@@ -10409,6 +10409,7 @@
     "resetPassword": "重置密码",
     "resetSuccess": "密码重置成功，请重新登入",
     "sendCode": "发送验证码",
+    "sessionLoggedOutHint": "登录状态已结束，请重新登录以继续",
     "showPassword": "显示密码",
     "termsOfService": "服务条款",
     "thirdParty": {
@@ -19086,6 +19087,10 @@
     "captureWbWebImporting": "已检测到登录,正在自动导入账号…",
     "captureWbWebDone": "网页登录导入完成(共 {count} 个账号)",
     "captureWbWebWindowClosed": "登录窗口已关闭。重新点「打开登录窗口」可再试。",
+    "captureWbWebCancel": "取消",
+    "captureWbWebCancelled": "已取消网页登录。重新点「打开登录窗口」可再试。",
+    "captureWbWebSlowHint": "登录窗口似乎一直没加载出来(白屏)。请检查本机网络能否访问 www.workbuddy.cn;也可点「取消」关闭窗口,网络恢复后重新打开。",
+    "captureWbWebProbeFailed": "连续多次探测登录窗口失败,已停止等待。请重试,或改用下方「手动捕获」/ token 方式。",
     "captureWbManualDivider": "或手动捕获桌面端登录态",
     "captureWbWebCheckinUncertain": "提示:签到接口暂未确认接受网页登录态,该账号若签到失败(401)请改用 token 方式并反馈我们。",
     "captureDirFound": "已检测到本机 TRAE 数据目录：{dir}",
