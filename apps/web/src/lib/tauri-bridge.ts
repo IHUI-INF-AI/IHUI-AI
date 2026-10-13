@@ -568,7 +568,15 @@ export async function openExternalUrl(url: string, windowName = '_blank'): Promi
     // 2026-10-13 实证(dev+cdp 真机):shell 插件 v2 的 open 命令参数名是 `path`,传 `{url}` 必报
     // "invalid args: command open missing required key path" ⇒ 默认浏览器路径自桥接手写以来
     // 一直是坏的(失败落 window.open,在 Tauri webview 里 = 静默无反应,用户感知"按钮没反应")。
-    await invoke('plugin:shell|open', { path: url })
+    // 2026-10-13 二轮(实测"按钮又没反应"期间立):invoke 若挂起(IPC 通道死/webview 半死态),
+    // await 永不返回,连下面的 window.open 兜底都进不去 —— 也是"点了没反应"的形态之一。
+    // 竞速 5s 超时:超时按失败走兜底,绝不把用户留在"无反馈"里。
+    await Promise.race([
+      invoke('plugin:shell|open', { path: url }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('shell open timeout (5s)')), 5_000),
+      ),
+    ])
     return true
   } catch (e) {
     console.warn('[shell] open failed:', e)
