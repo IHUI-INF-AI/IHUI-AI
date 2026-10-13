@@ -30,14 +30,24 @@
  *   出口自己被自己的门扫到只会在文件里读出自己的函数名、制造无意义的自咬。
  *   出口的合规性由**消费方**的判据证明(样板门 `check-baseline-freshness.mjs` 的实测读数)。
  *
- * 用法:
+ * 用法(两种登记形态都收,登记侧判据一律是"求值后的结论"而非布尔字面量):
  *   const { t, report } = makeRegistrar()
- *   t('①落后 1 枚 ⇒ exit 1', () => B(1).code === 1)
+ *   t('①落后 1 枚 ⇒ exit 1', () => B(1).code === 1)   // thunk:登记的是待判的断言
+ *   t('②清单为空 ⇒ 0', list.length === 0)              // 值:即算即得的结论
+ *   t('③报出实得面', v.state === 'drift', JSON.stringify(v.drift)) // 第三参=失败时的诊断,可省
  *   const r = report()            // { pass, fail, cases:[{name, pass, got}] }
  *   return r.fail ? 1 : 0
  *
- * 求值时机的坑(消费方必须知道):`t` 只登记不求值 ⇒ **`report()` 必须在它依赖的夹具
- * 还在世时调用**。先 `cleanup()` 再 `report()` 拿到的是空目录上的读数,而账面记的是绿。
+ * 判据三态(任一为假/取不到 ⇒ self-test 真失败,绝不记绿):
+ *   真判据:结论 === true ⇒ pass。
+ *   假判据:结论 === false ⇒ fail 并记 got(打印出来就是"这条为什么红")。
+ *   取不到:用例没给结论(undefined)/ 返回的仍是函数(又一个待执行 thunk)/ 抛错
+ *          ⇒ 一律 fail,got 如实记 `undefined` / 'function(从未求值)' / `抛错:…`
+ *          —— "取不到"归失败不归通过,这是本出口不成为反假绿帮凶的最后一道锁。
+ *
+ * 求值时机的坑(消费方必须知道):thunk 形态**只存,不求值** —— 求值点在 `report()` 的
+ * 消费循环里。所以 `report()` 必须在它依赖的夹具还在世时调用。先 `cleanup()` 再 `report()`
+ * 拿到的是空目录上的读数,而账面记的是绿。
  */
 
 /** 消费点拿到手的东西仍然是个函数 ⇒ 断言从未被判过(沿用既有自诊断字面量)。 */
@@ -45,33 +55,46 @@ const NEVER_EVALUATED = 'function(从未求值)'
 
 /**
  * 造一个用例登记器。
- * @returns {{ t: (name: string, fn: () => unknown) => void, report: () => { pass: number, fail: number, cases: Array<{name: string, pass: boolean, got: string}> } }}
+ * @returns {{
+ *   t: (name: string, verdict: (Function | unknown), detail?: string) => void,
+ *   report: () => { pass: number, fail: number, cases: Array<{name: string, pass: boolean, got: string}> }
+ * }}
  */
 export function makeRegistrar() {
   const cases = []
-  /** 登记一条用例。**只存,不求值** —— 求值点在 `report()` 的消费循环里。 */
-  const t = (name, fn) => cases.push({ name, fn })
-  /** 消费全部用例并结账。求值只发生在这里,登记侧结构上无法"忘了调用"。 */
+  /**
+   * 登记一条用例。**thunk 只存不求值**(求值点在 `report()` 的消费循环里);
+   * 传值(布尔表达式)则是即算即得的结论,登记时已在调用侧求过值 —— 两种形态下
+   * 登记侧判据都是"求值后的结论",函数对象永远到不了结论位(`!!fn` 恒真的老洞被结构封死)。
+   * 第三参 `detail` 是失败时的诊断文本(如实进 `got`),成功时不用。
+   */
+  const t = (name, verdict, detail) => cases.push({ name, verdict, detail })
+  /** 消费全部用例并结账。thunk 的求值只发生在这里,登记侧结构上无法"忘了调用"。 */
   const report = () => {
     let pass = 0
     let fail = 0
     const rows = []
     for (const c of cases) {
-      let got
+      let value
       try {
-        got = c.fn()
+        value = typeof c.verdict === 'function' ? c.verdict() : c.verdict
       } catch (e) {
         // 一条用例抛错不许带走其余用例:逐条兜住并记成失败,否则自检本身会变成恒红门。
         fail += 1
         rows.push({ name: c.name, pass: false, got: `抛错:${e?.message ?? e}` })
         continue
       }
-      if (got === true) pass += 1
+      if (value === true) pass += 1
       else fail += 1
       rows.push({
         name: c.name,
-        pass: got === true,
-        got: typeof got === 'function' ? NEVER_EVALUATED : String(got),
+        pass: value === true,
+        got:
+          typeof value === 'function'
+            ? NEVER_EVALUATED
+            : c.detail !== undefined && c.detail !== null && c.detail !== ''
+              ? String(c.detail)
+              : String(value),
       })
     }
     return { pass, fail, cases: rows }
