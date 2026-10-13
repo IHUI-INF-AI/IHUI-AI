@@ -165,6 +165,9 @@ import {
   malformedLine,
 } from './lib/plan-task-index.mjs'
 import { collectIdFace } from './lib/plan-id-face.mjs'
+
+// 守门 194 同题查重(2026-10-13):指纹判据只此一份,取号器不另写"什么算同题"
+import { extractTaskFingerprint, findSameFingerprint } from './check-plan-task-duplicates.mjs'
 // 复合主键判据的唯一实现(台账层与归并器共用同一份;本器不得再抄一份 —— 两处算同一个键必漂移)。
 import { compositeKeyOf } from './lib/plan-task-index.mjs'
 // G-725:旁路留痕的唯一出口(键名/落点与 safe-commit 那本台账同形,不在本器里另拼 JSON)。
@@ -409,6 +412,7 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
   const leaseBounds = new Map()
   const leaseClaims = []
   const leaseNotes = []
+  const dupTitleNotes = []
   for (const f of families) {
     const used = usedIdsOfPrefix(baseContent, f)
     if (used === null) return { ok: false, reason: `no-such-family:${f}` }
@@ -441,6 +445,30 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
   }
   const got = []
   let exhaustedFamily = null
+  // 守门 194 同题查重(2026-10-13):携带取号令牌的行 = 新登记 ⇒ 发号前先按标题指纹
+  // 在底稿里查同题;命中 ⇒ 拒发号(根治"同题不同号"漂移的源头闸)。
+  // 逃生:LIVE_ID_ALLOW_DUP_TITLE=1 显式放行(留痕),用于确属同题追加执行注记的 rare 形态。
+  if (process.env.LIVE_ID_ALLOW_DUP_TITLE === '1') {
+    // 放行档也要出声:静默放行等于伪装成"查过没有同题"
+    dupTitleNotes.push('LIVE_ID_ALLOW_DUP_TITLE=1 ⇒ 本次跳过同题查重(该行输出即留痕)')
+  } else {
+    // 用无 g 的局部正则判"携带令牌",不得动 ID_TOKEN_RE 的 lastIndex(会毒化下游 matchAll)
+    const hasTokenRe = /\{\{NEXT_ID:[A-Za-z]+\}\}/
+    const newLines = lines.filter((l) => hasTokenRe.test(String(l)))
+    for (const nl of newLines) {
+      const fp = extractTaskFingerprint(String(nl))
+      if (!fp) continue
+      const hits = findSameFingerprint(baseContent, fp)
+      if (hits.length > 0) {
+        return {
+          ok: false,
+          reason: 'duplicate-title',
+          dupFingerprint: fp,
+          dupMembers: hits.map((m) => `L${m.line}(${m.selfId ?? '无号'})`).join(', '),
+        }
+      }
+    }
+  }
   const out = lines.map((l) =>
     String(l).replace(ID_TOKEN_RE, (_, raw) => {
       const f = raw.toUpperCase()
@@ -463,6 +491,7 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
     basis,
     leaseClaims,
     leaseNotes,
+    dupTitleNotes,
   }
 }
 
@@ -1256,6 +1285,15 @@ async function main() {
     const remote = families.length ? readRemoteIdBasis({ root, doc, families }) : null
     const tok = resolveIdTokens(targetLines, baseContent, remote, { machineId })
     if (!tok.ok) {
+      if (tok.reason === 'duplicate-title') {
+        console.error(
+          `❌ 守门 194 同题多号拒发号:新登记行的标题指纹与既有行同题 ⇒ 拒绝落地。` +
+            `既有登记:${tok.dupMembers}。请改用 live-doc-edit REPLACE 在既有行上追加执行注记,` +
+            `不要另起新号(根治"同题不同号"漂移,2026-10-13 立)。` +
+            `确属同题补注记且必须走令牌的 rare 形态:LIVE_ID_ALLOW_DUP_TITLE=1 显式放行(留痕)。`,
+        )
+        process.exit(2)
+      }
       if (String(tok.reason).startsWith('lease-exhausted-mid-edit:')) {
         console.error(
           `❌ 千段租约段内容量不足(${tok.reason})⇒ 拒绝落地:单次编辑的取号令牌数超过了段容量(1000),` +
@@ -1277,6 +1315,7 @@ async function main() {
     for (const b of tok.basis ?? []) console.log(describeIdBasis(b, remote))
     // 租约读数逐条交出:段内连号还是新占段、段界在哪,报告必须能对上"号为什么是这一个"。
     for (const n of tok.leaseNotes ?? []) console.log(`ℹ ${n}`)
+    for (const n of tok.dupTitleNotes ?? []) console.log(`⚠️ 守门194:${n}`)
     {
       const gate = idBasisGate({
         families,
