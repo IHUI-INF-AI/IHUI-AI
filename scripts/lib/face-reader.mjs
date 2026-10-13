@@ -255,11 +255,21 @@ export function spawnViaTempStdinFile(file, args, opts) {
  * 真故障吞成一次"重试过了"。
  */
 export function batchExecFileSync(file, args, opts = {}) {
+  // 只读派生不抢 index.lock(2026-10-13 立):git status/diff 默认会"顺手"刷新索引 stat
+  // 缓存 ⇒ 需抢 index.lock。大量并行 agent 高频轮询时与彼此的 add/commit 撞锁,而提交钩子
+  // (lint-staged + 守门批查,全程 ~140s)持锁窗口长 ⇒ 反复把提交打断重来(2026-10-13 实证:
+  // 同一批 40 次 status,带 GIT_OPTIONAL_LOCKS=0 时锁命中 10/200 采样,不带则 101/200)。
+  // 该开关只关"可选锁",add/commit/checkout 的必需锁不受影响 ⇒ 写路径语义不变;调用方仍可
+  // 用 opts.env 显式覆盖(极少数确需 stat 刷新的场景)。放在收口层 = 一处改动覆盖全仓守门脚本。
+  const opts2 = {
+    ...opts,
+    env: { ...process.env, GIT_OPTIONAL_LOCKS: '0', ...(opts.env ?? {}) },
+  }
   try {
-    return execFileSync(file, args, opts)
+    return execFileSync(file, args, opts2)
   } catch (e) {
     if (e?.code !== 'EBUSY') throw e
-    const r = spawnViaTempStdinFile(file, args, opts)
+    const r = spawnViaTempStdinFile(file, args, opts2)
     if (r.error) {
       const err = new Error(`${r.error.message} (EBUSY 兜底通道重试仍失败)`)
       err.code = r.error.code
