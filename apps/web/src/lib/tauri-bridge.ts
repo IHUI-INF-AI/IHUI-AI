@@ -565,7 +565,10 @@ export async function openExternalUrl(url: string, windowName = '_blank'): Promi
     return window.open(url, windowName) !== null
   }
   try {
-    await invoke('plugin:shell|open', { url })
+    // 2026-10-13 实证(dev+cdp 真机):shell 插件 v2 的 open 命令参数名是 `path`,传 `{url}` 必报
+    // "invalid args: command open missing required key path" ⇒ 默认浏览器路径自桥接手写以来
+    // 一直是坏的(失败落 window.open,在 Tauri webview 里 = 静默无反应,用户感知"按钮没反应")。
+    await invoke('plugin:shell|open', { path: url })
     return true
   } catch (e) {
     console.warn('[shell] open failed:', e)
@@ -595,6 +598,28 @@ export async function openInGoogleChrome(url: string): Promise<number | string |
     // 带上档名再喊:Chrome 没装(not_found)/ 端口没抢到(network)/ 别的(internal)是三种处置。
     console.warn('[chrome] open_in_chrome failed:', err.code, err.message)
     return err.message
+  }
+}
+
+/**
+ * 关掉 `openInGoogleChrome` 打开的那个窗口(2026-10-13 立,桌面端"在浏览器中登录"闭环收尾)。
+ *
+ * Rust 端 close_in_chrome 走 CDP(端口即 open_in_chrome 的返回值)只关 `urlPrefix` 命中的
+ * 那一个 page target —— 同一 Chrome 实例(--user-data-dir 固定)里工作台等其它 --app 窗口不受影响。
+ *
+ * @param port openInGoogleChrome 返回的 CDP 端口号
+ * @param urlPrefix 目标窗口的地址前缀(桌面 SSO 即 `{webBase}/sso/login`)
+ * @returns 实际关掉的 target 数;失败(端口已掉/Chrome 已退)返回 0 —— 关窗是登录成功后的
+ *          收尾动作,失败只由调用方记一行 warn,不影响已落地的登录态。
+ */
+export async function closeChromeWindow(port: number, urlPrefix: string): Promise<number> {
+  if (!isTauri()) return 0
+  try {
+    return await invokeIpc<number>('close_in_chrome', { port, urlPrefix })
+  } catch (e) {
+    const err = e instanceof DesktopIpcError ? e : toDesktopIpcError(e)
+    console.warn('[chrome] close_in_chrome failed:', err.code, err.message)
+    return 0
   }
 }
 
@@ -1566,6 +1591,13 @@ export type WorkbuddyWebLoginProbe =
 export async function checkinWorkbuddyWebLoginOpen(): Promise<void> {
   requireTauri()
   await invokeIpc<void>('checkin_workbuddy_web_login_open')
+}
+
+/** 关闭(并销毁)WorkBuddy 网页登录窗口(2026-10-13 白屏死锁修复:
+ *  页面加载失败时前端唯一的取消出口;关闭后再打开会重建窗口重新加载)。 */
+export async function checkinWorkbuddyWebLoginClose(): Promise<void> {
+  requireTauri()
+  await invokeIpc<void>('checkin_workbuddy_web_login_close')
 }
 
 /** 轮询探测:读登录窗口 cookie jar(含 HttpOnly)→ Rust 侧验证登录态并取账号。 */

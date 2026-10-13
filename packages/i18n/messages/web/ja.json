@@ -10409,6 +10409,7 @@
     "resetPassword": "パスワードリセット",
     "resetSuccess": "Presets reset",
     "sendCode": "コード取得",
+    "sessionLoggedOutHint": "セッションが終了しました。続行するには再度ログインしてください。",
     "showPassword": "パスワードを表示",
     "termsOfService": "サービス",
     "thirdParty": {
@@ -19091,6 +19092,10 @@
     "captureWbWebImporting": "サインインを検出、アカウントを取り込み中…",
     "captureWbWebDone": "Web ログインの取り込みが完了しました({count} 件)",
     "captureWbWebWindowClosed": "ログイン画面が閉じられました。もう一度「ログイン画面を開く」をクリックしてください。",
+    "captureWbWebCancel": "キャンセル",
+    "captureWbWebCancelled": "Web ログインをキャンセルしました。もう一度「ログイン画面を開く」をクリックしてください。",
+    "captureWbWebSlowHint": "ログイン画面が空白のまま読み込まれていないようです。ネットワークが www.workbuddy.cn にアクセスできるか確認してください。「キャンセル」で画面を閉じ、ネットワーク回復後に再度開くこともできます。",
+    "captureWbWebProbeFailed": "ログイン画面のプローブが続けて失敗したため待機を中止しました。再試行するか、下の「手動キャプチャ」/トークン方式をご利用ください。",
     "captureWbManualDivider": "またはデスクトップのログイン情報を手動で取得",
     "captureWbWebCheckinUncertain": "注意:チェックイン API が Web ログイン状態を受け付けるか未確認です。チェックインが失敗した場合(401)はトークン方式に切り替え、お知らせください。",
     "captureDirFound": "ローカルの TRAE データディレクトリを検出しました：{dir}",
