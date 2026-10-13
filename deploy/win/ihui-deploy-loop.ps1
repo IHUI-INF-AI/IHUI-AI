@@ -126,23 +126,36 @@ if (-not (Test-Path -LiteralPath $LockCommon)) {
 function LogLine { param([string]$m) ("[{0}] {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz'), $m) }
 function Log     { param([string]$m) Add-Content -Path $LogFile -Value (LogLine $m) }
 
-# ── 日志轮转(2026-09-21 根治):deploy-loop.log 只增不滚,两个月积到 53MB,排查时
-#    -Tail 变慢且历史噪音淹没有效信息。每轮部署轮询前检查:超过 50MB 即重命名为
-#    带时间戳归档,保留最近 5 份。Add-Content 每次按路径重新打开,轮转后自动建新
-#    文件,无需重启守护;轮转异常只跳过,不影响部署。
-$LogMaxBytes = 50MB
-$LogKeep     = 5
+# ── 日志轮转(2026-10-13 改为 .N 顺移方案):deploy-loop.log 只增不滚,两个月积到
+#    53MB,排查时 -Tail 变慢且历史噪音淹没有效信息。每轮部署轮询前检查:超过
+#    $DeployLogMaxBytes 即顺移重命名 deploy-loop.log → .1,已有 .1 则依次 .1→.2
+#    顺移,最多保留 $DeployLogKeep 份,最老的删除;不做 gzip(Windows 下
+#    Compress-Archive 依赖多且轮转价值有限,纯改名即可)。Add-Content 每次按路径
+#    重新打开,轮转后自动建新文件,无需重启守护。轮转落在每轮入口(非 Log 逐行
+#    热路径),避免与流式转写抢锁;文件被占用时 Rename-Item 抛错 → 本轮跳过、
+#    下轮再试,不抛错不中断部署主流程。
+$DeployLogMaxBytes = 20MB
+$DeployLogKeep     = 5
 function Invoke-LogRotate {
     try {
-        if (-not (Test-Path $LogFile)) { return }
-        if ((Get-Item $LogFile -ErrorAction Stop).Length -lt $LogMaxBytes) { return }
-        $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-        Move-Item $LogFile (Join-Path $WinDir "deploy-loop-$stamp.log") -Force
-        Get-ChildItem (Join-Path $WinDir 'deploy-loop-*.log') -File -ErrorAction SilentlyContinue |
-            Sort-Object Name -Descending | Select-Object -Skip $LogKeep |
-            Remove-Item -Force -ErrorAction SilentlyContinue
-        Log "日志已轮转: deploy-loop.log → deploy-loop-$stamp.log(保留最近 $LogKeep 份)"
-    } catch {}
+        if (-not (Test-Path -LiteralPath $LogFile)) { return }
+        if ((Get-Item -LiteralPath $LogFile -ErrorAction Stop).Length -lt $DeployLogMaxBytes) { return }
+        $oldest = Join-Path $WinDir ("deploy-loop.log.{0}" -f $DeployLogKeep)
+        if (Test-Path -LiteralPath $oldest) {
+            Remove-Item -LiteralPath $oldest -Force -ErrorAction SilentlyContinue
+        }
+        for ($i = $DeployLogKeep - 1; $i -ge 1; $i--) {
+            $src = Join-Path $WinDir ("deploy-loop.log.{0}" -f $i)
+            if (Test-Path -LiteralPath $src) {
+                Rename-Item -LiteralPath $src -NewName ("deploy-loop.log.{0}" -f ($i + 1)) -ErrorAction Stop
+            }
+        }
+        Rename-Item -LiteralPath $LogFile -NewName 'deploy-loop.log.1' -ErrorAction Stop
+        Log "日志已轮转: deploy-loop.log → deploy-loop.log.1(阈值 $DeployLogMaxBytes,保留 $DeployLogKeep 份)"
+    } catch {
+        # 被占用等瞬时原因:跳过本轮,下一轮再试;主流程不得中断
+        return
+    }
 }
 
 # ── pwsh 解析(2026-09-13 加固,实测):SYSTEM 上下文 PATH 不含 PowerShell 7,
