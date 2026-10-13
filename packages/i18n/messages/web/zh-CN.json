@@ -21617,7 +21617,7 @@
     "desktopCloseAsk": "每次询问",
     "desktopCloseDisabledHint": "已关闭托盘图标，无法选择“隐藏到托盘”",
     "desktopLaunchMinTitle": "启动后先进托盘",
-    "desktopLaunchMinDesc": "程序启动时不弹出主窗口，只在后台待命，需要时再打开窗口",
+    "desktopLaunchMinDesc": "开机自启时不弹出主窗口，只在后台待命；手动打开桌面图标仍会显示窗口",
     "desktopTrayClickTitle": "托盘单击",
     "desktopTrayClickMenu": "弹出菜单",
     "desktopTrayClickToggle": "显示/隐藏主窗口",

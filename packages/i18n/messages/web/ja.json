@@ -21640,7 +21640,7 @@
     "desktopCloseAsk": "毎回確認する",
     "desktopCloseDisabledHint": "トレイアイコンが無効のため「トレイに隠す」は選択できません",
     "desktopLaunchMinTitle": "起動後はまずトレイへ",
-    "desktopLaunchMinDesc": "アプリ起動時にメインウィンドウを表示せず、バックグラウンドで待機し、必要時にウィンドウを開きます",
+    "desktopLaunchMinDesc": "システム起動時にメインウィンドウを表示せずバックグラウンドで待機します。デスクトップのショートカットを直接開くと表示されます",
     "desktopTrayClickTitle": "トレイのクリック時",
     "desktopTrayClickMenu": "メニューを表示",
     "desktopTrayClickToggle": "メインウィンドウの表示/非表示",
