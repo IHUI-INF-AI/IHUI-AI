@@ -70,7 +70,8 @@ interface WorkflowInstance {
   id: string;
   workflowId: string;
   projectId?: string;
-  status: InstanceStatus;
+  /** `unknown` = 未知/未来值的显式拒绝档(无副作用),由 asInstanceStatus 落此档,绝不兜初始态(G-815963)。 */
+  status: InstanceStatus | 'unknown';
   context?: unknown;
   startedAt?: string;
   completedAt?: string;
@@ -86,7 +87,8 @@ interface WorkflowTask {
   name: string;
   type: TaskType;
   input?: unknown;
-  status: TaskStatus;
+  /** `unknown` = 未知/未来值的显式拒绝档(无副作用),由 asTaskStatus 落此档,绝不兜初始态(G-815963)。 */
+  status: TaskStatus | 'unknown';
   result?: unknown;
   error?: string;
   createdAt: string;
@@ -121,11 +123,15 @@ function asTriggerType(v: unknown): TriggerType {
   return (TRIGGER_TYPES as readonly string[]).includes(s) ? (s as TriggerType) : 'manual';
 }
 
-function asInstanceStatus(v: unknown): InstanceStatus {
+/**
+ * 实例状态解码:值 ∈ 全集 ⇒ 原样;未知/未来值 ⇒ `unknown`(**显式拒绝档**,不再产生副作用)。
+ * 旧形态兜 `'pending'`(初始态)会把服务端已终态的账在 CLI 展示/后续过滤里放回可执行集合(G-815963)。
+ */
+function asInstanceStatus(v: unknown): InstanceStatus | 'unknown' {
   const s = asString(v);
   return (INSTANCE_STATUSES as readonly string[]).includes(s)
     ? (s as InstanceStatus)
-    : 'pending';
+    : 'unknown';
 }
 
 function asTaskType(v: unknown): TaskType {
@@ -133,9 +139,10 @@ function asTaskType(v: unknown): TaskType {
   return (TASK_TYPES as readonly string[]).includes(s) ? (s as TaskType) : 'action';
 }
 
-function asTaskStatus(v: unknown): TaskStatus {
+/** 任务状态解码:未知/未来值 ⇒ `unknown`(显式拒绝档,同 asInstanceStatus,G-815963)。 */
+function asTaskStatus(v: unknown): TaskStatus | 'unknown' {
   const s = asString(v);
-  return (TASK_STATUSES as readonly string[]).includes(s) ? (s as TaskStatus) : 'pending';
+  return (TASK_STATUSES as readonly string[]).includes(s) ? (s as TaskStatus) : 'unknown';
 }
 
 /** 将 unknown 安全断言为 Workflow */

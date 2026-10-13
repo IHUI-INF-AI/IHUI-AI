@@ -29,6 +29,7 @@ import chalk from 'chalk';
 import { loadSettings } from './settings.js';
 import { ensureFreshAccessToken, missingTokenHint } from './token-manager.js';
 import type { V1ChatCompletionResponse, ApiKeyStatus } from '@ihui/types';
+import { attributeError } from '@ihui/shared/utils/error-attribution';
 
 const DEFAULT_TIMEOUT_MS = 60_000; // playground 调用可能较慢,放宽到 60s
 const LOGS_PAGE_SIZE = 20;
@@ -233,7 +234,9 @@ function handleError(scope: string, err: unknown): void {
   const e = err as Error & { status?: number };
   const status = typeof e.status === 'number' ? ` [${e.status}]` : '';
   console.error(chalk.red(`✗ ${scope}${status}: ${e.message || err}`));
-  if (e.message?.includes('ECONNREFUSED') || e.message?.includes('fetch failed')) {
+  // 连不上本地 API 的提示档:判据走错误归因唯一出口 G-816012(transport/network 档)
+  const attribution = attributeError(err);
+  if (attribution.errorSource === 'transport' && attribution.failureReason === 'network') {
     console.error(
       chalk.dim('  请确认 API 服务已启动:pnpm --filter @ihui/api dev(默认 http://localhost:8802)'),
     );
