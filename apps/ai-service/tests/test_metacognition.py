@@ -1104,4 +1104,41 @@ class TestSingletons:
     def test_metacognition_singleton(self):
         assert metacognition is not None
         assert isinstance(metacognition, Metacognition)
+
+
+# ── L8064:同族 doom_loop 枚举多样性不是冲突(真冲突判据) ──────────────────────
+
+
+class TestEnumDiversityExemption:
+    """`doom_loop:<tool>:<sha256>` 族按入参分支天然互异 —— 同族不同哈希是
+    枚举维度,不是冲突;判据钉死防回归(把"正常的多样性"记成冲突=误报洪流)。"""
+
+    def test_same_family_diff_hash_is_enum_diversity(self):
+        a = "doom_loop:run_command:" + "a" * 64
+        b = "doom_loop:run_command:" + "b" * 64
+        assert Metacognition._is_enum_diversity(a, b) is True
+
+    def test_redacted_family_diff_tail_is_enum_diversity(self):
+        a = "doom_loop:run_command:redacted-" + "a" * 16
+        b = "doom_loop:run_command:redacted-" + "b" * 16
+        assert Metacognition._is_enum_diversity(a, b) is True
+
+    def test_different_tool_family_not_matched_here(self):
+        a = "doom_loop:run_command:" + "a" * 64
+        b = "doom_loop:write_file:" + "b" * 64
+        assert Metacognition._is_enum_diversity(a, b) is False
+
+    def test_non_doom_loop_patterns_not_exempted(self):
+        # 族外(旧明文/自由文本)不豁免 —— 它们才是清洗器对象,维持真冲突上报
+        assert Metacognition._is_enum_diversity("用户偏好用 vim", "用户偏好用 emacs") is False
+
+    def test_one_doom_loop_one_free_text_not_exempted(self):
+        a = "doom_loop:run_command:" + "a" * 64
+        assert Metacognition._is_enum_diversity(a, "自由文本记录") is False
+
+    def test_identical_patterns_short_circuits_upstream(self):
+        # 同 pattern 在外层已被 `a["pattern"] != b["pattern"]` 挡掉,判据不该被问到;
+        # 但即便问到,同哈希段不是"枚举多样性"(是同一条记忆),返回 False 不豁免
+        a = "doom_loop:run_command:" + "a" * 64
+        assert Metacognition._is_enum_diversity(a, a) is False
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
