@@ -30,25 +30,35 @@ apps/desktop 的 Tauri 打包产物（不含前端资源）
 
 ## 本地开发
 
-```bash
-# 在仓库根目录或 apps/desktop 下执行（tauri dev 会按 tauri.conf.json 自动拉起 web dev server）
-pnpm --filter @ihui/desktop dev
+桌面端开发有两条路，按「窗口加载谁」区分：
 
-# 日常联调推荐：连线上生产后端的 dev 模式（自行释放 8801 并常驻拉起 dev server）
+| 入口                              | 窗口加载                                        | 后端                                            | 适用                            |
+| --------------------------------- | ----------------------------------------------- | ----------------------------------------------- | ------------------------------- |
+| `pnpm dev:desktop:saas`           | `http://localhost:8801/`（本地 web dev server） | **开发后端**（本机 api 8802 / ai-service 8803） | 日常联调（2026-10-13 起的默认） |
+| `pnpm --filter @ihui/desktop dev` | `https://aizhs.top/`（线上站点）                | 线上生产                                        | 验证薄壳本身 / 线上行为         |
+
+### 开发后端联调（默认）
+
+```bash
 pnpm dev:desktop:saas
 ```
 
-`tauri.conf.json` 的 `beforeDevCommand` 为 `pnpm --filter @ihui/web dev`，`devUrl` 为 `http://localhost:8801`。**但这两条在开发态都不起作用**：主窗口的 `app.windows[0].url` 写的是绝对地址 `https://aizhs.top/`（首页，2026-10-13 起启动页由 `/agents` 改来），而 Tauri 2 只有 `WebviewUrl::App`（相对路径）才会被解析到 `devUrl`，`External` 一律原样加载（`tauri-utils/src/config.rs` 的 http(s) 反序列化 + `tauri/src/manager/webview.rs` 的 `get_app_url()` 分支，2.11.x 实测）。所以 `tauri dev` 与 `pnpm dev:desktop:saas`（`scripts/desktop-dev-saas.mjs` 只覆盖 `beforeDevCommand`）加载的都是线上前端，`devUrl` 是一条没被用上的历史配置。
+`scripts/desktop-dev-saas.mjs` 做四件事：释放并常驻拉起 8801 dev server（**不注入任何后端 env**）→ 校验 `GET /` 返回 200（防止端口上躺着别的服务）→ 停掉本仓 target 目录的残留桌面端实例（cargo 链接阶段要删 exe）→ `tauri dev --config` 覆盖启动。覆盖内容（`--config` 合并语义：`app.windows` 是整数组替换、`build` 是对象深合并）：
 
-要在开发态加载本地 web 构建（验证"只在本地存在的界面"时必须这么做），把窗口 `url` 一起换成相对路径、并把 `devUrl` 指到本地端口：
+- `build.beforeDevCommand` 置空 —— dev server 已由脚本启动，Tauri 不再重复拉起抢端口；
+- `app.windows[0].url` 改为 `http://localhost:8801/` —— 薄壳态下 `tauri.conf.json` 的 url 是绝对线上地址（`External` 原样加载，`devUrl` 不生效），不改它窗口永远加载线上生产。url 必须带**完整 windows[0] 对象**再改（只给 `{label,url}` 会丢掉 `decorations:false`/`visible:false`/`theme` 等，2026-09-28 实测）。且必须写绝对地址 `http://localhost:8801/` 而不是 `index.html` —— Next dev 对 `/index.html` 返回 404 页，只有 `/` 是真应用（2026-10-13 实测）。
+
+后端寻址不需要任何 env：`apps/web/src/lib/api-base-url.ts` 按窗口 origin 判定 —— 桌面端窗口是 localhost:8801 ⇒ REST `127.0.0.1:8802` / ai-service `127.0.0.1:8803` / SSE `localhost:8802` / WS `127.0.0.1:8802`；浏览器直接开 8801 则走同源 `/api/*` 反代（next rewrites），同样落 8802/8803。Rust 侧 `auto_refresh` 的探活/指纹/离线恢复也按窗口 origin 派生（`BackendBase`，2026-10-13 起）：开发后端在跑时不会误判离线，恢复时也不会被顶回线上首页。
+
+换后端（不换窗口）：
 
 ```bash
-# 覆盖配置只影响本次 dev 进程，零文件改动(2026-09-28 实测:DevTools 标题变为 localhost:8861)
-node -e 'const c=require("./apps/desktop/src-tauri/tauri.conf.json");const w={...c.app.windows.find(x=>x.label==="main"),url:"index.html"};require("fs").writeFileSync(".ihui-agent/tmp/desktop-dev-override.json",JSON.stringify({build:{beforeDevCommand:"",devUrl:"http://localhost:8861"},app:{windows:[w]}}))'
-pnpm --filter @ihui/desktop exec tauri dev --config .ihui-agent/tmp/desktop-dev-override.json
+IHUI_API_PROXY_TARGET=https://aizhs.top pnpm dev:desktop:saas      # 本地 web + 线上 API（同源 /api/* 反代）
+NEXT_PUBLIC_API_BASE_URL=https://aizhs.top pnpm dev:desktop:saas   # 绝对基址直连（需目标 CORS 放行 http://localhost:8801）
+node scripts/desktop-dev-saas.mjs --keep-dev-server                # 复用 8801 现有 dev server
 ```
 
-两点实测注意：① 覆盖必须带上**完整的 windows[0] 对象**（只给 `{label,url}` 会丢掉 `decorations:false`/`visible:false`/`theme` 等）；② `url` 要写成相对值而不是 `http://localhost:8861/` —— 绝对地址会被当成远程来源，而 `capabilities/default.json` 的 `remote.urls` 只放行 `aizhs.top`，本地页会拿不到 IPC（表现是宿主命令全部失败）。另外 `src-tauri/src/auto_refresh.rs` 的离线守卫在连续探活失败后会把页面顶回线上首页，dev 期间需保证 `aizhs.top/api/health` 可达。
+IPC 授权说明：dev 构建下窗口 origin 与 `devUrl` 同源 ⇒ Tauri 判定 `Origin::Local`（tauri 2.11.5 `src/webview/mod.rs` `is_local_url`），本地页可直接用 IPC，无需把 localhost 加进 `capabilities/default.json` 的 `remote.urls`（该清单只放行 aizhs.top，生产语义不变）。
 
 ## 构建
 
