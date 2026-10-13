@@ -21617,7 +21617,7 @@
     "desktopCloseAsk": "每次詢問",
     "desktopCloseDisabledHint": "已關閉托盤圖示，無法選擇「隱藏到托盤」",
     "desktopLaunchMinTitle": "啟動後先進托盤",
-    "desktopLaunchMinDesc": "程式啟動時不彈出主視窗，只在背景待命，需要時再開啟視窗",
+    "desktopLaunchMinDesc": "開機自啟時不彈出主視窗，只在背景待命；手動開啟桌面圖示仍會顯示視窗",
     "desktopTrayClickTitle": "托盤單擊",
     "desktopTrayClickMenu": "彈出選單",
     "desktopTrayClickToggle": "顯示/隱藏主視窗",
