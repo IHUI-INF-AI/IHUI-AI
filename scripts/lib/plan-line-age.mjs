@@ -341,14 +341,17 @@ export function headAges(root = ROOT) {
 function main() {
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) return selfTest()
+  // 无效 --limit 的点名必须先于 --staged 早退档:runner 常在尾部追加 --staged,`--limit --staged`
+  // 原先从下面早退分支绕过 resolveLimit ⇒ 无效值静默按默认走、一个字不点名 —— 正是"带值旗标
+  // 吞掉紧邻旗标"这一族要堵的形态(G-322 收口复核 2026-10-13 补漏值/顶值两支)。
+  const { limit, notice: limitNotice } = resolveLimit(argv)
+  if (limitNotice) console.error(`ℹ ${limitNotice}`)
   if (argv.includes('--staged')) {
     console.log(
       'ℹ 索引面没有历史可追溯 ⇒ 本档不判年龄;本次新写的行一律按"刚出生"处理,不得当成陈旧。',
     )
     return 0
   }
-  const { limit, notice: limitNotice } = resolveLimit(argv)
-  if (limitNotice) console.error(`ℹ ${limitNotice}`)
   try {
     const { ages } = headAges()
     const measurable = ages.filter((x) => x.ageDays !== null).sort((x, y) => y.ageDays - x.ageDays)

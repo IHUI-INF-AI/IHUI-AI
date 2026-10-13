@@ -23,6 +23,8 @@
  *   node scripts/plan-tasks.mjs --open --dispatchable --exclude-inflight
  *                                                # 同上一档的判据,但把那些行**暂移**出出单面(对方收口后自动回来;
  *                                                # 不判完成、不改勾选、"核验不了"档一律不剔)
+ *                                                # 纯滞后副本(工作树 blob = 该路径某个历史版本)不算"别人在飞",
+ *                                                # 不暂移 —— 懒判,只对被点名的脏路径问祖先(blobInAncestry 四态)
  *                                                # (默认档不打扰 —— 下游有按行解析这份输出的消费者)
  *   node scripts/plan-tasks.mjs --gate [--strict] # 判据档(默认存量只报数;--strict 判红)
  *   node scripts/plan-tasks.mjs --reopened-flips --since=YYYY-MM-DD [--max-commits=N]
@@ -36,7 +38,7 @@
  * §5c 溯源水印:本文件受 `scripts/watermark.mjs` 管理。
  */
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
@@ -45,6 +47,10 @@ import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './
 //   · "哪些文件此刻不干净"   ← 守门 54 的 `parsePorcelainZ`(`git status --porcelain -z` 记录格式)。
 import { extractRefs } from './check-live-doc-references.mjs'
 import { parsePorcelainZ } from './check-uncommitted-age.mjs'
+// 第三件事:"这个工作树 blob 是不是该路径的某个历史版本"(纯滞后副本 vs 真在飞)——
+// 唯一出口是工作区自愈的 `blobInAncestry`(与守门 84 同一把尺子,四态对象)。
+// 同一件事只许一份实现:禁止在本文件再抄一份 `git log`/rev-list 式的祖先判据。
+import { blobInAncestry } from './heal-worktree-tracked.mjs'
 import {
   auditPlan,
   compositeKeyOf,
@@ -132,9 +138,20 @@ export function parseArgs(argv) {
  *  - 干净  路径在 HEAD 树里且不在 status ⇒ 此刻无人改动它;
  *  - 核验不了  两头都找不到 ⇒ 该行点名的路径本身不可核(拼错 / 已搬家),
  *    **既不记成"没人碰",也不据此判冲突**,逐条报名。
- * 纯函数:两个集合由调用方注入,自检不碰 git(§22b 同源取向)。
+ * 纯函数:两个集合与惰判回调都由调用方注入,自检不碰 git(§22b 同源取向)。
+ *
+ * `lagJudge`(懒判回调,G-1105309):**只对本叠层真正命中的脏路径**调用,问
+ * "这条脏路径的工作树 blob 是否就是该路径的某个历史版本(纯滞后副本)"。
+ *  - 只对命中问,绝不对整张 dirtySet 逐条判 —— 祖先判据每条要跑一次祖先窗口取材,
+ *    对全表判会把一次派单扫描从秒级拖到小时级(约束①);
+ *  - 回调返回 `blobInAncestry` 的**四态对象**,本函数**逐字**比 `verdict === 'proven'`:
+ *    四态对象本身恒为真值,写成 `if (res)` 会把全部命中判成滞后 ⇒ 本功能反向变成
+ *    "永远不避让"(约束③,配 LG3 变异锁);
+ *  - 非 `proven`(absent / beyond-window / undetermined / 判不了 / 超 cap)一律**留在
+ *    "真在飞"继续让位**,并经 `judgedList` 逐条报名,绝不静默少判(约束④);
+ *  - 不传 lagJudge ⇒ 判据与旧版逐字同值(所有命中都算冲突)。
  */
-export function fileConflictOverlay({ rows, dirtySet, headSet }) {
+export function fileConflictOverlay({ rows, dirtySet, headSet, lagJudge = null }) {
   const hasAnyUnder = (set, key) => {
     const pre = key + '/'
     for (const p of set) if (p === key || p.startsWith(pre)) return true
@@ -144,7 +161,9 @@ export function fileConflictOverlay({ rows, dirtySet, headSet }) {
   const absentList = []
   let refsTotal = 0
   let cleanRefs = 0
-  let conflictRefs = 0
+  // 叠层命中的脏路径(唯一化、保持行序)—— 懒判的射程**只有**这张短名单,不是整张 dirtySet。
+  const hitKeys = []
+  const hitSeen = new Set()
   for (const r of rows || []) {
     const refs = extractRefs(String(r.raw || ''), 'PROJECT_PLAN.md')
     const hits = new Set()
@@ -153,6 +172,10 @@ export function fileConflictOverlay({ rows, dirtySet, headSet }) {
       const dirty = rec.form === 'dir' ? hasAnyUnder(dirtySet, key) : dirtySet.has(key)
       if (dirty) {
         hits.add(key)
+        if (!hitSeen.has(key)) {
+          hitSeen.add(key)
+          hitKeys.push(key)
+        }
         continue
       }
       const inHead = rec.form === 'dir' ? hasAnyUnder(headSet, key) : headSet.has(key)
@@ -162,20 +185,50 @@ export function fileConflictOverlay({ rows, dirtySet, headSet }) {
       }
       absentList.push({ line: r.line, key })
     }
-    if (hits.size > 0) {
-      conflictRefs += hits.size
-      list.push({ line: r.line, paths: [...hits].sort() })
+    if (hits.size > 0) list.push({ line: r.line, paths: [...hits].sort() })
+  }
+  // 懒判:每条命中路径只问一次(缓存由回调自己持有也无妨,这里再兜一层去重)。
+  const judged = new Map()
+  if (lagJudge) {
+    for (const key of hitKeys) {
+      let res
+      try {
+        res = lagJudge(key)
+      } catch (e) {
+        res = { verdict: 'undetermined', reason: `惰判回调抛错:${String(e?.message ?? e).slice(0, 120)}` }
+      }
+      judged.set(
+        key,
+        res && typeof res === 'object' && typeof res.verdict === 'string'
+          ? res
+          : { verdict: 'undetermined', reason: '惰判回调未回带字符串 verdict 的四态对象' },
+      )
     }
   }
+  // 约束③:逐字比 verdict,真值域只有 'proven' 算滞后副本。绝不写成 if (res)(对象恒真)。
+  const isLagging = (key) => judged.get(key)?.verdict === 'proven'
+  const conflictList = []
+  const releasedList = []
+  for (const item of list) {
+    const live = item.paths.filter((p) => !isLagging(p))
+    if (live.length > 0) conflictList.push({ line: item.line, paths: live })
+    else releasedList.push({ line: item.line, paths: item.paths })
+  }
+  let conflictRefs = 0
+  for (const c of conflictList) conflictRefs += c.paths.length
   return {
     rowsTotal: (rows || []).length,
-    rowsWithConflict: list.length,
+    rowsWithConflict: conflictList.length,
     refsTotal,
     cleanRefs,
     conflictRefs,
     absent: absentList.length,
-    conflictList: list,
+    conflictList,
     absentList,
+    /** 每条被惰判过的命中路径的四态读数(proven 带 commit 证据)—— 报名面,不含未命中的脏路径。 */
+    judgedList: [...judged].map(([k, v]) => ({ path: k, ...v })),
+    /** 脏命中全部判为滞后副本而**放回**的行(不算冲突 ⇒ --exclude-inflight 不剔它),点名哪几条路径。 */
+    releasedList,
   }
 }
 
@@ -244,6 +297,75 @@ export function excludeInflightRows(rows, cf) {
   const dropped = []
   for (const r of rows || []) (bad.has(r.line) ? dropped : kept).push(r)
   return { kept, dropped }
+}
+
+/** 惰判预算:一次派单叠层最多对这么多条**命中**脏路径问祖先(每条 = 一次 hash-object + 一次祖先窗口取材)。
+ *  超预算一律回 undetermined ⇒ 该路径留在"真在飞"继续让位并逐条报名 —— 宁可多让位,绝不静默少判(约束④)。
+ *  上限对齐守门 84 暂存集的 MAX_FILES=300:再高会把一次派单扫描拖到分钟级,再低则常态命中都判不完。 */
+export const LAG_JUDGE_CAP = 300
+
+/**
+ * 惰判回调(G-1105309):回答"这条**被叠层命中**的脏路径,工作树 blob 是否就是该路径的某个历史版本"。
+ *
+ * 四条硬约束逐条落在这一个出口里:
+ *  ① 懒判由调用方(`fileConflictOverlay` 只对命中调用)保证,本函数只按 key 单判 + 缓存,
+ *     绝不去扫整张脏表;
+ *  ② 祖先判据唯一出口是 `blobInAncestry`(工作区自愈/守门 84 同一把尺子)——这里**不许**再出现
+ *     任何 `git log`/`rev-list` 式的第二份实现;本函数只负责把工作树内容变成一枚 blob oid;
+ *  ③ 返回值**原样保留四态对象**(proven / absent / beyond-window / undetermined),布尔化是调用方
+ *     逐字比 `verdict === 'proven'` 的事 —— 对象恒为真,任何 `if (res)` 都会把全部脏路径判成滞后,
+ *     功能反向变成"永远不避让";
+ *  ④ 判不了(盘上不在 / 目录形态 / 超 cap / hash-object 输出不可信 / git 抛错)一律回 undetermined,
+ *     即留在"真在飞"继续让位,且 reason 会被逐条报名,不静默少判;
+ *  ⑤ 只判**盘上还在**的路径:暂存删除/已删路径喂 `git hash-object` 会让派生 fatal,故先 stat 再喂;
+ *     `hash-object` 输出必须**恰为一行** oid,行数对不上 ⇒ 整条判取不到,绝不采信半截结果。
+ */
+export function makeLagJudge(root, { cap = LAG_JUDGE_CAP } = {}) {
+  const top = repoToplevel(root)
+  const cache = new Map()
+  let spent = 0
+  const und = (reason) => ({ verdict: 'undetermined', reason })
+  const judge = (key) => {
+    if (!top) return und('git toplevel 取不到 ⇒ 判不了,留在"真在飞"')
+    let st = null
+    try {
+      st = statSync(path.join(top, key))
+    } catch {
+      st = null
+    }
+    // 盘上不在(暂存删除/已删)⇒ 不喂 hash-object —— 喂进去整条派生 fatal,同型停摆本仓记过。
+    if (!st) return und('盘上不在(暂存删除/已删)⇒ 不喂 hash-object,留在"真在飞"')
+    if (st.isDirectory()) return und('目录形态点名 ⇒ 不逐文件哈希,留在"真在飞"')
+    if (spent >= cap) return und(`超出惰判预算 cap=${cap} 条 ⇒ 判不了,留在"真在飞"(逐条报名)`)
+    spent += 1
+    let blob
+    try {
+      const out = String(gitRaw(['hash-object', '--', key], top) ?? '')
+      const lines = out.split(/\r?\n/).map((l) => l.trim()).filter((l) => l !== '')
+      if (lines.length !== 1 || !/^[0-9a-f]{40,64}$/.test(lines[0]))
+        return und(`hash-object 回 ${lines.length} 行(应恰 1 行 oid)⇒ 整条判取不到,不采信半截结果`)
+      blob = lines[0]
+    } catch (e) {
+      return und(`hash-object 失败:${String(e?.message ?? e).slice(0, 140)}`)
+    }
+    try {
+      // 四态对象原样回传 —— 这里不做任何布尔化/改写(约束③:取值判据只在调用方逐字比 verdict)。
+      return blobInAncestry(top, key, blob)
+    } catch (e) {
+      return und(`blobInAncestry 失败:${String(e?.message ?? e).slice(0, 140)}`)
+    }
+  }
+  return (key) => {
+    if (cache.has(key)) return cache.get(key)
+    let res
+    try {
+      res = judge(key)
+    } catch (e) {
+      res = und(`惰判抛错:${String(e?.message ?? e).slice(0, 140)}`)
+    }
+    cache.set(key, res)
+    return res
+  }
 }
 
 /** 只读一条文档。整面取不到 ⇒ 抛 Undetermined(调用方转 exit 2),绝不静默换面。 */
@@ -2457,7 +2579,8 @@ function main() {
             '`--exclude-inflight` 也一律照派(拿"量不到"去剔真活就是反向的"把没做的记成做过的")',
         )
       } else {
-        const cf = fileConflictOverlay({ rows, dirtySet, headSet })
+        // 惰判回调:只对叠层命中的脏路径问祖先(懒判),四态对象在 fileConflictOverlay 里逐字比 verdict。
+        const cf = fileConflictOverlay({ rows, dirtySet, headSet, lagJudge: makeLagJudge(o.root) })
         if (o.conflicts) {
           console.log(
             `  文件归属叠层:${cf.rowsWithConflict} / ${cf.rowsTotal} 行点名了**当前不干净**的路径` +
@@ -2484,6 +2607,25 @@ function main() {
               (dropped.length ? ` —— ${who}${dropped.length > 10 ? ` …另 ${dropped.length - 10} 行` : ''}` : ''),
           )
           rowsOut = kept
+        }
+        // 惰判读数(G-1105309 约束③④):放回的行逐行点名"哪条路径 proven@commit"(可复核,防为升而升);
+        // 非 proven 的命中路径**逐条报名** —— 判不了 / 超 cap 的都留在"真在飞"继续让位,但绝不静默少判。
+        if (cf.judgedList.length > 0) {
+          const proven = cf.judgedList.filter((j) => j.verdict === 'proven')
+          const rest = cf.judgedList.filter((j) => j.verdict !== 'proven')
+          console.log(
+            `  惰判(只对叠层命中的 ${cf.judgedList.length} 条脏路径问祖先,唯一出口 heal 的 blobInAncestry):` +
+              `滞后副本 ${proven.length} / 留在"真在飞" ${rest.length} ⇒ 放回 ${cf.releasedList.length} 行`,
+          )
+          const byPath = new Map(cf.judgedList.map((j) => [j.path, j]))
+          for (const r of cf.releasedList) {
+            const why = r.paths
+              .map((p) => `${p}${byPath.get(p)?.commit ? `@${byPath.get(p).commit}` : ''}`)
+              .join(', ')
+            console.log(`    放回 L${r.line} ← ${why}(工作树 blob = 该路径祖先版本 proven)`)
+          }
+          for (const j of rest)
+            console.log(`    留在"真在飞"${j.path}:${j.verdict}${j.reason ? ` —— ${j.reason}` : ''}`)
         }
       }
     }
