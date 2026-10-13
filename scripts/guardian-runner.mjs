@@ -4843,6 +4843,90 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 错误归因唯一出口对账(1 项,blocking;G-816012 交付物,2026-10-13 主会话接线)---
+  {
+    id: '204',
+    label:
+      '🧭 错误归因唯一出口(blocking,生产面不得出现第二份 `.message.includes(` 归因判定;调用点必须走 packages/shared 的 attributeError)',
+    script: 'check-error-attribution-single-source.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_ERROR_ATTRIBUTION_SINGLE_SOURCE',
+    stagedTriggers: ['apps/', 'packages/', 'scripts/'],
+    onFailHint: [
+      '',
+      '  💡 三条判据缺一不可(缺一条,这道门就是"看着在判"的摆设):',
+      '     ① 反第二份 —— 生产面出现 `.message.includes(` / `.message?.includes(` 形态的错误文本判定 ⇒ 判红。',
+      '        上游把同一判定散在 40 处是反面教材;本票同批把存量清零,此后**任何**一处即红(不设棘轮)。',
+      '     ② 引用出口 —— 调用 attributeError( 的生产文件必须从唯一出口导入;出口必须至少有一个**端外**',
+      '        生产消费者(只有 barrel re-export 不算 —— 出口零消费者 = 判据挂在半空,只判了纯形状)。',
+      '     ③ 反向锁 —— 站点键 = 文件 + 行 + 列 + 该处**原文**片段,绝不按文本归并、也绝不按归因结果归并',
+      '        (按结果去重会把第二处违规抹平:「超时」与「timeout」是同一规则的两个 needle,但它们是两处判定)。',
+      '  🛠 修法:新错误源进 packages/shared/src/utils/error-attribution.ts 加规则,调用点 import attributeError;',
+      '     禁止在调用点再抄一份 message 文本判定 —— 判据只认"调用唯一出口",不认"内容看着一样"。',
+      '  📖 单复验:node scripts/check-error-attribution-single-source.mjs(全量档,判 HEAD blob)/',
+      '     --staged(提交链档,判索引 blob)/ --worktree(仅人工)/ --self-test',
+      '  ⚠️ 应急跳过:HUSKY_SKIP_ERROR_ATTRIBUTION_SINGLE_SOURCE=1(须在提交信息写明理由与清偿票)',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 未知枚举兜底档(1 项,blocking;G-815963 交付物,2026-10-13 主会话接线)---
+  {
+    id: '205',
+    label:
+      '🧩 未知枚举兜底档(blocking,闭集状态的未命中分支兜初始态 ⇒ 红;未知值必须落「不再产生副作用」那一档)',
+    script: 'check-enum-fallback-terminal.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_ENUM_FALLBACK_TERMINAL',
+    stagedTriggers: ['apps/', 'packages/', 'scripts/'],
+    onFailHint: [
+      '',
+      '  💡 题面:未知枚举的兜底档必须是"不再产生副作用"那一档。兜到初始态等于把**已终态的账**',
+      '     放回可写集合(上游反例 session-inputs.ts:369-391:未知 status→\'admitted\',已终态行重新',
+      '     进入可 settle 集合,与状态前置 CAS 相互拆台)。',
+      '  🔍 判据(结构/语义特征点名,不扫注释词面):候选 = 闭集状态集合的成员判定',
+      '     `SET.includes(v)` / `SET.has(v)`(SET 须含 status/state 语义且是集合形),或唯一出口',
+      '     `coerceKnownOr(v, known, safe)` 的 safe 实参;取档 = 未命中分支的落点(三元 else /',
+      '     `if (!TEST) return|throw|continue|break` / 块内首个 return)。',
+      '  🛠 修法(档位词表):初始态/可写档(pending/running/admitted/open/draft/…)⇒ 红;',
+      '     终态档(closed/completed/failed/cancelled/unknown/…)或显式拒绝(null/throw/continue/break)⇒ 绿;',
+      '     两表皆不中、标识符不可解析、表达式落点 ⇒ 中性不判(这是反向锁,防"语义不同形"被词面误伤)。',
+      '  📖 单复验:node scripts/check-enum-fallback-terminal.mjs --self-test(11 例)/ --staged(本次暂存变更,',
+      '     判索引 blob)/ --worktree(仅人工逃生舱)/ 不带旗 = 全量档判 HEAD blob;镜像测试 6 例。',
+      '  ⚠️ 应急跳过:HUSKY_SKIP_ENUM_FALLBACK_TERMINAL=1(须在提交信息写明理由与清偿票)',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 错误码不得按文本判(1 项,blocking;G-710 残项收口,2026-10-13 主会话接线)---
+  {
+    id: '206',
+    label:
+      '🔢 错误码不得按文本判(blocking,新增分支按 err.message/includes(\'429\') 判身份 ⇒ 红;存量按该文件 HEAD 自身棘轮只报数)',
+    script: 'check-error-code-not-text-matching.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_ERROR_CODE_TEXT_MATCHING',
+    stagedTriggers: ['apps/', 'packages/'],
+    onFailHint: [
+      '',
+      '  💡 判据与预筛**同源**(都由 TEXT_OPS 派生)—— 预筛漏一个算子,门就对该算子整型失明而账面报绿',
+      '     (守门 102:预筛必须是判据字面量超集)。遮噪方向**刻意只遮注释、保留字符串**:本门要判的',
+      '     就是 `includes(\'429\')` 里那个字面量,整条遮字符串 = 对该形态全盲,而全盲的门报出来的是',
+      '     最贵的那种假绿(门 131 正是被自己写的解释判红的)。',
+      '  🔍 射程 = apps/ 与 packages/ 的 .ts/.tsx/.js/.jsx;测试面不判红但**必须报名**(--all 逐文件量),',
+      '     因为把"按文本判"当契约钉在测试里,会让缺陷从"实现里的一处疏忽"升级成"改了就红"的锁。',
+      '  🛠 修法:让抛出方给码(new ToolError(code, message)),消费侧 resolveFailureCode(err, site) 读码;',
+      '     确属正当形态(断言外部驱动的真实文本)加行内豁免 `error-code-exempt: <原因>`,到期由守门 108 追。',
+      '  📖 单复验:node scripts/check-error-code-not-text-matching.mjs --self-test(12 例)/ --staged / --worktree /',
+      '     --all / --json;镜像测试 12 例(T10 即"门已入库就必须已接线"的问责)。',
+      '  ⚠️ 应急跳过:HUSKY_SKIP_ERROR_CODE_TEXT_MATCHING=1(须在提交信息写明理由与清偿票)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',

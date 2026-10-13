@@ -375,8 +375,18 @@ export function analyze(face, opts = {}) {
 
   const { selfLanded, outlet, per: outletPer } = detectOutletsOnFace(face)
   const emptyScan = files.length === 0
+  /**
+   * "0 候选"在两个面上是**两件相反的事**,不能一句话判到底:
+   *  · HEAD / worktree 面 —— 扫描根没了或预筛漂了 ⇒ 真·无法判定,exit 2,绝不记绿;
+   *  · staged 面 —— 本次提交压根没动到射程内的 .ts/.js(只碰了 md/json/图片)⇒ 无从判起,
+   *    但那是"没动这条线",不是"判过了没违规"。守门 70 记过的教训正是这一格:暂存集为空就
+   *    exit 2,会把每一枚与本维无关的提交钉死,逼人 --no-verify —— 而一次绕过等于全部守门
+   *    对该提交作废(§12e)。runner 的 stagedTriggers 只按**路径前缀**触发,判不了扩展名,
+   *    所以这一档必须由门自己收口,不能指望注册侧避开。
+   */
+  const emptyScanFatal = emptyScan && face !== 'staged'
   let exit = 0
-  if (unreadable.length || emptyScan || outlet === 'unreadable') exit = 2
+  if (unreadable.length || emptyScanFatal || outlet === 'unreadable') exit = 2
   else if (red.length || outlet === 'stripped') exit = 1
   return {
     face,
@@ -390,6 +400,7 @@ export function analyze(face, opts = {}) {
     red,
     unreadable,
     emptyScan,
+    emptyScanFatal,
     testSurfaceFiles,
     testSurfaceHits,
     outlet,
@@ -596,7 +607,9 @@ function main() {
   }
   if (r.exempted.length) console.log(`⚠️ 带 error-code-exempt 豁免 ${r.exempted.length} 处(只报数,到期由守门 108 追)`)
   if (r.unreadable.length) console.log(`❌ 无法判定:${r.unreadable.length} 个候选在本面取不到内容,首个:${r.unreadable[0]}`)
-  if (r.emptyScan) console.log('❌ 本面枚举到 0 个候选文件 —— 判"无法判定",绝不记绿')
+  if (r.emptyScanFatal) console.log('❌ 本面枚举到 0 个候选文件 —— 判"无法判定",绝不记绿')
+  else if (r.emptyScan)
+    console.log('⏭ 本面无射程内的暂存文件(本次提交未动 apps/、packages/ 的 .ts/.js ⇒ 不判;这不等于"已核无违规")')
   if (r.red.length) {
     console.log(`❌ 新增(超出该文件 HEAD 自身存量)${r.red.length} 个文件:`)
     for (const x of r.red.slice(0, 12))

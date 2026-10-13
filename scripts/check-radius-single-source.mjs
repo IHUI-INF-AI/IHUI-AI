@@ -601,7 +601,11 @@ export function scanText(rel, text, table) {
   if (isJsx(rel)) {
     const importLists = [...text.matchAll(/import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*['"][^'"]*design-tokens['"]/g)].map((m) => m[1])
     for (const name of ['rnRadius', 'rnRadiusFor', 'RADIUS_CSS_PX']) {
-      const used = lines.some((l) => !/^\s*(\/\/|\*|\/\*|<!--)/.test(l) && new RegExp(`\\b${name}\\s*\\.`).test(l))
+      // G-589 验收②:`rnRadiusFor['chip']` 括号形态与点形态同判 —— 使用式只认 `\s*\.` 时,
+      // 括号取档的文件对 B6 整族失明。rnRadius 的括号形态(rnRadius['2xl'])是 B1 段既有
+      // 检测的合法写法,这里只扩 rnRadiusFor,不放大 rnRadius 的语义面。
+      const useRe = name === 'rnRadiusFor' ? /\brnRadiusFor\s*(?:\.|\[)/ : new RegExp(`\\b${name}\\s*\\.`)
+      const used = lines.some((l) => !/^\s*(\/\/|\*|\/\*|<!--)/.test(l) && useRe.test(l))
       if (!used) continue
       if (importLists.some((s) => new RegExp(`[\\s,{]${name}(?:\\s+as\\s+\\w+)?\\s*(?:,|$)`).test(s))) continue
       bad.push({ line: 1, rule: 'B6', raw: `${name} 被使用但未 import`, hint: `须在 '@ihui/design-tokens' 的 import 列表里带上 ${name},否则该文件在 HEAD 上直接编译不过` })
@@ -838,6 +842,8 @@ async function selfTest() {
       s: "import { rnRadius } from '@ihui/design-tokens'\nconst a = { r: rnRadius.lg }\nconst b = { r: rnRadiusFor.card }",
       red: true,
     },
+    { name: 'B6 G-589②:rnRadiusFor 括号形态无 import 必拦(与点形态同判)', f: 'apps/mobile-rn/src/a.tsx', s: "import { rnRadius } from '@ihui/design-tokens'\nconst s = { a: { borderRadius: rnRadiusFor['chip'] } }", red: true },
+    { name: 'B6 G-589②:rnRadiusFor 括号形态带 import 放行', f: 'apps/mobile-rn/src/a.tsx', s: "import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'\nconst s = { a: { borderRadius: rnRadiusFor['chip'] } }", red: false },
   ]
   let fail = 0
   for (const c of cases) {
