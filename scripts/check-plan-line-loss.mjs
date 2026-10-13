@@ -505,7 +505,20 @@ export function lostMarkers(baselineSrc, candidateSrc) {
 
 /** 归档豁免的目录(相对仓库根);清单与内容**同面**取,见 archivedCopy。 */
 const ARCHIVE_REL = '.ihui-agent/archive'
-const ARCHIVE_FILE_RE = /^PROJECT_PLAN_.*\.md$/
+/**
+ * 归档副本文件名射程。两种:
+ *  ① `PROJECT_PLAN_*.md` —— §1 归档两步走搬走的登记段(既有射程);
+ *  ② `plan-pointer-purge-*.md` —— plan-pointer-purge --apply 的清偿台账,内含**被删行的逐字原文**。
+ *
+ * 为什么 ② 必须进射程(2026-10-14 实测对打两轮):清偿按用户指令把「〔【归并】重复登记副本…〕」
+ * 指针行从 HEAD 删掉后,本闸把删除读成"被并发旧基线抹掉的登记行",经 commit-tree 旁路原样回捞
+ * (`7826f3b0741` 清零 40 → `2560d82194` 还原 40 → 再清 → `6e8d2e089e` 又还原 40)⇒ 无限空转,
+ * 清偿成果永远守不住。回捞器走旁路落地、钩子结构性不跑 ⇒ 守门 13d 的差值棘轮拦不到它。
+ * 判据不改宽严:豁免的实体条件仍是 `archivedCopy` 的"原文在已入库归档里找得到",
+ * 只是把"归档"的文件名从单一 `PROJECT_PLAN_*` 扩到清偿台账这一同族落点(同目录、同"正当移除"
+ * 语义)。现读 40 条缺失经此射程 40/40 豁免;不在台账里的真删照旧判丢(见镜像测试反向锁)。
+ */
+const ARCHIVE_FILE_RE = /^(?:PROJECT_PLAN_|plan-pointer-purge-).*\.md$/
 
 /** 某一面里真实存在的归档副本路径(= 已入库的那些)。`staged` 读索引,其余读 HEAD 树。 */
 function faceArchiveFiles(face, root = ROOT) {
