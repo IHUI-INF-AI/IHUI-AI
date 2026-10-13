@@ -5,7 +5,7 @@
 //! 线上前端自动刷新 + 断网兜底(2026-09-17 薄壳化配套,同日极致化修订)。
 //! 2026-09-22 抖动修复:探活改为「同轮重试 + 连续失败阈值」滞回判定。
 //!
-//! 薄壳模式下 main 窗口加载 https://aizhs.top 线上前端:
+//! 薄壳模式下 main 窗口的加载地址由 tauri.conf.json / `--config` 覆盖决定:
 //! 1. [启动序列·永不白屏] main 窗口 conf `visible: false`,本模块探活(≤2 次,单次超时 12s)后:
 //!    在线 → show(远程页已在后台加载);离线 → 切内置 `offline://` 兜底页 + show。
 //! 2. [自动刷新] 每 3 分钟抓取线上 HTML,提取首个 `/_next/static/` 资源路径段为
@@ -24,11 +24,8 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_updater::UpdaterExt;
 
-const FRONTEND_URL: &str = "https://aizhs.top/";
-const HEALTH_URL: &str = "https://aizhs.top/api/health";
+/// 离线兜底页地址(与后端基址无关,任何窗口 origin 下都加载它)
 const OFFLINE_URL: &str = "http://offline.localhost/index.html";
-/// 线上前端站点前缀:用于判断窗口地址是否属于线上前端(决定能否跨「离线→在线」保留)
-const FRONTEND_ORIGIN_PREFIX: &str = "https://aizhs.top";
 /// 健康检查间隔(秒)
 const HEALTH_SECS: u64 = 30;
 /// 单轮探活的最大尝试次数:瞬时抖动多为单次失败,同轮重试一次即可滤掉绝大多数
@@ -48,6 +45,106 @@ const OFFLINE_AFTER_FAILS: u32 = 3;
 const REFRESH_EVERY_ROUNDS: u32 = 6;
 /// 热刷新防抖(秒):两次 reload 至少间隔 10 分钟
 const RELOAD_DEBOUNCE_SECS: u64 = 600;
+
+/// 后端基址(2026-10-13 立,桌面端「开发后端」联调)。
+///
+/// 单一真源 = main 窗口的 origin,**不再硬编码线上**:
+/// - 窗口 `https://aizhs.top`(生产薄壳常态)⇒ 三个值与旧常量逐字节等价;
+/// - 窗口 `http://localhost:8801`(`pnpm dev:desktop:saas` 开发后端联调,
+///   见 scripts/desktop-dev-saas.mjs)⇒ 探活/指纹/离线恢复全部指向本机
+///   后端(next dev rewrites → api 8802 / ai-service 8803),不会出现
+///   「本地后端在跑、却拿线上生产当探活目标」的假离线,恢复时也不会被顶回线上首页。
+///
+/// ⚠ 读取时机(2026-10-13 CDP 实证):setup 期 WebView2 的 `Source` 还没提交首次
+/// 导航,`w.url()` 是 `about:blank`/空串。必须经 `effective_main_window_url`
+/// 回落**配置初始 URL**(`--config` 覆盖在编译期已合进内嵌配置),否则 dev 后端
+/// 会静默退回生产默认。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BackendBase {
+    /// 构建指纹轮询目标 + 离线恢复回跳目标(origin 根路径)
+    pub(crate) frontend_url: String,
+    /// 健康检查目标(origin + /api/health)
+    pub(crate) health_url: String,
+    /// 可恢复地址判据:窗口 origin 前缀(跨「离线→在线」保留用户所在页用)
+    pub(crate) origin_prefix: String,
+}
+
+impl Default for BackendBase {
+    /// 生产默认(线上薄壳)。窗口 URL 取不到 / 非 http(s) 时退回这里 ——
+    /// 线上薄壳是唯一已知生产形态,猜错方向的代价仅是 dev 期间探活打向生产,
+    /// 而 dev 后端的正规入口本来就是显式改窗口 URL。
+    fn default() -> Self {
+        Self {
+            frontend_url: "https://aizhs.top/".to_string(),
+            health_url: "https://aizhs.top/api/health".to_string(),
+            origin_prefix: "https://aizhs.top".to_string(),
+        }
+    }
+}
+
+/// 从 main 窗口当前 URL 解析后端基址(纯函数,便于单测)。
+///
+/// 只认 http/https:自定义协议(tauri:// / offline:// 等)没有可探活的后端,
+/// 一律退回生产默认。origin 取 `scheme://host[:port]`,**不含路径** ——
+/// 窗口在 `/agents?x=1` 与在 `/` 必须得到同一个基址。
+pub(crate) fn resolve_backend_base(window_url: Option<&tauri::Url>) -> BackendBase {
+    let Some(url) = window_url else {
+        return BackendBase::default();
+    };
+    if url.scheme() != "http" && url.scheme() != "https" {
+        return BackendBase::default();
+    }
+    // http(s) 的 origin 恒为 scheme://host[:port](无尾斜杠、无路径)
+    let origin = url.origin().ascii_serialization();
+    BackendBase {
+        health_url: format!("{origin}/api/health"),
+        frontend_url: format!("{origin}/"),
+        origin_prefix: origin,
+    }
+}
+
+/// main 窗口在**配置**里的初始 URL —— setup 期活 URL 还不可读时的真源。
+///
+/// 只认 `WebviewUrl::External`:薄壳态 main 窗口永远是绝对地址(线上
+/// `https://aizhs.top/`,或开发后端联调的 `http://localhost:8801/`)。
+/// 后者由 `scripts/desktop-dev-saas.mjs` 经 `tauri dev --config` 覆盖,而
+/// `--config` 的合并发生在**编译期**(tauri-codegen 读 `TAURI_CONFIG` env 后
+/// `json_patch::merge` 进内嵌配置),所以运行期 `app.config()` 拿到的一定是
+/// 覆盖后的值 —— 2026-10-13 CDP 实证:webview 命令行里的
+/// `--remote-debugging-port=9333`(同一次 `--config` 传的)确实生效了。
+///
+/// `App(PathBuf)`(相对路径)在 dev 下要再拼 `build.devUrl`、生产下拼
+/// `frontendDist`,不在本模块职责内,返回 None 让调用方回落生产默认。
+fn configured_main_window_url(config: &tauri::Config) -> Option<tauri::Url> {
+    let win = config.app.windows.iter().find(|w| w.label == "main")?;
+    match &win.url {
+        tauri::WebviewUrl::External(url) => Some(url.clone()),
+        _ => None,
+    }
+}
+
+/// main 窗口"当前应处"的 URL 与来源标注:活 URL 仅在**已是 http(s)** 时采纳,
+/// 否则退回配置初始 URL。
+///
+/// 为什么不能只读活 URL(2026-10-13 CDP 实证踩坑):
+/// setup 期 WebView2 的 `Source` 尚未提交首次导航,`w.url()` 拿到的是
+/// `about:blank`(或空串解析失败)。旧写法
+/// `app.get_webview_window("main").and_then(|w| w.url().ok())` 于是变 None,
+/// 回落生产默认 ⇒ 开发后端联调时探活打向线上生产、离线恢复把用户顶回线上首页。
+/// 而窗口导航历史第 0 条明明是 `http://localhost:8801/`(`--config` 覆盖已生效),
+/// 纯粹是读取时机太早 —— 与"页面加载失败"无关,是读取面的缺陷。
+///
+/// 返回的来源串只进日志,用于上线后一眼区分"读了活 URL"还是"回落了配置"。
+fn effective_main_window_url(app: &tauri::AppHandle) -> Option<(tauri::Url, &'static str)> {
+    if let Some(w) = app.get_webview_window("main") {
+        if let Ok(url) = w.url() {
+            if url.scheme() == "http" || url.scheme() == "https" {
+                return Some((url, "窗口当前 URL"));
+            }
+        }
+    }
+    configured_main_window_url(app.config()).map(|url| (url, "配置初始 URL(活 URL 尚未就绪)"))
+}
 
 /// 从线上 HTML 提取构建指纹。
 /// 2026-09-17 修订:Next16 线上 chunk 为随机命名(如 chunks/0kfiffa3czsbc.css),
@@ -104,9 +201,9 @@ async fn emit_before_close_for_navigation(window: &tauri::WebviewWindow) {
 }
 
 /// 探活一次(HEAD /api/health)。仅 2xx 视为健康。
-async fn probe_health(client: &reqwest::Client) -> bool {
+async fn probe_health(client: &reqwest::Client, health_url: &str) -> bool {
     client
-        .head(HEALTH_URL)
+        .head(health_url)
         .send()
         .await
         .map(|r| r.status().is_success())
@@ -117,9 +214,9 @@ async fn probe_health(client: &reqwest::Client) -> bool {
 ///
 /// 存在的意义:滤掉**单次瞬时报文丢失**。健康检查的结论会驱动"整页替换用户界面"
 /// 这种破坏性动作,单次采样的误判代价远高于多打一次轻量 HEAD 请求。
-async fn probe_health_with_retry(client: &reqwest::Client) -> bool {
+async fn probe_health_with_retry(client: &reqwest::Client, health_url: &str) -> bool {
     for attempt in 1..=PROBE_ATTEMPTS {
-        if probe_health(client).await {
+        if probe_health(client, health_url).await {
             if attempt > 1 {
                 log::info!("[auto-refresh] 探活第 {attempt} 次成功(已滤掉前序瞬时失败)");
             }
@@ -150,10 +247,12 @@ fn should_recover(currently_offline: bool, healthy: bool) -> bool {
 
 /// 离线前记下的「用户原本所在地址」能否作为恢复目标。
 ///
-/// 必须落在线上前端域内,否则保留一个不可用地址会让恢复动作把用户送到错误站点。
+/// 必须落在窗口所在前端 origin 内,否则保留一个不可用地址会让恢复动作把用户送到
+/// 错误站点。`origin_prefix` 由 `resolve_backend_base` 从窗口 URL 派生(生产 =
+/// `https://aizhs.top`,开发后端联调 = `http://localhost:8801`)。
 /// 注意前缀比对后必须紧跟 `/` 或结束 —— 否则 `https://aizhs.top.evil.com/` 也会命中。
-fn is_resumable_url(url: &str) -> bool {
-    match url.strip_prefix(FRONTEND_ORIGIN_PREFIX) {
+fn is_resumable_url(url: &str, origin_prefix: &str) -> bool {
+    match url.strip_prefix(origin_prefix) {
         Some(rest) => rest.is_empty() || rest.starts_with('/'),
         None => false,
     }
@@ -275,13 +374,14 @@ async fn check_app_update(app: &tauri::AppHandle) {
     }
 }
 
-/// 抓取线上 HTML 并维护指纹基线;检测到更新时返回 true(调用方决定是否 reload)。
+/// 抓取前端 HTML 并维护指纹基线;检测到更新时返回 true(调用方决定是否 reload)。
 async fn refresh_baseline(
     client: &reqwest::Client,
+    frontend_url: &str,
     baseline: &mut Option<String>,
     _app: &tauri::AppHandle,
 ) -> bool {
-    let Ok(resp) = client.get(FRONTEND_URL).send().await else {
+    let Ok(resp) = client.get(frontend_url).send().await else {
         return false;
     };
     let Ok(body) = resp.text().await else {
@@ -292,7 +392,7 @@ async fn refresh_baseline(
             let changed = baseline.as_ref().map(|p| p != &fp).unwrap_or(false);
             match baseline {
                 None => log::info!("[auto-refresh] 指纹基线建立: {fp}"),
-                Some(_) if changed => log::info!("[auto-refresh] 检测到线上前端更新: {fp}"),
+                Some(_) if changed => log::info!("[auto-refresh] 检测到前端更新: {fp}"),
                 _ => {}
             }
             *baseline = Some(fp);
@@ -403,17 +503,33 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
     tauri::async_runtime::spawn(async move {
         let client = build_probe_client();
 
+        // ── 后端基址:单一真源 = main 窗口的 origin(见 BackendBase 头注)──
+        // 生产薄壳(aizhs.top)与旧硬编码常量逐字节等价;开发后端联调(localhost:8801)
+        // 自动跟随本机后端。⚠ setup 期活 URL 可能还是 about:blank,必须回落配置初始
+        // URL(2026-10-13 CDP 实证:只读活 URL 会让 dev 后端静默退回生产默认)。
+        let (base, base_source) = match effective_main_window_url(&app) {
+            Some((url, source)) => (resolve_backend_base(Some(&url)), source),
+            None => (BackendBase::default(), "生产默认(取不到 http(s) URL)"),
+        };
+        log::info!(
+            "[auto-refresh] 后端基址: frontend={} health={} origin={} 来源={}",
+            base.frontend_url,
+            base.health_url,
+            base.origin_prefix,
+            base_source
+        );
+
         // ── 启动序列:探活决定首屏,永不白屏 ──
         // 启动期用「同轮重试」而非 ON/OFF 阈值滞回:此刻只有"在线/离线"二选一,
         // 没有可保留的既有页面,尽早定论才对(阈值滞回是给稳态用的)。
-        let healthy = probe_health_with_retry(&client).await;
+        let healthy = probe_health_with_retry(&client, &base.health_url).await;
         if let Some(w) = app.get_webview_window("main") {
             if healthy {
                 // 远程页在窗口隐藏期间已开始加载,直接点亮
                 if reveal_on_probe {
-                    log::info!("[window-show] site=auto_refresh_probe_online trigger=启动探活成功且 reveal_on_probe=true(用户未勾「启动后先进托盘」)⇒ 点亮线上前端");
+                    log::info!("[window-show] site=auto_refresh_probe_online trigger=启动探活成功且 reveal_on_probe=true(用户未勾「启动后先进托盘」)⇒ 点亮前端页");
                     let _ = w.show();
-                    log::info!("[auto-refresh] 启动探活成功 → 显示线上前端");
+                    log::info!("[auto-refresh] 启动探活成功 → 显示前端页");
                 } else {
                     log::info!(
                         "[auto-refresh] 启动探活成功,但用户要求启动后进托盘 → 保持隐藏\
@@ -473,14 +589,14 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
         let mut pending_reload = false;
 
         loop {
-            let now_healthy = probe_health_with_retry(&client).await;
+            let now_healthy = probe_health_with_retry(&client, &base.health_url).await;
 
             if !now_healthy {
                 consecutive_fails = consecutive_fails.saturating_add(1);
                 if should_go_offline(offline, consecutive_fails) {
                     offline = true;
                     log::warn!(
-                        "[auto-refresh] 线上连续 {consecutive_fails} 轮不可达 → 切换离线兜底页"
+                        "[auto-refresh] 连续 {consecutive_fails} 轮不可达 → 切换离线兜底页"
                     );
                     if let Some(w) = app.get_webview_window("main") {
                         // 记下用户当前所在地址:恢复时回原处,而不是一律回首页
@@ -488,7 +604,7 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
                             .url()
                             .ok()
                             .map(|u| u.to_string())
-                            .filter(|u| is_resumable_url(u));
+                            .filter(|u| is_resumable_url(u, &base.origin_prefix));
                         // 导航前复位深链闸门(同启动离线处,调用点对账见 lib.rs 测试)
                         crate::reset_deep_link_gate_for_navigation("main");
                         // G-379,2026-10-07:导航前过存草稿闸
@@ -503,7 +619,7 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
                 } else {
                     // 关键日志:单次失败只记录、不切页。线上出现此日志但页面未变 = 修复生效
                     log::warn!(
-                        "[auto-refresh] 线上探活失败({consecutive_fails}/{OFFLINE_AFTER_FAILS}),未达阈值不切页"
+                        "[auto-refresh] 探活失败({consecutive_fails}/{OFFLINE_AFTER_FAILS}),未达阈值不切页"
                     );
                 }
             } else {
@@ -515,32 +631,32 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
                 // "Origin header is not a valid URL" 拒绝**一切** invoke,页面所有按钮
                 // 静默无反应(用户感知即"在浏览器中登录点了没反应"),而壳因探活成功
                 // 恒在线态、既不切离线页也无任何提示。每轮探活成功后校验 webview
-                // 实际落点,落在错误页即自动重导航回线上前端。
-                if let Some(w) = app.get_webview_window("main") {
-                    if let Ok(cur) = w.url() {
-                        if cur.as_str().starts_with("chrome-error://") {
-                            log::warn!(
-                                "[auto-refresh] webview 落在错误页({cur})但探活在环 → 自动重导航回线上"
-                            );
-                            // 导航前复位深链闸门(调用点对账见 lib.rs 测试)
-                            crate::reset_deep_link_gate_for_navigation("main");
-                            // G-379,2026-10-07:导航前过存草稿闸
-                            emit_before_close_for_navigation(&w).await;
-                            let _ = w.eval(&format!("location.href={}", js_string(FRONTEND_URL)));
+                // 实际落点,落在错误页即自动重导航回前端页(base.frontend_url)。
+                    if let Some(w) = app.get_webview_window("main") {
+                        if let Ok(cur) = w.url() {
+                            if cur.as_str().starts_with("chrome-error://") {
+                                log::warn!(
+                                    "[auto-refresh] webview 落在错误页({cur})但探活在环 → 自动重导航回前端"
+                                );
+                                // 导航前复位深链闸门(调用点对账见 lib.rs 测试)
+                                crate::reset_deep_link_gate_for_navigation("main");
+                                // G-379,2026-10-07:导航前过存草稿闸
+                                emit_before_close_for_navigation(&w).await;
+                                let _ = w.eval(&format!("location.href={}", js_string(&base.frontend_url)));
                             let _ = w.set_title(&crate::localized_app_name());
                         }
                     }
                 }
                 if should_recover(offline, now_healthy) {
                     offline = false;
-                    log::info!("[auto-refresh] 连接恢复 → 返回线上前端");
+                    log::info!("[auto-refresh] 连接恢复 → 返回前端页");
                     baseline = None; // 恢复后重建指纹基线,避免陈旧基线误触发
                     pending_reload = false;
-                    // 优先回到离线前用户所在地址;该地址不可用(或不存在)才回首页
+                    // 优先回到离线前用户所在地址;该地址不可用(或不存在)才回前端根
                     let target = resume_url
                         .take()
-                        .filter(|u| is_resumable_url(u))
-                        .unwrap_or_else(|| FRONTEND_URL.to_string());
+                        .filter(|u| is_resumable_url(u, &base.origin_prefix))
+                        .unwrap_or_else(|| base.frontend_url.clone());
                     log::info!("[auto-refresh] 恢复目标: {target}");
                     if let Some(w) = app.get_webview_window("main") {
                         // 导航前复位深链闸门(调用点对账见 lib.rs 测试)
@@ -550,7 +666,7 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
                         let _ = w.eval(&format!("location.href={}", js_string(&target)));
                         let _ = w.set_title(&crate::localized_app_name());
                     }
-                    notify(&app, "智汇AI", "网络已恢复,已回到线上工作区");
+                    notify(&app, "智汇AI", "网络已恢复,已回到工作区");
                 }
                 round = round.wrapping_add(1);
 
@@ -575,13 +691,13 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
 
                 // 首轮立即建基线;此后每 REFRESH_EVERY_ROUNDS 轮检查一次
                 if baseline.is_none() || round % REFRESH_EVERY_ROUNDS == 0 {
-                    let changed = refresh_baseline(&client, &mut baseline, &app).await;
+                    let changed = refresh_baseline(&client, &base.frontend_url, &mut baseline, &app).await;
                     if changed {
                         let debounced = last_reload
                             .map(|t| t.elapsed() < Duration::from_secs(RELOAD_DEBOUNCE_SECS))
                             .unwrap_or(false);
                         if debounced {
-                            log::info!("[auto-refresh] 线上前端有更新,防抖窗口内跳过本轮");
+                            log::info!("[auto-refresh] 前端有更新,防抖窗口内跳过本轮");
                         } else {
                             last_reload = Some(std::time::Instant::now());
                             let focused = app
@@ -658,16 +774,148 @@ mod tests {
 
     #[test]
     fn resume_url_must_stay_inside_frontend_origin() {
-        assert!(is_resumable_url("https://aizhs.top"));
-        assert!(is_resumable_url("https://aizhs.top/agents"));
-        assert!(is_resumable_url("https://aizhs.top/agents/abc?x=1#y"));
+        // 生产薄壳:origin 前缀 = https://aizhs.top
+        assert!(is_resumable_url("https://aizhs.top", "https://aizhs.top"));
+        assert!(is_resumable_url("https://aizhs.top/agents", "https://aizhs.top"));
+        assert!(is_resumable_url("https://aizhs.top/agents/abc?x=1#y", "https://aizhs.top"));
         // 离线页自身不可作为恢复目标(否则会"恢复到离线页")
-        assert!(!is_resumable_url(OFFLINE_URL));
+        assert!(!is_resumable_url(OFFLINE_URL, "https://aizhs.top"));
         // 异域地址必须拒绝
-        assert!(!is_resumable_url("https://evil.example.com/agents"));
+        assert!(!is_resumable_url("https://evil.example.com/agents", "https://aizhs.top"));
         // 前缀相近但不同域 —— 仅比对前缀会误放行,故必须要求紧跟 '/' 或结束
-        assert!(!is_resumable_url("https://aizhs.top.evil.com/agents"));
-        assert!(!is_resumable_url("https://aizhs.top2/agents"));
+        assert!(!is_resumable_url("https://aizhs.top.evil.com/agents", "https://aizhs.top"));
+        assert!(!is_resumable_url("https://aizhs.top2/agents", "https://aizhs.top"));
+        // 开发后端联调:origin 前缀 = http://localhost:8801(同族判据换基址即用)
+        assert!(is_resumable_url("http://localhost:8801", "http://localhost:8801"));
+        assert!(is_resumable_url("http://localhost:8801/agents", "http://localhost:8801"));
+        assert!(!is_resumable_url("http://localhost:8802/agents", "http://localhost:8801"));
+        assert!(!is_resumable_url("https://aizhs.top/agents", "http://localhost:8801"));
+    }
+
+    // ── 后端基址派生(2026-10-13):窗口 origin 是唯一真源 ──
+
+    #[test]
+    fn backend_base_defaults_to_production_when_window_url_missing() {
+        // 取不到窗口 URL(或非 http(s))⇒ 生产默认,与旧硬编码常量逐字节等价
+        let base = resolve_backend_base(None);
+        assert_eq!(base.frontend_url, "https://aizhs.top/");
+        assert_eq!(base.health_url, "https://aizhs.top/api/health");
+        assert_eq!(base.origin_prefix, "https://aizhs.top");
+        assert_eq!(base, BackendBase::default());
+    }
+
+    #[test]
+    fn backend_base_production_window_is_byte_identical_to_legacy_constants() {
+        // 生产薄壳:窗口在任意路径/查询串下都必须得到同一组生产常量(回归保护)
+        for raw in [
+            "https://aizhs.top/",
+            "https://aizhs.top/agents",
+            "https://aizhs.top/agents/abc?x=1#y",
+        ] {
+            let url = tauri::Url::parse(raw).unwrap();
+            assert_eq!(
+                resolve_backend_base(Some(&url)),
+                BackendBase::default(),
+                "生产窗口 {raw} 必须逐字节等价旧常量"
+            );
+        }
+    }
+
+    #[test]
+    fn backend_base_follows_local_dev_origin() {
+        // 开发后端联调(pnpm dev:desktop:saas):窗口 http://localhost:8801
+        // ⇒ 探活/指纹/恢复全部指向本机(next rewrites → 8802/8803)
+        let url = tauri::Url::parse("http://localhost:8801/").unwrap();
+        let base = resolve_backend_base(Some(&url));
+        assert_eq!(base.frontend_url, "http://localhost:8801/");
+        assert_eq!(base.health_url, "http://localhost:8801/api/health");
+        assert_eq!(base.origin_prefix, "http://localhost:8801");
+        // 深路径不泄漏进基址
+        let deep = tauri::Url::parse("http://localhost:8801/agents/abc?x=1").unwrap();
+        assert_eq!(resolve_backend_base(Some(&deep)), base);
+    }
+
+    #[test]
+    fn backend_base_rejects_non_http_schemes() {
+        // 自定义协议(tauri:// 等)没有可探活的后端 ⇒ 退回生产默认。
+        // 注:offline 兜底页虽是 http(offline.localhost),但本模块只在 base 解析**之后**
+        // 才可能把它写进窗口,启动期结构上读不到它,故不在此列。
+        for raw in ["tauri://localhost/", "doom://index.html"] {
+            let url = tauri::Url::parse(raw).unwrap();
+            assert_eq!(
+                resolve_backend_base(Some(&url)),
+                BackendBase::default(),
+                "非 http(s) 窗口 {raw} 必须退回生产默认"
+            );
+        }
+    }
+
+    #[test]
+    fn backend_base_setup_time_about_blank_falls_back_to_production() {
+        // 2026-10-13 CDP 实证:setup 期 WebView2 的 Source 尚未提交首次导航,
+        // `w.url()` 拿到 about:blank(或空串解析失败)。此测试锁住"非 http(s)
+        // 一律回落生产默认"的语义;真正的修复在 effective_main_window_url ——
+        // 活 URL 不可用时回落**配置初始 URL**,而不是直接认输。
+        let url = tauri::Url::parse("about:blank").unwrap();
+        assert_eq!(resolve_backend_base(Some(&url)), BackendBase::default());
+    }
+
+    #[test]
+    fn configured_main_window_url_reads_external_main_window() {
+        // 开发后端联调:`--config` 覆盖后的运行期配置里,main 窗口是 localhost:8801。
+        // 这正是 setup 期活 URL 还不可读时要回落去找的真源。
+        let config: tauri::Config = serde_json::from_value(serde_json::json!({
+            "identifier": "com.ihui.desktop",
+            "app": {
+                "windows": [
+                    { "label": "main", "url": "http://localhost:8801/" },
+                    { "label": "admin", "url": "https://aizhs.top/" }
+                ]
+            }
+        }))
+        .unwrap();
+        let url = configured_main_window_url(&config).expect("main 窗口必须取到 External URL");
+        assert_eq!(url.as_str(), "http://localhost:8801/");
+        // 只认 main:admin 的地址不能顶替
+        assert_eq!(
+            resolve_backend_base(Some(&url)).health_url,
+            "http://localhost:8801/api/health"
+        );
+        // 生产薄壳同理:配置里是 aizhs.top 就得到旧常量
+        let prod: tauri::Config = serde_json::from_value(serde_json::json!({
+            "identifier": "com.ihui.desktop",
+            "app": { "windows": [ { "label": "main", "url": "https://aizhs.top/" } ] }
+        }))
+        .unwrap();
+        assert_eq!(
+            resolve_backend_base(configured_main_window_url(&prod).as_ref()),
+            BackendBase::default()
+        );
+    }
+
+    #[test]
+    fn configured_main_window_url_none_for_relative_or_missing_main() {
+        // 相对路径(WebviewUrl::App)要再拼 devUrl/frontendDist,不在本模块职责内 ⇒ None
+        let relative: tauri::Config = serde_json::from_value(serde_json::json!({
+            "identifier": "com.ihui.desktop",
+            "app": { "windows": [ { "label": "main", "url": "index.html" } ] }
+        }))
+        .unwrap();
+        assert!(configured_main_window_url(&relative).is_none());
+        // 没有 main 窗口 ⇒ None(不 panic)
+        let no_main: tauri::Config = serde_json::from_value(serde_json::json!({
+            "identifier": "com.ihui.desktop",
+            "app": { "windows": [ { "label": "admin", "url": "https://aizhs.top/" } ] }
+        }))
+        .unwrap();
+        assert!(configured_main_window_url(&no_main).is_none());
+        // 空 windows ⇒ None
+        let empty: tauri::Config = serde_json::from_value(serde_json::json!({
+            "identifier": "com.ihui.desktop",
+            "app": { "windows": [] }
+        }))
+        .unwrap();
+        assert!(configured_main_window_url(&empty).is_none());
     }
 
     #[test]

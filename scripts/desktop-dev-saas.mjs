@@ -4,10 +4,17 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 桌面端 SaaS 联调模式(2026-09-02 立):dev 模式桌面端连接线上生产后端。
+ * 桌面端联调模式(2026-09-02 立;2026-10-13 起默认切到**开发后端**)。
  *
  * 与 `build:desktop:saas`(打包时烘焙线上地址)互补 —— 本脚本用于**日常开发联调**,
  * 不需要走完整的 tauri build 打包流程(数分钟级),保留热重载能力。
+ *
+ * 后端语义(以 main 窗口实际 origin 为唯一真源,apps/web/src/lib/api-base-url.ts):
+ *   默认(不设任何 env):窗口经 `--config` 覆盖加载 **http://localhost:8801/**(本地
+ *   web dev server),web 端按本地 origin 判定 ⇒ REST 127.0.0.1:8802 /
+ *   ai-service 127.0.0.1:8803 / SSE localhost:8802 / WS 127.0.0.1:8802,
+ *   即本机三端联调(开发后端)。Rust 侧 auto_refresh 的探活/指纹/离线恢复同样
+ *   按窗口 origin 派生,不会打向线上生产。
  *
  * 背景与三个必踩的坑(2026-09-02 实测):
  *   1. 端口占用:tauri.conf.json 的 devUrl 固定 http://localhost:8801,若 8801 已被
@@ -18,16 +25,20 @@
  *   3. 会话生命周期:next dev 若由会话内的后台任务托管,会话结束即被杀 → 桌面端白屏。
  *      故以 detached 进程常驻启动,脱离父进程生命周期。
  *
- * 另:beforeDevCommand 被覆盖为空(`--config` 合并),避免 Tauri 二次拉起 dev server
- * 与脚本自己启动的实例抢端口。
+ * 另:beforeDevCommand 与窗口 url 一并被覆盖(`--config` 合并),避免 Tauri 二次拉起
+ * dev server 与脚本自己启动的实例抢端口;窗口 url 必须是**完整 windows[0] 对象**
+ * 再改 url(--config 对 app.windows 是整数组替换,只给 {label,url} 会丢掉
+ * decorations:false/visible:false/theme 等,2026-09-28 实测)。
  *
  * 用法:
- *   pnpm dev:desktop:saas                                        # 默认连 https://aizhs.top
- *   NEXT_PUBLIC_API_BASE_URL=https://api.aizhs.top pnpm dev:desktop:saas   # 换后端
- *   node scripts/desktop-dev-saas.mjs --keep-dev-server          # 保留 8801 现有 dev server
+ *   pnpm dev:desktop:saas                                          # 默认:开发后端(8801 → 8802/8803)
+ *   NEXT_PUBLIC_API_BASE_URL=https://aizhs.top pnpm dev:desktop:saas  # 逃生舱:绝对基址直连(需目标 CORS 放行 8801)
+ *   IHUI_API_PROXY_TARGET=https://aizhs.top pnpm dev:desktop:saas    # 逃生舱:本地 web + 线上 API(同源 /api/* 反代)
+ *   node scripts/desktop-dev-saas.mjs --keep-dev-server             # 保留 8801 现有 dev server
+ *   pnpm --filter @ihui/desktop dev                                # 整壳走线上(窗口直接加载 aizhs.top,无需本地后端)
  */
 import { spawn, spawnSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import net from 'node:net'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -41,21 +52,34 @@ const DESKTOP_EXE = 'ihui-desktop.exe'
 const nextBin = path.join(webDir, 'node_modules', 'next', 'dist', 'bin', 'next')
 
 const keepDevServer = process.argv.includes('--keep-dev-server')
-const apiBase = (process.env.NEXT_PUBLIC_API_BASE_URL || 'https://aizhs.top').replace(/\/+$/, '')
-// WS 默认走 api 子域:实测主域 aizhs.top 对 /cozeZhsApi/*、/v1/ai/capabilities/* 的
-// WebSocket 升级失败(000),而 api.aizhs.top 全路径返回 101(见 apps/web/src/lib/ws-url.ts)。
-const wsBase = (process.env.NEXT_PUBLIC_WS_BASE_URL || 'https://api.aizhs.top').replace(/\/+$/, '')
 
-/** 注入到 next dev 进程的线上后端地址(NEXT_PUBLIC_* 会被编译进客户端产物) */
-const devEnv = {
-  NEXT_PUBLIC_API_BASE_URL: apiBase,
-  NEXT_PUBLIC_STREAM_API_BASE_URL: process.env.NEXT_PUBLIC_STREAM_API_BASE_URL || apiBase,
-  NEXT_PUBLIC_WS_BASE_URL: wsBase,
-  NEXT_PUBLIC_AI_SERVICE_URL: process.env.NEXT_PUBLIC_AI_SERVICE_URL || apiBase,
-  // 服务端侧变量(SSR 取数),保持与客户端同源,避免回落到未启动的本地 8802
-  API_URL: apiBase,
-  AI_SERVICE_URL: apiBase,
-}
+/**
+ * 可注入的后端 env(2026-10-13 起默认**一个都不注入**)。
+ *
+ * 不设任何 env = 开发后端:后端寻址完全由 apps/web/src/lib/api-base-url.ts 按窗口
+ * origin 判定(桌面端窗口 localhost:8801 ⇒ 本机 8802/8803;浏览器开 8801 ⇒ 同源
+ * /api/* 反代,同样落 8802/8803)。旧版默认注入线上生产地址的历史到此为止。
+ *
+ * 显式设置以下任一变星才会注入(语义与旧版一致,值原样透传,仅去尾斜杠):
+ *   NEXT_PUBLIC_API_BASE_URL / NEXT_PUBLIC_STREAM_API_BASE_URL /
+ *   NEXT_PUBLIC_WS_BASE_URL / NEXT_PUBLIC_AI_SERVICE_URL —— 绝对基址直连
+ *   (从 localhost:8801 跨域调用时,需目标服务 CORS 放行 http://localhost:8801);
+ *   API_URL / AI_SERVICE_URL —— SSR 取数基址。
+ */
+const INJECTABLE_ENV_KEYS = [
+  'NEXT_PUBLIC_API_BASE_URL',
+  'NEXT_PUBLIC_STREAM_API_BASE_URL',
+  'NEXT_PUBLIC_WS_BASE_URL',
+  'NEXT_PUBLIC_AI_SERVICE_URL',
+  'API_URL',
+  'AI_SERVICE_URL',
+]
+const devEnv = Object.fromEntries(
+  INJECTABLE_ENV_KEYS.filter((k) => process.env[k]).map((k) => [
+    k,
+    process.env[k].replace(/\/+$/, ''),
+  ]),
+)
 
 const log = (msg) => console.log(`[desktop-dev-saas] ${msg}`)
 
@@ -88,14 +112,14 @@ function listenersOfPort(port) {
   return r.status === 0 && r.stdout ? r.stdout.split('\n').filter(Boolean) : []
 }
 
-/** 停止占用 8801 的进程,释放端口给带线上 env 的 dev server */
+/** 停止占用 8801 的进程,释放端口给本脚本随后拉起的 dev server */
 function freePort(port) {
   const pids = listenersOfPort(port)
   if (pids.length === 0) {
     log(`端口 ${port} 空闲,无需释放`)
     return
   }
-  log(`端口 ${port} 被占用(pid=${pids.join(',')}),停止以注入线上后端地址...`)
+  log(`端口 ${port} 被占用(pid=${pids.join(',')}),停止以让本脚本自行拉起 dev server(不注入任何 env ⇒ 开发后端)...`)
   for (const pid of pids) {
     spawnSync('taskkill', ['/PID', pid, '/F'], { stdio: 'ignore', windowsHide: true })
   }
@@ -174,9 +198,12 @@ async function waitForPort(port, timeoutMs = 120_000) {
   return false
 }
 
-log('线上后端地址:')
-for (const [k, v] of Object.entries(devEnv)) log(`  ${k} = ${v}`)
-
+if (Object.keys(devEnv).length === 0) {
+  log('后端模式:开发后端(未注入任何 env;寻址由 api-base-url.ts 按窗口 origin 判定 ⇒ 本机 8802/8803)')
+} else {
+  log('后端模式:自定义(显式 env 注入,绝对基址直连):')
+  for (const [k, v] of Object.entries(devEnv)) log(`  ${k} = ${v}`)
+}
 if (!keepDevServer) freePort(DEV_PORT)
 stopRunningDesktop()
 
@@ -187,31 +214,67 @@ if (nextBinExists.status !== 0) {
   process.exit(1)
 }
 
-log(`启动常驻 dev server: http://localhost:${DEV_PORT}`)
-const dev = spawn(process.execPath, [nextBin, 'dev', '--turbopack', '-p', String(DEV_PORT)], {
-  cwd: webDir,
-  env: { ...process.env, ...devEnv },
-  detached: true,
-  windowsHide: true, // Windows 下 detached+控制台程序会弹新 cmd 窗口
-  stdio: 'ignore',
-})
-dev.unref()
+// --keep-dev-server 是**真复用**:既不释放端口,也不再自行拉起。Next 16 起同目录
+// 只允许一个 next dev(单例,第二个直接 "Another next dev server is already
+// running" 退出),旧写法在此旗下仍无条件 spawn,只会白起一个必死的 detached 进程,
+// 还把它的 pid 当成"已就绪"打出来 —— 2026-10-13 实证后改为真跳过。
+let spawnedDevPid = null
+if (keepDevServer) {
+  log('复用 8801 现有 dev server(不释放端口、不重复拉起)。注意:若该实例是旧版本脚本拉起的(带生产 NEXT_PUBLIC_* env),后端仍指向线上——去掉本旗重跑即可切到开发后端')
+} else {
+  log(`启动常驻 dev server: http://localhost:${DEV_PORT}`)
+  const dev = spawn(process.execPath, [nextBin, 'dev', '--turbopack', '-p', String(DEV_PORT)], {
+    cwd: webDir,
+    env: { ...process.env, ...devEnv },
+    detached: true,
+    windowsHide: true, // Windows 下 detached+控制台程序会弹新 cmd 窗口
+    stdio: 'ignore',
+  })
+  dev.unref()
+  spawnedDevPid = dev.pid
+}
 
 const ready = await waitForPort(DEV_PORT)
 if (!ready) {
   console.error(`[desktop-dev-saas] dev server 在超时时间内未监听 ${DEV_PORT},请检查 ${webDir} 下依赖是否完整`)
   process.exit(1)
 }
-log(`dev server 已就绪(pid=${dev.pid})`)
+// 就绪校验不能止于"端口可连接":坑①的真实形态是 8801 上躺着别的服务(next dev 会漂移
+// 到 8802),那种情况下窗口加载的是别人的页面/404。必须真的拿到应用首页 200 才放行。
+const rootResp = await fetch(`http://127.0.0.1:${DEV_PORT}/`, { redirect: 'manual' })
+if (!rootResp.ok) {
+  console.error(`[desktop-dev-saas] dev server 已监听 ${DEV_PORT} 但 GET / 返回 ${rootResp.status}(非 200)——端口上大概率不是本仓 web dev server,已中止(避免桌面窗口加载错误页面)`)
+  process.exit(1)
+}
+log(`dev server 已就绪(${spawnedDevPid ? `pid=${spawnedDevPid}` : '复用现有实例'},GET / = ${rootResp.status})`)
 
-// 覆盖 beforeDevCommand:dev server 已由本脚本启动,Tauri 不再重复拉起
-const configOverride = JSON.stringify({ build: { beforeDevCommand: '' } })
+// --config 覆盖两件事(合并语义:app.windows 是整数组替换,build 是对象深合并):
+//   ① beforeDevCommand 置空:dev server 已就绪(本脚本拉起,或 --keep-dev-server
+//      复用现有实例),Tauri 不再重复拉起抢端口;
+//   ② windows[0].url 指向本地 dev server:薄壳态下 tauri.conf.json 的 url 是绝对
+//      线上地址(External 原样加载,devUrl 不生效),不改它窗口永远加载线上生产。
+//      url 取完整 windows[0] 再改 —— 只给 {label,url} 会丢掉 decorations:false /
+//      visible:false / theme 等(2026-09-28 实测)。绝对地址 http://localhost:8801/
+//      是 Next dev 唯一返回 200 的入口(index.html 是 404 页);dev 构建下该 origin
+//      与 devUrl 同源 ⇒ Tauri IPC 判定 Origin::Local,无需改 capabilities
+//      (tauri 2.11.5 src/webview/mod.rs is_local_url)。
+const tauriConfPath = path.join(repoRoot, 'apps', 'desktop', 'src-tauri', 'tauri.conf.json')
+const tauriConf = JSON.parse(readFileSync(tauriConfPath, 'utf8'))
+const mainWindow = tauriConf.app?.windows?.find((w) => w.label === 'main')
+if (!mainWindow) {
+  console.error(`[desktop-dev-saas] ${tauriConfPath} 找不到 label=main 的窗口配置,中止(宁可不启也不静默加载线上)`)
+  process.exit(1)
+}
+const configOverride = JSON.stringify({
+  build: { beforeDevCommand: '' },
+  app: { windows: [{ ...mainWindow, url: `http://localhost:${DEV_PORT}/` }] },
+})
 const npmExec = process.env.npm_execpath ? process.execPath : 'pnpm'
 const args = process.env.npm_execpath
   ? [process.env.npm_execpath, '--filter', '@ihui/desktop', 'exec', 'tauri', 'dev', '--config', configOverride]
   : ['--filter', '@ihui/desktop', 'exec', 'tauri', 'dev', '--config', configOverride]
 
-log('启动 Tauri 桌面端(首次需编译 Rust,约 30-60s)...')
+log('启动 Tauri 桌面端(窗口加载本地 dev server;首次需编译 Rust,约 30-60s)...')
 const r = spawnSync(npmExec, args, {
   cwd: repoRoot,
   stdio: 'inherit',

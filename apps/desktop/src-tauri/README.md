@@ -11,7 +11,7 @@
 desktop（Tauri 2）**不独立构建前端**，也**不再内嵌 web 静态导出产物**：
 
 - `tauri.conf.json` 的 `build.frontendDist` 现指向薄壳目录 `shell`（内容仅 `shell/index.html`，几 KB，只做 meta-refresh 首屏兜底），`build.beforeBuildCommand` 为空串。
-- 窗口运行时加载 `app.windows[0].url` = `https://aizhs.top/`（线上部署的 web 站点，2026-10-13 起启动页为首页，此前为 `/agents`）；`src/auto_refresh.rs` 的 `FRONTEND_URL` / `HEALTH_URL` 常量与之对应，健康检查连续失败时切到内嵌的 `offline://` 协议页（`offline/index.html`），恢复后自动切回线上前端。
+- 窗口运行时加载 `app.windows[0].url` = `https://aizhs.top/`（线上部署的 web 站点，2026-10-13 起启动页为首页，此前为 `/agents`）；`src/auto_refresh.rs` 的后端基址（`BackendBase`，2026-10-13 起）从 main 窗口实际 origin 派生而非硬编码——窗口是线上站点时与旧 `FRONTEND_URL` / `HEALTH_URL` 常量逐字节等价，窗口被 `--config` 覆盖为本地 dev server 时（`pnpm dev:desktop:saas`，见 `apps/desktop/README.md`）探活/指纹/离线恢复自动指向本机后端。健康检查连续失败时切到内嵌的 `offline://` 协议页（`offline/index.html`），恢复后自动切回窗口所在前端。
 - 因此 exe 不含前端资源，web 能力更新只需线上部署即生效、无需重发桌面包（2026-09-17 commit `f10258c8f6`「终极薄壳」）。
 
 ## 发布流程
