@@ -21,8 +21,8 @@ const repoName = 'IHUI-AI'
 //     而静态导出模式 rewrites/headers/middleware 全部不生效 → 登录/模型接口会 404。
 //   - GitHub Pages CI 仍需要静态导出,通过 GITHUB_PAGES=true 显式触发。
 //   - 桌面端不是本配置的消费者(2026-09-17 终极薄壳化,现行为准):桌面端 = Tauri 薄壳 + 直连线上站点:
-//     frontendDist 指向 src-tauri/shell 占位页,窗口 url 直接加载 https://aizhs.top/agents
-//     (V3 #72 拍板,桌面端不打包本地 web 产物)。tauri.conf.json 的 build.beforeBuildCommand
+//     frontendDist 指向 src-tauri/shell 占位页,窗口 url 直接加载 https://aizhs.top/ 首页
+//     (2026-10-13 起启动页由 /agents 改为首页;薄壳不打包本地 web 产物仍依 V3 #72)。tauri.conf.json 的 build.beforeBuildCommand
 //     为空串,apps/desktop/scripts/ensure-web-out.mjs 仅是手动问责/条件重建入口、不在构建链。
 //     历史:曾以 frontendDist("../../web/out") 复用本端静态导出产物,该配置已废。
 //     EXPORT_STATIC=true 现仅服务该手动入口,与 GITHUB_PAGES 互不影响。
