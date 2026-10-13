@@ -474,6 +474,34 @@ function isAuthEndpoint(url: string): boolean {
   return AUTH_ENDPOINT_RE.test(path)
 }
 
+/**
+ * 登录 / 换验证码端点的 401 独立分型判据(台账票 G-1121553)。
+ *
+ * 服务端在「验证码错误或已过期」时同样回 HTTP 401(实测 `POST /api/auth/login/sms`:
+ * `{"code":401,"message":"验证码错误或已过期"}`),而通用 401 出口把它渲染成
+ * 「登录已过期,请重新登录」—— 真机复验里这条误导文案让人连按"会话被踢 / 服务端限流"
+ * 方向排查三轮,重启 App、清 token 才定位到"码打错了"。
+ *
+ * 判据刻意**不只认 status code**:登录/换码这一类失败必须先过分型再谈通用出口。两级判据
+ * (命中任一即成立):
+ *   ① errorCode 点名验证码(`SMS_CODE_INVALID` / `AUTH_CODE_EXPIRED` 等);
+ *   ② 服务端 message 以「验证码」起头(实测后端这条不发 errorCode,只能靠文案前缀点名;
+ *      前缀而非全串包含,避免"会话已过期,请重新获取验证码"这类句式被误吞进本型)。
+ */
+export function isVerificationCodeFailure(
+  errorCode: string | undefined,
+  message: string | undefined,
+): boolean {
+  if (
+    errorCode &&
+    /^(?:[A-Z]+_)?CODE_(?:INVALID|EXPIRED|ERROR|FAILED|REQUIRED)$/i.test(errorCode)
+  ) {
+    return true
+  }
+  if (message && /^(?:短信|邮箱)?验证码/.test(message.trim())) return true
+  return false
+}
+
 /** 规范化 URL(供需要原生 fetch 的场景使用) */
 export function normalizeUrlPublic(url: string): string {
   return normalizeUrl(url)
@@ -738,10 +766,19 @@ async function fetchOnce<T>(
     }
 
     // 4xx:业务错误,返回 ApiResult,不计 breaker 失败样本
+    // G-1121553:登录 / 换验证码端点的"验证码错误或已过期"同样回 401。若把 status:401
+    // 原样交出去,下游判序(status 档先于 message)会把它上屏成「登录已过期,请重新登录」
+    // —— 真机误导即由此来。此型剥离 status,让服务端点名「验证码」的原话直接作为身份上屏。
+    // 连带效果(方向正确):该 401 不再进 fetchApi 的续期 / notifyUnauthorized 块 ——
+    // 打错验证码不是会话死亡,不得触发"会话被踢"清理(换绑手机验旧码等非认证端点同理受益)。
+    const failureStatus =
+      response.status === 401 && isVerificationCodeFailure(errorCode, message)
+        ? undefined
+        : response.status
     return {
       success: false,
       error: message,
-      status: response.status,
+      status: failureStatus,
       errorCode,
       retryAfter: retryAfterValue,
     }
@@ -2580,6 +2617,22 @@ export function formatSSEError(
     }
   }
 
+  // 登录 / 换验证码端点的 401 独立出口(G-1121553):验证码错 / 过期同样回 401,不得复用
+  // 下面的通用会话过期出口 —— 真机误导实录与判据见 isVerificationCodeFailure 注释。
+  // severity 刻意不取 'auth'(那是"会话死亡,该弹重新登录"的档,消费方按它开登录框:
+  // 在登录页上弹登录框是二重误导),requireReauth 同理为 false —— 重登救不了打错的码。
+  if (code === 401 && isVerificationCodeFailure(errorCode, rawMessage)) {
+    return {
+      code,
+      errorCode,
+      retryAfter,
+      severity: 'unknown',
+      title: '验证码错误',
+      message: '验证码错误或已过期,请重新获取验证码',
+      rawMessage,
+      requireReauth: false,
+    }
+  }
   if (code === 401) {
     return {
       code,
