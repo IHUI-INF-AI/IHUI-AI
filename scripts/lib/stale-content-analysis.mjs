@@ -228,6 +228,7 @@ export function resurrectAnalysis({
   const newT = tallyLines(newText, resurrectKey)
   const ancT = usable.map((a) => ({ commit: a.commit, m: tallyLines(a.text, resurrectKey) }))
   let count = 0
+  const boilerplate = [] // G-587:结构符/样板行单独成档 —— 只报数,不判红(见下)
   const sample = []
   const commits = []
   const seenCommit = new Set()
@@ -243,7 +244,16 @@ export function resurrectAnalysis({
     if (extra <= 0) continue
     const rawLine = clipBy.get(line) ?? line
     const t = rawLine.trim()
-    if (!/\p{L}/u.test(t) || t.length < minLineLen) continue // 噪声行/骨架行不配当证据(见上 ①②)
+    // 噪声行/骨架行不配当证据(见上 ①②);G-587 再加一条**内容性**档:
+    // 裸键:值 的 YAML/CI 指令形态(`if: failure()` / `uses: foo@v3` / `severity: warning`)
+    // 不承载可回写信息 —— 任何人在 ci.yml 加一个失败分支步骤都会撞上祖先旧 workflow 里的
+    // 同一行,2026-09-28 落地 CI 失败自述步骤(4f61a35f6)时实测假阳一次。这类行与被
+    // 长度/字母门槛挡掉的骨架行(`}` / `fi` / `exit 0` / `return (`)一样**单独成样板档、
+    // 只报数不判红**;带引号/花括号的行(`"key": "v"`)不在样板形态里,真阳性不减。
+    if (!/\p{L}/u.test(t) || t.length < minLineLen || RESURRECT_BOILER_LINE_RE.test(rawLine)) {
+      boilerplate.push(rawLine)
+      continue
+    }
     let best = 0
     let bestCommit = null
     for (const { commit, m } of ancT) {
@@ -261,8 +271,16 @@ export function resurrectAnalysis({
     }
     for (let i = 0; i < Math.min(extra, best) && sample.length < sampleLines; i++) sample.push(clip(rawLine))
   }
-  return { status: 'judged', reason: null, count, sample, commits }
+  return { status: 'judged', reason: null, count, boilerplate, boilerplateCount: boilerplate.length, sample, commits }
 }
+
+/**
+ * G-587 样板行形态(结构符档的唯一实现,镜像测试钉住不得被复制成第二份):
+ * 裸 `键: 值` 且值不带引号/花括号/方括号 —— YAML/CI 指令行
+ * (`if: failure()` / `uses: actions/checkout@v4` / `continue-on-error: true`)。
+ * 带 `"`/`{`/`[` 的行(`"key": "v"` / `arr: [1,2]`)是真内容形态,不进样板档。
+ */
+export const RESURRECT_BOILER_LINE_RE = /^\s*(?:-\s+)?[\w.-]+:\s*[^\s"'{}[\]]\S*\s*$/
 
 export const __test__ = {
   linesOf,
@@ -273,5 +291,6 @@ export const __test__ = {
   multisetOfLines,
   multisetsEqual,
   resurrectAnalysis,
+  RESURRECT_BOILER_LINE_RE,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
