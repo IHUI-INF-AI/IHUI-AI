@@ -360,6 +360,19 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
         if (effective.model !== undefined) modelId = effective.model;
         if (effective.capabilityMode !== undefined) capabilityMode = effective.capabilityMode;
         isolation = effective.isolation as IsolationMode;
+        // G-1106297 两案共识的中间态(补档/删档由 CLI 沙箱线持有人裁决,本告警不预判方向):
+        // 'subprocess' 档在执行层等同 'none'(不创建 worktree,靠上面的 cast 收窄进两档
+        // 联合)——显式告警防"picker 接受、执行层静默无隔离"的假档静默传播。precedence
+        // 链的 explicit/role/persona 三源都经 L362 出口,在此判一次即全覆盖。
+        if (effective.isolation === 'subprocess') {
+          try {
+            process.stderr.write(
+              `[subagent] isolation='subprocess' 尚无独立实现,本次执行等同 'none'(同工作区无隔离)——CLI 沙箱线待落地(G-1106297)\n`,
+            );
+          } catch {
+            /* 诊断出口自身抛错不得把执行带崩 */
+          }
+        }
       }
 
       const subagentId = resumeFrom ?? newSubagentId();
