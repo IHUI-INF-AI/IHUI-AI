@@ -53,6 +53,20 @@ permissions:
 jobs:
   apk:
     runs-on: ubuntu-latest
+    # 2026-10-13 修(P0,真机实测立因):这两个 EXPO_PUBLIC_* 原先只挂在 `expo prebuild` 那一步,
+    # 而真正把 `process.env.EXPO_PUBLIC_*` **内联进 JS 产物**的是其后 gradle 的
+    # `createBundleReleaseJsAndAssets`(metro/babel 在转换期求值)—— 它不在那一步的 env 作用域内
+    # ⇒ 打包时变量为空,`apps/mobile-rn/src/lib/config.ts` 的回退值 `http://localhost:8802`
+    # 被原样内联进 bundle。
+    # 取证(nightly run 38279405459 产物,现读):assets/index.android.bundle 内
+    # `https://api.aizhs.top` 命中 **0** 次、`http://localhost:8802` 命中 1 次;
+    # 且该包 targetSdk=36、清单无 usesCleartextTraffic ⇒ 明文到本地回环也被平台拦
+    # ⇒ 线上 App 每一个请求都失败,登录页恒「网络连接异常」。
+    # iOS 侧 mobile-ios-ipa-build.yml 早已在 xcodebuild 那步补了同款 env ⇒ 只有安卓漏抄。
+    # 提到 job 级:prebuild 与 gradle 打包同读一份,不再有两处可漂移。
+    env:
+      EXPO_PUBLIC_API_BASE_URL: https://api.aizhs.top
+      EXPO_PUBLIC_WEB_URL: https://aizhs.top
     steps:
       - uses: actions/checkout@v4
 
@@ -108,9 +122,7 @@ jobs:
 
       - name: Generate Android project (expo prebuild)
         working-directory: apps/mobile-rn
-        env:
-          EXPO_PUBLIC_API_BASE_URL: https://api.aizhs.top
-          EXPO_PUBLIC_WEB_URL: https://aizhs.top
+        # EXPO_PUBLIC_* 见 job 级 env(2026-10-13):必须覆盖到 gradle 打包那一步,不能只挂在 prebuild。
         run: npx expo prebuild --platform android --no-install
 
       - name: Build release APK
