@@ -21650,7 +21650,7 @@
     "desktopCloseAsk": "Ask every time",
     "desktopCloseDisabledHint": "The tray icon is off, so \"Hide to tray\" can't be selected",
     "desktopLaunchMinTitle": "Start minimized to the tray",
-    "desktopLaunchMinDesc": "Don't open the main window when the app starts — it waits in the background, and you open it when you need it",
+    "desktopLaunchMinDesc": "Don't open the main window when the app starts at boot — it waits in the background. Double-clicking the desktop shortcut still opens it",
     "desktopTrayClickTitle": "Tray single click",
     "desktopTrayClickMenu": "Open the menu",
     "desktopTrayClickToggle": "Show / hide the main window",

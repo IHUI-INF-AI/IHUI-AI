@@ -12,7 +12,7 @@ import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { useAuthStore } from '../stores/auth-store'
-import { WEB_BASE_URL } from '../lib/webview-portal-config'
+import { WEB_BASE_URL, toSsoRedirectUri } from '../lib/webview-portal-config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { BackChevron } from '@ihui/rn-app'
 
@@ -60,7 +60,9 @@ export function WebViewScreen() {
     } catch {
       // url 非法时用门户 base
     }
-    void generateSsoCode('mobile-rn', url)
+    // redirectUri 必须是服务端认的合规形态:同域压成站内相对路径(见 toSsoRedirectUri 注释里的真机因),
+    // 传绝对 URL 会因生产未配 SSO_ALLOWED_ORIGINS 被 400 拒 ⇒ 静默降级直开 ⇒ WebView 内没有登录态。
+    void generateSsoCode('mobile-rn', toSsoRedirectUri(url))
       .then((res) => {
         if (cancelled) return
         if (res.success) {
