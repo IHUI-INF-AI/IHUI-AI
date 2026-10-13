@@ -45,7 +45,7 @@ import { type WorktreeManager } from './worktree.js';
 import { PERSONAS_CONTRACTS, type JSONSchema } from '../personas/index.js';
 // G-426 拍板第三件套「超阈值自动后台化」:转后台落档用的中间态词汇,只引用唯一声明处
 import { SUBAGENT_STATUS_DETACHED_IDLE } from '../subagents/types.js';
-import type { SubagentPersona, CapabilityMode, IsolationMode } from '@ihui/types';
+import type { AgentTurnStopReason, SubagentPersona, CapabilityMode, IsolationMode } from '@ihui/types';
 import { resolveEffectiveOverrides } from '../subagents/precedence.js';
 import type {
   PersonaMap,
@@ -201,8 +201,15 @@ export function applyCapabilityMode(tools: Tool[], mode: CapabilityMode | undefi
  *    context 里,父级拿不到,不清就是孤儿。
  *  - `undefined`:正常完成 ⇒ **不动**在飞任务(长跑任务是用户的,不是孤儿)。
  */
+/**
+ * 子代理结算三态(G-815977 收编):completed/cancelled 两档从回合终态封闭集
+ * (@ihui/types 的 AgentTurnStopReason)派生,failed 是本地执行失败档 ——
+ * 成员集与收编前的本地字面量联合逐字一致;canonical 改名/删档在此编译期炸出。
+ */
+type SubagentSettledStatus = Extract<AgentTurnStopReason, 'completed' | 'cancelled'> | 'failed';
+
 export function resolveSubagentCascadeReason(input: {
-  stopReason: 'completed' | 'failed' | 'cancelled';
+  stopReason: SubagentSettledStatus;
   aborted?: boolean;
 }): BackgroundCascadeReason | undefined {
   if (input.aborted === true || input.stopReason === 'cancelled') return 'subagent_cancelled';
@@ -441,7 +448,7 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
       // (begin is a no-op while a window is already open). The 4th ask inside
       // the window is refused as a plain result, not an error — see ask-user.ts.
       beginAskUserEscalationBudget();
-      let stopReason: 'completed' | 'failed' | 'cancelled' = 'completed';
+      let stopReason: SubagentSettledStatus = 'completed';
       let stopError: string | undefined;
       // G-426:exec-budget 到点且仍在推进 ⇒ 转后台(置位见下方 onOuterAbort);
       // 外层 finally 的级联判据与完成通知都要读它,所以声明必须在这一层(跨过内层 try)。
