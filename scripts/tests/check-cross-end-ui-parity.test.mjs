@@ -1105,6 +1105,13 @@ test('T32 阳性对照(真仓 HEAD Carousel):参数解构 + 平台宿主 import 
     !j.rootSlot.undetermined.some((u) => u.name === 'Carousel'),
     'Carousel 仍读不出 ⇒ 参数解构/宿主 import 两型致盲回归',
   )
+  // 用例①(同槽位同值 ⇒ 过)在**审计层**的显式断言:存量 Carousel 两端已同层 [16]/[16],
+  // rootSlotAudit 不得点名它 —— 只断言"读得出"不断言"读出后不报",分不开
+  // "过"与"读出来了但被误判红"两种状态(与本维自己"三态分开"的纪律同一条)。
+  assert.ok(
+    !j.rootSlot.findings.some((f) => f.name === 'Carousel'),
+    'Carousel 两端同层 [16]/[16] 而 RS 点名 ⇒ 同槽位同值被误判成层分叉(用例①失守)',
+  )
 })
 
 /**
