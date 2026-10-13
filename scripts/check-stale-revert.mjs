@@ -754,6 +754,9 @@ function renderResurrect(rr) {
         `   - ${v.path}  复活 ${v.count} 行(HEAD 侧自身存量 ${v.anchor} 行)${v.commits.length ? `  ← 见于祖先 ${v.commits.slice(0, 3).join(', ')}` : ''}${win}${exh}`,
       )
       for (const l of v.sample) lines.push(`       ↺ 复活: ${l}`)
+      // G-587:样板档(骨架行/裸键值指令行)被内容性档排除后单独报数 —— 让"少认了多少"可见,
+      // 不计证据、不判红,但也不静默(把"少看了"写成"没有"是本仓最高频失效型)。
+      if (v.boilerplateCount > 0) lines.push(`       ↺ 另有 ${v.boilerplateCount} 行样板/骨架行不计证据(内容性档):${(v.boilerplate ?? []).slice(0, 5).map((s) => s.slice(0, 40)).join(' | ')}`)
     }
     if (rr.red.length > 30) lines.push(`   ... 另有 ${rr.red.length - 30} 个`)
     lines.push('   成因与 R1 同族(共享工作区滞后 HEAD 的副本被 `git add`),但**这一型 R1 看不见**:')
