@@ -140,7 +140,7 @@ vi.mock('@/hooks/use-desktop', () => ({
 }))
 vi.mock('@/lib/tauri-bridge', () => ({
   checkinDetectTraeDir: vi.fn(),
-  checkinCaptureJwts: vi.fn(),
+  checkinCaptureJwts: vi.fn(async () => []),
   checkinCaptureQoder: vi.fn(async () => []),
   checkinCaptureWorkbuddy: vi.fn(async () => []),
   checkinWorkbuddyWebLoginOpen: vi.fn(async () => undefined),
@@ -1049,30 +1049,53 @@ describe('Qoder 平台化(2026-10-10)', () => {
     expect(screen.getAllByText('WB 账号').length).toBeGreaterThan(0)
   })
 
-  it('一键获取(TRAE):自动回填 jwt 与名称,用户不必接触 token', async () => {
+  it('智能导入:浏览器环境给出桌面版提示,不自动检测', async () => {
+    // 显式 false:桌面注入 mockReturnValue(true) 跨用例泄漏(clearAllMocks 不清实现),
+    // 本用例必须显式压回,且放在本区块最前 —— 之后的用例再显式设 true,下游泄漏态不变。
+    vi.mocked(useTauriIpcReady).mockReturnValue(false)
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('addAccount'))
+    expect(screen.getByText('addSmartDesktopOnly')).toBeTruthy()
+    expect(checkinCaptureJwts).not.toHaveBeenCalled()
+  })
+
+  it('智能导入:打开对话框即自动检测,未检测到登录态时给出指引', async () => {
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    vi.mocked(checkinCaptureJwts).mockResolvedValue([])
+    vi.mocked(checkinCaptureQoder).mockResolvedValue([])
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('addAccount'))
+    // 打开即自动检测,用户零操作
+    await waitFor(() => expect(checkinCaptureJwts).toHaveBeenCalled())
+    expect(checkinCaptureQoder).toHaveBeenCalled()
+    await waitFor(() => expect(screen.getByTestId('smart-scan-none')).toBeTruthy())
+  })
+
+  it('智能导入(TRAE):自动列出多账号,勾选一键批量入库不接触 token', async () => {
     vi.mocked(useTauriIpcReady).mockReturnValue(true)
     vi.mocked(checkinCaptureJwts).mockResolvedValue([
       { user_id: 'trae-user-1', jwt: 'eyJtrae.auto', source: 'leveldb:x' },
       { user_id: 'trae-user-2', jwt: 'eyJtrae.auto2', source: 'leveldb:y' },
     ])
+    vi.mocked(checkinCaptureQoder).mockResolvedValue([])
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
     fireEvent.click(screen.getByText('addAccount'))
-    fireEvent.click(screen.getByText('addAutoFetchTrae'))
-    await waitFor(() => expect(screen.getByTestId('add-auto-fetch-msg')).toBeTruthy())
-    const jwtInput = document.getElementById('checkin-jwt') as HTMLTextAreaElement
-    const nameInput = document.getElementById('checkin-name') as HTMLInputElement
-    expect(jwtInput.value).toBe('eyJtrae.auto')
-    expect(nameInput.value).toBe('本机-trae-user-1')
-    expect(screen.getByTestId('add-auto-fetch-msg').textContent).toContain('addAutoFilled')
-    // 回填后点提交即入库(平台默认 trae)
-    fireEvent.click(screen.getByText('submit'))
-    await waitFor(() => expect(createAccount).toHaveBeenCalledTimes(1))
+    // 两个账号都列出来(多账号不再只取第 1 个)
+    await waitFor(() => expect(screen.getByText('本机-trae-user-1')).toBeTruthy())
+    expect(screen.getByText('本机-trae-user-2')).toBeTruthy()
+    fireEvent.click(screen.getByText('addSmartImport'))
+    await waitFor(() => expect(createAccount).toHaveBeenCalledTimes(2))
     expect(createAccount.mock.calls[0]![0].jwt).toBe('eyJtrae.auto')
+    expect(createAccount.mock.calls[1]![0].jwt).toBe('eyJtrae.auto2')
+    expect(createAccount.mock.calls[0]![0].platform).toBeUndefined()
   })
 
-  it('一键获取(Qoder):回填 access_token 与 cosy 设备头 device_map', async () => {
+  it('智能导入(Qoder):入库带 platform=qoder 与 cosy 设备头 device_map', async () => {
     vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    vi.mocked(checkinCaptureJwts).mockResolvedValue([])
     vi.mocked(checkinCaptureQoder).mockResolvedValue([
       {
         app_dir: 'C:/qoder',
@@ -1094,33 +1117,30 @@ describe('Qoder 平台化(2026-10-10)', () => {
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
     fireEvent.click(screen.getByText('addAccount'))
-    fireEvent.change(screen.getByTestId('platform-select'), { target: { value: 'qoder' } })
-    fireEvent.click(screen.getByText('addAutoFetchQoder'))
-    await waitFor(() => expect(screen.getByTestId('add-auto-fetch-msg')).toBeTruthy())
-    const jwtInput = document.getElementById('checkin-jwt') as HTMLTextAreaElement
-    const mapInput = document.getElementById('checkin-device-map') as HTMLTextAreaElement
-    expect(jwtInput.value).toBe('qoder-opaque-token')
-    const dm = JSON.parse(mapInput.value)
-    expect(dm.uid).toBe('qoder-uid-1')
-    expect(dm.refresh_token).toBe('rt-1')
-    expect(dm.expires_at).toBe(1794225169)
-    expect(dm.cosy.machine_id).toBe('mid-1')
-    fireEvent.click(screen.getByText('submit'))
+    await waitFor(() => expect(screen.getByText('Qoder-qoder-uid-1')).toBeTruthy())
+    fireEvent.click(screen.getByText('addSmartImport'))
     await waitFor(() => expect(createAccount).toHaveBeenCalledTimes(1))
-    expect(createAccount.mock.calls[0]![0].platform).toBe('qoder')
+    const payload = createAccount.mock.calls[0]![0]
+    expect(payload.platform).toBe('qoder')
+    expect(payload.jwt).toBe('qoder-opaque-token')
+    expect(payload.device_map.uid).toBe('qoder-uid-1')
+    expect(payload.device_map.refresh_token).toBe('rt-1')
+    expect(payload.device_map.expires_at).toBe(1794225169)
+    expect(payload.device_map.cosy.machine_id).toBe('mid-1')
   })
 
-  it('一键获取(WorkBuddy):转跳捕获对话框(内含网页登录),不在本框内填 token', async () => {
+  it('智能导入:网页登录 WorkBuddy 一键跳转捕获对话框', async () => {
     vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    vi.mocked(checkinCaptureJwts).mockResolvedValue([])
+    vi.mocked(checkinCaptureQoder).mockResolvedValue([])
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
     fireEvent.click(screen.getByText('addAccount'))
-    fireEvent.change(screen.getByTestId('platform-select'), { target: { value: 'workbuddy' } })
-    fireEvent.click(screen.getByText('addAutoFetchWorkbuddy'))
+    await waitFor(() => expect(screen.getByTestId('smart-scan-none')).toBeTruthy())
+    fireEvent.click(screen.getByText('addSmartWorkbuddy'))
     // 录入框关闭、WorkBuddy 捕获对话框打开(网页登录区块在里面)
     await waitFor(() => expect(screen.getByText('captureWbTitle')).toBeTruthy())
     expect(screen.getByText('captureWbWebTitle')).toBeTruthy()
-    expect(checkinCaptureJwts).not.toHaveBeenCalled()
   })
 })
 
