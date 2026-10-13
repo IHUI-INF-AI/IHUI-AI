@@ -10374,6 +10374,7 @@
     "loginFailed": "Login Failed",
     "loginInBrowser": "브라우저에서 로그인",
     "desktopSsoSuccess": "로그인 완료 — 데스크톱 앱에 동기화되었습니다",
+    "desktopSsoOpenFailed": "브라우저를 열 수 없습니다 — 네트워크를 확인한 뒤 다시 시도하세요",
     "loginSubtitle": "계정에 로그인하여 계속",
     "loginSuccess": "로그인 성공",
     "loginTitle": "돌아오신 것을 환영합니다",
