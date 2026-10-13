@@ -22310,6 +22310,8 @@
     "authFailed": "授权启动失败",
     "authorizeAndRedirect": "授权并跳转",
     "authorizing": "正在为 {clientId} 授权…",
+    "desktopHandoffHint": "已交回桌面端完成登录，此页面可以关闭了。",
+    "desktopHandoffTitle": "授权成功",
     "code": "验证码",
     "codePlaceholder": "请输入验证码",
     "codeRequired": "请输入验证码",

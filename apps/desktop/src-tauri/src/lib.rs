@@ -3029,7 +3029,26 @@ pub fn run() {
                 .expect("offline protocol: static html")
         })
         // single-instance 必须在 plugin chain 最前,防止多开 + 唤起已有窗口
-        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            // 2026-10-13 立(用户实测:浏览器授权完,桌面端永远"没反应"):壳在运行时,浏览器的
+            // ihui:// 回跳由 OS 拉起第二实例转发 argv —— deep-link 插件 2.4.9 的 on_open_url
+            // 只覆盖冷启动/自身注册路径,**不会**消费第二实例的 argv;旧实现把 _argv 原样丢弃,
+            // 运行中收到的所有深链全被吞(日志只见 single_instance 唤起,无一条 deep-link 抵达)。
+            // 现把 ihui:// 条目喂给与 on_open_url 同一个 dispatch_deep_links(闸门/去重/pending
+            // 队列/唤起全复用);非深链参数维持只唤起。
+            let deep_links: Vec<String> = argv
+                .iter()
+                .filter(|a| a.starts_with("ihui://"))
+                .cloned()
+                .collect();
+            if !deep_links.is_empty() {
+                log::info!(
+                    "[deep-link] 单实例转发:第二实例 argv 携带 {} 条深链,走 dispatch_deep_links",
+                    deep_links.len()
+                );
+                dispatch_deep_links(app, &deep_links);
+                return;
+            }
             if let Some(window) = app.get_webview_window("main") {
                 log::info!("[window-show] site=single_instance trigger=第二个实例被拉起 ⇒ 插件把已有主窗口唤起(可由双击图标/自启重复触发)");
                 let _ = window.show();
