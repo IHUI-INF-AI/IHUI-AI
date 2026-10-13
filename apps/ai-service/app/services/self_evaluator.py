@@ -43,6 +43,9 @@ import logging
 import re
 from typing import Any
 
+# G-815977 收编:降级打分的 stop_reason 档位一律引回合终态封闭集,不再散写字面量
+from ..core.turn_stop_reason import TurnStopReason
+
 logger = logging.getLogger(__name__)
 
 # LLM 输入 trace 截断(防 token 爆炸)
@@ -240,20 +243,20 @@ class SelfEvaluator:
     @staticmethod
     def _fallback_evaluate(task_result: dict[str, Any]) -> dict[str, Any]:
         """LLM 失败降级:按 stop_reason 简单打分。"""
-        stop_reason = str(task_result.get("stop_reason", "completed"))
+        stop_reason = str(task_result.get("stop_reason", TurnStopReason.COMPLETED))
         success = bool(task_result.get("success", False))
 
         # 评分规则:成功完成 0.7-0.9,失败 0.0-0.4
-        if success and stop_reason == "completed":
+        if success and stop_reason == TurnStopReason.COMPLETED:
             score = 0.8
             improvements = ["建议 LLM 自评获取更详细改进点(当前为降级评分)"]
-        elif stop_reason == "max_iterations":
+        elif stop_reason == TurnStopReason.MAX_ITERATIONS:
             score = 0.4
             improvements = ["达到最大迭代数,建议增加 max_iterations 或优化任务拆解"]
-        elif stop_reason == "error":
+        elif stop_reason == TurnStopReason.ERROR:
             score = 0.2
             improvements = [f"执行错误: {task_result.get('error', 'unknown')}"]
-        elif stop_reason in ("paused", "cancelled"):
+        elif stop_reason in (TurnStopReason.PAUSED, TurnStopReason.CANCELLED):
             score = 0.3
             improvements = [f"任务被 {stop_reason},建议检查中断原因"]
         else:
@@ -261,7 +264,7 @@ class SelfEvaluator:
             improvements = ["未知 stop_reason,建议 LLM 自评细化"]
 
         # 成功但有 error 也算降级
-        if not success and stop_reason == "completed":
+        if not success and stop_reason == TurnStopReason.COMPLETED:
             score = min(score, 0.5)
 
         return {
