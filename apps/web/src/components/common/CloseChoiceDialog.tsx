@@ -61,6 +61,10 @@ export function CloseChoiceDialog() {
     answeredRef.current = true
     pendingRef.current = false
     setOpen(false)
+    // 广播"关闭询问已收口":GlobalTopBar 据此在询问期间抑制三按钮的两种压暗(失焦 gray +
+    // 模态遮罩层),否则点 × 弹出的询问遮罩会瞬间把触发它的控件压暗(用户可见闪灰再复原)。
+    // 事件名三处同形由 check-desktop-event-wiring.mjs 规则 D 对账(派发 + 消费)。
+    window.dispatchEvent(new CustomEvent('desktop-close-ask', { detail: { open: false } }))
     void resolveCloseChoice(choice, choice !== 'cancel' && rememberRef.current)
   }, [])
 
@@ -72,6 +76,8 @@ export function CloseChoiceDialog() {
       rememberRef.current = false
       setRemember(false)
       setOpen(true)
+      // 广播"关闭询问已打开":见 answer() 内同事件说明(供顶栏抑制控件压暗)。
+      window.dispatchEvent(new CustomEvent('desktop-close-ask', { detail: { open: true } }))
     }
     // 事件名与 use-desktop.ts 的 listen / dispatch 三处逐字同形,改名必须同时改完
     window.addEventListener('desktop-close-requested', onRequested)
