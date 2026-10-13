@@ -21,6 +21,7 @@ import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { maskCommentsAndStrings } from '../lib/code-mask.mjs'
 import { __test__ as G } from '../check-stale-revert.mjs'
@@ -641,4 +642,73 @@ test('R1r 键变换:纯缩进重排不得计复活,而真回退一行必须照�
   ].join('\n')
   const b = resurrectAnalysis({ baseText: head, newText: rolledBack, ancestors: [{ commit: 'd4e5f6a', text: rolledBack }] })
   assert.ok(b.status === 'judged' && b.count > 0, `真回退必须被点名(放宽键不许把牙一起磨掉),实得 ${b.status}/${b.count}`)
+})
+
+/**
+ * G-587(2026-10-13):R1r 的内容性档 —— 结构符/样板行(`if: failure()` / `fi` / `exit 0` / `}`)
+ * 只报数不判红。立因:2026-09-28 落地 CI 失败自述步骤(4f61a35f6)时实测假阳,祖先 fbe0e3f65
+ * 是架构迁移前的旧 workflow,里面一批 `- name: 阻断提示 / if: failure()` 随迁移整块消失,
+ * 之后任何人在 ci.yml 加失败分支步骤都会撞上同一行。成对断言缺一不可:
+ * 只留样板不红,判据可以退化成"所有 ci.yml 行都不算证据";只留真阳性红,样板假阳照旧。
+ */
+test('R1r 内容性档:样板行进样板档只报数,真阳性与引号形态行照旧计数(成对)', async () => {
+  const { resurrectAnalysis, RESURRECT_BOILER_LINE_RE } = await import('../lib/stale-content-analysis.mjs')
+  // ① 样板形态正判:if: failure() 命中样板档;fi/exit 0/} 是骨架(无字母或过短)也归档
+  assert.ok(RESURRECT_BOILER_LINE_RE.test('  if: failure()'), 'if: failure() 必须命中样板形态')
+  assert.ok(RESURRECT_BOILER_LINE_RE.test('uses: actions/checkout@v4'), 'uses 指令行必须命中')
+  assert.ok(!RESURRECT_BOILER_LINE_RE.test('"staleKey": "old"'), '引号键值是真内容形态,不得进样板档')
+  assert.ok(!RESURRECT_BOILER_LINE_RE.test('severity: { level: warn }'), '值带花括号不进样板档')
+  // ② 4f61a35f6 形态重放(纯函数面):HEAD 没有 if: failure(),祖先旧 workflow 写过,
+  //    本次在 ci.yml 加一个失败分支步骤 ⇒ 样板行不得计入 count,但必须进 boilerplate 报数
+  const head = [
+    'jobs:',
+    '  build:',
+    '    steps:',
+    '      - run: pnpm test',
+  ].join('\n')
+  const ancestorWorkflow = [
+    'jobs:',
+    '  build:',
+    '    steps:',
+    '      - name: 阻断提示',
+    '        if: failure()',
+    '        run: exit 1',
+    '      - uses: actions/checkout@v3',
+    '        with: persist-credentials: false',
+  ].join('\n')
+  const added = [head, '      - name: 阻断提示', '        if: failure()', '        run: exit 1', '      - uses: actions/checkout@v3'].join('\n')
+  const r = resurrectAnalysis({
+    baseText: head,
+    newText: added,
+    ancestors: [{ commit: 'fbe0e3f65', text: ancestorWorkflow }],
+  })
+  assert.equal(r.status, 'judged')
+  assert.equal(r.count, 0, `4f61a35f6 形态重放必须 exit 0 等价(count=0),实得 ${r.count}:${JSON.stringify(r.sample)}`)
+  assert.equal(r.boilerplateCount, 4, `样板行必须单独成档报数,实得 ${r.boilerplateCount}:${JSON.stringify(r.boilerplate)}`)
+  // ③ 牙仍在:≥门槛长度的真内容行(祖先写过、HEAD 已删)必须照旧判红
+  const realLine = '      - run: pnpm --filter @ihui/rn-app typecheck && pnpm stale-revert drill'
+  const r2 = resurrectAnalysis({
+    baseText: head,
+    newText: `${head}\n${realLine}`,
+    ancestors: [{ commit: 'deadbee1', text: `${head}\n${realLine}` }],
+  })
+  assert.ok(r2.count > 0, `长真内容行必须仍判红,实得 ${r2.count}`)
+})
+
+test('G-587 镜像钉:样板形态清单只此一份实现,门体必须从 lib import 而非自写', () => {
+  const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+  const libSrc = readFileSync(join(ROOT, 'scripts/lib/stale-content-analysis.mjs'), 'utf8')
+  const gateSrc = readFileSync(join(ROOT, 'scripts/check-stale-revert.mjs'), 'utf8')
+  const landSrc = readFileSync(join(ROOT, 'scripts/object-space-land.mjs'), 'utf8')
+  assert.ok(libSrc.includes('RESURRECT_BOILER_LINE_RE'), 'lib 必须导出样板形态常量')
+  assert.equal(
+    (libSrc.match(/RESURRECT_BOILER_LINE_RE = \//g) ?? []).length,
+    1,
+    '样板形态正则的定义在 lib 里必须只有一处',
+  )
+  for (const [name, src] of [['check-stale-revert', gateSrc], ['object-space-land', landSrc]]) {
+    assert.ok(!src.includes('RESURRECT_BOILER_LINE_RE = '), `${name} 不得内联第二份样板形态实现`)
+    assert.ok(!/new RegExp\('[^']*\[\^\\s"'\{\}\[\]\\\]\]/.test(src), `${name} 不得用 new RegExp 复制样板形态正则`)
+  }
+  assert.match(gateSrc, /from '\.\/lib\/stale-content-analysis\.mjs'/, '门体必须 import lib 的判据')
 })
