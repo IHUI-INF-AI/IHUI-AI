@@ -24,6 +24,11 @@
 //!
 //! 判据与执行分离:纯函数(cookie 拼接/响应解析)在此文件可单测,
 //! `#[tauri::command]` 只做 AppHandle → 窗口 → HTTP 的转发。
+//!
+//! 2026-10-13 白屏死锁修复三件套:① 新增 close 命令(前端取消出口,见命令注);
+//! ② open 设深色 background_color(SPA 加载期窗口不画白);③ probe 在无 cookie
+//! 时按窗口当前地址区分「导航没成功」与「还没登录」—— 前者如实报错,不再让
+//! 用户对着一扇白屏无限等待。
 
 use serde::Serialize;
 use std::sync::OnceLock;
@@ -182,6 +187,11 @@ pub fn checkin_workbuddy_web_login_open(app: AppHandle) -> Result<(), IpcError> 
     WebviewWindowBuilder::new(&app, WB_WEB_LOGIN_LABEL, WebviewUrl::External(url))
         .title("登录 WorkBuddy(登录后回到本窗口自动获取)")
         .inner_size(1080.0, 760.0)
+        // 2026-10-13:SPA 加载期窗口不画白色。www.workbuddy.cn 是 SPA 外壳,
+        // WebView2 从导航到首屏 hydrate 有 1-3s 空窗;未设背景色时这段窗口
+        // 呈纯白,用户 perceived "白屏"。与 main 窗口一致的深色底(#242424)
+        // 让加载期观感与主界面连续,页面出来即无缝。
+        .background_color(tauri::webview::Color(0x24, 0x24, 0x24, 0xff))
         .build()
         .map_err(|e| IpcError::internal(format!("登录窗口创建失败: {e}")))?;
     Ok(())
@@ -219,6 +229,29 @@ pub async fn checkin_workbuddy_web_login_probe(app: AppHandle) -> Result<WebLogi
         .cookies_for_url(url)
         .map_err(|e| IpcError::internal(format!("读取登录 Cookie 失败: {e}")))?;
     let Some(cookie_header) = cookie_header_from_jar(&cookies) else {
+        // 2026-10-13 加载诊断:无 cookie 有两种成因 —— 页面没加载出来(导航未发生/
+        // 失败,窗口白屏)与已加载但用户还没登录。前者若继续按 NoCookie 等待,用户
+        // 面对一扇白屏无限转圈;用当前地址把两者分开:窗口 URL 不在 workbuddy.cn
+        // 域族(含子域,登录会跳子域)内 ⇒ 导航没成功,如实报错让用户关窗重试。
+        let navigated = win
+            .url()
+            .map(|u| {
+                u.host_str()
+                    .map(|h| h == "workbuddy.cn" || h.ends_with(".workbuddy.cn"))
+                    .unwrap_or(false)
+            })
+            .unwrap_or(false);
+        if !navigated {
+            let current = win
+                .url()
+                .map(|u| u.to_string())
+                .unwrap_or_else(|_| "<地址不可读>".to_string());
+            return Ok(WebLoginProbe::Error {
+                message: format!(
+                    "登录页面还没加载成功(窗口当前地址:{current})。请关闭窗口重试,或检查网络能否访问 www.workbuddy.cn。"
+                ),
+            });
+        }
         return Ok(WebLoginProbe::NoCookie);
     };
 
