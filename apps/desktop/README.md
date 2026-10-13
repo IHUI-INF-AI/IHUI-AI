@@ -15,7 +15,7 @@
 依赖关系链：
 
 ```
-线上部署的 apps/web 站点   https://aizhs.top/agents
+线上部署的 apps/web 站点   https://aizhs.top/（首页，2026-10-13 起启动页，此前为 /agents）
         ▲  运行时加载：tauri.conf.json → app.windows[0].url
         │
 apps/desktop/src-tauri/shell/index.html   ← frontendDist 占位薄壳（几 KB）
@@ -38,7 +38,7 @@ pnpm --filter @ihui/desktop dev
 pnpm dev:desktop:saas
 ```
 
-`tauri.conf.json` 的 `beforeDevCommand` 为 `pnpm --filter @ihui/web dev`，`devUrl` 为 `http://localhost:8801`。**但这两条在开发态都不起作用**：主窗口的 `app.windows[0].url` 写的是绝对地址 `https://aizhs.top/agents`，而 Tauri 2 只有 `WebviewUrl::App`（相对路径）才会被解析到 `devUrl`，`External` 一律原样加载（`tauri-utils/src/config.rs` 的 http(s) 反序列化 + `tauri/src/manager/webview.rs` 的 `get_app_url()` 分支，2.11.x 实测）。所以 `tauri dev` 与 `pnpm dev:desktop:saas`（`scripts/desktop-dev-saas.mjs` 只覆盖 `beforeDevCommand`）加载的都是线上前端，`devUrl` 是一条没被用上的历史配置。
+`tauri.conf.json` 的 `beforeDevCommand` 为 `pnpm --filter @ihui/web dev`，`devUrl` 为 `http://localhost:8801`。**但这两条在开发态都不起作用**：主窗口的 `app.windows[0].url` 写的是绝对地址 `https://aizhs.top/`（首页，2026-10-13 起启动页由 `/agents` 改来），而 Tauri 2 只有 `WebviewUrl::App`（相对路径）才会被解析到 `devUrl`，`External` 一律原样加载（`tauri-utils/src/config.rs` 的 http(s) 反序列化 + `tauri/src/manager/webview.rs` 的 `get_app_url()` 分支，2.11.x 实测）。所以 `tauri dev` 与 `pnpm dev:desktop:saas`（`scripts/desktop-dev-saas.mjs` 只覆盖 `beforeDevCommand`）加载的都是线上前端，`devUrl` 是一条没被用上的历史配置。
 
 要在开发态加载本地 web 构建（验证"只在本地存在的界面"时必须这么做），把窗口 `url` 一起换成相对路径、并把 `devUrl` 指到本地端口：
 
