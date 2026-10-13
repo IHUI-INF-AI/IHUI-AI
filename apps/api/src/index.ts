@@ -35,6 +35,12 @@ import {
 } from './jobs/relay-alert-rules-evaluation.js'
 import { startImageTaskWorker, stopImageTaskWorker } from './workers/image-task-worker.js'
 import { startBackupCronScheduler, stopBackupCronScheduler } from './jobs/backup-jobs-cron.js'
+// G-916430③(机主拍板 2026-10-07):mail 欠投递读方 + :80 CDN 视野并入 API 进程内定时读方,
+// 不新增服务拓扑。UNDELIVERED 标记此前除提交链守门外无运行时消费者,:80 不在任何值守班眼里。
+import {
+  startOpsWatchReaderScheduler,
+  stopOpsWatchReaderScheduler,
+} from './jobs/ops-watch-reader.js'
 import {
   startLiteLLMPriceSyncScheduler,
   stopLiteLLMPriceSyncScheduler,
@@ -192,6 +198,7 @@ async function start() {
       syncStopPhase('stopRelayAlertEvaluationScheduler', stopRelayAlertEvaluationScheduler),
       syncStopPhase('stopImageTaskWorker', stopImageTaskWorker),
       syncStopPhase('stopBackupCronScheduler', stopBackupCronScheduler),
+      syncStopPhase('stopOpsWatchReaderScheduler', stopOpsWatchReaderScheduler),
       syncStopPhase('stopAgentAutomationScheduler', stopAgentAutomationScheduler),
       syncStopPhase('stopPatrolScheduler', stopPatrolScheduler),
       // P0 修复:显式停止后台定时器,不依赖 server.close 钩子顺序
@@ -293,6 +300,12 @@ async function start() {
 
   // 启动数据库备份定时调度(读 backup_settings;备份设置页可改,2026-09-16 立)
   void startBackupCronScheduler()
+
+  // 启动生产值守进程内定时读方(每 10 分钟:.workbuddy/状态目录的 UNDELIVERED 标记 + :80 CDN 活性;
+  // G-916430③ 机主拍板,ENABLE_OPS_WATCH_READER=false 禁用)
+  if (process.env.ENABLE_OPS_WATCH_READER !== 'false') {
+    startOpsWatchReaderScheduler()
+  }
 
   // 启动中转站上游模型自动同步(启动 30s 后首跑,之后每 6h 一次,
   // 默认开启,RELAY_MODEL_SYNC_ENABLED=false 禁用,2026-10-09 立)
