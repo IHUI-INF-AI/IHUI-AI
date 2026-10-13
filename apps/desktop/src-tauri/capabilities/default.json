@@ -91,6 +91,7 @@
     "allow-checkin-capture-workbuddy",
     "allow-checkin-workbuddy-web-login-open",
     "allow-checkin-workbuddy-web-login-probe",
+    "allow-checkin-workbuddy-web-login-close",
     "allow-checkin-reset-device-ids",
     "allow-checkin-get-public-ip",
     "allow-checkin-one-click-reset",

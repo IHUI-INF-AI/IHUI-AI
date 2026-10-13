@@ -10409,6 +10409,7 @@
     "resetPassword": "重置密碼",
     "resetSuccess": "密碼重置成功，請重新登入",
     "sendCode": "發送驗證碼",
+    "sessionLoggedOutHint": "登入狀態已結束，請重新登入以繼續",
     "showPassword": "顯示密碼",
     "termsOfService": "服務條款",
     "thirdParty": {
@@ -19086,6 +19087,10 @@
     "captureWbWebImporting": "已偵測到登入,正在自動匯入帳號…",
     "captureWbWebDone": "網頁登入匯入完成(共 {count} 個帳號)",
     "captureWbWebWindowClosed": "登入視窗已關閉。重新點「開啟登入視窗」可再試。",
+    "captureWbWebCancel": "取消",
+    "captureWbWebCancelled": "已取消網頁登入。重新點「開啟登入視窗」可再試。",
+    "captureWbWebSlowHint": "登入視窗似乎一直沒有載入完成(白屏)。請檢查本機網路能否存取 www.workbuddy.cn;也可點「取消」關閉視窗,網路恢復後重新開啟。",
+    "captureWbWebProbeFailed": "連續多次探測登入視窗失敗,已停止等待。請重試,或改用下方「手動擷取」/ token 方式。",
     "captureWbManualDivider": "或手動擷取桌面端登入態",
     "captureWbWebCheckinUncertain": "提示:簽到介面暫未確認接受網頁登入態,該帳號若簽到失敗(401)請改用 token 方式並回報我們。",
     "captureDirFound": "已偵測到本機 TRAE 資料目錄：{dir}",
