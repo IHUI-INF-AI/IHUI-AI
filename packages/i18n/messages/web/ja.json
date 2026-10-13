@@ -22333,6 +22333,8 @@
     "authFailed": "認可の起動に失敗しました",
     "authorizeAndRedirect": "してリダイレクト",
     "authorizing": "{clientId} へのをっています…",
+    "desktopHandoffHint": "デスクトップアプリに戻り、ログインが完了しました。このページは閉じて構いません。",
+    "desktopHandoffTitle": "認証が完了しました",
     "code": "認証コード",
     "codePlaceholder": "認証コードを入力してください",
     "codeRequired": "認証コードを入力してください",
