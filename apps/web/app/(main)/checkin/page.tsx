@@ -83,6 +83,7 @@ import {
   checkinCaptureWorkbuddy,
   checkinWorkbuddyWebLoginOpen,
   checkinWorkbuddyWebLoginProbe,
+  checkinWorkbuddyWebLoginClose,
   checkinDetectTraeDir,
   checkinGetPublicIp,
   checkinOneClickReset,
@@ -200,7 +201,14 @@ export default function CheckinPage() {
   // WorkBuddy 网页登录(2026-10-12「网页登录自动添加」,普通用户零 token):
   // 打开内嵌 WebView 登录窗口 → 轮询探测(ok=已登录,cookie+账号由 Rust 读 jar 验证)
   // → 自动入库(device_map.login_type='web',jwt 字段=Cookie 串加密落库)。
+  // 2026-10-13 白屏死锁修复:www.workbuddy.cn 是 SPA 外壳,WebView2 加载不到
+  // assets.workbuddy.cn 的 JS 时窗口纯白且无 cookie ⇒ 轮询永不结束。补三条出口:
+  // ① waiting 态「取消」按钮(停轮询 + Rust 侧 close 窗口 + 复位,再打开会重建重载);
+  // ② 90s 仍无登录态 ⇒ 提示网络可能不通(不自动关窗,用户可能在登录途中);
+  // ③ probe 连续 3 次 IPC error ⇒ 停止轮询并如实告知,不再无限空转。
   const wbWebLoginTimer = React.useRef<ReturnType<typeof setInterval> | null>(null)
+  const wbWebLoginSlowTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const wbWebLoginProbeErrors = React.useRef(0)
   const [wbWebLoginState, setWbWebLoginState] = React.useState<
     'idle' | 'waiting' | 'importing' | 'done' | 'closed'
   >('idle')
@@ -211,7 +219,22 @@ export default function CheckinPage() {
       clearInterval(wbWebLoginTimer.current)
       wbWebLoginTimer.current = null
     }
+    if (wbWebLoginSlowTimer.current !== null) {
+      clearTimeout(wbWebLoginSlowTimer.current)
+      wbWebLoginSlowTimer.current = null
+    }
+    wbWebLoginProbeErrors.current = 0
   }, [])
+
+  // 取消网页登录(白屏/改主意时唯一的出口):停轮询 → Rust 侧销毁窗口 → 复位状态。
+  const cancelWbWebLogin = React.useCallback(() => {
+    stopWbWebLoginPoll()
+    void checkinWorkbuddyWebLoginClose().catch(() => {
+      // 关窗失败不阻断复位:probe 的 no_window 分支与下次 open 都能自愈
+    })
+    setWbWebLoginState('closed')
+    setWbWebLoginMsg(t('captureWbWebCancelled'))
+  }, [stopWbWebLoginPoll, t])
 
   React.useEffect(() => stopWbWebLoginPoll, [stopWbWebLoginPoll])
 
@@ -565,12 +588,27 @@ export default function CheckinPage() {
       return
     }
     stopWbWebLoginPoll()
+    wbWebLoginProbeErrors.current = 0
+    // 90s 仍无登录态 ⇒ 页面大概率白屏(网络到不了 assets.workbuddy.cn)。
+    // 只提示不关窗:用户可能正在登录途中,打断比等待更糟。
+    // 定时器存活即等价于"仍在等待"(ok/取消/失败各出口都会清它),无需判 state。
+    wbWebLoginSlowTimer.current = setTimeout(() => {
+      setWbWebLoginMsg(t('captureWbWebSlowHint'))
+    }, 90_000)
     const tick = async (): Promise<boolean> => {
       let probe: Awaited<ReturnType<typeof checkinWorkbuddyWebLoginProbe>>
       try {
         probe = await checkinWorkbuddyWebLoginProbe()
+        wbWebLoginProbeErrors.current = 0
       } catch {
-        return false // IPC 瞬时异常:继续等下一轮
+        // IPC 连续 3 次异常(而非瞬时抖动)⇒ 停止轮询如实告知,不再无限空转
+        wbWebLoginProbeErrors.current += 1
+        if (wbWebLoginProbeErrors.current >= 3) {
+          stopWbWebLoginPoll()
+          setWbWebLoginState('closed')
+          setWbWebLoginMsg(t('captureWbWebProbeFailed'))
+        }
+        return false
       }
       if (probe.status === 'no_cookie' || probe.status === 'not_logged_in') {
         return false // 未登录:等用户在窗口里完成登录
@@ -2504,18 +2542,27 @@ export default function CheckinPage() {
                   <p className="text-sm font-medium">{t('captureWbWebTitle')}</p>
                   <p className="text-xs text-muted-foreground">{t('captureWbWebDescription')}</p>
                 </div>
-                <Button
-                  size="sm"
-                  disabled={
-                    wbWebLoginState === 'waiting' || wbWebLoginState === 'importing'
-                  }
-                  onClick={() => void startWbWebLogin()}
-                >
-                  {(wbWebLoginState === 'waiting' || wbWebLoginState === 'importing') && (
-                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                  )}
-                  {t('captureWbWebOpen')}
-                </Button>
+                {wbWebLoginState === 'waiting' ? (
+                  // 白屏/改主意时的取消出口(2026-10-13):停轮询 + 关闭登录窗口 + 复位
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void cancelWbWebLogin()}
+                  >
+                    {t('captureWbWebCancel')}
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    disabled={wbWebLoginState === 'importing'}
+                    onClick={() => void startWbWebLogin()}
+                  >
+                    {wbWebLoginState === 'importing' && (
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    )}
+                    {t('captureWbWebOpen')}
+                  </Button>
+                )}
               </div>
               {wbWebLoginMsg && (
                 <p

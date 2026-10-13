@@ -2433,6 +2433,12 @@
           "markdownDescription": "Enables the checkin_snapshot_restore command without any pre-configured scope."
         },
         {
+          "description": "Enables the checkin_workbuddy_web_login_close command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-checkin-workbuddy-web-login-close",
+          "markdownDescription": "Enables the checkin_workbuddy_web_login_close command without any pre-configured scope."
+        },
+        {
           "description": "Enables the checkin_workbuddy_web_login_open command without any pre-configured scope.",
           "type": "string",
           "const": "allow-checkin-workbuddy-web-login-open",
@@ -2461,6 +2467,12 @@
           "type": "string",
           "const": "allow-clipboard-set",
           "markdownDescription": "Enables the clipboard_set command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the close_in_chrome command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-close-in-chrome",
+          "markdownDescription": "Enables the close_in_chrome command without any pre-configured scope."
         },
         {
           "description": "Enables the get_admin_window_info command without any pre-configured scope.",
@@ -2871,6 +2883,12 @@
           "markdownDescription": "Denies the checkin_snapshot_restore command without any pre-configured scope."
         },
         {
+          "description": "Denies the checkin_workbuddy_web_login_close command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-checkin-workbuddy-web-login-close",
+          "markdownDescription": "Denies the checkin_workbuddy_web_login_close command without any pre-configured scope."
+        },
+        {
           "description": "Denies the checkin_workbuddy_web_login_open command without any pre-configured scope.",
           "type": "string",
           "const": "deny-checkin-workbuddy-web-login-open",
@@ -2899,6 +2917,12 @@
           "type": "string",
           "const": "deny-clipboard-set",
           "markdownDescription": "Denies the clipboard_set command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the close_in_chrome command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-close-in-chrome",
+          "markdownDescription": "Denies the close_in_chrome command without any pre-configured scope."
         },
         {
           "description": "Denies the get_admin_window_info command without any pre-configured scope.",

@@ -762,9 +762,12 @@ const nextConfig: NextConfig = {
           // connect-src:开发模式才放行本机(localhost/127.0.0.1),供直连 dev 的 8802/8803/8801
           // 与 SSE/WebSocket 调试;生产模式收紧,仅 'self' + 标准 wss/https 等外部连接,
           // 不再允许浏览器触达本机服务(防 XSS→本机探测/利用)。
+          // 2026-10-13 修复:Tauri 2.11 桌面端 IPC 走 http(s)://ipc.localhost 自定义协议,
+          // 必须显式放行,否则被 CSP 拦截后 Tauri 只能 fallback 到 postMessage(功能退化+控制台红)。
+          // ipc.localhost 仅 Tauri WebView 内可达,普通浏览器永不请求,对 web 无副作用。
           isDev
-            ? "connect-src 'self' https: wss: ws: http://localhost:* http://127.0.0.1:*"
-            : "connect-src 'self' https: wss: ws:",
+            ? "connect-src 'self' https: wss: ws: http://localhost:* http://127.0.0.1:* http://ipc.localhost https://ipc.localhost"
+            : "connect-src 'self' https: wss: ws: http://ipc.localhost https://ipc.localhost",
           "media-src 'self' blob:",
           "object-src 'none'",
           // 2026-07-25 修复扫码登录 iframe 拦截:SDK 内部创建 iframe 渲染二维码
