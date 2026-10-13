@@ -69,7 +69,9 @@ export function ChatToolsScreen() {
       return
     }
     const origin = WEB_BASE_URL
-    void generateSsoCode('mobile-rn', `${WEB_BASE_URL}${CHAT_PATH}`)
+    // 同 WebViewScreen:redirectUri 传站内相对路径,不传绝对 URL(绝对 URL 会撞
+    // SSO_ALLOWED_ORIGINS 未配 ⇒ 400 ⇒ 降级直开 ⇒ WebView 内无登录态)。
+    void generateSsoCode('mobile-rn', CHAT_PATH)
       .then((res) => {
         if (cancelled) return
         if (res.success) {
