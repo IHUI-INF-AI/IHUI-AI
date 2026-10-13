@@ -38,6 +38,7 @@ import { success, error } from '../utils/response.js'
 import { subagentDispatchService } from '../services/subagent-dispatch-service.js'
 import { findAgentTasksByAgentId } from '../db/agent-queries.js'
 import type { AgentTask } from '@ihui/database'
+import { mapStatus, type AgentTaskStatus } from '@ihui/types'
 import { isUuidString } from '../utils/uuid.js'
 
 export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
@@ -196,23 +197,23 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     agents: AgentRuntimeBackgroundAgent[]
   }
 
-  /** agent_tasks.status(legacy) → 前端进度步骤状态 */
+  /** agent_tasks.status(含 legacy)→ 前端进度步骤状态;经共享 mapStatus 归一,档位不自立一份 */
   function toStepStatus(raw: string): AgentRuntimeStep['status'] {
-    if (raw === 'running' || raw === 'in_progress') return 'running'
-    if (raw === 'completed' || raw === 'done') return 'done'
-    if (raw === 'failed' || raw === 'blocked' || raw === 'cancelled') return 'error'
+    const s: AgentTaskStatus = mapStatus(raw)
+    if (s === 'in_progress') return 'running'
+    if (s === 'done') return 'done'
+    if (s === 'blocked' || s === 'cancelled' || s === 'execution_failed') return 'error'
     return 'pending'
   }
 
-  /** agent_tasks.status(legacy) → 前端 AgentStatus(swarm/background 共用) */
+  /** agent_tasks.status(含 legacy)→ 前端 AgentStatus(swarm/background 共用);经共享 mapStatus 归一 */
   function toAgentStatus(raw: string): string {
-    if (raw === 'in_progress') return 'running'
-    if (raw === 'done') return 'completed'
-    if (raw === 'blocked') return 'failed'
-    if (raw === 'cancelled') return 'cancelled'
-    if (raw === 'completed') return 'completed'
-    if (raw === 'failed') return 'failed'
-    if (raw === 'running') return 'running'
+    const s: AgentTaskStatus = mapStatus(raw)
+    if (s === 'in_progress') return 'running'
+    if (s === 'done') return 'completed'
+    if (s === 'blocked') return 'failed'
+    if (s === 'cancelled') return 'cancelled'
+    if (s === 'execution_failed') return 'failed'
     return 'idle'
   }
 
@@ -347,18 +348,21 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
       }
     }
 
-    // swarm 状态:running > failed > pending > completed > idle(有记录时)
+    // swarm 状态:running > failed > pending > completed > idle(有记录时);档位经共享 mapStatus 归一
     let swarmStatus = 'idle'
     if (tasks.length > 0) {
-      if (tasks.some((t) => t.status === 'running' || t.status === 'in_progress'))
-        swarmStatus = 'running'
+      const kanbanOf = (t: AgentTask): AgentTaskStatus => mapStatus(t.status)
+      if (tasks.some((t) => kanbanOf(t) === 'in_progress')) swarmStatus = 'running'
       else if (
         tasks.some(
-          (t) => t.status === 'failed' || t.status === 'blocked' || t.status === 'cancelled',
+          (t) =>
+            kanbanOf(t) === 'execution_failed' ||
+            kanbanOf(t) === 'blocked' ||
+            kanbanOf(t) === 'cancelled',
         )
       )
         swarmStatus = 'failed'
-      else if (tasks.some((t) => t.status === 'pending')) swarmStatus = 'pending'
+      else if (tasks.some((t) => kanbanOf(t) === 'triage')) swarmStatus = 'pending'
       else swarmStatus = 'completed'
     }
 
