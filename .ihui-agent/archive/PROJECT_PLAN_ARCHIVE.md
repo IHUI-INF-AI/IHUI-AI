@@ -90540,4 +90540,12 @@ post-commit 自愈层把这些行认作"原文可寻 = 有意搬迁",而不是�
 
 ---
 
+- [x] G-1121507 〔千段租约〕 本机=前台-06bf8cca 段=G-1120508~G-1121507(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
+
+---
+
+- [x] ✅(2026-10-13) G-1120508 P0 **nightly APK 全 app 报「网络连接异常」的真机立因与修复:`EXPO_PUBLIC_*` 只挂 prebuild 步 ⇒ 打包器转换期取不到**(真机实测立因,2026-10-13):现装 nightly 包(run 38279405459)的 `assets/index.android.bundle` 内 `https://api.aizhs.top` 命中 **0** 次、源码回退值 `http://localhost:8802` 命中 1 次;而包 `targetSdk=36` 且清单无 `usesCleartextTraffic` ⇒ 明文到本地回环也被平台拦(`adb reverse` 快路同样失效)⇒ 全 app 请求全败、登录页恒报「网络连接异常」。**根因不是网络也不是凭据**:`process.env.EXPO_PUBLIC_*` 的内联发生在**打包器转换期**(安卓 gradle `createBundleReleaseJsAndAssets` / iOS `xcodebuild … Bundle React Native`),**不是** `expo prebuild` 步;`.github/workflows/mobile-apk-build.yml` 把这两个变量只挂在 prebuild 步的 `env:`(step 级 `env:` 只对该 step 可见)⇒ 打包步看不到 ⇒ 回退值被内联。iOS 侧早已在 xcodebuild 步自带同款 env,**只有安卓漏抄**。**修**:提到 job 级 `env:`(对 job 内所有 step 可见);`apps/mobile-rn/eas.json` 的 `build.production.env.EXPO_PUBLIC_API_BASE_URL` 由 `https://aizhs.top` 对齐为 `https://api.aizhs.top`(这处跨文件漂移是新门首跑抓出来的)。**装车**:run 38336602481 success ⇒ 产物 128,083,222 B(sha256 `203ffc7c44d10bc84de162738b5aa7bcec7f929ac24af8e4eca88d254e026edb`),现读 bundle 内 `https://api.aizhs.top` 命中 **1** 次、`localhost:8802` **0** 次,versionCode=26101302(单调递增);`adb install -r` Success(覆盖装、数据保留、非降级)⇒ 登录成功(手机号 18643389808 + 短信验证码),首页/广场数据可达。**常驻守门**:新增 id 202 `scripts/check-mobile-api-base-bake.mjs`(只审含 release 打包步的工作流;合法位置三取一 —— 工作流顶层 / job 级 / 打包步自身 `env:`;值必须等于 eas.json 的 `build.production.env`;三态不并桶)+ 镜像 `scripts/tests/check-mobile-api-base-bake.test.mjs`(9/9,含判据唯一性反向锁与真仓阳性对照),自检 12/12,变异取证 3 处翻红并逐字还原(sha256 一致)。
+
+---
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
