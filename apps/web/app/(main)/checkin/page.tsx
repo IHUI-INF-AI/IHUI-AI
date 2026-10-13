@@ -586,7 +586,10 @@ export default function CheckinPage() {
         setWbWebLoginMsg(t('captureWbWebWindowClosed'))
         return true
       }
-      // ok:自动逐账号入库
+      // ok:自动逐账号入库(若签到接口不认 Cookie,如实告知但不阻断 —— 失败由冷却/提示兜底)
+      if (probe.cookie_checkin_ok === false) {
+        setWbWebLoginMsg(t('captureWbWebCheckinUncertain'))
+      }
       setWbWebLoginState('importing')
       setWbWebLoginMsg(t('captureWbWebImporting'))
       const failures: string[] = []
@@ -613,7 +616,11 @@ export default function CheckinPage() {
       setWbWebLoginState('done')
       setWbWebLoginMsg('')
       setWbCaptureOpen(false)
-      setBatchNotice(t('captureWbWebDone', { count: okCount }))
+      setBatchNotice(
+        probe.cookie_checkin_ok === false
+          ? `${t('captureWbWebDone', { count: okCount })} ${t('captureWbWebCheckinUncertain')}`
+          : t('captureWbWebDone', { count: okCount }),
+      )
       await loadAll()
       return true
     }
@@ -839,6 +846,108 @@ export default function CheckinPage() {
     }
   }, [])
 
+  // 添加账号对话框「智能导入」(2026-10-13 升级,取代按平台选的「一键获取」):
+  // 打开对话框即自动并行检测本机 Trae / Qoder 全部登录态,勾选后一键批量入库;
+  // WorkBuddy 登录态加密不可解 ⇒ 引导到捕获对话框(内含网页登录)。
+  // 普通用户全程不接触 token、不用选平台 —— 傻瓜式一条路。
+  const [scanScanning, setScanScanning] = React.useState(false)
+  const [scanTrae, setScanTrae] = React.useState<CapturedTraeAccount[]>([])
+  const [scanQoder, setScanQoder] = React.useState<CapturedQoderSession[]>([])
+  const [scanTraeSel, setScanTraeSel] = React.useState<Set<string>>(new Set())
+  const [scanQoderSel, setScanQoderSel] = React.useState<Set<string>>(new Set())
+  const [scanImporting, setScanImporting] = React.useState(false)
+  const [scanMsg, setScanMsg] = React.useState('')
+
+  const runSmartScan = React.useCallback(async () => {
+    setScanScanning(true)
+    setScanMsg('')
+    const results = await Promise.all([
+      checkinCaptureJwts().catch(() => [] as CapturedTraeAccount[]),
+      checkinCaptureQoder().catch(() => [] as CapturedQoderSession[]),
+    ])
+    setScanTrae(results[0]!)
+    setScanQoder(results[1]!)
+    setScanTraeSel(new Set(results[0]!.map((a) => a.user_id)))
+    setScanQoderSel(new Set(results[1]!.map((s) => s.uid || s.app_dir)))
+    setScanScanning(false)
+  }, [])
+
+  // 对话框打开(桌面端)即自动检测一轮 —— 用户什么都不用点
+  React.useEffect(() => {
+    if (!addOpen || !desktop) return
+    void runSmartScan()
+  }, [addOpen, desktop, runSmartScan])
+
+  const toggleSmartSel = (
+    setter: React.Dispatch<React.SetStateAction<Set<string>>>,
+    key: string,
+    checked: boolean,
+  ) => {
+    setter((prev) => {
+      const next = new Set(prev)
+      if (checked) next.add(key)
+      else next.delete(key)
+      return next
+    })
+  }
+
+  // 智能导入:勾选的 Trae/Qoder 账号逐个入库;分组沿用当前筛选(与捕获对话框口径一致)
+  const importSmart = async () => {
+    const jobs: Array<{
+      name: string
+      jwt: string
+      device_map: Record<string, unknown>
+      platform?: 'qoder'
+    }> = []
+    for (const item of scanTrae) {
+      if (!scanTraeSel.has(item.user_id)) continue
+      jobs.push({ name: `本机-${item.user_id}`, jwt: item.jwt, device_map: {} })
+    }
+    for (const item of scanQoder) {
+      const key = item.uid || item.app_dir
+      if (!scanQoderSel.has(key)) continue
+      jobs.push({
+        name: `Qoder-${item.uid || '本机'}`,
+        jwt: item.access_token,
+        device_map: qoderDeviceMap(item),
+        platform: 'qoder',
+      })
+    }
+    if (jobs.length === 0) return
+    setScanImporting(true)
+    setScanMsg('')
+    let okCount = 0
+    const failures: string[] = []
+    for (const job of jobs) {
+      try {
+        await createCheckinAccount({
+          name: job.name,
+          jwt: job.jwt,
+          device_map: job.device_map,
+          group: groupFilter !== 'all' ? groupFilter : '',
+          ...(job.platform ? { platform: job.platform } : {}),
+        })
+        okCount += 1
+      } catch (e) {
+        failures.push(`${job.name}: ${(e as Error).message}`)
+      }
+    }
+    setScanImporting(false)
+    if (failures.length > 0) {
+      setScanMsg(failures.join('；'))
+    } else {
+      setAddOpen(false)
+      setBatchNotice(t('captureImported', { count: okCount }))
+      await loadAll()
+    }
+  }
+
+  // WorkBuddy:登录态加密不可解 ⇒ 引导到捕获对话框(网页登录 / 本机扫描两条路)
+  const goWbWebLogin = () => {
+    setAddOpen(false)
+    openWbCapture()
+  }
+
   const submitAdd = async () => {
     const trimmedName = name.trim()
     const trimmedJwt = jwt.trim()
@@ -880,6 +989,51 @@ export default function CheckinPage() {
     }
   }
 
+  // ================== 官方积分实时查询(2026-10-13) ==================
+  // 用户诉求:「签到后积分有没有变化、签没签上,得能实时看到」。
+  // 后端 POST /accounts/{id}/query_credits 按平台分流查官方余额并落当日快照;
+  // 前端此前从未调用 ⇒ 积分列只有签到记录的静态快照。现补齐:
+  // 手动签到成功后自动查、一键签到结束后批量查、工具栏手动一键刷新;
+  // delta(较上次查询的变化)显示在余额下方,签到是否生效一眼可见。
+  const [creditsInfo, setCreditsInfo] = React.useState<
+    Record<number, { remaining: number | null; error?: string; delta?: number; ts: number }>
+  >({})
+  const [creditsRefreshing, setCreditsRefreshing] = React.useState<Set<number>>(new Set())
+
+  const refreshCredits = async (ids: number[]) => {
+    if (ids.length === 0) return
+    setCreditsRefreshing((prev) => new Set([...prev, ...ids]))
+    await Promise.all(
+      ids.map(async (id) => {
+        try {
+          const res = await queryCheckinAccountCredits(id)
+          setCreditsInfo((prev) => {
+            const old = prev[id]?.remaining
+            const delta =
+              res.ok && typeof old === 'number' && typeof res.remaining === 'number'
+                ? res.remaining - old
+                : undefined
+            return {
+              ...prev,
+              [id]: { remaining: res.ok ? res.remaining : null, error: res.ok ? undefined : res.error || '', delta, ts: Date.now() },
+            }
+          })
+        } catch (e) {
+          setCreditsInfo((prev) => ({
+            ...prev,
+            [id]: { remaining: null, error: (e as Error).message, ts: Date.now() },
+          }))
+        } finally {
+          setCreditsRefreshing((prev) => {
+            const next = new Set(prev)
+            next.delete(id)
+            return next
+          })
+        }
+      }),
+    )
+  }
+
   const toggleEnabled = async (account: CheckinAccount, enabled: boolean) => {
     setAccounts((prev) => prev.map((a) => (a.id === account.id ? { ...a, enabled } : a)))
     try {
@@ -898,6 +1052,8 @@ export default function CheckinPage() {
     try {
       await manualCheckinAccount(account.id)
       await loadAll()
+      // 签到成功即查官方余额,变化实时可见
+      void refreshCredits([account.id])
     } catch (e) {
       setActionError((e as Error).message)
     } finally {
@@ -948,11 +1104,13 @@ export default function CheckinPage() {
     setActionError(null)
     setBatchNotice(null)
     setAllProgress({ done: 0, total: pending.length })
+    const okIds: number[] = []
     try {
       let done = 0
       for (const account of pending) {
         await manualCheckinAccount(account.id)
         done += 1
+        okIds.push(account.id)
         setAllProgress({ done, total: pending.length })
       }
       const notices = [
@@ -967,6 +1125,8 @@ export default function CheckinPage() {
       setAllProgress(null)
       setSelectedIds(new Set())
       await loadAll()
+      // 结束后批量查官方余额(含中途失败前已成功的),积分变化实时可见
+      if (okIds.length > 0) void refreshCredits(okIds)
     }
   }
 
@@ -1314,9 +1474,26 @@ export default function CheckinPage() {
               {t('checkinSelected', { count: selectedIds.size })}
             </Button>
           )}
-          <Button size="sm" onClick={() => setAddOpen(true)}>
+          <Button
+            size="sm"
+            onClick={() => {
+              setScanMsg('')
+              setFormError(null)
+              setAddOpen(true)
+            }}
+          >
             <Plus className="h-4 w-4" />
             {t('addAccount')}
+          </Button>
+          {/* 官方积分一键刷新:对所有 enabled 账号实时查官方余额(2026-10-13) */}
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={creditsRefreshing.size > 0 || accounts.length === 0}
+            onClick={() => void refreshCredits(accounts.filter((a) => a.enabled).map((a) => a.id))}
+          >
+            {creditsRefreshing.size > 0 && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+            {t('creditRefreshAll')}
           </Button>
           {desktop && (
             <>
@@ -1492,7 +1669,46 @@ export default function CheckinPage() {
                             <span className="text-xs text-muted-foreground">{t('none')}</span>
                           )}
                         </TableCell>
-                        <TableCell>{account.last_record?.credits ?? t('none')}</TableCell>
+                        <TableCell>
+                          {(() => {
+                            const info = creditsInfo[account.id]
+                            if (creditsRefreshing.has(account.id)) {
+                              return (
+                                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  {t('creditRefreshing')}
+                                </span>
+                              )
+                            }
+                            if (info) {
+                              return (
+                                <div className="text-xs">
+                                  {info.error ? (
+                                    <span className="text-amber-600">{t('creditQueryFail')}</span>
+                                  ) : (
+                                    <>
+                                      <div className="font-medium">{info.remaining ?? '-'}</div>
+                                      {typeof info.delta === 'number' && info.delta !== 0 && (
+                                        <div
+                                          className={
+                                            info.delta > 0 ? 'text-green-600' : 'text-destructive'
+                                          }
+                                        >
+                                          {info.delta > 0 ? `+${info.delta}` : info.delta}
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+                              )
+                            }
+                            return (
+                              account.last_record?.credits ?? (
+                                <span className="text-xs text-muted-foreground">{t('none')}</span>
+                              )
+                            )
+                          })()}
+                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <Button
@@ -1818,6 +2034,93 @@ export default function CheckinPage() {
             <DialogDescription>{t('addAccountDescription')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {/* 智能导入(2026-10-13):打开即自动检测本机全部平台登录态,勾选一键导入,零 token 零平台选择 */}
+            {desktop ? (
+              <div data-testid="smart-scan-block" className="space-y-2 rounded-sm border bg-muted/40 p-3">
+                <div>
+                  <p className="text-sm font-medium">{t('addSmartTitle')}</p>
+                  <p className="text-xs text-muted-foreground">{t('addSmartHint')}</p>
+                </div>
+                {scanScanning ? (
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    {t('addSmartScanning')}
+                  </p>
+                ) : scanTrae.length === 0 && scanQoder.length === 0 ? (
+                  <p data-testid="smart-scan-none" className="text-xs text-amber-600">
+                    {t('addSmartNone')}
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {scanTrae.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium">
+                          {t('addSmartTraeFound', { count: scanTrae.length })}
+                        </p>
+                        {scanTrae.map((item) => (
+                          <label key={item.user_id} className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              aria-label={`smartScanTrae:${item.user_id}`}
+                              checked={scanTraeSel.has(item.user_id)}
+                              onChange={(e) =>
+                                toggleSmartSel(setScanTraeSel, item.user_id, e.target.checked)
+                              }
+                            />
+                            <span className="font-mono">本机-{item.user_id}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                    {scanQoder.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium">
+                          {t('addSmartQoderFound', { count: scanQoder.length })}
+                        </p>
+                        {scanQoder.map((item) => {
+                          const key = item.uid || item.app_dir
+                          return (
+                            <label key={key} className="flex items-center gap-2 text-sm">
+                              <input
+                                type="checkbox"
+                                aria-label={`smartScanQoder:${key}`}
+                                checked={scanQoderSel.has(key)}
+                                onChange={(e) => toggleSmartSel(setScanQoderSel, key, e.target.checked)}
+                              />
+                              <span className="font-mono">Qoder-{item.uid || '本机'}</span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    )}
+                    <Button size="sm" disabled={scanImporting} onClick={() => void importSmart()}>
+                      {scanImporting && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                      {scanImporting ? t('addSmartImporting') : t('addSmartImport')}
+                    </Button>
+                  </div>
+                )}
+                <div className="flex items-center justify-between gap-2 border-t pt-2">
+                  <Button variant="outline" size="sm" onClick={goWbWebLogin}>
+                    {t('addSmartWorkbuddy')}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={scanScanning}
+                    onClick={() => void runSmartScan()}
+                  >
+                    {t('addSmartRescan')}
+                  </Button>
+                </div>
+                {scanMsg && (
+                  <p data-testid="smart-scan-msg" className="text-xs text-amber-600">
+                    {scanMsg}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">{t('addSmartDesktopOnly')}</p>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="checkin-platform">{t('platformLabel')}</Label>
               <select
@@ -1842,28 +2145,35 @@ export default function CheckinPage() {
                 maxLength={100}
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="checkin-jwt">{t('jwt')}</Label>
-              <textarea
-                id="checkin-jwt"
-                value={jwt}
-                onChange={(e) => setJwt(e.target.value)}
-                rows={4}
-                placeholder={t('jwtPlaceholder')}
-                className="w-full resize-y rounded-sm border bg-background p-2 text-xs outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="checkin-device-map">{t('deviceMap')}</Label>
-              <textarea
-                id="checkin-device-map"
-                value={deviceMapText}
-                onChange={(e) => setDeviceMapText(e.target.value)}
-                rows={3}
-                placeholder={t('deviceMapPlaceholder')}
-                className="w-full resize-y rounded-sm border bg-background p-2 text-xs outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
+            <details className="group">
+              <summary className="cursor-pointer text-xs text-muted-foreground">
+                {t('addManualAdvanced')}
+              </summary>
+              <div className="mt-3 space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="checkin-jwt">{t('jwt')}</Label>
+                  <textarea
+                    id="checkin-jwt"
+                    value={jwt}
+                    onChange={(e) => setJwt(e.target.value)}
+                    rows={4}
+                    placeholder={t('jwtPlaceholder')}
+                    className="w-full resize-y rounded-sm border bg-background p-2 text-xs outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="checkin-device-map">{t('deviceMap')}</Label>
+                  <textarea
+                    id="checkin-device-map"
+                    value={deviceMapText}
+                    onChange={(e) => setDeviceMapText(e.target.value)}
+                    rows={3}
+                    placeholder={t('deviceMapPlaceholder')}
+                    className="w-full resize-y rounded-sm border bg-background p-2 text-xs outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+              </div>
+            </details>
             <div className="space-y-1.5">
               <Label htmlFor="checkin-group">{t('groupLabel')}</Label>
               <Input
