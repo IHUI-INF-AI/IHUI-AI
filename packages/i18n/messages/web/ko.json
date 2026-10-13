@@ -22322,6 +22322,8 @@
     "authFailed": "인증 시작 실패",
     "authorizeAndRedirect": "인증 및 리디렉션",
     "authorizing": "{clientId}에 대한 인증 진행 중…",
+    "desktopHandoffHint": "데스크톱 앱으로 돌아가 로그인을 완료했습니다. 이 페이지는 닫아도 됩니다.",
+    "desktopHandoffTitle": "인증 완료",
     "code": "인증 코드",
     "codePlaceholder": "인증 코드를 입력하세요",
     "codeRequired": "인증 코드를 입력하세요",

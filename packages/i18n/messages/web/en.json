@@ -22343,6 +22343,8 @@
     "authFailed": "Failed to start authorization",
     "authorizeAndRedirect": "Authorize & Redirect",
     "authorizing": "Authorizing for {clientId}…",
+    "desktopHandoffHint": "Handed back to the desktop app to finish signing in. You can close this page now.",
+    "desktopHandoffTitle": "Authorization complete",
     "code": "Verification code",
     "codePlaceholder": "Enter verification code",
     "codeRequired": "Please enter the verification code",
