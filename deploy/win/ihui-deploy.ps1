@@ -845,12 +845,33 @@ function Set-BuildCooldown {
     $sha = (& git -C $Root rev-parse HEAD 2>&1 | Out-String).Trim()
     try { Set-Content -Path $BuildCooldownFile -Value (@{ ts = (Get-Date).ToString('o'); head = $sha } | ConvertTo-Json -Compress) -NoNewline -ErrorAction SilentlyContinue } catch {}
 }
+# G-916430②:源码子树指纹 = HEAD:apps + HEAD:packages 树 hash(与 guardian-runner 的
+# computeGateFingerprint 同源)。HEAD 每 1-2 分钟被并发会话推进一次,但多为台账/文档提交
+# —— 只比"源码子树",台账提交不触碰冷却,真失败节流仍然成立;源码子树变了 ⇒ 失败根因
+# 可能已随新提交消除 ⇒ 放行本轮重试,保住 push→部署及时性(2026-09-29 实测旧口径
+# 08:06 真失败写下的冷却,08:24 HEAD 解阻后仍白拦 9 轮,用户多看 12 分钟旧版)。
+function Get-BuildSrcFingerprint {
+    param([string]$Sha)
+    if (-not $Sha) { return '' }
+    $out = (& git -C $Root rev-parse "$Sha`:apps" "$Sha`:packages" 2>$null | Out-String)
+    $parts = @($out -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^[0-9a-f]{40}$' })
+    if ($parts.Count -lt 2) { return '' }
+    return ($parts -join '/')
+}
 function Test-BuildCooldown {
     # 返回 $true 表示仍在 30 分钟冷却期内(上轮构建/门禁失败后跳过本轮重建)
+    # 判定顺序:①时间窗(原口径,不变) ②源码子树指纹 —— 与失败时记录的 head 现算
+    # 指纹对比,子树已变 ⇒ 放行。指纹任一侧取不到(异常面/浅克隆)时退回纯时间戳口径,
+    # 不把"没判成"当"判过"。
     try {
         $st = Get-Content $BuildCooldownFile -Raw -ErrorAction Stop | ConvertFrom-Json
         $ageMin = ((Get-Date) - [datetime]$st.ts).TotalMinutes
-        return ($ageMin -ge 0 -and $ageMin -lt 30)
+        if ($ageMin -lt 0 -or $ageMin -ge 30) { return $false }
+        $oldFp = Get-BuildSrcFingerprint ([string]$st.head)
+        $curHead = (& git -C $Root rev-parse HEAD 2>&1 | Out-String).Trim()
+        $curFp = Get-BuildSrcFingerprint $curHead
+        if ($oldFp -and $curFp -and $curFp -ne $oldFp) { return $false }
+        return $true
     } catch { return $false }
 }
 function Clear-BuildCooldown {
