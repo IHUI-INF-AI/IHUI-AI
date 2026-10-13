@@ -109,6 +109,13 @@ test('T3 两处派生都必须显式传 cwd,且 git 走唯一出口而不是裸 
   assert.match(src, /from '\.\/lib\/gitdir\.mjs'/, '未引用唯一出口 scripts/lib/gitdir.mjs')
   assert.match(src, /resolveGitBin\(\)/, 'git 二进制未经 resolveGitBin()(AGENTS §5b:脚本不得依赖环境取 git)')
   assert.doesNotMatch(src, /execFileSync\(\s*'git'/, '仍有按裸 `git`(PATH)派生的调用')
+  assert.doesNotMatch(src, /Program Files[^'"\n]*git\.exe/i, 'git 可执行仍写死本机安装路径 ⇒ 换机即 ENOENT(唯一出口是 resolveGitBin())')
+  // 判据活性自证:同一形态写进代码位必须能命中,防恒绿断言(同 T5 的构造面手法)。
+  assert.match(
+    "execFileSync('C:/Program Files/Git/cmd/git.exe', ['rev-parse'])",
+    /Program Files[^'"\n]*git\.exe/i,
+    '字面量归零判据对真实旧写法不命中 ⇒ 这条锁是空跑',
+  )
 })
 
 test('T4 push-state 不得再由 process.cwd() 拼出来(反向锁:回潮即红)', () => {
