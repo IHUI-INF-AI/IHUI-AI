@@ -48,6 +48,7 @@ const {
   updateGroup,
   schedulerStatus,
   fetchAiService,
+  queryCredits,
 } = vi.hoisted(() => ({
   listAccounts: vi.fn(),
   listRecords: vi.fn(),
@@ -56,6 +57,11 @@ const {
   deleteAccount: vi.fn(),
   setEnabled: vi.fn(),
   manualCheckin: vi.fn(),
+  queryCredits: vi.fn(async () => ({
+    ok: true,
+    remaining: 0 as number | null,
+    error: null as string | null,
+  })),
   updateJwt: vi.fn(),
   updateGroup: vi.fn(),
   schedulerStatus: vi.fn(),
@@ -94,7 +100,7 @@ vi.mock('@ihui/api-client', () => ({
   updateCheckinAccountJwt: updateJwt,
   updateCheckinAccountGroup: updateGroup,
   getCheckinSchedulerStatus: schedulerStatus,
-  queryCheckinAccountCredits: vi.fn(async () => ({ ok: false, remaining: null, error: 'mock' })),
+  queryCheckinAccountCredits: queryCredits,
   fetchAiServiceJson: fetchAiService,
 }))
 
@@ -1141,6 +1147,53 @@ describe('Qoder 平台化(2026-10-10)', () => {
     // 录入框关闭、WorkBuddy 捕获对话框打开(网页登录区块在里面)
     await waitFor(() => expect(screen.getByText('captureWbTitle')).toBeTruthy())
     expect(screen.getByText('captureWbWebTitle')).toBeTruthy()
+  })
+
+  it('官方积分实时查询:手动签到成功后自动查官方余额并显示', async () => {
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    vi.mocked(manualCheckin).mockResolvedValue({ ok: true })
+    vi.mocked(queryCredits).mockResolvedValue({ ok: true, remaining: 1250, error: null })
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('manualCheckin'))
+    await waitFor(() => expect(queryCredits).toHaveBeenCalledWith(accountFixture.id))
+    // 积分列显示官方实时余额(而非记录快照)
+    await waitFor(() => expect(screen.getByText('1250')).toBeTruthy())
+  })
+
+  it('官方积分实时查询:两次查询展示变化量(+/-)', async () => {
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    vi.mocked(queryCredits).mockResolvedValueOnce({ ok: true, remaining: 1000, error: null })
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('creditRefreshAll'))
+    await waitFor(() => expect(screen.getByText('1000')).toBeTruthy())
+    // 余额变化后再次刷新 → 显示 +10
+    vi.mocked(queryCredits).mockResolvedValueOnce({ ok: true, remaining: 1010, error: null })
+    fireEvent.click(screen.getByText('creditRefreshAll'))
+    await waitFor(() => expect(screen.getByText('+10')).toBeTruthy())
+  })
+
+  it('官方积分实时查询:工具栏按钮对 enabled 账号并发查询', async () => {
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    mockLoadSuccess({
+      accounts: [accountFixture, makeAccount({ id: 3, name: '停用号', enabled: false })],
+    })
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('creditRefreshAll'))
+    await waitFor(() => expect(queryCredits).toHaveBeenCalledTimes(1))
+    expect(queryCredits).toHaveBeenCalledWith(accountFixture.id)
+    expect(queryCredits).not.toHaveBeenCalledWith(3)
+  })
+
+  it('官方积分实时查询:查询失败显示失败态而非静默', async () => {
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    vi.mocked(queryCredits).mockResolvedValue({ ok: false, remaining: null, error: '令牌过期' })
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('creditRefreshAll'))
+    await waitFor(() => expect(screen.getByText('creditQueryFail')).toBeTruthy())
   })
 })
 
