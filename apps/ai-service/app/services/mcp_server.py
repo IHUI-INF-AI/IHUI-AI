@@ -8088,7 +8088,12 @@ async def _tool_proactive_suggestion(arguments: dict[str, Any]) -> dict[str, Any
     """
     ctx = arguments.get("conversation_context", "") or ""
     recent_files = arguments.get("recent_files") or []
-    recent_tool_calls = arguments.get("recent_tool_calls") or []
+    # G-814399:先过 _TOOL_ALIASES 归一再做字面比较 —— 注册名是 file_edit/search_codebase,
+    # 调用方传别名(code_search/search_symbol 等)时负向判据才不被绕过。
+    recent_tool_calls = [
+        _normalize_tool_name(str(name))
+        for name in (arguments.get("recent_tool_calls") or [])
+    ]
 
     suggestions: list[dict[str, Any]] = []
     ctx_lower = ctx.lower()
@@ -8100,10 +8105,10 @@ async def _tool_proactive_suggestion(arguments: dict[str, Any]) -> dict[str, Any
             "priority": "high", "estimated_steps": 2,
             "related_files": recent_files,
         })
-    if "edit_file" in recent_tool_calls and "search_codebase" not in recent_tool_calls:
+    if "file_edit" in recent_tool_calls and "search_codebase" not in recent_tool_calls:
         suggestions.append({
             "type": "explore", "title": "先搜索是否有类似实现可复用",
-            "description": "检测到 edit_file 但未先 search_codebase,建议先搜索可复用代码",
+            "description": "检测到 file_edit 但未先 search_codebase,建议先搜索可复用代码",
             "priority": "medium", "estimated_steps": 1,
             "related_files": [],
         })

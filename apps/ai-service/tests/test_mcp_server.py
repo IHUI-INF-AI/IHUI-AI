@@ -1534,6 +1534,51 @@ async def test_proactive_suggestion_with_bug_context():
     assert "test" in types
 
 
+async def test_proactive_suggestion_with_file_edit():
+    """recent_tool_calls 含注册名 file_edit → suggestions 包含 'explore' 类型(G-814399)。"""
+    out = await _tool_proactive_suggestion({
+        "recent_tool_calls": ["file_edit"],
+    })
+    types = {s["type"] for s in out["suggestions"]}
+    assert "explore" in types
+
+
+async def test_proactive_suggestion_file_edit_after_search_no_explore():
+    """file_edit 之后已有 search_codebase → 不再建议 explore。"""
+    out = await _tool_proactive_suggestion({
+        "recent_tool_calls": ["file_edit", "search_codebase"],
+    })
+    types = {s["type"] for s in out["suggestions"]}
+    assert "explore" not in types
+
+
+async def test_proactive_suggestion_search_alias_normalized():
+    """别名 code_search/search_symbol 归一成 search_codebase → explore 不触发(负向判据不被别名绕过)。"""
+    for alias in ("code_search", "search_symbol"):
+        out = await _tool_proactive_suggestion({
+            "recent_tool_calls": ["file_edit", alias],
+        })
+        types = {s["type"] for s in out["suggestions"]}
+        assert "explore" not in types, alias
+
+
+async def test_server_call_tool_proactive_suggestion_file_edit():
+    """经生产入口 call_tool:传 file_edit 断言 explore 在,再补 search_codebase 断言 explore 不在。"""
+    out = await mcp_server.call_tool("proactive_suggestion", {
+        "recent_tool_calls": ["file_edit"],
+    })
+    assert out["tool"] == "proactive_suggestion"
+    assert out["ok"] is True
+    types = {s["type"] for s in out["suggestions"]}
+    assert "explore" in types
+
+    out2 = await mcp_server.call_tool("proactive_suggestion", {
+        "recent_tool_calls": ["file_edit", "search_codebase"],
+    })
+    types2 = {s["type"] for s in out2["suggestions"]}
+    assert "explore" not in types2
+
+
 # =============================================================================
 # 工具实现: knowledge_lookup (G5 生产调用点接入,2026-07-26)
 # 统一知识查询门面(三源并发:codebase + RAG + long_term_memory)
