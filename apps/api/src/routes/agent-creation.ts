@@ -9,6 +9,7 @@ import { db } from '../db/index.js'
 import { success, error } from '../utils/response.js'
 import { agents, zhsAgentCategory, workflows, plugins } from '@ihui/database'
 import { requireAuth, requireAdmin } from '../plugins/require-permission.js'
+import { attributeError } from '@ihui/shared/utils/error-attribution'
 
 /**
  * 智能体创作核心接口(迁移自旧项目 aiModels.js)
@@ -180,7 +181,12 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       return reply.send(success(row))
     } catch (e) {
       // id 非合法 uuid 时 PG 抛 22P02,等价"未找到",返回 404 而非 500
-      if (e instanceof Error && e.message.includes('invalid input syntax for type uuid')) {
+      // (成因判据走错误归因唯一出口 G-816012;未命中落 unknown,不改 500 兜底语义)
+      const attribution = attributeError(e)
+      if (
+        attribution.errorSource === 'storage' &&
+        attribution.failureReason === 'invalid-identifier'
+      ) {
         return reply.status(404).send(error(404, '素材不存在'))
       }
       req.log.error(e)
