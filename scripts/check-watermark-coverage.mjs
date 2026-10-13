@@ -40,6 +40,10 @@ import { dirname, join } from 'node:path'
 import { readWorktreeFile } from './lib/face-reader.mjs'
 import { createExclusionPredicate, LedgerUnavailable } from './lib/third-party-roots.mjs'
 import { coverageFileSet } from './lib/watermark-scope.mjs'
+// G-1018220 口径②:自愈清单行的结构化豁免键从归因层 **import,不抄字面量**(与尺子导入
+// FINDING_LINE_RE 同条纪律:两处各写一遍必然漂移)。键只打在"我刚修复"的清单行上 ——
+// reportGap 报红块 / 注入失败行一个字不带,归因层因此只豁免自愈动作点名,真失败点名照旧定责。
+import { SELF_HEAL_FIXED_MARK } from './lib/commit-gate-attribution.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const REPO_ROOT = join(ROOT)
@@ -636,7 +640,10 @@ try {
 console.log(
   `[watermark-coverage] ✅ 已自动补齐 ${missing.length} 个文件的水印并加入暂存区(无需再跳过门禁):`,
 )
-for (const f of missing.slice(0, 30)) console.log('  - ' + f)
+// G-1018220 口径②:每条"我刚修复"的清单行带结构化豁免键(SELF_HEAL_FIXED_MARK,从归因层
+// import 的那一份)—— 归因层"点名即定责"的铰链只认这个键豁免自愈动作行;报红块/注入失败行
+// 不带键,真失败点名照旧定责。键是**行级**的:块内其余行(表头/计数)不参与豁免。
+for (const f of missing.slice(0, 30)) console.log(`  - ${f} ${SELF_HEAL_FIXED_MARK}`)
 if (missing.length > 30) console.log(`  ... 其余 ${missing.length - 30} 个`)
 process.exit(0)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
