@@ -1375,6 +1375,27 @@ async def execute_agent_stream(
             eid = sse_buffer.append(task_id, start_event)
             yield _format_sse(eid, start_event)
 
+            # D1047(机主 2026-10-10 拍板口径 A;agent 任务流侧 2026-10-13 先行):
+            # 重连时重放**仍待决**的审批弹窗。病灶(D131 取证①):续传按游标只补
+            # "锚点之后",而审批帧几乎总在锚点之前 ⇒ 断线窗口里"已下发未应答"的
+            # 弹窗丢失,用户重连后既看不到弹窗也答不了,工具只能在服务端超时默认拒。
+            # 修法:显式查待决注册表(agent_loop_v2._approval_registry,thread_id 即
+            # 发起流的 session_id,属主精确相等与审批结算同一判据),把仍待决条目以
+            # 同形 tool-approval 帧重发给本连接(replay:true 标记,前端按 approvalId
+            # 幂等渲染)。已决条目不重放(二次弹窗=副作用);旧 run 已死/已超时 ⇒ 条目
+            # 已被 finally pop,天然缺席;session_id 缺省的连接无可过滤键,不重放。
+            # 主对话流(llm.py::_approval_sessions)那一半有僵尸 run 问题(重放答复会
+            # 驱动孤儿生成器继续执行),须与 sse_contract 同批,不在本笔夹带。
+            if last_event_id and req.session_id:
+                from ..services.agent_loop_v2 import pending_approval_replays
+
+                for _replay in pending_approval_replays(
+                    session_id=req.session_id, owner_user_id=current_user
+                ):
+                    _frame: dict[str, Any] = {"type": "tool-approval", **_replay, "replay": True}
+                    _eid = sse_buffer.append(task_id, _frame)
+                    yield _format_sse(_eid, _frame)
+
             # L5-10(2026-08-12):AgentLoopV2 执行器(env AGENT_EXECUTOR=loop_v2 启用)。
             # 重试/错误分类/元学习/事件总线,SSE 事件经 hook_engine 订阅器按 session 过滤。
             if _is_loop_v2_enabled():
