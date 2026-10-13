@@ -10374,6 +10374,7 @@
     "loginFailed": "登錄失敗,請重試",
     "loginInBrowser": "在瀏覽器中登錄",
     "desktopSsoSuccess": "登入成功，已同步到桌面端",
+    "desktopSsoOpenFailed": "開啟瀏覽器失敗，請檢查網路後重試",
     "loginSubtitle": "登錄您的賬號以繼續",
     "loginSuccess": "登錄成功",
     "loginTitle": "登錄",

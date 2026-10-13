@@ -10384,6 +10384,7 @@
     "loginFailed": "Login failed, please try again",
     "loginInBrowser": "Log in via browser",
     "desktopSsoSuccess": "Signed in — synced to the desktop app",
+    "desktopSsoOpenFailed": "Could not open the browser — check your network and try again",
     "loginSubtitle": "Sign in to your account",
     "loginSuccess": "Login successful",
     "loginTitle": "Welcome Back",
