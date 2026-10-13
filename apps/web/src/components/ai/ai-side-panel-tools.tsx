@@ -13,7 +13,7 @@ import {
   type AgentTokenUsageSummary,
   type ModelPriceCny,
 } from '@ihui/api-client'
-import type { FileNode } from '@ihui/types'
+import type { AgentTaskStatus, FileNode, PlanStepStatus } from '@ihui/types'
 import {
   listCheckpoints,
   restoreCheckpoint,
@@ -235,6 +235,20 @@ function saveRoutines(routines: StoredRoutine[]): void {
   } catch {
     // 忽略持久化失败(隐私模式等)
   }
+}
+
+/**
+ * tasks 页签的 plan 步骤 → 任务清单档位投影(G-815977 SV3 收编):todo/done 与看板任务域
+ * (@ihui/types 的 AGENT_TASK_STATUSES)同拼写 —— 分属两域、不经此互转;返回档位经 Extract
+ * 把共享拼写钉在同笔上,任一侧改掉该拼写在此编译期点名,不再散写第三种变体。
+ * (in-progress 是任务清单域的本地连字符档,不经看板登记表。)
+ */
+type TaskListStatus = Extract<'todo' | 'in-progress' | 'done', AgentTaskStatus | 'in-progress'>
+
+function taskListStatusOfPlanStep(status: PlanStepStatus): TaskListStatus {
+  if (status === 'in_progress') return 'in-progress'
+  if (status === 'completed') return 'done'
+  return 'todo'
 }
 
 /** 派单状态 → AgentItem 状态映射 */
@@ -539,12 +553,7 @@ export function AiSidePanelTools() {
             tasks={latestPlan.map((s) => ({
               id: s.id,
               title: s.step,
-              status:
-                s.status === 'in_progress'
-                  ? 'in-progress'
-                  : s.status === 'completed'
-                    ? 'done'
-                    : 'todo',
+              status: taskListStatusOfPlanStep(s.status),
             }))}
           />
         ) : (
