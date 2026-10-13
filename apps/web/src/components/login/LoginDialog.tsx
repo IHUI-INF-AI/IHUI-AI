@@ -13,7 +13,8 @@ import { ExternalLink } from 'lucide-react'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { AuthShell } from '@/components/auth/AuthShell'
 import { resolveSafeRedirectTarget } from '@/lib/sso-redirect-guard'
-import { openExternalUrl } from '@/lib/tauri-bridge'
+import { openExternalUrl, openInGoogleChrome } from '@/lib/tauri-bridge'
+import { rememberSsoChromeWindow } from '@/lib/sso-desktop-bridge'
 import { buildSsoLoginUrl, SSO_CLIENT_IDS, WEB_BASE } from '@ihui/shared'
 import { useDesktop } from '@/hooks/use-desktop'
 import { useIsMobile } from '@/hooks/use-media-query'
@@ -59,7 +60,19 @@ export function LoginDialog() {
         ? window.location.origin
         : WEB_BASE
     const ssoUrl = buildSsoLoginUrl(webBase, 'ihui://sso', SSO_CLIENT_IDS.DESKTOP)
-    await openExternalUrl(ssoUrl)
+    // 2026-10-13 二轮(用户反馈"弹的不是用户自己电脑的默认浏览器的真实使用窗口"):主路径改回
+    // 系统默认浏览器 —— 日常 profile、已有登录态/扩展/书签全在,登录完成后 OS 经 ihui://sso
+    // 深链派发回桌面端换 token(关弹窗链路 desktop-sso-success 不变)。登录标签页留在用户
+    // 自己的浏览器里(那是他的日常窗口,不该也不可由我们代关)。
+    // 兜底:默认浏览器打不开(openExternalUrl false,极端环境)才用 Chrome --app 隔离窗,
+    // 并记住会话以便登录成功后关窗(兜底窗没有用户日常 profile,用完即收)。
+    const opened = await openExternalUrl(ssoUrl)
+    if (opened) return
+    console.warn('[sso] 默认浏览器打开失败,兜底 Chrome --app 隔离窗')
+    const port = await openInGoogleChrome(ssoUrl)
+    if (typeof port === 'number') {
+      rememberSsoChromeWindow(port, `${webBase}/sso/login`)
+    }
   }, [])
 
   const handleLoginSuccess = React.useCallback(() => {
@@ -82,6 +95,16 @@ export function LoginDialog() {
       router.push(target)
     }, 250)
   }, [close, router])
+
+  // 2026-10-13 桌面端"在浏览器中登录"闭环收尾:深链换 token 成功后 use-desktop 会 dispatch
+  // `desktop-sso-success`,而弹窗此前**没有任何**订阅者 —— 登录已完成、登录框却原地留着
+  // (用户感知正是"点了没反应")。落点与表单登录成功同一条 handleLoginSuccess:
+  // 关弹窗 + 有 redirectUrl 时按同一把判据跳转;弹窗没开过时 close 是 no-op、redirectUrl 为 null。
+  React.useEffect(() => {
+    const onSuccess = () => handleLoginSuccess()
+    window.addEventListener('desktop-sso-success', onSuccess)
+    return () => window.removeEventListener('desktop-sso-success', onSuccess)
+  }, [handleLoginSuccess])
 
   const title =
     mode === 'login'

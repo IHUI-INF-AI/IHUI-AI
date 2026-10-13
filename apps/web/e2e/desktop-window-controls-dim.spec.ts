@@ -574,6 +574,67 @@ test.describe('桌面端窗口控制按钮 — 模态压暗 + 失焦降亮(真�
     await page.screenshot({ path: `${SCREENSHOT_DIR}/04-modal-closed.png` })
   })
 
+  /* ================= 回归:点 × 弹出的关闭询问不得把触发它的控件压暗 =================
+   * 修复前:点 × → Rust 无条件 prevent_close + 默认 Ask 档 → 弹 CloseChoiceDialog(全屏
+   * z>=2000 遮罩)。该遮罩被 modal-overlay-watcher 检测到 ⇒ 三按钮盖同色压暗层(data-modal-dim);
+   * 同时 prevent_close 期间窗口瞬失焦 ⇒ data-window-inactive='true'。两者叠加 → 按钮闪一下深灰
+   * 又复原(用户可见瑕疵)。修复后:CloseChoiceDialog 广播 desktop-close-ask,GlobalTopBar 在询问
+   * 期间强制控件维持"活动 + 无模态压暗"。本用例证明**遮罩确实全屏存在**,而控件**始终未压暗**。
+   */
+  test('关闭询问弹窗打开期间,窗口控件不得被压暗(修复:点 × 闪灰)', async ({ page }) => {
+    test.info().annotations.push({
+      type: 'target',
+      description: 'GlobalTopBar + CloseChoiceDialog desktop-close-ask 抑制链路',
+    })
+    await installTauriStub(page)
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
+    await page
+      .locator(WINDOW_CONTROLS_SELECTOR)
+      .waitFor({ state: 'attached', timeout: 60_000 })
+
+    /* ---- 基线:无遮罩 → 控件未压暗 ---- */
+    const idle = await probeDimLayer(page)
+    expect(idle.container.modalDim, '基线不应有 data-modal-dim').toBeNull()
+    expect(idle.container.windowInactive, '基线不应有 data-window-inactive').toBeNull()
+
+    /* ---- 触发关闭询问(等价 Rust CloseRequested → desktop-close-requested)---- */
+    await page.evaluate(() => {
+      window.dispatchEvent(new CustomEvent('desktop-close-requested'))
+    })
+    // 询问弹窗(Radix Dialog,role=dialog)出现
+    await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 15_000 })
+    // 让模态遮罩检测(rAF)与顶栏抑制状态都到位
+    await page.waitForTimeout(300)
+
+    /* ---- 证据:询问遮罩确为全屏 z>=2000(否则下面的"未压暗"是空断言)---- */
+    const overlays = await findModalOverlays(page)
+    expect(overlays.length, '关闭询问应产生至少一个全屏 z>=2000 遮罩').toBeGreaterThan(0)
+    console.info(`[5] 关闭询问全屏遮罩数=${overlays.length} → 控件必须不被其压暗`)
+
+    /* ---- 核心断言:询问进行中控件始终未被压暗 ---- */
+    await expect
+      .poll(async () => (await probeDimLayer(page)).container.modalDim, {
+        message: '关闭询问期间窗口控件不得被模态压暗(data-modal-dim 必须为 null)',
+        timeout: 10_000,
+      })
+      .toBeNull()
+    await expect
+      .poll(async () => (await probeDimLayer(page)).container.windowInactive, {
+        message: '关闭询问期间窗口控件不得失焦降亮(data-window-inactive 必须为 null)',
+        timeout: 10_000,
+      })
+      .toBeNull()
+    await page.screenshot({ path: `${SCREENSHOT_DIR}/05-close-ask-no-dim.png` })
+
+    /* ---- 收口:选「取消」→ 询问关闭,控件维持未压暗 ---- */
+    await page.keyboard.press('Escape')
+    await expect(page.locator('[role="dialog"]')).toBeHidden({ timeout: 15_000 })
+    const after = await probeDimLayer(page)
+    expect(after.container.modalDim, '收口后控件仍不应有 data-modal-dim').toBeNull()
+    expect(after.container.windowInactive, '收口后控件仍不应有 data-window-inactive').toBeNull()
+  })
+
   /* ================= 分支扩展:真机 oklab/color-mix 数值不被 happy-dom 覆盖 =================
    * 上面那一条只证明了「亮色 + 单层 Dialog 遮罩」这一条路径。以下 4 条补齐 watcher 的
    * 其余真机分支(单测在 happy-dom 上跑过,但 happy-dom 会静默丢弃 oklab / color-mix 赋值,
