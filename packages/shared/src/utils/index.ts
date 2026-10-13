@@ -26,6 +26,10 @@ export * from './date-utils'
 export * from './diagram-viewport'
 // G-704(2026-09-29 立)「值等价即不写」的等深比较器唯一实现(端内不得各写一份近似品)
 export * from './deep-equal-records'
+// G-816012(2026-10-13 立)错误归因的唯一出口:低基数 allowlist + 每条规则原子返回
+// {errorSource, failureReason};未命中落 unknown 并在返回值里报名(attributed:false)。
+// 端内不得再写 `.message.includes('…')` 自判成因 —— 对账门 check-error-attribution-single-source
+export * from './error-attribution'
 export * from './error-messages'
 export * from './file-helpers'
 export * from './form-styles'
