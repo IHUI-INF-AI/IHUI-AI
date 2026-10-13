@@ -197,6 +197,69 @@ describe('ContextGuards:压缩前的闸门与压缩后的登记', () => {
     const after = await guards.compactIfNeeded([], 9, action);
     expect(after.compressed).toBe(true);
   });
+
+  // G-815992 验收面(默认阈值,不注入自定义 breaker):压缩后 toolTurnsSinceCompact<3
+  // 连续三次 ⇒ 第四次不再压;正常间隔的回填 ⇒ 不得误触发(否则把压缩关掉了)。
+  // 票面"抛错"在本仓落地为 latch + 停止自动压缩 + 到人诊断(ContextGuards 装配层语义,
+  // 计数单源在共享包 RefillBreaker —— 本层不另起第二份计数器),停压效果等价。
+  it('G-815992 验收(正):默认阈值下连续三次快速回填,第四次不再调用压缩动作', async () => {
+    // 默认阈值:REFILL_QUICK_WINDOW_ROUNDS=2 / REFILL_BREAKER_MAX_CONSECUTIVE=3
+    const guards = new ContextGuards({ contextLimit: 4_000 });
+    const compressing: CompressionResult = {
+      messages: [{ role: 'system', content: 'sys' }],
+      compressed: true,
+      originalTokens: 3_900,
+      compressedTokens: 3_600,
+      removedCount: 1,
+      trigger: 'ratio',
+    };
+    let actionCalls = 0;
+    const action = async () => {
+      actionCalls += 1;
+      return compressing;
+    };
+    // 轮 1=首次压缩;轮 2/3/4 轮距均为 1 ≤ 2 ⇒ 恰好"连续三次快速回填"
+    for (const turn of [1, 2, 3, 4]) {
+      await guards.compactIfNeeded([], turn, action);
+    }
+    expect(actionCalls).toBe(4); // 首次 + 三次快速回填全部放行
+    expect(guards.isSuspended).toBe(true); // 第 3 次连击即 latch(票面①:连击到第 3 次⇒抛错)
+    // 轮 5 = 第四次快速回填 ⇒ 必须不再压,而不是继续压
+    actionCalls = 0;
+    const fourth = await guards.compactIfNeeded([], 5, action);
+    expect(actionCalls).toBe(0);
+    expect(fourth.suspended).toBe(true);
+    expect(fourth.compressed).toBe(false);
+    expect(fourth.messages).toEqual([]); // 原样返回,没有偷偷改写历史
+    expect(fourth.reason).toBe('circuit-breaker');
+  });
+
+  it('G-815992 验收(反):正常间隔的回填不得误触发熔断', async () => {
+    const guards = new ContextGuards({ contextLimit: 4_000 });
+    const compressing: CompressionResult = {
+      messages: [{ role: 'system', content: 'sys' }],
+      compressed: true,
+      originalTokens: 3_900,
+      compressedTokens: 3_600,
+      removedCount: 1,
+      trigger: 'ratio',
+    };
+    let actionCalls = 0;
+    const action = async () => {
+      actionCalls += 1;
+      return compressing;
+    };
+    // 每次压缩间隔都 > windowRounds(2):压缩有效维持住 ⇒ 永不熔断,压缩照常工作
+    for (const turn of [1, 10, 20, 30, 40]) {
+      const g = await guards.compactIfNeeded([], turn, action);
+      expect(g.suspended).toBe(false);
+      expect(g.userDiagnostic).toBeNull();
+      expect(g.consecutiveQuickRefills).toBe(0);
+      expect(g.reason).not.toBe('circuit-breaker');
+    }
+    expect(actionCalls).toBe(5);
+    expect(guards.isSuspended).toBe(false);
+  });
 });
 
 describe('守卫三的判据与配对保护', () => {
