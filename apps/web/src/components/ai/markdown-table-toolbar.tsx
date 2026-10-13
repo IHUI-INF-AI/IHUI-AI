@@ -13,6 +13,7 @@ import { Tooltip } from '@/components/feedback'
 // (apps/web/src/lib/export-utils.ts neutralizeFormulaCell, G-823 落地),不得在本文件
 // 另写一份前缀中和 —— 那正是 G-823 判定"第四份转义实现"的形态。
 import { neutralizeFormulaCell } from '@/lib/export-utils'
+import { OverflowShadow } from './overflow-shadow'
 
 /**
  * G-824 内联表格工具栏 —— DOM 回读 → 复制 GFM / 下载 CSV / 全屏(sticky 表头)。
@@ -131,12 +132,13 @@ export function MarkdownTableBlock({ children }: { children: React.ReactNode }) 
   return (
     <div className="my-0">
       <MarkdownTableToolbar tableRef={tableRef} />
-      <div className="overflow-x-auto">
+      {/* G-827:宽表横向溢出要有方向阴影线索(未溢出/到边不提示;禁 mask/渐变,用 inset 实体边) */}
+      <OverflowShadow>
         {/* 2026-08-02:表格字号同步放大 14px → 15px */}
         <table ref={tableRef} className="my-0 w-full border-collapse text-[15px]">
           {children}
         </table>
-      </div>
+      </OverflowShadow>
     </div>
   )
 }
