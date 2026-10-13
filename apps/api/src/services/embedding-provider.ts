@@ -21,8 +21,87 @@
 export interface EmbeddingProvider {
   /** Provider 标识, 用于日志和 metrics */
   readonly name: string
-  /** 生成 embedding; 输入文本列表, 输出向量列表 (与输入顺序一致) */
+  /**
+   * 生成 embedding; 输入文本列表, 输出向量列表 (与输入顺序一致)。
+   * 上游批量应答缺项/乱序、无法按 index/id 对齐时**整批抛错** (G-1080904),
+   * 绝不返回错位或截断的向量列表。
+   */
   embed(texts: string[]): Promise<number[][]>
+}
+
+// =============================================================================
+// 批量应答对齐 (G-1080904)
+// =============================================================================
+
+/**
+ * 上游批量 embedding 应答的单条形态。
+ * 各家对齐键不同: OpenAI 回 `index`, DashScope 回 `text_index`, 部分网关回 `id`,
+ * 也存在三者皆无的形态 —— 键的有无决定对齐走哪一档 (见 alignEmbeddingBatch)。
+ */
+interface UpstreamEmbeddingItem {
+  embedding?: number[]
+  index?: number
+  text_index?: number
+  id?: number | string
+}
+
+/** 取条目对齐键: 只认整数值 (index / text_index / 整数形态的 id), 非整数形态视为"没有键" */
+function readAlignKey(item: UpstreamEmbeddingItem): number | undefined {
+  for (const raw of [item.text_index, item.index, item.id]) {
+    if (typeof raw === 'number' && Number.isInteger(raw)) return raw
+    if (typeof raw === 'string' && /^\d+$/.test(raw)) return Number(raw)
+  }
+  return undefined
+}
+
+/**
+ * 把上游批量 embedding 应答按 index/text_index/id 对齐回请求顺序。
+ *
+ * 背景 (G-1080904): 上游批量应答的顺序/内容不保证与请求一致 (与上游
+ * offPeakTaskService「批量应答顺序不保证与请求一致, 必须按 id find」同口径)。
+ * 旧实现直接 `items.map(...)` 按下标返回 ⇒ 上游缺项/乱序时, 错位的向量会被
+ * 消费端 `embeddings[i]` 静默写进索引, 表现为"检索偶尔指错文件"这类难查错。
+ *
+ * 对齐口径 (三档, 绝不按下标兜底):
+ *   1. 应答条数 ≠ 请求条数 ⇒ 整批作废, 显式抛错 (不 shift 最旧、不截断、不按下标补齐);
+ *   2. 条目全带整数对齐键 ⇒ 必须恰好构成 0..n-1 的一一对应 (越界/重复即"等长但缺项",
+ *      同样整批抛错), 通过后按键重排返回; 部分条目有键、部分没有 ⇒ 键面自相矛盾, 整批抛错;
+ *   3. 条目一个对齐键都拿不到 ⇒ 显式走第 1 档"长度不等即整批失败",
+ *      长度相等才按应答原序返回 —— 拿不到键时的唯一档位, 不是按下标兜底。
+ */
+function alignEmbeddingBatch(
+  providerName: string,
+  items: UpstreamEmbeddingItem[],
+  expectedCount: number,
+): UpstreamEmbeddingItem[] {
+  if (items.length !== expectedCount) {
+    throw new Error(
+      `[${providerName}] embedding 应答 ${items.length} 条 ≠ 请求 ${expectedCount} 条:` +
+        '整批作废 (缺项/超项一律显式失败, 不按下标兜底)',
+    )
+  }
+
+  const aligned = new Array<UpstreamEmbeddingItem>(items.length)
+  let keyedCount = 0
+  for (const item of items) {
+    const pos = readAlignKey(item)
+    if (pos === undefined) continue
+    keyedCount++
+    if (pos < 0 || pos >= items.length || aligned[pos] !== undefined) {
+      throw new Error(
+        `[${providerName}] embedding 应答对齐键 ${pos} 越界或重复:` +
+          `不构成 0..${items.length - 1} 的一一对应 (等长但缺项/重复), 整批作废`,
+      )
+    }
+    aligned[pos] = item
+  }
+
+  if (keyedCount === items.length) return aligned // 档2: 键面完整且成置换, 已按键重排
+  if (keyedCount === 0) return items // 档3: 无任何可对齐键, 长度已验, 按应答原序
+  throw new Error(
+    `[${providerName}] embedding 应答对齐键部分缺失 (${keyedCount}/${items.length} 条带键):` +
+      '整批作废 (无法按 index/id 对齐)',
+  )
 }
 
 // =============================================================================
@@ -53,10 +132,11 @@ class DashScopeEmbeddingProvider implements EmbeddingProvider {
       throw new Error(`DashScope embedding HTTP ${resp.status}`)
     }
     const data = (await resp.json()) as {
-      output?: { embeddings?: Array<{ embedding?: number[] }> }
+      output?: { embeddings?: UpstreamEmbeddingItem[] }
     }
     const items = data.output?.embeddings ?? []
-    return items.map((e) => e.embedding ?? [])
+    // G-1080904: 按 text_index 对齐; 缺项/乱序整批作废, 不按下标兜底
+    return alignEmbeddingBatch(this.name, items, inputs.length).map((e) => e.embedding ?? [])
   }
 }
 
@@ -86,10 +166,13 @@ class OpenAIEmbeddingProvider implements EmbeddingProvider {
       throw new Error(`OpenAI embedding HTTP ${resp.status}`)
     }
     const data = (await resp.json()) as {
-      data?: Array<{ embedding?: number[] }>
+      data?: UpstreamEmbeddingItem[]
     }
     const items = data.data ?? []
-    return items.map((e) => this.resizeToTarget(e.embedding ?? []))
+    // G-1080904: 按 index 对齐; 缺项/乱序整批作废, 不按下标兜底
+    return alignEmbeddingBatch(this.name, items, texts.length).map((e) =>
+      this.resizeToTarget(e.embedding ?? []),
+    )
   }
 
   /** OpenAI text-embedding-3-small 输出 1536 维, 此处兜底截断/填充 */
@@ -133,10 +216,11 @@ class MinimaxEmbeddingProvider implements EmbeddingProvider {
       throw new Error(`MiniMax embedding HTTP ${resp.status}`)
     }
     const data = (await resp.json()) as {
-      data?: Array<{ embedding?: number[] }>
+      data?: UpstreamEmbeddingItem[]
     }
     const items = data.data ?? []
-    return items.map((e) => e.embedding ?? [])
+    // G-1080904: 条目带 index/id 就按键对齐; 一个键都没有时走"长度不等即整批作废"档
+    return alignEmbeddingBatch(this.name, items, texts.length).map((e) => e.embedding ?? [])
   }
 }
 
