@@ -16,6 +16,7 @@
  */
 import { createHash } from 'node:crypto'
 import { t } from './i18n-outbound.js'
+import { attributeError } from '@ihui/shared/utils/error-attribution'
 
 // ------ 常量(唯一真相源)------
 
@@ -240,10 +241,9 @@ function parseJsonObject(bodyText: string): Record<string, unknown> | undefined 
 /** 传输层异常(含 deadline 在响应体阶段触发)⇒ 一律 retryable:没拿到任何平台结论。 */
 export function classifyTransportError(err: unknown): ImDeliveryOutcome {
   const e = err as { name?: string; message?: string }
-  const timedOut =
-    e?.name === 'AbortError' ||
-    (typeof e?.message === 'string' &&
-      (e.message.includes('超时') || e.message.includes('timeout')))
+  // 超时档判据走错误归因唯一出口 G-816012(AbortError / 超时文本 / ETIMEDOUT 系 errno 同档),
+  // 端内不再自己摸一遍 message;未命中落 unknown ⇒ 仍走 deliveryError 兜底措辞。
+  const timedOut = attributeError(err).failureReason === 'timeout'
   return {
     ok: false,
     status: 'transport-error',

@@ -26,6 +26,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { randomBytes } from 'node:crypto'
 import { success, error } from '../utils/response.js'
+import { attributeError } from '@ihui/shared/utils/error-attribution'
 import { loadCozeOAuthConfig, getCozeAccessToken } from '../services/coze-auth-utils.js'
 import {
   DeviceOAuthApp,
@@ -271,8 +272,13 @@ export const cozeOauthRoutes: FastifyPluginAsync = async (server) => {
       })
       return reply.send(success(result))
     } catch (e) {
-      if (e instanceof Error && e.message.includes('未配置')) {
-        return reply.status(400).send(error(400, e.message))
+      // 配置缺失 ⇒ 400 档(成因判据走错误归因唯一出口 G-816012;未命中落 unknown,仍走 500 兜底)
+      const attribution = attributeError(e)
+      if (
+        attribution.errorSource === 'config' &&
+        attribution.failureReason === 'not-configured'
+      ) {
+        return reply.status(400).send(error(400, e instanceof Error ? e.message : String(e)))
       }
       request.log.error(e)
       return reply.status(500).send(error(500, '获取访问凭证失败,请稍后重试'))
