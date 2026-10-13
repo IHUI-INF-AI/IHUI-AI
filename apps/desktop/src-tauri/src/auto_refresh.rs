@@ -24,7 +24,7 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_updater::UpdaterExt;
 
-const FRONTEND_URL: &str = "https://aizhs.top/agents";
+const FRONTEND_URL: &str = "https://aizhs.top/";
 const HEALTH_URL: &str = "https://aizhs.top/api/health";
 const OFFLINE_URL: &str = "http://offline.localhost/index.html";
 /// 线上前端站点前缀:用于判断窗口地址是否属于线上前端(决定能否跨「离线→在线」保留)
