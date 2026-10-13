@@ -355,8 +355,15 @@ export function registrationSlots(src) {
 export function mergePointerBodyOf(line) {
   const cb = checkboxBody(line)
   if (cb === null) return null
-  if (!cb.startsWith('〔【归并】重复登记副本')) return null
-  const stripped = cb.replace(/^〔【归并】重复登记副本[^〕]*〕/, '')
+  // 前缀族放宽(2026-10-13,守门 71 × 守门 194 缝隙):摘号/归并指针段不止"重复登记副本"一族,
+  //   守门 194 的"同题多号收拢"(`〔【归并】同题多号收拢(…):本行与 Lxxx 同题,派单以持有行为准…〕`)
+  //   同样是 §1 台账治理的合法归并形态 —— 前缀文案写死成单族时,守门 194 收拢的每一行都会被
+  //   本闸判"基线行被抹掉"而点名(2026-10-13 HEAD 现读 4 条:G-1018294./G-1018295./G-1038470./
+  //   G-1038473.,三档一致缺 ⇒ 每轮自愈红着点名却无从回捞)。放宽为整个 〔【归并】…〕 前缀族;
+  //   从严面不变:指纹对账(正文逐字保留)才是豁免的实体条件,前缀只是通道 —— 指针行不在、
+  //   正文被换照旧判缺失(反向锁用例见 check-plan-line-loss.test.mjs)。
+  if (!cb.startsWith('〔【归并】')) return null
+  const stripped = cb.replace(/^〔【归并】[^〕]*〕/, '')
   return stripped
 }
 
