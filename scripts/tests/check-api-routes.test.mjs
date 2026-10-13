@@ -785,6 +785,71 @@ test('--dump-backend --not-a-path(以 - 开头的值):同样不写文件并点�
   }
 })
 
+// ─── 32b/33b. 漏值 / 空串两支(G-322 收口复核 2026-10-13 补) ──
+// 例 32/33 只钉了"以 - 开头"那一支;`--dump-backend` 没有布尔 stdout 档,漏值/空串若一声不响
+// 不落盘就是本族的静默型 ⇒ 三支各自点名 + 给路径仍真落盘(反例/放行成对)。
+test('--dump-backend 漏值/空串:不落盘必须点名实得形态,给路径仍真落盘(反例+放行成对)', () => {
+  const bare = runInCwd(['--dump-backend'])
+  try {
+    assert.equal(bare.r.status, 1, `判据/退出码一字未动(web 缺失仍 1)\n${bare.r.out}\n${bare.r.stderr}`)
+    assert.match(
+      bare.r.stderr,
+      /忽略无效的 --dump-backend 值: \(其后没有任何参数/,
+      `漏值必须点名实得形态,不得静默按未给旗标处理:${bare.r.stderr}`,
+    )
+    assert.ok(!existsSync(join(bare.dir, 'undefined')), '不得出现 writeFileSync(undefined) 型产物')
+  } finally {
+    destroyTempRoot(bare.dir)
+  }
+
+  const empty = runInCwd(['--dump-backend', ''])
+  try {
+    assert.equal(empty.r.status, 1, `退出码语义一字未动\n${empty.r.out}\n${empty.r.stderr}`)
+    assert.match(
+      empty.r.stderr,
+      /忽略无效的 --dump-backend 值: ""\(空串/,
+      `空串必须点名实得 token,不得静默:${empty.r.stderr}`,
+    )
+  } finally {
+    destroyTempRoot(empty.dir)
+  }
+
+  const ok = runInCwd(['--dump-backend', 'backend-dump.json'])
+  try {
+    assert.ok(
+      existsSync(join(ok.dir, 'backend-dump.json')),
+      `放行臂:给真实路径必须真落盘(否则校验写成永拒)\n${ok.r.out}\n${ok.r.stderr}`,
+    )
+    assert.doesNotMatch(ok.r.stderr, /忽略无效的 --dump-backend/, '合法值不得被误报成无效')
+  } finally {
+    destroyTempRoot(ok.dir)
+  }
+})
+
+test('--dump-missing 裸形态/空串仍是合法布尔 stdout 档:不打"忽略无效",逐条清单照出(不硬改裸开关)', () => {
+  const bare = runInCwd(['--dump-missing'])
+  try {
+    assert.equal(bare.r.status, 1, `退出码语义一字未动\n${bare.r.out}\n${bare.r.stderr}`)
+    assert.doesNotMatch(
+      bare.r.stderr,
+      /忽略无效的 --dump-missing/,
+      '裸形态是该旗标的合法档(逐条清单走 stdout),不得被硬改成"必须给值"再误报',
+    )
+    assert.match(bare.r.out, /逐条死调用/, '布尔 stdout 档照常打出逐条清单')
+  } finally {
+    destroyTempRoot(bare.dir)
+  }
+
+  const empty = runInCwd(['--dump-missing', ''])
+  try {
+    assert.equal(empty.r.status, 1, `退出码语义一字未动\n${empty.r.out}\n${empty.r.stderr}`)
+    assert.doesNotMatch(empty.r.stderr, /忽略无效的 --dump-missing/, '空串与裸形态同档,同样不误报')
+    assert.match(empty.r.out, /逐条死调用/, '空串档仍走布尔 stdout,清单不丢')
+  } finally {
+    destroyTempRoot(empty.dir)
+  }
+})
+
 // ═══════════════════════════════════════════════════════════
 // 通道等价(CE)维 —— 2026-09-29,G-466 换维后的新格子
 // 夹具里的 transport 逐字照 HEAD 面 `packages/api-client/src/client.ts:404-416` 的 normalizeUrl
