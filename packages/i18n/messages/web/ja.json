@@ -10374,6 +10374,7 @@
     "loginFailed": "Login Failed",
     "loginInBrowser": "ブラウザでログイン",
     "desktopSsoSuccess": "ログイン完了 — デスクトップアプリに同期しました",
+    "desktopSsoOpenFailed": "ブラウザーを開けませんでした — ネットワークを確認して再試行してください",
     "loginSubtitle": "アカウントにログインして続行",
     "loginSuccess": "ログイン成功",
     "loginTitle": "おかえりなさい",
