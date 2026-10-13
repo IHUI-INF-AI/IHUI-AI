@@ -29,7 +29,8 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import * as os from 'node:os'
 // G-695:等 close 的站点必须走补发器 —— once('close') 挂在已 fire 的 EventEmitter 上永不触发。
-import { createCloseEventController, type CloseEvent } from './close-event.js'
+import { createCloseEventController, type CloseEvent } from './close-event.js';
+import { attributeError } from '@ihui/shared/utils/error-attribution';
 
 /** 子进程执行失败原因 */
 export type SubprocessFailureReason =
@@ -777,12 +778,9 @@ async function spawnWithRetry(
       })
     } catch (e) {
       const err = e as NodeJS.ErrnoException
-      // ETXTBSY 是 Linux 特有;Node 把它映射成 ENOEXEC 或 'ExecutableFileBusy'
-      // 跨平台:用错误码 / 消息模糊匹配,命中时重试
-      const isEtxTbsy =
-        err.code === 'ETXTBSY' ||
-        err.code === 'ENOEXEC' ||
-        (typeof err.message === 'string' && err.message.includes('ETXTBSY'))
+      // ETXTBSY 是 Linux 特有;Node 把它映射成 ENOEXEC 或把码写进消息。跨平台:错误码 /
+      // 消息两种载体统一走错误归因唯一出口 G-816012(executable-busy 档),端内不再各判一遍文本
+      const isEtxTbsy = attributeError(err).failureReason === 'executable-busy';
       if (isEtxTbsy && attempt + 1 < ETXTBSY_RETRY_MAX) {
         attempt += 1
         await new Promise<void>((r) => setTimeout(r, ETXTBSY_BACKOFF_MS * attempt))
