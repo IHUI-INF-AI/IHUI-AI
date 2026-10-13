@@ -334,7 +334,7 @@ DESTRUCTIVE_BLOCKED / PERMISSION_DENIED，本侧原样回传"*。
 
 **宿主形态：桌面端的"页面"只有我们自己的站点。**
 
-- 主窗口固定加载 `https://aizhs.top/agents`（`apps/desktop/src-tauri/tauri.conf.json:18`），
+- 主窗口固定加载 `https://aizhs.top/`（首页，2026-10-13 起启动页由 `/agents` 改为首页；`apps/desktop/src-tauri/tauri.conf.json:18`），
   IPC 权限只授给这两个域名（`apps/desktop/src-tauri/capabilities/default.json:6-8`）。
 - 断网时 Rust 用 `webview.eval` 把页面导航到内置离线页
   （`apps/desktop/src-tauri/src/auto_refresh.rs:256`、`:293`）。
