@@ -21629,7 +21629,7 @@
     "desktopCloseAsk": "매번 확인",
     "desktopCloseDisabledHint": "트레이 아이콘이 꺼져 있어 「트레이로 숨기기」를 선택할 수 없습니다",
     "desktopLaunchMinTitle": "실행 후 먼저 트레이로",
-    "desktopLaunchMinDesc": "프로그램 실행 때 메인 창을 열지 않고 백그라운드에서 대기하며, 필요할 때 창을 엽니다",
+    "desktopLaunchMinDesc": "시작할 때 메인 창을 열지 않고 백그라운드에서 대기합니다. 바탕화면 바로 가기를 직접 누르면 창이 열립니다",
     "desktopTrayClickTitle": "트레이 클릭",
     "desktopTrayClickMenu": "메뉴 표시",
     "desktopTrayClickToggle": "메인 창 표시/숨김",
