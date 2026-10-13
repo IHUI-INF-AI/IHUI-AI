@@ -32,16 +32,33 @@
  *   ③ 测试文件与 `.d.ts`(测试断言的是机制行为,不是生产兜底站点)。
  *   模板字符串整体按字面量遮蔽,`${}` 内不扫(已知边界,实际无此形态)。
  *
- * 取材面:默认扫工作树(与本仓多数守门同面),显式给路径则只扫给定文件/目录。
- * 退出码:0 无红 / 1 有红 / 2 用法错或无法判定(路径不存在、给定面扫不到源文件)。
- * 用法:node scripts/check-enum-fallback-terminal.mjs [--self-test] [路径…]
- * 建议注册:scripts/guardian-runner.mjs(见文末「建议注册参数」)。
+ * 取材面:全量档判 **HEAD blob**、`--staged` 判**索引 blob**、`--worktree` 只作人工逃生舱
+ *   (与守门 70/77/83/98 同口径,经 `scripts/lib/face-reader.mjs` 取材 —— 不再按磁盘判)。
+ *   2026-10-13 移植:本门原先是"默认扫工作树"的按磁盘判门,注册进 guardian-runner 会在提交链
+ *   (runner 对所有门统一追加 --staged)直接 exit 2,且落进 check-gate-face-discipline 的
+ *   loose-fs 红集。显式给路径则只判给定文件/目录(相对仓库根)。
+ * 退出码:0 无红 / 1 有红 / 2 用法错或无法判定(路径在该面不存在、判据取不到输入)。
+ * 用法:node scripts/check-enum-fallback-terminal.mjs [--self-test] [--staged|--worktree] [路径…]
+ * 登记:scripts/guardian-runner.mjs id 205(2026-10-13 主会话接线,见文末)。
  */
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { readdirSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import {
+  FACE_LABEL,
+  FACE_NOTE,
+  Undetermined,
+  assertRepoRoot,
+  catBatch,
+  gitRaw,
+  readWorktreeFile,
+  selectFace,
+} from './lib/face-reader.mjs'
+
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+/** 本门在守门注册表里的身份(assertRepoRoot 的报错标签 / 文档指路)。 */
+const SELF = 'scripts/check-enum-fallback-terminal.mjs'
 
 /** 初始态/可写档:未知值兜到这里 = 把已终态的账放回可写集合(判红)。 */
 export const INITIAL_TIERS = new Set([
@@ -527,6 +544,44 @@ export function collectFiles(paths) {
   return [...new Set(files)]
 }
 
+/**
+ * 路径级过滤(git 面共用):与 walk 同一套规则 —— 隐藏段 / 构建目录 / 测试面 / `.d.ts` 都不进射程。
+ * 抽成纯函数是为了让三面扫**同一批文件**:面换了,判据不许跟着换(换面只换"读哪一份内容")。
+ */
+export function keepPath(rel) {
+  for (const seg of rel.split('/')) {
+    if (seg.startsWith('.') || SKIP_DIRS.has(seg)) return false
+  }
+  return EXT_RE.test(rel) && !SKIP_FILE_RE.test(rel) && !TEST_PATH_RE.test(rel)
+}
+
+/**
+ * git 面的候选清单。两个面问的不是同一件事,所以**不能共用一条枚举**:
+ *  · `--staged` —— 只枚举**本次暂存的变更**(`diff --cached --diff-filter=ACMR`)。索引里躺着
+ *    整棵树(实测 14,718 条),按 `ls-files` 枚举等于每次提交重读五千多个 blob,而其中绝大多数
+ *    与这次提交无关;更糟的是判据会因此与"这次改了什么"脱钩(守门 34 的教训:射面必须跟着变更走)。
+ *  · 全量档 —— 枚举 HEAD 整棵树(全量审计的题中之义)。
+ * 枚举类 git 调用不产生 blob 正文,正文一律由 catBatch 统一取(见 face-reader 的分工)。
+ */
+function listGitPaths(face) {
+  const args =
+    face === 'staged'
+      ? ['diff', '--cached', '--name-only', '--diff-filter=ACMR', '-z']
+      : ['ls-tree', '-r', '--name-only', '-z', 'HEAD']
+  return String(gitRaw(args, ROOT))
+    .split('\0')
+    .map((s) => s.trim())
+    .filter((s) => s && keepPath(s))
+}
+
+/** 判据取材规格:全量档 HEAD blob、`--staged` 索引 blob —— 与 70/77/83/98 同口径。 */
+const specOf = (face, rel) => (face === 'staged' ? `:${rel}` : `HEAD:${rel}`)
+
+/** 显式路径命中(相对仓库根):整文件相等,或目录前缀。 */
+const hitPath = (rel, paths) =>
+  !paths.length ||
+  paths.some((p) => rel === p || rel.startsWith(`${p}/`))
+
 // ---------- 自检(三条成对判据) ----------
 
 const SELF_TEST_CASES = [
@@ -683,28 +738,72 @@ function report(results) {
   return reds.length
 }
 
+/** 取一次判定面的全部源码。`--worktree` 是人工逃生舱(磁盘),两档 git 面走统一取材层。 */
+function loadFace(face, paths) {
+  if (face === 'worktree') {
+    const abs = collectFiles(paths.length ? paths.map((p) => resolve(ROOT, p)) : [ROOT])
+    if (paths.length && abs.length === 0) {
+      throw new Undetermined(`工作树下没有可扫的 ts/tsx/js/jsx/mjs/cjs 源文件:${paths.join(' ')}`)
+    }
+    return abs.map((a) => {
+      const rel = relative(ROOT, a).split('\\').join('/')
+      const text = readWorktreeFile(ROOT, rel)
+      // 读不到就判死:静默跳过一个文件 = 少扫一处而账面报绿(守门 99 那一课)
+      if (typeof text !== 'string') throw new Undetermined(`工作树读不到 ${rel}(不存在或含 NUL 字节)`)
+      return { rel, text }
+    })
+  }
+  const rels = listGitPaths(face).filter((rel) => hitPath(rel, paths))
+  if (paths.length && rels.length === 0) {
+    throw new Undetermined(`${FACE_LABEL[face]}没有这些路径:${paths.join(' ')}`)
+  }
+  // "0 候选"在两个面上是两件相反的事(守门 70 那一课):
+  //  · 全量档 0 候选 = HEAD 树里扫不到任何源文件 = 扫描根或过滤规则漂了 ⇒ 真·无法判定,exit 2;
+  //  · --staged 0 候选 = 本次提交没动到射程内的 .ts/.js ⇒ 无从判起,但那不是"判过了没违规",
+  //    也不是错误。exit 2 会把每一枚只碰 md/json/图片的提交钉死,逼人 --no-verify(§12e)。
+  if (!rels.length && face === 'head' && !paths.length) {
+    throw new Undetermined('HEAD 树里枚举不到任何可扫源文件 ⇒ 扫描根或过滤规则漂了,无法判定')
+  }
+  const blobs = catBatch(ROOT, rels.map((rel) => specOf(face, rel)))
+  return rels.map((rel) => {
+    const text = blobs.get(specOf(face, rel))
+    if (typeof text !== 'string') {
+      throw new Undetermined(`${FACE_LABEL[face]}取不到 ${rel} ⇒ 无法判定(不是"没有违规")`)
+    }
+    return { rel, text }
+  })
+}
+
 function main(argv) {
   const flags = argv.filter((a) => a.startsWith('--'))
-  const paths = argv.filter((a) => !a.startsWith('--'))
-  const unknown = flags.filter((f) => f !== '--self-test')
+  const paths = argv
+    .filter((a) => !a.startsWith('--'))
+    .map((p) => p.replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/+$/, ''))
+  const unknown = flags.filter((f) => f !== '--self-test' && f !== '--staged' && f !== '--worktree')
   if (unknown.length) {
-    console.error(`未知开关:${unknown.join(' ')}(只支持 --self-test)`)
+    console.error(`未知开关:${unknown.join(' ')}(支持 --self-test / --staged / --worktree)`)
     return 2
   }
   if (flags.includes('--self-test')) return runSelfTest() ? 0 : 1
+  // 两个面旗互斥(selectFace 判死,不静默取其一 —— 取哪一面都会让另一面变成假绿)
+  const { face, error } = selectFace({
+    staged: flags.includes('--staged'),
+    worktree: flags.includes('--worktree'),
+  })
+  if (error) {
+    console.error(`无法判定:${error}`)
+    return 2
+  }
   try {
-    for (const p of paths) {
-      if (!existsSync(resolve(p))) {
-        console.error(`无法判定:路径不存在 ${p}`)
-        return 2
-      }
+    assertRepoRoot(ROOT, SELF)
+    const items = loadFace(face, paths)
+    const results = items.map(({ rel, text }) => scanSource(rel, text))
+    console.log(`判定面:${FACE_LABEL[face]} —— ${FACE_NOTE[face]}`)
+    if (!items.length && face === 'staged') {
+      // 如实交代"这一面没什么可判",不冒充"已核无违规"(0 候选与 0 红是两件事)
+      console.log('⏭ 本次暂存未触及射程内的源文件 ⇒ 不判(这不等于"已核无违规")')
+      return 0
     }
-    const files = collectFiles(paths.length ? paths : [ROOT])
-    if (paths.length && files.length === 0) {
-      console.error(`无法判定:给定路径下没有可扫的 ts/tsx/js/jsx/mjs/cjs 源文件:${paths.join(' ')}`)
-      return 2
-    }
-    const results = files.map((abs) => scanSource(relative(ROOT, abs).split('\\').join('/'), readFileSync(abs, 'utf8')))
     return report(results) > 0 ? 1 : 0
   } catch (err) {
     console.error(`无法判定:${err && err.message}`)
@@ -716,9 +815,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   process.exit(main(process.argv.slice(2)))
 }
 
-/* ---------- 建议注册参数(只给建议,不代改 scripts/guardian-runner.mjs;待主会话择机登记) ----------
+/* ---------- 已登记(scripts/guardian-runner.mjs id 205,2026-10-13 主会话接线) ----------
  * {
- *   id:            '<按 runner 现有最大号顺延,勿照抄>',
  *   label:          '🧩 未知枚举兜底档(blocking,状态集合未命中分支兜初始态⇒红)',
  *   script:         'check-enum-fallback-terminal.mjs',
  *   args:           [],
@@ -727,5 +825,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
  *   skipEnv:        'HUSKY_SKIP_ENUM_FALLBACK_TERMINAL',
  * }
  * stagedTriggers 不写则每次提交全量扫描;写上前缀可把与本维无关的提交挡在门外。
+ * 接线前置(已达成):取材面移植到 face-reader —— 否则 runner 的提交链统一追加 --staged 会让
+ * 本门 exit 2,而"注册即拦下每一次提交"的门只会逼人 --no-verify(§12e)。
+ * 单复验:node scripts/check-enum-fallback-terminal.mjs --self-test / --staged / --worktree
  */
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
