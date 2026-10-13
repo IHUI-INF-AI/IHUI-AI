@@ -4784,6 +4784,35 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 移动端 release 打包的 API 基址是否真被内联(1 项,blocking)---
+  {
+    id: '202',
+    label:
+      '📱 移动端 release 打包步必须能看到 EXPO_PUBLIC_API_BASE_URL(只挂 prebuild 步 ⇒ 打包期内联 localhost:8802,线上全量断网;2026-10-13 装机实测)',
+    script: 'check-mobile-api-base-bake.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_MOBILE_API_BASE_BAKE',
+    stagedTriggers: [
+      '.github/workflows/',
+      'apps/mobile-rn/',
+      'scripts/check-mobile-api-base-bake.mjs',
+    ],
+    onFailHint: [
+      '',
+      '  ❌ 本门拦的是"基址没被内联进产物":把它只挂在 `expo prebuild` 那一步的 env 上没用 ——',
+      '     真正求值并内联 process.env.EXPO_PUBLIC_* 的是打包器(gradle 的 createBundleReleaseJsAndAssets /',
+      '     xcodebuild 的 Bundle React Native)跑 metro+babel 的转换期,那一步不在 prebuild 的 env 作用域里。',
+      '     实测后果:产物里 https://api.aizhs.top 命中 0 次、http://localhost:8802 命中 1 次,',
+      '     且包 targetSdk=36 无 usesCleartextTraffic ⇒ 明文回环也被拦 ⇒ 登录页恒「网络连接异常」。',
+      '  💡 修复出口(二选一,不得为消红削判据):① 提到 job 级 env(见 mobile-apk-build.yml 的 jobs.apk.env)',
+      '     或打包步自身的 env(iOS 现状),使打包器转换期可见;② 确需换基址时同步改',
+      '     apps/mobile-rn/eas.json 的 build.production.env(本门以它为单一真相)。',
+      '  📖 单复验:node scripts/check-mobile-api-base-bake.mjs --self-test / --staged / --worktree / --strict / --json',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
