@@ -239,6 +239,25 @@ groups:
           summary: '内存不足'
           description: 'Windows 可用内存占物理内存不足 10%(当前 {{ $value | humanizePercentage }})'
 
+      # 主机内存危急(可用/物理 < 5%,2026-10-13 加):与 MemoryLow 同表达式、更低阈值、
+      #   critical 级 —— 立因是告警链新增夜间静默窗(23:00–07:30 非 critical 只记台账不寄,
+      #   deploy/win/ihui-deploy.ps1 $AlertQuietStart/End):MemoryLow(warning)在夜间会被
+      #   压下,而内存真正见底(可用 < 5%,32G 机 ≈ 1.6G,next build 峰值堆 8G 的机器上
+      #   随时 OOM 连环)必须在夜里就叫醒人,不能等 07:30 汇总。指标同源(windows_exporter
+      #   实采已验),不存在"恒不响"风险;阈值取 warning 的一半,两档不互相顶掉。
+      - alert: MemoryCritical
+        expr: |
+          (windows_memory_available_bytes
+          /
+          windows_cs_physical_memory_bytes)
+          < 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: '内存危急'
+          description: 'Windows 可用内存占物理内存不足 5%(当前 {{ $value | humanizePercentage }}),即将 OOM,立即检查构建/模型常驻等大内存进程'
+
       # RSSHub(IHUI-RSSHUB 服务)宕机 —— "一个服务没了却没有任何到人出口"那一格的尺子(2026-09-27 立)。
       # 立因实测:该服务自 09-11 后再无一次成功启动(nssm Application 指向的
       #   `C:\Users\Administrator\.workbuddy\binaries\node\versions\22.22.2-2\node.exe` 已被 workbuddy
