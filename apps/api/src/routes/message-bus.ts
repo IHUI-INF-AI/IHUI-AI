@@ -23,6 +23,7 @@ import type {
   MessageBusWebhookPayload,
 } from '@ihui/types'
 import { success, error } from '../utils/response.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import { getMessageBusAdapter } from '../services/message-bus/index.js'
 
 const CHANNELS = ['feishu', 'dingtalk', 'telegram', 'slack', 'discord', 'wechat'] as const
@@ -51,7 +52,8 @@ const channelMeta: Array<{
 
 export async function messageBusRoutes(server: FastifyInstance) {
   // GET /message-bus/channels — 列出全部渠道及配置状态
-  server.get('/message-bus/channels', async (_request: FastifyRequest, reply: FastifyReply) => {
+  // 2026-10-12 P0 安全修复:补 requireAdmin(此前无鉴权且回显 webhookUrl,存在内部 webhook secret 泄露风险)
+  server.get('/message-bus/channels', { preHandler: requireAdmin }, async (_request: FastifyRequest, reply: FastifyReply) => {
     const channels: MessageBusChannel[] = channelMeta.map((c) => {
       const webhookUrl = process.env[c.envKeys[0]!]
       const enabled = c.envKeys.every((k) => process.env[k])
@@ -67,7 +69,8 @@ export async function messageBusRoutes(server: FastifyInstance) {
   })
 
   // POST /message-bus/send — 发送消息到指定渠道
-  server.post('/message-bus/send', async (request: FastifyRequest, reply: FastifyReply) => {
+  // 2026-10-12 P0 安全修复:补 requireAdmin(此前无鉴权,公网可任意向内部钉钉/TG/Slack/Discord/微信 webhook 发消息)
+  server.post('/message-bus/send', { preHandler: requireAdmin }, async (request: FastifyRequest, reply: FastifyReply) => {
     const parsed = sendSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))

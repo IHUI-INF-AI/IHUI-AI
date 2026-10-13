@@ -42,6 +42,38 @@ from ..core.llm_gateway import llm_gateway
 
 logger = logging.getLogger(__name__)
 
+# ── L8064:legacy 明文 pattern 的写入前脱敏带(清洗器的"写入前"触发点) ─────────
+# 背景:`doom_loop:<tool>:<尾段>` 的尾段在缺陷源头修复(doom-loop-detector 的
+# hashInput 改 sha256)之前是明文(文件路径/命令行原文/文件正文)。源头已修,
+# 但任何旁路写入方(旧客户端、测试桩、第三方调用 /api/memory/procedural)仍可能
+# 把明文尾重新带进来 —— 清洗器(redact_legacy_procedural_patterns.py)只管存量,
+# 管不了"新写入的旧形态"。本带在**写入前**把这类尾段就地脱敏,防再引入:
+#   * 尾段已是 64 位 hex(sha256)或 `redacted-<hex16>` ⇒ 原样放行(幂等直通);
+#   * 其余形态(doom_loop 族、尾段非 hex/redacted)⇒ 改写为
+#     `doom_loop:<tool>:redacted-<sha256(尾段)[:16]>` —— 与清洗器同一形态,
+#     库里存量被清洗器改写后与本带产出同形,唯一约束不撞第二次;
+#   * 非 doom_loop 族的 pattern(自由文本偏好等)不碰 —— 它们不是本带对象,
+#     乱改写等于伪造用户记忆。
+# 明文不落日志:本带不打印尾段原文(与清洗器"绝不打印任何原文样本"同纪律)。
+import hashlib as _hashlib
+import re as _re
+
+_DOOM_LOOP_RE = _re.compile(r"^(doom_loop:[^:]+):(.+)$")
+_HEX_TAIL_RE = _re.compile(r"^[0-9a-f]{64}$")
+_REDACTED_TAIL_RE = _re.compile(r"^redacted-[0-9a-f]{16}$")
+
+
+def _redact_legacy_pattern_tail(pattern: str) -> str:
+    m = _DOOM_LOOP_RE.match(pattern or "")
+    if not m:
+        return pattern
+    prefix, tail = m.group(1), m.group(2)
+    if _HEX_TAIL_RE.match(tail) or _REDACTED_TAIL_RE.match(tail):
+        return pattern
+    redacted = _hashlib.sha256(tail.encode("utf-8")).hexdigest()[:16]
+    return f"{prefix}:redacted-{redacted}"
+
+
 
 def _internal_service_token() -> str:
     """读取内部服务 token(环境变量 INTERNAL_SERVICE_TOKEN,默认 dev-token)。
@@ -724,6 +756,7 @@ class MemoryService:
 
         依赖 (user_id, pattern, tool_name) 唯一约束做 upsert。
         """
+        pattern = _redact_legacy_pattern_tail(pattern)
         pool = await _get_pool()
         async with pool.acquire() as conn:
             row = await conn.fetchrow(
