@@ -25,6 +25,7 @@ import CheckinPage from '../page'
 import {
   checkinAuditTraeResidual,
   checkinCaptureQoder,
+  checkinCaptureJwts,
   checkinCaptureWorkbuddy,
   checkinWorkbuddyWebLoginOpen,
   checkinWorkbuddyWebLoginProbe,
@@ -47,6 +48,7 @@ const {
   updateGroup,
   schedulerStatus,
   fetchAiService,
+  queryCredits,
 } = vi.hoisted(() => ({
   listAccounts: vi.fn(),
   listRecords: vi.fn(),
@@ -55,6 +57,11 @@ const {
   deleteAccount: vi.fn(),
   setEnabled: vi.fn(),
   manualCheckin: vi.fn(),
+  queryCredits: vi.fn(async () => ({
+    ok: true,
+    remaining: 0 as number | null,
+    error: null as string | null,
+  })),
   updateJwt: vi.fn(),
   updateGroup: vi.fn(),
   schedulerStatus: vi.fn(),
@@ -93,7 +100,7 @@ vi.mock('@ihui/api-client', () => ({
   updateCheckinAccountJwt: updateJwt,
   updateCheckinAccountGroup: updateGroup,
   getCheckinSchedulerStatus: schedulerStatus,
-  queryCheckinAccountCredits: vi.fn(async () => ({ ok: false, remaining: null, error: 'mock' })),
+  queryCheckinAccountCredits: queryCredits,
   fetchAiServiceJson: fetchAiService,
 }))
 
@@ -139,7 +146,7 @@ vi.mock('@/hooks/use-desktop', () => ({
 }))
 vi.mock('@/lib/tauri-bridge', () => ({
   checkinDetectTraeDir: vi.fn(),
-  checkinCaptureJwts: vi.fn(),
+  checkinCaptureJwts: vi.fn(async () => []),
   checkinCaptureQoder: vi.fn(async () => []),
   checkinCaptureWorkbuddy: vi.fn(async () => []),
   checkinWorkbuddyWebLoginOpen: vi.fn(async () => undefined),
@@ -1046,6 +1053,147 @@ describe('Qoder 平台化(2026-10-10)', () => {
     fireEvent.change(screen.getByTestId('platform-filter'), { target: { value: 'workbuddy' } })
     expect(screen.queryByText('TRAE', { selector: 'span' })).toBeNull()
     expect(screen.getAllByText('WB 账号').length).toBeGreaterThan(0)
+  })
+
+  it('智能导入:浏览器环境给出桌面版提示,不自动检测', async () => {
+    // 显式 false:桌面注入 mockReturnValue(true) 跨用例泄漏(clearAllMocks 不清实现),
+    // 本用例必须显式压回,且放在本区块最前 —— 之后的用例再显式设 true,下游泄漏态不变。
+    vi.mocked(useTauriIpcReady).mockReturnValue(false)
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('addAccount'))
+    expect(screen.getByText('addSmartDesktopOnly')).toBeTruthy()
+    expect(checkinCaptureJwts).not.toHaveBeenCalled()
+  })
+
+  it('智能导入:打开对话框即自动检测,未检测到登录态时给出指引', async () => {
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    vi.mocked(checkinCaptureJwts).mockResolvedValue([])
+    vi.mocked(checkinCaptureQoder).mockResolvedValue([])
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('addAccount'))
+    // 打开即自动检测,用户零操作
+    await waitFor(() => expect(checkinCaptureJwts).toHaveBeenCalled())
+    expect(checkinCaptureQoder).toHaveBeenCalled()
+    await waitFor(() => expect(screen.getByTestId('smart-scan-none')).toBeTruthy())
+  })
+
+  it('智能导入(TRAE):自动列出多账号,勾选一键批量入库不接触 token', async () => {
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    vi.mocked(checkinCaptureJwts).mockResolvedValue([
+      { user_id: 'trae-user-1', jwt: 'eyJtrae.auto', source: 'leveldb:x' },
+      { user_id: 'trae-user-2', jwt: 'eyJtrae.auto2', source: 'leveldb:y' },
+    ])
+    vi.mocked(checkinCaptureQoder).mockResolvedValue([])
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('addAccount'))
+    // 两个账号都列出来(多账号不再只取第 1 个)
+    await waitFor(() => expect(screen.getByText('本机-trae-user-1')).toBeTruthy())
+    expect(screen.getByText('本机-trae-user-2')).toBeTruthy()
+    fireEvent.click(screen.getByText('addSmartImport'))
+    await waitFor(() => expect(createAccount).toHaveBeenCalledTimes(2))
+    expect(createAccount.mock.calls[0]![0].jwt).toBe('eyJtrae.auto')
+    expect(createAccount.mock.calls[1]![0].jwt).toBe('eyJtrae.auto2')
+    expect(createAccount.mock.calls[0]![0].platform).toBeUndefined()
+  })
+
+  it('智能导入(Qoder):入库带 platform=qoder 与 cosy 设备头 device_map', async () => {
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    vi.mocked(checkinCaptureJwts).mockResolvedValue([])
+    vi.mocked(checkinCaptureQoder).mockResolvedValue([
+      {
+        app_dir: 'C:/qoder',
+        edition: 'cn',
+        uid: 'qoder-uid-1',
+        access_token: 'qoder-opaque-token',
+        refreshToken: 'rt-1',
+        expires_at: 1794225169,
+        jwt_exp: 0,
+        machine_id: 'mid-1',
+        machine_os: 'win',
+        machine_hostname: 'host-1',
+        machine_token: 'mt-1',
+        machine_code: 'mc-1',
+        machine_type: 'mt',
+        version: '1.0',
+      },
+    ])
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('addAccount'))
+    await waitFor(() => expect(screen.getByText('Qoder-qoder-uid-1')).toBeTruthy())
+    fireEvent.click(screen.getByText('addSmartImport'))
+    await waitFor(() => expect(createAccount).toHaveBeenCalledTimes(1))
+    const payload = createAccount.mock.calls[0]![0]
+    expect(payload.platform).toBe('qoder')
+    expect(payload.jwt).toBe('qoder-opaque-token')
+    expect(payload.device_map.uid).toBe('qoder-uid-1')
+    expect(payload.device_map.refresh_token).toBe('rt-1')
+    expect(payload.device_map.expires_at).toBe(1794225169)
+    expect(payload.device_map.cosy.machine_id).toBe('mid-1')
+  })
+
+  it('智能导入:网页登录 WorkBuddy 一键跳转捕获对话框', async () => {
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    vi.mocked(checkinCaptureJwts).mockResolvedValue([])
+    vi.mocked(checkinCaptureQoder).mockResolvedValue([])
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('addAccount'))
+    await waitFor(() => expect(screen.getByTestId('smart-scan-none')).toBeTruthy())
+    fireEvent.click(screen.getByText('addSmartWorkbuddy'))
+    // 录入框关闭、WorkBuddy 捕获对话框打开(网页登录区块在里面)
+    await waitFor(() => expect(screen.getByText('captureWbTitle')).toBeTruthy())
+    expect(screen.getByText('captureWbWebTitle')).toBeTruthy()
+  })
+
+  it('官方积分实时查询:手动签到成功后自动查官方余额并显示', async () => {
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    vi.mocked(manualCheckin).mockResolvedValue({ ok: true })
+    vi.mocked(queryCredits).mockResolvedValue({ ok: true, remaining: 1250, error: null })
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('manualCheckin'))
+    await waitFor(() => expect(queryCredits).toHaveBeenCalledWith(accountFixture.id))
+    // 积分列显示官方实时余额(而非记录快照)
+    await waitFor(() => expect(screen.getByText('1250')).toBeTruthy())
+  })
+
+  it('官方积分实时查询:两次查询展示变化量(+/-)', async () => {
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    vi.mocked(queryCredits).mockResolvedValueOnce({ ok: true, remaining: 1000, error: null })
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('creditRefreshAll'))
+    await waitFor(() => expect(screen.getByText('1000')).toBeTruthy())
+    // 余额变化后再次刷新 → 显示 +10
+    vi.mocked(queryCredits).mockResolvedValueOnce({ ok: true, remaining: 1010, error: null })
+    fireEvent.click(screen.getByText('creditRefreshAll'))
+    await waitFor(() => expect(screen.getByText('+10')).toBeTruthy())
+  })
+
+  it('官方积分实时查询:工具栏按钮对 enabled 账号并发查询', async () => {
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    mockLoadSuccess({
+      accounts: [accountFixture, makeAccount({ id: 3, name: '停用号', enabled: false })],
+    })
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('creditRefreshAll'))
+    await waitFor(() => expect(queryCredits).toHaveBeenCalledTimes(1))
+    expect(queryCredits).toHaveBeenCalledWith(accountFixture.id)
+    expect(queryCredits).not.toHaveBeenCalledWith(3)
+  })
+
+  it('官方积分实时查询:查询失败显示失败态而非静默', async () => {
+    vi.mocked(useTauriIpcReady).mockReturnValue(true)
+    vi.mocked(queryCredits).mockResolvedValue({ ok: false, remaining: null, error: '令牌过期' })
+    render(<CheckinPage />)
+    await waitFor(() => expect(screen.getAllByText('主账号').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getByText('creditRefreshAll'))
+    await waitFor(() => expect(screen.getByText('creditQueryFail')).toBeTruthy())
   })
 })
 

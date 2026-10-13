@@ -32,8 +32,8 @@ use tauri::{Emitter, Manager};
 // 行为偏好的判定与持久化住在 desktop_prefs.rs,这里只引它已有的出口(不开第二份判据)。
 use desktop_prefs::{
     decide_close_action, desktop_prefs_path, load_desktop_prefs, normalize_prefs, save_desktop_prefs,
-    should_migrate_launch_minimized, tray_menu_item, CloseBehavior, CloseDecision, DesktopPrefs,
-    DesktopPrefsPatch, TraySingleClick,
+    should_migrate_launch_minimized, should_start_hidden, tray_menu_item, CloseBehavior,
+    CloseDecision, DesktopPrefs, DesktopPrefsPatch, TraySingleClick,
 };
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
@@ -3206,7 +3206,12 @@ pub fn run() {
             // ⚠️ 2026-09-28:守卫在启动探活落定时会 `w.show()`(窗口以 visible:false 创建,历史上
             // 靠这一次点亮)。用户勾了「启动后先进托盘」就必须把它按住,否则 8~11 秒后窗口自己冒出来
             // (真机实测过一遍)。判据只留这一份,不许 auto_refresh 自己再读一遍偏好。
-            auto_refresh::start(app.handle().clone(), !startup_prefs.launch_minimized);
+            // ⚠️ 2026-10-13 修订:判据从「只看 launch_minimized」改为 `should_start_hidden`
+            //   (开关 ∧ 带 --minimized)。用户实报「双击桌面快捷方式只有托盘图标、界面不弹」——
+            //   双击不带参数,是明确的"打开界面"意图,不能再被开关按住;开关只管开机自启。
+            let start_hidden =
+                should_start_hidden(startup_prefs.launch_minimized, argv_has_minimized);
+            auto_refresh::start(app.handle().clone(), !start_hidden);
             // 2026-08-16 修复:autostart 插件透传 --minimized(开机自启最小化到托盘),
             // 此前无任何 args 解析,开机自启会直接弹出主窗口。须在恢复窗口状态后执行。
             // 2026-09-28 立:**用户开关压过命令行参数** —— 这条反直觉,所以把理由写全:
@@ -3219,22 +3224,33 @@ pub fn run() {
             //   一旦关掉就再也打不开 —— 持久化的用户选择被一条他改不动的命令行参数覆盖。
             // ⚠️ 如实登记行为变更:此前"开机自启即最小化"是默认表现,现在默认档
             //   launch_minimized=false ⇒ 自启也会弹窗口;要老表现请把该开关打开。
+            // ⚠️ 2026-10-13 再修订(判据全文见 should_start_hidden):开关不再压制手动启动 ——
+            //   launch_minimized=true 但**不带** --minimized(双击桌面快捷方式)⇒ 照常显示窗口。
             // 观测点(G-1038429 采样归因用,非 show 调用):把"本次到底是哪一档配置"落进日志,
             // 否则 5 趟采样只有外部读数、没有同一趟的配置自证。
             log::info!(
-                "[window-show] site=startup_tray_gate trigger=非 show 调用——本次启动可见性闸门读数:launch_minimized={} ⇒ reveal_on_probe={}",
+                "[window-show] site=startup_tray_gate trigger=非 show 调用——本次启动可见性闸门读数:\
+                 launch_minimized={} ∧ argv_has_minimized={} ⇒ start_hidden={} ⇒ reveal_on_probe={}",
                 startup_prefs.launch_minimized,
-                !startup_prefs.launch_minimized
+                argv_has_minimized,
+                start_hidden,
+                !start_hidden
             );
-            if startup_prefs.launch_minimized {
+            if start_hidden {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.hide();
                 }
-            } else if std::env::args().any(|a| a == "--minimized") {
+            } else if argv_has_minimized {
                 // 参数被盖掉这件事必须看得见,不能静默(否则下次没人知道为什么"自启不最小化了")。
                 log::info!(
                     "[desktop-prefs] 带了 --minimized 但 launch_minimized=false ⇒ 按用户开关显示窗口\
                      (开关优先于参数,理由见上)"
+                );
+            } else if startup_prefs.launch_minimized {
+                // 反向也一样要留痕:否则下次排查"明明勾着开关怎么还弹窗"会以为开关失效。
+                log::info!(
+                    "[desktop-prefs] 手动启动(无 --minimized)但 launch_minimized=true ⇒ 照常显示窗口\
+                     (双击是明确的打开界面意图,开关只管开机自启)"
                 );
             }
             // 注册全局快捷键(2026-07-29 扩充:3 个系统级快捷键)
