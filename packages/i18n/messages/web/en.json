@@ -10383,6 +10383,7 @@
     "loginBtn": "Sign In",
     "loginFailed": "Login failed, please try again",
     "loginInBrowser": "Log in via browser",
+    "desktopSsoSuccess": "Signed in — synced to the desktop app",
     "loginSubtitle": "Sign in to your account",
     "loginSuccess": "Login successful",
     "loginTitle": "Welcome Back",
