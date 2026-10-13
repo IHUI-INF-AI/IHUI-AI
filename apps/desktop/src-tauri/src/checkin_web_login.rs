@@ -25,10 +25,16 @@
 //! 判据与执行分离:纯函数(cookie 拼接/响应解析)在此文件可单测,
 //! `#[tauri::command]` 只做 AppHandle → 窗口 → HTTP 的转发。
 //!
-//! 2026-10-13 白屏死锁修复三件套:① 新增 close 命令(前端取消出口,见命令注);
-//! ② open 设深色 background_color(SPA 加载期窗口不画白);③ probe 在无 cookie
-//! 时按窗口当前地址区分「导航没成功」与「还没登录」—— 前者如实报错,不再让
-//! 用户对着一扇白屏无限等待。
+//! 2026-10-13 深夜 CDP 实测定位白屏**真根因**:open/close 此前是 **sync
+//! `#[tauri::command]`**,而 Tauri v2 的 sync 命令在主线程的 IPC 协议处理器内
+//! **内联执行**;`WebviewWindowBuilder::build()` 又要同步等 WebView2 初始化完成,
+//! 完成回调恰需主线程泵事件循环 ⇒ **主线程自锁死**:窗口框建出但 webview 永远
+//! 初始化不完(白屏)、标题栏 X 与一切 IPC 失效(无法关闭)。
+//! 修复:open/close 一律改 **async fn**(跑 tokio 线程池,build() 派发主线程并
+//! 等待,主线程保持自由——与生产已验证的 `open_admin_window` 同范式)。
+//! 配套四件套:① async 化(真根因);② close 命令(前端取消出口,见命令注);
+//! ③ open 设深色 background_color(SPA 加载期窗口不画白,观感兜底);④ probe 在
+//! 无 cookie 时按窗口当前地址区分「导航没成功」与「还没登录」。
 
 use serde::Serialize;
 use std::sync::OnceLock;
@@ -173,8 +179,14 @@ fn shared_client() -> &'static reqwest::Client {
 // ---------------------------------------------------------------------------
 
 /// 打开(或聚焦)WorkBuddy 网页登录窗口。
+///
+/// 2026-10-13:必须是 **async fn** —— sync 命令在主线程 IPC 处理器内内联执行,
+/// 其间调用 `WebviewWindowBuilder::build()`(同步等 WebView2 初始化完成,而完成
+/// 回调需主线程泵事件循环)⇒ 主线程自锁死:webview 永远初始化不完(白屏)、
+/// 标题栏 X 与一切 IPC 失效(无法关闭)。async 命令跑 tokio 线程池,build()
+/// 派发主线程并等待,主线程保持自由 —— 与 `open_admin_window` 同范式。
 #[tauri::command]
-pub fn checkin_workbuddy_web_login_open(app: AppHandle) -> Result<(), IpcError> {
+pub async fn checkin_workbuddy_web_login_open(app: AppHandle) -> Result<(), IpcError> {
     if let Some(win) = app.get_webview_window(WB_WEB_LOGIN_LABEL) {
         let _ = win.show();
         let _ = win.unminimize();
@@ -184,14 +196,25 @@ pub fn checkin_workbuddy_web_login_open(app: AppHandle) -> Result<(), IpcError> 
     let url: Url = format!("{WB_WEB_ORIGIN}/")
         .parse()
         .map_err(|e| IpcError::internal(format!("登录地址解析失败: {e}")))?;
-    WebviewWindowBuilder::new(&app, WB_WEB_LOGIN_LABEL, WebviewUrl::External(url))
+    let builder = WebviewWindowBuilder::new(&app, WB_WEB_LOGIN_LABEL, WebviewUrl::External(url))
         .title("登录 WorkBuddy(登录后回到本窗口自动获取)")
         .inner_size(1080.0, 760.0)
         // 2026-10-13:SPA 加载期窗口不画白色。www.workbuddy.cn 是 SPA 外壳,
         // WebView2 从导航到首屏 hydrate 有 1-3s 空窗;未设背景色时这段窗口
         // 呈纯白,用户 perceived "白屏"。与 main 窗口一致的深色底(#242424)
         // 让加载期观感与主界面连续,页面出来即无缝。
-        .background_color(tauri::webview::Color(0x24, 0x24, 0x24, 0xff))
+        .background_color(tauri::webview::Color(0x24, 0x24, 0x24, 0xff));
+    // CDP 自动化测试门控(见 Cargo.toml [features] cdp-test 注):测试实例
+    // 的 main 窗口经 TAURI_CONFIG 注入 CDP browser args,动态窗口必须拿到
+    // 逐字节一致的 args,否则 WebView2 对同一 user-data-folder 拒建第二环境
+    // (0x8007139F)且错误被 tauri-runtime-wry 的 fire-and-forget 吞掉。
+    // 生产构建不带该 feature ⇒ 下面块整体编译期消除,零影响。
+    #[cfg(feature = "cdp-test")]
+    let builder = match option_env!("IHUI_CDP_TEST_BROWSER_ARGS") {
+        Some(args) => builder.additional_browser_args(args),
+        None => builder,
+    };
+    builder
         .build()
         .map_err(|e| IpcError::internal(format!("登录窗口创建失败: {e}")))?;
     Ok(())
@@ -208,8 +231,11 @@ pub fn checkin_workbuddy_web_login_open(app: AppHandle) -> Result<(), IpcError> 
 /// 用户再点「打开登录窗口」时窗口已不存在 ⇒ 重新 build 重新加载。
 /// 窗口 label 不在 on_window_event 的 main/admin 特判里,close() 走默认
 /// 关闭路径,无 prevent_close 拦截。
+///
+/// 2026-10-13:与 open 同理改 **async fn**(`win.close()` 亦需主线程事件循环
+/// 配合,sync 内联执行会与 IPC 处理互锁)。
 #[tauri::command]
-pub fn checkin_workbuddy_web_login_close(app: AppHandle) -> Result<(), IpcError> {
+pub async fn checkin_workbuddy_web_login_close(app: AppHandle) -> Result<(), IpcError> {
     if let Some(win) = app.get_webview_window(WB_WEB_LOGIN_LABEL) {
         win.close()
             .map_err(|e| IpcError::internal(format!("关闭登录窗口失败: {e}")))?;
