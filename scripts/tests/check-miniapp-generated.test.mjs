@@ -655,4 +655,81 @@ test('T24 生成器修不了那一半:面上没有生成器 ⇒ 拒绝写回并�
     rmScratch(dir)
   }
 })
+
+/* ───────── G-1080906(2026-10-13)门 105 干净 HEAD 恒红:内容落后的正反例 ─────────
+ * 立因:checkin/page.tsx 改动入库而没人重跑生成器 ⇒ 产物自述钉落后 ⇒ 干净 HEAD 上 G5 判红
+ * ⇒ 本机每一枚提交都被迫 --no-verify(门的牙被系统性架空)。这两例锁:
+ *   ① 修复前形态(输入已入库、钉未跟)在 HEAD 与索引两面都必红并点名那条输入(变异自证);
+ *   ② 用门自己的写回出口(--heal-ui-routes)重生成并入库后 HEAD 档 rc=0 且判 matched,
+ *      且写回未入库前门不得改口记绿(写回只落工作树,判定权仍在判定轮)。
+ * 夹具仓允许 git 写(与 T22 同);真仓一律禁止写,入库由主会话统一提交。
+ */
+
+/** 修复前形态:输入改动已入库、产物未重生成(= 973709c595 之后那道恒红的 HEAD 现场) */
+function makeHeadStaleWebRepo(dir) {
+  git(dir, ['init', '-q', '-b', 'main'])
+  installKit(dir)
+  const oldText = 'export default function OLD() {\n  return null\n}\n'
+  put(dir, WEB_PAGE_REL, oldText)
+  const pin = PIN.renderPin({
+    generator: GEN_WEB_REL,
+    sourceCommit: 'cafebabe',
+    inputs: [{ rel: WEB_PAGE_REL, text: oldText }],
+    generatedAt: '2026-01-01T00:00:00.000Z',
+  }).join('\n')
+  put(
+    dir,
+    WEB_ART_REL,
+    `// GENERATED\n${pin}\nexport const UI_ROUTES: { path: string; param: boolean; group: string }[] = [\n  { path: '/x', param: false, group: 'x' },\n]\n`,
+  )
+  git(dir, ['add', '-A'])
+  git(dir, ['commit', '-q', '-m', 'init'])
+  // 输入改了并直接入库,没有任何环节重跑生成器 —— 修复前形态
+  put(dir, WEB_PAGE_REL, 'export default function NEW() {\n  return null\n}\n')
+  git(dir, ['add', '-A'])
+  git(dir, ['commit', '-q', '-m', 'change input, nobody regenerated'])
+  return dir
+}
+
+test('T25 修复前形态(变异自证):输入已入库而钉未跟 ⇒ HEAD 与索引两面都判红并点名那条输入', () => {
+  const dir = makeHeadStaleWebRepo(mkScratch('cmg-head-stale'))
+  try {
+    for (const args of [[], ['--staged']]) {
+      const r = runGuard(['--root', dir, '--group', 'ui-routes', ...args])
+      assert.equal(r.code, 1, `${args.join(' ') || 'HEAD'} 档期望 1,实际 ${r.code}:${r.out}${r.err}`)
+      assert.match(r.out, /\[G5\]/, `${args.join(' ') || 'HEAD'} 档红点必须是 G5:${r.out}`)
+      assert.ok(r.out.includes(WEB_PAGE_REL), `${args.join(' ') || 'HEAD'} 档必须点名变了的那条输入,实际:${r.out}`)
+      assert.match(r.out, /陈旧/, `必须判"产物陈旧"而不是别的理由:${r.out}`)
+    }
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T26 修复后:门自己的写回出口重生成 + 入库 ⇒ HEAD 档 rc=0 且判 matched(未入库前仍红)', () => {
+  const dir = makeHeadStaleWebRepo(mkScratch('cmg-head-heal'))
+  try {
+    // ① 用本门自己的写回出口重生成(= 本票保留的派生产物改动)
+    const heal = runGuard(['--root', dir, '--heal-ui-routes'])
+    assert.equal(heal.code, 0, `写回档不该因正常写回退非 0,实际 ${heal.code}:${heal.out || heal.err}`)
+    assert.match(heal.out, /已写回 1/, `必须报出写了 1 份,实际:${heal.out}`)
+    assert.ok(heal.out.includes(WEB_ART_REL), `必须点名是哪份产物,实际:${heal.out}`)
+    // ② 写回只落工作树:未入库前 HEAD 档不得改口记绿(不替未入库改动背书)
+    const beforeCommit = runGuard(['--root', dir, '--group', 'ui-routes'])
+    assert.equal(beforeCommit.code, 1, `写回未入库前 HEAD 档仍须红,实际 ${beforeCommit.code}:${beforeCommit.out}`)
+    // ③ 幂等:再跑一次一个字节都不写(拒绝/跳过都行,就是不许再动)
+    const bytes = readFileSync(join(dir, WEB_ART_REL), 'utf8')
+    const again = runGuard(['--root', dir, '--heal-ui-routes'])
+    assert.match(again.out, /已写回 0/, `第二次必须不再写,实际:${again.out}`)
+    assert.equal(readFileSync(join(dir, WEB_ART_REL), 'utf8'), bytes, '第二次跑后产物必须逐字节不动')
+    // ④ 入库后:HEAD 档 rc=0 且判 matched —— 票面②的验收面
+    git(dir, ['add', '--', WEB_ART_REL])
+    git(dir, ['commit', '-q', '-m', 'regen ui-routes pin'])
+    const green = runGuard(['--root', dir, '--group', 'ui-routes'])
+    assert.equal(green.code, 0, `入库后 HEAD 档期望 0,实际 ${green.code}:${green.out || green.err}`)
+    assert.match(green.out, /ui-routes\.generated\.ts: matched/, `必须真判到 matched:${green.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
