@@ -157,6 +157,31 @@ function contentErrorLine(line) {
 }
 
 /**
+ * 自愈型门「已修复/已注入」动作行的**结构化标记**(G-1018220 口径②,2026-10-13 立)。
+ *
+ * 病根:自愈型门(门 47 溯源水印是票面载体)在成功补齐后会打印"我刚把哪些文件修好了"的
+ * `  - <path>` 清单(逐字形态见 .workbuddy/hook-logs/pre-commit.log:157067-157070),
+ * 而本模块"点名即定责"的铰链按**行**取材 —— "我修了这些文件"与"你的改动有问题"在输出上
+ * 同形,归因层无从区分,于是门替别人/替历史欠账补的东西会被算到下一个提交者头上
+ * (判 mine ⇒ 拒绝 --no-verify;正是 G-1018220 票面那句"门替别人补的东西,由下一个人负责提交")。
+ *
+ * 为什么用固定键、不靠关键词猜("修复|补齐|已注入|fixed"…):猜词必然随门改措辞而腐烂,
+ * 且猜错的两个方向都致命 —— 猜漏 ⇒ 误伤照旧;猜宽 ⇒ 真失败点名被洗掉(洗绿)。
+ * 标记由**门在动作行上自己打**(scripts/check-watermark-coverage.mjs 的自愈清单行 import
+ * 本常量,不抄字面量),与动作同生共死;归因层只认键、不认词面。真失败行(reportGap 报红块 /
+ * 注入失败 / 判红清单)不打这个键 ⇒ 照旧定责,这是本例外唯一且最小的失效边界。
+ */
+export const SELF_HEAL_FIXED_MARK = '[self-heal-fixed]'
+
+/**
+ * 这一行是不是自愈型门的「已修复/已注入」动作回显?
+ * 只有带结构化标记的行才豁免"点名即定责";没带标记的行一个字都不豁免(防洗绿的方向锁)。
+ */
+export function isSelfHealLine(line) {
+  return stripAnsi(line ?? '').includes(SELF_HEAL_FIXED_MARK)
+}
+
+/**
  * "这一行点名了 declared,且**带着内容错证据**吗?" —— 三种成立形态(G-1058649 判据 2):
  *  ① 命中行自己就是内容错(eslint `a.ts:12:5 error …`、prettier `[error] a.ts: SyntaxError: …`、
  *     tsc `a.ts(1,14): error TS2322`、mypy `a.py:32: error: …`);
@@ -168,11 +193,16 @@ function contentErrorLine(line) {
  * 块边界:往后看时一旦撞上**下一个**路径表头行就停,绝不跨文件借证据。
  */
 function lineBlamesFile(lines, idx, declared) {
+  // G-1018220 口径②:自愈型门"我已修复/已注入"的动作行(带结构化键)不参与"点名即定责" ——
+  // 它说的是"这文件我已经修好",不是"你的改动有问题";同形输出里能区分两者的只有门自己打的键。
+  if (isSelfHealLine(lines[idx])) return null
   const line = normGatePath(stripAnsi(lines[idx]))
   if (!lineNamesFile(line, declared)) return null
   if (contentErrorLine(line)) return { via: 'same-line', evidence: line.trim() }
   for (let j = idx + 1; j <= idx + 4 && j < lines.length; j++) {
     const nxt = normGatePath(stripAnsi(lines[j]))
+    // 自愈动作行既不当"内容错证据",也不截断块(它不是报告块的边界,只是门的自我回显)
+    if (isSelfHealLine(nxt)) continue
     if (contentErrorLine(nxt)) return { via: 'error-block-header', evidence: nxt.trim() }
     if (PATH_HEADER_LINE_RE.test(nxt)) return null
     if (WARNING_SEVERITY_LINE_RE.test(nxt)) continue
@@ -628,7 +658,8 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
     if (step) {
       const tail = tailAfterSummary(text) ?? tailAfterSummary(fallbackText) ?? ''
       const tailLines = tail.split(/\r?\n/)
-      const named = stagedFiles.filter((f) => tailLines.some((l) => lineNamesFile(l, f)))
+      // G-1018220 口径②:自愈动作行(带键)不参与点名;批外步骤的真失败点名照旧定责
+      const named = stagedFiles.filter((f) => tailLines.some((l) => !isSelfHealLine(l) && lineNamesFile(l, f)))
       const batchLine = `批内结论:总检查数已跑完、blocking 失败 0(该结论此前被整块丢弃)`
       if (named.length > 0)
         return {
@@ -810,7 +841,9 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
       detail.push(`[${g.id}] ${g.label} —— 复跑已通过(exit 0),该红不在本次内容里`)
       continue
     }
-    const lines = findingLines(r.output)
+    // G-1018220 口径②:自愈型门"已修复/已注入"的动作行(带结构化键)退出点名取材面 ——
+    // 与 lineBlamesFile 同一条例外、同一个键;真失败行不带键,照旧参与定责。
+    const lines = findingLines(r.output).filter((l) => !isSelfHealLine(l))
     // ── 态⓪(G-815912,2026-10-07):判「远端态」的门不进差分、不归责内容 ──
     // 门源自声明 [judges-remote-state](check-push-sync 是票面点名成员):这类门判的是
     // 「本地⇄远端同步态」,不是本枚提交的内容 —— 刚提交必然未推送,它的红在提交落地后
@@ -1824,5 +1857,7 @@ export const __test__ = {
   FAIL_29,
   MY_FILES,
   REMOTE_STATE_MARK,
+  SELF_HEAL_FIXED_MARK,
+  isSelfHealLine,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

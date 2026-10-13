@@ -561,8 +561,15 @@ test('T20 方向形态真仓阳性对照 + 窄正则不得回来(漏计一侧 = 
   assert.match(libSrc, /tr\|tl\|br\|bl/, '方向分支被退回窄正则 ⇒ 整族底部弹层再次隐身,而账面只会变好看')
   assert.deepEqual(radiusSetOf('<View className="rounded-full" />', tbl), [], 'rounded-full 归守门 11,不得被这一维计成档')
   assert.deepEqual(radiusSetOf('<View className="rounded-none" />', tbl), [], 'rounded-none 是 0,不是"该取哪档"的判断')
-  // 反向回归锁:门自检里那条方向用例被整文件回写抹掉时,本测试必须红(否则下一个人只会看到读数变少、账面变好看)
-  const gateSrc = readFileSync(SELF, 'utf8').replace(/\s+/g, ' ')
+  // 反向回归锁:门自检里那条方向用例被整文件回写抹掉时,本测试必须红(否则下一个人只会看到读数变少、账面变好看)。
+  // 自检/fixture 段已拆到 scripts/lib/cross-end-ui-parity-selftest.mjs ⇒ 锁读两份拼面:
+  // 用例搬家不算被抹,判据仍要求它在门的源码面里存在。
+  const gateSrc = [
+    readFileSync(SELF, 'utf8'),
+    readFileSync(resolve(ROOT, 'scripts/lib/cross-end-ui-parity-selftest.mjs'), 'utf8'),
+  ]
+    .join('\n')
+    .replace(/\s+/g, ' ')
   assert.match(gateSrc, /方向与角形态必须与整格形态同判/, '自检里的方向用例不见了 ⇒ 判据被回退')
 })
 
@@ -1097,6 +1104,13 @@ test('T32 阳性对照(真仓 HEAD Carousel):参数解构 + 平台宿主 import 
   assert.ok(
     !j.rootSlot.undetermined.some((u) => u.name === 'Carousel'),
     'Carousel 仍读不出 ⇒ 参数解构/宿主 import 两型致盲回归',
+  )
+  // 用例①(同槽位同值 ⇒ 过)在**审计层**的显式断言:存量 Carousel 两端已同层 [16]/[16],
+  // rootSlotAudit 不得点名它 —— 只断言"读得出"不断言"读出后不报",分不开
+  // "过"与"读出来了但被误判红"两种状态(与本维自己"三态分开"的纪律同一条)。
+  assert.ok(
+    !j.rootSlot.findings.some((f) => f.name === 'Carousel'),
+    'Carousel 两端同层 [16]/[16] 而 RS 点名 ⇒ 同槽位同值被误判成层分叉(用例①失守)',
   )
 })
 
