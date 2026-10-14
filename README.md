@@ -2215,7 +2215,7 @@ IHUI-AI/
 **到端产物也要有人看(2026-09-25)**:`pnpm check:miniapp-css-landing` 核的是“源码用到的 Tailwind utility,在小程序 dist 的 wxss 里是否真出了规则” —— 此前 36/37/93/parity/radius 五道跨端门**全部只核源码,没有一道看产物**,所以出现过五道全绿而到端 utilities 为空的状况。该门无产物时判 exit 2「未判定」,既不记绿也不冒红,因此刻意不接进提交链(它判的是构建结果,提交者机器上未必存在);小程序派生产物是否落后于源,由守门 105(warn 档)与 `dev-weapp` 的冷启刷新负责。
 | 16d | 条件 miniapp-taro dist 清理提示 | miniapp-taro/config 或 package.json staged 时输出清理提示(防 IDE 缓存混淆) |
 | 17-post | git-push-guard.mjs(post-commit) | 自动 push + 验证 local == remote(防遗漏) |
-| 5-post | sync-lost-commit-tags.mjs(post-commit) | commit 后自动 push 所有 `lost-commit/*` + `backup/*` tag 到 origin(AGENTS.md §22) |
+| 5-post | sync-lost-commit-tags.mjs(post-commit) | commit 后增量 push 本地缺失于 origin 的 tag(2026-10-14 起覆盖**全部命名空间**;`--check` 另比名字 + SHA,AGENTS.md §22) |
 **9 迁移审计脚本**:`audit-migration.mjs`(4 合 1,`--target=i18n|frontend-routes|db-fields|api-routes`,2026-07-25 合并) / `audit-migration-api-routes.mjs` / `audit-migration-db-schema.mjs` / `audit-migration-file-list.mjs` / `audit-multi-platform-sync.mjs` / `audit-edu-pages-sample-check.mjs` / `audit-remaining-evaluate.mjs` / `r76-full-audit.mjs` / `audit-i18n-unused-keys.mjs`(无引用 key 审计 + --output-keys 完整列表导出,2026-07-25 立)
 **9 PowerShell 启动脚本**:`dev-all.ps1` / `dev-up.ps1` / `dev-web.mjs` / `kill-dev-servers.ps1` / `restart-dev-server.ps1` / `fix-workspace-junctions.ps1` / `setup-token-refresh-task.ps1` / `cleanup-external-junk.ps1`
 #### E5. 测试与性能
@@ -2881,7 +2881,7 @@ setext 标题下划线、表格分隔、ASCII 示意图里都是合法内容,只
    - 远程 tag 完整性(对比 origin)
    - tag 对象可达性(annotated tag 的 commit object)
 2. **post-commit 自动 tag 同步**:`scripts/sync-lost-commit-tags.mjs --auto-push`
-   - commit 后立即 push 所有 `lost-commit/*` + `backup/*` tag 到 origin
+   - commit 后增量 push 本地缺失于 origin 的 tag(2026-10-14 起覆盖全部命名空间;限流 60s + 积压闸 `IHUI_TAG_AUTO_MAX`)
    - 防止本地 git gc 清理后无远端备份
 3. **手动恢复**:`pnpm tag:sync:fetch` 从 origin 拉回所有 lost-commit/backup tag
 4. **完整档案**:`docs/lost-commit-archive.md` 永久记录每个 lost commit 的 hash / subject / 改动文件 / 重做 commit / tag 状态
@@ -4317,7 +4317,7 @@ A: Yes. ~14839+ tests / 719 test files / 67 e2e spec / 4393 API 路由 / 542 数
 | 71 | check-plan-line-loss.mjs | **计划登记行防丢(blocking,`stagedTriggers=PROJECT_PLAN.md`)**:以 HEAD 为基线抽"登记行"(bullet + `**G-x`/`**Dx`/`**Px`/`**Wx`/**`**守门 NN`** 编号 + 长度 ≥40),按**编号标记的原文前缀**在待提交内容里全文搜 —— 整行消失即拦,只改写文案保留编号不报(不误伤正常编辑),原文能在 `.ihui-agent/archive/PROJECT_PLAN_*.md` 找到则按 §1 归档放行。成因是共享工作区里并发会话按"内存中旧计划文档"整文件提交,把别人已入库的登记行按旧基线回写掉(2026-09-22 一小时内发生两次);13c 归档守卫只认 `### XXX(已完成 ✅)` 任务标题行,条目内 bullet 登记行不在其视野,故补此闸。`--self-test` 9 例正反成对(含"邻居还在→插回邻居之后 / 邻居也没了→追加不丢 / 幂等不重复插入 / missingFrom 双目标比对");**自愈面**:`.husky/post-commit` 第 6 段每次提交后扫最近历史自动回捞 —— 并发会话 routinely 用 `--no-verify` 绕过 pre-commit,故这一层必须有;手动 `node scripts/check-plan-line-loss.mjs --heal`(只写工作区)/ `--heal --commit`(顺带前向提交)。**2026-09-23 两处加固**:(a) 自愈改为**工作区与 HEAD 分别判缺失** —— 旁路提交(commit-tree / `git-sync-converge` 索引层合并)不跑钩子,它把已入库行从 HEAD 合掉时共享工作区往往还留着那行,单目标比对会"无缺失"提前返回,HEAD 从此永远缺着(本次 G-154 登记行正是这么丢的);(b) 修掉一个"造好没装车"级缺陷 —— `rev-parse` / `hash-object` 返回值未 `.trim()`,尾部换行让 `read-tree` 报 `Not a valid object name`,**自愈提交自上线以来从未成功过**,而 post-commit 是 `                                                                                                                                                                                                                                                                                               |     | true`故毫无声响。现由`git-sync-converge`在落合并提交后就地补跑一次自愈,并在临时仓库做 A/B 端到端取证(旧版判"无缺失"、新版识别 HEAD 缺 1 条并建前向提交复绿)。跳过`HUSKY_SKIP_PLAN_HEAL=1`;紧急跳过本闸 `HUSKY_SKIP_PLAN_LINE_LOSS=1` |
 | 16d | 条件 miniapp-taro dist 清理提示 | miniapp-taro/config 或 package.json staged 时输出清理提示(防 IDE 缓存混淆) |
 | 17-post | git-push-guard.mjs(post-commit) | 自动 push + 验证 local == remote(防遗漏) |
-| 5-post | sync-lost-commit-tags.mjs(post-commit) | commit 后自动 push 所有 `lost-commit/*` + `backup/*` tag 到 origin(AGENTS.md §22) |
+| 5-post | sync-lost-commit-tags.mjs(post-commit) | commit 后增量 push 本地缺失于 origin 的 tag(2026-10-14 起覆盖**全部命名空间**;`--check` 另比名字 + SHA,AGENTS.md §22) |
 只登记、不定性、不清理(清理类任务的铁律:先验明身份)。**2026-09-24 补第二维:按名字认不出的文件再做
 内容嗅探**(`CONTENT_SIGNATURES`:仓库根两种分隔符含旧盘 `G:`、`@ihui/` 包名、溯源水印横幅)—— 起因是
 `C:\Windows\Temp` 里 5 个我们自己的 `clean-o7b.cjs` / `verify-o7b.cjs` 一类一次性脚本,名字不带任何项目
