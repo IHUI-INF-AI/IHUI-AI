@@ -15000,6 +15000,5 @@ next dev / expo 这类 supervisor 内部 spawn worker 时**不带** windowsHide(
 
 - [x] ✅(2026-10-15) **G-924 dev 构建禁用自动更新 —— `tauri dev` / `--debug` 壳不再被静默安装线上构建并自杀重启** —— 现象(本轮 WebView2 CDP 实测):dev 壳启动 5s 后跑静默检查,下载线上 feed 的 7.9MB 构建、装完自重启,取证会话连续两次在 2–3 分钟处失联;Rust 侧 `auto_refresh` 每小时还有第二条同款静默链(`round % 120`,HEALTH_SECS=30)。落地枚 `1a30b71f31`:前端腿 `use-updater` 启动静默检查/自动安装加 `isDesktopDevShell` 门(Tauri 运行时 + 窗口由本机 Next dev server 承载端口 8801;判据单一来源在 `apps/web/src/lib/api-base-url.ts`,不另写第二份),`?dev-update=1/0` 显式试验通道与托盘「检查更新」人工路径**不受限制**,生产薄壳行为零变化;Rust 腿 `check_app_update` 函数体首按 `cfg!(debug_assertions)` 早退并打 `site=debug_no_self_update`,模块文档同批。验证(现读末行):`cargo check` rc=0;`vitest` hooks 全目录 + `d194-update-revoked` + 签到页 → `Test Files 25 passed (25) / Tests 317 passed (317)`(含新增 `use-updater-dev-shell.test.tsx` 三格锁:dev 壳不检 / 生产壳照检 / dev-update=1 仍走模拟会话);`pnpm --filter @ihui/web typecheck` → `tsc --noEmit` 零错误;真机 `tauri dev` 壳 @ `localhost:8801/checkin` 连观 5 分钟仍在线且全程无更新 UI(改判前同一入口 2–3 分钟即被装包重启),复量脚本 `.ihui-agent/tmp/debug-checkin/verify-no-autoupdate.mjs`。Rust 那条每小时腿在 5 分钟观察窗内走不到(第 120 轮才触发),按编译期判据 + 日志点定性,不做假称"已实跑"。
 
-
-
-
+- [ ] 〔2026-10-14/w1-mcp 取证,未修〕**mcp-runtime SSE 后台循环 `.catch(() => {})` 吞错仍在**(apps/cli/src/tools/mcp-runtime.ts:997-999 一带):`readSseStream` 自身 reject(如流中网络错误)被静默吞掉。取消路径的流释放已成立(abort 打断循环 + `finally releaseLock`),pending 请求有 10s 超时与断连清理兜底,故现状"有界但不主动观测";归档 G-694 ✅ 的落点只钉了 `sendStdioRpc`,SSE 这半从未单独验收。修法含设计取向(流死后是告警、标死还是触发重连),宜单独立票,禁为吞错加Retry藏红。
+- [ ] 〔2026-10-14/w1-csrf 取证〕**timingSafeEqual 收敛到 secretsEqual 一份**:门 `check-csrf-exemption-shape.mjs` 判据③现读 HEAD 存量 48 处/20 文件(棘轮锚点=HEAD,只减不增);终点状态是"全仓只剩 packages/shared 的 secretsEqual 一份",收敛只能逐笔做(每笔把一处比较改走 secretsEqual 并跑该门全量档证明只减不增);`--strict` 问责档已随门装车(209 号)。
