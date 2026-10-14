@@ -220,7 +220,7 @@ UI 改动必须真机/真浏览器验证(截图或 e2e),禁止只凭代码审查
 ## 22. 防止 commit/push/merge 提交丢失硬性规则(强制)
 
 - 任何丢 commit 风险操作(reset --hard/checkout ./clean/filter-branch/rebase)前:先备份(tag `backup/cleanup-<date>-<branch>` 本地+远端双留),再操作;**已合并分支删除同样先确认远端在**。
-- 守门 30a `check-commit-loss-guard.mjs`(blocking):reflog 50 步 + 远端 tag 校验 + tag 可达性 + **悬空 commit 30 天窗维**(2026-10-11 立:近 30 天内新产生且无 `lost-commit/*` 备份的悬空 commit 阻塞,须先 `git tag lost-commit/<name> <hash>` 再 commit;超窗只报数 = §29 人工 GC 存量;时刻读不到 ⇒ 保守算窗内照拦;`--window-days 0` 回全量语义,`--strict` 问责存量)。tag 自动同步:`sync-lost-commit-tags.mjs`;永久档案 `docs/lost-commit-archive.md`。
+- 守门 30a `check-commit-loss-guard.mjs`(blocking):reflog 50 步 + 远端 tag 校验 + tag 可达性 + **悬空 commit 30 天窗维**(2026-10-11 立:近 30 天内新产生且无 `lost-commit/*` 备份的悬空 commit 阻塞,须先 `git tag lost-commit/<name> <hash>` 再 commit;超窗只报数 = §29 人工 GC 存量;时刻读不到 ⇒ 保守算窗内照拦;`--window-days 0` 回全量语义,`--strict` 问责存量)。tag 自动同步 + 全命名空间一致性校验:`sync-lost-commit-tags.mjs`(2026-10-14 起 `--check` 比**名字 + SHA**、覆盖全部命名空间:仅本地 / 同名 SHA 分歧 / 备份族(`lost-commit/`、`backup/` 前缀加斜杠)仅远端 ⇒ exit 1,非备份族仅远端只告警——自治理仓 CI 持续造 `nightly-*`,判红即恒红门;本脚本不在提交链注册表,post-commit 只跑 `--auto-push`);永久档案 `docs/lost-commit-archive.md`。
 - reset 丢失的 commit 永久记录于 tag;守门 100 `check-merge-addition-loss.mjs` 拦合并吞掉对侧独有新增(A1:P ∈ 某父 ∧ P ∉ 基底 ⇒ P 必须 ∈ 结果;默认只判未入 origin/main 的合并,增量台账判到一次);守门 168 `check-merge-deletion-resurrection.mjs` 拦本侧删除被合并写回(DR1/DR2;豁免 = 提交信息 `intentional-delete:` 或具名 allowlist)。归并修复出口 `scripts/union-converge.mjs`(集合运算:本侧整树 ∪ 对侧自改路径 ∪ 活文档行级 union;落地前零丢失自证;`--take-ours` 是声明式例外,必须逐条附两版取证)。
 
 ## 22b. staged-typecheck 闸门(2026-08-18 立)
