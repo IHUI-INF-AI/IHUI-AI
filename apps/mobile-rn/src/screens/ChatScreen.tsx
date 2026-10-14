@@ -587,6 +587,7 @@ export function ChatScreen() {
     response: 0,
     toolDelegate: 0,
     terminalDelta: 0,
+    terminalInteraction: 0,
     subagentSpawn: 0,
     subagentProgress: 0,
     subagentEnd: 0,
@@ -846,6 +847,15 @@ export function ChatScreen() {
         streamDiagRef.current.terminalDelta += 1
         console.info(
           `[chat] terminal-delta #${streamDiagRef.current.terminalDelta} id=${event.terminalId} len=${event.text?.length ?? 0}`,
+        )
+      },
+      // D151 终端"等待键盘输入"(与 N8n 屏同一帧源):主屏无终端面板,N8n 屏的
+      // 降级态(等待行)也长在它的终端面板里,本屏无挂载位 —— 最小态 = 计数 + 日志行
+      // (与 onTerminalDelta 同一约定),不接 postTerminalInput(手机上代答是假 affordance)。
+      onTerminalInteraction: (event) => {
+        streamDiagRef.current.terminalInteraction += 1
+        console.info(
+          `[chat] terminal-interaction #${streamDiagRef.current.terminalInteraction} id=${event.terminalId}`,
         )
       },
       // 终端任务收尾:终态/输出/退出码/耗时折叠进本轮 viz
