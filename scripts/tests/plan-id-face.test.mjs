@@ -86,7 +86,11 @@ test('T1 装车证明:两个取号出口必须真的 import 并调用这份共�
   assert.match(body, /collectIdFace\(\{/, '占用面必须在 CAS 循环体内每轮现取')
   assert.match(body, /const baseContent = idFace\.text/, '喂给 usedIdsOfPrefix 的底稿必须是宽面')
   // 取号与幂等形状必须吃同一个变量:两面不同形 ⇒ 发出的号匹配不上自己编出的匹配式 ⇒ 幂等永不命中
-  assert.match(body, /resolveIdTokens\(targetLines, baseContent, remote\)/)
+  assert.match(
+    body,
+    /resolveIdTokens\(targetLines, baseContent, remote, \{ machineId \}\)/,
+    '取号必须带 machineId(池式租约判据要按机器分窗,漏喂 = 每次都当新机重占窗)',
+  )
   assert.match(body, /compileBlockMatchers\(block,\s*baseContent\)/)
 })
 
@@ -296,6 +300,8 @@ function runLiveDocEdit(t, { withArchive }) {
       LIVE_MSG: 'docs(plan): e2e 取号占用面对账',
       LIVE_BLOCK_FILE: join(inputs, 'block.txt'),
       LIVE_ANCHOR_FILE: join(inputs, 'anchor.txt'),
+      // 池式(2026-10-14)下机器指纹参与选窗 ⇒ 显式钉 machineId,钉死值才可复现(换机不漂)
+      IHUI_MACHINE_ID: 'e2e-face-probe',
     },
     encoding: 'utf8',
     windowsHide: true,
@@ -308,27 +314,28 @@ function runLiveDocEdit(t, { withArchive }) {
   return { status: r.status, stdout: String(r.stdout || '') + String(r.stderr || ''), headText }
 }
 
-test('T7 端到端·出口二必须真的吃到宽面:有归档件 ⇒ 落 O91;无归档件 ⇒ 落 O14(成对)', (t) => {
+test('T7 端到端·出口二必须真的吃到宽面:有归档件 ⇒ 池式落 O267;无归档件 ⇒ 落 O121(成对)', (t) => {
   const wide = runLiveDocEdit(t, { withArchive: true })
   assert.equal(wide.status, 0, `带归档件那一次应落地:\n${wide.stdout.slice(-1200)}`)
   assert.match(
     wide.headText,
-    /O91 本次要登记的新任务/,
-    `落地文本应是宽面算出的 O91,实得:\n${wide.headText}`,
+    /O267 本次要登记的新任务/,
+    `落地文本应是宽面(台账 O13 ⊕ 归档件 O90)池式算出的 O267(blocked{13,90} ⇒ 候选 887 窗,` +
+      `e2e-face-probe 下标 203 ⇒ 第二区 91+176,离线钉死),实得:\n${wide.headText}`,
   )
   assert.ok(
-    !/O14 本次要登记/.test(wide.headText),
-    '落了 O14 ⇒ 归档件那一级根本没装车(T1 的文本锁会绿而行为仍错)',
+    !/O121 本次要登记/.test(wide.headText),
+    '落了 O121(窄面号)⇒ 归档件那一级根本没装车(T1 的文本锁会绿而行为仍错)',
   )
 
   const narrow = runLiveDocEdit(t, { withArchive: false })
   assert.equal(narrow.status, 0, `无归档件那一次也应落地:\n${narrow.stdout.slice(-1200)}`)
   assert.match(
     narrow.headText,
-    /O14 本次要登记的新任务/,
-    '零归档件是合法面,必须按台账给 O14(不得凭空抬高也不得拒发)',
+    /O121 本次要登记的新任务/,
+    '零归档件是合法面,必须按台账面(O13)给 O121(blocked{13} ⇒ 候选 937 窗,14+下标 107,离线钉死;不得凭空抬高也不得拒发)',
   )
-  assert.ok(!/O91/.test(narrow.headText), '无归档件却发出 O91 ⇒ 有第二处号源')
+  assert.ok(!/O267 本次要登记/.test(narrow.headText), '无归档件却落宽面号 O267 ⇒ 有第二处号源')
 })
 
 /** 造一把台账里该族**一条都没有**、归档件里有的仓,跑真 live-doc-edit,返回 {status, out, headText}。 */
@@ -367,6 +374,8 @@ function runLiveDocEditArchivedOnlyFamily(t, { withArchive }) {
       LIVE_MSG: 'docs(plan): e2e 归档族取号',
       LIVE_BLOCK_FILE: join(inputs, 'block.txt'),
       LIVE_ANCHOR_FILE: join(inputs, 'anchor.txt'),
+      // 同 T7:池式下钉 machineId 才有可复现的钉死值
+      IHUI_MACHINE_ID: 'e2e-w-probe',
     },
     encoding: 'utf8',
     windowsHide: true,
@@ -382,13 +391,13 @@ function runLiveDocEditArchivedOnlyFamily(t, { withArchive }) {
   }
 }
 
-test('T8 端到端·"族整族被归档"这一格的行为差(成对,如实登记而非散文声称):有归档件 ⇒ 落 W6;无 ⇒ 仍 exit 2 拒发', (t) => {
+test('T8 端到端·"族整族被归档"这一格的行为差(成对,如实登记而非散文声称):有归档件 ⇒ 池式落 W332;无 ⇒ 仍 exit 2 拒发', (t) => {
   const wide = runLiveDocEditArchivedOnlyFamily(t, { withArchive: true })
   assert.equal(wide.status, 0, `归档件里有该族 ⇒ 应能取号:\n${wide.out.slice(-1200)}`)
   assert.match(
     wide.headText,
-    /W6 本次登记的 W 族新任务/,
-    `应落 W6(归档件里 W1..W5 已占用),实得:\n${wide.headText}`,
+    /W332 本次登记的 W 族新任务/,
+    `应落 W332(宽面 W1..W5 已占用 ⇒ blocked{1,5},候选窗自 6 起 945 窗,e2e-w-probe 下标 326,离线钉死),实得:\n${wide.headText}`,
   )
 
   const narrow = runLiveDocEditArchivedOnlyFamily(t, { withArchive: false })
