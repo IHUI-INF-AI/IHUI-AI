@@ -84,4 +84,46 @@ export function coverageFileSet({ root }) {
     error: null,
   }
 }
+
+/**
+ * 判定面清单(门 118 取材面纪律,2026-10-15 换面)。
+ *
+ * 清单必须与**内容同面同轮** —— 旧口径通篇用 `ls-files`(索引面清单)去配磁盘内容,
+ * 于是"HEAD blob 缺载荷、盘上副本已补齐"的文件对两把尺子都不存在:悬留把红遮住了
+ * (2026-10-14 实测三枚文件即此型)。现分档:
+ *  - `head`     ⇒ `git ls-tree -r --name-only HEAD`(全量档:HEAD 面清单 ∩ HEAD blob);
+ *  - `staged`   ⇒ `git ls-files`(提交档:索引面清单 ∩ 索引 blob);
+ *  - `worktree` ⇒ 旧口径 `ls-files ∪ --others`(仅人工逃生舱,未跟踪面只在这档存在)。
+ * 取不到 ⇒ 返回 error(调用方判「无法判定」exit 2),**绝不回落另一个面、绝不按空集合放行**。
+ * `indexFiles` 字段名沿用旧契约 = "可阻塞面"(head 档里它就是 HEAD 树清单)。
+ * @param {{ root: string, face: 'head'|'staged'|'worktree' }} opts
+ * @returns {{ indexFiles: string[], untrackedFiles: string[], files: string[], error: string|null }}
+ */
+export function coverageFileSetForFace({ root, face }) {
+  if (face === 'worktree') return coverageFileSet({ root })
+  const dead = (error) => ({ indexFiles: [], untrackedFiles: [], files: [], error })
+  if (face === 'staged') {
+    const tracked = lsFiles([], root)
+    if (tracked.error) return dead(`取不到索引(staged 面)清单:${tracked.error}`)
+    if (tracked.lines.length === 0) {
+      return dead('staged 面枚举到 0 个跟踪路径 ⇒ 判据失明,不按"已覆盖"放行')
+    }
+    return { indexFiles: tracked.lines, untrackedFiles: [], files: [...tracked.lines].sort(), error: null }
+  }
+  if (face === 'head') {
+    try {
+      const lines = gitRaw(['ls-tree', '-r', '--name-only', '-z', 'HEAD'], root)
+        .split('\0')
+        .map((s) => s.trim())
+        .filter(Boolean)
+      if (lines.length === 0) {
+        return dead('HEAD 面枚举到 0 个跟踪路径 ⇒ 判据失明,不按"已覆盖"放行')
+      }
+      return { indexFiles: lines, untrackedFiles: [], files: [...lines].sort(), error: null }
+    } catch (e) {
+      return dead(`取不到 HEAD 面清单:${String(e?.message ?? e).split('\n')[0]}`)
+    }
+  }
+  return dead(`未知判定面 "${String(face)}"(允许:head/staged/worktree)`)
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
