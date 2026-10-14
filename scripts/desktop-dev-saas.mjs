@@ -45,6 +45,8 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 // "该停哪个桌面端实例"的判据与它的镜像测试共用这一份实现(纯函数,零副作用)
 import { selectDesktopVictims } from './lib/desktop-victims.mjs'
+// 包管理器执行器判据同样单源(与 desktop-build-saas.mjs 共用,不得各抄一份)
+import { planPackageManagerSpawn } from './lib/npm-execpath.mjs'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const webDir = path.join(repoRoot, 'apps', 'web')
@@ -166,7 +168,18 @@ function stopRunningDesktop() {
   }
   const { mine, foreign } = selectDesktopVictims(r.stdout || '', DESKTOP_TARGET_DIR)
   if (foreign.length) {
-    log(`检测到 ${foreign.length} 个非本仓 target 目录的同名实例,不动它们:${foreign.join(' | ')} —— 那是用户已安装/别处构建的应用`)
+    // 这里必须把**后果**说出来,不能只报"不动它们"。本仓 dev 构建与已安装版共用
+    // identifier `com.ihui.desktop`(四个 tauri*.json 现读同值),而 lib.rs 把
+    // tauri-plugin-single-instance 注册在插件链最前 ⇒ 安装版在场时,本脚本随后拉起的
+    // dev 实例会被插件**静默吞掉并以 exit 0 退出**:窗口看起来"起来了",实际聚焦的是
+    // 那份安装版,本地改的代码一行都没上屏。失效表现是安静的,而"不动安装版"是
+    // 2026-09-27 误杀事故后定死的正确行为(绝不改),所以唯一出路是把话说明白。
+    log(`⚠ 检测到 ${foreign.length} 个非本仓 target 目录的同名实例,按既定规则不动它们:${foreign.join(' | ')}`)
+    log('⚠ 但它们与 dev 构建同 identifier(com.ihui.desktop),单实例插件会把本脚本随后拉起的')
+    log('  dev 实例**静默吞掉并 exit 0** —— 你会看到那份已安装的应用获得焦点,而不是本地代码。')
+    log('  要联调桌面端:请先退出上面那份,再重跑本命令。(给 dev 构建配独立 identifier 会牵动')
+    log('  app_data_dir / capabilities / 更新器,属需机主拍板的设计变更,本脚本不擅自改。)'
+    )
   }
   if (!mine.length) {
     log('无本仓构建的残留桌面端实例')
@@ -277,10 +290,17 @@ const configOverride = JSON.stringify({
 // (整条 `pnpm dev:desktop:saas` 入口在 Windows 上一直是坏的)。路径不含引号,不受影响。
 const configOverridePath = path.join(os.tmpdir(), `ihui-desktop-dev-${process.pid}.json`)
 writeFileSync(configOverridePath, configOverride, 'utf8')
-const npmExec = process.env.npm_execpath ? process.execPath : 'pnpm'
-const args = process.env.npm_execpath
-  ? [process.env.npm_execpath, '--filter', '@ihui/desktop', 'exec', 'tauri', 'dev', '--config', configOverridePath]
-  : ['--filter', '@ihui/desktop', 'exec', 'tauri', 'dev', '--config', configOverridePath]
+// ⚠ npm_execpath **不保证是 JS 入口**:pnpm 11/Windows 下它是 `pnpm.exe` 本体路径,
+// 交给 process.execPath 当模块加载会直接 `ERR_UNKNOWN_FILE_EXTENSION ".exe"` ⇒
+// 整条 `pnpm dev:desktop:saas` 起不来(2026-10-14 08:06 引入、当日实测复现)。
+// 判据住在 scripts/lib/npm-execpath.mjs —— 与本仓另一条桌面端入口
+// (scripts/desktop-build-saas.mjs 的 buildPlan)共用同一份,不在这里抄第二份。
+const { cmd: npmExec, prefix: execPrefix, shell: useShell } = planPackageManagerSpawn(
+  process.env.npm_execpath,
+  process.execPath,
+)
+const tauriArgs = ['--filter', '@ihui/desktop', 'exec', 'tauri', 'dev', '--config', configOverridePath]
+const args = [...execPrefix, ...tauriArgs]
 
 // dev 构建默认会弹 DevTools 盖住主窗口、把鼠标输入抢走(2026-10-14 实测「啥也点击不了」,
 // 用户点到的其实是 DevTools 不是应用本体)⇒ 联调场景默认关掉;要看 DevTools 就显式
@@ -293,7 +313,7 @@ const r = spawnSync(npmExec, args, {
   cwd: repoRoot,
   stdio: 'inherit',
   env: childEnv,
-  shell: !process.env.npm_execpath,
+  shell: useShell, // 回落分支要靠 shell 解析 Windows 上的 pnpm shim
   windowsHide: true, // 防 Windows 弹可见控制台窗口
 })
 try { unlinkSync(configOverridePath) } catch {}

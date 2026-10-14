@@ -2469,7 +2469,21 @@
         "emptyPlaceholder": "Drag a conversation here from the sidebar"
       },
       "thinkingRefsTitle": "Used {count} references",
-      "thinkingTitle": "Thinking process"
+      "thinkingTitle": "Thinking process",
+      "inputNotices": {
+        "queue": {
+          "denied": {
+            "reorder": "Cannot reorder queued messages",
+            "undo": "Cannot unsend the queued message",
+            "interject": "The current Runtime does not support interjection; your message will stay queued",
+            "cause": {
+              "streaming": "The reply is still generating, so the queue order is locked for now",
+              "emptyQueue": "There are no queued messages left to undo",
+              "runtimeNoInterject": "This runtime has no interjection support; the message stays in the queue"
+            }
+          }
+        }
+      }
     }
   }
 }

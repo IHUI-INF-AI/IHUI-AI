@@ -36,6 +36,8 @@ import { mkdirSync, rmdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+// 包管理器执行器判据单源(与 desktop-dev-saas.mjs 共用,不得各抄一份)
+import { planPackageManagerSpawn } from './lib/npm-execpath.mjs'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -61,9 +63,9 @@ const UNSIGNED_CONFIG_CONTENT = `${JSON.stringify({ bundle: { createUpdaterArtif
  * @returns {{cmd: string, args: string[], shell: boolean, configPath: string|null, tail: {cmd: string, args: string[]}|null}}
  */
 function buildPlan({ npmExecpath, execPath, root, allowUnsigned }) {
-  const cmd = npmExecpath ? execPath : 'pnpm'
-  const prefix = npmExecpath ? [npmExecpath] : []
-  const shell = !npmExecpath
+  // 判据单源在 scripts/lib/npm-execpath.mjs(与 desktop-dev-saas.mjs 共用同一份,
+  // 不在此抄第二份 —— AGENTS.md §0.6;该判定曾各自独立抄在两处并同时打断两条入口)。
+  const { cmd, prefix, shell } = planPackageManagerSpawn(npmExecpath, execPath)
   if (!allowUnsigned) {
     return { cmd, args: [...prefix, '--filter', '@ihui/desktop', 'build'], shell, configPath: null, tail: null }
   }
@@ -93,8 +95,8 @@ async function main() {
   console.log(`  NEXT_PUBLIC_WS_BASE_URL         = ${process.env.NEXT_PUBLIC_WS_BASE_URL}`)
   console.log(`  NEXT_PUBLIC_AI_SERVICE_URL      = ${process.env.NEXT_PUBLIC_AI_SERVICE_URL}`)
 
-  // 走与 pnpm 脚本相同的执行器:pnpm 运行时 npm_execpath 指向 pnpm 本体(node 直跑),
-  // 避免 Windows 下对 pnpm.cmd 的 shell 解析依赖。
+  // 执行器选择见 buildPlan:pnpm 的 npm_execpath 是 **exe 本体**而非 JS 入口,
+  // 不能无条件交给 node 直载;只有 .c?js 入口才走直载,否则回落 shell 解析裸 `pnpm`。
   const allowUnsigned = allowUnsignedFrom(process.env)
   const plan = buildPlan({
     npmExecpath: process.env.npm_execpath,
