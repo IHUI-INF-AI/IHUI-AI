@@ -52,7 +52,7 @@
  *   A3 清偿后全文件 DUP_POINTER_RE 与 SELF_DEDISPATCH_RE 命中归零(用户要的"不要再看到")。
  *   A4 认领标记 `（进行中…）` 总数不减少(8 条存量全部转移,不许静默丢失)。
  *
- * 用法: node scripts/plan-pointer-purge.mjs [--dry-run|--apply]
+ * 用法: node scripts/plan-pointer-purge.mjs [--dry-run|--apply] [--absorb]
  */
 import { execFileSync, spawn } from 'node:child_process'
 import path from 'node:path'
@@ -156,7 +156,14 @@ const isOpenRow = (line) => /^\s*(?:[-*]\s*)?\[ \]/.test(line)
 const isProse = (line) => /^\s*<!--/.test(line)
 
 /** 分类规划(纯函数,可测):返回 {deleteSet, stripSet, claimTransfers, stats} */
-export function buildPlan(lines) {
+export function buildPlan(lines, opts = {}) {
+  // absorb(2026-10-15 立,G-32 归并侧那半格):对「正文未被幸存行逐字承载」的 L5/L6 副本,
+  // 不再交人工干等 —— 把候选行的**归一化正文整段**移植成幸存行行尾的承载段,承载成立后折并候选。
+  // 为什么必须整段:包含性判据是 `sLine.includes(body)` 一次成连,注记被替成空格后正文里带着
+  // 空格洞,只补"看起来缺的那句"永远补不平(首版实测:移植后仍拒收 17 对)。
+  // 三条硬护栏:① 候选/幸存任一带租约 ⇒ 不碰(那是他人正在做的活);② 承载段含 13d 判据字面 ⇒ 不碰;
+  // ③ 正文长度低于该层 minBody 下限 ⇒ 不碰(证明力不足,与不 absorb 同向)。失效方向永远是"少折一行"。
+  const absorb = opts.absorb === true
   const rows = []
   lines.forEach((l, i) => {
     if (isRowLine(l) && !isProse(l)) rows.push({ i, line: l })
@@ -191,7 +198,7 @@ export function buildPlan(lines) {
   const deleteSet = new Set()
   const stripSet = new Set() // 只剥注记保留的行
   const claimTransfers = [] // {from, to, claim}
-  const stats = { L1: 0, L2: 0, L3: 0, L4: 0, checkedStripped: 0, L5: 0, L6: 0 }
+  const stats = { L1: 0, L2: 0, L3: 0, L4: 0, checkedStripped: 0, L5: 0, L6: 0, L7: 0, absorbed: 0 }
   const reasons = new Map() // 行号 → 分类原因(给台账)
 
   const family = new Map() // 归并键 → 候选行集
@@ -301,19 +308,29 @@ export function buildPlan(lines) {
     const segsAll = segsOf(cLine)
     const stripped = segsAll.reduce((acc, s) => acc.replace(s, ' '), cLine)
     const body = bodyOf(stripped)
+    // 吸收档(仅 --absorb):承载不成立时把候选行**归一化正文整段**挂到幸存行行尾,再由本器折并候选。
+    const carried = (() => {
+      if (!absorb || body.length < minBody || sLine.includes(body)) return null
+      if (claimOf(cLine) || claimOf(sLine)) return null
+      const seg = ` 〔副本正文并入·承载整段:${body}〕`
+      if (DUP_POINTER_RE.test(sLine + seg) || SELF_DEDISPATCH_RE.test(sLine + seg)) return null
+      return seg
+    })()
     // 最短正文下限:L6 两行同复合主键(任务身份由键承载)取 6;L5 两行主键互异(唯一关联是
     // 题面)取 12 —— 下限之下包含性证明力不足,跳过交人工。
-    if (body.length < minBody || !sLine.includes(body)) {
+    if (body.length < minBody || (!sLine.includes(body) && !carried)) {
       skipped.push({
         i: ci,
-        why: `${layer} 正文有幸存行 L${si + 1} 未承载的独有增量(body=${body.length} 字) ⇒ 交人工,不硬删(实测:G-317 约 2000 字关键发现、G-341 整张独立票、L10371 截断回放都是这一型)`,
+        why: `${layer} 正文有幸存行 L${si + 1} 未承载的独有增量(body=${body.length} 字) ⇒ 交人工,不硬删(实测:G-317 约 2000 字关键发现、G-341 整张独立票、L10371 截断回放都是这一型)${
+          absorb && body.length >= minBody ? ' [吸收档本可承载,被租约/13d 字面护栏拦下]' : ''
+        }`,
       })
       return
     }
     const segs = segsAll.filter((s) => !sLine.includes(s))
     if (segs.length) {
       const appended = ' ' + segs.join(' ')
-      const wouldBe = sLine + appended
+      const wouldBe = sLine + (carried || '') + appended
       if (DUP_POINTER_RE.test(wouldBe) || SELF_DEDISPATCH_RE.test(wouldBe)) {
         skipped.push({
           i: ci,
@@ -323,9 +340,16 @@ export function buildPlan(lines) {
       }
       transplants.push({ to: si, text: appended })
     }
+    if (carried) {
+      transplants.push({ to: si, text: carried })
+      stats.absorbed++
+    }
     deleteSet.add(ci)
     stats[layer]++
-    reasons.set(ci, `${layer} 真归并,保留 L${si + 1}${segs.length ? `(+${segs.length} 段注记移植)` : ''}`)
+    reasons.set(
+      ci,
+      `${layer} 真归并,保留 L${si + 1}${segs.length ? `(+${segs.length} 段注记移植)` : ''}${carried ? '(+正文承载段)' : ''}`,
+    )
   }
   // L6(F4):findDupOpenCopies 的副本行,幸存者 = 判据自己的 survivor(组内最长行)——
   // 另选幸存者会让删完的面上 findDupOpenCopies 照旧点名新副本,债没清。
@@ -348,6 +372,34 @@ export function buildPlan(lines) {
     skipped.push({
       i: -1,
       why: `L5 判据未判定(${String(e?.message ?? e).slice(0, 80)})⇒ 本层整层跳过,不冒充通过`,
+    })
+  }
+
+  // L7(F4b,2026-10-15 立):无复合主键而**逐字等值**的未勾选孪生行。判据单源 = 门 130 用的
+  // `idx.findVerbatimDupOpenRows`(不在本器复制一份,§22c)。这一层与 L5/L6 的区别是它**不需要承载段**:
+  // 两行逐字相同 ⇒ 幸存行本来就装着全部内容,删多余份数是零信息差的动作。
+  // 唯一护栏:任一副本带租约 ⇒ 跳过(那是他人正在做的活,哪怕文字相同也不由本器代摘)。
+  try {
+    const vd = idx.findVerbatimDupOpenRows(lines.join('\n'))
+    for (const c of vd.copies) {
+      const ci = c.row.line - 1
+      if (deleteSet.has(ci) || stripSet.has(ci)) continue
+      const si = c.survivor.line - 1
+      // 租约:本层的两行**逐字等值**(判据就是 r.raw 全等),所以副本行上的 `（进行中@…）` 与幸存行
+      // 上的必然同文 ⇒ 删副本不会摘掉任何人的认领(§1「门绝不自动摘除任何人的认领」)。
+      // 不"相信构造",当场比一次:不同文 ⇒ 跳过交人工。
+      if (claimOf(c.row.raw) && claimOf(c.row.raw) !== claimOf(c.survivor.raw)) {
+        skipped.push({ i: ci, why: `L7 副本与幸存行认领标记不同文 ⇒ 不折(不得代摘他人认领)` })
+        continue
+      }
+      deleteSet.add(ci)
+      stats.L7++
+      reasons.set(ci, `L7 逐字孪生折并,保留 L${si + 1}`)
+    }
+  } catch (e) {
+    skipped.push({
+      i: -1,
+      why: `L7 判据未判定(${String(e?.message ?? e).slice(0, 80)})⇒ 本层整层跳过,不冒充通过`,
     })
   }
 
@@ -460,6 +512,7 @@ function readBlobContent(ref, relPath) {
 
 function main() {
   const apply = process.argv.includes('--apply')
+  const absorb = process.argv.includes('--absorb')
   // ── 门 203 同源差值校验(纯函数):清偿后不得比 HEAD 面多出「同题多号」成员键。
   // 首版缺陷的实测形状:剥注记让 146 个键从"指针行(指纹 null,不进组)"变成"有指纹的行",
   // 门 203 的棘轮把它们读成这次带进来的第二次登记。分族已改为复合主键 ∪ 指纹同源,
@@ -484,11 +537,12 @@ function main() {
   }
   const eol = headText.includes('\r\n') ? '\r\n' : '\n'
   const lines = headText.split(/\r?\n/)
-  const plan = buildPlan(lines)
+  const plan = buildPlan(lines, { absorb })
   const { stats } = plan
   console.log(
     `分类: L1 外部持有行删除=${stats.L1} L2 族内归并删除=${stats.L2} L3 纯指针删除=${stats.L3} ` +
-      `L4 剥注记保留=${stats.L4} L5 同题折并=${stats.L5} L6 同主键归并=${stats.L6} ` +
+      `L4 剥注记保留=${stats.L4} L5 同题折并=${stats.L5} L6 同主键归并=${stats.L6} L7 逐字孪生折并=${stats.L7} ` +
+      `其中吸收承载=${stats.absorbed}${absorb ? '' : '(未开 --absorb)'} ` +
       `已勾剥注记=${stats.checkedStripped} 认领转移=${plan.claimTransfers.length} ` +
       `跳过交人工=${(plan.skipped || []).length}`,
   )
@@ -576,7 +630,7 @@ function main() {
       }
       const fEol = freshText.includes('\r\n') ? '\r\n' : '\n'
       const fLines = freshText.split(/\r?\n/)
-      const fPlan = buildPlan(fLines)
+      const fPlan = buildPlan(fLines, { absorb })
       const fNext = renderPurge(fLines, fPlan)
       const fErrs = verifyPurge(fLines, fNext, fPlan)
       if (fErrs.length) {
