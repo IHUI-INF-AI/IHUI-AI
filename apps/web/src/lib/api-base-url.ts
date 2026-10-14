@@ -67,6 +67,18 @@ export function isLocalWebDevOrigin(): boolean {
 }
 
 /**
+ * 桌面 dev 壳 = Tauri 运行时 + 窗口由本机 Next dev server 承载(端口 8801)。
+ *
+ * 与 `isDesktopAuthVaultEnabled()` 互补,两者共用同一组原语(本文件是 origin 语义的单一来源)。
+ * 存在的理由:开发壳里"自动"两字必须默认关掉 —— 实测 dev 构建照常跑线上 updater feed,
+ * 启动 5s 静默检查 + 每小时 Rust 侧自更新会把未审构建装进开发机并自杀重启,
+ * 把正在改代码的人从自己的会话里踢出去(本轮 CDP 取证连续两次因此中断)。
+ */
+export function isDesktopDevShell(): boolean {
+  return isTauriRuntime() && isLocalWebDevOrigin()
+}
+
+/**
  * 桌面凭据库是否应当启用(2026-10-15 立,根治「dev 壳与生产壳互相烧 token」)。
  *
  * `com.ihui.desktop/auth.json` 的 `refresh_token` 是**按 App identifier 共享**的一颗键:
