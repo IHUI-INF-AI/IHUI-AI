@@ -14957,3 +14957,4 @@ next dev / expo 这类 supervisor 内部 spawn worker 时**不带** windowsHide(
 <!-- 已归档(2026-10-14:G-967 〔千段租约〕 本机=lichunchuan-96818d62 段=G-918~G-967(取号器专用行:占用,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
 <!-- 已归档(2026-10-14:✅(2026-10-14) G-918 **守门 `sync-lost-commit-tags.mjs --check`,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
 
+- [ ] **G-32 那一格今日拿到硬证据(等归属:活文档归并线持有人;修法已定,属高危改动需机主点头)**:`union-converge.mjs` 的 `liveDocExpectedCounts` 按**整行字符串**算重数,对侧把某行改写过、而本侧已按清偿台账把该行删掉时,新字符串在基底面上不存在 ⇒ 被读成"对侧相对基底新增"并补回 1 份(实测 21:42 本侧 0 行 → 21:44 合并后 9 行;同族在册票还有 G-461「并集重放把已折叠过的旧形态整批带回」)。唯一正解 = 补回前按**复合主键**再问一次台账:`主键 ∈ 已入库 `plan-pointer-purge-*.md` 清偿台账 ⇒ 不补回`(与门 71/回捞器 `archivedCopy` 同一条判据,§22c 不得另抄一份)。本行不认领、不动 `union-converge.mjs`。
