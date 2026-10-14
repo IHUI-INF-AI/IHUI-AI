@@ -92,14 +92,15 @@ const stage = (key) => join(STAGING, STAGING_FILES[key])
 
 // ── 登记表提取(与 check-image-placeholders.mjs 同源判据)────────────────────
 // 2026-10-14 修:原正则 `\((?:'([^']+)')\)` 要求 `(` 与 `'` 同行,漏掉**多行调用**
-// (`aizhsUrl(\n  'sys-backs/...'\n)`,登记表里有 5 条)。改 `\(\s*'([^']+)'\s*\)` 跨行匹配。
-// 非图片扩展名(.mp4)不进图片生成面 —— 视频不是图片,生成 PNG 顶上就是造假。
+// (`aizhsUrl(\n  'sys-backs/...'\n)`,登记表里有 5 条)。改 `\(\s*'([^']+)'\s*,?\s*\)` 跨行匹配。
+// 刻意**不按扩展名过滤**:非图片扩展名(.mp4)也要进清单,好让它们被点名"无源"(与尺子
+// check-image-placeholders.mjs 的登记面口径一致);生成侧由 IMG_EXT_RE 挡,不会给 .mp4 写 PNG。
 function extractRegistry() {
   const src = readFileSync(REGISTRY_TS, 'utf8')
   const urls = new Set()
   const re = /(?:bspappUrl|aizhsUrl)\(\s*'([^']+)'\s*,?\s*\)/g
   let m
-  while ((m = re.exec(src))) if (IMG_EXT_RE.test(m[1])) urls.add(m[1].replace(/^\//, ''))
+  while ((m = re.exec(src))) urls.add(m[1].replace(/^\//, ''))
   return [...urls].sort()
 }
 
@@ -107,6 +108,8 @@ function extractRegistry() {
  * 全仓源码里 `aizhsUrl()/bspappUrl()` 引用的 URL(整文件扫描,跨行可匹配)。
  * 为什么不能只看登记表:页面直接写 `aizhsUrl('remote-images/qewm.png')` 这类**不经登记表**的
  * 调用(2026-10-14 实测 38 条),登记表看不见它们 ⇒ 源站没有 ⇒ 页面图裂。
+ * **必须排除登记表自身**:它也是 `aizhsUrl(...)` 调用,算进来会把"仅登记表死登记项"误报成
+ * "被活代码引用"(2026-10-14 实测:排除前 sys-backs 那条 jpg 被误标)。
  */
 function extractCodeUrls() {
   const files = []
@@ -122,10 +125,11 @@ function extractCodeUrls() {
   const urls = new Set()
   const re = /(?:bspappUrl|aizhsUrl)\(\s*'([^']+)'\s*,?\s*\)/g
   for (const f of files) {
+    if (f.endsWith('remote-icons.ts')) continue // 登记表自身不是"活代码引用"
     let s
     try { s = readFileSync(f, 'utf8') } catch { continue }
     let m
-    while ((m = re.exec(s))) if (IMG_EXT_RE.test(m[1])) urls.add(m[1].replace(/^\//, '').replace(/\\/g, '/'))
+    while ((m = re.exec(s))) urls.add(m[1].replace(/^\//, '').replace(/\\/g, '/'))
   }
   return [...urls].sort()
 }
@@ -692,15 +696,26 @@ function fallbackSpec(rel, i) {
 // `sys-backs/` 是**动态备份/用户上传内容**的命名空间(照片、视频),不是设计槽位。
 // 给它生成一张线稿图标 = 用"看着像图的东西"冒充用户内容,比灰块更糟(票面铁律同款)。
 // 这类路径只点名"无源",等真素材。
+//
+// 2026-10-14 追根:剩余 3 条 `sys-backs/*`(1 图 + 2 mp4)在**原型源码**里也是死引用 ——
+//   · `sys-backs/2025/08/30/qwen_image_…jpg` ← `Ai-WXMiniVue/src/mixins/ai_index.js:387` 的
+//     **注释行**(`// imgUrlList: [...]`);
+//   · `sys-backs/2025/09/05/…/YQdNaZ…mp4` ← `src/pagesA/study/components/add_video.vue:22` 的
+//     **注释块**(`<!-- <video …> -->`);
+//   · `sys-backs/2025/09/06/…/5ff9Lb…mp4` ← `src/pagesA/study/video_detaila.vue:26` 的 `videoUrl`。
+// 登记表是**扫原型源码**建的,连注释一起扫 ⇒ 这 3 条是"注释代码带进来的死登记项"。
+// 且本仓代码对这三个登记键**零引用**(grep 0 命中)⇒ 不是任何活界面路径,不构成图裂。
 const NO_SOURCE_PREFIXES = ['sys-backs/']
 async function main() {
   const registry = extractRegistry()
   const codeUrls = extractCodeUrls()
+  const codeSet = new Set(codeUrls)
   const paths = [...new Set([...registry, ...codeUrls])]
   const unspecced = paths.filter((p) => !SPECS[p.replace(/\/{2,}/g, '/')])
   unspecced.forEach((p, i) => {
     const rel = p.replace(/\/{2,}/g, '/')
     if (NO_SOURCE_PREFIXES.some((pre) => rel.startsWith(pre))) return // 留给"无源"分支点名
+    if (!IMG_EXT_RE.test(rel)) return // 非图片扩展名(.mp4 等)不生成图片,同样进"无源"点名
     fallbackSpec(rel, i)
   })
 
@@ -733,8 +748,12 @@ async function main() {
   console.log(`登记表 ${registry.length} 条 + 代码引用补充 ${paths.length - registry.length} 条 = ${paths.length} 条`)
   console.log(`真图落盘(本地副本结构性命中) ${real};程序化生成 ${made};跳过(已有真图) ${skipped};无源不造假 ${noSource.length};失败 ${failed}`)
   if (noSource.length) {
-    console.log('无源清单(仓内无真图、且非可生成图片;需外部素材):')
-    for (const p of noSource) console.log('  ' + p)
+    // 分清两件事:被**活代码**引用而缺素材(真债,要盯) vs 只在登记表里(死登记项,不影响界面)。
+    const live = noSource.filter((p) => codeSet.has(p))
+    const dead = noSource.filter((p) => !codeSet.has(p))
+    console.log(`无源清单 ${noSource.length} 条 —— 其中被活代码引用 ${live.length} 条 / 仅登记表死登记项 ${dead.length} 条:`)
+    for (const p of live) console.log(`  [活代码引用·需素材] ${p}`)
+    for (const p of dead) console.log(`  [死登记项·本仓零引用] ${p}`)
   }
   if (failures.length) {
     console.log('失败清单:')

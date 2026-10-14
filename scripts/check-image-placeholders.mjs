@@ -241,6 +241,40 @@ function diskSizeFor(url) {
 const { missing, referencedEmpty } = classifyReferenced([...wanted.keys()], diskSizeFor)
 const orphans = real.filter((r) => !wanted.has(r.rel))
 
+/**
+ * 2026-10-14 加:把"登记表点名而盘上没有"再分两态 —— **被活代码引用**(真债,要盯) vs
+ * **只在登记表里**(死登记项,不影响任何界面)。登记表是**扫原型源码**建的,连**注释掉的代码**
+ * 一起扫 ⇒ 会带进一批原型里早已注释掉、本仓也零引用的死路径(实测 3 条 `sys-backs/*`,
+ * 其中 2 条来自原型 `ai_index.js` 注释行与 `add_video.vue` 注释块)。
+ * 不分这两态,"缺失 N"会被读成"N 处图裂",而实际可能一处都不影响界面。
+ */
+function scanCodeReferenced(urls) {
+  const set = new Set(urls)
+  const found = new Set()
+  let files
+  try {
+    files = gitRaw(['ls-files', '-z', '--', 'apps/miniapp-taro/src', 'apps/web/src', 'packages'], ROOT)
+      .split('\0').filter((p) => /\.(ts|tsx|js|jsx|vue)$/.test(p))
+  } catch {
+    return null // 取不到源码面 ⇒ 返回 null(未判定,不冒充"零引用")
+  }
+  const re = /(?:aizhsUrl|bspappUrl)\(\s*'([^']+)'\s*,?\s*\)/g
+  for (const f of files) {
+    if (f.endsWith('remote-icons.ts')) continue // 登记表自身不算"活代码引用"
+    let s
+    try { s = readFileSync(join(ROOT, f), 'utf8') } catch { continue }
+    let m
+    while ((m = re.exec(s)) !== null) {
+      const u = m[1].replace(/^\//, '').replace(/\\/g, '/')
+      if (set.has(u)) found.add(u)
+    }
+  }
+  return found
+}
+const missingCodeRef = scanCodeReferenced(missing)
+const missingLive = missingCodeRef === null ? null : missing.filter((p) => missingCodeRef.has(p))
+const missingDead = missingCodeRef === null ? null : missing.filter((p) => !missingCodeRef.has(p))
+
 const summary = {
   root: srvRoot,
   registryUrls: wanted.size,
@@ -250,6 +284,8 @@ const summary = {
   realImages: real.length,
   emptyAndReferenced: referencedEmpty.length,
   requestedButNotOnDisk: missing.length,
+  missingReferencedByCode: missingLive === null ? null : missingLive.length,
+  missingRegistryOnly: missingDead === null ? null : missingDead.length,
   realButNotReferenced: orphans.length,
   blankAuditState: blankAudit.state,
   blankCanvasFiles: blankAudit.state === 'ok' ? blankAudit.blankFiles : null,
@@ -269,7 +305,10 @@ if (arg('--json')) {
   console.log(`源站目录:${summary.root}`)
   console.log(
     `登记表要 ${summary.registryUrls} 张图;盘上图片 ${summary.imageFiles} 个 = 真图 ${summary.realImages} + 空文件 ${summary.emptyImages}` +
-      `;其中被代码点名的空图 ${summary.emptyAndReferenced} 张;登记表点名而盘上没有 ${summary.requestedButNotOnDisk} 张`,
+      `;其中被代码点名的空图 ${summary.emptyAndReferenced} 张;登记表点名而盘上没有 ${summary.requestedButNotOnDisk} 张` +
+      (missingLive === null
+        ? '(两态未判定:源码面取不到)'
+        : `(被活代码引用 ${missingLive.length} 张 / 仅登记表死登记项 ${missingDead.length} 张)`),
   )
   console.log(
     `结论:${summary.emptyAndReferenced > 0 ? `界面上有 ${summary.emptyAndReferenced} 处是灰底占位图(不是报错,是"看起来正常")` : '没有空图占位(全部是真图)'}`,
@@ -295,7 +334,10 @@ if (arg('--json')) {
     if (referencedEmpty.length > 400) console.log(`  …另 ${referencedEmpty.length - 400} 条`)
     if (missing.length) {
       console.log('\n--- 登记表点名、但源站连空文件都没有 ---')
-      for (const p of missing.slice(0, 60)) console.log(`  ${p}`)
+      for (const p of missing.slice(0, 60)) {
+        const tag = missingLive === null ? '未判定' : missingCodeRef.has(p) ? '被活代码引用·需素材' : '仅登记表·死登记项'
+        console.log(`  [${tag}] ${p}`)
+      }
       if (missing.length > 60) console.log(`  …另 ${missing.length - 60} 条`)
     }
   } else if (summary.emptyAndReferenced) {
