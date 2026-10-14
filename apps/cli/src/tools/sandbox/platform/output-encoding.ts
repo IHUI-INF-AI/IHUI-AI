@@ -24,6 +24,10 @@
  */
 
 import { execFileSync } from 'node:child_process';
+// surrogate 区段字面量的唯一出口在 utils/prompt-boundary(§0.6 单一真相源;g937964 结构钉用例
+// 就是判"第二份字面量")。这里校验的是 UTF-8 解码后的码位,与 UTF-16 码元同属 0xD800–0xDFFF 区间,
+// 判据等值 ⇒ 复用出口,不再手抄一份区间。
+import { isSurrogateCodePoint } from '../../../utils/prompt-boundary.js';
 
 /** 环境变量显式覆盖键(Windows 大小写不敏感读取) */
 export const WINDOWS_OUTPUT_ENCODING_OVERRIDE_ENV = 'IHUI_WINDOWS_OUTPUT_ENCODING';
@@ -119,7 +123,7 @@ export function analyzeUtf8Buffer(buffer: Buffer): Utf8BufferAnalysis {
       if ((cont & 0xc0) !== 0x80) return { hasNonAscii, incomplete: false, valid: false };
       codePoint = (codePoint << 6) | (cont & 0x3f);
     }
-    if (codePoint < minCodePoint || codePoint > 0x10ffff || (codePoint >= 0xd800 && codePoint <= 0xdfff)) {
+    if (codePoint < minCodePoint || codePoint > 0x10ffff || isSurrogateCodePoint(codePoint)) {
       return { hasNonAscii, incomplete: false, valid: false };
     }
     i += needed + 1;

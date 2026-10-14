@@ -116,7 +116,12 @@ import {
   anchorOf,
   LEASE_RE,
 } from './lib/plan-merge-annotation.mjs'
-import { alignSharedIndex, casUpdateRef, commitTreeWithIndex } from './lib/bypass-git.mjs'
+import {
+  alignSharedIndex,
+  casUpdateRef,
+  commitTreeWithIndex,
+  rerunLedgerHeal,
+} from './lib/bypass-git.mjs'
 // 落地要按**调用方给的 root** 问 HEAD(未勾单行档的端到端取证跑在临时仓里,而上面那三个出口
 // 都收 root 参数)。单独一条 import 语句不是笔误:镜像测试 R4 把上一行逐字钉成"落地只走
 // bypass-git 那一份 plumbing"的装车证明,把 `git` 塞进那一行会让那条锁静默失效。
@@ -477,6 +482,22 @@ export function landingAttestationStructure(srcText) {
           problems.push('留痕排在复验守卫之前 ⇒ 复验未过时也会写(票面①禁止的插法)')
         if (beforeAt >= 0 && !(attest < beforeAt))
           problems.push('留痕排在共享索引对齐之后 ⇒ 对齐没成的那一支会被漏记(它同样是既成旁路)')
+        // G-246(2026-10-15 立):本器是第四台"commit-tree + CAS"旁路落地器,钩子结构性不跑
+        // ⇒ post-commit 第 6 节的台账自愈对本器从来不会触发,而本器改的正是登记行。判据必须
+        // 在真跑它的那一刻才成立,所以这里把"就地补跑自愈"钉成次序臂:恰好 1 次、排在留痕之后、
+        // 排在共享索引写回之前(自愈若建了恢复提交,随后的对齐要把索引对齐到恢复后的 blob,
+        // 否则下一枚普通提交会把缺行那份写回旧版 —— 与 live-doc-edit / object-space-land 同形)。
+        const heals = [...body.matchAll(/rerunLedgerHeal\(\{/g)]
+        if (heals.length !== 1)
+          problems.push(
+            `台账自愈补跑出现 ${heals.length} 次(必须恰好 1 次:0 次=本站点仍对自愈失明,>1 次=同一枚落地跑两遍)`,
+          )
+        else {
+          const healAt = heals[0].index
+          if (beforeAt >= 0 && !(healAt < beforeAt))
+            problems.push('台账自愈补跑排在共享索引写回之后 ⇒ 恢复提交会被这一次的索引写回盖掉')
+          if (!(attest < healAt)) problems.push('台账自愈补跑排在留痕之前 ⇒ 尚未确认落地的分支也会跑自愈')
+        }
       }
       if (s.rollback) {
         const rb = body.lastIndexOf(s.rollback)
@@ -1435,6 +1456,7 @@ export function restoreTerminalsAndLand(maxAttempts = 8) {
       headBefore: parent,
       root: ROOT,
     })
+    rerunLedgerHeal({ root: ROOT, paths: [PLAN_REL] })
     const align = alignSharedIndex({ root: ROOT, paths: [PLAN_REL], parentRef: parent })
     const nOf = (x) => (Array.isArray(x) ? x.length : Number(x) || 0)
     console.log(
@@ -1924,6 +1946,7 @@ export function rowsDedupeAndLand(match = null, maxAttempts = 8) {
       headBefore: parent,
       root: ROOT,
     })
+    rerunLedgerHeal({ root: ROOT, paths: [PLAN_REL] })
     const align = alignSharedIndex({ root: ROOT, paths: [PLAN_REL], parentRef: parent })
     // alignSharedIndex 正常路径返回**数组**、等锁超上限那条返回 0 ⇒ 归一成计数再打印,
     // 否则同一条日志会在两种形态间跳(把"没对齐"读成"对齐了 0 个")。
@@ -2365,6 +2388,7 @@ function openRowsDedupeOnce(match = null, maxAttempts = 8, opts = {}) {
       headBefore: parent,
       root,
     })
+    rerunLedgerHeal({ root, paths: [PLAN_REL] })
     const align = alignSharedIndex({ root, paths: [PLAN_REL], parentRef: parent })
     const nOf = (v) => (Array.isArray(v) ? v.length : Number(v) || 0)
     const restGroups = leftAll.filter((g) => !scope || !scope.has(g.line))
@@ -2885,6 +2909,7 @@ export function twinFoldAndLand(maxAttempts = 8) {
       headBefore: parent,
       root: ROOT,
     })
+    rerunLedgerHeal({ root: ROOT, paths: [PLAN_REL] })
     const align = alignSharedIndex({ root: ROOT, paths: [PLAN_REL], parentRef: parent })
     const nOf = (v) => (Array.isArray(v) ? v.length : Number(v) || 0)
     console.log(
@@ -3132,6 +3157,7 @@ export function healAndLand() {
       headBefore: head,
       root: ROOT,
     })
+    rerunLedgerHeal({ root: ROOT, paths: [PLAN_REL] })
     const t0 = Date.now()
     while (existsSync(path.join(ROOT, '.git', 'index.lock'))) {
       if (Date.now() - t0 > 120000) {
@@ -3286,6 +3312,7 @@ function healWithPrefixHolder(holderFragment, { commit }) {
       headBefore: head0,
       root: ROOT,
     })
+    rerunLedgerHeal({ root: ROOT, paths: [PLAN_REL] })
     // 本站点此前是七个落地站点里唯一**不做共享索引对齐**的那一个:HEAD 被推进了,而主索引还停在
     // 父提交的那份 PROJECT_PLAN ⇒ 此后任何人一次不带 pathspec 的普通提交就把这一档的修法写回旧版
     // (§12d 第三层记过的那一型,今天本机已被它咬到多次)。补 fold-twins 档同一条出口,不另写等锁循环。
@@ -3391,6 +3418,7 @@ export function dedupeAndLand(maxAttempts = 8) {
         headBefore: head,
         root: ROOT,
       })
+      rerunLedgerHeal({ root: ROOT, paths: [PLAN_REL] })
       const t0 = Date.now()
       while (existsSync(path.join(ROOT, '.git', 'index.lock'))) {
         if (Date.now() - t0 > 120000) {

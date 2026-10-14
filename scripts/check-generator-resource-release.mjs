@@ -745,12 +745,20 @@ function selfTest() {
   t('循环之后的同级 return 不算提前退出(语句级,不是行级运气)', judgeFunction(b, [{ file: 'z.py', line: 1, text: 'async for x in g():\n    use(x)\nreturn done\n' }]).verdict === 'passed')
   // 真仓样本:跑在被审面上(不是夹具自证);面取不到 ⇒ 这几条红,不出合格证
   const HR = (() => { try { return auditFace(readFace('head', ROOT, listCandidatesFor('head', ROOT))).rows } catch { return [] } })()
-  const at = (f, l) => HR.find((r) => r.file.endsWith(f) && r.line === l)
-  t('真仓①: command_streamer:350 穷尽式 async for ⇒ passed', at('command_streamer.py', 350)?.verdict === 'passed')
-  t('真仓①b: message_history:163 唯一生产消费是 list(...) ⇒ passed', at('message_history.py', 163)?.verdict === 'passed')
-  t('真仓②: openai_provider:93 有提前退出的消费 ⇒ 仍是 violation', at('openai_provider.py', 93)?.verdict === 'violation')
-  t('真仓④: agents:652/726/1311 框架 sink ⇒ 未判定且逐条点名', ['652', '726', '1311'].every((v) => { const r = at('routers/agents.py', Number(v)); return !!r && r.verdict === 'undetermined' && r.evidence.some((e) => /sink/.test(String(e))) }))
-  t('真仓⑤: rollout_archive:165 仅 docstring/__all__ 命中 ⇒ 未判定,不是 violation', at('rollout_archive.py', 165)?.verdict === 'undetermined')
+  // 真仓臂一律**不钉行号**(§1 同一教训:行号一次 append 就挪位)。判据形状=「该文件里存在这样一处判定」,
+  // 站点身份由文件名 + 判定档 + 证据关键词承载;数量下限保住"这不是空面自证"。
+  const evHit = (r, re) => {
+    const ev = Array.isArray(r.evidence) ? r.evidence : [r.evidence]
+    return ev.some((e) => re.test(String(e)))
+  }
+  const anyAt = (f, verdict, re) =>
+    HR.some((r) => r.file.endsWith(f) && r.verdict === verdict && (!re || evHit(r, re)))
+  const countAt = (f, verdict, re) => HR.filter((r) => r.file.endsWith(f) && r.verdict === verdict && evHit(r, re)).length
+  t('真仓①: command_streamer.py 存在穷尽式 async for 的 passed 判定', anyAt('command_streamer.py', 'passed'))
+  t('真仓①b: message_history.py 存在"唯一生产消费是 list(...)"的 passed 判定', anyAt('message_history.py', 'passed'))
+  t('真仓②: openai_provider.py 仍被判 violation(有提前退出的消费)', anyAt('openai_provider.py', 'violation'))
+  t('真仓④: routers/agents.py 框架 sink ⇒ 未判定且逐条点名(现读 ≥3 处)', countAt('routers/agents.py', 'undetermined', /sink/) >= 3)
+  t('真仓⑤: rollout_archive.py 存在未判定而非 violation 的站点(仅 docstring/__all__ 命中)', anyAt('rollout_archive.py', 'undetermined'))
   // 定级与判读
   t('默认档不因存量判红', decide({ counts: { passed: 1, violation: 5, undetermined: 2 }, strict: false, enumerated: true }) === 0)
   t('--strict 下 violation 判红', decide({ counts: { passed: 1, violation: 5, undetermined: 2 }, strict: true, enumerated: true }) === 1)

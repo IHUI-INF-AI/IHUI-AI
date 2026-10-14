@@ -77,42 +77,6 @@ function stubSpawnDefault(): void {
     return child;
   });
 }
-import { EventEmitter } from 'node:events';
-
-type FakeChild = EventEmitter & {
-  stdout: EventEmitter & { setEncoding: (e: string) => void; destroy: () => void };
-  stderr: EventEmitter & { setEncoding: (e: string) => void; destroy: () => void };
-  kill: () => boolean;
-  pid: number;
-};
-
-/** 假 ChildProcess:异步执行面(runCommandHookAsync/runWebhookAsync)挂事件用;close 微任务后到 */
-function fakeChild(): FakeChild {
-  const child = new EventEmitter() as FakeChild;
-  const mkStream = (): FakeChild['stdout'] => {
-    const s = new EventEmitter() as FakeChild['stdout'];
-    s.setEncoding = () => undefined;
-    s.destroy = () => undefined;
-    return s;
-  };
-  child.stdout = mkStream();
-  child.stderr = mkStream();
-  child.kill = () => true;
-  child.pid = 424242;
-  return child;
-}
-
-/** 默认派发剧本:正常退出 0;webhook 形态另带 200 响应 stdout(command 形态多出的 stdout 无害) */
-function stubSpawnDefault(): void {
-  spawnMock.mockImplementation(() => {
-    const child = fakeChild();
-    queueMicrotask(() => {
-      child.stdout.emit('data', '{"kind":"response","status":200,"body":"ok"}');
-      child.emit('close', 0);
-    });
-    return child;
-  });
-}
 
 const NOT_TRUSTED = {
   allowed: false,

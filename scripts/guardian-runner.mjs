@@ -1025,18 +1025,8 @@ const checks = [
   //   留空占位:不重新分配 id,避免历史 commit log / AGENTS.md §22 引用断裂。
 
   // --- 34 (2026-07-26 新增,@ts-ignore 新增检测,防历史遗留复发) ---
-  // G-815990(2026-10-07)warn → **blocking**。升档前置已现读兑现:本门只判 staged **新增**的
-  //   裸 @ts-ignore / @ts-nocheck 共 215 处,历史遗留已于 2026-07-26 批次清零 ⇒ 升档不造恒红门。
-  //   ⚠️ 这一段散文里出现过字面量 `@ts-ignore`,若把它排到行首(注释正文以该指令开头),
-  //   eslint 的 ban-ts-comment 会把**这句说明**当成真指令判红 —— 2026-10-10 实测:
-  //   同段里以「---」或「原」开头的两行都不报,只有以该 token 开头的这一行报,闸因此长期误红。
-  //   原 warn 期理由("@ts-ignore 有时是合理压制")的正规出口:确需压制时,该文件对应规则的
-  //   覆盖已永久归零,由守门 103 的 DC 判据(裸 lint 抑制增长,锚点 = 该文件 HEAD 自身存量)
-  //   与策略表 exceptions(带 until)问责 —— 行内压制不再有免检通道。
-  // 跳过白名单:e2e/ 目录(@playwright/test 类型解析场景)、node_modules/ / dist/ / .next/ / build/。
-  // 失败含义:staged 文件中新增 @ts-ignore / @ts-nocheck 注释,需审视是否真的需要。
-  // id 说明:任务原话"第 31 项"但 id '31' 已被 AuthShell 占用(同日 2026-07-26 新增),
-  //   故用 id '34'(33 LLM provider 之后的下一个可用编号)。
+  // id '34'(@ts-ignore/@ts-nocheck 增长):定级/成因散文已整段逐字归档到 `.ihui-agent/archive/guardian-runner-comments-pre-6000-2026-10-14.md`(2026-10-15 二次腾行,守门 103 C1 单文件 6000 行上限;
+  // 机主拍板出路 = 归档注释腾行,不调阈值不拆注册表)。升档史与 id 占号说明。
   {
     id: '34',
     label: '🔍 @ts-ignore 新增检测(blocking:存量已清零,只拦 staged 新增)',
@@ -1053,18 +1043,8 @@ const checks = [
   },
 
   // --- 33 (2026-07-26 新增,LLM provider 字典化阶段 3 主体 blocking 守门) ---
-  // blocking:阶段 3 主体已落地(2026-07-26),扁平字段已从 config.py 删除,
-  //   LLM_PROVIDERS JSON 是唯一配置源,守门必须 blocking 防止 .env 配置错误导致运行时崩。
-  //   详见 docs/llm-provider-stage3-changelog.md §3.2 步骤 3.4。
-  // 校验 apps/ai-service/.env 的 LLM_PROVIDERS 字段是否符合
-  //   ProviderConfig schema(apps/ai-service/app/core/provider_config.py),
-  //   提前发现 JSON 格式错 / 字段类型错 / 未知 provider,避免运行时 Pydantic ValidationError。
-  // 校验规则(7 条):JSON 解析 / 顶层对象 / 31 个 provider 白名单 / 字段类型 / 未知字段 / 空值 / 重复。
-  //   白名单条数不在此写死(曾写"31 个"已漂成实际 39):名单与条数唯一真源是
-  //   scripts/check-llm-provider-schema.mjs 的 PROVIDER_WHITELIST,改名单只改那一个文件。
-  // 失败含义:用户 .env 中 LLM_PROVIDERS JSON 字段不符合 schema,ai-service 启动后会运行时崩。
-  // 已有依赖:scripts/check-llm-provider-schema.mjs(2026-07-26),3 退出码(0/1/2)。
-  // 注意:LLM_PROVIDERS 为空是合法的(降级 stub 模式),info 不阻塞。
+  // LLM_PROVIDERS schema 对账门:定级/成因散文已整段逐字归档到 `.ihui-agent/archive/guardian-runner-comments-pre-6000-2026-10-14.md`(2026-10-15 二次腾行,守门 103 C1 单文件 6000 行上限;
+  // 机主拍板出路 = 归档注释腾行,不调阈值不拆注册表)。阶段 3 定级史与校验规则复述。
   {
     id: '33',
     label: '🛡️  LLM provider schema 守门 (blocking,阶段 3 主体已落地)',
@@ -1321,20 +1301,8 @@ const checks = [
   },
 
   // --- 53 (2026-09-21 新增 warn 级起步;2026-09-23 O13b④ 升 blocking) ---
-  // 当初 warn-only 的理由:存量 34 文件/74 处裸 roleId 比较刚完成一次性白名单登记,白名单
-  //   口径与 --staged 判据需先观察一轮误报率;存量清零或稳定后再升。
-  // 现在可升,两个前置都已完成:
-  //   ① O13b 第二段 ①②③⑤ 已落地(34 文件白名单收敛到 8 文件/12 处,集中封装
-  //      plugins/require-permission.ts 的 requireAdminRouteGuard 亦收编了 admin.ts 的 preHandler);
-  //   ② 判据缺口已补 —— `if (roleId < 1)` 这一种文本形态同时是"特权判定"(读 jwtPayload → 403)
-  //      和"入参校验"(读 request.query/body → 400 'roleId 无效',如 role-routes.ts 五处),
-  //      两者逐字符几乎相同。warn 期无所谓,升 blocking 后任何新写的 roleId 入参校验都会
-  //      被永久锁成红点。已按**来源回溯**排除后者(AUTH 证据优先、回溯不出即判红、属性访问
-  //      不进排除通道 ⇒ 宁不误放),全量实测 17 → 12 处,排除 5 处入参校验、零真鉴权被误放。
-  // 判据:裸 roleId 数值比较(集中封装之外)条数只减不增;本地重定义 requireAdmin 禁止回升;
-  //   capability-catalog dataClass=platform 条目 thirdPartyEligible 必须为 false(机器凭据 403 不变量)。
-  //   详见脚本头注释与 docs/developer/admin-permission-mapping.md。
-  // 跳过方法:HUSKY_SKIP_ADMIN_GATE_GUARD=1 git commit ...(应急,不建议)
+  // id '53'(admin gate 一致性):定级/成因散文已整段逐字归档到 `.ihui-agent/archive/guardian-runner-comments-pre-6000-2026-10-14.md`(2026-10-15 二次腾行,守门 103 C1 单文件 6000 行上限;
+  // 机主拍板出路 = 归档注释腾行,不调阈值不拆注册表)。warn→blocking 的两个前置取证叙述。
   {
     id: '53',
     label: '🛡️  admin 面特权判定一致性(blocking,O13b roleId>=1 收敛)',
@@ -2282,22 +2250,8 @@ const checks = [
     ].join('\n'),
   },
 
-  // 品牌邮件通道对账(2026-09-23 立,守门 81)。成因:邮件"版式模板"只存在于
-  // apps/api/src/services/email-templates.ts,但 ops 侧曾有第二条绕过模板的自发通道 ——
-  // deploy/win/ihui-deploy.ps1 的 Send-EmailNotify 自拼传输层(Send-MailMessage 无 -BodyAsHtml、
-  // Resend payload 只有 text)。这类代码"能发出去、typecheck/lint 全绿",用户收到的邮件却没样式,
-  // 与守门 72/78 同族("本地全绿也发现不了")。判据:R1 PS Send-MailMessage 缺 -BodyAsHtml /
-  // R2 api.resend.com/emails 同一发送上下文无 html 字段(覆盖 host+path 分行形态)/ R3 ops 脚本
-  // 有发信动作(createTransport/sendMail/api.resend.com)却不引用 email-templates /
-  // notify-deploy-failure。范围 deploy/** + scripts/**(不含 tests)+ workflows *.yml;
-  // 行内豁免 brand-mail-exempt:,存量走 scripts/brand-email-channel-baseline.json 只减不增
-  // (建门实测:ihui-deploy.ps1 已被并行会话清干净,仅 check-credential-health.mjs 这条
-  // "第三条纯文本通道"入基线待迁移 —— **2026-09-24 已迁至品牌出口,基线 counts 现为空**)。
-  // --staged 暂存集为空/取不到 → 退化全量(守门 70 教训)。
-  // **范围与 stagedTriggers 必须同步扩**(2026-09-24 补,本条目曾被并发整文件提交回退过一次,
-  // 由 scripts/tests/check-brand-email-channel.test.mjs 的"装车证明"抓回):判据已扫到
-  // monitoring/** 与 apps/api/scripts/**,若触发清单不跟上,则**只改 bridge 的提交在 pre-commit
-  // 根本不会唤起本门** —— 判据存在而永不调用,等于没有(守门 70/76 同型)。
+  // id '81'(品牌邮件通道对账):定级/成因散文已整段逐字归档到 `.ihui-agent/archive/guardian-runner-comments-pre-6000-2026-10-14.md`(2026-10-15 二次腾行,守门 103 C1 单文件 6000 行上限;
+  // 机主拍板出路 = 归档注释腾行,不调阈值不拆注册表)。立因叙述与"范围与 stagedTriggers 必须同步扩"。
   {
     id: '81',
     label: '📧 品牌邮件通道对账(blocking,拦绕过 email-templates 的纯文本自发通道)',
@@ -2561,23 +2515,7 @@ const checks = [
     ].join('\n'),
   },
 
-  // 家目录改道完整性(2026-09-24 立,守门 96,blocking)。§26 把"工具态一律 junction 改道"写了
-  // 一年多,但校验方法一直是**给人敲的三条命令** ⇒ 人肉校验等于没有校验:用户质问
-  // "C 盘怎么还是被我们占用了"时实测 `AppData\Roaming\npm` 已长成 2.05GB、
-  // `AppData\Local\pnpm-cache` 758MB,两处都是实体目录(同期已改道的 .ihui / 桌面端 appdata
-  // 仍是 junction ⇒ 机制有效,缺的只是回潮哨兵)。判据三条:登记项存在却不是指针 = REAL-DIR 红;
-  // 是指针但目标不可达 = DANGLING 红(§26 记过 robocopy rc=9 会"内容搬走却不建 junction");
-  // 登记表被过滤空 = EMPTY-REGISTRY 红(空表即恒绿假门)。非 Windows 如实报"未判定",不计通过。
-  // **刻意不收录第三方 IDE 自管态**(.workbuddy 含被 gitdir.mjs 当 git 二进制首选的 PortableGit、
-  // .qoder-cn 是本会话宿主的记忆/工作区)—— 否则会把别人的运行态判成我们的债,挪一次丢一次记忆。
-  // **2026-09-24 落点改判 warn(用户授权)**:本门判的是**机器态**,与任何 diff 无关 —— 实测
-  // `Get-Item -Force` 的 LinkType 为空、无 ReparsePoint,`.codex` 583MB / `.trae-cn` 371MB / `.ihui`
-  // / npm 前缀等 11 项确实回潮成实体目录(C 盘实体合计 4990MB)。判据没错,错的是落点:提交者改不动
-  // 机器态 ⇒ **每次提交必红** ⇒ 唯一出路是 --no-verify,连带把另外 126 道门一起跳掉(同日实证:
-  // 本门红着的那轮守门批量检查以 4/127 红收场,而提交照样落地)。恒红 blocking 门 = 全队关闸。
-  // 三条判据一字未削,每次提交仍打红字(不静默);非提交入口:`pnpm check:home-junctions [--json]`。
-  // 真做 §26 改道属机器级动作(要先停正在写这些目录的 IDE/CLI;robocopy 非零返回码会"内容搬走却
-  // 不建 junction"→ 路径消失),由人放到部署窗口做,不由提交链逼出来。
+  // 96 check-home-junction-integrity.mjs 的立门因由/事故史/定级史逐字归档:.ihui-agent/archive/guardian-runner-comments-pre-6000-2026-10-15.md#b1(§1 两步归档;C1 上限腾行,判据字段一字未动)
   {
     id: '96',
     label: '🏠 §26 家目录改道完整性(warn,机器态与 diff 无关 ⇒ 不拦提交链,回潮即打红字)',
@@ -2762,7 +2700,7 @@ const checks = [
       '            (行尾字符箭头存量 70 处只报数不拦,免得逼人 --no-verify 连带废掉全部门)。',
       '     行内豁免:glyph-arrow-exempt: <一句话原因>(须带原因,逐行生效)。',
       '     单独复验:node scripts/check-glyph-arrow-icon.mjs --staged',
-      '     自检:node scripts/check-glyph-arrow-icon.mjs --self-test(45 例,含阳性对照与棘轮四向)',
+      '     自检:node scripts/check-glyph-arrow-icon.mjs --self-test(例数以其末行现读为准,不在本文钉数;含阳性对照与棘轮四向)',
       '     镜像测试:node --test scripts/tests/check-glyph-arrow-icon.test.mjs(13 例,含装车证明)',
       '     紧急跳过(不推荐):HUSKY_SKIP_GLYPH_ARROW_ICON=1 git commit ...',
       '',
@@ -4149,6 +4087,32 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 🔐 CSRF 豁免形状对账(blocking,存在性唯一条件放行/验真出口摘线/timingSafeEqual 单源三判据)---
+  {
+    id: '209',
+    label:
+      '🔐 CSRF 豁免形状对账(blocking,存在性唯一条件放行/验真出口摘线/timingSafeEqual 单源三判据)',
+    script: 'check-csrf-exemption-shape.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CSRF_EXEMPTION_SHAPE',
+    stagedTriggers: ['apps/api/src'],
+    onFailHint: [
+      '',
+      '  💡 本门钉的形态:apps/api/src 的 CSRF 豁免决策面(文件名含 csrf / 代码面引用验真出口族 / 注册 preHandler|onRequest 钩子且代码面提 csrf)里——',
+      '     ① 以某 header/env 键的存在性为唯一条件即放行 ⇒ 红;正当形态只有调用 isVerified* 出口,或行内 csrf-exempt: <原因>(本族)/ credential-presence-exempt: <原因>(守门 157 族,防两道门互咬);裸标记无原因不放过。',
+      '     ② 验真出口被摘线(无人调用或 export 不见)⇒ 判"没有出路"并参与退出码。',
+      '     ③ timingSafeEqual 只许 secretsEqual 一份,再出现第二处即红(站点键不含行号,插入行不假红)。',
+      '     与 157/108 的分界(门体头注已写明):157/108 只审站点不问出口死活,且 157 的 VERIFIED_RE 反把 timingSafeEqual 当"已验真"信号放过——本门补的正是这两格,不是重复立项。',
+      '     三态不可混:命中(判红;存量按该文件 HEAD 自身计数只报数)/ 放过(验真出口或带原因豁免)/ 判不出(--strict 下未判定即 exit 2,拒绝出合格证)。timingSafeEqual 现读存量 48 处/20 文件,按 §12f 走首锚差值棘轮:只拦新增、只减不增。',
+      '     ① 看清单:node scripts/check-csrf-exemption-shape.mjs [--json|--staged|--strict]',
+      '     ② 自检:node scripts/check-csrf-exemption-shape.mjs --self-test',
+      '     ③ 镜像:node --test scripts/tests/check-csrf-exemption-shape.test.mjs',
+      '     紧急跳过(不推荐):HUSKY_SKIP_CSRF_EXEMPTION_SHAPE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- 图源池与境外图片 URL 对账(1 项,blocking)---
   {
     id: '159',
@@ -4927,9 +4891,28 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- 号池对账(G-313 续,2026-10-15 立):机主裁定任务号池 1..999,该硬上限原先只写在发号器里,活面无门拦"声明位号 >999"⇒ 本会话绕开发号器用 usedIdsOfPrefix max+1 发出过两条七位号(已让号)。升 blocking 前置 = HEAD 面存量归零(§12e)。(1 项,warn)---
+  // --- 行切分口径对账(1 项,warn)---
   {
-    id: '209',
+    id: '210',
+    label:
+      '📐 TS/Python 行切分口径逐例同值对账(warn;§0.9 造好没装车那一格)',
+    script: 'check-line-split-parity.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_LINE_SPLIT_PARITY',
+    onFailHint: [
+      '',
+      '  尺子 scripts/check-line-split-parity.mjs 早在库,现读「P1 行切分 22 例 / P2 改动行 32 例 | 漂移 0 / 未判定 0 ✅ 两侧逐例同值」,',
+      '  但提交链/CI 注册点逐处 grep 命中 0 ⇒ "复刻 llm.py 口径"只在有人手动跑时才成立(§0.9)。本次以 warn 接入:三态同值/漂移/未判定绝不并桶,',
+      '  取不到对照解释器 exit 2 拒绝出具合格证(现走仓内 apps/ai-service/.venv,不猜 PATH 上的 python)。',
+      '  升 blocking 的前置(§12e):先给 CI 一条能稳定取到对照解释器的通道,否则在无 venv 的机器上会把每次提交顶成"未判定"。',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 号池对账(G-313 续,2026-10-15 立):机主裁定任务号池 1..999,该硬上限原先只写在发号器里,活面无门拦"声明位号 >999"⇒ 绕开发号器用 usedIdsOfPrefix max+1 发出过两条七位号(已让号)。升 blocking 前置 = HEAD 面存量归零(§12e);2026-10-15 复注:原 209 号注册块被 80bfe30520 覆盖掉,现由正牌插入器重新占号(1 项,warn)---
+  {
+    id: '211',
     label:
       '🧮 PROJECT_PLAN 号池对账(声明位号 >999 按重数差值棘轮;R2 发号路径点名,warn)',
     script: 'check-plan-id-pool.mjs',
