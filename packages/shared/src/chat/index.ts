@@ -108,6 +108,9 @@ export * from './cloud-chat-ops'
 // 与 D71 turn-status 正交(turn 阶段/负载等待两维度);isInducementRisk 对齐 D67 口径;
 // 数据面 model_queue 帧归 D34 批次,帧落地前渲染件恒 null 不用假数据占位)
 export * from './model-load'
+// D64⑤ 元素包历史落库契约(子代理帧族随轮次持久化 + metadata.elementPack 读回守卫);
+// 写侧收窄与读侧守卫的唯一实现,api 网关/worker 与三端回放共用,判据见 element-pack-history.ts
+export * from './element-pack-history'
 // D153b / D154 per-user 广播的跨端消费层(会话元数据账本 + MCP 连接状态账本 + 状态行取词):
 // 小程序端与 App(RN)端共用这一份实现,端内只留平台 adapter(取 token / WS 工厂 / 提示出口)。
 // 判据只吃 @ihui/types 的判别联合,本层不声明任何事件名清单 —— 名单抄进端内就是第二份真相。
