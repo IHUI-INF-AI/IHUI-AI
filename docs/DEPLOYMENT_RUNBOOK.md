@@ -345,6 +345,46 @@ npx wscat -s "ws://127.0.0.1:8802/ws/chat?token=<JWT>"               # 需 JWT
 redis-cli -a $REDIS_PASSWORD PSUBSCRIBE '*'
 ```
 
+### 10.5 App 提示「网络较慢」(公网高 TTFB,2026-10-14 诊断立档)
+
+**症状**:手机 App 顶部琥珀横幅「网络较慢」(慢网 ≠ 断网);公网 `https://api.aizhs.top/api/health` TTFB 1.5–4.4s。**服务端无故障**:handler 零 I/O、纯内存返回(`apps/api/src/routes/health.ts:24-31`),SLA 口径 P99 100ms 已含代理;延迟 ~99% 花在**链路**上。
+
+**链路分段画像**(真机 Redmi 5G + 本机双向实测):
+
+| 段 | 实测 | 性质 |
+|---|---|---|
+| 手机(移动 5G)→ CF anycast 边缘 | ICMP RTT min/avg/max = 353/493/586ms | 物理下限,不可消除 |
+| TLS 握手 | 单独 0.8s(≈1.6 RTT) | 跨境 RTT + QUIC 重传叠加 |
+| 请求/响应全程 TTFB | 1.5–4.4s,长尾 6.37s | 见下方根因① |
+| CF 边缘 → cloudflared → 源站 8802 | TLS 后仍 +0.7–0.9s | 根因①主战场 |
+| Fastify handler | 1–5ms(本机 PG 0.3–2ms) | 非瓶颈 |
+
+**根因①(可修,主因):cloudflared 传输协议为默认 QUIC。** 国内运营商对跨境 UDP 的 QoS 远差于 TCP;仓内 2026-08-05 既有读数「http2 比 quic 公网 TTFB 快约 2 倍」(`deploy/scripts/prod-bundle/health-check-bare.ps1:156`),且该健康检查第 10 项**长期因服务未带 `--protocol http2` 而 WARN** —— 但安装端(`deploy/scripts/prod-bundle/cloudflared/install-service-windows.ps1`)与启动端(`scripts/start-cloudflared-tunnel.ps1`)此前都不写协议参数,守门只能干喊。2026-10-14 起两处已从源头固化 `--protocol http2`。
+
+**生产机现存服务切换(免重装,注册表直改 + 重启;切换窗口期内经 Tunnel 的全站流量会断,约数十秒):**
+
+```powershell
+# 1. 看当前协议(期望输出含 --protocol http2)
+(Get-CimInstance Win32_Service -Filter "Name='Cloudflared'").PathName
+
+# 2. 切换 http2(把 <TOKEN> 换成 CF Zero Trust 隧道 token;或用仓内安装脚本免 token:
+#    & 'C:\Program Files (x86)\cloudflared\cloudflared.exe' service uninstall
+#    & 'C:\Program Files (x86)\cloudflared\cloudflared.exe' service install <TOKEN> --protocol http2)
+$cf = 'C:\Program Files (x86)\cloudflared\cloudflared.exe'
+$tok = '<TOKEN>'
+sc.exe config Cloudflared binPath= "`"$cf`" service run $tok --protocol http2"
+Restart-Service Cloudflared
+(Get-CimInstance Win32_Service -Filter "Name='Cloudflared'").PathName   # 复核已生效
+
+# 3. 回滚(确认 http2 反而更慢时):去掉 --protocol http2 改回默认 QUIC 后同样重启
+```
+
+**验证**:重跑 `deploy/scripts/prod-bundle/health-check-bare.ps1` 第 10 项转 PASS;公网复测 TTFB 应显著回落(仓内旧读数预期减半);App 横幅随之消失。
+
+**根因②(物理下限,不可修,只能校准阈值):** 手机→CF 边缘 RTT ~493ms,一次 HTTPS 探针需 TCP 1 RTT + TLS 1–2 RTT + 请求 1 RTT ≈ 4 RTT ≈ 2s 起步(`apps/mobile-rn/src/lib/network-probe.ts:30-35` 同源注释)。而慢网阈值 `slowLatencyMs = 1500ms`(`packages/shared/src/utils/connectivity.ts:66-72`)低于该物理下限 ⇒ 即使链路最优,横幅也可能常态化亮起。**是否上调阈值属产品判据,需机主拍板**(建议区间 2500–3000ms);在拍板前不建议为"消横幅"调参,那会掩盖真实的劣化。
+
+**根因③(远期,需预算):** CF 边缘→源站段走公网绕行。Cloudflare Argo Smart Routing(付费订阅)可让该段走 CF 优化骨干;另 `api.aizhs.top` 未接入 img 子域同款「优选 IP」机制(`deploy/cf-preferred-ip.mjs` 仅支持 A 记录,Tunnel 的 CNAME 形态不适用),二者均为结构性改进,记录备选。
+
 ### 10.5 AI Service 不可达
 
 **症状**:`/api/health/ready` 返回 `checks.aiService.status = "unreachable"`,聊天 / Crew 不可用。**注**:全部 provider key 为空时,ai-service 降级 stub 模式(返回模拟响应)。
