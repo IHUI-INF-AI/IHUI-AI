@@ -379,6 +379,7 @@ export function MessageInput({
   // - 危险命令检测(DANGEROUS_PATTERN_KEY)随同迁移,主组件不再持有
   const {
     isDragOver,
+    reportAttachmentRejections,
     handleDragOver,
     handleDragLeave,
     handleDrop,
@@ -1202,8 +1203,14 @@ export function MessageInput({
                 onVoiceRecordComplete={(blob) => {
                   // 语音录制完成(2026-09-14 接线 VoiceRecord):Blob 转 File 走统一附件引用链路,
                   // 上传/入列/移除全部复用既有附件 chip 体系,误录可在引用区删除
+                  // G-863(2026-10-13):拒绝接同一汇总出口 —— 原实现忽略 addFileReference
+                  // 返回值,容量满时静默失败还 toast"已添加";现被拒走三档聚合提示,成功才报。
                   const file = new File([blob], `voice-${Date.now()}.webm`, { type: 'audio/webm' })
-                  addFileReference(file)
+                  const rejections = addFileReference(file)
+                  if (rejections.length > 0) {
+                    reportAttachmentRejections(rejections)
+                    return
+                  }
                   toast(t('voiceRecord.added'))
                 }}
                 onAddTextReference={() => {

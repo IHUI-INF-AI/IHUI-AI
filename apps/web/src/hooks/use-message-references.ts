@@ -113,7 +113,11 @@ function isAttachmentTypeAllowed(file: File): boolean {
   return UPLOADABLE_EXTENSIONS.has(ext)
 }
 
-function pushRejection(rejections: AttachmentRejection[], code: AttachmentRejectCode, name: string) {
+function pushRejection(
+  rejections: AttachmentRejection[],
+  code: AttachmentRejectCode,
+  name: string,
+) {
   const hit = rejections.find((r) => r.code === code)
   if (hit) hit.fileNames.push(name)
   else rejections.push({ code, fileNames: [name] })
@@ -297,9 +301,7 @@ export function useMessageReferences(): {
       }
       setReferences((prev) =>
         prev.map((r) =>
-          r.id === id
-            ? { ...r, uploadState: 'uploading' as const, retryCount: count + 1 }
-            : r,
+          r.id === id ? { ...r, uploadState: 'uploading' as const, retryCount: count + 1 } : r,
         ),
       )
       uploadRef(id, file)
@@ -314,24 +316,28 @@ export function useMessageReferences(): {
   )
 
   /** G-833:批量添加 —— 三档校验一次过;数量超额时仍收前 capacity 个并回报被拒名单。
-   *  同帧多次调用以本地累计计数兜容量,避免 setState 异步导致超额文件钻空。 */
-  const countedBatchRef = React.useRef(0)
+   *  同帧多次调用以本地累计计数兜容量,避免 setState 异步导致超额文件钻空。
+   *  G-863(2026-10-13):归零时机从微任务改为渲染后 effect —— 微任务归零在
+   *  "React 重渲染前"留有空窗(refsRef 仍是旧快照),同帧跨批(批间隔一个 await)
+   *  各 25 个会双收 50>30;pendingCommitRef 语义为"已提交但 refsRef 尚未反映"的
+   *  未落账量,effect 在 refsRef 同步为真实计数后才清账,空窗闭合。 */
+  const pendingCommitRef = React.useRef(0)
   const addFileReferences = React.useCallback(
     (files: readonly File[]): AttachmentRejection[] => {
       const { accepted, rejections } = screenAttachmentFiles(
         files,
-        refsRef.current.length + countedBatchRef.current,
+        refsRef.current.length + pendingCommitRef.current,
       )
-      countedBatchRef.current += accepted.length
+      pendingCommitRef.current += accepted.length
       accepted.forEach((f) => commitFileReference(f))
-      // 微任务后归零:refsRef 将在下一渲染同步为真实计数,跨帧调用不重复占容
-      queueMicrotask(() => {
-        countedBatchRef.current = 0
-      })
       return rejections
     },
     [commitFileReference],
   )
+  // 渲染后 refsRef.current 已同步为真实计数(函数体里逐渲染赋值),未落账部分清零
+  React.useEffect(() => {
+    pendingCommitRef.current = 0
+  })
 
   /** G-833:单文件入口 = 批量为 1 的特例;返回值给忽略它的旧调用方(void 兼容)无影响 */
   const addFileReference = React.useCallback(
