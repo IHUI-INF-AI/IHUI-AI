@@ -164,6 +164,28 @@ const UNREACHABLE_COMMIT_LINE_RE = /^unreachable commit\s+/
  *    之前的全量语义。它是变异自证的对照组,也是人工回看存量时的入口,不是应急跳门通道。
  */
 const WINDOW_DAYS_DEFAULT = 30
+
+/**
+ * L11052 / G-1080898(2026-10-14 拍板):超 30 天窗悬空对象存量水位基线。
+ * 决策 = 不 GC(§29 禁自动批量删);本基线把拍板日的存量读数记为账面水位,
+ * 此后超窗报数行再出现非零读数即「超基线」点名上报(只报数,不新增判红)。
+ * 拍板日现读:超窗存量 0 枚(票面 9785 枚已被 lost-commit/* + backup/* tag 备份链清空)。
+ */
+const DANGLING_STOCK_BASELINE = Object.freeze({
+  ticket: 'G-1080898',
+  decided: '2026-10-14',
+  policy: 'no-auto-gc',
+  count: 0,
+  oldest: '',
+})
+
+/**
+ * L11052:基线对照纯函数。超基线 = 现读 > 基线 count。
+ * 返回 'under' | 'over';基线语义只在超窗报数行出现时对照,不改 exit code。
+ */
+function baselineVerdict(currentCount) {
+  return currentCount > DANGLING_STOCK_BASELINE.count ? 'over' : 'under'
+}
 const WINDOW_DAYS_ENV = 'IHUI_COMMIT_LOSS_WINDOW_DAYS'
 /** 一次 `git log --no-walk` 传多少 oid:400 × 41 字符 ≈ 16.5 KB,稳在 Windows argv 上限内。 */
 const DATE_WALK_BATCH = 400
@@ -1424,6 +1446,16 @@ async function main() {
             `${oldest.hash.slice(0, SHORT_HASH_LEN)})—— 按 AGENTS.md §29 属人工 GC 存量;` +
             `问责跑 --strict,全量档跑 --window-days 0${C.reset}`,
         )
+        // L11052(2026-10-14 拍板 no-auto-gc):存量水位基线对照——超基线只黄色报数,不判红、不删对象。
+        const verdict = baselineVerdict(win.outOfWeek.length)
+        const verdictText =
+          verdict === 'over'
+            ? `${C.yellow}超基线(+${win.outOfWeek.length - DANGLING_STOCK_BASELINE.count} 枚)${C.reset}`
+            : `${C.dim}未超基线${C.reset}`
+        console.log(
+          `  ${C.dim}↳ §29 存量基线对照(G-1080898,${DANGLING_STOCK_BASELINE.decided} 拍板 ${DANGLING_STOCK_BASELINE.policy}):` +
+            `基线 ${DANGLING_STOCK_BASELINE.count} 枚/最老 (${DANGLING_STOCK_BASELINE.oldest || '无'}) ⇒ 本次现读 ${win.outOfWeek.length} 枚,${verdictText}${C.reset}`,
+        )
       }
       if (win.blocking.length > 0) {
         issues.push(
@@ -1647,6 +1679,9 @@ export const __test__ = {
   WINDOW_DAYS_DEFAULT,
   WINDOW_DAYS_ENV,
   WINDOW_DAYS_FLAG,
+  // L11052 存量水位基线(2026-10-14 拍板 no-auto-gc)
+  DANGLING_STOCK_BASELINE,
+  baselineVerdict,
   DATE_WALK_BATCH,
   parseCommitterDateLines,
   resolveWindowDays,
