@@ -36,6 +36,8 @@ import { mkdirSync, rmdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+// 包管理器执行器判据单源(与 desktop-dev-saas.mjs 共用,不得各抄一份)
+import { planPackageManagerSpawn } from './lib/npm-execpath.mjs'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -61,15 +63,9 @@ const UNSIGNED_CONFIG_CONTENT = `${JSON.stringify({ bundle: { createUpdaterArtif
  * @returns {{cmd: string, args: string[], shell: boolean, configPath: string|null, tail: {cmd: string, args: string[]}|null}}
  */
 function buildPlan({ npmExecpath, execPath, root, allowUnsigned }) {
-  // ⚠ npm_execpath **不保证是 JS 入口**:pnpm 11/Windows 下它是 `pnpm.exe` 本体路径,
-  // 交给 execPath(node)当模块加载会直接 `ERR_UNKNOWN_FILE_EXTENSION ".exe"`。
-  // 同一假设已于 2026-10-14 在 desktop-dev-saas.mjs 上实测炸掉整条 dev 入口(6160e47bb1 修),
-  // 本函数字形相同 ⇒ 不修则 `pnpm build:desktop:saas` 发版入口同型失效。
-  // 只有确认是 .c?js 时(如 npm 的 npm-cli.js)才走 node 直载;其余回落 shell 解析裸 `pnpm`。
-  const execpathIsJs = !!npmExecpath && /\.[cm]?js$/i.test(npmExecpath)
-  const cmd = execpathIsJs ? execPath : 'pnpm'
-  const prefix = execpathIsJs ? [npmExecpath] : []
-  const shell = !execpathIsJs
+  // 判据单源在 scripts/lib/npm-execpath.mjs(与 desktop-dev-saas.mjs 共用同一份,
+  // 不在此抄第二份 —— AGENTS.md §0.6;该判定曾各自独立抄在两处并同时打断两条入口)。
+  const { cmd, prefix, shell } = planPackageManagerSpawn(npmExecpath, execPath)
   if (!allowUnsigned) {
     return { cmd, args: [...prefix, '--filter', '@ihui/desktop', 'build'], shell, configPath: null, tail: null }
   }
