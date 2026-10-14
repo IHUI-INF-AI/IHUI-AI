@@ -29,6 +29,9 @@ import type {
   ToolCallView,
 } from './cards/types'
 import { backfillSteerNoticesFromMetadata } from './cards/types'
+// D64 端内历史回放:metadata.elementPack(assistant 消息落库的元素包帧)读回守卫
+// 与帧→八态卡重放(重放走 cards/types.ts 的流式归并函数,与直播同一份收敛逻辑)
+import { readSubagentTasksFromMetadata } from './cards/element-pack-history'
 
 /** 回放结果:成功携带可直接渲染的消息;失败携带原因(调用方必须给出可见反馈) */
 export type ReplayOutcome =
@@ -213,7 +216,13 @@ export function mapServerMessage(m: ConversationMessage): ChatMessage | null {
   const terminalTasks = readTerminalTasks(meta?.terminalTasks)
   const injections = readInjections(meta?.injections)
   const citations = readCitations(meta?.citations)
-  const hasCards = !!planSteps || !!toolCalls || !!terminalTasks || !!injections || !!citations
+  // D64 端内历史回放:metadata.elementPack.frames 重放成八态子任务卡。
+  // 直播态由 SSE 三帧聚合进 aiCards.subagentTasks(随消息持久化);历史态在这里
+  // 从 metadata 读回重放 —— 帧落库序喂给同一套流式归并函数,回放结果与直播一致。
+  // 空数组不挂键(与落库侧「空不写键」同一纪律),不渲染空态。
+  const subagentTasks = readSubagentTasksFromMetadata(meta)
+  const hasCards =
+    !!planSteps || !!toolCalls || !!terminalTasks || !!injections || !!citations || !!subagentTasks
 
   const out: ChatMessage = {
     role: m.role,
@@ -233,6 +242,7 @@ export function mapServerMessage(m: ConversationMessage): ChatMessage | null {
             terminalTasks: terminalTasks ?? [],
             injections: injections ?? [],
             citations: citations ?? [],
+            ...(subagentTasks?.length ? { subagentTasks } : {}),
           } satisfies AICardsData,
         }
       : {}),
