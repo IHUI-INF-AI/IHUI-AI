@@ -487,6 +487,7 @@ export function planStateRegressions(mergedText, sideTexts, accepted = null, not
     let byPlaceholder = 0
     let byOwnShrink = 0
     let byDupPointer = 0
+    let byVerbatimCopies = 0
     const unexplained = []
     for (const l of universe) {
       const occ = occOf(l)
