@@ -7499,7 +7499,7 @@
         },
         "discount": {
           "active": "低峰折扣进行中",
-          "upcoming": "{{time}}后进入低峰折扣"
+          "upcoming": "{time}后进入低峰折扣"
         },
         "duration": {
           "hour": "小时",
@@ -8947,7 +8947,12 @@
       "targetPlaceholder": "如:重点高中、985大学"
     },
     "options": {
-      "classLevel": ["优秀(班级前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(后 30%)"],
+      "classLevel": [
+        "优秀(班级前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(后 30%)"
+      ],
       "difficulty": [
         "语文阅读理解",
         "英语听力口语",
@@ -8964,7 +8969,12 @@
         "考试焦虑",
         "家庭环境影响"
       ],
-      "school": ["重点中学", "普通中学", "国际学校", "私立学校"]
+      "school": [
+        "重点中学",
+        "普通中学",
+        "国际学校",
+        "私立学校"
+      ]
     },
     "result": {
       "failed": "AI 分析失败",
@@ -10646,12 +10656,12 @@
     "issueUnbindFailed": "解绑失败",
     "selectionAnnotations": {
       "hoverHint": "悬停查看批注",
-      "selectedText": "{{index}}. 选中文字",
+      "selectedText": "{index}. 选中文字",
       "noComment": "未添加评论",
       "commentPlaceholder": "添加可选评论…",
       "commentAriaLabel": "划词批注评论",
       "addComment": "添加评论",
-      "removeOne": "移除批注 {{index}}",
+      "removeOne": "移除批注 {index}",
       "removeAll": "移除全部划词批注",
       "add": "添加批注"
     },
@@ -11683,7 +11693,7 @@
       "errorNode": "出错消息"
     },
     "sampling": {
-      "clearParam": "重置参数 {{name}}",
+      "clearParam": "重置参数 {name}",
       "useModelDefault": "使用模型默认值",
       "title": "采样参数",
       "desc": "调整 temperature、top_p 等推理参数,仅对当前对话生效。",
@@ -11705,7 +11715,7 @@
       "systemPromptHint": "仅对当前会话生效,不会保存为默认。",
       "resetAll": "全部重置",
       "done": "完成",
-      "triggerActive": "采样参数 · {{count}} 项已覆盖",
+      "triggerActive": "采样参数 · {count} 项已覆盖",
       "trigger": "采样参数",
       "triggerAria": "打开采样参数设置",
       "personalityCustom": "自定义"
@@ -12060,151 +12070,277 @@
       "slashDiff": {
         "label": "会话改动总览",
         "description": "查看本次会话 AI 改动的文件(diff 总览)",
-        "keywords": ["diff", "改动", "审查"]
+        "keywords": [
+          "diff",
+          "改动",
+          "审查"
+        ]
       },
       "slashStatus": {
         "label": "会话状态",
         "description": "查看当前模型、上下文占用、权限模式与用量",
-        "keywords": ["status", "状态", "上下文"]
+        "keywords": [
+          "status",
+          "状态",
+          "上下文"
+        ]
       },
       "slashModel": {
         "label": "切换模型",
         "description": "打开模型选择器",
-        "keywords": ["model", "模型", "切换"]
+        "keywords": [
+          "model",
+          "模型",
+          "切换"
+        ]
       },
       "slashMcp": {
         "label": "MCP 市场",
         "description": "打开 MCP 服务器市场",
-        "keywords": ["mcp", "插件", "市场"]
+        "keywords": [
+          "mcp",
+          "插件",
+          "市场"
+        ]
       },
       "slashCompact": {
         "label": "压缩上下文",
         "description": "压缩当前会话历史,释放上下文窗口",
-        "keywords": ["compact", "压缩", "上下文"]
+        "keywords": [
+          "compact",
+          "压缩",
+          "上下文"
+        ]
       },
       "steerPrompt": {
         "label": "引导提示",
         "description": "向正在运行的回复中途插入引导，无需等待当前轮完成",
-        "keywords": ["引导", "插话", "steer"]
+        "keywords": [
+          "引导",
+          "插话",
+          "steer"
+        ]
       },
       "queuePrompt": {
         "label": "将提示加入队列",
         "description": "把当前输入加入 W27 预备消息队列，流式结束后自动依次发送",
-        "keywords": ["队列", "排队", "queue"]
+        "keywords": [
+          "队列",
+          "排队",
+          "queue"
+        ]
       },
       "agent": {
         "description": "管理并调度 AI 智能体",
-        "keywords": ["智能体", "调度", "agent"],
+        "keywords": [
+          "智能体",
+          "调度",
+          "agent"
+        ],
         "label": "AI 智能体"
       },
       "browser": {
         "description": "在工作区内浏览网页",
-        "keywords": ["浏览器", "网页", "browser"],
+        "keywords": [
+          "浏览器",
+          "网页",
+          "browser"
+        ],
         "label": "内置浏览器"
       },
       "capabilityMarket": {
         "description": "发现并安装能力包",
-        "keywords": ["能力", "市场", "插件", "market"],
+        "keywords": [
+          "能力",
+          "市场",
+          "插件",
+          "market"
+        ],
         "label": "能力市场"
       },
       "codeChanges": {
         "description": "查看工作区代码改动",
-        "keywords": ["代码", "变更", "改动", "diff"],
+        "keywords": [
+          "代码",
+          "变更",
+          "改动",
+          "diff"
+        ],
         "label": "代码变更"
       },
       "connectors": {
         "description": "管理外部服务连接",
-        "keywords": ["连接", "外部服务", "connector"],
+        "keywords": [
+          "连接",
+          "外部服务",
+          "connector"
+        ],
         "label": "连接器"
       },
       "document": {
         "description": "编辑工作区文档",
-        "keywords": ["文档", "编辑", "doc"],
+        "keywords": [
+          "文档",
+          "编辑",
+          "doc"
+        ],
         "label": "文档"
       },
       "editor": {
         "description": "打开代码编辑器",
-        "keywords": ["编辑器", "代码", "code"],
+        "keywords": [
+          "编辑器",
+          "代码",
+          "code"
+        ],
         "label": "编辑器"
       },
       "mcp": {
         "description": "管理 MCP 服务器与工具",
-        "keywords": ["MCP", "服务器", "工具"],
+        "keywords": [
+          "MCP",
+          "服务器",
+          "工具"
+        ],
         "label": "MCP 管理"
       },
       "mcpStore": {
         "description": "浏览与安装 MCP 服务",
-        "keywords": ["MCP", "广场", "市场", "store"],
+        "keywords": [
+          "MCP",
+          "广场",
+          "市场",
+          "store"
+        ],
         "label": "MCP 广场"
       },
       "modeAsk": {
         "description": "切换到纯问答模式,禁用工具",
-        "keywords": ["问答", "ask", "模式"],
+        "keywords": [
+          "问答",
+          "ask",
+          "模式"
+        ],
         "label": "问答模式"
       },
       "modeBuild": {
         "description": "让 AI 直接构建与修改",
-        "keywords": ["构建", "模式", "build"],
+        "keywords": [
+          "构建",
+          "模式",
+          "build"
+        ],
         "label": "构建模式"
       },
       "modePlan": {
         "description": "先制定计划再执行",
-        "keywords": ["规划", "计划", "plan"],
+        "keywords": [
+          "规划",
+          "计划",
+          "plan"
+        ],
         "label": "规划模式"
       },
       "modeReview": {
         "description": "审查与评审现有代码",
-        "keywords": ["审查", "评审", "review"],
+        "keywords": [
+          "审查",
+          "评审",
+          "review"
+        ],
         "label": "审查模式"
       },
       "modeSpec": {
         "description": "从规格生成实现",
-        "keywords": ["规格", "spec", "模式"],
+        "keywords": [
+          "规格",
+          "spec",
+          "模式"
+        ],
         "label": "规格模式"
       },
       "skill": {
         "description": "管理与调用 AI 技能",
-        "keywords": ["技能", "skill", "能力"],
+        "keywords": [
+          "技能",
+          "skill",
+          "能力"
+        ],
         "label": "技能"
       },
       "terminal": {
         "description": "打开集成终端",
-        "keywords": ["终端", "命令行", "terminal"],
+        "keywords": [
+          "终端",
+          "命令行",
+          "terminal"
+        ],
         "label": "终端"
       },
       "ai-world": {
         "description": "探索 AI 应用世界",
-        "keywords": ["AI", "世界", "应用"],
+        "keywords": [
+          "AI",
+          "世界",
+          "应用"
+        ],
         "label": "AI 世界"
       },
       "chat": {
         "description": "与 AI 助手开始对话",
-        "keywords": ["对话", "聊天", "AI", "chat"],
+        "keywords": [
+          "对话",
+          "聊天",
+          "AI",
+          "chat"
+        ],
         "label": "AI 对话"
       },
       "drama": {
         "description": "AI 生成的精彩短剧",
-        "keywords": ["短剧", "视频", "AI", "drama"],
+        "keywords": [
+          "短剧",
+          "视频",
+          "AI",
+          "drama"
+        ],
         "label": "AI 短剧"
       },
       "profile": {
         "description": "管理个人资料和设置",
-        "keywords": ["个人", "资料", "设置"],
+        "keywords": [
+          "个人",
+          "资料",
+          "设置"
+        ],
         "label": "个人中心"
       },
       "search": {
         "description": "全局内容搜索",
-        "keywords": ["搜索", "查找", "search"],
+        "keywords": [
+          "搜索",
+          "查找",
+          "search"
+        ],
         "label": "搜索"
       },
       "settings": {
         "description": "系统偏好与配置",
-        "keywords": ["设置", "偏好", "配置"],
+        "keywords": [
+          "设置",
+          "偏好",
+          "配置"
+        ],
         "label": "系统设置"
       },
       "skillsMarket": {
         "description": "浏览并安装自进化 Skill",
-        "keywords": ["skill", "技能", "市场", "market"],
+        "keywords": [
+          "skill",
+          "技能",
+          "市场",
+          "market"
+        ],
         "label": "Skill 市场"
       }
     },
@@ -13236,8 +13372,8 @@
     "cardDesc": "模型价格与计费规则",
     "cardLabel": "API 定价",
     "codeCurl": "curl -X POST https://api.ihui-ai.com/v1/chat/completions \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '''{'\n    \"model\": \"gpt-4o\",\n    \"messages\": [\n      '{' \"role\": \"user\", \"content\": \"你好,介绍一下自己\" '}'\n    ],\n    \"temperature\": 0.7\n  '}'''",
-    "codeNode": "import OpenAI from 'openai'\n\nconst client = new OpenAI({\n  apiKey: process.env.IHUI_API_KEY,\n  baseURL: 'https://api.ihui-ai.com/v1',\n})\n\nconst completion = await client.chat.completions.create({\n  model: 'gpt-4o',\n  messages: [\n    { role: 'user', content: '你好,介绍一下自己' },\n  ],\n  temperature: 0.7,\n})\n\nconsole.log(completion.choices[0].message.content)\n\n// 费用追踪\nconst usage = completion.usage\nconsole.log(`本次消耗:${usage.total_tokens} tokens`)",
-    "codePython": "import os\nimport openai\n\nclient = openai.OpenAI(\n    api_key=os.environ[\"IHUI_API_KEY\"],\n    base_url=\"https://api.ihui-ai.com/v1\",\n)\n\nresponse = client.chat.completions.create(\n    model=\"gpt-4o\",\n    messages=[\n        {\"role\": \"user\", \"content\": \"你好,介绍一下自己\"},\n    ],\n    temperature=0.7,\n)\n\nprint(response.choices[0].message.content)\n\n# 费用追踪\nusage = response.usage\nprint(f\"本次消耗:{usage.total_tokens} tokens\")",
+    "codeNode": "import OpenAI from ''openai''\n\nconst client = new OpenAI('{'\n  apiKey: process.env.IHUI_API_KEY,\n  baseURL: ''https://api.ihui-ai.com/v1'',\n'}')\n\nconst completion = await client.chat.completions.create('{'\n  model: ''gpt-4o'',\n  messages: [\n    '{' role: ''user'', content: ''你好,介绍一下自己'' '}',\n  ],\n  temperature: 0.7,\n'}')\n\nconsole.log(completion.choices[0].message.content)\n\n// 费用追踪\nconst usage = completion.usage\nconsole.log(`本次消耗:$'{'usage.total_tokens'}' tokens`)",
+    "codePython": "import os\nimport openai\n\nclient = openai.OpenAI(\n    api_key=os.environ[\"IHUI_API_KEY\"],\n    base_url=\"https://api.ihui-ai.com/v1\",\n)\n\nresponse = client.chat.completions.create(\n    model=\"gpt-4o\",\n    messages=[\n        '{'\"role\": \"user\", \"content\": \"你好,介绍一下自己\"'}',\n    ],\n    temperature=0.7,\n)\n\nprint(response.choices[0].message.content)\n\n# 费用追踪\nusage = response.usage\nprint(f\"本次消耗:'{'usage.total_tokens'}' tokens\")",
     "colCurrency": "货币",
     "colInput": "输入价(元/百万 token)",
     "colModel": "模型 ID",
@@ -14618,25 +14754,37 @@
       "quadrants": [
         {
           "description": "简单决策 + 简单执行,快速部署高频应用",
-          "examples": ["知识问答", "流程自动化"],
+          "examples": [
+            "知识问答",
+            "流程自动化"
+          ],
           "tag": "Q1",
           "title": "高效助手"
         },
         {
           "description": "复杂决策 + 简单执行,提供深度分析与建议",
-          "examples": ["数据分析", "决策支持"],
+          "examples": [
+            "数据分析",
+            "决策支持"
+          ],
           "tag": "Q2",
           "title": "智慧顾问"
         },
         {
           "description": "简单决策 + 复杂执行,处理跨系统复杂任务",
-          "examples": ["会议安排", "审批流程"],
+          "examples": [
+            "会议安排",
+            "审批流程"
+          ],
           "tag": "Q3",
           "title": "执行专家"
         },
         {
           "description": "复杂决策 + 复杂执行,自主规划与多智能体协作",
-          "examples": ["营销自动化", "多智能体协同"],
+          "examples": [
+            "营销自动化",
+            "多智能体协同"
+          ],
           "tag": "Q4",
           "title": "全能专家"
         }
@@ -14770,19 +14918,31 @@
       "items": [
         {
           "description": "线下课程、探索活动与互助社群,深度链接志同道合的决策者",
-          "features": ["系统化课程", "实践探索", "社群互助"],
+          "features": [
+            "系统化课程",
+            "实践探索",
+            "社群互助"
+          ],
           "tag": "MODULE 01",
           "title": "在地社群"
         },
         {
           "description": "便捷的在线交流平台,随时随地获取信息与支持",
-          "features": ["交流平台", "经验共享", "资源对接"],
+          "features": [
+            "交流平台",
+            "经验共享",
+            "资源对接"
+          ],
           "tag": "MODULE 02",
           "title": "线上社群"
         },
         {
           "description": "专业大模型与智能体服务,提供深度AI化咨询与支持",
-          "features": ["专业大模型", "智能体服务", "咨询服务"],
+          "features": [
+            "专业大模型",
+            "智能体服务",
+            "咨询服务"
+          ],
           "tag": "MODULE 03",
           "title": "AI专业服务"
         }
@@ -15633,7 +15793,7 @@
     "descriptionPlaceholder": "可选,简单说明 Hook 用途",
     "fieldEvent": "触发事件",
     "fieldCondition": "条件表达式(JSONLogic,可选)",
-    "conditionHint": "示例:{\"==\":[\"tool\",\"write_file\"]} 匹配 tool 字段等于 write_file",
+    "conditionHint": "示例:'{'\"==\":[\"tool\",\"write_file\"]'}' 匹配 tool 字段等于 write_file",
     "fieldActionType": "动作类型",
     "testResultTitle": "测试结果",
     "testTriggered": "已触发",
@@ -15658,16 +15818,16 @@
     "fieldHttpMethod": "HTTP 方法",
     "fieldHeaders": "请求头(JSON)",
     "fieldBodyTemplate": "请求体模板",
-    "bodyTemplateHint": "支持 {{event}} {{tool}} {{args}} {{result}} 变量",
+    "bodyTemplateHint": "支持 {event} {tool} {args} {result} 变量",
     "fieldShellCommand": "Shell 命令",
     "shellCommandHint": "沙箱内执行,超时 10s,环境变量 HOOK_EVENT / HOOK_CONTEXT 可用",
     "fieldNotifyChannel": "通知渠道",
     "fieldNotifyMessage": "消息模板",
-    "notifyMessageHint": "支持 {{event}} {{tool}} {{args}} 变量",
+    "notifyMessageHint": "支持 {event} {tool} {args} 变量",
     "notifyWebhookUrlHint": "webhook 渠道会向该地址 POST 通知消息(与 webhook 动作共用同一发送器)",
-    "notifyMessagePlaceholder": "{{event}} 已触发",
+    "notifyMessagePlaceholder": "{event} 已触发",
     "fieldLogMessage": "日志消息模板",
-    "logMessageHint": "支持 {{event}} {{tool}} {{args}} 变量,写入 logs/hooks.log",
+    "logMessageHint": "支持 {event} {tool} {args} 变量,写入 logs/hooks.log",
     "channel": {
       "toast": "Toast(轻提示)",
       "notification": "系统通知",
@@ -17678,7 +17838,15 @@
       "title": "Top 5 页面",
       "visitsHeader": "访问数"
     },
-    "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+    "weekdays": [
+      "周一",
+      "周二",
+      "周三",
+      "周四",
+      "周五",
+      "周六",
+      "周日"
+    ]
   },
   "models": {
     "relay": {
@@ -18426,7 +18594,12 @@
         ]
       },
       "starter": {
-        "features": ["1M tokens 额度", "基础模型可用", "5 个 API 令牌", "社区支持"]
+        "features": [
+          "1M tokens 额度",
+          "基础模型可用",
+          "5 个 API 令牌",
+          "社区支持"
+        ]
       }
     },
     "productSchema": {
@@ -18953,30 +19126,30 @@
     "wizardIpFailMany": "⚠️ 多次检测出口 IP 未变化或获取失败。若确实无法换网络，可点上方「直接完成」跳过验证。",
     "wizardResidualReclean": "退出 Qoder 后，强制重跑一键重置（会先结束 Qoder 进程，再清残留）",
     "wizardStart": "一键彻底重置（约 1 分钟）",
-    "wizardResetDone": "✅ 重置完成：{{ok}}/{{total}} 层成功",
-    "wizardIpBefore": "重置前出口 IP：{{ip}}（{{location}}）",
+    "wizardResetDone": "✅ 重置完成：{ok}/{total} 层成功",
+    "wizardIpBefore": "重置前出口 IP：{ip}（{location}）",
     "wizardGuide": "请任选其一更换网络：① 拔掉光猫电源，等 1 分钟再插上；② 手机开热点，电脑连热点。换好后点下方按钮验证。",
     "wizardVerify": "我换好了网络，检测新 IP",
     "wizardIpUnchanged": "❌ 出口 IP 没变——光猫可能还没重拨成功，等 30 秒再拔一次电源（至少断电 1 分钟）。",
-    "wizardIpChanged": "✅ 新出口 IP：{{ip}}——旧 IP 已彻底脱开！",
+    "wizardIpChanged": "✅ 新出口 IP：{ip}——旧 IP 已彻底脱开！",
     "wizardCooldown": "第 3 步（自动完成）：设备+网络双重翻新已就位。⚠️ 24 小时内不要登录 Qoder——每次尝试登录都会让风控重新计时！明天此时直接正常登录即可。",
     "wizardOptionalNote": "个别显示未完成的是可选层（如浏览器开着导致 Cookie 清理跳过），不影响主体效果。",
     "wizardNoLoc": "（本次未获取到 IP 归属地，不影响换网络验证）",
     "wizardIpFetchFail": "⚠️ 出口 IP 获取失败（网络波动），可稍后点下方按钮重试获取。",
-    "wizardRefetch": "已补记基准出口 IP：{{ip}}（重置本身不影响网络，此 IP 即重置前出口）",
+    "wizardRefetch": "已补记基准出口 IP：{ip}（重置本身不影响网络，此 IP 即重置前出口）",
     "wizardRefetchHint": "基准 IP 尚未获取：点下方按钮先补记当前出口 IP 作为基准，再去换网络。",
-    "wizardIpBeforeNoLoc": "重置前出口 IP：{{ip}}",
-    "wizardCooldownActive": "⏳ 距上次一键重置不足 24 小时——冷却期还剩约 {{hours}} 小时，期间请勿登录 Qoder。",
+    "wizardIpBeforeNoLoc": "重置前出口 IP：{ip}",
+    "wizardCooldownActive": "⏳ 距上次一键重置不足 24 小时——冷却期还剩约 {hours} 小时，期间请勿登录 Qoder。",
     "wizardRestart": "重新开始向导",
     "wizardAuditTitle": "🔍 重置彻底性验证（残留指纹审计）",
     "wizardAuditClean": "✅ 未发现旧身份残留：当前 Qoder 现场已不含重置前的设备/身份值。",
-    "wizardAuditResidual": "⚠️ 仍有 {{n}} 处旧身份残留：下列文件里还能读到重置前的身份值，请完全退出 Qoder 后重跑一键重置。",
+    "wizardAuditResidual": "⚠️ 仍有 {n} 处旧身份残留：下列文件里还能读到重置前的身份值，请完全退出 Qoder 后重跑一键重置。",
     "wizardAuditRerun": "重新检测残留",
     "wizardAuditScanning": "正在扫描 Qoder 现场残留…",
     "wizardAuditFail": "⚠️ 残留检测失败（不影响重置本身），可稍后点「重新检测残留」重试。",
     "wizardSubtitle": "三步完成设备身份重置：一键重置 → 换网验证 → 24 小时冷却。",
     "wizardAuditEntries": "查看全部扫描明细",
-    "wizardAuditScope": "扫描范围：{{cn}} 与 {{roaming}}，共 {{files}} 个文件。"
+    "wizardAuditScope": "扫描范围：{cn} 与 {roaming}，共 {files} 个文件。"
   },
   "checkin": {
     "title": "签到助手",
@@ -19006,7 +19179,7 @@
     "deleteDescription": "将删除账号「{name}」及其全部签到记录，此操作不可恢复。",
     "deviceMap": "设备指纹",
     "deviceMapInvalid": "设备指纹不是合法的 JSON 对象",
-    "deviceMapPlaceholder": "{\"ua\": \"...\", \"av\": \"...\"}（可选，留空自动生成）",
+    "deviceMapPlaceholder": "'{'\"ua\": \"...\", \"av\": \"...\"'}'（可选，留空自动生成）",
     "emptyAccounts": "暂无签到账号，点击右上角添加",
     "emptyCredits": "暂无积分记录",
     "emptyRecords": "暂无签到记录",
@@ -19117,31 +19290,31 @@
     "wizardIpFailMany": "⚠️ 多次检测出口 IP 未变化或获取失败。若确实无法换网络，可点上方「直接完成」跳过验证。",
     "wizardResidualReclean": "退出 TRAE 后，强制重跑一键重置（会先结束 TRAE 进程，再清残留）",
     "wizardStart": "一键彻底重置（约 1 分钟）",
-    "wizardResetDone": "✅ 重置完成：{{ok}}/{{total}} 层成功",
-    "wizardIpBefore": "重置前出口 IP：{{ip}}（{{location}}）",
+    "wizardResetDone": "✅ 重置完成：{ok}/{total} 层成功",
+    "wizardIpBefore": "重置前出口 IP：{ip}（{location}）",
     "wizardGuide": "请任选其一更换网络：① 拔掉光猫电源，等 1 分钟再插上；② 手机开热点，电脑连热点。换好后点下方按钮验证。",
     "wizardVerify": "我换好了网络，检测新 IP",
     "wizardIpUnchanged": "❌ 出口 IP 没变——光猫可能还没重拨成功，等 30 秒再拔一次电源（至少断电 1 分钟）。",
-    "wizardIpChanged": "✅ 新出口 IP：{{ip}}——旧 IP 已彻底脱开！",
+    "wizardIpChanged": "✅ 新出口 IP：{ip}——旧 IP 已彻底脱开！",
     "wizardCooldown": "第 3 步（自动完成）：设备+网络双重翻新已就位。⚠️ 24 小时内不要登录 TRAE——每次尝试登录都会让风控重新计时！明天此时直接正常登录即可。",
     "wizardOptionalNote": "个别显示未完成的是可选层（如浏览器开着导致 Cookie 清理跳过），不影响主体效果。",
     "wizardNoLoc": "（本次未获取到 IP 归属地，不影响换网络验证）",
     "wizardIpFetchFail": "⚠️ 出口 IP 获取失败（网络波动），可稍后点下方按钮重试获取。",
-    "wizardRefetch": "已补记基准出口 IP：{{ip}}（重置本身不影响网络，此 IP 即重置前出口）",
+    "wizardRefetch": "已补记基准出口 IP：{ip}（重置本身不影响网络，此 IP 即重置前出口）",
     "wizardRefetchHint": "基准 IP 尚未获取：点下方按钮先补记当前出口 IP 作为基准，再去换网络。",
-    "wizardIpBeforeNoLoc": "重置前出口 IP：{{ip}}",
-    "wizardCooldownActive": "⏳ 距上次一键重置不足 24 小时——冷却期还剩约 {{hours}} 小时，期间请勿登录 TRAE。",
+    "wizardIpBeforeNoLoc": "重置前出口 IP：{ip}",
+    "wizardCooldownActive": "⏳ 距上次一键重置不足 24 小时——冷却期还剩约 {hours} 小时，期间请勿登录 TRAE。",
     "wizardRestart": "重新开始向导",
     "wizardAuditTitle": "🔍 重置彻底性验证（残留指纹审计）",
     "wizardAuditClean": "✅ 未发现旧身份残留：当前 TRAE 现场已不含重置前的设备/身份值。",
-    "wizardAuditResidual": "⚠️ 仍有 {{n}} 处旧身份残留：下列文件里还能读到重置前的身份值，请完全退出 TRAE 后重跑一键重置。",
+    "wizardAuditResidual": "⚠️ 仍有 {n} 处旧身份残留：下列文件里还能读到重置前的身份值，请完全退出 TRAE 后重跑一键重置。",
     "wizardAuditRerun": "重新检测残留",
     "wizardAuditScanning": "正在扫描 TRAE 现场残留…",
     "wizardAuditFail": "⚠️ 残留检测失败（不影响重置本身），可稍后点「重新检测残留」重试。",
-    "wizardAuditScope": "扫描范围：{{files}} 个文件 / {{mb}} MB / {{sites}} 个 TRAE 现场目录",
+    "wizardAuditScope": "扫描范围：{files} 个文件 / {mb} MB / {sites} 个 TRAE 现场目录",
     "wizardAuditRegistry": "注册表项",
     "wizardAuditHardware": "硬件指纹",
-    "wizardAuditSuspect": "另有 {{n}} 处可疑命中（可能是无关的同名值，供人工核对）。",
+    "wizardAuditSuspect": "另有 {n} 处可疑命中（可能是无关的同名值，供人工核对）。",
     "wizardAuditNoHistory": "本次没有重置前的旧身份记录（黑名单为空），无法对照判定——先跑一次一键重置再检测。",
     "maintBackup": "备份现场快照",
     "maintBackupDone": "已备份 {count} 个文件（缺失 {missing} 个）",
@@ -19167,7 +19340,7 @@
     "deviceMapUpdated": "设备指纹已更新",
     "editDeviceMap": "编辑设备指纹",
     "editDeviceMapTitle": "编辑设备指纹",
-    "editDeviceMapDescription": "为 {{platform}} 账号编辑设备指纹（JSON 对象；留空保存将自动生成）。"
+    "editDeviceMapDescription": "为 {platform} 账号编辑设备指纹（JSON 对象；留空保存将自动生成）。"
   },
   "nav": {
     "checkin": "签到助手",
@@ -19975,12 +20148,24 @@
       "enterprise": {
         "contactSales": "联系销售",
         "cta": "联系销售",
-        "features": ["不限积分", "私有化部署", "SSO/SAML 2.0", "审计日志", "专属技术支持"],
+        "features": [
+          "不限积分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "审计日志",
+          "专属技术支持"
+        ],
         "name": "企业版"
       },
       "free": {
         "cta": "立即开始",
-        "features": ["每月 1000 积分", "所有 AI 模型", "所有 6 个客户端", "API 访问", "社区支持"],
+        "features": [
+          "每月 1000 积分",
+          "所有 AI 模型",
+          "所有 6 个客户端",
+          "API 访问",
+          "社区支持"
+        ],
         "name": "免费版"
       },
       "pro": {
@@ -21400,7 +21585,13 @@
     "cards": {
       "consulting": {
         "desc": "架构咨询 / 技术选型 / 代码 review",
-        "features": ["视频会议 / 远程桌面", "2 小时起", "故障排查", "增值税发票", "响应 SLA 24h"],
+        "features": [
+          "视频会议 / 远程桌面",
+          "2 小时起",
+          "故障排查",
+          "增值税发票",
+          "响应 SLA 24h"
+        ],
         "price": "¥999",
         "title": "技术咨询",
         "unit": "/小时"
@@ -23734,7 +23925,7 @@
       "computer": "此电脑",
       "description": "单击选中,双击进入文件夹;按 ↑↓ 键浏览,Enter 打开,Backspace 返回上级",
       "filterPlaceholder": "筛选文件夹...",
-      "itemCount": "{count, plural, =0 {无文件夹} =1 {1 个文件夹} other {{count} 个文件夹}}",
+      "itemCount": "{count, plural, =0 {无文件夹} =1 {1 个文件夹} other {# 个文件夹}}",
       "itemCountFiltered": "显示 {filtered} / {total} 个",
       "loading": "加载目录中...",
       "manualPathPlaceholder": "例如:G:\\Projects\\my-app 或 /home/user/projects",
