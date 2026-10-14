@@ -16,15 +16,19 @@
  *
  * R1 号池超上限(差值棘轮,§12e):
  *   被审面登记行的**声明位**号 > LEASE_POOL_MAX ⇒ 违规。
- *   · 全量档(HEAD blob):存量只报数,**不判红** —— 现读存量 7 条(他人的长号),
- *     当场判红就是与提交内容无关的恒红门,唯一结局是逼人 --no-verify 连带废掉全部守门。
- *   · --staged(索引 blob):只拦**本次新带进来的**违规键(索引面违规键 ⊖ HEAD 面违规键)。
+ *   · 全量档(HEAD blob):存量只报数,**不判红** —— 存量条数随他人收敛变动(2026-10-15 现读 6~7 条,
+ *     以本门输出为准),当场判红就是与提交内容无关的恒红门,唯一结局是逼人 --no-verify 连带废掉全部守门。
+ *   · --staged(索引 blob):只拦**超出 HEAD 面重数**的超池行 —— 刻意不按键集合差:同一个号可以被多行
+ *     抢(F9 撞号那一族就是这形状),按集合差会把"同键再抄两条"整个漏掉(2026-10-15 独立评审抓到)。
  *     升 blocking 的前置 = HEAD 面存量归零(§12e);定级以 runner 注册条目现值为准。
  *
  * R2 发号路径(只报数):把 `usedIdsOfPrefix(...)` 的 `.max` 再 +1 当号发的写法,除
  *   sanctioned 名单(取号器本身与写盘闸)外一律点名。这条不判红:同一形状在"分组统计"
  *   语境里是合法的(usedIdsOfPrefix 本职是给 F4/F10 分组用),判红会误伤;但必须**报名**,
  *   因为"合法用途"与"拿来发号"在这份代码里只差一行,静默过去就等于把 R1 的洞重新打开。
+ *   扫描是**递归**的(scripts/** 深 3 层,排除 scripts/tests/** 夹具目录):只扫一层会把 scripts/lib
+ *   整个看漏(第一版就这么盲过,评审实测 lib 里的命中在面上报"无命中")。名单按 basename 匹配,并自检
+ *   "名单里的名字是否真实存在"—— 不存在的名字 = 空豁免,必须喊出来,不许悄悄少扫一个文件。
  *
  * 未判定纪律(§0.3):被审面取不到 ⇒ exit 2 显式"未判定",不记绿也不冒红;枚举到 0 个
  *   候选**不**判死(0 条违规是真结论,与"没量到"是两件事)。
@@ -33,7 +37,7 @@
  *   node scripts/check-plan-id-pool.mjs            # 全量档(HEAD 面,存量只报数)
  *   node scripts/check-plan-id-pool.mjs --staged   # 提交链档(索引面,拦新增)
  *   node scripts/check-plan-id-pool.mjs --json     # 机读
- *   node scripts/check-plan-id-pool.mjs --self-test  # 取证(含两条阳性对照)
+ *   node scripts/check-plan-id-pool.mjs --self-test  # 取证(4 组判据 · 5 条阳性对照)
  * 紧急跳过(不推荐):HUSKY_SKIP_PLAN_ID_POOL=1
  */
 import path from 'node:path'
@@ -93,21 +97,37 @@ export function allocPathHits(code) {
   return [{ line: at, text: src.slice(m.index, m.index + 110).replace(/\r?\n/g, ' ⏎ ') }]
 }
 
-/** 差值判定(纯函数):索引面里 HEAD 面没有的超池键 = 本次带进来的。 */
+/**
+ * 差值判定(纯函数):索引面里**超出 HEAD 面重数**的超池行 = 本次带进来的。
+ *
+ * 为什么不是"键集合相减"(2026-10-15 独立评审抓到的漏):HEAD 有 1 条 `G-1038426`、索引里有 3 条
+ * 同键新登记 ⇒ 键集合差为空 ⇒ 全漏判。同一个号可以被多行抢(本仓 F9 撞号那一族就是这形状),
+ * 所以判据必须按**重数**算:超出基线重数的那几次出现才算本次新增。
+ */
 export function poolRatchetVerdict(headText, indexText, poolMax = LEASE_POOL_MAX) {
   const before = overPoolDeclarations(headText, poolMax)
   const after = overPoolDeclarations(indexText, poolMax)
-  const bset = new Set(before.map((x) => x.key))
-  return { before, after, added: after.filter((x) => !bset.has(x.key)) }
+  const baseCount = new Map()
+  for (const x of before) baseCount.set(x.key, (baseCount.get(x.key) || 0) + 1)
+  const seen = new Map()
+  const added = []
+  for (const x of after) {
+    const n = (seen.get(x.key) || 0) + 1
+    seen.set(x.key, n)
+    if (n > (baseCount.get(x.key) || 0)) added.push(x)
+  }
+  return { before, after, added }
 }
 
 /**
- * sanctioned 名单:这些文件**本来就该**含该形状,不点名(每条都得写理由,裸名单就是后门)。
+ * sanctioned 名单(按 **basename** 匹配,因为扫描是递归的、这些文件住在 scripts/lib/ 下):
+ * 每项都必须写理由,且必须真实存在 —— 名单里放一个不存在的文件就是"看着有豁免其实空转"。
  *  - next-plan-id.mjs / live-doc-edit.mjs —— 正牌取号出口(池式发号就是它们做的);
- *  - plan-id-lease.mjs / plan-task-index.mjs —— `nextTaskIdLabel` 的号段与形状实现本体;
+ *  - plan-id-lease.mjs / plan-task-index.mjs —— 号段与形状实现本体(`nextTaskIdLabel` 就在这里);
  *  - plan-collide-renumber.mjs —— 撞号让号批工具,它必须能算新号;
- *  - 本门自己 —— 判据的构造形状与阳性对照夹具就写在同一个文件里,不豁免就是咬自己
- *    (反向锁在镜像测试:名单不得再扩,且新增项必须带理由)。
+ *  - 本门自己 —— 判据的构造形状与阳性对照夹具写在同一文件里,不豁免就是咬自己
+ *    (反向锁在镜像测试:名单不得扩、每项必须真实存在、测试目录不得进名单)。
+ * scripts/tests/** 整体不扫:镜像测试里造那个形状正是取证本身,不是发号通道。
  */
 const SANCTIONED_ALLOC = new Set([
   'next-plan-id.mjs',
@@ -118,28 +138,53 @@ const SANCTIONED_ALLOC = new Set([
   'check-plan-id-pool.mjs',
 ])
 
+/** 递归收 scripts/ 下的 .mjs(排除 scripts/tests/**:夹具不是发号通道)。 */
+function listScriptFiles(rootDir) {
+  const fs = require('node:fs')
+  const out = []
+  const walk = (dir, depth) => {
+    if (depth > 3) return
+    let names
+    try {
+      names = fs.readdirSync(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const e of names) {
+      const full = path.join(dir, e.name)
+      if (e.isDirectory()) {
+        if (e.name === 'tests' || e.name === 'node_modules') continue
+        walk(full, depth + 1)
+      } else if (/\.mjs$/.test(e.name)) out.push(full)
+    }
+  }
+  walk(rootDir, 0)
+  return out
+}
+
 function scanAllocPath() {
   const fs = require('node:fs')
   const dir = path.join(ROOT, 'scripts')
+  const files = listScriptFiles(dir)
+  if (!files.length) return null
   const hits = []
-  let names = []
-  try {
-    names = fs.readdirSync(dir).filter((f) => /\.mjs$/.test(f))
-  } catch {
-    return null
-  }
-  for (const f of names) {
-    if (SANCTIONED_ALLOC.has(f)) continue
+  const dead = []
+  for (const f of files) {
+    const base = path.basename(f)
+    if (SANCTIONED_ALLOC.has(base)) continue
     let t = null
     try {
-      t = fs.readFileSync(path.join(dir, f), 'utf8')
+      t = fs.readFileSync(f, 'utf8')
     } catch {
       continue
     }
     const h = allocPathHits(t)
-    if (h.length) hits.push({ file: f, hits: h })
+    if (h.length) hits.push({ file: path.relative(ROOT, f).replace(/\\/g, '/'), hits: h })
   }
-  return hits
+  // 空豁免自检:名单里的名字若在扫描面上根本不存在 ⇒ 那是假豁免,必须喊出来(不是悄悄放过)
+  const present = new Set(files.map((f) => path.basename(f)))
+  for (const s of SANCTIONED_ALLOC) if (!present.has(s)) dead.push(s)
+  return { hits, scanned: files.length, dead }
 }
 
 function main(argv) {
@@ -183,13 +228,20 @@ function main(argv) {
   console.log(
     `  R1 超池声明:存量 ${verdict.after.length} 条;本次新增 ${verdict.added.length} 条${verdict.after.length ? `(样例 ${verdict.after.slice(0, 5).map((x) => x.key).join(' ')})` : ''}`,
   )
-  if (alloc === null) console.log(`  R2 未判定:scripts/ 目录读不出 ⇒ 发号路径这一维不判通过`)
-  else if (!alloc.length) console.log(`  R2 发号路径:无命中(除 sanctioned 名单外没人用 usedIdsOfPrefix 的 max+1 发号)`)
-  else
-    for (const a of alloc)
+  if (alloc === null) console.log('  R2 未判定:scripts/ 递归枚举为空 ⇒ 发号路径这一维不出结论')
+  else {
+    if (alloc.dead.length)
       console.log(
-        `  R2 发号路径点名 ${a.file}:${a.hits.length} 处 —— 长号只能由 next-plan-id/live-doc-edit 的发号路径给;若这是分组统计用途,请把号发交回取号器`,
+        `  ⚠️ R2 豁免名单里有 ${alloc.dead.length} 个不存在的名字(${alloc.dead.join(', ')})⇒ 空豁免,要么补齐文件要么摘掉`,
       )
+    if (!alloc.hits.length)
+      console.log(`  R2 发号路径:无命中(扫 ${alloc.scanned} 个 .mjs,除 sanctioned 名单外没人自己算 max+1 发号)`)
+    else
+      for (const a of alloc.hits)
+        console.log(
+          `  R2 发号路径点名 ${a.file}:${a.hits.length} 处 —— 长号只能由 next-plan-id/live-doc-edit 的发号路径给;若这是分组统计用途,请把号发交回取号器`,
+        )
+  }
 
   if (staged && verdict.added.length) {
     console.error(

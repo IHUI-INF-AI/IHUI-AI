@@ -875,24 +875,6 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
       )
       continue
     }
-    // ── 态⓪b(2026-10-14 实测立):判「仓库外文件系统状态」的门同样不进差分 ──
-    // 与态⓪同一条理由、同一个位置(点名判据之前):这道门的取证对象在本仓之外,
-    // "基线面绿 / 我的面红"证明不了因果关系 —— 它只证明两跑之间**别人往盘上写了东西**。
-    if (readGateSource && String(readGateSource(g.script) ?? '').includes(EXTERNAL_FS_MARK)) {
-      externalFs++
-      deltaUnknown++
-      // 取证行必须有名:`findingLines` 只认"路径:行号"形态,而这一族的红点是 `[项目外] ../tmp-probe/x.mjs`
-      // 这种**不带行号的仓外路径** ⇒ 照原样用它会让"未差分"变成空引证(§0.10:失效方向必须是多要一次
-      // 定向说明,绝不能是多放一次跳门)。取不到判据形状的行走就退回原始输出的实线,红始终有名可查。
-      const ev = (lines.length ? lines : String(r.output ?? '').split(/\r?\n/).filter((x) => x.trim() !== '')).slice(0, 2)
-      detail.push(
-        `[${g.id}] ${g.label} —— 未差分:该门自声明判「仓库外文件系统状态」(${EXTERNAL_FS_MARK}),` +
-          `红点在本枚内容面之外(取证行:${ev.join(' ⏎ ')});` +
-          `差分在这道门上不成立(基线面与我的面读的是同一块盘,差别只在两跑之间别人写了什么),` +
-          `不归责本次内容,也不读成"这道红不存在"(修法=查清外部现场归属,或等对方自删)`,
-      )
-      continue
-    }
     const named = stagedFiles.filter((f) => lines.some((l) => lineNamesFile(l, f)))
     if (named.length > 0) {
       mine++
@@ -902,6 +884,28 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
             .filter((l) => named.some((f) => lineNamesFile(l, f)))
             .slice(0, 2)
             .join(' ⏎ ')})`,
+      )
+      continue
+    }
+    // ── 态⓪b(2026-10-14 实测立,2026-10-15 评审改序):判「仓库外文件系统状态」的门不进差分 ──
+    // 为什么刻意放在**点名判据之后**(与态⓪不同位、也不是抄它):这道门的取证对象在本仓之外,
+    // "基线面绿 / 我的面红"证明不了因果 —— 它只证明两跑之间别人往盘上写了东西。但**一旦它的结论行
+    // 点名了本次声明的文件,因果就成立了**,此时标记绝不能把它洗成"可跳"(§0.10:失效方向必须是
+    // 多要一次定向说明,绝不能是多放一次跳门)。2026-10-15 独立评审给出的攻击路径正是:
+    // 门源里塞一行 `[judges-external-fs-state]` 注释 + 红行点名 `scripts/foo.mjs:12` ⇒ 若排在
+    // 点名之前,mine 会被洗成 undetermined-red。摆在之后 ⇒ 该分支只在"仍红且未点名"的剩余集里生效。
+    if (readGateSource && String(readGateSource(g.script) ?? '').includes(EXTERNAL_FS_MARK)) {
+      externalFs++
+      deltaUnknown++
+      // 取证行必须有名:`findingLines` 只认"路径:行号"形态,而这一族的红点是 `[项目外] ../tmp-probe/x.mjs`
+      // 这种**不带行号的仓外路径** ⇒ 照原样用它会让"未差分"变成空引证。取不到判据形状的行走就退回
+      // 原始输出的实线,红始终有名可查。
+      const ev = (lines.length ? lines : String(r.output ?? '').split(/\r?\n/).filter((x) => x.trim() !== '')).slice(0, 2)
+      detail.push(
+        `[${g.id}] ${g.label} —— 未差分:该门自声明判「仓库外文件系统状态」(${EXTERNAL_FS_MARK}),` +
+          `红点在本枚内容面之外且**未点名本次文件**(取证行:${ev.join(' ⏎ ')});` +
+          `差分在这道门上不成立(基线面与我的面读的是同一块盘,差别只在两跑之间别人写了什么),` +
+          `不归责本次内容,也不读成"这道红不存在"(修法=查清外部现场归属,或等对方自删)`,
       )
       continue
     }
