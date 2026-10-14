@@ -179,11 +179,14 @@ import { gitRaw } from './lib/face-reader.mjs'
 // 再抄一条 —— 两处算同一件事必漂移(AGENTS §22c);而漂了的那一份会给腐烂发合格证(门 117 那一课)。
 import { classifyShape, extractFromLine } from './check-plan-sha-resolvable.mjs'
 // 千段租约(G-916936,2026-10-07):段判定/行构造/落账并线只有一份实现,本器只是取号出口的接线方。
+// 池式改造(2026-10-14):无租约基准的"池内最小空闲"也只住在那一份实现里(smallestFreeId/poolFreeList)。
 import {
   appendLeaseRows,
   buildLeaseRow,
   decideLease,
   machineIdentity,
+  poolFreeList,
+  LEASE_POOL_MAX,
 } from './lib/plan-id-lease.mjs'
 
 /**
@@ -358,11 +361,18 @@ export function idTokenFamilies(lines) {
 /**
  * "号段基准"那一行的唯一措辞出口:三条读数(本地 max / 远端 max / 采用的基准)一起给 ——
  * 只印最终值就分不清"远端把这一段顶开了"与"远端压根没参与",而后者必须读成**未与远端对齐**。
+ * 池式口径(2026-10-14):本地/远端 max 仍如实报(它是对账证据),但池只认 1..999 ——
+ * 远端 max 在池外(>999)必须点名"池式不追池外大号",否则读报告的人会以为号要跳到那边。
  */
 export function describeIdBasis(b, remote) {
   const head = `   号段基准:${b.family}=${b.chosenMax}(本地 HEAD 该族 max=${b.localMax}`
   if (b.remoteMax === null) return `${head} / 远端未参与:原因见上一行 ⇒ 未与远端对齐)`
-  const rel = b.remoteMax > b.localMax ? '⇒ 取较大,新号跳过远端那段' : '⇒ 与本地同值,与改动前同形'
+  if (b.remoteMax > LEASE_POOL_MAX)
+    return `${head} / 远端 ${remote?.ref ?? '?'} max=${b.remoteMax} ⇒ 池外大号(>999),池式取号只认 1..${LEASE_POOL_MAX},不追池外)`
+  const rel =
+    b.remoteMax > b.localMax
+      ? `⇒ 池内避让远端已占号(本地上方至 ${b.remoteMax} 不发)`
+      : '⇒ 与本地同值'
   return `${head} / 远端 ${remote?.ref ?? '?'} max=${b.remoteMax} ${rel})`
 }
 
@@ -395,49 +405,80 @@ export function idBasisGate({ families = [], remote = null, allowUnaligned = fal
 }
 
 /**
- * 第三参 `remote` 缺省 null ⇒ 只看本地底稿,与改动前逐字同形;传入时远端**只能抬高**游标
- * (`max(本地, 远端)`),永不压低 —— 所以镜像 N2 的"同 max"那一条要求行为与旧版完全一致。
+ * 第三参 `remote` 缺省 null ⇒ 只看本地底稿;传入时远端**只能抬高一侧的避让面**,永不压低。
+ * 池式取号(2026-10-14,硬上限 999):每族先算"池内空闲号升序表"(1..999 补集,含远端避让),
+ * 令牌按序领号,领空 ⇒ `ok:false, reason:'pool-exhausted:<族>'` —— 绝不发 1000+。
+ * machineId 给定 ⇒ 每族先问租约(lib/plan-id-lease.mjs 那一份):自有池内段按段内空闲序连号;
+ * 没有/段满就池内新占一段(段=50,租约行由 main 随本块落账);池满 ⇒ 拒绝发号。
+ * 不给 machineId ⇒ 直接按池内最小空闲发(池式新基准,镜像 N2/N3 的锁已随之改写)。
  */
 export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
   const machineId =
     typeof opts?.machineId === 'string' && opts.machineId.trim() ? opts.machineId.trim() : null
   const families = idTokenFamilies(lines)
   if (families.length === 0) return { ok: true, lines, assigned: null, basis: [] }
-  const cursor = new Map()
+  const pool = new Map() // f -> { free:number[] 升序, idx }
   const template = new Map()
   const basis = []
-  // 千段租约(G-916936,2026-10-07):machineId 给定 ⇒ 每族先问租约 —— 自有段有空闲就段内连号,
-  // 没有/段满就新占一段([max+1, max+1000],租约行由 main 随本块落账)。段尾号在占用面 ⇒ 无租约
-  // 感知的 max+1 出口结构上落在段外。不给 machineId ⇒ startAt 与旧口径逐字同形(镜像 N2/N3 的面)。
-  const leaseBounds = new Map()
   const leaseClaims = []
   const leaseNotes = []
   const dupTitleNotes = []
+  const numOf = (label) => {
+    const m = /(\d+)$/.exec(String(label))
+    return m ? Number(m[1]) : Number.NaN
+  }
   for (const f of families) {
     const used = usedIdsOfPrefix(baseContent, f)
     if (used === null) return { ok: false, reason: `no-such-family:${f}` }
     const remoteMax = Number.isFinite(remote?.max?.[f]) ? remote.max[f] : null
     const chosenMax = remoteMax !== null && remoteMax > used.max ? remoteMax : used.max
-    let startAt = chosenMax
+    const usedNums = (used.ids ?? []).map(numOf).filter(Number.isFinite)
+    let freeList
     if (machineId) {
       const cur = decideLease({ baseContent, family: f, used, baseMax: chosenMax, machineId })
       const lbl = (n) => used.template.replace('%d', String(n))
       if (cur.mode === 'in-lease') {
-        startAt = cur.next - 1
-        leaseBounds.set(f, cur.lease.end)
-        leaseNotes.push(
-          `号段租约:本机=${machineId} 在自有段 ${lbl(cur.lease.start)}~${lbl(cur.lease.end)} 内连号(本次首号=${lbl(cur.next)})`,
+        const segUsed = new Set(
+          usedNums.filter(
+            (n) => n >= cur.lease.start && n <= cur.lease.end && n !== cur.lease.primaryKeyNum,
+          ),
         )
-      } else {
-        startAt = cur.start - 1
-        leaseBounds.set(f, cur.end)
+        freeList = []
+        for (let n = cur.lease.start; n < cur.lease.end; n += 1)
+          if (!segUsed.has(n)) freeList.push(n)
+        leaseNotes.push(
+          `号段租约:本机=${machineId} 在自有段 ${lbl(cur.lease.start)}~${lbl(cur.lease.end)} 内按空闲序连号(本次首号=${lbl(freeList[0] ?? cur.lease.end)})`,
+        )
+      } else if (cur.mode === 'claim') {
+        freeList = []
+        for (let n = cur.start; n < cur.end; n += 1) freeList.push(n)
         leaseClaims.push({ family: f, template: used.template, start: cur.start, end: cur.end })
         leaseNotes.push(
-          `号段租约:本机=${machineId} 新占段 ${lbl(cur.start)}~${lbl(cur.end)}(主键=段尾号,随本块落账;段满由后续取号另立下一段)`,
+          `号段租约:本机=${machineId} 池内新占段 ${lbl(cur.start)}~${lbl(cur.end)}(主键=段尾号,随本块落账;段满由后续取号另占池内下一窗;池满 ⇒ 拒绝发号)`,
         )
+      } else {
+        return {
+          ok: false,
+          reason: `pool-exhausted:${f}`,
+          basis,
+          leaseClaims,
+          leaseNotes,
+          dupTitleNotes,
+        }
       }
+    } else {
+      freeList = poolFreeList({ usedNumbers: usedNums, baseMax: chosenMax })
     }
-    cursor.set(f, startAt)
+    if (!freeList.length)
+      return {
+        ok: false,
+        reason: `pool-exhausted:${f}`,
+        basis,
+        leaseClaims,
+        leaseNotes,
+        dupTitleNotes,
+      }
+    pool.set(f, { free: freeList, idx: 0 })
     template.set(f, used.template)
     // 三条读数一起交出:报告里"号段基准"那一行必须能说清号是从哪一侧算出来的,
     // 只印最终值就分不清"远端把这一段顶开了"与"远端压根没参与"。
@@ -472,18 +513,19 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
   const out = lines.map((l) =>
     String(l).replace(ID_TOKEN_RE, (_, raw) => {
       const f = raw.toUpperCase()
-      const next = cursor.get(f) + 1
-      cursor.set(f, next)
-      const bound = leaseBounds.get(f)
-      if (machineId && bound !== undefined && next > bound && exhaustedFamily === null)
-        exhaustedFamily = f
+      const p = pool.get(f)
+      if (!p || p.idx >= p.free.length) {
+        if (exhaustedFamily === null) exhaustedFamily = f
+        return _
+      }
+      const next = p.free[p.idx]
+      p.idx += 1
       const id = template.get(f).replace('%d', String(next))
       got.push(id)
       return id
     }),
   )
-  if (exhaustedFamily !== null)
-    return { ok: false, reason: `lease-exhausted-mid-edit:${exhaustedFamily}` }
+  if (exhaustedFamily !== null) return { ok: false, reason: `pool-exhausted:${exhaustedFamily}` }
   return {
     ok: true,
     lines: out,
@@ -1351,9 +1393,17 @@ async function main() {
         )
         process.exit(2)
       }
+      if (String(tok.reason).startsWith('pool-exhausted:')) {
+        console.error(
+          `❌ 号池已满(${tok.reason})⇒ 拒绝落地:该族 1..999 的池再也装不下本次要发的号` +
+            `(池式硬上限 2026-10-14 立)。出路:先归档已完成条目腾号(号随归档自动回收),` +
+            `或把登记拆成多块分次落;绝不发 1000+ 的号。`,
+        )
+        process.exit(2)
+      }
       if (String(tok.reason).startsWith('lease-exhausted-mid-edit:')) {
         console.error(
-          `❌ 千段租约段内容量不足(${tok.reason})⇒ 拒绝落地:单次编辑的取号令牌数超过了段容量(1000),` +
+          `❌ 租约段内容量不足(${tok.reason})⇒ 拒绝落地:单次编辑的取号令牌数超过了段容量,` +
             `把登记拆成多块再落`,
         )
         process.exit(2)

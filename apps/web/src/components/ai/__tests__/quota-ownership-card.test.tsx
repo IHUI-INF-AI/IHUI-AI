@@ -219,7 +219,7 @@ describe('D67 词包覆盖(读真实词包,不 mock)', () => {
     expect(node.action.switchFreeModel).toBe('切换免费模型')
     expect(node.action.upgradeOrAdmin).toBe('升级或联系管理员')
     expect(node.discount.active).toBe('低峰折扣进行中')
-    expect(node.discount.upcoming).toBe('{{time}}后进入低峰折扣')
+    expect(node.discount.upcoming).toBe('{time}后进入低峰折扣')
     expect(node.degradeHint).toContain('无需充值')
   })
 
