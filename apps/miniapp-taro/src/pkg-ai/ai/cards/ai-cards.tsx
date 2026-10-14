@@ -18,22 +18,14 @@
 import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
-import { useI18n, useTt } from '@/i18n'
+import { useI18n } from '@/i18n'
 import LineIcon from '@/components/LineIcon'
 import type {
   ToolCallView,
   PlanStepView,
   TerminalTaskView,
   SteerNoticeView,
-  SubagentTaskView,
 } from '@/pkg-ai/ai/cards/types'
-// D64④:八态卡视图判据的唯一派发点(shared element-pack);端内只做 tone→样式映射与取词。
-import {
-  backgroundTaskView,
-  isBackgroundTaskState,
-  ELEMENT_PACK_NAMESPACE,
-} from '@ihui/shared/chat/element-pack'
-import type { ElementPackTone, BackgroundTaskState } from '@ihui/shared/chat/element-pack'
 import {
   formatToolMetric,
   localizeToolText,
@@ -438,135 +430,6 @@ export function SteerNoticeCard({ notices }: { notices: readonly SteerNoticeView
   )
 }
 
-/* ===================== D64④:后台子任务(subagent)八态卡 ===================== */
-
-/**
- * tone → CSS 修饰类(唯一一份映射;色值全走 design token,深浅色自动适配)。
- * 与 RN 9becc88f4 的对齐关系:RN 把徽章色档收敛到 backgroundTaskView(status).tone,
- * 本端同样只认 tone 五档,状态词汇/语义判据零自写。
- */
-const TONE_MODIFIER: Record<ElementPackTone, string> = {
-  neutral: 'is-neutral',
-  info: 'is-info',
-  success: 'is-success',
-  warning: 'is-warning',
-  danger: 'is-danger',
-}
-
-/** progress 阶段 → 取词键 + 端内兜底文案(键尚未入词包,tt 缺键回落 fb,不白屏;上包后 fb 自然退位) */
-const PHASE_VIEWS: Record<string, { key: string; fb: string }> = {
-  thinking: { key: 'ai.cards.subagent.phase.thinking', fb: '思考中' },
-  tool_call: { key: 'ai.cards.subagent.phase.toolCall', fb: '调用工具' },
-  tool_result: { key: 'ai.cards.subagent.phase.toolResult', fb: '工具返回' },
-  output_ready: { key: 'ai.cards.subagent.phase.outputReady', fb: '输出就绪' },
-}
-
-/**
- * 八态标题的端内兜底(词包键 `elementPack.backgroundTask.state.*` 五语言在位,fb 仅缺包时显)。
- * 与 BACKGROUND_TASK_STATES 同序同名,漏一态补不齐 ⇒ 编译期 Record 收窄拦截。
- */
-const STATE_TITLE_FALLBACK: Record<BackgroundTaskState, string> = {
-  pending: '等待启动',
-  running: '运行中',
-  stopping: '正在停止',
-  stopFailed: '停止失败',
-  completed: '已完成',
-  failed: '执行失败',
-  cancelled: '已取消',
-  timeout: '已超时',
-}
-
-function titleFallback(titleKey: string): string {
-  return STATE_TITLE_FALLBACK[titleKey.replace('state.', '') as BackgroundTaskState] ?? titleKey
-}
-
-/**
- * SubagentCard — subagent 三帧聚合的八态卡。
- * 状态徽章 tone / 标题键 / 补充说明 / busy 判据全部来自共享 backgroundTaskView:
- *  - busy 态 spinner + running 标题;terminal 态静态图标(tone 色)
- *  - hintKey 非空才渲染说明行(如 stopFailed 的 hint.stopFailed)
- *  - 运行时坏数据(历史行手工造的非法状态)经 isBackgroundTaskState 拦下,不猜语义,
- *    整行降级为中性标题直显原值 —— 与 RN 的 OFF_SOURCE_LABELS 同一条"非八态不并"纪律。
- *  区标题/阶段词走端词包 ai.cards.subagent.*(暂缺,tt 回落 fb);八态 state/hint 走
- *  shared 词包 ai.pane.elementPack.backgroundTask.*(五语言在位)。
- */
-export function SubagentCard({ tasks }: { tasks: readonly SubagentTaskView[] }) {
-  const tt = useTt()
-  if (!tasks.length) return null
-  return (
-    <View className="ai-card-section">
-      <View className="ai-card-section-head">
-        <LineIcon name="message-square" size={28} color="var(--color-primary)" />
-        <Text className="ai-card-section-title">{tt('ai.cards.subagent.title', '子任务')}</Text>
-        <Text className="ai-card-section-count">{tasks.length}</Text>
-      </View>
-      {tasks.map((task, i) => {
-        const key = task.id || `subagent_${i}`
-        const valid = isBackgroundTaskState(task.status)
-        const view = valid ? backgroundTaskView(task.status) : null
-        const tone = view?.tone ?? 'neutral'
-        const title = view
-          ? tt(
-              `${ELEMENT_PACK_NAMESPACE}.backgroundTask.${view.titleKey}`,
-              titleFallback(view.titleKey),
-            )
-          : task.status
-        const hint = view?.hintKey
-          ? tt(`${ELEMENT_PACK_NAMESPACE}.backgroundTask.${view.hintKey}`, '')
-          : null
-        const phase = task.currentPhase ? PHASE_VIEWS[task.currentPhase] : null
-        return (
-          <View className={`ai-card-subagent-item ${TONE_MODIFIER[tone]}`} key={key}>
-            <View className="ai-card-subagent-icon">
-              {view?.busy ? (
-                <View className="ai-card-spinner">
-                  <View className="ai-card-spinner-dot" />
-                  <View className="ai-card-spinner-dot" />
-                  <View className="ai-card-spinner-dot" />
-                </View>
-              ) : (
-                <LineIcon
-                  name={
-                    tone === 'success'
-                      ? 'check-success'
-                      : tone === 'danger'
-                        ? 'x-error'
-                        : 'circle'
-                  }
-                  size={28}
-                  color={
-                    tone === 'success'
-                      ? 'var(--color-success)'
-                      : tone === 'danger'
-                        ? 'var(--color-danger)'
-                        : 'var(--color-muted-foreground)'
-                  }
-                />
-              )}
-            </View>
-            <View className="ai-card-subagent-body">
-              <View className="ai-card-tool-row">
-                <Text className="ai-card-subagent-role">{task.role}</Text>
-                <Text className={`ai-card-subagent-status ${TONE_MODIFIER[tone]}`}>{title}</Text>
-              </View>
-              {task.task ? <Text className="ai-card-subagent-task">{task.task}</Text> : null}
-              {view?.busy && (phase || task.currentPhase) ? (
-                <Text className="ai-card-subagent-phase">
-                  {phase ? tt(phase.key, phase.fb) : task.currentPhase}
-                </Text>
-              ) : null}
-              {hint ? <Text className="ai-card-subagent-hint">{hint}</Text> : null}
-              {task.status === 'failed' && task.failureReason ? (
-                <Text className="ai-card-subagent-hint is-danger">{task.failureReason}</Text>
-              ) : null}
-            </View>
-          </View>
-        )
-      })}
-    </View>
-  )
-}
-
 /* ===================== 容器:折叠 / 三类卡片汇总 ===================== */
 export interface StreamActivityCardsProps {
   planSteps: PlanStepView[]
@@ -574,8 +437,6 @@ export interface StreamActivityCardsProps {
   terminalTasks: TerminalTaskView[]
   injections: readonly InjectionRowData[]
   citations: readonly { source: string; label: string; url?: string }[]
-  /** D64④:subagent 八态卡(旧历史消息无此字段,运行时可能为 undefined) */
-  subagentTasks?: readonly SubagentTaskView[]
   expanded: boolean
   onToggleExpand: () => void
 }
@@ -586,7 +447,6 @@ export function StreamActivityCards({
   terminalTasks,
   injections,
   citations,
-  subagentTasks,
   expanded,
   onToggleExpand,
 }: StreamActivityCardsProps) {
@@ -596,8 +456,7 @@ export function StreamActivityCards({
     toolCalls.length +
     terminalTasks.length +
     injections.length +
-    citations.length +
-    (subagentTasks?.length ?? 0)
+    citations.length
   if (total === 0) return null
   return (
     <View className="ai-card-root">
@@ -618,7 +477,6 @@ export function StreamActivityCards({
           <PlanStepsCard steps={planSteps} />
           <ToolCallCard calls={toolCalls} />
           <TerminalCard tasks={terminalTasks} />
-          <SubagentCard tasks={subagentTasks ?? []} />
           <InjectionCard items={injections} />
           <CitationCard items={citations} />
         </View>

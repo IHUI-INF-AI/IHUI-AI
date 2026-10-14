@@ -128,6 +128,3 @@ export * from './turn-answer-integrity'
 // 已有的 FILE_WRITE_TOOLS(task-status.ts 的文件变更识别白名单)是同词不同义的两个东西,
 // `export *` 并置会产出 TS2308 歧义,而消费方按 `.has()` 用时是运行时崩溃。
 // 消费方一律走子路径 @ihui/shared/chat/file-tool-intent。
-// D64⑤ 元素包历史落库契约(子代理帧族随轮次持久化 + metadata.elementPack 读回守卫);
-// 写侧收窄与读侧守卫的唯一实现,api 网关/worker 与三端回放共用,判据见 element-pack-history.ts
-export * from './element-pack-history'

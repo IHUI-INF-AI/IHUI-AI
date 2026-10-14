@@ -187,7 +187,7 @@ if (process.env.HUSKY_SKIP_HYGIENE !== '1') {
 // ─── 5. Lost commit tag 自动同步(2026-07-26 立, AGENTS.md §22 + docs/lost-commit-archive.md) ─
 // 背景: 2026-07-26 真实事故: 本地 lost-commit/* tag 被 git gc 清理, 远端虽有但 fetch 失败。
 //       关键教训: tag 必须主动 push + 主动 fetch, 否则 git gc 14 天后丢失。
-// 机制: commit 后把"远端缺失"的 lost-commit/* + backup/* tag 增量推送到 origin(分块 --atomic)。
+// 机制: commit 后把"远端缺失"的 tag 增量推送到 origin(2026-10-14 起覆盖**全部命名空间**;分块 --atomic)。
 // 跳过: HUSKY_SKIP_TAG_SYNC=1(紧急场景)
 // 非阻塞: push 失败不阻断 commit(已落地)和 push(已由第 3 段 git-push-guard 处理)
 //

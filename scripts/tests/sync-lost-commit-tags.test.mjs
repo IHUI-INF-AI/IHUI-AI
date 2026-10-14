@@ -543,6 +543,26 @@ test('判定行同样有界:名字被截时计数必须仍是全量,且 JSON 不
   }
 })
 
+// 数值档拼错的后果必须是"多说一句",不能是"少列一切":旧写法 Number('abc') ⇒ NaN ⇒
+// slice(0, NaN) = [] ⇒ 判定行一个名字都不列却照样按计数 exit,屏幕上看不出异常。
+test('数值档拼错不得静默变形:IHUI_TAG_LIST_CAP=abc ⇒ 说明后回落默认档,且名字照列、--json 的 stdout 不被污染', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    for (let i = 1; i <= 3; i++) gitAt(work, `git tag lost-commit/badcap-${i} HEAD`)
+    const r = runScript(['--check'], { cwd: work, env: { IHUI_TAG_LIST_CAP: 'abc' } })
+    assert.equal(r.status, 1, `三枚仅本地应判红,实际 ${r.status}`)
+    const all = `${r.stdout}\n${r.stderr}`
+    assert.match(all, /不是正整数 ⇒ 按默认档 20 执行/, '回落必须当场说出口(§0.10)')
+    assert.match(r.stdout, /lost-commit\/badcap-1/, '回落默认档后名字照列(NaN 会让它一个都不列)')
+    const j = runScript(['--check', '--json'], { cwd: work, env: { IHUI_TAG_LIST_CAP: 'abc' } })
+    assert.equal(j.status, 1)
+    assert.doesNotThrow(() => JSON.parse(j.stdout.trim()), '提示走 stderr,stdout 必须仍是纯 JSON')
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
 // ─── 单元层:直接吃生产判据(§22c 禁止在测试里复制一份判定) ───────
 test('单元: diffTagMaps 锁三分流(仅本地 / 同名 SHA 分歧 / 仅远端按命名空间分流)', () => {
   const localMap = new Map([

@@ -65,8 +65,6 @@ import TaskStatusBar from './task-status-bar'
 import {
   applyToolCallStart,
   applyToolDelta,
-  applySubagentEnd,
-  applySubagentProgress,
   appendCitations,
   appendSteerNotice,
   appendTerminalDelta,
@@ -75,7 +73,6 @@ import {
   markTerminalWaiting,
   backfillSteerNoticesFromMetadata,
   toSteerNotice,
-  upsertSubagentSpawn,
   type AICardsData,
 } from './cards/types'
 import { toolActivityText } from './cards/tool-line'
@@ -828,25 +825,12 @@ export default function ChatPage() {
             // start 帧未到时不凭空造条目,空 toolCallId 整帧丢弃(见 applyToolDelta)。
             onToolDelta: (evt) =>
               upsertCard((c) => ({ ...c, toolCalls: applyToolDelta(c.toolCalls, evt) })),
-            // D64④(2026-10-14):subagent 三帧聚合进 aiCards.subagentTasks 八态卡 ——
-            // 状态词汇/语义判据(tone/titleKey/hint/busy)全部走共享 element-pack
-            // backgroundTaskView,端内零自写状态表(此前三帧只有活动行文本,状态不可视)。
-            // 归并纯函数见 cards/types.ts;upsert/progress/end 各自幂等(同 id 重放不回退终态)。
             onSubagentSpawn: (evt) =>
-              upsertCard((c) => ({
-                ...c,
-                subagentTasks: upsertSubagentSpawn(c.subagentTasks ?? [], evt),
-              })),
+              pushStreamActivity(t('ai.stream.subagent', { phase: evt.role })),
             onSubagentProgress: (evt) =>
-              upsertCard((c) => ({
-                ...c,
-                subagentTasks: applySubagentProgress(c.subagentTasks ?? [], evt),
-              })),
+              pushStreamActivity(t('ai.stream.subagent', { phase: evt.phase })),
             onSubagentEnd: (evt) =>
-              upsertCard((c) => ({
-                ...c,
-                subagentTasks: applySubagentEnd(c.subagentTasks ?? [], evt),
-              })),
+              pushStreamActivity(t('ai.stream.subagent', { phase: evt.status })),
             onToolSummary: (evt) =>
               pushStreamActivity(t('ai.stream.toolSummary', { calls: evt.totalCalls })),
             onToolDelegate: (evt) =>

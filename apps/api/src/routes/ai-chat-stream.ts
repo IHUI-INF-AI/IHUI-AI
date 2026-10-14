@@ -54,9 +54,6 @@ import {
   waitForReplayHeadroom,
 } from '../utils/sse-stream-registry.js'
 import { getReplayWindowStatus, isStreamActive } from '../utils/sse-replay-buffer.js'
-import { appendElementPackFrame } from '../db/element-pack-queries.js'
-// D64⑤:subagent 帧族收窄的唯一实现(与 sse-parse 的消费收窄同源)
-import { collectElementPackFrame } from '@ihui/shared/chat'
 
 // P3-1 SSE 流式对话实时指标(admin 调试用,不直接进 Prometheus;Prometheus 抓取由 business-metrics.ts 负责)
 const sseMetrics = {
@@ -733,41 +730,6 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
               } catch {
                 /* 非 JSON,透传,等下一个 JSON data 行 */
               }
-            }
-          }
-          // D64⑤(2026-10-14 立)元素包捕获:subagent 帧族(spawn/progress/end)此前只有
-          // SSE 透传、零落库通道 —— 重载会话后子代理卡无法回放。网关是唯一既看得到这些
-          // 帧、又握有 (conversationId, messageId) 关联键的后端点(ai-service 回调不含该族),
-          // 故在透传路径上边转发边收窄落库:先追加进暂存表 chat_element_packs(键 =
-          // conversationId + 前端占位 messageId,与 ai-callback metadata 回显同源),
-          // worker 落 assistant 消息时原子取走并归并进 metadata.elementPack。
-          // 便宜预筛(subagent_ 子串)挡住 chunk 热路径,不为捕获付逐帧 JSON.parse;
-          // 捕获失败只 warn,绝不打断透传主链路(与 bindConversationWorkspace 同纪律)。
-          // 降级流(无 metadata,无 replayKey)没有关联键,整帧跳过 —— 与 replay buffer 同策略。
-          if (
-            replayKey &&
-            line.startsWith('data:') &&
-            line.includes('subagent_') &&
-            opts.metadata?.conversationId &&
-            opts.metadata?.messageId
-          ) {
-            const captureData = line.slice(5).replace(/^\s/, '')
-            try {
-              const frame = collectElementPackFrame(JSON.parse(captureData))
-              if (frame) {
-                void appendElementPackFrame(
-                  opts.metadata.conversationId,
-                  opts.metadata.messageId,
-                  frame as unknown as Record<string, unknown>,
-                ).catch((e: unknown) => {
-                  request.log.warn(
-                    { err: e instanceof Error ? e.message : String(e), replayKey },
-                    '[ElementPack] 暂存追加失败(不阻塞透传)',
-                  )
-                })
-              }
-            } catch {
-              /* 非 JSON data 行,透传,不捕获 */
             }
           }
           if (opts.agentId && line.startsWith('data:') && !line.startsWith('data: [DONE]')) {
