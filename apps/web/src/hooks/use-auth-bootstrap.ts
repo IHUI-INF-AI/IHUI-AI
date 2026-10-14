@@ -9,6 +9,7 @@ import * as React from 'react'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user'
 import { getAuthCookie } from '@/lib/cookie-utils'
+import { isDesktopEnv, getDesktopRefreshToken } from '@/lib/desktop-token-vault'
 import { fetchApi, getLastRefreshFailure } from '@/lib/api'
 import { refreshAccessTokenOnce } from '@ihui/api-client'
 import {
@@ -43,6 +44,26 @@ async function tryRefresh(): Promise<{ accessToken: string; refreshToken?: strin
   // tokenProvider(api.ts)内部 refresh 成功时已 setToken 最新 pair,
   // 这里从 store 取回最新 refreshToken(内存),避免覆盖成 null。
   return { accessToken, refreshToken: useAuthStore.getState().refreshToken ?? undefined }
+}
+
+/**
+ * 是否存在可用的 refresh 凭据(2026-10-14 控制台清零整改)。
+ *
+ * 无任何凭据时**不发** /auth/refresh:后端对无凭据刷新回 400,
+ * 浏览器会把 "Failed to load resource: 400 (Bad Request)" 打进控制台。
+ * 判据(任一成立即认为"可能有会话可恢复"):
+ * - 持久化 isAuthenticated 标志位(仅 UI 状态,无 token,安全;覆盖"标志位在、cookie 在"的主流回访);
+ * - 可读 auth cookie(旧版本降级通道,e2e storageState 注入即走此路);
+ * - 桌面 Tauri vault 里有 refreshToken(body 模式刷新)—— 覆盖 persist 解密失败时
+ *   桌面自动登录不丢(D48′ 信封链路;浏览器模式恒返回 null,零影响)。
+ * 唯一被跳过的场景:浏览器 localStorage 被选择性清除但 httpOnly cookie 尚在 ——
+ * Chrome"清除站点数据"会连 cookie 一起清,该场景现实中几乎不存在。
+ */
+async function hasUsableRefreshCredential(): Promise<boolean> {
+  if (useAuthStore.getState().isAuthenticated) return true
+  if (getAuthCookie()) return true
+  if (isDesktopEnv()) return (await getDesktopRefreshToken()) !== null
+  return false
 }
 
 /**
@@ -99,7 +120,12 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
         if (cookieToken) {
           storedToken = cookieToken
           setToken(cookieToken, useAuthStore.getState().refreshToken)
-        } else {
+        } else if (await hasUsableRefreshCredential()) {
+          // 仅当存在可用 refresh 凭据时才发 /auth/refresh:用 httpOnly refresh cookie
+          // (或桌面 vault body 模式)静默续期恢复会话。
+          // 否则冷启动未登录态(无任何 refresh 凭据)白白 POST /auth/refresh → 后端回 400 →
+          // 浏览器打印 "Failed to load resource: 400 (Bad Request)" 控制台噪声
+          // (2026-10-14 控制台清零整改:无凭据即不发此请求)。
           const refreshed = await tryRefresh()
           if (cancelled) return
           if (refreshed) {
@@ -118,7 +144,7 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
             if (shouldMarkSessionLoggedOut(getLastRefreshFailure())) {
               logout()
             } else {
-              console.warn(
+              console.debug(
                 '[web-auth] silent refresh hit transient failure (network/5xx), ' +
                   'keeping session state; auto-login marker NOT written',
               )
@@ -126,6 +152,11 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
             setReady(true)
             return
           }
+        } else {
+          // 完全无会话(首次冷启动 / 已登出未记住):不发 /auth/refresh,直接收束未登录态,
+          // 避免无凭据的刷新请求污染控制台(2026-10-14 控制台清零整改)。
+          setReady(true)
+          return
         }
       } else {
         // 内存已有 token(本会话登录过):补 setToken 保持状态一致。
@@ -197,7 +228,7 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
               if (shouldMarkSessionLoggedOut(classifyRefreshFailureStatus(retry.status))) {
                 logout()
               } else {
-                console.warn(
+                console.debug(
                   '[web-auth] /auth/me retry failed transiently after refresh, ' +
                     'keeping session state; auto-login marker NOT written',
                 )
@@ -209,7 +240,7 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
             if (shouldMarkSessionLoggedOut(getLastRefreshFailure())) {
               logout()
             } else {
-              console.warn(
+              console.debug(
                 '[web-auth] silent refresh hit transient failure (network/5xx), ' +
                   'keeping session state; auto-login marker NOT written',
               )
