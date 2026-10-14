@@ -26,6 +26,7 @@ $ErrorActionPreference = 'Stop'
 $TaskName = 'IHUI-AI-Zombie-Guardian'
 $ScriptsDir = $PSScriptRoot
 if (-not $ScriptsDir) { $ScriptsDir = Split-Path -Parent $MyInvocation.MyCommand.Path }
+$ProjectRoot = Split-Path -Parent $ScriptsDir
 $DaemonScript = Join-Path $ScriptsDir 'zombie-guardian-daemon.ps1'
 $VbsLauncher  = Join-Path $ScriptsDir 'zombie-guardian-daemon-hidden.vbs'
 
