@@ -393,7 +393,7 @@ Taro 4.2 支持构建 weapp(微信)/ alipay(支付宝)/ swan(百度)/ tt(抖音)
 4. 跑 parity 检查确认 key 一致
 5. 在语言选择器加入口
 
-详见 [I18N.md](./I18N.md) 与 [I18N-COMPLETION-PLAN.md](./I18N-COMPLETION-PLAN.md)。
+详见 [I18N.md](./I18N.md)(补全计划历史已归档,见 docs/README.md 索引)。
 
 ---
 
