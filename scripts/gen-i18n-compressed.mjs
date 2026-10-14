@@ -166,7 +166,10 @@ if (FACE !== 'worktree') {
   })
   if (dirty.length) {
     console.log(
-      `[gen:i18n] ⚠️ 其中 ${dirty.length} 份在工作树里有未入库改动(本次**不采用**它们):${dirty.join(', ')}`,
+      `[gen:i18n] ⚠️ 其中 ${dirty.length} 份的磁盘副本与所读取的面不同(本次**不采用**它们;` +
+        `两种都可能:他人在飞的新改动,或工作树滞后于 HEAD 的旧基线 —— 要区分用 ` +
+        '`git rev-list --first-parent HEAD --<路径> 比磁盘 blob):' +
+        dirty.join(', '),
     )
   }
 }
