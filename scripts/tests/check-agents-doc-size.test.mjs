@@ -11,7 +11,8 @@
 // 绝不返回 over:false 冒充判绿(§0.3);③注册条目一旦存在,mode 与 skipEnv 必须成套
 // (声明了跳过变量却没接进 runner = 假逃生舱,本仓 44/30a 两枚门都踩过)。
 import assert from 'node:assert/strict'
-import { readFileSync, existsSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { test } from 'node:test'
@@ -47,19 +48,26 @@ test('取不到面 ⇒ null(不冒充"判过",更不记绿)', () => {
   assert.equal(__test__.judgeSize('', 'head').bytes, 0, '空字符串是取得到的面,判 0 字节')
 })
 
-test('头注未注册时不得自称已接提交链(§22c 形态锁)', () => {
-  const runner = resolve(fileURLToPath(import.meta.url), '../../guardian-runner.mjs')
-  const registered = existsSync(runner) && readFileSync(runner, 'utf8').includes('check-agents-doc-size.mjs')
+test('头注与注册面成套:未注册不谎称已接,已注册则 mode+skipEnv 齐备(§22c 形态锁)', () => {
+  // 装车证明**必须读 HEAD 面 runner**,不能读工作树副本 —— 注册走 object-space-land 时只推进
+  // HEAD+索引、从不写盘,盘上那份实测会滞后到某个祖先形态;按盘上判就把"已接线"读成"没接线",
+  // 于是本断言反向指着一份真实合规的头注报假红(AGENTS §22c 形态锁原话点名的就是这一格)。
+  const runnerText = execFileSync('git', ['show', 'HEAD:scripts/guardian-runner.mjs'], {
+    encoding: 'utf8',
+    maxBuffer: 2e8,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  const registered = runnerText.includes("script: 'check-agents-doc-size.mjs'")
   if (!registered) {
     assert.doesNotMatch(SRC_TEXT, /已接提交链/, '未注册的头注不能宣称已接线(守门 89 R1/R2)')
     assert.doesNotMatch(SRC_TEXT, /跳过 `?HUSKY_SKIP_[A-Z_]+/, '未注册时不得承诺一个 runner 里不存在的跳过变量(假逃生舱)')
   } else {
-    const block = readFileSync(runner, 'utf8')
-    const i = block.indexOf("script: 'check-agents-doc-size.mjs'")
-    assert.ok(i > 0, '注册条目应含 script 字段')
-    const window = block.slice(Math.max(0, i - 900), i + 900)
-    assert.match(window, /mode: '(warn|blocking)'/, '注册条目必须定级')
-    assert.match(window, /skipEnv: '[A-Z_]+'/, '注册条目必须声明成套的跳过变量')
+    const i = runnerText.indexOf("script: 'check-agents-doc-size.mjs'")
+    const entry = runnerText.slice(i - 200, i + 400)
+    assert.match(entry, /mode: '(warn|blocking)'/, '注册条目必须定级')
+    assert.match(entry, /skipEnv: '[A-Z_]+/, '注册条目必须声明成套的跳过变量')
+    assert.match(entry, /args: \[\]/, '注册条目必须带 args —— 执行循环是 [...check.args] 展开,缺它 runner 当场 TypeError')
+    assert.match(entry, /id: '207'/, '注册条目必须带单引号 id(双引号形态对按单引号解析的判据隐身)')
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
