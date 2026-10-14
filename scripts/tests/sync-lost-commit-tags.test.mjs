@@ -9,6 +9,9 @@ import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+// §22c 镜像测试纪律:判定口径直接用**生产实现**,测试里不复制第二份判据。
+// (脚本有 §22d 的 isDirectRun 守卫,被 import 时不会触发主流程。)
+import { __test__ as TagSync } from '../sync-lost-commit-tags.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -354,6 +357,250 @@ test('auto-push 失败原因两流都报:只打在 stdout 的拒绝行不得被�
   } finally {
     rmScratch(work)
     rmScratch(origin)
+  }
+})
+
+// 辅助:在指定夹具里跑一条 git 命令(派生一律显式 stdio,AGENTS.md §12g)
+function gitAt(cwd, cmd) {
+  execSync(cmd, {
+    cwd,
+    /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: [
+      'ignore',
+      'pipe',
+      'pipe',
+    ],
+  })
+}
+
+// ─── 2026-10-14 扩射程:两条旧盲区各必须有正反对照 ───────────────────
+// 盲区 B「只比名字不比 SHA」⇒ 同名不同 SHA 必须判红;同 SHA 必须判绿(不得凭空造红)。
+test('检测: 同名 tag 本地与 origin 指向不同提交 ⇒ exit 1(旧版只比名字,这类分歧完全看不见)', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    gitAt(work, 'git tag desktop-v9.9.9 HEAD')
+    gitAt(work, 'git push origin desktop-v9.9.9')
+    gitAt(work, 'git commit --allow-empty -m "second"')
+    // 本地把同名 tag 挪到新提交,origin 仍指旧提交 = 历史重写后的"新链 vs 旧链"形态
+    gitAt(work, 'git tag -f desktop-v9.9.9 HEAD')
+    const r = runScript(['--check', '--json'], { cwd: work })
+    assert.equal(r.status, 1, `同名 SHA 分歧应 exit 1,实际 ${r.status}\nstdout: ${r.stdout}`)
+    const result = JSON.parse(r.stdout.trim())
+    assert.equal(result.status, 'fail')
+    const mism = result.allTags.shaMismatch.filter((m) => m.tag === 'desktop-v9.9.9')
+    assert.equal(mism.length, 1, 'shaMismatch 应点名该 tag')
+    assert.match(mism[0].local, /^[0-9a-f]{40}$/, '登记的 SHA 必须是全量 40 位(§1 证据指针纪律)')
+    assert.match(mism[0].remote, /^[0-9a-f]{40}$/, '两侧的 SHA 都要给,否则无法判断该往哪校准')
+    assert.notEqual(mism[0].local, mism[0].remote, '既然进了分歧桶,两个 SHA 必须真的不同')
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+test('对照: 同名 tag 两侧同 SHA ⇒ exit 0(加了 SHA 维度不得凭空造红)', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    gitAt(work, 'git tag desktop-v9.9.8 HEAD')
+    gitAt(work, 'git push origin desktop-v9.9.8')
+    const r = runScript(['--check', '--json'], { cwd: work })
+    assert.equal(r.status, 0, `一致应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
+    const result = JSON.parse(r.stdout.trim())
+    assert.equal(result.allTags.shaMismatch.length, 0, '同 SHA 不得被记成分歧')
+    assert.equal(result.allTags.localCount, 1)
+    assert.equal(result.allTags.remoteCount, 1)
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+// annotated tag 是这条判据最容易翻车的地方:远端 `refs/tags/x` 那一行是 **tag 对象**的 SHA,
+// 只有 `refs/tags/x^{}` 才是 commit;本地取的是 `%(*objectname)`。两侧口径不齐 ⇒ 每枚
+// annotated 发布 tag 都会假红(而且红得像是"链分歧",会把人引向错误的抢修方向)。
+test('annotated tag: 两侧同口径 peel ⇒ 同枚 annotated tag 不得被误判 SHA 分歧', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    gitAt(work, 'git tag -a release-v1.0.0 -m "annotated release note" HEAD')
+    gitAt(work, 'git push origin release-v1.0.0')
+    // 前置自证:远端**全量** ls-remote(与生产取法一致——不带 pattern)确实同时给出
+    // tag 对象行与 peel 行,且两者 SHA 不同(否则这条对照什么也没锁住)。
+    // 注:`ls-remote --tags origin <pattern>` 实测**不返回** peel 行,所以前置必须照生产的取法来。
+    const raw = execSync('git ls-remote --tags origin', {
+      cwd: work,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const mine = raw
+      .split('\n')
+      .filter(Boolean)
+      .filter((l) => l.split('\t')[1]?.startsWith('refs/tags/release-v1.0.0'))
+    assert.equal(mine.length, 2, `前置:应同时看到 tag 对象行与 ^{} peel 行,实得:\n${mine.join('\n')}`)
+    const shas = new Set(mine.map((l) => l.split('\t')[0]))
+    assert.equal(shas.size, 2, '前置:tag 对象与 peel 后的 commit 必须是两个不同 SHA')
+    const r = runScript(['--check', '--json'], { cwd: work })
+    assert.equal(r.status, 0, `annotated tag 一致应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
+    const result = JSON.parse(r.stdout.trim())
+    assert.equal(result.allTags.shaMismatch.length, 0, '取错行就会把 annotated tag 全判成分歧')
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+// 盲区 A「只看两个命名空间」⇒ 非备份命名空间的"仅本地"(= 压根没备份)也必须判红。
+test('检测: 非备份命名空间 tag 仅本地 ⇒ exit 1(旧版只认 lost-commit/backup,这类失明)', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    gitAt(work, 'git tag nightly-99999999999 HEAD')
+    const r = runScript(['--check'], { cwd: work })
+    assert.equal(r.status, 1, `非备份命名空间仅本地应 exit 1,实际 ${r.status}`)
+    assert.match(r.stdout, /仅本地|未 push/)
+    assert.match(r.stdout, /nightly-99999999999/, '必须点名是哪一枚')
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+// 口径(用户 2026-10-14 拍板):非备份命名空间的"仅远端"只是本地落后 origin,
+// 而自治理仓的 CI 每分钟都在造 nightly ⇒ 判红就是把守门做成恒红门(AGENTS §12e)。
+test('口径: 非备份命名空间 tag 仅远端 ⇒ exit 0 且只告警(不得因 CI 持续造 tag 恒红)', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    gitAt(work, 'git tag desktop-v1.0.0 HEAD')
+    gitAt(work, 'git push origin desktop-v1.0.0')
+    gitAt(work, 'git tag -d desktop-v1.0.0')
+    const r = runScript(['--check', '--json'], { cwd: work })
+    assert.equal(r.status, 0, `非备份仅远端只告警,实际 ${r.status}\nstdout: ${r.stdout}`)
+    const result = JSON.parse(r.stdout.trim())
+    assert.equal(result.status, 'ok')
+    assert.ok(result.allTags.onlyRemoteOther.includes('desktop-v1.0.0'), '应进"仅远端-非备份"桶')
+    assert.deepEqual(result.allTags.onlyRemoteBackup, [], '不该混进备份桶')
+    assert.ok(result.warnings.length >= 1, '告警必须如实上报,不能悄悄吞掉')
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+test('对照: 备份命名空间 tag 仅远端 ⇒ exit 1(与上一条构成分流对照,§22 备份缺口不得只告警)', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    gitAt(work, 'git tag backup/only-remote-snap HEAD')
+    gitAt(work, 'git push origin backup/only-remote-snap')
+    gitAt(work, 'git tag -d backup/only-remote-snap')
+    const r = runScript(['--check', '--json'], { cwd: work })
+    assert.equal(r.status, 1, `备份命名空间仅远端应 exit 1,实际 ${r.status}`)
+    const result = JSON.parse(r.stdout.trim())
+    assert.deepEqual(result.allTags.onlyRemoteBackup, ['backup/only-remote-snap'])
+    assert.deepEqual(result.allTags.onlyRemoteOther, [])
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+// 逐条清单被截断 ⇒ 只是"少打印",绝不能"少判定"(AGENTS §0.5/§10:输出形态不得影响数字)。
+test('有界打印不得缩水判定:IHUI_TAG_LIST_CAP=1 时清单被截,但全量数字与 JSON 判定不变', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    gitAt(work, 'git tag lost-commit/cap-a HEAD')
+    gitAt(work, 'git tag lost-commit/cap-b HEAD')
+    gitAt(work, 'git tag lost-commit/cap-c HEAD')
+    gitAt(work, 'git push origin --tags')
+    const capped = runScript(['--check'], { cwd: work, env: { IHUI_TAG_LIST_CAP: '1' } })
+    assert.equal(capped.status, 0, `三枚已同步应 exit 0,实际 ${capped.status}\n${capped.stdout}`)
+    assert.match(capped.stdout, /另有 2 枚/, '清单应被截断并明说截了多少')
+    const full = runScript(['--check', '--json'], { cwd: work })
+    assert.equal(full.status, 0)
+    const result = JSON.parse(full.stdout.trim())
+    assert.equal(result.allTags.localCount, 3, 'JSON 计数必须是全量,不随打印上限缩水')
+    assert.equal(result.summary.total, 3, '可达性判定面也必须是全量')
+    assert.equal(result.summary.reachable, 3)
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+// ─── 单元层:直接吃生产判据(§22c 禁止在测试里复制一份判定) ───────
+test('单元: diffTagMaps 锁三分流(仅本地 / 同名 SHA 分歧 / 仅远端按命名空间分流)', () => {
+  const localMap = new Map([
+    ['lost-commit/a', 'a'.repeat(40)],
+    ['backup/snap', 'b'.repeat(40)],
+    ['desktop-v1', 'c'.repeat(40)],
+    ['only-local-flat', 'd'.repeat(40)],
+  ])
+  const remoteMap = new Map([
+    ['lost-commit/a', 'a'.repeat(40)], // 一致
+    ['backup/snap', 'e'.repeat(40)], // SHA 分歧(备份族)
+    ['desktop-v1', 'f'.repeat(40)], // SHA 分歧(非备份族,同样判分歧)
+    ['lost-commit/remote-only', 'g'.repeat(40)], // 仅远端-备份族
+    ['nightly-1', 'h'.repeat(40)], // 仅远端-非备份族
+  ])
+  const d = TagSync.diffTagMaps(localMap, remoteMap)
+  assert.deepEqual(d.onlyLocal, ['only-local-flat'])
+  assert.deepEqual(
+    d.shaMismatch.map((m) => m.tag),
+    ['backup/snap', 'desktop-v1'],
+  )
+  assert.deepEqual(d.onlyRemote, ['lost-commit/remote-only', 'nightly-1'])
+  assert.deepEqual(d.onlyRemoteBackup, ['lost-commit/remote-only'])
+  assert.deepEqual(d.onlyRemoteOther, ['nightly-1'])
+  // 分歧条目必须两侧 SHA 齐给(校准时要靠它判断该往哪边对)
+  const snap = d.shaMismatch.find((m) => m.tag === 'backup/snap')
+  assert.equal(snap.local, 'b'.repeat(40))
+  assert.equal(snap.remote, 'e'.repeat(40))
+})
+
+test('单元: 备份命名空间判定按前缀加斜杠,不得被子串误命中', () => {
+  assert.ok(TagSync.isBackupNamespace('lost-commit/x'))
+  assert.ok(TagSync.isBackupNamespace('backup/x'))
+  // 真仓在位的邻近命名空间:sync-tags.mjs 的镜像白名单里有 lost-commit-backup/,
+  // 而 §22 管辖的是 lost-commit/ 与 backup/ 两族 —— 前缀边界判错会把"只告警"和"判红"用反。
+  assert.ok(!TagSync.isBackupNamespace('lost-commit-backup/x'))
+  assert.ok(!TagSync.isBackupNamespace('backup-merge-ours-e09d866'))
+  assert.ok(!TagSync.isBackupNamespace('backupx/y'))
+  assert.ok(!TagSync.isBackupNamespace('restore/prealign'))
+  assert.ok(!TagSync.isBackupNamespace('desktop-v0.1.47'))
+})
+
+test('单元: reachabilityBatch 单进程判可达 —— 缺对象判红、解析不出判红、在位判绿', () => {
+  const dir = createTempRepo()
+  const prev = process.cwd()
+  let rows
+  let realSha
+  try {
+    // reachabilityBatch 内部起的是 `git cat-file --batch-check`,按**进程 cwd**定位仓库;
+    // 不切进夹具就会拿真仓去判夹具的 SHA(那枚夹具提交在真仓里当然读不出 ⇒ 判红判成"对了",
+    // 实际锁住的却是完全相反的口径)。真实仓库形态由上面的 CLI 端到端用例覆盖。
+    process.chdir(dir)
+    realSha = execSync('git rev-parse HEAD', {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
+    rows = TagSync.reachabilityBatch(
+      ['lost-commit/alive', 'lost-commit/ghost', 'lost-commit/unparsed'],
+      new Map([
+        ['lost-commit/alive', realSha],
+        ['lost-commit/ghost', 'f'.repeat(40)], // 形状合法但对象不在仓里
+        ['lost-commit/unparsed', ''], // ref 在位却解不出 SHA
+      ]),
+    )
+  } finally {
+    process.chdir(prev)
+  }
+  try {
+    assert.match(realSha, /^[0-9a-f]{40}$/, '前置:夹具 HEAD 应是全量 SHA')
+    const byTag = new Map(rows.map((r) => [r.tag, r]))
+    assert.equal(byTag.get('lost-commit/alive').ok, true, '在位对象必须判绿')
+    assert.equal(byTag.get('lost-commit/ghost').ok, false, '对象读不出来必须判红')
+    assert.equal(byTag.get('lost-commit/ghost').reason, '对象不可达')
+    assert.equal(byTag.get('lost-commit/unparsed').ok, false, '解不出 SHA 不得当成可达')
+    assert.equal(byTag.get('lost-commit/unparsed').reason, 'tag 解析失败')
+  } finally {
+    rmScratch(dir)
   }
 })
 
