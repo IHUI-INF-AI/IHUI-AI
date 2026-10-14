@@ -54,7 +54,7 @@
  *
  * 用法: node scripts/plan-pointer-purge.mjs [--dry-run|--apply]
  */
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
@@ -421,18 +421,27 @@ export function verifyPurge(oldLines, newLines, plan) {
   if (residueDup || residueSelf) errs.push(`A3 登记行注记残留:dup=${residueDup} selfDe=${residueSelf}`)
   const openDelta = countOpen(oldLines) - countOpen(newLines)
   if (openDelta < 0) errs.push(`A2 未勾选行数反增:${countOpen(oldLines)} → ${countOpen(newLines)}`)
-  // A5 真归并单调性(L5/L6,2026-10-14):结果面上的 F4 副本数与 F10 可折数都不得比清偿前多
-  // —— 删行+移植只会让族变小;变多 = 判据或实现坏了,当场拦(这是真删行档独有的自校验:
-  // 旧四层只剥注记,不会动这两个数,所以此前不需要它)。
+  // A5 真归并单调性(L5/L6,2026-10-14):结果面上的 F4 副本数与 F10 可折数都不得比清偿前多。
+  // **两侧输入必须先剥注记归一化**(2026-10-14 实测修正):foldTwins 把带指针注记的行整个排除在
+  // 候选之外(plan-tasks-merge.mjs:2639),而本轮 L4 恰恰在做"剥注记保留" —— 不归一化就会把
+  // "本来就存在的重复第一次被看见"读成"本轮造出了重复":全量档实测 8→18 整批拒落,而新增的 13
+  // 条逐条归因到 stripSet 的行与其同题兄弟(诊断见 .ihui-agent/tmp/purge-a5-diag)。
+  // 归一化后这个维度量的才是"重复压力"本身:剥注记不改行数、删副本只让它变小、真造重复必涨。
+  // 判据没有放宽:同一条 foldTwins/findDupOpenCopies 实现,只是两侧同基准(§0.3 的"同轮同面")。
+  const bareFace = (ls) => ls.map((l) => (isRowLine(l) && !isProse(l) ? stripMergeNotes(l) : l))
   try {
-    const before4 = idx.findDupOpenCopies(idx.auditPlan(oldLines.join('\n')).dupOpen).length
-    const after4 = idx.findDupOpenCopies(idx.auditPlan(newLines.join('\n')).dupOpen).length
-    if (after4 > before4) errs.push(`A5 F4 副本数反增:${before4} → ${after4}`)
-    const before10 = foldTwins(oldLines).edits.length
-    const after10 = foldTwins(newLines).edits.length
-    if (after10 > before10) errs.push(`A5 F10 可折数反增:${before10} → ${after10}`)
-  } catch {
-    // 判据未判定(输入不是整档等)不冒充通过也不冒红 —— 与既有 A 维同一纪律
+    const bLines = bareFace(oldLines)
+    const aLines = bareFace(newLines)
+    const before4 = idx.findDupOpenCopies(idx.auditPlan(bLines.join('\n')).dupOpen).length
+    const after4 = idx.findDupOpenCopies(idx.auditPlan(aLines.join('\n')).dupOpen).length
+    if (after4 > before4) errs.push(`A5 F4 副本数反增:${before4} → ${after4}(注记已归一化 ⇒ 这是真造出来的重复)`)
+    const before10 = foldTwins(bLines).edits.length
+    const after10 = foldTwins(aLines).edits.length
+    if (after10 > before10) errs.push(`A5 F10 可折数反增:${before10} → ${after10}(注记已归一化 ⇒ 这是真造出来的重复)`)
+  } catch (e) {
+    // 判据自己炸了 ≠ 通过。旧版这里 `catch {}` 静默放行 = "未判定"被读成"已判定且绿"(§0.3 禁),
+    // 而本脚本的动作是整批真删行 ⇒ 未判定只能往保守方向走:不落。
+    errs.push(`A5 未判定(${String(e?.message ?? e).slice(0, 120)})⇒ 整批不落,先修判据输入`)
   }
   return errs
 }
@@ -511,10 +520,14 @@ function main() {
 
   const MSG_TAIL =
     '落地前五条守恒断言必须全绿(A1 已勾选不缩水 ∧ A2 未勾选不反增 ∧ A3 登记行注记归零 ∧\n' +
-    'A4 族级认领守恒 ∧ A5 真归并单调性 F4/F10 不反增),并过门 203 同源自校验。\n' +
+    'A4 族级认领守恒 ∧ A5 真归并单调性 F4/F10 不反增(两侧同做注记归一化,量的才是重复压力本身)' +
+    '),并过门 203 同源自校验。\n' +
     '落地方式:对象空间 + CAS,从不写工作树(共享工作树的台账副本常年滞后 HEAD,按 pathspec 写等于\n' +
     '把别人已入库的行整批写回旧态,§12 一族);被删行原文进 ' +
-    LEDGER_REL + '。\n' +
+    LEDGER_REL +
+    '。\n' +
+    '落地后交 git-push-guard 推送:旁路不跑 post-commit ⇒ 自动推送腿不触发,不推就会被下一次「活文档行级\n' +
+    'union」收敛按对侧副本拉回(2026-10-14 实测 350→1699 即此型)。\n' +
     '动因:用户指令「我不想让它出现重复登记副本 根本不想 不要再看到 给我彻底根治」。'
 
   // 每一轮都从**当下** HEAD 面重算(不复用首轮结果):别人推进过 HEAD 就必须在新面上重算,
@@ -655,6 +668,28 @@ function main() {
         source: 'plan-pointer-purge',
       })
       if (!at.ok) console.log(`⚠️ 旁路留痕未写入(${at.why})⇒ 这一枚在跳门总量台账里仍是 unknown`)
+      // 落地后必须**显式推送**,否则删除守不住(2026-10-14 实测归因):本脚本走对象空间 CAS,
+      // 不跑 post-commit ⇒ git-push-guard 那条自动推送腿结构性不触发 ⇒ origin 仍持有被删行;
+      // 而活文档收敛的语义是「行级 union ⇒ 只增不减」,对侧那一份会在下一次 merge 把整批注记
+      // 原样拉回(实测:11:48 清偿后台面注记 350 ⇒ 13:45 merge a478912984 带回 1699 ⇒ 门 13d
+      // 全量档转红,而它的出路只写着"再跑 purge"⇒ 死锁环)。推送走唯一实现 git-push-guard.mjs,
+      // 不手写 git push;核验 `node scripts/git-push-converge.mjs`,推漏了由门 check-push-sync 拦。
+      try {
+        const child = spawn(process.execPath, [path.join(ROOT, 'scripts', 'git-push-guard.mjs')], {
+          cwd: ROOT,
+          detached: true,
+          stdio: 'ignore',
+          windowsHide: true,
+        })
+        child.unref()
+        console.log(
+          '➡️ 已交 git-push-guard 推送旁路提交(不跑钩子 ⇒ 必须显式推,否则本轮删除会被下一次 union 收敛拉回)',
+        )
+      } catch (e) {
+        console.log(
+          `⚠️ 推送腿未派生(${String(e?.message ?? e).slice(0, 80)})⇒ 立刻跑 node scripts/git-push-guard.mjs,否则本轮清偿会被带回`,
+        )
+      }
       return 0
     } catch (e) {
       console.log(`   第 ${attempt} 次派生失败,重读面再来:${String(e?.message ?? e).split('\n').pop().slice(0, 140)}`)
