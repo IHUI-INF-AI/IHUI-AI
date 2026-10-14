@@ -17,9 +17,10 @@
  *  M9 全量档存量只报数不红(§12f 恒红门禁令:③的 HEAD 存量非零,当场判红就是恒红门);
  *  M10 真仓阳性对照 —— 钉**出处 ref**(#23 修复提交的父版本 blob)成对正反,不钉 HEAD;
  *  M12 端到端(临时仓)—— 暂存一枚存在性豁免必须红、落地后只报数、--strict 才问责。
- *  **装车证明锁(T1/T2 同型)刻意不在本文件**:主会话统一接线 guardian-runner.mjs,
- * 接线后需补"runner 里有这道门(blocking + skipEnv + stagedTriggers)"与"摘线不得被读成已装车"
- * 两条(欠账已登记,不装作已锁)。
+ *  **装车证明锁(T1/T2,2026-10-15 补录)**:主会话已把本门接线进 guardian-runner.mjs
+ * (209 号 · blocking · HUSKY_SKIP_CSRF_EXEMPTION_SHAPE · stagedTriggers=apps/api/src),
+ * 故"runner 里有这道门且四项齐"与"摘线不得被读成已装车"两条已在本文件末尾落锁(此前那句
+ * "刻意不在本文件"失效,已就地更正,不留与事实相反的承诺)。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -628,6 +629,60 @@ test('M12 端到端:暂存一枚存在性豁免必须红并点名;落地后只�
   } finally {
     rmScratch(s)
   }
+})
+
+/**
+ * 装车证明锁(T1/T2,2026-10-15 主会话接线 guardian-runner(209 号)后补录 —— 头注那句
+ * "刻意不在本文件"至此失效,已就地更正)。取材面:runner 是脚本形态(import 即执行守门),
+ * 故**不 import、不抄判据**,按注册面的结构文本现读,问注册字面量不问注释。
+ */
+const RUNNER_REL = 'scripts/guardian-runner.mjs'
+const RUNNER = join(REPO, 'scripts', 'guardian-runner.mjs')
+
+/** 取本门在 runner 注册面里的条目块(取不到返回 null,不得猜) */
+function findRunnerEntry(src, scriptName) {
+  const at = src.indexOf(`script: '${scriptName}'`)
+  if (at < 0) return null
+  const start = src.lastIndexOf('\n  {', at)
+  const end = src.indexOf('\n  },', at)
+  if (start < 0 || end < 0) return null
+  return { start, end: end + '\n  },'.length, text: src.slice(start, end + '\n  },'.length) }
+}
+
+/** "已装车"判据:blocking + 应急跳过变量一致 + 触发面含 apps/api/src */
+function isWired(src) {
+  const entry = findRunnerEntry(src, SELF)
+  if (!entry) return false
+  return (
+    /mode:\s*'blocking'/.test(entry.text) &&
+    /skipEnv:\s*'HUSKY_SKIP_CSRF_EXEMPTION_SHAPE'/.test(entry.text) &&
+    /stagedTriggers:\s*\[[^\]]*'apps\/api\/src'/.test(entry.text)
+  )
+}
+
+test('T1 装车在役:runner 注册面必须现读得到本门(blocking + skipEnv + stagedTriggers 含 apps/api/src)', () => {
+  assert.ok(existsSync(RUNNER), `守门执行器不在位:${RUNNER_REL}`)
+  assert.ok(existsSync(GATE), `门体不在位:${GATE_REL}`)
+  const src = readFileSync(RUNNER, 'utf8')
+  const entry = findRunnerEntry(src, SELF)
+  assert.ok(entry, `runner 里找不到 ${SELF} 的注册条目 ⇒ 没装车`)
+  assert.match(entry.text, /mode:\s*'blocking'/, '必须 blocking(否则提交链上不拦)')
+  assert.match(
+    entry.text,
+    /skipEnv:\s*'HUSKY_SKIP_CSRF_EXEMPTION_SHAPE'/,
+    '应急跳过变量必须与门体头注/用法一致,否则文档写的出路跑不通',
+  )
+  assert.match(entry.text, /stagedTriggers:\s*\[[^\]]*'apps\/api\/src'/, '触发面必须含 apps/api/src')
+})
+
+test('T2 摘线可被发现(变异验证):把该条目从注册面摘掉后,同一判据必须判"没装车"', () => {
+  const src = readFileSync(RUNNER, 'utf8')
+  const entry = findRunnerEntry(src, SELF)
+  assert.ok(entry, 'T2 的前提是 T1 已在位;前提不成立不得假绿 —— 先修 T1')
+  assert.equal(isWired(src), true, '注册面原式必须判"已装车"')
+  const unplugged = src.slice(0, entry.start) + '\n' + src.slice(entry.end)
+  assert.equal(isWired(unplugged), false, '摘掉条目后仍判"已装车" ⇒ 这条装车证明是空转的')
+  assert.equal(findRunnerEntry(unplugged, SELF), null, '摘线后注册面里不得再读得到本门')
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
