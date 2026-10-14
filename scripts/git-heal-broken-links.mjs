@@ -37,7 +37,6 @@
  * 定级:常驻**出口**不是守门,不在提交链,因此没有紧急跳过变量(它不在钩子链上)。
  */
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -47,6 +46,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // fd 通道不受影响)。此前本器裸 execFileSync,病窗一来 --self-test H27 必挂、--apply 全程
 // 派生全灭;兜底实现收口在共用层,这里绝不复制一份(本仓对"两份真相"零容忍)。
 import { batchExecFileSync } from './lib/face-reader.mjs'
+import { scratchRoot } from './lib/scratch-dir.mjs'
 // git 二进制绝对路径优先(AGENTS §5b"git 调用不得依赖环境"):GUI 宿主/服务账户的 PATH
 // 与交互终端不通。resolveGitBin 解析不到时回退 'git'(与既有行为一致,不新增故障面)。
 import { resolveGitBin } from './lib/gitdir.mjs'
@@ -222,7 +222,9 @@ export function isEmptyFetch(buf, kind, expectedOid) {
 
 /** 探针仓(空仓 + origin)的建法与清理,抽成一对便于 self-test 不碰网络。 */
 export function makeProbe(keep) {
-  const dir = mkdtempSync(join(process.env.IHUI_HEAL_PROBE_DIR || tmpdir(), 'ihui-git-heal-'))
+  // 探针仓基座:显式 IHUI_HEAL_PROBE_DIR > §26 scratch 根。不再走 os.tmpdir() ——
+  // 活进程 TEMP 可能仍钉 C 盘,且它与本仓 scratch 根不同盘时探针与主仓跨卷(头注要求的"同盘临时落点")。
+  const dir = mkdtempSync(join(process.env.IHUI_HEAL_PROBE_DIR || scratchRoot(), 'ihui-git-heal-'))
   return {
     dir,
     cleanup() {
