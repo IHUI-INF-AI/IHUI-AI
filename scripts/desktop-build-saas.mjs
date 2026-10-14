@@ -61,9 +61,15 @@ const UNSIGNED_CONFIG_CONTENT = `${JSON.stringify({ bundle: { createUpdaterArtif
  * @returns {{cmd: string, args: string[], shell: boolean, configPath: string|null, tail: {cmd: string, args: string[]}|null}}
  */
 function buildPlan({ npmExecpath, execPath, root, allowUnsigned }) {
-  const cmd = npmExecpath ? execPath : 'pnpm'
-  const prefix = npmExecpath ? [npmExecpath] : []
-  const shell = !npmExecpath
+  // ⚠ npm_execpath **不保证是 JS 入口**:pnpm 11/Windows 下它是 `pnpm.exe` 本体路径,
+  // 交给 execPath(node)当模块加载会直接 `ERR_UNKNOWN_FILE_EXTENSION ".exe"`。
+  // 同一假设已于 2026-10-14 在 desktop-dev-saas.mjs 上实测炸掉整条 dev 入口(6160e47bb1 修),
+  // 本函数字形相同 ⇒ 不修则 `pnpm build:desktop:saas` 发版入口同型失效。
+  // 只有确认是 .c?js 时(如 npm 的 npm-cli.js)才走 node 直载;其余回落 shell 解析裸 `pnpm`。
+  const execpathIsJs = !!npmExecpath && /\.[cm]?js$/i.test(npmExecpath)
+  const cmd = execpathIsJs ? execPath : 'pnpm'
+  const prefix = execpathIsJs ? [npmExecpath] : []
+  const shell = !execpathIsJs
   if (!allowUnsigned) {
     return { cmd, args: [...prefix, '--filter', '@ihui/desktop', 'build'], shell, configPath: null, tail: null }
   }
@@ -93,8 +99,8 @@ async function main() {
   console.log(`  NEXT_PUBLIC_WS_BASE_URL         = ${process.env.NEXT_PUBLIC_WS_BASE_URL}`)
   console.log(`  NEXT_PUBLIC_AI_SERVICE_URL      = ${process.env.NEXT_PUBLIC_AI_SERVICE_URL}`)
 
-  // 走与 pnpm 脚本相同的执行器:pnpm 运行时 npm_execpath 指向 pnpm 本体(node 直跑),
-  // 避免 Windows 下对 pnpm.cmd 的 shell 解析依赖。
+  // 执行器选择见 buildPlan:pnpm 的 npm_execpath 是 **exe 本体**而非 JS 入口,
+  // 不能无条件交给 node 直载;只有 .c?js 入口才走直载,否则回落 shell 解析裸 `pnpm`。
   const allowUnsigned = allowUnsignedFrom(process.env)
   const plan = buildPlan({
     npmExecpath: process.env.npm_execpath,
