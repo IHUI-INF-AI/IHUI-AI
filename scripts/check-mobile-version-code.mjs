@@ -45,12 +45,12 @@
  * 应急跳过:HUSKY_SKIP_MOBILE_VERSION_CODE=1(跳过即放弃"版本号必须单调递增"这条不变量)
  */
 import { createRequire } from 'node:module'
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { Undetermined, catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { mkScratch } from './lib/scratch-dir.mjs'
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..')
 const GATE = 'check-mobile-version-code.mjs'
@@ -130,8 +130,9 @@ export function judgeResolved({ resolved, floor, ceiling, now }) {
  * @returns {{resolved:object, floor:number, ceiling:number}}
  */
 export function evaluateFace({ appJsonText, appConfigText, packageJsonText, env = {} }) {
-  const dir = join(tmpdir(), `mvc-eval-${process.pid}-${Math.random().toString(36).slice(2)}`)
-  mkdirSync(dir, { recursive: true })
+  // §26:夹具唯一落点 = scratch 根(mkScratch 自建目录,退出即摘牌)。
+  // 旧写法走 os.tmpdir() —— 活进程 TEMP 可能仍钉 C 盘,正是守门 check-fixture-tmpdir 的 F2 判据。
+  const dir = mkScratch('mvc-eval-')
   try {
     writeFileSync(join(dir, 'package.json'), packageJsonText, 'utf8')
     writeFileSync(join(dir, 'app.json'), appJsonText, 'utf8')
