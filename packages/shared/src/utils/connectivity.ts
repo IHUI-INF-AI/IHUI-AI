@@ -69,8 +69,14 @@ export interface ConnectivityThresholds {
 }
 
 export const DEFAULT_CONNECTIVITY_THRESHOLDS: ConnectivityThresholds = {
-  slowLatencyMs: 1_500,
-  // 真机 RTT 408–505ms 时,TLS 握手 + 一次 HTTP 往返本身就要 2–3s;单次抖动不该变成红横幅。
+  // 跨境 anycast 边缘 RTT ~493ms + TLS 0.8s + 一次 HTTP 往返,切换 http2 后正常 TTFB 约 0.75–2.2s
+  // (2026-10-14 诊断:仓内 2026-08-05 读数 http2 比 quic 公网 TTFB 快约 2 倍)。阈值必须高于这个
+  // 正常上限,否则"慢网"横幅会在链路完全健康时因物理下限而常亮 —— 旧值 1500ms 低于 2–3s 物理
+  // 下限,正是真机横幅常态亮的根因(根因②)。仅单轮最快应答 ≥ 2500ms(真·劣化)才提示 slow,
+  // 把健康跨境链路从误判里摘出来;不改变"慢网 ≠ 断网"语义(G-1113920 锁)。
+  slowLatencyMs: 2_500,
+  // 真机 RTT 408–505ms 时,TLS 握手 + 一次 HTTP 往返本身就要 2–3s;单次抖动不该立即变红横幅,
+  // 故离线判定需连续 N 轮未答才升级(与 slow 的单轮即时提示不同,离线是更重结论,需更保守)。
   offlineConsecutiveRounds: 3,
 }
 
