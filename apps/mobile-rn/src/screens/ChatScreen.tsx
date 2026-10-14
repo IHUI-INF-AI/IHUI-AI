@@ -119,6 +119,18 @@ import {
 // D136(2026-10-01 立,承 V4 #94/D84):高危工具审批 —— 面板 + 常驻待审批胶囊,
 // 三档 once/session/always 逐档对齐 web(tool-approval-dialog.tsx),默认 once 最小特权。
 import { useToolApprovalQueue } from '../components/ai/ToolApprovalSheet'
+// D38(承 G-42):队列交互宿主 —— 排队/撤回/编辑/重排/打断并执行入口。
+// 判定复用 @ihui/shared 的 D69+D38(queueInteractionPerms/interactionAllowed/
+// effectiveMode/reorderQueue/applyQueueEdit/interruptPlan),端内不另立第二套判定;
+// 组件形态对齐 web queue-interaction-bar.tsx(hover → 按压态,拖拽 → ↑/↓ 重排)。
+import { QueueInteractionBar } from '../components/ai/QueueInteractionBar'
+import {
+  applyQueueEdit,
+  effectiveMode,
+  interruptPlan,
+  reorderQueue,
+  type FollowUpMode,
+} from '@ihui/shared/chat/queue-interactions'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS, toUserFriendlyMessage } from '@ihui/shared'
 import type { ChatMessage } from '@ihui/shared'
@@ -547,6 +559,12 @@ export function ChatScreen() {
   // 关闭 ≠ 决策,被拒/收起后仍留人工放行入口);onToolApproval 挂进 streamChat 回调表。
   const toolApproval = useToolApprovalQueue()
 
+  // D38:侧问队列(端内本地态;web 在 chat store sideQueueByConversation,RN 无 store 层,
+  // 项形与 D38 EditableQueueItem 同构:id/text/createdAt)
+  const [sideQueue, setSideQueue] = useState<{ id: string; text: string; createdAt: number }[]>([])
+  const [followUpMode, setFollowUpMode] = useState<FollowUpMode>('queue')
+  const queueIdCounter = useRef(0)
+
   const abortRef = useRef<AbortController | null>(null)
   const idCounter = useRef(0)
   const listRef = useRef<FlatList<ChatMessage> | null>(null)
@@ -747,7 +765,17 @@ export function ChatScreen() {
     // overrideText 用于 P1.4 网页链接发送等场景;onSend 已 wrap 为 () => send() 防止 PressableEvent 传入
     // baseHistory:失败轮重试时显式传入"截到上一次提问之前"的历史,避免用渲染闭包里的旧 messages
     const text = (typeof overrideText === 'string' ? overrideText : prompt).trim()
-    if (!text || isStreaming) return
+    if (!text) return
+    if (isStreaming) {
+      // D38:流式中发送不再静默丢弃 —— 入侧问队列,本轮结束由下方流结束 effect 出队补答
+      queueIdCounter.current += 1
+      setSideQueue((prev) => [
+        ...prev,
+        { id: `sq-${queueIdCounter.current}`, text, createdAt: Date.now() },
+      ])
+      setPrompt('')
+      return
+    }
     setPrompt('')
     const userMsg: ChatMessage = { id: nextId(), role: 'user', content: text }
     const aiMsg: ChatMessage = { id: nextId(), role: 'assistant', content: '' }
@@ -1069,6 +1097,43 @@ export function ChatScreen() {
   useEffect(() => {
     sendRef.current = send
   })
+
+  // D38/W27:流结束自动补答 —— 队列非空且生效模式为 queue 时出队队首重发
+  // (web message-input 流结束 effect 同形)。RN Runtime 暂无插话能力,effectiveMode
+  // 解析恒 queue(steer 偏好显式降级,降级句由队列条渲染)。
+  useEffect(() => {
+    if (isStreaming) return
+    if (sideQueue.length === 0) return
+    if (effectiveMode(followUpMode, false).mode !== 'queue') return
+    const head = sideQueue[0]
+    if (!head) return
+    setSideQueue((prev) => prev.filter((q) => q.id !== head.id))
+    void sendRef.current(head.text)
+  }, [isStreaming, sideQueue, followUpMode])
+
+  // ── D38 队列交互动作(许可判定在 QueueInteractionBar 内复用 D69/D38,这里只做状态写) ──
+  const handleQueueReorder = (fromIndex: number, toIndex: number): void => {
+    setSideQueue((prev) => [...reorderQueue(prev, fromIndex, toIndex)])
+  }
+  const handleQueueUndo = (itemId: string): void => {
+    const item = sideQueue.find((q) => q.id === itemId)
+    setSideQueue((prev) => prev.filter((q) => q.id !== itemId))
+    // W27 同形:撤回 = 移除并把文本退回输入框(已有内容换行拼接)
+    if (item) setPrompt((p) => (p ? `${p}\n${item.text}` : item.text))
+  }
+  const handleQueueEdit = (itemId: string, text: string): void => {
+    setSideQueue((prev) => [...applyQueueEdit(prev, itemId, { text })])
+  }
+  const handleInterruptAndRun = (): void => {
+    // 计划由 interruptPlan 产出(stopFirst/thenRun);RN Runtime 暂无插话能力,
+    // 许可门恒拒 ⇒ 此回调当前不可达;停流走 W2 abort 通道,队首由上方流结束 effect 补答。
+    const plan = interruptPlan(
+      { streaming: isStreaming, streamingMessageId: null },
+      sideQueue[0] ?? null,
+    )
+    if (!plan.thenRun) return
+    if (plan.stopFirst) stop()
+  }
   const retryLastTurn = useCallback((): void => {
     const lastUserIdx = messages.map((m) => m.role).lastIndexOf('user')
     const text = resendTargetText(messages)
@@ -2669,6 +2734,17 @@ export function ChatScreen() {
           toolCalls={planViz?.toolCalls}
           isStreaming={isStreaming}
         />
+        {/* D38:队列交互条(排队消息 撤回/编辑/重排 + 打断并执行入口 + 模式切换;空队列零占位) */}
+        <QueueInteractionBar
+          items={sideQueue}
+          streaming={isStreaming}
+          mode={followUpMode}
+          onReorder={handleQueueReorder}
+          onUndo={handleQueueUndo}
+          onEdit={handleQueueEdit}
+          onInterruptAndRun={handleInterruptAndRun}
+          onModeChange={setFollowUpMode}
+        />
         {/*
           D154(2026-10-01 收口渲染面):MCP 连接状态行,位置与小程序端一致(输入条上方)。
           数据源是共享层那一份 `mcpStatusLedger`(帧进表由 ../lib/user-broadcast 的唯一接线负责,
@@ -2679,7 +2755,8 @@ export function ChatScreen() {
         <BottomActionBar
           prompt={prompt}
           onPromptChange={updatePrompt}
-          onSend={isStreaming ? stop : () => send()}
+          // D38:流式中输入非空 = 入队(发送按钮让出排队入口);空输入仍是打断(Stop)
+          onSend={isStreaming && !prompt.trim() ? stop : () => send()}
           modelName={models.find((m) => m.id === model)?.name}
           onShowModelList={showModelList}
           onShowModelConfig={showModelConfig}
