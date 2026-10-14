@@ -191,6 +191,17 @@ const FAMILY_LIFETIME_DAYS = {
    */
   'credential-presence-exempt': 30,
   /**
+   * 守门 `check-csrf-exemption-shape.mjs`(CSRF 豁免形状对账)的行内出口。取 **30 天** ——
+   * 它是**待偿的裁决债**:该出口只救"这一处确实只按 header/env 键存在性判定、且判据不可达"
+   * 的情况,出路只有两条 —— 把验真补进条件(`isVerified…` / `hasVerified…` / `secretsEqual`),
+   * 或等 `timingSafeEqual` 收敛到 secretsEqual 唯一实现;不是结构性定性,所以不取 365。
+   * **同笔登记的真正理由**与 credential-presence-exempt 同型:族若不在表里,第一处真被写出的
+   * 行内豁免就会被本门 E4 判成"新引入的未登记豁免族"—— 一道门自己的合法出口被邻居钉红
+   * (radius-role / border-ink / credential-presence 同课)。判据侧要求带原因、只救本行或
+   * 紧邻上一纯注释行;③的 timingSafeEqual 站点同样认这一枚标记(那一维没有第二个出口)。
+   */
+  'csrf-exempt': 30,
+  /**
    * 守门 191(`check-test-judge-not-replicated.mjs`,镜像测试不得复制门体判据)的行内出口。取 **30 天**
    * —— 它豁免的是**待偿的收口债**:那一处测试确实还没有可复用的判据出口(门体没把那条形态导出),
    * 唯一出路是把判据从门体导出、让测试改调生产入口(§22c 的合规形状,门 191 头注 P1 通道那一条),

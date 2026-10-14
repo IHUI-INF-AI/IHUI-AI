@@ -75,6 +75,8 @@ import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 // (它同时是旁路留痕的写口与台账的读口;在这里另写一遍 appendFileSync = 第二份 schema,
 //  而两份 schema 的漂开会表现为"写了但统计器永远读不到")。
 import { recordGatesThenCommit } from './lib/commit-attestation.mjs'
+// G-920:事后载荷归因与处置建议的唯一出口(判据住 lib,本工具引那一份 —— 不在这里再算一遍)
+import { classifyConcurrentCommits, adviceFor } from './lib/commit-payload-attribution.mjs'
 // G-1079146 剩余半格(2026-10-08):活文档 intake 取值。判据**只有 live-doc-edit 那一份** ——
 // 本器 import 它已导出的六个出口,不在这里抄第二条 hex 正则、也不自己 split 做行差集(§22c:
 // 两处算同一件事必漂移,而漂了的那一份会替腐烂发合格证)。该模块顶层有 §22d `isDirectRun` 守卫,
@@ -1267,32 +1269,70 @@ if (newShas.length === 0) {
   committedSha = newShas[0]
   committedFiles = filesOfCommit(committedSha)
 } else {
-  // 并发:其他 agent 也在本次 commit 前后提交。找出「文件集全部落在预期内」的那一个,
-  // 它就是本次提交(其他 agent 的提交必然含本脚本未声明的文件,除非文件集恰好相同)。
-  const mine = newShas.find((sha) => {
-    const files = filesOfCommit(sha)
-    return files.length > 0 && files.every((f) => expectedNorm.has(f))
+  // 并发:其他 agent 也在本次 commit 前后提交。**不再用"文件集全在预期内"单一判据去找自己那枚** ——
+  // 那条把两种相反的错位(G-920 的两起实测)一起读成"未能定位本次提交",然后建议
+  // `git reset HEAD~1`;而 HEAD~1 是相对位置不是身份,照做就会把他人的提交从尖端退掉。
+  // 改按内容级分类:clean / polluted-ours(我们那枚被灌了别人 staged 的东西)/ carried-by-other
+  // (声明件被别家整索引提交带走)/ unlocated,建议与形态同处产出。
+  const subjectOfCommit = (sha) => {
+    const r = spawnSync('git', ['show', '-s', '--format=%s', sha], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    return r.status === 0 ? String(r.stdout ?? '').trim() : ''
+  }
+  const verdict = classifyConcurrentCommits({
+    newShas,
+    filesOf: filesOfCommit,
+    expected: expectedNorm,
+    subjectOf: subjectOfCommit,
+    ourSubject: String(message ?? '').split('\n')[0].trim(),
   })
-  if (!mine) {
+  if (verdict.kind === 'polluted-ours') {
+    log(
+      'err',
+      `${C.red}严重!本枚提交被灌入 ${verdict.extraFiles.length} 个非本票路径${C.reset}: ${verdict.extraFiles.join(', ')}`,
+    )
+    log('err', `本次提交是 ${verdict.sha.slice(0, 9)}(内容级判据:载荷含全部声明路径 + 这些外来件)`)
+    for (const line of adviceFor('polluted-ours').lines) log('err', line)
+    process.exit(1)
+  }
+  if (verdict.kind === 'carried-by-other') {
+    log(
+      'err',
+      `${C.red}本票声明的路径没有以本枚提交落地,而是出现在他人那枚里${C.reset}(G-920 的②型错位):`,
+    )
+    for (const c of verdict.carriers)
+      console.log(
+        `     ${C.dim}${c.sha.slice(0, 9)}${C.reset}${c.subject ? ` 「${c.subject}」` : ''} 带走了 ${c.carried.join(', ')}`,
+      )
+    for (const line of adviceFor('carried-by-other').lines) log('err', line)
+    process.exit(1)
+  }
+  if (verdict.kind === 'unlocated') {
     log('err', `${C.red}并发场景下未能定位本次提交${C.reset}(beforeSha=${beforeSha.slice(0, 9)})`)
-    log('warn', `区间内 ${newShas.length} 个新提交均含非预期文件,请人工核对:`)
+    log('warn', `区间内 ${newShas.length} 个新提交与声明集无内容级对应关系,请人工核对:`)
     for (const sha of newShas) {
       console.log(`     ${C.dim}${sha.slice(0, 9)}${C.reset} ${filesOfCommit(sha).join(', ')}`)
     }
+    for (const line of adviceFor('unlocated').lines) log('err', line)
     process.exit(1)
   }
-  committedSha = mine
-  committedFiles = filesOfCommit(mine)
+  committedSha = verdict.sha
+  committedFiles = filesOfCommit(verdict.sha)
   log(
     'warn',
-    `检测到 ${newShas.length - 1} 个并发提交,已定位本次提交 ${C.cyan}${committedSha.slice(0, 9)}${C.reset}`,
+    `检测到 ${newShas.length} 个并发提交,已按内容级定位本次提交 ${C.cyan}${committedSha.slice(0, 9)}${C.reset}`,
   )
 }
 
 const committedUnexpected = committedFiles.filter((f) => !expectedNorm.has(f))
 if (committedUnexpected.length > 0) {
   log('err', `${C.red}严重!commit 包含非预期文件${C.reset}: ${committedUnexpected.join(', ')}`)
-  log('err', `这是一个污染事故! 建议立即: git reset HEAD~1 然后重新用 safe-commit 提交`)
+  log('err', '这是一个污染事故(载荷含本票之外的路径)。')
+  for (const line of adviceFor('polluted-ours').lines) log('err', line)
   process.exit(1)
 }
 

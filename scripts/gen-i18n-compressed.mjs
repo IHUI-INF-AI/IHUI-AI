@@ -5,7 +5,16 @@
 // 离线 i18n 压缩生成脚本:把非中文 4 语言包(shared + miniapp-taro)合并后
 // JSON.stringify → gzip(level 9) → base64,生成 src/i18n/generated/remote-locales.gen.ts。
 // 运行时经 fflate 解压还原,与源 JSON 无损等价(见 src/i18n/__tests__/i18n-compressed.test.ts)。
-// 用法:node scripts/gen-i18n-compressed.mjs  (package.json: pnpm gen:i18n)
+// 用法:node scripts/gen-i18n-compressed.mjs [--worktree|--staged|--head]  (package.json: pnpm gen:i18n)
+//
+// 取材面(2026-10-15 加,AGENTS §0.4 同一口径):
+//   缺省 **worktree(磁盘)** —— `build`/`build:weapp` 走的就是这一档,开发者改了语言包还没提交,
+//   构建里就该带上他改的;把它悄悄改成 HEAD 会让构建吞掉未入库的文案改动(实测本仓 build 链确实调本器)。
+//   `--staged` 取索引 blob,`--head` 取 HEAD blob —— 这两档是给**对账/落地**用的:守门 105 的 G5 判据
+//   量的是"HEAD 里的产物钉 == HEAD 里的输入算出的哈希",而在共享工作树里 HEAD 的输入与磁盘上的输入
+//   常年不同(2026-10-15 实测:`packages/i18n/messages/shared/{en,ja,ko,zh-TW,zh-CN}.json` 五份同时被
+//   他人 ` M` 占着)。那一时用缺省档复跑,会把**未入库的他人内容烘进产物与自述钉**(§16/§12c 同型),
+//   所以要按被审面重算。取不到(该面没有这份)⇒ exit 2 点名,绝不回落另一个面;多面旗同给 ⇒ exit 2。
 //
 // 2026-10-06 主包余量治理(按需拉取改造):同一份 base64 载荷现在产出**三个消费面**,
 // 全部由本生成器从同一批输入派生(单源多产物,与 record_back.png"单一源→两份产物"同规矩):
@@ -34,6 +43,9 @@ import { dirname, resolve } from 'node:path'
 // 在这之前这条边**不能撤**:守门 105 的镜像 T14 断言"门与生成器都必须引那份唯一实现",
 // 撤掉即变成两处各算一遍哈希 —— 正是本仓记过两次的漂移成因。
 import { renderPin, sha256Hex } from './lib/generated-input-pin.mjs'
+// 取材面的解析与读取一律复用守门那一份实现(§22c:同一件事不写第二套)——
+// `catBatch` 是"清单与内容同面同轮"的批量出口,`readWorktreeFile` 是磁盘面的 sanctioned 读法。
+import { catBatch, readWorktreeFile, FACE_LABEL } from './lib/face-reader.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 // 脚本在根 scripts/,仓库根在其上 1 级;消息源在 packages/i18n/messages
@@ -43,7 +55,8 @@ const repoRoot = resolve(__dirname, '..')
 const { gzipSync, strToU8 } = createRequire(
   resolve(repoRoot, 'apps/miniapp-taro/package.json'),
 )('fflate')
-const messagesRoot = resolve(repoRoot, 'packages/i18n/messages')
+// 消息源的仓库相对根:只在这里写一次,INPUT_RELS 与 loadJson 的钉 rel 都从它拼(两处各拼必然漂移)
+const MESSAGES_REL = 'packages/i18n/messages'
 const outDir = resolve(repoRoot, 'apps/miniapp-taro/src/i18n/generated')
 const outFile = resolve(outDir, 'remote-locales.gen.ts')
 const manifestFile = resolve(outDir, 'remote-locale-manifest.gen.ts')
@@ -53,6 +66,39 @@ const cdnPayloadDir = resolve(repoRoot, 'apps/miniapp-taro/src/assets/remote-loc
 const GENERATOR_REL = 'apps/miniapp-taro/scripts/gen-i18n-compressed.mjs'
 
 const REMOTE_LOCALES = ['en', 'ja', 'ko', 'zh-TW']
+
+// ── 取材面解析(三面互斥,口径与 lib/face-reader.mjs::selectFace 同一条:多面旗同给 ⇒ 不判)──
+// 缺省 worktree 是刻意保留的既有行为(见文件头「取材面」段),不是偷懒档。
+const faceFlags = [
+  ['--head', 'head'],
+  ['--staged', 'staged'],
+  ['--worktree', 'worktree'],
+].filter(([f]) => process.argv.includes(f))
+if (faceFlags.length > 1) {
+  console.error(
+    `❌ [gen:i18n] 取材面旗互斥,本次同时给了 ${faceFlags.map(([f]) => f).join(' + ')} ⇒ exit 2(两个面读出来的东西不同,拿哪个算哪个必须由人指定)`,
+  )
+  process.exit(2)
+}
+const FACE = faceFlags[0] ? faceFlags[0][1] : 'worktree'
+const specOf = (rel) => (FACE === 'staged' ? `:${rel}` : `HEAD:${rel}`)
+const INPUT_RELS = REMOTE_LOCALES.flatMap((locale) => [
+  `${MESSAGES_REL}/shared/${locale}.json`,
+  `${MESSAGES_REL}/miniapp-taro/${locale}.json`,
+])
+// 非磁盘面:一次批量读满。逐份 `git show` 会让并行会话在第 3 份和第 4 份之间推进 HEAD,
+// 产出自洽却错位的钉(守门 118 的"少扫不红"同型)。
+let FACE_BATCH = null
+if (FACE !== 'worktree') {
+  try {
+    FACE_BATCH = catBatch(repoRoot, INPUT_RELS.map(specOf), { timeout: 60000 })
+  } catch (e) {
+    console.error(
+      `❌ [gen:i18n] ${FACE_LABEL[FACE]} 批量读取失败(${INPUT_RELS.length} 份输入):${e?.message ?? e} ⇒ exit 2,不回落磁盘面重算`,
+    )
+    process.exit(2)
+  }
+}
 
 // 自述钉(G-680):产物必须能自己说清"我是从哪些输入、哪个提交算出来的"。
 // 为什么不全靠 --check / 靠 mtime:本仓实录过两次「产物存在但内容是旧的」——
@@ -89,10 +135,43 @@ function mergeMessages(base, override) {
 /** 读一份消息源:同时把它按「仓库根相对路径 + 原始文本」记进钉的输入清单 */
 const pinInputs = []
 function loadJson(...parts) {
-  const file = resolve(messagesRoot, ...parts)
-  const text = readFileSync(file, 'utf8')
-  pinInputs.push({ rel: `packages/i18n/messages/${parts.join('/')}`, text })
+  const rel = `${MESSAGES_REL}/${parts.join('/')}`
+  let text
+  if (FACE === 'worktree') {
+    text = readWorktreeFile(repoRoot, rel)
+  } else {
+    text = FACE_BATCH.get(specOf(rel))
+  }
+  if (text === null || text === undefined) {
+    // 「取不到」永远不许变成"那就不算一份"或"改用另一个面"—— 那样产物钉会说自己是从一批
+    // 根本没读全的输入派生的(§0.3:把没判写成判过了)。
+    console.error(
+      `❌ [gen:i18n] ${FACE_LABEL[FACE]} 取不到 ${rel} ⇒ exit 2(不回落另一个面;这一份缺席就不出合格证)`,
+    )
+    process.exit(2)
+  }
+  pinInputs.push({ rel, text })
   return JSON.parse(text)
+}
+
+console.log(
+  `[gen:i18n] 取材面 = ${FACE_LABEL[FACE]}(${INPUT_RELS.length} 份输入${FACE === 'worktree' ? ',逐份读磁盘' : ',一次批量读满'})`,
+)
+if (FACE !== 'worktree') {
+  // 脏输入点名:按被审面重算时,磁盘上若有不同内容必须喊出来 —— 否则操作者会以为
+  // "产物和我盘上看到的一样",而它其实是 HEAD 那份(这正是本次要能安全做到的那件事)。
+  const dirty = INPUT_RELS.filter((rel) => {
+    const disk = readWorktreeFile(repoRoot, rel)
+    return disk !== null && disk !== FACE_BATCH.get(specOf(rel))
+  })
+  if (dirty.length) {
+    console.log(
+      `[gen:i18n] ⚠️ 其中 ${dirty.length} 份的磁盘副本与所读取的面不同(本次**不采用**它们;` +
+        `两种都可能:他人在飞的新改动,或工作树滞后于 HEAD 的旧基线 —— 要区分用 ` +
+        '`git rev-list --first-parent HEAD --<路径> 比磁盘 blob):' +
+        dirty.join(', '),
+    )
+  }
 }
 
 const REMOTE_LOCALE_B64 = {}
