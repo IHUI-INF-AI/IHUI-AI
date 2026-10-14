@@ -62,6 +62,39 @@ function headLedger() {
     maxBuffer: 256 * 1024 * 1024,
   })
 }
+/**
+ * 覆盖面棘轮的取证面 = **台账 ⊕ 归档件**,不是只看活台账。
+ *
+ * 为什么必须换面(2026-10-15 实测两条红):归档器按 §1 把完成条目整块搬进
+ * `.ihui-agent/archive/PROJECT_PLAN*.md`,清偿器按 §1「一个编号只能有一行当前状态」把重复副本折掉
+ * ⇒ 只看活台账时,"覆盖面只许涨不许跌"这条棘轮会在**有人正常清账的当天**凭空下跌
+ * (实测:裸序号族从 7 行被折到 1 行、成键总行数从 1461 掉到 381)。把"此刻还有几份副本"
+ * 当基线,等于把重复污染当判据要保的东西 —— 与台账自己的不变量相反。
+ * 号池门与取号早就吃这张面(`lib/plan-id-face.mjs` 的 `collectIdFace`:台账 + 归档件),
+ * 判据面与之同源,不另发明第三种面。归档件只增不删 ⇒ 棘轮自此不会被清账打脸。
+ */
+function faceLedger() {
+  const names = execFileSync('git', ['ls-tree', '--name-only', 'HEAD:.ihui-agent/archive'], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+    timeout: 180000,
+  })
+    .split(/\r?\n/)
+    .filter((n) => /^PROJECT_PLAN.*\.md$/.test(n))
+  const docs = names.map(
+    (n) =>
+      execFileSync('git', ['cat-file', 'blob', `HEAD:.ihui-agent/archive/${n}`], {
+        encoding: 'utf8',
+        maxBuffer: 256 * 1024 * 1024,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+        timeout: 180000,
+      }),
+  )
+  return [headLedger(), ...docs].join('\n')
+}
+
 const isRow = (l) => /^\s*[-*]\s*\[[ xX]\]/.test(l)
 
 test('M14 行首裸序号 + 题面写在 `**` 之后 ⇒ 必须成键(改前整族对 F1/F4/折叠出口失明)', () => {
@@ -74,7 +107,7 @@ test('M14 行首裸序号 + 题面写在 `**` 之后 ⇒ 必须成键(改前整�
 })
 
 test('M14b HEAD 现读:这一族此刻真的成键(读数由被审面量出,不是断言者手写的常量)', () => {
-  const lines = headLedger().split('\n')
+  const lines = faceLedger().split('\n')
   let keyed = 0
   const famKey = compositeKeyOf(REAL_ORDINAL)
   assert.ok(famKey, '族键必须由被审面那行现读给得出(否则下面整族读数没意义)')
@@ -87,9 +120,13 @@ test('M14b HEAD 现读:这一族此刻真的成键(读数由被审面量出,不�
     if (ck) keyed += 1
     if (ck === famKey) inFamily += 1
   }
-  // 立项当时的实测:裸序号族 = 7 行(全部未勾选),改前 0 行成键。棘轮口径:只许涨不许跌。
-  assert.ok(keyed >= 7, `裸序号族成键行数现读 ${keyed} 必须 ≥7(改前为 0 ⇒ 整族失明)`)
-  assert.ok(inFamily >= 7, `同一件事的整族副本现读 ${inFamily} 行必须落进同一个键 ${famKey}(改前这一族根本进不了判定面)`)
+  // 立项当时的实测:裸序号族 = 7 行(全部未勾选),改前 0 行成键。棘轮口径:只许涨不许跌,
+  // 而"涨不跌"必须量在**台账 ⊕ 归档件**上 —— 否则有人按 §1 把同族副本折到一行,这条就红在清账当天。
+  assert.ok(keyed >= 7, `裸序号族成键行数现读 ${keyed} 必须 ≥7(改前为 0 ⇒ 整族失明;面=台账⊕归档件)`)
+  assert.ok(
+    inFamily >= 7,
+    `同一件事的整族副本现读 ${inFamily} 行必须落进同一个键 ${famKey}(面=台账⊕归档件;副本被折并是清账,不是覆盖面缩水)`,
+  )
 })
 
 test('M15 第三档必须走 stripLeadingNumeric 的同一份出口(喂裸正文 ⇒ 判据根本不成立)', () => {
@@ -117,11 +154,13 @@ test('只扩大、不改动:HEAD 现读已成键的行,其复合主键逐字不�
   for (const [pinned, line] of ALREADY_KEYED) {
     assert.equal(compositeKeyOf(line), pinned, `存量键不得因这次扩判据而漂移:${pinned}`)
   }
-  const lines = headLedger().split('\n')
+  const lines = faceLedger().split('\n')
   let keyed = 0
   for (const line of lines) { if (isRow(line) && compositeKeyOf(line)) keyed += 1 }
-  // 改前实测 1461 行成键(判定面 HEAD blob)。棘轮只许涨不许跌 —— 跌了就是"为修一族削掉另一族的覆盖面"。
-  assert.ok(keyed >= 1461, `成键总行数现读 ${keyed} 必须 ≥ 改前的 1461`)
+  // 改前实测 1461 行成键(取证面 = 台账 ⊕ 归档件)。棘轮只许涨不许跌 —— 跌了就是"为修一族削掉另一族的覆盖面"。
+  // 面里必须算上归档件:归档器把完成条目整块搬走、清偿器把重复副本折掉,都让**活台账**的行数下跌,
+  // 而那两件事恰恰是 §1 要求的动作 ⇒ 只看活台账会把"正常清账"判成覆盖面缩水(2026-10-15 实测红即此型)。
+  assert.ok(keyed >= 1461, `成键总行数现读 ${keyed} 必须 ≥ 改前的 1461(面=台账⊕归档件)`)
 })
 
 test('判红口径未松:新认出的这一族进 F1 后,同主键两态并存照旧判红、纯多份未勾照旧不算分叉', () => {
