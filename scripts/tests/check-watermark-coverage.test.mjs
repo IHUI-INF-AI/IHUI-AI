@@ -35,7 +35,7 @@ import { maskComments } from '../lib/code-mask.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..', '..')
-const GIT = 'C:/Program Files/Git/mingw64/bin/git.exe'
+const GIT = 'C:/Program Files/Git/cmd/git.exe'
 const BANNER = 'Provenance-watermarked.'
 const NO_BANNER_SRC = "export const hello = () => 'hi'\n"
 
