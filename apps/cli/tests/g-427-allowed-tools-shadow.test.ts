@@ -40,6 +40,10 @@ beforeEach(() => {
   // **没有这一行,本文件的每一条断言都可能在往真实用户台账上写** —— 落点默认是开启的,
   // 测试必须自己把它关进一次性目录(与 §25/§26 的同一条纪律)。
   process.env[SHADOW_LEDGER_ENV] = ledger;
+  // 权限拒绝路径会走真 audit(`auditToolDenial` ⇒ `~/.ihui/audit.jsonl`),与文件头
+  // "不读写 ~/.ihui、不写审计文件"的隔离声明相抵 —— 用 audit 自身开关关掉
+  // (必须在首个 audit 判定前设:`_enabled` 是模块级缓存,读了就不再看 env)。
+  process.env.IHUI_AUDIT = '0';
   resetShadowAllowedTools();
   resetShadowAnnouncements();
   resetRateLimiter();
@@ -48,6 +52,7 @@ beforeEach(() => {
 
 afterEach(() => {
   delete process.env[SHADOW_LEDGER_ENV];
+  delete process.env.IHUI_AUDIT;
   resetShadowAllowedTools();
   try {
     fs.rmSync(scratch, { recursive: true, force: true });
