@@ -14,6 +14,7 @@ import {
   type UpdateSession,
   type UpdateProgress,
 } from '@/lib/tauri-bridge'
+import { isDesktopDevShell } from '@/lib/api-base-url'
 
 /** 更新状态机:idle → checking → available → downloading → installing → done / up-to-date / error */
 export type UpdateStatus =
@@ -208,7 +209,10 @@ export function useUpdater() {
     try {
       await session.downloadAndInstall((p: UpdateProgress) => {
         // G-698:进度分片只接受当前世代,旧世代迟到分片丢弃
-        if (!mountedRef.current || isStaleCheckGeneration(checkGeneration, checkGenerationRef.current))
+        if (
+          !mountedRef.current ||
+          isStaleCheckGeneration(checkGeneration, checkGenerationRef.current)
+        )
           return
         const ratio = p.total > 0 ? p.downloaded / p.total : 0
         setState((prev) => ({
@@ -222,7 +226,10 @@ export function useUpdater() {
     } catch (e) {
       installInFlightRef.current = false
       // G-698:失败收尾同样只接受当前世代
-      if (!mountedRef.current || isStaleCheckGeneration(checkGeneration, checkGenerationRef.current))
+      if (
+        !mountedRef.current ||
+        isStaleCheckGeneration(checkGeneration, checkGenerationRef.current)
+      )
         return
       setState((prev) => ({
         ...prev,
@@ -255,7 +262,10 @@ export function useUpdater() {
         if (new URLSearchParams(window.location.search).get('dev-update') === '0') {
           setState({ ...INITIAL_STATE, status: 'checking' })
           await new Promise((r) => setTimeout(r, 800))
-          if (!mountedRef.current || isStaleCheckGeneration(checkGeneration, checkGenerationRef.current))
+          if (
+            !mountedRef.current ||
+            isStaleCheckGeneration(checkGeneration, checkGenerationRef.current)
+          )
             return
           setAvailableUpdateSession(null)
           setState({ ...INITIAL_STATE, status: silent ? 'idle' : 'up-to-date' })
@@ -263,7 +273,10 @@ export function useUpdater() {
         }
         setState({ ...INITIAL_STATE, status: 'checking' })
         await new Promise((r) => setTimeout(r, 800))
-        if (!mountedRef.current || isStaleCheckGeneration(checkGeneration, checkGenerationRef.current))
+        if (
+          !mountedRef.current ||
+          isStaleCheckGeneration(checkGeneration, checkGenerationRef.current)
+        )
           return
         const mockSession = createMockSession()
         if (autoInstall) {
@@ -286,7 +299,10 @@ export function useUpdater() {
         session = await checkForUpdates()
       } catch (e) {
         // G-698:失败结果只接受当前世代,旧世代的迟到失败不得覆盖新状态
-        if (!mountedRef.current || isStaleCheckGeneration(checkGeneration, checkGenerationRef.current))
+        if (
+          !mountedRef.current ||
+          isStaleCheckGeneration(checkGeneration, checkGenerationRef.current)
+        )
           return
         setState({
           ...INITIAL_STATE,
@@ -297,7 +313,10 @@ export function useUpdater() {
       }
       // G-698:检查结果只接受当前世代 —— await 期间若另一条链(托盘检查/重试)
       // 已发起新检查,本次即成旧世代,迟到结果(含"无更新"与"发现新版")丢弃。
-      if (!mountedRef.current || isStaleCheckGeneration(checkGeneration, checkGenerationRef.current))
+      if (
+        !mountedRef.current ||
+        isStaleCheckGeneration(checkGeneration, checkGenerationRef.current)
+      )
         return
       if (!session) {
         // 已是最新
@@ -350,6 +369,9 @@ export function useUpdater() {
       return () => clearTimeout(timer)
     }
     if (!isTauri()) return
+    // 2026-10-15:桌面 dev 壳不跑启动静默检查/自动安装。上面 `?dev-update=1` 那条是**显式**试验
+    // 通道,不受本判据限制;托盘「检查更新」这类人工触发同样照常(判据只挡"自动")。
+    if (isDesktopDevShell()) return
     const timer = setTimeout(() => {
       void checkForUpdate(true, true)
     }, SILENT_CHECK_DELAY_MS)
