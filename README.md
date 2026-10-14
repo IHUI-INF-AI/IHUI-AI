@@ -2883,7 +2883,7 @@ setext 标题下划线、表格分隔、ASCII 示意图里都是合法内容,只
 2. **post-commit 自动 tag 同步**:`scripts/sync-lost-commit-tags.mjs --auto-push`
    - commit 后增量 push 本地缺失于 origin 的 tag(2026-10-14 起覆盖全部命名空间;限流 60s + 积压闸 `IHUI_TAG_AUTO_MAX`)
    - 防止本地 git gc 清理后无远端备份
-3. **手动恢复**:`pnpm tag:sync:fetch` 从 origin 拉回所有 lost-commit/backup tag
+3. **手动恢复**:`pnpm tag:sync:fetch` 从 origin 拉回全部 tag(以 origin 为权威校准本地)
 4. **完整档案**:`docs/lost-commit-archive.md` 永久记录每个 lost commit 的 hash / subject / 改动文件 / 重做 commit / tag 状态
 **触发背景**:2026-07-25 reflog 记录 6 次 `git reset HEAD~` 丢失 3 个 commit(15b984f90 P0 安全债 + 5ef36e59d / b120c6e20 sidebar 折叠按钮 x2);2026-07-26 本地 tag 被 git gc 清理事故。
 ---
