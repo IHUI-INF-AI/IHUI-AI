@@ -98,6 +98,12 @@ describe('权限决策徽章取词(miniapp-taro 合并视图)', () => {
 describe('权限决策徽章端接线证据(miniapp-taro 源码)', () => {
   const panel = readFileSync(join(__dirname, '../AgentRuntimePanel.tsx'), 'utf8')
   const i18nEntry = readFileSync(join(__dirname, '../../i18n/index.tsx'), 'utf8')
+  // 2026-10-15 主包选项 A:zh-CN 的"shared ⊕ miniapp-taro 深合并"从运行时搬到**生成期**
+  // (生成器产出压缩内联包),所以这条不变式的生成端判据要读生成器,不能只读 i18n/index.tsx。
+  const generatorSrc = readFileSync(
+    join(__dirname, '..', '..', '..', '..', '..', 'scripts', 'gen-i18n-compressed.mjs'),
+    'utf8',
+  )
   const oneLine = (src: string): string => src.replace(/\s+/g, ' ')
   /**
    * 排版无关的比较:去掉换行缩进与 prettier 的尾逗号,只留实参顺序与身份。
@@ -132,14 +138,36 @@ describe('权限决策徽章端接线证据(miniapp-taro 源码)', () => {
     expect(oneLine(panel)).not.toMatch(/\{\s*permission\.decision\s*\}/)
   })
 
-  it('端 i18n 必须以 shared 为 base 做深合并(否则上面的合并视图与运行时不一致)', () => {
-    expect(i18nEntry).toContain('@ihui/i18n/messages/shared/zh-CN.json')
+  it('端 i18n 的 zh-CN 必须以 shared 为 base 深合并(2026-10-15 起合并落在生成期)', () => {
+    // 生成端:zh-CN 必须还是 mergeMessages(shared ⊕ miniapp-taro)——
+    // 压缩只换载体,不换"哪一份是 base"这件事(否则上面的合并视图与运行时不一致)。
+    expect(stripFormat(generatorSrc)).toContain(
+      stripFormat(
+        "mergeMessages(loadJsonInto(zhPinInputs, 'shared', 'zh-CN.json'), loadJsonInto(zhPinInputs, 'miniapp-taro', 'zh-CN.json'))",
+      ),
+    )
+    // 运行端:取词必须从那份内联产物来(不得退回"只取 miniapp-taro 一半"),且解码失败
+    // 要回落到最小内置键集 —— 空词典/崩都不在允许集里。
+    expect(i18nEntry).toContain("from './generated/zh-cn-pack.gen'")
+    expect(stripFormat(i18nEntry)).toContain(
+      stripFormat('const zhCNMessages: Messages = zhCnPack.messages'),
+    )
+    expect(stripFormat(i18nEntry)).toContain(
+      stripFormat('const critical = ZH_CN_CRITICAL as Messages'),
+    )
     // 比的是**实参顺序与身份**,不是排版:prettier 把超过 80 列的调用折成多行并补尾逗号,
     // 逐字含空格的断言会在任何人跑一次格式化的时候变红(与正确性无关的假红)。
-    expect(stripFormat(i18nEntry)).toContain(
-      stripFormat('mergeMessages(sharedZhCN as Messages, miniappZhCN as Messages)'),
-    )
     expect(stripFormat(i18nEntry)).toMatch(T_CALL_SHAPE)
+    // 成对自证(同上):只取 miniapp-taro 一份 ⇒ 必须不匹配(半本词典不算深合并)。
+    expect(
+      stripFormat(
+        "const zhMerged = mergeMessages(loadJsonInto(zhPinInputs, 'miniapp-taro', 'zh-CN.json'))",
+      ).includes(
+        stripFormat(
+          "mergeMessages(loadJsonInto(zhPinInputs, 'shared', 'zh-CN.json'), loadJsonInto(zhPinInputs, 'miniapp-taro', 'zh-CN.json'))",
+        ),
+      ),
+    ).toBe(false)
     // 成对自证(变异对照,不靠人记得去改源码):同一形状只换标识符 ⇒ 必须仍匹配;
     // 少了 `fallback: zhCNMessages` 那一档 ⇒ 必须不匹配。两条同时成立才叫"放宽的是标识符,
     // 不是判据本身"。cond 一律是已求值布尔,不得把箭头函数当条件传(§守门速查那条恒绿断言同型)。
