@@ -4149,6 +4149,32 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 🔐 CSRF 豁免形状对账(blocking,存在性唯一条件放行/验真出口摘线/timingSafeEqual 单源三判据)---
+  {
+    id: '209',
+    label:
+      '🔐 CSRF 豁免形状对账(blocking,存在性唯一条件放行/验真出口摘线/timingSafeEqual 单源三判据)',
+    script: 'check-csrf-exemption-shape.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CSRF_EXEMPTION_SHAPE',
+    stagedTriggers: ['apps/api/src'],
+    onFailHint: [
+      '',
+      '  💡 本门钉的形态:apps/api/src 的 CSRF 豁免决策面(文件名含 csrf / 代码面引用验真出口族 / 注册 preHandler|onRequest 钩子且代码面提 csrf)里——',
+      '     ① 以某 header/env 键的存在性为唯一条件即放行 ⇒ 红;正当形态只有调用 isVerified* 出口,或行内 csrf-exempt: <原因>(本族)/ credential-presence-exempt: <原因>(守门 157 族,防两道门互咬);裸标记无原因不放过。',
+      '     ② 验真出口被摘线(无人调用或 export 不见)⇒ 判"没有出路"并参与退出码。',
+      '     ③ timingSafeEqual 只许 secretsEqual 一份,再出现第二处即红(站点键不含行号,插入行不假红)。',
+      '     与 157/108 的分界(门体头注已写明):157/108 只审站点不问出口死活,且 157 的 VERIFIED_RE 反把 timingSafeEqual 当"已验真"信号放过——本门补的正是这两格,不是重复立项。',
+      '     三态不可混:命中(判红;存量按该文件 HEAD 自身计数只报数)/ 放过(验真出口或带原因豁免)/ 判不出(--strict 下未判定即 exit 2,拒绝出合格证)。timingSafeEqual 现读存量 48 处/20 文件,按 §12f 走首锚差值棘轮:只拦新增、只减不增。',
+      '     ① 看清单:node scripts/check-csrf-exemption-shape.mjs [--json|--staged|--strict]',
+      '     ② 自检:node scripts/check-csrf-exemption-shape.mjs --self-test',
+      '     ③ 镜像:node --test scripts/tests/check-csrf-exemption-shape.test.mjs',
+      '     紧急跳过(不推荐):HUSKY_SKIP_CSRF_EXEMPTION_SHAPE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- 图源池与境外图片 URL 对账(1 项,blocking)---
   {
     id: '159',
@@ -4923,28 +4949,6 @@ const checks = [
       '          ② 测试基建要临时仓 → 落点改 scripts/lib/scratch-dir.mjs 的 mkScratch()(工作区外+退出回收);',
       '          ③ 确属合法 → 不许静默豁免:门脚本加显式常量 + 因由 + §22c 镜像对账(.worktrees 顶层已在射程外)。',
       '  ⚠️ 应急跳过:HUSKY_SKIP_NO_NESTED_GIT=1(须在提交信息写明理由与清偿票)',
-      '',
-    ].join('\n'),
-  },
-
-  // --- 号池对账(G-313 续,2026-10-15 立):机主裁定任务号池 1..999,该硬上限原先只写在发号器里,活面无门拦"声明位号 >999"⇒ 本会话绕开发号器用 usedIdsOfPrefix max+1 发出过两条七位号(已让号)。升 blocking 前置 = HEAD 面存量归零(§12e)。(1 项,warn)---
-  {
-    id: '209',
-    label:
-      '🧮 PROJECT_PLAN 号池对账(声明位号 >999 按重数差值棘轮;R2 发号路径点名,warn)',
-    script: 'check-plan-id-pool.mjs',
-    args: [],
-    mode: 'warn',
-    skipEnv: 'HUSKY_SKIP_PLAN_ID_POOL',
-    stagedTriggers: ['PROJECT_PLAN.md'],
-    onFailHint: [
-      '',
-      '  现值以门体与 runner 双向一致为准(门 89 R10/R12 会核对);',
-      '  单独复验:node scripts/check-plan-id-pool.mjs [--staged|--json];',
-      '  自检:node scripts/check-plan-id-pool.mjs --self-test(4 组判据 · 阳性对照 5 条);',
-      '  取证长号是谁的:node scripts/check-plan-id-pool.mjs --json 看 stock 列表;',
-      '  修法:用正牌取号器换池内空闲号并留改号尾注(node scripts/next-plan-id.mjs 报池内空闲清单);',
-      '  紧急跳过(不推荐):HUSKY_SKIP_PLAN_ID_POOL=1 git commit ...',
       '',
     ].join('\n'),
   },
