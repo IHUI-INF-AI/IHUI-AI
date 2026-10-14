@@ -27,10 +27,7 @@ import * as React from 'react'
 import { usePathname } from 'next/navigation'
 import { stripUrlCredentialSegments } from '@ihui/shared/utils/sanitize-url'
 import { useAuthStore } from '@/stores/auth'
-import {
-  isAnalyticsEnabled,
-  refreshAnalyticsConsent,
-} from '@/hooks/use-analytics'
+import { isAnalyticsEnabled, refreshAnalyticsConsent } from '@/hooks/use-analytics'
 
 const REPORT_URL = '/api/analytics/track' // method: POST
 
@@ -76,6 +73,7 @@ function findTrackable(el: Element | null): { label: string; category?: string }
 export function AnalyticsCapture() {
   const pathname = usePathname()
   const userId = useAuthStore((s) => s.user?.id)
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const bufferRef = React.useRef<Array<Record<string, unknown>>>([])
   const lastReportRef = React.useRef<Record<string, number>>({})
   const flushTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -123,12 +121,14 @@ export function AnalyticsCapture() {
     }
   }, [])
 
-  // opt-out 偏好拉取(2026-10-03 合规整改):挂载时拉一次。
-  // 组件是全局常驻的,这里拉一次即可覆盖 click/search/download/link_out/form_submit 全类别。
-  // 拉取失败按默认开启(不静默改变既有采集口径),判定逻辑在 use-analytics 内。
+  // opt-out 偏好拉取(2026-10-03 合规整改):仅在已登录时拉取 /settings/privacy。
+  // 未登录不发该请求 —— 否则触发 401 控制台噪声(2026-10-14 控制台清零整改);
+  // 按合规默认保持「开启」(null → 允许),判定逻辑在 use-analytics 内。
+  // 依赖 isAuthenticated:登录后自动补拉一次用户偏好;登出后不再拉取。
   React.useEffect(() => {
+    if (!isAuthenticated) return
     void refreshAnalyticsConsent()
-  }, [])
+  }, [isAuthenticated])
 
   React.useEffect(() => {
     if (typeof window === 'undefined') return
