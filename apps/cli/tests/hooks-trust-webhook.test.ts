@@ -82,42 +82,6 @@ function stubSpawnDefault(): void {
     return child;
   });
 }
-import { EventEmitter } from 'node:events';
-
-type FakeChild = EventEmitter & {
-  stdout: EventEmitter & { setEncoding: (e: string) => void; destroy: () => void };
-  stderr: EventEmitter & { setEncoding: (e: string) => void; destroy: () => void };
-  kill: () => boolean;
-  pid: number;
-};
-
-/** 假 ChildProcess:异步执行面(runWebhookAsync)挂 stdout/事件用;close 微任务后到 */
-function fakeChild(): FakeChild {
-  const child = new EventEmitter() as FakeChild;
-  const mkStream = (): FakeChild['stdout'] => {
-    const s = new EventEmitter() as FakeChild['stdout'];
-    s.setEncoding = () => undefined;
-    s.destroy = () => undefined;
-    return s;
-  };
-  child.stdout = mkStream();
-  child.stderr = mkStream();
-  child.kill = () => true;
-  child.pid = 424242;
-  return child;
-}
-
-/** 默认派发剧本:回报上游 200 响应(与旧 spawnSync mock 同一观察面),随后正常退出 */
-function stubSpawnDefault(): void {
-  spawnMock.mockImplementation(() => {
-    const child = fakeChild();
-    queueMicrotask(() => {
-      child.stdout.emit('data', '{"kind":"response","status":200,"body":"ok"}');
-      child.emit('close', 0);
-    });
-    return child;
-  });
-}
 
 const dirs: string[] = [];
 function mkDir(label: string): string {
@@ -268,7 +232,7 @@ describe('W2 派发收口点 × 真实信任门:未信任时 webhook 一次外�
     return runSessionStartHooks(config, { workspacePath: entry.sourceFolder ?? process.cwd() });
   }
 
-  it('W2a 未信任目录里的 webhook:零 spawn(=零 HTTP),跳过不阻断,且喊得响带真实出口', () => {
+  it('W2a 未信任目录里的 webhook:零 spawn(=零 HTTP),跳过不阻断,且喊得响带真实出口', async () => {
     const folder = mkDir('w2a');
     // 前提现测:一次性目录确实不在**真实** ~/.ihui/trusted-folders 里(本用例刻意不注入名单)
     expect(isFolderTrusted(folder), `夹具目录意外已被信任: ${folder}`).toBe(false);
@@ -300,7 +264,7 @@ describe('W2 派发收口点 × 真实信任门:未信任时 webhook 一次外�
     expect(text).toContain('ihui hooks trust');
   });
 
-  it('W2b 反向对照:IHUI_TRUST_WORKSPACE=1 时 webhook 照常派发,外呼配置在 spawn 边界可审计(不整片打死)', () => {
+  it('W2b 反向对照:IHUI_TRUST_WORKSPACE=1 时 webhook 照常派发,外呼配置在 spawn 边界可审计(不整片打死)', async () => {
     const folder = mkDir('w2b');
     expect(isFolderTrusted(folder), `夹具目录意外已被信任: ${folder}`).toBe(false);
     process.env.IHUI_TRUST_WORKSPACE = '1';
