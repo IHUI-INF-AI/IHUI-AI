@@ -92,6 +92,8 @@ import { answerSideQuestion } from '@/hooks/use-chat/slash-commands'
 import { QueueInteractionBar } from '@/components/chat/queue-interaction-bar'
 // V3 #69 额度条 / D155 下行告警条 / D131 连接状态位(2026-09-30 起)由 InputStatusSlot 统一挂载
 import { queueInteractionPerms } from '@ihui/shared/chat/input-notices'
+// Runtime 插话能力声明的**唯一回落判点**(未声明 ⇒ false,与写死 false 同形)
+import { resolveInterjectionSupport } from '@/hooks/use-chat/runtime-capabilities'
 import type { FollowUpMode } from '@ihui/shared/chat/queue-interactions'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { getMessages } from '@ihui/api-client'
@@ -464,6 +466,11 @@ export function MessageInput({
   const shiftSideQuestion = useChatStore((s) => s.shiftSideQuestion)
   // D38 队列模式偏好(steer=插话优先 / queue=排队优先),持久化在 chat store
   const followUpQueueMode = useChatStore((s) => s.followUpQueueMode)
+  // Runtime 插话能力声明(null = 生产者还没说话,经 resolveInterjectionSupport 回落 false)。
+  // 数据源 = 流帧载荷(send-message/send-answer 的 noteRuntimeCapabilities)+ 会话元数据
+  // (ai-side-panel 的 getConversation 分支),均落在 chat store 这一个键上。
+  const runtimeInterjection = useChatStore((s) => s.runtimeInterjection)
+  const runtimeSupportsInterjection = resolveInterjectionSupport(runtimeInterjection)
   // 补答一条侧问文本(runBestOfN 单候选,回答以 sidechat 消息入本地流,不入主线历史);
   // 失败仅 toast 提示,不打断主流程
   const answerWithToast = React.useCallback(
@@ -1021,20 +1028,21 @@ export function MessageInput({
         <LinkPreviewCard preview={linkPreview.preview} onDismiss={linkPreview.reset} />
         {/* D38(G-42)接管 D28 侧问队列渲染:五动词交互条(重排/撤回/编辑/打断并执行/模式切换)。
             许可判定复用 D69 queueInteractionPerms(与 InputNoticeBanner 同一函数,不另立第二套);
-            runtimeSupportsInterjection 暂恒 false —— 全仓尚无该能力协商的生产者(D69 banner 亦未挂载),
-            诚实降级为"回落排队优先 + 打断入口显式渲染被拒原因",不得端内自建能力判定。
+            runtimeSupportsInterjection 读 Runtime 能力声明(流帧 / 会话元数据 → store →
+            resolveInterjectionSupport):**字段缺失即回落 false**,与声明落地前写死 false 同形,
+            故生产者一到位即自动生效,端内不自建能力判定(判定只有 shared 那一套)。
             D162:blockCtx 只喂本面**真实已知**的条件(Runtime 不支持插话 / 流式中 Turn 在跑 /
             队列非空即有等待请求);queueChanged / 控制命令 / 来源匹配现无生产者,恒 false,
             待各自回传链路落地后接线 —— 不臆造状态。 */}
         <QueueInteractionBar
           items={(sideQueue ?? []).map((sq) => ({ id: sq.id, text: sq.text }))}
           perms={queueInteractionPerms({
-            runtimeSupportsInterjection: false,
+            runtimeSupportsInterjection,
             streaming: isStreaming,
             hasQueuedMessages: (sideQueue?.length ?? 0) > 0,
           })}
           blockCtx={{
-            runtimeSupportsInterjection: false,
+            runtimeSupportsInterjection,
             hasRunningTurn: isStreaming,
             hasWaitingRequests: isStreaming && (sideQueue?.length ?? 0) > 0,
             isControlCommand: false,
@@ -1042,7 +1050,7 @@ export function MessageInput({
             sourceMatches: false,
           }}
           mode={followUpQueueMode}
-          runtimeSupportsInterjection={false}
+          runtimeSupportsInterjection={runtimeSupportsInterjection}
           streaming={isStreaming}
           onReorder={(from, to) => {
             if (conversationId) useChatStore.getState().requeue(conversationId, from, to)
