@@ -43,6 +43,11 @@ export function ThemeBackupSync() {
   const setLocale = useLanguageStore((s) => s.setLocale)
   const fileRef = React.useRef<HTMLInputElement>(null)
   const [transitioning, setTransitioning] = React.useState(false)
+  // 2026-10-14 修复:useTheme() 在 SSR/首帧返回 undefined,客户端水合后才拿到真实 theme,
+  // 直接用 theme 派生按钮 variant 会导致服务端 HTML 与客户端首帧 className 不一致 → hydration mismatch。
+  // 用 mounted 守卫:首帧(服务端与客户端水合)统一按未挂载处理,水合后再应用高亮,消除控制台报错。
+  const [mounted, setMounted] = React.useState(false)
+  React.useEffect(() => setMounted(true), [])
 
   const buildConfig = (): ThemeConfig => ({
     theme: theme ?? 'system',
@@ -126,7 +131,7 @@ export function ThemeBackupSync() {
           {(['light', 'dark', 'system'] as const).map((th) => (
             <Button
               key={th}
-              variant={theme === th ? 'default' : 'outline'}
+              variant={mounted && theme === th ? 'default' : 'outline'}
               size="sm"
               disabled={transitioning}
               onClick={() => handleQuickSwitch(th)}
