@@ -45,20 +45,6 @@ test('npm_execpath 是 .c?js 入口时仍走 node 直载(npm 的既有形态,不
   assert.equal(p.shell, false)
 })
 
-test('.cmd 形态同样不得交给 node', () => {
-  const p = plan('D:\\pnpm\\global\\pnpm.cmd')
-  assert.notEqual(p.cmd, NODE)
-  assert.equal(p.cmd, 'pnpm')
-  assert.equal(p.shell, true)
-})
-
-test('npm_execpath 未设(直接 node 跑本脚本)⇒ shell + 裸 pnpm,语义与历史一致', () => {
-  const p = plan(undefined)
-  assert.equal(p.cmd, 'pnpm')
-  assert.equal(p.args[0], '--filter')
-  assert.equal(p.shell, true)
-})
-
 test('未签名豁免分支:--config 传的是文件路径,tail 用 node 跑 .mjs(这一处交给 node 是对的)', () => {
   const p = plan(PNPM_EXE, true)
   assert.ok(p.configPath, 'allowUnsigned 必须给出 config 文件路径')

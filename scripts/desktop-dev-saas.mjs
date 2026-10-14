@@ -45,6 +45,8 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 // "该停哪个桌面端实例"的判据与它的镜像测试共用这一份实现(纯函数,零副作用)
 import { selectDesktopVictims } from './lib/desktop-victims.mjs'
+// 包管理器执行器判据同样单源(与 desktop-build-saas.mjs 共用,不得各抄一份)
+import { planPackageManagerSpawn } from './lib/npm-execpath.mjs'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const webDir = path.join(repoRoot, 'apps', 'web')
@@ -280,14 +282,14 @@ writeFileSync(configOverridePath, configOverride, 'utf8')
 // ⚠ npm_execpath **不保证是 JS 入口**:pnpm 11/Windows 下它是 `pnpm.exe` 本体路径,
 // 交给 process.execPath 当模块加载会直接 `ERR_UNKNOWN_FILE_EXTENSION ".exe"` ⇒
 // 整条 `pnpm dev:desktop:saas` 起不来(2026-10-14 08:06 引入、当日实测复现)。
-// 只有确认它是 .c?js 脚本时(如 npm 的 npm-cli.js)才走 node 直载以绕开 shim 二次解析;
-// 其余形态一律回落到 shell 解析 `pnpm`。
-// 注:上面那层"避免 JSON 被二次解析"的动机已随 --config 改传**文件路径**而消失,
-// 所以回落分支不需要任何额外引号处理。
-const execpathIsJs = !!process.env.npm_execpath && /\.[cm]?js$/i.test(process.env.npm_execpath)
+// 判据住在 scripts/lib/npm-execpath.mjs —— 与本仓另一条桌面端入口
+// (scripts/desktop-build-saas.mjs 的 buildPlan)共用同一份,不在这里抄第二份。
+const { cmd: npmExec, prefix: execPrefix, shell: useShell } = planPackageManagerSpawn(
+  process.env.npm_execpath,
+  process.execPath,
+)
 const tauriArgs = ['--filter', '@ihui/desktop', 'exec', 'tauri', 'dev', '--config', configOverridePath]
-const npmExec = execpathIsJs ? process.execPath : 'pnpm'
-const args = execpathIsJs ? [process.env.npm_execpath, ...tauriArgs] : tauriArgs
+const args = [...execPrefix, ...tauriArgs]
 
 // dev 构建默认会弹 DevTools 盖住主窗口、把鼠标输入抢走(2026-10-14 实测「啥也点击不了」,
 // 用户点到的其实是 DevTools 不是应用本体)⇒ 联调场景默认关掉;要看 DevTools 就显式
@@ -300,7 +302,7 @@ const r = spawnSync(npmExec, args, {
   cwd: repoRoot,
   stdio: 'inherit',
   env: childEnv,
-  shell: !execpathIsJs, // 裸 `pnpm` 要靠 shell 解析 Windows 上的 .cmd shim
+  shell: useShell, // 回落分支要靠 shell 解析 Windows 上的 pnpm shim
   windowsHide: true, // 防 Windows 弹可见控制台窗口
 })
 try { unlinkSync(configOverridePath) } catch {}
