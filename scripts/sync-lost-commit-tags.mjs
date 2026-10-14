@@ -13,10 +13,17 @@
  *   实际上远端有,但本地 fetch 失败(因为 fetch 不知道要 fetch 这些 tag,
  *   默认 fetch 不包含 tag)。这暴露了一个机制缺陷:tag 备份必须主动 push + 主动 fetch。
  *
+ * 2026-10-14 扩射程(旧版两个盲区,均为真实事故):
+ *   盲区 A「只看两个命名空间」:旧版只认 lost-commit/* 与 backup/*,对 desktop-v* / nightly-* /
+ *     assistant-v* / 发布类 tag 的本地/远端分歧完全失明。
+ *   盲区 B「只比名字不比 SHA」:旧版 diffTagSets 纯名字集合比较 ⇒ 同名不同 SHA(发布类 tag 的
+ *     本地新链 vs origin 旧链,实测 7443 枚)完全看不见,而那正是最危险的分歧形态。
+ *   本版:一次 ls-remote 取全量 tag 名字+SHA,与本地 for-each-ref 全量比对;覆盖**全部命名空间**。
+ *
  * 脚本职责(3 件事):
- *   1. 自动 push: commit 后自动把本地 lost-commit/backup tag 推到 origin,防止 gc 后无远端备份
- *   2. 手动 fetch: 一键从 origin 拉回所有 lost-commit/backup tag,修复 gc 清理后本地 tag 缺失
- *   3. 手动 check: 校验本地 + 远端 tag 一致性 + tag 对象可达性
+ *   1. 自动 push: commit 后把本地**未上 origin**的 tag 推到 origin,防止 gc 后无远端备份
+ *   2. 手动 fetch: 一键从 origin 拉回全部 tag(以 origin 为权威校准本地),修复本地 tag 缺失/分歧
+ *   3. 手动 check: 校验**全部命名空间**本地 + origin tag 一致性(名字 + SHA)+ tag 对象可达性
  *
  * 为什么需要(2026-07-26 事故复盘):
  *   - tag 是 commit 的"指向引用",git gc 默认 14 天清理无引用对象
@@ -25,20 +32,22 @@
  *     → 用 refspec `refs/tags/lost-commit/*:refs/tags/lost-commit/*` 显式映射
  *
  * CLI 模式(必须全部支持):
- *   --check       仅校验,不动 git 状态。比较本地 vs 远端 tag 集合,检查 tag 对象可达性。
- *                 失败 exit 1,成功 exit 0。这是默认模式(无参数时)
- *   --fetch       从 origin 拉回所有 lost-commit/backup tag
- *   --auto-push   把本地 lost-commit/backup tag 推到 origin(用 --atomic 防止半失败)
+ *   --check       仅校验,不动 git 状态。比对**全部命名空间**本地 vs origin 的 tag 名字 + SHA,
+ *                 并检查备份 tag 对象可达性。失败 exit 1,成功 exit 0。这是默认模式(无参数时)
+ *   --fetch       从 origin 拉回全部 tag(以 origin 为权威校准本地)
+ *   --auto-push   把本地**未上 origin**的 tag 推到 origin(用 --atomic 防止半失败)
  *   --dry-run     配合 --auto-push 用,只打印将要 push 的 tag 不实际 push
  *   --force       强制 push(覆盖远端),默认不允许
  *   --json        配合 --check 用,输出 JSON 格式结果(给 CI/上层调用方)
  *   --help        打印帮助并 exit 0
  *
  * 退出码:
- *   0 — 成功(所有 tag 本地+远端一致 + tag 对象可达)
- *       含一种**如实上报的跳过**:未配置 origin **且**本地零枚待备份;
+ *   0 — 成功(全部命名空间 tag 本地+origin 名字与 SHA 一致 + 备份 tag 对象可达)
+ *       含一种**如实上报的跳过**:未配置 origin **且**本地零枚 tag;
  *       "有 tag 却没有 origin" 不算跳过(那正是远端备份缺失的故障形态)
- *   1 — 失败(任何不一致或不可达)
+ *       含一种**告警但不失败**:非备份命名空间(如 nightly-* / desktop-v*)的 tag 仅远端 ——
+ *       那只是"本地落后 origin",不构成备份缺口,故只报不判红(避免 CI 持续造 tag 导致恒红)
+ *   1 — 失败(仅本地未推 / 同名 SHA 分歧 / 备份命名空间仅远端 / 备份 tag 对象不可达)
  *   2 — 异常(脚本执行错误,例如 git 命令找不到;或配了 origin 却取不到远端真值
  *       ⇒ 拒绝带着假结论继续)
  *
@@ -119,6 +128,18 @@ const AUTO_PUSH_MAX_BACKLOG = Number(process.env.IHUI_TAG_AUTO_MAX || 50)
 // 限流:同一间隔内(默认 60s)重复调用直接跳过,避免连续 commit 反复 ls-remote
 const THROTTLE_MS = Number(process.env.IHUI_TAG_SYNC_THROTTLE_MS || 60_000)
 
+// 备份命名空间(§22 管辖对象):这两个命名空间的"仅远端"意味着本地备份 tag 丢失 ⇒ 判失败;
+// 其余命名空间(desktop-v*/nightly-*/assistant-v*/发布类…)的"仅远端"只是本地落后 origin,只告警。
+const BACKUP_NAMESPACES = ['lost-commit/', 'backup/']
+function isBackupNamespace(tag) {
+  return BACKUP_NAMESPACES.some((p) => tag.startsWith(p))
+}
+
+// 逐条清单的打印上限。本仓受管备份 tag 已 6981 枚,逐条打印会把 `--check` 刷成两万行,
+// 结果是没人看这段输出 ⇒ 判据失效方向变成"安静"(AGENTS §12f)。汇总数字在第 5 节全量给出,
+// 这里只保证"小夹具逐条可见"(回归测试断言的正是小夹具里的 tag 名)。
+const LIST_CAP = Number(process.env.IHUI_TAG_LIST_CAP || 20)
+
 function run(cmd, opts = {}) {
   try {
     return execSync(cmd, {
@@ -148,9 +169,9 @@ function printHelp() {
   console.log('  node scripts/sync-lost-commit-tags.mjs [mode] [flags]')
   console.log('')
   console.log('模式:')
-  console.log('  --check       校验本地+远端 lost-commit/backup tag 一致性(默认)')
-  console.log('  --fetch       从 origin 拉回所有 lost-commit/backup tag')
-  console.log('  --auto-push   把本地 lost-commit/backup tag 推到 origin(post-commit 钩子调用)')
+  console.log('  --check       校验**全命名空间** tag 本地+远端一致性(名字 + SHA)(默认)')
+  console.log('  --fetch       从 origin 拉回全部 tag(以 origin 为权威校准本地)')
+  console.log('  --auto-push   把本地未上 origin 的 tag 推到 origin(post-commit 钩子调用)')
   console.log('')
   console.log('标志:')
   console.log('  --dry-run     配合 --auto-push 用,只打印不实际 push')
@@ -167,16 +188,34 @@ function printHelp() {
   console.log('  2  异常(git 命令找不到等)')
 }
 
-function listLocalLostTags() {
-  const out = run('git tag -l "lost-commit/*"', { allowFail: true })
-  if (!out) return []
-  return out.split('\n').filter(Boolean).sort()
-}
-
-function listLocalBackupTags() {
-  const out = run('git tag -l "backup/*"', { allowFail: true })
-  if (!out) return []
-  return out.split('\n').filter(Boolean).sort()
+/**
+ * 本地**全部** tag → 解析后的 commit sha(annotated 取 peel 后的 commit;lightweight 取指向对象)。
+ * 一次 for-each-ref 取全(7468 枚也只需一个进程;逐枚 rev-parse 会慢到不可用)。
+ * 用 `%09`(制表符)分隔,避免 tag 名里可能含空格导致串列错位。
+ */
+function listLocalTagMap() {
+  const map = new Map()
+  try {
+    const out = execFileSync(
+      'git',
+      ['for-each-ref', '--format=%(refname:short)%09%(objectname)%09%(*objectname)', 'refs/tags'],
+      {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+        maxBuffer: 64 * 1024 * 1024,
+      },
+    )
+    for (const line of out.split('\n')) {
+      if (!line) continue
+      const [name, obj, peeled] = line.split('\t')
+      if (!name) continue
+      map.set(name, peeled || obj)
+    }
+  } catch {
+    /* 无 tag / 非 git 仓 ⇒ 空表(与"干净仓库如实跳过"的语义一致) */
+  }
+  return map
 }
 
 /** origin 是否**配置了**(不是"配了但连不上"):无该 remote 时 get-url 非零退出 ⇒ ''。 */
@@ -189,18 +228,19 @@ function hasOriginRemote() {
  * 原实现把两者混在一起 ⇒ 一个刚 `git init`、一枚 tag 都没有的干净仓库(各道门的镜像测试
  * 就是在这种仓库里跑的)也被判成脚本异常 exit 2,而这工具自己的用例写的是 exit 0。
  *
- * 但**不许反过来放水**:只要本地还有 lost-commit/backup tag,没有 origin 就等于
- * "远端备份这条线压根不存在",那是真故障 —— 照旧交回 requireRemoteTagSets 走 fail-loud,
- * 因为上面那段注释记着的事故(失败被吞成空集 ⇒ 4283 枚全判"待推" ⇒ 撞阈值后整条静默失效)
- * 正是"把没有真值当成没有风险"造成的。只有"无 origin ∧ 本地零枚"才允许如实跳过。
+ * 但**不许反过来放水**:只要本地还有**任何** tag,没有 origin 就等于"远端备份这条线压根不存在",
+ * 那是真故障 —— 照旧交回 requireRemoteTagMap 走 fail-loud,因为上面那段注释记着的事故
+ * (失败被吞成空集 ⇒ 全判"待推" ⇒ 撞阈值后整条静默失效)正是"把没有真值当成没有风险"造成的。
+ * 只有"无 origin ∧ 本地零枚 tag"才允许如实跳过。
  *
+ * @param {Map<string,string>} localMap 本地全量 tag 表(名字 → peeled commit sha)
  * @returns {boolean} true 表示已按跳过处理(调用方应立即返回)
  */
-function skipIfNothingToBackUp(localLost, localBackup) {
+function skipIfNoOriginAndNoTags(localMap) {
   if (hasOriginRemote()) return false
-  if (localLost.length || localBackup.length) return false
+  if (localMap.size > 0) return false
   const reason =
-    '未配置 origin remote,且本地无 lost-commit/backup tag 待备份 ⇒ 没有远端可比,也没有任何东西处于未备份状态'
+    '未配置 origin remote,且本地无任何 tag 待备份 ⇒ 没有远端可比,也没有任何东西处于未备份状态'
   if (isJson) {
     console.log(
       JSON.stringify(
@@ -211,6 +251,13 @@ function skipIfNothingToBackUp(localLost, localBackup) {
           remote: null,
           diff: null,
           reachability: [],
+          allTags: {
+            localCount: 0,
+            remoteCount: null,
+            onlyLocal: [],
+            onlyRemote: [],
+            shaMismatch: [],
+          },
           summary: { total: 0, reachable: 0, unreachable: 0 },
         },
         null,
@@ -220,62 +267,66 @@ function skipIfNothingToBackUp(localLost, localBackup) {
     process.exit(0)
   }
   console.log(`${C.yellow}⏭  ${reason} ⇒ 跳过远端一致性判定${C.reset}`)
-  console.log(header('5. 完整性判定'))
+  console.log(header('完整性判定'))
   console.log(`  ${C.green}✅ 无可比对象(如实跳过,不等于"已核验一致")${C.reset}`)
   process.exit(0)
   return true
 }
 
-function lsRemoteTagNames(pattern) {
+/**
+ * 一次 ls-remote 取**全部** tag 的「名字 → peel 后 commit sha」真值。
+ * - annotated tag 在 ls-remote 里输出两行(`refs/tags/x` 与 `refs/tags/x^{}`),后者才是 peel 后的
+ *   commit ⇒ 以 `^{}` 行为准,才能与本地 for-each-ref 的 `%(*objectname)` 同口径比 SHA。
+ * - pattern 为 null 时取全量;失败返回 null(调用方据此 fail-closed)。
+ */
+function lsRemoteTagMap(pattern = null) {
   // IHUI_TAG_REMOTE 是**测试接缝**:注入一个不存在的远端名即可验证"取不到远端真值"这条
   // fail-closed 分支(实测用 GIT_CONFIG_* 覆盖 remote.origin.url 不生效,故留这个开关)。
   const remote = process.env.IHUI_TAG_REMOTE || 'origin'
+  const argv = ['-c', 'safe.directory=*', 'ls-remote', '--tags', remote]
+  if (pattern) argv.push(pattern)
   try {
-    const out = execFileSync('git', ['-c', 'safe.directory=*', 'ls-remote', '--tags', remote, pattern], {
+    const out = execFileSync('git', argv, {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
       timeout: 180000,
       maxBuffer: 64 * 1024 * 1024,
     })
-    return out
-      .split('\n')
-      .map((l) => l.split('\t')[1])
-      .filter(Boolean)
-      .map((n) => n.replace(/^refs\/tags\//, '').replace(/\^\{\}$/, ''))
+    const map = new Map()
+    for (const line of out.split('\n')) {
+      if (!line) continue
+      const [sha, ref] = line.split('\t')
+      if (!ref) continue
+      const raw = ref.replace(/^refs\/tags\//, '')
+      if (raw.endsWith('^{}')) map.set(raw.slice(0, -3), sha) // peel 行优先(覆盖先到的浅行)
+      else if (!map.has(raw)) map.set(raw, sha)
+    }
+    return map
   } catch (e) {
     console.error(
-      `${C.red}❌ git ls-remote ${pattern} 失败,拿不到远端 tag 真值:${e?.message ?? e}${C.reset}`,
+      `${C.red}❌ git ls-remote ${pattern ?? '<全部 tag>'} 失败,拿不到远端 tag 真值:${e?.message ?? e}${C.reset}`,
     )
     return null
   }
 }
 
-function listRemoteLostTags() {
-  return lsRemoteTagNames('refs/tags/lost-commit/*')
-}
-
-function listRemoteBackupTags() {
-  return lsRemoteTagNames('refs/tags/backup/*')
-}
-
 /**
- * 取远端 tag 真值,**取不到就拒绝继续**(exit 2)。
+ * 取远端全量 tag 真值,**取不到就拒绝继续**(exit 2)。
  * 为什么必须拒绝:此前失败会被 `allowFail` 吞成空串 ⇒ 空集被当成"远端一个 tag 都没有"
  * ⇒ 4283 枚本地 tag 全判成"待推",再撞上积压阈值就"跳过不推" —— 远端备份这条防线
  * 静默失效(实测同一段代码 --dry-run 报 10、真跑报 4253 两个互相矛盾的结论)。
  * 判"缺失"必须有真值;拿不到真值时宁可 exit 2 让人来看,绝不带着假结论往下走。
  */
-function requireRemoteTagSets(label) {
-  const lost = listRemoteLostTags()
-  const backup = listRemoteBackupTags()
-  if (lost === null || backup === null) {
+function requireRemoteTagMap(label) {
+  const map = lsRemoteTagMap()
+  if (map === null) {
     console.error(
       `${C.red}❌ [${label}] 远端 tag 真值不可得 ⇒ 不做任何增量判定/推送(宁可停,绝不把全部本地 tag 判成"缺失")${C.reset}`,
     )
     process.exit(2)
   }
-  return { lost, backup }
+  return map
 }
 
 function diffTagSets(local, remote) {
@@ -287,21 +338,89 @@ function diffTagSets(local, remote) {
   return { onlyLocal, onlyRemote, both }
 }
 
-function getTagCommitHash(tag) {
-  // 优先 peel ^{} 处理 annotated tag;lightweight tag 直接返回
-  const peeled = run(`git rev-parse --verify ${tag}^{} 2>/dev/null`, { allowFail: true })
-  if (peeled) return peeled
-  return run(`git rev-parse --verify ${tag}`, { allowFail: true })
+/**
+ * 全命名空间 tag 比对(**名字 + SHA**)。
+ * 这是旧版盲区 B 的解药:旧 diffTagSets 只比名字,同名不同 SHA(发布类 tag 的本地新链 vs
+ * origin 旧链)完全看不见。这里同时给出名字差异与 SHA 分歧,并把"仅远端"按命名空间分流:
+ *  - onlyRemoteBackup  备份命名空间(lost-commit/backup)的仅远端 ⇒ 本地备份缺失,判失败
+ *  - onlyRemoteOther   其余命名空间(desktop-v* / nightly-* / assistant-v*…)的仅远端 ⇒ 本地落后
+ *                      origin,只告警(避免 CI 持续造 tag 导致守门恒红)
+ */
+function diffTagMaps(localMap, remoteMap) {
+  const onlyLocal = []
+  const shaMismatch = []
+  for (const [name, sha] of localMap) {
+    if (!remoteMap.has(name)) onlyLocal.push(name)
+    else if (remoteMap.get(name) !== sha)
+      shaMismatch.push({ tag: name, local: sha, remote: remoteMap.get(name) })
+  }
+  const onlyRemote = []
+  for (const name of remoteMap.keys()) {
+    if (!localMap.has(name)) onlyRemote.push(name)
+  }
+  onlyLocal.sort()
+  onlyRemote.sort()
+  shaMismatch.sort((a, b) => a.tag.localeCompare(b.tag))
+  const onlyRemoteBackup = onlyRemote.filter(isBackupNamespace)
+  const onlyRemoteOther = onlyRemote.filter((t) => !isBackupNamespace(t))
+  return { onlyLocal, onlyRemote, shaMismatch, onlyRemoteBackup, onlyRemoteOther }
 }
 
-function isTagReachable(tag) {
-  const hash = getTagCommitHash(tag)
-  if (!hash) return { ok: false, hash: '', reason: 'tag 解析失败' }
-  const exists = run(`git cat-file -e ${hash} 2>&1`, { allowFail: true })
-  if (exists) {
-    return { ok: false, hash, reason: 'cat-file 失败' }
+/**
+ * 备份 tag 的对象可达性 —— **单次** `git cat-file --batch-check` 判全部。
+ *
+ * 为什么不逐枚 `rev-parse` + `cat-file -e`(旧写法):每枚 tag 起两个进程,本仓受管备份 tag
+ * 已 6981 枚 ⇒ 约 1.4 万次 spawn,`--check` 因此被拖成后台任务(实测记录
+ * `.ihui-agent/archive/worktree-lag-orphans-2026-10-02.md` 第 851 行)。判据跑不动 = 判据不存在
+ * (AGENTS.md §0.9),射程扩到全命名空间后更不可能让每次复跑刷两万行。
+ *
+ * 顺带修掉旧写法的一处**失效方向**:git 压根没跑起来时被 `allowFail` 吞成空串,而空串在旧判据里
+ * 等于"可达"⇒ 记绿。现在进程失败 ⇒ 全体判不可达并点名原因(宁可响,绝不假绿,§0.3)。
+ *
+ * sha 直接取 `listLocalTagMap()` 已 peel 过的目标(annotated ⇒ commit,lightweight ⇒ 指向对象),
+ * 与旧 `getTagCommitHash` 同口径,但不再为每枚 tag 单独起进程。
+ *
+ * @param {string[]} tagNames 待判 tag 名(受管备份命名空间)
+ * @param {Map<string,string>} localMap 本地全量 tag 表(名字 → peel 后 sha)
+ * @returns {Array<{tag:string,ok:boolean,hash:string,reason:string}>}
+ */
+function reachabilityBatch(tagNames, localMap) {
+  const items = tagNames.map((tag) => ({ tag, hash: localMap.get(tag) || '' }))
+  const shas = [...new Set(items.map((i) => i.hash).filter(Boolean))]
+  // null = "这一轮没判成"(进程失败或没跑),与 Set(判成了,里面是缺的对象)严格区分
+  let missing = null
+  if (shas.length > 0) {
+    try {
+      const out = execFileSync('git', ['cat-file', '--batch-check'], {
+        encoding: 'utf8',
+        // §12g:带 input 的派生必须连 stdin 一起交出来(['ignore',...] 会当场 EBUSY)
+        input: `${shas.join('\n')}\n`,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true,
+        timeout: 120000,
+        maxBuffer: 64 * 1024 * 1024,
+      })
+      // 每个输入回一行:"<oid> <type> <size>" 或 "<oid> missing"
+      missing = new Set(
+        out
+          .split('\n')
+          .map((l) => l.trim())
+          .filter((l) => l.endsWith(' missing'))
+          .map((l) => l.split(' ')[0]),
+      )
+    } catch (e) {
+      console.error(
+        `${C.red}❌ 可达性判据跑不动(git cat-file --batch-check 失败):${e?.message ?? e} ⇒ 全体判不可达(取不到输入就不记绿)${C.reset}`,
+      )
+      missing = null
+    }
   }
-  return { ok: true, hash, reason: '' }
+  return items.map(({ tag, hash }) => {
+    if (!hash) return { tag, ok: false, hash: '', reason: 'tag 解析失败' }
+    if (missing === null) return { tag, ok: false, hash, reason: '可达性判定未执行' }
+    if (missing.has(hash)) return { tag, ok: false, hash, reason: '对象不可达' }
+    return { tag, ok: true, hash, reason: '' }
+  })
 }
 
 function checkMode() {
@@ -310,45 +429,88 @@ function checkMode() {
   }
 
   if (!isJson) {
-    console.log(`${C.cyan}${C.bold}🏷️  Lost commit tag 一致性校验(AGENTS.md §22 配套)${C.reset}`)
+    console.log(`${C.cyan}${C.bold}🏷️  tag 一致性校验(全命名空间,AGENTS.md §22 配套)${C.reset}`)
   }
 
-  const localLost = listLocalLostTags()
-  const localBackup = listLocalBackupTags()
-  // 无 origin ∧ 本地零枚 ⇒ 如实跳过(与"配了 origin 却读不到真值"分开处理,见 skipIfNothingToBackUp)
-  skipIfNothingToBackUp(localLost, localBackup)
-  const remoteSets = requireRemoteTagSets('check')
-  const { lost: remoteLost, backup: remoteBackup } = remoteSets
-  const lostDiff = diffTagSets(localLost, remoteSets.lost)
-  const backupDiff = diffTagSets(localBackup, remoteSets.backup)
+  const localMap = listLocalTagMap()
+  // 无 origin ∧ 本地零枚 ⇒ 如实跳过(与"配了 origin 却读不到真值"分开处理,见 skipIfNoOriginAndNoTags)
+  skipIfNoOriginAndNoTags(localMap)
 
-  // 可达性检查
+  // 受管备份命名空间的本地视图(JSON 契约沿用旧字段名 lostCommit/backup)
+  const localLost = [...localMap.keys()].filter((t) => t.startsWith('lost-commit/')).sort()
+  const localBackup = [...localMap.keys()].filter((t) => t.startsWith('backup/')).sort()
+
+  const remoteMap = requireRemoteTagMap('check')
+  const remoteLost = [...remoteMap.keys()].filter((t) => t.startsWith('lost-commit/')).sort()
+  const remoteBackup = [...remoteMap.keys()].filter((t) => t.startsWith('backup/')).sort()
+
+  const lostDiff = diffTagSets(localLost, remoteLost)
+  const backupDiff = diffTagSets(localBackup, remoteBackup)
+
+  // 全命名空间比对(名字 + SHA):旧版盲区 A/B 的解药
+  const fullDiff = diffTagMaps(localMap, remoteMap)
+
+  // 可达性检查(仅受管备份命名空间,保持旧契约范围)
   const allLocalTags = [...localLost, ...localBackup]
-  const reachability = allLocalTags.map((tag) => ({ tag, ...isTagReachable(tag) }))
+  const reachability = reachabilityBatch(allLocalTags, localMap)
+  const unreachable = reachability.filter((r) => !r.ok)
+  // 打印段一律复用这一份结果 —— 旧写法在打印循环里又逐枚重算,把 spawn 量翻了三倍
+  const reachByTag = new Map(reachability.map((r) => [r.tag, r]))
+
+  // ── 双轨判定:issues 判失败(exit 1),warnings 仅告警(exit 0)──
+  const issues = []
+  const warnings = []
+  if (fullDiff.onlyLocal.length > 0)
+    issues.push(
+      `${fullDiff.onlyLocal.length} 个 tag 仅本地(未 push):${fullDiff.onlyLocal.join(', ')}`,
+    )
+  if (fullDiff.shaMismatch.length > 0)
+    issues.push(
+      `${fullDiff.shaMismatch.length} 个 tag 同名但 SHA 分歧(本地新链 vs origin 旧链):${fullDiff.shaMismatch
+        .slice(0, 20)
+        .map((m) => m.tag)
+        .join(', ')}${fullDiff.shaMismatch.length > 20 ? ` …(+${fullDiff.shaMismatch.length - 20})` : ''}`,
+    )
+  if (fullDiff.onlyRemoteBackup.length > 0)
+    issues.push(
+      `${fullDiff.onlyRemoteBackup.length} 个备份命名空间 tag 仅远端(本地备份缺失):${fullDiff.onlyRemoteBackup.join(', ')}`,
+    )
+  if (unreachable.length > 0)
+    issues.push(
+      `${unreachable.length} 个备份 tag 对象不可达:${unreachable.map((r) => r.tag).join(', ')}`,
+    )
+  if (fullDiff.onlyRemoteOther.length > 0)
+    warnings.push(
+      `${fullDiff.onlyRemoteOther.length} 个非备份命名空间 tag 仅远端(本地落后 origin,仅告警):${fullDiff.onlyRemoteOther
+        .slice(0, 20)
+        .join(', ')}${fullDiff.onlyRemoteOther.length > 20 ? ` …(+${fullDiff.onlyRemoteOther.length - 20})` : ''}`,
+    )
+
+  const hasIssue = issues.length > 0
 
   if (isJson) {
     const result = {
-      status: 'ok',
+      status: hasIssue ? 'fail' : 'ok',
       local: { lostCommit: localLost, backup: localBackup },
       remote: { lostCommit: remoteLost, backup: remoteBackup },
-      diff: {
-        lostCommit: lostDiff,
-        backup: backupDiff,
-      },
+      diff: { lostCommit: lostDiff, backup: backupDiff },
       reachability,
+      allTags: {
+        localCount: localMap.size,
+        remoteCount: remoteMap.size,
+        onlyLocal: fullDiff.onlyLocal,
+        onlyRemote: fullDiff.onlyRemote,
+        shaMismatch: fullDiff.shaMismatch,
+        onlyRemoteBackup: fullDiff.onlyRemoteBackup,
+        onlyRemoteOther: fullDiff.onlyRemoteOther,
+      },
+      warnings,
       summary: {
         total: allLocalTags.length,
         reachable: reachability.filter((r) => r.ok).length,
-        unreachable: reachability.filter((r) => !r.ok).length,
+        unreachable: unreachable.length,
       },
     }
-    const hasIssue =
-      lostDiff.onlyLocal.length > 0 ||
-      lostDiff.onlyRemote.length > 0 ||
-      backupDiff.onlyLocal.length > 0 ||
-      backupDiff.onlyRemote.length > 0 ||
-      reachability.some((r) => !r.ok)
-    result.status = hasIssue ? 'fail' : 'ok'
     console.log(JSON.stringify(result, null, 2))
     process.exit(hasIssue ? 1 : 0)
   }
@@ -358,12 +520,15 @@ function checkMode() {
   if (localLost.length === 0) {
     console.log(`  ${C.dim}(无)${C.reset}`)
   } else {
-    for (const tag of localLost) {
-      const r = isTagReachable(tag)
+    for (const tag of localLost.slice(0, LIST_CAP)) {
+      const r = reachByTag.get(tag)
       const icon = r.ok ? C.green + '✅' : C.red + '❌'
       console.log(
         `  ${icon} ${C.cyan}${tag}${C.reset} → ${C.dim}${r.hash.slice(0, 12) || '?'}${C.reset}${r.ok ? '' : `  (${r.reason})`}${C.reset}`,
       )
+    }
+    if (localLost.length > LIST_CAP) {
+      console.log(`  ${C.dim}…另有 ${localLost.length - LIST_CAP} 枚(全量比对见第 5 节)${C.reset}`)
     }
   }
 
@@ -372,11 +537,16 @@ function checkMode() {
   if (localBackup.length === 0) {
     console.log(`  ${C.dim}(无)${C.reset}`)
   } else {
-    for (const tag of localBackup) {
-      const r = isTagReachable(tag)
+    for (const tag of localBackup.slice(0, LIST_CAP)) {
+      const r = reachByTag.get(tag)
       const icon = r.ok ? C.green + '✅' : C.red + '❌'
       console.log(
         `  ${icon} ${C.cyan}${tag}${C.reset} → ${C.dim}${r.hash.slice(0, 12) || '?'}${C.reset}${r.ok ? '' : `  (${r.reason})`}${C.reset}`,
+      )
+    }
+    if (localBackup.length > LIST_CAP) {
+      console.log(
+        `  ${C.dim}…另有 ${localBackup.length - LIST_CAP} 枚(全量比对见第 5 节)${C.reset}`,
       )
     }
   }
@@ -386,9 +556,17 @@ function checkMode() {
   if (remoteLost.length === 0) {
     console.log(`  ${C.yellow}⚠️  远端无 lost-commit tag(本地 tag 未 push 风险)${C.reset}`)
   } else {
-    for (const tag of remoteLost) {
-      const localMark = lostDiff.both.includes(tag) ? C.green + '✓本地' : C.yellow + '⚠ 仅远端'
+    const localLostSet = new Set(localLost)
+    for (const tag of remoteLost.slice(0, LIST_CAP)) {
+      const localMark = localLostSet.has(tag)
+        ? C.green + '✓本地'
+        : C.yellow + '⚠ 仅远端(本地缺失)'
       console.log(`  ${C.cyan}${tag}${C.reset}  ${localMark}${C.reset}`)
+    }
+    if (remoteLost.length > LIST_CAP) {
+      console.log(
+        `  ${C.dim}…另有 ${remoteLost.length - LIST_CAP} 枚(仅远端计数见第 5 节)${C.reset}`,
+      )
     }
   }
 
@@ -397,59 +575,69 @@ function checkMode() {
   if (remoteBackup.length === 0) {
     console.log(`  ${C.dim}(无)${C.reset}`)
   } else {
-    for (const tag of remoteBackup) {
-      const localMark = backupDiff.both.includes(tag) ? C.green + '✓本地' : C.yellow + '⚠ 仅远端'
+    const localBackupSet = new Set(localBackup)
+    for (const tag of remoteBackup.slice(0, LIST_CAP)) {
+      const localMark = localBackupSet.has(tag)
+        ? C.green + '✓本地'
+        : C.yellow + '⚠ 仅远端(本地缺失)'
       console.log(`  ${C.cyan}${tag}${C.reset}  ${localMark}${C.reset}`)
+    }
+    if (remoteBackup.length > LIST_CAP) {
+      console.log(
+        `  ${C.dim}…另有 ${remoteBackup.length - LIST_CAP} 枚(仅远端计数见第 5 节)${C.reset}`,
+      )
     }
   }
 
-  // ── 5. 完整性判定 ──
-  console.log(header('5. 完整性判定'))
-  const issues = []
-  let ok = true
-
-  if (lostDiff.onlyLocal.length > 0) {
-    issues.push(
-      `${lostDiff.onlyLocal.length} 个 lost-commit tag 仅本地(未 push):${lostDiff.onlyLocal.join(', ')}`,
-    )
-    ok = false
-  }
-  if (lostDiff.onlyRemote.length > 0) {
-    issues.push(
-      `${lostDiff.onlyRemote.length} 个 lost-commit tag 仅远端(本地缺失):${lostDiff.onlyRemote.join(', ')} — 修复:node scripts/sync-lost-commit-tags.mjs --fetch`,
-    )
-    ok = false
-  }
-  if (backupDiff.onlyLocal.length > 0) {
-    issues.push(
-      `${backupDiff.onlyLocal.length} 个 backup tag 仅本地(未 push):${backupDiff.onlyLocal.join(', ')}`,
-    )
-    ok = false
-  }
-  if (backupDiff.onlyRemote.length > 0) {
-    issues.push(
-      `${backupDiff.onlyRemote.length} 个 backup tag 仅远端(本地缺失):${backupDiff.onlyRemote.join(', ')} — 修复:node scripts/sync-lost-commit-tags.mjs --fetch`,
-    )
-    ok = false
-  }
-  const unreachable = reachability.filter((r) => !r.ok)
-  if (unreachable.length > 0) {
-    issues.push(
-      `${unreachable.length} 个 tag 对象不可达:${unreachable.map((r) => r.tag).join(', ')} — 修复:node scripts/sync-lost-commit-tags.mjs --fetch`,
-    )
-    ok = false
-  }
-
-  if (ok) {
-    console.log(`  ${C.green}✅ 所有 lost-commit/backup tag 本地+远端一致,对象全部可达${C.reset}`)
+  // ── 5. 全命名空间比对(名字 + SHA)──
+  console.log(header('5. 全命名空间比对(本地 vs origin,名字 + SHA)'))
+  console.log(
+    `  ${C.dim}本地 ${localMap.size} 枚 | origin ${remoteMap.size} 枚 | 仅本地 ${fullDiff.onlyLocal.length} | 仅远端 ${fullDiff.onlyRemote.length} | SHA 分歧 ${fullDiff.shaMismatch.length}${C.reset}`,
+  )
+  if (fullDiff.onlyLocal.length > 0) {
     console.log(
-      `  ${C.dim}  本地: ${localLost.length + localBackup.length} 个 | 远端: ${remoteLost.length + remoteBackup.length} 个 | 可达: ${reachability.filter((r) => r.ok).length}/${reachability.length}${C.reset}`,
+      `  ${C.yellow}⚠ 仅本地(未 push):${C.reset} ${fullDiff.onlyLocal.slice(0, 20).join(', ')}${fullDiff.onlyLocal.length > 20 ? ` …(+${fullDiff.onlyLocal.length - 20})` : ''}`,
     )
+  }
+  if (fullDiff.shaMismatch.length > 0) {
+    console.log(
+      `  ${C.red}❌ 同名 SHA 分歧:${C.reset} ${fullDiff.shaMismatch
+        .slice(0, 20)
+        .map((m) => m.tag)
+        .join(', ')}${fullDiff.shaMismatch.length > 20 ? ` …(+${fullDiff.shaMismatch.length - 20})` : ''}`,
+    )
+  }
+  if (fullDiff.onlyRemoteBackup.length > 0) {
+    console.log(
+      `  ${C.red}❌ 备份命名空间仅远端(本地缺失):${C.reset} ${fullDiff.onlyRemoteBackup.join(', ')}`,
+    )
+  }
+  if (fullDiff.onlyRemoteOther.length > 0) {
+    console.log(
+      `  ${C.yellow}⚠ 非备份命名空间仅远端(本地落后,仅告警):${C.reset} ${fullDiff.onlyRemoteOther
+        .slice(0, 20)
+        .join(', ')}${fullDiff.onlyRemoteOther.length > 20 ? ` …(+${fullDiff.onlyRemoteOther.length - 20})` : ''}`,
+    )
+  }
+
+  // ── 6. 完整性判定 ──
+  console.log(header('6. 完整性判定'))
+  if (!hasIssue) {
+    console.log(
+      `  ${C.green}✅ 全部命名空间 tag 本地+origin 名字与 SHA 一致,备份 tag 对象全部可达${C.reset}`,
+    )
+    console.log(
+      `  ${C.dim}  本地: ${localMap.size} 枚 | origin: ${remoteMap.size} 枚 | 受管备份 tag 可达: ${reachability.filter((r) => r.ok).length}/${reachability.length}${C.reset}`,
+    )
+    for (const w of warnings) console.log(`  ${C.yellow}⚠  ${w}${C.reset}`)
     process.exit(0)
   }
 
   for (const i of issues) {
-    console.log(`  ${C.yellow}⚠  ${i}${C.reset}`)
+    console.log(`  ${C.red}✗  ${i}${C.reset}`)
+  }
+  for (const w of warnings) {
+    console.log(`  ${C.yellow}⚠  ${w}${C.reset}`)
   }
   console.log(`\n${C.red}${C.bold}❌ tag 一致性校验失败${C.reset}`)
   console.log(`  修复方法:${C.cyan}node scripts/sync-lost-commit-tags.mjs --fetch${C.reset}`)
@@ -462,10 +650,9 @@ function fetchMode() {
       `${C.yellow}⚠ ${SKIP_ENV}=1 — 但 --fetch 模式不受 SKIP 影响(手动恢复必须执行)${C.reset}`,
     )
   }
-  console.log(`${C.cyan}${C.bold}📥 从 origin 拉回所有 lost-commit/backup tag${C.reset}`)
+  console.log(`${C.cyan}${C.bold}📥 从 origin 拉回全部 tag(以 origin 为权威校准本地)${C.reset}`)
 
-  const cmd =
-    'git fetch origin "refs/tags/lost-commit/*:refs/tags/lost-commit/*" "refs/tags/backup/*:refs/tags/backup/*"'
+  const cmd = 'git fetch origin "+refs/tags/*:refs/tags/*"'
   console.log(`  ${C.dim}$ ${cmd}${C.reset}`)
   try {
     const stdout = run(cmd)
@@ -505,20 +692,18 @@ function autoPushMode() {
     }
   }
 
-  const localLost = listLocalLostTags()
-  const localBackup = listLocalBackupTags()
-  const allLocal = [...localLost, ...localBackup]
+  const localMap = listLocalTagMap()
+  const allLocal = [...localMap.keys()].sort()
 
   if (allLocal.length === 0) {
-    console.log(`${C.dim}🏷️  本地无 lost-commit/backup tag,跳过 push${C.reset}`)
+    console.log(`${C.dim}🏷️  本地无任何 tag,跳过 push${C.reset}`)
     process.exit(0)
   }
 
   // ── 增量:只推远端缺失的 tag(2026-09-17 根治全量推 10+ 分钟阻塞)──
   // 远端真值取不到 ⇒ 直接 exit 2:**绝不**把"拿不到清单"当成"远端什么都没有",
   // 那会让 4283 枚本地 tag 全判成待推、再撞积压阈值静默跳过(远端备份形同虚设)。
-  const remotePushSets = requireRemoteTagSets('auto-push')
-  const remoteAll = new Set([...remotePushSets.lost, ...remotePushSets.backup])
+  const remoteAll = new Set(requireRemoteTagMap('auto-push').keys())
   let missing = allLocal.filter((t) => !remoteAll.has(t))
   // 2026-09-24 加 IHUI_TAG_ONLY:剩余缺失项里大多数是**空壳 tag**(对象已不在本机),
   // 逐枚推 = 每枚都要跑一遍推送门再被远端拒收(实测 109 枚要约 3 小时),而可推的只有个位数。
@@ -698,10 +883,11 @@ if (isDirectRun) {
 
 export const __test__ = {
   hasOriginRemote,
+  isBackupNamespace,
   diffTagSets,
-  getTagCommitHash,
-  isTagReachable,
-  listLocalLostTags,
-  listLocalBackupTags,
+  diffTagMaps,
+  reachabilityBatch,
+  listLocalTagMap,
+  lsRemoteTagMap,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
