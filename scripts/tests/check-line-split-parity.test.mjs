@@ -90,13 +90,31 @@ test('T1 定级/接线方向锁:未进提交链时头注必须自称没进;进�
       '头注不得自称已接进提交链',
     )
   } else {
+    // 注册条目字段形状按 runner 的实际约定:`script:` 存**裸文件名**(不带 `scripts/` 前缀),
+    // 由 runner 自己拼路径。2026-10-15 实测:上一版把它写成 `script:'scripts/…'` ⇒ 这条锁
+    // **从来配不上任何真实注册**,于是"接线了但条目不成套"这一型在它面前完全隐身。
     const entry = new RegExp(
-      "id:\\s*'[0-9A-Za-z]+',\\s*\\n[\\s\\S]{0,600}?script:\\s*'scripts/check-line-split-parity\\.mjs'",
+      "id:\\s*'[0-9A-Za-z]+',\\s*\\n[\\s\\S]{0,600}?script:\\s*'check-line-split-parity\\.mjs'",
     )
     assert.ok(entry.test(runnerText), '既已注册,必须能取出本门的注册项')
-    const block = runnerText.slice(runnerText.indexOf('check-line-split-parity') - 400, runnerText.indexOf('check-line-split-parity') + 400)
-    assert.ok(/mode:\s*'blocking'/.test(block), '接线后条目必须是 blocking(不得静默降级成 warn 而账面自称守住了)')
+    const block = runnerText.slice(
+      runnerText.indexOf('check-line-split-parity') - 400,
+      runnerText.indexOf('check-line-split-parity') + 400,
+    )
+    // 定级锁的**方向**由门体头注给(§12e:判机器状态的门挂 blocking = 每台每次被逼 --no-verify,
+    // 一次绕过连带废掉全部守门;本门要的 Python 对照解释器就是机器状态)。这里不另拍一档,
+    // 而是把"头注说的档"与"注册条目里的档"钉成同一个值 —— 谁单方面改了哪一侧都红。
+    const headMode = /定级 warn/.test(src) ? 'warn' : /定级 blocking|blocking 起步/.test(src) ? 'blocking' : null
+    assert.ok(headMode, '门体头注必须明写定级(warn 或 blocking),否则方向锁无从判')
+    assert.ok(
+      new RegExp(`mode:\\s*'${headMode}'`).test(block),
+      `注册条目 mode 必须与头注同值(头注=${headMode});不同值即 §1「门体头注与注册条目必须同值」失守`,
+    )
     assert.ok(/skipEnv:/.test(block), '接线后条目必须声明应急跳过变量')
+    assert.ok(
+      !/刻意没有接进提交链/.test(src),
+      '已注册进门链 ⇒ 头注不得再自称"没有接进提交链"(这一型是反向说谎:门在跑而文档说它不在)',
+    )
   }
 })
 
