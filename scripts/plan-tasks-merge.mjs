@@ -86,9 +86,14 @@ import {
 // F3「归档反查出口」的**面判据**直接取守门 13c 那一份实现(A2/A3 问的就是"归档件真在被审面上吗",
 // 与本出口问的同一件事;在这里另抄一份 ls-tree/readFileSync 就是本仓禁的第二份真相)。
 import { archiveFaceEntries } from './check-project-plan-archive.mjs'
+// 指针注记棘轮的**计数判据**取守门 13d 自己导出的那一份(`countPointerRows`:登记行口径 +
+// DUP_POINTER_RE / SELF_DEDISPATCH_RE 单一实现,不在此抄第二份)。为什么 heal 要接它:
+// 自动档走 commit-tree 旁路落地,pre-commit 的门 13d 结构性不跑(AGENTS §1「旁路落地的机器
+// 不跑钩子」)⇒ 棘轮必须接在 heal 自己的落地闸 healStopReasons 里,见该函数 noPointer 注。
+import { countPointerRows } from './check-plan-dup-pointer-ratchet.mjs'
 // 折叠形态的**反判据**取自守门 71 自己那一份实现(不另抄):`headIdOf` 判"行首名额"还在不在,
 // `lostMarkers` 判"折叠会不会被防丢层读成整行消失"。见 foldTwins 头注 ① —— 那是两维互咬的接缝。
-// G-307 票一③:循环熔断的**唯一**实现也住在门 71(它是"登记行存续"那一层的尺子,触碰计数只能
+// G-218 票一③:循环熔断的**唯一**实现也住在门 71(它是"登记行存续"那一层的尺子,触碰计数只能
 // 从它的面取)—— 两处各写一份必然漂开,而漂开的代价是循环少一层刹车。`markerOf` 一并从这里取:
 // 熔断按 **marker** 不按行号(§1 同一条禁令:行号在任何一次 append 后都会挪位)。
 import {
@@ -102,7 +107,7 @@ import {
   loopWindowCommits,
 } from './check-plan-line-loss.mjs'
 // 翻勾注记的形态与"剥注记后正文逐字相等"的成对判据,生产侧与看守侧(守门 71)共用这一份实现
-// (G-307:两层自愈互咬的根因之一就是"注记长什么样"在两边各写一遍)。
+// (G-218:两层自愈互咬的根因之一就是"注记长什么样"在两边各写一遍)。
 import {
   buildForkedLine,
   FORK_PREFIX_RE,
@@ -183,7 +188,7 @@ export function loadArchivedIndex(root, face) {
 const LABEL = { head: 'HEAD blob', staged: '索引 blob', worktree: '工作树(逃生舱)' }
 
 /**
- * G-341 —— 本次运行的**判定面**(由 CLI 与落地档各点名一次;纯函数调用方没点名 ⇒ 读出"未判定")。
+ * G-184 —— 本次运行的**判定面**(由 CLI 与落地档各点名一次;纯函数调用方没点名 ⇒ 读出"未判定")。
  * 为什么是运行级单值而不是每个调用点传参:与上面 `ARCHIVED_KEYS` 同一条理由 —— 读数口径只要有
  * 两处来源,同一轮里就会给出两个数(本票立项现读:抬头喊"可自动收口 2"、交付校验喊 4)。
  */
@@ -196,7 +201,7 @@ export function runFaceLabel() {
 }
 
 /**
- * G-341:F3「可自动收口」读数的**唯一出口**。一次运行只经这一处算,抬头行与交付校验行读
+ * G-184:F3「可自动收口」读数的**唯一出口**。一次运行只经这一处算,抬头行与交付校验行读
  * 返回的**同一份结果**里的同一个字段 `auto`。
  *
  * 立项凭据:`--heal`(纯报告档)在同一次运行里,抬头喊 `F3 220 处(其中可自动收口 2 …)`,末行
@@ -540,14 +545,14 @@ function readPlan(root, face) {
 }
 
 /**
- * 内容锚点出口已上移到 `scripts/lib/plan-merge-annotation.mjs`(2026-09-28 G-307)——
+ * 内容锚点出口已上移到 `scripts/lib/plan-merge-annotation.mjs`(2026-09-28 G-218)——
  * 注记句子由该层生成,锚点形状若在这里再抄一份,剥注记的那一侧迟早对不上。
  */
 /**
- * F1/F2 翻勾:**正文逐字保留在行首**,注记一律追加在行尾(G-307 修法 (a))。
+ * F1/F2 翻勾:**正文逐字保留在行首**,注记一律追加在行尾(G-218 修法 (a))。
  * 旧形态把注记**前置**在正文之前(`- [x] ✅(日期) **[归并]** …。 <正文>`),于是守门 71 的
  * "行首编号"判活路径看不见被翻勾的那一行 —— 防丢层把合法翻勾读成"整行消失",回捞未勾原行,
- * F1 又红,再翻勾…… 两小时 24 枚"恢复型"提交就是这么来的(3/3 复现,登记为 G-307)。
+ * F1 又红,再翻勾…… 两小时 24 枚"恢复型"提交就是这么来的(3/3 复现,登记为 G-218)。
  * 形态、幂等与"剥注记后正文相等"的判据都住在唯一实现层,本函数只是它的薄调用点。
  */
 function rewriteFork(line, key, today) {
@@ -698,7 +703,7 @@ export function planDupPointerTargets(groups) {
 
 /**
  * @param {{skipMarkers?: Set<string>|string[]}} [opts] `skipMarkers` = 熔断层给出的**登记 marker**
- *   集合(G-307 票一③):命中这些 marker 的行本轮一律不动,进 `blocked` 点名而不是进 `refused`。
+ *   集合(G-218 票一③):命中这些 marker 的行本轮一律不动,进 `blocked` 点名而不是进 `refused`。
  *   刻意按 marker 而不是行号 —— 行号在任何一次 append 后都会挪位(§1 同一条禁令)。
  * @returns {{ text:string, changed:Array<{line:number,kind:string,before:string,after:string}>,
  *             refused:string[], blocked:Array<{line:number,kinds:string,reason:string}>,
@@ -706,6 +711,12 @@ export function planDupPointerTargets(groups) {
  */
 export function buildMerge(content, today, opts = {}) {
   const skipMarkers = opts.skipMarkers instanceof Set ? opts.skipMarkers : new Set(opts.skipMarkers ?? [])
+  /**
+   * `noPointer`:调用方是**自动档**时置真(post-commit 每次提交都唤起的那一档)—— F4/F4b 只报数、
+   * 不注记。理由两条,见 healAndLand 里同名常量处;人工出口(--fold-twins / --heal --match-prefix-holder)
+   * 不传它,仍走写指针那一支 —— 能力与它的镜像测试一并不动。
+   */
+  const noPointer = !!opts.noPointer
   const a = audit(content)
   const lines = content.split('\n')
   const dupTwins = []
@@ -733,14 +744,20 @@ export function buildMerge(content, today, opts = {}) {
   // F4:同主键的多条未勾选 —— 出口**自己**留一行终端代表(见 planDupPointerTargets 头注),
   // 其余各加一句副本指针(不动勾选、不删行)。刻意不再复用索引层报数用的幸存者名单:
   // 那一档不承诺"归并之后这一族还有人",而派单口径丢一件活是静默的。
-  for (const c of planDupPointerTargets(a.dupOpen)) note(c.line, 'F4', c.key)
-  // F4b:逐字相同但**没有编号**的孪生行 —— 同一条出口(只加指针、不动勾选、不删行),
-  // 措辞按有无主键分档,因为对没有主键的行说"同主键"是一句无法核验的假话。
-  for (const c of a.verbatimDups.copies) note(c.row.line, 'F4', c.key)
+  // **自动档(noPointer)不进这张名单**:指针注记已是用户明令废除的形态(2026-10-13「重复登记
+  // 副本一条也不许再产生」),而自动档走 commit-tree 旁路落地,pre-commit 的门 13d 结构性
+  // 拦不到它 ⇒ 唯一可靠的拦截点是生产侧自己不产。F4/F4b 的存量数字照常进 a.counts 只报数,
+  // 归并动作留给人工出口(plan-tasks-merge 各显式档 / 未来的真归并立项)。
+  if (!noPointer) {
+    for (const c of planDupPointerTargets(a.dupOpen)) note(c.line, 'F4', c.key)
+    // F4b:逐字相同但**没有编号**的孪生行 —— 同一条出口(只加指针、不动勾选、不删行),
+    // 措辞按有无主键分档,因为对没有主键的行说"同主键"是一句无法核验的假话。
+    for (const c of a.verbatimDups.copies) note(c.row.line, 'F4', c.key)
+  }
   const changed = []
   const refused = []
   /**
-   * blocked = **判据看得见、但这一层刻意不动**的行(G-307 票一③ 熔断:该 marker 在近若干枚提交里
+   * blocked = **判据看得见、但这一层刻意不动**的行(G-218 票一③ 熔断:该 marker 在近若干枚提交里
    * 被两个自动层反复触碰 ⇒ 继续自动动作就是在喂循环)。
    * 为什么不并进 `refused`:refused 由 `healStopReasons` 计成"拒写 N 项" ⇒ **整轮停手、退出码 1**,
    * 而熔断的语义恰好相反 —— "自动档少做一件事不是错误"(大声点名 + 退出码 0,§12e:做成恒红门
@@ -856,7 +873,7 @@ export function buildMerge(content, today, opts = {}) {
  * 加指针,`dupOpenCopies` 归零、验收链过、账面全绿 —— 而这一族已经没有任何一行能进 `--open`。
  *
  * 实测(2026-09-28,HEAD 面):19 个族 / 101 条未勾选行全带互指指针,`plan-tasks.mjs --open` 零命中。
- * 典型一站:`D18 Agent SDK 对外开放(G-23)` 两行,指针分别写"另一条登记在 L258x"和"在 L6xxx",
+ * 典型一站:`D2 Agent SDK 对外开放(G-23)` 两行,指针分别写"另一条登记在 L258x"和"在 L6xxx",
  * 而 §1 早已判定行号指针不可复核(F3 现读 300 处、可自动收口 0)⇒ 两边都指向不存在的东西。
  *
  * **本函数只读、只报数,不改一行**;改一行是 `--restore-terminals` 那一档的职责(同档内成对存在,
@@ -880,7 +897,7 @@ export function buildMerge(content, today, opts = {}) {
  *  - 主键优先取 `compositeKeyOf`(与派单口径同一把尺子);**给不出主键的行不跳过**,改按
  *    "剥掉归并注记后的正文"兜底分组 —— 这一族的锚点语义本来就是 F4b 那句"与本行正文逐字相同",
  *    所以它同样可核验、同样会隐形。跳过无主键行等于对台账里最大的一批隐形族(实测
- *    `D18`、`47.`、`82.` 与 12 行"真机走查"孪生全是这一型)失明,而报告看起来一切正常
+ *    `D2`、`47.`、`82.` 与 12 行"真机走查"孪生全是这一型)失明,而报告看起来一切正常
  *    —— 第一版就犯了这个错:真仓只报 3 族 / 5 行,独立口径同一面数到 19 族 / 101 行。
  *  - 未勾选行按行首 `[-*+] [ ]` 认;台账里若有缩进形态的登记行,这一版看不见它(实测面内
  *    行首口径与 `parseTaskRows` 口径同为 688 行,故本轮无差;将来漂了要回来补)。
@@ -969,7 +986,7 @@ export function auditPointerTerminals(content) {
   const groups = []
   // 第二层索引:同一**编号**在别的主键形态下有没有终端代表。
   // 为什么必须有这一层:`compositeKeyOf` 的键是"编号 + 标题前缀逐字等值",而台账里同一件事
-  // 常挂着多种标题写法(实测 `D18` 三条:L1503/L6632 是短标题 + 归并指针、L1504 是长标题正文版)。
+  // 常挂着多种标题写法(实测 `D2` 三条:L1503/L6632 是短标题 + 归并指针、L1504 是长标题正文版)。
   // 按主键判,L1503/L6632 这一族"无终端";按编号判,这件活由 L1504 代表、**并没有隐形**。
   // 只报第一层就会把 F9 撞号的副产物写成"活账消失",派单人会去修一件不存在的事
   // (本仓对"读数误导派单"的代价记过多次,包括照过期数字派单那一型)。
@@ -2451,7 +2468,7 @@ export function openRowsDedupeAndLand(match = null, maxAttempts = 8, opts = {}) 
  *     为什么不用 `〔〕`(F4 与归并落账注记用的那对):守门 71 的 `checkboxBody` 只按
  *     `[（(][^）)]*[）)]` 剥状态装饰 —— 写成 `〔〕` 它剥不掉 ⇒ 该行"行首名额"消失 ⇒
  *     防丢层把合法折叠读成整行消失 ⇒ post-commit 回捞**未折叠**的原行 ⇒ 折叠被原地复活,
- *     正是 G-307 记过的"两层自愈互咬"(实测两小时 24 枚恢复型提交)。
+ *     正是 G-218 记过的"两层自愈互咬"(实测两小时 24 枚恢复型提交)。
  *     用全角括号则门 71 剥得掉(防丢面不受任何影响)。至于"这一行不再算一条活待办",**不靠隐形**:
  *     索引层 2026-09-29 修好装饰档漏算之后,折叠行的行首号必然被 `keyOfRow` 看见 —— 逐出派单口径的
  *     是 `DUP_POINTER_RE`(`findDupOpenCopies` 用的同一份过滤),不是窗口的盲区。
@@ -2729,7 +2746,7 @@ export function verifyTwinFold(srcText, outText, edits, refused = []) {
   /**
    * 反互咬断言(本档的命门):折叠后的整档**不得**在守门 71 眼里丢任何一条登记行。
    * 它红 = 本档的注记形状让防丢层读成"整行消失" = post-commit 会回捞未折叠原行 =
-   * G-307 那型循环。这条必须在落地那一刻把住,而不是留给下一个人去发现。
+   * G-218 那型循环。这条必须在落地那一刻把住,而不是留给下一个人去发现。
    */
   const lost = lostMarkers(String(srcText), String(outText))
   if (lost.length)
@@ -2920,7 +2937,7 @@ function gitIn(idx, args) {
 
 export function healAndLand() {
   const stamp = Date.now()
-  // G-341:落地档读的就是 HEAD 面 ⇒ 判定面必须在本轮任何读数之前点名,否则唯一出口只能报"未判定"
+  // G-184:落地档读的就是 HEAD 面 ⇒ 判定面必须在本轮任何读数之前点名,否则唯一出口只能报"未判定"
   // (它不冒充某个面是设计,不是缺陷;而落地档确实知道自己在判哪个面)。
   setRunFace('head')
   const head = gitIn(null, ['rev-parse', 'HEAD'])
@@ -2956,9 +2973,11 @@ export function healAndLand() {
     console.log('✅ 自愈:HEAD 无状态分叉(也没有可折的同题不同编号孪生副本),不动任何东西')
     return 0
   }
-  let r = buildMerge(src, today)
+  // 自动档:noPointer ⇒ F4/F4b 不注记、F10 不折叠(理由见 buildMerge noPointer 注:
+  // 旁路落地拦不到 13d,生产侧不产是唯一可靠拦截点)。数字照报,修不了的一律交人工出口。
+  let r = buildMerge(src, today, { noPointer: true })
   /**
-   * ── 循环熔断(G-307 票一③)──
+   * ── 循环熔断(G-218 票一③)──
    * 一轮归并**先照计划做**,再问"这些行最近是不是被两个自动层反复触碰过";命中熔断的那些
    * 从本轮剔除后重算一次(剔除而不是停手:一处循环不该把别人能修的分叉一起冻住),
    * 留下的那些进 `blocked` 逐行点名 —— "少做一件事"与"判红"是两件事,这里只少做、不判红(退出码 0)。
@@ -2983,7 +3002,7 @@ export function healAndLand() {
           .map((u) => u.reason)
           .join(' / ')} —— 不据"没量到"下结论,照旧只点名`,
       )
-    r = buildMerge(src, today, { skipMarkers: skip })
+    r = buildMerge(src, today, { skipMarkers: skip, noPointer: true })
     if (!r.changed.length) {
       console.log(
         `   ⛔ 刻意不动 ${r.blocked.length} 行(熔断):${r.blocked
@@ -2999,12 +3018,35 @@ export function healAndLand() {
     console.log(
       `   ℹ️ 熔断未判定 ${loop.undetermined.length} 个 marker(${loop.undetermined[0].reason})—— 照旧归并,不据"没量到"下结论`,
     )
+  // 自动档 F4/F4b/F10 只报数 ⇒ "只有这三维非零"时本轮没有任何可施加的改写。
+  // 这不是"修好了":它是以"刻意不修"的形态退出 —— 数字照报、出路照给、退出码 0
+  // (post-commit 自动档少做一件事不是错误;做成恒红只会逼人 --no-verify,§12e 同型)。
+  if (!r.changed.length) {
+    console.log(
+      `ℹ️ 自愈(自动档):无 F1/F2/F3 可自动收口项。F4 ${b0.dupOpenCopies} / F4b ${b0.verbatimDupCopies} / F10 可折 ${twinOpen} 只报数、不注记、不折叠(2026-10-13 用户指令「重复登记副本一条也不许再产生」;自动档走旁路落地,门 13d 拦不到 ⇒ 生产侧掐断),交人工出口:--fold-twins / --heal --match-prefix-holder / plan-tasks-merge 显式档。`,
+    )
+    if (r.adjudicationNeeded.length)
+      console.log(
+        `   ⚠️ 另有 ${r.adjudicationNeeded.length} 行需人工裁决(翻勾会改正文 ⇒ 谁作数须由人裁):${r.adjudicationNeeded
+          .slice(0, 5)
+          .map((a) => `L${a.line} ${a.reason}`)
+          .join(';')}`,
+      )
+    if (r.refused.length) {
+      console.log(`❌ 自愈拒写 ${r.refused.length} 项:${r.refused.join(' / ')}`)
+      return 1
+    }
+    return 0
+  }
   /**
-   * 折叠维跑在**归并结果之上**这一层:`buildMerge` 只改行内内容、一行不增不删 ⇒ 两维共用同一套
-   * 行号坐标,合到一枚提交、一次 CAS 里落地。两维刻意互不干涉:F10 只插注记、绝不碰复选框,
-   * 翻勾永远归 F1/F2;`[...r.changed, ...折叠]` 一起交给零损失对账,所以"多改一行"瞒不住。
+   * 折叠维(原设计:跑在归并结果之上,F10 只插注记、绝不碰复选框,与 buildMerge 共用同一套
+   * 行号坐标、同一枚提交落地)**自动档不跑**:F10 折叠注记的字面
+   * `（【归并】重复登记副本·同题不同编号…）` 同样命中门 13d 的判据字面,而自动档旁路落地 ⇒
+   * 与 F4/F4b 同一条禁令、同一个拦截点(生产侧不产)。折叠能力原样保留在人工档
+   * `--fold-twins --commit`(twinFoldAndLand,那里仍跑 applyTwinFolds + verifyTwinFold 全套
+   * 零损失断言)。f 恒为"零编辑"占位,下游对账/落地代码形状不变。
    */
-  const f = applyTwinFolds(r.text, today)
+  const f = { text: r.text, edits: [], refused: [], undetermined: [], groups: [] }
   let landAdj = null
   try {
     landAdj = loadAdjudications(ROOT, today)
@@ -3021,8 +3063,9 @@ export function healAndLand() {
     [...r.changed, ...f.edits.map((e) => ({ ...e, kind: 'F10折叠' }))],
     r.refused.length + f.refused.length,
     landAdj,
+    { noPointer: true },
   )
-  bad.push(...verifyTwinFold(r.text, f.text, f.edits, f.refused).problems)
+  if (f.edits.length) bad.push(...verifyTwinFold(r.text, f.text, f.edits, f.refused).problems)
   if (bad.length) {
     /**
      * 熔断命中后的**混合现场**:本轮剔除了熔断族,别处照常归并 ⇒ 残留的"归并后未归零"正是
@@ -3051,8 +3094,8 @@ export function healAndLand() {
     [
       'fix(plan): 自愈被回写的任务状态副本(守门 130 的 post-commit 层)',
       '',
-      `触发时 HEAD 现读:F1 ${b0.forks} / F2 ${b0.voidRows} / F3(可自动收口) ${b0.rotatedAuto} / F3(无出口,交人工) ${b0.rotatedNoExit} / F4 ${b0.dupOpenCopies} → 归并 ${r.changed.length} 行后 0 / 0 / 0 / 0。`,
-      `另:F10「同题不同编号」孪生副本现读 ${tw0.groups.length + tw0.undetermined.length} 族可议(成组 ${tw0.groups.length} / 判不出 ${tw0.undetermined.length})⇒ 本枚折掉 ${f.edits.length} 行,每族只留位置最靠前的未完成行当持有行;判不出一律不折、交人工(${f.undetermined.length} 条逐条点名见 --fold-twins 报告)。`,
+      `触发时 HEAD 现读:F1 ${b0.forks} / F2 ${b0.voidRows} / F3(可自动收口) ${b0.rotatedAuto} / F3(无出口,交人工) ${b0.rotatedNoExit} → 归并 ${r.changed.length} 行。`,
+      `F4 ${b0.dupOpenCopies} / F4b ${b0.verbatimDupCopies} / F10 可折 ${tw0.edits.length}:自动档刻意不注记、不折叠(2026-10-13 用户指令「重复登记副本一条也不许再产生」;自动档走 commit-tree 旁路落地,门 13d 拦不到 ⇒ 生产侧掐断),数字如实保留在面上,人工出口 --fold-twins / --heal --match-prefix-holder / plan-tasks-merge 显式档。`,
 
       `行数 ${src.split('\n').length} → ${f.text.split('\n').length}(一行不删一行不加),未参与改写的 ${src.split('\n').length - r.changed.length - f.edits.length} 行逐字不变。`,
       ...(r.blocked.length
@@ -3106,20 +3149,20 @@ export function healAndLand() {
     console.log(
       `✅ 自愈落地 ${commit.slice(0, 11)}:归并 ${r.changed.length} 行 + 折叠 ${f.edits.length} 行 → 落地面现读 F1 ${after.forks} / F2 ${after.voidRows} / F3(可自动收口) ${after.rotatedAuto} / F3(无出口) ${after.rotatedNoExit} / F4 ${after.dupOpenCopies} / F4b ${after.verbatimDupCopies}(副本指针行合计 ${after.dupPointerRows})/ F10 可折残留 ${twinLeft}`,
     )
+    // F4/F4b/F10 是自动档刻意不修的三维(只报数)⇒ 落地面残留是**设计内状态**,只报数不判红;
+    // 其余三维(裁决/F2/F3 自动档)仍归零问责 —— 自动档修了却没修到 = 真故障,照旧退出码 1。
     const postUnmerged =
       adjudicationProblems({ forks: audit(landedText).forks }, landAdj).problems.length +
       after.voidRows +
-      after.rotatedAuto +
-      after.dupOpenCopies +
-      after.verbatimDupCopies
+      after.rotatedAuto
     if (postUnmerged > 0) {
-      console.log('   ⚠️ 落地面仍有未归并项 —— 上面就是现读数字,不得当"已清零"引用。')
+      console.log('   ⚠️ 落地面仍有未归并项(F1/F2/F3 维)—— 上面就是现读数字,不得当"已清零"引用。')
       return 1
     }
-    if (twinLeft > 0) {
-      console.log(`   ⚠️ 落地面仍有 ${twinLeft} 行可折 —— 折叠维没闭合,不得当"已清零"引用。`)
-      return 1
-    }
+    if (after.dupOpenCopies || after.verbatimDupCopies || twinLeft)
+      console.log(
+        `   ℹ️ 落地面 F4 ${after.dupOpenCopies} / F4b ${after.verbatimDupCopies} / F10 可折 ${twinLeft} —— 自动档刻意不注记、不折叠(交人工出口),不得当"已清零"引用。`,
+      )
 
     return 0
   } finally {
@@ -3436,7 +3479,17 @@ export function touchedFamilyTerminalProblems(merged, changed) {
 }
 
 /** 自愈的"该不该停手"判据 —— 抽成纯函数,否则这一层最要紧的安全断言只能在真仓上验一次。 */
-export function healStopReasons(srcText, merged, changed, refusedCount, adj = null) {
+export function healStopReasons(srcText, merged, changed, refusedCount, adj = null, opts = {}) {
+  /**
+   * noPointer = 自动档(F4/F4b 刻意不注记、F10 刻意不折叠)的落地闸口径,三处语义:
+   *  ① "归并后未归零"不再把 dupOpenCopies 计入 —— 那一维自动档不修,残留是设计内状态;
+   *  ② 折叠维闭合断言跳过 —— 同上;
+   *  ③ 新增**指针注记棘轮**(判据与守门 13d 同源):自动档产物里的登记行指针注记不得比
+   *     触发面多一行。为什么在这道闸接:heal 走 commit-tree 旁路落地,pre-commit 的门 13d
+   *     结构性不跑(AGENTS §1「旁路落地的机器不跑钩子」)⇒ 棘轮必须在 heal 自己的判据源头
+   *     接住。F4/F4b/F10 三条生产路径都已掐断,这条红 = 有人把注记路径接了回来,当场停手。
+   */
+  const noPointer = !!opts.noPointer
   // 与 verifyMerge 同一处理:F1+F3 那一型里 F3 的锚点替换是本工具授权的改写,先折回 before,
   // 再交给下面那条一字未动的逐字判据(否则归并对这一型永久停手,那条 F1 再也修不掉)。
   changed = normalizeForkedBefore(changed)
@@ -3444,7 +3497,7 @@ export function healStopReasons(srcText, merged, changed, refusedCount, adj = nu
   const a1 = String(merged).split('\n')
   const touched = new Set(changed.map((c) => c.line))
   /**
-   * G-341:F3 读数与报告档(`verifyMerge`)共用唯一出口 `f3Reading()` —— 两道闸各算一遍就是
+   * G-184:F3 读数与报告档(`verifyMerge`)共用唯一出口 `f3Reading()` —— 两道闸各算一遍就是
    * 本票的病根(同一个名字两个数)。这里只取它的 `auto` 与 `after`,红条件一字未动。
    */
   const f3 = f3Reading(srcText, merged)
@@ -3454,9 +3507,9 @@ export function healStopReasons(srcText, merged, changed, refusedCount, adj = nu
    * 而"忘记调"在账面上一律表现为绿。算得出可折行 ⇒ 本枚没把这一维做完 ⇒ 停手。
    * (被 `twinFoldRejectReason` 点名拒折的行不进 edits,所以"该交人工的"不会被这条读成"未闭合"。)
    */
-  const twinLeft = foldTwins(String(merged).split('\n')).edits.length
+  const twinLeft = noPointer ? 0 : foldTwins(String(merged).split('\n')).edits.length
 
-  // G-307(a) 落地闸(healAndLand 走的是这一支,不是 verifyMerge):任何 F1/F2 翻勾若没有
+  // G-218(a) 落地闸(healAndLand 走的是这一支,不是 verifyMerge):任何 F1/F2 翻勾若没有
   // "剥复选框/装饰/租约/注记后正文逐字相等",整批停手 —— 截断正文的实现进不了 HEAD。
   const bodyBroken = changed.some(
     (c) =>
@@ -3464,6 +3517,12 @@ export function healStopReasons(srcText, merged, changed, refusedCount, adj = nu
       /^\s*[-*]\s\[ \]/.test(c.before) &&
       !forkPreserved(c.before, c.after),
   )
+  // 指针注记棘轮(仅自动档口径;计数单一实现取守门 13d 的 countPointerRows):
+  // 触发面里已有的注记不担责(差值棘轮,与 13d 同一条哲学),只拦"本枚产物让注记变多"。
+  const pointerRatchet =
+    noPointer && countPointerRows(String(merged)) > countPointerRows(String(srcText))
+      ? `指针注记棘轮(门 13d 同源):自动档产物让登记行指针注记增加(${countPointerRows(String(srcText))} → ${countPointerRows(String(merged))})—— F4/F4b/F10 生产侧已掐断,这条红 = 有人把注记路径接了回来`
+      : null
   return [
     refusedCount ? `拒写 ${refusedCount} 项` : null,
     a0.length !== a1.length ? `行数不等 ${a0.length}→${a1.length}` : null,
@@ -3473,9 +3532,10 @@ export function healStopReasons(srcText, merged, changed, refusedCount, adj = nu
     ...(adjudicationProblems({ forks: f3.afterAudit.forks }, adj).problems.length ||
     after.voidRows ||
     f3.auto ||
-    after.dupOpenCopies
+    (!noPointer && after.dupOpenCopies)
       ? ['归并后未归零']
       : []),
+    pointerRatchet,
     pointerVisibilityRegression(srcText, merged),
     ...touchedFamilyTerminalProblems(merged, changed),
   ].filter(Boolean)
@@ -3638,7 +3698,7 @@ export function verifyMerge(original, merged, changed, adj = null) {
   const lost = o.filter((l, i) => !touched.has(i + 1) && !m.includes(l)).length
   if (lost) problems.push(`${lost} 行在输出里找不到`)
   /**
-   * G-307(a):每一条 F1/F2 翻勾都必须通过"剥复选框/装饰/租约/本层注记后正文逐字相等"。
+   * G-218(a):每一条 F1/F2 翻勾都必须通过"剥复选框/装饰/租约/本层注记后正文逐字相等"。
    * 这不是自检里的装饰 —— 它是落地闸:实现若退回"用注记文案整行替换"或截断正文,
    * `healAndLand` 当场停手,坏形态进不了 HEAD,守门 71 的回捞层也就不会被喂出循环。
    */
@@ -3653,7 +3713,7 @@ export function verifyMerge(original, merged, changed, adj = null) {
       )
   }
   /**
-   * G-341:F3 的读数只经唯一出口 `f3Reading()` 算一次 —— 报告侧(抬头行)与本交付校验侧
+   * G-184:F3 的读数只经唯一出口 `f3Reading()` 算一次 —— 报告侧(抬头行)与本交付校验侧
    * 读的是**同一份结果**里的同一个字段,所以同一次运行不可能再出现两个"可自动收口"。
    * 阈值与红条件一字未放宽:`auto` 非零照旧产出一条红并参与退出码。
    */
@@ -3676,8 +3736,8 @@ function selfTest() {
   let fail = 0
   const ok = (c, n) => (c ? pass++ : (fail++, console.log(`  ❌ ${n}`)))
   const src = [
-    '- [x] ✅(2026-09-20) **D99 复合主键正例**:说明文字。',
-    '- [ ] **D99 复合主键正例**:旧副本。',
+    '- [x] ✅(2026-09-20) **D6 复合主键正例**:说明文字。',
+    '- [ ] **D6 复合主键正例**:旧副本。',
     '- [ ] **D97 作废声明**:〔本行判:已完成,勿照本行派单〕。',
     // F3 两型各一条,合起来才钉得住新语义:
     //  ①可自动收口 —— 指针指向的行与本行**同复合主键**,换成"同主键登记「本行键」"是真话;
@@ -3688,7 +3748,7 @@ function selfTest() {
     '- [ ] **D98 真待办**:谁都没做过,不得被动。',
   ].join('\n')
   const r = buildMerge(src, '2026-09-26')
-  // 3 = F1(D99 旧副本)+ F2(D97)+ D96 那一行。注意 D96 **同时**命中 F1 与 F3(它与已勾那份同复合主键,
+  // 3 = F1(D6 旧副本)+ F2(D97)+ D96 那一行。注意 D96 **同时**命中 F1 与 F3(它与已勾那份同复合主键,
   // 而指针又指向同主键的行)—— 一行只可能被改一次,所以这里不能按"判据条数"数,只能按行号数。
   ok(r.changed.length === 3, `应改 3 行(F1 + F2 + D96 那行),实测 ${r.changed.length}`)
   ok(r.refused.length === 0, `不应拒写,实测 ${JSON.stringify(r.refused)}`)
@@ -3730,21 +3790,21 @@ function selfTest() {
   )
   ok(healStopReasons(src, r.text, r.changed, 2).join().includes('拒写'), '有拒写项必须停手')
   /**
-   * G-307(a) 成对判据:翻勾前后,剥掉复选框与本工具追加的注记之后,两侧正文必须逐字相等。
+   * G-218(a) 成对判据:翻勾前后,剥掉复选框与本工具追加的注记之后,两侧正文必须逐字相等。
    * 正向 = 现行后置式与 legacy 前置式都判"保住了";反向 = "整行替换/截断"的实现必须被炸出来
    * (两代形态都过同一条 forkPreserved,看守侧与生产侧共用 lib 里那一份剥取实现)。
    */
-  const G0 = '- [ ] G-307 一条待办:这段正文在翻勾后必须一字不差地活着。'
-  const G0F = rewriteFork(G0, 'G-307#一条待办', '2026-09-28')
+  const G0 = '- [ ] G-218 一条待办:这段正文在翻勾后必须一字不差地活着。'
+  const G0F = rewriteFork(G0, 'G-218#一条待办', '2026-09-28')
   ok(
-    /^- \[x\] ✅\(2026-09-28\) G-307 一条待办/.test(G0F),
+    /^- \[x\] ✅\(2026-09-28\) G-218 一条待办/.test(G0F),
     `新形态必须把正文留在行首、注记追加行尾:${G0F.slice(0, 60)}`,
   )
   ok(forkPreserved(G0, G0F), '正当翻勾必须判"正文逐字保留"')
   ok(
     forkPreserved(
       G0,
-      '- [x] ✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-307 · 一条待办」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、不删行、不重复计账。 G-307 一条待办:这段正文在翻勾后必须一字不差地活着。',
+      '- [x] ✅(2026-09-27) **[归并]** 本行与已完成登记同题(主键 「G-218 · 一条待办」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、不删行、不重复计账。 G-218 一条待办:这段正文在翻勾后必须一字不差地活着。',
     ),
     'legacy 前置式(HEAD 存量形态)剥注记后同样必须逐字相等',
   )
@@ -3752,7 +3812,7 @@ function selfTest() {
   ok(
     !forkPreserved(
       G0,
-      '- [x] ✅(2026-09-28) **[归并]** 本行与已完成登记同题(主键 「G-307 · 一条待办」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、不删行、不重复计账。 G-307 一条待办:这段正文被',
+      '- [x] ✅(2026-09-28) **[归并]** 本行与已完成登记同题(主键 「G-218 · 一条待办」),是被并发并集留下的未翻勾副本 ⇒ 只落状态、不删行、不重复计账。 G-218 一条待办:这段正文被',
     ),
     '把正文截断的实现必须被 forkPreserved 抓住(变异对照,不得恒真)',
   )
@@ -3904,6 +3964,29 @@ function selfTest() {
     'F4 未归零时自愈必须停手 —— 否则"跑过一次"会被当成"修好了"',
   )
   /**
+   * 自动档(noPointer)三断言(2026-10-14 接线,用户指令「重复登记副本一条也不许再产生」):
+   * ① buildMerge 自动档对同一 F4 夹具**一个字节都不动**(指针注记不再由自动路径产出);
+   * ② 同一残留 F4 在 noPointer 口径下**不再**触发"归并后未归零"(设计内状态,自动档少修
+   *    一维不是错误;非自动档口径仍停手 —— 上一条 ok 已钉);
+   * ③ 棘轮(门 13d 同源):noPointer 口径下产物多出一行指针注记 ⇒ 停手 —— 这是旁路落地
+   *    (commit-tree 不跑钩子)面前最后一道闸,红 = 有人把注记路径接了回来。
+   */
+  const f4auto = buildMerge(f4src, '2026-09-26', { noPointer: true })
+  ok(f4auto.changed.length === 0, `自动档不得改写 F4 副本行,实测改了 ${f4auto.changed.length} 行`)
+  ok(f4auto.text === f4src, '自动档产物必须与输入逐字相等(F4 维零动作)')
+  ok(
+    !healStopReasons(f4src, f4src, [], 0, null, { noPointer: true }).some((x) =>
+      x.includes('未归零'),
+    ),
+    'noPointer 口径下残留 F4 不得触发"归并后未归零"(那一维刻意交人工)',
+  )
+  ok(
+    healStopReasons(f4src, f4.text, [], 0, null, { noPointer: true }).some((x) =>
+      x.includes('指针注记棘轮'),
+    ),
+    'noPointer 口径下产物新增指针注记必须被棘轮拦下(门 13d 同源,旁路落地的最后防线)',
+  )
+  /**
    * 隐形族诊断必须**成对**有牙:全族互指要点名(不点名等于没有这个出口),有终端代表不得点名
    * (乱点名会让读数变成"每一族都是债",那与没有读数一样不能用来派单)。
    * 夹具的两行都带指针 —— 就是 HEAD 面实测 19 族 / 101 行的形态本身。
@@ -3929,15 +4012,15 @@ function selfTest() {
   )
   ok(tAlive.families === 0, `族内有一行不带指针就不算无终端,实测报了 ${tAlive.families} 族(误伤)`)
   /**
-   * 第三臂钉"不把撞号副产物报成债"。真仓形态:`D18` 挂着两种标题写法(短标题+指针 / 长正文版),
+   * 第三臂钉"不把撞号副产物报成债"。真仓形态:`D2` 挂着两种标题写法(短标题+指针 / 长正文版),
    * 按主键判前者"无终端",按编号判这件活由长正文那行代表、**没有隐形**。
    * 少了这一臂,读数就会把 F9 撞号的副产物写成"活账消失",派单人去修一件不存在的事。
    */
   const tSplit = auditPointerTerminals(
     [
-      '- [ ] D18 甲题 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记,派单以那条为准。〕',
-      '- [ ] D18 甲题 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记,派单以那条为准。〕',
-      '- [ ] D18 甲题的长正文版(同编号、另一种标题写法,自己不带指针)',
+      '- [ ] D2 甲题 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记,派单以那条为准。〕',
+      '- [ ] D2 甲题 〔【归并】重复登记副本(2026-09-26):同主键的另一条登记,派单以那条为准。〕',
+      '- [ ] D2 甲题的长正文版(同编号、另一种标题写法,自己不带指针)',
     ].join('\n'),
   )
   ok(
@@ -4510,7 +4593,7 @@ function selfTest() {
     '持有行逐字不动、两份被指副本各带派单口径指针(L3 无关行不得被误加)',
   )
   /**
-   * ── G-307 票一③:熔断必须是**纯函数 + 构造面**(真仓的提交数是瞬时状态,拿它当断言就是假账)──
+   * ── G-218 票一③:熔断必须是**纯函数 + 构造面**(真仓的提交数是瞬时状态,拿它当断言就是假账)──
    * 三态各一对:未达阈值⇒不熔断 / 达阈值⇒熔断 / 人工提交的触碰⇒不计票;阈值一律走参数,不写死常量。
    * (判定本体住在门 71 `loopBreakerDecision`,这里只钉"它必须有牙"。)
    */
@@ -5357,7 +5440,7 @@ function main() {
     console.log(`⚠️ 无法判定 —— ${sel.error}`)
     return 2
   }
-  // G-341:判定面在**任何读数之前**点名 —— 唯一出口 `f3Reading()` 把这个名字随读数一起交出,
+  // G-184:判定面在**任何读数之前**点名 —— 唯一出口 `f3Reading()` 把这个名字随读数一起交出,
   // 于是抬头、交付校验、✅ 结论三处喊的是同一个数、同一个面,读者不必猜"这是哪一个的读数"。
   setRunFace(sel.face)
   let src
@@ -5395,7 +5478,7 @@ function main() {
     ROOT,
   )
   console.log(`baseBlob=${baseBlob} —— 落地时必须对这一枚做 CAS:它一挪,行号就不再指向我审过的内容`)
-  // G-341:两行分开喊,免得同一轮里"可自动收口"再长出第二个含义 ——
+  // G-184:两行分开喊,免得同一轮里"可自动收口"再长出第二个含义 ——
   //   第一行是**归并前基线**(输入面上有什么),第二行是**落地闸所判**(归并后那一面还剩什么),
   //   而"可自动收口"这个名字自始至终只出现在第二行,数字取自唯一出口 `f3Reading()` 的 `auto`。
   console.log(
@@ -5404,7 +5487,7 @@ function main() {
   console.log(`落地闸所判:${v.f3.headClause()}`)
   console.log(
     `  F3 口径说明:rotatedPointers=${v.f3.pointers} 是**归并后**面上全部的腐烂指针;可自动收口=${v.f3.auto} 是**此刻有出口能收**的那一档 —— 抬头行与交付校验读的就是这一个数(` +
-      `G-341:此前两处各算一遍,同轮喊出 2 与 4 两个"可自动收口",而落地闸用的是后者)。归并前基线 ${v.f3.before.rotatedAuto} 处只是输入面读数,不得当结论。${
+      `G-184:此前两处各算一遍,同轮喊出 2 与 4 两个"可自动收口",而落地闸用的是后者)。归并前基线 ${v.f3.before.rotatedAuto} 处只是输入面读数,不得当结论。${
         ARCH_NOTE?.unavailable
           ? `本轮归档面**未判定**(${ARCH_NOTE.unavailable})⇒ 归档反查未参与,上面的 auto 数是旧口径,不得当"没出口"读。`
           : `归档索引来自被审面 ${ARCH_NOTE.files} 件、认得 ${ARCH_NOTE.size} 条已归档登记${ARCH_NOTE.undetermined.length ? `;${ARCH_NOTE.undetermined.length} 件正文取不到(那一层未判定)` : ''}。`
