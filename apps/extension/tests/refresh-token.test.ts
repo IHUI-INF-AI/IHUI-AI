@@ -15,6 +15,8 @@
  * 7. startAutoRefresh / stopAutoRefresh 注册/移除监听
  */
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest'
+// 2026-10-14:import() 类型注解被 consistent-type-imports 禁(CI lint:strict 红),改顶层 type 命名空间导入
+import type * as ApiClientModule from '@ihui/api-client'
 
 // === 全局 chrome mock ===
 const chromeStorage: Record<string, unknown> = {}
@@ -62,7 +64,7 @@ const chromeAlarmsOnAlarmRemove = vi.fn()
 // 断言侧的 instanceof 也必须是同一个类对象(替身类会让断言空转)。
 const mockRefreshAccessToken = vi.fn()
 vi.mock('@ihui/api-client', async () => {
-  const actual = await vi.importActual<typeof import('@ihui/api-client')>('@ihui/api-client')
+  const actual = await vi.importActual<typeof ApiClientModule>('@ihui/api-client')
   return {
     setBaseUrl: vi.fn(),
     setTokenProvider: vi.fn(),
@@ -87,7 +89,7 @@ async function loadFreshModules() {
   vi.resetModules()
   // 重新 mock @ihui/api-client(resetModules 后需要重新注册;TransientRefreshError 同样给真实类)
   vi.doMock('@ihui/api-client', async () => {
-    const actual = await vi.importActual<typeof import('@ihui/api-client')>('@ihui/api-client')
+    const actual = await vi.importActual<typeof ApiClientModule>('@ihui/api-client')
     return {
       setBaseUrl: vi.fn(),
       setTokenProvider: vi.fn(),
