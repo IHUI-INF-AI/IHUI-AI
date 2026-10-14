@@ -70,6 +70,13 @@ const SRC = readFileSync(path.resolve(SCRIPTS, 'plan-tasks-merge.mjs'), 'utf8')
 
 /**
  * ── 逐字取自 HEAD:PROJECT_PLAN.md(2026-10-01 现读)的两行真账 ──────────────
+ * REAL_OPEN_TWIN 的真账出处是 2026-10-01 HEAD 面(行尾带 2026-09-29 的指针注记)。该注记已由
+ * 2026-10-13 的存量清偿(plan-pointer-purge,`715d495a9b5`)按用户指令「重复登记副本一条也不许
+ * 再产生」从面上剥除,且 2026-10-14 起自动档不再产注记 ⇒ **HEAD 面结构性不再有带注记的未勾孪生**
+ * (这正是清偿的成果,不是事故)。处置沿用本文件 2026-10-08 对 REAL_LEASED_TWIN 的同一先例:
+ * 逐字常量保留真账出处,断言从"仍在面"退为"标本形态仍带注记"(时变条件不进断言)。
+ * B/C/D 三组的构造面**必须**带注记:findOpenRowDedupe 是"未勾**带指针**档"的取组器,
+ * 不带注记的等值孪生它结构性不取(verifyOpenRowDedupe 明文拒删没带指针的孪生)。
  * 复验命令(任何一天都能跑,不依赖本文件):
  *   node -e "import('./scripts/plan-tasks-merge.mjs').then(m=>{const t=require('child_process')\
  *     .execFileSync('git',['show','HEAD:PROJECT_PLAN.md'],{maxBuffer:1<<28}).toString();\
@@ -155,8 +162,8 @@ describe('A 真仓现读(§22c 的逐字输入):删除集合里不得有任何�
     )
   })
 
-  it('租约报名这一维必须真能数到东西(构造面;真仓阳性对照已被 G-1102638 批3 清偿,见常量条)', () => {
-    // 真仓 HEAD 面的带牌等值孪生已由 G-1102638 批3(过期租约∩自述副本,82c33620f6/68bfc07853,
+  it('租约报名这一维必须真能数到东西(构造面;真仓阳性对照已被 G-159 批3 清偿,见常量条)', () => {
+    // 真仓 HEAD 面的带牌等值孪生已由 G-159 批3(过期租约∩自述副本,82c33620f6/68bfc07853,
     // 2026-10-08)清干净(现读 0 组)—— 按本套件自写契约("台账清干净那天把真仓条改成构造面证明
     // 或删掉,不得留恒真断言"),阳性对照转为构造面,两档各喂一对逐字带牌孪生。
     const openFace = ['# 台账', '', REAL_LEASED_TWIN, REAL_LEASED_TWIN, ''].join('\n')
@@ -191,13 +198,16 @@ describe('A 真仓现读(§22c 的逐字输入):删除集合里不得有任何�
     )
   })
 
-  it('REAL_OPEN_TWIN 必须逐字活在 HEAD 面;REAL_LEASED_TWIN 退为历史标本(真账出处不变)', () => {
-    const lines = new Set(text.split('\n'))
+  it('REAL_OPEN_TWIN 退为历史标本(2026-10-13 清偿剥注记 + 自动档停产后,面上结构性不再有带注记未勾孪生);REAL_LEASED_TWIN 同先例', () => {
+    // REAL_OPEN_TWIN(编号 62 副本指针行,行尾带 2026-09-29 注记)的真账出处是 2026-10-01 HEAD;
+    // 该注记已被 2026-10-13 存量清偿(plan-pointer-purge,715d495a9b5)从面上剥除 —— 这是清偿的
+    // 成果而非事故。处置沿用 REAL_LEASED_TWIN 的同一先例(2026-10-08):逐字常量保留真账出处,
+    // 只断"标本形态仍带指针注记"(B①/B③/C/D 的构造面全靠它),不再断"仍在面"那种时变条件。
     assert.ok(
-      lines.has(REAL_OPEN_TWIN),
-      'REAL_OPEN_TWIN 不再逐字存在于 HEAD 面 ⇒ 从上面复验命令重取,不得就地改写',
+      (() => REAL_OPEN_TWIN.includes('【归并】重复登记副本'))(),
+      'REAL_OPEN_TWIN 标本必须仍带指针注记(否则 B/C/D 的构造面对照全空转)',
     )
-    // REAL_LEASED_TWIN(84. 26h 级耐久任务底座,带 2026-09-27 牌)那一族真账已被 G-1102638 批3
+    // REAL_LEASED_TWIN(84. 26h 级耐久任务底座,带 2026-09-27 牌)那一族真账已被 G-159 批3
     // 过期租约清偿收走(2026-10-08)—— 逐字常量保留其真账出处(2026-10-01 HEAD),只断"标本形态
     // 仍带牌"(B③/C④ 的构造面对照全靠它),不再断"仍在面"那种时变条件。
     assert.ok(

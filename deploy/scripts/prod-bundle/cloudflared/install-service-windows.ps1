@@ -78,7 +78,12 @@ if (-not $cloudflaredPath) {
 Write-Host "[INFO] cloudflared: $cloudflaredPath"
 
 # 用 cloudflared 自带的 service install 命令
-& $cloudflaredPath service install $Token
+# --protocol http2(2026-10-14 立):cloudflared 默认 QUIC,国内跨境 UDP QoS 差,
+# 真机实测 TTFB 1.5-4.4s、TLS 握手 0.8s;仓内 2026-08-05 读数 http2 比 quic
+# 快约 2 倍(health-check-bare.ps1:156),该健康检查第 10 项长期 WARN 的根因就是
+# 安装端从未写协议参数。写在这里 ⇒ 服务注册表 binPath 自带协议,
+# health-check-bare.ps1:158 的 PathName 匹配直接转 PASS。
+& $cloudflaredPath service install $Token --protocol http2
 if ($LASTEXITCODE -ne 0) {
     Write-Error "cloudflared service install 失败"
     exit 1

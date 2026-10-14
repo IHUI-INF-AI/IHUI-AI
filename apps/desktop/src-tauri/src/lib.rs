@@ -2925,9 +2925,10 @@ mod deep_link_gate_tests {
             );
         }
         assert_eq!(
-            nav_sites, 5,
-            "导航发起处数量与登记的 5 处不符(启动离线/切离线/恢复/挂起热刷/热刷新)—— \
-             若确属新增或删除导航站点,先在本断言处同步数字并在提交信息说明依据"
+            nav_sites, 6,
+            "导航发起处数量与登记的 6 处不符(启动离线/切离线/恢复/挂起热刷/热刷新/\
+             chrome-error 落点自愈)—— 若确属新增或删除导航站点,先在本断言处同步数字并在提交信息说明依据。\
+             计数 5→6:0.1.58(commit 01b3cd5cfb)新增的 webview 落点自愈导航点当时漏登记,本次同步"
         );
     }
 }
@@ -3184,7 +3185,7 @@ pub fn run() {
             // 目录被第一个占住而创建失败 —— `tauri_runtime_wry][ERROR] failed to create
             // webview: ... 0x800700AA 请求的资源在使用中`,**但进程不退出**:它只剩
             // single-instance 的隐藏消息窗口(标题 `com.ihui.desktop-siw`),却照常往下启动
-            // auto_refresh 常驻循环(同一份日志紧接着就是「启动探活成功 → 显示线上前端」)。
+            // auto_refresh 常驻循环(同一份日志紧接着就是「启动探活成功 → 显示前端页」)。
             // 后果是任务栏/托盘多出一个既看不见界面、又没人会去关的进程,并且它会继续占住
             // 数据目录,使下一次启动同样失败 —— 用户侧表现为"杀一个还剩一个、永远退不干净"。
             // 必须挡在 auto_refresh::start 之前(它在本闭包更下方),否则循环已经起来了。
@@ -3204,8 +3205,20 @@ pub fn run() {
                     // release 编译期即消失。WebView2 的 OpenDevToolsWindow 是异步挂到
                     // webview 就绪之后的,若它把宿主窗口一起带可见,时间戳会落在启动后数秒——
                     // 与票面「11 秒后自行转可见」同形,所以必须能一眼排除。
-                    log::info!("[window-show] site=debug_open_devtools trigger=非 show 调用——debug 构建 setup 期 open_devtools(cfg(debug_assertions),release 无此路径)");
-                    window.open_devtools();
+                    //
+                    // 2026-10-14 加开关:dev 构建**无条件**弹 DevTools 会盖住主窗口并抢走输入
+                    // (实测「啥也点击不了」——用户点到的其实是 DevTools 而不是应用本体)。
+                    // 设 IHUI_DESKTOP_OPEN_DEVTOOLS=0 即不弹;未设或设为其他值时保持原行为,
+                    // G-1038429 的观测点语义不变。联调脚本 desktop-dev-saas.mjs 默认置 0。
+                    let open_devtools = std::env::var("IHUI_DESKTOP_OPEN_DEVTOOLS")
+                        .map(|v| v != "0")
+                        .unwrap_or(true);
+                    if open_devtools {
+                        log::info!("[window-show] site=debug_open_devtools trigger=非 show 调用——debug 构建 setup 期 open_devtools(cfg(debug_assertions),release 无此路径)");
+                        window.open_devtools();
+                    } else {
+                        log::info!("[window-show] site=debug_open_devtools trigger=IHUI_DESKTOP_OPEN_DEVTOOLS=0 ⇒ 本次不自动弹 DevTools(避免遮挡主窗口/抢走输入)");
+                    }
                 }
             }
             // 2026-08-01 立:注册 deep-link scheme + 监听 ihui:// 回调
