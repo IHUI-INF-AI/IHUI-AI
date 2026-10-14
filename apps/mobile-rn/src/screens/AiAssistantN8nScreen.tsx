@@ -118,6 +118,7 @@ import {
   SteerNoticeList,
 } from '../components/ChatDisclosure'
 import { NavBar } from '../components/NavBar'
+import { NavChrome } from '../components/NavChrome'
 import { InputArea } from '../components/InputArea'
 import { TaskStatusBar } from '../components/ai/TaskStatusBar'
 import { VoiceInput } from '../components/VoiceInput'
@@ -1891,11 +1892,13 @@ export default function AiAssistantN8nScreen() {
 
   return (
     <View style={styles.root}>
-      <NavBar
-        title={navTitle}
-        onBack={() => navigation.goBack()}
-        rightActions={[{ icon: '≡', label: '', onPress: () => setDrawerVisible(true) }]}
-      />
+      <NavChrome>
+        <NavBar
+          title={navTitle}
+          onBack={() => navigation.goBack()}
+          rightActions={[{ icon: '≡', label: '', onPress: () => setDrawerVisible(true) }]}
+        />
+      </NavChrome>
       {/* 智汇值卡(对齐 Uniapp ai_assistant_n8n.vue 顶部 intelligent-assistant:
           小方欢迎卡 + 剩余智汇值 + 充值;余额接 getTokenBalance,加载失败保持 0,充值入口可用) */}
       <View style={styles.valueCardWrap}>
