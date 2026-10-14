@@ -2746,7 +2746,7 @@ const checks = [
       '            (行尾字符箭头存量 70 处只报数不拦,免得逼人 --no-verify 连带废掉全部门)。',
       '     行内豁免:glyph-arrow-exempt: <一句话原因>(须带原因,逐行生效)。',
       '     单独复验:node scripts/check-glyph-arrow-icon.mjs --staged',
-      '     自检:node scripts/check-glyph-arrow-icon.mjs --self-test(45 例,含阳性对照与棘轮四向)',
+      '     自检:node scripts/check-glyph-arrow-icon.mjs --self-test(例数以其末行现读为准,不在本文钉数;含阳性对照与棘轮四向)',
       '     镜像测试:node --test scripts/tests/check-glyph-arrow-icon.test.mjs(13 例,含装车证明)',
       '     紧急跳过(不推荐):HUSKY_SKIP_GLYPH_ARROW_ICON=1 git commit ...',
       '',
