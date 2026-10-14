@@ -66,9 +66,7 @@ describe('attributeError(G-816012 错误归因唯一出口)', () => {
       ruleId: 'transport.timeout',
       attributed: true,
     })
-    expect(attributeError(new Error('socket hang up: timeout on read')).ruleId).toBe(
-      'transport.timeout',
-    )
+    expect(attributeError(new Error('socket hang up: timeout on read')).ruleId).toBe('transport.timeout')
     const errnoTimeout = Object.assign(new Error('connect failed'), { code: 'ETIMEDOUT' })
     expect(attributeError(errnoTimeout)).toEqual({
       errorSource: 'transport',
@@ -87,30 +85,23 @@ describe('attributeError(G-816012 错误归因唯一出口)', () => {
       ruleId: 'transport.executable-busy',
       attributed: true,
     })
-    expect(attributeError(new Error('Text file busy (ETXTBSY)')).failureReason).toBe(
+    expect(attributeError(new Error('Text file busy (ETXTBSY)')).failureReason).toBe('executable-busy')
+    expect(attributeError(Object.assign(new Error('exec format error'), { code: 'ENOEXEC' })).failureReason).toBe(
       'executable-busy',
     )
-    expect(
-      attributeError(Object.assign(new Error('exec format error'), { code: 'ENOEXEC' }))
-        .failureReason,
-    ).toBe('executable-busy')
   })
 
   it('命中 transport.network 档:errno 表 + 消息载体 ⇒ network(http-utils / developer 提示档)', () => {
-    expect(
-      attributeError(
-        Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:8802'), { code: 'ECONNRESET' }),
-      ),
-    ).toEqual({
-      errorSource: 'transport',
-      failureReason: 'network',
-      ruleId: 'transport.network',
-      attributed: true,
-    })
-    expect(attributeError(new Error('fetch failed')).failureReason).toBe('network')
-    expect(attributeError(new Error('connect ECONNREFUSED 127.0.0.1:8802')).failureReason).toBe(
-      'network',
+    expect(attributeError(Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:8802'), { code: 'ECONNRESET' }))).toEqual(
+      {
+        errorSource: 'transport',
+        failureReason: 'network',
+        ruleId: 'transport.network',
+        attributed: true,
+      },
     )
+    expect(attributeError(new Error('fetch failed')).failureReason).toBe('network')
+    expect(attributeError(new Error('connect ECONNREFUSED 127.0.0.1:8802')).failureReason).toBe('network')
     const refused = Object.assign(new Error('connect'), { code: 'ECONNREFUSED' })
     expect(attributeError(refused).ruleId).toBe('transport.network')
   })
@@ -129,9 +120,7 @@ describe('attributeError(G-816012 错误归因唯一出口)', () => {
       attributed: false,
     })
     // provider 502 腔:不得被读成 transport/任何 provider 档 —— 报名等立档,不是静默降级
-    const provider502 = attributeError(
-      new Error('upstream provider returned 502 Bad Gateway, please retry'),
-    )
+    const provider502 = attributeError(new Error('upstream provider returned 502 Bad Gateway, please retry'))
     expect(provider502.errorSource).toBe('unknown')
     expect(provider502.attributed).toBe(false)
     expect(provider502.ruleId).toBe(UNATTRIBUTED_RULE_ID)

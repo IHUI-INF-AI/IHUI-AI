@@ -117,11 +117,7 @@ describe('embedding-provider 批量应答对齐 (G-1080904)', () => {
   function stubUpstream(body: unknown): void {
     globalThis.fetch = vi
       .fn()
-      .mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => body,
-      }) as unknown as typeof fetch
+      .mockResolvedValue({ ok: true, status: 200, json: async () => body }) as unknown as typeof fetch
   }
 
   function providerOf(name: 'dashscope' | 'openai' | 'minimax') {
@@ -249,11 +245,7 @@ describe('embedding-provider 批量应答对齐 (G-1080904)', () => {
   it('③ 对齐键部分缺失 (2/3 条带键) → 键面自相矛盾, 整批作废并上抛', async () => {
     const provider = providerOf('openai')
     stubUpstream({
-      data: [
-        { index: 0, embedding: vec(0) },
-        { embedding: vec(1) },
-        { index: 2, embedding: vec(2) },
-      ],
+      data: [{ index: 0, embedding: vec(0) }, { embedding: vec(1) }, { index: 2, embedding: vec(2) }],
     })
     await expect(provider.embed(['a', 'b', 'c'])).rejects.toThrow(/整批作废/)
   })
