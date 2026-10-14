@@ -22,6 +22,8 @@ import {
   canSilentlyReLogin,
   SESSION_LOGGED_OUT_STORAGE_KEY,
 } from '@ihui/shared/auth/auto-login-policy'
+// 2026-10-14:import() 类型注解被 consistent-type-imports 禁(CI lint 红),改顶层 type 命名空间导入
+import type * as ApiClientModule from '@ihui/api-client'
 
 const { taroStorage, miniAppLoginMock, wechatLoginMock, isMiniAppEnvironmentMock } = vi.hoisted(
   () => ({
@@ -65,7 +67,7 @@ const { fetchApiMock } = vi.hoisted(() => ({
 }))
 vi.mock('@ihui/api-client', async () => {
   // 分型断言要与 auth.ts 抛出的是同一个类对象 ⇒ 给真实类,不给替身。
-  const actual = await vi.importActual<typeof import('@ihui/api-client')>('@ihui/api-client')
+  const actual = await vi.importActual<typeof ApiClientModule>('@ihui/api-client')
   return { fetchApi: fetchApiMock, TransientRefreshError: actual.TransientRefreshError }
 })
 
