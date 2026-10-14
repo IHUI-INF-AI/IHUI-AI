@@ -8,6 +8,7 @@
 
 import * as React from 'react'
 import { createDeviceFingerprintCollector, type DeviceFingerprintInput } from '@ihui/types'
+import { isTauriRuntime } from '@/lib/api-base-url'
 
 /* -------------------------------------------------------------------------- */
 /* Hash 工具(djb2,内联实现,零依赖)                                          */
@@ -127,12 +128,89 @@ async function collectWeb(): Promise<DeviceFingerprintInput> {
   }
 }
 
+/* -------------------------------------------------------------------------- */
+/* Desktop(Tauri 2 WebView)adapter 实现                                       */
+/* -------------------------------------------------------------------------- */
+
 /**
- * Web 端设备指纹采集器(模块级单例)。
+ * Desktop 端设备特征采集(同型对齐 RN 端 2026-10 修复的采集契约)。
+ *
+ * 与浏览器口径的差异(刻意保持不同源,契约允许各端字段集不同):
+ * - `platform` 用 `tauri-desktop-<navigator.platform>`(Win32/MacIntel 的闭集),把桌面端
+ *   与同 UA 的普通浏览器区分开 —— 旧实现(已删除的 apps/desktop/src/lib/device-fingerprint.ts)
+ *   只喂常量 'tauri-desktop',与 RN 端修复前"全网一个 hash"同型失效,不重蹈。
+ * - 不采集 canvas/webgl(沿用旧 desktop adapter 的登记理由:渲染开销,desktop 端暂不需要;
+ *   WebView2 与浏览器共用 GPU 栈,两端口径本就不承诺等值)。
+ * - 其余字段(UA/screen/timezone/language/CPU/内存)与浏览器同款 safe 采集。
+ */
+function collectDesktop(): DeviceFingerprintInput {
+  if (typeof window === 'undefined') return {}
+  return {
+    userAgent: safe(() => navigator.userAgent),
+    screen: safe(() => ({
+      width: screen.width,
+      height: screen.height,
+      colorDepth: screen.colorDepth,
+    })),
+    timezone: safe(() => Intl.DateTimeFormat().resolvedOptions().timeZone),
+    language: safe(() => navigator.language),
+    platform: safe(() => `tauri-desktop-${navigator.platform}`),
+    hardwareConcurrency: safe(() => navigator.hardwareConcurrency),
+    deviceMemory: safe(() => (navigator as unknown as { deviceMemory?: number }).deviceMemory),
+  }
+}
+
+/**
+ * Tauri 运行时的**一次性后台补判**(非 hook 语境,语义对齐 useTauriIpcReady 的轮询参数)。
+ *
+ * `__TAURI_INTERNALS__` 由 webview 在页面加载后异步注入(Windows 上通常 100-500ms,
+ * 见 tauri-bridge.ts / use-desktop.ts 的真机取证)—— 桌面端首采撞上未注入的窗口期时,
+ * 同步判一次会把桌面端误判成浏览器。这里在按浏览器口径采完之后补一轮 50ms/3s 轮询,
+ * 确认 Tauri 后置位;collectDesktopAware 在**下一次**采集(指纹缓存 TTL 60s 过期后)
+ * 自动切换桌面口径。浏览器端永远探测不到,flag 恒 false,零副作用。
+ */
+const TAURI_IPC_POLL_INTERVAL_MS = 50
+const TAURI_IPC_POLL_TIMEOUT_MS = 3000
+
+let tauriProbeStarted = false
+let tauriRuntimeConfirmed = false
+
+function scheduleTauriRuntimeProbe(): void {
+  if (tauriProbeStarted || typeof window === 'undefined') return
+  tauriProbeStarted = true
+  const start = Date.now()
+  const check = (): void => {
+    if (tauriRuntimeConfirmed) return
+    if (isTauriRuntime()) {
+      tauriRuntimeConfirmed = true
+      return
+    }
+    if (Date.now() - start > TAURI_IPC_POLL_TIMEOUT_MS) return
+    setTimeout(check, TAURI_IPC_POLL_INTERVAL_MS)
+  }
+  setTimeout(check, TAURI_IPC_POLL_INTERVAL_MS)
+}
+
+/**
+ * 按运行时选采集口径:Tauri(含 IPC 晚注入补判)走 desktop,否则走浏览器。
+ * 判定发生在**采集时**而非模块求值时 —— 模块求值早于 IPC 注入,在那里判一次
+ * 正是 useTauriIpcReady 注释里钉死的失效型。
+ */
+async function collectDesktopAware(): Promise<DeviceFingerprintInput> {
+  if (typeof window === 'undefined') return {}
+  if (isTauriRuntime() || tauriRuntimeConfirmed) return collectDesktop()
+  scheduleTauriRuntimeProbe()
+  return collectWeb()
+}
+
+/**
+ * Web/Desktop 端设备指纹采集器(模块级单例)。
  * 由 api-client 注入后,所有请求自动携带 x-device-fingerprint header。
+ * 采集口径按运行时自动分档:浏览器走 web 字段集(canvas/webgl 在内),
+ * Tauri WebView 走 desktop 字段集(platform 带 tauri-desktop- 前缀,无 canvas/webgl)。
  */
 export const webDeviceFingerprintCollector = createDeviceFingerprintCollector({
-  collect: collectWeb,
+  collect: collectDesktopAware,
 })
 
 /* -------------------------------------------------------------------------- */
