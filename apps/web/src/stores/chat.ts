@@ -25,6 +25,7 @@ import { markStreamError } from '@ihui/shared/chat'
 // G-704(2026-09-29 立):值等价比较器只能有共享层那一份实现(端内不得再抄一份近似品)
 import { areRecordValuesEqual } from '@ihui/shared/utils/deep-equal-records'
 import type { FollowUpMode } from '@ihui/shared/chat/queue-interactions'
+import type { InterjectionDeclaration } from '@/hooks/use-chat/runtime-capabilities'
 import type { ToolCallSummary, PlanStep, TerminalTask, CitationEntry } from '@ihui/types/ai'
 
 export type { ChatRole } from '@ihui/shared'
@@ -315,6 +316,19 @@ interface ChatState {
    *  null = 本轮没有回落(或用户根本没选档)⇒ 轴上不显示任何东西。
    *  刻意不持久化:它是"这一轮发生了什么"的运行态,刷新后重放一条旧回落反而是假信息。 */
   reasoningEffortNotice: ReasoningEffortNotice | null
+  /**
+   * Runtime 插话能力声明(`null` = 未声明,即生产者还没说话)。
+   *
+   * 消费点唯一:输入区 QueueInteractionBar 的 `runtimeSupportsInterjection`(共享层 D69
+   * `QueueInteractionContext` 同一语义),经 `resolveInterjectionSupport` 回落成布尔 ——
+   * 未声明 ⇒ false,与该文件此前写死 false 同形(零回归)。
+   *
+   * 写入点两类(都经 `noteRuntimeCapabilities` 这一个入口):① 流帧载荷(流首
+   * injection_applied / 流尾 usage 帧,见 send-message.ts);② 会话元数据
+   * (见 ai-side-panel.tsx 的 getConversation 成功分支)。
+   * 不持久化:属"这一轮 Runtime 说了什么"的运行态,刷新后重放旧声明是对已断开的流下判断。
+   */
+  runtimeInterjection: InterjectionDeclaration
   /** P3 #30 diff 评论驱动返工(2026-09-16 立):用户在 diff 卡片上留下的待发送评审意见队列。
    *  下一轮 sendMessage 时格式化为 `<diff_review>` 块定向注入 agent 上下文,注入后清空。
    *  持久化:评论可能跨刷新保留(用户评论后切走再回来仍可发送),故纳入 partialize。 */
@@ -505,6 +519,12 @@ interface ChatState {
    *  写入点 = send-message.ts 的 onReasoningEffortNotice(done 帧带回落才发);
    *  清空点 = 每一轮发起前(sendMessage 体),否则上一轮的钉档会挂在下一轮的轴上读成"本轮被回落"。 */
   setReasoningEffortNotice: (notice: ReasoningEffortNotice | null) => void
+  /**
+   * 写入 Runtime 插话能力声明(唯一调用方 = `noteRuntimeCapabilities`)。
+   * 值等价即不写(与 setReasoningEffortNotice 同取向):同一条流里同值声明会被重复递到
+   * 多个帧上,无条件重建会让订阅侧白刷一轮输入区。
+   */
+  setRuntimeInterjection: (declared: InterjectionDeclaration) => void
   /** P3 #30 diff 评论驱动返工(2026-09-16 立):新增一条 diff 评审意见(入待发送队列)。
    *  同 filePath+line+comment 完全重复时忽略(防重复提交)。 */
   addDiffComment: (comment: Omit<DiffComment, 'id' | 'createdAt'>) => void
@@ -669,6 +689,8 @@ export const useChatStore = create<ChatState>()(
       memoryUpdateNotices: [],
       // D130(2026-09-30 立):本轮没有钉档回落 = null(运行态,不持久化)
       reasoningEffortNotice: null,
+      // Runtime 插话能力:null = 未声明(运行态,不持久化)—— 生产者缺席时回落 false
+      runtimeInterjection: null,
       pendingDiffComments: [],
       // 2026-09-18 终端实时输出缓冲(执行期瞬时态,不持久化)
       terminalOutputs: {},
@@ -827,6 +849,9 @@ export const useChatStore = create<ChatState>()(
           // D130:上一轮的钉档回落属那一轮的运行态,新建对话必须一起清 ——
           // 留着的表现是"新会话第一件事就告诉用户档位被改了",而本轮根本没选过档。
           reasoningEffortNotice: null,
+          // Runtime 插话能力同属那一轮的运行态:上一轮声明的"支持插话"挂到新会话上,
+          // 而新会话根本还没跟 Runtime 说过话 ⇒ 回落到"未声明"(消费侧读 false)。
+          runtimeInterjection: null,
           // P3 #30:新建对话时 diff 卡片随消息消失,待发送评论一并清空避免悬空
           pendingDiffComments: [],
           // 2026-09-18:终端实时输出属消息级瞬时态,新建对话一并清空
@@ -889,6 +914,8 @@ export const useChatStore = create<ChatState>()(
           if (same) return s
           return { reasoningEffortNotice: notice }
         }),
+      setRuntimeInterjection: (declared) =>
+        set((s) => (s.runtimeInterjection === declared ? s : { runtimeInterjection: declared })),
       /** G-703:false 侧不再裸写单键 —— "本轮不再在跑"这一件事必然同时意味着"上一轮的寻址凭据
        *  作废",所以它只能是一次 RUN_SCOPED_RESET 写入。true 侧保持只置运行标志,
        *  不得顺手清凭据(本轮的 sessionId 是在 setStreaming(true) **之后**由同源帧观察登记的)。 */
