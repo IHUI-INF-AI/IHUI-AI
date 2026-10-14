@@ -21,9 +21,29 @@
  *   L4 剥注记保留:其余候选行只剥掉 〔【归并】…〕 注记,行本身保留 —— 它们的正文是
  *      实质内容(普查样本:TEMP 指向、Esc 层栈协议等),误删 = 丢别人的活账。
  *
- * 落地:直接改写工作树 PROJECT_PLAN.md(紧随其后由本会话提交;并发约束见 AGENTS §12,
- * 本机此刻无其他会话在飞该文件 —— 提交前以 `git diff --name-only PROJECT_PLAN.md` 复核)。
- * 台账:全部被删行原文写入 .ihui-agent/archive/plan-pointer-purge-2026-10-13.md(入库)。
+ * L5/L6 真归并(2026-10-14 增,用户指令延伸:「重复登记副本一条也不许再产生」之后,
+ * 自动档(plan-tasks-merge --heal)已停产指针注记与 F10 折叠 ⇒ 台账上的无注记重复行
+ * 没有任何出口会再收口,必须在这里做**真删行归并** —— 折叠注记那条路已被明令封死):
+ *   L5 同题折并(F10):foldTwins 点名的可折行(同题面、不同编号、未勾选),持有行 =
+ *      foldTwins 自己的 keeper(位置最靠前者,与报告口径同源,不得另选 —— 另选会让
+ *      删完的面上 foldTwins 照旧报 edits,与 --twins/plan-tasks-merge 打架)。
+ *   L6 同主键归并(F4):findDupOpenCopies 点名的副本行,幸存者 = 它的 survivor
+ *      (组内最长行 —— 同样沿用判据自己的选择,理由同上)。
+ *   两条准入闸(任一不满足 ⇒ 该行**跳过并逐行点名**,绝不硬删):
+ *     ① 内容承载:候选行剥掉复选框/行首编号/粗体后的正文必须被幸存行**逐字包含**
+ *        —— 候选的独有正文增量(实测:G-317 约 2000 字关键发现、G-341 整张独立票)
+ *        不许随删行消失;假阳折叠(题面前缀相同而正文是两件事)在这一闸上自然豁免。
+ *     ② 注记移植:候选行尾的 〔…〕/（…〕 段若幸存行没有 ⇒ 先移植(追加)到幸存行行尾,
+ *        让让号记录/拍板/半程交付记录活在活行上而不是只活在归档里;移植后幸存行不得
+ *        命中 DUP_POINTER_RE / SELF_DEDISPATCH_RE(否则等于绕开 13d 棘轮写注记,整行跳过)。
+ *   认领牌护栏:候选带 `（进行中…）` 而幸存行不带 ⇒ 走既有认领转移(与 L1 同一机制);
+ *     转移不成立(幸存行也在删除集)⇒ 跳过。
+ *
+ * 落地:对象空间(HEAD blob → 改写 → commit-tree → CAS),从不写工作树(2026-10-13 首轮
+ * 直接改工作树曾被门 203/166 整批拦下,同日改走对象空间后闭环)。
+ * 台账:全部被删行原文写入 .ihui-agent/archive/plan-pointer-purge-<日期>.md(入库;
+ *   文件名带日期 —— 台账是整文件重写式,**绝不复用旧日期文件名**,否则旧台账的逐字
+ *   记录被覆盖,60 提交窗口内已清偿行会在门 71 全量档"复活"判丢)。
  *
  * 守恒断言(任一不成立 ⇒ 整批不落,exit 1):
  *   A1 已勾选行数不减少(只许剥注记,不许动勾选状态)。
@@ -42,6 +62,10 @@ import { createRequire } from 'node:module'
 const require = createRequire(import.meta.url)
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const idx = require(path.join(ROOT, 'scripts/lib/plan-task-index.mjs'))
+// L5(F10) 判据单一实现 = plan-tasks-merge 的 foldTwins(持有行规则与报告口径同源)。
+// 环形引用说明:plan-tasks-merge → check-plan-dup-pointer-ratchet(取 countPointerRows)
+// → 本脚本 → plan-tasks-merge,两侧都只在**函数体内**用对方导出 ⇒ ESM 循环安全。
+import { foldTwins } from './plan-tasks-merge.mjs'
 // 判据同源:门 203(台账同题多号差值棘轮)的标题指纹就是它。本脚本分族若另抄一份归一化,
 // 剥注记后必然出现"门 203 看见同题、我这边没看见"的撞车 —— 首版正是这么红的。
 const { extractTaskFingerprint } = require(path.join(ROOT, 'scripts/check-plan-task-duplicates.mjs'))
@@ -54,7 +78,9 @@ const {
 } = require(path.join(ROOT, 'scripts/lib/bypass-git.mjs'))
 
 const PLAN = 'PROJECT_PLAN.md'
-const LEDGER_REL = '.ihui-agent/archive/plan-pointer-purge-2026-10-13.md'
+// 台账文件名必须带**本次运行日期**:整文件重写式,复用旧日期 = 抹掉旧台账的逐字记录 =
+// 门 71 在 60 提交窗口内把已清偿行判丢并回捞(对打循环复活)。见头注「台账」段。
+const LEDGER_REL = '.ihui-agent/archive/plan-pointer-purge-2026-10-14.md'
 const GIT = process.env.GIT_BIN || 'git'
 
 const DUP_POINTER_RE = idx.DUP_POINTER_RE
@@ -141,7 +167,7 @@ export function buildPlan(lines) {
   const claimOf = (l) => (CLAIM_RE.exec(stripMergeNotes(l)) || [null])[0]
   const keyOf = (l) => idx.compositeKeyOf(stripMergeNotes(l))
   // 分族键:**指纹优先**(与门 203 的量纲完全对齐),其次复合主键,最后剥注记正文。
-  // 首版用复合主键优先是错的 —— 不同票号(G-1105294 / G-1106294)抄的同一段正文,
+  // 首版用复合主键优先是错的 —— 不同票号(G-164 / G-1106294)抄的同一段正文,
   // 复合主键把它们分成两族、各自保留一行,剥掉注记后露出同一副指纹 ⇒ 门 203 读成
   // 「同一件事的第二次登记」(实测 139 键判红)。指纹优先 ⇒ 同题族只留一行,正是
   // 门 203 的修法①「同题多号收拢」。
@@ -165,7 +191,7 @@ export function buildPlan(lines) {
   const deleteSet = new Set()
   const stripSet = new Set() // 只剥注记保留的行
   const claimTransfers = [] // {from, to, claim}
-  const stats = { L1: 0, L2: 0, L3: 0, L4: 0, checkedStripped: 0 }
+  const stats = { L1: 0, L2: 0, L3: 0, L4: 0, checkedStripped: 0, L5: 0, L6: 0 }
   const reasons = new Map() // 行号 → 分类原因(给台账)
 
   const family = new Map() // 归并键 → 候选行集
@@ -228,7 +254,117 @@ export function buildPlan(lines) {
     }
   }
 
-  return { deleteSet, stripSet, claimTransfers, stats, reasons, holders, candidates, bareOf, keyOf, famKeyOf }
+  // ── L5/L6 真归并(2026-10-14):无注记的 F10/F4 重复行 ──
+  // 自动档(plan-tasks-merge --heal)已停产指针注记与 F10 折叠(用户指令「重复登记副本
+  // 一条也不许再产生」)⇒ 台账上的无注记重复行不再有任何自动出口,在这里做真删行归并。
+  // 两条准入闸(任一不满足 ⇒ 该行跳过并逐行点名,绝不硬删):① 正文被幸存行逐字承载;
+  // ② 行尾独有注记段移植到幸存行,且移植后幸存行不得命中 13d 的两条判据字面。
+  const transplants = [] // {to: 0-based 幸存行下标, text: 追加段}
+  const skipped = [] // {i, why} 逐行点名(i=-1 = 整层未判定)
+  const bodyOf = (raw) =>
+    raw
+      .replace(/^\s*(?:[-*]\s*)?\[\s?\]\s*/, '') // 复选框(`]`后可直接跟 `**`,实测 L7548 形态)
+      .replace(/^\*\*/, '') // 行首粗体
+      .replace(/^\s*[A-Za-z]{1,3}-?\d{1,8}(?:\.\d+)?\.?\s+/, '') // G-1038426. / D172(连字符可无)
+      .replace(/^\s*\d{1,4}(?:\.\d+)?\.?\s+/, '') // 68. / 4. / 82.
+      .trim()
+  // 段提取(只认**命中注记措辞**的括号段):全角 〔〕/（） 与半角 () 都提,但必须命中下面的
+  // 注记关键词才算段。⚠️ 这条过滤是拿真事故换的:G-317 那 2000 字正文整体包在全角括号里
+  // (`（**等机主给值**——…）`),无过滤的提取会把正文当"注记"剥出来移植到幸存行行尾 ——
+  // 内容虽守恒(移植不是丢弃),但那是把 2000 字关键发现硬塞进另一行行尾,判据在硬凑。
+  // 关键词取窄(让号/原编号/拍板@/半程@/二次改派 = 让号与拍板注记的实际形态;「拍板」裸词
+  // 不收 —— 正文里 `（等人拍板）` 到处都是)。没被认成段的正文留在 body 里参与包含性,
+  // 包含失败 ⇒ 该行跳过交人工 —— 保守方向永远是跳过,不是硬删。
+  const NOTE_WORD =
+    /归并|重复登记副本|不再单独派单|派单一律走持有行|让号|原编号|拍板@|半程@|二次改派/
+  const segsOf = (raw) =>
+    (raw.match(/〔[^〕]*〕|（[^）]*）|\([^()]*\)/g) || []).filter((s) => NOTE_WORD.test(s))
+  const tryTrueMerge = (ci, si, layer, minBody) => {
+    if (deleteSet.has(ci) || stripSet.has(ci)) return // 既有层已处置
+    if (si < 0 || si >= lines.length) {
+      skipped.push({ i: ci, why: `${layer} 幸存行下标越界 ⇒ 跳过` })
+      return
+    }
+    if (deleteSet.has(si) || stripSet.has(si)) {
+      skipped.push({
+        i: ci,
+        why: `${layer} 幸存行 L${si + 1} 已被既有层处置 ⇒ 本行跳过(幸存行消失的删行 = 净丢活)`,
+      })
+      return
+    }
+    const cLine = lines[ci]
+    const sLine = lines[si]
+    const cClaim = claimOf(cLine)
+    if (cClaim && !claimOf(sLine)) claimTransfers.push({ from: cLine, to: si, claim: cClaim })
+    // 先剥注记段再算正文包含性:让号记录/拍板挂在行尾 〔…〕 里,幸存行的同类段措辞不同
+    // (批② vs 批④),不剥掉它们,正文包含性永远假失败(首版实测 L7193/L10667 全军覆没)。
+    const segsAll = segsOf(cLine)
+    const stripped = segsAll.reduce((acc, s) => acc.replace(s, ' '), cLine)
+    const body = bodyOf(stripped)
+    // 最短正文下限:L6 两行同复合主键(任务身份由键承载)取 6;L5 两行主键互异(唯一关联是
+    // 题面)取 12 —— 下限之下包含性证明力不足,跳过交人工。
+    if (body.length < minBody || !sLine.includes(body)) {
+      skipped.push({
+        i: ci,
+        why: `${layer} 正文有幸存行 L${si + 1} 未承载的独有增量(body=${body.length} 字) ⇒ 交人工,不硬删(实测:G-317 约 2000 字关键发现、G-341 整张独立票、L10371 截断回放都是这一型)`,
+      })
+      return
+    }
+    const segs = segsAll.filter((s) => !sLine.includes(s))
+    if (segs.length) {
+      const appended = ' ' + segs.join(' ')
+      const wouldBe = sLine + appended
+      if (DUP_POINTER_RE.test(wouldBe) || SELF_DEDISPATCH_RE.test(wouldBe)) {
+        skipped.push({
+          i: ci,
+          why: `${layer} 注记移植会让幸存行 L${si + 1} 命中 13d 判据字面 ⇒ 整行跳过(不许绕棘轮写注记)`,
+        })
+        return
+      }
+      transplants.push({ to: si, text: appended })
+    }
+    deleteSet.add(ci)
+    stats[layer]++
+    reasons.set(ci, `${layer} 真归并,保留 L${si + 1}${segs.length ? `(+${segs.length} 段注记移植)` : ''}`)
+  }
+  // L6(F4):findDupOpenCopies 的副本行,幸存者 = 判据自己的 survivor(组内最长行)——
+  // 另选幸存者会让删完的面上 findDupOpenCopies 照旧点名新副本,债没清。
+  try {
+    for (const c of idx.findDupOpenCopies(idx.auditPlan(lines.join('\n')).dupOpen)) {
+      tryTrueMerge(c.row.line - 1, c.survivor.line - 1, 'L6', 6)
+    }
+  } catch (e) {
+    skipped.push({
+      i: -1,
+      why: `L6 判据未判定(${String(e?.message ?? e).slice(0, 80)})⇒ 本层整层跳过,不冒充通过`,
+    })
+  }
+  // L5(F10):foldTwins 的可折行,持有行 = 判据自己的 keeperLine(位置最靠前者,同上理由)
+  try {
+    for (const e of foldTwins(lines).edits) {
+      tryTrueMerge(e.line - 1, e.keeperLine - 1, 'L5', 12)
+    }
+  } catch (e) {
+    skipped.push({
+      i: -1,
+      why: `L5 判据未判定(${String(e?.message ?? e).slice(0, 80)})⇒ 本层整层跳过,不冒充通过`,
+    })
+  }
+
+  return {
+    deleteSet,
+    stripSet,
+    claimTransfers,
+    transplants,
+    skipped,
+    stats,
+    reasons,
+    holders,
+    candidates,
+    bareOf,
+    keyOf,
+    famKeyOf,
+  }
 }
 
 /** 构建清偿后的文档(纯函数)。 */
@@ -238,6 +374,12 @@ export function renderPurge(lines, plan) {
   for (const t of plan.claimTransfers) {
     const stripped = stripMergeNotes(out[t.to]).replace(/\s{2,}/g, ' ')
     out[t.to] = stripped.replace(/^(\s*(?:[-*]\s*)?\[ \])/, `$1${t.claim}`)
+  }
+  // 再做注记移植(L5/L6,2026-10-14):候选行的独有 〔…〕/（…〕 段追加到幸存行行尾 ——
+  // 让号记录/拍板/半程交付记录必须活在活行上,不能只活在归档台账里。逐条以当前行文为准
+  // (同一幸存行可能吃多个候选的段,依次追加)。
+  for (const t of plan.transplants || []) {
+    out[t.to] = (out[t.to] ?? '') + t.text
   }
   for (const i of plan.deleteSet) out[i] = null
   const result = []
@@ -279,6 +421,19 @@ export function verifyPurge(oldLines, newLines, plan) {
   if (residueDup || residueSelf) errs.push(`A3 登记行注记残留:dup=${residueDup} selfDe=${residueSelf}`)
   const openDelta = countOpen(oldLines) - countOpen(newLines)
   if (openDelta < 0) errs.push(`A2 未勾选行数反增:${countOpen(oldLines)} → ${countOpen(newLines)}`)
+  // A5 真归并单调性(L5/L6,2026-10-14):结果面上的 F4 副本数与 F10 可折数都不得比清偿前多
+  // —— 删行+移植只会让族变小;变多 = 判据或实现坏了,当场拦(这是真删行档独有的自校验:
+  // 旧四层只剥注记,不会动这两个数,所以此前不需要它)。
+  try {
+    const before4 = idx.findDupOpenCopies(idx.auditPlan(oldLines.join('\n')).dupOpen).length
+    const after4 = idx.findDupOpenCopies(idx.auditPlan(newLines.join('\n')).dupOpen).length
+    if (after4 > before4) errs.push(`A5 F4 副本数反增:${before4} → ${after4}`)
+    const before10 = foldTwins(oldLines).edits.length
+    const after10 = foldTwins(newLines).edits.length
+    if (after10 > before10) errs.push(`A5 F10 可折数反增:${before10} → ${after10}`)
+  } catch {
+    // 判据未判定(输入不是整档等)不冒充通过也不冒红 —— 与既有 A 维同一纪律
+  }
   return errs
 }
 
@@ -324,8 +479,12 @@ function main() {
   const { stats } = plan
   console.log(
     `分类: L1 外部持有行删除=${stats.L1} L2 族内归并删除=${stats.L2} L3 纯指针删除=${stats.L3} ` +
-      `L4 剥注记保留=${stats.L4} 已勾剥注记=${stats.checkedStripped} 认领转移=${plan.claimTransfers.length}`,
+      `L4 剥注记保留=${stats.L4} L5 同题折并=${stats.L5} L6 同主键归并=${stats.L6} ` +
+      `已勾剥注记=${stats.checkedStripped} 认领转移=${plan.claimTransfers.length} ` +
+      `跳过交人工=${(plan.skipped || []).length}`,
   )
+  for (const s of plan.skipped || [])
+    console.log(`   ⏭ ${s.i >= 0 ? `L${s.i + 1}` : '(整层)'} ${s.why}`)
   const next = renderPurge(lines, plan)
   const errs = verifyPurge(lines, next, plan)
   if (errs.length) {
@@ -344,21 +503,45 @@ function main() {
   }
   const before = lines.filter((l) => l.trim() !== '').length
   const after = next.filter((l) => l.trim() !== '').length
-  console.log(`守恒断言 4/4 通过;门 203 同源自校验 0 键;非空行 ${before} → ${after}(-${before - after})`)
+  console.log(`守恒断言 5/5 通过;门 203 同源自校验 0 键;非空行 ${before} → ${after}(-${before - after})`)
   if (!apply) {
     console.log('--dry-run 模式,未落地。加 --apply 走对象空间落地(从不写工作树)。')
     return 0
   }
 
   const MSG_TAIL =
-    '落地前四条守恒断言必须全绿(A1 已勾选不缩水 ∧ A2 未勾选不反增 ∧ A3 登记行注记归零 ∧ A4 族级认领守恒),\n' +
-    '并过门 203 同源自校验(清偿不得自己造出「同题多号」)。\n' +
+    '落地前五条守恒断言必须全绿(A1 已勾选不缩水 ∧ A2 未勾选不反增 ∧ A3 登记行注记归零 ∧\n' +
+    'A4 族级认领守恒 ∧ A5 真归并单调性 F4/F10 不反增),并过门 203 同源自校验。\n' +
     '落地方式:对象空间 + CAS,从不写工作树(共享工作树的台账副本常年滞后 HEAD,按 pathspec 写等于\n' +
-    '把别人已入库的行整批写回旧态,§12 一族);被删行原文进 .ihui-agent/archive/plan-pointer-purge-2026-10-13.md。\n' +
+    '把别人已入库的行整批写回旧态,§12 一族);被删行原文进 ' +
+    LEDGER_REL + '。\n' +
     '动因:用户指令「我不想让它出现重复登记副本 根本不想 不要再看到 给我彻底根治」。'
 
   // 每一轮都从**当下** HEAD 面重算(不复用首轮结果):别人推进过 HEAD 就必须在新面上重算,
   // 把旧面结果硬贴上去会连带写回别人的行(§12 一族)。
+  // 台账文件名防覆盖:同一天重跑(--apply 第二次,如被并发写回后再清偿)时,整文件重写式
+  // 台账会把第一轮的逐字记录抹掉 ⇒ 门 71 的归档豁免对那些行失效、回捞对打复活。
+  // 对策:HEAD 里同名台账已存在 ⇒ 自动换数字后缀(-2/-3/…,仍命中 ARCHIVE_FILE_RE 的
+  // `plan-pointer-purge-` 前缀射程,豁免不受影响)。
+  const ledgerRelForThisRun = () => {
+    const dot = LEDGER_REL.lastIndexOf('.')
+    const base = LEDGER_REL.slice(0, dot)
+    const ext = LEDGER_REL.slice(dot)
+    for (let n = 1; n <= 50; n++) {
+      const cand = n === 1 ? LEDGER_REL : `${base}-${n}${ext}`
+      try {
+        execFileSync(GIT, ['cat-file', '-e', `HEAD:${cand}`], {
+          cwd: ROOT,
+          windowsHide: true,
+          timeout: 60000,
+          stdio: ['ignore', 'ignore', 'ignore'],
+        })
+      } catch {
+        return cand // HEAD 里没有 ⇒ 可用
+      }
+    }
+    return LEDGER_REL // 50 个后缀都占满(理论上不可能)⇒ 回退原名,上面 A6 自校验兜底
+  }
   for (let attempt = 1; attempt <= 10; attempt++) {
     const head = execFileSync(GIT, ['rev-parse', 'HEAD'], {
       cwd: ROOT,
@@ -394,17 +577,24 @@ function main() {
         return 1
       }
       const fStats = fPlan.stats
+      const fSkipped = fPlan.skipped || []
       const fMsg =
-        `refactor(plan): 一次性清偿 PROJECT_PLAN「重复登记副本」指针注记存量\n\n` +
+        `refactor(plan): 清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并)\n\n` +
         `L1 外部持有行删除 ${fStats.L1} 行 / L2 族内归并 ${fStats.L2} 行 / L3 纯指针 ${fStats.L3} 行 / ` +
-        `L4 剥注记保留 ${fStats.L4} 行 / 已勾剥注记 ${fStats.checkedStripped} 行 / 认领转移 ${fPlan.claimTransfers.length} 条。\n\n` +
+        `L4 剥注记保留 ${fStats.L4} 行 / L5 同题折并 ${fStats.L5} 行 / L6 同主键归并 ${fStats.L6} 行 / ` +
+        `已勾剥注记 ${fStats.checkedStripped} 行 / 认领转移 ${fPlan.claimTransfers.length} 条 / ` +
+        `注记移植 ${fPlan.transplants.length} 段 / 跳过交人工 ${fSkipped.length} 行(逐行点名见台账)。\n\n` +
         MSG_TAIL
       const fLedger =
         [
-          '# plan-pointer-purge 存量清偿台账(2026-10-13)',
+          '# plan-pointer-purge 存量清偿台账(2026-10-14)',
           '',
-          '> 一次性清偿 PROJECT_PLAN.md「重复登记副本」指针注记,用户指令「彻底根治」。',
-          `> 分类:L1 外部持有行 ${fStats.L1} / L2 族内归并 ${fStats.L2} / L3 纯指针 ${fStats.L3} / L4 剥注记保留 ${fStats.L4} / 认领转移 ${fPlan.claimTransfers.length}。`,
+          '> 清偿 PROJECT_PLAN.md 重复登记存量,用户指令「彻底根治 / 一条也不许再产生」。',
+          '> 本轮新增 L5(同题折并 F10)/L6(同主键归并 F4)两层真删行归并:自动档已停产指针注记与',
+          '> F10 折叠(plan-tasks-merge noPointer,2026-10-14)⇒ 无注记重复行唯有此处收口。',
+          '> 准入闸:① 候选正文被幸存行逐字承载;② 行尾独有注记段移植到幸存行且不命中 13d 判据字面;',
+          '> ③ 认领牌走既有转移机制。不满足者逐行跳过点名(见下),绝不硬删。',
+          `> 分类:L1 ${fStats.L1} / L2 ${fStats.L2} / L3 ${fStats.L3} / L4 ${fStats.L4} / L5 ${fStats.L5} / L6 ${fStats.L6} / 已勾剥注记 ${fStats.checkedStripped} / 认领转移 ${fPlan.claimTransfers.length} / 注记移植 ${fPlan.transplants.length} / 跳过 ${fSkipped.length}。`,
           '> 落地方式:对象空间(HEAD blob → 改写 → commit-tree → CAS),从不写工作树;旁路已 attestBypassCommit 留痕。',
           '> 下列每行为被删行原文(带原行号与分类原因)。',
           '',
@@ -412,14 +602,34 @@ function main() {
             if (!fPlan.deleteSet.has(i)) return []
             return [`- 原 L${i + 1}(${fPlan.reasons.get(i)}):`, '', '```', l, '```', '']
           }),
+          ...(fSkipped.length
+            ? [
+                '## 跳过交人工(逐行点名,不静默)',
+                '',
+                ...fSkipped.map((s) =>
+                  s.i >= 0
+                    ? `- L${s.i + 1}:${s.why}\n\n  \`\`\`\n  ${fLines[s.i]}\n  \`\`\`\n`
+                    : `- (整层):${s.why}\n`,
+                ),
+              ]
+            : []),
         ].join(fEol) + fEol
+      // A6 台账逐字自校验:每条被删行原文必须逐字出现在台账里 —— 门 71 的归档豁免
+      // (archivedCopy)就靠这份逐字记录放行,少一行 = 该行会在 60 提交窗口内被判丢并回捞。
+      for (const i of fPlan.deleteSet) {
+        if (!fLedger.includes(fLines[i])) {
+          console.log(`❌ A6 台账逐字自校验失败:L${i + 1} 的原文不在台账里 ⇒ 拒绝落地`)
+          return 1
+        }
+      }
+      const landedLedger = ledgerRelForThisRun()
       const { commit } = commitTreeWithIndex({
         root: ROOT,
         parent: head,
         message: fMsg,
         entries: [
           { path: PLAN, text: fNextText },
-          { path: LEDGER_REL, text: fLedger },
+          { path: landedLedger, text: fLedger },
         ],
         baseRef: 'HEAD',
       })
@@ -428,7 +638,7 @@ function main() {
         console.log(`   第 ${attempt} 次 CAS 未中(HEAD 被别人推进)⇒ 在新面上重算`)
         continue
       }
-      const al = alignSharedIndex({ root: ROOT, paths: [PLAN, LEDGER_REL], parentRef: head })
+      const al = alignSharedIndex({ root: ROOT, paths: [PLAN, landedLedger], parentRef: head })
       console.log(
         `✅ 落地 ${commit.slice(0, 11)}(父 ${head.slice(0, 11)}) 删 ${fPlan.deleteSet.size} 行;主索引 moved=${(al.moved || []).length} already=${(al.already || []).length} skipped=${(al.skipped || []).length} 未判定=${(al.undetermined || []).length}`,
       )

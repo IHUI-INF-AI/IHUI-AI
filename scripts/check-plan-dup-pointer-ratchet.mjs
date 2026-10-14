@@ -4,12 +4,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * check-plan-dup-pointer-ratchet.mjs —— 拦截"重复登记副本"指针行的**差值棘轮**(2026-10-13 立)。
+ * check-plan-dup-pointer-ratchet.mjs —— 「重复登记防回潮」差值棘轮(2026-10-13 立;2026-10-14 扩维)。
  *
  * 立因(用户原话):"我不想让它出现重复登记副本 根本不想 不要再看到 给我彻底根治!"
  * 存量已于 2026-10-13 由 `scripts/plan-pointer-purge.mjs --apply` 一次性清偿(1074 行注记清零,
  * 台账 `.ihui-agent/archive/plan-pointer-purge-2026-10-13.md`)。本门守住清偿成果:
  *
+ * 维①(2026-10-13)指针注记棘轮:
  * 判据(差值棘轮,与既有守门 130 的 F7/F8 同一条哲学):**只拦"本次提交让登记行上的指针注记
  * 变多"**,存量不担责 —— 因为与提交内容无关的恒红门只会逼人 --no-verify,连带废掉全部守门
  * (AGENTS §12e 同型)。判定面:
@@ -17,6 +18,15 @@
  *      指针注记行数不得增加(判据 = DUP_POINTER_RE / SELF_DEDISPATCH_RE,来自
  *      scripts/lib/plan-task-index.mjs 单一实现,不在此再抄一份)。
  *   ② `--audit-pointers`(只读报数):当前面上登记行的注记存量,给人工体检用,不判红。
+ *
+ * 维②(2026-10-14)F10「同题不同编号」差值棘轮:
+ * 自动档(plan-tasks-merge --heal)已停产 F10 折叠(noPointer,折叠注记与指针注记同字面);
+ * purge 加了 L5 真归并层做存量收口 ⇒ 若不加这道差值,新的同题不同编号重复登记会无声累积。
+ * 判据同一条哲学:--staged 面 vs HEAD 面,foldTwins 可折行数(判据单一实现 = plan-tasks-merge
+ * 的 foldTwins,与报告口径同源)**只拦变多**。F4/F4b 两维**不在此重复设门** —— 守门 130 的
+ * 差值维度已覆盖(plan-tasks.mjs GATE_DIMS 的 F4/F4b),再设就是同罪两罚。
+ * 应急出口(须带原因,裸标记不放行):`DUP_RATCHET_ALLOW_TWIN_GROWTH=<原因>` —— 并发并集
+ * 已声明的量纲放大走这里,出口打印原因留痕,不静默。
  *
  * 判据失明防护(T3 同型元判据):清偿后当前面登记行注记数必须为 0;若清偿成果被别的
  * 路径绕过本门带回(比如直接写工作树后绕钩子提交),本门**全量模式**(非差值)会点名
@@ -31,6 +41,9 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 import { catBatch, selectFace } from './lib/face-reader.mjs'
+// 维②判据单一实现。环形引用说明:plan-tasks-merge → 本门(取 countPointerRows)→ 本门 →
+// plan-tasks-merge(取 foldTwins),两侧都只在**函数体内**用对方导出 ⇒ ESM 循环安全。
+import { foldTwins } from './plan-tasks-merge.mjs'
 
 const require = createRequire(import.meta.url)
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -66,6 +79,24 @@ export function ratchetVerdict(oldText, newText) {
   const before = countPointerRows(oldText)
   const after = countPointerRows(newText)
   return { before, after, delta: after - before, compliant: after <= before }
+}
+
+/** 维②读数(纯函数):一面上的 foldTwins 可折行数;判据炸了返回 null(未判定,不冒充 0)。 */
+export const twinFoldCount = (text) => {
+  try {
+    return foldTwins(String(text || '').split(/\r?\n/)).edits.length
+  } catch {
+    return null
+  }
+}
+
+/** 维②差值判定(纯函数):本次提交让"同题不同编号"可折重复登记变多 ⇒ 红。 */
+export function twinRatchetVerdict(headText, newText) {
+  const before = twinFoldCount(headText)
+  const after = twinFoldCount(newText)
+  if (before === null || after === null)
+    return { before, after, grew: false, undetermined: true }
+  return { before, after, grew: after > before, undetermined: false }
 }
 
 /**
@@ -155,6 +186,34 @@ function main(argv) {
     console.log(
       `${C.green}✅ 指针棘轮:${C.reset}本次提交未新增指针注记(${v.before} → ${v.after};当前面存量 ${residue} 行只报数)`,
     )
+    // ── 维② F10「同题不同编号」差值棘轮(2026-10-14)──
+    const tv = twinRatchetVerdict(oldContent, newContent)
+    if (tv.undetermined) {
+      console.log(
+        `${C.yellow}⏭ F10 差值未判定(foldTwins 判据异常)${C.reset} —— 不冒充通过也不冒红,点名即走`,
+      )
+    } else if (tv.grew) {
+      const allow = process.env.DUP_RATCHET_ALLOW_TWIN_GROWTH
+      if (allow && allow.trim()) {
+        console.log(
+          `${C.yellow}⚠️ F10 差值棘轮经应急出口放行(带原因留痕,不静默):${C.reset}${allow.trim()}(${tv.before} → ${tv.after})`,
+        )
+      } else {
+        console.error(
+          `${C.red}❌ F10 同题不同编号差值棘轮:${C.reset}本次提交让可折的"同题不同编号"重复登记从 ${tv.before} 增至 ${tv.after}(+${tv.after - tv.before})`,
+        )
+        console.error(
+          `${C.yellow}出路:${C.reset} ① 同一件事只登记一行(同题不同号也算重复;新登记前先按题面搜一遍);\n` +
+            `       ② 存量收口跑 \`node scripts/plan-pointer-purge.mjs\`(dry-run 看分层处置,--apply 走对象空间落地);\n` +
+            `       ③ 确属并发并集已声明的量纲放大 ⇒ 带原因重试:DUP_RATCHET_ALLOW_TWIN_GROWTH=<原因>(裸标记不放行)`,
+        )
+        return 1
+      }
+    } else {
+      console.log(
+        `${C.green}✅ F10 差值:${C.reset}同题不同编号可折重复登记 ${tv.before} → ${tv.after}(不增;F4/F4b 维归守门 130,不在此重复设门)`,
+      )
+    }
   } else {
     // 全量模式:存量必须为 0(清偿成果守住);不为 0 红 —— 它必然是绕过钩子或写盘路径带回的
     if (residue > 0) {
@@ -169,6 +228,13 @@ function main(argv) {
       return 1
     }
     console.log(`${C.green}✅ 指针棘轮:${C.reset}当前面登记行指针注记 0 行(清偿成果守住)`)
+    // 全量档对维②只报数(差值档在 --staged;存量 3 行是 purge 逐行点名豁免的真独有内容行,
+    // 当场判红就是与任何提交无关的恒红门,§12e)
+    const twinFull = twinFoldCount(newContent)
+    if (twinFull !== null)
+      console.log(
+        `${C.cyan}📊 F10 同题不同编号可折重复登记存量:${twinFull} 行(只报数;收口跑 plan-pointer-purge --apply)${C.reset}`,
+      )
   }
   return 0
 }
