@@ -96,11 +96,13 @@ const DOC_BASE = ['# 标题', '段落一', '@@ANCHOR@@', '段落二', '']
 // 三条出口一律"取不到即红":报告版式漂了本文件必须当场喊,绝不把"没读到"折叠成"这一维不用读"
 // (本仓最高频失效型就是把没判写成判过了)。
 //
-// 换掉字面量的理由(不是"为了变绿"):千段租约(G-916936)之后"下一个空闲号 = 该族 max+1"这个
-// 前提**不再成立** —— 新占段起点由机器标识派生的偏移抬高(leaseCursor 的 claim 支),自有段内
-// 连号更可以远小于占用面 max(段尾号只是租约行的主键,不是实号)。所以能钉住的只有关系:
+// 换掉字面量的理由(不是"为了变绿"):池式取号(2026-10-14,硬上限 999)之后"下一个空闲号 = 该族
+// max+1"这个前提**不再成立** —— 无租约时号从池内空闲号升序表(1..999 的补集,含远端避让段)按序
+// 领,空洞优先回填;有租约时 claim 支占的是池内整段空闲的窗(窗首随窗走、候选窗按机器指纹错开),
+// 自有段内连号更可以远小于占用面 max(段尾号只是租约行的主键,不是实号)。所以能钉住的只有关系:
 //  ① 落地的号 == 这一次租约读数宣布的那一枚;
-//  ② claim 支:号 > 当次基准的本地 max(远端参与时还要 > 远端 max)—— 这就是 G-313 的"让号"语义;
+//  ② claim 支:窗必须整段避开占用号与避让面 ⇒ 在"占用/避让面从池底起连续"的夹具形态下,
+//     号 > 当次基准的本地 max(远端 max ≤999 时还要 > 远端 max)—— 这就是 G-313 的"让号"语义;
 //  ③ in-lease 支:号落在自己段内且 < 段尾,并且严格大于上一次发出的号(绝不再发同一枚)。
 const ID_TOKEN_SHAPE = /^[A-Z]+-?\d+$/
 
@@ -123,8 +125,8 @@ function assignedIdsFrom(stdout, where) {
 
 /**
  * 租约读数行宣布"这一次该取哪一枚",并交出段界:
- *  - 自有段还有空闲 ⇒ `在自有段 A~B 内连号(本次首号=X)`   ⇒ mode=in-lease, id=X, start=A, end=B
- *  - 没有 / 段满     ⇒ `新占段 A~B(主键=段尾号,随本块落账…)` ⇒ mode=claim,  id=A(段首), start=A, end=B
+ *  - 自有段还有空闲 ⇒ `在自有段 A~B 内按空闲序连号(本次首号=X)` ⇒ mode=in-lease, id=X, start=A, end=B
+ *  - 没有 / 段满     ⇒ `池内新占段 A~B(主键=段尾号,随本块落账…)`   ⇒ mode=claim,  id=A(段首), start=A, end=B
  */
 function leaseReadoutFrom(stdout, where) {
   const line = String(stdout).match(/号段租约:[^\n]*/)
@@ -134,14 +136,16 @@ function leaseReadoutFrom(stdout, where) {
   )
   const bounds = line[0].match(/(?:在自有段|新占段) ([A-Z]+-?\d+)~([A-Z]+-?\d+)/)
   assert.ok(bounds, `${where}:租约行读不出段界 ⇒ 版式漂了:\n${line[0]}`)
-  const inLease = line[0].match(/内连号\(本次首号=([A-Z]+-?\d+)\)/)
+  // 池式口径(2026-10-14):in-lease 支的措辞是"内**按空闲序连号**" —— "连号(本次首号=" 这个
+  // 尾巴只有这一支有(claim 支是"新占段…(主键=段尾号…)"),用它分档不会误吞。
+  const inLease = line[0].match(/按空闲序连号\(本次首号=([A-Z]+-?\d+)\)/)
   if (inLease)
     return { mode: 'in-lease', id: inLease[1], start: bounds[1], end: bounds[2], line: line[0] }
   return { mode: 'claim', id: bounds[1], start: bounds[1], end: bounds[2], line: line[0] }
 }
 
 /**
- * 基准行:`   号段基准:G=9(本地 HEAD 该族 max=3 / 远端 refs/heads/main max=9 ⇒ 取较大,…)`。
+ * 基准行:`   号段基准:G=9(本地 HEAD 该族 max=3 / 远端 refs/heads/main max=9 ⇒ 池内避让远端已占号(本地上方至 9 不发))`)。
  * 离线支写的是 `远端未参与:…` ⇒ 读不出 remoteMax,返回 **null**(含义是"这一维没参与本次取号",
  * 不是"判不出"—— 上一行那条 ⚠️ 已经把不可问的原因喊出来了,两档刻意不并桶)。
  */
@@ -488,7 +492,8 @@ test('T13 追加注记型改写(after 以 before 开头)必须判成功并做完
 
 /**
  * T14 取号令牌的纯函数面:号由**底稿**算出,不是由调用方给。
- * 三条各钉一型:① 正常递增 ② 该族一条没有 ⇒ 拒绝(不是给 "<族>-1") ③ 无令牌 ⇒ 原样通过(不改任何行)。
+ * 三条各钉一型:① 池内最小空闲起升序领号(空洞优先回填) ② 该族一条没有 ⇒ 拒绝(不是给 "<族>-1")
+ * ③ 无令牌 ⇒ 原样通过(不改任何行)。
  */
 test('T14 resolveIdTokens:号来自底稿、取不到即拒绝、无令牌不误伤', () => {
   const base = '- [ ] **G-1 甲**:x\n- [ ] **G-7 乙**:y\n- [ ]75. 章节内裸序号不占号段\n'
@@ -497,32 +502,34 @@ test('T14 resolveIdTokens:号来自底稿、取不到即拒绝、无令牌不误
     base,
   )
   assert.equal(r.ok, true)
-  assert.match(r.lines[0], /\*\*G-8 新条目\*\*/, `实得 ${r.lines[0]}`)
-  assert.equal(r.assigned, 'G-8')
+  // 池式口径(2026-10-14):号 = 池内最小空闲。base 已占 1/7 ⇒ 空洞 2 优先回填,不追 max+1(=8)
+  assert.match(r.lines[0], /\*\*G-2 新条目\*\*/, `实得 ${r.lines[0]}`)
+  assert.equal(r.assigned, 'G-2')
   const none = __test__.resolveIdTokens(['{{NEXT_ID:Z}} 条目'], base)
   assert.equal(none.ok, false, '该族一条没有时必须拒绝,而不是发一个 Z-1')
   assert.match(String(none.reason), /no-such-family:Z/)
   const plain = __test__.resolveIdTokens(['- [ ] **G-9 无令牌**'], base)
   assert.equal(plain.assigned, null)
   assert.deepEqual(plain.lines, ['- [ ] **G-9 无令牌**'], '没有令牌就不该动任何一行')
-  // 一块里两个同族令牌必须**递增**,不得都算 max+1 —— 那样本器自己就产出了它要防的那一型。
+  // 一块里两个同族令牌必须**递增**,不得领同一枚 —— 那样本器自己就产出了它要防的那一型。
   const two = __test__.resolveIdTokens(
     ['- [ ] **{{NEXT_ID:G}} 甲件**:x', '- [ ] **{{NEXT_ID:G}} 乙件**:y'],
     base,
   )
   assert.equal(two.ok, true)
-  assert.match(two.lines[0], /\*\*G-8 甲件\*\*/, `实得 ${two.lines[0]}`)
-  assert.match(two.lines[1], /\*\*G-9 乙件\*\*/, `实得 ${two.lines[1]}`)
-  assert.equal(two.assigned, 'G-8,G-9', `报名应列出两个号,实得 ${two.assigned}`)
-  // 混族也要各自独立递增(两族共用一张游标会串号),且**按各族自己的书写形状**发号:
+  assert.match(two.lines[0], /\*\*G-2 甲件\*\*/, `实得 ${two.lines[0]}`)
+  assert.match(two.lines[1], /\*\*G-3 乙件\*\*/, `实得 ${two.lines[1]}`)
+  assert.equal(two.assigned, 'G-2,G-3', `报名应列出两个号,实得 ${two.assigned}`)
+  // 混族也要各自独立取池(两族共用一张游标会串号),且**按各族自己的书写形状**发号:
   // 本仓 G 族写 `G-265` 带连字符,O 族写 `O4` 不带 —— 形状印错就是给一个判据认不出来的号。
+  // 号值按池式:G 族(占 1/7)领 2、3;O 族(只占 4)领池内最小空闲 1 —— 各族各池,互不串。
   const mixed = __test__.resolveIdTokens(
     ['{{NEXT_ID:G}} 一号', '{{NEXT_ID:O}} 二号', '{{NEXT_ID:G}} 三号'],
     `${base}- [ ] **O4 丙**:z\n`,
   )
   assert.deepEqual(
     [mixed.lines[0], mixed.lines[1], mixed.lines[2]],
-    ['G-8 一号', 'O5 二号', 'G-9 三号'],
+    ['G-2 一号', 'O1 二号', 'G-3 三号'],
     `跨族游标与形状都必须独立,实得 ${JSON.stringify(mixed.lines)}`,
   )
 })
@@ -541,8 +548,9 @@ test('T15 端到端:带令牌的块落地后 HEAD 含算出的号且不含令牌
   )
   const r = runLive(dir, { blockFile })
   assert.equal(r.status, 0, `落地应成功,实得 ${r.status}\n${r.stdout}\n${r.stderr}`)
-  // 原断言钉 `=G-4`(= 该族 max+1)。千段租约(G-916936)之后那句前提已经不成立 —— 新占段起点
-  // 还带一个由机器标识派生的偏移(G-815400,两机同 floor 时让占段分开)。所以改钉**同一次运行
+  // 原断言钉 `=G-4`(= 该族 max+1)。池式取号(2026-10-14)之后那句前提已经不成立 —— claim 支
+  // 占的是池内"连续段宽全空闲"的窗(避开占用号与远端避让段),多个候选窗时按机器指纹取模错开
+  // (G-815400 同源,两机同刻大概率不同窗),段首随窗走、不随 max 走。所以改钉**同一次运行
   // 的三行读数自洽**:落地的号必须恰是这一次租约宣布的那一枚(readNumbering 内已断言),
   // 并且 claim 支必须站在当次底稿之上 —— 这三条一起比"等于 G-4"更强:字面量只排除了别的号,
   // 而它既没规定"号必须来自租约读数"、也没规定"号必须 > 占用面 max"。
@@ -584,7 +592,7 @@ test('T16 整行改写档支持令牌:after 里的号由 HEAD 底稿现算', (t)
   )
   const r = runLive(dir, { replaceFile: repl })
   assert.equal(r.status, 0, `落地应成功,实得 ${r.status}\n${r.stdout}\n${r.stderr}`)
-  // 同 T15:原断言钉 `G-6`(= max+1)⇒ 与千段租约漂移。改写档的语义是"after 里那枚号必须来自
+  // 同 T15:原断言钉 `G-6`(= max+1)⇒ 与池式取号漂移。改写档的语义是"after 里那枚号必须来自
   // 这一次对 HEAD 底稿的取号",所以钉三行读数的自洽 + 号 > 当次底稿 max,而不钉具体号。
   const run = readNumbering(r.stdout, 'T16')
   assert.equal(
@@ -640,18 +648,31 @@ test('N1 §22c 新增导出面:远端基准的四个出口必须在 __test__ 里
   assert.deepEqual(__test__.idTokenFamilies(['一个令牌都没有']), [])
 })
 
-test('N2 方向成对:远端 max 更大 ⇒ 新号跳过远端那段;同值 / 更小 / 缺席 ⇒ 与改动前逐字同形', () => {
+test('N2 方向成对:远端 max 更大 ⇒ 池内避让远端已占号(避让面真实抬号);同值 / 更小 / 缺席 ⇒ 与无远端逐字同形', () => {
+  // 池式口径(2026-10-14):无远端 ⇒ 号 = 池内最小空闲。base 已占 G-3 ⇒ 空洞 1/2 回填,发 G-1
   const legacy = __test__.resolveIdTokens([LDE_LINE], LDE_LOCAL_BASE)
-  assert.ok(legacy.lines[0].includes('**G-4 新条目**'), `改动前的形状:${legacy.lines[0]}`)
+  assert.ok(legacy.lines[0].includes('**G-1 新条目**'), `改动前的形状:${legacy.lines[0]}`)
+  assert.equal(legacy.assigned, 'G-1')
 
-  // (a) 本票唯一真正的产出:远端那批已占 G-9 ⇒ 本地"下一个空闲号"G-4 其实早被占了 ⇒ 让到 G-10
+  // (a) 远端那批已占 G-9 ⇒ 避让面把 4..9 一并从池里摘掉;base 的空洞 1/2 本就不在避让面里
+  // ⇒ 仍发 G-1,但 basis 必须如实记下远端读数(对账证据,不得因号没变就抹掉"远端参与了")
   const raised = __test__.resolveIdTokens([LDE_LINE], LDE_LOCAL_BASE, { max: { G: 9 } })
   assert.ok(
-    raised.lines[0].includes('**G-10 新条目**'),
-    `远端更大时必须跳段,实得 ${raised.lines[0]}`,
+    raised.lines[0].includes('**G-1 新条目**'),
+    `避让面之外的最小空闲照发,实得 ${raised.lines[0]}`,
   )
-  assert.equal(raised.assigned, 'G-10')
+  assert.equal(raised.assigned, 'G-1')
   assert.deepEqual(raised.basis, [{ family: 'G', localMax: 3, remoteMax: 9, chosenMax: 9 }])
+
+  // (a') 避让必须**可观察**,不能只是报告读数:本地只占 G-1 ⇒ 2..9 看似空闲,但远端已占 4..9
+  // ⇒ 2..9 全部避让 ⇒ 发 G-10(同一底稿若无远端发的是 G-2 —— 号真的被远端抬开了,G-313 让号)
+  const dodge = __test__.resolveIdTokens([LDE_LINE], '- [ ] **G-1 甲**:x\n', { max: { G: 9 } })
+  assert.ok(
+    dodge.lines[0].includes('**G-10 新条目**'),
+    `避让面必须把 2..9 从池里摘掉,实得 ${dodge.lines[0]}`,
+  )
+  assert.equal(dodge.assigned, 'G-10')
+  assert.deepEqual(dodge.basis, [{ family: 'G', localMax: 1, remoteMax: 9, chosenMax: 9 }])
 
   // (c) 远端与本地同 max ⇒ 与"没有远端"逐字一致(防"新基准顺手把号抬了一位")
   assert.deepEqual(
@@ -663,29 +684,29 @@ test('N2 方向成对:远端 max 更大 ⇒ 新号跳过远端那段;同值 / �
     __test__.resolveIdTokens([LDE_LINE], LDE_LOCAL_BASE, { max: { G: 1 } }).lines,
     legacy.lines,
   )
-  // 远端缺席(降级 / 该族在远端为空 / 压根没查)⇒ 同旧行为
+  // 远端缺席(降级 / 该族在远端为空 / 压根没查)⇒ 与无远端逐字同形
   for (const r of [null, undefined, { max: {}, notes: ['对象不在本地'] }])
     assert.deepEqual(__test__.resolveIdTokens([LDE_LINE], LDE_LOCAL_BASE, r).lines, legacy.lines)
 
-  // 两族各自独立抬高(串号 = 本器自己造出撞号那一型),且形状仍按本地底稿的写法
+  // 两族各自独立避让(串号 = 本器自己造出撞号那一型),且形状仍按本地底稿的写法
   const twoFam = __test__.resolveIdTokens(
     ['- [ ] **{{NEXT_ID:O}} 甲**:x', LDE_LINE],
     `${LDE_LOCAL_BASE}- [ ] **O2 丙**:y\n`,
     { max: { G: 9, O: 7 } },
   )
   assert.ok(
-    twoFam.lines[0].includes('**O8 甲**'),
-    `O 族要按远端抬到 7 再递增,实得 ${twoFam.lines[0]}`,
+    twoFam.lines[0].includes('**O1 甲**'),
+    `O 族要避让远端已占的 3..7(池内最小空闲 1 在避让面之外),实得 ${twoFam.lines[0]}`,
   )
-  assert.ok(twoFam.lines[1].includes('**G-10 新条目**'), `实得 ${twoFam.lines[1]}`)
-  // 一块里两个同族令牌在抬高后的基准上仍然逐个递增
+  assert.ok(twoFam.lines[1].includes('**G-1 新条目**'), `实得 ${twoFam.lines[1]}`)
+  // 一块里两个同族令牌在抬高后的基准上仍然按空闲序逐个递增
   const twoTokens = __test__.resolveIdTokens(
     ['- [ ] **{{NEXT_ID:G}} 甲**:x', '- [ ] **{{NEXT_ID:G}} 乙**:y'],
     LDE_LOCAL_BASE,
     { max: { G: 9 } },
   )
   assert.ok(
-    twoTokens.lines[0].includes('**G-10 甲**') && twoTokens.lines[1].includes('**G-11 乙**'),
+    twoTokens.lines[0].includes('**G-1 甲**') && twoTokens.lines[1].includes('**G-2 乙**'),
     `实得 ${JSON.stringify(twoTokens.lines)}`,
   )
 
@@ -697,9 +718,9 @@ test('N2 方向成对:远端 max 更大 ⇒ 新号跳过远端那段;同值 / �
         { ref: 'refs/heads/main' },
       )
       .includes(
-        '号段基准:G=9(本地 HEAD 该族 max=3 / 远端 refs/heads/main max=9 ⇒ 取较大,新号跳过远端那段)',
+        '号段基准:G=9(本地 HEAD 该族 max=3 / 远端 refs/heads/main max=9 ⇒ 池内避让远端已占号(本地上方至 9 不发))',
       ),
-    `抬高态措辞:\n${__test__.describeIdBasis({ family: 'G', localMax: 3, remoteMax: 9, chosenMax: 9 }, { ref: 'refs/heads/main' })}`,
+    `避让态措辞:\n${__test__.describeIdBasis({ family: 'G', localMax: 3, remoteMax: 9, chosenMax: 9 }, { ref: 'refs/heads/main' })}`,
   )
   const degraded = __test__.describeIdBasis(
     { family: 'G', localMax: 3, remoteMax: null, chosenMax: 3 },
@@ -713,7 +734,24 @@ test('N2 方向成对:远端 max 更大 ⇒ 新号跳过远端那段;同值 / �
   assert.ok(
     __test__
       .describeIdBasis({ family: 'G', localMax: 3, remoteMax: 3, chosenMax: 3 }, { ref: 'r' })
-      .includes('与本地同值,与改动前同形'),
+      .includes('远端 r max=3 ⇒ 与本地同值)'),
+    `同值态措辞:\n${__test__.describeIdBasis({ family: 'G', localMax: 3, remoteMax: 3, chosenMax: 3 }, { ref: 'r' })}`,
+  )
+  // 池式新支:远端 max 在池外(>999)⇒ 读数如实报,但必须点名"池式不追" —— 绝不让号跳出三位数
+  assert.ok(
+    __test__
+      .describeIdBasis(
+        { family: 'G', localMax: 3, remoteMax: 1500, chosenMax: 1500 },
+        { ref: 'refs/heads/main' },
+      )
+      .includes('远端 refs/heads/main max=1500 ⇒ 池外大号(>999),池式取号只认 1..999,不追池外)'),
+    `池外态措辞:\n${__test__.describeIdBasis({ family: 'G', localMax: 3, remoteMax: 1500, chosenMax: 1500 }, { ref: 'refs/heads/main' })}`,
+  )
+  // 且行为上真的不追:池外大号不参与避让 ⇒ 发的号与"远端没参与"逐字同形
+  assert.deepEqual(
+    __test__.resolveIdTokens([LDE_LINE], LDE_LOCAL_BASE, { max: { G: 1500 } }).lines,
+    legacy.lines,
+    '池外大号不得把号顶出池,也不得改变池内取号',
   )
 })
 
@@ -762,8 +800,8 @@ test('N3 readRemoteIdBasis:远端问不到一律只降级不失败,且每条原�
   assert.ok(
     __test__
       .resolveIdTokens([LDE_LINE], LDE_LOCAL_BASE, missing)
-      .lines[0].includes('**G-4 新条目**'),
-    '远端这一维没判到 ⇒ 按本地基准发号,而不是拒绝落地',
+      .lines[0].includes('**G-1 新条目**'),
+    '远端这一维没判到 ⇒ 按本地池的最小空闲发号,而不是拒绝落地',
   )
 
   // ④ 对象在而文档读不出(tip 里没这份文档)⇒ 另一条独立原因,不得混进"对象不在本地"
@@ -904,16 +942,17 @@ test('N4 端到端·真实 ls-remote(夹具 origin,file:// 零网络):自补救 
   )
   assert.ok(
     r1.stdout.includes(
-      '号段基准:G=9(本地 HEAD 该族 max=3 / 远端 refs/heads/main max=9 ⇒ 取较大,新号跳过远端那段)',
+      '号段基准:G=9(本地 HEAD 该族 max=3 / 远端 refs/heads/main max=9 ⇒ 池内避让远端已占号(本地上方至 9 不发))',
     ),
     `实得:\n${r1.stdout}`,
   )
-  // 原断言钉 `=G-10`(= chosenMax+1)。千段租约之后 claim 支的段首是 `floor+1+off`
-  // (off 由机器标识派生,G-815400)⇒ 字面量必然漂。本用例立票的语义是**关系**,不是那个数:
+  // 原断言钉 `=G-10`(= chosenMax+1)。池式取号(2026-10-14)之后 claim 支占的是池内整段空闲的窗,
+  // 且窗必须整段避开占用号与远端避让面 ⇒ 段首随窗走,多个候选窗按机器指纹错开 ⇒ 字面量必然漂。
+  // 本用例立票的语义是**关系**,不是那个数:
   //  ① 落地的号必须恰是同一次租约读数宣布的那一枚(readNumbering 内已断言,含"号在段内且 < 段尾");
   //  ② 远端那份必须真的参与(localMax=3 / remoteMax=9 从同一行读数里核);
-  //  ③ 发出来的号必须**站到远端已占那段之上** —— 这才是 G-313 要堵的那一型(对面占了 4..9),
-  //     它比"等于 G-10"严格更强:≤9 的任何一枚都判红,而字面量只排除了"G-10 以外的一个具体值"。
+  //  ③ 发出来的号必须**站到远端已占那段之上** —— 这才是 G-313 要堵的那一型(对面占了 4..9,
+  //     避让面把 2..9 从池里摘掉 ⇒ 窗只能从 10 起):≤9 的任何一枚都判红,比"等于 G-10"严格更强。
   const run1 = readNumbering(r1.stdout, 'N4·自补救 fetch 抬号支')
   assert.equal(
     run1.ids.length,
@@ -1000,7 +1039,7 @@ test('N5 反向锁:号段基准(含远端那一份)必须在 CAS 循环体内重
     TOOL_SRC.slice(loopStart, loopEnd).includes(
       'resolveIdTokens(targetLines, baseContent, remote',
     ),
-    '取号必须吃到本轮的远端基准,而不是上一轮的(前缀锁:第三位必须是本轮 remote;第四位的租约参数属 G-916936 扩展,不得挪出循环)',
+    '取号必须吃到本轮的远端基准,而不是上一轮的(前缀锁:第三位必须是本轮 remote;第四位的 machineId 参数属池式租约取号,不得挪出循环)',
   )
 })
 
@@ -1507,7 +1546,8 @@ test('T14b 装饰括注行必须顶起号段基准(本票病根);行文引用不
   const r = __test__.resolveIdTokens(['- [ ] {{NEXT_ID:G}} **新事** —— 题面。'], maskedBase)
   assert.equal(r.ok, true, `取号必须成功,实测 ${JSON.stringify(r)}`)
   assert.equal(r.basis[0].localMax, 777, `号段基准必须把装饰行顶进来(旧尺子只给 700 ⇒ 重发 777),实测 ${r.basis[0].localMax}`)
-  assert.equal(r.assigned, 'G-778', `不得重发 777,实测 ${r.assigned}`)
+  // 池式口径(2026-10-14):号 = 池内最小空闲。700/777 已占 ⇒ 空洞 1 回填 G-1(当然也不得重发 777)
+  assert.equal(r.assigned, 'G-1', `不得重发 777,实测 ${r.assigned}`)
   // 反向:纯行文引用(落在 48 字窗口之外)不得顶高基准 —— 否则"漏算"被掩盖成"虚涨跳号",
   // 两个方向的错在账面上都是"号变大了",只有这一对照能把它们分开。
   const proseBase = [
@@ -1517,7 +1557,8 @@ test('T14b 装饰括注行必须顶起号段基准(本票病根);行文引用不
   const p = __test__.resolveIdTokens(['- [ ] {{NEXT_ID:G}} **新事** —— 题面。'], proseBase)
   assert.equal(p.ok, true)
   assert.equal(p.basis[0].localMax, 700, `散文引用不得进号段基准,实测 ${p.basis[0].localMax}`)
-  assert.equal(p.assigned, 'G-701', `应紧接基准发号,实测 ${p.assigned}`)
+  // 池式口径:700 已占 ⇒ 池内最小空闲是 1(不是"紧接基准"的 701 —— 那是旧 max+1 口径的形状)
+  assert.equal(p.assigned, 'G-1', `应发池内最小空闲号,实测 ${p.assigned}`)
 })
 
 
