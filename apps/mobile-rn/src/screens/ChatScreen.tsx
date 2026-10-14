@@ -135,6 +135,7 @@ import {
   type ChatScreenModel,
 } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
+import { NavChrome } from '../components/NavChrome'
 // G-166:交代区(RN 端共享组件)—— 引用来源 + 本轮上下文注入,与 N8n 屏同一实现
 import {
   CitationList,
@@ -2572,29 +2573,31 @@ export function ChatScreen() {
           此处曾另挂一份,两者读同一个 store 的 visible,打开通知会叠出两个相同面板。 */}
 
       {/* 顶部导航区(对齐 Uniapp navigation-bars:菜单 + 标题 + 加入) */}
-      <NavBar
-        title="智汇AI"
-        rightAction={
-          <View style={styles.navRight}>
-            <Pressable
-              hitSlop={8}
-              onPress={() => setDrawerVisible(true)}
-              accessibilityLabel="打开菜单"
-            >
-              <Menu size={22} color={tokens.text.primary} />
-            </Pressable>
-            <Pressable hitSlop={8} onPress={showAgentList} accessibilityLabel="选择 Agent">
-              <Bot size={22} color={tokens.text.primary} />
-            </Pressable>
-            <Pressable hitSlop={8} onPress={goToMyPage} accessibilityLabel="个人中心">
-              <Share2 size={22} color={tokens.text.primary} />
-            </Pressable>
-            <Pressable hitSlop={8} onPress={showQrCode} accessibilityLabel="加入社区">
-              <QrCode size={22} color={tokens.text.primary} />
-            </Pressable>
-          </View>
-        }
-      />
+      <NavChrome>
+        <NavBar
+          title="智汇AI"
+          rightAction={
+            <View style={styles.navRight}>
+              <Pressable
+                hitSlop={8}
+                onPress={() => setDrawerVisible(true)}
+                accessibilityLabel="打开菜单"
+              >
+                <Menu size={22} color={tokens.text.primary} />
+              </Pressable>
+              <Pressable hitSlop={8} onPress={showAgentList} accessibilityLabel="选择 Agent">
+                <Bot size={22} color={tokens.text.primary} />
+              </Pressable>
+              <Pressable hitSlop={8} onPress={goToMyPage} accessibilityLabel="个人中心">
+                <Share2 size={22} color={tokens.text.primary} />
+              </Pressable>
+              <Pressable hitSlop={8} onPress={showQrCode} accessibilityLabel="加入社区">
+                <QrCode size={22} color={tokens.text.primary} />
+              </Pressable>
+            </View>
+          }
+        />
+      </NavChrome>
 
       <KeyboardAvoidingView
         style={styles.body}
