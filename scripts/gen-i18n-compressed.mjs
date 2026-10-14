@@ -22,6 +22,16 @@
 //      sha256,bytes=载荷字节数),进主包(约 0.5KB):version 作 storage 缓存 key 与失效
 //      判据,bytes 作下载完整性粗校验。真完整校验靠"b64 字符集 + gunzip + JSON.parse"
 //      结构性校验(解码失败一律回落,不进缓存)。
+//
+// 2026-10-15 主包选项 A(机主已拍板):zh-CN 也改成 gzip+b64,但**必须随包内联** ——
+// 它是回落语(按需包未就绪时全端读它),走 CDN 等于"弱网时连回落语都没有"。
+//   ④ src/i18n/generated/zh-cn-pack.gen.ts —— 运行时**要 import** 的那一份:
+//      b64(约 104KB)取代原先静态 import 的两份明文 JSON(约 230KB),主包净降约 126KB。
+//      同批派生一份**不参与压缩**的最小内置键集 ZH_CN_CRITICAL(tabBar 命名空间,纯 JSON),
+//      供 gunzip / JSON.parse 任一环失败时 fail-closed 回落:兜底刻意不复用失败的那条
+//      解码链路 —— 复用等于没有兜底。
+//   为什么 ④ 的钉输入清单**单独一份**:守门 check-miniapp-generated 的 G5 按"remote 那
+//      8 份"现算 inputsSha256,把 zh-CN 混进 ① 的钉 ⇒ ① 恒判 stale(恒红门)。
 
 import { createRequire } from 'node:module'
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
@@ -47,6 +57,8 @@ const messagesRoot = resolve(repoRoot, 'packages/i18n/messages')
 const outDir = resolve(repoRoot, 'apps/miniapp-taro/src/i18n/generated')
 const outFile = resolve(outDir, 'remote-locales.gen.ts')
 const manifestFile = resolve(outDir, 'remote-locale-manifest.gen.ts')
+// 产物④:zh-CN 内联包(运行时 import;回落语不得走 CDN)
+const zhPackFile = resolve(outDir, 'zh-cn-pack.gen.ts')
 // CDN 部署载荷目录:与 src/assets/remote-images/ 同一镜像约定 —— 目录名即 CDN URL 路径段,
 // 运维把它整体拷进 cdn-server.js 的 server-root 后,载荷即出现在 /remote-locales/<locale>.b64.txt。
 const cdnPayloadDir = resolve(repoRoot, 'apps/miniapp-taro/src/assets/remote-locales')
@@ -88,11 +100,16 @@ function mergeMessages(base, override) {
 
 /** 读一份消息源:同时把它按「仓库根相对路径 + 原始文本」记进钉的输入清单 */
 const pinInputs = []
-function loadJson(...parts) {
+/** zh-CN 的钉输入清单单独一份(G5 只按 remote 那 8 份现算,混进去 ⇒ ① 恒判 stale) */
+const zhPinInputs = []
+function loadJsonInto(pinList, ...parts) {
   const file = resolve(messagesRoot, ...parts)
   const text = readFileSync(file, 'utf8')
-  pinInputs.push({ rel: `packages/i18n/messages/${parts.join('/')}`, text })
+  pinList.push({ rel: `packages/i18n/messages/${parts.join('/')}`, text })
   return JSON.parse(text)
+}
+function loadJson(...parts) {
+  return loadJsonInto(pinInputs, ...parts)
 }
 
 const REMOTE_LOCALE_B64 = {}
@@ -120,6 +137,29 @@ for (const locale of REMOTE_LOCALES) {
 
 console.log(
   `[gen:i18n] 合计: 原始 ${totalOriginal.toFixed(1)}KB → b64 ${totalB64.toFixed(1)}KB (净省 ${(totalOriginal - totalB64).toFixed(1)}KB)`,
+)
+
+// ── 产物④:zh-CN 内联包(回落语 ⇒ 随包内联,不走 CDN) ──
+//
+// 兜底键集取哪些命名空间:只取 `tabBar`。理由不是"随便挑几个",而是 i18n/index.tsx 里
+// 那条既有不变式 —— 「tabBar 页文案在 zh-CN 内置集里,始终可达」(原生 tabBar 的 text 是
+// app.json 静态配置,靠 setTabBarItem 运行时覆盖)。主包解码失败时,外壳这五个词必须还是
+// 人话;其余键走既有"取不到就返回 key"的路径(不是空串,也不是崩)。
+const ZH_CN_CRITICAL_NAMESPACES = ['tabBar']
+
+const zhMerged = mergeMessages(
+  loadJsonInto(zhPinInputs, 'shared', 'zh-CN.json'),
+  loadJsonInto(zhPinInputs, 'miniapp-taro', 'zh-CN.json'),
+)
+const zhJson = JSON.stringify(zhMerged) // 无缩进,与运行时 JSON.parse 对称
+const zhGz = gzipSync(strToU8(zhJson), { level: 9, mtime: 0 })
+const zhB64 = Buffer.from(zhGz).toString('base64')
+const zhCritical = {}
+for (const ns of ZH_CN_CRITICAL_NAMESPACES) {
+  if (isPlainObject(zhMerged[ns])) zhCritical[ns] = zhMerged[ns]
+}
+console.log(
+  `[gen:i18n] zh-CN(内联): ${(zhJson.length / 1024).toFixed(1)}KB (JSON) → ${(zhB64.length / 1024).toFixed(1)}KB (b64, gzip ${(zhGz.length / 1024).toFixed(1)}KB) · 兜底键集 ${JSON.stringify(zhCritical).length}B`,
 )
 
 // 运行时清单:version = 载荷 sha256(storage 缓存 key 与失效判据),bytes = 载荷字节数
@@ -155,6 +195,13 @@ const pinLines = renderPin({
   generator: GENERATOR_REL,
   sourceCommit: readSourceCommit(),
   inputs: pinInputs,
+  generatedAt: new Date().toISOString(),
+})
+// zh-CN 产物单独一份钉(输入集与 ① 不同:G5 只按 remote 8 份现算 ①,两份钉不得互串)
+const zhPinLines = renderPin({
+  generator: GENERATOR_REL,
+  sourceCommit: readSourceCommit(),
+  inputs: zhPinInputs,
   generatedAt: new Date().toISOString(),
 })
 
@@ -207,12 +254,29 @@ for (const locale of REMOTE_LOCALES) {
   writeFileSync(resolve(cdnPayloadDir, `${locale}.b64.txt`), REMOTE_LOCALE_B64[locale], 'utf8')
 }
 
+// 产物④:zh-CN 内联包(运行时 import)。version = 载荷 sha256(只作诊断标识:包随包走,
+// 没有"缓存失效"这一维),bytes = 载荷字节数(与清单对账的结构性校验之一)。
+const zhPackLines = [
+  '// GENERATED FILE — DO NOT EDIT. 由 scripts/gen-i18n-compressed.mjs 生成(pnpm gen:i18n)',
+  '// zh-CN 内联包:回落语必须随包内联(不得走 CDN),故这里是**压缩后**的 b64 ——',
+  '// 运行时在模块加载期同步 gunzip 一次还原 messages(fflate + 查表 b64,不引新依赖)。',
+  '// ZH_CN_CRITICAL 是同批派生的**最小内置键集**(纯 JSON、不参与压缩):gunzip/JSON.parse',
+  '// 任一环失败时 fail-closed 回落到它 —— 兜底刻意不复用那条失败的解码链路。',
+  ...zhPinLines,
+  `export const ZH_CN_PACK_VERSION = '${sha256Hex(zhB64)}'`,
+  `export const ZH_CN_PACK_BYTES = ${zhB64.length}`,
+  `export const ZH_CN_PACK_B64 = '${zhB64}'`,
+  `export const ZH_CN_CRITICAL: Record<string, unknown> = ${JSON.stringify(zhCritical)}`,
+  '',
+]
+writeFileSync(zhPackFile, zhPackLines.join('\n'), 'utf8')
+
 // 溯源水印:生成产物同样是 git 跟踪文件,受 `scripts/check-watermark-coverage.mjs` 门禁约束。
 // 此前生成器不写横幅 → 该文件长期缺失水印,使 pre-commit 与 CI 的 watermark 门禁必红。
 // 统一改为复用仓库水印工具(单一事实源),幂等:重复生成不产生 diff。
-// (两份 .ts 产物都要注入;.b64.txt 载荷不在水印分母,保持字节精确。)
+// (三份 .ts 产物都要注入;.b64.txt 载荷不在水印分母,保持字节精确。)
 const watermarkScript = resolve(repoRoot, 'scripts/watermark.mjs')
-for (const generatedFile of [outFile, manifestFile]) {
+for (const generatedFile of [outFile, manifestFile, zhPackFile]) {
   try {
     execFileSync(process.execPath, [watermarkScript, 'inject', generatedFile], {
       stdio: 'inherit',
@@ -228,6 +292,7 @@ for (const generatedFile of [outFile, manifestFile]) {
 
 console.log(`[gen:i18n] 已写入 ${outFile} (${readFileSync(outFile).length} 字节, 含溯源水印)`)
 console.log(`[gen:i18n] 已写入 ${manifestFile} (${readFileSync(manifestFile).length} 字节, 含溯源水印)`)
+console.log(`[gen:i18n] 已写入 ${zhPackFile} (${readFileSync(zhPackFile).length} 字节, 含溯源水印)`)
 console.log(
   `[gen:i18n] 已写入 CDN 载荷 ${cdnPayloadDir}/{${REMOTE_LOCALES.join(',')}}.b64.txt (部署: 整目录拷入 cdn-server.js 的 server-root)`,
 )
