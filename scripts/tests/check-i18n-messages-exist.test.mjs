@@ -7,16 +7,18 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
+import { mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { mkScratch, scratchRoot } from '../lib/scratch-dir.mjs'
 import { __test__ as gate } from '../check-i18n-messages-exist.mjs'
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(SELF_DIR, '..', '..')
 const SCRIPT = join(REPO, 'scripts', 'check-i18n-messages-exist.mjs')
-// AGENTS.md §15:临时夹具一律项目内(.ihui-agent/tmp/ 已 gitignore),不落 os.tmpdir()
-const FIXTURE_BASE = join(REPO, '.ihui-agent', 'tmp', 'i18n-messages-exist')
+// 夹具落点走 mkScratch 唯一出口(2026-10-14 幻影仓根治批:工作区内 .ihui-agent/tmp 落点
+// 中断即残留,靠 mkScratch 的 process.on('exit') 结构性回收;§26 不得往仓库外 os.tmpdir 写,
+// scratch 出口落 <盘根>/DevEnv/Temp/ihui-scratch,两约束同时满足)。
 
 // ─── 夹具:全部路径取自 gate(ENDPOINTS / LOCALES / LOADER_TARGETS),零硬编码 ───
 const localeRel = (endpoint, locale) => join(endpoint.dir, endpoint.filePattern(locale))
@@ -26,8 +28,7 @@ const loaderContent = (target) => {
 }
 
 function makeFixtureRoot() {
-  mkdirSync(FIXTURE_BASE, { recursive: true })
-  return mkdtempSync(join(FIXTURE_BASE, 'case-'))
+  return mkScratch('i18n-msgs-case-')
 }
 
 /** 写出一份"全合法"的项目根:每项配置都落到文件上 */
@@ -273,7 +274,7 @@ test('空夹具: 全部配置项缺失 → exit 1 且逐项点名', () => {
 
 // ─── 10. 注入通道自身的负路径:--root 不存在必须明确报错 ───────
 test('--root 指向不存在的目录 → exit 2 明确报错(不静默 exit 0)', () => {
-  const nope = join(FIXTURE_BASE, 'definitely-not-here-9x7')
+  const nope = join(scratchRoot(), 'i18n-msgs-definitely-not-here-9x7')
   rmSync(nope, { recursive: true, force: true })
   // 两种形态都必须走到"根目录不存在"分支,而不是回落到真仓报绿
   for (const args of [['--root', nope], [`--root=${nope}`]]) {
