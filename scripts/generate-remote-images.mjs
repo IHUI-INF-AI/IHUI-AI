@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:G-107(G-977959) 远程图库真图生成器 · 2026-10-14
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 /**
  * 远程图库真图交付生成器(G-45,原 G-977959):把 deploy/server-root 里的空文件与缺失路径
  * 按**登记表 + 全仓代码引用**逐个补齐真图。
@@ -257,8 +258,7 @@ function badgeSvg({ w = 140, h = 56, text = '', from = C.blue, to = C.navy, radi
 }
 
 // ── 数字封面(课程星球 1-11)────────────────────────────────────────────────
-const COVER_HUES = [210, 25, 160, 265, 340, 45, 190, 120, 285, 10, 230] // 禁紫:265/285 用蓝青替代
-const COVER_SAFE_HUES = [210, 25, 160, 205, 340, 45, 190, 120, 195, 10, 230]
+const COVER_SAFE_HUES = [210, 25, 160, 205, 340, 45, 190, 120, 195, 10, 230] // 禁紫:265/285 用蓝青替代
 function coverSvg(n, i, size = 240) {
   const h = COVER_SAFE_HUES[(i - 1) % COVER_SAFE_HUES.length]
   const h2 = (h + 40) % 360
@@ -351,7 +351,7 @@ async function aiCrop(key, w, h, out, { jpg = false, cutBottom = 0.10, quality =
   const src = stage(key)
   const meta = await sharp(src).metadata()
   const cutH = STAGING_FILES.mascot === STAGING_FILES[key] ? 0 : Math.round(meta.height * cutBottom)
-  let pipe = sharp(src).extract({ left: 0, top: 0, width: meta.width, height: meta.height - cutH })
+  const pipe = sharp(src).extract({ left: 0, top: 0, width: meta.width, height: meta.height - cutH })
     .resize(w, h, { fit: 'cover', position: 'centre' })
   const buf = jpg
     ? await pipe.flatten({ background: C.navy }).jpeg({ quality }).toBuffer()
@@ -890,3 +890,4 @@ async function generate(rel, s) {
 }
 
 main().catch((e) => { console.error(e); process.exit(1) })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
