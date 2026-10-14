@@ -617,6 +617,18 @@ export function pickLastSummaryRun(logText, mustMention) {
 export const REMOTE_STATE_MARK = '[judges-remote-state]'
 
 /**
+ * 门在**自己源码里**自声明:本门判的是**仓库之外的文件系统状态**(项目父目录 / 盘根 / 他席探针),
+ * 不是本枚提交的内容面 —— 归因层读到标记就走「未差分」,不进差分四态。
+ * 立因(2026-10-14 实测):`check-parent-pollution.mjs`(守门 26)判 `G:/tmp-probe/*.mjs` 这类
+ * **仓外文件**。差分档拿"基线面 exit 0 / 我的面 exit 1"当"本枚引入"的证据,可这道门两跑之间
+ * 读的是同一块盘 —— 红点出现的时刻由**另一个会话**写盘决定,与本枚内容结构上无关。
+ * 于是别人的在飞探针被定责成"你提交的" ⇒ 拒绝落地(假红死锁,同 G-1018220 那一族的另一面)。
+ * 与 `[judges-remote-state]` 同一条设计:标记跟着门语义走,不在归因层维护 id 清单(中央清单必腐烂)。
+ * 红照旧报、不读成"不存在";修法是把外部现场清理归属弄清楚(或等对方自删),不是改本枚内容。
+ */
+export const EXTERNAL_FS_MARK = '[judges-external-fs-state]'
+
+/**
  * 归因主判据。
  * @param text        首次 commit 的 stdout+stderr(可含 ANSI)
  * @param fallbackText 可选:同一轮的钩子日志尾部(stdout 未带汇总时的第二输入源)
@@ -825,6 +837,7 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
   let myFaceUndetermined = 0
   let foreignFace = 0
   let remoteState = 0
+  let externalFs = 0
   let noBaselineOutlet = false
   for (const g of parsed.failed) {
     let r = null
@@ -859,6 +872,24 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
         `[${g.id}] ${g.label} —— 未差分:该门自声明判「远端态」(${REMOTE_STATE_MARK}),` +
           `它的红是同步态读数不是内容结论(取证行:${lines.slice(0, 2).join(' ⏎ ')});` +
           `不进差分、不归责本次内容,也不读成"这道红不存在"(修法=推送)`,
+      )
+      continue
+    }
+    // ── 态⓪b(2026-10-14 实测立):判「仓库外文件系统状态」的门同样不进差分 ──
+    // 与态⓪同一条理由、同一个位置(点名判据之前):这道门的取证对象在本仓之外,
+    // "基线面绿 / 我的面红"证明不了因果关系 —— 它只证明两跑之间**别人往盘上写了东西**。
+    if (readGateSource && String(readGateSource(g.script) ?? '').includes(EXTERNAL_FS_MARK)) {
+      externalFs++
+      deltaUnknown++
+      // 取证行必须有名:`findingLines` 只认"路径:行号"形态,而这一族的红点是 `[项目外] ../tmp-probe/x.mjs`
+      // 这种**不带行号的仓外路径** ⇒ 照原样用它会让"未差分"变成空引证(§0.10:失效方向必须是多要一次
+      // 定向说明,绝不能是多放一次跳门)。取不到判据形状的行走就退回原始输出的实线,红始终有名可查。
+      const ev = (lines.length ? lines : String(r.output ?? '').split(/\r?\n/).filter((x) => x.trim() !== '')).slice(0, 2)
+      detail.push(
+        `[${g.id}] ${g.label} —— 未差分:该门自声明判「仓库外文件系统状态」(${EXTERNAL_FS_MARK}),` +
+          `红点在本枚内容面之外(取证行:${ev.join(' ⏎ ')});` +
+          `差分在这道门上不成立(基线面与我的面读的是同一块盘,差别只在两跑之间别人写了什么),` +
+          `不归责本次内容,也不读成"这道红不存在"(修法=查清外部现场归属,或等对方自删)`,
       )
       continue
     }
@@ -997,12 +1028,16 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
       ranFullBatch: !parsed.earlyAbort,
       failed: parsed.failed,
       detail,
-      delta: { introduced, stock, deltaUnknown, noBaselineOutlet, myFaceUndetermined, foreignFace, remoteState },
+      delta: { introduced, stock, deltaUnknown, noBaselineOutlet, myFaceUndetermined, foreignFace, remoteState, externalFs },
       reason:
         (remoteState === deltaUnknown
           ? `${deltaUnknown} 道失败门自声明判「远端态」([judges-remote-state]):` +
             '红是本地⇄远端同步态读数,不是本枚内容结论(修法=推送),不进差分 ⇒ 归属未知'
-          : `${deltaUnknown} 道失败门仍红但未点名本次文件,而` +
+          : externalFs === deltaUnknown
+            ? `${deltaUnknown} 道失败门自声明判「仓库外文件系统状态」([judges-external-fs-state]):` +
+              '红点在本仓之外(项目父目录 / 盘根 / 他席探针),差分档在这道门上证明不了因果关系' +
+              '(基线面与我的面读的是同一块盘,差别只在两跑之间别人写了什么)⇒ 归属未知,修法是把外部现场的归属查清,不是改本枚内容'
+            : `${deltaUnknown} 道失败门仍红但未点名本次文件,而` +
             (myFaceUndetermined > 0
               ? `其中 ${myFaceUndetermined} 道**在本枚提交的面上就判"无法判定"(exit 2)**、基线面(HEAD)`
               : '基线面(HEAD)') +
@@ -1012,6 +1047,9 @@ export function classifyHookFailure({ text, fallbackText, stagedFiles, runGate, 
             ' ⇒ 未能差分,归属未知') +
         (remoteState > 0 && remoteState < deltaUnknown
           ? `;其中 ${remoteState} 道自声明判「远端态」([judges-remote-state],红是同步态读数,不进差分)`
+          : '') +
+        (externalFs > 0 && externalFs !== deltaUnknown
+          ? `;其中 ${externalFs} 道自声明判「仓库外文件系统状态」([judges-external-fs-state],红点在本仓之外,差分档对它不成立)`
           : '') +
         (foreignFace > 0
           ? `;其中 ${foreignFace} 道的结论行点名了**他人挂在共享索引/工作树里**的路径(本枚带 pathspec,进不了本次内容)`
@@ -1857,6 +1895,7 @@ export const __test__ = {
   FAIL_29,
   MY_FILES,
   REMOTE_STATE_MARK,
+  EXTERNAL_FS_MARK,
   SELF_HEAL_FIXED_MARK,
   isSelfHealLine,
 }
