@@ -4937,6 +4937,25 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 行切分口径对账(1 项,warn)---
+  {
+    id: '210',
+    label:
+      '📐 TS/Python 行切分口径逐例同值对账(warn;§0.9 造好没装车那一格)',
+    script: 'check-line-split-parity.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_LINE_SPLIT_PARITY',
+    onFailHint: [
+      '',
+      '  尺子 scripts/check-line-split-parity.mjs 早在库,现读「P1 行切分 22 例 / P2 改动行 32 例 | 漂移 0 / 未判定 0 ✅ 两侧逐例同值」,',
+      '  但提交链/CI 注册点逐处 grep 命中 0 ⇒ "复刻 llm.py 口径"只在有人手动跑时才成立(§0.9)。本次以 warn 接入:三态同值/漂移/未判定绝不并桶,',
+      '  取不到对照解释器 exit 2 拒绝出具合格证(现走仓内 apps/ai-service/.venv,不猜 PATH 上的 python)。',
+      '  升 blocking 的前置(§12e):先给 CI 一条能稳定取到对照解释器的通道,否则在无 venv 的机器上会把每次提交顶成"未判定"。',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
