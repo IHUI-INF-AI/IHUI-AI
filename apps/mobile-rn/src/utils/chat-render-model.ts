@@ -19,6 +19,8 @@
  * 便于在无 React 环境(vitest)中直接断言。
  */
 import { describeMcpToolActivity } from '@ihui/shared/chat'
+import { ELEMENT_PACK_NAMESPACE } from '@ihui/shared/chat/element-pack'
+import type { ElementPackFrame } from '@ihui/shared/chat/element-pack-history'
 import type {
   PlanUpdateEvent,
   TerminalEndEvent,
@@ -498,5 +500,84 @@ export function mcpToolActivityTitle(
     },
   })
   return line === item.name ? null : line
+}
+
+// ── D64⑤ 历史回放:metadata.elementPack 子代理帧归并(2026-10-14 立)──
+//
+// 帧的收窄守卫在 @ihui/shared/chat/element-pack-history 的 parseElementPackFrames
+// (形态不合按空处理),本文件只做**渲染归并**:按子代理 id 把 spawn/progress/end
+// 三帧折成一个最小回放视图 —— 回放是终值展示,不逐帧重演(与流式侧"计数 + 日志行"
+// 最小形态同口径,主屏无 SubAgentActivityFeed 渲染位,刻意不复制)。
+
+/** 一个子代理的回放视图(spawn 给 role/task,end 给终态,progress 只保最后一次的细节) */
+export interface SubagentReplayItem {
+  id: string
+  role?: string
+  task?: string
+  /** 最后一次 progress 的相位(回放只保终值) */
+  lastPhase?: 'thinking' | 'tool_call' | 'tool_result' | 'output_ready'
+  lastTool?: string
+  outputPreview?: string
+  agentName?: string
+  /** end 帧终态;缺失(只有 spawn/progress)⇒ undefined,渲染按进行中降级 */
+  status?: 'done' | 'failed'
+  failureReason?: string
+  /** progress 帧计数(回放里的活动量下限) */
+  progressCount: number
+}
+
+/**
+ * 元素包帧 → 子代理回放视图(按 id 归并,保持首次出现顺序 —— spawn 先到即排前)。
+ * 只有 progress/end 没有 spawn 的残帧也成项(最小降级:task 缺省回落 agentName/id)。
+ */
+export function foldElementPackFrames(frames: readonly ElementPackFrame[]): SubagentReplayItem[] {
+  const byId = new Map<string, SubagentReplayItem>()
+  for (const frame of frames) {
+    let item = byId.get(frame.id)
+    if (!item) {
+      item = { id: frame.id, progressCount: 0 }
+      byId.set(frame.id, item)
+    }
+    switch (frame.kind) {
+      case 'subagent_spawn':
+        item.role = frame.role
+        item.task = frame.task
+        break
+      case 'subagent_progress':
+        item.progressCount += 1
+        item.lastPhase = frame.phase
+        if (frame.tool !== undefined) item.lastTool = frame.tool
+        if (frame.outputPreview !== undefined) item.outputPreview = frame.outputPreview
+        if (frame.agentName !== undefined) item.agentName = frame.agentName
+        break
+      case 'subagent_end':
+        item.status = frame.status
+        if (frame.failureReason !== undefined) item.failureReason = frame.failureReason
+        break
+    }
+  }
+  return [...byId.values()]
+}
+
+/**
+ * 回放行文案:任务名(agentName/id 兜底)+ 状态词包(复用 elementPack.backgroundTask
+ * 八态里同族三态:done→completed / failed→failed / 无 end→running,不另造第二套状态词)+
+ * 失败原因或最后工具。一行一代理,与既有 execRowText 行形态同族。
+ */
+export function subagentReplayRow(
+  item: SubagentReplayItem,
+  t: (key: string) => string,
+): string {
+  const head = item.task || item.agentName || item.id
+  const statusKey =
+    item.status === 'failed'
+      ? 'backgroundTask.state.failed'
+      : item.status === 'done'
+        ? 'backgroundTask.state.completed'
+        : 'backgroundTask.state.running'
+  const parts = [head, t(`${ELEMENT_PACK_NAMESPACE}.${statusKey}`)]
+  if (item.failureReason !== undefined) parts.push(item.failureReason)
+  else if (item.lastTool !== undefined) parts.push(item.lastTool)
+  return parts.join(' · ')
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

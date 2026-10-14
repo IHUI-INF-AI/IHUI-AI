@@ -186,13 +186,29 @@ export default defineConfig(async (merge) => {
       ...(process.env.TARO_ENV !== 'h5'
         ? {
             compile: {
-              include: [
-                path.resolve(__dirname, '..', '..', '..', 'packages', 'api-client', 'src'),
-                path.resolve(__dirname, '..', '..', '..', 'packages', 'design-tokens', 'src'),
-                path.resolve(__dirname, '..', '..', '..', 'packages', 'i18n', 'src'),
-                path.resolve(__dirname, '..', '..', '..', 'packages', 'shared', 'src'),
-                path.resolve(__dirname, '..', '..', '..', 'packages', 'types', 'src'),
-              ],
+              // worktree/代理作业环境(2026-10-14):node_modules 经 junction 复用主仓,
+              // @ihui/* 的 workspace symlink 被 webpack realpath 到主仓物理路径,字面
+              // packages 路径盖不住 ⇒ TS 源落入"无 loader"解析错(ModuleParseError:
+              // interface JWTPayload)。此处取 @ihui/shared 的 realpath 作第二包根,
+              // 两根一并入列;主仓单仓时 realpath 即字面同值,Set 去重后逐字等价。
+              include: (() => {
+                const pkgs = ['api-client', 'design-tokens', 'i18n', 'shared', 'types']
+                const literalRoot = path.resolve(__dirname, '..', '..', '..', 'packages')
+                let realRoot = literalRoot
+                try {
+                  realRoot = path.dirname(
+                    require('fs').realpathSync(
+                      path.resolve(__dirname, '..', 'node_modules', '@ihui', 'shared'),
+                    ),
+                  )
+                } catch {
+                  // 解析失败(无 junction 的非常规布局)只保留字面根,与改前一致
+                }
+                return [...new Set(pkgs.flatMap((p) => [
+                  path.join(literalRoot, p, 'src'),
+                  path.join(realRoot, p, 'src'),
+                ]))]
+              })(),
             },
             webpackChain: (chain: any) => {
               chain.module
