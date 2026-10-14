@@ -1025,18 +1025,8 @@ const checks = [
   //   留空占位:不重新分配 id,避免历史 commit log / AGENTS.md §22 引用断裂。
 
   // --- 34 (2026-07-26 新增,@ts-ignore 新增检测,防历史遗留复发) ---
-  // G-815990(2026-10-07)warn → **blocking**。升档前置已现读兑现:本门只判 staged **新增**的
-  //   裸 @ts-ignore / @ts-nocheck 共 215 处,历史遗留已于 2026-07-26 批次清零 ⇒ 升档不造恒红门。
-  //   ⚠️ 这一段散文里出现过字面量 `@ts-ignore`,若把它排到行首(注释正文以该指令开头),
-  //   eslint 的 ban-ts-comment 会把**这句说明**当成真指令判红 —— 2026-10-10 实测:
-  //   同段里以「---」或「原」开头的两行都不报,只有以该 token 开头的这一行报,闸因此长期误红。
-  //   原 warn 期理由("@ts-ignore 有时是合理压制")的正规出口:确需压制时,该文件对应规则的
-  //   覆盖已永久归零,由守门 103 的 DC 判据(裸 lint 抑制增长,锚点 = 该文件 HEAD 自身存量)
-  //   与策略表 exceptions(带 until)问责 —— 行内压制不再有免检通道。
-  // 跳过白名单:e2e/ 目录(@playwright/test 类型解析场景)、node_modules/ / dist/ / .next/ / build/。
-  // 失败含义:staged 文件中新增 @ts-ignore / @ts-nocheck 注释,需审视是否真的需要。
-  // id 说明:任务原话"第 31 项"但 id '31' 已被 AuthShell 占用(同日 2026-07-26 新增),
-  //   故用 id '34'(33 LLM provider 之后的下一个可用编号)。
+  // id '34'(@ts-ignore/@ts-nocheck 增长):定级/成因散文已整段逐字归档到 `.ihui-agent/archive/guardian-runner-comments-pre-6000-2026-10-14.md`(2026-10-15 二次腾行,守门 103 C1 单文件 6000 行上限;
+  // 机主拍板出路 = 归档注释腾行,不调阈值不拆注册表)。升档史与 id 占号说明。
   {
     id: '34',
     label: '🔍 @ts-ignore 新增检测(blocking:存量已清零,只拦 staged 新增)',
@@ -1053,18 +1043,8 @@ const checks = [
   },
 
   // --- 33 (2026-07-26 新增,LLM provider 字典化阶段 3 主体 blocking 守门) ---
-  // blocking:阶段 3 主体已落地(2026-07-26),扁平字段已从 config.py 删除,
-  //   LLM_PROVIDERS JSON 是唯一配置源,守门必须 blocking 防止 .env 配置错误导致运行时崩。
-  //   详见 docs/llm-provider-stage3-changelog.md §3.2 步骤 3.4。
-  // 校验 apps/ai-service/.env 的 LLM_PROVIDERS 字段是否符合
-  //   ProviderConfig schema(apps/ai-service/app/core/provider_config.py),
-  //   提前发现 JSON 格式错 / 字段类型错 / 未知 provider,避免运行时 Pydantic ValidationError。
-  // 校验规则(7 条):JSON 解析 / 顶层对象 / 31 个 provider 白名单 / 字段类型 / 未知字段 / 空值 / 重复。
-  //   白名单条数不在此写死(曾写"31 个"已漂成实际 39):名单与条数唯一真源是
-  //   scripts/check-llm-provider-schema.mjs 的 PROVIDER_WHITELIST,改名单只改那一个文件。
-  // 失败含义:用户 .env 中 LLM_PROVIDERS JSON 字段不符合 schema,ai-service 启动后会运行时崩。
-  // 已有依赖:scripts/check-llm-provider-schema.mjs(2026-07-26),3 退出码(0/1/2)。
-  // 注意:LLM_PROVIDERS 为空是合法的(降级 stub 模式),info 不阻塞。
+  // LLM_PROVIDERS schema 对账门:定级/成因散文已整段逐字归档到 `.ihui-agent/archive/guardian-runner-comments-pre-6000-2026-10-14.md`(2026-10-15 二次腾行,守门 103 C1 单文件 6000 行上限;
+  // 机主拍板出路 = 归档注释腾行,不调阈值不拆注册表)。阶段 3 定级史与校验规则复述。
   {
     id: '33',
     label: '🛡️  LLM provider schema 守门 (blocking,阶段 3 主体已落地)',
@@ -1321,20 +1301,8 @@ const checks = [
   },
 
   // --- 53 (2026-09-21 新增 warn 级起步;2026-09-23 O13b④ 升 blocking) ---
-  // 当初 warn-only 的理由:存量 34 文件/74 处裸 roleId 比较刚完成一次性白名单登记,白名单
-  //   口径与 --staged 判据需先观察一轮误报率;存量清零或稳定后再升。
-  // 现在可升,两个前置都已完成:
-  //   ① O13b 第二段 ①②③⑤ 已落地(34 文件白名单收敛到 8 文件/12 处,集中封装
-  //      plugins/require-permission.ts 的 requireAdminRouteGuard 亦收编了 admin.ts 的 preHandler);
-  //   ② 判据缺口已补 —— `if (roleId < 1)` 这一种文本形态同时是"特权判定"(读 jwtPayload → 403)
-  //      和"入参校验"(读 request.query/body → 400 'roleId 无效',如 role-routes.ts 五处),
-  //      两者逐字符几乎相同。warn 期无所谓,升 blocking 后任何新写的 roleId 入参校验都会
-  //      被永久锁成红点。已按**来源回溯**排除后者(AUTH 证据优先、回溯不出即判红、属性访问
-  //      不进排除通道 ⇒ 宁不误放),全量实测 17 → 12 处,排除 5 处入参校验、零真鉴权被误放。
-  // 判据:裸 roleId 数值比较(集中封装之外)条数只减不增;本地重定义 requireAdmin 禁止回升;
-  //   capability-catalog dataClass=platform 条目 thirdPartyEligible 必须为 false(机器凭据 403 不变量)。
-  //   详见脚本头注释与 docs/developer/admin-permission-mapping.md。
-  // 跳过方法:HUSKY_SKIP_ADMIN_GATE_GUARD=1 git commit ...(应急,不建议)
+  // id '53'(admin gate 一致性):定级/成因散文已整段逐字归档到 `.ihui-agent/archive/guardian-runner-comments-pre-6000-2026-10-14.md`(2026-10-15 二次腾行,守门 103 C1 单文件 6000 行上限;
+  // 机主拍板出路 = 归档注释腾行,不调阈值不拆注册表)。warn→blocking 的两个前置取证叙述。
   {
     id: '53',
     label: '🛡️  admin 面特权判定一致性(blocking,O13b roleId>=1 收敛)',
@@ -2282,22 +2250,8 @@ const checks = [
     ].join('\n'),
   },
 
-  // 品牌邮件通道对账(2026-09-23 立,守门 81)。成因:邮件"版式模板"只存在于
-  // apps/api/src/services/email-templates.ts,但 ops 侧曾有第二条绕过模板的自发通道 ——
-  // deploy/win/ihui-deploy.ps1 的 Send-EmailNotify 自拼传输层(Send-MailMessage 无 -BodyAsHtml、
-  // Resend payload 只有 text)。这类代码"能发出去、typecheck/lint 全绿",用户收到的邮件却没样式,
-  // 与守门 72/78 同族("本地全绿也发现不了")。判据:R1 PS Send-MailMessage 缺 -BodyAsHtml /
-  // R2 api.resend.com/emails 同一发送上下文无 html 字段(覆盖 host+path 分行形态)/ R3 ops 脚本
-  // 有发信动作(createTransport/sendMail/api.resend.com)却不引用 email-templates /
-  // notify-deploy-failure。范围 deploy/** + scripts/**(不含 tests)+ workflows *.yml;
-  // 行内豁免 brand-mail-exempt:,存量走 scripts/brand-email-channel-baseline.json 只减不增
-  // (建门实测:ihui-deploy.ps1 已被并行会话清干净,仅 check-credential-health.mjs 这条
-  // "第三条纯文本通道"入基线待迁移 —— **2026-09-24 已迁至品牌出口,基线 counts 现为空**)。
-  // --staged 暂存集为空/取不到 → 退化全量(守门 70 教训)。
-  // **范围与 stagedTriggers 必须同步扩**(2026-09-24 补,本条目曾被并发整文件提交回退过一次,
-  // 由 scripts/tests/check-brand-email-channel.test.mjs 的"装车证明"抓回):判据已扫到
-  // monitoring/** 与 apps/api/scripts/**,若触发清单不跟上,则**只改 bridge 的提交在 pre-commit
-  // 根本不会唤起本门** —— 判据存在而永不调用,等于没有(守门 70/76 同型)。
+  // id '81'(品牌邮件通道对账):定级/成因散文已整段逐字归档到 `.ihui-agent/archive/guardian-runner-comments-pre-6000-2026-10-14.md`(2026-10-15 二次腾行,守门 103 C1 单文件 6000 行上限;
+  // 机主拍板出路 = 归档注释腾行,不调阈值不拆注册表)。立因叙述与"范围与 stagedTriggers 必须同步扩"。
   {
     id: '81',
     label: '📧 品牌邮件通道对账(blocking,拦绕过 email-templates 的纯文本自发通道)',
