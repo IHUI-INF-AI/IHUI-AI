@@ -220,4 +220,39 @@ export const chatMessageFeedbacks = pgTable(
 
 export type ChatMessageFeedback = typeof chatMessageFeedbacks.$inferSelect
 export type NewChatMessageFeedback = typeof chatMessageFeedbacks.$inferInsert
+
+/**
+ * D64⑤(2026-10-14 立):元素包历史落库暂存表 —— 子代理帧族(subagent_spawn/progress/end)
+ * 等未走 ai-callback 12 通道的 SSE element-pack 帧,由网关转发循环边透传边追加进本表,
+ * ai-callback worker 落 assistant 消息时**原子取走并归并进消息 metadata.elementPack**
+ * (取走即 DELETE RETURNING,本表只承担回调竞态窗口内的暂存,不做回放权威存储 ——
+ * 元素包与消息同生命周期,读侧走 serializeMessage 的 metadata 透传,读路径零改动)。
+ *
+ * (conversation_id, client_message_id) 唯一:client_message_id = 前端占位 assistant 消息
+ * UUID(网关 replayKey 的 messageId 段,与 ai-callback metadata 回显同源),upsert 单语句
+ * jsonb 追加防并发丢帧。conversationId 外联 chat_conversations 级联删除 —— 会话删除时
+ * 未被取走的暂存行随之清理,不残留孤儿。
+ */
+export const chatElementPacks = pgTable(
+  'chat_element_packs',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    conversationId: uuid('conversation_id')
+      .references(() => chatConversations.id, { onDelete: 'cascade' })
+      .notNull(),
+    // 前端占位 assistant 消息 UUID;varchar(64) 而非 uuid 列 —— 网关 metadata.messageId
+    // 是 z.string() 透传,非 UUID 形态的降级流允许整帧跳过而不允许写入失败。
+    clientMessageId: varchar('client_message_id', { length: 64 }).notNull(),
+    // ElementPackFrame[](packages/shared/src/chat/element-pack-history.ts 的 wire 形态)
+    frames: jsonb('frames').notNull().default([]),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    uniq: unique('uq_chat_element_packs_conv_client_msg').on(t.conversationId, t.clientMessageId),
+  }),
+)
+
+export type ChatElementPack = typeof chatElementPacks.$inferSelect
+export type NewChatElementPack = typeof chatElementPacks.$inferInsert
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

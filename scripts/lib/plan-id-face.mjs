@@ -57,6 +57,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { git } from './bypass-git.mjs'
 import { mkScratch, rmScratch } from './scratch-dir.mjs'
 import { usedIdsOfPrefix } from './plan-task-index.mjs'
+// 池上限只许有一个来源(§22c):这里原先自带一份 `poolMax = 999` 的字面量,而裁决住在
+// plan-id-lease.mjs —— 两处各写一遍,改一处漏一处(2026-10-15 独立评审抓到)。
+import { LEASE_POOL_MAX } from './plan-id-lease.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..', '..')
@@ -315,7 +318,7 @@ export function familyMaxOn(text, family = PRIMARY_FAMILY) {
  * (占用的裁决住在 `lib/plan-id-lease.mjs` 的 poolBlocked/leaseCursor;本层只把面按池口径
  * 收窄给报告与人工核对用)。null = 该族一条都没有(判不出),不是空池。
  */
-export function usedLowIds(text, family = PRIMARY_FAMILY, poolMax = 999) {
+export function usedLowIds(text, family = PRIMARY_FAMILY, poolMax = LEASE_POOL_MAX) {
   const used = usedIdsOfPrefix(text, family)
   if (used === null) return null
   return used.ids

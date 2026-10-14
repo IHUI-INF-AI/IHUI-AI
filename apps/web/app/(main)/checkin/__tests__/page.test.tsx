@@ -86,27 +86,41 @@ const { cleanAudit } = vi.hoisted(() => ({
   },
 }))
 
-vi.mock('@ihui/api-client', () => ({
-  listCheckinAccounts: listAccounts,
-  listCheckinRecords: listRecords,
-  listCheckinCreditsHistory: listCredits,
-  listCheckinCreditsDaily: vi.fn(async () => ({
-    days: [],
-    series: { total: [], gained: [], consumed: [] },
-  })),
-  createCheckinAccount: createAccount,
-  deleteCheckinAccount: deleteAccount,
-  setCheckinAccountEnabled: setEnabled,
-  manualCheckinAccount: manualCheckin,
-  updateCheckinAccountJwt: updateJwt,
-  updateCheckinAccountGroup: updateGroup,
-  getCheckinSchedulerStatus: schedulerStatus,
-  queryCheckinAccountCredits: queryCredits,
-  fetchAiServiceJson: fetchAiService,
-}))
+// 局部 mock(2026-10-14):本页现在经 useAuthGate → @/lib/api 走真实装配链,
+// api.ts 在 import 期就调 setTokenProvider / setBaseUrl / setAiServiceBase 等注册口。
+// 整表替换的 mock 让这些导出变成 undefined,收集期直接炸;改为铺真实模块再覆盖签到端点。
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return {
+    ...actual,
+    listCheckinAccounts: listAccounts,
+    listCheckinRecords: listRecords,
+    listCheckinCreditsHistory: listCredits,
+    listCheckinCreditsDaily: vi.fn(async () => ({
+      days: [],
+      series: { total: [], gained: [], consumed: [] },
+    })),
+    createCheckinAccount: createAccount,
+    deleteCheckinAccount: deleteAccount,
+    setCheckinAccountEnabled: setEnabled,
+    manualCheckinAccount: manualCheckin,
+    updateCheckinAccountJwt: updateJwt,
+    updateCheckinAccountGroup: updateGroup,
+    getCheckinSchedulerStatus: schedulerStatus,
+    queryCheckinAccountCredits: queryCredits,
+    fetchAiServiceJson: fetchAiService,
+  }
+})
 
 vi.mock('@/components/charts/EChart', () => ({
   EChart: () => <div data-testid="echart" />,
+}))
+
+// 登录态门(2026-10-14):门本身由 use-auth-gate 承载,本页只消费 allow;
+// 默认置为已登录,让既有用例继续走数据路径;未登录分支单独一例覆盖。
+const authGate = vi.hoisted(() => ({ state: { ready: true, allow: true } }))
+vi.mock('@/hooks/use-auth-gate', () => ({
+  useAuthGate: () => authGate.state,
 }))
 
 vi.mock('next-intl', () => ({
@@ -133,6 +147,7 @@ vi.mock('lucide-react', () => {
     KeyRound: Icon,
     Laptop: Icon,
     Loader2: Icon,
+    LogIn: Icon,
     Plus: Icon,
     RefreshCw: Icon,
     Trash2: Icon,
@@ -150,9 +165,9 @@ vi.mock('@/lib/tauri-bridge', () => ({
   checkinCaptureJwts: vi.fn(async () => []),
   checkinCaptureQoder: vi.fn(async () => []),
   checkinCaptureWorkbuddy: vi.fn(async () => []),
-    checkinWorkbuddyWebLoginOpen: vi.fn(async () => undefined),
-    checkinWorkbuddyWebLoginProbe: vi.fn(async () => ({ status: 'no_window' }) as never),
-    checkinWorkbuddyWebLoginClose: vi.fn(async () => undefined),
+  checkinWorkbuddyWebLoginOpen: vi.fn(async () => undefined),
+  checkinWorkbuddyWebLoginProbe: vi.fn(async () => ({ status: 'no_window' }) as never),
+  checkinWorkbuddyWebLoginClose: vi.fn(async () => undefined),
   checkinResetDeviceIds: vi.fn(),
   checkinOneClickReset: vi.fn(),
   checkinGetPublicIp: vi.fn(),
@@ -315,6 +330,31 @@ describe('签到助手页面 · 加载/错误/空态', () => {
     mockLoadSuccess({ accounts: [], records: [] })
     render(<CheckinPage />)
     await waitFor(() => expect(screen.getByText('emptyAccounts')).toBeTruthy())
+  })
+
+  it('冷启动竞态:登录态未就绪时不发请求,就绪后自动补拉', async () => {
+    mockLoadSuccess()
+    authGate.state = { ready: false, allow: false }
+    const { rerender } = render(<CheckinPage />)
+    expect(listAccounts).not.toHaveBeenCalled()
+    authGate.state = { ready: true, allow: true }
+    rerender(<CheckinPage />)
+    await waitFor(() => expect(listAccounts).toHaveBeenCalledTimes(1))
+    authGate.state = { ready: true, allow: true }
+  })
+
+  it('未登录不发注定 401 的请求,显示登录引导而非加载失败', async () => {
+    mockLoadSuccess()
+    authGate.state = { ready: true, allow: false }
+    try {
+      render(<CheckinPage />)
+      // AuthGatePrompt 同文案渲染两处(说明段 + 按钮),与 /business-card/favorites 同形
+      await waitFor(() => expect(screen.getAllByText('loginRequired').length).toBeGreaterThan(0))
+      expect(listAccounts).not.toHaveBeenCalled()
+      expect(screen.queryByText('retry')).toBeNull()
+    } finally {
+      authGate.state = { ready: true, allow: true }
+    }
   })
 })
 
@@ -1060,9 +1100,7 @@ describe('Qoder 平台化(2026-10-10)', () => {
     // 取消 ⇒ Rust 侧 close 命令被调 + 提示已取消 + 打开按钮恢复(可重开)
     await waitFor(() => expect(checkinWorkbuddyWebLoginClose).toHaveBeenCalledTimes(1))
     await waitFor(() =>
-      expect(screen.getByTestId('wb-web-login-msg').textContent).toContain(
-        'captureWbWebCancelled',
-      ),
+      expect(screen.getByTestId('wb-web-login-msg').textContent).toContain('captureWbWebCancelled'),
     )
     expect(screen.getByText('captureWbWebOpen')).toBeTruthy()
     expect(createAccount).not.toHaveBeenCalled()
