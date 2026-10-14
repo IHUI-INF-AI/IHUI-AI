@@ -3205,8 +3205,20 @@ pub fn run() {
                     // release 编译期即消失。WebView2 的 OpenDevToolsWindow 是异步挂到
                     // webview 就绪之后的,若它把宿主窗口一起带可见,时间戳会落在启动后数秒——
                     // 与票面「11 秒后自行转可见」同形,所以必须能一眼排除。
-                    log::info!("[window-show] site=debug_open_devtools trigger=非 show 调用——debug 构建 setup 期 open_devtools(cfg(debug_assertions),release 无此路径)");
-                    window.open_devtools();
+                    //
+                    // 2026-10-14 加开关:dev 构建**无条件**弹 DevTools 会盖住主窗口并抢走输入
+                    // (实测「啥也点击不了」——用户点到的其实是 DevTools 而不是应用本体)。
+                    // 设 IHUI_DESKTOP_OPEN_DEVTOOLS=0 即不弹;未设或设为其他值时保持原行为,
+                    // G-1038429 的观测点语义不变。联调脚本 desktop-dev-saas.mjs 默认置 0。
+                    let open_devtools = std::env::var("IHUI_DESKTOP_OPEN_DEVTOOLS")
+                        .map(|v| v != "0")
+                        .unwrap_or(true);
+                    if open_devtools {
+                        log::info!("[window-show] site=debug_open_devtools trigger=非 show 调用——debug 构建 setup 期 open_devtools(cfg(debug_assertions),release 无此路径)");
+                        window.open_devtools();
+                    } else {
+                        log::info!("[window-show] site=debug_open_devtools trigger=IHUI_DESKTOP_OPEN_DEVTOOLS=0 ⇒ 本次不自动弹 DevTools(避免遮挡主窗口/抢走输入)");
+                    }
                 }
             }
             // 2026-08-01 立:注册 deep-link scheme + 监听 ihui:// 回调
