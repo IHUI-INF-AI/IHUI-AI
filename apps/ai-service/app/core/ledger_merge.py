@@ -54,6 +54,9 @@ COLUMN_DIRECTIONS: Final[dict[str, MergeDirection]] = {
     "session_id": "first_known",
     "run_id": "first_known",
     "tool_name": "first_known",
+    # G-816021(2026-10-14):上下文链标签(main/subagent/workflow,…;空=未知链)。
+    # 身份列,同 tool_name 一样取 first_known;读面增量基线按 (chain, tool_name, session) 分桶。
+    "chain": "first_known",
     "model": "first_known",
     "tokens_in": "first_known",
     "tokens_out": "first_known",
