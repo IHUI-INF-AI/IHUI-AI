@@ -124,13 +124,18 @@ node scripts/sync-lost-commit-tags.mjs --check
    - 检测到 `fsck` 悬空 commit 且无 `lost-commit/*` tag 备份 → exit 1
 
 2. **`.husky/post-commit` → `scripts/sync-lost-commit-tags.mjs --auto-push`**(本任务新增):
-   - 每次 commit 后自动 `git push origin 'refs/tags/lost-commit/*:refs/tags/lost-commit/*' 'refs/tags/backup/*:refs/tags/backup/*'`
+   - 每次 commit 后**增量**推送「本地有、origin 没有」的 tag(**不分命名空间**),用 `--atomic` 分块 + 硬超时,
+     限流间隔内重复调用直接跳过;待推积压 > `IHUI_TAG_AUTO_MAX`(默认 50)时只记录不推,不拖死 commit 路径
    - 防止本地 git gc 清理后,远端也没 tag 备份的惨剧
+   - **2026-10-14 起推全部命名空间**(与下面的 `--check` 同射程):`--check` 会把"仅本地"判失败,
+     而推送只覆盖两族 ⇒ 平铺 tag(如 `wm-agent-backup`)一旦仅本地就红得清不掉,那是 §12e 禁止的恒红门形态
 
 3. **手动兜底**:
-   - `node scripts/sync-lost-commit-tags.mjs --check` — 校验所有 lost-commit/backup tag 本地 + 远端齐全
-   - `node scripts/sync-lost-commit-tags.mjs --fetch` — 从 origin 拉回所有 lost-commit/backup tag
-   - `node scripts/sync-lost-commit-tags.mjs --auto-push` — 推送本地 tag 到 origin
+   - `node scripts/sync-lost-commit-tags.mjs --check` — 校验**全部命名空间** tag 的本地+远端一致性(**名字 + SHA**)
+     与受管备份 tag 的对象可达性。判红三型:仅本地未推 / 同名 SHA 分歧 / **备份族**(`lost-commit/`、`backup/`)仅远端;
+     非备份族仅远端只告警不判红(自治理仓 CI 持续造 `nightly-*`,判红就是把门做成恒红门)
+   - `node scripts/sync-lost-commit-tags.mjs --fetch` — 从 origin 拉回**全部** tag(以 origin 为权威校准本地)
+   - `node scripts/sync-lost-commit-tags.mjs --auto-push` — 推送本地缺失于 origin 的 tag 到 origin
 
 ### 硬性规则(AGENTS.md §22 已写入)
 
@@ -166,7 +171,7 @@ node scripts/sync-lost-commit-tags.mjs --check
 
 ---
 
-**最后更新**:2026-07-26 04:30(+0800)
+**最后更新**:2026-10-14(守门 `sync-lost-commit-tags.mjs` 扩射程:全命名空间 + 名字与 SHA 双维比对;首次登记 2026-07-26 04:30(+0800))
 **维护者**:AGENTS(自动)+ AI智汇社(手动)
 **下次校验**:每次 commit(post-commit 钩子)+ 每周一定时任务
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

@@ -4903,26 +4903,7 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- AGENTS.md 体积守门(1 项,warn)---
-  {
-    id: '207',
-    label:
-      '📏 AGENTS.md 体积守门(逐字注入面尺寸,warn 起步;升 blocking 前置 = HEAD 面存量归零)',
-    script: 'check-agents-doc-size.mjs',
-    args: [],
-    mode: 'warn',
-    skipEnv: 'HUSKY_SKIP_AGENTS_DOC_SIZE',
-    stagedTriggers: ['AGENTS.md'],
-    onFailHint: [
-      '',
-      '  💡 AGENTS.md 超出体积预算,已 warn(不阻塞)。',
-      '     本文件逐字注入每一轮对话,巨型化会让新会话第 1 轮即占满上下文并被自动压缩。',
-      '     出路:把守门历史/取证叙述/重复登记副本整区逐字移入 .ihui-agent/archive/<按日>.md,',
-      '           原位置只留一句指针注记(§1 两步归档:先移动、再留 HTML 注释占位)。',
-      '',
-    ].join('\n'),
-  },
-
+  { id: '207', label: '📏 AGENTS.md 体积守门(逐字注入面尺寸,预算 96,000 字节;口径与定级依据见脚本头注)', script: 'check-agents-doc-size.mjs', args: [], mode: 'blocking', skipEnv: 'HUSKY_SKIP_AGENTS_DOC_SIZE', stagedTriggers: ['AGENTS.md'] },
   // --- 工作区嵌套 git 仓零容忍(2026-10-14 幻影仓事故)(1 项,blocking)---
   {
     id: '208',
