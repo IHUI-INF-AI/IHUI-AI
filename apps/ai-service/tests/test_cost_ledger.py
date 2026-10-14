@@ -566,6 +566,75 @@ def test_g821_usage_service_shares_the_same_baseline():
 
 
 # =============================================================================
+# 上下文链判别维度(G-816021,2026-10-14)
+# 同 session 内子代理与主链可以同为 tool_name="llm",只按 tool_name 分桶会共用
+# 基线而少计;chain 是真判别维度,读面按 (chain, tool_name, session) 三元组分桶。
+# =============================================================================
+
+
+def test_g816021_subagent_and_main_chain_same_prompt_hold_independent_baselines(tmp_path: Path):
+    """票面验收用例:子代理与主链同 prompt 值 ⇒ 各自基线独立(不得共用而少计)。
+
+    反例(旧口径):main 1000 → subagent 1000 会被读成 1000 + 0(共用基线吃掉
+    子代理的整段 prompt)。新口径:两链各持基线,各自首条照计。
+    """
+    ld = _ledger(tmp_path)
+    plan = [
+        ("main", 1000),      # 主链首条:照计 1000
+        ("subagent", 1000),  # 子代理首条:同 prompt 值也必须照计 1000(旧口径这里 = 0)
+        ("main", 1500),      # 主链第 2 轮:只计增量 500
+        ("subagent", 1500),  # 子代理第 2 轮:只计增量 500
+    ]
+    for idx, (chain, prompt) in enumerate(plan):
+        ld.append(_mk(
+            f"g816021-{idx}", tool_name="llm", chain=chain,
+            session_id="sess-816021",
+            tokens_in=prompt, tokens_out=10,
+            at=f"2026-10-14T00:00:{idx:02d}Z",
+        ))
+    agg = ld.aggregate()
+    assert agg["total_tokens_in"] == 1000 + 1000 + 500 + 500 == 3000
+    assert agg["total_tokens_in"] < sum(p for _, p in plan)  # 跨轮去重仍然生效
+    # 同 tool_name="llm" 的两链在 by_tool 里合桶(by_tool 按 tool_name),
+    # 但 token 总量已按链独立持基线
+    assert agg["by_tool"]["llm"]["tokens_in"] == 3000
+
+
+def test_g816021_entries_without_chain_keep_g821_bucketing(tmp_path: Path):
+    """回归:未标注 chain 的条目(存量数据/未改造生产者)退化为仅按 tool_name 分桶,
+    与 G-821 落地时行为逐字一致(同 tool_name 跨条照旧共用基线)。"""
+    ld = _ledger(tmp_path)
+    for idx, prompt in enumerate([1000, 1500]):
+        ld.append(_mk(
+            f"g816021-legacy-{idx}", tool_name="llm", session_id="s-legacy",
+            tokens_in=prompt, tokens_out=10,
+            at=f"2026-10-14T00:00:{idx:02d}Z",
+        ))
+    assert ld.aggregate()["total_tokens_in"] == 1000 + 500 == 1500
+
+
+def test_g816021_sync_from_recorder_carries_chain(tmp_path: Path):
+    """生产者→录制→入账全链:步骤的 chain 经归一化白名单与 sync_from_recorder
+    一路透传到账本条目,聚合面据此分链持基线(缺一环则该用例红)。"""
+    ld = _ledger(tmp_path)
+    rec = _recorder(tmp_path)
+    rec.append_step("run-816021", {
+        "type": "llm", "tool_name": "llm", "chain": "main",
+        "tokens_in": 1000, "tokens_out": 10, "tokens": 1010,
+    })
+    rec.append_step("run-816021", {
+        "type": "llm", "tool_name": "llm", "chain": "subagent",
+        "tokens_in": 1000, "tokens_out": 10, "tokens": 1010,
+    })
+    out = ld.sync_from_recorder("run-816021", rec, session_id="s-sync")
+    assert out["synced"] == 2
+    entries = ld._filtered({"session_id": "s-sync"})
+    assert {e["chain"] for e in entries} == {"main", "subagent"}
+    # 同 prompt 值、同 tool_name,两链各自首条照计(共用基线的旧口径这里 = 1000)
+    assert ld.aggregate()["total_tokens_in"] == 2000
+
+
+# =============================================================================
 # 同 record_id 二次投递的逐列定向合并(G-822,2026-09-29)
 # 旧行为:同 id ⇒ return {"appended": False} 整条丢弃 ⇒ 迟到的完成事件永远进不了账。
 # =============================================================================

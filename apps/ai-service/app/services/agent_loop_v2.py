@@ -1934,6 +1934,10 @@ class AgentLoopV2:
         # recorder=AgentStepRecorder 实例(等价接口即可)可选注入。None 时本循环
         # 不接入录制,默认路径与现状逐零差异;注入后每次工具调用 append 一步。
         recorder: Any | None = None,
+        # G-816021(2026-10-14):本循环所属 context 链标签(main/subagent/workflow,…)。
+        # 随每条录制步骤透出,账本增量基线据此把同 session 的多链分开持基线;
+        # 缺省空串 = 未标注(账本侧与既有行为逐零一致)。
+        chain: str = "",
         # 2026-09-18 第二批(对标 Codex model_reasoning 配置面):生成参数透传面
         # {temperature/top_p/max_tokens/reasoning_effort/...},每次 LLM 调用经
         # **kwargs 透传 llm_complete_fn(承载层闭包再透传 llm_gateway→litellm)。
@@ -2004,6 +2008,8 @@ class AgentLoopV2:
                 则此参数可省略。loop 每轮从黑板默认 key(TEAM_RELAY_BLACKBOARD_KEY)读取摘要。
             recorder: AgentStepRecorder(或等价接口)实例,可选注入;None 时默认路径
                 与现状逐零差异(不产生任何 step 记录)。注入后每次工具调用 append 一步。
+            chain: 本循环所属 context 链标签(G-816021;main/subagent/workflow,…),
+                随录制步骤透出供账本增量基线分链;缺省空串 = 未标注,逐零差异。
             deny_tools: 调用方传入的基础负向集(G-998120;None = 无)。与轮次附加集
                 取并集后在本轮生效,本集合一个不少地保留(合并不做整体替换)。
             turn_denylist: 本轮派发来源的附加负向集(G-998120;None = 无)。只作用于
@@ -2300,6 +2306,11 @@ class AgentLoopV2:
         # 可观测录制(2026-09-03 立):默认 None 时零开销,不接入任何录制器
         # (默认路径与现状逐零差异)。
         self._step_recorder: Any | None = recorder
+        # G-816021(2026-10-14):上下文链标签(main/subagent/workflow,…;空=未标注)。
+        # 本循环实例即一条 context 链;录制步骤带上链标签,账本读面的增量基线才能
+        # 把同 session 内同为 tool_name="llm" 的主链与子代理分开持基线(不少计)。
+        # 缺省空串 = 未标注 = 账本侧退化为仅按 tool_name 分桶(与既有行为逐零一致)。
+        self._chain: str = str(chain or "")
 
         # 1-5 事件流协作层(2026-09-08 立):run/_run_loop/审批等全部事件发射
         # 收敛到 AgentEventStream(fail-open 降级语义统一在层内)。
@@ -5339,6 +5350,7 @@ class AgentLoopV2:
                 {
                     "type": "llm",
                     "tool_name": "llm",
+                    "chain": self._chain,
                     "model": str(llm_response.get("model") or ""),
                     "input_summary": (
                         f"iteration {iteration}, messages={messages_count}, "
@@ -5388,6 +5400,7 @@ class AgentLoopV2:
                 {
                     "type": "tool",
                     "tool_name": tr.name or tc.name,
+                    "chain": self._chain,
                     "input_summary": _summarize_step(tc.args),
                     "result_summary": _summarize_step(
                         {"error": tr.error} if tr.error else tr.result
