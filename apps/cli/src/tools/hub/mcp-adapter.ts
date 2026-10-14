@@ -32,8 +32,42 @@ export interface RegisterMcpToolsOptions {
 }
 
 /**
+ * G-422:从两轴工具 id 解析 MCP 归属 server 名。
+ * id 形状 `mcp__<serverName>__<toolName>`;非该形状(内置工具等)返回 undefined。
+ */
+export function mcpServerOfId(id: string): string | undefined {
+  if (!id.startsWith('mcp__')) return undefined;
+  const sep = id.indexOf('__', 5);
+  if (sep < 0) return undefined;
+  const server = id.slice(5, sep);
+  const tool = id.slice(sep + 2);
+  if (!server || !tool) return undefined;
+  return server;
+}
+
+/** G-422:碰撞消息里对一方的归属点名(MCP 服务器名 / 非 MCP 来源)。 */
+export function describeOwner(id: string): string {
+  const server = mcpServerOfId(id);
+  return server ? `服务器 '${server}'` : `非 MCP 来源(id '${id}')`;
+}
+
+/**
+ * G-422:同名键碰撞检测——hub 同 id 已存在时抛错,点名冲突双方归属,
+ * 替代 InMemoryRegistry 的 newest-wins 静默跨服覆盖(对齐上游 mcp/index.ts:74-78 的事故面)。
+ * 处置指引:检查 mcpServers 是否配置了两台同名 serverName。
+ */
+export function assertNoCollision(existingId: string, incomingId: string): void {
+  const msg =
+    `MCP 工具注册冲突:两轴键 '${existingId}' 已由 ${describeOwner(existingId)} 注册,` +
+    `拒收 ${describeOwner(incomingId)} 的同名注册。` +
+    `请检查 mcpServers 是否配置了两台同名 serverName(后到者被拒,先到者保留)。`;
+  throw new Error(msg);
+}
+
+/**
  * 把 MCP server 的所有 tools 注册到 hub。
  * 单个 tool 注册失败不阻塞其他 tool(只 log warn)。
+ * G-422:注册前探测同名键,已存在 ⇒ 拒收后到者(经下方 catch 落 warn),不再静默覆盖。
  * 返回注册成功的 tool 数量。
  */
 export function registerMcpToolsToHub(opts: RegisterMcpToolsOptions): number {
@@ -42,6 +76,10 @@ export function registerMcpToolsToHub(opts: RegisterMcpToolsOptions): number {
   for (const mcpTool of mcpConnection.tools ?? []) {
     try {
       const handle = adaptMcpToolToHubTool(serverName, mcpTool, mcpConnection, enableDangerous);
+      const existing = hub.find(handle.id);
+      if (existing) {
+        assertNoCollision(existing.id, handle.id);
+      }
       hub.register(handle);
       count++;
     } catch (err) {
