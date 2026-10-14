@@ -38,8 +38,9 @@
  *   pnpm --filter @ihui/desktop dev                                # 整壳走线上(窗口直接加载 aizhs.top,无需本地后端)
  */
 import { spawn, spawnSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import net from 'node:net'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 // "该停哪个桌面端实例"的判据与它的镜像测试共用这一份实现(纯函数,零副作用)
@@ -269,18 +270,32 @@ const configOverride = JSON.stringify({
   build: { beforeDevCommand: '' },
   app: { windows: [{ ...mainWindow, url: `http://localhost:${DEV_PORT}/` }] },
 })
+// 2026-10-14 修:覆盖配置**必须落盘成文件再传路径**,不能内联在命令行里。
+// 内联时 Windows 上要经 `pnpm --filter ... exec` 二次参数解析,JSON 的双引号会被
+// 层层剥掉,tauri 收到的是 `{build:{beforeDevCommand:},app:...}` 这种非法串 ⇒
+// `failed to parse config ... key must be a string at line 1 column 2` 直接退出 2
+// (整条 `pnpm dev:desktop:saas` 入口在 Windows 上一直是坏的)。路径不含引号,不受影响。
+const configOverridePath = path.join(os.tmpdir(), `ihui-desktop-dev-${process.pid}.json`)
+writeFileSync(configOverridePath, configOverride, 'utf8')
 const npmExec = process.env.npm_execpath ? process.execPath : 'pnpm'
 const args = process.env.npm_execpath
-  ? [process.env.npm_execpath, '--filter', '@ihui/desktop', 'exec', 'tauri', 'dev', '--config', configOverride]
-  : ['--filter', '@ihui/desktop', 'exec', 'tauri', 'dev', '--config', configOverride]
+  ? [process.env.npm_execpath, '--filter', '@ihui/desktop', 'exec', 'tauri', 'dev', '--config', configOverridePath]
+  : ['--filter', '@ihui/desktop', 'exec', 'tauri', 'dev', '--config', configOverridePath]
+
+// dev 构建默认会弹 DevTools 盖住主窗口、把鼠标输入抢走(2026-10-14 实测「啥也点击不了」,
+// 用户点到的其实是 DevTools 不是应用本体)⇒ 联调场景默认关掉;要看 DevTools 就显式
+// IHUI_DESKTOP_OPEN_DEVTOOLS=1 覆盖本脚本的默认值。
+const childEnv = { ...process.env }
+if (childEnv.IHUI_DESKTOP_OPEN_DEVTOOLS === undefined) childEnv.IHUI_DESKTOP_OPEN_DEVTOOLS = '0'
 
 log('启动 Tauri 桌面端(窗口加载本地 dev server;首次需编译 Rust,约 30-60s)...')
 const r = spawnSync(npmExec, args, {
   cwd: repoRoot,
   stdio: 'inherit',
-  env: process.env,
+  env: childEnv,
   shell: !process.env.npm_execpath,
   windowsHide: true, // 防 Windows 弹可见控制台窗口
 })
+try { unlinkSync(configOverridePath) } catch {}
 process.exit(r.status ?? 1)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
