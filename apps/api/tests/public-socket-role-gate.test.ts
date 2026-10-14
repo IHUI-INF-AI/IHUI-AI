@@ -110,12 +110,7 @@ describe('L9242 public-socket 投递档位与连接角色', () => {
     const reg = await app.inject({
       method: 'POST',
       url: '/public-socket/register',
-      payload: {
-        userId: 'dddddddd-1111-4111-8111-111111111111',
-        modelId: 'm',
-        chatId: 'c',
-        role: 'mcp',
-      },
+      payload: { userId: 'dddddddd-1111-4111-8111-111111111111', modelId: 'm', chatId: 'c', role: 'mcp' },
     })
     expect(reg.statusCode).toBe(201)
     const list = await app.inject({
