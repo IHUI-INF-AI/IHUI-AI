@@ -15,9 +15,11 @@ import {
   type WorkspacePermission,
   type WorkspacePermissionMode,
 } from '@ihui/api-client/endpoints/workspace'
+import { useAuthStore } from '@/stores/auth'
 
 /** 查询单个工作区权限 */
 export function useWorkspacePermission(workspacePath: string | null) {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   return useQuery({
     queryKey: ['workspace', 'permission', workspacePath],
     queryFn: async () => {
@@ -26,12 +28,13 @@ export function useWorkspacePermission(workspacePath: string | null) {
       if (!res.success) throw new Error(res.error)
       return res.data.permission
     },
-    enabled: !!workspacePath,
+    enabled: !!workspacePath && isAuthenticated,
   })
 }
 
 /** P3 3-3 权限继承:用户全局默认权限模式(工作区未显式配置时的回退值;未设置 = null) */
 export function useWorkspacePermissionDefault(): WorkspacePermissionMode | null {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const query = useQuery({
     queryKey: ['workspace', 'permission-default'],
     queryFn: async () => {
@@ -39,6 +42,8 @@ export function useWorkspacePermissionDefault(): WorkspacePermissionMode | null 
       if (!res.success) throw new Error(res.error)
       return res.data.mode
     },
+    // 未登录不发起请求,避免 401 控制台噪声(2026-10-14 控制台清零整改)
+    enabled: isAuthenticated,
     staleTime: 60_000,
   })
   return query.data ?? null
@@ -61,6 +66,7 @@ export function useSetWorkspacePermissionDefault() {
 
 /** 列出当前用户所有工作区权限 */
 export function useAllWorkspacePermissions() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   return useQuery({
     queryKey: ['workspace', 'permissions'],
     queryFn: async () => {
@@ -68,6 +74,8 @@ export function useAllWorkspacePermissions() {
       if (!res.success) throw new Error(res.error)
       return res.data.permissions
     },
+    // 未登录不发起请求,避免 401 控制台噪声(2026-10-14 控制台清零整改)
+    enabled: isAuthenticated,
   })
 }
 
